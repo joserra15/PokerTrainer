@@ -18,6 +18,7 @@ const scripts = [
   'engine/equity/madeHand.js',
   'engine/equity/monteCarlo.js',
   'engine/solver/boardCluster.js',
+  'engine/solver/facingBet.js',
   'engine/solver/spotKey.js',
   'engine/solver/strategyTables.js',
   'engine/solver/SolverProvider.js',

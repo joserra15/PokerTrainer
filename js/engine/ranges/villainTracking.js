@@ -13,34 +13,52 @@
     open: 'abre'
   };
 
+  function isRiver(street) { return street === 'river'; }
+
   function describeRangeChange(action, street, amountBB, prevNote) {
     const amt = amountBB != null ? ` (${amountBB}bb)` : '';
+    const st = street || 'flop';
+
     switch (action) {
       case 'fold':
-        return { note: 'Rango eliminado — el villano no tiene cartas en juego.', tag: 'fold', summary: `${cap(street)}: fold → fuera de mano.` };
+        return { note: 'Rango eliminado — el villano no tiene cartas en juego.', tag: 'fold', summary: `${cap(st)}: fold → fuera de mano.` };
       case 'check':
         return {
-          note: 'Rango acotado: se quitan muchos faroles puros que apostarían. Persisten manos medias, proyectos y algunas fuertes en check.',
+          note: isRiver(st)
+            ? 'Rango acotado en river: checks muestran bluff-catchers y traps; desaparecen faroles puros que apostarían.'
+            : 'Rango acotado: se quitan muchos faroles puros que apostarían. Persisten manos medias, proyectos y algunas fuertes en check.',
           tag: 'passive',
-          summary: `${cap(street)}: check → rango más pasivo/capado, menos bluffs puros.`
+          summary: `${cap(st)}: check → rango más pasivo/capado.`
         };
       case 'call':
         return {
-          note: 'Rango de continuar: parejas, proyectos con equity y algunas manos fuertes de trampa. Desaparecen las manos más débiles que foldean.',
+          note: isRiver(st)
+            ? 'Rango de bluff-catch y valor fino: manos que buscan showdown. Sin proyectos (river).'
+            : 'Rango de continuar: parejas, proyectos con equity y algunas manos fuertes de trampa.',
           tag: 'continue',
-          summary: `${cap(street)}: call${amt} → rango de defensa/continuar (parejas, draws, algunas fuertes).`
+          summary: isRiver(st)
+            ? `${cap(st)}: call${amt} → bluff-catch / valor fino (sin draws).`
+            : `${cap(st)}: call${amt} → rango de defensa (parejas, draws, algunas fuertes).`
         };
       case 'bet':
         return {
-          note: 'Rango polarizado o mergeado según sizing: value fuerte + semibluffs/draws. Las manos muy débiles que solo check-fold desaparecen.',
+          note: isRiver(st)
+            ? 'Rango polarizado en river: valor nutted + faroles puros / missed draws. No hay semibluffs (sin outs pendientes).'
+            : 'Rango polarizado o mergeado según sizing: value fuerte + semibluffs/draws en flop/turn.',
           tag: 'aggressive',
-          summary: `${cap(street)}: bet${amt} → rango polar (valor + semibluffs), menos basura.`
+          summary: isRiver(st)
+            ? `${cap(st)}: bet${amt} → polar (valor + faroles puros / missed draws).`
+            : `${cap(st)}: bet${amt} → polar (valor + semibluffs/draws).`
         };
       case 'raise':
         return {
-          note: 'Rango muy fuerte y polar: sets, dos parejas+, draws fuertes y algunos bluffs balanceados. El rango de call plano se reduce mucho.',
+          note: isRiver(st)
+            ? 'Rango muy polar en river: nuts o faroles puros balanceados. Sin raises de proyecto.'
+            : 'Rango muy fuerte y polar: sets, dos parejas+, draws fuertes y bluffs selectos.',
           tag: 'polar',
-          summary: `${cap(street)}: raise${amt} → rango fuerte/polar (valor + bluffs selectos).`
+          summary: isRiver(st)
+            ? `${cap(st)}: raise${amt} → nuts o faroles puros.`
+            : `${cap(st)}: raise${amt} → rango fuerte/polar (valor + bluffs selectos).`
         };
       case 'open':
         return {
@@ -53,7 +71,7 @@
     }
   }
 
-  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function cap(s) { return (s || '').charAt(0).toUpperCase() + (s || '').slice(1); }
 
   function initTracker(rangeStr, pos) {
     return {
@@ -89,8 +107,18 @@
 
   function buildHandSummary(tracker) {
     if (!tracker || !tracker.log.length) return 'No hubo acciones del villano visibles para inferir su rango.';
-    const lines = tracker.log.map((e) => e.summary).filter(Boolean);
-    lines.push(`Lectura final: ${tracker.currentNote}`);
+    const lines = [];
+    const seen = new Set();
+    tracker.log.forEach((e) => {
+      if (e.summary && !seen.has(e.summary)) {
+        seen.add(e.summary);
+        lines.push(e.summary);
+      }
+    });
+    const final = tracker.currentNote;
+    if (final && !seen.has(final) && !lines.some((l) => l.indexOf(final.slice(0, 30)) >= 0)) {
+      lines.push(`Lectura final: ${final}`);
+    }
     return lines.join(' ');
   }
 

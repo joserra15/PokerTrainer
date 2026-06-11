@@ -129,12 +129,7 @@
     }
   };
 
-  const FACING_BET_TABLE = {
-    strong: { raise: 0.4, call: 0.52, fold: 0.08 },
-    medium: { raise: 0.05, call: 0.62, fold: 0.33 },
-    weak: { raise: 0.18, call: 0.48, fold: 0.34 },
-    air: { raise: 0.12, call: 0.08, fold: 0.8 }
-  };
+  const FacingBet = global.GTOFacingBet;
 
   function postflopStrategy(input) {
     const facing = (input.toCallBB || 0) > 0;
@@ -161,14 +156,24 @@
     }
 
     const eq = input.heroEquity != null ? input.heroEquity : 0.5;
-    const potOdds = input.toCallBB / (input.potBB + input.toCallBB);
-    let f = Object.assign({}, FACING_BET_TABLE[tier] || FACING_BET_TABLE.medium);
+    const potBeforeBet = Math.max((input.potBB || 1) - (input.toCallBB || 0), 0.1);
 
-    if (tier === 'medium' && eq > potOdds + 0.04) { f.call = 0.72; f.fold = 0.25; f.raise = 0.03; }
-    if (tier === 'weak' && eq > potOdds) { f.call = 0.55; f.raise = 0.2; f.fold = 0.25; }
-    if (tier === 'strong' && info.ev.category >= 2) { f.raise = 0.45; f.call = 0.5; f.fold = 0.05; }
+    if (FacingBet && FacingBet.calculateActionFrequencies) {
+      return FacingBet.calculateActionFrequencies({
+        street: input.street || 'flop',
+        currentPot: potBeforeBet,
+        betSize: input.toCallBB || 0,
+        potBB: input.potBB,
+        toCallBB: input.toCallBB,
+        tier,
+        heroEquity: eq,
+        inPosition: input.inPosition !== false,
+        board: input.board || [],
+        madeHandInfo: info
+      });
+    }
 
-    return normalize(f);
+    return normalize({ fold: 0.33, call: 0.45, raise: 0.22 });
   }
 
   function betSizingOptions(potBB, wet) {

@@ -322,10 +322,14 @@
     if (r.villainRangeLog && r.villainRangeLog.length) {
       html += '<div class="card-box" style="margin-top:14px"><h3>Lectura del rango del villano</h3><ul class="range-log">';
       r.villainRangeLog.forEach((e) => {
-        html += `<li><strong>${cap(e.street)}</strong> · ${escapeHtml(e.label)}${e.amountBB != null ? ' ' + e.amountBB + 'bb' : ''}: ${escapeHtml(e.note)}</li>`;
+        html += `<li><strong>${cap(e.street)}</strong> · ${escapeHtml(e.label)}${e.amountBB != null ? ' ' + e.amountBB + 'bb' : ''}: ${escapeHtml(e.summary || e.note)}</li>`;
       });
       html += '</ul>';
-      if (r.villainRangeSummary) html += `<div class="muted-text" style="margin-top:8px">${escapeHtml(r.villainRangeSummary)}</div>`;
+      if (r.villainRangeSummary) {
+        const summaryLines = r.villainRangeSummary.split(/\.\s+/).filter(Boolean);
+        const uniqueSummary = summaryLines.filter((line, i, arr) => arr.indexOf(line) === i).join('. ');
+        if (uniqueSummary) html += `<div class="muted-text" style="margin-top:8px">${escapeHtml(uniqueSummary)}</div>`;
+      }
       html += '</div>';
     }
 

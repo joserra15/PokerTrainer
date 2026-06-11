@@ -10,7 +10,7 @@ const scripts = [
   'cards.js', 'engine/cache.js', 'engine/ranges/notation.js', 'engine/ranges/data.js',
   'engine/ranges/weights.js', 'engine/ranges/villainTracking.js', 'engine/handStrength.js',
   'engine/equity/madeHand.js', 'engine/equity/monteCarlo.js', 'engine/solver/boardCluster.js',
-  'engine/solver/spotKey.js', 'engine/solver/strategyTables.js', 'engine/solver/SolverProvider.js',
+  'engine/solver/facingBet.js', 'engine/solver/spotKey.js', 'engine/solver/strategyTables.js', 'engine/solver/SolverProvider.js',
   'engine/scoring/classifier.js', 'engine/scoring/evLoss.js', 'engine/scoring/scoring.js',
   'engine/scoring/errors.js', 'engine/explanations/rules.js',
   'engine/solver/LocalSolverProvider.js', 'engine/evaluateSpot.js',
