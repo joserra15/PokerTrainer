@@ -210,11 +210,22 @@
     const pot = input.potBB || 1;
     const tier = input.madeHandInfo ? input.madeHandInfo.tier : 'medium';
     const eq = input.heroEquity != null ? input.heroEquity : HS.handStrength01(input.handCode || '72o');
-    const base = eq * pot * 0.5;
-    const freq = freqs[action] || 0;
-    const actionBonus = { fold: -0.1, check: 0.05, call: 0.1, bet: 0.2, raise: 0.25, bet_33: 0.18, bet_66: 0.22, bet_100: 0.28 };
     const tierMul = { strong: 1.2, medium: 1, weak: 0.85, air: 0.6 };
-    return base * (tierMul[tier] || 1) + (actionBonus[action] || 0.15) * pot * (freq || 0.5);
+    const base = eq * pot * 0.5 * (tierMul[tier] || 1);
+
+    const best = bestAction(freqs);
+    const bestBonus = { fold: 0.05, check: 0.1, call: 0.12, raise: 0.15, bet_33: 0.12, bet_66: 0.14, bet_100: 0.16 };
+    const spotEV = base + (bestBonus[best.best] || 0.12) * pot;
+
+    const freq = freqs[action] || 0;
+    if (freq >= 0.005) return spotEV;
+
+    const penMul = { strong: 0.75, medium: 1, weak: 1.15, air: 1.35 };
+    const penalties = {
+      fold: 0.12, check: 0.08, call: 0.15, raise: 0.25,
+      bet_33: 0.18, bet_66: 0.28, bet_100: 0.42
+    };
+    return spotEV - (penalties[action] || 0.2) * pot * (penMul[tier] || 1);
   }
 
   function bestAction(freqs) {

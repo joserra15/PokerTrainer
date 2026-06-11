@@ -42,6 +42,10 @@
     const chPct = pct(strategy[chosen]);
     const bestPct = pct(strategy[best]);
 
+    if (evaluation.evLoss <= 0.01 && (strategy[chosen] || 0) >= 0.005) {
+      return `${spotContext(input, { street: 'preflop', initiative: input.initiative || 'caller' })} ${ACTION_NAMES[chosen] || chosen} está en la estrategia mixta GTO (${chPct}%) con el mismo EV que el resto de líneas válidas.`;
+    }
+
     if (input.spotKind === 'RFI') {
       if (evaluation.class === 'optima') {
         return `${spotContext(input, { street: 'preflop', initiative: 'none' })} Con ${code}, abrir encaja en tu rango de apertura (${chPct}% GTO).`;
@@ -74,6 +78,10 @@
     const ctx = spotContext(input, spotKey);
     const tier = input.madeHandInfo ? input.madeHandInfo.tier : 'medium';
     const facing = (input.toCallBB || 0) > 0;
+
+    if (evaluation.evLoss <= 0.01 && (strategy[chosen] || 0) >= 0.005) {
+      return `${ctx} ${ACTION_NAMES[chosen] || chosen} (${chPct}%) forma parte de la mezcla GTO: mismo EV que ${ACTION_NAMES[best] || best} u otras acciones con frecuencia > 0%.`;
+    }
 
     if (evaluation.class === 'optima') {
       if (facing) {
