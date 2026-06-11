@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GTO Poker Trainer · Cash NL 6-max</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="chip-logo">&#9824;</span>
+      <h1>GTO Poker Trainer <small>Cash NL 6-max</small></h1>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="play">Jugar</button>
+      <button class="tab" data-tab="sessions">Sesiones</button>
+      <button class="tab" data-tab="history">Histórico</button>
+      <button class="tab" data-tab="errors">Errores</button>
+      <button class="tab" data-tab="stats">Estadísticas</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ===== JUGAR ===== -->
+    <section id="tab-play" class="tab-panel active">
+      <div class="play-grid">
+        <div class="table-wrap">
+          <div class="poker-table">
+            <div class="table-felt">
+              <div id="seats" class="seats"></div>
+              <div class="board-area">
+                <div class="pot" id="pot">Bote: 0 bb</div>
+                <div id="board" class="board"></div>
+                <div id="spot-context" class="spot-context"></div>
+              </div>
+              <div class="hero-area">
+                <div id="hero-action" class="action-badge-wrap"></div>
+                <div class="hero-label">HÉROE · <span id="hero-pos">-</span></div>
+                <div id="hero-cards" class="hero-cards"></div>
+                <div id="hero-handname" class="hero-handname"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="actions" class="actions"></div>
+
+          <div id="feedback" class="feedback hidden"></div>
+        </div>
+
+        <aside class="sidebar">
+          <div class="card-box">
+            <h3>Sesión</h3>
+            <div class="mini-stats">
+              <div><span id="s-hands">0</span><label>Manos</label></div>
+              <div><span id="s-ev">0</span><label>EV neto (bb)</label></div>
+              <div><span id="s-acc">-</span><label>Acierto</label></div>
+            </div>
+          </div>
+          <div class="card-box">
+            <h3>Historial de la mano</h3>
+            <ol id="hand-log" class="hand-log"></ol>
+          </div>
+          <div class="card-box">
+            <button id="new-hand" class="btn btn-primary btn-block">Nueva mano</button>
+            <button id="replay-hand" class="btn btn-ghost btn-block" style="margin-top:8px">&#8635; Repetir esta mano</button>
+            <label class="toggle-row">
+              <input type="checkbox" id="repeat-errors" /> Repetir mis spots fallados
+            </label>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===== SESIONES ===== -->
+    <section id="tab-sessions" class="tab-panel">
+      <!-- Vista: lista de sesiones -->
+      <div id="sessions-home">
+        <div class="panel-head">
+          <h2>Sesiones importadas</h2>
+        </div>
+        <div class="import-box">
+          <h3>Añadir sesión</h3>
+          <p class="muted-text">Adjunta un fichero <code>.txt</code> con el historial de manos exportado de PokerStars (Cash NL Hold'em).</p>
+          <div class="import-row">
+            <input type="file" id="session-file" accept=".txt,text/plain" />
+            <button id="process-session" class="btn btn-primary" disabled>Procesar</button>
+          </div>
+          <div id="import-status" class="import-status"></div>
+        </div>
+        <div id="sessions-list" class="record-list"></div>
+      </div>
+
+      <!-- Vista: detalle de una sesión -->
+      <div id="session-detail" class="hidden">
+        <button class="btn btn-ghost back-btn" id="back-to-sessions">&laquo; Volver a sesiones</button>
+        <div id="session-detail-content"></div>
+      </div>
+
+      <!-- Vista: revisión de una mano -->
+      <div id="hand-review" class="hidden">
+        <button class="btn btn-ghost back-btn" id="back-to-detail">&laquo; Volver a la sesión</button>
+        <div id="hand-review-content"></div>
+      </div>
+    </section>
+
+    <!-- ===== HISTÓRICO ===== -->
+    <section id="tab-history" class="tab-panel">
+      <div class="panel-head">
+        <h2>Histórico de manos</h2>
+        <div>
+          <button id="export-data" class="btn btn-ghost">Exportar JSON</button>
+          <button id="clear-history" class="btn btn-danger">Borrar todo</button>
+        </div>
+      </div>
+      <div id="history-list" class="record-list"></div>
+    </section>
+
+    <!-- ===== ERRORES ===== -->
+    <section id="tab-errors" class="tab-panel">
+      <div class="panel-head">
+        <h2>Spots fallados (repaso)</h2>
+        <div>
+          <button id="train-errors" class="btn btn-primary">Entrenar errores</button>
+          <button id="clear-errors" class="btn btn-danger">Vaciar lista</button>
+        </div>
+      </div>
+      <div id="errors-list" class="record-list"></div>
+    </section>
+
+    <!-- ===== ESTADÍSTICAS ===== -->
+    <section id="tab-stats" class="tab-panel">
+      <h2>Estadísticas globales</h2>
+      <div id="stats-content" class="stats-content"></div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-content" id="modal-content"></div>
+  </div>
+
+  <div id="verdict-toast" class="verdict-toast" aria-live="polite"></div>
+
+  <script src="js/cards.js"></script>
+  <script src="js/engine/cache.js"></script>
+  <script src="js/engine/ranges/notation.js"></script>
+  <script src="js/engine/ranges/data.js"></script>
+  <script src="js/engine/ranges/weights.js"></script>
+  <script src="js/engine/ranges/villainTracking.js"></script>
+  <script src="js/engine/handStrength.js"></script>
+  <script src="js/engine/equity/madeHand.js"></script>
+  <script src="js/engine/equity/monteCarlo.js"></script>
+  <script src="js/engine/solver/boardCluster.js"></script>
+  <script src="js/engine/solver/spotKey.js"></script>
+  <script src="js/engine/solver/strategyTables.js"></script>
+  <script src="js/engine/solver/SolverProvider.js"></script>
+  <script src="js/engine/scoring/classifier.js"></script>
+  <script src="js/engine/scoring/evLoss.js"></script>
+  <script src="js/engine/scoring/scoring.js"></script>
+  <script src="js/engine/scoring/errors.js"></script>
+  <script src="js/engine/explanations/rules.js"></script>
+  <script src="js/engine/solver/LocalSolverProvider.js"></script>
+  <script src="js/engine/evaluateSpot.js"></script>
+  <script src="js/ranges.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/import.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
