@@ -1,0 +1,2 @@
+# PokerTrainer
+Entrenador de póker
