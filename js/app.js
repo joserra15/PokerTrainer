@@ -109,8 +109,10 @@
 
   // ---------- Render mesa ----------
   function renderTable() {
+    const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
+    const pot = hand.current ? hand.current.potBB : (hand.result ? null : hand.potBB);
     $('#hero-pos').textContent = hand.hero.pos;
-    $('#pot').textContent = 'Bote: ' + (hand.current ? hand.current.potBB : (hand.result ? '-' : hand.potBB)) + ' bb';
+    $('#pot').textContent = 'Bote: ' + (pot != null ? fmt(pot) : '-') + ' bb';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardToHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
     $('#hero-action').innerHTML = actionBadgeHTML(hand.heroAction);
@@ -825,8 +827,9 @@
         <div class="muted-text">Decisión ${replayState.idx + 1} de ${h.decisions.length}</div>
       </div>
     </div>`;
+    const fmtBB = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
     html += `<div class="poker-table" style="padding:0"><div class="table-felt" style="min-height:auto;border-radius:18px">
-      <div class="board-area"><div class="pot">Bote: ${d.potBB} bb</div><div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
+      <div class="board-area"><div class="pot">Bote: ${fmtBB(d.potBB)} bb</div><div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
     </div></div>`;
     html += `<div class="spot-context" style="margin:12px 0">${escapeHtml(d.context)}</div>`;
     const opts = d.options || optionsFor(d.gto);

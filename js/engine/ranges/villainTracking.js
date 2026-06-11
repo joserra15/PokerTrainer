@@ -122,5 +122,79 @@
     return lines.join(' ');
   }
 
-  global.GTOVillainTracking = { initTracker, recordAction, buildHandSummary, describeRangeChange };
+  /**
+   * Estima rango activo del villano según línea de agresión (range narrowing).
+   * @param {Object} ctx — { baseRange, street, lastAction, betBB, potBeforeBB, board, tags }
+   */
+  function estimateActiveRange(ctx) {
+    const D = global.GTORangesData;
+    if (!D) return ctx.baseRange || D.BROAD_CONTINUE;
+    const base = ctx.baseRange || D.BROAD_CONTINUE;
+    const street = ctx.street || 'flop';
+    const bet = ctx.betBB || 0;
+    const potBefore = Math.max(ctx.potBeforeBB || 1, 0.1);
+    const betRatio = bet / potBefore;
+    const action = ctx.lastAction || 'check';
+    const tags = ctx.tags || [];
+
+    if (tags.indexOf('fold') >= 0) return base;
+
+    const wet = ctx.board && ctx.board.length >= 3 && global.GTOBoardCluster
+      ? global.GTOBoardCluster.boardTexture(ctx.board).wet : false;
+
+    if (action === 'raise' || betRatio >= 1.0) {
+      if (street === 'river') return D.RANGE_FACING_RIVER_SHOVE;
+      if (street === 'turn') return D.RANGE_FACING_TURN_RAISE;
+      return D.RANGE_FACING_LARGE_BET;
+    }
+
+    if (action === 'bet') {
+      if (betRatio >= 0.65) {
+        if (street === 'river') return D.RANGE_FACING_RIVER_SHOVE;
+        if (street === 'turn') return D.RANGE_FACING_TURN_RAISE;
+        return wet ? D.RANGE_FACING_LARGE_BET_WET : D.RANGE_FACING_LARGE_BET;
+      }
+      if (betRatio >= 0.35) return wet ? D.RANGE_FACING_LARGE_BET_WET : D.RANGE_FACING_LARGE_BET;
+      return D.RANGE_FACING_SMALL_BET;
+    }
+
+    if (action === 'call') return D.RANGE_FACING_CALL_LINE;
+
+    if (wet && street === 'turn') return D.RANGE_FACING_CALL_LINE;
+    return base;
+  }
+
+  /** Inferir rango desde historial de acciones del importador (sin tracker). */
+  function estimateRangeFromActions(streetActs, heroName, bb, potBeforeBB, board, baseRange) {
+    const D = global.GTORangesData;
+    let lastVillain = null;
+    let potBefore = potBeforeBB;
+    (streetActs || []).forEach((a) => {
+      if (a.player === heroName) return;
+      if (a.type === 'bet') {
+        lastVillain = { action: 'bet', betBB: a.amount / bb, potBeforeBB: potBefore };
+        potBefore += a.amount / bb;
+      } else if (a.type === 'raise') {
+        lastVillain = { action: 'raise', betBB: a.to / bb, potBeforeBB: potBefore };
+        potBefore += a.to / bb;
+      } else if (a.type === 'call') {
+        lastVillain = { action: 'call', betBB: 0, potBeforeBB: potBefore };
+      }
+    });
+    if (!lastVillain) return baseRange || D.BROAD_CONTINUE;
+    return estimateActiveRange({
+      baseRange: baseRange || D.BROAD_CONTINUE,
+      street: board && board.length >= 5 ? 'river' : board && board.length === 4 ? 'turn' : 'flop',
+      lastAction: lastVillain.action,
+      betBB: lastVillain.betBB,
+      potBeforeBB: Math.max(lastVillain.potBeforeBB || potBefore, 0.1),
+      board,
+      tags: []
+    });
+  }
+
+  global.GTOVillainTracking = {
+    initTracker, recordAction, buildHandSummary, describeRangeChange,
+    estimateActiveRange, estimateRangeFromActions
+  };
 })(window);

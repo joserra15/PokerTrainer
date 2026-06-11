@@ -160,11 +160,21 @@
   const BROAD_CONTINUE = '22+, A2s+, K7s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 76s, 65s, 54s, A8o+, KTo+, QTo+, JTo';
   const LIMP_RANGE = '22-99, A2s-A9s, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ATo-AJo, KJo, QJo, JTo';
 
+  /** Rangos estrechos postflop según agresión del villano */
+  const RANGE_FACING_SMALL_BET = '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATs+, AJo+, KQo, 55, 44';
+  const RANGE_FACING_LARGE_BET = 'TT+, AQs+, KQs, QJs, JTs, 99, 88, 77, AJs, KJs';
+  const RANGE_FACING_LARGE_BET_WET = 'TT+, AQs+, KQs, QJs, 99, 88, 77, AJs';
+  const RANGE_FACING_TURN_RAISE = 'TT+, AQs+, 99, 88, 77, KQs';
+  const RANGE_FACING_RIVER_SHOVE = 'JJ+, AQs+, AKo, TT, AJs, KQs';
+  const RANGE_FACING_CALL_LINE = '22-99, A2s-AJs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, ATo-AJo, KQo, QJo';
+
   /** Claves vsRFI válidas para validación */
   const VS_RFI_KEYS = Object.keys(VS_RFI);
 
   global.GTORangesData = {
     OPEN_RAISE, VS_RFI, VS_3BET, VS_4BET, SQUEEZE, ISO_LIMP, COLD_3BET,
-    BROAD_CONTINUE, LIMP_RANGE, VS_RFI_KEYS
+    BROAD_CONTINUE, LIMP_RANGE, VS_RFI_KEYS,
+    RANGE_FACING_SMALL_BET, RANGE_FACING_LARGE_BET, RANGE_FACING_LARGE_BET_WET,
+    RANGE_FACING_TURN_RAISE, RANGE_FACING_RIVER_SHOVE, RANGE_FACING_CALL_LINE
   };
 })(window);

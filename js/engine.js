@@ -32,8 +32,8 @@
   function postflopEvLoss(cls, chosen, freqs, potBB) {
     return GTO.EvLoss.postflopEvLoss(cls, chosen, freqs, potBB).evLoss;
   }
-  function equityVsRange(heroCards, board, villainRangeStr, iters) {
-    return GTO.Equity.equityVsRange(heroCards, board, villainRangeStr, iters);
+  function equityVsRange(heroCards, board, villainRangeStr, iters, opts) {
+    return GTO.Equity.equityVsRange(heroCards, board, villainRangeStr, iters, opts);
   }
   function classifyMadeHand(holeCards, board) { return GTO.Equity.classifyMadeHand(holeCards, board); }
   function boardTexture(board) { return GTO.BoardCluster.boardTexture(board); }
@@ -729,24 +729,41 @@
   function buildPostflopNode(hand, street, facing) {
     const info = classifyMadeHand(hand.hero.cards, hand.board);
     const texture = boardTexture(hand.board);
-    const heroEquity = equityVsRange(hand.hero.cards, hand.board, hand.villain.rangeStr || GTO.Ranges.data.BROAD_CONTINUE, 400);
+    const baseRange = hand.villain.rangeStr || GTO.Ranges.data.BROAD_CONTINUE;
+    let villainRange = baseRange;
+    if (VT && VT.estimateActiveRange) {
+      const va = hand.villainAction;
+      villainRange = VT.estimateActiveRange({
+        baseRange,
+        street,
+        lastAction: facing && facing.bet ? 'bet' : (va ? va.type : 'check'),
+        betBB: facing && facing.bet ? facing.bet : (va && va.amount ? va.amount : 0),
+        potBeforeBB: facing && facing.potBefore != null ? facing.potBefore : hand.potBB,
+        board: hand.board,
+        tags: []
+      });
+    }
+    const heroEquity = equityVsRange(hand.hero.cards, hand.board, villainRange, 400, {
+      street, facingBet: !!(facing && facing.bet)
+    });
 
     let toCallBB = 0, options, heroLastAction = null, context;
+    const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
     if (facing && facing.bet) {
       // hero afronta una apuesta del villano
       toCallBB = facing.bet;
       options = [
         { id: 'fold', label: 'Fold' },
-        { id: 'call', label: `Call (${facing.bet}bb)` },
-        { id: 'raise', label: `Raise a ${round2(facing.bet * 3)}bb` }
+        { id: 'call', label: `Call (${fmt(facing.bet)}bb)` },
+        { id: 'raise', label: `Raise a ${fmt(round2(facing.bet * 3))}bb` }
       ];
-      context = `${capitalize(street)}: el villano apuesta ${facing.bet}bb en un bote de ${facing.potBefore}bb.`;
+      context = `${capitalize(street)}: el villano apuesta ${fmt(facing.bet)}bb en un bote de ${fmt(facing.potBefore)}bb.`;
     } else {
       const sizes = GTO.Strategy.betSizingOptions(hand.potBB, texture.wet);
       options = [{ id: 'check', label: 'Check (pasar)' }].concat(sizes);
       hand._betSizes = {};
       sizes.forEach((s) => { hand._betSizes[s.id] = s.size; });
-      context = `${capitalize(street)}: bote ${hand.potBB}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
+      context = `${capitalize(street)}: bote ${fmt(hand.potBB)}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
     }
 
     const node = {

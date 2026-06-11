@@ -16,6 +16,8 @@
   const E = global.Engine;
   const GTO = global.GTO;
   const D = global.GTORangesData;
+  const VT = global.GTOVillainTracking;
+  const PM = global.GTOPotMath;
 
   // ---------- utilidades numéricas ----------
   function num(s) {
@@ -26,7 +28,9 @@
     const v = parseFloat(s);
     return isNaN(v) ? 0 : v;
   }
-  function r2(x) { return Math.round(x * 100) / 100; }
+  function r2(x) {
+    return PM ? PM.roundBB(x) : Math.round(x * 100) / 100;
+  }
   function cardsFrom(str) { // "[2s 2d]" o "2s 2d" -> ['2s','2d']
     const m = str.match(/[2-9TJQKA AKQJT][shdc]/g) || str.match(/(?:10|[2-9TJQKA])[shdc]/g);
     if (!m) return [];
@@ -176,6 +180,22 @@
 
   // ---------- ANALIZADOR GTO (vía evaluateSpot) ----------
   const BROAD_CONTINUE = D.BROAD_CONTINUE;
+  const RANGE_3BET_POT = 'TT+, AQs+, AJs, KQs, AKo, AQo, 99, 88';
+  const RANGE_SINGLE_RAISED = '99+, AJs+, KQs, QJs, JTs, AQo, AKo, TT';
+
+  function inferVillainBaseRange(hand, hero) {
+    let raiseCount = 0;
+    let heroRaised = false;
+    hand.streets.preflop.forEach((a) => {
+      if (a.type === 'raise') {
+        raiseCount++;
+        if (a.player === hero) heroRaised = true;
+      }
+    });
+    if (raiseCount >= 2 && heroRaised) return RANGE_3BET_POT;
+    if (raiseCount >= 1) return RANGE_SINGLE_RAISED;
+    return BROAD_CONTINUE;
+  }
 
   function analyzeHand(hand) {
     const hero = hand.hero;
@@ -188,7 +208,8 @@
     // --- PREFLOP ---
     evalPreflop(hand, hero, heroPos, code, decisions);
     // --- POSTFLOP ---
-    ['flop', 'turn', 'river'].forEach((st) => evalStreet(hand, st, hero, heroCards, bb, decisions));
+    const villainBase = inferVillainBaseRange(hand, hero);
+    ['flop', 'turn', 'river'].forEach((st) => evalStreet(hand, st, hero, heroCards, bb, decisions, villainBase));
 
     // EV y acierto
     let totalEvLoss = 0;
@@ -340,7 +361,8 @@
   }
 
   // Recorre una calle postflop y evalúa cada decisión del héroe
-  function evalStreet(hand, st, hero, heroCards, bb, decisions) {
+  function evalStreet(hand, st, hero, heroCards, bb, decisions, villainBase) {
+    villainBase = villainBase || BROAD_CONTINUE;
     const acts = hand.streets[st];
     if (!acts.length) return;
     const boardSoFar = boardUpTo(hand, st);
@@ -350,46 +372,58 @@
     let toMatch = 0; // apuesta actual de la calle (€)
     const committed = {};
 
-    let heroEquity = null;
     for (const a of acts) {
       const isHero = a.player === hero;
       const cur = committed[a.player] || 0;
 
       if (isHero && a.type !== 'show') {
-        const toCallBB = Math.max(0, (toMatch - cur) / bb);
+        const toCallBB = r2(Math.max(0, (toMatch - cur) / bb));
+        const villainRange = VT && VT.estimateRangeFromActions
+          ? VT.estimateRangeFromActions(acts.slice(0, acts.indexOf(a)), hero, bb, priorPotBB(hand, st), boardSoFar, villainBase)
+          : villainBase;
+        const heroEquityNow = GTO.Equity.equityVsRange(heroCards, boardSoFar, villainRange, 600, {
+          street: st, facingBet: toCallBB > 0
+        });
         const chosen = mapPostflopAction(a.type, toCallBB);
         const opts = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'];
+        const potForEval = r2(potBB);
+        const potForDisplay = toCallBB > 0 ? r2(Math.max(potBB - toCallBB, priorPotBB(hand, st))) : potForEval;
         const evalResult = GTO.evaluateSpot({
           spotKind: 'postflop', position: hand.positions[hero] || '??',
           stackDepth: 100, street: st, board: boardSoFar, heroCards,
           handCode: R.handCode(heroCards[0], heroCards[1]),
-          potBB, toCallBB, chosenAction: chosen === 'bet' ? 'bet_66' : chosen,
-          villainRange: BROAD_CONTINUE, initiative: 'caller', inPosition: true,
+          potBB: potForEval, toCallBB, chosenAction: chosen === 'bet' ? 'bet_66' : chosen,
+          villainRange, heroEquity: heroEquityNow,
+          initiative: 'caller', inPosition: true,
           availableActions: opts,
-          betSizeBB: a.type === 'bet' ? (a.amount / bb) : (a.type === 'raise' ? (a.to / bb) : 0)
+          betSizeBB: a.type === 'bet' ? r2(a.amount / bb) : (a.type === 'raise' ? r2(a.to / bb) : 0)
         });
         const ev = evalResult.evaluation;
         const info = GTO.Equity.classifyMadeHand(heroCards, boardSoFar);
-        if (heroEquity == null) heroEquity = GTO.Equity.equityVsRange(heroCards, boardSoFar, BROAD_CONTINUE, 400);
+        const handName = info.flush && info.isNutFlush === false
+          ? 'Color (sin nuts)'
+          : info.ev.name;
         decisions.push({
-          street: st, spot: `${cap(st)} · ${info.ev.name}`,
+          street: st, spot: `${cap(st)} · ${handName}`,
           spotKind: 'postflop', facing: 'postflop',
           actionType: a.type, chosen, class: ev.class, best: ev.best,
           gto: evalResult.strategy, evLoss: ev.evLoss, evLossTier: ev.evLossTier,
           actionEV: ev.actionEV, bestEV: ev.bestEV, frequency: ev.frequency,
           confidence: ev.confidence, score: ev.score, explanation: evalResult.explanation,
           optionBreakdown: evalResult.optionBreakdown,
-          potBB: r2(potBB), toCallBB: r2(toCallBB),
-          options: toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'],
-          heroEquity: Math.round(heroEquity * 100),
-          context: `${cap(st)} [${boardSoFar.join(' ')}]: tienes ${info.ev.name}. Bote ${r2(potBB)}bb${toCallBB > 0 ? `, pagar ${r2(toCallBB)}bb` : ''}.`
+          potBB: potForDisplay, toCallBB,
+          options: opts,
+          heroEquity: Math.round(heroEquityNow * 100),
+          context: `${cap(st)} [${boardSoFar.join(' ')}]: tienes ${handName}. Bote ${potForDisplay}bb${toCallBB > 0 ? `, pagar ${toCallBB}bb` : ''}.`
         });
       }
 
       if (a.type === 'bet') { toMatch = a.amount; committed[a.player] = a.amount; }
       else if (a.type === 'raise') { toMatch = a.to; committed[a.player] = a.to; }
       else if (a.type === 'call') { committed[a.player] = toMatch; }
-      potBB = (priorPotBB(hand, st) * bb + Object.values(committed).reduce((s, v) => s + v, 0)) / bb;
+      const streetEuro = Object.values(committed).reduce((s, v) => s + v, 0);
+      potBB = PM ? PM.potBBFromEuro(priorPotBB(hand, st), streetEuro, bb)
+        : r2(priorPotBB(hand, st) + streetEuro / bb);
     }
   }
 

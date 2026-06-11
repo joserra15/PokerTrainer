@@ -58,7 +58,13 @@
     return {
       ev, tier, flush, flushDraw,
       oesd: straightStuff.oesd, gutshot: straightStuff.gutshot,
-      hasDraw: flushDraw || straightStuff.oesd || straightStuff.gutshot
+      hasDraw: flushDraw || straightStuff.oesd || straightStuff.gutshot,
+      isNutFlush: flush && (function () {
+        const Eq = global.GTOEquity;
+        if (!Eq || !Eq.heroNonNutFlushContext) return flush;
+        const ctx = Eq.heroNonNutFlushContext(holeCards, board);
+        return ctx ? ctx.isNut : false;
+      })()
     };
   }
 

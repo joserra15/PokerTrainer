@@ -16,6 +16,7 @@ const scripts = [
   'engine/ranges/villainTracking.js',
   'engine/handStrength.js',
   'engine/equity/madeHand.js',
+  'engine/math/potMath.js',
   'engine/equity/monteCarlo.js',
   'engine/solver/boardCluster.js',
   'engine/solver/facingBet.js',
@@ -54,6 +55,28 @@ const spot = GTO.evaluateSpot({
   availableActions: ['fold', 'raise'], initiative: 'none'
 });
 console.log('evaluateSpot RFI AA raise:', spot.evaluation.class);
+
+const PM = sandbox.window.GTOPotMath;
+console.log('potBBFromEuro prior 37 + street 1.30€ =>', PM.potBBFromEuro(37, 1.30, 0.05), '(bote total calle; display facing bet = 37.00)');
+console.log('formatBB ugly =>', PM.formatBB(62.39999999999999));
+
+const eqTurn = GTO.Equity.equityVsRange(
+  ['Kd', 'Ac'], ['Tc', 'Qs', '7c', '6c'],
+  GTO.Ranges.data.RANGE_FACING_TURN_RAISE, 800, { street: 'turn' }
+);
+const eqFlop = GTO.Equity.equityVsRange(
+  ['Kd', 'Ac'], ['Tc', 'Qs', '7c'],
+  GTO.Ranges.data.RANGE_FACING_LARGE_BET_WET, 800, { street: 'flop' }
+);
+console.log('AKo flop vs large bet range eq ~', Math.round(eqFlop * 100) + '% (expect ~25-35%)');
+console.log('AKo turn nut FD vs tight raise range eq ~', Math.round(eqTurn * 100) + '% (expect ~15-35%)');
+
+const eqRiverNonNut = GTO.Equity.equityVsRange(
+  ['Jc', '9c'], ['5c', '9s', 'Kc', 'Qc', 'As'],
+  'JJ+, AQs+, AKo, TT, AJs, KQs, A2s-AKs', 800,
+  { street: 'river', facingBet: true }
+);
+console.log('J9cc river vs bet (non-nut flush) eq ~', Math.round(eqRiverNonNut * 100) + '% (expect ~0-5%)');
 
 let played = 0, errors = 0, complete = 0;
 for (let i = 0; i < 300; i++) {

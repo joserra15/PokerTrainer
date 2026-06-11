@@ -24,7 +24,7 @@
     if (out.street !== 'preflop' && out.board && out.board.length >= 3) {
       if (!out.madeHandInfo) out.madeHandInfo = Made.classifyMadeHand(out.heroCards, out.board);
       if (out.heroEquity == null && out.villainRange) {
-        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, 400);
+        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, 400, { street: out.street });
       }
       const tex = Board.boardTexture(out.board);
       out.boardWet = tex.wet;
