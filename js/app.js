@@ -316,6 +316,7 @@
           ${d.evLoss > 0 ? `<span class="net-neg">-${d.evLoss}bb</span>` : ''}
         </div>`;
       if (d.explanation) html += `<div class="dec-expl">${escapeHtml(d.explanation)}</div>`;
+      if (d.renderAlert) html += `<div class="dec-expl" style="color:var(--orange)">${escapeHtml(d.renderAlert)}</div>`;
       html += renderOptionGrid(d.optionBreakdown, d.action);
       html += '</div>';
     });
@@ -786,6 +787,10 @@
         if (heroDec && (heroDec.class === 'error' || heroDec.class === 'imprecisa')) {
           html += `<div class="tl-expl-block ${heroDec.class}">`;
           if (heroDec.explanation) html += `<div class="tl-expl">${escapeHtml(heroDec.explanation)}</div>`;
+          if (heroDec.renderAlert) html += `<div class="tl-expl" style="color:var(--orange)">${escapeHtml(heroDec.renderAlert)}</div>`;
+          if (heroDec.villainAudit && heroDec.villainAudit.severity === 'critical') {
+            html += `<div class="tl-expl" style="color:var(--red,#e55)"><strong>Villano:</strong> ${escapeHtml(heroDec.villainAudit.label)}</div>`;
+          }
           if (heroDec.optionBreakdown && heroDec.optionBreakdown.length) html += renderOptionGrid(heroDec.optionBreakdown, heroDec.chosen);
           html += '</div>';
         }

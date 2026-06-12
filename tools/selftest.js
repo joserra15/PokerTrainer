@@ -18,7 +18,16 @@ const scripts = [
   'engine/equity/madeHand.js',
   'engine/math/potMath.js',
   'engine/equity/monteCarlo.js',
+  'engine/equity/handRank.js',
+  'engine/equity/blockers.js',
   'engine/solver/boardCluster.js',
+  'engine/validation/boardTextureShift.js',
+  'engine/validation/villainCallAudit.js',
+  'engine/validation/streetStrategy.js',
+  'engine/solver/rangeAdvantage.js',
+  'engine/solver/probeEV.js',
+  'engine/solver/villainStrategyAdjust.js',
+  'engine/solver/preflopSolver.js',
   'engine/solver/facingBet.js',
   'engine/solver/spotKey.js',
   'engine/solver/strategyTables.js',
@@ -77,6 +86,68 @@ const eqRiverNonNut = GTO.Equity.equityVsRange(
   { street: 'river', facingBet: true }
 );
 console.log('J9cc river vs bet (non-nut flush) eq ~', Math.round(eqRiverNonNut * 100) + '% (expect ~0-5%)');
+
+const Made = sandbox.window.GTOEquityMadeHand;
+const Strat = sandbox.window.GTOStrategyTables;
+const SV = sandbox.window.GTOStreetValidation;
+const q9 = ['Qd', '9h'];
+const turnBoard = ['5c', '7h', '7d', '8d'];
+const riverBoard = turnBoard.concat(['Tc']);
+const infoTurn = Made.classifyMadeHand(q9, turnBoard);
+const infoRiver = Made.classifyMadeHand(q9, riverBoard);
+const turnStrat = Strat.probeStrategy({
+  street: 'turn', board: turnBoard, heroCards: q9, potBB: 5.5, toCallBB: 0,
+  initiative: 'aggressor', inPosition: true, madeHandInfo: infoTurn, heroEquity: 0.38
+});
+const riverStrat = Strat.probeStrategy({
+  street: 'river', board: riverBoard, heroCards: q9, potBB: 9.14, toCallBB: 0,
+  initiative: 'aggressor', inPosition: true, madeHandInfo: infoRiver, heroEquity: 0.22
+});
+const dup = SV.validateConsecutiveProbeStreets(
+  { street: 'turn', gto: turnStrat }, { street: 'river', gto: riverStrat }, 0
+);
+console.log('Q9 BTN turn check%', Math.round(turnStrat.check * 100), 'river check%', Math.round(riverStrat.check * 100));
+console.log('Turn vs River duplicate?', dup.ok ? 'NO (OK)' : 'YES (BUG)');
+
+const nutHero = ['Jd', 'Qd'];
+const turnB = ['Qc', 'Td', '7c', '8h'];
+const riverB = turnB.concat(['9h']);
+const nutRiver = Strat.probeStrategy({
+  street: 'river', board: riverB, priorBoard: turnB, heroCards: nutHero, potBB: 9.14,
+  toCallBB: 0, initiative: 'caller', inPosition: false,
+  madeHandInfo: Made.classifyMadeHand(nutHero, riverB)
+});
+console.log('Nut straight river check%', Math.round(nutRiver.check * 100), '(expect <=20)');
+console.log('Nut straight river bet66%+', Math.round((nutRiver.bet_66 + nutRiver.bet_100) * 100), '(expect >=40)');
+
+const audit = sandbox.window.GTOVillainCallAudit.auditVillainCall({
+  action: 'call', street: 'river', board: riverB, betBB: 6.03, potBeforeBB: 9.14,
+  heroCards: nutHero, defenderRange: sandbox.window.GTOVillainCallAudit.BB_DEFEND_RANGE
+});
+console.log('Villain station call audit:', audit && audit.code === 'VILLAIN_STATION_CALL' ? 'DETECTED' : audit.code);
+
+const FB = sandbox.window.GTOFacingBet;
+const mdf = FB.calculateMDF(10, 5);
+console.log('MDF 50% pot bet =>', Math.round(mdf * 100) + '% (expect ~67%)');
+
+const ProbeEV = sandbox.window.GTOProbeEV;
+const probeStrong = ProbeEV.computeProbeStrategy({
+  street: 'flop', potBB: 6, heroEquity: 0.72, inPosition: true, initiative: 'aggressor',
+  heroCards: ['Ah', 'Kd'], board: ['As', '7c', '2d'],
+  handRank: { band: 'value', percentile: 0.85, tier: 'strong' }
+});
+const probeWeak = ProbeEV.computeProbeStrategy({
+  street: 'flop', potBB: 6, heroEquity: 0.32, inPosition: true, initiative: 'aggressor',
+  heroCards: ['Qd', '9h'], board: ['As', '7c', '2d'],
+  handRank: { band: 'bluffcatch', percentile: 0.28, tier: 'weak' }
+});
+console.log('Probe value bet%', Math.round((1 - probeStrong.strategy.check) * 100), 'weak bet%', Math.round((1 - probeWeak.strategy.check) * 100));
+
+const facing = FB.calculateActionFrequencies({
+  street: 'flop', currentPot: 10, betSize: 5, heroEquity: 0.55, tier: 'medium',
+  handRank: { band: 'merge', tier: 'medium' }, inPosition: true, board: ['As', '7c', '2d']
+});
+console.log('Facing 50% pot merge call%', Math.round(facing.call * 100), 'fold%', Math.round(facing.fold * 100));
 
 let played = 0, errors = 0, complete = 0;
 for (let i = 0; i < 300; i++) {

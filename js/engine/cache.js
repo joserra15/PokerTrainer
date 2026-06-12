@@ -8,7 +8,8 @@
     board: new Map(),
     range: new Map(),
     spot: new Map(),
-    equity: new Map()
+    equity: new Map(),
+    handRank: new Map()
   };
 
   function get(store, key) {
@@ -36,5 +37,9 @@
     else Object.keys(stores).forEach((k) => stores[k].clear());
   }
 
-  global.GTOCache = { get, set, memo, clear, stores };
+  function del(store, key) {
+    return stores[store].delete(key);
+  }
+
+  global.GTOCache = { get, set, memo, clear, del, stores };
 })(window);

@@ -1,5 +1,5 @@
 /*
- * LocalSolverProvider.js — Pseudo-solver local por lookup tables.
+ * LocalSolverProvider.js — Solver local EV-based (Fase 1/2).
  */
 (function (global) {
   'use strict';
@@ -15,21 +15,60 @@
   const Eq = global.GTOEquity;
   const Board = global.GTOBoardCluster;
   const D = global.GTORangesData;
+  const HandRank = global.GTOHandRank;
+  const VT = global.GTOVillainTracking;
 
   function enrichInput(input) {
     const out = Object.assign({}, input);
     if (!out.handCode && out.heroCards && out.heroCards.length === 2) {
       out.handCode = global.GTORangesNotation.handCode(out.heroCards[0], out.heroCards[1]);
     }
+
     if (out.street !== 'preflop' && out.board && out.board.length >= 3) {
       if (!out.madeHandInfo) out.madeHandInfo = Made.classifyMadeHand(out.heroCards, out.board);
-      if (out.heroEquity == null && out.villainRange) {
-        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, 400, { street: out.street });
+
+      const facingBet = (out.toCallBB || 0) > 0;
+      if (!out.villainRange && VT && out.villainLastAction) {
+        const potBefore = Math.max((out.potBB || 1) - (out.toCallBB || 0), 0.1);
+        out.villainRange = VT.estimateActiveRange({
+          baseRange: D.BROAD_CONTINUE,
+          street: out.street,
+          lastAction: out.villainLastAction,
+          betBB: out.toCallBB || 0,
+          potBeforeBB: potBefore,
+          board: out.board,
+          tags: out.villainTags || []
+        });
       }
+      if (!out.villainRange) out.villainRange = D.BROAD_CONTINUE;
+
+      if (out.heroEquity == null) {
+        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, 400, {
+          street: out.street,
+          facingBet: facingBet
+        });
+      }
+
+      if (HandRank) {
+        out.handRank = HandRank.computeHandRank(out);
+        if (out.madeHandInfo && out.handRank.tier) {
+          out.madeHandInfo = Object.assign({}, out.madeHandInfo, { tier: out.handRank.tier });
+        }
+      }
+
       const tex = Board.boardTexture(out.board);
       out.boardWet = tex.wet;
+
+      if (facingBet && out.toCallBB > 0) {
+        const potBefore = Math.max((out.potBB || 1) - out.toCallBB, 0.1);
+        out.villainBetRatio = out.villainBetRatio != null ? out.villainBetRatio : out.toCallBB / potBefore;
+      }
     }
-    if (!out.villainRange && out.street !== 'preflop') out.villainRange = D.BROAD_CONTINUE;
+
+    if (!out.heroRange && HandRank && out.street !== 'preflop') {
+      out.heroRange = HandRank.inferHeroRange(out);
+    }
+
     return out;
   }
 
@@ -66,6 +105,8 @@
       rawStrategy,
       spotKey,
       boardType,
+      handRank: enriched.handRank || null,
+      heroEquity: enriched.heroEquity,
       explanation: null,
       evaluation: null,
       optionBreakdown: buildOptionBreakdown(strategy, enriched.availableActions)

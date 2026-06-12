@@ -15,7 +15,8 @@
 
   function isRiver(street) { return street === 'river'; }
 
-  function describeRangeChange(action, street, amountBB, prevNote) {
+  function describeRangeChange(action, street, amountBB, prevNote, ctx) {
+    ctx = ctx || {};
     const amt = amountBB != null ? ` (${amountBB}bb)` : '';
     const st = street || 'flop';
 
@@ -25,12 +26,33 @@
       case 'check':
         return {
           note: isRiver(st)
-            ? 'Rango acotado en river: checks muestran bluff-catchers y traps; desaparecen faroles puros que apostarían.'
+            ? 'River check OOP en board pareado/texturizado: rango capado en valor plano (bluff-catchers) pero incluye traps (full house, quads) que buscan check-raise o check-call. No es solo rango pasivo.'
             : 'Rango acotado: se quitan muchos faroles puros que apostarían. Persisten manos medias, proyectos y algunas fuertes en check.',
           tag: 'passive',
-          summary: `${cap(st)}: check → rango más pasivo/capado.`
+          summary: isRiver(st)
+            ? `${cap(st)}: check → capado + traps (full house); línea check-call / check-raise.`
+            : `${cap(st)}: check → rango más acotado (menos faroles puros).`
         };
       case 'call':
+        if (isRiver(st) && ctx.board && global.GTOVillainCallAudit) {
+          const audit = global.GTOVillainCallAudit.auditVillainCall({
+            action: 'call',
+            street: st,
+            board: ctx.board,
+            betBB: amountBB,
+            potBeforeBB: ctx.potBeforeBB,
+            heroCards: ctx.heroCards,
+            defenderRange: ctx.defenderRange
+          });
+          if (audit && audit.severity === 'critical') {
+            return {
+              note: audit.note,
+              tag: 'station_call',
+              summary: audit.summary,
+              audit
+            };
+          }
+        }
         return {
           note: isRiver(st)
             ? 'Rango de bluff-catch y valor fino: manos que buscan showdown. Sin proyectos (river).'
@@ -89,9 +111,9 @@
     return str;
   }
 
-  function recordAction(tracker, action, street, amountBB) {
+  function recordAction(tracker, action, street, amountBB, ctx) {
     if (!tracker) return tracker;
-    const ch = describeRangeChange(action.type || action, street, amountBB, tracker.currentNote);
+    const ch = describeRangeChange(action.type || action, street, amountBB, tracker.currentNote, ctx);
     tracker.currentNote = ch.note;
     tracker.tags.push(ch.tag);
     tracker.log.push({
