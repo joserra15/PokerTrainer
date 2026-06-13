@@ -117,9 +117,11 @@
     if (prevFp !== curFp) return { ok: true };
 
     const RS = global.GTORiverShoveNode;
+    const prevPot = prevDecision.potBeforeBB != null ? prevDecision.potBeforeBB : (prevDecision.potBB || 1);
+    const curPot = decision.potBeforeBB != null ? decision.potBeforeBB : (decision.potBB || 1);
     const nodeChanged = RS && (
-      RS.classifyFacingNode(prevCall, prevDecision.potBB || 1, decision.street, null)
-      !== RS.classifyFacingNode(curCall, decision.potBB || 1, decision.street, null)
+      RS.classifyFacingNode(prevCall, prevPot, decision.street, prevDecision.villainLastAction)
+      !== RS.classifyFacingNode(curCall, curPot, decision.street, decision.villainLastAction)
     );
 
     if (nodeChanged || curCall >= 50 || curCall / Math.max(prevCall, 0.1) >= 3) {

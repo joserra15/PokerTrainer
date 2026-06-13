@@ -30,6 +30,7 @@
             <div class="table-felt">
               <div id="seats" class="seats"></div>
               <div class="board-area">
+                <div id="villain-action-bar" class="villain-action-bar" aria-hidden="true"></div>
                 <div class="pot" id="pot">Bote: 0 bb</div>
                 <div id="board" class="board"></div>
                 <div id="spot-context" class="spot-context"></div>
@@ -56,6 +57,7 @@
               <div><span id="s-ev">0</span><label>EV neto (bb)</label></div>
               <div><span id="s-acc">-</span><label>Acierto</label></div>
             </div>
+            <div id="s-street-acc" class="street-acc compact-street-acc"></div>
           </div>
           <div class="card-box">
             <h3>Historial de la mano</h3>
@@ -64,6 +66,7 @@
           <div class="card-box">
             <button id="new-hand" class="btn btn-primary btn-block">Nueva mano</button>
             <button id="replay-hand" class="btn btn-ghost btn-block" style="margin-top:8px">&#8635; Repetir esta mano</button>
+            <button id="new-session" class="btn btn-ghost btn-block" style="margin-top:8px">Nueva sesión</button>
             <label class="toggle-row">
               <input type="checkbox" id="repeat-errors" /> Repetir mis spots fallados
             </label>
@@ -140,6 +143,8 @@
   </div>
 
   <div id="verdict-toast" class="verdict-toast" aria-live="polite"></div>
+
+  <footer class="app-foot"><span id="app-version"></span></footer>
 
   <script src="js/cards.js"></script>
   <script src="js/engine/cache.js"></script>

@@ -175,6 +175,23 @@ const nodeClone = SV.validateFacingNodeChange(
 );
 console.log('Bet→Shove freq clone?', nodeClone.ok ? 'NO (OK)' : 'YES (BUG)');
 
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import.js'), 'utf8'), sandbox, { filename: 'import.js' });
+const Importer = sandbox.window.Importer;
+const staleHand = {
+  hero: 'Hero', heroPos: 'BTN', heroCards: nutFlushHero, heroCode: 'A4s', bb: 0.05,
+  positions: { Hero: 'BTN' }, decisions: []
+};
+const staleDec = {
+  street: 'river', spotKind: 'postflop', chosen: 'call', toCallBB: 186.6,
+  potBB: 93.4, board: pairedBoard.slice(), options: ['fold', 'call', 'raise'],
+  heroEquity: 0, villainLastAction: 'raise', facingNode: 'shove',
+  potBeforeBB: 93.4, initiative: 'caller', inPosition: true
+};
+staleHand.decisions.push(staleDec);
+Importer.recomputeHandDecisions(staleHand);
+const staleFold = Math.round((staleDec.gto.fold || 0) * 100);
+console.log('Session review re-eval shove fold%', staleFold, '(expect >=75)');
+
 let played = 0, errors = 0, complete = 0;
 for (let i = 0; i < 300; i++) {
   try {
@@ -194,4 +211,4 @@ for (let i = 0; i < 300; i++) {
   }
 }
 console.log(`Simulación: ${played} manos, ${complete} completadas, ${errors} errores.`);
-console.log(errors === 0 && complete === played ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
+console.log(errors === 0 && complete === played && staleFold >= 75 ? '\n*** TODO OK ***' : '\n*** REVISAR ***');

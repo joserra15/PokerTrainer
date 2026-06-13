@@ -25,7 +25,13 @@
   function getStats() {
     return read(STATS_KEY, {
       handsPlayed: 0, totalEvLoss: 0, totalNet: 0,
-      decisions: 0, optima: 0, aceptable: 0, imprecisa: 0, error: 0
+      decisions: 0, optima: 0, aceptable: 0, imprecisa: 0, error: 0,
+      byStreet: {
+        preflop: { n: 0, good: 0 },
+        flop: { n: 0, good: 0 },
+        turn: { n: 0, good: 0 },
+        river: { n: 0, good: 0 }
+      }
     });
   }
 
@@ -68,12 +74,25 @@
 
     // estadísticas
     const st = getStats();
+    if (!st.byStreet) {
+      st.byStreet = {
+        preflop: { n: 0, good: 0 },
+        flop: { n: 0, good: 0 },
+        turn: { n: 0, good: 0 },
+        river: { n: 0, good: 0 }
+      };
+    }
     st.handsPlayed += 1;
     st.totalEvLoss += hand.result.totalEvLoss || 0;
     st.totalNet += hand.result.heroNet || 0;
     hand.decisions.forEach((d) => {
       st.decisions += 1;
       st[d.class] = (st[d.class] || 0) + 1;
+      const street = st.byStreet[d.street];
+      if (street) {
+        street.n += 1;
+        if (d.class === 'optima' || d.class === 'aceptable') street.good += 1;
+      }
     });
     st.totalEvLoss = Math.round(st.totalEvLoss * 100) / 100;
     st.totalNet = Math.round(st.totalNet * 100) / 100;

@@ -272,7 +272,10 @@
         heroCards: input.heroCards,
         inPosition: input.inPosition !== false,
         board: input.board || [],
-        madeHandInfo: info
+        madeHandInfo: info,
+        villainLastAction: input.villainLastAction,
+        potBeforeBB: input.potBeforeBB != null ? input.potBeforeBB : potBeforeBet,
+        facingNode: input.facingNode
       });
       return applyPostflopAdjustments(strat, input, true);
     }

@@ -7,6 +7,10 @@
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const fmtBB = (x) => (window.GTOPotMath ? window.GTOPotMath.formatBB(x) : String(Math.round((Number(x) || 0) * 100) / 100));
+
+  /** Incrementar en cada despliegue para comprobar recarga del navegador. */
+  const APP_VERSION = '1.5.1';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   // coordenadas (top%, left%) de los 6 asientos; el héroe siempre abajo (índice 0)
@@ -22,12 +26,24 @@
   let hand = null;
   let pendingForce = null;       // escenario forzado (repaso de errores)
   let repeatErrorsMode = false;
-  let session = { hands: 0, net: 0, decisions: 0, good: 0 };
+
+  function emptyByStreet() {
+    return {
+      preflop: { n: 0, good: 0 },
+      flop: { n: 0, good: 0 },
+      turn: { n: 0, good: 0 },
+      river: { n: 0, good: 0 }
+    };
+  }
+
+  let session = { hands: 0, net: 0, decisions: 0, good: 0, byStreet: emptyByStreet() };
 
   // ---------- Inicio ----------
   function init() {
     bindTabs();
     bindControls();
+    const verEl = $('#app-version');
+    if (verEl) verEl.textContent = 'v' + APP_VERSION;
     startNewHand();
     refreshSessionUI();
   }
@@ -48,6 +64,7 @@
   function bindControls() {
     $('#new-hand').addEventListener('click', () => { pendingForce = null; startNewHand(); });
     $('#replay-hand').addEventListener('click', () => replayCurrentHand());
+    $('#new-session').addEventListener('click', () => resetPlaySession());
     $('#repeat-errors').addEventListener('change', (e) => { repeatErrorsMode = e.target.checked; });
     $('#clear-history').addEventListener('click', () => {
       if (confirm('¿Borrar TODO el histórico, errores y estadísticas?')) { Store.clearAll(); renderHistory(); refreshSessionUI(); }
@@ -67,6 +84,14 @@
     $('#process-session').addEventListener('click', processSessionFile);
     $('#back-to-sessions').addEventListener('click', () => { showSessionsView('home'); renderSessionsList(); });
     $('#back-to-detail').addEventListener('click', () => { showSessionsView('detail'); });
+  }
+
+  function resetPlaySession() {
+    session = { hands: 0, net: 0, decisions: 0, good: 0, byStreet: emptyByStreet() };
+    refreshSessionUI();
+    $('#hand-log').innerHTML = '';
+    pendingForce = null;
+    startNewHand();
   }
 
   // ---------- Nueva mano ----------
@@ -116,6 +141,11 @@
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardToHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
     $('#hero-action').innerHTML = actionBadgeHTML(hand.heroAction);
+    const vBar = $('#villain-action-bar');
+    if (vBar) {
+      vBar.innerHTML = hand.villainAction ? actionBadgeHTML(hand.villainAction) : '';
+      vBar.setAttribute('aria-hidden', hand.villainAction ? 'false' : 'true');
+    }
     renderBoard();
     renderSeats();
     $('#spot-context').textContent = hand.current ? hand.current.context : (hand.result ? hand.result.reason : '');
@@ -159,6 +189,8 @@
       if (isHero) cls.push('hero');
       if (isVillain) cls.push('villain');
       if (pos === 'BTN') cls.push('dealer');
+      if (c.top < 20) cls.push('seat-top');
+      if (c.top > 70) cls.push('seat-bottom');
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : '');
       const actHtml = isVillain ? actionBadgeHTML(hand.villainAction) : '';
       html += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
@@ -201,6 +233,11 @@
 
     session.decisions++;
     if (d.class === 'optima' || d.class === 'aceptable') session.good++;
+    const st = session.byStreet[d.street];
+    if (st) {
+      st.n++;
+      if (d.class === 'optima' || d.class === 'aceptable') st.good++;
+    }
 
     appendLog(d);
     showVerdictToast(d);
@@ -281,9 +318,11 @@
 
   function finishHand() {
     $('#actions').innerHTML = `<button class="btn btn-primary" id="next-after">Siguiente mano &raquo;</button>
-      <button class="btn btn-ghost" id="replay-after">&#8635; Repetir esta mano</button>`;
+      <button class="btn btn-ghost" id="replay-after">&#8635; Repetir esta mano</button>
+      <button class="btn btn-ghost" id="new-session-after">Nueva sesión</button>`;
     $('#next-after').addEventListener('click', () => { pendingForce = null; startNewHand(); });
     $('#replay-after').addEventListener('click', () => replayCurrentHand());
+    $('#new-session-after').addEventListener('click', () => resetPlaySession());
 
     const r = hand.result;
     session.hands++;
@@ -343,9 +382,20 @@
 
   function refreshSessionUI() {
     $('#s-hands').textContent = session.hands;
-    $('#s-ev').textContent = (session.net >= 0 ? '+' : '') + Math.round(session.net * 100) / 100;
+    $('#s-ev').textContent = (session.net >= 0 ? '+' : '') + fmtBB(session.net);
     const acc = session.decisions ? Math.round((session.good / session.decisions) * 100) + '%' : '-';
     $('#s-acc').textContent = acc;
+    const streetBox = $('#s-street-acc');
+    if (streetBox) streetBox.innerHTML = renderStreetAccBars(session.byStreet);
+  }
+
+  function renderStreetAccBars(byStreet) {
+    const labels = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River' };
+    return ['preflop', 'flop', 'turn', 'river'].map((st) => {
+      const s = byStreet && byStreet[st];
+      const pct = s && s.n ? Math.round((s.good / s.n) * 100) : null;
+      return streetAccBar(labels[st], pct);
+    }).join('');
   }
 
   // ---------- Histórico ----------
@@ -417,11 +467,16 @@
     const total = st.decisions || 1;
     const pct = (n) => Math.round((n / total) * 100);
     const accuracy = st.decisions ? Math.round(((st.optima + st.aceptable) / st.decisions) * 100) : 0;
+    const byStreet = st.byStreet || emptyByStreet();
     box.innerHTML = `
       <div class="stat-card"><div class="big">${st.handsPlayed}</div><div class="lbl">Manos jugadas</div></div>
       <div class="stat-card"><div class="big">${accuracy}%</div><div class="lbl">Acierto (óptima+aceptable)</div></div>
-      <div class="stat-card"><div class="big ${st.totalNet >= 0 ? 'net-pos' : 'net-neg'}">${st.totalNet >= 0 ? '+' : ''}${st.totalNet}</div><div class="lbl">Resultado total (bb)</div></div>
-      <div class="stat-card"><div class="big net-neg">-${Math.round(st.totalEvLoss * 100) / 100}</div><div class="lbl">EV perdido total (bb)</div></div>
+      <div class="stat-card"><div class="big ${st.totalNet >= 0 ? 'net-pos' : 'net-neg'}">${st.totalNet >= 0 ? '+' : ''}${fmtBB(st.totalNet)}</div><div class="lbl">Resultado total (bb)</div></div>
+      <div class="stat-card"><div class="big net-neg">-${fmtBB(st.totalEvLoss)}</div><div class="lbl">EV perdido total (bb)</div></div>
+      <div class="stat-card" style="grid-column:1/-1;text-align:left">
+        <div class="lbl" style="margin-bottom:8px">Acierto por calle</div>
+        <div class="street-acc">${renderStreetAccBars(byStreet)}</div>
+      </div>
       <div class="stat-card" style="grid-column:1/-1;text-align:left">
         <div class="lbl" style="margin-bottom:6px">Distribución de decisiones (${st.decisions})</div>
         <div class="dist-bar">
@@ -526,6 +581,15 @@
     reader.readAsText(file, 'utf-8');
   }
 
+  function streetAccSummary(accByStreet) {
+    if (!accByStreet) return '';
+    const labels = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River' };
+    return ['preflop', 'flop', 'turn', 'river'].map((st) => {
+      const v = accByStreet[st];
+      return v != null ? `${labels[st]} ${v}%` : `${labels[st]} —`;
+    }).join(' · ');
+  }
+
   function renderSessionsList() {
     const sessions = Store.getSessions();
     const box = $('#sessions-list');
@@ -537,7 +601,8 @@
         <div class="rec-main">
           <div class="rec-scenario">${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span></div>
           <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands} manos · ${fmtDate(s.createdAt)} ${s.hasTxt ? '' : '· <em>txt borrado</em>'}</div>
-          <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${st.netBB} bb</span> · EV perdido -${st.evLossBB} bb</div>
+          <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)} bb</span> · EV perdido -${fmtBB(st.evLossBB)} bb</div>
+          <div class="rec-sub muted-text" style="font-size:12px">${streetAccSummary(st.accByStreet)}</div>
         </div>
         <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
           <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-open="${s.id}">Revisar manos</button>
@@ -573,9 +638,9 @@
       <p class="muted-text">${escapeHtml(st.grade.verdict)}</p>
       <div class="stats-content">
         <div class="stat-card"><div class="big">${st.nHands}</div><div class="lbl">Manos jugadas</div></div>
-        <div class="stat-card"><div class="big ${netCls}">${st.netBB >= 0 ? '+' : ''}${st.netBB}</div><div class="lbl">bb ganadas/perdidas</div></div>
+        <div class="stat-card"><div class="big ${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}</div><div class="lbl">bb ganadas/perdidas</div></div>
         <div class="stat-card"><div class="big">${st.accuracy}%</div><div class="lbl">Acierto global</div></div>
-        <div class="stat-card"><div class="big net-neg">-${st.evLossBB}</div><div class="lbl">EV perdido total (bb)</div></div>
+        <div class="stat-card"><div class="big net-neg">-${fmtBB(st.evLossBB)}</div><div class="lbl">EV perdido total (bb)</div></div>
       </div>
       <div class="card-box" style="margin-top:14px">
         <h3>Acierto por calle</h3>
@@ -592,7 +657,7 @@
           <span style="width:${st.pctDecision}%;background:var(--red)">${st.pctDecision}% decisiones</span>
           <span style="width:${st.pctVariance}%;background:var(--accent)">${st.pctVariance}% varianza</span>
         </div>
-        <div class="muted-text" style="margin-top:8px">Pérdida por decisiones: <strong>-${st.evDecision} bb</strong>. Ajuste por varianza/suerte: <strong>${st.varianceAdj >= 0 ? '+' : ''}${st.varianceAdj} bb</strong> (estimación: si hubieras jugado GTO tu resultado esperado sería ≈ ${st.varianceAdj >= 0 ? '+' : ''}${st.varianceAdj} bb).</div>
+        <div class="muted-text" style="margin-top:8px">Pérdida por decisiones: <strong>-${fmtBB(st.evDecision)} bb</strong>. Ajuste por varianza/suerte: <strong>${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)} bb</strong> (estimación: si hubieras jugado GTO tu resultado esperado sería ≈ ${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)} bb).</div>
       </div>
       <div class="top-hands">
         <div class="card-box"><h3>5 mejores manos</h3>${topHandsHtml(st.best5)}</div>
@@ -640,7 +705,7 @@
         <div class="mini-hand-row">
           <span class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</span>
           <span>${h.heroCode} ${h.heroPos}</span>
-          <span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${h.heroNetBB}bb</span>
+          <span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span>
           <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span>
         </div>
         <div class="mini-hand-actions">
@@ -672,7 +737,7 @@
           <div class="rec-sub">Board: ${(h.board || []).map(Cards.cardToHTML).join('') || '—'} · ${h.nDecisions} decisiones · acierto ${h.accuracy}%</div>
         </div>
         <div class="rec-right" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-          <div><span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${h.heroNetBB}bb</span> · <span style="color:var(--red)">EV -${h.totalEvLoss}bb</span></div>
+          <div><span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span> · <span style="color:var(--red)">EV -${fmtBB(h.totalEvLoss)}bb</span></div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" data-review="${h.id}">Paso a paso</button>
             <button class="btn btn-primary" style="padding:4px 10px;font-size:12px" data-replay="${h.id}">Volver a jugar</button>
@@ -689,6 +754,7 @@
   function openHandReview(handId, mode) {
     currentHand = findHand(handId);
     if (!currentHand) return;
+    if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
     showSessionsView('review');
     if (mode === 'replay') startInteractiveReplay();
     else renderTimelineReview();
@@ -726,24 +792,9 @@
   }
 
   function buildReplayEvalInput(h, d, action, board) {
-    const meta = inferDecisionMeta(d);
-    return {
-      spotKind: meta.spotKind,
-      position: h.heroPos,
-      vsPosition: meta.vsPosition,
-      vsRfiKey: meta.vsRfiKey,
-      stackDepth: 100,
-      street: d.street,
-      board,
-      heroCards: h.heroCards,
-      handCode: h.heroCode,
-      potBB: d.potBB,
-      toCallBB: d.toCallBB || 0,
-      chosenAction: action,
-      villainRange: GTO.Ranges.data.BROAD_CONTINUE,
-      availableActions: d.options || optionsFor(d.gto),
-      initiative: meta.initiative
-    };
+    const input = Importer.buildEvalInputFromDecision(h, d, action);
+    if (board && board.length) input.board = board;
+    return input;
   }
 
   // --- Revisión paso a paso (lo que ocurrió realmente + evaluación GTO) ---
@@ -760,7 +811,7 @@
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div>
         <h2>${h.heroCode} · ${h.heroPos}</h2>
-        <div class="muted-text">Mano #${h.id} · Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${h.heroNetBB} bb</span> · EV perdido: -${h.totalEvLoss} bb</div>
+        <div class="muted-text">Mano #${h.id} · Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span> · EV perdido: -${fmtBB(h.totalEvLoss)} bb</div>
       </div>
     </div>`;
 
@@ -778,20 +829,24 @@
           heroDec = heroDecQueue[item.street] && heroDecQueue[item.street].shift();
           if (heroDec) {
             line += ` <span class="badge ${heroDec.class}">${verdictWord(heroDec.class)}</span>`;
-            if (heroDec.class !== 'optima') line += ` <span class="tl-eval">mejor: ${actionName(heroDec.best)} · EV -${heroDec.evLoss}bb</span>`;
+            if (heroDec.class !== 'optima') line += ` <span class="tl-eval">mejor: ${actionName(heroDec.best)} · EV -${fmtBB(heroDec.evLoss)}bb</span>`;
             if (heroDec.heroEquity != null) line += ` <span class="muted-text">eq ${heroDec.heroEquity}%</span>`;
           }
         }
         line += '</div>';
         html += line;
-        if (heroDec && (heroDec.class === 'error' || heroDec.class === 'imprecisa')) {
-          html += `<div class="tl-expl-block ${heroDec.class}">`;
-          if (heroDec.explanation) html += `<div class="tl-expl">${escapeHtml(heroDec.explanation)}</div>`;
+        if (heroDec) {
+          html += `<div class="tl-expl-block${heroDec.class === 'error' || heroDec.class === 'imprecisa' ? ' ' + heroDec.class : ''}">`;
+          if (heroDec.explanation && heroDec.class !== 'optima') {
+            html += `<div class="tl-expl">${escapeHtml(heroDec.explanation)}</div>`;
+          }
           if (heroDec.renderAlert) html += `<div class="tl-expl" style="color:var(--orange)">${escapeHtml(heroDec.renderAlert)}</div>`;
           if (heroDec.villainAudit && heroDec.villainAudit.severity === 'critical') {
             html += `<div class="tl-expl" style="color:var(--red,#e55)"><strong>Villano:</strong> ${escapeHtml(heroDec.villainAudit.label)}</div>`;
           }
-          if (heroDec.optionBreakdown && heroDec.optionBreakdown.length) html += renderOptionGrid(heroDec.optionBreakdown, heroDec.chosen);
+          if (heroDec.optionBreakdown && heroDec.optionBreakdown.length) {
+            html += renderOptionGrid(heroDec.optionBreakdown, heroDec.chosen);
+          }
           html += '</div>';
         }
       }
@@ -832,7 +887,6 @@
         <div class="muted-text">Decisión ${replayState.idx + 1} de ${h.decisions.length}</div>
       </div>
     </div>`;
-    const fmtBB = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
     html += `<div class="poker-table" style="padding:0"><div class="table-felt" style="min-height:auto;border-radius:18px">
       <div class="board-area"><div class="pot">Bote: ${fmtBB(d.potBB)} bb</div><div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
     </div></div>`;
@@ -868,7 +922,7 @@
     const sameAsReal = action === d.chosen;
     let html = `<div class="feedback" style="display:block">
       <h3>Tu decisión: <span class="verdict ${ev.class}">${verdictWord(ev.class)}</span>${ev.score != null ? ` · ${ev.score}/100` : ''}</h3>
-      <div>Elegiste <strong>${actionName(action)}</strong> · EV loss: <span class="${ev.evLoss > 0 ? 'net-neg' : 'net-pos'}">${ev.evLoss > 0 ? '-' + ev.evLoss : '0'} bb</span>${ev.evLossTier ? ` (${ev.evLossTier})` : ''}</div>`;
+      <div>Elegiste <strong>${actionName(action)}</strong> · EV loss: <span class="${ev.evLoss > 0 ? 'net-neg' : 'net-pos'}">${ev.evLoss > 0 ? '-' + fmtBB(ev.evLoss) : '0.00'} bb</span>${ev.evLossTier ? ` (${ev.evLossTier})` : ''}</div>`;
     if (evalResult.explanation) html += `<div class="spot-context" style="margin-top:6px;font-size:13px">${escapeHtml(evalResult.explanation)}</div>`;
     html += renderOptionGrid(evalResult.optionBreakdown, action);
     html += `<div class="muted-text" style="margin-top:6px">En la mano real elegiste <strong>${actionName(d.chosen)}</strong> (${verdictWord(d.class)}).${sameAsReal ? ' Misma decisión.' : ''}</div>
@@ -885,8 +939,8 @@
     const shows = Object.keys(h.villainShows || {}).filter((n) => n !== currentSession.hero);
     let html = `<div class="feedback" style="display:block">
       <h3>Resumen de tu repetición</h3>
-      <div>Acierto: <strong>${acc}%</strong> · EV perdido por tus decisiones: <span class="${replayState.userEvLoss > 0 ? 'net-neg' : 'net-pos'}">-${round2(replayState.userEvLoss)} bb</span></div>
-      <div class="muted-text" style="margin-top:6px">En la mano real: acierto ${h.accuracy}% · EV perdido -${h.totalEvLoss} bb · resultado ${h.heroNetBB >= 0 ? '+' : ''}${h.heroNetBB} bb.</div>`;
+      <div>Acierto: <strong>${acc}%</strong> · EV perdido por tus decisiones: <span class="${replayState.userEvLoss > 0 ? 'net-neg' : 'net-pos'}">-${fmtBB(replayState.userEvLoss)} bb</span></div>
+      <div class="muted-text" style="margin-top:6px">En la mano real: acierto ${h.accuracy}% · EV perdido -${fmtBB(h.totalEvLoss)} bb · resultado ${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb.</div>`;
     if (shows.length) {
       html += '<div class="result-line">Cartas del rival: ' + shows.map((n) => `${escapeHtml(n)} ${h.villainShows[n].map(Cards.cardToHTML).join('')}`).join(' · ') + '</div>';
     }
