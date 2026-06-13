@@ -3,8 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>GTO Poker Trainer · Cash NL 6-max</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <script src="js/version.js?v=1.5.2"></script>
+  <link rel="stylesheet" href="css/styles.css" id="pt-css" />
+  <script>document.getElementById('pt-css').href = 'css/styles.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
 </head>
 <body>
   <header class="topbar">
@@ -146,42 +151,52 @@
 
   <footer class="app-foot"><span id="app-version"></span></footer>
 
-  <script src="js/cards.js"></script>
-  <script src="js/engine/cache.js"></script>
-  <script src="js/engine/ranges/notation.js"></script>
-  <script src="js/engine/ranges/data.js"></script>
-  <script src="js/engine/ranges/weights.js"></script>
-  <script src="js/engine/ranges/villainTracking.js"></script>
-  <script src="js/engine/handStrength.js"></script>
-  <script src="js/engine/equity/madeHand.js"></script>
-  <script src="js/engine/math/potMath.js"></script>
-  <script src="js/engine/equity/monteCarlo.js"></script>
-  <script src="js/engine/equity/handRank.js"></script>
-  <script src="js/engine/equity/blockers.js"></script>
-  <script src="js/engine/solver/boardCluster.js"></script>
-  <script src="js/engine/validation/boardTextureShift.js"></script>
-  <script src="js/engine/validation/villainCallAudit.js"></script>
-  <script src="js/engine/validation/streetStrategy.js"></script>
-  <script src="js/engine/solver/rangeAdvantage.js"></script>
-  <script src="js/engine/solver/riverShoveNode.js"></script>
-  <script src="js/engine/solver/probeEV.js"></script>
-  <script src="js/engine/solver/villainStrategyAdjust.js"></script>
-  <script src="js/engine/solver/preflopSolver.js"></script>
-  <script src="js/engine/solver/facingBet.js"></script>
-  <script src="js/engine/solver/spotKey.js"></script>
-  <script src="js/engine/solver/strategyTables.js"></script>
-  <script src="js/engine/solver/SolverProvider.js"></script>
-  <script src="js/engine/scoring/classifier.js"></script>
-  <script src="js/engine/scoring/evLoss.js"></script>
-  <script src="js/engine/scoring/scoring.js"></script>
-  <script src="js/engine/scoring/errors.js"></script>
-  <script src="js/engine/explanations/rules.js"></script>
-  <script src="js/engine/solver/LocalSolverProvider.js"></script>
-  <script src="js/engine/evaluateSpot.js"></script>
-  <script src="js/ranges.js"></script>
-  <script src="js/engine.js"></script>
-  <script src="js/import.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/app.js"></script>
+  <script>
+  (function () {
+    var v = encodeURIComponent(window.PT_BUILD || '1');
+    var files = [
+      'js/cards.js',
+      'js/engine/cache.js',
+      'js/engine/ranges/notation.js',
+      'js/engine/ranges/data.js',
+      'js/engine/ranges/weights.js',
+      'js/engine/ranges/villainTracking.js',
+      'js/engine/handStrength.js',
+      'js/engine/equity/madeHand.js',
+      'js/engine/math/potMath.js',
+      'js/engine/equity/monteCarlo.js',
+      'js/engine/equity/handRank.js',
+      'js/engine/equity/blockers.js',
+      'js/engine/solver/boardCluster.js',
+      'js/engine/validation/boardTextureShift.js',
+      'js/engine/validation/villainCallAudit.js',
+      'js/engine/validation/streetStrategy.js',
+      'js/engine/solver/rangeAdvantage.js',
+      'js/engine/solver/riverShoveNode.js',
+      'js/engine/solver/probeEV.js',
+      'js/engine/solver/villainStrategyAdjust.js',
+      'js/engine/solver/preflopSolver.js',
+      'js/engine/solver/facingBet.js',
+      'js/engine/solver/spotKey.js',
+      'js/engine/solver/strategyTables.js',
+      'js/engine/solver/SolverProvider.js',
+      'js/engine/scoring/classifier.js',
+      'js/engine/scoring/evLoss.js',
+      'js/engine/scoring/scoring.js',
+      'js/engine/scoring/errors.js',
+      'js/engine/explanations/rules.js',
+      'js/engine/solver/LocalSolverProvider.js',
+      'js/engine/evaluateSpot.js',
+      'js/ranges.js',
+      'js/engine.js',
+      'js/import.js',
+      'js/storage.js',
+      'js/app.js'
+    ];
+    for (var i = 0; i < files.length; i++) {
+      document.write('<script src="' + files[i] + '?v=' + v + '"><\/script>');
+    }
+  })();
+  </script>
 </body>
 </html>

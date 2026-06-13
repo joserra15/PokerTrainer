@@ -10,7 +10,7 @@
   const fmtBB = (x) => (window.GTOPotMath ? window.GTOPotMath.formatBB(x) : String(Math.round((Number(x) || 0) * 100) / 100));
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = '1.5.1';
+  const APP_VERSION = window.PT_BUILD || '1.5.2';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   // coordenadas (top%, left%) de los 6 asientos; el héroe siempre abajo (índice 0)
