@@ -211,9 +211,33 @@
   }
 
   /** Reconstruye input de evaluateSpot desde una decisión guardada (replay / revisión). */
+  function boardForAnalyzedHand(hand, d, street) {
+    if (d && d.board && d.board.length) return d.board.slice();
+    if (hand && hand.board && hand.board.length) {
+      const n = { preflop: 0, flop: 3, turn: 4, river: 5 }[street] || 0;
+      return hand.board.slice(0, n);
+    }
+    if (hand && hand.board && hand.board.flop) return boardUpTo(hand, street);
+    return [];
+  }
+
+  function postflopCtxForDecision(hand, d) {
+    if (d && d.initiative) {
+      return {
+        initiative: d.initiative,
+        inPosition: d.inPosition != null ? d.inPosition : true
+      };
+    }
+    if (hand && hand.streets && hand.hero) {
+      return inferHeroPostflopContext(hand, hand.hero);
+    }
+    return { initiative: 'caller', inPosition: true };
+  }
+
   function buildEvalInputFromDecision(hand, d, chosenOverride) {
-    const heroPos = hand.positions[hand.hero] || hand.heroPos || '??';
-    const board = d.board || (d.street === 'preflop' ? [] : boardUpTo(hand, d.street));
+    const heroPos = (hand.positions && hand.hero && hand.positions[hand.hero]) || hand.heroPos || '??';
+    const street = d.street || 'preflop';
+    const board = boardForAnalyzedHand(hand, d, street);
     const toCallBB = d.toCallBB || 0;
     const potEvalBB = d.potEvalBB != null ? d.potEvalBB
       : (toCallBB > 0 ? r2((d.potBB || 0) + toCallBB) : r2(d.potBB || 0));
@@ -225,8 +249,7 @@
       : 'small');
     const isRiverShove = d.street === 'river' && (facingNode === 'shove' || facingNode === 'overbet');
     const villainRange = d.villainRange || BROAD_CONTINUE;
-    const postflopCtx = d.initiative ? { initiative: d.initiative, inPosition: d.inPosition }
-      : inferHeroPostflopContext(hand, hand.hero);
+    const postflopCtx = postflopCtxForDecision(hand, d);
 
     let heroEquityAdj = null;
     if (d.heroEquity != null && typeof d.heroEquity === 'number') {
@@ -299,8 +322,13 @@
   /** Recalcula GTO de todas las decisiones (sesiones antiguas o tras invalidar caché). */
   function recomputeHandDecisions(hand) {
     if (!hand || !hand.decisions) return hand;
-    if (global.GTOStreetValidation) global.GTOStreetValidation.invalidateSolverCache('hand refresh');
-    hand.decisions.forEach((d) => recomputeDecisionGto(hand, d));
+    try {
+      if (global.GTOStreetValidation) global.GTOStreetValidation.invalidateSolverCache('hand refresh');
+      hand.decisions.forEach((d) => recomputeDecisionGto(hand, d));
+    } catch (e) {
+      console.error('[Importer] recomputeHandDecisions failed', e);
+      return hand;
+    }
     let totalEvLoss = 0;
     const byStreet = {};
     hand.decisions.forEach((d) => {

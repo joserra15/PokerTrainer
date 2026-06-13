@@ -84,6 +84,13 @@
     $('#process-session').addEventListener('click', processSessionFile);
     $('#back-to-sessions').addEventListener('click', () => { showSessionsView('home'); renderSessionsList(); });
     $('#back-to-detail').addEventListener('click', () => { showSessionsView('detail'); });
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-review], [data-replay]');
+      if (!btn || !btn.closest('#session-detail-content')) return;
+      if (btn.dataset.review) openHandReview(btn.dataset.review, 'review');
+      else if (btn.dataset.replay) openHandReview(btn.dataset.replay, 'replay');
+    });
   }
 
   function resetPlaySession() {
@@ -684,8 +691,6 @@
 
     box.innerHTML = statHtml + sortHtml;
     $('#hand-sort').addEventListener('change', (e) => renderSessionDetail(e.target.value));
-    $$('#session-detail-content [data-review]').forEach((b) => b.addEventListener('click', () => openHandReview(b.dataset.review, 'review')));
-    $$('#session-detail-content [data-replay]').forEach((b) => b.addEventListener('click', () => openHandReview(b.dataset.replay, 'replay')));
     renderSessionHands(sortBy);
   }
 
@@ -745,17 +750,22 @@
         </div>
       </div>`;
     }).join('');
-    $$('#session-hands [data-review]').forEach((b) => b.addEventListener('click', () => openHandReview(b.dataset.review, 'review')));
-    $$('#session-hands [data-replay]').forEach((b) => b.addEventListener('click', () => openHandReview(b.dataset.replay, 'replay')));
   }
 
-  function findHand(id) { return currentSession.hands.find((h) => h.id === id); }
+  function findHand(id) {
+    if (!currentSession || !currentSession.hands) return null;
+    return currentSession.hands.find((h) => String(h.id) === String(id)) || null;
+  }
 
   function openHandReview(handId, mode) {
     currentHand = findHand(handId);
     if (!currentHand) return;
-    if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
     showSessionsView('review');
+    try {
+      if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
+    } catch (e) {
+      console.error('[Sessions] GTO recompute failed', e);
+    }
     if (mode === 'replay') startInteractiveReplay();
     else renderTimelineReview();
   }
@@ -978,5 +988,9 @@
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function round2(x) { return Math.round(x * 100) / 100; }
 
-  document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();

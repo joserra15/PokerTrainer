@@ -192,6 +192,27 @@ Importer.recomputeHandDecisions(staleHand);
 const staleFold = Math.round((staleDec.gto.fold || 0) * 100);
 console.log('Session review re-eval shove fold%', staleFold, '(expect >=75)');
 
+const oldSessionHand = {
+  id: '999', heroPos: 'BB', heroCards: nutFlushHero, heroCode: 'A4s', bb: 0.05,
+  board: pairedBoard.slice(),
+  decisions: [{
+    street: 'preflop', spotKind: 'vsRFI', chosen: 'call', toCallBB: 2,
+    potBB: 3, options: ['fold', 'call', 'raise']
+  }, {
+    street: 'river', spotKind: 'postflop', chosen: 'fold', toCallBB: 186.6,
+    potBB: 93.4, board: pairedBoard.slice(), options: ['fold', 'call', 'raise'],
+    heroEquity: 12, villainLastAction: 'raise'
+  }]
+};
+let oldRecomputeOk = true;
+try {
+  Importer.recomputeHandDecisions(oldSessionHand);
+} catch (e) {
+  oldRecomputeOk = false;
+  console.error('Old session recompute failed:', e.message);
+}
+console.log('Old session hand recompute:', oldRecomputeOk ? 'OK' : 'FAIL');
+
 let played = 0, errors = 0, complete = 0;
 for (let i = 0; i < 300; i++) {
   try {
@@ -211,4 +232,4 @@ for (let i = 0; i < 300; i++) {
   }
 }
 console.log(`Simulación: ${played} manos, ${complete} completadas, ${errors} errores.`);
-console.log(errors === 0 && complete === played && staleFold >= 75 ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
+console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
