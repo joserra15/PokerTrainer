@@ -25,6 +25,7 @@ const scripts = [
   'engine/validation/villainCallAudit.js',
   'engine/validation/streetStrategy.js',
   'engine/solver/rangeAdvantage.js',
+  'engine/solver/riverShoveNode.js',
   'engine/solver/probeEV.js',
   'engine/solver/villainStrategyAdjust.js',
   'engine/solver/preflopSolver.js',
@@ -148,6 +149,31 @@ const facing = FB.calculateActionFrequencies({
   handRank: { band: 'merge', tier: 'medium' }, inPosition: true, board: ['As', '7c', '2d']
 });
 console.log('Facing 50% pot merge call%', Math.round(facing.call * 100), 'fold%', Math.round(facing.fold * 100));
+
+const RS = sandbox.window.GTORiverShoveNode;
+const pairedBoard = ['Th', 'Ts', '3h', '2h', 'Kh'];
+const nutFlushHero = ['Ah', '4h'];
+const shoveRange = RS.microstakesRiverShoveRange(pairedBoard, RS.boardPairRank(pairedBoard));
+const eqShove = GTO.Equity.equityVsRange(nutFlushHero, pairedBoard, shoveRange, 800, {
+  street: 'river', riverShove: true, shoveNode: true
+});
+const smallBet = FB.calculateActionFrequencies({
+  street: 'river', currentPot: 40, betSize: 9.6, toCallBB: 9.6,
+  heroEquity: 0.72, tier: 'strong', heroCards: nutFlushHero, board: pairedBoard,
+  handRank: { band: 'value', tier: 'strong' }, inPosition: true
+});
+const shoveBet = FB.calculateActionFrequencies({
+  street: 'river', currentPot: 237, betSize: 186.6, toCallBB: 186.6,
+  heroEquity: eqShove, tier: 'strong', heroCards: nutFlushHero, board: pairedBoard,
+  handRank: { band: 'value', tier: 'strong' }, inPosition: true, villainLastAction: 'raise'
+});
+console.log('Nut flush paired board eq vs shove range ~', Math.round(eqShove * 100) + '% (expect <25%)');
+console.log('Small bet call%', Math.round(smallBet.call * 100), 'shove fold%', Math.round(shoveBet.fold * 100), '(expect call high, shove fold high)');
+const nodeClone = SV.validateFacingNodeChange(
+  { street: 'river', toCallBB: 9.6, potBB: 50, gto: smallBet },
+  { street: 'river', toCallBB: 186.6, potBB: 280, gto: shoveBet }
+);
+console.log('Bet→Shove freq clone?', nodeClone.ok ? 'NO (OK)' : 'YES (BUG)');
 
 let played = 0, errors = 0, complete = 0;
 for (let i = 0; i < 300; i++) {

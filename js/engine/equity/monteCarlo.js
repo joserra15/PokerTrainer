@@ -67,6 +67,31 @@
     return made.length ? made : combos;
   }
 
+  /**
+   * River shove/overbet: rango polarizado underbluffed — combos que BEAT al héroe.
+   * Crítico en boards doblados donde el color nut pierde vs full houses.
+   */
+  function filterCombosFacingShove(combos, heroCards, board, opts) {
+    if (!opts || (!opts.riverShove && !opts.shoveNode)) return combos;
+    if (!combos.length || !heroCards || !board || board.length < 5) return combos;
+
+    const heroScore = C.evaluate(heroCards.concat(board));
+    const beating = combos.filter((vh) => C.compare(C.evaluate(vh.concat(board)), heroScore) > 0);
+    if (beating.length >= 1) return beating;
+
+    const RS = global.GTORiverShoveNode;
+    if (RS) {
+      const deval = RS.pairedBoardFlushDevaluation(heroCards, board);
+      if (deval.vulnerable) {
+        return combos.filter((vh) => {
+          const vScore = C.evaluate(vh.concat(board));
+          return vScore.category >= 6;
+        });
+      }
+    }
+    return combos;
+  }
+
   function augmentVillainRange(heroCards, board, rangeStr) {
     const ctx = heroNonNutFlushContext(heroCards, board);
     if (!ctx || ctx.isNut) return rangeStr || '';
@@ -142,7 +167,8 @@
     const dead = heroCards.concat(boardArr);
     const heroScore = C.evaluate(dead);
     let combos = allVillainCombos(rangeStr, dead);
-    combos = filterCombosFacingBet(combos, boardArr, opts.facingBet);
+    combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
+    combos = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove);
     if (!combos.length) return 0.5;
 
     let win = 0, tie = 0;
@@ -205,6 +231,8 @@
     const key = [
       heroCards.join(''), boardArr.join(''), street, run.need,
       opts.facingBet ? 'fb' : '',
+      opts.riverShove ? 'sh' : '',
+      opts.shoveNode ? 'sn' : '',
       (rangeStr || '').slice(0, 120), iters
     ].join('|');
     const cached = Cache.get('equity', key);
@@ -212,7 +240,8 @@
 
     const dead = heroCards.concat(boardArr);
     let combos = allVillainCombos(rangeStr, dead);
-    const filtered = filterCombosFacingBet(combos, boardArr, opts.facingBet);
+    combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
+    const filtered = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove);
 
     if (run.need === 0) {
       const eq = equityExact(heroCards, boardArr, rangeStr, opts);

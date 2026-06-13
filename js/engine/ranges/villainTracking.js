@@ -165,7 +165,17 @@
       ? global.GTOBoardCluster.boardTexture(ctx.board).wet : false;
 
     if (action === 'raise' || betRatio >= 1.0) {
-      if (street === 'river') return D.RANGE_FACING_RIVER_SHOVE;
+      if (street === 'river') {
+        const RS = global.GTORiverShoveNode;
+        if (bet >= 50 || betRatio >= 0.55) {
+          if (RS) {
+            const pairInfo = ctx.board ? RS.boardPairRank(ctx.board) : { paired: false };
+            return RS.microstakesRiverShoveRange(ctx.board, pairInfo);
+          }
+          return D.RANGE_FACING_RIVER_3BET_SHOVE || D.RANGE_FACING_RIVER_SHOVE;
+        }
+        return D.RANGE_FACING_RIVER_SHOVE;
+      }
       if (street === 'turn') return D.RANGE_FACING_TURN_RAISE;
       return D.RANGE_FACING_LARGE_BET;
     }

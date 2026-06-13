@@ -439,9 +439,21 @@
             break;
           }
         }
+        const potBeforeBB = toCallBB > 0 ? r2(Math.max(potBB - toCallBB, priorPotBB(hand, st))) : potForEval;
+        const RS = global.GTORiverShoveNode;
+        const facingNode = RS ? RS.classifyFacingNode(toCallBB, potBeforeBB, st, villainLastAction) : 'small';
+        const isRiverShove = st === 'river' && (facingNode === 'shove' || facingNode === 'overbet');
         const heroEquityNow = GTO.Equity.equityVsRange(heroCards, boardSoFar, villainRange, 600, {
-          street: st, facingBet: toCallBB > 0
+          street: st,
+          facingBet: toCallBB > 0 && !isRiverShove,
+          riverShove: isRiverShove,
+          shoveNode: isRiverShove
         });
+        let heroEquityAdj = heroEquityNow;
+        if (RS && isRiverShove) {
+          const deval = RS.pairedBoardFlushDevaluation(heroCards, boardSoFar);
+          if (deval.vulnerable) heroEquityAdj = Math.min(heroEquityNow, deval.capEquity);
+        }
         const chosen = mapPostflopAction(a.type, toCallBB);
         const opts = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'];
         const potForEval = r2(potBB);
@@ -453,8 +465,9 @@
           stackDepth: 100, street: st, board: boardSoFar, priorBoard, heroCards,
           handCode: R.handCode(heroCards[0], heroCards[1]),
           potBB: potForEval, toCallBB, chosenAction: chosen === 'bet' ? 'bet_66' : chosen,
-          villainRange, heroEquity: heroEquityNow,
+          villainRange, heroEquity: heroEquityAdj,
           villainLastAction, villainBetRatio,
+          potBeforeBB, facingNode, actionSequenceId: acts.indexOf(a),
           initiative: postflopCtx.initiative, inPosition: postflopCtx.inPosition,
           availableActions: opts,
           betSizeBB: a.type === 'bet' ? r2(a.amount / bb) : (a.type === 'raise' ? r2(a.to / bb) : 0)
@@ -477,7 +490,7 @@
           potBB: potForDisplay, toCallBB,
           board: boardSoFar.slice(),
           options: opts,
-          heroEquity: Math.round(heroEquityNow * 100),
+          heroEquity: Math.round(heroEquityAdj * 100),
           villainAudit: pendingVillainAudit,
           context: `${cap(st)} [${boardSoFar.join(' ')}]: tienes ${handName}. Bote ${potForDisplay}bb${toCallBB > 0 ? `, pagar ${toCallBB}bb` : ''}.`
         });

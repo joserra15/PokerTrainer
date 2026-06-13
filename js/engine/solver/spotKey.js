@@ -39,6 +39,12 @@
       initiative: input.initiative || 'none',
       spotKind: input.spotKind || 'postflop',
       facing: (input.toCallBB || 0) > 0 ? 'bet' : 'none',
+      facingNode: (function () {
+        const RS = global.GTORiverShoveNode;
+        if (!RS || (input.street || 'preflop') !== 'river' || !(input.toCallBB > 0)) return 'none';
+        const potBefore = Math.max((input.potBB || 1) - (input.toCallBB || 0), 0.1);
+        return RS.classifyFacingNode(input.toCallBB, potBefore, input.street, input.villainLastAction);
+      })(),
       inPosition: !!input.inPosition
     };
   }
@@ -47,6 +53,7 @@
     return [
       key.spotKind, key.position, key.vsPosition || '-',
       key.street, key.boardType, key.spr, key.initiative, key.facing,
+      key.facingNode || '-',
       key.inPosition ? 'IP' : 'OOP'
     ].join('|');
   }

@@ -298,8 +298,10 @@
     const eqSuffix = input.heroEquity != null ? Math.round(input.heroEquity * 1000) : '-';
     const pctSuffix = input.handRank && input.handRank.percentile != null
       ? Math.round(input.handRank.percentile * 100) : '-';
+    const RS = global.GTORiverShoveNode;
+    const nodeKey = RS ? RS.facingNodeCacheKey(input) : '';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
-      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix;
+      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;

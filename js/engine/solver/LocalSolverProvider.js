@@ -17,6 +17,7 @@
   const D = global.GTORangesData;
   const HandRank = global.GTOHandRank;
   const VT = global.GTOVillainTracking;
+  const RS = global.GTORiverShoveNode;
 
   function enrichInput(input) {
     const out = Object.assign({}, input);
@@ -28,8 +29,15 @@
       if (!out.madeHandInfo) out.madeHandInfo = Made.classifyMadeHand(out.heroCards, out.board);
 
       const facingBet = (out.toCallBB || 0) > 0;
+      const potBefore = Math.max((out.potBB || 1) - (out.toCallBB || 0), 0.1);
+      out.potBeforeBB = out.potBeforeBB != null ? out.potBeforeBB : potBefore;
+
+      if (RS && out.street === 'river' && facingBet) {
+        out.facingNode = RS.classifyFacingNode(out.toCallBB, potBefore, out.street, out.villainLastAction);
+        out.riverShove = out.facingNode === 'shove' || out.facingNode === 'overbet';
+      }
+
       if (!out.villainRange && VT && out.villainLastAction) {
-        const potBefore = Math.max((out.potBB || 1) - (out.toCallBB || 0), 0.1);
         out.villainRange = VT.estimateActiveRange({
           baseRange: D.BROAD_CONTINUE,
           street: out.street,
@@ -42,11 +50,24 @@
       }
       if (!out.villainRange) out.villainRange = D.BROAD_CONTINUE;
 
+      const eqOpts = {
+        street: out.street,
+        facingBet: facingBet && !out.riverShove,
+        riverShove: !!out.riverShove,
+        shoveNode: !!out.riverShove
+      };
+
       if (out.heroEquity == null) {
-        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, 400, {
-          street: out.street,
-          facingBet: facingBet
-        });
+        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, 400, eqOpts);
+      } else if (out.riverShove) {
+        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, 500, eqOpts);
+      }
+
+      if (RS && out.riverShove && out.heroCards) {
+        const deval = RS.pairedBoardFlushDevaluation(out.heroCards, out.board);
+        if (deval.vulnerable) {
+          out.heroEquity = Math.min(out.heroEquity, deval.capEquity);
+        }
       }
 
       if (HandRank) {

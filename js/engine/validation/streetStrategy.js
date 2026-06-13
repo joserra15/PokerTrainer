@@ -5,6 +5,7 @@
   'use strict';
 
   const PROBE_ACTIONS = ['check', 'bet_33', 'bet_66', 'bet_100'];
+  const FACING_ACTIONS = ['fold', 'call', 'raise'];
   const ORDER = ['preflop', 'flop', 'turn', 'river'];
   const BTS = function () { return global.GTOBoardTextureShift; };
 
@@ -89,7 +90,61 @@
     const shift = BTS() && input.priorBoard
       ? (BTS().shouldInvalidatePriorMatrix(input.priorBoard, input.board || []) ? 'SHIFT' : '-')
       : '-';
-    return [input.street || '?', board, pot, call, tier, nut, shift, input.initiative || '-'].join(':');
+    const RS = global.GTORiverShoveNode;
+    const nodeKey = RS ? RS.facingNodeCacheKey(input) : ('call:' + call);
+    const seq = input.actionSequenceId != null ? input.actionSequenceId : '-';
+    return [input.street || '?', board, pot, call, tier, nut, shift, input.initiative || '-', nodeKey, seq].join(':');
+  }
+
+  /**
+   * Detecta herencia de frecuencias entre nodos distintos en la misma calle (bet → shove).
+   */
+  function validateFacingNodeChange(prevDecision, decision) {
+    if (!prevDecision || !decision) return { ok: true };
+    if (prevDecision.street !== decision.street) return { ok: true };
+    const prevCall = prevDecision.toCallBB || 0;
+    const curCall = decision.toCallBB || 0;
+    if (Math.abs(prevCall - curCall) < 1) return { ok: true };
+
+    const prevGto = prevDecision.gto || prevDecision.strategy;
+    const curGto = decision.gto || decision.strategy;
+    if (!prevGto || !curGto) return { ok: true };
+    const hasFacing = FACING_ACTIONS.some((a) => curGto[a] != null);
+    if (!hasFacing) return { ok: true };
+
+    const prevFp = frequencyFingerprint(prevGto, FACING_ACTIONS);
+    const curFp = frequencyFingerprint(curGto, FACING_ACTIONS);
+    if (prevFp !== curFp) return { ok: true };
+
+    const RS = global.GTORiverShoveNode;
+    const nodeChanged = RS && (
+      RS.classifyFacingNode(prevCall, prevDecision.potBB || 1, decision.street, null)
+      !== RS.classifyFacingNode(curCall, decision.potBB || 1, decision.street, null)
+    );
+
+    if (nodeChanged || curCall >= 50 || curCall / Math.max(prevCall, 0.1) >= 3) {
+      return {
+        ok: false,
+        code: 'FACING_NODE_FREQ_CLONE',
+        alert: 'Frecuencias clonadas entre nodos distintos en ' + decision.street
+          + ' (toCall ' + prevCall + 'bb → ' + curCall + 'bb). Recalcular árbol.',
+        prevCall,
+        curCall,
+        fingerprint: curFp
+      };
+    }
+    return { ok: true };
+  }
+
+  /** Valida todas las parejas consecutivas de decisiones del héroe en una mano. */
+  function validateHandFacingNodes(decisions) {
+    const alerts = [];
+    const heroDecs = (decisions || []).filter((d) => d.gto && FACING_ACTIONS.some((a) => d.gto[a] != null));
+    for (let i = 1; i < heroDecs.length; i++) {
+      const r = validateFacingNodeChange(heroDecs[i - 1], heroDecs[i]);
+      if (!r.ok) alerts.push(r);
+    }
+    return alerts;
   }
 
   /**
@@ -137,10 +192,13 @@
 
   global.GTOStreetValidation = {
     PROBE_ACTIONS,
+    FACING_ACTIONS,
     frequencyFingerprint,
     frequenciesIdentical,
     validateConsecutiveProbeStreets,
     validateHandDecisions,
+    validateFacingNodeChange,
+    validateHandFacingNodes,
     strategyCacheSuffix,
     sanityCheckSolver,
     invalidateSolverCache

@@ -122,6 +122,16 @@
     const inPosition = params.inPosition !== false;
     const board = params.board || [];
 
+    const RS = global.GTORiverShoveNode;
+    if (RS && street === 'river' && betSize > 0) {
+      const shoveFreqs = RS.computeRiverShoveFrequencies(Object.assign({}, params, {
+        potBeforeBB: currentPot,
+        toCallBB: betSize,
+        betSize: betSize
+      }));
+      if (shoveFreqs) return shoveFreqs;
+    }
+
     const potOdds = calculatePotOdds(currentPot, betSize);
     const betRatio = betToPotRatio(currentPot, betSize);
     const mdf = calculateMDF(currentPot, betSize);
