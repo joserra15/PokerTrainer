@@ -14,7 +14,7 @@
   function $(sel) { return document.querySelector(sel); }
 
   function loadSession() {
-    if (currentUser) return currentUser;
+    if (currentUser) return normalizeUser(currentUser);
     try {
       const raw = localStorage.getItem(SESSION_KEY);
       if (!raw) return null;
@@ -24,7 +24,7 @@
         localStorage.removeItem(SESSION_KEY);
         return null;
       }
-      return data;
+      return normalizeUser(data);
     } catch (e) {
       return null;
     }
@@ -46,7 +46,27 @@
     document.body.classList.toggle('auth-locked', !visible);
   }
 
+  function normalizeUser(user) {
+    if (global.PT_normalizeUser) return global.PT_normalizeUser(user);
+    if (!user || !user.name) return user;
+    return user;
+  }
+
+  function decodeGsiCredential(credential) {
+    if (global.PT_decodeJwt) return global.PT_decodeJwt(credential);
+    try {
+      const b64 = credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+    } catch (e) {
+      return null;
+    }
+  }
+
   function renderAccountMenu(user) {
+    user = normalizeUser(user);
     const trigger = $('#account-trigger');
     if (!trigger || !user) return;
 
@@ -95,6 +115,8 @@
 
   function enterApp(user) {
     if (!user) return;
+    user = normalizeUser(user);
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (e) { /* noop */ }
     currentUser = user;
     global.PT_AUTH_USER = user;
     if (global.Store && global.Store.setUserId) global.Store.setUserId(user.sub);
@@ -121,13 +143,14 @@
       callback: function (response) {
         if (!response || !response.credential) return;
         try {
-          const payload = JSON.parse(atob(response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-          const user = {
+          const payload = decodeGsiCredential(response.credential);
+          if (!payload) return;
+          const user = normalizeUser({
             sub: payload.sub, email: payload.email,
             name: payload.name || payload.email, picture: payload.picture || '',
             emailVerified: !!payload.email_verified, locale: payload.locale || '',
             loginAt: Date.now()
-          };
+          });
           localStorage.setItem(SESSION_KEY, JSON.stringify(user));
           enterApp(user);
         } catch (e) { console.warn('[PTAuth]', e); }

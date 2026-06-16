@@ -9,14 +9,40 @@
 
   function $(id) { return document.getElementById(id); }
 
+  function decodeJwtPayloadJson(b64url) {
+    var base64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+    var binary = atob(base64);
+    if (global.TextDecoder) {
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new TextDecoder('utf-8').decode(bytes);
+    }
+    return decodeURIComponent(escape(binary));
+  }
+
   function decodeJwt(token) {
     try {
-      var payload = token.split('.')[1];
-      var json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-      return JSON.parse(json);
+      return JSON.parse(decodeJwtPayloadJson(token.split('.')[1]));
     } catch (e) {
       return null;
     }
+  }
+
+  /** Repara nombres guardados con atob() sin UTF-8 (p. ej. JosÃ© → José). */
+  function fixUtf8Text(str) {
+    if (!str || typeof str !== 'string') return str;
+    if (str.indexOf('\u00C3') < 0 && str.indexOf('\u00C2') < 0) return str;
+    try {
+      return decodeURIComponent(escape(str));
+    } catch (e) {
+      return str;
+    }
+  }
+
+  function normalizeUser(user) {
+    if (!user) return user;
+    if (user.name) user.name = fixUtf8Text(user.name);
+    return user;
   }
 
   function redirectUri() {
@@ -95,7 +121,7 @@
     }
 
     var user = saveSessionFromPayload(payload);
-    if (user) enterFromBootstrap(user);
+    if (user) enterFromBootstrap(normalizeUser(user));
     return true;
   }
 
@@ -105,6 +131,8 @@
       if (!raw) return null;
       var data = JSON.parse(raw);
       if (!data || !data.sub || !data.email) return null;
+      data = normalizeUser(data);
+      try { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch (e) { /* noop */ }
       return data;
     } catch (e) {
       return null;
@@ -186,8 +214,8 @@
     if (processHashLogin()) return;
     var saved = loadSavedSession();
     if (saved) {
-      global.PT_AUTH_USER = saved;
-      enterFromBootstrap(saved);
+      global.PT_AUTH_USER = normalizeUser(saved);
+      enterFromBootstrap(global.PT_AUTH_USER);
       return;
     }
     setupLoginUi();
@@ -196,6 +224,9 @@
   global.PT_startGoogleLogin = startGoogleLogin;
   global.PT_retryLogin = retryLogin;
   global.PT_redirectUri = redirectUri;
+  global.PT_decodeJwt = decodeJwt;
+  global.PT_fixUtf8Text = fixUtf8Text;
+  global.PT_normalizeUser = normalizeUser;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
