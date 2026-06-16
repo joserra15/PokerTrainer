@@ -50,6 +50,85 @@ body {
 .tab:hover { color: var(--text); background: var(--panel); }
 .tab.active { color: #fff; background: var(--accent); }
 
+.topbar-actions, .account-menu { position: relative; flex-shrink: 0; }
+.account-trigger {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); padding: 6px 10px 6px 6px; border-radius: 999px;
+  cursor: pointer; font-size: 13px; max-width: 220px;
+}
+.account-trigger:hover { border-color: var(--accent); }
+.account-avatar, .account-avatar-lg {
+  width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
+  background: var(--panel-2); border: 1px solid var(--border);
+}
+.account-avatar-lg { width: 44px; height: 44px; }
+.account-email-short {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 140px; color: var(--muted); font-weight: 600;
+}
+.account-chevron { font-size: 10px; color: var(--muted); }
+.account-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0; min-width: 280px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0,0,0,.45); padding: 14px; z-index: 50;
+}
+.account-dropdown-head {
+  display: flex; gap: 12px; align-items: center;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
+}
+.account-dropdown-head strong { display: block; font-size: 15px; }
+.account-email-full { display: block; font-size: 12px; color: var(--muted); word-break: break-all; }
+.account-meta { display: grid; gap: 8px; margin-bottom: 12px; }
+.account-row {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: var(--muted);
+}
+.account-row strong, .account-row code { color: var(--text); font-size: 12px; }
+.account-row code { font-family: ui-monospace, monospace; font-size: 11px; }
+
+/* ---- Login gate ---- */
+body.auth-locked { overflow: hidden; }
+.auth-gate {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  background: linear-gradient(160deg, var(--bg), var(--bg-2));
+  padding: 20px;
+}
+.auth-card {
+  width: min(420px, 100%); background: var(--panel);
+  border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px);
+  padding: 32px 28px; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+}
+.auth-brand { margin-bottom: 24px; }
+.auth-brand .chip-logo { margin: 0 auto 12px; }
+.auth-brand h1 { font-size: 22px; margin-bottom: 6px; }
+.auth-sub { color: var(--muted); font-size: 14px; }
+.google-signin-host {
+  display: flex; justify-content: center; min-height: 44px; margin-bottom: 12px;
+}
+.auth-error { color: var(--red); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+.auth-setup {
+  text-align: left; font-size: 13px; color: var(--muted);
+  background: var(--panel-2); border-radius: 8px; padding: 12px; margin-top: 8px;
+}
+.auth-setup code { font-size: 12px; }
+.auth-foot { font-size: 12px; margin-top: 16px; }
+.auth-origin-help {
+  text-align: left; font-size: 12px; color: var(--muted);
+  background: var(--panel-2); border-radius: 8px; padding: 12px; margin-top: 12px;
+  border: 1px solid var(--border);
+}
+.auth-hint-title { margin-bottom: 8px; color: var(--text); font-size: 13px; }
+.auth-checklist { margin: 8px 0 8px 18px; display: grid; gap: 10px; }
+.auth-checklist code.auth-copy {
+  display: block; margin-top: 4px; padding: 6px 8px;
+  background: var(--bg); border-radius: 6px; font-size: 12px; color: var(--gold);
+  word-break: break-all;
+}
+.auth-warn { color: var(--orange); font-size: 13px; }
+
 main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .tab-panel { display: none; animation: fade .2s ease; }
 .tab-panel.active { display: block; }
@@ -347,6 +426,9 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   .chip-logo { width: 36px; height: 36px; font-size: 22px; }
   .tabs { width: 100%; }
   .tab { flex: 1; padding: 8px 4px; font-size: 12px; text-align: center; }
+  .account-menu { width: 100%; }
+  .account-trigger { width: 100%; max-width: none; justify-content: center; }
+  .account-dropdown { left: 0; right: 0; min-width: 0; }
 
   main { padding: 12px; }
 

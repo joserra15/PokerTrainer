@@ -210,6 +210,39 @@
     };
   }
 
+  function attachProbeAlerts(hand, decisions) {
+    if (!global.GTOStreetValidation) return;
+    decisions.forEach((d) => { delete d.renderAlert; });
+    global.GTOStreetValidation.validateHandDecisions(decisions).forEach((alert) => {
+      const d = decisions.find((x) => x.street === alert.street);
+      if (d) d.renderAlert = alert.alert;
+    });
+    const boardsByStreet = {
+      flop: boardUpTo(hand, 'flop'),
+      turn: boardUpTo(hand, 'turn'),
+      river: boardUpTo(hand, 'river')
+    };
+    const sanity = global.GTOStreetValidation.sanityCheckSolver(decisions, boardsByStreet, 1);
+    if (!sanity.ok) {
+      const rd = decisions.find((x) => x.street === 'river');
+      if (rd) rd.renderAlert = (rd.renderAlert ? rd.renderAlert + ' ' : '') + sanity.log;
+    }
+  }
+
+  function probeBetIdFromSize(betBB, potBB) {
+    const pot = Math.max(potBB || 1, 0.1);
+    const ratio = (betBB || 0) / pot;
+    if (ratio >= 0.85) return 'bet_100';
+    if (ratio >= 0.48) return 'bet_66';
+    return 'bet_33';
+  }
+
+  function resolvePostflopChosen(type, toCallBB, betBB, potBB) {
+    const raw = mapPostflopAction(type, toCallBB);
+    if (raw === 'bet') return probeBetIdFromSize(betBB, potBB);
+    return raw;
+  }
+
   /** Reconstruye input de evaluateSpot desde una decisión guardada (replay / revisión). */
   function boardForAnalyzedHand(hand, d, street) {
     if (d && d.board && d.board.length) return d.board.slice();
@@ -269,6 +302,9 @@
     }
 
     const chosen = chosenOverride != null ? chosenOverride : d.chosen;
+    const chosenAction = chosen === 'bet'
+      ? probeBetIdFromSize(d.betSizeBB, potEvalBB)
+      : (chosen === 'bet_33' || chosen === 'bet_66' || chosen === 'bet_100' ? chosen : chosen);
     const base = {
       spotKind: d.spotKind || (d.street === 'preflop' ? 'vsRFI' : 'postflop'),
       position: heroPos,
@@ -282,7 +318,7 @@
       handCode: hand.heroCode || (hand.heroCards.length === 2 ? R.handCode(hand.heroCards[0], hand.heroCards[1]) : null),
       potBB: potEvalBB,
       toCallBB,
-      chosenAction: chosen === 'bet' ? 'bet_66' : chosen,
+      chosenAction,
       initiative: d.initiative || postflopCtx.initiative,
       inPosition: d.inPosition != null ? d.inPosition : postflopCtx.inPosition,
       availableActions: d.options || (toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'])
@@ -345,6 +381,7 @@
     const order = ['optima', 'aceptable', 'imprecisa', 'error'];
     hand.decisions.forEach((d) => { if (order.indexOf(d.class) > order.indexOf(worst)) worst = d.class; });
     hand.worstClass = worst;
+    attachProbeAlerts(hand, hand.decisions);
     return hand;
   }
 
@@ -366,25 +403,19 @@
     ['flop', 'turn', 'river'].forEach((st) => evalStreet(hand, st, hero, heroCards, bb, decisions, villainBase, postflopCtx));
 
     if (global.GTOStreetValidation) {
-      global.GTOStreetValidation.validateHandDecisions(decisions).forEach((alert) => {
-        const d = decisions.find((x) => x.street === alert.street);
-        if (d) d.renderAlert = alert.alert;
-      });
+      attachProbeAlerts(hand, decisions);
       const boardsByStreet = {
         flop: boardUpTo(hand, 'flop'),
         turn: boardUpTo(hand, 'turn'),
         river: boardUpTo(hand, 'river')
       };
       const sanity = global.GTOStreetValidation.sanityCheckSolver(decisions, boardsByStreet, 1);
-      if (!sanity.ok) {
-        global.GTOStreetValidation.invalidateSolverCache(sanity.log);
-        const rd = decisions.find((x) => x.street === 'river');
-        if (rd) rd.renderAlert = (rd.renderAlert ? rd.renderAlert + ' ' : '') + sanity.log;
-      }
       const facingAlerts = global.GTOStreetValidation.validateHandFacingNodes(decisions);
       if (!sanity.ok || facingAlerts.length) {
+        if (!sanity.ok) global.GTOStreetValidation.invalidateSolverCache(sanity.log);
         if (facingAlerts.length) global.GTOStreetValidation.invalidateSolverCache('facing node clone');
         decisions.forEach((d) => recomputeDecisionGto(hand, d));
+        attachProbeAlerts(hand, decisions);
       }
     }
 
@@ -601,7 +632,8 @@
           const deval = RS.pairedBoardFlushDevaluation(heroCards, boardSoFar);
           if (deval.vulnerable) heroEquityAdj = Math.min(heroEquityNow, deval.capEquity);
         }
-        const chosen = mapPostflopAction(a.type, toCallBB);
+        const betSizeBB = a.type === 'bet' ? r2(a.amount / bb) : (a.type === 'raise' ? r2(a.to / bb) : 0);
+        const chosen = resolvePostflopChosen(a.type, toCallBB, betSizeBB, potForEval);
         const opts = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'];
         const priorBoard = st === 'river' ? boardUpTo(hand, 'turn')
           : (st === 'turn' ? boardUpTo(hand, 'flop') : null);
@@ -609,13 +641,13 @@
           spotKind: 'postflop', position: hand.positions[hero] || '??',
           stackDepth: 100, street: st, board: boardSoFar, priorBoard, heroCards,
           handCode: R.handCode(heroCards[0], heroCards[1]),
-          potBB: potForEval, toCallBB, chosenAction: chosen === 'bet' ? 'bet_66' : chosen,
+          potBB: potForEval, toCallBB, chosenAction: chosen,
           villainRange, heroEquity: heroEquityAdj,
           villainLastAction, villainBetRatio,
           potBeforeBB, facingNode, actionSequenceId: acts.indexOf(a),
           initiative: postflopCtx.initiative, inPosition: postflopCtx.inPosition,
           availableActions: opts,
-          betSizeBB: a.type === 'bet' ? r2(a.amount / bb) : (a.type === 'raise' ? r2(a.to / bb) : 0)
+          betSizeBB
         });
         const ev = evalResult.evaluation;
         const info = GTO.Equity.classifyMadeHand(heroCards, boardSoFar);
@@ -627,7 +659,7 @@
         decisions.push({
           street: st, spot: `${cap(st)} · ${handName}`,
           spotKind: 'postflop', facing: 'postflop',
-          actionType: a.type, chosen, class: ev.class, best: ev.best,
+          actionType: a.type, chosen, betSizeBB, class: ev.class, best: ev.best,
           gto: evalResult.strategy, evLoss: ev.evLoss, evLossTier: ev.evLossTier,
           actionEV: ev.actionEV, bestEV: ev.bestEV, frequency: ev.frequency,
           confidence: ev.confidence, score: ev.score, explanation: evalResult.explanation,
@@ -664,6 +696,11 @@
   }
 
   function boardUpTo(hand, st) {
+    if (hand.board && Array.isArray(hand.board)) {
+      const n = { flop: 3, turn: 4, river: 5 }[st] || 0;
+      return hand.board.slice(0, n);
+    }
+    if (!hand.board || !hand.board.flop) return [];
     if (st === 'flop') return hand.board.flop.slice();
     if (st === 'turn') return hand.board.flop.concat(hand.board.turn);
     return hand.board.flop.concat(hand.board.turn, hand.board.river);

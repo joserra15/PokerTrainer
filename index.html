@@ -7,11 +7,33 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>GTO Poker Trainer · Cash NL 6-max</title>
-  <script src="js/version.js?v=1.5.3"></script>
+  <script src="js/version.js?v=1.6.1"></script>
   <link rel="stylesheet" href="css/styles.css" id="pt-css" />
   <script>document.getElementById('pt-css').href = 'css/styles.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
+  <script src="js/google-config.js?v=1.6.1"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
-<body>
+<body class="auth-locked">
+  <!-- Pantalla de login (obligatoria) -->
+  <div id="auth-gate" class="auth-gate">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="chip-logo">&#9824;</span>
+        <h1>GTO Poker Trainer</h1>
+        <p class="auth-sub">Inicia sesión para acceder al entrenador</p>
+      </div>
+      <div id="google-signin-btn" class="google-signin-host"></div>
+      <p id="auth-error" class="auth-error" role="alert"></p>
+      <div id="auth-origin-help" class="auth-origin-help"></div>
+      <div id="auth-setup" class="auth-setup hidden">
+        <p><strong>Configuración pendiente.</strong> Copia <code>js/google-config.example.js</code> a <code>js/google-config.js</code> y añade tu Client ID de Google Cloud Console.</p>
+        <p class="muted-text">Orígenes autorizados: <code>http://localhost</code>, <code>https://joserra15.github.io</code></p>
+      </div>
+      <p class="auth-foot muted-text">Sesión privada · datos guardados en este dispositivo</p>
+    </div>
+  </div>
+
+  <div id="app-shell" class="hidden">
   <header class="topbar">
     <div class="brand">
       <span class="chip-logo">&#9824;</span>
@@ -24,6 +46,24 @@
       <button class="tab" data-tab="errors">Errores</button>
       <button class="tab" data-tab="stats">Estadísticas</button>
     </nav>
+    <div class="account-menu" id="account-menu">
+      <button type="button" class="account-trigger" id="account-trigger" aria-expanded="false" aria-haspopup="true" title="Cuenta">
+        <img id="account-avatar" class="account-avatar" alt="" hidden />
+        <span id="account-email-short" class="account-email-short"></span>
+        <span class="account-chevron" aria-hidden="true">▾</span>
+      </button>
+      <div class="account-dropdown hidden" id="account-dropdown">
+        <div class="account-dropdown-head">
+          <img id="account-avatar-lg" class="account-avatar-lg" alt="" hidden />
+          <div>
+            <strong id="account-name"></strong>
+            <span id="account-email" class="account-email-full"></span>
+          </div>
+        </div>
+        <div class="account-meta" id="account-meta"></div>
+        <button type="button" id="account-signout" class="btn btn-ghost btn-block">Cerrar sesión</button>
+      </div>
+    </div>
   </header>
 
   <main>
@@ -150,6 +190,7 @@
   <div id="verdict-toast" class="verdict-toast" aria-live="polite"></div>
 
   <footer class="app-foot"><span id="app-version"></span></footer>
+  </div><!-- #app-shell -->
 
   <script>
   (function () {
@@ -191,6 +232,7 @@
       'js/engine.js',
       'js/import.js',
       'js/storage.js',
+      'js/auth.js',
       'js/app.js'
     ];
     function loadNext(i) {

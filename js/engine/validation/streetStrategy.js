@@ -27,6 +27,28 @@
     return actions.every((act) => Math.round((a[act] || 0) * 100) === Math.round((b[act] || 0) * 100));
   }
 
+  /** Línea check-check legítima (mano débil): no es bug de caché. */
+  function isBenignProbeDuplicate(prevDecision, decision) {
+    const prevGto = prevDecision.gto || prevDecision.strategy || {};
+    const curGto = decision.gto || decision.strategy || {};
+    const prevCheck = prevGto.check || 0;
+    const curCheck = curGto.check || 0;
+    const prevBetMax = Math.max(prevGto.bet_33 || 0, prevGto.bet_66 || 0, prevGto.bet_100 || 0);
+    const curBetMax = Math.max(curGto.bet_33 || 0, curGto.bet_66 || 0, curGto.bet_100 || 0);
+    if (prevCheck >= 0.92 && curCheck >= 0.92 && prevBetMax <= 0.08 && curBetMax <= 0.08) {
+      return true;
+    }
+    const prevBoard = (prevDecision.board || []).join('');
+    const curBoard = (decision.board || []).join('');
+    if (prevBoard && curBoard && prevBoard !== curBoard) {
+      const tier = decision.handRank && decision.handRank.tier
+        ? decision.handRank.tier
+        : (decision.madeHandTier || '');
+      if (tier === 'weak' || tier === 'trash' || tier === 'marginal') return true;
+    }
+    return false;
+  }
+
   /**
    * Compara calles consecutivas con acciones de probe (check/bet).
    * @returns {{ ok: boolean, alert: string|null, prevStreet: string, street: string, fingerprint: string }}
@@ -38,6 +60,10 @@
     const prevFp = frequencyFingerprint(prevDecision.gto || prevDecision.strategy);
     const fp = frequencyFingerprint(decision.gto || decision.strategy);
     if (!prevFp || !fp || prevFp !== fp) return { ok: true, alert: null, fingerprint: fp };
+
+    if (isBenignProbeDuplicate(prevDecision, decision)) {
+      return { ok: true, alert: null, fingerprint: fp };
+    }
 
     if (tolerancePct > 0) {
       const ok = !PROBE_ACTIONS.every((act) =>

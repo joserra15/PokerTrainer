@@ -110,6 +110,13 @@ const dup = SV.validateConsecutiveProbeStreets(
 console.log('Q9 BTN turn check%', Math.round(turnStrat.check * 100), 'river check%', Math.round(riverStrat.check * 100));
 console.log('Turn vs River duplicate?', dup.ok ? 'NO (OK)' : 'YES (BUG)');
 
+const benignDup = SV.validateConsecutiveProbeStreets(
+  { street: 'flop', gto: { check: 1, bet_33: 0, bet_66: 0, bet_100: 0 }, board: ['7s', '6h', '7d'] },
+  { street: 'turn', gto: { check: 1, bet_33: 0, bet_66: 0, bet_100: 0 }, board: ['7s', '6h', '7d', '5d'], handRank: { tier: 'weak' } },
+  0
+);
+console.log('Benign flop-turn check line duplicate?', benignDup.ok ? 'NO ALERT (OK)' : 'ALERT (BUG)');
+
 const nutHero = ['Jd', 'Qd'];
 const turnB = ['Qc', 'Td', '7c', '8h'];
 const riverB = turnB.concat(['9h']);

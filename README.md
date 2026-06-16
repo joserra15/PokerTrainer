@@ -9,6 +9,57 @@ final recibe una valoración del **EV perdido/ganado**, si sus decisiones fueron
 correctas y **qué cartas tenía el villano**. Todo se guarda en `localStorage`:
 un histórico de manos y un registro de errores para repetir esos spots.
 
+## Login con Google
+
+La app requiere **iniciar sesión con Google** antes de usar cualquier pestaña.
+Los datos (histórico, errores, sesiones importadas) se guardan **por cuenta** en
+`localStorage` de tu navegador.
+
+### Configurar OAuth (una sola vez)
+
+1. En [Google Cloud Console](https://console.cloud.google.com/) crea un proyecto
+   (o usa uno existente).
+2. **APIs y servicios → Credenciales → Crear credenciales → ID de cliente OAuth**
+   - Tipo: **Aplicación web**
+   - Orígenes autorizados de JavaScript (**sin ruta**, solo dominio):
+     - `http://localhost`
+     - `http://127.0.0.1`
+     - `https://joserra15.github.io`
+   - URIs de redirección autorizados (opcional para el botón GIS, pero recomendado):
+     - `https://joserra15.github.io/PokerTrainer/`
+3. **Pantalla de consentimiento OAuth** (menú lateral):
+   - Tipo de usuario: **Externo**
+   - Nombre de la app: `PokerTrainer`
+   - Email de asistencia y contacto del desarrollador
+   - Si el estado es **Prueba**: en *Usuarios de prueba* añade tu Gmail (`joserra15@gmail.com`)
+4. Copia el **Client ID** (termina en `.apps.googleusercontent.com`).
+5. Edita `js/google-config.js` (plantilla en `js/google-config.example.js`):
+
+```javascript
+window.PT_GOOGLE = {
+  clientId: 'TU_CLIENT_ID.apps.googleusercontent.com'
+};
+```
+
+5. Despliega o abre `index.html`. Verás la pantalla de login y el botón de Google.
+
+### Error 400: invalid_request
+
+Casi siempre es configuración en Google Cloud, no un bug de la app:
+
+| Causa | Solución |
+|-------|----------|
+| Origen mal puesto | Usa `https://joserra15.github.io` **sin** `/PokerTrainer` |
+| Cliente OAuth incorrecto | Debe ser tipo **Aplicación web**, no Android/iOS |
+| App en modo Prueba | Añade tu Gmail en *Usuarios de prueba* |
+| Consentimiento incompleto | Rellena nombre, emails y guarda la pantalla de consentimiento |
+| Brave / bloqueadores | Desactiva el escudo para `joserra15.github.io` |
+
+La pantalla de login muestra el origen exacto que debes registrar.
+
+En la barra superior, el **menú de cuenta** (avatar + correo) muestra nombre,
+email, verificación e ID de Google. **Cerrar sesión** vuelve a la pantalla de login.
+
 ## Cómo ejecutarla
 
 No necesita servidor ni instalación. Abre el archivo:
@@ -106,7 +157,9 @@ css/styles.css      Estilos (mesa, cartas, paneles)
 js/cards.js         Cartas, baraja y evaluador de manos de 5-7 cartas
 js/ranges.js        Rangos GTO + expansor de notación de poker
 js/engine.js        Generador de spots, evaluación GTO, EV y juego de la mano
-js/storage.js       Histórico, errores y estadísticas en localStorage
+js/storage.js       Histórico, errores y estadísticas en localStorage (por usuario)
+js/auth.js          Login con Google y menú de cuenta
+js/google-config.js Client ID OAuth (ver google-config.example.js)
 js/app.js           Interfaz: pinta la mesa y orquesta todo
 tools/selftest.js   Test en Node del evaluador, rangos y simulación de manos
 ```

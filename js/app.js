@@ -989,8 +989,16 @@
   function round2(x) { return Math.round(x * 100) / 100; }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', bootApp);
   } else {
-    init();
+    bootApp();
+  }
+
+  function bootApp() {
+    if (window.PTAuth && window.PTAuth.requireAuth) {
+      window.PTAuth.requireAuth(init);
+    } else {
+      init();
+    }
   }
 })();
