@@ -7,10 +7,11 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>GTO Poker Trainer · Cash NL 6-max</title>
-  <script src="js/version.js?v=1.6.2"></script>
+  <script src="js/version.js?v=1.6.3"></script>
   <link rel="stylesheet" href="css/styles.css" id="pt-css" />
   <script>document.getElementById('pt-css').href = 'css/styles.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
-  <script src="js/google-config.js?v=1.6.2"></script>
+  <script src="js/google-config.js?v=1.6.3"></script>
+  <script src="js/auth-bootstrap.js?v=1.6.3"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="auth-locked">
@@ -23,7 +24,7 @@
         <p class="auth-sub">Inicia sesión para acceder al entrenador</p>
       </div>
       <div id="google-signin-btn" class="google-signin-host"></div>
-      <button type="button" id="auth-mobile-login" class="btn btn-primary auth-mobile-login hidden">
+      <button type="button" id="auth-mobile-login" class="btn btn-primary auth-mobile-login">
         Continuar con Google
       </button>
       <button type="button" id="auth-retry-login" class="btn btn-ghost auth-retry-login">

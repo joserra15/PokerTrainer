@@ -108,7 +108,13 @@ body.auth-locked { overflow: hidden; }
 .google-signin-host {
   display: flex; justify-content: center; min-height: 44px; margin-bottom: 12px;
 }
-.auth-mobile-login {
+.auth-mobile-login, .auth-retry-login {
+  position: relative;
+  z-index: 2;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
   width: 100%; max-width: 320px; margin: 0 auto 10px;
   padding: 14px 20px; font-size: 16px;
 }
