@@ -90,6 +90,7 @@ body {
 /* ---- Login gate ---- */
 body.auth-locked { overflow: hidden; }
 body.pt-cloud-syncing #app-shell { opacity: 0.92; pointer-events: none; }
+body.range-matrix-open { overflow: hidden; }
 .auth-gate {
   position: fixed; inset: 0; z-index: 100;
   display: grid; place-items: center;
@@ -362,6 +363,40 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: grid; place-items: center; z-index: 50; padding: 20px; }
 .modal.hidden { display: none; }
 .modal-content { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; max-width: 560px; width: 100%; max-height: 85vh; overflow-y: auto; }
+
+/* ---- Matriz GTO 13×13 ---- */
+.range-matrix-modal { z-index: 60; padding: 12px; align-items: flex-end; }
+@media (min-width: 520px) { .range-matrix-modal { align-items: center; } }
+.range-matrix-content { max-width: min(96vw, 540px); padding: 16px; max-height: 92vh; }
+.range-matrix-head h3 { margin: 0 0 4px; font-size: 17px; }
+.range-matrix-cards { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; }
+.range-matrix-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; margin: 8px 0 12px; color: var(--muted); }
+.range-matrix-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.range-matrix-legend i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+.range-matrix-legend i.raise { background: #e5534b; }
+.range-matrix-legend i.call { background: #3fb950; }
+.range-matrix-legend i.fold { background: #6e7681; }
+.range-matrix-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 14px; }
+.range-matrix-grid {
+  display: grid;
+  grid-template-columns: 20px repeat(13, minmax(26px, 1fr));
+  gap: 2px;
+  min-width: 300px;
+}
+.rm-label { font-size: 9px; color: var(--muted); display: grid; place-items: center; font-weight: 700; }
+.rm-corner { border: none; background: transparent; }
+.rm-cell {
+  font-size: 8px; font-weight: 700; border-radius: 3px; padding: 3px 0;
+  text-align: center; line-height: 1.15; border: 1px solid rgba(0,0,0,.12);
+}
+.rm-cell.raise { background: #e5534b; color: #fff; }
+.rm-cell.call { background: #3fb950; color: #101810; }
+.rm-cell.fold { background: #6e7681; color: #f0f0f0; }
+.rm-cell.hero { box-shadow: 0 0 0 2px var(--gold), 0 0 0 3px rgba(216,165,51,.4); z-index: 1; position: relative; }
+.range-matrix-progress { font-size: 13px; color: var(--muted); margin: 16px 0; text-align: center; }
+.btn-matrix { padding: 2px 8px !important; font-size: 11px !important; margin-left: 6px; vertical-align: middle; }
+.tl-street { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dec-matrix-row { margin-top: 8px; }
 
 .hidden { display: none !important; }
 

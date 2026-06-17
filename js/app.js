@@ -75,6 +75,23 @@
     $('#train-errors').addEventListener('click', () => trainNextError());
     $('#export-data').addEventListener('click', exportData);
     $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
+    const rmm = $('#range-matrix-modal');
+    if (rmm) {
+      rmm.addEventListener('click', (e) => {
+        if (e.target.id === 'range-matrix-modal' || e.target.closest('[data-close-matrix]')) closeRangeMatrixModal();
+      });
+    }
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-range-matrix]');
+      if (!btn) return;
+      const source = btn.dataset.matrixSource || 'session';
+      const h = source === 'trainer' ? hand : currentHand;
+      if (!h || !h.decisions) return;
+      const idx = parseInt(btn.dataset.matrixDecisionIdx, 10);
+      if (isNaN(idx) || !h.decisions[idx]) return;
+      e.preventDefault();
+      openRangeMatrixModal(h, h.decisions[idx], source);
+    });
 
     // sesiones
     $('#session-file').addEventListener('change', (e) => {
@@ -291,6 +308,100 @@
     return html + '</div>';
   }
 
+  let matrixJob = 0;
+
+  function matrixStreetBtn(street, decisionIdx, source) {
+    return `<button type="button" class="btn btn-ghost btn-matrix" data-range-matrix="1" data-matrix-street="${street}" data-matrix-decision-idx="${decisionIdx}" data-matrix-source="${source}">Matriz GTO</button>`;
+  }
+
+  function closeRangeMatrixModal() {
+    matrixJob++;
+    const modal = $('#range-matrix-modal');
+    if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('range-matrix-open');
+  }
+
+  function renderRangeMatrixGrid(result, heroCode) {
+    const ranks = result.ranks;
+    let html = '<div class="range-matrix-wrap"><div class="range-matrix-grid">';
+    html += '<div class="rm-corner"></div>';
+    ranks.forEach((r) => { html += `<div class="rm-label">${r}</div>`; });
+    for (let row = 0; row < 13; row++) {
+      html += `<div class="rm-label">${ranks[row]}</div>`;
+      for (let col = 0; col < 13; col++) {
+        const cell = result.cells[row][col];
+        const isHero = heroCode && cell.label === heroCode;
+        html += `<div class="rm-cell ${cell.action}${isHero ? ' hero' : ''}" title="${cell.label}: R${Math.round(cell.freqs.raise * 100)}% C${Math.round(cell.freqs.call * 100)}% F${Math.round(cell.freqs.fold * 100)}%">${cell.label}</div>`;
+      }
+    }
+    return html + '</div></div>';
+  }
+
+  function openRangeMatrixModal(handObj, decision, source) {
+    const RM = window.PTRangeMatrix;
+    const modal = $('#range-matrix-modal');
+    const body = $('#range-matrix-body');
+    if (!RM || !modal || !body) return;
+
+    const job = ++matrixJob;
+    const baseInput = RM.buildBaseInput(handObj, decision, source);
+    const heroCards = RM.heroCardsFromHand(handObj);
+    const heroCode = (heroCards.length === 2 && window.Ranges)
+      ? window.Ranges.handCode(heroCards[0], heroCards[1])
+      : (handObj.heroCode || null);
+    const board = decision.board && decision.board.length
+      ? decision.board
+      : RM.boardSliceForStreet(handObj.board || [], decision.street);
+    const boardHtml = board.length
+      ? board.map(Cards.cardToHTML).join(' ')
+      : '<span class="muted-text">—</span>';
+    const heroHtml = heroCards.length
+      ? heroCards.map(Cards.cardToHTML).join(' ')
+      : '<span class="muted-text">—</span>';
+
+    modal.classList.remove('hidden');
+    document.body.classList.add('range-matrix-open');
+    body.innerHTML = `<div class="range-matrix-head">
+      <h3 id="range-matrix-title">Matriz GTO · ${cap(decision.street)}</h3>
+      <div class="muted-text">${escapeHtml(decision.context || decision.spot || '')}</div>
+      <div class="range-matrix-cards">
+        <span><strong>Tu mano:</strong> <span class="rec-cards">${heroHtml}</span> ${heroCode ? `<code>${heroCode}</code>` : ''}</span>
+        <span><strong>Board:</strong> <span class="rec-cards">${boardHtml}</span></span>
+      </div>
+      <div class="range-matrix-legend">
+        <span><i class="raise"></i> Raise / Bet</span>
+        <span><i class="call"></i> Call / Check</span>
+        <span><i class="fold"></i> Fold</span>
+      </div>
+      <div class="range-matrix-progress">Calculando matriz 13×13… 0%</div>
+    </div>`;
+
+    if (!baseInput) {
+      body.querySelector('.range-matrix-progress').textContent = 'No se pudo reconstruir el spot.';
+      body.innerHTML += '<button type="button" class="btn btn-primary btn-block" data-close-matrix>Cerrar</button>';
+      return;
+    }
+
+    RM.computeMatrixAsync(baseInput, function (done, total) {
+      if (job !== matrixJob) return;
+      const prog = body.querySelector('.range-matrix-progress');
+      if (prog) prog.textContent = `Calculando matriz 13×13… ${Math.round((done / total) * 100)}%`;
+    }).then(function (result) {
+      if (job !== matrixJob) return;
+      const head = body.querySelector('.range-matrix-head');
+      if (!head) return;
+      const prog = head.querySelector('.range-matrix-progress');
+      if (prog) prog.remove();
+      head.insertAdjacentHTML('beforeend', renderRangeMatrixGrid(result, heroCode));
+      head.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-primary btn-block" data-close-matrix style="margin-top:4px">Cerrar</button>');
+    }).catch(function (err) {
+      if (job !== matrixJob) return;
+      const prog = body.querySelector('.range-matrix-progress');
+      if (prog) prog.textContent = 'Error: ' + (err.message || 'no se pudo generar la matriz');
+      body.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-primary btn-block" data-close-matrix>Cerrar</button>');
+    });
+  }
+
   function showFeedback(d) {
     const fb = $('#feedback');
     fb.classList.remove('hidden');
@@ -364,6 +475,7 @@
       if (d.explanation) html += `<div class="dec-expl">${escapeHtml(d.explanation)}</div>`;
       if (d.renderAlert) html += `<div class="dec-expl" style="color:var(--orange)">${escapeHtml(d.renderAlert)}</div>`;
       html += renderOptionGrid(d.optionBreakdown, d.action);
+      html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, i, 'trainer')}</div>`;
       html += '</div>';
     });
     html += '</div>';
@@ -828,7 +940,8 @@
     html += '<div class="timeline">';
     h.summary.forEach((item) => {
       if (item.kind === 'street') {
-        html += `<div class="tl-street"><span>${cap(item.street)}</span> ${item.board.length ? '<span class="tl-board">' + item.board.map(Cards.cardToHTML).join('') + '</span>' : ''}</div>`;
+        const decIdx = window.PTRangeMatrix ? window.PTRangeMatrix.findDecisionIndex(h, item.street) : -1;
+        html += `<div class="tl-street"><span>${cap(item.street)}</span> ${item.board.length ? '<span class="tl-board">' + item.board.map(Cards.cardToHTML).join('') + '</span>' : ''}${decIdx >= 0 ? matrixStreetBtn(item.street, decIdx, 'session') : ''}</div>`;
       } else {
         const isHero = item.player === currentSession.hero;
         let heroDec = null;
@@ -935,6 +1048,7 @@
       <div>Elegiste <strong>${actionName(action)}</strong> · EV loss: <span class="${ev.evLoss > 0 ? 'net-neg' : 'net-pos'}">${ev.evLoss > 0 ? '-' + fmtBB(ev.evLoss) : '0.00'} bb</span>${ev.evLossTier ? ` (${ev.evLossTier})` : ''}</div>`;
     if (evalResult.explanation) html += `<div class="spot-context" style="margin-top:6px;font-size:13px">${escapeHtml(evalResult.explanation)}</div>`;
     html += renderOptionGrid(evalResult.optionBreakdown, action);
+    html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, replayState.idx, 'session')}</div>`;
     html += `<div class="muted-text" style="margin-top:6px">En la mano real elegiste <strong>${actionName(d.chosen)}</strong> (${verdictWord(d.class)}).${sameAsReal ? ' Misma decisión.' : ''}</div>
       <button class="btn btn-primary" id="replay-next" style="margin-top:12px">${replayState.idx + 1 >= h.decisions.length ? 'Ver resumen' : 'Siguiente decisión »'}</button>
     </div>`;

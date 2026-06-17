@@ -374,6 +374,9 @@
       explanation: evalResult.explanation,
       errors: ev.errors,
       potBB: node.potBB,
+      toCallBB: node.toCallBB || 0,
+      availableActions: (node.options || []).map((o) => o.id),
+      board: hand.board.slice(),
       context: node.context
     };
     hand.decisions.push(decision);
@@ -891,11 +894,45 @@
     return hand;
   }
 
+  function boardSliceForStreet(hand, street) {
+    const n = { preflop: 0, flop: 3, turn: 4, river: 5 }[street] || 0;
+    return hand.board.slice(0, n);
+  }
+
+  function inferDecisionOptions(d) {
+    if (d.availableActions && d.availableActions.length) return d.availableActions;
+    const gto = d.gto || {};
+    const order = ['fold', 'check', 'call', 'bet_33', 'bet_66', 'bet_100', 'bet', 'raise'];
+    return order.filter((a) => gto[a] != null);
+  }
+
+  /** Input GTO del spot (sin mano concreta) para matriz 13×13 en repaso. */
+  function buildMatrixInput(hand, d) {
+    const board = d.board != null ? d.board.slice() : boardSliceForStreet(hand, d.street);
+    const opts = inferDecisionOptions(d);
+    const node = {
+      street: d.street,
+      kind: d.kind,
+      potBB: d.potBB,
+      toCallBB: d.toCallBB != null ? d.toCallBB : 0,
+      options: opts.map((id) => ({ id })),
+      heroEquity: d.heroEquity,
+      info: d.madeHandInfo
+    };
+    const input = buildSpotInput(hand, node, null);
+    delete input.chosenAction;
+    delete input.heroCards;
+    delete input.handCode;
+    input.board = board;
+    return input;
+  }
+
   global.Engine = {
     newHand, act,
     // utilidades expuestas para UI/tests/importador
     handStrength01, equityVsRange, classifyMadeHand, sampleHandFromRange,
     rfiStrategy, vsRfiStrategy, classify,
-    postflopStrategy, boardTexture, preflopEvLoss, postflopEvLoss, round2
+    postflopStrategy, boardTexture, preflopEvLoss, postflopEvLoss, round2,
+    buildMatrixInput
   };
 })(window);

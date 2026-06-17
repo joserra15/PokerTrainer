@@ -57,10 +57,11 @@
         shoveNode: !!out.riverShove
       };
 
+      const eqIters = out._equityIters || (out.riverShove ? 500 : 400);
       if (out.heroEquity == null) {
-        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, 400, eqOpts);
+        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, eqIters, eqOpts);
       } else if (out.riverShove) {
-        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, 500, eqOpts);
+        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, eqIters, eqOpts);
       }
 
       if (RS && out.riverShove && out.heroCards) {
