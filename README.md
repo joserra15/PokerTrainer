@@ -12,8 +12,8 @@ un histórico de manos y un registro de errores para repetir esos spots.
 ## Login con Google
 
 La app requiere **iniciar sesión con Google** antes de usar cualquier pestaña.
-Los datos (histórico, errores, sesiones importadas) se guardan **por cuenta** en
-`localStorage` de tu navegador.
+Los datos (histórico, errores, sesiones importadas) se guardan **por cuenta** y se
+sincronizan con Supabase si está configurado (`js/supabase-config.js`).
 
 ### Configurar OAuth (una sola vez)
 
@@ -149,6 +149,30 @@ sesión** completa. Todo se guarda en `localStorage`.
 - **Estadísticas**: manos jugadas, % de acierto, resultado total y distribución
   de la calidad de tus decisiones.
 
+## Sincronización en la nube (Supabase)
+
+Al iniciar sesión, la app sincroniza **histórico, errores, estadísticas y sesiones
+importadas** con Supabase. Los ficheros `.txt` de sesiones **no** se suben (solo el
+análisis procesado); el `.txt` sigue en `localStorage` del dispositivo donde lo importaste.
+
+- **Nube = fuente de verdad** al iniciar sesión (gana el dato más reciente por tipo).
+- **localStorage = caché** local; cada cambio se guarda aquí y se sube a la nube (debounce 2 s).
+- Menú de cuenta → fila **Nube**: estado de sincronización.
+
+### Configurar Supabase (una vez)
+
+1. Copia `js/supabase-config.example.js` → `js/supabase-config.js` y rellena `url`, `anonKey`, `enabled: true`.
+2. En Supabase → **SQL Editor**, ejecuta `supabase/schema.sql` (tabla `pt_user_state`).
+3. Prueba la conexión:
+
+```
+node tools/test-supabase.js
+```
+
+4. Recarga la app e inicia sesión. La primera vez, si solo tienes datos locales, se migran a la nube.
+
+> **RLS actual (desarrollo):** la política `anon_read_write_dev` permite lectura/escritura anónima. Para producción conviene Supabase Auth con Google y políticas por `user_id`.
+
 ## Estructura del proyecto
 
 ```
@@ -157,10 +181,14 @@ css/styles.css      Estilos (mesa, cartas, paneles)
 js/cards.js         Cartas, baraja y evaluador de manos de 5-7 cartas
 js/ranges.js        Rangos GTO + expansor de notación de poker
 js/engine.js        Generador de spots, evaluación GTO, EV y juego de la mano
-js/storage.js       Histórico, errores y estadísticas en localStorage (por usuario)
-js/auth.js          Login con Google y menú de cuenta
+js/storage.js       Histórico, errores y estadísticas (local + sync nube)
+js/cloud-store.js   Cliente Supabase: pull al login, push con debounce
+js/supabase-config.js URL y anon key de Supabase (ver .example)
+js/auth.js          Login con Google, sync al entrar y menú de cuenta
 js/google-config.js Client ID OAuth (ver google-config.example.js)
 js/app.js           Interfaz: pinta la mesa y orquesta todo
+supabase/schema.sql Tabla pt_user_state para sincronización
+tools/test-supabase.js Prueba lectura/escritura contra Supabase
 tools/selftest.js   Test en Node del evaluador, rangos y simulación de manos
 ```
 

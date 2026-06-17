@@ -88,7 +88,16 @@
         '<div class="account-row"><span>Correo</span><strong>' + escapeHtml(user.email) + '</strong></div>' +
         (user.emailVerified ? '<div class="account-row"><span>Verificado</span><strong>Sí</strong></div>' : '') +
         (user.locale ? '<div class="account-row"><span>Idioma</span><strong>' + escapeHtml(user.locale) + '</strong></div>' : '') +
-        '<div class="account-row"><span>ID</span><code>' + escapeHtml(user.sub.slice(0, 12)) + '…</code></div>';
+        '<div class="account-row"><span>ID</span><code>' + escapeHtml(user.sub.slice(0, 12)) + '…</code></div>' +
+        '<div class="account-row" data-cloud-status><span>Nube</span><strong>…</strong></div>';
+    }
+    if (global.PTCloud && global.PTCloud.getStatus) {
+      const st = global.PTCloud.getStatus();
+      const cloudRow = metaEl && metaEl.querySelector('[data-cloud-status] strong');
+      if (cloudRow) {
+        const labels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error' };
+        cloudRow.textContent = labels[st.status] || st.status;
+      }
     }
 
     trigger.onclick = function (e) {
@@ -113,13 +122,19 @@
     }
   }
 
-  function enterApp(user) {
+  async function enterApp(user) {
     if (!user) return;
     user = normalizeUser(user);
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (e) { /* noop */ }
     currentUser = user;
     global.PT_AUTH_USER = user;
     if (global.Store && global.Store.setUserId) global.Store.setUserId(user.sub);
+    if (global.PTCloud && global.PTCloud.setUser) {
+      global.PTCloud.setUser(user);
+      document.body.classList.add('pt-cloud-syncing');
+      try { await global.PTCloud.syncOnLogin(); } catch (e) { console.warn('[PTCloud]', e); }
+      document.body.classList.remove('pt-cloud-syncing');
+    }
     setAppVisible(true);
     renderAccountMenu(user);
     startAppIfNeeded();
@@ -173,6 +188,7 @@
     try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e) { /* noop */ }
     currentUser = null;
     global.PT_AUTH_USER = null;
+    if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
     appStarted = false;
     if (global.PT_retryLogin) global.PT_retryLogin();
     else location.reload();
@@ -203,6 +219,10 @@
 
     global.addEventListener('pt-auth-bootstrap', function (e) {
       enterApp(e.detail);
+    });
+
+    global.addEventListener('pt-cloud-status', function () {
+      if (currentUser) renderAccountMenu(currentUser);
     });
 
     let gsiAttempts = 0;

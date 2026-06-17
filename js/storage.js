@@ -32,6 +32,21 @@
     try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* cuota */ }
   }
 
+  function notifySync(keys) {
+    if (!global.PTCloud) return;
+    if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(keys);
+    if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(keys);
+  }
+
+  function stripSessionsForCloud(sessions) {
+    return sessions.map(function (s) {
+      const copy = Object.assign({}, s);
+      delete copy.rawText;
+      copy.hasTxt = false;
+      return copy;
+    });
+  }
+
   function migrateLegacyOnce(uid) {
     if (!uid) return;
     const flag = 'pt_migrated_v1_' + uid;
@@ -121,6 +136,7 @@
     st.totalEvLoss = Math.round(st.totalEvLoss * 100) / 100;
     st.totalNet = Math.round(st.totalNet * 100) / 100;
     write(scopedKey('stats'), st);
+    notifySync(['history', 'errors', 'stats']);
 
     return rec;
   }
@@ -166,12 +182,17 @@
     localStorage.removeItem(scopedKey('history'));
     localStorage.removeItem(scopedKey('errors'));
     localStorage.removeItem(scopedKey('stats'));
+    notifySync(['history', 'errors', 'stats']);
   }
-  function clearErrors() { localStorage.removeItem(scopedKey('errors')); }
+  function clearErrors() {
+    localStorage.removeItem(scopedKey('errors'));
+    notifySync(['errors']);
+  }
 
   function removeError(id) {
     const errs = getErrors().filter((e) => e.id !== id);
     write(scopedKey('errors'), errs);
+    notifySync(['errors']);
   }
 
   function exportData() {
@@ -185,20 +206,61 @@
     const idx = list.findIndex((s) => s.id === session.id);
     if (idx >= 0) list[idx] = session; else list.unshift(session);
     write(scopedKey('sessions'), list);
+    notifySync(['sessions']);
     return session;
   }
-  function removeSession(id) { write(scopedKey('sessions'), getSessions().filter((s) => s.id !== id)); }
+  function removeSession(id) {
+    write(scopedKey('sessions'), getSessions().filter((s) => s.id !== id));
+    notifySync(['sessions']);
+  }
   function deleteSessionTxt(id) {
     const list = getSessions();
     const s = list.find((x) => x.id === id);
-    if (s) { s.rawText = null; s.hasTxt = false; write(scopedKey('sessions'), list); }
+    if (s) { s.rawText = null; s.hasTxt = false; write(scopedKey('sessions'), list); notifySync(['sessions']); }
     return s;
+  }
+
+  function getCloudSnapshot() {
+    return {
+      stats: getStats(),
+      history: getHistory(),
+      errors: getErrors(),
+      sessions: stripSessionsForCloud(getSessions())
+    };
+  }
+
+  function mergeSessionsFromCloud(cloudSessions) {
+    const local = getSessions();
+    const localById = {};
+    local.forEach(function (s) { localById[s.id] = s; });
+    const merged = cloudSessions.map(function (cloudS) {
+      const localS = localById[cloudS.id];
+      if (localS && localS.rawText && !cloudS.rawText) {
+        return Object.assign({}, cloudS, { rawText: localS.rawText, hasTxt: true });
+      }
+      return cloudS;
+    });
+    const cloudIds = {};
+    merged.forEach(function (s) { cloudIds[s.id] = true; });
+    local.forEach(function (s) {
+      if (!cloudIds[s.id]) merged.unshift(s);
+    });
+    return merged;
+  }
+
+  function replaceFromCloud(snapshot) {
+    if (!snapshot) return;
+    if (snapshot.stats) write(scopedKey('stats'), snapshot.stats);
+    if (snapshot.history) write(scopedKey('history'), snapshot.history);
+    if (snapshot.errors) write(scopedKey('errors'), snapshot.errors);
+    if (snapshot.sessions) write(scopedKey('sessions'), mergeSessionsFromCloud(snapshot.sessions));
   }
 
   global.Store = {
     setUserId,
     getHistory, getErrors, getStats, saveHand,
     clearAll, clearErrors, removeError, exportData, scenarioLabel,
-    getSessions, getSession, saveSession, removeSession, deleteSessionTxt
+    getSessions, getSession, saveSession, removeSession, deleteSessionTxt,
+    getCloudSnapshot, replaceFromCloud
   };
 })(window);

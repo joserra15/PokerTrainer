@@ -89,6 +89,7 @@ body {
 
 /* ---- Login gate ---- */
 body.auth-locked { overflow: hidden; }
+body.pt-cloud-syncing #app-shell { opacity: 0.92; pointer-events: none; }
 .auth-gate {
   position: fixed; inset: 0; z-index: 100;
   display: grid; place-items: center;
