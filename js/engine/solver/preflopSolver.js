@@ -56,10 +56,34 @@
     }
 
     if (mode === 'squeeze' || mode === 'iso') {
-      const raiseFreq = clamp(0.05 + (s - 0.40) * 1.8, 0.02, 0.95);
-      if (out.raise != null) {
+      // Suaviza frecuencias sin invertir la acción dominante de la tabla base.
+      let dom = 'fold';
+      let domVal = -1;
+      ['fold', 'call', 'raise'].forEach(function (k) {
+        const v = out[k] || 0;
+        if (v > domVal) { domVal = v; dom = k; }
+      });
+      if (dom === 'raise') {
+        const raiseFreq = clamp((out.raise || 0.5) + (s - 0.75) * 0.2, 0.12, 0.95);
         out.raise = raiseFreq;
-        out.fold = clamp(1 - raiseFreq - (out.call || 0), 0, 0.95);
+        const rem = 1 - raiseFreq;
+        const callShare = (out.call || 0) / Math.max((out.call || 0) + (out.fold || 0), 0.001);
+        out.call = rem * callShare;
+        out.fold = rem * (1 - callShare);
+      } else if (dom === 'call') {
+        const callFreq = clamp((out.call || 0.5) + (s - 0.78) * 0.18, 0.12, 0.88);
+        out.call = callFreq;
+        const rem = 1 - callFreq;
+        const raiseShare = (out.raise || 0) / Math.max((out.raise || 0) + (out.fold || 0), 0.001);
+        out.raise = rem * raiseShare;
+        out.fold = rem * (1 - raiseShare);
+      } else {
+        const foldFreq = clamp((out.fold || 0.8) + (0.60 - s) * 0.22, 0.45, 0.98);
+        out.fold = foldFreq;
+        const rem = 1 - foldFreq;
+        const callShare = (out.call || 0) / Math.max((out.call || 0) + (out.raise || 0), 0.001);
+        out.call = rem * callShare;
+        out.raise = rem * (1 - callShare);
       }
       return normalize(out);
     }

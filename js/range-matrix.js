@@ -148,13 +148,17 @@
     return { raise, call, fold };
   }
 
-  function dominantAction(collapsed) {
-    const r = collapsed.raise;
-    const c = collapsed.call;
-    const f = collapsed.fold;
-    if (r >= c && r >= f) return 'raise';
-    if (c >= f) return 'call';
-    return 'fold';
+  function dominantAction(collapsed, actionOrder) {
+    const order = actionOrder && actionOrder.length
+      ? actionOrder
+      : ['fold', 'call', 'raise'];
+    let best = order[0];
+    let max = -1;
+    order.forEach(function (a) {
+      const v = collapsed[a] || 0;
+      if (v > max) { max = v; best = a; }
+    });
+    return best;
   }
 
   function boardSliceForStreet(board, street) {
@@ -218,7 +222,7 @@
             if (heroCards) {
               const raw = strategyForCombo(baseInput, label, heroCards);
               freqs = collapseStrategy(raw);
-              action = dominantAction(freqs);
+              action = dominantAction(freqs, baseInput.availableActions);
             }
             cells[row][col] = { label, action, freqs };
             done++;
