@@ -1,5 +1,5 @@
 /*
- * range-matrix.js — Matriz 13×13 de estrategia GTO por spot (raise / call / fold).
+ * range-matrix.js — Matrices 13×13: GTO hero (preflop) y rango villano (postflop).
  */
 (function (global) {
   'use strict';
@@ -8,7 +8,102 @@
   const RAISE_KEYS = ['raise', 'bet', 'bet_33', 'bet_66', 'bet_100'];
   const CALL_KEYS = ['call', 'check'];
   const FOLD_KEYS = ['fold'];
-  const CHUNK_SIZE = 6;
+  const CHUNK_SIZE = 8;
+  const D = function () { return global.GTORangesData || {}; };
+
+  const EXPLORER_SPOTS = {
+    RFI: {
+      label: 'RFI',
+      heroPositions: ['UTG', 'HJ', 'CO', 'BTN', 'SB'],
+      villainPositions: [],
+      build: function (heroPos) {
+        return {
+          spotKind: 'RFI',
+          position: heroPos,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 1.5,
+          toCallBB: 0,
+          initiative: 'none',
+          availableActions: ['fold', 'raise']
+        };
+      },
+      title: function (heroPos) { return 'RFI · ' + heroPos; }
+    },
+    '3bet': {
+      label: '3-Bet',
+      heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
+      villainPositions: ['UTG', 'HJ', 'CO', 'BTN'],
+      build: function (heroPos, villainPos) {
+        const key = heroPos + '_vs_' + villainPos;
+        const data = D().VS_RFI || {};
+        if (!data[key]) return null;
+        return {
+          spotKind: 'vsRFI',
+          position: heroPos,
+          vsPosition: villainPos,
+          vsRfiKey: key,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 5,
+          toCallBB: 2.5,
+          initiative: 'caller',
+          availableActions: ['fold', 'call', 'raise']
+        };
+      },
+      title: function (heroPos, villainPos) { return heroPos + ' vs open ' + villainPos; }
+    },
+    '4bet': {
+      label: '4-Bet',
+      heroPositions: ['UTG', 'HJ', 'CO', 'BTN', 'SB'],
+      villainPositions: [],
+      build: function (heroPos) {
+        return {
+          spotKind: 'face3bet',
+          position: heroPos,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 22,
+          toCallBB: 7,
+          initiative: 'aggressor',
+          availableActions: ['fold', 'call', 'raise']
+        };
+      },
+      title: function (heroPos) { return heroPos + ' afronta 3-bet'; }
+    },
+    squeeze: {
+      label: 'Squeeze',
+      heroPositions: ['BB', 'SB', 'BTN'],
+      villainPositions: ['UTG', 'HJ', 'CO'],
+      villainLabel: 'Opener',
+      build: function (heroPos, villainPos) {
+        return {
+          spotKind: 'squeeze',
+          position: heroPos,
+          vsPosition: villainPos,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 8,
+          toCallBB: 2.5,
+          initiative: 'caller',
+          availableActions: ['fold', 'call', 'raise']
+        };
+      },
+      title: function (heroPos, villainPos) { return heroPos + ' squeeze vs ' + villainPos; }
+    }
+  };
+
+  const SQUEEZE_COMBOS = [
+    { heroPos: 'BB', openerPos: 'CO' },
+    { heroPos: 'BB', openerPos: 'HJ' },
+    { heroPos: 'SB', openerPos: 'UTG' },
+    { heroPos: 'BTN', openerPos: 'UTG' },
+    { heroPos: 'BTN', openerPos: 'HJ' }
+  ];
 
   function cellLabel(row, col) {
     const r1 = RANKS[row];
@@ -25,6 +120,12 @@
       if (combos.length) return combos[0];
     }
     return null;
+  }
+
+  function expandRangeSet(rangeStr) {
+    const N = global.GTORangesNotation;
+    if (!N || !rangeStr) return new Set();
+    return N.toSet(rangeStr);
   }
 
   function collapseStrategy(freqs) {
@@ -61,13 +162,6 @@
     return (board || []).slice(0, n);
   }
 
-  function inferOptions(decision) {
-    if (decision.options && decision.options.length) return decision.options.slice();
-    const gto = decision.gto || {};
-    const order = ['fold', 'check', 'call', 'bet_33', 'bet_66', 'bet_100', 'bet', 'raise'];
-    return order.filter(function (a) { return gto[a] != null; });
-  }
-
   function heroCardsFromHand(hand) {
     if (hand.heroCards && hand.heroCards.length === 2) return hand.heroCards;
     if (hand.hero && hand.hero.cards && hand.hero.cards.length === 2) return hand.hero.cards;
@@ -75,6 +169,7 @@
   }
 
   function buildBaseInput(hand, decision, source) {
+    if (decision.street !== 'preflop') return null;
     if (source === 'session' && global.Importer && global.Importer.buildEvalInputFromDecision) {
       const input = global.Importer.buildEvalInputFromDecision(hand, decision);
       delete input.chosenAction;
@@ -99,35 +194,12 @@
     return global.GTO.getStrategy(input);
   }
 
-  function computeMatrix(baseInput) {
-    const dead = (baseInput.board || []).slice();
-    const cells = [];
-    for (let row = 0; row < 13; row++) {
-      const rowCells = [];
-      for (let col = 0; col < 13; col++) {
-        const label = cellLabel(row, col);
-        const heroCards = pickRepresentativeCards(label, dead);
-        let action = 'fold';
-        let freqs = { raise: 0, call: 0, fold: 1 };
-        if (heroCards) {
-          const raw = strategyForCombo(baseInput, label, heroCards);
-          freqs = collapseStrategy(raw);
-          action = dominantAction(freqs);
-        }
-        rowCells.push({ label, action, freqs });
-      }
-      cells.push(rowCells);
-    }
-    return { ranks: RANKS, cells };
-  }
-
-  function computeMatrixAsync(baseInput, onProgress) {
+  function computeGtoMatrixAsync(baseInput, onProgress) {
     return new Promise(function (resolve, reject) {
-      if (!baseInput) {
-        reject(new Error('Spot no disponible para matriz'));
+      if (!baseInput || baseInput.street !== 'preflop') {
+        reject(new Error('Matriz GTO solo disponible en preflop'));
         return;
       }
-      const dead = (baseInput.board || []).slice();
       const cells = [];
       let row = 0;
       let col = 0;
@@ -140,7 +212,7 @@
           while (n < CHUNK_SIZE && row < 13) {
             if (!cells[row]) cells[row] = [];
             const label = cellLabel(row, col);
-            const heroCards = pickRepresentativeCards(label, dead);
+            const heroCards = pickRepresentativeCards(label, []);
             let action = 'fold';
             let freqs = { raise: 0, call: 0, fold: 1 };
             if (heroCards) {
@@ -155,7 +227,7 @@
             n++;
           }
           if (onProgress) onProgress(done, total);
-          if (row >= 13) resolve({ ranks: RANKS, cells });
+          if (row >= 13) resolve({ ranks: RANKS, cells, mode: 'gto' });
           else setTimeout(tick, 0);
         } catch (e) {
           reject(e);
@@ -163,6 +235,90 @@
       }
       tick();
     });
+  }
+
+  function computeVillainRangeMatrix(rangeStr) {
+    const inRange = expandRangeSet(rangeStr || D().BROAD_CONTINUE);
+    const cells = [];
+    for (let row = 0; row < 13; row++) {
+      const rowCells = [];
+      for (let col = 0; col < 13; col++) {
+        const label = cellLabel(row, col);
+        rowCells.push({
+          label,
+          action: inRange.has(label) ? 'inrange' : 'out',
+          inRange: inRange.has(label)
+        });
+      }
+      cells.push(rowCells);
+    }
+    return { ranks: RANKS, cells, mode: 'villain', rangeStr: rangeStr || '' };
+  }
+
+  function getVillainRangeForDecision(hand, decision, source) {
+    if (decision.villainRange) return decision.villainRange;
+
+    const VT = global.GTOVillainTracking;
+    const board = decision.board && decision.board.length
+      ? decision.board
+      : boardSliceForStreet(hand.board || [], decision.street);
+
+    if (source === 'session' && hand.streets && hand.hero && VT && VT.estimateRangeFromActions) {
+      const acts = hand.streets[decision.street] || [];
+      const idx = decision.actionSequenceId != null ? decision.actionSequenceId : acts.length;
+      const bb = hand.bb || 0.05;
+      const base = D().BROAD_CONTINUE;
+      return VT.estimateRangeFromActions(
+        acts.slice(0, idx),
+        hand.hero,
+        bb,
+        decision.potBeforeBB || decision.potBB || 1,
+        board,
+        base
+      );
+    }
+
+    if (source === 'trainer' && hand.villain && VT && VT.estimateActiveRange) {
+      const baseRange = hand.villain.rangeStr || D().BROAD_CONTINUE;
+      const facingBet = (decision.toCallBB || 0) > 0;
+      const tags = hand.villainRangeTracker ? hand.villainRangeTracker.tags : [];
+      return VT.estimateActiveRange({
+        baseRange,
+        street: decision.street,
+        lastAction: decision.villainLastAction || (facingBet ? 'bet' : 'check'),
+        betBB: facingBet ? decision.toCallBB : 0,
+        potBeforeBB: decision.potBeforeBB || Math.max((decision.potBB || 1) - (decision.toCallBB || 0), 0.1),
+        board,
+        tags
+      });
+    }
+
+    return D().BROAD_CONTINUE;
+  }
+
+  function buildExplorerInput(spotType, heroPos, villainPos) {
+    const spot = EXPLORER_SPOTS[spotType];
+    if (!spot) return null;
+    if (spot.villainPositions && spot.villainPositions.length && !villainPos) return null;
+    return spot.build(heroPos, villainPos);
+  }
+
+  function explorerTitle(spotType, heroPos, villainPos) {
+    const spot = EXPLORER_SPOTS[spotType];
+    if (!spot) return '';
+    return spot.title(heroPos, villainPos);
+  }
+
+  function validVsRfiPairs() {
+    const keys = D().VS_RFI_KEYS || Object.keys(D().VS_RFI || {});
+    const pairs = {};
+    keys.forEach(function (k) {
+      const m = k.match(/^(\w+)_vs_(\w+)$/);
+      if (!m) return;
+      if (!pairs[m[1]]) pairs[m[1]] = [];
+      pairs[m[1]].push(m[2]);
+    });
+    return pairs;
   }
 
   function findDecisionIndex(hand, street) {
@@ -173,17 +329,30 @@
     return -1;
   }
 
+  function shortRange(str) {
+    if (!str) return '—';
+    if (str.length > 72) return str.slice(0, 69) + '…';
+    return str;
+  }
+
   global.PTRangeMatrix = {
     RANKS,
+    EXPLORER_SPOTS,
+    SQUEEZE_COMBOS,
     cellLabel,
     collapseStrategy,
     dominantAction,
     buildBaseInput,
-    computeMatrix,
-    computeMatrixAsync,
+    buildExplorerInput,
+    explorerTitle,
+    validVsRfiPairs,
+    computeGtoMatrixAsync,
+    computeVillainRangeMatrix,
+    getVillainRangeForDecision,
     findDecisionIndex,
     heroCardsFromHand,
     boardSliceForStreet,
-    inferOptions
+    shortRange,
+    expandRangeSet
   };
 })(window);

@@ -57,6 +57,7 @@
       if (t.dataset.tab === 'history') renderHistory();
       if (t.dataset.tab === 'errors') renderErrors();
       if (t.dataset.tab === 'stats') renderStats();
+      if (t.dataset.tab === 'ranges') renderRangesExplorer();
       if (t.dataset.tab === 'sessions') { showSessionsView('home'); renderSessionsList(); }
     }));
   }
@@ -90,7 +91,9 @@
       const idx = parseInt(btn.dataset.matrixDecisionIdx, 10);
       if (isNaN(idx) || !h.decisions[idx]) return;
       e.preventDefault();
-      openRangeMatrixModal(h, h.decisions[idx], source);
+      const kind = btn.dataset.matrixKind || 'gto';
+      if (kind === 'villain') openVillainMatrixModal(h, h.decisions[idx], source);
+      else openRangeMatrixModal(h, h.decisions[idx], source);
     });
 
     // sesiones
@@ -309,9 +312,13 @@
   }
 
   let matrixJob = 0;
+  let rangesState = { spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG' };
 
   function matrixStreetBtn(street, decisionIdx, source) {
-    return `<button type="button" class="btn btn-ghost btn-matrix" data-range-matrix="1" data-matrix-street="${street}" data-matrix-decision-idx="${decisionIdx}" data-matrix-source="${source}">Matriz GTO</button>`;
+    if (street === 'preflop') {
+      return `<button type="button" class="btn btn-ghost btn-matrix" data-range-matrix="1" data-matrix-kind="gto" data-matrix-street="${street}" data-matrix-decision-idx="${decisionIdx}" data-matrix-source="${source}">Matriz GTO</button>`;
+    }
+    return `<button type="button" class="btn btn-ghost btn-matrix" data-range-matrix="1" data-matrix-kind="villain" data-matrix-street="${street}" data-matrix-decision-idx="${decisionIdx}" data-matrix-source="${source}">Matriz villano</button>`;
   }
 
   function closeRangeMatrixModal() {
@@ -321,7 +328,7 @@
     document.body.classList.remove('range-matrix-open');
   }
 
-  function renderRangeMatrixGrid(result, heroCode) {
+  function renderRangeMatrixGrid(result, heroCode, mode) {
     const ranks = result.ranks;
     let html = '<div class="range-matrix-wrap"><div class="range-matrix-grid">';
     html += '<div class="rm-corner"></div>';
@@ -331,7 +338,11 @@
       for (let col = 0; col < 13; col++) {
         const cell = result.cells[row][col];
         const isHero = heroCode && cell.label === heroCode;
-        html += `<div class="rm-cell ${cell.action}${isHero ? ' hero' : ''}" title="${cell.label}: R${Math.round(cell.freqs.raise * 100)}% C${Math.round(cell.freqs.call * 100)}% F${Math.round(cell.freqs.fold * 100)}%">${cell.label}</div>`;
+        if (mode === 'villain') {
+          html += `<div class="rm-cell ${cell.action}${isHero ? ' hero' : ''}" title="${cell.label}">${cell.label}</div>`;
+        } else {
+          html += `<div class="rm-cell ${cell.action}${isHero ? ' hero' : ''}" title="${cell.label}: R${Math.round(cell.freqs.raise * 100)}% C${Math.round(cell.freqs.call * 100)}% F${Math.round(cell.freqs.fold * 100)}%">${cell.label}</div>`;
+        }
       }
     }
     return html + '</div></div>';
@@ -342,6 +353,7 @@
     const modal = $('#range-matrix-modal');
     const body = $('#range-matrix-body');
     if (!RM || !modal || !body) return;
+    if (decision.street !== 'preflop') return;
 
     const job = ++matrixJob;
     const baseInput = RM.buildBaseInput(handObj, decision, source);
@@ -382,7 +394,7 @@
       return;
     }
 
-    RM.computeMatrixAsync(baseInput, function (done, total) {
+    RM.computeGtoMatrixAsync(baseInput, function (done, total) {
       if (job !== matrixJob) return;
       const prog = body.querySelector('.range-matrix-progress');
       if (prog) prog.textContent = `Calculando matriz 13×13… ${Math.round((done / total) * 100)}%`;
@@ -392,7 +404,7 @@
       if (!head) return;
       const prog = head.querySelector('.range-matrix-progress');
       if (prog) prog.remove();
-      head.insertAdjacentHTML('beforeend', renderRangeMatrixGrid(result, heroCode));
+      head.insertAdjacentHTML('beforeend', renderRangeMatrixGrid(result, heroCode, 'gto'));
       head.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-primary btn-block" data-close-matrix style="margin-top:4px">Cerrar</button>');
     }).catch(function (err) {
       if (job !== matrixJob) return;
@@ -400,6 +412,132 @@
       if (prog) prog.textContent = 'Error: ' + (err.message || 'no se pudo generar la matriz');
       body.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-primary btn-block" data-close-matrix>Cerrar</button>');
     });
+  }
+
+  function openVillainMatrixModal(handObj, decision, source) {
+    const RM = window.PTRangeMatrix;
+    const modal = $('#range-matrix-modal');
+    const body = $('#range-matrix-body');
+    if (!RM || !modal || !body) return;
+    if (decision.street === 'preflop') return;
+
+    const heroCards = RM.heroCardsFromHand(handObj);
+    const heroCode = (heroCards.length === 2 && window.Ranges)
+      ? window.Ranges.handCode(heroCards[0], heroCards[1])
+      : (handObj.heroCode || null);
+    const board = decision.board && decision.board.length
+      ? decision.board
+      : RM.boardSliceForStreet(handObj.board || [], decision.street);
+    const rangeStr = RM.getVillainRangeForDecision(handObj, decision, source);
+    const result = RM.computeVillainRangeMatrix(rangeStr);
+    const boardHtml = board.length ? board.map(Cards.cardToHTML).join(' ') : '—';
+    const heroHtml = heroCards.length ? heroCards.map(Cards.cardToHTML).join(' ') : '—';
+    const inCount = RM.expandRangeSet(rangeStr).size;
+
+    modal.classList.remove('hidden');
+    document.body.classList.add('range-matrix-open');
+    body.innerHTML = `<div class="range-matrix-head">
+      <h3 id="range-matrix-title">Matriz villano · ${cap(decision.street)}</h3>
+      <div class="muted-text">${escapeHtml(decision.context || decision.spot || '')}</div>
+      <div class="range-matrix-cards">
+        <span><strong>Tu mano:</strong> <span class="rec-cards">${heroHtml}</span></span>
+        <span><strong>Board:</strong> <span class="rec-cards">${boardHtml}</span></span>
+      </div>
+      <div class="muted-text" style="margin:8px 0">Rango estimado tras la acción del villano (~${inCount} combos): <code>${escapeHtml(RM.shortRange(rangeStr))}</code></div>
+      <div class="range-matrix-legend">
+        <span><i class="call"></i> En rango del villano</span>
+        <span><i class="fold"></i> Descartado</span>
+      </div>
+      ${renderRangeMatrixGrid(result, heroCode, 'villain')}
+      <button type="button" class="btn btn-primary btn-block" data-close-matrix style="margin-top:12px">Cerrar</button>
+    </div>`;
+  }
+
+  function renderRangesExplorer() {
+    const RM = window.PTRangeMatrix;
+    if (!RM) return;
+    const spotRow = $('#ranges-spot-row');
+    const heroRow = $('#ranges-hero-pos');
+    const villainRow = $('#ranges-villain-pos');
+    const villainBlock = $('#ranges-villain-block');
+    const villainLabel = $('#ranges-villain-label');
+    const titleEl = $('#ranges-spot-title');
+    const host = $('#ranges-matrix-host');
+    if (!spotRow || !heroRow || !host) return;
+
+    const spot = RM.EXPLORER_SPOTS[rangesState.spot] || RM.EXPLORER_SPOTS.RFI;
+    const vsPairs = RM.validVsRfiPairs();
+
+    spotRow.innerHTML = Object.keys(RM.EXPLORER_SPOTS).map((id) =>
+      `<button type="button" class="ranges-spot-btn${rangesState.spot === id ? ' active' : ''}" data-ranges-spot="${id}">${RM.EXPLORER_SPOTS[id].label}</button>`
+    ).join('');
+
+    let heroPositions = spot.heroPositions.slice();
+    if (rangesState.spot === '3bet' && vsPairs[rangesState.heroPos]) {
+      /* ok */
+    } else if (rangesState.spot === '3bet') {
+      rangesState.heroPos = heroPositions[0];
+    }
+    if (heroPositions.indexOf(rangesState.heroPos) < 0) rangesState.heroPos = heroPositions[0];
+
+    heroRow.innerHTML = heroPositions.map((p) =>
+      `<button type="button" class="ranges-pos-btn${rangesState.heroPos === p ? ' hero-active' : ''}" data-ranges-hero="${p}">${p}</button>`
+    ).join('');
+
+    const needsVillain = spot.villainPositions && spot.villainPositions.length > 0;
+    if (villainBlock) villainBlock.classList.toggle('hidden', !needsVillain);
+    if (needsVillain) {
+      let villainPositions = spot.villainPositions.slice();
+      if (rangesState.spot === '3bet') {
+        villainPositions = vsPairs[rangesState.heroPos] || villainPositions;
+        if (villainPositions.indexOf(rangesState.villainPos) < 0) rangesState.villainPos = villainPositions[0];
+      } else if (villainPositions.indexOf(rangesState.villainPos) < 0) {
+        rangesState.villainPos = villainPositions[0];
+      }
+      if (villainLabel) villainLabel.textContent = spot.villainLabel || 'Villano:';
+      villainRow.innerHTML = villainPositions.map((p) =>
+        `<button type="button" class="ranges-pos-btn${rangesState.villainPos === p ? ' villain-active' : ''}" data-ranges-villain="${p}">${p}</button>`
+      ).join('');
+    }
+
+    const input = RM.buildExplorerInput(rangesState.spot, rangesState.heroPos, needsVillain ? rangesState.villainPos : null);
+    if (titleEl) titleEl.textContent = RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos);
+
+    if (!input) {
+      host.innerHTML = '<p class="muted-text">Combinación de posiciones no disponible en las tablas.</p>';
+      return;
+    }
+
+    host.innerHTML = '<div class="range-matrix-progress">Calculando…</div>';
+    RM.computeGtoMatrixAsync(input, function (done, total) {
+      const prog = host.querySelector('.range-matrix-progress');
+      if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
+    }).then(function (result) {
+      host.innerHTML = renderRangeMatrixGrid(result, null, 'gto');
+    }).catch(function (e) {
+      host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
+    });
+
+    spotRow.querySelectorAll('[data-ranges-spot]').forEach((b) => {
+      b.onclick = function () {
+        rangesState.spot = b.dataset.rangesSpot;
+        renderRangesExplorer();
+      };
+    });
+    heroRow.querySelectorAll('[data-ranges-hero]').forEach((b) => {
+      b.onclick = function () {
+        rangesState.heroPos = b.dataset.rangesHero;
+        renderRangesExplorer();
+      };
+    });
+    if (needsVillain) {
+      villainRow.querySelectorAll('[data-ranges-villain]').forEach((b) => {
+        b.onclick = function () {
+          rangesState.villainPos = b.dataset.rangesVillain;
+          renderRangesExplorer();
+        };
+      });
+    }
   }
 
   function showFeedback(d) {

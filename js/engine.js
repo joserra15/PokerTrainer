@@ -377,6 +377,9 @@
       toCallBB: node.toCallBB || 0,
       availableActions: (node.options || []).map((o) => o.id),
       board: hand.board.slice(),
+      villainRange: node.street !== 'preflop' ? villainRangeAtNode(hand, node) : null,
+      villainLastAction: hand.villainAction ? hand.villainAction.type : null,
+      potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
       context: node.context
     };
     hand.decisions.push(decision);
@@ -925,6 +928,23 @@
     delete input.handCode;
     input.board = board;
     return input;
+  }
+
+  function villainRangeAtNode(hand, node) {
+    const D = GTO.Ranges && GTO.Ranges.data ? GTO.Ranges.data : (global.GTORangesData || {});
+    const baseRange = hand.villain.rangeStr || D.BROAD_CONTINUE || '22+, A2s+';
+    if (!VT || !VT.estimateActiveRange) return baseRange;
+    const facingBet = (node.toCallBB || 0) > 0;
+    const va = hand.villainAction;
+    return VT.estimateActiveRange({
+      baseRange,
+      street: node.street,
+      lastAction: facingBet ? 'bet' : (va ? va.type : 'check'),
+      betBB: facingBet ? node.toCallBB : (va && va.amount ? va.amount : 0),
+      potBeforeBB: facingBet ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
+      board: hand.board.slice(),
+      tags: hand.villainRangeTracker ? hand.villainRangeTracker.tags : []
+    });
   }
 
   global.Engine = {

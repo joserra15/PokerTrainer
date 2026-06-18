@@ -392,11 +392,37 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .rm-cell.raise { background: #e5534b; color: #fff; }
 .rm-cell.call { background: #3fb950; color: #101810; }
 .rm-cell.fold { background: #6e7681; color: #f0f0f0; }
+.rm-cell.inrange { background: #3fb950; color: #101810; }
+.rm-cell.out { background: #6e7681; color: #c8cdd2; opacity: 0.55; }
 .rm-cell.hero { box-shadow: 0 0 0 2px var(--gold), 0 0 0 3px rgba(216,165,51,.4); z-index: 1; position: relative; }
 .range-matrix-progress { font-size: 13px; color: var(--muted); margin: 16px 0; text-align: center; }
 .btn-matrix { padding: 2px 8px !important; font-size: 11px !important; margin-left: 6px; vertical-align: middle; }
 .tl-street { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .dec-matrix-row { margin-top: 8px; }
+
+/* ---- Explorador Rangos (tab) ---- */
+.ranges-panel { max-width: 560px; margin: 0 auto; }
+.ranges-panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.ranges-panel-head h2 { margin: 0; font-size: 20px; }
+.ranges-spot-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.ranges-spot-btn {
+  padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.ranges-spot-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ranges-pos-block { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.ranges-pos-label { font-size: 13px; color: var(--muted); min-width: 52px; font-weight: 600; }
+.ranges-pos-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.ranges-pos-btn {
+  min-width: 40px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--text); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.ranges-pos-btn.hero-active { background: rgba(47,129,247,.25); border-color: var(--accent); color: #fff; }
+.ranges-pos-btn.villain-active { background: rgba(229,83,75,.2); border-color: #e5534b; color: #fff; }
+.ranges-spot-title { font-size: 14px; font-weight: 600; margin: 12px 0 4px; }
+.ranges-explorer-legend { margin-bottom: 8px; }
+.ranges-explorer-legend i.raise { background: #e5534b; }
+#ranges-matrix-host .range-matrix-wrap { margin-bottom: 0; }
 
 .hidden { display: none !important; }
 

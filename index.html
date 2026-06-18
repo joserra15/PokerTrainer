@@ -7,14 +7,14 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>GTO Poker Trainer · Cash NL 6-max</title>
-  <script src="js/version.js?v=1.8.0"></script>
+  <script src="js/version.js?v=1.9.0"></script>
   <link rel="stylesheet" href="css/styles.css" id="pt-css" />
   <script>document.getElementById('pt-css').href = 'css/styles.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
-  <script src="js/google-config.js?v=1.8.0"></script>
-  <script src="js/supabase-config.js?v=1.8.0"></script>
-  <script src="js/auth-bootstrap.js?v=1.8.0"></script>
+  <script src="js/google-config.js?v=1.9.0"></script>
+  <script src="js/supabase-config.js?v=1.9.0"></script>
+  <script src="js/auth-bootstrap.js?v=1.9.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/cloud-store.js?v=1.8.0"></script>
+  <script src="js/cloud-store.js?v=1.9.0"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="auth-locked">
@@ -51,6 +51,7 @@
     </div>
     <nav class="tabs">
       <button class="tab active" data-tab="play">Jugar</button>
+      <button class="tab" data-tab="ranges">Rangos</button>
       <button class="tab" data-tab="sessions">Sesiones</button>
       <button class="tab" data-tab="history">Histórico</button>
       <button class="tab" data-tab="errors">Errores</button>
@@ -127,6 +128,32 @@
             </label>
           </div>
         </aside>
+      </div>
+    </section>
+
+    <!-- ===== RANGOS PREFLOP ===== -->
+    <section id="tab-ranges" class="tab-panel">
+      <div class="ranges-panel card-box">
+        <div class="ranges-panel-head">
+          <h2>Rangos preflop</h2>
+          <span class="muted-text">Cash NL 6-max · 100bb</span>
+        </div>
+        <div class="ranges-spot-row" id="ranges-spot-row"></div>
+        <div class="ranges-pos-block">
+          <span class="ranges-pos-label">Hero:</span>
+          <div class="ranges-pos-btns" id="ranges-hero-pos"></div>
+        </div>
+        <div class="ranges-pos-block" id="ranges-villain-block">
+          <span class="ranges-pos-label" id="ranges-villain-label">Villano:</span>
+          <div class="ranges-pos-btns" id="ranges-villain-pos"></div>
+        </div>
+        <p class="ranges-spot-title" id="ranges-spot-title"></p>
+        <div class="range-matrix-legend ranges-explorer-legend">
+          <span><i class="raise"></i> Raise / 3-bet / 4-bet</span>
+          <span><i class="call"></i> Call</span>
+          <span><i class="fold"></i> Fold</span>
+        </div>
+        <div id="ranges-matrix-host"></div>
       </div>
     </section>
 
