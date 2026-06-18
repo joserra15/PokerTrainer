@@ -950,6 +950,11 @@
   function openSession(id) {
     currentSession = Store.getSession(id);
     if (!currentSession) return;
+    if (Importer.recomputeHandDecisions && Importer.computeStats) {
+      currentSession.hands.forEach((h) => Importer.recomputeHandDecisions(h));
+      currentSession.stats = Importer.computeStats(currentSession.hands);
+      Store.saveSession(currentSession);
+    }
     renderSessionDetail('evLoss');
     showSessionsView('detail');
   }
@@ -979,12 +984,21 @@
         </div>
       </div>
       <div class="card-box">
-        <h3>EV perdido: decisiones vs varianza</h3>
+        <h3>EV esperado vs resultado real</h3>
+        <div class="stats-content" style="margin-bottom:12px">
+          <div class="stat-card"><div class="big ${st.expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${st.expectedNet >= 0 ? '+' : ''}${fmtBB(st.expectedNet != null ? st.expectedNet : -st.evDecision)}</div><div class="lbl">EV esperado (decisiones)</div></div>
+          <div class="stat-card"><div class="big ${netCls}">${st.actualNet != null ? (st.actualNet >= 0 ? '+' : '') + fmtBB(st.actualNet) : (st.netBB >= 0 ? '+' : '') + fmtBB(st.netBB)}</div><div class="lbl">Resultado real</div></div>
+          <div class="stat-card"><div class="big ${st.varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)}</div><div class="lbl">Varianza / suerte</div></div>
+        </div>
         <div class="dist-bar">
-          <span style="width:${st.pctDecision}%;background:var(--red)">${st.pctDecision}% decisiones</span>
+          <span style="width:${st.pctDecision}%;background:var(--red)">${st.pctDecision}% fugas</span>
           <span style="width:${st.pctVariance}%;background:var(--accent)">${st.pctVariance}% varianza</span>
         </div>
-        <div class="muted-text" style="margin-top:8px">Pérdida por decisiones: <strong>-${fmtBB(st.evDecision)} bb</strong>. Ajuste por varianza/suerte: <strong>${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)} bb</strong> (estimación: si hubieras jugado GTO tu resultado esperado sería ≈ ${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)} bb).</div>
+        <div class="muted-text" style="margin-top:8px">
+          EV perdido por errores: <strong>-${fmtBB(st.evDecision)} bb</strong>.
+          Resultado ajustado (real − fugas): <strong>${(st.adjustedNet != null ? st.adjustedNet : st.netBB - st.evDecision) >= 0 ? '+' : ''}${fmtBB(st.adjustedNet != null ? st.adjustedNet : st.netBB - st.evDecision)} bb</strong>.
+          Con juego sólido y poca varianza, EV esperado y resultado real suelen ser similares.
+        </div>
       </div>
       <div class="top-hands">
         <div class="card-box"><h3>5 mejores manos</h3>${topHandsHtml(st.best5)}</div>

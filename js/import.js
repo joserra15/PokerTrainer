@@ -320,6 +320,8 @@
       handCode: hand.heroCode || (hand.heroCards.length === 2 ? R.handCode(hand.heroCards[0], hand.heroCards[1]) : null),
       potBB: potEvalBB,
       toCallBB,
+      betSizeBB: d.betSizeBB || 0,
+      potBeforeBB,
       chosenAction,
       initiative: d.initiative || postflopCtx.initiative,
       inPosition: d.inPosition != null ? d.inPosition : postflopCtx.inPosition,
@@ -512,6 +514,7 @@
             availableActions: opts
           });
           const ev = evalResult.evaluation;
+          const raiseBB = a.type === 'raise' ? r2(a.to / hand.bb) : 0;
           decisions.push({
             street: 'preflop', spot: spotLabel(facing, heroPos, openerPos),
             spotKind, facing, vsPosition: openerPos, vsRfiKey,
@@ -521,6 +524,7 @@
             confidence: ev.confidence, score: ev.score, explanation: evalResult.explanation,
             optionBreakdown: evalResult.optionBreakdown,
             potBB: r2(potBB), potEvalBB: r2(potBB), toCallBB: r2(toCallBB),
+            betSizeBB: raiseBB,
             options: opts,
             context: preflopContext(facing, heroPos, openerPos, toCallBB)
           });
@@ -794,21 +798,25 @@
     const best5 = byNet.slice(0, 5);
     const worst5 = byNet.slice(-5).reverse();
 
-    // EV perdido por decisiones vs varianza
-    const evDecision = r2(evLoss);                 // bb perdidos por decisiones subóptimas
-    const varianceAdj = r2(netBB + evLoss);        // desviación del resultado real respecto a tu EV de decisiones
-    const mag = Math.abs(evDecision) + Math.abs(varianceAdj) || 1;
-    const pctDecision = Math.round((Math.abs(evDecision) / mag) * 100);
+    // EV por decisiones vs resultado real vs varianza
+    const evLostBB = r2(evLoss);
+    const actualNet = r2(netBB);
+    const expectedNet = r2(-evLostBB);
+    const varianceAdj = r2(actualNet - expectedNet);
+    const adjustedNet = r2(actualNet - evLostBB);
+    const mag = Math.abs(evLostBB) + Math.abs(varianceAdj) || 1;
+    const pctDecision = Math.round((Math.abs(evLostBB) / mag) * 100);
     const pctVariance = 100 - pctDecision;
 
     const grade = sessionGrade(accuracy, evLoss, decN, netBB);
 
     return {
       nHands: n, nDecisions: decN, accuracy, accByStreet, dist,
-      netBB: r2(netBB), evLossBB: r2(evLoss),
+      netBB: actualNet, evLossBB: evLostBB,
       evPerHand: n ? r2(evLoss / n) : 0,
       best5: best5.map(slim), worst5: worst5.map(slim),
-      evDecision, varianceAdj, pctDecision, pctVariance,
+      evDecision: evLostBB, expectedNet, actualNet, varianceAdj, adjustedNet,
+      pctDecision, pctVariance,
       grade
     };
   }

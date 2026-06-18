@@ -220,6 +220,32 @@ try {
 }
 console.log('Old session hand recompute:', oldRecomputeOk ? 'OK' : 'FAIL');
 
+const EvLoss = sandbox.window.GTOEvLoss;
+const errBet = EvLoss.computeEvLoss('flop', 'error', 'bet_66', null,
+  { check: 0.95, bet_33: 0.03, bet_66: 0.01, bet_100: 0.01 },
+  15, { potBB: 15, toCallBB: 0, betSizeBB: 5, street: 'flop' });
+console.log('Error bet 5bb loss', errBet.evLoss, '(expect >=5)');
+
+const impBet = EvLoss.computeEvLoss('flop', 'imprecisa', 'bet_33', null,
+  { check: 0.72, bet_33: 0.08, bet_66: 0.12, bet_100: 0.08 },
+  20, { potBB: 20, toCallBB: 0, betSizeBB: 6.6, street: 'flop' });
+console.log('Imprecisa bet loss', impBet.evLoss, '(expect >0 and <6.6)');
+
+const smallPotErr = EvLoss.computeEvLoss('flop', 'error', 'bet_33', null,
+  { check: 1, bet_33: 0, bet_66: 0, bet_100: 0 },
+  4, { potBB: 4, toCallBB: 0, betSizeBB: 1.32, street: 'flop' });
+const bigPotErr = EvLoss.computeEvLoss('flop', 'error', 'bet_66', null,
+  { check: 1, bet_33: 0, bet_66: 0, bet_100: 0 },
+  40, { potBB: 40, toCallBB: 0, betSizeBB: 26.4, street: 'flop' });
+console.log('Small vs big pot error loss', smallPotErr.evLoss, bigPotErr.evLoss, '(expect small < big)');
+
+const sessStats = Importer.computeStats([
+  { heroNetBB: 50, totalEvLoss: 80, decisions: [{ class: 'error', street: 'flop' }] },
+  { heroNetBB: -30, totalEvLoss: 2, decisions: [{ class: 'optima', street: 'flop' }] }
+]);
+console.log('Session expectedNet', sessStats.expectedNet, '(expect -82)');
+console.log('Session varianceAdj', sessStats.varianceAdj, '(expect 102)');
+
 let played = 0, errors = 0, complete = 0;
 for (let i = 0; i < 300; i++) {
   try {
@@ -239,4 +265,7 @@ for (let i = 0; i < 300; i++) {
   }
 }
 console.log(`Simulación: ${played} manos, ${complete} completadas, ${errors} errores.`);
-console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
+const evOk = errBet.evLoss >= 5 && impBet.evLoss > 0 && impBet.evLoss < 6.6
+  && smallPotErr.evLoss < bigPotErr.evLoss
+  && sessStats.expectedNet === -82 && sessStats.varianceAdj === 102;
+console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
