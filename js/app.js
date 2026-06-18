@@ -214,14 +214,13 @@
 
   function renderSeatChips(totalBB, streetBB) {
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
-    let html = '<div class="seat-chips">';
     if (streetBB > 0) {
-      html += `<span class="seat-chips-street" title="Apuesta en la calle"><span class="chip-ico"></span>${fmt(streetBB)}</span>`;
+      return `<div class="seat-chips"><span class="seat-chips-street" title="Apuesta en la calle"><span class="chip-ico"></span>${fmt(streetBB)} bb</span></div>`;
     }
     if (totalBB > 0) {
-      html += `<span class="seat-chips-total" title="Total invertido">${fmt(totalBB)} bb</span>`;
+      return `<div class="seat-chips"><span class="seat-chips-total" title="Ciega / invertido">${fmt(totalBB)} bb</span></div>`;
     }
-    return html + '</div>';
+    return '';
   }
 
   function renderSeats() {
@@ -250,7 +249,10 @@
       if (folded[pos]) cls.push('folded');
 
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? 'Pagador' : ''));
-      const actHtml = isVillain ? actionBadgeHTML(hand.villainAction) : '';
+      const seatActs = hand.seatActions || {};
+      let actHtml = '';
+      if (seatActs[pos]) actHtml = actionBadgeHTML(seatActs[pos]);
+      else if (isVillain) actHtml = actionBadgeHTML(hand.villainAction);
 
       const active = inHand.has(pos) && !folded[pos] && !isHero;
       let cardsHtml = '';
@@ -264,7 +266,7 @@
 
       const totalInv = invested[pos] || 0;
       const stBet = streetBet[pos] || 0;
-      const chipsHtml = (totalInv > 0 || stBet > 0) ? renderSeatChips(totalInv, stBet) : '';
+      const chipsHtml = renderSeatChips(totalInv, stBet);
 
       html += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
         ${cardsHtml}

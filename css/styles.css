@@ -553,8 +553,9 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   }
   .seats { pointer-events: none; }
   .seat.hero { display: none; }
-  .seat.villain .seat-act-wrap { display: none; }
-  .villain-action-bar:not(:empty) { display: flex; min-height: 28px; }
+  .seat.villain .seat-act-wrap,
+  .seat.caller .seat-act-wrap { display: flex; }
+  .villain-action-bar { display: none !important; }
   .board-area { margin-top: 4px; padding-top: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; }
   .seat { min-width: 50px; padding: 4px 6px; font-size: 10px; }
   .seat .seat-role { display: none; }

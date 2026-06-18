@@ -17,6 +17,7 @@
   const OPEN = 2.5, SB_OPEN = 3.0;        // tamaño de apertura
   const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
   const DEAL_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
+  const PREFLOP_ACTION = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 
   function dealFullTable() {
     const deck = C.shuffledDeckExcluding([]);
@@ -71,7 +72,26 @@
   function addInvest(hand, pos, amount) {
     if (!hand.table || !pos || !amount) return;
     hand.table.invested[pos] = round2((hand.table.invested[pos] || 0) + amount);
-    hand.table.streetBet[pos] = round2((hand.table.streetBet[pos] || 0) + amount);
+  }
+
+  function setPreflopSeatBet(hand, pos, amount) {
+    if (!hand.table || !pos) return;
+    hand.table.streetBet[pos] = round2(amount || 0);
+  }
+
+  function setSeatAction(hand, pos, type, amount) {
+    hand.seatActions = hand.seatActions || {};
+    hand.seatActions[pos] = { type: type, amount: amount != null ? amount : null };
+    if (hand.table && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
+      setPreflopSeatBet(hand, pos, amount);
+    }
+  }
+
+  function markFoldedBeforeHeroRFI(hand) {
+    if (!hand.table || !hand.hero.pos) return;
+    const idx = PREFLOP_ACTION.indexOf(hand.hero.pos);
+    if (idx <= 0) return;
+    for (let i = 0; i < idx; i++) markFolded(hand, PREFLOP_ACTION[i]);
   }
 
   function resetStreetBets(hand) {
@@ -155,22 +175,18 @@
 
   // ---------- Villano postflop ----------
   function villainPostflopAction(hand, node) {
-    // villano decide con su mano concreta y la textura
     const info = classifyMadeHand(hand.villain.cards, hand.board);
     const r = C.rng.random();
     if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
-      // villano afronta apuesta de hero
-      if (info.tier === 'strong') return r < 0.25 ? 'raise' : 'call';
-      if (info.tier === 'medium') return r < 0.6 ? 'call' : 'fold';
-      if (info.tier === 'weak') return r < 0.5 ? 'call' : 'fold';
-      return r < 0.2 ? 'raise' : 'fold'; // air: a veces farol-raise, casi siempre fold
-    } else {
-      // hero ha pasado (check): villano puede apostar o pasar
-      if (info.tier === 'strong') return r < 0.8 ? 'bet' : 'check';
-      if (info.tier === 'medium') return r < 0.35 ? 'bet' : 'check';
-      if (info.tier === 'weak') return r < 0.55 ? 'bet' : 'check';
-      return r < 0.4 ? 'bet' : 'check'; // air: farol a veces
+      if (info.tier === 'strong') return r < 0.18 ? 'raise' : 'call';
+      if (info.tier === 'medium') return r < 0.78 ? 'call' : 'fold';
+      if (info.tier === 'weak') return r < 0.62 ? 'call' : 'fold';
+      return r < 0.12 ? 'raise' : (r < 0.35 ? 'call' : 'fold');
     }
+    if (info.tier === 'strong') return r < 0.62 ? 'bet' : 'check';
+    if (info.tier === 'medium') return r < 0.28 ? 'bet' : 'check';
+    if (info.tier === 'weak') return r < 0.38 ? 'bet' : 'check';
+    return r < 0.22 ? 'bet' : 'check';
   }
 
   // ---------- Definición de escenarios ----------
@@ -299,6 +315,7 @@
       gto: freqs,
       context: `Eres ${pos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`
     };
+    markFoldedBeforeHeroRFI(hand);
   }
 
   function setupVsRFI(hand) {
@@ -345,6 +362,7 @@
     };
     setVillainAct(hand, 'open', openSize);
     addInvest(hand, opener, openSize);
+    setPreflopSeatBet(hand, opener, openSize);
     collapseOthersToHU(hand, opener);
   }
 
@@ -377,8 +395,12 @@
     };
     setVillainAct(hand, 'open', openSize);
     addInvest(hand, openerPos, openSize);
-    addInvest(hand, hand.scenario.callerPos, openSize);
-    collapseOthersToHU(hand, openerPos, [hand.scenario.callerPos]);
+    setPreflopSeatBet(hand, openerPos, openSize);
+    setSeatAction(hand, openerPos, 'open', openSize);
+    addInvest(hand, callerPos, openSize);
+    setPreflopSeatBet(hand, callerPos, openSize);
+    setSeatAction(hand, callerPos, 'call', openSize);
+    collapseOthersToHU(hand, openerPos, [callerPos]);
   }
 
   function setupIsoLimp(hand) {
@@ -492,7 +514,7 @@
       hand.heroInvested = node.squeezeSize;
       setHeroAct(hand, 'raise', node.squeezeSize);
       const roll = C.rng.random();
-      if (roll < 0.62) {
+      if (roll < 0.32) {
         setVillainAct(hand, 'fold');
         if (hand.scenario.callerPos) markFolded(hand, hand.scenario.callerPos);
         return finish(hand, { reason: 'Abridor y pagador se retiran ante tu squeeze.', heroNet: round2(hand.potBB - heroBlind) });
@@ -526,7 +548,7 @@
       hand.heroInvested = node.isoSize;
       setHeroAct(hand, 'raise', node.isoSize);
       const roll = C.rng.random();
-      if (roll < 0.58) {
+      if (roll < 0.38) {
         setVillainAct(hand, 'fold');
         return finish(hand, { reason: 'El limper se retira ante tu aislamiento.', heroNet: round2(hand.potBB - heroBlind) });
       }
@@ -556,7 +578,7 @@
       hand.heroInvested = fourBet;
       setHeroAct(hand, 'raise', fourBet);
       const roll = C.rng.random();
-      if (roll < 0.62) {
+      if (roll < 0.38) {
         setVillainAct(hand, 'fold');
         return finish(hand, { reason: 'El villano foldea ante tu 4-bet.', heroNet: round2(hand.villainInvested + SB) });
       }
@@ -595,13 +617,13 @@
       setHeroAct(hand, 'open', node.openSize);
       // reacción del villano (BB defiende, a veces 3bet, a veces fold)
       const roll = C.rng.random();
-      if (roll < 0.34) {
+      if (roll < 0.10) {
         // todos foldean: hero gana las ciegas
         return finish(hand, { reason: 'Todos se retiran. Te llevas las ciegas.', heroNet: round2(SB + BBET) });
       }
       // el villano es la BB
       hand.villain.pos = 'BB';
-      if (roll < 0.46) {
+      if (roll < 0.22) {
         // BB hace 3bet -> hero afronta 3bet
         const tbSize = round2(node.openSize * 3.5);
         hand.villain.rangeStr = bb3betRange(hand.hero.pos);
@@ -717,7 +739,7 @@
 
   function openerContinueVs3Bet(opener, villainCards, board) {
     // probabilidades aproximadas de reacción del abridor frente a un 3bet
-    return { foldProb: 0.5, fourBetProb: 0.12 };
+    return { foldProb: 0.36, fourBetProb: 0.10 };
   }
 
   function allInShowdown(hand) {
@@ -759,8 +781,8 @@
     const info = classifyMadeHand(hand.villain.cards, hand.board);
     const villainIsAgg = !hand.heroIsAggressor;
     const t = villainIsAgg
-      ? { strong: 0.8, medium: 0.5, weak: 0.6, air: 0.45 }
-      : { strong: 0.3, medium: 0.1, weak: 0.22, air: 0.08 };
+      ? { strong: 0.52, medium: 0.30, weak: 0.38, air: 0.24 }
+      : { strong: 0.20, medium: 0.07, weak: 0.12, air: 0.05 };
     return C.rng.random() < (t[info.tier] || 0.2) ? 'bet' : 'check';
   }
 
