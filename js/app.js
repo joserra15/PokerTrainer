@@ -161,13 +161,21 @@
 
   // ---------- Render mesa ----------
   function renderTable() {
+    if (hand && Engine.syncTableInvested) Engine.syncTableInvested(hand);
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
     const pot = hand.current ? hand.current.potBB : (hand.result ? null : hand.potBB);
     $('#hero-pos').textContent = hand.hero.pos;
-    $('#pot').textContent = 'Bote: ' + (pot != null ? fmt(pot) : '-') + ' bb';
+    $('#pot').innerHTML = '<span class="pot-chips"><span class="chip-ico"></span></span> Bote: ' + (pot != null ? fmt(pot) : '-') + ' bb';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardToHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
     $('#hero-action').innerHTML = actionBadgeHTML(hand.heroAction);
+    const heroTbl = hand.table || {};
+    const heroStreet = (heroTbl.streetBet && hand.hero.pos) ? (heroTbl.streetBet[hand.hero.pos] || 0) : 0;
+    const heroInv = hand.heroInvested || 0;
+    const heroChipsEl = $('#hero-chips');
+    if (heroChipsEl) {
+      heroChipsEl.innerHTML = (heroInv > 0 || heroStreet > 0) ? renderSeatChips(heroInv, heroStreet) : '';
+    }
     const vBar = $('#villain-action-bar');
     if (vBar) {
       vBar.innerHTML = hand.villainAction ? actionBadgeHTML(hand.villainAction) : '';
@@ -204,25 +212,65 @@
     $('#board').innerHTML = html || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>';
   }
 
+  function renderSeatChips(totalBB, streetBB) {
+    const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
+    let html = '<div class="seat-chips">';
+    if (streetBB > 0) {
+      html += `<span class="seat-chips-street" title="Apuesta en la calle"><span class="chip-ico"></span>${fmt(streetBB)}</span>`;
+    }
+    if (totalBB > 0) {
+      html += `<span class="seat-chips-total" title="Total invertido">${fmt(totalBB)} bb</span>`;
+    }
+    return html + '</div>';
+  }
+
   function renderSeats() {
     const ring = ringFromHero(hand.hero.pos);
     const villainPos = hand.villain.pos;
+    const tbl = hand.table || {};
+    const folded = tbl.folded || {};
+    const invested = tbl.invested || {};
+    const streetBet = tbl.streetBet || {};
+    const inHand = tbl.inHand instanceof Set ? tbl.inHand : new Set(tbl.inHand || []);
+    const showdown = hand.stage === 'complete' && hand.result && hand.result.showdown;
+    const holeCards = tbl.holeCards || {};
     let html = '';
     ring.forEach((pos, i) => {
       const c = SEAT_COORDS[i];
       const isHero = pos === hand.hero.pos;
-      const isVillain = pos === villainPos;
+      const isVillain = villainPos && pos === villainPos;
+      const isCaller = hand.scenario && hand.scenario.callerPos === pos;
       const cls = ['seat'];
       if (isHero) cls.push('hero');
       if (isVillain) cls.push('villain');
+      if (isCaller) cls.push('caller');
       if (pos === 'BTN') cls.push('dealer');
       if (c.top < 20) cls.push('seat-top');
       if (c.top > 70) cls.push('seat-bottom');
-      let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : '');
+      if (folded[pos]) cls.push('folded');
+
+      let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? 'Pagador' : ''));
       const actHtml = isVillain ? actionBadgeHTML(hand.villainAction) : '';
+
+      const active = inHand.has(pos) && !folded[pos] && !isHero;
+      let cardsHtml = '';
+      if (active && holeCards[pos]) {
+        if (showdown && isVillain && hand.villain.cards) {
+          cardsHtml = '<div class="seat-cards showdown">' + hand.villain.cards.map(Cards.cardToHTML).join('') + '</div>';
+        } else {
+          cardsHtml = '<div class="seat-cards">' + Cards.cardBackHTML() + Cards.cardBackHTML() + '</div>';
+        }
+      }
+
+      const totalInv = invested[pos] || 0;
+      const stBet = streetBet[pos] || 0;
+      const chipsHtml = (totalInv > 0 || stBet > 0) ? renderSeatChips(totalInv, stBet) : '';
+
       html += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
+        ${cardsHtml}
         <div class="seat-pos">${pos}</div>
         <div class="seat-role">${role}</div>
+        ${chipsHtml}
         ${actHtml ? `<div class="seat-act-wrap">${actHtml}</div>` : ''}
       </div>`;
     });

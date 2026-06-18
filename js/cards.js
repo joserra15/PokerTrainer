@@ -197,9 +197,14 @@
     return 0;
   }
 
+  /** Carta boca abajo (asiento villano / mesa). */
+  function cardBackHTML() {
+    return '<span class="card card-back" title="Boca abajo"></span>';
+  }
+
   global.Cards = {
     RANKS, SUITS, RANK_VALUE, SUIT_SYMBOL, HAND_CATEGORIES,
-    makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML,
+    makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML, cardBackHTML,
     evaluate, compare, rng
   };
 })(window);

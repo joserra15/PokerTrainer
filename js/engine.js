@@ -16,6 +16,67 @@
   const SB = 0.5, BBET = 1, EFF = 100;
   const OPEN = 2.5, SB_OPEN = 3.0;        // tamaño de apertura
   const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
+  const DEAL_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
+
+  function dealFullTable() {
+    const deck = C.shuffledDeckExcluding([]);
+    const holeCards = {};
+    DEAL_ORDER.forEach(function (pos) {
+      holeCards[pos] = [deck.pop(), deck.pop()];
+    });
+    const board = [];
+    while (board.length < 5 && deck.length) board.push(deck.pop());
+    return { holeCards: holeCards, board: board };
+  }
+
+  function initTableState(holeCards) {
+    return {
+      holeCards: Object.assign({}, holeCards),
+      folded: {},
+      invested: { SB: SB, BB: BBET },
+      streetBet: {},
+      inHand: new Set(DEAL_ORDER)
+    };
+  }
+
+  function villainHoleCards(hand) {
+    if (!hand.villain || !hand.villain.pos) return null;
+    if (hand.table && hand.table.holeCards) return hand.table.holeCards[hand.villain.pos];
+    return hand._predeal && hand._predeal.villainCards ? hand._predeal.villainCards : null;
+  }
+
+  function assignHeroFromTable(hand) {
+    if (!hand.table || !hand.hero.pos) return;
+    const hc = hand.table.holeCards[hand.hero.pos];
+    if (!hc) return;
+    hand.hero.cards = hc.slice();
+    hand.hero.code = R.handCode(hand.hero.cards[0], hand.hero.cards[1]);
+  }
+
+  function markFolded(hand, pos) {
+    if (!hand.table || !pos) return;
+    hand.table.folded[pos] = true;
+    hand.table.inHand.delete(pos);
+    hand.table.streetBet[pos] = 0;
+  }
+
+  function collapseOthersToHU(hand, villainPos, extraAlive) {
+    if (!hand.table) return;
+    const alive = new Set([hand.hero.pos, villainPos].concat(extraAlive || []));
+    DEAL_ORDER.forEach(function (pos) {
+      if (!alive.has(pos)) markFolded(hand, pos);
+    });
+  }
+
+  function addInvest(hand, pos, amount) {
+    if (!hand.table || !pos || !amount) return;
+    hand.table.invested[pos] = round2((hand.table.invested[pos] || 0) + amount);
+    hand.table.streetBet[pos] = round2((hand.table.streetBet[pos] || 0) + amount);
+  }
+
+  function resetStreetBets(hand) {
+    if (hand.table) hand.table.streetBet = {};
+  }
 
   // ---------- Delegación al motor GTO ----------
   function handStrength01(code) { return GTO.HandStrength.handStrength01(code); }
@@ -163,14 +224,11 @@
     const seed = (force && force.seed != null) ? (force.seed >>> 0) : (Math.floor(Math.random() * 2147483647) >>> 0);
     C.rng.setSeed(seed);
 
-    // --- Reparto COMPLETO y determinista al crear la mano ---
-    // Así, al repetir (misma semilla), el héroe, el villano y todo el board
-    // (flop, turn y river) son siempre idénticos, sea cual sea la línea jugada.
-    const deck = C.shuffledDeckExcluding([]);
-    const heroCards = [deck.pop(), deck.pop()];
-    const code = R.handCode(heroCards[0], heroCards[1]);
+    const dealt = dealFullTable();
+    const holeCards = dealt.holeCards;
+    const board = dealt.board;
 
-    // rango y posición del villano para muestrear su mano concreta
+    // rango y posición del villano (mano concreta = reparto de su asiento)
     let vRange, vPos;
     if (scenario.type === 'RFI') {
       vPos = 'BB';
@@ -186,19 +244,16 @@
       vPos = pk.opener;
       vRange = R.OPEN_RAISE[pk.opener].raise + ', ' + R.OPEN_RAISE[pk.opener].mix;
     }
-    const villainCards = sampleHandFromRange(vRange, heroCards) || [deck.pop(), deck.pop()];
-    const exclude = new Set(heroCards.concat(villainCards));
-    const board = [];
-    while (board.length < 5 && deck.length) { const c = deck.pop(); if (!exclude.has(c)) board.push(c); }
 
     const hand = {
       id: 'h' + Date.now() + Math.floor(Math.random() * 1000),
       createdAt: new Date().toISOString(),
       seed,
       scenario,
-      hero: { cards: heroCards, code },
+      hero: { cards: [], code: null, pos: null },
       villain: { cards: null, rangeStr: null, pos: null },
-      _predeal: { villainCards, villainPos: vPos, villainRange: vRange, board },
+      table: initTableState(holeCards),
+      _predeal: { holeCards: holeCards, board: board, villainPos: vPos, villainRange: vRange },
       board: [],
       potBB: 0, heroInvested: 0, villainInvested: 0,
       effStack: EFF,
@@ -217,6 +272,7 @@
     else if (scenario.type === 'squeeze') setupSqueeze(hand);
     else if (scenario.type === 'isoLimp') setupIsoLimp(hand);
     else setupVsRFI(hand);
+    assignHeroFromTable(hand);
     return hand;
   }
 
@@ -288,6 +344,8 @@
       context: `Eres ${hero}. ${opener} abre a ${openSize}bb y te llega la acción. ¿Fold, call o 3-bet?`
     };
     setVillainAct(hand, 'open', openSize);
+    addInvest(hand, opener, openSize);
+    collapseOthersToHU(hand, opener);
   }
 
   function setupSqueeze(hand) {
@@ -318,6 +376,9 @@
       context: `Eres ${heroPos}. ${openerPos} abre a ${openSize}bb y ${callerPos} paga. ¿Fold, call o squeeze (3-bet)?`
     };
     setVillainAct(hand, 'open', openSize);
+    addInvest(hand, openerPos, openSize);
+    addInvest(hand, hand.scenario.callerPos, openSize);
+    collapseOthersToHU(hand, openerPos, [hand.scenario.callerPos]);
   }
 
   function setupIsoLimp(hand) {
@@ -346,6 +407,8 @@
       context: `Eres ${heroPos}. ${limperPos} hace limp. ¿Fold, over-limp o aislar con una subida?`
     };
     setVillainAct(hand, 'check', null);
+    addInvest(hand, limperPos, BBET);
+    collapseOthersToHU(hand, limperPos);
   }
 
   // ---------- Aplicar una acción ----------
@@ -413,7 +476,7 @@
       if (actionId === 'fold') {
         return finish(hand, { reason: 'Te retiras ante la subida.', heroNet: -round2(heroBlind) });
       }
-      hand.villain.cards = hand._predeal.villainCards;
+      hand.villain.cards = villainHoleCards(hand);
       if (actionId === 'call') {
         setHeroAct(hand, 'call', node.toCallBB);
         hand.heroIsAggressor = false; // el abridor es el agresor
@@ -421,6 +484,7 @@
         hand.villainInvested = node.openSize;
         hand.potBB = round2(node.openSize * 2 + node.openSize + SB); // + dinero muerto del pagador
         hand.heroInPosition = inPos(hand.hero.pos, hand.villain.pos);
+        if (hand.scenario.callerPos) markFolded(hand, hand.scenario.callerPos);
         return goFlop(hand);
       }
       // squeeze (3-bet)
@@ -430,6 +494,7 @@
       const roll = C.rng.random();
       if (roll < 0.62) {
         setVillainAct(hand, 'fold');
+        if (hand.scenario.callerPos) markFolded(hand, hand.scenario.callerPos);
         return finish(hand, { reason: 'Abridor y pagador se retiran ante tu squeeze.', heroNet: round2(hand.potBB - heroBlind) });
       }
       // el abridor paga el squeeze -> flop en bote resubido, hero agresor
@@ -445,7 +510,7 @@
       if (actionId === 'fold') {
         return finish(hand, { reason: 'Te retiras.', heroNet: -round2(heroBlind) });
       }
-      hand.villain.cards = hand._predeal.villainCards;
+      hand.villain.cards = villainHoleCards(hand);
       if (actionId === 'call') {
         // over-limp: bote multivía sin agresor, se simplifica a HU vs limper
         setHeroAct(hand, 'call', node.toCallBB);
@@ -540,7 +605,7 @@
         // BB hace 3bet -> hero afronta 3bet
         const tbSize = round2(node.openSize * 3.5);
         hand.villain.rangeStr = bb3betRange(hand.hero.pos);
-        hand.villain.cards = hand._predeal.villainCards;
+        hand.villain.cards = villainHoleCards(hand);
         hand.villainInvested = tbSize;
         hand.potBB = round2(node.openSize + tbSize + SB);
         setVillainAct(hand, 'raise', tbSize);
@@ -549,10 +614,11 @@
       // BB iguala -> al flop, hero es agresor y va en posición
       hand.villain.pos = 'BB';
       hand.villain.rangeStr = bbCallRange(hand.hero.pos);
-      hand.villain.cards = hand._predeal.villainCards;
+      hand.villain.cards = villainHoleCards(hand);
       hand.heroInvested = node.openSize; hand.villainInvested = node.openSize;
       hand.potBB = round2(node.openSize * 2 + SB);
       hand.heroInPosition = inPos(hand.hero.pos, 'BB');
+      collapseOthersToHU(hand, 'BB');
       return goFlop(hand);
     }
 
@@ -561,7 +627,7 @@
       if (actionId === 'fold') {
         return finish(hand, { reason: 'Te retiras ante la subida.', heroNet: -(hand.heroInvested || 0) });
       }
-      hand.villain.cards = hand._predeal.villainCards;
+      hand.villain.cards = villainHoleCards(hand);
       if (actionId === 'call') {
         setHeroAct(hand, 'call', node.toCallBB);
         hand.heroIsAggressor = false; // el villano (abridor) es el agresor
@@ -657,7 +723,7 @@
   function allInShowdown(hand) {
     hand.heroInvested = EFF; hand.villainInvested = EFF;
     hand.potBB = round2(EFF * 2 + SB);
-    hand.villain.cards = hand._predeal.villainCards;
+    hand.villain.cards = villainHoleCards(hand);
     hand.board = hand._predeal.board.slice();
     hand._boardIdx = 5;
     hand.stage = 'river';
@@ -665,9 +731,18 @@
   }
 
   // ----- Acciones visibles (para la UI) -----
-  function setHeroAct(hand, type, amount) { hand.heroAction = { type, amount: amount != null ? amount : null }; }
+  function setHeroAct(hand, type, amount) {
+    hand.heroAction = { type, amount: amount != null ? amount : null };
+    if (hand.table && hand.hero.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
+      hand.table.streetBet[hand.hero.pos] = round2((hand.table.streetBet[hand.hero.pos] || 0) + amount);
+    }
+  }
   function setVillainAct(hand, type, amount) {
     hand.villainAction = { type, amount: amount != null ? amount : null };
+    if (type === 'fold' && hand.villain.pos) markFolded(hand, hand.villain.pos);
+    if (hand.table && hand.villain.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
+      hand.table.streetBet[hand.villain.pos] = round2((hand.table.streetBet[hand.villain.pos] || 0) + amount);
+    }
     if (VT && hand.villainRangeTracker && type && type !== 'fold') {
       VT.recordAction(hand.villainRangeTracker, type, hand.stage, amount);
     } else if (VT && hand.villainRangeTracker && type === 'fold') {
@@ -692,8 +767,9 @@
   // ----- Transición a flop / showdown (usa el board pre-repartido) -----
   function goFlop(hand) {
     hand.stage = 'flop';
-    hand.villain.cards = hand._predeal.villainCards;
+    hand.villain.cards = villainHoleCards(hand);
     if (!hand.villainRangeTracker) initVillainTracker(hand);
+    resetStreetBets(hand);
     hand.board = hand._predeal.board.slice(0, 3);
     hand._boardIdx = 3;
     return enterStreet(hand);
@@ -704,6 +780,7 @@
     const ns = map[hand.stage];
     if (!ns) return showdown(hand);
     hand.stage = ns;
+    resetStreetBets(hand);
     hand.board.push(hand._predeal.board[hand._boardIdx++]);
     return enterStreet(hand);
   }
@@ -947,8 +1024,14 @@
     });
   }
 
+  function syncTableInvested(hand) {
+    if (!hand.table) return;
+    if (hand.hero.pos) hand.table.invested[hand.hero.pos] = round2(hand.heroInvested || hand.table.invested[hand.hero.pos] || 0);
+    if (hand.villain.pos) hand.table.invested[hand.villain.pos] = round2(hand.villainInvested || hand.table.invested[hand.villain.pos] || 0);
+  }
+
   global.Engine = {
-    newHand, act,
+    newHand, act, syncTableInvested,
     // utilidades expuestas para UI/tests/importador
     handStrength01, equityVsRange, classifyMadeHand, sampleHandFromRange,
     rfiStrategy, vsRfiStrategy, classify,
