@@ -68,11 +68,26 @@
     $('#new-session').addEventListener('click', () => resetPlaySession());
     $('#repeat-errors').addEventListener('change', (e) => { repeatErrorsMode = e.target.checked; });
     $('#clear-history').addEventListener('click', () => {
-      if (confirm('¿Borrar TODO el histórico, errores y estadísticas?')) { Store.clearAll(); renderHistory(); refreshSessionUI(); }
+      if (confirm('¿Borrar el histórico de manos? No se modifican errores ni estadísticas globales.')) {
+        Store.clearHistory();
+        renderHistory();
+      }
     });
     $('#clear-errors').addEventListener('click', () => {
-      if (confirm('¿Vaciar la lista de errores?')) { Store.clearErrors(); renderErrors(); }
+      if (confirm('¿Vaciar la lista de errores? No se modifica el histórico ni las estadísticas globales.')) {
+        Store.clearErrors();
+        renderErrors();
+      }
     });
+    const clearStatsBtn = $('#clear-stats');
+    if (clearStatsBtn) {
+      clearStatsBtn.addEventListener('click', () => {
+        if (confirm('¿Resetear las estadísticas globales a cero? No se borra el histórico ni la lista de errores.')) {
+          Store.clearStats();
+          renderStats();
+        }
+      });
+    }
     $('#train-errors').addEventListener('click', () => trainNextError());
     $('#export-data').addEventListener('click', exportData);
     $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });

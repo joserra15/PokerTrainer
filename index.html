@@ -196,9 +196,10 @@
         <h2>Histórico de manos</h2>
         <div>
           <button id="export-data" class="btn btn-ghost">Exportar JSON</button>
-          <button id="clear-history" class="btn btn-danger">Borrar todo</button>
+          <button id="clear-history" class="btn btn-danger">Borrar histórico</button>
         </div>
       </div>
+      <p class="muted-text" style="margin:-8px 0 12px">Solo las manos guardadas del entrenador. Errores y estadísticas globales no se modifican.</p>
       <div id="history-list" class="record-list"></div>
     </section>
 
@@ -208,15 +209,20 @@
         <h2>Spots fallados (repaso)</h2>
         <div>
           <button id="train-errors" class="btn btn-primary">Entrenar errores</button>
-          <button id="clear-errors" class="btn btn-danger">Vaciar lista</button>
+          <button id="clear-errors" class="btn btn-danger">Vaciar errores</button>
         </div>
       </div>
+      <p class="muted-text" style="margin:-8px 0 12px">Solo la lista de spots fallados. El histórico y las estadísticas globales no se modifican.</p>
       <div id="errors-list" class="record-list"></div>
     </section>
 
     <!-- ===== ESTADÍSTICAS ===== -->
     <section id="tab-stats" class="tab-panel">
-      <h2>Estadísticas globales</h2>
+      <div class="panel-head">
+        <h2>Estadísticas globales</h2>
+        <button id="clear-stats" class="btn btn-danger">Resetear estadísticas</button>
+      </div>
+      <p class="muted-text stats-reset-hint">Acumulado de todas las manos del entrenador. No borra el histórico ni la lista de errores.</p>
       <div id="stats-content" class="stats-content"></div>
     </section>
   </main>

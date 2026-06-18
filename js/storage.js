@@ -178,11 +178,20 @@
     return s.type;
   }
 
-  function clearAll() {
+  function clearHistory() {
     localStorage.removeItem(scopedKey('history'));
-    localStorage.removeItem(scopedKey('errors'));
-    localStorage.removeItem(scopedKey('stats'));
-    notifySync(['history', 'errors', 'stats']);
+    notifySync(['history']);
+  }
+
+  function clearStats() {
+    write(scopedKey('stats'), defaultStats());
+    notifySync(['stats']);
+  }
+
+  function clearAll() {
+    clearHistory();
+    clearErrors();
+    clearStats();
   }
   function clearErrors() {
     localStorage.removeItem(scopedKey('errors'));
@@ -259,7 +268,7 @@
   global.Store = {
     setUserId,
     getHistory, getErrors, getStats, saveHand,
-    clearAll, clearErrors, removeError, exportData, scenarioLabel,
+    clearHistory, clearStats, clearAll, clearErrors, removeError, exportData, scenarioLabel,
     getSessions, getSession, saveSession, removeSession, deleteSessionTxt,
     getCloudSnapshot, replaceFromCloud
   };
