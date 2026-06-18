@@ -184,6 +184,8 @@
   const RANGE_SINGLE_RAISED = '99+, AJs+, KQs, QJs, JTs, AQo, AKo, TT';
 
   function inferVillainBaseRange(hand, hero) {
+    const VT = global.GTOVillainTracking;
+    if (VT && VT.preflopRangeFromHand) return VT.preflopRangeFromHand(hand, hero);
     let raiseCount = 0;
     let heroRaised = false;
     hand.streets.preflop.forEach((a) => {

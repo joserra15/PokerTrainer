@@ -241,63 +241,107 @@
     });
   }
 
-  function computeVillainRangeMatrix(rangeStr) {
-    const inRange = expandRangeSet(rangeStr || D().BROAD_CONTINUE);
+  function computeVillainRangeMatrix(profileOrStr) {
+    const profile = (profileOrStr && profileOrStr.coreSet)
+      ? profileOrStr
+      : { coreSet: expandRangeSet(profileOrStr || D().BROAD_CONTINUE), widenSet: new Set(), blockedSet: new Set(), cappedSet: new Set(), cellAction: null, cellTitle: null };
     const cells = [];
     for (let row = 0; row < 13; row++) {
       const rowCells = [];
       for (let col = 0; col < 13; col++) {
         const label = cellLabel(row, col);
+        const action = profile.cellAction
+          ? profile.cellAction(label)
+          : (profile.coreSet.has(label) ? 'inrange' : 'out');
+        const title = profile.cellTitle ? profile.cellTitle(label) : label;
         rowCells.push({
           label,
-          action: inRange.has(label) ? 'inrange' : 'out',
-          inRange: inRange.has(label)
+          action,
+          title,
+          inRange: action === 'inrange' || action === 'capped'
         });
       }
       cells.push(rowCells);
     }
-    return { ranks: RANKS, cells, mode: 'villain', rangeStr: rangeStr || '' };
+    return {
+      ranks: RANKS,
+      cells,
+      mode: 'villain',
+      rangeStr: profile.rangeStr || '',
+      profile: profile
+    };
   }
 
-  function getVillainRangeForDecision(hand, decision, source) {
-    if (decision.villainRange) return decision.villainRange;
+  function buildVillainActionLine(hand, decision) {
+    const hero = hand.hero;
+    const streets = ['preflop', 'flop', 'turn', 'river'];
+    const line = [];
+    if (!hand.streets || !hero) return line;
+    const upto = streets.indexOf(decision.street);
+    if (upto < 0) return line;
+    for (let i = 0; i <= upto; i++) {
+      const st = streets[i];
+      const acts = hand.streets[st] || [];
+      const limit = (st === decision.street && decision.actionSequenceId != null)
+        ? decision.actionSequenceId
+        : acts.length;
+      acts.slice(0, limit).forEach(function (a) {
+        if (a.player === hero || a.type === 'show') return;
+        line.push({ street: st, action: a.type, amount: a.amount, to: a.to });
+      });
+    }
+    return line;
+  }
 
+  function buildVillainMatrixContext(hand, decision, source) {
     const VT = global.GTOVillainTracking;
     const board = decision.board && decision.board.length
       ? decision.board
       : boardSliceForStreet(hand.board || [], decision.street);
-
-    if (source === 'session' && hand.streets && hand.hero && VT && VT.estimateRangeFromActions) {
-      const acts = hand.streets[decision.street] || [];
-      const idx = decision.actionSequenceId != null ? decision.actionSequenceId : acts.length;
-      const bb = hand.bb || 0.05;
-      const base = D().BROAD_CONTINUE;
-      return VT.estimateRangeFromActions(
-        acts.slice(0, idx),
-        hand.hero,
-        bb,
-        decision.potBeforeBB || decision.potBB || 1,
-        board,
-        base
-      );
+    const heroName = hand.hero || (hand.heroName);
+    const preflopRange = (VT && VT.preflopRangeFromHand && hand.streets)
+      ? VT.preflopRangeFromHand(hand, heroName)
+      : (hand.villain && hand.villain.rangeStr) || D().BROAD_CONTINUE;
+    const facingBet = (decision.toCallBB || 0) > 0;
+    const actionLine = buildVillainActionLine(hand, decision);
+    let lastAction = decision.villainLastAction || null;
+    let betBB = facingBet ? decision.toCallBB : 0;
+    if (!lastAction && actionLine.length) {
+      const last = actionLine[actionLine.length - 1];
+      lastAction = last.action;
+      if (last.action === 'bet' && hand.bb) betBB = last.amount / hand.bb;
+      else if (last.action === 'raise' && hand.bb) betBB = last.to / hand.bb;
     }
+    if (!lastAction) lastAction = facingBet ? 'bet' : 'check';
+    const tags = (source === 'trainer' && hand.villainRangeTracker)
+      ? hand.villainRangeTracker.tags
+      : [];
+    return {
+      preflopRange: preflopRange,
+      baseRange: preflopRange,
+      street: decision.street,
+      lastAction: lastAction,
+      betBB: betBB,
+      potBeforeBB: decision.potBeforeBB || Math.max((decision.potBB || 1) - (decision.toCallBB || 0), 0.1),
+      board: board,
+      tags: tags,
+      actionLine: actionLine,
+      heroCards: heroCardsFromHand(hand)
+    };
+  }
 
-    if (source === 'trainer' && hand.villain && VT && VT.estimateActiveRange) {
-      const baseRange = hand.villain.rangeStr || D().BROAD_CONTINUE;
-      const facingBet = (decision.toCallBB || 0) > 0;
-      const tags = hand.villainRangeTracker ? hand.villainRangeTracker.tags : [];
-      return VT.estimateActiveRange({
-        baseRange,
-        street: decision.street,
-        lastAction: decision.villainLastAction || (facingBet ? 'bet' : 'check'),
-        betBB: facingBet ? decision.toCallBB : 0,
-        potBeforeBB: decision.potBeforeBB || Math.max((decision.potBB || 1) - (decision.toCallBB || 0), 0.1),
-        board,
-        tags
-      });
+  function getVillainMatrixProfile(hand, decision, source) {
+    const VT = global.GTOVillainTracking;
+    if (!VT || !VT.buildVillainMatrixProfile) {
+      return computeVillainRangeMatrix(decision.villainRange || D().BROAD_CONTINUE).profile;
     }
+    return VT.buildVillainMatrixProfile(buildVillainMatrixContext(hand, decision, source));
+  }
 
-    return D().BROAD_CONTINUE;
+  function getVillainRangeForDecision(hand, decision, source) {
+    if (decision.villainRange) return decision.villainRange;
+    const profile = getVillainMatrixProfile(hand, decision, source);
+    return profile.rangeStr || profile.gtoStr || D().BROAD_CONTINUE;
   }
 
   function buildExplorerInput(spotType, heroPos, villainPos) {
@@ -353,6 +397,8 @@
     computeGtoMatrixAsync,
     computeVillainRangeMatrix,
     getVillainRangeForDecision,
+    getVillainMatrixProfile,
+    buildVillainActionLine,
     findDecisionIndex,
     heroCardsFromHand,
     boardSliceForStreet,

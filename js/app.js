@@ -339,7 +339,8 @@
         const cell = result.cells[row][col];
         const isHero = heroCode && cell.label === heroCode;
         if (mode === 'villain') {
-          html += `<div class="rm-cell ${cell.action}${isHero ? ' hero' : ''}" title="${cell.label}">${cell.label}</div>`;
+          const title = cell.title || cell.label;
+          html += `<div class="rm-cell ${cell.action}${isHero ? ' hero' : ''}" title="${escapeHtml(title)}">${cell.label}</div>`;
         } else {
           html += `<div class="rm-cell ${cell.action}${isHero ? ' hero' : ''}" title="${cell.label}: R${Math.round(cell.freqs.raise * 100)}% C${Math.round(cell.freqs.call * 100)}% F${Math.round(cell.freqs.fold * 100)}%">${cell.label}</div>`;
         }
@@ -428,11 +429,14 @@
     const board = decision.board && decision.board.length
       ? decision.board
       : RM.boardSliceForStreet(handObj.board || [], decision.street);
-    const rangeStr = RM.getVillainRangeForDecision(handObj, decision, source);
-    const result = RM.computeVillainRangeMatrix(rangeStr);
+    const profile = RM.getVillainMatrixProfile(handObj, decision, source);
+    const result = RM.computeVillainRangeMatrix(profile);
     const boardHtml = board.length ? board.map(Cards.cardToHTML).join(' ') : '—';
     const heroHtml = heroCards.length ? heroCards.map(Cards.cardToHTML).join(' ') : '—';
-    const inCount = RM.expandRangeSet(rangeStr).size;
+    const inCount = profile.coreSet.size + profile.widenSet.size;
+    const widenNote = (decision.street === 'turn' || decision.street === 'river') && profile.widenSet.size
+      ? ` · +${profile.widenSet.size} ampliables/capadas (azul)`
+      : '';
 
     modal.classList.remove('hidden');
     document.body.classList.add('range-matrix-open');
@@ -443,9 +447,10 @@
         <span><strong>Tu mano:</strong> <span class="rec-cards">${heroHtml}</span></span>
         <span><strong>Board:</strong> <span class="rec-cards">${boardHtml}</span></span>
       </div>
-      <div class="muted-text" style="margin:8px 0">Rango estimado tras la acción del villano (~${inCount} combos): <code>${escapeHtml(RM.shortRange(rangeStr))}</code></div>
+      <div class="muted-text" style="margin:8px 0">Rango estimado (~${inCount} combos${widenNote}): <code>${escapeHtml(RM.shortRange(result.rangeStr))}</code></div>
       <div class="range-matrix-legend">
-        <span><i class="call"></i> En rango del villano</span>
+        <span><i class="call"></i> En rango GTO</span>
+        <span><i class="capped"></i> Capado / ampliable / bloqueado</span>
         <span><i class="fold"></i> Descartado</span>
       </div>
       ${renderRangeMatrixGrid(result, heroCode, 'villain')}
