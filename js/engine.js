@@ -70,6 +70,21 @@
     });
   }
 
+  /** Pliega implícitamente quien ya actuó; mantiene vivos al héroe, villano(s) y quien aún no ha hablado. */
+  function markPreflopFoldsForFacingAction(hand, primaryVillainPos, extraInPot) {
+    if (!hand.table || !primaryVillainPos || !hand.hero.pos) return;
+    const alive = new Set([hand.hero.pos, primaryVillainPos].concat(extraInPot || []));
+    const villainIdx = PREFLOP_ACTION.indexOf(primaryVillainPos);
+    const heroIdx = PREFLOP_ACTION.indexOf(hand.hero.pos);
+    if (villainIdx < 0 || heroIdx < 0) return;
+    PREFLOP_ACTION.forEach(function (pos, i) {
+      if (alive.has(pos)) return;
+      if (i < villainIdx) { markFolded(hand, pos); return; }
+      if (i > heroIdx) return;
+      if (i > villainIdx && i < heroIdx) markFolded(hand, pos);
+    });
+  }
+
   function addInvest(hand, pos, amount) {
     if (!hand.table || !pos || !amount) return;
     hand.table.invested[pos] = round2((hand.table.invested[pos] || 0) + amount);
@@ -364,7 +379,7 @@
     setVillainAct(hand, 'open', openSize);
     addInvest(hand, opener, openSize);
     setPreflopSeatBet(hand, opener, openSize);
-    collapseOthersToHU(hand, opener);
+    markPreflopFoldsForFacingAction(hand, opener);
   }
 
   function setupSqueeze(hand) {
@@ -401,7 +416,7 @@
     addInvest(hand, callerPos, openSize);
     setPreflopSeatBet(hand, callerPos, openSize);
     setSeatAction(hand, callerPos, 'call', openSize);
-    collapseOthersToHU(hand, openerPos, [callerPos]);
+    markPreflopFoldsForFacingAction(hand, openerPos, [callerPos]);
   }
 
   function setupIsoLimp(hand) {
@@ -431,7 +446,7 @@
     };
     setVillainAct(hand, 'check', null);
     addInvest(hand, limperPos, BBET);
-    collapseOthersToHU(hand, limperPos);
+    markPreflopFoldsForFacingAction(hand, limperPos);
   }
 
   // ---------- Aplicar una acción ----------
