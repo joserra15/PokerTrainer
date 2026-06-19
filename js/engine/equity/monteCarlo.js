@@ -68,28 +68,25 @@
   }
 
   /**
-   * River shove/overbet: rango polarizado underbluffed — combos que BEAT al héroe.
-   * Crítico en boards doblados donde el color nut pierde vs full houses.
+   * River shove/overbet: estrechar rango solo si el héroe tiene color vulnerable
+   * en mesa doblada (full houses del villano). No filtrar «solo combos que ganan»
+   * con manos fuertes hechas (trío+): eso forzaba equity 0 % erróneamente.
    */
   function filterCombosFacingShove(combos, heroCards, board, opts) {
     if (!opts || (!opts.riverShove && !opts.shoveNode)) return combos;
     if (!combos.length || !heroCards || !board || board.length < 5) return combos;
 
+    const RS = global.GTORiverShoveNode;
+    if (!RS) return combos;
+
+    const deval = RS.pairedBoardFlushDevaluation(heroCards, board);
+    if (!deval.vulnerable) return combos;
+
     const heroScore = C.evaluate(heroCards.concat(board));
     const beating = combos.filter((vh) => C.compare(C.evaluate(vh.concat(board)), heroScore) > 0);
     if (beating.length >= 1) return beating;
 
-    const RS = global.GTORiverShoveNode;
-    if (RS) {
-      const deval = RS.pairedBoardFlushDevaluation(heroCards, board);
-      if (deval.vulnerable) {
-        return combos.filter((vh) => {
-          const vScore = C.evaluate(vh.concat(board));
-          return vScore.category >= 6;
-        });
-      }
-    }
-    return combos;
+    return combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 6);
   }
 
   function augmentVillainRange(heroCards, board, rangeStr) {

@@ -74,10 +74,42 @@
   }
 
   /**
+   * Mano fuerte en showdown: full house+, o trío/set con carta del héroe en rango emparejado del board.
+   */
+  function isStrongShowdownHand(heroCards, board) {
+    if (!heroCards || !board || board.length < 5) return false;
+    const heroScore = C.evaluate(heroCards.concat(board));
+    if (heroScore.category >= 6) return true;
+
+    if (heroScore.category === 3) {
+      const pairInfo = boardPairRank(board);
+      const tripVal = heroScore.rank[1];
+      const holeVals = heroCards.map((c) => C.RANK_VALUE[c[0]]);
+      const usesHoleForTrips = holeVals.includes(tripVal);
+      if (pairInfo.paired && pairInfo.pairRank) {
+        const pr = C.RANK_VALUE[pairInfo.pairRank];
+        if (tripVal === pr && usesHoleForTrips) return true;
+      }
+      if (usesHoleForTrips && heroScore.rank[2] >= 12) return true;
+    }
+
+    if (heroScore.category === 4) {
+      const BTS = global.GTOBoardTextureShift;
+      return BTS ? BTS.isNutStraight(heroCards, board) : false;
+    }
+
+    return false;
+  }
+
+  /**
    * ¿Nuts absolutas en river? (full house nut, quads, straight flush).
    * Color nut en mesa DOBLADA no califica.
    */
   function isAbsoluteNuts(heroCards, board) {
+    if (isStrongShowdownHand(heroCards, board)) {
+      const heroScore = C.evaluate(heroCards.concat(board));
+      if (heroScore.category >= 6) return true;
+    }
     if (!heroCards || !board || board.length < 5) return false;
     const heroScore = C.evaluate(heroCards.concat(board));
     const pairInfo = boardPairRank(board);
@@ -164,13 +196,14 @@
     const pairInfo = boardPairRank(board);
     const deval = pairedBoardFlushDevaluation(heroCards, board);
     const nuts = isAbsoluteNuts(heroCards, board);
+    const strongShowdown = isStrongShowdownHand(heroCards, board);
     const eqEffective = deval.vulnerable
       ? Math.min(heroEquity, deval.capEquity)
       : heroEquity;
     const eqEdge = eqEffective - potOdds;
     const node = classifyFacingNode(toCall, potBefore, 'river', params.villainLastAction);
 
-    if (nuts && eqEffective >= potOdds + 0.05) {
+    if ((nuts || strongShowdown) && eqEffective >= potOdds - 0.02) {
       return normalize({
         fold: 0.04,
         call: clamp(0.82 + eqEdge * 0.15, 0.72, 0.92),
@@ -218,6 +251,7 @@
 
   global.GTORiverShoveNode = {
     classifyFacingNode,
+    isStrongShowdownHand,
     isAbsoluteNuts,
     pairedBoardFlushDevaluation,
     microstakesRiverShoveRange,
