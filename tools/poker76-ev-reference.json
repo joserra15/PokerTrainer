@@ -1,0 +1,308 @@
+[
+  {
+    "A": "ID Mano",
+    "B": "Mano Inicial",
+    "C": "Board Post-Flop",
+    "D": "Acción Crítica del Héroe",
+    "E": "Evaluación de GTO",
+    "F": "Resultado Real (€)",
+    "G": "EV Decisional Perdido (€)"
+  },
+  {
+    "A": "9.0",
+    "B": "A♡8♡",
+    "C": "8♠2♡7♣5♣6♢",
+    "D": "Check-behind en River coordinado",
+    "E": "Correcta",
+    "F": "-0.80",
+    "G": "0.00"
+  },
+  {
+    "A": "12.0",
+    "B": "A♡Q♡",
+    "C": "T♠K♡7♠",
+    "D": "Cbet pequeña de exploración en SB",
+    "E": "Correcta",
+    "F": "+0.13",
+    "G": "0.00"
+  },
+  {
+    "A": "19.0",
+    "B": "9♢8♢",
+    "C": "K♡2♠K♢",
+    "D": "Cbet estándar en board doblado",
+    "E": "Correcta",
+    "F": "+0.13",
+    "G": "0.00"
+  },
+  {
+    "A": "28.0",
+    "B": "K♢K♠",
+    "C": "A♣A♠5♣",
+    "D": "Cbet de protección ante check del rival",
+    "E": "Correcta",
+    "F": "+0.11",
+    "G": "0.00"
+  },
+  {
+    "A": "29.0",
+    "B": "J♡9♡",
+    "C": "6♣8♢2♡3♠",
+    "D": "Probe bet en Turn tras check general",
+    "E": "Correcta",
+    "F": "+0.13",
+    "G": "0.00"
+  },
+  {
+    "A": "40.0",
+    "B": "5♣5♢",
+    "C": "Q♣4♣9♡",
+    "D": "Check-fold inmediato ante apuesta",
+    "E": "Correcta",
+    "F": "-0.12",
+    "G": "0.00"
+  },
+  {
+    "A": "41.0",
+    "B": "Q♢Q♠",
+    "C": "9♢7♣3♡A♢",
+    "D": "Apuesta de continuación Turn",
+    "E": "Correcta",
+    "F": "+0.26",
+    "G": "0.00"
+  },
+  {
+    "A": "42.0",
+    "B": "A♠9♢",
+    "C": "8♠5♢6♢K♣A♣",
+    "D": "Call a min-raise en Turn sin odds",
+    "E": "Errónea",
+    "F": "+0.51",
+    "G": "-0.05"
+  },
+  {
+    "A": "48.0",
+    "B": "A♡7♡",
+    "C": "7♠2♣A♣Q♣4♡",
+    "D": "Fold correcto en River ante triple barril",
+    "E": "Correcta",
+    "F": "-0.57",
+    "G": "0.00"
+  },
+  {
+    "A": "54.0",
+    "B": "A♢T♢",
+    "C": "J♠Q♣K♠5♣",
+    "D": "Apuestas por valor con escalera máxima",
+    "E": "Correcta",
+    "F": "+0.25",
+    "G": "0.00"
+  },
+  {
+    "A": "57.0",
+    "B": "T♡A♠",
+    "C": "J♠4♢A♣2♣J♣",
+    "D": "Fold en River ante apuesta donk bet",
+    "E": "Correcta",
+    "F": "-0.52",
+    "G": "0.00"
+  },
+  {
+    "A": "61.0",
+    "B": "T♠A♢",
+    "C": "Q♣Q♢6♢",
+    "D": "Fold ante donk bet multiway",
+    "E": "Correcta",
+    "F": "-0.15",
+    "G": "0.00"
+  },
+  {
+    "A": "72.0",
+    "B": "A♣A♡",
+    "C": "9h3♢T♣",
+    "D": "All-in directo en Flop en bote de 5-bet",
+    "E": "Correcta",
+    "F": "+2.48",
+    "G": "0.00"
+  },
+  {
+    "A": "79.0",
+    "B": "T♠Q♢",
+    "C": "A♣6♡3♣",
+    "D": "Check-fold en flop ante agresión",
+    "E": "Correcta",
+    "F": "-0.10",
+    "G": "0.00"
+  },
+  {
+    "A": "83.0",
+    "B": "T♠Q♣",
+    "C": "9♠4♡J♡7♠T♢",
+    "D": "Check-call pasivo con proyectos",
+    "E": "Correcta",
+    "F": "-0.60",
+    "G": "0.00"
+  },
+  {
+    "A": "98.0",
+    "B": "J♡T♡",
+    "C": "J♢A♠A♢5♡",
+    "D": "Check-call Flop / Check-fold Turn",
+    "E": "Correcta",
+    "F": "-0.30",
+    "G": "0.00"
+  },
+  {
+    "A": "103.0",
+    "B": "4♠A♣",
+    "C": "3♠2♣8♣5♠J♡",
+    "D": "Check-call Flop / Apuesta River valor",
+    "E": "Correcta",
+    "F": "+1.19",
+    "G": "0.00"
+  },
+  {
+    "A": "106.0",
+    "B": "K♡A♡",
+    "C": "3♠5♠T♢T♠2♣",
+    "D": "Check Flop / Call turn / Fold River",
+    "E": "Correcta",
+    "F": "-0.23",
+    "G": "0.00"
+  },
+  {
+    "A": "107.0",
+    "B": "9♠9♣",
+    "C": "A♢5♢K♢K♡",
+    "D": "Call a Cbet en Flop monocolor",
+    "E": "Errónea",
+    "F": "-0.25",
+    "G": "-0.15"
+  },
+  {
+    "A": "121.0",
+    "B": "J♢A♣",
+    "C": "3♣2♠7♡4♣9♢",
+    "D": "Pago múltiple sin odds de pagar",
+    "E": "Errónea",
+    "F": "-0.72",
+    "G": "-0.50"
+  },
+  {
+    "A": "130.0",
+    "B": "J♣K♣",
+    "C": "8♢A♠9♡",
+    "D": "Apuesta de continuación en bote 3bet",
+    "E": "Correcta",
+    "F": "+0.78",
+    "G": "0.00"
+  },
+  {
+    "A": "132.0",
+    "B": "K♣K♠",
+    "C": "5♢4♡9♠6♠8♠",
+    "D": "Bet Flop / Stackoff en Turn (Cooler)",
+    "E": "Correcta",
+    "F": "-2.71",
+    "G": "0.00"
+  },
+  {
+    "A": "138.0",
+    "B": "7♢5♢",
+    "C": "6♢K♡J♣",
+    "D": "Cbet de robo en posición",
+    "E": "Correcta",
+    "F": "+0.13",
+    "G": "0.00"
+  },
+  {
+    "A": "147.0",
+    "B": "J♢J♣",
+    "C": "T♢T♠A♣9♢Q♠",
+    "D": "Cbet Flop / Pot control Turn y River",
+    "E": "Correcta",
+    "F": "-0.75",
+    "G": "0.00"
+  },
+  {
+    "A": "152.0",
+    "B": "K♢Q♢",
+    "C": "7♡5♠A♢9♣",
+    "D": "Float Flop / Apuesta Turn ante debilidad",
+    "E": "Correcta",
+    "F": "+0.79",
+    "G": "0.00"
+  },
+  {
+    "A": "159.0",
+    "B": "Q♡K♠",
+    "C": "6♡T♢Q♠8♢Q♢",
+    "D": "Tres calles de valor con Trips",
+    "E": "Correcta",
+    "F": "+0.93",
+    "G": "0.00"
+  },
+  {
+    "A": "161.0",
+    "B": "7♢A♢",
+    "C": "J♡K♢2♠5♣",
+    "D": "Check Flop / Delayed Cbet Turn",
+    "E": "Correcta",
+    "F": "+0.54",
+    "G": "0.00"
+  },
+  {
+    "A": "171.0",
+    "B": "2♡K♡",
+    "C": "6♢A♠5♡2♢3♣",
+    "D": "Apuestas explorativas Flop-Turn",
+    "E": "Correcta",
+    "F": "-0.48",
+    "G": "0.00"
+  },
+  {
+    "A": "177.0",
+    "B": "Q♡7♠",
+    "C": "2♣6♢4♡",
+    "D": "Apuesta de robo ante check del oponente",
+    "E": "Correcta",
+    "F": "+0.10",
+    "G": "0.00"
+  },
+  {
+    "A": "179.0",
+    "B": "A♡K♣",
+    "C": "2♡9♣3♠J♢8♡",
+    "D": "Agresión Flop-Turn / Check-showdown",
+    "E": "Correcta",
+    "F": "+1.40",
+    "G": "0.00"
+  },
+  {
+    "A": "180.0",
+    "B": "A♢7♡",
+    "C": "Q♢J♢8♠",
+    "D": "Cbet pequeña en posición",
+    "E": "Correcta",
+    "F": "+0.13",
+    "G": "0.00"
+  },
+  {
+    "A": "185.0",
+    "B": "A♢K♢",
+    "C": "4♣7♣K♡9♡",
+    "D": "Apuestas por valor Flop y Turn",
+    "E": "Correcta",
+    "F": "+0.27",
+    "G": "0.00"
+  },
+  {
+    "A": "193.0",
+    "B": "Q♣A♡",
+    "C": "2♠A♢J♣5♠T♠",
+    "D": "Doble barril de valor / Control River",
+    "E": "Correcta",
+    "F": "+1.68",
+    "G": "0.00"
+  }
+]

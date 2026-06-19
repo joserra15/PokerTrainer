@@ -995,9 +995,9 @@
           <span style="width:${st.pctVariance}%;background:var(--accent)">${st.pctVariance}% varianza</span>
         </div>
         <div class="muted-text" style="margin-top:8px">
-          EV perdido por errores: <strong>-${fmtBB(st.evDecision)} bb</strong>.
+          EV perdido por errores: <strong>-${fmtBB(st.evDecision)} bb</strong>${st.evLossEuroTotal != null ? ` (${st.evLossEuroTotal.toFixed(2)} €)` : ''}.
+          Balance juego perfecto: <strong>${st.perfectPlayNetBB >= 0 ? '+' : ''}${fmtBB(st.perfectPlayNetBB)} bb</strong>${st.perfectPlayNetEuro != null ? ` (${st.perfectPlayNetEuro >= 0 ? '+' : ''}${st.perfectPlayNetEuro.toFixed(2)} €)` : ''}.
           Resultado ajustado (real − fugas): <strong>${(st.adjustedNet != null ? st.adjustedNet : st.netBB - st.evDecision) >= 0 ? '+' : ''}${fmtBB(st.adjustedNet != null ? st.adjustedNet : st.netBB - st.evDecision)} bb</strong>.
-          Con juego sólido y poca varianza, EV esperado y resultado real suelen ser similares.
         </div>
       </div>
       <div class="top-hands">
@@ -1175,6 +1175,10 @@
           if (heroDec) {
             line += ` <span class="badge ${heroDec.class}">${verdictWord(heroDec.class)}</span>`;
             if (heroDec.class !== 'optima') line += ` <span class="tl-eval">mejor: ${actionName(heroDec.best)} · EV -${fmtBB(heroDec.evLoss)}bb</span>`;
+            if (heroDec.evErroneous && heroDec.mathParams) {
+              const mp = heroDec.mathParams;
+              line += ` <span class="muted-text">eq ${mp.equityPct}% · pot odds ${mp.potOddsPct}% · BE ${mp.breakEvenPct}%</span>`;
+            }
             if (heroDec.heroEquity != null) line += ` <span class="muted-text">eq ${heroDec.heroEquity}%</span>`;
           }
         }

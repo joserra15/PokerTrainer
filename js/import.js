@@ -72,6 +72,8 @@
     for (let i = 0; i < lines.length; i++) {
       const ln = lines[i].trim();
       if (!ln) continue;
+      if (/^Dealer:|^Seat \d|has timed out|disconnected|will be allowed|is sitting out|joins the table|leaves the table/i.test(ln)) continue;
+      if (/^[^*].* says?:/i.test(ln) && !/pone la ciega|se retira|pasa|iguala|apuesta|sube|muestra|descarta/.test(ln)) continue;
 
       let m;
       if ((m = ln.match(/^Mano n\.º\s*(\d+)\s*de (.+?):\s*(.*)/))) {
@@ -322,6 +324,7 @@
       toCallBB,
       betSizeBB: d.betSizeBB || 0,
       potBeforeBB,
+      bbSizeEuro: hand.bb || 0,
       chosenAction,
       initiative: d.initiative || postflopCtx.initiative,
       inPosition: d.inPosition != null ? d.inPosition : postflopCtx.inPosition,
@@ -349,6 +352,11 @@
     d.best = ev.best;
     d.class = ev.class;
     d.evLoss = ev.evLoss;
+    d.evLossEuro = ev.evLossEuro;
+    d.evErroneous = ev.evErroneous;
+    d.evErrorReasons = ev.evErrorReasons;
+    d.mathParams = ev.mathParams;
+    d.bestAction = ev.bestAction;
     d.evLossTier = ev.evLossTier;
     d.actionEV = ev.actionEV;
     d.bestEV = ev.bestEV;
@@ -372,7 +380,7 @@
     let totalEvLoss = 0;
     const byStreet = {};
     hand.decisions.forEach((d) => {
-      totalEvLoss += d.evLoss;
+      if (d.evErroneous) totalEvLoss += d.evLoss || 0;
       byStreet[d.street] = byStreet[d.street] || { n: 0, good: 0 };
       byStreet[d.street].n++;
       if (d.class === 'optima' || d.class === 'aceptable') byStreet[d.street].good++;
@@ -427,7 +435,7 @@
     let totalEvLoss = 0;
     const byStreet = {};
     decisions.forEach((d) => {
-      totalEvLoss += d.evLoss;
+      if (d.evErroneous) totalEvLoss += d.evLoss || 0;
       byStreet[d.street] = byStreet[d.street] || { n: 0, good: 0 };
       byStreet[d.street].n++;
       if (d.class === 'optima' || d.class === 'aceptable') byStreet[d.street].good++;
@@ -511,7 +519,8 @@
             handCode: code, potBB, toCallBB, chosenAction: chosen,
             vsRfiKey,
             initiative: facing === 'RFI' ? 'none' : 'caller',
-            availableActions: opts
+            availableActions: opts,
+            bbSizeEuro: hand.bb
           });
           const ev = evalResult.evaluation;
           const raiseBB = a.type === 'raise' ? r2(a.to / hand.bb) : 0;
@@ -519,7 +528,9 @@
             street: 'preflop', spot: spotLabel(facing, heroPos, openerPos),
             spotKind, facing, vsPosition: openerPos, vsRfiKey,
             actionType: a.type, chosen, class: ev.class, best: ev.best,
-            gto: evalResult.strategy, evLoss: ev.evLoss, evLossTier: ev.evLossTier,
+            gto: evalResult.strategy, evLoss: ev.evLoss, evLossEuro: ev.evLossEuro,
+            evErroneous: ev.evErroneous, evErrorReasons: ev.evErrorReasons, mathParams: ev.mathParams,
+            evLossTier: ev.evLossTier,
             actionEV: ev.actionEV, bestEV: ev.bestEV, frequency: ev.frequency,
             confidence: ev.confidence, score: ev.score, explanation: evalResult.explanation,
             optionBreakdown: evalResult.optionBreakdown,
@@ -653,7 +664,8 @@
           potBeforeBB, facingNode, actionSequenceId: acts.indexOf(a),
           initiative: postflopCtx.initiative, inPosition: postflopCtx.inPosition,
           availableActions: opts,
-          betSizeBB
+          betSizeBB,
+          bbSizeEuro: bb
         });
         const ev = evalResult.evaluation;
         const info = GTO.Equity.classifyMadeHand(heroCards, boardSoFar);
@@ -666,7 +678,9 @@
           street: st, spot: `${cap(st)} · ${handName}`,
           spotKind: 'postflop', facing: 'postflop',
           actionType: a.type, chosen, betSizeBB, class: ev.class, best: ev.best,
-          gto: evalResult.strategy, evLoss: ev.evLoss, evLossTier: ev.evLossTier,
+          gto: evalResult.strategy, evLoss: ev.evLoss, evLossEuro: ev.evLossEuro,
+          evErroneous: ev.evErroneous, evErrorReasons: ev.evErrorReasons, mathParams: ev.mathParams,
+          evLossTier: ev.evLossTier,
           actionEV: ev.actionEV, bestEV: ev.bestEV, frequency: ev.frequency,
           confidence: ev.confidence, score: ev.score, explanation: evalResult.explanation,
           optionBreakdown: evalResult.optionBreakdown,
@@ -776,12 +790,15 @@
 
   function computeStats(hands) {
     const n = hands.length;
-    let decN = 0, decGood = 0, evLoss = 0, netBB = 0;
+    let decN = 0, decGood = 0, evLoss = 0, netBB = 0, evLossEuro = 0;
+    const bbRef = hands[0] && hands[0].bb ? hands[0].bb : 0.05;
     const street = { preflop: { n: 0, good: 0 }, flop: { n: 0, good: 0 }, turn: { n: 0, good: 0 }, river: { n: 0, good: 0 } };
     const dist = { optima: 0, aceptable: 0, imprecisa: 0, error: 0 };
     hands.forEach((h) => {
-      netBB += h.heroNetBB; evLoss += h.totalEvLoss;
+      netBB += h.heroNetBB;
+      evLoss += h.totalEvLoss;
       h.decisions.forEach((d) => {
+        if (d.evErroneous) evLossEuro += d.evLossEuro != null ? d.evLossEuro : r2((d.evLoss || 0) * bbRef);
         decN++;
         if (d.class === 'optima' || d.class === 'aceptable') decGood++;
         dist[d.class] = (dist[d.class] || 0) + 1;
@@ -804,6 +821,9 @@
     const expectedNet = r2(-evLostBB);
     const varianceAdj = r2(actualNet - expectedNet);
     const adjustedNet = r2(actualNet - evLostBB);
+    const perfectPlayNetBB = r2(actualNet + evLostBB);
+    const perfectPlayNetEuro = r2(perfectPlayNetBB * bbRef);
+    const evLossEuroTotal = r2(evLossEuro || evLostBB * bbRef);
     const mag = Math.abs(evLostBB) + Math.abs(varianceAdj) || 1;
     const pctDecision = Math.round((Math.abs(evLostBB) / mag) * 100);
     const pctVariance = 100 - pctDecision;
@@ -816,6 +836,7 @@
       evPerHand: n ? r2(evLoss / n) : 0,
       best5: best5.map(slim), worst5: worst5.map(slim),
       evDecision: evLostBB, expectedNet, actualNet, varianceAdj, adjustedNet,
+      perfectPlayNetBB, perfectPlayNetEuro, evLossEuroTotal,
       pctDecision, pctVariance,
       grade
     };

@@ -17,6 +17,7 @@ const scripts = [
   'engine/handStrength.js',
   'engine/equity/madeHand.js',
   'engine/math/potMath.js',
+  'engine/math/evMath.js',
   'engine/equity/monteCarlo.js',
   'engine/equity/handRank.js',
   'engine/equity/blockers.js',
@@ -223,21 +224,13 @@ console.log('Old session hand recompute:', oldRecomputeOk ? 'OK' : 'FAIL');
 const EvLoss = sandbox.window.GTOEvLoss;
 const errBet = EvLoss.computeEvLoss('flop', 'error', 'bet_66', null,
   { check: 0.95, bet_33: 0.03, bet_66: 0.01, bet_100: 0.01 },
-  15, { potBB: 15, toCallBB: 0, betSizeBB: 5, street: 'flop' });
-console.log('Error bet 5bb loss', errBet.evLoss, '(expect >=5)');
+  15, { potBB: 15, toCallBB: 0, betSizeBB: 5, street: 'flop', bbSizeEuro: 0.05 });
+console.log('Error bluff bet loss', errBet.evLoss, 'erroneous', errBet.evErroneous);
 
-const impBet = EvLoss.computeEvLoss('flop', 'imprecisa', 'bet_33', null,
-  { check: 0.72, bet_33: 0.08, bet_66: 0.12, bet_100: 0.08 },
-  20, { potBB: 20, toCallBB: 0, betSizeBB: 6.6, street: 'flop' });
-console.log('Imprecisa bet loss', impBet.evLoss, '(expect >0 and <6.6)');
-
-const smallPotErr = EvLoss.computeEvLoss('flop', 'error', 'bet_33', null,
-  { check: 1, bet_33: 0, bet_66: 0, bet_100: 0 },
-  4, { potBB: 4, toCallBB: 0, betSizeBB: 1.32, street: 'flop' });
-const bigPotErr = EvLoss.computeEvLoss('flop', 'error', 'bet_66', null,
-  { check: 1, bet_33: 0, bet_66: 0, bet_100: 0 },
-  40, { potBB: 40, toCallBB: 0, betSizeBB: 26.4, street: 'flop' });
-console.log('Small vs big pot error loss', smallPotErr.evLoss, bigPotErr.evLoss, '(expect small < big)');
+const badCall = EvLoss.computeEvLoss('flop', 'optima', 'call', null,
+  { fold: 0.5, call: 0.4, raise: 0.1 },
+  11, { potBB: 11, toCallBB: 3, potBeforeBB: 8, heroEquity: 0.08, street: 'flop', bbSizeEuro: 0.05 });
+console.log('Call sin odds loss', badCall.evLoss, 'bb (expect >=2)', 'eq', badCall.mathParams.equityPct, 'be', badCall.mathParams.breakEvenPct);
 
 const sessStats = Importer.computeStats([
   { heroNetBB: 50, totalEvLoss: 80, decisions: [{ class: 'error', street: 'flop' }] },
@@ -265,7 +258,6 @@ for (let i = 0; i < 300; i++) {
   }
 }
 console.log(`Simulación: ${played} manos, ${complete} completadas, ${errors} errores.`);
-const evOk = errBet.evLoss >= 5 && impBet.evLoss > 0 && impBet.evLoss < 6.6
-  && smallPotErr.evLoss < bigPotErr.evLoss
+const evOk = badCall.evLoss >= 2 && badCall.evErroneous
   && sessStats.expectedNet === -82 && sessStats.varianceAdj === 102;
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
