@@ -350,7 +350,7 @@
   function roundSession(x) { return Math.round((Number(x) || 0) * 100) / 100; }
 
   function decisionEvLossHtml(d) {
-    if (!d || !d.evErroneous || !(d.evLoss > 0)) return '';
+    if (!d || !(d.evLoss > 0)) return '';
     return `<span class="net-neg">-${fmtBB(d.evLoss)}bb</span>`;
   }
 
@@ -358,19 +358,42 @@
     if (!d) return '';
     const mp = d.mathParams;
     const parts = [];
-    if (mp && (mp.equityPct != null || mp.potOddsPct != null)) {
+    if (mp) {
       if (mp.equityPct != null) parts.push(`Equity ${mp.equityPct}%`);
-      if (mp.potOddsPct != null && (d.toCallBB > 0 || d.action === 'call' || d.action === 'fold')) {
-        parts.push(`Pot odds ${mp.potOddsPct}%`);
-      }
-      if (mp.breakEvenPct != null && (d.toCallBB > 0 || d.action === 'call' || d.action === 'fold')) {
-        parts.push(`BE ${mp.breakEvenPct}%`);
-      }
+      const facing = (d.toCallBB > 0) || d.action === 'call' || d.action === 'fold';
+      if (facing && mp.potOddsPct != null) parts.push(`Pot odds ${mp.potOddsPct}%`);
+      if (facing && mp.breakEvenPct != null) parts.push(`BE ${mp.breakEvenPct}%`);
     } else if (d.heroEquity != null) {
       parts.push(`Equity ${d.heroEquity}%`);
     }
     if (!parts.length) return '';
     return `<div class="dec-math muted-text">${parts.join(' · ')}</div>`;
+  }
+
+  function renderHandDecisionsSummary(decisions, matrixSource) {
+    if (!decisions || !decisions.length) return '';
+    let html = '<div class="card-box" style="margin-top:14px"><h3>Evaluación GTO de la mano</h3>';
+    decisions.forEach((d, i) => {
+      html += `<div class="dec-review">
+        <div class="dec-head"><strong>${cap(d.street)}</strong> · ${escapeHtml(d.label || d.chosen || d.action || '')}
+          <span class="verdict ${d.class}">${verdictWord(d.class)}</span>
+          ${decisionEvLossHtml(d)}
+        </div>`;
+      html += renderDecisionMath(d);
+      if (d.context) html += `<div class="dec-expl muted-text">${escapeHtml(d.context)}</div>`;
+      if (d.explanation) html += `<div class="dec-expl">${escapeHtml(d.explanation)}</div>`;
+      if (d.renderAlert) html += `<div class="dec-expl" style="color:var(--orange)">${escapeHtml(d.renderAlert)}</div>`;
+      if (d.optionBreakdown && d.optionBreakdown.length) {
+        html += renderOptionGrid(d.optionBreakdown, d.action || d.chosen);
+      } else if (d.gto) {
+        html += renderGtoBars(d.gto);
+      }
+      if (matrixSource && window.PTRangeMatrix) {
+        html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, i, matrixSource)}</div>`;
+      }
+      html += '</div>';
+    });
+    return html + '</div>';
   }
 
   function appendLog(d) {
@@ -387,7 +410,7 @@
     toast.className = 'verdict-toast visible ' + d.class;
     toast.innerHTML = `<div class="vt-verdict">${verdictWord(d.class)}</div>
       <div class="vt-freq">${pct}% GTO</div>
-      ${d.evErroneous && d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}`;
+      ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}`;
     clearTimeout(showVerdictToast._t);
     showVerdictToast._t = setTimeout(() => { toast.classList.remove('visible'); }, 1100);
   }
@@ -654,7 +677,7 @@
     html += `</div>`;
     if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}% · Confianza: ${Math.round((d.confidence || 0) * 100)}%</div>`;
     html += renderDecisionMath(d);
-    html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evErroneous && d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evErroneous && d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
+    html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
     if (d.errors && d.errors.length) html += `<div class="result-line" style="border-color:var(--red)">${d.errors.map((e) => escapeHtml(e.msg)).join(' · ')}</div>`;
     html += renderOptionGrid(d.optionBreakdown, d.action);
@@ -715,22 +738,7 @@
     const nErr = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa').length;
     if (nErr > 0) html += `<div class="result-line" style="border:none;padding-top:6px;color:var(--orange)">${nErr} decisión(es) guardada(s) en "Errores" para repaso.</div>`;
 
-    html += '<div class="card-box" style="margin-top:14px"><h3>Evaluación GTO de la mano</h3>';
-    hand.decisions.forEach((d, i) => {
-      html += `<div class="dec-review">
-        <div class="dec-head"><strong>${cap(d.street)}</strong> · ${escapeHtml(d.label)}
-          <span class="verdict ${d.class}">${verdictWord(d.class)}</span>
-          ${decisionEvLossHtml(d)}
-        </div>`;
-      html += renderDecisionMath(d);
-      if (d.context) html += `<div class="dec-expl muted-text">${escapeHtml(d.context)}</div>`;
-      if (d.explanation) html += `<div class="dec-expl">${escapeHtml(d.explanation)}</div>`;
-      if (d.renderAlert) html += `<div class="dec-expl" style="color:var(--orange)">${escapeHtml(d.renderAlert)}</div>`;
-      html += renderOptionGrid(d.optionBreakdown, d.action);
-      html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, i, 'trainer')}</div>`;
-      html += '</div>';
-    });
-    html += '</div>';
+    html += renderHandDecisionsSummary(hand.decisions, 'trainer');
 
     if (r.villainRangeLog && r.villainRangeLog.length) {
       html += '<div class="card-box" style="margin-top:14px"><h3>Lectura del rango del villano</h3><ul class="range-log">';
@@ -1247,18 +1255,15 @@
           heroDec = heroDecQueue[item.street] && heroDecQueue[item.street].shift();
           if (heroDec) {
             line += ` <span class="badge ${heroDec.class}">${verdictWord(heroDec.class)}</span>`;
-            if (heroDec.class !== 'optima') line += ` <span class="tl-eval">mejor: ${actionName(heroDec.best)} · EV -${fmtBB(heroDec.evLoss)}bb</span>`;
-            if (heroDec.evErroneous && heroDec.mathParams) {
-              const mp = heroDec.mathParams;
-              line += ` <span class="muted-text">eq ${mp.equityPct}% · pot odds ${mp.potOddsPct}% · BE ${mp.breakEvenPct}%</span>`;
-            }
-            if (heroDec.heroEquity != null) line += ` <span class="muted-text">eq ${heroDec.heroEquity}%</span>`;
+            if (heroDec.evLoss > 0) line += ` <span class="tl-eval">${decisionEvLossHtml(heroDec)}</span>`;
+            else if (heroDec.class !== 'optima') line += ` <span class="tl-eval muted-text">mejor: ${actionName(heroDec.best)}</span>`;
           }
         }
         line += '</div>';
         html += line;
         if (heroDec) {
           html += `<div class="tl-expl-block${heroDec.class === 'error' || heroDec.class === 'imprecisa' ? ' ' + heroDec.class : ''}">`;
+          html += renderDecisionMath(heroDec);
           if (heroDec.explanation && heroDec.class !== 'optima') {
             html += `<div class="tl-expl">${escapeHtml(heroDec.explanation)}</div>`;
           }
@@ -1274,6 +1279,8 @@
       }
     });
     html += '</div>';
+
+    html += renderHandDecisionsSummary(h.decisions, 'session');
 
     // cartas del villano si se mostraron
     const shows = Object.keys(h.villainShows || {}).filter((n) => n !== currentSession.hero);
@@ -1333,7 +1340,7 @@
     const board = boardForStreet(h, d.street);
     const evalResult = GTO.evaluateSpot(buildReplayEvalInput(h, d, action, board));
     const ev = evalResult.evaluation;
-    replayState.userEvLoss += ev.evLoss;
+    if (ev.evErroneous) replayState.userEvLoss += ev.evLoss || 0;
     replayState.total++;
     if (ev.class === 'optima' || ev.class === 'aceptable') replayState.good++;
 
@@ -1344,7 +1351,8 @@
     const sameAsReal = action === d.chosen;
     let html = `<div class="feedback" style="display:block">
       <h3>Tu decisión: <span class="verdict ${ev.class}">${verdictWord(ev.class)}</span>${ev.score != null ? ` · ${ev.score}/100` : ''}</h3>
-      <div>Elegiste <strong>${actionName(action)}</strong> · EV loss: <span class="${ev.evLoss > 0 ? 'net-neg' : 'net-pos'}">${ev.evLoss > 0 ? '-' + fmtBB(ev.evLoss) : '0.00'} bb</span>${ev.evLossTier ? ` (${ev.evLossTier})` : ''}</div>`;
+      <div>Elegiste <strong>${actionName(action)}</strong> · EV perdido: <span class="${ev.evLoss > 0 ? 'net-neg' : 'net-pos'}">${ev.evLoss > 0 ? '-' + fmtBB(ev.evLoss) : '0.00'} bb</span>${ev.evLossTier ? ` (${ev.evLossTier})` : ''}</div>`;
+    html += renderDecisionMath(Object.assign({}, d, { mathParams: ev.mathParams, heroEquity: evalResult.heroEquity != null ? Math.round(evalResult.heroEquity * 100) : null, toCallBB: d.toCallBB, action: action }));
     if (evalResult.explanation) html += `<div class="spot-context" style="margin-top:6px;font-size:13px">${escapeHtml(evalResult.explanation)}</div>`;
     html += renderOptionGrid(evalResult.optionBreakdown, action);
     html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, replayState.idx, 'session')}</div>`;

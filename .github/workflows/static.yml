@@ -29,6 +29,8 @@ jobs:
         run: node tools/selftest.js
       - name: Regresión EV Poker76
         run: node tools/regression-poker76.js
+      - name: Regresión EV modo Jugar
+        run: node tools/test-play-ev.js
       - name: Test river trips board doblado
         run: node tools/test-river-trips.js
 

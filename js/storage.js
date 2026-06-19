@@ -85,6 +85,9 @@
 
   /** Guarda una mano completada y actualiza errores y estadísticas. */
   function saveHand(hand) {
+    if (global.GTO && global.GTO.EvLoss) {
+      hand.result.totalEvLoss = global.GTO.EvLoss.totalEvLossFromDecisions(hand.decisions);
+    }
     const rec = serializeHand(hand);
     const hist = getHistory();
     hist.unshift(rec);
@@ -167,8 +170,9 @@
       decisions: hand.decisions.map((d) => ({
         street: d.street, action: d.action, label: d.label,
         class: d.class, best: d.best, evLoss: d.evLoss, evErroneous: d.evErroneous,
-        mathParams: d.mathParams, heroEquity: d.heroEquity, gto: d.gto, context: d.context,
-        explanation: d.explanation, optionBreakdown: d.optionBreakdown
+        mathParams: d.mathParams, heroEquity: d.heroEquity, toCallBB: d.toCallBB,
+        gto: d.gto, context: d.context, explanation: d.explanation,
+        optionBreakdown: d.optionBreakdown, evErrorReasons: d.evErrorReasons
       }))
     };
   }

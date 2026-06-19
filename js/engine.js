@@ -1082,14 +1082,14 @@
     });
   }
 
-  function erroneousEvLoss(decisions) {
-    return round2((decisions || []).reduce((s, d) => s + (d.evErroneous ? (d.evLoss || 0) : 0), 0));
+  function erroneousEvLoss(hand) {
+    return GTO.EvLoss.totalEvLossFromDecisions(hand.decisions);
   }
 
   function finish(hand, res) {
     syncTableToActivePot(hand);
     hand.stage = 'complete';
-    const totalEvLoss = erroneousEvLoss(hand.decisions);
+    const totalEvLoss = erroneousEvLoss(hand);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');
     hand.current = null;
     hand.result = Object.assign({

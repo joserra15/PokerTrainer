@@ -185,8 +185,15 @@
     return computeEvLoss('postflop', cls, chosen, null, freqs, potBB, strategyInput);
   }
 
+  function totalEvLossFromDecisions(decisions) {
+    return round2((decisions || []).reduce(function (s, d) {
+      return s + (d && d.evErroneous ? (d.evLoss || 0) : 0);
+    }, 0));
+  }
+
   global.GTOEvLoss = {
     round2, evLossTier, preflopEvLoss, postflopEvLoss, computeEvLoss, FREQ_EPS,
-    impliedOddsAllowed, callFailsPotOdds, callSinOddsLoss, foldConEquidadLoss
+    impliedOddsAllowed, callFailsPotOdds, callSinOddsLoss, foldConEquidadLoss,
+    totalEvLossFromDecisions
   };
 })(window);

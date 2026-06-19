@@ -377,10 +377,9 @@
       console.error('[Importer] recomputeHandDecisions failed', e);
       return hand;
     }
-    let totalEvLoss = 0;
+    let totalEvLoss = GTO.EvLoss.totalEvLossFromDecisions(hand.decisions);
     const byStreet = {};
     hand.decisions.forEach((d) => {
-      if (d.evErroneous) totalEvLoss += d.evLoss || 0;
       byStreet[d.street] = byStreet[d.street] || { n: 0, good: 0 };
       byStreet[d.street].n++;
       if (d.class === 'optima' || d.class === 'aceptable') byStreet[d.street].good++;
@@ -432,10 +431,9 @@
     }
 
     // EV y acierto
-    let totalEvLoss = 0;
+    let totalEvLoss = GTO.EvLoss.totalEvLossFromDecisions(decisions);
     const byStreet = {};
     decisions.forEach((d) => {
-      if (d.evErroneous) totalEvLoss += d.evLoss || 0;
       byStreet[d.street] = byStreet[d.street] || { n: 0, good: 0 };
       byStreet[d.street].n++;
       if (d.class === 'optima' || d.class === 'aceptable') byStreet[d.street].good++;
