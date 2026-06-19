@@ -178,7 +178,7 @@
   function renderTable() {
     if (hand && Engine.syncTableInvested) Engine.syncTableInvested(hand);
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
-    const pot = hand.current ? hand.current.potBB : (hand.result ? null : hand.potBB);
+    const pot = hand.current ? hand.current.potBB : hand.potBB;
     $('#hero-pos').textContent = hand.hero.pos;
     $('#pot').innerHTML = '<span class="pot-chips"><span class="chip-ico"></span></span> Bote: ' + (pot != null ? fmt(pot) : '-') + ' bb';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardToHTML).join('');
@@ -271,7 +271,8 @@
         else if (seatActs[pos]) actHtml = actionBadgeHTML(seatActs[pos]);
       }
 
-      const active = inHand.has(pos) && !folded[pos] && !isHero;
+      const active = inHand.has(pos) && !folded[pos] && !isHero
+        && (hand.stage === 'preflop' || (hand.stage === 'complete' ? (showdown && isVillain) : isVillain));
       let cardsHtml = '';
       if (active && holeCards[pos]) {
         if (showdown && isVillain && hand.villain.cards) {
