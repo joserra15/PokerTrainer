@@ -266,8 +266,10 @@
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? 'Pagador' : ''));
       const seatActs = hand.seatActions || {};
       let actHtml = '';
-      if (seatActs[pos]) actHtml = actionBadgeHTML(seatActs[pos]);
-      else if (isVillain) actHtml = actionBadgeHTML(hand.villainAction);
+      if (!folded[pos]) {
+        if (isVillain && hand.villainAction) actHtml = actionBadgeHTML(hand.villainAction);
+        else if (seatActs[pos]) actHtml = actionBadgeHTML(seatActs[pos]);
+      }
 
       const active = inHand.has(pos) && !folded[pos] && !isHero;
       let cardsHtml = '';

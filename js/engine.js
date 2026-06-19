@@ -59,6 +59,7 @@
     hand.table.folded[pos] = true;
     hand.table.inHand.delete(pos);
     hand.table.streetBet[pos] = 0;
+    if (hand.seatActions) delete hand.seatActions[pos];
   }
 
   function collapseOthersToHU(hand, villainPos, extraAlive) {
@@ -524,6 +525,7 @@
       hand.villainInvested = node.squeezeSize;
       hand.potBB = round2(node.squeezeSize * 2 + node.openSize + SB);
       hand.heroInPosition = inPos(hand.hero.pos, hand.villain.pos);
+      if (hand.scenario.callerPos) markFolded(hand, hand.scenario.callerPos);
       return goFlop(hand);
     }
 
@@ -774,7 +776,11 @@
   function initVillainTracker(hand) {
     if (VT) hand.villainRangeTracker = VT.initTracker(hand.villain.rangeStr, hand.villain.pos);
   }
-  function clearStreetActions(hand) { hand.heroAction = null; hand.villainAction = null; }
+  function clearStreetActions(hand) {
+    hand.heroAction = null;
+    hand.villainAction = null;
+    hand.seatActions = {};
+  }
 
   /** Decisión del villano cuando es el primero en actuar en una calle (lead o check). */
   function villainStreetOpen(hand) {
