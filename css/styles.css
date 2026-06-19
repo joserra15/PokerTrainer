@@ -356,7 +356,8 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .sidebar { display: flex; flex-direction: column; gap: 16px; }
 .card-box { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
 .card-box h3 { font-size: 14px; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-.mini-stats { display: flex; justify-content: space-between; text-align: center; }
+.mini-stats { display: flex; flex-wrap: wrap; justify-content: space-between; text-align: center; gap: 8px 4px; }
+.mini-stats div { flex: 1 1 28%; min-width: 72px; }
 .mini-stats div span { font-size: 22px; font-weight: 800; display: block; color: var(--gold); }
 .mini-stats div label { font-size: 11px; color: var(--muted); }
 .hand-log { list-style: none; font-size: 13px; max-height: 220px; overflow-y: auto; }

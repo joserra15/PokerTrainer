@@ -542,6 +542,9 @@
       gto: evalResult.strategy,
       optionBreakdown: evalResult.optionBreakdown,
       evLoss: ev.evLoss,
+      evErroneous: ev.evErroneous,
+      evErrorReasons: ev.evErrorReasons,
+      mathParams: ev.mathParams,
       evLossTier: ev.evLossTier,
       actionEV: ev.actionEV,
       bestEV: ev.bestEV,
@@ -550,6 +553,7 @@
       score: ev.score,
       explanation: evalResult.explanation,
       errors: ev.errors,
+      heroEquity: evalResult.heroEquity != null ? round2(evalResult.heroEquity * 100) : null,
       potBB: node.potBB,
       toCallBB: node.toCallBB || 0,
       availableActions: (node.options || []).map((o) => o.id),
@@ -1078,10 +1082,14 @@
     });
   }
 
+  function erroneousEvLoss(decisions) {
+    return round2((decisions || []).reduce((s, d) => s + (d.evErroneous ? (d.evLoss || 0) : 0), 0));
+  }
+
   function finish(hand, res) {
     syncTableToActivePot(hand);
     hand.stage = 'complete';
-    const totalEvLoss = round2(hand.decisions.reduce((s, d) => s + d.evLoss, 0));
+    const totalEvLoss = erroneousEvLoss(hand.decisions);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');
     hand.current = null;
     hand.result = Object.assign({

@@ -110,6 +110,8 @@
           best: d.best,
           class: d.class,
           evLoss: d.evLoss,
+          evErroneous: d.evErroneous,
+          mathParams: d.mathParams,
           context: d.context,
           gto: d.gto,
           repeated: 0
@@ -164,7 +166,9 @@
       villainHandName: r.villainHandName || null,
       decisions: hand.decisions.map((d) => ({
         street: d.street, action: d.action, label: d.label,
-        class: d.class, best: d.best, evLoss: d.evLoss, gto: d.gto, context: d.context
+        class: d.class, best: d.best, evLoss: d.evLoss, evErroneous: d.evErroneous,
+        mathParams: d.mathParams, heroEquity: d.heroEquity, gto: d.gto, context: d.context,
+        explanation: d.explanation, optionBreakdown: d.optionBreakdown
       }))
     };
   }
