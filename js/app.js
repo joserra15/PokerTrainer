@@ -1030,7 +1030,7 @@
           const session = Importer.buildSession(parsed, file.name);
           session.rawText = reader.result;
           Store.saveSession(session);
-          status.innerHTML = `<span style="color:var(--green)">Sesión procesada: ${session.hands.length} manos jugadas (de ${session.nTotal} cash, ${session.nDiscarded} descartadas por fold preflop).</span>`;
+          status.innerHTML = `<span style="color:var(--green)">Sesión procesada: ${session.hands.length} manos analizadas (de ${session.nTotal} cash${session.nDiscarded ? `, ${session.nDiscarded} sin cartas del héroe` : ''}).</span>`;
           input.value = ''; $('#process-session').disabled = true;
           renderSessionsList();
           openSession(session.id);

@@ -117,8 +117,8 @@ En la pestaña **Sesiones** puedes adjuntar un fichero `.txt` con el historial d
 manos exportado de PokerStars (Cash NL Hold'em, en español) y pulsar **Procesar**:
 
 - Detecta automáticamente al **héroe** (el nombre cuyas cartas se reparten).
-- Recorre todas las manos, **descarta** las de torneo y aquellas en las que el
-  héroe **foldea preflop sin acción**; conserva las que jugó.
+- Recorre todas las manos de cash NL, **analiza cada mano del héroe con cartas**
+  (incluidos folds preflop) y descarta solo las de torneo o sin reparto al héroe.
 - Clasifica **cada decisión** del héroe contra GTO (óptima / aceptable /
   imprecisa / error), estima el **EV perdido** y el resultado en bb por mano.
 - Genera una **ficha de sesión** con estadísticas: acierto global y **por calle**,

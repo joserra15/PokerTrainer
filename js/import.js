@@ -3,7 +3,7 @@
  * Importa y analiza historiales de manos exportados de PokerStars (español).
  * - Parsea cada mano (asientos, posiciones, acciones, board, resultado).
  * - Filtra cash NL Hold'em (descarta torneos).
- * - Descarta manos donde el héroe foldea preflop sin acción voluntaria.
+ * - Analiza todas las manos del héroe con cartas (incl. folds preflop).
  * - Clasifica cada decisión del héroe contra GTO (aprox.) y estima EV perdido.
  * - Calcula estadísticas de sesión y una nota final.
  * Expuesto como `Importer`.
@@ -164,20 +164,9 @@
     if (hand.blinds.bb) pos[hand.blinds.bb] = 'BB';
   }
 
-  // ---------- ¿el héroe jugó la mano? ----------
+  // ---------- ¿analizar esta mano del héroe? ----------
   function heroPlayed(hand) {
-    const hero = hand.hero;
-    if (!hero) return false;
-    let voluntary = false, sawFlop = hand.board.flop.length > 0 && !heroFoldedPreflop(hand);
-    ['preflop', 'flop', 'turn', 'river'].forEach((st) => {
-      hand.streets[st].forEach((a) => {
-        if (a.player === hero && (a.type === 'call' || a.type === 'raise' || a.type === 'bet')) voluntary = true;
-      });
-    });
-    return voluntary || sawFlop;
-  }
-  function heroFoldedPreflop(hand) {
-    return hand.streets.preflop.some((a) => a.player === hand.hero && a.type === 'fold');
+    return !!(hand.hero && hand.heroCards && hand.heroCards.length >= 2);
   }
 
   // ---------- ANALIZADOR GTO (vía evaluateSpot) ----------
