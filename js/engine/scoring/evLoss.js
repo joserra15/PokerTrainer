@@ -1,6 +1,7 @@
 /*
  * evLoss.js — ΔEV = EV_óptimo − EV_elegida (bb y €).
- * Fugas EV solo en acciones claramente -EV vs pot odds / extracción de valor.
+ * EV = P_fold×V_pozo + P_call×[(Eq×Pozo_final) − Inversión]
+ * Call sin odds (fold óptimo): ΔEV = Inversión − Eq×Pozo_final
  */
 (function (global) {
   'use strict';
@@ -58,49 +59,64 @@
     return round2(pot * (street === 'flop' ? 0.08 : 0.05));
   }
 
-  function stratEv(input, chosen, freqs) {
-    if (!Strat || !Strat.actionEV) return { bestEV: 0, actionEV: 0, best: chosen };
-    const best = Strat.bestAction(freqs || {});
-    return {
-      best: best.best,
-      bestEV: round2(Strat.actionEV(best.best, freqs, input)),
-      actionEV: round2(Strat.actionEV(chosen, freqs, input))
-    };
+  function availableActions(freqs, input) {
+    if (input.availableActions && input.availableActions.length) return input.availableActions.slice();
+    const keys = Object.keys(freqs || {}).filter((k) => (freqs[k] || 0) > FREQ_EPS);
+    if (keys.length) return keys;
+    const acts = ['fold'];
+    if ((input.toCallBB || 0) <= 0) acts.push('check');
+    else acts.push('call');
+    return acts;
   }
 
-  function callSinOddsLoss(ctx, input) {
+  function formulaEv(chosen, ctx, freqs, input) {
+    const acts = availableActions(freqs, input);
+    if (acts.indexOf(chosen) < 0) acts.push(chosen);
+    const { best, bestEV } = EvMath.bestEvAction(acts, ctx);
+    const actionEV = EvMath.actionEVMath(chosen, ctx);
+    const formulaDelta = EvMath.deltaEvLoss(bestEV, actionEV);
+    return { best, bestEV, actionEV, formulaDelta };
+  }
+
+  function callSinOddsLoss(ctx, input, bestAction) {
     const pa = EvMath.potAfterCall(ctx.potBeforeBB, ctx.toCallBB);
-    const raw = round2(ctx.toCallBB - ctx.equity * pa);
+    let raw = round2(ctx.toCallBB - ctx.equity * pa);
+    if ((!bestAction || bestAction === 'fold') && raw > 0) {
+      raw = EvMath.evCallLeak(ctx.equity, ctx.potBeforeBB, ctx.toCallBB);
+    }
     let loss;
     if (ctx.equity < ctx.breakEven * 0.85) loss = round2(Math.max(raw, ctx.toCallBB * 0.9));
-    else if (ctx.equity < ctx.breakEven) loss = round2(Math.max(raw, ctx.toCallBB * (1 - ctx.equity / Math.max(ctx.breakEven, 0.01))));
-    else loss = raw;
-    if (input && microStakesBB(input) && input.villainLastAction === 'raise' && ctx.toCallBB <= ctx.potBeforeBB * 0.35) {
+    else if (ctx.equity < ctx.breakEven) {
+      loss = round2(Math.max(raw, ctx.toCallBB * (1 - ctx.equity / Math.max(ctx.breakEven, 0.01))));
+    } else loss = round2(Math.max(raw, 0));
+    if (input && microStakesBB(input) && input.villainLastAction === 'raise'
+      && ctx.toCallBB <= ctx.potBeforeBB * 0.35) {
       loss = round2(Math.max(loss, 1));
     }
     return loss;
   }
 
   function foldConEquidadLoss(ctx) {
-    const pa = EvMath.potAfterCall(ctx.potBeforeBB, ctx.toCallBB);
-    return round2(Math.max(0, ctx.equity * pa - ctx.toCallBB));
+    const callEV = EvMath.evCall(ctx.equity, ctx.potBeforeBB, ctx.toCallBB, ctx.impliedBonusBB || 0);
+    return round2(Math.max(0, callEV));
   }
 
-  function classifyEvErroneous(chosen, cls, ctx, input, stratErrors, street) {
+  function classifyEvErroneous(chosen, cls, ctx, input, stratErrors, street, formula) {
     const reasons = [];
     let evLoss = 0;
     const isPostflop = street !== 'preflop' && input.street !== 'preflop';
     const eqPct = round2(ctx.equity * 100);
     const bePct = round2(ctx.breakEven * 100);
+    const pa = EvMath.potAfterCall(ctx.potBeforeBB, ctx.toCallBB);
 
     if (isPostflop && chosen === 'call' && ctx.toCallBB > 0 && callFailsPotOdds(ctx, input)) {
       if (!impliedOddsAllowed(input, ctx)) {
-        const loss = callSinOddsLoss(ctx, input);
+        const loss = callSinOddsLoss(ctx, input, formula.best);
         if (loss >= EV_ERR_THRESHOLD_BB) {
           evLoss = loss;
           reasons.push({
             type: 'call_sin_odds',
-            msg: `Call sin pot odds: equity ${eqPct}% < break-even ${bePct}%. ΔEV ≈ ${loss} bb.`
+            msg: `Call sin pot odds: Eq ${eqPct}% < BE ${bePct}%. ΔEV = Inversión − Eq×Pozo = ${ctx.toCallBB} − ${eqPct}%×${pa} ≈ ${loss} bb.`
           });
         }
       }
@@ -112,7 +128,7 @@
         evLoss = round2(Math.max(evLoss, loss));
         reasons.push({
           type: 'fold_con_equidad',
-          msg: `Fold con equity suficiente: ${eqPct}% > break-even ${bePct}%.`
+          msg: `Fold con equity suficiente: ${eqPct}% > break-even ${bePct}%. ΔEV ≈ ${loss} bb.`
         });
       }
     }
@@ -120,14 +136,14 @@
     if (cls === 'imprecisa' || cls === 'error') {
       (stratErrors || []).forEach((e) => {
         if (e.type === 'valor_insuficiente' || e.type === 'sizing_incoherente') {
-          const sizingLoss = round2(Math.max(0, (input.potBB || 1) * 0.25));
+          const sizingLoss = round2(Math.max(formula.formulaDelta, (input.potBB || 1) * 0.25));
           if (sizingLoss >= EV_ERR_THRESHOLD_BB) {
             evLoss = round2(Math.max(evLoss, sizingLoss));
             reasons.push({ type: 'sizing_valor', msg: e.msg });
           }
         }
         if (e.type === 'bluff_sin_fold_equity' || e.type === 'bluff_excesivo') {
-          const bluffLoss = round2((input.betSizeBB || ctx.toCallBB || 0) * 0.9);
+          const bluffLoss = round2(Math.max(formula.formulaDelta, (input.betSizeBB || ctx.toCallBB || 0) * 0.9));
           if (bluffLoss >= EV_ERR_THRESHOLD_BB) {
             evLoss = round2(Math.max(evLoss, bluffLoss));
             reasons.push({ type: 'bluff_polarizado', msg: e.msg });
@@ -145,22 +161,21 @@
     const ctx = EvMath.buildActionContext(Object.assign({}, input, { chosenAction: chosen }), freqs);
     ctx.impliedBonusBB = estimateImpliedBonus(input, ctx);
 
-    const strat = stratEv(input, chosen, freqs);
+    const formula = formulaEv(chosen, ctx, freqs, input);
     const stratErrors = global.GTOErrors
       ? global.GTOErrors.detectErrors(Object.assign({}, input, { strategy: freqs, chosenAction: chosen }))
       : [];
 
-    const err = classifyEvErroneous(chosen, cls, ctx, input, stratErrors, street);
-    let evLoss = err.evLoss;
-    let bestEV = strat.bestEV;
-    let actionEV = strat.actionEV;
-
-    if (err.erroneous && evLoss > 0) {
-      bestEV = round2(bestEV + evLoss);
-      actionEV = round2(bestEV - evLoss);
-    }
-
-    const params = EvMath.mathParams(ctx);
+    const err = classifyEvErroneous(chosen, cls, ctx, input, stratErrors, street, formula);
+    const evLoss = err.evLoss;
+    const investment = chosen === 'call' ? ctx.toCallBB
+      : (chosen === 'fold' || chosen === 'check' ? 0 : (ctx.betSizeBB || EvMath.committedBB(chosen, input)));
+    const params = EvMath.mathParams(ctx, {
+      actionEV: formula.actionEV,
+      bestEV: formula.bestEV,
+      deltaEV: err.erroneous ? evLoss : formula.formulaDelta,
+      investmentBB: investment
+    });
     const bbEuro = input.bbSizeEuro || input.bbEuro || 0;
     const evLossEuro = bbEuro > 0 ? round2(evLoss * bbEuro) : 0;
 
@@ -169,9 +184,9 @@
       evLossEuro,
       evErroneous: err.erroneous,
       evErrorReasons: err.reasons,
-      actionEV,
-      bestEV,
-      bestAction: strat.best,
+      actionEV: formula.actionEV,
+      bestEV: formula.bestEV,
+      bestAction: formula.best,
       mathParams: params,
       tier: evLossTier(evLoss)
     };
@@ -194,6 +209,6 @@
   global.GTOEvLoss = {
     round2, evLossTier, preflopEvLoss, postflopEvLoss, computeEvLoss, FREQ_EPS,
     impliedOddsAllowed, callFailsPotOdds, callSinOddsLoss, foldConEquidadLoss,
-    totalEvLossFromDecisions
+    totalEvLossFromDecisions, formulaEv, availableActions
   };
 })(window);

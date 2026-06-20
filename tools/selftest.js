@@ -236,8 +236,8 @@ const sessStats = Importer.computeStats([
   { heroNetBB: 50, totalEvLoss: 80, decisions: [{ class: 'error', street: 'flop' }] },
   { heroNetBB: -30, totalEvLoss: 2, decisions: [{ class: 'optima', street: 'flop' }] }
 ]);
-console.log('Session expectedNet', sessStats.expectedNet, '(expect -82)');
-console.log('Session varianceAdj', sessStats.varianceAdj, '(expect 102)');
+console.log('Session expectedNet', sessStats.expectedNet, '(expect 102)');
+console.log('Session varianceAdj', sessStats.varianceAdj, '(expect -82)');
 
 let played = 0, errors = 0, complete = 0;
 for (let i = 0; i < 300; i++) {
@@ -259,5 +259,5 @@ for (let i = 0; i < 300; i++) {
 }
 console.log(`Simulación: ${played} manos, ${complete} completadas, ${errors} errores.`);
 const evOk = badCall.evLoss >= 2 && badCall.evErroneous
-  && sessStats.expectedNet === -82 && sessStats.varianceAdj === 102;
+  && sessStats.expectedNet === 102 && sessStats.varianceAdj === -82;
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');

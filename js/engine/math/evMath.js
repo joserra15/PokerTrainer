@@ -28,12 +28,32 @@
 
   function evFold() { return 0; }
 
-  /** EV(call) = equity × bote tras call − importe del call (+ bonus implied si aplica). */
+  /**
+   * EV(call) = P_call × [(Eq × Pozo_final) − Inversión].
+   * Con P_call = 1 implícito al elegir call; bonus implied opcional.
+   */
   function evCall(equity, potBeforeBB, callAmountBB, impliedBonusBB) {
     const eq = Math.max(0, Math.min(1, equity || 0));
     const call = Math.max(callAmountBB || 0, 0);
     const pa = potAfterCall(potBeforeBB, call);
     return round2(eq * pa - call + (impliedBonusBB || 0));
+  }
+
+  /** Fuga call vs fold (EV_fold = 0): max(0, Inversión − Eq × Pozo_final). */
+  function evCallLeak(equity, potBeforeBB, callAmountBB) {
+    return round2(Math.max(0, -evCall(equity, potBeforeBB, callAmountBB, 0)));
+  }
+
+  /**
+   * EV(agresión) = P_fold × V_pozo + P_call × [(Eq × Pozo_final) − Inversión].
+   */
+  function evAggression(equity, potBeforeBB, betSizeBB, foldEquity, realization) {
+    return evBetRaise(equity, potBeforeBB, betSizeBB, foldEquity, realization);
+  }
+
+  /** ΔEV = EV_óptimo − EV_elegida (magnitud de fuga, ≥ 0). */
+  function deltaEvLoss(bestEV, actionEV) {
+    return round2(Math.max(0, (bestEV || 0) - (actionEV || 0)));
   }
 
   function evCheck(equity, potBB, realization) {
@@ -118,19 +138,30 @@
     return { best, bestEV: round2(bestEV) };
   }
 
-  function mathParams(ctx) {
+  function mathParams(ctx, extra) {
+    const ex = extra || {};
+    const potAfter = potAfterCall(ctx.potBeforeBB, ctx.toCallBB);
+    const bet = ctx.betSizeBB || 0;
+    const potFinalBet = bet > 0 ? round2(ctx.potBeforeBB + 2 * bet) : potAfter;
     return {
       equityPct: round2(ctx.equity * 100),
       potOddsPct: round2(ctx.breakEven * 100),
       breakEvenPct: round2(ctx.breakEven * 100),
       potBeforeBB: ctx.potBeforeBB,
       toCallBB: ctx.toCallBB,
-      potAfterCallBB: potAfterCall(ctx.potBeforeBB, ctx.toCallBB)
+      potAfterCallBB: potAfter,
+      potFinalBB: ex.potFinalBB != null ? ex.potFinalBB : potFinalBet,
+      investmentBB: ex.investmentBB != null ? ex.investmentBB : (ctx.toCallBB || bet || 0),
+      foldEquityPct: ctx.foldEquity != null ? round2(ctx.foldEquity * 100) : null,
+      actionEV: ex.actionEV,
+      bestEV: ex.bestEV,
+      deltaEV: ex.deltaEV
     };
   }
 
   global.GTOEvMath = {
-    round2, potAfterCall, breakEvenEquity, evFold, evCall, evCheck, evBetRaise,
-    committedBB, buildActionContext, actionEVMath, bestEvAction, mathParams
+    round2, potAfterCall, breakEvenEquity, evFold, evCall, evCallLeak, evCheck,
+    evBetRaise, evAggression, deltaEvLoss, committedBB, buildActionContext,
+    actionEVMath, bestEvAction, mathParams
   };
 })(window);

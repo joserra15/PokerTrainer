@@ -363,6 +363,16 @@
       const facing = (d.toCallBB > 0) || d.action === 'call' || d.action === 'fold';
       if (facing && mp.potOddsPct != null) parts.push(`Pot odds ${mp.potOddsPct}%`);
       if (facing && mp.breakEvenPct != null) parts.push(`BE ${mp.breakEvenPct}%`);
+      if (mp.potFinalBB != null && (d.action === 'call' || d.chosen === 'call')) {
+        parts.push(`Pozo final ${mp.potFinalBB}bb`);
+      }
+      if (mp.foldEquityPct != null && d.action && String(d.action).startsWith('bet')) {
+        parts.push(`Fold equity ${mp.foldEquityPct}%`);
+      }
+      if (mp.actionEV != null && mp.bestEV != null) {
+        parts.push(`EV acción ${mp.actionEV >= 0 ? '+' : ''}${mp.actionEV}bb · óptimo ${mp.bestEV >= 0 ? '+' : ''}${mp.bestEV}bb`);
+      }
+      if (mp.deltaEV > 0) parts.push(`ΔEV ${mp.deltaEV}bb`);
     } else if (d.heroEquity != null) {
       parts.push(`Equity ${d.heroEquity}%`);
     }
@@ -727,10 +737,9 @@
     html += ` &nbsp;·&nbsp; Balance juego perfecto: <span class="${perfectNet >= 0 ? 'net-pos' : 'net-neg'}">${perfectNet >= 0 ? '+' : ''}${fmtBB(perfectNet)} bb</span></div>`;
 
     html += '<div class="card-box" style="margin-top:10px"><h3>EV esperado vs resultado real</h3>';
-    const expectedNet = roundSession(-(r.totalEvLoss || 0));
-    const varianceAdj = roundSession((r.heroNet || 0) - expectedNet);
+    const varianceAdj = roundSession((r.heroNet || 0) - perfectNet);
     html += `<div class="stats-content" style="margin-bottom:0">
-      <div class="stat-card"><div class="big ${expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${expectedNet >= 0 ? '+' : ''}${fmtBB(expectedNet)}</div><div class="lbl">EV esperado (decisiones)</div></div>
+      <div class="stat-card"><div class="big ${perfectNet >= 0 ? 'net-pos' : 'net-neg'}">${perfectNet >= 0 ? '+' : ''}${fmtBB(perfectNet)}</div><div class="lbl">EV esperado (sin fugas)</div></div>
       <div class="stat-card"><div class="big ${netCls}">${r.heroNet >= 0 ? '+' : ''}${fmtBB(r.heroNet)}</div><div class="lbl">Resultado real</div></div>
       <div class="stat-card"><div class="big ${varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${varianceAdj >= 0 ? '+' : ''}${fmtBB(varianceAdj)}</div><div class="lbl">Varianza / suerte</div></div>
     </div></div>`;
@@ -864,9 +873,8 @@
     const byStreet = st.byStreet || emptyByStreet();
     const actualNet = roundSession(st.totalNet || 0);
     const evLost = roundSession(st.totalEvLoss || 0);
-    const expectedNet = roundSession(-evLost);
-    const varianceAdj = roundSession(actualNet - expectedNet);
     const perfectNet = roundSession(actualNet + evLost);
+    const varianceAdj = roundSession(actualNet - perfectNet);
     box.innerHTML = `
       <div class="stat-card"><div class="big">${st.handsPlayed}</div><div class="lbl">Manos jugadas</div></div>
       <div class="stat-card"><div class="big">${accuracy}%</div><div class="lbl">Acierto (óptima+aceptable)</div></div>
@@ -875,11 +883,11 @@
       <div class="stat-card" style="grid-column:1/-1;text-align:left">
         <div class="lbl" style="margin-bottom:8px">EV esperado vs resultado real</div>
         <div class="stats-content" style="margin-bottom:8px">
-          <div class="stat-card"><div class="big ${expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${expectedNet >= 0 ? '+' : ''}${fmtBB(expectedNet)}</div><div class="lbl">EV esperado (decisiones)</div></div>
+          <div class="stat-card"><div class="big ${perfectNet >= 0 ? 'net-pos' : 'net-neg'}">${perfectNet >= 0 ? '+' : ''}${fmtBB(perfectNet)}</div><div class="lbl">EV esperado (sin fugas)</div></div>
           <div class="stat-card"><div class="big ${actualNet >= 0 ? 'net-pos' : 'net-neg'}">${actualNet >= 0 ? '+' : ''}${fmtBB(actualNet)}</div><div class="lbl">Resultado real</div></div>
           <div class="stat-card"><div class="big ${varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${varianceAdj >= 0 ? '+' : ''}${fmtBB(varianceAdj)}</div><div class="lbl">Varianza / suerte</div></div>
         </div>
-        <div class="muted-text">Balance juego perfecto: <strong>${perfectNet >= 0 ? '+' : ''}${fmtBB(perfectNet)} bb</strong> (resultado real + EV recuperable por errores).</div>
+        <div class="muted-text">EV perdido por errores: <strong>-${fmtBB(evLost)} bb</strong>. Balance juego perfecto = resultado real + fugas recuperables.</div>
       </div>
       <div class="stat-card" style="grid-column:1/-1;text-align:left">
         <div class="lbl" style="margin-bottom:8px">Acierto por calle</div>
@@ -1067,7 +1075,7 @@
       <div class="card-box">
         <h3>EV esperado vs resultado real</h3>
         <div class="stats-content" style="margin-bottom:12px">
-          <div class="stat-card"><div class="big ${st.expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${st.expectedNet >= 0 ? '+' : ''}${fmtBB(st.expectedNet != null ? st.expectedNet : -st.evDecision)}</div><div class="lbl">EV esperado (decisiones)</div></div>
+          <div class="stat-card"><div class="big ${st.perfectPlayNetBB >= 0 ? 'net-pos' : 'net-neg'}">${st.perfectPlayNetBB >= 0 ? '+' : ''}${fmtBB(st.perfectPlayNetBB != null ? st.perfectPlayNetBB : (st.actualNet + st.evDecision))}</div><div class="lbl">EV esperado (sin fugas)</div></div>
           <div class="stat-card"><div class="big ${netCls}">${st.actualNet != null ? (st.actualNet >= 0 ? '+' : '') + fmtBB(st.actualNet) : (st.netBB >= 0 ? '+' : '') + fmtBB(st.netBB)}</div><div class="lbl">Resultado real</div></div>
           <div class="stat-card"><div class="big ${st.varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)}</div><div class="lbl">Varianza / suerte</div></div>
         </div>

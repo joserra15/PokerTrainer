@@ -816,11 +816,11 @@
     // EV por decisiones vs resultado real vs varianza
     const evLostBB = r2(evLoss);
     const actualNet = r2(netBB);
-    const expectedNet = r2(-evLostBB);
-    const varianceAdj = r2(actualNet - expectedNet);
-    const adjustedNet = r2(actualNet - evLostBB);
     const perfectPlayNetBB = r2(actualNet + evLostBB);
     const perfectPlayNetEuro = r2(perfectPlayNetBB * bbRef);
+    const expectedNet = perfectPlayNetBB;
+    const varianceAdj = r2(actualNet - perfectPlayNetBB);
+    const adjustedNet = r2(actualNet - evLostBB);
     const evLossEuroTotal = r2(evLossEuro || evLostBB * bbRef);
     const mag = Math.abs(evLostBB) + Math.abs(varianceAdj) || 1;
     const pctDecision = Math.round((Math.abs(evLostBB) / mag) * 100);
