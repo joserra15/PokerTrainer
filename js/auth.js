@@ -110,6 +110,17 @@
 
     const signout = $('#account-signout');
     if (signout) signout.onclick = function () { signOut(); };
+
+    const syncBtn = $('#account-sync');
+    if (syncBtn) {
+      syncBtn.onclick = function () {
+        if (typeof global.runCloudSync === 'function') global.runCloudSync(syncBtn);
+        else if (global.PTCloud && global.PTCloud.syncNow) {
+          syncBtn.disabled = true;
+          global.PTCloud.syncNow().finally(function () { syncBtn.disabled = false; });
+        }
+      };
+    }
   }
 
   function startAppIfNeeded() {

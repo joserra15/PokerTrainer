@@ -816,11 +816,12 @@
     // EV por decisiones vs resultado real vs varianza
     const evLostBB = r2(evLoss);
     const actualNet = r2(netBB);
-    const perfectPlayNetBB = r2(actualNet + evLostBB);
+    const netEv = GTO.EvLoss.computeNetEvStats(actualNet, evLostBB);
+    const expectedNet = netEv.expectedNet;
+    const varianceAdj = netEv.varianceAdj;
+    const perfectPlayNetBB = expectedNet;
     const perfectPlayNetEuro = r2(perfectPlayNetBB * bbRef);
-    const expectedNet = perfectPlayNetBB;
-    const varianceAdj = r2(actualNet - perfectPlayNetBB);
-    const adjustedNet = r2(actualNet - evLostBB);
+    const adjustedNet = expectedNet;
     const evLossEuroTotal = r2(evLossEuro || evLostBB * bbRef);
     const mag = Math.abs(evLostBB) + Math.abs(varianceAdj) || 1;
     const pctDecision = Math.round((Math.abs(evLostBB) / mag) * 100);

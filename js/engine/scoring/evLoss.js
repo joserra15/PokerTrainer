@@ -206,9 +206,21 @@
     }, 0));
   }
 
+  /**
+   * Resultado esperado en bb si no hubiera fugas = real − EV perdido.
+   * Varianza/suerte = real − esperado (runout favorable pese a errores).
+   */
+  function computeNetEvStats(actualNetBB, evLostBB) {
+    const actualNet = round2(actualNetBB || 0);
+    const evLost = round2(evLostBB || 0);
+    const expectedNet = round2(actualNet - evLost);
+    const varianceAdj = round2(actualNet - expectedNet);
+    return { actualNet, evLostBB: evLost, expectedNet, varianceAdj };
+  }
+
   global.GTOEvLoss = {
     round2, evLossTier, preflopEvLoss, postflopEvLoss, computeEvLoss, FREQ_EPS,
     impliedOddsAllowed, callFailsPotOdds, callSinOddsLoss, foldConEquidadLoss,
-    totalEvLossFromDecisions, formulaEv, availableActions
+    totalEvLossFromDecisions, computeNetEvStats, formulaEv, availableActions
   };
 })(window);

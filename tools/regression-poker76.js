@@ -23,6 +23,7 @@ const scripts = [
   'engine/solver/SolverProvider.js', 'engine/scoring/classifier.js', 'engine/scoring/evLoss.js',
   'engine/scoring/scoring.js', 'engine/scoring/errors.js', 'engine/explanations/rules.js',
   'engine/solver/LocalSolverProvider.js', 'engine/evaluateSpot.js',
+  'engine/villainProfiles.js',
   'ranges.js', 'engine.js', 'import.js'
 ];
 scripts.forEach((f) => {
@@ -104,7 +105,7 @@ console.log('\n--- Totales ---');
 console.log(`Excel EV perdido (suma |G|): ${Math.abs(totalExcelEv).toFixed(2)}€`);
 console.log(`App EV perdido (manos Excel): ${totalAppEvRef.toFixed(2)}€`);
 console.log(`App EV perdido (sesión completa): ${session.stats.evLossEuroTotal.toFixed(2)}€ (${session.stats.evLossBB} bb)`);
-console.log(`Perfect play: ${session.stats.perfectPlayNetEuro.toFixed(2)}€ (${session.stats.perfectPlayNetBB} bb)`);
+console.log(`EV esperado sesión: ${session.stats.perfectPlayNetEuro.toFixed(2)}€ (${session.stats.perfectPlayNetBB} bb)`);
 console.log(`Real: ${(session.stats.netBB * 0.05).toFixed(2)}€ (${session.stats.netBB} bb)`);
 
 if (fails > 0 || !okTotal) {

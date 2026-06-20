@@ -41,6 +41,7 @@ const scripts = [
   'engine/explanations/rules.js',
   'engine/solver/LocalSolverProvider.js',
   'engine/evaluateSpot.js',
+  'engine/villainProfiles.js',
   'ranges.js',
   'engine.js'
 ];
@@ -232,12 +233,23 @@ const badCall = EvLoss.computeEvLoss('flop', 'optima', 'call', null,
   11, { potBB: 11, toCallBB: 3, potBeforeBB: 8, heroEquity: 0.08, street: 'flop', bbSizeEuro: 0.05 });
 console.log('Call sin odds loss', badCall.evLoss, 'bb (expect >=2)', 'eq', badCall.mathParams.equityPct, 'be', badCall.mathParams.breakEvenPct);
 
+const VP = sandbox.window.GTOVillainProfiles;
+const profHand = Engine.newHand({ type: 'RFI', heroPos: 'BTN', seed: 7777 });
+const profCount = profHand.table && profHand.table.profiles ? Object.keys(profHand.table.profiles).length : 0;
+console.log('Villain profiles per hand', profCount, '(expect 5)');
+const maniacAgg = VP.postflopLead(0.12, VP.getProfile('maniac'), true, 0.1);
+const nitAgg = VP.postflopLead(0.12, VP.getProfile('nit'), true, 0.99);
+console.log('Maniac bluffs air', maniacAgg, 'Nit checks air', nitAgg);
+
 const sessStats = Importer.computeStats([
   { heroNetBB: 50, totalEvLoss: 80, decisions: [{ class: 'error', street: 'flop' }] },
   { heroNetBB: -30, totalEvLoss: 2, decisions: [{ class: 'optima', street: 'flop' }] }
 ]);
-console.log('Session expectedNet', sessStats.expectedNet, '(expect 102)');
-console.log('Session varianceAdj', sessStats.varianceAdj, '(expect -82)');
+console.log('Session expectedNet', sessStats.expectedNet, '(expect -62)');
+console.log('Session varianceAdj', sessStats.varianceAdj, '(expect 82)');
+
+const handEv = EvLoss.computeNetEvStats(99.58, 90.62);
+console.log('Hand EV expected', handEv.expectedNet, '(expect ~8.96)', 'variance', handEv.varianceAdj, '(expect ~90.62)');
 
 let played = 0, errors = 0, complete = 0;
 for (let i = 0; i < 300; i++) {
@@ -259,5 +271,7 @@ for (let i = 0; i < 300; i++) {
 }
 console.log(`Simulación: ${played} manos, ${complete} completadas, ${errors} errores.`);
 const evOk = badCall.evLoss >= 2 && badCall.evErroneous
-  && sessStats.expectedNet === 102 && sessStats.varianceAdj === -82;
+  && sessStats.expectedNet === -62 && sessStats.varianceAdj === 82
+  && handEv.expectedNet === 8.96 && handEv.varianceAdj === 90.62
+  && profCount === 5 && maniacAgg === 'bet' && nitAgg === 'check';
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');

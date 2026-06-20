@@ -167,6 +167,8 @@
       reason: r.reason || '',
       heroHandName: r.heroHandName || null,
       villainHandName: r.villainHandName || null,
+      villainProfile: r.villainProfile || hand.villain.profileLabel || null,
+      villainProfileShort: r.villainProfileShort || hand.villain.profileShort || null,
       decisions: hand.decisions.map((d) => ({
         street: d.street, action: d.action, label: d.label,
         class: d.class, best: d.best, evLoss: d.evLoss, evErroneous: d.evErroneous,
@@ -265,6 +267,73 @@
     return merged;
   }
 
+  function mergeRecordsById(localArr, cloudArr, maxLen) {
+    const map = Object.create(null);
+    function add(item) {
+      if (!item || !item.id) return;
+      const prev = map[item.id];
+      if (!prev) { map[item.id] = item; return; }
+      const ta = item.createdAt || '';
+      const tb = prev.createdAt || '';
+      if (ta >= tb) map[item.id] = item;
+    }
+    (cloudArr || []).forEach(add);
+    (localArr || []).forEach(add);
+    return Object.values(map).sort(function (a, b) {
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    }).slice(0, maxLen || MAX_HISTORY);
+  }
+
+  function mergeSessionsBidirectional(local, cloud) {
+    const byId = {};
+    (cloud || []).forEach(function (s) { byId[s.id] = s; });
+    (local || []).forEach(function (s) {
+      const prev = byId[s.id];
+      if (!prev) { byId[s.id] = s; return; }
+      byId[s.id] = Object.assign({}, prev, s, {
+        rawText: s.rawText || prev.rawText || null,
+        hasTxt: !!(s.rawText || prev.rawText || s.hasTxt || prev.hasTxt)
+      });
+    });
+    return Object.values(byId);
+  }
+
+  function recomputeStatsFromHistory(history) {
+    const st = defaultStats();
+    (history || []).forEach(function (h) {
+      st.handsPlayed += 1;
+      st.totalEvLoss += h.totalEvLoss || 0;
+      st.totalNet += h.heroNet || 0;
+      (h.decisions || []).forEach(function (d) {
+        st.decisions += 1;
+        st[d.class] = (st[d.class] || 0) + 1;
+        const street = st.byStreet[d.street];
+        if (street) {
+          street.n += 1;
+          if (d.class === 'optima' || d.class === 'aceptable') street.good += 1;
+        }
+      });
+    });
+    st.totalEvLoss = Math.round(st.totalEvLoss * 100) / 100;
+    st.totalNet = Math.round(st.totalNet * 100) / 100;
+    return st;
+  }
+
+  /** Fusiona datos locales con snapshot de la nube (union por id). */
+  function mergeFromCloud(cloudSnapshot) {
+    if (!cloudSnapshot) return null;
+    const local = getCloudSnapshot();
+    const history = mergeRecordsById(local.history, cloudSnapshot.history, MAX_HISTORY);
+    const errors = mergeRecordsById(local.errors, cloudSnapshot.errors, MAX_HISTORY);
+    const sessions = mergeSessionsBidirectional(local.sessions, cloudSnapshot.sessions);
+    const stats = recomputeStatsFromHistory(history);
+    write(scopedKey('history'), history);
+    write(scopedKey('errors'), errors);
+    write(scopedKey('sessions'), sessions);
+    write(scopedKey('stats'), stats);
+    return { history: history.length, errors: errors.length, sessions: sessions.length, stats: stats };
+  }
+
   function replaceFromCloud(snapshot) {
     if (!snapshot) return;
     if (snapshot.stats) write(scopedKey('stats'), snapshot.stats);
@@ -278,6 +347,6 @@
     getHistory, getErrors, getStats, saveHand,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData, scenarioLabel,
     getSessions, getSession, saveSession, removeSession, deleteSessionTxt,
-    getCloudSnapshot, replaceFromCloud
+    getCloudSnapshot, replaceFromCloud, mergeFromCloud
   };
 })(window);

@@ -161,25 +161,23 @@
 
     try {
       const local = global.Store.getCloudSnapshot();
-      const meta = getSyncMeta();
-      const localMax = localMaxTs(meta);
+      const localHas = DATA_KEYS.some(function (k) { return hasLocalData(k, local); });
       const row = await pullRow();
-      const cloudTs = tsFromRow(row);
       const cloudPayload = row && row.payload ? row.payload : null;
       const cloudHas = cloudPayload && DATA_KEYS.some(function (k) {
         return hasLocalData(k, cloudPayload);
       });
-      const localHas = DATA_KEYS.some(function (k) {
-        return hasLocalData(k, local);
-      });
 
-      if (cloudHas && (!localHas || cloudTs >= localMax)) {
+      if (cloudHas && localHas && global.Store.mergeFromCloud) {
+        global.Store.mergeFromCloud(cloudPayload);
+        await pushPayload(global.Store.getCloudSnapshot());
+      } else if (cloudHas && (!localHas || tsFromRow(row) >= localMaxTs(getSyncMeta()))) {
         const merged = {};
         DATA_KEYS.forEach(function (k) {
           if (cloudPayload[k] != null) merged[k] = cloudPayload[k];
         });
         global.Store.replaceFromCloud(merged);
-        DATA_KEYS.forEach(function (k) { setSyncMeta(k, cloudTs); });
+        DATA_KEYS.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
       } else if (localHas) {
         await pushPayload(local);
       } else if (cloudHas) {
@@ -188,7 +186,7 @@
           if (cloudPayload[k] != null) merged[k] = cloudPayload[k];
         });
         global.Store.replaceFromCloud(merged);
-        DATA_KEYS.forEach(function (k) { setSyncMeta(k, cloudTs); });
+        DATA_KEYS.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
       }
 
       setStatus('online', 'Datos sincronizados');
@@ -198,6 +196,36 @@
       console.warn('[PTCloud] syncOnLogin', e);
       setStatus('error', e.message || 'Error al sincronizar');
       return false;
+    } finally {
+      syncing = false;
+    }
+  }
+
+  /** Sincronización manual: fusiona local + nube y sube el resultado. */
+  async function syncNow() {
+    if (!isReady()) {
+      setStatus('error', 'Inicia sesión para sincronizar');
+      return { ok: false, reason: 'not_ready' };
+    }
+    if (!global.Store || !global.Store.mergeFromCloud) {
+      return { ok: false, reason: 'store_unavailable' };
+    }
+    if (syncing) return { ok: false, reason: 'busy' };
+
+    syncing = true;
+    setStatus('syncing', 'Sincronizando…');
+    try {
+      const row = await pullRow();
+      const cloudPayload = row && row.payload ? row.payload : {};
+      const summary = global.Store.mergeFromCloud(cloudPayload) || {};
+      await pushPayload(global.Store.getCloudSnapshot());
+      setStatus('online', 'Sincronizado');
+      global.dispatchEvent(new CustomEvent('pt-cloud-synced', { detail: summary }));
+      return { ok: true, summary: summary };
+    } catch (e) {
+      console.warn('[PTCloud] syncNow', e);
+      setStatus('error', e.message || 'Error al sincronizar');
+      return { ok: false, reason: e.message || 'error' };
     } finally {
       syncing = false;
     }
@@ -272,6 +300,7 @@
     ping,
     setUser,
     syncOnLogin,
+    syncNow,
     schedulePush,
     flushPush,
     markLocalDirty,

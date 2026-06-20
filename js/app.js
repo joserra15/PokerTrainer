@@ -42,6 +42,7 @@
   function init() {
     bindTabs();
     bindControls();
+    window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
     startNewHand();
@@ -67,6 +68,15 @@
     $('#replay-hand').addEventListener('click', () => replayCurrentHand());
     $('#new-session').addEventListener('click', () => resetPlaySession());
     $('#repeat-errors').addEventListener('change', (e) => { repeatErrorsMode = e.target.checked; });
+    const syncBtn = $('#sync-cloud');
+    if (syncBtn) syncBtn.addEventListener('click', () => runCloudSync(syncBtn));
+    window.addEventListener('pt-cloud-synced', () => {
+      renderHistory();
+      renderErrors();
+      renderStats();
+      const sessionsPanel = $('#tab-sessions');
+      if (sessionsPanel && sessionsPanel.classList.contains('active')) renderSessionsList();
+    });
     $('#clear-history').addEventListener('click', () => {
       if (confirm('¿Borrar el histórico de manos? No se modifican errores ni estadísticas globales.')) {
         Store.clearHistory();
@@ -727,19 +737,25 @@
     let vill = r.villainCards ? r.villainCards.map(Cards.cardToHTML).join(' ') : '<em>no llegó a enseñar</em>';
     let html = `<h3>Resultado de la mano</h3>`;
     html += `<div>${escapeHtml(r.reason)}</div>`;
+    if (r.villainProfile) {
+      html += `<div class="result-line">Perfil del rival: <strong>${escapeHtml(r.villainProfile)}</strong>${r.villainProfileShort ? ` <span class="muted-text">(${escapeHtml(r.villainProfileShort)})</span>` : ''}</div>`;
+    }
     html += `<div class="result-line">Cartas del villano (${hand.villain.pos || '—'}): ${vill}`;
     if (r.villainHandName) html += ` · ${r.villainHandName}`;
     html += `</div>`;
     if (hand.board.length) html += `<div class="result-line" style="border:none;padding-top:6px">Board: ${hand.board.map(Cards.cardToHTML).join(' ')}</div>`;
     html += `<div class="result-line">Resultado: <span class="${netCls}">${r.heroNet >= 0 ? '+' : ''}${fmtBB(r.heroNet)} bb</span>`;
-    html += ` &nbsp;·&nbsp; EV perdido por errores: <span class="${r.totalEvLoss > 0 ? 'net-neg' : 'net-pos'}">-${fmtBB(r.totalEvLoss)} bb</span>`;
-    const perfectNet = roundSession((r.heroNet || 0) + (r.totalEvLoss || 0));
-    html += ` &nbsp;·&nbsp; Balance juego perfecto: <span class="${perfectNet >= 0 ? 'net-pos' : 'net-neg'}">${perfectNet >= 0 ? '+' : ''}${fmtBB(perfectNet)} bb</span></div>`;
+    html += ` &nbsp;·&nbsp; EV perdido por errores: <span class="${r.totalEvLoss > 0 ? 'net-neg' : 'net-pos'}">-${fmtBB(r.totalEvLoss)} bb</span></div>`;
+
+    const netEv = (window.GTOEvLoss && window.GTOEvLoss.computeNetEvStats)
+      ? window.GTOEvLoss.computeNetEvStats(r.heroNet || 0, r.totalEvLoss || 0)
+      : { expectedNet: roundSession((r.heroNet || 0) - (r.totalEvLoss || 0)), varianceAdj: roundSession(r.totalEvLoss || 0) };
+    const expectedNet = roundSession(netEv.expectedNet);
+    const varianceAdj = roundSession(netEv.varianceAdj);
 
     html += '<div class="card-box" style="margin-top:10px"><h3>EV esperado vs resultado real</h3>';
-    const varianceAdj = roundSession((r.heroNet || 0) - perfectNet);
     html += `<div class="stats-content" style="margin-bottom:0">
-      <div class="stat-card"><div class="big ${perfectNet >= 0 ? 'net-pos' : 'net-neg'}">${perfectNet >= 0 ? '+' : ''}${fmtBB(perfectNet)}</div><div class="lbl">EV esperado (sin fugas)</div></div>
+      <div class="stat-card"><div class="big ${expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${expectedNet >= 0 ? '+' : ''}${fmtBB(expectedNet)}</div><div class="lbl">EV esperado (sin fugas)</div></div>
       <div class="stat-card"><div class="big ${netCls}">${r.heroNet >= 0 ? '+' : ''}${fmtBB(r.heroNet)}</div><div class="lbl">Resultado real</div></div>
       <div class="stat-card"><div class="big ${varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${varianceAdj >= 0 ? '+' : ''}${fmtBB(varianceAdj)}</div><div class="lbl">Varianza / suerte</div></div>
     </div></div>`;
@@ -772,7 +788,7 @@
     $('#s-hands').textContent = session.hands;
     const net = roundSession(session.net);
     const evLost = roundSession(session.evLossBB);
-    const perfect = roundSession(net + evLost);
+    const expected = roundSession(net - evLost);
     const netEl = $('#s-net');
     if (netEl) {
       netEl.textContent = (net >= 0 ? '+' : '') + fmtBB(net);
@@ -782,8 +798,8 @@
     if (evLostEl) evLostEl.textContent = '-' + fmtBB(evLost);
     const perfectEl = $('#s-ev-perfect');
     if (perfectEl) {
-      perfectEl.textContent = (perfect >= 0 ? '+' : '') + fmtBB(perfect);
-      perfectEl.className = perfect >= 0 ? 'net-pos' : 'net-neg';
+      perfectEl.textContent = (expected >= 0 ? '+' : '') + fmtBB(expected);
+      perfectEl.className = expected >= 0 ? 'net-pos' : 'net-neg';
     }
     const acc = session.decisions ? Math.round((session.good / session.decisions) * 100) + '%' : '-';
     $('#s-acc').textContent = acc;
@@ -817,7 +833,7 @@
         <div class="rec-right">
           <div class="${netCls}">${h.heroNet >= 0 ? '+' : ''}${h.heroNet} bb</div>
           <div style="color:var(--muted);font-size:12px">EV -${fmtBB(h.totalEvLoss)} bb</div>
-          <div style="color:var(--muted);font-size:11px">Perfecto ${h.heroNet + h.totalEvLoss >= 0 ? '+' : ''}${fmtBB(roundSession((h.heroNet || 0) + (h.totalEvLoss || 0)))} bb</div>
+          <div style="color:var(--muted);font-size:11px">EV esp. ${roundSession((h.heroNet || 0) - (h.totalEvLoss || 0)) >= 0 ? '+' : ''}${fmtBB(roundSession((h.heroNet || 0) - (h.totalEvLoss || 0)))} bb</div>
           <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-replay='${encodeURIComponent(JSON.stringify(Object.assign({}, h.scenarioRaw, { seed: h.seed })))}'>Repetir mano</button>
         </div>
       </div>`;
@@ -873,8 +889,11 @@
     const byStreet = st.byStreet || emptyByStreet();
     const actualNet = roundSession(st.totalNet || 0);
     const evLost = roundSession(st.totalEvLoss || 0);
-    const perfectNet = roundSession(actualNet + evLost);
-    const varianceAdj = roundSession(actualNet - perfectNet);
+    const netEv = (window.GTOEvLoss && window.GTOEvLoss.computeNetEvStats)
+      ? window.GTOEvLoss.computeNetEvStats(actualNet, evLost)
+      : { expectedNet: roundSession(actualNet - evLost), varianceAdj: roundSession(evLost) };
+    const expectedNet = roundSession(netEv.expectedNet);
+    const varianceAdj = roundSession(netEv.varianceAdj);
     box.innerHTML = `
       <div class="stat-card"><div class="big">${st.handsPlayed}</div><div class="lbl">Manos jugadas</div></div>
       <div class="stat-card"><div class="big">${accuracy}%</div><div class="lbl">Acierto (óptima+aceptable)</div></div>
@@ -883,11 +902,11 @@
       <div class="stat-card" style="grid-column:1/-1;text-align:left">
         <div class="lbl" style="margin-bottom:8px">EV esperado vs resultado real</div>
         <div class="stats-content" style="margin-bottom:8px">
-          <div class="stat-card"><div class="big ${perfectNet >= 0 ? 'net-pos' : 'net-neg'}">${perfectNet >= 0 ? '+' : ''}${fmtBB(perfectNet)}</div><div class="lbl">EV esperado (sin fugas)</div></div>
+          <div class="stat-card"><div class="big ${expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${expectedNet >= 0 ? '+' : ''}${fmtBB(expectedNet)}</div><div class="lbl">EV esperado (sin fugas)</div></div>
           <div class="stat-card"><div class="big ${actualNet >= 0 ? 'net-pos' : 'net-neg'}">${actualNet >= 0 ? '+' : ''}${fmtBB(actualNet)}</div><div class="lbl">Resultado real</div></div>
           <div class="stat-card"><div class="big ${varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${varianceAdj >= 0 ? '+' : ''}${fmtBB(varianceAdj)}</div><div class="lbl">Varianza / suerte</div></div>
         </div>
-        <div class="muted-text">EV perdido por errores: <strong>-${fmtBB(evLost)} bb</strong>. Balance juego perfecto = resultado real + fugas recuperables.</div>
+        <div class="muted-text">EV perdido por errores: <strong>-${fmtBB(evLost)} bb</strong>. EV esperado = resultado real − fugas.</div>
       </div>
       <div class="stat-card" style="grid-column:1/-1;text-align:left">
         <div class="lbl" style="margin-bottom:8px">Acierto por calle</div>
@@ -911,6 +930,33 @@
   }
 
   // ---------- Utilidades ----------
+  async function runCloudSync(btn) {
+    const cloud = window.PTCloud;
+    if (!cloud || !cloud.isReady || !cloud.isReady()) {
+      alert('Inicia sesión con Google para sincronizar entre navegadores.');
+      return;
+    }
+    const targets = [btn, $('#account-sync'), $('#sync-cloud')].filter(Boolean);
+    targets.forEach((b) => { b.disabled = true; });
+    const prevLabel = btn && btn.textContent;
+    if (btn) btn.textContent = 'Sincronizando…';
+    try {
+      const res = await cloud.syncNow();
+      if (!res.ok) {
+        alert(res.reason === 'not_ready'
+          ? 'Inicia sesión con Google para sincronizar.'
+          : ('No se pudo sincronizar: ' + (res.reason || 'error')));
+        return;
+      }
+      renderHistory();
+      renderErrors();
+      renderStats();
+    } finally {
+      targets.forEach((b) => { b.disabled = false; });
+      if (btn && prevLabel) btn.textContent = prevLabel;
+    }
+  }
+
   function exportData() {
     const data = Store.exportData();
     const blob = new Blob([data], { type: 'application/json' });
@@ -1075,7 +1121,7 @@
       <div class="card-box">
         <h3>EV esperado vs resultado real</h3>
         <div class="stats-content" style="margin-bottom:12px">
-          <div class="stat-card"><div class="big ${st.perfectPlayNetBB >= 0 ? 'net-pos' : 'net-neg'}">${st.perfectPlayNetBB >= 0 ? '+' : ''}${fmtBB(st.perfectPlayNetBB != null ? st.perfectPlayNetBB : (st.actualNet + st.evDecision))}</div><div class="lbl">EV esperado (sin fugas)</div></div>
+          <div class="stat-card"><div class="big ${st.expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${st.expectedNet >= 0 ? '+' : ''}${fmtBB(st.expectedNet != null ? st.expectedNet : (st.actualNet - st.evDecision))}</div><div class="lbl">EV esperado (sin fugas)</div></div>
           <div class="stat-card"><div class="big ${netCls}">${st.actualNet != null ? (st.actualNet >= 0 ? '+' : '') + fmtBB(st.actualNet) : (st.netBB >= 0 ? '+' : '') + fmtBB(st.netBB)}</div><div class="lbl">Resultado real</div></div>
           <div class="stat-card"><div class="big ${st.varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)}</div><div class="lbl">Varianza / suerte</div></div>
         </div>
@@ -1085,8 +1131,8 @@
         </div>
         <div class="muted-text" style="margin-top:8px">
           EV perdido por errores: <strong>-${fmtBB(st.evDecision)} bb</strong>${st.evLossEuroTotal != null ? ` (${st.evLossEuroTotal.toFixed(2)} €)` : ''}.
-          Balance juego perfecto: <strong>${st.perfectPlayNetBB >= 0 ? '+' : ''}${fmtBB(st.perfectPlayNetBB)} bb</strong>${st.perfectPlayNetEuro != null ? ` (${st.perfectPlayNetEuro >= 0 ? '+' : ''}${st.perfectPlayNetEuro.toFixed(2)} €)` : ''}.
-          Resultado ajustado (real − fugas): <strong>${(st.adjustedNet != null ? st.adjustedNet : st.netBB - st.evDecision) >= 0 ? '+' : ''}${fmtBB(st.adjustedNet != null ? st.adjustedNet : st.netBB - st.evDecision)} bb</strong>.
+          EV esperado: <strong>${st.expectedNet >= 0 ? '+' : ''}${fmtBB(st.expectedNet)} bb</strong>${st.perfectPlayNetEuro != null ? ` (${st.perfectPlayNetEuro >= 0 ? '+' : ''}${st.perfectPlayNetEuro.toFixed(2)} €)` : ''}.
+          Varianza/suerte: <strong>${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)} bb</strong>.
         </div>
       </div>
       <div class="top-hands">

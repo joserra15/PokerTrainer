@@ -72,6 +72,7 @@
           </div>
         </div>
         <div class="account-meta" id="account-meta"></div>
+        <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
         <button type="button" id="account-signout" class="btn btn-ghost btn-block">Cerrar sesión</button>
       </div>
     </div>
@@ -113,7 +114,7 @@
               <div><span id="s-hands">0</span><label>Manos</label></div>
               <div><span id="s-net">0</span><label>Resultado (bb)</label></div>
               <div><span id="s-ev-lost">0</span><label>EV perdido</label></div>
-              <div><span id="s-ev-perfect">0</span><label>EV perfecto</label></div>
+              <div><span id="s-ev-perfect">0</span><label>EV esperado</label></div>
               <div><span id="s-acc">-</span><label>Acierto</label></div>
             </div>
             <div id="s-street-acc" class="street-acc compact-street-acc"></div>
@@ -197,11 +198,12 @@
       <div class="panel-head">
         <h2>Histórico de manos</h2>
         <div>
+          <button id="sync-cloud" class="btn btn-primary" title="Fusionar histórico, errores y sesiones con la nube">Sincronizar</button>
           <button id="export-data" class="btn btn-ghost">Exportar JSON</button>
           <button id="clear-history" class="btn btn-danger">Borrar histórico</button>
         </div>
       </div>
-      <p class="muted-text" style="margin:-8px 0 12px">Solo las manos guardadas del entrenador. Errores y estadísticas globales no se modifican.</p>
+      <p class="muted-text" style="margin:-8px 0 12px">Solo las manos guardadas del entrenador. Usa <strong>Sincronizar</strong> para traer datos de otro navegador (requiere sesión Google).</p>
       <div id="history-list" class="record-list"></div>
     </section>
 
@@ -279,6 +281,7 @@
       'js/engine/explanations/rules.js',
       'js/engine/solver/LocalSolverProvider.js',
       'js/engine/evaluateSpot.js',
+      'js/engine/villainProfiles.js',
       'js/ranges.js',
       'js/engine.js',
       'js/import.js',
