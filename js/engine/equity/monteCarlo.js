@@ -60,9 +60,11 @@
     return C.SUITS.some((s) => counts[s] >= 3);
   }
 
-  /** Ante apuesta en board de color: solo combos del villano que ya tienen color hecho. */
-  function filterCombosFacingBet(combos, board, facingBet) {
+  /** Ante apuesta en board de color: estrechar solo si el héroe ya tiene color hecho. */
+  function filterCombosFacingBet(combos, board, facingBet, heroCards) {
     if (!facingBet || !isFlushBoard(board) || !combos.length) return combos;
+    if (!heroCards || heroCards.length < 2) return combos;
+    if (C.evaluate(heroCards.concat(board)).category !== 5) return combos;
     const made = combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 5);
     return made.length ? made : combos;
   }
@@ -165,7 +167,7 @@
     const heroScore = C.evaluate(dead);
     let combos = allVillainCombos(rangeStr, dead);
     combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
-    combos = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove);
+    combos = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove, heroCards);
     if (!combos.length) return 0.5;
 
     let win = 0, tie = 0;
@@ -238,7 +240,7 @@
     const dead = heroCards.concat(boardArr);
     let combos = allVillainCombos(rangeStr, dead);
     combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
-    const filtered = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove);
+    const filtered = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove, heroCards);
 
     if (run.need === 0) {
       const eq = equityExact(heroCards, boardArr, rangeStr, opts);

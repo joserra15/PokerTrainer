@@ -90,6 +90,23 @@ const eqRiverNonNut = GTO.Equity.equityVsRange(
 );
 console.log('J9cc river vs bet (non-nut flush) eq ~', Math.round(eqRiverNonNut * 100) + '% (expect ~0-5%)');
 
+const eqKqTurnFacing = GTO.Equity.equityVsRange(
+  ['Ks', 'Qh'], ['9c', 'Qc', 'Jc', 'Th'],
+  'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88', 800,
+  { street: 'turn', facingBet: true }
+);
+const eqKqRiver = GTO.Equity.equityVsRange(
+  ['Ks', 'Qh'], ['9c', 'Qc', 'Jc', 'Th', '2c'],
+  'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88', 800,
+  { street: 'river' }
+);
+console.log('KQ nut straight turn facing bet eq ~', Math.round(eqKqTurnFacing * 100) + '% (expect >40%, > river)');
+console.log('KQ nut straight river eq ~', Math.round(eqKqRiver * 100) + '%');
+if (eqKqTurnFacing < 0.35 || eqKqTurnFacing <= eqKqRiver) {
+  console.error('FAIL KQ straight: turn equity', eqKqTurnFacing, 'river', eqKqRiver);
+  process.exit(1);
+}
+
 const Made = sandbox.window.GTOEquityMadeHand;
 const Strat = sandbox.window.GTOStrategyTables;
 const SV = sandbox.window.GTOStreetValidation;
