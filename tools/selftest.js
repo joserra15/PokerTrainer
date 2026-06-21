@@ -136,6 +136,13 @@ const benignDup = SV.validateConsecutiveProbeStreets(
 );
 console.log('Benign flop-turn check line duplicate?', benignDup.ok ? 'NO ALERT (OK)' : 'ALERT (BUG)');
 
+const facingSanity = SV.sanityCheckSolver([
+  { street: 'turn', gto: { fold: 0.16, call: 0.74, raise: 0.10 } },
+  { street: 'river', gto: { fold: 0.21, call: 0.72, raise: 0.07 } }
+], { turn: ['7s', '2c', 'Ac', 'Qc'], river: ['7s', '2c', 'Ac', 'Qc', '4h'] }, 1);
+console.log('Facing bet turn/river sanity (Poker76 #185):', facingSanity.ok ? 'OK' : 'FAIL');
+if (!facingSanity.ok) process.exit(1);
+
 const nutHero = ['Jd', 'Qd'];
 const turnB = ['Qc', 'Td', '7c', '8h'];
 const riverB = turnB.concat(['9h']);

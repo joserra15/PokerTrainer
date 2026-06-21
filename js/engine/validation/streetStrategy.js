@@ -175,8 +175,14 @@
     return alerts;
   }
 
+  /** True si la decisión es nodo de probe (check/bet), no facing bet. */
+  function isProbeDecision(d) {
+    if (!d || !d.gto) return false;
+    return PROBE_ACTIONS.some((a) => d.gto[a] != null);
+  }
+
   /**
-   * Módulo 3 — Sanity check: board coordinado + check% clonado entre turn/river.
+   * Módulo 3 — Sanity check: board coordinado + check% clonado entre turn/river (solo nodos probe).
    * @param {Object} boardsByStreet — { turn: [...], river: [...] }
    */
   function sanityCheckSolver(decisions, boardsByStreet, tolerancePct) {
@@ -184,6 +190,7 @@
     const turnDec = (decisions || []).find((d) => d.street === 'turn' && d.gto);
     const riverDec = (decisions || []).find((d) => d.street === 'river' && d.gto);
     if (!turnDec || !riverDec) return { ok: true };
+    if (!isProbeDecision(turnDec) || !isProbeDecision(riverDec)) return { ok: true };
 
     const checkTurn = Math.round((turnDec.gto.check || 0) * 100);
     const checkRiver = Math.round((riverDec.gto.check || 0) * 100);
@@ -228,6 +235,7 @@
     validateFacingNodeChange,
     validateHandFacingNodes,
     strategyCacheSuffix,
+    isProbeDecision,
     sanityCheckSolver,
     invalidateSolverCache
   };
