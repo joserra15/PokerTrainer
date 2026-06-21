@@ -1020,23 +1020,40 @@
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        status.textContent = 'Procesando manos...';
-        setTimeout(() => {
-          const parsed = Importer.parseSession(reader.result, file.name);
-          if (!parsed.hero || !parsed.hands.length) {
-            status.innerHTML = '<span style="color:var(--red)">No se reconocieron manos de cash NL en el fichero.</span>';
-            return;
-          }
-          const session = Importer.buildSession(parsed, file.name);
+        status.textContent = 'Parseando historial...';
+        const parsed = Importer.parseSession(reader.result, file.name);
+        if (!parsed.hero || !parsed.hands.length) {
+          status.innerHTML = '<span style="color:var(--red)">No se reconocieron manos de cash NL en el fichero.</span>';
+          return;
+        }
+        const onProgress = (done, total) => {
+          status.textContent = `Analizando manos ${done}/${total}...`;
+        };
+        const finishSession = (session) => {
           session.rawText = reader.result;
-          Store.saveSession(session);
-          status.innerHTML = `<span style="color:var(--green)">Sesión procesada: ${session.hands.length} manos analizadas (de ${session.nTotal} cash${session.nDiscarded ? `, ${session.nDiscarded} sin cartas del héroe` : ''}).</span>`;
-          input.value = ''; $('#process-session').disabled = true;
+          const saveResult = Store.saveSession(session);
+          const saved = saveResult && saveResult.ok !== false;
+          const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
+          if (!saved) {
+            status.innerHTML = `<span style="color:var(--yellow)">Análisis completado pero no se pudo guardar (${escapeHtml((saveResult && saveResult.error) || 'almacenamiento local')}). Se muestra sin persistir.</span>`;
+          } else {
+            status.innerHTML = `<span style="color:var(--green)">Sesión procesada: ${finalSession.hands.length} manos analizadas (de ${finalSession.nTotal} cash${finalSession.nDiscarded ? `, ${finalSession.nDiscarded} sin cartas del héroe` : ''}).</span>`;
+          }
+          input.value = '';
+          $('#process-session').disabled = true;
           renderSessionsList();
-          openSession(session.id);
-        }, 30);
+          openSession(finalSession.id, finalSession);
+        };
+        const build = Importer.buildSessionAsync
+          ? Importer.buildSessionAsync(parsed, file.name, onProgress)
+          : Promise.resolve(Importer.buildSession(parsed, file.name));
+        build.then(finishSession).catch((err) => {
+          status.innerHTML = '<span style="color:var(--red)">Error al procesar: ' + escapeHtml(err.message || String(err)) + '</span>';
+          console.error('[Sessions] process failed', err);
+        });
       } catch (err) {
         status.innerHTML = '<span style="color:var(--red)">Error al procesar: ' + escapeHtml(err.message) + '</span>';
+        console.error('[Sessions] parse failed', err);
       }
     };
     reader.onerror = () => { status.textContent = 'No se pudo leer el fichero.'; };
@@ -1082,12 +1099,19 @@
     }));
   }
 
-  function openSession(id) {
-    currentSession = Store.getSession(id);
-    if (!currentSession) return;
-    if (Importer.recomputeHandDecisions && Importer.computeStats) {
+  function openSession(id, sessionObj) {
+    currentSession = sessionObj || Store.getSession(id);
+    if (!currentSession) {
+      $('#import-status').innerHTML = '<span style="color:var(--red)">No se encontró la sesión guardada.</span>';
+      return;
+    }
+    const buildVer = window.PT_BUILD || '';
+    const needsRecompute = Importer.recomputeHandDecisions && Importer.computeStats
+      && currentSession.analysisVersion !== buildVer;
+    if (needsRecompute) {
       currentSession.hands.forEach((h) => Importer.recomputeHandDecisions(h));
       currentSession.stats = Importer.computeStats(currentSession.hands);
+      currentSession.analysisVersion = buildVer;
       Store.saveSession(currentSession);
     }
     renderSessionDetail('evLoss');
@@ -1095,7 +1119,12 @@
   }
 
   function renderSessionDetail(sortBy) {
-    const s = currentSession, st = s.stats;
+    const s = currentSession;
+    if (!s || !s.stats) {
+      $('#session-detail-content').innerHTML = '<p class="muted-text">No hay datos de sesión para mostrar.</p>';
+      return;
+    }
+    const st = s.stats;
     const netCls = st.netBB >= 0 ? 'net-pos' : 'net-neg';
     const accSt = st.accByStreet;
     const box = $('#session-detail-content');

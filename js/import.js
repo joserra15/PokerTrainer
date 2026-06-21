@@ -761,6 +761,36 @@
       kept.push(a);
     }
     const stats = computeStats(kept);
+    return sessionPayload(parsed, fileName, hero, kept, discarded, stats);
+  }
+
+  /** Analiza manos en lotes para no bloquear la UI del navegador. */
+  function buildSessionAsync(parsed, fileName, onProgress) {
+    const hero = parsed.hero;
+    const hands = parsed.hands || [];
+    const kept = [];
+    let discarded = 0;
+    let i = 0;
+    const CHUNK = 4;
+    return new Promise(function (resolve, reject) {
+      function step() {
+        try {
+          const end = Math.min(i + CHUNK, hands.length);
+          for (; i < end; i++) {
+            const h = hands[i];
+            if (!heroPlayed(h)) { discarded++; continue; }
+            kept.push(analyzeHand(h));
+          }
+          if (onProgress) onProgress(i, hands.length);
+          if (i < hands.length) setTimeout(step, 0);
+          else resolve(sessionPayload(parsed, fileName, hero, kept, discarded, computeStats(kept)));
+        } catch (e) { reject(e); }
+      }
+      setTimeout(step, 0);
+    });
+  }
+
+  function sessionPayload(parsed, fileName, hero, kept, discarded, stats) {
     return {
       id: 's' + Date.now() + Math.floor(Math.random() * 1000),
       createdAt: new Date().toISOString(),
@@ -770,8 +800,9 @@
       nDiscarded: discarded,
       hands: kept,
       stats,
+      analysisVersion: global.PT_BUILD || '1',
       hasTxt: true,
-      rawText: null // se rellena fuera si se quiere conservar
+      rawText: null
     };
   }
 
@@ -854,7 +885,7 @@
   }
 
   global.Importer = {
-    parseSession, parseHand, analyzeHand, buildSession, heroPlayed, computeStats, num, cardsFrom,
+    parseSession, parseHand, analyzeHand, buildSession, buildSessionAsync, heroPlayed, computeStats, num, cardsFrom,
     buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions
   };
 })(window);

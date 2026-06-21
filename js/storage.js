@@ -28,8 +28,36 @@
     try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
     catch (e) { return fallback; }
   }
+  function readRaw(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
   function write(key, val) {
-    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* cuota */ }
+    try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch (e) { return false; }
+  }
+  function writeRaw(key, val) {
+    try { localStorage.setItem(key, val); return true; }
+    catch (e) { return false; }
+  }
+
+  function sessionTxtKey(id) {
+    return scopedKey('session_txt') + '_' + id;
+  }
+
+  /** Reduce tamaño de sesión para localStorage (197 manos ≈ 580 KB → 230 KB). */
+  function slimSession(session) {
+    const s = JSON.parse(JSON.stringify(session));
+    delete s.rawText;
+    (s.hands || []).forEach(function (h) {
+      delete h.summary;
+      (h.decisions || []).forEach(function (d) {
+        delete d.optionBreakdown;
+        delete d.explanation;
+        delete d.context;
+        delete d.mathParams;
+      });
+    });
+    return s;
   }
 
   function notifySync(keys) {
@@ -219,23 +247,46 @@
   }
 
   function getSessions() { return read(scopedKey('sessions'), []); }
-  function getSession(id) { return getSessions().find((s) => s.id === id) || null; }
+  function getSession(id) {
+    const s = getSessions().find((x) => x.id === id) || null;
+    if (!s || !s.hasTxt) return s;
+    const txt = readRaw(sessionTxtKey(id));
+    return txt ? Object.assign({}, s, { rawText: txt }) : s;
+  }
   function saveSession(session) {
+    const rawText = session.rawText;
+    const toStore = slimSession(session);
+    let hasTxt = !!session.hasTxt;
+    if (rawText) {
+      hasTxt = writeRaw(sessionTxtKey(session.id), rawText);
+      toStore.hasTxt = hasTxt;
+    }
     const list = getSessions();
-    const idx = list.findIndex((s) => s.id === session.id);
-    if (idx >= 0) list[idx] = session; else list.unshift(session);
-    write(scopedKey('sessions'), list);
+    const idx = list.findIndex((s) => s.id === toStore.id);
+    if (idx >= 0) list[idx] = toStore; else list.unshift(toStore);
+    if (!write(scopedKey('sessions'), list)) {
+      return { ok: false, error: 'Cuota de almacenamiento local agotada.', session: session };
+    }
     notifySync(['sessions']);
-    return session;
+    const out = Object.assign({}, session, { hasTxt: hasTxt });
+    if (hasTxt) out.rawText = rawText;
+    else delete out.rawText;
+    return { ok: true, session: out };
   }
   function removeSession(id) {
+    try { localStorage.removeItem(sessionTxtKey(id)); } catch (e) { /* ignore */ }
     write(scopedKey('sessions'), getSessions().filter((s) => s.id !== id));
     notifySync(['sessions']);
   }
   function deleteSessionTxt(id) {
     const list = getSessions();
     const s = list.find((x) => x.id === id);
-    if (s) { s.rawText = null; s.hasTxt = false; write(scopedKey('sessions'), list); notifySync(['sessions']); }
+    if (s) {
+      try { localStorage.removeItem(sessionTxtKey(id)); } catch (e) { /* ignore */ }
+      s.hasTxt = false;
+      write(scopedKey('sessions'), list);
+      notifySync(['sessions']);
+    }
     return s;
   }
 
