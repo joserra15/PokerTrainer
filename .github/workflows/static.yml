@@ -31,6 +31,8 @@ jobs:
         run: node tools/regression-poker76.js
       - name: Regresión EV modo Jugar
         run: node tools/test-play-ev.js
+      - name: Test payload informe IA
+        run: node tools/test-ai-payload.js
       - name: Test river trips board doblado
         run: node tools/test-river-trips.js
 

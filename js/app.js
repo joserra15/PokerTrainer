@@ -786,6 +786,8 @@
 
     html += renderHandDecisionsSummary(hand.decisions, 'trainer');
 
+    html += '<div id="ai-report-trainer"></div>';
+
     if (r.villainRangeLog && r.villainRangeLog.length) {
       html += '<div class="card-box" style="margin-top:14px"><h3>Lectura del rango del villano</h3><ul class="range-log">';
       r.villainRangeLog.forEach((e) => {
@@ -801,6 +803,9 @@
     }
 
     fb.innerHTML = html;
+    if (window.PTAIReport) {
+      window.PTAIReport.mount($('#ai-report-trainer'), { source: 'trainer', getHand: () => hand });
+    }
     renderTable();
     $('#hero-handname').textContent = r.heroHandName ? 'Tu mano: ' + r.heroHandName : handNameOnBoard();
   }
@@ -1385,6 +1390,8 @@
 
     html += renderHandDecisionsSummary(h.decisions, 'session');
 
+    html += '<div id="ai-report-session"></div>';
+
     // cartas del villano si se mostraron
     const shows = Object.keys(h.villainShows || {}).filter((n) => n !== currentSession.hero);
     if (shows.length) {
@@ -1395,6 +1402,9 @@
 
     html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
     box.innerHTML = html;
+    if (window.PTAIReport) {
+      window.PTAIReport.mount($('#ai-report-session'), { source: 'session', getHand: () => currentHand });
+    }
     $('#to-replay').addEventListener('click', () => startInteractiveReplay());
   }
 

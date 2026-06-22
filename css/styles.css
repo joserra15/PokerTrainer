@@ -625,3 +625,22 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   letter-spacing: 0.35px;
   user-select: none;
 }
+
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+
+/* ---- Informe IA ---- */
+.ai-report-panel { margin-top: 14px; }
+.ai-report-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.ai-report-head h3 { margin: 0; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.ai-report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-report-meta { font-size: 12px; margin-bottom: 8px; }
+.ai-report-status { font-size: 13px; color: var(--muted); min-height: 1.2em; }
+.ai-report-content { margin-top: 8px; max-height: 480px; overflow-y: auto; }
+.ai-report-loading { color: var(--muted); font-style: italic; padding: 12px 0; }
+.ai-report-error { color: var(--red); padding: 12px 0; }
+.ai-report-body { font-size: 14px; line-height: 1.55; }
+.ai-report-body h2 { font-size: 18px; margin: 16px 0 8px; color: var(--gold); }
+.ai-report-body h3 { font-size: 15px; margin: 14px 0 6px; }
+.ai-report-body h4 { font-size: 14px; margin: 10px 0 4px; }
+.ai-report-body ul { margin: 8px 0 8px 20px; }
+.ai-report-body p { margin: 8px 0; }

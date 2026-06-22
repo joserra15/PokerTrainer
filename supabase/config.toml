@@ -1,0 +1,2 @@
+[functions.analyze-hand]
+verify_jwt = false
