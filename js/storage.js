@@ -107,7 +107,21 @@
     };
   }
 
-  function getHistory() { return read(scopedKey('history'), []); }
+  function writeStats(st) {
+    st.updatedAt = Date.now();
+    write(scopedKey('stats'), st);
+  }
+
+  function mergeStats(localStats, cloudStats) {
+    const a = localStats && typeof localStats === 'object' ? localStats : defaultStats();
+    const b = cloudStats && typeof cloudStats === 'object' ? cloudStats : defaultStats();
+    const lt = a.updatedAt || 0;
+    const ct = b.updatedAt || 0;
+    const pick = lt >= ct ? a : b;
+    const out = JSON.parse(JSON.stringify(pick));
+    delete out.updatedAt;
+    return out;
+  }
   function getErrors() { return read(scopedKey('errors'), []); }
   function getStats() { return read(scopedKey('stats'), defaultStats()); }
 
@@ -168,7 +182,7 @@
     });
     st.totalEvLoss = Math.round(st.totalEvLoss * 100) / 100;
     st.totalNet = Math.round(st.totalNet * 100) / 100;
-    write(scopedKey('stats'), st);
+    writeStats(st);
     notifySync(['history', 'errors', 'stats']);
 
     return rec;
@@ -222,8 +236,10 @@
   }
 
   function clearStats() {
-    write(scopedKey('stats'), defaultStats());
+    const st = defaultStats();
+    writeStats(st);
     notifySync(['stats']);
+    if (global.PTCloud && global.PTCloud.flushPush) global.PTCloud.flushPush();
   }
 
   function clearAll() {
@@ -377,17 +393,17 @@
     const history = mergeRecordsById(local.history, cloudSnapshot.history, MAX_HISTORY);
     const errors = mergeRecordsById(local.errors, cloudSnapshot.errors, MAX_HISTORY);
     const sessions = mergeSessionsBidirectional(local.sessions, cloudSnapshot.sessions);
-    const stats = recomputeStatsFromHistory(history);
+    const stats = mergeStats(local.stats, cloudSnapshot.stats);
     write(scopedKey('history'), history);
     write(scopedKey('errors'), errors);
     write(scopedKey('sessions'), sessions);
-    write(scopedKey('stats'), stats);
+    writeStats(stats);
     return { history: history.length, errors: errors.length, sessions: sessions.length, stats: stats };
   }
 
   function replaceFromCloud(snapshot) {
     if (!snapshot) return;
-    if (snapshot.stats) write(scopedKey('stats'), snapshot.stats);
+    if (snapshot.stats) writeStats(JSON.parse(JSON.stringify(snapshot.stats)));
     if (snapshot.history) write(scopedKey('history'), snapshot.history);
     if (snapshot.errors) write(scopedKey('errors'), snapshot.errors);
     if (snapshot.sessions) write(scopedKey('sessions'), mergeSessionsFromCloud(snapshot.sessions));
