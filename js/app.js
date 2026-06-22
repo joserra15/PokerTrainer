@@ -79,23 +79,58 @@
     return window.matchMedia('(max-width: 680px)').matches;
   }
 
+  function portalMobileNav() {
+    if (!isMobileLayout()) return;
+    const nav = $('#topbar-nav');
+    const backdrop = $('#nav-backdrop');
+    if (!nav || !backdrop || nav.parentElement === document.body) return;
+    document.body.appendChild(backdrop);
+    document.body.appendChild(nav);
+    document.body.classList.add('nav-portal');
+  }
+
+  function restoreMobileNav() {
+    const nav = $('#topbar-nav');
+    const backdrop = $('#nav-backdrop');
+    const bar = $('.header-bar');
+    const shell = $('#app-shell');
+    if (!nav || !bar || !shell) return;
+    if (nav.parentElement !== bar) bar.appendChild(nav);
+    if (backdrop && backdrop.parentElement !== shell) {
+      const main = shell.querySelector('main');
+      shell.insertBefore(backdrop, main);
+    }
+    document.body.classList.remove('nav-portal');
+    closeMobileNav();
+  }
+
   function closeMobileNav() {
     document.body.classList.remove('nav-open');
     const toggle = $('#nav-toggle');
     const backdrop = $('#nav-backdrop');
+    const nav = $('#topbar-nav');
     if (toggle) toggle.setAttribute('aria-expanded', 'false');
-    if (backdrop) backdrop.classList.add('hidden');
+    if (backdrop) {
+      backdrop.classList.add('hidden');
+      backdrop.setAttribute('aria-hidden', 'true');
+    }
+    if (nav) nav.setAttribute('aria-hidden', 'true');
   }
 
   function bindMobileNav() {
     const toggle = $('#nav-toggle');
     const closeBtn = $('#nav-close');
     const backdrop = $('#nav-backdrop');
+    const nav = $('#topbar-nav');
     if (!toggle) return;
 
+    if (isMobileLayout()) portalMobileNav();
+
     function openNav() {
+      if (isMobileLayout()) portalMobileNav();
       document.body.classList.add('nav-open');
       toggle.setAttribute('aria-expanded', 'true');
+      if (nav) nav.setAttribute('aria-hidden', 'false');
       if (backdrop) {
         backdrop.classList.remove('hidden');
         backdrop.setAttribute('aria-hidden', 'false');
@@ -109,17 +144,19 @@
     if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
     if (backdrop) backdrop.addEventListener('click', closeMobileNav);
     window.addEventListener('resize', () => {
-      if (!isMobileLayout()) closeMobileNav();
+      if (isMobileLayout()) portalMobileNav();
+      else restoreMobileNav();
       if (hand) renderTable();
     });
   }
 
   function bindTabs() {
     $$('.tab').forEach((t) => t.addEventListener('click', () => {
-      $$('.tab').forEach((x) => x.classList.remove('active'));
+      const tabId = t.dataset.tab;
+      $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tabId));
       $$('.tab-panel').forEach((x) => x.classList.remove('active'));
-      t.classList.add('active');
-      $('#tab-' + t.dataset.tab).classList.add('active');
+      const panel = $('#tab-' + tabId);
+      if (panel) panel.classList.add('active');
       if (isMobileLayout()) closeMobileNav();
       if (t.dataset.tab === 'history') renderHistory();
       if (t.dataset.tab === 'errors') renderErrors();
