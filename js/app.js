@@ -22,6 +22,14 @@
     { top: 4, left: 70 },
     { top: 80, left: 92 }
   ];
+  const SEAT_COORDS_MOBILE = [
+    { top: 98, left: 50 },
+    { top: 68, left: 2 },
+    { top: 10, left: 2 },
+    { top: 0, left: 26 },
+    { top: 0, left: 74 },
+    { top: 68, left: 98 }
+  ];
 
   let hand = null;
   let pendingForce = null;       // escenario forzado (repaso de errores)
@@ -41,6 +49,7 @@
   // ---------- Inicio ----------
   function init() {
     bindTabs();
+    bindMobileNav();
     bindControls();
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
@@ -49,12 +58,52 @@
     refreshSessionUI();
   }
 
+  function isMobileLayout() {
+    return window.matchMedia('(max-width: 680px)').matches;
+  }
+
+  function closeMobileNav() {
+    document.body.classList.remove('nav-open');
+    const toggle = $('#nav-toggle');
+    const backdrop = $('#nav-backdrop');
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    if (backdrop) backdrop.classList.add('hidden');
+  }
+
+  function bindMobileNav() {
+    const toggle = $('#nav-toggle');
+    const closeBtn = $('#nav-close');
+    const backdrop = $('#nav-backdrop');
+    if (!toggle) return;
+
+    function openNav() {
+      document.body.classList.add('nav-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      if (backdrop) {
+        backdrop.classList.remove('hidden');
+        backdrop.setAttribute('aria-hidden', 'false');
+      }
+    }
+
+    toggle.addEventListener('click', () => {
+      if (document.body.classList.contains('nav-open')) closeMobileNav();
+      else openNav();
+    });
+    if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
+    if (backdrop) backdrop.addEventListener('click', closeMobileNav);
+    window.addEventListener('resize', () => {
+      if (!isMobileLayout()) closeMobileNav();
+      if (hand) renderTable();
+    });
+  }
+
   function bindTabs() {
     $$('.tab').forEach((t) => t.addEventListener('click', () => {
       $$('.tab').forEach((x) => x.classList.remove('active'));
       $$('.tab-panel').forEach((x) => x.classList.remove('active'));
       t.classList.add('active');
       $('#tab-' + t.dataset.tab).classList.add('active');
+      if (isMobileLayout()) closeMobileNav();
       if (t.dataset.tab === 'history') renderHistory();
       if (t.dataset.tab === 'errors') renderErrors();
       if (t.dataset.tab === 'stats') renderStats();
@@ -270,6 +319,8 @@
   }
 
   function renderSeats() {
+    const mobile = isMobileLayout();
+    const coords = mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS;
     const ring = ringFromHero(hand.hero.pos);
     const villainPos = hand.villain.pos;
     const tbl = hand.table || {};
@@ -281,7 +332,7 @@
     const holeCards = tbl.holeCards || {};
     let html = '';
     ring.forEach((pos, i) => {
-      const c = SEAT_COORDS[i];
+      const c = coords[i];
       const isHero = pos === hand.hero.pos;
       const isVillain = villainPos && pos === villainPos;
       const isCaller = hand.scenario && hand.scenario.callerPos === pos;
@@ -292,6 +343,9 @@
       if (pos === 'BTN') cls.push('dealer');
       if (c.top < 20) cls.push('seat-top');
       if (c.top > 70) cls.push('seat-bottom');
+      if (c.left < 22) cls.push('seat-edge-left');
+      else if (c.left > 78) cls.push('seat-edge-right');
+      if (c.top < 12) cls.push('seat-edge-top');
       if (folded[pos]) cls.push('folded');
 
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? 'Pagador' : ''));
@@ -315,7 +369,9 @@
 
       const totalInv = invested[pos] || 0;
       const stBet = streetBet[pos] || 0;
-      const chipsHtml = renderSeatChips(totalInv, stBet);
+      const showFullSeat = !mobile || isVillain || isCaller || stBet > 0;
+      if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
+      const chipsHtml = showFullSeat ? renderSeatChips(totalInv, stBet) : '';
 
       html += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
         ${cardsHtml}

@@ -50,34 +50,46 @@
       <span class="chip-logo">&#9824;</span>
       <h1>GTO Poker Trainer <small>Cash NL 6-max</small></h1>
     </div>
-    <nav class="tabs">
-      <button class="tab active" data-tab="play">Jugar</button>
-      <button class="tab" data-tab="ranges">Rangos</button>
-      <button class="tab" data-tab="sessions">Sesiones</button>
-      <button class="tab" data-tab="history">Histórico</button>
-      <button class="tab" data-tab="errors">Errores</button>
-      <button class="tab" data-tab="stats">Estadísticas</button>
-    </nav>
-    <div class="account-menu" id="account-menu">
-      <button type="button" class="account-trigger" id="account-trigger" aria-expanded="false" aria-haspopup="true" title="Cuenta">
-        <img id="account-avatar" class="account-avatar" alt="" hidden />
-        <span id="account-email-short" class="account-email-short"></span>
-        <span class="account-chevron" aria-hidden="true">▾</span>
-      </button>
-      <div class="account-dropdown hidden" id="account-dropdown">
-        <div class="account-dropdown-head">
-          <img id="account-avatar-lg" class="account-avatar-lg" alt="" hidden />
-          <div>
-            <strong id="account-name"></strong>
-            <span id="account-email" class="account-email-full"></span>
-          </div>
-        </div>
-        <div class="account-meta" id="account-meta"></div>
-        <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
-        <button type="button" id="account-signout" class="btn btn-ghost btn-block">Cerrar sesión</button>
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="topbar-nav">
+      <span class="nav-toggle-bar"></span>
+      <span class="nav-toggle-bar"></span>
+      <span class="nav-toggle-bar"></span>
+    </button>
+    <div class="topbar-nav" id="topbar-nav">
+      <div class="drawer-head">
+        <span class="drawer-title">Menú</span>
+        <button type="button" class="nav-close" id="nav-close" aria-label="Cerrar menú">&times;</button>
       </div>
+      <div class="account-menu" id="account-menu">
+        <button type="button" class="account-trigger" id="account-trigger" aria-expanded="false" aria-haspopup="true" title="Cuenta">
+          <img id="account-avatar" class="account-avatar" alt="" hidden />
+          <span id="account-email-short" class="account-email-short"></span>
+          <span class="account-chevron" aria-hidden="true">▾</span>
+        </button>
+        <div class="account-dropdown hidden" id="account-dropdown">
+          <div class="account-dropdown-head">
+            <img id="account-avatar-lg" class="account-avatar-lg" alt="" hidden />
+            <div>
+              <strong id="account-name"></strong>
+              <span id="account-email" class="account-email-full"></span>
+            </div>
+          </div>
+          <div class="account-meta" id="account-meta"></div>
+          <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
+          <button type="button" id="account-signout" class="btn btn-ghost btn-block">Cerrar sesión</button>
+        </div>
+      </div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="play">Jugar</button>
+        <button class="tab" data-tab="ranges">Rangos</button>
+        <button class="tab" data-tab="sessions">Sesiones</button>
+        <button class="tab" data-tab="history">Histórico</button>
+        <button class="tab" data-tab="errors">Errores</button>
+        <button class="tab" data-tab="stats">Estadísticas</button>
+      </nav>
     </div>
   </header>
+  <div class="nav-backdrop hidden" id="nav-backdrop" aria-hidden="true"></div>
 
   <main>
     <!-- ===== JUGAR ===== -->

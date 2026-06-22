@@ -51,6 +51,31 @@ body {
 .tab.active { color: #fff; background: var(--accent); }
 
 .topbar-actions, .account-menu { position: relative; flex-shrink: 0; }
+.topbar-nav { display: flex; align-items: center; flex: 1; justify-content: flex-end; gap: 12px; min-width: 0; }
+.drawer-head, .nav-toggle, .nav-backdrop { display: none; }
+@media (min-width: 681px) {
+  .topbar-nav .tabs { flex: 1; justify-content: center; order: 1; }
+  .topbar-nav .account-menu { order: 2; }
+}
+
+.nav-toggle {
+  flex-direction: column; justify-content: center; align-items: center; gap: 5px;
+  width: 44px; height: 44px; padding: 0;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.nav-toggle-bar {
+  display: block; width: 20px; height: 2px; background: var(--text); border-radius: 1px;
+  transition: transform .2s, opacity .2s;
+}
+body.nav-open .nav-toggle-bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+body.nav-open .nav-toggle-bar:nth-child(2) { opacity: 0; }
+body.nav-open .nav-toggle-bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.nav-backdrop {
+  position: fixed; inset: 0; z-index: 110;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(2px);
+}
 .account-trigger {
   display: flex; align-items: center; gap: 8px;
   background: var(--panel); border: 1px solid var(--border);
@@ -263,6 +288,11 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .seat.folded .seat-cards { display: none; }
 .seat.caller { border-color: rgba(47,129,247,.5); }
 .seat.caller .seat-pos { color: #7eb8ff; }
+.seat.seat-mini { min-width: 0; padding: 2px 7px; }
+.seat.seat-mini .seat-cards,
+.seat.seat-mini .seat-chips,
+.seat.seat-mini .seat-act-wrap,
+.seat.seat-mini .seat-role { display: none; }
 .card.back {
   background: repeating-linear-gradient(45deg, #2a4d8f, #2a4d8f 6px, #20407a 6px, #20407a 12px);
   color: transparent;
@@ -534,52 +564,121 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 
 /* Móvil grande / tablet pequeña */
 @media (max-width: 680px) {
-  .topbar { flex-direction: column; gap: 10px; padding: 10px 14px; }
-  .brand { width: 100%; }
-  .topbar h1 { font-size: 16px; }
-  .chip-logo { width: 36px; height: 36px; font-size: 22px; }
-  .tabs { width: 100%; }
-  .tab { flex: 1; padding: 8px 4px; font-size: 12px; text-align: center; }
-  .account-menu { width: 100%; }
-  .account-trigger { width: 100%; max-width: none; justify-content: center; }
-  .account-dropdown { left: 0; right: 0; min-width: 0; }
+  .topbar {
+    flex-direction: row; flex-wrap: nowrap; gap: 10px;
+    padding: 8px 12px; min-height: 56px;
+  }
+  .brand { flex: 1; min-width: 0; }
+  .topbar h1 { font-size: 15px; line-height: 1.2; }
+  .topbar h1 small { font-size: 11px; }
+  .chip-logo { width: 34px; height: 34px; font-size: 20px; flex-shrink: 0; }
 
-  main { padding: 12px; }
+  .nav-toggle, .nav-backdrop, .drawer-head { display: flex; }
+  .nav-backdrop.hidden { display: none; }
+  body.nav-open { overflow: hidden; }
 
-  .poker-table { padding: 6px; }
+  .topbar-nav {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(320px, 88vw); max-width: 100%;
+    flex: none; flex-direction: column; align-items: stretch;
+    justify-content: flex-start; gap: 0;
+    padding: 0 0 28px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    box-shadow: -12px 0 40px rgba(0,0,0,.45);
+    z-index: 120;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(105%);
+    transition: transform .25s ease;
+  }
+  body.nav-open .topbar-nav { transform: translateX(0); }
+
+  .drawer-head {
+    align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,.2); flex-shrink: 0;
+  }
+  .drawer-title { font-weight: 700; font-size: 15px; letter-spacing: .3px; }
+  .nav-close {
+    width: 40px; height: 40px; border: none; border-radius: 8px;
+    background: transparent; color: var(--muted); font-size: 28px; line-height: 1;
+    cursor: pointer; display: grid; place-items: center;
+  }
+
+  .account-menu { width: 100%; order: -1; }
+  .account-trigger { display: none; }
+  .account-dropdown {
+    display: block !important;
+    position: static; min-width: 0; width: 100%;
+    box-shadow: none; border: none; border-radius: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 16px;
+  }
+  .account-dropdown.hidden { display: block !important; }
+
+  .tabs {
+    width: 100%; flex-direction: column; gap: 4px;
+    padding: 12px 12px 0;
+  }
+  .tab {
+    flex: none; width: 100%; text-align: left;
+    padding: 12px 14px; font-size: 15px; border-radius: 10px;
+  }
+
+  main { padding: 10px 10px 16px; }
+
+  .poker-table { padding: 4px; }
   .table-felt {
-    min-height: 360px; border-radius: 28px; padding: 12px 10px 16px;
-    border-width: 6px;
-    gap: 8px;
+    min-height: 340px; border-radius: 24px; padding: 10px 8px 12px;
+    border-width: 5px; gap: 6px;
   }
   .seats { pointer-events: none; }
   .seat.hero { display: none; }
   .seat.villain .seat-act-wrap,
   .seat.caller .seat-act-wrap { display: flex; }
   .villain-action-bar { display: none !important; }
-  .board-area { margin-top: 4px; padding-top: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; }
-  .seat { min-width: 50px; padding: 4px 6px; font-size: 10px; }
+  .board-area {
+    margin-top: 2px; padding-top: 0; flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+    max-width: 72%; margin-left: auto; margin-right: auto;
+  }
+  .seat {
+    min-width: 0; max-width: 78px; padding: 3px 5px; font-size: 9px;
+    z-index: 3;
+  }
+  .seat-edge-left { transform: translate(-8%, -50%); }
+  .seat-edge-right { transform: translate(-92%, -50%); }
+  .seat-edge-top { transform: translate(-50%, 2%); }
   .seat .seat-role { display: none; }
   .seat-top .seat-act-wrap {
-    position: absolute; top: calc(100% + 3px); left: 50%;
+    position: absolute; top: calc(100% + 2px); left: 50%;
     transform: translateX(-50%); z-index: 4;
   }
-  .seat .seat-pos { font-size: 11px; }
-  .seat .seat-role { font-size: 9px; }
-  .seat-act { font-size: 10px; padding: 2px 7px; }
-  .seat-act .chip-ico { width: 13px; height: 13px; }
+  .seat-edge-right .seat-act-wrap,
+  .seat-edge-left .seat-act-wrap {
+    position: absolute; top: calc(100% + 2px); left: 50%;
+    transform: translateX(-50%); z-index: 4;
+  }
+  .seat .seat-pos { font-size: 10px; }
+  .seat-act { font-size: 9px; padding: 2px 6px; max-width: 76px; white-space: normal; text-align: center; line-height: 1.25; }
+  .seat-act .chip-ico { width: 11px; height: 11px; }
+  .seat-cards { margin-bottom: 2px; }
+  .seat-cards .card { width: 17px; height: 24px; }
+  .seat-chips { margin: 1px 0; font-size: 8px; }
+  .seat-chips-street { padding: 1px 5px; font-size: 8px; }
 
-  .pot { font-size: 12px; padding: 3px 10px; margin-bottom: 8px; }
-  .hero-area { margin-top: 8px; padding-top: 4px; }
-  .hero-label { margin-bottom: 4px; }
-  .action-badge-wrap { min-height: 22px; margin-bottom: 2px; }
-  .board { gap: 4px; min-height: 46px; }
-  .card { width: 30px; height: 42px; font-size: 13px; border-radius: 5px; }
-  .hero-cards .card { width: 46px; height: 64px; font-size: 18px; }
-  .spot-context { font-size: 12px; max-width: 92vw; }
-  .hero-handname { font-size: 11px; }
+  .pot { font-size: 11px; padding: 3px 9px; margin-bottom: 6px; }
+  .hero-area { margin-top: 6px; padding-top: 2px; }
+  .hero-label { margin-bottom: 3px; font-size: 11px; }
+  .action-badge-wrap { min-height: 20px; margin-bottom: 2px; }
+  .board { gap: 4px; min-height: 42px; }
+  .card { width: 28px; height: 40px; font-size: 12px; border-radius: 5px; }
+  .hero-cards .card { width: 44px; height: 60px; font-size: 17px; }
+  .spot-context { font-size: 11px; max-width: 100%; line-height: 1.35; margin-top: 6px; }
+  .hero-handname { font-size: 10px; }
 
-  .actions { flex-direction: column; }
+  .actions { flex-direction: column; margin-top: 12px; gap: 8px; }
   .actions .btn { width: 100%; padding: 14px; font-size: 16px; }
 
   .sidebar { flex-direction: column; }
