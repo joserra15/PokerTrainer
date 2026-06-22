@@ -122,6 +122,7 @@
     delete out.updatedAt;
     return out;
   }
+  function getHistory() { return read(scopedKey('history'), []); }
   function getErrors() { return read(scopedKey('errors'), []); }
   function getStats() { return read(scopedKey('stats'), defaultStats()); }
 

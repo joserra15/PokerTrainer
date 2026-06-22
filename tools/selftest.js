@@ -340,4 +340,24 @@ const evOk = badCall.evLoss >= 2 && badCall.evErroneous
   && sessStats.expectedNet === -62 && sessStats.varianceAdj === 82
   && handEv.expectedNet === 8.96 && handEv.varianceAdj === 90.62
   && profCount === 5 && maniacAgg === 'bet' && nitAgg === 'check';
+
+const ls = { _d: {}, getItem(k) { return this._d[k] != null ? this._d[k] : null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem(k) { delete this._d[k]; } };
+const storeBox = Object.assign({}, sandbox, { localStorage: ls });
+vm.createContext(storeBox);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'storage.js'), 'utf8'), storeBox, { filename: 'storage.js' });
+const Store = storeBox.window.Store;
+if (!Store || typeof Store.getHistory !== 'function' || typeof Store.mergeFromCloud !== 'function') {
+  console.error('FAIL Store: getHistory o mergeFromCloud no disponibles');
+  process.exit(1);
+}
+Store.saveHand({
+  id: 't1', createdAt: '2026-01-01T00:00:00Z', seed: 1, scenario: { type: 'RFI', heroPos: 'BTN' },
+  hero: { pos: 'BTN', code: 'AA', cards: ['As', 'Ah'] },
+  villain: { pos: 'BB' }, board: [], decisions: [{ street: 'preflop', class: 'optima', action: 'raise', label: 'Sube' }],
+  result: { heroNet: 1.5, totalEvLoss: 0, nErrors: 0, reason: 'test' }
+});
+const storeOk = Store.getHistory().length === 1 && Store.getStats().handsPlayed === 1;
+console.log('Store saveHand/getHistory:', storeOk ? 'OK' : 'FAIL');
+if (!storeOk) process.exit(1);
+
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
