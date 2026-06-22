@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const sandbox = { window: { PT_BUILD: '1.16.0' }, console };
+const sandbox = { window: { PT_BUILD: '1.16.2' }, console };
 sandbox.global = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-hand-payload.js'), 'utf8'), sandbox, { filename: 'ai-hand-payload.js' });
@@ -25,7 +25,8 @@ const trainer = P.build('trainer', {
   result: {
     heroNet: -25.32, totalEvLoss: 0, reason: 'Fold river',
     board: ['4h', 'Ks', '6c', '4c', '8c'],
-    villainCards: ['Qd', 'Qc'], heroHandName: 'Doble pareja'
+    villainCards: ['Qd', 'Qc'], heroHandName: 'Doble pareja',
+    villainRangeLog: [{ street: 'river', label: 'shove', amountBB: 48.6, summary: 'polarizado' }]
   }
 });
 
@@ -41,7 +42,7 @@ const session = P.build('session', {
   totalEvLoss: 0,
   accuracy: 100,
   worstClass: 'optima',
-  decisions: trainer.heroDecisions,
+  decisions: trainer.dec,
   summary: [
     { kind: 'street', street: 'flop', board: ['4h', 'Ks', '6c'] },
     { kind: 'action', street: 'flop', player: 'Joserra15', pos: 'UTG', type: 'bet', amount: 0.12 },
@@ -55,12 +56,16 @@ if (json.includes('Joserra15') || json.includes('HeroNick') || json.includes('em
   console.error('FAIL: payload contiene datos personales');
   process.exit(1);
 }
-if (!trainer || trainer.meta.source !== 'trainer' || trainer.setup.heroCards.join('') !== 'KhAc') {
+if (!trainer || trainer.src !== 'trainer' || trainer.hero.cards.join('') !== 'KhAc') {
   console.error('FAIL trainer payload');
   process.exit(1);
 }
-if (!session || session.meta.source !== 'session' || !session.timeline.length) {
+if (!session || session.src !== 'session' || !session.vil.line) {
   console.error('FAIL session payload');
   process.exit(1);
 }
-console.log('OK test-ai-payload: trainer', trainer.heroDecisions.length, 'decisions, session timeline', session.timeline.length, 'items');
+if (trainer.dec[0].context || trainer.dec[0].explanation) {
+  console.error('FAIL: decisiones no deben incluir narrativa');
+  process.exit(1);
+}
+console.log('OK test-ai-payload: trainer', trainer.dec.length, 'dec, vil line', session.vil.line);

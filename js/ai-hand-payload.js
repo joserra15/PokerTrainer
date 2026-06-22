@@ -1,5 +1,5 @@
 /*
- * ai-hand-payload.js — Normaliza manos (Jugar / Sesiones) a JSON sin datos personales.
+ * ai-hand-payload.js — JSON compacto para informe IA (sin narrativa duplicada).
  */
 (function (global) {
   'use strict';
@@ -12,28 +12,22 @@
   }
 
   function slimDecision(d) {
-    const mp = d.mathParams || {};
-    return {
-      street: d.street,
-      chosen: d.action || d.chosen,
-      chosenLabel: d.label || null,
-      best: d.best,
-      class: d.class,
-      evLossBB: d.evLoss != null ? d.evLoss : null,
-      evErroneous: !!d.evErroneous,
-      heroEquityPct: d.heroEquity != null ? d.heroEquity : null,
-      toCallBB: d.toCallBB != null ? d.toCallBB : null,
-      potBB: d.potBB != null ? d.potBB : null,
-      potOddsPct: mp.potOddsPct != null ? mp.potOddsPct : null,
-      breakEvenPct: mp.breakEvenPct != null ? mp.breakEvenPct : null,
-      gto: roundGto(d.gto),
-      context: d.context || null,
-      explanation: d.explanation || null,
-      villainRange: d.villainRange || null,
-      villainAudit: d.villainAudit
-        ? { severity: d.villainAudit.severity, label: d.villainAudit.label }
-        : null
+    const o = {
+      st: d.street,
+      ch: d.chosen || d.action,
+      ok: d.best,
+      cl: d.class
     };
+    const ev = d.evLossBB != null ? d.evLossBB : (d.evLoss != null ? d.evLoss : null);
+    if (ev) o.ev = ev;
+    const eq = d.heroEquityPct != null ? d.heroEquityPct : (d.heroEquity != null ? d.heroEquity : null);
+    if (eq != null) o.eq = eq;
+    if (d.toCallBB) o.call = d.toCallBB;
+    if (d.potBB) o.pot = d.potBB;
+    const gto = roundGto(d.gto);
+    if (gto) o.gto = gto;
+    if (d.villainAudit && d.villainAudit.severity === 'critical') o.vAudit = d.villainAudit.label;
+    return o;
   }
 
   function scenarioLabel(scenario) {
@@ -45,47 +39,32 @@
     return scenario.type || 'spot';
   }
 
-  function formatAction(item) {
+  function moveCode(item) {
     const t = item.type || '';
-    if (t === 'raise' && item.to != null) return 'raise to ' + item.to;
-    if (t === 'bet' && item.amount != null) return 'bet ' + item.amount;
-    if (t === 'call' && item.amount != null) return 'call ' + item.amount;
-    return t;
+    if (t === 'raise' && item.to != null) return 'r' + item.to;
+    if (t === 'bet' && item.amount != null) return 'b' + item.amount;
+    if (t === 'call' && item.amount != null) return 'c' + item.amount;
+    return t[0] || '?';
   }
 
-  function timelineFromSession(h, heroPos) {
-    return (h.summary || []).map((item) => {
-      if (item.kind === 'street') {
-        return { kind: 'street', street: item.street, board: item.board || [] };
-      }
-      const isHero = item.pos === heroPos || item.pos === h.heroPos;
-      return {
-        kind: 'action',
-        street: item.street,
-        seat: item.pos || (isHero ? h.heroPos : 'VILLAIN'),
-        move: formatAction(item),
-        allin: !!item.allin
-      };
+  function villainLineFromSummary(summary, heroPos) {
+    if (!summary || !summary.length) return '';
+    const parts = [];
+    summary.forEach((item) => {
+      if (item.kind !== 'action' || item.pos === heroPos) return;
+      const st = (item.street || '')[0];
+      parts.push(st + ':' + moveCode(item) + (item.allin ? '!' : ''));
     });
+    return parts.join('|');
   }
 
-  function timelineFromTrainer(hand) {
-    const tl = [];
-    let lastStreet = null;
-    (hand.decisions || []).forEach((d) => {
-      if (d.street !== lastStreet) {
-        tl.push({ kind: 'street', street: d.street, board: d.board || [] });
-        lastStreet = d.street;
-      }
-      tl.push({
-        kind: 'action',
-        street: d.street,
-        seat: hand.hero.pos,
-        move: d.label || d.action,
-        hero: true
-      });
+  function compactRangeLog(log) {
+    if (!log || !log.length) return null;
+    return log.map((e) => {
+      const st = (e.street || '')[0];
+      const amt = e.amountBB != null ? e.amountBB + 'bb' : '';
+      return st + ':' + (e.label || '') + (amt ? '/' + amt : '') + '=' + (e.summary || e.note || '');
     });
-    return tl;
   }
 
   function buildGtoSummary(decisions) {
@@ -99,87 +78,78 @@
       if (d.class === 'optima' || d.class === 'aceptable') good++;
       if (order.indexOf(d.class) > order.indexOf(worst)) worst = d.class;
       if (d.class === 'error' || d.class === 'imprecisa') {
-        critical.push({ street: d.street, chosen: d.chosen || d.action, best: d.best, evLossBB: d.evLossBB });
+        critical.push({
+          st: d.street,
+          ch: d.chosen || d.action,
+          ok: d.best,
+          ev: d.evLossBB != null ? d.evLossBB : d.evLoss
+        });
       }
     });
     return {
-      decisions: n,
-      accuracyPct: n ? Math.round((good / n) * 100) : 100,
-      worstClass: worst,
-      criticalErrors: critical
+      n: n,
+      acc: n ? Math.round((good / n) * 100) : 100,
+      worst: worst,
+      errs: critical.length ? critical : undefined
     };
   }
 
   function fromTrainer(hand) {
     const r = hand.result || {};
     const decisions = (hand.decisions || []).map(slimDecision);
+    const villain = {
+      pos: hand.villain.pos,
+      prof: r.villainProfileShort || r.villainProfile || null,
+      line: compactRangeLog(r.villainRangeLog),
+      rng: r.villainRangeSummary || null
+    };
+    if (r.villainCards) villain.show = r.villainCards;
     return {
-      meta: {
-        handId: String(hand.id),
-        source: 'trainer',
-        analysisVersion: global.PT_BUILD || '1',
-        locale: 'es'
+      src: 'trainer',
+      spot: scenarioLabel(hand.scenario),
+      hero: { pos: hand.hero.pos, code: hand.hero.code, cards: hand.hero.cards },
+      board: r.board || hand.board || [],
+      stack: hand.effStack || 100,
+      dec: decisions,
+      vil: villain,
+      res: {
+        net: r.heroNet != null ? r.heroNet : 0,
+        evLoss: r.totalEvLoss != null ? r.totalEvLoss : 0,
+        heroHand: r.heroHandName || null,
+        vilHand: r.villainHandName || null
       },
-      setup: {
-        scenario: scenarioLabel(hand.scenario),
-        heroPos: hand.hero.pos,
-        heroCode: hand.hero.code,
-        heroCards: hand.hero.cards,
-        villainPos: hand.villain.pos,
-        effectiveStacksBB: hand.effStack || 100
-      },
-      timeline: timelineFromTrainer(hand),
-      heroDecisions: decisions,
-      result: {
-        heroNetBB: r.heroNet != null ? r.heroNet : 0,
-        totalEvLossBB: r.totalEvLoss != null ? r.totalEvLoss : 0,
-        reason: r.reason || '',
-        board: r.board || hand.board || [],
-        villainCards: r.villainCards || null,
-        villainHandName: r.villainHandName || null,
-        heroHandName: r.heroHandName || null,
-        villainProfile: r.villainProfile || null
-      },
-      gtoSummary: buildGtoSummary(decisions)
+      gto: buildGtoSummary(decisions)
     };
   }
 
   function fromSession(h) {
     const decisions = (h.decisions || []).map(slimDecision);
     const showdownHands = Object.values(h.villainShows || {}).filter((c) => Array.isArray(c) && c.length);
-    const villainCards = showdownHands.length ? showdownHands[0] : null;
+    const villain = {
+      line: villainLineFromSummary(h.summary, h.heroPos) || undefined,
+      show: showdownHands.length ? showdownHands[0] : undefined
+    };
     return {
-      meta: {
-        handId: String(h.id),
-        source: 'session',
-        analysisVersion: global.PT_BUILD || '1',
-        locale: 'es'
+      src: 'session',
+      spot: 'imported',
+      hero: { pos: h.heroPos, code: h.heroCode, cards: h.heroCards },
+      board: h.board || [],
+      dec: decisions,
+      vil: villain,
+      res: {
+        net: h.heroNetBB != null ? h.heroNetBB : 0,
+        evLoss: h.totalEvLoss != null ? h.totalEvLoss : 0,
+        acc: h.accuracy
       },
-      setup: {
-        scenario: 'imported_cash',
-        heroPos: h.heroPos,
-        heroCode: h.heroCode,
-        heroCards: h.heroCards,
-        stakes: { sb: h.sb, bb: h.bb }
-      },
-      timeline: timelineFromSession(h, h.heroPos),
-      heroDecisions: decisions,
-      result: {
-        heroNetBB: h.heroNetBB != null ? h.heroNetBB : 0,
-        totalEvLossBB: h.totalEvLoss != null ? h.totalEvLoss : 0,
-        board: h.board || [],
-        villainCards: villainCards,
-        accuracyPct: h.accuracy,
-        worstClass: h.worstClass
-      },
-      gtoSummary: buildGtoSummary(decisions)
+      gto: buildGtoSummary(decisions)
     };
   }
 
   function build(source, handObj) {
     if (!handObj) return null;
-    if (source === 'session') return fromSession(handObj);
-    return fromTrainer(handObj);
+    const payload = source === 'session' ? fromSession(handObj) : fromTrainer(handObj);
+    payload.id = String(handObj.id);
+    return payload;
   }
 
   function cacheKey(handId) {

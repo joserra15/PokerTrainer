@@ -6,34 +6,19 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-const SYSTEM_PROMPT = `Eres un coach de poker NL Hold'em 6-max cash en español.
-Recibes un JSON con una mano ya evaluada por un motor GTO (equity, EV, clases de decisión).
-REGLAS:
-- No inventes cartas, números de equity ni EV: usa solo los del JSON.
-- Si falta un dato, dilo explícitamente.
-- Tono didáctico para microlímites.
-- Responde SOLO en markdown con esta estructura:
-
-# Informe de mano — {heroCode} desde {heroPos}
-
-## Resumen
-(2-3 frases)
-
-## Contexto
-(spot, stacks, dinámica del bote)
-
-## Calle a calle
-### Preflop / Flop / Turn / River
-(bullet por calle relevante)
-
-## Decisiones clave
-(lista o tabla: decisión | veredicto GTO | EV | comentario)
-
-## Lectura del villano
-(si hay perfil o línea de apuestas en el JSON)
-
-## Conclusión práctica
-(1 lección concreta)`;
+const SYSTEM_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON compacto: cartas, board, decisiones del héroe con veredicto GTO/EV/equity, línea del villano y showdown si hay.
+NO narres la mano ni repitas la secuencia de acciones (el usuario ya la ve).
+Evalúa SOLO:
+1) Cada decisión del héroe: ¿correcta según GTO? ¿por qué? (equity, pot odds, frecuencias gto)
+2) Lectura del villano: interpreta su línea (rango, polarización, bluffs/value) y qué señales daría en spots similares
+Usa únicamente números del JSON; si falta dato, dilo en una frase.
+Responde markdown:
+# {code} {pos}
+## Decisiones
+(bullet por calle con error, duda o EV perdido; omite óptimas salvo lección breve)
+## Lectura villano
+## Lección práctica
+(1 idea concreta microlímites)`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -64,9 +49,7 @@ serve(async (req) => {
     return json({ error: 'missing_payload' }, 400);
   }
 
-  const userContent =
-    'Analiza esta mano y genera el informe en español:\n\n' +
-    JSON.stringify(body.payload, null, 2);
+  const userContent = 'Evalúa decisiones y lectura villano:\n' + JSON.stringify(body.payload);
 
   const model = 'gemini-2.5-flash';
   const url =
@@ -79,7 +62,7 @@ serve(async (req) => {
     body: JSON.stringify({
       system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ text: userContent }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
+      generationConfig: { temperature: 0.35, maxOutputTokens: 1024 }
     })
   });
 

@@ -49,7 +49,6 @@
     const s = JSON.parse(JSON.stringify(session));
     delete s.rawText;
     (s.hands || []).forEach(function (h) {
-      delete h.summary;
       (h.decisions || []).forEach(function (d) {
         delete d.optionBreakdown;
         delete d.explanation;

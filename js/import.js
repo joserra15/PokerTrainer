@@ -884,8 +884,31 @@
     return { score: r2(score), letter, verdict };
   }
 
+  function ensureHandSummary(h) {
+    if (!h) return h;
+    if (h.summary && h.summary.length) return h;
+    const tl = [];
+    let lastStreet = null;
+    (h.decisions || []).forEach(function (d) {
+      if (d.street !== lastStreet) {
+        const n = { preflop: 0, flop: 3, turn: 4, river: 5 }[d.street] || 0;
+        tl.push({ kind: 'street', street: d.street, board: (h.board || []).slice(0, n) });
+        lastStreet = d.street;
+      }
+      const raw = d.chosen || d.action || 'check';
+      const type = raw.indexOf('bet_') === 0 ? 'bet' : raw.split('_')[0];
+      tl.push({
+        kind: 'action', street: d.street,
+        player: h.heroPos || 'Héroe', pos: h.heroPos,
+        type: type, amount: d.betSizeBB, to: null
+      });
+    });
+    h.summary = tl;
+    return h;
+  }
+
   global.Importer = {
     parseSession, parseHand, analyzeHand, buildSession, buildSessionAsync, heroPlayed, computeStats, num, cardsFrom,
-    buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions
+    buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, ensureHandSummary
   };
 })(window);

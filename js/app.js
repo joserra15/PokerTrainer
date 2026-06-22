@@ -1283,6 +1283,7 @@
   function openHandReview(handId, mode) {
     currentHand = findHand(handId);
     if (!currentHand) return;
+    if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
     showSessionsView('review');
     try {
       if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
@@ -1334,11 +1335,17 @@
   function renderTimelineReview() {
     const h = currentHand;
     const box = $('#hand-review-content');
+    if (!h) return;
+    const summary = h.summary && h.summary.length ? h.summary : [];
+    if (!summary.length) {
+      box.innerHTML = '<p class="muted-text">No hay línea temporal para esta mano. Reimporta la sesión si el problema persiste.</p>';
+      return;
+    }
     const decByKey = {};
-    h.decisions.forEach((d, i) => { decByKey[d.street + '#' + i] = d; });
+    (h.decisions || []).forEach((d, i) => { decByKey[d.street + '#' + i] = d; });
     // mapear decisiones del héroe en orden por calle
     const heroDecQueue = {};
-    ['preflop', 'flop', 'turn', 'river'].forEach((st) => { heroDecQueue[st] = h.decisions.filter((d) => d.street === st).slice(); });
+    ['preflop', 'flop', 'turn', 'river'].forEach((st) => { heroDecQueue[st] = (h.decisions || []).filter((d) => d.street === st).slice(); });
 
     let html = `<div class="review-head">
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
@@ -1349,12 +1356,12 @@
     </div>`;
 
     html += '<div class="timeline">';
-    h.summary.forEach((item) => {
+    summary.forEach((item) => {
       if (item.kind === 'street') {
         const decIdx = window.PTRangeMatrix ? window.PTRangeMatrix.findDecisionIndex(h, item.street) : -1;
         html += `<div class="tl-street"><span>${cap(item.street)}</span> ${item.board.length ? '<span class="tl-board">' + item.board.map(Cards.cardToHTML).join('') + '</span>' : ''}${decIdx >= 0 ? matrixStreetBtn(item.street, decIdx, 'session') : ''}</div>`;
       } else {
-        const isHero = item.player === currentSession.hero;
+        const isHero = item.pos === h.heroPos || item.player === (currentSession && currentSession.hero);
         let heroDec = null;
         let line = `<div class="tl-action ${isHero ? 'hero' : ''}">
           <span class="tl-player">${escapeHtml(item.player)}${item.pos ? ' (' + item.pos + ')' : ''}</span>
