@@ -273,10 +273,13 @@
   function saveSession(session) {
     const rawText = session.rawText;
     const toStore = slimSession(session);
-    let hasTxt = !!session.hasTxt;
+    let hasTxt = false;
     if (rawText) {
       hasTxt = writeRaw(sessionTxtKey(session.id), rawText);
       toStore.hasTxt = hasTxt;
+    } else {
+      toStore.hasTxt = false;
+      try { localStorage.removeItem(sessionTxtKey(session.id)); } catch (e) { /* ignore */ }
     }
     const list = getSessions();
     const idx = list.findIndex((s) => s.id === toStore.id);

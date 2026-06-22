@@ -364,4 +364,22 @@ const storeOk = Store.getHistory().length === 1 && Store.getStats().handsPlayed 
 console.log('Store saveHand/getHistory:', storeOk ? 'OK' : 'FAIL');
 if (!storeOk) process.exit(1);
 
+const sessId = 'sess-no-txt';
+Store.saveSession({
+  id: sessId, createdAt: '2026-01-01T00:00:00Z', fileName: 'Poker99.txt', hero: 'Hero',
+  nTotal: 1, nDiscarded: 0, hands: [], stats: { nHands: 0, netBB: 0, evLossBB: 0, accuracy: 100, grade: { letter: 'A', score: 10, verdict: 'ok' } },
+  analysisVersion: '1'
+});
+const txtKey = 'pt_session_txt_v1_' + sessId;
+const savedSess = Store.getSessions().find((s) => s.id === sessId);
+const noTxtOk = savedSess && !savedSess.hasTxt && !ls.getItem(txtKey);
+console.log('Store session sin txt:', noTxtOk ? 'OK' : 'FAIL');
+if (!noTxtOk) process.exit(1);
+Store.saveSession(Object.assign({}, savedSess, { rawText: 'big hand history text', hasTxt: true }));
+const withTxt = Store.getSessions().find((s) => s.id === sessId);
+Store.saveSession(Object.assign({}, withTxt, { hands: [] }));
+const cleanedOk = !Store.getSessions().find((s) => s.id === sessId).hasTxt && !ls.getItem(txtKey);
+console.log('Store session limpia txt al re-guardar:', cleanedOk ? 'OK' : 'FAIL');
+if (!cleanedOk) process.exit(1);
+
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');

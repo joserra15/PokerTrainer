@@ -1051,7 +1051,6 @@
           status.textContent = `Analizando manos ${done}/${total}...`;
         };
         const finishSession = (session) => {
-          session.rawText = reader.result;
           const saveResult = Store.saveSession(session);
           const saved = saveResult && saveResult.ok !== false;
           const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
@@ -1100,7 +1099,7 @@
       return `<div class="record session-card">
         <div class="rec-main">
           <div class="rec-scenario">${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span></div>
-          <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands} manos · ${fmtDate(s.createdAt)} ${s.hasTxt ? '' : '· <em>txt borrado</em>'}</div>
+          <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands} manos · ${fmtDate(s.createdAt)}</div>
           <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)} bb</span> · EV perdido -${fmtBB(st.evLossBB)} bb</div>
           <div class="rec-sub muted-text" style="font-size:12px">${streetAccSummary(st.accByStreet)}</div>
         </div>

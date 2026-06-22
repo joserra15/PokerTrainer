@@ -801,7 +801,7 @@
       hands: kept,
       stats,
       analysisVersion: global.PT_BUILD || '1',
-      hasTxt: true,
+      hasTxt: false,
       rawText: null
     };
   }
