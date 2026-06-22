@@ -147,9 +147,7 @@
 
   function build(source, handObj) {
     if (!handObj) return null;
-    const payload = source === 'session' ? fromSession(handObj) : fromTrainer(handObj);
-    payload.id = String(handObj.id);
-    return payload;
+    return source === 'session' ? fromSession(handObj) : fromTrainer(handObj);
   }
 
   function cacheKey(handId) {

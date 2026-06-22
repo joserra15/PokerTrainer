@@ -63,8 +63,9 @@
     html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
     html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>\n?)+/g, (m) => '<ul>' + m + '</ul>');
+    html = html.replace(/^\*   (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/^[*-] (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, (m) => '<ul>' + m + '</ul>');
     html = html.replace(/\n\n/g, '</p><p>');
     return '<div class="ai-report-body"><p>' + html + '</p></div>';
   }
@@ -117,9 +118,11 @@
     const body = panel.querySelector('[data-ai-body]');
     const meta = panel.querySelector('[data-ai-meta]');
     if (meta) {
-      meta.textContent = report.cached
+      let line = report.cached
         ? 'Informe en caché · ' + (report.createdAt || '')
         : 'Generado · ' + (report.model || 'IA') + (report.createdAt ? ' · ' + report.createdAt : '');
+      if (report.truncated) line += ' · respuesta incompleta, pulsa Regenerar';
+      meta.textContent = line;
     }
     if (body) body.innerHTML = renderMarkdown(report.reportMarkdown || '');
     panel._currentReport = report;
@@ -159,7 +162,8 @@
       const report = {
         reportMarkdown: data.reportMarkdown,
         model: data.model,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        truncated: !!data.truncated
       };
       writeCache(cacheKey, report);
       showReport(panel, report);

@@ -12,13 +12,19 @@ Evalúa SOLO:
 1) Cada decisión del héroe: ¿correcta según GTO? ¿por qué? (equity, pot odds, frecuencias gto)
 2) Lectura del villano: interpreta su línea (rango, polarización, bluffs/value) y qué señales daría en spots similares
 Usa únicamente números del JSON; si falta dato, dilo en una frase.
-Responde markdown:
-# {code} {pos}
+Título: usa hero.code y hero.pos (NUNCA el id numérico de la mano).
+Responde markdown completo (no cortes a mitad de frase):
+# {hero.code} {hero.pos}
 ## Decisiones
 (bullet por calle con error, duda o EV perdido; omite óptimas salvo lección breve)
 ## Lectura villano
 ## Lección práctica
 (1 idea concreta microlímites)`;
+
+interface GeminiPart {
+  text?: string;
+  thought?: boolean;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -62,7 +68,11 @@ serve(async (req) => {
     body: JSON.stringify({
       system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ text: userContent }] }],
-      generationConfig: { temperature: 0.35, maxOutputTokens: 1024 }
+      generationConfig: {
+        temperature: 0.35,
+        maxOutputTokens: 2048,
+        thinkingConfig: { thinkingBudget: 0 }
+      }
     })
   });
 
@@ -72,9 +82,15 @@ serve(async (req) => {
     return json({ error: msg }, 502);
   }
 
-  const text =
-    geminiData?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') ||
-    '';
+  const candidate = geminiData?.candidates?.[0];
+  const parts: GeminiPart[] = candidate?.content?.parts || [];
+  const text = parts
+    .filter((p) => !p.thought)
+    .map((p) => p.text || '')
+    .join('');
+
+  const finishReason = candidate?.finishReason || '';
+  const truncated = finishReason === 'MAX_TOKENS';
 
   if (!text.trim()) {
     return json({ error: 'empty_response' }, 502);
@@ -83,7 +99,9 @@ serve(async (req) => {
   return json({
     reportMarkdown: text.trim(),
     model: model,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    truncated: truncated,
+    finishReason: finishReason || undefined
   });
 });
 

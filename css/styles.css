@@ -635,7 +635,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .ai-report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ai-report-meta { font-size: 12px; margin-bottom: 8px; }
 .ai-report-status { font-size: 13px; color: var(--muted); min-height: 1.2em; }
-.ai-report-content { margin-top: 8px; max-height: 480px; overflow-y: auto; }
+.ai-report-content { margin-top: 8px; max-height: min(70vh, 640px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .ai-report-loading { color: var(--muted); font-style: italic; padding: 12px 0; }
 .ai-report-error { color: var(--red); padding: 12px 0; }
 .ai-report-body { font-size: 14px; line-height: 1.55; }
