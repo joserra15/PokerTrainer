@@ -27,11 +27,17 @@ body {
 }
 
 /* ---- Topbar ---- */
-.topbar {
+.topbar-shell {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 22px; background: rgba(0,0,0,.25);
   border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px); gap: 12px;
+}
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex: 0 0 auto; min-width: 0; gap: 10px;
+  padding: 0; background: none; border: none; position: static;
+  backdrop-filter: none;
 }
 .brand { display: flex; align-items: center; gap: 12px; }
 .chip-logo {
@@ -73,7 +79,7 @@ body.nav-open .nav-toggle-bar:nth-child(2) { opacity: 0; }
 body.nav-open .nav-toggle-bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
 .nav-backdrop {
-  position: fixed; inset: 0; z-index: 110;
+  position: fixed; inset: 0; z-index: 200;
   background: rgba(0,0,0,.55); backdrop-filter: blur(2px);
 }
 .account-trigger {
@@ -178,6 +184,23 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 /* ---- Play layout ---- */
 .play-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
 @media (max-width: 980px) { .play-grid { grid-template-columns: 1fr; } }
+.table-wrap { position: relative; }
+.play-boot {
+  position: absolute; inset: 0; z-index: 8;
+  display: grid; place-items: center;
+  background: rgba(15, 20, 25, 0.94);
+  border-radius: var(--radius);
+}
+.play-boot.hidden { display: none; }
+.play-boot-inner { text-align: center; padding: 28px 20px; max-width: 280px; }
+.play-boot-spinner {
+  width: 40px; height: 40px; margin: 0 auto 14px;
+  border: 3px solid var(--border); border-top-color: var(--gold);
+  border-radius: 50%; animation: pt-spin .85s linear infinite;
+}
+@keyframes pt-spin { to { transform: rotate(360deg); } }
+.play-boot-msg { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.play-boot-hint { font-size: 13px; }
 
 .poker-table { padding: 18px; }
 .table-felt {
@@ -564,9 +587,12 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 
 /* Móvil grande / tablet pequeña */
 @media (max-width: 680px) {
-  .topbar {
-    flex-direction: row; flex-wrap: nowrap; gap: 10px;
+  .topbar-shell {
     padding: 8px 12px; min-height: 56px;
+  }
+  body.nav-open .topbar-shell { z-index: 210; }
+  .topbar {
+    flex: 1; flex-wrap: nowrap; gap: 10px;
   }
   .brand { flex: 1; min-width: 0; }
   .topbar h1 { font-size: 15px; line-height: 1.2; }
@@ -574,6 +600,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   .chip-logo { width: 34px; height: 34px; font-size: 20px; flex-shrink: 0; }
 
   .nav-toggle, .nav-backdrop, .drawer-head { display: flex; }
+  .nav-toggle { flex-shrink: 0; z-index: 1; }
   .nav-backdrop.hidden { display: none; }
   body.nav-open { overflow: hidden; }
 
@@ -586,13 +613,18 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
     background: var(--panel);
     border-left: 1px solid var(--border);
     box-shadow: -12px 0 40px rgba(0,0,0,.45);
-    z-index: 120;
+    z-index: 220;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    transform: translateX(105%);
-    transition: transform .25s ease;
+    visibility: hidden;
+    transform: translateX(100%);
+    transition: transform .25s ease, visibility 0s linear .25s;
   }
-  body.nav-open .topbar-nav { transform: translateX(0); }
+  body.nav-open .topbar-nav {
+    visibility: visible;
+    transform: translateX(0);
+    transition: transform .25s ease, visibility 0s;
+  }
 
   .drawer-head {
     align-items: center; justify-content: space-between;

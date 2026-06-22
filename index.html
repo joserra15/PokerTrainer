@@ -45,16 +45,18 @@
   </div>
 
   <div id="app-shell" class="hidden">
-  <header class="topbar">
-    <div class="brand">
-      <span class="chip-logo">&#9824;</span>
-      <h1>GTO Poker Trainer <small>Cash NL 6-max</small></h1>
-    </div>
-    <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="topbar-nav">
-      <span class="nav-toggle-bar"></span>
-      <span class="nav-toggle-bar"></span>
-      <span class="nav-toggle-bar"></span>
-    </button>
+  <div class="topbar-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="chip-logo">&#9824;</span>
+        <h1>GTO Poker Trainer <small>Cash NL 6-max</small></h1>
+      </div>
+      <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="topbar-nav">
+        <span class="nav-toggle-bar"></span>
+        <span class="nav-toggle-bar"></span>
+        <span class="nav-toggle-bar"></span>
+      </button>
+    </header>
     <div class="topbar-nav" id="topbar-nav">
       <div class="drawer-head">
         <span class="drawer-title">Menú</span>
@@ -88,7 +90,7 @@
         <button class="tab" data-tab="stats">Estadísticas</button>
       </nav>
     </div>
-  </header>
+  </div>
   <div class="nav-backdrop hidden" id="nav-backdrop" aria-hidden="true"></div>
 
   <main>
@@ -96,6 +98,13 @@
     <section id="tab-play" class="tab-panel active">
       <div class="play-grid">
         <div class="table-wrap">
+          <div id="play-boot" class="play-boot" aria-live="polite">
+            <div class="play-boot-inner">
+              <div class="play-boot-spinner" aria-hidden="true"></div>
+              <p class="play-boot-msg">Cargando entrenador GTO…</p>
+              <p class="muted-text play-boot-hint">Preparando mesa y motor de decisiones</p>
+            </div>
+          </div>
           <div class="poker-table">
             <div class="table-felt">
               <div id="seats" class="seats"></div>

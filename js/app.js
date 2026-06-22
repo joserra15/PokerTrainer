@@ -47,6 +47,16 @@
   let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, byStreet: emptyByStreet() };
 
   // ---------- Inicio ----------
+  function setPlayBoot(visible, message) {
+    const el = $('#play-boot');
+    if (!el) return;
+    if (message) {
+      const msg = el.querySelector('.play-boot-msg');
+      if (msg) msg.textContent = message;
+    }
+    el.classList.toggle('hidden', !visible);
+  }
+
   function init() {
     bindTabs();
     bindMobileNav();
@@ -54,7 +64,14 @@
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
-    startNewHand();
+    try {
+      if (!window.Engine) throw new Error('Motor no cargado');
+      startNewHand();
+      setPlayBoot(false);
+    } catch (e) {
+      console.error('[Play] init failed', e);
+      setPlayBoot(true, 'Error al cargar. Recarga la página.');
+    }
     refreshSessionUI();
   }
 
