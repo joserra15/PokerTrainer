@@ -230,12 +230,22 @@
       const board = hand.board;
       const ev = Cards.evaluate(hero.concat(board));
       let label = ev.name;
-      if (board.length >= 5) {
+      if (board.length >= 5 && ev.category < 5) {
         const counts = { s: 0, h: 0, d: 0, c: 0 };
         board.forEach((c) => { counts[c[1]] = (counts[c[1]] || 0) + 1; });
-        const fourSuit = ['s', 'h', 'd', 'c'].find((s) => counts[s] >= 4);
-        if (fourSuit && !hero.some((c) => c[1] === fourSuit) && ev.category < 5) {
-          label += ' (4 ' + (fourSuit === 'c' ? 'tréboles' : fourSuit === 'h' ? 'corazones' : fourSuit === 'd' ? 'diamantes' : 'picas') + ' en mesa; vulnerable a color)';
+        const suitNames = { c: 'tréboles', h: 'corazones', d: 'diamantes', s: 'picas' };
+        for (const s of ['s', 'h', 'd', 'c']) {
+          if (counts[s] < 3) continue;
+          const heroSuit = hero.filter((c) => c[1] === s).length;
+          const total = counts[s] + heroSuit;
+          if (total >= 4 && total < 5) {
+            label += ' (' + total + ' ' + suitNames[s] + ' en total, sin color; hacen falta 5)';
+            break;
+          }
+          if (counts[s] >= 4 && heroSuit === 0) {
+            label += ' (4 ' + suitNames[s] + ' en mesa; vulnerable a color)';
+            break;
+          }
         }
       }
       return 'Tu mano: ' + label;

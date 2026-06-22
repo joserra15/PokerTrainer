@@ -60,28 +60,34 @@
     return C.SUITS.some((s) => counts[s] >= 3);
   }
 
-  /** Palo con 4+ cartas en el board (river completado). */
-  function dominantFourFlushSuit(board) {
-    if (!board || board.length < 5) return null;
+  /**
+   * River: héroe sin color aunque haya 3–4 cartas del palo (p. ej. A♣ + 3♣ en mesa = 4♣, no color).
+   * El villano con dos cartas del palo o full house gana.
+   */
+  function missedFlushThreat(board, heroCards) {
+    if (!board || board.length < 5 || !heroCards || heroCards.length < 2) return null;
+    const heroScore = C.evaluate(heroCards.concat(board));
+    if (heroScore.category >= 5) return null;
     const counts = boardSuitCounts(board);
     for (const s of C.SUITS) {
-      if (counts[s] >= 4) return s;
+      if (counts[s] < 3) continue;
+      const heroSuit = heroCards.filter((c) => c[1] === s).length;
+      if (counts[s] + heroSuit >= 5) continue;
+      return { flushSuit: s, heroScore };
     }
     return null;
   }
 
-  /**
-   * Board con 4 del mismo palo y héroe sin ninguna carta de ese palo:
-   * doble pareja/pareja pierde vs colores; estrechar rango ante apuesta/shove.
-   */
-  function filterCombosFourFlushBoard(combos, board, heroCards, opts) {
+  function filterCombosMissedFlushRiver(combos, board, heroCards, opts) {
     if (!opts || (!opts.facingBet && !opts.riverShove && !opts.shoveNode)) return combos;
-    const flushSuit = dominantFourFlushSuit(board);
-    if (!flushSuit || !combos.length || !heroCards || heroCards.length < 2) return combos;
-    if (heroCards.some((c) => c[1] === flushSuit)) return combos;
-    const heroScore = C.evaluate(heroCards.concat(board));
-    if (heroScore.category >= 5) return combos;
-    const made = combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 5);
+    const threat = missedFlushThreat(board, heroCards);
+    if (!threat || !combos.length) return combos;
+    const beating = combos.filter((vh) => C.compare(C.evaluate(vh.concat(board)), threat.heroScore) > 0);
+    if (opts.riverShove || opts.shoveNode) return beating.length ? beating : combos;
+    const made = combos.filter((vh) => {
+      const vs = C.evaluate(vh.concat(board));
+      return vs.category >= 5 || C.compare(vs, threat.heroScore) > 0;
+    });
     return made.length ? made : combos;
   }
 
@@ -197,7 +203,7 @@
     let combos = allVillainCombos(rangeStr, dead);
     combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
     combos = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove, heroCards);
-    combos = filterCombosFourFlushBoard(combos, boardArr, heroCards, opts);
+    combos = filterCombosMissedFlushRiver(combos, boardArr, heroCards, opts);
     if (!combos.length) return 0.5;
 
     let win = 0, tie = 0;
@@ -271,7 +277,7 @@
     let combos = allVillainCombos(rangeStr, dead);
     combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
     const filtered = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove, heroCards);
-    const filtered4 = filterCombosFourFlushBoard(filtered.length ? filtered : combos, boardArr, heroCards, opts);
+    const filtered4 = filterCombosMissedFlushRiver(filtered.length ? filtered : combos, boardArr, heroCards, opts);
 
     if (run.need === 0) {
       const eq = equityExact(heroCards, boardArr, rangeStr, opts);

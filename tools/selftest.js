@@ -143,26 +143,43 @@ const facingSanity = SV.sanityCheckSolver([
 console.log('Facing bet turn/river sanity (Poker76 #185):', facingSanity.ok ? 'OK' : 'FAIL');
 if (!facingSanity.ok) process.exit(1);
 
+const jugarRange = 'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88';
 const khAcTurn = GTO.computeHeroEquity({
-  street: 'turn', board: ['4h', 'Kc', '6c', '4c'], heroCards: ['Kh', 'Ac'],
-  villainRange: 'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88',
+  street: 'turn', board: ['4h', 'Ks', '6c', '4c'], heroCards: ['Kh', 'Ac'],
+  villainRange: jugarRange,
   potBB: 36.59, toCallBB: 14.55, potBeforeBB: 22.04, villainLastAction: 'bet',
+  initiative: 'caller', inPosition: true
+});
+const khAcRiver = GTO.computeHeroEquity({
+  street: 'river', board: ['4h', 'Ks', '6c', '4c', '8c'], heroCards: ['Kh', 'Ac'],
+  villainRange: jugarRange,
+  potBB: 99.74, toCallBB: 48.6, potBeforeBB: 51.14, villainLastAction: 'bet',
   initiative: 'caller', inPosition: true
 });
 const khAsTurn = GTO.computeHeroEquity({
   street: 'turn', board: ['4h', 'Kc', '6c', '4c'], heroCards: ['Kh', 'As'],
-  villainRange: 'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88',
+  villainRange: jugarRange,
   potBB: 36.59, toCallBB: 14.55, potBeforeBB: 22.04, villainLastAction: 'bet',
   initiative: 'caller', inPosition: true
 });
 const khAsRiver = GTO.computeHeroEquity({
   street: 'river', board: ['4h', 'Kc', '6c', '4c', '8c'], heroCards: ['Kh', 'As'],
-  villainRange: 'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88',
+  villainRange: jugarRange,
   potBB: 99.74, toCallBB: 48.6, potBeforeBB: 51.14, villainLastAction: 'bet',
   initiative: 'caller', inPosition: true
 });
-console.log('KhAc turn (nut FD)', Math.round(khAcTurn * 100) + '%');
+const khAcEval = Cards.evaluate(['Kh', 'Ac'].concat(['4h', 'Ks', '6c', '4c', '8c']));
+console.log('KhAc river hand:', khAcEval.name, '(expect Doble pareja, not Color)');
+console.log('KhAc turn (FD+2p)', Math.round(khAcTurn * 100) + '%', 'river shove', Math.round(khAcRiver * 100) + '%');
 console.log('KhAs turn (two pair)', Math.round(khAsTurn * 100) + '%', 'river shove', Math.round(khAsRiver * 100) + '%');
+if (khAcEval.category >= 5) {
+  console.error('FAIL KhAc: 4 clubs total must not evaluate as flush');
+  process.exit(1);
+}
+if (khAcRiver >= khAcTurn || khAcRiver > 15) {
+  console.error('FAIL KhAc: river shove equity should be near 0% (two pair, 4 clubs no flush)');
+  process.exit(1);
+}
 if (khAsRiver >= khAsTurn) {
   console.error('FAIL KhAs: river equity should be below turn on 4-club board');
   process.exit(1);
