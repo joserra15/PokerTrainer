@@ -85,10 +85,14 @@
     if (!deval.vulnerable) return combos;
 
     const heroScore = C.evaluate(heroCards.concat(board));
+    const ctx = heroNonNutFlushContext(heroCards, board);
     const beating = combos.filter((vh) => C.compare(C.evaluate(vh.concat(board)), heroScore) > 0);
-    if (beating.length >= 1) return beating;
+    if (beating.length >= 1 && !(ctx && ctx.isNut)) return beating;
 
-    return combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 6);
+    const strong = combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 6);
+    if (ctx && ctx.isNut && strong.length) return strong;
+
+    return strong.length ? strong : combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 5);
   }
 
   function augmentVillainRange(heroCards, board, rangeStr) {

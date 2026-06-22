@@ -263,9 +263,12 @@
       stackDepth: hand.effStack || EFF, street: node.street,
       board: hand.board.slice(), heroCards: hand.hero.cards, handCode: hand.hero.code,
       potBB: node.potBB, toCallBB: facingBet(node) ? node.toCallBB : 0,
+      potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
       initiative: hand.heroIsAggressor ? 'aggressor' : 'caller',
-      inPosition: hand.heroInPosition, villainRange: hand.villain.rangeStr,
-      heroEquity: node.heroEquity, madeHandInfo: node.info,
+      inPosition: hand.heroInPosition,
+      villainRange: villainRangeAtNode(hand, node),
+      madeHandInfo: node.info,
+      villainLastAction: hand.villainAction ? hand.villainAction.type : null,
       chosenAction: chosenAction,
       availableActions,
       betSizeBB: opt && opt.size != null ? opt.size : (chosenAction === 'raise' ? round2((node.toCallBB || 0) * 3) : 0)
@@ -983,28 +986,38 @@
     const info = classifyMadeHand(hand.hero.cards, hand.board);
     const texture = boardTexture(hand.board);
     const baseRange = hand.villain.rangeStr || GTO.Ranges.data.BROAD_CONTINUE;
-    let villainRange = baseRange;
-    if (VT && VT.estimateActiveRange) {
-      const va = hand.villainAction;
-      villainRange = VT.estimateActiveRange({
+    const villainLastAction = (facing && facing.bet) ? 'bet' : (hand.villainAction ? hand.villainAction.type : null);
+    const toCallBB = facing && facing.bet ? facing.bet : 0;
+    const potBeforeBB = facing && facing.bet
+      ? round2(facing.potBefore != null ? facing.potBefore : Math.max(hand.potBB - toCallBB, 0.1))
+      : round2(hand.potBB);
+    const villainRange = (VT && VT.estimateActiveRange)
+      ? VT.estimateActiveRange({
         baseRange,
         street,
-        lastAction: facing && facing.bet ? 'bet' : (va ? va.type : 'check'),
-        betBB: facing && facing.bet ? facing.bet : (va && va.amount ? va.amount : 0),
-        potBeforeBB: facing && facing.potBefore != null ? facing.potBefore : hand.potBB,
+        lastAction: villainLastAction || 'check',
+        betBB: toCallBB,
+        potBeforeBB,
         board: hand.board,
         tags: []
+      })
+      : baseRange;
+    const heroEquity = GTO.computeHeroEquity
+      ? GTO.computeHeroEquity({
+        street, board: hand.board.slice(), heroCards: hand.hero.cards,
+        villainRange, potBB: hand.potBB, toCallBB, potBeforeBB,
+        villainLastAction, madeHandInfo: info,
+        initiative: hand.heroIsAggressor ? 'aggressor' : 'caller',
+        inPosition: hand.heroInPosition
+      })
+      : equityVsRange(hand.hero.cards, hand.board, villainRange, 400, {
+        street, facingBet: !!toCallBB
       });
-    }
-    const heroEquity = equityVsRange(hand.hero.cards, hand.board, villainRange, 400, {
-      street, facingBet: !!(facing && facing.bet)
-    });
 
-    let toCallBB = 0, options, heroLastAction = null, context;
+    let options, heroLastAction = null, context;
     const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
     if (facing && facing.bet) {
       // hero afronta una apuesta del villano
-      toCallBB = facing.bet;
       options = [
         { id: 'fold', label: 'Fold' },
         { id: 'call', label: `Call (${fmt(facing.bet)}bb)` },

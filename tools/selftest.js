@@ -143,6 +143,24 @@ const facingSanity = SV.sanityCheckSolver([
 console.log('Facing bet turn/river sanity (Poker76 #185):', facingSanity.ok ? 'OK' : 'FAIL');
 if (!facingSanity.ok) process.exit(1);
 
+const khAcTurn = GTO.computeHeroEquity({
+  street: 'turn', board: ['4h', 'Kc', '6c', '4c'], heroCards: ['Kh', 'Ac'],
+  villainRange: 'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88',
+  potBB: 36.59, toCallBB: 14.55, potBeforeBB: 22.04, villainLastAction: 'bet',
+  initiative: 'caller', inPosition: true
+});
+const khAcRiver = GTO.computeHeroEquity({
+  street: 'river', board: ['4h', 'Kc', '6c', '4c', '8c'], heroCards: ['Kh', 'Ac'],
+  villainRange: 'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88',
+  potBB: 99.74, toCallBB: 48.6, potBeforeBB: 51.14, villainLastAction: 'bet',
+  initiative: 'caller', inPosition: true
+});
+console.log('KhAc turn eq ~', Math.round(khAcTurn * 100) + '%', 'river shove eq ~', Math.round(khAcRiver * 100) + '% (expect turn > river)');
+if (khAcRiver >= khAcTurn) {
+  console.error('FAIL KhAc: river equity should be below turn on paired monotone shove');
+  process.exit(1);
+}
+
 const nutHero = ['Jd', 'Qd'];
 const turnB = ['Qc', 'Td', '7c', '8h'];
 const riverB = turnB.concat(['9h']);

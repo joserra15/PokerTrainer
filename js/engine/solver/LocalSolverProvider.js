@@ -60,7 +60,7 @@
       const eqIters = out._equityIters || (out.riverShove ? 500 : 400);
       if (out.heroEquity == null) {
         out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, eqIters, eqOpts);
-      } else if (out.riverShove) {
+      } else if (out.riverShove || facingBet) {
         out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, eqIters, eqOpts);
       }
 
@@ -92,6 +92,11 @@
     }
 
     return out;
+  }
+
+  /** Equity unificada (misma lógica que evaluateSpot) para Jugar e importación. */
+  function computeHeroEquity(input) {
+    return enrichInput(Object.assign({}, input, { heroEquity: null, chosenAction: null })).heroEquity;
   }
 
   function resolveSpotKind(input) {
@@ -192,10 +197,11 @@
     return map[id] || id.toUpperCase();
   }
 
-  const LocalSolverProvider = { evaluateSpot, getStrategy, getEV, name: 'local' };
+  const LocalSolverProvider = { evaluateSpot, getStrategy, getEV, computeHeroEquity, name: 'local' };
 
   global.LocalSolverProvider = LocalSolverProvider;
   global.GTO = global.GTO || {};
   global.GTO.Solver = LocalSolverProvider;
   global.GTO.evaluateSpot = evaluateSpot;
+  global.GTO.computeHeroEquity = computeHeroEquity;
 })(window);
