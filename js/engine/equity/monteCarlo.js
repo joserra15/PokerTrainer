@@ -82,13 +82,27 @@
     if (!opts || (!opts.facingBet && !opts.riverShove && !opts.shoveNode)) return combos;
     const threat = missedFlushThreat(board, heroCards);
     if (!threat || !combos.length) return combos;
-    const beating = combos.filter((vh) => C.compare(C.evaluate(vh.concat(board)), threat.heroScore) > 0);
-    if (opts.riverShove || opts.shoveNode) return beating.length ? beating : combos;
-    const made = combos.filter((vh) => {
-      const vs = C.evaluate(vh.concat(board));
-      return vs.category >= 5 || C.compare(vs, threat.heroScore) > 0;
-    });
-    return made.length ? made : combos;
+
+    const counts = boardSuitCounts(board);
+    const boardFlush = counts[threat.flushSuit] || 0;
+    const heroSuit = heroCards.filter((c) => c[1] === threat.flushSuit).length;
+
+    // 4 en mesa sin carta del palo: el shove es casi siempre color hecho.
+    if (boardFlush >= 4 && heroSuit === 0) {
+      const beating = combos.filter((vh) => C.compare(C.evaluate(vh.concat(board)), threat.heroScore) > 0);
+      if (opts.riverShove || opts.shoveNode) {
+        const flushes = combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 5);
+        return flushes.length ? flushes : (beating.length ? beating : combos);
+      }
+      const made = combos.filter((vh) => {
+        const vs = C.evaluate(vh.concat(board));
+        return vs.category >= 5 || C.compare(vs, threat.heroScore) > 0;
+      });
+      return made.length ? made : combos;
+    }
+
+    // 3 en mesa (+ 0–1 en mano): rango de shove polarizado (QQ, AK, Kx, bluffs) — no filtrar a «solo ganadores».
+    return combos;
   }
 
   /** Ante apuesta en board de color: estrechar solo si el héroe ya tiene color hecho. */

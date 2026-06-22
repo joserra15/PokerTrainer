@@ -176,12 +176,16 @@ if (khAcEval.category >= 5) {
   console.error('FAIL KhAc: 4 clubs total must not evaluate as flush');
   process.exit(1);
 }
-if (khAcRiver >= khAcTurn || khAcRiver > 15) {
-  console.error('FAIL KhAc: river shove equity should be near 0% (two pair, 4 clubs no flush)');
+if (khAcRiver < 0.40) {
+  console.error('FAIL KhAc: river shove equity too low (expect ~50%+ vs rango polarizado QQ/AK/Kx)', khAcRiver);
   process.exit(1);
 }
-if (khAsRiver >= khAsTurn) {
-  console.error('FAIL KhAs: river equity should be below turn on 4-club board');
+if (khAcRiver >= khAcTurn) {
+  console.error('FAIL KhAc: river equity should be below turn (proyecto completado sin color)');
+  process.exit(1);
+}
+if (khAsRiver >= khAsTurn || khAsRiver > 0.10) {
+  console.error('FAIL KhAs: river shove equity should be near 0% on 4-club board without club');
   process.exit(1);
 }
 
