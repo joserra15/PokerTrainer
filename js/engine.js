@@ -155,6 +155,106 @@
     return 'call';
   }
 
+  function seatToCall(hand, pos, targetSize) {
+    const inv = (hand.table && hand.table.invested[pos]) || 0;
+    return round2(Math.max(targetSize - inv, 0));
+  }
+
+  function recalcPot(hand) {
+    if (!hand.table) return;
+    let pot = 0;
+    DEAL_ORDER.forEach(function (pos) {
+      pot += hand.table.invested[pos] || 0;
+    });
+    hand.potBB = round2(pot);
+  }
+
+  function blindDefendVsOpen(hand, pos, openSize) {
+    const profile = profileFor(hand, pos);
+    const s = strengthAtPos(hand, pos);
+    const toCall = seatToCall(hand, pos, openSize);
+    const r = C.rng.random();
+    const posBias = pos === 'SB' ? 0.07 : 0;
+    let foldProb = clamp(0.50 - s * 0.42 + posBias + toCall * 0.012, 0.06, 0.72);
+    if (VP) foldProb = VP.adjustFoldProb(foldProb, profile);
+    let threeBetProb = clamp((s - 0.58) * 0.38, 0.02, 0.18);
+    if (VP) threeBetProb = VP.adjustThreeBetProb(threeBetProb, profile);
+    if (r < foldProb) return 'fold';
+    if (r < foldProb + threeBetProb) return '3bet';
+    return 'call';
+  }
+
+  function respondersAfterHero(hand) {
+    const heroIdx = PREFLOP_ACTION.indexOf(hand.hero.pos);
+    const out = [];
+    for (let i = heroIdx + 1; i < PREFLOP_ACTION.length; i++) {
+      const pos = PREFLOP_ACTION[i];
+      if (hand.table.inHand.has(pos) && !hand.table.folded[pos]) out.push(pos);
+    }
+    return out;
+  }
+
+  /** Tras un open del héroe: SB/BB (y quien quede) defienden con su mano y perfil. */
+  function resolveBlindsAfterHeroOpen(hand, openSize) {
+    const responders = respondersAfterHero(hand);
+    let threeBettor = null;
+    let threeBetSize = 0;
+    const callers = [];
+
+    for (let ri = 0; ri < responders.length; ri++) {
+      const pos = responders[ri];
+      const act = blindDefendVsOpen(hand, pos, openSize);
+      if (act === 'fold') {
+        markFolded(hand, pos);
+        setSeatAction(hand, pos, 'fold', null);
+        continue;
+      }
+      if (act === '3bet') {
+        threeBetSize = round2(openSize * (pos === 'SB' ? 3.6 : 3.4));
+        threeBettor = pos;
+        setSeatAction(hand, pos, 'raise', threeBetSize);
+        const add = seatToCall(hand, pos, threeBetSize);
+        if (add > 0) addInvest(hand, pos, add);
+        setPreflopSeatBet(hand, pos, threeBetSize);
+        recalcPot(hand);
+        break;
+      }
+      const add = seatToCall(hand, pos, openSize);
+      if (add > 0) addInvest(hand, pos, add);
+      setPreflopSeatBet(hand, pos, openSize);
+      setSeatAction(hand, pos, 'call', openSize);
+      callers.push(pos);
+    }
+
+    if (threeBettor) {
+      hand.villain.pos = threeBettor;
+      hand.villain.cards = villainHoleCards(hand);
+      hand.villain.rangeStr = bb3betRange(hand.hero.pos);
+      syncVillainMeta(hand);
+      initVillainTracker(hand);
+      hand.villainInvested = threeBetSize;
+      recalcPot(hand);
+      setVillainAct(hand, 'raise', threeBetSize);
+      return { type: 'face3bet', size: threeBetSize };
+    }
+
+    if (!callers.length) return { type: 'allFold' };
+
+    const villainPos = callers.indexOf('BB') >= 0 ? 'BB' : callers[callers.length - 1];
+    hand.villain.pos = villainPos;
+    hand.villain.cards = villainHoleCards(hand);
+    hand.villain.rangeStr = bbCallRange(hand.hero.pos);
+    syncVillainMeta(hand);
+    initVillainTracker(hand);
+    hand.villainInvested = openSize;
+    hand.heroInvested = openSize;
+    hand._callersAtFlop = callers.filter(function (c) { return c !== villainPos; });
+    recalcPot(hand);
+    hand.heroInPosition = inPos(hand.hero.pos, villainPos);
+    setVillainAct(hand, 'call', openSize);
+    return { type: 'goFlop' };
+  }
+
   function limperDefendVsIso(hand, limperPos, isoSize) {
     const profile = profileFor(hand, limperPos);
     const s = strengthAtPos(hand, limperPos);
@@ -754,34 +854,22 @@
       if (actionId === 'fold') {
         return finish(hand, { reason: 'Te retiras antes del flop.', heroNet: -(hand.heroInvested || 0) });
       }
-      // hero abre
       hand.heroIsAggressor = true;
+      const heroAdd = seatToCall(hand, hand.hero.pos, node.openSize);
+      if (heroAdd > 0) addInvest(hand, hand.hero.pos, heroAdd);
       hand.heroInvested = node.openSize;
       setHeroAct(hand, 'open', node.openSize);
-      const bbAct = bbDefendVsOpen(hand, node.openSize);
-      if (bbAct === 'fold') {
-        return finish(hand, { reason: 'Todos se retiran. Te llevas las ciegas.', heroNet: round2(SB + BBET) });
+      setPreflopSeatBet(hand, hand.hero.pos, node.openSize);
+      recalcPot(hand);
+
+      const res = resolveBlindsAfterHeroOpen(hand, node.openSize);
+      if (res.type === 'allFold') {
+        return finish(hand, {
+          reason: 'Todos se retiran. Te llevas el bote.',
+          heroNet: round2(hand.potBB - node.openSize)
+        });
       }
-      hand.villain.pos = 'BB';
-      hand.villain.cards = villainHoleCards(hand);
-      if (bbAct === '3bet') {
-        // BB hace 3bet -> hero afronta 3bet
-        const tbSize = round2(node.openSize * 3.5);
-        hand.villain.rangeStr = bb3betRange(hand.hero.pos);
-        hand.villain.cards = villainHoleCards(hand);
-        hand.villainInvested = tbSize;
-        hand.potBB = round2(node.openSize + tbSize + SB);
-        setVillainAct(hand, 'raise', tbSize);
-        return setupFace3Bet(hand, tbSize);
-      }
-      // BB iguala -> al flop, hero es agresor y va en posición
-      hand.villain.pos = 'BB';
-      hand.villain.rangeStr = bbCallRange(hand.hero.pos);
-      hand.villain.cards = villainHoleCards(hand);
-      hand.heroInvested = node.openSize; hand.villainInvested = node.openSize;
-      hand.potBB = round2(node.openSize * 2 + SB);
-      hand.heroInPosition = inPos(hand.hero.pos, 'BB');
-      collapseOthersToHU(hand, 'BB');
+      if (res.type === 'face3bet') return setupFace3Bet(hand, res.size);
       return goFlop(hand);
     }
 
@@ -841,7 +929,7 @@
         { id: 'call', label: `Call (igualar ${toCall}bb)` },
         { id: 'raise', label: `4-Bet a ${fourBet}bb` }
       ],
-      context: `La BB te hace 3-bet a ${tbSize}bb. ¿Fold, call o 4-bet?`,
+      context: `${hand.villain.pos} te hace 3-bet a ${tbSize}bb. ¿Fold, call o 4-bet?`,
       fourBet
     };
     node.gto = strategyForNode(hand, node);
@@ -937,6 +1025,10 @@
 
   // ----- Transición a flop / showdown (usa el board pre-repartido) -----
   function goFlop(hand) {
+    if (hand._callersAtFlop && hand._callersAtFlop.length) {
+      hand._callersAtFlop.forEach(function (pos) { markFolded(hand, pos); });
+      delete hand._callersAtFlop;
+    }
     syncTableToActivePot(hand);
     syncVillainMeta(hand);
     hand.stage = 'flop';

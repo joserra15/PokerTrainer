@@ -384,12 +384,14 @@
     const inHand = tbl.inHand instanceof Set ? tbl.inHand : new Set(tbl.inHand || []);
     const showdown = hand.stage === 'complete' && hand.result && hand.result.showdown;
     const holeCards = tbl.holeCards || {};
+    const profiles = tbl.profiles || {};
     let html = '';
     ring.forEach((pos, i) => {
       const c = coords[i];
       const isHero = pos === hand.hero.pos;
       const isVillain = villainPos && pos === villainPos;
       const isCaller = hand.scenario && hand.scenario.callerPos === pos;
+      const inPot = inHand.has(pos) && !folded[pos] && !isHero;
       const cls = ['seat'];
       if (isHero) cls.push('hero');
       if (isVillain) cls.push('villain');
@@ -403,6 +405,7 @@
       if (folded[pos]) cls.push('folded');
 
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? 'Pagador' : ''));
+      if (!role && profiles[pos]) role = profiles[pos].shortLabel || profiles[pos].label || '';
       const seatActs = hand.seatActions || {};
       let actHtml = '';
       if (!folded[pos]) {
@@ -410,12 +413,11 @@
         else if (seatActs[pos]) actHtml = actionBadgeHTML(seatActs[pos]);
       }
 
-      const active = inHand.has(pos) && !folded[pos] && !isHero
-        && (hand.stage === 'preflop' || (hand.stage === 'complete' ? (showdown && isVillain) : isVillain));
+      const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
       let cardsHtml = '';
-      if (active && holeCards[pos]) {
-        if (showdown && isVillain && hand.villain.cards) {
-          cardsHtml = '<div class="seat-cards showdown">' + hand.villain.cards.map(Cards.cardToHTML).join('') + '</div>';
+      if (showCards) {
+        if (showdown) {
+          cardsHtml = '<div class="seat-cards showdown">' + holeCards[pos].map(Cards.cardToHTML).join('') + '</div>';
         } else {
           cardsHtml = '<div class="seat-cards">' + Cards.cardBackHTML() + Cards.cardBackHTML() + '</div>';
         }
@@ -423,7 +425,7 @@
 
       const totalInv = invested[pos] || 0;
       const stBet = streetBet[pos] || 0;
-      const showFullSeat = !mobile || isVillain || isCaller || stBet > 0;
+      const showFullSeat = !mobile || isVillain || isCaller || stBet > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const chipsHtml = showFullSeat ? renderSeatChips(totalInv, stBet) : '';
 
