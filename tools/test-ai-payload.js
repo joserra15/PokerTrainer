@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const sandbox = { window: { PT_BUILD: '1.16.2' }, console };
+const sandbox = { window: { PT_BUILD: '1.16.3' }, console };
 sandbox.global = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-hand-payload.js'), 'utf8'), sandbox, { filename: 'ai-hand-payload.js' });
@@ -62,6 +62,10 @@ if (!trainer || trainer.src !== 'trainer' || trainer.hero.cards.join('') !== 'Kh
 }
 if (!session || session.src !== 'session' || !session.vil.line) {
   console.error('FAIL session payload');
+  process.exit(1);
+}
+if (!trainer.id) {
+  console.error('FAIL: payload debe incluir id');
   process.exit(1);
 }
 if (trainer.dec[0].context || trainer.dec[0].explanation) {

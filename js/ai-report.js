@@ -139,7 +139,8 @@
     const payload = Payload.build(source, handObj);
     if (!payload) return;
 
-    const cacheKey = Payload.cacheKey(payload.meta.handId);
+    const handId = handObj.id != null ? handObj.id : payload.id;
+    const cacheKey = Payload.cacheKey(handId);
     if (!force) {
       const cached = readCache(cacheKey);
       if (cached && cached.reportMarkdown) {
@@ -151,6 +152,7 @@
     const ok = await ensureConsent();
     if (!ok) return;
 
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     setPanelState(panel, 'loading', 'Consultando IA…');
     try {
       const data = await fetchReport(payload);
@@ -192,8 +194,20 @@
       '</div>';
 
     const panel = container.querySelector('.ai-report-panel');
-    container.querySelector('[data-ai-generate]').addEventListener('click', () => generate(panel, source, getHand, false));
-    container.querySelector('[data-ai-regen]').addEventListener('click', () => generate(panel, source, getHand, true));
+
+    function runGenerate(force) {
+      generate(panel, source, getHand, force).catch(function (e) {
+        console.error('[PTAI]', e);
+        setPanelState(panel, 'error', '');
+        const body = panel.querySelector('[data-ai-body]');
+        if (body) {
+          body.innerHTML = '<div class="ai-report-error">Error: ' + escapeHtml(e.message) + '</div>';
+        }
+      });
+    }
+
+    container.querySelector('[data-ai-generate]').addEventListener('click', function () { runGenerate(false); });
+    container.querySelector('[data-ai-regen]').addEventListener('click', function () { runGenerate(true); });
     container.querySelector('[data-ai-download]').addEventListener('click', () => {
       const r = panel._currentReport;
       if (!r || !r.reportMarkdown) {
