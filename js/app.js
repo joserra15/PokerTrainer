@@ -226,8 +226,19 @@
   function handNameOnBoard() {
     if (!hand.board.length) return '';
     try {
-      const ev = Cards.evaluate(hand.hero.cards.concat(hand.board));
-      return 'Tu mano: ' + ev.name;
+      const hero = hand.hero.cards;
+      const board = hand.board;
+      const ev = Cards.evaluate(hero.concat(board));
+      let label = ev.name;
+      if (board.length >= 5) {
+        const counts = { s: 0, h: 0, d: 0, c: 0 };
+        board.forEach((c) => { counts[c[1]] = (counts[c[1]] || 0) + 1; });
+        const fourSuit = ['s', 'h', 'd', 'c'].find((s) => counts[s] >= 4);
+        if (fourSuit && !hero.some((c) => c[1] === fourSuit) && ev.category < 5) {
+          label += ' (4 ' + (fourSuit === 'c' ? 'tréboles' : fourSuit === 'h' ? 'corazones' : fourSuit === 'd' ? 'diamantes' : 'picas') + ' en mesa; vulnerable a color)';
+        }
+      }
+      return 'Tu mano: ' + label;
     } catch (e) { return ''; }
   }
 

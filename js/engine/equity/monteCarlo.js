@@ -60,6 +60,31 @@
     return C.SUITS.some((s) => counts[s] >= 3);
   }
 
+  /** Palo con 4+ cartas en el board (river completado). */
+  function dominantFourFlushSuit(board) {
+    if (!board || board.length < 5) return null;
+    const counts = boardSuitCounts(board);
+    for (const s of C.SUITS) {
+      if (counts[s] >= 4) return s;
+    }
+    return null;
+  }
+
+  /**
+   * Board con 4 del mismo palo y héroe sin ninguna carta de ese palo:
+   * doble pareja/pareja pierde vs colores; estrechar rango ante apuesta/shove.
+   */
+  function filterCombosFourFlushBoard(combos, board, heroCards, opts) {
+    if (!opts || (!opts.facingBet && !opts.riverShove && !opts.shoveNode)) return combos;
+    const flushSuit = dominantFourFlushSuit(board);
+    if (!flushSuit || !combos.length || !heroCards || heroCards.length < 2) return combos;
+    if (heroCards.some((c) => c[1] === flushSuit)) return combos;
+    const heroScore = C.evaluate(heroCards.concat(board));
+    if (heroScore.category >= 5) return combos;
+    const made = combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 5);
+    return made.length ? made : combos;
+  }
+
   /** Ante apuesta en board de color: estrechar solo si el héroe ya tiene color hecho. */
   function filterCombosFacingBet(combos, board, facingBet, heroCards) {
     if (!facingBet || !isFlushBoard(board) || !combos.length) return combos;
@@ -172,6 +197,7 @@
     let combos = allVillainCombos(rangeStr, dead);
     combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
     combos = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove, heroCards);
+    combos = filterCombosFourFlushBoard(combos, boardArr, heroCards, opts);
     if (!combos.length) return 0.5;
 
     let win = 0, tie = 0;
@@ -245,9 +271,16 @@
     let combos = allVillainCombos(rangeStr, dead);
     combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
     const filtered = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove, heroCards);
+    const filtered4 = filterCombosFourFlushBoard(filtered.length ? filtered : combos, boardArr, heroCards, opts);
 
     if (run.need === 0) {
       const eq = equityExact(heroCards, boardArr, rangeStr, opts);
+      Cache.set('equity', key, eq);
+      return eq;
+    }
+
+    if (opts.facingBet && filtered4.length && filtered4.length < combos.length) {
+      const eq = equityExactRunout(heroCards, boardArr, filtered4, run.need);
       Cache.set('equity', key, eq);
       return eq;
     }
@@ -260,7 +293,7 @@
 
     let win = 0, tie = 0, n = 0;
     const mc = Math.random;
-    const samplePool = filtered.length ? filtered : null;
+    const samplePool = filtered4.length ? filtered4 : (filtered.length ? filtered : null);
 
     for (let k = 0; k < iters; k++) {
       const vh = samplePool

@@ -149,15 +149,22 @@ const khAcTurn = GTO.computeHeroEquity({
   potBB: 36.59, toCallBB: 14.55, potBeforeBB: 22.04, villainLastAction: 'bet',
   initiative: 'caller', inPosition: true
 });
-const khAcRiver = GTO.computeHeroEquity({
-  street: 'river', board: ['4h', 'Kc', '6c', '4c', '8c'], heroCards: ['Kh', 'Ac'],
+const khAsTurn = GTO.computeHeroEquity({
+  street: 'turn', board: ['4h', 'Kc', '6c', '4c'], heroCards: ['Kh', 'As'],
+  villainRange: 'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88',
+  potBB: 36.59, toCallBB: 14.55, potBeforeBB: 22.04, villainLastAction: 'bet',
+  initiative: 'caller', inPosition: true
+});
+const khAsRiver = GTO.computeHeroEquity({
+  street: 'river', board: ['4h', 'Kc', '6c', '4c', '8c'], heroCards: ['Kh', 'As'],
   villainRange: 'TT+, AJs+, KQs, QJs, JTs, AQo, AKo, 99, 88',
   potBB: 99.74, toCallBB: 48.6, potBeforeBB: 51.14, villainLastAction: 'bet',
   initiative: 'caller', inPosition: true
 });
-console.log('KhAc turn eq ~', Math.round(khAcTurn * 100) + '%', 'river shove eq ~', Math.round(khAcRiver * 100) + '% (expect turn > river)');
-if (khAcRiver >= khAcTurn) {
-  console.error('FAIL KhAc: river equity should be below turn on paired monotone shove');
+console.log('KhAc turn (nut FD)', Math.round(khAcTurn * 100) + '%');
+console.log('KhAs turn (two pair)', Math.round(khAsTurn * 100) + '%', 'river shove', Math.round(khAsRiver * 100) + '%');
+if (khAsRiver >= khAsTurn) {
+  console.error('FAIL KhAs: river equity should be below turn on 4-club board');
   process.exit(1);
 }
 
