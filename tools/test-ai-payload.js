@@ -64,6 +64,10 @@ if (!session || session.src !== 'session' || !session.vil.line) {
   console.error('FAIL session payload');
   process.exit(1);
 }
+if (!trainer.solverNote) {
+  console.error('FAIL: payload debe incluir solverNote');
+  process.exit(1);
+}
 if (!trainer.hero.code || trainer.hero.pos !== 'CO') {
   console.error('FAIL: payload debe incluir hero.code y pos');
   process.exit(1);

@@ -118,7 +118,8 @@
         heroHand: r.heroHandName || null,
         vilHand: r.villainHandName || null
       },
-      gto: buildGtoSummary(decisions)
+      gto: buildGtoSummary(decisions),
+      solverNote: 'eq/gto/ev son estimaciones del solver local; la IA debe verificar con sus propios cálculos.'
     };
   }
 
@@ -141,7 +142,8 @@
         evLoss: h.totalEvLoss != null ? h.totalEvLoss : 0,
         acc: h.accuracy
       },
-      gto: buildGtoSummary(decisions)
+      gto: buildGtoSummary(decisions),
+      solverNote: 'eq/gto/ev son estimaciones del solver local; la IA debe verificar con sus propios cálculos.'
     };
   }
 

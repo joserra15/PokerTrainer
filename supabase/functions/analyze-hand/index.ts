@@ -6,12 +6,16 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-const SYSTEM_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON compacto: cartas, board, decisiones del héroe con veredicto GTO/EV/equity, línea del villano y showdown si hay.
+const REPORT_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON compacto: cartas, board, decisiones del héroe, línea del villano y showdown si hay.
+
+CRÍTICO — números del solver local:
+Los campos eq (equity), gto (frecuencias), ev (EV perdido) y acc (precisión) son ESTIMACIONES de la app y pueden estar mal. NO los cites como verdad ni bases tu análisis solo en ellos. Recalcula por tu cuenta equity aproximada, pot odds, MDF y si la jugada encaja con GTO usando cartas, board y tamaños de bote/call. Si discrepas del solver, dilo con tus cálculos.
+
 NO narres la mano ni repitas la secuencia de acciones (el usuario ya la ve).
 Evalúa SOLO:
-1) Cada decisión del héroe: ¿correcta según GTO? ¿por qué? (equity, pot odds, frecuencias gto)
+1) Cada decisión del héroe: ¿correcta según GTO? ¿por qué? (con tus propios números)
 2) Lectura del villano: interpreta su línea (rango, polarización, bluffs/value) y qué señales daría en spots similares
-Usa únicamente números del JSON; si falta dato, dilo en una frase.
+
 Título: usa hero.code y hero.pos (NUNCA el id numérico de la mano).
 Responde markdown completo (no cortes a mitad de frase):
 # {hero.code} {hero.pos}
@@ -21,9 +25,30 @@ Responde markdown completo (no cortes a mitad de frase):
 ## Lección práctica
 (1 idea concreta microlímites)`;
 
+const QUESTION_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes el JSON completo de una mano y una PREGUNTA concreta del usuario.
+
+Usa todo el contexto de la mano (cartas, board, decisiones, línea villano, resultado) pero CENTRA la respuesta en la pregunta del usuario. Sé directo y útil.
+
+Los campos eq, gto, ev del JSON son estimaciones del solver local y pueden ser incorrectos. Si la pregunta toca equity, odds o EV, recalcula por tu cuenta; no confíes ciegamente en los números del JSON.
+
+Responde en markdown en español. Empieza con un título breve relacionado con la pregunta (no uses el id de la mano).`;
+
 interface GeminiPart {
   text?: string;
   thought?: boolean;
+}
+
+type AiMode = 'report' | 'question';
+
+function normalizeMode(raw: unknown): AiMode {
+  return raw === 'question' ? 'question' : 'report';
+}
+
+function sanitizeQuestion(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const q = raw.trim().replace(/\s+/g, ' ');
+  if (!q.length) return null;
+  return q.slice(0, 200);
 }
 
 serve(async (req) => {
@@ -45,7 +70,7 @@ serve(async (req) => {
     return json({ error: 'GEMINI_API_KEY not configured' }, 500);
   }
 
-  let body: { payload?: unknown };
+  let body: { payload?: unknown; mode?: unknown; question?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -55,7 +80,16 @@ serve(async (req) => {
     return json({ error: 'missing_payload' }, 400);
   }
 
-  const userContent = 'Evalúa decisiones y lectura villano:\n' + JSON.stringify(body.payload);
+  const mode = normalizeMode(body.mode);
+  const question = mode === 'question' ? sanitizeQuestion(body.question) : null;
+  if (mode === 'question' && !question) {
+    return json({ error: 'missing_question' }, 400);
+  }
+
+  const systemPrompt = mode === 'question' ? QUESTION_PROMPT : REPORT_PROMPT;
+  const userContent = mode === 'question'
+    ? 'Pregunta del usuario:\n' + question + '\n\nContexto de la mano (JSON):\n' + JSON.stringify(body.payload)
+    : 'Genera informe de la mano (verifica números del solver por tu cuenta):\n' + JSON.stringify(body.payload);
 
   const model = 'gemini-2.5-flash';
   const url =
@@ -66,11 +100,11 @@ serve(async (req) => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      system_instruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: 'user', parts: [{ text: userContent }] }],
       generationConfig: {
-        temperature: 0.35,
-        maxOutputTokens: 2048,
+        temperature: mode === 'question' ? 0.4 : 0.35,
+        maxOutputTokens: mode === 'question' ? 1536 : 2048,
         thinkingConfig: { thinkingBudget: 0 }
       }
     })
@@ -99,6 +133,7 @@ serve(async (req) => {
   return json({
     reportMarkdown: text.trim(),
     model: model,
+    mode: mode,
     createdAt: new Date().toISOString(),
     truncated: truncated,
     finishReason: finishReason || undefined

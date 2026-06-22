@@ -764,11 +764,24 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 
 .btn-sm { padding: 6px 12px; font-size: 13px; }
 
-/* ---- Informe IA ---- */
+/* ---- IA Coach ---- */
 .ai-report-panel { margin-top: 14px; }
 .ai-report-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
 .ai-report-head h3 { margin: 0; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
 .ai-report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-question-form {
+  margin: 10px 0 12px; padding: 12px; border-radius: 8px;
+  background: rgba(0,0,0,.2); border: 1px solid var(--border);
+}
+.ai-question-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.ai-question-input {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 72px; max-height: 140px;
+  padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-family: inherit; font-size: 14px; line-height: 1.4;
+}
+.ai-question-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 10px; flex-wrap: wrap; }
+.ai-question-count { font-size: 12px; }
+.ai-question-btns { display: flex; gap: 8px; }
 .ai-report-meta { font-size: 12px; margin-bottom: 8px; }
 .ai-report-status { font-size: 13px; color: var(--muted); min-height: 1.2em; }
 .ai-report-content { margin-top: 8px; max-height: min(70vh, 640px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
