@@ -840,7 +840,7 @@
       if (actionId === 'call') {
         setHeroAct(hand, 'call', node.toCallBB);
         hand.heroInvested = hand.villainInvested;
-        hand.heroIsAggressor = true;
+        hand.heroIsAggressor = false;
         hand.potBB = round2(hand.villainInvested * 2 + SB);
         hand.heroInPosition = inPos(hand.hero.pos, hand.villain.pos);
         return goFlop(hand);

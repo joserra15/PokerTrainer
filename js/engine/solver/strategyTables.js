@@ -88,11 +88,40 @@
   }
 
   function vs4betStrategy(code) {
+    const data = D.VS_4BET;
+    if (data) {
+      const jam = N.toSet(data.fourBet);
+      const call = N.toSet(data.call);
+      const callMix = N.toSet(data.callMix || '');
+      if (jam.has(code)) return { fold: 0, call: 0.2, raise: 0.8 };
+      if (call.has(code)) return { fold: 0.35, call: 0.6, raise: 0.05 };
+      if (callMix.has(code)) return { fold: 0.55, call: 0.40, raise: 0.05 };
+      return { fold: 0.9, call: 0.08, raise: 0.02 };
+    }
     const jam = N.toSet('KK+, AKs');
     const callS = N.toSet('QQ, JJ, AKo, AQs');
     if (jam.has(code)) return { fold: 0, call: 0.2, raise: 0.8 };
     if (callS.has(code)) return { fold: 0.35, call: 0.6, raise: 0.05 };
     return { fold: 0.9, call: 0.08, raise: 0.02 };
+  }
+
+  /** 3-bettor que afronta 4-bet (no cold). */
+  function vs4betAs3bettorStrategy(code) {
+    const data = D.VS_3BET;
+    if (data) {
+      const jam = N.toSet(data.fourBet);
+      const call = N.toSet(data.call);
+      const callMix = N.toSet(data.callMix || '');
+      if (jam.has(code)) return { fold: 0, call: 0.22, raise: 0.78 };
+      if (call.has(code)) return { fold: 0.06, call: 0.88, raise: 0.06 };
+      if (callMix.has(code)) return { fold: 0.42, call: 0.53, raise: 0.05 };
+      return { fold: 0.88, call: 0.10, raise: 0.02 };
+    }
+    const jam = N.toSet('QQ+, AKs, AKo');
+    const call = N.toSet('JJ, TT, 99, AQs, AJs, KQs, AQo');
+    if (jam.has(code)) return { fold: 0, call: 0.22, raise: 0.78 };
+    if (call.has(code)) return { fold: 0.06, call: 0.88, raise: 0.06 };
+    return { fold: 0.88, call: 0.10, raise: 0.02 };
   }
 
   function heuristicOpen(code) {
@@ -314,7 +343,8 @@
       if (kind === 'squeeze') return squeezeStrategy(code);
       if (kind === 'isoLimp' || kind === 'vsLimp') return isoStrategy(code);
       if (kind === 'face3bet' || kind === 'vs3bet') return vs3betStrategy(code);
-      if (kind === 'face4bet' || kind === 'vs4bet') return vs4betStrategy(code);
+      if (kind === 'face4bet') return vs4betAs3bettorStrategy(code);
+      if (kind === 'vs4bet') return vs4betStrategy(code);
       if (kind === 'cold3bet') return heuristicFacingRaise(code, true);
 
       if (spotKey.street === 'preflop') {
@@ -379,7 +409,7 @@
 
   global.GTOStrategyTables = {
     normalize, rfiStrategy, vsRfiStrategy, squeezeStrategy, isoStrategy,
-    vs3betStrategy, vs4betStrategy, heuristicOpen, heuristicFacingRaise,
+    vs3betStrategy, vs4betStrategy, vs4betAs3bettorStrategy, heuristicOpen, heuristicFacingRaise,
     postflopStrategy, probeStrategy, probeStrategyLegacy, getStrategy, actionEV, bestAction, betSizingOptions
   };
 })(window);

@@ -83,7 +83,9 @@
 
   function resolveBand(params) {
     if (params.handRank && params.handRank.band) return params.handRank.band;
+    const eq = params.heroEquity != null ? params.heroEquity : 0;
     const tier = params.tier || 'medium';
+    if (tier === 'strong' && eq >= 0.82) return 'nuts';
     if (tier === 'strong') return 'value';
     if (tier === 'medium') return 'merge';
     if (tier === 'weak') return 'bluffcatch';

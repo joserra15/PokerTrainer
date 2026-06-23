@@ -68,6 +68,25 @@ const spot = GTO.evaluateSpot({
 });
 console.log('evaluateSpot RFI AA raise:', spot.evaluation.class);
 
+const face4aqo = GTO.getStrategy({
+  spotKind: 'face4bet', position: 'BTN', vsPosition: 'HJ',
+  street: 'preflop', handCode: 'AQo', heroCards: ['As', 'Qd'],
+  potBB: 25.25, toCallBB: 9.75, initiative: 'aggressor', inPosition: true
+});
+const aqoFold = Math.round((face4aqo.fold || 0) * 100);
+console.log('AQo 3bet vs 4bet fold%', aqoFold, '(expect <=10)');
+if (aqoFold > 10) { console.error('FAIL: AQo no debe foldear 90% vs 4-bet'); process.exit(1); }
+
+const topSetInfo = GTO.Equity.classifyMadeHand(['As', 'Qd'], ['Qh', '7s', 'Qc']);
+const facingDonk = GTO.Strategy.postflopStrategy({
+  street: 'flop', board: ['Qh', '7s', 'Qc'], heroCards: ['As', 'Qd'],
+  toCallBB: 12, potBB: 47, heroEquity: 0.91,
+  initiative: 'caller', inPosition: true, madeHandInfo: topSetInfo
+});
+const donkFold = Math.round((facingDonk.fold || 0) * 100);
+console.log('Top set vs donk fold%', donkFold, '(expect <=12)');
+if (donkFold > 12) { console.error('FAIL: trío top no debe recomendar fold alto vs donk'); process.exit(1); }
+
 const PM = sandbox.window.GTOPotMath;
 console.log('potBBFromEuro prior 37 + street 1.30€ =>', PM.potBBFromEuro(37, 1.30, 0.05), '(bote total calle; display facing bet = 37.00)');
 console.log('formatBB ugly =>', PM.formatBB(62.39999999999999));

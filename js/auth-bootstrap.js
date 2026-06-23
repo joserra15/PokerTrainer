@@ -185,8 +185,6 @@
   function setupLoginUi() {
     var mobileBtn = $('auth-mobile-login');
     var gsiHost = $('google-signin-btn');
-    var retryBtn = $('auth-retry-login');
-    var help = $('auth-origin-help');
 
     if (mobileBtn) {
       mobileBtn.classList.remove('hidden');
@@ -195,18 +193,8 @@
         startGoogleLogin();
       });
     }
-    if (retryBtn) {
-      retryBtn.addEventListener('click', function (e) {
-        e.preventDefault();
-        retryLogin();
-      });
-    }
     if (isTouchUi()) {
       if (gsiHost) gsiHost.classList.add('hidden');
-    }
-    if (help && location.protocol !== 'file:') {
-      help.innerHTML = '<p class="muted-text">URI de redirección registrada en Google:<br><code class="auth-copy">' +
-        redirectUri() + '</code></p>';
     }
   }
 

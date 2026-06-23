@@ -1,5 +1,5 @@
 /*
- * ai-report.js — IA Coach: informe de mano, preguntas concretas, caché y descarga.
+ * ai-report.js — IA Coach: informe de mano, preguntas concretas y caché.
  */
 (function (global) {
   'use strict';
@@ -67,6 +67,56 @@
       .replace(/"/g, '&quot;');
   }
 
+  function friendlyError(raw) {
+    const m = String(raw || '').toLowerCase();
+    if (
+      m.includes('high demand') || m.includes('overloaded') ||
+      m.includes('resource exhausted') || m.includes('capacity') ||
+      m.includes('503') || m.includes('unavailable')
+    ) {
+      return {
+        kind: 'busy',
+        message: 'El coach de IA está con mucha demanda ahora mismo. Espera unos segundos y vuelve a pulsar el botón.'
+      };
+    }
+    if (m.includes('rate') || m.includes('quota') || m.includes('429')) {
+      return {
+        kind: 'busy',
+        message: 'Has alcanzado el límite de consultas por ahora. Prueba de nuevo en unos minutos.'
+      };
+    }
+    if (m.includes('unauthorized') || m.includes('401')) {
+      return {
+        kind: 'error',
+        message: 'No se pudo conectar con el coach. Revisa la configuración de IA en la app.'
+      };
+    }
+    if (m.includes('empty_response') || m.includes('gemini')) {
+      return {
+        kind: 'error',
+        message: 'El coach no ha devuelto respuesta. Inténtalo de nuevo en un momento.'
+      };
+    }
+    return {
+      kind: 'error',
+      message: 'No hemos podido obtener respuesta del coach. Comprueba tu conexión e inténtalo otra vez.'
+    };
+  }
+
+  function loadingHtml(message, hint) {
+    return '<div class="ai-report-loading">' +
+      '<div class="play-boot-spinner" aria-hidden="true"></div>' +
+      '<p class="play-boot-msg">' + escapeHtml(message) + '</p>' +
+      (hint ? '<p class="muted-text play-boot-hint">' + escapeHtml(hint) + '</p>' : '') +
+      '</div>';
+  }
+
+  function showError(body, raw) {
+    const err = friendlyError(raw);
+    const cls = err.kind === 'busy' ? 'ai-report-notice' : 'ai-report-error';
+    body.innerHTML = '<div class="' + cls + '">' + escapeHtml(err.message) + '</div>';
+  }
+
   function renderMarkdown(md) {
     let html = escapeHtml(md);
     html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
@@ -102,24 +152,13 @@
     return data;
   }
 
-  function downloadMarkdown(handId, markdown, suffix) {
-    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const date = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = 'mano-' + handId + (suffix ? '-' + suffix : '') + '-' + date + '.md';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function setPanelState(panel, state, message) {
+  function setPanelState(panel, state, message, hint) {
     const status = panel.querySelector('[data-ai-status]');
     const body = panel.querySelector('[data-ai-body]');
     const actions = panel.querySelector('[data-ai-actions]');
-    if (status) status.textContent = message || '';
+    if (status) status.textContent = state === 'loading' ? '' : (message || '');
     if (state === 'loading') {
-      if (body) body.innerHTML = '<div class="ai-report-loading">Consultando IA Coach…</div>';
+      if (body) body.innerHTML = loadingHtml(message || 'Consultando IA Coach…', hint);
       if (actions) actions.querySelectorAll('button').forEach((b) => { b.disabled = true; });
       const sendQ = panel.querySelector('[data-ai-question-send]');
       if (sendQ) sendQ.disabled = true;
@@ -139,7 +178,7 @@
         ? kind + ' en caché · ' + (report.createdAt || '')
         : kind + ' · ' + (report.model || 'IA') + (report.createdAt ? ' · ' + report.createdAt : '');
       if (report.question) line += ' · «' + report.question.slice(0, 48) + (report.question.length > 48 ? '…' : '') + '»';
-      if (report.truncated) line += ' · respuesta incompleta, pulsa Regenerar';
+      if (report.truncated) line += ' · respuesta incompleta';
       meta.textContent = line;
     }
     if (body) body.innerHTML = renderMarkdown(report.reportMarkdown || '');
@@ -155,7 +194,6 @@
 
   async function runCoach(panel, source, getHand, opts) {
     const mode = opts.mode || 'report';
-    const force = !!opts.force;
     const question = mode === 'question' ? String(opts.question || '').trim().slice(0, QUESTION_MAX) : '';
 
     if (!isEnabled()) {
@@ -178,12 +216,10 @@
 
     const handId = handObj.id != null ? handObj.id : payload.id;
     const cacheKey = cacheKeyFor(handId, mode, question);
-    if (!force) {
-      const cached = readCache(cacheKey);
-      if (cached && cached.reportMarkdown) {
-        showReport(panel, Object.assign({ cached: true, mode: mode, question: question || cached.question }, cached));
-        return;
-      }
+    const cached = readCache(cacheKey);
+    if (cached && cached.reportMarkdown) {
+      showReport(panel, Object.assign({ cached: true, mode: mode, question: question || cached.question }, cached));
+      return;
     }
 
     const ok = await ensureConsent();
@@ -191,7 +227,8 @@
 
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     const loadingMsg = mode === 'question' ? 'Analizando tu pregunta…' : 'Generando informe de la mano…';
-    setPanelState(panel, 'loading', loadingMsg);
+    const loadingHint = 'El coach está pensando la respuesta';
+    setPanelState(panel, 'loading', loadingMsg, loadingHint);
     try {
       const data = await fetchCoach(payload, mode, question);
       const report = {
@@ -212,9 +249,7 @@
     } catch (e) {
       setPanelState(panel, 'error', '');
       const body = panel.querySelector('[data-ai-body]');
-      if (body) {
-        body.innerHTML = '<div class="ai-report-error">Error: ' + escapeHtml(e.message) + '</div>';
-      }
+      if (body) showError(body, e.message);
       console.error('[PTAI]', e);
     }
   }
@@ -273,8 +308,6 @@
       '<div class="ai-report-actions" data-ai-actions>' +
       '<button type="button" class="btn btn-primary btn-sm" data-ai-report>Informe de la mano</button>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-ai-question-toggle>Pregunta concreta</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-ai-regen>Regenerar</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-ai-download>Descargar .md</button>' +
       '</div></div>' +
       '<div class="ai-question-form" data-ai-question-form hidden>' +
       '<label class="ai-question-label" for="ai-q-input">Tu pregunta sobre esta mano</label>' +
@@ -291,42 +324,14 @@
       '</div>';
 
     const panel = container.querySelector('.ai-report-panel');
-    panel._lastMode = 'report';
-    panel._lastQuestion = '';
 
-    function runReport(force) {
-      panel._lastMode = 'report';
-      panel._lastQuestion = '';
-      runCoach(panel, source, getHand, { mode: 'report', force: force }).catch(function (e) {
+    container.querySelector('[data-ai-report]').addEventListener('click', function () {
+      runCoach(panel, source, getHand, { mode: 'report' }).catch(function (e) {
         console.error('[PTAI]', e);
         setPanelState(panel, 'error', '');
         const body = panel.querySelector('[data-ai-body]');
-        if (body) {
-          body.innerHTML = '<div class="ai-report-error">Error: ' + escapeHtml(e.message) + '</div>';
-        }
+        if (body) showError(body, e.message);
       });
-    }
-
-    container.querySelector('[data-ai-report]').addEventListener('click', function () { runReport(false); });
-    container.querySelector('[data-ai-regen]').addEventListener('click', function () {
-      const mode = panel._lastMode || 'report';
-      const q = panel._lastQuestion || '';
-      if (mode === 'question' && q) {
-        runCoach(panel, source, getHand, { mode: 'question', question: q, force: true }).catch(console.error);
-      } else {
-        runReport(true);
-      }
-    });
-    container.querySelector('[data-ai-download]').addEventListener('click', function () {
-      const r = panel._currentReport;
-      if (!r || !r.reportMarkdown) {
-        alert('Genera un informe o envía una pregunta antes de descargar.');
-        return;
-      }
-      const handObj = typeof getHand === 'function' ? getHand() : getHand;
-      const id = handObj && handObj.id ? handObj.id : 'mano';
-      const suffix = r.mode === 'question' ? 'pregunta' : 'informe';
-      downloadMarkdown(id, r.reportMarkdown, suffix);
     });
 
     bindQuestionForm(panel, source, getHand);
@@ -344,6 +349,6 @@
   }
 
   global.PTAIReport = {
-    mount, isEnabled, ensureConsent, fetchCoach, readCache, downloadMarkdown, QUESTION_MAX
+    mount, isEnabled, ensureConsent, fetchCoach, readCache, QUESTION_MAX
   };
 })(window);

@@ -141,19 +141,14 @@ body.range-matrix-open { overflow: hidden; }
 .google-signin-host {
   display: flex; justify-content: center; min-height: 44px; margin-bottom: 12px;
 }
-.auth-mobile-login, .auth-retry-login {
+.auth-mobile-login {
   position: relative;
   z-index: 2;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
-}
   width: 100%; max-width: 320px; margin: 0 auto 10px;
   padding: 14px 20px; font-size: 16px;
-}
-.auth-retry-login {
-  width: 100%; max-width: 320px; margin: 0 auto;
-  font-size: 13px; padding: 10px;
 }
 .auth-error { color: var(--red); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
 .auth-setup {
@@ -161,12 +156,6 @@ body.range-matrix-open { overflow: hidden; }
   background: var(--panel-2); border-radius: 8px; padding: 12px; margin-top: 8px;
 }
 .auth-setup code { font-size: 12px; }
-.auth-foot { font-size: 12px; margin-top: 16px; }
-.auth-origin-help {
-  text-align: left; font-size: 12px; color: var(--muted);
-  background: var(--panel-2); border-radius: 8px; padding: 12px; margin-top: 12px;
-  border: 1px solid var(--border);
-}
 .auth-hint-title { margin-bottom: 8px; color: var(--text); font-size: 13px; }
 .auth-checklist { margin: 8px 0 8px 18px; display: grid; gap: 10px; }
 .auth-checklist code.auth-copy {
@@ -785,8 +774,15 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .ai-report-meta { font-size: 12px; margin-bottom: 8px; }
 .ai-report-status { font-size: 13px; color: var(--muted); min-height: 1.2em; }
 .ai-report-content { margin-top: 8px; max-height: min(70vh, 640px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.ai-report-loading { color: var(--muted); font-style: italic; padding: 12px 0; }
-.ai-report-error { color: var(--red); padding: 12px 0; }
+.ai-report-loading {
+  text-align: center; padding: 24px 12px; color: var(--muted);
+}
+.ai-report-loading .play-boot-spinner { margin-bottom: 12px; }
+.ai-report-loading .play-boot-msg { margin-bottom: 4px; }
+.ai-report-notice {
+  color: var(--gold); padding: 14px 0; font-size: 14px; line-height: 1.5;
+}
+.ai-report-error { color: var(--red); padding: 14px 0; font-size: 14px; line-height: 1.5; }
 .ai-report-body { font-size: 14px; line-height: 1.55; }
 .ai-report-body h2 { font-size: 18px; margin: 16px 0 8px; color: var(--gold); }
 .ai-report-body h3 { font-size: 15px; margin: 14px 0 6px; }
