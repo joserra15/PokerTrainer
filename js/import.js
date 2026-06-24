@@ -843,9 +843,11 @@
     const perfectPlayNetEuro = r2(perfectPlayNetBB * bbRef);
     const adjustedNet = expectedNet;
     const evLossEuroTotal = r2(evLossEuro || evLostBB * bbRef);
-    const mag = Math.abs(evLostBB) + Math.abs(varianceAdj) || 1;
-    const pctDecision = Math.round((Math.abs(evLostBB) / mag) * 100);
-    const pctVariance = 100 - pctDecision;
+    const leakVar = GTO.EvLoss.computeLeakVariancePct
+      ? GTO.EvLoss.computeLeakVariancePct(actualNet, evLostBB)
+      : { pctDecision: 50, pctVariance: 50, leakPartBB: evLostBB, varPartBB: 0 };
+    const pctDecision = leakVar.pctDecision;
+    const pctVariance = leakVar.pctVariance;
 
     const grade = sessionGrade(accuracy, evLoss, decN, netBB);
 
@@ -856,7 +858,7 @@
       best5: best5.map(slim), worst5: worst5.map(slim),
       evDecision: evLostBB, expectedNet, actualNet, varianceAdj, adjustedNet,
       perfectPlayNetBB, perfectPlayNetEuro, evLossEuroTotal,
-      pctDecision, pctVariance,
+      pctDecision, pctVariance, leakPartBB: leakVar.leakPartBB, varPartBB: leakVar.varPartBB,
       grade
     };
   }

@@ -1296,9 +1296,14 @@
           <span style="width:${st.pctVariance}%;background:var(--accent)">${st.pctVariance}% varianza</span>
         </div>
         <div class="muted-text" style="margin-top:8px">
-          EV perdido por errores: <strong>-${fmtBB(st.evDecision)} bb</strong>${st.evLossEuroTotal != null ? ` (${st.evLossEuroTotal.toFixed(2)} €)` : ''}.
-          EV esperado: <strong>${st.expectedNet >= 0 ? '+' : ''}${fmtBB(st.expectedNet)} bb</strong>${st.perfectPlayNetEuro != null ? ` (${st.perfectPlayNetEuro >= 0 ? '+' : ''}${st.perfectPlayNetEuro.toFixed(2)} €)` : ''}.
+          EV perdido por fugas: <strong>-${fmtBB(st.evDecision)} bb</strong>${st.evLossEuroTotal != null ? ` (${st.evLossEuroTotal.toFixed(2)} €)` : ''}.
+          EV esperado (sin fugas): <strong>${st.expectedNet >= 0 ? '+' : ''}${fmtBB(st.expectedNet)} bb</strong>${st.perfectPlayNetEuro != null ? ` (${st.perfectPlayNetEuro >= 0 ? '+' : ''}${st.perfectPlayNetEuro.toFixed(2)} €)` : ''}.
           Varianza/suerte: <strong>${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)} bb</strong>.
+        </div>
+        <div class="muted-text" style="margin-top:6px;font-size:12px">
+          Barra: del resultado real (${fmtBB(st.actualNet != null ? st.actualNet : st.netBB)} bb),
+          ~${st.pctDecision}% atribuido a fugas (${fmtBB(st.leakPartBB != null ? st.leakPartBB : st.evDecision)} bb)
+          y ~${st.pctVariance}% a varianza (${fmtBB(st.varPartBB != null ? st.varPartBB : Math.abs(st.actualNet != null ? st.actualNet : st.netBB) - st.evDecision)} bb).
         </div>
       </div>
       <div id="ai-coach-session"></div>

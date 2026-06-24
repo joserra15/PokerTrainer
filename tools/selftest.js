@@ -340,6 +340,15 @@ console.log('Session varianceAdj', sessStats.varianceAdj, '(expect 82)');
 const handEv = EvLoss.computeNetEvStats(99.58, 90.62);
 console.log('Hand EV expected', handEv.expectedNet, '(expect ~8.96)', 'variance', handEv.varianceAdj, '(expect ~90.62)');
 
+const leakVar = EvLoss.computeLeakVariancePct(-139.80, 29.99);
+console.log('Leak/var losing session', leakVar.pctDecision + '%', leakVar.pctVariance + '%', '(expect ~21% ~79%)');
+if (leakVar.pctDecision < 15 || leakVar.pctDecision > 28) {
+  console.error('FAIL leak/var split for -139.80 / 29.99');
+  process.exit(1);
+}
+const leakVarWin = EvLoss.computeLeakVariancePct(sessStats.actualNet, sessStats.evDecision);
+console.log('Leak/var mixed session', leakVarWin.pctDecision + '%', '(expect ~80)');
+
 let played = 0, errors = 0, complete = 0;
 for (let i = 0; i < 300; i++) {
   try {

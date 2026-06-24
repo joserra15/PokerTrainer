@@ -123,13 +123,16 @@
     }
 
     if (isPostflop && chosen === 'fold' && ctx.toCallBB > 0 && ctx.equity > ctx.breakEven + 0.06) {
-      const loss = foldConEquidadLoss(ctx);
-      if (loss >= EV_ERR_THRESHOLD_BB) {
-        evLoss = round2(Math.max(evLoss, loss));
-        reasons.push({
-          type: 'fold_con_equidad',
-          msg: `Fold con equity suficiente: ${eqPct}% > break-even ${bePct}%. ΔEV ≈ ${loss} bb.`
-        });
+      // Fold con equity pero dentro de la mezcla GTO (aceptable/óptima) no es fuga
+      if (cls !== 'aceptable' && cls !== 'optima') {
+        const loss = foldConEquidadLoss(ctx);
+        if (loss >= EV_ERR_THRESHOLD_BB) {
+          evLoss = round2(Math.max(evLoss, loss));
+          reasons.push({
+            type: 'fold_con_equidad',
+            msg: `Fold con equity suficiente: ${eqPct}% > break-even ${bePct}%. ΔEV ≈ ${loss} bb.`
+          });
+        }
       }
     }
 
@@ -218,9 +221,49 @@
     return { actualNet, evLostBB: evLost, expectedNet, varianceAdj };
   }
 
+  /**
+   * % del resultado atribuido a fugas vs varianza para la barra de sesión.
+   * No usar |evLost| vs |varianceAdj|: por definición varianceAdj === evLost → siempre 50/50.
+   * Sesión perdedora: reparte |resultado real| entre bb perdidos por fugas y el resto (varianza).
+   */
+  function computeLeakVariancePct(actualNetBB, evLostBB) {
+    const actual = round2(actualNetBB || 0);
+    const evLost = Math.max(0, round2(evLostBB || 0));
+
+    if (actual < 0) {
+      const totalLoss = Math.abs(actual);
+      const leakPart = Math.min(evLost, totalLoss);
+      const varPart = Math.max(0, round2(totalLoss - leakPart));
+      const sum = leakPart + varPart || 1;
+      return {
+        pctDecision: Math.round(leakPart / sum * 100),
+        pctVariance: Math.round(varPart / sum * 100),
+        leakPartBB: round2(leakPart),
+        varPartBB: varPart
+      };
+    }
+
+    if (actual > 0 && evLost > 0) {
+      const sum = actual + evLost || 1;
+      const pctDecision = Math.round(evLost / sum * 100);
+      return {
+        pctDecision: pctDecision,
+        pctVariance: Math.max(0, 100 - pctDecision),
+        leakPartBB: evLost,
+        varPartBB: round2(actual)
+      };
+    }
+
+    if (evLost > 0) {
+      return { pctDecision: 100, pctVariance: 0, leakPartBB: evLost, varPartBB: 0 };
+    }
+
+    return { pctDecision: 0, pctVariance: 100, leakPartBB: 0, varPartBB: round2(Math.abs(actual)) };
+  }
+
   global.GTOEvLoss = {
     round2, evLossTier, preflopEvLoss, postflopEvLoss, computeEvLoss, FREQ_EPS,
     impliedOddsAllowed, callFailsPotOdds, callSinOddsLoss, foldConEquidadLoss,
-    totalEvLossFromDecisions, computeNetEvStats, formulaEv, availableActions
+    totalEvLossFromDecisions, computeNetEvStats, computeLeakVariancePct, formulaEv, availableActions
   };
 })(window);
