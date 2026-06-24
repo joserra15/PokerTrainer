@@ -76,4 +76,48 @@ if (trainer.dec[0].context || trainer.dec[0].explanation) {
   console.error('FAIL: decisiones no deben incluir narrativa');
   process.exit(1);
 }
-console.log('OK test-ai-payload: trainer', trainer.dec.length, 'dec, vil line', session.vil.line);
+
+const sessGlobal = P.build('sessionGlobal', {
+  id: 'ses1',
+  fileName: 'Poker56.txt',
+  stats: {
+    nHands: 3, accuracy: 72, netBB: -5.2, evLossBB: 8.1, expectedNet: 2.9,
+    varianceAdj: -8.1, pctDecision: 60, pctVariance: 40,
+    grade: { letter: 'C', score: 6.2 },
+    accByStreet: { preflop: 80, flop: 65, turn: 70, river: 60 },
+    dist: { optima: 40, aceptable: 30, imprecisa: 20, error: 10 }
+  },
+  hands: [
+    {
+      id: '1', heroCode: 'AKo', heroPos: 'CO', heroNetBB: 12, totalEvLoss: 0,
+      accuracy: 100, worstClass: 'optima', board: ['4h', 'Ks', '6c'], decisions: []
+    },
+    {
+      id: '2', heroCode: 'QJs', heroPos: 'BTN', heroNetBB: -8, totalEvLoss: 3.5,
+      accuracy: 50, worstClass: 'error', board: ['Qh', '7s', 'Qc'],
+      decisions: [{ street: 'flop', chosen: 'fold', best: 'call', class: 'error', evLossBB: 3.5 }],
+      summary: [{ kind: 'action', street: 'flop', pos: 'HJ', type: 'bet', amount: 0.12 }]
+    },
+    {
+      id: '3', heroCode: '77', heroPos: 'BB', heroNetBB: -9, totalEvLoss: 0,
+      accuracy: 100, worstClass: 'optima', board: [], decisions: []
+    }
+  ]
+});
+
+const sgJson = JSON.stringify(sessGlobal);
+if (!sessGlobal || sessGlobal.src !== 'sessionGlobal' || !sessGlobal.st || !sessGlobal.leaks) {
+  console.error('FAIL sessionGlobal payload');
+  process.exit(1);
+}
+if (sgJson.includes('Joserra15') || sgJson.length > 120000) {
+  console.error('FAIL sessionGlobal tamaño o datos personales');
+  process.exit(1);
+}
+if (!sessGlobal.clean || sessGlobal.clean.length !== 2) {
+  console.error('FAIL sessionGlobal clean hands');
+  process.exit(1);
+}
+
+console.log('OK test-ai-payload: trainer', trainer.dec.length, 'dec, vil line', session.vil.line,
+  'sessionGlobal leaks', sessGlobal.leaks.length, 'bytes', sgJson.length);

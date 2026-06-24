@@ -1,5 +1,5 @@
 /*
- * ai-report.js — IA Coach: informe de mano, preguntas concretas y caché.
+ * ai-report.js — IA Coach: mano, sesión, preguntas concretas y caché.
  */
 (function (global) {
   'use strict';
@@ -7,6 +7,27 @@
   const CONSENT_KEY = 'pt_ai_consent_v1';
   const CACHE_PREFIX = 'pt_ai_coach_v1_';
   const QUESTION_MAX = 200;
+
+  const SCOPE_UI = {
+    hand: {
+      reportBtn: 'Informe de la mano',
+      questionLabel: 'Tu pregunta sobre esta mano',
+      questionPh: 'Ej.: ¿Debí foldear el turn con este sizing?',
+      loadingReport: 'Generando informe de la mano…',
+      loadingQuestion: 'Analizando tu pregunta…',
+      reportKind: 'Informe',
+      consent: 'los datos de esta mano (cartas, acciones y análisis GTO)'
+    },
+    sessionGlobal: {
+      reportBtn: 'Informe de la sesión',
+      questionLabel: 'Tu pregunta sobre esta sesión',
+      questionPh: 'Ej.: ¿En qué calle perdí más EV? ¿Fue mala suerte o errores?',
+      loadingReport: 'Generando informe de la sesión…',
+      loadingQuestion: 'Analizando tu pregunta sobre la sesión…',
+      reportKind: 'Informe de sesión',
+      consent: 'las estadísticas y manos de esta sesión (sin datos personales)'
+    }
+  };
 
   function cfg() {
     return global.PT_AI || {};
@@ -45,12 +66,13 @@
     } catch (e) { return false; }
   }
 
-  function ensureConsent() {
+  function ensureConsent(scope) {
     if (localStorage.getItem(CONSENT_KEY) === '1') return Promise.resolve(true);
+    const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
     return new Promise((resolve) => {
       const ok = confirm(
-        'Se enviarán a un servicio de IA únicamente los datos de esta mano ' +
-        '(cartas, acciones y análisis GTO). No se envía información personal.\n\n¿Continuar?'
+        'Se enviarán a un servicio de IA únicamente ' + ui.consent +
+        '.\n\n¿Continuar?'
       );
       if (ok) {
         try { localStorage.setItem(CONSENT_KEY, '1'); } catch (e) { /* noop */ }
@@ -130,9 +152,16 @@
     return '<div class="ai-report-body"><p>' + html + '</p></div>';
   }
 
-  async function fetchCoach(payload, mode, question) {
+  function apiMode(scope, mode) {
+    if (scope === 'sessionGlobal') {
+      return mode === 'question' ? 'session_question' : 'session_report';
+    }
+    return mode === 'question' ? 'question' : 'report';
+  }
+
+  async function fetchCoach(payload, scope, mode, question) {
     const c = cfg();
-    const body = { payload: payload, mode: mode || 'report' };
+    const body = { payload: payload, mode: apiMode(scope, mode) };
     if (mode === 'question' && question) body.question = question;
     const res = await fetch(c.endpoint, {
       method: 'POST',
@@ -169,11 +198,12 @@
     }
   }
 
-  function showReport(panel, report) {
+  function showReport(panel, report, scope) {
     const body = panel.querySelector('[data-ai-body]');
     const meta = panel.querySelector('[data-ai-meta]');
+    const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
     if (meta) {
-      const kind = report.mode === 'question' ? 'Pregunta' : 'Informe';
+      const kind = report.mode && report.mode.indexOf('question') >= 0 ? 'Pregunta' : ui.reportKind;
       let line = report.cached
         ? kind + ' en caché · ' + (report.createdAt || '')
         : kind + ' · ' + (report.model || 'IA') + (report.createdAt ? ' · ' + report.createdAt : '');
@@ -185,16 +215,33 @@
     panel._currentReport = report;
   }
 
-  function cacheKeyFor(handId, mode, question) {
+  function cacheKeyFor(scope, objId, mode, question) {
     const Payload = global.PTAIHandPayload;
-    const base = Payload ? Payload.cacheKey(handId) : String(handId);
+    if (scope === 'sessionGlobal' && Payload && Payload.sessionCacheKey) {
+      return Payload.sessionCacheKey(objId, mode, question);
+    }
+    const base = Payload ? Payload.cacheKey(objId) : String(objId);
     if (mode === 'question') return base + '_q_' + hashQuestion(question);
     return base + '_report';
   }
 
-  async function runCoach(panel, source, getHand, opts) {
+  function getDataObj(options) {
+    if (typeof options.getData === 'function') return options.getData();
+    if (typeof options.getHand === 'function') return options.getHand();
+    return options.getHand || options.getData;
+  }
+
+  function getObjId(scope, obj) {
+    if (!obj) return null;
+    if (scope === 'sessionGlobal') return obj.id || obj.fileName || 'session';
+    return obj.id;
+  }
+
+  async function runCoach(panel, options, opts) {
+    const scope = options.scope || 'hand';
     const mode = opts.mode || 'report';
     const question = mode === 'question' ? String(opts.question || '').trim().slice(0, QUESTION_MAX) : '';
+    const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
 
     if (!isEnabled()) {
       alert('IA Coach no configurado. Copia js/ai-config.example.js como js/ai-config.js y completa endpoint y token.');
@@ -205,42 +252,41 @@
       return;
     }
 
-    const handObj = typeof getHand === 'function' ? getHand() : getHand;
-    if (!handObj) return;
+    const dataObj = getDataObj(options);
+    if (!dataObj) return;
 
     const Payload = global.PTAIHandPayload;
     if (!Payload) { alert('Módulo de payload no cargado.'); return; }
 
-    const payload = Payload.build(source, handObj);
+    const payload = Payload.build(scope, dataObj);
     if (!payload) return;
 
-    const handId = handObj.id != null ? handObj.id : payload.id;
-    const cacheKey = cacheKeyFor(handId, mode, question);
+    const objId = getObjId(scope, dataObj);
+    const cacheKey = cacheKeyFor(scope, objId, mode, question);
     const cached = readCache(cacheKey);
     if (cached && cached.reportMarkdown) {
-      showReport(panel, Object.assign({ cached: true, mode: mode, question: question || cached.question }, cached));
+      showReport(panel, Object.assign({ cached: true, mode: mode, question: question || cached.question }, cached), scope);
       return;
     }
 
-    const ok = await ensureConsent();
+    const ok = await ensureConsent(scope);
     if (!ok) return;
 
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    const loadingMsg = mode === 'question' ? 'Analizando tu pregunta…' : 'Generando informe de la mano…';
-    const loadingHint = 'El coach está pensando la respuesta';
-    setPanelState(panel, 'loading', loadingMsg, loadingHint);
+    const loadingMsg = mode === 'question' ? ui.loadingQuestion : ui.loadingReport;
+    setPanelState(panel, 'loading', loadingMsg, 'El coach está pensando la respuesta');
     try {
-      const data = await fetchCoach(payload, mode, question);
+      const data = await fetchCoach(payload, scope, mode, question);
       const report = {
         reportMarkdown: data.reportMarkdown,
         model: data.model,
-        mode: data.mode || mode,
+        mode: data.mode || apiMode(scope, mode),
         question: mode === 'question' ? question : undefined,
         createdAt: new Date().toISOString(),
         truncated: !!data.truncated
       };
       writeCache(cacheKey, report);
-      showReport(panel, report);
+      showReport(panel, report, scope);
       setPanelState(panel, 'ready', '');
       if (mode === 'question') {
         const form = panel.querySelector('[data-ai-question-form]');
@@ -254,7 +300,7 @@
     }
   }
 
-  function bindQuestionForm(panel, source, getHand) {
+  function bindQuestionForm(panel, options) {
     const form = panel.querySelector('[data-ai-question-form]');
     const toggleBtn = panel.querySelector('[data-ai-question-toggle]');
     const textarea = panel.querySelector('[data-ai-question-input]');
@@ -288,30 +334,37 @@
         alert('Escribe una pregunta.');
         return;
       }
-      panel._lastMode = 'question';
-      panel._lastQuestion = q.slice(0, QUESTION_MAX);
-      runCoach(panel, source, getHand, { mode: 'question', question: q }).catch(function (e) {
+      runCoach(panel, options, { mode: 'question', question: q }).catch(function (e) {
         console.error('[PTAI]', e);
       });
     });
   }
 
+  function resolveScope(options) {
+    if (options.scope) return options.scope;
+    if (options.source === 'sessionGlobal') return 'sessionGlobal';
+    if (options.source === 'session') return 'session';
+    return 'hand';
+  }
+
   function mount(container, options) {
     if (!container) return null;
-    const source = options.source || 'trainer';
-    const getHand = options.getHand;
+    options = options || {};
+    const scope = resolveScope(options);
+    const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
+    const uid = 'ai-q-' + scope + '-' + Math.random().toString(36).slice(2, 8);
 
     container.innerHTML =
       '<div class="ai-report-panel card-box">' +
       '<div class="ai-report-head">' +
       '<h3>IA Coach</h3>' +
       '<div class="ai-report-actions" data-ai-actions>' +
-      '<button type="button" class="btn btn-primary btn-sm" data-ai-report>Informe de la mano</button>' +
+      '<button type="button" class="btn btn-primary btn-sm" data-ai-report>' + escapeHtml(ui.reportBtn) + '</button>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-ai-question-toggle>Pregunta concreta</button>' +
       '</div></div>' +
       '<div class="ai-question-form" data-ai-question-form hidden>' +
-      '<label class="ai-question-label" for="ai-q-input">Tu pregunta sobre esta mano</label>' +
-      '<textarea id="ai-q-input" class="ai-question-input" data-ai-question-input maxlength="' + QUESTION_MAX + '" rows="3" placeholder="Ej.: ¿Debí foldear el turn con este sizing?"></textarea>' +
+      '<label class="ai-question-label" for="' + uid + '">' + escapeHtml(ui.questionLabel) + '</label>' +
+      '<textarea id="' + uid + '" class="ai-question-input" data-ai-question-input maxlength="' + QUESTION_MAX + '" rows="3" placeholder="' + escapeHtml(ui.questionPh) + '"></textarea>' +
       '<div class="ai-question-foot">' +
       '<span class="muted-text ai-question-count" data-ai-question-count>0/' + QUESTION_MAX + '</span>' +
       '<div class="ai-question-btns">' +
@@ -326,7 +379,7 @@
     const panel = container.querySelector('.ai-report-panel');
 
     container.querySelector('[data-ai-report]').addEventListener('click', function () {
-      runCoach(panel, source, getHand, { mode: 'report' }).catch(function (e) {
+      runCoach(panel, options, { mode: 'report' }).catch(function (e) {
         console.error('[PTAI]', e);
         setPanelState(panel, 'error', '');
         const body = panel.querySelector('[data-ai-body]');
@@ -334,15 +387,13 @@
       });
     });
 
-    bindQuestionForm(panel, source, getHand);
+    bindQuestionForm(panel, options);
 
-    const Payload = global.PTAIHandPayload;
-    if (Payload && getHand) {
-      const handObj = typeof getHand === 'function' ? getHand() : getHand;
-      if (handObj && handObj.id) {
-        const cached = readCache(cacheKeyFor(handObj.id, 'report', ''));
-        if (cached && cached.reportMarkdown) showReport(panel, Object.assign({ cached: true }, cached));
-      }
+    const dataObj = getDataObj(options);
+    const objId = getObjId(scope, dataObj);
+    if (objId) {
+      const cached = readCache(cacheKeyFor(scope, objId, 'report', ''));
+      if (cached && cached.reportMarkdown) showReport(panel, Object.assign({ cached: true }, cached), scope);
     }
 
     return panel;

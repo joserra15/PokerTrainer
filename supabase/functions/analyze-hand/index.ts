@@ -33,15 +33,43 @@ Los campos eq, gto, ev del JSON son estimaciones del solver local y pueden ser i
 
 Responde en markdown en español. Empieza con un título breve relacionado con la pregunta (no uses el id de la mano).`;
 
+const SESSION_REPORT_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON ultra-compacto de una SESIÓN importada:
+- st: estadísticas globales (n manos, acc, net, evLost, expNet, varianza, nota, acierto por calle, distribución decisiones)
+- leaks: manos con fugas (decisiones malas/EV perdido) con detalle
+- clean: resto de manos en una línea cada una (id|mano pos|net|ev|veredicto)
+- leakTrunc: si hay más fugas de las enviadas
+
+Los números eq/gto/ev son del solver local y pueden fallar; verifica solo lo relevante.
+
+NO enumeres todas las manos. Analiza patrones, calles débiles, fugas recurrentes y varianza vs errores.
+Responde markdown completo en español:
+# Resumen sesión {name}
+## Rendimiento global
+## Fugas principales
+(3-6 bullets con mano, calle y por qué)
+## Patrones (calle, posición, tipo de spot)
+## Plan de estudio
+(3 acciones concretas microlímites)`;
+
+const SESSION_QUESTION_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON compacto de una SESIÓN (stats + leaks + clean) y una PREGUNTA del usuario.
+
+Responde centrándote en la pregunta usando stats y las manos relevantes del JSON. Sé directo.
+eq/gto/ev del solver pueden ser incorrectos; recalcula si la pregunta lo requiere.
+
+Responde markdown en español. Título breve relacionado con la pregunta.`;
+
 interface GeminiPart {
   text?: string;
   thought?: boolean;
 }
 
-type AiMode = 'report' | 'question';
+type AiMode = 'report' | 'question' | 'session_report' | 'session_question';
 
 function normalizeMode(raw: unknown): AiMode {
-  return raw === 'question' ? 'question' : 'report';
+  if (raw === 'question') return 'question';
+  if (raw === 'session_report') return 'session_report';
+  if (raw === 'session_question') return 'session_question';
+  return 'report';
 }
 
 function sanitizeQuestion(raw: unknown): string | null {
@@ -49,6 +77,27 @@ function sanitizeQuestion(raw: unknown): string | null {
   const q = raw.trim().replace(/\s+/g, ' ');
   if (!q.length) return null;
   return q.slice(0, 200);
+}
+
+function promptForMode(mode: AiMode): string {
+  if (mode === 'session_report') return SESSION_REPORT_PROMPT;
+  if (mode === 'session_question') return SESSION_QUESTION_PROMPT;
+  if (mode === 'question') return QUESTION_PROMPT;
+  return REPORT_PROMPT;
+}
+
+function userContentForMode(mode: AiMode, payload: unknown, question: string | null): string {
+  const json = JSON.stringify(payload);
+  if (mode === 'session_question') {
+    return 'Pregunta del usuario:\n' + question + '\n\nSesión (JSON):\n' + json;
+  }
+  if (mode === 'session_report') {
+    return 'Genera informe de la sesión:\n' + json;
+  }
+  if (mode === 'question') {
+    return 'Pregunta del usuario:\n' + question + '\n\nContexto de la mano (JSON):\n' + json;
+  }
+  return 'Genera informe de la mano (verifica números del solver por tu cuenta):\n' + json;
 }
 
 serve(async (req) => {
@@ -81,15 +130,17 @@ serve(async (req) => {
   }
 
   const mode = normalizeMode(body.mode);
-  const question = mode === 'question' ? sanitizeQuestion(body.question) : null;
-  if (mode === 'question' && !question) {
+  const question = (mode === 'question' || mode === 'session_question')
+    ? sanitizeQuestion(body.question)
+    : null;
+  if ((mode === 'question' || mode === 'session_question') && !question) {
     return json({ error: 'missing_question' }, 400);
   }
 
-  const systemPrompt = mode === 'question' ? QUESTION_PROMPT : REPORT_PROMPT;
-  const userContent = mode === 'question'
-    ? 'Pregunta del usuario:\n' + question + '\n\nContexto de la mano (JSON):\n' + JSON.stringify(body.payload)
-    : 'Genera informe de la mano (verifica números del solver por tu cuenta):\n' + JSON.stringify(body.payload);
+  const systemPrompt = promptForMode(mode);
+  const userContent = userContentForMode(mode, body.payload, question);
+  const isSession = mode.startsWith('session_');
+  const isQuestion = mode.endsWith('question');
 
   const model = 'gemini-2.5-flash';
   const url =
@@ -103,8 +154,8 @@ serve(async (req) => {
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: 'user', parts: [{ text: userContent }] }],
       generationConfig: {
-        temperature: mode === 'question' ? 0.4 : 0.35,
-        maxOutputTokens: mode === 'question' ? 1536 : 2048,
+        temperature: isQuestion ? 0.4 : 0.35,
+        maxOutputTokens: isSession ? (isQuestion ? 1536 : 2560) : (isQuestion ? 1536 : 2048),
         thinkingConfig: { thinkingBudget: 0 }
       }
     })

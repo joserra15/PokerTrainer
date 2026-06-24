@@ -1301,6 +1301,7 @@
           Varianza/suerte: <strong>${st.varianceAdj >= 0 ? '+' : ''}${fmtBB(st.varianceAdj)} bb</strong>.
         </div>
       </div>
+      <div id="ai-coach-session"></div>
       <div class="top-hands">
         <div class="card-box"><h3>5 mejores manos</h3>${topHandsHtml(st.best5)}</div>
         <div class="card-box"><h3>5 peores manos</h3>${topHandsHtml(st.worst5)}</div>
@@ -1327,6 +1328,12 @@
     box.innerHTML = statHtml + sortHtml;
     $('#hand-sort').addEventListener('change', (e) => renderSessionDetail(e.target.value));
     renderSessionHands(sortBy);
+    if (window.PTAIReport) {
+      window.PTAIReport.mount($('#ai-coach-session'), {
+        scope: 'sessionGlobal',
+        getData: () => currentSession
+      });
+    }
   }
 
   function streetAccBar(label, pct) {

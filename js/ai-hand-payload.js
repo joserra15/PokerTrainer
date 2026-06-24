@@ -149,12 +149,108 @@
 
   function build(source, handObj) {
     if (!handObj) return null;
+    if (source === 'sessionGlobal') return buildSession(handObj);
     return source === 'session' ? fromSession(handObj) : fromTrainer(handObj);
+  }
+
+  function wcShort(c) {
+    return { optima: 'o', aceptable: 'a', imprecisa: 'i', error: 'e' }[c] || c;
+  }
+
+  function boardCompact(cards) {
+    return (cards || []).join('');
+  }
+
+  function slimHandLeak(h) {
+    const bad = (h.decisions || []).filter(function (d) {
+      return d.class === 'error' || d.class === 'imprecisa' ||
+        (d.evLossBB != null ? d.evLossBB : (d.evLoss || 0)) > 0;
+    });
+    const o = {
+      id: h.id,
+      h: h.heroCode + ' ' + h.heroPos,
+      net: h.heroNetBB,
+      ev: h.totalEvLoss,
+      acc: h.accuracy,
+      wc: wcShort(h.worstClass)
+    };
+    if (h.board && h.board.length) o.brd = boardCompact(h.board);
+    if (bad.length) o.dec = bad.map(slimDecision);
+    const vil = villainLineFromSummary(h.summary, h.heroPos);
+    if (vil) o.vil = vil;
+    return o;
+  }
+
+  function slimHandTiny(h) {
+    return String(h.id) + '|' + h.heroCode + ' ' + h.heroPos + '|' +
+      h.heroNetBB + '|' + h.totalEvLoss + '|' + wcShort(h.worstClass);
+  }
+
+  function buildSession(session) {
+    const st = session.stats || {};
+    const hands = session.hands || [];
+    const bb = hands[0] && hands[0].bb ? hands[0].bb : null;
+    const accSt = st.accByStreet || {};
+    const dist = st.dist || {};
+
+    const leakHands = hands.filter(function (h) {
+      return h.totalEvLoss > 0 || h.worstClass === 'error' || h.worstClass === 'imprecisa';
+    });
+    leakHands.sort(function (a, b) { return b.totalEvLoss - a.totalEvLoss; });
+    const leakCap = 45;
+    const leaks = leakHands.slice(0, leakCap).map(slimHandLeak);
+    const leakIds = new Set(leaks.map(function (l) { return l.id; }));
+    const clean = hands.filter(function (h) { return !leakIds.has(h.id); }).map(slimHandTiny);
+
+    const payload = {
+      src: 'sessionGlobal',
+      name: String(session.fileName || 'session').replace(/\.txt$/i, ''),
+      bb: bb,
+      st: {
+        n: st.nHands,
+        acc: st.accuracy,
+        net: st.netBB,
+        evLost: st.evLossBB,
+        expNet: st.expectedNet,
+        var: st.varianceAdj,
+        grade: st.grade ? (st.grade.letter + ' ' + st.grade.score) : null,
+        accSt: {
+          pf: accSt.preflop,
+          fl: accSt.flop,
+          tu: accSt.turn,
+          ri: accSt.river
+        },
+        dist: {
+          o: dist.optima || 0,
+          a: dist.aceptable || 0,
+          i: dist.imprecisa || 0,
+          e: dist.error || 0
+        },
+        pctLeak: st.pctDecision,
+        pctVar: st.pctVariance
+      },
+      solverNote: 'eq/gto/ev son estimaciones del solver; verifica lo crítico. clean=id|mano pos|net|ev|wc'
+    };
+    if (leaks.length) payload.leaks = leaks;
+    if (leakHands.length > leakCap) payload.leakTrunc = leakHands.length;
+    if (clean.length) payload.clean = clean;
+    return payload;
   }
 
   function cacheKey(handId) {
     return String(handId) + '_' + (global.PT_BUILD || '1');
   }
 
-  global.PTAIHandPayload = { build, cacheKey };
+  function sessionCacheKey(sessionId, mode, question) {
+    const base = 'ses_' + String(sessionId) + '_' + (global.PT_BUILD || '1');
+    if (mode === 'question' && question) {
+      let h = 0;
+      const s = String(question).trim().toLowerCase();
+      for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      return base + '_q_' + Math.abs(h).toString(36);
+    }
+    return base + '_report';
+  }
+
+  global.PTAIHandPayload = { build, cacheKey, sessionCacheKey, buildSession };
 })(window);
