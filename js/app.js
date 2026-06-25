@@ -226,6 +226,14 @@
         errBadge.parentElement.appendChild(b);
       }
     }
+
+    const coachMount = $('#home-coach-mount');
+    if (coachMount && window.PTAIReport && PTAIReport.mountWelcome) {
+      PTAIReport.mountWelcome(coachMount, {
+        userName: firstNameFromUser(window.PT_AUTH_USER),
+        onTrain: () => goToTab('play', { setup: true })
+      });
+    }
   }
 
   function bindHome() {
@@ -238,6 +246,12 @@
     const grid = $('#home-grid');
     if (grid) {
       grid.addEventListener('click', (e) => {
+        const scrollCoach = e.target.closest('[data-scroll-coach]');
+        if (scrollCoach) {
+          const el = $('#home-coach');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
         const card = e.target.closest('[data-go-tab]');
         if (!card) return;
         const tab = card.dataset.goTab;

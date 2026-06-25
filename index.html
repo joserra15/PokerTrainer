@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>GTO Poker Trainer · Cash NL 6-max</title>
-  <script src="js/version.js?v=1.19.0"></script>
+  <script src="js/version.js?v=1.19.1"></script>
   <link rel="stylesheet" href="css/styles.css" id="pt-css" />
   <script>document.getElementById('pt-css').href = 'css/styles.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
   <script src="js/google-config.js?v=1.9.0"></script>
@@ -101,7 +101,7 @@
           <div class="home-hero-inner">
             <p class="home-eyebrow">Entrenador GTO · Preflop &amp; postflop</p>
             <h2 class="home-greeting" id="home-greeting">Bienvenido al felt</h2>
-            <p class="home-lead">Practica spots reales, consulta rangos solver y repasa tus errores con feedback al instante.</p>
+            <p class="home-lead">Practica spots reales, consulta rangos solver, repasa tus errores y resuelve dudas con el <strong>IA Coach</strong>.</p>
             <button type="button" class="btn btn-primary home-cta" id="home-cta-play">
               <span class="home-cta-icon" aria-hidden="true">&#9824;</span>
               Empezar a entrenar
@@ -147,7 +147,16 @@
             <span class="home-card-title">Estadísticas</span>
             <span class="home-card-desc">Acierto, EV perdido y progreso</span>
           </button>
+          <button type="button" class="home-card home-card-coach" data-scroll-coach>
+            <span class="home-card-icon" aria-hidden="true">&#129302;</span>
+            <span class="home-card-title">IA Coach</span>
+            <span class="home-card-desc">Pregunta dudas sobre tus manos con IA</span>
+          </button>
         </div>
+
+        <section class="home-coach" id="home-coach" aria-labelledby="home-coach-title">
+          <div id="home-coach-mount"></div>
+        </section>
 
         <p class="home-foot muted-text">Consejo: configura mesa, escenario y rango antes de cada sesión de entrenamiento.</p>
       </div>

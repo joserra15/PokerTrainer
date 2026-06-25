@@ -400,7 +400,55 @@
     return panel;
   }
 
+  function mountWelcome(container, options) {
+    if (!container) return null;
+    options = options || {};
+    const first = options.userName || '';
+    const greet = first
+      ? ('¡Hola, <strong>' + escapeHtml(first) + '</strong>! Soy tu IA Coach.')
+      : '¡Hola! Soy tu <strong>IA Coach</strong> de poker GTO.';
+    const enabled = isEnabled();
+    const statusHtml = enabled
+      ? '<span class="home-coach-status on"><span class="home-coach-status-dot" aria-hidden="true"></span>Coach activo</span>'
+      : '<span class="home-coach-status off"><span class="home-coach-status-dot" aria-hidden="true"></span>Configuración pendiente</span>';
+
+    container.innerHTML =
+      '<div class="home-coach-panel" role="region" aria-labelledby="home-coach-title">' +
+      '<div class="home-coach-top">' +
+      '<div class="home-coach-avatar" aria-hidden="true">&#129302;</div>' +
+      '<div class="home-coach-intro">' +
+      '<span class="home-coach-badge">Inteligencia artificial</span>' +
+      '<h3 class="home-coach-title" id="home-coach-title">' + greet + '</h3>' +
+      '<p class="home-coach-lead">Puedes consultarme las dudas de cualquier mano: analizo tus cartas, el board, las frecuencias GTO y el EV de cada decisión. Solo respondo con el contexto real de lo que jugaste — no invento spots.</p>' +
+      statusHtml +
+      '</div></div>' +
+      '<div class="home-coach-steps">' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Informe automático</h4><p>Al terminar una mano en el entrenador, pulsa <em>Informe de la mano</em> y recibirás un análisis completo con fugas y líneas alternativas.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Pregunta concreta</h4><p>¿Dudas en un sizing o un fold? Usa <em>Pregunta concreta</em> (hasta ' + QUESTION_MAX + ' caracteres). Ej.: «¿Debí foldear el turn con este bet?»</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">3</span><h4>Sesiones importadas</h4><p>En <em>Sesiones</em>, revisa manos reales paso a paso o pide un informe de toda la sesión con tus estadísticas y errores.</p></div>' +
+      '</div>' +
+      '<div class="home-coach-where">' +
+      '<h4>Dónde encontrarme</h4>' +
+      '<ul>' +
+      '<li><strong>Entrenador</strong> — al finalizar cada mano, debajo del resultado.</li>' +
+      '<li><strong>Sesiones</strong> — en la revisión de una mano y en el resumen de la sesión.</li>' +
+      '<li><strong>Paso a paso</strong> — botón «Enviar pregunta» en cada decisión de la revisión.</li>' +
+      '</ul></div>' +
+      '<div class="home-coach-foot">' +
+      '<p class="muted-text">Tus datos solo se envían a la IA cuando lo solicitas y tras dar tu consentimiento. Las respuestas se guardan en caché en tu navegador.</p>' +
+      '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>Entrenar y probar el coach</button>' +
+      '</div></div>';
+
+    const playBtn = container.querySelector('[data-home-coach-play]');
+    if (playBtn) {
+      playBtn.addEventListener('click', function () {
+        if (typeof options.onTrain === 'function') options.onTrain();
+      });
+    }
+    return container.querySelector('.home-coach-panel');
+  }
+
   global.PTAIReport = {
-    mount, isEnabled, ensureConsent, fetchCoach, readCache, QUESTION_MAX
+    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, readCache, QUESTION_MAX
   };
 })(window);
