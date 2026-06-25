@@ -7,6 +7,7 @@
   const CONSENT_KEY = 'pt_ai_consent_v1';
   const CACHE_PREFIX = 'pt_ai_coach_v1_';
   const QUESTION_MAX = 500;
+  const PRIVACY_NO_PII = 'No se envía ningún dato personal (nombre, email ni cuenta de usuario).';
 
   const SCOPE_UI = {
     hand: {
@@ -34,7 +35,7 @@
       loadingReport: 'Generando informe de la sesión…',
       loadingQuestion: 'Analizando tu pregunta sobre la sesión…',
       reportKind: 'Informe de sesión',
-      consent: 'las estadísticas y manos de esta sesión (sin datos personales)'
+      consent: 'las estadísticas y manos de esta sesión (cartas, acciones y análisis GTO)'
     }
   };
 
@@ -80,8 +81,8 @@
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
     return new Promise((resolve) => {
       const ok = confirm(
-        'Se enviarán a un servicio de IA únicamente ' + ui.consent +
-        '.\n\n¿Continuar?'
+        'Se enviarán a un servicio de IA únicamente ' + ui.consent + '.\n\n' +
+        PRIVACY_NO_PII + '\n\n¿Continuar?'
       );
       if (ok) {
         try { localStorage.setItem(CONSENT_KEY, '1'); } catch (e) { /* noop */ }
@@ -572,7 +573,8 @@
       '<li><strong>Paso a paso</strong> — botón «Enviar pregunta» en cada decisión de la revisión.</li>' +
       '</ul></div>' +
       '<div class="home-coach-foot">' +
-      '<p class="muted-text">Tus datos solo se envían a la IA cuando lo solicitas y tras dar tu consentimiento. Las respuestas se guardan en caché en tu navegador.</p>' +
+      '<p class="muted-text">Solo se envían datos de poker (cartas, acciones, análisis GTO y estadísticas de sesión) cuando lo solicitas y tras dar tu consentimiento. ' +
+      PRIVACY_NO_PII + ' Las respuestas se guardan en caché en tu navegador.</p>' +
       '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>Entrenar y probar el coach</button>' +
       '</div></div>';
 

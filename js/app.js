@@ -1889,37 +1889,51 @@
     const streetBetBB = {};
     const totalInvBB = {};
     const lastAction = {};
+    const streetCommittedEuro = {};
     const streetLog = [];
     let lastAggressorPos = null;
+    let toMatchEuro = 0;
 
     function euroToBB(x) { return bb ? Math.round((x / bb) * 100) / 100 : x; }
-    function resetStreetBets() {
+    function resetStreetState() {
       Object.keys(streetBetBB).forEach((k) => { delete streetBetBB[k]; });
+      Object.keys(streetCommittedEuro).forEach((k) => { delete streetCommittedEuro[k]; });
+      Object.keys(lastAction).forEach((k) => { delete lastAction[k]; });
+      toMatchEuro = 0;
     }
 
     function recordAction(item) {
       const pos = item.pos;
       if (!pos) return;
+      const cur = streetCommittedEuro[pos] || 0;
+
       if (item.type === 'fold') {
         folded[pos] = true;
         lastAction[pos] = { type: 'fold' };
       } else if (item.type === 'check') {
         lastAction[pos] = { type: 'check' };
       } else if (item.type === 'call') {
-        const bbAmt = euroToBB(item.amount || 0);
-        streetBetBB[pos] = (streetBetBB[pos] || 0) + bbAmt;
-        totalInvBB[pos] = (totalInvBB[pos] || 0) + bbAmt;
-        lastAction[pos] = { type: 'call', amount: bbAmt };
+        const addedEuro = item.amount != null ? item.amount : Math.max(0, toMatchEuro - cur);
+        streetCommittedEuro[pos] = toMatchEuro;
+        const addedBB = euroToBB(addedEuro);
+        streetBetBB[pos] = euroToBB(toMatchEuro);
+        totalInvBB[pos] = (totalInvBB[pos] || 0) + addedBB;
+        lastAction[pos] = { type: 'call', amount: addedBB };
       } else if (item.type === 'bet') {
+        toMatchEuro = item.amount;
+        streetCommittedEuro[pos] = item.amount;
         const bbAmt = euroToBB(item.amount);
         streetBetBB[pos] = bbAmt;
-        totalInvBB[pos] = (totalInvBB[pos] || 0) + bbAmt;
+        totalInvBB[pos] = (totalInvBB[pos] || 0) + euroToBB(Math.max(0, item.amount - cur));
         lastAction[pos] = { type: 'bet', amount: bbAmt };
         if (pos !== heroPos) lastAggressorPos = pos;
       } else if (item.type === 'raise') {
+        toMatchEuro = item.to;
+        streetCommittedEuro[pos] = item.to;
         const bbAmt = euroToBB(item.to);
         streetBetBB[pos] = bbAmt;
-        totalInvBB[pos] = bbAmt;
+        const addedEuro = item.amount != null ? item.amount : Math.max(0, item.to - cur);
+        totalInvBB[pos] = (totalInvBB[pos] || 0) + euroToBB(addedEuro);
         lastAction[pos] = { type: 'raise', amount: bbAmt };
         if (pos !== heroPos) lastAggressorPos = pos;
       }
@@ -1929,7 +1943,7 @@
       const item = tl[i];
       if (item.kind === 'street') {
         street = item.street;
-        resetStreetBets();
+        resetStreetState();
         continue;
       }
       const isHero = item.pos === heroPos;
@@ -1952,16 +1966,46 @@
     return { folded, streetBetBB, totalInvBB, lastAction, streetLog, villainPos, heroPos, targetStreet };
   }
 
-  function sessionActionWord(item, bb) {
+  function sessionActionWord(item, bb, committedEuro, toMatchEuro) {
     const toBB = (x) => (bb ? Math.round((x / bb) * 100) / 100 : x);
+    const pos = item.pos;
+    const cur = (committedEuro && pos) ? (committedEuro[pos] || 0) : 0;
     switch (item.type) {
       case 'fold': return 'fold';
       case 'check': return 'check';
-      case 'call': return 'call ' + toBB(item.amount) + 'bb';
+      case 'call': {
+        const added = item.amount != null ? item.amount : Math.max(0, (toMatchEuro || 0) - cur);
+        return 'call ' + toBB(added) + 'bb';
+      }
       case 'bet': return 'bet ' + toBB(item.amount) + 'bb';
       case 'raise': return 'raise a ' + toBB(item.to) + 'bb';
       default: return item.type || '';
     }
+  }
+
+  function renderSessionStreetLogHTML(h, state) {
+    if (!state.streetLog.length) return '';
+    const bb = h.bb || 0.05;
+    const capSt = state.targetStreet.charAt(0).toUpperCase() + state.targetStreet.slice(1);
+    const committed = {};
+    let toMatch = 0;
+    const parts = [];
+    state.streetLog.forEach((item) => {
+      if (!item.pos || item.pos === h.heroPos) return;
+      parts.push('<span class="session-street-act">' + escapeHtml(item.pos) + ': ' +
+        escapeHtml(sessionActionWord(item, bb, committed, toMatch)) + '</span>');
+      if (item.type === 'bet') {
+        toMatch = item.amount;
+        committed[item.pos] = item.amount;
+      } else if (item.type === 'raise') {
+        toMatch = item.to;
+        committed[item.pos] = item.to;
+      } else if (item.type === 'call') {
+        committed[item.pos] = toMatch;
+      }
+    });
+    if (!parts.length) return '';
+    return `<div class="session-street-log"><strong>${capSt}:</strong> ${parts.join(' · ')}</div>`;
   }
 
   function renderSessionReplayTableHTML(h, d, decisionIdx, state) {
@@ -1990,7 +2034,7 @@
       if (c.top < 12) cls.push('seat-edge-top');
 
       const role = isHero ? 'Héroe' : (isVillain ? 'Villano' : '');
-      const act = state.lastAction[pos];
+      const act = (!isHero && state.lastAction[pos]) ? state.lastAction[pos] : null;
       const actHtml = act && !state.folded[pos] ? actionBadgeHTML(act) : '';
       const chipsHtml = renderSeatChips(state.totalInvBB[pos] || 0, state.streetBetBB[pos] || 0);
 
@@ -2002,22 +2046,27 @@
       </div>`;
     });
 
+    const heroCards = h.heroCards || [];
+    const heroPos = h.heroPos || '';
+    const heroStreet = state.streetBetBB[heroPos] || 0;
+    const heroInv = state.totalInvBB[heroPos] || 0;
+    const heroChipsHtml = (heroInv > 0 || heroStreet > 0) ? renderSeatChips(heroInv, heroStreet) : '';
+    const heroCardsHtml = heroCards.length >= 2
+      ? '<div class="hero-cards">' + heroCards.map(Cards.cardToHTML).join('') + '</div>'
+      : '';
+    const heroAreaHtml =
+      '<div class="hero-area">' +
+      (heroChipsHtml ? '<div class="hero-chips">' + heroChipsHtml + '</div>' : '') +
+      '<div class="hero-label">HÉROE · <span>' + escapeHtml(heroPos) + '</span></div>' +
+      heroCardsHtml +
+      '</div>';
+
     return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}">
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${fmtBB(d.potBB)} bb</div>
       <div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
+      ${heroAreaHtml}
     </div></div>`;
-  }
-
-  function renderSessionStreetLogHTML(h, state) {
-    if (!state.streetLog.length) return '';
-    const bb = h.bb || 0.05;
-    const capSt = state.targetStreet.charAt(0).toUpperCase() + state.targetStreet.slice(1);
-    const parts = state.streetLog.map((item) => {
-      const who = item.pos === h.heroPos ? item.pos + ' (tú)' : item.pos;
-      return `<span class="session-street-act">${escapeHtml(who)}: ${escapeHtml(sessionActionWord(item, bb))}</span>`;
-    });
-    return `<div class="session-street-log"><strong>${capSt}:</strong> ${parts.join(' · ')}</div>`;
   }
 
   function renderReplayStep() {
