@@ -737,13 +737,24 @@
   function buildHandTimeline(hand) {
     const tl = [];
     const streetBoard = { preflop: [], flop: hand.board.flop, turn: hand.board.flop.concat(hand.board.turn), river: hand.boardAll };
+    const minBoard = { flop: 3, turn: 4, river: 5 };
     ['preflop', 'flop', 'turn', 'river'].forEach((st) => {
-      if (!hand.streets[st].length && st !== 'preflop') return;
-      tl.push({ kind: 'street', street: st, board: streetBoard[st].slice() });
-      hand.streets[st].forEach((a) => {
+      const acts = hand.streets[st];
+      const board = streetBoard[st] || [];
+      const hasBoard = st === 'preflop' || board.length >= (minBoard[st] || 0);
+      if (st !== 'preflop' && !acts.length && !hasBoard) return;
+      if (acts.length || (st !== 'preflop' && hasBoard)) {
+        tl.push({ kind: 'street', street: st, board: board.slice() });
+      }
+      acts.forEach((a) => {
         tl.push({ kind: 'action', street: st, player: a.player, pos: hand.positions[a.player] || '', type: a.type, amount: a.amount, to: a.to, allin: a.allin });
       });
     });
+    if (hand.shows) {
+      Object.keys(hand.shows).forEach((player) => {
+        tl.push({ kind: 'show', street: 'river', player, pos: hand.positions[player] || '', cards: hand.shows[player].slice() });
+      });
+    }
     return tl;
   }
 
@@ -886,31 +897,60 @@
     return { score: r2(score), letter, verdict };
   }
 
-  function ensureHandSummary(h) {
-    if (!h) return h;
-    if (h.summary && h.summary.length) return h;
-    const tl = [];
-    let lastStreet = null;
-    (h.decisions || []).forEach(function (d) {
-      if (d.street !== lastStreet) {
-        const n = { preflop: 0, flop: 3, turn: 4, river: 5 }[d.street] || 0;
-        tl.push({ kind: 'street', street: d.street, board: (h.board || []).slice(0, n) });
-        lastStreet = d.street;
-      }
-      const raw = d.chosen || d.action || 'check';
-      const type = raw.indexOf('bet_') === 0 ? 'bet' : raw.split('_')[0];
+  function appendShowdownToTimeline(h, tl) {
+    const shows = h.villainShows || {};
+    Object.keys(shows).forEach((player) => {
+      if (tl.some((x) => x.kind === 'show' && x.player === player)) return;
+      const posItem = tl.find((x) => (x.kind === 'action' || x.kind === 'show') && x.player === player && x.pos);
       tl.push({
-        kind: 'action', street: d.street,
-        player: h.heroPos || 'Héroe', pos: h.heroPos,
-        type: type, amount: d.betSizeBB, to: null
+        kind: 'show', street: 'river', player,
+        pos: posItem ? posItem.pos : '',
+        cards: shows[player].slice()
       });
     });
-    h.summary = tl;
+  }
+
+  /** Añade river y showdown al timeline si el board está completo (p. ej. all-in en turn). */
+  function ensureFullTimeline(h) {
+    if (!h) return h;
+    const board = h.board || [];
+    if (board.length < 5) return h;
+    const summary = (h.summary && h.summary.length) ? h.summary.slice() : [];
+    const hasRiver = summary.some((x) => x.kind === 'street' && x.street === 'river');
+    if (!hasRiver) {
+      summary.push({ kind: 'street', street: 'river', board: board.slice() });
+    }
+    appendShowdownToTimeline(h, summary);
+    h.summary = summary;
     return h;
+  }
+
+  function ensureHandSummary(h) {
+    if (!h) return h;
+    if (!h.summary || !h.summary.length) {
+      const tl = [];
+      let lastStreet = null;
+      (h.decisions || []).forEach(function (d) {
+        if (d.street !== lastStreet) {
+          const n = { preflop: 0, flop: 3, turn: 4, river: 5 }[d.street] || 0;
+          tl.push({ kind: 'street', street: d.street, board: (h.board || []).slice(0, n) });
+          lastStreet = d.street;
+        }
+        const raw = d.chosen || d.action || 'check';
+        const type = raw.indexOf('bet_') === 0 ? 'bet' : raw.split('_')[0];
+        tl.push({
+          kind: 'action', street: d.street,
+          player: h.heroPos || 'Héroe', pos: h.heroPos,
+          type: type, amount: d.betSizeBB, to: null
+        });
+      });
+      h.summary = tl;
+    }
+    return ensureFullTimeline(h);
   }
 
   global.Importer = {
     parseSession, parseHand, analyzeHand, buildSession, buildSessionAsync, heroPlayed, computeStats, num, cardsFrom,
-    buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, ensureHandSummary
+    buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, ensureHandSummary, ensureFullTimeline
   };
 })(window);

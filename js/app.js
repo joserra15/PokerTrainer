@@ -1719,6 +1719,7 @@
     currentHand = findHand(handId);
     if (!currentHand) return;
     if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
+    if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
     showSessionsView('review');
     try {
       if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
@@ -1795,6 +1796,8 @@
       if (item.kind === 'street') {
         const decIdx = window.PTRangeMatrix ? window.PTRangeMatrix.findDecisionIndex(h, item.street) : -1;
         html += `<div class="tl-street"><span>${cap(item.street)}</span> ${item.board.length ? '<span class="tl-board">' + item.board.map(Cards.cardToHTML).join('') + '</span>' : ''}${decIdx >= 0 ? matrixStreetBtn(item.street, decIdx, 'session') : ''}</div>`;
+      } else if (item.kind === 'show') {
+        html += `<div class="tl-action showdown"><span class="tl-player">${escapeHtml(item.player)}${item.pos ? ' (' + item.pos + ')' : ''}</span> muestra <span class="rec-cards">${(item.cards || []).map(Cards.cardToHTML).join('')}</span></div>`;
       } else {
         const isHero = item.pos === h.heroPos || item.player === (currentSession && currentSession.hero);
         let heroDec = null;
@@ -1850,10 +1853,108 @@
     $('#to-replay').addEventListener('click', () => startInteractiveReplay());
   }
 
+  function handNeedsShowdownStep(h) {
+    return !!(h.board && h.board.length >= 5);
+  }
+
+  function villainShowInfo(h) {
+    const hero = currentSession && currentSession.hero;
+    const shows = h.villainShows || {};
+    const names = Object.keys(shows).filter((n) => n !== hero);
+    if (!names.length) return null;
+    const name = names[0];
+    let pos = '';
+    (h.summary || []).forEach((item) => {
+      if ((item.kind === 'action' || item.kind === 'show') && item.player === name && item.pos) pos = item.pos;
+    });
+    if (!pos && h.decisions && h.decisions.length) {
+      const last = h.decisions[h.decisions.length - 1];
+      if (last.vsPosition) pos = last.vsPosition;
+    }
+    return { name: name, pos: pos, cards: shows[name] };
+  }
+
+  function renderShowdownTableHTML(h) {
+    const is9 = sessionTableIs9Max(h);
+    const mobile = isMobileLayout();
+    const coords = is9 ? (mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9) : (mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS);
+    const posList = is9 ? POS_9 : POS;
+    const posRing = ringFromHeroPos(h.heroPos, posList);
+    const board = h.board || [];
+    const villain = villainShowInfo(h);
+    const villainPos = villain && villain.pos ? villain.pos : null;
+    const potBB = h.decisions && h.decisions.length
+      ? h.decisions[h.decisions.length - 1].potBB
+      : null;
+
+    let seatsHtml = '';
+    posRing.forEach((pos, i) => {
+      const c = coords[i];
+      const isHero = pos === h.heroPos;
+      const isVillain = villainPos && pos === villainPos;
+      const cls = ['seat'];
+      if (isHero) cls.push('hero');
+      if (isVillain) cls.push('villain');
+      if (c.top < 20) cls.push('seat-top');
+      if (c.top > 70) cls.push('seat-bottom');
+      if (c.left < 22) cls.push('seat-edge-left');
+      else if (c.left > 78) cls.push('seat-edge-right');
+      if (c.top < 12) cls.push('seat-edge-top');
+      const role = isHero ? 'Héroe' : (isVillain ? 'Villano' : '');
+      let cardsHtml = '';
+      if (isVillain && villain && villain.cards && villain.cards.length >= 2) {
+        cardsHtml = '<div class="seat-cards showdown">' + villain.cards.map(Cards.cardToHTML).join('') + '</div>';
+      }
+      seatsHtml += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
+        ${cardsHtml}
+        <div class="seat-pos">${pos}</div>
+        ${role ? `<div class="seat-role">${role}</div>` : ''}
+      </div>`;
+    });
+
+    const heroCards = h.heroCards || [];
+    const heroCardsHtml = heroCards.length >= 2
+      ? '<div class="hero-cards">' + heroCards.map(Cards.cardToHTML).join('') + '</div>'
+      : '';
+
+    return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}">
+      <div class="seats">${seatsHtml}</div>
+      <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${potBB != null ? fmtBB(potBB) : '—'} bb</div>
+      <div class="board">${board.map(Cards.cardToHTML).join('')}</div></div>
+      <div class="hero-area">
+        <div class="hero-label">HÉROE · <span>${escapeHtml(h.heroPos || '')}</span></div>
+        ${heroCardsHtml}
+      </div>
+    </div></div>`;
+  }
+
+  function renderReplayShowdown() {
+    const h = currentHand;
+    replayState.showdownDone = true;
+    const box = $('#hand-review-content');
+    const villain = villainShowInfo(h);
+    let html = `<div class="review-head">
+      <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
+      <div>
+        <h2>Showdown · ${h.heroCode} · ${h.heroPos}</h2>
+        <div class="muted-text">Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span></div>
+      </div>
+    </div>`;
+    html += renderShowdownTableHTML(h);
+    html += '<div class="session-street-log"><strong>River:</strong> board completo</div>';
+    if (villain) {
+      html += `<div class="result-line">Cartas de ${escapeHtml(villain.name)}${villain.pos ? ' (' + escapeHtml(villain.pos) + ')' : ''}: ${villain.cards.map(Cards.cardToHTML).join(' ')}</div>`;
+    }
+    html += `<div class="result-line" style="border:none">Board: ${(h.board || []).map(Cards.cardToHTML).join(' ')}</div>`;
+    html += `<button class="btn btn-primary" id="replay-to-summary" style="margin-top:14px">Ver resumen de la repetición »</button>`;
+    box.innerHTML = html;
+    $('#replay-to-summary').addEventListener('click', () => renderReplaySummary());
+  }
+
   // --- Volver a jugar la mano evaluando cada decisión con GTO ---
   function startInteractiveReplay() {
     const h = currentHand;
-    replayState = { idx: 0, userEvLoss: 0, good: 0, total: 0 };
+    replayState = { idx: 0, userEvLoss: 0, good: 0, total: 0, showdownDone: false };
     renderReplayStep();
   }
 
@@ -2072,7 +2173,10 @@
   function renderReplayStep() {
     const h = currentHand;
     const box = $('#hand-review-content');
-    if (replayState.idx >= h.decisions.length) return renderReplaySummary();
+    if (replayState.idx >= h.decisions.length) {
+      if (handNeedsShowdownStep(h) && !replayState.showdownDone) return renderReplayShowdown();
+      return renderReplaySummary();
+    }
     const d = h.decisions[replayState.idx];
     const replayStateTable = computeSessionReplayState(h, replayState.idx);
 
@@ -2125,10 +2229,26 @@
     html += renderOptionGrid(evalResult.optionBreakdown, action);
     html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, replayState.idx, 'session')}</div>`;
     html += `<div class="muted-text" style="margin-top:6px">En la mano real elegiste <strong>${actionName(d.chosen)}</strong> (${verdictWord(d.class)}).${sameAsReal ? ' Misma decisión.' : ''}</div>
-      <button class="btn btn-primary" id="replay-next" style="margin-top:12px">${replayState.idx + 1 >= h.decisions.length ? 'Ver resumen' : 'Siguiente decisión »'}</button>
+      <button class="btn btn-primary" id="replay-next" style="margin-top:12px">${replayNextLabel(h)}</button>
     </div>`;
     fb.innerHTML = html;
-    $('#replay-next').addEventListener('click', () => { replayState.idx++; renderReplayStep(); });
+    $('#replay-next').addEventListener('click', () => {
+      const isLast = replayState.idx + 1 >= h.decisions.length;
+      if (isLast && handNeedsShowdownStep(h) && !replayState.showdownDone) {
+        replayState.showdownDone = true;
+        renderReplayShowdown();
+        return;
+      }
+      replayState.idx++;
+      renderReplayStep();
+    });
+  }
+
+  function replayNextLabel(h) {
+    const isLast = replayState.idx + 1 >= h.decisions.length;
+    if (!isLast) return 'Siguiente decisión »';
+    if (handNeedsShowdownStep(h) && !replayState.showdownDone) return 'Ver river y showdown »';
+    return 'Ver resumen';
   }
 
   function renderReplaySummary() {
