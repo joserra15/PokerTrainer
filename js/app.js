@@ -81,6 +81,7 @@
   }
 
   let playSessionConfig = null;
+  let replayPlayConfig = null;
 
   function showPlaySetup() {
     const setup = $('#play-setup');
@@ -368,7 +369,8 @@
         force = sc ? Object.assign({}, sc, { seed: e.seed }) : null;
       }
     }
-    const cfg = force ? null : playSessionConfig;
+    const cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
+    replayPlayConfig = null;
     hand = Engine.newHand(force || undefined, cfg);
     pendingForce = null;
     $('#feedback').classList.add('hidden');
@@ -380,7 +382,16 @@
   // Repite la mano actual con la MISMA semilla (mismas cartas y board si juegas igual)
   function replayCurrentHand() {
     if (!hand) return;
-    pendingForce = Object.assign({}, hand.scenario, { seed: hand.seed });
+    const snap = hand.replaySnapshot;
+    if (snap && snap.scenario && snap.scenario.type) {
+      pendingForce = Object.assign({}, snap.scenario, { seed: snap.seed });
+      replayPlayConfig = snap.playConfig || hand.playConfig || playSessionConfig;
+    } else if (hand.scenario && hand.scenario.type) {
+      pendingForce = Object.assign({}, hand.scenario, { seed: hand.seed });
+      replayPlayConfig = hand.playConfig || playSessionConfig;
+    } else {
+      return;
+    }
     startNewHand();
   }
 
@@ -999,6 +1010,8 @@
   }
 
   function finishHand() {
+    if (!hand || hand._finishHandled) return;
+    hand._finishHandled = true;
     $('#actions').innerHTML = `<button class="btn btn-primary" id="next-after">Siguiente mano &raquo;</button>
       <button class="btn btn-ghost" id="replay-after">&#8635; Repetir esta mano</button>
       <button class="btn btn-ghost" id="new-session-after">Nueva sesión</button>`;

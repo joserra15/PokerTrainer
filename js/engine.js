@@ -495,14 +495,17 @@
 
   function pickScenario(forceKey, playConfig) {
     const PC = global.PTPlayConfig;
+    if (forceKey && forceKey.type) {
+      const s = Object.assign({}, forceKey);
+      delete s.seed;
+      if (PC && playConfig && PC.is9Max(playConfig) && s.heroPos && !s.engineHeroPos) {
+        s.engineHeroPos = PC.enginePos(s.heroPos);
+      }
+      return s;
+    }
     if (!forceKey && PC && playConfig) {
       return PC.pickScenario(playConfig, null);
     }
-    if (forceKey && forceKey.type === 'vsRFI') return { type: 'vsRFI', key: forceKey.key };
-    if (forceKey && forceKey.type === 'RFI') return { type: 'RFI', heroPos: forceKey.heroPos };
-    if (forceKey && forceKey.type === 'squeeze') return { type: 'squeeze', heroPos: forceKey.heroPos, openerPos: forceKey.openerPos, callerPos: forceKey.callerPos };
-    if (forceKey && forceKey.type === 'isoLimp') return { type: 'isoLimp', heroPos: forceKey.heroPos, limperPos: forceKey.limperPos };
-    if (forceKey && forceKey.type === 'face4bet') return { type: 'face4bet', key: forceKey.key };
     const roll = Math.random();
     if (roll < 0.32) {
       return { type: 'RFI', heroPos: RFI_POS[Math.floor(Math.random() * RFI_POS.length)] };
@@ -580,7 +583,7 @@
     const seed = (force && force.seed != null) ? (force.seed >>> 0) : (Math.floor(Math.random() * 2147483647) >>> 0);
     C.rng.setSeed(seed);
 
-    const useConfigDeal = playConfig && !force && global.PTPlayConfig;
+    const useConfigDeal = playConfig && global.PTPlayConfig;
     const dealt = useConfigDeal ? dealForPlayConfig(scenario, playConfig) : dealFullTable();
     const holeCards = dealt.holeCards;
     const board = dealt.board;
@@ -1383,6 +1386,12 @@
   function finish(hand, res) {
     syncTableToActivePot(hand);
     hand.stage = 'complete';
+    hand.replaySnapshot = {
+      scenario: Object.assign({}, hand.scenario || {}),
+      seed: hand.seed,
+      playConfig: hand.playConfig ? Object.assign({}, hand.playConfig) : null,
+      displayHeroPos: hand.displayHeroPos || null
+    };
     const totalEvLoss = erroneousEvLoss(hand);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');
     hand.current = null;
