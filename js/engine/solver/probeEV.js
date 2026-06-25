@@ -156,10 +156,14 @@
     }
     if (band === 'air' && equity > 0.38) betTotal = Math.min(betTotal, 0.18);
 
-    betTotal *= streetScale[street] || 1;
+    betTotal *= (band === 'nuts' && street === 'river') ? 1.0 : (streetScale[street] || 1);
     if (street === 'river' && band === 'air') betTotal = Math.min(betTotal, 0.14);
 
     if (band === 'bluffcatch' && street === 'river') betTotal = Math.min(betTotal, 0.15);
+
+    if (band === 'nuts' && equity >= 0.92 && street === 'river') {
+      betTotal = Math.max(betTotal, 0.58);
+    }
 
     const split = dynamicSizeSplit(input, band, polarization);
     let strategy = normalize({

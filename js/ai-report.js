@@ -6,7 +6,7 @@
 
   const CONSENT_KEY = 'pt_ai_consent_v1';
   const CACHE_PREFIX = 'pt_ai_coach_v1_';
-  const QUESTION_MAX = 200;
+  const QUESTION_MAX = 500;
 
   const SCOPE_UI = {
     hand: {
@@ -238,7 +238,7 @@
   }
 
   async function runCoach(panel, options, opts) {
-    const scope = options.scope || 'hand';
+    const scope = resolveScope(options);
     const mode = opts.mode || 'report';
     const question = mode === 'question' ? String(opts.question || '').trim().slice(0, QUESTION_MAX) : '';
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
@@ -307,7 +307,7 @@
     const counter = panel.querySelector('[data-ai-question-count]');
     const cancelBtn = panel.querySelector('[data-ai-question-cancel]');
     const sendBtn = panel.querySelector('[data-ai-question-send]');
-    if (!form || !textarea) return;
+    if (!form || !textarea || !toggleBtn || !cancelBtn || !sendBtn) return;
 
     function updateCount() {
       const n = textarea.value.length;
@@ -351,6 +351,7 @@
     if (!container) return null;
     options = options || {};
     const scope = resolveScope(options);
+    options.scope = scope;
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
     const uid = 'ai-q-' + scope + '-' + Math.random().toString(36).slice(2, 8);
 

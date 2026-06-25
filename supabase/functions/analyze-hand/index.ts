@@ -65,6 +65,8 @@ interface GeminiPart {
 
 type AiMode = 'report' | 'question' | 'session_report' | 'session_question';
 
+const QUESTION_MAX = 500;
+
 function normalizeMode(raw: unknown): AiMode {
   if (raw === 'question') return 'question';
   if (raw === 'session_report') return 'session_report';
@@ -76,7 +78,7 @@ function sanitizeQuestion(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const q = raw.trim().replace(/\s+/g, ' ');
   if (!q.length) return null;
-  return q.slice(0, 200);
+  return q.slice(0, QUESTION_MAX);
 }
 
 function promptForMode(mode: AiMode): string {

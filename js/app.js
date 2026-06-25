@@ -1222,15 +1222,11 @@
         </div>
         <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
           <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-open="${s.id}">Revisar manos</button>
-          <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" data-deltxt="${s.id}" ${s.hasTxt ? '' : 'disabled'}>Borrar txt</button>
           <button class="btn btn-danger" style="padding:4px 10px;font-size:12px" data-delses="${s.id}">Borrar sesión</button>
         </div>
       </div>`;
     }).join('');
     $$('#sessions-list [data-open]').forEach((b) => b.addEventListener('click', () => openSession(b.dataset.open)));
-    $$('#sessions-list [data-deltxt]').forEach((b) => b.addEventListener('click', () => {
-      if (confirm('¿Borrar el fichero .txt asociado? La ficha de sesión se conserva.')) { Store.deleteSessionTxt(b.dataset.deltxt); renderSessionsList(); }
-    }));
     $$('#sessions-list [data-delses]').forEach((b) => b.addEventListener('click', () => {
       if (confirm('¿Borrar la sesión completa? Esta acción no se puede deshacer.')) { Store.removeSession(b.dataset.delses); renderSessionsList(); }
     }));
@@ -1534,7 +1530,7 @@
     html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
     box.innerHTML = html;
     if (window.PTAIReport) {
-      window.PTAIReport.mount($('#ai-report-session'), { source: 'session', getHand: () => currentHand });
+      window.PTAIReport.mount($('#ai-report-session'), { scope: 'session', getHand: () => currentHand });
     }
     $('#to-replay').addEventListener('click', () => startInteractiveReplay());
   }

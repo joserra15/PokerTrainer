@@ -145,16 +145,21 @@
         enriched.street || 'preflop', cls.cls, input.chosenAction,
         enriched.handCode, strategy, enriched.potBB, enriched
       );
+      const reconciled = Classifier.reconcileWithEv(
+        cls.cls, input.chosenAction, cls.best, evResult
+      );
+      const finalCls = reconciled.cls;
+      const finalBest = reconciled.best;
       const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction: input.chosenAction }));
       const scoring = Scoring.scoreDecision({
-        strategy, chosenAction: input.chosenAction, classification: cls.cls,
+        strategy, chosenAction: input.chosenAction, classification: finalCls,
         evLoss: evResult.evLoss, betSizeBB: input.betSizeBB, potBB: enriched.potBB,
         boardWet: enriched.boardWet, sizingError: stratErrors.some((e) => e.type === 'sizing_incoherente')
       });
 
       result.evaluation = {
-        class: cls.cls,
-        best: cls.best,
+        class: finalCls,
+        best: finalBest,
         frequency: cls.freq,
         confidence: Scoring.confidence(strategy, input.chosenAction),
         actionEV: evResult.actionEV,

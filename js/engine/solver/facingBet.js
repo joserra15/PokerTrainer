@@ -150,15 +150,21 @@
     let fold, call, raise;
 
     if (band === 'nuts' || band === 'value') {
-      raise = street === 'river'
-        ? clamp(0.05 + Math.max(0, eqEdge) * 0.4, rb.min, 0.10)
-        : (street === 'turn' ? clamp(0.08 + eqEdge * 0.35, rb.min, 0.18) : clamp(0.14 + eqEdge * 0.5, rb.min, rb.max));
-      if (street === 'flop' && texture.hasDraws) raise += 0.05;
-      raise = clamp(raise, rb.min, rb.max);
-      call = street === 'river'
-        ? clamp(0.82 - raise * 0.3, 0.68, 0.90)
-        : (street === 'turn' ? clamp(0.58 + eqEdge * 0.25, 0.48, 0.72) : clamp(0.52 + eqEdge * 0.3, 0.42, 0.68));
-      fold = clamp(1 - call - raise, 0.02, 0.15);
+      if (band === 'nuts' && heroEquity >= 0.92 && street === 'river') {
+        raise = clamp(0.18 + Math.max(0, eqEdge) * 0.6, 0.12, 0.40);
+        call = clamp(0.75 - raise * 0.4, 0.48, 0.82);
+        fold = clamp(1 - call - raise, 0, 0.05);
+      } else {
+        raise = street === 'river'
+          ? clamp(0.05 + Math.max(0, eqEdge) * 0.4, rb.min, 0.10)
+          : (street === 'turn' ? clamp(0.08 + eqEdge * 0.35, rb.min, 0.18) : clamp(0.14 + eqEdge * 0.5, rb.min, rb.max));
+        if (street === 'flop' && texture.hasDraws) raise += 0.05;
+        raise = clamp(raise, rb.min, rb.max);
+        call = street === 'river'
+          ? clamp(0.82 - raise * 0.3, 0.68, 0.90)
+          : (street === 'turn' ? clamp(0.58 + eqEdge * 0.25, 0.48, 0.72) : clamp(0.52 + eqEdge * 0.3, 0.42, 0.68));
+        fold = clamp(1 - call - raise, 0.02, 0.15);
+      }
     } else if (band === 'merge') {
       raise = rb.default;
       if (street === 'river') raise = clamp(0.03 + (eqEdge > 0.08 ? 0.04 : 0), rb.min, 0.08);

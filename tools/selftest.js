@@ -219,6 +219,31 @@ const nutRiver = Strat.probeStrategy({
 console.log('Nut straight river check%', Math.round(nutRiver.check * 100), '(expect <=20)');
 console.log('Nut straight river bet66%+', Math.round((nutRiver.bet_66 + nutRiver.bet_100) * 100), '(expect >=40)');
 
+const a6NutFlushBoard = ['8c', 'Kh', '9s', '7s', '4c'];
+const a6Hero = ['As', '6s'];
+const nutFlushRiverBet = GTO.evaluateSpot({
+  street: 'river', board: a6NutFlushBoard, heroCards: a6Hero, handCode: 'A6s',
+  potBB: 18, toCallBB: 0, chosenAction: 'bet_33', betSizeBB: 6,
+  availableActions: ['check', 'bet_33', 'bet_66', 'bet_100'],
+  initiative: 'caller', inPosition: false, bbSizeEuro: 0.05
+});
+const nutFlushRiverRaise = GTO.evaluateSpot({
+  street: 'river', board: a6NutFlushBoard, heroCards: a6Hero, handCode: 'A6s',
+  potBB: 28, toCallBB: 6, chosenAction: 'raise', betSizeBB: 6,
+  availableActions: ['fold', 'call', 'raise'],
+  villainLastAction: 'raise', initiative: 'caller', inPosition: false, bbSizeEuro: 0.05
+});
+console.log('Nut flush river bet class', nutFlushRiverBet.evaluation.class,
+  'raise class', nutFlushRiverRaise.evaluation.class, '(expect optima/aceptable, not error)');
+if (nutFlushRiverBet.evaluation.class === 'error' || nutFlushRiverBet.evaluation.class === 'imprecisa') {
+  console.error('FAIL: nut flush river bet should not be error/imprecisa when EV ties');
+  process.exit(1);
+}
+if (nutFlushRiverRaise.evaluation.class === 'error') {
+  console.error('FAIL: nut flush river raise should not be error when EV ties');
+  process.exit(1);
+}
+
 const audit = sandbox.window.GTOVillainCallAudit.auditVillainCall({
   action: 'call', street: 'river', board: riverB, betBB: 6.03, potBeforeBB: 9.14,
   heroCards: nutHero, defenderRange: sandbox.window.GTOVillainCallAudit.BB_DEFEND_RANGE

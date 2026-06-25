@@ -32,5 +32,26 @@
     return { cls, freq: f, best, maxFreq: max, legalStrategy: legal };
   }
 
-  global.GTOClassifier = { classify, filterStrategy };
+  const EV_TIE_BB = 0.15;
+  const EV_OPTIMA_BB = 0.01;
+
+  /** Si la acción elegida tiene el mismo EV que la óptima, no penalizar por frecuencia GTO baja. */
+  function reconcileWithEv(freqCls, chosen, freqBest, evResult) {
+    if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
+      return { cls: freqCls, best: freqBest };
+    }
+    const delta = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
+    let cls = freqCls;
+    let best = freqBest;
+    if (delta <= EV_OPTIMA_BB) {
+      cls = 'optima';
+      best = chosen;
+    } else if (delta <= EV_TIE_BB) {
+      if (cls === 'error' || cls === 'imprecisa') cls = 'aceptable';
+      if ((evResult.actionEV || 0) >= (evResult.bestEV || 0) - EV_OPTIMA_BB) best = chosen;
+    }
+    return { cls, best };
+  }
+
+  global.GTOClassifier = { classify, filterStrategy, reconcileWithEv };
 })(window);
