@@ -32,24 +32,54 @@
   }
 
   function initTableState(holeCards) {
+    const keys = Object.keys(holeCards || {});
     return {
       holeCards: Object.assign({}, holeCards),
       folded: {},
       invested: { SB: SB, BB: BBET },
       streetBet: {},
-      inHand: new Set(DEAL_ORDER)
+      inHand: new Set(keys.length ? keys : DEAL_ORDER)
     };
+  }
+
+  function is9MaxHand(hand) {
+    const PC = global.PTPlayConfig;
+    return !!(hand.playConfig && PC && PC.is9Max(hand.playConfig));
+  }
+
+  function heroTableSeat(hand) {
+    return hand.displayHeroPos || hand.hero.pos;
+  }
+
+  function villainTableSeat(hand) {
+    const PC = global.PTPlayConfig;
+    if (is9MaxHand(hand) && PC) return PC.villainTableSeat(hand) || hand.villain.pos;
+    return hand.villain.pos;
+  }
+
+  function tablePositionsForHand(hand) {
+    const PC = global.PTPlayConfig;
+    if (is9MaxHand(hand) && PC) return PC.POS_9;
+    return DEAL_ORDER;
+  }
+
+  function preflopOrderForHand(hand) {
+    const PC = global.PTPlayConfig;
+    if (is9MaxHand(hand) && PC) return PC.PREFLOP_ACTION_9;
+    return PREFLOP_ACTION;
   }
 
   function villainHoleCards(hand) {
     if (!hand.villain || !hand.villain.pos) return null;
-    if (hand.table && hand.table.holeCards) return hand.table.holeCards[hand.villain.pos];
+    const seat = villainTableSeat(hand);
+    if (hand.table && hand.table.holeCards) return hand.table.holeCards[seat] || hand.table.holeCards[hand.villain.pos];
     return hand._predeal && hand._predeal.villainCards ? hand._predeal.villainCards : null;
   }
 
   function assignHeroFromTable(hand) {
     if (!hand.table || !hand.hero.pos) return;
-    const hc = hand.table.holeCards[hand.hero.pos];
+    const seat = heroTableSeat(hand);
+    const hc = hand.table.holeCards[seat] || hand.table.holeCards[hand.hero.pos];
     if (!hc) return;
     hand.hero.cards = hc.slice();
     hand.hero.code = R.handCode(hand.hero.cards[0], hand.hero.cards[1]);
@@ -74,11 +104,20 @@
   /** Pliega implícitamente quien ya actuó; mantiene vivos al héroe, villano(s) y quien aún no ha hablado. */
   function markPreflopFoldsForFacingAction(hand, primaryVillainPos, extraInPot) {
     if (!hand.table || !primaryVillainPos || !hand.hero.pos) return;
-    const alive = new Set([hand.hero.pos, primaryVillainPos].concat(extraInPot || []));
-    const villainIdx = PREFLOP_ACTION.indexOf(primaryVillainPos);
-    const heroIdx = PREFLOP_ACTION.indexOf(hand.hero.pos);
+    const order = preflopOrderForHand(hand);
+    const villainSeat = villainTableSeat(hand) || primaryVillainPos;
+    const heroSeat = heroTableSeat(hand);
+    const extraSeats = (extraInPot || []).map(function (p) {
+      if (!is9MaxHand(hand)) return p;
+      const PC = global.PTPlayConfig;
+      if (PC && PC.POS_9.indexOf(p) >= 0) return p;
+      return PC ? PC.displaySeatForEngine(p, [heroSeat, villainSeat].concat(extraInPot || [])) : p;
+    });
+    const alive = new Set([heroSeat, villainSeat].concat(extraSeats));
+    const villainIdx = order.indexOf(villainSeat);
+    const heroIdx = order.indexOf(heroSeat);
     if (villainIdx < 0 || heroIdx < 0) return;
-    PREFLOP_ACTION.forEach(function (pos, i) {
+    order.forEach(function (pos, i) {
       if (alive.has(pos)) return;
       if (i < villainIdx) { markFolded(hand, pos); return; }
       if (i > heroIdx) return;
@@ -90,7 +129,11 @@
 
   function seatHoleCode(hand, pos) {
     if (!hand.table || !hand.table.holeCards || !pos) return null;
-    const hc = hand.table.holeCards[pos];
+    let hc = hand.table.holeCards[pos];
+    if ((!hc || hc.length < 2) && hand.villain && pos === hand.villain.pos) {
+      const vs = villainTableSeat(hand);
+      if (vs) hc = hand.table.holeCards[vs];
+    }
     if (!hc || hc.length < 2) return null;
     return R.handCode(hc[0], hc[1]);
   }
@@ -106,7 +149,7 @@
 
   function assignSeatProfiles(hand) {
     if (!VP || !hand.table) return;
-    VP.assignTableProfiles(hand, DEAL_ORDER, hand.hero.pos);
+    VP.assignTableProfiles(hand, tablePositionsForHand(hand), heroTableSeat(hand));
   }
 
   function syncVillainMeta(hand) {
@@ -125,18 +168,23 @@
   /** Deja en mesa solo héroe y villano activo (oculta ciegas y resto en UI). */
   function syncTableToActivePot(hand) {
     if (!hand.table || !hand.hero.pos) return;
-    const alive = new Set([hand.hero.pos]);
-    if (hand.villain.pos && !hand.table.folded[hand.villain.pos]) alive.add(hand.villain.pos);
-    DEAL_ORDER.forEach(function (pos) {
+    const heroSeat = heroTableSeat(hand);
+    const vSeat = villainTableSeat(hand);
+    const alive = new Set([heroSeat]);
+    if (vSeat && !hand.table.folded[vSeat]) alive.add(vSeat);
+    tablePositionsForHand(hand).forEach(function (pos) {
       if (!alive.has(pos)) markFolded(hand, pos);
     });
   }
 
   function resolvePendingAfterHero(hand) {
-    const heroIdx = PREFLOP_ACTION.indexOf(hand.hero.pos);
+    const order = preflopOrderForHand(hand);
+    const heroSeat = heroTableSeat(hand);
+    const vSeat = villainTableSeat(hand);
+    const heroIdx = order.indexOf(heroSeat);
     if (heroIdx < 0 || !hand.table) return;
-    PREFLOP_ACTION.forEach(function (pos, i) {
-      if (i <= heroIdx || pos === hand.hero.pos || pos === hand.villain.pos) return;
+    order.forEach(function (pos, i) {
+      if (i <= heroIdx || pos === heroSeat || pos === vSeat) return;
       if (hand.table.inHand.has(pos)) markFolded(hand, pos);
     });
     syncTableToActivePot(hand);
@@ -303,9 +351,11 @@
 
   function markFoldedBeforeHeroRFI(hand) {
     if (!hand.table || !hand.hero.pos) return;
-    const idx = PREFLOP_ACTION.indexOf(hand.hero.pos);
+    const order = preflopOrderForHand(hand);
+    const heroSeat = heroTableSeat(hand);
+    const idx = order.indexOf(heroSeat);
     if (idx <= 0) return;
-    for (let i = 0; i < idx; i++) markFolded(hand, PREFLOP_ACTION[i]);
+    for (let i = 0; i < idx; i++) markFolded(hand, order[i]);
   }
 
   function resetStreetBets(hand) {
@@ -476,8 +526,9 @@
 
   function dealForPlayConfig(scenario, playConfig) {
     const PC = global.PTPlayConfig;
+    const order = PC && PC.is9Max(playConfig) ? PC.DEAL_ORDER_9 : DEAL_ORDER;
     const holeCards = {};
-    DEAL_ORDER.forEach(function (pos) { holeCards[pos] = null; });
+    order.forEach(function (pos) { holeCards[pos] = null; });
     let dead = [];
 
     const deals = PC ? PC.getScenarioDeals(scenario, playConfig) : [];
@@ -490,27 +541,20 @@
       }
     });
 
+    const heroSeat = PC ? PC.heroDealSeat(scenario, playConfig) : scenario.heroPos;
     const heroEng = scenario.engineHeroPos
       || (scenario.type === 'RFI' ? (PC ? PC.enginePos(scenario.heroPos) : scenario.heroPos) : null)
       || ((scenario.type === 'vsRFI' || scenario.type === 'face4bet') ? parseVsKey(scenario.key).hero : scenario.heroPos);
-    if (!holeCards[heroEng] || holeCards[heroEng].length < 2) {
+    if (!holeCards[heroSeat] || holeCards[heroSeat].length < 2) {
       const heroWeights = PC ? PC.sampleHeroWeights(scenario, playConfig) : {};
       let heroCards = PC ? PC.sampleFromWeights(heroWeights, dead, C.rng.random) : null;
       if (!heroCards) heroCards = sampleHandFromRange('22+, A2s+, K9s+, AJo+', dead, C.rng.random);
-      holeCards[heroEng] = heroCards;
+      holeCards[heroSeat] = heroCards;
       dead = dead.concat(heroCards);
     }
 
-    if (PC && PC.is9Max(playConfig)) {
-      const burn = PC.extra9MaxPlayerCount();
-      let burnDeck = C.shuffledDeckExcluding(dead);
-      for (let i = 0; i < burn && burnDeck.length >= 2; i++) {
-        dead.push(burnDeck.pop(), burnDeck.pop());
-      }
-    }
-
     const deck = C.shuffledDeckExcluding(dead);
-    DEAL_ORDER.forEach(function (pos) {
+    order.forEach(function (pos) {
       if (!holeCards[pos] || holeCards[pos].length < 2) {
         holeCards[pos] = [deck.pop(), deck.pop()];
       }
@@ -520,7 +564,8 @@
     return {
       holeCards: holeCards,
       board: board,
-      displayHeroPos: scenario.heroPos !== heroEng ? scenario.heroPos : null
+      displayHeroPos: (PC && PC.is9Max(playConfig) && scenario.heroPos) ? scenario.heroPos
+        : (scenario.heroPos !== heroEng ? scenario.heroPos : null)
     };
   }
 
@@ -1089,7 +1134,7 @@
   }
   function setVillainAct(hand, type, amount) {
     hand.villainAction = { type, amount: amount != null ? amount : null };
-    if (type === 'fold' && hand.villain.pos) markFolded(hand, hand.villain.pos);
+    if (type === 'fold' && hand.villain.pos) markFolded(hand, villainTableSeat(hand) || hand.villain.pos);
     if (hand.table && hand.villain.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
       hand.table.streetBet[hand.villain.pos] = round2((hand.table.streetBet[hand.villain.pos] || 0) + amount);
     }

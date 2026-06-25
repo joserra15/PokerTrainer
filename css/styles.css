@@ -201,6 +201,12 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   display: flex; flex-direction: column; justify-content: space-between; align-items: center;
 }
 
+.table-9max .seat { min-width: 52px; padding: 3px 6px; }
+.table-9max .seat .seat-pos { font-size: 10px; }
+.table-9max .seat-cards .card { width: 18px; height: 26px; }
+.table-9max .seat.seat-mini { max-width: 44px; padding: 2px 4px; }
+.table-9max .seat.seat-mini .seat-pos { font-size: 8px; }
+
 .seats { position: absolute; inset: 0; }
 .seat {
   position: absolute; transform: translate(-50%, -50%);

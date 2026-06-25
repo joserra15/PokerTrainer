@@ -13,14 +13,26 @@
   const APP_VERSION = window.PT_BUILD || '1.5.2';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
-  // coordenadas (top%, left%) de los 6 asientos; el héroe siempre abajo (índice 0)
+  const POS_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  // coordenadas (top%, left%) de los asientos; el héroe siempre abajo (índice 0)
   const SEAT_COORDS = [
-    { top: 96, left: 50 },  // hero (abajo centro)
+    { top: 96, left: 50 },
     { top: 80, left: 8 },
     { top: 30, left: 6 },
     { top: 4, left: 38 },
     { top: 4, left: 70 },
     { top: 80, left: 92 }
+  ];
+  const SEAT_COORDS_9 = [
+    { top: 96, left: 50 },
+    { top: 84, left: 14 },
+    { top: 66, left: 3 },
+    { top: 42, left: 2 },
+    { top: 16, left: 14 },
+    { top: 4, left: 34 },
+    { top: 4, left: 66 },
+    { top: 16, left: 86 },
+    { top: 42, left: 98 }
   ];
   const SEAT_COORDS_MOBILE = [
     { top: 94, left: 50 },
@@ -29,6 +41,17 @@
     { top: 6, left: 28 },
     { top: 6, left: 72 },
     { top: 34, left: 96 }
+  ];
+  const SEAT_COORDS_MOBILE_9 = [
+    { top: 93, left: 50 },
+    { top: 78, left: 10 },
+    { top: 58, left: 3 },
+    { top: 36, left: 3 },
+    { top: 14, left: 16 },
+    { top: 5, left: 36 },
+    { top: 5, left: 64 },
+    { top: 14, left: 84 },
+    { top: 36, left: 97 }
   ];
 
   let hand = null;
@@ -400,6 +423,8 @@
     }
     const boardArea = document.querySelector('.board-area');
     if (boardArea) boardArea.classList.toggle('has-villain-bar', !!(mobile && hand.villainAction));
+    const felt = document.querySelector('.table-felt');
+    if (felt) felt.classList.toggle('table-9max', is9MaxTable());
     renderBoard();
     renderSeats();
     $('#spot-context').textContent = hand.current ? hand.current.context : (hand.result ? hand.result.reason : '');
@@ -463,11 +488,39 @@
     return '';
   }
 
+  function is9MaxTable() {
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    return !!(window.PTPlayConfig && cfg && PTPlayConfig.is9Max(cfg));
+  }
+
+  function tablePosRing() {
+    return is9MaxTable() ? POS_9 : POS;
+  }
+
+  function seatCoordsForTable() {
+    const mobile = isMobileLayout();
+    if (is9MaxTable()) return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
+    return mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS;
+  }
+
+  function heroSeatOnTable() {
+    if (!hand) return null;
+    return hand.displayHeroPos || hand.hero.pos;
+  }
+
+  function villainSeatOnTable() {
+    if (!hand || !hand.villain || !hand.villain.pos) return null;
+    if (window.PTPlayConfig && hand.playConfig && PTPlayConfig.is9Max(hand.playConfig)) {
+      return PTPlayConfig.villainTableSeat(hand) || hand.villain.pos;
+    }
+    return hand.villain.pos;
+  }
+
   function renderSeats() {
     const mobile = isMobileLayout();
-    const coords = mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS;
-    const ring = ringFromHero(hand.hero.pos);
-    const villainPos = hand.villain.pos;
+    const coords = seatCoordsForTable();
+    const ring = ringFromHero(heroSeatOnTable());
+    const villainPos = villainSeatOnTable();
     const tbl = hand.table || {};
     const folded = tbl.folded || {};
     const invested = tbl.invested || {};
@@ -479,7 +532,7 @@
     let html = '';
     ring.forEach((pos, i) => {
       const c = coords[i];
-      const isHero = pos === hand.hero.pos;
+      const isHero = pos === heroSeatOnTable();
       const isVillain = villainPos && pos === villainPos;
       const isCaller = hand.scenario && hand.scenario.callerPos === pos;
       const inPot = inHand.has(pos) && !folded[pos] && !isHero;
@@ -533,10 +586,12 @@
   }
 
   function ringFromHero(heroPos) {
-    const idx = POS.indexOf(heroPos);
+    const list = tablePosRing();
+    let idx = list.indexOf(heroPos);
+    if (idx < 0) idx = 0;
     const ring = [];
-    for (let i = 0; i < POS.length; i++) ring.push(POS[(idx + i) % POS.length]);
-    return ring; // héroe primero -> coords[0] (abajo)
+    for (let i = 0; i < list.length; i++) ring.push(list[(idx + i) % list.length]);
+    return ring;
   }
 
   // ---------- Acciones ----------

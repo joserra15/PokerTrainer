@@ -11,6 +11,8 @@
 
   const POS_6 = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const PREFLOP_ACTION_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const DEAL_ORDER_9 = ['SB', 'BB', 'UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
   const RFI_POS_6 = ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
   const RFI_POS_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB'];
 
@@ -63,6 +65,54 @@
     const c = normalize(config);
     if (c.scenario === 'rfi') return is9Max(c) ? RFI_POS_9.slice() : RFI_POS_6.slice();
     return is9Max(c) ? POS_9.slice() : POS_6.slice();
+  }
+
+  function tablePositions(config) {
+    return is9Max(config) ? POS_9.slice() : POS_6.slice();
+  }
+
+  function displaySeatForEngine(enginePos, reserved) {
+    const res = new Set(reserved || []);
+    if (POS_9.indexOf(enginePos) >= 0 && !res.has(enginePos)) return enginePos;
+    for (let i = 0; i < POS_9.length; i++) {
+      const p = POS_9[i];
+      if (POS_9_TO_ENGINE[p] === enginePos && !res.has(p)) return p;
+    }
+    return enginePos;
+  }
+
+  function heroDealSeat(scenario, config) {
+    if (is9Max(config)) {
+      if (scenario.heroPos) return scenario.heroPos;
+      if (scenario.displayHeroPos) return scenario.displayHeroPos;
+    }
+    return scenario.engineHeroPos
+      || (scenario.type === 'RFI' ? enginePos(scenario.heroPos) : null)
+      || ((scenario.type === 'vsRFI' || scenario.type === 'face4bet') ? parseVsKey(scenario.key).hero : scenario.heroPos);
+  }
+
+  function openerDealSeat(scenario, config) {
+    let eng = scenario.openerPos;
+    if (!eng && scenario.key) eng = parseVsKey(scenario.key).opener;
+    if (!eng) return null;
+    if (!is9Max(config)) return eng;
+    const reserved = [heroDealSeat(scenario, config), scenario.callerPos].filter(Boolean);
+    if (POS_9.indexOf(eng) >= 0 && reserved.indexOf(eng) < 0) return eng;
+    return displaySeatForEngine(eng, reserved);
+  }
+
+  function villainTableSeat(hand) {
+    if (!hand || !hand.villain || !hand.villain.pos) return null;
+    if (!hand.playConfig || !is9Max(hand.playConfig)) return hand.villain.pos;
+    const s = hand.scenario || {};
+    const heroSeat = hand.displayHeroPos || s.heroPos || hand.hero.pos;
+    if (s.type === 'squeeze' && s.openerPos) return s.openerPos;
+    if (s.type === 'RFI') return 'BB';
+    return openerDealSeat(s, hand.playConfig) || displaySeatForEngine(hand.villain.pos, [heroSeat, s.callerPos]);
+  }
+
+  function dealOrder(config) {
+    return is9Max(config) ? DEAL_ORDER_9.slice() : POS_6.slice();
   }
 
   function enginePos(displayPos) {
@@ -198,18 +248,16 @@
    */
   function getScenarioDeals(scenario, config) {
     const deals = [];
-    const heroEng = scenario.engineHeroPos
-      || (scenario.type === 'RFI' ? enginePos(scenario.heroPos) : null)
-      || ((scenario.type === 'vsRFI' || scenario.type === 'face4bet') ? parseVsKey(scenario.key).hero : scenario.heroPos);
+    const heroSeat = heroDealSeat(scenario, config);
 
-    if (heroEng) {
-      deals.push({ pos: heroEng, weights: sampleHeroWeights(scenario, config), role: 'hero' });
+    if (heroSeat) {
+      deals.push({ pos: heroSeat, weights: sampleHeroWeights(scenario, config), role: 'hero' });
     }
     if (scenario.type === 'vsRFI') {
-      const opener = parseVsKey(scenario.key).opener;
+      const opener = openerDealSeat(scenario, config);
       deals.push({ pos: opener, weights: sampleVillainWeights(scenario, config), role: 'opener' });
     } else if (scenario.type === 'face4bet') {
-      const opener = parseVsKey(scenario.key).opener;
+      const opener = openerDealSeat(scenario, config);
       deals.push({ pos: opener, weights: sampleFace4betVillainWeights(), role: 'fourBettor' });
     } else if (scenario.type === 'squeeze') {
       deals.push({ pos: scenario.openerPos, weights: sampleVillainWeights(scenario, config), role: 'opener' });
@@ -315,10 +363,12 @@
 
   global.PTPlayConfig = {
     DEFAULT, normalize, pickScenario, labelFor,
+    POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9,
     sampleHeroWeights, sampleVillainWeights, sampleRfiDefenderWeights,
     sampleFace4betVillainWeights, face4betVillainRangeStr,
     sampleCallerWeights, sampleFromWeights,
-    getScenarioDeals, extra9MaxPlayerCount,
+    getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
+    heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
     is9Max, isMtt, heroPositions, enginePos, parseVsKey, filterWeights
   };
 })(window);
