@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>GTO Poker Trainer · Cash NL 6-max</title>
-  <script src="js/version.js?v=1.18.3"></script>
+  <script src="js/version.js?v=1.19.0"></script>
   <link rel="stylesheet" href="css/styles.css" id="pt-css" />
   <script>document.getElementById('pt-css').href = 'css/styles.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
   <script src="js/google-config.js?v=1.9.0"></script>
@@ -43,8 +43,12 @@
   <div class="header-bar">
     <div class="header-row">
       <div class="brand">
-        <span class="chip-logo">&#9824;</span>
-        <h1>GTO Poker Trainer <small>Cash NL 6-max</small></h1>
+        <button type="button" class="brand-home-link" id="brand-home" title="Volver al inicio" aria-label="Inicio">
+          <span class="chip-logo">&#9824;</span>
+          <span class="brand-text">
+            <h1>GTO Poker Trainer <small>Cash NL · MTT</small></h1>
+          </span>
+        </button>
       </div>
       <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="topbar-nav">
         <span class="nav-toggle-bar"></span>
@@ -77,7 +81,7 @@
         </div>
       </div>
       <nav class="tabs">
-        <button class="tab active" data-tab="play">Jugar</button>
+        <button class="tab" data-tab="play">Jugar</button>
         <button class="tab" data-tab="ranges">Rangos</button>
         <button class="tab" data-tab="sessions">Sesiones</button>
         <button class="tab" data-tab="history">Histórico</button>
@@ -89,8 +93,68 @@
   <div class="nav-backdrop hidden" id="nav-backdrop" aria-hidden="true"></div>
 
   <main>
+    <!-- ===== INICIO (bienvenida) ===== -->
+    <section id="tab-home" class="tab-panel active">
+      <div class="home-page">
+        <header class="home-hero">
+          <div class="home-hero-glow" aria-hidden="true"></div>
+          <div class="home-hero-inner">
+            <p class="home-eyebrow">Entrenador GTO · Preflop &amp; postflop</p>
+            <h2 class="home-greeting" id="home-greeting">Bienvenido al felt</h2>
+            <p class="home-lead">Practica spots reales, consulta rangos solver y repasa tus errores con feedback al instante.</p>
+            <button type="button" class="btn btn-primary home-cta" id="home-cta-play">
+              <span class="home-cta-icon" aria-hidden="true">&#9824;</span>
+              Empezar a entrenar
+            </button>
+          </div>
+        </header>
+
+        <div class="home-stats-strip" id="home-stats" aria-label="Resumen rápido"></div>
+
+        <div class="home-section-head">
+          <h3>Acceso rápido</h3>
+          <p class="muted-text">Sin abrir el menú — elige dónde quieres ir</p>
+        </div>
+
+        <div class="home-grid" id="home-grid">
+          <button type="button" class="home-card home-card-featured" data-go-tab="play">
+            <span class="home-card-icon" aria-hidden="true">&#127183;</span>
+            <span class="home-card-title">Entrenar</span>
+            <span class="home-card-desc">Mesa interactiva con evaluación GTO calle a calle</span>
+          </button>
+          <button type="button" class="home-card" data-go-tab="ranges">
+            <span class="home-card-icon" aria-hidden="true">&#9638;</span>
+            <span class="home-card-title">Rangos preflop</span>
+            <span class="home-card-desc">Matrices 6-max y spots vs open</span>
+          </button>
+          <button type="button" class="home-card" data-go-tab="sessions">
+            <span class="home-card-icon" aria-hidden="true">&#128202;</span>
+            <span class="home-card-title">Sesiones</span>
+            <span class="home-card-desc">Importa manos reales y revísalas</span>
+          </button>
+          <button type="button" class="home-card" data-go-tab="history">
+            <span class="home-card-icon" aria-hidden="true">&#128203;</span>
+            <span class="home-card-title">Histórico</span>
+            <span class="home-card-desc">Manos jugadas en el entrenador</span>
+          </button>
+          <button type="button" class="home-card" data-go-tab="errors">
+            <span class="home-card-icon home-card-badge-host" data-home-badge="errors" aria-hidden="true">&#9888;</span>
+            <span class="home-card-title">Errores</span>
+            <span class="home-card-desc">Spots fallados para repasar</span>
+          </button>
+          <button type="button" class="home-card" data-go-tab="stats">
+            <span class="home-card-icon" aria-hidden="true">&#128200;</span>
+            <span class="home-card-title">Estadísticas</span>
+            <span class="home-card-desc">Acierto, EV perdido y progreso</span>
+          </button>
+        </div>
+
+        <p class="home-foot muted-text">Consejo: configura mesa, escenario y rango antes de cada sesión de entrenamiento.</p>
+      </div>
+    </section>
+
     <!-- ===== JUGAR ===== -->
-    <section id="tab-play" class="tab-panel active">
+    <section id="tab-play" class="tab-panel">
       <div id="play-setup" class="play-setup card-box">
         <h2 class="play-setup-title">Configurar sesión</h2>
         <p class="muted-text play-setup-sub">Elige el tipo de spot y los rangos antes de empezar a practicar.</p>

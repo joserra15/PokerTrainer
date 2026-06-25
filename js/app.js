@@ -166,6 +166,7 @@
     bindMobileNav();
     bindControls();
     bindPlaySetup();
+    bindHome();
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
@@ -173,11 +174,105 @@
       if (!window.Engine) throw new Error('Motor no cargado');
       setPlayBoot(false);
       showPlaySetup();
+      goToTab('home');
     } catch (e) {
       console.error('[Play] init failed', e);
       setPlayBoot(true, 'Error al cargar. Recarga la página.');
     }
     refreshSessionUI();
+  }
+
+  function firstNameFromUser(user) {
+    if (!user || !user.name) return '';
+    const n = String(user.name).trim();
+    if (!n) return '';
+    return n.split(/\s+/)[0];
+  }
+
+  function renderHome() {
+    const greetEl = $('#home-greeting');
+    const statsEl = $('#home-stats');
+    if (!greetEl || !statsEl) return;
+
+    const user = window.PT_AUTH_USER;
+    const first = firstNameFromUser(user);
+    greetEl.textContent = first ? ('¡Hola, ' + first + '!') : 'Bienvenido al felt';
+
+    const st = Store.getStats();
+    const errs = Store.getErrors();
+    const hist = Store.getHistory();
+    const decisions = st.decisions || 0;
+    const accuracy = decisions
+      ? Math.round((((st.optima || 0) + (st.aceptable || 0)) / decisions) * 100)
+      : null;
+
+    statsEl.innerHTML = [
+      { val: st.handsPlayed || 0, lbl: 'Manos entrenadas', cls: '' },
+      { val: accuracy != null ? accuracy + '%' : '—', lbl: 'Acierto global', cls: 'accent' },
+      { val: errs.length, lbl: 'Errores a repasar', cls: errs.length ? 'warn' : '' },
+      { val: hist.length, lbl: 'En histórico', cls: '' }
+    ].map((s) =>
+      '<div class="home-stat ' + s.cls + '"><span class="val">' + escapeHtml(String(s.val)) + '</span><span class="lbl">' + escapeHtml(s.lbl) + '</span></div>'
+    ).join('');
+
+    const errBadge = document.querySelector('[data-home-badge="errors"]');
+    if (errBadge) {
+      const existing = errBadge.parentElement.querySelector('.home-card-badge');
+      if (existing) existing.remove();
+      if (errs.length > 0) {
+        const b = document.createElement('span');
+        b.className = 'home-card-badge';
+        b.textContent = errs.length > 99 ? '99+' : String(errs.length);
+        errBadge.parentElement.appendChild(b);
+      }
+    }
+  }
+
+  function bindHome() {
+    const brand = $('#brand-home');
+    if (brand) brand.addEventListener('click', () => goToTab('home'));
+
+    const cta = $('#home-cta-play');
+    if (cta) cta.addEventListener('click', () => goToTab('play', { setup: true }));
+
+    const grid = $('#home-grid');
+    if (grid) {
+      grid.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-go-tab]');
+        if (!card) return;
+        const tab = card.dataset.goTab;
+        if (tab === 'play') goToTab('play', { setup: true });
+        else goToTab(tab);
+      });
+    }
+
+    window.addEventListener('pt-auth-bootstrap', () => renderHome());
+    window.addEventListener('pt-auth-ready', () => renderHome());
+    window.addEventListener('pt-cloud-synced', () => {
+      if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();
+    });
+  }
+
+  function goToTab(tabId, opts) {
+    opts = opts || {};
+    $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tabId));
+    $$('.tab-panel').forEach((x) => x.classList.remove('active'));
+    const panel = $('#tab-' + tabId);
+    if (panel) panel.classList.add('active');
+    if (isMobileLayout()) closeMobileNav();
+
+    if (tabId === 'home') renderHome();
+    if (tabId === 'play') {
+      const active = $('#play-active');
+      const inTable = active && !active.classList.contains('hidden') && !opts.setup;
+      if (opts.table || inTable) showPlayTable();
+      else showPlaySetup();
+    }
+    if (tabId === 'history') renderHistory();
+    if (tabId === 'errors') renderErrors();
+    if (tabId === 'stats') renderStats();
+    if (tabId === 'ranges') renderRangesExplorer();
+    if (tabId === 'sessions') { showSessionsView('home'); renderSessionsList(); }
   }
 
   function isMobileLayout() {
@@ -258,16 +353,8 @@
   function bindTabs() {
     $$('.tab').forEach((t) => t.addEventListener('click', () => {
       const tabId = t.dataset.tab;
-      $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tabId));
-      $$('.tab-panel').forEach((x) => x.classList.remove('active'));
-      const panel = $('#tab-' + tabId);
-      if (panel) panel.classList.add('active');
-      if (isMobileLayout()) closeMobileNav();
-      if (t.dataset.tab === 'history') renderHistory();
-      if (t.dataset.tab === 'errors') renderErrors();
-      if (t.dataset.tab === 'stats') renderStats();
-      if (t.dataset.tab === 'ranges') renderRangesExplorer();
-      if (t.dataset.tab === 'sessions') { showSessionsView('home'); renderSessionsList(); }
+      if (tabId === 'play') goToTab('play', { table: $('#play-active') && !$('#play-active').classList.contains('hidden') });
+      else goToTab(tabId);
     }));
   }
 
@@ -355,6 +442,7 @@
       playSessionConfig = null;
       showPlaySetup();
       hand = null;
+      goToTab('home');
     }
   }
 
@@ -1277,11 +1365,7 @@
   }
 
   function goToPlay() {
-    $$('.tab').forEach((x) => x.classList.remove('active'));
-    $$('.tab-panel').forEach((x) => x.classList.remove('active'));
-    $('.tab[data-tab="play"]').classList.add('active');
-    $('#tab-play').classList.add('active');
-    showPlayTable();
+    goToTab('play', { table: true });
   }
 
   function worstClass(decisions) {
