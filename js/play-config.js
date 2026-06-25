@@ -1,0 +1,324 @@
+/*
+ * play-config.js — Configuración de sesión de entrenamiento preflop.
+ */
+(function (global) {
+  'use strict';
+
+  const N = global.GTORangesNotation;
+  const D = global.GTORangesData;
+  const W = global.GTORangesWeights;
+  const Eq = global.GTOEquity;
+
+  const POS_6 = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const POS_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const RFI_POS_6 = ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
+  const RFI_POS_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB'];
+
+  /** Posición de mesa 6-max usada por el motor para rangos y acción. */
+  const POS_9_TO_ENGINE = {
+    UTG: 'UTG', UTG1: 'UTG', UTG2: 'HJ', LJ: 'HJ', HJ: 'CO', CO: 'CO', BTN: 'BTN', SB: 'SB', BB: 'BB'
+  };
+
+  const SQUEEZE_COMBOS = [
+    { heroPos: 'BB', openerPos: 'CO', callerPos: 'BTN' },
+    { heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO' },
+    { heroPos: 'SB', openerPos: 'UTG', callerPos: 'CO' },
+    { heroPos: 'BTN', openerPos: 'UTG', callerPos: 'HJ' },
+    { heroPos: 'BTN', openerPos: 'HJ', callerPos: 'CO' }
+  ];
+
+  const DEFAULT = {
+    gameType: 'cash6',
+    scenario: 'random',
+    heroPos: 'random',
+    handRange: 'playable'
+  };
+
+  const OPEN_RAISE_MTT = {
+    UTG: { raise: '77+, ATs+, KQs, AJo+, KQo', mix: '66, A5s-A2s, KJs, QJs' },
+    HJ: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, K9s, Q9s, 98s' },
+    CO: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, K9o' },
+    BTN: { raise: '44+, A2s+, K7s+, Q8s+, J8s+, T8s+, 97s+, 87s, 76s, A7o+, K9o+, Q9o+, J9o+', mix: '33, 65s, A5o-A2o' },
+    SB: { raise: '55+, A5s+, K8s+, Q9s+, J9s+, T9s, 98s, A8o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, JTo' }
+  };
+
+  function normalize(config) {
+    const c = Object.assign({}, DEFAULT, config || {});
+    if (!c.gameType) c.gameType = 'cash6';
+    if (!c.scenario) c.scenario = 'random';
+    if (!c.heroPos) c.heroPos = 'random';
+    if (!c.handRange) c.handRange = 'random';
+    return c;
+  }
+
+  function is9Max(config) {
+    return config.gameType === 'cash9' || config.gameType === 'mtt';
+  }
+
+  function isMtt(config) {
+    return config.gameType === 'mtt';
+  }
+
+  function heroPositions(config) {
+    const c = normalize(config);
+    if (c.scenario === 'rfi') return is9Max(c) ? RFI_POS_9.slice() : RFI_POS_6.slice();
+    return is9Max(c) ? POS_9.slice() : POS_6.slice();
+  }
+
+  function enginePos(displayPos) {
+    return POS_9_TO_ENGINE[displayPos] || displayPos;
+  }
+
+  function openRaiseTable(config) {
+    return isMtt(config) ? OPEN_RAISE_MTT : D.OPEN_RAISE;
+  }
+
+  function vsRfiTable(config) {
+    return D.VS_RFI;
+  }
+
+  function vsKeys() {
+    return Object.keys(D.VS_RFI);
+  }
+
+  function filterWeights(weights, mode) {
+    const out = {};
+    const m = mode === 'all' ? 'random' : mode;
+    Object.keys(weights || {}).forEach((code) => {
+      const w = weights[code];
+      if (m === 'random' && w > 0) out[code] = w;
+      else if (m === 'playable' && w >= 1) out[code] = w;
+      else if (m === 'borderline' && w > 0 && w < 1) out[code] = w;
+    });
+    if (!Object.keys(out).length && m === 'borderline') {
+      return filterWeights(weights, 'playable');
+    }
+    if (!Object.keys(out).length && m === 'playable') {
+      return filterWeights(weights, 'random');
+    }
+    return out;
+  }
+
+  function weightsToRangeStr(weights) {
+    if (!W) return '';
+    return W.rangeString(weights);
+  }
+
+  function sampleFromWeights(weights, dead, rnd) {
+    if (!Eq || !Eq.sampleHandFromRange) return null;
+    const filtered = filterWeights(weights, 'random');
+    const rangeStr = weightsToRangeStr(filtered);
+    if (!rangeStr) return null;
+    return Eq.sampleHandFromRange(rangeStr, dead || [], rnd);
+  }
+
+  function sampleHeroWeights(scenario, config) {
+    const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'playable');
+    const engHero = scenario.engineHeroPos || scenario.heroPos || parseVsKey(scenario.key).hero;
+
+    if (scenario.type === 'RFI') {
+      const pos = enginePos(scenario.heroPos);
+      const data = openRaiseTable(config)[pos];
+      if (!data) return {};
+      return filterWeights(W.fromSets({ raise: data.raise, mix: data.mix }), mode);
+    }
+    if (scenario.type === 'vsRFI' || scenario.type === 'face4bet') {
+      const data = vsRfiTable(config)[scenario.key];
+      if (!data) return {};
+      return filterWeights(W.fromSets({
+        threeBet: data.threeBet,
+        threeBetMix: data.threeBetMix,
+        call: data.call,
+        callMix: data.callMix
+      }), mode);
+    }
+    if (scenario.type === 'squeeze') {
+      const data = D.SQUEEZE;
+      if (data) {
+        return filterWeights(W.fromSets({ raise: data.raise, call: data.call, callMix: data.callMix }), mode);
+      }
+    }
+    return {};
+  }
+
+  function sampleVillainWeights(scenario, config) {
+    if (scenario.type === 'RFI' || scenario.type === 'face4bet') return {};
+    let opener = scenario.openerPos;
+    if (!opener && scenario.key) opener = parseVsKey(scenario.key).opener;
+    if (!opener) return {};
+    const data = openRaiseTable(config)[enginePos(opener)] || openRaiseTable(config)[opener];
+    if (!data) return {};
+    return W.fromSets({ raise: data.raise, mix: data.mix });
+  }
+
+  /** BB defiende open del héroe (call / 3-bet según VS_RFI). */
+  function sampleRfiDefenderWeights(scenario) {
+    if (scenario.type !== 'RFI') return {};
+    const heroEng = scenario.engineHeroPos || enginePos(scenario.heroPos);
+    if (!heroEng || heroEng === 'BB') return {};
+    const key = 'BB_vs_' + heroEng;
+    const d = D.VS_RFI[key];
+    if (!d) return {};
+    return W.fromSets({
+      threeBet: d.threeBet,
+      threeBetMix: d.threeBetMix,
+      call: d.call,
+      callMix: d.callMix
+    });
+  }
+
+  /** Abridor que 4-betea tras el 3-bet del héroe. */
+  function sampleFace4betVillainWeights() {
+    const data = D.VS_3BET;
+    if (!data) return {};
+    return W.fromSets({ fourBet: data.fourBet });
+  }
+
+  function face4betVillainRangeStr() {
+    const data = D.VS_3BET;
+    return data ? data.fourBet : 'QQ+, AKs, AKo';
+  }
+
+  /** Pagador en squeeze: rango de call, no cartas aleatorias. */
+  function sampleCallerWeights(scenario) {
+    if (scenario.type !== 'squeeze' || !scenario.callerPos) return {};
+    const data = D.SQUEEZE;
+    if (!data) return {};
+    return W.fromSets({ call: data.call, callMix: data.callMix });
+  }
+
+  /** Jugadores extra en 9-max/MTT no modelados en el motor 6-max. */
+  function extra9MaxPlayerCount() {
+    return POS_9.length - POS_6.length;
+  }
+
+  /**
+   * Asientos que reciben mano del rango del spot (héroe + villanos implicados).
+   * El resto de asientos del motor se rellenan al azar del mazo restante.
+   */
+  function getScenarioDeals(scenario, config) {
+    const deals = [];
+    const heroEng = scenario.engineHeroPos
+      || (scenario.type === 'RFI' ? enginePos(scenario.heroPos) : null)
+      || ((scenario.type === 'vsRFI' || scenario.type === 'face4bet') ? parseVsKey(scenario.key).hero : scenario.heroPos);
+
+    if (heroEng) {
+      deals.push({ pos: heroEng, weights: sampleHeroWeights(scenario, config), role: 'hero' });
+    }
+    if (scenario.type === 'vsRFI') {
+      const opener = parseVsKey(scenario.key).opener;
+      deals.push({ pos: opener, weights: sampleVillainWeights(scenario, config), role: 'opener' });
+    } else if (scenario.type === 'face4bet') {
+      const opener = parseVsKey(scenario.key).opener;
+      deals.push({ pos: opener, weights: sampleFace4betVillainWeights(), role: 'fourBettor' });
+    } else if (scenario.type === 'squeeze') {
+      deals.push({ pos: scenario.openerPos, weights: sampleVillainWeights(scenario, config), role: 'opener' });
+      deals.push({ pos: scenario.callerPos, weights: sampleCallerWeights(scenario), role: 'caller' });
+    } else if (scenario.type === 'RFI') {
+      const heroEng = scenario.engineHeroPos || enginePos(scenario.heroPos);
+      if (heroEng && heroEng !== 'BB') {
+        deals.push({ pos: 'BB', weights: sampleRfiDefenderWeights(scenario), role: 'defender' });
+      }
+    }
+    return deals;
+  }
+
+  function parseVsKey(key) {
+    const parts = key.split('_');
+    return { hero: parts[0], opener: parts[2] };
+  }
+
+  function matchHeroPos(scenario, filterPos, config) {
+    if (!filterPos || filterPos === 'random') return true;
+    const eng = enginePos(filterPos);
+    if (scenario.type === 'RFI') {
+      return enginePos(scenario.heroPos) === eng || scenario.heroPos === filterPos;
+    }
+    if (scenario.type === 'vsRFI' || scenario.type === 'face4bet') {
+      const h = parseVsKey(scenario.key).hero;
+      return h === eng || h === filterPos;
+    }
+    if (scenario.type === 'squeeze') {
+      return scenario.heroPos === eng || scenario.heroPos === filterPos;
+    }
+    return true;
+  }
+
+  function applyHeroPosFilter(scenario, filterPos, config) {
+    if (!filterPos || filterPos === 'random') return scenario;
+    if (scenario.type === 'RFI') {
+      scenario.heroPos = filterPos;
+      scenario.engineHeroPos = enginePos(filterPos);
+    } else if (scenario.type === 'vsRFI' || scenario.type === 'face4bet') {
+      const pk = parseVsKey(scenario.key);
+      const eng = enginePos(filterPos);
+      scenario.key = eng + '_vs_' + pk.opener;
+      scenario.displayHeroPos = filterPos;
+      scenario.engineHeroPos = eng;
+    } else if (scenario.type === 'squeeze') {
+      scenario.heroPos = filterPos;
+      scenario.engineHeroPos = enginePos(filterPos);
+    }
+    return scenario;
+  }
+
+  function buildScenarioPool(config) {
+    const pool = [];
+    const sc = config.scenario || 'random';
+    const types = sc === 'random' ? ['RFI', 'vsRFI', 'squeeze', 'face4bet'] : [mapScenarioType(sc)];
+    const rfiPos = is9Max(config) ? RFI_POS_9 : RFI_POS_6;
+
+    types.forEach((type) => {
+      if (type === 'RFI') {
+        rfiPos.forEach((p) => {
+          pool.push({ type: 'RFI', heroPos: p, engineHeroPos: enginePos(p) });
+        });
+      } else if (type === 'vsRFI') {
+        vsKeys().forEach((key) => pool.push({ type: 'vsRFI', key: key }));
+      } else if (type === 'squeeze') {
+        SQUEEZE_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'squeeze' }, c)));
+      } else if (type === 'face4bet') {
+        vsKeys().forEach((key) => pool.push({ type: 'face4bet', key: key }));
+      }
+    });
+    return pool;
+  }
+
+  function mapScenarioType(sc) {
+    if (sc === 'rfi') return 'RFI';
+    if (sc === '3bet') return 'vsRFI';
+    if (sc === '4bet') return 'face4bet';
+    if (sc === 'squeeze') return 'squeeze';
+    return 'RFI';
+  }
+
+  function pickScenario(config, forceKey) {
+    if (forceKey && forceKey.type) return forceKey;
+    const cfg = normalize(config);
+    let pool = buildScenarioPool(cfg);
+    if (cfg.heroPos && cfg.heroPos !== 'random') {
+      pool = pool.filter((s) => matchHeroPos(s, cfg.heroPos, cfg));
+    }
+    if (!pool.length) pool = buildScenarioPool(cfg);
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    return applyHeroPosFilter(Object.assign({}, picked), cfg.heroPos, cfg);
+  }
+
+  function labelFor(config) {
+    const c = normalize(config);
+    const gt = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' }[c.gameType] || c.gameType;
+    const sc = { random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', '4bet': '4-Bet', squeeze: 'Squeeze' }[c.scenario] || c.scenario;
+    const hr = { random: 'Todas', playable: 'Jugables', borderline: 'Borderline', all: 'Todas' }[c.handRange] || c.handRange;
+    const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
+    return gt + ' · ' + sc + ' · ' + hr + ' · ' + pos;
+  }
+
+  global.PTPlayConfig = {
+    DEFAULT, normalize, pickScenario, labelFor,
+    sampleHeroWeights, sampleVillainWeights, sampleRfiDefenderWeights,
+    sampleFace4betVillainWeights, face4betVillainRangeStr,
+    sampleCallerWeights, sampleFromWeights,
+    getScenarioDeals, extra9MaxPlayerCount,
+    is9Max, isMtt, heroPositions, enginePos, parseVsKey, filterWeights
+  };
+})(window);

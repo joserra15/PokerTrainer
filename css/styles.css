@@ -585,6 +585,33 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 }
 
 /* Móvil grande / tablet pequeña */
+/* ===== Configuración sesión de entrenamiento ===== */
+.play-setup {
+  max-width: 520px; margin: 0 auto 20px; padding: 20px 22px;
+}
+.play-setup-title { margin: 0 0 6px; font-size: 22px; }
+.play-setup-sub { margin: 0 0 18px; font-size: 14px; }
+.setup-group { margin-bottom: 18px; }
+.setup-label {
+  display: block; font-size: 11px; font-weight: 700; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+}
+.setup-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.setup-chips-wrap { gap: 6px; }
+.setup-chip {
+  border: 1px solid var(--border); background: rgba(255,255,255,.04);
+  color: var(--text); border-radius: 999px; padding: 7px 14px;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: .15s;
+}
+.setup-chip:hover { border-color: rgba(245,196,81,.45); }
+.setup-chip.active {
+  background: var(--gold); border-color: var(--gold); color: #1a1200;
+}
+.setup-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.4; }
+.play-start-btn { margin-top: 8px; padding: 14px; font-size: 16px; }
+.play-active.hidden { display: none; }
+.play-session-label { margin: -4px 0 10px; font-size: 12px; line-height: 1.35; }
+
 @media (max-width: 680px) {
   .header-bar {
     padding: 8px 12px; min-height: 56px;

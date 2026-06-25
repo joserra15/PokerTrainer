@@ -443,11 +443,16 @@
   // Rango aproximado con el que un rival hace limp (pasivo/débil)
   const LIMP_RANGE = '22-99, A2s-A9s, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ATo-AJo, KJo, QJo, JTo';
 
-  function pickScenario(forceKey) {
+  function pickScenario(forceKey, playConfig) {
+    const PC = global.PTPlayConfig;
+    if (!forceKey && PC && playConfig) {
+      return PC.pickScenario(playConfig, null);
+    }
     if (forceKey && forceKey.type === 'vsRFI') return { type: 'vsRFI', key: forceKey.key };
     if (forceKey && forceKey.type === 'RFI') return { type: 'RFI', heroPos: forceKey.heroPos };
     if (forceKey && forceKey.type === 'squeeze') return { type: 'squeeze', heroPos: forceKey.heroPos, openerPos: forceKey.openerPos, callerPos: forceKey.callerPos };
     if (forceKey && forceKey.type === 'isoLimp') return { type: 'isoLimp', heroPos: forceKey.heroPos, limperPos: forceKey.limperPos };
+    if (forceKey && forceKey.type === 'face4bet') return { type: 'face4bet', key: forceKey.key };
     const roll = Math.random();
     if (roll < 0.32) {
       return { type: 'RFI', heroPos: RFI_POS[Math.floor(Math.random() * RFI_POS.length)] };
@@ -461,33 +466,97 @@
     return Object.assign({ type: 'isoLimp' }, ISO_COMBOS[Math.floor(Math.random() * ISO_COMBOS.length)]);
   }
 
+  function scenarioHeroPos(hand) {
+    const s = hand.scenario;
+    if (!s) return hand.hero.pos;
+    if (s.engineHeroPos) return s.engineHeroPos;
+    if (s.type === 'vsRFI' || s.type === 'face4bet') return parseVsKey(s.key).hero;
+    return s.heroPos;
+  }
+
+  function dealForPlayConfig(scenario, playConfig) {
+    const PC = global.PTPlayConfig;
+    const holeCards = {};
+    DEAL_ORDER.forEach(function (pos) { holeCards[pos] = null; });
+    let dead = [];
+
+    const deals = PC ? PC.getScenarioDeals(scenario, playConfig) : [];
+    deals.forEach(function (d) {
+      if (!d.pos) return;
+      const cards = PC.sampleFromWeights(d.weights, dead, C.rng.random);
+      if (cards) {
+        holeCards[d.pos] = cards;
+        dead = dead.concat(cards);
+      }
+    });
+
+    const heroEng = scenario.engineHeroPos
+      || (scenario.type === 'RFI' ? (PC ? PC.enginePos(scenario.heroPos) : scenario.heroPos) : null)
+      || ((scenario.type === 'vsRFI' || scenario.type === 'face4bet') ? parseVsKey(scenario.key).hero : scenario.heroPos);
+    if (!holeCards[heroEng] || holeCards[heroEng].length < 2) {
+      const heroWeights = PC ? PC.sampleHeroWeights(scenario, playConfig) : {};
+      let heroCards = PC ? PC.sampleFromWeights(heroWeights, dead, C.rng.random) : null;
+      if (!heroCards) heroCards = sampleHandFromRange('22+, A2s+, K9s+, AJo+', dead, C.rng.random);
+      holeCards[heroEng] = heroCards;
+      dead = dead.concat(heroCards);
+    }
+
+    if (PC && PC.is9Max(playConfig)) {
+      const burn = PC.extra9MaxPlayerCount();
+      let burnDeck = C.shuffledDeckExcluding(dead);
+      for (let i = 0; i < burn && burnDeck.length >= 2; i++) {
+        dead.push(burnDeck.pop(), burnDeck.pop());
+      }
+    }
+
+    const deck = C.shuffledDeckExcluding(dead);
+    DEAL_ORDER.forEach(function (pos) {
+      if (!holeCards[pos] || holeCards[pos].length < 2) {
+        holeCards[pos] = [deck.pop(), deck.pop()];
+      }
+    });
+    const board = [];
+    while (board.length < 5 && deck.length) board.push(deck.pop());
+    return {
+      holeCards: holeCards,
+      board: board,
+      displayHeroPos: scenario.heroPos !== heroEng ? scenario.heroPos : null
+    };
+  }
+
   function parseVsKey(key) {
     const [hero, , opener] = key.split('_'); // HERO_vs_OPENER
     return { hero, opener };
   }
 
   // ---------- Crear una mano ----------
-  function newHand(force) {
-    const scenario = pickScenario(force);
-    // semilla: si viene en `force` se reproduce la misma mano; si no, una nueva
+  function newHand(force, playConfig) {
+    const scenario = pickScenario(force, playConfig);
     const seed = (force && force.seed != null) ? (force.seed >>> 0) : (Math.floor(Math.random() * 2147483647) >>> 0);
     C.rng.setSeed(seed);
 
-    const dealt = dealFullTable();
+    const useConfigDeal = playConfig && !force && global.PTPlayConfig;
+    const dealt = useConfigDeal ? dealForPlayConfig(scenario, playConfig) : dealFullTable();
     const holeCards = dealt.holeCards;
     const board = dealt.board;
 
     // rango y posición del villano (mano concreta = reparto de su asiento)
     let vRange, vPos;
     if (scenario.type === 'RFI') {
+      const hp = scenario.engineHeroPos
+        || (global.PTPlayConfig ? global.PTPlayConfig.enginePos(scenario.heroPos) : scenario.heroPos);
       vPos = 'BB';
-      vRange = rfiDefendRange(scenario.heroPos);
+      vRange = rfiDefendRange(hp);
     } else if (scenario.type === 'squeeze') {
       vPos = scenario.openerPos;
       vRange = R.OPEN_RAISE[scenario.openerPos].raise + ', ' + R.OPEN_RAISE[scenario.openerPos].mix;
     } else if (scenario.type === 'isoLimp') {
       vPos = scenario.limperPos;
       vRange = LIMP_RANGE;
+    } else if (scenario.type === 'face4bet') {
+      const pk = parseVsKey(scenario.key);
+      vPos = pk.opener;
+      vRange = global.PTPlayConfig ? global.PTPlayConfig.face4betVillainRangeStr() : R.VS_3BET.fourBet;
     } else {
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
@@ -497,8 +566,10 @@
     const hand = {
       id: 'h' + Date.now() + Math.floor(Math.random() * 1000),
       createdAt: new Date().toISOString(),
-      seed,
-      scenario,
+      seed: seed,
+      scenario: scenario,
+      playConfig: playConfig || null,
+      displayHeroPos: dealt.displayHeroPos || null,
       hero: { cards: [], code: null, pos: null },
       villain: { cards: null, rangeStr: null, pos: null, profileId: null, profileLabel: null, profileShort: null },
       table: initTableState(holeCards),
@@ -520,6 +591,7 @@
     if (scenario.type === 'RFI') setupRFI(hand);
     else if (scenario.type === 'squeeze') setupSqueeze(hand);
     else if (scenario.type === 'isoLimp') setupIsoLimp(hand);
+    else if (scenario.type === 'face4bet') setupFace4betInitial(hand);
     else setupVsRFI(hand);
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
@@ -530,8 +602,9 @@
   function inPos(a, b) { return POSTFLOP_ORDER.indexOf(a) > POSTFLOP_ORDER.indexOf(b); }
 
   function setupRFI(hand) {
-    const pos = hand.scenario.heroPos;
+    const pos = scenarioHeroPos(hand);
     hand.hero.pos = pos;
+    const displayPos = hand.displayHeroPos || hand.scenario.heroPos || pos;
     const openSize = pos === 'SB' ? SB_OPEN : OPEN;
     // pot inicial con ciegas
     hand.potBB = SB + BBET;
@@ -548,7 +621,7 @@
         { id: 'raise', label: `Subir a ${openSize}bb` }
       ],
       gto: freqs,
-      context: `Eres ${pos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`
+      context: `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`
     };
     markFoldedBeforeHeroRFI(hand);
   }
@@ -602,7 +675,9 @@
   }
 
   function setupSqueeze(hand) {
-    const { heroPos, openerPos, callerPos } = hand.scenario;
+    const heroPos = scenarioHeroPos(hand);
+    const displayHero = hand.displayHeroPos || hand.scenario.heroPos || heroPos;
+    const { openerPos, callerPos } = hand.scenario;
     hand.hero.pos = heroPos;
     hand.villain.pos = openerPos;
     hand.villain.rangeStr = R.OPEN_RAISE[openerPos].raise + ', ' + R.OPEN_RAISE[openerPos].mix;
@@ -626,7 +701,7 @@
         { id: 'raise', label: `Squeeze a ${squeezeSize}bb` }
       ],
       gto: freqs,
-      context: `Eres ${heroPos}. ${openerPos} abre a ${openSize}bb y ${callerPos} paga. ¿Fold, call o squeeze (3-bet)?`
+      context: `Eres ${displayHero}. ${openerPos} abre a ${openSize}bb y ${callerPos} paga. ¿Fold, call o squeeze (3-bet)?`
     };
     setVillainAct(hand, 'open', openSize);
     addInvest(hand, openerPos, openSize);
@@ -916,6 +991,30 @@
       hand.heroInPosition = inPos(hero, opener);
       return goFlop(hand);
     }
+  }
+
+  function setupFace4betInitial(hand) {
+    const { hero, opener } = parseVsKey(hand.scenario.key);
+    hand.hero.pos = hero;
+    hand.villain.pos = opener;
+    hand.villain.rangeStr = global.PTPlayConfig
+      ? global.PTPlayConfig.face4betVillainRangeStr()
+      : R.VS_3BET.fourBet;
+    initVillainTracker(hand);
+    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const threeBetSize = inPos(hero, opener) ? round2(openSize * 3) : round2(openSize * 4);
+    const fourBetSize = round2(threeBetSize * 2.3);
+    const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
+    hand.heroInvested = threeBetSize;
+    hand.villainInvested = fourBetSize;
+    hand.potBB = round2(threeBetSize + fourBetSize + SB);
+    hand.heroIsAggressor = true;
+    setVillainAct(hand, 'raise', fourBetSize);
+    addInvest(hand, opener, fourBetSize);
+    setPreflopSeatBet(hand, opener, fourBetSize);
+    setSeatAction(hand, hero, 'raise', threeBetSize);
+    markPreflopFoldsForFacingAction(hand, opener);
+    setupFace4Bet(hand, fourBetSize);
   }
 
   function setupFace3Bet(hand, tbSize) {

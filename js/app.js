@@ -57,17 +57,98 @@
     el.classList.toggle('hidden', !visible);
   }
 
+  let playSessionConfig = null;
+
+  function showPlaySetup() {
+    const setup = $('#play-setup');
+    const active = $('#play-active');
+    if (setup) setup.classList.remove('hidden');
+    if (active) active.classList.add('hidden');
+  }
+
+  function showPlayTable() {
+    const setup = $('#play-setup');
+    const active = $('#play-active');
+    if (setup) setup.classList.add('hidden');
+    if (active) active.classList.remove('hidden');
+  }
+
+  function readPlayConfig() {
+    const PC = window.PTPlayConfig;
+    if (!PC) return null;
+    const gtEl = $('#setup-game-type .setup-chip.active');
+    const scEl = $('#setup-scenario .setup-chip.active');
+    const posEl = $('#setup-hero-pos .setup-chip.active');
+    const hrEl = $('#setup-hand-range .setup-chip.active');
+    return PC.normalize({
+      gameType: gtEl ? gtEl.dataset.val : 'cash6',
+      scenario: scEl ? scEl.dataset.val : 'random',
+      heroPos: posEl ? posEl.dataset.val : 'random',
+      handRange: hrEl ? hrEl.dataset.val : 'playable'
+    });
+  }
+
+  function bindChipGroup(sel, onChange) {
+    const box = $(sel);
+    if (!box) return;
+    box.addEventListener('click', (e) => {
+      const chip = e.target.closest('.setup-chip');
+      if (!chip || !box.contains(chip)) return;
+      box.querySelectorAll('.setup-chip').forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+      if (onChange) onChange();
+    });
+  }
+
+  function renderHeroPosChips() {
+    const box = $('#setup-hero-pos');
+    const PC = window.PTPlayConfig;
+    if (!box || !PC) return;
+    const cfg = readPlayConfig();
+    const positions = PC.heroPositions(cfg);
+    const current = box.querySelector('.setup-chip.active');
+    const curVal = current ? current.dataset.val : 'random';
+    let html = '<button type="button" class="setup-chip' + (curVal === 'random' ? ' active' : '') + '" data-val="random">Random</button>';
+    positions.forEach((p) => {
+      html += '<button type="button" class="setup-chip' + (curVal === p ? ' active' : '') + '" data-val="' + p + '">' + p + '</button>';
+    });
+    box.innerHTML = html;
+    box.querySelectorAll('.setup-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        box.querySelectorAll('.setup-chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+    });
+  }
+
+  function bindPlaySetup() {
+    bindChipGroup('#setup-game-type', renderHeroPosChips);
+    bindChipGroup('#setup-scenario', renderHeroPosChips);
+    bindChipGroup('#setup-hand-range');
+    const startBtn = $('#play-start');
+    if (startBtn) {
+      startBtn.addEventListener('click', () => {
+        playSessionConfig = readPlayConfig();
+        resetPlaySession(false);
+        showPlayTable();
+        startNewHand();
+      });
+    }
+    renderHeroPosChips();
+  }
+
   function init() {
     bindTabs();
     bindMobileNav();
     bindControls();
+    bindPlaySetup();
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
     try {
       if (!window.Engine) throw new Error('Motor no cargado');
-      startNewHand();
       setPlayBoot(false);
+      showPlaySetup();
     } catch (e) {
       console.error('[Play] init failed', e);
       setPlayBoot(true, 'Error al cargar. Recarga la página.');
@@ -241,12 +322,16 @@
     });
   }
 
-  function resetPlaySession() {
+  function resetPlaySession(showSetup) {
     session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, byStreet: emptyByStreet() };
     refreshSessionUI();
     $('#hand-log').innerHTML = '';
     pendingForce = null;
-    startNewHand();
+    if (showSetup !== false) {
+      playSessionConfig = null;
+      showPlaySetup();
+      hand = null;
+    }
   }
 
   // ---------- Nueva mano ----------
@@ -260,7 +345,8 @@
         force = sc ? Object.assign({}, sc, { seed: e.seed }) : null;
       }
     }
-    hand = Engine.newHand(force || undefined);
+    const cfg = force ? null : playSessionConfig;
+    hand = Engine.newHand(force || undefined, cfg);
     pendingForce = null;
     $('#feedback').classList.add('hidden');
     $('#hand-log').innerHTML = '';
@@ -292,7 +378,7 @@
     if (hand && Engine.syncTableInvested) Engine.syncTableInvested(hand);
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
     const pot = hand.current ? hand.current.potBB : hand.potBB;
-    $('#hero-pos').textContent = hand.hero.pos;
+    $('#hero-pos').textContent = hand.displayHeroPos || hand.hero.pos;
     $('#pot').innerHTML = '<span class="pot-chips"><span class="chip-ico"></span></span> Bote: ' + (pot != null ? fmt(pot) : '-') + ' bb';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardToHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
@@ -951,6 +1037,16 @@
     $('#s-acc').textContent = acc;
     const streetBox = $('#s-street-acc');
     if (streetBox) streetBox.innerHTML = renderStreetAccBars(session.byStreet);
+    const sessLbl = $('#play-session-label');
+    if (sessLbl) {
+      if (playSessionConfig && window.PTPlayConfig) {
+        sessLbl.textContent = PTPlayConfig.labelFor(playSessionConfig);
+        sessLbl.classList.remove('hidden');
+      } else {
+        sessLbl.classList.add('hidden');
+        sessLbl.textContent = '';
+      }
+    }
   }
 
   function renderStreetAccBars(byStreet) {
@@ -1117,6 +1213,7 @@
     $$('.tab-panel').forEach((x) => x.classList.remove('active'));
     $('.tab[data-tab="play"]').classList.add('active');
     $('#tab-play').classList.add('active');
+    showPlayTable();
   }
 
   function worstClass(decisions) {

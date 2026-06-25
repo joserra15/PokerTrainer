@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>GTO Poker Trainer · Cash NL 6-max</title>
-  <script src="js/version.js?v=1.9.0"></script>
+  <script src="js/version.js?v=1.18.1"></script>
   <link rel="stylesheet" href="css/styles.css" id="pt-css" />
   <script>document.getElementById('pt-css').href = 'css/styles.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
   <script src="js/google-config.js?v=1.9.0"></script>
@@ -91,6 +91,49 @@
   <main>
     <!-- ===== JUGAR ===== -->
     <section id="tab-play" class="tab-panel active">
+      <div id="play-setup" class="play-setup card-box">
+        <h2 class="play-setup-title">Configurar sesión</h2>
+        <p class="muted-text play-setup-sub">Elige el tipo de spot y los rangos antes de empezar a practicar.</p>
+
+        <div class="setup-group">
+          <span class="setup-label">Tipo de mesa</span>
+          <div class="setup-chips" id="setup-game-type">
+            <button type="button" class="setup-chip active" data-val="cash6">Cash 6-max</button>
+            <button type="button" class="setup-chip" data-val="cash9">Cash 9-max</button>
+            <button type="button" class="setup-chip" data-val="mtt">MTT</button>
+          </div>
+        </div>
+
+        <div class="setup-group">
+          <span class="setup-label">Escenario</span>
+          <div class="setup-chips" id="setup-scenario">
+            <button type="button" class="setup-chip active" data-val="random">Random</button>
+            <button type="button" class="setup-chip" data-val="rfi">RFI</button>
+            <button type="button" class="setup-chip" data-val="3bet">3-Bet</button>
+            <button type="button" class="setup-chip" data-val="4bet">4-Bet</button>
+            <button type="button" class="setup-chip" data-val="squeeze">Squeeze</button>
+          </div>
+        </div>
+
+        <div class="setup-group">
+          <span class="setup-label">Posición del héroe</span>
+          <div class="setup-chips setup-chips-wrap" id="setup-hero-pos"></div>
+        </div>
+
+        <div class="setup-group">
+          <span class="setup-label">Rango de manos</span>
+          <div class="setup-chips" id="setup-hand-range">
+            <button type="button" class="setup-chip active" data-val="playable">Jugables</button>
+            <button type="button" class="setup-chip" data-val="borderline">Borderline</button>
+            <button type="button" class="setup-chip" data-val="random">Random</button>
+          </div>
+          <p class="muted-text setup-hint">Jugables: manos que suelen ver flop. Borderline: límites del rango. Random: cualquier mano del spot.</p>
+        </div>
+
+        <button type="button" id="play-start" class="btn btn-primary btn-block play-start-btn">Empezar sesión</button>
+      </div>
+
+      <div id="play-active" class="play-active hidden">
       <div class="play-grid">
         <div class="table-wrap">
           <div id="play-boot" class="play-boot" aria-live="polite">
@@ -127,6 +170,7 @@
         <aside class="sidebar">
           <div class="card-box">
             <h3>Sesión</h3>
+            <p id="play-session-label" class="muted-text play-session-label hidden"></p>
             <div class="mini-stats">
               <div><span id="s-hands">0</span><label>Manos</label></div>
               <div><span id="s-net">0</span><label>Resultado (bb)</label></div>
@@ -150,6 +194,7 @@
           </div>
         </aside>
       </div>
+      </div><!-- #play-active -->
     </section>
 
     <!-- ===== RANGOS PREFLOP ===== -->
@@ -300,6 +345,7 @@
       'js/engine/evaluateSpot.js',
       'js/engine/villainProfiles.js',
       'js/ranges.js',
+      'js/play-config.js',
       'js/engine.js',
       'js/import.js',
       'js/range-matrix.js',
