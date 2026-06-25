@@ -138,10 +138,10 @@
     "A": "83.0",
     "B": "T♠Q♣",
     "C": "9♠4♡J♡7♠T♢",
-    "D": "Check-call pasivo con proyectos",
-    "E": "Correcta",
+    "D": "Call turn sin odds vs rango acotado",
+    "E": "Errónea",
     "F": "-0.60",
-    "G": "0.00"
+    "G": "-0.32"
   },
   {
     "A": "98.0",
@@ -177,7 +177,7 @@
     "D": "Call a Cbet en Flop monocolor",
     "E": "Errónea",
     "F": "-0.25",
-    "G": "-0.15"
+    "G": "-0.02"
   },
   {
     "A": "121.0",

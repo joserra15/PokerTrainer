@@ -312,7 +312,7 @@
     }
 
     let win = 0, tie = 0, n = 0;
-    const mc = Math.random;
+    const mc = (C && C.rng && C.rng.random) ? C.rng.random.bind(C.rng) : Math.random;
     const samplePool = filtered4.length ? filtered4 : (filtered.length ? filtered : null);
 
     for (let k = 0; k < iters; k++) {
