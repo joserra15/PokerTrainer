@@ -219,28 +219,48 @@ const nutRiver = Strat.probeStrategy({
 console.log('Nut straight river check%', Math.round(nutRiver.check * 100), '(expect <=20)');
 console.log('Nut straight river bet66%+', Math.round((nutRiver.bet_66 + nutRiver.bet_100) * 100), '(expect >=40)');
 
-const a6NutFlushBoard = ['8c', 'Kh', '9s', '7s', '4c'];
+const Cls = sandbox.window.GTOClassifier;
+const rec0 = Cls.reconcileWithEv('error', 'raise', 'fold', { actionEV: 0.5, bestEV: 0.5 }, { freq: 0, equity: 0.5 });
+const rec8 = Cls.reconcileWithEv('imprecisa', 'bet_33', 'check', { actionEV: 4, bestEV: 4 }, { freq: 0.08, equity: 0.72 });
+const recNuts = Cls.reconcileWithEv('error', 'bet_33', 'check', { actionEV: 4, bestEV: 4 }, { freq: 0.03, equity: 0.72, band: 'nuts' });
+console.log('Reconcile 0% freq', rec0.cls, '8%', rec8.cls, 'nuts', recNuts.cls, '(expect not optima / aceptable / optima)');
+if (rec0.cls === 'optima' || rec8.cls === 'optima') {
+  console.error('FAIL: low-freq EV tie must not become optima');
+  process.exit(1);
+}
+if (recNuts.cls !== 'optima') {
+  console.error('FAIL: nuts EV tie should stay optima');
+  process.exit(1);
+}
+
+const a6NutFlushBoard = ['8s', 'Kh', '9s', '7s', '2d'];
 const a6Hero = ['As', '6s'];
 const nutFlushRiverBet = GTO.evaluateSpot({
   street: 'river', board: a6NutFlushBoard, heroCards: a6Hero, handCode: 'A6s',
   potBB: 18, toCallBB: 0, chosenAction: 'bet_33', betSizeBB: 6,
   availableActions: ['check', 'bet_33', 'bet_66', 'bet_100'],
-  initiative: 'caller', inPosition: false, bbSizeEuro: 0.05
+  initiative: 'caller', inPosition: false, bbSizeEuro: 0.05,
+  heroEquity: 0.99,
+  handRank: { band: 'nuts', tier: 'strong', percentile: 0.99 },
+  madeHandInfo: { tier: 'strong', category: 5 }
 });
 const nutFlushRiverRaise = GTO.evaluateSpot({
   street: 'river', board: a6NutFlushBoard, heroCards: a6Hero, handCode: 'A6s',
   potBB: 28, toCallBB: 6, chosenAction: 'raise', betSizeBB: 6,
   availableActions: ['fold', 'call', 'raise'],
-  villainLastAction: 'raise', initiative: 'caller', inPosition: false, bbSizeEuro: 0.05
+  villainLastAction: 'raise', initiative: 'caller', inPosition: false, bbSizeEuro: 0.05,
+  heroEquity: 0.99,
+  handRank: { band: 'nuts', tier: 'strong', percentile: 0.99 },
+  madeHandInfo: { tier: 'strong', category: 5 }
 });
 console.log('Nut flush river bet class', nutFlushRiverBet.evaluation.class,
-  'raise class', nutFlushRiverRaise.evaluation.class, '(expect optima/aceptable, not error)');
+  'raise class', nutFlushRiverRaise.evaluation.class, '(bet: aceptable+, raise: not optima if low freq)');
 if (nutFlushRiverBet.evaluation.class === 'error' || nutFlushRiverBet.evaluation.class === 'imprecisa') {
   console.error('FAIL: nut flush river bet should not be error/imprecisa when EV ties');
   process.exit(1);
 }
-if (nutFlushRiverRaise.evaluation.class === 'error') {
-  console.error('FAIL: nut flush river raise should not be error when EV ties');
+if (nutFlushRiverRaise.evaluation.class === 'optima' && nutFlushRiverRaise.evaluation.frequency < 0.15) {
+  console.error('FAIL: low-freq raise should not be optima');
   process.exit(1);
 }
 

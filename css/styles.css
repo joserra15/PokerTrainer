@@ -242,6 +242,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 
 .board-area { text-align: center; z-index: 2; position: relative; }
 .villain-action-bar { display: none; min-height: 0; margin-bottom: 6px; justify-content: center; }
+.villain-action-bar.is-visible { display: flex; }
 .pot {
   display: inline-flex; align-items: center; gap: 8px;
   background: rgba(0,0,0,.45); color: var(--gold);
@@ -318,6 +319,10 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 
 /* ---- Actions ---- */
 .actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 18px; }
+.actions.actions-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  max-width: 420px; margin-left: auto; margin-right: auto;
+}
 .btn {
   border: none; border-radius: 9px; padding: 12px 20px; font-size: 15px; font-weight: 700;
   cursor: pointer; transition: .15s; color: #fff; background: var(--panel-2);
@@ -656,23 +661,36 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 
   .poker-table { padding: 4px; }
   .table-felt {
-    min-height: 340px; border-radius: 24px; padding: 10px 8px 12px;
-    border-width: 5px; gap: 6px;
+    min-height: 360px; border-radius: 50% / 42%; padding: 12px 10px 10px;
+    border-width: 5px; gap: 4px;
   }
   .seats { pointer-events: none; }
   .seat.hero { display: none; }
   .seat.villain .seat-act-wrap,
   .seat.caller .seat-act-wrap { display: flex; }
-  .villain-action-bar { display: none !important; }
-  .board-area {
-    margin-top: 2px; padding-top: 0; flex: 1;
-    display: flex; flex-direction: column; justify-content: center;
-    max-width: 72%; margin-left: auto; margin-right: auto;
+  .seat-top .seat-act-wrap,
+  .seat-edge-top .seat-act-wrap { display: none !important; }
+  .villain-action-bar.is-visible {
+    display: flex !important;
+    margin-bottom: 4px;
+    min-height: 24px;
+    flex-shrink: 0;
   }
+  .board-area {
+    margin-top: 0; padding-top: 0; flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+    align-items: center;
+    max-width: 78%; margin-left: auto; margin-right: auto;
+    position: relative; z-index: 5;
+  }
+  .board-area.has-villain-bar { padding-top: 2px; }
+  .board { position: relative; z-index: 6; }
   .seat {
-    min-width: 0; max-width: 78px; padding: 3px 5px; font-size: 9px;
+    min-width: 0; max-width: 70px; padding: 2px 4px; font-size: 9px;
     z-index: 3;
   }
+  .seat.seat-mini { max-width: 52px; padding: 2px 5px; border-radius: 8px; }
+  .seat.seat-mini .seat-pos { font-size: 9px; font-weight: 800; }
   .seat-edge-left { transform: translate(-8%, -50%); }
   .seat-edge-right { transform: translate(-92%, -50%); }
   .seat-edge-top { transform: translate(-50%, 2%); }
@@ -695,17 +713,25 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   .seat-chips-street { padding: 1px 5px; font-size: 8px; }
 
   .pot { font-size: 11px; padding: 3px 9px; margin-bottom: 6px; }
-  .hero-area { margin-top: 6px; padding-top: 2px; }
-  .hero-label { margin-bottom: 3px; font-size: 11px; }
-  .action-badge-wrap { min-height: 20px; margin-bottom: 2px; }
-  .board { gap: 4px; min-height: 42px; }
-  .card { width: 28px; height: 40px; font-size: 12px; border-radius: 5px; }
-  .hero-cards .card { width: 44px; height: 60px; font-size: 17px; }
-  .spot-context { font-size: 11px; max-width: 100%; line-height: 1.35; margin-top: 6px; }
-  .hero-handname { font-size: 10px; }
+  .hero-area { margin-top: 4px; padding-top: 0; flex-shrink: 0; }
+  .hero-label { margin-bottom: 2px; font-size: 10px; }
+  .action-badge-wrap { min-height: 18px; margin-bottom: 2px; }
+  .board { gap: 4px; min-height: 40px; flex-wrap: wrap; }
+  .card { width: 30px; height: 42px; font-size: 12px; border-radius: 5px; }
+  .hero-cards .card { width: 40px; height: 54px; font-size: 15px; }
+  .spot-context { font-size: 10px; max-width: 100%; line-height: 1.3; margin-top: 4px; }
+  .hero-handname { font-size: 9px; margin-top: 2px; }
 
-  .actions { flex-direction: column; margin-top: 12px; gap: 8px; }
-  .actions .btn { width: 100%; padding: 14px; font-size: 16px; }
+  .actions { margin-top: 10px; gap: 6px; }
+  .actions.actions-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    max-width: none; width: 100%;
+  }
+  .actions .btn {
+    width: 100%; padding: 10px 8px; font-size: 13px;
+    min-height: 42px; border-radius: 10px;
+  }
+  .actions:not(.actions-grid) .btn { padding: 12px; font-size: 14px; }
 
   .sidebar { flex-direction: column; }
   .sidebar .card-box { flex: 1 1 auto; }

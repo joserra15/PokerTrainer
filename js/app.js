@@ -23,12 +23,12 @@
     { top: 80, left: 92 }
   ];
   const SEAT_COORDS_MOBILE = [
-    { top: 98, left: 50 },
-    { top: 68, left: 2 },
-    { top: 10, left: 2 },
-    { top: 0, left: 26 },
-    { top: 0, left: 74 },
-    { top: 68, left: 98 }
+    { top: 94, left: 50 },
+    { top: 72, left: 6 },
+    { top: 34, left: 4 },
+    { top: 6, left: 28 },
+    { top: 6, left: 72 },
+    { top: 34, left: 96 }
   ];
 
   let hand = null;
@@ -305,10 +305,15 @@
       heroChipsEl.innerHTML = (heroInv > 0 || heroStreet > 0) ? renderSeatChips(heroInv, heroStreet) : '';
     }
     const vBar = $('#villain-action-bar');
+    const mobile = isMobileLayout();
     if (vBar) {
-      vBar.innerHTML = hand.villainAction ? actionBadgeHTML(hand.villainAction) : '';
-      vBar.setAttribute('aria-hidden', hand.villainAction ? 'false' : 'true');
+      const showBar = mobile && hand.villainAction;
+      vBar.innerHTML = showBar ? actionBadgeHTML(hand.villainAction) : '';
+      vBar.setAttribute('aria-hidden', showBar ? 'false' : 'true');
+      vBar.classList.toggle('is-visible', !!showBar);
     }
+    const boardArea = document.querySelector('.board-area');
+    if (boardArea) boardArea.classList.toggle('has-villain-bar', !!(mobile && hand.villainAction));
     renderBoard();
     renderSeats();
     $('#spot-context').textContent = hand.current ? hand.current.context : (hand.result ? hand.result.reason : '');
@@ -409,7 +414,8 @@
       const seatActs = hand.seatActions || {};
       let actHtml = '';
       if (!folded[pos]) {
-        if (isVillain && hand.villainAction) actHtml = actionBadgeHTML(hand.villainAction);
+        const skipSeatAct = mobile && isVillain && hand.villainAction;
+        if (!skipSeatAct && isVillain && hand.villainAction) actHtml = actionBadgeHTML(hand.villainAction);
         else if (seatActs[pos]) actHtml = actionBadgeHTML(seatActs[pos]);
       }
 
@@ -451,7 +457,9 @@
   function renderActions() {
     const node = hand.current;
     const box = $('#actions');
-    if (!node) { box.innerHTML = ''; return; }
+    if (!node) { box.innerHTML = ''; box.className = 'actions'; return; }
+    const n = node.options.length;
+    box.className = 'actions' + (n >= 2 && n <= 4 ? ' actions-grid' : '');
     box.innerHTML = node.options.map((o) =>
       `<button class="btn btn-${btnClassForAction(o.id)}" data-action="${o.id}">${o.label}</button>`
     ).join('');

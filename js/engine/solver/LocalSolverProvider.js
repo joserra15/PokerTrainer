@@ -146,7 +146,12 @@
         enriched.handCode, strategy, enriched.potBB, enriched
       );
       const reconciled = Classifier.reconcileWithEv(
-        cls.cls, input.chosenAction, cls.best, evResult
+        cls.cls, input.chosenAction, cls.best, evResult,
+        {
+          freq: cls.freq,
+          equity: enriched.heroEquity,
+          band: enriched.handRank && enriched.handRank.band
+        }
       );
       const finalCls = reconciled.cls;
       const finalBest = reconciled.best;

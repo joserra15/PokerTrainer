@@ -35,8 +35,12 @@
   const EV_TIE_BB = 0.15;
   const EV_OPTIMA_BB = 0.01;
 
-  /** Si la acción elegida tiene el mismo EV que la óptima, no penalizar por frecuencia GTO baja. */
-  function reconcileWithEv(freqCls, chosen, freqBest, evResult) {
+  /** Si la acción elegida tiene el mismo EV que la óptima, suavizar penalización por frecuencia baja. */
+  function reconcileWithEv(freqCls, chosen, freqBest, evResult, opts) {
+    opts = opts || {};
+    const freq = opts.freq != null ? opts.freq : 0;
+    const equity = opts.equity != null ? opts.equity : 0;
+    const isNuts = opts.band === 'nuts' || equity >= 0.95;
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
       return { cls: freqCls, best: freqBest };
     }
@@ -44,11 +48,23 @@
     let cls = freqCls;
     let best = freqBest;
     if (delta <= EV_OPTIMA_BB) {
-      cls = 'optima';
-      best = chosen;
+      if (freq >= 0.15 || freqCls === 'optima' || freqCls === 'aceptable') {
+        cls = 'optima';
+        best = chosen;
+      } else if (freq >= 0.05) {
+        cls = 'aceptable';
+        best = chosen;
+      } else if (isNuts) {
+        cls = 'optima';
+        best = chosen;
+      }
     } else if (delta <= EV_TIE_BB) {
-      if (cls === 'error' || cls === 'imprecisa') cls = 'aceptable';
-      if ((evResult.actionEV || 0) >= (evResult.bestEV || 0) - EV_OPTIMA_BB) best = chosen;
+      if (cls === 'error' || cls === 'imprecisa') {
+        cls = (freq >= 0.05 || isNuts) ? 'aceptable' : cls;
+      }
+      if ((evResult.actionEV || 0) >= (evResult.bestEV || 0) - EV_OPTIMA_BB && (freq >= 0.05 || isNuts)) {
+        best = chosen;
+      }
     }
     return { cls, best };
   }
