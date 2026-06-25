@@ -68,6 +68,31 @@
   }
 
   let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, byStreet: emptyByStreet() };
+  let homeBootDone = false;
+
+  function stopHomeBootTimer() {
+    if (window._ptHomeBootTimer) {
+      clearInterval(window._ptHomeBootTimer);
+      window._ptHomeBootTimer = null;
+    }
+  }
+
+  function setHomeBoot(visible) {
+    const boot = $('#home-boot');
+    const page = $('#home-page');
+    if (boot) {
+      boot.classList.toggle('hidden', !visible);
+      boot.setAttribute('aria-busy', visible ? 'true' : 'false');
+    }
+    if (page) page.classList.toggle('home-page--boot', !!visible);
+    if (!visible) stopHomeBootTimer();
+  }
+
+  function finishHomeBoot() {
+    if (homeBootDone) return;
+    homeBootDone = true;
+    setHomeBoot(false);
+  }
 
   // ---------- Inicio ----------
   function setPlayBoot(visible, message) {
@@ -178,6 +203,7 @@
     } catch (e) {
       console.error('[Play] init failed', e);
       setPlayBoot(true, 'Error al cargar. Recarga la página.');
+      finishHomeBoot();
     }
     refreshSessionUI();
   }
@@ -192,7 +218,10 @@
   function renderHome() {
     const greetEl = $('#home-greeting');
     const statsEl = $('#home-stats');
-    if (!greetEl || !statsEl) return;
+    if (!greetEl || !statsEl) {
+      finishHomeBoot();
+      return;
+    }
 
     const user = window.PT_AUTH_USER;
     const first = firstNameFromUser(user);
@@ -234,6 +263,8 @@
         onTrain: () => goToTab('play', { setup: true })
       });
     }
+
+    finishHomeBoot();
   }
 
   function bindHome() {
@@ -275,7 +306,10 @@
     if (panel) panel.classList.add('active');
     if (isMobileLayout()) closeMobileNav();
 
-    if (tabId === 'home') renderHome();
+    if (tabId === 'home') {
+      if (!homeBootDone) setHomeBoot(true);
+      renderHome();
+    }
     if (tabId === 'play') {
       const active = $('#play-active');
       const inTable = active && !active.classList.contains('hidden') && !opts.setup;

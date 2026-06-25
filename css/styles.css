@@ -181,6 +181,19 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .brand-text h1 { font-size: 19px; font-weight: 700; letter-spacing: .3px; }
 
 .home-page { display: grid; gap: 28px; padding-bottom: 24px; }
+.home-page--boot { visibility: hidden; pointer-events: none; }
+.home-boot {
+  display: grid; place-items: center;
+  min-height: min(72vh, 560px);
+  padding: 40px 20px;
+  animation: fade .25s ease;
+}
+.home-boot.hidden { display: none; }
+.home-boot-inner { text-align: center; max-width: 320px; padding: 12px; }
+.home-boot-msg { font-size: clamp(17px, 3vw, 20px); font-weight: 700; margin-bottom: 8px; color: var(--text); }
+.home-boot-hint { font-size: 14px; line-height: 1.45; }
+.home-boot .play-boot-spinner { width: 48px; height: 48px; margin-bottom: 18px; border-width: 4px; }
+
 .home-hero {
   position: relative; overflow: hidden; border-radius: calc(var(--radius) + 8px);
   border: 1px solid rgba(63,185,80,.25);
