@@ -12,6 +12,7 @@
   const GTO = global.GTO;
   const VT = global.GTOVillainTracking;
   const VP = global.GTOVillainProfiles;
+  const VPF = global.GTOVillainPreflop;
 
   // --- Parámetros de juego (en ciegas grandes) ---
   const SB = 0.5, BBET = 1, EFF = 100;
@@ -162,7 +163,10 @@
 
   function villainBetAmount(hand) {
     const prof = profileFor(hand, hand.villain.pos);
-    return VP ? VP.betSizeBB(hand.potBB, prof, C.rng.random()) : round2(hand.potBB * 0.5);
+    const info = hand.villain.cards ? classifyMadeHand(hand.villain.cards, hand.board) : null;
+    const eq = villainEquity01(hand);
+    const strength = eq != null ? eq : (info ? ({ strong: 0.78, medium: 0.52, weak: 0.34, air: 0.14 }[info.tier] || 0.3) : 0.3);
+    return VP ? VP.betSizeBB(hand.potBB, prof, C.rng.random(), { street: hand.stage, strength }) : round2(hand.potBB * 0.5);
   }
 
   /** Deja en mesa solo héroe y villano activo (oculta ciegas y resto en UI). */
@@ -192,6 +196,10 @@
 
   function bbDefendVsOpen(hand, openSize) {
     const profile = profileFor(hand, 'BB');
+    const code = seatHoleCode(hand, 'BB');
+    if (VPF && code && hand.hero.pos) {
+      return VPF.defendVsOpen(code, profile, C.rng.random(), 'BB', hand.hero.pos);
+    }
     const s = strengthAtPos(hand, 'BB');
     const r = C.rng.random();
     let foldProb = VP ? VP.adjustFoldProb(clamp(0.48 - s * 0.42, 0.10, 0.58), profile)
@@ -219,6 +227,10 @@
 
   function blindDefendVsOpen(hand, pos, openSize) {
     const profile = profileFor(hand, pos);
+    const code = seatHoleCode(hand, pos);
+    if (VPF && code && hand.hero.pos) {
+      return VPF.defendVsOpen(code, profile, C.rng.random(), pos, hand.hero.pos);
+    }
     const s = strengthAtPos(hand, pos);
     const toCall = seatToCall(hand, pos, openSize);
     const r = C.rng.random();
@@ -313,6 +325,10 @@
 
   function openerVs3Bet(hand, opener, threeBetSize) {
     const profile = profileFor(hand, opener);
+    const code = seatHoleCode(hand, opener);
+    if (VPF && code) {
+      return VPF.openerVs3BetAction(code, profile, C.rng.random());
+    }
     const s = strengthAtPos(hand, opener);
     let foldProb = clamp(0.58 - s * 0.48, 0.14, 0.70);
     let fourBetProb = clamp((s - 0.68) * 0.38, 0.02, 0.16);
@@ -320,7 +336,10 @@
       foldProb = VP.adjustFoldProb(foldProb, profile);
       fourBetProb = VP.adjustFourBetProb(fourBetProb, profile);
     }
-    return { foldProb, fourBetProb };
+    const roll = C.rng.random();
+    if (roll < foldProb) return 'fold';
+    if (roll > 1 - fourBetProb) return '4bet';
+    return 'call';
   }
 
   function openerVsSqueeze(hand, opener, squeezeSize) {
@@ -453,19 +472,20 @@
     const eq = villainEquity01(hand);
     const strength = eq != null ? eq : ({ strong: 0.78, medium: 0.52, weak: 0.34, air: 0.14 }[info.tier] || 0.3);
     const rnd = C.rng.random();
+    const pfOpts = { street: hand.stage, tier: info.tier };
     if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
       const villainToCall = (hand.table && hand.table.streetBet && hand.hero.pos)
         ? (hand.table.streetBet[hand.hero.pos] || 0) : 0;
       const potBefore = Math.max(hand.potBB - villainToCall, 0.1);
       const potOdds = villainToCall > 0 ? villainToCall / (potBefore + villainToCall) : 0.33;
-      if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd);
+      if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd, pfOpts);
       if (strength > 0.72) return rnd < 0.22 ? 'raise' : 'call';
       if (strength > potOdds + 0.08) return rnd < 0.82 ? 'call' : 'fold';
       if (strength > potOdds - 0.05) return rnd < 0.45 ? 'call' : 'fold';
       return rnd < 0.08 ? 'raise' : 'fold';
     }
     const villainIsAgg = !hand.heroIsAggressor;
-    if (VP) return VP.postflopLead(strength, profile, villainIsAgg, rnd);
+    if (VP) return VP.postflopLead(strength, profile, villainIsAgg, rnd, pfOpts);
     if (strength > 0.68) return rnd < 0.58 ? 'bet' : 'check';
     if (strength > 0.42) return rnd < 0.26 ? 'bet' : 'check';
     if (strength > 0.22) return rnd < 0.32 ? 'bet' : 'check';
@@ -944,7 +964,15 @@
       const foldProb = VP
         ? VP.adjustFoldProb(clamp(0.62 - strengthAtPos(hand, hand.villain.pos) * 0.5, 0.15, 0.72), profileFor(hand, hand.villain.pos))
         : clamp(0.62 - strengthAtPos(hand, hand.villain.pos) * 0.5, 0.15, 0.72);
-      if (C.rng.random() < foldProb) {
+      const vCode = seatHoleCode(hand, hand.villain.pos);
+      const vProf = profileFor(hand, hand.villain.pos);
+      let vAct = 'call';
+      if (VPF && vCode) {
+        vAct = VPF.villainVs4BetAction(vCode, vProf, C.rng.random());
+      } else if (C.rng.random() < foldProb) {
+        vAct = 'fold';
+      }
+      if (vAct === 'fold') {
         setVillainAct(hand, 'fold');
         return finish(hand, { reason: 'El villano foldea ante tu 4-bet.', heroNet: round2(hand.villainInvested + SB) });
       }
@@ -968,8 +996,19 @@
         hand.heroInPosition = inPos(hand.hero.pos, hand.villain.pos);
         return goFlop(hand);
       }
-      // all-in (5-bet): resolución directa al showdown
+      // all-in (5-bet): el villano decide call/fold antes del showdown
       setHeroAct(hand, 'allin', EFF);
+      hand.villain.cards = villainHoleCards(hand);
+      const aiCode = seatHoleCode(hand, hand.villain.pos);
+      const aiProf = profileFor(hand, hand.villain.pos);
+      if (VPF && aiCode && VPF.villainVsAllInAction(aiCode, aiProf, C.rng.random()) === 'fold') {
+        setVillainAct(hand, 'fold');
+        return finish(hand, {
+          reason: 'El villano foldea ante tu all-in.',
+          heroNet: round2(hand.potBB + node.toCallBB - (hand.heroInvested || 0))
+        });
+      }
+      setVillainAct(hand, 'call', EFF);
       return allInShowdown(hand);
     }
 
@@ -1019,19 +1058,19 @@
       setHeroAct(hand, 'raise', node.threeBetSize);
       resolvePendingAfterHero(hand);
       const cont = openerVs3Bet(hand, opener, node.threeBetSize);
-      const roll = C.rng.random();
-      if (roll < cont.foldProb) {
+      if (cont === 'fold') {
         setVillainAct(hand, 'fold');
         return finish(hand, { reason: `${opener} foldea ante tu 3-bet.`, heroNet: round2(hand.potBB) });
       }
-      if (roll > 1 - cont.fourBetProb) {
-        // 4-bet del villano -> hero afronta 4bet
+      if (cont === '4bet') {
         const fbSize = round2(node.threeBetSize * 2.3);
         hand.villainInvested = fbSize;
         hand.potBB = round2(node.threeBetSize + fbSize + SB);
+        hand.villain.rangeStr = VPF ? VPF.rangeStrFor4Bet() : R.VS_3BET.fourBet;
         setVillainAct(hand, 'raise', fbSize);
         return setupFace4Bet(hand, fbSize);
       }
+      hand.villain.rangeStr = VPF ? VPF.rangeStrForCall3Bet() : (R.VS_3BET.call + ', ' + R.VS_3BET.callMix);
       // villano iguala el 3bet -> flop en bote resubido, hero agresor
       setVillainAct(hand, 'call', node.threeBetSize);
       hand.villainInvested = node.threeBetSize;
@@ -1163,7 +1202,8 @@
     const eq = villainEquity01(hand);
     const strength = eq != null ? eq : ({ strong: 0.78, medium: 0.52, weak: 0.34, air: 0.14 }[info.tier] || 0.3);
     const villainIsAgg = !hand.heroIsAggressor;
-    if (VP) return VP.postflopLead(strength, profile, villainIsAgg, C.rng.random());
+    const pfOpts = { street: hand.stage, tier: info.tier };
+    if (VP) return VP.postflopLead(strength, profile, villainIsAgg, C.rng.random(), pfOpts);
     const betFreq = villainIsAgg
       ? clamp(0.12 + strength * 0.55, 0.08, 0.68)
       : clamp(0.04 + strength * 0.28, 0.03, 0.38);

@@ -1723,6 +1723,9 @@
     showSessionsView('review');
     try {
       if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
+      if (!currentHand.hero && currentSession && currentSession.hero) {
+        currentHand.hero = currentSession.hero;
+      }
     } catch (e) {
       console.error('[Sessions] GTO recompute failed', e);
     }

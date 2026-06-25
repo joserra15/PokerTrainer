@@ -42,6 +42,7 @@ const scripts = [
   'engine/solver/LocalSolverProvider.js',
   'engine/evaluateSpot.js',
   'engine/villainProfiles.js',
+  'engine/villainPreflop.js',
   'ranges.js',
   'engine.js'
 ];
@@ -374,6 +375,12 @@ console.log('Villain profiles per hand', profCount, '(expect 5)');
 const maniacAgg = VP.postflopLead(0.12, VP.getProfile('maniac'), true, 0.1);
 const nitAgg = VP.postflopLead(0.12, VP.getProfile('nit'), true, 0.99);
 console.log('Maniac bluffs air', maniacAgg, 'Nit checks air', nitAgg);
+const VPF = sandbox.window.GTOVillainPreflop;
+const trash3b = VPF.defendVsOpen('63s', VP.getProfile('maniac'), 0.5, 'BB', 'CO');
+const trash4b = VPF.openerVs3BetAction('54o', VP.getProfile('maniac'), 0.99);
+const trashAi = VPF.villainVsAllInAction('63s', VP.getProfile('maniac'), 0.99);
+const weakRiver = VP.postflopLead(0.28, VP.getProfile('maniac'), true, 0.5, { street: 'river', tier: 'weak' });
+console.log('Trash 63s defend', trash3b, '54o vs3bet', trash4b, '63s vs AI', trashAi, 'weak river', weakRiver);
 
 const sessStats = Importer.computeStats([
   { heroNetBB: 50, totalEvLoss: 80, decisions: [{ class: 'error', street: 'flop' }] },
@@ -416,7 +423,8 @@ console.log(`Simulación: ${played} manos, ${complete} completadas, ${errors} er
 const evOk = badCall.evLoss >= 2 && badCall.evErroneous
   && sessStats.expectedNet === -62 && sessStats.varianceAdj === 82
   && handEv.expectedNet === 8.96 && handEv.varianceAdj === 90.62
-  && profCount === 5 && maniacAgg === 'bet' && nitAgg === 'check';
+  && profCount === 5 && maniacAgg === 'bet' && nitAgg === 'check'
+  && trash3b === 'fold' && trash4b === 'fold' && trashAi === 'fold' && weakRiver === 'check';
 
 const ls = { _d: {}, getItem(k) { return this._d[k] != null ? this._d[k] : null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem(k) { delete this._d[k]; } };
 const storeBox = Object.assign({}, sandbox, { localStorage: ls });

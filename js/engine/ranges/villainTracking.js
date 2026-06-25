@@ -395,6 +395,74 @@
     };
   }
 
+  function inferVillainLineContext(opts) {
+    opts = opts || {};
+    const hand = opts.hand;
+    const hero = opts.hero;
+    const street = opts.street;
+    const heroActIndex = opts.heroActIndex != null ? opts.heroActIndex : 0;
+    const boardSoFar = opts.boardSoFar || [];
+    const villainBase = opts.villainBase;
+    const priorPotBB = opts.priorPotBB;
+    const D = global.GTORangesData;
+    if (!hand || !hand.streets || !priorPotBB) {
+      return { villainRange: villainBase || D.BROAD_CONTINUE, villainLastAction: null, villainBetRatio: null };
+    }
+    const bb = hand.bb || 0.05;
+    const acts = hand.streets[street] || [];
+    const priorOnStreet = acts.slice(0, heroActIndex);
+
+    function boardSlice(st) {
+      const n = { flop: 3, turn: 4, river: 5 }[st];
+      return n ? boardSoFar.slice(0, n) : boardSoFar.slice();
+    }
+
+    let range = estimateRangeFromActions(
+      priorOnStreet, hero, bb, priorPotBB(hand, street), boardSoFar, villainBase
+    );
+    let lastAction = null;
+    let betRatio = null;
+
+    function applyLastFromActs(actList, potBefore) {
+      for (let i = actList.length - 1; i >= 0; i--) {
+        const a = actList[i];
+        if (a.player === hero) continue;
+        if (a.type === 'bet' || a.type === 'raise' || a.type === 'check' || a.type === 'call') {
+          lastAction = a.type;
+          if (a.type === 'bet') betRatio = Math.round((a.amount / bb / Math.max(potBefore, 0.1)) * 100) / 100;
+          else if (a.type === 'raise') betRatio = Math.round((a.to / bb / Math.max(potBefore, 0.1)) * 100) / 100;
+          return;
+        }
+      }
+    }
+
+    applyLastFromActs(priorOnStreet, priorPotBB(hand, street));
+
+    const hasVillainAgg = priorOnStreet.some(
+      (a) => a.player !== hero && (a.type === 'bet' || a.type === 'raise')
+    );
+    if (!hasVillainAgg && street !== 'flop') {
+      const order = ['flop', 'turn', 'river'];
+      const idx = order.indexOf(street);
+      for (let i = idx - 1; i >= 0; i--) {
+        const st = order[i];
+        const stActs = hand.streets[st] || [];
+        if (!stActs.length) continue;
+        const potSt = priorPotBB(hand, st);
+        const bSt = boardSlice(st);
+        const r = estimateRangeFromActions(stActs, hero, bb, potSt, bSt, villainBase);
+        const villBet = stActs.some((a) => a.player !== hero && (a.type === 'bet' || a.type === 'raise'));
+        if (villBet || (r !== villainBase && r !== D.BROAD_CONTINUE)) {
+          range = r;
+          applyLastFromActs(stActs, potSt);
+          break;
+        }
+      }
+    }
+
+    return { villainRange: range, villainLastAction: lastAction, villainBetRatio: betRatio };
+  }
+
   /** Inferir rango desde historial de acciones del importador (sin tracker). */
   function estimateRangeFromActions(streetActs, heroName, bb, potBeforeBB, board, baseRange) {
     const D = global.GTORangesData;
@@ -426,7 +494,7 @@
 
   global.GTOVillainTracking = {
     initTracker, recordAction, buildHandSummary, describeRangeChange,
-    estimateActiveRange, estimateGtoNarrowRange, estimateRangeFromActions,
+    estimateActiveRange, estimateGtoNarrowRange, estimateRangeFromActions, inferVillainLineContext,
     preflopRangeFromHand, buildVillainMatrixProfile,
     rangeToSet, setToRangeStr, handConnectsWithBoard, heroBlocksHand
   };

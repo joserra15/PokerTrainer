@@ -260,6 +260,60 @@
     return { initiative: 'caller', inPosition: true };
   }
 
+  function rebuildStreetsFromSummary(h) {
+    const streets = { preflop: [], flop: [], turn: [], river: [] };
+    (h.summary || []).forEach((item) => {
+      if (item.kind !== 'action' || !streets[item.street]) return;
+      streets[item.street].push({
+        player: item.player,
+        type: item.type,
+        amount: item.amount,
+        to: item.to,
+        allin: item.allin
+      });
+    });
+    return streets;
+  }
+
+  function ensureAnalyzedHandContext(h) {
+    if (!h) return h;
+    const out = h;
+    if (!out.streets && out.summary && out.summary.length) {
+      out.streets = rebuildStreetsFromSummary(out);
+    }
+    return out;
+  }
+
+  function villainContextForAnalyzedHand(hand, d) {
+    hand = ensureAnalyzedHandContext(hand);
+    if (!hand.streets || !hand.hero || !VT || !VT.inferVillainLineContext) {
+      return {
+        villainRange: d.villainRange || BROAD_CONTINUE,
+        villainLastAction: d.villainLastAction || null,
+        villainBetRatio: d.villainBetRatio != null ? d.villainBetRatio : null
+      };
+    }
+    const street = d.street;
+    const acts = hand.streets[street] || [];
+    let heroActIndex = d.actionSequenceId;
+    if (heroActIndex == null) {
+      let n = 0;
+      for (let i = 0; i < acts.length; i++) {
+        if (acts[i].player === hand.hero) {
+          if (n === 0 && d.chosen) { heroActIndex = i; break; }
+          n++;
+        }
+      }
+      if (heroActIndex == null) heroActIndex = acts.length;
+    }
+    const board = boardForAnalyzedHand(hand, d, street);
+    const villainBase = inferVillainBaseRange(hand, hand.hero);
+    return VT.inferVillainLineContext({
+      hand, hero: hand.hero, street, heroActIndex,
+      boardSoFar: board, villainBase, priorPotBB
+    });
+  }
+
   function buildEvalInputFromDecision(hand, d, chosenOverride) {
     const heroPos = (hand.positions && hand.hero && hand.positions[hand.hero]) || hand.heroPos || '??';
     const street = d.street || 'preflop';
@@ -269,30 +323,16 @@
       : (toCallBB > 0 ? r2((d.potBB || 0) + toCallBB) : r2(d.potBB || 0));
     const potBeforeBB = d.potBeforeBB != null ? d.potBeforeBB
       : (toCallBB > 0 ? r2(Math.max(potEvalBB - toCallBB, 0.1)) : potEvalBB);
+    const lineCtx = street !== 'preflop' ? villainContextForAnalyzedHand(hand, d) : null;
+    const villainRange = lineCtx ? lineCtx.villainRange : (d.villainRange || BROAD_CONTINUE);
+    const villainLastAction = lineCtx ? lineCtx.villainLastAction : d.villainLastAction;
+    const villainBetRatio = lineCtx ? lineCtx.villainBetRatio : d.villainBetRatio;
     const RS = global.GTORiverShoveNode;
     const facingNode = d.facingNode || (RS
-      ? RS.classifyFacingNode(toCallBB, potBeforeBB, d.street, d.villainLastAction)
+      ? RS.classifyFacingNode(toCallBB, potBeforeBB, d.street, villainLastAction)
       : 'small');
     const isRiverShove = d.street === 'river' && (facingNode === 'shove' || facingNode === 'overbet');
-    const villainRange = d.villainRange || BROAD_CONTINUE;
     const postflopCtx = postflopCtxForDecision(hand, d);
-
-    let heroEquityAdj = null;
-    if (d.heroEquity != null && typeof d.heroEquity === 'number') {
-      heroEquityAdj = d.heroEquity / 100;
-    }
-    if (heroEquityAdj == null && GTO && GTO.Equity && d.street !== 'preflop') {
-      heroEquityAdj = GTO.Equity.equityVsRange(hand.heroCards, board, villainRange, 600, {
-        street: d.street,
-        facingBet: toCallBB > 0 && !isRiverShove,
-        riverShove: isRiverShove,
-        shoveNode: isRiverShove
-      });
-      if (RS && isRiverShove) {
-        const deval = RS.pairedBoardFlushDevaluation(hand.heroCards, board);
-        if (deval.vulnerable) heroEquityAdj = Math.min(heroEquityAdj, deval.capEquity);
-      }
-    }
 
     const chosen = chosenOverride != null ? chosenOverride : d.chosen;
     const chosenAction = chosen === 'bet'
@@ -323,9 +363,9 @@
 
     return Object.assign(base, {
       villainRange,
-      heroEquity: heroEquityAdj,
-      villainLastAction: d.villainLastAction,
-      villainBetRatio: d.villainBetRatio,
+      heroEquity: null,
+      villainLastAction,
+      villainBetRatio,
       potBeforeBB,
       facingNode,
       actionSequenceId: d.actionSequenceId
@@ -353,12 +393,18 @@
     d.confidence = ev.confidence;
     d.score = ev.score;
     d.explanation = evalResult.explanation;
+    const inputSnap = buildEvalInputFromDecision(hand, d, chosenOverride);
+    d.villainRange = inputSnap.villainRange;
+    d.villainLastAction = inputSnap.villainLastAction;
+    d.villainBetRatio = inputSnap.villainBetRatio;
+    if (evalResult.heroEquity != null) d.heroEquity = Math.round(evalResult.heroEquity * 100);
     return d;
   }
 
   /** Recalcula GTO de todas las decisiones (sesiones antiguas o tras invalidar caché). */
   function recomputeHandDecisions(hand) {
     if (!hand || !hand.decisions) return hand;
+    hand = ensureAnalyzedHandContext(hand);
     try {
       if (global.GTOStreetValidation) global.GTOStreetValidation.invalidateSolverCache('hand refresh');
       hand.decisions.forEach((d) => recomputeDecisionGto(hand, d));
@@ -441,6 +487,10 @@
       id: hand.id, datetime: hand.datetime,
       heroPos, heroCards, heroCode: code,
       board: hand.boardAll, sb: hand.sb, bb: hand.bb,
+      hero: hand.hero,
+      positions: hand.positions,
+      streets: hand.streets,
+      posts: hand.posts,
       villainShows: hand.shows,
       decisions, totalEvLoss: r2(totalEvLoss),
       accuracy, accuracyByStreet: byStreet,
@@ -604,19 +654,29 @@
 
       if (isHero && a.type !== 'show') {
         const toCallBB = r2(Math.max(0, (toMatch - cur) / bb));
-        const villainRange = VT && VT.estimateRangeFromActions
-          ? VT.estimateRangeFromActions(acts.slice(0, acts.indexOf(a)), hero, bb, priorPotBB(hand, st), boardSoFar, villainBase)
-          : villainBase;
-        let villainLastAction = null;
-        let villainBetRatio = null;
-        const priorActs = acts.slice(0, acts.indexOf(a));
-        for (let i = priorActs.length - 1; i >= 0; i--) {
-          if (priorActs[i].player === hero) break;
-          if (priorActs[i].type === 'bet' || priorActs[i].type === 'raise' || priorActs[i].type === 'check' || priorActs[i].type === 'call') {
-            villainLastAction = priorActs[i].type;
-            if (priorActs[i].type === 'bet') villainBetRatio = r2(priorActs[i].amount / bb / Math.max(potBB - priorActs[i].amount / bb, 0.1));
-            else if (priorActs[i].type === 'raise') villainBetRatio = r2(priorActs[i].to / bb / Math.max(potBB - priorActs[i].to / bb, 0.1));
-            break;
+        const lineCtx = VT && VT.inferVillainLineContext
+          ? VT.inferVillainLineContext({
+            hand, hero, street: st, heroActIndex: acts.indexOf(a),
+            boardSoFar, villainBase, priorPotBB
+          })
+          : null;
+        const villainRange = lineCtx
+          ? lineCtx.villainRange
+          : (VT && VT.estimateRangeFromActions
+            ? VT.estimateRangeFromActions(acts.slice(0, acts.indexOf(a)), hero, bb, priorPotBB(hand, st), boardSoFar, villainBase)
+            : villainBase);
+        let villainLastAction = lineCtx ? lineCtx.villainLastAction : null;
+        let villainBetRatio = lineCtx ? lineCtx.villainBetRatio : null;
+        if (!villainLastAction) {
+          const priorActs = acts.slice(0, acts.indexOf(a));
+          for (let i = priorActs.length - 1; i >= 0; i--) {
+            if (priorActs[i].player === hero) break;
+            if (priorActs[i].type === 'bet' || priorActs[i].type === 'raise' || priorActs[i].type === 'check' || priorActs[i].type === 'call') {
+              villainLastAction = priorActs[i].type;
+              if (priorActs[i].type === 'bet') villainBetRatio = r2(priorActs[i].amount / bb / Math.max(potBB - priorActs[i].amount / bb, 0.1));
+              else if (priorActs[i].type === 'raise') villainBetRatio = r2(priorActs[i].to / bb / Math.max(potBB - priorActs[i].to / bb, 0.1));
+              break;
+            }
           }
         }
         const potForEval = r2(potBB);

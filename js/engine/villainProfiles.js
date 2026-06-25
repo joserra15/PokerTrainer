@@ -74,11 +74,21 @@
   }
 
   /** Acción postflop cuando el villano afronta apuesta/raise del héroe. */
-  function postflopFacingBet(strength, potOdds, profile, rnd) {
+  function postflopFacingBet(strength, potOdds, profile, rnd, opts) {
+    opts = opts || {};
+    const street = opts.street || 'flop';
+    const tier = opts.tier || 'medium';
     const p = profile.postflop;
     const r = rnd != null ? rnd : Math.random();
-    const bluffRaise = clamp(0.1 * p.raiseFreqMult * p.bluffFreqMult, 0.05, 0.48);
+    let bluffRaise = clamp(0.1 * p.raiseFreqMult * p.bluffFreqMult, 0.05, 0.48);
     const valueRaise = clamp(0.22 * p.raiseFreqMult, 0.1, 0.45);
+
+    if (street === 'river') {
+      bluffRaise = clamp(bluffRaise * 0.45, 0.02, 0.18);
+      if ((tier === 'weak' || strength < 0.35) && strength <= potOdds + 0.05) {
+        return r < bluffRaise ? 'raise' : 'fold';
+      }
+    }
 
     if (strength > 0.72) return r < valueRaise ? 'raise' : 'call';
     if (strength > potOdds + 0.08) {
@@ -92,9 +102,22 @@
   }
 
   /** Acción postflop cuando el villano puede apostar o pasar (lead / probe). */
-  function postflopLead(strength, profile, villainIsAgg, rnd) {
+  function postflopLead(strength, profile, villainIsAgg, rnd, opts) {
+    opts = opts || {};
+    const street = opts.street || 'flop';
+    const tier = opts.tier || 'medium';
     const p = profile.postflop;
     const r = rnd != null ? rnd : Math.random();
+
+    if (street === 'river') {
+      if (tier === 'weak' || strength < 0.32) {
+        return r < clamp(0.04 * p.bluffFreqMult, 0.01, 0.1) ? 'bet' : 'check';
+      }
+      if (tier === 'medium' && strength < 0.48) {
+        return r < clamp(0.07 * p.betFreqMult, 0.02, 0.18) ? 'bet' : 'check';
+      }
+    }
+
     const bluffMult = strength <= 0.28 ? p.bluffFreqMult : (strength <= 0.42 ? p.bluffFreqMult * 0.75 : 1);
     let betFreq;
     if (villainIsAgg) {
@@ -111,13 +134,17 @@
     return r < betFreq ? 'bet' : 'check';
   }
 
-  function betSizeBB(potBB, profile, rnd) {
+  function betSizeBB(potBB, profile, rnd, opts) {
+    opts = opts || {};
     const mult = (profile.postflop && profile.postflop.betSizeMult) || 1;
     const r = rnd != null ? rnd : Math.random();
     let frac = 0.5 * mult;
     if (mult >= 1.2 && r < 0.28) frac = clamp(0.72 * mult, 0.55, 1.05);
     else if (mult <= 0.85) frac = clamp(0.38 * mult, 0.28, 0.55);
     else if (r < 0.22) frac = clamp(0.66 * mult, 0.45, 0.9);
+    if (opts.street === 'river' && (opts.strength || 0) < 0.55) {
+      frac = clamp(frac * 0.55, 0.25, 0.5);
+    }
     return Math.round(potBB * frac * 100) / 100;
   }
 

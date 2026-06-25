@@ -24,6 +24,7 @@ const scripts = [
   'engine/scoring/scoring.js', 'engine/scoring/errors.js', 'engine/explanations/rules.js',
   'engine/solver/LocalSolverProvider.js', 'engine/evaluateSpot.js',
   'engine/villainProfiles.js',
+  'engine/villainPreflop.js',
   'ranges.js', 'engine.js', 'import.js'
 ];
 scripts.forEach((f) => {

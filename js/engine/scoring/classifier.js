@@ -66,6 +66,20 @@
         best = chosen;
       }
     }
+
+    const evLoss = evResult.evLoss != null ? evResult.evLoss : 0;
+    const bestAct = evResult.bestAction || freqBest;
+    const freqDominant = chosen === freqBest && freq >= 0.15;
+    if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
+      if (cls === 'optima' || cls === 'aceptable') {
+        cls = evLoss >= 1 ? 'error' : 'imprecisa';
+      }
+      best = bestAct;
+    } else if (delta >= EV_TIE_BB && chosen !== bestAct && !freqDominant) {
+      if (cls === 'optima') cls = delta >= 1 ? 'imprecisa' : 'aceptable';
+      best = bestAct;
+    }
+
     return { cls, best };
   }
 
