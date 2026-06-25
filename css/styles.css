@@ -445,6 +445,13 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .pot-chips .chip-ico { width: 18px; height: 18px; }
 .board { display: flex; gap: 6px; justify-content: center; min-height: 56px; }
 .spot-context { margin-top: 10px; font-size: 13px; color: #dfe7ef; max-width: 460px; }
+.session-replay-table .table-felt { min-height: 340px; }
+.session-street-log { font-size: 13px; color: #dfe7ef; margin: 10px 0 6px; line-height: 1.5; }
+.session-street-act { white-space: nowrap; }
+.session-spot-head { margin: 8px 0 10px; }
+.session-spot-head strong { font-size: 15px; color: var(--gold); }
+.session-spot-head .spot-context { margin-top: 6px; }
+
 
 .hero-area { text-align: center; z-index: 2; position: relative; flex-shrink: 0; }
 .hero-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; letter-spacing: .5px; }
@@ -1000,6 +1007,16 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 
 /* ---- IA Coach ---- */
 .ai-report-panel { margin-top: 14px; }
+.ai-coach-embed.home-coach-panel {
+  margin-top: 0; padding: clamp(16px, 3vw, 22px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.18);
+}
+.ai-coach-embed .home-coach-top { margin-bottom: 16px; }
+.ai-coach-actions {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 4px; padding-top: 2px;
+}
+.ai-coach-hint { color: var(--orange); font-size: 13px; }
 .ai-report-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
 .ai-report-head h3 { margin: 0; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
 .ai-report-actions { display: flex; flex-wrap: wrap; gap: 8px; }

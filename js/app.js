@@ -501,8 +501,7 @@
       const errs = Store.getErrors();
       if (errs.length) {
         const e = errs[Math.floor(Math.random() * errs.length)];
-        const sc = e.scenarioRaw || scenarioFromError(e);
-        force = sc ? Object.assign({}, sc, { seed: e.seed }) : null;
+        if (replayFromStored(e)) return;
       }
     }
     const cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
@@ -515,20 +514,36 @@
     renderActions();
   }
 
+  // Repite una mano guardada (histórico, errores o mano actual) con semilla y config originales
+  function replayFromStored(rec) {
+    if (!rec) return false;
+    const snap = rec.replaySnapshot;
+    let sc = (snap && snap.scenario) || rec.scenarioRaw;
+    if (!sc || !sc.type) sc = scenarioFromError(rec);
+    if (!sc || !sc.type) return false;
+
+    const seed = rec.seed != null ? rec.seed : (snap && snap.seed);
+    pendingForce = Object.assign({}, sc, { seed: seed });
+    replayPlayConfig = (snap && snap.playConfig) || rec.playConfig || playSessionConfig || null;
+
+    const disp = (snap && snap.displayHeroPos) || rec.displayHeroPos;
+    if (disp && !pendingForce.heroPos) pendingForce.displayHeroPos = disp;
+
+    goToPlay();
+    startNewHand();
+    return true;
+  }
+
   // Repite la mano actual con la MISMA semilla (mismas cartas y board si juegas igual)
   function replayCurrentHand() {
     if (!hand) return;
-    const snap = hand.replaySnapshot;
-    if (snap && snap.scenario && snap.scenario.type) {
-      pendingForce = Object.assign({}, snap.scenario, { seed: snap.seed });
-      replayPlayConfig = snap.playConfig || hand.playConfig || playSessionConfig;
-    } else if (hand.scenario && hand.scenario.type) {
-      pendingForce = Object.assign({}, hand.scenario, { seed: hand.seed });
-      replayPlayConfig = hand.playConfig || playSessionConfig;
-    } else {
-      return;
-    }
-    startNewHand();
+    replayFromStored({
+      seed: hand.seed,
+      scenarioRaw: hand.scenario,
+      playConfig: hand.playConfig,
+      displayHeroPos: hand.displayHeroPos,
+      replaySnapshot: hand.replaySnapshot
+    });
   }
 
   function scenarioFromError(err) {
@@ -675,7 +690,6 @@
     const inHand = tbl.inHand instanceof Set ? tbl.inHand : new Set(tbl.inHand || []);
     const showdown = hand.stage === 'complete' && hand.result && hand.result.showdown;
     const holeCards = tbl.holeCards || {};
-    const profiles = tbl.profiles || {};
     let html = '';
     ring.forEach((pos, i) => {
       const c = coords[i];
@@ -696,7 +710,6 @@
       if (folded[pos]) cls.push('folded');
 
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? 'Pagador' : ''));
-      if (!role && profiles[pos]) role = profiles[pos].shortLabel || profiles[pos].label || '';
       const seatActs = hand.seatActions || {};
       let actHtml = '';
       if (!folded[pos]) {
@@ -1280,13 +1293,14 @@
           <div class="${netCls}">${h.heroNet >= 0 ? '+' : ''}${h.heroNet} bb</div>
           <div style="color:var(--muted);font-size:12px">EV -${fmtBB(h.totalEvLoss)} bb</div>
           <div style="color:var(--muted);font-size:11px">EV esp. ${roundSession((h.heroNet || 0) - (h.totalEvLoss || 0)) >= 0 ? '+' : ''}${fmtBB(roundSession((h.heroNet || 0) - (h.totalEvLoss || 0)))} bb</div>
-          <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-replay='${encodeURIComponent(JSON.stringify(Object.assign({}, h.scenarioRaw, { seed: h.seed })))}'>Repetir mano</button>
+          <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-replay-id="${escapeHtml(h.id)}">Repetir mano</button>
         </div>
       </div>`;
     }).join('');
-    $$('#history-list [data-replay]').forEach((b) => b.addEventListener('click', () => {
-      try { pendingForce = JSON.parse(decodeURIComponent(b.dataset.replay)); } catch (e) { pendingForce = null; }
-      goToPlay(); startNewHand();
+    $$('#history-list [data-replay-id]').forEach((b) => b.addEventListener('click', () => {
+      const rec = Store.getHistory().find((x) => x.id === b.dataset.replayId);
+      if (!rec) return;
+      replayFromStored(rec);
     }));
   }
 
@@ -1303,16 +1317,14 @@
         <div class="rec-sub">${escapeHtml(e.context || '')}</div>
       </div>
       <div class="rec-right">
-        <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-train='${encodeURIComponent(JSON.stringify(Object.assign({}, (e.scenarioRaw || {}), { seed: e.seed })))}'>Repetir</button>
+        <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-train-id="${escapeHtml(e.id)}">Repetir</button>
         <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-del="${e.id}">Quitar</button>
       </div>
     </div>`).join('');
-    $$('#errors-list [data-train]').forEach((b) => b.addEventListener('click', () => {
-      try {
-        const raw = JSON.parse(decodeURIComponent(b.dataset.train));
-        pendingForce = typeof raw === 'string' ? scenarioFromError({ scenario: raw }) : raw;
-      } catch (e) { pendingForce = null; }
-      goToPlay(); startNewHand();
+    $$('#errors-list [data-train-id]').forEach((b) => b.addEventListener('click', () => {
+      const rec = Store.getErrors().find((x) => x.id === b.dataset.trainId);
+      if (!rec) return;
+      replayFromStored(rec);
     }));
     $$('#errors-list [data-del]').forEach((b) => b.addEventListener('click', () => { Store.removeError(b.dataset.del); renderErrors(); }));
   }
@@ -1320,9 +1332,7 @@
   function trainNextError() {
     const errs = Store.getErrors();
     if (!errs.length) { alert('No hay errores para entrenar.'); return; }
-    const sc = errs[0].scenarioRaw || scenarioFromError(errs[0]);
-    pendingForce = sc ? Object.assign({}, sc, { seed: errs[0].seed }) : null;
-    goToPlay(); startNewHand();
+    replayFromStored(errs[0]);
   }
 
   // ---------- Estadísticas ----------
@@ -1847,12 +1857,175 @@
     renderReplayStep();
   }
 
+  function isVoluntaryHeroAction(type) {
+    return type === 'fold' || type === 'check' || type === 'call' || type === 'raise' || type === 'bet';
+  }
+
+  function sessionTableIs9Max(h) {
+    const p9 = ['UTG1', 'UTG2', 'LJ'];
+    return (h.summary || []).some((item) => item.pos && p9.indexOf(item.pos) >= 0);
+  }
+
+  function ringFromHeroPos(heroPos, list) {
+    let idx = list.indexOf(heroPos);
+    if (idx < 0) idx = 0;
+    const ring = [];
+    for (let i = 0; i < list.length; i++) ring.push(list[(idx + i) % list.length]);
+    return ring;
+  }
+
+  /** Estado de mesa en el momento de una decisión del héroe (desde el timeline real). */
+  function computeSessionReplayState(h, decisionIdx) {
+    if (Importer.ensureHandSummary) Importer.ensureHandSummary(h);
+    const heroPos = h.heroPos;
+    const bb = h.bb || 0.05;
+    const target = h.decisions[decisionIdx];
+    const targetStreet = target.street;
+    const tl = h.summary || [];
+
+    let heroDecIdx = 0;
+    let street = 'preflop';
+    const folded = {};
+    const streetBetBB = {};
+    const totalInvBB = {};
+    const lastAction = {};
+    const streetLog = [];
+    let lastAggressorPos = null;
+
+    function euroToBB(x) { return bb ? Math.round((x / bb) * 100) / 100 : x; }
+    function resetStreetBets() {
+      Object.keys(streetBetBB).forEach((k) => { delete streetBetBB[k]; });
+    }
+
+    function recordAction(item) {
+      const pos = item.pos;
+      if (!pos) return;
+      if (item.type === 'fold') {
+        folded[pos] = true;
+        lastAction[pos] = { type: 'fold' };
+      } else if (item.type === 'check') {
+        lastAction[pos] = { type: 'check' };
+      } else if (item.type === 'call') {
+        const bbAmt = euroToBB(item.amount || 0);
+        streetBetBB[pos] = (streetBetBB[pos] || 0) + bbAmt;
+        totalInvBB[pos] = (totalInvBB[pos] || 0) + bbAmt;
+        lastAction[pos] = { type: 'call', amount: bbAmt };
+      } else if (item.type === 'bet') {
+        const bbAmt = euroToBB(item.amount);
+        streetBetBB[pos] = bbAmt;
+        totalInvBB[pos] = (totalInvBB[pos] || 0) + bbAmt;
+        lastAction[pos] = { type: 'bet', amount: bbAmt };
+        if (pos !== heroPos) lastAggressorPos = pos;
+      } else if (item.type === 'raise') {
+        const bbAmt = euroToBB(item.to);
+        streetBetBB[pos] = bbAmt;
+        totalInvBB[pos] = bbAmt;
+        lastAction[pos] = { type: 'raise', amount: bbAmt };
+        if (pos !== heroPos) lastAggressorPos = pos;
+      }
+    }
+
+    for (let i = 0; i < tl.length; i++) {
+      const item = tl[i];
+      if (item.kind === 'street') {
+        street = item.street;
+        resetStreetBets();
+        continue;
+      }
+      const isHero = item.pos === heroPos;
+      const isVoluntary = isVoluntaryHeroAction(item.type);
+      if (isHero && isVoluntary && heroDecIdx === decisionIdx) break;
+      if (street === targetStreet) streetLog.push(item);
+      recordAction(item);
+      if (isHero && isVoluntary) heroDecIdx++;
+    }
+
+    let villainPos = target.vsPosition || null;
+    if (!villainPos && lastAggressorPos && lastAggressorPos !== heroPos) villainPos = lastAggressorPos;
+    if (!villainPos) {
+      for (let j = streetLog.length - 1; j >= 0; j--) {
+        const a = streetLog[j];
+        if (a.pos && a.pos !== heroPos && a.type !== 'fold') { villainPos = a.pos; break; }
+      }
+    }
+
+    return { folded, streetBetBB, totalInvBB, lastAction, streetLog, villainPos, heroPos, targetStreet };
+  }
+
+  function sessionActionWord(item, bb) {
+    const toBB = (x) => (bb ? Math.round((x / bb) * 100) / 100 : x);
+    switch (item.type) {
+      case 'fold': return 'fold';
+      case 'check': return 'check';
+      case 'call': return 'call ' + toBB(item.amount) + 'bb';
+      case 'bet': return 'bet ' + toBB(item.amount) + 'bb';
+      case 'raise': return 'raise a ' + toBB(item.to) + 'bb';
+      default: return item.type || '';
+    }
+  }
+
+  function renderSessionReplayTableHTML(h, d, decisionIdx, state) {
+    state = state || computeSessionReplayState(h, decisionIdx);
+    const is9 = sessionTableIs9Max(h);
+    const mobile = isMobileLayout();
+    const coords = is9 ? (mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9) : (mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS);
+    const posList = is9 ? POS_9 : POS;
+    const posRing = ringFromHeroPos(h.heroPos, posList);
+    const board = boardForStreet(h, d.street);
+    const villainPos = state.villainPos;
+
+    let seatsHtml = '';
+    posRing.forEach((pos, i) => {
+      const c = coords[i];
+      const isHero = pos === h.heroPos;
+      const isVillain = villainPos && pos === villainPos;
+      const cls = ['seat'];
+      if (isHero) cls.push('hero');
+      if (isVillain) cls.push('villain');
+      if (state.folded[pos]) cls.push('folded');
+      if (c.top < 20) cls.push('seat-top');
+      if (c.top > 70) cls.push('seat-bottom');
+      if (c.left < 22) cls.push('seat-edge-left');
+      else if (c.left > 78) cls.push('seat-edge-right');
+      if (c.top < 12) cls.push('seat-edge-top');
+
+      const role = isHero ? 'Héroe' : (isVillain ? 'Villano' : '');
+      const act = state.lastAction[pos];
+      const actHtml = act && !state.folded[pos] ? actionBadgeHTML(act) : '';
+      const chipsHtml = renderSeatChips(state.totalInvBB[pos] || 0, state.streetBetBB[pos] || 0);
+
+      seatsHtml += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
+        <div class="seat-pos">${pos}</div>
+        ${role ? `<div class="seat-role">${role}</div>` : ''}
+        ${chipsHtml}
+        ${actHtml ? `<div class="seat-act-wrap">${actHtml}</div>` : ''}
+      </div>`;
+    });
+
+    return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}">
+      <div class="seats">${seatsHtml}</div>
+      <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${fmtBB(d.potBB)} bb</div>
+      <div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
+    </div></div>`;
+  }
+
+  function renderSessionStreetLogHTML(h, state) {
+    if (!state.streetLog.length) return '';
+    const bb = h.bb || 0.05;
+    const capSt = state.targetStreet.charAt(0).toUpperCase() + state.targetStreet.slice(1);
+    const parts = state.streetLog.map((item) => {
+      const who = item.pos === h.heroPos ? item.pos + ' (tú)' : item.pos;
+      return `<span class="session-street-act">${escapeHtml(who)}: ${escapeHtml(sessionActionWord(item, bb))}</span>`;
+    });
+    return `<div class="session-street-log"><strong>${capSt}:</strong> ${parts.join(' · ')}</div>`;
+  }
+
   function renderReplayStep() {
     const h = currentHand;
     const box = $('#hand-review-content');
     if (replayState.idx >= h.decisions.length) return renderReplaySummary();
     const d = h.decisions[replayState.idx];
-    const board = boardForStreet(h, d.street);
+    const replayStateTable = computeSessionReplayState(h, replayState.idx);
 
     let html = `<div class="review-head">
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
@@ -1861,10 +2034,11 @@
         <div class="muted-text">Decisión ${replayState.idx + 1} de ${h.decisions.length}</div>
       </div>
     </div>`;
-    html += `<div class="poker-table" style="padding:0"><div class="table-felt" style="min-height:auto;border-radius:18px">
-      <div class="board-area"><div class="pot">Bote: ${fmtBB(d.potBB)} bb</div><div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
-    </div></div>`;
-    html += `<div class="spot-context" style="margin:12px 0">${escapeHtml(d.context)}</div>`;
+    html += renderSessionReplayTableHTML(h, d, replayState.idx, replayStateTable);
+    html += renderSessionStreetLogHTML(h, replayStateTable);
+    html += `<div class="session-spot-head"><strong>${escapeHtml(d.spot || '')}</strong>`;
+    if (d.context) html += `<div class="spot-context">${escapeHtml(d.context)}</div>`;
+    html += '</div>';
     const opts = d.options || optionsFor(d.gto);
     html += `<div class="actions" id="replay-actions">` + opts.map((a) =>
       `<button class="btn btn-${btnClassForAction(a)}" data-act="${a}">${escapeHtml(replayActionLabel(a, d))}</button>`

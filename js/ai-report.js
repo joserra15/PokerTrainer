@@ -18,6 +18,15 @@
       reportKind: 'Informe',
       consent: 'los datos de esta mano (cartas, acciones y análisis GTO)'
     },
+    session: {
+      reportBtn: 'Informe de esta mano',
+      questionLabel: 'Tu pregunta sobre esta mano de la sesión',
+      questionPh: 'Ej.: ¿El fold del river fue correcto con este board?',
+      loadingReport: 'Generando informe de la mano…',
+      loadingQuestion: 'Analizando tu pregunta…',
+      reportKind: 'Informe',
+      consent: 'los datos de esta mano importada (cartas, acciones y análisis GTO)'
+    },
     sessionGlobal: {
       reportBtn: 'Informe de la sesión',
       questionLabel: 'Tu pregunta sobre esta sesión',
@@ -87,6 +96,131 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function userFirstName(options) {
+    if (options && options.userName) return String(options.userName).trim();
+    const u = global.PT_AUTH_USER;
+    if (!u) return '';
+    const n = u.given_name || u.name || u.email || '';
+    return String(n).split(/[\s@]/)[0];
+  }
+
+  function formatBB(x) {
+    const n = Number(x) || 0;
+    return (Math.round(n * 100) / 100).toFixed(2);
+  }
+
+  function cardsLabel(obj) {
+    if (!obj) return 'tu mano';
+    if (obj.heroCode) return obj.heroCode;
+    const cards = obj.heroCards || (obj.hero && obj.hero.cards);
+    if (cards && cards.length === 2 && global.Ranges) {
+      try { return global.Ranges.handCode(cards[0], cards[1]); } catch (e) { /* noop */ }
+    }
+    return 'tu mano';
+  }
+
+  function coachAskSuffix() {
+    return ' ¿Quieres que te ayude? Puedo generarte un informe automático o responder una pregunta concreta.';
+  }
+
+  function spotLabelFromHand(dataObj) {
+    if (!dataObj) return null;
+    if (dataObj.decisions && dataObj.decisions[0] && dataObj.decisions[0].spot) {
+      return dataObj.decisions[0].spot;
+    }
+    const sc = dataObj.scenario;
+    if (!sc) return null;
+    if (sc.type === 'RFI') return 'RFI ' + sc.heroPos;
+    if (sc.type === 'vsRFI') return (sc.key || '').replace(/_/g, ' ');
+    if (sc.type === 'squeeze') return sc.heroPos + ' squeeze vs ' + (sc.openerPos || '');
+    if (sc.type === 'isoLimp') return sc.heroPos + ' iso vs ' + (sc.limperPos || '');
+    return sc.type || null;
+  }
+
+  function buildCoachCopy(scope, dataObj, userName) {
+    const greet = userName
+      ? ('¡Hola, <strong>' + escapeHtml(userName) + '</strong>! ')
+      : '';
+
+    if (scope === 'sessionGlobal' && dataObj) {
+      const st = dataObj.stats || {};
+      const g = st.grade || {};
+      const n = (dataObj.hands || []).length;
+      const title = greet + '¿Analizamos esta sesión?';
+      const lead =
+        'Has importado <strong>' + escapeHtml(dataObj.fileName || 'la sesión') + '</strong> (' + n + ' manos). ' +
+        'Acierto <strong>' + (st.accuracy != null ? st.accuracy : '—') + '%</strong>, ' +
+        'EV perdido por fugas <strong>-' + formatBB(st.evDecision != null ? st.evDecision : st.evLossBB) + ' bb</strong>' +
+        (g.letter ? ', nota <strong>' + escapeHtml(g.letter) + '</strong>' : '') +
+        '.' + coachAskSuffix();
+      return { title: title, lead: lead };
+    }
+
+    if (dataObj && (scope === 'session' || scope === 'hand')) {
+      const code = cardsLabel(dataObj);
+      const pos = dataObj.heroPos || (dataObj.hero && dataObj.hero.pos) || (dataObj.displayHeroPos) || '—';
+      const spot = spotLabelFromHand(dataObj);
+      const net = dataObj.heroNetBB != null ? dataObj.heroNetBB : (dataObj.result && dataObj.result.heroNet);
+      const ev = dataObj.totalEvLoss != null ? dataObj.totalEvLoss : (dataObj.result && dataObj.result.totalEvLoss);
+      const acc = dataObj.accuracy != null
+        ? dataObj.accuracy
+        : (function () {
+          const decs = dataObj.decisions || [];
+          if (!decs.length) return null;
+          const good = decs.filter((d) => d.class === 'optima' || d.class === 'aceptable').length;
+          return Math.round((good / decs.length) * 100);
+        }());
+      const nDec = (dataObj.decisions || []).length;
+      const nBad = (dataObj.decisions || []).filter((d) => d.class === 'error' || d.class === 'imprecisa').length;
+      const board = dataObj.board && dataObj.board.length
+        ? ' Board: <strong>' + escapeHtml(dataObj.board.join(' ')) + '</strong>.'
+        : '';
+
+      const title = greet + '¿Repasamos <strong>' + escapeHtml(code) + '</strong> desde <strong>' + escapeHtml(pos) + '</strong>?';
+      let lead = '';
+      if (spot) lead += 'Spot: <strong>' + escapeHtml(spot) + '</strong>. ';
+      if (nDec) {
+        lead += nDec + ' decisión' + (nDec > 1 ? 'es' : '') + ' GTO';
+        if (acc != null) lead += ' · acierto <strong>' + acc + '%</strong>';
+        if (ev != null) lead += ' · EV perdido <strong>-' + formatBB(ev) + ' bb</strong>';
+        if (net != null) lead += ' · resultado real <strong>' + (net >= 0 ? '+' : '') + formatBB(net) + ' bb</strong>';
+        lead += '.';
+      }
+      lead += board;
+      if (nBad) {
+        lead += ' <span class="ai-coach-hint">Hay ' + nBad + ' jugada' + (nBad > 1 ? 's' : '') +
+          ' marcada' + (nBad > 1 ? 's' : '') + ' como error o imprecisa — buen momento para consultarme.</span>';
+      } else {
+        lead += coachAskSuffix();
+      }
+      return { title: title, lead: lead };
+    }
+
+    const title = greet + (scope === 'sessionGlobal' ? '¿Analizamos tu sesión?' : '¿Tienes dudas sobre esta mano?');
+    const lead = scope === 'sessionGlobal'
+      ? 'Puedo revisar tus estadísticas, las manos con más EV perdido y darte un plan de estudio.' + coachAskSuffix()
+      : 'Analizo tus cartas, el board, las frecuencias GTO y el EV de cada decisión — solo con el contexto real de lo que jugaste.' + coachAskSuffix();
+    return { title: title, lead: lead };
+  }
+
+  function coachStatusHtml() {
+    const enabled = isEnabled();
+    return enabled
+      ? '<span class="home-coach-status on"><span class="home-coach-status-dot" aria-hidden="true"></span>Coach activo</span>'
+      : '<span class="home-coach-status off"><span class="home-coach-status-dot" aria-hidden="true"></span>Configuración pendiente</span>';
+  }
+
+  function coachIntroHtml(titleId, copy) {
+    return '<div class="home-coach-top">' +
+      '<div class="home-coach-avatar" aria-hidden="true">&#129302;</div>' +
+      '<div class="home-coach-intro">' +
+      '<span class="home-coach-badge">Inteligencia artificial</span>' +
+      '<h3 class="home-coach-title" id="' + titleId + '">' + copy.title + '</h3>' +
+      '<p class="home-coach-lead">' + copy.lead + '</p>' +
+      coachStatusHtml() +
+      '</div></div>';
   }
 
   function friendlyError(raw) {
@@ -354,15 +488,18 @@
     options.scope = scope;
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
     const uid = 'ai-q-' + scope + '-' + Math.random().toString(36).slice(2, 8);
+    const titleId = 'ai-coach-title-' + uid;
+    const dataObj = getDataObj(options);
+    const copy = buildCoachCopy(scope, dataObj, userFirstName(options));
 
     container.innerHTML =
-      '<div class="ai-report-panel card-box">' +
-      '<div class="ai-report-head">' +
-      '<h3>IA Coach</h3>' +
-      '<div class="ai-report-actions" data-ai-actions>' +
-      '<button type="button" class="btn btn-primary btn-sm" data-ai-report>' + escapeHtml(ui.reportBtn) + '</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-ai-question-toggle>Pregunta concreta</button>' +
-      '</div></div>' +
+      '<div class="ai-report-panel">' +
+      '<div class="home-coach-panel ai-coach-embed" role="region" aria-labelledby="' + titleId + '">' +
+      coachIntroHtml(titleId, copy) +
+      '<div class="ai-coach-actions" data-ai-actions>' +
+      '<button type="button" class="btn btn-primary" data-ai-report>' + escapeHtml(ui.reportBtn) + '</button>' +
+      '<button type="button" class="btn btn-ghost" data-ai-question-toggle>Pregunta concreta</button>' +
+      '</div>' +
       '<div class="ai-question-form" data-ai-question-form hidden>' +
       '<label class="ai-question-label" for="' + uid + '">' + escapeHtml(ui.questionLabel) + '</label>' +
       '<textarea id="' + uid + '" class="ai-question-input" data-ai-question-input maxlength="' + QUESTION_MAX + '" rows="3" placeholder="' + escapeHtml(ui.questionPh) + '"></textarea>' +
@@ -375,7 +512,7 @@
       '<div class="muted-text ai-report-meta" data-ai-meta></div>' +
       '<div data-ai-status class="ai-report-status"></div>' +
       '<div data-ai-body class="ai-report-content"></div>' +
-      '</div>';
+      '</div></div>';
 
     const panel = container.querySelector('.ai-report-panel');
 
@@ -390,7 +527,6 @@
 
     bindQuestionForm(panel, options);
 
-    const dataObj = getDataObj(options);
     const objId = getObjId(scope, dataObj);
     if (objId) {
       const cached = readCache(cacheKeyFor(scope, objId, 'report', ''));
@@ -403,24 +539,25 @@
   function mountWelcome(container, options) {
     if (!container) return null;
     options = options || {};
-    const first = options.userName || '';
+    const first = userFirstName(options);
     const greet = first
       ? ('¡Hola, <strong>' + escapeHtml(first) + '</strong>! Soy tu IA Coach.')
       : '¡Hola! Soy tu <strong>IA Coach</strong> de poker GTO.';
-    const enabled = isEnabled();
-    const statusHtml = enabled
-      ? '<span class="home-coach-status on"><span class="home-coach-status-dot" aria-hidden="true"></span>Coach activo</span>'
-      : '<span class="home-coach-status off"><span class="home-coach-status-dot" aria-hidden="true"></span>Configuración pendiente</span>';
+    const titleId = 'home-coach-title';
+    const copy = {
+      title: greet,
+      lead: 'Puedes consultarme las dudas de cualquier mano: analizo tus cartas, el board, las frecuencias GTO y el EV de cada decisión. Solo respondo con el contexto real de lo que jugaste — no invento spots.'
+    };
 
     container.innerHTML =
-      '<div class="home-coach-panel" role="region" aria-labelledby="home-coach-title">' +
+      '<div class="home-coach-panel" role="region" aria-labelledby="' + titleId + '">' +
       '<div class="home-coach-top">' +
       '<div class="home-coach-avatar" aria-hidden="true">&#129302;</div>' +
       '<div class="home-coach-intro">' +
       '<span class="home-coach-badge">Inteligencia artificial</span>' +
-      '<h3 class="home-coach-title" id="home-coach-title">' + greet + '</h3>' +
-      '<p class="home-coach-lead">Puedes consultarme las dudas de cualquier mano: analizo tus cartas, el board, las frecuencias GTO y el EV de cada decisión. Solo respondo con el contexto real de lo que jugaste — no invento spots.</p>' +
-      statusHtml +
+      '<h3 class="home-coach-title" id="' + titleId + '">' + copy.title + '</h3>' +
+      '<p class="home-coach-lead">' + copy.lead + '</p>' +
+      coachStatusHtml() +
       '</div></div>' +
       '<div class="home-coach-steps">' +
       '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Informe automático</h4><p>Al terminar una mano en el entrenador, pulsa <em>Informe de la mano</em> y recibirás un análisis completo con fugas y líneas alternativas.</p></div>' +
