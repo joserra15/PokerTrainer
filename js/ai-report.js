@@ -53,6 +53,95 @@
     return !!(c.enabled && c.endpoint);
   }
 
+  function formatDate(iso) {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleString('es-ES', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) { return iso; }
+  }
+
+  function resolvePersistTarget(options, dataObj) {
+    const p = options.persist;
+    if (!p || !p.kind) return null;
+    if (p.kind === 'history') {
+      const handId = typeof p.getHandId === 'function' ? p.getHandId() : (dataObj && dataObj.id);
+      return handId ? { kind: 'history', handId: handId } : null;
+    }
+    const sessionId = typeof p.getSessionId === 'function'
+      ? p.getSessionId()
+      : (dataObj && dataObj.id && p.kind === 'session' ? dataObj.id : p.sessionId);
+    if (p.kind === 'session' && sessionId) return { kind: 'session', sessionId: sessionId };
+    if (p.kind === 'sessionHand' && sessionId) {
+      const handId = typeof p.getHandId === 'function' ? p.getHandId() : (dataObj && dataObj.id);
+      return handId ? { kind: 'sessionHand', sessionId: sessionId, handId: handId } : null;
+    }
+    return null;
+  }
+
+  function migrateLegacyThread(target, scope, objId) {
+    if (!target || !global.Store) return [];
+    const thread = global.Store.getCoachThread(target);
+    if (thread.length) return thread;
+    const legacyReport = readCache(cacheKeyFor(scope, objId, 'report', ''));
+    if (!legacyReport || !legacyReport.reportMarkdown) return [];
+    const entry = {
+      mode: 'report',
+      reportMarkdown: legacyReport.reportMarkdown,
+      model: legacyReport.model,
+      createdAt: legacyReport.createdAt || new Date().toISOString(),
+      truncated: !!legacyReport.truncated
+    };
+    const saved = global.Store.appendCoachEntry(target, entry);
+    return saved.ok && saved.thread ? saved.thread : [entry];
+  }
+
+  function loadThread(options, dataObj, scope, objId) {
+    const target = resolvePersistTarget(options, dataObj);
+    if (target && global.Store) {
+      let thread = global.Store.getCoachThread(target);
+      if (!thread.length) thread = migrateLegacyThread(target, scope, objId);
+      if (typeof options.onThreadUpdate === 'function') options.onThreadUpdate(thread);
+      return { target: target, thread: thread };
+    }
+    return { target: null, thread: [] };
+  }
+
+  function findInThread(thread, mode, question) {
+    if (!thread || !thread.length) return null;
+    if (mode === 'report') return thread.find(function (t) { return t.mode === 'report'; }) || null;
+    const hq = hashQuestion(question);
+    return thread.find(function (t) {
+      return t.mode === 'question' && hashQuestion(t.question) === hq;
+    }) || null;
+  }
+
+  async function formatQuotaLine(refresh) {
+    if (!global.PTEntitlements) return '';
+    const ent = refresh && global.PTEntitlements.refresh
+      ? await global.PTEntitlements.refresh()
+      : await global.PTEntitlements.ensureLoaded();
+    if (ent.is_admin) return 'Consultas IA: ilimitadas (admin)';
+    const max = ent.limits && ent.limits.ai_reports_per_month;
+    const used = (ent.usage && ent.usage.ai_reports_month) || 0;
+    if (max == null) return 'Consultas IA: ilimitadas';
+    if (max === 0) return 'Tu plan no incluye consultas IA este mes.';
+    const left = Math.max(0, max - used);
+    return 'Te quedan ' + left + ' de ' + max + ' consultas IA este mes.';
+  }
+
+  function updateQuotaDisplay(panel, line) {
+    const el = panel.querySelector('[data-ai-quota]');
+    if (!el) return;
+    if (line) {
+      el.textContent = line;
+      el.hidden = false;
+    } else {
+      el.hidden = true;
+    }
+  }
+
   function hashQuestion(q) {
     let h = 0;
     const s = String(q || '').trim().toLowerCase();
@@ -243,7 +332,7 @@
     if (m.includes('ai_plan') || (m.includes('rate') && m.includes('0'))) {
       return {
         kind: 'paywall',
-        message: 'Los informes IA Coach requieren el plan Coach. Consulta la pestaña Planes.'
+        message: 'El IA Coach requiere Study (3/mes) o Coach (30/mes). Consulta la pestaña Planes.'
       };
     }
     if (m.includes('rate') || m.includes('quota') || m.includes('429')) {
@@ -351,20 +440,43 @@
     }
   }
 
-  function showReport(panel, report, scope) {
+  function turnMeta(entry, scope) {
+    const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
+    const kind = entry.mode === 'question' ? 'Pregunta' : ui.reportKind;
+    let line = kind;
+    if (entry.createdAt) line += ' · ' + formatDate(entry.createdAt);
+    if (entry.model) line += ' · ' + entry.model;
+    if (entry.truncated) line += ' · incompleto';
+    return line;
+  }
+
+  function showConversation(panel, thread, scope) {
     const body = panel.querySelector('[data-ai-body]');
     const meta = panel.querySelector('[data-ai-meta]');
-    const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
-    if (meta) {
-      const kind = report.mode && report.mode.indexOf('question') >= 0 ? 'Pregunta' : ui.reportKind;
-      let line = report.cached
-        ? kind + ' en caché · ' + (report.createdAt || '')
-        : kind + ' · ' + (report.model || 'IA') + (report.createdAt ? ' · ' + report.createdAt : '');
-      if (report.question) line += ' · «' + report.question.slice(0, 48) + (report.question.length > 48 ? '…' : '') + '»';
-      if (report.truncated) line += ' · respuesta incompleta';
-      meta.textContent = line;
+    if (meta) meta.textContent = thread.length
+      ? (thread.length + (thread.length === 1 ? ' respuesta guardada' : ' respuestas guardadas'))
+      : '';
+    if (!body) return;
+    if (!thread || !thread.length) {
+      body.innerHTML = '';
+      panel._coachThread = [];
+      return;
     }
-    if (body) body.innerHTML = renderMarkdown(report.reportMarkdown || '');
+    body.innerHTML = '<div class="ai-coach-thread">' + thread.map(function (entry) {
+      let html = '<article class="ai-coach-turn">';
+      html += '<div class="ai-coach-turn-meta">' + escapeHtml(turnMeta(entry, scope)) + '</div>';
+      if (entry.mode === 'question' && entry.question) {
+        html += '<div class="ai-coach-turn-q">«' + escapeHtml(entry.question) + '»</div>';
+      }
+      html += renderMarkdown(entry.reportMarkdown || '');
+      html += '</article>';
+      return html;
+    }).join('') + '</div>';
+    panel._coachThread = thread.slice();
+  }
+
+  function showReport(panel, report, scope) {
+    showConversation(panel, [report], scope);
     panel._currentReport = report;
   }
 
@@ -424,10 +536,14 @@
     if (!payload) return;
 
     const objId = getObjId(scope, dataObj);
-    const cacheKey = cacheKeyFor(scope, objId, mode, question);
-    const cached = readCache(cacheKey);
-    if (cached && cached.reportMarkdown) {
-      showReport(panel, Object.assign({ cached: true, mode: mode, question: question || cached.question }, cached), scope);
+    const loaded = loadThread(options, dataObj, scope, objId);
+    const target = loaded.target;
+    let thread = loaded.thread;
+
+    const existing = findInThread(thread, mode, question);
+    if (existing && existing.reportMarkdown) {
+      showConversation(panel, thread, scope);
+      formatQuotaLine(false).then(function (line) { updateQuotaDisplay(panel, line); });
       return;
     }
 
@@ -442,18 +558,33 @@
       const report = {
         reportMarkdown: data.reportMarkdown,
         model: data.model,
-        mode: data.mode || apiMode(scope, mode),
+        mode: mode === 'question' ? 'question' : 'report',
         question: mode === 'question' ? question : undefined,
         createdAt: new Date().toISOString(),
         truncated: !!data.truncated
       };
-      writeCache(cacheKey, report);
-      showReport(panel, report, scope);
+      if (target && global.Store && global.Store.appendCoachEntry) {
+        const saved = global.Store.appendCoachEntry(target, report);
+        if (saved.ok && saved.thread) {
+          thread = saved.thread;
+          if (typeof options.onThreadUpdate === 'function') options.onThreadUpdate(thread);
+        } else {
+          thread = [report].concat(thread);
+        }
+      } else {
+        thread = [report].concat(thread);
+        writeCache(cacheKeyFor(scope, objId, mode, question), report);
+      }
+      showConversation(panel, thread, scope);
       setPanelState(panel, 'ready', '');
       if (mode === 'question') {
-        const form = panel.querySelector('[data-ai-question-form]');
-        if (form) form.hidden = true;
+        const textarea = panel.querySelector('[data-ai-question-input]');
+        if (textarea) textarea.value = '';
+        const counter = panel.querySelector('[data-ai-question-count]');
+        if (counter) counter.textContent = '0/' + QUESTION_MAX;
       }
+      const quotaLine = await formatQuotaLine(true);
+      updateQuotaDisplay(panel, quotaLine);
     } catch (e) {
       setPanelState(panel, 'error', '');
       const body = panel.querySelector('[data-ai-body]');
@@ -542,6 +673,7 @@
       '<button type="button" class="btn btn-primary btn-sm" data-ai-question-send>Enviar pregunta</button>' +
       '</div></div></div>' +
       '<div class="muted-text ai-report-meta" data-ai-meta></div>' +
+      '<div class="ai-coach-quota" data-ai-quota hidden></div>' +
       '<div data-ai-status class="ai-report-status"></div>' +
       '<div data-ai-body class="ai-report-content"></div>' +
       '</div></div>';
@@ -559,11 +691,11 @@
 
     bindQuestionForm(panel, options);
 
-    const objId = getObjId(scope, dataObj);
-    if (objId) {
-      const cached = readCache(cacheKeyFor(scope, objId, 'report', ''));
-      if (cached && cached.reportMarkdown) showReport(panel, Object.assign({ cached: true }, cached), scope);
-    }
+    const dataForLoad = getDataObj(options);
+    const objId = getObjId(scope, dataForLoad);
+    const loaded = loadThread(options, dataForLoad, scope, objId);
+    if (loaded.thread.length) showConversation(panel, loaded.thread, scope);
+    formatQuotaLine(false).then(function (line) { updateQuotaDisplay(panel, line); });
 
     return panel;
   }
@@ -605,7 +737,7 @@
       '</ul></div>' +
       '<div class="home-coach-foot">' +
       '<p class="muted-text">Solo se envían datos de poker (cartas, acciones, análisis GTO y estadísticas de sesión) cuando lo solicitas y tras dar tu consentimiento. ' +
-      PRIVACY_NO_PII + ' Las respuestas se guardan en caché en tu navegador.</p>' +
+      PRIVACY_NO_PII + ' Las respuestas se guardan en tu historial de manos y sesiones.</p>' +
       '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>Entrenar y probar el coach</button>' +
       '</div></div>';
 

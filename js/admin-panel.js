@@ -51,7 +51,13 @@
   }
 
   function usageBar(used, limit) {
-    var pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+    if (limit == null) {
+      return '<div class="admin-usage"><span class="admin-usage-text">' + used + ' / ∞</span></div>';
+    }
+    if (limit === 0) {
+      return '<div class="admin-usage"><span class="admin-usage-text muted-text">' + used + ' / 0</span></div>';
+    }
+    var pct = Math.min(100, Math.round((used / limit) * 100));
     var cls = pct >= 90 ? 'admin-usage-high' : pct >= 70 ? 'admin-usage-mid' : '';
     return (
       '<div class="admin-usage">' +
@@ -59,6 +65,12 @@
       '<span class="admin-usage-text">' + used + ' / ' + limit + '</span>' +
       '</div>'
     );
+  }
+
+  function aiLimitForRow(u) {
+    if (u.is_admin) return null;
+    if (u.ai_limit != null && u.ai_limit !== '') return Number(u.ai_limit);
+    return 0;
   }
 
   function ensureAdminTab() {
@@ -137,7 +149,7 @@
         '<span class="admin-user-email">' + escapeHtml(u.email) + '</span>' +
         '</td>' +
         '<td>' + planSelect(u.user_id, u.plan || 'free', false) + '</td>' +
-        '<td>' + usageBar(Number(u.ai_today) || 0, Number(u.ai_limit) || 120) + '</td>' +
+        '<td>' + usageBar(Number(u.ai_today) || 0, aiLimitForRow(u)) + '</td>' +
         '<td><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
         (online ? '● ' : '') + escapeHtml(formatRelative(u.last_seen_at)) + '</span></td>' +
         '<td class="admin-center">' +
@@ -173,7 +185,10 @@
   async function updateUser(userId, patch) {
     var c = client();
     if (!c) return;
-    var res = await c.from('pt_user_profiles').update(patch).eq('user_id', userId);
+    var args = { p_user_id: userId };
+    if (patch.plan !== undefined) args.p_plan = patch.plan;
+    if (patch.is_admin !== undefined) args.p_is_admin = patch.is_admin;
+    var res = await c.rpc('pt_admin_update_user', args);
     if (res.error) {
       alert('Error al guardar: ' + res.error.message);
       await refresh();
@@ -186,6 +201,19 @@
         if (global.PTProfile) global.PTProfile.applyProfileToUser(me, { is_admin: patch.is_admin });
       }
     }
+    if (patch.plan !== undefined) {
+      var mePlan = currentUser();
+      if (mePlan && mePlan.sub === userId) {
+        if (global.PTProfile && res.data) global.PTProfile.applyProfileToUser(mePlan, res.data);
+        if (global.PTEntitlements && global.PTEntitlements.refresh) {
+          await global.PTEntitlements.refresh();
+        }
+        if (global.PTAuth && global.PTAuth.renderAccountMenu) {
+          global.PTAuth.renderAccountMenu(mePlan);
+        }
+      }
+    }
+    await refresh();
   }
 
   async function refresh() {

@@ -1210,6 +1210,27 @@ body.cookie-banner-open { padding-bottom: 0; }
 .ai-report-body h4 { font-size: 14px; margin: 10px 0 4px; }
 .ai-report-body ul { margin: 8px 0 8px 20px; }
 .ai-report-body p { margin: 8px 0; }
+.ai-coach-quota {
+  font-size: 12px; color: var(--gold); margin: 8px 0 4px;
+  padding: 6px 10px; border-radius: 8px; background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+}
+.ai-coach-thread { display: flex; flex-direction: column; gap: 14px; }
+.ai-coach-turn {
+  padding: 12px 14px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ai-coach-turn-meta {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--muted); margin-bottom: 8px;
+}
+.ai-coach-turn-q {
+  font-size: 13px; font-style: italic; color: var(--text);
+  margin-bottom: 10px; padding: 8px 10px; border-radius: 8px;
+  background: rgba(212, 175, 55, 0.06); border-left: 3px solid var(--gold);
+}
+.ai-coach-turn .ai-report-body { max-height: none; overflow: visible; }
 
 /* —— Panel administración —— */
 .tab-admin { color: var(--gold) !important; }

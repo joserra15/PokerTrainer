@@ -521,6 +521,81 @@
     if (snapshot.sessions) write(scopedKey('sessions'), mergeSessionsFromCloud(snapshot.sessions));
   }
 
+  function normalizeCoachEntry(entry) {
+    return {
+      id: entry.id || ('coach_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
+      mode: entry.mode === 'question' ? 'question' : 'report',
+      question: entry.question || undefined,
+      reportMarkdown: entry.reportMarkdown || '',
+      model: entry.model || null,
+      createdAt: entry.createdAt || new Date().toISOString(),
+      truncated: !!entry.truncated
+    };
+  }
+
+  /** target: { kind: 'history'|'session'|'sessionHand', handId?, sessionId? } */
+  function getCoachThread(target) {
+    if (!target || !target.kind) return [];
+    if (target.kind === 'history' && target.handId) {
+      const rec = getHistory().find(function (h) { return h.id === target.handId; });
+      return rec && rec.coachThread ? rec.coachThread.slice() : [];
+    }
+    if (target.sessionId) {
+      const session = getSession(target.sessionId);
+      if (!session) return [];
+      if (target.kind === 'session') {
+        return session.coachThread ? session.coachThread.slice() : [];
+      }
+      if (target.kind === 'sessionHand' && target.handId) {
+        const hand = (session.hands || []).find(function (h) { return h.id === target.handId; });
+        return hand && hand.coachThread ? hand.coachThread.slice() : [];
+      }
+    }
+    return [];
+  }
+
+  function appendCoachEntry(target, entry) {
+    const e = normalizeCoachEntry(entry);
+    if (!target || !target.kind) return { ok: false, error: 'invalid_target' };
+
+    if (target.kind === 'history' && target.handId) {
+      const hist = getHistory();
+      const idx = hist.findIndex(function (h) { return h.id === target.handId; });
+      if (idx < 0) return { ok: false, error: 'hand_not_found' };
+      if (!hist[idx].coachThread) hist[idx].coachThread = [];
+      hist[idx].coachThread.unshift(e);
+      if (!write(scopedKey('history'), hist)) {
+        return { ok: false, error: 'storage_full' };
+      }
+      notifySync(['history']);
+      return { ok: true, entry: e, thread: hist[idx].coachThread.slice() };
+    }
+
+    if (target.sessionId) {
+      const session = getSession(target.sessionId);
+      if (!session) return { ok: false, error: 'session_not_found' };
+      if (target.kind === 'session') {
+        if (!session.coachThread) session.coachThread = [];
+        session.coachThread.unshift(e);
+      } else if (target.kind === 'sessionHand' && target.handId) {
+        const hand = (session.hands || []).find(function (h) { return h.id === target.handId; });
+        if (!hand) return { ok: false, error: 'hand_not_found' };
+        if (!hand.coachThread) hand.coachThread = [];
+        hand.coachThread.unshift(e);
+      } else {
+        return { ok: false, error: 'invalid_target' };
+      }
+      const saved = saveSession(session);
+      if (!saved.ok) return saved;
+      const thread = target.kind === 'session'
+        ? (saved.session.coachThread || []).slice()
+        : ((saved.session.hands || []).find(function (h) { return h.id === target.handId; }) || {}).coachThread || [];
+      return { ok: true, entry: e, thread: thread.slice() };
+    }
+
+    return { ok: false, error: 'invalid_target' };
+  }
+
   global.Store = {
     setUserId,
     getHistory, getErrors, getStats, saveHand,
@@ -528,6 +603,7 @@
     migrateLocalUserKeys,
     purgeLocalUserData, scenarioLabel,
     getSessions, getSession, saveSession, removeSession, deleteSessionTxt,
-    getCloudSnapshot, replaceFromCloud, mergeFromCloud
+    getCloudSnapshot, replaceFromCloud, mergeFromCloud,
+    getCoachThread, appendCoachEntry
   };
 })(window);

@@ -543,7 +543,13 @@
         if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
         return;
       }
-      if (Ent.recordTrainerHand) await Ent.recordTrainerHand();
+      if (Ent.recordTrainerHand) {
+        const rec = await Ent.recordTrainerHand();
+        if (rec && rec.ok === false) {
+          if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
+          return;
+        }
+      }
     }
 
     let force = pendingForce;
@@ -1251,13 +1257,13 @@
       {
         id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: true,
-        features: ['Entrenador ilimitado', 'Import ilimitado', 'Sync y estadísticas', 'Matriz villano y repaso'],
+        features: ['Entrenador ilimitado', 'Import ilimitado', '3 consultas IA Coach/mes', 'Sync, estadísticas y repaso'],
         cta: 'pro'
       },
       {
         id: 'premium', title: plans.premium ? plans.premium.label : 'Coach',
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
-        features: ['Todo Study', '30 informes IA Coach/mes', 'Preguntas sobre manos y sesiones', 'Soporte prioritario'],
+        features: ['Todo Study', '30 consultas IA Coach/mes', 'Informes y preguntas sobre manos y sesiones', 'Soporte prioritario'],
         cta: 'premium'
       }
     ];
@@ -1392,7 +1398,12 @@
 
     fb.innerHTML = html;
     if (window.PTAIReport) {
-      window.PTAIReport.mount($('#ai-report-trainer'), { source: 'trainer', getHand: () => hand });
+      window.PTAIReport.mount($('#ai-report-trainer'), {
+        source: 'trainer',
+        getHand: () => hand,
+        persist: { kind: 'history', getHandId: () => hand && hand.id },
+        onThreadUpdate: (thread) => { if (hand) hand.coachThread = thread; }
+      });
     }
     renderTable();
     $('#hero-handname').textContent = r.heroHandName ? 'Tu mano: ' + r.heroHandName : handNameOnBoard();
@@ -1836,7 +1847,9 @@
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-coach-session'), {
         scope: 'sessionGlobal',
-        getData: () => currentSession
+        getData: () => currentSession,
+        persist: { kind: 'session', getSessionId: () => currentSession && currentSession.id },
+        onThreadUpdate: (thread) => { if (currentSession) currentSession.coachThread = thread; }
       });
     }
   }
@@ -2040,7 +2053,16 @@
     html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
     box.innerHTML = html;
     if (window.PTAIReport) {
-      window.PTAIReport.mount($('#ai-report-session'), { scope: 'session', getHand: () => currentHand });
+      window.PTAIReport.mount($('#ai-report-session'), {
+        scope: 'session',
+        getHand: () => currentHand,
+        persist: {
+          kind: 'sessionHand',
+          getSessionId: () => currentSession && currentSession.id,
+          getHandId: () => currentHand && currentHand.id
+        },
+        onThreadUpdate: (thread) => { if (currentHand) currentHand.coachThread = thread; }
+      });
     }
     $('#to-replay').addEventListener('click', () => startInteractiveReplay());
   }

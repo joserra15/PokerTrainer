@@ -70,7 +70,7 @@ const QUESTION_MAX = 500;
 
 const PLAN_MONTHLY_LIMITS: Record<string, number> = {
   free: 0,
-  pro: 0,
+  pro: 3,
   premium: 30
 };
 

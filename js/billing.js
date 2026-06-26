@@ -17,6 +17,11 @@
     return String(cfg().functionsUrl || '').replace(/\/$/, '');
   }
 
+  function openInNewTab(url) {
+    var tab = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!tab) window.location.href = url;
+  }
+
   async function authHeaders() {
     var token = global.PTSupabase && global.PTSupabase.getAccessToken
       ? await global.PTSupabase.getAccessToken()
@@ -33,6 +38,7 @@
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto. Mientras tanto, contacta con soporte.');
       return;
     }
+    var checkoutTab = window.open('about:blank', '_blank');
     var headers = await authHeaders();
     var res = await fetch(functionsBase() + '/stripe-checkout', {
       method: 'POST',
@@ -44,9 +50,15 @@
     });
     var data = await res.json();
     if (!res.ok) {
+      if (checkoutTab) checkoutTab.close();
       throw new Error(data.error || 'checkout_failed');
     }
-    if (data.url) window.location.href = data.url;
+    if (data.url) {
+      if (checkoutTab) checkoutTab.location.href = data.url;
+      else openInNewTab(data.url);
+    } else if (checkoutTab) {
+      checkoutTab.close();
+    }
   }
 
   async function openPortal() {
@@ -54,6 +66,7 @@
       alert('El portal de facturación no está configurado todavía.');
       return;
     }
+    var portalTab = window.open('about:blank', '_blank');
     var headers = await authHeaders();
     var res = await fetch(functionsBase() + '/stripe-portal', {
       method: 'POST',
@@ -62,13 +75,19 @@
     });
     var data = await res.json();
     if (!res.ok) {
+      if (portalTab) portalTab.close();
       if (data.error === 'no_subscription') {
         showPaywall('no_subscription', 'Aún no tienes una suscripción activa.');
         return;
       }
       throw new Error(data.error || 'portal_failed');
     }
-    if (data.url) window.location.href = data.url;
+    if (data.url) {
+      if (portalTab) portalTab.location.href = data.url;
+      else openInNewTab(data.url);
+    } else if (portalTab) {
+      portalTab.close();
+    }
   }
 
   function escapeHtml(s) {
@@ -83,8 +102,8 @@
     trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día).',
     import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis.',
     import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos.',
-    ai_plan: 'Los informes IA Coach requieren el plan Coach.',
-    ai_limit: 'Has agotado tus informes IA de este mes.',
+    ai_plan: 'El IA Coach está en Study (3 consultas/mes) y Coach (30/mes). El plan Gratis no incluye IA.',
+    ai_limit: 'Has agotado tus consultas IA de este mes. Pasa a Coach para 30/mes.',
     billing_not_configured: '',
     no_subscription: ''
   };

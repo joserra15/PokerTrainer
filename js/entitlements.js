@@ -22,7 +22,7 @@
       trainer_hands_per_day: null,
       import_sessions_per_month: null,
       max_hands_per_import: null,
-      ai_reports_per_month: 0,
+      ai_reports_per_month: 3,
       history_days: null
     },
     premium: {
