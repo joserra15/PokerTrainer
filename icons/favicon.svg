@@ -1,5 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="PokerTrainer">
-  <rect width="180" height="180" rx="36" fill="#0f1419"/>
-  <circle cx="90" cy="90" r="62" fill="#1c2530" stroke="#f5c451" stroke-width="6"/>
-  <text x="90" y="108" text-anchor="middle" font-size="72" fill="#f5c451" font-family="Georgia, serif">&#9824;</text>
+  <rect width="180" height="180" fill="#0f1419"/>
+  <circle cx="90" cy="90" r="58" fill="#1c2530" stroke="#f5c451" stroke-width="5"/>
+  <g transform="translate(90 94)" fill="#f5c451">
+    <path d="M0 -36 C-20 -18 -30 -2 -30 14 C-30 30 -14 38 0 24 C14 38 30 30 30 14 C30 -2 20 -18 0 -36 Z"/>
+    <path d="M-9 24 L0 40 L9 24 Z"/>
+  </g>
 </svg>
