@@ -212,6 +212,11 @@ BTN ~45%, SB ~40%). La estrategia post-flop usa heurísticas alineadas con GTO
 Sirven para entrenar la toma de decisiones; para estudio fino conviene
 contrastar con un solver dedicado.
 
+## Roadmap comercial
+
+Estudio de mercado, pricing y backlog de lanzamiento: [`docs/ESTUDIO_MERCADO.md`](docs/ESTUDIO_MERCADO.md).  
+Issues en GitHub: [Roadmap #1](https://github.com/joserra15/PokerTrainer/issues/1).
+
 ## Posibles mejoras futuras
 
 - Cargar rangos exactos de solver desde archivos JSON.
