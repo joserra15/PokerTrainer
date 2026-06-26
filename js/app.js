@@ -69,6 +69,16 @@
 
   let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, byStreet: emptyByStreet() };
   let homeBootDone = false;
+  const HOME_BOOT_MAX_MS = 8000;
+
+  function scheduleHomeBootFallback() {
+    setTimeout(function () {
+      if (!homeBootDone) {
+        console.warn('[PT] home boot timeout — mostrando inicio');
+        finishHomeBoot();
+      }
+    }, HOME_BOOT_MAX_MS);
+  }
 
   function stopHomeBootTimer() {
     if (window._ptHomeBootTimer) {
@@ -187,6 +197,7 @@
   }
 
   function init() {
+    scheduleHomeBootFallback();
     bindTabs();
     bindMobileNav();
     bindControls();

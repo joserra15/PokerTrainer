@@ -221,6 +221,17 @@
     }
   }
 
+  function withTimeout(promise, ms, label) {
+    return Promise.race([
+      promise,
+      new Promise(function (_, reject) {
+        setTimeout(function () {
+          reject(new Error((label || 'timeout') + ' (' + ms + 'ms)'));
+        }, ms);
+      })
+    ]);
+  }
+
   async function enterApp(user) {
     if (!user) return;
     user = normalizeUser(user);
@@ -228,20 +239,30 @@
     currentUser = user;
     global.PT_AUTH_USER = user;
     if (global.Store && global.Store.setUserId) global.Store.setUserId(user.sub);
+
+    setAppVisible(true);
+    renderAccountMenu(user);
+    startAppIfNeeded();
+    global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
+
     if (global.PTCloud && global.PTCloud.setUser) {
       global.PTCloud.setUser(user);
       document.body.classList.add('pt-cloud-syncing');
-      try { await global.PTCloud.syncOnLogin(); } catch (e) { console.warn('[PTCloud]', e); }
-      document.body.classList.remove('pt-cloud-syncing');
+      withTimeout(global.PTCloud.syncOnLogin(), 12000, 'cloud-sync')
+        .catch(function (e) { console.warn('[PTCloud]', e); })
+        .finally(function () { document.body.classList.remove('pt-cloud-syncing'); });
     }
+
     if (global.PTProfile && global.PTProfile.touchAndApply) {
-      try { await global.PTProfile.touchAndApply(user); } catch (e) { console.warn('[PTProfile]', e); }
+      withTimeout(global.PTProfile.touchAndApply(user), 8000, 'profile')
+        .then(function () {
+          renderAccountMenu(user);
+          if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
+        })
+        .catch(function (e) { console.warn('[PTProfile]', e); });
+    } else if (global.PTAdmin && global.PTAdmin.initForUser) {
+      global.PTAdmin.initForUser(user);
     }
-    setAppVisible(true);
-    renderAccountMenu(user);
-    if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
-    startAppIfNeeded();
-    global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
   }
 
   function setupGsiButton() {
