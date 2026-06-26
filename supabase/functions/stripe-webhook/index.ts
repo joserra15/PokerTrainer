@@ -129,6 +129,27 @@ serve(async (req) => {
         sub.current_period_end || null,
         interval
       );
+
+      if (customerId) {
+        await admin.rpc('pt_record_stripe_payment', {
+          p_stripe_customer_id: customerId,
+          p_paid_at: new Date().toISOString()
+        });
+      }
+    }
+  }
+
+  if (event.type === 'invoice.paid') {
+    const customerId = obj.customer as string;
+    const paidAtUnix = (obj.status_transitions as { paid_at?: number })?.paid_at;
+    const paidAt = paidAtUnix
+      ? new Date(paidAtUnix * 1000).toISOString()
+      : new Date().toISOString();
+    if (customerId) {
+      await admin.rpc('pt_record_stripe_payment', {
+        p_stripe_customer_id: customerId,
+        p_paid_at: paidAt
+      });
     }
   }
 

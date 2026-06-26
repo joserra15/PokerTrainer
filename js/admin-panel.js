@@ -10,8 +10,11 @@
     { id: 'premium', label: 'Coach' }
   ];
 
+  var PLAN_AI_LIMITS = { free: 0, pro: 3, premium: 30 };
+
   var loaded = false;
   var adminTabBtn = null;
+  var inviteModalBound = false;
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -67,10 +70,52 @@
     );
   }
 
+  function formatPayment(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function siteUrl() {
+    var origin = location.origin;
+    var path = location.pathname || '/';
+    if (/index\.html$/i.test(path)) path = path.replace(/index\.html$/i, '');
+    if (path.slice(-1) !== '/') path += '/';
+    return origin + path;
+  }
+
+  function invitePlanMeta(planId) {
+    var plans = (global.PT_BILLING && global.PT_BILLING.plans) || {};
+    if (planId === 'premium') {
+      return { label: 'Coach', price: (plans.premium && plans.premium.monthly) ? plans.premium.monthly + ' €/mes' : '34,99 €/mes' };
+    }
+    if (planId === 'pro') {
+      return { label: 'Study', price: (plans.pro && plans.pro.monthly) ? plans.pro.monthly + ' €/mes' : '14,99 €/mes' };
+    }
+    return { label: 'Gratis', price: '0 €' };
+  }
+
+  function defaultInviteBody(planId) {
+    var meta = invitePlanMeta(planId);
+    var url = siteUrl();
+    return (
+      'Hola,\n\n' +
+      'Te invito a probar PokerTrainer, el entrenador GTO de póker NLHE (entrenador interactivo, importación de sesiones e IA Coach).\n\n' +
+      'Plan recomendado: ' + meta.label + ' (' + meta.price + ').\n' +
+      'Accede aquí: ' + url + '\n\n' +
+      'Regístrate con Google y, si quieres el plan de pago, entra en la pestaña Planes dentro de la app.\n\n' +
+      'Un saludo'
+    );
+  }
+
+  function aiLimitForPlan(plan, isAdmin) {
+    if (isAdmin) return null;
+    return PLAN_AI_LIMITS[plan] != null ? PLAN_AI_LIMITS[plan] : 0;
+  }
+
   function aiLimitForRow(u) {
-    if (u.is_admin) return null;
-    if (u.ai_limit != null && u.ai_limit !== '') return Number(u.ai_limit);
-    return 0;
+    return aiLimitForPlan(u.plan || 'free', u.is_admin);
   }
 
   function ensureAdminTab() {
@@ -150,6 +195,7 @@
         '</td>' +
         '<td>' + planSelect(u.user_id, u.plan || 'free', false) + '</td>' +
         '<td>' + usageBar(Number(u.ai_today) || 0, aiLimitForRow(u)) + '</td>' +
+        '<td class="admin-payment">' + escapeHtml(formatPayment(u.stripe_last_payment_at)) + '</td>' +
         '<td><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
         (online ? '● ' : '') + escapeHtml(formatRelative(u.last_seen_at)) + '</span></td>' +
         '<td class="admin-center">' +
@@ -211,9 +257,91 @@
         if (global.PTAuth && global.PTAuth.renderAccountMenu) {
           global.PTAuth.renderAccountMenu(mePlan);
         }
+        global.dispatchEvent(new CustomEvent('pt-plan-changed', { detail: { userId: userId, plan: res.data.plan } }));
       }
     }
     await refresh();
+  }
+
+  function openInviteModal() {
+    var modal = $('#admin-invite-modal');
+    var emailEl = $('#admin-invite-email');
+    var planEl = $('#admin-invite-plan');
+    var bodyEl = $('#admin-invite-body');
+    if (!modal || !planEl || !bodyEl) return;
+    if (emailEl && !emailEl.value) emailEl.value = '';
+    bodyEl.value = defaultInviteBody(planEl.value || 'pro');
+    modal.classList.remove('hidden');
+    document.body.classList.add('admin-invite-open');
+    if (emailEl) emailEl.focus();
+  }
+
+  function closeInviteModal() {
+    var modal = $('#admin-invite-modal');
+    if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('admin-invite-open');
+  }
+
+  function bindInviteModal() {
+    if (inviteModalBound) return;
+    inviteModalBound = true;
+    var openBtn = $('#admin-invite-open');
+    var closeBtn = $('#admin-invite-close');
+    var modal = $('#admin-invite-modal');
+    var planEl = $('#admin-invite-plan');
+    var bodyEl = $('#admin-invite-body');
+    var mailBtn = $('#admin-invite-mailto');
+    var copyBtn = $('#admin-invite-copy');
+
+    if (openBtn) openBtn.addEventListener('click', openInviteModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeInviteModal);
+    if (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target.id === 'admin-invite-modal' || e.target.closest('[data-close-admin-invite]')) {
+          closeInviteModal();
+        }
+      });
+    }
+    if (planEl && bodyEl) {
+      planEl.addEventListener('change', function () {
+        bodyEl.value = defaultInviteBody(planEl.value);
+      });
+    }
+    if (mailBtn) {
+      mailBtn.addEventListener('click', function () {
+        var email = ($('#admin-invite-email') && $('#admin-invite-email').value || '').trim();
+        var body = bodyEl ? bodyEl.value.trim() : '';
+        if (!email) {
+          alert('Indica el correo del invitado.');
+          return;
+        }
+        if (!body) {
+          alert('El mensaje está vacío.');
+          return;
+        }
+        var subject = encodeURIComponent('Invitación a PokerTrainer');
+        var mailBody = encodeURIComponent(body);
+        window.location.href = 'mailto:' + encodeURIComponent(email) + '?subject=' + subject + '&body=' + mailBody;
+      });
+    }
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function () {
+        var body = bodyEl ? bodyEl.value.trim() : '';
+        if (!body) {
+          alert('El mensaje está vacío.');
+          return;
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(body).then(function () {
+            alert('Mensaje copiado al portapapeles.');
+          }).catch(function () {
+            alert(body);
+          });
+        } else {
+          alert(body);
+        }
+      });
+    }
   }
 
   async function refresh() {
@@ -238,6 +366,8 @@
   function bindUi() {
     var refreshBtn = $('#admin-refresh');
     if (refreshBtn) refreshBtn.addEventListener('click', function () { refresh(); });
+
+    bindInviteModal();
 
     var accountAdmin = $('#account-admin');
     if (accountAdmin) {

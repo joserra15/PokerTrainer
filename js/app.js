@@ -217,6 +217,9 @@
     window.addEventListener('pt-auth-ready', function () {
       if (window.PTEntitlements && window.PTEntitlements.refresh) window.PTEntitlements.refresh();
     });
+    window.addEventListener('pt-plan-changed', function () {
+      renderPricing();
+    });
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
@@ -1241,7 +1244,7 @@
         if (ent.limits.import_sessions_per_month != null) {
           line += ' · Imports mes: ' + ent.usage.import_sessions_month + '/' + ent.limits.import_sessions_per_month;
         }
-        if (ent.limits.ai_reports_per_month > 0) {
+        if (ent.limits.ai_reports_per_month != null) {
           line += ' · IA mes: ' + ent.usage.ai_reports_month + '/' + ent.limits.ai_reports_per_month;
         }
       }
@@ -1256,7 +1259,7 @@
       },
       {
         id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
-        price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: true,
+        price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: false,
         features: ['Entrenador ilimitado', 'Import ilimitado', '3 consultas IA Coach/mes', 'Sync, estadísticas y repaso'],
         cta: 'pro'
       },
@@ -1279,7 +1282,7 @@
       } else if (isCurrent) {
         btns = '<span class="muted-text">Plan actual</span>';
       }
-      return '<div class="pricing-card' + (c.featured ? ' featured' : '') + '">' +
+      return '<div class="pricing-card' + (isCurrent ? ' featured' : '') + '">' +
         '<h3>' + escapeHtml(c.title) + '</h3>' +
         '<div class="pricing-price">' + escapeHtml(c.price) + '<small>' + escapeHtml(c.period) + '</small></div>' +
         '<ul class="pricing-features">' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +

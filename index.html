@@ -452,7 +452,10 @@
       <div class="admin-section">
         <div class="admin-section-head">
           <h3>Usuarios</h3>
-          <span id="admin-users-status" class="muted-text"></span>
+          <div class="admin-section-actions">
+            <button type="button" id="admin-invite-open" class="btn btn-primary btn-sm">Invitar usuario</button>
+            <span id="admin-users-status" class="muted-text"></span>
+          </div>
         </div>
         <p id="admin-users-error" class="admin-error" role="alert"></p>
         <div class="admin-table-wrap">
@@ -462,6 +465,7 @@
                 <th>Usuario</th>
                 <th>Plan</th>
                 <th>IA mes</th>
+                <th>Último pago</th>
                 <th>Última conexión</th>
                 <th>Admin</th>
               </tr>
@@ -475,6 +479,28 @@
       </div>
     </section>
   </main>
+
+  <div id="admin-invite-modal" class="modal admin-invite-modal hidden" role="dialog" aria-modal="true" aria-labelledby="admin-invite-title">
+    <div class="modal-content admin-invite-content">
+      <h3 id="admin-invite-title">Invitar usuario</h3>
+      <p class="muted-text">Genera un correo con enlace a PokerTrainer. Puedes editar el texto antes de enviarlo.</p>
+      <label class="admin-invite-label" for="admin-invite-email">Correo del invitado</label>
+      <input type="email" id="admin-invite-email" class="admin-invite-input" placeholder="nombre@ejemplo.com" autocomplete="off" />
+      <label class="admin-invite-label" for="admin-invite-plan">Plan sugerido</label>
+      <select id="admin-invite-plan" class="admin-invite-input">
+        <option value="pro">Study — 14,99 €/mes</option>
+        <option value="premium">Coach — 34,99 €/mes</option>
+        <option value="free">Gratis (probar la app)</option>
+      </select>
+      <label class="admin-invite-label" for="admin-invite-body">Mensaje</label>
+      <textarea id="admin-invite-body" class="admin-invite-textarea" rows="10"></textarea>
+      <div class="admin-invite-actions">
+        <button type="button" id="admin-invite-mailto" class="btn btn-primary">Abrir en correo</button>
+        <button type="button" id="admin-invite-copy" class="btn btn-ghost">Copiar mensaje</button>
+        <button type="button" id="admin-invite-close" class="btn btn-ghost" data-close-admin-invite>Cerrar</button>
+      </div>
+    </div>
+  </div>
 
   <div id="modal" class="modal hidden">
     <div class="modal-content" id="modal-content"></div>
