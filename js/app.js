@@ -384,6 +384,9 @@
       backdrop.setAttribute('aria-hidden', 'true');
     }
     if (nav) nav.setAttribute('aria-hidden', 'true');
+    if (window.PTAuth && window.PTAuth.collapseAccountAccordion) {
+      window.PTAuth.collapseAccountAccordion();
+    }
   }
 
   function bindMobileNav() {

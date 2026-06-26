@@ -65,6 +65,41 @@
     }
   }
 
+  function isMobileNav() {
+    return window.matchMedia('(max-width: 680px)').matches;
+  }
+
+  function setAccountAccordion(open) {
+    const dropdown = $('#account-dropdown');
+    const toggle = $('#account-accordion-toggle');
+    const panel = $('#account-accordion-panel');
+    if (!dropdown || !toggle || !panel) return;
+    if (!isMobileNav()) {
+      dropdown.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      return;
+    }
+    dropdown.classList.toggle('is-open', !!open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function toggleAccountAccordion() {
+    const dropdown = $('#account-dropdown');
+    if (!dropdown) return;
+    setAccountAccordion(!dropdown.classList.contains('is-open'));
+  }
+
+  function bindAccountAccordion() {
+    const toggle = $('#account-accordion-toggle');
+    if (!toggle || toggle.dataset.bound) return;
+    toggle.dataset.bound = '1';
+    toggle.addEventListener('click', function (e) {
+      if (!isMobileNav()) return;
+      e.stopPropagation();
+      toggleAccountAccordion();
+    });
+  }
+
   function renderAccountMenu(user) {
     user = normalizeUser(user);
     const trigger = $('#account-trigger');
@@ -155,6 +190,9 @@
     if (adminBtn) {
       adminBtn.classList.toggle('hidden', !user.isAdmin);
     }
+
+    bindAccountAccordion();
+    setAccountAccordion(false);
   }
 
   function downloadJson(filename, jsonStr) {
@@ -361,6 +399,10 @@
       if (currentUser) renderAccountMenu(currentUser);
     });
 
+    window.addEventListener('resize', function () {
+      setAccountAccordion(false);
+    });
+
     let gsiAttempts = 0;
     function waitGsi() {
       if (global.google && global.google.accounts && global.google.accounts.id) {
@@ -379,6 +421,7 @@
     signOut: signOut,
     exportAccountData: exportAccountData,
     deleteAccount: deleteAccount,
+    collapseAccountAccordion: function () { setAccountAccordion(false); },
     startLogin: function () { if (global.PT_startGoogleLogin) global.PT_startGoogleLogin(); }
   };
 

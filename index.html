@@ -88,20 +88,23 @@
           <span class="account-chevron" aria-hidden="true">▾</span>
         </button>
         <div class="account-dropdown hidden" id="account-dropdown">
-          <div class="account-dropdown-head">
+          <button type="button" class="account-accordion-toggle" id="account-accordion-toggle" aria-expanded="false" aria-controls="account-accordion-panel">
             <img id="account-avatar-lg" class="account-avatar-lg" alt="" hidden />
-            <div>
+            <span class="account-accordion-title">
               <strong id="account-name"></strong>
-              <span id="account-email" class="account-email-full"></span>
-            </div>
+            </span>
+            <span class="account-accordion-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="account-accordion-panel" id="account-accordion-panel">
+            <span id="account-email" class="account-email-full"></span>
+            <div class="account-meta" id="account-meta"></div>
+            <button type="button" id="account-export" class="btn btn-ghost btn-block" style="margin-bottom:6px">Exportar mis datos</button>
+            <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
+            <button type="button" id="account-admin" class="btn btn-admin btn-block hidden" style="margin-bottom:8px">Panel de administración</button>
+            <button type="button" id="account-cookies" class="btn btn-ghost btn-block btn-sm-account">Configurar cookies</button>
+            <button type="button" id="account-delete" class="btn btn-danger btn-block btn-sm-account" style="margin-top:8px">Eliminar cuenta y datos</button>
+            <button type="button" id="account-signout" class="btn btn-ghost btn-block" style="margin-top:8px">Cerrar sesión</button>
           </div>
-          <div class="account-meta" id="account-meta"></div>
-          <button type="button" id="account-export" class="btn btn-ghost btn-block" style="margin-bottom:6px">Exportar mis datos</button>
-          <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
-          <button type="button" id="account-admin" class="btn btn-admin btn-block hidden" style="margin-bottom:8px">Panel de administración</button>
-          <button type="button" id="account-cookies" class="btn btn-ghost btn-block btn-sm-account">Configurar cookies</button>
-          <button type="button" id="account-delete" class="btn btn-danger btn-block btn-sm-account" style="margin-top:8px">Eliminar cuenta y datos</button>
-          <button type="button" id="account-signout" class="btn btn-ghost btn-block" style="margin-top:8px">Cerrar sesión</button>
         </div>
       </div>
       <nav class="tabs">

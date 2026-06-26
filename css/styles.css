@@ -108,6 +108,33 @@ body.nav-open .nav-toggle-bar:nth-child(3) { transform: translateY(-7px) rotate(
   display: flex; gap: 12px; align-items: center;
   padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
 }
+.account-accordion-toggle {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 0 0 10px; margin: 0 0 10px;
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  color: var(--text); cursor: pointer; text-align: left;
+}
+.account-accordion-title { flex: 1; min-width: 0; }
+.account-accordion-title strong {
+  display: block; font-size: 15px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.account-accordion-chevron {
+  flex-shrink: 0; font-size: 12px; color: var(--muted);
+  transition: transform .2s ease;
+}
+.account-dropdown.is-open .account-accordion-chevron { transform: rotate(180deg); }
+.account-accordion-panel .account-email-full {
+  display: block; margin-bottom: 10px;
+}
+@media (min-width: 681px) {
+  .account-accordion-toggle {
+    pointer-events: none;
+    cursor: default;
+  }
+  .account-accordion-chevron { display: none; }
+  .account-accordion-panel { display: block !important; }
+}
 .account-dropdown-head strong { display: block; font-size: 15px; }
 .account-email-full { display: block; font-size: 12px; color: var(--muted); word-break: break-all; }
 .account-meta { display: grid; gap: 8px; margin-bottom: 12px; }
@@ -882,9 +909,18 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
     position: static; min-width: 0; width: 100%;
     box-shadow: none; border: none; border-radius: 0;
     border-bottom: 1px solid var(--border);
-    padding: 16px;
+    padding: 12px 16px;
   }
   .account-dropdown.hidden { display: block !important; }
+  .account-accordion-toggle {
+    padding: 0; margin: 0; border-bottom: none;
+  }
+  .account-accordion-chevron { display: block; }
+  .account-accordion-panel {
+    display: none;
+    padding-top: 4px;
+  }
+  .account-dropdown.is-open .account-accordion-panel { display: block; }
 
   .tabs {
     width: 100%; flex-direction: column; gap: 4px;
