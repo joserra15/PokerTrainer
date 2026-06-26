@@ -333,16 +333,16 @@
     if (tabId === 'ranges') renderRangesExplorer();
     if (tabId === 'sessions') { showSessionsView('home'); renderSessionsList(); }
     if (tabId === 'admin') {
-      var adminUser = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+      var adminUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
       if (!adminUser || !adminUser.isAdmin) {
         goToTab('home');
         return;
       }
-      if (global.PTAdmin && global.PTAdmin.render) global.PTAdmin.render();
+      if (window.PTAdmin && window.PTAdmin.render) window.PTAdmin.render();
     }
   }
 
-  global.goToTab = goToTab;
+  window.goToTab = goToTab;
 
   function isMobileLayout() {
     return window.matchMedia('(max-width: 680px)').matches;
