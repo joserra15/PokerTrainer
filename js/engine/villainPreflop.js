@@ -24,8 +24,11 @@
     return defender + '_vs_' + opener;
   }
 
-  function defendBuckets(defender, opener) {
-    const data = D.VS_RFI[vsRfiKey(defender, opener)];
+  function defendBuckets(defender, opener, ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx
+      ? RR.getVsRfiRow(defender, opener, ctx)
+      : D.VS_RFI[vsRfiKey(defender, opener)];
     if (!data) return null;
     return {
       threeBet: bucketWeights({ threeBet: data.threeBet, threeBetMix: data.threeBetMix }),
@@ -33,8 +36,9 @@
     };
   }
 
-  function vs3betBuckets() {
-    const data = D.VS_3BET;
+  function vs3betBuckets(ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET;
     return {
       fourBet: bucketWeights({ fourBet: data.fourBet }),
       call: bucketWeights({ call: data.call, callMix: data.callMix })
@@ -54,9 +58,9 @@
   }
 
   /** Defensa BB/SB frente a open del héroe (fold / call / 3bet). */
-  function defendVsOpen(code, profile, rnd, defenderPos, openerPos) {
+  function defendVsOpen(code, profile, rnd, defenderPos, openerPos, ctx) {
     const r = rnd != null ? rnd : Math.random();
-    const buckets = defendBuckets(defenderPos, openerPos);
+    const buckets = defendBuckets(defenderPos, openerPos, ctx);
     if (!buckets) return 'fold';
 
     const w3 = handWeight(buckets.threeBet, code);
@@ -78,9 +82,9 @@
   }
 
   /** Opener frente al 3-bet del héroe (fold / call / 4bet). */
-  function openerVs3BetAction(code, profile, rnd) {
+  function openerVs3BetAction(code, profile, rnd, ctx) {
     const r = rnd != null ? rnd : Math.random();
-    const buckets = vs3betBuckets();
+    const buckets = vs3betBuckets(ctx);
     const wf = handWeight(buckets.fourBet, code);
     const wc = handWeight(buckets.call, code);
 
@@ -118,18 +122,24 @@
     return 'fold';
   }
 
-  function rangeStrFor3Bet(defender, opener) {
-    const data = D.VS_RFI[vsRfiKey(defender, opener)];
+  function rangeStrFor3Bet(defender, opener, ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx
+      ? RR.getVsRfiRow(defender, opener, ctx)
+      : D.VS_RFI[vsRfiKey(defender, opener)];
     if (!data) return 'QQ+, AKs, AKo';
     return data.threeBet + ', ' + data.threeBetMix;
   }
 
-  function rangeStrFor4Bet() {
-    return D.VS_3BET.fourBet;
+  function rangeStrFor4Bet(ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET;
+    return data.fourBet;
   }
 
-  function rangeStrForCall3Bet() {
-    const d = D.VS_3BET;
+  function rangeStrForCall3Bet(ctx) {
+    const RR = global.GTORangesRegistry;
+    const d = RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET;
     return d.call + (d.callMix ? ', ' + d.callMix : '');
   }
 

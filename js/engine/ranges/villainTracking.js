@@ -243,6 +243,12 @@
     const vPos = lastVillainRaiser && hand.positions
       ? hand.positions[lastVillainRaiser]
       : null;
+    const RR = global.GTORangesRegistry;
+    const ctx = hand.rangeContext || (RR ? RR.inferFromHand(hand) : null);
+    if (vPos && RR && ctx) {
+      const str = RR.openRangeStr(vPos, ctx);
+      if (str) return str;
+    }
     if (vPos && D.OPEN_RAISE[vPos]) {
       const data = D.OPEN_RAISE[vPos];
       return data.raise + (data.mix ? ', ' + data.mix : '');

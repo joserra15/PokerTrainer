@@ -48,6 +48,30 @@
     return !!(hand.playConfig && PC && PC.is9Max(hand.playConfig));
   }
 
+  function rangeCtx(hand) {
+    const RR = global.GTORangesRegistry;
+    if (!RR) return null;
+    if (hand.playConfig) return RR.normalize(hand.playConfig);
+    if (hand.rangeContext) return RR.normalize(hand.rangeContext);
+    return RR.normalize({});
+  }
+
+  function effStackForHand(hand) {
+    const PC = global.PTPlayConfig;
+    if (hand.playConfig && PC) return PC.stackBB(hand.playConfig);
+    const RR = global.GTORangesRegistry;
+    if (hand.rangeContext && RR) return RR.stackBB(hand.rangeContext);
+    return EFF;
+  }
+
+  function openRangeStr(pos, hand) {
+    const RR = global.GTORangesRegistry;
+    const ctx = rangeCtx(hand);
+    if (RR && ctx) return RR.openRangeStr(pos, ctx);
+    const row = R.OPEN_RAISE[pos];
+    return row ? row.raise + ', ' + row.mix : '';
+  }
+
   function heroTableSeat(hand) {
     return hand.displayHeroPos || hand.hero.pos;
   }
@@ -198,7 +222,7 @@
     const profile = profileFor(hand, 'BB');
     const code = seatHoleCode(hand, 'BB');
     if (VPF && code && hand.hero.pos) {
-      return VPF.defendVsOpen(code, profile, C.rng.random(), 'BB', hand.hero.pos);
+      return VPF.defendVsOpen(code, profile, C.rng.random(), 'BB', hand.hero.pos, rangeCtx(hand));
     }
     const s = strengthAtPos(hand, 'BB');
     const r = C.rng.random();
@@ -229,7 +253,7 @@
     const profile = profileFor(hand, pos);
     const code = seatHoleCode(hand, pos);
     if (VPF && code && hand.hero.pos) {
-      return VPF.defendVsOpen(code, profile, C.rng.random(), pos, hand.hero.pos);
+      return VPF.defendVsOpen(code, profile, C.rng.random(), pos, hand.hero.pos, rangeCtx(hand));
     }
     const s = strengthAtPos(hand, pos);
     const toCall = seatToCall(hand, pos, openSize);
@@ -289,7 +313,7 @@
     if (threeBettor) {
       hand.villain.pos = threeBettor;
       hand.villain.cards = villainHoleCards(hand);
-      hand.villain.rangeStr = bb3betRange(hand.hero.pos);
+      hand.villain.rangeStr = bb3betRange(hand.hero.pos, hand);
       syncVillainMeta(hand);
       initVillainTracker(hand);
       hand.villainInvested = threeBetSize;
@@ -303,7 +327,7 @@
     const villainPos = callers.indexOf('BB') >= 0 ? 'BB' : callers[callers.length - 1];
     hand.villain.pos = villainPos;
     hand.villain.cards = villainHoleCards(hand);
-    hand.villain.rangeStr = bbCallRange(hand.hero.pos);
+    hand.villain.rangeStr = bbCallRange(hand.hero.pos, hand);
     syncVillainMeta(hand);
     initVillainTracker(hand);
     hand.villainInvested = openSize;
@@ -327,7 +351,7 @@
     const profile = profileFor(hand, opener);
     const code = seatHoleCode(hand, opener);
     if (VPF && code) {
-      return VPF.openerVs3BetAction(code, profile, C.rng.random());
+      return VPF.openerVs3BetAction(code, profile, C.rng.random(), rangeCtx(hand));
     }
     const s = strengthAtPos(hand, opener);
     let foldProb = clamp(0.58 - s * 0.48, 0.14, 0.70);
@@ -429,7 +453,7 @@
 
     const input = {
       spotKind, position: hand.hero.pos, vsPosition: hand.villain.pos,
-      stackDepth: hand.effStack || EFF, street: node.street,
+      stackDepth: effStackForHand(hand), street: node.street,
       board: hand.board.slice(), heroCards: hand.hero.cards, handCode: hand.hero.code,
       potBB: node.potBB, toCallBB: facingBet(node) ? node.toCallBB : 0,
       potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
@@ -446,8 +470,10 @@
       input.vsRfiKey = s.key;
       input.vsPosition = parseVsKey(s.key).opener;
     }
-    const rem = (hand.effStack || EFF) - (hand.heroInvested || 0);
+    const rem = effStackForHand(hand) - (hand.heroInvested || 0);
     input.spr = node.potBB > 0 ? rem / node.potBB : rem;
+    const RR = global.GTORangesRegistry;
+    if (RR) RR.attachToInput(input, rangeCtx(hand));
     return input;
   }
 
@@ -614,22 +640,26 @@
       const hp = scenario.engineHeroPos
         || (global.PTPlayConfig ? global.PTPlayConfig.enginePos(scenario.heroPos) : scenario.heroPos);
       vPos = 'BB';
-      vRange = rfiDefendRange(hp);
+      vRange = rfiDefendRange(hp, { playConfig: playConfig });
     } else if (scenario.type === 'squeeze') {
       vPos = scenario.openerPos;
-      vRange = R.OPEN_RAISE[scenario.openerPos].raise + ', ' + R.OPEN_RAISE[scenario.openerPos].mix;
+      vRange = openRangeStr(scenario.openerPos, { playConfig: playConfig });
     } else if (scenario.type === 'isoLimp') {
       vPos = scenario.limperPos;
       vRange = LIMP_RANGE;
     } else if (scenario.type === 'face4bet') {
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
-      vRange = global.PTPlayConfig ? global.PTPlayConfig.face4betVillainRangeStr() : R.VS_3BET.fourBet;
+      vRange = global.PTPlayConfig ? global.PTPlayConfig.face4betVillainRangeStr(playConfig) : R.VS_3BET.fourBet;
     } else {
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
-      vRange = R.OPEN_RAISE[pk.opener].raise + ', ' + R.OPEN_RAISE[pk.opener].mix;
+      vRange = openRangeStr(pk.opener, { playConfig: playConfig });
     }
+
+    const stackBB = playConfig && global.PTPlayConfig
+      ? global.PTPlayConfig.stackBB(playConfig)
+      : EFF;
 
     const hand = {
       id: 'h' + Date.now() + Math.floor(Math.random() * 1000),
@@ -644,7 +674,7 @@
       _predeal: { holeCards: holeCards, board: board, villainPos: vPos, villainRange: vRange },
       board: [],
       potBB: 0, heroInvested: 0, villainInvested: 0,
-      effStack: EFF,
+      effStack: stackBB,
       stage: 'preflop',
       decisions: [],
       log: [],
@@ -698,7 +728,7 @@
     const { hero, opener } = parseVsKey(hand.scenario.key);
     hand.hero.pos = hero;
     hand.villain.pos = opener;
-    hand.villain.rangeStr = R.OPEN_RAISE[opener].raise + ', ' + R.OPEN_RAISE[opener].mix;
+    hand.villain.rangeStr = openRangeStr(opener, hand);
     initVillainTracker(hand);
     const openSize = opener === 'SB' ? SB_OPEN : OPEN;
 
@@ -748,7 +778,7 @@
     const { openerPos, callerPos } = hand.scenario;
     hand.hero.pos = heroPos;
     hand.villain.pos = openerPos;
-    hand.villain.rangeStr = R.OPEN_RAISE[openerPos].raise + ', ' + R.OPEN_RAISE[openerPos].mix;
+    hand.villain.rangeStr = openRangeStr(openerPos, hand);
     initVillainTracker(hand);
     const openSize = OPEN;
     // bote: ciegas + open + call del pagador (dinero muerto)
@@ -1066,11 +1096,11 @@
         const fbSize = round2(node.threeBetSize * 2.3);
         hand.villainInvested = fbSize;
         hand.potBB = round2(node.threeBetSize + fbSize + SB);
-        hand.villain.rangeStr = VPF ? VPF.rangeStrFor4Bet() : R.VS_3BET.fourBet;
+        hand.villain.rangeStr = VPF ? VPF.rangeStrFor4Bet(rangeCtx(hand)) : R.VS_3BET.fourBet;
         setVillainAct(hand, 'raise', fbSize);
         return setupFace4Bet(hand, fbSize);
       }
-      hand.villain.rangeStr = VPF ? VPF.rangeStrForCall3Bet() : (R.VS_3BET.call + ', ' + R.VS_3BET.callMix);
+      hand.villain.rangeStr = VPF ? VPF.rangeStrForCall3Bet(rangeCtx(hand)) : (R.VS_3BET.call + ', ' + R.VS_3BET.callMix);
       // villano iguala el 3bet -> flop en bote resubido, hero agresor
       setVillainAct(hand, 'call', node.threeBetSize);
       hand.villainInvested = node.threeBetSize;
@@ -1085,7 +1115,7 @@
     hand.hero.pos = hero;
     hand.villain.pos = opener;
     hand.villain.rangeStr = global.PTPlayConfig
-      ? global.PTPlayConfig.face4betVillainRangeStr()
+      ? global.PTPlayConfig.face4betVillainRangeStr(hand.playConfig)
       : R.VS_3BET.fourBet;
     initVillainTracker(hand);
     const openSize = opener === 'SB' ? SB_OPEN : OPEN;
@@ -1137,20 +1167,24 @@
     hand.current = node;
   }
 
-  function bb3betRange(heroPos) {
-    const key = 'BB_vs_' + heroPos;
-    const d = R.VS_RFI[key];
+  function bb3betRange(heroPos, hand) {
+    const RR = global.GTORangesRegistry;
+    const ctx = hand ? rangeCtx(hand) : null;
+    const key = RR && ctx ? RR.vsRfiKey('BB', heroPos, ctx) : 'BB_vs_' + heroPos;
+    const d = RR && ctx ? RR.getVsRfiRow('BB', heroPos, ctx) : R.VS_RFI[key];
     if (d) return d.threeBet + ', ' + d.threeBetMix;
     return 'QQ+, AKs, AKo, A5s';
   }
-  function bbCallRange(heroPos) {
-    const key = 'BB_vs_' + heroPos;
-    const d = R.VS_RFI[key];
+  function bbCallRange(heroPos, hand) {
+    const RR = global.GTORangesRegistry;
+    const ctx = hand ? rangeCtx(hand) : null;
+    const key = RR && ctx ? RR.vsRfiKey('BB', heroPos, ctx) : 'BB_vs_' + heroPos;
+    const d = RR && ctx ? RR.getVsRfiRow('BB', heroPos, ctx) : R.VS_RFI[key];
     if (d) return d.call;
     return '22-JJ, A2s-AJs, K9s+, Q9s+, JTs, T9s, 98s, 87s, KQo, QJo';
   }
-  function rfiDefendRange(heroPos) {
-    return bbCallRange(heroPos) + ', ' + bb3betRange(heroPos);
+  function rfiDefendRange(heroPos, hand) {
+    return bbCallRange(heroPos, hand) + ', ' + bb3betRange(heroPos, hand);
   }
 
   function openerContinueVs3Bet(hand, opener, threeBetSize) {

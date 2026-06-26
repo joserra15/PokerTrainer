@@ -31,22 +31,18 @@
 
   const DEFAULT = {
     gameType: 'cash6',
+    stackDepth: 'standard',
     scenario: 'random',
     heroPos: 'random',
     handRange: 'playable'
   };
 
-  const OPEN_RAISE_MTT = {
-    UTG: { raise: '77+, ATs+, KQs, AJo+, KQo', mix: '66, A5s-A2s, KJs, QJs' },
-    HJ: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, K9s, Q9s, 98s' },
-    CO: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, K9o' },
-    BTN: { raise: '44+, A2s+, K7s+, Q8s+, J8s+, T8s+, 97s+, 87s, 76s, A7o+, K9o+, Q9o+, J9o+', mix: '33, 65s, A5o-A2o' },
-    SB: { raise: '55+, A5s+, K8s+, Q9s+, J9s+, T9s, 98s, A8o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, JTo' }
-  };
+  const RR = function () { return global.GTORangesRegistry; };
 
   function normalize(config) {
     const c = Object.assign({}, DEFAULT, config || {});
     if (!c.gameType) c.gameType = 'cash6';
+    if (!c.stackDepth) c.stackDepth = 'standard';
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
     if (!c.handRange) c.handRange = 'random';
@@ -116,14 +112,20 @@
   }
 
   function enginePos(displayPos) {
+    const reg = RR();
+    if (reg) return reg.toEnginePos(displayPos);
     return POS_9_TO_ENGINE[displayPos] || displayPos;
   }
 
   function openRaiseTable(config) {
-    return isMtt(config) ? OPEN_RAISE_MTT : D.OPEN_RAISE;
+    const reg = RR();
+    if (reg) return reg.getOpenRaiseTable(config);
+    return D.OPEN_RAISE;
   }
 
   function vsRfiTable(config) {
+    const reg = RR();
+    if (reg) return reg.getVsRfiTable(config);
     return D.VS_RFI;
   }
 
@@ -168,7 +170,7 @@
 
     if (scenario.type === 'RFI') {
       const pos = enginePos(scenario.heroPos);
-      const data = openRaiseTable(config)[pos];
+      const data = openRaiseTable(config)[scenario.heroPos] || openRaiseTable(config)[pos];
       if (!data) return {};
       return filterWeights(W.fromSets({ raise: data.raise, mix: data.mix }), mode);
     }
@@ -202,12 +204,12 @@
   }
 
   /** BB defiende open del héroe (call / 3-bet según VS_RFI). */
-  function sampleRfiDefenderWeights(scenario) {
+  function sampleRfiDefenderWeights(scenario, config) {
     if (scenario.type !== 'RFI') return {};
     const heroEng = scenario.engineHeroPos || enginePos(scenario.heroPos);
     if (!heroEng || heroEng === 'BB') return {};
     const key = 'BB_vs_' + heroEng;
-    const d = D.VS_RFI[key];
+    const d = vsRfiTable(config || { gameType: 'cash6', stackDepth: 'standard' })[key];
     if (!d) return {};
     return W.fromSets({
       threeBet: d.threeBet,
@@ -218,14 +220,16 @@
   }
 
   /** Abridor que 4-betea tras el 3-bet del héroe. */
-  function sampleFace4betVillainWeights() {
-    const data = D.VS_3BET;
+  function sampleFace4betVillainWeights(config) {
+    const reg = RR();
+    const data = reg ? reg.getVs3bet(config) : D.VS_3BET;
     if (!data) return {};
     return W.fromSets({ fourBet: data.fourBet });
   }
 
-  function face4betVillainRangeStr() {
-    const data = D.VS_3BET;
+  function face4betVillainRangeStr(config) {
+    const reg = RR();
+    const data = reg ? reg.getVs3bet(config || { gameType: 'cash6', stackDepth: 'standard' }) : D.VS_3BET;
     return data ? data.fourBet : 'QQ+, AKs, AKo';
   }
 
@@ -258,14 +262,14 @@
       deals.push({ pos: opener, weights: sampleVillainWeights(scenario, config), role: 'opener' });
     } else if (scenario.type === 'face4bet') {
       const opener = openerDealSeat(scenario, config);
-      deals.push({ pos: opener, weights: sampleFace4betVillainWeights(), role: 'fourBettor' });
+      deals.push({ pos: opener, weights: sampleFace4betVillainWeights(config), role: 'fourBettor' });
     } else if (scenario.type === 'squeeze') {
       deals.push({ pos: scenario.openerPos, weights: sampleVillainWeights(scenario, config), role: 'opener' });
       deals.push({ pos: scenario.callerPos, weights: sampleCallerWeights(scenario), role: 'caller' });
     } else if (scenario.type === 'RFI') {
       const heroEng = scenario.engineHeroPos || enginePos(scenario.heroPos);
       if (heroEng && heroEng !== 'BB') {
-        deals.push({ pos: 'BB', weights: sampleRfiDefenderWeights(scenario), role: 'defender' });
+        deals.push({ pos: 'BB', weights: sampleRfiDefenderWeights(scenario, config), role: 'defender' });
       }
     }
     return deals;
@@ -355,10 +359,16 @@
   function labelFor(config) {
     const c = normalize(config);
     const gt = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' }[c.gameType] || c.gameType;
+    const sd = { standard: '100bb', short: '40bb', deep: '150bb' }[c.stackDepth] || c.stackDepth;
     const sc = { random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', '4bet': '4-Bet', squeeze: 'Squeeze' }[c.scenario] || c.scenario;
     const hr = { random: 'Todas', playable: 'Jugables', borderline: 'Borderline', all: 'Todas' }[c.handRange] || c.handRange;
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
-    return gt + ' · ' + sc + ' · ' + hr + ' · ' + pos;
+    return gt + ' · ' + sd + ' · ' + sc + ' · ' + hr + ' · ' + pos;
+  }
+
+  function stackBB(config) {
+    const reg = RR();
+    return reg ? reg.stackBB(normalize(config)) : 100;
   }
 
   global.PTPlayConfig = {
@@ -369,6 +379,6 @@
     sampleCallerWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
-    is9Max, isMtt, heroPositions, enginePos, parseVsKey, filterWeights
+    is9Max, isMtt, heroPositions, enginePos, parseVsKey, filterWeights, stackBB
   };
 })(window);

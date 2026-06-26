@@ -212,6 +212,15 @@
         </div>
 
         <div class="setup-group">
+          <span class="setup-label">Profundidad de stack</span>
+          <div class="setup-chips" id="setup-stack-depth">
+            <button type="button" class="setup-chip active" data-val="standard">Standard (100bb)</button>
+            <button type="button" class="setup-chip" data-val="short">Short (40bb)</button>
+            <button type="button" class="setup-chip" data-val="deep">Deep (150bb)</button>
+          </div>
+        </div>
+
+        <div class="setup-group">
           <span class="setup-label">Escenario</span>
           <div class="setup-chips" id="setup-scenario">
             <button type="button" class="setup-chip active" data-val="random">Random</button>
@@ -309,7 +318,19 @@
       <div class="ranges-panel card-box">
         <div class="ranges-panel-head">
           <h2>Rangos preflop</h2>
-          <span class="muted-text">Cash NL 6-max · 100bb</span>
+          <span class="muted-text" id="ranges-context-label">Cash 6-max · 100bb</span>
+        </div>
+        <div class="ranges-filter-row">
+          <div class="setup-chips" id="ranges-game-type">
+            <button type="button" class="setup-chip active" data-val="cash6">6-max</button>
+            <button type="button" class="setup-chip" data-val="cash9">9-max</button>
+            <button type="button" class="setup-chip" data-val="mtt">MTT</button>
+          </div>
+          <div class="setup-chips" id="ranges-stack-depth">
+            <button type="button" class="setup-chip active" data-val="standard">100bb</button>
+            <button type="button" class="setup-chip" data-val="short">40bb</button>
+            <button type="button" class="setup-chip" data-val="deep">150bb</button>
+          </div>
         </div>
         <div class="ranges-spot-row" id="ranges-spot-row"></div>
         <div class="ranges-pos-block">
@@ -509,6 +530,8 @@
       'js/engine/cache.js',
       'js/engine/ranges/notation.js',
       'js/engine/ranges/data.js',
+      'js/engine/ranges/variants.js',
+      'js/engine/ranges/registry.js',
       'js/engine/ranges/weights.js',
       'js/engine/ranges/villainTracking.js',
       'js/engine/handStrength.js',

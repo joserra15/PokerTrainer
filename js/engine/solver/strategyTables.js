@@ -24,8 +24,9 @@
     return out;
   }
 
-  function rfiStrategy(pos, code) {
-    const data = D.OPEN_RAISE[pos];
+  function rfiStrategy(pos, code, ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx ? RR.getOpenRaiseRow(pos, ctx) : D.OPEN_RAISE[pos];
     if (!data) return { fold: 1, raise: 0 };
     const raiseSet = N.toSet(data.raise);
     const mixSet = N.toSet(data.mix);
@@ -39,8 +40,13 @@
     return base;
   }
 
-  function vsRfiStrategy(key, code) {
-    const data = D.VS_RFI[key];
+  function vsRfiStrategy(key, code, ctx) {
+    const RR = global.GTORangesRegistry;
+    let data = D.VS_RFI[key];
+    if (RR && ctx && key && key.indexOf('_vs_') > 0) {
+      const parts = key.split('_vs_');
+      data = RR.getVsRfiRow(parts[0], parts[1], ctx) || data;
+    }
     if (!data) return { fold: 1, call: 0, raise: 0 };
     const tb = N.toSet(data.threeBet);
     const tbMix = N.toSet(data.threeBetMix);
@@ -106,8 +112,9 @@
   }
 
   /** 3-bettor que afronta 4-bet (no cold). */
-  function vs4betAs3bettorStrategy(code) {
-    const data = D.VS_3BET;
+  function vs4betAs3bettorStrategy(code, ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET;
     if (data) {
       const jam = N.toSet(data.fourBet);
       const call = N.toSet(data.call);
@@ -337,18 +344,25 @@
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
+      const ctx = input.rangeContext || (global.GTORangesRegistry ? global.GTORangesRegistry.normalize({
+        gameType: input.gameType,
+        stackDepth: input.stackDepthLabel || global.GTORangesRegistry.stackLabelFromBB(input.stackDepth)
+      }) : null);
 
-      if (kind === 'RFI') return rfiStrategy(input.position, code);
-      if (kind === 'vsRFI') return vsRfiStrategy(input.vsRfiKey || (input.position + '_vs_' + input.vsPosition), code);
+      if (kind === 'RFI') return rfiStrategy(input.position, code, ctx);
+      if (kind === 'vsRFI') return vsRfiStrategy(input.vsRfiKey || (input.position + '_vs_' + input.vsPosition), code, ctx);
       if (kind === 'squeeze') return squeezeStrategy(code);
       if (kind === 'isoLimp' || kind === 'vsLimp') return isoStrategy(code);
       if (kind === 'face3bet' || kind === 'vs3bet') return vs3betStrategy(code);
-      if (kind === 'face4bet') return vs4betAs3bettorStrategy(code);
+      if (kind === 'face4bet') return vs4betAs3bettorStrategy(code, ctx);
       if (kind === 'vs4bet') return vs4betStrategy(code);
       if (kind === 'cold3bet') return heuristicFacingRaise(code, true);
 
       if (spotKey.street === 'preflop') {
-        if (D.OPEN_RAISE[input.position]) return rfiStrategy(input.position, code);
+        if (ctx && global.GTORangesRegistry.getOpenRaiseRow(input.position, ctx)) {
+          return rfiStrategy(input.position, code, ctx);
+        }
+        if (D.OPEN_RAISE[input.position]) return rfiStrategy(input.position, code, ctx);
         return heuristicOpen(code);
       }
 

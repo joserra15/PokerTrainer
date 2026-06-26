@@ -10,6 +10,7 @@
   const FOLD_KEYS = ['fold'];
   const CHUNK_SIZE = 8;
   const D = function () { return global.GTORangesData || {}; };
+  const RR = function () { return global.GTORangesRegistry; };
 
   const EXPLORER_SPOTS = {
     RFI: {
@@ -375,11 +376,61 @@
     return profile.rangeStr || profile.gtoStr || D().BROAD_CONTINUE;
   }
 
-  function buildExplorerInput(spotType, heroPos, villainPos) {
+  function explorerCtx(ctx) {
+    const reg = RR();
+    return reg ? reg.normalize(ctx || {}) : { gameType: 'cash6', stackDepth: 'standard', stackBB: 100, is9Max: false };
+  }
+
+  function heroPositionsForSpot(spotType, ctx) {
+    const c = explorerCtx(ctx);
+    const reg = RR();
+    if (spotType === 'RFI') return reg ? reg.rfiPositions(ctx) : EXPLORER_SPOTS.RFI.heroPositions;
+    if (spotType === '3bet') {
+      if (c.is9Max) return ['BB', 'SB', 'BTN', 'CO', 'HJ', 'LJ', 'UTG2', 'UTG1', 'UTG'];
+      return EXPLORER_SPOTS['3bet'].heroPositions;
+    }
+    if (spotType === '4bet') {
+      if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB'];
+      return EXPLORER_SPOTS['4bet'].heroPositions;
+    }
+    if (spotType === 'squeeze') return EXPLORER_SPOTS.squeeze.heroPositions;
+    const spot = EXPLORER_SPOTS[spotType];
+    return spot ? spot.heroPositions.slice() : [];
+  }
+
+  function villainPositionsForSpot(spotType, ctx) {
+    const c = explorerCtx(ctx);
+    if (spotType === '3bet') {
+      if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
+      return EXPLORER_SPOTS['3bet'].villainPositions;
+    }
+    if (spotType === 'squeeze') return EXPLORER_SPOTS.squeeze.villainPositions;
+    const spot = EXPLORER_SPOTS[spotType];
+    return spot && spot.villainPositions ? spot.villainPositions.slice() : [];
+  }
+
+  function attachExplorerMeta(input, ctx) {
+    const c = explorerCtx(ctx);
+    const reg = RR();
+    input.stackDepth = c.stackBB;
+    if (reg) reg.attachToInput(input, ctx);
+    return input;
+  }
+
+  function buildExplorerInput(spotType, heroPos, villainPos, ctx) {
     const spot = EXPLORER_SPOTS[spotType];
     if (!spot) return null;
     if (spot.villainPositions && spot.villainPositions.length && !villainPos) return null;
-    return spot.build(heroPos, villainPos);
+    let input = spot.build(heroPos, villainPos);
+    if (!input) return null;
+    if (spotType === '3bet') {
+      const reg = RR();
+      const key = reg ? reg.vsRfiKey(heroPos, villainPos, ctx) : heroPos + '_vs_' + villainPos;
+      const data = reg ? reg.getVsRfiRow(heroPos, villainPos, ctx) : (D().VS_RFI || {})[key];
+      if (!data) return null;
+      input.vsRfiKey = key;
+    }
+    return attachExplorerMeta(input, ctx);
   }
 
   function explorerTitle(spotType, heroPos, villainPos) {
@@ -388,9 +439,22 @@
     return spot.title(heroPos, villainPos);
   }
 
-  function validVsRfiPairs() {
-    const keys = D().VS_RFI_KEYS || Object.keys(D().VS_RFI || {});
+  function validVsRfiPairs(ctx) {
+    const reg = RR();
+    const heroes = heroPositionsForSpot('3bet', ctx);
+    const openers = villainPositionsForSpot('3bet', ctx);
     const pairs = {};
+    heroes.forEach(function (hero) {
+      openers.forEach(function (opener) {
+        const key = reg ? reg.vsRfiKey(hero, opener, ctx) : hero + '_vs_' + opener;
+        const data = reg ? reg.getVsRfiRow(hero, opener, ctx) : (D().VS_RFI || {})[key];
+        if (!data) return;
+        if (!pairs[hero]) pairs[hero] = [];
+        if (pairs[hero].indexOf(opener) < 0) pairs[hero].push(opener);
+      });
+    });
+    if (Object.keys(pairs).length) return pairs;
+    const keys = D().VS_RFI_KEYS || Object.keys(D().VS_RFI || {});
     keys.forEach(function (k) {
       const m = k.match(/^(\w+)_vs_(\w+)$/);
       if (!m) return;
@@ -424,6 +488,9 @@
     buildBaseInput,
     buildExplorerInput,
     explorerTitle,
+    explorerCtx,
+    heroPositionsForSpot,
+    villainPositionsForSpot,
     validVsRfiPairs,
     computeGtoMatrixAsync,
     computeVillainRangeMatrix,

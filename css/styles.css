@@ -752,6 +752,8 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .ranges-panel { max-width: 560px; margin: 0 auto; }
 .ranges-panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
 .ranges-panel-head h2 { margin: 0; font-size: 20px; }
+.ranges-filter-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.ranges-filter-row .setup-chips { flex-wrap: wrap; }
 .ranges-spot-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .ranges-spot-btn {
   padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border);

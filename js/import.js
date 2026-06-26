@@ -314,6 +314,21 @@
     });
   }
 
+  function handRangeContext(hand) {
+    const RR = global.GTORangesRegistry;
+    if (!RR) return null;
+    if (hand.rangeContext) return RR.normalize(hand.rangeContext);
+    return RR.inferFromHand(hand);
+  }
+
+  function attachRangeContext(input, hand) {
+    const RR = global.GTORangesRegistry;
+    const ctx = handRangeContext(hand);
+    if (RR && ctx) RR.attachToInput(input, ctx);
+    else if (!input.stackDepth) input.stackDepth = 100;
+    return input;
+  }
+
   function buildEvalInputFromDecision(hand, d, chosenOverride) {
     const heroPos = (hand.positions && hand.hero && hand.positions[hand.hero]) || hand.heroPos || '??';
     const street = d.street || 'preflop';
@@ -343,7 +358,7 @@
       position: heroPos,
       vsPosition: d.vsPosition,
       vsRfiKey: d.vsRfiKey,
-      stackDepth: 100,
+      stackDepth: (handRangeContext(hand) || {}).stackBB || 100,
       street: d.street,
       board,
       priorBoard: d.priorBoard,
@@ -359,9 +374,9 @@
       inPosition: d.inPosition != null ? d.inPosition : postflopCtx.inPosition,
       availableActions: d.options || (toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'])
     };
-    if (d.street === 'preflop') return base;
+    if (d.street === 'preflop') return attachRangeContext(base, hand);
 
-    return Object.assign(base, {
+    return Object.assign(attachRangeContext(base, hand), {
       villainRange,
       heroEquity: null,
       villainLastAction,
@@ -432,6 +447,9 @@
   }
 
   function analyzeHand(hand) {
+    const RR = global.GTORangesRegistry;
+    if (RR) hand.rangeContext = RR.inferFromHand(hand);
+
     const hero = hand.hero;
     const heroPos = hand.positions[hero] || '??';
     const heroCards = hand.heroCards;
@@ -524,6 +542,9 @@
   // vs 3-bet / vs 4-bet (como abridor) y cold 3-bet+.
   function evalPreflop(hand, hero, heroPos, code, decisions) {
     if (!code) return;
+    const RR = global.GTORangesRegistry;
+    const ctx = handRangeContext(hand);
+    const stackBB = ctx ? ctx.stackBB : 100;
     let raiseCount = 0, lastRaiser = null, potBB = 0, toMatch = hand.bb;
     let limpers = 0, callersAfterRaise = 0, heroHasRaised = false, openRaiser = null;
     const committed = {};
@@ -549,16 +570,19 @@
           const chosen = a.type === 'raise' ? 'raise' : (a.type === 'call' ? 'call' : 'fold');
           const spotKind = mapFacingToKind(facing);
           const opts = facing === 'RFI' ? ['fold', 'raise'] : ['fold', 'call', 'raise'];
-          const vsRfiKey = facing === 'vsRFI' ? heroPos + '_vs_' + openerPos : undefined;
-          const evalResult = GTO.evaluateSpot({
+          const vsRfiKey = facing === 'vsRFI'
+            ? (RR ? RR.vsRfiKey(heroPos, openerPos, ctx) : heroPos + '_vs_' + openerPos)
+            : undefined;
+          const evalInput = attachRangeContext({
             spotKind, position: heroPos, vsPosition: openerPos,
-            stackDepth: 100, street: 'preflop', board: [], heroCards: hand.heroCards,
+            stackDepth: stackBB, street: 'preflop', board: [], heroCards: hand.heroCards,
             handCode: code, potBB, toCallBB, chosenAction: chosen,
             vsRfiKey,
             initiative: facing === 'RFI' ? 'none' : 'caller',
             availableActions: opts,
             bbSizeEuro: hand.bb
-          });
+          }, hand);
+          const evalResult = GTO.evaluateSpot(evalInput);
           const ev = evalResult.evaluation;
           const raiseBB = a.type === 'raise' ? r2(a.to / hand.bb) : 0;
           decisions.push({
@@ -626,6 +650,8 @@
   function evalStreet(hand, st, hero, heroCards, bb, decisions, villainBase, postflopCtx) {
     villainBase = villainBase || BROAD_CONTINUE;
     postflopCtx = postflopCtx || { initiative: 'caller', inPosition: true };
+    const ctx = handRangeContext(hand);
+    const stackBB = ctx ? ctx.stackBB : 100;
     const acts = hand.streets[st];
     if (!acts.length) return;
     const boardSoFar = boardUpTo(hand, st);
@@ -701,9 +727,9 @@
         const opts = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'];
         const priorBoard = st === 'river' ? boardUpTo(hand, 'turn')
           : (st === 'turn' ? boardUpTo(hand, 'flop') : null);
-        const evalResult = GTO.evaluateSpot({
+        const evalResult = GTO.evaluateSpot(attachRangeContext({
           spotKind: 'postflop', position: hand.positions[hero] || '??',
-          stackDepth: 100, street: st, board: boardSoFar, priorBoard, heroCards,
+          stackDepth: stackBB, street: st, board: boardSoFar, priorBoard, heroCards,
           handCode: R.handCode(heroCards[0], heroCards[1]),
           potBB: potForEval, toCallBB, chosenAction: chosen,
           villainRange, heroEquity: heroEquityAdj,
@@ -713,7 +739,7 @@
           availableActions: opts,
           betSizeBB,
           bbSizeEuro: bb
-        });
+        }, hand));
         const ev = evalResult.evaluation;
         const info = GTO.Equity.classifyMadeHand(heroCards, boardSoFar);
         const handName = info.flush && info.isNutFlush === false

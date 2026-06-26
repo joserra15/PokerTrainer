@@ -136,11 +136,13 @@
     const PC = window.PTPlayConfig;
     if (!PC) return null;
     const gtEl = $('#setup-game-type .setup-chip.active');
+    const sdEl = $('#setup-stack-depth .setup-chip.active');
     const scEl = $('#setup-scenario .setup-chip.active');
     const posEl = $('#setup-hero-pos .setup-chip.active');
     const hrEl = $('#setup-hand-range .setup-chip.active');
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
+      stackDepth: sdEl ? sdEl.dataset.val : 'standard',
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'playable'
@@ -182,6 +184,7 @@
 
   function bindPlaySetup() {
     bindChipGroup('#setup-game-type', renderHeroPosChips);
+    bindChipGroup('#setup-stack-depth');
     bindChipGroup('#setup-scenario', renderHeroPosChips);
     bindChipGroup('#setup-hand-range');
     const startBtn = $('#play-start');
@@ -202,6 +205,7 @@
     bindMobileNav();
     bindControls();
     bindPlaySetup();
+    bindRangesFilters();
     bindHome();
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
@@ -916,7 +920,27 @@
   }
 
   let matrixJob = 0;
-  let rangesState = { spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG' };
+  let rangesState = { spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', gameType: 'cash6', stackDepth: 'standard' };
+
+  function readRangesContext() {
+    const gtEl = $('#ranges-game-type .setup-chip.active');
+    const sdEl = $('#ranges-stack-depth .setup-chip.active');
+    return {
+      gameType: gtEl ? gtEl.dataset.val : rangesState.gameType,
+      stackDepth: sdEl ? sdEl.dataset.val : rangesState.stackDepth
+    };
+  }
+
+  function bindRangesFilters() {
+    bindChipGroup('#ranges-game-type', function () {
+      rangesState.gameType = readRangesContext().gameType;
+      renderRangesExplorer();
+    });
+    bindChipGroup('#ranges-stack-depth', function () {
+      rangesState.stackDepth = readRangesContext().stackDepth;
+      renderRangesExplorer();
+    });
+  }
 
   function matrixStreetBtn(street, decisionIdx, source) {
     if (street === 'preflop') {
@@ -1079,6 +1103,7 @@
 
   function renderRangesExplorer() {
     const RM = window.PTRangeMatrix;
+    const RR = window.GTORangesRegistry;
     if (!RM) return;
     const spotRow = $('#ranges-spot-row');
     const heroRow = $('#ranges-hero-pos');
@@ -1086,17 +1111,23 @@
     const villainBlock = $('#ranges-villain-block');
     const villainLabel = $('#ranges-villain-label');
     const titleEl = $('#ranges-spot-title');
+    const contextLabel = $('#ranges-context-label');
     const host = $('#ranges-matrix-host');
     if (!spotRow || !heroRow || !host) return;
 
+    const ctx = readRangesContext();
+    rangesState.gameType = ctx.gameType;
+    rangesState.stackDepth = ctx.stackDepth;
+    if (contextLabel && RR) contextLabel.textContent = RR.contextLabel(ctx);
+
     const spot = RM.EXPLORER_SPOTS[rangesState.spot] || RM.EXPLORER_SPOTS.RFI;
-    const vsPairs = RM.validVsRfiPairs();
+    const vsPairs = RM.validVsRfiPairs(ctx);
 
     spotRow.innerHTML = Object.keys(RM.EXPLORER_SPOTS).map((id) =>
       `<button type="button" class="ranges-spot-btn${rangesState.spot === id ? ' active' : ''}" data-ranges-spot="${id}">${RM.EXPLORER_SPOTS[id].label}</button>`
     ).join('');
 
-    let heroPositions = spot.heroPositions.slice();
+    let heroPositions = RM.heroPositionsForSpot(rangesState.spot, ctx);
     if (rangesState.spot === '3bet' && vsPairs[rangesState.heroPos]) {
       /* ok */
     } else if (rangesState.spot === '3bet') {
@@ -1111,7 +1142,7 @@
     const needsVillain = spot.villainPositions && spot.villainPositions.length > 0;
     if (villainBlock) villainBlock.classList.toggle('hidden', !needsVillain);
     if (needsVillain) {
-      let villainPositions = spot.villainPositions.slice();
+      let villainPositions = RM.villainPositionsForSpot(rangesState.spot, ctx);
       if (rangesState.spot === '3bet') {
         villainPositions = vsPairs[rangesState.heroPos] || villainPositions;
         if (villainPositions.indexOf(rangesState.villainPos) < 0) rangesState.villainPos = villainPositions[0];
@@ -1124,7 +1155,7 @@
       ).join('');
     }
 
-    const input = RM.buildExplorerInput(rangesState.spot, rangesState.heroPos, needsVillain ? rangesState.villainPos : null);
+    const input = RM.buildExplorerInput(rangesState.spot, rangesState.heroPos, needsVillain ? rangesState.villainPos : null, ctx);
     if (titleEl) titleEl.textContent = RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos);
 
     if (!input) {
