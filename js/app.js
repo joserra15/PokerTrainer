@@ -321,7 +321,17 @@
     if (tabId === 'stats') renderStats();
     if (tabId === 'ranges') renderRangesExplorer();
     if (tabId === 'sessions') { showSessionsView('home'); renderSessionsList(); }
+    if (tabId === 'admin') {
+      var adminUser = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+      if (!adminUser || !adminUser.isAdmin) {
+        goToTab('home');
+        return;
+      }
+      if (global.PTAdmin && global.PTAdmin.render) global.PTAdmin.render();
+    }
   }
+
+  global.goToTab = goToTab;
 
   function isMobileLayout() {
     return window.matchMedia('(max-width: 680px)').matches;

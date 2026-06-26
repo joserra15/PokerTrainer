@@ -84,12 +84,27 @@
 
     const metaEl = $('#account-meta');
     if (metaEl) {
+      var planRow = user.plan && user.plan !== 'free'
+        ? '<div class="account-row"><span>Plan</span><strong>' + escapeHtml(user.planLabel || user.plan) + '</strong></div>'
+        : '';
       metaEl.innerHTML =
         '<div class="account-row"><span>Correo</span><strong>' + escapeHtml(user.email) + '</strong></div>' +
         (user.emailVerified ? '<div class="account-row"><span>Verificado</span><strong>Sí</strong></div>' : '') +
+        planRow +
+        (user.isAdmin ? '<div class="account-row account-row-admin"><span>Rol</span><strong>Administrador</strong></div>' : '') +
         (user.locale ? '<div class="account-row"><span>Idioma</span><strong>' + escapeHtml(user.locale) + '</strong></div>' : '') +
         '<div class="account-row"><span>ID</span><code>' + escapeHtml(user.sub.slice(0, 12)) + '…</code></div>' +
-        '<div class="account-row" data-cloud-status><span>Nube</span><strong>…</strong></div>';
+        '<div class="account-row" data-cloud-status><span>Nube</span><strong>…</strong></div>' +
+        '<div class="account-row" data-ai-usage><span>IA hoy</span><strong>…</strong></div>';
+    }
+    if (global.PTProfile && global.PTProfile.getMyAiUsageToday) {
+      global.PTProfile.getMyAiUsageToday().then(function (usage) {
+        var aiRow = metaEl && metaEl.querySelector('[data-ai-usage] strong');
+        if (aiRow) aiRow.textContent = usage.used + ' / ' + usage.limit;
+      });
+    }
+    if (global.PTAdmin && global.PTAdmin.setAdminVisible) {
+      global.PTAdmin.setAdminVisible(!!user.isAdmin);
     }
     if (global.PTCloud && global.PTCloud.getStatus) {
       const st = global.PTCloud.getStatus();
@@ -134,6 +149,11 @@
       cookiesBtn.onclick = function () {
         if (global.PTLegal && global.PTLegal.showCookieBanner) global.PTLegal.showCookieBanner();
       };
+    }
+
+    const adminBtn = $('#account-admin');
+    if (adminBtn) {
+      adminBtn.classList.toggle('hidden', !user.isAdmin);
     }
   }
 
@@ -214,8 +234,12 @@
       try { await global.PTCloud.syncOnLogin(); } catch (e) { console.warn('[PTCloud]', e); }
       document.body.classList.remove('pt-cloud-syncing');
     }
+    if (global.PTProfile && global.PTProfile.touchAndApply) {
+      try { await global.PTProfile.touchAndApply(user); } catch (e) { console.warn('[PTProfile]', e); }
+    }
     setAppVisible(true);
     renderAccountMenu(user);
+    if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
     startAppIfNeeded();
     global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
   }

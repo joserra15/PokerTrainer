@@ -49,3 +49,5 @@ using (
   user_id = auth.uid()::text
   or user_id = coalesce(auth.jwt() -> 'user_metadata' ->> 'sub', '')
 );
+
+-- Ver supabase/migrations/003_admin_panel.sql para perfiles, uso IA y panel admin.

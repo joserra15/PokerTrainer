@@ -87,6 +87,7 @@
           <div class="account-meta" id="account-meta"></div>
           <button type="button" id="account-export" class="btn btn-ghost btn-block" style="margin-bottom:6px">Exportar mis datos</button>
           <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
+          <button type="button" id="account-admin" class="btn btn-admin btn-block hidden" style="margin-bottom:8px">Panel de administración</button>
           <button type="button" id="account-cookies" class="btn btn-ghost btn-block btn-sm-account">Configurar cookies</button>
           <button type="button" id="account-delete" class="btn btn-danger btn-block btn-sm-account" style="margin-top:8px">Eliminar cuenta y datos</button>
           <button type="button" id="account-signout" class="btn btn-ghost btn-block" style="margin-top:8px">Cerrar sesión</button>
@@ -383,6 +384,45 @@
       <p class="muted-text stats-reset-hint">Acumulado de todas las manos del entrenador. No borra el histórico ni la lista de errores.</p>
       <div id="stats-content" class="stats-content"></div>
     </section>
+
+    <!-- ===== ADMINISTRACIÓN ===== -->
+    <section id="tab-admin" class="tab-panel">
+      <div class="panel-head admin-head">
+        <div>
+          <h2>Panel de administración</h2>
+          <p class="muted-text admin-sub">Usuarios, planes y consumo de IA Coach</p>
+        </div>
+        <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
+      </div>
+
+      <div id="admin-stats" class="admin-stats" aria-label="Resumen"></div>
+
+      <div class="admin-section">
+        <div class="admin-section-head">
+          <h3>Usuarios</h3>
+          <span id="admin-users-status" class="muted-text"></span>
+        </div>
+        <p id="admin-users-error" class="admin-error" role="alert"></p>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Plan</th>
+                <th>IA hoy</th>
+                <th>Última conexión</th>
+                <th>Admin</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-body"></tbody>
+          </table>
+        </div>
+        <p class="muted-text admin-foot-note">
+          Los planes Pro y Premium son placeholders para facturación futura.
+          Límite IA por defecto: Gratis 120/día · Pro 500 · Premium 2000.
+        </p>
+      </div>
+    </section>
   </main>
 
   <div id="modal" class="modal hidden">
@@ -494,6 +534,8 @@
       'js/ai-hand-payload.js',
       'js/ai-report.js',
       'js/storage.js',
+      'js/user-profile.js',
+      'js/admin-panel.js',
       'js/auth.js',
       'js/app.js'
     ];

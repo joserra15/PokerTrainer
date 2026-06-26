@@ -67,9 +67,13 @@ interface GeminiPart {
 type AiMode = 'report' | 'question' | 'session_report' | 'session_question';
 
 const QUESTION_MAX = 500;
-const RATE_WINDOW_MS = 24 * 60 * 60 * 1000;
-const RATE_MAX = Number(Deno.env.get('PT_AI_DAILY_LIMIT') || '120');
-const rateMap = new Map<string, { count: number; resetAt: number }>();
+const DEFAULT_AI_LIMIT = Number(Deno.env.get('PT_AI_DAILY_LIMIT') || '120');
+
+const PLAN_LIMITS: Record<string, number> = {
+  free: DEFAULT_AI_LIMIT,
+  pro: 500,
+  premium: 2000
+};
 
 function normalizeMode(raw: unknown): AiMode {
   if (raw === 'question') return 'question';
@@ -106,18 +110,66 @@ function userContentForMode(mode: AiMode, payload: unknown, question: string | n
   return 'Genera informe de la mano (verifica números del solver por tu cuenta):\n' + json;
 }
 
-function checkRateLimit(userId: string) {
-  const now = Date.now();
-  const row = rateMap.get(userId);
-  if (!row || now >= row.resetAt) {
-    rateMap.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return { ok: true };
+function startOfUtcDay(): string {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+function endOfUtcDayMs(): number {
+  const d = new Date();
+  d.setUTCHours(23, 59, 59, 999);
+  return d.getTime();
+}
+
+function adminClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceKey) return null;
+  return createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+
+async function resolveAiLimit(admin: ReturnType<typeof createClient>, userId: string) {
+  const { data } = await admin
+    .from('pt_user_profiles')
+    .select('plan, ai_daily_limit')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!data) return DEFAULT_AI_LIMIT;
+  if (data.ai_daily_limit && data.ai_daily_limit > 0) return data.ai_daily_limit;
+  return PLAN_LIMITS[data.plan] || DEFAULT_AI_LIMIT;
+}
+
+async function countAiUsageToday(admin: ReturnType<typeof createClient>, userId: string) {
+  const { count, error } = await admin
+    .from('pt_ai_usage')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', startOfUtcDay());
+  if (error) return 0;
+  return count || 0;
+}
+
+async function checkRateLimit(userId: string) {
+  const admin = adminClient();
+  if (!admin) return { ok: true as const };
+  const [limit, used] = await Promise.all([
+    resolveAiLimit(admin, userId),
+    countAiUsageToday(admin, userId)
+  ]);
+  if (used >= limit) {
+    const retryAfter = Math.max(60, Math.ceil((endOfUtcDayMs() - Date.now()) / 1000));
+    return { ok: false as const, retryAfter, limit, used };
   }
-  if (row.count >= RATE_MAX) {
-    return { ok: false, retryAfter: Math.ceil((row.resetAt - now) / 1000) };
-  }
-  row.count += 1;
-  return { ok: true };
+  return { ok: true as const, limit, used };
+}
+
+async function logAiUsage(userId: string, mode: AiMode) {
+  const admin = adminClient();
+  if (!admin) return;
+  await admin.from('pt_ai_usage').insert({ user_id: userId, mode });
 }
 
 async function verifyAuth(req: Request) {
@@ -154,9 +206,14 @@ serve(async (req) => {
     return json({ error: auth.error }, auth.status);
   }
 
-  const limit = checkRateLimit(auth.user.id);
+  const limit = await checkRateLimit(auth.user.id);
   if (!limit.ok) {
-    return json({ error: 'rate_limit', retryAfter: limit.retryAfter }, 429);
+    return json({
+      error: 'rate_limit',
+      retryAfter: limit.retryAfter,
+      limit: limit.limit,
+      used: limit.used
+    }, 429);
   }
 
   const geminiKey = Deno.env.get('GEMINI_API_KEY');
@@ -225,6 +282,8 @@ serve(async (req) => {
   if (!text.trim()) {
     return json({ error: 'empty_response' }, 502);
   }
+
+  await logAiUsage(auth.user.id, mode);
 
   return json({
     reportMarkdown: text.trim(),
