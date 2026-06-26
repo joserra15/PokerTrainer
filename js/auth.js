@@ -130,13 +130,37 @@
         (user.locale ? '<div class="account-row"><span>Idioma</span><strong>' + escapeHtml(user.locale) + '</strong></div>' : '') +
         '<div class="account-row"><span>ID</span><code>' + escapeHtml(user.sub.slice(0, 12)) + '…</code></div>' +
         '<div class="account-row" data-cloud-status><span>Nube</span><strong>…</strong></div>' +
-        '<div class="account-row" data-ai-usage><span>IA hoy</span><strong>…</strong></div>';
+        '<div class="account-row" data-ai-usage><span>IA mes</span><strong>…</strong></div>';
     }
     if (global.PTProfile && global.PTProfile.getMyAiUsageToday) {
       global.PTProfile.getMyAiUsageToday().then(function (usage) {
         var aiRow = metaEl && metaEl.querySelector('[data-ai-usage] strong');
-        if (aiRow) aiRow.textContent = usage.used + ' / ' + usage.limit;
+        if (aiRow) {
+          aiRow.textContent = usage.limit === '∞'
+            ? (usage.used + ' / ∞')
+            : (usage.used + ' / ' + usage.limit);
+        }
       });
+    }
+
+    var upgradeBtn = $('#account-upgrade');
+    if (upgradeBtn) {
+      upgradeBtn.onclick = function () {
+        if (global.goToTab) global.goToTab('pricing');
+      };
+      upgradeBtn.classList.toggle('hidden', user.plan === 'premium' && user.paidActive);
+    }
+    var billingBtn = $('#account-billing');
+    if (billingBtn) {
+      var showBilling = user.plan !== 'free' || user.subscriptionStatus === 'active';
+      billingBtn.classList.toggle('hidden', !showBilling || !global.PTBilling || !global.PTBilling.enabled());
+      billingBtn.onclick = function () {
+        if (global.PTBilling && global.PTBilling.openPortal) {
+          global.PTBilling.openPortal().catch(function (e) {
+            alert(e.message || 'No se pudo abrir el portal de facturación.');
+          });
+        }
+      };
     }
     if (global.PTAdmin && global.PTAdmin.setAdminVisible) {
       global.PTAdmin.setAdminVisible(!!user.isAdmin);

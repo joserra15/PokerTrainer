@@ -1,2 +1,11 @@
 [functions.analyze-hand]
 verify_jwt = false
+
+[functions.stripe-checkout]
+verify_jwt = false
+
+[functions.stripe-portal]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false

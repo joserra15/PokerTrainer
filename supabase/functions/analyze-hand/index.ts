@@ -67,13 +67,19 @@ interface GeminiPart {
 type AiMode = 'report' | 'question' | 'session_report' | 'session_question';
 
 const QUESTION_MAX = 500;
-const DEFAULT_AI_LIMIT = Number(Deno.env.get('PT_AI_DAILY_LIMIT') || '120');
 
-const PLAN_LIMITS: Record<string, number> = {
-  free: DEFAULT_AI_LIMIT,
-  pro: 500,
-  premium: 2000
+const PLAN_MONTHLY_LIMITS: Record<string, number> = {
+  free: 0,
+  pro: 0,
+  premium: 30
 };
+
+function startOfUtcMonth(): string {
+  const d = new Date();
+  d.setUTCDate(1);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString();
+}
 
 function normalizeMode(raw: unknown): AiMode {
   if (raw === 'question') return 'question';
@@ -110,18 +116,6 @@ function userContentForMode(mode: AiMode, payload: unknown, question: string | n
   return 'Genera informe de la mano (verifica números del solver por tu cuenta):\n' + json;
 }
 
-function startOfUtcDay(): string {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString();
-}
-
-function endOfUtcDayMs(): number {
-  const d = new Date();
-  d.setUTCHours(23, 59, 59, 999);
-  return d.getTime();
-}
-
 function adminClient() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -134,20 +128,21 @@ function adminClient() {
 async function resolveAiLimit(admin: ReturnType<typeof createClient>, userId: string) {
   const { data } = await admin
     .from('pt_user_profiles')
-    .select('plan, ai_daily_limit')
+    .select('plan, ai_monthly_limit, is_admin')
     .eq('user_id', userId)
     .maybeSingle();
-  if (!data) return DEFAULT_AI_LIMIT;
-  if (data.ai_daily_limit && data.ai_daily_limit > 0) return data.ai_daily_limit;
-  return PLAN_LIMITS[data.plan] || DEFAULT_AI_LIMIT;
+  if (!data) return 0;
+  if (data.is_admin) return 999999;
+  if (data.ai_monthly_limit && data.ai_monthly_limit > 0) return data.ai_monthly_limit;
+  return PLAN_MONTHLY_LIMITS[data.plan] ?? 0;
 }
 
-async function countAiUsageToday(admin: ReturnType<typeof createClient>, userId: string) {
+async function countAiUsageMonth(admin: ReturnType<typeof createClient>, userId: string) {
   const { count, error } = await admin
     .from('pt_ai_usage')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .gte('created_at', startOfUtcDay());
+    .gte('created_at', startOfUtcMonth());
   if (error) return 0;
   return count || 0;
 }
@@ -157,10 +152,16 @@ async function checkRateLimit(userId: string) {
   if (!admin) return { ok: true as const };
   const [limit, used] = await Promise.all([
     resolveAiLimit(admin, userId),
-    countAiUsageToday(admin, userId)
+    countAiUsageMonth(admin, userId)
   ]);
+  if (limit <= 0) {
+    return { ok: false as const, retryAfter: 86400, limit: 0, used, error: 'ai_plan' };
+  }
   if (used >= limit) {
-    const retryAfter = Math.max(60, Math.ceil((endOfUtcDayMs() - Date.now()) / 1000));
+    const endOfMonth = new Date();
+    endOfMonth.setUTCMonth(endOfMonth.getUTCMonth() + 1, 1);
+    endOfMonth.setUTCHours(0, 0, 0, 0);
+    const retryAfter = Math.max(60, Math.ceil((endOfMonth.getTime() - Date.now()) / 1000));
     return { ok: false as const, retryAfter, limit, used };
   }
   return { ok: true as const, limit, used };
@@ -209,7 +210,7 @@ serve(async (req) => {
   const limit = await checkRateLimit(auth.user.id);
   if (!limit.ok) {
     return json({
-      error: 'rate_limit',
+      error: limit.error || 'rate_limit',
       retryAfter: limit.retryAfter,
       limit: limit.limit,
       used: limit.used

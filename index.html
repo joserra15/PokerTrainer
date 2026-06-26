@@ -25,6 +25,7 @@
   <script src="js/google-config.js?v=1.9.0"></script>
   <script src="js/supabase-config.js?v=1.9.0"></script>
   <script src="js/ai-config.js?v=1.9.0"></script>
+  <script src="js/billing-config.js?v=1.9.0"></script>
   <script src="js/legal-config.js?v=1.9.0"></script>
   <script src="js/legal.js?v=1.9.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -98,6 +99,8 @@
           <div class="account-accordion-panel" id="account-accordion-panel">
             <span id="account-email" class="account-email-full"></span>
             <div class="account-meta" id="account-meta"></div>
+            <button type="button" id="account-billing" class="btn btn-ghost btn-block hidden" style="margin-bottom:6px">Gestionar suscripción</button>
+            <button type="button" id="account-upgrade" class="btn btn-primary btn-block" style="margin-bottom:8px">Ver planes</button>
             <button type="button" id="account-export" class="btn btn-ghost btn-block" style="margin-bottom:6px">Exportar mis datos</button>
             <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
             <button type="button" id="account-admin" class="btn btn-admin btn-block hidden" style="margin-bottom:8px">Panel de administración</button>
@@ -114,6 +117,7 @@
         <button class="tab" data-tab="history">Histórico</button>
         <button class="tab" data-tab="errors">Errores</button>
         <button class="tab" data-tab="stats">Estadísticas</button>
+        <button class="tab" data-tab="pricing">Planes</button>
       </nav>
     </div>
   </div>
@@ -420,6 +424,19 @@
       <div id="stats-content" class="stats-content"></div>
     </section>
 
+    <!-- ===== PLANES / PRICING ===== -->
+    <section id="tab-pricing" class="tab-panel">
+      <div class="pricing-panel card-box">
+        <div class="pricing-head">
+          <h2>Planes</h2>
+          <p class="muted-text">Entrena sin límites, importa sesiones y desbloquea el IA Coach.</p>
+        </div>
+        <div id="pricing-current" class="pricing-current muted-text"></div>
+        <div class="pricing-grid" id="pricing-grid"></div>
+        <p class="muted-text pricing-foot">Precios en EUR. IVA incluido cuando aplique. Cancela cuando quieras desde el portal de cliente.</p>
+      </div>
+    </section>
+
     <!-- ===== ADMINISTRACIÓN ===== -->
     <section id="tab-admin" class="tab-panel">
       <div class="panel-head admin-head">
@@ -444,7 +461,7 @@
               <tr>
                 <th>Usuario</th>
                 <th>Plan</th>
-                <th>IA hoy</th>
+                <th>IA mes</th>
                 <th>Última conexión</th>
                 <th>Admin</th>
               </tr>
@@ -453,8 +470,7 @@
           </table>
         </div>
         <p class="muted-text admin-foot-note">
-          Los planes Pro y Premium son placeholders para facturación futura.
-          Límite IA por defecto: Gratis 120/día · Pro 500 · Premium 2000.
+          Planes: Gratis · Study (pro) · Coach (premium). Límite IA mensual: Gratis/Study 0 · Coach 30/mes.
         </p>
       </div>
     </section>
@@ -466,6 +482,17 @@
 
   <div id="range-matrix-modal" class="modal range-matrix-modal hidden" role="dialog" aria-modal="true" aria-labelledby="range-matrix-title">
     <div class="modal-content range-matrix-content" id="range-matrix-body"></div>
+  </div>
+
+  <div id="paywall-modal" class="modal paywall-modal hidden" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
+    <div class="modal-content paywall-content">
+      <h3 id="paywall-title">Mejora tu plan</h3>
+      <div id="paywall-body"></div>
+      <div class="paywall-actions">
+        <button type="button" class="btn btn-primary" id="paywall-to-pricing">Ver planes</button>
+        <button type="button" class="btn btn-ghost" data-close-paywall>Cerrar</button>
+      </div>
+    </div>
   </div>
 
   <div id="verdict-toast" class="verdict-toast" aria-live="polite"></div>
@@ -572,6 +599,8 @@
       'js/ai-report.js',
       'js/storage.js',
       'js/user-profile.js',
+      'js/entitlements.js',
+      'js/billing.js',
       'js/admin-panel.js',
       'js/auth.js',
       'js/app.js'

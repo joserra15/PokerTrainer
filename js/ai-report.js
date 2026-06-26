@@ -240,6 +240,12 @@
         message: 'El coach de IA está con mucha demanda ahora mismo. Espera unos segundos y vuelve a pulsar el botón.'
       };
     }
+    if (m.includes('ai_plan') || (m.includes('rate') && m.includes('0'))) {
+      return {
+        kind: 'paywall',
+        message: 'Los informes IA Coach requieren el plan Coach. Consulta la pestaña Planes.'
+      };
+    }
     if (m.includes('rate') || m.includes('quota') || m.includes('429')) {
       return {
         kind: 'busy',
@@ -394,6 +400,15 @@
       alert('IA Coach no configurado. Copia js/ai-config.example.js como js/ai-config.js y activa el endpoint.');
       return;
     }
+    if (global.PTEntitlements && global.PTEntitlements.ensureLoaded) {
+      const ent = await global.PTEntitlements.ensureLoaded();
+      const aiCheck = global.PTEntitlements.canUseAI(ent);
+      if (!aiCheck.ok) {
+        if (global.PTBilling) global.PTBilling.showPaywall(aiCheck.reason);
+        else alert('Los informes IA requieren el plan Coach.');
+        return;
+      }
+    }
     if (mode === 'question' && !question) {
       alert('Escribe una pregunta (máx. ' + QUESTION_MAX + ' caracteres).');
       return;
@@ -442,7 +457,11 @@
     } catch (e) {
       setPanelState(panel, 'error', '');
       const body = panel.querySelector('[data-ai-body]');
-      if (body) showError(body, e.message);
+      const err = friendlyError(e.message);
+      if (err.kind === 'paywall' && global.PTBilling) {
+        global.PTBilling.showPaywall('ai_plan', err.message);
+      } else if (body) showError(body, e.message);
+      if (global.PTEntitlements && global.PTEntitlements.refresh) global.PTEntitlements.refresh();
       console.error('[PTAI]', e);
     }
   }

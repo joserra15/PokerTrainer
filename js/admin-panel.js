@@ -6,8 +6,8 @@
 
   var PLAN_OPTIONS = [
     { id: 'free', label: 'Gratis' },
-    { id: 'pro', label: 'Pro' },
-    { id: 'premium', label: 'Premium' }
+    { id: 'pro', label: 'Study' },
+    { id: 'premium', label: 'Coach' }
   ];
 
   var loaded = false;

@@ -207,6 +207,16 @@
     bindPlaySetup();
     bindRangesFilters();
     bindHome();
+    if (window.PTBilling) {
+      window.PTBilling.bindPaywall();
+      window.PTBilling.handleCheckoutReturn();
+    }
+    if (window.PTEntitlements && window.PTEntitlements.ensureLoaded) {
+      window.PTEntitlements.ensureLoaded();
+    }
+    window.addEventListener('pt-auth-ready', function () {
+      if (window.PTEntitlements && window.PTEntitlements.refresh) window.PTEntitlements.refresh();
+    });
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
@@ -335,6 +345,7 @@
     if (tabId === 'errors') renderErrors();
     if (tabId === 'stats') renderStats();
     if (tabId === 'ranges') renderRangesExplorer();
+    if (tabId === 'pricing') renderPricing();
     if (tabId === 'sessions') { showSessionsView('home'); renderSessionsList(); }
     if (tabId === 'admin') {
       var adminUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
@@ -523,7 +534,18 @@
   }
 
   // ---------- Nueva mano ----------
-  function startNewHand() {
+  async function startNewHand() {
+    const Ent = window.PTEntitlements;
+    if (Ent && Ent.ensureLoaded) {
+      const ent = await Ent.ensureLoaded();
+      const check = Ent.canStartTrainerHand(ent);
+      if (!check.ok) {
+        if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
+        return;
+      }
+      if (Ent.recordTrainerHand) await Ent.recordTrainerHand();
+    }
+
     let force = pendingForce;
     if (!force && repeatErrorsMode) {
       const errs = Store.getErrors();
@@ -1195,6 +1217,79 @@
     }
   }
 
+  function renderPricing() {
+    const grid = $('#pricing-grid');
+    const current = $('#pricing-current');
+    if (!grid) return;
+
+    const plans = (window.PTBilling && window.PTBilling.planInfo) ? window.PTBilling.planInfo() : {};
+    const Ent = window.PTEntitlements;
+    const ent = Ent && Ent.get ? Ent.get() : { plan: 'free', plan_label: 'Gratis' };
+
+    if (current) {
+      let line = 'Tu plan actual: <strong>' + escapeHtml(ent.plan_label || ent.plan) + '</strong>';
+      if (ent.usage && ent.limits) {
+        if (ent.limits.trainer_hands_per_day != null) {
+          line += ' · Entrenador hoy: ' + ent.usage.trainer_hands_today + '/' + ent.limits.trainer_hands_per_day;
+        }
+        if (ent.limits.import_sessions_per_month != null) {
+          line += ' · Imports mes: ' + ent.usage.import_sessions_month + '/' + ent.limits.import_sessions_per_month;
+        }
+        if (ent.limits.ai_reports_per_month > 0) {
+          line += ' · IA mes: ' + ent.usage.ai_reports_month + '/' + ent.limits.ai_reports_per_month;
+        }
+      }
+      current.innerHTML = line;
+    }
+
+    const cards = [
+      {
+        id: 'free', title: 'Gratis', price: '0 €', period: '/mes', featured: false,
+        features: ['15 manos entrenador/día', '1 sesión import/mes (máx. 200 manos)', 'Sin IA Coach', 'Histórico 30 días'],
+        cta: null
+      },
+      {
+        id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
+        price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: true,
+        features: ['Entrenador ilimitado', 'Import ilimitado', 'Sync y estadísticas', 'Matriz villano y repaso'],
+        cta: 'pro'
+      },
+      {
+        id: 'premium', title: plans.premium ? plans.premium.label : 'Coach',
+        price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
+        features: ['Todo Study', '30 informes IA Coach/mes', 'Preguntas sobre manos y sesiones', 'Soporte prioritario'],
+        cta: 'premium'
+      }
+    ];
+
+    grid.innerHTML = cards.map(function (c) {
+      const isCurrent = ent.plan === c.id;
+      let btns = '';
+      if (c.cta && !isCurrent) {
+        btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
+        if (window.PTBilling && window.PTBilling.enabled()) {
+          btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+        }
+      } else if (isCurrent) {
+        btns = '<span class="muted-text">Plan actual</span>';
+      }
+      return '<div class="pricing-card' + (c.featured ? ' featured' : '') + '">' +
+        '<h3>' + escapeHtml(c.title) + '</h3>' +
+        '<div class="pricing-price">' + escapeHtml(c.price) + '<small>' + escapeHtml(c.period) + '</small></div>' +
+        '<ul class="pricing-features">' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +
+        btns + '</div>';
+    }).join('');
+
+    grid.querySelectorAll('[data-checkout]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!window.PTBilling || !window.PTBilling.startCheckout) return;
+        window.PTBilling.startCheckout(btn.dataset.checkout, btn.dataset.interval).catch(function (e) {
+          alert(e.message || 'No se pudo iniciar el pago.');
+        });
+      });
+    });
+  }
+
   function showFeedback(d) {
     const fb = $('#feedback');
     fb.classList.remove('hidden');
@@ -1347,7 +1442,14 @@
 
   // ---------- Histórico ----------
   function renderHistory() {
-    const hist = Store.getHistory();
+    let hist = Store.getHistory();
+    const Ent = window.PTEntitlements;
+    if (Ent && Ent.historyCutoffDate) {
+      const cutoff = Ent.historyCutoffDate(Ent.get());
+      if (cutoff) {
+        hist = hist.filter((h) => h.createdAt && h.createdAt >= cutoff);
+      }
+    }
     const box = $('#history-list');
     if (!hist.length) { box.innerHTML = '<div class="empty">Aún no hay manos jugadas.</div>'; return; }
     box.innerHTML = hist.map((h) => {
@@ -1539,9 +1641,8 @@
     if (!input.files.length) return;
     const file = input.files[0];
     const status = $('#import-status');
-    status.textContent = 'Leyendo fichero...';
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         status.textContent = 'Parseando historial...';
         const parsed = Importer.parseSession(reader.result, file.name);
@@ -1549,10 +1650,27 @@
           status.innerHTML = '<span style="color:var(--red)">No se reconocieron manos de cash NL en el fichero.</span>';
           return;
         }
+        const Ent = window.PTEntitlements;
+        if (Ent && Ent.ensureLoaded) {
+          const ent = await Ent.ensureLoaded();
+          const check = Ent.canImportSession(parsed.hands.length, ent);
+          if (!check.ok) {
+            if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
+            return;
+          }
+        }
         const onProgress = (done, total) => {
           status.textContent = `Analizando manos ${done}/${total}...`;
         };
-        const finishSession = (session) => {
+        const finishSession = async (session) => {
+          const Ent = window.PTEntitlements;
+          if (Ent && Ent.recordImportSession) {
+            const rec = await Ent.recordImportSession(session.hands.length);
+            if (rec && rec.ok === false) {
+              if (window.PTBilling) window.PTBilling.showPaywall(rec.error);
+              return;
+            }
+          }
           const saveResult = Store.saveSession(session);
           const saved = saveResult && saveResult.ok !== false;
           const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
@@ -1578,6 +1696,7 @@
         console.error('[Sessions] parse failed', err);
       }
     };
+    status.textContent = 'Leyendo fichero...';
     reader.onerror = () => { status.textContent = 'No se pudo leer el fichero.'; };
     reader.readAsText(file, 'utf-8');
   }

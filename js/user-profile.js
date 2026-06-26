@@ -9,8 +9,8 @@
 
   var PLAN_LABELS = {
     free: 'Gratis',
-    pro: 'Pro',
-    premium: 'Premium'
+    pro: 'Study',
+    premium: 'Coach'
   };
 
   function client() {
@@ -29,6 +29,8 @@
     user.plan = profile.plan || 'free';
     user.planLabel = PLAN_LABELS[user.plan] || user.plan;
     user.aiDailyLimit = profile.ai_limit || profile.ai_daily_limit || null;
+    user.subscriptionStatus = profile.subscription_status;
+    user.paidActive = profile.plan === 'pro' || profile.plan === 'premium';
     return user;
   }
 
@@ -55,6 +57,9 @@
   async function touchAndApply(user) {
     var profile = await touchProfile(user);
     if (profile) applyProfileToUser(user, profile);
+    if (global.PTEntitlements && global.PTEntitlements.refresh) {
+      await global.PTEntitlements.refresh();
+    }
     startHeartbeat(user);
     return user;
   }
@@ -76,7 +81,15 @@
   }
 
   async function getMyAiUsageToday() {
-    if (!useAuth()) return { used: 0, limit: 120 };
+    if (global.PTEntitlements && global.PTEntitlements.ensureLoaded) {
+      var ent = await global.PTEntitlements.ensureLoaded();
+      var lim = ent.limits || {};
+      var max = lim.ai_reports_per_month;
+      if (ent.is_admin) return { used: ent.usage.ai_reports_month || 0, limit: '∞' };
+      var used = (ent.usage && ent.usage.ai_reports_month) || 0;
+      return { used: used, limit: max != null ? max : 0, period: 'month' };
+    }
+    if (!useAuth()) return { used: 0, limit: 0 };
     var c = client();
     var user = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
     if (!c || !user) return { used: 0, limit: 120 };
