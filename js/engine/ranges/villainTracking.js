@@ -314,75 +314,233 @@
     return withHero.length < withoutHero.length;
   }
 
+  function handMadeInfoOnBoard(code, board) {
+    const Eq = global.GTO && global.GTO.Equity;
+    const Made = global.GTOEquityMadeHand;
+    if (!Eq || !Eq.concreteCombos || !board || board.length < 3) return null;
+    const combos = Eq.concreteCombos(code, board);
+    if (!combos.length) return null;
+    return Made ? Made.classifyMadeHand(combos[0], board) : null;
+  }
+
+  function lineAggressionSummary(actionLine) {
+    let bets = 0;
+    let raises = 0;
+    let calls = 0;
+    let checks = 0;
+    (actionLine || []).forEach(function (a) {
+      if (a.action === 'bet') bets++;
+      else if (a.action === 'raise') raises++;
+      else if (a.action === 'call') calls++;
+      else if (a.action === 'check') checks++;
+    });
+    return {
+      bets: bets,
+      raises: raises,
+      calls: calls,
+      checks: checks,
+      aggressive: bets > 0 || raises > 0,
+      passive: (calls > 0 || checks > 0) && bets === 0 && raises === 0,
+      polar: raises > 0 || bets >= 2
+    };
+  }
+
+  function preflopBorderlineRange(villainPos) {
+    const D = global.GTORangesData;
+    if (!villainPos || !D.OPEN_RAISE[villainPos]) return '';
+    return D.OPEN_RAISE[villainPos].mix || '';
+  }
+
+  function villainPosFromHand(hand, heroName, decision) {
+    if (decision && decision.vsPosition) return decision.vsPosition;
+    if (!hand || !hand.positions || !hand.streets || !hand.streets.preflop) return null;
+    let lastVillain = null;
+    hand.streets.preflop.forEach(function (a) {
+      if (a.type === 'raise' && a.player !== heroName) lastVillain = a.player;
+    });
+    return lastVillain && hand.positions[lastVillain] ? hand.positions[lastVillain] : null;
+  }
+
+  function fitsSemibluffLine(code, board, actionLine, street) {
+    if (street === 'river') return false;
+    if (!actionLine || !actionLine.some(function (a) { return a.action === 'bet' || a.action === 'raise'; })) {
+      return false;
+    }
+    const info = handMadeInfoOnBoard(code, board);
+    if (!info) return false;
+    if (info.tier === 'strong' || (info.ev && info.ev.category >= 3)) return false;
+    return !!(info.flushDraw || info.oesd || (info.gutshot && street === 'flop'));
+  }
+
+  function fitsBluffLine(code, board, actionLine, street) {
+    if (!actionLine || !actionLine.some(function (a) { return a.action === 'bet' || a.action === 'raise'; })) {
+      return false;
+    }
+    const HS = global.GTOHandStrength;
+    const strength = HS ? HS.handStrength01(code) : 0.5;
+    if (strength > 0.42) return false;
+    const info = handMadeInfoOnBoard(code, board);
+    if (info && info.tier === 'medium' && info.ev && info.ev.category >= 2) return false;
+    if (street === 'river') return !info || info.tier === 'air' || info.tier === 'weak';
+    return !handConnectsWithBoard(code, board) || (info && info.tier === 'air');
+  }
+
+  function profileHasCode(profile, code) {
+    return (profile.coreSet && profile.coreSet.has(code))
+      || (profile.borderlineSet && profile.borderlineSet.has(code))
+      || (profile.widenSet && profile.widenSet.has(code))
+      || (profile.valueSet && profile.valueSet.has(code))
+      || (profile.semibluffSet && profile.semibluffSet.has(code))
+      || (profile.bluffSet && profile.bluffSet.has(code));
+  }
+
   function cellActionForProfile(code, profile) {
-    if (profile.blockedSet && profile.blockedSet.has(code)
-      && ((profile.coreSet && profile.coreSet.has(code))
-        || (profile.widenSet && profile.widenSet.has(code)))) {
+    if (profile.blockedSet && profile.blockedSet.has(code) && profileHasCode(profile, code)) {
       return 'capped';
     }
+    if (profile.valueSet && profile.valueSet.has(code)) return 'value';
+    if (profile.semibluffSet && profile.semibluffSet.has(code)) return 'semibluff';
+    if (profile.bluffSet && profile.bluffSet.has(code)) return 'bluff';
     if (profile.coreSet && profile.coreSet.has(code)) return 'inrange';
-    if (profile.widenSet && profile.widenSet.has(code)) return 'capped';
+    if (profile.borderlineSet && profile.borderlineSet.has(code)) return 'borderline';
+    if (profile.widenSet && profile.widenSet.has(code)) {
+      return profile.cappedSet && profile.cappedSet.has(code) ? 'capped' : 'semibluff';
+    }
     return 'out';
   }
 
   function cellTitleForProfile(code, profile) {
     const parts = [code];
-    if (profile.coreSet && profile.coreSet.has(code)) parts.push('en rango GTO');
-    if (profile.widenSet && profile.widenSet.has(code)) {
-      parts.push(profile.cappedSet && profile.cappedSet.has(code) ? 'capado por línea' : 'ampliable por línea');
-    }
-    if (profile.blockedSet && profile.blockedSet.has(code)) parts.push('bloqueado por tu mano');
-    if (parts.length === 1) parts.push('descartado');
+    const act = cellActionForProfile(code, profile);
+    const labels = {
+      value: 'valor fuerte en esta línea',
+      semibluff: 'semibluff / proyecto agresivo',
+      bluff: 'farol plausible en línea polar',
+      inrange: 'núcleo GTO por acción',
+      borderline: 'borderline preflop que encaja con la línea',
+      capped: 'capado o bloqueado por board/tu mano',
+      out: 'descartado por la historia'
+    };
+    parts.push(labels[act] || act);
+    if (profile.blockedSet && profile.blockedSet.has(code)) parts.push('combo bloqueado por tus cartas');
+    if (profile.villainCode && profile.villainCode === code) parts.push('mano real del villano');
+    if (profile.heroCode && profile.heroCode === code) parts.push('tu mano');
     return parts.join(' · ');
   }
 
+  function buildLineNarrative(ctx, lineSummary) {
+    const parts = [];
+    if (lineSummary.aggressive) parts.push('línea agresiva');
+    else if (lineSummary.passive) parts.push('línea pasiva');
+    if (lineSummary.polar) parts.push('polarizada (valor + faroles)');
+    const st = ctx.street || 'flop';
+    if (st === 'river' && lineSummary.aggressive) parts.push('sin semibluffs en river');
+    if (ctx.betBB && ctx.potBeforeBB) {
+      const ratio = Math.round((ctx.betBB / ctx.potBeforeBB) * 100);
+      if (ratio >= 65) parts.push('sizing grande (' + ratio + '% bote)');
+      else if (ratio >= 30) parts.push('sizing medio (' + ratio + '% bote)');
+    }
+    return parts.length ? parts.join(' · ') : 'sin agresión villana previa en la calle';
+  }
+
   /**
-   * Perfil para matriz villano: core (verde), capped/bloqueos (azul), fuera (gris).
-   * En flop solo core GTO∩preflop; en turn/river amplía según línea de acción.
+   * Perfil para matriz villano: núcleo GTO + borderline preflop + valor/semibluff/farol según línea y board.
    */
   function buildVillainMatrixProfile(ctx) {
     const D = global.GTORangesData;
     const preflopRange = ctx.preflopRange || ctx.baseRange || D.BROAD_CONTINUE;
     const street = ctx.street || 'flop';
     const board = ctx.board || [];
+    const actionLine = ctx.actionLine || [];
+    const lineSummary = lineAggressionSummary(actionLine);
     const gtoRange = estimateGtoNarrowRange(ctx);
     const preflopSet = rangeToSet(preflopRange);
     const gtoSet = rangeToSet(gtoRange);
+    const mixSet = ctx.villainPos ? rangeToSet(preflopBorderlineRange(ctx.villainPos)) : new Set();
 
     const coreSet = new Set();
     gtoSet.forEach(function (code) {
       if (preflopSet.has(code)) coreSet.add(code);
     });
 
+    const borderlineSet = new Set();
+    const valueSet = new Set();
+    const semibluffSet = new Set();
+    const bluffSet = new Set();
     const widenSet = new Set();
-    if (street === 'turn' || street === 'river') {
-      preflopSet.forEach(function (code) {
-        if (coreSet.has(code)) return;
-        if (fitsWideLineForActions(code, board, ctx.actionLine)) widenSet.add(code);
-      });
-    }
+
+    preflopSet.forEach(function (code) {
+      if (coreSet.has(code)) return;
+      const info = handMadeInfoOnBoard(code, board);
+      if (info && (info.tier === 'strong' || (info.ev && info.ev.category >= 2))
+        && (lineSummary.aggressive || lineSummary.calls > 0)) {
+        valueSet.add(code);
+        return;
+      }
+      if (fitsSemibluffLine(code, board, actionLine, street)) {
+        semibluffSet.add(code);
+        return;
+      }
+      if (fitsBluffLine(code, board, actionLine, street)) {
+        bluffSet.add(code);
+        return;
+      }
+      if (mixSet.has(code) || (board.length < 3 && mixSet.has(code))) {
+        if (lineSummary.aggressive || lineSummary.calls > 0 || street === 'flop') {
+          borderlineSet.add(code);
+        }
+        return;
+      }
+      if (street !== 'preflop' && fitsWideLineForActions(code, board, actionLine)) {
+        widenSet.add(code);
+        return;
+      }
+      if (!coreSet.has(code) && mixSet.has(code) && handConnectsWithBoard(code, board)) {
+        borderlineSet.add(code);
+      }
+    });
+
+    coreSet.forEach(function (code) {
+      const info = handMadeInfoOnBoard(code, board);
+      if (info && info.tier === 'strong' && board.length >= 3) valueSet.add(code);
+      else if (fitsSemibluffLine(code, board, actionLine, street)) semibluffSet.add(code);
+    });
 
     const cappedSet = new Set();
     widenSet.forEach(function (code) {
-      if (isCappedForLine(code, board, ctx.actionLine)) cappedSet.add(code);
+      if (isCappedForLine(code, board, actionLine)) cappedSet.add(code);
     });
+    const borderlineRemove = [];
+    borderlineSet.forEach(function (code) {
+      if (lineSummary.passive && board.length >= 3 && !handConnectsWithBoard(code, board)) {
+        borderlineRemove.push(code);
+      }
+    });
+    borderlineRemove.forEach(function (c) { borderlineSet.delete(c); });
 
     const blockedSet = new Set();
     const heroCards = ctx.heroCards || [];
     preflopSet.forEach(function (code) {
-      if (heroBlocksHand(code, heroCards, board)
-        && (coreSet.has(code) || widenSet.has(code))) {
+      if (heroBlocksHand(code, heroCards, board) && profileHasCode({
+        coreSet: coreSet, borderlineSet: borderlineSet, widenSet: widenSet,
+        valueSet: valueSet, semibluffSet: semibluffSet, bluffSet: bluffSet
+      }, code)) {
         blockedSet.add(code);
       }
     });
 
     const allIn = new Set();
-    coreSet.forEach(function (c) { allIn.add(c); });
-    widenSet.forEach(function (c) { allIn.add(c); });
+    [coreSet, borderlineSet, widenSet, valueSet, semibluffSet, bluffSet].forEach(function (s) {
+      s.forEach(function (c) { allIn.add(c); });
+    });
 
-    return {
+    const profile = {
       coreSet: coreSet,
+      borderlineSet: borderlineSet,
       widenSet: widenSet,
+      valueSet: valueSet,
+      semibluffSet: semibluffSet,
+      bluffSet: bluffSet,
       cappedSet: cappedSet,
       blockedSet: blockedSet,
       coreStr: setToRangeStr(coreSet),
@@ -390,9 +548,32 @@
       rangeStr: setToRangeStr(allIn) || gtoRange,
       gtoStr: gtoRange,
       preflopStr: preflopRange,
+      lineNarrative: buildLineNarrative(ctx, lineSummary),
+      lineSummary: lineSummary,
+      villainCode: ctx.villainCode || null,
+      heroCode: ctx.heroCode || null,
       cellAction: function (code) { return cellActionForProfile(code, this); },
       cellTitle: function (code) { return cellTitleForProfile(code, this); }
     };
+
+    if (ctx.villainCode && preflopSet.has(ctx.villainCode) && cellActionForProfile(ctx.villainCode, profile) === 'out') {
+      const vInfo = handMadeInfoOnBoard(ctx.villainCode, board);
+      if (vInfo && (vInfo.tier === 'strong' || (vInfo.ev && vInfo.ev.category >= 2))) {
+        profile.valueSet.add(ctx.villainCode);
+      } else if (lineSummary.aggressive) {
+        profile.semibluffSet.add(ctx.villainCode);
+      } else {
+        profile.borderlineSet.add(ctx.villainCode);
+      }
+      const merged = new Set();
+      [profile.coreSet, profile.borderlineSet, profile.widenSet, profile.valueSet,
+        profile.semibluffSet, profile.bluffSet].forEach(function (s) {
+        s.forEach(function (c) { merged.add(c); });
+      });
+      profile.rangeStr = setToRangeStr(merged) || profile.rangeStr;
+    }
+
+    return profile;
   }
 
   function inferVillainLineContext(opts) {
@@ -495,7 +676,8 @@
   global.GTOVillainTracking = {
     initTracker, recordAction, buildHandSummary, describeRangeChange,
     estimateActiveRange, estimateGtoNarrowRange, estimateRangeFromActions, inferVillainLineContext,
-    preflopRangeFromHand, buildVillainMatrixProfile,
+    preflopRangeFromHand, buildVillainMatrixProfile, villainPosFromHand,
+    lineAggressionSummary, buildLineNarrative,
     rangeToSet, setToRangeStr, handConnectsWithBoard, heroBlocksHand
   };
 })(window);

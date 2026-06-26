@@ -44,6 +44,7 @@ const scripts = [
   'engine/villainProfiles.js',
   'engine/villainPreflop.js',
   'ranges.js',
+  'range-matrix.js',
   'engine.js'
 ];
 
@@ -382,6 +383,26 @@ const trashAi = VPF.villainVsAllInAction('63s', VP.getProfile('maniac'), 0.99);
 const weakRiver = VP.postflopLead(0.28, VP.getProfile('maniac'), true, 0.5, { street: 'river', tier: 'weak' });
 console.log('Trash 63s defend', trash3b, '54o vs3bet', trash4b, '63s vs AI', trashAi, 'weak river', weakRiver);
 
+const VT = sandbox.window.GTOVillainTracking;
+const RM = sandbox.window.PTRangeMatrix;
+const mxProf = VT.buildVillainMatrixProfile({
+  preflopRange: 'TT+, AJs+, KQs, 99, 88, 77, 55, A5s, A4s, KJo',
+  street: 'turn',
+  board: ['3c', '3s', '5d', 'Ks'],
+  actionLine: [{ street: 'flop', action: 'bet' }, { street: 'turn', action: 'bet' }],
+  lastAction: 'bet',
+  betBB: 9,
+  potBeforeBB: 18,
+  villainPos: 'CO',
+  heroCards: ['7s', '7h'],
+  heroCode: '77',
+  villainCode: '55'
+});
+const mx55 = mxProf.cellAction('55');
+const mxA5 = mxProf.cellAction('A5s');
+const mxOut = mxProf.cellAction('72o');
+console.log('Villain matrix 55', mx55, 'A5s', mxA5, '72o', mxOut, 'narrative', !!mxProf.lineNarrative);
+
 const sessStats = Importer.computeStats([
   { heroNetBB: 50, totalEvLoss: 80, decisions: [{ class: 'error', street: 'flop' }] },
   { heroNetBB: -30, totalEvLoss: 2, decisions: [{ class: 'optima', street: 'flop' }] }
@@ -424,7 +445,8 @@ const evOk = badCall.evLoss >= 2 && badCall.evErroneous
   && sessStats.expectedNet === -62 && sessStats.varianceAdj === 82
   && handEv.expectedNet === 8.96 && handEv.varianceAdj === 90.62
   && profCount === 5 && maniacAgg === 'bet' && nitAgg === 'check'
-  && trash3b === 'fold' && trash4b === 'fold' && trashAi === 'fold' && weakRiver === 'check';
+  && trash3b === 'fold' && trash4b === 'fold' && trashAi === 'fold' && weakRiver === 'check'
+  && (mx55 === 'value' || mx55 === 'semibluff') && mxOut === 'out' && mxProf.lineNarrative;
 
 const ls = { _d: {}, getItem(k) { return this._d[k] != null ? this._d[k] : null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem(k) { delete this._d[k]; } };
 const storeBox = Object.assign({}, sandbox, { localStorage: ls });

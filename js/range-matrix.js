@@ -172,6 +172,24 @@
     return [];
   }
 
+  function villainCardsFromHand(hand) {
+    if (!hand) return [];
+    if (hand.villain && hand.villain.cards && hand.villain.cards.length === 2) return hand.villain.cards.slice();
+    if (hand.villainCards && hand.villainCards.length === 2) return hand.villainCards.slice();
+    const hero = hand.hero || hand.heroName;
+    if (hand.villainShows && hero) {
+      const names = Object.keys(hand.villainShows).filter(function (n) { return n !== hero; });
+      if (names.length && hand.villainShows[names[0]].length === 2) return hand.villainShows[names[0]].slice();
+    }
+    return [];
+  }
+
+  function villainCodeFromHand(hand) {
+    const cards = villainCardsFromHand(hand);
+    if (cards.length !== 2 || !global.Ranges) return null;
+    return global.Ranges.handCode(cards[0], cards[1]);
+  }
+
   function buildBaseInput(hand, decision, source) {
     if (decision.street !== 'preflop') return null;
     if (source === 'session' && global.Importer && global.Importer.buildEvalInputFromDecision) {
@@ -258,7 +276,7 @@
           label,
           action,
           title,
-          inRange: action === 'inrange' || action === 'capped'
+          inRange: action !== 'out'
         });
       }
       cells.push(rowCells);
@@ -299,6 +317,15 @@
       ? decision.board
       : boardSliceForStreet(hand.board || [], decision.street);
     const heroName = hand.hero || (hand.heroName);
+    const heroCards = heroCardsFromHand(hand);
+    const heroCode = (heroCards.length === 2 && global.Ranges)
+      ? global.Ranges.handCode(heroCards[0], heroCards[1])
+      : (hand.heroCode || null);
+    const villainCards = villainCardsFromHand(hand);
+    const villainCode = villainCodeFromHand(hand);
+    const villainPos = VT && VT.villainPosFromHand
+      ? VT.villainPosFromHand(hand, heroName, decision)
+      : (decision.vsPosition || null);
     const preflopRange = (VT && VT.preflopRangeFromHand && hand.streets)
       ? VT.preflopRangeFromHand(hand, heroName)
       : (hand.villain && hand.villain.rangeStr) || D().BROAD_CONTINUE;
@@ -326,7 +353,11 @@
       board: board,
       tags: tags,
       actionLine: actionLine,
-      heroCards: heroCardsFromHand(hand)
+      heroCards: heroCards,
+      heroCode: heroCode,
+      villainCode: villainCode,
+      villainCards: villainCards,
+      villainPos: villainPos
     };
   }
 
@@ -401,6 +432,8 @@
     buildVillainActionLine,
     findDecisionIndex,
     heroCardsFromHand,
+    villainCardsFromHand,
+    villainCodeFromHand,
     boardSliceForStreet,
     shortRange,
     expandRangeSet

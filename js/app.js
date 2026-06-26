@@ -908,7 +908,7 @@
     document.body.classList.remove('range-matrix-open');
   }
 
-  function renderRangeMatrixGrid(result, heroCode, mode) {
+  function renderRangeMatrixGrid(result, heroCode, mode, villainCode) {
     const ranks = result.ranks;
     let html = '<div class="range-matrix-wrap"><div class="range-matrix-grid">';
     html += '<div class="rm-corner"></div>';
@@ -918,11 +918,15 @@
       for (let col = 0; col < 13; col++) {
         const cell = result.cells[row][col];
         const isHero = heroCode && cell.label === heroCode;
+        const isVillain = villainCode && cell.label === villainCode;
+        let cls = 'rm-cell ' + cell.action;
+        if (isHero) cls += ' hero';
+        if (isVillain) cls += ' villain';
         if (mode === 'villain') {
           const title = cell.title || cell.label;
-          html += `<div class="rm-cell ${cell.action}${isHero ? ' hero' : ''}" title="${escapeHtml(title)}">${cell.label}</div>`;
+          html += `<div class="${cls}" title="${escapeHtml(title)}">${cell.label}</div>`;
         } else {
-          html += `<div class="rm-cell ${cell.action}${isHero ? ' hero' : ''}" title="${cell.label}: R${Math.round(cell.freqs.raise * 100)}% C${Math.round(cell.freqs.call * 100)}% F${Math.round(cell.freqs.fold * 100)}%">${cell.label}</div>`;
+          html += `<div class="${cls}" title="${cell.label}: R${Math.round(cell.freqs.raise * 100)}% C${Math.round(cell.freqs.call * 100)}% F${Math.round(cell.freqs.fold * 100)}%">${cell.label}</div>`;
         }
       }
     }
@@ -1006,6 +1010,8 @@
     const heroCode = (heroCards.length === 2 && window.Ranges)
       ? window.Ranges.handCode(heroCards[0], heroCards[1])
       : (handObj.heroCode || null);
+    const villainCards = RM.villainCardsFromHand(handObj);
+    const villainCode = RM.villainCodeFromHand(handObj);
     const board = decision.board && decision.board.length
       ? decision.board
       : RM.boardSliceForStreet(handObj.board || [], decision.street);
@@ -1013,27 +1019,36 @@
     const result = RM.computeVillainRangeMatrix(profile);
     const boardHtml = board.length ? board.map(Cards.cardToHTML).join(' ') : '—';
     const heroHtml = heroCards.length ? heroCards.map(Cards.cardToHTML).join(' ') : '—';
-    const inCount = profile.coreSet.size + profile.widenSet.size;
-    const widenNote = (decision.street === 'turn' || decision.street === 'river') && profile.widenSet.size
-      ? ` · +${profile.widenSet.size} ampliables/capadas (azul)`
-      : '';
+    const villainHtml = villainCards.length ? villainCards.map(Cards.cardToHTML).join(' ') : null;
+    const inCount = profile.coreSet.size + profile.borderlineSet.size
+      + profile.widenSet.size + profile.valueSet.size
+      + profile.semibluffSet.size + profile.bluffSet.size;
+    const narrative = profile.lineNarrative || '';
 
     modal.classList.remove('hidden');
     document.body.classList.add('range-matrix-open');
     body.innerHTML = `<div class="range-matrix-head">
       <h3 id="range-matrix-title">Matriz villano · ${cap(decision.street)}</h3>
       <div class="muted-text">${escapeHtml(decision.context || decision.spot || '')}</div>
+      ${narrative ? `<div class="muted-text" style="margin-top:6px">${escapeHtml(narrative)}</div>` : ''}
       <div class="range-matrix-cards">
-        <span><strong>Tu mano:</strong> <span class="rec-cards">${heroHtml}</span></span>
+        <span><strong>Tu mano:</strong> <span class="rec-cards">${heroHtml}</span>${heroCode ? ` <code>${heroCode}</code>` : ''}</span>
+        ${villainHtml ? `<span><strong>Villano:</strong> <span class="rec-cards">${villainHtml}</span>${villainCode ? ` <code>${villainCode}</code>` : ''}</span>` : ''}
         <span><strong>Board:</strong> <span class="rec-cards">${boardHtml}</span></span>
       </div>
-      <div class="muted-text" style="margin:8px 0">Rango estimado (~${inCount} combos${widenNote}): <code>${escapeHtml(RM.shortRange(result.rangeStr))}</code></div>
+      <div class="muted-text" style="margin:8px 0">Rango estimado (~${inCount} manos): <code>${escapeHtml(RM.shortRange(result.rangeStr))}</code></div>
       <div class="range-matrix-legend">
-        <span><i class="call"></i> En rango GTO</span>
-        <span><i class="capped"></i> Capado / ampliable / bloqueado</span>
-        <span><i class="fold"></i> Descartado</span>
+        <span><i class="value"></i> Valor</span>
+        <span><i class="semibluff"></i> Semibluff</span>
+        <span><i class="call"></i> Núcleo GTO</span>
+        <span><i class="borderline"></i> Borderline</span>
+        <span><i class="bluff"></i> Farol</span>
+        <span><i class="capped"></i> Capado / bloqueado</span>
+        <span><i class="fold"></i> Fuera</span>
+        ${heroCode ? '<span><i class="hero-mark"></i> Tu mano</span>' : ''}
+        ${villainCode ? '<span><i class="villain-mark"></i> Mano villano</span>' : ''}
       </div>
-      ${renderRangeMatrixGrid(result, heroCode, 'villain')}
+      ${renderRangeMatrixGrid(result, heroCode, 'villain', villainCode)}
       <button type="button" class="btn btn-primary btn-block" data-close-matrix style="margin-top:12px">Cerrar</button>
     </div>`;
   }

@@ -680,10 +680,22 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .rm-cell.call { background: #3fb950; color: #101810; }
 .rm-cell.fold { background: #6e7681; color: #f0f0f0; }
 .rm-cell.inrange { background: #3fb950; color: #101810; }
-.rm-cell.capped { background: #2f81f7; color: #fff; }
+.rm-cell.value { background: #1a7f37; color: #fff; }
+.rm-cell.semibluff { background: #d4a012; color: #1a1400; }
+.rm-cell.borderline { background: #58a6ff; color: #0d1117; }
+.rm-cell.bluff { background: #da3633; color: #fff; opacity: 0.88; }
+.rm-cell.capped { background: #388bfd; color: #fff; }
 .rm-cell.out { background: #6e7681; color: #c8cdd2; opacity: 0.55; }
-.range-matrix-legend i.capped { background: #2f81f7; }
+.range-matrix-legend i.capped { background: #388bfd; }
+.range-matrix-legend i.value { background: #1a7f37; }
+.range-matrix-legend i.semibluff { background: #d4a012; }
+.range-matrix-legend i.borderline { background: #58a6ff; }
+.range-matrix-legend i.bluff { background: #da3633; }
+.range-matrix-legend i.hero-mark { background: transparent; box-shadow: 0 0 0 2px var(--gold); }
+.range-matrix-legend i.villain-mark { background: transparent; box-shadow: 0 0 0 2px #c97800; }
 .rm-cell.hero { box-shadow: 0 0 0 2px var(--gold), 0 0 0 3px rgba(216,165,51,.4); z-index: 1; position: relative; }
+.rm-cell.villain { box-shadow: 0 0 0 2px #c97800, 0 0 0 3px rgba(201,120,0,.35); z-index: 1; position: relative; }
+.rm-cell.hero.villain { box-shadow: 0 0 0 2px var(--gold), 0 0 0 4px #c97800; }
 .range-matrix-progress { font-size: 13px; color: var(--muted); margin: 16px 0; text-align: center; }
 .btn-matrix { padding: 2px 8px !important; font-size: 11px !important; margin-left: 6px; vertical-align: middle; }
 .tl-street { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
