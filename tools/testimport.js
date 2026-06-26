@@ -21,7 +21,7 @@ scripts.forEach((f) => {
 });
 const { Importer } = sandbox.window;
 
-const txt = fs.readFileSync(path.join(__dirname, '..', 'sesiones', 'Poker56.txt'), 'utf8');
+const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'Poker56.txt'), 'utf8');
 const parsed = Importer.parseSession(txt, 'Poker56.txt');
 const session = Importer.buildSession(parsed, 'Poker56.txt');
 console.log('Manos:', session.hands.length, '| acierto:', session.stats.accuracy + '%');

@@ -1,12 +1,6 @@
--- Ejecutar en Supabase > SQL Editor (una vez).
--- Un registro por usuario con payload JSON: stats, history, errors, sessions.
--- EPIC 2: requiere Supabase Auth; ver supabase/migrations/002_production_rls.sql
-
-create table if not exists public.pt_user_state (
-  user_id text primary key,
-  payload jsonb not null default '{}'::jsonb,
-  updated_at timestamptz not null default now()
-);
+-- EPIC 2: RLS de producción para pt_user_state.
+-- Ejecutar en Supabase SQL Editor tras habilitar Google en Authentication.
+-- Requiere que la app use Supabase Auth (JWT authenticated).
 
 alter table public.pt_user_state enable row level security;
 
@@ -16,6 +10,7 @@ drop policy if exists "insert_own" on public.pt_user_state;
 drop policy if exists "update_own" on public.pt_user_state;
 drop policy if exists "delete_own" on public.pt_user_state;
 
+-- Lectura: fila con auth.uid() o legado Google sub (migración).
 create policy "select_own"
 on public.pt_user_state
 for select

@@ -45,12 +45,12 @@
 
   function anonKey() {
     const c = cfg();
-    return c.supabaseAnonKey || (global.PT_SUPABASE && global.PT_SUPABASE.anonKey) || c.token;
+    return c.supabaseAnonKey || (global.PT_SUPABASE && global.PT_SUPABASE.anonKey) || '';
   }
 
   function isEnabled() {
     const c = cfg();
-    return !!(c.enabled && c.endpoint && c.token);
+    return !!(c.enabled && c.endpoint);
   }
 
   function hashQuestion(q) {
@@ -302,13 +302,21 @@
     const c = cfg();
     const body = { payload: payload, mode: apiMode(scope, mode) };
     if (mode === 'question' && question) body.question = question;
+
+    let token = null;
+    if (global.PTSupabase && global.PTSupabase.getAccessToken) {
+      token = await global.PTSupabase.getAccessToken();
+    }
+    if (!token) {
+      throw new Error('Inicia sesión para usar el IA Coach');
+    }
+    const key = anonKey();
     const res = await fetch(c.endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + anonKey(),
-        'apikey': anonKey(),
-        'X-PT-AI-Token': c.token
+        'Authorization': 'Bearer ' + token,
+        'apikey': key || ''
       },
       body: JSON.stringify(body)
     });
@@ -383,7 +391,7 @@
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
 
     if (!isEnabled()) {
-      alert('IA Coach no configurado. Copia js/ai-config.example.js como js/ai-config.js y completa endpoint y token.');
+      alert('IA Coach no configurado. Copia js/ai-config.example.js como js/ai-config.js y activa el endpoint.');
       return;
     }
     if (mode === 'question' && !question) {

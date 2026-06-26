@@ -1,8 +1,9 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-pt-ai-token',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
@@ -66,6 +67,9 @@ interface GeminiPart {
 type AiMode = 'report' | 'question' | 'session_report' | 'session_question';
 
 const QUESTION_MAX = 500;
+const RATE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const RATE_MAX = Number(Deno.env.get('PT_AI_DAILY_LIMIT') || '120');
+const rateMap = new Map<string, { count: number; resetAt: number }>();
 
 function normalizeMode(raw: unknown): AiMode {
   if (raw === 'question') return 'question';
@@ -102,6 +106,41 @@ function userContentForMode(mode: AiMode, payload: unknown, question: string | n
   return 'Genera informe de la mano (verifica números del solver por tu cuenta):\n' + json;
 }
 
+function checkRateLimit(userId: string) {
+  const now = Date.now();
+  const row = rateMap.get(userId);
+  if (!row || now >= row.resetAt) {
+    rateMap.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return { ok: true };
+  }
+  if (row.count >= RATE_MAX) {
+    return { ok: false, retryAfter: Math.ceil((row.resetAt - now) / 1000) };
+  }
+  row.count += 1;
+  return { ok: true };
+}
+
+async function verifyAuth(req: Request) {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { ok: false as const, status: 401, error: 'missing_auth' };
+  }
+  const token = authHeader.slice(7).trim();
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { ok: false as const, status: 500, error: 'supabase_env_missing' };
+  }
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) {
+    return { ok: false as const, status: 401, error: 'invalid_auth' };
+  }
+  return { ok: true as const, user: data.user, token };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
@@ -110,10 +149,14 @@ serve(async (req) => {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
-  const aiToken = Deno.env.get('PT_AI_TOKEN');
-  const clientToken = req.headers.get('X-PT-AI-Token');
-  if (!aiToken || clientToken !== aiToken) {
-    return json({ error: 'unauthorized' }, 401);
+  const auth = await verifyAuth(req);
+  if (!auth.ok) {
+    return json({ error: auth.error }, auth.status);
+  }
+
+  const limit = checkRateLimit(auth.user.id);
+  if (!limit.ok) {
+    return json({ error: 'rate_limit', retryAfter: limit.retryAfter }, 429);
   }
 
   const geminiKey = Deno.env.get('GEMINI_API_KEY');

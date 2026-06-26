@@ -49,7 +49,7 @@ const HAND_IDS = {
 };
 
 const ref = JSON.parse(fs.readFileSync(path.join(__dirname, 'poker76-ev-reference.json'), 'utf8'));
-const txt = fs.readFileSync(path.join(__dirname, '..', 'sesiones', 'Poker76.txt'), 'utf8');
+const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'Poker76.txt'), 'utf8');
 const parsed = Importer.parseSession(txt, 'Poker76.txt');
 const session = Importer.buildSession(parsed, 'Poker76.txt');
 

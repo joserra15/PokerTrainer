@@ -221,6 +221,7 @@
   }
 
   function setupGsiButton() {
+    if (global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth()) return;
     const touch = global.matchMedia('(max-width: 768px)').matches ||
       ('ontouchstart' in global) || (navigator.maxTouchPoints > 0);
     if (touch) return;
@@ -263,14 +264,24 @@
   }
 
   function signOut() {
-    localStorage.removeItem(SESSION_KEY);
-    try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e) { /* noop */ }
-    currentUser = null;
-    global.PT_AUTH_USER = null;
-    if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
-    appStarted = false;
-    if (global.PT_retryLogin) global.PT_retryLogin();
-    else location.reload();
+    var done = function () {
+      localStorage.removeItem(SESSION_KEY);
+      try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e) { /* noop */ }
+      currentUser = null;
+      global.PT_AUTH_USER = null;
+      if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
+      appStarted = false;
+      if (global.PT_retryLogin) global.PT_retryLogin();
+      else location.reload();
+    };
+    if (global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth()) {
+      var client = global.PTSupabase.getClient();
+      if (client) {
+        client.auth.signOut().finally(done);
+        return;
+      }
+    }
+    done();
   }
 
   function requireAuth(onReady) {

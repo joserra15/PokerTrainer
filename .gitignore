@@ -14,6 +14,9 @@ node_modules/
 *.log
 npm-debug.log*
 
+# Sesiones reales del usuario (fixtures de test en tools/fixtures/)
+sesiones/*.txt
+
 # Supabase CLI local / binarios
 supabase/.temp/
 tools/bin/

@@ -1,6 +1,5 @@
 /*
- * auth-bootstrap.js — Login mínimo que carga al instante (antes del motor GTO).
- * En móvil los scripts tardan; sin esto los botones no responden.
+ * auth-bootstrap.js — Login (Supabase Auth + Google) con fallback legacy.
  */
 (function (global) {
   'use strict';
@@ -28,7 +27,6 @@
     }
   }
 
-  /** Repara nombres guardados con atob() sin UTF-8 (p. ej. JosÃ© → José). */
   function fixUtf8Text(str) {
     if (!str || typeof str !== 'string') return str;
     if (str.indexOf('\u00C3') < 0 && str.indexOf('\u00C2') < 0) return str;
@@ -58,15 +56,65 @@
     if (el) el.textContent = msg || '';
   }
 
+  function useSupabaseAuth() {
+    return global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth();
+  }
+
+  function waitFor(cond, maxTries, delayMs) {
+    return new Promise(function (resolve) {
+      var n = 0;
+      function tick() {
+        if (cond()) return resolve(true);
+        if (++n >= maxTries) return resolve(false);
+        setTimeout(tick, delayMs || 50);
+      }
+      tick();
+    });
+  }
+
+  function saveLegacySession(user) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (e) { /* noop */ }
+  }
+
+  function migrateLocalData(user) {
+    if (!user || !global.Store || !global.Store.migrateLocalUserKeys) return;
+    try {
+      var raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return;
+      var old = JSON.parse(raw);
+      if (old && old.sub && old.sub !== user.sub && old.authProvider !== 'supabase') {
+        global.Store.migrateLocalUserKeys(old.sub, user.sub);
+      }
+      if (user.googleSub && user.googleSub !== user.sub) {
+        global.Store.migrateLocalUserKeys(user.googleSub, user.sub);
+      }
+    } catch (e) { /* noop */ }
+  }
+
+  function enterFromBootstrap(user) {
+    user = normalizeUser(user);
+    var shell = $('app-shell');
+    var gate = $('auth-gate');
+    if (shell) shell.classList.remove('hidden');
+    if (gate) gate.classList.add('hidden');
+    document.body.classList.remove('auth-locked');
+    global.PT_AUTH_USER = user;
+    saveLegacySession(user);
+    migrateLocalData(user);
+    global.dispatchEvent(new CustomEvent('pt-auth-bootstrap', { detail: user }));
+  }
+
   function saveSessionFromPayload(payload) {
     var user = {
       sub: payload.sub,
+      googleSub: payload.sub,
       email: payload.email,
       name: payload.name || payload.email,
       picture: payload.picture || '',
       emailVerified: !!payload.email_verified,
       locale: payload.locale || '',
-      loginAt: Date.now()
+      loginAt: Date.now(),
+      authProvider: 'google_legacy'
     };
     try {
       localStorage.setItem(SESSION_KEY, JSON.stringify(user));
@@ -75,16 +123,6 @@
       return null;
     }
     return user;
-  }
-
-  function enterFromBootstrap(user) {
-    var shell = $('app-shell');
-    var gate = $('auth-gate');
-    if (shell) shell.classList.remove('hidden');
-    if (gate) gate.classList.add('hidden');
-    document.body.classList.remove('auth-locked');
-    global.PT_AUTH_USER = user;
-    global.dispatchEvent(new CustomEvent('pt-auth-bootstrap', { detail: user }));
   }
 
   function processHashLogin() {
@@ -132,14 +170,41 @@
       var data = JSON.parse(raw);
       if (!data || !data.sub || !data.email) return null;
       data = normalizeUser(data);
-      try { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch (e) { /* noop */ }
       return data;
     } catch (e) {
       return null;
     }
   }
 
+  async function startSupabaseLogin() {
+    if (location.protocol === 'file:') {
+      showError('No funciona con file://. Usa GitHub Pages o localhost.');
+      return;
+    }
+    showError('');
+    var client = global.PTSupabase && global.PTSupabase.getClient();
+    if (!client) {
+      showError('Supabase no está listo. Recarga la página.');
+      return;
+    }
+    var redirectTo = redirectUri();
+    var errRes = await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo,
+        queryParams: { prompt: 'select_account' }
+      }
+    });
+    if (errRes.error) {
+      showError(errRes.error.message || 'Error al iniciar sesión');
+    }
+  }
+
   function startGoogleLogin() {
+    if (useSupabaseAuth()) {
+      startSupabaseLogin();
+      return;
+    }
     var cfg = global.PT_GOOGLE || {};
     if (!cfg.clientId || cfg.clientId.indexOf('TU_CLIENT_ID') >= 0) {
       showError('Falta configurar js/google-config.js');
@@ -172,6 +237,12 @@
       localStorage.removeItem(SESSION_KEY);
       sessionStorage.removeItem('pt_oauth_nonce');
     } catch (e) { /* noop */ }
+    if (useSupabaseAuth() && global.PTSupabase) {
+      var client = global.PTSupabase.getClient();
+      if (client) client.auth.signOut().finally(function () { location.reload(); });
+      else location.reload();
+      return;
+    }
     location.reload();
   }
 
@@ -185,7 +256,6 @@
   function setupLoginUi() {
     var mobileBtn = $('auth-mobile-login');
     var gsiHost = $('google-signin-btn');
-
     if (mobileBtn) {
       mobileBtn.classList.remove('hidden');
       mobileBtn.addEventListener('click', function (e) {
@@ -193,20 +263,56 @@
         startGoogleLogin();
       });
     }
-    if (isTouchUi()) {
+    if (useSupabaseAuth()) {
       if (gsiHost) gsiHost.classList.add('hidden');
+      return;
     }
+    if (isTouchUi() && gsiHost) gsiHost.classList.add('hidden');
   }
 
-  function boot() {
+  async function bootSupabase() {
+    var ok = await waitFor(function () {
+      return global.supabase && global.PTSupabase && global.PTSupabase.getClient();
+    }, 120, 50);
+    if (!ok) {
+      legacyBoot();
+      return;
+    }
+    var client = global.PTSupabase.getClient();
+    var sessionRes = await client.auth.getSession();
+    var session = sessionRes.data && sessionRes.data.session;
+    if (session && session.user) {
+      var user = global.PTSupabase.userFromSession(session);
+      if (user) {
+        enterFromBootstrap(user);
+        return;
+      }
+    }
+    client.auth.onAuthStateChange(function (event, sess) {
+      if (sess && sess.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        var u = global.PTSupabase.userFromSession(sess);
+        if (u) enterFromBootstrap(u);
+      }
+    });
+    setupLoginUi();
+  }
+
+  function legacyBoot() {
     if (processHashLogin()) return;
     var saved = loadSavedSession();
-    if (saved) {
-      global.PT_AUTH_USER = normalizeUser(saved);
-      enterFromBootstrap(global.PT_AUTH_USER);
+    if (saved && saved.authProvider !== 'supabase') {
+      enterFromBootstrap(saved);
       return;
     }
     setupLoginUi();
+  }
+
+  async function boot() {
+    if (useSupabaseAuth()) {
+      await bootSupabase();
+      return;
+    }
+    legacyBoot();
   }
 
   global.PT_startGoogleLogin = startGoogleLogin;
@@ -217,7 +323,7 @@
   global.PT_normalizeUser = normalizeUser;
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
+    document.addEventListener('DOMContentLoaded', function () { boot(); });
   } else {
     boot();
   }

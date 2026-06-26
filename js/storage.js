@@ -297,6 +297,34 @@
     }, null, 2);
   }
 
+  /** Renombra claves localStorage de un userId antiguo (Google sub) al nuevo (Supabase uuid). */
+  function migrateLocalUserKeys(fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return { moved: 0 };
+    const needle = '_' + fromId;
+    const repl = '_' + toId;
+    let moved = 0;
+    const keys = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf('pt_') !== 0) continue;
+        if (k.indexOf(needle) >= 0) keys.push(k);
+      }
+      keys.forEach(function (k) {
+        const val = localStorage.getItem(k);
+        if (val == null) return;
+        const nk = k.split(needle).join(repl);
+        if (nk !== k) {
+          localStorage.setItem(nk, val);
+          localStorage.removeItem(k);
+          moved++;
+        }
+      });
+      if (userId === fromId) userId = toId;
+    } catch (e) { /* noop */ }
+    return { moved: moved };
+  }
+
   /** Borra todos los datos locales del usuario (no cierra sesión OAuth). */
   function purgeLocalUserData(uid, opts) {
     if (!uid) return { removed: 0 };
@@ -496,7 +524,8 @@
   global.Store = {
     setUserId,
     getHistory, getErrors, getStats, saveHand,
-    clearHistory, clearStats, clearAll, clearErrors, removeError, exportData, exportFullUserData,
+    clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
+    migrateLocalUserKeys,
     purgeLocalUserData, scenarioLabel,
     getSessions, getSession, saveSession, removeSession, deleteSessionTxt,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud

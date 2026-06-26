@@ -161,17 +161,19 @@ análisis procesado); el `.txt` sigue en `localStorage` del dispositivo donde lo
 
 ### Configurar Supabase (una vez)
 
-1. Copia `js/supabase-config.example.js` → `js/supabase-config.js` y rellena `url`, `anonKey`, `enabled: true`.
-2. En Supabase → **SQL Editor**, ejecuta `supabase/schema.sql` (tabla `pt_user_state`).
-3. Prueba la conexión:
+1. Copia `js/supabase-config.example.js` → `js/supabase-config.js` y rellena `url`, `anonKey`, `enabled: true`, `useAuth: true`.
+2. En Supabase → **SQL Editor**, ejecuta `supabase/schema.sql` y `supabase/migrations/002_production_rls.sql`.
+3. Activa **Google** en Authentication y configura redirect URLs (ver [`docs/SUPABASE_AUTH.md`](docs/SUPABASE_AUTH.md)).
+4. Despliega la Edge Function `analyze-hand` con secrets `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`.
+5. Prueba:
 
 ```
 node tools/test-supabase.js
 ```
 
-4. Recarga la app e inicia sesión. La primera vez, si solo tienes datos locales, se migran a la nube.
+6. Recarga la app e inicia sesión con Google (vía Supabase Auth).
 
-> **RLS actual (desarrollo):** la política `anon_read_write_dev` permite lectura/escritura anónima. Para producción conviene Supabase Auth con Google y políticas por `user_id`.
+> **RLS (EPIC 2):** solo usuarios autenticados acceden a su fila en `pt_user_state`. El IA Coach requiere sesión (JWT), sin token en el cliente.
 
 ## Estructura del proyecto
 

@@ -1,5 +1,6 @@
 /*
  * cloud-store.js — Sincronización Supabase (stats, history, errors, sessions).
+ * EPIC 2: requiere sesión Supabase Auth (JWT) y RLS por usuario.
  */
 (function (global) {
   'use strict';
@@ -8,8 +9,8 @@
   const TABLE = 'pt_user_state';
   const PUSH_DELAY_MS = 2000;
 
-  let client = null;
   let userId = null;
+  let legacyGoogleSub = null;
   let status = 'disabled';
   let statusDetail = 'Supabase desactivado';
   let pushTimer = null;
@@ -25,8 +26,14 @@
     return !!(c.enabled && c.url && c.anonKey);
   }
 
+  function getClient() {
+    return global.PTSupabase && global.PTSupabase.getClient
+      ? global.PTSupabase.getClient()
+      : null;
+  }
+
   function isReady() {
-    return hasValidConfig() && !!client && !!userId;
+    return hasValidConfig() && !!getClient() && !!userId;
   }
 
   function setStatus(next, detail) {
@@ -49,7 +56,8 @@
       ready: 'Listo',
       syncing: 'Sincronizando…',
       online: 'Sincronizado',
-      error: 'Error sync'
+      error: 'Error sync',
+      auth_required: 'Requiere login'
     };
     cloudRow.querySelector('strong').textContent = labels[status] || status;
     if (status === 'error' && statusDetail) {
@@ -62,21 +70,17 @@
       setStatus('disabled', 'Supabase desactivado');
       return null;
     }
-    if (!global.supabase || !global.supabase.createClient) {
-      setStatus('error', 'SDK de Supabase no cargado');
-      return null;
-    }
     if (!hasValidConfig()) {
       setStatus('pending', 'Falta anonKey en js/supabase-config.js');
       return null;
     }
+    const client = getClient();
     if (!client) {
-      client = global.supabase.createClient(cfg().url, cfg().anonKey, {
-        auth: { persistSession: false, autoRefreshToken: false }
-      });
+      setStatus('error', 'SDK de Supabase no cargado');
+      return null;
     }
     if (status !== 'online' && status !== 'syncing') {
-      setStatus('ready', 'Cliente listo');
+      setStatus(userId ? 'ready' : 'auth_required', userId ? 'Usuario listo' : 'Inicia sesión');
     }
     return client;
   }
@@ -129,17 +133,37 @@
     return max;
   }
 
-  async function pullRow() {
+  async function pullRowById(id) {
+    const client = getClient();
     const { data, error } = await client
       .from(TABLE)
-      .select('payload, updated_at')
-      .eq('user_id', userId)
+      .select('user_id, payload, updated_at')
+      .eq('user_id', id)
       .maybeSingle();
     if (error) throw error;
     return data;
   }
 
+  async function pullRow() {
+    let row = await pullRowById(userId);
+    if (!row && legacyGoogleSub && legacyGoogleSub !== userId) {
+      row = await pullRowById(legacyGoogleSub);
+      if (row) row._fromLegacy = true;
+    }
+    return row;
+  }
+
+  async function migrateLegacyCloudRow(row) {
+    if (!row || !legacyGoogleSub || legacyGoogleSub === userId) return;
+    const payload = row.payload || {};
+    await pushPayload(payload);
+    const client = getClient();
+    const { error } = await client.from(TABLE).delete().eq('user_id', legacyGoogleSub);
+    if (error) console.warn('[PTCloud] migrate delete legacy', error);
+  }
+
   async function pushPayload(payload) {
+    const client = getClient();
     const now = new Date().toISOString();
     const body = Object.assign({}, payload, { syncedAt: now });
     const { error } = await client.from(TABLE).upsert({
@@ -189,6 +213,10 @@
         DATA_KEYS.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
       }
 
+      if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
+        await migrateLegacyCloudRow(row);
+      }
+
       setStatus('online', 'Datos sincronizados');
       global.dispatchEvent(new CustomEvent('pt-cloud-synced'));
       return true;
@@ -201,7 +229,6 @@
     }
   }
 
-  /** Sincronización manual: fusiona local + nube y sube el resultado. */
   async function syncNow() {
     if (!isReady()) {
       setStatus('error', 'Inicia sesión para sincronizar');
@@ -219,6 +246,9 @@
       const cloudPayload = row && row.payload ? row.payload : {};
       const summary = global.Store.mergeFromCloud(cloudPayload) || {};
       await pushPayload(global.Store.getCloudSnapshot());
+      if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
+        await migrateLegacyCloudRow(row);
+      }
       setStatus('online', 'Sincronizado');
       global.dispatchEvent(new CustomEvent('pt-cloud-synced', { detail: summary }));
       return { ok: true, summary: summary };
@@ -269,7 +299,7 @@
     try {
       const { error } = await c.from(TABLE).select('user_id').limit(1);
       if (error) throw error;
-      setStatus('online', 'Conectado a Supabase');
+      setStatus(userId ? 'online' : 'auth_required', userId ? 'Conectado' : 'Requiere login');
       return true;
     } catch (e) {
       setStatus('error', 'No se pudo conectar: ' + (e.message || 'error'));
@@ -279,10 +309,12 @@
 
   function setUser(user) {
     userId = user && user.sub ? user.sub : null;
+    legacyGoogleSub = user && user.googleSub ? user.googleSub : null;
     if (!userId) {
       if (pushTimer) clearTimeout(pushTimer);
       pendingKeys.clear();
-      setStatus('ready', hasValidConfig() ? 'Sin usuario' : statusDetail);
+      legacyGoogleSub = null;
+      setStatus('auth_required', hasValidConfig() ? 'Sin usuario' : statusDetail);
       return;
     }
     init();
@@ -300,8 +332,12 @@
     if (syncing) return { ok: false, reason: 'busy' };
     syncing = true;
     try {
+      const client = getClient();
       const { error } = await client.from(TABLE).delete().eq('user_id', userId);
       if (error) throw error;
+      if (legacyGoogleSub && legacyGoogleSub !== userId) {
+        await client.from(TABLE).delete().eq('user_id', legacyGoogleSub);
+      }
       const metaK = syncMetaKey();
       if (metaK) {
         try { localStorage.removeItem(metaK); } catch (e) { /* noop */ }
@@ -328,7 +364,7 @@
     markLocalDirty,
     deleteUserRow,
     isReady,
-    getClient: function () { return client; },
+    getClient: getClient,
     getUserId: function () { return userId; },
     getStatus: function () { return { status, detail: statusDetail, syncing }; }
   };

@@ -75,7 +75,7 @@ const recomputed = EvLoss.totalEvLossFromDecisions(h.decisions);
 assert.strictEqual(playTotal, recomputed, 'finish totalEvLoss matches helper');
 
 // 4) Alineación import vs jugar: misma función en analyzeHand
-const txt = fs.readFileSync(path.join(__dirname, '..', 'sesiones', 'Poker76.txt'), 'utf8');
+const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'Poker76.txt'), 'utf8');
 const session = Importer.buildSession(Importer.parseSession(txt, 'Poker76.txt'), 'Poker76.txt');
 const hand42 = session.hands.find((x) => String(x.id) === '261162731419');
 if (hand42) {
