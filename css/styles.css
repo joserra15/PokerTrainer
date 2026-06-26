@@ -44,6 +44,20 @@ body {
   flex: 1; min-width: 0; gap: 10px;
 }
 .brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.app-logo {
+  width: 42px; height: 42px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  display: block;
+}
+.app-logo-auth {
+  width: 72px; height: 72px;
+  border-radius: 16px;
+  margin: 0 auto 12px;
+}
 .chip-logo {
   font-size: 26px; color: var(--gold);
   background: var(--panel); width: 42px; height: 42px; border-radius: 50%;
@@ -167,6 +181,7 @@ body.range-matrix-open { overflow: hidden; }
   box-shadow: 0 20px 60px rgba(0,0,0,.35);
 }
 .auth-brand { margin-bottom: 24px; }
+.auth-brand .app-logo-auth { margin: 0 auto 12px; }
 .auth-brand .chip-logo { margin: 0 auto 12px; }
 .auth-brand h1 { font-size: 22px; margin-bottom: 6px; }
 .auth-sub { color: var(--muted); font-size: 14px; }
@@ -208,7 +223,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   color: inherit; cursor: pointer; text-align: left;
   font: inherit; min-width: 0; flex: 1;
 }
-.brand-home-link:hover .chip-logo { box-shadow: 0 0 16px rgba(245,196,81,.35); }
+.brand-home-link:hover .app-logo { box-shadow: 0 0 16px rgba(245,196,81,.35); }
 .brand-text { min-width: 0; }
 .brand-text h1 { font-size: 19px; font-weight: 700; letter-spacing: .3px; }
 
@@ -863,6 +878,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   .header-row { flex: 1; gap: 10px; }
   .header-row h1 { font-size: 15px; line-height: 1.2; }
   .header-row h1 small { font-size: 11px; }
+  .app-logo { width: 34px; height: 34px; border-radius: 8px; }
   .chip-logo { width: 34px; height: 34px; font-size: 20px; flex-shrink: 0; }
 
   .nav-toggle, .drawer-head { display: flex; }
