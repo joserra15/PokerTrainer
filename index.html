@@ -13,6 +13,8 @@
   <script src="js/google-config.js?v=1.9.0"></script>
   <script src="js/supabase-config.js?v=1.9.0"></script>
   <script src="js/ai-config.js?v=1.9.0"></script>
+  <script src="js/legal-config.js?v=1.9.0"></script>
+  <script src="js/legal.js?v=1.9.0"></script>
   <script src="js/auth-bootstrap.js?v=1.9.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/cloud-store.js?v=1.9.0"></script>
@@ -32,6 +34,11 @@
         Continuar con Google
       </button>
       <p id="auth-error" class="auth-error" role="alert"></p>
+      <p class="auth-legal-note muted-text">
+        Al continuar aceptas los <a href="legal/terminos.html">Términos de uso</a> y la
+        <a href="legal/privacidad.html">Política de privacidad</a>.
+      </p>
+      <div id="auth-legal-foot" class="auth-legal-foot"></div>
       <div id="auth-setup" class="auth-setup hidden">
         <p><strong>Configuración pendiente.</strong> Copia <code>js/google-config.example.js</code> a <code>js/google-config.js</code> y añade tu Client ID de Google Cloud Console.</p>
         <p class="muted-text">Orígenes autorizados: <code>http://localhost</code>, <code>https://joserra15.github.io</code></p>
@@ -76,8 +83,11 @@
             </div>
           </div>
           <div class="account-meta" id="account-meta"></div>
+          <button type="button" id="account-export" class="btn btn-ghost btn-block" style="margin-bottom:6px">Exportar mis datos</button>
           <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
-          <button type="button" id="account-signout" class="btn btn-ghost btn-block">Cerrar sesión</button>
+          <button type="button" id="account-cookies" class="btn btn-ghost btn-block btn-sm-account">Configurar cookies</button>
+          <button type="button" id="account-delete" class="btn btn-danger btn-block btn-sm-account" style="margin-top:8px">Eliminar cuenta y datos</button>
+          <button type="button" id="account-signout" class="btn btn-ghost btn-block" style="margin-top:8px">Cerrar sesión</button>
         </div>
       </div>
       <nav class="tabs">
@@ -345,7 +355,7 @@
           <button id="clear-history" class="btn btn-danger">Borrar histórico</button>
         </div>
       </div>
-      <p class="muted-text" style="margin:-8px 0 12px">Solo las manos guardadas del entrenador. Usa <strong>Sincronizar</strong> para traer datos de otro navegador (requiere sesión Google).</p>
+      <p class="muted-text" style="margin:-8px 0 12px">Solo las manos del entrenador. <strong>Exportar mis datos</strong> (RGPD, incluye sesiones) está en el menú Cuenta. <strong>Sincronizar</strong> fusiona con la nube.</p>
       <div id="history-list" class="record-list"></div>
     </section>
 
@@ -383,8 +393,35 @@
 
   <div id="verdict-toast" class="verdict-toast" aria-live="polite"></div>
 
-  <footer class="app-foot"><span id="app-version"></span></footer>
+  <footer class="app-foot">
+    <span id="app-version"></span>
+    <span id="app-legal-foot" class="app-legal-foot"></span>
+  </footer>
   </div><!-- #app-shell -->
+
+  <div id="cookie-banner" class="cookie-banner hidden" role="dialog" aria-label="Cookies">
+    <div class="cookie-banner-inner">
+      <p class="cookie-banner-text">
+        Usamos almacenamiento local necesario para tu cuenta y datos de entrenamiento.
+        La analítica opcional (cuando se active) solo se carga si la aceptas.
+        <a href="legal/cookies.html">Más información</a>
+      </p>
+      <div class="cookie-banner-actions">
+        <button type="button" id="cookie-accept-necessary" class="btn btn-ghost">Solo necesarias</button>
+        <button type="button" id="cookie-accept-all" class="btn btn-primary">Aceptar todas</button>
+        <button type="button" id="cookie-configure" class="btn btn-ghost">Configurar</button>
+      </div>
+      <div id="cookie-config-panel" class="cookie-config-panel hidden">
+        <label class="cookie-opt">
+          <input type="checkbox" checked disabled /> Necesarias (siempre activas)
+        </label>
+        <label class="cookie-opt">
+          <input type="checkbox" id="cookie-analytics-opt" /> Analítica agregada (opcional)
+        </label>
+        <button type="button" id="cookie-save-config" class="btn btn-primary btn-block" style="margin-top:8px">Guardar preferencias</button>
+      </div>
+    </div>
+  </div>
 
   <script>
   (function () {

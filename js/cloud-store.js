@@ -295,6 +295,28 @@
     });
   }
 
+  async function deleteUserRow() {
+    if (!userId || !init()) return { ok: false, reason: 'not_ready' };
+    if (syncing) return { ok: false, reason: 'busy' };
+    syncing = true;
+    try {
+      const { error } = await client.from(TABLE).delete().eq('user_id', userId);
+      if (error) throw error;
+      const metaK = syncMetaKey();
+      if (metaK) {
+        try { localStorage.removeItem(metaK); } catch (e) { /* noop */ }
+      }
+      setStatus('ready', 'Datos en nube eliminados');
+      return { ok: true };
+    } catch (e) {
+      console.warn('[PTCloud] deleteUserRow', e);
+      setStatus('error', e.message || 'Error al eliminar en nube');
+      return { ok: false, reason: e.message || 'error' };
+    } finally {
+      syncing = false;
+    }
+  }
+
   global.PTCloud = {
     init,
     ping,
@@ -304,6 +326,7 @@
     schedulePush,
     flushPush,
     markLocalDirty,
+    deleteUserRow,
     isReady,
     getClient: function () { return client; },
     getUserId: function () { return userId; },

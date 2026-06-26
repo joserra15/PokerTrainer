@@ -122,6 +122,73 @@
         }
       };
     }
+
+    const exportBtn = $('#account-export');
+    if (exportBtn) exportBtn.onclick = function () { exportAccountData(); };
+
+    const deleteBtn = $('#account-delete');
+    if (deleteBtn) deleteBtn.onclick = function () { deleteAccount(); };
+
+    const cookiesBtn = $('#account-cookies');
+    if (cookiesBtn) {
+      cookiesBtn.onclick = function () {
+        if (global.PTLegal && global.PTLegal.showCookieBanner) global.PTLegal.showCookieBanner();
+      };
+    }
+  }
+
+  function downloadJson(filename, jsonStr) {
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportAccountData() {
+    if (!currentUser || !global.Store || !global.Store.exportFullUserData) return;
+    const data = global.Store.exportFullUserData(currentUser);
+    const date = new Date().toISOString().slice(0, 10);
+    downloadJson('pokertrainer-export-' + date + '.json', data);
+  }
+
+  async function deleteAccount() {
+    if (!currentUser) return;
+    const email = currentUser.email;
+    const typed = prompt(
+      'Eliminación irreversible de cuenta y datos.\n\n' +
+      'Se borrarán datos en la nube (si aplica), localStorage de este navegador y caché IA.\n\n' +
+      'Escribe tu correo para confirmar:\n' + email
+    );
+    if (typed !== email) {
+      if (typed !== null) alert('El correo no coincide. Operación cancelada.');
+      return;
+    }
+    if (!confirm('¿Confirmas la eliminación definitiva de tu cuenta y todos tus datos?')) return;
+
+    const deleteBtn = $('#account-delete');
+    if (deleteBtn) deleteBtn.disabled = true;
+
+    let cloudOk = true;
+    if (global.PTCloud && global.PTCloud.isReady && global.PTCloud.isReady() && global.PTCloud.deleteUserRow) {
+      const res = await global.PTCloud.deleteUserRow();
+      if (!res.ok) {
+        cloudOk = false;
+        if (!confirm('No se pudieron borrar los datos en la nube (' + (res.reason || 'error') + ').\n¿Borrar solo los datos de este dispositivo?')) {
+          if (deleteBtn) deleteBtn.disabled = false;
+          return;
+        }
+      }
+    }
+    if (global.Store && global.Store.purgeLocalUserData) {
+      global.Store.purgeLocalUserData(currentUser.sub, { clearLegacy: true });
+    }
+    signOut();
+    alert(cloudOk
+      ? 'Cuenta y datos eliminados. Sesión cerrada.'
+      : 'Datos locales eliminados. Si usabas la nube, comprueba que no queden datos remotos.');
   }
 
   function startAppIfNeeded() {
@@ -254,6 +321,8 @@
     isAuthenticated: function () { return !!currentUser; },
     requireAuth: requireAuth,
     signOut: signOut,
+    exportAccountData: exportAccountData,
+    deleteAccount: deleteAccount,
     startLogin: function () { if (global.PT_startGoogleLogin) global.PT_startGoogleLogin(); }
   };
 

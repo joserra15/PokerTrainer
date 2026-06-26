@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de cookies · PokerTrainer</title>
+  <link rel="stylesheet" href="legal-common.css" />
+</head>
+<body>
+  <article class="legal-wrap">
+    <header class="legal-top">
+      <a href="../index.html">&larr; Volver a PokerTrainer</a>
+      <h1>Política de cookies y almacenamiento local</h1>
+      <p class="legal-meta">Última actualización: <span data-legal="lastUpdated"></span></p>
+    </header>
+
+    <h2>1. ¿Qué usamos?</h2>
+    <p>
+      PokerTrainer es principalmente una aplicación web que guarda datos en el <strong>almacenamiento local
+      del navegador</strong> (<code>localStorage</code>) y carga scripts de terceros para login y sincronización.
+      No usamos cookies de seguimiento publicitario.
+    </p>
+
+    <h2>2. Tabla de tecnologías</h2>
+    <table>
+      <thead>
+        <tr><th>Nombre / clave</th><th>Tipo</th><th>Finalidad</th><th>Duración</th><th>Consentimiento</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>pt_auth_v1</code></td>
+          <td>localStorage</td>
+          <td>Sesión Google (perfil mínimo)</td>
+          <td>Hasta 30 días o cierre de sesión</td>
+          <td>Necesaria</td>
+        </tr>
+        <tr>
+          <td><code>pt_*_v1_[userId]</code></td>
+          <td>localStorage</td>
+          <td>Histórico, errores, stats, sesiones</td>
+          <td>Hasta borrado manual o eliminar cuenta</td>
+          <td>Necesaria</td>
+        </tr>
+        <tr>
+          <td><code>pt_cookie_consent_v1</code></td>
+          <td>localStorage</td>
+          <td>Guardar preferencias del banner</td>
+          <td>12 meses</td>
+          <td>Necesaria</td>
+        </tr>
+        <tr>
+          <td><code>pt_ai_consent_v1</code></td>
+          <td>localStorage</td>
+          <td>Recuerda aceptación envío a IA</td>
+          <td>Hasta revocar / borrar cuenta</td>
+          <td>Consentimiento específico (IA)</td>
+        </tr>
+        <tr>
+          <td><code>pt_ai_coach_v1_*</code></td>
+          <td>localStorage</td>
+          <td>Caché de informes IA</td>
+          <td>Hasta borrar datos / cuenta</td>
+          <td>Tras consentimiento IA</td>
+        </tr>
+        <tr>
+          <td>Google Identity Services</td>
+          <td>Script / cookies de terceros</td>
+          <td>Botón «Iniciar sesión con Google»</td>
+          <td>Según Google</td>
+          <td>Necesaria para login</td>
+        </tr>
+        <tr>
+          <td>Supabase SDK</td>
+          <td>Script</td>
+          <td>Sincronización en la nube</td>
+          <td>Sesión de peticiones API</td>
+          <td>Necesaria si usas sync</td>
+        </tr>
+        <tr>
+          <td>Analítica (futuro)</td>
+          <td>Cookie / script</td>
+          <td>Métricas de uso agregadas (p. ej. Plausible)</td>
+          <td>Según proveedor</td>
+          <td><strong>Opcional</strong> — solo si aceptas en el banner</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. Cómo gestionar preferencias</h2>
+    <p>
+      Al entrar por primera vez verás un banner donde puedes aceptar solo lo necesario o incluir
+      analítica cuando esté disponible. Puedes cambiar la elección borrando
+      <code>pt_cookie_consent_v1</code> en las herramientas de desarrollo del navegador o usando
+      «Configurar cookies» si está visible en la app.
+    </p>
+
+    <h2>4. Cómo bloquear o eliminar</h2>
+    <p>
+      Puedes configurar tu navegador para bloquear almacenamiento local o cookies de terceros;
+      en ese caso es posible que el login, la sincronización o el guardado de manos no funcionen.
+    </p>
+
+    <nav class="legal-nav">
+      <a href="privacidad.html">Privacidad</a>
+      <a href="terminos.html">Términos</a>
+      <a href="ia.html">Uso de IA</a>
+    </nav>
+
+    <footer class="legal-foot">PokerTrainer · Cookies y almacenamiento local</footer>
+  </article>
+  <script src="../js/legal-config.js" onerror="(function(){var s=document.createElement('script');s.src='../js/legal-config.example.js';document.body.appendChild(s);})()"></script>
+  <script src="legal-page.js"></script>
+</body>
+</html>

@@ -76,6 +76,7 @@
 
   function migrateLegacyOnce(uid) {
     if (!uid) return;
+    if (localStorage.getItem('pt_account_purged_' + uid)) return;
     const flag = 'pt_migrated_v1_' + uid;
     if (localStorage.getItem(flag)) return;
     Object.keys(LEGACY_KEYS).forEach(function (base) {
@@ -273,6 +274,75 @@
     return JSON.stringify({ history: getHistory(), errors: getErrors(), stats: getStats() }, null, 2);
   }
 
+  /** Exportación RGPD: perfil + histórico + errores + stats + sesiones (con .txt local si existe). */
+  function exportFullUserData(profile) {
+    const sessions = getSessions().map(function (s) {
+      return getSession(s.id);
+    });
+    return JSON.stringify({
+      format: 'PokerTrainer-GDPR-export-v1',
+      exportedAt: new Date().toISOString(),
+      profile: profile ? {
+        sub: profile.sub,
+        email: profile.email,
+        name: profile.name,
+        emailVerified: !!profile.emailVerified,
+        locale: profile.locale || ''
+      } : null,
+      stats: getStats(),
+      history: getHistory(),
+      errors: getErrors(),
+      sessions: sessions,
+      note: 'Los .txt de sesión se incluyen si siguen en este dispositivo (rawText).'
+    }, null, 2);
+  }
+
+  /** Borra todos los datos locales del usuario (no cierra sesión OAuth). */
+  function purgeLocalUserData(uid, opts) {
+    if (!uid) return { removed: 0 };
+    let removed = 0;
+    const toRemove = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf('pt_') !== 0) continue;
+        if (k === 'pt_auth_v1') continue;
+        if (k.indexOf('_' + uid) >= 0 || k === 'pt_migrated_v1_' + uid || k === 'pt_sync_meta_' + uid) {
+          toRemove.push(k);
+        }
+      }
+      toRemove.forEach(function (k) {
+        localStorage.removeItem(k);
+        removed++;
+      });
+      if (opts && opts.clearLegacy) {
+        Object.keys(LEGACY_KEYS).forEach(function (base) {
+          const legacy = LEGACY_KEYS[base];
+          if (localStorage.getItem(legacy)) {
+            localStorage.removeItem(legacy);
+            removed++;
+          }
+        });
+      }
+      if (localStorage.getItem('pt_ai_consent_v1')) {
+        localStorage.removeItem('pt_ai_consent_v1');
+        removed++;
+      }
+      const aiKeys = [];
+      for (let j = 0; j < localStorage.length; j++) {
+        const ak = localStorage.key(j);
+        if (ak && ak.indexOf('pt_ai_coach_v1_') === 0) aiKeys.push(ak);
+      }
+      aiKeys.forEach(function (k) {
+        localStorage.removeItem(k);
+        removed++;
+      });
+      localStorage.setItem('pt_account_purged_' + uid, String(Date.now()));
+    } catch (e) { /* noop */ }
+    if (userId === uid) userId = null;
+    return { removed: removed };
+  }
+
   function getSessions() { return read(scopedKey('sessions'), []); }
   function getSession(id) {
     const s = getSessions().find((x) => x.id === id) || null;
@@ -426,7 +496,8 @@
   global.Store = {
     setUserId,
     getHistory, getErrors, getStats, saveHand,
-    clearHistory, clearStats, clearAll, clearErrors, removeError, exportData, scenarioLabel,
+    clearHistory, clearStats, clearAll, clearErrors, removeError, exportData, exportFullUserData,
+    purgeLocalUserData, scenarioLabel,
     getSessions, getSession, saveSession, removeSession, deleteSessionTxt,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud
   };

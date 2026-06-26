@@ -79,10 +79,14 @@
   function ensureConsent(scope) {
     if (localStorage.getItem(CONSENT_KEY) === '1') return Promise.resolve(true);
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
+    const iaUrl = (global.PTLegal && global.PTLegal.legalUrl)
+      ? global.PTLegal.legalUrl('ia.html')
+      : 'legal/ia.html';
     return new Promise((resolve) => {
       const ok = confirm(
         'Se enviarán a un servicio de IA únicamente ' + ui.consent + '.\n\n' +
-        PRIVACY_NO_PII + '\n\n¿Continuar?'
+        PRIVACY_NO_PII + '\n\n' +
+        'Más información: ' + iaUrl + '\n\n¿Continuar?'
       );
       if (ok) {
         try { localStorage.setItem(CONSENT_KEY, '1'); } catch (e) { /* noop */ }

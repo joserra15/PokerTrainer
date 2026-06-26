@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Uso de inteligencia artificial · PokerTrainer</title>
+  <link rel="stylesheet" href="legal-common.css" />
+</head>
+<body>
+  <article class="legal-wrap">
+    <header class="legal-top">
+      <a href="../index.html">&larr; Volver a PokerTrainer</a>
+      <h1>Transparencia sobre el IA Coach</h1>
+      <p class="legal-meta">Última actualización: <span data-legal="lastUpdated"></span></p>
+    </header>
+
+    <h2>1. ¿Qué es el IA Coach?</h2>
+    <p>
+      Función opcional que genera informes en lenguaje natural sobre manos o sesiones,
+      usando un modelo de lenguaje (actualmente <strong>Google Gemini</strong>) a través de
+      una función en la nube (Supabase Edge Function).
+    </p>
+
+    <h2>2. ¿Qué datos se envían?</h2>
+    <p>Solo si pulsas generar informe o hacer una pregunta <strong>y aceptas el diálogo de consentimiento</strong>:</p>
+    <ul>
+      <li>Cartas del héroe y rivales mostradas en la mano analizada</li>
+      <li>Board, acciones por calle, tamaños de apuesta en bb</li>
+      <li>Clasificación GTO de tus decisiones y EV estimado</li>
+      <li>En informes de sesión: estadísticas agregadas y resumen de manos relevantes</li>
+      <li>Tu pregunta en texto libre (si usas el modo pregunta)</li>
+    </ul>
+    <p><strong>No enviamos</strong> en el payload diseñado para IA: tu email, nombre, foto ni ID de cuenta Google.</p>
+
+    <h2>3. ¿Qué no hace la IA?</h2>
+    <ul>
+      <li>No tiene acceso a tu cuenta bancaria ni a salas de poker en tiempo real.</li>
+      <li>No sustituye un solver profesional ni garantiza la línea óptima.</li>
+      <li>Puede alucinar o simplificar; contrasta siempre con el análisis GTO de la app.</li>
+      <li>No es asesoramiento profesional de juego ni inversión.</li>
+    </ul>
+
+    <h2>4. Dónde se procesa</h2>
+    <p>
+      Los datos viajan cifrados (HTTPS) al backend en Supabase y de ahí a la API de Google.
+      Pueden almacenarse temporalmente en caché en tu navegador (<code>pt_ai_coach_v1_*</code>)
+      para no repetir la misma petición.
+    </p>
+
+    <h2>5. Cómo revocar o limitar</h2>
+    <ul>
+      <li>No uses los botones de informe IA.</li>
+      <li>Elimina la clave <code>pt_ai_consent_v1</code> del almacenamiento local para volver a ver el aviso.</li>
+      <li>Usa <strong>Eliminar mi cuenta y datos</strong> para borrar caché local asociada al uso de la app.</li>
+    </ul>
+
+    <h2>6. Planes de pago y límites (futuro)</h2>
+    <p>
+      Los informes IA pueden estar sujetos a cupos según el plan (gratuito vs de pago).
+      Se indicará en la interfaz antes de consumir un informe de pago.
+    </p>
+
+    <nav class="legal-nav">
+      <a href="privacidad.html">Privacidad</a>
+      <a href="terminos.html">Términos</a>
+      <a href="cookies.html">Cookies</a>
+    </nav>
+
+    <footer class="legal-foot">PokerTrainer · IA Coach</footer>
+  </article>
+  <script src="../js/legal-config.js" onerror="(function(){var s=document.createElement('script');s.src='../js/legal-config.example.js';document.body.appendChild(s);})()"></script>
+  <script src="legal-page.js"></script>
+</body>
+</html>

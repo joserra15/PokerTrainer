@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy · PokerTrainer</title>
+  <link rel="stylesheet" href="legal-common.css" />
+</head>
+<body>
+  <article class="legal-wrap">
+    <header class="legal-top">
+      <a href="../index.html">&larr; Back to PokerTrainer</a>
+      <h1>Privacy Policy</h1>
+      <p class="legal-meta">Last updated: <span data-legal="lastUpdated"></span> · <a href="privacidad.html">Español</a></p>
+    </header>
+
+    <p class="legal-notice">
+      <strong>Note:</strong> This is a technical draft aligned with the current app. Legal review is recommended before a commercial launch.
+    </p>
+
+    <h2>1. Data controller</h2>
+    <p>
+      <strong data-legal="controllerName"></strong><br />
+      Privacy contact: <span data-legal="controllerEmail"></span>
+    </p>
+
+    <h2>2. What we process</h2>
+    <ul>
+      <li><strong>Account:</strong> Google profile (sub, email, name, picture) via OAuth.</li>
+      <li><strong>Trainer data:</strong> hands played, decisions, EV estimates, cards in simulation.</li>
+      <li><strong>Imported sessions:</strong> parsed hand history and GTO analysis (uploaded .txt).</li>
+      <li><strong>Raw session files:</strong> stored only on your device (not synced to cloud).</li>
+      <li><strong>AI Coach (optional):</strong> hand/session poker data you explicitly send after consent.</li>
+    </ul>
+
+    <h2>3. Purposes and legal bases (GDPR)</h2>
+    <ul>
+      <li>Provide the service: contract performance.</li>
+      <li>AI Coach: consent.</li>
+      <li>Non-essential analytics (if enabled): consent.</li>
+    </ul>
+
+    <h2>4. Processors</h2>
+    <p>Google (login &amp; AI), Supabase (database/sync), payment processor when subscriptions are live, GitHub Pages (hosting).</p>
+
+    <h2>5. Your rights</h2>
+    <p>Access, rectification, erasure, portability, restriction, objection. Use <em>Export my data</em> and <em>Delete my account</em> in the account menu, or email the controller.</p>
+
+    <h2>6. Retention</h2>
+    <p>While your account is active; deleted on account erasure (cloud + local on confirmation).</p>
+
+    <nav class="legal-nav">
+      <a href="privacidad.html">Privacidad (ES)</a>
+      <a href="terminos.html">Terms (ES)</a>
+      <a href="ia.html">AI transparency</a>
+    </nav>
+
+    <footer class="legal-foot">PokerTrainer · Privacy Policy (summary EN)</footer>
+  </article>
+  <script src="../js/legal-config.js" onerror="(function(){var s=document.createElement('script');s.src='../js/legal-config.example.js';document.body.appendChild(s);})()"></script>
+  <script src="legal-page.js"></script>
+</body>
+</html>

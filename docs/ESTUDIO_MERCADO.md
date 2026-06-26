@@ -244,22 +244,262 @@ Menos fricción de decisión al lanzar.
 | LTV Study (6 meses) | ~€90 |
 | LTV Coach (8 meses) | ~€280 |
 
-### 6.2 Costes operativos estimados (~500 MAU)
+## 6. Métricas y unit economics
+
+### 6.1 Objetivos 12 meses (conservador)
+
+| Métrica | Objetivo |
+|---------|----------|
+| Free → paid | 3–5% |
+| Mix pagos | 70% Study / 30% Coach |
+| Churn mensual | <8% Study, <6% Coach |
+| CAC | <€40 (SEO + comunidad) |
+| LTV Study (6 meses) | ~€90 |
+| LTV Coach (8 meses) | ~€280 |
+
+---
+
+### 6.2 Costes iniciales (antes del primer ingreso)
+
+Inversión única para pasar de proyecto personal a producto comercial mínimo viable. Cifras orientativas para España/UE.
+
+| Concepto | Coste único | Notas |
+|----------|-------------|-------|
+| Revisión legal (privacidad + términos) | €600–1.200 | Abogado RGPD; imprescindible antes de cobrar |
+| Dominio (.es / .com) año 1 | €10–15 | |
+| Stripe / Lemon Squeezy | €0 | Sin cuota de alta |
+| Google Cloud (OAuth) | €0 | Verificación puede requerir tiempo, no dinero |
+| Supabase | €0 | Free tier suficiente en beta |
+| Diseño landing / logo | €0–300 | DIY o Fiverr |
+| Tiempo de desarrollo (Fase 0+1) | — | 8–14 semanas si es side project; coste de oportunidad no contabilizado aquí |
+| **Total cash inicial** | **€700–1.500** | Escenario típico: **~€1.000** |
+
+> El mayor “coste inicial” en un side project suele ser **tiempo** (legal + auth + billing), no infraestructura. La cifra cash es baja porque GitHub Pages, Supabase free y el motor ya existen.
+
+---
+
+### 6.3 Supuestos del modelo financiero
+
+| Parámetro | Valor base | Conservador | Optimista |
+|-----------|------------|-------------|-----------|
+| Precio Study | €14,99/mes | €14,99 | €14,99 |
+| Precio Coach | €34,99/mes | €34,99 | €34,99 |
+| Mix pagos | 70% Study / 30% Coach | 80% / 20% | 60% / 40% |
+| Comisión Stripe | 2,5% + €0,25/transacción | 3,0% + €0,25 | 2,0% + €0,25 |
+| Informes IA Coach/mes (media real) | 12 de 30 incluidos | 8 | 20 |
+| Coste medio por informe IA (Gemini Flash) | €0,06 | €0,10 | €0,04 |
+| Conversión free → paid | 4% | 2% | 6% |
+| Churn mensual pagos | 7% | 10% | 5% |
+
+**Ingreso neto por suscriptor** (después de Stripe, antes de costes variables):
+
+| Plan | Bruto | Neto Stripe (~2,5%+€0,25) | Coste IA/mes (media) | **Margen de contribución** |
+|------|-------|---------------------------|----------------------|----------------------------|
+| Study | €14,99 | ~€14,37 | ~€0,05 | **~€14,32** |
+| Coach | €34,99 | ~€33,87 | ~€0,72 (12×€0,06) | **~€33,15** |
+| **Mix 70/30** | ~€20,99 | ~€20,22 | ~€0,25 | **~€19,97** |
+
+Fórmula del ejemplo citado:
+
+```
+50 Study × €14,99 = €749,50
+15 Coach × €34,99 = €524,85
+─────────────────────────────
+MRR bruto          = €1.274,35  ≈ €1.275
+MRR neto (Stripe)  ≈ €1.235
+Margen contrib.    ≈ €1.200/mes  (tras IA variable)
+```
+
+---
+
+### 6.4 Costes operativos recurrentes por fase
+
+| Fase | MAU | Pagos | Coste fijo/mes | Coste variable/mes | **Total opex/mes** |
+|------|-----|-------|----------------|--------------------|--------------------|
+| **Beta** (mes 1–3) | 50–150 | 0–10 | €15 (dominio) | €5–15 IA | **€20–30** |
+| **Lanzamiento** (mes 4–6) | 200–500 | 15–40 | €45 (Supabase Pro + analytics) | €15–40 IA | **€60–85** |
+| **Tracción** (mes 7–12) | 500–1.500 | 40–120 | €80 (infra + email + Sentry) | €40–120 IA | **€120–200** |
+| **Escala** (año 2) | 2.000–5.000 | 120–350 | €150–250 | €150–400 IA | **€300–650** |
+
+Desglose coste fijo maduro (~€80/mes en fase tracción):
 
 | Concepto | €/mes |
 |----------|-------|
-| Supabase Pro | ~€25 |
-| Gemini (100 Coach × 30 informes) | €30–80 |
-| Dominio + email | ~€15 |
-| Stripe (~3% + €0,25) | Variable |
-| Sentry / Plausible | €0–30 |
+| Supabase Pro | €25 |
+| Analytics (Plausible) | €9 |
+| Email transaccional (Resend) | €0–20 |
+| Dominio (prorrateado) | €1 |
+| Sentry (free → Team) | €0–26 |
+| Buffer imprevistos | €10 |
+| **Subtotal infra** | **~€45–80** |
 
-### 6.3 Punto de equilibrio
+Desglose adicional si se trata como negocio (no solo side project):
 
-Ejemplo: 50 Study (€15) + 15 Coach (€35) ≈ **€1.275 MRR**.  
-Equilibrio operativo aproximado: **30–40 suscriptores de pago**.
+| Concepto | €/mes |
+|----------|-------|
+| Legal amortizado (€1.000 ÷ 12) | €83 |
+| Marketing mínimo (comunidad, ads) | €50–150 |
+| **Total “negocio real”** | **€180–310** |
 
 ---
+
+### 6.5 Punto de equilibrio — tres lecturas
+
+#### A) Solo infraestructura (side project puro)
+
+Coste fijo ~€60/mes en lanzamiento, margen medio ~€20/pago:
+
+```
+€60 ÷ €19,97 ≈ 3 suscriptores de pago
+```
+
+Con solo GitHub Pages + Supabase free, **cubres servidores casi desde el primer cliente**. Por eso el proyecto es viable como side project a nivel técnico.
+
+#### B) Negocio sostenible (amortiza legal + marketing mínimo)
+
+Coste fijo ~€180/mes (legal amortizado + infra + €50 marketing):
+
+```
+€180 ÷ €19,97 ≈ 9 suscriptores de pago
+```
+
+#### C) Objetivo “vale la pena el esfuerzo” (side project serio)
+
+Aquí entra el coste de oportunidad: quieres **≥€500/mes netos** tras todos los gastos para compensar mantenimiento, soporte y mejoras:
+
+```
+(€180 opex + €500 objetivo) ÷ €19,97 ≈ 34 suscriptores de pago
+```
+
+**Los 30–40 pagos** del resumen ejecutivo se refieren a este escenario **C**: no es el mínimo para pagar Supabase, sino el punto donde el proyecto deja de ser “hobby que cubre gastos” y pasa a generar **ingresos significativos** (~€600–800 MRR bruto).
+
+| Escenario | Pagos necesarios | MRR bruto aprox. | Beneficio mensual aprox. |
+|-----------|------------------|------------------|--------------------------|
+| Cubrir infra | ~3 | ~€60 | ~€0 |
+| Cubrir legal + marketing | ~9 | ~€190 | ~€0 |
+| Side project rentable | **~34** | **~€710** | **~€500** |
+| Ejemplo citado (50+15) | 65 | **~€1.275** | **~€950–1.000** |
+| Objetivo año 1 ambicioso | 120 | ~€2.520 | ~€2.000 |
+
+---
+
+### 6.6 Tabla: ingresos vs costes al escalar usuarios
+
+Supuestos: mix 70% Study / 30% Coach, conversión 4% MAU→pago, precios del plan base, IA media 12 informes/Coach.
+
+| MAU | Pagos (4%) | MRR bruto | MRR neto | Opex fijo | Opex variable (IA+extra) | **Resultado/mes** | **Resultado acum. año 1*** |
+|-----|------------|-----------|----------|-----------|--------------------------|-------------------|------------------------------|
+| 100 | 4 | €84 | €81 | €30 | €5 | **+€46** | — |
+| 250 | 10 | €210 | €203 | €45 | €12 | **+€146** | — |
+| 500 | 20 | €420 | €406 | €60 | €25 | **+€321** | — |
+| 800 | 32 | €672 | €649 | €80 | €40 | **+€529** | — |
+| 1.000 | 40 | €840 | €810 | €100 | €55 | **+€655** | — |
+| 1.500 | 60 | €1.260 | €1.215 | €120 | €80 | **+€1.015** | — |
+| 2.000 | 80 | €1.680 | €1.620 | €150 | €110 | **+€1.360** | — |
+| 3.000 | 120 | €2.520 | €2.430 | €200 | €180 | **+€2.050** | — |
+| 5.000 | 200 | €4.200 | €4.050 | €280 | €320 | **+€3.450** | — |
+
+\*Acumulado año 1 asume crecimiento gradual (ver 6.7), no este snapshot instantáneo.
+
+**Lectura rápida:**
+
+- Con **40 pagos** (~1.000 MAU) ya superas cómodamente el umbral de €500/mes netos.
+- Con **65 pagos** (el ejemplo 50+15) el margen mensual ronda **€950–1.000** antes de impuestos.
+- A **200 pagos** (5.000 MAU) el negocio factura ~€4.200 MRR; el cuello de botella pasa a ser **soporte, IA y tiempo de desarrollo**, no la infra.
+
+---
+
+### 6.7 Evolución mes a mes — escenario conservador (año 1)
+
+Premisas: lanzamiento de pago en **mes 4**; crecimiento MAU +15% mensual los primeros 6 meses de pago, luego +10%; conversión 3,5%; churn 8%; coste inicial €1.000 en mes 0; opex crece con escala.
+
+| Mes | MAU | Pagos | MRR bruto | Costes/mes† | **Cash flow/mes** | **Cash acumulado** |
+|-----|-----|-------|-----------|-------------|-------------------|---------------------|
+| 0 | — | — | €0 | €1.000 (inicial) | **−€1.000** | −€1.000 |
+| 1 | 80 | 0 | €0 | €20 | −€20 | −€1.020 |
+| 2 | 120 | 0 | €0 | €25 | −€25 | −€1.045 |
+| 3 | 180 | 0 | €0 | €30 | −€30 | −€1.075 |
+| 4 | 250 | 9 | €189 | €95‡ | +€94 | −€981 |
+| 5 | 290 | 12 | €252 | €110 | +€142 | −€839 |
+| 6 | 335 | 15 | €315 | €125 | +€190 | −€649 |
+| 7 | 385 | 18 | €378 | €140 | +€238 | −€411 |
+| 8 | 440 | 22 | €462 | €155 | +€307 | −€104 |
+| 9 | 510 | 26 | €546 | €170 | +€376 | **+€272** |
+| 10 | 580 | 30 | €630 | €185 | +€445 | +€717 |
+| 11 | 650 | 34 | €714 | €200 | +€514 | +€1.231 |
+| 12 | 730 | 38 | €798 | €215 | +€583 | **+€1.814** |
+
+†Costes/mes = infra + IA variable + legal amortizado (€83) + marketing (€50 desde mes 4).  
+‡Mes 4 incluye setup Stripe, primer mes Supabase Pro.
+
+**Hitos del escenario conservador:**
+
+| Hito | Mes aprox. |
+|------|------------|
+| Recuperar inversión inicial (€1.000) | Mes 9 |
+| ≥€500/mes netos | Mes 10–11 |
+| ~€800 MRR bruto | Mes 12 |
+| 38 suscriptores de pago | Mes 12 |
+
+---
+
+### 6.8 Evolución mes a mes — escenario optimista (año 1)
+
+Premisas: buen product-market fit en comunidad poker ES; conversión 5%; churn 6%; MAU +25% mensual tras lanzamiento; algo de marketing (€150/mes desde mes 4).
+
+| Mes | MAU | Pagos | MRR bruto | Costes/mes | **Cash flow/mes** | **Cash acumulado** |
+|-----|-----|-------|-----------|------------|-------------------|---------------------|
+| 0 | — | — | €0 | €1.000 | −€1.000 | −€1.000 |
+| 4 | 400 | 20 | €420 | €200 | +€220 | −€780 |
+| 6 | 625 | 35 | €735 | €250 | +€485 | −€295 |
+| 8 | 980 | 55 | €1.155 | €320 | +€835 | +€540 |
+| 10 | 1.500 | 85 | €1.785 | €400 | +€1.385 | +€2.925 |
+| 12 | 2.300 | 130 | €2.730 | €500 | +€2.230 | **+€7.175** |
+
+En el escenario optimista, el ejemplo **50 Study + 15 Coach** se alcanza hacia el **mes 7–8**, no al inicio.
+
+---
+
+### 6.9 Sensibilidad: qué mueve más la aguja
+
+| Variable | Impacto en beneficio | Acción prioritaria |
+|----------|----------------------|--------------------|
+| **Conversión free→paid** (+1 pp) | +€200–400 MRR a 1.000 MAU | Onboarding, límites free bien calibrados, trial Coach |
+| **Churn** (−2 pp) | +15–20% LTV | Dashboard progreso, email re-engagement |
+| **Mix hacia Coach** (+10 pp Coach) | +€1,50 margen medio/pago | Upsell IA tras import de sesión |
+| **Uso IA** (20 vs 8 informes) | +€0,72/Coach/mes | Caché, modo resumen, cupos estrictos |
+| **CAC** (€40 vs €80) | Retraso break-even 2–3 meses | SEO, comunidad, referidos — evitar paid search al inicio |
+| **Precio Study** (+€2) | +€1,40 neto/sub | Test A/B cuando haya tracción |
+
+---
+
+### 6.10 Impuestos y forma jurídica (España, orientativo)
+
+No es asesoramiento fiscal; solo planning:
+
+| Figura | Cuándo tiene sentido | Nota |
+|--------|----------------------|------|
+| **Autónomo** | Desde primeros ingresos regulares | Cuota + IRPF sobre beneficio |
+| **SL** | MRR >€2.000–3.000 sostenido | Más costes fijos, mejor si hay socios o inversión |
+
+A **€1.275 MRR** (~€15.300/año bruto) muchos lo gestionarían como autónomo en paralelo a otro trabajo. A **€2.500+ MRR** conviene asesoría para optimizar IVA (Stripe + UE) y retenciones.
+
+---
+
+### 6.11 Resumen ejecutivo financiero
+
+```
+Inversión inicial cash:     ~€1.000
+Break-even infra pura:      ~3 pagos  (~€60 MRR)
+Break-even “negocio”:       ~9 pagos  (~€190 MRR)
+Side project rentable:      ~34 pagos (~€710 MRR) → ~€500/mes netos
+Ejemplo 50 Study + 15 Coach: 65 pagos → ~€1.275 MRR → ~€1.000/mes netos
+
+Recuperar inversión inicial:  mes 8–10 (conservador) / mes 5–6 (optimista)
+```
+
+El proyecto es **viable como side project** porque los costes fijos de infra son bajos y el producto ya está construido. El reto no es pagar el servidor: es **conseguir 30–65 usuarios de pago** que confíen en un análisis GTO aproximado frente a alternativas establecidas — ahí el ROI del tiempo invertido en legal, UX y marketing es lo que realmente hay que amortizar.
+
 
 ## 7. Roadmap por fases
 

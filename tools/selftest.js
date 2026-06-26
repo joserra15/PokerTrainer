@@ -448,7 +448,14 @@ const evOk = badCall.evLoss >= 2 && badCall.evErroneous
   && trash3b === 'fold' && trash4b === 'fold' && trashAi === 'fold' && weakRiver === 'check'
   && (mx55 === 'value' || mx55 === 'semibluff') && mxOut === 'out' && mxProf.lineNarrative;
 
-const ls = { _d: {}, getItem(k) { return this._d[k] != null ? this._d[k] : null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem(k) { delete this._d[k]; } };
+const ls = {
+  _d: {},
+  getItem(k) { return this._d[k] != null ? this._d[k] : null; },
+  setItem(k, v) { this._d[k] = String(v); },
+  removeItem(k) { delete this._d[k]; },
+  get length() { return Object.keys(this._d).length; },
+  key(i) { return Object.keys(this._d)[i]; }
+};
 const storeBox = Object.assign({}, sandbox, { localStorage: ls });
 vm.createContext(storeBox);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'storage.js'), 'utf8'), storeBox, { filename: 'storage.js' });
@@ -477,6 +484,24 @@ const txtKey = 'pt_session_txt_v1_' + sessId;
 const savedSess = Store.getSessions().find((s) => s.id === sessId);
 const noTxtOk = savedSess && !savedSess.hasTxt && !ls.getItem(txtKey);
 console.log('Store session sin txt:', noTxtOk ? 'OK' : 'FAIL');
+
+Store.setUserId('gdpr-test-user');
+Store.saveHand({
+  id: 'gdpr1', createdAt: '2026-01-02T00:00:00Z', seed: 2, scenario: { type: 'RFI', heroPos: 'CO' },
+  hero: { pos: 'CO', code: 'KK', cards: ['Ks', 'Kh'] },
+  villain: { pos: 'BB' }, board: [], decisions: [],
+  result: { heroNet: 0, totalEvLoss: 0, nErrors: 0, reason: 'gdpr' }
+});
+const gdprExp = JSON.parse(Store.exportFullUserData({ sub: 'gdpr-test-user', email: 'gdpr@test.com', name: 'GDPR' }));
+const gdprExportOk = gdprExp.format === 'PokerTrainer-GDPR-export-v1'
+  && gdprExp.profile && gdprExp.profile.email === 'gdpr@test.com'
+  && Array.isArray(gdprExp.history) && gdprExp.history.length >= 1;
+console.log('GDPR export:', gdprExportOk ? 'OK' : 'FAIL');
+const purged = Store.purgeLocalUserData('gdpr-test-user');
+Store.setUserId('gdpr-test-user');
+const gdprPurgeOk = purged.removed > 0 && Store.getHistory().length === 0;
+console.log('GDPR purge:', gdprPurgeOk ? 'OK' : 'FAIL');
+if (!gdprExportOk || !gdprPurgeOk) process.exit(1);
 if (!noTxtOk) process.exit(1);
 Store.saveSession(Object.assign({}, savedSess, { rawText: 'big hand history text', hasTxt: true }));
 const withTxt = Store.getSessions().find((s) => s.id === sessId);
