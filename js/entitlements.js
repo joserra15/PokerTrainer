@@ -78,6 +78,22 @@
 
   function normalizeEnt(data) {
     if (!data) return localFallback();
+    var plan = data.plan || 'free';
+    var defaults = DEFAULT_LIMITS[plan] || DEFAULT_LIMITS.free;
+    var lim = data.limits || {};
+    data.limits = {
+      trainer_hands_per_day: lim.trainer_hands_per_day != null ? lim.trainer_hands_per_day : defaults.trainer_hands_per_day,
+      import_sessions_per_month: lim.import_sessions_per_month != null ? lim.import_sessions_per_month : defaults.import_sessions_per_month,
+      max_hands_per_import: lim.max_hands_per_import != null ? lim.max_hands_per_import : defaults.max_hands_per_import,
+      ai_reports_per_month: lim.ai_reports_per_month != null ? lim.ai_reports_per_month : defaults.ai_reports_per_month,
+      history_days: lim.history_days != null ? lim.history_days : defaults.history_days
+    };
+    var usage = data.usage || {};
+    data.usage = {
+      trainer_hands_today: Number(usage.trainer_hands_today) || 0,
+      import_sessions_month: Number(usage.import_sessions_month) || 0,
+      ai_reports_month: Number(usage.ai_reports_month) || 0
+    };
     return data;
   }
 

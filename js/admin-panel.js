@@ -16,6 +16,7 @@
   var loaded = false;
   var adminTabBtn = null;
   var inviteModalBound = false;
+  var syncRunning = false;
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -376,7 +377,9 @@
   function render() {
     var user = currentUser();
     if (!user || !user.isAdmin) return;
-    refresh();
+    refresh().then(function () {
+      syncStripePayments({ auto: true });
+    });
   }
 
   function initForUser(user) {
@@ -388,27 +391,34 @@
     setAdminVisible(!demoOn);
   }
 
-  async function syncStripePayments() {
+  async function syncStripePayments(opts) {
+    opts = opts || {};
+    var auto = !!opts.auto;
     var btn = $('#admin-sync-payments');
     var status = $('#admin-sync-status');
-    if (!global.PTBilling || !global.PTBilling.syncPayments) {
-      alert('Sincronización Stripe no disponible.');
+    var billing = global.PTBilling;
+    if (!billing || !billing.syncPayments || !billing.enabled || !billing.enabled()) {
+      if (!auto) alert('Sincronización Stripe no disponible.');
       return;
     }
+    if (syncRunning) return;
+    syncRunning = true;
     if (btn) btn.disabled = true;
-    if (status) status.textContent = 'Consultando Stripe…';
+    if (status) status.textContent = auto ? 'Sincronizando pagos…' : 'Consultando Stripe…';
     try {
-      var data = await global.PTBilling.syncPayments();
+      var data = await billing.syncPayments();
       if (status) {
-        status.textContent = global.PTBilling.formatSyncMessage
-          ? global.PTBilling.formatSyncMessage(data)
+        status.textContent = billing.formatSyncMessage
+          ? billing.formatSyncMessage(data)
           : ('Actualizados: ' + (data.updated || 0));
       }
-      await refresh();
+      if (auto) await loadUsers();
+      else await refresh();
     } catch (e) {
-      if (status) status.textContent = '';
-      alert(e.message || 'No se pudo sincronizar con Stripe.');
+      if (status) status.textContent = auto ? 'Pagos: sin sincronizar' : '';
+      if (!auto) alert(e.message || 'No se pudo sincronizar con Stripe.');
     } finally {
+      syncRunning = false;
       if (btn) btn.disabled = false;
     }
   }
@@ -422,7 +432,7 @@
     var syncBtn = $('#admin-sync-payments');
     if (syncBtn && !syncBtn.dataset.bound) {
       syncBtn.dataset.bound = '1';
-      syncBtn.addEventListener('click', function () { syncStripePayments(); });
+      syncBtn.addEventListener('click', function () { syncStripePayments({ auto: false }); });
     }
 
     var accountAdmin = $('#account-admin');

@@ -1243,10 +1243,10 @@
           line += ' · Entrenador hoy: ' + ent.usage.trainer_hands_today + '/' + ent.limits.trainer_hands_per_day;
         }
         if (ent.limits.import_sessions_per_month != null) {
-          line += ' · Imports mes: ' + ent.usage.import_sessions_month + '/' + ent.limits.import_sessions_per_month;
+          line += ' · Imports mes: ' + (Number(ent.usage.import_sessions_month) || 0) + '/' + ent.limits.import_sessions_per_month;
         }
         if (ent.limits.ai_reports_per_month != null) {
-          line += ' · IA mes: ' + ent.usage.ai_reports_month + '/' + ent.limits.ai_reports_per_month;
+          line += ' · IA mes: ' + (Number(ent.usage.ai_reports_month) || 0) + '/' + ent.limits.ai_reports_per_month;
         }
       }
       current.innerHTML = line;
@@ -2428,7 +2428,17 @@
     const h = currentHand;
     const d = h.decisions[replayState.idx];
     const board = boardForStreet(h, d.street);
-    const evalResult = GTO.evaluateSpot(buildReplayEvalInput(h, d, action, board));
+    let evalResult;
+    try {
+      evalResult = GTO.evaluateSpot(buildReplayEvalInput(h, d, action, board));
+    } catch (e) {
+      console.error('[submitReplay]', e);
+      const fb = $('#replay-feedback');
+      if (fb) {
+        fb.innerHTML = '<div class="feedback" style="display:block"><p class="admin-error">No se pudo evaluar esta decisión. Prueba «Ver paso a paso real».</p></div>';
+      }
+      return;
+    }
     const ev = evalResult.evaluation;
     if (ev.evErroneous) replayState.userEvLoss += ev.evLoss || 0;
     replayState.total++;

@@ -520,11 +520,13 @@
 
   function heroNet(hand) {
     const hero = hand.hero;
-    let invested = (hand.posts[hero] || 0);
+    const posts = hand.posts || {};
+    let invested = (posts[hero] || 0);
     // suma del último compromiso del héroe en cada calle
     ['preflop', 'flop', 'turn', 'river'].forEach((st) => {
-      let committed = (st === 'preflop') ? (hand.posts[hero] || 0) : 0;
-      hand.streets[st].forEach((a) => {
+      const stActs = (hand.streets && hand.streets[st]) || [];
+      let committed = (st === 'preflop') ? (posts[hero] || 0) : 0;
+      stActs.forEach((a) => {
         if (a.player !== hero) return;
         if (a.type === 'raise') committed = a.to;
         else if (a.type === 'bet') committed = a.amount;
@@ -533,7 +535,9 @@
       if (st !== 'preflop') invested += committed;
       else invested = committed; // preflop ya incluye blinds
     });
-    const won = (hand.collected[hero] || 0) + (hand.uncalledTo[hero] || 0);
+    const collected = hand.collected || {};
+    const uncalled = hand.uncalledTo || {};
+    const won = (collected[hero] || 0) + (uncalled[hero] || 0);
     return r2(won - invested);
   }
 
@@ -800,18 +804,22 @@
   }
   // pot (en bb) acumulado ANTES de empezar la calle st
   function priorPotBB(hand, st) {
-    const bb = hand.bb;
+    const bb = hand.bb || 0.05;
     const order = ['preflop', 'flop', 'turn', 'river'];
-    const upto = order.slice(0, order.indexOf(st));
+    const idx = order.indexOf(st);
+    if (idx < 0) return 0;
+    const upto = order.slice(0, idx);
     let euro = 0;
     upto.forEach((s) => { euro += streetMoney(hand, s); });
     return euro / bb;
   }
   function streetMoney(hand, st) {
     const committed = {};
-    if (st === 'preflop') { Object.keys(hand.posts).forEach((p) => committed[p] = hand.posts[p]); }
-    let toMatch = st === 'preflop' ? hand.bb : 0;
-    hand.streets[st].forEach((a) => {
+    const posts = hand.posts || {};
+    const acts = (hand.streets && hand.streets[st]) || [];
+    if (st === 'preflop') { Object.keys(posts).forEach((p) => { committed[p] = posts[p]; }); }
+    let toMatch = st === 'preflop' ? (hand.bb || 0) : 0;
+    acts.forEach((a) => {
       if (a.type === 'raise') { toMatch = a.to; committed[a.player] = a.to; }
       else if (a.type === 'bet') { toMatch = a.amount; committed[a.player] = a.amount; }
       else if (a.type === 'call') { committed[a.player] = toMatch; }
