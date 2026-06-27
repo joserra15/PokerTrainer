@@ -1283,7 +1283,8 @@ body.cookie-banner-open { padding-bottom: 0; }
 .admin-section-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .admin-section-head h3 { margin: 0; font-size: 16px; }
 .admin-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.admin-head .btn { margin-left: 8px; }
+.admin-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex-shrink: 0; }
+.admin-head .btn { margin-left: 0; }
 .admin-row-demo { background: rgba(212, 175, 55, 0.06); }
 .admin-demo-badge {
   font-size: 10px; font-weight: 700; letter-spacing: .5px;
@@ -1327,6 +1328,20 @@ body.admin-invite-open { overflow: hidden; }
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
+}
+.admin-col-user { width: 22%; }
+.admin-col-plan { width: 10%; }
+.admin-col-period { width: 11%; }
+.admin-col-ai { width: 12%; }
+.admin-col-payment { width: 11%; }
+.admin-col-seen { width: 14%; }
+.admin-col-admin { width: 6%; }
+.admin-table th[data-col="period"],
+.admin-table td[data-col="period"],
+.admin-table th[data-col="payment"],
+.admin-table td[data-col="payment"] {
+  white-space: nowrap;
 }
 .admin-table th,
 .admin-table td {
@@ -1389,6 +1404,6 @@ body.admin-invite-open { overflow: hidden; }
 .admin-error { color: var(--red); font-size: 13px; margin: 0 0 10px; }
 .admin-foot-note { font-size: 12px; margin-top: 12px; line-height: 1.45; }
 @media (max-width: 680px) {
-  .admin-table th:nth-child(4),
-  .admin-table td:nth-child(4) { display: none; }
+  .admin-table th[data-col="period"],
+  .admin-table td[data-col="period"] { display: none; }
 }

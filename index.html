@@ -446,8 +446,10 @@
           <h2>Panel de administración</h2>
           <p class="muted-text admin-sub">Usuarios, planes y consumo de IA Coach</p>
         </div>
-        <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
-        <button type="button" id="admin-demo-start" class="btn btn-primary">Modo demo</button>
+        <div class="admin-head-actions">
+          <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
+          <button type="button" id="admin-demo-start" class="btn btn-primary">Modo demo</button>
+        </div>
       </div>
 
       <div id="admin-stats" class="admin-stats" aria-label="Resumen"></div>
@@ -463,15 +465,24 @@
         <p id="admin-users-error" class="admin-error" role="alert"></p>
         <div class="admin-table-wrap">
           <table class="admin-table">
+            <colgroup>
+              <col class="admin-col-user">
+              <col class="admin-col-plan">
+              <col class="admin-col-period">
+              <col class="admin-col-ai">
+              <col class="admin-col-payment">
+              <col class="admin-col-seen">
+              <col class="admin-col-admin">
+            </colgroup>
             <thead>
               <tr>
-                <th>Usuario</th>
-                <th>Plan</th>
-                <th>Fin plan</th>
-                <th>IA mes</th>
-                <th>Último pago</th>
-                <th>Última conexión</th>
-                <th>Admin</th>
+                <th data-col="user">Usuario</th>
+                <th data-col="plan">Plan</th>
+                <th data-col="period">Fin plan</th>
+                <th data-col="ai">IA mes</th>
+                <th data-col="payment">Último pago</th>
+                <th data-col="seen">Última conexión</th>
+                <th data-col="admin">Admin</th>
               </tr>
             </thead>
             <tbody id="admin-users-body"></tbody>

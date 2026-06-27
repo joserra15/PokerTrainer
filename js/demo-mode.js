@@ -6,45 +6,71 @@
 
   var KEY = 'pt_demo_mode_v1';
 
-  function isActive() {
+  function readFlag(storage) {
     try {
-      return sessionStorage.getItem(KEY) === '1';
+      return storage.getItem(KEY) === '1';
     } catch (e) {
       return false;
     }
   }
 
-  function start() {
+  function writeFlag(on) {
+    var val = on ? '1' : null;
     try {
-      sessionStorage.setItem(KEY, '1');
+      if (val) sessionStorage.setItem(KEY, val);
+      else sessionStorage.removeItem(KEY);
+    } catch (e) { /* noop */ }
+    try {
+      if (val) localStorage.setItem(KEY, val);
+      else localStorage.removeItem(KEY);
+    } catch (e) { /* noop */ }
+  }
+
+  function isActive() {
+    return readFlag(sessionStorage) || readFlag(localStorage);
+  }
+
+  function start() {
+    writeFlag(true);
+    try {
+      if (global.PTAdmin && global.PTAdmin.setAdminVisible) global.PTAdmin.setAdminVisible(false);
     } catch (e) { /* noop */ }
     global.location.reload();
   }
 
   function stop() {
-    try {
-      sessionStorage.removeItem(KEY);
-    } catch (e) { /* noop */ }
+    writeFlag(false);
     global.location.reload();
   }
 
+  function bindDemoButton(btn, handler) {
+    if (!btn || btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.type = 'button';
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      handler();
+    });
+  }
+
   function bindUi() {
-    var demoBtn = document.getElementById('account-demo');
-    var stopBtn = document.getElementById('account-stop-demo');
-    if (demoBtn && !demoBtn.dataset.bound) {
-      demoBtn.dataset.bound = '1';
-      demoBtn.addEventListener('click', function () {
-        var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-        if (!u || !u.isAdmin) return;
-        start();
-      });
-    }
-    if (stopBtn && !stopBtn.dataset.bound) {
-      stopBtn.dataset.bound = '1';
-      stopBtn.addEventListener('click', function () {
-        stop();
-      });
-    }
+    bindDemoButton(document.getElementById('account-demo'), function () {
+      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+      if (!u || !u.isAdmin) return;
+      start();
+    });
+    bindDemoButton(document.getElementById('account-stop-demo'), function () {
+      stop();
+    });
+    bindDemoButton(document.getElementById('admin-demo-start'), function () {
+      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+      if (!u || !u.isAdmin) {
+        alert('Inicia sesión como administrador para usar el modo demo.');
+        return;
+      }
+      start();
+    });
     document.body.classList.toggle('demo-mode-active', isActive());
     ensureDemoBanner();
   }
@@ -78,4 +104,5 @@
   } else {
     bindUi();
   }
+  global.addEventListener('pt-auth-ready', bindUi);
 })(window);

@@ -226,7 +226,7 @@
 
     const adminBtn = $('#account-admin');
     if (adminBtn) {
-      adminBtn.classList.toggle('hidden', !user.isAdmin);
+      adminBtn.classList.toggle('hidden', !user.isAdmin || demoOn);
     }
 
     bindAccountAccordion();

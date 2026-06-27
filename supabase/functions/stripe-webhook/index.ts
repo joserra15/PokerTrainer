@@ -39,6 +39,44 @@ async function verifyStripeSignature(payload: string, sigHeader: string): Promis
   return expected === v1;
 }
 
+async function recordStripePayment(
+  admin: ReturnType<typeof createClient>,
+  customerId: string | null,
+  paidAt: string,
+  userId?: string | null
+) {
+  await admin.rpc('pt_record_stripe_payment', {
+    p_stripe_customer_id: customerId,
+    p_paid_at: paidAt,
+    p_user_id: userId || null
+  });
+}
+
+async function userIdFromSubscription(subscriptionId: string): Promise<string | null> {
+  if (!subscriptionId) return null;
+  try {
+    const sub = await fetch('https://api.stripe.com/v1/subscriptions/' + subscriptionId, {
+      headers: { Authorization: 'Bearer ' + stripeKey() }
+    }).then((r) => r.json());
+    return (sub?.metadata as Record<string, string>)?.supabase_user_id || null;
+  } catch {
+    return null;
+  }
+}
+
+async function userIdFromCustomer(
+  admin: ReturnType<typeof createClient>,
+  customerId: string | null
+): Promise<string | null> {
+  if (!customerId) return null;
+  const { data: prof } = await admin
+    .from('pt_user_profiles')
+    .select('user_id')
+    .eq('stripe_customer_id', customerId)
+    .maybeSingle();
+  return prof?.user_id || null;
+}
+
 async function applySubscription(
   admin: ReturnType<typeof createClient>,
   userId: string,
@@ -131,10 +169,7 @@ serve(async (req) => {
       );
 
       if (customerId) {
-        await admin.rpc('pt_record_stripe_payment', {
-          p_stripe_customer_id: customerId,
-          p_paid_at: new Date().toISOString()
-        });
+        await recordStripePayment(admin, customerId, new Date().toISOString(), userId);
       }
     }
   }
@@ -145,11 +180,12 @@ serve(async (req) => {
     const paidAt = paidAtUnix
       ? new Date(paidAtUnix * 1000).toISOString()
       : new Date().toISOString();
-    if (customerId) {
-      await admin.rpc('pt_record_stripe_payment', {
-        p_stripe_customer_id: customerId,
-        p_paid_at: paidAt
-      });
+    const subscriptionId = obj.subscription as string | null;
+    let userId = (obj.metadata as Record<string, string>)?.supabase_user_id
+      || await userIdFromSubscription(subscriptionId || '')
+      || await userIdFromCustomer(admin, customerId);
+    if (customerId || userId) {
+      await recordStripePayment(admin, customerId, paidAt, userId);
     }
   }
 

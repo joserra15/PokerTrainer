@@ -352,7 +352,8 @@
     if (tabId === 'sessions') { showSessionsView('home'); renderSessionsList(); }
     if (tabId === 'admin') {
       var adminUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
-      if (!adminUser || !adminUser.isAdmin) {
+      var demoOn = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
+      if (!adminUser || !adminUser.isAdmin || demoOn) {
         goToTab('home');
         return;
       }

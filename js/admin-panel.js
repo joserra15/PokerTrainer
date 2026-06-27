@@ -80,8 +80,12 @@
     return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  function formatPeriodEnd(iso) {
-    if (!iso) return '—';
+  function formatPeriodEnd(u) {
+    if (!u) return '—';
+    var plan = u.plan || 'free';
+    var status = u.subscription_status || 'none';
+    var iso = u.subscription_period_end;
+    if (!iso || plan === 'free' || status === 'none' || status === 'expired') return '—';
     var d = new Date(iso);
     if (isNaN(d.getTime())) return '—';
     var label = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -199,17 +203,17 @@
       var rowCls = isDemo ? ' class="admin-row-demo"' : '';
       return (
         '<tr data-user-id="' + escapeHtml(u.user_id) + '"' + rowCls + '>' +
-        '<td class="admin-user-cell">' +
+        '<td class="admin-user-cell" data-col="user">' +
         '<span class="admin-user-name">' + escapeHtml(u.name || '—') + (isDemo ? ' <span class="admin-demo-badge">DEMO</span>' : '') + '</span>' +
         '<span class="admin-user-email">' + escapeHtml(u.email) + '</span>' +
         '</td>' +
-        '<td>' + planSelect(u.user_id, u.plan || 'free', false) + '</td>' +
-        '<td class="admin-period">' + escapeHtml(formatPeriodEnd(u.subscription_period_end)) + '</td>' +
-        '<td>' + usageBar(Number(u.ai_today) || 0, aiLimitForRow(u), u.is_admin) + '</td>' +
-        '<td class="admin-payment">' + escapeHtml(formatPayment(u.stripe_last_payment_at)) + '</td>' +
-        '<td><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
+        '<td data-col="plan">' + planSelect(u.user_id, u.plan || 'free', false) + '</td>' +
+        '<td class="admin-period" data-col="period">' + escapeHtml(formatPeriodEnd(u)) + '</td>' +
+        '<td data-col="ai">' + usageBar(Number(u.ai_today) || 0, aiLimitForRow(u), u.is_admin) + '</td>' +
+        '<td class="admin-payment" data-col="payment">' + escapeHtml(formatPayment(u.stripe_last_payment_at)) + '</td>' +
+        '<td data-col="seen"><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
         (online ? '● ' : '') + escapeHtml(formatRelative(u.last_seen_at)) + '</span></td>' +
-        '<td class="admin-center">' +
+        '<td class="admin-center" data-col="admin">' +
         '<label class="admin-toggle" title="' + (isDemo ? 'Usuario demo' : (isSelf ? 'No puedes quitarte admin a ti mismo' : 'Administrador')) + '">' +
         '<input type="checkbox" class="admin-check" data-field="is_admin"' +
         (u.is_admin ? ' checked' : '') +
@@ -389,13 +393,6 @@
     if (refreshBtn) refreshBtn.addEventListener('click', function () { refresh(); });
 
     bindInviteModal();
-
-    var demoStartBtn = $('#admin-demo-start');
-    if (demoStartBtn) {
-      demoStartBtn.addEventListener('click', function () {
-        if (global.PTDemo && global.PTDemo.start) global.PTDemo.start();
-      });
-    }
 
     var accountAdmin = $('#account-admin');
     if (accountAdmin) {
