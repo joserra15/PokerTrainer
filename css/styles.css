@@ -1281,6 +1281,7 @@ body.cookie-banner-open { padding-bottom: 0; }
   flex-wrap: wrap;
 }
 .admin-section-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.admin-sync-status { font-size: 12px; max-width: 280px; }
 .admin-section-head h3 { margin: 0; font-size: 16px; }
 .admin-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .admin-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex-shrink: 0; }

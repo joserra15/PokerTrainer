@@ -388,11 +388,42 @@
     setAdminVisible(!demoOn);
   }
 
+  async function syncStripePayments() {
+    var btn = $('#admin-sync-payments');
+    var status = $('#admin-sync-status');
+    if (!global.PTBilling || !global.PTBilling.syncPayments) {
+      alert('Sincronización Stripe no disponible.');
+      return;
+    }
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'Consultando Stripe…';
+    try {
+      var data = await global.PTBilling.syncPayments();
+      if (status) {
+        status.textContent = global.PTBilling.formatSyncMessage
+          ? global.PTBilling.formatSyncMessage(data)
+          : ('Actualizados: ' + (data.updated || 0));
+      }
+      await refresh();
+    } catch (e) {
+      if (status) status.textContent = '';
+      alert(e.message || 'No se pudo sincronizar con Stripe.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function bindUi() {
     var refreshBtn = $('#admin-refresh');
     if (refreshBtn) refreshBtn.addEventListener('click', function () { refresh(); });
 
     bindInviteModal();
+
+    var syncBtn = $('#admin-sync-payments');
+    if (syncBtn && !syncBtn.dataset.bound) {
+      syncBtn.dataset.bound = '1';
+      syncBtn.addEventListener('click', function () { syncStripePayments(); });
+    }
 
     var accountAdmin = $('#account-admin');
     if (accountAdmin) {

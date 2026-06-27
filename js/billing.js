@@ -164,10 +164,41 @@
     }
   }
 
+  async function syncPayments() {
+    if (!enabled()) {
+      throw new Error('Stripe no está configurado.');
+    }
+    var headers = await authHeaders();
+    var res = await fetch(functionsBase() + '/stripe-sync-payments', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({})
+    });
+    var data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'sync_failed');
+    }
+    return data;
+  }
+
+  function formatSyncMessage(data) {
+    if (!data) return 'Sincronización completada.';
+    var parts = [];
+    if (data.updated) parts.push(data.updated + ' pago' + (data.updated === 1 ? '' : 's') + ' actualizado' + (data.updated === 1 ? '' : 's'));
+    if (data.linked) parts.push(data.linked + ' cliente' + (data.linked === 1 ? '' : 's') + ' Stripe vinculado' + (data.linked === 1 ? '' : 's'));
+    if (!parts.length) parts.push('Sin pagos nuevos en Stripe');
+    if (data.errors && data.errors.length) {
+      parts.push(data.errors.length + ' error' + (data.errors.length === 1 ? '' : 'es'));
+    }
+    return parts.join(' · ');
+  }
+
   global.PTBilling = {
     enabled: enabled,
     startCheckout: startCheckout,
     openPortal: openPortal,
+    syncPayments: syncPayments,
+    formatSyncMessage: formatSyncMessage,
     showPaywall: showPaywall,
     closePaywall: closePaywall,
     bindPaywall: bindPaywall,
