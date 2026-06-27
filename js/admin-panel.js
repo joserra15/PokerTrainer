@@ -129,12 +129,18 @@
   function formatRenewal(u) {
     if (!u) return '—';
     var status = u.subscription_status || 'none';
-    if (status !== 'active' && status !== 'trialing') return '—';
     var iso = effectivePeriodEnd(u);
+    var canceled = !!u.subscription_cancel_at_period_end || status === 'canceled';
+
+    if (canceled) {
+      if (!iso) return 'Cancelada';
+      return formatPeriodLabel(iso).replace(' (caducado)', '') + ' · cancelada';
+    }
+
+    if (status !== 'active' && status !== 'trialing') return '—';
     if (!iso) return '—';
-    var auto = !!(u.stripe_subscription_id && status === 'active');
     var label = formatPeriodLabel(iso);
-    if (auto) label += ' · auto';
+    if (u.stripe_subscription_id) label += ' · auto';
     return label;
   }
 

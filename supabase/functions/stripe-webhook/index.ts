@@ -85,7 +85,8 @@ async function applySubscription(
   subscriptionId: string | null,
   status: string,
   periodEnd: number | null,
-  interval: string | null
+  interval: string | null,
+  cancelAtPeriodEnd: boolean | null = null
 ) {
   const periodEndIso = periodEnd
     ? new Date(periodEnd * 1000).toISOString()
@@ -102,7 +103,8 @@ async function applySubscription(
     p_stripe_subscription_id: subscriptionId,
     p_status: status,
     p_period_end: periodEndIso,
-    p_interval: interval
+    p_interval: interval,
+    p_cancel_at_period_end: cancelAtPeriodEnd ?? (status === 'canceled')
   });
 }
 
@@ -165,7 +167,8 @@ serve(async (req) => {
         subscriptionId,
         sub.status || 'active',
         sub.current_period_end || null,
-        interval
+        interval,
+        !!sub.cancel_at_period_end
       );
 
       if (customerId) {
@@ -204,7 +207,8 @@ serve(async (req) => {
           subscriptionId,
           sub.status || 'active',
           sub.current_period_end || null,
-          interval
+          interval,
+          !!sub.cancel_at_period_end
         );
       } catch {
         /* subscription fetch failed; still record payment below */
@@ -228,6 +232,9 @@ serve(async (req) => {
     const mapped = priceId ? planFromPriceId(priceId) : null;
     let plan = mapped?.plan || 'free';
     const interval = mapped?.interval || null;
+    const cancelAtEnd = !!(sub as { cancel_at_period_end?: boolean }).cancel_at_period_end
+      || status === 'canceled'
+      || event.type === 'customer.subscription.deleted';
 
     if (!userId && customerId) {
       const { data: prof } = await admin
@@ -244,7 +251,8 @@ serve(async (req) => {
           subscriptionId,
           status,
           periodEnd,
-          interval
+          interval,
+          cancelAtEnd
         );
       }
     } else if (userId) {
@@ -256,7 +264,8 @@ serve(async (req) => {
         subscriptionId,
         status,
         periodEnd,
-        interval
+        interval,
+        cancelAtEnd
       );
     }
   }

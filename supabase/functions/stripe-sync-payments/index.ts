@@ -6,6 +6,7 @@ type StripeSub = {
   id: string;
   status: string;
   current_period_end?: number;
+  cancel_at_period_end?: boolean;
   customer?: string;
   metadata?: Record<string, string>;
   items?: {
@@ -79,7 +80,7 @@ async function latestPaidAt(customerId: string): Promise<string | null> {
   return new Date(paidUnix * 1000).toISOString();
 }
 
-async function fetchActiveSubscription(customerId: string): Promise<StripeSub | null> {
+async function fetchSubscription(customerId: string): Promise<StripeSub | null> {
   for (const status of ['active', 'trialing', 'past_due']) {
     const data = await stripeRequest(
       '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=' + status + '&limit=1',
@@ -88,7 +89,12 @@ async function fetchActiveSubscription(customerId: string): Promise<StripeSub | 
     const subs = (data.data as StripeSub[]) || [];
     if (subs.length) return subs[0];
   }
-  return null;
+  const canceled = await stripeRequest(
+    '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=canceled&limit=1',
+    'GET'
+  );
+  const canceledSubs = (canceled.data as StripeSub[]) || [];
+  return canceledSubs[0] || null;
 }
 
 async function applyStripeSubscription(
@@ -104,6 +110,7 @@ async function applyStripeSubscription(
   const periodEndIso = sub.current_period_end
     ? new Date(sub.current_period_end * 1000).toISOString()
     : null;
+  const cancelAtEnd = !!sub.cancel_at_period_end || sub.status === 'canceled';
 
   await admin.rpc('pt_apply_subscription', {
     p_user_id: userId,
@@ -112,7 +119,8 @@ async function applyStripeSubscription(
     p_stripe_subscription_id: sub.id,
     p_status: sub.status,
     p_period_end: periodEndIso,
-    p_interval: interval
+    p_interval: interval,
+    p_cancel_at_period_end: cancelAtEnd
   });
 }
 
@@ -169,7 +177,7 @@ serve(async (req) => {
         continue;
       }
 
-      const sub = await fetchActiveSubscription(customerId);
+      const sub = await fetchSubscription(customerId);
       if (sub) {
         await applyStripeSubscription(admin, prof.user_id, sub, customerId);
         subscriptions++;
