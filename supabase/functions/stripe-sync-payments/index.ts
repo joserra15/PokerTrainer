@@ -7,6 +7,8 @@ type StripeSub = {
   status: string;
   current_period_end?: number;
   cancel_at_period_end?: boolean;
+  cancel_at?: number | null;
+  ended_at?: number | null;
   customer?: string;
   metadata?: Record<string, string>;
   items?: {
@@ -80,21 +82,56 @@ async function latestPaidAt(customerId: string): Promise<string | null> {
   return new Date(paidUnix * 1000).toISOString();
 }
 
-async function fetchSubscription(customerId: string): Promise<StripeSub | null> {
-  for (const status of ['active', 'trialing', 'past_due']) {
-    const data = await stripeRequest(
-      '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=' + status + '&limit=1',
-      'GET'
-    );
-    const subs = (data.data as StripeSub[]) || [];
-    if (subs.length) return subs[0];
+function subscriptionCanceled(sub: StripeSub): boolean {
+  if (sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'incomplete_expired') {
+    return true;
   }
-  const canceled = await stripeRequest(
-    '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=canceled&limit=1',
+  if (sub.cancel_at_period_end) return true;
+  if (sub.cancel_at != null && sub.cancel_at > 0) return true;
+  return false;
+}
+
+function subscriptionRank(sub: StripeSub): number {
+  const now = Math.floor(Date.now() / 1000);
+  const end = sub.current_period_end || 0;
+  const live = ['active', 'trialing', 'past_due'].includes(sub.status);
+  const canceled = subscriptionCanceled(sub);
+  let score = end;
+  if (live) score += 1e12;
+  if (canceled && end > now) score += 5e11;
+  if (sub.status === 'canceled' && end > now) score += 4e11;
+  return score;
+}
+
+async function fetchSubscriptionById(subId: string): Promise<StripeSub | null> {
+  try {
+    const sub = await stripeRequest('/subscriptions/' + encodeURIComponent(subId), 'GET');
+    return (sub as StripeSub)?.id ? (sub as StripeSub) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchSubscription(customerId: string, preferredId?: string | null): Promise<StripeSub | null> {
+  if (preferredId) {
+    const direct = await fetchSubscriptionById(preferredId);
+    if (direct) return direct;
+  }
+
+  const data = await stripeRequest(
+    '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=all&limit=20',
     'GET'
   );
-  const canceledSubs = (canceled.data as StripeSub[]) || [];
-  return canceledSubs[0] || null;
+  const subs = (data.data as StripeSub[]) || [];
+  if (!subs.length) return null;
+
+  subs.sort((a, b) => subscriptionRank(b) - subscriptionRank(a));
+  const best = subs[0];
+  if (best?.id) {
+    const full = await fetchSubscriptionById(best.id);
+    return full || best;
+  }
+  return best;
 }
 
 async function applyStripeSubscription(
@@ -110,11 +147,14 @@ async function applyStripeSubscription(
   const periodEndIso = sub.current_period_end
     ? new Date(sub.current_period_end * 1000).toISOString()
     : null;
-  const cancelAtEnd = !!sub.cancel_at_period_end || sub.status === 'canceled';
+  const cancelAtEnd = subscriptionCanceled(sub);
+  const now = Math.floor(Date.now() / 1000);
+  const stillPaid = (sub.current_period_end || 0) > now;
+  const downgrade = (sub.status === 'canceled' || sub.status === 'unpaid') && !stillPaid;
 
   await admin.rpc('pt_apply_subscription', {
     p_user_id: userId,
-    p_plan: sub.status === 'canceled' || sub.status === 'unpaid' ? 'free' : plan,
+    p_plan: downgrade ? 'free' : plan,
     p_stripe_customer_id: customerId,
     p_stripe_subscription_id: sub.id,
     p_status: sub.status,
@@ -146,7 +186,7 @@ serve(async (req) => {
 
   const { data: profiles, error: listErr } = await admin
     .from('pt_user_profiles')
-    .select('user_id, email, stripe_customer_id')
+    .select('user_id, email, stripe_customer_id, stripe_subscription_id')
     .neq('user_id', 'pt_demo_user');
 
   if (listErr) return json({ error: listErr.message }, 500);
@@ -177,7 +217,10 @@ serve(async (req) => {
         continue;
       }
 
-      const sub = await fetchSubscription(customerId);
+      const sub = await fetchSubscription(
+        customerId,
+        prof.stripe_subscription_id as string | null
+      );
       if (sub) {
         await applyStripeSubscription(admin, prof.user_id, sub, customerId);
         subscriptions++;

@@ -91,8 +91,14 @@ async function applySubscription(
   const periodEndIso = periodEnd
     ? new Date(periodEnd * 1000).toISOString()
     : null;
+  const now = Math.floor(Date.now() / 1000);
+  const stillPaid = (periodEnd || 0) > now;
+  const canceled = cancelAtPeriodEnd === true
+    || status === 'canceled'
+    || status === 'unpaid'
+    || status === 'incomplete_expired';
 
-  if (status === 'canceled' || status === 'unpaid' || status === 'incomplete_expired') {
+  if ((status === 'canceled' || status === 'unpaid' || status === 'incomplete_expired') && !stillPaid) {
     plan = 'free';
   }
 
@@ -104,8 +110,16 @@ async function applySubscription(
     p_status: status,
     p_period_end: periodEndIso,
     p_interval: interval,
-    p_cancel_at_period_end: cancelAtPeriodEnd ?? (status === 'canceled')
+    p_cancel_at_period_end: canceled
   });
+}
+
+function cancelFromSub(sub: Record<string, unknown>): boolean {
+  const status = sub.status as string;
+  if (status === 'canceled' || status === 'unpaid' || status === 'incomplete_expired') return true;
+  if (sub.cancel_at_period_end) return true;
+  if (sub.cancel_at != null && Number(sub.cancel_at) > 0) return true;
+  return false;
 }
 
 serve(async (req) => {
@@ -168,7 +182,7 @@ serve(async (req) => {
         sub.status || 'active',
         sub.current_period_end || null,
         interval,
-        !!sub.cancel_at_period_end
+        !!sub.cancel_at_period_end || cancelFromSub(sub)
       );
 
       if (customerId) {
@@ -208,7 +222,7 @@ serve(async (req) => {
           sub.status || 'active',
           sub.current_period_end || null,
           interval,
-          !!sub.cancel_at_period_end
+          !!sub.cancel_at_period_end || cancelFromSub(sub)
         );
       } catch {
         /* subscription fetch failed; still record payment below */
@@ -232,7 +246,7 @@ serve(async (req) => {
     const mapped = priceId ? planFromPriceId(priceId) : null;
     let plan = mapped?.plan || 'free';
     const interval = mapped?.interval || null;
-    const cancelAtEnd = !!(sub as { cancel_at_period_end?: boolean }).cancel_at_period_end
+    const cancelAtEnd = cancelFromSub(sub as Record<string, unknown>)
       || status === 'canceled'
       || event.type === 'customer.subscription.deleted';
 

@@ -130,7 +130,9 @@
     if (!u) return '—';
     var status = u.subscription_status || 'none';
     var iso = effectivePeriodEnd(u);
-    var canceled = !!u.subscription_cancel_at_period_end || status === 'canceled';
+    var canceled = !!u.subscription_cancel_at_period_end
+      || status === 'canceled'
+      || status === 'canceling';
 
     if (canceled) {
       if (!iso) return 'Cancelada';
@@ -142,6 +144,18 @@
     var label = formatPeriodLabel(iso);
     if (u.stripe_subscription_id) label += ' · auto';
     return label;
+  }
+
+  function setAdminLoading(show, message) {
+    var el = $('#admin-loading');
+    var wrap = document.querySelector('.admin-table-wrap');
+    if (!el) return;
+    el.classList.toggle('hidden', !show);
+    if (wrap) wrap.classList.toggle('admin-table-loading', !!show);
+    if (message) {
+      var msg = el.querySelector('.admin-loading-msg');
+      if (msg) msg.textContent = message;
+    }
   }
 
   function periodEndCell(u) {
@@ -245,10 +259,12 @@
     var tbody = $('#admin-users-body');
     var status = $('#admin-users-status');
     if (!c || !tbody) return;
-    if (status) status.textContent = 'Cargando…';
+    setAdminLoading(true, 'Cargando usuarios…');
+    if (status) status.textContent = '';
     var res = await c.rpc('pt_admin_user_list');
     if (res.error) {
       tbody.innerHTML = '';
+      setAdminLoading(false);
       if (status) status.textContent = '';
       var err = $('#admin-users-error');
       if (err) err.textContent = res.error.message;
@@ -287,6 +303,7 @@
       );
     }).join('');
     bindUserActions();
+    setAdminLoading(false);
   }
 
   function bindUserActions() {
@@ -442,6 +459,7 @@
   }
 
   async function refresh() {
+    setAdminLoading(true, 'Actualizando usuarios…');
     await Promise.all([loadStats(), loadUsers()]);
     loaded = true;
   }
@@ -449,6 +467,7 @@
   function render() {
     var user = currentUser();
     if (!user || !user.isAdmin) return;
+    setAdminLoading(true, 'Sincronizando con Stripe…');
     loadStats().then(function () {
       return syncStripePayments({ auto: true });
     }).then(function () {
@@ -473,12 +492,14 @@
     var billing = global.PTBilling;
     if (!billing || !billing.syncPayments || !billing.enabled || !billing.enabled()) {
       if (!auto) alert('Sincronización Stripe no disponible.');
+      else await loadUsers();
       return;
     }
     if (syncRunning) return;
     syncRunning = true;
     if (btn) btn.disabled = true;
     if (status) status.textContent = auto ? 'Sincronizando pagos…' : 'Consultando Stripe…';
+    if (auto) setAdminLoading(true, 'Sincronizando con Stripe…');
     try {
       var data = await billing.syncPayments();
       if (status) {
@@ -487,9 +508,13 @@
           : ('Actualizados: ' + (data.updated || 0));
       }
       if (auto) await loadUsers();
-      else await refresh();
+      else {
+        setAdminLoading(true, 'Actualizando usuarios…');
+        await refresh();
+      }
     } catch (e) {
       if (status) status.textContent = auto ? 'Pagos: sin sincronizar' : '';
+      setAdminLoading(false);
       if (!auto) alert(e.message || 'No se pudo sincronizar con Stripe.');
     } finally {
       syncRunning = false;

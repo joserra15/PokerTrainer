@@ -1331,11 +1331,26 @@ body.demo-mode-active .tab-admin { display: none !important; }
 }
 body.admin-invite-open { overflow: hidden; }
 .admin-table-wrap {
+  position: relative;
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--card, #161b22);
 }
+.admin-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 17, 23, 0.82);
+  border-radius: 10px;
+}
+.admin-loading.hidden { display: none; }
+.admin-loading-inner { text-align: center; padding: 28px 16px; }
+.admin-loading-msg { margin-top: 12px; font-size: 13px; }
+.admin-table-wrap.admin-table-loading .admin-table { visibility: hidden; }
 .admin-table {
   width: 100%;
   border-collapse: collapse;
