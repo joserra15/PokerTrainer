@@ -1282,7 +1282,24 @@ body.cookie-banner-open { padding-bottom: 0; }
 }
 .admin-section-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .admin-section-head h3 { margin: 0; font-size: 16px; }
+.admin-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.admin-head .btn { margin-left: 8px; }
+.admin-row-demo { background: rgba(212, 175, 55, 0.06); }
+.admin-demo-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: .5px;
+  color: var(--gold); border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle;
+}
 .admin-payment { font-size: 12px; white-space: nowrap; color: var(--muted); }
+.admin-period { font-size: 12px; white-space: nowrap; color: var(--muted); }
+.demo-mode-banner {
+  position: sticky; top: 0; z-index: 1200;
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.2), rgba(47, 129, 247, 0.15));
+  border-bottom: 1px solid rgba(212, 175, 55, 0.35);
+  color: var(--text); text-align: center; font-size: 13px; padding: 8px 12px;
+}
+body.demo-mode-active .tab-admin { display: none !important; }
+.admin-usage-note { font-size: 11px; color: var(--gold); margin-left: 2px; }
 .admin-invite-content { max-width: 560px; width: min(96vw, 560px); }
 .admin-invite-label { display: block; font-size: 13px; margin: 12px 0 6px; color: var(--muted); }
 .admin-invite-input, .admin-invite-textarea {

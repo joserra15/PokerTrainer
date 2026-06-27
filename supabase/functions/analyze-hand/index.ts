@@ -125,6 +125,17 @@ function adminClient() {
   });
 }
 
+const DEMO_USER_ID = 'pt_demo_user';
+
+async function callerIsAdmin(admin: ReturnType<typeof createClient>, userId: string) {
+  const { data } = await admin
+    .from('pt_user_profiles')
+    .select('is_admin')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return !!data?.is_admin;
+}
+
 async function resolveAiLimit(admin: ReturnType<typeof createClient>, userId: string) {
   const { data } = await admin
     .from('pt_user_profiles')
@@ -132,7 +143,7 @@ async function resolveAiLimit(admin: ReturnType<typeof createClient>, userId: st
     .eq('user_id', userId)
     .maybeSingle();
   if (!data) return 0;
-  if (data.is_admin) return 999999;
+  if (data.is_admin && userId !== DEMO_USER_ID) return 999999;
   if (data.ai_monthly_limit && data.ai_monthly_limit > 0) return data.ai_monthly_limit;
   return PLAN_MONTHLY_LIMITS[data.plan] ?? 0;
 }
@@ -207,7 +218,26 @@ serve(async (req) => {
     return json({ error: auth.error }, auth.status);
   }
 
-  const limit = await checkRateLimit(auth.user.id);
+  let body: { payload?: unknown; mode?: unknown; question?: unknown; demo?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: 'invalid_json' }, 400);
+  }
+  if (!body.payload) {
+    return json({ error: 'missing_payload' }, 400);
+  }
+
+  let billingUserId = auth.user.id;
+  if (body.demo === true) {
+    const admin = adminClient();
+    if (!admin) return json({ error: 'server_config' }, 500);
+    const okAdmin = await callerIsAdmin(admin, auth.user.id);
+    if (!okAdmin) return json({ error: 'forbidden' }, 403);
+    billingUserId = DEMO_USER_ID;
+  }
+
+  const limit = await checkRateLimit(billingUserId);
   if (!limit.ok) {
     return json({
       error: limit.error || 'rate_limit',
@@ -220,16 +250,6 @@ serve(async (req) => {
   const geminiKey = Deno.env.get('GEMINI_API_KEY');
   if (!geminiKey) {
     return json({ error: 'GEMINI_API_KEY not configured' }, 500);
-  }
-
-  let body: { payload?: unknown; mode?: unknown; question?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'invalid_json' }, 400);
-  }
-  if (!body.payload) {
-    return json({ error: 'missing_payload' }, 400);
   }
 
   const mode = normalizeMode(body.mode);
@@ -284,7 +304,7 @@ serve(async (req) => {
     return json({ error: 'empty_response' }, 502);
   }
 
-  await logAiUsage(auth.user.id, mode);
+  await logAiUsage(billingUserId, mode);
 
   return json({
     reportMarkdown: text.trim(),

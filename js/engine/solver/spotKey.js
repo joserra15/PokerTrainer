@@ -28,11 +28,17 @@
     const potBB = input.potBB || 1;
     const effStack = input.stackDepth || input.effStack || 100;
     const spr = input.spr != null ? input.spr : (potBB > 0 ? effStack / potBB : effStack);
+    const rc = input.rangeContext || {};
+    const gameType = rc.gameType || input.gameType || 'cash6';
+    const stackLabel = rc.stackDepth || input.stackDepthLabel
+      || (global.GTORangesRegistry ? global.GTORangesRegistry.stackLabelFromBB(effStack) : 'standard');
 
     return {
       position: input.position || '?',
       vsPosition: input.vsPosition || null,
       stackDepth: bucketStack(effStack),
+      stackLabel: stackLabel,
+      gameType: gameType,
       street: input.street || 'preflop',
       boardType: board.length >= 3 ? Board.classifyBoard(board) : 'PREFLOP',
       spr: bucketSpr(spr),
@@ -52,6 +58,7 @@
   function spotKeyString(key) {
     return [
       key.spotKind, key.position, key.vsPosition || '-',
+      key.gameType || 'cash6', key.stackLabel || key.stackDepth || 100,
       key.street, key.boardType, key.spr, key.initiative, key.facing,
       key.facingNode || '-',
       key.inPosition ? 'IP' : 'OOP'

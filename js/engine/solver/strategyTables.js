@@ -40,12 +40,16 @@
     return base;
   }
 
-  function vsRfiStrategy(key, code, ctx) {
+  function vsRfiStrategy(key, code, ctx, heroPos, openerPos) {
     const RR = global.GTORangesRegistry;
-    let data = D.VS_RFI[key];
-    if (RR && ctx && key && key.indexOf('_vs_') > 0) {
+    let data = null;
+    if (RR && ctx && heroPos && openerPos) {
+      data = RR.getVsRfiRow(heroPos, openerPos, ctx);
+    }
+    if (!data && key) data = D.VS_RFI[key];
+    if (!data && RR && ctx && key && key.indexOf('_vs_') > 0) {
       const parts = key.split('_vs_');
-      data = RR.getVsRfiRow(parts[0], parts[1], ctx) || data;
+      data = RR.getVsRfiRow(parts[0], parts[1], ctx);
     }
     if (!data) return { fold: 1, call: 0, raise: 0 };
     const tb = N.toSet(data.threeBet);
@@ -85,7 +89,18 @@
     return Preflop ? Preflop.enhancePreflopStrategy(base, code, 'isoLimp', {}) : base;
   }
 
-  function vs3betStrategy(code) {
+  function vs3betStrategy(code, ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET;
+    if (data) {
+      const jam = N.toSet(data.fourBet);
+      const call = N.toSet(data.call);
+      const callMix = N.toSet(data.callMix || '');
+      if (jam.has(code)) return { fold: 0, call: 0.25, raise: 0.75 };
+      if (call.has(code)) return { fold: 0.15, call: 0.8, raise: 0.05 };
+      if (callMix.has(code)) return { fold: 0.42, call: 0.53, raise: 0.05 };
+      return { fold: 0.82, call: 0.15, raise: 0.03 };
+    }
     const cont = N.toSet('QQ+, AKs, AKo');
     const callMix = N.toSet('JJ, TT, AQs, AJs, KQs, AQo, 99');
     if (cont.has(code)) return { fold: 0, call: 0.25, raise: 0.75 };
@@ -350,10 +365,15 @@
       }) : null);
 
       if (kind === 'RFI') return rfiStrategy(input.position, code, ctx);
-      if (kind === 'vsRFI') return vsRfiStrategy(input.vsRfiKey || (input.position + '_vs_' + input.vsPosition), code, ctx);
+      if (kind === 'vsRFI') {
+        return vsRfiStrategy(
+          input.vsRfiKey || (input.position + '_vs_' + input.vsPosition),
+          code, ctx, input.position, input.vsPosition
+        );
+      }
       if (kind === 'squeeze') return squeezeStrategy(code);
       if (kind === 'isoLimp' || kind === 'vsLimp') return isoStrategy(code);
-      if (kind === 'face3bet' || kind === 'vs3bet') return vs3betStrategy(code);
+      if (kind === 'face3bet' || kind === 'vs3bet') return vs3betStrategy(code, ctx);
       if (kind === 'face4bet') return vs4betAs3bettorStrategy(code, ctx);
       if (kind === 'vs4bet') return vs4betStrategy(code);
       if (kind === 'cold3bet') return heuristicFacingRaise(code, true);

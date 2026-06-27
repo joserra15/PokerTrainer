@@ -12,6 +12,8 @@ const scripts = [
   'engine/cache.js',
   'engine/ranges/notation.js',
   'engine/ranges/data.js',
+  'engine/ranges/variants.js',
+  'engine/ranges/registry.js',
   'engine/ranges/weights.js',
   'engine/ranges/villainTracking.js',
   'engine/handStrength.js',
@@ -509,5 +511,23 @@ Store.saveSession(Object.assign({}, withTxt, { hands: [] }));
 const cleanedOk = !Store.getSessions().find((s) => s.id === sessId).hasTxt && !ls.getItem(txtKey);
 console.log('Store session limpia txt al re-guardar:', cleanedOk ? 'OK' : 'FAIL');
 if (!cleanedOk) process.exit(1);
+
+const RegRanges = sandbox.window.GTORangesRegistry;
+const MatrixMod = sandbox.window.PTRangeMatrix;
+const cashUtg = RegRanges.getOpenRaiseRow('UTG', { gameType: 'cash6', stackDepth: 'standard' });
+const mttUtg = RegRanges.getOpenRaiseRow('UTG', { gameType: 'mtt', stackDepth: 'standard' });
+const mttShortUtg = RegRanges.getOpenRaiseRow('UTG', { gameType: 'mtt', stackDepth: 'short' });
+const rangesFormatOk = cashUtg && mttUtg && cashUtg.raise !== mttUtg.raise;
+console.log('RFI UTG cash6 vs MTT distinto:', rangesFormatOk ? 'OK' : 'FAIL');
+const rangesStackOk = mttUtg.raise !== mttShortUtg.raise;
+console.log('RFI UTG MTT 100bb vs 40bb distinto:', rangesStackOk ? 'OK' : 'FAIL');
+const bbVsUtg1 = RegRanges.getVsRfiRow('BB', 'UTG1', { gameType: 'mtt', stackDepth: 'standard' });
+console.log('BB vs UTG1 MTT existe:', bbVsUtg1 ? 'OK' : 'FAIL');
+const explorerInput = MatrixMod.buildExplorerInput('3bet', 'BB', 'UTG1', { gameType: 'mtt', stackDepth: 'standard' });
+console.log('Explorer BB vs UTG1 MTT:', explorerInput ? 'OK' : 'FAIL');
+const keys9 = sandbox.window.GTORangesVariants.allVsRfi9MaxKeys();
+console.log('VS_RFI 9-max spots:', keys9.length, '(expect >=36)');
+const ranges9Ok = keys9.length >= 36 && bbVsUtg1 && explorerInput && rangesFormatOk && rangesStackOk;
+if (!ranges9Ok) process.exit(1);
 
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');

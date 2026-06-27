@@ -104,6 +104,8 @@
             <button type="button" id="account-export" class="btn btn-ghost btn-block" style="margin-bottom:6px">Exportar mis datos</button>
             <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
             <button type="button" id="account-admin" class="btn btn-admin btn-block hidden" style="margin-bottom:8px">Panel de administración</button>
+            <button type="button" id="account-demo" class="btn btn-ghost btn-block hidden" style="margin-bottom:8px">Modo demo</button>
+            <button type="button" id="account-stop-demo" class="btn btn-primary btn-block hidden" style="margin-bottom:8px">Parar demo</button>
             <button type="button" id="account-cookies" class="btn btn-ghost btn-block btn-sm-account">Configurar cookies</button>
             <button type="button" id="account-delete" class="btn btn-danger btn-block btn-sm-account" style="margin-top:8px">Eliminar cuenta y datos</button>
             <button type="button" id="account-signout" class="btn btn-ghost btn-block" style="margin-top:8px">Cerrar sesión</button>
@@ -445,6 +447,7 @@
           <p class="muted-text admin-sub">Usuarios, planes y consumo de IA Coach</p>
         </div>
         <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
+        <button type="button" id="admin-demo-start" class="btn btn-primary">Modo demo</button>
       </div>
 
       <div id="admin-stats" class="admin-stats" aria-label="Resumen"></div>
@@ -464,6 +467,7 @@
               <tr>
                 <th>Usuario</th>
                 <th>Plan</th>
+                <th>Fin plan</th>
                 <th>IA mes</th>
                 <th>Último pago</th>
                 <th>Última conexión</th>
@@ -475,6 +479,8 @@
         </div>
         <p class="muted-text admin-foot-note">
           Planes: Gratis · Study (pro) · Coach (premium). Límite IA mensual: Gratis 0 · Study 3 · Coach 30/mes.
+          Usuario <strong>demo</strong>: cambia su plan aquí y entra en Modo demo para probar límites.
+          Caducidad automática diaria (00:05 UTC) vía pg_cron.
         </p>
       </div>
     </section>
@@ -625,6 +631,7 @@
       'js/ai-report.js',
       'js/storage.js',
       'js/user-profile.js',
+      'js/demo-mode.js',
       'js/entitlements.js',
       'js/billing.js',
       'js/admin-panel.js',

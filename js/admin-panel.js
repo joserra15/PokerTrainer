@@ -11,6 +11,7 @@
   ];
 
   var PLAN_AI_LIMITS = { free: 0, pro: 3, premium: 30 };
+  var DEMO_USER_ID = 'pt_demo_user';
 
   var loaded = false;
   var adminTabBtn = null;
@@ -53,19 +54,21 @@
     return Date.now() - new Date(iso).getTime() < 15 * 60 * 1000;
   }
 
-  function usageBar(used, limit) {
+  function usageBar(used, limit, isAdmin) {
     if (limit == null) {
       return '<div class="admin-usage"><span class="admin-usage-text">' + used + ' / ∞</span></div>';
     }
     if (limit === 0) {
-      return '<div class="admin-usage"><span class="admin-usage-text muted-text">' + used + ' / 0</span></div>';
+      var zeroNote = isAdmin ? ' <span class="admin-usage-note" title="Admin: sin límite en la app">(∞)</span>' : '';
+      return '<div class="admin-usage"><span class="admin-usage-text muted-text">' + used + ' / 0' + zeroNote + '</span></div>';
     }
     var pct = Math.min(100, Math.round((used / limit) * 100));
     var cls = pct >= 90 ? 'admin-usage-high' : pct >= 70 ? 'admin-usage-mid' : '';
+    var adminNote = isAdmin ? ' <span class="admin-usage-note" title="Admin: sin límite en la app">(∞)</span>' : '';
     return (
       '<div class="admin-usage">' +
       '<div class="admin-usage-bar ' + cls + '" style="width:' + pct + '%"></div>' +
-      '<span class="admin-usage-text">' + used + ' / ' + limit + '</span>' +
+      '<span class="admin-usage-text">' + used + ' / ' + limit + adminNote + '</span>' +
       '</div>'
     );
   }
@@ -75,6 +78,15 @@
     var d = new Date(iso);
     if (isNaN(d.getTime())) return '—';
     return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function formatPeriodEnd(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    var label = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (d.getTime() < Date.now()) label += ' (caducado)';
+    return label;
   }
 
   function siteUrl() {
@@ -109,13 +121,9 @@
     );
   }
 
-  function aiLimitForPlan(plan, isAdmin) {
-    if (isAdmin) return null;
-    return PLAN_AI_LIMITS[plan] != null ? PLAN_AI_LIMITS[plan] : 0;
-  }
-
   function aiLimitForRow(u) {
-    return aiLimitForPlan(u.plan || 'free', u.is_admin);
+    if (u.ai_limit != null && u.ai_limit !== '') return Number(u.ai_limit);
+    return PLAN_AI_LIMITS[u.plan || 'free'] != null ? PLAN_AI_LIMITS[u.plan || 'free'] : 0;
   }
 
   function ensureAdminTab() {
@@ -187,22 +195,25 @@
     tbody.innerHTML = rows.map(function (u) {
       var online = isOnline(u.last_seen_at);
       var isSelf = me && me.sub === u.user_id;
+      var isDemo = u.user_id === DEMO_USER_ID;
+      var rowCls = isDemo ? ' class="admin-row-demo"' : '';
       return (
-        '<tr data-user-id="' + escapeHtml(u.user_id) + '">' +
+        '<tr data-user-id="' + escapeHtml(u.user_id) + '"' + rowCls + '>' +
         '<td class="admin-user-cell">' +
-        '<span class="admin-user-name">' + escapeHtml(u.name || '—') + '</span>' +
+        '<span class="admin-user-name">' + escapeHtml(u.name || '—') + (isDemo ? ' <span class="admin-demo-badge">DEMO</span>' : '') + '</span>' +
         '<span class="admin-user-email">' + escapeHtml(u.email) + '</span>' +
         '</td>' +
         '<td>' + planSelect(u.user_id, u.plan || 'free', false) + '</td>' +
-        '<td>' + usageBar(Number(u.ai_today) || 0, aiLimitForRow(u)) + '</td>' +
+        '<td class="admin-period">' + escapeHtml(formatPeriodEnd(u.subscription_period_end)) + '</td>' +
+        '<td>' + usageBar(Number(u.ai_today) || 0, aiLimitForRow(u), u.is_admin) + '</td>' +
         '<td class="admin-payment">' + escapeHtml(formatPayment(u.stripe_last_payment_at)) + '</td>' +
         '<td><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
         (online ? '● ' : '') + escapeHtml(formatRelative(u.last_seen_at)) + '</span></td>' +
         '<td class="admin-center">' +
-        '<label class="admin-toggle" title="' + (isSelf ? 'No puedes quitarte admin a ti mismo' : 'Administrador') + '">' +
+        '<label class="admin-toggle" title="' + (isDemo ? 'Usuario demo' : (isSelf ? 'No puedes quitarte admin a ti mismo' : 'Administrador')) + '">' +
         '<input type="checkbox" class="admin-check" data-field="is_admin"' +
         (u.is_admin ? ' checked' : '') +
-        (isSelf ? ' disabled' : '') + ' />' +
+        (isSelf || isDemo ? ' disabled' : '') + ' />' +
         '</label></td>' +
         '</tr>'
       );
@@ -258,6 +269,15 @@
           global.PTAuth.renderAccountMenu(mePlan);
         }
         global.dispatchEvent(new CustomEvent('pt-plan-changed', { detail: { userId: userId, plan: res.data.plan } }));
+      }
+      if (userId === DEMO_USER_ID && global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) {
+        if (global.PTEntitlements && global.PTEntitlements.refresh) {
+          await global.PTEntitlements.refresh();
+        }
+        if (global.PTAuth && global.PTAuth.renderAccountMenu && mePlan) {
+          global.PTAuth.renderAccountMenu(mePlan);
+        }
+        global.dispatchEvent(new CustomEvent('pt-plan-changed'));
       }
     }
     await refresh();
@@ -360,7 +380,8 @@
       setAdminVisible(false);
       return;
     }
-    setAdminVisible(true);
+    var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
+    setAdminVisible(!demoOn);
   }
 
   function bindUi() {
@@ -368,6 +389,13 @@
     if (refreshBtn) refreshBtn.addEventListener('click', function () { refresh(); });
 
     bindInviteModal();
+
+    var demoStartBtn = $('#admin-demo-start');
+    if (demoStartBtn) {
+      demoStartBtn.addEventListener('click', function () {
+        if (global.PTDemo && global.PTDemo.start) global.PTDemo.start();
+      });
+    }
 
     var accountAdmin = $('#account-admin');
     if (accountAdmin) {

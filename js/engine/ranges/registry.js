@@ -46,6 +46,10 @@
     return toEnginePos(heroPos) + '_vs_' + toEnginePos(openerPos);
   }
 
+  function vsRfiPairKey(heroPos, openerPos) {
+    return heroPos + '_vs_' + openerPos;
+  }
+
   function cloneRow(row) {
     if (!row) return row;
     const out = {};
@@ -66,23 +70,26 @@
   }
 
   function adjustOpenRow(row, stackDepth) {
-    if (!row || stackDepth === 'standard' || !W() || !HS()) return row;
+    if (!row || !W() || !HS()) return row;
+    if (stackDepth === 'standard') return row;
     const w = W().fromSets({ raise: row.raise, mix: row.mix });
     Object.keys(w).forEach(function (code) {
       const s = HS().handStrength01(code);
       if (stackDepth === 'short') {
-        if (w[code] >= 1 && s < 0.42) w[code] = 0;
-        else if (w[code] > 0 && w[code] < 1 && s < 0.5) w[code] = 0;
-        else if (w[code] > 0 && w[code] < 1) w[code] *= 0.65;
+        if (w[code] >= 1 && s < 0.48) w[code] = 0;
+        else if (w[code] > 0 && w[code] < 1 && s < 0.55) w[code] = 0;
+        else if (w[code] > 0 && w[code] < 1) w[code] *= 0.5;
       } else if (stackDepth === 'deep') {
-        if (w[code] > 0 && w[code] < 1) w[code] = Math.min(1, w[code] * 1.2);
+        if (w[code] > 0 && w[code] < 1) w[code] = Math.min(1, w[code] * 1.25);
+        if (w[code] >= 1 && s > 0.38 && s < 0.52) w[code] = 0.85;
       }
     });
     return weightsToOpenRow(w);
   }
 
   function adjustVsRfiRow(row, stackDepth) {
-    if (!row || stackDepth === 'standard' || !W() || !HS()) return row;
+    if (!row || !W() || !HS()) return row;
+    if (stackDepth === 'standard') return row;
     const w = W().fromSets({
       threeBet: row.threeBet,
       threeBetMix: row.threeBetMix,
@@ -92,11 +99,12 @@
     Object.keys(w).forEach(function (code) {
       const s = HS().handStrength01(code);
       if (stackDepth === 'short') {
-        if (w[code] > 0 && w[code] < 1 && s < 0.55) w[code] = 0;
-        else if (w[code] >= 1 && s < 0.38) w[code] = 0;
-        else if (w[code] > 0 && w[code] < 1) w[code] *= 0.7;
+        if (w[code] > 0 && w[code] < 1 && s < 0.58) w[code] = 0;
+        else if (w[code] >= 1 && s < 0.42) w[code] = 0;
+        else if (w[code] > 0 && w[code] < 0.99 && s < 0.52) w[code] = Math.min(1, w[code] * 1.35);
+        else if (w[code] > 0 && w[code] < 1) w[code] *= 0.55;
       } else if (stackDepth === 'deep' && w[code] > 0 && w[code] < 1) {
-        w[code] = Math.min(1, w[code] * 1.15);
+        w[code] = Math.min(1, w[code] * 1.2);
       }
     });
     const threeBet = [];
@@ -127,7 +135,10 @@
 
   function baseOpenTable(ctx) {
     const c = normalize(ctx);
-    if (c.isMtt && V()) return V().OPEN_RAISE_MTT;
+    if (c.isMtt && V()) {
+      if (c.stackDepth === 'short') return V().OPEN_RAISE_MTT_SHORT;
+      return V().OPEN_RAISE_MTT;
+    }
     if (c.is9Max && V()) return V().OPEN_RAISE_9MAX;
     return D().OPEN_RAISE;
   }
@@ -153,9 +164,16 @@
     return [row.raise, row.mix].filter(Boolean).join(', ');
   }
 
+  function baseVsRfiTable(ctx) {
+    const c = normalize(ctx);
+    if (c.isMtt && V() && V().getVsRfiMtt) return V().getVsRfiMtt();
+    if (c.is9Max && V() && V().getVsRfi9Max) return V().getVsRfi9Max();
+    return D().VS_RFI;
+  }
+
   function getVsRfiTable(ctx) {
     const c = normalize(ctx);
-    const base = D().VS_RFI;
+    const base = baseVsRfiTable(c);
     const out = {};
     Object.keys(base).forEach(function (key) {
       out[key] = adjustVsRfiRow(cloneRow(base[key]), c.stackDepth);
@@ -164,8 +182,14 @@
   }
 
   function getVsRfiRow(heroPos, openerPos, ctx) {
+    const c = normalize(ctx);
+    const table = getVsRfiTable(c);
+    if (c.is9Max || c.isMtt) {
+      const pairKey = vsRfiPairKey(heroPos, openerPos);
+      if (table[pairKey]) return table[pairKey];
+    }
     const key = vsRfiKey(heroPos, openerPos, ctx);
-    return getVsRfiTable(ctx)[key] || null;
+    return table[key] || null;
   }
 
   function getVs3bet(ctx) {
@@ -234,6 +258,7 @@
     stackLabelFromBB,
     toEnginePos,
     vsRfiKey,
+    vsRfiPairKey,
     getOpenRaiseTable,
     getOpenRaiseRow,
     openRangeStr,

@@ -163,7 +163,21 @@
       };
     }
     if (global.PTAdmin && global.PTAdmin.setAdminVisible) {
-      global.PTAdmin.setAdminVisible(!!user.isAdmin);
+      var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
+      global.PTAdmin.setAdminVisible(!!user.isAdmin && !demoOn);
+    }
+    var demoBtn = $('#account-demo');
+    var stopDemoBtn = $('#account-stop-demo');
+    var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
+    if (demoBtn) {
+      demoBtn.classList.toggle('hidden', !user.isAdmin || demoOn);
+    }
+    if (stopDemoBtn) {
+      stopDemoBtn.classList.toggle('hidden', !demoOn);
+    }
+    var adminMenuBtn = $('#account-admin');
+    if (adminMenuBtn) {
+      adminMenuBtn.classList.toggle('hidden', !user.isAdmin || demoOn);
     }
     if (global.PTCloud && global.PTCloud.getStatus) {
       const st = global.PTCloud.getStatus();

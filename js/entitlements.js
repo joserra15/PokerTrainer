@@ -47,18 +47,24 @@
     return global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth();
   }
 
+  function demoActive() {
+    return global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
+  }
+
   function isAdmin() {
+    if (demoActive()) return false;
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
     return !!(u && u.isAdmin);
   }
 
   function localFallback() {
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-    var plan = (u && u.plan) || 'free';
+    var plan = demoActive() ? 'free' : ((u && u.plan) || 'free');
     return {
       plan: plan,
       plan_label: PLAN_LABELS[plan] || plan,
-      is_admin: isAdmin(),
+      is_admin: false,
+      demo_mode: demoActive(),
       subscription_status: 'none',
       paid_active: plan === 'pro' || plan === 'premium',
       limits: DEFAULT_LIMITS[plan] || DEFAULT_LIMITS.free,
@@ -76,6 +82,7 @@
   }
 
   async function refresh() {
+    state = null;
     if (!useAuth()) {
       state = localFallback();
       return state;
@@ -86,7 +93,8 @@
       return state;
     }
     try {
-      var res = await c.rpc('pt_get_entitlements');
+      var rpc = demoActive() ? 'pt_get_demo_entitlements' : 'pt_get_entitlements';
+      var res = await c.rpc(rpc);
       if (res.error) {
         console.warn('[PTEntitlements]', res.error.message);
         state = localFallback();
@@ -104,6 +112,15 @@
   function applyToUser(ent) {
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
     if (!u || !ent) return;
+    if (demoActive()) {
+      u.demoMode = true;
+      u.plan = ent.plan || 'free';
+      u.planLabel = (ent.plan_label || PLAN_LABELS[u.plan] || u.plan) + ' (demo)';
+      u.subscriptionStatus = ent.subscription_status;
+      u.paidActive = !!ent.paid_active;
+      return;
+    }
+    u.demoMode = false;
     u.plan = ent.plan || u.plan || 'free';
     u.planLabel = ent.plan_label || PLAN_LABELS[u.plan] || u.plan;
     u.subscriptionStatus = ent.subscription_status;
@@ -166,7 +183,8 @@
     if (!useAuth()) return { ok: true };
     var c = client();
     if (!c) return { ok: true };
-    var res = await c.rpc('pt_record_trainer_hand');
+    var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
+    var res = await c.rpc(rpc);
     if (res.error) return { ok: false, error: res.error.message };
     await refresh();
     return res.data || { ok: true };
@@ -176,7 +194,9 @@
     if (!useAuth()) return { ok: true };
     var c = client();
     if (!c) return { ok: true };
-    var res = await c.rpc('pt_record_import_session', { p_hand_count: handCount || 0 });
+    var rpc = demoActive() ? 'pt_demo_record_import_session' : 'pt_record_import_session';
+    var args = demoActive() ? { p_hand_count: handCount || 0 } : { p_hand_count: handCount || 0 };
+    var res = await c.rpc(rpc, args);
     if (res.error) return { ok: false, error: res.error.message };
     await refresh();
     return res.data || { ok: true };
@@ -203,6 +223,8 @@
     recordTrainerHand: recordTrainerHand,
     recordImportSession: recordImportSession,
     historyCutoffDate: historyCutoffDate,
-    unlimited: unlimited
+    unlimited: unlimited,
+    demoActive: demoActive,
+    isAdmin: isAdmin
   };
 })(window);

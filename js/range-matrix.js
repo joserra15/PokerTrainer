@@ -37,14 +37,10 @@
       heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
       villainPositions: ['UTG', 'HJ', 'CO', 'BTN'],
       build: function (heroPos, villainPos) {
-        const key = heroPos + '_vs_' + villainPos;
-        const data = D().VS_RFI || {};
-        if (!data[key]) return null;
         return {
           spotKind: 'vsRFI',
           position: heroPos,
           vsPosition: villainPos,
-          vsRfiKey: key,
           stackDepth: 100,
           street: 'preflop',
           board: [],
@@ -425,10 +421,12 @@
     if (!input) return null;
     if (spotType === '3bet') {
       const reg = RR();
-      const key = reg ? reg.vsRfiKey(heroPos, villainPos, ctx) : heroPos + '_vs_' + villainPos;
-      const data = reg ? reg.getVsRfiRow(heroPos, villainPos, ctx) : (D().VS_RFI || {})[key];
+      const data = reg ? reg.getVsRfiRow(heroPos, villainPos, ctx) : (D().VS_RFI || {})[heroPos + '_vs_' + villainPos];
       if (!data) return null;
-      input.vsRfiKey = key;
+      const c = explorerCtx(ctx);
+      input.vsRfiKey = reg
+        ? ((c.is9Max || c.isMtt) ? reg.vsRfiPairKey(heroPos, villainPos) : reg.vsRfiKey(heroPos, villainPos, ctx))
+        : heroPos + '_vs_' + villainPos;
     }
     return attachExplorerMeta(input, ctx);
   }

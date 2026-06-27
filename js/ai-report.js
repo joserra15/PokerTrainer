@@ -397,6 +397,7 @@
     const c = cfg();
     const body = { payload: payload, mode: apiMode(scope, mode) };
     if (mode === 'question' && question) body.question = question;
+    if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) body.demo = true;
 
     let token = null;
     if (global.PTSupabase && global.PTSupabase.getAccessToken) {
