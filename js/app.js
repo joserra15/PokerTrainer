@@ -140,12 +140,14 @@
     const scEl = $('#setup-scenario .setup-chip.active');
     const posEl = $('#setup-hero-pos .setup-chip.active');
     const hrEl = $('#setup-hand-range .setup-chip.active');
+    const vlEl = $('#setup-villain-level .setup-chip.active');
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
       stackDepth: sdEl ? sdEl.dataset.val : 'standard',
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
-      handRange: hrEl ? hrEl.dataset.val : 'playable'
+      handRange: hrEl ? hrEl.dataset.val : 'playable',
+      villainLevel: vlEl ? vlEl.dataset.val : 'fish'
     });
   }
 
@@ -187,6 +189,7 @@
     bindChipGroup('#setup-stack-depth');
     bindChipGroup('#setup-scenario', renderHeroPosChips);
     bindChipGroup('#setup-hand-range');
+    bindChipGroup('#setup-villain-level');
     const startBtn = $('#play-start');
     if (startBtn) {
       startBtn.addEventListener('click', () => {

@@ -1294,6 +1294,17 @@ body.cookie-banner-open { padding-bottom: 0; }
 }
 .admin-payment { font-size: 12px; white-space: nowrap; color: var(--muted); }
 .admin-period { font-size: 12px; white-space: nowrap; color: var(--muted); }
+.admin-renewal { font-size: 12px; white-space: nowrap; color: var(--muted); }
+.admin-period-input {
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg, #0d1117);
+  color: var(--text);
+  max-width: 130px;
+}
+.admin-period-muted { color: var(--muted); }
 .demo-mode-banner {
   position: sticky; top: 0; z-index: 1200;
   background: linear-gradient(90deg, rgba(212, 175, 55, 0.2), rgba(47, 129, 247, 0.15));
@@ -1333,13 +1344,16 @@ body.admin-invite-open { overflow: hidden; }
 }
 .admin-col-user { width: 22%; }
 .admin-col-plan { width: 10%; }
-.admin-col-period { width: 11%; }
-.admin-col-ai { width: 12%; }
+.admin-col-period { width: 10%; }
+.admin-col-renewal { width: 11%; }
+.admin-col-ai { width: 11%; }
 .admin-col-payment { width: 11%; }
 .admin-col-seen { width: 14%; }
 .admin-col-admin { width: 6%; }
 .admin-table th[data-col="period"],
 .admin-table td[data-col="period"],
+.admin-table th[data-col="renewal"],
+.admin-table td[data-col="renewal"],
 .admin-table th[data-col="payment"],
 .admin-table td[data-col="payment"] {
   white-space: nowrap;
@@ -1405,6 +1419,6 @@ body.admin-invite-open { overflow: hidden; }
 .admin-error { color: var(--red); font-size: 13px; margin: 0 0 10px; }
 .admin-foot-note { font-size: 12px; margin-top: 12px; line-height: 1.45; }
 @media (max-width: 680px) {
-  .admin-table th[data-col="period"],
-  .admin-table td[data-col="period"] { display: none; }
+  .admin-table th[data-col="renewal"],
+  .admin-table td[data-col="renewal"] { display: none; }
 }

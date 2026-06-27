@@ -184,6 +184,33 @@ serve(async (req) => {
     let userId = (obj.metadata as Record<string, string>)?.supabase_user_id
       || await userIdFromSubscription(subscriptionId || '')
       || await userIdFromCustomer(admin, customerId);
+
+    if (subscriptionId && userId) {
+      try {
+        const sub = await fetch('https://api.stripe.com/v1/subscriptions/' + subscriptionId, {
+          headers: { Authorization: 'Bearer ' + stripeKey() }
+        }).then((r) => r.json());
+
+        const priceId = sub?.items?.data?.[0]?.price?.id as string | undefined;
+        const mapped = priceId ? planFromPriceId(priceId) : null;
+        const finalPlan = mapped?.plan || 'pro';
+        const interval = mapped?.interval || sub?.items?.data?.[0]?.price?.recurring?.interval || null;
+
+        await applySubscription(
+          admin,
+          userId,
+          finalPlan,
+          customerId,
+          subscriptionId,
+          sub.status || 'active',
+          sub.current_period_end || null,
+          interval
+        );
+      } catch {
+        /* subscription fetch failed; still record payment below */
+      }
+    }
+
     if (customerId || userId) {
       await recordStripePayment(admin, customerId, paidAt, userId);
     }

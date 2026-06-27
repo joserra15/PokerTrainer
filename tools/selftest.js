@@ -385,6 +385,16 @@ const trashAi = VPF.villainVsAllInAction('63s', VP.getProfile('maniac'), 0.99);
 const weakRiver = VP.postflopLead(0.28, VP.getProfile('maniac'), true, 0.5, { street: 'river', tier: 'weak' });
 console.log('Trash 63s defend', trash3b, '54o vs3bet', trash4b, '63s vs AI', trashAi, 'weak river', weakRiver);
 
+const proHand = { table: {} };
+VP.assignTableProfiles(proHand, ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'], 'BTN', 'pro');
+const proStrong = Object.keys(proHand.table.profiles || {}).filter(function (pos) {
+  return VP.STRONG_IDS.indexOf(proHand.table.profiles[pos]) >= 0;
+}).length;
+console.log('Pro level strong villains', proStrong, '(expect >=4)');
+const proProf = VP.profileForHand({ table: { profiles: { BB: 'tag' } }, playConfig: { villainLevel: 'pro' } }, 'BB');
+const fishProf = VP.profileForHand({ table: { profiles: { BB: 'tag' } }, playConfig: { villainLevel: 'fish' } }, 'BB');
+console.log('Pro vs fish bluff mult', proProf.postflop.bluffFreqMult > fishProf.postflop.bluffFreqMult ? 'OK' : 'FAIL');
+
 const VT = sandbox.window.GTOVillainTracking;
 const RM = sandbox.window.PTRangeMatrix;
 const mxProf = VT.buildVillainMatrixProfile({

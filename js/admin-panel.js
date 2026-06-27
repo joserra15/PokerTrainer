@@ -81,17 +81,73 @@
     return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  function formatPeriodEnd(u) {
-    if (!u) return '—';
-    var plan = u.plan || 'free';
-    var status = u.subscription_status || 'none';
-    var iso = u.subscription_period_end;
-    if (!iso || plan === 'free' || status === 'none' || status === 'expired') return '—';
+  function addInterval(iso, interval) {
+    if (!iso) return null;
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    if (interval === 'year') d.setFullYear(d.getFullYear() + 1);
+    else d.setMonth(d.getMonth() + 1);
+    return d.toISOString();
+  }
+
+  function effectivePeriodEnd(u) {
+    if (!u) return null;
+    if (u.subscription_period_end) return u.subscription_period_end;
+    if (!u.stripe_last_payment_at || (u.plan || 'free') === 'free') return null;
+    return addInterval(u.stripe_last_payment_at, u.billing_interval || 'month');
+  }
+
+  function toDateInputValue(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function formatPeriodLabel(iso) {
+    if (!iso) return '—';
     var d = new Date(iso);
     if (isNaN(d.getTime())) return '—';
     var label = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
     if (d.getTime() < Date.now()) label += ' (caducado)';
     return label;
+  }
+
+  function formatPeriodEnd(u) {
+    if (!u) return '—';
+    var plan = u.plan || 'free';
+    var status = u.subscription_status || 'none';
+    if (plan === 'free' && status !== 'active' && status !== 'trialing') return '—';
+    var iso = effectivePeriodEnd(u);
+    if (!iso) return '—';
+    return formatPeriodLabel(iso);
+  }
+
+  function formatRenewal(u) {
+    if (!u) return '—';
+    var status = u.subscription_status || 'none';
+    if (status !== 'active' && status !== 'trialing') return '—';
+    var iso = effectivePeriodEnd(u);
+    if (!iso) return '—';
+    var auto = !!(u.stripe_subscription_id && status === 'active');
+    var label = formatPeriodLabel(iso);
+    if (auto) label += ' · auto';
+    return label;
+  }
+
+  function periodEndCell(u) {
+    var plan = u.plan || 'free';
+    if (plan === 'free' && !u.stripe_last_payment_at) {
+      return '<span class="admin-period-muted">—</span>';
+    }
+    var val = toDateInputValue(u.subscription_period_end || effectivePeriodEnd(u));
+    return (
+      '<input type="date" class="admin-period-input" data-user-id="' + escapeHtml(u.user_id) + '"' +
+      ' value="' + escapeHtml(val) + '" title="Fin del plan actual (editable)" />'
+    );
   }
 
   function siteUrl() {
@@ -209,7 +265,8 @@
         '<span class="admin-user-email">' + escapeHtml(u.email) + '</span>' +
         '</td>' +
         '<td data-col="plan">' + planSelect(u.user_id, u.plan || 'free', false) + '</td>' +
-        '<td class="admin-period" data-col="period">' + escapeHtml(formatPeriodEnd(u)) + '</td>' +
+        '<td class="admin-period" data-col="period">' + periodEndCell(u) + '</td>' +
+        '<td class="admin-renewal" data-col="renewal">' + escapeHtml(formatRenewal(u)) + '</td>' +
         '<td data-col="ai">' + usageBar(Number(u.ai_today) || 0, aiLimitForRow(u), u.is_admin) + '</td>' +
         '<td class="admin-payment" data-col="payment">' + escapeHtml(formatPayment(u.stripe_last_payment_at)) + '</td>' +
         '<td data-col="seen"><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
@@ -242,6 +299,14 @@
         updateUser(uid, { is_admin: chk.checked });
       };
     });
+    tbody.querySelectorAll('.admin-period-input').forEach(function (inp) {
+      inp.onchange = function () {
+        var uid = inp.dataset.userId;
+        if (!uid || !inp.value) return;
+        var endIso = new Date(inp.value + 'T23:59:59').toISOString();
+        updateUser(uid, { subscription_period_end: endIso });
+      };
+    });
   }
 
   async function updateUser(userId, patch) {
@@ -250,6 +315,7 @@
     var args = { p_user_id: userId };
     if (patch.plan !== undefined) args.p_plan = patch.plan;
     if (patch.is_admin !== undefined) args.p_is_admin = patch.is_admin;
+    if (patch.subscription_period_end !== undefined) args.p_subscription_period_end = patch.subscription_period_end;
     var res = await c.rpc('pt_admin_update_user', args);
     if (res.error) {
       alert('Error al guardar: ' + res.error.message);
@@ -377,8 +443,10 @@
   function render() {
     var user = currentUser();
     if (!user || !user.isAdmin) return;
-    refresh().then(function () {
-      syncStripePayments({ auto: true });
+    loadStats().then(function () {
+      return syncStripePayments({ auto: true });
+    }).then(function () {
+      loaded = true;
     });
   }
 

@@ -243,6 +243,16 @@
         </div>
 
         <div class="setup-group">
+          <span class="setup-label">Nivel de rivales</span>
+          <div class="setup-chips" id="setup-villain-level">
+            <button type="button" class="setup-chip active" data-val="fish">Fish</button>
+            <button type="button" class="setup-chip" data-val="intermediate">Intermedio</button>
+            <button type="button" class="setup-chip" data-val="pro">Pro</button>
+          </div>
+          <p class="muted-text setup-hint">Fish: mezcla actual de perfiles. Intermedio: rivales cercanos a GTO. Pro: rivales fuertes, agresivos y con control de rangos.</p>
+        </div>
+
+        <div class="setup-group">
           <span class="setup-label">Rango de manos</span>
           <div class="setup-chips" id="setup-hand-range">
             <button type="button" class="setup-chip active" data-val="playable">Jugables</button>
@@ -471,6 +481,7 @@
               <col class="admin-col-user">
               <col class="admin-col-plan">
               <col class="admin-col-period">
+              <col class="admin-col-renewal">
               <col class="admin-col-ai">
               <col class="admin-col-payment">
               <col class="admin-col-seen">
@@ -481,6 +492,7 @@
                 <th data-col="user">Usuario</th>
                 <th data-col="plan">Plan</th>
                 <th data-col="period">Fin plan</th>
+                <th data-col="renewal">Renovación</th>
                 <th data-col="ai">IA mes</th>
                 <th data-col="payment">Último pago</th>
                 <th data-col="seen">Última conexión</th>

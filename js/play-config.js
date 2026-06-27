@@ -34,7 +34,8 @@
     stackDepth: 'standard',
     scenario: 'random',
     heroPos: 'random',
-    handRange: 'playable'
+    handRange: 'playable',
+    villainLevel: 'fish'
   };
 
   const RR = function () { return global.GTORangesRegistry; };
@@ -46,6 +47,7 @@
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
     if (!c.handRange) c.handRange = 'random';
+    if (!c.villainLevel) c.villainLevel = 'fish';
     return c;
   }
 
@@ -363,7 +365,8 @@
     const sc = { random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', '4bet': '4-Bet', squeeze: 'Squeeze' }[c.scenario] || c.scenario;
     const hr = { random: 'Todas', playable: 'Jugables', borderline: 'Borderline', all: 'Todas' }[c.handRange] || c.handRange;
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
-    return gt + ' · ' + sd + ' · ' + sc + ' · ' + hr + ' · ' + pos;
+    const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
+    return gt + ' · ' + sd + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl;
   }
 
   function stackBB(config) {

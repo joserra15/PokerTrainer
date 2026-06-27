@@ -184,9 +184,10 @@
   function formatSyncMessage(data) {
     if (!data) return 'Sincronización completada.';
     var parts = [];
+    if (data.subscriptions) parts.push(data.subscriptions + ' suscripción' + (data.subscriptions === 1 ? '' : 'es'));
     if (data.updated) parts.push(data.updated + ' pago' + (data.updated === 1 ? '' : 's') + ' actualizado' + (data.updated === 1 ? '' : 's'));
     if (data.linked) parts.push(data.linked + ' cliente' + (data.linked === 1 ? '' : 's') + ' Stripe vinculado' + (data.linked === 1 ? '' : 's'));
-    if (!parts.length) parts.push('Sin pagos nuevos en Stripe');
+    if (!parts.length) parts.push('Sin cambios en Stripe');
     if (data.errors && data.errors.length) {
       parts.push(data.errors.length + ' error' + (data.errors.length === 1 ? '' : 'es'));
     }

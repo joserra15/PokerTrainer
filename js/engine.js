@@ -174,7 +174,8 @@
 
   function assignSeatProfiles(hand) {
     if (!VP || !hand.table) return;
-    VP.assignTableProfiles(hand, tablePositionsForHand(hand), heroTableSeat(hand));
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    VP.assignTableProfiles(hand, tablePositionsForHand(hand), heroTableSeat(hand), level);
   }
 
   function syncVillainMeta(hand) {

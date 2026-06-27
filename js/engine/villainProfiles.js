@@ -1,6 +1,7 @@
 /*
  * villainProfiles.js — Perfiles de rivales 6-max (5 villanos + héroe).
- * Cada asiento recibe un arquetipo aleatorio por mano; modula agresión, bluffs y calls.
+ * Cada asiento recibe un arquetipo por mano; modula agresión, bluffs y calls.
+ * Nivel de sesión (fish / intermediate / pro) ajusta distribución y cercanía a GTO.
  */
 (function (global) {
   'use strict';
@@ -45,12 +46,111 @@
     }
   ];
 
+  const STRONG_IDS = ['tag', 'lag', 'maniac'];
+
+  const DIFFICULTY = {
+    fish: {
+      label: 'Fish',
+      weights: { tag: 20, lag: 20, nit: 20, fish: 20, maniac: 20 },
+      minStrong: 0,
+      biasScale: 1,
+      aggroBoost: 1
+    },
+    intermediate: {
+      label: 'Intermedio',
+      weights: { tag: 45, lag: 30, nit: 15, fish: 5, maniac: 5 },
+      minStrong: 2,
+      biasScale: 0.28,
+      aggroBoost: 1.05
+    },
+    pro: {
+      label: 'Pro',
+      weights: { tag: 50, lag: 35, nit: 5, fish: 0, maniac: 10 },
+      minStrong: 4,
+      biasScale: 0.1,
+      aggroBoost: 1.22
+    }
+  };
+
   const DEFAULT = PROFILES[0];
   const byId = {};
   PROFILES.forEach(function (p) { byId[p.id] = p; });
 
+  function normalizeDifficulty(level) {
+    if (level === 'intermediate' || level === 'intermedio') return 'intermediate';
+    if (level === 'pro') return 'pro';
+    return 'fish';
+  }
+
+  function pickWeighted(weights, rnd) {
+    const r = rnd != null ? rnd : Math.random();
+    let total = 0;
+    const entries = [];
+    Object.keys(weights || {}).forEach(function (id) {
+      const w = weights[id] || 0;
+      if (w > 0 && byId[id]) {
+        total += w;
+        entries.push({ id: id, w: w });
+      }
+    });
+    if (!entries.length) return pickRandom();
+    let acc = 0;
+    const roll = r * total;
+    for (let i = 0; i < entries.length; i++) {
+      acc += entries[i].w;
+      if (roll <= acc) return byId[entries[i].id];
+    }
+    return byId[entries[entries.length - 1].id];
+  }
+
   function pickRandom() {
     return PROFILES[Math.floor(Math.random() * PROFILES.length)];
+  }
+
+  function pickForDifficulty(level, rnd) {
+    const diff = DIFFICULTY[normalizeDifficulty(level)] || DIFFICULTY.fish;
+    return pickWeighted(diff.weights, rnd);
+  }
+
+  function scaleBias(val, scale) {
+    return (val || 0) * scale;
+  }
+
+  function scaleMult(val, scale, boost) {
+    const base = val != null ? val : 1;
+    const towardGto = 1 + (base - 1) * scale;
+    return towardGto * boost;
+  }
+
+  function applyDifficulty(profile, level) {
+    const base = getProfile(profile);
+    const diff = DIFFICULTY[normalizeDifficulty(level)] || DIFFICULTY.fish;
+    if (diff.biasScale >= 0.99 && diff.aggroBoost <= 1.01) return base;
+
+    const pf = base.preflop || {};
+    const po = base.postflop || {};
+    const s = diff.biasScale;
+    const b = diff.aggroBoost;
+
+    return {
+      id: base.id,
+      label: base.label,
+      shortLabel: base.shortLabel,
+      preflop: {
+        foldBias: scaleBias(pf.foldBias, s),
+        threeBetBias: scaleBias(pf.threeBetBias, s),
+        fourBetBias: scaleBias(pf.fourBetBias, s),
+        callBias: scaleBias(pf.callBias, s)
+      },
+      postflop: {
+        betFreqMult: scaleMult(po.betFreqMult, s, b),
+        bluffFreqMult: scaleMult(po.bluffFreqMult, s, b),
+        raiseFreqMult: scaleMult(po.raiseFreqMult, s, b),
+        callMult: scaleMult(po.callMult, s, 1),
+        foldMult: scaleMult(po.foldMult, s, 1 / Math.sqrt(b)),
+        betSizeMult: scaleMult(po.betSizeMult, s, Math.sqrt(b))
+      }
+    };
   }
 
   function getProfile(idOrObj) {
@@ -62,14 +162,41 @@
   function profileForHand(hand, pos) {
     if (!hand || !pos) return DEFAULT;
     const prof = hand.table && hand.table.profiles && hand.table.profiles[pos];
-    return getProfile(prof);
+    const level = (hand.playConfig && hand.playConfig.villainLevel)
+      || (hand.table && hand.table.villainLevel)
+      || 'fish';
+    return applyDifficulty(getProfile(prof), level);
   }
 
-  function assignTableProfiles(hand, positions, heroPos) {
+  function assignTableProfiles(hand, positions, heroPos, difficulty) {
     if (!hand.table) return;
+    const level = normalizeDifficulty(difficulty || (hand.playConfig && hand.playConfig.villainLevel) || 'fish');
+    const diff = DIFFICULTY[level] || DIFFICULTY.fish;
+    hand.table.villainLevel = level;
     hand.table.profiles = hand.table.profiles || {};
-    (positions || []).forEach(function (pos) {
-      if (pos !== heroPos) hand.table.profiles[pos] = pickRandom();
+
+    const villains = (positions || []).filter(function (pos) { return pos !== heroPos; });
+    const assigned = {};
+
+    villains.forEach(function (pos) {
+      assigned[pos] = pickForDifficulty(level).id;
+    });
+
+    let strongCount = villains.filter(function (pos) {
+      return STRONG_IDS.indexOf(assigned[pos]) >= 0;
+    }).length;
+
+    while (strongCount < diff.minStrong && villains.length) {
+      const weakPos = villains.find(function (pos) {
+        return STRONG_IDS.indexOf(assigned[pos]) < 0;
+      });
+      if (!weakPos) break;
+      assigned[weakPos] = pickForDifficulty('pro').id;
+      strongCount++;
+    }
+
+    villains.forEach(function (pos) {
+      hand.table.profiles[pos] = assigned[pos];
     });
   }
 
@@ -171,7 +298,9 @@
   }
 
   global.GTOVillainProfiles = {
-    PROFILES, DEFAULT, pickRandom, getProfile, profileForHand, assignTableProfiles,
+    PROFILES, DIFFICULTY, DEFAULT, STRONG_IDS,
+    pickRandom, pickForDifficulty, normalizeDifficulty, applyDifficulty,
+    getProfile, profileForHand, assignTableProfiles,
     postflopFacingBet, postflopLead, betSizeBB,
     adjustFoldProb, adjustThreeBetProb, adjustFourBetProb, adjustCallProb
   };

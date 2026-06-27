@@ -1,6 +1,19 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { cors, json, stripeKey, stripeRequest } from '../_shared/stripe.ts';
+import { cors, json, planFromPriceId, stripeKey, stripeRequest } from '../_shared/stripe.ts';
+
+type StripeSub = {
+  id: string;
+  status: string;
+  current_period_end?: number;
+  customer?: string;
+  metadata?: Record<string, string>;
+  items?: {
+    data?: Array<{
+      price?: { id?: string; recurring?: { interval?: string } };
+    }>;
+  };
+};
 
 async function verifyAuth(req: Request) {
   const authHeader = req.headers.get('Authorization');
@@ -66,6 +79,43 @@ async function latestPaidAt(customerId: string): Promise<string | null> {
   return new Date(paidUnix * 1000).toISOString();
 }
 
+async function fetchActiveSubscription(customerId: string): Promise<StripeSub | null> {
+  for (const status of ['active', 'trialing', 'past_due']) {
+    const data = await stripeRequest(
+      '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=' + status + '&limit=1',
+      'GET'
+    );
+    const subs = (data.data as StripeSub[]) || [];
+    if (subs.length) return subs[0];
+  }
+  return null;
+}
+
+async function applyStripeSubscription(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  sub: StripeSub,
+  customerId: string
+) {
+  const priceId = sub.items?.data?.[0]?.price?.id;
+  const mapped = priceId ? planFromPriceId(priceId) : null;
+  const plan = mapped?.plan || 'pro';
+  const interval = mapped?.interval || sub.items?.data?.[0]?.price?.recurring?.interval || 'month';
+  const periodEndIso = sub.current_period_end
+    ? new Date(sub.current_period_end * 1000).toISOString()
+    : null;
+
+  await admin.rpc('pt_apply_subscription', {
+    p_user_id: userId,
+    p_plan: sub.status === 'canceled' || sub.status === 'unpaid' ? 'free' : plan,
+    p_stripe_customer_id: customerId,
+    p_stripe_subscription_id: sub.id,
+    p_status: sub.status,
+    p_period_end: periodEndIso,
+    p_interval: interval
+  });
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -95,6 +145,7 @@ serve(async (req) => {
 
   let updated = 0;
   let linked = 0;
+  let subscriptions = 0;
   let skipped = 0;
   const errors: Array<{ user_id: string; error: string }> = [];
 
@@ -118,9 +169,15 @@ serve(async (req) => {
         continue;
       }
 
+      const sub = await fetchActiveSubscription(customerId);
+      if (sub) {
+        await applyStripeSubscription(admin, prof.user_id, sub, customerId);
+        subscriptions++;
+      }
+
       const paidAt = await latestPaidAt(customerId);
       if (!paidAt) {
-        skipped++;
+        if (!sub) skipped++;
         continue;
       }
 
@@ -142,6 +199,7 @@ serve(async (req) => {
     ok: true,
     updated,
     linked,
+    subscriptions,
     skipped,
     total: (profiles || []).length,
     errors
