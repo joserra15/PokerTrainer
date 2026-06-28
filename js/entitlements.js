@@ -202,7 +202,10 @@
     var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
     var res = await c.rpc(rpc);
     if (res.error) return { ok: false, error: res.error.message };
-    await refresh();
+    if (state && state.usage) {
+      state.usage.trainer_hands_today = (Number(state.usage.trainer_hands_today) || 0) + 1;
+    }
+    refresh().catch(function (e) { console.warn('[PTEntitlements]', e); });
     return res.data || { ok: true };
   }
 

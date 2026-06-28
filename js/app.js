@@ -115,6 +115,32 @@
     el.classList.toggle('hidden', !visible);
   }
 
+  let startingHand = false;
+
+  function setPlayTableLoading(visible) {
+    const wrap = document.querySelector('#play-active .table-wrap');
+    const el = $('#play-table-loading');
+    if (wrap) wrap.classList.toggle('is-loading-hand', !!visible);
+    if (el) {
+      el.classList.toggle('hidden', !visible);
+      el.setAttribute('aria-busy', visible ? 'true' : 'false');
+    }
+  }
+
+  function setPlayHandButtonsDisabled(disabled) {
+    ['#new-hand', '#replay-hand', '#new-session', '#play-start', '#next-after', '#replay-after', '#new-session-after']
+      .forEach(function (sel) {
+        const btn = $(sel);
+        if (btn) btn.disabled = !!disabled;
+      });
+  }
+
+  function yieldToPaint() {
+    return new Promise(function (resolve) {
+      requestAnimationFrame(function () { requestAnimationFrame(resolve); });
+    });
+  }
+
   let playSessionConfig = null;
   let replayPlayConfig = null;
 
@@ -196,7 +222,7 @@
         playSessionConfig = readPlayConfig();
         resetPlaySession(false);
         showPlayTable();
-        startNewHand();
+        void startNewHand();
       });
     }
     renderHeroPosChips();
@@ -453,7 +479,7 @@
   }
 
   function bindControls() {
-    $('#new-hand').addEventListener('click', () => { pendingForce = null; startNewHand(); });
+    $('#new-hand').addEventListener('click', () => { pendingForce = null; void startNewHand(); });
     $('#replay-hand').addEventListener('click', () => replayCurrentHand());
     $('#new-session').addEventListener('click', () => resetPlaySession());
     $('#repeat-errors').addEventListener('change', (e) => { repeatErrorsMode = e.target.checked; });
@@ -542,43 +568,56 @@
 
   // ---------- Nueva mano ----------
   async function startNewHand() {
-    const Ent = window.PTEntitlements;
-    if (Ent && Ent.ensureLoaded) {
-      const ent = await Ent.ensureLoaded();
-      const check = Ent.canStartTrainerHand(ent);
-      if (!check.ok) {
-        if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
-        return;
-      }
-      if (Ent.recordTrainerHand) {
-        const rec = await Ent.recordTrainerHand();
-        if (rec && rec.ok === false) {
-          if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
+    if (startingHand) return;
+    startingHand = true;
+    setPlayTableLoading(true);
+    setPlayHandButtonsDisabled(true);
+    $('#feedback').classList.add('hidden');
+    await yieldToPaint();
+    try {
+      const Ent = window.PTEntitlements;
+      if (Ent && Ent.ensureLoaded) {
+        const ent = await Ent.ensureLoaded();
+        const check = Ent.canStartTrainerHand(ent);
+        if (!check.ok) {
+          if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
           return;
         }
+        if (Ent.recordTrainerHand) {
+          const rec = await Ent.recordTrainerHand();
+          if (rec && rec.ok === false) {
+            if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
+            return;
+          }
+        }
       }
-    }
 
-    let force = pendingForce;
-    if (!force && repeatErrorsMode) {
-      const errs = Store.getErrors();
-      if (errs.length) {
-        const e = errs[Math.floor(Math.random() * errs.length)];
-        if (replayFromStored(e)) return;
+      let force = pendingForce;
+      if (!force && repeatErrorsMode) {
+        const errs = Store.getErrors();
+        if (errs.length) {
+          const e = errs[Math.floor(Math.random() * errs.length)];
+          if (prepareReplayFromStored(e)) force = pendingForce;
+        }
       }
+      const cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
+      replayPlayConfig = null;
+      hand = Engine.newHand(force || undefined, cfg);
+      pendingForce = null;
+      $('#hand-log').innerHTML = '';
+      renderTable();
+      renderActions();
+    } catch (e) {
+      console.error('[Play] startNewHand failed', e);
+    } finally {
+      startingHand = false;
+      setPlayTableLoading(false);
+      setPlayHandButtonsDisabled(false);
     }
-    const cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
-    replayPlayConfig = null;
-    hand = Engine.newHand(force || undefined, cfg);
-    pendingForce = null;
-    $('#feedback').classList.add('hidden');
-    $('#hand-log').innerHTML = '';
-    renderTable();
-    renderActions();
   }
 
   // Repite una mano guardada (histórico, errores o mano actual) con semilla y config originales
-  function replayFromStored(rec) {
+  function prepareReplayFromStored(rec) {
     if (!rec) return false;
     const snap = rec.replaySnapshot;
     let sc = (snap && snap.scenario) || rec.scenarioRaw;
@@ -591,9 +630,13 @@
 
     const disp = (snap && snap.displayHeroPos) || rec.displayHeroPos;
     if (disp && !pendingForce.heroPos) pendingForce.displayHeroPos = disp;
+    return true;
+  }
 
+  function replayFromStored(rec) {
+    if (!prepareReplayFromStored(rec)) return false;
     goToPlay();
-    startNewHand();
+    void startNewHand();
     return true;
   }
 
@@ -1342,7 +1385,7 @@
     $('#actions').innerHTML = `<button class="btn btn-primary" id="next-after">Siguiente mano &raquo;</button>
       <button class="btn btn-ghost" id="replay-after">&#8635; Repetir esta mano</button>
       <button class="btn btn-ghost" id="new-session-after">Nueva sesión</button>`;
-    $('#next-after').addEventListener('click', () => { pendingForce = null; startNewHand(); });
+    $('#next-after').addEventListener('click', () => { pendingForce = null; void startNewHand(); });
     $('#replay-after').addEventListener('click', () => replayCurrentHand());
     $('#new-session-after').addEventListener('click', () => resetPlaySession());
 
