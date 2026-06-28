@@ -441,7 +441,7 @@
       if (p !== pos && hand.table.holeCards[p]) dead.push.apply(dead, hand.table.holeCards[p]);
     });
     const weights = weightsFn(hand.playConfig);
-    const cards = PC.sampleFromWeights(weights, dead, C.rng.random());
+    const cards = PC.sampleFromWeights(weights, dead, C.rng.random);
     if (cards) {
       hand.table.holeCards[pos] = cards;
       const vSeat = villainTableSeat(hand);
