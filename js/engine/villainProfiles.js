@@ -54,21 +54,27 @@
       weights: { tag: 20, lag: 20, nit: 20, fish: 20, maniac: 20 },
       minStrong: 0,
       biasScale: 1,
+      preflopStrict: 0,
+      leakRate: 0.1,
       aggroBoost: 1
     },
     intermediate: {
       label: 'Intermedio',
-      weights: { tag: 45, lag: 30, nit: 15, fish: 5, maniac: 5 },
+      weights: { tag: 50, lag: 35, nit: 10, fish: 5, maniac: 0 },
       minStrong: 2,
-      biasScale: 0.28,
-      aggroBoost: 1.05
+      biasScale: 0.22,
+      preflopStrict: 0.88,
+      leakRate: 0.025,
+      aggroBoost: 1.04
     },
     pro: {
       label: 'Pro',
-      weights: { tag: 50, lag: 35, nit: 5, fish: 0, maniac: 10 },
+      weights: { tag: 58, lag: 42, nit: 0, fish: 0, maniac: 0 },
       minStrong: 4,
-      biasScale: 0.1,
-      aggroBoost: 1.22
+      biasScale: 0.06,
+      preflopStrict: 1,
+      leakRate: 0,
+      aggroBoost: 1.14
     }
   };
 
@@ -125,14 +131,12 @@
   function applyDifficulty(profile, level) {
     const base = getProfile(profile);
     const diff = DIFFICULTY[normalizeDifficulty(level)] || DIFFICULTY.fish;
-    if (diff.biasScale >= 0.99 && diff.aggroBoost <= 1.01) return base;
-
+    const lvl = normalizeDifficulty(level);
     const pf = base.preflop || {};
     const po = base.postflop || {};
     const s = diff.biasScale;
     const b = diff.aggroBoost;
-
-    return {
+    const scaled = (s >= 0.99 && b <= 1.01) ? base : {
       id: base.id,
       label: base.label,
       shortLabel: base.shortLabel,
@@ -151,6 +155,11 @@
         betSizeMult: scaleMult(po.betSizeMult, s, Math.sqrt(b))
       }
     };
+    return Object.assign({}, scaled, {
+      difficultyLevel: lvl,
+      preflopStrict: diff.preflopStrict,
+      leakRate: diff.leakRate
+    });
   }
 
   function getProfile(idOrObj) {
@@ -205,8 +214,24 @@
     opts = opts || {};
     const street = opts.street || 'flop';
     const tier = opts.tier || 'medium';
-    const p = profile.postflop;
     const r = rnd != null ? rnd : Math.random();
+    const strict = profile.preflopStrict != null && profile.preflopStrict >= 0.99;
+
+    if (strict) {
+      if (street === 'river') {
+        if (tier === 'weak' || strength < 0.38) return r < 0.04 ? 'raise' : 'fold';
+        if (strength > 0.74) return r < 0.14 ? 'raise' : 'call';
+        if (strength > potOdds + 0.1) return r < 0.86 ? 'call' : 'fold';
+        if (strength > potOdds - 0.04) return r < 0.42 ? 'call' : 'fold';
+        return 'fold';
+      }
+      if (strength > 0.76) return r < 0.16 ? 'raise' : 'call';
+      if (strength > potOdds + 0.1) return r < 0.84 ? 'call' : 'fold';
+      if (strength > potOdds - 0.05) return r < 0.38 ? 'call' : 'fold';
+      return r < 0.05 ? 'raise' : 'fold';
+    }
+
+    const p = profile.postflop;
     let bluffRaise = clamp(0.1 * p.raiseFreqMult * p.bluffFreqMult, 0.05, 0.48);
     const valueRaise = clamp(0.22 * p.raiseFreqMult, 0.1, 0.45);
 
@@ -233,8 +258,21 @@
     opts = opts || {};
     const street = opts.street || 'flop';
     const tier = opts.tier || 'medium';
-    const p = profile.postflop;
     const r = rnd != null ? rnd : Math.random();
+    const strict = profile.preflopStrict != null && profile.preflopStrict >= 0.99;
+
+    if (strict) {
+      if (street === 'river') {
+        if (tier === 'weak' || strength < 0.34) return r < 0.02 ? 'bet' : 'check';
+        if (strength < 0.5) return r < 0.08 ? 'bet' : 'check';
+      }
+      if (strength > 0.72) return r < (villainIsAgg ? 0.72 : 0.58) ? 'bet' : 'check';
+      if (strength > 0.48) return r < (villainIsAgg ? 0.38 : 0.28) ? 'bet' : 'check';
+      if (strength > 0.28) return r < (villainIsAgg ? 0.14 : 0.1) ? 'bet' : 'check';
+      return r < 0.04 ? 'bet' : 'check';
+    }
+
+    const p = profile.postflop;
 
     if (street === 'river') {
       if (tier === 'weak' || strength < 0.32) {
@@ -282,19 +320,27 @@
   }
 
   function adjustThreeBetProb(base, profile) {
+    const strict = profile.preflopStrict != null ? profile.preflopStrict : 0;
+    if (strict >= 0.99) return base;
     const pf = profile.preflop || {};
-    return clamp(base + (pf.threeBetBias || 0), 0.02, 0.42);
+    const scale = Math.max(0, 1 - strict);
+    return clamp(base + (pf.threeBetBias || 0) * scale, 0.02, 0.42);
   }
 
   function adjustFourBetProb(base, profile) {
+    const strict = profile.preflopStrict != null ? profile.preflopStrict : 0;
+    if (strict >= 0.99) return base;
     const pf = profile.preflop || {};
-    return clamp(base + (pf.fourBetBias || 0), 0.01, 0.28);
+    const scale = Math.max(0, 1 - strict);
+    return clamp(base + (pf.fourBetBias || 0) * scale, 0.01, 0.28);
   }
 
   function adjustCallProb(base, profile) {
+    const strict = profile.preflopStrict != null ? profile.preflopStrict : 0;
     const pf = profile.preflop || {};
     const mult = profile.postflop ? profile.postflop.callMult : 1;
-    return clamp(base * mult + (pf.callBias || 0), 0.08, 0.92);
+    const scale = Math.max(0, 1 - strict * 0.85);
+    return clamp(base * (1 + (mult - 1) * scale) + (pf.callBias || 0) * scale, 0.08, 0.92);
   }
 
   global.GTOVillainProfiles = {

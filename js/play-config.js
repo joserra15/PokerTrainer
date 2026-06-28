@@ -235,6 +235,12 @@
     return data ? data.fourBet : 'QQ+, AKs, AKo';
   }
 
+  /** Limper en spot de iso. */
+  function sampleLimpWeights(config) {
+    if (!D || !D.LIMP_RANGE || !W) return {};
+    return W.fromSets({ call: D.LIMP_RANGE });
+  }
+
   /** Pagador en squeeze: rango de call, no cartas aleatorias. */
   function sampleCallerWeights(scenario) {
     if (scenario.type !== 'squeeze' || !scenario.callerPos) return {};
@@ -268,6 +274,8 @@
     } else if (scenario.type === 'squeeze') {
       deals.push({ pos: scenario.openerPos, weights: sampleVillainWeights(scenario, config), role: 'opener' });
       deals.push({ pos: scenario.callerPos, weights: sampleCallerWeights(scenario), role: 'caller' });
+    } else if (scenario.type === 'isoLimp') {
+      deals.push({ pos: scenario.limperPos, weights: sampleLimpWeights(config), role: 'limper' });
     } else if (scenario.type === 'RFI') {
       const heroEng = scenario.engineHeroPos || enginePos(scenario.heroPos);
       if (heroEng && heroEng !== 'BB') {
@@ -378,10 +386,11 @@
     DEFAULT, normalize, pickScenario, labelFor,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9,
     sampleHeroWeights, sampleVillainWeights, sampleRfiDefenderWeights,
-    sampleFace4betVillainWeights, face4betVillainRangeStr,
+    sampleFace4betVillainWeights, face4betVillainRangeStr, sampleLimpWeights,
     sampleCallerWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
-    is9Max, isMtt, heroPositions, enginePos, parseVsKey, filterWeights, stackBB
+    is9Max, isMtt, heroPositions, enginePos, parseVsKey, filterWeights, stackBB,
+    vsRfiTable, openRaiseTable
   };
 })(window);

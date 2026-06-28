@@ -395,6 +395,14 @@ const proProf = VP.profileForHand({ table: { profiles: { BB: 'tag' } }, playConf
 const fishProf = VP.profileForHand({ table: { profiles: { BB: 'tag' } }, playConfig: { villainLevel: 'fish' } }, 'BB');
 console.log('Pro vs fish bluff mult', proProf.postflop.bluffFreqMult > fishProf.postflop.bluffFreqMult ? 'OK' : 'FAIL');
 
+const trash4bPro = VPF.openerVs3BetAction('42o', proProf, 0.99, { gameType: 'cash6', stackDepth: 'standard' });
+const trash3bPro = VPF.defendVsOpen('42o', proProf, 0.99, 'BB', 'CO', { gameType: 'cash6', stackDepth: 'standard' });
+console.log('Pro 42o vs3bet', trash4bPro, 'defend', trash3bPro, '(expect fold fold)');
+
+const trashIsoPro = VPF.limperVsIsoAction('42o', proProf, 0.99);
+const trashSqPro = VPF.openerVsSqueezeAction('72o', proProf, 0.99, 'CO', { gameType: 'cash6', stackDepth: 'standard' });
+console.log('Pro 42o iso', trashIsoPro, '72o squeeze', trashSqPro, '(expect fold fold)');
+
 const VT = sandbox.window.GTOVillainTracking;
 const RM = sandbox.window.PTRangeMatrix;
 const mxProf = VT.buildVillainMatrixProfile({
@@ -458,6 +466,8 @@ const evOk = badCall.evLoss >= 2 && badCall.evErroneous
   && handEv.expectedNet === 8.96 && handEv.varianceAdj === 90.62
   && profCount === 5 && maniacAgg === 'bet' && nitAgg === 'check'
   && trash3b === 'fold' && trash4b === 'fold' && trashAi === 'fold' && weakRiver === 'check'
+  && trash4bPro === 'fold' && trash3bPro === 'fold'
+  && trashIsoPro === 'fold' && trashSqPro === 'fold'
   && (mx55 === 'value' || mx55 === 'semibluff') && mxOut === 'out' && mxProf.lineNarrative;
 
 const ls = {

@@ -225,6 +225,8 @@
     if (VPF && code && hand.hero.pos) {
       return VPF.defendVsOpen(code, profile, C.rng.random(), 'BB', hand.hero.pos, rangeCtx(hand));
     }
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, 'BB');
     const r = C.rng.random();
     let foldProb = VP ? VP.adjustFoldProb(clamp(0.48 - s * 0.42, 0.10, 0.58), profile)
@@ -256,6 +258,8 @@
     if (VPF && code && hand.hero.pos) {
       return VPF.defendVsOpen(code, profile, C.rng.random(), pos, hand.hero.pos, rangeCtx(hand));
     }
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, pos);
     const toCall = seatToCall(hand, pos, openSize);
     const r = C.rng.random();
@@ -288,6 +292,7 @@
 
     for (let ri = 0; ri < responders.length; ri++) {
       const pos = responders[ri];
+      if (sessionStrict(hand)) ensureDefenderHand(hand, pos, hand.hero.pos);
       const act = blindDefendVsOpen(hand, pos, openSize);
       if (act === 'fold') {
         markFolded(hand, pos);
@@ -312,6 +317,7 @@
     }
 
     if (threeBettor) {
+      ensureThreeBetHand(hand, threeBettor, hand.hero.pos);
       hand.villain.pos = threeBettor;
       hand.villain.cards = villainHoleCards(hand);
       hand.villain.rangeStr = bb3betRange(hand.hero.pos, hand);
@@ -342,10 +348,105 @@
 
   function limperDefendVsIso(hand, limperPos, isoSize) {
     const profile = profileFor(hand, limperPos);
+    const code = seatHoleCode(hand, limperPos);
+    if (VPF && code) {
+      return VPF.limperVsIsoAction(code, profile, C.rng.random());
+    }
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, limperPos);
     let callProb = clamp(0.18 + s * 0.62 - isoSize * 0.02, 0.12, 0.78);
     if (VP) callProb = VP.adjustCallProb(callProb, profile);
     return C.rng.random() < callProb ? 'call' : 'fold';
+  }
+
+  function sessionStrict(hand) {
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    return level === 'pro' || level === 'intermediate';
+  }
+
+  function ensureSeatHand(hand, pos, validateFn, weightsFn) {
+    if (!sessionStrict(hand) || !VPF) return;
+    const ctx = rangeCtx(hand);
+    for (let i = 0; i < 14; i++) {
+      const code = seatHoleCode(hand, pos);
+      if (code && validateFn(code, ctx, pos)) return;
+      resampleSeatFromWeights(hand, pos, weightsFn);
+    }
+  }
+
+  function ensureOpenerOpenHand(hand, opener) {
+    ensureSeatHand(hand, opener, function (code, ctx) {
+      return VPF.isInOpenRange(code, opener, ctx);
+    }, function (cfg) {
+      return global.PTPlayConfig.sampleVillainWeights(hand.scenario, cfg);
+    });
+  }
+
+  function ensureLimperHand(hand, limper) {
+    ensureSeatHand(hand, limper, function (code) {
+      return VPF.isInLimpRange(code);
+    }, function (cfg) {
+      return global.PTPlayConfig.sampleLimpWeights(cfg);
+    });
+  }
+
+  function ensureDefenderHand(hand, defender, opener) {
+    ensureSeatHand(hand, defender, function (code, ctx) {
+      return VPF.isInDefendRange(code, defender, opener, ctx);
+    }, function (cfg) {
+      const PC = global.PTPlayConfig;
+      const heroEng = hand.hero.pos;
+      if (!PC || !heroEng) return {};
+      const key = defender + '_vs_' + heroEng;
+      const d = PC.vsRfiTable(cfg)[key];
+      if (!d) return PC.sampleRfiDefenderWeights(hand.scenario, cfg);
+      return global.GTORangesWeights.fromSets({
+        threeBet: d.threeBet,
+        threeBetMix: d.threeBetMix,
+        call: d.call,
+        callMix: d.callMix
+      });
+    });
+  }
+
+  function ensureThreeBetHand(hand, defender, opener) {
+    ensureSeatHand(hand, defender, function (code, ctx) {
+      return VPF.isInThreeBetRange(code, defender, opener, ctx);
+    }, function (cfg) {
+      const PC = global.PTPlayConfig;
+      const key = defender + '_vs_' + opener;
+      const d = PC.vsRfiTable(cfg)[key];
+      if (!d || !global.GTORangesWeights) return {};
+      return global.GTORangesWeights.fromSets({
+        threeBet: d.threeBet,
+        threeBetMix: d.threeBetMix
+      });
+    });
+  }
+
+  function ensureOpenerFourBetHand(hand, opener) {
+    ensureSeatHand(hand, opener, function (code, ctx) {
+      return VPF.isInFourBetRange(code, ctx);
+    }, function (cfg) {
+      return global.PTPlayConfig.sampleFace4betVillainWeights(cfg);
+    });
+  }
+
+  function resampleSeatFromWeights(hand, pos, weightsFn) {
+    const PC = global.PTPlayConfig;
+    if (!PC || !hand.playConfig || !hand.table) return;
+    const dead = [];
+    Object.keys(hand.table.holeCards || {}).forEach(function (p) {
+      if (p !== pos && hand.table.holeCards[p]) dead = dead.concat(hand.table.holeCards[p]);
+    });
+    const weights = weightsFn(hand.playConfig);
+    const cards = PC.sampleFromWeights(weights, dead, C.rng.random());
+    if (cards) {
+      hand.table.holeCards[pos] = cards;
+      const vSeat = villainTableSeat(hand);
+      if (pos === vSeat || pos === hand.villain.pos) hand.villain.cards = cards;
+    }
   }
 
   function openerVs3Bet(hand, opener, threeBetSize) {
@@ -354,6 +455,8 @@
     if (VPF && code) {
       return VPF.openerVs3BetAction(code, profile, C.rng.random(), rangeCtx(hand));
     }
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, opener);
     let foldProb = clamp(0.58 - s * 0.48, 0.14, 0.70);
     let fourBetProb = clamp((s - 0.68) * 0.38, 0.02, 0.16);
@@ -369,6 +472,12 @@
 
   function openerVsSqueeze(hand, opener, squeezeSize) {
     const profile = profileFor(hand, opener);
+    const code = seatHoleCode(hand, opener);
+    if (VPF && code) {
+      return VPF.openerVsSqueezeAction(code, profile, C.rng.random(), opener, rangeCtx(hand));
+    }
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, opener);
     let foldProb = clamp(0.55 - s * 0.44, 0.16, 0.68);
     if (VP) foldProb = VP.adjustFoldProb(foldProb, profile);
@@ -729,6 +838,7 @@
     const { hero, opener } = parseVsKey(hand.scenario.key);
     hand.hero.pos = hero;
     hand.villain.pos = opener;
+    ensureOpenerOpenHand(hand, opener);
     hand.villain.rangeStr = openRangeStr(opener, hand);
     initVillainTracker(hand);
     const openSize = opener === 'SB' ? SB_OPEN : OPEN;
@@ -779,6 +889,7 @@
     const { openerPos, callerPos } = hand.scenario;
     hand.hero.pos = heroPos;
     hand.villain.pos = openerPos;
+    ensureOpenerOpenHand(hand, openerPos);
     hand.villain.rangeStr = openRangeStr(openerPos, hand);
     initVillainTracker(hand);
     const openSize = OPEN;
@@ -816,6 +927,7 @@
     const { heroPos, limperPos } = hand.scenario;
     hand.hero.pos = heroPos;
     hand.villain.pos = limperPos;
+    ensureLimperHand(hand, limperPos);
     hand.villain.rangeStr = LIMP_RANGE;
     initVillainTracker(hand);
     // bote: ciegas + limp (1bb)
@@ -1000,8 +1112,10 @@
       let vAct = 'call';
       if (VPF && vCode) {
         vAct = VPF.villainVs4BetAction(vCode, vProf, C.rng.random());
-      } else if (C.rng.random() < foldProb) {
-        vAct = 'fold';
+      } else {
+        const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+        if (level === 'pro' || level === 'intermediate') vAct = 'fold';
+        else if (C.rng.random() < foldProb) vAct = 'fold';
       }
       if (vAct === 'fold') {
         setVillainAct(hand, 'fold');
@@ -1088,10 +1202,16 @@
       hand.heroInvested = node.threeBetSize;
       setHeroAct(hand, 'raise', node.threeBetSize);
       resolvePendingAfterHero(hand);
-      const cont = openerVs3Bet(hand, opener, node.threeBetSize);
+      let cont = openerVs3Bet(hand, opener, node.threeBetSize);
       if (cont === 'fold') {
         setVillainAct(hand, 'fold');
         return finish(hand, { reason: `${opener} foldea ante tu 3-bet.`, heroNet: round2(hand.potBB) });
+      }
+      if (cont === '4bet') {
+        const openerCode = seatHoleCode(hand, opener);
+        if (VPF && openerCode && !VPF.isInFourBetRange(openerCode, rangeCtx(hand))) {
+          cont = 'call';
+        }
       }
       if (cont === '4bet') {
         const fbSize = round2(node.threeBetSize * 2.3);
@@ -1115,6 +1235,9 @@
     const { hero, opener } = parseVsKey(hand.scenario.key);
     hand.hero.pos = hero;
     hand.villain.pos = opener;
+    hand.villain.cards = villainHoleCards(hand);
+    ensureOpenerFourBetHand(hand, opener);
+    hand.villain.cards = villainHoleCards(hand);
     hand.villain.rangeStr = global.PTPlayConfig
       ? global.PTPlayConfig.face4betVillainRangeStr(hand.playConfig)
       : R.VS_3BET.fourBet;
