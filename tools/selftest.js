@@ -403,6 +403,19 @@ const trashIsoPro = VPF.limperVsIsoAction('42o', proProf, 0.99);
 const trashSqPro = VPF.openerVsSqueezeAction('72o', proProf, 0.99, 'CO', { gameType: 'cash6', stackDepth: 'standard' });
 console.log('Pro 42o iso', trashIsoPro, '72o squeeze', trashSqPro, '(expect fold fold)');
 
+let rfiProRaiseOk = false;
+try {
+  const hPro = Engine.newHand(
+    { type: 'RFI', heroPos: 'UTG', seed: 9001 },
+    { gameType: 'cash6', stackDepth: 'standard', villainLevel: 'pro' }
+  );
+  Engine.act(hPro, 'raise');
+  rfiProRaiseOk = true;
+} catch (e) {
+  console.error('RFI UTG pro raise', e.message);
+}
+console.log('RFI UTG pro raise', rfiProRaiseOk ? 'OK' : 'FAIL');
+
 const VT = sandbox.window.GTOVillainTracking;
 const RM = sandbox.window.PTRangeMatrix;
 const mxProf = VT.buildVillainMatrixProfile({
@@ -467,7 +480,7 @@ const evOk = badCall.evLoss >= 2 && badCall.evErroneous
   && profCount === 5 && maniacAgg === 'bet' && nitAgg === 'check'
   && trash3b === 'fold' && trash4b === 'fold' && trashAi === 'fold' && weakRiver === 'check'
   && trash4bPro === 'fold' && trash3bPro === 'fold'
-  && trashIsoPro === 'fold' && trashSqPro === 'fold'
+  && trashIsoPro === 'fold' && trashSqPro === 'fold' && rfiProRaiseOk
   && (mx55 === 'value' || mx55 === 'semibluff') && mxOut === 'out' && mxProf.lineNarrative;
 
 const ls = {

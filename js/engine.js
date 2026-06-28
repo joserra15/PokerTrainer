@@ -438,7 +438,7 @@
     if (!PC || !hand.playConfig || !hand.table) return;
     const dead = [];
     Object.keys(hand.table.holeCards || {}).forEach(function (p) {
-      if (p !== pos && hand.table.holeCards[p]) dead = dead.concat(hand.table.holeCards[p]);
+      if (p !== pos && hand.table.holeCards[p]) dead.push.apply(dead, hand.table.holeCards[p]);
     });
     const weights = weightsFn(hand.playConfig);
     const cards = PC.sampleFromWeights(weights, dead, C.rng.random());
