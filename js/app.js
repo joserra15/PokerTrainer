@@ -244,6 +244,7 @@
       PTDisclaimer.mount('#sessions-disclaimer', 'full');
       PTDisclaimer.mount('#stats-disclaimer', 'short');
       PTDisclaimer.mount('#history-disclaimer', 'short');
+      PTDisclaimer.mount('#app-disclaimer', 'foot');
     }
     window.addEventListener('pt-go-tab', (e) => {
       const d = e.detail || {};
@@ -593,9 +594,8 @@
     pendingForce = null;
     if (showSetup !== false) {
       playSessionConfig = null;
-      showPlaySetup();
       hand = null;
-      goToTab('home');
+      goToTab('play', { setup: true });
     }
   }
 
@@ -785,29 +785,8 @@
   function handNameOnBoard() {
     if (!hand.board.length) return '';
     try {
-      const hero = hand.hero.cards;
-      const board = hand.board;
-      const ev = Cards.evaluate(hero.concat(board));
-      let label = ev.name;
-      if (board.length >= 5 && ev.category < 5) {
-        const counts = { s: 0, h: 0, d: 0, c: 0 };
-        board.forEach((c) => { counts[c[1]] = (counts[c[1]] || 0) + 1; });
-        const suitNames = { c: 'tréboles', h: 'corazones', d: 'diamantes', s: 'picas' };
-        for (const s of ['s', 'h', 'd', 'c']) {
-          if (counts[s] < 3) continue;
-          const heroSuit = hero.filter((c) => c[1] === s).length;
-          const total = counts[s] + heroSuit;
-          if (total >= 4 && total < 5) {
-            label += ' (' + total + ' ' + suitNames[s] + ' en total, sin color; hacen falta 5)';
-            break;
-          }
-          if (counts[s] >= 4 && heroSuit === 0) {
-            label += ' (4 ' + suitNames[s] + ' en mesa; vulnerable a color)';
-            break;
-          }
-        }
-      }
-      return 'Tu mano: ' + label;
+      const ev = Cards.evaluate(hand.hero.cards.concat(hand.board));
+      return 'Tu mano: ' + ev.name;
     } catch (e) { return ''; }
   }
 

@@ -1400,6 +1400,11 @@ body.paywall-open { overflow: hidden; }
   align-items: center;
   gap: 6px;
 }
+.app-foot-disclaimer {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.32);
+  letter-spacing: 0.2px;
+}
 .app-legal-foot .legal-links,
 .auth-legal-foot .legal-links {
   display: flex;

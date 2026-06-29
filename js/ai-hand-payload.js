@@ -259,6 +259,14 @@
       h.heroNetBB + '|' + h.totalEvLoss + '|' + wcShort(h.worstClass);
   }
 
+  function studentFirstName() {
+    const u = (global.PTAuth && global.PTAuth.getUser) ? global.PTAuth.getUser() : global.PT_AUTH_USER;
+    if (!u || !u.name) return undefined;
+    const n = String(u.name).trim();
+    if (!n) return undefined;
+    return n.split(/\s+/)[0];
+  }
+
   function buildSession(session) {
     const st = session.stats || {};
     const hands = session.hands || [];
@@ -277,7 +285,7 @@
 
     const payload = {
       src: 'sessionGlobal',
-      name: String(session.fileName || 'session').replace(/\.txt$/i, ''),
+      file: String(session.fileName || 'session').replace(/\.txt$/i, ''),
       bb: bb,
       st: {
         n: st.nHands,
@@ -311,6 +319,8 @@
         ' manos con EV perdido; prioriza patrones, no lista exhaustiva.';
     }
     if (clean.length) payload.clean = clean;
+    const student = studentFirstName();
+    if (student) payload.student = student;
     return payload;
   }
 

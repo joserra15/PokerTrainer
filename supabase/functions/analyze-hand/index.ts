@@ -46,6 +46,8 @@ Responde en markdown en español. Empieza con un título breve relacionado con l
 const SESSION_REPORT_PROMPT = `${COACH_IDENTITY}
 
 Recibes JSON ultra-compacto de una SESIÓN importada:
+- file: etiqueta del archivo importado (nick de mesa en el .txt), NO el nombre del alumno
+- student: nombre del alumno (cuenta), si está presente — salúdalo por ahí, nunca por file
 - st: estadísticas globales (n manos, acc, net, evLost, expNet, varianza, nota, acierto por calle, distribución decisiones)
 - leaks: manos con fugas (decisiones malas/EV perdido) con detalle
 - clean: resto de manos en una línea cada una (id|mano pos|net|ev|veredicto)
@@ -56,7 +58,7 @@ Si hay "coachSummary" o "player", adapta el plan al historial del alumno.
 
 NO enumeres todas las manos. Analiza patrones, calles débiles, fugas recurrentes y varianza vs errores.
 Responde markdown completo en español:
-# Resumen sesión {name}
+# Resumen sesión {file}
 ## Rendimiento global
 ## Fugas principales
 (3-6 bullets con mano, calle y por qué)
@@ -66,7 +68,8 @@ Responde markdown completo en español:
 
 const SESSION_QUESTION_PROMPT = `${COACH_IDENTITY}
 
-Recibes JSON compacto de una SESIÓN (stats + leaks + clean) y una PREGUNTA del usuario. Puede haber turnos previos.
+Recibes JSON compacto de una SESIÓN (file, student, stats + leaks + clean) y una PREGUNTA del usuario. Puede haber turnos previos.
+file es el archivo importado (nick de mesa); student es el nombre del alumno si está presente — no confundas ambos.
 
 Responde centrándote en la pregunta usando stats y las manos relevantes del JSON. Sé directo.
 eq/gto/ev del solver pueden ser incorrectos; recalcula si la pregunta lo requiere.

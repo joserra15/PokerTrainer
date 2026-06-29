@@ -9,6 +9,9 @@
   var SHORT = 'Análisis heurístico GTO · no es solver exacto.';
 
   function html(variant) {
+    if (variant === 'foot') {
+      return '<span class="app-foot-disclaimer" role="note">' + SHORT + '</span>';
+    }
     var cls = 'study-disclaimer' + (variant === 'inline' ? ' study-disclaimer-inline' : '');
     var body = variant === 'short' ? SHORT : TEXT;
     return '<aside class="' + cls + '" role="note"><span class="study-disclaimer-icon" aria-hidden="true">ℹ</span><span>' + body + '</span></aside>';

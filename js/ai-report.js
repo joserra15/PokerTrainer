@@ -214,12 +214,20 @@
       .replace(/"/g, '&quot;');
   }
 
+  function authUserFirstName() {
+    const u = (global.PTAuth && global.PTAuth.getUser) ? global.PTAuth.getUser() : global.PT_AUTH_USER;
+    if (!u) return '';
+    if (u.name) {
+      const n = String(u.name).trim();
+      if (n) return n.split(/\s+/)[0];
+    }
+    if (u.email) return String(u.email).split('@')[0];
+    return '';
+  }
+
   function userFirstName(options) {
     if (options && options.userName) return String(options.userName).trim();
-    const u = global.PT_AUTH_USER;
-    if (!u) return '';
-    const n = u.given_name || u.name || u.email || '';
-    return String(n).split(/[\s@]/)[0];
+    return authUserFirstName();
   }
 
   function formatBB(x) {
@@ -785,7 +793,7 @@
     const titleId = 'home-coach-title';
     const copy = {
       title: greet,
-      lead: 'Puedes consultarme las dudas de cualquier mano: analizo tus cartas, el board, las frecuencias GTO y el EV de cada decisión. Solo respondo con el contexto real de lo que jugaste — no invento spots.'
+      lead: 'Analizo manos y sesiones con el contexto real de lo que jugaste: cartas, board, frecuencias GTO y EV estimado. No invento spots ni uso tu nick de mesa como si fuera tu nombre.'
     };
 
     container.innerHTML =
@@ -799,16 +807,17 @@
       coachStatusHtml() +
       '</div></div>' +
       '<div class="home-coach-steps">' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Informe automático</h4><p>Al terminar una mano en el entrenador, pulsa <em>Informe de la mano</em> y recibirás un análisis completo con fugas y líneas alternativas.</p></div>' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Pregunta concreta</h4><p>¿Dudas en un sizing o un fold? Usa <em>Pregunta concreta</em> (hasta ' + QUESTION_MAX + ' caracteres). Ej.: «¿Debí foldear el turn con este bet?»</p></div>' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">3</span><h4>Sesiones importadas</h4><p>En <em>Sesiones</em>, revisa manos reales paso a paso o pide un informe de toda la sesión con tus estadísticas y errores.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Informe automático</h4><p>Al terminar una mano en el entrenador, o en el resumen de una sesión importada, pulsa <em>Informe de la mano</em> o <em>Informe de la sesión</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Pregunta concreta</h4><p>¿Dudas en un sizing o un fold? Usa <em>Pregunta concreta</em> (hasta ' + QUESTION_MAX + ' caracteres). Mantengo el hilo de la conversación en la misma mano o sesión.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">3</span><h4>Estadísticas y sesiones</h4><p>En <em>Estadísticas</em>, pide <em>Consejos de entrenamiento</em> según tus leaks. En <em>Sesiones</em>, revisa manos paso a paso o analiza toda la sesión importada.</p></div>' +
       '</div>' +
       '<div class="home-coach-where">' +
       '<h4>Dónde encontrarme</h4>' +
       '<ul>' +
       '<li><strong>Entrenador</strong> — al finalizar cada mano, debajo del resultado.</li>' +
-      '<li><strong>Sesiones</strong> — en la revisión de una mano y en el resumen de la sesión.</li>' +
-      '<li><strong>Paso a paso</strong> — botón «Enviar pregunta» en cada decisión de la revisión.</li>' +
+      '<li><strong>Sesiones</strong> — resumen de sesión, revisión de mano y paso a paso.</li>' +
+      '<li><strong>Estadísticas</strong> — bloque IA Coach con informe global y preguntas.</li>' +
+      '<li><strong>Planes</strong> — Study incluye 5 consultas/mes; Coach, 35/mes. Puedes ampliar con bonos de consultas.</li>' +
       '</ul></div>' +
       '<div class="home-coach-foot">' +
       '<p class="muted-text">Solo se envían datos de poker (cartas, acciones, análisis GTO y estadísticas de sesión) cuando lo solicitas y tras dar tu consentimiento. ' +
