@@ -167,13 +167,15 @@
     const posEl = $('#setup-hero-pos .setup-chip.active');
     const hrEl = $('#setup-hand-range .setup-chip.active');
     const vlEl = $('#setup-villain-level .setup-chip.active');
+    const stEl = $('#setup-practice-street .setup-chip.active');
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
       stackDepth: sdEl ? sdEl.dataset.val : 'standard',
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'playable',
-      villainLevel: vlEl ? vlEl.dataset.val : 'fish'
+      villainLevel: vlEl ? vlEl.dataset.val : 'fish',
+      practiceStreet: stEl ? stEl.dataset.val : 'random'
     });
   }
 
@@ -216,6 +218,7 @@
     bindChipGroup('#setup-scenario', renderHeroPosChips);
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
+    bindChipGroup('#setup-practice-street');
     const startBtn = $('#play-start');
     if (startBtn) {
       startBtn.addEventListener('click', () => {
@@ -236,6 +239,16 @@
     bindPlaySetup();
     bindRangesFilters();
     bindHome();
+    if (window.PTDisclaimer) {
+      PTDisclaimer.mount('#sessions-disclaimer', 'full');
+      PTDisclaimer.mount('#stats-disclaimer', 'short');
+      PTDisclaimer.mount('#history-disclaimer', 'short');
+    }
+    window.addEventListener('pt-go-tab', (e) => {
+      const d = e.detail || {};
+      if (d.tab === 'play') goToTab('play', { setup: !!d.setup, table: !!d.table });
+      else if (d.tab) goToTab(d.tab);
+    });
     if (window.PTBilling) {
       window.PTBilling.bindPaywall();
       window.PTBilling.handleCheckoutReturn();
@@ -322,6 +335,8 @@
     }
 
     finishHomeBoot();
+    if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#home-usage'));
+    if (window.PTReEngage && PTReEngage.renderBanner) PTReEngage.renderBanner();
   }
 
   function bindHome() {
@@ -376,9 +391,13 @@
     if (tabId === 'history') renderHistory();
     if (tabId === 'errors') renderErrors();
     if (tabId === 'stats') renderStats();
+    if (tabId === 'play' && window.PTUsageUI && PTUsageUI.refreshHost) {
+      PTUsageUI.refreshHost($('#play-usage'));
+    }
     if (tabId === 'ranges') renderRangesExplorer();
     if (tabId === 'pricing') renderPricing();
     if (tabId === 'sessions') {
+      if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#sessions-usage'));
       showSessionsView('home');
       renderSessionsList();
       refreshSessionsFromCloud();
@@ -606,14 +625,18 @@
       }
 
       let force = pendingForce;
+      const cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
       if (!force && repeatErrorsMode) {
-        const errs = Store.getErrors();
+        let errs = Store.getErrors();
+        const streetFilter = cfg && cfg.practiceStreet;
+        if (streetFilter && streetFilter !== 'random') {
+          errs = errs.filter((e) => e.street === streetFilter);
+        }
         if (errs.length) {
           const e = errs[Math.floor(Math.random() * errs.length)];
           if (prepareReplayFromStored(e)) force = pendingForce;
         }
       }
-      const cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
       replayPlayConfig = null;
       hand = Engine.newHand(force || undefined, cfg);
       pendingForce = null;
@@ -1378,6 +1401,7 @@
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
     if (d.errors && d.errors.length) html += `<div class="result-line" style="border-color:var(--red)">${d.errors.map((e) => escapeHtml(e.msg)).join(' · ')}</div>`;
     html += renderOptionGrid(d.optionBreakdown, d.action, d.best);
+    if (window.PTDisclaimer) html += PTDisclaimer.html('short');
     fb.innerHTML = html;
   }
 
@@ -1407,6 +1431,7 @@
     session.hands++;
     session.net += r.heroNet || 0;
     Store.saveHand(hand);
+    if (window.PTReEngage && PTReEngage.touchTrain) PTReEngage.touchTrain();
     refreshSessionUI();
 
     // mostrar resultado completo + cartas del villano
@@ -1460,6 +1485,7 @@
       html += '</div>';
     }
 
+    if (window.PTDisclaimer) html += PTDisclaimer.html('short');
     fb.innerHTML = html;
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-report-trainer'), {
@@ -1519,15 +1545,20 @@
   function renderHistory() {
     let hist = Store.getHistory();
     const Ent = window.PTEntitlements;
+    let cutoffNote = '';
     if (Ent && Ent.historyCutoffDate) {
       const cutoff = Ent.historyCutoffDate(Ent.get());
       if (cutoff) {
         hist = hist.filter((h) => h.createdAt && h.createdAt >= cutoff);
+        cutoffNote = '<p class="muted-text history-cutoff-note">Plan Gratis: mostrando manos de los últimos 30 días.</p>';
       }
     }
     const box = $('#history-list');
-    if (!hist.length) { box.innerHTML = '<div class="empty">Aún no hay manos jugadas.</div>'; return; }
-    box.innerHTML = hist.map((h) => {
+    if (!hist.length) {
+      box.innerHTML = cutoffNote + '<div class="empty">Aún no hay manos jugadas.</div>';
+      return;
+    }
+    box.innerHTML = cutoffNote + hist.map((h) => {
       const worst = worstClass(h.decisions);
       const netCls = h.heroNet >= 0 ? 'net-pos' : 'net-neg';
       return `<div class="record">
@@ -1584,6 +1615,11 @@
 
   // ---------- Estadísticas ----------
   function renderStats() {
+    if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#stats-usage'));
+    if (window.PTProgress && PTProgress.renderDashboard) PTProgress.renderDashboard($('#progress-dashboard'));
+    if (window.PTLeaks && PTLeaks.renderPanel) {
+      PTLeaks.renderPanel($('#leaks-panel'), Store.getErrors(), (rec) => replayFromStored(rec));
+    }
     const st = Store.getStats();
     const box = $('#stats-content');
     const total = st.decisions || 1;

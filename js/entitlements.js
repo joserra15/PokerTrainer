@@ -122,6 +122,9 @@
       state = localFallback();
     }
     applyToUser(state);
+    if (global.dispatchEvent) {
+      global.dispatchEvent(new CustomEvent('pt-entitlements-updated', { detail: state }));
+    }
     return state;
   }
 

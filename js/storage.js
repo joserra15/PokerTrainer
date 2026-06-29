@@ -214,6 +214,8 @@
     const errs = getErrors();
     hand.decisions.forEach((d, idx) => {
       if (d.class === 'error' || d.class === 'imprecisa') {
+        const sc = hand.scenario || {};
+        const spotKey = sc.type + '|' + (hand.displayHeroPos || hand.hero.pos || rec.heroPos || '?') + '|' + (d.street || 'preflop');
         errs.unshift({
           id: rec.id + '_' + idx,
           handId: rec.id,
@@ -228,6 +230,7 @@
           heroCode: rec.heroCode,
           heroCards: rec.heroCards,
           street: d.street,
+          spotKey: spotKey,
           chosen: d.label,
           chosenAction: d.action,
           best: d.best,
