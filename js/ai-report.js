@@ -36,6 +36,15 @@
       loadingQuestion: 'Analizando tu pregunta sobre la sesión…',
       reportKind: 'Informe de sesión',
       consent: 'las estadísticas y manos de esta sesión (cartas, acciones y análisis GTO)'
+    },
+    statsGlobal: {
+      reportBtn: 'Consejos de entrenamiento',
+      questionLabel: 'Tu pregunta sobre tu progreso',
+      questionPh: 'Ej.: ¿Qué calle debería priorizar esta semana?',
+      loadingReport: 'Analizando tu progreso y leaks…',
+      loadingQuestion: 'Analizando tu pregunta…',
+      reportKind: 'Informe de estudio',
+      consent: 'tus estadísticas globales, progreso semanal y leaks del entrenador'
     }
   };
 
@@ -73,6 +82,7 @@
       ? p.getSessionId()
       : (dataObj && dataObj.id && p.kind === 'session' ? dataObj.id : p.sessionId);
     if (p.kind === 'session' && sessionId) return { kind: 'session', sessionId: sessionId };
+    if (p.kind === 'stats') return { kind: 'stats' };
     if (p.kind === 'sessionHand' && sessionId) {
       const handId = typeof p.getHandId === 'function' ? p.getHandId() : (dataObj && dataObj.id);
       return handId ? { kind: 'sessionHand', sessionId: sessionId, handId: handId } : null;
@@ -259,6 +269,21 @@
       return { title: title, lead: lead };
     }
 
+    if (scope === 'statsGlobal' && dataObj) {
+      const st = dataObj.stats || {};
+      const total = st.decisions || 0;
+      const acc = total ? Math.round(((st.optima + st.aceptable) / total) * 100) : 0;
+      const leaks = dataObj.leaks || [];
+      const title = greet + '¿Qué deberías entrenar ahora?';
+      const lead =
+        'Llevas <strong>' + (st.handsPlayed || 0) + ' manos</strong> en el entrenador con ' +
+        '<strong>' + acc + '%</strong> de acierto y ' +
+        '<strong>-' + formatBB(st.totalEvLoss || 0) + ' bb</strong> de EV perdido.' +
+        (leaks.length ? ' Tienes <strong>' + leaks.length + '</strong> leaks recurrentes detectados.' : '') +
+        coachAskSuffix();
+      return { title: title, lead: lead };
+    }
+
     if (dataObj && (scope === 'session' || scope === 'hand')) {
       const code = cardsLabel(dataObj);
       const pos = dataObj.heroPos || (dataObj.hero && dataObj.hero.pos) || (dataObj.displayHeroPos) || '—';
@@ -397,6 +422,9 @@
     if (scope === 'sessionGlobal') {
       return mode === 'question' ? 'session_question' : 'session_report';
     }
+    if (scope === 'statsGlobal') {
+      return mode === 'question' ? 'stats_question' : 'stats_report';
+    }
     return mode === 'question' ? 'question' : 'report';
   }
 
@@ -490,6 +518,9 @@
 
   function cacheKeyFor(scope, objId, mode, question) {
     const Payload = global.PTAIHandPayload;
+    if (scope === 'statsGlobal' && Payload && Payload.statsCacheKey) {
+      return Payload.statsCacheKey(mode, question);
+    }
     if (scope === 'sessionGlobal' && Payload && Payload.sessionCacheKey) {
       return Payload.sessionCacheKey(objId, mode, question);
     }
@@ -506,6 +537,7 @@
 
   function getObjId(scope, obj) {
     if (!obj) return null;
+    if (scope === 'statsGlobal') return 'stats';
     if (scope === 'sessionGlobal') return obj.id || obj.fileName || 'session';
     return obj.id;
   }
@@ -647,6 +679,7 @@
 
   function resolveScope(options) {
     if (options.scope) return options.scope;
+    if (options.source === 'statsGlobal') return 'statsGlobal';
     if (options.source === 'sessionGlobal') return 'sessionGlobal';
     if (options.source === 'session') return 'session';
     return 'hand';

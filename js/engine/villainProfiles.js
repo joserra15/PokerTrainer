@@ -43,6 +43,13 @@
       shortLabel: 'Hiper-agresivo',
       preflop: { foldBias: -0.22, threeBetBias: 0.16, fourBetBias: 0.1, callBias: 0.1 },
       postflop: { betFreqMult: 1.9, bluffFreqMult: 2.35, raiseFreqMult: 2.1, callMult: 1.18, foldMult: 0.42, betSizeMult: 1.32 }
+    },
+    {
+      id: 'pro',
+      label: 'Pro',
+      shortLabel: 'Pro GTO',
+      preflop: { foldBias: 0.02, threeBetBias: 0.05, fourBetBias: 0.03, callBias: -0.02 },
+      postflop: { betFreqMult: 1.12, bluffFreqMult: 0.85, raiseFreqMult: 1.15, callMult: 0.98, foldMult: 1.08, betSizeMult: 1.02 }
     }
   ];
 
@@ -69,8 +76,8 @@
     },
     pro: {
       label: 'Pro',
-      weights: { tag: 58, lag: 42, nit: 0, fish: 0, maniac: 0 },
-      minStrong: 4,
+      weights: { pro: 100 },
+      minStrong: 0,
       biasScale: 0.06,
       preflopStrict: 1,
       leakRate: 0,
@@ -129,9 +136,20 @@
   }
 
   function applyDifficulty(profile, level) {
-    const base = getProfile(profile);
-    const diff = DIFFICULTY[normalizeDifficulty(level)] || DIFFICULTY.fish;
     const lvl = normalizeDifficulty(level);
+    if (lvl === 'pro') {
+      const proBase = byId.pro || DEFAULT;
+      return Object.assign({}, proBase, {
+        id: 'pro',
+        label: 'Pro',
+        shortLabel: 'Pro GTO',
+        difficultyLevel: 'pro',
+        preflopStrict: 1,
+        leakRate: 0
+      });
+    }
+    const base = getProfile(profile);
+    const diff = DIFFICULTY[lvl] || DIFFICULTY.fish;
     const pf = base.preflop || {};
     const po = base.postflop || {};
     const s = diff.biasScale;
@@ -187,15 +205,19 @@
     const villains = (positions || []).filter(function (pos) { return pos !== heroPos; });
     const assigned = {};
 
-    villains.forEach(function (pos) {
-      assigned[pos] = pickForDifficulty(level).id;
-    });
+    if (level === 'pro') {
+      villains.forEach(function (pos) { assigned[pos] = 'pro'; });
+    } else {
+      villains.forEach(function (pos) {
+        assigned[pos] = pickForDifficulty(level).id;
+      });
+    }
 
     let strongCount = villains.filter(function (pos) {
       return STRONG_IDS.indexOf(assigned[pos]) >= 0;
     }).length;
 
-    while (strongCount < diff.minStrong && villains.length) {
+    while (level !== 'pro' && strongCount < diff.minStrong && villains.length) {
       const weakPos = villains.find(function (pos) {
         return STRONG_IDS.indexOf(assigned[pos]) < 0;
       });

@@ -447,12 +447,13 @@ console.log('Trash 63s defend', trash3b, '54o vs3bet', trash4b, '63s vs AI', tra
 const proHand = { table: {} };
 VP.assignTableProfiles(proHand, ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'], 'BTN', 'pro');
 const proStrong = Object.keys(proHand.table.profiles || {}).filter(function (pos) {
-  return VP.STRONG_IDS.indexOf(proHand.table.profiles[pos]) >= 0;
+  return proHand.table.profiles[pos] === 'pro';
 }).length;
-console.log('Pro level strong villains', proStrong, '(expect >=4)');
-const proProf = VP.profileForHand({ table: { profiles: { BB: 'tag' } }, playConfig: { villainLevel: 'pro' } }, 'BB');
+console.log('Pro level all pro villains', proStrong, '(expect 5)');
+const proProf = VP.profileForHand({ table: { profiles: { BB: 'pro' } }, playConfig: { villainLevel: 'pro' } }, 'BB');
 const fishProf = VP.profileForHand({ table: { profiles: { BB: 'tag' } }, playConfig: { villainLevel: 'fish' } }, 'BB');
-console.log('Pro vs fish bluff mult', proProf.postflop.bluffFreqMult > fishProf.postflop.bluffFreqMult ? 'OK' : 'FAIL');
+console.log('Pro villain label', proProf.label === 'Pro' ? 'OK' : 'FAIL');
+console.log('Pro vs fish bluff mult', proProf.postflop.bluffFreqMult < fishProf.postflop.bluffFreqMult ? 'OK' : 'FAIL');
 
 const trash4bPro = VPF.openerVs3BetAction('42o', proProf, 0.99, { gameType: 'cash6', stackDepth: 'standard' });
 const trash3bPro = VPF.defendVsOpen('42o', proProf, 0.99, 'BB', 'CO', { gameType: 'cash6', stackDepth: 'standard' });

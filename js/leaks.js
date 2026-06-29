@@ -55,10 +55,11 @@
       if (order.indexOf(err.class) < minIdx) return;
       var key = spotKeyFromError(err);
       if (!map[key]) {
-        map[key] = { key: key, label: labelForKey(key), count: 0, evLoss: 0, sample: err };
+        map[key] = { key: key, label: labelForKey(key), count: 0, evLoss: 0, sample: err, errors: [] };
       }
       map[key].count += 1;
       map[key].evLoss += Number(err.evLoss) || 0;
+      map[key].errors.push(err);
       if (!map[key].sample || (err.evLoss || 0) > (map[key].sample.evLoss || 0)) {
         map[key].sample = err;
       }
@@ -94,14 +95,14 @@
         '</div>';
     }).join('');
     host.innerHTML = '<div class="leaks-panel card-box"><h3>Mis leaks</h3>' +
-      '<p class="muted-text leaks-intro">Top 5 spots donde más EV pierdes. Repasa el peor ejemplo de cada uno.</p>' +
+      '<p class="muted-text leaks-intro">Top 5 spots donde más EV pierdes. «Repetir» repasa todas las manos erróneas de ese spot.</p>' +
       '<div class="leak-list">' + rows + '</div></div>';
 
     host.querySelectorAll('[data-leak-train]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var key = btn.getAttribute('data-leak-train');
         var leak = leaks.find(function (l) { return l.key === key; });
-        if (leak && leak.sample && onTrain) onTrain(leak.sample);
+        if (leak && onTrain) onTrain(leak);
       });
     });
   }

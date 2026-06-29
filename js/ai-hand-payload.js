@@ -147,8 +147,62 @@
     };
   }
 
+  function buildStats(data) {
+    const st = data.stats || {};
+    const byStreet = st.byStreet || {};
+    const total = st.decisions || 0;
+    const accuracy = total ? Math.round(((st.optima + st.aceptable) / total) * 100) : 0;
+    const weekly = (data.weekly || []).map(function (w) {
+      return {
+        w: w.label,
+        hands: w.hands,
+        acc: w.accuracy,
+        ev: w.evLoss
+      };
+    });
+    const leaks = (data.leaks || []).map(function (l) {
+      return { spot: l.label, n: l.count, ev: Math.round(l.evLoss * 100) / 100 };
+    });
+    return {
+      src: 'statsGlobal',
+      st: {
+        hands: st.handsPlayed || 0,
+        decisions: total,
+        acc: accuracy,
+        net: Math.round((st.totalNet || 0) * 100) / 100,
+        evLost: Math.round((st.totalEvLoss || 0) * 100) / 100,
+        accSt: {
+          pf: byStreet.preflop ? Math.round((byStreet.preflop.good / Math.max(byStreet.preflop.n, 1)) * 100) : null,
+          fl: byStreet.flop ? Math.round((byStreet.flop.good / Math.max(byStreet.flop.n, 1)) * 100) : null,
+          tu: byStreet.turn ? Math.round((byStreet.turn.good / Math.max(byStreet.turn.n, 1)) * 100) : null,
+          ri: byStreet.river ? Math.round((byStreet.river.good / Math.max(byStreet.river.n, 1)) * 100) : null
+        },
+        dist: {
+          o: st.optima || 0,
+          a: st.aceptable || 0,
+          i: st.imprecisa || 0,
+          e: st.error || 0
+        }
+      },
+      progress: weekly.length ? weekly : undefined,
+      leaks: leaks.length ? leaks : undefined,
+      solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.'
+    };
+  }
+
+  function statsCacheKey(mode, question) {
+    const base = 'stats_' + (global.PT_BUILD || '1');
+    if (mode === 'question' && question) {
+      let h = 0;
+      const s = String(question).trim().toLowerCase();
+      for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      return base + '_q_' + Math.abs(h).toString(36);
+    }
+    return base + '_report';
+  }
   function build(source, handObj) {
     if (!handObj) return null;
+    if (source === 'statsGlobal') return buildStats(handObj);
     if (source === 'sessionGlobal') return buildSession(handObj);
     return source === 'session' ? fromSession(handObj) : fromTrainer(handObj);
   }
@@ -252,5 +306,5 @@
     return base + '_report';
   }
 
-  global.PTAIHandPayload = { build, cacheKey, sessionCacheKey, buildSession };
+  global.PTAIHandPayload = { build, cacheKey, sessionCacheKey, statsCacheKey, buildSession, buildStats };
 })(window);

@@ -57,6 +57,7 @@
   let hand = null;
   let pendingForce = null;       // escenario forzado (repaso de errores)
   let repeatErrorsMode = false;
+  let leakReplayQueue = [];
 
   function emptyByStreet() {
     return {
@@ -502,7 +503,7 @@
   }
 
   function bindControls() {
-    $('#new-hand').addEventListener('click', () => { pendingForce = null; void startNewHand(); });
+    $('#new-hand').addEventListener('click', () => { pendingForce = null; leakReplayQueue = []; void startNewHand(); });
     $('#replay-hand').addEventListener('click', () => replayCurrentHand());
     $('#new-session').addEventListener('click', () => resetPlaySession());
     $('#repeat-errors').addEventListener('change', (e) => { repeatErrorsMode = e.target.checked; });
@@ -638,7 +639,19 @@
         }
       }
       replayPlayConfig = null;
-      hand = Engine.newHand(force || undefined, cfg);
+      const streetTarget = cfg && cfg.practiceStreet;
+      if (!force && streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet) {
+        let tries = 0;
+        while (tries < 12) {
+          hand = Engine.newHand(force || undefined, cfg);
+          Engine.fastForwardToStreet(hand, streetTarget);
+          if (!hand.result && hand.current && hand.stage === streetTarget) break;
+          if (!hand.result && hand.current) break;
+          tries++;
+        }
+      } else {
+        hand = Engine.newHand(force || undefined, cfg);
+      }
       pendingForce = null;
       $('#hand-log').innerHTML = '';
       renderTable();
@@ -674,6 +687,29 @@
     goToPlay();
     void startNewHand();
     return true;
+  }
+
+  function startLeakReplay(leak) {
+    if (!leak || !leak.errors || !leak.errors.length) return false;
+    leakReplayQueue = leak.errors.slice().sort(function (a, b) {
+      return (Number(b.evLoss) || 0) - (Number(a.evLoss) || 0);
+    });
+    const rec = leakReplayQueue.shift();
+    if (!rec) return false;
+    return replayFromStored(rec);
+  }
+
+  function continueLeakReplayOrNext() {
+    pendingForce = null;
+    if (leakReplayQueue.length) {
+      const rec = leakReplayQueue.shift();
+      if (prepareReplayFromStored(rec)) {
+        void startNewHand();
+        return;
+      }
+      leakReplayQueue = [];
+    }
+    void startNewHand();
   }
 
   // Repite la mano actual con la MISMA semilla (mismas cartas y board si juegas igual)
@@ -1423,7 +1459,7 @@
     $('#actions').innerHTML = `<button class="btn btn-primary" id="next-after">Siguiente mano &raquo;</button>
       <button class="btn btn-ghost" id="replay-after">&#8635; Repetir esta mano</button>
       <button class="btn btn-ghost" id="new-session-after">Nueva sesión</button>`;
-    $('#next-after').addEventListener('click', () => { pendingForce = null; void startNewHand(); });
+    $('#next-after').addEventListener('click', () => { continueLeakReplayOrNext(); });
     $('#replay-after').addEventListener('click', () => replayCurrentHand());
     $('#new-session-after').addEventListener('click', () => resetPlaySession());
 
@@ -1618,7 +1654,7 @@
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#stats-usage'));
     if (window.PTProgress && PTProgress.renderDashboard) PTProgress.renderDashboard($('#progress-dashboard'));
     if (window.PTLeaks && PTLeaks.renderPanel) {
-      PTLeaks.renderPanel($('#leaks-panel'), Store.getErrors(), (rec) => replayFromStored(rec));
+      PTLeaks.renderPanel($('#leaks-panel'), Store.getErrors(), (leak) => startLeakReplay(leak));
     }
     const st = Store.getStats();
     const box = $('#stats-content');
@@ -1666,6 +1702,20 @@
           <span style="color:var(--red)">&#9632; Error ${st.error}</span>
         </div>
       </div>`;
+
+    const coachHost = $('#stats-coach');
+    if (coachHost && window.PTAIReport) {
+      coachHost.innerHTML = '';
+      window.PTAIReport.mount(coachHost, {
+        scope: 'statsGlobal',
+        getData: () => ({
+          stats: Store.getStats(),
+          weekly: window.PTProgress ? PTProgress.buildWeeklySeries(Store.getHistory(), 8) : [],
+          leaks: window.PTLeaks ? PTLeaks.topLeaks(Store.getErrors(), 5) : []
+        }),
+        persist: { kind: 'stats' }
+      });
+    }
   }
 
   // ---------- Utilidades ----------

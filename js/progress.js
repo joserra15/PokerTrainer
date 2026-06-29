@@ -69,6 +69,7 @@
       var display = val == null ? '—' : (suffix === '%' ? val + '%' : val + suffix);
       var h = val == null ? 4 : Math.max(8, Math.round(((Number(val) || 0) / max) * 100));
       return '<div class="prog-bar-col" title="' + escapeHtml(s.label) + ': ' + display + '">' +
+        '<span class="prog-bar-val">' + escapeHtml(display) + '</span>' +
         '<div class="prog-bar" style="height:' + h + '%;background:var(' + colorVar + ')"></div>' +
         '<span class="prog-bar-lbl">' + escapeHtml(s.label) + '</span></div>';
     }).join('');

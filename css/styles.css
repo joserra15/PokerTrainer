@@ -217,8 +217,10 @@ body.range-matrix-open { overflow: hidden; }
 .landing-page.auth-gate {
   display: block;
   place-items: stretch;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 0;
+  -webkit-overflow-scrolling: touch;
 }
 .landing-layout {
   display: grid;
@@ -227,6 +229,7 @@ body.range-matrix-open { overflow: hidden; }
   min-height: 100vh;
   max-width: 1400px;
   margin: 0 auto;
+  width: 100%;
 }
 .landing-main {
   padding: max(16px, var(--safe-top)) 28px max(32px, var(--safe-bottom)) max(20px, var(--safe-left));
@@ -397,6 +400,7 @@ body.range-matrix-open { overflow: hidden; }
 }
 
 @media (max-width: 960px) {
+  body.auth-locked { overflow: auto; }
   .landing-layout { grid-template-columns: 1fr; }
   .landing-login-panel {
     position: static;
@@ -404,13 +408,66 @@ body.range-matrix-open { overflow: hidden; }
     border-left: none;
     border-top: 1px solid var(--border);
     background: var(--bg);
+    padding: 20px 16px 28px;
   }
-  .landing-nav .btn { width: 100%; }
+  .landing-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .landing-brand { justify-content: center; }
+  .landing-nav {
+    justify-content: center;
+    gap: 8px;
+  }
+  .landing-nav a:not(.btn) {
+    font-size: 13px;
+    padding: 6px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .landing-nav .btn { width: 100%; max-width: 280px; margin: 4px auto 0; }
+  .landing-hero { max-width: none; }
 }
 @media (max-width: 600px) {
-  .landing-main { padding: 16px; }
-  .landing-nav { width: 100%; }
-  .landing-nav a:not(.btn) { display: none; }
+  .landing-main { padding: 16px 14px 28px; }
+  .landing-hero h1 { font-size: 26px; }
+  .landing-lead { font-size: 15px; }
+  .landing-hero-actions { flex-direction: column; }
+  .landing-hero-actions .btn { width: 100%; justify-content: center; }
+  .landing-features-grid,
+  .landing-pricing-grid,
+  .landing-testimonials-grid {
+    grid-template-columns: 1fr;
+  }
+  .landing-section { margin-bottom: 36px; }
+  .landing-section h2 { font-size: 20px; }
+  .landing-nav {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+  .landing-nav a:not(.btn) {
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    padding: 8px 4px;
+  }
+  .landing-nav .btn {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+  }
+  .landing-footer {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+    align-items: center;
+  }
+  .landing-cta-band { padding: 20px 16px; }
+  .landing-login-panel .auth-card { padding: 24px 18px; max-width: none; }
 }
 
 main { padding: 22px; max-width: 1280px; margin: 0 auto; }
@@ -1745,6 +1802,14 @@ body.admin-invite-open { overflow: hidden; }
   justify-content: flex-end;
   min-width: 0;
 }
+.prog-bar-val {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1.1;
+  text-align: center;
+}
 .prog-bar {
   width: 100%;
   max-width: 28px;
@@ -1761,7 +1826,10 @@ body.admin-invite-open { overflow: hidden; }
   max-width: 100%;
 }
 
+#stats-coach { margin-top: 18px; }
+
 .leak-list { display: flex; flex-direction: column; gap: 8px; }
+
 .leak-row {
   display: flex;
   align-items: center;

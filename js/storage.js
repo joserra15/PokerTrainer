@@ -16,6 +16,7 @@
     sessions: 'pt_sessions_v1'
   };
   const MAX_HISTORY = 500;
+  const COACH_THREAD_MAX = 10;
 
   let userId = null;
 
@@ -706,9 +707,17 @@
     };
   }
 
-  /** target: { kind: 'history'|'session'|'sessionHand', handId?, sessionId? } */
+  function trimCoachThread(thread) {
+    if (!thread || thread.length <= COACH_THREAD_MAX) return thread;
+    return thread.slice(0, COACH_THREAD_MAX);
+  }
+
+  /** target: { kind: 'history'|'session'|'sessionHand'|'stats', handId?, sessionId? } */
   function getCoachThread(target) {
     if (!target || !target.kind) return [];
+    if (target.kind === 'stats') {
+      return read(scopedKey('stats_coach'), []);
+    }
     if (target.kind === 'history' && target.handId) {
       const rec = getHistory().find(function (h) { return h.id === target.handId; });
       return rec && rec.coachThread ? rec.coachThread.slice() : [];
@@ -731,12 +740,23 @@
     const e = normalizeCoachEntry(entry);
     if (!target || !target.kind) return Promise.resolve({ ok: false, error: 'invalid_target' });
 
+    if (target.kind === 'stats') {
+      let thread = read(scopedKey('stats_coach'), []);
+      thread.unshift(e);
+      thread = trimCoachThread(thread);
+      if (!write(scopedKey('stats_coach'), thread)) {
+        return Promise.resolve({ ok: false, error: 'storage_full' });
+      }
+      return Promise.resolve({ ok: true, entry: e, thread: thread.slice() });
+    }
+
     if (target.kind === 'history' && target.handId) {
       const hist = getHistory();
       const idx = hist.findIndex(function (h) { return h.id === target.handId; });
       if (idx < 0) return Promise.resolve({ ok: false, error: 'hand_not_found' });
       if (!hist[idx].coachThread) hist[idx].coachThread = [];
       hist[idx].coachThread.unshift(e);
+      hist[idx].coachThread = trimCoachThread(hist[idx].coachThread);
       if (!write(scopedKey('history'), hist)) {
         return Promise.resolve({ ok: false, error: 'storage_full' });
       }
@@ -750,11 +770,13 @@
         if (target.kind === 'session') {
           if (!session.coachThread) session.coachThread = [];
           session.coachThread.unshift(e);
+          session.coachThread = trimCoachThread(session.coachThread);
         } else if (target.kind === 'sessionHand' && target.handId) {
           const hand = (session.hands || []).find(function (h) { return h.id === target.handId; });
           if (!hand) return { ok: false, error: 'hand_not_found' };
           if (!hand.coachThread) hand.coachThread = [];
           hand.coachThread.unshift(e);
+          hand.coachThread = trimCoachThread(hand.coachThread);
         } else {
           return { ok: false, error: 'invalid_target' };
         }

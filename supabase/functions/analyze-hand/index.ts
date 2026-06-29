@@ -59,12 +59,30 @@ eq/gto/ev del solver pueden ser incorrectos; recalcula si la pregunta lo requier
 
 Responde markdown en español. Título breve relacionado con la pregunta.`;
 
+const STATS_REPORT_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON del ENTRENADOR del usuario:
+- st: estadísticas globales (manos, acierto, net, EV perdido, acierto por calle, distribución de decisiones)
+- progress: series semanales (manos, acierto, EV perdido)
+- leaks: top spots recurrentes con número de errores y EV perdido
+
+NO repitas todos los números del JSON. Identifica qué entrenar para mejorar.
+Responde markdown completo en español:
+# Plan de estudio personalizado
+## Diagnóstico rápido
+## Prioridades (3-5 bullets: calle, spot, tipo de error)
+## Rutina sugerida esta semana
+## Métrica a vigilar`;
+
+const STATS_QUESTION_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON de estadísticas globales del entrenador (progreso, leaks, aciertos) y una PREGUNTA del usuario.
+
+Responde centrándote en la pregunta con datos del JSON. Sé práctico y directo.
+Responde markdown en español. Título breve relacionado con la pregunta.`;
+
 interface GeminiPart {
   text?: string;
   thought?: boolean;
 }
 
-type AiMode = 'report' | 'question' | 'session_report' | 'session_question';
+type AiMode = 'report' | 'question' | 'session_report' | 'session_question' | 'stats_report' | 'stats_question';
 
 const QUESTION_MAX = 500;
 
@@ -85,6 +103,8 @@ function normalizeMode(raw: unknown): AiMode {
   if (raw === 'question') return 'question';
   if (raw === 'session_report') return 'session_report';
   if (raw === 'session_question') return 'session_question';
+  if (raw === 'stats_report') return 'stats_report';
+  if (raw === 'stats_question') return 'stats_question';
   return 'report';
 }
 
@@ -98,6 +118,8 @@ function sanitizeQuestion(raw: unknown): string | null {
 function promptForMode(mode: AiMode): string {
   if (mode === 'session_report') return SESSION_REPORT_PROMPT;
   if (mode === 'session_question') return SESSION_QUESTION_PROMPT;
+  if (mode === 'stats_report') return STATS_REPORT_PROMPT;
+  if (mode === 'stats_question') return STATS_QUESTION_PROMPT;
   if (mode === 'question') return QUESTION_PROMPT;
   return REPORT_PROMPT;
 }
@@ -107,8 +129,14 @@ function userContentForMode(mode: AiMode, payload: unknown, question: string | n
   if (mode === 'session_question') {
     return 'Pregunta del usuario:\n' + question + '\n\nSesión (JSON):\n' + json;
   }
+  if (mode === 'stats_question') {
+    return 'Pregunta del usuario:\n' + question + '\n\nEstadísticas del entrenador (JSON):\n' + json;
+  }
   if (mode === 'session_report') {
     return 'Genera informe de la sesión:\n' + json;
+  }
+  if (mode === 'stats_report') {
+    return 'Genera plan de estudio según estas estadísticas:\n' + json;
   }
   if (mode === 'question') {
     return 'Pregunta del usuario:\n' + question + '\n\nContexto de la mano (JSON):\n' + json;
@@ -253,16 +281,17 @@ serve(async (req) => {
   }
 
   const mode = normalizeMode(body.mode);
-  const question = (mode === 'question' || mode === 'session_question')
+  const question = (mode === 'question' || mode === 'session_question' || mode === 'stats_question')
     ? sanitizeQuestion(body.question)
     : null;
-  if ((mode === 'question' || mode === 'session_question') && !question) {
+  if ((mode === 'question' || mode === 'session_question' || mode === 'stats_question') && !question) {
     return json({ error: 'missing_question' }, 400);
   }
 
   const systemPrompt = promptForMode(mode);
   const userContent = userContentForMode(mode, body.payload, question);
   const isSession = mode.startsWith('session_');
+  const isStats = mode.startsWith('stats_');
   const isQuestion = mode.endsWith('question');
 
   const model = 'gemini-2.5-flash';
@@ -278,7 +307,7 @@ serve(async (req) => {
       contents: [{ role: 'user', parts: [{ text: userContent }] }],
       generationConfig: {
         temperature: isQuestion ? 0.4 : 0.35,
-        maxOutputTokens: isSession ? (isQuestion ? 1536 : 2560) : (isQuestion ? 1536 : 2048),
+        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 1536 : 2560) : (isQuestion ? 1536 : 2048),
         thinkingConfig: { thinkingBudget: 0 }
       }
     })

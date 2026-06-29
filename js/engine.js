@@ -1669,8 +1669,79 @@
     if (hand.villain.pos) hand.table.invested[hand.villain.pos] = round2(hand.villainInvested || hand.table.invested[hand.villain.pos] || 0);
   }
 
+  function passiveDecision(node, actionId) {
+    return {
+      street: node.street,
+      chosen: actionId,
+      action: actionId,
+      label: labelFor(node, actionId),
+      class: 'aceptable',
+      best: true,
+      evLoss: 0,
+      gto: node.gto
+    };
+  }
+
+  function bestContinuePreflopAction(node) {
+    const gto = node.gto || {};
+    const opts = node.options || [];
+    let best = null;
+    let bestVal = -1;
+    opts.forEach(function (o) {
+      if (o.id === 'fold') return;
+      let val = gto[o.id];
+      if (val == null && o.id === 'raise') val = gto.raise || gto.open;
+      if (val == null) val = 0;
+      if (val > bestVal) { bestVal = val; best = o.id; }
+    });
+    return best;
+  }
+
+  function simulatePassiveStreet(hand) {
+    let guard = 0;
+    while (hand.current && !hand.result && guard++ < 16) {
+      const node = hand.current;
+      const st = node.street;
+      if (node.toCallBB > 0) {
+        advance(hand, 'call', passiveDecision(node, 'call'));
+      } else if ((node.options || []).some(function (o) { return o.id === 'check'; })) {
+        advance(hand, 'check', passiveDecision(node, 'check'));
+      } else {
+        break;
+      }
+      if (hand.result) return false;
+      if (!hand.current || hand.current.street !== st) return true;
+    }
+    return !!hand.current && !hand.result;
+  }
+
+  function autoAdvancePreflop(hand) {
+    while (hand.stage === 'preflop' && !hand.result && hand.current) {
+      const action = bestContinuePreflopAction(hand.current);
+      if (!action) return false;
+      advance(hand, action, passiveDecision(hand.current, action));
+    }
+    return !hand.result && hand.stage !== 'preflop';
+  }
+
+  /** Avanza automáticamente hasta la calle objetivo (flop/turn/river) con línea pasiva. */
+  function fastForwardToStreet(hand, target) {
+    if (!hand || !target || target === 'random' || target === 'preflop') return hand;
+    const order = ['preflop', 'flop', 'turn', 'river'];
+    const ti = order.indexOf(target);
+    if (ti < 0) return hand;
+    if (!autoAdvancePreflop(hand)) return hand;
+    if (hand.result) return hand;
+    let guard = 0;
+    while (order.indexOf(hand.stage) < ti && !hand.result && guard++ < 24) {
+      if (!simulatePassiveStreet(hand)) break;
+      if (hand.result || hand.stage === 'complete') break;
+    }
+    return hand;
+  }
+
   global.Engine = {
-    newHand, act, syncTableInvested,
+    newHand, act, syncTableInvested, fastForwardToStreet,
     // utilidades expuestas para UI/tests/importador
     handStrength01, equityVsRange, classifyMadeHand, sampleHandFromRange,
     rfiStrategy, vsRfiStrategy, classify,
