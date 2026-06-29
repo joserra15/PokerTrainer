@@ -961,7 +961,7 @@
       if (d.explanation) html += `<div class="dec-expl">${escapeHtml(d.explanation)}</div>`;
       if (d.renderAlert) html += `<div class="dec-expl" style="color:var(--orange)">${escapeHtml(d.renderAlert)}</div>`;
       if (d.optionBreakdown && d.optionBreakdown.length) {
-        html += renderOptionGrid(d.optionBreakdown, d.action || d.chosen);
+        html += renderOptionGrid(d.optionBreakdown, d.action || d.chosen, d.best);
       } else if (d.gto) {
         html += renderGtoBars(d.gto);
       }
@@ -992,12 +992,13 @@
     showVerdictToast._t = setTimeout(() => { toast.classList.remove('visible'); }, 1100);
   }
 
-  function renderOptionGrid(breakdown, chosenId) {
+  function renderOptionGrid(breakdown, chosenId, bestId) {
     if (!breakdown || !breakdown.length) return '';
+    const best = bestId || (breakdown[0] && breakdown[0].id);
     let html = '<div class="opt-grid">';
     breakdown.forEach((o) => {
       const isChosen = o.id === chosenId;
-      const isBest = breakdown[0] && breakdown[0].id === o.id;
+      const isBest = o.id === best;
       html += `<div class="opt-pill ${isChosen ? 'chosen' : ''} ${isBest ? 'best' : ''}">
         <span class="opt-lbl">${escapeHtml(o.label)}</span>
         <span class="opt-pct">${o.pct}%</span>
@@ -1372,7 +1373,7 @@
     html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
     if (d.errors && d.errors.length) html += `<div class="result-line" style="border-color:var(--red)">${d.errors.map((e) => escapeHtml(e.msg)).join(' · ')}</div>`;
-    html += renderOptionGrid(d.optionBreakdown, d.action);
+    html += renderOptionGrid(d.optionBreakdown, d.action, d.best);
     fb.innerHTML = html;
   }
 
@@ -2128,7 +2129,7 @@
             html += `<div class="tl-expl" style="color:var(--red,#e55)"><strong>Villano:</strong> ${escapeHtml(heroDec.villainAudit.label)}</div>`;
           }
           if (heroDec.optionBreakdown && heroDec.optionBreakdown.length) {
-            html += renderOptionGrid(heroDec.optionBreakdown, heroDec.chosen);
+            html += renderOptionGrid(heroDec.optionBreakdown, heroDec.chosen, heroDec.best);
           }
           html += '</div>';
         }
@@ -2548,7 +2549,7 @@
       <div>Elegiste <strong>${actionName(action)}</strong> · EV perdido: <span class="${ev.evLoss > 0 ? 'net-neg' : 'net-pos'}">${ev.evLoss > 0 ? '-' + fmtBB(ev.evLoss) : '0.00'} bb</span>${ev.evLossTier ? ` (${ev.evLossTier})` : ''}</div>`;
     html += renderDecisionMath(Object.assign({}, d, { mathParams: ev.mathParams, heroEquity: evalResult.heroEquity != null ? Math.round(evalResult.heroEquity * 100) : null, toCallBB: d.toCallBB, action: action }));
     if (evalResult.explanation) html += `<div class="spot-context" style="margin-top:6px;font-size:13px">${escapeHtml(evalResult.explanation)}</div>`;
-    html += renderOptionGrid(evalResult.optionBreakdown, action);
+    html += renderOptionGrid(evalResult.optionBreakdown, action, evalResult.evaluation && evalResult.evaluation.best);
     html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, replayState.idx, 'session')}</div>`;
     html += `<div class="muted-text" style="margin-top:6px">En la mano real elegiste <strong>${actionName(d.chosen)}</strong> (${verdictWord(d.class)}).${sameAsReal ? ' Misma decisión.' : ''}</div>
       <button class="btn btn-primary" id="replay-next" style="margin-top:12px">${replayNextLabel(h)}</button>

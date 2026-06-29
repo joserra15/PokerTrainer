@@ -60,8 +60,6 @@
       const eqIters = out._equityIters || (out.riverShove ? 500 : 400);
       if (out.heroEquity == null) {
         out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, eqIters, eqOpts);
-      } else if (out.riverShove || facingBet) {
-        out.heroEquity = Eq.equityVsRange(out.heroCards, out.board, out.villainRange, eqIters, eqOpts);
       }
 
       if (RS && out.riverShove && out.heroCards) {
@@ -124,7 +122,12 @@
     enriched.spotKind = resolveSpotKind(enriched);
     const spotKey = SpotKey.buildSpotKey(enriched);
     const rawStrategy = Strat.getStrategy(enriched, spotKey);
-    const strategy = Classifier.filterStrategy(rawStrategy, enriched.availableActions);
+    const strategy = Classifier.adjustStrategyForHand
+      ? Classifier.adjustStrategyForHand(
+        Classifier.filterStrategy(rawStrategy, enriched.availableActions),
+        enriched
+      )
+      : Classifier.filterStrategy(rawStrategy, enriched.availableActions);
     const boardType = spotKey.boardType;
 
     const result = {
@@ -140,7 +143,7 @@
     };
 
     if (input.chosenAction != null) {
-      const cls = Classifier.classify(rawStrategy, input.chosenAction, enriched.availableActions);
+      const cls = Classifier.classify(strategy, input.chosenAction, enriched.availableActions);
       const evResult = EvLoss.computeEvLoss(
         enriched.street || 'preflop', cls.cls, input.chosenAction,
         enriched.handCode, strategy, enriched.potBB, enriched

@@ -297,6 +297,46 @@ const facing = FB.calculateActionFrequencies({
 });
 console.log('Facing 50% pot merge call%', Math.round(facing.call * 100), 'fold%', Math.round(facing.fold * 100));
 
+const badCallFreq = FB.calculateActionFrequencies({
+  street: 'turn', currentPot: 17.2, betSize: 5.6, toCallBB: 5.6,
+  heroEquity: 0.20, tier: 'medium',
+  handRank: { band: 'merge', tier: 'medium' }, inPosition: true,
+  board: ['Jh', '8c', 'Qh', '4h']
+});
+const badCallFreqOk = badCallFreq.fold > badCallFreq.call;
+console.log('Turn sin pot odds fold>call:', badCallFreqOk ? 'OK' : 'FAIL',
+  'fold%', Math.round(badCallFreq.fold * 100), 'call%', Math.round(badCallFreq.call * 100));
+
+const akTurnCall = GTO.evaluateSpot({
+  street: 'turn', board: ['Jh', '8c', 'Qh', '4h'], heroCards: ['As', 'Kc'],
+  potBB: 22.8, toCallBB: 5.6, potBeforeBB: 17.2, chosenAction: 'call',
+  heroEquity: 0.20, tier: 'medium',
+  handRank: { band: 'merge', tier: 'medium' }, inPosition: true,
+  villainLastAction: 'bet', availableActions: ['fold', 'call', 'raise'],
+  bbSizeEuro: 0.02
+});
+const akTurnCoherent = akTurnCall.evaluation.class !== 'optima'
+  && akTurnCall.optionBreakdown[0].id === 'fold'
+  && akTurnCall.evaluation.best === 'fold';
+console.log('AK turn call sin odds coherente:', akTurnCoherent ? 'OK' : 'FAIL',
+  'class', akTurnCall.evaluation.class, 'top', akTurnCall.optionBreakdown[0].id);
+if (!badCallFreqOk || !akTurnCoherent) process.exit(1);
+
+const tqsTurnCall = GTO.evaluateSpot({
+  street: 'turn', board: ['9h', '7s', '4s', 'Jc'], heroCards: ['Ts', 'Qs'],
+  potBB: 11.6, toCallBB: 2.8, potBeforeBB: 8.8, chosenAction: 'call',
+  heroEquity: 0.2075, tier: 'medium',
+  handRank: { band: 'merge', tier: 'medium' }, inPosition: false,
+  villainLastAction: 'bet', availableActions: ['fold', 'call', 'raise'],
+  bbSizeEuro: 0.02
+});
+const tqsCoherent = tqsTurnCall.optionBreakdown[0].id === 'fold'
+  && tqsTurnCall.evaluation.best === 'fold'
+  && tqsTurnCall.evaluation.class !== 'optima';
+console.log('TQs turn call sin odds coherente:', tqsCoherent ? 'OK' : 'FAIL',
+  'class', tqsTurnCall.evaluation.class, 'top', tqsTurnCall.optionBreakdown[0].id);
+if (!tqsCoherent) process.exit(1);
+
 const RS = sandbox.window.GTORiverShoveNode;
 const pairedBoard = ['Th', 'Ts', '3h', '2h', 'Kh'];
 const nutFlushHero = ['Ah', '4h'];

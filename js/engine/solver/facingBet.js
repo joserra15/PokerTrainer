@@ -97,19 +97,24 @@
     if (defend >= mdf) return freqs;
 
     const needDefend = mdf - defend;
-    const canDefend = heroEquity >= potOdds - 0.06 || band === 'bluffcatch' || band === 'merge';
+    const canDefend = heroEquity >= potOdds + 0.01
+      || band === 'nuts' || band === 'value'
+      || (band === 'bluffcatch' && heroEquity >= potOdds - 0.02);
 
-    if (!canDefend && band === 'air') return freqs;
+    if (!canDefend) return freqs;
 
     const out = Object.assign({}, freqs);
-    if (canDefend) {
+    if (band === 'nuts' || band === 'value') {
+      out.raise = (out.raise || 0) + needDefend * 0.35;
+      out.call = (out.call || 0) + needDefend * 0.65;
+    } else if (heroEquity >= potOdds + 0.01) {
       out.call = (out.call || 0) + needDefend * 0.75;
       out.raise = (out.raise || 0) + needDefend * 0.25;
-      out.fold = Math.max(0, 1 - (out.call + out.raise));
-    } else if (band !== 'air') {
-      out.call = (out.call || 0) + needDefend * 0.5;
-      out.fold = Math.max(0, 1 - (out.call + (out.raise || 0)));
+    } else {
+      out.call = (out.call || 0) + needDefend * 0.45;
+      out.raise = (out.raise || 0) + needDefend * 0.15;
     }
+    out.fold = Math.max(0, 1 - (out.call + (out.raise || 0)));
     return out;
   }
 

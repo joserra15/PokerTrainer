@@ -19,6 +19,41 @@
     return out;
   }
 
+  function normalizeStrategy(freqs) {
+    let sum = 0;
+    for (const k in freqs) sum += freqs[k] || 0;
+    if (sum <= 0) return freqs;
+    const out = {};
+    for (const k in freqs) out[k] = (freqs[k] || 0) / sum;
+    return out;
+  }
+
+  /** Si la mano no tiene pot odds para call, la estrategia mostrada debe favorecer fold. */
+  function adjustStrategyForHand(strategy, input) {
+    if (!strategy || !input || input.street === 'preflop') return strategy;
+    const toCall = input.toCallBB || 0;
+    if (toCall <= 0) return strategy;
+
+    const EvLoss = global.GTOEvLoss;
+    const EvMath = global.GTOEvMath;
+    if (!EvLoss || !EvMath) return strategy;
+
+    const ctx = EvMath.buildActionContext(Object.assign({}, input, { chosenAction: 'call' }), strategy);
+    if (!EvLoss.callFailsPotOdds(ctx, input) || EvLoss.impliedOddsAllowed(input, ctx)) {
+      return strategy;
+    }
+
+    const out = Object.assign({}, strategy);
+    const callF = out.call || 0;
+    const foldF = out.fold || 0;
+    if (callF <= foldF + 0.02) return strategy;
+
+    const shift = callF * 0.92;
+    out.fold = foldF + shift;
+    out.call = Math.max(0.02, callF - shift);
+    return normalizeStrategy(out);
+  }
+
   function classify(freqs, chosen, availableActions) {
     const legal = filterStrategy(freqs, availableActions);
     const f = legal[chosen] != null ? legal[chosen] : 0;
@@ -68,7 +103,12 @@
     }
 
     const evLoss = evResult.evLoss != null ? evResult.evLoss : 0;
-    const bestAct = evResult.bestAction || freqBest;
+    let bestAct = evResult.bestAction || freqBest;
+    if (chosen === 'call' && freqBest === 'fold') bestAct = 'fold';
+    const callSinOdds = (evResult.evErrorReasons || []).some(function (r) {
+      return r.type === 'call_sin_odds';
+    });
+    if (callSinOdds && chosen === 'call') bestAct = 'fold';
     const freqDominant = chosen === freqBest && freq >= 0.15;
     if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
       if (cls === 'optima' || cls === 'aceptable') {
@@ -77,11 +117,12 @@
       best = bestAct;
     } else if (delta >= EV_TIE_BB && chosen !== bestAct && !freqDominant) {
       if (cls === 'optima') cls = delta >= 1 ? 'imprecisa' : 'aceptable';
+      if (chosen === 'call' && freqBest === 'fold') bestAct = 'fold';
       best = bestAct;
     }
 
     return { cls, best };
   }
 
-  global.GTOClassifier = { classify, filterStrategy, reconcileWithEv };
+  global.GTOClassifier = { classify, filterStrategy, reconcileWithEv, adjustStrategyForHand, normalizeStrategy };
 })(window);

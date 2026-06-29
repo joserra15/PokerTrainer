@@ -378,7 +378,7 @@
 
     return Object.assign(attachRangeContext(base, hand), {
       villainRange,
-      heroEquity: null,
+      heroEquity: d.heroEquity != null ? d.heroEquity / 100 : null,
       villainLastAction,
       villainBetRatio,
       potBeforeBB,
