@@ -201,6 +201,19 @@
     DATA_KEYS.forEach(function (k) { setSyncMeta(k, ts); });
   }
 
+  function cloudPayloadForMerge(row, cloudPayload) {
+    const meta = getSyncMeta();
+    const cloudTs = tsFromRow(row);
+    const out = Object.assign({}, cloudPayload || {});
+    DATA_KEYS.forEach(function (key) {
+      const localDirty = meta[key] || 0;
+      if (localDirty > cloudTs) {
+        delete out[key];
+      }
+    });
+    return out;
+  }
+
   async function syncOnLogin() {
     if (!userId || !init()) return false;
     if (!global.Store || !global.Store.getCloudSnapshot) return false;
@@ -225,11 +238,12 @@
       }
 
       if (cloudHas && localHas && global.Store.mergeFromCloud) {
-        global.Store.mergeFromCloud(cloudPayload);
+        global.Store.mergeFromCloud(cloudPayloadForMerge(row, cloudPayload));
       } else if (cloudHas) {
         const merged = {};
+        const filtered = cloudPayloadForMerge(row, cloudPayload);
         DATA_KEYS.forEach(function (k) {
-          if (cloudPayload[k] != null) merged[k] = cloudPayload[k];
+          if (filtered[k] != null) merged[k] = filtered[k];
         });
         global.Store.replaceFromCloud(merged);
         DATA_KEYS.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
@@ -276,7 +290,8 @@
       if (cloudPayload.sessions) {
         await migrateLegacyCloudSessions(cloudPayload);
       }
-      const summary = global.Store.mergeFromCloud(cloudPayload) || {};
+      const filtered = cloudPayloadForMerge(row, cloudPayload);
+      const summary = global.Store.mergeFromCloud(filtered) || {};
       await pushPayload(global.Store.getCloudSnapshot());
       if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
         await migrateLegacyCloudRow(row);

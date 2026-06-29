@@ -189,21 +189,50 @@
     }
   }
 
+  async function syncSubscription() {
+    if (!enabled()) return { ok: false, error: 'billing_not_configured' };
+    var headers = await authHeaders();
+    var res = await fetch(functionsBase() + '/stripe-sync-subscription', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({})
+    });
+    var data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'sync_failed');
+    }
+    return data;
+  }
+
+  async function refreshBillingState() {
+    try {
+      await syncSubscription();
+    } catch (e) {
+      console.warn('[PTBilling] syncSubscription', e);
+    }
+    if (global.PTEntitlements && global.PTEntitlements.refresh) {
+      await global.PTEntitlements.refresh();
+    }
+    if (global.PTProfile && global.PTProfile.touchAndApply) {
+      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+      if (u) await global.PTProfile.touchAndApply(u);
+    }
+    if (global.PTAuth && global.PTAuth.renderAccountMenu) {
+      var user = global.PTAuth.getUser();
+      if (user) global.PTAuth.renderAccountMenu(user);
+    }
+  }
+
   function handleCheckoutReturn() {
     var params = new URLSearchParams(window.location.search);
     var checkout = params.get('checkout');
-    if (checkout === 'success' || checkout === 'bonus_success') {
-      if (global.PTEntitlements && global.PTEntitlements.refresh) {
-        global.PTEntitlements.refresh().then(function () {
-          if (global.PTAuth && global.PTAuth.renderAccountMenu) {
-            var u = global.PTAuth.getUser();
-            if (u) global.PTAuth.renderAccountMenu(u);
-          }
-          if (checkout === 'bonus_success' && global.goToTab) {
-            global.goToTab('pricing');
-          }
-        });
-      }
+    var portal = params.get('portal');
+    if (checkout === 'success' || checkout === 'bonus_success' || portal === 'return') {
+      refreshBillingState().then(function () {
+        if (checkout === 'bonus_success' && global.goToTab) {
+          global.goToTab('pricing');
+        }
+      });
       history.replaceState({}, '', window.location.pathname + window.location.hash);
     }
   }
@@ -244,6 +273,8 @@
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
     syncPayments: syncPayments,
+    syncSubscription: syncSubscription,
+    refreshBillingState: refreshBillingState,
     formatSyncMessage: formatSyncMessage,
     showPaywall: showPaywall,
     closePaywall: closePaywall,

@@ -349,6 +349,16 @@
         .then(function () {
           renderAccountMenu(user);
           if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
+          if (global.PTBilling && global.PTBilling.syncSubscription && global.PTBilling.enabled()) {
+            global.PTBilling.syncSubscription()
+              .then(function () {
+                if (global.PTEntitlements && global.PTEntitlements.refresh) {
+                  return global.PTEntitlements.refresh();
+                }
+              })
+              .then(function () { renderAccountMenu(user); })
+              .catch(function (e) { console.warn('[PTBilling] login sync', e); });
+          }
         })
         .catch(function (e) {
           console.warn('[PTProfile]', e);

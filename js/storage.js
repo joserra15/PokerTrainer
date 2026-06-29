@@ -323,6 +323,17 @@
   function clearHistory() {
     localStorage.removeItem(scopedKey('history'));
     notifySync(['history']);
+    if (global.PTCloud && global.PTCloud.flushPush) {
+      global.PTCloud.flushPush();
+    }
+  }
+
+  function clearErrors() {
+    localStorage.removeItem(scopedKey('errors'));
+    notifySync(['errors']);
+    if (global.PTCloud && global.PTCloud.flushPush) {
+      global.PTCloud.flushPush();
+    }
   }
 
   function clearStats() {
@@ -336,10 +347,6 @@
     clearHistory();
     clearErrors();
     clearStats();
-  }
-  function clearErrors() {
-    localStorage.removeItem(scopedKey('errors'));
-    notifySync(['errors']);
   }
 
   function removeError(id) {

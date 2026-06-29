@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { planFromPriceId, stripeKey, BONUS_PACKS, BonusPack } from '../_shared/stripe.ts';
+import { cancelOtherSubscriptions } from '../_shared/subscription-sync.ts';
 
 function adminClient() {
   const url = Deno.env.get('SUPABASE_URL');
@@ -210,6 +211,10 @@ serve(async (req) => {
         interval,
         !!sub.cancel_at_period_end || cancelFromSub(sub)
       );
+
+      if (customerId && subscriptionId) {
+        await cancelOtherSubscriptions(customerId, subscriptionId);
+      }
 
       if (customerId) {
         await recordStripePayment(admin, customerId, new Date().toISOString(), userId);

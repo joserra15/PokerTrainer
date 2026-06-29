@@ -1,22 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { cors, json, planFromPriceId, stripeKey, stripeRequest } from '../_shared/stripe.ts';
-
-type StripeSub = {
-  id: string;
-  status: string;
-  current_period_end?: number;
-  cancel_at_period_end?: boolean;
-  cancel_at?: number | null;
-  ended_at?: number | null;
-  customer?: string;
-  metadata?: Record<string, string>;
-  items?: {
-    data?: Array<{
-      price?: { id?: string; recurring?: { interval?: string } };
-    }>;
-  };
-};
+import { cors, json, stripeKey, stripeRequest } from '../_shared/stripe.ts';
+import { syncUserSubscription } from '../_shared/subscription-sync.ts';
 
 async function verifyAuth(req: Request) {
   const authHeader = req.headers.get('Authorization');
@@ -55,17 +40,6 @@ async function callerIsAdmin(admin: ReturnType<typeof createClient>, userId: str
   return !!data?.is_admin;
 }
 
-async function findCustomerByEmail(email: string): Promise<string | null> {
-  if (!email) return null;
-  const q = "email:'" + email.replace(/'/g, "\\'") + "'";
-  const data = await stripeRequest(
-    '/customers/search?query=' + encodeURIComponent(q) + '&limit=1',
-    'GET'
-  );
-  const list = (data.data as Array<{ id?: string }>) || [];
-  return list[0]?.id || null;
-}
-
 async function latestPaidAt(customerId: string): Promise<string | null> {
   const data = await stripeRequest(
     '/invoices?customer=' + encodeURIComponent(customerId) + '&status=paid&limit=1',
@@ -80,88 +54,6 @@ async function latestPaidAt(customerId: string): Promise<string | null> {
   const paidUnix = inv.status_transitions?.paid_at || inv.created;
   if (!paidUnix) return null;
   return new Date(paidUnix * 1000).toISOString();
-}
-
-function subscriptionCanceled(sub: StripeSub): boolean {
-  if (sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'incomplete_expired') {
-    return true;
-  }
-  if (sub.cancel_at_period_end) return true;
-  if (sub.cancel_at != null && sub.cancel_at > 0) return true;
-  return false;
-}
-
-function subscriptionRank(sub: StripeSub): number {
-  const now = Math.floor(Date.now() / 1000);
-  const end = sub.current_period_end || 0;
-  const live = ['active', 'trialing', 'past_due'].includes(sub.status);
-  const canceled = subscriptionCanceled(sub);
-  let score = end;
-  if (live) score += 1e12;
-  if (canceled && end > now) score += 5e11;
-  if (sub.status === 'canceled' && end > now) score += 4e11;
-  return score;
-}
-
-async function fetchSubscriptionById(subId: string): Promise<StripeSub | null> {
-  try {
-    const sub = await stripeRequest('/subscriptions/' + encodeURIComponent(subId), 'GET');
-    return (sub as StripeSub)?.id ? (sub as StripeSub) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchSubscription(customerId: string, preferredId?: string | null): Promise<StripeSub | null> {
-  if (preferredId) {
-    const direct = await fetchSubscriptionById(preferredId);
-    if (direct) return direct;
-  }
-
-  const data = await stripeRequest(
-    '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=all&limit=20',
-    'GET'
-  );
-  const subs = (data.data as StripeSub[]) || [];
-  if (!subs.length) return null;
-
-  subs.sort((a, b) => subscriptionRank(b) - subscriptionRank(a));
-  const best = subs[0];
-  if (best?.id) {
-    const full = await fetchSubscriptionById(best.id);
-    return full || best;
-  }
-  return best;
-}
-
-async function applyStripeSubscription(
-  admin: ReturnType<typeof createClient>,
-  userId: string,
-  sub: StripeSub,
-  customerId: string
-) {
-  const priceId = sub.items?.data?.[0]?.price?.id;
-  const mapped = priceId ? planFromPriceId(priceId) : null;
-  const plan = mapped?.plan || 'pro';
-  const interval = mapped?.interval || sub.items?.data?.[0]?.price?.recurring?.interval || 'month';
-  const periodEndIso = sub.current_period_end
-    ? new Date(sub.current_period_end * 1000).toISOString()
-    : null;
-  const cancelAtEnd = subscriptionCanceled(sub);
-  const now = Math.floor(Date.now() / 1000);
-  const stillPaid = (sub.current_period_end || 0) > now;
-  const downgrade = (sub.status === 'canceled' || sub.status === 'unpaid') && !stillPaid;
-
-  await admin.rpc('pt_apply_subscription', {
-    p_user_id: userId,
-    p_plan: downgrade ? 'free' : plan,
-    p_stripe_customer_id: customerId,
-    p_stripe_subscription_id: sub.id,
-    p_status: sub.status,
-    p_period_end: periodEndIso,
-    p_interval: interval,
-    p_cancel_at_period_end: cancelAtEnd
-  });
 }
 
 serve(async (req) => {
@@ -199,36 +91,28 @@ serve(async (req) => {
 
   for (const prof of profiles || []) {
     try {
-      let customerId = prof.stripe_customer_id as string | null;
-
-      if (!customerId && prof.email) {
-        customerId = await findCustomerByEmail(prof.email);
-        if (customerId) {
-          await admin.rpc('pt_set_stripe_customer', {
-            p_user_id: prof.user_id,
-            p_customer_id: customerId
-          });
-          linked++;
-        }
+      const synced = await syncUserSubscription(
+        admin,
+        prof.user_id,
+        prof.email || '',
+        prof.stripe_customer_id as string | null,
+        prof.stripe_subscription_id as string | null
+      );
+      if (!synced.ok) {
+        skipped++;
+        continue;
       }
+      if (synced.synced) subscriptions++;
 
+      const customerId = synced.customerId;
       if (!customerId) {
         skipped++;
         continue;
       }
 
-      const sub = await fetchSubscription(
-        customerId,
-        prof.stripe_subscription_id as string | null
-      );
-      if (sub) {
-        await applyStripeSubscription(admin, prof.user_id, sub, customerId);
-        subscriptions++;
-      }
-
       const paidAt = await latestPaidAt(customerId);
       if (!paidAt) {
-        if (!sub) skipped++;
+        if (!synced.synced) skipped++;
         continue;
       }
 

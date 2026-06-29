@@ -1,17 +1,20 @@
-/* Service worker shell — PWA (P-05). Caché estática; HTML siempre red. */
+/* Service worker — PWA. JS/CSS siempre red; HTML network-first. */
 'use strict';
 
-var CACHE = 'pt-shell-v1';
+var CACHE = 'pt-shell-v2';
 var PRECACHE = [
-  './',
-  './index.html',
-  './css/styles.css',
-  './js/version.js',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/logo-header.png',
   './site.webmanifest'
 ];
+
+function isAppAsset(url) {
+  return url.pathname.indexOf('/js/') >= 0 ||
+    url.pathname.indexOf('/css/') >= 0 ||
+    url.pathname.endsWith('/js/version.js') ||
+    url.pathname.endsWith('/deploy-info.json');
+}
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
@@ -24,10 +27,20 @@ self.addEventListener('install', function (event) {
 self.addEventListener('activate', function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
-      return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+      return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) {
+        return caches.delete(k);
+      }));
     }).then(function () { return self.clients.claim(); })
   );
 });
+
+function networkFirst(req) {
+  return fetch(req).then(function (res) {
+    return res;
+  }).catch(function () {
+    return caches.match(req);
+  });
+}
 
 self.addEventListener('fetch', function (event) {
   var req = event.request;
@@ -36,9 +49,12 @@ self.addEventListener('fetch', function (event) {
   if (url.origin !== self.location.origin) return;
 
   if (req.mode === 'navigate' || (req.headers.get('accept') || '').indexOf('text/html') >= 0) {
-    event.respondWith(
-      fetch(req).catch(function () { return caches.match('./index.html'); })
-    );
+    event.respondWith(networkFirst(req));
+    return;
+  }
+
+  if (isAppAsset(url)) {
+    event.respondWith(networkFirst(req));
     return;
   }
 
