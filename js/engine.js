@@ -152,9 +152,21 @@
 
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 
+  function tableSeatForEnginePos(hand, engPos) {
+    const PC = global.PTPlayConfig;
+    if (!PC || !hand.scenario || !hand.playConfig) return engPos;
+    const st = hand.scenario.type;
+    if (st !== 'vsRFI' && st !== 'face4bet') return engPos;
+    const pk = parseVsKey(hand.scenario.key);
+    if (engPos === pk.opener) return PC.openerDealSeat(hand.scenario, hand.playConfig) || engPos;
+    if (engPos === pk.hero) return PC.heroDealSeat(hand.scenario, hand.playConfig) || engPos;
+    return engPos;
+  }
+
   function seatHoleCode(hand, pos) {
     if (!hand.table || !hand.table.holeCards || !pos) return null;
-    let hc = hand.table.holeCards[pos];
+    const seat = tableSeatForEnginePos(hand, pos);
+    let hc = hand.table.holeCards[seat] || hand.table.holeCards[pos];
     if ((!hc || hc.length < 2) && hand.villain && pos === hand.villain.pos) {
       const vs = villainTableSeat(hand);
       if (vs) hc = hand.table.holeCards[vs];
@@ -441,16 +453,52 @@
   function resampleSeatFromWeights(hand, pos, weightsFn) {
     const PC = global.PTPlayConfig;
     if (!PC || !hand.playConfig || !hand.table) return;
+    const seat = tableSeatForEnginePos(hand, pos);
     const dead = [];
     Object.keys(hand.table.holeCards || {}).forEach(function (p) {
-      if (p !== pos && hand.table.holeCards[p]) dead.push.apply(dead, hand.table.holeCards[p]);
+      if (p !== seat && p !== pos && hand.table.holeCards[p]) dead.push.apply(dead, hand.table.holeCards[p]);
     });
     const weights = weightsFn(hand.playConfig);
     const cards = PC.sampleFromWeights(weights, dead, C.rng.random);
     if (cards) {
-      hand.table.holeCards[pos] = cards;
+      hand.table.holeCards[seat] = cards;
+      if (seat !== pos) hand.table.holeCards[pos] = cards;
       const vSeat = villainTableSeat(hand);
-      if (pos === vSeat || pos === hand.villain.pos) hand.villain.cards = cards;
+      if (seat === vSeat || pos === vSeat || pos === hand.villain.pos) hand.villain.cards = cards;
+    }
+  }
+
+  function forceValidOpenerFourBetHand(hand, opener) {
+    if (!VPF) return;
+    ensureOpenerFourBetHand(hand, opener);
+    const ctx = rangeCtx(hand);
+    let code = seatHoleCode(hand, opener);
+    if (code && VPF.isInFourBetRange(code, ctx)) {
+      hand.villain.cards = villainHoleCards(hand);
+      return;
+    }
+    const PC = global.PTPlayConfig;
+    const seat = tableSeatForEnginePos(hand, opener);
+    const rangeStr = PC ? PC.face4betVillainRangeStr(hand.playConfig) : R.VS_3BET.fourBet;
+    const sample = GTO && GTO.Equity;
+    for (let i = 0; i < 40; i++) {
+      const dead = [];
+      Object.keys(hand.table.holeCards || {}).forEach(function (p) {
+        if (p !== seat && p !== opener && hand.table.holeCards[p]) {
+          dead.push.apply(dead, hand.table.holeCards[p]);
+        }
+      });
+      let cards = PC ? PC.sampleFromWeights(PC.sampleFace4betVillainWeights(hand.playConfig), dead, C.rng.random) : null;
+      if (!cards && sample && sample.sampleHandFromRange) {
+        cards = sample.sampleHandFromRange(rangeStr, dead, C.rng.random);
+      }
+      if (!cards) continue;
+      hand.table.holeCards[seat] = cards;
+      if (seat !== opener) hand.table.holeCards[opener] = cards;
+      const vSeat = villainTableSeat(hand);
+      if (seat === vSeat || opener === hand.villain.pos) hand.villain.cards = cards;
+      code = R.handCode(cards[0], cards[1]);
+      if (VPF.isInFourBetRange(code, ctx)) return;
     }
   }
 
@@ -1213,9 +1261,9 @@
         return finish(hand, { reason: `${opener} foldea ante tu 3-bet.`, heroNet: round2(hand.potBB) });
       }
       if (cont === '4bet') {
-        ensureOpenerFourBetHand(hand, opener);
+        forceValidOpenerFourBetHand(hand, opener);
         const openerCode = seatHoleCode(hand, opener);
-        if (VPF && openerCode && !VPF.isInFourBetRange(openerCode, rangeCtx(hand))) {
+        if (!openerCode || !VPF || !VPF.isInFourBetRange(openerCode, rangeCtx(hand))) {
           cont = 'call';
         }
       }
@@ -1241,9 +1289,7 @@
     const { hero, opener } = parseVsKey(hand.scenario.key);
     hand.hero.pos = hero;
     hand.villain.pos = opener;
-    hand.villain.cards = villainHoleCards(hand);
-    ensureOpenerFourBetHand(hand, opener);
-    hand.villain.cards = villainHoleCards(hand);
+    forceValidOpenerFourBetHand(hand, opener);
     hand.villain.rangeStr = global.PTPlayConfig
       ? global.PTPlayConfig.face4betVillainRangeStr(hand.playConfig)
       : R.VS_3BET.fourBet;

@@ -603,10 +603,13 @@ serve(async (req) => {
     if (mode === 'stats_report' && result.text) {
       const summary = extractCoachSummary(result.text);
       if (summary) {
-        admin.rpc('pt_set_coach_summary', {
-          p_user_id: billingUserId,
-          p_summary: summary
-        }).catch((e) => console.warn('[analyze-hand] coach_summary', e));
+        void (async () => {
+          const { error } = await admin.rpc('pt_set_coach_summary', {
+            p_user_id: billingUserId,
+            p_summary: summary
+          });
+          if (error) console.warn('[analyze-hand] coach_summary', error);
+        })();
       }
     }
   }
