@@ -378,7 +378,11 @@
     if (tabId === 'stats') renderStats();
     if (tabId === 'ranges') renderRangesExplorer();
     if (tabId === 'pricing') renderPricing();
-    if (tabId === 'sessions') { showSessionsView('home'); renderSessionsList(); }
+    if (tabId === 'sessions') {
+      showSessionsView('home');
+      renderSessionsList();
+      refreshSessionsFromCloud();
+    }
     if (tabId === 'admin') {
       var adminUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
       var demoOn = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
@@ -1640,6 +1644,7 @@
       renderHistory();
       renderErrors();
       renderStats();
+      renderSessionsList();
     } finally {
       targets.forEach((b) => { b.disabled = false; });
       if (btn && prevLabel) btn.textContent = prevLabel;
@@ -1769,6 +1774,23 @@
       const v = accByStreet[st];
       return v != null ? `${labels[st]} ${v}%` : `${labels[st]} —`;
     }).join(' · ');
+  }
+
+  async function refreshSessionsFromCloud() {
+    const cloud = window.PTCloud;
+    if (!cloud || !cloud.isReady || !cloud.isReady()) return;
+    const status = $('#import-status');
+    const prev = status ? status.textContent : '';
+    if (status) status.textContent = 'Sincronizando sesiones…';
+    try {
+      const res = await cloud.syncNow();
+      if (res && res.ok) renderSessionsList();
+    } catch (e) {
+      console.warn('[Sessions] cloud sync', e);
+    } finally {
+      if (status && !prev) status.textContent = '';
+      else if (status) status.textContent = prev;
+    }
   }
 
   function renderSessionsList() {

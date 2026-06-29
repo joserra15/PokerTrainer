@@ -509,6 +509,19 @@ const storeOk = Store.getHistory().length === 1 && Store.getStats().handsPlayed 
 console.log('Store saveHand/getHistory:', storeOk ? 'OK' : 'FAIL');
 if (!storeOk) process.exit(1);
 
+Store.saveSession({
+  id: 's-local', createdAt: '2026-01-03T00:00:00Z', fileName: 'local.txt', hero: 'H',
+  nTotal: 1, nDiscarded: 0, hands: [], stats: { nHands: 0, netBB: 0, evLossBB: 0, accuracy: 100, grade: { letter: 'A', score: 10, verdict: 'ok' } },
+  analysisVersion: '1'
+});
+const mergedCloud = Store.mergeDirtyKeysIntoCloud(
+  { sessions: [{ id: 's-cloud', createdAt: '2026-01-02T00:00:00Z', fileName: 'cloud.txt', hero: 'H', hands: [], stats: { nHands: 0, netBB: 0, evLossBB: 0, accuracy: 0, grade: { letter: 'C', score: 5, verdict: 'ok' } } }] },
+  ['sessions']
+);
+const mergeSessionsOk = mergedCloud.sessions && mergedCloud.sessions.length === 2
+  && mergedCloud.sessions.some((s) => s.id === 's-cloud') && mergedCloud.sessions.some((s) => s.id === 's-local');
+console.log('Store mergeDirtyKeys sessions:', mergeSessionsOk ? 'OK' : 'FAIL');
+
 const sessId = 'sess-no-txt';
 Store.saveSession({
   id: sessId, createdAt: '2026-01-01T00:00:00Z', fileName: 'Poker99.txt', hero: 'Hero',
@@ -563,4 +576,4 @@ console.log('VS_RFI 9-max spots:', keys9.length, '(expect >=36)');
 const ranges9Ok = keys9.length >= 36 && bbVsUtg1 && explorerInput && rangesFormatOk && rangesStackOk;
 if (!ranges9Ok) process.exit(1);
 
-console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
+console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk && mergeSessionsOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');

@@ -194,16 +194,6 @@
 
       if (cloudHas && localHas && global.Store.mergeFromCloud) {
         global.Store.mergeFromCloud(cloudPayload);
-        await pushPayload(global.Store.getCloudSnapshot());
-      } else if (cloudHas && (!localHas || tsFromRow(row) >= localMaxTs(getSyncMeta()))) {
-        const merged = {};
-        DATA_KEYS.forEach(function (k) {
-          if (cloudPayload[k] != null) merged[k] = cloudPayload[k];
-        });
-        global.Store.replaceFromCloud(merged);
-        DATA_KEYS.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
-      } else if (localHas) {
-        await pushPayload(local);
       } else if (cloudHas) {
         const merged = {};
         DATA_KEYS.forEach(function (k) {
@@ -211,6 +201,10 @@
         });
         global.Store.replaceFromCloud(merged);
         DATA_KEYS.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
+      }
+
+      if (localHas || cloudHas) {
+        await pushPayload(global.Store.getCloudSnapshot());
       }
 
       if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
@@ -226,6 +220,7 @@
       return false;
     } finally {
       syncing = false;
+      if (pendingKeys.size) schedulePush(Array.from(pendingKeys));
     }
   }
 
@@ -262,8 +257,9 @@
   }
 
   function schedulePush(keys) {
-    if (!isReady() || syncing) return;
+    if (!isReady()) return;
     (keys || DATA_KEYS).forEach(function (k) { pendingKeys.add(k); });
+    if (syncing) return;
     if (pushTimer) clearTimeout(pushTimer);
     pushTimer = setTimeout(flushPush, PUSH_DELAY_MS);
   }
@@ -277,13 +273,18 @@
     pushTimer = null;
 
     try {
-      const snapshot = global.Store.getCloudSnapshot();
       const row = await pullRow();
-      const payload = row && row.payload ? Object.assign({}, row.payload) : {};
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        if (snapshot[key] != null) payload[key] = snapshot[key];
-      }
+      const cloudPayload = row && row.payload ? row.payload : {};
+      const payload = global.Store.mergeDirtyKeysIntoCloud
+        ? global.Store.mergeDirtyKeysIntoCloud(cloudPayload, keys)
+        : (function () {
+          const snapshot = global.Store.getCloudSnapshot();
+          const merged = Object.assign({}, cloudPayload);
+          keys.forEach(function (key) {
+            if (snapshot[key] != null) merged[key] = snapshot[key];
+          });
+          return merged;
+        })();
       await pushPayload(payload);
       if (status !== 'syncing') setStatus('online', 'Guardado en la nube');
     } catch (e) {
@@ -325,6 +326,7 @@
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') flushPush();
     });
+    window.addEventListener('pagehide', function () { flushPush(); });
   }
 
   async function deleteUserRow() {

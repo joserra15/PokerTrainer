@@ -63,6 +63,9 @@
     if (!global.PTCloud) return;
     if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(keys);
     if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(keys);
+    if (keys && keys.indexOf('sessions') >= 0 && global.PTCloud.flushPush) {
+      global.PTCloud.flushPush();
+    }
   }
 
   function stripSessionsForCloud(sessions) {
@@ -474,7 +477,31 @@
         hasTxt: !!(s.rawText || prev.rawText || s.hasTxt || prev.hasTxt)
       });
     });
-    return Object.values(byId);
+    return Object.values(byId).sort(function (a, b) {
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+  }
+
+  /** Fusiona solo las claves tocadas antes de subir a la nube (evita pisar datos de otros dispositivos). */
+  function mergeDirtyKeysIntoCloud(cloudPayload, dirtyKeys) {
+    const cloud = cloudPayload || {};
+    const local = getCloudSnapshot();
+    const keys = dirtyKeys && dirtyKeys.length ? dirtyKeys : ['stats', 'history', 'errors', 'sessions'];
+    const out = Object.assign({}, cloud);
+    keys.forEach(function (key) {
+      if (key === 'sessions') {
+        out.sessions = mergeSessionsBidirectional(local.sessions, cloud.sessions || []);
+      } else if (key === 'history') {
+        out.history = mergeRecordsById(local.history, cloud.history || [], MAX_HISTORY);
+      } else if (key === 'errors') {
+        out.errors = mergeRecordsById(local.errors, cloud.errors || [], MAX_HISTORY);
+      } else if (key === 'stats') {
+        out.stats = mergeStats(local.stats, cloud.stats);
+      } else if (local[key] != null) {
+        out[key] = local[key];
+      }
+    });
+    return out;
   }
 
   function recomputeStatsFromHistory(history) {
@@ -603,7 +630,7 @@
     migrateLocalUserKeys,
     purgeLocalUserData, scenarioLabel,
     getSessions, getSession, saveSession, removeSession, deleteSessionTxt,
-    getCloudSnapshot, replaceFromCloud, mergeFromCloud,
+    getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
     getCoachThread, appendCoachEntry
   };
 })(window);
