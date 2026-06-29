@@ -207,13 +207,37 @@ function requiredSections(mode: AiMode): string[] {
   return [];
 }
 
+function extractGeminiText(parts: GeminiPart[]): string {
+  const visible = parts
+    .filter((p) => !p.thought)
+    .map((p) => p.text || '')
+    .join('')
+    .trim();
+  if (visible) return visible;
+  return parts.map((p) => p.text || '').join('').trim();
+}
+
+function normalizeHeading(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function hasSection(text: string, heading: string): boolean {
+  const want = normalizeHeading(heading);
+  return text.split('\n').some((line) => {
+    const m = line.match(/^##\s+(.+)/);
+    if (!m) return false;
+    const got = normalizeHeading(m[1].replace(/\s*\(.*/, '').trim());
+    return got === want || got.startsWith(want);
+  });
+}
+
 function markdownComplete(mode: AiMode, text: string): boolean {
   const t = text.trim();
   if (!t || t.length < 80) return false;
   if (mode.endsWith('question')) return t.length >= 40;
   const sections = requiredSections(mode);
   if (!sections.length) return true;
-  return sections.every((s) => new RegExp('^##\\s+' + s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'im').test(t));
+  return sections.every((s) => hasSection(t, s));
 }
 
 function extractCoachSummary(markdown: string): string {
@@ -264,29 +288,31 @@ async function enrichPayload(
   payload: PayloadRecord
 ): Promise<PayloadRecord> {
   const out = { ...payload };
+  try {
+    const { data: prof, error } = await admin
+      .from('pt_user_profiles')
+      .select('coach_summary, plan')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  const { data: prof } = await admin
-    .from('pt_user_profiles')
-    .select('coach_summary, plan')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (prof?.coach_summary && (mode.startsWith('stats_') || mode.startsWith('session_'))) {
-    out.coachSummary = prof.coach_summary;
-  }
-
-  if (mode === 'report' || mode === 'question') {
-    const { data: similar } = await admin.rpc('pt_find_similar_coach_hands', {
-      p_user_id: userId,
-      p_spot_key: payloadSpot(payload),
-      p_hero_code: payloadHeroCode(payload),
-      p_limit: 3
-    });
-    if (Array.isArray(similar) && similar.length) {
-      out.similar = similar;
+    if (!error && prof?.coach_summary && (mode.startsWith('stats_') || mode.startsWith('session_'))) {
+      out.coachSummary = prof.coach_summary;
     }
-  }
 
+    if (mode === 'report' || mode === 'question') {
+      const { data: similar } = await admin.rpc('pt_find_similar_coach_hands', {
+        p_user_id: userId,
+        p_spot_key: payloadSpot(payload),
+        p_hero_code: payloadHeroCode(payload),
+        p_limit: 3
+      });
+      if (Array.isArray(similar) && similar.length) {
+        out.similar = similar;
+      }
+    }
+  } catch (e) {
+    console.warn('[analyze-hand] enrichPayload', e);
+  }
   return out;
 }
 
@@ -358,11 +384,16 @@ async function checkAiAccess(userId: string) {
 async function recordAiUsage(userId: string, mode: AiMode, source: string) {
   const admin = adminClient();
   if (!admin) return;
-  await admin.rpc('pt_record_ai_usage', {
-    p_user_id: userId,
-    p_mode: mode,
-    p_source: source
-  });
+  try {
+    const { error } = await admin.rpc('pt_record_ai_usage', {
+      p_user_id: userId,
+      p_mode: mode,
+      p_source: source
+    });
+    if (error) console.error('[analyze-hand] pt_record_ai_usage', error);
+  } catch (e) {
+    console.error('[analyze-hand] pt_record_ai_usage', e);
+  }
 }
 
 async function verifyAuth(req: Request) {
@@ -408,8 +439,7 @@ async function callGemini(
       contents,
       generationConfig: {
         temperature: isQuestion ? 0.4 : 0.35,
-        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 1536 : 3072) : (isQuestion ? 1536 : 2048),
-        thinkingConfig: { thinkingBudget: 0 }
+        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 1536 : 3072) : (isQuestion ? 1536 : 2048)
       }
     })
   });
@@ -422,14 +452,16 @@ async function callGemini(
 
   const candidate = geminiData?.candidates?.[0];
   const parts: GeminiPart[] = candidate?.content?.parts || [];
-  const text = parts
-    .filter((p) => !p.thought)
-    .map((p) => p.text || '')
-    .join('');
+  const text = extractGeminiText(parts);
+  const finishReason = candidate?.finishReason || '';
+
+  if (!text && finishReason === 'SAFETY') {
+    throw new Error('gemini_blocked');
+  }
 
   return {
-    text: text.trim(),
-    finishReason: candidate?.finishReason || '',
+    text,
+    finishReason,
     model
   };
 }
@@ -449,21 +481,26 @@ async function generateCoachResponse(
   }
 
   let retried = false;
-  if (!markdownComplete(mode, result.text) && !mode.endsWith('question')) {
-    const retryContents = contents.concat([
-      { role: 'model', parts: [{ text: result.text }] },
-      {
-        role: 'user',
-        parts: [{
-          text: 'Tu respuesta anterior está incompleta o le faltan secciones obligatorias. ' +
-            'Completa el informe en markdown con TODAS las secciones requeridas. No repitas lo ya dicho; añade lo que falta.'
-        }]
+  const shouldRetry = mode === 'report' || mode === 'question';
+  if (shouldRetry && !markdownComplete(mode, result.text)) {
+    try {
+      const retryContents = contents.concat([
+        { role: 'model', parts: [{ text: result.text }] },
+        {
+          role: 'user',
+          parts: [{
+            text: 'Tu respuesta anterior está incompleta o le faltan secciones obligatorias. ' +
+              'Completa el informe en markdown con TODAS las secciones requeridas. No repitas lo ya dicho; añade lo que falta.'
+          }]
+        }
+      ]);
+      const retry = await callGemini(geminiKey, systemPrompt, retryContents, mode);
+      if (retry.text && retry.text.length > result.text.length) {
+        result = retry;
+        retried = true;
       }
-    ]);
-    const retry = await callGemini(geminiKey, systemPrompt, retryContents, mode);
-    if (retry.text && retry.text.length > result.text.length) {
-      result = retry;
-      retried = true;
+    } catch (e) {
+      console.warn('[analyze-hand] markdown retry failed', e);
     }
   }
 
@@ -478,6 +515,7 @@ serve(async (req) => {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  try {
   const auth = await verifyAuth(req);
   if (!auth.ok) {
     return json({ error: auth.error }, auth.status);
@@ -579,6 +617,11 @@ serve(async (req) => {
     finishReason: result.finishReason || undefined,
     retried: result.retried || undefined
   });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'server_error';
+    console.error('[analyze-hand] unhandled', e);
+    return json({ error: msg }, 500);
+  }
 });
 
 function json(data: unknown, status = 200) {

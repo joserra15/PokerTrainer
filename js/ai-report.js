@@ -369,7 +369,25 @@
     if (m.includes('ai_plan') || (m.includes('rate') && m.includes('0'))) {
       return {
         kind: 'paywall',
-        message: 'El IA Coach requiere Study (3/mes) o Coach (30/mes). Consulta la pestaña Planes.'
+        message: 'El IA Coach requiere Study (5/mes), Coach (35/mes) o un bono de consultas. Consulta la pestaña Planes.'
+      };
+    }
+    if (m.includes('access_check_failed')) {
+      return {
+        kind: 'error',
+        message: 'No se pudo verificar tu cupo de consultas IA. Cierra sesión, vuelve a entrar e inténtalo de nuevo.'
+      };
+    }
+    if (m.includes('invalid_auth') || m.includes('missing_auth')) {
+      return {
+        kind: 'error',
+        message: 'Tu sesión ha caducado. Cierra sesión y vuelve a entrar para usar el coach.'
+      };
+    }
+    if (m.includes('gemini_blocked')) {
+      return {
+        kind: 'error',
+        message: 'El coach no pudo generar una respuesta para estos datos. Prueba con una pregunta concreta.'
       };
     }
     if (m.includes('rate') || m.includes('quota') || m.includes('429')) {
@@ -408,6 +426,7 @@
     const err = friendlyError(raw);
     const cls = err.kind === 'busy' ? 'ai-report-notice' : 'ai-report-error';
     body.innerHTML = '<div class="' + cls + '">' + escapeHtml(err.message) + '</div>';
+    if (raw) console.error('[PTAI] coach error:', raw);
   }
 
   function renderMarkdown(md) {
