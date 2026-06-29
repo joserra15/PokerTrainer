@@ -321,6 +321,9 @@
     startAppIfNeeded();
     global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
 
+    if (global.PTCloudSessions && global.PTCloudSessions.setUser) {
+      global.PTCloudSessions.setUser(user);
+    }
     if (global.PTCloud && global.PTCloud.setUser) {
       global.PTCloud.setUser(user);
       document.body.classList.add('pt-cloud-syncing');
@@ -390,6 +393,7 @@
       try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e) { /* noop */ }
       currentUser = null;
       global.PT_AUTH_USER = null;
+      if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
       if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
       appStarted = false;
       if (global.PT_retryLogin) global.PT_retryLogin();

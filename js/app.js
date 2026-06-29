@@ -489,12 +489,17 @@
     $('#repeat-errors').addEventListener('change', (e) => { repeatErrorsMode = e.target.checked; });
     const syncBtn = $('#sync-cloud');
     if (syncBtn) syncBtn.addEventListener('click', () => runCloudSync(syncBtn));
-    window.addEventListener('pt-cloud-synced', () => {
+    window.addEventListener('pt-cloud-synced', async () => {
       renderHistory();
       renderErrors();
       renderStats();
       const sessionsPanel = $('#tab-sessions');
-      if (sessionsPanel && sessionsPanel.classList.contains('active')) renderSessionsList();
+      if (sessionsPanel && sessionsPanel.classList.contains('active')) {
+        if (Store.refreshSessionsIndexFromCloud) {
+          try { await Store.refreshSessionsIndexFromCloud(); } catch (e) { /* noop */ }
+        }
+        renderSessionsList();
+      }
     });
     $('#clear-history').addEventListener('click', () => {
       if (confirm('¿Borrar el histórico de manos? No se modifican errores ni estadísticas globales.')) {
@@ -1737,11 +1742,13 @@
               return;
             }
           }
-          const saveResult = Store.saveSession(session);
+          const saveResult = await Store.saveSession(session);
           const saved = saveResult && saveResult.ok !== false;
           const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
           if (!saved) {
-            status.innerHTML = `<span style="color:var(--yellow)">Análisis completado pero no se pudo guardar (${escapeHtml((saveResult && saveResult.error) || 'almacenamiento local')}). Se muestra sin persistir.</span>`;
+            status.innerHTML = `<span style="color:var(--yellow)">Análisis completado pero no se pudo guardar (${escapeHtml((saveResult && saveResult.error) || 'error de almacenamiento')}). Se muestra sin persistir.</span>`;
+          } else if (saveResult.cloudOnly) {
+            status.innerHTML = `<span style="color:var(--green)">Sesión guardada en la nube: ${finalSession.hands.length} manos analizadas (de ${finalSession.nTotal} cash${finalSession.nDiscarded ? `, ${finalSession.nDiscarded} sin cartas del héroe` : ''}).</span>`;
           } else {
             status.innerHTML = `<span style="color:var(--green)">Sesión procesada: ${finalSession.hands.length} manos analizadas (de ${finalSession.nTotal} cash${finalSession.nDiscarded ? `, ${finalSession.nDiscarded} sin cartas del héroe` : ''}).</span>`;
           }
@@ -1783,8 +1790,16 @@
     const prev = status ? status.textContent : '';
     if (status) status.textContent = 'Sincronizando sesiones…';
     try {
+      if (Store.refreshSessionsIndexFromCloud) {
+        const res = await Store.refreshSessionsIndexFromCloud();
+        if (res && res.ok) renderSessionsList();
+        else if (res && res.error) console.warn('[Sessions] cloud list', res.error);
+      }
       const res = await cloud.syncNow();
-      if (res && res.ok) renderSessionsList();
+      if (res && res.ok && Store.refreshSessionsIndexFromCloud) {
+        await Store.refreshSessionsIndexFromCloud();
+        renderSessionsList();
+      }
     } catch (e) {
       console.warn('[Sessions] cloud sync', e);
     } finally {
@@ -1814,14 +1829,25 @@
       </div>`;
     }).join('');
     $$('#sessions-list [data-open]').forEach((b) => b.addEventListener('click', () => openSession(b.dataset.open)));
-    $$('#sessions-list [data-delses]').forEach((b) => b.addEventListener('click', () => {
-      if (confirm('¿Borrar la sesión completa? Esta acción no se puede deshacer.')) { Store.removeSession(b.dataset.delses); renderSessionsList(); }
+    $$('#sessions-list [data-delses]').forEach((b) => b.addEventListener('click', async () => {
+      if (confirm('¿Borrar la sesión completa? Esta acción no se puede deshacer.')) {
+        await Store.removeSession(b.dataset.delses);
+        renderSessionsList();
+      }
     }));
   }
 
-  function openSession(id, sessionObj) {
-    currentSession = sessionObj || Store.getSession(id);
-    if (!currentSession) {
+  async function openSession(id, sessionObj) {
+    currentSession = sessionObj || await Store.getSessionAsync(id);
+    if (!currentSession || !currentSession.hands) {
+      const stub = Store.getSession(id);
+      if (stub && stub.cloudOnly) {
+        $('#import-status').textContent = 'Cargando sesión desde la nube…';
+        currentSession = await Store.getSessionAsync(id);
+        $('#import-status').textContent = '';
+      }
+    }
+    if (!currentSession || !currentSession.hands) {
       $('#import-status').innerHTML = '<span style="color:var(--red)">No se encontró la sesión guardada.</span>';
       return;
     }
@@ -1832,7 +1858,7 @@
       currentSession.hands.forEach((h) => Importer.recomputeHandDecisions(h));
       currentSession.stats = Importer.computeStats(currentSession.hands);
       currentSession.analysisVersion = buildVer;
-      Store.saveSession(currentSession);
+      await Store.saveSession(currentSession);
     }
     renderSessionDetail('evLoss');
     showSessionsView('detail');

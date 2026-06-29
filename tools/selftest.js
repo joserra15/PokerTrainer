@@ -509,21 +509,22 @@ const storeOk = Store.getHistory().length === 1 && Store.getStats().handsPlayed 
 console.log('Store saveHand/getHistory:', storeOk ? 'OK' : 'FAIL');
 if (!storeOk) process.exit(1);
 
-Store.saveSession({
+(async function () {
+await Store.saveSession({
   id: 's-local', createdAt: '2026-01-03T00:00:00Z', fileName: 'local.txt', hero: 'H',
   nTotal: 1, nDiscarded: 0, hands: [], stats: { nHands: 0, netBB: 0, evLossBB: 0, accuracy: 100, grade: { letter: 'A', score: 10, verdict: 'ok' } },
   analysisVersion: '1'
 });
 const mergedCloud = Store.mergeDirtyKeysIntoCloud(
   { sessions: [{ id: 's-cloud', createdAt: '2026-01-02T00:00:00Z', fileName: 'cloud.txt', hero: 'H', hands: [], stats: { nHands: 0, netBB: 0, evLossBB: 0, accuracy: 0, grade: { letter: 'C', score: 5, verdict: 'ok' } } }] },
-  ['sessions']
+  ['sessions', 'stats']
 );
-const mergeSessionsOk = mergedCloud.sessions && mergedCloud.sessions.length === 2
-  && mergedCloud.sessions.some((s) => s.id === 's-cloud') && mergedCloud.sessions.some((s) => s.id === 's-local');
-console.log('Store mergeDirtyKeys sessions:', mergeSessionsOk ? 'OK' : 'FAIL');
+const mergeSessionsOk = !mergedCloud.sessions
+  && Store.getSessions().some((s) => s.id === 's-local');
+console.log('Store mergeDirtyKeys sessions (cloud-only):', mergeSessionsOk ? 'OK' : 'FAIL');
 
 const sessId = 'sess-no-txt';
-Store.saveSession({
+await Store.saveSession({
   id: sessId, createdAt: '2026-01-01T00:00:00Z', fileName: 'Poker99.txt', hero: 'Hero',
   nTotal: 1, nDiscarded: 0, hands: [], stats: { nHands: 0, netBB: 0, evLossBB: 0, accuracy: 100, grade: { letter: 'A', score: 10, verdict: 'ok' } },
   analysisVersion: '1'
@@ -551,9 +552,9 @@ const gdprPurgeOk = purged.removed > 0 && Store.getHistory().length === 0;
 console.log('GDPR purge:', gdprPurgeOk ? 'OK' : 'FAIL');
 if (!gdprExportOk || !gdprPurgeOk) process.exit(1);
 if (!noTxtOk) process.exit(1);
-Store.saveSession(Object.assign({}, savedSess, { rawText: 'big hand history text', hasTxt: true }));
+await Store.saveSession(Object.assign({}, savedSess, { rawText: 'big hand history text', hasTxt: true }));
 const withTxt = Store.getSessions().find((s) => s.id === sessId);
-Store.saveSession(Object.assign({}, withTxt, { hands: [] }));
+await Store.saveSession(Object.assign({}, withTxt, { hands: [] }));
 const cleanedOk = !Store.getSessions().find((s) => s.id === sessId).hasTxt && !ls.getItem(txtKey);
 console.log('Store session limpia txt al re-guardar:', cleanedOk ? 'OK' : 'FAIL');
 if (!cleanedOk) process.exit(1);
@@ -577,3 +578,4 @@ const ranges9Ok = keys9.length >= 36 && bbVsUtg1 && explorerInput && rangesForma
 if (!ranges9Ok) process.exit(1);
 
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk && mergeSessionsOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
+})();

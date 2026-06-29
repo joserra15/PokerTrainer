@@ -61,20 +61,91 @@
 
   function notifySync(keys) {
     if (!global.PTCloud) return;
-    if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(keys);
-    if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(keys);
-    if (keys && keys.indexOf('sessions') >= 0 && global.PTCloud.flushPush) {
-      global.PTCloud.flushPush();
+    const cloudKeys = (keys || []).filter(function (k) { return k !== 'sessions'; });
+    if (!cloudKeys.length) return;
+    if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(cloudKeys);
+    if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(cloudKeys);
+  }
+
+  const sessionMemoryCache = {};
+
+  function getDeletedSessionIds() {
+    return read(scopedKey('sessions_deleted'), []);
+  }
+
+  function markSessionDeleted(id) {
+    if (!id) return;
+    const ids = getDeletedSessionIds();
+    if (ids.indexOf(id) < 0) {
+      ids.push(id);
+      write(scopedKey('sessions_deleted'), ids);
     }
   }
 
-  function stripSessionsForCloud(sessions) {
-    return sessions.map(function (s) {
-      const copy = Object.assign({}, s);
-      delete copy.rawText;
-      copy.hasTxt = false;
-      return copy;
+  function filterDeletedSessions(sessions) {
+    const deleted = {};
+    getDeletedSessionIds().forEach(function (id) { deleted[id] = true; });
+    return (sessions || []).filter(function (s) { return s && s.id && !deleted[s.id]; });
+  }
+
+  function getSessionIndex() {
+    return read(scopedKey('sessions_index'), []);
+  }
+
+  function writeSessionIndex(list) {
+    return write(scopedKey('sessions_index'), list || []);
+  }
+
+  function migrateLegacySessionsList() {
+    const legacy = read(scopedKey('sessions'), []);
+    if (!legacy.length) return;
+    const index = getSessionIndex();
+    const ids = {};
+    index.forEach(function (s) { ids[s.id] = true; });
+    legacy.forEach(function (s) {
+      if (!s || !s.id || ids[s.id]) return;
+      index.unshift({
+        id: s.id,
+        fileName: s.fileName,
+        hero: s.hero,
+        createdAt: s.createdAt,
+        nTotal: s.nTotal,
+        nDiscarded: s.nDiscarded,
+        stats: s.stats,
+        analysisVersion: s.analysisVersion,
+        hasTxt: false,
+        cloudOnly: true
+      });
+      ids[s.id] = true;
     });
+    writeSessionIndex(index);
+    try { localStorage.removeItem(scopedKey('sessions')); } catch (e) { /* ignore */ }
+  }
+
+  async function uploadLegacyLocalSessionsToCloud() {
+    const CS = global.PTCloudSessions;
+    if (!CS || !CS.isReady()) return { uploaded: 0 };
+    const legacy = read(scopedKey('sessions'), []);
+    if (!legacy.length) return { uploaded: 0 };
+    let uploaded = 0;
+    for (let i = 0; i < legacy.length; i++) {
+      const s = legacy[i];
+      if (!s || !s.id) continue;
+      let full = s;
+      if (s.hasTxt) {
+        const txt = readRaw(sessionTxtKey(s.id));
+        if (txt) full = Object.assign({}, s, { rawText: txt });
+      }
+      const res = await CS.uploadSession(full);
+      if (res.ok) uploaded++;
+    }
+    try { localStorage.removeItem(scopedKey('sessions')); } catch (e) { /* ignore */ }
+    legacy.forEach(function (s) {
+      if (s && s.id) {
+        try { localStorage.removeItem(sessionTxtKey(s.id)); } catch (e) { /* ignore */ }
+      }
+    });
+    return { uploaded: uploaded };
   }
 
   function migrateLegacyOnce(uid) {
@@ -374,14 +445,32 @@
     return { removed: removed };
   }
 
-  function getSessions() { return read(scopedKey('sessions'), []); }
-  function getSession(id) {
-    const s = getSessions().find((x) => x.id === id) || null;
-    if (!s || !s.hasTxt) return s;
-    const txt = readRaw(sessionTxtKey(id));
-    return txt ? Object.assign({}, s, { rawText: txt }) : s;
+  function getSessions() {
+    migrateLegacySessionsList();
+    return filterDeletedSessions(getSessionIndex());
   }
-  function saveSession(session) {
+
+  function getSession(id) {
+    if (sessionMemoryCache[id]) return sessionMemoryCache[id];
+    const stub = getSessionIndex().find(function (x) { return x.id === id; }) || null;
+    return stub;
+  }
+
+  async function getSessionAsync(id) {
+    if (!id) return null;
+    if (sessionMemoryCache[id]) return sessionMemoryCache[id];
+    const CS = global.PTCloudSessions;
+    if (CS && CS.isReady()) {
+      const res = await CS.fetchSession(id);
+      if (res.ok && res.session) {
+        sessionMemoryCache[id] = res.session;
+        return res.session;
+      }
+    }
+    return getSession(id);
+  }
+
+  function saveSessionLocal(session) {
     const rawText = session.rawText;
     const toStore = slimSession(session);
     let hasTxt = false;
@@ -392,31 +481,89 @@
       toStore.hasTxt = false;
       try { localStorage.removeItem(sessionTxtKey(session.id)); } catch (e) { /* ignore */ }
     }
-    const list = getSessions();
-    const idx = list.findIndex((s) => s.id === toStore.id);
-    if (idx >= 0) list[idx] = toStore; else list.unshift(toStore);
-    if (!write(scopedKey('sessions'), list)) {
+    const list = getSessionIndex();
+    const summary = global.PTCloudSessions
+      ? global.PTCloudSessions.sessionSummary(toStore)
+      : Object.assign({}, toStore, { cloudOnly: false });
+    const idx = list.findIndex(function (s) { return s.id === toStore.id; });
+    if (idx >= 0) list[idx] = summary; else list.unshift(summary);
+    if (!writeSessionIndex(list)) {
       return { ok: false, error: 'Cuota de almacenamiento local agotada.', session: session };
     }
-    notifySync(['sessions']);
-    const out = Object.assign({}, session, { hasTxt: hasTxt });
+    sessionMemoryCache[session.id] = toStore;
+    const out = Object.assign({}, session, { hasTxt: hasTxt, cloudOnly: false });
     if (hasTxt) out.rawText = rawText;
     else delete out.rawText;
     return { ok: true, session: out };
   }
-  function removeSession(id) {
+
+  async function saveSession(session) {
+    migrateLegacySessionsList();
+    const CS = global.PTCloudSessions;
+    if (CS && CS.isReady()) {
+      const upload = await CS.uploadSession(session);
+      if (!upload.ok) {
+        return {
+          ok: false,
+          error: upload.error === 'cloud_not_ready'
+            ? 'Inicia sesión para guardar sesiones en la nube.'
+            : (upload.error || 'No se pudo guardar en la nube.')
+        };
+      }
+      sessionMemoryCache[session.id] = upload.session;
+      const list = getSessionIndex().filter(function (s) { return s.id !== session.id; });
+      list.unshift(upload.summary);
+      writeSessionIndex(list);
+      try { localStorage.removeItem(scopedKey('sessions')); } catch (e) { /* ignore */ }
+      try { localStorage.removeItem(sessionTxtKey(session.id)); } catch (e) { /* ignore */ }
+      return { ok: true, session: upload.session, cloudOnly: true };
+    }
+    return saveSessionLocal(session);
+  }
+
+  async function removeSession(id) {
+    delete sessionMemoryCache[id];
+    markSessionDeleted(id);
+    const CS = global.PTCloudSessions;
+    if (CS && CS.isReady()) {
+      const res = await CS.deleteSession(id);
+      if (!res.ok) console.warn('[Store] removeSession cloud', res.error);
+    }
+    writeSessionIndex(getSessionIndex().filter(function (s) { return s.id !== id; }));
     try { localStorage.removeItem(sessionTxtKey(id)); } catch (e) { /* ignore */ }
-    write(scopedKey('sessions'), getSessions().filter((s) => s.id !== id));
-    notifySync(['sessions']);
+    try {
+      const legacy = read(scopedKey('sessions'), []);
+      if (legacy.length) {
+        write(scopedKey('sessions'), legacy.filter(function (s) { return s.id !== id; }));
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  async function refreshSessionsIndexFromCloud() {
+    const CS = global.PTCloudSessions;
+    if (!CS || !CS.isReady()) return { ok: false, sessions: getSessions() };
+    const res = await CS.listSessions();
+    if (!res.ok) return res;
+    writeSessionIndex(filterDeletedSessions(res.sessions || []));
+    return res;
+  }
+
+  async function migrateLegacyPayloadSessions(sessions) {
+    const CS = global.PTCloudSessions;
+    if (!CS || !CS.isReady() || !sessions || !sessions.length) return { migrated: 0 };
+    const deleted = {};
+    getDeletedSessionIds().forEach(function (id) { deleted[id] = true; });
+    const toMigrate = sessions.filter(function (s) { return s && s.id && !deleted[s.id]; });
+    if (!toMigrate.length) return { migrated: 0 };
+    return CS.migrateSessionsFromPayload(toMigrate);
   }
   function deleteSessionTxt(id) {
-    const list = getSessions();
-    const s = list.find((x) => x.id === id);
+    const list = getSessionIndex();
+    const s = list.find(function (x) { return x.id === id; });
     if (s) {
       try { localStorage.removeItem(sessionTxtKey(id)); } catch (e) { /* ignore */ }
       s.hasTxt = false;
-      write(scopedKey('sessions'), list);
-      notifySync(['sessions']);
+      writeSessionIndex(list);
     }
     return s;
   }
@@ -425,8 +572,7 @@
     return {
       stats: getStats(),
       history: getHistory(),
-      errors: getErrors(),
-      sessions: stripSessionsForCloud(getSessions())
+      errors: getErrors()
     };
   }
 
@@ -486,12 +632,11 @@
   function mergeDirtyKeysIntoCloud(cloudPayload, dirtyKeys) {
     const cloud = cloudPayload || {};
     const local = getCloudSnapshot();
-    const keys = dirtyKeys && dirtyKeys.length ? dirtyKeys : ['stats', 'history', 'errors', 'sessions'];
+    const keys = (dirtyKeys || []).filter(function (k) { return k !== 'sessions'; });
+    if (!keys.length) return Object.assign({}, cloud);
     const out = Object.assign({}, cloud);
     keys.forEach(function (key) {
-      if (key === 'sessions') {
-        out.sessions = mergeSessionsBidirectional(local.sessions, cloud.sessions || []);
-      } else if (key === 'history') {
+      if (key === 'history') {
         out.history = mergeRecordsById(local.history, cloud.history || [], MAX_HISTORY);
       } else if (key === 'errors') {
         out.errors = mergeRecordsById(local.errors, cloud.errors || [], MAX_HISTORY);
@@ -501,6 +646,7 @@
         out[key] = local[key];
       }
     });
+    delete out.sessions;
     return out;
   }
 
@@ -531,13 +677,11 @@
     const local = getCloudSnapshot();
     const history = mergeRecordsById(local.history, cloudSnapshot.history, MAX_HISTORY);
     const errors = mergeRecordsById(local.errors, cloudSnapshot.errors, MAX_HISTORY);
-    const sessions = mergeSessionsBidirectional(local.sessions, cloudSnapshot.sessions);
     const stats = mergeStats(local.stats, cloudSnapshot.stats);
     write(scopedKey('history'), history);
     write(scopedKey('errors'), errors);
-    write(scopedKey('sessions'), sessions);
     writeStats(stats);
-    return { history: history.length, errors: errors.length, sessions: sessions.length, stats: stats };
+    return { history: history.length, errors: errors.length, sessions: getSessions().length, stats: stats };
   }
 
   function replaceFromCloud(snapshot) {
@@ -545,7 +689,6 @@
     if (snapshot.stats) writeStats(JSON.parse(JSON.stringify(snapshot.stats)));
     if (snapshot.history) write(scopedKey('history'), snapshot.history);
     if (snapshot.errors) write(scopedKey('errors'), snapshot.errors);
-    if (snapshot.sessions) write(scopedKey('sessions'), mergeSessionsFromCloud(snapshot.sessions));
   }
 
   function normalizeCoachEntry(entry) {
@@ -583,44 +726,46 @@
 
   function appendCoachEntry(target, entry) {
     const e = normalizeCoachEntry(entry);
-    if (!target || !target.kind) return { ok: false, error: 'invalid_target' };
+    if (!target || !target.kind) return Promise.resolve({ ok: false, error: 'invalid_target' });
 
     if (target.kind === 'history' && target.handId) {
       const hist = getHistory();
       const idx = hist.findIndex(function (h) { return h.id === target.handId; });
-      if (idx < 0) return { ok: false, error: 'hand_not_found' };
+      if (idx < 0) return Promise.resolve({ ok: false, error: 'hand_not_found' });
       if (!hist[idx].coachThread) hist[idx].coachThread = [];
       hist[idx].coachThread.unshift(e);
       if (!write(scopedKey('history'), hist)) {
-        return { ok: false, error: 'storage_full' };
+        return Promise.resolve({ ok: false, error: 'storage_full' });
       }
       notifySync(['history']);
-      return { ok: true, entry: e, thread: hist[idx].coachThread.slice() };
+      return Promise.resolve({ ok: true, entry: e, thread: hist[idx].coachThread.slice() });
     }
 
     if (target.sessionId) {
-      const session = getSession(target.sessionId);
-      if (!session) return { ok: false, error: 'session_not_found' };
-      if (target.kind === 'session') {
-        if (!session.coachThread) session.coachThread = [];
-        session.coachThread.unshift(e);
-      } else if (target.kind === 'sessionHand' && target.handId) {
-        const hand = (session.hands || []).find(function (h) { return h.id === target.handId; });
-        if (!hand) return { ok: false, error: 'hand_not_found' };
-        if (!hand.coachThread) hand.coachThread = [];
-        hand.coachThread.unshift(e);
-      } else {
-        return { ok: false, error: 'invalid_target' };
-      }
-      const saved = saveSession(session);
-      if (!saved.ok) return saved;
-      const thread = target.kind === 'session'
-        ? (saved.session.coachThread || []).slice()
-        : ((saved.session.hands || []).find(function (h) { return h.id === target.handId; }) || {}).coachThread || [];
-      return { ok: true, entry: e, thread: thread.slice() };
+      return getSessionAsync(target.sessionId).then(function (session) {
+        if (!session) return { ok: false, error: 'session_not_found' };
+        if (target.kind === 'session') {
+          if (!session.coachThread) session.coachThread = [];
+          session.coachThread.unshift(e);
+        } else if (target.kind === 'sessionHand' && target.handId) {
+          const hand = (session.hands || []).find(function (h) { return h.id === target.handId; });
+          if (!hand) return { ok: false, error: 'hand_not_found' };
+          if (!hand.coachThread) hand.coachThread = [];
+          hand.coachThread.unshift(e);
+        } else {
+          return { ok: false, error: 'invalid_target' };
+        }
+        return saveSession(session).then(function (saved) {
+          if (!saved.ok) return saved;
+          const thread = target.kind === 'session'
+            ? (saved.session.coachThread || []).slice()
+            : ((saved.session.hands || []).find(function (h) { return h.id === target.handId; }) || {}).coachThread || [];
+          return { ok: true, entry: e, thread: thread.slice() };
+        });
+      });
     }
 
-    return { ok: false, error: 'invalid_target' };
+    return Promise.resolve({ ok: false, error: 'invalid_target' });
   }
 
   global.Store = {
@@ -629,7 +774,8 @@
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,
     purgeLocalUserData, scenarioLabel,
-    getSessions, getSession, saveSession, removeSession, deleteSessionTxt,
+    getSessions, getSession, getSessionAsync, saveSession, removeSession, deleteSessionTxt,
+    refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
     getCoachThread, appendCoachEntry
   };

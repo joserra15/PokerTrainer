@@ -1,11 +1,11 @@
 /*
- * cloud-store.js — Sincronización Supabase (stats, history, errors, sessions).
- * EPIC 2: requiere sesión Supabase Auth (JWT) y RLS por usuario.
+ * cloud-store.js — Sincronización Supabase (stats, history, errors).
+ * Sesiones importadas: tabla pt_import_sessions (PTCloudSessions).
  */
 (function (global) {
   'use strict';
 
-  const DATA_KEYS = ['stats', 'history', 'errors', 'sessions'];
+  const DATA_KEYS = ['stats', 'history', 'errors'];
   const TABLE = 'pt_user_state';
   const PUSH_DELAY_MS = 2000;
 
@@ -162,10 +162,35 @@
     if (error) console.warn('[PTCloud] migrate delete legacy', error);
   }
 
+  function stripLegacySessions(payload) {
+    if (!payload) return payload;
+    const body = Object.assign({}, payload);
+    delete body.sessions;
+    return body;
+  }
+
+  async function migrateLegacyCloudSessions(cloudPayload) {
+    if (!global.Store || !global.Store.migrateLegacyPayloadSessions) return 0;
+    if (!cloudPayload || !cloudPayload.sessions) return 0;
+    const sessions = cloudPayload.sessions;
+    if (!Array.isArray(sessions) || !sessions.length) return 0;
+    const res = await global.Store.migrateLegacyPayloadSessions(sessions);
+    return res && res.migrated ? res.migrated : 0;
+  }
+
+  async function refreshSessionsIndex() {
+    if (!global.Store || !global.Store.refreshSessionsIndexFromCloud) return;
+    try {
+      await global.Store.refreshSessionsIndexFromCloud();
+    } catch (e) {
+      console.warn('[PTCloud] refresh sessions index', e);
+    }
+  }
+
   async function pushPayload(payload) {
     const client = getClient();
     const now = new Date().toISOString();
-    const body = Object.assign({}, payload, { syncedAt: now });
+    const body = stripLegacySessions(Object.assign({}, payload, { syncedAt: now }));
     const { error } = await client.from(TABLE).upsert({
       user_id: userId,
       payload: body,
@@ -192,6 +217,13 @@
         return hasLocalData(k, cloudPayload);
       });
 
+      if (cloudPayload && cloudPayload.sessions) {
+        await migrateLegacyCloudSessions(cloudPayload);
+      }
+      if (global.Store.uploadLegacyLocalSessionsToCloud) {
+        await global.Store.uploadLegacyLocalSessionsToCloud();
+      }
+
       if (cloudHas && localHas && global.Store.mergeFromCloud) {
         global.Store.mergeFromCloud(cloudPayload);
       } else if (cloudHas) {
@@ -210,6 +242,8 @@
       if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
         await migrateLegacyCloudRow(row);
       }
+
+      await refreshSessionsIndex();
 
       setStatus('online', 'Datos sincronizados');
       global.dispatchEvent(new CustomEvent('pt-cloud-synced'));
@@ -239,11 +273,15 @@
     try {
       const row = await pullRow();
       const cloudPayload = row && row.payload ? row.payload : {};
+      if (cloudPayload.sessions) {
+        await migrateLegacyCloudSessions(cloudPayload);
+      }
       const summary = global.Store.mergeFromCloud(cloudPayload) || {};
       await pushPayload(global.Store.getCloudSnapshot());
       if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
         await migrateLegacyCloudRow(row);
       }
+      await refreshSessionsIndex();
       setStatus('online', 'Sincronizado');
       global.dispatchEvent(new CustomEvent('pt-cloud-synced', { detail: summary }));
       return { ok: true, summary: summary };
@@ -339,6 +377,12 @@
       if (error) throw error;
       if (legacyGoogleSub && legacyGoogleSub !== userId) {
         await client.from(TABLE).delete().eq('user_id', legacyGoogleSub);
+      }
+      if (global.PTCloudSessions && global.PTCloudSessions.purgeUserSessions) {
+        await global.PTCloudSessions.purgeUserSessions(userId);
+        if (legacyGoogleSub && legacyGoogleSub !== userId) {
+          await global.PTCloudSessions.purgeUserSessions(legacyGoogleSub);
+        }
       }
       const metaK = syncMetaKey();
       if (metaK) {

@@ -81,11 +81,11 @@
   }
 
   function migrateLegacyThread(target, scope, objId) {
-    if (!target || !global.Store) return [];
+    if (!target || !global.Store) return Promise.resolve([]);
     const thread = global.Store.getCoachThread(target);
-    if (thread.length) return thread;
+    if (thread.length) return Promise.resolve(thread);
     const legacyReport = readCache(cacheKeyFor(scope, objId, 'report', ''));
-    if (!legacyReport || !legacyReport.reportMarkdown) return [];
+    if (!legacyReport || !legacyReport.reportMarkdown) return Promise.resolve([]);
     const entry = {
       mode: 'report',
       reportMarkdown: legacyReport.reportMarkdown,
@@ -93,19 +93,26 @@
       createdAt: legacyReport.createdAt || new Date().toISOString(),
       truncated: !!legacyReport.truncated
     };
-    const saved = global.Store.appendCoachEntry(target, entry);
-    return saved.ok && saved.thread ? saved.thread : [entry];
+    return Promise.resolve(global.Store.appendCoachEntry(target, entry)).then(function (saved) {
+      return saved && saved.ok && saved.thread ? saved.thread : [entry];
+    });
   }
 
   function loadThread(options, dataObj, scope, objId) {
     const target = resolvePersistTarget(options, dataObj);
     if (target && global.Store) {
       let thread = global.Store.getCoachThread(target);
-      if (!thread.length) thread = migrateLegacyThread(target, scope, objId);
+      if (!thread.length) {
+        return migrateLegacyThread(target, scope, objId).then(function (migrated) {
+          thread = migrated;
+          if (typeof options.onThreadUpdate === 'function') options.onThreadUpdate(thread);
+          return { target: target, thread: thread };
+        });
+      }
       if (typeof options.onThreadUpdate === 'function') options.onThreadUpdate(thread);
-      return { target: target, thread: thread };
+      return Promise.resolve({ target: target, thread: thread });
     }
-    return { target: null, thread: [] };
+    return Promise.resolve({ target: null, thread: [] });
   }
 
   function findInThread(thread, mode, question) {
@@ -537,7 +544,7 @@
     if (!payload) return;
 
     const objId = getObjId(scope, dataObj);
-    const loaded = loadThread(options, dataObj, scope, objId);
+    const loaded = await loadThread(options, dataObj, scope, objId);
     const target = loaded.target;
     let thread = loaded.thread;
 
@@ -565,7 +572,7 @@
         truncated: !!data.truncated
       };
       if (target && global.Store && global.Store.appendCoachEntry) {
-        const saved = global.Store.appendCoachEntry(target, report);
+        const saved = await global.Store.appendCoachEntry(target, report);
         if (saved.ok && saved.thread) {
           thread = saved.thread;
           if (typeof options.onThreadUpdate === 'function') options.onThreadUpdate(thread);
@@ -694,8 +701,9 @@
 
     const dataForLoad = getDataObj(options);
     const objId = getObjId(scope, dataForLoad);
-    const loaded = loadThread(options, dataForLoad, scope, objId);
-    if (loaded.thread.length) showConversation(panel, loaded.thread, scope);
+    loadThread(options, dataForLoad, scope, objId).then(function (loaded) {
+      if (loaded.thread.length) showConversation(panel, loaded.thread, scope);
+    });
     formatQuotaLine(false).then(function (line) { updateQuotaDisplay(panel, line); });
 
     return panel;
