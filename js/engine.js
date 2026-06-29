@@ -373,6 +373,11 @@
       if (code && validateFn(code, ctx, pos)) return;
       resampleSeatFromWeights(hand, pos, weightsFn);
     }
+    for (let j = 0; j < 10; j++) {
+      resampleSeatFromWeights(hand, pos, weightsFn);
+      const code = seatHoleCode(hand, pos);
+      if (code && validateFn(code, ctx, pos)) return;
+    }
   }
 
   function ensureOpenerOpenHand(hand, opener) {
@@ -1208,6 +1213,7 @@
         return finish(hand, { reason: `${opener} foldea ante tu 3-bet.`, heroNet: round2(hand.potBB) });
       }
       if (cont === '4bet') {
+        ensureOpenerFourBetHand(hand, opener);
         const openerCode = seatHoleCode(hand, opener);
         if (VPF && openerCode && !VPF.isInFourBetRange(openerCode, rangeCtx(hand))) {
           cont = 'call';

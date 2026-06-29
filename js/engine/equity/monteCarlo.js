@@ -105,11 +105,14 @@
     return combos;
   }
 
-  /** Ante apuesta en board de color: estrechar solo si el héroe ya tiene color hecho. */
+  /** Ante apuesta en board de color: estrechar solo si el héroe tiene color débil (no nut / <K-high). */
   function filterCombosFacingBet(combos, board, facingBet, heroCards) {
     if (!facingBet || !isFlushBoard(board) || !combos.length) return combos;
     if (!heroCards || heroCards.length < 2) return combos;
-    if (C.evaluate(heroCards.concat(board)).category !== 5) return combos;
+    const heroScore = C.evaluate(heroCards.concat(board));
+    if (heroScore.category !== 5) return combos;
+    const ctx = heroNonNutFlushContext(heroCards, board);
+    if (!ctx || ctx.isNut || ctx.heroFlushHigh >= 13) return combos;
     const made = combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 5);
     return made.length ? made : combos;
   }

@@ -209,33 +209,32 @@
     const wf = handWeight(buckets.fourBet, code);
     const wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
+    let act;
 
     if (wf <= 0 && wc <= 0) {
-      if (allowsLeak(profile, '4bet', r)) return '4bet';
-      return 'fold';
-    }
-
-    if (strict >= 0.99) {
-      const act = gtoMixAction(r, wf, wc, 'call');
-      if (act === 'aggress') return '4bet';
-      if (act === 'pass') return 'call';
-      return 'fold';
-    }
-
-    if (wf >= 1) {
-      if (r < VP.adjustFourBetProb(strict >= 0.75 ? 0.55 : 0.58, profile)) return '4bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.72, profile)) return 'call';
-      return 'fold';
-    }
-    if (wf > 0) {
+      if (allowsLeak(profile, '4bet', r)) act = '4bet';
+      else act = 'fold';
+    } else if (strict >= 0.99) {
+      const mix = gtoMixAction(r, wf, wc, 'call');
+      act = mix === 'aggress' ? '4bet' : (mix === 'pass' ? 'call' : 'fold');
+    } else if (wf >= 1) {
+      if (r < VP.adjustFourBetProb(strict >= 0.75 ? 0.55 : 0.58, profile)) act = '4bet';
+      else if (wc > 0 && r < VP.adjustCallProb(0.72, profile)) act = 'call';
+      else act = 'fold';
+    } else if (wf > 0) {
       const freq = strict >= 0.75 ? wf : VP.adjustFourBetProb(Math.min(0.28, wf * 0.65), profile);
-      if (r < freq) return '4bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.52, profile)) return 'call';
+      if (r < freq) act = '4bet';
+      else if (wc > 0 && r < VP.adjustCallProb(0.52, profile)) act = 'call';
+      else act = 'fold';
+    } else if (wc >= 1) act = r < VP.adjustFoldProb(0.18, profile) ? 'fold' : 'call';
+    else if (wc >= 0.42) act = r < VP.adjustCallProb(0.34, profile) ? 'call' : 'fold';
+    else act = 'fold';
+
+    if (act === '4bet' && !isInFourBetRange(code, ctx)) {
+      if (wc > 0) return 'call';
       return 'fold';
     }
-    if (wc >= 1) return r < VP.adjustFoldProb(0.18, profile) ? 'fold' : 'call';
-    if (wc >= 0.42) return r < VP.adjustCallProb(0.34, profile) ? 'call' : 'fold';
-    return 'fold';
+    return act;
   }
 
   /** Opener (o 3-bettor) frente al 4-bet del héroe (fold / call). */

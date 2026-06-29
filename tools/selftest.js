@@ -212,6 +212,25 @@ if (khAsRiver >= khAsTurn || khAsRiver > 0.10) {
   process.exit(1);
 }
 
+const ktFlushRiver = GTO.computeHeroEquity({
+  street: 'river', board: ['Jc', '6c', '3d', 'Qc', '8c'], heroCards: ['Kc', 'Tc'],
+  villainRange: jugarRange,
+  potBB: 36.24, toCallBB: 12.64, potBeforeBB: 23.6, villainLastAction: 'bet',
+  initiative: 'caller', inPosition: true
+});
+console.log('KcTc nut-ish flush river facing bet eq ~', Math.round(ktFlushRiver * 100) + '% (expect >=50%)');
+if (ktFlushRiver < 0.50) {
+  console.error('FAIL KcTc: king-high flush should not show ~0% equity facing bet', ktFlushRiver);
+  process.exit(1);
+}
+
+const vpf = sandbox.window.GTOVillainPreflop;
+if (vpf.openerVs3BetAction('85s', { difficultyLevel: 'pro', preflopStrict: 1 }, 0.01, { gameType: 'cash6', stackDepth: 'standard' }) === '4bet') {
+  console.error('FAIL: pro opener must not 4-bet 85s');
+  process.exit(1);
+}
+console.log('Pro opener 85s vs 3bet: no 4bet (OK)');
+
 const nutHero = ['Jd', 'Qd'];
 const turnB = ['Qc', 'Td', '7c', '8h'];
 const riverB = turnB.concat(['9h']);
