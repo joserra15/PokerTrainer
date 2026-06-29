@@ -1072,6 +1072,25 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .pricing-features { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); flex: 1; }
 .pricing-features li { margin-bottom: 4px; }
 .pricing-card .btn { margin-top: 4px; }
+.pricing-bonus-panel { margin-top: 20px; }
+.pricing-bonus-panel h3 { margin: 0 0 8px; font-size: 18px; }
+.bonus-pack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.bonus-pack-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.bonus-pack-main { display: flex; flex-direction: column; gap: 2px; }
+.bonus-pack-price { font-size: 22px; font-weight: 700; color: var(--gold); }
 .pricing-foot { margin-top: 16px; font-size: 12px; }
 .paywall-modal .paywall-content { max-width: 420px; }
 .paywall-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }

@@ -22,14 +22,14 @@
       trainer_hands_per_day: null,
       import_sessions_per_month: null,
       max_hands_per_import: null,
-      ai_reports_per_month: 3,
+      ai_reports_per_month: 5,
       history_days: null
     },
     premium: {
       trainer_hands_per_day: null,
       import_sessions_per_month: null,
       max_hands_per_import: null,
-      ai_reports_per_month: 30,
+      ai_reports_per_month: 35,
       history_days: null
     }
   };
@@ -94,6 +94,7 @@
       import_sessions_month: Number(usage.import_sessions_month) || 0,
       ai_reports_month: Number(usage.ai_reports_month) || 0
     };
+    if (!data.bonus) data.bonus = { balance: 0, expires_at: null };
     return data;
   }
 
@@ -157,18 +158,30 @@
     return ent.is_admin || ent.plan === 'pro' || ent.plan === 'premium';
   }
 
+  function bonusActive(ent) {
+    var b = ent.bonus || {};
+    var bal = Number(b.balance) || 0;
+    if (bal <= 0) return false;
+    if (!b.expires_at) return true;
+    try { return new Date(b.expires_at) > new Date(); } catch (e) { return bal > 0; }
+  }
+
   function canUseAI(ent) {
     ent = ent || state || localFallback();
     if (ent.is_admin) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
     var max = lim.ai_reports_per_month;
-    if (max === 0 || max === null && ent.plan !== 'premium') {
-      return { ok: false, reason: 'ai_plan', plan: ent.plan };
-    }
-    if (max == null) return { ok: true, unlimited: true };
     var used = (ent.usage && ent.usage.ai_reports_month) || 0;
-    if (used >= max) return { ok: false, reason: 'ai_limit', used: used, limit: max };
-    return { ok: true, used: used, limit: max };
+    var bonus = bonusActive(ent) ? (Number(ent.bonus.balance) || 0) : 0;
+    if (max == null) return { ok: true, unlimited: true };
+    if (max > 0 && used < max) {
+      return { ok: true, used: used, limit: max, bonus: bonus };
+    }
+    if (bonus > 0) {
+      return { ok: true, used: used, limit: max, bonus: bonus, source: 'bonus' };
+    }
+    if (max <= 0) return { ok: false, reason: 'ai_plan', plan: ent.plan, bonus: 0 };
+    return { ok: false, reason: 'ai_limit', used: used, limit: max, bonus: 0 };
   }
 
   function canStartTrainerHand(ent) {

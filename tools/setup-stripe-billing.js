@@ -1,15 +1,6 @@
 #!/usr/bin/env node
 /**
- * Crea productos/precios en Stripe, webhook y secrets en Supabase.
- *
- * Uso (PowerShell):
- *   $env:STRIPE_SECRET_KEY="sk_test_..."
- *   node tools/setup-stripe-billing.js
- *
- * Opcional:
- *   STRIPE_MODE=test|live  (default: detect from key)
- *   PT_SITE_URL=https://joserra15.github.io/PokerTrainer
- *   SUPABASE_PROJECT=wrkupbxttqrpdpoztcky
+ * Crea productos/precios en Stripe (suscripciones + bonos IA), webhook y secrets en Supabase.
  */
 'use strict';
 
@@ -24,6 +15,12 @@ const WEBHOOK_URL = `https://${PROJECT}.supabase.co/functions/v1/stripe-webhook`
 const PLANS = [
   { key: 'pro', name: 'PokerTrainer Study', monthly: 1499, yearly: 11900 },
   { key: 'premium', name: 'PokerTrainer Coach', monthly: 3499, yearly: 27900 }
+];
+
+const BONUS_TIERS = [
+  { tier: 'free', product: 'PokerTrainer IA Bono (Gratis)', packs: { s: 799, m: 1399, l: 2299 } },
+  { tier: 'study', product: 'PokerTrainer IA Bono (Study)', packs: { s: 599, m: 999, l: 1599 } },
+  { tier: 'coach', product: 'PokerTrainer IA Bono (Coach)', packs: { s: 399, m: 699, l: 1199 } }
 ];
 
 function stripeRequest(method, path, params) {
@@ -68,7 +65,7 @@ async function findOrCreateProduct(name) {
   return created.id;
 }
 
-async function findOrCreatePrice(productId, amount, interval) {
+async function findOrCreateRecurringPrice(productId, amount, interval) {
   const list = await stripeRequest('GET', `/prices?product=${productId}&active=true&limit=100`);
   const found = (list.data || []).find((p) =>
     p.unit_amount === amount &&
@@ -86,6 +83,27 @@ async function findOrCreatePrice(productId, amount, interval) {
   return created.id;
 }
 
+async function findOrCreateOneTimePrice(productId, amount, pack, tier) {
+  const list = await stripeRequest('GET', `/prices?product=${productId}&active=true&limit=100`);
+  const found = (list.data || []).find((p) =>
+    p.unit_amount === amount &&
+    p.currency === 'eur' &&
+    !p.recurring &&
+    p.metadata?.bonus_pack === pack &&
+    p.metadata?.bonus_tier === tier
+  );
+  if (found) return found.id;
+  const created = await stripeRequest('POST', '/prices', {
+    product: productId,
+    unit_amount: String(amount),
+    currency: 'eur',
+    'metadata[bonus_pack]': pack,
+    'metadata[bonus_tier]': tier,
+    'metadata[purchase_type]': 'ai_bonus'
+  });
+  return created.id;
+}
+
 async function findOrCreateWebhook() {
   const list = await stripeRequest('GET', '/webhook_endpoints?limit=100');
   const found = (list.data || []).find((w) => w.url === WEBHOOK_URL);
@@ -94,7 +112,8 @@ async function findOrCreateWebhook() {
     url: WEBHOOK_URL,
     'enabled_events[0]': 'checkout.session.completed',
     'enabled_events[1]': 'customer.subscription.updated',
-    'enabled_events[2]': 'customer.subscription.deleted'
+    'enabled_events[2]': 'customer.subscription.deleted',
+    'enabled_events[3]': 'invoice.paid'
   });
   return created.secret;
 }
@@ -114,12 +133,22 @@ async function main() {
   console.log('Site URL:', SITE_URL);
 
   const priceIds = {};
+  const bonusIds = {};
 
   for (const plan of PLANS) {
     const productId = await findOrCreateProduct(plan.name);
-    priceIds[plan.key + '_monthly'] = await findOrCreatePrice(productId, plan.monthly, 'month');
-    priceIds[plan.key + '_yearly'] = await findOrCreatePrice(productId, plan.yearly, 'year');
+    priceIds[plan.key + '_monthly'] = await findOrCreateRecurringPrice(productId, plan.monthly, 'month');
+    priceIds[plan.key + '_yearly'] = await findOrCreateRecurringPrice(productId, plan.yearly, 'year');
     console.log(plan.name, '→', priceIds[plan.key + '_monthly'], priceIds[plan.key + '_yearly']);
+  }
+
+  for (const tier of BONUS_TIERS) {
+    const productId = await findOrCreateProduct(tier.product);
+    for (const pack of ['s', 'm', 'l']) {
+      const key = 'STRIPE_BONUS_' + tier.tier.toUpperCase() + '_' + pack.toUpperCase();
+      bonusIds[key] = await findOrCreateOneTimePrice(productId, tier.packs[pack], pack, tier.tier);
+      console.log(tier.product, pack.toUpperCase(), '→', bonusIds[key]);
+    }
   }
 
   const webhookSecret = await findOrCreateWebhook();
@@ -133,9 +162,11 @@ async function main() {
   setSupabaseSecret('STRIPE_PRICE_PREMIUM_YEARLY', priceIds.premium_yearly);
   setSupabaseSecret('PT_SITE_URL', SITE_URL);
 
-  console.log('\nSecrets configurados. Actualiza js/billing-config.js:');
-  console.log(`  enabled: true`);
-  console.log(`  functionsUrl: 'https://${PROJECT}.supabase.co/functions/v1'`);
+  Object.keys(bonusIds).forEach(function (k) {
+    setSupabaseSecret(k, bonusIds[k]);
+  });
+
+  console.log('\nSecrets configurados (suscripciones + 9 bonos IA).');
 }
 
 main().catch((e) => {

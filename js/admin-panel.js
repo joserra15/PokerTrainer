@@ -10,7 +10,7 @@
     { id: 'premium', label: 'Coach' }
   ];
 
-  var PLAN_AI_LIMITS = { free: 0, pro: 3, premium: 30 };
+  var PLAN_AI_LIMITS = { free: 0, pro: 5, premium: 35 };
   var DEMO_USER_ID = 'pt_demo_user';
 
   var loaded = false;

@@ -33,6 +33,16 @@
     };
   }
 
+  function bonusTierForPlan(plan) {
+    if (plan === 'premium') return 'coach';
+    if (plan === 'pro') return 'study';
+    return 'free';
+  }
+
+  function bonusConfig() {
+    return cfg().bonus || {};
+  }
+
   async function startCheckout(plan, interval) {
     if (!enabled()) {
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto. Mientras tanto, contacta con soporte.');
@@ -47,6 +57,31 @@
         plan: plan === 'premium' ? 'premium' : 'pro',
         interval: interval === 'year' ? 'year' : 'month'
       })
+    });
+    var data = await res.json();
+    if (!res.ok) {
+      if (checkoutTab) checkoutTab.close();
+      throw new Error(data.error || 'checkout_failed');
+    }
+    if (data.url) {
+      if (checkoutTab) checkoutTab.location.href = data.url;
+      else openInNewTab(data.url);
+    } else if (checkoutTab) {
+      checkoutTab.close();
+    }
+  }
+
+  async function startBonusCheckout(pack) {
+    if (!enabled()) {
+      showPaywall('billing_not_configured', 'El pago en línea se activará pronto.');
+      return;
+    }
+    var checkoutTab = window.open('about:blank', '_blank');
+    var headers = await authHeaders();
+    var res = await fetch(functionsBase() + '/stripe-checkout', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ type: 'bonus', pack: pack })
     });
     var data = await res.json();
     if (!res.ok) {
@@ -102,8 +137,8 @@
     trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día).',
     import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis.',
     import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos.',
-    ai_plan: 'El IA Coach está en Study (3 consultas/mes) y Coach (30/mes). El plan Gratis no incluye IA.',
-    ai_limit: 'Has agotado tus consultas IA de este mes. Pasa a Coach para 30/mes.',
+    ai_plan: 'El IA Coach requiere Study (5 consultas/mes), Coach (35/mes) o un bono de consultas. Los bonos están en la pestaña Planes.',
+    ai_limit: 'Has agotado tus consultas IA incluidas este mes. Compra un bono o sube de plan.',
     billing_not_configured: '',
     no_subscription: ''
   };
@@ -120,7 +155,12 @@
     var body = document.getElementById('paywall-body');
     var msg = customMsg || MESSAGES[reason] || 'Esta función requiere un plan de pago.';
     if (title) title.textContent = reason === 'ai_plan' || reason === 'ai_limit' ? 'IA Coach' : 'Mejora tu plan';
-    if (body) body.innerHTML = '<p>' + escapeHtml(msg) + '</p>';
+    if (body) {
+      body.innerHTML = '<p>' + escapeHtml(msg) + '</p>';
+      if (reason === 'ai_plan' || reason === 'ai_limit') {
+        body.innerHTML += '<p class="muted-text" style="margin-top:10px">También puedes comprar un <strong>bono de consultas IA</strong> (válido 12 meses) en Planes.</p>';
+      }
+    }
     modal.classList.remove('hidden');
     document.body.classList.add('paywall-open');
   }
@@ -151,12 +191,16 @@
 
   function handleCheckoutReturn() {
     var params = new URLSearchParams(window.location.search);
-    if (params.get('checkout') === 'success') {
+    var checkout = params.get('checkout');
+    if (checkout === 'success' || checkout === 'bonus_success') {
       if (global.PTEntitlements && global.PTEntitlements.refresh) {
         global.PTEntitlements.refresh().then(function () {
           if (global.PTAuth && global.PTAuth.renderAccountMenu) {
             var u = global.PTAuth.getUser();
             if (u) global.PTAuth.renderAccountMenu(u);
+          }
+          if (checkout === 'bonus_success' && global.goToTab) {
+            global.goToTab('pricing');
           }
         });
       }
@@ -197,6 +241,7 @@
   global.PTBilling = {
     enabled: enabled,
     startCheckout: startCheckout,
+    startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
     syncPayments: syncPayments,
     formatSyncMessage: formatSyncMessage,
@@ -204,6 +249,8 @@
     closePaywall: closePaywall,
     bindPaywall: bindPaywall,
     handleCheckoutReturn: handleCheckoutReturn,
-    planInfo: function () { return cfg().plans || {}; }
+    planInfo: function () { return cfg().plans || {}; },
+    bonusInfo: bonusConfig,
+    bonusTierForPlan: bonusTierForPlan
   };
 })(window);

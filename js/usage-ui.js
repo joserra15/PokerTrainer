@@ -48,6 +48,11 @@
     }
     if (lim.ai_reports_per_month != null && lim.ai_reports_per_month > 0) {
       rows += barRow('IA Coach mes', use.ai_reports_month, lim.ai_reports_per_month);
+    } else if (lim.ai_reports_per_month === 0) {
+      rows += barRow('IA Coach mes', use.ai_reports_month, 0);
+    }
+    if (ent.bonus && Number(ent.bonus.balance) > 0) {
+      rows += '<div class="usage-row usage-row-static"><span>Bono IA</span><strong>' + Number(ent.bonus.balance) + ' consultas</strong></div>';
     }
     if (lim.history_days != null) {
       rows += '<div class="usage-row usage-row-static"><span>Histórico visible</span><strong>' + lim.history_days + ' días</strong></div>';

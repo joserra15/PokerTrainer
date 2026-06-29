@@ -86,19 +86,6 @@ type AiMode = 'report' | 'question' | 'session_report' | 'session_question' | 's
 
 const QUESTION_MAX = 500;
 
-const PLAN_MONTHLY_LIMITS: Record<string, number> = {
-  free: 0,
-  pro: 3,
-  premium: 30
-};
-
-function startOfUtcMonth(): string {
-  const d = new Date();
-  d.setUTCDate(1);
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString();
-}
-
 function normalizeMode(raw: unknown): AiMode {
   if (raw === 'question') return 'question';
   if (raw === 'session_report') return 'session_report';
@@ -164,52 +151,43 @@ async function callerIsAdmin(admin: ReturnType<typeof createClient>, userId: str
   return !!data?.is_admin;
 }
 
-async function resolveAiLimit(admin: ReturnType<typeof createClient>, userId: string) {
-  const { data } = await admin
-    .from('pt_user_profiles')
-    .select('plan, ai_monthly_limit, is_admin')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (!data) return 0;
-  if (data.is_admin && userId !== DEMO_USER_ID) return 999999;
-  if (data.ai_monthly_limit && data.ai_monthly_limit > 0) return data.ai_monthly_limit;
-  return PLAN_MONTHLY_LIMITS[data.plan] ?? 0;
-}
-
-async function countAiUsageMonth(admin: ReturnType<typeof createClient>, userId: string) {
-  const { count, error } = await admin
-    .from('pt_ai_usage')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('created_at', startOfUtcMonth());
-  if (error) return 0;
-  return count || 0;
-}
-
-async function checkRateLimit(userId: string) {
+async function checkAiAccess(userId: string) {
   const admin = adminClient();
-  if (!admin) return { ok: true as const };
-  const [limit, used] = await Promise.all([
-    resolveAiLimit(admin, userId),
-    countAiUsageMonth(admin, userId)
-  ]);
-  if (limit <= 0) {
-    return { ok: false as const, retryAfter: 86400, limit: 0, used, error: 'ai_plan' };
+  if (!admin) return { ok: true as const, source: 'plan' as const };
+  const { data, error } = await admin.rpc('pt_check_ai_access', { p_user_id: userId });
+  if (error) {
+    console.error('[analyze-hand] pt_check_ai_access', error);
+    return { ok: false as const, error: 'access_check_failed', limit: 0, used: 0 };
   }
-  if (used >= limit) {
+  const row = data as Record<string, unknown>;
+  if (!row?.ok) {
     const endOfMonth = new Date();
     endOfMonth.setUTCMonth(endOfMonth.getUTCMonth() + 1, 1);
     endOfMonth.setUTCHours(0, 0, 0, 0);
     const retryAfter = Math.max(60, Math.ceil((endOfMonth.getTime() - Date.now()) / 1000));
-    return { ok: false as const, retryAfter, limit, used };
+    return {
+      ok: false as const,
+      error: (row.error as string) || 'ai_limit',
+      retryAfter,
+      limit: Number(row.limit) || 0,
+      used: Number(row.used) || 0
+    };
   }
-  return { ok: true as const, limit, used };
+  return {
+    ok: true as const,
+    source: (row.source as string) || 'plan',
+    unlimited: !!row.unlimited
+  };
 }
 
-async function logAiUsage(userId: string, mode: AiMode) {
+async function recordAiUsage(userId: string, mode: AiMode, source: string) {
   const admin = adminClient();
   if (!admin) return;
-  await admin.from('pt_ai_usage').insert({ user_id: userId, mode });
+  await admin.rpc('pt_record_ai_usage', {
+    p_user_id: userId,
+    p_mode: mode,
+    p_source: source
+  });
 }
 
 async function verifyAuth(req: Request) {
@@ -265,13 +243,13 @@ serve(async (req) => {
     billingUserId = DEMO_USER_ID;
   }
 
-  const limit = await checkRateLimit(billingUserId);
-  if (!limit.ok) {
+  const access = await checkAiAccess(billingUserId);
+  if (!access.ok) {
     return json({
-      error: limit.error || 'rate_limit',
-      retryAfter: limit.retryAfter,
-      limit: limit.limit,
-      used: limit.used
+      error: access.error || 'rate_limit',
+      retryAfter: access.retryAfter,
+      limit: access.limit,
+      used: access.used
     }, 429);
   }
 
@@ -333,7 +311,7 @@ serve(async (req) => {
     return json({ error: 'empty_response' }, 502);
   }
 
-  await logAiUsage(billingUserId, mode);
+  await recordAiUsage(billingUserId, mode, access.source || 'plan');
 
   return json({
     reportMarkdown: text.trim(),

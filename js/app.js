@@ -1367,6 +1367,9 @@
         if (ent.limits.ai_reports_per_month != null) {
           line += ' · IA mes: ' + (Number(ent.usage.ai_reports_month) || 0) + '/' + ent.limits.ai_reports_per_month;
         }
+        if (ent.bonus && Number(ent.bonus.balance) > 0) {
+          line += ' · Bono IA: ' + ent.bonus.balance;
+        }
       }
       current.innerHTML = line;
     }
@@ -1374,19 +1377,19 @@
     const cards = [
       {
         id: 'free', title: 'Gratis', price: '0 €', period: '/mes', featured: false,
-        features: ['15 manos entrenador/día', '1 sesión import/mes (máx. 200 manos)', 'Sin IA Coach', 'Histórico 30 días'],
+        features: ['15 manos entrenador/día', '1 sesión import/mes (máx. 200 manos)', 'IA solo con bono', 'Histórico 30 días'],
         cta: null
       },
       {
         id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: false,
-        features: ['Entrenador ilimitado', 'Import ilimitado', '3 consultas IA Coach/mes', 'Sync, estadísticas y repaso'],
+        features: ['Entrenador ilimitado', 'Import ilimitado', '5 consultas IA Coach/mes', 'Sync, estadísticas y repaso'],
         cta: 'pro'
       },
       {
         id: 'premium', title: plans.premium ? plans.premium.label : 'Coach',
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
-        features: ['Todo Study', '30 consultas IA Coach/mes', 'Informes y preguntas sobre manos y sesiones', 'Soporte prioritario'],
+        features: ['Todo Study', '35 consultas IA Coach/mes', 'Informes y preguntas sobre manos y sesiones', 'Soporte prioritario'],
         cta: 'premium'
       }
     ];
@@ -1413,6 +1416,56 @@
       btn.addEventListener('click', function () {
         if (!window.PTBilling || !window.PTBilling.startCheckout) return;
         window.PTBilling.startCheckout(btn.dataset.checkout, btn.dataset.interval).catch(function (e) {
+          alert(e.message || 'No se pudo iniciar el pago.');
+        });
+      });
+    });
+
+    renderBonusPacks(ent);
+  }
+
+  function renderBonusPacks(ent) {
+    var host = $('#pricing-bonus');
+    if (!host) return;
+    var bonus = (window.PTBilling && window.PTBilling.bonusInfo) ? window.PTBilling.bonusInfo() : null;
+    if (!bonus || !bonus.packs) {
+      host.innerHTML = '';
+      return;
+    }
+    var tier = (window.PTBilling.bonusTierForPlan)
+      ? window.PTBilling.bonusTierForPlan(ent.plan || 'free')
+      : 'free';
+    var prices = (bonus.prices && bonus.prices[tier]) || bonus.prices.free;
+    var tierLabel = { free: 'Gratis', study: 'Study', coach: 'Coach' }[tier] || tier;
+    var packs = ['s', 'm', 'l'];
+    var rows = packs.map(function (pk) {
+      var def = bonus.packs[pk];
+      var price = prices[pk] || '—';
+      return '<div class="bonus-pack-card">' +
+        '<div class="bonus-pack-main">' +
+        '<strong>' + escapeHtml(def.label) + '</strong>' +
+        '<span class="muted-text">' + def.credits + ' consultas</span>' +
+        '</div>' +
+        '<div class="bonus-pack-price">' + escapeHtml(price) + ' €</div>' +
+        '<button type="button" class="btn btn-primary btn-sm" data-bonus-pack="' + pk + '">Comprar</button>' +
+        '</div>';
+    }).join('');
+    host.innerHTML = '<div class="pricing-bonus-panel card-box">' +
+      '<h3>Bono de consultas IA</h3>' +
+      '<p class="muted-text">Precio para tu plan <strong>' + escapeHtml(tierLabel) + '</strong>. ' +
+      'Válido 12 meses. Se consumen después de las consultas incluidas en tu plan.</p>' +
+      '<div class="bonus-pack-grid">' + rows + '</div>' +
+      '<p class="muted-text pricing-foot">Pago único · Sin renovación automática</p>' +
+      '</div>';
+
+    host.querySelectorAll('[data-bonus-pack]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!window.PTBilling || !window.PTBilling.startBonusCheckout) return;
+        if (!window.PTSupabase || !window.PTSupabase.useAuth || !window.PTSupabase.useAuth()) {
+          alert('Inicia sesión para comprar un bono.');
+          return;
+        }
+        window.PTBilling.startBonusCheckout(btn.getAttribute('data-bonus-pack')).catch(function (e) {
           alert(e.message || 'No se pudo iniciar el pago.');
         });
       });

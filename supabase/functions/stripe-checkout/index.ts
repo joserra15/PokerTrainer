@@ -1,6 +1,16 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { cors, json, priceId, siteUrl, stripeRequest } from '../_shared/stripe.ts';
+import {
+  BONUS_PACKS,
+  BonusPack,
+  cors,
+  bonusPriceId,
+  json,
+  planToBonusTier,
+  priceId,
+  siteUrl,
+  stripeRequest
+} from '../_shared/stripe.ts';
 
 async function verifyAuth(req: Request) {
   const authHeader = req.headers.get('Authorization');
@@ -30,6 +40,25 @@ function adminClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+async function ensureCustomer(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  email: string,
+  existingId: string | null
+): Promise<string> {
+  if (existingId) return existingId;
+  const customer = await stripeRequest('/customers', 'POST', {
+    email: email || '',
+    'metadata[supabase_user_id]': userId
+  });
+  const customerId = customer.id as string;
+  await admin.rpc('pt_set_stripe_customer', {
+    p_user_id: userId,
+    p_customer_id: customerId
+  });
+  return customerId;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -37,11 +66,60 @@ serve(async (req) => {
   const auth = await verifyAuth(req);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
 
-  let body: { plan?: string; interval?: string };
+  let body: { plan?: string; interval?: string; type?: string; pack?: string };
   try {
     body = await req.json();
   } catch {
     return json({ error: 'invalid_json' }, 400);
+  }
+
+  const admin = adminClient();
+  if (!admin) return json({ error: 'server_config' }, 500);
+
+  const userId = auth.user.id;
+  const { data: profile } = await admin
+    .from('pt_user_profiles')
+    .select('stripe_customer_id, email, plan')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const customerId = await ensureCustomer(
+    admin,
+    userId,
+    auth.user.email || profile?.email || '',
+    (profile?.stripe_customer_id as string) || null
+  );
+
+  const base = siteUrl();
+
+  if (body.type === 'bonus') {
+    const pack = (body.pack || '').toLowerCase() as BonusPack;
+    if (!BONUS_PACKS[pack]) return json({ error: 'invalid_pack' }, 400);
+
+    const tier = planToBonusTier((profile?.plan as string) || 'free');
+    let stripePriceId: string;
+    try {
+      stripePriceId = bonusPriceId(tier, pack);
+    } catch {
+      return json({ error: 'bonus_not_configured' }, 503);
+    }
+
+    const credits = String(BONUS_PACKS[pack].credits);
+    const session = await stripeRequest('/checkout/sessions', 'POST', {
+      mode: 'payment',
+      customer: customerId,
+      'line_items[0][price]': stripePriceId,
+      'line_items[0][quantity]': '1',
+      success_url: base + '/?checkout=bonus_success',
+      cancel_url: base + '/?checkout=cancel',
+      'metadata[supabase_user_id]': userId,
+      'metadata[purchase_type]': 'ai_bonus',
+      'metadata[bonus_pack]': pack,
+      'metadata[bonus_credits]': credits,
+      'metadata[bonus_tier]': tier
+    });
+
+    return json({ url: session.url });
   }
 
   const plan = body.plan === 'premium' ? 'premium' : (body.plan === 'pro' ? 'pro' : null);
@@ -55,31 +133,6 @@ serve(async (req) => {
     return json({ error: 'billing_not_configured' }, 503);
   }
 
-  const admin = adminClient();
-  if (!admin) return json({ error: 'server_config' }, 500);
-
-  const userId = auth.user.id;
-  const { data: profile } = await admin
-    .from('pt_user_profiles')
-    .select('stripe_customer_id, email')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  let customerId = profile?.stripe_customer_id as string | null;
-
-  if (!customerId) {
-    const customer = await stripeRequest('/customers', 'POST', {
-      email: auth.user.email || profile?.email || '',
-      'metadata[supabase_user_id]': userId
-    });
-    customerId = customer.id as string;
-    await admin.rpc('pt_set_stripe_customer', {
-      p_user_id: userId,
-      p_customer_id: customerId
-    });
-  }
-
-  const base = siteUrl();
   const session = await stripeRequest('/checkout/sessions', 'POST', {
     mode: 'subscription',
     customer: customerId,

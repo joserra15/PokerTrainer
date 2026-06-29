@@ -143,9 +143,14 @@
     const max = ent.limits && ent.limits.ai_reports_per_month;
     const used = (ent.usage && ent.usage.ai_reports_month) || 0;
     if (max == null) return 'Consultas IA: ilimitadas';
-    if (max === 0) return 'Tu plan no incluye consultas IA este mes.';
-    const left = Math.max(0, max - used);
-    return 'Te quedan ' + left + ' de ' + max + ' consultas IA este mes.';
+    var bonus = (ent.bonus && Number(ent.bonus.balance) > 0) ? Number(ent.bonus.balance) : 0;
+    if (max === 0 && bonus <= 0) return 'Tu plan no incluye consultas IA. Compra un bono en Planes.';
+    var left = max > 0 ? Math.max(0, max - used) : 0;
+    var line = max > 0
+      ? ('Incluidas: ' + left + ' de ' + max + ' este mes')
+      : 'Sin cupo mensual incluido';
+    if (bonus > 0) line += ' · Bono: ' + bonus + ' restantes';
+    return line + '.';
   }
 
   function updateQuotaDisplay(panel, line) {

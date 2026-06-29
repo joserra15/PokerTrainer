@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { planFromPriceId, stripeKey } from '../_shared/stripe.ts';
+import { planFromPriceId, stripeKey, BONUS_PACKS, BonusPack } from '../_shared/stripe.ts';
 
 function adminClient() {
   const url = Deno.env.get('SUPABASE_URL');
@@ -157,10 +157,36 @@ serve(async (req) => {
   const obj = event.data.object;
 
   if (event.type === 'checkout.session.completed') {
-    const userId = (obj.metadata as Record<string, string>)?.supabase_user_id
-      || (obj.client_reference_id as string);
-    const plan = (obj.metadata as Record<string, string>)?.plan || 'pro';
+    const meta = (obj.metadata as Record<string, string>) || {};
+    const userId = meta.supabase_user_id || (obj.client_reference_id as string);
     const customerId = obj.customer as string;
+    const mode = obj.mode as string;
+    const sessionId = obj.id as string;
+
+    if (mode === 'payment' && meta.purchase_type === 'ai_bonus' && userId) {
+      const pack = (meta.bonus_pack || 's').toLowerCase() as BonusPack;
+      const packDef = BONUS_PACKS[pack];
+      const credits = packDef
+        ? packDef.credits
+        : parseInt(meta.bonus_credits || '0', 10);
+      if (credits > 0) {
+        await admin.rpc('pt_credit_ai_bonus', {
+          p_user_id: userId,
+          p_credits: credits,
+          p_pack_code: pack,
+          p_stripe_session_id: sessionId
+        });
+      }
+      if (customerId) {
+        await recordStripePayment(admin, customerId, new Date().toISOString(), userId);
+      }
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const plan = meta.plan || 'pro';
     const subscriptionId = obj.subscription as string;
 
     if (userId && subscriptionId) {

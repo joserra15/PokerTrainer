@@ -1,5 +1,14 @@
 const STRIPE_API = 'https://api.stripe.com/v1';
 
+export const BONUS_PACKS = {
+  s: { credits: 10, label: 'Pack S' },
+  m: { credits: 20, label: 'Pack M' },
+  l: { credits: 40, label: 'Pack L' }
+} as const;
+
+export type BonusPack = keyof typeof BONUS_PACKS;
+export type BonusTier = 'free' | 'study' | 'coach';
+
 export function stripeKey(): string {
   const key = Deno.env.get('STRIPE_SECRET_KEY');
   if (!key) throw new Error('STRIPE_SECRET_KEY not configured');
@@ -20,6 +29,33 @@ export function priceId(plan: string, interval: string): string {
   const id = map[plan + '_' + interval];
   if (!id) throw new Error('price_not_configured');
   return id;
+}
+
+export function bonusPriceId(tier: BonusTier, pack: BonusPack): string {
+  const key = 'STRIPE_BONUS_' + tier.toUpperCase() + '_' + pack.toUpperCase();
+  const id = Deno.env.get(key);
+  if (!id) throw new Error('bonus_price_not_configured:' + key);
+  return id;
+}
+
+export function planToBonusTier(plan: string): BonusTier {
+  if (plan === 'premium') return 'coach';
+  if (plan === 'pro') return 'study';
+  return 'free';
+}
+
+export function bonusTierFromPriceId(priceId: string): { tier: BonusTier; pack: BonusPack } | null {
+  const tiers: BonusTier[] = ['free', 'study', 'coach'];
+  const packs: BonusPack[] = ['s', 'm', 'l'];
+  for (const tier of tiers) {
+    for (const pack of packs) {
+      const envKey = 'STRIPE_BONUS_' + tier.toUpperCase() + '_' + pack.toUpperCase();
+      if (Deno.env.get(envKey) === priceId) {
+        return { tier, pack };
+      }
+    }
+  }
+  return null;
 }
 
 export function planFromPriceId(priceId: string): { plan: string; interval: string } | null {
