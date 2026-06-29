@@ -4,6 +4,7 @@
   var defaults = {
     controllerName: 'Responsable del tratamiento (configura js/legal-config.js)',
     controllerEmail: 'privacidad@ejemplo.com',
+    supportEmail: 'soporte@ejemplo.com',
     appUrl: location.origin + location.pathname.replace(/\/legal\/[^/]*$/, '/'),
     lastUpdated: '19 de junio de 2026'
   };
@@ -14,5 +15,13 @@
   });
   document.querySelectorAll('[data-legal-href]').forEach(function (el) {
     if (el.getAttribute('data-legal-href') === 'appUrl') el.setAttribute('href', val('appUrl'));
+  });
+  document.querySelectorAll('[data-legal-mail]').forEach(function (el) {
+    var key = el.getAttribute('data-legal-mail');
+    var email = val(key);
+    if (email) {
+      el.textContent = email;
+      el.setAttribute('href', 'mailto:' + email);
+    }
   });
 })();

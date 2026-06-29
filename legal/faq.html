@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preguntas frecuentes · PokerTrainer</title>
+  <link rel="stylesheet" href="legal-common.css" />
+</head>
+<body>
+  <article class="legal-wrap">
+    <header class="legal-top">
+      <a href="../index.html">&larr; Volver a PokerTrainer</a>
+      <h1>Preguntas frecuentes</h1>
+      <p class="legal-meta">Última actualización: <span data-legal="lastUpdated"></span></p>
+    </header>
+
+    <h2>¿Qué es PokerTrainer?</h2>
+    <p>
+      PokerTrainer es una aplicación web para entrenar decisiones GTO en No-Limit Hold'em (NLHE),
+      revisar sesiones importadas desde PokerStars y, con planes de pago, usar IA Coach e informes.
+    </p>
+
+    <h2>¿Necesito cuenta para usarla?</h2>
+    <p>
+      Sí. El acceso requiere iniciar sesión con Google. Tus datos se asocian a tu cuenta para
+      sincronización en la nube y límites de uso según el plan.
+    </p>
+
+    <h2>¿Cómo importo una sesión?</h2>
+    <p>
+      En la pestaña <strong>Sesiones</strong>, sube un fichero <code>.txt</code> exportado de PokerStars
+      (Cash NL Hold'em). La app analiza cada mano y te permite revisar decisiones calle a calle.
+    </p>
+    <p>
+      Si es tu primera vez, encontrarás una <strong>sesión de ejemplo</strong> precargada para explorar
+      la revisión sin subir un archivo.
+    </p>
+
+    <h2>¿Qué formatos de historial admite?</h2>
+    <p>
+      De momento solo historiales de texto de <strong>PokerStars</strong> en mesas Cash NLHE.
+      Otros formatos o salas no están soportados.
+    </p>
+
+    <h2>¿Dónde se guardan mis datos?</h2>
+    <p>
+      El histórico del entrenador, errores, estadísticas y el índice de sesiones se guardan en tu
+      navegador y, si usas la app con sesión iniciada, se sincronizan en la nube (Supabase).
+      El texto bruto del <code>.txt</code> importado permanece en el dispositivo y no se sube a la nube.
+    </p>
+
+    <h2>¿Qué incluye el plan gratuito?</h2>
+    <ul>
+      <li>15 manos de entrenador al día</li>
+      <li>1 importación de sesión al mes</li>
+      <li>Sesión de ejemplo incluida</li>
+      <li>Sin IA Coach</li>
+    </ul>
+
+    <h2>¿Qué planes de pago hay?</h2>
+    <ul>
+      <li><strong>Study</strong> — entrenador e import ilimitados, 3 consultas IA Coach/mes, sync en la nube.</li>
+      <li><strong>Coach</strong> — todo Study, 30 consultas IA/mes, informes de sesión y soporte prioritario.</li>
+    </ul>
+    <p>Los precios actuales aparecen en la landing y en tu cuenta al iniciar sesión.</p>
+
+    <h2>¿Cómo cancelo o cambio mi suscripción?</h2>
+    <p>
+      Desde el menú de cuenta, abre el portal de facturación de Stripe. Ahí puedes cambiar de plan,
+      actualizar el método de pago o cancelar. La cancelación mantiene el acceso hasta el final del
+      periodo ya pagado.
+    </p>
+
+    <h2>¿Qué es IA Coach?</h2>
+    <p>
+      Es un asistente opcional que explica decisiones GTO en lenguaje natural. Antes del primer uso
+      debes aceptar el envío de datos de mano a un proveedor de IA. Puedes rechazarlo y seguir usando
+      el resto de funciones. Consulta <a href="ia.html">Uso de IA</a> para más detalle.
+    </p>
+
+    <h2>El login con Google no funciona</h2>
+    <p>
+      Comprueba que usas la URL oficial de la app y que tu navegador permite ventanas emergentes.
+      Si eres administrador del proyecto, revisa la configuración OAuth descrita en
+      <code>docs/GOOGLE_OAUTH_PRODUCTION.md</code>.
+    </p>
+
+    <h2>¿Cómo contacto con soporte?</h2>
+    <p>
+      Escribe a <a href="#" data-legal-mail="supportEmail"></a> o visita la página de
+      <a href="soporte.html">Soporte</a>.
+    </p>
+
+    <nav class="legal-nav">
+      <a href="soporte.html">Soporte</a>
+      <a href="privacidad.html">Privacidad</a>
+      <a href="terminos.html">Términos</a>
+      <a href="cookies.html">Cookies</a>
+    </nav>
+
+    <footer class="legal-foot">PokerTrainer · FAQ</footer>
+  </article>
+  <script src="../js/legal-config.js" onerror="(function(){var s=document.createElement('script');s.src='../js/legal-config.example.js';document.body.appendChild(s);})()"></script>
+  <script src="legal-page.js"></script>
+</body>
+</html>

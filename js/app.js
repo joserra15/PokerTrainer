@@ -501,6 +501,10 @@
         renderSessionsList();
       }
     });
+    window.addEventListener('pt-sample-session-ready', () => {
+      const sessionsPanel = $('#tab-sessions');
+      if (sessionsPanel && sessionsPanel.classList.contains('active')) renderSessionsList();
+    });
     $('#clear-history').addEventListener('click', () => {
       if (confirm('¿Borrar el histórico de manos? No se modifican errores ni estadísticas globales.')) {
         Store.clearHistory();
@@ -1812,13 +1816,16 @@
   function renderSessionsList() {
     const sessions = Store.getSessions();
     const box = $('#sessions-list');
+    const isSample = (s) => window.PTSampleSession && window.PTSampleSession.isSampleSession
+      ? window.PTSampleSession.isSampleSession(s) : s.id === 'pt_sample_session_v1';
     if (!sessions.length) { box.innerHTML = '<div class="empty">No hay sesiones. Añade un fichero .txt arriba.</div>'; return; }
     box.innerHTML = sessions.map((s) => {
       const st = s.stats;
       const netCls = st.netBB >= 0 ? 'net-pos' : 'net-neg';
+      const sampleBadge = isSample(s) ? '<span class="session-sample-badge">Ejemplo</span>' : '';
       return `<div class="record session-card">
         <div class="rec-main">
-          <div class="rec-scenario">${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span></div>
+          <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span></div>
           <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands} manos · ${fmtDate(s.createdAt)}</div>
           <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)} bb</span> · EV perdido -${fmtBB(st.evLossBB)} bb</div>
           <div class="rec-sub muted-text" style="font-size:12px">${streetAccSummary(st.accByStreet)}</div>

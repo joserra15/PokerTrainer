@@ -44,6 +44,7 @@
     if (shell) shell.classList.toggle('hidden', !visible);
     if (gate) gate.classList.toggle('hidden', visible);
     document.body.classList.toggle('auth-locked', !visible);
+    document.body.classList.toggle('landing-scrollable', !visible);
   }
 
   function normalizeUser(user) {
@@ -308,6 +309,12 @@
     ]);
   }
 
+  function seedSampleSession(user) {
+    if (!user || !global.PTSampleSession || !global.PTSampleSession.ensureForUser) return;
+    global.PTSampleSession.ensureForUser(user.sub)
+      .catch(function (e) { console.warn('[PTSampleSession]', e); });
+  }
+
   async function enterApp(user) {
     if (!user) return;
     user = normalizeUser(user);
@@ -329,7 +336,12 @@
       document.body.classList.add('pt-cloud-syncing');
       withTimeout(global.PTCloud.syncOnLogin(), 12000, 'cloud-sync')
         .catch(function (e) { console.warn('[PTCloud]', e); })
-        .finally(function () { document.body.classList.remove('pt-cloud-syncing'); });
+        .finally(function () {
+          document.body.classList.remove('pt-cloud-syncing');
+          seedSampleSession(user);
+        });
+    } else {
+      seedSampleSession(user);
     }
 
     if (global.PTProfile && global.PTProfile.touchAndApply) {

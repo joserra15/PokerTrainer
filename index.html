@@ -27,37 +27,149 @@
   <script src="js/ai-config.js?v=1.9.0"></script>
   <script src="js/billing-config.js?v=1.9.0"></script>
   <script src="js/legal-config.js?v=1.9.0"></script>
+  <script src="js/site-config.js?v=1.9.0"></script>
   <script src="js/legal.js?v=1.9.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-client.js?v=1.9.0"></script>
   <script src="js/cloud-store.js?v=1.9.0"></script>
   <script src="js/cloud-sessions.js?v=1.9.0"></script>
+  <script src="js/landing.js?v=1.9.0"></script>
   <script src="js/auth-bootstrap.js?v=1.9.0"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="auth-locked">
-  <!-- Pantalla de login (obligatoria) -->
-  <div id="auth-gate" class="auth-gate">
-    <div class="auth-card">
-      <div class="auth-brand">
-        <img src="icons/logo-header.png" class="app-logo app-logo-auth" alt="PokerTrainer" width="72" height="72" />
-        <h1>GTO Poker Trainer</h1>
-        <p class="auth-sub">Inicia sesión para acceder al entrenador</p>
+  <!-- Landing pública + login (G-02) -->
+  <div id="auth-gate" class="auth-gate landing-page">
+    <div class="landing-layout">
+      <div class="landing-main">
+        <header class="landing-top">
+          <div class="landing-brand">
+            <img src="icons/logo-header.png" class="app-logo" alt="PokerTrainer" width="40" height="40" />
+            <span>GTO Poker Trainer</span>
+          </div>
+          <nav class="landing-nav" aria-label="Secciones">
+            <a href="#landing-features">Funciones</a>
+            <a href="#landing-pricing">Planes</a>
+            <a href="#landing-testimonials">Opiniones</a>
+            <a href="legal/faq.html">FAQ</a>
+            <a href="legal/soporte.html">Soporte</a>
+            <button type="button" class="btn btn-primary btn-sm" data-landing-login>Entrar</button>
+          </nav>
+        </header>
+
+        <section class="landing-hero" id="landing-hero">
+          <p class="landing-eyebrow">Cash NL 6-max · MTT preflop</p>
+          <h1>Entrena GTO, importa tus sesiones y mejora con IA Coach</h1>
+          <p class="landing-lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV — sin instalar nada.</p>
+          <div class="landing-hero-actions">
+            <button type="button" class="btn btn-primary" data-landing-login>Empezar gratis</button>
+            <a class="btn btn-ghost" href="#landing-features">Ver funciones</a>
+          </div>
+          <ul class="landing-hero-bullets">
+            <li>Sesión de ejemplo incluida al registrarte</li>
+            <li>Sincronización en la nube entre dispositivos</li>
+            <li>Plan gratis sin tarjeta</li>
+          </ul>
+        </section>
+
+        <section class="landing-section" id="landing-features">
+          <h2>Todo lo que necesitas para estudiar</h2>
+          <div class="landing-features-grid">
+            <article class="landing-feature">
+              <h3>Entrenador interactivo</h3>
+              <p>Mesa 6-max con evaluación GTO calle a calle, rangos y feedback inmediato.</p>
+            </article>
+            <article class="landing-feature">
+              <h3>Import de sesiones</h3>
+              <p>Sube tu historial .txt, obtén nota de sesión, EV perdido y repaso mano a mano.</p>
+            </article>
+            <article class="landing-feature">
+              <h3>Rangos preflop</h3>
+              <p>Matrices RFI y defensa vs open para cash y MTT, con profundidades configurables.</p>
+            </article>
+            <article class="landing-feature">
+              <h3>IA Coach</h3>
+              <p>Consultas sobre manos y sesiones en planes Study y Coach (ver planes).</p>
+            </article>
+            <article class="landing-feature">
+              <h3>Estadísticas y errores</h3>
+              <p>Histórico, acierto por calle y banco de spots fallados para repetir.</p>
+            </article>
+            <article class="landing-feature">
+              <h3>Sync en la nube</h3>
+              <p>Tus datos y sesiones en Supabase — continúa en móvil u otro PC.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="landing-section" id="landing-pricing">
+          <h2>Planes simples</h2>
+          <p class="landing-section-lead">Empieza gratis. Sube de plan cuando quieras más IA e imports ilimitados.</p>
+          <div class="landing-pricing-grid" id="landing-pricing-grid"></div>
+          <p class="muted-text landing-pricing-note">Precios en EUR. IVA incluido cuando aplique. Sin permanencia.</p>
+        </section>
+
+        <section class="landing-section" id="landing-testimonials">
+          <h2>Lo que dicen los jugadores</h2>
+          <div class="landing-testimonials-grid">
+            <blockquote class="landing-quote">
+              <p>«Por fin puedo repasar mis sesiones de NL sin pasar horas en un solver. La nota y el EV perdido me orientan al estudio.»</p>
+              <footer>— Jugador NL25, Madrid <span class="landing-placeholder">(placeholder)</span></footer>
+            </blockquote>
+            <blockquote class="landing-quote">
+              <p>«El entrenador de mesa encaja en ratos muertos. Importé 200 manos y vi al momento mis leaks en turn.»</p>
+              <footer>— Reg. micro-stakes <span class="landing-placeholder">(placeholder)</span></footer>
+            </blockquote>
+            <blockquote class="landing-quote">
+              <p>«La sync entre móvil y PC me salvó: analizo en el sofa y reviso en el escritorio.»</p>
+              <footer>— Usuario beta <span class="landing-placeholder">(placeholder)</span></footer>
+            </blockquote>
+          </div>
+        </section>
+
+        <section class="landing-section landing-cta-band">
+          <h2>¿Listo para subir de nivel?</h2>
+          <p class="muted-text">Crea tu cuenta con Google en segundos. Incluye sesión demo sin subir ficheros.</p>
+          <button type="button" class="btn btn-primary" data-landing-login>Crear cuenta / Entrar</button>
+        </section>
+
+        <footer class="landing-footer">
+          <a href="legal/terminos.html">Términos</a>
+          <a href="legal/privacidad.html">Privacidad</a>
+          <a href="legal/faq.html">FAQ</a>
+          <a href="legal/soporte.html">Soporte</a>
+          <span class="muted-text">© PokerTrainer</span>
+        </footer>
       </div>
-      <div id="google-signin-btn" class="google-signin-host"></div>
-      <button type="button" id="auth-mobile-login" class="btn btn-primary auth-mobile-login">
-        Continuar con Google
-      </button>
-      <p id="auth-error" class="auth-error" role="alert"></p>
-      <p class="auth-legal-note muted-text">
-        Al continuar aceptas los <a href="legal/terminos.html">Términos de uso</a> y la
-        <a href="legal/privacidad.html">Política de privacidad</a>.
-      </p>
-      <div id="auth-legal-foot" class="auth-legal-foot"></div>
-      <div id="auth-setup" class="auth-setup hidden">
-        <p><strong>Configuración pendiente.</strong> Copia <code>js/google-config.example.js</code> a <code>js/google-config.js</code> y añade tu Client ID de Google Cloud Console.</p>
-        <p class="muted-text">Orígenes autorizados: <code>http://localhost</code>, <code>https://joserra15.github.io</code></p>
-      </div>
+
+      <aside class="landing-login-panel" id="landing-login">
+        <div class="auth-card">
+          <div class="auth-brand">
+            <img src="icons/logo-header.png" class="app-logo app-logo-auth" alt="PokerTrainer" width="72" height="72" />
+            <h2>Entrar a PokerTrainer</h2>
+            <p class="auth-sub">Inicia sesión con Google para acceder al entrenador</p>
+          </div>
+          <div id="google-signin-btn" class="google-signin-host"></div>
+          <button type="button" id="auth-mobile-login" class="btn btn-primary auth-mobile-login">
+            Continuar con Google
+          </button>
+          <p id="auth-error" class="auth-error" role="alert"></p>
+          <p class="auth-legal-note muted-text">
+            Al continuar aceptas los <a href="legal/terminos.html">Términos de uso</a> y la
+            <a href="legal/privacidad.html">Política de privacidad</a>.
+          </p>
+          <div id="auth-legal-foot" class="auth-legal-foot"></div>
+          <div id="auth-setup" class="auth-setup hidden">
+            <p><strong>Configuración pendiente.</strong> Copia <code>js/google-config.example.js</code> a <code>js/google-config.js</code> y añade tu Client ID de Google Cloud Console.</p>
+            <p class="auth-hint-title">Orígenes autorizados (JavaScript):</p>
+            <div id="auth-oauth-origins"></div>
+            <p class="auth-hint-title" style="margin-top:10px">Redirect URLs (Supabase Auth):</p>
+            <div id="auth-oauth-redirects"></div>
+            <p class="muted-text" style="margin-top:10px">Site URL: <code id="auth-app-url"></code></p>
+            <p class="muted-text">Guía completa: <code>docs/GOOGLE_OAUTH_PRODUCTION.md</code></p>
+          </div>
+        </div>
+      </aside>
     </div>
   </div>
 
@@ -108,6 +220,7 @@
             <button type="button" id="account-demo" class="btn btn-ghost btn-block hidden" style="margin-bottom:8px">Modo demo</button>
             <button type="button" id="account-stop-demo" class="btn btn-primary btn-block hidden" style="margin-bottom:8px">Parar demo</button>
             <button type="button" id="account-cookies" class="btn btn-ghost btn-block btn-sm-account">Configurar cookies</button>
+            <a href="legal/soporte.html" class="btn btn-ghost btn-block btn-sm-account" target="_blank" rel="noopener">Soporte</a>
             <button type="button" id="account-delete" class="btn btn-danger btn-block btn-sm-account" style="margin-top:8px">Eliminar cuenta y datos</button>
             <button type="button" id="account-signout" class="btn btn-ghost btn-block" style="margin-top:8px">Cerrar sesión</button>
           </div>
@@ -121,6 +234,7 @@
         <button class="tab" data-tab="errors">Errores</button>
         <button class="tab" data-tab="stats">Estadísticas</button>
         <button class="tab" data-tab="pricing">Planes</button>
+        <a class="tab tab-link" href="legal/faq.html" target="_blank" rel="noopener">FAQ</a>
       </nav>
     </div>
   </div>
@@ -665,6 +779,8 @@
       'js/ai-hand-payload.js',
       'js/ai-report.js',
       'js/storage.js',
+      'js/cloud-sessions.js',
+      'js/sample-session.js',
       'js/user-profile.js',
       'js/demo-mode.js',
       'js/entitlements.js',

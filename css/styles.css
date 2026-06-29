@@ -164,8 +164,9 @@ body.nav-open .nav-toggle-bar:nth-child(3) { transform: translateY(-7px) rotate(
 .account-row strong, .account-row code { color: var(--text); font-size: 12px; }
 .account-row code { font-family: ui-monospace, monospace; font-size: 11px; }
 
-/* ---- Login gate ---- */
+/* ---- Login gate / Landing (G-02) ---- */
 body.auth-locked { overflow: hidden; }
+body.auth-locked.landing-scrollable { overflow: auto; }
 body.pt-cloud-syncing #app-shell { opacity: 0.92; pointer-events: none; }
 body.range-matrix-open { overflow: hidden; }
 .auth-gate {
@@ -211,6 +212,206 @@ body.range-matrix-open { overflow: hidden; }
   word-break: break-all;
 }
 .auth-warn { color: var(--orange); font-size: 13px; }
+
+/* Landing marketing */
+.landing-page.auth-gate {
+  display: block;
+  place-items: stretch;
+  overflow: auto;
+  padding: 0;
+}
+.landing-layout {
+  display: grid;
+  grid-template-columns: 1fr min(400px, 38vw);
+  gap: 0;
+  min-height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.landing-main {
+  padding: max(16px, var(--safe-top)) 28px max(32px, var(--safe-bottom)) max(20px, var(--safe-left));
+}
+.landing-login-panel {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: max(20px, var(--safe-top)) max(20px, var(--safe-right)) max(20px, var(--safe-bottom)) 20px;
+  background: linear-gradient(180deg, rgba(15,20,25,.55), var(--bg-2));
+  border-left: 1px solid var(--border);
+}
+.landing-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.landing-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 16px;
+}
+.landing-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  font-size: 14px;
+}
+.landing-nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.landing-nav a:hover { color: var(--text); }
+.landing-hero { max-width: 720px; margin-bottom: 48px; }
+.landing-eyebrow {
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.landing-hero h1 {
+  font-size: clamp(28px, 4.5vw, 42px);
+  line-height: 1.12;
+  margin: 0 0 14px;
+}
+.landing-lead { color: var(--muted); font-size: 17px; line-height: 1.5; margin-bottom: 20px; }
+.landing-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.landing-hero-bullets {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 14px;
+  display: grid;
+  gap: 6px;
+}
+.landing-section { margin-bottom: 48px; max-width: 900px; }
+.landing-section h2 { font-size: 24px; margin: 0 0 10px; }
+.landing-section-lead { color: var(--muted); margin-bottom: 18px; }
+.landing-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.landing-feature {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.landing-feature h3 { margin: 0 0 8px; font-size: 16px; }
+.landing-feature p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.landing-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  max-width: 920px;
+}
+.landing-price-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.landing-price-card.featured {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(47,129,247,.22);
+}
+.landing-price-card h3 { margin: 0; font-size: 18px; }
+.landing-price { font-size: 28px; font-weight: 800; }
+.landing-price small { font-size: 14px; font-weight: 500; color: var(--muted); }
+.landing-price-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  flex: 1;
+}
+.landing-pricing-note { font-size: 12px; margin-top: 12px; }
+.landing-testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.landing-quote {
+  margin: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.landing-quote footer {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.landing-placeholder { opacity: .65; font-size: 11px; }
+.landing-cta-band {
+  text-align: left;
+  padding: 24px;
+  border-radius: calc(var(--radius) + 4px);
+  background: linear-gradient(135deg, rgba(47,129,247,.12), rgba(245,196,81,.08));
+  border: 1px solid var(--border);
+}
+.landing-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  padding: 24px 0 8px;
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+}
+.landing-footer a { color: var(--muted); text-decoration: none; }
+.landing-footer a:hover { color: var(--text); }
+.landing-login-panel .auth-card { width: 100%; max-width: 380px; }
+.landing-login-panel .auth-brand h2 { font-size: 20px; margin-bottom: 6px; }
+.tabs .tab-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.session-sample-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  border: 1px solid rgba(245,196,81,.35);
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+@media (max-width: 960px) {
+  .landing-layout { grid-template-columns: 1fr; }
+  .landing-login-panel {
+    position: static;
+    min-height: auto;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .landing-nav .btn { width: 100%; }
+}
+@media (max-width: 600px) {
+  .landing-main { padding: 16px; }
+  .landing-nav { width: 100%; }
+  .landing-nav a:not(.btn) { display: none; }
+}
 
 main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .tab-panel { display: none; animation: fade .2s ease; }
