@@ -433,10 +433,19 @@
     return mode === 'question' ? 'question' : 'report';
   }
 
-  async function fetchCoach(payload, scope, mode, question) {
+  async function fetchCoach(payload, scope, mode, question, thread) {
     const c = cfg();
     const body = { payload: payload, mode: apiMode(scope, mode) };
     if (mode === 'question' && question) body.question = question;
+    if (mode === 'question' && thread && thread.length) {
+      body.thread = thread.slice(0, 4).map(function (t) {
+        return {
+          mode: t.mode,
+          question: t.question,
+          reportMarkdown: t.reportMarkdown
+        };
+      });
+    }
     if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) body.demo = true;
 
     let token = null;
@@ -599,7 +608,7 @@
     const loadingMsg = mode === 'question' ? ui.loadingQuestion : ui.loadingReport;
     setPanelState(panel, 'loading', loadingMsg, 'El coach está pensando la respuesta');
     try {
-      const data = await fetchCoach(payload, scope, mode, question);
+      const data = await fetchCoach(payload, scope, mode, question, thread);
       const report = {
         reportMarkdown: data.reportMarkdown,
         model: data.model,

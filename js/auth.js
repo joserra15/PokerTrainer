@@ -350,7 +350,15 @@
           renderAccountMenu(user);
           if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
         })
-        .catch(function (e) { console.warn('[PTProfile]', e); });
+        .catch(function (e) {
+          console.warn('[PTProfile]', e);
+          if (global.PTEntitlements && global.PTEntitlements.refresh) {
+            global.PTEntitlements.refresh().then(function () {
+              renderAccountMenu(user);
+              if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
+            });
+          }
+        });
     } else if (global.PTAdmin && global.PTAdmin.initForUser) {
       global.PTAdmin.initForUser(user);
     }
@@ -475,6 +483,7 @@
     signOut: signOut,
     exportAccountData: exportAccountData,
     deleteAccount: deleteAccount,
+    renderAccountMenu: renderAccountMenu,
     collapseAccountAccordion: function () { setAccountAccordion(false); },
     startLogin: function () { if (global.PT_startGoogleLogin) global.PT_startGoogleLogin(); }
   };

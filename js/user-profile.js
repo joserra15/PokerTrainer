@@ -23,9 +23,17 @@
     return global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth();
   }
 
+  var ADMIN_EMAILS = ['joserra15@gmail.com'];
+
+  function isBootstrapAdmin(email) {
+    if (!email) return false;
+    var lower = String(email).toLowerCase();
+    return ADMIN_EMAILS.some(function (e) { return lower === e.toLowerCase(); });
+  }
+
   function applyProfileToUser(user, profile) {
     if (!user || !profile) return user;
-    user.isAdmin = !!profile.is_admin;
+    user.isAdmin = !!profile.is_admin || isBootstrapAdmin(user.email);
     user.plan = profile.plan || 'free';
     user.planLabel = PLAN_LABELS[user.plan] || user.plan;
     user.aiDailyLimit = profile.ai_limit || profile.ai_daily_limit || null;

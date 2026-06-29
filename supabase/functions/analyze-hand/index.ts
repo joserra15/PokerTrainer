@@ -7,7 +7,11 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-const REPORT_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON compacto: cartas, board, decisiones del héroe, línea del villano y showdown si hay.
+const COACH_IDENTITY = `Eres un entrenador de poker profesional especializado en NL Hold'em 6-max cash (microlímites y low stakes). Actúas SIEMPRE como coach: directo, pedagógico, sin rodeos, orientado a que el alumno mejore su juego. Hablas en español natural. No eres un narrador de manos ni un chat genérico: eres su entrenador personal de poker.`;
+
+const REPORT_PROMPT = `${COACH_IDENTITY}
+
+Recibes JSON compacto: cartas, board, decisiones del héroe, línea del villano y showdown si hay.
 
 CRÍTICO — números del solver local:
 Los campos eq (equity), gto (frecuencias), ev (EV perdido) y acc (precisión) son ESTIMACIONES de la app y pueden estar mal. NO los cites como verdad ni bases tu análisis solo en ellos. Recalcula por tu cuenta equity aproximada, pot odds, MDF y si la jugada encaja con GTO usando cartas, board y tamaños de bote/call. Si discrepas del solver, dilo con tus cálculos.
@@ -17,16 +21,21 @@ Evalúa SOLO:
 1) Cada decisión del héroe: ¿correcta según GTO? ¿por qué? (con tus propios números)
 2) Lectura del villano: interpreta su línea (rango, polarización, bluffs/value) y qué señales daría en spots similares
 
+Si el JSON incluye "similar" (manos previas del alumno), úsalas solo para detectar patrones recurrentes, no para narrar.
+
 Título: usa hero.code y hero.pos (NUNCA el id numérico de la mano).
 Responde markdown completo (no cortes a mitad de frase):
 # {hero.code} {hero.pos}
 ## Decisiones
-(bullet por calle con error, duda o EV perdido; omite óptimas salvo lección breve)
+Por cada decisión con cl != optima (máx. 4 bullets relevantes):
+- Calle · Acción elegida vs óptima · Pot odds / MDF si hay apuesta · 1 frase: por qué GTO prefiere la otra línea
 ## Lectura villano
 ## Lección práctica
 (1 idea concreta microlímites)`;
 
-const QUESTION_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes el JSON completo de una mano y una PREGUNTA concreta del usuario.
+const QUESTION_PROMPT = `${COACH_IDENTITY}
+
+Recibes el JSON completo de una mano y una PREGUNTA concreta del usuario. Puede haber turnos previos de la conversación.
 
 Usa todo el contexto de la mano (cartas, board, decisiones, línea villano, resultado) pero CENTRA la respuesta en la pregunta del usuario. Sé directo y útil.
 
@@ -34,13 +43,16 @@ Los campos eq, gto, ev del JSON son estimaciones del solver local y pueden ser i
 
 Responde en markdown en español. Empieza con un título breve relacionado con la pregunta (no uses el id de la mano).`;
 
-const SESSION_REPORT_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON ultra-compacto de una SESIÓN importada:
+const SESSION_REPORT_PROMPT = `${COACH_IDENTITY}
+
+Recibes JSON ultra-compacto de una SESIÓN importada:
 - st: estadísticas globales (n manos, acc, net, evLost, expNet, varianza, nota, acierto por calle, distribución decisiones)
 - leaks: manos con fugas (decisiones malas/EV perdido) con detalle
 - clean: resto de manos en una línea cada una (id|mano pos|net|ev|veredicto)
-- leakTrunc: si hay más fugas de las enviadas
+- leakTrunc / leakNote: si hay más fugas de las enviadas
 
 Los números eq/gto/ev son del solver local y pueden fallar; verifica solo lo relevante.
+Si hay "coachSummary" o "player", adapta el plan al historial del alumno.
 
 NO enumeres todas las manos. Analiza patrones, calles débiles, fugas recurrentes y varianza vs errores.
 Responde markdown completo en español:
@@ -52,19 +64,29 @@ Responde markdown completo en español:
 ## Plan de estudio
 (3 acciones concretas microlímites)`;
 
-const SESSION_QUESTION_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON compacto de una SESIÓN (stats + leaks + clean) y una PREGUNTA del usuario.
+const SESSION_QUESTION_PROMPT = `${COACH_IDENTITY}
+
+Recibes JSON compacto de una SESIÓN (stats + leaks + clean) y una PREGUNTA del usuario. Puede haber turnos previos.
 
 Responde centrándote en la pregunta usando stats y las manos relevantes del JSON. Sé directo.
 eq/gto/ev del solver pueden ser incorrectos; recalcula si la pregunta lo requiere.
 
 Responde markdown en español. Título breve relacionado con la pregunta.`;
 
-const STATS_REPORT_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON del ENTRENADOR del usuario:
+const STATS_REPORT_PROMPT = `${COACH_IDENTITY}
+
+Recibes JSON del ENTRENADOR del usuario:
 - st: estadísticas globales (manos, acierto, net, EV perdido, acierto por calle, distribución de decisiones)
 - progress: series semanales (manos, acierto, EV perdido)
 - leaks: top spots recurrentes con número de errores y EV perdido
+- player: perfil resumido del alumno (plan, leaks recurrentes, tendencia)
+- coachSummary: resumen de sesiones anteriores (si existe)
 
-NO repitas todos los números del JSON. Identifica qué entrenar para mejorar.
+NO repitas todos los números del JSON. Identifica qué entrenar para mejorar. Adapta el plan a los leaks recurrentes del JSON.
+
+Ejemplo de bullet en ## Prioridades:
+- **Turn · 3-Bet CO**: 8 errores, −6.1 bb EV — calls con draws débiles vs barrel doble; estudiar check-raise y fold MDF.
+
 Responde markdown completo en español:
 # Plan de estudio personalizado
 ## Diagnóstico rápido
@@ -72,7 +94,9 @@ Responde markdown completo en español:
 ## Rutina sugerida esta semana
 ## Métrica a vigilar`;
 
-const STATS_QUESTION_PROMPT = `Coach NL Hold'em 6-max cash (español). Recibes JSON de estadísticas globales del entrenador (progreso, leaks, aciertos) y una PREGUNTA del usuario.
+const STATS_QUESTION_PROMPT = `${COACH_IDENTITY}
+
+Recibes JSON de estadísticas globales del entrenador (progreso, leaks, aciertos, player, coachSummary) y una PREGUNTA del usuario. Puede haber turnos previos.
 
 Responde centrándote en la pregunta con datos del JSON. Sé práctico y directo.
 Responde markdown en español. Título breve relacionado con la pregunta.`;
@@ -82,9 +106,17 @@ interface GeminiPart {
   thought?: boolean;
 }
 
+interface ThreadTurn {
+  mode?: string;
+  question?: string;
+  reportMarkdown?: string;
+}
+
 type AiMode = 'report' | 'question' | 'session_report' | 'session_question' | 'stats_report' | 'stats_question';
 
 const QUESTION_MAX = 500;
+const THREAD_MAX = 4;
+const THREAD_SNIPPET_MAX = 1500;
 
 function normalizeMode(raw: unknown): AiMode {
   if (raw === 'question') return 'question';
@@ -100,6 +132,20 @@ function sanitizeQuestion(raw: unknown): string | null {
   const q = raw.trim().replace(/\s+/g, ' ');
   if (!q.length) return null;
   return q.slice(0, QUESTION_MAX);
+}
+
+function sanitizeThread(raw: unknown): ThreadTurn[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, THREAD_MAX).filter((t) => t && typeof t === 'object').map((t) => {
+    const turn = t as ThreadTurn;
+    return {
+      mode: turn.mode === 'question' ? 'question' : 'report',
+      question: typeof turn.question === 'string' ? turn.question.slice(0, QUESTION_MAX) : undefined,
+      reportMarkdown: typeof turn.reportMarkdown === 'string'
+        ? turn.reportMarkdown.slice(0, THREAD_SNIPPET_MAX)
+        : undefined
+    };
+  }).filter((t) => t.reportMarkdown || t.question);
 }
 
 function promptForMode(mode: AiMode): string {
@@ -129,6 +175,135 @@ function userContentForMode(mode: AiMode, payload: unknown, question: string | n
     return 'Pregunta del usuario:\n' + question + '\n\nContexto de la mano (JSON):\n' + json;
   }
   return 'Genera informe de la mano (verifica números del solver por tu cuenta):\n' + json;
+}
+
+function buildGeminiContents(
+  mode: AiMode,
+  userContent: string,
+  thread: ThreadTurn[]
+): Array<{ role: string; parts: Array<{ text: string }> }> {
+  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+  if (mode.endsWith('question') && thread.length) {
+    for (const turn of thread) {
+      if (turn.mode === 'question' && turn.question) {
+        contents.push({ role: 'user', parts: [{ text: 'Pregunta anterior del alumno:\n' + turn.question }] });
+        if (turn.reportMarkdown) {
+          contents.push({ role: 'model', parts: [{ text: turn.reportMarkdown }] });
+        }
+      } else if (turn.reportMarkdown) {
+        contents.push({ role: 'user', parts: [{ text: 'Informe previo del coach (contexto):' }] });
+        contents.push({ role: 'model', parts: [{ text: turn.reportMarkdown }] });
+      }
+    }
+  }
+  contents.push({ role: 'user', parts: [{ text: userContent }] });
+  return contents;
+}
+
+function requiredSections(mode: AiMode): string[] {
+  if (mode === 'report') return ['Decisiones', 'Lectura villano', 'Lección práctica'];
+  if (mode === 'session_report') return ['Rendimiento global', 'Fugas principales', 'Plan de estudio'];
+  if (mode === 'stats_report') return ['Diagnóstico rápido', 'Prioridades', 'Rutina sugerida'];
+  return [];
+}
+
+function markdownComplete(mode: AiMode, text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length < 80) return false;
+  if (mode.endsWith('question')) return t.length >= 40;
+  const sections = requiredSections(mode);
+  if (!sections.length) return true;
+  return sections.every((s) => new RegExp('^##\\s+' + s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'im').test(t));
+}
+
+function extractCoachSummary(markdown: string): string {
+  const t = markdown.trim();
+  if (!t) return '';
+  const diag = t.match(/##\s*Diagnóstico rápido[\s\S]*?(?=##|$)/i);
+  const prio = t.match(/##\s*Prioridades[\s\S]*?(?=##|$)/i);
+  const parts = [diag?.[0], prio?.[0]].filter(Boolean);
+  const joined = parts.length ? parts.join('\n\n') : t;
+  return joined.slice(0, 2000);
+}
+
+type PayloadRecord = Record<string, unknown>;
+
+function payloadSpot(payload: PayloadRecord): string {
+  return String(payload.spot || 'unknown');
+}
+
+function payloadHeroCode(payload: PayloadRecord): string {
+  const hero = payload.hero as { code?: string } | undefined;
+  return String(hero?.code || '');
+}
+
+function handIndexFromPayload(payload: PayloadRecord) {
+  const hero = payload.hero as { code?: string; pos?: string } | undefined;
+  const spot = payloadSpot(payload);
+  const dec = (payload.dec as Array<{ st?: string; cl?: string; ev?: number }>) || [];
+  const worst = dec
+    .filter((d) => d.cl === 'error' || d.cl === 'imprecisa')
+    .sort((a, b) => (Number(b.ev) || 0) - (Number(a.ev) || 0))[0];
+  const street = worst?.st || dec[dec.length - 1]?.st || 'preflop';
+  const res = payload.res as { evLoss?: number } | undefined;
+  const ev = Number(res?.evLoss) || Number(worst?.ev) || 0;
+  const line = `${hero?.code || '?'} ${hero?.pos || '?'} | ${spot} | ${street} | ev ${ev}`;
+  return {
+    spot_key: spot.toLowerCase().slice(0, 80),
+    hero_code: hero?.code || '',
+    street,
+    ev_loss: ev,
+    hand_line: line
+  };
+}
+
+async function enrichPayload(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  mode: AiMode,
+  payload: PayloadRecord
+): Promise<PayloadRecord> {
+  const out = { ...payload };
+
+  const { data: prof } = await admin
+    .from('pt_user_profiles')
+    .select('coach_summary, plan')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (prof?.coach_summary && (mode.startsWith('stats_') || mode.startsWith('session_'))) {
+    out.coachSummary = prof.coach_summary;
+  }
+
+  if (mode === 'report' || mode === 'question') {
+    const { data: similar } = await admin.rpc('pt_find_similar_coach_hands', {
+      p_user_id: userId,
+      p_spot_key: payloadSpot(payload),
+      p_hero_code: payloadHeroCode(payload),
+      p_limit: 3
+    });
+    if (Array.isArray(similar) && similar.length) {
+      out.similar = similar;
+    }
+  }
+
+  return out;
+}
+
+async function indexHand(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  payload: PayloadRecord
+) {
+  const idx = handIndexFromPayload(payload);
+  await admin.rpc('pt_index_coach_hand', {
+    p_user_id: userId,
+    p_spot_key: idx.spot_key,
+    p_hero_code: idx.hero_code,
+    p_street: idx.street,
+    p_ev_loss: idx.ev_loss,
+    p_hand_line: idx.hand_line
+  });
 }
 
 function adminClient() {
@@ -211,6 +386,90 @@ async function verifyAuth(req: Request) {
   return { ok: true as const, user: data.user, token };
 }
 
+async function callGemini(
+  geminiKey: string,
+  systemPrompt: string,
+  contents: Array<{ role: string; parts: Array<{ text: string }> }>,
+  mode: AiMode
+) {
+  const isSession = mode.startsWith('session_');
+  const isStats = mode.startsWith('stats_');
+  const isQuestion = mode.endsWith('question');
+  const model = 'gemini-2.5-flash';
+  const url =
+    'https://generativelanguage.googleapis.com/v1beta/models/' + model +
+    ':generateContent?key=' + geminiKey;
+
+  const geminiRes = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents,
+      generationConfig: {
+        temperature: isQuestion ? 0.4 : 0.35,
+        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 1536 : 3072) : (isQuestion ? 1536 : 2048),
+        thinkingConfig: { thinkingBudget: 0 }
+      }
+    })
+  });
+
+  const geminiData = await geminiRes.json();
+  if (!geminiRes.ok) {
+    const msg = geminiData?.error?.message || 'gemini_error';
+    throw new Error(msg);
+  }
+
+  const candidate = geminiData?.candidates?.[0];
+  const parts: GeminiPart[] = candidate?.content?.parts || [];
+  const text = parts
+    .filter((p) => !p.thought)
+    .map((p) => p.text || '')
+    .join('');
+
+  return {
+    text: text.trim(),
+    finishReason: candidate?.finishReason || '',
+    model
+  };
+}
+
+async function generateCoachResponse(
+  geminiKey: string,
+  mode: AiMode,
+  systemPrompt: string,
+  userContent: string,
+  thread: ThreadTurn[]
+): Promise<{ text: string; finishReason: string; model: string; retried: boolean }> {
+  const contents = buildGeminiContents(mode, userContent, thread);
+  let result = await callGemini(geminiKey, systemPrompt, contents, mode);
+
+  if (!result.text) {
+    throw new Error('empty_response');
+  }
+
+  let retried = false;
+  if (!markdownComplete(mode, result.text) && !mode.endsWith('question')) {
+    const retryContents = contents.concat([
+      { role: 'model', parts: [{ text: result.text }] },
+      {
+        role: 'user',
+        parts: [{
+          text: 'Tu respuesta anterior está incompleta o le faltan secciones obligatorias. ' +
+            'Completa el informe en markdown con TODAS las secciones requeridas. No repitas lo ya dicho; añade lo que falta.'
+        }]
+      }
+    ]);
+    const retry = await callGemini(geminiKey, systemPrompt, retryContents, mode);
+    if (retry.text && retry.text.length > result.text.length) {
+      result = retry;
+      retried = true;
+    }
+  }
+
+  return { ...result, retried };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
@@ -224,7 +483,13 @@ serve(async (req) => {
     return json({ error: auth.error }, auth.status);
   }
 
-  let body: { payload?: unknown; mode?: unknown; question?: unknown; demo?: unknown };
+  let body: {
+    payload?: unknown;
+    mode?: unknown;
+    question?: unknown;
+    thread?: unknown;
+    demo?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
@@ -266,60 +531,53 @@ serve(async (req) => {
     return json({ error: 'missing_question' }, 400);
   }
 
+  const thread = mode.endsWith('question') ? sanitizeThread(body.thread) : [];
+  const rawPayload = body.payload as PayloadRecord;
+  const admin = adminClient();
+  const enrichedPayload = admin
+    ? await enrichPayload(admin, billingUserId, mode, rawPayload)
+    : rawPayload;
+
   const systemPrompt = promptForMode(mode);
-  const userContent = userContentForMode(mode, body.payload, question);
-  const isSession = mode.startsWith('session_');
-  const isStats = mode.startsWith('stats_');
-  const isQuestion = mode.endsWith('question');
+  const userContent = userContentForMode(mode, enrichedPayload, question);
 
-  const model = 'gemini-2.5-flash';
-  const url =
-    'https://generativelanguage.googleapis.com/v1beta/models/' + model +
-    ':generateContent?key=' + geminiKey;
-
-  const geminiRes = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: userContent }] }],
-      generationConfig: {
-        temperature: isQuestion ? 0.4 : 0.35,
-        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 1536 : 2560) : (isQuestion ? 1536 : 2048),
-        thinkingConfig: { thinkingBudget: 0 }
-      }
-    })
-  });
-
-  const geminiData = await geminiRes.json();
-  if (!geminiRes.ok) {
-    const msg = geminiData?.error?.message || 'gemini_error';
-    return json({ error: msg }, 502);
+  let result;
+  try {
+    result = await generateCoachResponse(geminiKey, mode, systemPrompt, userContent, thread);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'gemini_error';
+    return json({ error: msg }, msg === 'empty_response' ? 502 : 502);
   }
 
-  const candidate = geminiData?.candidates?.[0];
-  const parts: GeminiPart[] = candidate?.content?.parts || [];
-  const text = parts
-    .filter((p) => !p.thought)
-    .map((p) => p.text || '')
-    .join('');
-
-  const finishReason = candidate?.finishReason || '';
-  const truncated = finishReason === 'MAX_TOKENS';
-
-  if (!text.trim()) {
-    return json({ error: 'empty_response' }, 502);
-  }
+  const truncated = result.finishReason === 'MAX_TOKENS';
 
   await recordAiUsage(billingUserId, mode, access.source || 'plan');
 
+  if (admin) {
+    if (mode === 'report' || mode === 'question') {
+      indexHand(admin, billingUserId, rawPayload).catch((e) => {
+        console.warn('[analyze-hand] index', e);
+      });
+    }
+    if (mode === 'stats_report' && result.text) {
+      const summary = extractCoachSummary(result.text);
+      if (summary) {
+        admin.rpc('pt_set_coach_summary', {
+          p_user_id: billingUserId,
+          p_summary: summary
+        }).catch((e) => console.warn('[analyze-hand] coach_summary', e));
+      }
+    }
+  }
+
   return json({
-    reportMarkdown: text.trim(),
-    model: model,
+    reportMarkdown: result.text,
+    model: result.model,
     mode: mode,
     createdAt: new Date().toISOString(),
     truncated: truncated,
-    finishReason: finishReason || undefined
+    finishReason: result.finishReason || undefined,
+    retried: result.retried || undefined
   });
 });
 

@@ -145,6 +145,13 @@
     u.planLabel = ent.plan_label || PLAN_LABELS[u.plan] || u.plan;
     u.subscriptionStatus = ent.subscription_status;
     u.paidActive = !!ent.paid_active;
+    if (ent.is_admin) u.isAdmin = true;
+    if (global.PTAuth && global.PTAuth.renderAccountMenu) {
+      global.PTAuth.renderAccountMenu(u);
+    }
+    if (global.PTAdmin && global.PTAdmin.initForUser) {
+      global.PTAdmin.initForUser(u);
+    }
   }
 
   async function ensureLoaded() {

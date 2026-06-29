@@ -152,7 +152,8 @@
     const byStreet = st.byStreet || {};
     const total = st.decisions || 0;
     const accuracy = total ? Math.round(((st.optima + st.aceptable) / total) * 100) : 0;
-    const weekly = (data.weekly || []).map(function (w) {
+    const weeklyRaw = data.weekly || [];
+    const weekly = weeklyRaw.map(function (w) {
       return {
         w: w.label,
         hands: w.hands,
@@ -163,6 +164,23 @@
     const leaks = (data.leaks || []).map(function (l) {
       return { spot: l.label, n: l.count, ev: Math.round(l.evLoss * 100) / 100 };
     });
+    const topLeaks = leaks.slice(0, 3).map(function (l) { return l.spot; });
+    var trend = null;
+    if (weeklyRaw.length >= 2) {
+      const last = weeklyRaw[weeklyRaw.length - 1];
+      const prev = weeklyRaw[weeklyRaw.length - 2];
+      if (last.accuracy != null && prev.accuracy != null) {
+        const delta = last.accuracy - prev.accuracy;
+        trend = (delta >= 0 ? '+' : '') + delta + '% acierto última semana';
+      }
+    }
+    const u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    const player = {
+      plan: (u && u.plan) || 'free',
+      sessions: weeklyRaw.length,
+      topLeaks: topLeaks.length ? topLeaks : undefined,
+      trend: trend || undefined
+    };
     return {
       src: 'statsGlobal',
       st: {
@@ -186,6 +204,7 @@
       },
       progress: weekly.length ? weekly : undefined,
       leaks: leaks.length ? leaks : undefined,
+      player: player,
       solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.'
     };
   }
@@ -286,7 +305,11 @@
       solverNote: 'eq/gto/ev son estimaciones del solver; verifica lo crítico. clean=id|mano pos|net|ev|wc'
     };
     if (leaks.length) payload.leaks = leaks;
-    if (leakHands.length > leakCap) payload.leakTrunc = leakHands.length;
+    if (leakHands.length > leakCap) {
+      payload.leakTrunc = leakHands.length;
+      payload.leakNote = 'Mostrando ' + leakCap + ' de ' + leakHands.length +
+        ' manos con EV perdido; prioriza patrones, no lista exhaustiva.';
+    }
     if (clean.length) payload.clean = clean;
     return payload;
   }
