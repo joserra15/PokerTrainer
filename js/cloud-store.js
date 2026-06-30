@@ -133,6 +133,25 @@
     return max;
   }
 
+  async function ensureAuthSession() {
+    const client = getClient();
+    if (!client) {
+      setStatus('error', 'Supabase no disponible');
+      throw new Error('cloud_unavailable');
+    }
+    const sessionRes = await client.auth.getSession();
+    const session = sessionRes.data && sessionRes.data.session;
+    if (!session || !session.user) {
+      setStatus('auth_required', 'Vuelve a iniciar sesión para sincronizar');
+      throw new Error('auth_required');
+    }
+    const uid = session.user.id;
+    const meta = session.user.user_metadata || {};
+    if (uid !== userId) userId = uid;
+    if (!legacyGoogleSub) legacyGoogleSub = meta.sub || meta.provider_id || null;
+    return uid;
+  }
+
   async function pullRowById(id) {
     const client = getClient();
     const { data, error } = await client
@@ -145,7 +164,8 @@
   }
 
   async function pullRow() {
-    let row = await pullRowById(userId);
+    const uid = await ensureAuthSession();
+    let row = await pullRowById(uid);
     if (!row && legacyGoogleSub && legacyGoogleSub !== userId) {
       row = await pullRowById(legacyGoogleSub);
       if (row) row._fromLegacy = true;
@@ -189,10 +209,11 @@
 
   async function pushPayload(payload) {
     const client = getClient();
+    const uid = await ensureAuthSession();
     const now = new Date().toISOString();
     const body = stripLegacySessions(Object.assign({}, payload, { syncedAt: now }));
     const { error } = await client.from(TABLE).upsert({
-      user_id: userId,
+      user_id: uid,
       payload: body,
       updated_at: now
     }, { onConflict: 'user_id' });

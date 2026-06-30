@@ -47,7 +47,7 @@ Usa todo el contexto de la mano (cartas, board, decisiones, línea villano, resu
 Los campos eq, gto, ev del JSON son estimaciones del solver local y pueden ser incorrectos. Si la pregunta toca equity, odds o EV, recalcula por tu cuenta; no confíes ciegamente en los números del JSON.
 
 Responde en markdown en español. Empieza con un título breve relacionado con la pregunta (no uses el id de la mano).
-La respuesta debe quedar COMPLETA, sin cortarse al final. Cierra con una conclusión o recomendación final en PokerTrainer.`;
+Responde de forma CONCISA (máx. 6 bullets o 8 frases) pero COMPLETA, sin cortarte al final. Cierra con una conclusión o recomendación final en PokerTrainer.`;
 
 const SESSION_REPORT_PROMPT = `${COACH_IDENTITY}
 
@@ -255,8 +255,36 @@ function looksCutOff(text: string): boolean {
   if (/[*_`#]$/.test(t)) return true;
   if (/[\.\!\?\)\]»"]$/.test(t)) return false;
   const lastLine = t.split('\n').filter(Boolean).slice(-1)[0] || '';
-  if (/^[-*]\s+/.test(lastLine)) return true;
+  if (/^[-*]\s+/.test(lastLine) && !/[\.\!\?]$/.test(lastLine.trim())) return true;
   return /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]$/.test(t);
+}
+
+function mergeCoachContinuation(prev: string, next: string): string {
+  const p = prev.trim();
+  const n = next.trim();
+  if (!n) return p;
+  if (n.length > p.length && n.includes(p.slice(0, Math.min(120, p.length)))) return n;
+  if (p.includes(n)) return p;
+  return p + '\n\n' + n;
+}
+
+function buildRetryPrompt(mode: AiMode, attempt: number): string {
+  const sections = requiredSections(mode);
+  const sectionHint = sections.length
+    ? ' Secciones obligatorias: ' + sections.map((s) => '##' + s).join(', ') + '.'
+    : '';
+  if (attempt === 0) {
+    return 'Tu respuesta anterior está incompleta o cortada.' + sectionHint +
+      ' Complétala en markdown. No repitas lo ya dicho; añade solo lo que falta y cierra bien.';
+  }
+  return 'Sigue incompleta. Reescribe la respuesta COMPLETA en formato breve (máx. 6 bullets u 8 frases), ' +
+    'sin cortarte al final y cerrando con una recomendación final dentro de PokerTrainer.';
+}
+
+function coachResponseComplete(mode: AiMode, text: string, finishReason: string): boolean {
+  if (!text || !text.trim()) return false;
+  if (finishReason === 'MAX_TOKENS') return false;
+  return markdownComplete(mode, text);
 }
 
 function markdownComplete(mode: AiMode, text: string): boolean {
@@ -468,7 +496,8 @@ async function callGemini(
       contents,
       generationConfig: {
         temperature: isQuestion ? 0.4 : 0.35,
-        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 2048 : 4096) : (isQuestion ? 2048 : 2048)
+        maxOutputTokens: isQuestion ? 4096 : ((isSession || isStats) ? 4096 : 2048),
+        thinkingConfig: { thinkingBudget: 0 }
       }
     })
   });
@@ -511,26 +540,33 @@ async function generateCoachResponse(
 
   let retried = false;
   const shouldRetry = mode === 'report' || mode === 'stats_report' || mode === 'session_report' || mode.endsWith('question');
-  if (shouldRetry && !markdownComplete(mode, result.text)) {
+  const maxAttempts = shouldRetry ? 3 : 0;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (coachResponseComplete(mode, result.text, result.finishReason)) break;
     try {
-      const sections = requiredSections(mode);
-      const sectionHint = sections.length
-        ? ' Secciones obligatorias: ' + sections.map((s) => '##' + s).join(', ') + '.'
-        : '';
-      const retryContents = contents.concat([
-        { role: 'model', parts: [{ text: result.text }] },
-        {
-          role: 'user',
-          parts: [{
-            text: 'Tu respuesta anterior está incompleta o le faltan secciones obligatorias.' + sectionHint +
-              ' Completa el informe en markdown con TODAS las secciones requeridas. Sé conciso. ' +
-              'No repitas lo ya dicho; añade solo lo que falta. Cierra con la última sección completa.'
-          }]
-        }
-      ]);
+      const retryContents = attempt === 0
+        ? contents.concat([
+          { role: 'model', parts: [{ text: result.text }] },
+          { role: 'user', parts: [{ text: buildRetryPrompt(mode, attempt) }] }
+        ])
+        : [
+          { role: 'user', parts: [{ text: userContent }] },
+          {
+            role: 'user',
+            parts: [{
+              text: buildRetryPrompt(mode, attempt) + '\n\nRespuesta previa (incompleta):\n' +
+                result.text.slice(-1500)
+            }]
+          }
+        ];
       const retry = await callGemini(geminiKey, systemPrompt, retryContents, mode);
-      if (retry.text && (retry.text.length > result.text.length || markdownComplete(mode, retry.text))) {
-        result = retry;
+      if (!retry.text) continue;
+      const merged = attempt === 0
+        ? mergeCoachContinuation(result.text, retry.text)
+        : retry.text;
+      if (merged.length >= result.text.length || coachResponseComplete(mode, merged, retry.finishReason)) {
+        result = { text: merged, finishReason: retry.finishReason, model: retry.model };
         retried = true;
       }
     } catch (e) {
@@ -621,9 +657,7 @@ serve(async (req) => {
     return json({ error: msg }, msg === 'empty_response' ? 502 : 502);
   }
 
-  const truncated = result.finishReason === 'MAX_TOKENS' ||
-    ((mode === 'stats_report' || mode === 'session_report' || mode === 'report') &&
-      !markdownComplete(mode, result.text));
+  const truncated = !coachResponseComplete(mode, result.text, result.finishReason || '');
 
   await recordAiUsage(billingUserId, mode, access.source || 'plan');
 

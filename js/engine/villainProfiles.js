@@ -236,8 +236,14 @@
     opts = opts || {};
     const street = opts.street || 'flop';
     const tier = opts.tier || 'medium';
+    const madeCat = opts.madeCategory != null ? opts.madeCategory : 0;
     const r = rnd != null ? rnd : Math.random();
     const strict = profile.preflopStrict != null && profile.preflopStrict >= 0.99;
+
+    if (strict && madeCat >= 2) {
+      if (r < 0.14) return 'raise';
+      return 'call';
+    }
 
     if (strict) {
       if (street === 'river') {
@@ -280,8 +286,14 @@
     opts = opts || {};
     const street = opts.street || 'flop';
     const tier = opts.tier || 'medium';
+    const madeCat = opts.madeCategory != null ? opts.madeCategory : 0;
     const r = rnd != null ? rnd : Math.random();
     const strict = profile.preflopStrict != null && profile.preflopStrict >= 0.99;
+
+    if (strict && madeCat >= 2) {
+      if (villainIsAgg) return r < 0.9 ? 'bet' : 'check';
+      return r < 0.72 ? 'bet' : 'check';
+    }
 
     if (strict) {
       if (street === 'river') {

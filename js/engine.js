@@ -655,13 +655,34 @@
     return equityVsRange(hand.villain.cards, hand.board, range, 180, { street: hand.stage });
   }
 
+  function villainPostflopStrength(info, eq) {
+    const floors = { strong: 0.8, medium: 0.55, weak: 0.32, air: 0.12 };
+    let s = eq != null ? eq : (floors[info.tier] || 0.3);
+    if (info && info.ev) {
+      const cat = info.ev.category;
+      if (cat >= 4) s = Math.max(s, 0.88);
+      else if (cat >= 3) s = Math.max(s, 0.86);
+      else if (cat >= 2) s = Math.max(s, 0.84);
+      else if (cat === 1 && info.tier === 'strong') s = Math.max(s, 0.76);
+    }
+    return s;
+  }
+
+  function villainPostflopOpts(hand, info) {
+    return {
+      street: hand.stage,
+      tier: info.tier,
+      madeCategory: info.ev ? info.ev.category : 0
+    };
+  }
+
   function villainPostflopAction(hand, node) {
     const profile = profileFor(hand, hand.villain.pos);
     const info = classifyMadeHand(hand.villain.cards, hand.board);
     const eq = villainEquity01(hand);
-    const strength = eq != null ? eq : ({ strong: 0.78, medium: 0.52, weak: 0.34, air: 0.14 }[info.tier] || 0.3);
+    const strength = villainPostflopStrength(info, eq);
     const rnd = C.rng.random();
-    const pfOpts = { street: hand.stage, tier: info.tier };
+    const pfOpts = villainPostflopOpts(hand, info);
     if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
       const villainToCall = (hand.table && hand.table.streetBet && hand.hero.pos)
         ? (hand.table.streetBet[hand.hero.pos] || 0) : 0;
@@ -1410,9 +1431,9 @@
     const profile = profileFor(hand, hand.villain.pos);
     const info = classifyMadeHand(hand.villain.cards, hand.board);
     const eq = villainEquity01(hand);
-    const strength = eq != null ? eq : ({ strong: 0.78, medium: 0.52, weak: 0.34, air: 0.14 }[info.tier] || 0.3);
+    const strength = villainPostflopStrength(info, eq);
     const villainIsAgg = !hand.heroIsAggressor;
-    const pfOpts = { street: hand.stage, tier: info.tier };
+    const pfOpts = villainPostflopOpts(hand, info);
     if (VP) return VP.postflopLead(strength, profile, villainIsAgg, C.rng.random(), pfOpts);
     const betFreq = villainIsAgg
       ? clamp(0.12 + strength * 0.55, 0.08, 0.68)
