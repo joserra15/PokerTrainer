@@ -46,7 +46,8 @@ Usa todo el contexto de la mano (cartas, board, decisiones, línea villano, resu
 
 Los campos eq, gto, ev del JSON son estimaciones del solver local y pueden ser incorrectos. Si la pregunta toca equity, odds o EV, recalcula por tu cuenta; no confíes ciegamente en los números del JSON.
 
-Responde en markdown en español. Empieza con un título breve relacionado con la pregunta (no uses el id de la mano).`;
+Responde en markdown en español. Empieza con un título breve relacionado con la pregunta (no uses el id de la mano).
+La respuesta debe quedar COMPLETA, sin cortarse al final. Cierra con una conclusión o recomendación final en PokerTrainer.`;
 
 const SESSION_REPORT_PROMPT = `${COACH_IDENTITY}
 
@@ -79,7 +80,8 @@ file es el archivo importado (nick de mesa); student es el nombre del alumno si 
 Responde centrándote en la pregunta usando stats y las manos relevantes del JSON. Sé directo.
 eq/gto/ev del solver pueden ser incorrectos; recalcula si la pregunta lo requiere.
 
-Responde markdown en español. Título breve relacionado con la pregunta.`;
+Responde markdown en español. Título breve relacionado con la pregunta.
+La respuesta debe quedar COMPLETA, sin cortarse al final. Cierra con una recomendación final dentro de PokerTrainer.`;
 
 const STATS_REPORT_PROMPT = `${COACH_IDENTITY}
 
@@ -112,7 +114,8 @@ const STATS_QUESTION_PROMPT = `${COACH_IDENTITY}
 Recibes JSON de estadísticas globales del entrenador (progreso, leaks, aciertos, player, coachSummary) y una PREGUNTA del usuario. Puede haber turnos previos.
 
 Responde centrándote en la pregunta con datos del JSON. Sé práctico y directo. Solo recomienda mejorar dentro de PokerTrainer.
-Responde markdown en español. Título breve relacionado con la pregunta.`;
+Responde markdown en español. Título breve relacionado con la pregunta.
+La respuesta debe quedar COMPLETA, sin cortarse al final. Cierra con una recomendación accionable dentro de PokerTrainer.`;
 
 interface GeminiPart {
   text?: string;
@@ -244,9 +247,22 @@ function hasSection(text: string, heading: string): boolean {
   });
 }
 
+function looksCutOff(text: string): boolean {
+  const t = text.trim();
+  if (!t) return true;
+  if (t.length < 80) return true;
+  if (/[,:;\-–—(]$/.test(t)) return true;
+  if (/[*_`#]$/.test(t)) return true;
+  if (/[\.\!\?\)\]»"]$/.test(t)) return false;
+  const lastLine = t.split('\n').filter(Boolean).slice(-1)[0] || '';
+  if (/^[-*]\s+/.test(lastLine)) return true;
+  return /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]$/.test(t);
+}
+
 function markdownComplete(mode: AiMode, text: string): boolean {
   const t = text.trim();
   if (!t || t.length < 80) return false;
+  if (looksCutOff(t)) return false;
   if (mode.endsWith('question')) return t.length >= 40;
   const sections = requiredSections(mode);
   if (!sections.length) return true;
@@ -452,7 +468,7 @@ async function callGemini(
       contents,
       generationConfig: {
         temperature: isQuestion ? 0.4 : 0.35,
-        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 1536 : 4096) : (isQuestion ? 1536 : 2048)
+        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 2048 : 4096) : (isQuestion ? 2048 : 2048)
       }
     })
   });
@@ -494,7 +510,7 @@ async function generateCoachResponse(
   }
 
   let retried = false;
-  const shouldRetry = mode === 'report' || mode === 'question' || mode === 'stats_report' || mode === 'session_report';
+  const shouldRetry = mode === 'report' || mode === 'stats_report' || mode === 'session_report' || mode.endsWith('question');
   if (shouldRetry && !markdownComplete(mode, result.text)) {
     try {
       const sections = requiredSections(mode);

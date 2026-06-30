@@ -159,6 +159,15 @@
     if (active) active.classList.remove('hidden');
   }
 
+  function scrollPlayToTop() {
+    const target = $('#tab-play') || $('#play-active') || $('#play-setup');
+    if (target && target.scrollIntoView) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (window.scrollTo) window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   function readPlayConfig() {
     const PC = window.PTPlayConfig;
     if (!PC) return null;
@@ -222,10 +231,13 @@
     bindChipGroup('#setup-practice-street');
     const startBtn = $('#play-start');
     if (startBtn) {
-      startBtn.addEventListener('click', () => {
+      startBtn.addEventListener('click', async () => {
         playSessionConfig = readPlayConfig();
         resetPlaySession(false);
         showPlayTable();
+        scrollPlayToTop();
+        await yieldToPaint();
+        scrollPlayToTop();
         void startNewHand();
       });
     }
