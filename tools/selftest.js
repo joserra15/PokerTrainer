@@ -310,6 +310,24 @@ const probeWeak = ProbeEV.computeProbeStrategy({
 });
 console.log('Probe value bet%', Math.round((1 - probeStrong.strategy.check) * 100), 'weak bet%', Math.round((1 - probeWeak.strategy.check) * 100));
 
+const cbetAirIp = ProbeEV.computeProbeStrategy({
+  street: 'flop', potBB: 6, heroEquity: 0.16, inPosition: true, initiative: 'aggressor',
+  villainLastAction: 'check',
+  heroCards: ['Qd', '9h'], board: ['As', '7c', '2d'],
+  handRank: { band: 'air', percentile: 0.12, tier: 'air' },
+  madeHandInfo: { tier: 'air', ev: { category: 0 } }
+});
+const cbetAirIpPct = Math.round((1 - cbetAirIp.strategy.check) * 100);
+const probeAirCaller = ProbeEV.computeProbeStrategy({
+  street: 'flop', potBB: 6, heroEquity: 0.16, inPosition: true, initiative: 'caller',
+  villainLastAction: 'check',
+  heroCards: ['Qd', '9h'], board: ['As', '7c', '2d'],
+  handRank: { band: 'air', percentile: 0.12, tier: 'air' }
+});
+const probeAirCallerPct = Math.round((1 - probeAirCaller.strategy.check) * 100);
+console.log('Cbet air IP flop%', cbetAirIpPct, '(expect >=40)', 'probe air caller%', probeAirCallerPct, '(expect < cbet)');
+if (cbetAirIpPct < 40 || probeAirCallerPct >= cbetAirIpPct) process.exit(1);
+
 const facing = FB.calculateActionFrequencies({
   street: 'flop', currentPot: 10, betSize: 5, heroEquity: 0.55, tier: 'medium',
   handRank: { band: 'merge', tier: 'medium' }, inPosition: true, board: ['As', '7c', '2d']

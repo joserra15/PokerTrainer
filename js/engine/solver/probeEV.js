@@ -89,6 +89,56 @@
     return 'air';
   }
 
+  /** Agresor preflop sin apuesta que pagar → línea de c-bet (no probe/donk). */
+  function isContinuationBetSpot(input) {
+    return input.initiative === 'aggressor' && (input.toCallBB || 0) <= 0;
+  }
+
+  function villainCheckedToHero(input) {
+    return input.villainLastAction === 'check';
+  }
+
+  /** Piso de frecuencia de apuesta en spots de c-bet (mezcla GTO aproximada). */
+  function cbetMinBetTotal(input, band) {
+    if (!isContinuationBetSpot(input)) return 0;
+    const street = input.street || 'flop';
+    const inPosition = input.inPosition !== false;
+    const texture = Board ? Board.boardTexture(input.board || []) : {};
+    const dry = !texture.wet && !texture.paired;
+    const highBoard = texture.category === 'ACE_HIGH' || texture.category === 'HIGH_BOARD';
+
+    if (street === 'flop') {
+      if (band === 'nuts' || band === 'value') return inPosition ? 0.78 : 0.62;
+      if (band === 'merge') return inPosition ? 0.52 : 0.40;
+      if (band === 'bluffcatch') return inPosition ? 0.46 : 0.36;
+      if (band === 'air') {
+        if (inPosition) {
+          if (dry && highBoard) return 0.55;
+          if (dry) return 0.46;
+          return texture.wet ? 0.30 : 0.38;
+        }
+        return dry ? 0.34 : 0.24;
+      }
+    }
+    if (street === 'turn') {
+      if (band === 'air') return inPosition ? 0.24 : 0.16;
+      if (band === 'nuts' || band === 'value') return inPosition ? 0.62 : 0.50;
+      if (band === 'merge') return inPosition ? 0.36 : 0.26;
+      return inPosition ? 0.32 : 0.22;
+    }
+    if (band === 'nuts' || band === 'value') return inPosition ? 0.55 : 0.45;
+    return 0;
+  }
+
+  function cbetFoldEquityBoost(input) {
+    if (!isContinuationBetSpot(input)) return 0;
+    let boost = 0.05;
+    if (villainCheckedToHero(input)) boost += 0.09;
+    if ((input.street || 'flop') === 'flop') boost += 0.04;
+    if (input.inPosition !== false) boost += 0.03;
+    return boost;
+  }
+
   /**
    * Calcula estrategia probe + metadatos EV.
    * @returns {{ strategy: Object, evMap: Object, betTotal: number }}
@@ -124,11 +174,13 @@
     let bestBet = null;
     let bestBetEv = -Infinity;
 
+    const cbetBoost = cbetFoldEquityBoost(input);
+
     sizes.forEach((s) => {
       const fe = estimateFoldEquity({
         street, betRatio: s.ratio, inPosition, rangeAdv, percentile, band, polarization, texture
-      });
-      const ev = evBet(equity, pot, s.size, fe, rf);
+      }) + cbetBoost;
+      const ev = evBet(equity, pot, s.size, clamp(fe, 0.10, 0.72), rf);
       evMap[s.id] = ev;
       if (ev > bestBetEv) { bestBetEv = ev; bestBet = s; }
     });
@@ -148,13 +200,19 @@
     } else if (bestBetEv > evCheckVal - margin * 0.5 && band === 'merge') {
       betTotal = clamp(0.18 + (bestBetEv - evCheckVal) / pot, 0.08, 0.35);
     } else {
-      betTotal = band === 'air' ? clamp(0.08 + polarization * 0.12, 0.04, 0.28) : 0;
+      if (isContinuationBetSpot(input) && street === 'flop' && band === 'air') {
+        betTotal = clamp(0.22 + polarization * 0.18 + cbetBoost, 0.18, 0.62);
+      } else {
+        betTotal = band === 'air' ? clamp(0.08 + polarization * 0.12, 0.04, 0.28) : 0;
+      }
     }
 
     if (band === 'bluffcatch' || (band === 'merge' && equity < 0.42)) {
       betTotal = Math.min(betTotal, street === 'river' ? 0.12 : 0.28);
     }
-    if (band === 'air' && equity > 0.38) betTotal = Math.min(betTotal, 0.18);
+    if (band === 'air' && equity > 0.38 && !isContinuationBetSpot(input)) {
+      betTotal = Math.min(betTotal, 0.18);
+    }
 
     betTotal *= (band === 'nuts' && street === 'river') ? 1.0 : (streetScale[street] || 1);
     if (street === 'river' && band === 'air') betTotal = Math.min(betTotal, 0.14);
@@ -163,6 +221,20 @@
 
     if (band === 'nuts' && equity >= 0.92 && street === 'river') {
       betTotal = Math.max(betTotal, 0.58);
+    }
+
+    const cbetFloor = cbetMinBetTotal(input, band);
+    if (cbetFloor > 0) betTotal = Math.max(betTotal, cbetFloor);
+    if (isContinuationBetSpot(input) && band === 'air' && street === 'flop') {
+      betTotal = Math.min(betTotal, inPosition ? 0.65 : 0.45);
+    }
+    if (isContinuationBetSpot(input) && band === 'air' && street === 'river') {
+      betTotal = Math.min(betTotal, inPosition ? 0.22 : 0.12);
+    }
+    if (!isContinuationBetSpot(input) && input.initiative === 'caller') {
+      if (band === 'air') betTotal = Math.min(betTotal, inPosition ? 0.22 : 0.10);
+      else if (band === 'bluffcatch') betTotal = Math.min(betTotal, inPosition ? 0.30 : 0.15);
+      else if (band === 'merge') betTotal = Math.min(betTotal, inPosition ? 0.36 : 0.22);
     }
 
     const split = dynamicSizeSplit(input, band, polarization);
@@ -195,6 +267,7 @@
 
   global.GTOProbeEV = {
     computeProbeStrategy, actionEV, evCheck, evBet, estimateFoldEquity,
-    dynamicSizeSplit, realizationFactor, normalize
+    dynamicSizeSplit, realizationFactor, normalize,
+    isContinuationBetSpot, cbetMinBetTotal, cbetFoldEquityBoost
   };
 })(window);

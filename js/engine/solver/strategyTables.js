@@ -174,13 +174,13 @@
       strong: { bet: 0.65, check: 0.35 },
       medium: { bet: 0.48, check: 0.52 },
       weak: { bet: 0.58, check: 0.42 },
-      air: { bet: 0.38, check: 0.62 }
+      air: { bet: 0.48, check: 0.52 }
     },
     aggressor_OOP: {
       strong: { bet: 0.55, check: 0.45 },
       medium: { bet: 0.4, check: 0.6 },
       weak: { bet: 0.52, check: 0.48 },
-      air: { bet: 0.28, check: 0.72 }
+      air: { bet: 0.34, check: 0.66 }
     },
     caller_IP: {
       strong: { bet: 0.42, check: 0.58 },

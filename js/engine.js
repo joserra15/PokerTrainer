@@ -1540,6 +1540,13 @@
       hand._betSizes = {};
       sizes.forEach((s) => { hand._betSizes[s.id] = s.size; });
       context = `${capitalize(street)}: bote ${fmt(hand.potBB)}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
+      if (hand.heroIsAggressor) {
+        context += villainLastAction === 'check'
+          ? ' El villano pasó: spot de c-bet.'
+          : ' Spot de c-bet (eres el agresor preflop).';
+      } else if (hand.heroInPosition && villainLastAction === 'check') {
+        context += ' El villano pasó: spot de probe.';
+      }
     }
 
     const node = {

@@ -30,7 +30,10 @@
     const pos = input.inPosition ? 'en posición' : 'fuera de posición';
     const role = spotKey.initiative === 'aggressor' ? 'agresor preflop'
       : spotKey.initiative === 'none' ? 'primero en hablar' : 'pagador preflop';
-    return `${cap(street)} · bote ${pot} · ${role} · ${pos} · ${facing}.`;
+    const lead = spotKey.leadType === 'cbet' ? ' · c-bet'
+      : spotKey.leadType === 'probe' ? ' · probe'
+      : spotKey.leadType === 'donk' ? ' · donk' : '';
+    return `${cap(street)} · bote ${pot} · ${role}${lead} · ${pos} · ${facing}.`;
   }
 
   function cap(s) { return (s || '').charAt(0).toUpperCase() + (s || '').slice(1); }
@@ -77,6 +80,7 @@
     const board = boardDesc(input);
     const ctx = spotContext(input, spotKey);
     const tier = input.madeHandInfo ? input.madeHandInfo.tier : 'medium';
+    const street = spotKey.street || input.street || 'flop';
     const facing = (input.toCallBB || 0) > 0;
 
     if (evaluation.evLoss <= 0.01 && (strategy[chosen] || 0) >= 0.005) {
@@ -88,9 +92,13 @@
         return `${ctx} Tienes ${hand} en [${board}]. ${cap(ACTION_NAMES[chosen] || chosen)} es la línea GTO principal (${chPct}%).`;
       }
       if (chosen === 'check') {
-        return `${ctx} Con ${hand} (${tier}), check controla el bote OOP/IP sin inflar el bote (${chPct}% GTO).`;
+        const cbetHint = spotKey.leadType === 'cbet' && street === 'flop'
+          ? ' En flop como agresor, el check back deja EV de c-bet sobre la mesa.'
+          : '';
+        return `${ctx} Con ${hand} (${tier}), check controla el bote (${chPct}% GTO).${cbetHint}`;
       }
-      return `${ctx} ${hand} en [${board}] quiere ${ACTION_NAMES[chosen] || chosen} (${chPct}%) por valor/protección en este board ${spotKey.boardType}.`;
+      const betLabel = spotKey.leadType === 'cbet' ? 'c-bet' : (ACTION_NAMES[chosen] || chosen);
+      return `${ctx} ${hand} en [${board}] quiere ${betLabel} (${chPct}%) por valor/protección/fold equity en este board ${spotKey.boardType}.`;
     }
 
     if (!facing && chosen === 'check' && (strategy.check || 0) >= 0.5) {

@@ -45,6 +45,12 @@
       initiative: input.initiative || 'none',
       spotKind: input.spotKind || 'postflop',
       facing: (input.toCallBB || 0) > 0 ? 'bet' : 'none',
+      leadType: (function () {
+        if ((input.toCallBB || 0) > 0) return 'none';
+        if (input.initiative === 'aggressor') return 'cbet';
+        if (input.inPosition) return 'probe';
+        return 'donk';
+      })(),
       facingNode: (function () {
         const RS = global.GTORiverShoveNode;
         if (!RS || (input.street || 'preflop') !== 'river' || !(input.toCallBB > 0)) return 'none';
@@ -61,6 +67,7 @@
       key.gameType || 'cash6', key.stackLabel || key.stackDepth || 100,
       key.street, key.boardType, key.spr, key.initiative, key.facing,
       key.facingNode || '-',
+      key.leadType || '-',
       key.inPosition ? 'IP' : 'OOP'
     ].join('|');
   }
