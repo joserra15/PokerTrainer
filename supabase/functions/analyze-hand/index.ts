@@ -7,7 +7,12 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-const COACH_IDENTITY = `Eres un entrenador de poker profesional especializado en NL Hold'em 6-max cash (microlímites y low stakes). Actúas SIEMPRE como coach: directo, pedagógico, sin rodeos, orientado a que el alumno mejore su juego. Hablas en español natural. No eres un narrador de manos ni un chat genérico: eres su entrenador personal de poker.`;
+const COACH_IDENTITY = `Eres el IA Coach de **PokerTrainer**, la app de entrenamiento GTO de poker NL Hold'em 6-max cash (microlímites y low stakes). Actúas SIEMPRE como entrenador profesional integrado en la app: directo, pedagógico, sin rodeos, orientado a que el alumno mejore. Hablas en español natural. No eres un narrador de manos ni un chat genérico.
+
+REGLAS DE MARCA (obligatorias):
+- NUNCA recomiendes solvers externos, herramientas de terceros, otras apps ni software de análisis fuera de PokerTrainer.
+- No digas frases como "usa un solver", "herramienta de análisis externa" o similares.
+- Para mejorar, sugiere SIEMPRE recursos de PokerTrainer: entrenador de spots, revisión de sesiones importadas, explorador de rangos, repetición de errores guardados y más consultas al IA Coach.`;
 
 const REPORT_PROMPT = `${COACH_IDENTITY}
 
@@ -86,22 +91,27 @@ Recibes JSON del ENTRENADOR del usuario:
 - coachSummary: resumen de sesiones anteriores (si existe)
 
 NO repitas todos los números del JSON. Identifica qué entrenar para mejorar. Adapta el plan a los leaks recurrentes del JSON.
+Sé CONCISO: bullets cortos (1-2 frases). El informe debe caber completo sin cortarse.
 
 Ejemplo de bullet en ## Prioridades:
-- **Turn · 3-Bet CO**: 8 errores, −6.1 bb EV — calls con draws débiles vs barrel doble; estudiar check-raise y fold MDF.
+- **Turn · 3-Bet CO**: 8 errores, −6.1 bb EV — calls con draws débiles vs barrel doble; repasa en el entrenador y en sesiones importadas.
 
-Responde markdown completo en español:
+Responde markdown COMPLETO en español (todas las secciones, sin cortar la última):
 # Plan de estudio personalizado
 ## Diagnóstico rápido
-## Prioridades (3-5 bullets: calle, spot, tipo de error)
+(2-4 frases)
+## Prioridades
+(3-5 bullets: calle, spot, tipo de error; acción concreta en PokerTrainer)
 ## Rutina sugerida esta semana
-## Métrica a vigilar`;
+(3-4 bullets prácticos usando entrenador, sesiones o rangos de la app)
+## Métrica a vigilar
+(1 bullet concreto)`;
 
 const STATS_QUESTION_PROMPT = `${COACH_IDENTITY}
 
 Recibes JSON de estadísticas globales del entrenador (progreso, leaks, aciertos, player, coachSummary) y una PREGUNTA del usuario. Puede haber turnos previos.
 
-Responde centrándote en la pregunta con datos del JSON. Sé práctico y directo.
+Responde centrándote en la pregunta con datos del JSON. Sé práctico y directo. Solo recomienda mejorar dentro de PokerTrainer.
 Responde markdown en español. Título breve relacionado con la pregunta.`;
 
 interface GeminiPart {
@@ -206,7 +216,7 @@ function buildGeminiContents(
 function requiredSections(mode: AiMode): string[] {
   if (mode === 'report') return ['Decisiones', 'Lectura villano', 'Lección práctica'];
   if (mode === 'session_report') return ['Rendimiento global', 'Fugas principales', 'Plan de estudio'];
-  if (mode === 'stats_report') return ['Diagnóstico rápido', 'Prioridades', 'Rutina sugerida'];
+  if (mode === 'stats_report') return ['Diagnóstico rápido', 'Prioridades', 'Rutina sugerida', 'Métrica a vigilar'];
   return [];
 }
 
@@ -442,7 +452,7 @@ async function callGemini(
       contents,
       generationConfig: {
         temperature: isQuestion ? 0.4 : 0.35,
-        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 1536 : 3072) : (isQuestion ? 1536 : 2048)
+        maxOutputTokens: (isSession || isStats) ? (isQuestion ? 1536 : 4096) : (isQuestion ? 1536 : 2048)
       }
     })
   });
@@ -484,21 +494,26 @@ async function generateCoachResponse(
   }
 
   let retried = false;
-  const shouldRetry = mode === 'report' || mode === 'question';
+  const shouldRetry = mode === 'report' || mode === 'question' || mode === 'stats_report' || mode === 'session_report';
   if (shouldRetry && !markdownComplete(mode, result.text)) {
     try {
+      const sections = requiredSections(mode);
+      const sectionHint = sections.length
+        ? ' Secciones obligatorias: ' + sections.map((s) => '##' + s).join(', ') + '.'
+        : '';
       const retryContents = contents.concat([
         { role: 'model', parts: [{ text: result.text }] },
         {
           role: 'user',
           parts: [{
-            text: 'Tu respuesta anterior está incompleta o le faltan secciones obligatorias. ' +
-              'Completa el informe en markdown con TODAS las secciones requeridas. No repitas lo ya dicho; añade lo que falta.'
+            text: 'Tu respuesta anterior está incompleta o le faltan secciones obligatorias.' + sectionHint +
+              ' Completa el informe en markdown con TODAS las secciones requeridas. Sé conciso. ' +
+              'No repitas lo ya dicho; añade solo lo que falta. Cierra con la última sección completa.'
           }]
         }
       ]);
       const retry = await callGemini(geminiKey, systemPrompt, retryContents, mode);
-      if (retry.text && retry.text.length > result.text.length) {
+      if (retry.text && (retry.text.length > result.text.length || markdownComplete(mode, retry.text))) {
         result = retry;
         retried = true;
       }
@@ -590,7 +605,9 @@ serve(async (req) => {
     return json({ error: msg }, msg === 'empty_response' ? 502 : 502);
   }
 
-  const truncated = result.finishReason === 'MAX_TOKENS';
+  const truncated = result.finishReason === 'MAX_TOKENS' ||
+    ((mode === 'stats_report' || mode === 'session_report' || mode === 'report') &&
+      !markdownComplete(mode, result.text));
 
   await recordAiUsage(billingUserId, mode, access.source || 'plan');
 
