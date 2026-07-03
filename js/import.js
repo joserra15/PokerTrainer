@@ -1,11 +1,10 @@
 /*
  * import.js
- * Importa y analiza historiales de manos exportados de PokerStars (español).
+ * Importa y analiza historiales de manos (PokerStars ES/EN y futuras salas).
+ * - Detección automática de plataforma e idioma (PTHandHistoryFormats).
  * - Parsea cada mano (asientos, posiciones, acciones, board, resultado).
  * - Filtra cash NL Hold'em (descarta torneos).
  * - Analiza todas las manos del héroe con cartas (incl. folds preflop).
- * - Clasifica cada decisión del héroe contra GTO (aprox.) y estima EV perdido.
- * - Calcula estadísticas de sesión y una nota final.
  * Expuesto como `Importer`.
  */
 (function (global) {
@@ -21,147 +20,57 @@
 
   // ---------- utilidades numéricas ----------
   function num(s) {
+    return global.PTHHUtils ? global.PTHHUtils.num(s) : numLocal(s);
+  }
+  function numLocal(s) {
     if (s == null) return 0;
-    s = String(s).trim().replace(/\s|€/g, '');
+    s = String(s).trim().replace(/\s|[€$£]/g, '');
     if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\./g, '').replace(',', '.');
     else if (s.indexOf(',') >= 0) s = s.replace(',', '.');
     const v = parseFloat(s);
     return isNaN(v) ? 0 : v;
   }
-  function r2(x) {
-    return PM ? PM.roundBB(x) : Math.round(x * 100) / 100;
+  function cardsFrom(str) {
+    return global.PTHHUtils ? global.PTHHUtils.cardsFrom(str) : cardsFromLocal(str);
   }
-  function cardsFrom(str) { // "[2s 2d]" o "2s 2d" -> ['2s','2d']
-    const m = str.match(/[2-9TJQKA AKQJT][shdc]/g) || str.match(/(?:10|[2-9TJQKA])[shdc]/g);
+  function cardsFromLocal(str) {
+    const m = str.match(/[2-9TJQKA][shdc]/g) || str.match(/(?:10|[2-9TJQKA])[shdc]/g);
     if (!m) return [];
     return m.map((c) => c.replace('10', 'T'));
   }
+  function r2(x) {
+    return PM ? PM.roundBB(x) : Math.round(x * 100) / 100;
+  }
 
-  // ---------- PARSER ----------
+  // ---------- PARSER (delegado a PTHandHistoryFormats) ----------
+  function detectSessionFormat(text) {
+    const Formats = global.PTHandHistoryFormats;
+    if (!Formats) return null;
+    return Formats.describe(text);
+  }
+
   function parseSession(text, fileName) {
-    const blocks = text.split(/(?=^Mano n\.º )/m).filter((b) => /^Mano n\.º/.test(b.trim()));
-    const hands = [];
-    const heroCount = {};
-    for (const block of blocks) {
-      try {
-        const h = parseHand(block);
-        if (!h || !h.isCash) continue;
-        if (h.hero) heroCount[h.hero] = (heroCount[h.hero] || 0) + 1;
-        hands.push(h);
-      } catch (e) { /* mano malformada: ignorar */ }
+    const Formats = global.PTHandHistoryFormats;
+    if (!Formats) throw new Error('Módulos de importación no cargados');
+    const format = Formats.detectBest(text);
+    if (!format || typeof format.parseSession !== 'function') {
+      return { fileName: fileName || 'sesion.txt', hero: null, hands: [], format: null };
     }
-    // héroe = nombre más frecuente en "Repartidas a"
-    let hero = null, best = -1;
-    for (const n in heroCount) if (heroCount[n] > best) { best = heroCount[n]; hero = n; }
-    return { fileName: fileName || 'sesion.txt', hero, hands };
+    return format.parseSession(text, fileName);
   }
 
   function parseHand(block) {
-    const lines = block.split(/\r?\n/);
-    const hand = {
-      id: null, datetime: null, sb: 0, bb: 0, currency: '€',
-      buttonSeat: null, seats: [], hero: null, heroCards: [],
-      blinds: { sb: null, bb: null }, posts: {},
-      streets: { preflop: [], flop: [], turn: [], river: [] },
-      board: { flop: [], turn: [], river: [] }, boardAll: [],
-      shows: {}, collected: {}, uncalledTo: {},
-      rake: 0, potTotal: 0, positions: {}, isCash: false, isTournament: false
-    };
-
-    let street = 'preheader';
-    for (let i = 0; i < lines.length; i++) {
-      const ln = lines[i].trim();
-      if (!ln) continue;
-      if (/^Dealer:|^Seat \d|has timed out|disconnected|will be allowed|is sitting out|joins the table|leaves the table/i.test(ln)) continue;
-      if (/^[^*].* says?:/i.test(ln) && !/pone la ciega|se retira|pasa|iguala|apuesta|sube|muestra|descarta/.test(ln)) continue;
-
-      let m;
-      if ((m = ln.match(/^Mano n\.º\s*(\d+)\s*de (.+?):\s*(.*)/))) {
-        hand.id = m[1];
-        const rest = m[3] || m[2];
-        hand.isTournament = /Torneo/.test(ln);
-        const bl = ln.match(/Hold'em No Limit \(([\d.,]+)\s*€\/([\d.,]+)\s*€\)/);
-        if (bl) { hand.sb = num(bl[1]); hand.bb = num(bl[2]); hand.isCash = !hand.isTournament; }
-        const dt = ln.match(/-\s*(\d{2}-\d{2}-\d{4} \d{1,2}:\d{2}:\d{2})/);
-        if (dt) hand.datetime = dt[1];
-        continue;
-      }
-      if ((m = ln.match(/El asiento n\.º (\d+) es el botón/))) { hand.buttonSeat = +m[1]; continue; }
-      if ((m = ln.match(/^Asiento (\d+):\s*(.+?)\s*\(([\d.,]+)\s*€?\s*en fichas\)/))) {
-        hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) });
-        continue;
-      }
-      if ((m = ln.match(/^(.+?): pone la ciega pequeña ([\d.,]+)/))) { hand.blinds.sb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]); continue; }
-      if ((m = ln.match(/^(.+?): pone la ciega grande ([\d.,]+)/))) { hand.blinds.bb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]); continue; }
-      if ((m = ln.match(/^(.+?): pone las ciegas pequeña y grande ([\d.,]+)/))) { hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]); continue; }
-      if (/^\*\*\* CARTAS DE MANO \*\*\*/.test(ln)) { street = 'preflop'; continue; }
-      if ((m = ln.match(/^Repartidas a (.+?) \[(.+?)\]/))) { hand.hero = m[1]; hand.heroCards = cardsFrom(m[2]); continue; }
-
-      if ((m = ln.match(/^\*\*\* FLOP \*\*\* \[(.+?)\]/))) { street = 'flop'; hand.board.flop = cardsFrom(m[1]); continue; }
-      if ((m = ln.match(/^\*\*\* TURN \*\*\* \[(.+?)\] \[(.+?)\]/))) { street = 'turn'; hand.board.turn = cardsFrom(m[2]); continue; }
-      if ((m = ln.match(/^\*\*\* RIVER \*\*\* \[(.+?)\] \[(.+?)\]/))) { street = 'river'; hand.board.river = cardsFrom(m[2]); continue; }
-      if (/^\*\*\* (MOSTRAR|SHOW DOWN|REPARTO|TERCERA|SEGUNDA)/.test(ln)) { street = 'showdown'; continue; }
-      if (/^\*\*\* RESUMEN \*\*\*/.test(ln)) { street = 'summary'; continue; }
-
-      // resultado / showdown
-      if ((m = ln.match(/^La apuesta no igualada \(([\d.,]+)\s*€?\) ha sido devuelta a (.+)/))) { hand.uncalledTo[m[2]] = num(m[1]); continue; }
-      if ((m = ln.match(/^(.+?) se lleva ([\d.,]+)\s*€? del bote/))) { hand.collected[m[1]] = Math.max(hand.collected[m[1]] || 0, num(m[2])); continue; }
-      if ((m = ln.match(/^(.+?): muestra \[(.+?)\]/))) { hand.shows[m[1]] = cardsFrom(m[2]); continue; }
-      if ((m = ln.match(/^Bote total ([\d.,]+)\s*€?\s*\|\s*Comisión ([\d.,]+)/))) { hand.potTotal = num(m[1]); hand.rake = num(m[2]); continue; }
-
-      if (street === 'summary') {
-        if ((m = ln.match(/^Asiento \d+: (.+?) (?:\(.*?\) )?(?:mostró|muestra) \[(.+?)\] y (ganó|perdió|empató)(?:\s*\(([\d.,]+))?/))) {
-          hand.shows[m[1]] = hand.shows[m[1]] || cardsFrom(m[2]);
-          if (m[4]) hand.collected[m[1]] = Math.max(hand.collected[m[1]] || 0, num(m[4]));
-          continue;
-        }
-        if ((m = ln.match(/^Asiento \d+: (.+?) (?:\(.*?\) )?recaudó \(([\d.,]+)/))) { hand.collected[m[1]] = Math.max(hand.collected[m[1]] || 0, num(m[2])); continue; }
-        continue;
-      }
-
-      // acciones en una calle
-      if (['preflop', 'flop', 'turn', 'river'].includes(street)) {
-        const act = parseAction(ln);
-        if (act) hand.streets[street].push(act);
-      }
+    const Formats = global.PTHandHistoryFormats;
+    const PS = global.PTPokerStarsParser;
+    if (PS && typeof PS.parseHand === 'function') {
+      const locale = PS.detectLocale ? PS.detectLocale(block) : null;
+      return PS.parseHand(block, locale);
     }
-
-    hand.boardAll = hand.board.flop.concat(hand.board.turn, hand.board.river);
-    if (hand.isCash && hand.buttonSeat != null && hand.seats.length) assignPositions(hand);
-    return hand;
-  }
-
-  function parseAction(ln) {
-    let m;
-    if ((m = ln.match(/^(.+?): se retira/))) return { player: m[1], type: 'fold' };
-    if ((m = ln.match(/^(.+?): pasa/))) return { player: m[1], type: 'check' };
-    if ((m = ln.match(/^(.+?): iguala ([\d.,]+)/))) return { player: m[1], type: 'call', amount: num(m[2]), allin: /all-in/.test(ln) };
-    if ((m = ln.match(/^(.+?): apuesta ([\d.,]+)/))) return { player: m[1], type: 'bet', amount: num(m[2]), allin: /all-in/.test(ln) };
-    if ((m = ln.match(/^(.+?): sube ([\d.,]+)\s*€? a ([\d.,]+)/))) return { player: m[1], type: 'raise', amount: num(m[2]), to: num(m[3]), allin: /all-in/.test(ln) };
+    if (Formats) {
+      const fmt = Formats.detectBest(block);
+      if (fmt && typeof fmt.parseHand === 'function') return fmt.parseHand(block);
+    }
     return null;
-  }
-
-  const LABELS_FROM_MID = ['CO', 'HJ', 'UTG', 'UTG1', 'UTG2'];
-  function assignPositions(hand) {
-    const sorted = hand.seats.slice().sort((a, b) => a.seat - b.seat);
-    const n = sorted.length;
-    const btnIdx = sorted.findIndex((s) => s.seat === hand.buttonSeat);
-    if (btnIdx < 0) return;
-    // orden de asientos en sentido horario empezando por el botón
-    const order = [];
-    for (let i = 0; i < n; i++) order.push(sorted[(btnIdx + i) % n]);
-    const pos = hand.positions;
-    if (n === 2) { pos[order[0].name] = 'SB'; pos[order[1].name] = 'BB'; return; }
-    pos[order[0].name] = 'BTN';
-    pos[order[1].name] = 'SB';
-    pos[order[2].name] = 'BB';
-    const middle = order.slice(3); // entre BB y BTN (UTG..CO)
-    for (let i = 0; i < middle.length; i++) {
-      pos[middle[middle.length - 1 - i].name] = LABELS_FROM_MID[i] || ('EP' + i);
-    }
-    // anclar con ciegas reales por si acaso
-    if (hand.blinds.sb) pos[hand.blinds.sb] = 'SB';
-    if (hand.blinds.bb) pos[hand.blinds.bb] = 'BB';
   }
 
   // ---------- ¿analizar esta mano del héroe? ----------
@@ -905,6 +814,7 @@
       nDiscarded: discarded,
       hands: kept,
       stats,
+      format: parsed.format || null,
       analysisVersion: global.PT_BUILD || '1',
       hasTxt: false,
       rawText: null
@@ -1044,7 +954,9 @@
   }
 
   global.Importer = {
-    parseSession, parseHand, analyzeHand, buildSession, buildSessionAsync, heroPlayed, computeStats, num, cardsFrom,
-    buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, ensureHandSummary, ensureFullTimeline
+    parseSession, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
+    heroPlayed, computeStats, num, cardsFrom,
+    buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions,
+    ensureHandSummary, ensureFullTimeline
   };
 })(window);

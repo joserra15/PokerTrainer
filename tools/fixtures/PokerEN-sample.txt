@@ -1,0 +1,169 @@
+﻿
+Transcript for last 1 week of play requested by KazeDj (joserra15@gmail.com)
+
+*********** # 1 **************
+PokerStars Zoom Hand #261319635753: Â Hold'em No Limit (â‚¬0.02/â‚¬0.05) - 2026/07/03 0:19:16 CET [2026/07/02 18:19:16 ET]
+Table 'Asterope' 6-max Seat #1 is the button
+Seat 1: loureiro26 (â‚¬5.14 in chips)
+Seat 2: KingTamudo (â‚¬1.66 in chips)
+Seat 3: KazeDj (â‚¬5.35 in chips)
+Seat 4: eooooo (â‚¬1.89 in chips)
+Seat 5: JeanMarcDu37 (â‚¬5 in chips)
+Seat 6: datkeire01 (â‚¬6.56 in chips)
+KingTamudo: posts small blind â‚¬0.02
+KazeDj: posts big blind â‚¬0.05
+*** HOLE CARDS ***
+Dealt to KazeDj [7s Ah]
+eooooo: folds
+JeanMarcDu37: raises â‚¬0.05 to â‚¬0.10
+datkeire01: folds
+loureiro26: raises â‚¬0.05 to â‚¬0.15
+KingTamudo: folds
+KazeDj: calls â‚¬0.10
+JeanMarcDu37: calls â‚¬0.05
+*** FLOP *** [Jd 8d 8c]
+KazeDj: checks
+JeanMarcDu37: checks
+loureiro26: bets â‚¬0.23
+KazeDj is disconnected
+KazeDj: folds
+JeanMarcDu37: folds
+Uncalled bet (â‚¬0.23) returned to loureiro26
+loureiro26 collected â‚¬0.45 from pot
+loureiro26: doesn't show hand
+*** SUMMARY ***
+Total pot â‚¬0.47 | Rake â‚¬0.02
+Board [Jd 8d 8c]
+Seat 1: loureiro26 (button) collected (â‚¬0.45)
+Seat 2: KingTamudo (small blind) folded before Flop
+Seat 3: KazeDj (big blind) folded on the Flop
+Seat 4: eooooo folded before Flop (didn't bet)
+Seat 5: JeanMarcDu37 folded on the Flop
+Seat 6: datkeire01 folded before Flop (didn't bet)
+
+
+*********** # 2 **************
+PokerStars Zoom Hand #261319635083: Â Hold'em No Limit (â‚¬0.02/â‚¬0.05) - 2026/07/03 0:19:12 CET [2026/07/02 18:19:12 ET]
+Table 'Asterope' 6-max Seat #1 is the button
+Seat 1: PedroTruque (â‚¬2.35 in chips)
+Seat 2: Animaloide81 (â‚¬2.28 in chips)
+Seat 3: rafastary8 (â‚¬5 in chips)
+Seat 4: KazeDj (â‚¬5.35 in chips)
+Seat 5: Mimbr3 (â‚¬5 in chips)
+Seat 6: Pichiguin (â‚¬7.36 in chips)
+Animaloide81: posts small blind â‚¬0.02
+rafastary8: posts big blind â‚¬0.05
+*** HOLE CARDS ***
+Dealt to KazeDj [6c 3h]
+KazeDj: folds
+Mimbr3: folds
+Pichiguin: folds
+PedroTruque: folds
+Animaloide81: folds
+Uncalled bet (â‚¬0.03) returned to rafastary8
+rafastary8 collected â‚¬0.04 from pot
+rafastary8: doesn't show hand
+*** SUMMARY ***
+Total pot â‚¬0.04 | Rake â‚¬0
+Seat 1: PedroTruque (button) folded before Flop (didn't bet)
+Seat 2: Animaloide81 (small blind) folded before Flop
+Seat 3: rafastary8 (big blind) collected (â‚¬0.04)
+Seat 4: KazeDj folded before Flop (didn't bet)
+Seat 5: Mimbr3 folded before Flop (didn't bet)
+Seat 6: Pichiguin folded before Flop (didn't bet)
+
+
+*********** # 3 **************
+PokerStars Zoom Hand #261319631080: Â Hold'em No Limit (â‚¬0.02/â‚¬0.05) - 2026/07/03 0:18:51 CET [2026/07/02 18:18:51 ET]
+Table 'Asterope' 6-max Seat #1 is the button
+Seat 1: KazeDj (â‚¬5.28 in chips)
+Seat 2: JeanMarcDu37 (â‚¬5 in chips)
+Seat 3: NCabral_SCP (â‚¬5.17 in chips)
+Seat 4: ander_gm92 (â‚¬6.91 in chips)
+Seat 5: basukun (â‚¬4.54 in chips)
+Seat 6: ogait44 (â‚¬15.22 in chips)
+JeanMarcDu37: posts small blind â‚¬0.02
+NCabral_SCP: posts big blind â‚¬0.05
+*** HOLE CARDS ***
+Dealt to KazeDj [Qc Kd]
+ander_gm92: folds
+basukun: folds
+ogait44: folds
+KazeDj: raises â‚¬0.07 to â‚¬0.12
+JeanMarcDu37: folds
+NCabral_SCP: folds
+Uncalled bet (â‚¬0.07) returned to KazeDj
+KazeDj collected â‚¬0.12 from pot
+KazeDj: doesn't show hand
+*** SUMMARY ***
+Total pot â‚¬0.12 | Rake â‚¬0
+Seat 1: KazeDj (button) collected (â‚¬0.12)
+Seat 2: JeanMarcDu37 (small blind) folded before Flop
+Seat 3: NCabral_SCP (big blind) folded before Flop
+Seat 4: ander_gm92 folded before Flop (didn't bet)
+Seat 5: basukun folded before Flop (didn't bet)
+Seat 6: ogait44 folded before Flop (didn't bet)
+
+
+*********** # 4 **************
+PokerStars Zoom Hand #261319629931: Â Hold'em No Limit (â‚¬0.02/â‚¬0.05) - 2026/07/03 0:18:45 CET [2026/07/02 18:18:45 ET]
+Table 'Asterope' 6-max Seat #1 is the button
+Seat 1: ogait44 (â‚¬15.22 in chips)
+Seat 2: eooooo (â‚¬3.15 in chips)
+Seat 3: Jujutrol (â‚¬7.99 in chips)
+Seat 4: KazeDj (â‚¬5.28 in chips)
+Seat 5: Bertinho Gil (â‚¬5.17 in chips)
+Seat 6: JeanMarcDu37 (â‚¬5 in chips)
+eooooo: posts small blind â‚¬0.02
+Jujutrol: posts big blind â‚¬0.05
+*** HOLE CARDS ***
+Dealt to KazeDj [5d Ts]
+KazeDj: folds
+Bertinho Gil: folds
+JeanMarcDu37: folds
+ogait44: folds
+eooooo: folds
+Uncalled bet (â‚¬0.03) returned to Jujutrol
+Jujutrol collected â‚¬0.04 from pot
+Jujutrol: doesn't show hand
+*** SUMMARY ***
+Total pot â‚¬0.04 | Rake â‚¬0
+Seat 1: ogait44 (button) folded before Flop (didn't bet)
+Seat 2: eooooo (small blind) folded before Flop
+Seat 3: Jujutrol (big blind) collected (â‚¬0.04)
+Seat 4: KazeDj folded before Flop (didn't bet)
+Seat 5: Bertinho Gil folded before Flop (didn't bet)
+Seat 6: JeanMarcDu37 folded before Flop (didn't bet)
+
+
+*********** # 5 **************
+PokerStars Zoom Hand #261319627515: Â Hold'em No Limit (â‚¬0.02/â‚¬0.05) - 2026/07/03 0:18:32 CET [2026/07/02 18:18:32 ET]
+Table 'Asterope' 6-max Seat #1 is the button
+Seat 1: Phyrelli (â‚¬5.59 in chips)
+Seat 2: filology5 (â‚¬5.02 in chips)
+Seat 3: KazeDj (â‚¬5.33 in chips)
+Seat 4: eooooo (â‚¬1.94 in chips)
+Seat 5: datkeire01 (â‚¬1.10 in chips)
+Seat 6: manrik_1 (â‚¬4.05 in chips)
+filology5: posts small blind â‚¬0.02
+KazeDj: posts big blind â‚¬0.05
+*** HOLE CARDS ***
+Dealt to KazeDj [5c 4h]
+eooooo: folds
+datkeire01: folds
+manrik_1: folds
+Phyrelli: folds
+filology5: raises â‚¬0.10 to â‚¬0.15
+KazeDj: folds
+Uncalled bet (â‚¬0.10) returned to filology5
+filology5 collected â‚¬0.10 from pot
+filology5: doesn't show hand
+*** SUMMARY ***
+Total pot â‚¬0.10 | Rake â‚¬0
+Seat 1: Phyrelli (button) folded before Flop (didn't bet)
+Seat 2: filology5 (small blind) collected (â‚¬0.10)
+Seat 3: KazeDj (big blind) folded before Flop
+Seat 4: eooooo folded before Flop (didn't bet)
+Seat 5: datkeire01 folded before Flop (didn't bet)
+Seat 6: manrik_1 folded before Flop (didn't bet)
+

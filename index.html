@@ -522,7 +522,7 @@
         </div>
         <div class="import-box">
           <h3>Añadir sesión</h3>
-          <p class="muted-text">Adjunta un fichero <code>.txt</code> con el historial de manos exportado de PokerStars (Cash NL Hold'em).</p>
+          <p class="muted-text">Adjunta un fichero <code>.txt</code> con el historial de manos exportado de PokerStars u otra sala compatible (Cash NL Hold'em, español o inglés). El formato se detecta automáticamente.</p>
           <div id="sessions-disclaimer"></div>
           <div id="sessions-usage" class="usage-quota-host hidden" aria-label="Límites de importación"></div>
           <div class="import-row">
@@ -812,6 +812,9 @@
       'js/ranges.js',
       'js/play-config.js',
       'js/engine.js',
+      'js/import/hhUtils.js',
+      'js/import/formatDetector.js',
+      'js/import/parsers/pokerstars.js',
       'js/import.js',
       'js/range-matrix.js',
       'js/ai-hand-payload.js',

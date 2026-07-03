@@ -1851,11 +1851,16 @@
     reader.onload = async () => {
       try {
         status.textContent = 'Parseando historial...';
+        const fmtMeta = Importer.detectSessionFormat ? Importer.detectSessionFormat(reader.result) : null;
         const parsed = Importer.parseSession(reader.result, file.name);
         if (!parsed.hero || !parsed.hands.length) {
-          status.innerHTML = '<span style="color:var(--red)">No se reconocieron manos de cash NL en el fichero.</span>';
+          status.innerHTML = '<span style="color:var(--red)">No se reconocieron manos de cash NL en el fichero. Comprueba que sea un historial de PokerStars (español o inglés).</span>';
           return;
         }
+        const fmtLabel = (parsed.format || fmtMeta)
+          ? ((parsed.format || fmtMeta).platformLabel + ' · ' + (parsed.format || fmtMeta).localeLabel)
+          : null;
+        if (fmtLabel) status.textContent = 'Formato detectado: ' + fmtLabel + '. Analizando...';
         const Ent = window.PTEntitlements;
         if (Ent && Ent.ensureLoaded) {
           const ent = await Ent.ensureLoaded();
@@ -1885,7 +1890,8 @@
           } else if (saveResult.cloudOnly) {
             status.innerHTML = `<span style="color:var(--green)">Sesión guardada en la nube: ${finalSession.hands.length} manos analizadas (de ${finalSession.nTotal} cash${finalSession.nDiscarded ? `, ${finalSession.nDiscarded} sin cartas del héroe` : ''}).</span>`;
           } else {
-            status.innerHTML = `<span style="color:var(--green)">Sesión procesada: ${finalSession.hands.length} manos analizadas (de ${finalSession.nTotal} cash${finalSession.nDiscarded ? `, ${finalSession.nDiscarded} sin cartas del héroe` : ''}).</span>`;
+            const fmt = finalSession.format ? ' · ' + finalSession.format.platformLabel + ' ' + finalSession.format.localeLabel : '';
+            status.innerHTML = `<span style="color:var(--green)">Sesión procesada${fmt}: ${finalSession.hands.length} manos analizadas (de ${finalSession.nTotal} cash${finalSession.nDiscarded ? `, ${finalSession.nDiscarded} sin cartas del héroe` : ''}).</span>`;
           }
           input.value = '';
           $('#process-session').disabled = true;

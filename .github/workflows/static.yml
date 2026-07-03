@@ -27,6 +27,8 @@ jobs:
           node-version: '22'
       - name: Selftest
         run: node tools/selftest.js
+      - name: Test importador ES/EN
+        run: node tools/testimport.js
       - name: Regresión EV Poker76
         run: node tools/regression-poker76.js
       - name: Regresión EV modo Jugar
