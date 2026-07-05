@@ -24,9 +24,21 @@
     });
   }
 
+  function checkDeployInfo(build) {
+    if (!('fetch' in global)) return;
+    fetch('deploy-info.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (info) {
+        if (!info || !info.build || info.build === build) return;
+        if (seen && seen !== info.build) clearCachesAndReload();
+      })
+      .catch(function () { /* noop */ });
+  }
+
   if (seen && seen !== build) {
     clearCachesAndReload();
     return;
   }
   try { localStorage.setItem(key, build); } catch (e) { /* noop */ }
+  checkDeployInfo(build);
 })(window);
