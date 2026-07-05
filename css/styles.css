@@ -1807,6 +1807,8 @@ body.admin-invite-open { overflow: hidden; }
 
 .progress-panel, .leaks-panel { margin-bottom: 16px; }
 .progress-panel h3, .leaks-panel h3 { margin: 0 0 6px; font-size: 16px; }
+.progress-block { margin-top: 14px; }
+.progress-block-title, .leaks-section-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .progress-intro, .leaks-intro { margin: 0 0 12px; font-size: 13px; }
 .progress-charts {
   display: grid;

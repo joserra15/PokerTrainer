@@ -1,5 +1,6 @@
 /*
  * progress.js — Dashboard de progreso en el tiempo (P-02).
+ * Usa agregados persistentes en stats (no depende del histórico).
  */
 (function (global) {
   'use strict';
@@ -12,6 +13,9 @@
   }
 
   function weekKey(date) {
+    if (global.PTStatsAggregate && global.PTStatsAggregate.weekKey) {
+      return global.PTStatsAggregate.weekKey(date);
+    }
     var d = new Date(date);
     var day = d.getDay();
     var diff = d.getDate() - day + (day === 0 ? -6 : 1);
@@ -25,8 +29,16 @@
     return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   }
 
+  /** Compat: reconstruye desde histórico si no hay agregados (fallback). */
   function buildWeeklySeries(history, weeks) {
     weeks = weeks || 8;
+    var Agg = global.PTStatsAggregate;
+    if (Agg && global.Store && global.Store.getStats) {
+      var st = global.Store.getStats();
+      if (st && st.aggregates && st._aggMigrated) {
+        return Agg.trainerWeeklySeries(st, weeks);
+      }
+    }
     var buckets = {};
     var now = new Date();
     for (var i = weeks - 1; i >= 0; i--) {
@@ -55,6 +67,13 @@
     });
   }
 
+  function buildSessionWeeklySeries(weeks) {
+    weeks = weeks || 8;
+    var Agg = global.PTStatsAggregate;
+    if (!Agg || !global.Store || !global.Store.getStats) return [];
+    return Agg.sessionWeeklySeries(global.Store.getStats(), weeks);
+  }
+
   function maxOf(series, field) {
     var m = 0;
     series.forEach(function (s) { m = Math.max(m, Number(s[field]) || 0); });
@@ -79,37 +98,55 @@
   function renderDashboard(host, opts) {
     if (!host) return;
     opts = opts || {};
+    var weeks = opts.weeks || 8;
     var Store = global.Store;
-    if (!Store || !Store.getHistory) {
+    if (!Store || !Store.getStats) {
       host.innerHTML = '';
       return;
     }
-    var history = Store.getHistory();
-    var Ent = global.PTEntitlements;
-    if (Ent && Ent.historyCutoffDate) {
-      var cutoff = Ent.historyCutoffDate(Ent.get && Ent.get());
-      if (cutoff) history = history.filter(function (h) { return h.createdAt && h.createdAt >= cutoff; });
-    }
-    var series = buildWeeklySeries(history, opts.weeks || 8);
-    var sessions = Store.getSessions ? Store.getSessions().length : 0;
-    var hasData = series.some(function (s) { return s.hands > 0; });
+    var trainerSeries = buildWeeklySeries(Store.getHistory ? Store.getHistory() : [], weeks);
+    var sessionSeries = buildSessionWeeklySeries(weeks);
+    var hasTrainer = trainerSeries.some(function (s) { return s.hands > 0; });
+    var hasSessions = sessionSeries.some(function (s) { return (s.hands > 0) || (s.sessions > 0); });
+    var sessTotal = global.PTStatsAggregate ? global.PTStatsAggregate.sessionsTotal(Store.getStats()) : null;
 
-    if (!hasData && !sessions) {
-      host.innerHTML = '<div class="progress-panel card-box"><h3>Progreso</h3><p class="muted-text">Juega manos en el entrenador para ver gráficas de acierto y EV en el tiempo.</p></div>';
+    if (!hasTrainer && !hasSessions) {
+      host.innerHTML = '<div class="progress-panel card-box"><h3>Progreso semanal</h3><p class="muted-text">Juega manos o importa sesiones para ver gráficas de acierto y EV en el tiempo. Los datos se guardan en estadísticas aunque borres el histórico.</p></div>';
       return;
     }
 
-    host.innerHTML = '<div class="progress-panel card-box"><h3>Progreso</h3>' +
-      '<p class="muted-text progress-intro">Últimas ' + series.length + ' semanas · ' + sessions + ' sesión' + (sessions === 1 ? '' : 'es') + ' importada' + (sessions === 1 ? '' : 's') + '</p>' +
-      '<div class="progress-charts">' +
-      barChart('Acierto semanal', series, 'accuracy', '%', '--green') +
-      barChart('EV perdido (bb)', series, 'evLoss', ' bb', '--red') +
-      barChart('Manos entrenadas', series, 'hands', '', '--gold') +
-      '</div></div>';
+    var intro = 'Últimas ' + weeks + ' semanas · datos persistentes en estadísticas';
+    if (sessTotal && sessTotal.sessions) {
+      intro += ' · ' + sessTotal.sessions + ' sesión' + (sessTotal.sessions === 1 ? '' : 'es') + ' importada' + (sessTotal.sessions === 1 ? '' : 's') + ' acumulada' + (sessTotal.sessions === 1 ? '' : 's');
+    }
+
+    var html = '<div class="progress-panel card-box"><h3>Progreso semanal</h3>' +
+      '<p class="muted-text progress-intro">' + escapeHtml(intro) + '</p>';
+
+    if (hasTrainer) {
+      html += '<div class="progress-block"><h4 class="progress-block-title">Entrenador</h4><div class="progress-charts">' +
+        barChart('Acierto', trainerSeries, 'accuracy', '%', '--green') +
+        barChart('EV perdido (bb)', trainerSeries, 'evLoss', ' bb', '--red') +
+        barChart('Manos', trainerSeries, 'hands', '', '--gold') +
+        '</div></div>';
+    }
+
+    if (hasSessions) {
+      html += '<div class="progress-block"><h4 class="progress-block-title">Sesiones importadas</h4><div class="progress-charts">' +
+        barChart('Acierto', sessionSeries, 'accuracy', '%', '--green') +
+        barChart('EV perdido (bb)', sessionSeries, 'evLoss', ' bb', '--red') +
+        barChart('Manos', sessionSeries, 'hands', '', '--gold') +
+        barChart('Sesiones', sessionSeries, 'sessions', '', '--gold') +
+        '</div></div>';
+    }
+
+    html += '</div>';
+    host.innerHTML = html;
   }
 
   global.PTProgress = {
     buildWeeklySeries: buildWeeklySeries,
+    buildSessionWeeklySeries: buildSessionWeeklySeries,
     renderDashboard: renderDashboard
   };
 })(window);

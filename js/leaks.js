@@ -73,35 +73,62 @@
   }
 
   function topLeaks(errors, limit) {
+    if (global.PTStatsAggregate && global.Store && global.Store.getStats) {
+      var st = global.Store.getStats();
+      if (st && st._aggMigrated) {
+        return global.PTStatsAggregate.trainerTopLeaks(st, limit || 5);
+      }
+    }
     return aggregate(errors, { minClass: 'imprecisa' }).slice(0, limit || 5);
   }
 
-  function renderPanel(host, errors, onTrain) {
+  function renderPanel(host, errors, onTrain, opts) {
     if (!host) return;
-    var leaks = topLeaks(errors, 5);
-    if (!leaks.length) {
-      host.innerHTML = '<div class="leaks-panel card-box"><h3>Mis leaks</h3><p class="muted-text">Sin fugas recurrentes registradas. Sigue entrenando para ver tus top spots.</p></div>';
+    opts = opts || {};
+    var trainerLeaks = topLeaks(errors, 5);
+    var sessionLeaks = [];
+    if (global.PTStatsAggregate && global.Store && global.Store.getStats) {
+      sessionLeaks = global.PTStatsAggregate.sessionTopLeaks(global.Store.getStats(), 5);
+    }
+    if (!trainerLeaks.length && !sessionLeaks.length) {
+      host.innerHTML = '<div class="leaks-panel card-box"><h3>Mis leaks</h3><p class="muted-text">Sin fugas recurrentes registradas. Entrena o importa sesiones para ver tus top spots. Los agregados se guardan aunque borres el histórico.</p></div>';
       return;
     }
     var fmt = global.GTOPotMath ? function (x) { return global.GTOPotMath.formatBB(x); } : function (x) { return String(x); };
-    var rows = leaks.map(function (l, i) {
-      return '<div class="leak-row">' +
-        '<div class="leak-rank">#' + (i + 1) + '</div>' +
-        '<div class="leak-main">' +
-        '<div class="leak-title">' + escapeHtml(l.label) + '</div>' +
-        '<div class="leak-sub muted-text">' + l.count + ' error' + (l.count === 1 ? '' : 'es') + ' · EV perdido ' + fmt(l.evLoss) + ' bb</div>' +
-        '</div>' +
-        '<button type="button" class="btn btn-primary btn-sm" data-leak-train="' + escapeHtml(l.key) + '">Repetir</button>' +
-        '</div>';
-    }).join('');
-    host.innerHTML = '<div class="leaks-panel card-box"><h3>Mis leaks</h3>' +
-      '<p class="muted-text leaks-intro">Top 5 spots donde más EV pierdes. «Repetir» repasa todas las manos erróneas de ese spot.</p>' +
-      '<div class="leak-list">' + rows + '</div></div>';
+
+    function leakRows(leaks, trainPrefix) {
+      return leaks.map(function (l, i) {
+        var trainBtn = trainPrefix && onTrain
+          ? '<button type="button" class="btn btn-primary btn-sm" data-leak-train="' + escapeHtml(trainPrefix + ':' + l.key) + '">Repetir</button>'
+          : '';
+        return '<div class="leak-row">' +
+          '<div class="leak-rank">#' + (i + 1) + '</div>' +
+          '<div class="leak-main">' +
+          '<div class="leak-title">' + escapeHtml(l.label) + '</div>' +
+          '<div class="leak-sub muted-text">' + l.count + ' error' + (l.count === 1 ? '' : 'es') + ' · EV perdido ' + fmt(l.evLoss) + ' bb</div>' +
+          '</div>' + trainBtn + '</div>';
+      }).join('');
+    }
+
+    var html = '<div class="leaks-panel card-box"><h3>Mis leaks</h3>' +
+      '<p class="muted-text leaks-intro">Top 5 spots con más EV perdido. Agregados persistentes (no se pierden al borrar histórico).</p>';
+
+    if (trainerLeaks.length) {
+      html += '<h4 class="leaks-section-title">Entrenador</h4><div class="leak-list">' + leakRows(trainerLeaks, 'trainer') + '</div>';
+    }
+    if (sessionLeaks.length) {
+      html += '<h4 class="leaks-section-title">Sesiones importadas</h4><div class="leak-list">' + leakRows(sessionLeaks, null) + '</div>';
+    }
+    html += '</div>';
+    host.innerHTML = html;
 
     host.querySelectorAll('[data-leak-train]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var key = btn.getAttribute('data-leak-train');
-        var leak = leaks.find(function (l) { return l.key === key; });
+        var raw = btn.getAttribute('data-leak-train') || '';
+        var parts = raw.split(':');
+        if (parts[0] !== 'trainer') return;
+        var key = parts.slice(1).join(':');
+        var leak = trainerLeaks.find(function (l) { return l.key === key; });
         if (leak && onTrain) onTrain(leak);
       });
     });

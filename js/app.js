@@ -1716,6 +1716,7 @@
       PTLeaks.renderPanel($('#leaks-panel'), Store.getErrors(), (leak) => startLeakReplay(leak));
     }
     const st = Store.getStats();
+    const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st) : null;
     const box = $('#stats-content');
     const total = st.decisions || 1;
     const pct = (n) => Math.round((n / total) * 100);
@@ -1729,10 +1730,21 @@
     const expectedNet = roundSession(netEv.expectedNet);
     const varianceAdj = roundSession(netEv.varianceAdj);
     box.innerHTML = `
-      <div class="stat-card"><div class="big">${st.handsPlayed}</div><div class="lbl">Manos jugadas</div></div>
-      <div class="stat-card"><div class="big">${accuracy}%</div><div class="lbl">Acierto (óptima+aceptable)</div></div>
-      <div class="stat-card"><div class="big ${actualNet >= 0 ? 'net-pos' : 'net-neg'}">${actualNet >= 0 ? '+' : ''}${fmtBB(actualNet)}</div><div class="lbl">Resultado total (bb)</div></div>
-      <div class="stat-card"><div class="big net-neg">-${fmtBB(evLost)}</div><div class="lbl">EV perdido total (bb)</div></div>
+      <div class="stat-card"><div class="big">${st.handsPlayed}</div><div class="lbl">Manos entrenador</div></div>
+      <div class="stat-card"><div class="big">${accuracy}%</div><div class="lbl">Acierto entrenador</div></div>
+      <div class="stat-card"><div class="big ${actualNet >= 0 ? 'net-pos' : 'net-neg'}">${actualNet >= 0 ? '+' : ''}${fmtBB(actualNet)}</div><div class="lbl">Resultado entrenador (bb)</div></div>
+      <div class="stat-card"><div class="big net-neg">-${fmtBB(evLost)}</div><div class="lbl">EV perdido entrenador (bb)</div></div>
+      ${sessTot && sessTot.sessions ? `
+      <div class="stat-card" style="grid-column:1/-1;text-align:left">
+        <div class="lbl" style="margin-bottom:8px">Sesiones importadas (acumulado persistente)</div>
+        <div class="stats-content" style="margin-bottom:0">
+          <div class="stat-card"><div class="big">${sessTot.sessions}</div><div class="lbl">Sesiones</div></div>
+          <div class="stat-card"><div class="big">${sessTot.hands}</div><div class="lbl">Manos</div></div>
+          <div class="stat-card"><div class="big">${sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : '—'}${sessTot.decisions ? '%' : ''}</div><div class="lbl">Acierto</div></div>
+          <div class="stat-card"><div class="big ${sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot.netBB >= 0 ? '+' : ''}${fmtBB(sessTot.netBB)}</div><div class="lbl">Resultado (bb)</div></div>
+          <div class="stat-card"><div class="big net-neg">-${fmtBB(sessTot.evLoss)}</div><div class="lbl">EV perdido (bb)</div></div>
+        </div>
+      </div>` : ''}
       <div class="stat-card" style="grid-column:1/-1;text-align:left">
         <div class="lbl" style="margin-bottom:8px">EV esperado vs resultado real</div>
         <div class="stats-content" style="margin-bottom:8px">
@@ -1767,11 +1779,18 @@
       coachHost.innerHTML = '';
       window.PTAIReport.mount(coachHost, {
         scope: 'statsGlobal',
-        getData: () => ({
-          stats: Store.getStats(),
-          weekly: window.PTProgress ? PTProgress.buildWeeklySeries(Store.getHistory(), 8) : [],
-          leaks: window.PTLeaks ? PTLeaks.topLeaks(Store.getErrors(), 5) : []
-        }),
+        getData: () => {
+          const stats = Store.getStats();
+          const Agg = window.PTStatsAggregate;
+          return {
+            stats: stats,
+            weekly: Agg ? Agg.trainerWeeklySeries(stats, 8) : (window.PTProgress ? PTProgress.buildWeeklySeries(Store.getHistory(), 8) : []),
+            weeklySessions: Agg ? Agg.sessionWeeklySeries(stats, 8) : [],
+            leaks: window.PTLeaks ? PTLeaks.topLeaks(Store.getErrors(), 5) : [],
+            sessionLeaks: Agg ? Agg.sessionTopLeaks(stats, 5) : [],
+            sessionsTotal: Agg ? Agg.sessionsTotal(stats) : null
+          };
+        },
         persist: { kind: 'stats' }
       });
     }

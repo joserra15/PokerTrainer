@@ -193,13 +193,31 @@
     const lt = a.updatedAt || 0;
     const ct = b.updatedAt || 0;
     const pick = lt >= ct ? a : b;
+    const other = lt >= ct ? b : a;
     const out = JSON.parse(JSON.stringify(pick));
     delete out.updatedAt;
+    if (global.PTStatsAggregate && global.PTStatsAggregate.mergeAggregates) {
+      out.aggregates = global.PTStatsAggregate.mergeAggregates(
+        pick.aggregates,
+        other.aggregates
+      );
+    }
     return out;
   }
   function getHistory() { return read(scopedKey('history'), []); }
   function getErrors() { return read(scopedKey('errors'), []); }
-  function getStats() { return read(scopedKey('stats'), defaultStats()); }
+  function getStats() {
+    var st = read(scopedKey('stats'), defaultStats());
+    if (global.PTStatsAggregate) {
+      global.PTStatsAggregate.ensureAggregates(st);
+      if (!st._aggMigrated) {
+        global.PTStatsAggregate.rebuildFromLegacy(st, getHistory(), getSessions());
+        st._aggMigrated = true;
+        writeStats(st);
+      }
+    }
+    return st;
+  }
 
   /** Guarda una mano completada y actualiza errores y estadísticas. */
   function saveHand(hand) {
@@ -264,6 +282,7 @@
     });
     st.totalEvLoss = Math.round(st.totalEvLoss * 100) / 100;
     st.totalNet = Math.round(st.totalNet * 100) / 100;
+    if (global.PTStatsAggregate) global.PTStatsAggregate.applyTrainerHand(st, rec);
     writeStats(st);
     notifySync(['history', 'errors', 'stats']);
 
@@ -508,6 +527,13 @@
     return { ok: true, session: out };
   }
 
+  function recordSessionStats(session) {
+    if (!session || !global.PTStatsAggregate) return;
+    var st = getStats();
+    global.PTStatsAggregate.applySessionHands(st, session);
+    writeStats(st);
+  }
+
   async function saveSession(session) {
     migrateLegacySessionsList();
     const CS = global.PTCloudSessions;
@@ -527,9 +553,12 @@
       writeSessionIndex(list);
       try { localStorage.removeItem(scopedKey('sessions')); } catch (e) { /* ignore */ }
       try { localStorage.removeItem(sessionTxtKey(session.id)); } catch (e) { /* ignore */ }
+      recordSessionStats(upload.session);
       return { ok: true, session: upload.session, cloudOnly: true };
     }
-    return saveSessionLocal(session);
+    const local = saveSessionLocal(session);
+    if (local.ok) recordSessionStats(local.session);
+    return local;
   }
 
   async function removeSession(id) {

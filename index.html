@@ -585,7 +585,7 @@
         <h2>Estadísticas globales</h2>
         <button id="clear-stats" class="btn btn-danger">Resetear estadísticas</button>
       </div>
-      <p class="muted-text stats-reset-hint">Acumulado de todas las manos del entrenador. No borra el histórico ni la lista de errores.</p>
+      <p class="muted-text stats-reset-hint">Acumulado persistente del entrenador y sesiones importadas. Borrar histórico o sesiones no resta estos totales semanales ni los leaks agregados.</p>
       <div id="stats-usage" class="usage-quota-host hidden" aria-label="Límites del plan"></div>
       <div id="progress-dashboard"></div>
       <div id="leaks-panel"></div>
@@ -827,6 +827,7 @@
       'js/ai-hand-payload.js',
       'js/ai-report.js',
       'js/storage.js',
+      'js/stats-aggregate.js',
       'js/cloud-sessions.js',
       'js/sample-session.js',
       'js/usage-ui.js',

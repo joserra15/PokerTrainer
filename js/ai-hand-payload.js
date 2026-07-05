@@ -153,18 +153,34 @@
     const total = st.decisions || 0;
     const accuracy = total ? Math.round(((st.optima + st.aceptable) / total) * 100) : 0;
     const weeklyRaw = data.weekly || [];
+    const weeklySessRaw = data.weeklySessions || [];
     const weekly = weeklyRaw.map(function (w) {
       return {
         w: w.label,
         hands: w.hands,
         acc: w.accuracy,
-        ev: w.evLoss
+        ev: w.evLoss,
+        src: 'trainer'
+      };
+    });
+    const weeklySessions = weeklySessRaw.map(function (w) {
+      return {
+        w: w.label,
+        hands: w.hands,
+        sessions: w.sessions,
+        acc: w.accuracy,
+        ev: w.evLoss,
+        src: 'imported'
       };
     });
     const leaks = (data.leaks || []).map(function (l) {
-      return { spot: l.label, n: l.count, ev: Math.round(l.evLoss * 100) / 100 };
+      return { spot: l.label, n: l.count, ev: Math.round(l.evLoss * 100) / 100, src: 'trainer' };
+    });
+    const sessionLeaks = (data.sessionLeaks || []).map(function (l) {
+      return { spot: l.label, n: l.count, ev: Math.round(l.evLoss * 100) / 100, src: 'imported' };
     });
     const topLeaks = leaks.slice(0, 3).map(function (l) { return l.spot; });
+    const sessTot = data.sessionsTotal || null;
     var trend = null;
     if (weeklyRaw.length >= 2) {
       const last = weeklyRaw[weeklyRaw.length - 1];
@@ -203,7 +219,16 @@
         }
       },
       progress: weekly.length ? weekly : undefined,
+      progressSessions: weeklySessions.length ? weeklySessions : undefined,
       leaks: leaks.length ? leaks : undefined,
+      sessionLeaks: sessionLeaks.length ? sessionLeaks : undefined,
+      sessionsTotal: sessTot ? {
+        sessions: sessTot.sessions,
+        hands: sessTot.hands,
+        acc: sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : null,
+        evLost: Math.round(sessTot.evLoss * 100) / 100,
+        net: Math.round(sessTot.netBB * 100) / 100
+      } : undefined,
       player: player,
       solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.'
     };
