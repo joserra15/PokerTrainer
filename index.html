@@ -238,7 +238,8 @@
             <label class="account-marketing" id="account-marketing-consent">
               <input type="checkbox" /> Avisos por email si dejo de entrenar
             </label>
-            <a href="legal/soporte.html" class="btn btn-ghost btn-block btn-sm-account" target="_blank" rel="noopener">Soporte</a>
+            <a href="legal/soporte.html" class="btn btn-ghost btn-block btn-sm-account" target="_blank" rel="noopener">Ayuda</a>
+            <button type="button" id="account-contact" class="btn btn-ghost btn-block btn-sm-account">Contacto</button>
             <button type="button" id="account-delete" class="btn btn-danger btn-block btn-sm-account" style="margin-top:8px">Eliminar cuenta y datos</button>
             <button type="button" id="account-signout" class="btn btn-ghost btn-block" style="margin-top:8px">Cerrar sesión</button>
           </div>
@@ -251,6 +252,7 @@
         <button class="tab" data-tab="history">Histórico</button>
         <button class="tab" data-tab="errors">Errores</button>
         <button class="tab" data-tab="stats">Estadísticas</button>
+        <button class="tab" data-tab="contact">Contacto</button>
         <button class="tab" data-tab="pricing">Planes</button>
         <a class="tab tab-link" href="legal/faq.html" target="_blank" rel="noopener">FAQ</a>
       </nav>
@@ -527,7 +529,6 @@
         <div class="import-box">
           <h3>Añadir sesión</h3>
           <p class="muted-text">Adjunta un fichero <code>.txt</code> con el historial de manos (PokerStars o Winamax, Cash NL Hold'em, español o inglés). El formato se detecta automáticamente.</p>
-          <div id="sessions-disclaimer"></div>
           <div id="sessions-usage" class="usage-quota-host hidden" aria-label="Límites de importación"></div>
           <div class="import-row">
             <input type="file" id="session-file" accept=".txt,text/plain" />
@@ -562,7 +563,6 @@
         </div>
       </div>
       <p class="muted-text" style="margin:-8px 0 12px">Solo las manos del entrenador. En plan Gratis solo ves los últimos 30 días.</p>
-      <div id="history-disclaimer"></div>
       <div id="history-list" class="record-list"></div>
     </section>
 
@@ -589,9 +589,17 @@
       <div id="stats-usage" class="usage-quota-host hidden" aria-label="Límites del plan"></div>
       <div id="progress-dashboard"></div>
       <div id="leaks-panel"></div>
-      <div id="stats-disclaimer"></div>
       <div id="stats-content" class="stats-content"></div>
       <div id="stats-coach"></div>
+    </section>
+
+    <!-- ===== CONTACTO ===== -->
+    <section id="tab-contact" class="tab-panel">
+      <div class="panel-head">
+        <h2>Contacto</h2>
+        <p class="muted-text">Envía consultas a soporte y sigue la conversación desde aquí.</p>
+      </div>
+      <div id="contact-content"></div>
     </section>
 
     <!-- ===== PLANES / PRICING ===== -->
@@ -616,11 +624,30 @@
           <p class="muted-text admin-sub">Usuarios, planes y consumo de IA Coach</p>
         </div>
         <div class="admin-head-actions">
+          <button type="button" id="admin-messages-btn" class="btn btn-ghost admin-messages-btn">Mensajes <span id="admin-messages-badge" class="tab-badge hidden">0</span></button>
           <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
           <button type="button" id="admin-demo-start" class="btn btn-primary">Modo demo</button>
         </div>
       </div>
 
+      <div id="admin-messages-panel" class="admin-messages-panel hidden">
+        <div class="admin-section-head">
+          <h3>Buzón de mensajes</h3>
+          <button type="button" id="admin-messages-back" class="btn btn-ghost btn-sm">Volver a usuarios</button>
+        </div>
+        <div class="contact-layout admin-contact-layout">
+          <div class="contact-sidebar card-box">
+            <div id="admin-contact-list" class="contact-thread-list"></div>
+          </div>
+          <div class="contact-main">
+            <div id="admin-contact-detail" class="contact-detail card-box">
+              <p class="muted-text">Selecciona una conversación.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="admin-users-panel">
       <div id="admin-stats" class="admin-stats" aria-label="Resumen"></div>
 
       <div class="admin-section">
@@ -672,6 +699,7 @@
           Usuario <strong>demo</strong>: cambia su plan aquí y entra en Modo demo para probar límites.
           Caducidad automática diaria (00:05 UTC) vía pg_cron.
         </p>
+      </div>
       </div>
     </section>
   </main>
@@ -839,6 +867,7 @@
       'js/demo-mode.js',
       'js/entitlements.js',
       'js/billing.js',
+      'js/contact.js',
       'js/admin-panel.js',
       'js/auth.js',
       'js/app.js'

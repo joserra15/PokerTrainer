@@ -14,23 +14,19 @@
       <p class="legal-meta">Última actualización: <span data-legal="lastUpdated"></span> · <a href="privacy-en.html">English</a></p>
     </header>
 
-    <p class="legal-notice">
-      <strong>Nota:</strong> Este texto es una base técnica alineada con el funcionamiento actual de la aplicación.
-      Conviene revisión por un abogado especializado en protección de datos antes de un lanzamiento comercial.
-    </p>
-
     <h2>1. Responsable del tratamiento</h2>
     <p>
       <strong data-legal="controllerName"></strong><br />
       Contacto privacidad: <a href="#" id="privacy-mail" data-legal="controllerEmail"></a><br />
+      Contacto general / soporte: pestaña <strong>Contacto</strong> de la aplicación o <a href="#" data-legal-mail="supportEmail"></a><br />
       Aplicación: <a data-legal-href="appUrl" data-legal="appUrl"></a>
     </p>
 
     <h2>2. Ámbito</h2>
     <p>
-      Esta política describe cómo tratamos datos personales cuando usas <strong>PokerTrainer</strong>,
-      aplicación web de entrenamiento y análisis GTO de poker (entrenador, importación de sesiones,
-      sincronización en la nube e IA Coach opcional).
+      Esta política describe el tratamiento de datos personales cuando utilizas <strong>PokerTrainer</strong>,
+      aplicación web de entrenamiento y análisis heurístico GTO de póker NL Hold'em 6-max (entrenador interactivo,
+      importación de sesiones, estadísticas agregadas, sincronización en la nube, planes de suscripción e IA Coach opcional).
     </p>
 
     <h2>3. Datos que tratamos</h2>
@@ -41,23 +37,28 @@
       <tbody>
         <tr>
           <td>Identificación y cuenta</td>
-          <td>ID Google (<code>sub</code>), correo, nombre, foto, idioma, verificación de email</td>
-          <td>Login con Google OAuth</td>
+          <td>ID de usuario (Supabase/Google), correo, nombre, foto, idioma</td>
+          <td>Inicio de sesión</td>
         </tr>
         <tr>
           <td>Datos de uso del entrenador</td>
-          <td>Manos jugadas, decisiones, EV estimado, posiciones, cartas del héroe y villano en simulación</td>
+          <td>Manos simuladas, decisiones, EV estimado, posiciones, cartas en el spot de práctica</td>
           <td>Uso de la app</td>
         </tr>
         <tr>
           <td>Sesiones importadas</td>
-          <td>Análisis de manos, estadísticas de sesión, nicknames de mesa en el historial importado</td>
-          <td>Archivo .txt que subes (PokerStars)</td>
+          <td>Análisis de manos, estadísticas, nicknames de mesa del historial importado</td>
+          <td>Archivo .txt que subes (PokerStars, Winamax…)</td>
+        </tr>
+        <tr>
+          <td>Estadísticas agregadas</td>
+          <td>Totales semanales, acierto, EV perdido, leaks por spot (sin conservar cada mano si borras el histórico)</td>
+          <td>Calculados al jugar o importar</td>
         </tr>
         <tr>
           <td>Texto bruto de sesión</td>
           <td>Contenido del .txt importado</td>
-          <td>Solo en <strong>localStorage del dispositivo</strong> (no se sincroniza a la nube)</td>
+          <td>Preferentemente en tu dispositivo; la nube guarda el análisis, no el .txt completo salvo que lo subas explícitamente</td>
         </tr>
         <tr>
           <td>IA Coach (opcional)</td>
@@ -65,8 +66,18 @@
           <td>Solo si aceptas el envío a IA</td>
         </tr>
         <tr>
+          <td>Mensajes de contacto</td>
+          <td>Título y texto de consultas, respuestas de soporte, historial de conversación</td>
+          <td>Formulario Contacto (requiere sesión)</td>
+        </tr>
+        <tr>
+          <td>Facturación</td>
+          <td>Plan, estado de suscripción, identificador de cliente en Stripe (no almacenamos números completos de tarjeta)</td>
+          <td>Contratación de plan de pago</td>
+        </tr>
+        <tr>
           <td>Técnicos</td>
-          <td>Preferencias de cookies, caché de informes IA, metadatos de sincronización</td>
+          <td>Preferencias de cookies, caché local, metadatos de sincronización, errores técnicos (si activas Sentry)</td>
           <td>localStorage / servicios en la nube</td>
         </tr>
       </tbody>
@@ -74,93 +85,58 @@
 
     <h2>4. Finalidades y bases legales</h2>
     <ul>
-      <li><strong>Prestación del servicio</strong> (cuenta, entrenador, histórico, sync): ejecución del contrato / medidas precontractuales (art. 6.1.b RGPD).</li>
+      <li><strong>Prestación del servicio</strong> (cuenta, entrenador, histórico, estadísticas, sync): ejecución del contrato (art. 6.1.b RGPD).</li>
       <li><strong>Importación y análisis de sesiones</strong>: ejecución del contrato.</li>
-      <li><strong>IA Coach</strong>: <strong>consentimiento</strong> explícito antes del primer envío (art. 6.1.a RGPD). Puedes rechazarlo y seguir usando el resto de funciones.</li>
-      <li><strong>Cookies no esenciales / analítica</strong> (si se activan): consentimiento.</li>
-      <li><strong>Seguridad y mejora</strong>: interés legítimo, limitado a lo estrictamente necesario.</li>
+      <li><strong>Atención al usuario</strong> (mensajes de contacto): ejecución del contrato / interés legítimo en responder consultas.</li>
+      <li><strong>IA Coach</strong>: <strong>consentimiento</strong> explícito antes del primer envío (art. 6.1.a RGPD).</li>
+      <li><strong>Cookies analíticas</strong> (Plausible, si las activas): consentimiento.</li>
+      <li><strong>Facturación</strong>: ejecución del contrato y obligaciones legales.</li>
+      <li><strong>Seguridad y mejora técnica</strong>: interés legítimo, limitado a lo necesario.</li>
     </ul>
 
-    <h2>5. Destinatarios y encargados del tratamiento</h2>
-    <p>Podemos compartir datos con proveedores que nos prestan servicios:</p>
+    <h2>5. Destinatarios y encargados</h2>
     <table>
       <thead>
-        <tr><th>Proveedor</th><th>Servicio</th><th>Datos</th><th>Ubicación</th></tr>
+        <tr><th>Proveedor</th><th>Servicio</th><th>Datos</th></tr>
       </thead>
       <tbody>
-        <tr>
-          <td>Google LLC</td>
-          <td>Inicio de sesión (OAuth)</td>
-          <td>Perfil de cuenta Google</td>
-          <td>EE.UU. / global</td>
-        </tr>
-        <tr>
-          <td>Supabase Inc.</td>
-          <td>Base de datos y sincronización</td>
-          <td>Histórico, errores, estadísticas, sesiones analizadas (sin .txt bruto)</td>
-          <td>UE / según región del proyecto</td>
-        </tr>
-        <tr>
-          <td>Google (Gemini)</td>
-          <td>Informes IA Coach</td>
-          <td>Datos de manos/sesiones que envías voluntariamente</td>
-          <td>EE.UU. / global</td>
-        </tr>
-        <tr>
-          <td>Stripe / procesador de pagos</td>
-          <td>Suscripciones (cuando esté activo)</td>
-          <td>Datos de facturación y pago</td>
-          <td>UE / según proveedor</td>
-        </tr>
-        <tr>
-          <td>GitHub Pages</td>
-          <td>Alojamiento estático de la app</td>
-          <td>Datos técnicos de conexión</td>
-          <td>EE.UU.</td>
-        </tr>
+        <tr><td>Google LLC</td><td>OAuth / Gemini (IA Coach)</td><td>Perfil de cuenta; datos de mano si usas IA</td></tr>
+        <tr><td>Supabase Inc.</td><td>Auth, base de datos, sync, mensajes contacto</td><td>Datos de cuenta, histórico, sesiones, estadísticas, hilos de contacto</td></tr>
+        <tr><td>Stripe Inc.</td><td>Pagos y suscripciones</td><td>Datos de facturación</td></tr>
+        <tr><td>GitHub Pages</td><td>Alojamiento estático</td><td>Datos técnicos de conexión</td></tr>
+        <tr><td>Plausible / Sentry (opcional)</td><td>Analítica / errores</td><td>Datos agregados o técnicos, sin historiales de mano por defecto</td></tr>
       </tbody>
     </table>
     <p>
-      Las transferencias internacionales se amparan, cuando corresponda, en decisiones de adecuación,
-      cláusulas contractuales tipo u otros mecanismos previstos en el RGPD. Consulta las políticas
-      de privacidad de cada proveedor.
+      Las transferencias internacionales se amparan, cuando proceda, en decisiones de adecuación,
+      cláusulas contractuales tipo u otros mecanismos del RGPD.
     </p>
 
     <h2>6. Conservación</h2>
     <ul>
-      <li><strong>Cuenta activa:</strong> mientras mantengas la cuenta y uses el servicio.</li>
-      <li><strong>Tras eliminar cuenta:</strong> borramos los datos en la nube asociados a tu ID; en el dispositivo se eliminan al confirmar la acción en la app.</li>
-      <li><strong>Caché IA local:</strong> se elimina al borrar la cuenta desde el menú de privacidad.</li>
-      <li><strong>Datos de facturación:</strong> según obligaciones legales (normalmente 4–6 años) cuando exista suscripción de pago.</li>
+      <li><strong>Cuenta activa:</strong> mientras uses el servicio.</li>
+      <li><strong>Mensajes de contacto:</strong> el tiempo necesario para gestionar la consulta y un plazo razonable de archivo (habitualmente hasta 24 meses).</li>
+      <li><strong>Tras eliminar cuenta:</strong> borrado de datos en la nube vinculados a tu ID; datos locales al confirmar en la app.</li>
+      <li><strong>Facturación:</strong> según obligaciones legales (normalmente 4–6 años).</li>
     </ul>
 
     <h2>7. Tus derechos</h2>
-    <p>Puedes ejercer los derechos de acceso, rectificación, supresión, limitación, oposición y portabilidad contactando a <span data-legal="controllerEmail"></span>.</p>
+    <p>Acceso, rectificación, supresión, limitación, oposición y portabilidad: <span data-legal="controllerEmail"></span> o menú Cuenta.</p>
     <ul>
-      <li><strong>Portabilidad / acceso:</strong> menú Cuenta → <em>Exportar mis datos</em> (JSON).</li>
-      <li><strong>Supresión:</strong> menú Cuenta → <em>Eliminar mi cuenta y datos</em>.</li>
-      <li><strong>Retirar consentimiento IA:</strong> deja de usar IA Coach; puedes borrar caché eliminando datos locales o la cuenta.</li>
+      <li><strong>Exportar datos:</strong> Cuenta → Exportar mis datos (JSON).</li>
+      <li><strong>Suprimir cuenta:</strong> Cuenta → Eliminar mi cuenta y datos.</li>
+      <li><strong>Retirar consentimiento IA:</strong> deja de usar IA Coach o elimina datos locales/cuenta.</li>
     </ul>
-    <p>
-      Si consideras que no hemos atendido correctamente tus derechos, puedes reclamar ante la
-      <a href="https://www.aepd.es" target="_blank" rel="noopener">Agencia Española de Protección de Datos (AEPD)</a>.
-    </p>
+    <p>Reclamación ante la <a href="https://www.aepd.es" target="_blank" rel="noopener">AEPD</a>.</p>
 
     <h2>8. Menores</h2>
-    <p>
-      El servicio está dirigido a mayores de 18 años. El juego con dinero real implica restricciones
-      legales según jurisdicción. No recopilamos conscientemente datos de menores.
-    </p>
+    <p>Servicio dirigido a mayores de 18 años. No recopilamos datos de menores de forma consciente.</p>
 
     <h2>9. Seguridad</h2>
-    <p>
-      Aplicamos medidas técnicas razonables (HTTPS, aislamiento de datos por usuario en la app,
-      sincronización opcional). Ningún sistema es 100 % seguro; te recomendamos no compartir tu
-      dispositivo sin cerrar sesión.
-    </p>
+    <p>HTTPS, aislamiento por usuario, acceso restringido al panel de administración. Ningún sistema es infalible; cierra sesión en dispositivos compartidos.</p>
 
     <h2>10. Cambios</h2>
-    <p>Publicaremos la versión actualizada en esta página e indicaremos la fecha de revisión.</p>
+    <p>Publicaremos la versión actualizada en esta página con la nueva fecha.</p>
 
     <nav class="legal-nav" aria-label="Documentos legales">
       <a href="terminos.html">Términos de uso</a>
@@ -169,7 +145,7 @@
       <a href="privacy-en.html">Privacy (EN)</a>
     </nav>
 
-    <footer class="legal-foot">PokerTrainer · Documento informativo · No constituye asesoramiento legal</footer>
+    <footer class="legal-foot">PokerTrainer · Política de privacidad</footer>
   </article>
   <script src="../js/legal-config.js" onerror="(function(){var s=document.createElement('script');s.src='../js/legal-config.example.js';document.body.appendChild(s);})()"></script>
   <script src="legal-page.js"></script>

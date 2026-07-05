@@ -74,25 +74,32 @@
     return Agg.sessionWeeklySeries(global.Store.getStats(), weeks);
   }
 
-  function maxOf(series, field) {
-    var m = 0;
-    series.forEach(function (s) { m = Math.max(m, Number(s[field]) || 0); });
-    return m || 1;
-  }
-
   function barChart(title, series, field, suffix, colorVar) {
     if (!series.length) return '';
-    var max = maxOf(series, field);
+    var max = maxOf(series, field, true);
     var bars = series.map(function (s) {
       var val = s[field];
-      var display = val == null ? '—' : (suffix === '%' ? val + '%' : val + suffix);
-      var h = val == null ? 4 : Math.max(8, Math.round(((Number(val) || 0) / max) * 100));
+      var display = val == null ? '—' : (suffix === '%' ? val + '%' : (suffix === ' bb' && val > 0 ? '+' : '') + val + suffix);
+      var h = val == null ? 4 : Math.max(8, Math.round((Math.abs(Number(val) || 0) / max) * 100));
+      var barColor = colorVar;
+      if (field === 'netBB' && val != null) {
+        barColor = Number(val) >= 0 ? '--green' : '--red';
+      }
       return '<div class="prog-bar-col" title="' + escapeHtml(s.label) + ': ' + display + '">' +
         '<span class="prog-bar-val">' + escapeHtml(display) + '</span>' +
-        '<div class="prog-bar" style="height:' + h + '%;background:var(' + colorVar + ')"></div>' +
+        '<div class="prog-bar" style="height:' + h + '%;background:var(' + barColor + ')"></div>' +
         '<span class="prog-bar-lbl">' + escapeHtml(s.label) + '</span></div>';
     }).join('');
     return '<div class="prog-chart"><h4>' + escapeHtml(title) + '</h4><div class="prog-bars">' + bars + '</div></div>';
+  }
+
+  function maxOf(series, field, useAbs) {
+    var m = 0;
+    series.forEach(function (s) {
+      var v = Number(s[field]) || 0;
+      m = Math.max(m, useAbs ? Math.abs(v) : v);
+    });
+    return m || 1;
   }
 
   function renderDashboard(host, opts) {
@@ -132,11 +139,12 @@
     }
 
     if (hasSessions) {
-      html += '<div class="progress-block"><h4 class="progress-block-title">Sesiones importadas</h4><div class="progress-charts">' +
+      html += '<div class="progress-block progress-block-sessions"><h4 class="progress-block-title">Sesiones importadas</h4><div class="progress-charts">' +
         barChart('Acierto', sessionSeries, 'accuracy', '%', '--green') +
         barChart('EV perdido (bb)', sessionSeries, 'evLoss', ' bb', '--red') +
-        barChart('Manos', sessionSeries, 'hands', '', '--gold') +
-        barChart('Sesiones', sessionSeries, 'sessions', '', '--gold') +
+        barChart('Resultado real (bb)', sessionSeries, 'netBB', ' bb', '--accent') +
+        barChart('Manos', sessionSeries, 'hands', '', '--accent') +
+        barChart('Sesiones', sessionSeries, 'sessions', '', '--accent') +
         '</div></div>';
     }
 

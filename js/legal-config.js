@@ -7,5 +7,5 @@ window.PT_LEGAL = {
   controllerEmail: 'joserra15@gmail.com',
   supportEmail: 'joserra15@gmail.com',
   appUrl: 'https://joserra15.github.io/PokerTrainer/',
-  lastUpdated: '19 de junio de 2026'
+  lastUpdated: '6 de julio de 2026'
 };

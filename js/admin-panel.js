@@ -468,6 +468,7 @@
     var user = currentUser();
     if (!user || !user.isAdmin) return;
     setAdminLoading(true, 'Sincronizando con Stripe…');
+    loadAdminMessagesBadge();
     loadStats().then(function () {
       return syncStripePayments({ auto: true });
     }).then(function () {
@@ -522,11 +523,139 @@
     }
   }
 
+  async function loadAdminMessagesBadge() {
+    var c = client();
+    var badge = $('#admin-messages-badge');
+    if (!c || !badge) return;
+    var res = await c.rpc('pt_admin_contact_unread_count');
+    var n = res.error ? 0 : (Number(res.data) || 0);
+    badge.textContent = n > 99 ? '99+' : String(n);
+    badge.classList.toggle('hidden', n <= 0);
+  }
+
+  function renderAdminMessageList(threads, activeId) {
+    var el = $('#admin-contact-list');
+    if (!el) return;
+    if (!threads.length) {
+      el.innerHTML = '<p class="muted-text">No hay mensajes.</p>';
+      return;
+    }
+    el.innerHTML = threads.map(function (t) {
+      var active = t.id === activeId ? ' contact-thread-active' : '';
+      var unread = t.admin_unread_count > 0 ? ' contact-thread-unread' : '';
+      var who = t.user_name || t.user_email || t.user_id;
+      return '<button type="button" class="contact-thread-item' + active + unread + '" data-admin-thread="' + escapeHtml(t.id) + '">' +
+        '<span class="contact-thread-subject">' + escapeHtml(t.subject) + '</span>' +
+        '<span class="contact-thread-meta muted-text">' + escapeHtml(who) + ' · ' + escapeHtml(formatRelative(t.last_message_at)) +
+        (t.admin_unread_count > 0 ? ' · <strong>Sin leer</strong>' : '') + '</span></button>';
+    }).join('');
+    el.querySelectorAll('[data-admin-thread]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openAdminThread(btn.getAttribute('data-admin-thread'));
+      });
+    });
+  }
+
+  function renderAdminMessages(messages) {
+    if (!messages || !messages.length) return '<p class="muted-text">Sin mensajes.</p>';
+    return messages.map(function (m) {
+      var cls = m.sender_role === 'admin' ? 'contact-msg admin' : 'contact-msg user';
+      var who = m.sender_role === 'admin' ? 'Soporte (tú)' : 'Usuario';
+      return '<div class="' + cls + '">' +
+        '<div class="contact-msg-head"><strong>' + escapeHtml(who) + '</strong>' +
+        '<span class="muted-text">' + escapeHtml(formatDateTime(m.created_at)) + '</span></div>' +
+        '<div class="contact-msg-body">' + escapeHtml(m.body).replace(/\n/g, '<br>') + '</div></div>';
+    }).join('');
+  }
+
+  function formatDateTime(iso) {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return iso; }
+  }
+
+  async function openAdminThread(threadId) {
+    var c = client();
+    var detail = $('#admin-contact-detail');
+    if (!c || !detail || !threadId) return;
+    detail.innerHTML = '<div class="contact-loading"><div class="play-boot-spinner"></div></div>';
+    var res = await c.rpc('pt_admin_contact_get_thread', { p_thread_id: threadId });
+    if (res.error) {
+      detail.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
+      return;
+    }
+    var th = (res.data && res.data.thread) || {};
+    var msgs = (res.data && res.data.messages) || [];
+    detail.innerHTML =
+      '<h3>' + escapeHtml(th.subject) + '</h3>' +
+      '<p class="muted-text contact-thread-user">' + escapeHtml(th.user_name || th.user_email || th.user_id) +
+      (th.user_email ? ' · ' + escapeHtml(th.user_email) : '') + '</p>' +
+      '<div class="contact-messages">' + renderAdminMessages(msgs) + '</div>' +
+      '<form class="contact-reply-form" data-admin-reply="' + escapeHtml(th.id) + '">' +
+      '<label>Respuesta<textarea name="body" rows="4" maxlength="3000" required placeholder="Escribe tu respuesta al usuario…"></textarea></label>' +
+      '<button type="submit" class="btn btn-primary">Enviar respuesta</button></form>';
+
+    var form = detail.querySelector('[data-admin-reply]');
+    if (form) {
+      form.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var body = (form.body.value || '').trim();
+        if (!body) return;
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        var reply = await c.rpc('pt_admin_contact_reply', { p_thread_id: th.id, p_body: body });
+        if (btn) btn.disabled = false;
+        if (reply.error) {
+          alert('Error: ' + (reply.error.message || 'no enviado'));
+          return;
+        }
+        await openAdminThread(threadId);
+        await loadAdminInbox(threadId);
+      });
+    }
+    await loadAdminMessagesBadge();
+  }
+
+  async function loadAdminInbox(activeId) {
+    var c = client();
+    if (!c) return;
+    var res = await c.rpc('pt_admin_contact_threads');
+    if (res.error) {
+      $('#admin-contact-list').innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
+      return;
+    }
+    renderAdminMessageList(res.data || [], activeId);
+    await loadAdminMessagesBadge();
+  }
+
+  function showAdminMessages(show) {
+    var msgPanel = $('#admin-messages-panel');
+    var usersPanel = $('#admin-users-panel');
+    if (msgPanel) msgPanel.classList.toggle('hidden', !show);
+    if (usersPanel) usersPanel.classList.toggle('hidden', show);
+    if (show) loadAdminInbox();
+  }
+
+  function bindAdminMessages() {
+    var btn = $('#admin-messages-btn');
+    var back = $('#admin-messages-back');
+    if (btn && !btn.dataset.bound) {
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', function () { showAdminMessages(true); });
+    }
+    if (back && !back.dataset.bound) {
+      back.dataset.bound = '1';
+      back.addEventListener('click', function () { showAdminMessages(false); });
+    }
+  }
+
   function bindUi() {
     var refreshBtn = $('#admin-refresh');
     if (refreshBtn) refreshBtn.addEventListener('click', function () { refresh(); });
 
     bindInviteModal();
+    bindAdminMessages();
 
     var syncBtn = $('#admin-sync-payments');
     if (syncBtn && !syncBtn.dataset.bound) {

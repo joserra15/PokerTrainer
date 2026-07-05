@@ -253,9 +253,6 @@
     bindRangesFilters();
     bindHome();
     if (window.PTDisclaimer) {
-      PTDisclaimer.mount('#sessions-disclaimer', 'full');
-      PTDisclaimer.mount('#stats-disclaimer', 'short');
-      PTDisclaimer.mount('#history-disclaimer', 'short');
       PTDisclaimer.mount('#app-disclaimer', 'foot');
     }
     window.addEventListener('pt-go-tab', (e) => {
@@ -405,6 +402,10 @@
     if (tabId === 'history') renderHistory();
     if (tabId === 'errors') renderErrors();
     if (tabId === 'stats') renderStats();
+    if (tabId === 'contact') {
+      if (window.PTContact && PTContact.render) PTContact.render();
+      if (window.PTContact && PTContact.refreshBadge) PTContact.refreshBadge();
+    }
     if (tabId === 'play' && window.PTUsageUI && PTUsageUI.refreshHost) {
       PTUsageUI.refreshHost($('#play-usage'));
     }
@@ -1493,7 +1494,6 @@
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
     if (d.errors && d.errors.length) html += `<div class="result-line" style="border-color:var(--red)">${d.errors.map((e) => escapeHtml(e.msg)).join(' · ')}</div>`;
     html += renderOptionGrid(d.optionBreakdown, d.action, d.best);
-    if (window.PTDisclaimer) html += PTDisclaimer.html('short');
     fb.innerHTML = html;
   }
 
@@ -1580,7 +1580,6 @@
       html += '</div>';
     }
 
-    if (window.PTDisclaimer) html += PTDisclaimer.html('short');
     fb.innerHTML = html;
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-report-trainer'), {
@@ -1735,14 +1734,14 @@
       <div class="stat-card"><div class="big ${actualNet >= 0 ? 'net-pos' : 'net-neg'}">${actualNet >= 0 ? '+' : ''}${fmtBB(actualNet)}</div><div class="lbl">Resultado entrenador (bb)</div></div>
       <div class="stat-card"><div class="big net-neg">-${fmtBB(evLost)}</div><div class="lbl">EV perdido entrenador (bb)</div></div>
       ${sessTot && sessTot.sessions ? `
-      <div class="stat-card" style="grid-column:1/-1;text-align:left">
+      <div class="stat-card stats-session-block" style="grid-column:1/-1;text-align:left">
         <div class="lbl" style="margin-bottom:8px">Sesiones importadas (acumulado persistente)</div>
-        <div class="stats-content" style="margin-bottom:0">
-          <div class="stat-card"><div class="big">${sessTot.sessions}</div><div class="lbl">Sesiones</div></div>
-          <div class="stat-card"><div class="big">${sessTot.hands}</div><div class="lbl">Manos</div></div>
-          <div class="stat-card"><div class="big">${sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : '—'}${sessTot.decisions ? '%' : ''}</div><div class="lbl">Acierto</div></div>
-          <div class="stat-card"><div class="big ${sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot.netBB >= 0 ? '+' : ''}${fmtBB(sessTot.netBB)}</div><div class="lbl">Resultado (bb)</div></div>
-          <div class="stat-card"><div class="big net-neg">-${fmtBB(sessTot.evLoss)}</div><div class="lbl">EV perdido (bb)</div></div>
+        <div class="stats-content stats-session-grid" style="margin-bottom:0">
+          <div class="stat-card stat-session"><div class="big">${sessTot.sessions}</div><div class="lbl">Sesiones</div></div>
+          <div class="stat-card stat-session"><div class="big">${sessTot.hands}</div><div class="lbl">Manos</div></div>
+          <div class="stat-card stat-session"><div class="big">${sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : '—'}${sessTot.decisions ? '%' : ''}</div><div class="lbl">Acierto</div></div>
+          <div class="stat-card stat-session"><div class="big ${sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot.netBB >= 0 ? '+' : ''}${fmtBB(sessTot.netBB)}</div><div class="lbl">Resultado real (bb)</div></div>
+          <div class="stat-card stat-session"><div class="big net-neg">-${fmtBB(sessTot.evLoss)}</div><div class="lbl">EV perdido (bb)</div></div>
         </div>
       </div>` : ''}
       <div class="stat-card" style="grid-column:1/-1;text-align:left">

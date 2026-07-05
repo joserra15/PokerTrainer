@@ -170,6 +170,7 @@
         sessions: w.sessions,
         acc: w.accuracy,
         ev: w.evLoss,
+        net: w.netBB,
         src: 'imported'
       };
     });

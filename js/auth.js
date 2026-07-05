@@ -225,6 +225,15 @@
       };
     }
 
+    const contactBtn = $('#account-contact');
+    if (contactBtn) {
+      contactBtn.onclick = function () {
+        if (global.goToTab) global.goToTab('contact');
+        const dropdown = $('#account-dropdown');
+        if (dropdown) dropdown.classList.add('hidden');
+      };
+    }
+
     const adminBtn = $('#account-admin');
     if (adminBtn) {
       adminBtn.classList.toggle('hidden', !user.isAdmin || demoOn);

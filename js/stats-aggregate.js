@@ -52,12 +52,13 @@
   }
 
   function bumpWeekly(map, key, delta) {
-    if (!map[key]) map[key] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0 };
+    if (!map[key]) map[key] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0 };
     var b = map[key];
     Object.keys(delta).forEach(function (k) {
       b[k] = (b[k] || 0) + (delta[k] || 0);
     });
     b.evLoss = round2(b.evLoss);
+    b.netBB = round2(b.netBB);
   }
 
   function bumpLeak(map, key, label, evLoss) {
@@ -133,7 +134,8 @@
       hands: stats.nHands || 0,
       decisions: decN,
       good: good,
-      evLoss: stats.evLossBB || 0
+      evLoss: stats.evLossBB || 0,
+      netBB: stats.netBB || 0
     });
 
     var tot = agg.sessionsTotal;
@@ -178,7 +180,7 @@
       var d = new Date(now);
       d.setDate(d.getDate() - i * 7);
       var k = weekKey(d);
-      buckets[k] = { key: k, hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0 };
+      buckets[k] = { key: k, hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0 };
     }
     Object.keys(map || {}).forEach(function (k) {
       if (!buckets[k]) return;
@@ -188,11 +190,13 @@
       buckets[k].decisions += src.decisions || 0;
       buckets[k].good += src.good || 0;
       buckets[k].evLoss = round2(buckets[k].evLoss + (src.evLoss || 0));
+      buckets[k].netBB = round2(buckets[k].netBB + (src.netBB || 0));
     });
     return Object.keys(buckets).sort().map(function (k) {
       var b = buckets[k];
       b.accuracy = b.decisions ? Math.round((b.good / b.decisions) * 100) : null;
       b.evLoss = round2(b.evLoss);
+      b.netBB = round2(b.netBB);
       b.label = fmtWeekLabel(k);
       return b;
     });

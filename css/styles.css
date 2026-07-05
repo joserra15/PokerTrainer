@@ -1807,7 +1807,50 @@ body.admin-invite-open { overflow: hidden; }
 
 .progress-panel, .leaks-panel { margin-bottom: 16px; }
 .progress-panel h3, .leaks-panel h3 { margin: 0 0 6px; font-size: 16px; }
-.progress-block { margin-top: 14px; }
+.progress-block-sessions .prog-bar { background: var(--accent) !important; }
+.progress-block-sessions .prog-chart:nth-child(n+4) .prog-bar { background: var(--accent) !important; }
+.stat-session .big { color: var(--accent); }
+.stats-session-grid .stat-card { border-color: rgba(47,129,247,.25); }
+
+.tab-badge {
+  display: inline-block; min-width: 18px; padding: 1px 6px; margin-left: 6px;
+  border-radius: 10px; font-size: 10px; font-weight: 700; line-height: 1.4;
+  background: var(--red); color: #fff; vertical-align: middle;
+}
+.tab.active .tab-badge { background: #fff; color: var(--accent); }
+.admin-messages-btn .tab-badge { margin-left: 8px; }
+
+.contact-layout { display: grid; grid-template-columns: 280px 1fr; gap: 14px; align-items: start; }
+@media (max-width: 860px) { .contact-layout { grid-template-columns: 1fr; } }
+.contact-sidebar h3 { margin: 0 0 10px; font-size: 15px; }
+.contact-thread-list { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow: auto; }
+.contact-thread-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--panel); color: inherit; cursor: pointer;
+}
+.contact-thread-item:hover { border-color: var(--accent); }
+.contact-thread-active { border-color: var(--accent); background: rgba(47,129,247,.12); }
+.contact-thread-unread { border-color: rgba(240,83,59,.5); }
+.contact-thread-subject { font-weight: 600; font-size: 13px; }
+.contact-thread-meta { font-size: 11px; }
+.contact-messages { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow: auto; margin: 12px 0; }
+.contact-msg { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); }
+.contact-msg.user { background: rgba(47,129,247,.08); }
+.contact-msg.admin { background: rgba(63,185,80,.08); border-color: rgba(63,185,80,.25); }
+.contact-msg-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-bottom: 6px; }
+.contact-msg-body { font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+.contact-new { margin-top: 14px; }
+.contact-new label, .contact-reply-form label { display: block; margin: 10px 0 4px; font-size: 13px; font-weight: 600; }
+.contact-new input, .contact-new textarea, .contact-reply-form textarea {
+  width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); font: inherit;
+}
+.contact-char-hint { font-size: 12px; margin: 4px 0 10px; }
+.contact-loading { display: flex; align-items: center; gap: 10px; padding: 20px; }
+.admin-messages-panel { margin-bottom: 16px; }
+.admin-contact-layout { margin-top: 8px; }
+
 .progress-block-title, .leaks-section-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .progress-intro, .leaks-intro { margin: 0 0 12px; font-size: 13px; }
 .progress-charts {
