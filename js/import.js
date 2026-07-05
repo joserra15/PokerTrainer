@@ -59,13 +59,18 @@
     return format.parseSession(text, fileName);
   }
 
+  const BLOCK_TEST_WM = /^Winamax Poker - /;
+
   function parseHand(block) {
-    const Formats = global.PTHandHistoryFormats;
+    const text = (block || '').trim();
+    const WM = global.PTWinamaxParser;
     const PS = global.PTPokerStarsParser;
+    if (WM && BLOCK_TEST_WM.test(text)) return WM.parseHand(block);
     if (PS && typeof PS.parseHand === 'function') {
       const locale = PS.detectLocale ? PS.detectLocale(block) : null;
       return PS.parseHand(block, locale);
     }
+    const Formats = global.PTHandHistoryFormats;
     if (Formats) {
       const fmt = Formats.detectBest(block);
       if (fmt && typeof fmt.parseHand === 'function') return fmt.parseHand(block);

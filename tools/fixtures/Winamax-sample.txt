@@ -1,0 +1,59 @@
+﻿Winamax Poker - CashGame - HandId: #22622855-1279-1783110017 - Holdem no limit (0.02â‚¬/0.05â‚¬) - 2026/07/03 20:20:17 UTC
+Table: 'Paris 06' 5-max (real money) Seat #1 is the button
+Seat 1: TuBluffeMal (11.28â‚¬)
+Seat 2: elemia (1.85â‚¬)
+Seat 3: KazeDj (5â‚¬)
+Seat 4: haiphong69 (9.36â‚¬)
+Seat 5: Davalemar (4.93â‚¬)
+*** ANTE/BLINDS ***
+elemia posts small blind 0.02â‚¬
+KazeDj posts big blind 0.05â‚¬
+Dealt to KazeDj [5s Qd]
+*** PRE-FLOP *** 
+haiphong69 raises 0.12â‚¬ to 0.17â‚¬
+Davalemar folds
+TuBluffeMal folds
+elemia folds
+KazeDj folds
+haiphong69 collected 0.24â‚¬ from pot
+*** SUMMARY ***
+Total pot 0.24â‚¬ | No rake
+Seat 4: haiphong69 won 0.24â‚¬
+
+
+Winamax Poker - CashGame - HandId: #22622855-1280-1783110031 - Holdem no limit (0.02â‚¬/0.05â‚¬) - 2026/07/03 20:20:31 UTC
+Table: 'Paris 06' 5-max (real money) Seat #2 is the button
+Seat 1: TuBluffeMal (11.28â‚¬)
+Seat 2: elemia (1.83â‚¬)
+Seat 3: KazeDj (4.95â‚¬)
+Seat 4: haiphong69 (9.43â‚¬)
+Seat 5: Davalemar (4.93â‚¬)
+*** ANTE/BLINDS ***
+KazeDj posts small blind 0.02â‚¬
+haiphong69 posts big blind 0.05â‚¬
+Dealt to KazeDj [8c 3d]
+*** PRE-FLOP *** 
+Davalemar folds
+TuBluffeMal folds
+elemia calls 0.05â‚¬
+KazeDj folds
+haiphong69 checks
+*** FLOP *** [Kd 4s 7c]
+haiphong69 checks
+elemia checks
+*** TURN *** [Kd 4s 7c][9h]
+haiphong69 checks
+elemia checks
+*** RIVER *** [Kd 4s 7c 9h][Kc]
+haiphong69 checks
+elemia checks
+*** SHOW DOWN ***
+haiphong69 shows [2s Ac] (One pair : Kings)
+elemia shows [5s 9c] (Two pairs : Kings and 9)
+elemia collected 0.11â‚¬ from pot
+*** SUMMARY ***
+Total pot 0.11â‚¬ | Rake 0.01â‚¬
+Board: [Kd 4s 7c 9h Kc]
+Seat 2: elemia (button) showed [5s 9c] and won 0.11â‚¬ with Two pairs : Kings and 9
+Seat 4: haiphong69 (big blind) showed [2s Ac] and lost with One pair : Kings
+

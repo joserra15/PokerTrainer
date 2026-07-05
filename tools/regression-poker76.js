@@ -26,7 +26,7 @@ const scripts = [
   'engine/villainProfiles.js',
   'engine/villainPreflop.js',
   'ranges.js', 'engine.js',
-  'import/hhUtils.js', 'import/formatDetector.js', 'import/parsers/pokerstars.js', 'import.js'
+  'import/hhUtils.js', 'import/formatDetector.js', 'import/parsers/pokerstars.js', 'import/parsers/winamax.js', 'import.js'
 ];
 scripts.forEach((f) => {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), sandbox, { filename: f });

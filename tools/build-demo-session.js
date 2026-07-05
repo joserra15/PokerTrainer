@@ -26,7 +26,7 @@ const scripts = [
   'engine/scoring/errors.js', 'engine/explanations/rules.js', 'engine/solver/LocalSolverProvider.js',
   'engine/evaluateSpot.js', 'engine/villainProfiles.js', 'engine/villainPreflop.js',
   'ranges.js', 'range-matrix.js', 'engine.js',
-  'import/hhUtils.js', 'import/formatDetector.js', 'import/parsers/pokerstars.js', 'import.js'
+  'import/hhUtils.js', 'import/formatDetector.js', 'import/parsers/pokerstars.js', 'import/parsers/winamax.js', 'import.js'
 ];
 
 const root = path.join(__dirname, '..', 'js');

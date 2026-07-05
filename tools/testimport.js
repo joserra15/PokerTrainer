@@ -11,6 +11,7 @@ const importChain = [
   'import/hhUtils.js',
   'import/formatDetector.js',
   'import/parsers/pokerstars.js',
+  'import/parsers/winamax.js',
   'import.js'
 ];
 
@@ -57,4 +58,8 @@ const enPath = fs.existsSync(path.join(__dirname, '..', 'sesiones', 'PokerEN1.tx
   ? 'sesiones/PokerEN1.txt'
   : 'tools/fixtures/PokerEN-sample.txt';
 runFile(enPath, 'EN PokerStars');
-console.log('*** IMPORTADOR OK (ES + EN) ***');
+const wmPath = fs.existsSync(path.join(__dirname, '..', 'sesiones', '20260703_Paris 06_real_holdem_no-limit.txt'))
+  ? 'sesiones/20260703_Paris 06_real_holdem_no-limit.txt'
+  : 'tools/fixtures/Winamax-sample.txt';
+runFile(wmPath, 'Winamax');
+console.log('*** IMPORTADOR OK (PokerStars ES/EN + Winamax) ***');

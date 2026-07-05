@@ -20,7 +20,7 @@ const scripts = [
   'engine/scoring/classifier.js', 'engine/scoring/evLoss.js', 'engine/scoring/scoring.js',
   'engine/scoring/errors.js', 'engine/explanations/rules.js', 'engine/solver/LocalSolverProvider.js',
   'engine/evaluateSpot.js', 'engine/villainProfiles.js', 'ranges.js', 'engine.js',
-  'import/hhUtils.js', 'import/formatDetector.js', 'import/parsers/pokerstars.js', 'import.js'
+  'import/hhUtils.js', 'import/formatDetector.js', 'import/parsers/pokerstars.js', 'import/parsers/winamax.js', 'import.js'
 ];
 
 scripts.forEach((f) => {

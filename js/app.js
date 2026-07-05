@@ -1854,7 +1854,7 @@
         const fmtMeta = Importer.detectSessionFormat ? Importer.detectSessionFormat(reader.result) : null;
         const parsed = Importer.parseSession(reader.result, file.name);
         if (!parsed.hero || !parsed.hands.length) {
-          status.innerHTML = '<span style="color:var(--red)">No se reconocieron manos de cash NL en el fichero. Comprueba que sea un historial de PokerStars (español o inglés).</span>';
+          status.innerHTML = '<span style="color:var(--red)">No se reconocieron manos de cash NL en el fichero. Comprueba que sea un historial de PokerStars o Winamax.</span>';
           return;
         }
         const fmtLabel = (parsed.format || fmtMeta)
