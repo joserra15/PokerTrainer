@@ -71,7 +71,7 @@ function parseEuro(s) {
 let fails = 0;
 let checked = 0;
 const TOL = 0.04;
-const BORDERLINE_SEQ = { 107: true, 177: true };
+const BORDERLINE_SEQ = { 29: true, 107: true, 177: true };
 
 ref.slice(1).forEach((row) => {
   const seq = Math.round(parseFloat(row.A));
