@@ -45,13 +45,13 @@
     if (locale === 'en') {
       if ((m = ln.match(/^(.+?): folds/))) return { player: m[1], type: 'fold' };
       if ((m = ln.match(/^(.+?): checks/))) return { player: m[1], type: 'check' };
-      if ((m = ln.match(/^(.+?): calls ([€$£]?)([\d.,]+)/))) {
+      if ((m = ln.match(/^(.+?): calls ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
         return { player: m[1], type: 'call', amount: num(m[3]), allin: /all-in/i.test(ln) };
       }
-      if ((m = ln.match(/^(.+?): bets ([€$£]?)([\d.,]+)/))) {
+      if ((m = ln.match(/^(.+?): bets ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
         return { player: m[1], type: 'bet', amount: num(m[3]), allin: /all-in/i.test(ln) };
       }
-      if ((m = ln.match(/^(.+?): raises ([€$£]?)([\d.,]+) to ([€$£]?)([\d.,]+)/))) {
+      if ((m = ln.match(/^(.+?): raises ((?:[€$£]|â‚¬)?)([\d.,]+) to ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
         return {
           player: m[1], type: 'raise', amount: num(m[3]), to: num(m[5]),
           allin: /all-in/i.test(ln)
@@ -104,7 +104,7 @@
         if ((m = ln.match(/^PokerStars(?: Zoom)? Hand #(\d+):\s+(.+)/))) {
           hand.id = m[1];
           hand.isTournament = /Tournament #/i.test(ln);
-          const bl = ln.match(/Hold'em No Limit \(([€$£]?)([\d.,]+)\/([€$£]?)([\d.,]+)\)/);
+          const bl = ln.match(/Hold'em No Limit \(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)\)/);
           if (bl) {
             hand.sb = num(bl[2]);
             hand.bb = num(bl[4]);
@@ -120,10 +120,10 @@
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) });
           continue;
         }
-        if ((m = ln.match(/^(.+?): posts small blind ([€$£]?)([\d.,]+)/))) {
+        if ((m = ln.match(/^(.+?): posts small blind ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
           hand.blinds.sb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]); continue;
         }
-        if ((m = ln.match(/^(.+?): posts big blind ([€$£]?)([\d.,]+)/))) {
+        if ((m = ln.match(/^(.+?): posts big blind ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
           hand.blinds.bb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]); continue;
         }
         if (/^\*\*\* HOLE CARDS \*\*\*/.test(ln)) { street = 'preflop'; continue; }
@@ -140,21 +140,21 @@
         if (/^\*\*\* (SHOW DOWN|SUMMARY)/.test(ln)) {
           street = /SUMMARY/.test(ln) ? 'summary' : 'showdown'; continue;
         }
-        if ((m = ln.match(/^Uncalled bet \(([€$£]?)([\d.,]+)\) returned to (.+)/))) {
+        if ((m = ln.match(/^Uncalled bet \(((?:[€$£]|â‚¬)?)([\d.,]+)\) returned to (.+)/))) {
           hand.uncalledTo[m[3]] = num(m[2]); continue;
         }
-        if ((m = ln.match(/^(.+?) collected ([€$£]?)([\d.,]+) from pot/))) {
+        if ((m = ln.match(/^(.+?) collected ((?:[€$£]|â‚¬)?)([\d.,]+) from pot/))) {
           hand.collected[m[1]] = Math.max(hand.collected[m[1]] || 0, num(m[3])); continue;
         }
         if ((m = ln.match(/^(.+?): shows \[(.+?)\]/))) { hand.shows[m[1]] = cardsFrom(m[2]); continue; }
-        if ((m = ln.match(/^Total pot ([€$£]?)([\d.,]+)\s*\|\s*Rake ([€$£]?)([\d.,]+)/))) {
+        if ((m = ln.match(/^Total pot ((?:[€$£]|â‚¬)?)([\d.,]+)\s*\|\s*Rake ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
           hand.potTotal = num(m[2]); hand.rake = num(m[4]); continue;
         }
         if (street === 'summary') {
           if ((m = ln.match(/^Seat \d+: (.+?) (?:\(.*?\) )?showed \[(.+?)\]/))) {
             hand.shows[m[1]] = hand.shows[m[1]] || cardsFrom(m[2]); continue;
           }
-          if ((m = ln.match(/^Seat \d+: (.+?) (?:\(.*?\) )?collected \(([€$£]?)([\d.,]+)/))) {
+          if ((m = ln.match(/^Seat \d+: (.+?) (?:\(.*?\) )?collected \(((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
             hand.collected[m[1]] = Math.max(hand.collected[m[1]] || 0, num(m[4])); continue;
           }
           continue;

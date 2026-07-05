@@ -29,8 +29,8 @@
     fetch('deploy-info.json?t=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (info) {
-        if (!info || !info.build || info.build === build) return;
-        if (seen && seen !== info.build) clearCachesAndReload();
+        if (!info || !info.build) return;
+        if (info.build !== build) clearCachesAndReload();
       })
       .catch(function () { /* noop */ });
   }

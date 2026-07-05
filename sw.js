@@ -1,7 +1,7 @@
 /* Service worker — PWA. JS/CSS siempre red; HTML network-first. */
 'use strict';
 
-var CACHE = 'pt-shell-v3';
+var CACHE = 'pt-shell-v4';
 var PRECACHE = [
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
