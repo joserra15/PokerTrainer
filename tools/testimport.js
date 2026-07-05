@@ -44,10 +44,10 @@ function runFile(relPath, label) {
     console.error('FAIL', label);
     process.exit(1);
   }
-  if (meta && meta.locale === 'en' && label.indexOf('EN') >= 0) {
-    const h = parsed.hands[0];
-    if (!h || h.heroCards.length !== 2) {
-      console.error('FAIL EN parse hero cards');
+  if (meta && meta.platform === 'winamax') {
+    const withDec = session.hands.filter((h) => h.nDecisions > 0).length;
+    if (withDec < Math.min(3, session.hands.length)) {
+      console.error('FAIL Winamax: pocas manos con decisiones', withDec, '/', session.hands.length);
       process.exit(1);
     }
   }

@@ -21,17 +21,18 @@
 
   function parseAction(ln) {
     let m;
-    if ((m = ln.match(/^(.+?): folds/))) return { player: m[1], type: 'fold' };
-    if ((m = ln.match(/^(.+?): checks/))) return { player: m[1], type: 'check' };
-    if ((m = ln.match(/^(.+?): calls ([\d.,]+)€?/))) {
-      return { player: m[1], type: 'call', amount: num(m[2]), allin: /all-in/i.test(ln) };
+    // Winamax estándar: "Player folds" (sin dos puntos). Algunos exports usan "Player: folds".
+    if ((m = ln.match(/^(.+?)(?::\s*|\s+)folds$/))) return { player: m[1].trim(), type: 'fold' };
+    if ((m = ln.match(/^(.+?)(?::\s*|\s+)checks$/))) return { player: m[1].trim(), type: 'check' };
+    if ((m = ln.match(/^(.+?)(?::\s*|\s+)calls ([\d.,]+)€?/))) {
+      return { player: m[1].trim(), type: 'call', amount: num(m[2]), allin: /all-in/i.test(ln) };
     }
-    if ((m = ln.match(/^(.+?): bets ([\d.,]+)€?/))) {
-      return { player: m[1], type: 'bet', amount: num(m[2]), allin: /all-in/i.test(ln) };
+    if ((m = ln.match(/^(.+?)(?::\s*|\s+)bets ([\d.,]+)€?/))) {
+      return { player: m[1].trim(), type: 'bet', amount: num(m[2]), allin: /all-in/i.test(ln) };
     }
-    if ((m = ln.match(/^(.+?): raises ([\d.,]+)€? to ([\d.,]+)€?/))) {
+    if ((m = ln.match(/^(.+?)(?::\s*|\s+)raises ([\d.,]+)€? to ([\d.,]+)€?/))) {
       return {
-        player: m[1], type: 'raise', amount: num(m[2]), to: num(m[3]),
+        player: m[1].trim(), type: 'raise', amount: num(m[2]), to: num(m[3]),
         allin: /all-in/i.test(ln)
       };
     }
@@ -58,6 +59,8 @@
       if (!ln) continue;
 
       let m;
+
+      if (/^Escape to Pot:/i.test(ln)) continue;
 
       if ((m = ln.match(/^Winamax Poker - .+ - HandId: #([\d-]+) - Holdem no limit \(([\d.,]+)€\/([\d.,]+)€\) - (.+)/i))) {
         hand.id = (m[1].split('-').pop() || m[1]);
@@ -99,19 +102,19 @@
         continue;
       }
 
-      if (/^\*\*\* PRE-FLOP \*\*\*/.test(ln)) { street = 'preflop'; continue; }
-      if ((m = ln.match(/^\*\*\* FLOP \*\*\* \[(.+?)\]/))) {
+      if (/^\*\*\* PRE-FLOP \*\*/i.test(ln)) { street = 'preflop'; continue; }
+      if ((m = ln.match(/^\*\*\* FLOP \*\*\* \[(.+?)\]/i))) {
         street = 'flop';
         hand.board.flop = cardsFrom(m[1]);
         continue;
       }
-      if ((m = ln.match(/^\*\*\* TURN \*\*\* \[(.+?)\]\[(.+?)\]/))) {
+      if ((m = ln.match(/^\*\*\* TURN \*\*\* \[(.+?)\]\s*\[(.+?)\]/i))) {
         street = 'turn';
         hand.board.turn = cardsFrom(m[2]);
         if (!hand.board.flop.length) hand.board.flop = cardsFrom(m[1]).slice(0, 3);
         continue;
       }
-      if ((m = ln.match(/^\*\*\* RIVER \*\*\* \[(.+?)\]\[(.+?)\]/))) {
+      if ((m = ln.match(/^\*\*\* RIVER \*\*\* \[(.+?)\]\s*\[(.+?)\]/i))) {
         street = 'river';
         hand.board.river = cardsFrom(m[2]);
         continue;
@@ -120,11 +123,11 @@
       if (/^\*\*\* SUMMARY \*\*\*/.test(ln)) { street = 'summary'; continue; }
 
       if ((m = ln.match(/^(.+?) collected ([\d.,]+)€? from pot/))) {
-        hand.collected[m[1]] = Math.max(hand.collected[m[1]] || 0, num(m[2]));
+        hand.collected[m[1].trim()] = Math.max(hand.collected[m[1].trim()] || 0, num(m[2]));
         continue;
       }
-      if ((m = ln.match(/^(.+?): shows \[(.+?)\]/))) {
-        hand.shows[m[1]] = cardsFrom(m[2]);
+      if ((m = ln.match(/^(.+?)(?::\s*|\s+)shows \[(.+?)\]/))) {
+        hand.shows[m[1].trim()] = cardsFrom(m[2]);
         continue;
       }
 
