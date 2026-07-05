@@ -48,7 +48,45 @@
     return round2(0.5 + 0.5 * (max - Math.abs(f - max)));
   }
 
+  /** Confianza en la evaluación: alta / media / baja (Q-05). */
+  function confidenceTier(opts) {
+    opts = opts || {};
+    const street = opts.street || 'preflop';
+    const maxFreq = opts.stratMaxFreq != null ? opts.stratMaxFreq : 0;
+    const eqIters = opts.equityIters || 0;
+    const reasons = [];
+
+    if (street === 'preflop') {
+      reasons.push('rangos preflop de referencia');
+      return { tier: 'alta', label: 'Alta', title: 'Confianza alta en tablas preflop', reasons: reasons };
+    }
+
+    let score = 0;
+    if (eqIters >= 500) { score += 2; reasons.push('Monte Carlo ampliado (' + eqIters + ' iter.)'); }
+    else if (eqIters >= 350) { score += 1; reasons.push('Monte Carlo estándar (' + eqIters + ' iter.)'); }
+    else if (eqIters > 0) { reasons.push('pocas iteraciones MC (' + eqIters + ')'); }
+
+    if (maxFreq >= 0.65) { score += 2; reasons.push('estrategia clara (máx. ' + Math.round(maxFreq * 100) + '%)'); }
+    else if (maxFreq >= 0.4) { score += 1; reasons.push('spot mixto'); }
+    else { reasons.push('spot muy mixto'); }
+
+    if (opts.riverShove) { score -= 1; reasons.push('nodo river shove/overbet'); }
+    if (opts.multiway) { score -= 1; reasons.push('multiway aproximado'); }
+
+    let tier = 'media';
+    if (score >= 3) tier = 'alta';
+    else if (score <= 0) tier = 'baja';
+
+    const labels = { alta: 'Alta', media: 'Media', baja: 'Baja' };
+    return {
+      tier: tier,
+      label: labels[tier],
+      title: 'Confianza ' + labels[tier].toLowerCase() + ' en estimación postflop',
+      reasons: reasons
+    };
+  }
+
   function round2(x) { return Math.round(x * 100) / 100; }
 
-  global.GTOScoring = { scoreDecision, confidence };
+  global.GTOScoring = { scoreDecision, confidence, confidenceTier };
 })(window);

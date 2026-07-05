@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { captureEdgeError } from '../_shared/sentry.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -693,6 +694,7 @@ serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'server_error';
     console.error('[analyze-hand] unhandled', e);
+    await captureEdgeError(e, { function: 'analyze-hand' });
     return json({ error: msg }, 500);
   }
 });

@@ -102,6 +102,9 @@
     saveLegacySession(user);
     migrateLocalData(user);
     global.dispatchEvent(new CustomEvent('pt-auth-bootstrap', { detail: user }));
+    if (global.PTAnalytics && global.PTAnalytics.trackRegister) {
+      global.PTAnalytics.trackRegister(user.authProvider || 'google');
+    }
   }
 
   function saveSessionFromPayload(payload) {
@@ -308,6 +311,15 @@
   }
 
   async function boot() {
+    if (global.PT_E2E_MODE) {
+      var e2eUser = loadSavedSession();
+      if (e2eUser) {
+        enterFromBootstrap(e2eUser);
+        return;
+      }
+      setupLoginUi();
+      return;
+    }
     if (useSupabaseAuth()) {
       await bootSupabase();
       return;

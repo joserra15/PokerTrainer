@@ -975,6 +975,14 @@
     return `<span class="net-neg">-${fmtBB(d.evLoss)}bb</span>`;
   }
 
+  function renderConfidenceBadge(d) {
+    if (!d || !d.confidenceTier) return '';
+    const label = d.confidenceLabel || d.confidenceTier;
+    const reasons = (d.confidenceReasons || []).join('; ');
+    const title = (d.confidenceTitle || 'Confianza en la evaluación') + (reasons ? ' — ' + reasons : '');
+    return `<span class="conf-badge conf-${d.confidenceTier}" title="${escapeHtml(title)}">Confianza ${escapeHtml(label)}</span>`;
+  }
+
   function renderDecisionMath(d) {
     if (!d) return '';
     const mp = d.mathParams;
@@ -1008,6 +1016,7 @@
       html += `<div class="dec-review">
         <div class="dec-head"><strong>${cap(d.street)}</strong> · ${escapeHtml(d.label || d.chosen || d.action || '')}
           <span class="verdict ${d.class}">${verdictWord(d.class)}</span>
+          ${renderConfidenceBadge(d)}
           ${decisionEvLossHtml(d)}
         </div>`;
       html += renderDecisionMath(d);
@@ -1456,6 +1465,9 @@
           alert('Inicia sesión para comprar un bono.');
           return;
         }
+        if (window.PTAnalytics && PTAnalytics.trackCheckoutStart) {
+          PTAnalytics.trackCheckoutStart({ pack: btn.getAttribute('data-bonus-pack') });
+        }
         window.PTBilling.startBonusCheckout(btn.getAttribute('data-bonus-pack')).catch(function (e) {
           alert(e.message || 'No se pudo iniciar el pago.');
         });
@@ -1475,7 +1487,7 @@
     if (d.class === 'optima') html += `Es la jugada GTO principal.`;
     else html += `La jugada de mayor frecuencia GTO era <strong>${bestLabel}</strong> (${Math.round((d.gto[d.best] || 0) * 100)}%).`;
     html += `</div>`;
-    if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}% · Confianza: ${Math.round((d.confidence || 0) * 100)}%</div>`;
+    if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}% · ${renderConfidenceBadge(d)}</div>`;
     html += renderDecisionMath(d);
     html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
@@ -1512,6 +1524,9 @@
     session.net += r.heroNet || 0;
     Store.saveHand(hand);
     if (window.PTReEngage && PTReEngage.touchTrain) PTReEngage.touchTrain();
+    if (window.PTAnalytics && PTAnalytics.trackPlayHand) {
+      PTAnalytics.trackPlayHand({ decisions: (hand.decisions || []).length, evLoss: r.totalEvLoss || 0 });
+    }
     refreshSessionUI();
 
     // mostrar resultado completo + cartas del villano
@@ -1895,6 +1910,12 @@
           }
           input.value = '';
           $('#process-session').disabled = true;
+          if (window.PTAnalytics && PTAnalytics.trackImportSession) {
+            PTAnalytics.trackImportSession({
+              hands: finalSession.hands.length,
+              platform: finalSession.format && finalSession.format.platform
+            });
+          }
           renderSessionsList();
           openSession(finalSession.id, finalSession);
         };

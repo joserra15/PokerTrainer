@@ -1,0 +1,16 @@
+{
+  "name": "pokertrainer",
+  "private": true,
+  "description": "GTO Poker Trainer — tests E2E y tooling",
+  "scripts": {
+    "test:import": "node tools/testimport.js",
+    "test:unit": "node tools/selftest.js",
+    "test:ranges": "node tools/validate-ranges-json.js",
+    "test:e2e": "playwright test",
+    "sync:rfi": "node tools/sync-rfi-solver-data.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "http-server": "^14.1.1"
+  }
+}

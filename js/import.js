@@ -320,6 +320,10 @@
     d.bestEV = ev.bestEV;
     d.frequency = ev.frequency;
     d.confidence = ev.confidence;
+    d.confidenceTier = ev.confidenceTier;
+    d.confidenceLabel = ev.confidenceLabel;
+    d.confidenceTitle = ev.confidenceTitle;
+    d.confidenceReasons = ev.confidenceReasons;
     d.score = ev.score;
     d.explanation = evalResult.explanation;
     const inputSnap = buildEvalInputFromDecision(hand, d, chosenOverride);
@@ -511,7 +515,10 @@
             evErroneous: ev.evErroneous, evErrorReasons: ev.evErrorReasons, mathParams: ev.mathParams,
             evLossTier: ev.evLossTier,
             actionEV: ev.actionEV, bestEV: ev.bestEV, frequency: ev.frequency,
-            confidence: ev.confidence, score: ev.score, explanation: evalResult.explanation,
+            confidence: ev.confidence, confidenceTier: ev.confidenceTier,
+            confidenceLabel: ev.confidenceLabel, confidenceTitle: ev.confidenceTitle,
+            confidenceReasons: ev.confidenceReasons,
+            score: ev.score, explanation: evalResult.explanation,
             optionBreakdown: evalResult.optionBreakdown,
             potBB: r2(potBB), potEvalBB: r2(potBB), toCallBB: r2(toCallBB),
             betSizeBB: raiseBB,
@@ -673,7 +680,10 @@
           evErroneous: ev.evErroneous, evErrorReasons: ev.evErrorReasons, mathParams: ev.mathParams,
           evLossTier: ev.evLossTier,
           actionEV: ev.actionEV, bestEV: ev.bestEV, frequency: ev.frequency,
-          confidence: ev.confidence, score: ev.score, explanation: evalResult.explanation,
+          confidence: ev.confidence, confidenceTier: ev.confidenceTier,
+          confidenceLabel: ev.confidenceLabel, confidenceTitle: ev.confidenceTitle,
+          confidenceReasons: ev.confidenceReasons,
+          score: ev.score, explanation: evalResult.explanation,
           optionBreakdown: evalResult.optionBreakdown,
           potBB: potForDisplay, potEvalBB: potForEval, potBeforeBB, facingNode,
           toCallBB, villainLastAction, villainBetRatio, villainRange,

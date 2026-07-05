@@ -184,11 +184,25 @@
       });
 
       const bbEuro = enriched.bbSizeEuro || enriched.bbEuro || 0;
+      let stratMaxFreq = 0;
+      for (const a in strategy) if (strategy[a] > stratMaxFreq) stratMaxFreq = strategy[a];
+      const eqIters = enriched._equityIters || (enriched.riverShove ? 500 : (enriched.street === 'preflop' ? 0 : 400));
+      const confTier = Scoring.confidenceTier({
+        street: enriched.street,
+        stratMaxFreq: stratMaxFreq,
+        equityIters: eqIters,
+        riverShove: !!enriched.riverShove,
+        multiway: !!enriched.multiway
+      });
       result.evaluation = {
         class: finalCls,
         best: finalBest,
         frequency: cls.freq,
         confidence: Scoring.confidence(strategy, input.chosenAction),
+        confidenceTier: confTier.tier,
+        confidenceLabel: confTier.label,
+        confidenceTitle: confTier.title,
+        confidenceReasons: confTier.reasons,
         actionEV: evResult.actionEV,
         bestEV: evResult.bestEV,
         bestAction: evResult.bestAction,

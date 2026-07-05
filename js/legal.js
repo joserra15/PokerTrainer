@@ -76,6 +76,7 @@
   function legalLinksHtml(prefix) {
     prefix = prefix || '';
     return '<nav class="legal-links" aria-label="Legal">' +
+      '<a href="' + legalUrl('metodologia.html') + '">' + prefix + 'Metodología GTO</a>' +
       '<a href="' + legalUrl('privacidad.html') + '">' + prefix + 'Privacidad</a>' +
       '<a href="' + legalUrl('terminos.html') + '">' + prefix + 'Términos</a>' +
       '<a href="' + legalUrl('cookies.html') + '">' + prefix + 'Cookies</a>' +

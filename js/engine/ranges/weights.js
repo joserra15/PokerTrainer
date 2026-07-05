@@ -28,6 +28,7 @@
     return Cache.memo('range', key, () => {
       const data = D.OPEN_RAISE[pos];
       if (!data) return {};
+      if (data._solverWeights) return Object.assign({}, data._solverWeights);
       return fromSets({ raise: data.raise, mix: data.mix });
     });
   }

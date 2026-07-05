@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Metodología GTO · PokerTrainer</title>
+  <link rel="stylesheet" href="legal-common.css" />
+</head>
+<body>
+  <article class="legal-wrap">
+    <header class="legal-top">
+      <a href="../index.html">&larr; Volver a PokerTrainer</a>
+      <h1>Metodología GTO</h1>
+      <p class="legal-meta">Cómo PokerTrainer estima estrategia y EV · Última actualización: julio 2026</p>
+    </header>
+
+    <p class="legal-notice">
+      PokerTrainer es una <strong>herramienta educativa heurística</strong>. No ejecuta un solver de árboles de juego completo en tiempo real.
+      Los números son <strong>estimaciones</strong> útiles para estudiar, no garantías de resultado en mesa.
+    </p>
+
+    <h2>1. Visión general</h2>
+    <p>El motor combina cuatro capas:</p>
+    <ol>
+      <li><strong>Rangos preflop</strong> — tablas de referencia 6-max (~100 bb), exportables desde JSON de solver.</li>
+      <li><strong>Equity postflop</strong> — simulación Monte Carlo vs un rango del villano estimado.</li>
+      <li><strong>Estrategia por spot</strong> — frecuencias de fold/call/raise o check/apuesta según textura, posición e iniciativa.</li>
+      <li><strong>Clasificación y EV</strong> — compara tu acción con la mezcla GTO y cuantifica fugas (ΔEV en bb).</li>
+    </ol>
+
+    <h2>2. Preflop</h2>
+    <p>
+      Los spots RFI, defensa vs open, 3-bet, 4-bet y squeeze usan rangos en notación compacta
+      (<code>22+</code>, <code>ATs+</code>, <code>A5s</code>…). Las frecuencias mixtas (p. ej. 50% raise) se modelan como pesos por combo.
+    </p>
+    <p>
+      Los rangos UTG–BTN pueden cargarse desde <code>data/ranges/rfi-6max-100bb.json</code> (exportación tipo solver).
+      Si no hay JSON, se usan las tablas integradas en <code>js/engine/ranges/data.js</code>.
+    </p>
+
+    <h2>3. Postflop y equity</h2>
+    <p>
+      Para cada decisión postflop el motor:
+    </p>
+    <ul>
+      <li>Estima el <strong>rango activo del villano</strong> según su línea (open, call, c-bet, probe, etc.).</li>
+      <li>Calcula <strong>equity del héroe</strong> con Monte Carlo (típicamente 400 iteraciones; 500 en nodos river shove/overbet).</li>
+      <li>Deriva <strong>pot odds</strong> y <strong>break-even</strong> cuando hay apuesta que igualar.</li>
+      <li>Asigna frecuencias GTO aproximadas (check/bet 33-66-pot, fold/call/raise).</li>
+    </ul>
+    <p>
+      La equity es una <em>aproximación</em>: depende del rango del villano, del número de iteraciones y de simplificaciones multiway.
+    </p>
+
+    <h2>4. Cálculo de EV y ΔEV</h2>
+    <p>Para cada acción legal se estima un EV en big blinds:</p>
+    <ul>
+      <li><strong>EV acción</strong> — valor esperado de lo que elegiste (fold ≈ 0 invertido; call/raise según equity y bote).</li>
+      <li><strong>EV óptimo</strong> — mejor EV entre las acciones disponibles según la mezcla GTO.</li>
+      <li><strong>ΔEV (EV perdido)</strong> — diferencia cuando la jugada es una fuga clara (p. ej. call sin pot odds, raise con EV muy inferior a call).</li>
+    </ul>
+    <p>
+      El total de EV perdido de una mano o sesión suma solo decisiones marcadas como <em>fuga cuantificable</em> (<code>evErroneous</code>),
+      no todos los spots etiquetados como «imprecisa» si el ΔEV es despreciable.
+    </p>
+
+    <h2>5. Clasificación de decisiones</h2>
+    <table>
+      <thead><tr><th>Etiqueta</th><th>Criterio (simplificado)</th></tr></thead>
+      <tbody>
+        <tr><td>Óptima</td><td>Frecuencia GTO de tu acción ≥ máxima − 8% o ≥ 40%</td></tr>
+        <tr><td>Aceptable</td><td>Frecuencia ≥ 15%, o EV muy cercano al óptimo</td></tr>
+        <tr><td>Imprecisa</td><td>Frecuencia 5–15% o EV algo peor</td></tr>
+        <tr><td>Error</td><td>Frecuencia &lt; 5% o fuga EV clara</td></tr>
+      </tbody>
+    </table>
+
+    <h2>6. Indicador de confianza</h2>
+    <p>
+      Cada decisión muestra confianza <strong>Alta / Media / Baja</strong> en la estimación:
+    </p>
+    <ul>
+      <li><strong>Alta</strong> — preflop (tablas) o postflop con MC amplio y estrategia clara.</li>
+      <li><strong>Media</strong> — spots mixtos habituales.</li>
+      <li><strong>Baja</strong> — pocos trials MC, estrategia muy repartida o nodos complejos (shove river, multiway).</li>
+    </ul>
+
+    <h2>7. Limitaciones conocidas</h2>
+    <ul>
+      <li>No modela el árbol completo ni sizings exploit dinámicos del villano.</li>
+      <li>Multiway se aproxima; heads-up es más fiable.</li>
+      <li>Importación depende del formato de historial (PokerStars, Winamax…).</li>
+      <li>El IA Coach interpreta datos del motor; puede discrepar — prioriza cartas, tamaños y lógica de spot.</li>
+    </ul>
+
+    <h2>8. Más información</h2>
+    <p>
+      <a href="terminos.html">Términos de uso</a> ·
+      <a href="privacidad.html">Privacidad</a> ·
+      <a href="ia.html">Uso de IA</a>
+    </p>
+  </article>
+  <script src="../js/legal-config.js"></script>
+  <script src="../js/legal.js"></script>
+  <script>if (window.PTLegal) PTLegal.mountFooterLinks();</script>
+</body>
+</html>

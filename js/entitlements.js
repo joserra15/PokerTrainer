@@ -51,6 +51,10 @@
     return global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
   }
 
+  function e2eBypass() {
+    return !!global.PT_E2E_MODE;
+  }
+
   function isAdmin() {
     if (demoActive()) return false;
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
@@ -100,7 +104,7 @@
 
   async function refresh() {
     state = null;
-    if (!useAuth()) {
+    if (e2eBypass() || !useAuth()) {
       state = localFallback();
       return state;
     }
@@ -219,7 +223,7 @@
   }
 
   async function recordTrainerHand() {
-    if (!useAuth()) return { ok: true };
+    if (!useAuth() || e2eBypass()) return { ok: true };
     var c = client();
     if (!c) return { ok: true };
     var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
