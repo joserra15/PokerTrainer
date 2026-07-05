@@ -119,7 +119,7 @@
         vilHand: r.villainHandName || null
       },
       gto: buildGtoSummary(decisions),
-      solverNote: 'eq/gto/ev son estimaciones del solver local; la IA debe verificar con sus propios cálculos.'
+      solverNote: 'eq/gto/ev son estimaciones heurísticas de la app; la IA debe verificar cartas, acciones y cálculos de poker por su cuenta.'
     };
   }
 
@@ -143,7 +143,7 @@
         acc: h.accuracy
       },
       gto: buildGtoSummary(decisions),
-      solverNote: 'eq/gto/ev son estimaciones del solver local; la IA debe verificar con sus propios cálculos.'
+      solverNote: 'eq/gto/ev son estimaciones heurísticas de la app; la IA debe verificar cartas, acciones y cálculos de poker por su cuenta.'
     };
   }
 
@@ -310,7 +310,7 @@
         pctLeak: st.pctDecision,
         pctVar: st.pctVariance
       },
-      solverNote: 'eq/gto/ev son estimaciones del solver; verifica lo crítico. clean=id|mano pos|net|ev|wc'
+      solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=id|mano pos|net|ev|wc'
     };
     if (leaks.length) payload.leaks = leaks;
     if (leakHands.length > leakCap) {
