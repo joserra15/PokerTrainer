@@ -43,7 +43,11 @@
   }
 
   function vsRfiKey(heroPos, openerPos, ctx) {
-    return toEnginePos(heroPos) + '_vs_' + toEnginePos(openerPos);
+    const c = normalize(ctx);
+    if (c.is9Max || c.isMtt) {
+      return toEnginePos(heroPos) + '_vs_' + toEnginePos(openerPos);
+    }
+    return heroPos + '_vs_' + openerPos;
   }
 
   function vsRfiPairKey(heroPos, openerPos) {

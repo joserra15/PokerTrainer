@@ -159,12 +159,31 @@
       const finalCls = reconciled.cls;
       const finalBest = reconciled.best;
       const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction: input.chosenAction }));
+
+      let evLoss = evResult.evLoss;
+      let evErroneous = evResult.evErroneous;
+      let evErrorReasons = (evResult.evErrorReasons || []).slice();
+      let mathParams = evResult.mathParams ? Object.assign({}, evResult.mathParams) : null;
+      const evGap = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
+      const EV_TIE = 0.15;
+      if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
+        && input.chosenAction !== finalBest) {
+        evLoss = EvLoss.round2(evGap);
+        evErroneous = true;
+        evErrorReasons.push({
+          type: 'suboptimal_ev',
+          msg: 'Acción con EV inferior a la óptima (ΔEV ' + evLoss + ' bb).'
+        });
+        if (mathParams) mathParams.deltaEV = evLoss;
+      }
+
       const scoring = Scoring.scoreDecision({
         strategy, chosenAction: input.chosenAction, classification: finalCls,
-        evLoss: evResult.evLoss, betSizeBB: input.betSizeBB, potBB: enriched.potBB,
+        evLoss: evLoss, betSizeBB: input.betSizeBB, potBB: enriched.potBB,
         boardWet: enriched.boardWet, sizingError: stratErrors.some((e) => e.type === 'sizing_incoherente')
       });
 
+      const bbEuro = enriched.bbSizeEuro || enriched.bbEuro || 0;
       result.evaluation = {
         class: finalCls,
         best: finalBest,
@@ -173,11 +192,11 @@
         actionEV: evResult.actionEV,
         bestEV: evResult.bestEV,
         bestAction: evResult.bestAction,
-        evLoss: evResult.evLoss,
-        evLossEuro: evResult.evLossEuro,
-        evErroneous: evResult.evErroneous,
-        evErrorReasons: evResult.evErrorReasons,
-        mathParams: evResult.mathParams,
+        evLoss: evLoss,
+        evLossEuro: bbEuro > 0 ? EvLoss.round2(evLoss * bbEuro) : 0,
+        evErroneous: evErroneous,
+        evErrorReasons: evErrorReasons,
+        mathParams: mathParams,
         evLossTier: evResult.tier,
         score: scoring.score,
         scoreBreakdown: scoring.breakdown,
