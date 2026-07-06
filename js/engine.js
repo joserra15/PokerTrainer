@@ -1818,8 +1818,46 @@
     return hand;
   }
 
+  /** Consejo en vivo: evalúa opciones sin aplicar la acción. */
+  function previewAdvice(hand) {
+    const node = hand && hand.current;
+    if (!node || !global.GTO || !global.GTO.evaluateSpot) return null;
+    const options = node.options || [];
+    if (!options.length) return null;
+    const ref = GTO.evaluateSpot(buildSpotInput(hand, node, options[0].id));
+    const ev = ref.evaluation;
+    if (!ev) return null;
+    const bestId = ev.best;
+    const optionEVs = options.map(function (o) {
+      const r = GTO.evaluateSpot(buildSpotInput(hand, node, o.id));
+      const e = r.evaluation;
+      return {
+        id: o.id,
+        label: o.label,
+        ev: e ? e.actionEV : null,
+        freq: (r.strategy && r.strategy[o.id]) || 0
+      };
+    });
+    return {
+      street: node.street,
+      context: node.context,
+      potBB: node.potBB,
+      toCallBB: node.toCallBB || 0,
+      recommended: {
+        actionId: bestId,
+        label: labelFor(node, bestId),
+        freq: (ref.strategy && ref.strategy[bestId]) || 0,
+        ev: ev.bestEV,
+        explanation: ref.explanation || '',
+        strategy: ref.strategy,
+        mathParams: ev.mathParams
+      },
+      options: optionEVs
+    };
+  }
+
   global.Engine = {
-    newHand, act, syncTableInvested, fastForwardToStreet,
+    newHand, act, previewAdvice, syncTableInvested, fastForwardToStreet,
     // utilidades expuestas para UI/tests/importador
     handStrength01, equityVsRange, classifyMadeHand, sampleHandFromRange,
     rfiStrategy, vsRfiStrategy, classify,

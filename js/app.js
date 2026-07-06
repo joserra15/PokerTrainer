@@ -178,6 +178,7 @@
     const hrEl = $('#setup-hand-range .setup-chip.active');
     const vlEl = $('#setup-villain-level .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
+    const laEl = $('#setup-live-advisor');
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
       stackDepth: sdEl ? sdEl.dataset.val : 'standard',
@@ -185,8 +186,19 @@
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'playable',
       villainLevel: vlEl ? vlEl.dataset.val : 'fish',
-      practiceStreet: stEl ? stEl.dataset.val : 'random'
+      practiceStreet: stEl ? stEl.dataset.val : 'random',
+      liveAdvisor: laEl ? laEl.checked : false
     });
+  }
+
+  function isLiveAdvisorOn() {
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    return !!(cfg && cfg.liveAdvisor);
+  }
+
+  function updateLiveAdvisor() {
+    if (!window.PTLiveAdvisor) return;
+    window.PTLiveAdvisor.update($('#live-advisor-panel'), hand, isLiveAdvisorOn());
   }
 
   function bindChipGroup(sel, onChange) {
@@ -229,10 +241,20 @@
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
     bindChipGroup('#setup-practice-street');
+    const laEl = $('#setup-live-advisor');
+    if (laEl && window.PTLiveAdvisor) {
+      laEl.checked = PTLiveAdvisor.loadPreference();
+      laEl.addEventListener('change', function () {
+        PTLiveAdvisor.savePreference(laEl.checked);
+      });
+    }
     const startBtn = $('#play-start');
     if (startBtn) {
       startBtn.addEventListener('click', async () => {
         playSessionConfig = readPlayConfig();
+        if (window.PTLiveAdvisor && playSessionConfig) {
+          PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
+        }
         resetPlaySession(false);
         showPlayTable();
         scrollPlayToTop();
@@ -781,6 +803,7 @@
     renderBoard();
     renderSeats();
     $('#spot-context').textContent = hand.current ? hand.current.context : (hand.result ? hand.result.reason : '');
+    updateLiveAdvisor();
   }
 
   // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb)
@@ -936,6 +959,7 @@
     ).join('');
     $$('#actions button').forEach((b) =>
       b.addEventListener('click', () => onAction(b.dataset.action)));
+    updateLiveAdvisor();
   }
 
   function btnClassForAction(id) {
@@ -1880,33 +1904,60 @@
     if (!input.files.length) return;
     const file = input.files[0];
     const status = $('#import-status');
+    const progWrap = $('#import-progress');
+    const progFill = $('#import-progress-fill');
+    const progLabel = $('#import-progress-label');
     const reader = new FileReader();
+
+    function setProgress(done, total, phase) {
+      const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0;
+      if (progWrap) progWrap.classList.remove('hidden');
+      if (progFill) progFill.style.width = pct + '%';
+      const phaseLbl = phase === 'parse' ? 'Parseando' : 'Analizando';
+      if (progLabel) progLabel.textContent = phaseLbl + ' ' + done.toLocaleString('es-ES') + ' / ' + total.toLocaleString('es-ES') + ' (' + pct + '%)';
+      if (status) status.textContent = progLabel ? progLabel.textContent : '';
+    }
+
+    function hideProgress() {
+      if (progWrap) progWrap.classList.add('hidden');
+      if (progFill) progFill.style.width = '0%';
+    }
+
     reader.onload = async () => {
       try {
-        status.textContent = 'Parseando historial...';
-        const fmtMeta = Importer.detectSessionFormat ? Importer.detectSessionFormat(reader.result) : null;
-        const parsed = Importer.parseSession(reader.result, file.name);
+        status.textContent = 'Leyendo historial...';
+        const text = reader.result;
+        const fmtMeta = Importer.detectSessionFormat ? Importer.detectSessionFormat(text) : null;
+        const parseFn = Importer.parseSessionAsync || function (t, n, cb) {
+          return Promise.resolve(Importer.parseSession(t, n));
+        };
+        const parsed = await parseFn(text, file.name, function (done, total, phase) {
+          setProgress(done, total, phase || 'parse');
+        });
         if (!parsed.hero || !parsed.hands.length) {
+          hideProgress();
           status.innerHTML = '<span style="color:var(--red)">No se reconocieron manos de cash NL en el fichero. Comprueba que sea un historial de PokerStars o Winamax.</span>';
           return;
         }
         const fmtLabel = (parsed.format || fmtMeta)
           ? ((parsed.format || fmtMeta).platformLabel + ' · ' + (parsed.format || fmtMeta).localeLabel)
           : null;
-        if (fmtLabel) status.textContent = 'Formato detectado: ' + fmtLabel + '. Analizando...';
+        if (fmtLabel) status.textContent = 'Formato: ' + fmtLabel + ' · ' + parsed.hands.length.toLocaleString('es-ES') + ' manos detectadas';
         const Ent = window.PTEntitlements;
         if (Ent && Ent.ensureLoaded) {
           const ent = await Ent.ensureLoaded();
           const check = Ent.canImportSession(parsed.hands.length, ent);
           if (!check.ok) {
+            hideProgress();
             if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
             return;
           }
         }
-        const onProgress = (done, total) => {
-          status.textContent = `Analizando manos ${done}/${total}...`;
+        const onProgress = (done, total, phase) => {
+          setProgress(done, total, phase || 'analyze');
         };
         const finishSession = async (session) => {
+          hideProgress();
           const Ent = window.PTEntitlements;
           if (Ent && Ent.recordImportSession) {
             const rec = await Ent.recordImportSession(session.hands.length);
@@ -1941,10 +1992,12 @@
           ? Importer.buildSessionAsync(parsed, file.name, onProgress)
           : Promise.resolve(Importer.buildSession(parsed, file.name));
         build.then(finishSession).catch((err) => {
+          hideProgress();
           status.innerHTML = '<span style="color:var(--red)">Error al procesar: ' + escapeHtml(err.message || String(err)) + '</span>';
           console.error('[Sessions] process failed', err);
         });
       } catch (err) {
+        hideProgress();
         status.innerHTML = '<span style="color:var(--red)">Error al procesar: ' + escapeHtml(err.message) + '</span>';
         console.error('[Sessions] parse failed', err);
       }

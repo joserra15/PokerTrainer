@@ -410,6 +410,13 @@
           <p class="muted-text setup-hint">Jugables: manos que suelen ver flop. Borderline: límites del rango. Random: cualquier mano del spot.</p>
         </div>
 
+        <div class="setup-group">
+          <label class="setup-toggle toggle-row">
+            <input type="checkbox" id="setup-live-advisor" />
+            <span><strong>Avisador en vivo</strong> — muestra qué ocurre en la mesa, la acción recomendada y la explicación antes de decidir</span>
+          </label>
+        </div>
+
         <button type="button" id="play-start" class="btn btn-primary btn-block play-start-btn">Empezar sesión</button>
       </div>
 
@@ -446,6 +453,8 @@
           </div>
 
           <div id="actions" class="actions"></div>
+
+          <div id="live-advisor-panel" class="live-advisor-panel hidden" aria-live="polite"></div>
 
           <div id="feedback" class="feedback hidden"></div>
         </div>
@@ -535,6 +544,10 @@
             <button id="process-session" class="btn btn-primary" disabled>Procesar</button>
           </div>
           <div id="import-status" class="import-status"></div>
+          <div id="import-progress" class="import-progress hidden" aria-live="polite">
+            <div class="import-progress-track"><div id="import-progress-fill" class="import-progress-fill"></div></div>
+            <span id="import-progress-label" class="muted-text"></span>
+          </div>
         </div>
         <div id="sessions-list" class="record-list"></div>
       </div>
@@ -845,6 +858,7 @@
       'js/engine/villainPreflop.js',
       'js/ranges.js',
       'js/play-config.js',
+      'js/live-advisor.js',
       'js/engine.js',
       'js/import/hhUtils.js',
       'js/import/formatDetector.js',

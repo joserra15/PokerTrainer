@@ -59,6 +59,76 @@
     return format.parseSession(text, fileName);
   }
 
+  function splitHandBlocks(text) {
+    return text.split(/(?=^(?:Mano n\.º |PokerStars (?:Zoom )?Hand #|Winamax Poker - ))/m)
+      .filter(function (b) {
+        var t = b.trim();
+        return /^(Mano n\.º|PokerStars|Winamax)/.test(t);
+      });
+  }
+
+  function analyzeChunkSize(total) {
+    if (total > 15000) return 50;
+    if (total > 10000) return 40;
+    if (total > 5000) return 25;
+    if (total > 1000) return 12;
+    return 6;
+  }
+
+  function parseChunkSize(total) {
+    if (total > 10000) return 150;
+    if (total > 5000) return 100;
+    return 60;
+  }
+
+  /** Parsea sesiones grandes en lotes para no bloquear la UI. */
+  function parseSessionAsync(text, fileName, onProgress) {
+    var blocks = splitHandBlocks(text || '');
+    if (blocks.length < 800) {
+      return Promise.resolve(parseSession(text, fileName));
+    }
+    var hands = [];
+    var heroCount = {};
+    var detectedFormat = null;
+    var i = 0;
+    var chunk = parseChunkSize(blocks.length);
+    return new Promise(function (resolve, reject) {
+      function step() {
+        try {
+          var end = Math.min(i + chunk, blocks.length);
+          for (; i < end; i++) {
+            var h = parseHand(blocks[i]);
+            if (!h || !h.isCash) continue;
+            if (h.hero) heroCount[h.hero] = (heroCount[h.hero] || 0) + 1;
+            hands.push(h);
+            if (!detectedFormat && h.format) detectedFormat = h.format;
+          }
+          if (onProgress) onProgress(i, blocks.length, 'parse');
+          if (i < blocks.length) setTimeout(step, 0);
+          else {
+            var hero = null;
+            var best = -1;
+            Object.keys(heroCount).forEach(function (n) {
+              if (heroCount[n] > best) { best = heroCount[n]; hero = n; }
+            });
+            var fmt = detectedFormat;
+            if (!fmt) {
+              var d = detectSessionFormat(text);
+              if (d) fmt = { platform: d.platform, platformLabel: d.platformLabel, locale: d.locale, localeLabel: d.localeLabel };
+            }
+            resolve({
+              fileName: fileName || 'sesion.txt',
+              hero: hero,
+              hands: hands,
+              format: fmt
+            });
+          }
+        } catch (e) { reject(e); }
+      }
+      setTimeout(step, 0);
+    });
+  }
+
   const BLOCK_TEST_WM = /^Winamax Poker - /;
 
   function parseHand(block) {
@@ -793,14 +863,14 @@
     return sessionPayload(parsed, fileName, hero, kept, discarded, stats);
   }
 
-  /** Analiza manos en lotes para no bloquear la UI del navegador. */
+  /** Analiza manos en lotes para no bloquear la UI del navegador (10k+ manos). */
   function buildSessionAsync(parsed, fileName, onProgress) {
     const hero = parsed.hero;
     const hands = parsed.hands || [];
     const kept = [];
     let discarded = 0;
     let i = 0;
-    const CHUNK = 4;
+    const CHUNK = analyzeChunkSize(hands.length);
     return new Promise(function (resolve, reject) {
       function step() {
         try {
@@ -810,7 +880,7 @@
             if (!heroPlayed(h)) { discarded++; continue; }
             kept.push(analyzeHand(h));
           }
-          if (onProgress) onProgress(i, hands.length);
+          if (onProgress) onProgress(i, hands.length, 'analyze');
           if (i < hands.length) setTimeout(step, 0);
           else resolve(sessionPayload(parsed, fileName, hero, kept, discarded, computeStats(kept)));
         } catch (e) { reject(e); }
@@ -969,7 +1039,7 @@
   }
 
   global.Importer = {
-    parseSession, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
+    parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
     heroPlayed, computeStats, num, cardsFrom,
     buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions,
     ensureHandSummary, ensureFullTimeline

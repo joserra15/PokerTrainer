@@ -1807,8 +1807,7 @@ body.admin-invite-open { overflow: hidden; }
 
 .progress-panel, .leaks-panel { margin-bottom: 16px; }
 .progress-panel h3, .leaks-panel h3 { margin: 0 0 6px; font-size: 16px; }
-.progress-block-sessions .prog-bar { background: var(--accent) !important; }
-.progress-block-sessions .prog-chart:nth-child(n+4) .prog-bar { background: var(--accent) !important; }
+.progress-block-sessions .prog-bar { /* colores por métrica en inline style */ }
 .stat-session-count .big { color: var(--accent); }
 .stat-session-hands .big { color: var(--gold); }
 .stat-session-acc .big { color: var(--green); }
@@ -1904,6 +1903,126 @@ body.admin-invite-open { overflow: hidden; }
   text-overflow: ellipsis;
   max-width: 100%;
 }
+
+.progress-charts-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.prog-bar-track {
+  flex: 1;
+  width: 100%;
+  max-width: 32px;
+  height: 72px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.prog-bar-col .prog-bar {
+  width: 100%;
+  max-width: 32px;
+}
+.prog-bar-empty .prog-bar { opacity: 0.25; }
+.prog-combo-track { position: relative; }
+.prog-combo-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gold);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.live-advisor-panel {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(63,185,80,.35);
+  background: rgba(63,185,80,.08);
+}
+.live-advisor-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.live-advisor-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--green);
+  background: rgba(63,185,80,.15);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.live-advisor-street { font-size: 12px; color: var(--muted); }
+.live-advisor-context { font-size: 14px; line-height: 1.45; margin: 0 0 10px; }
+.live-advisor-narrative { font-size: 12px; margin: 0 0 8px; }
+.live-advisor-rec {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,.2);
+  margin-bottom: 8px;
+}
+.live-advisor-rec-label { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+.live-advisor-rec-action { font-size: 18px; font-weight: 800; color: var(--green); margin: 4px 0; }
+.live-advisor-expl { font-size: 13px; line-height: 1.5; margin: 10px 0 0; color: var(--text); }
+.live-advisor-evs { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.live-advisor-opt {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(0,0,0,.15);
+}
+.live-advisor-opt-best { border: 1px solid rgba(63,185,80,.4); background: rgba(63,185,80,.12); }
+.setup-toggle { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 14px; line-height: 1.45; }
+.setup-toggle input { margin-top: 3px; flex-shrink: 0; }
+
+.import-progress { margin-top: 10px; }
+.import-progress-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.import-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  transition: width 0.15s ease;
+}
+
+.leaks-error-rate { margin: 0 0 8px; font-size: 14px; }
+.leak-breakdown { margin: 12px 0; }
+.leak-breakdown h5 { margin: 0 0 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.leak-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 90px;
+  overflow-x: auto;
+}
+.leak-bar-col {
+  flex: 1;
+  min-width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+.leak-bar-val { font-size: 10px; font-weight: 600; text-align: center; margin-bottom: 4px; }
+.leak-bar {
+  width: 100%;
+  max-width: 36px;
+  border-radius: 4px 4px 0 0;
+  min-height: 6px;
+}
+.leak-bar-meta { font-size: 9px; margin-top: 4px; text-align: center; }
 
 #stats-coach { margin-top: 18px; }
 

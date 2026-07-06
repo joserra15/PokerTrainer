@@ -36,7 +36,8 @@
     heroPos: 'random',
     handRange: 'playable',
     villainLevel: 'fish',
-    practiceStreet: 'random'
+    practiceStreet: 'random',
+    liveAdvisor: false
   };
 
   const RR = function () { return global.GTORangesRegistry; };
@@ -50,6 +51,7 @@
     if (!c.handRange) c.handRange = 'random';
     if (!c.villainLevel) c.villainLevel = 'fish';
     if (!c.practiceStreet) c.practiceStreet = 'random';
+    c.liveAdvisor = !!c.liveAdvisor;
     return c;
   }
 
