@@ -126,22 +126,7 @@
   }
 
   function comboAccuracyChart(title, series) {
-    if (!series.length) return '';
-    var max = 100;
-    var pts = series.map(function (s) {
-      var acc = s.accuracy;
-      var display = acc == null ? '—' : acc + '%';
-      var h = acc == null ? 4 : Math.max(8, Math.round((acc / max) * 100));
-      var lineY = acc == null ? 0 : (100 - acc);
-      return '<div class="prog-bar-col prog-combo-col" title="' + escapeHtml(s.label) + ': ' + display + '">' +
-        '<span class="prog-bar-val">' + escapeHtml(display) + '</span>' +
-        '<div class="prog-bar-track prog-combo-track">' +
-        '<div class="prog-bar" style="height:' + h + '%;background:var(--green)"></div>' +
-        (acc != null ? '<div class="prog-combo-line" style="bottom:' + lineY + '%"></div>' : '') +
-        '</div>' +
-        '<span class="prog-bar-lbl">' + escapeHtml(s.label) + '</span></div>';
-    }).join('');
-    return '<div class="prog-chart prog-chart-combo"><h4>' + escapeHtml(title) + '</h4><div class="prog-bars">' + pts + '</div></div>';
+    return '';
   }
 
   function renderDashboard(host, opts) {
@@ -160,7 +145,7 @@
     var sessTotal = global.PTStatsAggregate ? global.PTStatsAggregate.sessionsTotal(Store.getStats()) : null;
 
     if (!hasTrainer && !hasSessions) {
-      host.innerHTML = '<div class="progress-panel card-box"><h3>Progreso semanal</h3><p class="muted-text">Juega manos o importa sesiones para ver gráficas de acierto y EV en el tiempo. Los datos se guardan en estadísticas aunque borres el histórico.</p></div>';
+      host.innerHTML = '<div class="progress-panel card-box"><h3>Progreso semanal</h3><p class="muted-text">Juega manos o importa sesiones para ver gráficas de tasa de error y EV en el tiempo. Los datos se guardan en estadísticas aunque borres el histórico.</p></div>';
       return;
     }
 
@@ -174,7 +159,6 @@
 
     if (hasTrainer) {
       html += '<div class="progress-block"><h4 class="progress-block-title">Entrenador</h4><div class="progress-charts progress-charts-grid">' +
-        comboAccuracyChart('Acierto', trainerSeries) +
         barChart('Tasa de error', trainerSeries, 'errorRate', '%', '--red') +
         barChart('EV perdido (bb)', trainerSeries, 'evLoss', ' bb', '--red') +
         barChart('Manos', trainerSeries, 'hands', '', '--gold') +
@@ -183,12 +167,10 @@
 
     if (hasSessions) {
       html += '<div class="progress-block progress-block-sessions"><h4 class="progress-block-title">Sesiones importadas</h4><div class="progress-charts progress-charts-grid">' +
-        comboAccuracyChart('Acierto', sessionSeries) +
         barChart('Tasa de error', sessionSeries, 'errorRate', '%', '--red') +
         barChart('EV perdido (bb)', sessionSeries, 'evLoss', ' bb', '--red') +
         barChart('Resultado real (bb)', sessionSeries, 'netBB', ' bb', '--accent') +
         barChart('Manos', sessionSeries, 'hands', '', '--gold') +
-        barChart('Sesiones', sessionSeries, 'sessions', '', '--orange') +
         '</div></div>';
     }
 

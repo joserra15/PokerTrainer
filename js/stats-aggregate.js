@@ -5,7 +5,7 @@
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 2;
+  var AGG_VERSION = 3;
 
   function weekKey(date) {
     var d = new Date(date);
@@ -139,6 +139,37 @@
     return key;
   }
 
+  function clearTrainerHandLeaks(agg, handId) {
+    if (!agg._trainerLeakIndex) agg._trainerLeakIndex = {};
+    var entries = agg._trainerLeakIndex[handId];
+    if (!entries) return;
+    entries.forEach(function (e) {
+      var l = agg.trainerLeaks[e.k];
+      if (!l) return;
+      l.count -= 1;
+      l.evLoss = round2(l.evLoss - e.ev);
+      if (l.count <= 0) delete agg.trainerLeaks[e.k];
+    });
+    delete agg._trainerLeakIndex[handId];
+  }
+
+  function rebuildTrainerLeaksFromHistory(agg, history) {
+    agg.trainerLeaks = {};
+    agg._trainerLeakIndex = {};
+    (history || []).forEach(function (rec) {
+      if (!rec || !rec.id) return;
+      var entries = [];
+      (rec.decisions || []).forEach(function (d) {
+        if (!LEAK_CLASSES[d.class]) return;
+        var k = trainerSpotKey(rec, d);
+        var ev = Number(d.evLoss) || 0;
+        bumpLeak(agg.trainerLeaks, k, trainerSpotLabel(k), ev);
+        entries.push({ k: k, ev: ev });
+      });
+      if (entries.length) agg._trainerLeakIndex[rec.id] = entries;
+    });
+  }
+
   function indexSessionLeaks(agg, session) {
     if (!session || !session.hands) return;
     (session.hands || []).forEach(function (h) {
@@ -160,17 +191,22 @@
   function applyTrainerHand(st, rec) {
     if (!rec || !rec.id) return;
     var agg = ensureAggregates(st);
+    clearTrainerHandLeaks(agg, rec.id);
     var decs = rec.decisions || [];
     var good = 0;
     var evLoss = 0;
+    var entries = [];
     decs.forEach(function (d) {
       if (d.class === 'optima' || d.class === 'aceptable') good += 1;
       evLoss += Number(d.evLoss) || 0;
       if (LEAK_CLASSES[d.class]) {
         var k = trainerSpotKey(rec, d);
-        bumpLeak(agg.trainerLeaks, k, trainerSpotLabel(k), d.evLoss);
+        var ev = Number(d.evLoss) || 0;
+        bumpLeak(agg.trainerLeaks, k, trainerSpotLabel(k), ev);
+        entries.push({ k: k, ev: ev });
       }
     });
+    if (entries.length) agg._trainerLeakIndex[rec.id] = entries;
     agg.trainerByHandId[rec.id] = {
       week: weekKey(rec.createdAt || Date.now()),
       decisions: decs.length,
@@ -261,7 +297,23 @@
   function rebuildFromLegacy(st, history, sessions) {
     var agg = defaultAggregates();
     st.aggregates = agg;
-    (history || []).forEach(function (h) { applyTrainerHand(st, h); });
+    (history || []).forEach(function (h) {
+      if (!h || !h.id) return;
+      var decs = h.decisions || [];
+      var good = 0;
+      var evLoss = 0;
+      decs.forEach(function (d) {
+        if (d.class === 'optima' || d.class === 'aceptable') good += 1;
+        evLoss += Number(d.evLoss) || 0;
+      });
+      agg.trainerByHandId[h.id] = {
+        week: weekKey(h.createdAt || Date.now()),
+        decisions: decs.length,
+        good: good,
+        evLoss: round2(evLoss)
+      };
+    });
+    rebuildTrainerLeaksFromHistory(agg, history);
     (sessions || []).forEach(function (s) {
       if (!s || !s.id || !s.stats) return;
       applySessionStub(st, s);
@@ -280,21 +332,7 @@
         Object.keys(src.trainerByHandId || {}).forEach(function (id) {
           out.trainerByHandId[id] = src.trainerByHandId[id];
         });
-      } else if (src.sessionsTotal || src.sessionWeekly) {
-        /* v1 corrupto: ignorar totales sumados, no importar */
       }
-      Object.keys(src.trainerLeaks || {}).forEach(function (k) {
-        var l = src.trainerLeaks[k];
-        if (!out.trainerLeaks[k]) out.trainerLeaks[k] = { key: k, label: l.label, count: 0, evLoss: 0 };
-        out.trainerLeaks[k].count = Math.max(out.trainerLeaks[k].count, l.count || 0);
-        out.trainerLeaks[k].evLoss = round2(Math.max(out.trainerLeaks[k].evLoss, l.evLoss || 0));
-      });
-      Object.keys(src.sessionLeaks || {}).forEach(function (k) {
-        var l = src.sessionLeaks[k];
-        if (!out.sessionLeaks[k]) out.sessionLeaks[k] = { key: k, label: l.label, count: 0, evLoss: 0 };
-        out.sessionLeaks[k].count = Math.max(out.sessionLeaks[k].count, l.count || 0);
-        out.sessionLeaks[k].evLoss = round2(Math.max(out.sessionLeaks[k].evLoss, l.evLoss || 0));
-      });
     });
     return out;
   }
@@ -331,6 +369,7 @@
       var agg = ensureAggregates(st);
       agg._sessionLeakKeys = {};
       rebuildSessionLeaks(agg, sessions);
-    }
+    },
+    rebuildTrainerLeaksFromHistory: rebuildTrainerLeaksFromHistory
   };
 })(window);

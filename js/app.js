@@ -1001,11 +1001,7 @@
   }
 
   function renderConfidenceBadge(d) {
-    if (!d || !d.confidenceTier) return '';
-    const label = d.confidenceLabel || d.confidenceTier;
-    const reasons = (d.confidenceReasons || []).join('; ');
-    const title = (d.confidenceTitle || 'Confianza en la evaluación') + (reasons ? ' — ' + reasons : '');
-    return `<span class="conf-badge conf-${d.confidenceTier}" title="${escapeHtml(title)}">Confianza ${escapeHtml(label)}</span>`;
+    return '';
   }
 
   function renderDecisionMath(d) {
@@ -1512,7 +1508,7 @@
     if (d.class === 'optima') html += `Es la jugada GTO principal.`;
     else html += `La jugada de mayor frecuencia GTO era <strong>${bestLabel}</strong> (${Math.round((d.gto[d.best] || 0) * 100)}%).`;
     html += `</div>`;
-    if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}% · ${renderConfidenceBadge(d)}</div>`;
+    if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}%</div>`;
     html += renderDecisionMath(d);
     html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;

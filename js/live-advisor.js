@@ -5,6 +5,7 @@
   'use strict';
 
   var STORAGE_KEY = 'pt_live_advisor_v1';
+  var matrixJob = 0;
 
   function escapeHtml(s) {
     return String(s || '')
@@ -75,6 +76,66 @@
     return '<div class="live-advisor-evs">' + rows + '</div>';
   }
 
+  function matricesSection() {
+    return '<div class="live-advisor-matrices">' +
+      '<div class="live-advisor-matrix-block"><h5>Matriz GTO</h5>' +
+      '<div class="live-advisor-matrix-host" data-matrix-kind="gto">' +
+      '<p class="muted-text live-advisor-matrix-loading">Calculando matriz…</p></div></div>' +
+      '<div class="live-advisor-matrix-block"><h5>Matriz villano</h5>' +
+      '<p class="muted-text live-advisor-matrix-note">Rango estimado del villano (sin revelar sus cartas).</p>' +
+      '<div class="live-advisor-matrix-host" data-matrix-kind="villain">' +
+      '<p class="muted-text live-advisor-matrix-loading">Calculando matriz…</p></div></div>' +
+      '</div>';
+  }
+
+  function loadMatrices(host, hand, jobId) {
+    var RM = global.PTRangeMatrix;
+    if (!RM || !host || !hand) return;
+    var decision = RM.decisionFromLiveHand(hand);
+    if (!decision) return;
+    var heroCards = RM.heroCardsFromHand(hand);
+    var heroCode = (heroCards.length === 2 && global.Ranges)
+      ? global.Ranges.handCode(heroCards[0], heroCards[1])
+      : null;
+    var gtoHost = host.querySelector('[data-matrix-kind="gto"]');
+    var vilHost = host.querySelector('[data-matrix-kind="villain"]');
+
+    if (gtoHost) {
+      if (decision.street === 'preflop') {
+        var baseInput = RM.buildBaseInput(hand, decision, 'trainer');
+        if (!baseInput) {
+          gtoHost.innerHTML = '<p class="muted-text">Matriz no disponible en este spot.</p>';
+        } else {
+          RM.computeGtoMatrixAsync(baseInput, function () { /* silent */ }).then(function (result) {
+            if (jobId !== matrixJob) return;
+            gtoHost.innerHTML = RM.renderMatrixGrid(result, { heroCode: heroCode, mode: 'gto' });
+          }).catch(function () {
+            if (jobId !== matrixJob) return;
+            gtoHost.innerHTML = '<p class="muted-text">No se pudo calcular la matriz GTO.</p>';
+          });
+        }
+      } else {
+        gtoHost.innerHTML = '<p class="muted-text">Matriz GTO solo disponible en preflop.</p>';
+      }
+    }
+
+    if (vilHost) {
+      try {
+        var profile = RM.getVillainMatrixProfileLive(hand, decision);
+        var result = RM.computeVillainRangeMatrix(profile);
+        if (jobId !== matrixJob) return;
+        vilHost.innerHTML = RM.renderMatrixGrid(result, {
+          heroCode: heroCode,
+          mode: 'villain',
+          hideVillainCards: true
+        });
+      } catch (e) {
+        if (jobId !== matrixJob) return;
+        vilHost.innerHTML = '<p class="muted-text">No se pudo estimar el rango villano.</p>';
+      }
+    }
+  }
+
   function renderPanel(host, hand, advice) {
     if (!host) return;
     if (!advice || !advice.recommended) {
@@ -82,9 +143,12 @@
       host.innerHTML = '';
       return;
     }
+    var RM = global.PTRangeMatrix;
+    var decision = RM ? RM.decisionFromLiveHand(hand) : null;
     var rec = advice.recommended;
     var narr = narrativeForHand(hand);
     var freqPct = Math.round((rec.freq || 0) * 100);
+    var jobId = ++matrixJob;
     host.classList.remove('hidden');
     host.innerHTML =
       '<div class="live-advisor-head">' +
@@ -100,11 +164,14 @@
       '</div>' +
       renderMath(rec.mathParams) +
       renderOptionEvList(advice.options, rec.actionId) +
-      (rec.explanation ? '<p class="live-advisor-expl">' + escapeHtml(rec.explanation) + '</p>' : '');
+      (rec.explanation ? '<p class="live-advisor-expl">' + escapeHtml(rec.explanation) + '</p>' : '') +
+      matricesSection();
+    loadMatrices(host, hand, jobId);
   }
 
   function update(host, hand, enabled) {
     if (!enabled || !hand || hand.stage === 'complete' || !hand.current) {
+      matrixJob++;
       if (host) {
         host.classList.add('hidden');
         host.innerHTML = '';

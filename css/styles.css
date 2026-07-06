@@ -1978,6 +1978,38 @@ body.admin-invite-open { overflow: hidden; }
   background: rgba(0,0,0,.15);
 }
 .live-advisor-opt-best { border: 1px solid rgba(63,185,80,.4); background: rgba(63,185,80,.12); }
+.live-advisor-matrices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+@media (max-width: 720px) {
+  .live-advisor-matrices { grid-template-columns: 1fr; }
+}
+.live-advisor-matrix-block h5 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.live-advisor-matrix-note { font-size: 11px; margin: 0 0 6px; }
+.live-advisor-matrix-host { overflow-x: auto; }
+.live-advisor-matrices .range-matrix-wrap-compact .range-matrix-grid {
+  font-size: 9px;
+  gap: 1px;
+}
+.live-advisor-matrices .range-matrix-wrap-compact .rm-cell {
+  min-width: 22px;
+  min-height: 18px;
+  font-size: 8px;
+  padding: 1px;
+}
+.live-advisor-matrices .range-matrix-wrap-compact .rm-label {
+  font-size: 8px;
+  min-width: 14px;
+}
 .setup-toggle { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 14px; line-height: 1.45; }
 .setup-toggle input { margin-top: 3px; flex-shrink: 0; }
 

@@ -139,7 +139,8 @@
     if (global.PTStatsAggregate && global.Store && global.Store.getStats) {
       var st = global.Store.getStats();
       if (st && st._aggMigrated) {
-        return global.PTStatsAggregate.trainerTopLeaks(st, limit || 5);
+        var fromAgg = global.PTStatsAggregate.trainerTopLeaks(st, limit || 5);
+        if (fromAgg.length && fromAgg[0].count <= 50000) return fromAgg;
       }
     }
     return aggregate(errors, { minClass: 'imprecisa' }).slice(0, limit || 5);
@@ -171,7 +172,6 @@
     var trainerBreak = aggregateByStreet(errors, { minClass: 'imprecisa' });
     var trainerTypeBreak = aggregateBySpotType(errors, { minClass: 'imprecisa' });
     var sessAgg = st && st.aggregates ? aggregateLeaksMap(st.aggregates.sessionLeaks) : { byStreet: [], byType: [] };
-    var errRate = errorRateFromStats(st);
     var fmt = global.GTOPotMath ? function (x) { return global.GTOPotMath.formatBB(x); } : function (x) { return String(x); };
 
     if (!trainerLeaks.length && !sessionLeaks.length && !trainerBreak.length) {
@@ -194,9 +194,6 @@
     }
 
     var html = '<div class="leaks-panel card-box"><h3>Leak detector</h3>';
-    if (errRate != null) {
-      html += '<p class="leaks-error-rate">Tasa de acierto global entrenador: <strong class="' + (errRate >= 80 ? 'net-pos' : 'net-neg') + '">' + errRate + '%</strong></p>';
-    }
     html += '<p class="muted-text leaks-intro">Top spots con más EV perdido. Agregados persistentes (no se pierden al borrar histórico).</p>';
 
     if (trainerBreak.length) {

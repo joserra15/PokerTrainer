@@ -476,6 +476,70 @@
     return str;
   }
 
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function decisionFromLiveHand(hand) {
+    if (!hand || !hand.current) return null;
+    var node = hand.current;
+    var va = hand.villainAction;
+    return {
+      street: node.street,
+      kind: node.kind,
+      context: node.context,
+      potBB: node.potBB,
+      toCallBB: node.toCallBB || 0,
+      potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
+      board: (hand.board || []).slice(),
+      gto: node.gto,
+      availableActions: (node.options || []).map(function (o) { return o.id; }),
+      villainLastAction: va ? va.type : null
+    };
+  }
+
+  function renderMatrixGrid(result, opts) {
+    opts = opts || {};
+    var ranks = result.ranks;
+    var heroCode = opts.heroCode || null;
+    var villainCode = opts.hideVillainCards ? null : (opts.villainCode || null);
+    var mode = opts.mode || 'gto';
+    var html = '<div class="range-matrix-wrap range-matrix-wrap-compact"><div class="range-matrix-grid">';
+    html += '<div class="rm-corner"></div>';
+    ranks.forEach(function (r) { html += '<div class="rm-label">' + r + '</div>'; });
+    for (var row = 0; row < 13; row++) {
+      html += '<div class="rm-label">' + ranks[row] + '</div>';
+      for (var col = 0; col < 13; col++) {
+        var cell = result.cells[row][col];
+        var isHero = heroCode && cell.label === heroCode;
+        var isVillain = villainCode && cell.label === villainCode;
+        var cls = 'rm-cell ' + cell.action;
+        if (isHero) cls += ' hero';
+        if (isVillain) cls += ' villain';
+        if (mode === 'villain') {
+          html += '<div class="' + cls + '" title="' + escapeHtml(cell.title || cell.label) + '">' + cell.label + '</div>';
+        } else {
+          html += '<div class="' + cls + '" title="' + cell.label + ': R' + Math.round(cell.freqs.raise * 100) + '% C' + Math.round(cell.freqs.call * 100) + '% F' + Math.round(cell.freqs.fold * 100) + '%">' + cell.label + '</div>';
+        }
+      }
+    }
+    return html + '</div></div>';
+  }
+
+  function getVillainMatrixProfileLive(hand, decision) {
+    var ctx = buildVillainMatrixContext(hand, decision, 'trainer');
+    ctx.villainCards = [];
+    ctx.villainCode = null;
+    var VT = global.GTOVillainTracking;
+    if (!VT || !VT.buildVillainMatrixProfile) {
+      return computeVillainRangeMatrix(decision.villainRange || D().BROAD_CONTINUE).profile;
+    }
+    return VT.buildVillainMatrixProfile(ctx);
+  }
+
   global.PTRangeMatrix = {
     RANKS,
     EXPLORER_SPOTS,
@@ -501,6 +565,9 @@
     villainCodeFromHand,
     boardSliceForStreet,
     shortRange,
-    expandRangeSet
+    expandRangeSet,
+    decisionFromLiveHand,
+    renderMatrixGrid,
+    getVillainMatrixProfileLive
   };
 })(window);

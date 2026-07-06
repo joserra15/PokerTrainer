@@ -201,6 +201,8 @@
         pick.aggregates,
         other.aggregates
       );
+      global.PTStatsAggregate.rebuildTrainerLeaksFromHistory(out.aggregates, getHistory());
+      global.PTStatsAggregate.refreshSessionLeaks(out, getSessions());
     }
     return out;
   }
