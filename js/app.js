@@ -1737,9 +1737,9 @@
       <div class="stat-card stats-session-block" style="grid-column:1/-1;text-align:left">
         <div class="lbl" style="margin-bottom:8px">Sesiones importadas (acumulado persistente)</div>
         <div class="stats-content stats-session-grid" style="margin-bottom:0">
-          <div class="stat-card stat-session"><div class="big">${sessTot.sessions}</div><div class="lbl">Sesiones</div></div>
-          <div class="stat-card stat-session"><div class="big">${sessTot.hands}</div><div class="lbl">Manos</div></div>
-          <div class="stat-card stat-session"><div class="big">${sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : '—'}${sessTot.decisions ? '%' : ''}</div><div class="lbl">Acierto</div></div>
+          <div class="stat-card stat-session stat-session-count"><div class="big">${sessTot.sessions}</div><div class="lbl">Sesiones</div></div>
+          <div class="stat-card stat-session stat-session-hands"><div class="big">${sessTot.hands}</div><div class="lbl">Manos</div></div>
+          <div class="stat-card stat-session stat-session-acc"><div class="big">${sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : '—'}${sessTot.decisions ? '%' : ''}</div><div class="lbl">Acierto</div></div>
           <div class="stat-card stat-session"><div class="big ${sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot.netBB >= 0 ? '+' : ''}${fmtBB(sessTot.netBB)}</div><div class="lbl">Resultado real (bb)</div></div>
           <div class="stat-card stat-session"><div class="big net-neg">-${fmtBB(sessTot.evLoss)}</div><div class="lbl">EV perdido (bb)</div></div>
         </div>

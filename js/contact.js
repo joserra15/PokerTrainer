@@ -137,7 +137,10 @@
         var th = data.thread || {};
         var msgs = data.messages || [];
         detailHtml = '<div class="contact-detail card-box">' +
+          '<div class="contact-detail-head">' +
           '<h3>' + escapeHtml(th.subject) + '</h3>' +
+          '<button type="button" class="btn btn-danger btn-sm contact-delete-thread" data-thread-id="' + escapeHtml(th.id) + '" title="Eliminar conversación">Eliminar conversación</button>' +
+          '</div>' +
           '<div class="contact-messages">' + renderMessageList(msgs) + '</div>' +
           (th.status === 'open'
             ? '<form class="contact-reply-form" data-thread-id="' + escapeHtml(th.id) + '">' +
@@ -212,6 +215,22 @@
           return;
         }
         renderContactView(tid);
+      });
+    });
+
+    host.querySelectorAll('.contact-delete-thread').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var tid = btn.getAttribute('data-thread-id');
+        if (!tid) return;
+        if (!confirm('¿Eliminar esta conversación? Se borrarán todos los mensajes y no se puede deshacer.')) return;
+        btn.disabled = true;
+        var res = await c.rpc('pt_contact_delete_thread', { p_thread_id: tid });
+        if (res.error) {
+          btn.disabled = false;
+          alert('No se pudo eliminar: ' + (res.error.message || 'error'));
+          return;
+        }
+        renderContactView(null);
       });
     });
   }

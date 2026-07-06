@@ -79,7 +79,18 @@
     var max = maxOf(series, field, true);
     var bars = series.map(function (s) {
       var val = s[field];
-      var display = val == null ? '—' : (suffix === '%' ? val + '%' : (suffix === ' bb' && val > 0 ? '+' : '') + val + suffix);
+      var display;
+      if (val == null) {
+        display = '—';
+      } else if (suffix === '%') {
+        display = val + '%';
+      } else if (suffix === ' bb') {
+        if (field === 'evLoss') display = '-' + Math.abs(Number(val) || 0) + suffix;
+        else if (field === 'netBB') display = (Number(val) >= 0 ? '+' : '') + val + suffix;
+        else display = val + suffix;
+      } else {
+        display = String(val);
+      }
       var h = val == null ? 4 : Math.max(8, Math.round((Math.abs(Number(val) || 0) / max) * 100));
       var barColor = colorVar;
       if (field === 'netBB' && val != null) {
@@ -143,8 +154,8 @@
         barChart('Acierto', sessionSeries, 'accuracy', '%', '--green') +
         barChart('EV perdido (bb)', sessionSeries, 'evLoss', ' bb', '--red') +
         barChart('Resultado real (bb)', sessionSeries, 'netBB', ' bb', '--accent') +
-        barChart('Manos', sessionSeries, 'hands', '', '--accent') +
-        barChart('Sesiones', sessionSeries, 'sessions', '', '--accent') +
+        barChart('Manos', sessionSeries, 'hands', '', '--gold') +
+        barChart('Sesiones', sessionSeries, 'sessions', '', '--orange') +
         '</div></div>';
     }
 

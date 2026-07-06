@@ -1809,8 +1809,12 @@ body.admin-invite-open { overflow: hidden; }
 .progress-panel h3, .leaks-panel h3 { margin: 0 0 6px; font-size: 16px; }
 .progress-block-sessions .prog-bar { background: var(--accent) !important; }
 .progress-block-sessions .prog-chart:nth-child(n+4) .prog-bar { background: var(--accent) !important; }
-.stat-session .big { color: var(--accent); }
-.stats-session-grid .stat-card { border-color: rgba(47,129,247,.25); }
+.stat-session-count .big { color: var(--accent); }
+.stat-session-hands .big { color: var(--gold); }
+.stat-session-acc .big { color: var(--green); }
+.stats-session-grid .stat-card { border-color: rgba(47,129,247,.15); }
+.stats-session-grid .stat-session-hands { border-color: rgba(245,196,81,.25); }
+.stats-session-grid .stat-session-acc { border-color: rgba(63,185,80,.25); }
 
 .tab-badge {
   display: inline-block; min-width: 18px; padding: 1px 6px; margin-left: 6px;
@@ -1835,6 +1839,9 @@ body.admin-invite-open { overflow: hidden; }
 .contact-thread-subject { font-weight: 600; font-size: 13px; }
 .contact-thread-meta { font-size: 11px; }
 .contact-messages { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow: auto; margin: 12px 0; }
+.contact-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.contact-detail-head h3 { margin: 0; flex: 1; min-width: 0; }
+.contact-delete-thread { flex-shrink: 0; }
 .contact-msg { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); }
 .contact-msg.user { background: rgba(47,129,247,.08); }
 .contact-msg.admin { background: rgba(63,185,80,.08); border-color: rgba(63,185,80,.25); }

@@ -210,8 +210,10 @@
     var st = read(scopedKey('stats'), defaultStats());
     if (global.PTStatsAggregate) {
       global.PTStatsAggregate.ensureAggregates(st);
-      if (!st._aggMigrated) {
+      var aggVer = global.PTStatsAggregate.AGG_VERSION || 2;
+      if (!st._aggVersion || st._aggVersion < aggVer) {
         global.PTStatsAggregate.rebuildFromLegacy(st, getHistory(), getSessions());
+        st._aggVersion = aggVer;
         st._aggMigrated = true;
         writeStats(st);
       }
@@ -575,6 +577,14 @@
       const legacy = read(scopedKey('sessions'), []);
       if (legacy.length) {
         write(scopedKey('sessions'), legacy.filter(function (s) { return s.id !== id; }));
+      }
+    } catch (e) { /* ignore */ }
+    try {
+      const st = getStats();
+      if (global.PTStatsAggregate) {
+        global.PTStatsAggregate.removeSession(st, id);
+        global.PTStatsAggregate.refreshSessionLeaks(st, getSessions());
+        writeStats(st);
       }
     } catch (e) { /* ignore */ }
   }
