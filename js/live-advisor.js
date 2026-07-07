@@ -82,7 +82,6 @@
       '<div class="live-advisor-matrix-host" data-matrix-kind="gto">' +
       '<p class="muted-text live-advisor-matrix-loading">Calculando matriz…</p></div></div>' +
       '<div class="live-advisor-matrix-block"><h5>Matriz villano</h5>' +
-      '<p class="muted-text live-advisor-matrix-note">Rango estimado del villano (sin revelar sus cartas).</p>' +
       '<div class="live-advisor-matrix-host" data-matrix-kind="villain">' +
       '<p class="muted-text live-advisor-matrix-loading">Calculando matriz…</p></div></div>' +
       '</div>';

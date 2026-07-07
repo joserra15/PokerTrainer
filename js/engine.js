@@ -1824,20 +1824,55 @@
     if (!node || !global.GTO || !global.GTO.evaluateSpot) return null;
     const options = node.options || [];
     if (!options.length) return null;
-    const ref = GTO.evaluateSpot(buildSpotInput(hand, node, options[0].id));
-    const ev = ref.evaluation;
-    if (!ev) return null;
-    const bestId = ev.best;
-    const optionEVs = options.map(function (o) {
-      const r = GTO.evaluateSpot(buildSpotInput(hand, node, o.id));
-      const e = r.evaluation;
-      return {
-        id: o.id,
-        label: o.label,
-        ev: e ? e.actionEV : null,
-        freq: (r.strategy && r.strategy[o.id]) || 0
-      };
+    const availableActions = options.map((o) => o.id);
+    const Classifier = global.GTOClassifier;
+    const EvMath = global.GTOEvMath;
+
+    const stratResult = GTO.evaluateSpot(buildSpotInput(hand, node, availableActions[0]));
+    const strategy = stratResult.strategy;
+    if (!strategy) return null;
+
+    const cls = Classifier
+      ? Classifier.classify(strategy, availableActions[0], availableActions)
+      : { best: availableActions[0] };
+    const bestId = cls.best;
+
+    function evForAction(actionId) {
+      const input = buildSpotInput(hand, node, actionId);
+      const ctx = EvMath.buildActionContext(
+        Object.assign({}, input, { chosenAction: actionId }),
+        strategy
+      );
+      return EvMath.actionEVMath(actionId, ctx);
+    }
+
+    let maxEv = -Infinity;
+    availableActions.forEach((a) => {
+      const ev = evForAction(a);
+      if (ev > maxEv) maxEv = ev;
     });
+    const bestEV = EvMath.round2(maxEv);
+
+    const optionEVs = options.map((o) => ({
+      id: o.id,
+      label: o.label,
+      ev: evForAction(o.id),
+      freq: strategy[o.id] || 0
+    }));
+
+    const recActionEV = evForAction(bestId);
+    const recEval = GTO.evaluateSpot(buildSpotInput(hand, node, bestId));
+    const recInput = buildSpotInput(hand, node, bestId);
+    const recCtx = EvMath.buildActionContext(
+      Object.assign({}, recInput, { chosenAction: bestId }),
+      strategy
+    );
+    const mathParams = EvMath.mathParams(recCtx, {
+      actionEV: recActionEV,
+      bestEV: bestEV,
+      deltaEV: EvMath.deltaEvLoss(bestEV, recActionEV)
+    });
+
     return {
       street: node.street,
       context: node.context,
@@ -1846,11 +1881,11 @@
       recommended: {
         actionId: bestId,
         label: labelFor(node, bestId),
-        freq: (ref.strategy && ref.strategy[bestId]) || 0,
-        ev: ev.bestEV,
-        explanation: ref.explanation || '',
-        strategy: ref.strategy,
-        mathParams: ev.mathParams
+        freq: strategy[bestId] || 0,
+        ev: recActionEV,
+        explanation: recEval.explanation || '',
+        strategy: strategy,
+        mathParams: mathParams
       },
       options: optionEVs
     };
