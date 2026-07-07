@@ -1893,6 +1893,17 @@
     $('#sessions-home').classList.toggle('hidden', which !== 'home');
     $('#session-detail').classList.toggle('hidden', which !== 'detail');
     $('#hand-review').classList.toggle('hidden', which !== 'review');
+    if (which === 'review') scrollSessionReviewToTop();
+  }
+
+  function scrollSessionReviewToTop() {
+    requestAnimationFrame(function () {
+      if (window.scrollTo) window.scrollTo(0, 0);
+      const review = $('#hand-review');
+      if (review && review.scrollIntoView) review.scrollIntoView({ block: 'start' });
+      const content = $('#hand-review-content');
+      if (content) content.scrollTop = 0;
+    });
   }
 
   function processSessionFile() {
@@ -2382,6 +2393,7 @@
 
     html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
     box.innerHTML = html;
+    scrollSessionReviewToTop();
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-report-session'), {
         scope: 'session',
@@ -2742,6 +2754,7 @@
     ).join('') + `</div>`;
     html += `<div id="replay-feedback"></div>`;
     box.innerHTML = html;
+    scrollSessionReviewToTop();
     $$('#replay-actions [data-act]').forEach((b) => b.addEventListener('click', () => submitReplay(b.dataset.act)));
   }
 
