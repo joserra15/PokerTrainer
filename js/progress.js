@@ -77,6 +77,7 @@
     if (!Agg || !global.Store || !global.Store.getStats) return [];
     var series = Agg.sessionWeeklySeries(global.Store.getStats(), weeks);
     return series.map(function (s) {
+      s.accuracy = s.decisions ? Math.round(((s.good || 0) / s.decisions) * 100) : null;
       s.errorRate = s.decisions ? Math.round(((s.decisions - (s.good || 0)) / s.decisions) * 100) : null;
       return s;
     });
@@ -110,8 +111,11 @@
       var display = formatVal(field, val, suffix);
       var h = val == null ? 4 : Math.max(8, Math.round((Math.abs(Number(val) || 0) / max) * 100));
       var barColor = colorVar;
+      var isSigned = field === 'netBB';
+      var signedCls = '';
       if (field === 'netBB' && val != null) {
         barColor = Number(val) >= 0 ? '--green' : '--red';
+        signedCls = Number(val) < 0 ? ' prog-bar-neg' : ' prog-bar-pos';
       }
       if (field === 'errorRate' && val != null) {
         barColor = Number(val) <= 15 ? '--green' : (Number(val) <= 30 ? '--orange' : '--red');
@@ -119,7 +123,9 @@
       var empty = val == null || (suffix !== '%' && Number(val) === 0 && field !== 'netBB');
       return '<div class="prog-bar-col' + (empty ? ' prog-bar-empty' : '') + '" title="' + escapeHtml(s.label) + ': ' + display + '">' +
         '<span class="prog-bar-val">' + escapeHtml(display) + '</span>' +
-        '<div class="prog-bar-track"><div class="prog-bar" style="height:' + h + '%;background:var(' + barColor + ')"></div></div>' +
+        '<div class="prog-bar-track' + (isSigned ? ' prog-bar-track-signed' : '') + '">' +
+        (isSigned ? '<div class="prog-bar-zero"></div>' : '') +
+        '<div class="prog-bar' + signedCls + '" style="height:' + h + '%;background:var(' + barColor + ')"></div></div>' +
         '<span class="prog-bar-lbl">' + escapeHtml(s.label) + '</span></div>';
     }).join('');
     return '<div class="prog-chart"><h4>' + escapeHtml(title) + '</h4><div class="prog-bars">' + bars + '</div></div>';
@@ -145,7 +151,7 @@
     var sessTotal = global.PTStatsAggregate ? global.PTStatsAggregate.sessionsTotal(Store.getStats()) : null;
 
     if (!hasTrainer && !hasSessions) {
-      host.innerHTML = '<div class="progress-panel card-box"><h3>Progreso semanal</h3><p class="muted-text">Juega manos o importa sesiones para ver gráficas de tasa de error y EV en el tiempo. Los datos se guardan en estadísticas aunque borres el histórico.</p></div>';
+      host.innerHTML = '<div class="progress-panel card-box"><h3>Progreso semanal</h3><p class="muted-text">Juega manos o importa sesiones para ver gráficas de acierto y EV en el tiempo. Los datos se guardan en estadísticas aunque borres el histórico.</p></div>';
       return;
     }
 
@@ -159,7 +165,7 @@
 
     if (hasTrainer) {
       html += '<div class="progress-block"><h4 class="progress-block-title">Entrenador</h4><div class="progress-charts progress-charts-grid">' +
-        barChart('Tasa de error', trainerSeries, 'errorRate', '%', '--red') +
+        barChart('Acierto', trainerSeries, 'accuracy', '%', '--green') +
         barChart('EV perdido (bb)', trainerSeries, 'evLoss', ' bb', '--red') +
         barChart('Manos', trainerSeries, 'hands', '', '--gold') +
         '</div></div>';
@@ -167,7 +173,7 @@
 
     if (hasSessions) {
       html += '<div class="progress-block progress-block-sessions"><h4 class="progress-block-title">Sesiones importadas</h4><div class="progress-charts progress-charts-grid">' +
-        barChart('Tasa de error', sessionSeries, 'errorRate', '%', '--red') +
+        barChart('Acierto', sessionSeries, 'accuracy', '%', '--green') +
         barChart('EV perdido (bb)', sessionSeries, 'evLoss', ' bb', '--red') +
         barChart('Resultado real (bb)', sessionSeries, 'netBB', ' bb', '--accent') +
         barChart('Manos', sessionSeries, 'hands', '', '--gold') +

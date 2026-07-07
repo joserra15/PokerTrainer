@@ -501,13 +501,34 @@
     };
   }
 
+  function renderVillainLegend(opts) {
+    opts = opts || {};
+    var heroCode = opts.heroCode || null;
+    var villainCode = opts.hideVillainCards ? null : (opts.villainCode || null);
+    var html = '<div class="range-matrix-legend range-matrix-legend-compact">';
+    html += '<span><i class="value"></i> Valor</span>';
+    html += '<span><i class="semibluff"></i> Semibluff</span>';
+    html += '<span><i class="call"></i> Núcleo GTO</span>';
+    html += '<span><i class="borderline"></i> Borderline</span>';
+    html += '<span><i class="bluff"></i> Farol</span>';
+    html += '<span><i class="capped"></i> Capado</span>';
+    html += '<span><i class="fold"></i> Fuera</span>';
+    if (heroCode) html += '<span><i class="hero-mark"></i> Tu mano</span>';
+    if (villainCode) html += '<span><i class="villain-mark"></i> Villano</span>';
+    return html + '</div>';
+  }
+
   function renderMatrixGrid(result, opts) {
     opts = opts || {};
     var ranks = result.ranks;
     var heroCode = opts.heroCode || null;
     var villainCode = opts.hideVillainCards ? null : (opts.villainCode || null);
     var mode = opts.mode || 'gto';
-    var html = '<div class="range-matrix-wrap range-matrix-wrap-compact"><div class="range-matrix-grid">';
+    var html = '';
+    if (mode === 'villain' && opts.showLegend !== false) {
+      html += renderVillainLegend(opts);
+    }
+    html += '<div class="range-matrix-wrap range-matrix-wrap-compact"><div class="range-matrix-grid">';
     html += '<div class="rm-corner"></div>';
     ranks.forEach(function (r) { html += '<div class="rm-label">' + r + '</div>'; });
     for (var row = 0; row < 13; row++) {
@@ -568,6 +589,7 @@
     expandRangeSet,
     decisionFromLiveHand,
     renderMatrixGrid,
+    renderVillainLegend,
     getVillainMatrixProfileLive
   };
 })(window);

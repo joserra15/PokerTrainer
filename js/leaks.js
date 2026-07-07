@@ -194,7 +194,7 @@
     }
 
     var html = '<div class="leaks-panel card-box"><h3>Leak detector</h3>';
-    html += '<p class="muted-text leaks-intro">Top spots con más EV perdido. Agregados persistentes (no se pierden al borrar histórico).</p>';
+    html += '<p class="muted-text leaks-intro">Top spots con más EV perdido.</p>';
 
     if (trainerBreak.length) {
       html += renderBreakdownBars('Entrenador · fugas por calle', trainerBreak, '--orange');

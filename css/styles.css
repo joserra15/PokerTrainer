@@ -1915,10 +1915,38 @@ body.admin-invite-open { overflow: hidden; }
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  position: relative;
 }
 .prog-bar-col .prog-bar {
   width: 100%;
   max-width: 32px;
+}
+.prog-bar-track-signed {
+  align-items: stretch;
+}
+.prog-bar-zero {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(139, 151, 167, 0.45);
+}
+.prog-bar-track-signed .prog-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  max-width: 32px;
+}
+.prog-bar-track-signed .prog-bar-pos {
+  bottom: 50%;
+  transform: translateY(-1px);
+  border-radius: 4px 4px 0 0;
+}
+.prog-bar-track-signed .prog-bar-neg {
+  top: 50%;
+  transform: translateY(1px);
+  border-radius: 0 0 4px 4px;
 }
 .prog-bar-empty .prog-bar { opacity: 0.25; }
 .prog-combo-track { position: relative; }
@@ -2009,6 +2037,16 @@ body.admin-invite-open { overflow: hidden; }
 .live-advisor-matrices .range-matrix-wrap-compact .rm-label {
   font-size: 8px;
   min-width: 14px;
+}
+.live-advisor-matrices .range-matrix-legend-compact {
+  gap: 4px 8px;
+  font-size: 9px;
+  margin: 0 0 6px;
+}
+.live-advisor-matrices .range-matrix-legend-compact i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
 }
 .setup-toggle { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 14px; line-height: 1.45; }
 .setup-toggle input { margin-top: 3px; flex-shrink: 0; }
