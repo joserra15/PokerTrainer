@@ -2043,6 +2043,90 @@ body.admin-invite-open { overflow: hidden; }
 .contact-loading { display: flex; align-items: center; gap: 10px; padding: 20px; }
 .admin-messages-panel { margin-bottom: 16px; }
 .admin-contact-layout { margin-top: 8px; }
+.admin-message-compose {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.admin-message-compose h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.admin-message-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.admin-message-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.admin-message-compose label {
+  display: block;
+  margin: 10px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-message-compose input,
+.admin-message-compose textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.admin-recipient-picker {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 10px;
+}
+.admin-recipient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+  margin-top: 8px;
+}
+.admin-recipient-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--panel);
+}
+.admin-recipient-item input { width: auto; margin-top: 2px; }
+.admin-recipient-name { display: block; font-size: 13px; font-weight: 600; }
+.admin-recipient-email { display: block; font-size: 12px; color: var(--muted); word-break: break-word; }
+.admin-recipient-summary {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.admin-message-compose-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.admin-message-compose-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+.admin-recipient-list-empty {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 0 2px;
+}
 
 .progress-block-title, .leaks-section-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .progress-intro, .leaks-intro { margin: 0 0 12px; font-size: 13px; }

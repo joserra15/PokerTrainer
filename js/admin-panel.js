@@ -17,6 +17,13 @@
   var adminTabBtn = null;
   var inviteModalBound = false;
   var syncRunning = false;
+  var adminUsersCache = [];
+  var adminMessageMode = 'single';
+  var adminMessageRecipients = [];
+  var adminMessageFilter = '';
+  var adminMessageSubject = '';
+  var adminMessageBody = '';
+  var adminMessageStatus = '';
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -36,6 +43,27 @@
 
   function currentUser() {
     return global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+  }
+
+  function recipientUsers() {
+    var me = currentUser();
+    return adminUsersCache.filter(function (u) {
+      return u && u.user_id && u.user_id !== DEMO_USER_ID && (!me || u.user_id !== me.sub);
+    });
+  }
+
+  function selectedRecipientCount() {
+    if (adminMessageMode === 'all') return recipientUsers().length;
+    return adminMessageRecipients.length;
+  }
+
+  function normalizeRecipientSelection() {
+    var valid = {};
+    recipientUsers().forEach(function (u) { valid[u.user_id] = true; });
+    adminMessageRecipients = adminMessageRecipients.filter(function (id) { return !!valid[id]; });
+    if (adminMessageMode === 'single' && adminMessageRecipients.length > 1) {
+      adminMessageRecipients = adminMessageRecipients.slice(0, 1);
+    }
   }
 
   function formatRelative(iso) {
@@ -274,6 +302,8 @@
     if (errEl) errEl.textContent = '';
     var me = currentUser();
     var rows = res.data || [];
+    adminUsersCache = rows.slice();
+    normalizeRecipientSelection();
     if (status) status.textContent = rows.length + ' usuario' + (rows.length === 1 ? '' : 's');
     tbody.innerHTML = rows.map(function (u) {
       var online = isOnline(u.last_seen_at);
@@ -303,6 +333,7 @@
       );
     }).join('');
     bindUserActions();
+    renderAdminComposer();
     setAdminLoading(false);
   }
 
@@ -533,6 +564,161 @@
     badge.classList.toggle('hidden', n <= 0);
   }
 
+  function renderRecipientList() {
+    var users = recipientUsers();
+    var filtered = users.filter(function (u) {
+      if (!adminMessageFilter) return true;
+      var text = ((u.name || '') + ' ' + (u.email || '')).toLowerCase();
+      return text.indexOf(adminMessageFilter) >= 0;
+    });
+    if (!filtered.length) {
+      return '<div class="admin-recipient-list-empty">No hay usuarios que coincidan.</div>';
+    }
+    return filtered.map(function (u) {
+      var checked = adminMessageMode === 'all' || adminMessageRecipients.indexOf(u.user_id) >= 0;
+      return (
+        '<label class="admin-recipient-item">' +
+        '<input type="checkbox" data-admin-recipient="' + escapeHtml(u.user_id) + '"' +
+        (checked ? ' checked' : '') +
+        (adminMessageMode === 'all' ? ' disabled' : '') + ' />' +
+        '<span>' +
+        '<span class="admin-recipient-name">' + escapeHtml(u.name || 'Usuario') + '</span>' +
+        '<span class="admin-recipient-email">' + escapeHtml(u.email || u.user_id) + '</span>' +
+        '</span>' +
+        '</label>'
+      );
+    }).join('');
+  }
+
+  function renderAdminComposer() {
+    var host = $('#admin-message-compose');
+    if (!host) return;
+    var totalUsers = recipientUsers().length;
+    normalizeRecipientSelection();
+    host.innerHTML =
+      '<h4>Nuevo mensaje</h4>' +
+      '<form id="admin-message-compose-form">' +
+      '<div class="admin-message-modes">' +
+      '<label class="admin-message-mode"><input type="radio" name="targetMode" value="single"' + (adminMessageMode === 'single' ? ' checked' : '') + '> Un usuario</label>' +
+      '<label class="admin-message-mode"><input type="radio" name="targetMode" value="multiple"' + (adminMessageMode === 'multiple' ? ' checked' : '') + '> Varios usuarios</label>' +
+      '<label class="admin-message-mode"><input type="radio" name="targetMode" value="all"' + (adminMessageMode === 'all' ? ' checked' : '') + '> Todos</label>' +
+      '</div>' +
+      '<label for="admin-message-subject">Asunto</label>' +
+      '<input type="text" id="admin-message-subject" name="subject" maxlength="200" placeholder="Ej.: Aviso sobre mantenimiento" required value="' + escapeHtml(adminMessageSubject) + '" />' +
+      '<label for="admin-message-body">Mensaje</label>' +
+      '<textarea id="admin-message-body" name="body" rows="5" maxlength="3000" placeholder="Escribe el mensaje para los usuarios..." required>' + escapeHtml(adminMessageBody) + '</textarea>' +
+      '<label for="admin-message-filter">Destinatarios</label>' +
+      '<div class="admin-recipient-picker">' +
+      '<input type="search" id="admin-message-filter" placeholder="Buscar por nombre o correo" value="' + escapeHtml(adminMessageFilter) + '"' +
+      (adminMessageMode === 'all' ? ' disabled' : '') + ' />' +
+      '<div class="admin-recipient-list">' + renderRecipientList() + '</div>' +
+      '<div class="admin-recipient-summary">' +
+      (adminMessageMode === 'all'
+        ? ('Se enviará a todos los usuarios seleccionables (' + totalUsers + ').')
+        : ('Seleccionados: ' + selectedRecipientCount() + ' de ' + totalUsers + '.')) +
+      '</div>' +
+      '</div>' +
+      '<div class="admin-message-compose-actions">' +
+      '<button type="submit" class="btn btn-primary">Enviar mensaje</button>' +
+      '<span id="admin-message-compose-status" class="admin-message-compose-status">' + escapeHtml(adminMessageStatus) + '</span>' +
+      '</div>' +
+      '</form>';
+    bindAdminComposer();
+  }
+
+  function setAdminComposeStatus(message) {
+    adminMessageStatus = message || '';
+    var status = $('#admin-message-compose-status');
+    if (status) status.textContent = adminMessageStatus;
+  }
+
+  async function sendAdminMessage(subject, body) {
+    var c = client();
+    if (!c) return;
+    var payload = {
+      p_subject: subject,
+      p_body: body,
+      p_target_mode: adminMessageMode,
+      p_user_ids: adminMessageMode === 'all' ? null : adminMessageRecipients
+    };
+    return c.rpc('pt_admin_contact_send', payload);
+  }
+
+  function bindAdminComposer() {
+    var form = $('#admin-message-compose-form');
+    if (!form || form.dataset.bound) return;
+    form.dataset.bound = '1';
+    form.querySelectorAll('input[name="targetMode"]').forEach(function (input) {
+      input.addEventListener('change', function () {
+        adminMessageMode = input.value;
+        if (adminMessageMode === 'single' && adminMessageRecipients.length > 1) {
+          adminMessageRecipients = adminMessageRecipients.slice(0, 1);
+        }
+        renderAdminComposer();
+      });
+    });
+    var filter = $('#admin-message-filter');
+    var subjectEl = $('#admin-message-subject');
+    var bodyEl = $('#admin-message-body');
+    if (subjectEl) subjectEl.addEventListener('input', function () { adminMessageSubject = subjectEl.value || ''; });
+    if (bodyEl) bodyEl.addEventListener('input', function () { adminMessageBody = bodyEl.value || ''; });
+    if (filter) {
+      filter.addEventListener('input', function () {
+        adminMessageFilter = String(filter.value || '').trim().toLowerCase();
+        renderAdminComposer();
+      });
+    }
+    form.querySelectorAll('[data-admin-recipient]').forEach(function (chk) {
+      chk.addEventListener('change', function () {
+        var id = chk.getAttribute('data-admin-recipient');
+        if (!id) return;
+        if (adminMessageMode === 'single') {
+          adminMessageRecipients = chk.checked ? [id] : [];
+        } else {
+          var next = adminMessageRecipients.filter(function (x) { return x !== id; });
+          if (chk.checked) next.push(id);
+          adminMessageRecipients = next;
+        }
+        renderAdminComposer();
+      });
+    });
+    form.addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      var subject = (form.subject.value || '').trim();
+      var body = (form.body.value || '').trim();
+      adminMessageSubject = form.subject.value || '';
+      adminMessageBody = form.body.value || '';
+      if (subject.length < 3 || body.length < 5) {
+        alert('Completa un asunto y un mensaje válidos.');
+        return;
+      }
+      if (adminMessageMode !== 'all' && !adminMessageRecipients.length) {
+        alert(adminMessageMode === 'single'
+          ? 'Selecciona un usuario destinatario.'
+          : 'Selecciona al menos un usuario destinatario.');
+        return;
+      }
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) btn.disabled = true;
+      setAdminComposeStatus('Enviando…');
+      var res = await sendAdminMessage(subject, body);
+      if (btn) btn.disabled = false;
+      if (res.error) {
+        setAdminComposeStatus('');
+        alert('Error: ' + (res.error.message || 'no enviado'));
+        return;
+      }
+      form.reset();
+      adminMessageSubject = '';
+      adminMessageBody = '';
+      adminMessageFilter = '';
+      if (adminMessageMode !== 'all') adminMessageRecipients = [];
+      setAdminComposeStatus('Mensaje enviado a ' + ((res.data && res.data.sent_count) || 0) + ' usuario(s).');
+      renderAdminComposer();
+      await loadAdminInbox();
+    });
+  }
+
   function renderAdminMessageList(threads, activeId) {
     var el = $('#admin-contact-list');
     if (!el) return;
@@ -620,6 +806,7 @@
   async function loadAdminInbox(activeId) {
     var c = client();
     if (!c) return;
+    renderAdminComposer();
     var res = await c.rpc('pt_admin_contact_threads');
     if (res.error) {
       $('#admin-contact-list').innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
@@ -634,7 +821,10 @@
     var usersPanel = $('#admin-users-panel');
     if (msgPanel) msgPanel.classList.toggle('hidden', !show);
     if (usersPanel) usersPanel.classList.toggle('hidden', show);
-    if (show) loadAdminInbox();
+    if (show) {
+      renderAdminComposer();
+      loadAdminInbox();
+    }
   }
 
   function bindAdminMessages() {
