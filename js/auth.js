@@ -257,7 +257,7 @@
     if (!currentUser || !global.Store || !global.Store.exportFullUserData) return;
     const data = global.Store.exportFullUserData(currentUser);
     const date = new Date().toISOString().slice(0, 10);
-    downloadJson('pokertrainer-export-' + date + '.json', data);
+    downloadJson('pokerforgeai-export-' + date + '.json', data);
   }
 
   async function deleteAccount() {

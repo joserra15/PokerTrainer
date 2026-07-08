@@ -6,7 +6,7 @@ async function mockAuthenticatedUser(page) {
     window.PT_E2E_MODE = true;
     localStorage.setItem('pt_auth_v1', JSON.stringify({
       sub: 'e2e-test-user',
-      email: 'e2e@test.pokertrainer.local',
+      email: 'e2e@test.pokerforgeai.local',
       name: 'E2E Test',
       authProvider: 'e2e'
     }));

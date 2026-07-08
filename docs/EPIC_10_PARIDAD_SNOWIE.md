@@ -10,7 +10,7 @@
 
 ## 1. Resumen ejecutivo
 
-| Dimensión | Snowie | PokerTrainer hoy | Meta EPIC 10 |
+| Dimensión | Snowie | PokerForgeAI hoy | Meta EPIC 10 |
 |-----------|--------|------------------|--------------|
 | Trial / free | 10 días sin tarjeta | Freemium parcial (billing listo) | Trial claro + límites free publicados |
 | Entrenador + consejo en vivo | Live Advisor + EV por acción | Feedback post-decisión | **Advisor toggle** durante la mano |
@@ -130,7 +130,7 @@ Prioridad: **P0** antes de marketing de pago · **P1** retención · **P2** nice
 | SN-51 | Atajo **“Calentamiento 15 min”** desde home | P1 | S | Lanza SN-14 con 50 manos y consejo ON |
 | SN-52 | **Hotkeys** entrenador (F/C/R, flechas calle en repaso) | P2 | M | Documentado en ayuda |
 | SN-53 | Modo **sin rake / rake configurable** en entrenador | P2 | S | Alineado con Snowie custom cash |
-| SN-54 | Tabla comparativa **PokerTrainer vs Snowie** en landing (G-02) | P0 | S | Honesta; destaca ES, precio, IA Coach |
+| SN-54 | Tabla comparativa **PokerForgeAI vs Snowie** en landing (G-02) | P0 | S | Honesta; destaca ES, precio, IA Coach |
 
 **Estado:** PWA y calentamiento pendientes.
 
@@ -222,7 +222,7 @@ SN-13 → SN-33 → SN-41 → SN-42 → SN-44 → SN-23 → SN-34 → SN-52 → 
 
 ## 9. Mensaje de posicionamiento (post EPIC 10)
 
-> **PokerTrainer** — Entrena con consejo en vivo, importa PokerStars y Winamax, detecta fugas y profundiza con IA Coach. En español, desde el navegador, desde ~15 €/mes.  
+> **PokerForgeAI** — Entrena con consejo en vivo, importa PokerStars y Winamax, detecta fugas y profundiza con IA Coach. En español, desde el navegador, desde ~15 €/mes.  
 > Snowie cuesta el doble en mensual y no habla tu idioma; GTO Wizard cuesta 3–10× y es un solver, no un compañero de sesiones reales.
 
 ---

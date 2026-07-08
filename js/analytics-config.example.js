@@ -6,7 +6,7 @@ window.PT_ANALYTICS = {
   enabled: false,
   provider: 'plausible',
   /** Dominio registrado en Plausible (sin https://) */
-  domain: 'pokertrainer.example.com',
+  domain: 'pokerforgeai.example.com',
   /** URL del script (por defecto Plausible cloud) */
   scriptUrl: 'https://plausible.io/js/script.tagged-events.js'
 };

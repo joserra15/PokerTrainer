@@ -1,4 +1,4 @@
-# GTO Poker Trainer · Cash NL 6-max
+# PokerForgeAI · Cash NL 6-max
 
 Aplicación web (JavaScript puro, sin dependencias ni build) para entrenar
 decisiones **pre-flop y post-flop** de poker No-Limit Hold'em basadas en GTO,
@@ -29,7 +29,7 @@ sincronizan con Supabase si está configurado (`js/supabase-config.js`).
      - `https://joserra15.github.io/PokerTrainer/`
 3. **Pantalla de consentimiento OAuth** (menú lateral):
    - Tipo de usuario: **Externo**
-   - Nombre de la app: `PokerTrainer`
+   - Nombre de la app: `PokerForgeAI`
    - Email de asistencia y contacto del desarrollador
    - Si el estado es **Prueba**: en *Usuarios de prueba* añade tu Gmail (`joserra15@gmail.com`)
 4. Copia el **Client ID** (termina en `.apps.googleusercontent.com`).

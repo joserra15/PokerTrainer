@@ -194,7 +194,7 @@
     var url = siteUrl();
     return (
       'Hola,\n\n' +
-      'Te invito a probar PokerTrainer, el entrenador GTO de póker NLHE (entrenador interactivo, importación de sesiones e IA Coach).\n\n' +
+      'Te invito a probar PokerForgeAI, el entrenador GTO de póker NLHE (entrenador interactivo, importación de sesiones e IA Coach).\n\n' +
       'Plan recomendado: ' + meta.label + ' (' + meta.price + ').\n' +
       'Accede aquí: ' + url + '\n\n' +
       'Regístrate con Google y, si quieres el plan de pago, entra en la pestaña Planes dentro de la app.\n\n' +
@@ -433,7 +433,7 @@
           alert('El mensaje está vacío.');
           return;
         }
-        var subject = encodeURIComponent('Invitación a PokerTrainer');
+        var subject = encodeURIComponent('Invitación a PokerForgeAI');
         var mailBody = encodeURIComponent(body);
         window.location.href = 'mailto:' + encodeURIComponent(email) + '?subject=' + subject + '&body=' + mailBody;
       });

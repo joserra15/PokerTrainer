@@ -624,7 +624,7 @@ Store.saveHand({
   result: { heroNet: 0, totalEvLoss: 0, nErrors: 0, reason: 'gdpr' }
 });
 const gdprExp = JSON.parse(Store.exportFullUserData({ sub: 'gdpr-test-user', email: 'gdpr@test.com', name: 'GDPR' }));
-const gdprExportOk = gdprExp.format === 'PokerTrainer-GDPR-export-v1'
+const gdprExportOk = gdprExp.format === 'PokerForgeAI-GDPR-export-v1'
   && gdprExp.profile && gdprExp.profile.email === 'gdpr@test.com'
   && Array.isArray(gdprExp.history) && gdprExp.history.length >= 1;
 console.log('GDPR export:', gdprExportOk ? 'OK' : 'FAIL');

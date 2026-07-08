@@ -4,7 +4,7 @@
 (function (global) {
   'use strict';
 
-  var TEXT = 'El análisis GTO de PokerTrainer es <strong>heurístico y educativo</strong>: usa tablas, Monte Carlo y reglas aproximadas. No sustituye un solver exacto ni constituye asesoramiento de juego.';
+  var TEXT = 'El análisis GTO de PokerForgeAI es <strong>heurístico y educativo</strong>: usa tablas, Monte Carlo y reglas aproximadas. No sustituye un solver exacto ni constituye asesoramiento de juego.';
 
   var SHORT = 'Análisis heurístico GTO · no es solver exacto.';
 

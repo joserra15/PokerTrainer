@@ -6,7 +6,7 @@ window.PT_RFI_JSON = {
     "stackBB": 100,
     "positions": ["UTG", "HJ", "CO", "BTN"],
     "source": "solver-export-v1",
-    "notation": "PokerTrainer combo codes (AA, AKs, A5s, KQo…)",
+    "notation": "PokerForgeAI combo codes (AA, AKs, A5s, KQo…)",
     "updated": "2026-07-05"
   },
   "positions": {

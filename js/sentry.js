@@ -17,7 +17,7 @@
     global.Sentry.init({
       dsn: c.dsn,
       environment: c.environment || 'production',
-      release: c.release || ('pokertrainer@' + (global.PT_BUILD || 'dev')),
+      release: c.release || ('pokerforgeai@' + (global.PT_BUILD || 'dev')),
       tracesSampleRate: c.tracesSampleRate != null ? c.tracesSampleRate : 0.1,
       beforeSend: function (event) {
         if (event.request && event.request.headers) {

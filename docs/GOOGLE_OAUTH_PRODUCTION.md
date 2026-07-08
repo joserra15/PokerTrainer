@@ -19,7 +19,7 @@ Si añades dominio propio (G-01), actualiza `js/site-config.js` y repite este ch
 ## 1. Google Cloud Console
 
 1. Abre [Google Cloud Console](https://console.cloud.google.com/) → **APIs y servicios** → **Credenciales**.
-2. Selecciona el cliente OAuth 2.0 de tipo **Aplicación web** usado por PokerTrainer.
+2. Selecciona el cliente OAuth 2.0 de tipo **Aplicación web** usado por PokerForgeAI.
 3. En **Orígenes de JavaScript autorizados**, añade cada entrada de `PT_SITE.oauthJavascriptOrigins`.
 4. En **URIs de redireccionamiento autorizados**, añade las de `PT_SITE.oauthRedirectUris` **y** la URL de callback de Supabase (ver sección 2).
 5. Guarda los cambios.

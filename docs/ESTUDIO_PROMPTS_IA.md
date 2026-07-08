@@ -1,4 +1,4 @@
-# Estudio de prompts IA Coach — PokerTrainer
+# Estudio de prompts IA Coach — PokerForgeAI
 
 > Versión analizada: v1.33.0 · Motor: Gemini 2.5 Flash · Archivo: `supabase/functions/analyze-hand/index.ts`
 
@@ -298,4 +298,4 @@ Usar en tests manuales o `tools/test-ai-payload.js` ampliado:
 }
 ```
 
-Este JSON es lo que diferencia PokerTrainer de una captura en Gemini gratis: **contexto estructurado + GTO local + línea del villano**.
+Este JSON es lo que diferencia PokerForgeAI de una captura en Gemini gratis: **contexto estructurado + GTO local + línea del villano**.

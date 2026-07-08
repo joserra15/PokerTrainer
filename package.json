@@ -1,7 +1,7 @@
 {
-  "name": "pokertrainer",
+  "name": "pokerforgeai",
   "private": true,
-  "description": "GTO Poker Trainer — tests E2E y tooling",
+  "description": "PokerForgeAI — tests E2E y tooling",
   "scripts": {
     "test:import": "node tools/testimport.js",
     "test:unit": "node tools/selftest.js",

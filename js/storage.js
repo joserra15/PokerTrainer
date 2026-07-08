@@ -388,7 +388,7 @@
       return getSession(s.id);
     });
     return JSON.stringify({
-      format: 'PokerTrainer-GDPR-export-v1',
+      format: 'PokerForgeAI-GDPR-export-v1',
       exportedAt: new Date().toISOString(),
       profile: profile ? {
         sub: profile.sub,

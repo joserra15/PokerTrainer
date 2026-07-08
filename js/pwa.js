@@ -88,7 +88,7 @@
       bannerEl.innerHTML =
         '<div class="pwa-install-inner">' +
         '<div class="pwa-install-text">' +
-        '<strong>Instala PokerTrainer</strong>' +
+        '<strong>Instala PokerForgeAI</strong>' +
         '<span class="pwa-install-sub">Acceso rápido desde tu pantalla de inicio, como una app.</span>' +
         '</div>' +
         '<div class="pwa-install-actions">' +

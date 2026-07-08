@@ -13,14 +13,14 @@ const PROJECT = process.env.SUPABASE_PROJECT || 'wrkupbxttqrpdpoztcky';
 const WEBHOOK_URL = `https://${PROJECT}.supabase.co/functions/v1/stripe-webhook`;
 
 const PLANS = [
-  { key: 'pro', name: 'PokerTrainer Study', monthly: 1499, yearly: 11900 },
-  { key: 'premium', name: 'PokerTrainer Coach', monthly: 3499, yearly: 27900 }
+  { key: 'pro', name: 'PokerForgeAI Study', monthly: 1499, yearly: 11900 },
+  { key: 'premium', name: 'PokerForgeAI Coach', monthly: 3499, yearly: 27900 }
 ];
 
 const BONUS_TIERS = [
-  { tier: 'free', product: 'PokerTrainer IA Bono (Gratis)', packs: { s: 799, m: 1399, l: 2299 } },
-  { tier: 'study', product: 'PokerTrainer IA Bono (Study)', packs: { s: 599, m: 999, l: 1599 } },
-  { tier: 'coach', product: 'PokerTrainer IA Bono (Coach)', packs: { s: 399, m: 699, l: 1199 } }
+  { tier: 'free', product: 'PokerForgeAI IA Bono (Gratis)', packs: { s: 799, m: 1399, l: 2299 } },
+  { tier: 'study', product: 'PokerForgeAI IA Bono (Study)', packs: { s: 599, m: 999, l: 1599 } },
+  { tier: 'coach', product: 'PokerForgeAI IA Bono (Coach)', packs: { s: 399, m: 699, l: 1199 } }
 ];
 
 function stripeRequest(method, path, params) {
@@ -60,7 +60,7 @@ async function findOrCreateProduct(name) {
   if (found) return found.id;
   const created = await stripeRequest('POST', '/products', {
     name,
-    'metadata[app]': 'PokerTrainer'
+    'metadata[app]': 'PokerForgeAI'
   });
   return created.id;
 }

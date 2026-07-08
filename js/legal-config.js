@@ -3,7 +3,7 @@
  * Plantilla: js/legal-config.example.js
  */
 window.PT_LEGAL = {
-  controllerName: 'PokerTrainer',
+  controllerName: 'PokerForgeAI',
   controllerEmail: 'joserra15@gmail.com',
   supportEmail: 'joserra15@gmail.com',
   appUrl: 'https://joserra15.github.io/PokerTrainer/',

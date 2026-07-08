@@ -4,7 +4,7 @@
  */
 window.PT_SITE = {
   appUrl: 'https://joserra15.github.io/PokerTrainer/',
-  siteName: 'PokerTrainer',
+  siteName: 'PokerForgeAI',
   oauthJavascriptOrigins: [
     'https://joserra15.github.io',
     'http://localhost',

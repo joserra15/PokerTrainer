@@ -1,6 +1,6 @@
-# Estudio de mercado — PokerTrainer
+# Estudio de mercado — PokerForgeAI
 
-> Documento de referencia para llevar PokerTrainer a mercado.  
+> Documento de referencia para llevar PokerForgeAI a mercado.  
 > Versión del producto analizada: **v1.19.14** (junio 2026).  
 > Repositorio: [joserra15/PokerTrainer](https://github.com/joserra15/PokerTrainer)
 
@@ -23,7 +23,7 @@
 
 ## 1. Resumen ejecutivo
 
-**PokerTrainer** es una aplicación web de estudio de poker NLHE (JavaScript puro, sin build) desplegada en GitHub Pages. Combina entrenador GTO interactivo, importación de sesiones PokerStars (español), repaso de manos con evaluación por decisión, sincronización en nube (Supabase) e IA Coach (Gemini vía Edge Function).
+**PokerForgeAI** es una aplicación web de estudio de poker NLHE (JavaScript puro, sin build) desplegada en GitHub Pages. Combina entrenador GTO interactivo, importación de sesiones PokerStars (español), repaso de manos con evaluación por decisión, sincronización en nube (Supabase) e IA Coach (Gemini vía Edge Function).
 
 ### Veredicto
 
@@ -98,7 +98,7 @@ Híbrido entre:
 2. **Hand-history reviewer** con scoring heurístico GTO
 3. **AI coaching layer** (informes cualitativos sobre manos/sesiones)
 
-### 3.2 Diferenciadores de PokerTrainer
+### 3.2 Diferenciadores de PokerForgeAI
 
 - Todo-en-uno en app estática sin instalación
 - **Español nativo** + import PokerStars ES
@@ -211,7 +211,7 @@ Menos fricción de decisión al lanzar.
 
 ### 5.4 Comparativa de mercado
 
-| Referencia | Precio | Posición PokerTrainer |
+| Referencia | Precio | Posición PokerForgeAI |
 |------------|--------|----------------------|
 | GTO Wizard Starter | ~$39–49/mes | 3–4× más caro; más profundidad |
 | GTO Coach Pro | ~$40/mes | Coach alineado en precio |
@@ -647,7 +647,7 @@ Backlog creado en [github.com/joserra15/PokerTrainer/issues](https://github.com/
 
 | Issue | Título |
 |-------|--------|
-| [#1](https://github.com/joserra15/PokerTrainer/issues/1) | **[ROADMAP] Lanzamiento comercial PokerTrainer** |
+| [#1](https://github.com/joserra15/PokerTrainer/issues/1) | **[ROADMAP] Lanzamiento comercial PokerForgeAI** |
 | [#2](https://github.com/joserra15/PokerTrainer/issues/2) | [EPIC] Legal y cumplimiento RGPD |
 | [#3](https://github.com/joserra15/PokerTrainer/issues/3) | [EPIC] Seguridad y auth de producción |
 | [#4](https://github.com/joserra15/PokerTrainer/issues/4) | [EPIC] Monetización y billing |

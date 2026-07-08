@@ -182,7 +182,7 @@ const TASKS = [
   { epic: 2, id: 'M-08', title: 'M-08: Emails transaccionales', labels: ['P1', 'billing'], effort: 'M', body: 'Confirmación suscripción, renovación, fallo de pago, cancelación. Resend o Stripe emails.' },
 
   // EPIC 4 GTM
-  { epic: 3, id: 'G-01', title: 'G-01: Dominio propio y SSL', labels: ['P1', 'gtm'], effort: 'S', body: 'Registrar dominio (ej. pokertrainer.es). DNS → GitHub Pages o Cloudflare. Actualizar OAuth origins.' },
+  { epic: 3, id: 'G-01', title: 'G-01: Dominio propio y SSL', labels: ['P1', 'gtm'], effort: 'S', body: 'Registrar dominio (ej. pokerforgeai.com). DNS → GitHub Pages o Cloudflare. Actualizar OAuth origins.' },
   { epic: 3, id: 'G-02', title: 'G-02: Landing marketing', labels: ['P1', 'gtm'], effort: 'M', body: 'Página pública: hero, features, pricing, testimonios placeholder, CTA login. Separada o sección en index.' },
   { epic: 3, id: 'G-03', title: 'G-03: Google OAuth en producción', labels: ['P0', 'gtm', 'security'], effort: 'M', body: 'Publicar app OAuth (salir de Testing). Completar verificación Google si aplica. Añadir dominio propio a orígenes.' },
   { epic: 3, id: 'G-04', title: 'G-04: Onboarding 3 pasos', labels: ['P1', 'gtm', 'product'], effort: 'M', body: 'Tour primera visita: 1) entrenar una mano 2) ver import demo 3) revisar stats. Skip + no repetir.' },
@@ -230,9 +230,9 @@ const TASKS = [
 ];
 
 const META_ISSUE = {
-  title: '[ROADMAP] Lanzamiento comercial PokerTrainer',
+  title: '[ROADMAP] Lanzamiento comercial PokerForgeAI',
   labels: ['roadmap', 'epic'],
-  body: `## Roadmap comercial PokerTrainer
+  body: `## Roadmap comercial PokerForgeAI
 
 Documento maestro: [docs/ESTUDIO_MERCADO.md](https://github.com/${REPO}/blob/main/docs/ESTUDIO_MERCADO.md)
 
@@ -267,7 +267,7 @@ function api(method, path, body) {
       path: `/repos/${owner}/${repo}${path}`,
       method,
       headers: {
-        'User-Agent': 'PokerTrainer-backlog-script',
+        'User-Agent': 'PokerForgeAI-backlog-script',
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28'
       }
