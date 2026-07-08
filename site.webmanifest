@@ -42,7 +42,7 @@
   "shortcuts": [
     {
       "name": "Entrenar",
-      "short_name": "Jugar",
+      "short_name": "Entrenar",
       "url": "./?source=pwa-shortcut&tab=play",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
