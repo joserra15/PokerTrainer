@@ -4,8 +4,8 @@
  */
 window.PT_LEGAL = {
   controllerName: 'PokerForgeAI',
-  controllerEmail: 'joserra15@gmail.com',
-  supportEmail: 'joserra15@gmail.com',
+  controllerEmail: 'info@pokerforgeai.com',
+  supportEmail: 'info@pokerforgeai.com',
   appUrl: 'https://joserra15.github.io/PokerTrainer/',
   lastUpdated: '6 de julio de 2026'
 };

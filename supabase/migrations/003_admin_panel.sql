@@ -69,7 +69,7 @@ begin
   -- Admin inicial por email (bootstrap)
   update public.pt_user_profiles
   set is_admin = true
-  where user_id = uid and lower(email) = lower('joserra15@gmail.com');
+  where user_id = uid and lower(email) = lower('info@pokerforgeai.com');
 
   select * into r from public.pt_user_profiles where user_id = uid;
   return r;
@@ -216,7 +216,7 @@ select
   true,
   now()
 from auth.users
-where lower(email) = lower('joserra15@gmail.com')
+where lower(email) = lower('info@pokerforgeai.com')
 on conflict (user_id) do update set
   is_admin = true,
   email = excluded.email;

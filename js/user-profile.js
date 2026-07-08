@@ -23,7 +23,7 @@
     return global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth();
   }
 
-  var ADMIN_EMAILS = ['joserra15@gmail.com'];
+  var ADMIN_EMAILS = ['info@pokerforgeai.com'];
 
   function isBootstrapAdmin(email) {
     if (!email) return false;

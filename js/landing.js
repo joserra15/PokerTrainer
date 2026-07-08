@@ -22,6 +22,9 @@
     var panel = document.getElementById('landing-login');
     if (panel) {
       panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      panel.classList.remove('landing-login-focus');
+      global.setTimeout(function () { panel.classList.add('landing-login-focus'); }, 20);
+      global.setTimeout(function () { panel.classList.remove('landing-login-focus'); }, 2200);
       var btn = document.getElementById('auth-mobile-login');
       if (btn) btn.focus();
     }
@@ -52,7 +55,7 @@
         '<h3>' + escapeHtml(c.title) + '</h3>' +
         '<div class="landing-price">' + escapeHtml(c.price) + '<small>' + escapeHtml(c.period) + '</small></div>' +
         '<ul>' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +
-        '<button type="button" class="btn ' + (c.featured ? 'btn-primary' : 'btn-ghost') + ' btn-block landing-price-cta">Empezar gratis</button>' +
+        '<button type="button" class="btn ' + (c.featured ? 'btn-primary' : 'btn-ghost') + ' btn-block landing-price-cta">Ir al login</button>' +
         '</div>';
     }).join('');
     grid.querySelectorAll('.landing-price-cta').forEach(function (btn) {
@@ -97,6 +100,16 @@
           e.preventDefault();
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+      });
+    });
+    document.querySelectorAll('[data-landing-install]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (global.PTPwa && global.PTPwa.installApp) {
+          global.PTPwa.installApp();
+          return;
+        }
+        scrollToLogin();
       });
     });
   }

@@ -31,7 +31,7 @@ sincronizan con Supabase si está configurado (`js/supabase-config.js`).
    - Tipo de usuario: **Externo**
    - Nombre de la app: `PokerForgeAI`
    - Email de asistencia y contacto del desarrollador
-   - Si el estado es **Prueba**: en *Usuarios de prueba* añade tu Gmail (`joserra15@gmail.com`)
+   - Si el estado es **Prueba**: en *Usuarios de prueba* añade tu Gmail (`info@pokerforgeai.com`)
 4. Copia el **Client ID** (termina en `.apps.googleusercontent.com`).
 5. Edita `js/google-config.js` (plantilla en `js/google-config.example.js`):
 

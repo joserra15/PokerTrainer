@@ -7,7 +7,7 @@ alter table public.pt_user_profiles
 -- Garantizar admin bootstrap
 update public.pt_user_profiles
 set is_admin = true
-where lower(email) = lower('joserra15@gmail.com');
+where lower(email) = lower('info@pokerforgeai.com');
 
 create table if not exists public.pt_coach_hand_index (
   id bigserial primary key,
@@ -147,7 +147,7 @@ begin
 
   update public.pt_user_profiles
   set is_admin = true
-  where user_id = uid and lower(coalesce(p_email, email)) = lower('joserra15@gmail.com');
+  where user_id = uid and lower(coalesce(p_email, email)) = lower('info@pokerforgeai.com');
 
   select * into r from public.pt_user_profiles where user_id = uid;
   return r;
