@@ -2173,10 +2173,17 @@ body.admin-invite-open { overflow: hidden; }
   padding: 6px 0 2px;
 }
 
+#tab-stats #stats-content {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
 .stats-redesign {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
 }
@@ -2196,6 +2203,7 @@ body.admin-invite-open { overflow: hidden; }
 }
 #tab-stats .stats-section {
   overflow: hidden;
+  width: 100%;
 }
 #tab-stats .stats-carousel-bars.prog-bars,
 #tab-stats .prog-bars.stats-carousel-bars {
