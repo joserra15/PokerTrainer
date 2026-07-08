@@ -256,11 +256,7 @@
     if (!sessionId) return;
     var agg = ensureAggregates(st);
     delete agg.sessionById[sessionId];
-    if (agg._sessionLeakKeys) {
-      Object.keys(agg._sessionLeakKeys).forEach(function (k) {
-        if (k.indexOf(sessionId + '|') === 0) delete agg._sessionLeakKeys[k];
-      });
-    }
+    purgeSessionLeaksForSession(agg, sessionId);
   }
 
   function bucketToSeries(map, weeks) {
@@ -329,6 +325,44 @@
     rebuildSessionLeaks(agg, sessions);
   }
 
+  function mergeLeakMaps(target, primary, secondary) {
+    mergeLeakMapsInto(target, primary);
+    Object.keys(secondary || {}).forEach(function (k) {
+      if (!target[k]) target[k] = JSON.parse(JSON.stringify(secondary[k]));
+    });
+  }
+
+  function mergeLeakMapsInto(target, src) {
+    Object.keys(src || {}).forEach(function (k) {
+      var s = src[k];
+      if (!s) return;
+      if (!target[k]) {
+        target[k] = JSON.parse(JSON.stringify(s));
+        return;
+      }
+      var t = target[k];
+      t.count = Math.max(t.count || 0, s.count || 0);
+      t.evLoss = round2(Math.max(t.evLoss || 0, s.evLoss || 0));
+      if (s.label) t.label = s.label;
+      if (s.sessionId && !t.sessionId) t.sessionId = s.sessionId;
+      if (s.handId && !t.handId) t.handId = s.handId;
+    });
+  }
+
+  function purgeSessionLeaksForSession(agg, sessionId) {
+    if (!sessionId || !agg) return;
+    Object.keys(agg.sessionLeaks || {}).forEach(function (k) {
+      if (agg.sessionLeaks[k] && agg.sessionLeaks[k].sessionId === sessionId) {
+        delete agg.sessionLeaks[k];
+      }
+    });
+    if (agg._sessionLeakKeys) {
+      Object.keys(agg._sessionLeakKeys).forEach(function (k) {
+        if (k.indexOf(sessionId + '|') === 0) delete agg._sessionLeakKeys[k];
+      });
+    }
+  }
+
   function mergeAggregates(local, cloud) {
     var out = defaultAggregates();
     [local, cloud].forEach(function (src) {
@@ -342,6 +376,8 @@
         });
       }
     });
+    mergeLeakMaps(out.trainerLeaks, local && local.trainerLeaks, cloud && cloud.trainerLeaks);
+    mergeLeakMaps(out.sessionLeaks, local && local.sessionLeaks, cloud && cloud.sessionLeaks);
     return out;
   }
 
@@ -375,7 +411,14 @@
     },
     refreshSessionLeaks: function (st, sessions) {
       var agg = ensureAggregates(st);
-      agg._sessionLeakKeys = {};
+      if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};
+      (sessions || []).forEach(function (s) {
+        if (s && s.hands && s.hands.length) indexSessionLeaksForSession(agg, s);
+      });
+    },
+    rebuildSessionLeaksFromCloud: function (st, sessions) {
+      var agg = ensureAggregates(st);
+      if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};
       rebuildSessionLeaks(agg, sessions);
     },
     rebuildTrainerLeaksFromHistory: rebuildTrainerLeaksFromHistory

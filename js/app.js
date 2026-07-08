@@ -1880,19 +1880,19 @@
           <h3>${escapeHtml(title)}</h3>
           <p class="muted-text">${escapeHtml(subtitle)}</p>
         </div>
-        <div class="stats-carousel-controls">
-          <button type="button" class="btn btn-ghost btn-sm" data-stats-prev="${escapeHtml(sectionId)}" aria-label="Anterior">‹</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-stats-next="${escapeHtml(sectionId)}" aria-label="Siguiente">›</button>
-        </div>
       </div>
-      <div class="stats-carousel" data-stats-carousel="${escapeHtml(sectionId)}">
-        ${slides.map((slide, idx) => `<article class="stats-slide${idx === 0 ? ' stats-slide-active' : ''}" data-stats-slide="${idx}">
-          <div class="stats-slide-head">
-            <h4>${escapeHtml(slide.title)}</h4>
-            <span class="muted-text">${idx + 1}/${slides.length}</span>
-          </div>
-          <div class="stats-slide-body">${slide.body}</div>
-        </article>`).join('')}
+      <div class="stats-carousel-wrap">
+        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-prev" data-stats-prev="${escapeHtml(sectionId)}" aria-label="Anterior">‹</button>
+        <div class="stats-carousel" data-stats-carousel="${escapeHtml(sectionId)}">
+          ${slides.map((slide, idx) => `<article class="stats-slide${idx === 0 ? ' stats-slide-active' : ''}" data-stats-slide="${idx}">
+            <div class="stats-slide-head">
+              <h4>${escapeHtml(slide.title)}</h4>
+              <span class="muted-text">${idx + 1}/${slides.length}</span>
+            </div>
+            <div class="stats-slide-body">${slide.body}</div>
+          </article>`).join('')}
+        </div>
+        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-next" data-stats-next="${escapeHtml(sectionId)}" aria-label="Siguiente">›</button>
       </div>
       <div class="stats-carousel-dots">
         ${slides.map((slide, idx) => `<button type="button" class="stats-carousel-dot${idx === 0 ? ' active' : ''}" data-stats-dot="${escapeHtml(sectionId)}:${idx}" aria-label="${escapeHtml(slide.title)}"></button>`).join('')}
@@ -2055,6 +2055,49 @@
     replayFromStored(errs[0]);
   }
 
+  let statsLeaksRebuildPromise = null;
+
+  function sessionsWithHandsForLeaks(sessions) {
+    return (sessions || []).map(function (s) {
+      return Store.getSession(s.id);
+    }).filter(function (s) {
+      return s && s.hands && s.hands.length;
+    });
+  }
+
+  function scheduleSessionLeaksRebuild(st, sessions) {
+    if (statsLeaksRebuildPromise || !window.PTStatsAggregate || !Store.getSessionAsync) return;
+    const tot = PTStatsAggregate.sessionsTotal(st);
+    if (!tot || !tot.decisions) return;
+    if (PTStatsAggregate.sessionTopLeaks(st, 1).length) return;
+    const CS = window.PTCloudSessions;
+    if (!CS || !CS.isReady || !CS.isReady()) return;
+    statsLeaksRebuildPromise = (async function () {
+      try {
+        let changed = false;
+        for (let i = 0; i < Math.min(8, sessions.length); i++) {
+          const full = await Store.getSessionAsync(sessions[i].id);
+          if (full && full.hands && full.hands.length) {
+            PTStatsAggregate.refreshSessionLeaks(st, [full]);
+            changed = true;
+          }
+        }
+        if (changed) {
+          Store.persistStats(st);
+          const indices = getStatsCarouselIndices();
+          if ($('#tab-stats') && $('#tab-stats').classList.contains('active')) {
+            renderStats();
+            restoreStatsCarouselIndices(indices);
+          }
+        }
+      } catch (e) {
+        console.warn('[Stats] rebuild session leaks', e);
+      } finally {
+        statsLeaksRebuildPromise = null;
+      }
+    })();
+  }
+
   // ---------- Estadísticas ----------
   function renderStats() {
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#stats-usage'));
@@ -2062,6 +2105,12 @@
     if ($('#leaks-panel')) $('#leaks-panel').innerHTML = '';
     const st = Store.getStats();
     const sessions = Store.getSessions ? Store.getSessions() : [];
+    if (window.PTStatsAggregate) {
+      const withHands = sessionsWithHandsForLeaks(sessions);
+      const leakCountBefore = PTStatsAggregate.sessionTopLeaks(st, 5).length;
+      if (withHands.length) PTStatsAggregate.refreshSessionLeaks(st, withHands);
+      if (PTStatsAggregate.sessionTopLeaks(st, 5).length > leakCountBefore) Store.persistStats(st);
+    }
     const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st) : null;
     const trainerWeekly = window.PTStatsAggregate ? PTStatsAggregate.trainerWeeklySeries(st, 8) : [];
     const sessionWeekly = window.PTStatsAggregate ? PTStatsAggregate.sessionWeeklySeries(st, 8) : [];
@@ -2160,6 +2209,7 @@
         persist: { kind: 'stats' }
       });
     }
+    scheduleSessionLeaksRebuild(st, sessions);
   }
 
   // ---------- Utilidades ----------

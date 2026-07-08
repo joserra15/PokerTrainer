@@ -329,7 +329,6 @@
         other.aggregates
       );
       global.PTStatsAggregate.rebuildTrainerLeaksFromHistory(out.aggregates, getHistory());
-      global.PTStatsAggregate.refreshSessionLeaks(out, getSessions());
     }
     return out;
   }
@@ -715,7 +714,6 @@
       const st = getStats();
       if (global.PTStatsAggregate) {
         global.PTStatsAggregate.removeSession(st, id);
-        global.PTStatsAggregate.refreshSessionLeaks(st, getSessions());
         writeStats(st);
       }
     } catch (e) { /* ignore */ }
@@ -1040,7 +1038,7 @@
 
   global.Store = {
     setUserId,
-    getHistory, getErrors, getStats, saveHand,
+    getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,
     purgeLocalUserData, scenarioLabel,
