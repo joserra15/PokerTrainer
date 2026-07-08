@@ -1366,6 +1366,7 @@ body.paywall-open { overflow: hidden; }
   .panel-head { flex-direction: column; align-items: flex-start; }
   .panel-head > div { width: 100%; }
   .panel-head > div .btn { flex: 1; }
+  .panel-head > .btn { width: 100%; }
 
   .record { grid-template-columns: auto 1fr; gap: 10px; }
   .record .rec-right { grid-column: 1 / -1; text-align: left; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
@@ -1375,6 +1376,142 @@ body.paywall-open { overflow: hidden; }
   .tl-player { min-width: 110px; }
   .review-head { flex-direction: column; align-items: flex-start; gap: 10px; }
   .import-row input[type=file] { width: 100%; }
+
+  /* Estadísticas — gráficas legibles en móvil */
+  .stats-reset-hint { font-size: 12px; line-height: 1.45; }
+  .progress-charts,
+  .progress-charts-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .prog-chart {
+    min-width: 0;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .prog-bars {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    gap: 8px;
+    height: 108px;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+  .prog-bar-col {
+    flex: 0 0 46px;
+    min-width: 46px;
+  }
+  .prog-bar-val {
+    font-size: 9px;
+    word-break: break-word;
+    max-width: 44px;
+  }
+  .prog-bar-lbl {
+    font-size: 9px;
+    max-width: 44px;
+  }
+  .prog-bar-track {
+    height: 64px;
+    max-width: 28px;
+  }
+  .prog-bar-track-signed .prog-bar {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+  .prog-bar-track-signed .prog-bar-pos {
+    bottom: 50%;
+    transform: translate(-50%, -1px);
+  }
+  .prog-bar-track-signed .prog-bar-neg {
+    top: 50%;
+    transform: translate(-50%, 1px);
+  }
+  .leak-bars {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+  .leak-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .leak-row .btn-sm {
+    width: 100%;
+    margin-left: 34px;
+  }
+  .stat-card { padding: 14px 10px; }
+  .stat-card .big { font-size: 24px; }
+
+  /* Admin — cabecera y tabla en móvil */
+  .admin-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-head-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-head-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .admin-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .admin-stat-card { padding: 12px 10px; }
+  .admin-stat-value { font-size: 22px; }
+  .admin-section-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-section-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .admin-section-actions .btn { width: 100%; }
+  .admin-sync-status,
+  .admin-users-status {
+    max-width: none;
+    width: 100%;
+  }
+  .admin-table-wrap {
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -2px;
+  }
+  .admin-table {
+    min-width: 520px;
+    font-size: 12px;
+  }
+  .admin-table th,
+  .admin-table td {
+    padding: 10px 8px;
+  }
+  .admin-user-cell { min-width: 140px; }
+  .admin-user-email {
+    word-break: break-all;
+    font-size: 11px;
+  }
+  .admin-plan-select {
+    max-width: 100%;
+    font-size: 12px;
+    padding: 5px 6px;
+  }
+  .admin-table th[data-col="renewal"],
+  .admin-table td[data-col="renewal"],
+  .admin-table th[data-col="payment"],
+  .admin-table td[data-col="payment"] {
+    display: none;
+  }
+  .admin-period-input { max-width: 100%; width: 100%; }
+  .admin-foot-note { font-size: 11px; }
 }
 
 /* Móvil pequeño */
@@ -1385,6 +1522,8 @@ body.paywall-open { overflow: hidden; }
   .seat { min-width: 44px; }
   .mini-stats div span { font-size: 18px; }
   .stats-content { grid-template-columns: 1fr; }
+  .admin-stats { grid-template-columns: 1fr; }
+  .prog-bar-col { flex: 0 0 40px; min-width: 40px; }
 }
 
 /* Pantallas táctiles: sin efecto hover de desplazamiento */
@@ -1935,18 +2074,18 @@ body.admin-invite-open { overflow: hidden; }
 }
 .prog-bar-track-signed .prog-bar {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 50%;
+  right: auto;
   max-width: 32px;
 }
 .prog-bar-track-signed .prog-bar-pos {
   bottom: 50%;
-  transform: translateY(-1px);
+  transform: translate(-50%, -1px);
   border-radius: 4px 4px 0 0;
 }
 .prog-bar-track-signed .prog-bar-neg {
   top: 50%;
-  transform: translateY(1px);
+  transform: translate(-50%, 1px);
   border-radius: 0 0 4px 4px;
 }
 .prog-bar-empty .prog-bar { opacity: 0.25; }
