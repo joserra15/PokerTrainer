@@ -30,6 +30,19 @@
     }
   }
 
+  function startLoginNow() {
+    if (global.PT_startGoogleLogin) {
+      global.PT_startGoogleLogin();
+      return;
+    }
+    var btn = document.getElementById('auth-mobile-login');
+    if (btn) {
+      btn.click();
+      return;
+    }
+    scrollToLogin();
+  }
+
   function renderPricing() {
     var grid = document.getElementById('landing-pricing-grid');
     if (!grid) return;
@@ -59,7 +72,10 @@
         '</div>';
     }).join('');
     grid.querySelectorAll('.landing-price-cta').forEach(function (btn) {
-      btn.addEventListener('click', scrollToLogin);
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        startLoginNow();
+      });
     });
   }
 
