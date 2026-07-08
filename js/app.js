@@ -1714,20 +1714,51 @@
     return total ? Math.round((good / total) * 100) : null;
   }
 
+  function statsPreferRowCharts() {
+    return !!(window.matchMedia && window.matchMedia('(max-width: 720px)').matches);
+  }
+
+  function formatBarChartVal(raw, num, suffix, isSigned) {
+    if (raw == null) return '—';
+    if (suffix === '%') return `${raw}%`;
+    if (suffix === ' bb') return `${isSigned && num > 0 ? '+' : ''}${raw}${suffix}`;
+    return String(raw);
+  }
+
+  function statsBarChartRows(title, series, field, suffix, colorVar) {
+    if (!series || !series.length) return `<div class="stats-carousel-empty muted-text">Sin datos suficientes.</div>`;
+    const isSigned = field === 'netBB';
+    const max = Math.max(1, ...series.map((s) => Math.abs(Number(s[field]) || 0)));
+    const rows = series.map((s) => {
+      const raw = s[field];
+      const num = Number(raw) || 0;
+      const val = formatBarChartVal(raw, num, suffix, isSigned);
+      const pct = raw == null ? 0 : Math.max(6, Math.round((Math.abs(num) / max) * 100));
+      const signedCls = isSigned ? (num < 0 ? ' stats-bar-row-fill-neg' : ' stats-bar-row-fill-pos') : '';
+      const varColor = isSigned ? (num < 0 ? '--red' : '--green') : colorVar;
+      return `<div class="stats-bar-row" title="${escapeHtml(s.label)}: ${escapeHtml(val)}">
+        <span class="stats-bar-row-lbl">${escapeHtml(s.label)}</span>
+        <span class="stats-bar-row-track${isSigned ? ' stats-bar-row-track-signed' : ''}">
+          ${isSigned ? '<span class="stats-bar-row-zero"></span>' : ''}
+          <span class="stats-bar-row-fill${signedCls}" style="width:${pct}%;background:var(${varColor})"></span>
+        </span>
+        <span class="stats-bar-row-val">${escapeHtml(val)}</span>
+      </div>`;
+    }).join('');
+    return `<div class="stats-carousel-chart stats-carousel-chart--rows"><h4>${escapeHtml(title)}</h4><div class="stats-bar-rows">${rows}</div></div>`;
+  }
+
   function statsBarChart(title, series, field, suffix, colorVar) {
+    if (statsPreferRowCharts()) {
+      return statsBarChartRows(title, series, field, suffix, colorVar);
+    }
     if (!series || !series.length) return `<div class="stats-carousel-empty muted-text">Sin datos suficientes.</div>`;
     const max = Math.max(1, ...series.map((s) => Math.abs(Number(s[field]) || 0)));
     const isSigned = field === 'netBB';
     const bars = series.map((s) => {
       const raw = s[field];
       const num = Number(raw) || 0;
-      const val = raw == null ? '—' : (
-        suffix === '%'
-          ? `${raw}%`
-          : suffix === ' bb'
-            ? `${isSigned && num > 0 ? '+' : ''}${raw}${suffix}`
-            : String(raw)
-      );
+      const val = raw == null ? '—' : formatBarChartVal(raw, num, suffix, isSigned);
       const h = raw == null ? 8 : Math.max(10, Math.round((Math.abs(num) / max) * 100));
       const signedCls = isSigned ? (num < 0 ? ' prog-bar-neg' : ' prog-bar-pos') : '';
       const varColor = isSigned ? (num < 0 ? '--red' : '--green') : colorVar;
@@ -1881,6 +1912,21 @@
     root.dataset.index = String(index);
   }
 
+  function getStatsCarouselIndices() {
+    const out = {};
+    $$('[data-stats-carousel]').forEach((root) => {
+      const id = root.getAttribute('data-stats-carousel');
+      if (id) out[id] = Number(root.dataset.index || 0);
+    });
+    return out;
+  }
+
+  function restoreStatsCarouselIndices(indices) {
+    Object.keys(indices || {}).forEach((id) => setStatsCarousel(id, indices[id]));
+  }
+
+  let statsResizeTimer = null;
+
   function bindStatsView() {
     $$('[data-stats-prev]').forEach((btn) => {
       btn.onclick = () => {
@@ -1919,6 +1965,22 @@
         await openSession(sessionId);
       };
     });
+
+    if (!window._ptStatsResizeBound) {
+      window._ptStatsResizeBound = true;
+      const onStatsLayoutChange = () => {
+        const tab = $('#tab-stats');
+        if (!tab || !tab.classList.contains('active')) return;
+        clearTimeout(statsResizeTimer);
+        statsResizeTimer = setTimeout(() => {
+          const indices = getStatsCarouselIndices();
+          renderStats();
+          restoreStatsCarouselIndices(indices);
+        }, 180);
+      };
+      window.addEventListener('resize', onStatsLayoutChange);
+      window.addEventListener('orientationchange', onStatsLayoutChange);
+    }
   }
 
   // ---------- Histórico ----------
