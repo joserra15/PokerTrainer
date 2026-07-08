@@ -2128,6 +2128,169 @@ body.admin-invite-open { overflow: hidden; }
   padding: 6px 0 2px;
 }
 
+.stats-redesign {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.stats-section {
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.stats-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.stats-section-head h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+.stats-section-head p {
+  margin: 0;
+  max-width: 72ch;
+}
+.stats-carousel-controls {
+  display: inline-flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.stats-carousel {
+  position: relative;
+}
+.stats-slide {
+  display: none;
+}
+.stats-slide-active {
+  display: block;
+}
+.stats-slide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.stats-slide-head h4 {
+  margin: 0;
+  font-size: 15px;
+}
+.stats-slide-body {
+  min-height: 280px;
+}
+.stats-carousel-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 14px;
+}
+.stats-carousel-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(139,151,167,.45);
+  cursor: pointer;
+}
+.stats-carousel-dot.active {
+  background: var(--accent);
+}
+.stats-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.stats-section-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.stats-street-grid {
+  gap: 12px;
+}
+.stats-carousel-chart {
+  height: 100%;
+}
+.stats-carousel-chart h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.stats-carousel-bars {
+  height: 180px;
+}
+.stats-carousel-bars .prog-bar-track {
+  max-width: 44px;
+  height: 132px;
+}
+.stats-carousel-bars .prog-bar,
+.stats-carousel-bars .prog-bar-col .prog-bar {
+  max-width: 44px;
+}
+.stats-carousel-bars .prog-bar-val {
+  font-size: 11px;
+}
+.stats-carousel-bars .prog-bar-lbl {
+  font-size: 11px;
+}
+.stats-distribution {
+  margin-top: 10px;
+}
+.stats-distribution-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.stats-leak-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.stats-leak-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+.stats-leak-rank {
+  min-width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(245,196,81,.12);
+  border: 1px solid rgba(245,196,81,.25);
+}
+.stats-leak-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.stats-leak-sub {
+  font-size: 13px;
+}
+.stats-carousel-empty {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  border: 1px dashed rgba(139,151,167,.35);
+  border-radius: 10px;
+  padding: 18px;
+}
 .progress-block-title, .leaks-section-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .progress-intro, .leaks-intro { margin: 0 0 12px; font-size: 13px; }
 .progress-charts {
@@ -2366,6 +2529,40 @@ body.admin-invite-open { overflow: hidden; }
 .leak-bar-meta { font-size: 9px; margin-top: 4px; text-align: center; }
 
 #stats-coach { margin-top: 18px; }
+@media (max-width: 900px) {
+  .stats-slide-body {
+    min-height: 0;
+  }
+}
+@media (max-width: 720px) {
+  .stats-section-head,
+  .stats-slide-head,
+  .stats-leak-row {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+  .stats-section-head {
+    align-items: stretch;
+  }
+  .stats-carousel-controls {
+    justify-content: flex-start;
+  }
+  .stats-overview-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .stats-overview-grid {
+    grid-template-columns: 1fr;
+  }
+  .stats-carousel-bars {
+    height: 160px;
+  }
+  .stats-carousel-bars .prog-bar-track {
+    max-width: 34px;
+    height: 116px;
+  }
+}
 
 .leak-list { display: flex; flex-direction: column; gap: 8px; }
 

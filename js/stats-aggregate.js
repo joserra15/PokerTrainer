@@ -109,11 +109,13 @@
     return tot;
   }
 
-  function bumpLeak(map, key, label, evLoss) {
+  function bumpLeak(map, key, label, evLoss, meta) {
     if (!map[key]) map[key] = { key: key, label: label || key, count: 0, evLoss: 0 };
     map[key].count += 1;
     map[key].evLoss = round2(map[key].evLoss + (Number(evLoss) || 0));
     if (label) map[key].label = label;
+    if (meta && meta.sessionId && !map[key].sessionId) map[key].sessionId = meta.sessionId;
+    if (meta && meta.handId && !map[key].handId) map[key].handId = meta.handId;
   }
 
   function trainerSpotKey(rec, d) {
@@ -176,7 +178,10 @@
       (h.decisions || []).forEach(function (d) {
         if (!LEAK_CLASSES[d.class]) return;
         var k = sessionSpotKey(h, d);
-        bumpLeak(agg.sessionLeaks, k, sessionSpotLabel(h, d, k), d.evLoss || d.evLossBB);
+        bumpLeak(agg.sessionLeaks, k, sessionSpotLabel(h, d, k), d.evLoss || d.evLossBB, {
+          sessionId: session.id,
+          handId: h.id
+        });
       });
     });
   }
@@ -239,7 +244,10 @@
         if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};
         if (agg._sessionLeakKeys[leakKey]) return;
         agg._sessionLeakKeys[leakKey] = true;
-        bumpLeak(agg.sessionLeaks, k, sessionSpotLabel(h, d, k), d.evLoss || d.evLossBB);
+        bumpLeak(agg.sessionLeaks, k, sessionSpotLabel(h, d, k), d.evLoss || d.evLossBB, {
+          sessionId: session.id,
+          handId: h.id
+        });
       });
     });
   }

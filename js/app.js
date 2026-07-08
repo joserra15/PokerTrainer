@@ -58,6 +58,8 @@
   let pendingForce = null;       // escenario forzado (repaso de errores)
   let repeatErrorsMode = false;
   let leakReplayQueue = [];
+  let latestTrainerStatsLeaks = [];
+  let latestSessionStatsLeaks = [];
 
   function emptyByStreet() {
     return {
@@ -1655,6 +1657,177 @@
     }).join('');
   }
 
+  function pctSafe(good, total) {
+    return total ? Math.round((good / total) * 100) : null;
+  }
+
+  function statsBarChart(title, series, field, suffix, colorVar) {
+    if (!series || !series.length) return `<div class="stats-carousel-empty muted-text">Sin datos suficientes.</div>`;
+    const max = Math.max(1, ...series.map((s) => Math.abs(Number(s[field]) || 0)));
+    const isSigned = field === 'netBB';
+    const bars = series.map((s) => {
+      const raw = s[field];
+      const num = Number(raw) || 0;
+      const val = raw == null ? '—' : (
+        suffix === '%'
+          ? `${raw}%`
+          : suffix === ' bb'
+            ? `${isSigned && num > 0 ? '+' : ''}${raw}${suffix}`
+            : String(raw)
+      );
+      const h = raw == null ? 8 : Math.max(10, Math.round((Math.abs(num) / max) * 100));
+      const signedCls = isSigned ? (num < 0 ? ' prog-bar-neg' : ' prog-bar-pos') : '';
+      const varColor = isSigned ? (num < 0 ? '--red' : '--green') : colorVar;
+      return `<div class="prog-bar-col" title="${escapeHtml(s.label)}: ${escapeHtml(val)}">
+        <span class="prog-bar-val">${escapeHtml(val)}</span>
+        <div class="prog-bar-track${isSigned ? ' prog-bar-track-signed' : ''}">
+          ${isSigned ? '<div class="prog-bar-zero"></div>' : ''}
+          <div class="prog-bar${signedCls}" style="height:${h}%;background:var(${varColor})"></div>
+        </div>
+        <span class="prog-bar-lbl">${escapeHtml(s.label)}</span>
+      </div>`;
+    }).join('');
+    return `<div class="stats-carousel-chart"><h4>${escapeHtml(title)}</h4><div class="prog-bars stats-carousel-bars">${bars}</div></div>`;
+  }
+
+  function buildSessionDerivedStats(sessions) {
+    const out = {
+      availableSessions: 0,
+      byStreet: emptyByStreet(),
+      dist: { optima: 0, aceptable: 0, imprecisa: 0, error: 0 }
+    };
+    (sessions || []).forEach((s) => {
+      if (!s || !s.hands || !s.hands.length) return;
+      out.availableSessions += 1;
+      s.hands.forEach((h) => {
+        (h.decisions || []).forEach((d) => {
+          if (out.dist[d.class] != null) out.dist[d.class] += 1;
+          const street = out.byStreet[d.street];
+          if (street) {
+            street.n += 1;
+            if (d.class === 'optima' || d.class === 'aceptable') street.good += 1;
+          }
+        });
+      });
+    });
+    return out;
+  }
+
+  function renderDecisionDistribution(dist, total) {
+    total = total || 0;
+    const pct = (n) => total ? Math.round((n / total) * 100) : 0;
+    return `<div class="stats-distribution">
+      <div class="dist-bar">
+        <span style="width:${pct(dist.optima || 0)}%;background:var(--green)">${pct(dist.optima || 0)}%</span>
+        <span style="width:${pct(dist.aceptable || 0)}%;background:var(--yellow)">${pct(dist.aceptable || 0)}%</span>
+        <span style="width:${pct(dist.imprecisa || 0)}%;background:var(--orange)">${pct(dist.imprecisa || 0)}%</span>
+        <span style="width:${pct(dist.error || 0)}%;background:var(--red)">${pct(dist.error || 0)}%</span>
+      </div>
+      <div class="stats-distribution-legend">
+        <span style="color:var(--green)">■ Óptima ${dist.optima || 0}</span>
+        <span style="color:var(--yellow)">■ Aceptable ${dist.aceptable || 0}</span>
+        <span style="color:var(--orange)">■ Imprecisa ${dist.imprecisa || 0}</span>
+        <span style="color:var(--red)">■ Error ${dist.error || 0}</span>
+      </div>
+    </div>`;
+  }
+
+  function renderLeakList(leaks, mode) {
+    if (!leaks || !leaks.length) return '<div class="stats-carousel-empty muted-text">Sin fugas destacables.</div>';
+    return `<div class="stats-leak-list">` + leaks.map((l, i) => {
+      const action = mode === 'trainer'
+        ? `<button type="button" class="btn btn-primary btn-sm" data-stats-train-leak="${escapeHtml(l.key)}">Repetir</button>`
+        : (l.sessionId ? `<button type="button" class="btn btn-ghost btn-sm" data-stats-open-session="${escapeHtml(l.sessionId)}">Ir a la sesión</button>` : '');
+      return `<div class="stats-leak-row">
+        <div class="stats-leak-rank">#${i + 1}</div>
+        <div class="stats-leak-main">
+          <div class="stats-leak-title">${escapeHtml(l.label)}</div>
+          <div class="stats-leak-sub muted-text">${l.count} error${l.count === 1 ? '' : 'es'} · EV perdido -${fmtBB(l.evLoss)} bb</div>
+        </div>
+        ${action}
+      </div>`;
+    }).join('') + `</div>`;
+  }
+
+  function renderStatsCarousel(sectionId, title, subtitle, slides) {
+    return `<section class="stats-section card-box" data-stats-section="${escapeHtml(sectionId)}">
+      <div class="stats-section-head">
+        <div>
+          <h3>${escapeHtml(title)}</h3>
+          <p class="muted-text">${escapeHtml(subtitle)}</p>
+        </div>
+        <div class="stats-carousel-controls">
+          <button type="button" class="btn btn-ghost btn-sm" data-stats-prev="${escapeHtml(sectionId)}" aria-label="Anterior">‹</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-stats-next="${escapeHtml(sectionId)}" aria-label="Siguiente">›</button>
+        </div>
+      </div>
+      <div class="stats-carousel" data-stats-carousel="${escapeHtml(sectionId)}">
+        ${slides.map((slide, idx) => `<article class="stats-slide${idx === 0 ? ' stats-slide-active' : ''}" data-stats-slide="${idx}">
+          <div class="stats-slide-head">
+            <h4>${escapeHtml(slide.title)}</h4>
+            <span class="muted-text">${idx + 1}/${slides.length}</span>
+          </div>
+          <div class="stats-slide-body">${slide.body}</div>
+        </article>`).join('')}
+      </div>
+      <div class="stats-carousel-dots">
+        ${slides.map((slide, idx) => `<button type="button" class="stats-carousel-dot${idx === 0 ? ' active' : ''}" data-stats-dot="${escapeHtml(sectionId)}:${idx}" aria-label="${escapeHtml(slide.title)}"></button>`).join('')}
+      </div>
+    </section>`;
+  }
+
+  function setStatsCarousel(sectionId, nextIndex) {
+    const root = document.querySelector(`[data-stats-carousel="${sectionId}"]`);
+    if (!root) return;
+    const slides = Array.from(root.querySelectorAll('[data-stats-slide]'));
+    if (!slides.length) return;
+    const total = slides.length;
+    const index = ((nextIndex % total) + total) % total;
+    slides.forEach((slide, idx) => slide.classList.toggle('stats-slide-active', idx === index));
+    $$(`[data-stats-dot^="${sectionId}:"]`).forEach((dot, idx) => dot.classList.toggle('active', idx === index));
+    root.dataset.index = String(index);
+  }
+
+  function bindStatsView() {
+    $$('[data-stats-prev]').forEach((btn) => {
+      btn.onclick = () => {
+        const sectionId = btn.getAttribute('data-stats-prev');
+        const root = document.querySelector(`[data-stats-carousel="${sectionId}"]`);
+        const idx = Number((root && root.dataset.index) || 0);
+        setStatsCarousel(sectionId, idx - 1);
+      };
+    });
+    $$('[data-stats-next]').forEach((btn) => {
+      btn.onclick = () => {
+        const sectionId = btn.getAttribute('data-stats-next');
+        const root = document.querySelector(`[data-stats-carousel="${sectionId}"]`);
+        const idx = Number((root && root.dataset.index) || 0);
+        setStatsCarousel(sectionId, idx + 1);
+      };
+    });
+    $$('[data-stats-dot]').forEach((btn) => {
+      btn.onclick = () => {
+        const raw = btn.getAttribute('data-stats-dot') || '';
+        const parts = raw.split(':');
+        setStatsCarousel(parts[0], Number(parts[1] || 0));
+      };
+    });
+    $$('[data-stats-train-leak]').forEach((btn) => {
+      btn.onclick = () => {
+        const leak = latestTrainerStatsLeaks.find((item) => item.key === btn.getAttribute('data-stats-train-leak'));
+        if (leak) startLeakReplay(leak);
+      };
+    });
+    $$('[data-stats-open-session]').forEach((btn) => {
+      btn.onclick = async () => {
+        const sessionId = btn.getAttribute('data-stats-open-session');
+        if (!sessionId) return;
+        goToTab('sessions');
+        await openSession(sessionId);
+      };
+    });
+  }
+
   // ---------- Histórico ----------
   function renderHistory() {
     let hist = Store.getHistory();
@@ -1730,15 +1903,18 @@
   // ---------- Estadísticas ----------
   function renderStats() {
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#stats-usage'));
-    if (window.PTProgress && PTProgress.renderDashboard) PTProgress.renderDashboard($('#progress-dashboard'));
-    if (window.PTLeaks && PTLeaks.renderPanel) {
-      PTLeaks.renderPanel($('#leaks-panel'), Store.getErrors(), (leak) => startLeakReplay(leak));
-    }
+    if ($('#progress-dashboard')) $('#progress-dashboard').innerHTML = '';
+    if ($('#leaks-panel')) $('#leaks-panel').innerHTML = '';
     const st = Store.getStats();
+    const sessions = Store.getSessions ? Store.getSessions() : [];
     const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st) : null;
+    const trainerWeekly = window.PTStatsAggregate ? PTStatsAggregate.trainerWeeklySeries(st, 8) : [];
+    const sessionWeekly = window.PTStatsAggregate ? PTStatsAggregate.sessionWeeklySeries(st, 8) : [];
+    const trainerLeaks = window.PTStatsAggregate ? PTStatsAggregate.trainerTopLeaks(st, 5) : [];
+    const sessionLeaks = window.PTStatsAggregate ? PTStatsAggregate.sessionTopLeaks(st, 5) : [];
+    const sessionDerived = buildSessionDerivedStats(sessions);
     const box = $('#stats-content');
     const total = st.decisions || 1;
-    const pct = (n) => Math.round((n / total) * 100);
     const accuracy = st.decisions ? Math.round(((st.optima + st.aceptable) / st.decisions) * 100) : 0;
     const byStreet = st.byStreet || emptyByStreet();
     const actualNet = roundSession(st.totalNet || 0);
@@ -1748,50 +1924,66 @@
       : { expectedNet: roundSession(actualNet - evLost), varianceAdj: roundSession(evLost) };
     const expectedNet = roundSession(netEv.expectedNet);
     const varianceAdj = roundSession(netEv.varianceAdj);
-    box.innerHTML = `
-      <div class="stat-card"><div class="big">${st.handsPlayed}</div><div class="lbl">Manos entrenador</div></div>
-      <div class="stat-card"><div class="big">${accuracy}%</div><div class="lbl">Acierto entrenador</div></div>
-      <div class="stat-card"><div class="big ${actualNet >= 0 ? 'net-pos' : 'net-neg'}">${actualNet >= 0 ? '+' : ''}${fmtBB(actualNet)}</div><div class="lbl">Resultado entrenador (bb)</div></div>
-      <div class="stat-card"><div class="big net-neg">-${fmtBB(evLost)}</div><div class="lbl">EV perdido entrenador (bb)</div></div>
-      ${sessTot && sessTot.sessions ? `
-      <div class="stat-card stats-session-block" style="grid-column:1/-1;text-align:left">
-        <div class="lbl" style="margin-bottom:8px">Sesiones importadas (acumulado persistente)</div>
-        <div class="stats-content stats-session-grid" style="margin-bottom:0">
-          <div class="stat-card stat-session stat-session-count"><div class="big">${sessTot.sessions}</div><div class="lbl">Sesiones</div></div>
-          <div class="stat-card stat-session stat-session-hands"><div class="big">${sessTot.hands}</div><div class="lbl">Manos</div></div>
-          <div class="stat-card stat-session stat-session-acc"><div class="big">${sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : '—'}${sessTot.decisions ? '%' : ''}</div><div class="lbl">Acierto</div></div>
-          <div class="stat-card stat-session"><div class="big ${sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot.netBB >= 0 ? '+' : ''}${fmtBB(sessTot.netBB)}</div><div class="lbl">Resultado real (bb)</div></div>
-          <div class="stat-card stat-session"><div class="big net-neg">-${fmtBB(sessTot.evLoss)}</div><div class="lbl">EV perdido (bb)</div></div>
-        </div>
-      </div>` : ''}
-      <div class="stat-card" style="grid-column:1/-1;text-align:left">
-        <div class="lbl" style="margin-bottom:8px">EV esperado vs resultado real</div>
-        <div class="stats-content" style="margin-bottom:8px">
-          <div class="stat-card"><div class="big ${expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${expectedNet >= 0 ? '+' : ''}${fmtBB(expectedNet)}</div><div class="lbl">EV esperado (sin fugas)</div></div>
+    latestTrainerStatsLeaks = trainerLeaks.slice();
+    latestSessionStatsLeaks = sessionLeaks.slice();
+
+    const trainerSlides = [
+      {
+        title: 'Resumen general',
+        body: `<div class="stats-overview-grid">
+          <div class="stat-card"><div class="big">${st.handsPlayed}</div><div class="lbl">Manos</div></div>
+          <div class="stat-card"><div class="big">${accuracy}%</div><div class="lbl">Acierto</div></div>
           <div class="stat-card"><div class="big ${actualNet >= 0 ? 'net-pos' : 'net-neg'}">${actualNet >= 0 ? '+' : ''}${fmtBB(actualNet)}</div><div class="lbl">Resultado real</div></div>
-          <div class="stat-card"><div class="big ${varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${varianceAdj >= 0 ? '+' : ''}${fmtBB(varianceAdj)}</div><div class="lbl">Varianza / suerte</div></div>
+          <div class="stat-card"><div class="big net-neg">-${fmtBB(evLost)}</div><div class="lbl">EV perdido</div></div>
+          <div class="stat-card"><div class="big ${expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${expectedNet >= 0 ? '+' : ''}${fmtBB(expectedNet)}</div><div class="lbl">EV esperado</div></div>
+          <div class="stat-card"><div class="big ${varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${varianceAdj >= 0 ? '+' : ''}${fmtBB(varianceAdj)}</div><div class="lbl">Varianza</div></div>
         </div>
-        <div class="muted-text">EV perdido por errores: <strong>-${fmtBB(evLost)} bb</strong>. EV esperado = resultado real − fugas.</div>
-      </div>
-      <div class="stat-card" style="grid-column:1/-1;text-align:left">
-        <div class="lbl" style="margin-bottom:8px">Acierto por calle</div>
-        <div class="street-acc">${renderStreetAccBars(byStreet)}</div>
-      </div>
-      <div class="stat-card" style="grid-column:1/-1;text-align:left">
-        <div class="lbl" style="margin-bottom:6px">Distribución de decisiones (${st.decisions})</div>
-        <div class="dist-bar">
-          <span style="width:${pct(st.optima)}%;background:var(--green)">${pct(st.optima)}%</span>
-          <span style="width:${pct(st.aceptable)}%;background:var(--yellow)">${pct(st.aceptable)}%</span>
-          <span style="width:${pct(st.imprecisa)}%;background:var(--orange)">${pct(st.imprecisa)}%</span>
-          <span style="width:${pct(st.error)}%;background:var(--red)">${pct(st.error)}%</span>
+        <p class="muted-text stats-section-note">EV esperado = resultado real sin fugas. Varianza = diferencia entre resultado real y EV esperado.</p>`
+      },
+      { title: 'Progreso semanal · Acierto', body: statsBarChart('Acierto semanal', trainerWeekly, 'accuracy', '%', '--green') },
+      { title: 'Progreso semanal · EV perdido', body: statsBarChart('EV perdido semanal', trainerWeekly, 'evLoss', ' bb', '--red') },
+      { title: 'Progreso semanal · Volumen', body: statsBarChart('Manos por semana', trainerWeekly, 'hands', '', '--gold') },
+      {
+        title: 'Acierto por calle',
+        body: `<div class="street-acc stats-street-grid">${renderStreetAccBars(byStreet)}</div>
+          <div class="stats-section-note">${renderDecisionDistribution({ optima: st.optima, aceptable: st.aceptable, imprecisa: st.imprecisa, error: st.error }, st.decisions)}</div>`
+      },
+      { title: 'Leaks del entrenador', body: renderLeakList(trainerLeaks, 'trainer') }
+    ];
+
+    const sessionAccuracy = sessTot && sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : null;
+    const sessionStreetBars = renderStreetAccBars(sessionDerived.byStreet);
+    const sessionSlides = [
+      {
+        title: 'Resumen general',
+        body: `<div class="stats-overview-grid">
+          <div class="stat-card"><div class="big">${sessTot ? sessTot.sessions : 0}</div><div class="lbl">Sesiones</div></div>
+          <div class="stat-card"><div class="big">${sessTot ? sessTot.hands : 0}</div><div class="lbl">Manos</div></div>
+          <div class="stat-card"><div class="big">${sessionAccuracy == null ? '—' : sessionAccuracy + '%'}</div><div class="lbl">Acierto</div></div>
+          <div class="stat-card"><div class="big ${sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot ? (sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB) : '—'}</div><div class="lbl">Resultado real</div></div>
+          <div class="stat-card"><div class="big net-neg">${sessTot ? '-' + fmtBB(sessTot.evLoss) : '—'}</div><div class="lbl">EV perdido</div></div>
+          <div class="stat-card"><div class="big">${sessionDerived.availableSessions}</div><div class="lbl">Sesiones disponibles para detalle</div></div>
         </div>
-        <div style="font-size:12px;color:var(--muted);margin-top:8px">
-          <span style="color:var(--green)">&#9632; Óptima ${st.optima}</span> &nbsp;
-          <span style="color:var(--yellow)">&#9632; Aceptable ${st.aceptable}</span> &nbsp;
-          <span style="color:var(--orange)">&#9632; Imprecisa ${st.imprecisa}</span> &nbsp;
-          <span style="color:var(--red)">&#9632; Error ${st.error}</span>
-        </div>
+        <p class="muted-text stats-section-note">Las métricas acumuladas incluyen sesiones importadas persistentes. Los accesos directos a fugas solo aparecen si la sesión sigue disponible.</p>`
+      },
+      { title: 'Progreso semanal · Acierto', body: statsBarChart('Acierto semanal', sessionWeekly, 'accuracy', '%', '--green') },
+      { title: 'Progreso semanal · EV perdido', body: statsBarChart('EV perdido semanal', sessionWeekly, 'evLoss', ' bb', '--red') },
+      { title: 'Progreso semanal · Resultado real', body: statsBarChart('Resultado real semanal', sessionWeekly, 'netBB', ' bb', '--accent') },
+      { title: 'Progreso semanal · Volumen', body: statsBarChart('Manos por semana', sessionWeekly, 'hands', '', '--gold') },
+      {
+        title: 'Acierto por calle',
+        body: `<div class="street-acc stats-street-grid">${sessionStreetBars}</div>
+          <div class="stats-section-note">${renderDecisionDistribution(sessionDerived.dist, Object.values(sessionDerived.dist).reduce((sum, n) => sum + n, 0))}</div>`
+      },
+      { title: 'Leaks de sesiones', body: renderLeakList(sessionLeaks, 'sessions') }
+    ];
+
+    box.innerHTML = `
+      <div class="stats-redesign">
+        ${renderStatsCarousel('trainer', 'Entrenador', 'Tus manos jugadas en el entrenador, separadas del análisis de sesiones importadas.', trainerSlides)}
+        ${renderStatsCarousel('sessions', 'Sesiones importadas', 'Resultados y fugas de manos reales importadas, con acceso a la sesión cuando siga disponible.', sessionSlides)}
       </div>`;
+    bindStatsView();
 
     const coachHost = $('#stats-coach');
     if (coachHost && window.PTAIReport) {
