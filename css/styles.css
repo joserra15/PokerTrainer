@@ -545,6 +545,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .home-lead { font-size: clamp(15px, 2.2vw, 17px); color: rgba(230,237,243,.82); line-height: 1.55; max-width: 52ch; margin-bottom: 24px; }
+.home-lead--loading { color: var(--muted); font-style: italic; }
 .home-cta {
   display: inline-flex; align-items: center; gap: 10px;
   padding: 14px 28px; font-size: 16px; font-weight: 700;
@@ -994,8 +995,21 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 
 /* ---- Records (history/errors) ---- */
 .panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
-.panel-head h2 { font-size: 20px; }
+.panel-head h2 { font-size: 20px; display: flex; align-items: center; gap: 10px; }
 .panel-head > div { display: flex; gap: 8px; }
+.panel-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.panel-icon.home-card-icon {
+  width: 36px;
+  height: 36px;
+}
+.panel-icon .home-card-icon-svg {
+  width: 20px;
+  height: 20px;
+}
 .record-list { display: flex; flex-direction: column; gap: 10px; }
 .record {
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
@@ -1084,7 +1098,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 /* ---- Explorador Rangos (tab) ---- */
 .ranges-panel { max-width: 560px; margin: 0 auto; }
 .ranges-panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
-.ranges-panel-head h2 { margin: 0; font-size: 20px; }
+.ranges-panel-head h2 { margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px; }
 .ranges-filter-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 .ranges-filter-row .setup-chips { flex-wrap: wrap; }
 .ranges-spot-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
@@ -1222,7 +1236,7 @@ body.paywall-open { overflow: hidden; }
 .play-setup {
   max-width: 520px; margin: 0 auto 20px; padding: 20px 22px;
 }
-.play-setup-title { margin: 0 0 6px; font-size: 22px; }
+.play-setup-title { margin: 0 0 6px; font-size: 22px; display: flex; align-items: center; gap: 10px; }
 .play-setup-sub { margin: 0 0 18px; font-size: 14px; }
 .setup-group { margin-bottom: 18px; }
 .setup-label {
@@ -2132,6 +2146,31 @@ body.admin-invite-open { overflow: hidden; }
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+  max-width: 100%;
+  min-width: 0;
+}
+#tab-stats .stats-content,
+#tab-stats .stats-redesign,
+#tab-stats .stats-section,
+#tab-stats .stats-carousel,
+#tab-stats .stats-slide,
+#tab-stats .stats-slide-body,
+#tab-stats .stats-overview-grid,
+#tab-stats .stats-carousel-chart,
+#tab-stats .stats-carousel-bars,
+#tab-stats .prog-bars {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+#tab-stats .stats-section {
+  overflow: hidden;
+}
+#tab-stats .stats-carousel-bars.prog-bars,
+#tab-stats .prog-bars.stats-carousel-bars {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 .stats-section {
   overflow: hidden;
@@ -2550,6 +2589,12 @@ body.admin-invite-open { overflow: hidden; }
   .stats-overview-grid {
     grid-template-columns: 1fr 1fr;
   }
+  #tab-stats .stats-leak-row {
+    grid-template-columns: 1fr;
+  }
+  #tab-stats .stats-leak-row .btn {
+    width: 100%;
+  }
 }
 @media (max-width: 560px) {
   .stats-overview-grid {
@@ -2561,6 +2606,12 @@ body.admin-invite-open { overflow: hidden; }
   .stats-carousel-bars .prog-bar-track {
     max-width: 34px;
     height: 116px;
+  }
+  #tab-stats .panel-head h2 {
+    font-size: 18px;
+  }
+  #tab-stats .stats-section-head h3 {
+    font-size: 16px;
   }
 }
 

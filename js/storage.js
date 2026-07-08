@@ -187,6 +187,133 @@
     write(scopedKey('stats'), st);
   }
 
+  function clearedAtStorageKey() {
+    return scopedKey('cleared_at');
+  }
+
+  function getClearedAt() {
+    return read(clearedAtStorageKey(), {});
+  }
+
+  function writeClearedAt(ca) {
+    write(clearedAtStorageKey(), ca || {});
+  }
+
+  function markCleared(key) {
+    const ca = getClearedAt();
+    ca[key] = Date.now();
+    writeClearedAt(ca);
+    if (key === 'stats') {
+      try { localStorage.removeItem(scopedKey('stats_coach')); } catch (e) { /* noop */ }
+    }
+  }
+
+  function filterByClearedAt(arr, clearedTs) {
+    if (!clearedTs) return arr || [];
+    return (arr || []).filter(function (item) {
+      if (!item) return false;
+      const ts = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+      return !ts || ts > clearedTs;
+    });
+  }
+
+  function isStatsEmpty(st) {
+    return !(st && ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0));
+  }
+
+  function hasRejectRemote(key) {
+    return !!(getClearedAt()[key + '_reject']);
+  }
+
+  function rejectRemoteClears(keys) {
+    const ca = getClearedAt();
+    (keys || []).forEach(function (k) { ca[k + '_reject'] = Date.now(); });
+    writeClearedAt(ca);
+  }
+
+  function clearRejectRemote(keys) {
+    const ca = getClearedAt();
+    let changed = false;
+    (keys || []).forEach(function (k) {
+      const flag = k + '_reject';
+      if (ca[flag]) { delete ca[flag]; changed = true; }
+    });
+    if (changed) writeClearedAt(ca);
+  }
+
+  function effectiveCloudClear(key, cloudCa) {
+    if (hasRejectRemote(key)) return 0;
+    return (cloudCa && cloudCa[key]) || 0;
+  }
+
+  function mergeClearedAtMeta(localCa, cloudCa) {
+    const out = Object.assign({}, localCa || {});
+    Object.keys(cloudCa || {}).forEach(function (k) {
+      if (k.indexOf('_reject') >= 0) return;
+      out[k] = Math.max(out[k] || 0, cloudCa[k] || 0);
+    });
+    return out;
+  }
+
+  function mergeStatsWithClear(localStats, cloudStats, localCa, cloudCa) {
+    const lClear = (localCa && localCa.stats) || 0;
+    const cClear = effectiveCloudClear('stats', cloudCa);
+    if (lClear > cClear && isStatsEmpty(cloudStats)) {
+      return JSON.parse(JSON.stringify(localStats));
+    }
+    if (cClear > lClear && isStatsEmpty(localStats)) {
+      return JSON.parse(JSON.stringify(cloudStats));
+    }
+    return mergeStats(localStats, cloudStats);
+  }
+
+  function hasLocalDataAfterClear(key, snapshot, localClearTs) {
+    if (key === 'stats') {
+      const st = snapshot.stats;
+      if (isStatsEmpty(st)) return false;
+      return (st.updatedAt || 0) > (localClearTs || 0);
+    }
+    return (snapshot[key] || []).some(function (item) {
+      const ts = item.createdAt ? new Date(item.createdAt).getTime() : Date.now();
+      return ts > (localClearTs || 0);
+    });
+  }
+
+  function detectResetConflicts(cloudSnapshot) {
+    if (!cloudSnapshot) return [];
+    const cloudCa = cloudSnapshot.clearedAt || {};
+    const localCa = getClearedAt();
+    const local = getCloudSnapshot();
+    const labels = { history: 'histórico', errors: 'errores', stats: 'estadísticas' };
+    const conflicts = [];
+    ['history', 'errors', 'stats'].forEach(function (key) {
+      const cloudTs = cloudCa[key] || 0;
+      const localTs = localCa[key] || 0;
+      if (cloudTs <= localTs) return;
+      if (!hasLocalDataAfterClear(key, local, localTs)) return;
+      conflicts.push({ key: key, label: labels[key] || key });
+    });
+    return conflicts;
+  }
+
+  function applyRemoteClears(cloudCa, keys) {
+    const ca = getClearedAt();
+    (keys || ['history', 'errors', 'stats']).forEach(function (k) {
+      const cloudTs = (cloudCa && cloudCa[k]) || 0;
+      if (cloudTs > (ca[k] || 0)) ca[k] = cloudTs;
+      delete ca[k + '_reject'];
+    });
+    writeClearedAt(ca);
+    if (ca.history) write(scopedKey('history'), filterByClearedAt(getHistory(), ca.history));
+    if (ca.errors) write(scopedKey('errors'), filterByClearedAt(getErrors(), ca.errors));
+    if (ca.stats) {
+      const st = getStats();
+      if (isStatsEmpty(st) || (st.updatedAt || 0) <= ca.stats) {
+        writeStats(defaultStats());
+      }
+    }
+  }
+
   function mergeStats(localStats, cloudStats) {
     const a = localStats && typeof localStats === 'object' ? localStats : defaultStats();
     const b = cloudStats && typeof cloudStats === 'object' ? cloudStats : defaultStats();
@@ -345,6 +472,7 @@
 
   function clearHistory() {
     localStorage.removeItem(scopedKey('history'));
+    markCleared('history');
     notifySync(['history']);
     if (global.PTCloud && global.PTCloud.flushPush) {
       global.PTCloud.flushPush();
@@ -353,6 +481,7 @@
 
   function clearErrors() {
     localStorage.removeItem(scopedKey('errors'));
+    markCleared('errors');
     notifySync(['errors']);
     if (global.PTCloud && global.PTCloud.flushPush) {
       global.PTCloud.flushPush();
@@ -362,6 +491,7 @@
   function clearStats() {
     const st = defaultStats();
     writeStats(st);
+    markCleared('stats');
     notifySync(['stats']);
     if (global.PTCloud && global.PTCloud.flushPush) global.PTCloud.flushPush();
   }
@@ -624,7 +754,8 @@
     return {
       stats: getStats(),
       history: getHistory(),
-      errors: getErrors()
+      errors: getErrors(),
+      clearedAt: getClearedAt()
     };
   }
 
@@ -680,20 +811,64 @@
     });
   }
 
+  function mergeArrayKeyForCloud(key, local, cloud, cloudCa, localCa, maxLen) {
+    const cloudClear = effectiveCloudClear(key, cloudCa);
+    const localArr = filterByClearedAt(local[key], localCa[key]);
+    const cloudArr = filterByClearedAt(cloud[key] || [], cloudClear);
+    const localCleared = !!(localCa[key] && localCa[key] >= cloudClear);
+    if (!localArr.length && localCleared) {
+      return { data: [], clearedTs: localCa[key] };
+    }
+    return {
+      data: mergeRecordsById(localArr, cloudArr, maxLen),
+      clearedTs: Math.max(localCa[key] || 0, cloudClear || 0) || 0
+    };
+  }
+
   /** Fusiona solo las claves tocadas antes de subir a la nube (evita pisar datos de otros dispositivos). */
   function mergeDirtyKeysIntoCloud(cloudPayload, dirtyKeys) {
     const cloud = cloudPayload || {};
     const local = getCloudSnapshot();
+    const localCa = getClearedAt();
+    const cloudCa = cloud.clearedAt || {};
     const keys = (dirtyKeys || []).filter(function (k) { return k !== 'sessions'; });
     if (!keys.length) return Object.assign({}, cloud);
     const out = Object.assign({}, cloud);
+    out.clearedAt = Object.assign({}, cloudCa, localCa);
     keys.forEach(function (key) {
       if (key === 'history') {
-        out.history = mergeRecordsById(local.history, cloud.history || [], MAX_HISTORY);
+        const merged = mergeArrayKeyForCloud('history', local, cloud, cloudCa, localCa, MAX_HISTORY);
+        out.history = merged.data;
+        if (merged.clearedTs) out.clearedAt.history = merged.clearedTs;
+        else delete out.clearedAt.history;
+        if (hasRejectRemote('history')) {
+          delete out.clearedAt.history;
+          if (localCa.history) out.clearedAt.history = localCa.history;
+        }
       } else if (key === 'errors') {
-        out.errors = mergeRecordsById(local.errors, cloud.errors || [], MAX_HISTORY);
+        const merged = mergeArrayKeyForCloud('errors', local, cloud, cloudCa, localCa, MAX_HISTORY);
+        out.errors = merged.data;
+        if (merged.clearedTs) out.clearedAt.errors = merged.clearedTs;
+        else delete out.clearedAt.errors;
+        if (hasRejectRemote('errors')) {
+          delete out.clearedAt.errors;
+          if (localCa.errors) out.clearedAt.errors = localCa.errors;
+        }
       } else if (key === 'stats') {
-        out.stats = mergeStats(local.stats, cloud.stats);
+        const localCleared = !!(localCa.stats && localCa.stats >= effectiveCloudClear('stats', cloudCa));
+        if (isStatsEmpty(local.stats) && localCleared) {
+          out.stats = JSON.parse(JSON.stringify(local.stats));
+          out.clearedAt.stats = localCa.stats;
+        } else {
+          out.stats = mergeStatsWithClear(local.stats, cloud.stats, localCa, cloudCa);
+          const maxClear = Math.max(localCa.stats || 0, effectiveCloudClear('stats', cloudCa));
+          if (maxClear) out.clearedAt.stats = maxClear;
+          else delete out.clearedAt.stats;
+        }
+        if (hasRejectRemote('stats')) {
+          delete out.clearedAt.stats;
+          if (localCa.stats) out.clearedAt.stats = localCa.stats;
+        }
       } else if (local[key] != null) {
         out[key] = local[key];
       }
@@ -727,9 +902,22 @@
   function mergeFromCloud(cloudSnapshot) {
     if (!cloudSnapshot) return null;
     const local = getCloudSnapshot();
-    const history = mergeRecordsById(local.history, cloudSnapshot.history, MAX_HISTORY);
-    const errors = mergeRecordsById(local.errors, cloudSnapshot.errors, MAX_HISTORY);
-    const stats = mergeStats(local.stats, cloudSnapshot.stats);
+    const cloudCa = cloudSnapshot.clearedAt || {};
+    const localCa = getClearedAt();
+    const mergedCa = mergeClearedAtMeta(localCa, cloudCa);
+    writeClearedAt(mergedCa);
+
+    const history = mergeRecordsById(
+      filterByClearedAt(local.history, localCa.history),
+      filterByClearedAt(cloudSnapshot.history, effectiveCloudClear('history', cloudCa)),
+      MAX_HISTORY
+    );
+    const errors = mergeRecordsById(
+      filterByClearedAt(local.errors, localCa.errors),
+      filterByClearedAt(cloudSnapshot.errors, effectiveCloudClear('errors', cloudCa)),
+      MAX_HISTORY
+    );
+    const stats = mergeStatsWithClear(local.stats, cloudSnapshot.stats, mergedCa, cloudCa);
     write(scopedKey('history'), history);
     write(scopedKey('errors'), errors);
     writeStats(stats);
@@ -738,9 +926,18 @@
 
   function replaceFromCloud(snapshot) {
     if (!snapshot) return;
-    if (snapshot.stats) writeStats(JSON.parse(JSON.stringify(snapshot.stats)));
-    if (snapshot.history) write(scopedKey('history'), snapshot.history);
-    if (snapshot.errors) write(scopedKey('errors'), snapshot.errors);
+    const cloudCa = snapshot.clearedAt || {};
+    const localCa = getClearedAt();
+    writeClearedAt(mergeClearedAtMeta(localCa, cloudCa));
+    if (snapshot.stats) {
+      writeStats(JSON.parse(JSON.stringify(snapshot.stats)));
+    }
+    if (snapshot.history) {
+      write(scopedKey('history'), filterByClearedAt(snapshot.history, effectiveCloudClear('history', cloudCa)));
+    }
+    if (snapshot.errors) {
+      write(scopedKey('errors'), filterByClearedAt(snapshot.errors, effectiveCloudClear('errors', cloudCa)));
+    }
   }
 
   function normalizeCoachEntry(entry) {
@@ -850,6 +1047,7 @@
     getSessions, getSession, getSessionAsync, saveSession, removeSession, deleteSessionTxt,
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
+    getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry
   };
 })(window);

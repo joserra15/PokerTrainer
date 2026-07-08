@@ -288,7 +288,7 @@
           <div class="home-hero-inner">
             <p class="home-eyebrow">Entrenador GTO · Preflop &amp; postflop</p>
             <h2 class="home-greeting" id="home-greeting">Bienvenido al felt</h2>
-            <p class="home-lead">Practica spots reales, consulta rangos solver, repasa tus errores y resuelve dudas con el <strong>IA Coach</strong>.</p>
+            <p class="home-lead" id="home-lead">Practica spots reales, consulta rangos solver, repasa tus errores y resuelve dudas con el <strong>IA Coach</strong>.</p>
             <button type="button" class="btn btn-primary home-cta" id="home-cta-play">
               <span class="home-cta-icon" aria-hidden="true">&#9824;</span>
               Empezar a entrenar
@@ -367,7 +367,7 @@
     <!-- ===== ENTRENAR ===== -->
     <section id="tab-play" class="tab-panel">
       <div id="play-setup" class="play-setup card-box">
-        <h2 class="play-setup-title">Configurar sesión</h2>
+        <h2 class="play-setup-title"><span class="panel-icon home-card-icon home-card-icon-train" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M6 4h8l4 4v12H6z"/><path d="M14 4v4h4"/><path d="M9 14l2 2 4-5"/></svg></span>Configurar sesión</h2>
         <p class="muted-text play-setup-sub">Elige el tipo de spot y los rangos antes de empezar a practicar.</p>
 
         <div class="setup-group">
@@ -520,7 +520,7 @@
     <section id="tab-ranges" class="tab-panel">
       <div class="ranges-panel card-box">
         <div class="ranges-panel-head">
-          <h2>Rangos preflop</h2>
+          <h2><span class="panel-icon home-card-icon home-card-icon-ranges" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/><path d="M9 3v18"/><path d="M15 3v18"/></svg></span>Rangos preflop</h2>
           <span class="muted-text" id="ranges-context-label">Cash 6-max · 100bb</span>
         </div>
         <div class="ranges-filter-row">
@@ -559,7 +559,7 @@
       <!-- Vista: lista de sesiones -->
       <div id="sessions-home">
         <div class="panel-head">
-          <h2>Sesiones importadas</h2>
+          <h2><span class="panel-icon home-card-icon home-card-icon-sessions" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M5 19V9"/><path d="M12 19V5"/><path d="M19 19v-7"/><path d="M4 19h16"/></svg></span>Sesiones importadas</h2>
         </div>
         <div class="import-box">
           <h3>Añadir sesión</h3>
@@ -594,7 +594,7 @@
     <!-- ===== HISTÓRICO ===== -->
     <section id="tab-history" class="tab-panel">
       <div class="panel-head">
-        <h2>Histórico de manos</h2>
+        <h2><span class="panel-icon home-card-icon home-card-icon-history" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M8 7h8"/><path d="M8 12h8"/><path d="M8 17h5"/><path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg></span>Histórico de manos</h2>
         <div>
           <button id="sync-cloud" class="btn btn-primary" title="Fusionar histórico, errores y sesiones con la nube">Sincronizar</button>
           <button id="export-data" class="btn btn-ghost">Exportar JSON</button>
@@ -608,7 +608,7 @@
     <!-- ===== ERRORES ===== -->
     <section id="tab-errors" class="tab-panel">
       <div class="panel-head">
-        <h2>Spots fallados (repaso)</h2>
+        <h2><span class="panel-icon home-card-icon home-card-icon-errors" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M12 4l8 15H4z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Spots fallados (repaso)</h2>
         <div>
           <button id="train-errors" class="btn btn-primary">Entrenar errores</button>
           <button id="clear-errors" class="btn btn-danger">Vaciar errores</button>
@@ -621,7 +621,7 @@
     <!-- ===== ESTADÍSTICAS ===== -->
     <section id="tab-stats" class="tab-panel">
       <div class="panel-head">
-        <h2>Estadísticas globales</h2>
+        <h2><span class="panel-icon home-card-icon home-card-icon-stats" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 19h16"/><path d="M7 16l3-3 3 2 4-6"/></svg></span>Estadísticas globales</h2>
         <button id="clear-stats" class="btn btn-danger">Resetear estadísticas</button>
       </div>
       <p class="muted-text stats-reset-hint">Acumulado persistente del entrenador y sesiones importadas. Borrar histórico o sesiones no resta estos totales semanales ni los leaks agregados.</p>

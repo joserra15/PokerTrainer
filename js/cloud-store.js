@@ -124,6 +124,25 @@
     return Array.isArray(val) && val.length > 0;
   }
 
+  function resolveResetConflicts(cloudPayload) {
+    if (!global.Store || !global.Store.detectResetConflicts) return;
+    const conflicts = global.Store.detectResetConflicts(cloudPayload);
+    if (!conflicts.length) return;
+    const names = conflicts.map(function (c) { return c.label; }).join(', ');
+    const apply = confirm(
+      'En otro dispositivo o navegador se borraron: ' + names + '.\n\n' +
+      '¿Aplicar ese borrado también aquí?\n\n' +
+      'Aceptar = borrar y sincronizar\n' +
+      'Cancelar = mantener tus datos locales'
+    );
+    const keys = conflicts.map(function (c) { return c.key; });
+    if (apply && global.Store.applyRemoteClears) {
+      global.Store.applyRemoteClears(cloudPayload.clearedAt, keys);
+    } else if (!apply && global.Store.rejectRemoteClears) {
+      global.Store.rejectRemoteClears(keys);
+    }
+  }
+
   function localMaxTs(meta) {
     let max = 0;
     for (let i = 0; i < DATA_KEYS.length; i++) {
@@ -258,6 +277,8 @@
         await global.Store.uploadLegacyLocalSessionsToCloud();
       }
 
+      if (cloudPayload) resolveResetConflicts(cloudPayload);
+
       if (cloudHas && localHas && global.Store.mergeFromCloud) {
         global.Store.mergeFromCloud(cloudPayloadForMerge(row, cloudPayload));
       } else if (cloudHas) {
@@ -311,6 +332,7 @@
       if (cloudPayload.sessions) {
         await migrateLegacyCloudSessions(cloudPayload);
       }
+      resolveResetConflicts(cloudPayload);
       const filtered = cloudPayloadForMerge(row, cloudPayload);
       const summary = global.Store.mergeFromCloud(filtered) || {};
       await pushPayload(global.Store.getCloudSnapshot());
@@ -360,6 +382,7 @@
           return merged;
         })();
       await pushPayload(payload);
+      if (global.Store.clearRejectRemote) global.Store.clearRejectRemote(keys);
       if (status !== 'syncing') setStatus('online', 'Guardado en la nube');
     } catch (e) {
       console.warn('[PTCloud] push', e);

@@ -320,6 +320,53 @@
     return n.split(/\s+/)[0];
   }
 
+  const DEFAULT_HOME_LEAD =
+    'Practica spots reales, consulta rangos solver, repasa tus errores y resuelve dudas con el <strong>IA Coach</strong>.';
+
+  function buildHomeStatsBundle() {
+    const stats = Store.getStats();
+    const Agg = window.PTStatsAggregate;
+    return {
+      stats: stats,
+      weekly: Agg ? Agg.trainerWeeklySeries(stats, 8) : (window.PTProgress ? PTProgress.buildWeeklySeries(Store.getHistory(), 8) : []),
+      weeklySessions: Agg ? Agg.sessionWeeklySeries(stats, 8) : [],
+      leaks: window.PTLeaks ? PTLeaks.topLeaks(Store.getErrors(), 5) : [],
+      sessionLeaks: Agg ? Agg.sessionTopLeaks(stats, 5) : [],
+      sessionsTotal: Agg ? Agg.sessionsTotal(stats) : null
+    };
+  }
+
+  let homeGreetingRequest = 0;
+
+  function loadHomeGreeting(leadEl) {
+    if (!leadEl) return;
+    const reqId = ++homeGreetingRequest;
+    leadEl.classList.add('home-lead--loading');
+    leadEl.textContent = 'Preparando tu plan de entrenamiento…';
+    if (!window.PTAIReport || !PTAIReport.fetchHomeGreeting) {
+      leadEl.classList.remove('home-lead--loading');
+      leadEl.innerHTML = DEFAULT_HOME_LEAD;
+      return;
+    }
+    PTAIReport.fetchHomeGreeting(buildHomeStatsBundle)
+      .then(function (text) {
+        if (reqId !== homeGreetingRequest) return;
+        const homeTab = $('#tab-home');
+        if (!homeTab || !homeTab.classList.contains('active')) return;
+        leadEl.classList.remove('home-lead--loading');
+        if (text) {
+          leadEl.textContent = text;
+        } else {
+          leadEl.innerHTML = DEFAULT_HOME_LEAD;
+        }
+      })
+      .catch(function () {
+        if (reqId !== homeGreetingRequest) return;
+        leadEl.classList.remove('home-lead--loading');
+        leadEl.innerHTML = DEFAULT_HOME_LEAD;
+      });
+  }
+
   function renderHome() {
     const greetEl = $('#home-greeting');
     const statsEl = $('#home-stats');
@@ -331,6 +378,12 @@
     const user = window.PT_AUTH_USER;
     const first = firstNameFromUser(user);
     greetEl.textContent = first ? ('¡Hola, ' + first + '!') : 'Bienvenido al felt';
+
+    const leadEl = $('.home-lead');
+    if (leadEl) loadHomeGreeting(leadEl);
+
+    const coachCard = document.querySelector('#home-grid [data-scroll-coach]');
+    if (coachCard) coachCard.classList.toggle('hidden', !!user);
 
     const st = Store.getStats();
     const errs = Store.getErrors();
@@ -1694,23 +1747,63 @@
     const out = {
       availableSessions: 0,
       byStreet: emptyByStreet(),
+      accByStreet: { preflop: null, flop: null, turn: null, river: null },
       dist: { optima: 0, aceptable: 0, imprecisa: 0, error: 0 }
     };
+    const streetTotals = {
+      preflop: { weighted: 0, n: 0 },
+      flop: { weighted: 0, n: 0 },
+      turn: { weighted: 0, n: 0 },
+      river: { weighted: 0, n: 0 }
+    };
     (sessions || []).forEach((s) => {
-      if (!s || !s.hands || !s.hands.length) return;
-      out.availableSessions += 1;
-      s.hands.forEach((h) => {
-        (h.decisions || []).forEach((d) => {
-          if (out.dist[d.class] != null) out.dist[d.class] += 1;
-          const street = out.byStreet[d.street];
-          if (street) {
-            street.n += 1;
-            if (d.class === 'optima' || d.class === 'aceptable') street.good += 1;
+      if (!s) return;
+      const stats = s.stats || {};
+      if (s.hands && s.hands.length) {
+        out.availableSessions += 1;
+        s.hands.forEach((h) => {
+          (h.decisions || []).forEach((d) => {
+            if (out.dist[d.class] != null) out.dist[d.class] += 1;
+            const street = out.byStreet[d.street];
+            if (street) {
+              street.n += 1;
+              if (d.class === 'optima' || d.class === 'aceptable') street.good += 1;
+            }
+          });
+        });
+        return;
+      }
+      if (stats && stats.nHands) {
+        ['optima', 'aceptable', 'imprecisa', 'error'].forEach((key) => {
+          if (out.dist[key] != null) out.dist[key] += Number((stats.dist || {})[key]) || 0;
+        });
+        ['preflop', 'flop', 'turn', 'river'].forEach((streetKey) => {
+          const pct = stats.accByStreet && stats.accByStreet[streetKey];
+          const decisions = Number((stats.street || {})[streetKey] && (stats.street || {})[streetKey].n) || 0;
+          if (pct == null) return;
+          if (decisions > 0) {
+            out.byStreet[streetKey].n += decisions;
+            out.byStreet[streetKey].good += Math.round((decisions * pct) / 100);
+          } else {
+            streetTotals[streetKey].weighted += Number(pct) * Math.max(1, Number(stats.nDecisions) || 1);
+            streetTotals[streetKey].n += Math.max(1, Number(stats.nDecisions) || 1);
           }
         });
-      });
+      }
+    });
+    ['preflop', 'flop', 'turn', 'river'].forEach((streetKey) => {
+      if (out.byStreet[streetKey].n > 0) {
+        out.accByStreet[streetKey] = Math.round((out.byStreet[streetKey].good / out.byStreet[streetKey].n) * 100);
+      } else if (streetTotals[streetKey].n > 0) {
+        out.accByStreet[streetKey] = Math.round(streetTotals[streetKey].weighted / streetTotals[streetKey].n);
+      }
     });
     return out;
+  }
+
+  function renderStreetAccBarsFromPct(accByStreet) {
+    const labels = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River' };
+    return ['preflop', 'flop', 'turn', 'river'].map((st) => streetAccBar(labels[st], accByStreet ? accByStreet[st] : null)).join('');
   }
 
   function renderDecisionDistribution(dist, total) {
@@ -1952,7 +2045,7 @@
     ];
 
     const sessionAccuracy = sessTot && sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : null;
-    const sessionStreetBars = renderStreetAccBars(sessionDerived.byStreet);
+    const sessionStreetBars = renderStreetAccBarsFromPct(sessionDerived.accByStreet);
     const sessionSlides = [
       {
         title: 'Resumen general',

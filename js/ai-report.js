@@ -783,6 +783,39 @@
     return panel;
   }
 
+  const HOME_GREETING_QUESTION =
+    'Escribe un saludo breve de inicio de sesión (2 o 3 frases máximo). Debe ser directo, amable y motivador, recomendando qué entrenar hoy según mis estadísticas y fugas principales. Sin títulos, sin markdown, sin listas ni emojis.';
+
+  function stripPlainCoachText(md) {
+    return String(md || '')
+      .replace(/[#*_`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  async function fetchHomeGreeting(getStatsBundle) {
+    if (!isEnabled()) return null;
+    const consent = await ensureConsent('statsGlobal');
+    if (!consent) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    const cacheKey = 'pt_home_greeting_' + today;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) return cached;
+    } catch (e) { /* noop */ }
+    const Payload = global.PTAIHandPayload;
+    if (!Payload || !Payload.build) return null;
+    const bundle = typeof getStatsBundle === 'function' ? getStatsBundle() : getStatsBundle;
+    const payload = Payload.build('statsGlobal', bundle);
+    if (!payload) return null;
+    const data = await fetchCoach(payload, 'statsGlobal', 'question', HOME_GREETING_QUESTION, []);
+    const text = stripPlainCoachText(data.reportMarkdown || '');
+    if (text) {
+      try { sessionStorage.setItem(cacheKey, text); } catch (e) { /* noop */ }
+    }
+    return text || null;
+  }
+
   function mountWelcome(container, options) {
     if (!container) return null;
     options = options || {};
@@ -835,6 +868,6 @@
   }
 
   global.PTAIReport = {
-    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, readCache, QUESTION_MAX
+    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, readCache, QUESTION_MAX
   };
 })(window);
