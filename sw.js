@@ -1,25 +1,32 @@
-/* Service worker — PWA. JS/CSS siempre red; HTML network-first. */
+/* Service worker — PWA instalable. Shell offline + assets con network-first. */
 'use strict';
 
-var CACHE = 'pt-shell-v7';
+var CACHE = 'pt-shell-v8';
 var PRECACHE = [
+  './offline.html',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
+  './icons/logo-512.png',
   './icons/logo-header.png',
   './site.webmanifest'
 ];
 
-function isAppAsset(url) {
-  return url.pathname.indexOf('/js/') >= 0 ||
-    url.pathname.indexOf('/css/') >= 0 ||
-    url.pathname.endsWith('/js/version.js') ||
-    url.pathname.endsWith('/deploy-info.json');
+function isAppAsset(pathname) {
+  return pathname.indexOf('/js/') >= 0 ||
+    pathname.indexOf('/css/') >= 0 ||
+    pathname.endsWith('/js/version.js') ||
+    pathname.endsWith('/deploy-info.json');
+}
+
+function isNavigateRequest(req) {
+  return req.mode === 'navigate' ||
+    (req.headers.get('accept') || '').indexOf('text/html') >= 0;
 }
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
     caches.open(CACHE).then(function (cache) {
-      return cache.addAll(PRECACHE).catch(function () { /* offline partial ok */ });
+      return cache.addAll(PRECACHE).catch(function () { /* partial offline ok */ });
     }).then(function () { return self.skipWaiting(); })
   );
 });
@@ -34,11 +41,29 @@ self.addEventListener('activate', function (event) {
   );
 });
 
+function offlineFallback() {
+  return caches.match('./offline.html').then(function (cached) {
+    if (cached) return cached;
+    return new Response(
+      '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<title>Sin conexión</title></head><body style="font-family:system-ui;background:#0f1419;color:#e6edf3;text-align:center;padding:24px">' +
+      '<h1>Sin conexión</h1><p>Comprueba la red e inténtalo de nuevo.</p><a href="./">Reintentar</a></body></html>',
+      { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+    );
+  });
+}
+
 function networkFirst(req) {
   return fetch(req).then(function (res) {
+    if (res && res.ok && isNavigateRequest(req)) {
+      var copy = res.clone();
+      caches.open(CACHE).then(function (cache) { cache.put(req, copy); });
+    }
     return res;
   }).catch(function () {
-    return caches.match(req);
+    return caches.match(req).then(function (cached) {
+      return cached || offlineFallback();
+    });
   });
 }
 
@@ -48,12 +73,12 @@ self.addEventListener('fetch', function (event) {
   var url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  if (req.mode === 'navigate' || (req.headers.get('accept') || '').indexOf('text/html') >= 0) {
+  if (isNavigateRequest(req)) {
     event.respondWith(networkFirst(req));
     return;
   }
 
-  if (isAppAsset(url)) {
+  if (isAppAsset(url.pathname)) {
     event.respondWith(networkFirst(req));
     return;
   }

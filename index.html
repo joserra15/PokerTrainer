@@ -75,7 +75,7 @@
         <section class="landing-hero" id="landing-hero">
           <p class="landing-eyebrow">Cash NL 6-max · MTT preflop</p>
           <h1>Entrena GTO, importa tus sesiones y mejora con IA Coach</h1>
-          <p class="landing-lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV — sin instalar nada.</p>
+          <p class="landing-lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV. También puedes instalarla en el móvil como app.</p>
           <div class="landing-hero-actions">
             <button type="button" class="btn btn-primary" data-landing-login>Empezar gratis</button>
             <a class="btn btn-ghost" href="#landing-features">Ver funciones</a>
@@ -231,6 +231,7 @@
             <button type="button" id="account-upgrade" class="btn btn-primary btn-block" style="margin-bottom:8px">Ver planes</button>
             <button type="button" id="account-export" class="btn btn-ghost btn-block" style="margin-bottom:6px">Exportar mis datos</button>
             <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
+            <button type="button" id="account-install-app" class="btn btn-ghost btn-block hidden" style="margin-bottom:8px">Instalar app</button>
             <button type="button" id="account-admin" class="btn btn-admin btn-block hidden" style="margin-bottom:8px">Panel de administración</button>
             <button type="button" id="account-demo" class="btn btn-ghost btn-block hidden" style="margin-bottom:8px">Modo demo</button>
             <button type="button" id="account-stop-demo" class="btn btn-primary btn-block hidden" style="margin-bottom:8px">Parar demo</button>
@@ -882,6 +883,7 @@
       'js/entitlements.js',
       'js/billing.js',
       'js/contact.js',
+      'js/pwa.js',
       'js/admin-panel.js',
       'js/auth.js',
       'js/app.js'
@@ -896,15 +898,6 @@
     }
     loadNext(0);
   })();
-  </script>
-  <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js?v=' + encodeURIComponent(window.PT_BUILD || '1')).catch(function (e) {
-        console.warn('[PWA]', e);
-      });
-    });
-  }
   </script>
 </body>
 </html>

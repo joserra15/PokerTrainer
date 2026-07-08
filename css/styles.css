@@ -2274,6 +2274,73 @@ body.admin-invite-open { overflow: hidden; }
 .re-engage-banner p { margin: 0; font-size: 14px; }
 .re-engage-actions { display: flex; gap: 8px; }
 
+/* —— PWA instalable —— */
+body.pwa-banner-open {
+  padding-bottom: calc(72px + var(--safe-bottom));
+}
+.pwa-install-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 190;
+  padding: 10px max(12px, var(--safe-left)) calc(10px + var(--safe-bottom)) max(12px, var(--safe-right));
+  background: rgba(15, 20, 25, 0.96);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
+}
+.pwa-install-banner.hidden { display: none; }
+.pwa-install-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.pwa-install-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pwa-install-text strong { font-size: 14px; }
+.pwa-install-sub {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.pwa-install-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.pwa-ios-modal { z-index: 220; }
+.pwa-ios-content { max-width: min(96vw, 420px); }
+.pwa-ios-steps {
+  margin: 12px 0 14px 20px;
+  line-height: 1.55;
+  font-size: 14px;
+}
+.pwa-ios-steps li { margin-bottom: 8px; }
+html.pwa-standalone body {
+  /* ya cubierto por safe-area en header; refuerzo visual */
+  overscroll-behavior-y: contain;
+}
+
+@media (max-width: 680px) {
+  .pwa-install-inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pwa-install-actions {
+    width: 100%;
+  }
+  .pwa-install-actions .btn {
+    flex: 1;
+  }
+}
+
 .account-marketing {
   display: flex;
   align-items: flex-start;
