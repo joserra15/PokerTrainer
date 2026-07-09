@@ -490,6 +490,14 @@
     if (tabId === 'pricing') renderPricing();
     if (tabId === 'sessions') {
       if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#sessions-usage'));
+      if (opts.openSessionId) {
+        showSessionsView('detail');
+        const detailBox = $('#session-detail-content');
+        if (detailBox) detailBox.innerHTML = '<p class="muted-text">Cargando sesión…</p>';
+        void openSession(opts.openSessionId);
+        refreshSessionsFromCloud();
+        return;
+      }
       showSessionsView('home');
       renderSessionsList();
       refreshSessionsFromCloud();
@@ -779,9 +787,26 @@
     return true;
   }
 
+  function trainerLeaksForStats(st) {
+    const aggLeaks = window.PTStatsAggregate ? PTStatsAggregate.trainerTopLeaks(st, 5) : [];
+    if (!window.PTLeaks || !PTLeaks.aggregate) return aggLeaks;
+    const byKey = {};
+    PTLeaks.aggregate(Store.getErrors()).forEach(function (l) { byKey[l.key] = l; });
+    return aggLeaks.map(function (l) {
+      const rich = byKey[l.key];
+      return rich ? Object.assign({}, l, rich) : l;
+    });
+  }
+
   function startLeakReplay(leak) {
-    if (!leak || !leak.errors || !leak.errors.length) return false;
-    leakReplayQueue = leak.errors.slice().sort(function (a, b) {
+    if (!leak) return false;
+    let errors = leak.errors;
+    if ((!errors || !errors.length) && leak.key && window.PTLeaks && PTLeaks.aggregate) {
+      const match = PTLeaks.aggregate(Store.getErrors()).find(function (l) { return l.key === leak.key; });
+      if (match && match.errors) errors = match.errors;
+    }
+    if (!errors || !errors.length) return false;
+    leakReplayQueue = errors.slice().sort(function (a, b) {
       return (Number(b.evLoss) || 0) - (Number(a.evLoss) || 0);
     });
     const rec = leakReplayQueue.shift();
@@ -1881,8 +1906,7 @@
           <p class="muted-text">${escapeHtml(subtitle)}</p>
         </div>
       </div>
-      <div class="stats-carousel-wrap">
-        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-prev" data-stats-prev="${escapeHtml(sectionId)}" aria-label="Anterior">‹</button>
+      <div class="stats-carousel-stage">
         <div class="stats-carousel" data-stats-carousel="${escapeHtml(sectionId)}">
           ${slides.map((slide, idx) => `<article class="stats-slide${idx === 0 ? ' stats-slide-active' : ''}" data-stats-slide="${idx}">
             <div class="stats-slide-head">
@@ -1892,6 +1916,7 @@
             <div class="stats-slide-body">${slide.body}</div>
           </article>`).join('')}
         </div>
+        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-prev" data-stats-prev="${escapeHtml(sectionId)}" aria-label="Anterior">‹</button>
         <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-next" data-stats-next="${escapeHtml(sectionId)}" aria-label="Siguiente">›</button>
       </div>
       <div class="stats-carousel-dots">
@@ -1958,11 +1983,10 @@
       };
     });
     $$('[data-stats-open-session]').forEach((btn) => {
-      btn.onclick = async () => {
+      btn.onclick = () => {
         const sessionId = btn.getAttribute('data-stats-open-session');
         if (!sessionId) return;
-        goToTab('sessions');
-        await openSession(sessionId);
+        goToTab('sessions', { openSessionId: sessionId });
       };
     });
 
@@ -2114,7 +2138,7 @@
     const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st) : null;
     const trainerWeekly = window.PTStatsAggregate ? PTStatsAggregate.trainerWeeklySeries(st, 8) : [];
     const sessionWeekly = window.PTStatsAggregate ? PTStatsAggregate.sessionWeeklySeries(st, 8) : [];
-    const trainerLeaks = window.PTStatsAggregate ? PTStatsAggregate.trainerTopLeaks(st, 5) : [];
+    const trainerLeaks = trainerLeaksForStats(st);
     const sessionLeaks = window.PTStatsAggregate ? PTStatsAggregate.sessionTopLeaks(st, 5) : [];
     const sessionDerived = buildSessionDerivedStats(sessions);
     const box = $('#stats-content');
