@@ -511,6 +511,24 @@
       }
       if (window.PTAdmin && window.PTAdmin.render) window.PTAdmin.render();
     }
+    if (tabId === 'account') {
+      var accountUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
+      if (!accountUser) {
+        goToTab('home');
+        return;
+      }
+      if (window.PTAccountSettings && window.PTAccountSettings.render) {
+        window.PTAccountSettings.render();
+      }
+    }
+  }
+
+  var accountSettingsBack = $('#account-settings-back');
+  if (accountSettingsBack && !accountSettingsBack.dataset.bound) {
+    accountSettingsBack.dataset.bound = '1';
+    accountSettingsBack.addEventListener('click', function () {
+      goToTab('home');
+    });
   }
 
   window.goToTab = goToTab;

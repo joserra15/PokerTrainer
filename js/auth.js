@@ -70,35 +70,11 @@
     return window.matchMedia('(max-width: 680px)').matches;
   }
 
-  function setAccountAccordion(open) {
+  function closeAccountDropdown() {
     const dropdown = $('#account-dropdown');
-    const toggle = $('#account-accordion-toggle');
-    const panel = $('#account-accordion-panel');
-    if (!dropdown || !toggle || !panel) return;
-    if (!isMobileNav()) {
-      dropdown.classList.remove('is-open');
-      toggle.setAttribute('aria-expanded', 'true');
-      return;
-    }
-    dropdown.classList.toggle('is-open', !!open);
-    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-  }
-
-  function toggleAccountAccordion() {
-    const dropdown = $('#account-dropdown');
-    if (!dropdown) return;
-    setAccountAccordion(!dropdown.classList.contains('is-open'));
-  }
-
-  function bindAccountAccordion() {
-    const toggle = $('#account-accordion-toggle');
-    if (!toggle || toggle.dataset.bound) return;
-    toggle.dataset.bound = '1';
-    toggle.addEventListener('click', function (e) {
-      if (!isMobileNav()) return;
-      e.stopPropagation();
-      toggleAccountAccordion();
-    });
+    const trigger = $('#account-trigger');
+    if (dropdown) dropdown.classList.add('hidden');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
   }
 
   function renderAccountMenu(user) {
@@ -118,75 +94,14 @@
     if (emailEl) emailEl.textContent = user.email;
     if (shortEl) shortEl.textContent = user.email.length > 22 ? user.email.slice(0, 20) + '…' : user.email;
 
-    const metaEl = $('#account-meta');
-    if (metaEl) {
-      var planRow = user.plan && user.plan !== 'free'
-        ? '<div class="account-row"><span>Plan</span><strong>' + escapeHtml(user.planLabel || user.plan) + '</strong></div>'
-        : '';
-      metaEl.innerHTML =
-        '<div class="account-row"><span>Correo</span><strong>' + escapeHtml(user.email) + '</strong></div>' +
-        (user.emailVerified ? '<div class="account-row"><span>Verificado</span><strong>Sí</strong></div>' : '') +
-        planRow +
-        (user.isAdmin ? '<div class="account-row account-row-admin"><span>Rol</span><strong>Administrador</strong></div>' : '') +
-        (user.locale ? '<div class="account-row"><span>Idioma</span><strong>' + escapeHtml(user.locale) + '</strong></div>' : '') +
-        '<div class="account-row"><span>ID</span><code>' + escapeHtml(user.sub.slice(0, 12)) + '…</code></div>' +
-        '<div class="account-row" data-cloud-status><span>Nube</span><strong>…</strong></div>' +
-        '<div class="account-row" data-ai-usage><span>IA mes</span><strong>…</strong></div>';
-    }
-    if (global.PTProfile && global.PTProfile.getMyAiUsageToday) {
-      global.PTProfile.getMyAiUsageToday().then(function (usage) {
-        var aiRow = metaEl && metaEl.querySelector('[data-ai-usage] strong');
-        if (aiRow) {
-          aiRow.textContent = usage.limit === '∞'
-            ? (usage.used + ' / ∞')
-            : (usage.used + ' / ' + usage.limit);
-        }
-      });
-    }
-
-    var upgradeBtn = $('#account-upgrade');
-    if (upgradeBtn) {
-      upgradeBtn.onclick = function () {
-        if (global.goToTab) global.goToTab('pricing');
-      };
-      upgradeBtn.classList.toggle('hidden', user.plan === 'premium' && user.paidActive);
-    }
-    var billingBtn = $('#account-billing');
-    if (billingBtn) {
-      var showBilling = user.plan !== 'free' || user.subscriptionStatus === 'active';
-      billingBtn.classList.toggle('hidden', !showBilling || !global.PTBilling || !global.PTBilling.enabled());
-      billingBtn.onclick = function () {
-        if (global.PTBilling && global.PTBilling.openPortal) {
-          global.PTBilling.openPortal().catch(function (e) {
-            alert(e.message || 'No se pudo abrir el portal de facturación.');
-          });
-        }
-      };
-    }
     if (global.PTAdmin && global.PTAdmin.setAdminVisible) {
       var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
       global.PTAdmin.setAdminVisible(!!user.isAdmin && !demoOn);
     }
-    var demoBtn = $('#account-demo');
-    var stopDemoBtn = $('#account-stop-demo');
     var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
-    if (demoBtn) {
-      demoBtn.classList.toggle('hidden', !user.isAdmin || demoOn);
-    }
-    if (stopDemoBtn) {
-      stopDemoBtn.classList.toggle('hidden', !demoOn);
-    }
     var adminMenuBtn = $('#account-admin');
     if (adminMenuBtn) {
       adminMenuBtn.classList.toggle('hidden', !user.isAdmin || demoOn);
-    }
-    if (global.PTCloud && global.PTCloud.getStatus) {
-      const st = global.PTCloud.getStatus();
-      const cloudRow = metaEl && metaEl.querySelector('[data-cloud-status] strong');
-      if (cloudRow) {
-        const labels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error' };
-        cloudRow.textContent = labels[st.status] || st.status;
-      }
     }
 
     trigger.onclick = function (e) {
@@ -197,6 +112,14 @@
       const open = dropdown.classList.toggle('hidden');
       trigger.setAttribute('aria-expanded', open ? 'false' : 'true');
     };
+
+    const settingsBtn = $('#account-settings');
+    if (settingsBtn) {
+      settingsBtn.onclick = function () {
+        closeAccountDropdown();
+        if (global.goToTab) global.goToTab('account');
+      };
+    }
 
     const signout = $('#account-signout');
     if (signout) signout.onclick = function () { signOut(); };
@@ -212,35 +135,13 @@
       };
     }
 
-    const exportBtn = $('#account-export');
-    if (exportBtn) exportBtn.onclick = function () { exportAccountData(); };
-
-    const deleteBtn = $('#account-delete');
-    if (deleteBtn) deleteBtn.onclick = function () { deleteAccount(); };
-
-    const cookiesBtn = $('#account-cookies');
-    if (cookiesBtn) {
-      cookiesBtn.onclick = function () {
-        if (global.PTLegal && global.PTLegal.showCookieBanner) global.PTLegal.showCookieBanner();
-      };
-    }
-
-    const contactBtn = $('#account-contact');
-    if (contactBtn) {
-      contactBtn.onclick = function () {
-        if (global.goToTab) global.goToTab('contact');
-        const dropdown = $('#account-dropdown');
-        if (dropdown) dropdown.classList.add('hidden');
-      };
-    }
-
     const adminBtn = $('#account-admin');
     if (adminBtn) {
-      adminBtn.classList.toggle('hidden', !user.isAdmin || demoOn);
+      adminBtn.onclick = function () {
+        closeAccountDropdown();
+        if (global.goToTab) global.goToTab('admin');
+      };
     }
-
-    bindAccountAccordion();
-    setAccountAccordion(false);
   }
 
   function downloadJson(filename, jsonStr) {
@@ -274,7 +175,7 @@
     }
     if (!confirm('¿Confirmas la eliminación definitiva de tu cuenta y todos tus datos?')) return;
 
-    const deleteBtn = $('#account-delete');
+    const deleteBtn = $('#settings-delete') || $('#account-delete');
     if (deleteBtn) deleteBtn.disabled = true;
 
     let cloudOk = true;
@@ -477,12 +378,12 @@
     });
 
     global.addEventListener('pt-cloud-status', function () {
-      if (currentUser) renderAccountMenu(currentUser);
+      if (global.PTAccountSettings && global.PTAccountSettings.refresh) {
+        global.PTAccountSettings.refresh();
+      }
     });
 
-    window.addEventListener('resize', function () {
-      setAccountAccordion(false);
-    });
+    window.addEventListener('resize', function () { /* noop */ });
 
     let gsiAttempts = 0;
     function waitGsi() {
@@ -503,7 +404,7 @@
     exportAccountData: exportAccountData,
     deleteAccount: deleteAccount,
     renderAccountMenu: renderAccountMenu,
-    collapseAccountAccordion: function () { setAccountAccordion(false); },
+    collapseAccountAccordion: function () { closeAccountDropdown(); },
     startLogin: function () { if (global.PT_startGoogleLogin) global.PT_startGoogleLogin(); }
   };
 

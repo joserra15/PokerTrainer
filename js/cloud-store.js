@@ -46,22 +46,8 @@
   }
 
   function renderStatusInAccount() {
-    const meta = document.getElementById('account-meta');
-    if (!meta) return;
-    const cloudRow = meta.querySelector('[data-cloud-status]');
-    if (!cloudRow) return;
-    const labels = {
-      disabled: 'Desactivado',
-      pending: 'Pendiente config',
-      ready: 'Listo',
-      syncing: 'Sincronizando…',
-      online: 'Sincronizado',
-      error: 'Error sync',
-      auth_required: 'Requiere login'
-    };
-    cloudRow.querySelector('strong').textContent = labels[status] || status;
-    if (status === 'error' && statusDetail) {
-      cloudRow.title = statusDetail;
+    if (global.PTAccountSettings && global.PTAccountSettings.refresh) {
+      global.PTAccountSettings.refresh();
     }
   }
 

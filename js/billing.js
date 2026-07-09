@@ -298,6 +298,19 @@
     return parts.join(' · ');
   }
 
+  async function syncMyPayments() {
+    if (!enabled()) return { ok: false, error: 'billing_not_configured' };
+    var headers = await authHeaders();
+    var res = await fetch(functionsBase() + '/stripe-sync-my-payments', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({})
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'sync_payments_failed');
+    return data;
+  }
+
   global.PTBilling = {
     enabled: enabled,
     startCheckout: startCheckout,
@@ -305,6 +318,7 @@
     openPortal: openPortal,
     syncPayments: syncPayments,
     syncBonusPurchases: syncBonusPurchases,
+    syncMyPayments: syncMyPayments,
     syncSubscription: syncSubscription,
     refreshBillingState: refreshBillingState,
     formatSyncMessage: formatSyncMessage,

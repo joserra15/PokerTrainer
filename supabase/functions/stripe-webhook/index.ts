@@ -53,6 +53,41 @@ async function recordStripePayment(
   });
 }
 
+async function recordPaymentLedger(
+  admin: ReturnType<typeof createClient>,
+  params: {
+    userId: string;
+    kind: string;
+    description?: string;
+    amountCents?: number | null;
+    currency?: string;
+    plan?: string | null;
+    packCode?: string | null;
+    sessionId?: string | null;
+    invoiceId?: string | null;
+    paymentIntentId?: string | null;
+    paidAt?: string;
+  }
+) {
+  try {
+    await admin.rpc('pt_record_payment', {
+      p_user_id: params.userId,
+      p_kind: params.kind,
+      p_description: params.description || null,
+      p_amount_cents: params.amountCents ?? null,
+      p_currency: params.currency || 'eur',
+      p_plan: params.plan || null,
+      p_pack_code: params.packCode || null,
+      p_stripe_session_id: params.sessionId || null,
+      p_stripe_invoice_id: params.invoiceId || null,
+      p_stripe_payment_intent_id: params.paymentIntentId || null,
+      p_paid_at: params.paidAt || new Date().toISOString()
+    });
+  } catch (e) {
+    console.error('[stripe-webhook] pt_record_payment', e);
+  }
+}
+
 async function userIdFromSubscription(subscriptionId: string): Promise<string | null> {
   if (!subscriptionId) return null;
   try {
@@ -196,6 +231,15 @@ serve(async (req) => {
       if (customerId) {
         await recordStripePayment(admin, customerId, new Date().toISOString(), userId);
       }
+      await recordPaymentLedger(admin, {
+        userId,
+        kind: 'bonus',
+        description: 'Bono IA' + (credits ? ' (' + credits + ' consultas)' : ''),
+        amountCents: obj.amount_total as number | null,
+        currency: (obj.currency as string) || 'eur',
+        packCode: pack,
+        sessionId
+      });
       return new Response(JSON.stringify({ received: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
@@ -234,6 +278,15 @@ serve(async (req) => {
       if (customerId) {
         await recordStripePayment(admin, customerId, new Date().toISOString(), userId);
       }
+      await recordPaymentLedger(admin, {
+        userId,
+        kind: 'subscription',
+        description: finalPlan === 'premium' ? 'Suscripción Coach' : 'Suscripción Study',
+        amountCents: obj.amount_total as number | null,
+        currency: (obj.currency as string) || 'eur',
+        plan: finalPlan,
+        sessionId
+      });
     }
   }
 
@@ -277,6 +330,21 @@ serve(async (req) => {
 
     if (customerId || userId) {
       await recordStripePayment(admin, customerId, paidAt, userId);
+    }
+    if (userId) {
+      const lines = obj.lines as { data?: Array<{ description?: string }> } | undefined;
+      const desc = lines?.data?.[0]?.description
+        || ((obj.billing_reason as string) === 'subscription_cycle' ? 'Renovación suscripción' : 'Pago Stripe');
+      await recordPaymentLedger(admin, {
+        userId,
+        kind: (obj.billing_reason as string) === 'subscription_cycle' ? 'renewal' : 'invoice',
+        description: desc,
+        amountCents: obj.amount_paid as number | null,
+        currency: (obj.currency as string) || 'eur',
+        invoiceId: obj.id as string,
+        paymentIntentId: obj.payment_intent as string | null,
+        paidAt
+      });
     }
   }
 

@@ -228,32 +228,18 @@
           <span class="account-chevron" aria-hidden="true">▾</span>
         </button>
         <div class="account-dropdown hidden" id="account-dropdown">
-          <button type="button" class="account-accordion-toggle" id="account-accordion-toggle" aria-expanded="false" aria-controls="account-accordion-panel">
+          <div class="account-dropdown-head">
             <img id="account-avatar-lg" class="account-avatar-lg" alt="" hidden />
-            <span class="account-accordion-title">
+            <div class="account-dropdown-identity">
               <strong id="account-name"></strong>
-            </span>
-            <span class="account-accordion-chevron" aria-hidden="true">▾</span>
-          </button>
-          <div class="account-accordion-panel" id="account-accordion-panel">
-            <span id="account-email" class="account-email-full"></span>
-            <div class="account-meta" id="account-meta"></div>
-            <button type="button" id="account-billing" class="btn btn-ghost btn-block hidden" style="margin-bottom:6px">Gestionar suscripción</button>
-            <button type="button" id="account-upgrade" class="btn btn-primary btn-block" style="margin-bottom:8px">Ver planes</button>
-            <button type="button" id="account-export" class="btn btn-ghost btn-block" style="margin-bottom:6px">Exportar mis datos</button>
-            <button type="button" id="account-sync" class="btn btn-primary btn-block" style="margin-bottom:8px">Sincronizar</button>
-            <button type="button" id="account-install-app" class="btn btn-ghost btn-block hidden" style="margin-bottom:8px">Instalar app</button>
-            <button type="button" id="account-admin" class="btn btn-admin btn-block hidden" style="margin-bottom:8px">Panel de administración</button>
-            <button type="button" id="account-demo" class="btn btn-ghost btn-block hidden" style="margin-bottom:8px">Modo demo</button>
-            <button type="button" id="account-stop-demo" class="btn btn-primary btn-block hidden" style="margin-bottom:8px">Parar demo</button>
-            <button type="button" id="account-cookies" class="btn btn-ghost btn-block btn-sm-account">Configurar cookies</button>
-            <label class="account-marketing" id="account-marketing-consent">
-              <input type="checkbox" /> Avisos por email si dejo de entrenar
-            </label>
-            <a href="legal/soporte.html" class="btn btn-ghost btn-block btn-sm-account" target="_blank" rel="noopener">Ayuda</a>
-            <button type="button" id="account-contact" class="btn btn-ghost btn-block btn-sm-account">Contacto</button>
-            <button type="button" id="account-delete" class="btn btn-danger btn-block btn-sm-account" style="margin-top:8px">Eliminar cuenta y datos</button>
-            <button type="button" id="account-signout" class="btn btn-ghost btn-block" style="margin-top:8px">Cerrar sesión</button>
+              <span id="account-email" class="account-email-full"></span>
+            </div>
+          </div>
+          <div class="account-dropdown-actions">
+            <button type="button" id="account-settings" class="btn btn-primary btn-block">Configuración</button>
+            <button type="button" id="account-admin" class="btn btn-admin btn-block hidden">Panel de administración</button>
+            <button type="button" id="account-sync" class="btn btn-ghost btn-block">Sincronizar</button>
+            <button type="button" id="account-signout" class="btn btn-ghost btn-block">Cerrar sesión</button>
           </div>
         </div>
       </div>
@@ -655,6 +641,17 @@
       </div>
     </section>
 
+    <section id="tab-account" class="tab-panel">
+      <div class="panel-head account-settings-head">
+        <div>
+          <h2>Configuración de cuenta</h2>
+          <p class="muted-text">Perfil, plan, pagos y privacidad</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="account-settings-back">Volver</button>
+      </div>
+      <div id="account-settings-content" class="account-settings-content" aria-live="polite"></div>
+    </section>
+
     <!-- ===== ADMINISTRACIÓN ===== -->
     <section id="tab-admin" class="tab-panel">
       <div class="panel-head admin-head">
@@ -913,6 +910,7 @@
       'js/billing.js',
       'js/contact.js',
       'js/pwa.js',
+      'js/account-settings.js',
       'js/admin-panel.js',
       'js/auth.js',
       'js/app.js'

@@ -88,6 +88,7 @@
     setConsent: setConsent,
     touchTrain: touchTrain,
     daysSinceTrain: daysSinceTrain,
+    bindAccountToggle: bindAccountToggle,
     renderBanner: renderBanner,
     init: init
   };
