@@ -2368,38 +2368,40 @@ body.admin-invite-open { overflow: hidden; }
   position: relative;
   width: 100%;
 }
+.stats-carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 0 4px;
+}
 .stats-carousel-side {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 4;
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
+  position: static;
+  transform: none;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
   padding: 0;
-  font-size: 28px;
+  font-size: 26px;
   line-height: 1;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(12, 17, 22, 0.58);
+  background: rgba(12, 17, 22, 0.72);
   color: var(--text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
-.stats-carousel-side-prev {
-  left: 8px;
-}
-.stats-carousel-side-next {
-  right: 8px;
-}
-.stats-carousel-side:active {
-  transform: translateY(-50%) scale(0.97);
-  background: rgba(12, 17, 22, 0.72);
+.stats-carousel-side:hover,
+.stats-carousel-side:active,
+.stats-carousel-side:focus-visible {
+  transform: none;
+  background: rgba(12, 17, 22, 0.88);
+  filter: brightness(1.08);
 }
 .stats-carousel {
   position: relative;
@@ -2431,7 +2433,9 @@ body.admin-invite-open { overflow: hidden; }
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
-  margin-top: 14px;
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
 }
 .stats-carousel-dot {
   width: 10px;
@@ -2786,7 +2790,7 @@ body.admin-invite-open { overflow: hidden; }
     padding: 12px 0 10px;
   }
   #tab-stats .stats-section-head,
-  #tab-stats .stats-carousel-dots {
+  #tab-stats .stats-carousel-nav {
     padding-left: 10px;
     padding-right: 10px;
   }
@@ -2800,17 +2804,11 @@ body.admin-invite-open { overflow: hidden; }
     padding: 0 4px;
   }
   #tab-stats .stats-carousel-side {
-    width: 46px;
-    height: 46px;
-    min-width: 46px;
-    font-size: 26px;
-    border-radius: 12px;
-  }
-  #tab-stats .stats-carousel-side-prev {
-    left: 4px;
-  }
-  #tab-stats .stats-carousel-side-next {
-    right: 4px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    font-size: 24px;
+    border-radius: 10px;
   }
   #tab-stats .stats-section-head {
     flex-direction: column;
@@ -2958,12 +2956,6 @@ body.admin-invite-open { overflow: hidden; }
   }
   .stats-carousel-controls {
     justify-content: flex-start;
-  }
-  #tab-stats .stats-carousel-side {
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
-    font-size: 24px;
   }
 }
 @media (max-width: 560px) {

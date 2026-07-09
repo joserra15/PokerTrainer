@@ -1923,11 +1923,13 @@
             <div class="stats-slide-body">${slide.body}</div>
           </article>`).join('')}
         </div>
-        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-prev" data-stats-prev="${escapeHtml(sectionId)}" aria-label="Anterior">‹</button>
-        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-next" data-stats-next="${escapeHtml(sectionId)}" aria-label="Siguiente">›</button>
       </div>
-      <div class="stats-carousel-dots">
-        ${slides.map((slide, idx) => `<button type="button" class="stats-carousel-dot${idx === 0 ? ' active' : ''}" data-stats-dot="${escapeHtml(sectionId)}:${idx}" aria-label="${escapeHtml(slide.title)}"></button>`).join('')}
+      <div class="stats-carousel-nav">
+        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-prev" data-stats-prev="${escapeHtml(sectionId)}" aria-label="Anterior">‹</button>
+        <div class="stats-carousel-dots">
+          ${slides.map((slide, idx) => `<button type="button" class="stats-carousel-dot${idx === 0 ? ' active' : ''}" data-stats-dot="${escapeHtml(sectionId)}:${idx}" aria-label="${escapeHtml(slide.title)}"></button>`).join('')}
+        </div>
+        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-next" data-stats-next="${escapeHtml(sectionId)}" aria-label="Siguiente">›</button>
       </div>
     </section>`;
   }
