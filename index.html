@@ -366,12 +366,14 @@
         </div>
 
         <div class="setup-group">
-          <span class="setup-label">Profundidad de stack</span>
+          <span class="setup-label">Stack del héroe</span>
           <div class="setup-chips" id="setup-stack-depth">
-            <button type="button" class="setup-chip active" data-val="standard">Standard (100bb)</button>
-            <button type="button" class="setup-chip" data-val="short">Short (40bb)</button>
-            <button type="button" class="setup-chip" data-val="deep">Deep (150bb)</button>
+            <button type="button" class="setup-chip" data-val="bb200">200 bb</button>
+            <button type="button" class="setup-chip active" data-val="bb100">100 bb</button>
+            <button type="button" class="setup-chip" data-val="bb50">50 bb</button>
+            <button type="button" class="setup-chip" data-val="bb25">25 bb</button>
           </div>
+          <p class="muted-text setup-hint">Los villanos reciben un stack aleatorio cercano al tuyo. Las apuestas respetan el stack efectivo calle a calle.</p>
         </div>
 
         <div class="setup-group">
@@ -890,6 +892,7 @@
       'js/engine/evaluateSpot.js',
       'js/engine/villainProfiles.js',
       'js/engine/villainPreflop.js',
+      'js/engine/stacks.js',
       'js/ranges.js',
       'js/play-config.js',
       'js/live-advisor.js',

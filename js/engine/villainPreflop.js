@@ -359,9 +359,35 @@
     return d.call + (d.callMix ? ', ' + d.callMix : '');
   }
 
+  /** Pagador en squeeze frente al squeeze del héroe (fold / call). */
+  function callerVsSqueezeAction(code, profile, rnd, ctx) {
+    const r = rnd != null ? rnd : Math.random();
+    const strict = strictness(profile);
+    const wCont = handWeight(squeezeContinueBuckets(), code);
+
+    if (wCont <= 0) {
+      if (allowsLeak(profile, 'call', r)) return 'call';
+      return 'fold';
+    }
+
+    if (strict >= 0.99) {
+      const data = D.SQUEEZE;
+      const wMarg = data ? handWeight(bucketWeights({ call: data.call + (data.callMix ? ', ' + data.callMix : '') }), code) : wCont;
+      if (wCont >= 1) return r < 0.68 ? 'call' : 'fold';
+      if (wMarg >= 0.42) return r < wMarg * 0.42 ? 'call' : 'fold';
+      if (wMarg > 0) return r < wMarg * 0.2 ? 'call' : 'fold';
+      return 'fold';
+    }
+
+    if (wCont >= 1) return r < VP.adjustCallProb(0.52, profile) ? 'call' : 'fold';
+    if (wCont >= 0.42) return r < VP.adjustCallProb(0.28, profile) ? 'call' : 'fold';
+    if (wCont > 0) return r < VP.adjustCallProb(wCont * 0.22, profile) ? 'call' : 'fold';
+    return 'fold';
+  }
+
   global.GTOVillainPreflop = {
     defendVsOpen, openerVs3BetAction, villainVs4BetAction, villainVsAllInAction,
-    limperVsIsoAction, openerVsSqueezeAction,
+    limperVsIsoAction, openerVsSqueezeAction, callerVsSqueezeAction,
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
     isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
     isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness

@@ -1,2 +1,2 @@
 /* Incrementar en cada despliegue para invalidar caché del navegador. */
-window.PT_BUILD = '1.43.0';
+window.PT_BUILD = '1.44.0';

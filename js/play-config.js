@@ -21,24 +21,37 @@
     UTG: 'UTG', UTG1: 'UTG', UTG2: 'HJ', LJ: 'HJ', HJ: 'CO', CO: 'CO', BTN: 'BTN', SB: 'SB', BB: 'BB'
   };
 
-  const SQUEEZE_COMBOS = [
-    { heroPos: 'BB', openerPos: 'CO', callerPos: 'BTN' },
-    { heroPos: 'BB', openerPos: 'CO', callerPos: 'HJ' },
-    { heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO' },
-    { heroPos: 'BB', openerPos: 'HJ', callerPos: 'BTN' },
-    { heroPos: 'BB', openerPos: 'UTG', callerPos: 'CO' },
-    { heroPos: 'BB', openerPos: 'UTG', callerPos: 'HJ' },
-    { heroPos: 'BB', openerPos: 'BTN', callerPos: 'SB' },
-    { heroPos: 'BB', openerPos: 'BTN', callerPos: 'CO' },
-    { heroPos: 'BB', openerPos: 'SB', callerPos: 'BTN' },
-    { heroPos: 'SB', openerPos: 'CO', callerPos: 'BTN' },
-    { heroPos: 'SB', openerPos: 'HJ', callerPos: 'CO' },
-    { heroPos: 'SB', openerPos: 'UTG', callerPos: 'CO' },
-    { heroPos: 'BTN', openerPos: 'UTG', callerPos: 'HJ' },
-    { heroPos: 'BTN', openerPos: 'HJ', callerPos: 'CO' },
-    { heroPos: 'BTN', openerPos: 'UTG', callerPos: 'CO' },
-    { heroPos: 'CO', openerPos: 'UTG', callerPos: 'HJ' }
-  ];
+  const PREFLOP_ORDER_6 = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+
+  function preflopOrderIndex(pos) {
+    return PREFLOP_ORDER_6.indexOf(pos);
+  }
+
+  /** Opener actúa antes que caller; caller antes que héroe (orden preflop 6-max). */
+  function isValidSqueezeCombo(combo) {
+    if (!combo || !combo.heroPos || !combo.openerPos || !combo.callerPos) return false;
+    const o = preflopOrderIndex(combo.openerPos);
+    const c = preflopOrderIndex(combo.callerPos);
+    const h = preflopOrderIndex(combo.heroPos);
+    return o >= 0 && c >= 0 && h >= 0 && o < c && c < h;
+  }
+
+  function buildValidSqueezeCombos() {
+    const out = [];
+    PREFLOP_ORDER_6.forEach(function (heroPos) {
+      const hi = preflopOrderIndex(heroPos);
+      PREFLOP_ORDER_6.forEach(function (openerPos) {
+        PREFLOP_ORDER_6.forEach(function (callerPos) {
+          if (preflopOrderIndex(openerPos) < preflopOrderIndex(callerPos) && preflopOrderIndex(callerPos) < hi) {
+            out.push({ heroPos: heroPos, openerPos: openerPos, callerPos: callerPos });
+          }
+        });
+      });
+    });
+    return out;
+  }
+
+  const SQUEEZE_COMBOS = buildValidSqueezeCombos();
 
   const ISO_COMBOS = [
     { heroPos: 'CO', limperPos: 'UTG' },
@@ -63,9 +76,11 @@
     return { opener: parts[0], threeBettor: parts[2] };
   }
 
+  const STACK_DEPTH_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
+
   const DEFAULT = {
     gameType: 'cash6',
-    stackDepth: 'standard',
+    stackDepth: 'bb100',
     scenario: 'random',
     heroPos: 'random',
     handRange: 'playable',
@@ -79,7 +94,10 @@
   function normalize(config) {
     const c = Object.assign({}, DEFAULT, config || {});
     if (!c.gameType) c.gameType = 'cash6';
-    if (!c.stackDepth) c.stackDepth = 'standard';
+    if (!c.stackDepth) c.stackDepth = 'bb100';
+    if (c.stackDepth === 'standard') c.stackDepth = 'bb100';
+    if (c.stackDepth === 'short') c.stackDepth = 'bb50';
+    if (c.stackDepth === 'deep') c.stackDepth = 'bb200';
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
     if (!c.handRange) c.handRange = 'random';
@@ -522,7 +540,7 @@
   function labelFor(config) {
     const c = normalize(config);
     const gt = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' }[c.gameType] || c.gameType;
-    const sd = { standard: '100bb', short: '40bb', deep: '150bb' }[c.stackDepth] || c.stackDepth;
+    const sd = { bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb', standard: '100bb', short: '50bb', deep: '200bb' }[c.stackDepth] || c.stackDepth;
     const sc = {
       random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
       '4bet': '4-Bet', squeeze: 'Squeeze', iso: 'Iso limp',
@@ -536,12 +554,15 @@
   }
 
   function stackBB(config) {
+    const c = normalize(config);
+    if (STACK_DEPTH_BB[c.stackDepth] != null) return STACK_DEPTH_BB[c.stackDepth];
     const reg = RR();
-    return reg ? reg.stackBB(normalize(config)) : 100;
+    return reg ? reg.stackBB(c) : 100;
   }
 
   global.PTPlayConfig = {
     DEFAULT, normalize, pickScenario, labelFor,
+    PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9,
     sampleHeroWeights, sampleVillainWeights, sampleRfiDefenderWeights,
     sampleFace4betVillainWeights, face4betVillainRangeStr, sampleLimpWeights,

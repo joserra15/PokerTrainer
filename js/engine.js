@@ -13,6 +13,7 @@
   const VT = global.GTOVillainTracking;
   const VP = global.GTOVillainProfiles;
   const VPF = global.GTOVillainPreflop;
+  const ST = function () { return global.PTStacks; };
 
   // --- Parámetros de juego (en ciegas grandes) ---
   const SB = 0.5, BBET = 1, EFF = 100;
@@ -57,11 +58,38 @@
   }
 
   function effStackForHand(hand) {
+    const stacks = ST();
+    if (hand && hand.stacks && stacks) return stacks.effectiveForHero(hand);
     const PC = global.PTPlayConfig;
     if (hand.playConfig && PC) return PC.stackBB(hand.playConfig);
     const RR = global.GTORangesRegistry;
     if (hand.rangeContext && RR) return RR.stackBB(hand.rangeContext);
     return EFF;
+  }
+
+  function heroRemainingBB(hand) {
+    const stacks = ST();
+    if (stacks && hand && hand.stacks && hand.hero.pos) {
+      return stacks.remaining(hand, hand.displayHeroPos || hand.hero.pos);
+    }
+    return round2(effStackForHand(hand) - (hand.heroInvested || 0));
+  }
+
+  function capBetForSeat(hand, pos, amount) {
+    const stacks = ST();
+    if (!stacks || !hand.stacks) return amount;
+    return stacks.capToRemaining(hand, pos, amount);
+  }
+
+  function initHandStacks(hand) {
+    const stacks = ST();
+    const PC = global.PTPlayConfig;
+    if (!stacks || !hand) return;
+    const heroBB = hand.playConfig && PC ? PC.stackBB(hand.playConfig) : EFF;
+    const positions = is9MaxHand(hand) && PC ? PC.POS_9 : DEAL_ORDER;
+    const heroSeat = hand.displayHeroPos || hand.hero.pos;
+    stacks.initHandStacks(hand, positions, heroSeat, heroBB, function () { return C.rng.random(); });
+    hand.effStack = heroBB;
   }
 
   function openRangeStr(pos, hand) {
@@ -203,7 +231,9 @@
     const info = hand.villain.cards ? classifyMadeHand(hand.villain.cards, hand.board) : null;
     const eq = villainEquity01(hand);
     const strength = eq != null ? eq : (info ? ({ strong: 0.78, medium: 0.52, weak: 0.34, air: 0.14 }[info.tier] || 0.3) : 0.3);
-    return VP ? VP.betSizeBB(hand.potBB, prof, C.rng.random(), { street: hand.stage, strength }) : round2(hand.potBB * 0.5);
+    let size = VP ? VP.betSizeBB(hand.potBB, prof, C.rng.random(), { street: hand.stage, strength }) : round2(hand.potBB * 0.5);
+    const vSeat = villainTableSeat(hand) || hand.villain.pos;
+    return capBetForSeat(hand, vSeat, size);
   }
 
   /** Deja en mesa solo héroe y villano activo (oculta ciegas y resto en UI). */
@@ -653,7 +683,10 @@
     if (s.type === 'cold4bet' && node.street === 'preflop') {
       input.vsPosition = s.threeBettorPos || hand.villain.pos;
     }
-    const rem = effStackForHand(hand) - (hand.heroInvested || 0);
+    const rem = heroRemainingBB(hand);
+    input.stackDepth = effStackForHand(hand);
+    input.effStack = input.stackDepth;
+    input.heroRemainingBB = rem;
     input.spr = node.potBB > 0 ? rem / node.potBB : rem;
     const RR = global.GTORangesRegistry;
     if (RR) RR.attachToInput(input, rangeCtx(hand));
@@ -703,6 +736,39 @@
     const strength = villainPostflopStrength(info, eq);
     const rnd = C.rng.random();
     const pfOpts = villainPostflopOpts(hand, info);
+
+    if (profile.preflopStrict >= 0.99 && hand.villain.cards && GTO && GTO.Strategy) {
+      const villainToCall = (hand.table && hand.table.streetBet && hand.hero.pos)
+        ? (hand.table.streetBet[hand.hero.pos] || 0) : 0;
+      const potBefore = Math.max(hand.potBB - villainToCall, 0.1);
+      const remV = ST() && hand.stacks
+        ? ST().remaining(hand, villainTableSeat(hand) || hand.villain.pos)
+        : EFF;
+      const spr = hand.potBB > 0 ? remV / hand.potBB : remV;
+      const strat = GTO.Strategy.postflopStrategy({
+        toCallBB: villainToCall,
+        potBB: hand.potBB,
+        heroEquity: eq != null ? eq : strength,
+        madeHandInfo: info,
+        board: hand.board.slice(),
+        heroCards: hand.villain.cards,
+        initiative: hand.heroIsAggressor ? 'caller' : 'aggressor',
+        inPosition: !hand.heroInPosition,
+        spr: spr
+      });
+      if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
+        const foldP = strat.fold || 0;
+        const raiseP = strat.raise || 0;
+        if (r < raiseP && villainToCall > 0) return 'raise';
+        if (r < raiseP + (strat.call || 0)) return 'call';
+        return 'fold';
+      }
+      const betKeys = ['bet_100', 'bet_66', 'bet_33', 'bet'];
+      let betP = 0;
+      betKeys.forEach(function (k) { betP += strat[k] || 0; });
+      return r < betP ? 'bet' : 'check';
+    }
+
     if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
       const villainToCall = (hand.table && hand.table.streetBet && hand.hero.pos)
         ? (hand.table.streetBet[hand.hero.pos] || 0) : 0;
@@ -725,14 +791,18 @@
   // ---------- Definición de escenarios ----------
   const RFI_POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
   const VS_KEYS = Object.keys(R.VS_RFI);
-  // Combinaciones de squeeze (abridor + pagador antes que el héroe)
-  const SQUEEZE_COMBOS = [
-    { heroPos: 'BB', openerPos: 'CO', callerPos: 'BTN' },
-    { heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO' },
-    { heroPos: 'SB', openerPos: 'UTG', callerPos: 'CO' },
-    { heroPos: 'BTN', openerPos: 'UTG', callerPos: 'HJ' },
-    { heroPos: 'BTN', openerPos: 'HJ', callerPos: 'CO' }
-  ];
+  // Combinaciones de squeeze válidas (opener < caller < héroe en orden preflop)
+  function squeezeCombosForEngine() {
+    const PC = global.PTPlayConfig;
+    if (PC && PC.SQUEEZE_COMBOS && PC.SQUEEZE_COMBOS.length) return PC.SQUEEZE_COMBOS;
+    return [
+      { heroPos: 'BB', openerPos: 'CO', callerPos: 'BTN' },
+      { heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO' },
+      { heroPos: 'SB', openerPos: 'UTG', callerPos: 'CO' },
+      { heroPos: 'BTN', openerPos: 'UTG', callerPos: 'HJ' },
+      { heroPos: 'BTN', openerPos: 'HJ', callerPos: 'CO' }
+    ];
+  }
   // Combinaciones de aislamiento frente a un limper (héroe nunca en BB aquí)
   const ISO_COMBOS = [
     { heroPos: 'CO', limperPos: 'UTG' },
@@ -764,7 +834,7 @@
       return { type: 'vsRFI', key: VS_KEYS[Math.floor(Math.random() * VS_KEYS.length)] };
     }
     if (roll < 0.84) {
-      return Object.assign({ type: 'squeeze' }, SQUEEZE_COMBOS[Math.floor(Math.random() * SQUEEZE_COMBOS.length)]);
+      return Object.assign({ type: 'squeeze' }, squeezeCombosForEngine()[Math.floor(Math.random() * squeezeCombosForEngine().length)]);
     }
     return Object.assign({ type: 'isoLimp' }, ISO_COMBOS[Math.floor(Math.random() * ISO_COMBOS.length)]);
   }
@@ -928,6 +998,7 @@
     else setupVsRFI(hand);
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
+    initHandStacks(hand);
     syncVillainMeta(hand);
     return hand;
   }
@@ -1024,7 +1095,9 @@
     hand.heroInvested = heroBlind;
     hand.toCallBB = round2(openSize - heroBlind);
     const inPosVsOpener = inPos(heroPos, openerPos);
-    const squeezeSize = inPosVsOpener ? round2(openSize * 4) : round2(openSize * 5);
+    let squeezeSize = inPosVsOpener ? round2(openSize * 4) : round2(openSize * 5);
+    squeezeSize = capBetForSeat(hand, heroPos, squeezeSize);
+    if (squeezeSize <= openSize) squeezeSize = round2(openSize + 1);
     hand.squeezeSize = squeezeSize;
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'squeeze', potBB: hand.potBB, toCallBB: hand.toCallBB });
     hand.current = {
@@ -1165,20 +1238,43 @@
       }
       // squeeze (3-bet)
       hand.heroIsAggressor = true;
-      hand.heroInvested = node.squeezeSize;
-      setHeroAct(hand, 'raise', node.squeezeSize);
+      const squeezeAdd = capBetForSeat(hand, hand.hero.pos, node.squeezeSize - hand.heroInvested);
+      hand.heroInvested = round2(hand.heroInvested + squeezeAdd);
+      setHeroAct(hand, squeezeAdd >= heroRemainingBB(hand) - 0.01 ? 'allin' : 'raise', node.squeezeSize);
       hand.villain.cards = villainHoleCards(hand);
+      const callerPos = hand.scenario.callerPos;
+      let callerIn = false;
+      if (callerPos && hand.table && !hand.table.folded[callerPos]) {
+        const callerCode = seatHoleCode(hand, callerPos);
+        const callerProf = profileFor(hand, callerPos);
+        const callerAct = VPF && callerCode
+          ? VPF.callerVsSqueezeAction(callerCode, callerProf, C.rng.random(), rangeCtx(hand))
+          : 'fold';
+        if (callerAct === 'call') {
+          callerIn = true;
+          const callerAdd = capBetForSeat(hand, callerPos, node.squeezeSize - (hand.table.invested[callerPos] || 0));
+          if (callerAdd > 0) addInvest(hand, callerPos, callerAdd);
+          setSeatAction(hand, callerPos, 'call', node.squeezeSize);
+          hand._callersAtFlop = hand._callersAtFlop || [];
+          if (hand._callersAtFlop.indexOf(callerPos) < 0) hand._callersAtFlop.push(callerPos);
+        } else {
+          markFolded(hand, callerPos);
+          setSeatAction(hand, callerPos, 'fold', null);
+        }
+      }
       if (openerVsSqueeze(hand, hand.villain.pos, node.squeezeSize) === 'fold') {
         setVillainAct(hand, 'fold');
-        if (hand.scenario.callerPos) markFolded(hand, hand.scenario.callerPos);
-        return finish(hand, { reason: 'Abridor y pagador se retiran ante tu squeeze.', heroNet: round2(hand.potBB - heroBlind) });
+        if (!callerIn && callerPos) markFolded(hand, callerPos);
+        return finish(hand, { reason: callerIn ? 'Abridor foldea; pagador sigue en bote.' : 'Abridor y pagador se retiran ante tu squeeze.', heroNet: round2(hand.potBB - heroBlind + squeezeAdd) });
       }
       // el abridor paga el squeeze -> flop en bote resubido, hero agresor
+      const openerAdd = capBetForSeat(hand, hand.villain.pos, node.squeezeSize - (hand.villainInvested || 0));
       setVillainAct(hand, 'call', node.squeezeSize);
-      hand.villainInvested = node.squeezeSize;
-      hand.potBB = round2(node.squeezeSize * 2 + node.openSize + SB);
+      hand.villainInvested = round2((hand.villainInvested || 0) + openerAdd);
+      if (openerAdd > 0) addInvest(hand, hand.villain.pos, openerAdd);
+      hand.potBB = round2(hand.potBB + squeezeAdd + openerAdd + (callerIn ? seatToCall(hand, callerPos, node.squeezeSize) : 0));
       hand.heroInPosition = inPos(hand.hero.pos, hand.villain.pos);
-      if (hand.scenario.callerPos) markFolded(hand, hand.scenario.callerPos);
+      if (callerPos && !callerIn) markFolded(hand, callerPos);
       return goFlop(hand);
     }
 
@@ -1320,6 +1416,7 @@
         hand.heroIsAggressor = false; // el villano (abridor) es el agresor
         hand.heroInvested = node.openSize;
         hand.villainInvested = node.openSize;
+        addInvest(hand, hero, node.toCallBB);
         hand.potBB = round2(node.openSize * 2 + (hero === 'BB' ? 0 : SB) + (['SB', 'BB'].includes(hero) ? 0 : 0) + (opener === 'SB' ? 0 : 0));
         hand.potBB = round2(node.openSize * 2 + SB); // ciega muerta aprox
         hand.heroInPosition = inPos(hero, opener);
@@ -1560,8 +1657,13 @@
   }
 
   function allInShowdown(hand) {
-    hand.heroInvested = EFF; hand.villainInvested = EFF;
-    hand.potBB = round2(EFF * 2 + SB);
+    const heroSeat = hand.displayHeroPos || hand.hero.pos;
+    const vSeat = villainTableSeat(hand) || hand.villain.pos;
+    const heroAll = ST() && hand.stacks ? ST().remaining(hand, heroSeat) + (hand.heroInvested || 0) : EFF;
+    const villAll = ST() && hand.stacks ? ST().remaining(hand, vSeat) + (hand.villainInvested || 0) : EFF;
+    const eff = round2(Math.min(heroAll, villAll));
+    hand.heroInvested = eff; hand.villainInvested = eff;
+    hand.potBB = round2(eff * 2 + SB);
     hand.villain.cards = villainHoleCards(hand);
     hand.board = hand._predeal.board.slice();
     hand._boardIdx = 5;
@@ -1663,6 +1765,16 @@
     return buildPostflopNode(hand, hand.stage);
   }
 
+  function postflopRaiseLabel(hand, node) {
+    const raw = round2(node.toCallBB * 3);
+    const capped = capBetForSeat(hand, hand.hero.pos, raw);
+    const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
+    if (ST() && hand.stacks && capped >= heroRemainingBB(hand) - 0.01) {
+      return `All-in (${fmt(heroRemainingBB(hand))}bb)`;
+    }
+    return `Raise a ${fmt(capped)}bb`;
+  }
+
   function buildPostflopNode(hand, street, facing) {
     const info = classifyMadeHand(hand.hero.cards, hand.board);
     const texture = boardTexture(hand.board);
@@ -1699,18 +1811,26 @@
     const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
     if (facing && facing.bet) {
       // hero afronta una apuesta del villano
+      const raiseAmt = capBetForSeat(hand, hand.hero.pos, round2(facing.bet * 3));
       options = [
         { id: 'fold', label: 'Fold' },
-        { id: 'call', label: `Call (${fmt(facing.bet)}bb)` },
-        { id: 'raise', label: `Raise a ${fmt(round2(facing.bet * 3))}bb` }
+        { id: 'call', label: `Call (${fmt(Math.min(facing.bet, heroRemainingBB(hand)))}bb)` },
+        { id: 'raise', label: postflopRaiseLabel(hand, { toCallBB: facing.bet, potBB: hand.potBB }) }
       ];
-      context = `${capitalize(street)}: el villano apuesta ${fmt(facing.bet)}bb en un bote de ${fmt(facing.potBefore)}bb.`;
+      context = `${capitalize(street)}: el villano apuesta ${fmt(facing.bet)}bb en un bote de ${fmt(facing.potBefore)}bb. Stack efectivo ${fmt(effStackForHand(hand))}bb.`;
     } else {
       const sizes = GTO.Strategy.betSizingOptions(hand.potBB, texture.wet);
-      options = [{ id: 'check', label: 'Check (pasar)' }].concat(sizes);
+      options = [{ id: 'check', label: 'Check (pasar)' }];
       hand._betSizes = {};
-      sizes.forEach((s) => { hand._betSizes[s.id] = s.size; });
-      context = `${capitalize(street)}: bote ${fmt(hand.potBB)}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
+      sizes.forEach(function (s) {
+        const capped = capBetForSeat(hand, hand.hero.pos, s.size);
+        if (capped >= 0.5) {
+          const id = s.id;
+          options.push({ id: id, label: capped >= heroRemainingBB(hand) - 0.01 ? `All-in (${fmt(capped)}bb)` : s.label.replace(String(s.size), String(capped)) });
+          hand._betSizes[id] = capped;
+        }
+      });
+      context = `${capitalize(street)}: bote ${fmt(hand.potBB)}bb · stack ${fmt(effStackForHand(hand))}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
       if (hand.heroIsAggressor) {
         context += villainLastAction === 'check'
           ? ' El villano pasó: spot de c-bet.'
@@ -1749,22 +1869,28 @@
     }
 
     if (actionId === 'bet' || (actionId && actionId.indexOf('bet_') === 0)) {
-      const betSize = hand._betSizes && hand._betSizes[actionId] != null
+      let betSize = hand._betSizes && hand._betSizes[actionId] != null
         ? hand._betSizes[actionId]
         : hand._betSize;
+      betSize = capBetForSeat(hand, hand.hero.pos, betSize);
+      if (betSize <= 0) return finish(hand, { reason: 'Sin stack para apostar.', heroNet: -round2(hand.heroInvested) });
       hand.heroInvested += betSize; hand.potBB = round2(hand.potBB + betSize);
+      if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, betSize);
       node.heroLastAction = 'bet';
-      setHeroAct(hand, 'bet', betSize);
+      setHeroAct(hand, ST() && hand.stacks && betSize >= heroRemainingBB(hand) - 0.01 ? 'allin' : 'bet', betSize);
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'fold') { setVillainAct(hand, 'fold'); return finish(hand, { reason: `El villano foldea ante tu apuesta en ${node.street}.`, heroNet: round2(hand.potBB - betSize) }); }
       if (vAct === 'raise') {
-        const vRaise = round2(betSize * 3);
+        let vRaise = capBetForSeat(hand, hand.villain.pos, round2(betSize * 3));
+        if (vRaise <= betSize) vRaise = capBetForSeat(hand, hand.villain.pos, heroRemainingBB(hand));
         hand.villainInvested += vRaise; hand.potBB = round2(hand.potBB + vRaise);
+        if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vRaise);
         setVillainAct(hand, 'raise', vRaise);
-        return buildPostflopNode(hand, node.street, { bet: round2(vRaise - betSize), potBefore: hand.potBB });
+        return buildPostflopNode(hand, node.street, { bet: round2(vRaise), potBefore: hand.potBB });
       }
       setVillainAct(hand, 'call', betSize);
       hand.villainInvested += betSize; hand.potBB = round2(hand.potBB + betSize);
+      if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, betSize);
       return nextStreet(hand);
     }
 
@@ -1783,21 +1909,40 @@
     }
 
     if (actionId === 'call') {
-      const toCall = node.toCallBB;
+      const heroRem = heroRemainingBB(hand);
+      const toCall = Math.min(node.toCallBB, heroRem);
+      const isAllIn = toCall >= heroRem - 0.01;
       hand.heroInvested += toCall; hand.potBB = round2(hand.potBB + toCall);
-      setHeroAct(hand, 'call', toCall);
+      if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, toCall);
+      setHeroAct(hand, isAllIn ? 'allin' : 'call', toCall);
+      if (isAllIn) return showdown(hand);
       return nextStreet(hand);
     }
 
     if (actionId === 'raise') {
-      const raiseTo = round2(node.toCallBB * 3);
+      const heroRem = heroRemainingBB(hand);
+      let raiseTo = capBetForSeat(hand, hand.hero.pos, round2(node.toCallBB * 3));
+      if (raiseTo <= 0) raiseTo = heroRem;
+      const isAllIn = raiseTo >= heroRem - 0.01;
       hand.heroInvested += raiseTo; hand.potBB = round2(hand.potBB + raiseTo);
+      if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, raiseTo);
       node.heroLastAction = 'raise';
-      setHeroAct(hand, 'raise', raiseTo);
+      setHeroAct(hand, isAllIn ? 'allin' : 'raise', raiseTo);
+      if (isAllIn) {
+        const vAct = villainPostflopAction(hand, node);
+        if (vAct === 'fold') { setVillainAct(hand, 'fold'); return finish(hand, { reason: `El villano foldea ante tu all-in en ${node.street}.`, heroNet: round2(hand.potBB - raiseTo) }); }
+        const vPay = capBetForSeat(hand, hand.villain.pos, raiseTo);
+        setVillainAct(hand, 'call', vPay);
+        hand.villainInvested += vPay;
+        if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vPay);
+        return showdown(hand);
+      }
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'fold') { setVillainAct(hand, 'fold'); return finish(hand, { reason: `El villano foldea ante tu raise en ${node.street}.`, heroNet: round2(hand.potBB - raiseTo) }); }
-      setVillainAct(hand, 'call', raiseTo);
-      hand.villainInvested += raiseTo; hand.potBB = round2(hand.potBB + (raiseTo - node.toCallBB));
+      const vCall = capBetForSeat(hand, hand.villain.pos, raiseTo);
+      setVillainAct(hand, 'call', vCall);
+      hand.villainInvested += vCall; hand.potBB = round2(hand.potBB + (vCall - node.toCallBB));
+      if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vCall);
       return nextStreet(hand);
     }
 

@@ -183,7 +183,7 @@
     const laEl = $('#setup-live-advisor');
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
-      stackDepth: sdEl ? sdEl.dataset.val : 'standard',
+      stackDepth: sdEl ? sdEl.dataset.val : 'bb100',
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'playable',
@@ -882,7 +882,13 @@
     const heroInv = hand.heroInvested || 0;
     const heroChipsEl = $('#hero-chips');
     if (heroChipsEl) {
-      heroChipsEl.innerHTML = (heroInv > 0 || heroStreet > 0) ? renderSeatChips(heroInv, heroStreet) : '';
+      let heroHtml = '';
+      const heroSeat = hand.displayHeroPos || hand.hero.pos;
+      if (window.PTStacks && hand.stacks && heroSeat) {
+        heroHtml += renderSeatStack(hand, heroSeat);
+      }
+      if (heroInv > 0 || heroStreet > 0) heroHtml += renderSeatChips(heroInv, heroStreet);
+      heroChipsEl.innerHTML = heroHtml;
     }
     const vBar = $('#villain-action-bar');
     const mobile = isMobileLayout();
@@ -967,6 +973,14 @@
     return hand.villain.pos;
   }
 
+  function renderSeatStack(hand, pos) {
+    const stacks = window.PTStacks;
+    if (!stacks || !hand || !hand.stacks || !hand.stacks[pos]) return '';
+    const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
+    const rem = stacks.remaining(hand, pos);
+    return `<div class="seat-stack" title="Stack restante">${fmt(rem)} bb</div>`;
+  }
+
   function renderSeats() {
     const mobile = isMobileLayout();
     const coords = seatCoordsForTable();
@@ -1022,11 +1036,13 @@
       const showFullSeat = !mobile || isVillain || isCaller || stBet > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const chipsHtml = showFullSeat ? renderSeatChips(totalInv, stBet) : '';
+      const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
 
       html += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
         ${cardsHtml}
         <div class="seat-pos">${pos}</div>
         <div class="seat-role">${role}</div>
+        ${stackHtml}
         ${chipsHtml}
         ${actHtml ? `<div class="seat-act-wrap">${actHtml}</div>` : ''}
       </div>`;

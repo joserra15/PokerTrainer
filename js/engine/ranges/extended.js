@@ -110,8 +110,8 @@
   };
 
   var SQUEEZE_PAIR_KEYS = [
-    'BB|CO|BTN', 'BB|CO|HJ', 'BB|HJ|CO', 'BB|HJ|BTN', 'BB|UTG|CO',
-    'BB|UTG|HJ', 'BB|BTN|SB', 'BB|BTN|CO', 'BB|SB|BTN', 'SB|CO|BTN',
+    'BB|CO|BTN', 'BB|HJ|CO', 'BB|HJ|BTN', 'BB|UTG|CO',
+    'BB|UTG|HJ', 'BB|BTN|SB', 'SB|CO|BTN',
     'SB|HJ|CO', 'SB|UTG|CO', 'BTN|UTG|HJ', 'BTN|HJ|CO', 'BTN|UTG|CO',
     'CO|UTG|HJ'
   ];

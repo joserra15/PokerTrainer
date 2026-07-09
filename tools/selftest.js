@@ -46,6 +46,8 @@ const scripts = [
   'engine/evaluateSpot.js',
   'engine/villainProfiles.js',
   'engine/villainPreflop.js',
+  'engine/stacks.js',
+  'play-config.js',
   'ranges.js',
   'range-matrix.js',
   'engine.js'
@@ -712,6 +714,81 @@ const wmAnalyzed = Importer.analyzeHand(wmParsed);
 const wmSidePotOk = wmParsed.collected.KazeDj === 3.62 && wmAnalyzed.heroNetBB === 81;
 console.log('Winamax main/side pot hero net BB:', wmAnalyzed.heroNetBB, wmSidePotOk ? 'OK' : 'FAIL');
 if (!wmSidePotOk) process.exit(1);
+
+const PC = sandbox.window.PTPlayConfig;
+const ST = sandbox.window.PTStacks;
+if (PC.isValidSqueezeCombo({ heroPos: 'BB', openerPos: 'CO', callerPos: 'HJ' })) {
+  console.error('FAIL: squeeze CO open + HJ call debe ser inválido');
+  process.exit(1);
+}
+console.log('Squeeze inválido CO→HJ rechazado: OK');
+if (!PC.isValidSqueezeCombo({ heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO' })) {
+  console.error('FAIL: squeeze HJ open + CO call debe ser válido');
+  process.exit(1);
+}
+console.log('Squeeze válido HJ→CO: OK');
+const invalidInPool = PC.SQUEEZE_COMBOS.some(function (c) {
+  return c.openerPos === 'CO' && c.callerPos === 'HJ';
+});
+if (invalidInPool) {
+  console.error('FAIL: pool squeeze contiene CO/HJ');
+  process.exit(1);
+}
+console.log('Pool squeeze sin CO/HJ:', PC.SQUEEZE_COMBOS.length, 'spots');
+
+const cfg100 = PC.normalize({ stackDepth: 'bb100' });
+const cfg25 = PC.normalize({ stackDepth: 'bb25' });
+console.log('Stack config bb100/bb25:', PC.stackBB(cfg100), PC.stackBB(cfg25));
+if (PC.stackBB(cfg100) !== 100 || PC.stackBB(cfg25) !== 25) {
+  console.error('FAIL stackBB config');
+  process.exit(1);
+}
+
+const stackHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', seed: 42 }, cfg100);
+if (!stackHand.stacks || stackHand.stacks.BB !== 100) {
+  console.error('FAIL: hero stack inicial 100bb', stackHand.stacks);
+  process.exit(1);
+}
+const villainStack = stackHand.stacks.CO;
+if (villainStack < 70 || villainStack > 130) {
+  console.error('FAIL: villano stack no cercano a hero', villainStack);
+  process.exit(1);
+}
+console.log('Stacks mesa hero 100bb villano ~', Math.round(villainStack), 'bb: OK');
+
+const rem0 = ST.remaining(stackHand, 'BB');
+const callOpt = (stackHand.current.options || []).find(function (o) { return o.id === 'call'; });
+if (callOpt) {
+  Engine.act(stackHand, 'call');
+  const rem1 = ST.remaining(stackHand, 'BB');
+  if (!(rem1 < rem0)) {
+    console.error('FAIL: stack no baja tras call preflop', rem0, rem1);
+    process.exit(1);
+  }
+  console.log('Stack hero tras call:', rem0, '→', rem1, 'OK');
+}
+
+const effShort = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', seed: 99 }, cfg25);
+const eff = ST.effectiveForHero(effShort);
+if (eff > 25.01) {
+  console.error('FAIL: stack efectivo > hero stack', eff);
+  process.exit(1);
+}
+console.log('Stack efectivo capped a hero/villain:', eff, 'OK');
+
+const sqHand = Engine.newHand({
+  type: 'squeeze', heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO', seed: 777
+}, cfg100);
+const ctx = sqHand.current && sqHand.current.context || '';
+if (ctx.indexOf('CO abre') >= 0 && ctx.indexOf('HJ paga') >= 0) {
+  console.error('FAIL: contexto squeeze orden invertido:', ctx);
+  process.exit(1);
+}
+if (ctx.indexOf('HJ abre') < 0 || ctx.indexOf('CO paga') < 0) {
+  console.error('FAIL: contexto squeeze esperado HJ abre CO paga:', ctx);
+  process.exit(1);
+}
+console.log('Contexto squeeze orden correcto: OK');
 
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk && mergeSessionsOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
 })();

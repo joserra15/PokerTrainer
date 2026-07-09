@@ -14,28 +14,39 @@
     UTG: 'UTG', UTG1: 'UTG', UTG2: 'HJ', LJ: 'HJ', HJ: 'CO', CO: 'CO', BTN: 'BTN', SB: 'SB', BB: 'BB'
   };
 
-  const STACK_BB = { standard: 100, short: 40, deep: 150 };
+  const STACK_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
   const GAME_LABELS = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' };
-  const STACK_LABELS = { standard: '100bb', short: '40bb', deep: '150bb' };
+  const STACK_LABELS = { bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb', standard: '100bb', short: '40bb', deep: '150bb' };
+
+  function rangeStackCategory(stackDepth, stackBB) {
+    const bb = stackBB || STACK_BB[stackDepth] || 100;
+    if (bb <= 55 || stackDepth === 'short' || stackDepth === 'bb25' || stackDepth === 'bb50') return 'short';
+    if (bb >= 120 || stackDepth === 'deep' || stackDepth === 'bb200') return 'deep';
+    return 'standard';
+  }
 
   function normalize(ctx) {
     const c = ctx || {};
     const gameType = c.gameType || 'cash6';
-    const stackDepth = c.stackDepth || 'standard';
+    const stackDepthKey = c.stackDepth || 'bb100';
+    const stackBB = STACK_BB[stackDepthKey] || 100;
+    const stackDepth = rangeStackCategory(stackDepthKey, stackBB);
     return {
       gameType: gameType,
       stackDepth: stackDepth,
+      stackDepthKey: stackDepthKey,
       is9Max: gameType === 'cash9' || gameType === 'mtt',
       isMtt: gameType === 'mtt',
-      stackBB: STACK_BB[stackDepth] || 100
+      stackBB: stackBB
     };
   }
 
   function stackLabelFromBB(bb) {
     const n = Number(bb) || 100;
-    if (n <= 55) return 'short';
-    if (n >= 120) return 'deep';
-    return 'standard';
+    if (n <= 32) return 'bb25';
+    if (n <= 62) return 'bb50';
+    if (n <= 125) return 'bb100';
+    return 'bb200';
   }
 
   function toEnginePos(pos) {
