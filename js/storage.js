@@ -464,8 +464,15 @@
     const s = hand.scenario;
     if (s.type === 'RFI') return `RFI ${s.heroPos}`;
     if (s.type === 'vsRFI') return s.key.replace(/_/g, ' ');
+    if (s.type === 'face3bet') {
+      const p = s.key.split('_');
+      return p[0] + ' vs 3bet ' + p[2];
+    }
     if (s.type === 'squeeze') return `${s.heroPos} squeeze vs ${s.openerPos}`;
     if (s.type === 'isoLimp') return `${s.heroPos} iso vs ${s.limperPos}`;
+    if (s.type === 'bbVsSbLimp') return 'BB vs SB limp';
+    if (s.type === 'sbLimp') return 'SB limp';
+    if (s.type === 'cold4bet') return (s.heroPos || 'CO') + ' cold 4bet';
     return s.type;
   }
 

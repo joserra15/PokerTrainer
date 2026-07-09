@@ -425,15 +425,22 @@ const DEMO_USER_ID = 'pt_demo_user';
 async function callerIsAdmin(admin: ReturnType<typeof createClient>, userId: string) {
   const { data } = await admin
     .from('pt_user_profiles')
-    .select('is_admin')
+    .select('is_admin, email')
     .eq('user_id', userId)
     .maybeSingle();
-  return !!data?.is_admin;
+  if (!data) return false;
+  const email = String(data.email || '').toLowerCase();
+  return !!data.is_admin || email === 'info@pokerforgeai.com';
 }
 
 async function checkAiAccess(userId: string) {
   const admin = adminClient();
-  if (!admin) return { ok: true as const, source: 'plan' as const };
+  if (!admin) return { ok: true as const, source: 'plan' as const, unlimited: false };
+
+  if (await callerIsAdmin(admin, userId)) {
+    return { ok: true as const, source: 'admin' as const, unlimited: true };
+  }
+
   const { data, error } = await admin.rpc('pt_check_ai_access', { p_user_id: userId });
   if (error) {
     console.error('[analyze-hand] pt_check_ai_access', error);
@@ -681,7 +688,9 @@ serve(async (req) => {
 
   const truncated = !coachResponseComplete(mode, result.text, result.finishReason || '');
 
-  await recordAiUsage(billingUserId, mode, access.source || 'plan');
+  if (!access.unlimited && access.source !== 'admin') {
+    await recordAiUsage(billingUserId, mode, access.source || 'plan');
+  }
 
   if (admin) {
     if (mode === 'report' || mode === 'question') {

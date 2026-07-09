@@ -610,6 +610,10 @@
       else if (s.type === 'vsRFI') spotKind = 'vsRFI';
       else if (s.type === 'squeeze') spotKind = 'squeeze';
       else if (s.type === 'isoLimp') spotKind = 'isoLimp';
+      else if (s.type === 'face3bet') spotKind = 'face3bet';
+      else if (s.type === 'bbVsSbLimp') spotKind = 'bbVsSbLimp';
+      else if (s.type === 'sbLimp') spotKind = 'sbLimp';
+      else if (s.type === 'cold4bet') spotKind = 'cold4bet';
     } else {
       spotKind = 'postflop';
     }
@@ -632,6 +636,22 @@
     if (s.type === 'vsRFI' && node.street === 'preflop') {
       input.vsRfiKey = s.key;
       input.vsPosition = parseVsKey(s.key).opener;
+    }
+    if (s.type === 'face3bet' && node.street === 'preflop') {
+      const pk = parseFace3betKey(s.key);
+      input.position = pk.opener;
+      input.vsPosition = pk.threeBettor;
+    }
+    if (s.type === 'squeeze' && node.street === 'preflop') {
+      input.callerPos = s.callerPos;
+      input.vsPosition = s.openerPos;
+    }
+    if (s.type === 'isoLimp' && node.street === 'preflop') {
+      input.vsPosition = s.limperPos;
+    }
+    if (s.type === 'bbVsSbLimp') input.vsPosition = 'SB';
+    if (s.type === 'cold4bet' && node.street === 'preflop') {
+      input.vsPosition = s.threeBettorPos || hand.villain.pos;
     }
     const rem = effStackForHand(hand) - (hand.heroInvested || 0);
     input.spr = node.potBB > 0 ? rem / node.potBB : rem;
@@ -754,6 +774,10 @@
     if (!s) return hand.hero.pos;
     if (s.engineHeroPos) return s.engineHeroPos;
     if (s.type === 'vsRFI' || s.type === 'face4bet') return parseVsKey(s.key).hero;
+    if (s.type === 'face3bet') return parseFace3betKey(s.key).opener;
+    if (s.type === 'bbVsSbLimp') return 'BB';
+    if (s.type === 'sbLimp') return 'SB';
+    if (s.type === 'cold4bet') return s.heroPos || 'CO';
     return s.heroPos;
   }
 
@@ -802,6 +826,11 @@
     };
   }
 
+  function parseFace3betKey(key) {
+    const parts = key.split('_');
+    return { opener: parts[0], threeBettor: parts[2] };
+  }
+
   function parseVsKey(key) {
     const [hero, , opener] = key.split('_'); // HERO_vs_OPENER
     return { hero, opener };
@@ -835,6 +864,24 @@
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
       vRange = global.PTPlayConfig ? global.PTPlayConfig.face4betVillainRangeStr(playConfig) : R.VS_3BET.fourBet;
+    } else if (scenario.type === 'face3bet') {
+      const pk = parseFace3betKey(scenario.key);
+      vPos = pk.threeBettor;
+      const reg = global.GTORangesRegistry;
+      const vsKey = pk.threeBettor + '_vs_' + pk.opener;
+      const d = R.VS_RFI[vsKey] || (reg ? reg.getVsRfiRow(pk.threeBettor, pk.opener, playConfig || {}) : null);
+      vRange = d ? (d.threeBet + ', ' + d.threeBetMix) : 'QQ+, AKs, AKo';
+    } else if (scenario.type === 'bbVsSbLimp') {
+      vPos = 'SB';
+      vRange = LIMP_RANGE;
+    } else if (scenario.type === 'sbLimp') {
+      vPos = 'BB';
+      vRange = bbCallRange('SB', { playConfig: playConfig });
+    } else if (scenario.type === 'cold4bet') {
+      vPos = scenario.threeBettorPos || 'HJ';
+      const vsKey = vPos + '_vs_' + (scenario.openerPos || 'UTG');
+      const d = R.VS_RFI[vsKey];
+      vRange = d ? (d.threeBet + ', ' + (d.threeBetMix || '')) : 'QQ+, AKs, AKo';
     } else {
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
@@ -874,6 +921,10 @@
     else if (scenario.type === 'squeeze') setupSqueeze(hand);
     else if (scenario.type === 'isoLimp') setupIsoLimp(hand);
     else if (scenario.type === 'face4bet') setupFace4betInitial(hand);
+    else if (scenario.type === 'face3bet') setupFace3betInitial(hand);
+    else if (scenario.type === 'bbVsSbLimp') setupBbVsSbLimp(hand);
+    else if (scenario.type === 'sbLimp') setupSbLimp(hand);
+    else if (scenario.type === 'cold4bet') setupCold4betInitial(hand);
     else setupVsRFI(hand);
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
@@ -1308,6 +1359,122 @@
       hand.heroInPosition = inPos(hero, opener);
       return goFlop(hand);
     }
+  }
+
+  function setupFace3betInitial(hand) {
+    const pk = parseFace3betKey(hand.scenario.key);
+    const opener = pk.opener;
+    const tb = pk.threeBettor;
+    hand.hero.pos = opener;
+    hand.villain.pos = tb;
+    ensureOpenerOpenHand(hand, opener);
+    hand.villain.rangeStr = hand._predeal.villainRange || bb3betRange(opener, hand);
+    initVillainTracker(hand);
+    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
+    hand.heroInvested = openSize;
+    hand.villainInvested = threeBetSize;
+    hand.potBB = round2(openSize + threeBetSize + SB);
+    hand.heroIsAggressor = true;
+    setVillainAct(hand, 'raise', threeBetSize);
+    addInvest(hand, opener, openSize);
+    addInvest(hand, tb, threeBetSize);
+    setPreflopSeatBet(hand, opener, openSize);
+    setPreflopSeatBet(hand, tb, threeBetSize);
+    setSeatAction(hand, opener, 'open', openSize);
+    setSeatAction(hand, tb, 'raise', threeBetSize);
+    markPreflopFoldsForFacingAction(hand, opener, [tb]);
+    setupFace3Bet(hand, threeBetSize);
+  }
+
+  function setupBbVsSbLimp(hand) {
+    hand.hero.pos = 'BB';
+    hand.villain.pos = 'SB';
+    ensureLimperHand(hand, 'SB');
+    hand.villain.rangeStr = LIMP_RANGE;
+    initVillainTracker(hand);
+    hand.potBB = round2(SB + BBET + BBET);
+    hand.heroInvested = BBET;
+    hand.villainInvested = BBET;
+    hand.toCallBB = 0;
+    const isoSize = round2(BBET * 3.5 + BBET);
+    hand.isoSize = isoSize;
+    const freqs = strategyForNode(hand, { street: 'preflop', kind: 'bbVsSbLimp', potBB: hand.potBB, toCallBB: 0 });
+    hand.current = {
+      street: 'preflop', kind: 'bbVsSbLimp', potBB: hand.potBB, toCallBB: 0,
+      isoSize,
+      options: [
+        { id: 'call', label: 'Check (ver flop gratis)' },
+        { id: 'raise', label: 'Iso-raise a ' + isoSize + 'bb' }
+      ],
+      gto: freqs,
+      context: 'Eres BB. SB limpea. ¿Check o iso-raise?'
+    };
+    setVillainAct(hand, 'check', null);
+    addInvest(hand, 'SB', BBET);
+    markPreflopFoldsForFacingAction(hand, 'SB');
+  }
+
+  function setupSbLimp(hand) {
+    hand.hero.pos = 'SB';
+    hand.villain.pos = 'BB';
+    hand.potBB = round2(SB + BBET);
+    hand.heroInvested = SB;
+    hand.toCallBB = round2(BBET - SB);
+    const openSize = SB_OPEN;
+    const freqs = strategyForNode(hand, { street: 'preflop', kind: 'sbLimp', potBB: hand.potBB, toCallBB: hand.toCallBB });
+    hand.current = {
+      street: 'preflop', kind: 'sbLimp', potBB: hand.potBB, toCallBB: hand.toCallBB,
+      openSize,
+      options: [
+        { id: 'fold', label: 'Fold' },
+        { id: 'call', label: 'Limp (call ' + hand.toCallBB + 'bb)' },
+        { id: 'raise', label: 'Raise a ' + openSize + 'bb' }
+      ],
+      gto: freqs,
+      context: 'Eres SB con acción folded to you. ¿Fold, limp o raise?'
+    };
+    markPreflopFoldsBeforeHeroRFI(hand);
+  }
+
+  function setupCold4betInitial(hand) {
+    const s = hand.scenario;
+    const hero = s.heroPos || 'CO';
+    const opener = s.openerPos || 'UTG';
+    const tb = s.threeBettorPos || 'HJ';
+    hand.hero.pos = hero;
+    hand.villain.pos = tb;
+    ensureOpenerOpenHand(hand, opener);
+    hand.villain.rangeStr = openRangeStr(tb, hand);
+    initVillainTracker(hand);
+    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
+    const cold4Size = round2(threeBetSize * 2.3);
+    const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
+    hand.heroInvested = heroBlind;
+    hand.villainInvested = threeBetSize;
+    hand.potBB = round2(openSize + threeBetSize + SB + BBET);
+    hand.toCallBB = round2(threeBetSize - heroBlind);
+    setSeatAction(hand, opener, 'open', openSize);
+    setSeatAction(hand, tb, 'raise', threeBetSize);
+    addInvest(hand, opener, openSize);
+    addInvest(hand, tb, threeBetSize);
+    setPreflopSeatBet(hand, opener, openSize);
+    setPreflopSeatBet(hand, tb, threeBetSize);
+    setVillainAct(hand, 'raise', threeBetSize);
+    markPreflopFoldsForFacingAction(hand, opener, [tb]);
+    const freqs = strategyForNode(hand, { street: 'preflop', kind: 'cold4bet', potBB: hand.potBB, toCallBB: hand.toCallBB });
+    hand.current = {
+      street: 'preflop', kind: 'cold4bet', potBB: hand.potBB, toCallBB: hand.toCallBB,
+      cold4Size,
+      options: [
+        { id: 'fold', label: 'Fold' },
+        { id: 'call', label: 'Call (igualar ' + hand.toCallBB + 'bb)' },
+        { id: 'raise', label: 'Cold 4-bet a ' + cold4Size + 'bb' }
+      ],
+      gto: freqs,
+      context: opener + ' abre, ' + tb + ' 3-betea. Eres ' + hero + ' en frío. ¿Fold, call o cold 4-bet?'
+    };
   }
 
   function setupFace4betInitial(hand) {

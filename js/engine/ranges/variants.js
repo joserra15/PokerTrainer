@@ -116,8 +116,13 @@
   /** Genera todas las parejas hero/villain válidas en 9-max (36 spots). */
   function buildVsRfi9Max(base) {
     const out = {};
+    const ext = global.GTORangesExtended;
+    const extra = ext && ext.VS_RFI_9MAX_EXTENDED ? ext.VS_RFI_9MAX_EXTENDED : {};
     Object.keys(VS_RFI_9MAX_OVERRIDES).forEach(function (k) {
       out[k] = cloneRow(VS_RFI_9MAX_OVERRIDES[k]);
+    });
+    Object.keys(extra).forEach(function (k) {
+      out[k] = cloneRow(extra[k]);
     });
     for (var vi = 0; vi < POS_9.length - 1; vi++) {
       for (var hi = vi + 1; hi < POS_9.length; hi++) {

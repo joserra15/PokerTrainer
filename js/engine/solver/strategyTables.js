@@ -68,7 +68,20 @@
     return base;
   }
 
-  function squeezeStrategy(code) {
+  function squeezeStrategy(code, ctx, heroPos, openerPos, callerPos) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx && heroPos && openerPos && callerPos
+      ? RR.getSqueezeRow(heroPos, openerPos, callerPos, ctx)
+      : (RR && ctx ? RR.getSqueeze(ctx) : D.SQUEEZE);
+    if (data) {
+      const jam = N.toSet(data.raise);
+      const call = N.toSet(data.call);
+      const callMix = N.toSet(data.callMix || '');
+      if (jam.has(code)) return { fold: 0, call: 0.27, raise: 0.73 };
+      if (call.has(code)) return { fold: 0.12, call: 0.78, raise: 0.1 };
+      if (callMix.has(code)) return { fold: 0.48, call: 0.45, raise: 0.07 };
+      return { fold: 0.92, call: 0.06, raise: 0.02 };
+    }
     const s = HS.handStrength01(code);
     let base;
     if (s > 0.93) base = { fold: 0.03, call: 0.27, raise: 0.7 };
@@ -79,7 +92,20 @@
     return Preflop ? Preflop.enhancePreflopStrategy(base, code, 'squeeze', {}) : base;
   }
 
-  function isoStrategy(code) {
+  function isoStrategy(code, ctx, heroPos, limperPos) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && heroPos && limperPos
+      ? RR.getIsoLimpRow(heroPos, limperPos, ctx)
+      : D.ISO_LIMP;
+    if (data) {
+      const jam = N.toSet(data.raise);
+      const callMix = N.toSet(data.callMix || '');
+      const foldSet = N.toSet(data.fold || '');
+      if (jam.has(code)) return { fold: 0, call: 0.05, raise: 0.95 };
+      if (callMix.has(code)) return { fold: 0.58, call: 0.37, raise: 0.05 };
+      if (foldSet.has(code)) return { fold: 1, call: 0, raise: 0 };
+      return { fold: 0.88, call: 0.08, raise: 0.04 };
+    }
     const s = HS.handStrength01(code);
     let base;
     if (s > 0.8) base = { fold: 0, call: 0.05, raise: 0.95 };
@@ -89,9 +115,37 @@
     return Preflop ? Preflop.enhancePreflopStrategy(base, code, 'isoLimp', {}) : base;
   }
 
-  function vs3betStrategy(code, ctx) {
+  function bbVsSbLimpStrategy(code, ctx) {
     const RR = global.GTORangesRegistry;
-    const data = RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET;
+    const data = RR ? RR.getBbVsSbLimp(ctx) : D.BB_VS_SB_LIMP;
+    if (!data) return { fold: 0, call: 0.5, raise: 0.5 };
+    const jam = N.toSet(data.raise);
+    const callMix = N.toSet(data.callMix || '');
+    const check = N.toSet(data.check || '');
+    if (jam.has(code)) return { fold: 0, call: 0, raise: 1 };
+    if (callMix.has(code)) return { fold: 0, call: 0.42, raise: 0.58 };
+    if (check.has(code)) return { fold: 0, call: 1, raise: 0 };
+    return { fold: 0.15, call: 0.75, raise: 0.1 };
+  }
+
+  function sbLimpStrategy(code, ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR ? RR.getSbLimp(ctx) : D.SB_LIMP;
+    if (!data) return rfiStrategy('SB', code, ctx);
+    const jam = N.toSet(data.raise);
+    const limp = N.toSet(data.limp);
+    const limpMix = N.toSet(data.limpMix || '');
+    if (jam.has(code)) return { fold: 0, call: 0, raise: 1 };
+    if (limp.has(code)) return { fold: 0, call: 1, raise: 0 };
+    if (limpMix.has(code)) return { fold: 0.5, call: 0.5, raise: 0 };
+    return { fold: 1, call: 0, raise: 0 };
+  }
+
+  function vs3betStrategy(code, ctx, openerPos, threeBettorPos) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx && openerPos && threeBettorPos
+      ? RR.getVs3betRow(openerPos, threeBettorPos, ctx)
+      : (RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET);
     if (data) {
       const jam = N.toSet(data.fourBet);
       const call = N.toSet(data.call);
@@ -108,8 +162,11 @@
     return { fold: 0.82, call: 0.15, raise: 0.03 };
   }
 
-  function vs4betStrategy(code) {
-    const data = D.VS_4BET;
+  function vs4betStrategy(code, ctx, openerPos, fourBettorPos) {
+    const RR = global.GTORangesRegistry;
+    const data = RR && ctx && openerPos && fourBettorPos
+      ? RR.getVs4betRow(openerPos, fourBettorPos, ctx)
+      : D.VS_4BET;
     if (data) {
       const jam = N.toSet(data.fourBet);
       const call = N.toSet(data.call);
@@ -144,6 +201,38 @@
     if (jam.has(code)) return { fold: 0, call: 0.22, raise: 0.78 };
     if (call.has(code)) return { fold: 0.06, call: 0.88, raise: 0.06 };
     return { fold: 0.88, call: 0.10, raise: 0.02 };
+  }
+
+  function cold3betStrategy(code, ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR ? RR.getCold3bet(ctx) : D.COLD_3BET;
+    if (data) {
+      const jam = N.toSet(data.raise);
+      const call = N.toSet(data.call);
+      const callMix = N.toSet(data.callMix || '');
+      const foldSet = N.toSet(data.fold || '');
+      if (jam.has(code)) return { fold: 0, call: 0, raise: 1 };
+      if (call.has(code)) return { fold: 0, call: 1, raise: 0 };
+      if (callMix.has(code)) return { fold: 0.58, call: 0.42, raise: 0 };
+      if (foldSet.has(code)) return { fold: 1, call: 0, raise: 0 };
+    }
+    return heuristicFacingRaise(code, true);
+  }
+
+  function cold4betStrategy(code, ctx) {
+    const RR = global.GTORangesRegistry;
+    const data = RR ? RR.getCold4bet(ctx) : D.COLD_4BET;
+    if (data) {
+      const jam = N.toSet(data.raise);
+      const call = N.toSet(data.call);
+      const callMix = N.toSet(data.callMix || '');
+      const foldSet = N.toSet(data.fold || '');
+      if (jam.has(code)) return { fold: 0, call: 0.15, raise: 0.85 };
+      if (call.has(code)) return { fold: 0.25, call: 0.72, raise: 0.03 };
+      if (callMix.has(code)) return { fold: 0.55, call: 0.42, raise: 0.03 };
+      if (foldSet.has(code)) return { fold: 1, call: 0, raise: 0 };
+    }
+    return heuristicFacingRaise(code, true);
   }
 
   function heuristicOpen(code) {
@@ -371,12 +460,23 @@
           code, ctx, input.position, input.vsPosition
         );
       }
-      if (kind === 'squeeze') return squeezeStrategy(code);
-      if (kind === 'isoLimp' || kind === 'vsLimp') return isoStrategy(code);
-      if (kind === 'face3bet' || kind === 'vs3bet') return vs3betStrategy(code, ctx);
+      if (kind === 'squeeze') {
+        return squeezeStrategy(code, ctx, input.position, input.vsPosition, input.callerPos);
+      }
+      if (kind === 'isoLimp' || kind === 'vsLimp') {
+        return isoStrategy(code, ctx, input.position, input.vsPosition);
+      }
+      if (kind === 'bbVsSbLimp') return bbVsSbLimpStrategy(code, ctx);
+      if (kind === 'sbLimp') return sbLimpStrategy(code, ctx);
+      if (kind === 'face3bet' || kind === 'vs3bet') {
+        return vs3betStrategy(code, ctx, input.position, input.vsPosition);
+      }
       if (kind === 'face4bet') return vs4betAs3bettorStrategy(code, ctx);
-      if (kind === 'vs4bet') return vs4betStrategy(code);
-      if (kind === 'cold3bet') return heuristicFacingRaise(code, true);
+      if (kind === 'vs4bet') {
+        return vs4betStrategy(code, ctx, input.position, input.vsPosition);
+      }
+      if (kind === 'cold3bet') return cold3betStrategy(code, ctx);
+      if (kind === 'cold4bet') return cold4betStrategy(code, ctx);
 
       if (spotKey.street === 'preflop') {
         if (ctx && global.GTORangesRegistry.getOpenRaiseRow(input.position, ctx)) {
@@ -443,7 +543,10 @@
 
   global.GTOStrategyTables = {
     normalize, rfiStrategy, vsRfiStrategy, squeezeStrategy, isoStrategy,
-    vs3betStrategy, vs4betStrategy, vs4betAs3bettorStrategy, heuristicOpen, heuristicFacingRaise,
+    bbVsSbLimpStrategy, sbLimpStrategy,
+    vs3betStrategy, vs4betStrategy, vs4betAs3bettorStrategy,
+    cold3betStrategy, cold4betStrategy,
+    heuristicOpen, heuristicFacingRaise,
     postflopStrategy, probeStrategy, probeStrategyLegacy, getStrategy, actionEV, bestAction, betSizingOptions
   };
 })(window);

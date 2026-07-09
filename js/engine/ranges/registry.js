@@ -140,7 +140,11 @@
   function baseOpenTable(ctx) {
     const c = normalize(ctx);
     if (c.isMtt && V()) {
-      if (c.stackDepth === 'short') return V().OPEN_RAISE_MTT_SHORT;
+      if (c.stackDepth === 'short') {
+        const ext = global.GTORangesExtended;
+        if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
+        return V().OPEN_RAISE_MTT_SHORT;
+      }
       return V().OPEN_RAISE_MTT;
     }
     if (c.is9Max && V()) return V().OPEN_RAISE_9MAX;
@@ -196,22 +200,149 @@
     return table[key] || null;
   }
 
-  function getVs3bet(ctx) {
+  function getVs3betRow(openerPos, threeBettorPos, ctx) {
     const c = normalize(ctx);
-    const data = cloneRow(D().VS_3BET);
-    if (c.stackDepth === 'short') {
-      data.fourBet = 'QQ+, AKs, AKo, JJ';
-      data.call = 'TT, 99, AQs, AJs';
-      data.callMix = '88, ATs, KQs, AQo';
-    } else if (c.stackDepth === 'deep') {
-      data.call = 'JJ, TT, 99, 88, AQs, AJs, KQs, AQo, KQo';
-      data.callMix = '77, 66, ATs, KJs, QJs, AJo';
+    const key = openerPos + '_vs_' + threeBettorPos;
+    const ext = global.GTORangesExtended;
+    const pairs = D().VS_3BET_PAIRS || (ext && ext.VS_3BET_PAIRS);
+    let row = pairs && pairs[key] ? cloneRow(pairs[key]) : null;
+    if (!row) row = cloneRow(D().VS_3BET);
+    return adjustVs3betRow(row, c.stackDepth);
+  }
+
+  function adjustVs3betRow(row, stackDepth) {
+    if (!row || stackDepth === 'standard') return row;
+    const data = cloneRow(row);
+    if (stackDepth === 'short') {
+      data.fourBet = widenField(data.fourBet, 'JJ');
+      data.call = trimField(data.call, '99, 88, AJo, KQo');
+      data.callMix = trimField(data.callMix || '', '77, 66, ATs, KJs');
+    } else if (stackDepth === 'deep') {
+      data.call = widenField(data.call, '88, 77, KQo');
+      data.callMix = widenField(data.callMix || '', '66, 55, AJo, QJs');
     }
     return data;
   }
 
-  function getVs4bet(ctx) { return D().VS_4BET; }
-  function getSqueeze(ctx) { return D().SQUEEZE; }
+  function widenField(str, addCsv) {
+    if (!addCsv) return str || '';
+    if (!str) return addCsv;
+    return str + ', ' + addCsv;
+  }
+
+  function trimField(str, removeCsv) {
+    if (!str || !removeCsv) return str;
+    const N = global.GTORangesNotation;
+    if (!N) return str;
+    const keep = N.toSet(str);
+    N.expand(removeCsv).forEach(function (c) { keep.delete(c); });
+    return Array.from(keep).join(', ');
+  }
+
+  function getVs3bet(ctx, openerPos, threeBettorPos) {
+    if (openerPos && threeBettorPos) {
+      return getVs3betRow(openerPos, threeBettorPos, ctx);
+    }
+    const c = normalize(ctx);
+    const data = cloneRow(D().VS_3BET);
+    return adjustVs3betRow(data, c.stackDepth);
+  }
+
+  function getVs4betRow(openerPos, fourBettorPos, ctx) {
+    const c = normalize(ctx);
+    const key = openerPos + '_vs_' + fourBettorPos;
+    const pairs = D().VS_4BET_PAIRS;
+    let row = pairs && pairs[key] ? cloneRow(pairs[key]) : cloneRow(D().VS_4BET);
+    return adjustVs4betRow(row, c.stackDepth);
+  }
+
+  function adjustVs4betRow(row, stackDepth) {
+    if (!row || stackDepth === 'standard') return row;
+    const data = cloneRow(row);
+    if (stackDepth === 'short') {
+      data.fourBet = widenField(data.fourBet, 'QQ, AKo');
+      data.call = trimField(data.call, 'JJ, TT, AQs');
+    } else if (stackDepth === 'deep') {
+      data.call = widenField(data.call, 'TT, 99, AJs, KQs');
+      data.callMix = widenField(data.callMix || '', '88, 77');
+    }
+    return data;
+  }
+
+  function getVs4bet(ctx, openerPos, fourBettorPos) {
+    if (openerPos && fourBettorPos) return getVs4betRow(openerPos, fourBettorPos, ctx);
+    const c = normalize(ctx);
+    return adjustVs4betRow(cloneRow(D().VS_4BET), c.stackDepth);
+  }
+
+  function getSqueezeRow(heroPos, openerPos, callerPos, ctx) {
+    const c = normalize(ctx);
+    const ext = global.GTORangesExtended;
+    const key = ext && ext.squeezeKey ? ext.squeezeKey(heroPos, openerPos, callerPos)
+      : heroPos + '|' + openerPos + '|' + callerPos;
+    const pairs = D().SQUEEZE_PAIRS || (ext && ext.SQUEEZE_PAIRS);
+    let row = pairs && pairs[key] ? cloneRow(pairs[key]) : cloneRow(D().SQUEEZE);
+    return adjustSqueezeRow(row, c.stackDepth);
+  }
+
+  function adjustSqueezeRow(row, stackDepth) {
+    if (!row || stackDepth === 'standard') return row;
+    const data = cloneRow(row);
+    if (stackDepth === 'short') {
+      data.raise = widenField(data.raise, '99, AJs');
+      data.callMix = trimField(data.callMix || '', '88, 77, AJo');
+    } else if (stackDepth === 'deep') {
+      data.call = widenField(data.call, '88, 77, AJo, KJo');
+    }
+    return data;
+  }
+
+  function getSqueeze(ctx, heroPos, openerPos, callerPos) {
+    if (heroPos && openerPos && callerPos) {
+      return getSqueezeRow(heroPos, openerPos, callerPos, ctx);
+    }
+    const c = normalize(ctx);
+    return adjustSqueezeRow(cloneRow(D().SQUEEZE), c.stackDepth);
+  }
+
+  function getIsoLimpRow(heroPos, limperPos, ctx) {
+    const pairs = D().ISO_LIMP_PAIRS;
+    const key = heroPos + '_vs_' + limperPos;
+    return (pairs && pairs[key]) ? cloneRow(pairs[key]) : cloneRow(D().ISO_LIMP);
+  }
+
+  function getBbVsSbLimp(ctx) {
+    return cloneRow(D().BB_VS_SB_LIMP || (global.GTORangesExtended && global.GTORangesExtended.BB_VS_SB_LIMP));
+  }
+
+  function getSbLimp(ctx) {
+    return cloneRow(D().SB_LIMP || (global.GTORangesExtended && global.GTORangesExtended.SB_LIMP));
+  }
+
+  function getCold4bet(ctx) {
+    return cloneRow(D().COLD_4BET || (global.GTORangesExtended && global.GTORangesExtended.COLD_4BET));
+  }
+
+  function getCold3bet(ctx) {
+    return cloneRow(D().COLD_3BET);
+  }
+
+  function validVs3betPairs(ctx) {
+    const openers = rfiPositions(ctx);
+    const ext = global.GTORangesExtended;
+    const pos = ext && ext.POS6 ? ext.POS6 : ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+    const ord = ext && ext.ORD6 ? ext.ORD6 : { UTG: 0, HJ: 1, CO: 2, BTN: 3, SB: 4, BB: 5 };
+    const pairs = {};
+    openers.forEach(function (opener) {
+      pos.forEach(function (tb) {
+        if ((ord[tb] || 0) > (ord[opener] || 0)) {
+          if (!pairs[opener]) pairs[opener] = [];
+          pairs[opener].push(tb);
+        }
+      });
+    });
+    return pairs;
+  }
 
   function heroPositions(ctx) {
     const c = normalize(ctx);
@@ -269,8 +400,17 @@
     getVsRfiTable,
     getVsRfiRow,
     getVs3bet,
+    getVs3betRow,
     getVs4bet,
+    getVs4betRow,
     getSqueeze,
+    getSqueezeRow,
+    getIsoLimpRow,
+    getBbVsSbLimp,
+    getSbLimp,
+    getCold4bet,
+    getCold3bet,
+    validVs3betPairs,
     heroPositions,
     rfiPositions,
     contextLabel,

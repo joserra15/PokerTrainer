@@ -1712,6 +1712,10 @@ body.cookie-banner-open { padding-bottom: 0; }
   text-align: center; padding: 24px 12px; color: var(--muted);
 }
 .ai-report-loading .play-boot-spinner { margin-bottom: 12px; }
+.session-loading {
+  text-align: center; padding: 48px 16px; color: var(--muted);
+}
+.session-loading .play-boot-spinner { margin: 0 auto 14px; }
 .ai-report-loading .play-boot-msg { margin-bottom: 4px; }
 .ai-report-notice {
   color: var(--gold); padding: 14px 0; font-size: 14px; line-height: 1.5;

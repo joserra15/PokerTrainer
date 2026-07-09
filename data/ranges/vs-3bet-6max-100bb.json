@@ -1,0 +1,85 @@
+{
+  "meta": {
+    "spot": "face3bet",
+    "format": "cash6",
+    "stackBB": 100,
+    "updated": "2026-07-09"
+  },
+  "pairs": {
+    "UTG_vs_HJ": {
+      "fourBet": "QQ+, AKs, AKo",
+      "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+      "callMix": "88, ATs, KJs, AJo"
+    },
+    "UTG_vs_CO": {
+      "fourBet": "QQ+, AKs, AKo",
+      "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+      "callMix": "88, ATs, KJs, AJo"
+    },
+    "UTG_vs_BTN": {
+      "fourBet": "QQ+, AKs, AKo",
+      "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+      "callMix": "88, ATs, KJs, AJo"
+    },
+    "UTG_vs_SB": {
+      "fourBet": "QQ+, AKs, AKo",
+      "call": "JJ, TT, AQs, AJs, KQs",
+      "callMix": "99, 88, ATs, AQo"
+    },
+    "UTG_vs_BB": {
+      "fourBet": "KK+, AKs, AKo",
+      "call": "JJ, TT, AQs, AJs, KQs",
+      "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+    },
+    "HJ_vs_CO": {
+      "fourBet": "QQ+, AKs, AKo",
+      "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+      "callMix": "88, ATs, KJs, AJo"
+    },
+    "HJ_vs_BTN": {
+      "fourBet": "QQ+, AKs, AKo",
+      "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+      "callMix": "88, ATs, KJs, AJo"
+    },
+    "HJ_vs_SB": {
+      "fourBet": "QQ+, AKs, AKo",
+      "call": "JJ, TT, AQs, AJs, KQs",
+      "callMix": "99, 88, ATs, AQo"
+    },
+    "HJ_vs_BB": {
+      "fourBet": "KK+, AKs, AKo",
+      "call": "JJ, TT, AQs, AJs, KQs",
+      "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+    },
+    "CO_vs_BTN": {
+      "fourBet": "QQ+, AKs, AKo",
+      "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+      "callMix": "88, 77, ATs, KJs, QJs, AJo, KQo"
+    },
+    "CO_vs_SB": {
+      "fourBet": "QQ+, AKs, AKo, A5s",
+      "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+      "callMix": "88, 77, ATs, KJs, QJs, AJo, KQo"
+    },
+    "CO_vs_BB": {
+      "fourBet": "KK+, AKs, AKo",
+      "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+      "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+    },
+    "BTN_vs_SB": {
+      "fourBet": "JJ+, AKs, AKo, A5s",
+      "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo, AJo",
+      "callMix": "88, 77, 66, KQo, KJo, QJo"
+    },
+    "BTN_vs_BB": {
+      "fourBet": "JJ+, AKs, AKo, A5s",
+      "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo, AJo",
+      "callMix": "88, 77, 66, KQo, KJo, QJo"
+    },
+    "SB_vs_BB": {
+      "fourBet": "TT+, AQs+, AKo, A5s-A2s",
+      "call": "99, 88, 77, AJs, ATs, KQs, KJs, QJs, AJo, KQo",
+      "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+    }
+  }
+}

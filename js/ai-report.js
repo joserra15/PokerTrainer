@@ -377,7 +377,7 @@
         message: 'El coach de IA está con mucha demanda ahora mismo. Espera unos segundos y vuelve a pulsar el botón.'
       };
     }
-    if (m.includes('ai_plan') || m.includes('ai_limit') || (m.includes('rate') && m.includes('0'))) {
+    if (m.includes('ai_plan') || m.includes('ai_limit') || m.includes('rate_limit')) {
       return {
         kind: 'paywall',
         message: 'Has agotado tus consultas IA incluidas este mes. Compra un bono o sube de plan en la pestaña Planes.'
@@ -682,7 +682,7 @@
       const body = panel.querySelector('[data-ai-body]');
       const err = friendlyError(e.message);
       if (err.kind === 'paywall' && global.PTBilling) {
-        global.PTBilling.showPaywall('ai_plan', err.message);
+        global.PTBilling.showPaywall(err.message && err.message.indexOf('bono') >= 0 ? 'ai_limit' : 'ai_plan', err.message);
       } else if (body) showError(body, e.message);
       if (global.PTEntitlements && global.PTEntitlements.refresh) global.PTEntitlements.refresh();
       console.error('[PTAI]', e);

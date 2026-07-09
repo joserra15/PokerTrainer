@@ -9,7 +9,10 @@
     vsRFI: '3-Bet',
     face4bet: '4-Bet',
     squeeze: 'Squeeze',
-    isoLimp: 'Iso limp',
+    face3bet: 'Vs 3-Bet',
+    bbVsSbLimp: 'BB vs SB limp',
+    sbLimp: 'SB limp',
+    cold4bet: 'Cold 4-Bet',
     postflop: 'Postflop'
   };
 

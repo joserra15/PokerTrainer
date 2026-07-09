@@ -491,9 +491,7 @@
     if (tabId === 'sessions') {
       if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#sessions-usage'));
       if (opts.openSessionId) {
-        showSessionsView('detail');
-        const detailBox = $('#session-detail-content');
-        if (detailBox) detailBox.innerHTML = '<p class="muted-text">Cargando sesión…</p>';
+        showSessionLoading('Cargando sesión…');
         void openSession(opts.openSessionId);
         refreshSessionsFromCloud();
         return;
@@ -1392,6 +1390,7 @@
 
     const spot = RM.EXPLORER_SPOTS[rangesState.spot] || RM.EXPLORER_SPOTS.RFI;
     const vsPairs = RM.validVsRfiPairs(ctx);
+    const vs3Pairs = RM.validVs3betPairs ? RM.validVs3betPairs(ctx) : {};
 
     spotRow.innerHTML = Object.keys(RM.EXPLORER_SPOTS).map((id) =>
       `<button type="button" class="ranges-spot-btn${rangesState.spot === id ? ' active' : ''}" data-ranges-spot="${id}">${RM.EXPLORER_SPOTS[id].label}</button>`
@@ -1401,6 +1400,10 @@
     if (rangesState.spot === '3bet' && vsPairs[rangesState.heroPos]) {
       /* ok */
     } else if (rangesState.spot === '3bet') {
+      rangesState.heroPos = heroPositions[0];
+    } else if (rangesState.spot === '4bet' && vs3Pairs[rangesState.heroPos]) {
+      /* ok */
+    } else if (rangesState.spot === '4bet') {
       rangesState.heroPos = heroPositions[0];
     }
     if (heroPositions.indexOf(rangesState.heroPos) < 0) rangesState.heroPos = heroPositions[0];
@@ -1415,6 +1418,9 @@
       let villainPositions = RM.villainPositionsForSpot(rangesState.spot, ctx);
       if (rangesState.spot === '3bet') {
         villainPositions = vsPairs[rangesState.heroPos] || villainPositions;
+        if (villainPositions.indexOf(rangesState.villainPos) < 0) rangesState.villainPos = villainPositions[0];
+      } else if (rangesState.spot === '4bet') {
+        villainPositions = vs3Pairs[rangesState.heroPos] || villainPositions;
         if (villainPositions.indexOf(rangesState.villainPos) < 0) rangesState.villainPos = villainPositions[0];
       } else if (villainPositions.indexOf(rangesState.villainPos) < 0) {
         rangesState.villainPos = villainPositions[0];
@@ -2528,14 +2534,27 @@
     }));
   }
 
+  function sessionLoadingHtml(message) {
+    return '<div class="session-loading">' +
+      '<div class="play-boot-spinner" aria-hidden="true"></div>' +
+      '<p class="muted-text">' + escapeHtml(message || 'Cargando sesión…') + '</p>' +
+      '</div>';
+  }
+
+  function showSessionLoading(message) {
+    showSessionsView('detail');
+    const detailBox = $('#session-detail-content');
+    if (detailBox) detailBox.innerHTML = sessionLoadingHtml(message);
+  }
+
   async function openSession(id, sessionObj) {
+    showSessionLoading('Cargando sesión…');
     currentSession = sessionObj || await Store.getSessionAsync(id);
     if (!currentSession || !currentSession.hands) {
       const stub = Store.getSession(id);
       if (stub && stub.cloudOnly) {
-        $('#import-status').textContent = 'Cargando sesión desde la nube…';
+        showSessionLoading('Cargando sesión desde la nube…');
         currentSession = await Store.getSessionAsync(id);
-        $('#import-status').textContent = '';
       }
     }
     if (!currentSession || !currentSession.hands) {

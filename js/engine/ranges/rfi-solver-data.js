@@ -1,4 +1,4 @@
-/* Auto-generado por tools/sync-rfi-solver-data.js — no editar a mano */
+/* Auto-generado por tools/sync-ranges-solver-data.js — no editar a mano */
 window.PT_RFI_JSON = {
   "meta": {
     "spot": "RFI",

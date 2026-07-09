@@ -132,7 +132,7 @@
     if (!evaluation || !evaluation.chosenAction) {
       return spotContext(input, spotKey);
     }
-    if ((input.street || spotKey.street) === 'preflop' || ['RFI', 'vsRFI', 'squeeze', 'isoLimp', 'face3bet', 'face4bet', 'cold3bet'].indexOf(input.spotKind) >= 0) {
+    if ((input.street || spotKey.street) === 'preflop' || ['RFI', 'vsRFI', 'squeeze', 'isoLimp', 'face3bet', 'face4bet', 'cold3bet', 'cold4bet', 'bbVsSbLimp', 'sbLimp'].indexOf(input.spotKind) >= 0) {
       return preflopExplain(input, evaluation, strategy);
     }
     return postflopExplain(input, spotKey, evaluation, strategy);

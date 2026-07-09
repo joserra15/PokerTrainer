@@ -53,13 +53,15 @@
       title: function (heroPos, villainPos) { return heroPos + ' vs open ' + villainPos; }
     },
     '4bet': {
-      label: '4-Bet',
+      label: 'Vs 3-Bet',
       heroPositions: ['UTG', 'HJ', 'CO', 'BTN', 'SB'],
-      villainPositions: [],
-      build: function (heroPos) {
+      villainPositions: ['HJ', 'CO', 'BTN', 'SB', 'BB'],
+      build: function (heroPos, villainPos) {
         return {
           spotKind: 'face3bet',
           position: heroPos,
+          vsPosition: villainPos,
+          vs3betKey: heroPos + '_vs_' + villainPos,
           stackDepth: 100,
           street: 'preflop',
           board: [],
@@ -69,18 +71,60 @@
           availableActions: ['fold', 'call', 'raise']
         };
       },
-      title: function (heroPos) { return heroPos + ' afronta 3-bet'; }
+      title: function (heroPos, villainPos) { return heroPos + ' open vs 3-bet ' + villainPos; }
+    },
+    iso: {
+      label: 'Iso limp',
+      heroPositions: ['CO', 'BTN', 'SB', 'BB', 'HJ'],
+      villainPositions: ['UTG', 'HJ', 'CO', 'BTN', 'SB'],
+      build: function (heroPos, villainPos) {
+        return {
+          spotKind: 'isoLimp',
+          position: heroPos,
+          vsPosition: villainPos,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 2.5,
+          toCallBB: 1,
+          initiative: 'caller',
+          availableActions: ['fold', 'call', 'raise']
+        };
+      },
+      title: function (heroPos, villainPos) { return heroPos + ' iso vs limp ' + villainPos; }
+    },
+    bbvsb: {
+      label: 'BB vs SB limp',
+      heroPositions: ['BB'],
+      villainPositions: [],
+      build: function (heroPos) {
+        return {
+          spotKind: 'bbVsSbLimp',
+          position: 'BB',
+          vsPosition: 'SB',
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 2,
+          toCallBB: 0,
+          initiative: 'caller',
+          availableActions: ['call', 'raise']
+        };
+      },
+      title: function () { return 'BB vs SB limp'; }
     },
     squeeze: {
       label: 'Squeeze',
-      heroPositions: ['BB', 'SB', 'BTN'],
-      villainPositions: ['UTG', 'HJ', 'CO'],
+      heroPositions: ['BB', 'SB', 'BTN', 'CO'],
+      villainPositions: ['UTG', 'HJ', 'CO', 'BTN'],
       villainLabel: 'Opener',
-      build: function (heroPos, villainPos) {
+      callerPositions: ['HJ', 'CO', 'BTN', 'SB'],
+      build: function (heroPos, villainPos, callerPos) {
         return {
           spotKind: 'squeeze',
           position: heroPos,
           vsPosition: villainPos,
+          callerPos: callerPos,
           stackDepth: 100,
           street: 'preflop',
           board: [],
@@ -90,16 +134,18 @@
           availableActions: ['fold', 'call', 'raise']
         };
       },
-      title: function (heroPos, villainPos) { return heroPos + ' squeeze vs ' + villainPos; }
+      title: function (heroPos, villainPos, callerPos) {
+        return heroPos + ' squeeze · open ' + villainPos + ' · call ' + (callerPos || '?');
+      }
     }
   };
 
   const SQUEEZE_COMBOS = [
-    { heroPos: 'BB', openerPos: 'CO' },
-    { heroPos: 'BB', openerPos: 'HJ' },
-    { heroPos: 'SB', openerPos: 'UTG' },
-    { heroPos: 'BTN', openerPos: 'UTG' },
-    { heroPos: 'BTN', openerPos: 'HJ' }
+    { heroPos: 'BB', openerPos: 'CO', callerPos: 'BTN' },
+    { heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO' },
+    { heroPos: 'SB', openerPos: 'UTG', callerPos: 'CO' },
+    { heroPos: 'BTN', openerPos: 'UTG', callerPos: 'HJ' },
+    { heroPos: 'BTN', openerPos: 'HJ', callerPos: 'CO' }
   ];
 
   function cellLabel(row, col) {
@@ -387,8 +433,11 @@
     }
     if (spotType === '4bet') {
       if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB'];
-      return EXPLORER_SPOTS['4bet'].heroPositions;
+      const pairs = validVs3betPairs(ctx);
+      return Object.keys(pairs);
     }
+    if (spotType === 'iso') return EXPLORER_SPOTS.iso.heroPositions;
+    if (spotType === 'bbvsb') return EXPLORER_SPOTS.bbvsb.heroPositions;
     if (spotType === 'squeeze') return EXPLORER_SPOTS.squeeze.heroPositions;
     const spot = EXPLORER_SPOTS[spotType];
     return spot ? spot.heroPositions.slice() : [];
@@ -400,7 +449,11 @@
       if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
       return EXPLORER_SPOTS['3bet'].villainPositions;
     }
-    if (spotType === 'squeeze') return EXPLORER_SPOTS.squeeze.villainPositions;
+    if (spotType === '4bet') {
+      const pairs = validVs3betPairs(ctx);
+      return pairs[heroPos] || EXPLORER_SPOTS['4bet'].villainPositions;
+    }
+    if (spotType === 'iso') return EXPLORER_SPOTS.iso.villainPositions;
     const spot = EXPLORER_SPOTS[spotType];
     return spot && spot.villainPositions ? spot.villainPositions.slice() : [];
   }
@@ -413,11 +466,42 @@
     return input;
   }
 
-  function buildExplorerInput(spotType, heroPos, villainPos, ctx) {
+  function defaultCallerForSqueeze(heroPos, openerPos) {
+    const PC = global.PTPlayConfig;
+    const combos = PC && PC.SQUEEZE_COMBOS ? PC.SQUEEZE_COMBOS : SQUEEZE_COMBOS;
+    for (var i = 0; i < combos.length; i++) {
+      if (combos[i].heroPos === heroPos && combos[i].openerPos === openerPos) return combos[i].callerPos;
+    }
+    return null;
+  }
+
+  function validVs3betPairs(ctx) {
+    const reg = RR();
+    if (reg && reg.validVs3betPairs) return reg.validVs3betPairs(ctx);
+    const ext = global.GTORangesExtended;
+    const keys = ext && ext.allVs3betPairKeys ? ext.allVs3betPairKeys() : [];
+    const pairs = {};
+    keys.forEach(function (k) {
+      const m = k.match(/^(\w+)_vs_(\w+)$/);
+      if (!m) return;
+      if (!pairs[m[1]]) pairs[m[1]] = [];
+      pairs[m[1]].push(m[2]);
+    });
+    return pairs;
+  }
+
+  function buildExplorerInput(spotType, heroPos, villainPos, ctx, callerPos) {
     const spot = EXPLORER_SPOTS[spotType];
     if (!spot) return null;
     if (spot.villainPositions && spot.villainPositions.length && !villainPos) return null;
-    let input = spot.build(heroPos, villainPos);
+    let input;
+    if (spotType === 'squeeze') {
+      const cp = callerPos || defaultCallerForSqueeze(heroPos, villainPos);
+      if (!cp) return null;
+      input = spot.build(heroPos, villainPos, cp);
+    } else {
+      input = spot.build(heroPos, villainPos);
+    }
     if (!input) return null;
     if (spotType === '3bet') {
       const reg = RR();
@@ -428,12 +512,30 @@
         ? ((c.is9Max || c.isMtt) ? reg.vsRfiPairKey(heroPos, villainPos) : reg.vsRfiKey(heroPos, villainPos, ctx))
         : heroPos + '_vs_' + villainPos;
     }
+    if (spotType === '4bet') {
+      const reg = RR();
+      const data = reg ? reg.getVs3betRow(heroPos, villainPos, ctx) : null;
+      if (!data) return null;
+      input.vs3betKey = heroPos + '_vs_' + villainPos;
+    }
+    if (spotType === 'iso') {
+      const reg = RR();
+      if (!reg || !reg.getIsoLimpRow(heroPos, villainPos, ctx)) return null;
+    }
+    if (spotType === 'squeeze') {
+      const reg = RR();
+      if (!reg || !reg.getSqueezeRow(heroPos, villainPos, input.callerPos, ctx)) return null;
+    }
     return attachExplorerMeta(input, ctx);
   }
 
-  function explorerTitle(spotType, heroPos, villainPos) {
+  function explorerTitle(spotType, heroPos, villainPos, callerPos) {
     const spot = EXPLORER_SPOTS[spotType];
     if (!spot) return '';
+    if (spotType === 'squeeze') {
+      const cp = callerPos || defaultCallerForSqueeze(heroPos, villainPos);
+      return spot.title(heroPos, villainPos, cp);
+    }
     return spot.title(heroPos, villainPos);
   }
 
@@ -575,6 +677,8 @@
     heroPositionsForSpot,
     villainPositionsForSpot,
     validVsRfiPairs,
+    validVs3betPairs,
+    defaultCallerForSqueeze,
     computeGtoMatrixAsync,
     computeVillainRangeMatrix,
     getVillainRangeForDecision,

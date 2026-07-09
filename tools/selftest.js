@@ -12,6 +12,7 @@ const scripts = [
   'engine/cache.js',
   'engine/ranges/notation.js',
   'engine/ranges/data.js',
+  'engine/ranges/extended.js',
   'engine/ranges/variants.js',
   'engine/ranges/registry.js',
   'engine/ranges/weights.js',
@@ -656,7 +657,16 @@ const explorerInput = MatrixMod.buildExplorerInput('3bet', 'BB', 'UTG1', { gameT
 console.log('Explorer BB vs UTG1 MTT:', explorerInput ? 'OK' : 'FAIL');
 const keys9 = sandbox.window.GTORangesVariants.allVsRfi9MaxKeys();
 console.log('VS_RFI 9-max spots:', keys9.length, '(expect >=36)');
-const ranges9Ok = keys9.length >= 36 && bbVsUtg1 && explorerInput && rangesFormatOk && rangesStackOk;
+const vs3Keys = sandbox.window.GTORangesExtended.allVs3betPairKeys();
+console.log('VS_3BET positional pairs:', vs3Keys.length, '(expect 15)');
+const vs3Row = RegRanges.getVs3betRow('UTG', 'BB', { gameType: 'cash6', stackDepth: 'standard' });
+console.log('VS_3BET UTG vs BB:', vs3Row && vs3Row.fourBet ? 'OK' : 'FAIL');
+const sqRow = RegRanges.getSqueezeRow('BB', 'CO', 'BTN', { gameType: 'cash6', stackDepth: 'standard' });
+console.log('Squeeze BB|CO|BTN:', sqRow && sqRow.raise ? 'OK' : 'FAIL');
+const face3Explorer = MatrixMod.buildExplorerInput('4bet', 'UTG', 'BB', { gameType: 'cash6', stackDepth: 'standard' });
+console.log('Explorer UTG vs 3bet BB:', face3Explorer ? 'OK' : 'FAIL');
+const ranges9Ok = keys9.length >= 36 && bbVsUtg1 && explorerInput && rangesFormatOk && rangesStackOk
+  && vs3Keys.length === 15 && vs3Row && sqRow && face3Explorer;
 if (!ranges9Ok) process.exit(1);
 
 const wmSidePotHand = `Winamax Poker - ESCAPE "Colorado" - HandId: #22618550-140764-1783120288 - Holdem no limit (0.01€/0.02€) - 2026/07/03 23:11:28 UTC

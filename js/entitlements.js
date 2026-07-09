@@ -102,6 +102,11 @@
     if (!data.is_admin && isAdmin()) data.is_admin = true;
     if (data.is_admin) {
       data.limits.ai_reports_per_month = null;
+      data.unlimited = true;
+    } else if (data.limits && data.limits.ai_reports_per_month == null) {
+      data.unlimited = true;
+    } else {
+      data.unlimited = false;
     }
     return data;
   }
@@ -183,7 +188,7 @@
 
   function canUseAI(ent) {
     ent = ent || state || localFallback();
-    if (ent.is_admin || isAdmin()) return { ok: true, unlimited: true };
+    if (ent.is_admin || ent.unlimited || isAdmin()) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
     var max = lim.ai_reports_per_month;
     var used = (ent.usage && ent.usage.ai_reports_month) || 0;
