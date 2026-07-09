@@ -139,6 +139,9 @@
     const ent = refresh && global.PTEntitlements.refresh
       ? await global.PTEntitlements.refresh()
       : await global.PTEntitlements.ensureLoaded();
+    if (global.PTEntitlements.aiQuotaSummary) {
+      return global.PTEntitlements.aiQuotaSummary(ent).label;
+    }
     if (ent.is_admin) return 'Consultas IA: ilimitadas (admin)';
     const max = ent.limits && ent.limits.ai_reports_per_month;
     const used = (ent.usage && ent.usage.ai_reports_month) || 0;
@@ -374,10 +377,10 @@
         message: 'El coach de IA está con mucha demanda ahora mismo. Espera unos segundos y vuelve a pulsar el botón.'
       };
     }
-    if (m.includes('ai_plan') || (m.includes('rate') && m.includes('0'))) {
+    if (m.includes('ai_plan') || m.includes('ai_limit') || (m.includes('rate') && m.includes('0'))) {
       return {
         kind: 'paywall',
-        message: 'El IA Coach requiere Study (5/mes), Coach (35/mes) o un bono de consultas. Consulta la pestaña Planes.'
+        message: 'Has agotado tus consultas IA incluidas este mes. Compra un bono o sube de plan en la pestaña Planes.'
       };
     }
     if (m.includes('access_check_failed')) {
@@ -593,7 +596,15 @@
       alert('IA Coach no configurado. Copia js/ai-config.example.js como js/ai-config.js y activa el endpoint.');
       return;
     }
-    if (global.PTEntitlements && global.PTEntitlements.ensureLoaded) {
+    if (global.PTEntitlements && global.PTEntitlements.refresh) {
+      const ent = await global.PTEntitlements.refresh();
+      const aiCheck = global.PTEntitlements.canUseAI(ent);
+      if (!aiCheck.ok) {
+        if (global.PTBilling) global.PTBilling.showPaywall(aiCheck.reason);
+        else alert('Los informes IA requieren el plan Coach.');
+        return;
+      }
+    } else if (global.PTEntitlements && global.PTEntitlements.ensureLoaded) {
       const ent = await global.PTEntitlements.ensureLoaded();
       const aiCheck = global.PTEntitlements.canUseAI(ent);
       if (!aiCheck.ok) {

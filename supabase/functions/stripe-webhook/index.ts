@@ -171,12 +171,27 @@ serve(async (req) => {
         ? packDef.credits
         : parseInt(meta.bonus_credits || '0', 10);
       if (credits > 0) {
-        await admin.rpc('pt_credit_ai_bonus', {
+        const { data: creditRes, error: creditErr } = await admin.rpc('pt_credit_ai_bonus', {
           p_user_id: userId,
           p_credits: credits,
           p_pack_code: pack,
           p_stripe_session_id: sessionId
         });
+        if (creditErr) {
+          console.error('[stripe-webhook] pt_credit_ai_bonus', creditErr);
+          return new Response(JSON.stringify({ error: 'bonus_credit_failed' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        const creditRow = creditRes as Record<string, unknown>;
+        if (!creditRow?.ok) {
+          console.error('[stripe-webhook] pt_credit_ai_bonus result', creditRow);
+          return new Response(JSON.stringify({ error: creditRow?.error || 'bonus_credit_failed' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
       }
       if (customerId) {
         await recordStripePayment(admin, customerId, new Date().toISOString(), userId);

@@ -695,6 +695,7 @@
           <h3>Usuarios</h3>
           <div class="admin-section-actions">
             <button type="button" id="admin-sync-payments" class="btn btn-ghost btn-sm">Sincronizar pagos</button>
+            <button type="button" id="admin-sync-bonuses" class="btn btn-ghost btn-sm">Sincronizar bonos</button>
             <button type="button" id="admin-invite-open" class="btn btn-primary btn-sm">Invitar usuario</button>
             <span id="admin-sync-status" class="muted-text admin-sync-status"></span>
             <span id="admin-users-status" class="muted-text"></span>
@@ -725,7 +726,7 @@
                 <th data-col="plan">Plan</th>
                 <th data-col="period">Fin plan</th>
                 <th data-col="renewal">Renovación</th>
-                <th data-col="ai">IA mes</th>
+                <th data-col="ai">IA mes (+bono)</th>
                 <th data-col="payment">Último pago</th>
                 <th data-col="seen">Última conexión</th>
                 <th data-col="admin">Admin</th>
@@ -734,8 +735,10 @@
             <tbody id="admin-users-body"></tbody>
           </table>
         </div>
+        <div id="admin-user-detail" class="admin-user-detail card-box hidden" aria-live="polite"></div>
         <p class="muted-text admin-foot-note">
-          Planes: Gratis · Study (pro) · Coach (premium). Límite IA mensual: Gratis 0 · Study 5 · Coach 35/mes. Bonos IA disponibles.
+          Planes: Gratis · Study (pro) · Coach (premium). Límite IA mensual: Gratis 0 · Study 5 · Coach 35/mes. Los bonos se suman al cupo cuando agotas las incluidas.
+          Pulsa una fila de usuario para ver detalle (transacciones de bono, consultas IA y mensajes).
           Usuario <strong>demo</strong>: cambia su plan aquí y entra en Modo demo para probar límites.
           Caducidad automática diaria (00:05 UTC) vía pg_cron.
         </p>

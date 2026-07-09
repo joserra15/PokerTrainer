@@ -24,6 +24,7 @@
   var adminMessageSubject = '';
   var adminMessageBody = '';
   var adminMessageStatus = '';
+  var adminDetailUserId = null;
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -83,21 +84,26 @@
     return Date.now() - new Date(iso).getTime() < 15 * 60 * 1000;
   }
 
-  function usageBar(used, limit, isAdmin) {
+  function usageBarAi(u) {
+    if (!u) return '—';
+    if (u.is_admin) {
+      return '<div class="admin-usage"><span class="admin-usage-text">' + (Number(u.ai_today) || 0) + ' usadas · ∞ admin</span></div>';
+    }
+    var used = Number(u.ai_today) || 0;
+    var limit = aiLimitForRow(u);
+    var bonus = Number(u.ai_bonus_effective != null ? u.ai_bonus_effective : u.ai_bonus_balance) || 0;
+    var totalAvail = u.ai_total_available;
     if (limit == null) {
       return '<div class="admin-usage"><span class="admin-usage-text">' + used + ' / ∞</span></div>';
     }
-    if (limit === 0) {
-      var zeroNote = isAdmin ? ' <span class="admin-usage-note" title="Admin: sin límite en la app">(∞)</span>' : '';
-      return '<div class="admin-usage"><span class="admin-usage-text muted-text">' + used + ' / 0' + zeroNote + '</span></div>';
-    }
-    var pct = Math.min(100, Math.round((used / limit) * 100));
+    var pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
     var cls = pct >= 90 ? 'admin-usage-high' : pct >= 70 ? 'admin-usage-mid' : '';
-    var adminNote = isAdmin ? ' <span class="admin-usage-note" title="Admin: sin límite en la app">(∞)</span>' : '';
+    var bonusNote = bonus > 0 ? ' <span class="admin-usage-note" title="Consultas de bono">+' + bonus + ' bono</span>' : '';
+    var availNote = totalAvail != null ? ' <span class="admin-usage-note" title="Total disponible (plan + bono)">(' + totalAvail + ' disp.)</span>' : '';
     return (
       '<div class="admin-usage">' +
       '<div class="admin-usage-bar ' + cls + '" style="width:' + pct + '%"></div>' +
-      '<span class="admin-usage-text">' + used + ' / ' + limit + adminNote + '</span>' +
+      '<span class="admin-usage-text">' + used + ' / ' + limit + bonusNote + availNote + '</span>' +
       '</div>'
     );
   }
@@ -310,8 +316,9 @@
       var isSelf = me && me.sub === u.user_id;
       var isDemo = u.user_id === DEMO_USER_ID;
       var rowCls = isDemo ? ' class="admin-row-demo"' : '';
+      var activeDetail = adminDetailUserId === u.user_id ? ' admin-row-active' : '';
       return (
-        '<tr data-user-id="' + escapeHtml(u.user_id) + '"' + rowCls + '>' +
+        '<tr data-user-id="' + escapeHtml(u.user_id) + '" class="admin-user-row' + (isDemo ? ' admin-row-demo' : '') + activeDetail + '">' +
         '<td class="admin-user-cell" data-col="user">' +
         '<span class="admin-user-name">' + escapeHtml(u.name || '—') + (isDemo ? ' <span class="admin-demo-badge">DEMO</span>' : '') + '</span>' +
         '<span class="admin-user-email">' + escapeHtml(u.email) + '</span>' +
@@ -319,7 +326,7 @@
         '<td data-col="plan">' + planSelect(u.user_id, u.plan || 'free', false) + '</td>' +
         '<td class="admin-period" data-col="period">' + periodEndCell(u) + '</td>' +
         '<td class="admin-renewal" data-col="renewal">' + escapeHtml(formatRenewal(u)) + '</td>' +
-        '<td data-col="ai">' + usageBar(Number(u.ai_today) || 0, aiLimitForRow(u), u.is_admin) + '</td>' +
+        '<td data-col="ai">' + usageBarAi(u) + '</td>' +
         '<td class="admin-payment" data-col="payment">' + escapeHtml(formatPayment(u.stripe_last_payment_at)) + '</td>' +
         '<td data-col="seen"><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
         (online ? '● ' : '') + escapeHtml(formatRelative(u.last_seen_at)) + '</span></td>' +
@@ -333,8 +340,139 @@
       );
     }).join('');
     bindUserActions();
+    bindUserRowClicks();
     renderAdminComposer();
     setAdminLoading(false);
+  }
+
+  function bindUserRowClicks() {
+    var tbody = $('#admin-users-body');
+    if (!tbody) return;
+    tbody.querySelectorAll('.admin-user-row').forEach(function (row) {
+      row.addEventListener('click', function (e) {
+        if (e.target.closest('select, input, button, label, a')) return;
+        var uid = row.dataset.userId;
+        if (uid) openUserDetail(uid);
+      });
+    });
+  }
+
+  function ledgerReasonLabel(reason) {
+    if (reason === 'purchase') return 'Compra bono';
+    if (reason === 'ai_usage') return 'Uso IA';
+    return reason || '—';
+  }
+
+  function renderUserDetail(data) {
+    var host = $('#admin-user-detail');
+    if (!host || !data) return;
+    var p = data.profile || {};
+    var q = data.quotas || {};
+    var ledger = data.bonus_ledger || [];
+    var usage = data.ai_usage_month || [];
+    var threads = data.contact_threads || [];
+
+    var quotaHtml;
+    if (q.unlimited) {
+      quotaHtml = '<p><strong>Consultas IA:</strong> ilimitadas (admin)</p>' +
+        '<p class="muted-text">Usadas este mes: ' + (Number(q.used_month) || 0) + '</p>';
+    } else {
+      quotaHtml =
+        '<div class="admin-detail-grid">' +
+        '<div><span class="muted-text">Incluidas plan</span><strong>' + (q.plan_limit != null ? q.plan_limit : '—') + '/mes</strong></div>' +
+        '<div><span class="muted-text">Usadas mes</span><strong>' + (Number(q.used_month) || 0) + '</strong></div>' +
+        '<div><span class="muted-text">Restan plan</span><strong>' + (q.plan_remaining != null ? q.plan_remaining : '—') + '</strong></div>' +
+        '<div><span class="muted-text">Bono activo</span><strong>' + (Number(q.bonus_balance) || 0) + '</strong></div>' +
+        '<div><span class="muted-text">Total disponible</span><strong>' + (q.total_remaining != null ? q.total_remaining : '—') + '</strong></div>' +
+        '<div><span class="muted-text">Bono caduca</span><strong>' + (q.bonus_expires_at ? formatPeriodLabel(q.bonus_expires_at) : '—') + '</strong></div>' +
+        '</div>';
+    }
+
+    var ledgerHtml = ledger.length
+      ? '<table class="admin-detail-table"><thead><tr><th>Fecha</th><th>Movimiento</th><th>Pack</th><th>Δ</th><th>Saldo</th></tr></thead><tbody>' +
+        ledger.map(function (l) {
+          return '<tr><td>' + escapeHtml(formatDateTime(l.created_at)) + '</td>' +
+            '<td>' + escapeHtml(ledgerReasonLabel(l.reason)) + '</td>' +
+            '<td>' + escapeHtml(l.pack_code || '—') + '</td>' +
+            '<td>' + (l.delta > 0 ? '+' : '') + escapeHtml(l.delta) + '</td>' +
+            '<td>' + escapeHtml(l.balance_after) + '</td></tr>';
+        }).join('') + '</tbody></table>'
+      : '<p class="muted-text">Sin movimientos de bono.</p>';
+
+    var usageHtml = usage.length
+      ? '<ul class="admin-detail-list">' + usage.map(function (u) {
+        return '<li><span>' + escapeHtml(u.mode || 'report') + '</span><span class="muted-text">' + escapeHtml(formatDateTime(u.created_at)) + '</span></li>';
+      }).join('') + '</ul>'
+      : '<p class="muted-text">Sin consultas IA este mes.</p>';
+
+    var threadsHtml = threads.length
+      ? '<ul class="admin-detail-list">' + threads.map(function (t) {
+        return '<li><button type="button" class="admin-thread-link" data-admin-user-thread="' + escapeHtml(t.id) + '">' +
+          escapeHtml(t.subject) + '</button>' +
+          '<span class="muted-text">' + escapeHtml(formatRelative(t.last_message_at)) +
+          (t.admin_unread_count > 0 ? ' · sin leer' : '') + '</span></li>';
+      }).join('') + '</ul>'
+      : '<p class="muted-text">Sin conversaciones de contacto.</p>';
+
+    host.innerHTML =
+      '<div class="admin-detail-head">' +
+      '<div><h3>' + escapeHtml(p.name || p.email || p.user_id) + '</h3>' +
+      '<p class="muted-text">' + escapeHtml(p.email || '') + ' · Plan ' + escapeHtml(p.plan || 'free') +
+      (p.is_admin ? ' · Admin' : '') + '</p></div>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="admin-detail-close">Cerrar</button>' +
+      '</div>' +
+      '<div class="admin-detail-section"><h4>Cupo IA este mes</h4>' + quotaHtml + '</div>' +
+      '<div class="admin-detail-section"><h4>Transacciones de bono</h4>' + ledgerHtml + '</div>' +
+      '<div class="admin-detail-section"><h4>Consultas IA (mes actual)</h4>' + usageHtml + '</div>' +
+      '<div class="admin-detail-section"><h4>Mensajes con el usuario</h4>' + threadsHtml + '</div>';
+
+    host.classList.remove('hidden');
+    var closeBtn = $('#admin-detail-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeUserDetail);
+    host.querySelectorAll('[data-admin-user-thread]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var threadId = btn.getAttribute('data-admin-user-thread');
+        showAdminMessages(true);
+        if (threadId) openAdminThread(threadId);
+      });
+    });
+  }
+
+  function closeUserDetail() {
+    adminDetailUserId = null;
+    var host = $('#admin-user-detail');
+    if (host) {
+      host.classList.add('hidden');
+      host.innerHTML = '';
+    }
+    var tbody = $('#admin-users-body');
+    if (tbody) {
+      tbody.querySelectorAll('.admin-row-active').forEach(function (r) {
+        r.classList.remove('admin-row-active');
+      });
+    }
+  }
+
+  async function openUserDetail(userId) {
+    var c = client();
+    var host = $('#admin-user-detail');
+    if (!c || !host || !userId) return;
+    adminDetailUserId = userId;
+    host.classList.remove('hidden');
+    host.innerHTML = '<div class="contact-loading"><div class="play-boot-spinner"></div><p class="muted-text">Cargando usuario…</p></div>';
+    host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    var tbody = $('#admin-users-body');
+    if (tbody) {
+      tbody.querySelectorAll('.admin-row-active').forEach(function (r) { r.classList.remove('admin-row-active'); });
+      var row = tbody.querySelector('tr[data-user-id="' + CSS.escape(userId) + '"]');
+      if (row) row.classList.add('admin-row-active');
+    }
+    var res = await c.rpc('pt_admin_user_detail', { p_user_id: userId });
+    if (res.error) {
+      host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
+      return;
+    }
+    renderUserDetail(res.data);
   }
 
   function bindUserActions() {
@@ -514,6 +652,38 @@
     }
     var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
     setAdminVisible(!demoOn);
+  }
+
+  async function syncStripeBonuses(opts) {
+    opts = opts || {};
+    var auto = !!opts.auto;
+    var btn = $('#admin-sync-bonuses');
+    var status = $('#admin-sync-status');
+    var billing = global.PTBilling;
+    if (!billing || !billing.syncBonusPurchases || !billing.enabled || !billing.enabled()) {
+      if (!auto) alert('Sincronización de bonos no disponible.');
+      return;
+    }
+    if (syncRunning) return;
+    syncRunning = true;
+    if (btn) btn.disabled = true;
+    if (status && !auto) status.textContent = 'Sincronizando bonos…';
+    try {
+      var data = await billing.syncBonusPurchases({ all: true });
+      if (status) {
+        var msg = 'Bonos: +' + (data.credited || 0) + ' acreditados';
+        if (data.errors && data.errors.length) msg += ' · ' + data.errors.length + ' error(es)';
+        status.textContent = msg;
+      }
+      await loadUsers();
+      if (adminDetailUserId) await openUserDetail(adminDetailUserId);
+    } catch (e) {
+      if (status && !auto) status.textContent = 'Bonos: error';
+      if (!auto) alert(e.message || 'No se pudieron sincronizar los bonos.');
+    } finally {
+      syncRunning = false;
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function syncStripePayments(opts) {
@@ -851,6 +1021,12 @@
     if (syncBtn && !syncBtn.dataset.bound) {
       syncBtn.dataset.bound = '1';
       syncBtn.addEventListener('click', function () { syncStripePayments({ auto: false }); });
+    }
+
+    var syncBonusBtn = $('#admin-sync-bonuses');
+    if (syncBonusBtn && !syncBonusBtn.dataset.bound) {
+      syncBonusBtn.dataset.bound = '1';
+      syncBonusBtn.addEventListener('click', function () { syncStripeBonuses({ auto: false }); });
     }
 
     var accountAdmin = $('#account-admin');

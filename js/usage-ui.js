@@ -32,8 +32,17 @@
       host.classList.add('hidden');
       return;
     }
-    if (Ent && Ent.unlimited(ent)) {
-      host.innerHTML = '<div class="usage-widget usage-unlimited muted-text">Plan ' + escapeHtml(ent.plan_label || ent.plan) + ' · sin límites diarios</div>';
+    if (Ent && Ent.unlimited(ent) && !ent.is_admin && !(Ent.isAdmin && Ent.isAdmin())) {
+      host.innerHTML = '<div class="usage-widget usage-unlimited muted-text">Plan ' + escapeHtml(ent.plan_label || ent.plan) + ' · entrenador e imports sin límite</div>';
+      var aiSummary = Ent.aiQuotaSummary ? Ent.aiQuotaSummary(ent) : null;
+      if (aiSummary && !aiSummary.unlimited) {
+        host.innerHTML += '<div class="usage-widget" style="margin-top:8px"><p class="muted-text" style="margin:0;font-size:12px">' + escapeHtml(aiSummary.label) + '</p></div>';
+      }
+      host.classList.remove('hidden');
+      return;
+    }
+    if ((ent.is_admin || (Ent.isAdmin && Ent.isAdmin())) && Ent.aiQuotaSummary) {
+      host.innerHTML = '<div class="usage-widget usage-unlimited muted-text">' + escapeHtml(Ent.aiQuotaSummary(ent).label) + '</div>';
       host.classList.remove('hidden');
       return;
     }
@@ -53,6 +62,12 @@
     }
     if (ent.bonus && Number(ent.bonus.balance) > 0) {
       rows += '<div class="usage-row usage-row-static"><span>Bono IA</span><strong>' + Number(ent.bonus.balance) + ' consultas</strong></div>';
+    }
+    if (Ent && Ent.aiQuotaSummary) {
+      var summary = Ent.aiQuotaSummary(ent);
+      if (!summary.unlimited && summary.totalLeft != null) {
+        rows += '<div class="usage-row usage-row-static"><span>IA disponibles</span><strong>' + summary.totalLeft + '</strong></div>';
+      }
     }
     if (lim.history_days != null) {
       rows += '<div class="usage-row usage-row-static"><span>Histórico visible</span><strong>' + lim.history_days + ' días</strong></div>';

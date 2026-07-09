@@ -1465,11 +1465,18 @@
         if (ent.limits.import_sessions_per_month != null) {
           line += ' · Imports mes: ' + (Number(ent.usage.import_sessions_month) || 0) + '/' + ent.limits.import_sessions_per_month;
         }
-        if (ent.limits.ai_reports_per_month != null) {
+        if (Ent && Ent.aiQuotaSummary) {
+          var aiLine = Ent.aiQuotaSummary(ent);
+          if (aiLine.unlimited) {
+            line += ' · ' + aiLine.label.replace('Consultas IA: ', 'IA: ');
+          } else {
+            line += ' · ' + escapeHtml(aiLine.label);
+          }
+        } else if (ent.limits.ai_reports_per_month != null) {
           line += ' · IA mes: ' + (Number(ent.usage.ai_reports_month) || 0) + '/' + ent.limits.ai_reports_per_month;
-        }
-        if (ent.bonus && Number(ent.bonus.balance) > 0) {
-          line += ' · Bono IA: ' + ent.bonus.balance;
+          if (ent.bonus && Number(ent.bonus.balance) > 0) {
+            line += ' · Bono IA: ' + ent.bonus.balance;
+          }
         }
       }
       current.innerHTML = line;

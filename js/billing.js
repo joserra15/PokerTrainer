@@ -204,11 +204,35 @@
     return data;
   }
 
-  async function refreshBillingState() {
+  async function syncBonusPurchases(opts) {
+    opts = opts || {};
+    if (!enabled()) return { ok: false, error: 'billing_not_configured' };
+    var headers = await authHeaders();
+    var res = await fetch(functionsBase() + '/stripe-sync-bonus', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(opts.all ? { all: true } : {})
+    });
+    var data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'sync_bonus_failed');
+    }
+    return data;
+  }
+
+  async function refreshBillingState(opts) {
+    opts = opts || {};
     try {
       await syncSubscription();
     } catch (e) {
       console.warn('[PTBilling] syncSubscription', e);
+    }
+    if (opts.syncBonus) {
+      try {
+        await syncBonusPurchases();
+      } catch (e) {
+        console.warn('[PTBilling] syncBonusPurchases', e);
+      }
     }
     if (global.PTEntitlements && global.PTEntitlements.refresh) {
       await global.PTEntitlements.refresh();
@@ -228,9 +252,16 @@
     var checkout = params.get('checkout');
     var portal = params.get('portal');
     if (checkout === 'success' || checkout === 'bonus_success' || portal === 'return') {
-      refreshBillingState().then(function () {
-        if (checkout === 'bonus_success' && global.goToTab) {
-          global.goToTab('pricing');
+      refreshBillingState({ syncBonus: checkout === 'bonus_success' }).then(function (data) {
+        if (checkout === 'bonus_success') {
+          var ent = global.PTEntitlements && global.PTEntitlements.get ? global.PTEntitlements.get() : null;
+          var bal = ent && ent.bonus ? Number(ent.bonus.balance) || 0 : 0;
+          if (bal > 0) {
+            alert('Bono IA acreditado. Tienes ' + bal + ' consultas de bono disponibles.');
+          } else {
+            alert('Pago recibido. Si el bono no aparece en unos segundos, actualiza la pestaña Planes.');
+          }
+          if (global.goToTab) global.goToTab('pricing');
         }
       });
       history.replaceState({}, '', window.location.pathname + window.location.hash);
@@ -273,6 +304,7 @@
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
     syncPayments: syncPayments,
+    syncBonusPurchases: syncBonusPurchases,
     syncSubscription: syncSubscription,
     refreshBillingState: refreshBillingState,
     formatSyncMessage: formatSyncMessage,

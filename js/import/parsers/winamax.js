@@ -122,8 +122,9 @@
       if (/^\*\*\* SHOW DOWN \*\*\*/.test(ln)) { street = 'showdown'; continue; }
       if (/^\*\*\* SUMMARY \*\*\*/.test(ln)) { street = 'summary'; continue; }
 
-      if ((m = ln.match(/^(.+?) collected ([\d.,]+)€? from pot/))) {
-        hand.collected[m[1].trim()] = Math.max(hand.collected[m[1].trim()] || 0, num(m[2]));
+      if ((m = ln.match(/^(.+?) collected ([\d.,]+)€? from (?:main pot|side pot \d+|pot)/))) {
+        const who = m[1].trim();
+        hand.collected[who] = (hand.collected[who] || 0) + num(m[2]);
         continue;
       }
       if ((m = ln.match(/^(.+?)(?::\s*|\s+)shows \[(.+?)\]/))) {
@@ -148,8 +149,9 @@
           hand.shows[m[1]] = hand.shows[m[1]] || cardsFrom(m[2]);
           continue;
         }
-        if ((m = ln.match(/^Seat \d+: (.+?) (?:\(.*?\) )?won ([\d.,]+)€?/))) {
-          hand.collected[m[1]] = Math.max(hand.collected[m[1]] || 0, num(m[2]));
+        if ((m = ln.match(/^Seat \d+: (.+?) (?:\([^)]*\) )?(?:showed \[[^\]]+\] and )?won ([\d.,]+)€?(?: with|$)/))) {
+          const who = m[1].trim();
+          hand.collected[who] = Math.max(hand.collected[who] || 0, num(m[2]));
           continue;
         }
         continue;

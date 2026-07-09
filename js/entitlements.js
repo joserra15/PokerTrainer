@@ -99,6 +99,10 @@
       ai_reports_month: Number(usage.ai_reports_month) || 0
     };
     if (!data.bonus) data.bonus = { balance: 0, expires_at: null };
+    if (!data.is_admin && isAdmin()) data.is_admin = true;
+    if (data.is_admin) {
+      data.limits.ai_reports_per_month = null;
+    }
     return data;
   }
 
@@ -179,20 +183,51 @@
 
   function canUseAI(ent) {
     ent = ent || state || localFallback();
-    if (ent.is_admin) return { ok: true, unlimited: true };
+    if (ent.is_admin || isAdmin()) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
     var max = lim.ai_reports_per_month;
     var used = (ent.usage && ent.usage.ai_reports_month) || 0;
     var bonus = bonusActive(ent) ? (Number(ent.bonus.balance) || 0) : 0;
     if (max == null) return { ok: true, unlimited: true };
     if (max > 0 && used < max) {
-      return { ok: true, used: used, limit: max, bonus: bonus };
+      return { ok: true, used: used, limit: max, bonus: bonus, source: 'plan' };
     }
     if (bonus > 0) {
       return { ok: true, used: used, limit: max, bonus: bonus, source: 'bonus' };
     }
     if (max <= 0) return { ok: false, reason: 'ai_plan', plan: ent.plan, bonus: 0 };
     return { ok: false, reason: 'ai_limit', used: used, limit: max, bonus: 0 };
+  }
+
+  function aiQuotaSummary(ent) {
+    ent = ent || state || localFallback();
+    if (ent.is_admin || isAdmin()) {
+      return { unlimited: true, label: 'Consultas IA: ilimitadas (admin)' };
+    }
+    var lim = ent.limits || {};
+    var max = lim.ai_reports_per_month;
+    var used = (ent.usage && ent.usage.ai_reports_month) || 0;
+    var bonus = bonusActive(ent) ? (Number(ent.bonus.balance) || 0) : 0;
+    if (max == null) {
+      return { unlimited: true, label: 'Consultas IA: ilimitadas' };
+    }
+    if (max === 0 && bonus <= 0) {
+      return { unlimited: false, label: 'Tu plan no incluye consultas IA. Compra un bono en Planes.' };
+    }
+    var planLeft = max > 0 ? Math.max(0, max - used) : 0;
+    var totalLeft = planLeft + bonus;
+    var line = 'Incluidas: ' + used + '/' + max + ' usadas este mes';
+    if (bonus > 0) line += ' · Bono: ' + bonus + ' restantes';
+    line += ' · Total disponible: ' + totalLeft;
+    return {
+      unlimited: false,
+      used: used,
+      limit: max,
+      planLeft: planLeft,
+      bonus: bonus,
+      totalLeft: totalLeft,
+      label: line + '.'
+    };
   }
 
   function canStartTrainerHand(ent) {
@@ -264,6 +299,7 @@
     ensureLoaded: ensureLoaded,
     get: function () { return state || localFallback(); },
     canUseAI: canUseAI,
+    aiQuotaSummary: aiQuotaSummary,
     canStartTrainerHand: canStartTrainerHand,
     canImportSession: canImportSession,
     recordTrainerHand: recordTrainerHand,

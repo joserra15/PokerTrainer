@@ -659,5 +659,49 @@ console.log('VS_RFI 9-max spots:', keys9.length, '(expect >=36)');
 const ranges9Ok = keys9.length >= 36 && bbVsUtg1 && explorerInput && rangesFormatOk && rangesStackOk;
 if (!ranges9Ok) process.exit(1);
 
+const wmSidePotHand = `Winamax Poker - ESCAPE "Colorado" - HandId: #22618550-140764-1783120288 - Holdem no limit (0.01€/0.02€) - 2026/07/03 23:11:28 UTC
+Table: 'Colorado' 6-max (real money) Seat #6 is the button
+Seat 1: KazeDj (2€)
+Seat 2: m.loulou (2.33€)
+Seat 3: JP_TOJI (1.40€)
+Seat 4: THAI-TANIC (7.43€)
+Seat 5: Fruta53 (1.92€)
+Seat 6: pomme-cerise (7.54€)
+*** ANTE/BLINDS ***
+KazeDj posts small blind 0.01€
+m.loulou posts big blind 0.02€
+Dealt to KazeDj [Jd Js]
+*** PRE-FLOP ***
+JP_TOJI folds
+THAI-TANIC folds
+Fruta53 folds
+pomme-cerise raises 0.04€ to 0.06€
+KazeDj raises 0.14€ to 0.20€
+m.loulou folds
+pomme-cerise calls 0.14€
+*** FLOP *** [Kc 2h 7c]
+KazeDj bets 0.27€
+pomme-cerise calls 0.27€
+*** TURN *** [Kc 2h 7c][Jh]
+KazeDj bets 0.62€
+pomme-cerise raises 6.45€ to 7.07€ and is all-in
+KazeDj calls 0.91€ and is all-in
+*** RIVER *** [Kc 2h 7c Jh][Kd]
+*** SHOW DOWN ***
+KazeDj shows [Jd Js] (Full of Jacks and Kings)
+pomme-cerise shows [Ks Qh] (Trips of Kings)
+pomme-cerise collected 5.54€ from side pot 1
+KazeDj collected 3.62€ from main pot
+*** SUMMARY ***
+Total pot 9.16€ | Rake 0.40€
+Board: [Kc 2h 7c Jh Kd]
+Seat 1: KazeDj (small blind) showed [Jd Js] and won 3.62€ with Full of Jacks and Kings
+Seat 6: pomme-cerise (button) showed [Ks Qh] and won 5.54€ with Trips of Kings`;
+const wmParsed = Importer.parseHand(wmSidePotHand);
+const wmAnalyzed = Importer.analyzeHand(wmParsed);
+const wmSidePotOk = wmParsed.collected.KazeDj === 3.62 && wmAnalyzed.heroNetBB === 81;
+console.log('Winamax main/side pot hero net BB:', wmAnalyzed.heroNetBB, wmSidePotOk ? 'OK' : 'FAIL');
+if (!wmSidePotOk) process.exit(1);
+
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk && mergeSessionsOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
 })();
