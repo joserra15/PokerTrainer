@@ -472,8 +472,8 @@
       return EXPLORER_SPOTS['3bet'].villainPositions;
     }
     if (spotType === '4bet') {
-      const pairs = validVs3betPairs(ctx);
-      return pairs[heroPos] || EXPLORER_SPOTS['4bet'].villainPositions;
+      const spot = EXPLORER_SPOTS['4bet'];
+      return spot && spot.villainPositions ? spot.villainPositions.slice() : [];
     }
     if (spotType === 'iso') return EXPLORER_SPOTS.iso.villainPositions;
     const spot = EXPLORER_SPOTS[spotType];
