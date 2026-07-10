@@ -759,14 +759,14 @@
       if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
         const foldP = strat.fold || 0;
         const raiseP = strat.raise || 0;
-        if (r < raiseP && villainToCall > 0) return 'raise';
-        if (r < raiseP + (strat.call || 0)) return 'call';
+        if (rnd < raiseP && villainToCall > 0) return 'raise';
+        if (rnd < raiseP + (strat.call || 0)) return 'call';
         return 'fold';
       }
       const betKeys = ['bet_100', 'bet_66', 'bet_33', 'bet'];
       let betP = 0;
       betKeys.forEach(function (k) { betP += strat[k] || 0; });
-      return r < betP ? 'bet' : 'check';
+      return rnd < betP ? 'bet' : 'check';
     }
 
     if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
@@ -1264,8 +1264,21 @@
       }
       if (openerVsSqueeze(hand, hand.villain.pos, node.squeezeSize) === 'fold') {
         setVillainAct(hand, 'fold');
-        if (!callerIn && callerPos) markFolded(hand, callerPos);
-        return finish(hand, { reason: callerIn ? 'Abridor foldea; pagador sigue en bote.' : 'Abridor y pagador se retiran ante tu squeeze.', heroNet: round2(hand.potBB - heroBlind + squeezeAdd) });
+        markFolded(hand, hand.villain.pos);
+        if (callerIn && callerPos) {
+          hand.villain.pos = callerPos;
+          hand.villain.cards = villainHoleCards(hand);
+          hand.villain.rangeStr = VPF ? VPF.rangeStrForCall3Bet(rangeCtx(hand)) : (R.VS_3BET.call + ', ' + R.VS_3BET.callMix);
+          syncVillainMeta(hand);
+          initVillainTracker(hand);
+          hand.villainInvested = node.squeezeSize;
+          hand.heroIsAggressor = true;
+          hand.heroInPosition = inPos(hand.hero.pos, callerPos);
+          recalcPot(hand);
+          return goFlop(hand);
+        }
+        if (callerPos) markFolded(hand, callerPos);
+        return finish(hand, { reason: 'Abridor y pagador se retiran ante tu squeeze.', heroNet: round2(hand.potBB - heroBlind + squeezeAdd) });
       }
       // el abridor paga el squeeze -> flop en bote resubido, hero agresor
       const openerAdd = capBetForSeat(hand, hand.villain.pos, node.squeezeSize - (hand.villainInvested || 0));
@@ -1454,6 +1467,115 @@
       hand.villainInvested = node.threeBetSize;
       hand.potBB = round2(node.threeBetSize * 2 + SB);
       hand.heroInPosition = inPos(hero, opener);
+      return goFlop(hand);
+    }
+
+    if (node.kind === 'cold4bet') {
+      const s = hand.scenario;
+      const opener = s.openerPos || 'UTG';
+      const tb = s.threeBettorPos || hand.villain.pos;
+      const hero = hand.hero.pos;
+      const heroBlind = hand.heroInvested || 0;
+
+      if (actionId === 'fold') {
+        return finish(hand, { reason: 'Te retiras ante el 3-bet.', heroNet: -round2(heroBlind) });
+      }
+
+      hand.villain.cards = villainHoleCards(hand);
+
+      if (actionId === 'call') {
+        setHeroAct(hand, 'call', node.toCallBB);
+        hand.heroIsAggressor = false;
+        hand.heroInvested = round2(hand.heroInvested + node.toCallBB);
+        addInvest(hand, hero, node.toCallBB);
+        hand.potBB = round2(hand.potBB + node.toCallBB);
+        hand.heroInPosition = inPos(hero, tb);
+        markFolded(hand, opener);
+        return goFlop(hand);
+      }
+
+      hand.heroIsAggressor = true;
+      const cold4 = node.cold4Size;
+      const cold4Add = capBetForSeat(hand, hero, cold4 - hand.heroInvested);
+      hand.heroInvested = round2(hand.heroInvested + cold4Add);
+      addInvest(hand, hero, cold4Add);
+      setHeroAct(hand, cold4Add >= heroRemainingBB(hand) - 0.01 ? 'allin' : 'raise', cold4);
+
+      const tbCode = seatHoleCode(hand, tb);
+      const tbProf = profileFor(hand, tb);
+      let tbAct = 'fold';
+      if (VPF && tbCode) {
+        tbAct = VPF.villainVs4BetAction(tbCode, tbProf, C.rng.random());
+      } else {
+        tbAct = C.rng.random() < 0.58 ? 'fold' : 'call';
+      }
+
+      markFolded(hand, opener);
+
+      if (tbAct === 'fold') {
+        setVillainAct(hand, 'fold');
+        recalcPot(hand);
+        return finish(hand, {
+          reason: tb + ' foldea ante tu cold 4-bet.',
+          heroNet: round2(hand.potBB + cold4Add - heroBlind)
+        });
+      }
+
+      const tbAdd = capBetForSeat(hand, tb, cold4 - (hand.table.invested[tb] || 0));
+      setVillainAct(hand, 'call', cold4);
+      hand.villainInvested = round2((hand.villainInvested || 0) + tbAdd);
+      if (tbAdd > 0) addInvest(hand, tb, tbAdd);
+      hand.potBB = round2(hand.potBB + cold4Add + tbAdd);
+      hand.heroInPosition = inPos(hero, tb);
+      return goFlop(hand);
+    }
+
+    if (node.kind === 'bbVsSbLimp') {
+      if (actionId === 'call') {
+        setHeroAct(hand, 'check');
+        hand.heroIsAggressor = false;
+        hand.heroInPosition = true;
+        return goFlop(hand);
+      }
+      hand.heroIsAggressor = true;
+      hand.heroInvested = node.isoSize;
+      addInvest(hand, hand.hero.pos, node.isoSize - (hand.heroInvested || 0));
+      setHeroAct(hand, 'raise', node.isoSize);
+      hand.villain.cards = villainHoleCards(hand);
+      if (limperDefendVsIso(hand, hand.villain.pos, node.isoSize) === 'fold') {
+        setVillainAct(hand, 'fold');
+        return finish(hand, { reason: 'SB foldea ante tu iso-raise.', heroNet: round2(hand.potBB) });
+      }
+      setVillainAct(hand, 'call', node.isoSize);
+      hand.villainInvested = node.isoSize;
+      hand.potBB = round2(node.isoSize * 2 + SB);
+      hand.heroInPosition = true;
+      return goFlop(hand);
+    }
+
+    if (node.kind === 'sbLimp') {
+      if (actionId === 'fold') {
+        return finish(hand, { reason: 'Te retiras.', heroNet: -(hand.heroInvested || 0) });
+      }
+      if (actionId === 'call') {
+        setHeroAct(hand, 'call', node.toCallBB);
+        hand.heroInvested = BBET;
+        addInvest(hand, 'SB', node.toCallBB);
+        hand.villainInvested = BBET;
+        hand.potBB = round2(SB + BBET + BBET);
+        hand.heroIsAggressor = false;
+        hand.heroInPosition = false;
+        return goFlop(hand);
+      }
+      hand.heroIsAggressor = true;
+      hand.heroInvested = node.openSize;
+      addInvest(hand, 'SB', node.openSize - SB);
+      setHeroAct(hand, 'open', node.openSize);
+      const res = resolveBlindsAfterHeroOpen(hand, node.openSize);
+      if (res.type === 'allFold') {
+        return finish(hand, { reason: 'BB foldea. Te llevas el bote.', heroNet: round2(hand.potBB - node.openSize) });
+      }
+      if (res.type === 'face3bet') return setupFace3Bet(hand, res.size);
       return goFlop(hand);
     }
   }

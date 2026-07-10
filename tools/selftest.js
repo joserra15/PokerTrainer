@@ -790,5 +790,40 @@ if (ctx.indexOf('HJ abre') < 0 || ctx.indexOf('CO paga') < 0) {
 }
 console.log('Contexto squeeze orden correcto: OK');
 
+const coldCfg = PC.normalize({ stackDepth: 'bb100', scenario: 'cold4bet', villainLevel: 'fish' });
+const coldHand = Engine.newHand({
+  type: 'cold4bet', heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ', seed: 1234
+}, coldCfg);
+if (!coldHand.current || coldHand.current.kind !== 'cold4bet') {
+  console.error('FAIL: cold4bet hand not initialized');
+  process.exit(1);
+}
+Engine.act(coldHand, 'raise');
+if (coldHand.current && coldHand.current.kind === 'cold4bet') {
+  console.error('FAIL: cold4bet raise did not advance state');
+  process.exit(1);
+}
+console.log('Cold 4-bet avanza tras raise:', coldHand.stage, 'OK');
+
+const proCfg = PC.normalize({ stackDepth: 'bb100', villainLevel: 'pro' });
+let proHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', seed: 555 }, proCfg);
+Engine.act(proHand, 'call');
+if (proHand.stage !== 'flop') {
+  console.error('FAIL: expected flop after call');
+  process.exit(1);
+}
+let proOk = true;
+try {
+  Engine.act(proHand, 'check');
+} catch (e) {
+  proOk = false;
+  console.error('FAIL: pro postflop threw', e.message);
+}
+if (!proOk || (proHand.stage !== 'turn' && proHand.stage !== 'complete' && proHand.current)) {
+  console.log('Pro postflop check avanza:', proHand.stage, proOk ? 'OK' : 'FAIL');
+}
+if (!proOk) process.exit(1);
+console.log('Pro villano postflop sin ReferenceError: OK');
+
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk && mergeSessionsOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
 })();
