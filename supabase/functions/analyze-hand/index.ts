@@ -695,7 +695,7 @@ serve(async (req) => {
 
   const truncated = !coachResponseComplete(mode, result.text, result.finishReason || '');
 
-  if (!freePromo && !access.unlimited && access.source !== 'admin') {
+  if (!freePromo) {
     await recordAiUsage(billingUserId, mode, access.source || 'plan');
   }
 

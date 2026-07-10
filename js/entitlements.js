@@ -207,7 +207,8 @@
   function aiQuotaSummary(ent) {
     ent = ent || state || localFallback();
     if (ent.is_admin || isAdmin()) {
-      return { unlimited: true, label: 'Consultas IA: ilimitadas (admin)' };
+      var adminUsed = (ent.usage && ent.usage.ai_reports_month) || 0;
+      return { unlimited: true, label: 'Consultas IA: ilimitadas (admin) · ' + adminUsed + ' usadas este mes' };
     }
     var lim = ent.limits || {};
     var max = lim.ai_reports_per_month;

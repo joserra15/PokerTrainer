@@ -1103,6 +1103,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 }
 .ranges-pos-btn.hero-active { background: rgba(47,129,247,.25); border-color: var(--accent); color: #fff; }
 .ranges-pos-btn.villain-active { background: rgba(229,83,75,.2); border-color: #e5534b; color: #fff; }
+.ranges-pos-btn.caller-active { background: rgba(63,185,80,.2); border-color: #3fb950; color: #fff; }
 .ranges-spot-title { font-size: 14px; font-weight: 600; margin: 12px 0 4px; }
 .ranges-explorer-legend { margin-bottom: 8px; }
 .ranges-explorer-legend i.raise { background: #e5534b; }

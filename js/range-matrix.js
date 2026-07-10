@@ -148,6 +148,35 @@
     { heroPos: 'BTN', openerPos: 'HJ', callerPos: 'CO' }
   ];
 
+  function squeezeCombosList() {
+    const PC = global.PTPlayConfig;
+    return (PC && PC.SQUEEZE_COMBOS && PC.SQUEEZE_COMBOS.length) ? PC.SQUEEZE_COMBOS : SQUEEZE_COMBOS;
+  }
+
+  function validSqueezeHeroes() {
+    const set = new Set();
+    squeezeCombosList().forEach(function (c) { set.add(c.heroPos); });
+    return Array.from(set);
+  }
+
+  function validSqueezeOpeners(heroPos) {
+    const out = [];
+    squeezeCombosList().forEach(function (c) {
+      if (c.heroPos === heroPos && out.indexOf(c.openerPos) < 0) out.push(c.openerPos);
+    });
+    return out;
+  }
+
+  function validSqueezeCallers(heroPos, openerPos) {
+    const out = [];
+    squeezeCombosList().forEach(function (c) {
+      if (c.heroPos === heroPos && c.openerPos === openerPos && out.indexOf(c.callerPos) < 0) {
+        out.push(c.callerPos);
+      }
+    });
+    return out;
+  }
+
   function cellLabel(row, col) {
     const r1 = RANKS[row];
     const r2 = RANKS[col];
@@ -460,7 +489,10 @@
     }
     if (spotType === 'iso') return EXPLORER_SPOTS.iso.heroPositions;
     if (spotType === 'bbvsb') return EXPLORER_SPOTS.bbvsb.heroPositions;
-    if (spotType === 'squeeze') return EXPLORER_SPOTS.squeeze.heroPositions;
+    if (spotType === 'squeeze') {
+      const heroes = validSqueezeHeroes();
+      return heroes.length ? heroes : EXPLORER_SPOTS.squeeze.heroPositions;
+    }
     const spot = EXPLORER_SPOTS[spotType];
     return spot ? spot.heroPositions.slice() : [];
   }
@@ -489,12 +521,8 @@
   }
 
   function defaultCallerForSqueeze(heroPos, openerPos) {
-    const PC = global.PTPlayConfig;
-    const combos = PC && PC.SQUEEZE_COMBOS ? PC.SQUEEZE_COMBOS : SQUEEZE_COMBOS;
-    for (var i = 0; i < combos.length; i++) {
-      if (combos[i].heroPos === heroPos && combos[i].openerPos === openerPos) return combos[i].callerPos;
-    }
-    return null;
+    const callers = validSqueezeCallers(heroPos, openerPos);
+    return callers.length ? callers[0] : null;
   }
 
   function validVs3betPairs(ctx) {
@@ -702,6 +730,9 @@
     villainPositionsForSpot,
     validVsRfiPairs,
     validVs3betPairs,
+    validSqueezeHeroes,
+    validSqueezeOpeners,
+    validSqueezeCallers,
     defaultCallerForSqueeze,
     computeGtoMatrixAsync,
     computeVillainRangeMatrix,

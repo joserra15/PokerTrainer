@@ -1248,7 +1248,7 @@
   }
 
   let matrixJob = 0;
-  let rangesState = { spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', gameType: 'cash6', stackDepth: 'standard' };
+  let rangesState = { spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', callerPos: 'HJ', gameType: 'cash6', stackDepth: 'standard' };
 
   function readRangesContext() {
     const gtEl = $('#ranges-game-type .setup-chip.active');
@@ -1440,6 +1440,8 @@
     const heroRow = $('#ranges-hero-pos');
     const villainRow = $('#ranges-villain-pos');
     const villainBlock = $('#ranges-villain-block');
+    const callerRow = $('#ranges-caller-pos');
+    const callerBlock = $('#ranges-caller-block');
     const villainLabel = $('#ranges-villain-label');
     const titleEl = $('#ranges-spot-title');
     const contextLabel = $('#ranges-context-label');
@@ -1468,6 +1470,10 @@
       /* ok */
     } else if (rangesState.spot === '4bet') {
       rangesState.heroPos = heroPositions[0];
+    } else if (rangesState.spot === 'squeeze') {
+      const sqHeroes = RM.validSqueezeHeroes ? RM.validSqueezeHeroes() : heroPositions;
+      if (sqHeroes.indexOf(rangesState.heroPos) < 0) rangesState.heroPos = sqHeroes[0];
+      heroPositions = sqHeroes;
     }
     if (heroPositions.indexOf(rangesState.heroPos) < 0) rangesState.heroPos = heroPositions[0];
 
@@ -1476,7 +1482,9 @@
     ).join('');
 
     const needsVillain = spot.villainPositions && spot.villainPositions.length > 0;
+    const isSqueeze = rangesState.spot === 'squeeze';
     if (villainBlock) villainBlock.classList.toggle('hidden', !needsVillain);
+    if (callerBlock) callerBlock.classList.toggle('hidden', !isSqueeze);
     if (needsVillain) {
       let villainPositions = RM.villainPositionsForSpot(rangesState.spot, ctx);
       if (rangesState.spot === '3bet') {
@@ -1484,6 +1492,10 @@
         if (villainPositions.indexOf(rangesState.villainPos) < 0) rangesState.villainPos = villainPositions[0];
       } else if (rangesState.spot === '4bet') {
         villainPositions = vs3Pairs[rangesState.heroPos] || villainPositions;
+        if (villainPositions.indexOf(rangesState.villainPos) < 0) rangesState.villainPos = villainPositions[0];
+      } else if (isSqueeze && RM.validSqueezeOpeners) {
+        villainPositions = RM.validSqueezeOpeners(rangesState.heroPos);
+        if (!villainPositions.length) villainPositions = spot.villainPositions.slice();
         if (villainPositions.indexOf(rangesState.villainPos) < 0) rangesState.villainPos = villainPositions[0];
       } else if (villainPositions.indexOf(rangesState.villainPos) < 0) {
         rangesState.villainPos = villainPositions[0];
@@ -1493,9 +1505,31 @@
         `<button type="button" class="ranges-pos-btn${rangesState.villainPos === p ? ' villain-active' : ''}" data-ranges-villain="${p}">${p}</button>`
       ).join('');
     }
+    if (isSqueeze && callerRow && RM.validSqueezeCallers) {
+      let callerPositions = RM.validSqueezeCallers(rangesState.heroPos, rangesState.villainPos);
+      if (!callerPositions.length && RM.defaultCallerForSqueeze) {
+        const dc = RM.defaultCallerForSqueeze(rangesState.heroPos, rangesState.villainPos);
+        if (dc) callerPositions = [dc];
+      }
+      if (callerPositions.indexOf(rangesState.callerPos) < 0) rangesState.callerPos = callerPositions[0] || '';
+      callerRow.innerHTML = callerPositions.map((p) =>
+        `<button type="button" class="ranges-pos-btn${rangesState.callerPos === p ? ' caller-active' : ''}" data-ranges-caller="${p}">${p}</button>`
+      ).join('');
+    }
 
-    const input = RM.buildExplorerInput(rangesState.spot, rangesState.heroPos, needsVillain ? rangesState.villainPos : null, ctx);
-    if (titleEl) titleEl.textContent = RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos);
+    const squeezeCaller = isSqueeze ? rangesState.callerPos : null;
+    const input = RM.buildExplorerInput(
+      rangesState.spot,
+      rangesState.heroPos,
+      needsVillain ? rangesState.villainPos : null,
+      ctx,
+      squeezeCaller
+    );
+    if (titleEl) {
+      titleEl.textContent = isSqueeze
+        ? RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos, squeezeCaller)
+        : RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos);
+    }
 
     if (!input) {
       host.innerHTML = '<p class="muted-text">Combinación de posiciones no disponible en las tablas.</p>';
@@ -1528,6 +1562,14 @@
       villainRow.querySelectorAll('[data-ranges-villain]').forEach((b) => {
         b.onclick = function () {
           rangesState.villainPos = b.dataset.rangesVillain;
+          renderRangesExplorer();
+        };
+      });
+    }
+    if (isSqueeze && callerRow) {
+      callerRow.querySelectorAll('[data-ranges-caller]').forEach((b) => {
+        b.onclick = function () {
+          rangesState.callerPos = b.dataset.rangesCaller;
           renderRangesExplorer();
         };
       });
