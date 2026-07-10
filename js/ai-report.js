@@ -463,7 +463,8 @@
     return mode === 'question' ? 'question' : 'report';
   }
 
-  async function fetchCoach(payload, scope, mode, question, thread) {
+  async function fetchCoach(payload, scope, mode, question, thread, options) {
+    options = options || {};
     const c = cfg();
     const body = { payload: payload, mode: apiMode(scope, mode) };
     if (mode === 'question' && question) body.question = question;
@@ -477,6 +478,7 @@
       });
     }
     if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) body.demo = true;
+    if (options.freePromo) body.freePromo = true;
 
     let token = null;
     if (global.PTSupabase && global.PTSupabase.getAccessToken) {
@@ -819,7 +821,7 @@
     const bundle = typeof getStatsBundle === 'function' ? getStatsBundle() : getStatsBundle;
     const payload = Payload.build('statsGlobal', bundle);
     if (!payload) return null;
-    const data = await fetchCoach(payload, 'statsGlobal', 'question', HOME_GREETING_QUESTION, []);
+    const data = await fetchCoach(payload, 'statsGlobal', 'question', HOME_GREETING_QUESTION, [], { freePromo: true });
     const text = stripPlainCoachText(data.reportMarkdown || '');
     if (text) {
       try { sessionStorage.setItem(cacheKey, text); } catch (e) { /* noop */ }

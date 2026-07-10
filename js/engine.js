@@ -100,6 +100,15 @@
     return row ? row.raise + ', ' + row.mix : '';
   }
 
+  function threeBetRangeStr(defender, opener, hand) {
+    const RR = global.GTORangesRegistry;
+    const ctx = rangeCtx(hand);
+    const vsKey = defender + '_vs_' + opener;
+    const d = RR && ctx ? RR.getVsRfiRow(defender, opener, ctx) : R.VS_RFI[vsKey];
+    if (d) return d.threeBet + (d.threeBetMix ? ', ' + d.threeBetMix : '');
+    return 'QQ+, AKs, AKo';
+  }
+
   function heroTableSeat(hand) {
     return hand.displayHeroPos || hand.hero.pos;
   }
@@ -1664,7 +1673,8 @@
     hand.hero.pos = hero;
     hand.villain.pos = tb;
     ensureOpenerOpenHand(hand, opener);
-    hand.villain.rangeStr = openRangeStr(tb, hand);
+    ensureThreeBetHand(hand, tb, opener);
+    hand.villain.rangeStr = threeBetRangeStr(tb, opener, hand);
     initVillainTracker(hand);
     const openSize = opener === 'SB' ? SB_OPEN : OPEN;
     const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);

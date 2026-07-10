@@ -626,6 +626,7 @@ serve(async (req) => {
     question?: unknown;
     thread?: unknown;
     demo?: unknown;
+    freePromo?: unknown;
   };
   try {
     body = await req.json();
@@ -645,22 +646,8 @@ serve(async (req) => {
     billingUserId = DEMO_USER_ID;
   }
 
-  const access = await checkAiAccess(billingUserId);
-  if (!access.ok) {
-    return json({
-      error: access.error || 'rate_limit',
-      retryAfter: access.retryAfter,
-      limit: access.limit,
-      used: access.used
-    }, 429);
-  }
-
-  const geminiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!geminiKey) {
-    return json({ error: 'GEMINI_API_KEY not configured' }, 500);
-  }
-
   const mode = normalizeMode(body.mode);
+  const freePromo = body.freePromo === true && mode === 'stats_question';
   const question = (mode === 'question' || mode === 'session_question' || mode === 'stats_question')
     ? sanitizeQuestion(body.question)
     : null;
@@ -678,6 +665,26 @@ serve(async (req) => {
   const systemPrompt = promptForMode(mode);
   const userContent = userContentForMode(mode, enrichedPayload, question);
 
+  let access: { ok: true; source: string; unlimited: boolean } | Awaited<ReturnType<typeof checkAiAccess>>;
+  if (freePromo) {
+    access = { ok: true as const, source: 'promo', unlimited: true };
+  } else {
+    access = await checkAiAccess(billingUserId);
+    if (!access.ok) {
+      return json({
+        error: access.error || 'rate_limit',
+        retryAfter: access.retryAfter,
+        limit: access.limit,
+        used: access.used
+      }, 429);
+    }
+  }
+
+  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!geminiKey) {
+    return json({ error: 'GEMINI_API_KEY not configured' }, 500);
+  }
+
   let result;
   try {
     result = await generateCoachResponse(geminiKey, mode, systemPrompt, userContent, thread);
@@ -688,7 +695,7 @@ serve(async (req) => {
 
   const truncated = !coachResponseComplete(mode, result.text, result.finishReason || '');
 
-  if (!access.unlimited && access.source !== 'admin') {
+  if (!freePromo && !access.unlimited && access.source !== 'admin') {
     await recordAiUsage(billingUserId, mode, access.source || 'plan');
   }
 

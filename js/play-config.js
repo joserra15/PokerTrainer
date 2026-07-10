@@ -366,6 +366,19 @@
     return W.fromSets({ call: D.LIMP_RANGE });
   }
 
+  /** 3-bettor en cold 4-bet (HJ vs UTG open, etc.). */
+  function sampleThreeBettorWeights(scenario, config) {
+    if (scenario.type !== 'cold4bet') return {};
+    const opener = scenario.openerPos;
+    const tb = scenario.threeBettorPos;
+    if (!opener || !tb) return {};
+    const reg = RR();
+    const vsKey = tb + '_vs_' + opener;
+    const d = vsRfiTable(config || {})[vsKey] || (reg ? reg.getVsRfiRow(tb, opener, config) : null);
+    if (!d) return {};
+    return W.fromSets({ threeBet: d.threeBet, threeBetMix: d.threeBetMix });
+  }
+
   /** Pagador en squeeze: rango de call, no cartas aleatorias. */
   function sampleCallerWeights(scenario, config) {
     if (scenario.type !== 'squeeze' || !scenario.callerPos) return {};
@@ -419,6 +432,13 @@
       const heroEng = scenario.engineHeroPos || enginePos(scenario.heroPos);
       if (heroEng && heroEng !== 'BB') {
         deals.push({ pos: 'BB', weights: sampleRfiDefenderWeights(scenario, config), role: 'defender' });
+      }
+    } else if (scenario.type === 'cold4bet') {
+      if (scenario.openerPos) {
+        deals.push({ pos: scenario.openerPos, weights: sampleVillainWeights(scenario, config), role: 'opener' });
+      }
+      if (scenario.threeBettorPos) {
+        deals.push({ pos: scenario.threeBettorPos, weights: sampleThreeBettorWeights(scenario, config), role: 'threeBettor' });
       }
     }
     return deals;
@@ -566,7 +586,7 @@
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9,
     sampleHeroWeights, sampleVillainWeights, sampleRfiDefenderWeights,
     sampleFace4betVillainWeights, face4betVillainRangeStr, sampleLimpWeights,
-    sampleCallerWeights, sampleFromWeights,
+    sampleCallerWeights, sampleThreeBettorWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
     is9Max, isMtt, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,

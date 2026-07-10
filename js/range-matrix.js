@@ -204,6 +204,28 @@
     return best;
   }
 
+  var MIX_COLORS = { raise: '#e5534b', call: '#3fb950', fold: '#6e7681' };
+
+  function cellMixStyle(freqs, actionOrder) {
+    const collapsed = collapseStrategy(freqs);
+    const order = actionOrder && actionOrder.length ? actionOrder : ['raise', 'call', 'fold'];
+    let pos = 0;
+    const stops = [];
+    order.forEach(function (a) {
+      const frac = collapsed[a] || 0;
+      if (frac <= 0.001) return;
+      const end = pos + frac * 100;
+      stops.push(MIX_COLORS[a] + ' ' + pos.toFixed(2) + '%');
+      stops.push(MIX_COLORS[a] + ' ' + end.toFixed(2) + '%');
+      pos = end;
+    });
+    if (!stops.length) return 'background:#6e7681;color:#f0f0f0';
+    let color = '#f0f0f0';
+    if ((collapsed.raise || 0) >= 0.45) color = '#fff';
+    else if ((collapsed.call || 0) >= 0.45) color = '#101810';
+    return 'background:linear-gradient(to right,' + stops.join(',') + ');color:' + color;
+  }
+
   function boardSliceForStreet(board, street) {
     const n = { preflop: 0, flop: 3, turn: 4, river: 5 }[street] || 0;
     return (board || []).slice(0, n);
@@ -645,7 +667,8 @@
         if (mode === 'villain') {
           html += '<div class="' + cls + '" title="' + escapeHtml(cell.title || cell.label) + '">' + cell.label + '</div>';
         } else {
-          html += '<div class="' + cls + '" title="' + cell.label + ': R' + Math.round(cell.freqs.raise * 100) + '% C' + Math.round(cell.freqs.call * 100) + '% F' + Math.round(cell.freqs.fold * 100) + '%">' + cell.label + '</div>';
+          var mixStyle = cellMixStyle(cell.freqs);
+          html += '<div class="' + cls + ' rm-cell-mix" style="' + mixStyle + '" title="' + cell.label + ': R' + Math.round(cell.freqs.raise * 100) + '% C' + Math.round(cell.freqs.call * 100) + '% F' + Math.round(cell.freqs.fold * 100) + '%">' + cell.label + '</div>';
         }
       }
     }
@@ -670,6 +693,7 @@
     cellLabel,
     collapseStrategy,
     dominantAction,
+    cellMixStyle,
     buildBaseInput,
     buildExplorerInput,
     explorerTitle,

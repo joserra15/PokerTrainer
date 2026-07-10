@@ -817,17 +817,61 @@
   function startLeakReplay(leak) {
     if (!leak) return false;
     let errors = leak.errors;
-    if ((!errors || !errors.length) && leak.key && window.PTLeaks && PTLeaks.aggregate) {
-      const match = PTLeaks.aggregate(Store.getErrors()).find(function (l) { return l.key === leak.key; });
-      if (match && match.errors) errors = match.errors;
+    if ((!errors || !errors.length) && leak.key) {
+      errors = collectReplayRecordsForLeakKey(leak.key);
     }
-    if (!errors || !errors.length) return false;
+    if (!errors || !errors.length) {
+      alert('No hay manos guardadas para repetir este leak.');
+      return false;
+    }
     leakReplayQueue = errors.slice().sort(function (a, b) {
       return (Number(b.evLoss) || 0) - (Number(a.evLoss) || 0);
     });
     const rec = leakReplayQueue.shift();
     if (!rec) return false;
     return replayFromStored(rec);
+  }
+
+  function spotKeyFromStored(rec, street) {
+    const sc = rec.scenarioRaw || rec.scenario || {};
+    const type = typeof sc === 'object' ? (sc.type || 'unknown') : 'unknown';
+    const pos = rec.displayHeroPos || rec.heroPos || '?';
+    return type + '|' + pos + '|' + (street || 'preflop');
+  }
+
+  function collectReplayRecordsForLeakKey(key) {
+    if (!key) return [];
+    if (window.PTLeaks && PTLeaks.aggregate) {
+      const match = PTLeaks.aggregate(Store.getErrors()).find(function (l) { return l.key === key; });
+      if (match && match.errors && match.errors.length) return match.errors.slice();
+    }
+    const out = [];
+    const seen = new Set();
+    Store.getErrors().forEach(function (e) {
+      const k = e.spotKey || spotKeyFromStored(e, e.street);
+      if (k !== key || seen.has(e.id)) return;
+      seen.add(e.id);
+      out.push(e);
+    });
+    Store.getHistory().forEach(function (rec) {
+      (rec.decisions || []).forEach(function (d, idx) {
+        if (d.class !== 'error' && d.class !== 'imprecisa') return;
+        if (spotKeyFromStored(rec, d.street) !== key) return;
+        const id = rec.id + '_d' + idx;
+        if (seen.has(id)) return;
+        seen.add(id);
+        out.push({
+          id: id,
+          seed: rec.seed,
+          scenarioRaw: rec.scenarioRaw,
+          playConfig: rec.playConfig,
+          displayHeroPos: rec.displayHeroPos,
+          replaySnapshot: rec.replaySnapshot,
+          evLoss: d.evLoss
+        });
+      });
+    });
+    return out;
   }
 
   function continueLeakReplayOrNext() {
@@ -1258,7 +1302,10 @@
           const title = cell.title || cell.label;
           html += `<div class="${cls}" title="${escapeHtml(title)}">${cell.label}</div>`;
         } else {
-          html += `<div class="${cls}" title="${cell.label}: R${Math.round(cell.freqs.raise * 100)}% C${Math.round(cell.freqs.call * 100)}% F${Math.round(cell.freqs.fold * 100)}%">${cell.label}</div>`;
+          const mixStyle = window.PTRangeMatrix && PTRangeMatrix.cellMixStyle
+            ? PTRangeMatrix.cellMixStyle(cell.freqs)
+            : '';
+          html += `<div class="${cls} rm-cell-mix" style="${mixStyle}" title="${cell.label}: R${Math.round(cell.freqs.raise * 100)}% C${Math.round(cell.freqs.call * 100)}% F${Math.round(cell.freqs.fold * 100)}%">${cell.label}</div>`;
         }
       }
     }
@@ -1846,6 +1893,67 @@
     return `<div class="stats-carousel-chart"><h4>${escapeHtml(title)}</h4><div class="prog-bars stats-carousel-bars">${bars}</div></div>`;
   }
 
+  function buildSessionGradeSeries(sessions) {
+    return (sessions || [])
+      .filter((s) => s && s.stats && s.stats.grade && s.stats.grade.score != null)
+      .sort((a, b) => String(a.importedAt || a.createdAt || '').localeCompare(String(b.importedAt || b.createdAt || '')))
+      .slice(-24)
+      .map((s, i) => {
+        const d = s.importedAt || s.createdAt;
+        let label = String(i + 1);
+        if (d) {
+          const dt = new Date(d);
+          if (!Number.isNaN(dt.getTime())) {
+            label = dt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+          }
+        }
+        return {
+          label,
+          score: Number(s.stats.grade.score),
+          letter: s.stats.grade.letter,
+          fileName: s.fileName || ('Sesión ' + (i + 1))
+        };
+      });
+  }
+
+  function statsGradeLineChart(title, series) {
+    if (!series || !series.length) {
+      return '<div class="stats-carousel-empty muted-text">Importa sesiones con nota calculada para ver la evolución.</div>';
+    }
+    const w = Math.max(300, series.length * 40);
+    const h = 168;
+    const pad = { l: 30, r: 12, t: 14, b: 30 };
+    const innerW = w - pad.l - pad.r;
+    const innerH = h - pad.t - pad.b;
+    const pts = series.map((s, i) => {
+      const x = pad.l + (series.length === 1 ? innerW / 2 : (i / (series.length - 1)) * innerW);
+      const y = pad.t + innerH - (Math.max(0, Math.min(10, s.score)) / 10) * innerH;
+      return Object.assign({ x, y }, s);
+    });
+    const poly = pts.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+    const grid = [0, 2, 4, 6, 8, 10].map((v) => {
+      const y = pad.t + innerH - (v / 10) * innerH;
+      return `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="var(--border)" stroke-dasharray="2 4" opacity="0.45"/>
+        <text x="${pad.l - 6}" y="${y + 3}" text-anchor="end" font-size="8" fill="var(--muted)">${v}</text>`;
+    }).join('');
+    const dots = pts.map((p) =>
+      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="var(--gold)" stroke="var(--bg)" stroke-width="1">
+        <title>${escapeHtml(p.fileName)} · ${escapeHtml(p.label)}: ${escapeHtml(p.letter)} (${p.score}/10)</title>
+      </circle>`
+    ).join('');
+    const step = Math.max(1, Math.ceil(series.length / 8));
+    const labels = pts.map((p, i) => (i % step === 0 || i === series.length - 1)
+      ? `<text x="${p.x.toFixed(1)}" y="${h - 8}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml(p.label)}</text>`
+      : '').join('');
+    return `<div class="stats-carousel-chart stats-grade-chart"><h4>${escapeHtml(title)}</h4>
+      <svg viewBox="0 0 ${w} ${h}" class="stats-grade-svg" role="img" aria-label="${escapeHtml(title)}">
+        ${grid}
+        <line x1="${pad.l}" y1="${pad.t + innerH}" x2="${w - pad.r}" y2="${pad.t + innerH}" stroke="var(--border)"/>
+        <polyline points="${poly}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linejoin="round"/>
+        ${dots}${labels}
+      </svg></div>`;
+  }
+
   function buildSessionDerivedStats(sessions) {
     const out = {
       availableSessions: 0,
@@ -2058,7 +2166,8 @@
 
   // ---------- Histórico ----------
   function renderHistory() {
-    let hist = Store.getHistory();
+    bindHandFilters('#history-filters', 'history', renderHistory);
+    let hist = Store.getHistory().filter((h) => passesHistoryFilters(h, handListFilters.history));
     const Ent = window.PTEntitlements;
     let cutoffNote = '';
     if (Ent && Ent.historyCutoffDate) {
@@ -2070,7 +2179,7 @@
     }
     const box = $('#history-list');
     if (!hist.length) {
-      box.innerHTML = cutoffNote + '<div class="empty">Aún no hay manos jugadas.</div>';
+      box.innerHTML = cutoffNote + '<div class="empty">No hay manos que coincidan con los filtros.</div>';
       return;
     }
     box.innerHTML = cutoffNote + hist.map((h) => {
@@ -2099,9 +2208,10 @@
 
   // ---------- Errores ----------
   function renderErrors() {
-    const errs = Store.getErrors();
+    bindHandFilters('#errors-filters', 'errors', renderErrors);
+    const errs = Store.getErrors().filter((e) => passesErrorFilters(e, handListFilters.errors));
     const box = $('#errors-list');
-    if (!errs.length) { box.innerHTML = '<div class="empty">Sin errores registrados. ¡Buen trabajo!</div>'; return; }
+    if (!errs.length) { box.innerHTML = '<div class="empty">No hay errores que coincidan con los filtros.</div>'; return; }
     box.innerHTML = errs.map((e) => `<div class="record">
       <div class="rec-cards">${(e.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div class="rec-main">
@@ -2230,6 +2340,7 @@
 
     const sessionAccuracy = sessTot && sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : null;
     const sessionStreetBars = renderStreetAccBarsFromPct(sessionDerived.accByStreet);
+    const sessionGradeSeries = buildSessionGradeSeries(sessions);
     const sessionSlides = [
       {
         title: 'Resumen general',
@@ -2239,10 +2350,10 @@
           <div class="stat-card"><div class="big">${sessionAccuracy == null ? '—' : sessionAccuracy + '%'}</div><div class="lbl">Acierto</div></div>
           <div class="stat-card"><div class="big ${sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot ? (sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB) : '—'}</div><div class="lbl">Resultado real</div></div>
           <div class="stat-card"><div class="big net-neg">${sessTot ? '-' + fmtBB(sessTot.evLoss) : '—'}</div><div class="lbl">EV perdido</div></div>
-          <div class="stat-card"><div class="big">${sessionDerived.availableSessions}</div><div class="lbl">Sesiones disponibles para detalle</div></div>
         </div>
         <p class="muted-text stats-section-note">Las métricas acumuladas incluyen sesiones importadas persistentes. Los accesos directos a fugas solo aparecen si la sesión sigue disponible.</p>`
       },
+      { title: 'Evolución de notas', body: statsGradeLineChart('Nota por sesión (0–10)', sessionGradeSeries) },
       { title: 'Progreso semanal · Acierto', body: statsBarChart('Acierto semanal', sessionWeekly, 'accuracy', '%', '--green') },
       { title: 'Progreso semanal · EV perdido', body: statsBarChart('EV perdido semanal', sessionWeekly, 'evLoss', ' bb', '--red') },
       { title: 'Progreso semanal · Resultado real', body: statsBarChart('Resultado real semanal', sessionWeekly, 'netBB', ' bb', '--accent') },
@@ -2347,6 +2458,118 @@
     const d = new Date(iso);
     return d.toLocaleDateString('es-ES') + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
+
+  const FILTER_POSITIONS = ['', 'UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const FILTER_CLASSES = ['', 'optima', 'aceptable', 'imprecisa', 'error'];
+  const handListFilters = {
+    history: { class: '', pos: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
+    errors: { class: '', pos: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
+    sessionHands: { class: '', pos: '', expOp: '', expVal: '', realOp: '', realVal: '' }
+  };
+
+  function emptyHandFilters() {
+    return { class: '', pos: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' };
+  }
+
+  function readHandFilters(scope) {
+    const base = handListFilters[scope] || emptyHandFilters();
+    return Object.assign({}, base);
+  }
+
+  function passesEvCompare(val, op, rawThreshold) {
+    if (!op || rawThreshold === '' || rawThreshold == null) return true;
+    const t = Number(rawThreshold);
+    if (Number.isNaN(t)) return true;
+    const n = Number(val);
+    if (Number.isNaN(n)) return false;
+    if (op === 'gte') return n >= t;
+    if (op === 'lte') return n <= t;
+    return true;
+  }
+
+  function passesDateRange(iso, from, to) {
+    if (!from && !to) return true;
+    if (!iso) return false;
+    const day = String(iso).slice(0, 10);
+    if (from && day < from) return false;
+    if (to && day > to) return false;
+    return true;
+  }
+
+  function handFiltersHtml(scope, opts) {
+    opts = opts || {};
+    const f = handListFilters[scope] || emptyHandFilters();
+    const showDate = opts.showDate !== false;
+    const classOpts = FILTER_CLASSES.map((c) =>
+      `<option value="${c}"${f.class === c ? ' selected' : ''}>${c ? verdictWord(c) : 'Todas las clases'}</option>`
+    ).join('');
+    const posOpts = FILTER_POSITIONS.map((p) =>
+      `<option value="${p}"${f.pos === p ? ' selected' : ''}>${p || 'Todas las posiciones'}</option>`
+    ).join('');
+    const cmpOpts = (sel, val) =>
+      `<option value=""${!val ? ' selected' : ''}>—</option><option value="gte"${val === 'gte' ? ' selected' : ''}>≥</option><option value="lte"${val === 'lte' ? ' selected' : ''}>≤</option>`;
+    return `
+      <label>Clase<select data-filter-scope="${scope}" data-filter="class">${classOpts}</select></label>
+      <label>Posición héroe<select data-filter-scope="${scope}" data-filter="pos">${posOpts}</select></label>
+      ${showDate ? `<label>Desde<input type="date" data-filter-scope="${scope}" data-filter="dateFrom" value="${escapeHtml(f.dateFrom || '')}"></label>
+      <label>Hasta<input type="date" data-filter-scope="${scope}" data-filter="dateTo" value="${escapeHtml(f.dateTo || '')}"></label>` : ''}
+      <label>EV esperado<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
+        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="expVal" value="${escapeHtml(f.expVal != null ? f.expVal : '')}"></label>
+      <label>EV real<select data-filter-scope="${scope}" data-filter="realOp">${cmpOpts('realOp', f.realOp)}</select>
+        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="realVal" value="${escapeHtml(f.realVal != null ? f.realVal : '')}"></label>`;
+  }
+
+  function bindHandFilters(hostId, scope, onChange) {
+    const host = $(hostId);
+    if (!host) return;
+    if (!host.dataset.bound) {
+      host.dataset.bound = '1';
+      host.innerHTML = handFiltersHtml(scope, { showDate: scope !== 'sessionHands' });
+      host.querySelectorAll('[data-filter]').forEach((el) => {
+        const handler = () => {
+          handListFilters[scope][el.getAttribute('data-filter')] = el.value;
+          if (typeof onChange === 'function') onChange();
+        };
+        el.addEventListener('change', handler);
+        if (el.tagName === 'INPUT') el.addEventListener('input', handler);
+      });
+    }
+  }
+
+  function passesHistoryFilters(h, f) {
+    const worst = worstClass(h.decisions);
+    if (f.class && worst !== f.class) return false;
+    const pos = h.displayHeroPos || h.heroPos || '';
+    if (f.pos && pos !== f.pos) return false;
+    if (!passesDateRange(h.createdAt, f.dateFrom, f.dateTo)) return false;
+    const realNet = roundSession(h.heroNet || 0);
+    const expNet = roundSession(realNet - (h.totalEvLoss || 0));
+    if (!passesEvCompare(expNet, f.expOp, f.expVal)) return false;
+    if (!passesEvCompare(realNet, f.realOp, f.realVal)) return false;
+    return true;
+  }
+
+  function passesErrorFilters(e, f) {
+    if (f.class && e.class !== f.class) return false;
+    const pos = e.displayHeroPos || e.heroPos || '';
+    if (f.pos && pos !== f.pos) return false;
+    if (!passesDateRange(e.createdAt, f.dateFrom, f.dateTo)) return false;
+    const evLoss = Number(e.evLoss) || 0;
+    if (!passesEvCompare(evLoss, f.expOp, f.expVal)) return false;
+    if (!passesEvCompare(evLoss, f.realOp, f.realVal)) return false;
+    return true;
+  }
+
+  function passesSessionHandFilters(h, f) {
+    if (f.class && h.worstClass !== f.class) return false;
+    if (f.pos && h.heroPos !== f.pos) return false;
+    const realNet = roundSession(h.heroNetBB || 0);
+    const expNet = roundSession(realNet - (h.totalEvLoss || 0));
+    if (!passesEvCompare(expNet, f.expOp, f.expVal)) return false;
+    if (!passesEvCompare(realNet, f.realOp, f.realVal)) return false;
+    return true;
+  }
+
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
@@ -2649,7 +2872,7 @@
 
     const sortHtml = `
       <div class="panel-head" style="margin-top:18px">
-        <h3>Manos de la sesión (${s.hands.length})</h3>
+        <h3>Manos de la sesión (${currentSession.hands.length})</h3>
         <div>
           <label class="muted-text" style="font-size:13px">Ordenar:
             <select id="hand-sort">
@@ -2663,10 +2886,12 @@
           </label>
         </div>
       </div>
+      <div id="session-hands-filters" class="hand-filters"></div>
       <div id="session-hands" class="record-list"></div>`;
 
     box.innerHTML = statHtml + sortHtml;
     $('#hand-sort').addEventListener('change', (e) => renderSessionDetail(e.target.value));
+    bindHandFilters('#session-hands-filters', 'sessionHands', () => renderSessionHands(sortBy));
     renderSessionHands(sortBy);
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-coach-session'), {
@@ -2706,7 +2931,8 @@
   }
 
   function renderSessionHands(sortBy) {
-    const hands = currentSession.hands.slice();
+    const f = handListFilters.sessionHands;
+    const hands = currentSession.hands.filter((h) => passesSessionHandFilters(h, f)).slice();
     const sorters = {
       evLoss: (a, b) => b.totalEvLoss - a.totalEvLoss,
       evLossAsc: (a, b) => a.totalEvLoss - b.totalEvLoss,
@@ -2717,6 +2943,11 @@
     };
     hands.sort(sorters[sortBy] || sorters.evLoss);
     const box = $('#session-hands');
+    if (!box) return;
+    if (!hands.length) {
+      box.innerHTML = '<div class="empty">No hay manos que coincidan con los filtros.</div>';
+      return;
+    }
     box.innerHTML = hands.map((h) => {
       const netCls = h.heroNetBB >= 0 ? 'net-pos' : 'net-neg';
       return `<div class="record">

@@ -1059,6 +1059,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .rm-cell.raise { background: #e5534b; color: #fff; }
 .rm-cell.call { background: #3fb950; color: #101810; }
 .rm-cell.fold { background: #6e7681; color: #f0f0f0; }
+.rm-cell-mix.raise, .rm-cell-mix.call, .rm-cell-mix.fold { background: transparent; }
 .rm-cell.inrange { background: #3fb950; color: #101810; }
 .rm-cell.value { background: #1a7f37; color: #fff; }
 .rm-cell.semibluff { background: #d4a012; color: #1a1400; }
@@ -2553,6 +2554,44 @@ body.admin-invite-open { overflow: hidden; }
 }
 .stats-carousel-bars .prog-bar-lbl {
   font-size: 11px;
+}
+.hand-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: flex-end;
+  margin: 0 0 14px;
+  padding: 12px;
+  background: var(--surface-2, rgba(255,255,255,.03));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.hand-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 88px;
+}
+.hand-filters select,
+.hand-filters input[type="date"],
+.hand-filters input[type="number"] {
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.hand-filters input[type="number"] {
+  width: 72px;
+}
+.stats-grade-chart .stats-grade-svg {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  display: block;
 }
 .stats-distribution {
   margin-top: 10px;

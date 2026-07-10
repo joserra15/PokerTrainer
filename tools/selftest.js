@@ -805,6 +805,27 @@ if (coldHand.current && coldHand.current.kind === 'cold4bet') {
 }
 console.log('Cold 4-bet avanza tras raise:', coldHand.stage, 'OK');
 
+const coldProCfg = PC.normalize({ stackDepth: 'bb100', scenario: 'cold4bet', villainLevel: 'pro' });
+const coldProHand = Engine.newHand({
+  type: 'cold4bet', heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ', seed: 991122
+}, coldProCfg);
+const tbSeat = coldProHand.villain.pos;
+const tbCards = coldProHand.table && coldProHand.table.holeCards && coldProHand.table.holeCards[tbSeat];
+if (!tbCards || tbCards.length < 2) {
+  console.error('FAIL: cold4bet 3-bettor sin cartas');
+  process.exit(1);
+}
+const tbCode = Ranges.handCode(tbCards[0], tbCards[1]);
+if (VPF && !VPF.isInThreeBetRange(tbCode, tbSeat, 'UTG', { gameType: 'cash6', stackDepth: 'standard' })) {
+  console.error('FAIL: cold4bet 3-bettor fuera de rango:', tbCode);
+  process.exit(1);
+}
+if (tbCode === 'T7o') {
+  console.error('FAIL: cold4bet 3-bettor no debe ser T7o en Pro');
+  process.exit(1);
+}
+console.log('Cold 4-bet 3-bettor en rango:', tbCode, 'OK');
+
 const proCfg = PC.normalize({ stackDepth: 'bb100', villainLevel: 'pro' });
 let proHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', seed: 555 }, proCfg);
 Engine.act(proHand, 'call');
