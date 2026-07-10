@@ -367,21 +367,49 @@
     return lastVillain && hand.positions[lastVillain] ? hand.positions[lastVillain] : null;
   }
 
-  function fitsSemibluffLine(code, board, actionLine, street) {
-    if (street === 'river') return false;
-    if (!actionLine || !actionLine.some(function (a) { return a.action === 'bet' || a.action === 'raise'; })) {
-      return false;
+  function countsAsValueMadeHand(code, board, info) {
+    if (!info || !board || board.length < 3) return false;
+    if (info.ev.category >= 3) return true;
+    if (info.ev.category === 2) return true;
+    if (info.ev.category !== 1) return false;
+    const Eq = global.GTO && global.GTO.Equity;
+    const Cards = global.Cards;
+    if (!Eq || !Eq.concreteCombos || !Cards) return info.tier === 'strong';
+    const combos = Eq.concreteCombos(code, board);
+    if (!combos.length) return false;
+    const pairVal = info.ev.rank[1];
+    const holeVals = combos[0].map(function (c) { return Cards.RANK_VALUE[c[0]]; });
+    const topBoard = Math.max.apply(null, board.map(function (c) { return Cards.RANK_VALUE[c[0]]; }));
+    if (holeVals[0] === holeVals[1]) return holeVals[0] > topBoard;
+    return holeVals.indexOf(pairVal) >= 0;
+  }
+
+  function lineIsAggressive(actionLine, lastAction) {
+    if (actionLine && actionLine.some(function (a) { return a.action === 'bet' || a.action === 'raise'; })) {
+      return true;
     }
+    return lastAction === 'bet' || lastAction === 'raise';
+  }
+
+  function effectiveActionLine(actionLine, street, lastAction) {
+    const line = (actionLine || []).slice();
+    if (!lineIsAggressive(line, null) && lineIsAggressive([], lastAction)) {
+      line.push({ street: street, action: lastAction });
+    }
+    return line;
+  }
+
+  function fitsSemibluffLine(code, board, actionLine, street, lastAction) {
+    if (street === 'river') return false;
+    if (!lineIsAggressive(actionLine, lastAction)) return false;
     const info = handMadeInfoOnBoard(code, board);
     if (!info) return false;
-    if (info.tier === 'strong' || (info.ev && info.ev.category >= 3)) return false;
+    if (countsAsValueMadeHand(code, board, info)) return false;
     return !!(info.flushDraw || info.oesd || (info.gutshot && street === 'flop'));
   }
 
-  function fitsBluffLine(code, board, actionLine, street) {
-    if (!actionLine || !actionLine.some(function (a) { return a.action === 'bet' || a.action === 'raise'; })) {
-      return false;
-    }
+  function fitsBluffLine(code, board, actionLine, street, lastAction) {
+    if (!lineIsAggressive(actionLine, lastAction)) return false;
     const HS = global.GTOHandStrength;
     const strength = HS ? HS.handStrength01(code) : 0.5;
     if (strength > 0.42) return false;
@@ -457,7 +485,8 @@
     const preflopRange = ctx.preflopRange || ctx.baseRange || D.BROAD_CONTINUE;
     const street = ctx.street || 'flop';
     const board = ctx.board || [];
-    const actionLine = ctx.actionLine || [];
+    const lastAction = ctx.lastAction || null;
+    const actionLine = effectiveActionLine(ctx.actionLine || [], street, lastAction);
     const lineSummary = lineAggressionSummary(actionLine);
     const gtoRange = estimateGtoNarrowRange(ctx);
     const preflopSet = rangeToSet(preflopRange);
@@ -478,16 +507,16 @@
     preflopSet.forEach(function (code) {
       if (coreSet.has(code)) return;
       const info = handMadeInfoOnBoard(code, board);
-      if (info && (info.tier === 'strong' || (info.ev && info.ev.category >= 2))
+      if (countsAsValueMadeHand(code, board, info)
         && (lineSummary.aggressive || lineSummary.calls > 0)) {
         valueSet.add(code);
         return;
       }
-      if (fitsSemibluffLine(code, board, actionLine, street)) {
+      if (fitsSemibluffLine(code, board, actionLine, street, lastAction)) {
         semibluffSet.add(code);
         return;
       }
-      if (fitsBluffLine(code, board, actionLine, street)) {
+      if (fitsBluffLine(code, board, actionLine, street, lastAction)) {
         bluffSet.add(code);
         return;
       }
@@ -508,8 +537,13 @@
 
     coreSet.forEach(function (code) {
       const info = handMadeInfoOnBoard(code, board);
-      if (info && info.tier === 'strong' && board.length >= 3) valueSet.add(code);
-      else if (fitsSemibluffLine(code, board, actionLine, street)) semibluffSet.add(code);
+      if (countsAsValueMadeHand(code, board, info)) {
+        valueSet.add(code);
+        coreSet.delete(code);
+      } else if (fitsSemibluffLine(code, board, actionLine, street, lastAction)) {
+        semibluffSet.add(code);
+        coreSet.delete(code);
+      }
     });
 
     const cappedSet = new Set();
@@ -564,7 +598,7 @@
 
     if (ctx.villainCode && preflopSet.has(ctx.villainCode) && cellActionForProfile(ctx.villainCode, profile) === 'out') {
       const vInfo = handMadeInfoOnBoard(ctx.villainCode, board);
-      if (vInfo && (vInfo.tier === 'strong' || (vInfo.ev && vInfo.ev.category >= 2))) {
+      if (countsAsValueMadeHand(ctx.villainCode, board, vInfo)) {
         profile.valueSet.add(ctx.villainCode);
       } else if (lineSummary.aggressive) {
         profile.semibluffSet.add(ctx.villainCode);

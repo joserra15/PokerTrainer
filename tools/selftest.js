@@ -521,6 +521,26 @@ const mxA5 = mxProf.cellAction('A5s');
 const mxOut = mxProf.cellAction('72o');
 console.log('Villain matrix 55', mx55, 'A5s', mxA5, '72o', mxOut, 'narrative', !!mxProf.lineNarrative);
 
+const mxFlopSb = VT.buildVillainMatrixProfile({
+  preflopRange: 'TT+, AJs+, KQs, 99, 88, 77, 55, A5s, A4s, KJo',
+  street: 'flop',
+  board: ['3d', '3h', '2s'],
+  actionLine: [],
+  lastAction: 'bet',
+  betBB: 4.85,
+  potBeforeBB: 9.5,
+  villainPos: 'CO',
+  heroCards: ['7h', '7d'],
+  heroCode: '77',
+  villainCode: 'A5s'
+});
+const mxFlopA5 = mxFlopSb.cellAction('A5s');
+console.log('Villain matrix flop A5s bet sin timeline', mxFlopA5, '(expect semibluff)');
+if (mxFlopA5 !== 'semibluff') {
+  console.error('FAIL: A5s en flop bet debería ser semibluff, got', mxFlopA5);
+  process.exit(1);
+}
+
 const sessStats = Importer.computeStats([
   { heroNetBB: 50, totalEvLoss: 80, decisions: [{ class: 'error', street: 'flop' }] },
   { heroNetBB: -30, totalEvLoss: 2, decisions: [{ class: 'optima', street: 'flop' }] }
