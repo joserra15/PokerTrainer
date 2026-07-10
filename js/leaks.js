@@ -30,13 +30,36 @@
       .replace(/>/g, '&gt;');
   }
 
+  function scenarioObjFromRecord(rec) {
+    var sc = rec && (rec.scenarioRaw || rec.scenario);
+    return sc && typeof sc === 'object' ? sc : {};
+  }
+
+  function spotKeyFromRecord(rec, street) {
+    var sc = scenarioObjFromRecord(rec);
+    var type = sc.type || 'unknown';
+    var pos = rec.displayHeroPos || rec.heroPos || '?';
+    return type + '|' + pos + '|' + (street || 'preflop');
+  }
+
   function spotKeyFromError(err) {
     if (err.spotKey) return err.spotKey;
     var sc = err.scenarioRaw || {};
+    if (typeof sc !== 'object' || !sc) sc = {};
     var type = sc.type || 'unknown';
     var pos = err.displayHeroPos || err.heroPos || '?';
     var street = err.street || 'preflop';
     return type + '|' + pos + '|' + street;
+  }
+
+  /** Coincide claves de leak; tolera agregados legacy con tipo "spot". */
+  function leakKeysMatch(targetKey, candidateKey) {
+    if (targetKey === candidateKey) return true;
+    var tp = String(targetKey || '').split('|');
+    var cp = String(candidateKey || '').split('|');
+    if (tp.length < 3 || cp.length < 3) return false;
+    if (tp[0] !== 'spot' && cp[0] !== 'spot' && tp[0] !== cp[0]) return false;
+    return tp[1] === cp[1] && tp[2] === cp[2];
   }
 
   function labelForKey(key) {
@@ -234,6 +257,9 @@
   }
 
   global.PTLeaks = {
+    scenarioObjFromRecord: scenarioObjFromRecord,
+    spotKeyFromRecord: spotKeyFromRecord,
+    leakKeysMatch: leakKeysMatch,
     spotKeyFromError: spotKeyFromError,
     aggregate: aggregate,
     aggregateByStreet: aggregateByStreet,

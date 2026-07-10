@@ -5,7 +5,7 @@
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 3;
+  var AGG_VERSION = 4;
 
   function weekKey(date) {
     var d = new Date(date);
@@ -119,7 +119,8 @@
   }
 
   function trainerSpotKey(rec, d) {
-    var sc = rec.scenario || {};
+    var sc = rec.scenarioRaw || rec.scenario || {};
+    if (typeof sc !== 'object' || !sc) sc = {};
     var type = sc.type || 'spot';
     var pos = rec.displayHeroPos || rec.heroPos || (rec.hero && rec.hero.pos) || '?';
     return type + '|' + pos + '|' + (d.street || 'preflop');

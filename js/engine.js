@@ -1848,8 +1848,12 @@
 
   // ----- Transición a flop / showdown (usa el board pre-repartido) -----
   function goFlop(hand) {
+    const vSeat = villainTableSeat(hand) || hand.villain.pos;
     if (hand._callersAtFlop && hand._callersAtFlop.length) {
-      hand._callersAtFlop.forEach(function (pos) { markFolded(hand, pos); });
+      // El pagador del squeeze puede pasar a ser el villano si el abridor foldea; no marcarlo fold.
+      hand._callersAtFlop.forEach(function (pos) {
+        if (pos !== vSeat) markFolded(hand, pos);
+      });
       delete hand._callersAtFlop;
     }
     syncTableToActivePot(hand);

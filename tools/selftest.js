@@ -810,6 +810,32 @@ if (ctx.indexOf('HJ abre') < 0 || ctx.indexOf('CO paga') < 0) {
 }
 console.log('Contexto squeeze orden correcto: OK');
 
+const sqCfg = PC.normalize({ stackDepth: 'bb100', scenario: 'squeeze', villainLevel: 'fish' });
+let sqCallerVillainSeed = null;
+for (let sqSeed = 1; sqSeed < 8000 && !sqCallerVillainSeed; sqSeed++) {
+  const sqTry = Engine.newHand({
+    type: 'squeeze', heroPos: 'BB', openerPos: 'BTN', callerPos: 'SB', seed: sqSeed
+  }, sqCfg);
+  Engine.act(sqTry, 'raise');
+  if (sqTry.stage === 'flop' && sqTry.villain.pos === 'SB' && sqTry.scenario.openerPos === 'BTN') {
+    sqCallerVillainSeed = sqSeed;
+    if (sqTry.table && sqTry.table.folded && sqTry.table.folded.SB) {
+      console.error('FAIL: squeeze pagador SB activo no debe verse fold al flop (seed', sqSeed, ')');
+      process.exit(1);
+    }
+    Engine.act(sqTry, 'check');
+    if (sqTry.stage === 'turn' && sqTry.table && sqTry.table.folded && sqTry.table.folded.SB) {
+      console.error('FAIL: squeeze pagador SB fold en turn (seed', sqSeed, ')');
+      process.exit(1);
+    }
+  }
+}
+if (!sqCallerVillainSeed) {
+  console.error('FAIL: no se encontró seed squeeze abridor fold + pagador SB (revisar test)');
+  process.exit(1);
+}
+console.log('Squeeze pagador→villano SB activo en mesa (seed', sqCallerVillainSeed, '): OK');
+
 const coldCfg = PC.normalize({ stackDepth: 'bb100', scenario: 'cold4bet', villainLevel: 'fish' });
 const coldHand = Engine.newHand({
   type: 'cold4bet', heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ', seed: 1234
@@ -865,6 +891,36 @@ if (!proOk || (proHand.stage !== 'turn' && proHand.stage !== 'complete' && proHa
 }
 if (!proOk) process.exit(1);
 console.log('Pro villano postflop sin ReferenceError: OK');
+
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'leaks.js'), 'utf8'), sandbox, { filename: 'leaks.js' });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'stats-aggregate.js'), 'utf8'), sandbox, { filename: 'stats-aggregate.js' });
+const PTLeaks = sandbox.window.PTLeaks;
+const PTStatsAgg = sandbox.window.PTStatsAggregate;
+const leakRec = {
+  id: 'leak-test-1',
+  scenario: 'BB squeeze vs HJ',
+  scenarioRaw: { type: 'squeeze', heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO' },
+  displayHeroPos: 'BB',
+  decisions: [{ street: 'river', class: 'error', evLoss: 3.5 }]
+};
+const leakKey = PTLeaks.spotKeyFromRecord(leakRec, 'river');
+if (leakKey !== 'squeeze|BB|river') {
+  console.error('FAIL: spotKeyFromRecord esperado squeeze|BB|river, got', leakKey);
+  process.exit(1);
+}
+if (!PTLeaks.leakKeysMatch('spot|BB|river', 'squeeze|BB|river')) {
+  console.error('FAIL: leakKeysMatch legacy spot vs squeeze');
+  process.exit(1);
+}
+const leakSt = {};
+PTStatsAgg.ensureAggregates(leakSt);
+PTStatsAgg.rebuildTrainerLeaksFromHistory(leakSt.aggregates, [leakRec]);
+const rebuilt = PTStatsAgg.trainerTopLeaks(leakSt, 5);
+if (!rebuilt.length || rebuilt[0].key !== 'squeeze|BB|river') {
+  console.error('FAIL: trainerTopLeaks key tras rebuild:', rebuilt[0] && rebuilt[0].key);
+  process.exit(1);
+}
+console.log('Leak keys agregados vs replay:', leakKey, 'OK');
 
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk && mergeSessionsOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
 })();

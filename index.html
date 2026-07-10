@@ -429,6 +429,16 @@
         </div>
 
         <div class="setup-group">
+          <span class="setup-label">Tema de la mesa</span>
+          <div class="setup-chips" id="setup-table-theme">
+            <button type="button" class="setup-chip theme-chip active" data-val="emerald"><span class="theme-swatch theme-swatch-emerald" aria-hidden="true"></span>Esmeralda</button>
+            <button type="button" class="setup-chip theme-chip" data-val="midnight"><span class="theme-swatch theme-swatch-midnight" aria-hidden="true"></span>Medianoche</button>
+            <button type="button" class="setup-chip theme-chip" data-val="crimson"><span class="theme-swatch theme-swatch-crimson" aria-hidden="true"></span>Burdeos</button>
+          </div>
+          <p class="muted-text setup-hint">Cambia el tapete, el borde de la mesa y el reverso de las cartas.</p>
+        </div>
+
+        <div class="setup-group">
           <label class="setup-toggle toggle-row">
             <input type="checkbox" id="setup-live-advisor" />
             <span><strong>Avisador en vivo</strong> — muestra qué ocurre en la mesa, la acción recomendada y la explicación antes de decidir</span>
@@ -453,6 +463,10 @@
               <div id="play-table-loading" class="play-table-loading hidden" aria-live="polite" aria-busy="false">
                 <div class="play-table-spinner" aria-hidden="true"></div>
               </div>
+              <div class="table-watermark" aria-hidden="true">
+                <span class="table-watermark-mark"></span>
+                <span class="table-watermark-text">PokerForgeAI</span>
+              </div>
               <div id="seats" class="seats"></div>
               <div class="board-area">
                 <div id="villain-action-bar" class="villain-action-bar" aria-hidden="true"></div>
@@ -463,7 +477,7 @@
               <div class="hero-area">
                 <div id="hero-action" class="action-badge-wrap"></div>
                 <div id="hero-chips" class="hero-chips"></div>
-                <div class="hero-label">HÉROE · <span id="hero-pos">-</span></div>
+                <div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE · <span id="hero-pos">-</span><span id="hero-dealer" class="hero-dealer hidden" title="Dealer">D</span></div>
                 <div id="hero-cards" class="hero-cards"></div>
                 <div id="hero-handname" class="hero-handname"></div>
               </div>

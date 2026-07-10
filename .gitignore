@@ -26,3 +26,4 @@ tools/bin/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/.shots/

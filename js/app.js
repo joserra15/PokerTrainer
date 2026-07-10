@@ -159,6 +159,8 @@
     const active = $('#play-active');
     if (setup) setup.classList.add('hidden');
     if (active) active.classList.remove('hidden');
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
   }
 
   function scrollPlayToTop() {
@@ -180,6 +182,7 @@
     const hrEl = $('#setup-hand-range .setup-chip.active');
     const vlEl = $('#setup-villain-level .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
+    const thEl = $('#setup-table-theme .setup-chip.active');
     const laEl = $('#setup-live-advisor');
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
@@ -189,7 +192,34 @@
       handRange: hrEl ? hrEl.dataset.val : 'playable',
       villainLevel: vlEl ? vlEl.dataset.val : 'fish',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
+      tableTheme: thEl ? thEl.dataset.val : loadTableTheme(),
       liveAdvisor: laEl ? laEl.checked : false
+    });
+  }
+
+  const TABLE_THEME_KEY = 'pt_table_theme';
+  function loadTableTheme() {
+    try {
+      const v = localStorage.getItem(TABLE_THEME_KEY);
+      if (v === 'emerald' || v === 'midnight' || v === 'crimson') return v;
+    } catch (e) { /* ignore */ }
+    return 'emerald';
+  }
+  function saveTableTheme(theme) {
+    try { localStorage.setItem(TABLE_THEME_KEY, theme); } catch (e) { /* ignore */ }
+  }
+  function applyTableTheme(theme) {
+    const t = (theme === 'midnight' || theme === 'crimson') ? theme : 'emerald';
+    document.querySelectorAll('#play-active .table-felt').forEach((felt) => {
+      felt.setAttribute('data-theme', t);
+    });
+  }
+  function restoreTableThemeChip() {
+    const box = $('#setup-table-theme');
+    if (!box) return;
+    const saved = loadTableTheme();
+    box.querySelectorAll('.setup-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.val === saved);
     });
   }
 
@@ -243,6 +273,13 @@
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
     bindChipGroup('#setup-practice-street');
+    bindChipGroup('#setup-table-theme', () => {
+      const thEl = $('#setup-table-theme .setup-chip.active');
+      const theme = thEl ? thEl.dataset.val : 'emerald';
+      saveTableTheme(theme);
+      applyTableTheme(theme);
+    });
+    restoreTableThemeChip();
     const laEl = $('#setup-live-advisor');
     if (laEl && window.PTLiveAdvisor) {
       laEl.checked = PTLiveAdvisor.loadPreference();
@@ -809,8 +846,14 @@
     const byKey = {};
     PTLeaks.aggregate(Store.getErrors()).forEach(function (l) { byKey[l.key] = l; });
     return aggLeaks.map(function (l) {
-      const rich = byKey[l.key];
-      return rich ? Object.assign({}, l, rich) : l;
+      const rich = byKey[l.key] || Object.keys(byKey).map(function (k) { return byKey[k]; })
+        .find(function (item) { return leakKeysMatch(l.key, item.key); });
+      const merged = rich ? Object.assign({}, l, rich) : l;
+      if (!merged.errors || !merged.errors.length) {
+        const found = collectReplayRecordsForLeakKey(l.key);
+        if (found.length) merged.errors = found;
+      }
+      return merged;
     });
   }
 
@@ -833,30 +876,36 @@
   }
 
   function spotKeyFromStored(rec, street) {
+    if (window.PTLeaks && PTLeaks.spotKeyFromRecord) return PTLeaks.spotKeyFromRecord(rec, street);
     const sc = rec.scenarioRaw || rec.scenario || {};
     const type = typeof sc === 'object' ? (sc.type || 'unknown') : 'unknown';
     const pos = rec.displayHeroPos || rec.heroPos || '?';
     return type + '|' + pos + '|' + (street || 'preflop');
   }
 
+  function leakKeysMatch(targetKey, candidateKey) {
+    if (window.PTLeaks && PTLeaks.leakKeysMatch) return PTLeaks.leakKeysMatch(targetKey, candidateKey);
+    return targetKey === candidateKey;
+  }
+
   function collectReplayRecordsForLeakKey(key) {
     if (!key) return [];
     if (window.PTLeaks && PTLeaks.aggregate) {
-      const match = PTLeaks.aggregate(Store.getErrors()).find(function (l) { return l.key === key; });
+      const match = PTLeaks.aggregate(Store.getErrors()).find(function (l) { return leakKeysMatch(key, l.key); });
       if (match && match.errors && match.errors.length) return match.errors.slice();
     }
     const out = [];
     const seen = new Set();
     Store.getErrors().forEach(function (e) {
       const k = e.spotKey || spotKeyFromStored(e, e.street);
-      if (k !== key || seen.has(e.id)) return;
+      if (!leakKeysMatch(key, k) || seen.has(e.id)) return;
       seen.add(e.id);
       out.push(e);
     });
     Store.getHistory().forEach(function (rec) {
       (rec.decisions || []).forEach(function (d, idx) {
         if (d.class !== 'error' && d.class !== 'imprecisa') return;
-        if (spotKeyFromStored(rec, d.street) !== key) return;
+        if (!leakKeysMatch(key, spotKeyFromStored(rec, d.street))) return;
         const id = rec.id + '_d' + idx;
         if (seen.has(id)) return;
         seen.add(id);
@@ -944,8 +993,13 @@
     }
     const boardArea = document.querySelector('.board-area');
     if (boardArea) boardArea.classList.toggle('has-villain-bar', !!(mobile && hand.villainAction));
-    const felt = document.querySelector('.table-felt');
+    const felt = document.querySelector('#play-active .table-felt');
     if (felt) felt.classList.toggle('table-9max', is9MaxTable());
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+    const heroSeatPos = hand.displayHeroPos || hand.hero.pos;
+    const heroDealerEl = $('#hero-dealer');
+    if (heroDealerEl) heroDealerEl.classList.toggle('hidden', heroSeatPos !== 'BTN');
     renderBoard();
     renderSeats();
     $('#spot-context').textContent = hand.current ? hand.current.context : (hand.result ? hand.result.reason : '');
@@ -978,6 +1032,8 @@
     $('#board').innerHTML = html || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>';
   }
 
+  const SEAT_AVATAR_SVG = '<svg viewBox="0 0 24 24" class="seat-avatar-svg" aria-hidden="true"><circle cx="12" cy="8.2" r="4.2"/><path d="M3.5 20.5c0-4.4 3.8-7.6 8.5-7.6s8.5 3.2 8.5 7.6"/></svg>';
+
   function renderSeatChips(totalBB, streetBB) {
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
     if (streetBB > 0) {
@@ -987,6 +1043,13 @@
       return `<div class="seat-chips"><span class="seat-chips-total" title="Ciega / invertido">${fmt(totalBB)} bb</span></div>`;
     }
     return '';
+  }
+
+  // Fichas "delante" del jugador (hacia el centro): apuesta de la calle o ciega preflop.
+  function renderSeatBet(inFrontBB) {
+    if (!(inFrontBB > 0)) return '';
+    const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
+    return `<div class="seat-bet" title="Fichas en juego"><span class="chip-ico"></span><span class="seat-bet-amt">${fmt(inFrontBB)} bb</span></div>`;
   }
 
   function is9MaxTable() {
@@ -1077,18 +1140,22 @@
 
       const totalInv = invested[pos] || 0;
       const stBet = streetBet[pos] || 0;
+      const inFront = folded[pos] ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
       const showFullSeat = !mobile || isVillain || isCaller || stBet > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
-      const chipsHtml = showFullSeat ? renderSeatChips(totalInv, stBet) : '';
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
+      const betHtml = renderSeatBet(inFront);
 
       html += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
-        ${cardsHtml}
-        <div class="seat-pos">${pos}</div>
-        <div class="seat-role">${role}</div>
-        ${stackHtml}
-        ${chipsHtml}
-        ${actHtml ? `<div class="seat-act-wrap">${actHtml}</div>` : ''}
+        <div class="seat-body">
+          <span class="seat-avatar">${SEAT_AVATAR_SVG}</span>
+          ${cardsHtml}
+          <div class="seat-pos">${pos}</div>
+          <div class="seat-role">${role}</div>
+          ${stackHtml}
+          ${actHtml ? `<div class="seat-act-wrap">${actHtml}</div>` : ''}
+        </div>
+        ${betHtml}
       </div>`;
     });
     $('#seats').innerHTML = html;

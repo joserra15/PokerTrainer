@@ -86,8 +86,11 @@
     handRange: 'playable',
     villainLevel: 'fish',
     practiceStreet: 'random',
-    liveAdvisor: false
+    liveAdvisor: false,
+    tableTheme: 'emerald'
   };
+
+  const TABLE_THEMES = { emerald: true, midnight: true, crimson: true };
 
   const RR = function () { return global.GTORangesRegistry; };
 
@@ -104,6 +107,7 @@
     if (!c.villainLevel) c.villainLevel = 'fish';
     if (!c.practiceStreet) c.practiceStreet = 'random';
     c.liveAdvisor = !!c.liveAdvisor;
+    if (!TABLE_THEMES[c.tableTheme]) c.tableTheme = 'emerald';
     return c;
   }
 
