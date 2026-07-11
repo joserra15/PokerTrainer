@@ -851,21 +851,22 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   z-index: 4;
 }
 
-/* Fichas "delante" del jugador, hacia el centro de la mesa */
+/* Fichas "delante" del jugador, hacia el centro de la mesa.
+   La colocación (bet-below/above/left/right) es única por asiento para
+   evitar conflictos de top/bottom/left/right en asientos de esquina. */
 .seat-bet {
-  position: absolute; left: 50%; top: calc(100% + 6px);
-  transform: translateX(-50%);
+  position: absolute;
   display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
   background: var(--seat-bet-bg); color: var(--seat-bet-fg);
   padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;
   box-shadow: 0 3px 8px rgba(0,0,0,.45);
-  z-index: 4;
+  z-index: 6;
 }
 .seat-bet .chip-ico { width: 13px; height: 13px; }
-.seat-top .seat-bet { top: calc(100% + 6px); bottom: auto; }
-.seat-bottom .seat-bet { top: auto; bottom: calc(100% + 6px); }
-.seat-edge-left .seat-bet { left: calc(100% + 6px); top: 50%; transform: translateY(-50%); }
-.seat-edge-right .seat-bet { left: auto; right: calc(100% + 6px); top: 50%; transform: translateY(-50%); }
+.seat-bet.bet-below { left: 50%; right: auto; top: calc(100% + 6px); bottom: auto; transform: translateX(-50%); }
+.seat-bet.bet-above { left: 50%; right: auto; top: auto; bottom: calc(100% + 6px); transform: translateX(-50%); }
+.seat-bet.bet-right { left: calc(100% + 5px); right: auto; top: 50%; bottom: auto; transform: translateY(-50%); }
+.seat-bet.bet-left { left: auto; right: calc(100% + 5px); top: 50%; bottom: auto; transform: translateY(-50%); }
 
 /* ---- Burbujas de acción (Check / Fold / fichas + bb) ---- */
 .seat-act-wrap { margin-top: 5px; display: flex; justify-content: center; }
@@ -1518,9 +1519,12 @@ body.paywall-open { overflow: hidden; }
   .seat-avatar { width: 18px; height: 18px; margin-bottom: 1px; }
   .seat-avatar-svg { width: 11px; height: 11px; }
   .seat.seat-mini .seat-avatar { display: none; }
-  .seat-bet { font-size: 8px; padding: 1px 5px; gap: 3px; top: calc(100% + 3px); }
+  .seat-bet { font-size: 8px; padding: 1px 5px; gap: 3px; }
   .seat-bet .chip-ico { width: 9px; height: 9px; }
-  .seat-bottom .seat-bet { bottom: calc(100% + 3px); }
+  .seat-bet.bet-below { top: calc(100% + 3px); }
+  .seat-bet.bet-above { bottom: calc(100% + 3px); }
+  .seat-bet.bet-right { left: calc(100% + 3px); }
+  .seat-bet.bet-left { right: calc(100% + 3px); }
   .seat.seat-mini .seat-bet { display: none; }
   .table-watermark-mark { width: 54px; height: 60px; }
   .table-watermark-text { font-size: 17px; letter-spacing: 1px; }

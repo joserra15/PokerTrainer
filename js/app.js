@@ -1045,11 +1045,20 @@
     return '';
   }
 
+  // Coloca las fichas hacia el centro de la mesa según la posición del asiento.
+  // Una sola colocación por asiento evita solapes/recortes en las esquinas.
+  function seatBetPlacement(c) {
+    if (c.left < 22) return 'bet-right';
+    if (c.left > 78) return 'bet-left';
+    if (c.top > 70) return 'bet-above';
+    return 'bet-below';
+  }
+
   // Fichas "delante" del jugador (hacia el centro): apuesta de la calle o ciega preflop.
-  function renderSeatBet(inFrontBB) {
+  function renderSeatBet(inFrontBB, placement) {
     if (!(inFrontBB > 0)) return '';
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
-    return `<div class="seat-bet" title="Fichas en juego"><span class="chip-ico"></span><span class="seat-bet-amt">${fmt(inFrontBB)} bb</span></div>`;
+    return `<div class="seat-bet ${placement || 'bet-below'}" title="Fichas en juego"><span class="chip-ico"></span><span class="seat-bet-amt">${fmt(inFrontBB)} bb</span></div>`;
   }
 
   function is9MaxTable() {
@@ -1144,7 +1153,7 @@
       const showFullSeat = !mobile || isVillain || isCaller || stBet > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
-      const betHtml = renderSeatBet(inFront);
+      const betHtml = renderSeatBet(inFront, seatBetPlacement(c));
 
       html += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
         <div class="seat-body">

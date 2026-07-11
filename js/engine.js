@@ -867,27 +867,38 @@
     order.forEach(function (pos) { holeCards[pos] = null; });
     let dead = [];
 
-    const deals = PC ? PC.getScenarioDeals(scenario, playConfig) : [];
-    deals.forEach(function (d) {
-      if (!d.pos) return;
-      const cards = PC.sampleFromWeights(d.weights, dead, C.rng.random);
-      if (cards) {
-        holeCards[d.pos] = cards;
-        dead = dead.concat(cards);
-      }
-    });
+    const heroMode = (playConfig && (playConfig.handRange === 'all' ? 'random' : playConfig.handRange)) || 'playable';
+    const fullRandom = heroMode === 'random';
 
     const heroSeat = PC ? PC.heroDealSeat(scenario, playConfig) : scenario.heroPos;
     const heroEng = scenario.engineHeroPos
       || (scenario.type === 'RFI' ? (PC ? PC.enginePos(scenario.heroPos) : scenario.heroPos) : null)
       || ((scenario.type === 'vsRFI' || scenario.type === 'face4bet') ? parseVsKey(scenario.key).hero : scenario.heroPos);
-    if (!holeCards[heroSeat] || holeCards[heroSeat].length < 2) {
-      const heroWeights = PC ? PC.sampleHeroWeights(scenario, playConfig) : {};
-      let heroCards = PC ? PC.sampleFromWeights(heroWeights, dead, C.rng.random) : null;
-      if (!heroCards) heroCards = sampleHandFromRange('22+, A2s+, K9s+, AJo+', dead, C.rng.random);
-      holeCards[heroSeat] = heroCards;
-      dead = dead.concat(heroCards);
+
+    if (!fullRandom) {
+      // Villanos reparten desde su rango del spot; el héroe se reparte según el modo.
+      const deals = PC ? PC.getScenarioDeals(scenario, playConfig) : [];
+      deals.forEach(function (d) {
+        if (!d.pos || d.role === 'hero') return;
+        const cards = PC.sampleFromWeights(d.weights, dead, C.rng.random);
+        if (cards) {
+          holeCards[d.pos] = cards;
+          dead = dead.concat(cards);
+        }
+      });
+
+      if (!holeCards[heroSeat] || holeCards[heroSeat].length < 2) {
+        let heroCards = PC && PC.sampleHeroHand ? PC.sampleHeroHand(scenario, playConfig, dead, C.rng.random) : null;
+        if (!heroCards) {
+          const heroWeights = PC ? PC.sampleHeroWeights(scenario, playConfig) : {};
+          heroCards = PC ? PC.sampleFromWeights(heroWeights, dead, C.rng.random) : null;
+        }
+        if (!heroCards) heroCards = sampleHandFromRange('22+, A2s+, K9s+, AJo+', dead, C.rng.random);
+        holeCards[heroSeat] = heroCards;
+        dead = dead.concat(heroCards);
+      }
     }
+    // fullRandom: todos los asientos quedan null y se rellenan del mazo (aleatorio total).
 
     const deck = C.shuffledDeckExcluding(dead);
     order.forEach(function (pos) {

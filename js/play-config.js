@@ -227,8 +227,96 @@
     return Eq.sampleHandFromRange(rangeStr, dead || [], rnd);
   }
 
-  function sampleHeroWeights(scenario, config) {
+  const RANKS = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
+  const RANK_VAL = { A: 14, K: 13, Q: 12, J: 11, T: 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2 };
+  let _allCodes = null;
+
+  /** Las 169 manos de partida (AA, AKs, AKo, ...). */
+  function allHandCodes() {
+    if (_allCodes) return _allCodes;
+    const out = [];
+    for (let i = 0; i < RANKS.length; i++) {
+      for (let j = 0; j < RANKS.length; j++) {
+        if (i === j) out.push(RANKS[i] + RANKS[i]);
+        else if (i < j) out.push(RANKS[i] + RANKS[j] + 's');
+        else out.push(RANKS[j] + RANKS[i] + 'o');
+      }
+    }
+    _allCodes = out;
+    return out;
+  }
+
+  /** Puntuación heurística tipo Chen para ordenar manos por fuerza preflop. */
+  function handCodeScore(code) {
+    const r1 = RANK_VAL[code[0]];
+    const r2 = RANK_VAL[code[1]];
+    if (code.length === 2) return 34 + r1;
+    const hi = Math.max(r1, r2);
+    const lo = Math.min(r1, r2);
+    const suited = code[2] === 's';
+    let s = hi + lo * 0.5 + (suited ? 2 : 0);
+    const gap = hi - lo - 1;
+    if (gap === 1) s -= 1;
+    else if (gap === 2) s -= 2;
+    else if (gap >= 3) s -= 4;
+    if (gap <= 1 && hi <= 12) s += 1;
+    return s;
+  }
+
+  /** Manos con w>0 del spot del héroe, ordenadas de más débil a más fuerte. */
+  function heroRangeCodesByStrength(scenario, config) {
+    const weights = sampleHeroWeights(scenario, config, 'random');
+    const codes = Object.keys(weights).filter((c) => weights[c] > 0);
+    codes.sort((a, b) => handCodeScore(a) - handCodeScore(b));
+    return codes;
+  }
+
+  /** Muestrea una mano concreta de una lista de códigos evitando cartas muertas. */
+  function sampleFromCodes(codes, dead, rnd) {
+    if (!codes || !codes.length || !Eq || !Eq.sampleHandFromRange) return null;
+    return Eq.sampleHandFromRange(codes.join(', '), dead || [], rnd);
+  }
+
+  var PLAYABLE_FOLD_PCT = 0.15;
+
+  /**
+   * Mano del héroe según el modo de rango configurado:
+   *  - random: null (el motor reparte del mazo, aleatorio total).
+   *  - playable: rango completo del spot + ~15% de manos fold (fuera de rango).
+   *  - borderline: manos al límite del rango (frecuencia mixta o borde inferior).
+   */
+  function sampleHeroHand(scenario, config, dead, rnd) {
+    const r = rnd || Math.random;
     const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'playable');
+    if (mode === 'random') return null;
+
+    const rangeCodes = heroRangeCodesByStrength(scenario, config);
+    if (!rangeCodes.length) return null;
+    const inRange = {};
+    rangeCodes.forEach((c) => { inRange[c] = true; });
+
+    if (mode === 'borderline') {
+      const mixWeights = sampleHeroWeights(scenario, config, 'borderline');
+      let mixCodes = Object.keys(mixWeights).filter((c) => mixWeights[c] > 0 && mixWeights[c] < 1);
+      if (mixCodes.length < 3) {
+        const edgeCount = Math.max(3, Math.ceil(rangeCodes.length * 0.28));
+        const edge = rangeCodes.slice(0, edgeCount);
+        mixCodes = mixCodes.concat(edge);
+      }
+      return sampleFromCodes(mixCodes, dead, r) || sampleFromCodes(rangeCodes, dead, r);
+    }
+
+    // playable: rango completo + pequeño % de manos fold preflop
+    if (r() < PLAYABLE_FOLD_PCT) {
+      const foldCodes = allHandCodes().filter((c) => !inRange[c]);
+      const foldHand = sampleFromCodes(foldCodes, dead, r);
+      if (foldHand) return foldHand;
+    }
+    return sampleFromCodes(rangeCodes, dead, r);
+  }
+
+  function sampleHeroWeights(scenario, config, modeOverride) {
+    const mode = modeOverride || (config.handRange === 'all' ? 'random' : (config.handRange || 'playable'));
     const engHero = scenario.engineHeroPos || scenario.heroPos || parseVsKey(scenario.key).hero;
 
     if (scenario.type === 'RFI') {
@@ -588,7 +676,7 @@
     DEFAULT, normalize, pickScenario, labelFor,
     PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9,
-    sampleHeroWeights, sampleVillainWeights, sampleRfiDefenderWeights,
+    sampleHeroWeights, sampleHeroHand, sampleVillainWeights, sampleRfiDefenderWeights,
     sampleFace4betVillainWeights, face4betVillainRangeStr, sampleLimpWeights,
     sampleCallerWeights, sampleThreeBettorWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,

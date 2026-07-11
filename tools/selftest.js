@@ -892,6 +892,56 @@ if (!proOk || (proHand.stage !== 'turn' && proHand.stage !== 'complete' && proHa
 if (!proOk) process.exit(1);
 console.log('Pro villano postflop sin ReferenceError: OK');
 
+// ---- Rangos de manos configurables (random / playable / borderline) ----
+const rfiScen = { type: 'RFI', heroPos: 'BTN', engineHeroPos: 'BTN' };
+const rfiFullWeights = PC.sampleHeroWeights(rfiScen, PC.normalize({}), 'random');
+const rfiInRange = {};
+Object.keys(rfiFullWeights).forEach(function (c) { if (rfiFullWeights[c] > 0) rfiInRange[c] = true; });
+
+function heroRangeStats(mode) {
+  const cfg = PC.normalize({ scenario: 'rfi', heroPos: 'BTN', handRange: mode, villainLevel: 'fish' });
+  let out = 0, total = 0;
+  const distinct = {};
+  for (let s = 1; s <= 500; s++) {
+    const h = Engine.newHand({ type: 'RFI', heroPos: 'BTN', seed: s }, cfg);
+    const code = h.hero && h.hero.code;
+    if (!code) continue;
+    total++;
+    distinct[code] = true;
+    if (!rfiInRange[code]) out++;
+  }
+  return { outPct: total ? (out / total) * 100 : 0, distinct: Object.keys(distinct).length, total: total };
+}
+
+const rndStats = heroRangeStats('random');
+const playStats = heroRangeStats('playable');
+const bordStats = heroRangeStats('borderline');
+console.log('Rango random  → fuera de rango', Math.round(rndStats.outPct) + '%', 'distintas', rndStats.distinct);
+console.log('Rango jugables → fuera de rango', Math.round(playStats.outPct) + '%', 'distintas', playStats.distinct);
+console.log('Rango borderline → fuera de rango', Math.round(bordStats.outPct) + '%', 'distintas', bordStats.distinct);
+
+if (!(rndStats.outPct >= 25)) {
+  console.error('FAIL: random debe repartir muchas manos fuera de rango, got', rndStats.outPct);
+  process.exit(1);
+}
+if (!(playStats.outPct > 2 && playStats.outPct < 30)) {
+  console.error('FAIL: jugables debe tener un pequeño % de folds, got', playStats.outPct);
+  process.exit(1);
+}
+if (!(rndStats.outPct > playStats.outPct + 10)) {
+  console.error('FAIL: random debe ser más aleatorio que jugables', rndStats.outPct, playStats.outPct);
+  process.exit(1);
+}
+if (!(rndStats.distinct > playStats.distinct)) {
+  console.error('FAIL: random debe tener más manos distintas que jugables', rndStats.distinct, playStats.distinct);
+  process.exit(1);
+}
+if (!(bordStats.distinct > 0 && bordStats.distinct < playStats.distinct)) {
+  console.error('FAIL: borderline debe ser subconjunto estrecho del rango', bordStats.distinct, playStats.distinct);
+  process.exit(1);
+}
+console.log('Rangos configurables random/jugables/borderline: OK');
+
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'leaks.js'), 'utf8'), sandbox, { filename: 'leaks.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'stats-aggregate.js'), 'utf8'), sandbox, { filename: 'stats-aggregate.js' });
 const PTLeaks = sandbox.window.PTLeaks;
