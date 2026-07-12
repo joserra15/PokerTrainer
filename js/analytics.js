@@ -15,13 +15,26 @@
     return !!(cfg().enabled && global.PTLegal && global.PTLegal.hasAnalyticsConsent && global.PTLegal.hasAnalyticsConsent());
   }
 
+  function ensurePlausibleStub() {
+    global.plausible = global.plausible || function () {
+      (global.plausible.q = global.plausible.q || []).push(arguments);
+    };
+    if (!global.plausible.init) {
+      global.plausible.init = function (i) {
+        global.plausible.o = i || {};
+      };
+    }
+  }
+
   function loadScript() {
     if (loaded || !canTrack()) return;
     var c = cfg();
-    if (!c.domain || !c.scriptUrl) return;
+    if (!c.scriptUrl) return;
+    ensurePlausibleStub();
+    if (!global.plausible.o) global.plausible.init(c.init || {});
     var s = document.createElement('script');
-    s.defer = true;
-    s.dataset.domain = c.domain;
+    s.async = true;
+    if (c.domain) s.dataset.domain = c.domain;
     s.src = c.scriptUrl;
     document.head.appendChild(s);
     loaded = true;
@@ -29,10 +42,10 @@
 
   function track(eventName, props) {
     if (!canTrack()) return;
+    ensurePlausibleStub();
+    if (!global.plausible.o) global.plausible.init(cfg().init || {});
     loadScript();
-    if (typeof global.plausible === 'function') {
-      global.plausible(eventName, props ? { props: props } : undefined);
-    }
+    global.plausible(eventName, props ? { props: props } : undefined);
   }
 
   function trackPage() {
