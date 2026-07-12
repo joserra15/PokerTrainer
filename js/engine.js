@@ -81,6 +81,18 @@
     return stacks.capToRemaining(hand, pos, amount);
   }
 
+  function villainRemainingBB(hand) {
+    const stacks = ST();
+    const vSeat = villainTableSeat(hand) || hand.villain.pos;
+    if (stacks && hand.stacks && vSeat) return stacks.remaining(hand, vSeat);
+    return round2(effStackForHand(hand) - (hand.villainInvested || 0));
+  }
+
+  /** Apuesta > 0; evita bucles cuando capToRemaining devuelve 0 (villano sin stack). */
+  function isMeaningfulBet(amount) {
+    return amount != null && amount > 0.01;
+  }
+
   function initHandStacks(hand) {
     const stacks = ST();
     const PC = global.PTPlayConfig;
@@ -1895,9 +1907,21 @@
   function enterStreet(hand) {
     clearStreetActions(hand);
     if (hand.heroInPosition && hand.villain.cards) {
+      if (villainRemainingBB(hand) <= 0.01) {
+        setVillainAct(hand, 'check');
+        const h = buildPostflopNode(hand, hand.stage);
+        hand.current.heroClosesOnCheck = true;
+        return h;
+      }
       const vAct = villainStreetOpen(hand);
       if (vAct === 'bet') {
         const vBet = villainBetAmount(hand);
+        if (!isMeaningfulBet(vBet)) {
+          setVillainAct(hand, 'check');
+          const h = buildPostflopNode(hand, hand.stage);
+          hand.current.heroClosesOnCheck = true;
+          return h;
+        }
         hand.villainInvested += vBet; hand.potBB = round2(hand.potBB + vBet);
         setVillainAct(hand, 'bet', vBet);
         return buildPostflopNode(hand, hand.stage, { bet: vBet, potBefore: round2(hand.potBB - vBet) });
@@ -1927,8 +1951,8 @@
     const texture = boardTexture(hand.board);
     const baseRange = hand.villain.rangeStr || GTO.Ranges.data.BROAD_CONTINUE;
     const villainLastAction = (facing && facing.bet) ? 'bet' : (hand.villainAction ? hand.villainAction.type : null);
-    const toCallBB = facing && facing.bet ? facing.bet : 0;
-    const potBeforeBB = facing && facing.bet
+    const toCallBB = facing && isMeaningfulBet(facing.bet) ? facing.bet : 0;
+    const potBeforeBB = facing && isMeaningfulBet(facing.bet)
       ? round2(facing.potBefore != null ? facing.potBefore : Math.max(hand.potBB - toCallBB, 0.1))
       : round2(hand.potBB);
     const villainRange = (VT && VT.estimateActiveRange)
@@ -1956,7 +1980,7 @@
 
     let options, heroLastAction = null, context;
     const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
-    if (facing && facing.bet) {
+    if (facing && isMeaningfulBet(facing.bet)) {
       // hero afronta una apuesta del villano
       const raiseAmt = capBetForSeat(hand, hand.hero.pos, round2(facing.bet * 3));
       options = [
@@ -1969,11 +1993,16 @@
       const sizes = GTO.Strategy.betSizingOptions(hand.potBB, texture.wet);
       options = [{ id: 'check', label: 'Check (pasar)' }];
       hand._betSizes = {};
+      const seenBetKeys = new Set();
       sizes.forEach(function (s) {
         const capped = capBetForSeat(hand, hand.hero.pos, s.size);
         if (capped >= 0.5) {
           const id = s.id;
-          options.push({ id: id, label: capped >= heroRemainingBB(hand) - 0.01 ? `All-in (${fmt(capped)}bb)` : s.label.replace(String(s.size), String(capped)) });
+          const isAllIn = capped >= heroRemainingBB(hand) - 0.01;
+          const dedupeKey = isAllIn ? ('allin:' + fmt(capped)) : id;
+          if (seenBetKeys.has(dedupeKey)) return;
+          seenBetKeys.add(dedupeKey);
+          options.push({ id: id, label: isAllIn ? `All-in (${fmt(capped)}bb)` : s.label.replace(String(s.size), String(capped)) });
           hand._betSizes[id] = capped;
         }
       });
@@ -2046,10 +2075,18 @@
       // si el villano ya había pasado (héroe en posición cerrando), la calle termina
       if (node.heroClosesOnCheck) return nextStreet(hand);
       node.heroLastAction = 'check';
+      if (villainRemainingBB(hand) <= 0.01) {
+        setVillainAct(hand, 'check');
+        return nextStreet(hand);
+      }
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'check') { setVillainAct(hand, 'check'); return nextStreet(hand); }
       // villano apuesta -> hero afronta apuesta
       const vBet = villainBetAmount(hand);
+      if (!isMeaningfulBet(vBet)) {
+        setVillainAct(hand, 'check');
+        return nextStreet(hand);
+      }
       hand.villainInvested += vBet; hand.potBB = round2(hand.potBB + vBet);
       setVillainAct(hand, 'bet', vBet);
       return buildPostflopNode(hand, node.street, { bet: vBet, potBefore: round2(hand.potBB - vBet) });

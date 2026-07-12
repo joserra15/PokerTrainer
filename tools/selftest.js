@@ -942,6 +942,28 @@ if (!(bordStats.distinct > 0 && bordStats.distinct < playStats.distinct)) {
 }
 console.log('Rangos configurables random/jugables/borderline: OK');
 
+// River-only: villano sin stack no debe permitir check infinito
+const riverCfg = PC.normalize({ stackDepth: 'bb25', practiceStreet: 'river', villainLevel: 'pro' });
+const PTStacks = sandbox.window.PTStacks;
+let riverZeroVillainSeed = null;
+for (let rs = 1; rs < 6000 && !riverZeroVillainSeed; rs++) {
+  const rh = Engine.newHand({ type: 'vsRFI', key: 'CO_vs_UTG', seed: rs }, riverCfg);
+  Engine.fastForwardToStreet(rh, 'river');
+  if (!rh.current || rh.stage !== 'river' || rh.result) continue;
+  const vSeat = rh.villain && rh.villain.pos;
+  if (!vSeat || !PTStacks || PTStacks.remaining(rh, vSeat) > 0.01) continue;
+  Engine.act(rh, 'check');
+  if (rh.stage === 'complete' && rh.result) {
+    riverZeroVillainSeed = rs;
+    break;
+  }
+}
+if (!riverZeroVillainSeed) {
+  console.error('FAIL: no se encontró seed river villano 0bb + check completa mano');
+  process.exit(1);
+}
+console.log('River villano 0bb check cierra mano (seed', riverZeroVillainSeed, '): OK');
+
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'leaks.js'), 'utf8'), sandbox, { filename: 'leaks.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'stats-aggregate.js'), 'utf8'), sandbox, { filename: 'stats-aggregate.js' });
 const PTLeaks = sandbox.window.PTLeaks;
