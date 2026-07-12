@@ -96,7 +96,9 @@
     data.usage = {
       trainer_hands_today: Number(usage.trainer_hands_today) || 0,
       import_sessions_month: Number(usage.import_sessions_month) || 0,
-      ai_reports_month: Number(usage.ai_reports_month) || 0
+      ai_reports_month: Number(usage.ai_reports_month) || 0,
+      ai_plan_used_month: Number(usage.ai_plan_used_month) || 0,
+      ai_bonus_used_month: Number(usage.ai_bonus_used_month) || 0
     };
     if (!data.bonus) data.bonus = { balance: 0, expires_at: null };
     if (!data.is_admin && isAdmin()) data.is_admin = true;
@@ -186,19 +188,33 @@
     try { return new Date(b.expires_at) > new Date(); } catch (e) { return bal > 0; }
   }
 
+  function aiPlanUsed(ent) {
+    ent = ent || state || localFallback();
+    var use = ent.usage || {};
+    if (use.ai_plan_used_month != null && use.ai_plan_used_month !== '') {
+      return Number(use.ai_plan_used_month) || 0;
+    }
+    var used = Number(use.ai_reports_month) || 0;
+    var bonusUsed = Number(use.ai_bonus_used_month) || 0;
+    if (bonusUsed > 0) return Math.max(0, used - bonusUsed);
+    var pm = Number((ent.limits || {}).ai_reports_per_month) || 0;
+    return Math.min(used, pm);
+  }
+
   function canUseAI(ent) {
     ent = ent || state || localFallback();
     if (ent.is_admin || ent.unlimited || isAdmin()) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
     var max = lim.ai_reports_per_month;
     var used = (ent.usage && ent.usage.ai_reports_month) || 0;
+    var planUsed = aiPlanUsed(ent);
     var bonus = bonusActive(ent) ? (Number(ent.bonus.balance) || 0) : 0;
     if (max == null) return { ok: true, unlimited: true };
-    if (max > 0 && used < max) {
-      return { ok: true, used: used, limit: max, bonus: bonus, source: 'plan' };
+    if (max > 0 && planUsed < max) {
+      return { ok: true, used: used, planUsed: planUsed, limit: max, bonus: bonus, source: 'plan' };
     }
     if (bonus > 0) {
-      return { ok: true, used: used, limit: max, bonus: bonus, source: 'bonus' };
+      return { ok: true, used: used, planUsed: planUsed, limit: max, bonus: bonus, source: 'bonus' };
     }
     if (max <= 0) return { ok: false, reason: 'ai_plan', plan: ent.plan, bonus: 0 };
     return { ok: false, reason: 'ai_limit', used: used, limit: max, bonus: 0 };
@@ -216,17 +232,22 @@
     var lim = ent.limits || {};
     var planMax = lim.ai_reports_per_month;
     var used = (ent.usage && ent.usage.ai_reports_month) || 0;
+    var planUsed = aiPlanUsed(ent);
     var bonus = bonusActive(ent) ? (Number(ent.bonus.balance) || 0) : 0;
     if (planMax == null) {
       return { unlimited: true, used: used, bonus: bonus };
     }
     var pm = Number(planMax) || 0;
     if (pm <= 0 && bonus <= 0) {
-      return { used: used, planMax: pm, bonus: 0, totalLimit: 0, totalLeft: 0 };
+      return { used: used, planMax: pm, bonus: 0, totalLimit: 0, totalLeft: 0, planUsed: 0 };
     }
-    var totalLimit = bonus + Math.max(pm, used);
-    var totalLeft = bonus + Math.max(0, pm - used);
-    return { used: used, planMax: pm, bonus: bonus, totalLimit: totalLimit, totalLeft: totalLeft };
+    var planLeft = Math.max(0, pm - planUsed);
+    var totalLeft = planLeft + bonus;
+    var totalLimit = pm + bonus;
+    return {
+      used: used, planMax: pm, bonus: bonus, planUsed: planUsed,
+      planLeft: planLeft, totalLimit: totalLimit, totalLeft: totalLeft
+    };
   }
 
   function aiQuotaSummary(ent) {
@@ -249,7 +270,7 @@
       unlimited: false,
       used: q.used,
       limit: q.planMax,
-      planLeft: Math.max(0, q.planMax - q.used),
+      planLeft: q.planLeft != null ? q.planLeft : Math.max(0, q.planMax - (q.planUsed || 0)),
       bonus: q.bonus,
       totalLimit: q.totalLimit,
       totalLeft: q.totalLeft,
