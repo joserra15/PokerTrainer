@@ -6,6 +6,7 @@
   'use strict';
 
   var loaded = false;
+  var initCalled = false;
 
   function cfg() {
     return global.PT_ANALYTICS || { enabled: false };
@@ -26,12 +27,21 @@
     }
   }
 
+  /** plausible.init() solo una vez; el script real avisa si se repite. */
+  function initPlausibleOnce() {
+    if (initCalled) return;
+    initCalled = true;
+    ensurePlausibleStub();
+    if (typeof global.plausible.init === 'function') {
+      global.plausible.init(cfg().init || {});
+    }
+  }
+
   function loadScript() {
     if (loaded || !canTrack()) return;
     var c = cfg();
     if (!c.scriptUrl) return;
-    ensurePlausibleStub();
-    if (!global.plausible.o) global.plausible.init(c.init || {});
+    initPlausibleOnce();
     var s = document.createElement('script');
     s.async = true;
     if (c.domain) s.dataset.domain = c.domain;
@@ -42,8 +52,6 @@
 
   function track(eventName, props) {
     if (!canTrack()) return;
-    ensurePlausibleStub();
-    if (!global.plausible.o) global.plausible.init(cfg().init || {});
     loadScript();
     global.plausible(eventName, props ? { props: props } : undefined);
   }
