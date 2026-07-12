@@ -8,9 +8,9 @@ Valores actuales en `js/site-config.js` (`PT_SITE`):
 
 | Concepto | Valor |
 |----------|--------|
-| App pública | `https://joserra15.github.io/PokerTrainer/` |
-| Orígenes JS autorizados | `https://joserra15.github.io`, `http://localhost`, `http://127.0.0.1` |
-| Redirect URIs (Supabase) | `https://joserra15.github.io/PokerTrainer/`, `http://localhost/`, `http://127.0.0.1/` |
+| App pública | `https://www.pokerforgeai.com/` |
+| Orígenes JS autorizados | `https://www.pokerforgeai.com`, `http://localhost`, `http://127.0.0.1` |
+| Redirect URIs (Supabase) | `https://www.pokerforgeai.com/`, `http://localhost/`, `http://127.0.0.1/` |
 
 Si añades dominio propio (G-01), actualiza `js/site-config.js` y repite este checklist con las nuevas URLs.
 
@@ -27,7 +27,7 @@ Si añades dominio propio (G-01), actualiza `js/site-config.js` y repite este ch
 ### Publicar la app (salir de Testing)
 
 1. **APIs y servicios** → **Pantalla de consentimiento de OAuth**.
-2. Completa nombre de la app, logo, dominios autorizados (`joserra15.github.io` o tu dominio), correo de soporte y política de privacidad (`legal/privacidad.html`).
+2. Completa nombre de la app, logo, dominios autorizados (`www.pokerforgeai.com`), correo de soporte y política de privacidad (`legal/privacidad.html`).
 3. Añade el alcance `email`, `profile`, `openid` (los que usa Google Identity Services).
 4. En **Usuarios de prueba**, el modo Testing solo permite esos correos. Para producción:
    - Cambia el **Estado de publicación** a **En producción**.
@@ -41,7 +41,7 @@ Proyecto: `wrkupbxttqrpdpoztcky`
 
 1. **Authentication** → **Providers** → **Google**: activado con Client ID y Client Secret del mismo cliente OAuth.
 2. **Authentication** → **URL Configuration**:
-   - **Site URL**: `https://joserra15.github.io/PokerTrainer/`
+   - **Site URL**: `https://www.pokerforgeai.com/`
    - **Redirect URLs**: incluye todas las de `PT_SITE.supabaseRedirectUrls` y, si aplica, `https://wrkupbxttqrpdpoztcky.supabase.co/auth/v1/callback`
 3. Guarda y prueba login desde la URL de producción.
 
@@ -61,7 +61,7 @@ La app usa **Google Identity Services** (botón en `#gsi-button`) con `ux_mode: 
 
 ## 4. Verificación manual
 
-- [ ] Login en `https://joserra15.github.io/PokerTrainer/` con cuenta que **no** esté en usuarios de prueba (modo producción).
+- [ ] Login en `https://www.pokerforgeai.com/` con cuenta que **no** esté en usuarios de prueba (modo producción).
 - [ ] Login en `http://localhost:5500/` (Live Server) para desarrollo local.
 - [ ] Tras login: menú de cuenta visible, sync en nube sin errores en consola.
 - [ ] Popup no bloqueado; en móvil probar Chrome/Safari.
@@ -81,4 +81,4 @@ Al migrar de GitHub Pages a dominio custom:
 1. Actualiza `PT_SITE.appUrl` y arrays de orígenes/redirects.
 2. Añade el dominio en Google OAuth (orígenes + redirects).
 3. Actualiza Site URL y Redirect URLs en Supabase.
-4. Si usas GitHub Pages con CNAME, mantén también el origen `https://usuario.github.io` hasta deprecar la URL antigua.
+4. Si mantienes GitHub Pages como respaldo, conserva también el origen `https://joserra15.github.io` hasta deprecar la URL antigua por completo.

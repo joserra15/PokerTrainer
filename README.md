@@ -24,9 +24,9 @@ sincronizan con Supabase si está configurado (`js/supabase-config.js`).
    - Orígenes autorizados de JavaScript (**sin ruta**, solo dominio):
      - `http://localhost`
      - `http://127.0.0.1`
-     - `https://joserra15.github.io`
+     - `https://www.pokerforgeai.com`
    - URIs de redirección autorizados (opcional para el botón GIS, pero recomendado):
-     - `https://joserra15.github.io/PokerTrainer/`
+     - `https://www.pokerforgeai.com/`
 3. **Pantalla de consentimiento OAuth** (menú lateral):
    - Tipo de usuario: **Externo**
    - Nombre de la app: `PokerForgeAI`
@@ -49,11 +49,11 @@ Casi siempre es configuración en Google Cloud, no un bug de la app:
 
 | Causa | Solución |
 |-------|----------|
-| Origen mal puesto | Usa `https://joserra15.github.io` **sin** `/PokerTrainer` |
+| Origen mal puesto | Usa `https://www.pokerforgeai.com` **sin** barra final en orígenes JS |
 | Cliente OAuth incorrecto | Debe ser tipo **Aplicación web**, no Android/iOS |
 | App en modo Prueba | Añade tu Gmail en *Usuarios de prueba* |
 | Consentimiento incompleto | Rellena nombre, emails y guarda la pantalla de consentimiento |
-| Brave / bloqueadores | Desactiva el escudo para `joserra15.github.io` |
+| Brave / bloqueadores | Desactiva el escudo para `www.pokerforgeai.com` |
 
 La pantalla de login muestra el origen exacto que debes registrar.
 

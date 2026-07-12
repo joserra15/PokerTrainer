@@ -8,7 +8,7 @@ const { execSync } = require('child_process');
 const https = require('https');
 
 const STRIPE_KEY = process.env.STRIPE_SECRET_KEY || '';
-const SITE_URL = (process.env.PT_SITE_URL || 'https://joserra15.github.io/PokerTrainer').replace(/\/$/, '');
+const SITE_URL = (process.env.PT_SITE_URL || 'https://www.pokerforgeai.com').replace(/\/$/, '');
 const PROJECT = process.env.SUPABASE_PROJECT || 'wrkupbxttqrpdpoztcky';
 const WEBHOOK_URL = `https://${PROJECT}.supabase.co/functions/v1/stripe-webhook`;
 

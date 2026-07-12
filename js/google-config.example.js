@@ -5,7 +5,7 @@
  * Orígenes autorizados de JavaScript:
  *   - http://localhost
  *   - http://127.0.0.1
- *   - https://joserra15.github.io
+ *   - https://www.pokerforgeai.com
  */
 window.PT_GOOGLE = {
   clientId: 'TU_CLIENT_ID.apps.googleusercontent.com'

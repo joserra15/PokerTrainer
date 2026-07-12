@@ -14,8 +14,8 @@ Esto elimina la política `anon_read_write_dev` y exige **JWT authenticated**.
 1. **Authentication → Providers → Google** → activar.
 2. Usa el mismo proyecto de Google Cloud o crea credenciales OAuth.
 3. **Authentication → URL Configuration**:
-   - Site URL: `https://joserra15.github.io/PokerTrainer/`
-   - Redirect URLs: `https://joserra15.github.io/PokerTrainer/`, `http://localhost/`, `http://127.0.0.1/`
+   - Site URL: `https://www.pokerforgeai.com/`
+   - Redirect URLs: `https://www.pokerforgeai.com/`, `http://localhost/`, `http://127.0.0.1/`
 
 ## 3. Edge Function `analyze-hand`
 
