@@ -43,6 +43,15 @@
     scrollToLogin();
   }
 
+  function renderPromo() {
+    var Promo = global.PTBillingPromo;
+    if (!Promo) return;
+    var pillHost = document.getElementById('landing-promo-pill');
+    if (pillHost) pillHost.innerHTML = Promo.pillHtml ? Promo.pillHtml() : '';
+    var bannerHost = document.getElementById('landing-promo-banner');
+    if (bannerHost) bannerHost.innerHTML = Promo.bannerHtml ? Promo.bannerHtml() : '';
+  }
+
   function renderPricing() {
     var grid = document.getElementById('landing-pricing-grid');
     if (!grid) return;
@@ -132,6 +141,7 @@
 
   function init() {
     if (!document.getElementById('auth-gate')) return;
+    renderPromo();
     renderPricing();
     renderOAuthHints();
     bindNav();

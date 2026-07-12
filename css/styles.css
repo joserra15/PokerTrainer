@@ -264,6 +264,30 @@ body.range-matrix-open { overflow: hidden; }
   text-transform: uppercase;
   margin-bottom: 10px;
 }
+.landing-promo-pill {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin: 0 0 14px; padding: 8px 12px; border-radius: 999px;
+  background: rgba(47,129,247,.12); border: 1px solid rgba(47,129,247,.28);
+  font-size: 13px;
+}
+.landing-promo-pill a { color: var(--accent); text-decoration: underline; }
+.promo-banner {
+  margin: 0 0 18px; padding: 14px 16px; border-radius: 12px;
+  background: linear-gradient(135deg, rgba(47,129,247,.14), rgba(230,161,90,.12));
+  border: 1px solid rgba(47,129,247,.28);
+}
+.promo-banner-kicker {
+  margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--accent);
+}
+.promo-banner-title { margin: 0 0 6px; font-size: 16px; line-height: 1.45; }
+.promo-banner-note { margin: 0; font-size: 13px; line-height: 1.45; }
+.promo-code {
+  display: inline-block; padding: 1px 8px; border-radius: 6px;
+  background: rgba(0,0,0,.28); border: 1px dashed rgba(255,255,255,.25);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .95em; letter-spacing: .06em;
+}
 .landing-hero h1 {
   font-size: clamp(28px, 4.5vw, 42px);
   line-height: 1.12;

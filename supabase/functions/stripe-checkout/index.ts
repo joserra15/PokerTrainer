@@ -112,6 +112,7 @@ serve(async (req) => {
       'line_items[0][quantity]': '1',
       success_url: base + '/?checkout=bonus_success',
       cancel_url: base + '/?checkout=cancel',
+      allow_promotion_codes: 'true',
       'metadata[supabase_user_id]': userId,
       'metadata[purchase_type]': 'ai_bonus',
       'metadata[bonus_pack]': pack,

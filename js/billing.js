@@ -328,6 +328,10 @@
     handleCheckoutReturn: handleCheckoutReturn,
     planInfo: function () { return cfg().plans || {}; },
     bonusInfo: bonusConfig,
-    bonusTierForPlan: bonusTierForPlan
+    bonusTierForPlan: bonusTierForPlan,
+    promoBannerHtml: function () {
+      return global.PTBillingPromo && global.PTBillingPromo.bannerHtml
+        ? global.PTBillingPromo.bannerHtml() : '';
+    }
   };
 })(window);

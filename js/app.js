@@ -1696,6 +1696,11 @@
       current.innerHTML = line;
     }
 
+    var promoHost = $('#pricing-promo-banner');
+    if (promoHost && window.PTBillingPromo && PTBillingPromo.bannerHtml) {
+      promoHost.innerHTML = PTBillingPromo.bannerHtml();
+    }
+
     const cards = [
       {
         id: 'free', title: 'Gratis', price: '0 €', period: '/mes', featured: false,
