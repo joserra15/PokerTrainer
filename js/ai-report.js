@@ -502,6 +502,9 @@
       const msg = data.error || data.message || ('HTTP ' + res.status);
       throw new Error(msg);
     }
+    if (global.PTLog && global.PTLog.event) {
+      global.PTLog.event('ai_coach_used', { scope: scope || 'hand', mode: mode || 'report' });
+    }
     return data;
   }
 

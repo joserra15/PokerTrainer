@@ -497,6 +497,7 @@
 
   function goToTab(tabId, opts) {
     opts = opts || {};
+    if (window.PTLog && PTLog.event) PTLog.event('tab_view', { tab: tabId });
     $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tabId));
     $$('.tab-panel').forEach((x) => x.classList.remove('active'));
     const panel = $('#tab-' + tabId);
@@ -804,6 +805,14 @@
         hand = Engine.newHand(force || undefined, cfg);
       }
       pendingForce = null;
+      if (window.PTLog && PTLog.event && hand) {
+        PTLog.event('hand_start', {
+          scenario: (hand.scenario && hand.scenario.type) || 'unknown',
+          range: (cfg && cfg.handRange) || 'playable',
+          villain: (cfg && cfg.villainLevel) || 'fish',
+          replay: !!force
+        });
+      }
       $('#hand-log').innerHTML = '';
       renderTable();
       renderActions();

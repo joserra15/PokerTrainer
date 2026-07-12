@@ -328,6 +328,7 @@
   }
 
   function signOut() {
+    if (global.PTLog && global.PTLog.event) global.PTLog.event('logout');
     var done = function () {
       localStorage.removeItem(SESSION_KEY);
       try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e) { /* noop */ }

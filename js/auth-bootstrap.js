@@ -102,9 +102,28 @@
     saveLegacySession(user);
     migrateLocalData(user);
     global.dispatchEvent(new CustomEvent('pt-auth-bootstrap', { detail: user }));
-    if (global.PTAnalytics && global.PTAnalytics.trackRegister) {
-      global.PTAnalytics.trackRegister(user.authProvider || 'google');
-    }
+    trackAuthFlow(user);
+  }
+
+  // Distingue alta real (primera vez que vemos este usuario) de login recurrente,
+  // para que "register" no se dispare en cada restauración de sesión.
+  var REGISTERED_KEY = 'pt_registered_v1';
+  function trackAuthFlow(user) {
+    var A = global.PTAnalytics;
+    if (!A) return;
+    var provider = (user && user.authProvider) || 'google';
+    var isNew = false;
+    try {
+      var raw = localStorage.getItem(REGISTERED_KEY);
+      var seen = raw ? JSON.parse(raw) : {};
+      if (user && user.sub && !seen[user.sub]) {
+        isNew = true;
+        seen[user.sub] = Date.now();
+        localStorage.setItem(REGISTERED_KEY, JSON.stringify(seen));
+      }
+    } catch (e) { /* noop */ }
+    if (isNew && A.trackRegister) A.trackRegister(provider);
+    else if (A.trackLogin) A.trackLogin(provider);
   }
 
   function saveSessionFromPayload(payload) {

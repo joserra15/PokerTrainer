@@ -43,12 +43,32 @@
     track('register', { method: method || 'google' });
   }
 
+  function trackLogin(method) {
+    track('login', { method: method || 'google' });
+  }
+
+  function trackLogout() {
+    track('logout');
+  }
+
+  function trackTab(tab) {
+    track('tab_view', { tab: tab || 'home' });
+  }
+
+  function trackHandStart(meta) {
+    track('hand_start', meta || {});
+  }
+
   function trackPlayHand(meta) {
     track('play_hand', meta || {});
   }
 
   function trackImportSession(meta) {
     track('import_session', meta || {});
+  }
+
+  function trackAiCoach(meta) {
+    track('ai_coach_used', meta || {});
   }
 
   function trackCheckoutStart(meta) {
@@ -60,8 +80,13 @@
     track: track,
     trackPage: trackPage,
     trackRegister: trackRegister,
+    trackLogin: trackLogin,
+    trackLogout: trackLogout,
+    trackTab: trackTab,
+    trackHandStart: trackHandStart,
     trackPlayHand: trackPlayHand,
     trackImportSession: trackImportSession,
+    trackAiCoach: trackAiCoach,
     trackCheckoutStart: trackCheckoutStart
   };
 
