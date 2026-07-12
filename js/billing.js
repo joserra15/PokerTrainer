@@ -252,7 +252,7 @@
     var checkout = params.get('checkout');
     var portal = params.get('portal');
     if (checkout === 'success' || checkout === 'bonus_success' || portal === 'return') {
-      refreshBillingState({ syncBonus: checkout === 'bonus_success' }).then(function (data) {
+      refreshBillingState({ syncBonus: checkout === 'bonus_success' || checkout === 'success' }).then(function (data) {
         if (checkout === 'bonus_success') {
           var ent = global.PTEntitlements && global.PTEntitlements.get ? global.PTEntitlements.get() : null;
           var bal = ent && ent.bonus ? Number(ent.bonus.balance) || 0 : 0;
@@ -308,8 +308,24 @@
     });
     var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'sync_payments_failed');
+    try {
+      await syncBonusPurchases();
+    } catch (e) {
+      console.warn('[PTBilling] syncBonusPurchases after payments', e);
+    }
     return data;
   }
+
+  global.addEventListener('pt-auth-ready', function () {
+    if (!enabled()) return;
+    syncBonusPurchases().then(function () {
+      if (global.PTEntitlements && global.PTEntitlements.refresh) {
+        return global.PTEntitlements.refresh();
+      }
+    }).catch(function (e) {
+      console.warn('[PTBilling] auth bonus sync', e);
+    });
+  });
 
   global.PTBilling = {
     enabled: enabled,

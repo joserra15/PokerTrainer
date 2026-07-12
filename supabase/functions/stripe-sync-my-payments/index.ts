@@ -80,6 +80,19 @@ async function syncCheckoutSessions(
       const pack = (meta.bonus_pack || 's').toLowerCase() as BonusPack;
       const packDef = BONUS_PACKS[pack];
       const credits = packDef ? packDef.credits : parseInt(meta.bonus_credits || '0', 10);
+      if (credits > 0) {
+        const { data: creditRes, error: creditErr } = await admin.rpc('pt_credit_ai_bonus', {
+          p_user_id: userId,
+          p_credits: credits,
+          p_pack_code: pack,
+          p_stripe_session_id: session.id
+        });
+        if (creditErr) throw new Error(creditErr.message);
+        const creditRow = creditRes as Record<string, unknown>;
+        if (!creditRow?.ok) {
+          throw new Error(String(creditRow?.error || 'bonus_credit_failed'));
+        }
+      }
       await recordPayment(admin, userId, {
         p_user_id: userId,
         p_kind: 'bonus',

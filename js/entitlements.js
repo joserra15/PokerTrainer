@@ -204,34 +204,55 @@
     return { ok: false, reason: 'ai_limit', used: used, limit: max, bonus: 0 };
   }
 
+  function aiCombinedQuota(ent) {
+    ent = ent || state || localFallback();
+    if (ent.is_admin || isAdmin()) {
+      return {
+        unlimited: true,
+        used: (ent.usage && ent.usage.ai_reports_month) || 0,
+        bonus: bonusActive(ent) ? (Number(ent.bonus.balance) || 0) : 0
+      };
+    }
+    var lim = ent.limits || {};
+    var planMax = lim.ai_reports_per_month;
+    var used = (ent.usage && ent.usage.ai_reports_month) || 0;
+    var bonus = bonusActive(ent) ? (Number(ent.bonus.balance) || 0) : 0;
+    if (planMax == null) {
+      return { unlimited: true, used: used, bonus: bonus };
+    }
+    var pm = Number(planMax) || 0;
+    if (pm <= 0 && bonus <= 0) {
+      return { used: used, planMax: pm, bonus: 0, totalLimit: 0, totalLeft: 0 };
+    }
+    var totalLimit = bonus + Math.max(pm, used);
+    var totalLeft = bonus + Math.max(0, pm - used);
+    return { used: used, planMax: pm, bonus: bonus, totalLimit: totalLimit, totalLeft: totalLeft };
+  }
+
   function aiQuotaSummary(ent) {
     ent = ent || state || localFallback();
     if (ent.is_admin || isAdmin()) {
       var adminUsed = (ent.usage && ent.usage.ai_reports_month) || 0;
       return { unlimited: true, label: 'Consultas IA: ilimitadas (admin) · ' + adminUsed + ' usadas este mes' };
     }
-    var lim = ent.limits || {};
-    var max = lim.ai_reports_per_month;
-    var used = (ent.usage && ent.usage.ai_reports_month) || 0;
-    var bonus = bonusActive(ent) ? (Number(ent.bonus.balance) || 0) : 0;
-    if (max == null) {
+    var q = aiCombinedQuota(ent);
+    if (q.unlimited) {
       return { unlimited: true, label: 'Consultas IA: ilimitadas' };
     }
-    if (max === 0 && bonus <= 0) {
-      return { unlimited: false, label: 'Tu plan no incluye consultas IA. Compra un bono en Planes.' };
+    if (!q.totalLimit) {
+      return { unlimited: false, label: 'Tu plan no incluye consultas IA. Compra un bono en Planes.', totalLeft: 0, bonus: 0 };
     }
-    var planLeft = max > 0 ? Math.max(0, max - used) : 0;
-    var totalLeft = planLeft + bonus;
-    var line = 'Incluidas: ' + used + '/' + max + ' usadas este mes';
-    if (bonus > 0) line += ' · Bono: ' + bonus + ' restantes';
-    line += ' · Total disponible: ' + totalLeft;
+    var line = 'IA Coach: ' + q.used + '/' + q.totalLimit;
+    if (q.bonus > 0) line += ' (incl. ' + q.bonus + ' bono)';
+    line += ' · ' + q.totalLeft + ' disponibles';
     return {
       unlimited: false,
-      used: used,
-      limit: max,
-      planLeft: planLeft,
-      bonus: bonus,
-      totalLeft: totalLeft,
+      used: q.used,
+      limit: q.planMax,
+      planLeft: Math.max(0, q.planMax - q.used),
+      bonus: q.bonus,
+      totalLimit: q.totalLimit,
+      totalLeft: q.totalLeft,
       label: line + '.'
     };
   }
@@ -305,6 +326,7 @@
     ensureLoaded: ensureLoaded,
     get: function () { return state || localFallback(); },
     canUseAI: canUseAI,
+    aiCombinedQuota: aiCombinedQuota,
     aiQuotaSummary: aiQuotaSummary,
     canStartTrainerHand: canStartTrainerHand,
     canImportSession: canImportSession,

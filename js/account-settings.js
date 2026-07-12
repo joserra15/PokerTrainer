@@ -73,7 +73,7 @@
     }
     if (global.PTEntitlements && global.PTEntitlements.aiQuotaSummary) {
       var ai = global.PTEntitlements.aiQuotaSummary(ent);
-      html += row('Consultas IA', escapeHtml(ai.label.replace('Incluidas: ', '').replace(/\.$/, '')));
+      html += row('Consultas IA', escapeHtml(ai.label));
     }
     return html;
   }
@@ -112,7 +112,9 @@
     var host = $('#account-settings-content');
     if (!host) return;
     var prof = (data && data.profile) || {};
-    var ent = (data && data.entitlements) || (global.PTEntitlements && global.PTEntitlements.get ? global.PTEntitlements.get() : {});
+    var ent = (global.PTEntitlements && global.PTEntitlements.get ? global.PTEntitlements.get() : null)
+      || (data && data.entitlements)
+      || {};
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
     var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
@@ -286,6 +288,9 @@
     if (btn) btn.disabled = true;
     try {
       await global.PTBilling.syncMyPayments();
+      if (global.PTEntitlements && global.PTEntitlements.refresh) {
+        await global.PTEntitlements.refresh();
+      }
       await load(true);
     } catch (e) {
       alert(e.message || 'No se pudieron actualizar los pagos.');
@@ -300,11 +305,14 @@
     if (!host || !user) return;
     host.innerHTML = '<div class="account-settings-loading"><div class="play-boot-spinner"></div><p class="muted-text">Cargando configuración…</p></div>';
 
+    if (!skipSync && global.PTBilling && global.PTBilling.enabled()) {
+      try {
+        if (global.PTBilling.syncMyPayments) await global.PTBilling.syncMyPayments();
+        else if (global.PTBilling.syncBonusPurchases) await global.PTBilling.syncBonusPurchases();
+      } catch (e) { /* noop */ }
+    }
     if (!skipSync && global.PTEntitlements && global.PTEntitlements.refresh) {
       await global.PTEntitlements.refresh().catch(function () {});
-    }
-    if (!skipSync && global.PTBilling && global.PTBilling.syncMyPayments && global.PTBilling.enabled()) {
-      try { await global.PTBilling.syncMyPayments(); } catch (e) { /* noop */ }
     }
 
     var c = client();

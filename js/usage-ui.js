@@ -55,17 +55,19 @@
     if (lim.import_sessions_per_month != null) {
       rows += barRow('Imports este mes', use.import_sessions_month, lim.import_sessions_per_month);
     }
-    if (lim.ai_reports_per_month != null && lim.ai_reports_per_month > 0) {
+    var aiQ = Ent && Ent.aiCombinedQuota ? Ent.aiCombinedQuota(ent) : null;
+    if (aiQ && aiQ.unlimited) {
+      rows += '<div class="usage-row usage-row-static"><span>IA Coach</span><strong>Ilimitado</strong></div>';
+    } else if (aiQ && aiQ.totalLimit > 0) {
+      rows += barRow('IA Coach (plan + bono)', aiQ.used, aiQ.totalLimit);
+    } else if (lim.ai_reports_per_month != null && lim.ai_reports_per_month > 0) {
       rows += barRow('IA Coach mes', use.ai_reports_month, lim.ai_reports_per_month);
-    } else if (lim.ai_reports_per_month === 0) {
+    } else if (lim.ai_reports_per_month === 0 && !(aiQ && aiQ.bonus > 0)) {
       rows += barRow('IA Coach mes', use.ai_reports_month, 0);
-    }
-    if (ent.bonus && Number(ent.bonus.balance) > 0) {
-      rows += '<div class="usage-row usage-row-static"><span>Bono IA</span><strong>' + Number(ent.bonus.balance) + ' consultas</strong></div>';
     }
     if (Ent && Ent.aiQuotaSummary) {
       var summary = Ent.aiQuotaSummary(ent);
-      if (!summary.unlimited && summary.totalLeft != null) {
+      if (!summary.unlimited && summary.totalLeft != null && summary.totalLeft > 0 && !(aiQ && aiQ.totalLimit > 0)) {
         rows += '<div class="usage-row usage-row-static"><span>IA disponibles</span><strong>' + summary.totalLeft + '</strong></div>';
       }
     }
