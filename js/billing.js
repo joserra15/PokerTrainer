@@ -39,6 +39,57 @@
     return 'free';
   }
 
+  function planRank(plan) {
+    return plan === 'premium' ? 2 : (plan === 'pro' ? 1 : 0);
+  }
+
+  function formatPeriodEnd(iso) {
+    if (!iso) return 'el final del periodo actual';
+    try {
+      return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+    } catch (e) { return 'el final del periodo actual'; }
+  }
+
+  function planChangeMessage(opts) {
+    var labels = opts.planLabels || { free: 'Gratis', pro: 'Study', premium: 'Coach' };
+    var tLabel = labels[opts.targetPlan] || opts.targetPlan;
+    var intervalLabel = opts.targetInterval === 'year' ? 'anual' : 'mensual';
+    var end = formatPeriodEnd(opts.periodEnd);
+    var tail = '\n\nTe llevaremos al portal seguro de Stripe para confirmar el cambio.';
+
+    if (opts.targetPlan === 'free') {
+      return 'Vas a cancelar tu suscripción.\n\n' +
+        'Conservarás el acceso a tu plan actual hasta ' + end + '. ' +
+        'No se renovará y después pasarás al plan Gratis.' + tail;
+    }
+
+    var curRank = planRank(opts.currentPlan);
+    var tRank = planRank(opts.targetPlan);
+
+    if (tRank > curRank) {
+      return 'Vas a mejorar a ' + tLabel + ' (' + intervalLabel + ').\n\n' +
+        'El cambio es inmediato. Stripe solo te cobrará la parte proporcional por los días que quedan del periodo actual.' + tail;
+    }
+    if (tRank < curRank) {
+      return 'Vas a cambiar a ' + tLabel + ' (' + intervalLabel + '), un plan inferior.\n\n' +
+        'Mantendrás tu plan actual hasta ' + end + ' y luego pasarás a ' + tLabel + '. No se te cobra de más.' + tail;
+    }
+    // Mismo plan, cambio de intervalo.
+    if (opts.targetInterval === 'year') {
+      return 'Vas a pasar tu plan ' + tLabel + ' a facturación anual.\n\n' +
+        'Se aplica al confirmar; Stripe ajusta el cobro de forma proporcional.' + tail;
+    }
+    return 'Vas a pasar tu plan ' + tLabel + ' a facturación mensual.\n\n' +
+      'El cambio se aplicará al terminar el periodo anual actual (' + end + ').' + tail;
+  }
+
+  async function startPlanChange(opts) {
+    opts = opts || {};
+    var msg = planChangeMessage(opts);
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm(msg)) return;
+    await openPortal();
+  }
+
   function bonusConfig() {
     return cfg().bonus || {};
   }
@@ -345,6 +396,8 @@
     planInfo: function () { return cfg().plans || {}; },
     bonusInfo: bonusConfig,
     bonusTierForPlan: bonusTierForPlan,
+    startPlanChange: startPlanChange,
+    planChangeMessage: planChangeMessage,
     promoBannerHtml: function () {
       return global.PTBillingPromo && global.PTBillingPromo.bannerHtml
         ? global.PTBillingPromo.bannerHtml() : '';

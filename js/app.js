@@ -1721,16 +1721,55 @@
       }
     ];
 
+    const Billing = window.PTBilling;
+    const billingOn = !!(Billing && Billing.enabled && Billing.enabled());
+    const isPaidSub = !!ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium');
+    const curInterval = ent.billing_interval === 'year' ? 'year'
+      : (ent.billing_interval === 'month' ? 'month' : null);
+    const periodEnd = ent.subscription_period_end || null;
+    const canceling = !!ent.subscription_cancel_at_period_end || ent.subscription_status === 'canceling';
+    const planLabels = {
+      free: 'Gratis',
+      pro: plans.pro ? plans.pro.label : 'Study',
+      premium: plans.premium ? plans.premium.label : 'Coach'
+    };
+
     grid.innerHTML = cards.map(function (c) {
       const isCurrent = ent.plan === c.id;
       let btns = '';
-      if (c.cta && !isCurrent) {
-        btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
-        if (window.PTBilling && window.PTBilling.enabled()) {
-          btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+      if (!isPaidSub) {
+        // Usuario Gratis: alta normal por checkout.
+        if (c.cta && !isCurrent) {
+          btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
+          if (billingOn) {
+            btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+          }
+        } else if (isCurrent) {
+          btns = '<span class="muted-text">Plan actual</span>';
+        }
+      } else if (c.id === 'free') {
+        // Bajar a Gratis = cancelar suscripción.
+        if (canceling) {
+          btns = '<span class="muted-text">Se cancela al final del periodo</span>';
+        } else if (billingOn) {
+          btns = '<button type="button" class="btn btn-ghost" data-plan-change="free" data-interval="month">Cancelar suscripción</button>';
         }
       } else if (isCurrent) {
-        btns = '<span class="muted-text">Plan actual</span>';
+        const intervalNote = curInterval === 'year' ? 'Facturación anual'
+          : (curInterval === 'month' ? 'Facturación mensual' : 'Plan actual');
+        btns = '<span class="muted-text">Plan actual · ' + escapeHtml(intervalNote) + '</span>';
+        if (billingOn && curInterval === 'month') {
+          btns += '<button type="button" class="btn btn-ghost btn-sm" data-plan-change="' + c.id + '" data-interval="year">Cambiar a anual</button>';
+        } else if (billingOn && curInterval === 'year') {
+          btns += '<button type="button" class="btn btn-ghost btn-sm" data-plan-change="' + c.id + '" data-interval="month">Cambiar a mensual</button>';
+        }
+        if (canceling && billingOn) {
+          btns += '<button type="button" class="btn btn-primary btn-sm" data-plan-portal="1">Reactivar</button>';
+        }
+      } else if (billingOn) {
+        // Otro plan de pago: upgrade o downgrade.
+        const verb = c.id === 'premium' ? 'Mejorar a ' : 'Cambiar a ';
+        btns = '<button type="button" class="btn btn-primary" data-plan-change="' + c.id + '" data-interval="' + (curInterval || 'month') + '">' + escapeHtml(verb + c.title) + '</button>';
       }
       return '<div class="pricing-card' + (isCurrent ? ' featured' : '') + '">' +
         '<h3>' + escapeHtml(c.title) + '</h3>' +
@@ -1743,10 +1782,58 @@
       btn.addEventListener('click', function () {
         if (!window.PTBilling || !window.PTBilling.startCheckout) return;
         window.PTBilling.startCheckout(btn.dataset.checkout, btn.dataset.interval).catch(function (e) {
+          if (String(e.message) === 'already_subscribed') {
+            alert('Ya tienes una suscripción activa. Usa los botones de cambio de plan para modificarla desde el portal de Stripe.');
+            return;
+          }
           alert(e.message || 'No se pudo iniciar el pago.');
         });
       });
     });
+
+    grid.querySelectorAll('[data-plan-change]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!window.PTBilling || !window.PTBilling.startPlanChange) {
+          if (window.PTBilling && window.PTBilling.openPortal) window.PTBilling.openPortal();
+          return;
+        }
+        window.PTBilling.startPlanChange({
+          currentPlan: ent.plan,
+          currentInterval: curInterval,
+          targetPlan: btn.dataset.planChange,
+          targetInterval: btn.dataset.interval,
+          periodEnd: periodEnd,
+          planLabels: planLabels
+        }).catch(function (e) {
+          alert(e.message || 'No se pudo abrir el portal de suscripción.');
+        });
+      });
+    });
+
+    grid.querySelectorAll('[data-plan-portal]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (window.PTBilling && window.PTBilling.openPortal) {
+          window.PTBilling.openPortal().catch(function (e) {
+            alert(e.message || 'No se pudo abrir el portal de suscripción.');
+          });
+        }
+      });
+    });
+
+    const changeNote = $('#pricing-change-note');
+    if (changeNote) {
+      if (isPaidSub) {
+        const intLabel = curInterval === 'year' ? 'anual' : (curInterval === 'month' ? 'mensual' : '');
+        changeNote.innerHTML = 'Ya tienes el plan <strong>' + escapeHtml(planLabels[ent.plan] || ent.plan) + '</strong>' +
+          (intLabel ? ' (' + escapeHtml(intLabel) + ')' : '') + '. ' +
+          'Al cambiar de plan, las <strong>mejoras</strong> se aplican al momento con cobro proporcional y las <strong>bajadas</strong> al final del periodo ya pagado. ' +
+          'Todos los cambios se confirman en el portal seguro de Stripe.';
+        changeNote.classList.remove('hidden');
+      } else {
+        changeNote.innerHTML = '';
+        changeNote.classList.add('hidden');
+      }
+    }
 
     renderBonusPacks(ent);
   }

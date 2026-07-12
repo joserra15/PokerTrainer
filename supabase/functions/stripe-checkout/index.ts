@@ -79,7 +79,7 @@ serve(async (req) => {
   const userId = auth.user.id;
   const { data: profile } = await admin
     .from('pt_user_profiles')
-    .select('stripe_customer_id, email, plan')
+    .select('stripe_customer_id, email, plan, subscription_status, stripe_subscription_id')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -126,6 +126,16 @@ serve(async (req) => {
   const plan = body.plan === 'premium' ? 'premium' : (body.plan === 'pro' ? 'pro' : null);
   const interval = body.interval === 'year' ? 'year' : 'month';
   if (!plan) return json({ error: 'invalid_plan' }, 400);
+
+  // Ya suscrito: los cambios de plan/intervalo se gestionan desde el portal de
+  // cliente (proración correcta y sin crear una segunda suscripción).
+  const activeStatuses = ['active', 'trialing', 'canceling', 'past_due'];
+  if (
+    profile?.stripe_subscription_id &&
+    activeStatuses.includes((profile?.subscription_status as string) || '')
+  ) {
+    return json({ error: 'already_subscribed' }, 409);
+  }
 
   let stripePriceId: string;
   try {
