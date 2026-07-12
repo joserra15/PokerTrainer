@@ -32,9 +32,25 @@
     return path;
   }
 
+  function isLocalHost() {
+    var host = (global.location && global.location.hostname) || '';
+    return host === 'localhost' || host === '127.0.0.1' || host === '' ||
+      (global.location && global.location.protocol === 'file:');
+  }
+
+  function canonicalBase() {
+    var appUrl = cfg().appUrl ||
+      (global.PT_SITE && global.PT_SITE.appUrl) || '';
+    // En producción usamos el dominio canónico (aunque se acceda por el espejo
+    // de GitHub Pages). En local mantenemos rutas relativas para desarrollo.
+    if (appUrl && /^https?:\/\//i.test(appUrl) && !isLocalHost()) {
+      return appUrl.replace(/\/+$/, '') + '/';
+    }
+    return appBasePath();
+  }
+
   function legalUrl(page) {
-    var base = appBasePath();
-    return base + 'legal/' + page;
+    return canonicalBase() + 'legal/' + page;
   }
 
   function readConsent() {
