@@ -16,7 +16,7 @@ export function stripeKey(): string {
 }
 
 export function siteUrl(): string {
-  return (Deno.env.get('PT_SITE_URL') || 'https://joserra15.github.io/PokerTrainer').replace(/\/$/, '');
+  return (Deno.env.get('PT_SITE_URL') || 'https://www.pokerforgeai.com').replace(/\/$/, '');
 }
 
 export function priceId(plan: string, interval: string): string {
