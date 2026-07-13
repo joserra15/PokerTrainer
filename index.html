@@ -14,11 +14,65 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
   <link rel="manifest" href="site.webmanifest" />
+  <link rel="canonical" href="https://www.pokerforgeai.com/" />
+  <meta name="description" content="Entrena decisiones GTO en cash NL 6-max, importa sesiones de PokerStars y mejora con IA Coach. Planes gratis, Study y Coach. Instalable como app." />
+  <meta name="keywords" content="poker GTO, entrenador poker, NL Hold'em, cash game 6-max, IA poker, PokerStars, estudiar poker" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="PokerForgeAI" />
+  <meta property="og:title" content="PokerForgeAI · Entrenador GTO de poker NL Hold'em con IA Coach" />
+  <meta property="og:description" content="Entrena decisiones GTO en cash NL 6-max, importa sesiones de PokerStars y mejora con IA Coach. Planes gratis, Study y Coach." />
+  <meta property="og:url" content="https://www.pokerforgeai.com/" />
+  <meta property="og:image" content="https://www.pokerforgeai.com/icons/logo-512.png" />
+  <meta property="og:locale" content="es_ES" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="PokerForgeAI · Entrenador GTO de poker NL Hold'em" />
+  <meta name="twitter:description" content="Entrena GTO, importa sesiones PokerStars y mejora con IA Coach." />
+  <meta name="twitter:image" content="https://www.pokerforgeai.com/icons/logo-512.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://www.pokerforgeai.com/#website",
+        "url": "https://www.pokerforgeai.com/",
+        "name": "PokerForgeAI",
+        "description": "Entrenador GTO de poker NL Hold'em: practica spots, importa sesiones y mejora con IA Coach.",
+        "inLanguage": "es"
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://www.pokerforgeai.com/#organization",
+        "name": "PokerForgeAI",
+        "url": "https://www.pokerforgeai.com/",
+        "logo": "https://www.pokerforgeai.com/icons/logo-512.png"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://www.pokerforgeai.com/#app",
+        "name": "PokerForgeAI",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Web",
+        "url": "https://www.pokerforgeai.com/",
+        "description": "Entrenador GTO de poker NL Hold'em con importación de sesiones PokerStars e IA Coach.",
+        "offers": {
+          "@type": "AggregateOffer",
+          "lowPrice": "0",
+          "highPrice": "34.99",
+          "priceCurrency": "EUR",
+          "offerCount": "3"
+        },
+        "featureList": "Entrenamiento GTO 6-max, importación PokerStars, IA Coach, estadísticas de fugas EV"
+      }
+    ]
+  }
+  </script>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://browser.sentry-cdn.com https://plausible.io https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://accounts.google.com https://plausible.io https://browser.sentry-cdn.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.de.sentry.io; frame-src https://accounts.google.com; font-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self';" />
-  <title>PokerForgeAI · Cash NL 6-max</title>
+  <title>PokerForgeAI · Entrenador GTO de poker NL Hold'em con IA Coach</title>
   <script>document.write('<script src="js/version.js?t=' + Date.now() + '"><\/script>');</script>
   <script>document.write('<script src="js/build-guard.js?t=' + Date.now() + '"><\/script>');</script>
   <script>
@@ -31,6 +85,7 @@
       'js/billing-config.js',
       'js/legal-config.js',
       'js/site-config.js',
+      'js/seo-config.js',
       'js/analytics-config.js',
       'js/sentry-config.js',
       'js/legal.js',
@@ -66,6 +121,7 @@
           <nav class="landing-nav" aria-label="Secciones">
             <a href="#landing-features">Funciones</a>
             <a href="#landing-pricing">Planes</a>
+            <a href="legal/metodologia.html">Metodología GTO</a>
             <a href="#landing-install">Instalar app</a>
             <a href="legal/faq.html">FAQ</a>
             <a href="legal/soporte.html">Soporte</a>
@@ -163,6 +219,7 @@
         </section>
 
         <footer class="landing-footer">
+          <a href="legal/metodologia.html">Metodología GTO</a>
           <a href="legal/terminos.html">Términos</a>
           <a href="legal/privacidad.html">Privacidad</a>
           <a href="legal/faq.html">FAQ</a>
@@ -202,7 +259,7 @@
     </div>
   </div>
 
-  <div id="app-shell" class="hidden">
+  <div id="app-shell" class="hidden" aria-hidden="true">
   <div class="header-bar">
     <div class="header-row">
       <div class="brand">

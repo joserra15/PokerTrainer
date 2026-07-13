@@ -95,8 +95,14 @@
     user = normalizeUser(user);
     var shell = $('app-shell');
     var gate = $('auth-gate');
-    if (shell) shell.classList.remove('hidden');
-    if (gate) gate.classList.add('hidden');
+    if (shell) {
+      shell.classList.remove('hidden');
+      shell.setAttribute('aria-hidden', 'false');
+    }
+    if (gate) {
+      gate.classList.add('hidden');
+      gate.setAttribute('aria-hidden', 'true');
+    }
     document.body.classList.remove('auth-locked');
     global.PT_AUTH_USER = user;
     saveLegacySession(user);

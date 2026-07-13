@@ -41,8 +41,14 @@
   function setAppVisible(visible) {
     const shell = $('#app-shell');
     const gate = $('#auth-gate');
-    if (shell) shell.classList.toggle('hidden', !visible);
-    if (gate) gate.classList.toggle('hidden', visible);
+    if (shell) {
+      shell.classList.toggle('hidden', !visible);
+      shell.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    }
+    if (gate) {
+      gate.classList.toggle('hidden', visible);
+      gate.setAttribute('aria-hidden', visible ? 'true' : 'false');
+    }
     document.body.classList.toggle('auth-locked', !visible);
     document.body.classList.toggle('landing-scrollable', !visible);
   }
