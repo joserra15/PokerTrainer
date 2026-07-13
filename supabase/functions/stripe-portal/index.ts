@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { cors, json, siteUrl, stripeRequest } from '../_shared/stripe.ts';
+import { cors, ensureStripeCustomer, json, siteUrl, stripeRequest } from '../_shared/stripe.ts';
 
 async function verifyAuth(req: Request) {
   const authHeader = req.headers.get('Authorization');
@@ -42,16 +42,18 @@ serve(async (req) => {
 
   const { data: profile } = await admin
     .from('pt_user_profiles')
-    .select('stripe_customer_id')
+    .select('stripe_customer_id, email')
     .eq('user_id', auth.user.id)
     .maybeSingle();
 
-  const customerId = profile?.stripe_customer_id as string | null;
-  if (!customerId) {
-    return json({ error: 'no_subscription' }, 404);
-  }
-
   try {
+    const customerId = await ensureStripeCustomer(
+      admin,
+      auth.user.id,
+      auth.user.email || (profile?.email as string) || '',
+      (profile?.stripe_customer_id as string) || null
+    );
+
     const portal = await stripeRequest('/billing_portal/sessions', 'POST', {
       customer: customerId,
       return_url: siteUrl() + '/?portal=return'

@@ -47,28 +47,33 @@ serve(async (req) => {
     return json({ error: 'billing_not_configured' }, 503);
   }
 
-  const { data: profile } = await admin
-    .from('pt_user_profiles')
-    .select('stripe_customer_id, stripe_subscription_id, email')
-    .eq('user_id', auth.user.id)
-    .maybeSingle();
+  try {
+    const { data: profile } = await admin
+      .from('pt_user_profiles')
+      .select('stripe_customer_id, stripe_subscription_id, email')
+      .eq('user_id', auth.user.id)
+      .maybeSingle();
 
-  const result = await syncUserSubscription(
-    admin,
-    auth.user.id,
-    auth.user.email || profile?.email || '',
-    (profile?.stripe_customer_id as string) || null,
-    (profile?.stripe_subscription_id as string) || null
-  );
+    const result = await syncUserSubscription(
+      admin,
+      auth.user.id,
+      auth.user.email || profile?.email || '',
+      (profile?.stripe_customer_id as string) || null,
+      (profile?.stripe_subscription_id as string) || null
+    );
 
-  if (!result.ok) {
-    return json({ error: result.error }, 404);
+    if (!result.ok) {
+      return json({ error: result.error }, 404);
+    }
+
+    return json({
+      ok: true,
+      plan: result.plan,
+      synced: result.synced,
+      subscription_id: result.subscriptionId || null
+    });
+  } catch (e) {
+    console.error('[stripe-sync-subscription]', e);
+    return json({ error: (e as Error).message || 'sync_failed' }, 502);
   }
-
-  return json({
-    ok: true,
-    plan: result.plan,
-    synced: result.synced,
-    subscription_id: result.subscriptionId || null
-  });
 });

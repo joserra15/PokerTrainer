@@ -1,4 +1,4 @@
-import { planFromPriceId, stripeRequest } from './stripe.ts';
+import { planFromPriceId, stripeRequest, fetchStripeCustomer, clearStaleStripeIds } from './stripe.ts';
 
 export type StripeSub = {
   id: string;
@@ -149,6 +149,13 @@ export async function syncUserSubscription(
   preferredSubId: string | null
 ) {
   let customerId = existingCustomerId;
+  if (customerId) {
+    const customer = await fetchStripeCustomer(customerId);
+    if (!customer?.id) {
+      await clearStaleStripeIds(admin, userId);
+      customerId = null;
+    }
+  }
   if (!customerId && email) {
     customerId = await findCustomerByEmail(email);
     if (customerId) {

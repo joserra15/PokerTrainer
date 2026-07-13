@@ -74,6 +74,65 @@ export function planFromPriceId(priceId: string): { plan: string; interval: stri
   return null;
 }
 
+export function isStripeMissingResourceError(message: string): boolean {
+  const m = String(message || '').toLowerCase();
+  return m.includes('no such customer') ||
+    m.includes('no such subscription') ||
+    m.includes('resource_missing');
+}
+
+export async function fetchStripeCustomer(customerId: string): Promise<Record<string, unknown> | null> {
+  try {
+    const customer = await stripeRequest('/customers/' + encodeURIComponent(customerId), 'GET');
+    return customer?.id ? customer : null;
+  } catch (e) {
+    if (isStripeMissingResourceError((e as Error).message)) return null;
+    throw e;
+  }
+}
+
+export async function createStripeCustomer(userId: string, email: string): Promise<string> {
+  const customer = await stripeRequest('/customers', 'POST', {
+    email: email || '',
+    'metadata[supabase_user_id]': userId
+  });
+  return customer.id as string;
+}
+
+export async function clearStaleStripeIds(
+  admin: ReturnType<typeof import('https://esm.sh/@supabase/supabase-js@2.49.1').createClient>,
+  userId: string
+): Promise<void> {
+  await admin.from('pt_user_profiles').update({
+    stripe_customer_id: null,
+    stripe_subscription_id: null,
+    subscription_status: null,
+    subscription_period_end: null,
+    billing_interval: null,
+    subscription_cancel_at_period_end: false
+  }).eq('user_id', userId);
+}
+
+export async function ensureStripeCustomer(
+  admin: ReturnType<typeof import('https://esm.sh/@supabase/supabase-js@2.49.1').createClient>,
+  userId: string,
+  email: string,
+  existingId: string | null
+): Promise<string> {
+  if (existingId) {
+    const customer = await fetchStripeCustomer(existingId);
+    if (customer?.id) return existingId;
+    await clearStaleStripeIds(admin, userId);
+  }
+
+  const customerId = await createStripeCustomer(userId, email);
+  await admin.rpc('pt_set_stripe_customer', {
+    p_user_id: userId,
+    p_customer_id: customerId
+  });
+  return customerId;
+}
+
 export async function stripeRequest(
   path: string,
   method: string,

@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { BONUS_PACKS, BonusPack, cors, json, stripeKey, stripeRequest } from '../_shared/stripe.ts';
+import { BONUS_PACKS, BonusPack, cors, clearStaleStripeIds, fetchStripeCustomer, isStripeMissingResourceError, json, stripeKey, stripeRequest } from '../_shared/stripe.ts';
 
 async function verifyAuth(req: Request) {
   const authHeader = req.headers.get('Authorization');
@@ -179,10 +179,16 @@ serve(async (req) => {
 
     for (const prof of profiles || []) {
       try {
+        const cid = prof.stripe_customer_id as string;
+        const customer = await fetchStripeCustomer(cid);
+        if (!customer?.id) {
+          await clearStaleStripeIds(admin, prof.user_id as string);
+          continue;
+        }
         const r = await syncUserBonuses(
           admin,
           prof.user_id as string,
-          prof.stripe_customer_id as string
+          cid
         );
         totalCredited += r.credited;
         if (r.credited > 0 || r.errors.length) results.push(r);
@@ -217,12 +223,21 @@ serve(async (req) => {
     return json({ ok: true, credited: 0, skipped: 0, sessions: 0, balance: 0 });
   }
 
+  const customer = await fetchStripeCustomer(customerId);
+  if (!customer?.id) {
+    await clearStaleStripeIds(admin, auth.user.id);
+    return json({ ok: true, credited: 0, skipped: 0, sessions: 0, balance: 0, stale_customer: true });
+  }
+
   try {
     const result = await syncUserBonuses(admin, auth.user.id, customerId);
     return json({ ok: true, scope: 'self', ...result });
   } catch (e) {
-    return json({
-      error: e instanceof Error ? e.message : 'sync_failed'
-    }, 500);
+    const msg = e instanceof Error ? e.message : 'sync_failed';
+    if (isStripeMissingResourceError(msg)) {
+      await clearStaleStripeIds(admin, auth.user.id);
+      return json({ ok: true, credited: 0, skipped: 0, sessions: 0, balance: 0, stale_customer: true });
+    }
+    return json({ error: msg }, 500);
   }
 });
