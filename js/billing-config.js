@@ -24,7 +24,7 @@ window.PT_BILLING = {
   promo: {
     active: true,
     code: 'SUMMER26',
-    couponId: 'wcTGqarh',
+    couponId: 'wrv35N6u',
     discount: '50%',
     kicker: 'Promoción de verano',
     note: 'Válido una sola vez por compra. Si lo usas en una suscripción, el descuento aplica solo al primer mes. Introduce el código en el checkout de Stripe.'
