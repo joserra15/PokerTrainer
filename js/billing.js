@@ -22,15 +22,38 @@
     if (!tab) window.location.href = url;
   }
 
+  function anonKey() {
+    return (global.PT_SUPABASE && global.PT_SUPABASE.anonKey) || '';
+  }
+
   async function authHeaders() {
     var token = global.PTSupabase && global.PTSupabase.getAccessToken
       ? await global.PTSupabase.getAccessToken()
       : null;
-    if (!token) throw new Error('not_authenticated');
-    return {
+    if (!token) throw new Error('Inicia sesión para continuar.');
+    var headers = {
       Authorization: 'Bearer ' + token,
       'Content-Type': 'application/json'
     };
+    var key = anonKey();
+    if (key) headers.apikey = key;
+    return headers;
+  }
+
+  async function postBillingFunction(path, body) {
+    try {
+      var res = await fetch(functionsBase() + path, {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify(body || {})
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      return data;
+    } catch (e) {
+      if (e && e.message && e.message !== 'Failed to fetch') throw e;
+      throw new Error('No se pudo contactar con el servidor de pagos. Comprueba tu conexión e inténtalo de nuevo.');
+    }
   }
 
   function bonusTierForPlan(plan) {
@@ -124,27 +147,11 @@
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto. Mientras tanto, contacta con soporte.');
       return;
     }
-    var checkoutTab = window.open('about:blank', '_blank');
-    var headers = await authHeaders();
-    var res = await fetch(functionsBase() + '/stripe-checkout', {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({
-        plan: plan === 'premium' ? 'premium' : 'pro',
-        interval: interval === 'year' ? 'year' : 'month'
-      })
+    var data = await postBillingFunction('/stripe-checkout', {
+      plan: plan === 'premium' ? 'premium' : 'pro',
+      interval: interval === 'year' ? 'year' : 'month'
     });
-    var data = await res.json();
-    if (!res.ok) {
-      if (checkoutTab) checkoutTab.close();
-      throw new Error(data.error || 'checkout_failed');
-    }
-    if (data.url) {
-      if (checkoutTab) checkoutTab.location.href = data.url;
-      else openInNewTab(data.url);
-    } else if (checkoutTab) {
-      checkoutTab.close();
-    }
+    if (data.url) openInNewTab(data.url);
   }
 
   async function startBonusCheckout(pack) {
@@ -152,24 +159,8 @@
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto.');
       return;
     }
-    var checkoutTab = window.open('about:blank', '_blank');
-    var headers = await authHeaders();
-    var res = await fetch(functionsBase() + '/stripe-checkout', {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({ type: 'bonus', pack: pack })
-    });
-    var data = await res.json();
-    if (!res.ok) {
-      if (checkoutTab) checkoutTab.close();
-      throw new Error(data.error || 'checkout_failed');
-    }
-    if (data.url) {
-      if (checkoutTab) checkoutTab.location.href = data.url;
-      else openInNewTab(data.url);
-    } else if (checkoutTab) {
-      checkoutTab.close();
-    }
+    var data = await postBillingFunction('/stripe-checkout', { type: 'bonus', pack: pack });
+    if (data.url) openInNewTab(data.url);
   }
 
   async function openPortal() {
@@ -177,27 +168,15 @@
       alert('El portal de facturación no está configurado todavía.');
       return;
     }
-    var portalTab = window.open('about:blank', '_blank');
-    var headers = await authHeaders();
-    var res = await fetch(functionsBase() + '/stripe-portal', {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({})
-    });
-    var data = await res.json();
-    if (!res.ok) {
-      if (portalTab) portalTab.close();
-      if (data.error === 'no_subscription') {
+    try {
+      var data = await postBillingFunction('/stripe-portal', {});
+      if (data.url) openInNewTab(data.url);
+    } catch (e) {
+      if (e && e.message === 'no_subscription') {
         showPaywall('no_subscription', 'Aún no tienes una suscripción activa.');
         return;
       }
-      throw new Error(data.error || 'portal_failed');
-    }
-    if (data.url) {
-      if (portalTab) portalTab.location.href = data.url;
-      else openInNewTab(data.url);
-    } else if (portalTab) {
-      portalTab.close();
+      throw e;
     }
   }
 
