@@ -1283,6 +1283,15 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   border: 1px dashed rgba(47,129,247,.35); border-radius: 10px;
   background: rgba(47,129,247,.06);
 }
+.annual-upsell-host { margin: 0 0 16px; }
+.annual-upsell-host.hidden { display: none; }
+.annual-upsell-banner {
+  padding: 12px 14px; font-size: 14px; line-height: 1.5;
+  border: 1px solid rgba(63,185,80,.35); border-radius: 10px;
+  background: rgba(63,185,80,.08);
+}
+.annual-upsell-text { margin: 0 0 6px; }
+.annual-upsell-hint { margin: 0 0 10px; font-size: 12px; }
 .pricing-card .btn.btn-sm { margin-top: 0; }
 .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
 .pricing-card {
@@ -2123,6 +2132,22 @@ body.cookie-banner-open { padding-bottom: 0; }
   text-transform: uppercase;
   letter-spacing: .4px;
 }
+.admin-gift-bonus-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.admin-gift-label { font-size: 13px; color: var(--muted); }
+.admin-gift-input {
+  width: 88px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+}
+.admin-gift-note { margin: 8px 0 0; font-size: 12px; }
 .admin-detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

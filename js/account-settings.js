@@ -52,8 +52,14 @@
 
   function bonusReasonLabel(reason) {
     if (reason === 'purchase') return 'Compra';
+    if (reason === 'gift') return 'Bono IA';
     if (reason === 'ai_usage') return 'Uso IA';
     return reason || '—';
+  }
+
+  function bonusPackLabel(packCode, reason) {
+    if (packCode === 'gift' || reason === 'gift') return 'Bono de regalo';
+    return packCode || '';
   }
 
   function row(label, value) {
@@ -101,7 +107,8 @@
       '<thead><tr><th>Fecha</th><th>Movimiento</th><th>Δ</th><th>Saldo</th></tr></thead><tbody>' +
       ledger.map(function (l) {
         return '<tr><td>' + escapeHtml(formatDate(l.created_at)) + '</td>' +
-          '<td>' + escapeHtml(bonusReasonLabel(l.reason)) + (l.pack_code ? ' (' + escapeHtml(l.pack_code) + ')' : '') + '</td>' +
+          '<td>' + escapeHtml(bonusReasonLabel(l.reason)) +
+          (bonusPackLabel(l.pack_code, l.reason) ? ' (' + escapeHtml(bonusPackLabel(l.pack_code, l.reason)) + ')' : '') + '</td>' +
           '<td>' + (l.delta > 0 ? '+' : '') + escapeHtml(l.delta) + '</td>' +
           '<td>' + escapeHtml(l.balance_after) + '</td></tr>';
       }).join('') +

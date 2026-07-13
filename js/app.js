@@ -461,6 +461,10 @@
 
     finishHomeBoot();
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#home-usage'));
+    if (window.PTBilling && PTBilling.mountAnnualUpsell) {
+      var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
+      PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
+    }
     if (window.PTReEngage && PTReEngage.renderBanner) PTReEngage.renderBanner();
   }
 
@@ -1783,7 +1787,7 @@
         if (!window.PTBilling || !window.PTBilling.startCheckout) return;
         window.PTBilling.startCheckout(btn.dataset.checkout, btn.dataset.interval).catch(function (e) {
           if (String(e.message) === 'already_subscribed') {
-            alert('Ya tienes una suscripción activa. Usa los botones de cambio de plan para modificarla desde el portal de Stripe.');
+            alert('Ya tienes una suscripción activa. Gestiónala en el portal de Stripe pulsando «Actualiza la suscripción».');
             return;
           }
           alert(e.message || 'No se pudo iniciar el pago.');
@@ -1794,17 +1798,14 @@
     grid.querySelectorAll('[data-plan-change]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         if (!window.PTBilling || !window.PTBilling.startPlanChange) {
-          if (window.PTBilling && window.PTBilling.openPortal) window.PTBilling.openPortal();
+          if (window.PTBilling && window.PTBilling.openPortalWithHint) {
+            window.PTBilling.openPortalWithHint();
+          } else if (window.PTBilling && window.PTBilling.openPortal) {
+            window.PTBilling.openPortal();
+          }
           return;
         }
-        window.PTBilling.startPlanChange({
-          currentPlan: ent.plan,
-          currentInterval: curInterval,
-          targetPlan: btn.dataset.planChange,
-          targetInterval: btn.dataset.interval,
-          periodEnd: periodEnd,
-          planLabels: planLabels
-        }).catch(function (e) {
+        window.PTBilling.startPlanChange().catch(function (e) {
           alert(e.message || 'No se pudo abrir el portal de suscripción.');
         });
       });
@@ -1812,8 +1813,12 @@
 
     grid.querySelectorAll('[data-plan-portal]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        if (window.PTBilling && window.PTBilling.openPortal) {
-          window.PTBilling.openPortal().catch(function (e) {
+        var open = (window.PTBilling && window.PTBilling.openPortalWithHint)
+          ? window.PTBilling.openPortalWithHint.bind(window.PTBilling)
+          : (window.PTBilling && window.PTBilling.openPortal
+            ? window.PTBilling.openPortal.bind(window.PTBilling) : null);
+        if (open) {
+          open().catch(function (e) {
             alert(e.message || 'No se pudo abrir el portal de suscripción.');
           });
         }
@@ -1823,16 +1828,16 @@
     const changeNote = $('#pricing-change-note');
     if (changeNote) {
       if (isPaidSub) {
-        const intLabel = curInterval === 'year' ? 'anual' : (curInterval === 'month' ? 'mensual' : '');
-        changeNote.innerHTML = 'Ya tienes el plan <strong>' + escapeHtml(planLabels[ent.plan] || ent.plan) + '</strong>' +
-          (intLabel ? ' (' + escapeHtml(intLabel) + ')' : '') + '. ' +
-          'Al cambiar de plan, las <strong>mejoras</strong> se aplican al momento con cobro proporcional y las <strong>bajadas</strong> al final del periodo ya pagado. ' +
-          'Todos los cambios se confirman en el portal seguro de Stripe.';
+        changeNote.innerHTML = 'Gestiona tu suscripción (cambio de plan, facturación anual o cancelación) en el portal seguro de Stripe. Pulsa <strong>«Actualiza la suscripción»</strong> dentro del portal.';
         changeNote.classList.remove('hidden');
       } else {
         changeNote.innerHTML = '';
         changeNote.classList.add('hidden');
       }
+    }
+
+    if (Billing && Billing.mountAnnualUpsell) {
+      Billing.mountAnnualUpsell($('#pricing-annual-upsell'), ent);
     }
 
     renderBonusPacks(ent);
@@ -1867,6 +1872,7 @@
     host.innerHTML = '<div class="pricing-bonus-panel card-box">' +
       '<h3>Bono de consultas IA</h3>' +
       '<p class="muted-text">Precio para tu plan <strong>' + escapeHtml(tierLabel) + '</strong>. ' +
+      'Los bonos tienen <strong>mejores precios en los planes superiores</strong> (Study y Coach). ' +
       'Válido 12 meses. Se consumen después de las consultas incluidas en tu plan.</p>' +
       '<div class="bonus-pack-grid">' + rows + '</div>' +
       '<p class="muted-text pricing-foot">Pago único · Sin renovación automática</p>' +

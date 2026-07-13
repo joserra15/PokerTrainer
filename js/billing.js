@@ -39,55 +39,80 @@
     return 'free';
   }
 
-  function planRank(plan) {
-    return plan === 'premium' ? 2 : (plan === 'pro' ? 1 : 0);
+  function parsePlanPrice(s) {
+    return parseFloat(String(s || '').replace(',', '.')) || 0;
   }
 
-  function formatPeriodEnd(iso) {
-    if (!iso) return 'el final del periodo actual';
-    try {
-      return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
-    } catch (e) { return 'el final del periodo actual'; }
+  function annualSavingsPercent(planKey) {
+    var plans = cfg().plans || {};
+    var p = plans[planKey];
+    if (!p) return 0;
+    var monthly = parsePlanPrice(p.monthly);
+    var yearly = parsePlanPrice(p.yearly);
+    if (monthly <= 0 || yearly <= 0) return 0;
+    var twelveMonths = monthly * 12;
+    if (twelveMonths <= yearly) return 0;
+    return Math.round((1 - yearly / twelveMonths) * 100);
   }
 
-  function planChangeMessage(opts) {
-    var labels = opts.planLabels || { free: 'Gratis', pro: 'Study', premium: 'Coach' };
-    var tLabel = labels[opts.targetPlan] || opts.targetPlan;
-    var intervalLabel = opts.targetInterval === 'year' ? 'anual' : 'mensual';
-    var end = formatPeriodEnd(opts.periodEnd);
-    var tail = '\n\nTe llevaremos al portal seguro de Stripe para confirmar el cambio.';
-
-    if (opts.targetPlan === 'free') {
-      return 'Vas a cancelar tu suscripción.\n\n' +
-        'Conservarás el acceso a tu plan actual hasta ' + end + '. ' +
-        'No se renovará y después pasarás al plan Gratis.' + tail;
-    }
-
-    var curRank = planRank(opts.currentPlan);
-    var tRank = planRank(opts.targetPlan);
-
-    if (tRank > curRank) {
-      return 'Vas a mejorar a ' + tLabel + ' (' + intervalLabel + ').\n\n' +
-        'El cambio es inmediato. Stripe solo te cobrará la parte proporcional por los días que quedan del periodo actual.' + tail;
-    }
-    if (tRank < curRank) {
-      return 'Vas a cambiar a ' + tLabel + ' (' + intervalLabel + '), un plan inferior.\n\n' +
-        'Mantendrás tu plan actual hasta ' + end + ' y luego pasarás a ' + tLabel + '. No se te cobra de más.' + tail;
-    }
-    // Mismo plan, cambio de intervalo.
-    if (opts.targetInterval === 'year') {
-      return 'Vas a pasar tu plan ' + tLabel + ' a facturación anual.\n\n' +
-        'Se aplica al confirmar; Stripe ajusta el cobro de forma proporcional.' + tail;
-    }
-    return 'Vas a pasar tu plan ' + tLabel + ' a facturación mensual.\n\n' +
-      'El cambio se aplicará al terminar el periodo anual actual (' + end + ').' + tail;
+  function isMonthlySubscriber(ent) {
+    ent = ent || {};
+    return !!(ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium') &&
+      ent.billing_interval === 'month');
   }
 
-  async function startPlanChange(opts) {
-    opts = opts || {};
-    var msg = planChangeMessage(opts);
-    if (typeof window !== 'undefined' && window.confirm && !window.confirm(msg)) return;
+  function portalSubscriptionMessage() {
+    return 'Puedes gestionar tu suscripción en el portal seguro de Stripe.\n\n' +
+      'Para cambiar de plan, pasar a facturación anual o cancelar, pulsa «Actualiza la suscripción» dentro del portal.\n\n' +
+      '¿Abrir el portal ahora?';
+  }
+
+  async function openPortalWithHint() {
+    if (!enabled()) {
+      alert('El portal de facturación no está configurado todavía.');
+      return;
+    }
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm(portalSubscriptionMessage())) {
+      return;
+    }
     await openPortal();
+  }
+
+  function annualUpsellHtml(ent) {
+    if (!isMonthlySubscriber(ent)) return '';
+    var planKey = ent.plan === 'premium' ? 'premium' : 'pro';
+    var pct = annualSavingsPercent(planKey);
+    if (pct <= 0) return '';
+    var planLabel = (cfg().plans[planKey] && cfg().plans[planKey].label) || planKey;
+    return '<div class="annual-upsell-banner" role="note">' +
+      '<p class="annual-upsell-text">Cambia tu suscripción <strong>' + escapeHtml(planLabel) + '</strong> a anual y <strong>ahorra un ' + pct + '%</strong> respecto a pagar 12 meses con tarifa mensual.</p>' +
+      '<p class="muted-text annual-upsell-hint">En el portal de Stripe, pulsa «Actualiza la suscripción».</p>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-portal-manage>Gestionar suscripción</button>' +
+      '</div>';
+  }
+
+  function mountAnnualUpsell(host, ent) {
+    if (!host) return;
+    var html = annualUpsellHtml(ent);
+    if (!html) {
+      host.innerHTML = '';
+      host.classList.add('hidden');
+      return;
+    }
+    host.innerHTML = html;
+    host.classList.remove('hidden');
+    var btn = host.querySelector('[data-portal-manage]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        openPortalWithHint().catch(function (e) {
+          alert(e.message || 'No se pudo abrir el portal.');
+        });
+      });
+    }
+  }
+
+  async function startPlanChange() {
+    await openPortalWithHint();
   }
 
   function bonusConfig() {
@@ -378,6 +403,13 @@
     });
   });
 
+  global.addEventListener('pt-entitlements-updated', function (e) {
+    var ent = (e && e.detail) || (global.PTEntitlements && global.PTEntitlements.get
+      ? global.PTEntitlements.get() : null);
+    mountAnnualUpsell(document.getElementById('home-annual-upsell'), ent);
+    mountAnnualUpsell(document.getElementById('pricing-annual-upsell'), ent);
+  });
+
   global.PTBilling = {
     enabled: enabled,
     startCheckout: startCheckout,
@@ -397,7 +429,12 @@
     bonusInfo: bonusConfig,
     bonusTierForPlan: bonusTierForPlan,
     startPlanChange: startPlanChange,
-    planChangeMessage: planChangeMessage,
+    openPortalWithHint: openPortalWithHint,
+    portalSubscriptionMessage: portalSubscriptionMessage,
+    annualSavingsPercent: annualSavingsPercent,
+    annualUpsellHtml: annualUpsellHtml,
+    mountAnnualUpsell: mountAnnualUpsell,
+    isMonthlySubscriber: isMonthlySubscriber,
     promoBannerHtml: function () {
       return global.PTBillingPromo && global.PTBillingPromo.bannerHtml
         ? global.PTBillingPromo.bannerHtml() : '';

@@ -359,8 +359,17 @@
 
   function ledgerReasonLabel(reason) {
     if (reason === 'purchase') return 'Compra bono';
+    if (reason === 'gift') return 'Bono IA';
     if (reason === 'ai_usage') return 'Uso IA';
     return reason || '—';
+  }
+
+  function ledgerPackLabel(packCode, reason) {
+    if (packCode === 'gift' || reason === 'gift') return 'Bono de regalo';
+    if (packCode === 's') return 'Pack S';
+    if (packCode === 'm') return 'Pack M';
+    if (packCode === 'l') return 'Pack L';
+    return packCode || '—';
   }
 
   function renderUserDetail(data) {
@@ -393,7 +402,7 @@
         ledger.map(function (l) {
           return '<tr><td>' + escapeHtml(formatDateTime(l.created_at)) + '</td>' +
             '<td>' + escapeHtml(ledgerReasonLabel(l.reason)) + '</td>' +
-            '<td>' + escapeHtml(l.pack_code || '—') + '</td>' +
+            '<td>' + escapeHtml(ledgerPackLabel(l.pack_code, l.reason)) + '</td>' +
             '<td>' + (l.delta > 0 ? '+' : '') + escapeHtml(l.delta) + '</td>' +
             '<td>' + escapeHtml(l.balance_after) + '</td></tr>';
         }).join('') + '</tbody></table>'
@@ -422,6 +431,14 @@
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-detail-close">Cerrar</button>' +
       '</div>' +
       '<div class="admin-detail-section"><h4>Cupo IA este mes</h4>' + quotaHtml + '</div>' +
+      '<div class="admin-detail-section"><h4>Regalar bono IA</h4>' +
+      '<div class="admin-gift-bonus-form">' +
+      '<label class="admin-gift-label" for="admin-gift-credits">Consultas a regalar</label>' +
+      '<input type="number" id="admin-gift-credits" class="admin-gift-input" min="1" max="500" value="10" inputmode="numeric">' +
+      '<button type="button" class="btn btn-primary btn-sm" data-admin-gift-bonus data-user-id="' + escapeHtml(p.user_id) + '">Regalar bono</button>' +
+      '</div>' +
+      '<p class="muted-text admin-gift-note">Se acredita como <strong>Bono de regalo</strong> y se notifica al usuario en Contacto.</p>' +
+      '</div>' +
       '<div class="admin-detail-section"><h4>Transacciones de bono</h4>' + ledgerHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Consultas IA (mes actual)</h4>' + usageHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Mensajes con el usuario</h4>' + threadsHtml + '</div>';
@@ -436,6 +453,40 @@
         if (threadId) openAdminThread(threadId);
       });
     });
+    var giftBtn = host.querySelector('[data-admin-gift-bonus]');
+    if (giftBtn) {
+      giftBtn.addEventListener('click', function () {
+        var uid = giftBtn.getAttribute('data-user-id');
+        var input = host.querySelector('#admin-gift-credits');
+        var credits = input ? parseInt(input.value, 10) : 0;
+        giftAiBonus(uid, credits);
+      });
+    }
+  }
+
+  async function giftAiBonus(userId, credits) {
+    var c = client();
+    if (!c || !userId) return;
+    if (!credits || credits < 1 || credits > 500) {
+      alert('Indica entre 1 y 500 consultas.');
+      return;
+    }
+    if (!window.confirm('¿Regalar ' + credits + ' consultas IA a este usuario? Se enviará un aviso en Contacto.')) {
+      return;
+    }
+    var res = await c.rpc('pt_admin_gift_ai_bonus', {
+      p_user_id: userId,
+      p_credits: credits,
+      p_send_message: true
+    });
+    if (res.error) {
+      alert(res.error.message || 'No se pudo regalar el bono.');
+      return;
+    }
+    alert('Bono regalado. Saldo de bono: ' + (res.data && res.data.balance != null ? res.data.balance : '—'));
+    await loadUsers();
+    await openUserDetail(userId);
+    loadAdminMessagesBadge();
   }
 
   function closeUserDetail() {
