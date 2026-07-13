@@ -760,18 +760,41 @@
 
       <div id="admin-messages-panel" class="admin-messages-panel hidden">
         <div class="admin-section-head">
-          <h3>Buzón de mensajes</h3>
-          <button type="button" id="admin-messages-back" class="btn btn-ghost btn-sm">Volver a usuarios</button>
-        </div>
-        <div class="contact-layout admin-contact-layout">
-          <div class="contact-sidebar card-box">
-            <div id="admin-message-compose" class="admin-message-compose"></div>
-            <div id="admin-contact-list" class="contact-thread-list"></div>
+          <h3>Mensajes</h3>
+          <div class="admin-messages-head-actions">
+            <button type="button" id="admin-compose-open" class="btn btn-primary btn-sm">Nuevo mensaje</button>
+            <button type="button" id="admin-messages-back" class="btn btn-ghost btn-sm">Volver a usuarios</button>
           </div>
-          <div class="contact-main">
-            <div id="admin-contact-detail" class="contact-detail card-box">
-              <p class="muted-text">Selecciona una conversación.</p>
+        </div>
+        <div class="admin-messages-layout">
+          <aside class="admin-msg-users-col card-box">
+            <div class="admin-msg-col-head">
+              <h4>Usuarios</h4>
+              <input type="search" id="admin-msg-user-filter" class="admin-msg-search" placeholder="Buscar por nombre o correo" autocomplete="off" />
             </div>
+            <div id="admin-msg-user-list" class="admin-msg-user-list" role="listbox" aria-label="Usuarios con mensajes"></div>
+          </aside>
+          <aside class="admin-msg-threads-col card-box">
+            <div id="admin-msg-threads-head" class="admin-msg-col-head">
+              <h4>Conversaciones</h4>
+              <p class="muted-text admin-msg-threads-hint">Selecciona un usuario para ver sus hilos.</p>
+            </div>
+            <div id="admin-contact-list" class="contact-thread-list admin-msg-thread-list"></div>
+          </aside>
+          <div class="admin-msg-detail-col">
+            <div id="admin-contact-detail" class="contact-detail card-box">
+              <p class="muted-text">Selecciona una conversación para ver el detalle y responder.</p>
+            </div>
+          </div>
+        </div>
+        <div id="admin-compose-modal" class="admin-compose-modal hidden" role="dialog" aria-modal="true" aria-labelledby="admin-compose-title">
+          <div class="admin-compose-backdrop" data-close-admin-compose></div>
+          <div class="admin-compose-dialog card-box">
+            <div class="admin-compose-dialog-head">
+              <h3 id="admin-compose-title">Nuevo mensaje</h3>
+              <button type="button" class="btn btn-ghost btn-sm" data-close-admin-compose aria-label="Cerrar">Cerrar</button>
+            </div>
+            <div id="admin-message-compose" class="admin-message-compose"></div>
           </div>
         </div>
       </div>

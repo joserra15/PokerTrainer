@@ -2441,11 +2441,105 @@ body.admin-invite-open { overflow: hidden; }
 .contact-char-hint { font-size: 12px; margin: 4px 0 10px; }
 .contact-loading { display: flex; align-items: center; gap: 10px; padding: 20px; }
 .admin-messages-panel { margin-bottom: 16px; }
+.admin-messages-head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.admin-messages-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(220px, 280px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-top: 8px;
+  min-height: 480px;
+}
+@media (max-width: 1100px) {
+  .admin-messages-layout { grid-template-columns: minmax(180px, 220px) minmax(0, 1fr); }
+  .admin-msg-detail-col { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .admin-messages-layout { grid-template-columns: 1fr; min-height: 0; }
+  .admin-msg-detail-col { grid-column: auto; }
+}
+.admin-msg-col-head { margin-bottom: 10px; }
+.admin-msg-col-head h4 { margin: 0 0 6px; font-size: 14px; }
+.admin-msg-search {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.admin-msg-user-list,
+.admin-msg-thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow: auto;
+}
+.admin-msg-user-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: inherit;
+  cursor: pointer;
+}
+.admin-msg-user-item:hover { border-color: var(--accent); }
+.admin-msg-user-active { border-color: var(--accent); background: rgba(47,129,247,.12); }
+.admin-msg-user-unread { border-color: rgba(240,83,59,.45); }
+.admin-msg-user-name { font-weight: 600; font-size: 13px; }
+.admin-msg-user-email { font-size: 11px; color: var(--muted); word-break: break-word; }
+.admin-msg-user-meta { font-size: 11px; line-height: 1.35; }
+.admin-msg-empty { font-size: 12px; padding: 8px 4px; margin: 0; }
+.admin-msg-threads-hint { font-size: 12px; margin: 0; }
+.admin-msg-detail-col { min-width: 0; display: flex; flex-direction: column; }
+.admin-msg-detail-col .contact-detail { flex: 1; min-height: 420px; display: flex; flex-direction: column; }
+.admin-msg-messages { flex: 1; max-height: none; min-height: 200px; }
+.admin-compose-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.admin-compose-modal.hidden { display: none; }
+.admin-compose-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+}
+.admin-compose-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+  margin: 0;
+}
+.admin-compose-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.admin-compose-dialog-head h3 { margin: 0; font-size: 16px; }
+body.admin-compose-open { overflow: hidden; }
 .admin-contact-layout { margin-top: 8px; }
 .admin-message-compose {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 .admin-message-compose h4 {
   margin: 0 0 10px;

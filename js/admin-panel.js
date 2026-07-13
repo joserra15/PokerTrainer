@@ -25,6 +25,164 @@
   var adminMessageBody = '';
   var adminMessageStatus = '';
   var adminDetailUserId = null;
+  var adminMessagesThreads = [];
+  var adminMsgSelectedUserId = null;
+  var adminMsgSelectedThreadId = null;
+  var adminMsgUserFilter = '';
+  var adminComposeModalBound = false;
+
+  function aggregateUsersFromThreads(threads) {
+    var map = {};
+    (threads || []).forEach(function (t) {
+      if (!t || !t.user_id) return;
+      if (!map[t.user_id]) {
+        map[t.user_id] = {
+          user_id: t.user_id,
+          user_name: t.user_name,
+          user_email: t.user_email,
+          last_message_at: t.last_message_at,
+          admin_unread_count: 0,
+          thread_count: 0
+        };
+      }
+      var u = map[t.user_id];
+      u.thread_count += 1;
+      u.admin_unread_count += Number(t.admin_unread_count) || 0;
+      if (!u.user_name && t.user_name) u.user_name = t.user_name;
+      if (!u.user_email && t.user_email) u.user_email = t.user_email;
+      if (t.last_message_at && (!u.last_message_at || new Date(t.last_message_at) > new Date(u.last_message_at))) {
+        u.last_message_at = t.last_message_at;
+      }
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) {
+      var ta = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+      var tb = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+      if (tb !== ta) return tb - ta;
+      return (a.user_name || a.user_email || '').localeCompare(b.user_name || b.user_email || '', 'es');
+    });
+  }
+
+  function filteredAdminMsgUsers() {
+    var users = aggregateUsersFromThreads(adminMessagesThreads);
+    if (!adminMsgUserFilter) return users;
+    var q = adminMsgUserFilter.toLowerCase();
+    return users.filter(function (u) {
+      var text = ((u.user_name || '') + ' ' + (u.user_email || '') + ' ' + (u.user_id || '')).toLowerCase();
+      return text.indexOf(q) >= 0;
+    });
+  }
+
+  function threadsForSelectedUser() {
+    if (!adminMsgSelectedUserId) return [];
+    return adminMessagesThreads
+      .filter(function (t) { return t.user_id === adminMsgSelectedUserId; })
+      .sort(function (a, b) {
+        var ta = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+        var tb = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+        return tb - ta;
+      });
+  }
+
+  function userLabelFromThread(t) {
+    return t.user_name || t.user_email || t.user_id || 'Usuario';
+  }
+
+  function renderAdminUserList() {
+    var el = $('#admin-msg-user-list');
+    if (!el) return;
+    var users = filteredAdminMsgUsers();
+    if (!users.length) {
+      el.innerHTML = '<p class="muted-text admin-msg-empty">No hay usuarios con mensajes' +
+        (adminMsgUserFilter ? ' que coincidan con la búsqueda' : '') + '.</p>';
+      return;
+    }
+    el.innerHTML = users.map(function (u) {
+      var active = u.user_id === adminMsgSelectedUserId ? ' admin-msg-user-active' : '';
+      var unread = u.admin_unread_count > 0 ? ' admin-msg-user-unread' : '';
+      var who = escapeHtml(u.user_name || 'Usuario');
+      var email = u.user_email ? '<span class="admin-msg-user-email">' + escapeHtml(u.user_email) + '</span>' : '';
+      var meta = escapeHtml(formatRelative(u.last_message_at)) +
+        ' · ' + u.thread_count + ' conv.' +
+        (u.admin_unread_count > 0 ? ' · <strong>' + u.admin_unread_count + ' sin leer</strong>' : '');
+      return '<button type="button" class="admin-msg-user-item' + active + unread + '" data-admin-msg-user="' +
+        escapeHtml(u.user_id) + '" role="option" aria-selected="' + (active ? 'true' : 'false') + '">' +
+        '<span class="admin-msg-user-name">' + who + '</span>' + email +
+        '<span class="admin-msg-user-meta muted-text">' + meta + '</span></button>';
+    }).join('');
+    el.querySelectorAll('[data-admin-msg-user]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        selectAdminMsgUser(btn.getAttribute('data-admin-msg-user'));
+      });
+    });
+  }
+
+  function renderAdminThreadsHeader() {
+    var head = $('#admin-msg-threads-head');
+    if (!head) return;
+    if (!adminMsgSelectedUserId) {
+      head.innerHTML = '<h4>Conversaciones</h4><p class="muted-text admin-msg-threads-hint">Selecciona un usuario para ver sus hilos.</p>';
+      return;
+    }
+    var threads = threadsForSelectedUser();
+    var sample = threads[0] || {};
+    var who = escapeHtml(sample.user_name || sample.user_email || adminMsgSelectedUserId);
+    var email = sample.user_email ? ' · ' + escapeHtml(sample.user_email) : '';
+    head.innerHTML = '<h4>' + who + '</h4>' +
+      '<p class="muted-text admin-msg-threads-hint">' + email + ' · ' + threads.length + ' conversación' +
+      (threads.length === 1 ? '' : 'es') + '</p>';
+  }
+
+  function selectAdminMsgUser(userId, threadId) {
+    adminMsgSelectedUserId = userId || null;
+    if (threadId) adminMsgSelectedThreadId = threadId;
+    else adminMsgSelectedThreadId = null;
+    renderAdminUserList();
+    renderAdminThreadsHeader();
+    renderAdminMessageList(threadsForSelectedUser(), adminMsgSelectedThreadId);
+    if (!adminMsgSelectedUserId) {
+      var detail = $('#admin-contact-detail');
+      if (detail) detail.innerHTML = '<p class="muted-text">Selecciona una conversación para ver el detalle y responder.</p>';
+      return;
+    }
+    if (adminMsgSelectedThreadId) {
+      openAdminThread(adminMsgSelectedThreadId, { skipInboxReload: true });
+    } else {
+      var threads = threadsForSelectedUser();
+      if (threads.length === 1) {
+        openAdminThread(threads[0].id);
+      } else {
+        var detailEl = $('#admin-contact-detail');
+        if (detailEl) detailEl.innerHTML = '<p class="muted-text">Selecciona una conversación de la lista para leer y responder.</p>';
+      }
+    }
+  }
+
+  function openAdminComposeModal() {
+    var modal = $('#admin-compose-modal');
+    if (!modal) return;
+    renderAdminComposer();
+    modal.classList.remove('hidden');
+    document.body.classList.add('admin-compose-open');
+  }
+
+  function closeAdminComposeModal() {
+    var modal = $('#admin-compose-modal');
+    if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('admin-compose-open');
+  }
+
+  function bindAdminComposeModal() {
+    if (adminComposeModalBound) return;
+    adminComposeModalBound = true;
+    var openBtn = $('#admin-compose-open');
+    var modal = $('#admin-compose-modal');
+    if (openBtn) openBtn.addEventListener('click', openAdminComposeModal);
+    if (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target.closest('[data-close-admin-compose]')) closeAdminComposeModal();
+      });
+    }
+  }
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -449,8 +607,11 @@
     host.querySelectorAll('[data-admin-user-thread]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var threadId = btn.getAttribute('data-admin-user-thread');
-        showAdminMessages(true);
-        if (threadId) openAdminThread(threadId);
+        var thread = (data.contact_threads || []).find(function (t) { return t.id === threadId; });
+        showAdminMessages(true, {
+          userId: thread && thread.user_id,
+          threadId: threadId
+        });
       });
     });
     var giftBtn = host.querySelector('[data-admin-gift-bonus]');
@@ -817,7 +978,6 @@
     var totalUsers = recipientUsers().length;
     normalizeRecipientSelection();
     host.innerHTML =
-      '<h4>Nuevo mensaje</h4>' +
       '<form id="admin-message-compose-form">' +
       '<div class="admin-message-modes">' +
       '<label class="admin-message-mode"><input type="radio" name="targetMode" value="single"' + (adminMessageMode === 'single' ? ' checked' : '') + '> Un usuario</label>' +
@@ -936,6 +1096,7 @@
       if (adminMessageMode !== 'all') adminMessageRecipients = [];
       setAdminComposeStatus('Mensaje enviado a ' + ((res.data && res.data.sent_count) || 0) + ' usuario(s).');
       renderAdminComposer();
+      closeAdminComposeModal();
       await loadAdminInbox();
     });
   }
@@ -943,22 +1104,28 @@
   function renderAdminMessageList(threads, activeId) {
     var el = $('#admin-contact-list');
     if (!el) return;
+    if (!adminMsgSelectedUserId) {
+      el.innerHTML = '<p class="muted-text admin-msg-empty">Elige un usuario de la lista izquierda.</p>';
+      return;
+    }
     if (!threads.length) {
-      el.innerHTML = '<p class="muted-text">No hay mensajes.</p>';
+      el.innerHTML = '<p class="muted-text admin-msg-empty">Este usuario no tiene conversaciones.</p>';
       return;
     }
     el.innerHTML = threads.map(function (t) {
       var active = t.id === activeId ? ' contact-thread-active' : '';
       var unread = t.admin_unread_count > 0 ? ' contact-thread-unread' : '';
-      var who = t.user_name || t.user_email || t.user_id;
       return '<button type="button" class="contact-thread-item' + active + unread + '" data-admin-thread="' + escapeHtml(t.id) + '">' +
         '<span class="contact-thread-subject">' + escapeHtml(t.subject) + '</span>' +
-        '<span class="contact-thread-meta muted-text">' + escapeHtml(who) + ' · ' + escapeHtml(formatRelative(t.last_message_at)) +
+        '<span class="contact-thread-meta muted-text">' + escapeHtml(formatRelative(t.last_message_at)) +
         (t.admin_unread_count > 0 ? ' · <strong>Sin leer</strong>' : '') + '</span></button>';
     }).join('');
     el.querySelectorAll('[data-admin-thread]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        openAdminThread(btn.getAttribute('data-admin-thread'));
+        var threadId = btn.getAttribute('data-admin-thread');
+        adminMsgSelectedThreadId = threadId;
+        openAdminThread(threadId, { skipInboxReload: true });
+        renderAdminMessageList(threadsForSelectedUser(), threadId);
       });
     });
   }
@@ -982,10 +1149,14 @@
     } catch (e) { return iso; }
   }
 
-  async function openAdminThread(threadId) {
+  async function openAdminThread(threadId, opts) {
+    opts = opts || {};
     var c = client();
     var detail = $('#admin-contact-detail');
     if (!c || !detail || !threadId) return;
+    adminMsgSelectedThreadId = threadId;
+    var cached = adminMessagesThreads.find(function (t) { return t.id === threadId; });
+    if (cached && cached.user_id) adminMsgSelectedUserId = cached.user_id;
     detail.innerHTML = '<div class="contact-loading"><div class="play-boot-spinner"></div></div>';
     var res = await c.rpc('pt_admin_contact_get_thread', { p_thread_id: threadId });
     if (res.error) {
@@ -993,15 +1164,21 @@
       return;
     }
     var th = (res.data && res.data.thread) || {};
+    if (th.user_id) adminMsgSelectedUserId = th.user_id;
     var msgs = (res.data && res.data.messages) || [];
     detail.innerHTML =
+      '<div class="contact-detail-head">' +
       '<h3>' + escapeHtml(th.subject) + '</h3>' +
+      '</div>' +
       '<p class="muted-text contact-thread-user">' + escapeHtml(th.user_name || th.user_email || th.user_id) +
       (th.user_email ? ' · ' + escapeHtml(th.user_email) : '') + '</p>' +
-      '<div class="contact-messages">' + renderAdminMessages(msgs) + '</div>' +
+      '<div class="contact-messages admin-msg-messages">' + renderAdminMessages(msgs) + '</div>' +
       '<form class="contact-reply-form" data-admin-reply="' + escapeHtml(th.id) + '">' +
       '<label>Respuesta<textarea name="body" rows="4" maxlength="3000" required placeholder="Escribe tu respuesta al usuario…"></textarea></label>' +
       '<button type="submit" class="btn btn-primary">Enviar respuesta</button></form>';
+
+    var msgBox = detail.querySelector('.admin-msg-messages');
+    if (msgBox) msgBox.scrollTop = msgBox.scrollHeight;
 
     var form = detail.querySelector('[data-admin-reply]');
     if (form) {
@@ -1017,9 +1194,14 @@
           alert('Error: ' + (reply.error.message || 'no enviado'));
           return;
         }
-        await openAdminThread(threadId);
+        await openAdminThread(threadId, { skipInboxReload: true });
         await loadAdminInbox(threadId);
       });
+    }
+    if (!opts.skipInboxReload) {
+      renderAdminUserList();
+      renderAdminThreadsHeader();
+      renderAdminMessageList(threadsForSelectedUser(), threadId);
     }
     await loadAdminMessagesBadge();
   }
@@ -1027,30 +1209,50 @@
   async function loadAdminInbox(activeId) {
     var c = client();
     if (!c) return;
-    renderAdminComposer();
     var res = await c.rpc('pt_admin_contact_threads');
     if (res.error) {
-      $('#admin-contact-list').innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
+      var listEl = $('#admin-contact-list');
+      if (listEl) listEl.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }
-    renderAdminMessageList(res.data || [], activeId);
+    adminMessagesThreads = res.data || [];
+    if (activeId) adminMsgSelectedThreadId = activeId;
+    if (adminMsgSelectedThreadId) {
+      var activeThread = adminMessagesThreads.find(function (t) { return t.id === adminMsgSelectedThreadId; });
+      if (activeThread) adminMsgSelectedUserId = activeThread.user_id;
+    }
+    renderAdminUserList();
+    renderAdminThreadsHeader();
+    renderAdminMessageList(threadsForSelectedUser(), adminMsgSelectedThreadId);
     await loadAdminMessagesBadge();
   }
 
-  function showAdminMessages(show) {
+  function showAdminMessages(show, opts) {
+    opts = opts || {};
     var msgPanel = $('#admin-messages-panel');
     var usersPanel = $('#admin-users-panel');
     if (msgPanel) msgPanel.classList.toggle('hidden', !show);
     if (usersPanel) usersPanel.classList.toggle('hidden', show);
     if (show) {
-      renderAdminComposer();
-      loadAdminInbox();
+      bindAdminComposeModal();
+      if (opts.userId) adminMsgSelectedUserId = opts.userId;
+      if (opts.threadId) adminMsgSelectedThreadId = opts.threadId;
+      loadAdminInbox(adminMsgSelectedThreadId).then(function () {
+        if (opts.userId) {
+          selectAdminMsgUser(opts.userId, opts.threadId);
+        } else if (opts.threadId) {
+          openAdminThread(opts.threadId);
+        }
+      });
+    } else {
+      closeAdminComposeModal();
     }
   }
 
   function bindAdminMessages() {
     var btn = $('#admin-messages-btn');
     var back = $('#admin-messages-back');
+    var userFilter = $('#admin-msg-user-filter');
     if (btn && !btn.dataset.bound) {
       btn.dataset.bound = '1';
       btn.addEventListener('click', function () { showAdminMessages(true); });
@@ -1059,6 +1261,14 @@
       back.dataset.bound = '1';
       back.addEventListener('click', function () { showAdminMessages(false); });
     }
+    if (userFilter && !userFilter.dataset.bound) {
+      userFilter.dataset.bound = '1';
+      userFilter.addEventListener('input', function () {
+        adminMsgUserFilter = String(userFilter.value || '').trim().toLowerCase();
+        renderAdminUserList();
+      });
+    }
+    bindAdminComposeModal();
   }
 
   function bindUi() {

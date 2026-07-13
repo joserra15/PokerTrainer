@@ -215,6 +215,12 @@
     });
   }
 
+  function tableWatermarkHTML() {
+    return '<div class="table-watermark" aria-hidden="true">' +
+      '<span class="table-watermark-mark"></span>' +
+      '<span class="table-watermark-text">PokerForgeAI</span></div>';
+  }
+
   const REPLAY_TABLE_THEMES = [
     { val: 'emerald', label: 'Esmeralda', swatch: 'theme-swatch-emerald' },
     { val: 'midnight', label: 'Medianoche', swatch: 'theme-swatch-midnight' },
@@ -3306,6 +3312,9 @@
       </div>
     </div>`;
 
+    html += sessionReplayThemeHTML();
+    html += renderShowdownTableHTML(h);
+
     html += '<div class="timeline">';
     summary.forEach((item) => {
       if (item.kind === 'street') {
@@ -3362,6 +3371,8 @@
 
     html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
     box.innerHTML = html;
+    bindSessionReplayTheme();
+    applyTableTheme(loadTableTheme());
     scrollSessionReviewToTop();
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-report-session'), {
@@ -3443,6 +3454,7 @@
       : '';
 
     return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}" data-theme="${loadTableTheme()}">
+      ${tableWatermarkHTML()}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${potBB != null ? fmtBB(potBB) : '—'} bb</div>
       <div class="board">${board.map(Cards.cardToHTML).join('')}</div></div>
@@ -3715,6 +3727,7 @@
     const potDisplay = d.potBB;
 
     return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}" data-theme="${loadTableTheme()}">
+      ${tableWatermarkHTML()}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${fmtBB(potDisplay)} bb</div>
       <div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
