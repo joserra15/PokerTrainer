@@ -932,6 +932,10 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .board { display: flex; gap: 6px; justify-content: center; min-height: 56px; }
 .spot-context { margin-top: 10px; font-size: 13px; color: #dfe7ef; max-width: 460px; }
 .session-replay-table .table-felt { min-height: 340px; }
+.session-replay-theme-wrap {
+  display: flex; justify-content: center; margin: 0 0 10px;
+}
+.session-replay-theme { justify-content: center; }
 .session-street-log { font-size: 13px; color: #dfe7ef; margin: 10px 0 6px; line-height: 1.5; }
 .session-street-act { white-space: nowrap; }
 .session-spot-head { margin: 8px 0 10px; }

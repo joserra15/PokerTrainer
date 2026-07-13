@@ -210,9 +210,39 @@
   }
   function applyTableTheme(theme) {
     const t = (theme === 'midnight' || theme === 'crimson') ? theme : 'emerald';
-    document.querySelectorAll('#play-active .table-felt').forEach((felt) => {
+    document.querySelectorAll('#play-active .table-felt, .session-replay-table .table-felt').forEach((felt) => {
       felt.setAttribute('data-theme', t);
     });
+  }
+
+  const REPLAY_TABLE_THEMES = [
+    { val: 'emerald', label: 'Esmeralda', swatch: 'theme-swatch-emerald' },
+    { val: 'midnight', label: 'Medianoche', swatch: 'theme-swatch-midnight' },
+    { val: 'crimson', label: 'Burdeos', swatch: 'theme-swatch-crimson' }
+  ];
+
+  function sessionReplayThemeHTML() {
+    const saved = loadTableTheme();
+    const chips = REPLAY_TABLE_THEMES.map((t) =>
+      '<button type="button" class="setup-chip theme-chip' + (saved === t.val ? ' active' : '') +
+      '" data-val="' + t.val + '"><span class="theme-swatch ' + t.swatch + '" aria-hidden="true"></span>' +
+      escapeHtml(t.label) + '</button>'
+    ).join('');
+    return '<div class="session-replay-theme-wrap"><div class="setup-chips session-replay-theme" id="session-replay-table-theme">' + chips + '</div></div>';
+  }
+
+  function bindSessionReplayTheme() {
+    const box = $('#session-replay-table-theme');
+    if (!box) return;
+    box.onclick = (e) => {
+      const chip = e.target.closest('.setup-chip');
+      if (!chip || !box.contains(chip)) return;
+      box.querySelectorAll('.setup-chip').forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+      const theme = chip.dataset.val || 'emerald';
+      saveTableTheme(theme);
+      applyTableTheme(theme);
+    };
   }
   function restoreTableThemeChip() {
     const box = $('#setup-table-theme');
@@ -3412,7 +3442,7 @@
       ? '<div class="hero-cards">' + heroCards.map(Cards.cardToHTML).join('') + '</div>'
       : '';
 
-    return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}">
+    return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}" data-theme="${loadTableTheme()}">
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${potBB != null ? fmtBB(potBB) : '—'} bb</div>
       <div class="board">${board.map(Cards.cardToHTML).join('')}</div></div>
@@ -3435,6 +3465,7 @@
         <div class="muted-text">Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span></div>
       </div>
     </div>`;
+    html += sessionReplayThemeHTML();
     html += renderShowdownTableHTML(h);
     html += '<div class="session-street-log"><strong>River:</strong> board completo</div>';
     if (villain) {
@@ -3443,6 +3474,8 @@
     html += `<div class="result-line" style="border:none">Board: ${(h.board || []).map(Cards.cardToHTML).join(' ')}</div>`;
     html += `<button class="btn btn-primary" id="replay-to-summary" style="margin-top:14px">Ver resumen de la repetición »</button>`;
     box.innerHTML = html;
+    bindSessionReplayTheme();
+    applyTableTheme(loadTableTheme());
     $('#replay-to-summary').addEventListener('click', () => renderReplaySummary());
   }
 
@@ -3455,6 +3488,12 @@
 
   function isVoluntaryHeroAction(type) {
     return type === 'fold' || type === 'check' || type === 'call' || type === 'raise' || type === 'bet';
+  }
+
+  /** Alinea el contador de replay con h.decisions (preflop check no cuenta). */
+  function timelineHeroCountsAsDecision(street, type) {
+    if (street === 'preflop') return type === 'fold' || type === 'call' || type === 'raise';
+    return isVoluntaryHeroAction(type);
   }
 
   function sessionTableIs9Max(h) {
@@ -3490,12 +3529,20 @@
     let lastAggressorPos = null;
     let toMatchEuro = 0;
 
+    if (h.posts && h.positions) {
+      Object.keys(h.posts).forEach((player) => {
+        const pos = h.positions[player];
+        if (pos) totalInvBB[pos] = euroToBB(h.posts[player]);
+      });
+    }
+
     function euroToBB(x) { return bb ? Math.round((x / bb) * 100) / 100 : x; }
     function resetStreetState() {
       Object.keys(streetBetBB).forEach((k) => { delete streetBetBB[k]; });
       Object.keys(streetCommittedEuro).forEach((k) => { delete streetCommittedEuro[k]; });
       Object.keys(lastAction).forEach((k) => { delete lastAction[k]; });
       toMatchEuro = 0;
+      lastAggressorPos = null;
     }
 
     function recordAction(item) {
@@ -3543,23 +3590,31 @@
         continue;
       }
       const isHero = item.pos === heroPos;
-      const isVoluntary = isVoluntaryHeroAction(item.type);
-      if (isHero && isVoluntary && heroDecIdx === decisionIdx) break;
+      const countsAsDecision = timelineHeroCountsAsDecision(street, item.type);
+      if (isHero && countsAsDecision && heroDecIdx === decisionIdx) break;
       if (street === targetStreet) streetLog.push(item);
       recordAction(item);
-      if (isHero && isVoluntary) heroDecIdx++;
+      if (isHero && countsAsDecision) heroDecIdx++;
     }
 
+    const heroCommitEuro = streetCommittedEuro[heroPos] || 0;
+    const facingBet = toMatchEuro > heroCommitEuro + 0.0001;
     let villainPos = target.vsPosition || null;
-    if (!villainPos && lastAggressorPos && lastAggressorPos !== heroPos) villainPos = lastAggressorPos;
-    if (!villainPos) {
+    if (!villainPos && facingBet && lastAggressorPos && lastAggressorPos !== heroPos) villainPos = lastAggressorPos;
+    if (!villainPos && facingBet) {
       for (let j = streetLog.length - 1; j >= 0; j--) {
         const a = streetLog[j];
-        if (a.pos && a.pos !== heroPos && a.type !== 'fold') { villainPos = a.pos; break; }
+        if (a.pos && a.pos !== heroPos && (a.type === 'bet' || a.type === 'raise')) { villainPos = a.pos; break; }
       }
     }
 
-    return { folded, streetBetBB, totalInvBB, lastAction, streetLog, villainPos, heroPos, targetStreet };
+    const toCallBB = euroToBB(Math.max(0, toMatchEuro - heroCommitEuro));
+    const potBB = Object.values(totalInvBB).reduce((s, v) => s + (v || 0), 0);
+
+    return {
+      folded, streetBetBB, totalInvBB, lastAction, streetLog, villainPos, heroPos, targetStreet,
+      potBB, toCallBB, facingBet
+    };
   }
 
   function sessionActionWord(item, bb, committedEuro, toMatchEuro) {
@@ -3657,9 +3712,11 @@
       heroCardsHtml +
       '</div>';
 
-    return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}">
+    const potDisplay = d.potBB;
+
+    return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}" data-theme="${loadTableTheme()}">
       <div class="seats">${seatsHtml}</div>
-      <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${fmtBB(d.potBB)} bb</div>
+      <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${fmtBB(potDisplay)} bb</div>
       <div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
       ${heroAreaHtml}
     </div></div>`;
@@ -3682,17 +3739,21 @@
         <div class="muted-text">Decisión ${replayState.idx + 1} de ${h.decisions.length}</div>
       </div>
     </div>`;
+    html += sessionReplayThemeHTML();
     html += renderSessionReplayTableHTML(h, d, replayState.idx, replayStateTable);
     html += renderSessionStreetLogHTML(h, replayStateTable);
     html += `<div class="session-spot-head"><strong>${escapeHtml(d.spot || '')}</strong>`;
     if (d.context) html += `<div class="spot-context">${escapeHtml(d.context)}</div>`;
     html += '</div>';
     const opts = d.options || optionsFor(d.gto);
+    const replayMetrics = { toCallBB: replayStateTable.toCallBB };
     html += `<div class="actions" id="replay-actions">` + opts.map((a) =>
-      `<button class="btn btn-${btnClassForAction(a)}" data-act="${a}">${escapeHtml(replayActionLabel(a, d))}</button>`
+      `<button class="btn btn-${btnClassForAction(a)}" data-act="${a}">${escapeHtml(replayActionLabel(a, d, replayMetrics))}</button>`
     ).join('') + `</div>`;
     html += `<div id="replay-feedback"></div>`;
     box.innerHTML = html;
+    bindSessionReplayTheme();
+    applyTableTheme(loadTableTheme());
     scrollSessionReviewToTop();
     $$('#replay-actions [data-act]').forEach((b) => b.addEventListener('click', () => submitReplay(b.dataset.act)));
   }
@@ -3779,13 +3840,15 @@
     $('#replay-stepbystep').addEventListener('click', () => renderTimelineReview());
   }
 
-  function replayActionLabel(a, d) {
-    if (a === 'call' && d.toCallBB > 0) return actionName(a) + ' ' + d.toCallBB + 'bb';
+  function replayActionLabel(a, d, metrics) {
+    const toCallBB = metrics && metrics.toCallBB != null ? metrics.toCallBB : d.toCallBB;
+    const potBB = metrics && metrics.potBB != null ? metrics.potBB : d.potBB;
+    if (a === 'call' && toCallBB > 0) return actionName(a) + ' ' + fmtBB(toCallBB) + 'bb';
     if (a.indexOf('bet_') === 0) {
       const mult = a === 'bet_33' ? 0.33 : (a === 'bet_66' ? 0.66 : 1);
       const pct = a === 'bet_33' ? '33%' : (a === 'bet_66' ? '66%' : 'pot');
-      const size = round2(Math.max(1, (d.potBB || 1) * mult));
-      return `Bet ${size}bb (${pct})`;
+      const size = round2(Math.max(1, (potBB || 1) * mult));
+      return `Bet ${fmtBB(size)}bb (${pct})`;
     }
     return actionName(a);
   }
