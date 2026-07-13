@@ -46,6 +46,14 @@ Estudio y plan de posicionamiento para `www.pokerforgeai.com` (julio 2026).
 - **Secundarios:** importar PokerStars, cash game, fugas EV, metodología GTO
 - **Long-tail:** FAQ importación sesiones, planes Study Coach
 
+## HTTPS y dominio canónico
+
+- **Dominio canónico:** `https://www.pokerforgeai.com/`
+- `pokerforgeai.com` (sin www) y `http://` redirigen automáticamente vía script en `<head>` + fichero `CNAME`
+- CSP incluye `upgrade-insecure-requests` para evitar contenido mixto HTTP
+- En GitHub Pages → Settings → Pages: activar **Enforce HTTPS**
+- Opcional (recomendado): en DNS/Cloudflare, redirigir apex `pokerforgeai.com` → `www` con 301 a nivel de servidor
+
 ## Próximos pasos recomendados
 
 1. **Google Search Console** — verificar propiedad de `www.pokerforgeai.com` y enviar `sitemap.xml`
