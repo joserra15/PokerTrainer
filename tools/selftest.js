@@ -964,6 +964,29 @@ if (!riverZeroVillainSeed) {
 }
 console.log('River villano 0bb check cierra mano (seed', riverZeroVillainSeed, '): OK');
 
+// Calle de práctica: reintentos hasta alcanzar la calle objetivo (no aceptar preflop a medias)
+function dealAtPracticeStreet(target, cfg, maxTries) {
+  let hand = null;
+  let tries = 0;
+  while (tries < maxTries) {
+    hand = Engine.newHand(undefined, cfg);
+    Engine.fastForwardToStreet(hand, target);
+    if (!hand.result && hand.current && hand.stage === target) break;
+    tries++;
+  }
+  return hand;
+}
+let riverRetryFails = 0;
+for (let i = 0; i < 8; i++) {
+  const rh2 = dealAtPracticeStreet('river', riverCfg, 12);
+  if (!rh2 || rh2.stage !== 'river' || !rh2.current || rh2.result) riverRetryFails++;
+}
+if (riverRetryFails) {
+  console.error('FAIL: calle river debe alcanzarse tras reintentos', riverRetryFails, 'de 8');
+  process.exit(1);
+}
+console.log('Calle de práctica river con reintentos: OK');
+
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'leaks.js'), 'utf8'), sandbox, { filename: 'leaks.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'stats-aggregate.js'), 'utf8'), sandbox, { filename: 'stats-aggregate.js' });
 const PTLeaks = sandbox.window.PTLeaks;

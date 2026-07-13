@@ -832,13 +832,13 @@
       }
       replayPlayConfig = null;
       const streetTarget = cfg && cfg.practiceStreet;
-      if (!force && streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet) {
+      const needsStreetFastForward = streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet;
+      if (needsStreetFastForward) {
         let tries = 0;
         while (tries < 12) {
           hand = Engine.newHand(force || undefined, cfg);
           Engine.fastForwardToStreet(hand, streetTarget);
           if (!hand.result && hand.current && hand.stage === streetTarget) break;
-          if (!hand.result && hand.current) break;
           tries++;
         }
       } else {

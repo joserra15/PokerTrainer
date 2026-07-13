@@ -1,9 +1,10 @@
 /* Service worker — PWA instalable. Shell offline + assets con network-first. */
 'use strict';
 
-var CACHE = 'pt-shell-v9';
+var CACHE = 'pt-shell-v10';
 var PRECACHE = [
   './offline.html',
+  './apple-touch-icon.png',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/logo-512.png',
