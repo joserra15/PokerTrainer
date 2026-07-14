@@ -771,6 +771,37 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .learn-list li { margin: 6px 0; }
 .learn-steps { margin: 0; padding-left: 18px; line-height: 1.55; color: rgba(230,237,243,.9); }
 .learn-steps li { margin: 8px 0; }
+.learn-hand-ranks {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.learn-hand-rank {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 13px;
+  color: rgba(230,237,243,.9);
+  line-height: 1.45;
+}
+.learn-hand-rank-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 12px;
+  background: rgba(234,179,8,.12);
+  border: 1px solid rgba(234,179,8,.28);
+  color: var(--gold, #e3b341);
+}
+.learn-hand-rank-body strong { color: #fff; }
 .learn-example {
   border-left: 3px solid rgba(234,179,8,.55);
   background: rgba(234,179,8,.06);
