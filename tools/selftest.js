@@ -331,6 +331,39 @@ const probeAirCallerPct = Math.round((1 - probeAirCaller.strategy.check) * 100);
 console.log('Cbet air IP flop%', cbetAirIpPct, '(expect >=40)', 'probe air caller%', probeAirCallerPct, '(expect < cbet)');
 if (cbetAirIpPct < 40 || probeAirCallerPct >= cbetAirIpPct) process.exit(1);
 
+const SpotKey = sandbox.window.GTOSpotKey;
+const leadFlop = SpotKey.buildSpotKey({ street: 'flop', initiative: 'aggressor', toCallBB: 0, inPosition: true, board: ['As', '7c', '2d'], potBB: 6 });
+const leadTurn = SpotKey.buildSpotKey({ street: 'turn', initiative: 'aggressor', toCallBB: 0, inPosition: true, board: ['As', '7c', '2d', '9h'], potBB: 12 });
+const leadRiver = SpotKey.buildSpotKey({ street: 'river', initiative: 'aggressor', toCallBB: 0, inPosition: true, board: ['As', '7c', '2d', '9h', '3c'], potBB: 12 });
+console.log('Lead types', leadFlop.leadType, leadTurn.leadType, leadRiver.leadType,
+  SpotKey.aggressorLeadLabel('flop'), SpotKey.aggressorLeadLabel('turn'), SpotKey.aggressorLeadLabel('river'));
+if (leadFlop.leadType !== 'cbet' || leadTurn.leadType !== 'barrel2' || leadRiver.leadType !== 'barrel3') process.exit(1);
+if (SpotKey.aggressorLeadLabel('turn') !== 'segundo barrel') process.exit(1);
+
+const turnPureAir = ProbeEV.computeProbeStrategy({
+  street: 'turn', potBB: 15.78, heroEquity: 0.12, inPosition: true, initiative: 'aggressor',
+  villainLastAction: 'check',
+  heroCards: ['2h', '3d'], board: ['Ts', 'Ks', 'Js', '6c'],
+  handRank: { band: 'air', percentile: 0.05, tier: 'air' },
+  madeHandInfo: sandbox.window.GTOEquityMadeHand.classifyMadeHand(['2h', '3d'], ['Ts', 'Ks', 'Js', '6c'])
+});
+const turnPureAirCheck = Math.round(turnPureAir.strategy.check * 100);
+console.log('Turn pure air check%', turnPureAirCheck, '(expect >=70)');
+if (turnPureAirCheck < 70) process.exit(1);
+
+const turnAh3h = ProbeEV.computeProbeStrategy({
+  street: 'turn', potBB: 15.78, heroEquity: 0.1675, inPosition: true, initiative: 'aggressor',
+  villainLastAction: 'check',
+  heroCards: ['Ah', '3h'], board: ['Ts', 'Ks', 'Js', '6c'],
+  handRank: { band: 'air', percentile: 0.12, tier: 'air' },
+  madeHandInfo: sandbox.window.GTOEquityMadeHand.classifyMadeHand(['Ah', '3h'], ['Ts', 'Ks', 'Js', '6c'])
+});
+const turnAh3hOk = turnAh3h.strategy.check >= turnAh3h.strategy.bet_33;
+console.log('Turn Ah3h gutshot check>=bet33:', turnAh3hOk ? 'OK' : 'FAIL',
+  'check%', Math.round(turnAh3h.strategy.check * 100),
+  'bet33%', Math.round(turnAh3h.strategy.bet_33 * 100));
+if (!turnAh3hOk) process.exit(1);
+
 const facing = FB.calculateActionFrequencies({
   street: 'flop', currentPot: 10, betSize: 5, heroEquity: 0.55, tier: 'medium',
   handRank: { band: 'merge', tier: 'medium' }, inPosition: true, board: ['As', '7c', '2d']

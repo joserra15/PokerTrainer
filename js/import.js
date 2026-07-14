@@ -763,7 +763,18 @@
           options: opts,
           heroEquity: Math.round(heroEquityAdj * 100),
           villainAudit: pendingVillainAudit,
-          context: `${cap(st)} [${boardSoFar.join(' ')}]: tienes ${handName}. Bote ${potForDisplay}bb${toCallBB > 0 ? `, pagar ${toCallBB}bb` : ''}.`
+          context: (function () {
+            let ctx = `${cap(st)} [${boardSoFar.join(' ')}]: tienes ${handName}. Bote ${potForDisplay}bb${toCallBB > 0 ? `, pagar ${toCallBB}bb` : ''}.`;
+            if (toCallBB <= 0 && postflopCtx.initiative === 'aggressor') {
+              const lead = (global.GTOSpotKey && global.GTOSpotKey.aggressorLeadLabel)
+                ? global.GTOSpotKey.aggressorLeadLabel(st)
+                : (st === 'turn' ? 'segundo barrel' : (st === 'river' ? 'tercer barrel' : 'c-bet'));
+              ctx += villainLastAction === 'check'
+                ? ` El villano pasó: spot de ${lead}.`
+                : ` Spot de ${lead}.`;
+            }
+            return ctx;
+          })()
         });
         pendingVillainAudit = null;
       }
