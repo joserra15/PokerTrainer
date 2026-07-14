@@ -17,26 +17,38 @@
       id: 'rfi',
       title: 'Abrir el bote (RFI)',
       desc: 'Practica cuándo subir primero desde cada posición.',
-      config: { scenario: 'rfi', practiceStreet: 'preflop', handRange: 'playable', villainLevel: 'fish' }
+      config: { scenario: 'rfi', practiceStreet: 'preflop', handRange: 'playable', villainLevel: 'fish', liveAdvisor: true }
     },
     {
       id: '3bet',
       title: '3-bet vs open',
       desc: 'Aprende a castigar opens débiles y a construir un rango sólido.',
-      config: { scenario: '3bet', practiceStreet: 'preflop', handRange: 'playable', villainLevel: 'fish' }
+      config: { scenario: '3bet', practiceStreet: 'preflop', handRange: 'playable', villainLevel: 'fish', liveAdvisor: true }
     },
     {
       id: 'face3bet',
       title: 'Defender vs 3-bet',
       desc: 'Decide cuándo continuar, 4-betear o tirar la mano.',
-      config: { scenario: 'face3bet', practiceStreet: 'preflop', handRange: 'playable', villainLevel: 'fish' }
+      config: { scenario: 'face3bet', practiceStreet: 'preflop', handRange: 'playable', villainLevel: 'fish', liveAdvisor: true }
     },
     {
       id: 'flop',
       title: 'Flop: c-bet y defensa',
       desc: 'Tras el preflop, practica las primeras decisiones del board.',
-      config: { scenario: 'rfi', practiceStreet: 'flop', handRange: 'playable', villainLevel: 'fish' }
+      config: { scenario: 'rfi', practiceStreet: 'flop', handRange: 'playable', villainLevel: 'fish', liveAdvisor: true }
     }
+  ];
+
+  var HAND_RANKS = [
+    { name: 'Escalera de color', tip: 'Cinco cartas consecutivas del mismo palo. La más fuerte es la real: A-K-Q-J-10 del mismo palo.' },
+    { name: 'Póker (four of a kind)', tip: 'Cuatro cartas del mismo valor (p. ej. cuatro ases).' },
+    { name: 'Full house', tip: 'Un trío + una pareja (p. ej. tres ochos y dos reyes).' },
+    { name: 'Color (flush)', tip: 'Cinco cartas del mismo palo, no consecutivas.' },
+    { name: 'Escalera (straight)', tip: 'Cinco cartas consecutivas de palos distintos (A-2-3-4-5 y 10-J-Q-K-A valen).' },
+    { name: 'Trío (three of a kind)', tip: 'Tres cartas del mismo valor.' },
+    { name: 'Doble pareja (two pair)', tip: 'Dos pares distintos (p. ej. damas y seises).' },
+    { name: 'Pareja (one pair)', tip: 'Dos cartas del mismo valor.' },
+    { name: 'Carta alta (high card)', tip: 'Nada emparejado: gana quien tenga la carta más alta (y si empatan, el kicker).' }
   ];
 
   function escapeHtml(s) {
@@ -73,23 +85,40 @@
       'Juegas con dos cartas privadas y cinco comunitarias. El objetivo no es ganar cada mano: es tomar buenas decisiones a largo plazo.',
       '<ul class="learn-list">' +
       '<li><strong>Cash 6-max</strong> — mesa de hasta 6 jugadores; la variante que practica PokerForgeAI.</li>' +
-      '<li><strong>Blindas</strong> — SB (small blind) y BB (big blind) ponen fichas obligatorias para iniciar el bote.</li>' +
-      '<li><strong>bb</strong> — unidad estándar: medimos stacks, apuestas y resultados en big blinds.</li>' +
+      '<li><strong>Ciegas</strong> — apuestas obligatorias que se ponen <em>antes</em> de repartir las cartas. Fuerzan acción en cada mano: siempre hay fichas en el bote que merece la pena disputar. Sin ciegas, todos podrían esperar manos perfectas y la mesa se pararía.</li>' +
+      '<li><strong>Ciega pequeña (SB)</strong> — pone la mitad de la unidad (p. ej. 0,05 € si la ciega grande es 0,10 €). Actúa primero postflop.</li>' +
+      '<li><strong>Ciega grande (BB)</strong> — pone 1 unidad completa (la “bb”). Suele ser el precio mínimo para ver el flop si nadie ha subido.</li>' +
+      '<li><strong>bb</strong> — unidad estándar: medimos stacks, apuestas y resultados en big blinds (ciegas grandes).</li>' +
       '<li><strong>Stack</strong> — tus fichas. En cash típico entrenamos ~100 bb.</li>' +
       '</ul>' +
       exampleBlock('Ejemplo rápido',
-        'Si la BB es 0,10 €, un stack de 100 bb son 10 €. Un raise a 2,5 bb son 0,25 €.')
+        'Si la ciega grande (BB) es 0,10 €, un stack de 100 bb son 10 €. Un raise a 2,5 bb son 0,25 €. La ciega pequeña habría puesto 0,05 € al empezar la mano.')
+    );
+  }
+
+  function renderHandRanks() {
+    var rows = HAND_RANKS.map(function (h, i) {
+      return '<li class="learn-hand-rank">' +
+        '<span class="learn-hand-rank-num">' + (i + 1) + '</span>' +
+        '<span class="learn-hand-rank-body"><strong>' + escapeHtml(h.name) + '</strong> — ' + escapeHtml(h.tip) + '</span>' +
+        '</li>';
+    }).join('');
+    return sectionHtml('learn-hands', '2. Manos y su prioridad',
+      'Al showdown gana la mejor combinación de cinco cartas (usando tus dos cartas privadas y las del board). De más fuerte a más débil:',
+      '<ol class="learn-hand-ranks">' + rows + '</ol>' +
+      exampleBlock('Empates',
+        'Si dos jugadores tienen la misma categoría (p. ej. pareja de ases), se comparan los kickers (cartas de desempate). Si las cinco cartas empatan, se reparte el bote.')
     );
   }
 
   function renderPositions() {
-    return sectionHtml('learn-positions', '2. Posiciones en la mesa',
+    return sectionHtml('learn-positions', '3. Posiciones en la mesa',
       'Cuanto más tarde actúas, más información tienes. La posición es una de las ventajas más importantes del póker.',
       '<div class="learn-positions">' +
       '<div class="learn-pos"><span class="learn-pos-code">UTG</span><span>Under the Gun — primero en actuar preflop; rango más cerrado.</span></div>' +
       '<div class="learn-pos"><span class="learn-pos-code">HJ / CO</span><span>Hijack y Cutoff — empiezas a abrir más manos.</span></div>' +
       '<div class="learn-pos"><span class="learn-pos-code">BTN</span><span>Button — la mejor posición; actúa último postflop.</span></div>' +
-      '<div class="learn-pos"><span class="learn-pos-code">SB / BB</span><span>Blindas — pagan obligatorio; BB defiende el bote ya invertido.</span></div>' +
+      '<div class="learn-pos"><span class="learn-pos-code">SB / BB</span><span>Ciegas — pagan obligatorio; la BB defiende el bote ya invertido.</span></div>' +
       '</div>' +
       exampleBlock('Idea clave',
         'Con la misma mano (p. ej. KTo) suele ser fold UTG y open desde BTN. El valor cambia con la posición.')
@@ -97,7 +126,7 @@
   }
 
   function renderActions() {
-    return sectionHtml('learn-actions', '3. Acciones y calles',
+    return sectionHtml('learn-actions', '4. Acciones y calles',
       'En cada calle eliges fold, check, call, bet o raise. El entrenador evalúa si tu elección se acerca a una estrategia equilibrada.',
       '<ul class="learn-list">' +
       '<li><strong>Preflop</strong> — antes del flop. Abrir (RFI), 3-bet, call o fold.</li>' +
@@ -113,7 +142,7 @@
   }
 
   function renderGto() {
-    return sectionHtml('learn-gto', '4. Qué es el GTO',
+    return sectionHtml('learn-gto', '5. Qué es el GTO',
       'GTO significa <em>Game Theory Optimal</em>: una estrategia equilibrada que no se deja explotar de forma sistemática, aunque el rival juegue perfecto.',
       '<div class="learn-gto-grid">' +
       '<div class="learn-gto-card">' +
@@ -135,15 +164,18 @@
   }
 
   function renderPath() {
-    return sectionHtml('learn-path', '5. Cómo usar la app si empiezas de cero',
+    return sectionHtml('learn-path', '6. Cómo usar la app si empiezas de cero',
       'Sigue este orden antes de analizar sesiones reales o preguntar al coach sobre spots difíciles.',
       '<ol class="learn-steps">' +
       '<li><strong>Lee esta guía</strong> y anota términos que no entiendas.</li>' +
-      '<li><strong>Haz un mini entrenamiento</strong> de RFI o 3-bet (abajo) con rivales fish.</li>' +
+      '<li><strong>Activa el avisador en vivo</strong> al configurar el entrenador. Te muestra qué ocurre en la mesa, la acción recomendada y una explicación <em>antes</em> de decidir: ideal para aprender sin ir a ciegas.</li>' +
+      '<li><strong>Haz un mini entrenamiento</strong> de RFI o 3-bet (abajo) con rivales fish — ya llevan el avisador activado.</li>' +
       '<li><strong>Revisa el feedback</strong> tras cada mano: frecuencia GTO y EV estimado.</li>' +
       '<li><strong>Pregunta al IA Coach</strong> al final de esta página cuando tengas dudas concretas.</li>' +
       '<li>Cuando tengas base, importa sesiones y mira estadísticas / leaks.</li>' +
-      '</ol>'
+      '</ol>' +
+      exampleBlock('Consejo',
+        'En Configurar sesión busca la casilla <strong>Avisador en vivo</strong>. Déjala marcada las primeras sesiones; cuando te sientas más seguro, puedes desactivarla y decidir solo.')
     );
   }
 
@@ -155,8 +187,8 @@
         '<span class="learn-drill-cta">Empezar práctica →</span>' +
         '</button>';
     }).join('');
-    return sectionHtml('learn-drills', '6. Mini entrenamiento dirigido',
-      'Cuatro rutinas cortas con la configuración ya preparada. Empieza por RFI si nunca has entrenado.',
+    return sectionHtml('learn-drills', '7. Mini entrenamiento dirigido',
+      'Cuatro rutinas cortas con la configuración ya preparada (incluye avisador en vivo). Empieza por RFI si nunca has entrenado.',
       '<div class="learn-drills">' + cards + '</div>'
     );
   }
@@ -166,7 +198,7 @@
       return '<button type="button" class="learn-ask-chip" data-learn-ask="' + escapeHtml(q) + '">' +
         escapeHtml(q) + '</button>';
     }).join('');
-    return sectionHtml('learn-coach', '7. Pregunta al IA Coach',
+    return sectionHtml('learn-coach', '8. Pregunta al IA Coach',
       'Resuelve dudas de conceptos o de cómo entrenar. Cada pregunta consume consulta del plan (estudio / coach), salvo que tengas bonos.',
       '<div class="learn-ask-chips" aria-label="Preguntas sugeridas">' + chips + '</div>' +
       '<div id="learn-coach-mount" class="learn-coach-mount"></div>'
@@ -242,9 +274,10 @@
       '<header class="learn-hero">' +
       '<p class="learn-eyebrow">Guía para principiantes</p>' +
       '<h2 class="learn-title">' + escapeHtml(hello) + 'Empieza aquí antes del entrenador</h2>' +
-      '<p class="learn-lead">Si nunca has jugado o aún no controlas conceptos (posiciones, 3-bets, GTO…), esta guía te da la base y un mini entrenamiento. Luego podrás preguntar dudas al IA Coach.</p>' +
+      '<p class="learn-lead">Si nunca has jugado o aún no controlas conceptos (ciegas, manos, posiciones, 3-bets, GTO…), esta guía te da la base y un mini entrenamiento con avisador en vivo. Luego podrás preguntar dudas al IA Coach.</p>' +
       '<nav class="learn-toc" aria-label="Contenidos">' +
       '<a href="#learn-basics">Reglas</a>' +
+      '<a href="#learn-hands">Manos</a>' +
       '<a href="#learn-positions">Posiciones</a>' +
       '<a href="#learn-actions">Acciones</a>' +
       '<a href="#learn-gto">GTO</a>' +
@@ -254,6 +287,7 @@
       '</nav>' +
       '</header>' +
       renderBasics() +
+      renderHandRanks() +
       renderPositions() +
       renderActions() +
       renderGto() +
