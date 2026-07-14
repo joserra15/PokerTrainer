@@ -259,6 +259,75 @@ if (recNuts.cls !== 'optima') {
   process.exit(1);
 }
 
+// Mezcla GTO casi empatada (check ≈ bet_100): no degradar check a imprecisa por ΔEV heurístico
+const mixActs = ['check', 'bet_33', 'bet_66', 'bet_100'];
+const mixStrat = { check: 0.289, bet_33: 0.133, bet_66: 0.286, bet_100: 0.292 };
+const mixCls = Cls.classify(mixStrat, 'check', mixActs);
+const mixRec = Cls.reconcileWithEv(mixCls.cls, 'check', mixCls.best, {
+  actionEV: 4.52, bestEV: 6.99, bestAction: 'bet_100', evLoss: 0, evErroneous: false, evErrorReasons: []
+}, { freq: mixCls.freq, maxFreq: mixCls.maxFreq, equity: 0.77, band: 'value' });
+console.log('Mix check≈bet_100 classify', mixCls.cls, 'reconciled', mixRec.cls, '(expect optima)');
+if (mixCls.cls !== 'optima' || mixRec.cls !== 'optima') {
+  console.error('FAIL: near-tied GTO mix check must stay optima, got', mixCls.cls, '→', mixRec.cls);
+  process.exit(1);
+}
+const a5TurnCheck = GTO.evaluateSpot({
+  street: 'turn', board: ['3d', 'Ah', '4c', 'Jc'], heroCards: ['As', '5d'], handCode: 'A5o',
+  potBB: 6.5, toCallBB: 0, chosenAction: 'check',
+  availableActions: mixActs,
+  initiative: 'aggressor', inPosition: false, villainLastAction: 'check',
+  heroEquity: 0.77,
+  handRank: { band: 'nuts', tier: 'strong', percentile: 0.85 },
+  madeHandInfo: { tier: 'strong', category: 1 }
+});
+console.log('A5o turn check class', a5TurnCheck.evaluation.class,
+  'freqs', Object.fromEntries(Object.entries(a5TurnCheck.strategy).map(([k, v]) => [k, Math.round(v * 1000) / 10])),
+  '(expect optima when check within 8pp of max)');
+if (a5TurnCheck.evaluation.class === 'imprecisa' || a5TurnCheck.evaluation.class === 'error') {
+  const ck = a5TurnCheck.strategy.check || 0;
+  let mx = 0;
+  for (const a in a5TurnCheck.strategy) if (a5TurnCheck.strategy[a] > mx) mx = a5TurnCheck.strategy[a];
+  if (ck >= mx - 0.08) {
+    console.error('FAIL: A5o turn check near max freq must not be imprecisa/error, got', a5TurnCheck.evaluation.class);
+    process.exit(1);
+  }
+}
+
+// Tras bet flop + check turn, la última acción del villano en turn debe ser check (no heredar bet del flop)
+{
+  const VT = sandbox.window.GTOVillainTracking;
+  const handStub = {
+    bb: 0.05,
+    streets: {
+      preflop: [],
+      flop: [
+        { player: 'Villain', type: 'bet', amount: 0.20 },
+        { player: 'HeroDude', type: 'call', amount: 0.20 }
+      ],
+      turn: [
+        { player: 'Villain', type: 'check' },
+        { player: 'HeroDude', type: 'check' }
+      ],
+      river: []
+    }
+  };
+  const boardSoFar = ['3d', 'Ah', '4c', 'Jc'];
+  const ctxTurn = VT.inferVillainLineContext({
+    hand: handStub,
+    hero: 'HeroDude',
+    street: 'turn',
+    heroActIndex: 1,
+    boardSoFar,
+    villainBase: sandbox.window.GTORangesData.BROAD_CONTINUE,
+    priorPotBB: (h, st) => (st === 'flop' ? 3 : 11)
+  });
+  console.log('Turn vilLast after check', ctxTurn.villainLastAction, '(expect check)');
+  if (ctxTurn.villainLastAction !== 'check') {
+    console.error('FAIL: turn after villain check must report villainLastAction=check, got', ctxTurn.villainLastAction);
+    process.exit(1);
+  }
+}
+
 const a6NutFlushBoard = ['8s', 'Kh', '9s', '7s', '2d'];
 const a6Hero = ['As', '6s'];
 const nutFlushRiverBet = GTO.evaluateSpot({

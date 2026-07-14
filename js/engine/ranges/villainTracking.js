@@ -658,6 +658,8 @@
     }
 
     applyLastFromActs(priorOnStreet, priorPotBB(hand, street));
+    const streetLastAction = lastAction;
+    const streetBetRatio = betRatio;
 
     const hasVillainAgg = priorOnStreet.some(
       (a) => a.player !== hero && (a.type === 'bet' || a.type === 'raise')
@@ -675,10 +677,17 @@
         const villBet = stActs.some((a) => a.player !== hero && (a.type === 'bet' || a.type === 'raise'));
         if (villBet || (r !== villainBase && r !== D.BROAD_CONTINUE)) {
           range = r;
-          applyLastFromActs(stActs, potSt);
+          // Solo heredar sizing/acción previa si en esta calle el villano aún no ha actuado
+          // (si ya checkeó/apostó en la calle actual, eso es la última acción real).
+          if (!streetLastAction) applyLastFromActs(stActs, potSt);
           break;
         }
       }
+    }
+
+    if (streetLastAction) {
+      lastAction = streetLastAction;
+      betRatio = streetBetRatio;
     }
 
     return { villainRange: range, villainLastAction: lastAction, villainBetRatio: betRatio };

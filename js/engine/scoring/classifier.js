@@ -74,6 +74,7 @@
   function reconcileWithEv(freqCls, chosen, freqBest, evResult, opts) {
     opts = opts || {};
     const freq = opts.freq != null ? opts.freq : 0;
+    const maxFreq = opts.maxFreq != null ? opts.maxFreq : (chosen === freqBest ? freq : 0);
     const equity = opts.equity != null ? opts.equity : 0;
     const isNuts = opts.band === 'nuts' || equity >= 0.95;
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
@@ -109,7 +110,10 @@
       return r.type === 'call_sin_odds';
     });
     if (callSinOdds && chosen === 'call') bestAct = 'fold';
-    const freqDominant = chosen === freqBest && freq >= 0.15;
+    // Mezcla GTO casi empatada (p.ej. check 28.9% vs bet_100 29.2%): no degradar
+    // a imprecisa por un ΔEV heurístico; la frecuencia ya marca indiferencia.
+    const withinMixBand = freq >= 0.15 && maxFreq > 0 && freq >= maxFreq - 0.08;
+    const freqDominant = withinMixBand || (chosen === freqBest && freq >= 0.15);
     if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
       if (cls === 'optima' || cls === 'aceptable') {
         cls = evLoss >= 1 ? 'error' : 'imprecisa';
