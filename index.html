@@ -307,6 +307,7 @@
       </div>
       <nav class="tabs">
         <button class="tab" data-tab="play">Entrenar</button>
+        <button class="tab" data-tab="learn">Guía básica</button>
         <button class="tab" data-tab="ranges">Rangos</button>
         <button class="tab" data-tab="sessions">Sesiones</button>
         <button class="tab" data-tab="history">Histórico</button>
@@ -360,6 +361,13 @@
             <span class="home-card-title">Entrenar</span>
             <span class="home-card-desc">Mesa interactiva con evaluación GTO calle a calle</span>
           </button>
+          <button type="button" class="home-card" data-go-tab="learn">
+            <span class="home-card-icon home-card-icon-learn" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 19V5l8-2 8 2v14l-8 2z"/><path d="M12 3v18"/><path d="M8 8h2"/><path d="M8 12h2"/><path d="M14 8h2"/><path d="M14 12h2"/></svg>
+            </span>
+            <span class="home-card-title">Guía básica</span>
+            <span class="home-card-desc">Conceptos, GTO y práctica si empiezas de cero</span>
+          </button>
           <button type="button" class="home-card" data-go-tab="ranges">
             <span class="home-card-icon home-card-icon-ranges" aria-hidden="true">
               <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
@@ -410,6 +418,11 @@
 
         <p class="home-foot muted-text">Consejo: configura mesa, escenario y rango antes de cada sesión de entrenamiento.</p>
       </div>
+    </section>
+
+    <!-- ===== GUÍA BÁSICA ===== -->
+    <section id="tab-learn" class="tab-panel">
+      <div id="learn-content" class="learn-content"></div>
     </section>
 
     <!-- ===== ENTRENAR ===== -->
@@ -1022,6 +1035,7 @@
       'js/progress.js',
       'js/disclaimer.js',
       'js/re-engagement.js',
+      'js/beginner-guide.js',
       'js/user-profile.js',
       'js/demo-mode.js',
       'js/entitlements.js',
