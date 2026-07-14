@@ -157,6 +157,30 @@ Responde centrándote en la pregunta con datos del JSON. Sé práctico y directo
 Responde markdown en español. Título breve relacionado con la pregunta.
 La respuesta debe quedar COMPLETA, sin cortarse al final. Cierra con una recomendación accionable en la app.`;
 
+const HOME_GREETING_PROMPT = `${COACH_IDENTITY}
+
+Es un SALUDO BREVE de inicio de sesión (2 o 3 frases máximo en texto plano).
+El JSON incluye estadísticas/leaks y, si viene, greetingFocus con el foco de entrenamiento elegido hoy y avoidRecent (focos ya recomendados recientemente).
+
+REGLAS DE VARIEDAD (obligatorias):
+- Debes recomendar ESPECÍFICAMENTE el foco indicado en greetingFocus.label (o el spot concreto de greetingFocus.spot si viene).
+- NO repitas focos listados en avoidRecent.
+- Varía el tono: a veces motivador, a veces directo, a veces con un reto concreto; no uses siempre las mismas frases de apertura.
+- Si no hay estadíticas aún, da la bienvenida y anima a empezar por ese foco en el entrenador.
+- Sin títulos, sin markdown, sin listas ni emojis. Solo el texto del saludo.
+- Menciona el entrenamiento de forma accionable (qué configurar o qué practicar hoy).`;
+
+const LEARN_QUESTION_PROMPT = `${COACH_IDENTITY}
+
+El usuario está en la Guía para principiantes de PokerForgeAI. Puede ser nuevo en el póker o tener nivel bajo.
+Recibes JSON con contexto beginner=true y una PREGUNTA.
+
+Explica conceptos de NL Hold'em 6-max cash en español claro, sin jerga innecesaria. Si usas un término técnico (GTO, RFI, 3-bet, c-bet, equity, pot odds…), defínelo en una frase.
+Usa ejemplos sencillos (cartas, posiciones UTG–BTN–blinds, tamaños en bb).
+Puedes recomendar practicar spots concretos en el entrenador de la app o seguir leyendo la guía.
+NO asumas que domina GTO ni soluce spots avanzados.
+Responde markdown en español. Título breve. Respuesta COMPLETA. Cierra con un tip práctico o una pregunta para seguir aprendiendo.`;
+
 interface GeminiPart {
   text?: string;
   thought?: boolean;
@@ -204,11 +228,27 @@ function sanitizeThread(raw: unknown): ThreadTurn[] {
   }).filter((t) => t.reportMarkdown || t.question);
 }
 
-function promptForMode(mode: AiMode): string {
+function isBeginnerLearnPayload(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  const p = payload as Record<string, unknown>;
+  return p.beginner === true || p.src === 'learn';
+}
+
+function isHomeGreetingPayload(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  const p = payload as Record<string, unknown>;
+  return !!(p.greetingFocus && typeof p.greetingFocus === 'object');
+}
+
+function promptForMode(mode: AiMode, payload?: unknown, freePromo?: boolean): string {
   if (mode === 'session_report') return SESSION_REPORT_PROMPT;
   if (mode === 'session_question') return SESSION_QUESTION_PROMPT;
   if (mode === 'stats_report') return STATS_REPORT_PROMPT;
-  if (mode === 'stats_question') return STATS_QUESTION_PROMPT;
+  if (mode === 'stats_question') {
+    if (freePromo || isHomeGreetingPayload(payload)) return HOME_GREETING_PROMPT;
+    if (isBeginnerLearnPayload(payload)) return LEARN_QUESTION_PROMPT;
+    return STATS_QUESTION_PROMPT;
+  }
   if (mode === 'question') return QUESTION_PROMPT;
   return REPORT_PROMPT;
 }
@@ -219,6 +259,12 @@ function userContentForMode(mode: AiMode, payload: unknown, question: string | n
     return 'Pregunta del usuario:\n' + question + '\n\nSesión (JSON):\n' + json;
   }
   if (mode === 'stats_question') {
+    if (isHomeGreetingPayload(payload)) {
+      return 'Saludo de bienvenida / recomendación del día:\n' + question + '\n\nEstadísticas y foco (JSON):\n' + json;
+    }
+    if (isBeginnerLearnPayload(payload)) {
+      return 'Pregunta del alumno principiante:\n' + question + '\n\nContexto guía (JSON):\n' + json;
+    }
     return 'Pregunta del usuario:\n' + question + '\n\nEstadísticas del entrenador (JSON):\n' + json;
   }
   if (mode === 'session_report') {
@@ -684,7 +730,7 @@ serve(async (req) => {
     ? await enrichPayload(admin, billingUserId, mode, rawPayload)
     : rawPayload;
 
-  const systemPrompt = promptForMode(mode);
+  const systemPrompt = promptForMode(mode, enrichedPayload, freePromo);
   const userContent = userContentForMode(mode, enrichedPayload, question);
 
   let access: { ok: true; source: string; unlimited: boolean } | Awaited<ReturnType<typeof checkAiAccess>>;

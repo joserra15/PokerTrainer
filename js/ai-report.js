@@ -45,8 +45,34 @@
       loadingQuestion: 'Analizando tu pregunta…',
       reportKind: 'Informe de estudio',
       consent: 'tus estadísticas globales, progreso semanal y leaks del entrenador'
+    },
+    learn: {
+      reportBtn: 'Resumen para principiantes',
+      questionLabel: '¿Qué duda tienes sobre el póker?',
+      questionPh: 'Ej.: ¿Qué es un 3-bet? ¿Cuándo debo hacer fold preflop?',
+      loadingReport: 'Preparando explicación…',
+      loadingQuestion: 'Resolviendo tu duda…',
+      reportKind: 'Guía',
+      consent: 'tu pregunta sobre conceptos básicos de póker (sin datos personales)'
     }
   };
+
+  const GREETING_FOCUS_KEY = 'pt_home_greeting_focus_v1';
+  const GREETING_HISTORY_MAX = 8;
+
+  /** Catálogo rotativo de focos de entrenamiento para el saludo de bienvenida. */
+  const TRAINING_FOCUSES = [
+    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'] },
+    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'] },
+    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'] },
+    { id: 'squeeze', label: 'squeeze (subir tras open + call)', scenario: 'squeeze', street: 'preflop', leakTypes: ['squeeze'] },
+    { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'] },
+    { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['bbVsSbLimp', 'sbLimp'] },
+    { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'] },
+    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop' },
+    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn' },
+    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river' }
+  ];
 
   function cfg() {
     return global.PT_AI || {};
@@ -83,6 +109,7 @@
       : (dataObj && dataObj.id && p.kind === 'session' ? dataObj.id : p.sessionId);
     if (p.kind === 'session' && sessionId) return { kind: 'session', sessionId: sessionId };
     if (p.kind === 'stats') return { kind: 'stats' };
+    if (p.kind === 'learn') return { kind: 'learn' };
     if (p.kind === 'sessionHand' && sessionId) {
       const handId = typeof p.getHandId === 'function' ? p.getHandId() : (dataObj && dataObj.id);
       return handId ? { kind: 'sessionHand', sessionId: sessionId, handId: handId } : null;
@@ -300,6 +327,13 @@
       return { title: title, lead: lead };
     }
 
+    if (scope === 'learn') {
+      const title = greet + '¿Tienes dudas sobre los conceptos?';
+      const lead =
+        'Pregúntame lo que no te haya quedado claro de la guía: reglas, posiciones, GTO, 3-bets, folds o cómo usar el entrenador. Te lo explico con ejemplos sencillos.';
+      return { title: title, lead: lead };
+    }
+
     if (dataObj && (scope === 'session' || scope === 'hand')) {
       const code = cardsLabel(dataObj);
       const pos = dataObj.heroPos || (dataObj.hero && dataObj.hero.pos) || (dataObj.displayHeroPos) || '—';
@@ -460,6 +494,9 @@
     if (scope === 'statsGlobal') {
       return mode === 'question' ? 'stats_question' : 'stats_report';
     }
+    if (scope === 'learn') {
+      return mode === 'question' ? 'stats_question' : 'stats_report';
+    }
     return mode === 'question' ? 'question' : 'report';
   }
 
@@ -567,8 +604,8 @@
 
   function cacheKeyFor(scope, objId, mode, question) {
     const Payload = global.PTAIHandPayload;
-    if (scope === 'statsGlobal' && Payload && Payload.statsCacheKey) {
-      return Payload.statsCacheKey(mode, question);
+    if ((scope === 'statsGlobal' || scope === 'learn') && Payload && Payload.statsCacheKey) {
+      return (scope === 'learn' ? 'learn_' : '') + Payload.statsCacheKey(mode, question);
     }
     if (scope === 'sessionGlobal' && Payload && Payload.sessionCacheKey) {
       return Payload.sessionCacheKey(objId, mode, question);
@@ -587,6 +624,7 @@
   function getObjId(scope, obj) {
     if (!obj) return null;
     if (scope === 'statsGlobal') return 'stats';
+    if (scope === 'learn') return 'learn';
     if (scope === 'sessionGlobal') return obj.id || obj.fileName || 'session';
     return obj.id;
   }
@@ -739,6 +777,7 @@
     if (options.source === 'statsGlobal') return 'statsGlobal';
     if (options.source === 'sessionGlobal') return 'sessionGlobal';
     if (options.source === 'session') return 'session';
+    if (options.source === 'learn') return 'learn';
     return 'hand';
   }
 
@@ -758,10 +797,14 @@
       '<div class="home-coach-panel ai-coach-embed" role="region" aria-labelledby="' + titleId + '">' +
       coachIntroHtml(titleId, copy) +
       '<div class="ai-coach-actions" data-ai-actions>' +
-      '<button type="button" class="btn btn-primary" data-ai-report>' + escapeHtml(ui.reportBtn) + '</button>' +
-      '<button type="button" class="btn btn-ghost" data-ai-question-toggle>Pregunta concreta</button>' +
+      (options.hideReport
+        ? ''
+        : '<button type="button" class="btn btn-primary" data-ai-report>' + escapeHtml(ui.reportBtn) + '</button>') +
+      '<button type="button" class="btn ' + (options.hideReport ? 'btn-primary' : 'btn-ghost') + '" data-ai-question-toggle>' +
+      (options.questionToggleLabel ? escapeHtml(options.questionToggleLabel) : 'Pregunta concreta') +
+      '</button>' +
       '</div>' +
-      '<div class="ai-question-form" data-ai-question-form hidden>' +
+      '<div class="ai-question-form" data-ai-question-form' + (options.openQuestionForm ? '' : ' hidden') + '>' +
       '<label class="ai-question-label" for="' + uid + '">' + escapeHtml(ui.questionLabel) + '</label>' +
       '<textarea id="' + uid + '" class="ai-question-input" data-ai-question-input maxlength="' + QUESTION_MAX + '" rows="3" placeholder="' + escapeHtml(ui.questionPh) + '"></textarea>' +
       '<div class="ai-question-foot">' +
@@ -778,15 +821,17 @@
 
     const panel = container.querySelector('.ai-report-panel');
 
-    container.querySelector('[data-ai-report]').addEventListener('click', function () {
-      runCoach(panel, options, { mode: 'report' }).catch(function (e) {
-        console.error('[PTAI]', e);
-        setPanelState(panel, 'error', '');
-        const body = panel.querySelector('[data-ai-body]');
-        if (body) showError(body, e.message);
+    const reportBtn = container.querySelector('[data-ai-report]');
+    if (reportBtn) {
+      reportBtn.addEventListener('click', function () {
+        runCoach(panel, options, { mode: 'report' }).catch(function (e) {
+          console.error('[PTAI]', e);
+          setPanelState(panel, 'error', '');
+          const body = panel.querySelector('[data-ai-body]');
+          if (body) showError(body, e.message);
+        });
       });
-    });
-
+    }
     bindQuestionForm(panel, options);
 
     const dataForLoad = getDataObj(options);
@@ -799,8 +844,114 @@
     return panel;
   }
 
-  const HOME_GREETING_QUESTION =
-    'Escribe un saludo breve de inicio de sesión (2 o 3 frases máximo). Debe ser directo, amable y motivador, recomendando qué entrenar hoy según mis estadísticas y fugas principales. Sin títulos, sin markdown, sin listas ni emojis.';
+  function greetingFocusStorageKey() {
+    const u = (global.PTAuth && global.PTAuth.getUser) ? global.PTAuth.getUser() : global.PT_AUTH_USER;
+    const uid = u && (u.id || u.sub || u.userId);
+    return GREETING_FOCUS_KEY + (uid ? ('_' + uid) : '');
+  }
+
+  function loadGreetingFocusHistory() {
+    try {
+      const raw = localStorage.getItem(greetingFocusStorageKey());
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveGreetingFocus(entry) {
+    const list = loadGreetingFocusHistory();
+    list.unshift({
+      id: entry.id,
+      label: entry.label,
+      spot: entry.spot || null,
+      date: entry.date || new Date().toISOString().slice(0, 10)
+    });
+    try {
+      localStorage.setItem(greetingFocusStorageKey(), JSON.stringify(list.slice(0, GREETING_HISTORY_MAX)));
+    } catch (e) { /* noop */ }
+  }
+
+  function focusFromLeak(leak) {
+    if (!leak) return null;
+    const key = String(leak.key || '');
+    const parts = key.split('|');
+    const type = parts[0] || '';
+    const street = parts[2] || 'preflop';
+    for (let i = 0; i < TRAINING_FOCUSES.length; i++) {
+      const f = TRAINING_FOCUSES[i];
+      if (f.streetFilter && street === f.streetFilter && f.leakTypes.indexOf(type) >= 0) {
+        return Object.assign({}, f, { spot: leak.label || f.label });
+      }
+      if (!f.streetFilter && f.leakTypes.indexOf(type) >= 0) {
+        return Object.assign({}, f, { spot: leak.label || f.label });
+      }
+    }
+    return {
+      id: 'leak:' + key,
+      label: leak.label || key,
+      spot: leak.label || key,
+      scenario: 'random',
+      street: street
+    };
+  }
+
+  function pickGreetingFocus(bundle) {
+    const history = loadGreetingFocusHistory();
+    const recentIds = {};
+    history.slice(0, GREETING_HISTORY_MAX).forEach(function (h) {
+      if (h && h.id) recentIds[h.id] = true;
+    });
+    const avoidLabels = history.slice(0, 5).map(function (h) {
+      return h.spot || h.label || h.id;
+    }).filter(Boolean);
+
+    const leaks = (bundle && bundle.leaks) || [];
+    const leakCandidates = [];
+    leaks.forEach(function (leak) {
+      const f = focusFromLeak(leak);
+      if (f && !recentIds[f.id]) leakCandidates.push(f);
+    });
+    if (leakCandidates.length) {
+      const chosen = leakCandidates[0];
+      return {
+        focus: chosen,
+        avoidRecent: avoidLabels,
+        reason: 'leak'
+      };
+    }
+
+    const catalogFresh = TRAINING_FOCUSES.filter(function (f) { return !recentIds[f.id]; });
+    const pool = catalogFresh.length ? catalogFresh : TRAINING_FOCUSES.slice();
+    // Rotación determinista por día + historial para variar sin ser totalmente aleatoria
+    const day = new Date().toISOString().slice(0, 10);
+    let hash = 0;
+    const seed = day + '|' + (history[0] && history[0].id ? history[0].id : '');
+    for (let i = 0; i < seed.length; i++) hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
+    const chosen = pool[Math.abs(hash) % pool.length];
+    return {
+      focus: Object.assign({}, chosen),
+      avoidRecent: avoidLabels,
+      reason: catalogFresh.length ? 'rotate' : 'wrap'
+    };
+  }
+
+  function buildHomeGreetingQuestion(focusInfo) {
+    const focus = focusInfo.focus || {};
+    const avoid = (focusInfo.avoidRecent || []).slice(0, 5);
+    let q =
+      'Escribe un saludo breve de inicio de sesión (2 o 3 frases máximo). ' +
+      'Sé directo, amable y motivador, y recomienda entrenar HOY sobre: ' +
+      (focus.spot || focus.label || 'spots fundamentales') + '. ';
+    if (avoid.length) {
+      q += 'No repitas estos focos recientes: ' + avoid.join('; ') + '. ';
+    }
+    q +=
+      'Varía el estilo respecto a saludos genéricos (evita abrir siempre con la misma fórmula). ' +
+      'Sin títulos, sin markdown, sin listas ni emojis.';
+    return q;
+  }
 
   function stripPlainCoachText(md) {
     return String(md || '')
@@ -822,12 +973,31 @@
     const Payload = global.PTAIHandPayload;
     if (!Payload || !Payload.build) return null;
     const bundle = typeof getStatsBundle === 'function' ? getStatsBundle() : getStatsBundle;
-    const payload = Payload.build('statsGlobal', bundle);
+    const focusInfo = pickGreetingFocus(bundle || {});
+    const greetingFocus = {
+      id: focusInfo.focus.id,
+      label: focusInfo.focus.label,
+      spot: focusInfo.focus.spot || focusInfo.focus.label,
+      scenario: focusInfo.focus.scenario || null,
+      street: focusInfo.focus.street || null,
+      avoidRecent: focusInfo.avoidRecent || [],
+      reason: focusInfo.reason
+    };
+    const enrich = Object.assign({}, bundle || {}, { greetingFocus: greetingFocus });
+    const payload = Payload.build('statsGlobal', enrich);
     if (!payload) return null;
-    const data = await fetchCoach(payload, 'statsGlobal', 'question', HOME_GREETING_QUESTION, [], { freePromo: true });
+    payload.greetingFocus = greetingFocus;
+    const question = buildHomeGreetingQuestion(focusInfo);
+    const data = await fetchCoach(payload, 'statsGlobal', 'question', question, [], { freePromo: true });
     const text = stripPlainCoachText(data.reportMarkdown || '');
     if (text) {
       try { sessionStorage.setItem(cacheKey, text); } catch (e) { /* noop */ }
+      saveGreetingFocus({
+        id: greetingFocus.id,
+        label: greetingFocus.label,
+        spot: greetingFocus.spot,
+        date: today
+      });
     }
     return text || null;
   }
@@ -856,13 +1026,14 @@
       coachStatusHtml() +
       '</div></div>' +
       '<div class="home-coach-steps">' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Informe automático</h4><p>Al terminar una mano en el entrenador, o en el resumen de una sesión importada, pulsa <em>Informe de la mano</em> o <em>Informe de la sesión</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Pregunta concreta</h4><p>¿Dudas en un sizing o un fold? Usa <em>Pregunta concreta</em> (hasta ' + QUESTION_MAX + ' caracteres). Mantengo el hilo de la conversación en la misma mano o sesión.</p></div>' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">3</span><h4>Estadísticas y sesiones</h4><p>En <em>Estadísticas</em>, pide <em>Consejos de entrenamiento</em> según tus leaks. En <em>Sesiones</em>, revisa manos paso a paso o analiza toda la sesión importada.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Si empiezas de cero</h4><p>Abre <em>Guía básica</em> en el menú: conceptos, qué es el GTO, ejemplos y un mini entrenamiento antes de meterte en spots avanzados.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Informe automático</h4><p>Al terminar una mano en el entrenador, o en el resumen de una sesión importada, pulsa <em>Informe de la mano</em> o <em>Informe de la sesión</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">3</span><h4>Pregunta concreta</h4><p>¿Dudas en un sizing o un fold? Usa <em>Pregunta concreta</em> (hasta ' + QUESTION_MAX + ' caracteres). Mantengo el hilo de la conversación en la misma mano o sesión.</p></div>' +
       '</div>' +
       '<div class="home-coach-where">' +
       '<h4>Dónde encontrarme</h4>' +
       '<ul>' +
+      '<li><strong>Guía básica</strong> — conceptos para principiantes y dudas al coach.</li>' +
       '<li><strong>Entrenador</strong> — al finalizar cada mano, debajo del resultado.</li>' +
       '<li><strong>Sesiones</strong> — resumen de sesión, revisión de mano y paso a paso.</li>' +
       '<li><strong>Estadísticas</strong> — bloque IA Coach con informe global y preguntas.</li>' +

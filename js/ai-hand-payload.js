@@ -199,7 +199,7 @@
       trend: trend || undefined
     };
     return {
-      src: 'statsGlobal',
+      src: data.beginner === true ? 'learn' : 'statsGlobal',
       st: {
         hands: st.handsPlayed || 0,
         decisions: total,
@@ -231,7 +231,9 @@
         net: Math.round(sessTot.netBB * 100) / 100
       } : undefined,
       player: player,
-      solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.'
+      solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.',
+      greetingFocus: data.greetingFocus || undefined,
+      beginner: data.beginner === true ? true : undefined
     };
   }
 
@@ -247,7 +249,7 @@
   }
   function build(source, handObj) {
     if (!handObj) return null;
-    if (source === 'statsGlobal') return buildStats(handObj);
+    if (source === 'statsGlobal' || source === 'learn') return buildStats(handObj);
     if (source === 'sessionGlobal') return buildSession(handObj);
     return source === 'session' ? fromSession(handObj) : fromTrainer(handObj);
   }

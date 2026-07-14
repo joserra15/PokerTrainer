@@ -302,6 +302,59 @@
     });
   }
 
+  function applyPlaySetupConfig(partial) {
+    const PC = window.PTPlayConfig;
+    if (!PC) return null;
+    const cfg = PC.normalize(Object.assign({}, PC.DEFAULT, partial || {}));
+    function activate(sel, val) {
+      const box = $(sel);
+      if (!box || val == null) return;
+      let found = false;
+      box.querySelectorAll('.setup-chip').forEach((c) => {
+        const on = c.dataset.val === String(val);
+        c.classList.toggle('active', on);
+        if (on) found = true;
+      });
+      return found;
+    }
+    activate('#setup-game-type', cfg.gameType);
+    activate('#setup-stack-depth', cfg.stackDepth);
+    activate('#setup-scenario', cfg.scenario);
+    renderHeroPosChips();
+    activate('#setup-hero-pos', cfg.heroPos);
+    activate('#setup-hand-range', cfg.handRange);
+    activate('#setup-villain-level', cfg.villainLevel);
+    activate('#setup-practice-street', cfg.practiceStreet);
+    if (cfg.tableTheme) {
+      activate('#setup-table-theme', cfg.tableTheme);
+      saveTableTheme(cfg.tableTheme);
+    }
+    const laEl = $('#setup-live-advisor');
+    if (laEl && typeof cfg.liveAdvisor === 'boolean') laEl.checked = cfg.liveAdvisor;
+    return readPlayConfig();
+  }
+
+  async function startGuidedTraining(partial) {
+    const cfg = applyPlaySetupConfig(partial || {});
+    if (!cfg) {
+      goToTab('play', { setup: true });
+      return;
+    }
+    playSessionConfig = cfg;
+    if (window.PTLiveAdvisor && playSessionConfig) {
+      PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
+    }
+    resetPlaySession(false);
+    goToTab('play', { table: true });
+    showPlayTable();
+    scrollPlayToTop();
+    await yieldToPaint();
+    scrollPlayToTop();
+    void startNewHand();
+  }
+  window.startGuidedTraining = startGuidedTraining;
+  window.applyPlaySetupConfig = applyPlaySetupConfig;
+
   function bindPlaySetup() {
     bindChipGroup('#setup-game-type', renderHeroPosChips);
     bindChipGroup('#setup-stack-depth');
@@ -553,6 +606,11 @@
       const inTable = active && !active.classList.contains('hidden') && !opts.setup;
       if (opts.table || inTable) showPlayTable();
       else showPlaySetup();
+    }
+    if (tabId === 'learn') {
+      if (window.PTBeginnerGuide && PTBeginnerGuide.render) {
+        PTBeginnerGuide.render($('#learn-content'));
+      }
     }
     if (tabId === 'history') renderHistory();
     if (tabId === 'errors') renderErrors();

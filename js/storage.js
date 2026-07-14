@@ -205,6 +205,7 @@
     writeClearedAt(ca);
     if (key === 'stats') {
       try { localStorage.removeItem(scopedKey('stats_coach')); } catch (e) { /* noop */ }
+      try { localStorage.removeItem(scopedKey('learn_coach')); } catch (e) { /* noop */ }
     }
   }
 
@@ -962,11 +963,14 @@
     return thread.slice(0, COACH_THREAD_MAX);
   }
 
-  /** target: { kind: 'history'|'session'|'sessionHand'|'stats', handId?, sessionId? } */
+  /** target: { kind: 'history'|'session'|'sessionHand'|'stats'|'learn', handId?, sessionId? } */
   function getCoachThread(target) {
     if (!target || !target.kind) return [];
     if (target.kind === 'stats') {
       return read(scopedKey('stats_coach'), []);
+    }
+    if (target.kind === 'learn') {
+      return read(scopedKey('learn_coach'), []);
     }
     if (target.kind === 'history' && target.handId) {
       const rec = getHistory().find(function (h) { return h.id === target.handId; });
@@ -995,6 +999,16 @@
       thread.unshift(e);
       thread = trimCoachThread(thread);
       if (!write(scopedKey('stats_coach'), thread)) {
+        return Promise.resolve({ ok: false, error: 'storage_full' });
+      }
+      return Promise.resolve({ ok: true, entry: e, thread: thread.slice() });
+    }
+
+    if (target.kind === 'learn') {
+      let thread = read(scopedKey('learn_coach'), []);
+      thread.unshift(e);
+      thread = trimCoachThread(thread);
+      if (!write(scopedKey('learn_coach'), thread)) {
         return Promise.resolve({ ok: false, error: 'storage_full' });
       }
       return Promise.resolve({ ok: true, entry: e, thread: thread.slice() });
