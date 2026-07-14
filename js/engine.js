@@ -1685,7 +1685,7 @@
       gto: freqs,
       context: 'Eres SB con acción folded to you. ¿Fold, limp o raise?'
     };
-    markPreflopFoldsBeforeHeroRFI(hand);
+    markFoldedBeforeHeroRFI(hand);
   }
 
   function setupCold4betInitial(hand) {
