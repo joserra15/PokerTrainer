@@ -181,6 +181,34 @@ Puedes recomendar practicar spots concretos en el entrenador de la app o seguir 
 NO asumas que domina GTO ni soluce spots avanzados.
 Responde markdown en español. Título breve. Respuesta COMPLETA. Cierra con un tip práctico o una pregunta para seguir aprendiendo.`;
 
+const PARSE_HAND_PROMPT = `Eres un parser experto de manos de poker NL Hold'em 6-max/9-max cash. Recibes la DESCRIPCIÓN EN TEXTO LIBRE de una mano (en español) escrita por un usuario: posiciones, cartas del héroe, cartas de villanos si se conocen, cartas comunitarias y las acciones por calle.
+
+Tu tarea es DEVOLVER SOLO UN OBJETO JSON VÁLIDO (sin markdown, sin explicación fuera del JSON) con esta forma EXACTA:
+
+{
+  "format": "6max" | "9max",
+  "heroPos": "UTG"|"UTG1"|"UTG2"|"LJ"|"HJ"|"CO"|"BTN"|"SB"|"BB",
+  "heroCards": ["Ah","Kd"],
+  "villains": [ { "pos": "BTN", "cards": ["Qs","Qd"] } ],
+  "board": ["9c","Tc","8c","6s","2h"],
+  "actions": {
+    "preflop": [ { "pos": "CO", "action": "raise"|"call"|"fold"|"check"|"bet", "amountBB": 3 } ],
+    "flop": [],
+    "turn": [],
+    "river": []
+  },
+  "analysis": "Análisis breve de la mano en español (markdown permitido dentro de este string)."
+}
+
+REGLAS ESTRICTAS:
+- Cartas SIEMPRE en formato de 2 caracteres: rango (2-9,T,J,Q,K,A) + palo en minúscula (s,h,d,c). Ejemplo: "As","Th","9c". La T es el 10.
+- "amountBB" es el TOTAL en ciegas grandes (bb) al que se sube o apuesta. Para raise = tamaño total (p.ej. open a 3 → 3; 3-bet a 9 → 9). Para bet = tamaño de la apuesta en bb. Para call/check/fold usa 0 o null.
+- Incluye en "actions" TODAS las acciones en orden real, incluida la del héroe. Usa las posiciones como identificador de cada jugador.
+- "board" puede tener 0, 3, 4 o 5 cartas. Si no se menciona flop/turn/river, deja las que falten fuera del array.
+- Si una carta de villano no se conoce, omite "cards" o deja [] en ese villano.
+- Si un dato no está en el texto, haz la inferencia más razonable y coherente (por ejemplo, las ciegas se postean solas). NUNCA inventes cartas que contradigan el texto.
+- No incluyas comentarios ni texto fuera del objeto JSON.`;
+
 interface GeminiPart {
   text?: string;
   thought?: boolean;
@@ -192,7 +220,7 @@ interface ThreadTurn {
   reportMarkdown?: string;
 }
 
-type AiMode = 'report' | 'question' | 'session_report' | 'session_question' | 'stats_report' | 'stats_question';
+type AiMode = 'report' | 'question' | 'session_report' | 'session_question' | 'stats_report' | 'stats_question' | 'parse_hand';
 
 const QUESTION_MAX = 500;
 const THREAD_MAX = 4;
@@ -204,6 +232,7 @@ function normalizeMode(raw: unknown): AiMode {
   if (raw === 'session_question') return 'session_question';
   if (raw === 'stats_report') return 'stats_report';
   if (raw === 'stats_question') return 'stats_question';
+  if (raw === 'parse_hand') return 'parse_hand';
   return 'report';
 }
 
@@ -241,6 +270,7 @@ function isHomeGreetingPayload(payload: unknown): boolean {
 }
 
 function promptForMode(mode: AiMode, payload?: unknown, freePromo?: boolean): string {
+  if (mode === 'parse_hand') return PARSE_HAND_PROMPT;
   if (mode === 'session_report') return SESSION_REPORT_PROMPT;
   if (mode === 'session_question') return SESSION_QUESTION_PROMPT;
   if (mode === 'stats_report') return STATS_REPORT_PROMPT;
@@ -255,6 +285,11 @@ function promptForMode(mode: AiMode, payload?: unknown, freePromo?: boolean): st
 
 function userContentForMode(mode: AiMode, payload: unknown, question: string | null): string {
   const json = JSON.stringify(payload);
+  if (mode === 'parse_hand') {
+    const p = (payload && typeof payload === 'object') ? payload as Record<string, unknown> : {};
+    const rawText = typeof p.rawText === 'string' ? p.rawText : '';
+    return 'Descripción de la mano a parsear a JSON:\n' + rawText;
+  }
   if (mode === 'session_question') {
     return 'Pregunta del usuario:\n' + question + '\n\nSesión (JSON):\n' + json;
   }
@@ -580,10 +615,18 @@ async function callGemini(
   const isSession = mode.startsWith('session_');
   const isStats = mode.startsWith('stats_');
   const isQuestion = mode.endsWith('question');
+  const isParse = mode === 'parse_hand';
   const model = 'gemini-2.5-flash';
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/' + model +
     ':generateContent?key=' + geminiKey;
+
+  const generationConfig: Record<string, unknown> = {
+    temperature: isParse ? 0.15 : (isQuestion ? 0.4 : 0.35),
+    maxOutputTokens: isParse ? 4096 : (isQuestion ? 4096 : ((isSession || isStats) ? 4096 : 2048)),
+    thinkingConfig: { thinkingBudget: 0 }
+  };
+  if (isParse) generationConfig.responseMimeType = 'application/json';
 
   const geminiRes = await fetch(url, {
     method: 'POST',
@@ -591,11 +634,7 @@ async function callGemini(
     body: JSON.stringify({
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents,
-      generationConfig: {
-        temperature: isQuestion ? 0.4 : 0.35,
-        maxOutputTokens: isQuestion ? 4096 : ((isSession || isStats) ? 4096 : 2048),
-        thinkingConfig: { thinkingBudget: 0 }
-      }
+      generationConfig
     })
   });
 
@@ -722,6 +761,14 @@ serve(async (req) => {
   if ((mode === 'question' || mode === 'session_question' || mode === 'stats_question') && !question) {
     return json({ error: 'missing_question' }, 400);
   }
+  if (mode === 'parse_hand') {
+    const p = body.payload as Record<string, unknown>;
+    const rawText = typeof p?.rawText === 'string' ? p.rawText.trim() : '';
+    if (!rawText) return json({ error: 'missing_hand_text' }, 400);
+    if (rawText.length > 4000) {
+      (body.payload as Record<string, unknown>).rawText = rawText.slice(0, 4000);
+    }
+  }
 
   const thread = mode.endsWith('question') ? sanitizeThread(body.thread) : [];
   const rawPayload = body.payload as PayloadRecord;
@@ -759,6 +806,33 @@ serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'gemini_error';
     return json({ error: msg }, msg === 'empty_response' ? 502 : 502);
+  }
+
+  if (mode === 'parse_hand') {
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(result.text);
+    } catch {
+      const m = result.text.match(/\{[\s\S]*\}/);
+      if (m) {
+        try { parsed = JSON.parse(m[0]); } catch { parsed = null; }
+      }
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      return json({ error: 'parse_failed' }, 502);
+    }
+    if (!freePromo) {
+      await recordAiUsage(billingUserId, mode, access.source || 'plan');
+    }
+    const parsedObj = parsed as Record<string, unknown>;
+    const analysisMarkdown = typeof parsedObj.analysis === 'string' ? parsedObj.analysis : '';
+    return json({
+      hand: parsedObj,
+      analysisMarkdown: analysisMarkdown,
+      model: result.model,
+      mode: mode,
+      createdAt: new Date().toISOString()
+    });
   }
 
   const truncated = !coachResponseComplete(mode, result.text, result.finishReason || '');
