@@ -612,6 +612,11 @@
         PTBeginnerGuide.render($('#learn-content'));
       }
     }
+    if (tabId === 'analysis') {
+      if (window.PTHandAnalysis && PTHandAnalysis.render) {
+        PTHandAnalysis.render($('#analysis-content'));
+      }
+    }
     if (tabId === 'history') renderHistory();
     if (tabId === 'errors') renderErrors();
     if (tabId === 'stats') renderStats();
@@ -826,8 +831,14 @@
       $('#import-status').textContent = e.target.files.length ? `Listo para procesar: ${e.target.files[0].name}` : '';
     });
     $('#process-session').addEventListener('click', processSessionFile);
-    $('#back-to-sessions').addEventListener('click', () => { showSessionsView('home'); renderSessionsList(); });
-    $('#back-to-detail').addEventListener('click', () => { showSessionsView('detail'); });
+    $('#back-to-sessions').addEventListener('click', () => {
+      if (analysisReviewReturn) { analysisReviewReturn = false; goToTab('analysis'); return; }
+      showSessionsView('home'); renderSessionsList();
+    });
+    $('#back-to-detail').addEventListener('click', () => {
+      if (analysisReviewReturn) { analysisReviewReturn = false; goToTab('analysis'); return; }
+      showSessionsView('detail');
+    });
 
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-review], [data-replay]');
@@ -946,6 +957,43 @@
     void startNewHand();
     return true;
   }
+
+  // Juega en el entrenador una mano guardada de "Análisis de manos": mismas cartas
+  // (héroe, villano y comunitarias) pero la app juega las acciones de los villanos.
+  function playAnalysisHand(force, playConfig) {
+    if (!force) return false;
+    pendingForce = force;
+    if (playConfig) playSessionConfig = playConfig;
+    replayPlayConfig = playConfig || playSessionConfig || null;
+    if (window.PTLiveAdvisor && playSessionConfig) {
+      PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
+    }
+    goToPlay();
+    void startNewHand();
+    return true;
+  }
+  window.playAnalysisHand = playAnalysisHand;
+
+  // Abre la revisión paso a paso / repaso GTO de una mano de análisis reutilizando
+  // la vista de revisión de sesiones.
+  function openAnalysisHandReview(hand, mode) {
+    if (!hand) return;
+    currentHand = hand;
+    currentSession = { id: '__analysis__', analysis: true, hero: hand.hero };
+    analysisReviewReturn = true;
+    if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
+    if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
+    try {
+      if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
+    } catch (e) {
+      console.error('[Analysis] recompute failed', e);
+    }
+    goToTab('sessions');
+    showSessionsView('review');
+    if (mode === 'replay') startInteractiveReplay();
+    else renderTimelineReview();
+  }
+  window.openAnalysisHandReview = openAnalysisHandReview;
 
   function trainerLeaksForStats(st) {
     const aggLeaks = window.PTStatsAggregate ? PTStatsAggregate.trainerTopLeaks(st, 5) : [];
@@ -2900,6 +2948,7 @@
   let currentSession = null;
   let currentHand = null;
   let replayState = null;
+  let analysisReviewReturn = false;
 
   function showSessionsView(which) {
     $('#sessions-home').classList.toggle('hidden', which !== 'home');
@@ -3433,15 +3482,24 @@
     applyTableTheme(loadTableTheme());
     scrollSessionReviewToTop();
     if (window.PTAIReport) {
-      window.PTAIReport.mount($('#ai-report-session'), {
-        scope: 'session',
-        getHand: () => currentHand,
-        persist: {
+      const isAnalysis = !!(currentSession && currentSession.analysis);
+      const persist = isAnalysis
+        ? { kind: 'analysis', getHandId: () => currentHand && currentHand.id }
+        : {
           kind: 'sessionHand',
           getSessionId: () => currentSession && currentSession.id,
           getHandId: () => currentHand && currentHand.id
-        },
-        onThreadUpdate: (thread) => { if (currentHand) currentHand.coachThread = thread; }
+        };
+      window.PTAIReport.mount($('#ai-report-session'), {
+        scope: 'session',
+        getHand: () => currentHand,
+        persist: persist,
+        onThreadUpdate: (thread) => {
+          if (currentHand) {
+            currentHand.coachThread = thread;
+            if (isAnalysis && window.Store && Store.updateAnalysisHand) Store.updateAnalysisHand(currentHand);
+          }
+        }
       });
     }
     $('#to-replay').addEventListener('click', () => startInteractiveReplay());

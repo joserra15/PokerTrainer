@@ -5,6 +5,7 @@
   "scripts": {
     "test:import": "node tools/testimport.js",
     "test:unit": "node tools/selftest.js",
+    "test:hand-analysis": "node tools/test-hand-analysis.js",
     "test:ranges": "node tools/validate-ranges-json.js",
     "test:e2e": "playwright test",
     "sync:rfi": "node tools/sync-rfi-solver-data.js"

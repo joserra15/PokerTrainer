@@ -174,7 +174,7 @@
     const villainCards = isValidPair(fd.villainCards) ? fd.villainCards.slice() : null;
     const board = (fd.board || []).filter(Boolean).slice(0, 5);
     const heroSeat = heroTableSeat(hand);
-    const vSeat = villainTableSeat(hand);
+    const vSeat = (hand._predeal && hand._predeal.villainPos) || villainTableSeat(hand);
     const hc = hand.table.holeCards;
     const forcedDead = [].concat(heroCards || [], villainCards || [], board);
     const kept = [];
