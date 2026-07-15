@@ -3363,6 +3363,8 @@
   function openHandReview(handId, mode) {
     currentHand = findHand(handId);
     if (!currentHand) return;
+    analysisReviewReturn = false;
+    restoreSessionReviewBackLabel();
     if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
     if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
     showSessionsView('review');
