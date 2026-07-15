@@ -198,5 +198,10 @@ assert(edited.id === 'ah_edit_1', 'editar conserva id: ' + edited.id);
 assert(edited.spec && edited.spec.heroPos === 'CO', 'spec guardado en analyzed');
 assert(edited.createdAt === '2020-01-01T00:00:00.000Z', 'conserva createdAt');
 
+// --- 7) markup del botón guardar: atributo booleano válido (sin comilla suelta) ---
+const fsHa = fs.readFileSync(path.join(__dirname, '..', 'js', 'hand-analysis.js'), 'utf8');
+assert(/data-ha-manual-save>/.test(fsHa), 'data-ha-manual-save sin comilla suelta');
+assert(!/data-ha-manual-save\">/.test(fsHa), 'no debe haber data-ha-manual-save">');
+
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');
