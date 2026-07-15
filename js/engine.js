@@ -159,6 +159,56 @@
     hand.hero.code = R.handCode(hand.hero.cards[0], hand.hero.cards[1]);
   }
 
+  function isValidPair(cards) {
+    return !!(cards && cards.length === 2 && cards[0] && cards[1] && cards[0] !== cards[1]);
+  }
+
+  /**
+   * Inyecta cartas fijas (héroe, villano y comunitarias) manteniendo el resto de
+   * la mano coherente. Solo se usa al "jugar en el entrenador" una mano guardada:
+   * las cartas conocidas se respetan y la app juega las acciones de los villanos.
+   */
+  function applyForcedHand(hand, fd) {
+    if (!fd || !hand.table || !hand.table.holeCards) return;
+    const heroCards = isValidPair(fd.heroCards) ? fd.heroCards.slice() : null;
+    const villainCards = isValidPair(fd.villainCards) ? fd.villainCards.slice() : null;
+    const board = (fd.board || []).filter(Boolean).slice(0, 5);
+    const heroSeat = heroTableSeat(hand);
+    const vSeat = (hand._predeal && hand._predeal.villainPos) || villainTableSeat(hand);
+    const hc = hand.table.holeCards;
+    const forcedDead = [].concat(heroCards || [], villainCards || [], board);
+    const kept = [];
+    const redeal = [];
+    Object.keys(hc).forEach(function (pos) {
+      if (pos === heroSeat && heroCards) return;
+      if (pos === vSeat && villainCards) return;
+      const cur = hc[pos];
+      if (cur && cur.length === 2 && !cur.some(function (c) { return forcedDead.indexOf(c) >= 0; })) {
+        kept.push(cur[0], cur[1]);
+      } else {
+        redeal.push(pos);
+      }
+    });
+    const deck = C.shuffledDeckExcluding(forcedDead.concat(kept));
+    redeal.forEach(function (pos) {
+      if (deck.length >= 2) hc[pos] = [deck.pop(), deck.pop()];
+    });
+    if (heroCards) {
+      hc[heroSeat] = heroCards.slice();
+      hand.hero.cards = heroCards.slice();
+      hand.hero.code = R.handCode(heroCards[0], heroCards[1]);
+    }
+    if (villainCards && vSeat) {
+      hc[vSeat] = villainCards.slice();
+      if (hand.villain) hand.villain.cards = villainCards.slice();
+    }
+    if (board.length) {
+      let full = board.slice();
+      while (full.length < 5 && deck.length) full.push(deck.pop());
+      hand._predeal.board = full;
+    }
+  }
+
   function markFolded(hand, pos) {
     if (!hand.table || !pos) return;
     hand.table.folded[pos] = true;
@@ -839,6 +889,7 @@
     if (forceKey && forceKey.type) {
       const s = Object.assign({}, forceKey);
       delete s.seed;
+      delete s.forceDeal;
       if (PC && playConfig && PC.is9Max(playConfig) && s.heroPos && !s.engineHeroPos) {
         s.engineHeroPos = PC.enginePos(s.heroPos);
       }
@@ -1032,6 +1083,7 @@
     assignSeatProfiles(hand);
     initHandStacks(hand);
     syncVillainMeta(hand);
+    if (force && force.forceDeal) applyForcedHand(hand, force.forceDeal);
     return hand;
   }
 

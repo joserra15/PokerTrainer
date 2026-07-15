@@ -963,7 +963,50 @@
     return thread.slice(0, COACH_THREAD_MAX);
   }
 
-  /** target: { kind: 'history'|'session'|'sessionHand'|'stats'|'learn', handId?, sessionId? } */
+  // ---------- MANOS DE ANÁLISIS (menú "Análisis de manos") ----------
+  const ANALYSIS_KEY = 'analysis_hands';
+
+  function getAnalysisHands() {
+    const list = read(scopedKey(ANALYSIS_KEY), []);
+    return Array.isArray(list) ? list : [];
+  }
+
+  function getAnalysisHand(id) {
+    return getAnalysisHands().find(function (h) { return h.id === id; }) || null;
+  }
+
+  function saveAnalysisHand(hand) {
+    if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
+    const list = getAnalysisHands();
+    if (list.some(function (h) { return h.id === hand.id; })) {
+      return updateAnalysisHand(hand);
+    }
+    list.unshift(hand);
+    if (!write(scopedKey(ANALYSIS_KEY), list)) {
+      return { ok: false, error: 'storage_full' };
+    }
+    return { ok: true, hand: hand, count: list.length };
+  }
+
+  function updateAnalysisHand(hand) {
+    if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
+    const list = getAnalysisHands();
+    const idx = list.findIndex(function (h) { return h.id === hand.id; });
+    if (idx < 0) return { ok: false, error: 'hand_not_found' };
+    list[idx] = hand;
+    if (!write(scopedKey(ANALYSIS_KEY), list)) {
+      return { ok: false, error: 'storage_full' };
+    }
+    return { ok: true, hand: hand, count: list.length };
+  }
+
+  function removeAnalysisHand(id) {
+    const list = getAnalysisHands().filter(function (h) { return h.id !== id; });
+    write(scopedKey(ANALYSIS_KEY), list);
+    return { ok: true, count: list.length };
+  }
+
+  /** target: { kind: 'history'|'session'|'sessionHand'|'stats'|'learn'|'analysis', handId?, sessionId? } */
   function getCoachThread(target) {
     if (!target || !target.kind) return [];
     if (target.kind === 'stats') {
@@ -971,6 +1014,10 @@
     }
     if (target.kind === 'learn') {
       return read(scopedKey('learn_coach'), []);
+    }
+    if (target.kind === 'analysis' && target.handId) {
+      const rec = getAnalysisHand(target.handId);
+      return rec && rec.coachThread ? rec.coachThread.slice() : [];
     }
     if (target.kind === 'history' && target.handId) {
       const rec = getHistory().find(function (h) { return h.id === target.handId; });
@@ -1012,6 +1059,17 @@
         return Promise.resolve({ ok: false, error: 'storage_full' });
       }
       return Promise.resolve({ ok: true, entry: e, thread: thread.slice() });
+    }
+
+    if (target.kind === 'analysis' && target.handId) {
+      const rec = getAnalysisHand(target.handId);
+      if (!rec) return Promise.resolve({ ok: false, error: 'hand_not_found' });
+      if (!rec.coachThread) rec.coachThread = [];
+      rec.coachThread.unshift(e);
+      rec.coachThread = trimCoachThread(rec.coachThread);
+      const res = updateAnalysisHand(rec);
+      if (!res.ok) return Promise.resolve({ ok: false, error: res.error || 'storage_full' });
+      return Promise.resolve({ ok: true, entry: e, thread: rec.coachThread.slice() });
     }
 
     if (target.kind === 'history' && target.handId) {
@@ -1067,6 +1125,7 @@
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
-    getCoachThread, appendCoachEntry
+    getCoachThread, appendCoachEntry,
+    getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand
   };
 })(window);

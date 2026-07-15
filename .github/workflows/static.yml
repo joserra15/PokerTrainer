@@ -39,6 +39,8 @@ jobs:
         run: node tools/test-ai-payload.js
       - name: Test river trips board doblado
         run: node tools/test-river-trips.js
+      - name: Test análisis de manos (manual + cartas fijas)
+        run: node tools/test-hand-analysis.js
 
   deploy:
     needs: test

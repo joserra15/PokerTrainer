@@ -308,6 +308,7 @@
       <nav class="tabs">
         <button class="tab" data-tab="play">Entrenar</button>
         <button class="tab" data-tab="learn">Guía básica</button>
+        <button class="tab" data-tab="analysis">Análisis</button>
         <button class="tab" data-tab="ranges">Rangos</button>
         <button class="tab" data-tab="sessions">Sesiones</button>
         <button class="tab" data-tab="history">Histórico</button>
@@ -368,6 +369,13 @@
             <span class="home-card-title">Guía básica</span>
             <span class="home-card-desc">Conceptos, GTO y práctica si empiezas de cero</span>
           </button>
+          <button type="button" class="home-card" data-go-tab="analysis">
+            <span class="home-card-icon home-card-icon-analysis" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/><circle cx="7" cy="14" r="1"/><circle cx="18" cy="8" r="1"/></svg>
+            </span>
+            <span class="home-card-title">Análisis de manos</span>
+            <span class="home-card-desc">Analiza manos, revísalas con GTO y reprodúcelas</span>
+          </button>
           <button type="button" class="home-card" data-go-tab="ranges">
             <span class="home-card-icon home-card-icon-ranges" aria-hidden="true">
               <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
@@ -423,6 +431,11 @@
     <!-- ===== GUÍA BÁSICA ===== -->
     <section id="tab-learn" class="tab-panel">
       <div id="learn-content" class="learn-content"></div>
+    </section>
+
+    <!-- ===== ANÁLISIS DE MANOS ===== -->
+    <section id="tab-analysis" class="tab-panel">
+      <div id="analysis-content" class="analysis-content"></div>
     </section>
 
     <!-- ===== ENTRENAR ===== -->
@@ -1036,6 +1049,7 @@
       'js/disclaimer.js',
       'js/re-engagement.js',
       'js/beginner-guide.js',
+      'js/hand-analysis.js',
       'js/user-profile.js',
       'js/demo-mode.js',
       'js/entitlements.js',

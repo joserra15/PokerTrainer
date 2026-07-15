@@ -772,6 +772,63 @@
     });
   }
 
+  /**
+   * Envía una descripción de mano en texto libre para que la IA la convierta en
+   * datos estructurados (spec) más un análisis. Consume una consulta del plan/bono.
+   * Devuelve { hand, analysisMarkdown }.
+   */
+  async function parseHand(text) {
+    const raw = String(text || '').trim();
+    if (!raw) throw new Error('Escribe la descripción de la mano.');
+    if (!isEnabled()) throw new Error('IA Coach no configurado.');
+
+    if (global.PTEntitlements) {
+      let ent = null;
+      if (global.PTEntitlements.refresh) ent = await global.PTEntitlements.refresh();
+      else if (global.PTEntitlements.ensureLoaded) ent = await global.PTEntitlements.ensureLoaded();
+      const aiCheck = global.PTEntitlements.canUseAI(ent);
+      if (!aiCheck.ok) {
+        const err = new Error('ai_plan');
+        err.paywall = aiCheck.reason || 'ai_plan';
+        throw err;
+      }
+    }
+
+    const ok = await ensureConsent('session');
+    if (!ok) throw new Error('Se necesita tu consentimiento para usar la IA.');
+
+    const c = cfg();
+    const body = { payload: { src: 'analysisParse', rawText: raw.slice(0, 4000) }, mode: 'parse_hand' };
+    if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) body.demo = true;
+
+    let token = null;
+    if (global.PTSupabase && global.PTSupabase.getAccessToken) {
+      token = await global.PTSupabase.getAccessToken();
+    }
+    if (!token) throw new Error('Inicia sesión para usar el IA Coach');
+
+    const res = await fetch(c.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': anonKey() || ''
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok) {
+      const msg = data.error || data.message || ('HTTP ' + res.status);
+      const err = new Error(msg);
+      if (res.status === 429) err.paywall = (msg && String(msg).indexOf('limit') >= 0) ? 'ai_limit' : 'ai_plan';
+      throw err;
+    }
+    if (global.PTEntitlements && global.PTEntitlements.refresh) {
+      global.PTEntitlements.refresh().catch(function () {});
+    }
+    return { hand: data.hand || null, analysisMarkdown: data.analysisMarkdown || '' };
+  }
+
   function resolveScope(options) {
     if (options.scope) return options.scope;
     if (options.source === 'statsGlobal') return 'statsGlobal';
@@ -1055,6 +1112,6 @@
   }
 
   global.PTAIReport = {
-    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, readCache, QUESTION_MAX
+    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX
   };
 })(window);

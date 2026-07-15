@@ -623,6 +623,7 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .home-card-icon-train { color: #6ee7a3; background: linear-gradient(180deg, rgba(63,185,80,.22), rgba(63,185,80,.08)); }
 .home-card-icon-learn { color: #fcd34d; background: linear-gradient(180deg, rgba(234,179,8,.2), rgba(234,179,8,.07)); }
 .home-card-icon-ranges { color: #9ecbff; background: linear-gradient(180deg, rgba(47,129,247,.2), rgba(47,129,247,.07)); }
+.home-card-icon-analysis { color: #6ee7b7; background: linear-gradient(180deg, rgba(16,185,129,.2), rgba(16,185,129,.07)); }
 .home-card-icon-sessions { color: #7dd3fc; background: linear-gradient(180deg, rgba(34,211,238,.18), rgba(34,211,238,.06)); }
 .home-card-icon-history { color: #d8b4fe; background: linear-gradient(180deg, rgba(168,85,247,.18), rgba(168,85,247,.06)); }
 .home-card-icon-errors { color: #ffb86b; background: linear-gradient(180deg, rgba(255,166,87,.22), rgba(255,166,87,.08)); }
@@ -3726,3 +3727,61 @@ html.pwa-standalone body {
 
 #home-usage { max-width: 520px; margin: 0 auto 20px; }
 #play-usage { margin-bottom: 10px; }
+
+/* ===== Análisis de manos ===== */
+.analysis-content { max-width: 860px; margin: 0 auto; }
+.ha-title { margin: 0 0 6px; font-size: 1.15rem; }
+.ha-intro { margin-bottom: 18px; }
+.ha-actions-top { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 8px; }
+.ha-limit { font-size: 13px; }
+.ha-empty { padding: 24px; text-align: center; border: 1px dashed rgba(255,255,255,.14); border-radius: 12px; }
+
+.ha-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 8px; }
+.ha-card { background: var(--panel, rgba(255,255,255,.03)); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ha-card-head { display: flex; align-items: center; gap: 10px; }
+.ha-card-cards { display: flex; gap: 3px; }
+.ha-card-title { font-weight: 700; }
+.ha-card-sub { font-size: 12px; }
+.ha-card-board { display: flex; gap: 3px; flex-wrap: wrap; min-height: 22px; align-items: center; }
+.ha-card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+.btn-small { padding: 6px 10px; font-size: 13px; }
+
+.ha-play-panel { border-top: 1px solid rgba(255,255,255,.08); padding-top: 10px; }
+.ha-play-opts { display: flex; flex-direction: column; gap: 10px; }
+.ha-opt-group { display: flex; flex-direction: column; gap: 5px; }
+.ha-opt-label { font-size: 12px; color: rgba(230,237,243,.75); }
+.ha-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ha-chip { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); color: var(--text); cursor: pointer; font-size: 13px; }
+.ha-chip.active { background: var(--accent, #2f81f7); border-color: transparent; color: #fff; }
+
+.ha-form { display: flex; flex-direction: column; gap: 16px; max-width: 640px; }
+.ha-field { display: flex; flex-direction: column; gap: 6px; }
+.ha-field > label { font-weight: 600; font-size: 14px; }
+.ha-form input[type="text"], .ha-form input[type="number"], .ha-form select, .ha-text-input {
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
+  color: var(--text); padding: 8px 10px; font-size: 14px; font-family: inherit;
+}
+.ha-form input:focus, .ha-form select:focus, .ha-text-input:focus { outline: none; border-color: var(--accent, #2f81f7); }
+.ha-villains { display: flex; flex-direction: column; gap: 8px; }
+.ha-villain-row, .ha-action-row { display: flex; gap: 8px; align-items: center; }
+.ha-villain-row .ha-vcards { flex: 1; }
+.ha-action-row .ha-apos { width: 90px; }
+.ha-action-row .ha-aact { width: 110px; }
+.ha-action-row .ha-aamt { width: 80px; }
+.ha-board-inputs { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
+.ha-actions-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.ha-row-del { background: transparent; border: none; color: rgba(255,120,120,.9); font-size: 20px; cursor: pointer; line-height: 1; padding: 0 6px; }
+.ha-form-errors { color: #ffb4b4; font-size: 13px; }
+.ha-form-errors ul { margin: 0; padding-left: 18px; }
+.ha-form-buttons { display: flex; gap: 10px; }
+.ha-text-input { width: 100%; box-sizing: border-box; resize: vertical; }
+.ha-text-status { margin-top: 8px; }
+.ha-loading { color: rgba(230,237,243,.85); font-size: 14px; }
+
+@media (max-width: 680px) {
+  .ha-list { grid-template-columns: 1fr; }
+  .ha-board-inputs { grid-template-columns: 1fr; }
+  .ha-action-row { flex-wrap: wrap; }
+  .ha-action-row .ha-apos, .ha-action-row .ha-aact, .ha-action-row .ha-aamt { flex: 1; width: auto; min-width: 80px; }
+  .ha-actions-top .btn { flex: 1; }
+}
