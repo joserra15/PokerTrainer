@@ -885,7 +885,7 @@
 
     html += '<div class="ha-form-errors" data-ha-errors></div>';
     html += '<div class="ha-form-buttons">';
-    html += '<button class="btn btn-primary" data-ha-manual-save">' +
+    html += '<button type="button" class="btn btn-primary" data-ha-manual-save>' +
       (editing ? 'Reanalizar y guardar' : 'Analizar y guardar') + '</button>';
     html += '</div>';
 
@@ -1074,7 +1074,8 @@
       });
     });
 
-    root.querySelector('[data-ha-manual-save]').addEventListener('click', onManualSave);
+    var saveBtn = root.querySelector('[data-ha-manual-save]');
+    if (saveBtn) saveBtn.addEventListener('click', onManualSave);
   }
 
   function showErrors(errs) {
