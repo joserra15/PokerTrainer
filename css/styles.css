@@ -3763,13 +3763,18 @@ html.pwa-standalone body {
 }
 .ha-form input:focus, .ha-form select:focus, .ha-text-input:focus { outline: none; border-color: var(--accent, #2f81f7); }
 .ha-villains { display: flex; flex-direction: column; gap: 8px; }
-.ha-villain-row, .ha-action-row { display: flex; gap: 8px; align-items: center; }
-.ha-villain-row .ha-vcards { flex: 1; }
-.ha-action-row .ha-apos { width: 90px; }
-.ha-action-row .ha-aact { width: 110px; }
+.ha-villain-row, .ha-action-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ha-villain-row .ha-vpos { width: 110px; }
+.ha-action-row .ha-apos-label {
+  min-width: 52px; font-weight: 700; font-size: 13px; color: rgba(230,237,243,.9);
+}
+.ha-action-row .ha-aact { width: 120px; }
 .ha-action-row .ha-aamt { width: 80px; }
-.ha-board-inputs { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
+.ha-board-pickers { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+.ha-board-group { display: flex; flex-direction: column; gap: 6px; }
+.ha-board-label { font-size: 12px; color: rgba(230,237,243,.7); }
 .ha-actions-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.ha-street-empty { margin: 0; font-size: 13px; }
 .ha-row-del { background: transparent; border: none; color: rgba(255,120,120,.9); font-size: 20px; cursor: pointer; line-height: 1; padding: 0 6px; }
 .ha-form-errors { color: #ffb4b4; font-size: 13px; }
 .ha-form-errors ul { margin: 0; padding-left: 18px; }
@@ -3778,10 +3783,48 @@ html.pwa-standalone body {
 .ha-text-status { margin-top: 8px; }
 .ha-loading { color: rgba(230,237,243,.85); font-size: 14px; }
 
+/* Selector visual de cartas */
+.ha-card-slots { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ha-card-slot {
+  width: 44px; height: 62px; padding: 0; border-radius: 8px;
+  border: 1px dashed rgba(255,255,255,.28); background: rgba(255,255,255,.04);
+  color: rgba(230,237,243,.55); font-size: 22px; cursor: pointer;
+  display: inline-grid; place-items: center;
+}
+.ha-card-slot.filled {
+  border-style: solid; border-color: rgba(255,255,255,.18); background: transparent; padding: 0;
+}
+.ha-card-slot.filled .card { width: 40px; height: 56px; font-size: 15px; box-shadow: none; }
+.ha-card-slot.empty:hover { border-color: var(--accent, #2f81f7); color: #fff; }
+.ha-card-clear {
+  background: transparent; border: none; color: rgba(230,237,243,.65);
+  font-size: 12px; cursor: pointer; text-decoration: underline; padding: 4px;
+}
+.ha-picker {
+  border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+  background: rgba(0,0,0,.28); padding: 12px; display: flex; flex-direction: column; gap: 10px;
+}
+.ha-picker-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ha-picker-title { font-weight: 700; flex: 1; }
+.ha-picker-selected { display: flex; gap: 6px; align-items: center; min-height: 40px; }
+.ha-picker-selected .card { width: 36px; height: 50px; font-size: 14px; }
+.ha-picker-deck {
+  display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 4px;
+}
+.ha-pick-card {
+  padding: 2px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; cursor: pointer; display: inline-grid; place-items: center;
+}
+.ha-pick-card .card { width: 28px; height: 40px; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.ha-pick-card:hover:not(:disabled) { border-color: var(--accent, #2f81f7); background: rgba(47,129,247,.12); }
+.ha-pick-card.selected { border-color: var(--accent, #2f81f7); background: rgba(47,129,247,.22); }
+.ha-pick-card.busy, .ha-pick-card:disabled { opacity: .28; cursor: not-allowed; }
+
 @media (max-width: 680px) {
   .ha-list { grid-template-columns: 1fr; }
-  .ha-board-inputs { grid-template-columns: 1fr; }
-  .ha-action-row { flex-wrap: wrap; }
-  .ha-action-row .ha-apos, .ha-action-row .ha-aact, .ha-action-row .ha-aamt { flex: 1; width: auto; min-width: 80px; }
+  .ha-board-pickers { grid-template-columns: 1fr; }
+  .ha-action-row .ha-aact, .ha-action-row .ha-aamt { flex: 1; width: auto; min-width: 80px; }
   .ha-actions-top .btn { flex: 1; }
+  .ha-picker-deck { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .ha-pick-card .card { width: 32px; height: 44px; font-size: 12px; }
 }

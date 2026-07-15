@@ -832,11 +832,21 @@
     });
     $('#process-session').addEventListener('click', processSessionFile);
     $('#back-to-sessions').addEventListener('click', () => {
-      if (analysisReviewReturn) { analysisReviewReturn = false; goToTab('analysis'); return; }
+      if (analysisReviewReturn) {
+        analysisReviewReturn = false;
+        restoreSessionReviewBackLabel();
+        goToTab('analysis');
+        return;
+      }
       showSessionsView('home'); renderSessionsList();
     });
     $('#back-to-detail').addEventListener('click', () => {
-      if (analysisReviewReturn) { analysisReviewReturn = false; goToTab('analysis'); return; }
+      if (analysisReviewReturn) {
+        analysisReviewReturn = false;
+        restoreSessionReviewBackLabel();
+        goToTab('analysis');
+        return;
+      }
       showSessionsView('detail');
     });
 
@@ -974,6 +984,15 @@
   }
   window.playAnalysisHand = playAnalysisHand;
 
+  function setAnalysisReviewBackLabel() {
+    const btn = $('#back-to-detail');
+    if (btn) btn.innerHTML = '&laquo; Volver';
+  }
+  function restoreSessionReviewBackLabel() {
+    const btn = $('#back-to-detail');
+    if (btn) btn.innerHTML = '&laquo; Volver a la sesión';
+  }
+
   // Abre la revisión paso a paso / repaso GTO de una mano de análisis reutilizando
   // la vista de revisión de sesiones.
   function openAnalysisHandReview(hand, mode) {
@@ -981,6 +1000,7 @@
     currentHand = hand;
     currentSession = { id: '__analysis__', analysis: true, hero: hand.hero };
     analysisReviewReturn = true;
+    setAnalysisReviewBackLabel();
     if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
     if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
     try {

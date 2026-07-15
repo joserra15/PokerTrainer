@@ -159,5 +159,44 @@ const cfg2 = PTHandAnalysis.toTrainerConfig(an2, 'fish', 'midnight');
 const th2 = Engine.newHand(cfg2.force, cfg2.playConfig);
 assert(th2.hero.cards.join('') === '7h7s', 'vsRFI héroe = 7h7s: ' + th2.hero.cards.join(''));
 
+// --- 4) sync asientos → acciones + fold limpia calles siguientes ---
+const draft = PTHandAnalysis.emptyDraft('6max');
+draft.heroPos = 'CO';
+draft.villains = [{ pos: 'BB', cards: [] }, { pos: 'BTN', cards: [] }];
+PTHandAnalysis.syncActionsFromSeats(draft);
+assert(draft.actions.preflop.map((a) => a.pos).join(',') === 'CO,BTN,BB',
+  'preflop players orden mesa: ' + draft.actions.preflop.map((a) => a.pos).join(','));
+assert(draft.actions.flop.length === 3, 'flop 3 acciones iniciales');
+assert(draft.actions.turn.length === 3, 'turn 3 acciones iniciales');
+
+// Fold en flop BTN → desaparece de turn/river
+const btnFlop = draft.actions.flop.find((a) => a.pos === 'BTN');
+btnFlop.action = 'fold';
+PTHandAnalysis.syncActionsFromSeats(draft);
+assert(!draft.actions.turn.some((a) => a.pos === 'BTN'), 'BTN no está en turn tras fold flop');
+assert(!draft.actions.river.some((a) => a.pos === 'BTN'), 'BTN no está en river tras fold flop');
+assert(draft.actions.turn.some((a) => a.pos === 'CO'), 'CO sigue en turn');
+assert(draft.actions.turn.some((a) => a.pos === 'BB'), 'BB sigue en turn');
+
+// Fold en preflop CO → no aparece en flop+
+const coPf = draft.actions.preflop.find((a) => a.pos === 'CO');
+coPf.action = 'fold';
+PTHandAnalysis.syncActionsFromSeats(draft);
+assert(!draft.actions.flop.some((a) => a.pos === 'CO'), 'CO fuera de flop tras fold PF');
+assert(!draft.actions.turn.some((a) => a.pos === 'CO'), 'CO fuera de turn tras fold PF');
+
+// --- 5) asientos exclusivos héroe/villano ---
+const taken = PTHandAnalysis.takenSeats({ heroPos: 'CO', villains: [{ pos: 'BB' }, { pos: 'BTN' }] }, null);
+assert(taken.CO === 'hero' && taken.BB === 'villain' && taken.BTN === 'villain', 'taken seats map');
+const takenEx = PTHandAnalysis.takenSeats({ heroPos: 'CO', villains: [{ pos: 'BB' }, { pos: 'BTN' }] }, 1);
+assert(!takenEx.BTN && takenEx.BB === 'villain', 'exclude villain idx libera asiento en options');
+
+// --- 6) editar: conservar id al reanalizar ---
+const editSpec = Object.assign({}, spec, { _id: 'ah_edit_1', _createdAt: '2020-01-01T00:00:00.000Z' });
+const edited = PTHandAnalysis.buildAnalyzedHand(editSpec, 'manual');
+assert(edited.id === 'ah_edit_1', 'editar conserva id: ' + edited.id);
+assert(edited.spec && edited.spec.heroPos === 'CO', 'spec guardado en analyzed');
+assert(edited.createdAt === '2020-01-01T00:00:00.000Z', 'conserva createdAt');
+
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');

@@ -13,6 +13,8 @@
 
   var RING_6 = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   var RING_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  var STREET_ORDER = ['preflop', 'flop', 'turn', 'river'];
+  var STREET_LABELS = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River' };
   var ACTION_LABELS = {
     fold: 'Fold', check: 'Pasar', call: 'Igualar', bet: 'Apostar', raise: 'Subir'
   };
@@ -27,7 +29,15 @@
     { val: 'crimson', label: 'Burdeos' }
   ];
 
-  var S = { view: 'list', container: null, format: '6max' };
+  var S = {
+    view: 'list',
+    container: null,
+    format: '6max',
+    draft: null,
+    editId: null,
+    editMeta: null,
+    picker: null
+  };
 
   // ---------- utilidades ----------
   function esc(s) {
@@ -37,6 +47,16 @@
   }
   function round2(x) { return Math.round(x * 100) / 100; }
   function ringFor(fmt) { return fmt === '9max' ? RING_9.slice() : RING_6.slice(); }
+  function posIndex(fmt, pos) {
+    var ring = ringFor(fmt);
+    var i = ring.indexOf(pos);
+    return i < 0 ? 999 : i;
+  }
+  function sortByRing(fmt, positions) {
+    return positions.slice().sort(function (a, b) {
+      return posIndex(fmt, a) - posIndex(fmt, b);
+    });
+  }
 
   function normalizeCard(raw) {
     if (!raw) return null;
@@ -68,6 +88,15 @@
   }
   function cardsHTML(list) { return (list || []).map(cardHTML).join(''); }
 
+  function fullDeck() {
+    if (global.Cards && global.Cards.fullDeck) return global.Cards.fullDeck();
+    var ranks = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    var suits = ['s', 'h', 'd', 'c'];
+    var out = [];
+    ranks.forEach(function (r) { suits.forEach(function (s) { out.push(r + s); }); });
+    return out;
+  }
+
   // ---------- construir mano cruda a partir de un "spec" ----------
   function specToRawHand(spec) {
     var bbVal = 1, sbVal = 0.5;
@@ -85,7 +114,7 @@
     });
 
     var streets = { preflop: [], flop: [], turn: [], river: [] };
-    ['preflop', 'flop', 'turn', 'river'].forEach(function (st) {
+    STREET_ORDER.forEach(function (st) {
       var committed = {};
       var toMatch = 0;
       if (st === 'preflop') { committed.SB = sbVal; committed.BB = bbVal; toMatch = bbVal; }
@@ -120,7 +149,7 @@
 
     var board = (spec.board || []).filter(Boolean).slice(0, 5);
     return {
-      id: 'ah_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      id: spec._id || ('ah_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
       datetime: new Date().toISOString(),
       sb: sbVal, bb: bbVal, currency: 'bb',
       hero: hero, heroCards: heroCards,
@@ -142,11 +171,27 @@
     }
     var raw = specToRawHand(spec);
     var analyzed = global.Importer.analyzeHand(raw);
-    analyzed.spec = spec;
+    analyzed.spec = {
+      format: spec.format === '9max' ? '9max' : '6max',
+      heroPos: spec.heroPos,
+      heroCards: (spec.heroCards || []).slice(),
+      villains: (spec.villains || []).map(function (v) {
+        return { pos: v.pos, cards: (v.cards || []).slice() };
+      }),
+      board: (spec.board || []).slice(),
+      actions: {
+        preflop: ((spec.actions && spec.actions.preflop) || []).slice(),
+        flop: ((spec.actions && spec.actions.flop) || []).slice(),
+        turn: ((spec.actions && spec.actions.turn) || []).slice(),
+        river: ((spec.actions && spec.actions.river) || []).slice()
+      },
+      _source: source || spec._source || 'manual'
+    };
     analyzed.boardAll = (raw.boardAll || analyzed.board || []).slice();
     analyzed.source = source || spec._source || 'manual';
-    analyzed.createdAt = new Date().toISOString();
+    analyzed.createdAt = spec._createdAt || new Date().toISOString();
     analyzed.savedName = spec._name || null;
+    if (spec._id) analyzed.id = spec._id;
     return analyzed;
   }
 
@@ -154,7 +199,17 @@
   function validateSpec(spec) {
     var errs = [];
     if (!spec.heroPos) errs.push('Elige la posición del héroe.');
-    if (!spec.heroCards || spec.heroCards.length !== 2) errs.push('Introduce las 2 cartas del héroe (ej.: As Kd).');
+    if (!spec.heroCards || spec.heroCards.length !== 2) errs.push('Elige las 2 cartas del héroe.');
+    var seenPos = {};
+    seenPos[spec.heroPos] = 'héroe';
+    (spec.villains || []).forEach(function (v, i) {
+      if (!v || !v.pos) return;
+      if (seenPos[v.pos]) {
+        errs.push('El asiento ' + v.pos + ' no puede repetirse (' + seenPos[v.pos] + ' y villano).');
+      } else {
+        seenPos[v.pos] = 'villano ' + (i + 1);
+      }
+    });
     var all = [].concat(spec.heroCards || []);
     (spec.villains || []).forEach(function (v) { if (v.cards) all = all.concat(v.cards); });
     all = all.concat(spec.board || []);
@@ -184,7 +239,6 @@
     } else if (kind === 'isoLimp' && vs) {
       out = { type: 'isoLimp', heroPos: heroPos, limperPos: vs, _villainPos: vs };
     } else if (vs) {
-      // Escenarios complejos (squeeze/3bet/…): se aproxima a un vsRFI jugable.
       out = { type: 'vsRFI', key: heroPos + '_vs_' + vs, _villainPos: vs };
     }
     return out;
@@ -260,6 +314,196 @@
     return { ok: false, error: 'no_store' };
   }
 
+  function updateHand(analyzed) {
+    if (global.Store && global.Store.updateAnalysisHand) {
+      return global.Store.updateAnalysisHand(analyzed);
+    }
+    return { ok: false, error: 'no_store' };
+  }
+
+  // ---------- draft / asientos / acciones ----------
+  function emptyActions() {
+    return { preflop: [], flop: [], turn: [], river: [] };
+  }
+
+  function emptyDraft(fmt) {
+    var f = fmt === '9max' ? '9max' : '6max';
+    var ring = ringFor(f);
+    return {
+      format: f,
+      heroPos: ring[0],
+      heroCards: [],
+      villains: [{ pos: '', cards: [] }],
+      boardFlop: [],
+      boardTurn: [],
+      boardRiver: [],
+      actions: emptyActions()
+    };
+  }
+
+  function draftFromSpec(spec) {
+    var board = (spec.board || []).slice();
+    var d = emptyDraft(spec.format);
+    d.heroPos = spec.heroPos || d.heroPos;
+    d.heroCards = (spec.heroCards || []).slice(0, 2);
+    d.villains = (spec.villains && spec.villains.length)
+      ? spec.villains.map(function (v) {
+          return { pos: v.pos || '', cards: (v.cards || []).slice(0, 2) };
+        })
+      : [{ pos: '', cards: [] }];
+    d.boardFlop = board.slice(0, 3);
+    d.boardTurn = board.slice(3, 4);
+    d.boardRiver = board.slice(4, 5);
+    d.actions = {
+      preflop: ((spec.actions && spec.actions.preflop) || []).map(cloneAct),
+      flop: ((spec.actions && spec.actions.flop) || []).map(cloneAct),
+      turn: ((spec.actions && spec.actions.turn) || []).map(cloneAct),
+      river: ((spec.actions && spec.actions.river) || []).map(cloneAct)
+    };
+    return d;
+  }
+
+  function cloneAct(a) {
+    return {
+      pos: a.pos,
+      action: a.action || 'check',
+      amountBB: a.amountBB != null && isFinite(Number(a.amountBB)) ? Number(a.amountBB) : null
+    };
+  }
+
+  function takenSeats(draft, excludeVillainIdx) {
+    var taken = {};
+    if (draft.heroPos) taken[draft.heroPos] = 'hero';
+    (draft.villains || []).forEach(function (v, i) {
+      if (excludeVillainIdx != null && i === excludeVillainIdx) return;
+      if (v && v.pos) taken[v.pos] = 'villain';
+    });
+    return taken;
+  }
+
+  function selectedPlayers(draft) {
+    var list = [];
+    if (draft.heroPos) list.push(draft.heroPos);
+    (draft.villains || []).forEach(function (v) {
+      if (v && v.pos && list.indexOf(v.pos) < 0) list.push(v.pos);
+    });
+    return sortByRing(draft.format, list);
+  }
+
+  function foldStreetOf(draft, pos) {
+    for (var i = 0; i < STREET_ORDER.length; i++) {
+      var st = STREET_ORDER[i];
+      var acts = (draft.actions && draft.actions[st]) || [];
+      for (var j = 0; j < acts.length; j++) {
+        if (acts[j].pos === pos && acts[j].action === 'fold') return st;
+      }
+    }
+    return null;
+  }
+
+  function streetIndex(st) {
+    var i = STREET_ORDER.indexOf(st);
+    return i < 0 ? 0 : i;
+  }
+
+  /** Jugadores activos en una calle (sin fold en calles anteriores). */
+  function activePlayersForStreet(draft, street) {
+    var si = streetIndex(street);
+    return selectedPlayers(draft).filter(function (pos) {
+      var fs = foldStreetOf(draft, pos);
+      if (!fs) return true;
+      return streetIndex(fs) >= si;
+    });
+  }
+
+  function defaultActionForStreet(street) {
+    // No usar fold por defecto: un fold elimina automáticamente
+    // las acciones de esa posición en calles posteriores.
+    return street === 'preflop' ? 'call' : 'check';
+  }
+
+  /** Sincroniza filas de acción con asientos; fold elimina calles posteriores. */
+  function syncActionsFromSeats(draft) {
+    var players = selectedPlayers(draft);
+    STREET_ORDER.forEach(function (st, sti) {
+      var prev = (draft.actions[st] || []).slice();
+      var byPos = {};
+      prev.forEach(function (a) { if (a && a.pos) byPos[a.pos] = a; });
+
+      var foldedEarlier = {};
+      for (var i = 0; i < sti; i++) {
+        (draft.actions[STREET_ORDER[i]] || []).forEach(function (a) {
+          if (a && a.pos && a.action === 'fold') foldedEarlier[a.pos] = true;
+        });
+      }
+
+      var next = [];
+      players.forEach(function (pos) {
+        if (foldedEarlier[pos]) return;
+        var old = byPos[pos];
+        if (old) next.push(cloneAct(old));
+        else next.push({ pos: pos, action: defaultActionForStreet(st), amountBB: null });
+      });
+      draft.actions[st] = next;
+    });
+
+    // Tras folds: limpiar calles siguientes del jugador
+    STREET_ORDER.forEach(function (st, sti) {
+      (draft.actions[st] || []).forEach(function (a) {
+        if (!a || a.action !== 'fold') return;
+        for (var j = sti + 1; j < STREET_ORDER.length; j++) {
+          draft.actions[STREET_ORDER[j]] = (draft.actions[STREET_ORDER[j]] || []).filter(function (x) {
+            return x.pos !== a.pos;
+          });
+        }
+      });
+    });
+  }
+
+  function usedCardsExcept(draft, exceptKey, exceptVIdx) {
+    var used = {};
+    function mark(list) {
+      (list || []).forEach(function (c) { if (c) used[c] = true; });
+    }
+    if (exceptKey !== 'hero') mark(draft.heroCards);
+    (draft.villains || []).forEach(function (v, i) {
+      if (exceptKey === 'villain' && i === exceptVIdx) return;
+      mark(v.cards);
+    });
+    if (exceptKey !== 'flop') mark(draft.boardFlop);
+    if (exceptKey !== 'turn') mark(draft.boardTurn);
+    if (exceptKey !== 'river') mark(draft.boardRiver);
+    return used;
+  }
+
+  function allUsedCards(draft) {
+    return usedCardsExcept(draft, null, null);
+  }
+
+  function draftToSpec(draft) {
+    return {
+      format: draft.format,
+      heroPos: draft.heroPos,
+      heroCards: (draft.heroCards || []).slice(0, 2),
+      villains: (draft.villains || [])
+        .filter(function (v) { return v && v.pos; })
+        .map(function (v) {
+          return { pos: v.pos, cards: (v.cards || []).slice(0, 2) };
+        }),
+      board: [].concat(draft.boardFlop || [], draft.boardTurn || [], draft.boardRiver || []),
+      actions: {
+        preflop: (draft.actions.preflop || []).map(cloneAct),
+        flop: (draft.actions.flop || []).map(cloneAct),
+        turn: (draft.actions.turn || []).map(cloneAct),
+        river: (draft.actions.river || []).map(cloneAct)
+      },
+      _source: 'manual',
+      _id: S.editId || null,
+      _createdAt: (S.editMeta && S.editMeta.createdAt) || null,
+      _name: (S.editMeta && S.editMeta.savedName) || null
+    };
+  }
+
   // ---------- render: lista ----------
   function render(container) {
     if (container) S.container = container;
@@ -319,6 +563,7 @@
     html += '<div class="ha-card-board">' + boardStr + '</div>';
     html += '<div class="ha-card-actions">';
     html += '<button class="btn btn-small btn-secondary" data-ha-review="' + esc(h.id) + '">Ver paso a paso</button>';
+    html += '<button class="btn btn-small btn-secondary" data-ha-edit="' + esc(h.id) + '">Editar</button>';
     html += '<button class="btn btn-small btn-primary" data-ha-play="' + esc(h.id) + '">Jugar en entrenador</button>';
     html += '<button class="btn btn-small btn-ghost" data-ha-del="' + esc(h.id) + '">Borrar</button>';
     html += '</div>';
@@ -332,8 +577,18 @@
     root.querySelectorAll('[data-ha-new]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var v = btn.dataset.haNew;
-        if (v === 'manual') { S.view = 'manual'; render(); }
-        else { S.view = 'text'; render(); }
+        if (v === 'manual') {
+          S.editId = null;
+          S.editMeta = null;
+          S.picker = null;
+          S.draft = emptyDraft(S.format);
+          syncActionsFromSeats(S.draft);
+          S.view = 'manual';
+          render();
+        } else {
+          S.view = 'text';
+          render();
+        }
       });
     });
     root.querySelectorAll('[data-ha-review]').forEach(function (btn) {
@@ -341,6 +596,9 @@
         var h = global.Store.getAnalysisHand(btn.dataset.haReview);
         if (h && global.openAnalysisHandReview) global.openAnalysisHandReview(h, 'review');
       });
+    });
+    root.querySelectorAll('[data-ha-edit]').forEach(function (btn) {
+      btn.addEventListener('click', function () { startEditHand(btn.dataset.haEdit); });
     });
     root.querySelectorAll('[data-ha-del]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -351,6 +609,51 @@
     });
     root.querySelectorAll('[data-ha-play]').forEach(function (btn) {
       btn.addEventListener('click', function () { togglePlayPanel(btn.dataset.haPlay); });
+    });
+  }
+
+  function startEditHand(id) {
+    var h = global.Store.getAnalysisHand(id);
+    if (!h) return;
+    var spec = h.spec;
+    if (!spec) {
+      // Fallback mínimo si la mano antigua no guardó spec
+      spec = {
+        format: '6max',
+        heroPos: h.heroPos,
+        heroCards: (h.heroCards || []).slice(0, 2),
+        villains: Object.keys(h.villainShows || {}).map(function (pos) {
+          return { pos: pos, cards: (h.villainShows[pos] || []).slice(0, 2) };
+        }),
+        board: (h.boardAll || h.board || []).slice(0, 5),
+        actions: emptyActions()
+      };
+      if (!spec.villains.length) spec.villains = [{ pos: '', cards: [] }];
+    }
+    S.editId = h.id;
+    S.editMeta = {
+      createdAt: h.createdAt,
+      savedName: h.savedName,
+      coachThread: h.coachThread,
+      aiAnalysis: h.aiAnalysis,
+      source: h.source
+    };
+    S.picker = null;
+    S.format = spec.format === '9max' ? '9max' : '6max';
+    S.draft = draftFromSpec(spec);
+    ensureUniqueSeats(S.draft);
+    syncActionsFromSeats(S.draft);
+    S.view = 'manual';
+    render();
+  }
+
+  function ensureUniqueSeats(draft) {
+    var seen = {};
+    if (draft.heroPos) seen[draft.heroPos] = true;
+    (draft.villains || []).forEach(function (v) {
+      if (!v || !v.pos) return;
+      if (seen[v.pos]) v.pos = '';
+      else seen[v.pos] = true;
     });
   }
 
@@ -400,84 +703,190 @@
     });
   }
 
-  // ---------- render: formulario manual ----------
-  function posOptions(fmt, selected) {
-    return ringFor(fmt).map(function (p) {
-      return '<option value="' + p + '"' + (p === selected ? ' selected' : '') + '>' + p + '</option>';
-    }).join('');
-  }
-
-  function actionRowHTML(street, fmt) {
-    var html = '<div class="ha-action-row" data-street="' + street + '">';
-    html += '<select class="ha-apos">' + posOptions(fmt, null) + '</select>';
-    html += '<select class="ha-aact">';
-    Object.keys(ACTION_LABELS).forEach(function (k) {
-      html += '<option value="' + k + '">' + esc(ACTION_LABELS[k]) + '</option>';
-    });
-    html += '</select>';
-    html += '<input class="ha-aamt" type="number" min="0" step="0.5" placeholder="bb" />';
-    html += '<button type="button" class="ha-row-del" data-ha-del-row aria-label="Quitar">&times;</button>';
+  // ---------- card picker (imágenes) ----------
+  function cardSlotHTML(cards, max, key, vIdx) {
+    var html = '<div class="ha-card-slots" data-ha-pick="' + esc(key) + '"' +
+      (vIdx != null ? ' data-vidx="' + vIdx + '"' : '') + ' data-max="' + max + '">';
+    for (var i = 0; i < max; i++) {
+      if (cards[i]) {
+        html += '<button type="button" class="ha-card-slot filled" data-slot="' + i + '" aria-label="Carta ' + esc(cards[i]) + '">' +
+          cardHTML(cards[i]) + '</button>';
+      } else {
+        html += '<button type="button" class="ha-card-slot empty" data-slot="' + i + '" aria-label="Elegir carta">+</button>';
+      }
+    }
+    if (cards.length) {
+      html += '<button type="button" class="ha-card-clear" data-ha-clear-cards="' + esc(key) + '"' +
+        (vIdx != null ? ' data-vidx="' + vIdx + '"' : '') + '>Limpiar</button>';
+    }
     html += '</div>';
     return html;
   }
 
-  function villainRowHTML(fmt) {
-    var html = '<div class="ha-villain-row">';
-    html += '<select class="ha-vpos">' + posOptions(fmt, 'BTN') + '</select>';
-    html += '<input class="ha-vcards" type="text" placeholder="Cartas (opcional) ej.: Qs Qd" />';
-    html += '<button type="button" class="ha-row-del" data-ha-del-vrow aria-label="Quitar">&times;</button>';
+  function pickerPanelHTML(draft) {
+    if (!S.picker) return '';
+    var key = S.picker.key;
+    var vIdx = S.picker.vIdx;
+    var max = S.picker.max;
+    var current = getPickTargetCards(draft, key, vIdx).slice();
+    var usedElsewhere = usedCardsExcept(draft, key, vIdx);
+    var title = {
+      hero: 'Cartas del héroe',
+      villain: 'Cartas del villano',
+      flop: 'Flop (3 cartas)',
+      turn: 'Turn',
+      river: 'River'
+    }[key] || 'Elegir cartas';
+
+    var html = '<div class="ha-picker" data-ha-picker>';
+    html += '<div class="ha-picker-head"><span class="ha-picker-title">' + esc(title) +
+      '</span><span class="ha-picker-count muted-text">' + current.length + ' / ' + max +
+      '</span><button type="button" class="btn btn-small btn-ghost" data-ha-picker-close>Listo</button></div>';
+    html += '<div class="ha-picker-selected">' +
+      (current.length ? cardsHTML(current) : '<span class="muted-text">Toca una carta para seleccionarla</span>') +
+      '</div>';
+    html += '<div class="ha-picker-deck">';
+    fullDeck().forEach(function (c) {
+      var selected = current.indexOf(c) >= 0;
+      var busy = !selected && !!usedElsewhere[c];
+      var cls = 'ha-pick-card' + (selected ? ' selected' : '') + (busy ? ' busy' : '');
+      html += '<button type="button" class="' + cls + '" data-card="' + c + '"' +
+        (busy ? ' disabled' : '') + '>' + cardHTML(c) + '</button>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function getPickTargetCards(draft, key, vIdx) {
+    if (key === 'hero') return draft.heroCards || [];
+    if (key === 'villain') {
+      var v = draft.villains[vIdx];
+      return (v && v.cards) || [];
+    }
+    if (key === 'flop') return draft.boardFlop || [];
+    if (key === 'turn') return draft.boardTurn || [];
+    if (key === 'river') return draft.boardRiver || [];
+    return [];
+  }
+
+  function setPickTargetCards(draft, key, vIdx, cards) {
+    if (key === 'hero') draft.heroCards = cards.slice(0, 2);
+    else if (key === 'villain' && draft.villains[vIdx]) draft.villains[vIdx].cards = cards.slice(0, 2);
+    else if (key === 'flop') draft.boardFlop = cards.slice(0, 3);
+    else if (key === 'turn') draft.boardTurn = cards.slice(0, 1);
+    else if (key === 'river') draft.boardRiver = cards.slice(0, 1);
+  }
+
+  // ---------- render: formulario manual ----------
+  function posOptions(fmt, selected, taken) {
+    return ringFor(fmt).map(function (p) {
+      if (taken && taken[p] && p !== selected) return '';
+      return '<option value="' + p + '"' + (p === selected ? ' selected' : '') + '>' + p + '</option>';
+    }).join('');
+  }
+
+  function actionRowHTML(st, act) {
+    var needsAmt = act.action === 'bet' || act.action === 'raise';
+    var html = '<div class="ha-action-row" data-street="' + st + '" data-pos="' + esc(act.pos) + '">';
+    html += '<span class="ha-apos-label">' + esc(act.pos) + '</span>';
+    html += '<select class="ha-aact" data-ha-act="' + esc(act.pos) + '" data-street="' + st + '">';
+    Object.keys(ACTION_LABELS).forEach(function (k) {
+      html += '<option value="' + k + '"' + (k === act.action ? ' selected' : '') + '>' + esc(ACTION_LABELS[k]) + '</option>';
+    });
+    html += '</select>';
+    html += '<input class="ha-aamt" type="number" min="0" step="0.5" placeholder="bb" data-ha-amt="' + esc(act.pos) + '" data-street="' + st + '"' +
+      (needsAmt ? '' : ' disabled') +
+      (act.amountBB != null ? ' value="' + esc(String(act.amountBB)) + '"' : '') + ' />';
     html += '</div>';
+    return html;
+  }
+
+  function villainRowHTML(draft, v, idx) {
+    var taken = takenSeats(draft, idx);
+    var html = '<div class="ha-villain-row" data-vidx="' + idx + '">';
+    html += '<select class="ha-vpos" data-ha-vpos="' + idx + '">';
+    html += '<option value="">— asiento —</option>';
+    html += posOptions(draft.format, v.pos, taken);
+    html += '</select>';
+    html += cardSlotHTML(v.cards || [], 2, 'villain', idx);
+    html += '<button type="button" class="ha-row-del" data-ha-del-vrow="' + idx + '" aria-label="Quitar">&times;</button>';
+    html += '</div>';
+    return html;
+  }
+
+  function heroPosChipsHTML(draft) {
+    var taken = takenSeats(draft, null);
+    var html = '';
+    ringFor(draft.format).forEach(function (p) {
+      if (taken[p] === 'villain' && p !== draft.heroPos) return;
+      html += '<button type="button" class="ha-chip' + (p === draft.heroPos ? ' active' : '') +
+        '" data-ha-hero-pos="' + p + '">' + p + '</button>';
+    });
     return html;
   }
 
   function renderManual() {
     var root = S.container;
-    var fmt = S.format;
+    if (!S.draft) {
+      S.draft = emptyDraft(S.format);
+      syncActionsFromSeats(S.draft);
+    }
+    var draft = S.draft;
+    var editing = !!S.editId;
     var html = '';
-    html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver a mis manos</button>';
-    html += '<h2 class="ha-title">Añadir mano manualmente</h2>';
-    html += '<p class="muted-text">El análisis manual está incluido gratis. Introduce las posiciones, las cartas y las acciones por calle.</p>';
+    html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver</button>';
+    html += '<h2 class="ha-title">' + (editing ? 'Editar mano' : 'Añadir mano manualmente') + '</h2>';
+    html += '<p class="muted-text">El análisis manual está incluido gratis. Elige asientos (sin repetir), cartas con el selector visual y las acciones por calle.</p>';
 
     html += '<div class="ha-form">';
 
     html += '<div class="ha-field"><label>Formato de mesa</label><div class="ha-chips ha-format">';
     [['6max', '6-max'], ['9max', '9-max']].forEach(function (f) {
-      html += '<button type="button" class="ha-chip' + (f[0] === fmt ? ' active' : '') + '" data-val="' + f[0] + '">' + f[1] + '</button>';
+      html += '<button type="button" class="ha-chip' + (f[0] === draft.format ? ' active' : '') + '" data-ha-format="' + f[0] + '">' + f[1] + '</button>';
     });
     html += '</div></div>';
 
     html += '<div class="ha-field"><label>Posición del héroe</label><div class="ha-chips ha-hero-pos">';
-    ringFor(fmt).forEach(function (p, i) {
-      html += '<button type="button" class="ha-chip' + (i === 0 ? ' active' : '') + '" data-val="' + p + '">' + p + '</button>';
-    });
+    html += heroPosChipsHTML(draft);
     html += '</div></div>';
 
     html += '<div class="ha-field"><label>Cartas del héroe</label>';
-    html += '<input class="ha-hero-cards" type="text" placeholder="Ej.: As Kd" /></div>';
+    html += cardSlotHTML(draft.heroCards, 2, 'hero', null);
+    html += '</div>';
 
-    html += '<div class="ha-field"><label>Villanos (posición y cartas si se conocen)</label>';
-    html += '<div class="ha-villains">' + villainRowHTML(fmt) + '</div>';
+    html += '<div class="ha-field"><label>Villanos (asiento y cartas si se conocen)</label>';
+    html += '<div class="ha-villains">';
+    (draft.villains || []).forEach(function (v, i) {
+      html += villainRowHTML(draft, v, i);
+    });
+    html += '</div>';
     html += '<button type="button" class="btn btn-small btn-ghost" data-ha-add-villain>+ Añadir villano</button></div>';
 
     html += '<div class="ha-field ha-board-field"><label>Cartas comunitarias</label>';
-    html += '<div class="ha-board-inputs">';
-    html += '<input class="ha-flop" type="text" placeholder="Flop (ej.: 9c Tc 8c)" />';
-    html += '<input class="ha-turn" type="text" placeholder="Turn" />';
-    html += '<input class="ha-river" type="text" placeholder="River" />';
+    html += '<div class="ha-board-pickers">';
+    html += '<div class="ha-board-group"><span class="ha-board-label">Flop</span>' + cardSlotHTML(draft.boardFlop, 3, 'flop', null) + '</div>';
+    html += '<div class="ha-board-group"><span class="ha-board-label">Turn</span>' + cardSlotHTML(draft.boardTurn, 1, 'turn', null) + '</div>';
+    html += '<div class="ha-board-group"><span class="ha-board-label">River</span>' + cardSlotHTML(draft.boardRiver, 1, 'river', null) + '</div>';
     html += '</div></div>';
 
-    ['preflop', 'flop', 'turn', 'river'].forEach(function (st) {
-      var label = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River' }[st];
-      html += '<div class="ha-field ha-street-field"><label>Acciones · ' + label + '</label>';
+    if (S.picker) html += pickerPanelHTML(draft);
+
+    STREET_ORDER.forEach(function (st) {
+      var acts = (draft.actions && draft.actions[st]) || [];
+      html += '<div class="ha-field ha-street-field" data-street-field="' + st + '"><label>Acciones · ' + STREET_LABELS[st] + '</label>';
       html += '<div class="ha-actions-list" data-street-list="' + st + '">';
-      if (st === 'preflop') html += actionRowHTML(st, fmt);
-      html += '</div>';
-      html += '<button type="button" class="btn btn-small btn-ghost" data-ha-add-action="' + st + '">+ Acción</button></div>';
+      if (!acts.length) {
+        html += '<p class="muted-text ha-street-empty">Selecciona héroe y villanos para cargar sus acciones.</p>';
+      } else {
+        acts.forEach(function (a) { html += actionRowHTML(st, a); });
+      }
+      html += '</div></div>';
     });
 
     html += '<div class="ha-form-errors" data-ha-errors></div>';
     html += '<div class="ha-form-buttons">';
-    html += '<button class="btn btn-primary" data-ha-manual-save>Analizar y guardar</button>';
+    html += '<button class="btn btn-primary" data-ha-manual-save">' +
+      (editing ? 'Reanalizar y guardar' : 'Analizar y guardar') + '</button>';
     html += '</div>';
 
     html += '</div>';
@@ -485,79 +894,187 @@
     bindManual();
   }
 
-  function activeChipVal(scopeEl, sel) {
-    var el = scopeEl.querySelector(sel + ' .ha-chip.active');
-    return el ? el.dataset.val : null;
+  function refreshManualKeepScroll() {
+    var y = window.scrollY || 0;
+    renderManual();
+    if (window.scrollTo) window.scrollTo(0, y);
   }
 
   function bindManual() {
     var root = S.container;
-    root.querySelector('[data-ha-back]').addEventListener('click', function () { S.view = 'list'; render(); });
+    var draft = S.draft;
 
-    // chip groups
-    root.querySelectorAll('.ha-chips').forEach(function (group) {
-      group.addEventListener('click', function (e) {
-        var chip = e.target.closest('.ha-chip');
-        if (!chip) return;
-        group.querySelectorAll('.ha-chip').forEach(function (c) { c.classList.remove('active'); });
-        chip.classList.add('active');
-        if (group.classList.contains('ha-format')) {
-          S.format = chip.dataset.val;
-          renderManual();
+    root.querySelector('[data-ha-back]').addEventListener('click', function () {
+      S.view = 'list';
+      S.draft = null;
+      S.editId = null;
+      S.editMeta = null;
+      S.picker = null;
+      render();
+    });
+
+    root.querySelectorAll('[data-ha-format]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var fmt = btn.dataset.haFormat;
+        if (fmt === draft.format) return;
+        draft.format = fmt;
+        S.format = fmt;
+        var ring = ringFor(fmt);
+        if (ring.indexOf(draft.heroPos) < 0) draft.heroPos = ring[0];
+        (draft.villains || []).forEach(function (v) {
+          if (v.pos && ring.indexOf(v.pos) < 0) v.pos = '';
+        });
+        ensureUniqueSeats(draft);
+        syncActionsFromSeats(draft);
+        S.picker = null;
+        refreshManualKeepScroll();
+      });
+    });
+
+    root.querySelectorAll('[data-ha-hero-pos]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var pos = btn.dataset.haHeroPos;
+        if (pos === draft.heroPos) return;
+        // Liberar ese asiento de villanos
+        (draft.villains || []).forEach(function (v) {
+          if (v.pos === pos) v.pos = '';
+        });
+        draft.heroPos = pos;
+        syncActionsFromSeats(draft);
+        refreshManualKeepScroll();
+      });
+    });
+
+    var addV = root.querySelector('[data-ha-add-villain]');
+    if (addV) addV.addEventListener('click', function () {
+      draft.villains.push({ pos: '', cards: [] });
+      refreshManualKeepScroll();
+    });
+
+    root.querySelectorAll('[data-ha-vpos]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var idx = parseInt(sel.dataset.haVpos, 10);
+        var pos = sel.value;
+        var taken = takenSeats(draft, idx);
+        if (pos && taken[pos]) {
+          sel.value = draft.villains[idx].pos || '';
+          showErrors(['El asiento ' + pos + ' ya está ocupado.']);
+          return;
+        }
+        draft.villains[idx].pos = pos;
+        // Si el héroe tenía ese asiento, mover héroe al primer libre
+        if (pos && draft.heroPos === pos) {
+          var ring = ringFor(draft.format);
+          var takenAfter = {};
+          draft.villains.forEach(function (v) {
+            if (v.pos) takenAfter[v.pos] = true;
+          });
+          draft.heroPos = ring.find(function (p) { return !takenAfter[p]; }) || ring[0];
+        }
+        syncActionsFromSeats(draft);
+        refreshManualKeepScroll();
+      });
+    });
+
+    root.querySelectorAll('[data-ha-del-vrow]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var idx = parseInt(btn.dataset.haDelVrow, 10);
+        draft.villains.splice(idx, 1);
+        if (!draft.villains.length) draft.villains.push({ pos: '', cards: [] });
+        syncActionsFromSeats(draft);
+        refreshManualKeepScroll();
+      });
+    });
+
+    // Abrir picker
+    root.querySelectorAll('[data-ha-pick]').forEach(function (slotWrap) {
+      slotWrap.addEventListener('click', function (e) {
+        if (e.target.closest('[data-ha-clear-cards]')) return;
+        var key = slotWrap.dataset.haPick;
+        var max = parseInt(slotWrap.dataset.max, 10) || 2;
+        var vIdx = slotWrap.dataset.vidx != null ? parseInt(slotWrap.dataset.vidx, 10) : null;
+        S.picker = { key: key, max: max, vIdx: isNaN(vIdx) ? null : vIdx };
+        refreshManualKeepScroll();
+      });
+    });
+
+    root.querySelectorAll('[data-ha-clear-cards]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var key = btn.dataset.haClearCards;
+        var vIdx = btn.dataset.vidx != null ? parseInt(btn.dataset.vidx, 10) : null;
+        setPickTargetCards(draft, key, isNaN(vIdx) ? null : vIdx, []);
+        if (S.picker && S.picker.key === key && S.picker.vIdx === vIdx) {
+          /* keep open */
+        }
+        refreshManualKeepScroll();
+      });
+    });
+
+    if (S.picker) {
+      var close = root.querySelector('[data-ha-picker-close]');
+      if (close) close.addEventListener('click', function () {
+        S.picker = null;
+        refreshManualKeepScroll();
+      });
+      root.querySelectorAll('.ha-pick-card[data-card]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (btn.disabled) return;
+          var c = btn.dataset.card;
+          var cur = getPickTargetCards(draft, S.picker.key, S.picker.vIdx).slice();
+          var ix = cur.indexOf(c);
+          if (ix >= 0) cur.splice(ix, 1);
+          else {
+            if (cur.length >= S.picker.max) {
+              // reemplaza la última
+              cur[cur.length - 1] = c;
+            } else cur.push(c);
+          }
+          setPickTargetCards(draft, S.picker.key, S.picker.vIdx, cur);
+          refreshManualKeepScroll();
+        });
+      });
+    }
+
+    // Acciones: cambio de tipo / cantidad
+    root.querySelectorAll('[data-ha-act]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var st = sel.dataset.street;
+        var pos = sel.dataset.haAct;
+        var acts = draft.actions[st] || [];
+        for (var i = 0; i < acts.length; i++) {
+          if (acts[i].pos === pos) {
+            acts[i].action = sel.value;
+            if (sel.value !== 'bet' && sel.value !== 'raise') acts[i].amountBB = null;
+            break;
+          }
+        }
+        if (sel.value === 'fold') {
+          syncActionsFromSeats(draft);
+          refreshManualKeepScroll();
+        } else {
+          // solo habilitar/deshabilitar amount
+          var amt = root.querySelector('[data-ha-amt="' + CSS.escape(pos) + '"][data-street="' + st + '"]');
+          if (amt) amt.disabled = !(sel.value === 'bet' || sel.value === 'raise');
+        }
+      });
+    });
+    root.querySelectorAll('[data-ha-amt]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        var st = inp.dataset.street;
+        var pos = inp.dataset.haAmt;
+        var acts = draft.actions[st] || [];
+        var n = parseFloat(inp.value);
+        for (var i = 0; i < acts.length; i++) {
+          if (acts[i].pos === pos) {
+            acts[i].amountBB = isFinite(n) ? n : null;
+            break;
+          }
         }
       });
     });
 
-    root.querySelector('[data-ha-add-villain]').addEventListener('click', function () {
-      var box = root.querySelector('.ha-villains');
-      box.insertAdjacentHTML('beforeend', villainRowHTML(S.format));
-    });
-    root.querySelectorAll('[data-ha-add-action]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var st = btn.dataset.haAddAction;
-        var list = root.querySelector('[data-street-list="' + st + '"]');
-        list.insertAdjacentHTML('beforeend', actionRowHTML(st, S.format));
-      });
-    });
-    root.addEventListener('click', function (e) {
-      var delRow = e.target.closest('[data-ha-del-row]');
-      if (delRow) { delRow.closest('.ha-action-row').remove(); return; }
-      var delV = e.target.closest('[data-ha-del-vrow]');
-      if (delV) { delV.closest('.ha-villain-row').remove(); return; }
-    });
-
     root.querySelector('[data-ha-manual-save]').addEventListener('click', onManualSave);
-  }
-
-  function readManualSpec() {
-    var root = S.container;
-    var fmt = activeChipVal(root, '.ha-format') || '6max';
-    var spec = {
-      format: fmt,
-      heroPos: activeChipVal(root, '.ha-hero-pos'),
-      heroCards: parseCardList(root.querySelector('.ha-hero-cards').value),
-      villains: [],
-      board: [],
-      actions: { preflop: [], flop: [], turn: [], river: [] },
-      _source: 'manual'
-    };
-    root.querySelectorAll('.ha-villain-row').forEach(function (row) {
-      var pos = row.querySelector('.ha-vpos').value;
-      var cards = parseCardList(row.querySelector('.ha-vcards').value);
-      if (pos) spec.villains.push({ pos: pos, cards: cards.length === 2 ? cards : [] });
-    });
-    spec.board = parseCardList(root.querySelector('.ha-flop').value)
-      .concat(parseCardList(root.querySelector('.ha-turn').value))
-      .concat(parseCardList(root.querySelector('.ha-river').value));
-    ['preflop', 'flop', 'turn', 'river'].forEach(function (st) {
-      root.querySelectorAll('.ha-action-row[data-street="' + st + '"]').forEach(function (row) {
-        var pos = row.querySelector('.ha-apos').value;
-        var action = row.querySelector('.ha-aact').value;
-        var amt = parseFloat(row.querySelector('.ha-aamt').value);
-        if (pos && action) spec.actions[st].push({ pos: pos, action: action, amountBB: isFinite(amt) ? amt : null });
-      });
-    });
-    return spec;
   }
 
   function showErrors(errs) {
@@ -568,28 +1085,45 @@
   }
 
   function onManualSave() {
-    var spec = readManualSpec();
+    var draft = S.draft;
+    syncActionsFromSeats(draft);
+    var spec = draftToSpec(draft);
     var errs = validateSpec(spec);
     if (errs.length) { showErrors(errs); return; }
     showErrors([]);
-    var check = canSave();
-    if (!check.ok) {
-      showErrors(['Has alcanzado el límite de manos guardadas de tu plan (' + check.limit + '). Borra alguna o mejora tu plan.']);
-      return;
+
+    var editing = !!S.editId;
+    if (!editing) {
+      var check = canSave();
+      if (!check.ok) {
+        showErrors(['Has alcanzado el límite de manos guardadas de tu plan (' + check.limit + '). Borra alguna o mejora tu plan.']);
+        return;
+      }
     }
+
     var analyzed;
     try {
-      analyzed = buildAnalyzedHand(spec, 'manual');
+      analyzed = buildAnalyzedHand(spec, (S.editMeta && S.editMeta.source) || 'manual');
     } catch (e) {
       showErrors(['No se pudo analizar la mano: ' + (e.message || e)]);
       return;
     }
-    var res = saveHand(analyzed);
+    if (editing && S.editMeta) {
+      if (S.editMeta.coachThread) analyzed.coachThread = S.editMeta.coachThread;
+      if (S.editMeta.aiAnalysis) analyzed.aiAnalysis = S.editMeta.aiAnalysis;
+      if (S.editMeta.createdAt) analyzed.createdAt = S.editMeta.createdAt;
+    }
+
+    var res = editing ? updateHand(analyzed) : saveHand(analyzed);
     if (!res.ok) {
       showErrors(['No se pudo guardar: ' + (res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || ''))]);
       return;
     }
     S.view = 'list';
+    S.draft = null;
+    S.editId = null;
+    S.editMeta = null;
+    S.picker = null;
     render();
     if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
   }
@@ -598,7 +1132,7 @@
   function renderText() {
     var root = S.container;
     var html = '';
-    html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver a mis manos</button>';
+    html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver</button>';
     html += '<h2 class="ha-title">Añadir mano con IA (texto)</h2>';
     html += '<p class="muted-text">Describe la mano en lenguaje natural: posiciones, cartas del héroe y villanos (si se conocen), cartas comunitarias y las acciones. La IA la preparará para el paso a paso e incluirá su análisis. <strong>Esta acción consume una consulta de tu plan o bono.</strong></p>';
     html += '<div class="ha-form">';
@@ -630,7 +1164,7 @@
       spec.villains.push({ pos: v.pos, cards: cards.length === 2 ? cards : [] });
     });
     var acts = aiHand.actions || {};
-    ['preflop', 'flop', 'turn', 'river'].forEach(function (st) {
+    STREET_ORDER.forEach(function (st) {
       (acts[st] || []).forEach(function (a) {
         if (!a || !a.pos || !a.action) return;
         var action = String(a.action).toLowerCase();
@@ -700,6 +1234,11 @@
     render: render,
     specToRawHand: specToRawHand,
     buildAnalyzedHand: buildAnalyzedHand,
-    toTrainerConfig: toTrainerConfig
+    toTrainerConfig: toTrainerConfig,
+    syncActionsFromSeats: syncActionsFromSeats,
+    activePlayersForStreet: activePlayersForStreet,
+    takenSeats: takenSeats,
+    emptyDraft: emptyDraft,
+    draftFromSpec: draftFromSpec
   };
 })(window);
