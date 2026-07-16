@@ -3531,21 +3531,75 @@
     return !!(h.board && h.board.length >= 5);
   }
 
-  function villainShowInfo(h) {
-    const hero = currentSession && currentSession.hero;
-    const shows = h.villainShows || {};
-    const names = Object.keys(shows).filter((n) => n !== hero);
-    if (!names.length) return null;
-    const name = names[0];
-    let pos = '';
-    (h.summary || []).forEach((item) => {
-      if ((item.kind === 'action' || item.kind === 'show') && item.player === name && item.pos) pos = item.pos;
-    });
-    if (!pos && h.decisions && h.decisions.length) {
-      const last = h.decisions[h.decisions.length - 1];
-      if (last.vsPosition) pos = last.vsPosition;
+  function isTablePosLabel(pos) {
+    return POS.indexOf(pos) >= 0 || POS_9.indexOf(pos) >= 0;
+  }
+
+  /** Posiciones que participan en la mano (héroe + villanos / quien actúa). */
+  function sessionParticipantPosSet(h) {
+    const set = {};
+    function mark(pos) { if (pos) set[pos] = true; }
+    mark(h.heroPos);
+    if (h.spec) {
+      (h.spec.villains || []).forEach((v) => { if (v && v.pos) mark(v.pos); });
+      const acts = (h.spec.actions) || {};
+      ['preflop', 'flop', 'turn', 'river'].forEach((st) => {
+        (acts[st] || []).forEach((a) => { if (a && a.pos) mark(a.pos); });
+      });
+      return set;
     }
-    return { name: name, pos: pos, cards: shows[name] };
+    if (h.posts && h.positions) {
+      Object.keys(h.posts).forEach((player) => mark(h.positions[player]));
+    }
+    (h.summary || []).forEach((item) => { if (item && item.pos) mark(item.pos); });
+    (h.decisions || []).forEach((d) => { if (d && d.vsPosition) mark(d.vsPosition); });
+    if (Object.keys(set).length <= 1 && h.positions) {
+      Object.keys(h.positions).forEach((player) => mark(h.positions[player]));
+    }
+    return set;
+  }
+
+  /** Cartas conocidas por posición (héroe + villanos mostrados / spec). */
+  function sessionHoleCardsByPos(h) {
+    const byPos = {};
+    if (h.heroPos && h.heroCards && h.heroCards.length >= 2) {
+      byPos[h.heroPos] = h.heroCards.slice(0, 2);
+    }
+    if (h.spec && Array.isArray(h.spec.villains)) {
+      h.spec.villains.forEach((v) => {
+        if (v && v.pos && v.cards && v.cards.length >= 2) byPos[v.pos] = v.cards.slice(0, 2);
+      });
+    }
+    const heroName = (currentSession && currentSession.hero) || h.hero;
+    const shows = h.villainShows || {};
+    Object.keys(shows).forEach((name) => {
+      if (name === heroName) return;
+      if (!shows[name] || shows[name].length < 2) return;
+      let pos = (h.positions && h.positions[name]) || '';
+      if (!pos && isTablePosLabel(name)) pos = name;
+      if (!pos) {
+        (h.summary || []).forEach((item) => {
+          if ((item.kind === 'action' || item.kind === 'show') && item.player === name && item.pos) pos = item.pos;
+        });
+      }
+      if (pos) byPos[pos] = shows[name].slice(0, 2);
+    });
+    return byPos;
+  }
+
+  function foldedPositionsFromHand(h) {
+    const folded = {};
+    (h.summary || []).forEach((item) => {
+      if (item && item.kind === 'action' && item.type === 'fold' && item.pos) folded[item.pos] = true;
+    });
+    return folded;
+  }
+
+  function seatCardsHTML(cards, faceUp) {
+    if (faceUp && cards && cards.length >= 2) {
+      return '<div class="seat-cards showdown">' + cards.map(Cards.cardToHTML).join('') + '</div>';
+    }
+    return '<div class="seat-cards">' + Cards.cardBackHTML() + Cards.cardBackHTML() + '</div>';
   }
 
   function renderShowdownTableHTML(h) {
@@ -3555,8 +3609,9 @@
     const posList = is9 ? POS_9 : POS;
     const posRing = ringFromHeroPos(h.heroPos, posList);
     const board = h.board || [];
-    const villain = villainShowInfo(h);
-    const villainPos = villain && villain.pos ? villain.pos : null;
+    const participants = sessionParticipantPosSet(h);
+    const holeByPos = sessionHoleCardsByPos(h);
+    const folded = foldedPositionsFromHand(h);
     const potBB = h.decisions && h.decisions.length
       ? h.decisions[h.decisions.length - 1].potBB
       : null;
@@ -3565,10 +3620,12 @@
     posRing.forEach((pos, i) => {
       const c = coords[i];
       const isHero = pos === h.heroPos;
-      const isVillain = villainPos && pos === villainPos;
+      const isParticipant = !!(participants[pos]);
+      const isVillain = isParticipant && !isHero;
       const cls = ['seat'];
       if (isHero) cls.push('hero');
       if (isVillain) cls.push('villain');
+      if (folded[pos]) cls.push('folded');
       if (c.top < 20) cls.push('seat-top');
       if (c.top > 70) cls.push('seat-bottom');
       if (c.left < 22) cls.push('seat-edge-left');
@@ -3576,8 +3633,9 @@
       if (c.top < 12) cls.push('seat-edge-top');
       const role = isHero ? 'Héroe' : (isVillain ? 'Villano' : '');
       let cardsHtml = '';
-      if (isVillain && villain && villain.cards && villain.cards.length >= 2) {
-        cardsHtml = '<div class="seat-cards showdown">' + villain.cards.map(Cards.cardToHTML).join('') + '</div>';
+      if (isVillain && !folded[pos]) {
+        const known = holeByPos[pos];
+        cardsHtml = seatCardsHTML(known, !!(known && known.length >= 2));
       }
       seatsHtml += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
         ${cardsHtml}
@@ -3607,7 +3665,8 @@
     const h = currentHand;
     replayState.showdownDone = true;
     const box = $('#hand-review-content');
-    const villain = villainShowInfo(h);
+    const holeByPos = sessionHoleCardsByPos(h);
+    const knownVillains = Object.keys(holeByPos).filter((pos) => pos !== h.heroPos);
     let html = `<div class="review-head">
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div>
@@ -3618,9 +3677,9 @@
     html += sessionReplayThemeHTML();
     html += renderShowdownTableHTML(h);
     html += '<div class="session-street-log"><strong>River:</strong> board completo</div>';
-    if (villain) {
-      html += `<div class="result-line">Cartas de ${escapeHtml(villain.name)}${villain.pos ? ' (' + escapeHtml(villain.pos) + ')' : ''}: ${villain.cards.map(Cards.cardToHTML).join(' ')}</div>`;
-    }
+    knownVillains.forEach((pos) => {
+      html += `<div class="result-line">Cartas de ${escapeHtml(pos)}: ${holeByPos[pos].map(Cards.cardToHTML).join(' ')}</div>`;
+    });
     html += `<div class="result-line" style="border:none">Board: ${(h.board || []).map(Cards.cardToHTML).join(' ')}</div>`;
     html += `<button class="btn btn-primary" id="replay-to-summary" style="margin-top:14px">Ver resumen de la repetición »</button>`;
     box.innerHTML = html;
@@ -3818,12 +3877,14 @@
     const posRing = ringFromHeroPos(h.heroPos, posList);
     const board = boardForStreet(h, d.street);
     const villainPos = state.villainPos;
+    const participants = sessionParticipantPosSet(h);
 
     let seatsHtml = '';
     posRing.forEach((pos, i) => {
       const c = coords[i];
       const isHero = pos === h.heroPos;
-      const isVillain = villainPos && pos === villainPos;
+      const isParticipant = !!(participants[pos]);
+      const isVillain = (villainPos && pos === villainPos) || (isParticipant && !isHero && !state.folded[pos]);
       const cls = ['seat'];
       if (isHero) cls.push('hero');
       if (isVillain) cls.push('villain');
@@ -3838,8 +3899,13 @@
       const act = (!isHero && state.lastAction[pos]) ? state.lastAction[pos] : null;
       const actHtml = act && !state.folded[pos] ? actionBadgeHTML(act) : '';
       const chipsHtml = renderSeatChips(state.totalInvBB[pos] || 0, state.streetBetBB[pos] || 0);
+      let cardsHtml = '';
+      if (!isHero && isParticipant && !state.folded[pos]) {
+        cardsHtml = seatCardsHTML(null, false);
+      }
 
       seatsHtml += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
+        ${cardsHtml}
         <div class="seat-pos">${pos}</div>
         ${role ? `<div class="seat-role">${role}</div>` : ''}
         ${chipsHtml}

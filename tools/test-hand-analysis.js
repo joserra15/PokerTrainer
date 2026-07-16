@@ -206,6 +206,24 @@ PTHandAnalysis.syncActionsFromSeats(draft);
 assert(!draft.actions.flop.some((a) => a.pos === 'CO'), 'CO fuera de flop tras fold PF');
 assert(!draft.actions.turn.some((a) => a.pos === 'CO'), 'CO fuera de turn tras fold PF');
 
+// --- 4b) varias acciones en la misma calle + fold posterior ---
+const multi = PTHandAnalysis.emptyDraft('6max');
+multi.heroPos = 'HJ';
+multi.villains = [{ pos: 'CO', cards: [] }, { pos: 'BTN', cards: [] }];
+multi.actions.flop = [
+  { pos: 'HJ', action: 'check', amountBB: null },
+  { pos: 'CO', action: 'bet', amountBB: 3 },
+  { pos: 'BTN', action: 'call', amountBB: null },
+  { pos: 'HJ', action: 'fold', amountBB: null }
+];
+PTHandAnalysis.syncActionsFromSeats(multi);
+assert(multi.actions.flop.length === 4, 'flop conserva 4 acciones en orden');
+assert(multi.actions.flop.map((a) => a.pos + ':' + a.action).join('|') === 'HJ:check|CO:bet|BTN:call|HJ:fold',
+  'orden temporal flop: ' + multi.actions.flop.map((a) => a.pos + ':' + a.action).join('|'));
+assert(!multi.actions.turn.some((a) => a.pos === 'HJ'), 'HJ no está en turn tras fold flop');
+const flopCall = PTHandAnalysis.computeStreetDisplayActions('flop', multi.actions.flop)[2];
+assert(flopCall.action === 'call' && flopCall.derivedAmountBB === 3, 'call BTN auto = 3bb');
+
 // --- 5) asientos exclusivos héroe/villano ---
 const taken = PTHandAnalysis.takenSeats({ heroPos: 'CO', villains: [{ pos: 'BB' }, { pos: 'BTN' }] }, null);
 assert(taken.CO === 'hero' && taken.BB === 'villain' && taken.BTN === 'villain', 'taken seats map');
