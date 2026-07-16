@@ -629,6 +629,32 @@
     return obj.id;
   }
 
+  async function assertAiAccess(opts) {
+    opts = opts || {};
+    const show = opts.showPaywall !== false;
+    if (!global.PTEntitlements || !global.PTEntitlements.canUseAI) {
+      if (show) {
+        if (global.PTBilling) global.PTBilling.showPaywall('ai_plan');
+        else alert('Los informes y preguntas IA requieren un plan con consultas o un bono.');
+      }
+      return { ok: false, reason: 'ai_plan' };
+    }
+    let ent = null;
+    if (global.PTEntitlements.refresh) ent = await global.PTEntitlements.refresh();
+    else if (global.PTEntitlements.ensureLoaded) ent = await global.PTEntitlements.ensureLoaded();
+    else ent = global.PTEntitlements.get && global.PTEntitlements.get();
+    const aiCheck = global.PTEntitlements.canUseAI(ent);
+    if (!aiCheck.ok) {
+      const reason = aiCheck.reason || 'ai_plan';
+      if (show) {
+        if (global.PTBilling) global.PTBilling.showPaywall(reason);
+        else alert('Los informes y preguntas IA requieren un plan con consultas o un bono.');
+      }
+      return { ok: false, reason: reason };
+    }
+    return { ok: true };
+  }
+
   async function runCoach(panel, options, opts) {
     const scope = resolveScope(options);
     const mode = opts.mode || 'report';
@@ -639,23 +665,7 @@
       alert('IA Coach no configurado. Copia js/ai-config.example.js como js/ai-config.js y activa el endpoint.');
       return;
     }
-    if (global.PTEntitlements && global.PTEntitlements.refresh) {
-      const ent = await global.PTEntitlements.refresh();
-      const aiCheck = global.PTEntitlements.canUseAI(ent);
-      if (!aiCheck.ok) {
-        if (global.PTBilling) global.PTBilling.showPaywall(aiCheck.reason);
-        else alert('Los informes IA requieren el plan Coach.');
-        return;
-      }
-    } else if (global.PTEntitlements && global.PTEntitlements.ensureLoaded) {
-      const ent = await global.PTEntitlements.ensureLoaded();
-      const aiCheck = global.PTEntitlements.canUseAI(ent);
-      if (!aiCheck.ok) {
-        if (global.PTBilling) global.PTBilling.showPaywall(aiCheck.reason);
-        else alert('Los informes IA requieren el plan Coach.');
-        return;
-      }
-    }
+    if (!(await assertAiAccess()).ok) return;
     if (mode === 'question' && !question) {
       alert('Escribe una pregunta (máx. ' + QUESTION_MAX + ' caracteres).');
       return;
@@ -747,11 +757,16 @@
     }
 
     toggleBtn.addEventListener('click', function () {
-      form.hidden = !form.hidden;
       if (!form.hidden) {
+        form.hidden = true;
+        return;
+      }
+      assertAiAccess().then(function (check) {
+        if (!check.ok) return;
+        form.hidden = false;
         textarea.focus();
         updateCount();
-      }
+      });
     });
 
     cancelBtn.addEventListener('click', function () {
@@ -782,16 +797,11 @@
     if (!raw) throw new Error('Escribe la descripción de la mano.');
     if (!isEnabled()) throw new Error('IA Coach no configurado.');
 
-    if (global.PTEntitlements) {
-      let ent = null;
-      if (global.PTEntitlements.refresh) ent = await global.PTEntitlements.refresh();
-      else if (global.PTEntitlements.ensureLoaded) ent = await global.PTEntitlements.ensureLoaded();
-      const aiCheck = global.PTEntitlements.canUseAI(ent);
-      if (!aiCheck.ok) {
-        const err = new Error('ai_plan');
-        err.paywall = aiCheck.reason || 'ai_plan';
-        throw err;
-      }
+    const access = await assertAiAccess({ showPaywall: false });
+    if (!access.ok) {
+      const err = new Error(access.reason || 'ai_plan');
+      err.paywall = access.reason || 'ai_plan';
+      throw err;
     }
 
     const ok = await ensureConsent('session');
@@ -896,7 +906,18 @@
     loadThread(options, dataForLoad, scope, objId).then(function (loaded) {
       if (loaded.thread.length) showConversation(panel, loaded.thread, scope);
     });
-    formatQuotaLine(false).then(function (line) { updateQuotaDisplay(panel, line); });
+    formatQuotaLine(true).then(function (line) { updateQuotaDisplay(panel, line); });
+    if (global.PTEntitlements && global.PTEntitlements.ensureLoaded) {
+      global.PTEntitlements.ensureLoaded().then(function (ent) {
+        const check = global.PTEntitlements.canUseAI(ent);
+        if (check.ok) return;
+        const actions = panel.querySelector('[data-ai-actions]');
+        if (!actions) return;
+        actions.querySelectorAll('button').forEach(function (b) {
+          b.title = 'Requiere consulta IA disponible (plan o bono)';
+        });
+      }).catch(function () {});
+    }
 
     return panel;
   }

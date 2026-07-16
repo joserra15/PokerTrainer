@@ -224,6 +224,31 @@ assert(!multi.actions.turn.some((a) => a.pos === 'HJ'), 'HJ no está en turn tra
 const flopCall = PTHandAnalysis.computeStreetDisplayActions('flop', multi.actions.flop)[2];
 assert(flopCall.action === 'call' && flopCall.derivedAmountBB === 3, 'call BTN auto = 3bb');
 
+// --- 4c) añadir villano después no debe dejarlo fuera de acciones ---
+const addLater = PTHandAnalysis.emptyDraft('6max');
+addLater.heroPos = 'CO';
+PTHandAnalysis.syncActionsFromSeats(addLater);
+assert(addLater.actions.preflop.map((a) => a.pos).join(',') === 'CO', 'solo héroe al inicio');
+addLater.villains = [{ pos: 'BTN', cards: [] }];
+PTHandAnalysis.syncActionsFromSeats(addLater);
+assert(addLater.actions.preflop.some((a) => a.pos === 'BTN'), 'BTN aparece en preflop al añadirlo');
+assert(addLater.actions.flop.some((a) => a.pos === 'BTN'), 'BTN aparece en flop al añadirlo');
+assert(!addLater.actions.preflop.some((a) => a.pos === 'BB'), 'no se inventa BB si el villano es BTN');
+
+// --- 4d) cambiar posición remapea acciones ---
+const remap = PTHandAnalysis.emptyDraft('6max');
+remap.heroPos = 'CO';
+remap.villains = [{ pos: 'BB', cards: [] }];
+PTHandAnalysis.syncActionsFromSeats(remap);
+remap.actions.preflop.find((a) => a.pos === 'BB').action = 'raise';
+remap.actions.preflop.find((a) => a.pos === 'BB').amountBB = 3;
+PTHandAnalysis.remapActionPositions(remap, 'BB', 'BTN');
+remap.villains[0].pos = 'BTN';
+PTHandAnalysis.syncActionsFromSeats(remap);
+const btnAct = remap.actions.preflop.find((a) => a.pos === 'BTN');
+assert(btnAct && btnAct.action === 'raise' && btnAct.amountBB === 3, 'acciones BB → BTN conservan raise 3');
+assert(!remap.actions.preflop.some((a) => a.pos === 'BB'), 'ya no queda fila BB tras remap');
+
 // --- 5) asientos exclusivos héroe/villano ---
 const taken = PTHandAnalysis.takenSeats({ heroPos: 'CO', villains: [{ pos: 'BB' }, { pos: 'BTN' }] }, null);
 assert(taken.CO === 'hero' && taken.BB === 'villain' && taken.BTN === 'villain', 'taken seats map');
@@ -241,6 +266,8 @@ assert(edited.createdAt === '2020-01-01T00:00:00.000Z', 'conserva createdAt');
 const fsHa = fs.readFileSync(path.join(__dirname, '..', 'js', 'hand-analysis.js'), 'utf8');
 assert(/data-ha-manual-save>/.test(fsHa), 'data-ha-manual-save sin comilla suelta');
 assert(!/data-ha-manual-save\">/.test(fsHa), 'no debe haber data-ha-manual-save">');
+assert(!/data-ha-clone-row/.test(fsHa), 'no debe existir botón clonar acción');
+assert(!/ha-row-clone/.test(fsHa), 'no debe existir clase ha-row-clone');
 
 // --- 8) valor BB en € ---
 const rawDefault = PTHandAnalysis.specToRawHand(spec);
