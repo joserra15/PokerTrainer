@@ -954,10 +954,24 @@
 
     const seed = rec.seed != null ? rec.seed : (snap && snap.seed);
     pendingForce = Object.assign({}, sc, { seed: seed });
+    delete pendingForce.forceDeal;
+    delete pendingForce.forceScript;
     replayPlayConfig = (snap && snap.playConfig) || rec.playConfig || playSessionConfig || null;
 
     const disp = (snap && snap.displayHeroPos) || rec.displayHeroPos;
     if (disp && !pendingForce.heroPos) pendingForce.displayHeroPos = disp;
+
+    // Manos de análisis / cartas forzadas: restaurar deal y guion de línea real.
+    const forceDeal = (snap && snap.forceDeal) || rec.forceDeal ||
+      (rec.heroCards && rec.heroCards.length === 2 ? {
+        heroCards: rec.heroCards.slice(0, 2),
+        villainCards: (rec.villainCards && rec.villainCards.length === 2) ? rec.villainCards.slice(0, 2) : null,
+        board: (rec.board || []).slice(0, 5),
+        villainPos: rec.villainPos || null
+      } : null);
+    if (forceDeal) pendingForce.forceDeal = forceDeal;
+    const forceScript = (snap && snap.forceScript) || rec.forceScript || null;
+    if (forceScript) pendingForce.forceScript = forceScript;
     return true;
   }
 
@@ -968,8 +982,8 @@
     return true;
   }
 
-  // Juega en el entrenador una mano guardada de "Análisis de manos": mismas cartas
-  // (héroe, villano y comunitarias) pero la app juega las acciones de los villanos.
+  // Juega en el entrenador una mano de análisis: mismas cartas (héroe, villano y
+  // board). El villano sigue las acciones reales hasta que el héroe se desvíe.
   function playAnalysisHand(force, playConfig) {
     if (!force) return false;
     pendingForce = force;
@@ -1111,15 +1125,28 @@
     void startNewHand();
   }
 
-  // Repite la mano actual con la MISMA semilla (mismas cartas y board si juegas igual)
+  // Repite la mano actual con la MISMA semilla / cartas forzadas
   function replayCurrentHand() {
     if (!hand) return;
+    const snap = hand.replaySnapshot || {
+      scenario: hand.scenario,
+      seed: hand.seed,
+      playConfig: hand.playConfig,
+      displayHeroPos: hand.displayHeroPos,
+      forceDeal: hand.forceDeal || null,
+      forceScript: hand.forceScript || null
+    };
     replayFromStored({
       seed: hand.seed,
       scenarioRaw: hand.scenario,
       playConfig: hand.playConfig,
       displayHeroPos: hand.displayHeroPos,
-      replaySnapshot: hand.replaySnapshot
+      replaySnapshot: snap,
+      forceDeal: hand.forceDeal || (snap && snap.forceDeal) || null,
+      forceScript: hand.forceScript || (snap && snap.forceScript) || null,
+      heroCards: hand.hero && hand.hero.cards,
+      villainCards: hand.villain && hand.villain.cards,
+      board: (hand._predeal && hand._predeal.board) || hand.board
     });
   }
 

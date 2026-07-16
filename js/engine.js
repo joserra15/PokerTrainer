@@ -163,10 +163,50 @@
     return !!(cards && cards.length === 2 && cards[0] && cards[1] && cards[0] !== cards[1]);
   }
 
+  function cloneForceDeal(fd) {
+    if (!fd) return null;
+    return {
+      heroCards: isValidPair(fd.heroCards) ? fd.heroCards.slice() : null,
+      villainCards: isValidPair(fd.villainCards) ? fd.villainCards.slice() : null,
+      board: (fd.board || []).filter(Boolean).slice(0, 5),
+      villainPos: fd.villainPos || null
+    };
+  }
+
+  function cloneForceScript(fs) {
+    if (!fs || !Array.isArray(fs.actions)) return null;
+    return {
+      heroPos: fs.heroPos || null,
+      villainPos: fs.villainPos || null,
+      actions: fs.actions.map(function (a) {
+        return {
+          street: a.street || null,
+          pos: a.pos,
+          action: a.action,
+          amountBB: a.amountBB != null ? a.amountBB : null
+        };
+      })
+    };
+  }
+
+  function markForcedSeat(hand, seat, cards) {
+    if (!seat || !isValidPair(cards)) return;
+    hand._forcedHole = hand._forcedHole || {};
+    hand._forcedHole[seat] = cards.slice();
+  }
+
+  function isForcedSeat(hand, pos) {
+    if (!hand || !hand._forcedHole || !pos) return false;
+    if (hand._forcedHole[pos]) return true;
+    const seat = tableSeatForEnginePos(hand, pos);
+    return !!(seat && hand._forcedHole[seat]);
+  }
+
   /**
    * Inyecta cartas fijas (héroe, villano y comunitarias) manteniendo el resto de
-   * la mano coherente. Solo se usa al "jugar en el entrenador" una mano guardada:
-   * las cartas conocidas se respetan y la app juega las acciones de los villanos.
+   * la mano coherente. Usado al "jugar en el entrenador" una mano de análisis:
+   * las cartas se bloquean (no se remuestrean) y el villano sigue la línea real
+   * hasta que el héroe se desvíe.
    */
   function applyForcedHand(hand, fd) {
     if (!fd || !hand.table || !hand.table.holeCards) return;
@@ -174,7 +214,12 @@
     const villainCards = isValidPair(fd.villainCards) ? fd.villainCards.slice() : null;
     const board = (fd.board || []).filter(Boolean).slice(0, 5);
     const heroSeat = heroTableSeat(hand);
-    const vSeat = (hand._predeal && hand._predeal.villainPos) || villainTableSeat(hand);
+    const vSeat = fd.villainPos
+      || villainTableSeat(hand)
+      || (hand._predeal && hand._predeal.villainPos)
+      || (hand.villain && hand.villain.pos);
+    if (vSeat && hand.villain) hand.villain.pos = vSeat;
+    if (vSeat && hand._predeal) hand._predeal.villainPos = vSeat;
     const hc = hand.table.holeCards;
     const forcedDead = [].concat(heroCards || [], villainCards || [], board);
     const kept = [];
@@ -197,16 +242,206 @@
       hc[heroSeat] = heroCards.slice();
       hand.hero.cards = heroCards.slice();
       hand.hero.code = R.handCode(heroCards[0], heroCards[1]);
+      markForcedSeat(hand, heroSeat, heroCards);
     }
     if (villainCards && vSeat) {
       hc[vSeat] = villainCards.slice();
-      if (hand.villain) hand.villain.cards = villainCards.slice();
+      if (hand.villain) {
+        hand.villain.cards = villainCards.slice();
+        if (!hand.villain.pos) hand.villain.pos = vSeat;
+      }
+      if (hand._predeal) hand._predeal.villainCards = villainCards.slice();
+      markForcedSeat(hand, vSeat, villainCards);
     }
     if (board.length) {
       let full = board.slice();
       while (full.length < 5 && deck.length) full.push(deck.pop());
       hand._predeal.board = full;
     }
+  }
+
+  // ----- Guion de la mano real (análisis → entrenador) -----
+  function scriptNormAction(action) {
+    if (!action) return '';
+    const a = String(action);
+    if (a.indexOf('bet_') === 0 || a === 'bet') return 'bet';
+    if (a === 'open' || a === 'allin' || a === '3bet' || a === '4bet') return 'raise';
+    return a;
+  }
+
+  function scriptActions(hand) {
+    return (hand.forceScript && hand.forceScript.actions) || [];
+  }
+
+  function scriptActive(hand) {
+    return !!(hand && hand._script && hand._script.active);
+  }
+
+  function scriptDeactivate(hand) {
+    if (hand && hand._script) hand._script.active = false;
+  }
+
+  function initForceScript(hand, script) {
+    const fs = cloneForceScript(script);
+    if (!fs || !fs.actions.length) return;
+    hand.forceScript = fs;
+    hand._script = {
+      active: true,
+      idx: 0,
+      heroPos: fs.heroPos || hand.hero.pos || null,
+      villainPos: fs.villainPos || (hand.villain && hand.villain.pos) || null
+    };
+    // Las acciones previas al primer acto del héroe ya están aplicadas en el setup.
+    scriptSkipUntilHero(hand);
+  }
+
+  function scriptSkipUntilHero(hand) {
+    const s = hand._script;
+    if (!s || !s.active || !s.heroPos) return;
+    const acts = scriptActions(hand);
+    while (s.idx < acts.length && acts[s.idx].pos !== s.heroPos) s.idx++;
+  }
+
+  function scriptFindNext(hand, pos, fromIdx) {
+    const acts = scriptActions(hand);
+    let i = fromIdx != null ? fromIdx : (hand._script ? hand._script.idx : 0);
+    while (i < acts.length) {
+      if (!pos || acts[i].pos === pos) return { action: acts[i], index: i };
+      i++;
+    }
+    return null;
+  }
+
+  function scriptConsumeThrough(hand, index) {
+    const s = hand._script;
+    if (!s) return;
+    if (index >= s.idx) s.idx = index + 1;
+  }
+
+  function scriptHeroExpected(hand) {
+    if (!scriptActive(hand) || !hand._script.heroPos) return null;
+    return scriptFindNext(hand, hand._script.heroPos, hand._script.idx);
+  }
+
+  function scriptConsumeHero(hand, actionId) {
+    if (!scriptActive(hand)) return;
+    const expected = scriptHeroExpected(hand);
+    if (!expected) {
+      scriptDeactivate(hand);
+      return;
+    }
+    if (scriptNormAction(expected.action.action) !== scriptNormAction(actionId)) {
+      scriptDeactivate(hand);
+      return;
+    }
+    scriptConsumeThrough(hand, expected.index);
+  }
+
+  /**
+   * Próxima acción forzada del asiento `pos` en el guion, sin pasar por una
+   * decisión del héroe. Si el héroe actúa antes en el guion, no hay forzado.
+   */
+  function scriptPeekSeatAction(hand, pos) {
+    if (!scriptActive(hand) || !pos) return null;
+    const s = hand._script;
+    const acts = scriptActions(hand);
+    let i = s.idx;
+    while (i < acts.length) {
+      const a = acts[i];
+      if (a.pos === s.heroPos) return null;
+      if (a.pos === pos) return { action: a, index: i };
+      i++;
+    }
+    return null;
+  }
+
+  function scriptTakeSeatAction(hand, pos) {
+    const peeked = scriptPeekSeatAction(hand, pos);
+    if (!peeked) return null;
+    scriptConsumeThrough(hand, peeked.index);
+    return peeked.action;
+  }
+
+  /** Defensa preflop vs open: fold | call | 3bet */
+  function scriptForcedDefend(hand, pos) {
+    const a = scriptTakeSeatAction(hand, pos);
+    if (!a) return null;
+    const n = scriptNormAction(a.action);
+    if (n === 'fold') return 'fold';
+    if (n === 'raise' || n === 'bet') return '3bet';
+    if (n === 'call' || n === 'check') return 'call';
+    return null;
+  }
+
+  /** Respuesta del abridor a 3-bet: fold | call | 4bet */
+  function scriptForcedVs3Bet(hand, pos) {
+    const a = scriptTakeSeatAction(hand, pos);
+    if (!a) return null;
+    const n = scriptNormAction(a.action);
+    if (n === 'fold') return 'fold';
+    if (n === 'raise') return '4bet';
+    if (n === 'call' || n === 'check') return 'call';
+    return null;
+  }
+
+  /** Lead postflop: bet | check */
+  function scriptForcedLead(hand) {
+    const pos = (hand.villain && hand.villain.pos) || (hand._script && hand._script.villainPos);
+    const peeked = scriptPeekSeatAction(hand, pos);
+    if (!peeked) return null;
+    if (peeked.action.street && hand.stage && peeked.action.street !== hand.stage) return null;
+    scriptConsumeThrough(hand, peeked.index);
+    const n = scriptNormAction(peeked.action.action);
+    if (n === 'bet' || n === 'raise') return { type: 'bet', amountBB: peeked.action.amountBB };
+    if (n === 'check' || n === 'call' || n === 'fold') return { type: 'check' };
+    return null;
+  }
+
+  /** Respuesta postflop ante bet/raise/check del héroe */
+  function scriptForcedPostflop(hand, node) {
+    const pos = (hand.villain && hand.villain.pos) || (hand._script && hand._script.villainPos);
+    const peeked = scriptPeekSeatAction(hand, pos);
+    if (!peeked) return null;
+    if (peeked.action.street && hand.stage && peeked.action.street !== hand.stage) return null;
+    scriptConsumeThrough(hand, peeked.index);
+    hand._scriptedVillainAmountBB = peeked.action.amountBB;
+    const n = scriptNormAction(peeked.action.action);
+    const facing = node && (node.heroLastAction === 'bet' || node.heroLastAction === 'raise');
+    if (facing) {
+      if (n === 'fold') return 'fold';
+      if (n === 'raise') return 'raise';
+      if (n === 'call' || n === 'check') return 'call';
+      if (n === 'bet') return 'raise';
+      return null;
+    }
+    if (n === 'bet' || n === 'raise') return 'bet';
+    if (n === 'check' || n === 'call' || n === 'fold') return 'check';
+    return null;
+  }
+
+  function scriptBetAmount(hand, amountBB) {
+    if (amountBB != null && amountBB > 0) {
+      const vSeat = villainTableSeat(hand) || hand.villain.pos;
+      return capBetForSeat(hand, vSeat, round2(amountBB));
+    }
+    return villainBetAmount(hand);
+  }
+
+  function takeScriptedOrDefaultBet(hand, fallback) {
+    const amt = hand._scriptedVillainAmountBB;
+    hand._scriptedVillainAmountBB = null;
+    if (amt != null && amt > 0) return scriptBetAmount(hand, amt);
+    return fallback != null ? fallback : villainBetAmount(hand);
+  }
+
+  /** fold | call ante 4-bet / all-in (guion). */
+  function scriptForcedVs4Bet(hand, pos) {
+    const a = scriptTakeSeatAction(hand, pos);
+    if (!a) return null;
+    const n = scriptNormAction(a.action);
+    if (n === 'fold') return 'fold';
+    if (n === 'call' || n === 'raise' || n === 'check' || n === 'bet') return 'call';
+    return null;
   }
 
   function markFolded(hand, pos) {
@@ -406,7 +641,7 @@
     for (let ri = 0; ri < responders.length; ri++) {
       const pos = responders[ri];
       if (sessionStrict(hand)) ensureDefenderHand(hand, pos, hand.hero.pos);
-      const act = blindDefendVsOpen(hand, pos, openSize);
+      const act = scriptForcedDefend(hand, pos) || blindDefendVsOpen(hand, pos, openSize);
       if (act === 'fold') {
         markFolded(hand, pos);
         setSeatAction(hand, pos, 'fold', null);
@@ -460,6 +695,9 @@
   }
 
   function limperDefendVsIso(hand, limperPos, isoSize) {
+    const forced = scriptForcedDefend(hand, limperPos);
+    if (forced === 'fold' || forced === 'call') return forced;
+    if (forced === '3bet') return 'call';
     const profile = profileFor(hand, limperPos);
     const code = seatHoleCode(hand, limperPos);
     if (VPF && code) {
@@ -479,6 +717,7 @@
   }
 
   function ensureSeatHand(hand, pos, validateFn, weightsFn) {
+    if (isForcedSeat(hand, pos)) return;
     if (!sessionStrict(hand) || !VPF) return;
     const ctx = rangeCtx(hand);
     for (let i = 0; i < 14; i++) {
@@ -552,6 +791,7 @@
   }
 
   function resampleSeatFromWeights(hand, pos, weightsFn) {
+    if (isForcedSeat(hand, pos)) return;
     const PC = global.PTPlayConfig;
     if (!PC || !hand.playConfig || !hand.table) return;
     const seat = tableSeatForEnginePos(hand, pos);
@@ -570,6 +810,10 @@
   }
 
   function forceValidOpenerFourBetHand(hand, opener) {
+    if (isForcedSeat(hand, opener)) {
+      hand.villain.cards = villainHoleCards(hand);
+      return;
+    }
     if (!VPF) return;
     ensureOpenerFourBetHand(hand, opener);
     const ctx = rangeCtx(hand);
@@ -604,6 +848,8 @@
   }
 
   function openerVs3Bet(hand, opener, threeBetSize) {
+    const forced = scriptForcedVs3Bet(hand, opener);
+    if (forced) return forced;
     const profile = profileFor(hand, opener);
     const code = seatHoleCode(hand, opener);
     if (VPF && code) {
@@ -625,6 +871,9 @@
   }
 
   function openerVsSqueeze(hand, opener, squeezeSize) {
+    const forced = scriptForcedVs3Bet(hand, opener);
+    if (forced === 'fold' || forced === 'call') return forced;
+    if (forced === '4bet') return 'call';
     const profile = profileFor(hand, opener);
     const code = seatHoleCode(hand, opener);
     if (VPF && code) {
@@ -801,6 +1050,8 @@
   }
 
   function villainPostflopAction(hand, node) {
+    const forced = scriptForcedPostflop(hand, node);
+    if (forced) return forced;
     const profile = profileFor(hand, hand.villain.pos);
     const info = classifyMadeHand(hand.villain.cards, hand.board);
     const eq = villainEquity01(hand);
@@ -890,6 +1141,7 @@
       const s = Object.assign({}, forceKey);
       delete s.seed;
       delete s.forceDeal;
+      delete s.forceScript;
       if (PC && playConfig && PC.is9Max(playConfig) && s.heroPos && !s.engineHeroPos) {
         s.engineHeroPos = PC.enginePos(s.heroPos);
       }
@@ -1083,7 +1335,13 @@
     assignSeatProfiles(hand);
     initHandStacks(hand);
     syncVillainMeta(hand);
-    if (force && force.forceDeal) applyForcedHand(hand, force.forceDeal);
+    if (force && force.forceDeal) {
+      hand.forceDeal = cloneForceDeal(force.forceDeal);
+      applyForcedHand(hand, hand.forceDeal);
+      assignHeroFromTable(hand);
+      if (hand.villain && hand.villain.pos) hand.villain.cards = villainHoleCards(hand);
+    }
+    if (force && force.forceScript) initForceScript(hand, force.forceScript);
     return hand;
   }
 
@@ -1281,6 +1539,10 @@
     hand.decisions.push(decision);
     hand.log.push(describeDecision(hand, decision));
 
+    // Si hay guion de análisis: el villano sigue la línea real solo mientras
+    // el héroe no se desvíe de su acción original.
+    scriptConsumeHero(hand, actionId);
+
     // Avanza el estado según la acción
     advance(hand, actionId, decision);
     return { decision, hand };
@@ -1431,13 +1693,16 @@
         : clamp(0.62 - strengthAtPos(hand, hand.villain.pos) * 0.5, 0.15, 0.72);
       const vCode = seatHoleCode(hand, hand.villain.pos);
       const vProf = profileFor(hand, hand.villain.pos);
-      let vAct = 'call';
-      if (VPF && vCode) {
-        vAct = VPF.villainVs4BetAction(vCode, vProf, C.rng.random());
-      } else {
-        const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
-        if (level === 'pro' || level === 'intermediate') vAct = 'fold';
-        else if (C.rng.random() < foldProb) vAct = 'fold';
+      let vAct = scriptForcedVs4Bet(hand, hand.villain.pos);
+      if (!vAct) {
+        vAct = 'call';
+        if (VPF && vCode) {
+          vAct = VPF.villainVs4BetAction(vCode, vProf, C.rng.random());
+        } else {
+          const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+          if (level === 'pro' || level === 'intermediate') vAct = 'fold';
+          else if (C.rng.random() < foldProb) vAct = 'fold';
+        }
       }
       if (vAct === 'fold') {
         setVillainAct(hand, 'fold');
@@ -1466,9 +1731,13 @@
       // all-in (5-bet): el villano decide call/fold antes del showdown
       setHeroAct(hand, 'allin', EFF);
       hand.villain.cards = villainHoleCards(hand);
+      const forcedAi = scriptForcedVs4Bet(hand, hand.villain.pos);
       const aiCode = seatHoleCode(hand, hand.villain.pos);
       const aiProf = profileFor(hand, hand.villain.pos);
-      if (VPF && aiCode && VPF.villainVsAllInAction(aiCode, aiProf, C.rng.random()) === 'fold') {
+      const aiFold = forcedAi
+        ? forcedAi === 'fold'
+        : (VPF && aiCode && VPF.villainVsAllInAction(aiCode, aiProf, C.rng.random()) === 'fold');
+      if (aiFold) {
         setVillainAct(hand, 'fold');
         return finish(hand, {
           reason: 'El villano foldea ante tu all-in.',
@@ -1530,7 +1799,7 @@
         setVillainAct(hand, 'fold');
         return finish(hand, { reason: `${opener} foldea ante tu 3-bet.`, heroNet: round2(hand.potBB) });
       }
-      if (cont === '4bet') {
+      if (cont === '4bet' && !isForcedSeat(hand, opener)) {
         forceValidOpenerFourBetHand(hand, opener);
         const openerCode = seatHoleCode(hand, opener);
         if (!openerCode || !VPF || !VPF.isInFourBetRange(openerCode, rangeCtx(hand))) {
@@ -1587,11 +1856,14 @@
 
       const tbCode = seatHoleCode(hand, tb);
       const tbProf = profileFor(hand, tb);
-      let tbAct = 'fold';
-      if (VPF && tbCode) {
-        tbAct = VPF.villainVs4BetAction(tbCode, tbProf, C.rng.random());
-      } else {
-        tbAct = C.rng.random() < 0.58 ? 'fold' : 'call';
+      let tbAct = scriptForcedVs4Bet(hand, tb);
+      if (!tbAct) {
+        tbAct = 'fold';
+        if (VPF && tbCode) {
+          tbAct = VPF.villainVs4BetAction(tbCode, tbProf, C.rng.random());
+        } else {
+          tbAct = C.rng.random() < 0.58 ? 'fold' : 'call';
+        }
       }
 
       markFolded(hand, opener);
@@ -1965,9 +2237,12 @@
         hand.current.heroClosesOnCheck = true;
         return h;
       }
-      const vAct = villainStreetOpen(hand);
+      const forcedLead = scriptForcedLead(hand);
+      const vAct = forcedLead ? forcedLead.type : villainStreetOpen(hand);
       if (vAct === 'bet') {
-        const vBet = villainBetAmount(hand);
+        const vBet = forcedLead && forcedLead.amountBB != null
+          ? scriptBetAmount(hand, forcedLead.amountBB)
+          : villainBetAmount(hand);
         if (!isMeaningfulBet(vBet)) {
           setVillainAct(hand, 'check');
           const h = buildPostflopNode(hand, hand.stage);
@@ -2109,13 +2384,14 @@
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'fold') { setVillainAct(hand, 'fold'); return finish(hand, { reason: `El villano foldea ante tu apuesta en ${node.street}.`, heroNet: round2(hand.potBB - betSize) }); }
       if (vAct === 'raise') {
-        let vRaise = capBetForSeat(hand, hand.villain.pos, round2(betSize * 3));
+        let vRaise = takeScriptedOrDefaultBet(hand, capBetForSeat(hand, hand.villain.pos, round2(betSize * 3)));
         if (vRaise <= betSize) vRaise = capBetForSeat(hand, hand.villain.pos, heroRemainingBB(hand));
         hand.villainInvested += vRaise; hand.potBB = round2(hand.potBB + vRaise);
         if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vRaise);
         setVillainAct(hand, 'raise', vRaise);
         return buildPostflopNode(hand, node.street, { bet: round2(vRaise), potBefore: hand.potBB });
       }
+      hand._scriptedVillainAmountBB = null;
       setVillainAct(hand, 'call', betSize);
       hand.villainInvested += betSize; hand.potBB = round2(hand.potBB + betSize);
       if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, betSize);
@@ -2134,7 +2410,7 @@
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'check') { setVillainAct(hand, 'check'); return nextStreet(hand); }
       // villano apuesta -> hero afronta apuesta
-      const vBet = villainBetAmount(hand);
+      const vBet = takeScriptedOrDefaultBet(hand, villainBetAmount(hand));
       if (!isMeaningfulBet(vBet)) {
         setVillainAct(hand, 'check');
         return nextStreet(hand);
@@ -2220,7 +2496,9 @@
       scenario: Object.assign({}, hand.scenario || {}),
       seed: hand.seed,
       playConfig: hand.playConfig ? Object.assign({}, hand.playConfig) : null,
-      displayHeroPos: hand.displayHeroPos || null
+      displayHeroPos: hand.displayHeroPos || null,
+      forceDeal: cloneForceDeal(hand.forceDeal),
+      forceScript: cloneForceScript(hand.forceScript)
     };
     const totalEvLoss = erroneousEvLoss(hand);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');

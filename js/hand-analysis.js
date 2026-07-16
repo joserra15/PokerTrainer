@@ -5,7 +5,7 @@
  *   estructura de la mano + un análisis.
  * - Guarda las manos (límite por plan: 5 / 20 / 100), permite revisarlas paso a
  *   paso (reutiliza la revisión de sesiones) y jugarlas en el entrenador con las
- *   mismas cartas (la app juega a los villanos).
+ *   mismas cartas; el villano sigue la línea real hasta que el héroe se desvíe.
  * Expuesto como `PTHandAnalysis`.
  */
 (function (global) {
@@ -281,6 +281,21 @@
   }
 
   // ---------- escenario para "jugar en el entrenador" ----------
+  function rfiCallerPos(hand, heroPos) {
+    var pf = ((hand.spec && hand.spec.actions && hand.spec.actions.preflop) || []);
+    var heroRaised = false;
+    for (var i = 0; i < pf.length; i++) {
+      var a = pf[i];
+      if (!a) continue;
+      if (a.pos === heroPos && (a.action === 'raise' || a.action === 'bet')) {
+        heroRaised = true;
+        continue;
+      }
+      if (heroRaised && a.pos !== heroPos && a.action && a.action !== 'fold') return a.pos;
+    }
+    return 'BB';
+  }
+
   function deriveScenario(hand, fmt) {
     var heroPos = hand.heroPos;
     var firstPf = (hand.decisions || []).filter(function (d) { return d.street === 'preflop'; })[0];
@@ -289,7 +304,7 @@
     var kind = firstPf.spotKind;
     var vs = firstPf.vsPosition;
     if (kind === 'RFI') {
-      out = { type: 'RFI', heroPos: heroPos, _villainPos: 'BB' };
+      out = { type: 'RFI', heroPos: heroPos, _villainPos: rfiCallerPos(hand, heroPos) };
     } else if (kind === 'vsRFI' && vs) {
       out = { type: 'vsRFI', key: heroPos + '_vs_' + vs, _villainPos: vs };
     } else if (kind === 'isoLimp' && vs) {
@@ -297,6 +312,22 @@
     } else if (vs) {
       out = { type: 'vsRFI', key: heroPos + '_vs_' + vs, _villainPos: vs };
     }
+    return out;
+  }
+
+  function flattenScriptActions(actions) {
+    var out = [];
+    STREET_ORDER.forEach(function (st) {
+      ((actions && actions[st]) || []).forEach(function (a) {
+        if (!a || !a.pos || !a.action) return;
+        out.push({
+          street: st,
+          pos: a.pos,
+          action: a.action,
+          amountBB: a.amountBB != null ? a.amountBB : null
+        });
+      });
+    });
     return out;
   }
 
@@ -311,7 +342,10 @@
     });
     if (!villainCards) {
       (spec.villains || []).forEach(function (v) {
-        if (!villainCards && v && v.cards && v.cards.length === 2) villainCards = v.cards.slice();
+        if (!villainCards && v && v.cards && v.cards.length === 2) {
+          villainCards = v.cards.slice();
+          if (!villainPos) villainPos = v.pos;
+        }
       });
     }
     var force = {
@@ -319,7 +353,13 @@
       forceDeal: {
         heroCards: (hand.heroCards || []).slice(0, 2),
         villainCards: villainCards,
-        board: (hand.boardAll || hand.board || []).slice(0, 5)
+        board: (hand.boardAll || hand.board || []).slice(0, 5),
+        villainPos: villainPos || null
+      },
+      forceScript: {
+        heroPos: hand.heroPos || spec.heroPos || scenario.heroPos,
+        villainPos: villainPos || null,
+        actions: flattenScriptActions(spec.actions || actionsSpecFromHand(hand))
       }
     };
     if (scenario.heroPos) force.heroPos = scenario.heroPos;
