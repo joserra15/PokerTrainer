@@ -259,6 +259,57 @@ if (recNuts.cls !== 'optima') {
   process.exit(1);
 }
 
+// Raise residual (7%) no debe marcarse como "mejor" cuando call domina la mezcla (~72%)
+{
+  const riverActs = ['fold', 'call', 'raise'];
+  const riverStrat = { fold: 0.21, call: 0.72, raise: 0.07 };
+  const foldCls = Cls.classify(riverStrat, 'fold', riverActs);
+  const foldRec = Cls.reconcileWithEv(foldCls.cls, 'fold', foldCls.best, {
+    actionEV: 0, bestEV: 65.87, bestAction: 'raise',
+    evLoss: 0, evErroneous: false, evErrorReasons: []
+  }, {
+    freq: foldCls.freq,
+    maxFreq: foldCls.maxFreq,
+    legalStrategy: foldCls.legalStrategy,
+    equity: 0.46
+  });
+  console.log('River fold vs raise-EV: best', foldRec.best, 'cls', foldRec.cls, '(expect best=call)');
+  if (foldRec.best !== 'call') {
+    console.error('FAIL: dominant call mix must stay best, not residual raise; got', foldRec.best);
+    process.exit(1);
+  }
+  const callCls = Cls.classify(riverStrat, 'call', riverActs);
+  const callRec = Cls.reconcileWithEv(callCls.cls, 'call', callCls.best, {
+    actionEV: 40, bestEV: 65.87, bestAction: 'raise',
+    evLoss: 0, evErroneous: false, evErrorReasons: []
+  }, {
+    freq: callCls.freq,
+    maxFreq: callCls.maxFreq,
+    legalStrategy: callCls.legalStrategy,
+    equity: 0.46
+  });
+  console.log('River call vs raise-EV: best', callRec.best, 'cls', callRec.cls, '(expect best=call optima)');
+  if (callRec.best !== 'call' || callRec.cls !== 'optima') {
+    console.error('FAIL: call at 72% must remain best/optima vs raise EV; got', callRec.best, callRec.cls);
+    process.exit(1);
+  }
+}
+
+// Mezcla GTO casi empatada (check ≈ bet_100): no degradar check a imprecisa por ΔEV heurístico
+{
+  const mixActs = ['check', 'bet_33', 'bet_66', 'bet_100'];
+  const mixStrat = { check: 0.289, bet_33: 0.133, bet_66: 0.286, bet_100: 0.292 };
+  const mixCls = Cls.classify(mixStrat, 'check', mixActs);
+  const mixRec = Cls.reconcileWithEv(mixCls.cls, 'check', mixCls.best, {
+    actionEV: 4.52, bestEV: 6.99, bestAction: 'bet_100', evLoss: 0, evErroneous: false, evErrorReasons: []
+  }, { freq: mixCls.freq, maxFreq: mixCls.maxFreq, legalStrategy: mixCls.legalStrategy, equity: 0.77, band: 'value' });
+  console.log('Mix check≈bet_100 classify', mixCls.cls, 'reconciled', mixRec.cls, '(expect optima)');
+  if (mixCls.cls !== 'optima' || mixRec.cls !== 'optima') {
+    console.error('FAIL: near-tied GTO mix check must stay optima, got', mixCls.cls, '→', mixRec.cls);
+    process.exit(1);
+  }
+}
+
 const a6NutFlushBoard = ['8s', 'Kh', '9s', '7s', '2d'];
 const a6Hero = ['As', '6s'];
 const nutFlushRiverBet = GTO.evaluateSpot({
