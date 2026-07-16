@@ -64,14 +64,28 @@
     return street === 'preflop' ? { SB: 0.5, BB: 1 } : {};
   }
 
-  function computeStreetDisplayActions(street, actions) {
+  function defaultBetAmountBB() { return 1; }
+  function defaultRaiseAmountBB(toMatch, cur) {
+    return round2(Math.max(toMatch + 2, cur + 2));
+  }
+
+  /**
+   * Recalcula importes mostrados por calle.
+   * - call: derivedAmountBB = lo que falta para igualar (toMatch - committed).
+   * - raise amountBB = total "hasta" en bb; bet amountBB = tamaño de la apuesta.
+   * opts.fillDefaults: rellena bet/raise vacíos (guardar / blur), no durante la escritura.
+   */
+  function computeStreetDisplayActions(street, actions, opts) {
+    var fillDefaults = !!(opts && opts.fillDefaults);
     var committed = streetCommittedInit(street);
     var toMatch = street === 'preflop' ? 1 : 0;
     return (actions || []).map(function (a) {
+      var rawAmt = a && a.amountBB;
+      var parsedAmt = (rawAmt == null || rawAmt === '') ? null : Number(rawAmt);
       var out = {
         pos: a && a.pos ? a.pos : '',
         action: a && a.action ? a.action : 'fold',
-        amountBB: a && isFinite(Number(a.amountBB)) ? round2(Number(a.amountBB)) : null,
+        amountBB: (parsedAmt != null && isFinite(parsedAmt)) ? round2(parsedAmt) : null,
         derivedAmountBB: null,
         amountLocked: false
       };
@@ -79,22 +93,49 @@
       var action = out.action;
       var cur = pos ? (committed[pos] || 0) : 0;
       if (action === 'call') {
+        // Siempre editable: el auto es sugerencia, no candado.
         out.derivedAmountBB = round2(Math.max(0, toMatch - cur));
-        out.amountLocked = true;
+        out.amountLocked = false;
         if (pos) committed[pos] = toMatch;
       } else if (action === 'check' || action === 'fold') {
         out.derivedAmountBB = null;
         out.amountLocked = true;
       } else if (action === 'bet') {
-        if (out.amountBB == null || out.amountBB <= 0) out.amountBB = 1;
-        out.derivedAmountBB = out.amountBB;
-        if (pos) committed[pos] = out.amountBB;
-        toMatch = Math.max(toMatch, out.amountBB);
+        var betEmpty = out.amountBB == null || out.amountBB <= 0;
+        var betAmt = betEmpty ? defaultBetAmountBB() : out.amountBB;
+        if (betEmpty) out.amountBB = fillDefaults ? betAmt : null;
+        // amountBB vacío: no se escribe en el input, pero sí cuenta para calls siguientes.
+        out.derivedAmountBB = (out.amountBB != null && out.amountBB > 0) ? out.amountBB : null;
+        if (pos) committed[pos] = betAmt;
+        toMatch = Math.max(toMatch, betAmt);
       } else if (action === 'raise') {
-        if (out.amountBB == null || out.amountBB <= 0) out.amountBB = round2(Math.max(toMatch + 2, cur + 2));
-        out.derivedAmountBB = out.amountBB;
-        if (pos) committed[pos] = out.amountBB;
-        toMatch = out.amountBB;
+        var raiseEmpty = out.amountBB == null || out.amountBB <= 0;
+        var raiseAmt = raiseEmpty ? defaultRaiseAmountBB(toMatch, cur) : out.amountBB;
+        if (raiseEmpty) out.amountBB = fillDefaults ? raiseAmt : null;
+        out.derivedAmountBB = (out.amountBB != null && out.amountBB > 0) ? out.amountBB : null;
+        if (pos) committed[pos] = raiseAmt;
+        toMatch = Math.max(toMatch, raiseAmt);
+      }
+      return out;
+    });
+  }
+
+  /** Rellena calls vacíos con el auto y bet/raise vacíos con el mínimo lógico. */
+  function fillActionAmounts(street, actions) {
+    var computed = computeStreetDisplayActions(street, actions, { fillDefaults: true });
+    return (actions || []).map(function (a, i) {
+      var c = computed[i] || {};
+      var out = cloneAct(a || {});
+      if (out.action === 'check' || out.action === 'fold') {
+        out.amountBB = null;
+      } else if (out.action === 'call') {
+        if (out.amountBB == null || out.amountBB < 0) {
+          out.amountBB = c.derivedAmountBB != null ? c.derivedAmountBB : 0;
+        }
+      } else if (out.action === 'bet' || out.action === 'raise') {
+        if (out.amountBB == null || out.amountBB <= 0) {
+          out.amountBB = c.amountBB != null ? c.amountBB : (out.action === 'bet' ? 1 : 2);
+        }
       }
       return out;
     });
@@ -185,10 +226,15 @@
           streets[st].push({ player: player, type: 'bet', amount: amt, allin: false });
           committed[player] = amt; toMatch = Math.max(toMatch, amt);
         } else if (type === 'call') {
-          var callAmt = roundEuro((toMatch || bbVal) - (committed[player] || 0));
-          if (callAmt < 0) callAmt = 0;
+          var needCall = roundEuro((toMatch || bbVal) - (committed[player] || 0));
+          if (needCall < 0) needCall = 0;
+          // Si el usuario escribió un importe, se respeta; si no, se usa el auto.
+          var callAmt = (isFinite(amtBB) && amtBB >= 0)
+            ? roundEuro(amtBB * bbVal)
+            : needCall;
           streets[st].push({ player: player, type: 'call', amount: callAmt, allin: false });
-          committed[player] = toMatch || bbVal;
+          committed[player] = roundEuro((committed[player] || 0) + callAmt);
+          if (committed[player] > toMatch) toMatch = committed[player];
         } else if (type === 'check') {
           streets[st].push({ player: player, type: 'check' });
         } else if (type === 'fold') {
@@ -1039,6 +1085,14 @@
     }).join('');
   }
 
+  function parseAmountInput(raw) {
+    if (raw == null) return null;
+    var s = String(raw).trim().replace(',', '.');
+    if (!s) return null;
+    var amt = parseFloat(s);
+    return isFinite(amt) ? amt : null;
+  }
+
   function actionRowHTML(st, act, players) {
     var html = '<div class="ha-action-row" data-street="' + st + '" data-pos="' + esc(act.pos) + '">';
     html += '<select class="ha-apos" data-ha-apos data-street="' + st + '">';
@@ -1049,7 +1103,9 @@
       html += '<option value="' + k + '"' + (k === act.action ? ' selected' : '') + '>' + esc(ACTION_LABELS[k]) + '</option>';
     });
     html += '</select>';
-    html += '<input class="ha-aamt" type="number" min="0" step="0.5" placeholder="bb" data-ha-amt data-street="' + st + '"' +
+    var ph = act.action === 'raise' ? 'hasta bb' : (act.action === 'call' ? 'auto' : 'bb');
+    html += '<input class="ha-aamt" type="number" min="0" step="any" inputmode="decimal" placeholder="' + ph +
+      '" data-ha-amt data-street="' + st + '"' +
       (act.amountBB != null ? ' value="' + esc(String(act.amountBB)) + '"' : '') + ' />';
     html += '<button type="button" class="ha-row-del" data-ha-del-row aria-label="Quitar">&times;</button>';
     html += '</div>';
@@ -1063,34 +1119,76 @@
       var posEl = row.querySelector('[data-ha-apos]');
       var actEl = row.querySelector('[data-ha-act]');
       var amtEl = row.querySelector('[data-ha-amt]');
-      var amt = amtEl ? parseFloat(amtEl.value) : NaN;
       rows.push({
         pos: posEl ? posEl.value : '',
         action: actEl ? actEl.value : 'fold',
-        amountBB: isFinite(amt) ? amt : null
+        amountBB: amtEl ? parseAmountInput(amtEl.value) : null
       });
     });
     return rows;
   }
 
-  function syncStreetInputs(listEl, street) {
+  function syncStreetInputs(listEl, street, opts) {
     if (!listEl) return;
-    var computed = computeStreetDisplayActions(street, readStreetRows(listEl));
+    opts = opts || {};
+    var fillDefaults = !!opts.fillDefaults;
+    var forceCalls = !!opts.forceCalls;
+    var active = global.document && global.document.activeElement;
+    var computed = computeStreetDisplayActions(street, readStreetRows(listEl), { fillDefaults: fillDefaults });
     listEl.querySelectorAll('.ha-action-row').forEach(function (row, idx) {
       var data = computed[idx] || { action: 'fold', amountBB: null, derivedAmountBB: null, amountLocked: false };
       var amtEl = row.querySelector('[data-ha-amt]');
       if (!amtEl) return;
-      var shown = data.derivedAmountBB != null ? data.derivedAmountBB : data.amountBB;
-      amtEl.disabled = !!data.amountLocked;
-      amtEl.placeholder = data.action === 'call' ? 'auto' : 'bb';
-      if (shown == null || shown === '') amtEl.value = '';
-      else if (String(parseFloat(amtEl.value)) !== String(shown) || data.amountLocked) amtEl.value = String(shown);
+      var focused = active === amtEl;
+      var locked = data.action === 'check' || data.action === 'fold';
+      amtEl.disabled = locked;
+      if (data.action === 'call') amtEl.placeholder = 'auto';
+      else if (data.action === 'raise') amtEl.placeholder = 'hasta bb';
+      else amtEl.placeholder = 'bb';
+
+      if (locked) {
+        amtEl.value = '';
+        return;
+      }
+      // Nunca pisar el campo mientras se edita: permite borrar y escribir de cero.
+      if (focused && !forceCalls) return;
+
+      if (data.action === 'call') {
+        var callShown = data.derivedAmountBB;
+        var curCall = parseAmountInput(amtEl.value);
+        // Actualiza el auto si está vacío, o si el valor actual era el auto previo
+        // (atributo) y cambió el bet/raise anterior.
+        var prevAuto = amtEl.dataset.haAuto;
+        var wasAuto = prevAuto != null && curCall != null && String(curCall) === String(Number(prevAuto));
+        if (callShown == null) {
+          amtEl.value = '';
+          delete amtEl.dataset.haAuto;
+        } else if (curCall == null || wasAuto || forceCalls || fillDefaults) {
+          amtEl.value = String(callShown);
+          amtEl.dataset.haAuto = String(callShown);
+        } else {
+          amtEl.dataset.haAuto = String(callShown);
+        }
+        return;
+      }
+
+      var shown = data.amountBB;
+      if (shown == null || shown === '') {
+        // Vacío a propósito mientras se escribe; no forzar default aquí.
+        if (fillDefaults) {
+          // no-op: fillDefaults ya se aplicó en compute → amountBB
+        }
+        return;
+      }
+      if (String(parseAmountInput(amtEl.value)) !== String(shown)) {
+        amtEl.value = String(shown);
+      }
     });
   }
 
-  function syncAllStreetInputs(root) {
+  function syncAllStreetInputs(root, opts) {
     STREET_ORDER.forEach(function (st) {
-      syncStreetInputs(root.querySelector('[data-street-list="' + st + '"]'), st);
+      syncStreetInputs(root.querySelector('[data-street-list="' + st + '"]'), st, opts);
     });
   }
 
@@ -1098,6 +1196,12 @@
     STREET_ORDER.forEach(function (st) {
       var list = root.querySelector('[data-street-list="' + st + '"]');
       draft.actions[st] = readStreetRows(list);
+    });
+  }
+
+  function finalizeDraftAmounts(draft) {
+    STREET_ORDER.forEach(function (st) {
+      draft.actions[st] = fillActionAmounts(st, draft.actions[st] || []);
     });
   }
 
@@ -1248,7 +1352,7 @@
       var acts = (draft.actions && draft.actions[st]) || [];
       var players = activePlayersForStreet(draft, st);
       html += '<div class="ha-field ha-street-field" data-street-field="' + st + '"><label>Acciones · ' + STREET_LABELS[st] + '</label>';
-      html += '<p class="muted-text ha-street-hint">Cada fila es una acción en orden temporal. Puedes repetir un asiento varias veces en la misma calle: por ejemplo, check → bet → call.</p>';
+      html += '<p class="muted-text ha-street-hint">Cada fila es una acción en orden temporal (p. ej. raise → re-raise → call). Los importes de igualar se calculan solos, pero puedes borrarlos y escribir el número exacto. En subir, el valor es el total (hasta X bb).</p>';
       html += '<div class="ha-actions-list" data-street-list="' + st + '">';
       if (!acts.length) {
         html += '<p class="muted-text ha-street-empty">Selecciona héroe y villanos para cargar sus acciones.</p>';
@@ -1447,8 +1551,19 @@
         var row = e.target.closest('.ha-action-row');
         if (!row) return;
         var st = row.dataset.street;
+        var list = row.parentNode;
+        if (e.target.matches('[data-ha-act]')) {
+          // Al cambiar el tipo, sugerir importe (call auto / bet-raise mínimo).
+          var amtEl = row.querySelector('[data-ha-amt]');
+          if (amtEl) {
+            amtEl.value = '';
+            delete amtEl.dataset.haAuto;
+          }
+          syncStreetInputs(list, st, { fillDefaults: true, forceCalls: true });
+        } else {
+          syncStreetInputs(list, st, { forceCalls: true });
+        }
         commitDraftActionsFromDom(root, S.draft);
-        syncStreetInputs(row.parentNode, st);
         if (e.target.matches('[data-ha-act]') && e.target.value === 'fold') {
           syncActionsFromSeats(S.draft);
           refreshManualKeepScroll();
@@ -1459,8 +1574,30 @@
         if (!e.target.matches('[data-ha-amt]')) return;
         var row = e.target.closest('.ha-action-row');
         if (!row) return;
-        commitDraftActionsFromDom(root, S.draft);
+        // Recalcula calls siguientes sin pisar el campo enfocado ni rellenar defaults.
         syncStreetInputs(row.parentNode, row.dataset.street);
+        commitDraftActionsFromDom(root, S.draft);
+      });
+      root.addEventListener('focusout', function (e) {
+        if (!S.draft || S.view !== 'manual') return;
+        if (!e.target.matches('[data-ha-amt]')) return;
+        var row = e.target.closest('.ha-action-row');
+        if (!row) return;
+        var st = row.dataset.street;
+        var list = row.parentNode;
+        var actEl = row.querySelector('[data-ha-act]');
+        var action = actEl ? actEl.value : '';
+        // Si dejó bet/raise vacío, aplicar mínimo; si call vacío, restaurar auto.
+        if (action === 'bet' || action === 'raise' || action === 'call') {
+          if (parseAmountInput(e.target.value) == null) {
+            syncStreetInputs(list, st, { fillDefaults: true, forceCalls: true });
+          } else {
+            syncStreetInputs(list, st, { forceCalls: true });
+          }
+        } else {
+          syncStreetInputs(list, st, { forceCalls: true });
+        }
+        commitDraftActionsFromDom(root, S.draft);
       });
       root.addEventListener('click', function (e) {
         if (!S.draft || S.view !== 'manual') return;
@@ -1481,7 +1618,7 @@
 
     var saveBtn = root.querySelector('[data-ha-manual-save]');
     if (saveBtn) saveBtn.addEventListener('click', onManualSave);
-    syncAllStreetInputs(root);
+    syncAllStreetInputs(root, { fillDefaults: false, forceCalls: true });
   }
 
   function showErrors(errs) {
@@ -1495,7 +1632,13 @@
     var draft = S.draft;
     var bbEl = S.container && S.container.querySelector('[data-ha-bb-euro]');
     if (bbEl) draft.bbEuro = normalizeBbEuro(bbEl.value);
+    if (S.container) {
+      // Volcar DOM → draft (incl. calls editados) y completar vacíos con auto/mínimo.
+      syncAllStreetInputs(S.container, { fillDefaults: true, forceCalls: true });
+      commitDraftActionsFromDom(S.container, draft);
+    }
     syncActionsFromSeats(draft);
+    finalizeDraftAmounts(draft);
     var spec = draftToSpec(draft);
     var errs = validateSpec(spec);
     if (errs.length) { showErrors(errs); return; }

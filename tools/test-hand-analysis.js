@@ -129,6 +129,49 @@ const displayRaise = PTHandAnalysis.computeStreetDisplayActions('preflop', [
 ]);
 assert(displayRaise[1] && displayRaise[1].derivedAmountBB === 2.5, 'caller sin inversión previa paga open completo');
 assert(displayRaise[2] && displayRaise[2].derivedAmountBB === 1.5, 'BB call descuenta la ciega ya puesta');
+assert(displayRaise[1].amountLocked === false && displayRaise[2].amountLocked === false, 'calls editables (sin candado)');
+
+// Re-raise + call final (secuencia de varias subidas)
+const display3bet = PTHandAnalysis.computeStreetDisplayActions('preflop', [
+  { pos: 'CO', action: 'raise', amountBB: 2.5 },
+  { pos: 'BTN', action: 'raise', amountBB: 8 },
+  { pos: 'CO', action: 'call' },
+  { pos: 'BB', action: 'call' }
+]);
+assert(display3bet[2] && display3bet[2].derivedAmountBB === 5.5, 'CO call tras 3bet = 8-2.5: ' + (display3bet[2] && display3bet[2].derivedAmountBB));
+assert(display3bet[3] && display3bet[3].derivedAmountBB === 7, 'BB call final tras 3bet = 8-1: ' + (display3bet[3] && display3bet[3].derivedAmountBB));
+assert(display3bet[3].amountLocked === false, 'último call editable');
+
+// Raise vacío no debe tumbar el cálculo del call (usa mínimo provisional)
+const displayEmptyRaise = PTHandAnalysis.computeStreetDisplayActions('preflop', [
+  { pos: 'CO', action: 'raise', amountBB: null },
+  { pos: 'BB', action: 'call' }
+]);
+assert(displayEmptyRaise[0].amountBB == null, 'raise vacío se conserva vacío al editar');
+assert(displayEmptyRaise[1].derivedAmountBB === 2, 'call tras raise vacío usa mínimo lógico (3-1): ' + displayEmptyRaise[1].derivedAmountBB);
+
+const filledRaise = PTHandAnalysis.computeStreetDisplayActions('preflop', [
+  { pos: 'CO', action: 'raise', amountBB: null },
+  { pos: 'BB', action: 'call' }
+], { fillDefaults: true });
+assert(filledRaise[0].amountBB === 3, 'fillDefaults rellena raise vacío a 3bb');
+
+// Call manual respetado en specToRawHand
+const rawManualCall = PTHandAnalysis.specToRawHand({
+  format: '6max', heroPos: 'BB', heroCards: ['Ah', 'Kd'],
+  bbEuro: 0.05,
+  villains: [{ pos: 'CO', cards: [] }],
+  board: [],
+  actions: {
+    preflop: [
+      { pos: 'CO', action: 'raise', amountBB: 2.5 },
+      { pos: 'BB', action: 'call', amountBB: 1.5 }
+    ],
+    flop: [], turn: [], river: []
+  }
+});
+const bbCall = rawManualCall.streets.preflop.find((a) => a.player === 'BB' && a.type === 'call');
+assert(bbCall && Math.abs(bbCall.amount - 0.075) < 1e-6, 'call manual 1.5bb → €: ' + (bbCall && bbCall.amount));
 
 const analyzed = PTHandAnalysis.buildAnalyzedHand(spec, 'manual');
 assert(analyzed.heroPos === 'CO', 'analyzed heroPos CO');
