@@ -242,5 +242,37 @@ const fsHa = fs.readFileSync(path.join(__dirname, '..', 'js', 'hand-analysis.js'
 assert(/data-ha-manual-save>/.test(fsHa), 'data-ha-manual-save sin comilla suelta');
 assert(!/data-ha-manual-save\">/.test(fsHa), 'no debe haber data-ha-manual-save">');
 
+// --- 8) valor BB en € ---
+const rawDefault = PTHandAnalysis.specToRawHand(spec);
+assert(Math.abs(rawDefault.bb - 0.05) < 1e-9, 'BB por defecto 0.05€: ' + rawDefault.bb);
+assert(Math.abs(rawDefault.sb - 0.025) < 1e-9, 'SB = mitad: ' + rawDefault.sb);
+const raisePf = rawDefault.streets.preflop.find((a) => a.type === 'raise');
+assert(raisePf && Math.abs(raisePf.to - 0.125) < 1e-9, 'raise 2.5bb = 0.125€: ' + (raisePf && raisePf.to));
+
+const specNl2 = Object.assign({}, spec, { bbEuro: 0.02 });
+const rawNl2 = PTHandAnalysis.specToRawHand(specNl2);
+assert(Math.abs(rawNl2.bb - 0.02) < 1e-9, 'BB NL2 = 0.02€');
+const callBb = rawNl2.streets.preflop.find((a) => a.player === 'BB' && a.type === 'call');
+assert(callBb && Math.abs(callBb.amount - 0.03) < 1e-9, 'BB call paga 0.03€ (1.5bb): ' + (callBb && callBb.amount));
+const analyzedNl2 = PTHandAnalysis.buildAnalyzedHand(specNl2, 'manual');
+assert(analyzedNl2.bbEuro === 0.02 && analyzedNl2.spec.bbEuro === 0.02, 'bbEuro persistido en analyzed');
+
+// --- 9) swap POV con villano ---
+sandbox.window.Store = {
+  getAnalysisHands: function () { return []; },
+  saveAnalysisHand: function (h) { return { ok: true, hand: h }; },
+  updateAnalysisHand: function (h) { return { ok: true, hand: h }; }
+};
+const swapList = PTHandAnalysis.listSwappableVillains(analyzed);
+assert(swapList.some((v) => v.pos === 'BB'), 'BB es swappeable');
+const swapped = PTHandAnalysis.swapHeroWithVillain(analyzed, 'BB');
+assert(swapped.ok, 'swap ok: ' + (swapped.error || ''));
+assert(swapped.hand.heroPos === 'BB', 'nuevo héroe BB');
+assert(swapped.hand.heroCards.join('') === 'QsQd', 'cartas héroe = QQ: ' + swapped.hand.heroCards.join(''));
+assert(swapped.hand.spec.villains.some((v) => v.pos === 'CO' && v.cards.join('') === 'AsKd'),
+  'CO queda como villano con AK');
+assert(swapped.hand.decisions && swapped.hand.decisions.length >= 1, 'decisiones recalculadas para BB');
+assert(/como BB/.test(swapped.hand.savedName || ''), 'nombre indica POV: ' + swapped.hand.savedName);
+
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');

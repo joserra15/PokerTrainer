@@ -3756,6 +3756,21 @@ html.pwa-standalone body {
 
 .ha-form { display: flex; flex-direction: column; gap: 16px; max-width: 640px; }
 .ha-field { display: flex; flex-direction: column; gap: 6px; }
+.ha-bb-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+}
+.ha-bb-euro { width: 110px; max-width: 100%; }
+.ha-bb-hint { flex: 1; min-width: 180px; font-size: 12px; line-height: 1.35; }
+.ha-swap-panel { margin: 12px 0 16px; }
+.ha-swap-panel h3 { margin: 0 0 6px; font-size: 15px; }
+.ha-swap-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.ha-swap-btn {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  justify-content: flex-start; text-align: left; width: 100%;
+}
+.ha-swap-pos {
+  min-width: 42px; font-weight: 700; color: var(--gold, #f5c451);
+}
 .ha-field > label { font-weight: 600; font-size: 14px; }
 .ha-form input[type="text"], .ha-form input[type="number"], .ha-form select, .ha-text-input {
   background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); border-radius: 8px;

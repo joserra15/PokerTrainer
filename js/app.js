@@ -3437,12 +3437,13 @@
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div>
         <h2>${h.heroCode} · ${h.heroPos}</h2>
-        <div class="muted-text">Mano #${h.id} · Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span> · EV perdido: -${fmtBB(h.totalEvLoss)} bb</div>
+        <div class="muted-text">Mano #${h.id} · Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span> · EV perdido: -${fmtBB(h.totalEvLoss)} bb${h.bb || (h.spec && h.spec.bbEuro) ? ' · BB ' + fmtBB(h.bb || h.spec.bbEuro) + '€' : ''}</div>
       </div>
     </div>`;
 
     html += sessionReplayThemeHTML();
     html += renderShowdownTableHTML(h);
+    html += renderSwapRolesPanelHTML(h);
 
     html += '<div class="timeline">';
     summary.forEach((item) => {
@@ -3499,9 +3500,13 @@
     }
 
     html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
+    if (currentSession && currentSession.analysis && window.PTHandAnalysis && PTHandAnalysis.toTrainerConfig) {
+      html += `<button class="btn btn-secondary" id="to-trainer-from-review" style="margin-top:14px;margin-left:8px">Jugar en entrenador (POV actual) &raquo;</button>`;
+    }
     box.innerHTML = html;
     bindSessionReplayTheme();
     applyTableTheme(loadTableTheme());
+    bindSwapRolesPanel(h);
     scrollSessionReviewToTop();
     if (window.PTAIReport) {
       const isAnalysis = !!(currentSession && currentSession.analysis);
@@ -3525,6 +3530,59 @@
       });
     }
     $('#to-replay').addEventListener('click', () => startInteractiveReplay());
+    const toTrainer = $('#to-trainer-from-review');
+    if (toTrainer) {
+      toTrainer.addEventListener('click', () => {
+        const cfg = PTHandAnalysis.toTrainerConfig(h, 'pro', loadTableTheme());
+        if (window.playAnalysisHand) playAnalysisHand(cfg.force, cfg.playConfig);
+      });
+    }
+  }
+
+  function renderSwapRolesPanelHTML(h) {
+    if (!window.PTHandAnalysis || !PTHandAnalysis.listSwappableVillains) return '';
+    const villains = PTHandAnalysis.listSwappableVillains(h) || [];
+    if (!villains.length) {
+      return `<div class="ha-swap-panel card-box">
+        <h3>Ver desde otro asiento</h3>
+        <p class="muted-text">Para intercambiar papeles, el villano debe tener cartas conocidas (añádelas al editar la mano).</p>
+      </div>`;
+    }
+    let html = `<div class="ha-swap-panel card-box">
+      <h3>Ver desde otro asiento</h3>
+      <p class="muted-text">Genera una nueva mano de análisis con el punto de vista del villano (evalúa sus decisiones y juega esa mano en el entrenador).</p>
+      <div class="ha-swap-list">`;
+    villains.forEach((v) => {
+      html += `<button type="button" class="btn btn-small btn-secondary ha-swap-btn" data-ha-swap-pos="${escapeHtml(v.pos)}">
+        <span class="ha-swap-pos">${escapeHtml(v.pos)}</span>
+        <span class="rec-cards">${(v.cards || []).map(Cards.cardToHTML).join('')}</span>
+        <span>Analizar como ${escapeHtml(v.pos)} &raquo;</span>
+      </button>`;
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function bindSwapRolesPanel(h) {
+    $$('[data-ha-swap-pos]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const pos = btn.dataset.haSwapPos;
+        if (!pos || !window.PTHandAnalysis || !PTHandAnalysis.swapHeroWithVillain) return;
+        btn.disabled = true;
+        const res = PTHandAnalysis.swapHeroWithVillain(h, pos);
+        if (!res || !res.ok) {
+          btn.disabled = false;
+          let msg = 'No se pudo generar la mano desde ese asiento.';
+          if (res && res.error === 'no_cards') msg = 'Ese villano no tiene cartas conocidas.';
+          else if (res && res.error === 'analysis_limit') msg = 'Has alcanzado el límite de manos guardadas de tu plan.';
+          else if (res && res.details && res.details.length) msg = res.details.join(' ');
+          else if (res && res.message) msg = res.message;
+          alert(msg);
+          return;
+        }
+        openAnalysisHandReview(res.hand, 'review');
+      });
+    });
   }
 
   function handNeedsShowdownStep(h) {
@@ -4071,12 +4129,17 @@
   }
 
   function actionWord(item) {
+    function euro(x) {
+      const n = Number(x);
+      if (!isFinite(n)) return '0.00';
+      return (Math.round(n * 100) / 100).toFixed(2);
+    }
     switch (item.type) {
       case 'fold': return 'se retira';
       case 'check': return 'pasa';
-      case 'call': return 'iguala ' + (item.amount || 0) + '€';
-      case 'bet': return 'apuesta ' + (item.amount || 0) + '€' + (item.allin ? ' (all-in)' : '');
-      case 'raise': return 'sube a ' + (item.to || 0) + '€' + (item.allin ? ' (all-in)' : '');
+      case 'call': return 'iguala ' + euro(item.amount) + '€';
+      case 'bet': return 'apuesta ' + euro(item.amount) + '€' + (item.allin ? ' (all-in)' : '');
+      case 'raise': return 'sube a ' + euro(item.to) + '€' + (item.allin ? ' (all-in)' : '');
       default: return item.type;
     }
   }

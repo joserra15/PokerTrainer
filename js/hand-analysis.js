@@ -46,6 +46,8 @@
     });
   }
   function round2(x) { return Math.round(x * 100) / 100; }
+  /** Precisión interna de importes en € (evita 0.025 → 0.03). */
+  function roundEuro(x) { return Math.round(Number(x) * 1e4) / 1e4; }
   function ringFor(fmt) { return fmt === '9max' ? RING_9.slice() : RING_6.slice(); }
   function posIndex(fmt, pos) {
     var ring = ringFor(fmt);
@@ -138,8 +140,16 @@
   }
 
   // ---------- construir mano cruda a partir de un "spec" ----------
+  function normalizeBbEuro(raw) {
+    var n = Number(raw);
+    if (!isFinite(n) || n <= 0) return 0.05;
+    if (n > 100) n = 100;
+    return round2(n);
+  }
+
   function specToRawHand(spec) {
-    var bbVal = 1, sbVal = 0.5;
+    var bbVal = normalizeBbEuro(spec.bbEuro != null ? spec.bbEuro : 0.05);
+    var sbVal = roundEuro(bbVal / 2);
     var fmt = spec.format === '9max' ? '9max' : '6max';
     var ring = ringFor(fmt);
     var positions = {};
@@ -165,17 +175,17 @@
         var type = a.action;
         var amtBB = Number(a.amountBB);
         if (type === 'raise') {
-          var to = (isFinite(amtBB) && amtBB > 0 ? amtBB : (toMatch / bbVal + 2)) * bbVal;
-          var inc = round2(to - (committed[player] || 0));
-          if (inc < 0) inc = round2(to);
-          streets[st].push({ player: player, type: 'raise', amount: inc, to: round2(to), allin: false });
+          var to = roundEuro((isFinite(amtBB) && amtBB > 0 ? amtBB : (toMatch / bbVal + 2)) * bbVal);
+          var inc = roundEuro(to - (committed[player] || 0));
+          if (inc < 0) inc = roundEuro(to);
+          streets[st].push({ player: player, type: 'raise', amount: inc, to: to, allin: false });
           committed[player] = to; toMatch = to;
         } else if (type === 'bet') {
-          var amt = (isFinite(amtBB) && amtBB > 0 ? amtBB : 1) * bbVal;
-          streets[st].push({ player: player, type: 'bet', amount: round2(amt), allin: false });
+          var amt = roundEuro((isFinite(amtBB) && amtBB > 0 ? amtBB : 1) * bbVal);
+          streets[st].push({ player: player, type: 'bet', amount: amt, allin: false });
           committed[player] = amt; toMatch = Math.max(toMatch, amt);
         } else if (type === 'call') {
-          var callAmt = round2((toMatch || bbVal) - (committed[player] || 0));
+          var callAmt = roundEuro((toMatch || bbVal) - (committed[player] || 0));
           if (callAmt < 0) callAmt = 0;
           streets[st].push({ player: player, type: 'call', amount: callAmt, allin: false });
           committed[player] = toMatch || bbVal;
@@ -191,7 +201,7 @@
     return {
       id: spec._id || ('ah_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
       datetime: new Date().toISOString(),
-      sb: sbVal, bb: bbVal, currency: 'bb',
+      sb: sbVal, bb: bbVal, currency: 'EUR',
       hero: hero, heroCards: heroCards,
       positions: positions,
       blinds: { sb: 'SB', bb: 'BB' },
@@ -211,6 +221,7 @@
     }
     var raw = specToRawHand(spec);
     var analyzed = global.Importer.analyzeHand(raw);
+    var bbEuro = normalizeBbEuro(spec.bbEuro != null ? spec.bbEuro : raw.bb);
     analyzed.spec = {
       format: spec.format === '9max' ? '9max' : '6max',
       heroPos: spec.heroPos,
@@ -219,6 +230,7 @@
         return { pos: v.pos, cards: (v.cards || []).slice() };
       }),
       board: (spec.board || []).slice(),
+      bbEuro: bbEuro,
       actions: {
         preflop: ((spec.actions && spec.actions.preflop) || []).slice(),
         flop: ((spec.actions && spec.actions.flop) || []).slice(),
@@ -227,6 +239,7 @@
       },
       _source: source || spec._source || 'manual'
     };
+    analyzed.bbEuro = bbEuro;
     analyzed.boardAll = (raw.boardAll || analyzed.board || []).slice();
     analyzed.source = source || spec._source || 'manual';
     analyzed.createdAt = spec._createdAt || new Date().toISOString();
@@ -240,6 +253,9 @@
     var errs = [];
     if (!spec.heroPos) errs.push('Elige la posición del héroe.');
     if (!spec.heroCards || spec.heroCards.length !== 2) errs.push('Elige las 2 cartas del héroe.');
+    if (spec.bbEuro != null && (!isFinite(Number(spec.bbEuro)) || Number(spec.bbEuro) <= 0)) {
+      errs.push('El valor de la BB en € debe ser mayor que 0.');
+    }
     var seenPos = {};
     seenPos[spec.heroPos] = 'héroe';
     (spec.villains || []).forEach(function (v, i) {
@@ -325,6 +341,153 @@
     return { force: force, playConfig: playConfig };
   }
 
+  /** Villanos con cartas conocidas con los que se puede intercambiar el POV. */
+  function listSwappableVillains(hand) {
+    var out = [];
+    var spec = hand && hand.spec;
+    if (spec && Array.isArray(spec.villains)) {
+      spec.villains.forEach(function (v) {
+        if (v && v.pos && v.pos !== spec.heroPos && v.cards && v.cards.length === 2) {
+          out.push({ pos: v.pos, cards: v.cards.slice(0, 2) });
+        }
+      });
+      return out;
+    }
+    var shows = (hand && hand.villainShows) || {};
+    var heroName = hand && hand.hero;
+    Object.keys(shows).forEach(function (name) {
+      if (name === heroName) return;
+      if (!shows[name] || shows[name].length < 2) return;
+      var pos = (hand.positions && hand.positions[name]) || '';
+      if (!pos) return;
+      if (pos === hand.heroPos) return;
+      out.push({ pos: pos, cards: shows[name].slice(0, 2), player: name });
+    });
+    return out;
+  }
+
+  function actionsSpecFromHand(hand) {
+    var bb = (hand && hand.bb) || 1;
+    if (!(bb > 0)) bb = 1;
+    var actions = emptyActions();
+    STREET_ORDER.forEach(function (st) {
+      (((hand && hand.streets) || {})[st] || []).forEach(function (a) {
+        if (!a) return;
+        var pos = (hand.positions && hand.positions[a.player]) || a.player;
+        if (!pos) return;
+        var row = { pos: pos, action: a.type, amountBB: null };
+        if (a.type === 'bet' && a.amount != null) row.amountBB = round2(a.amount / bb);
+        else if (a.type === 'raise' && a.to != null) row.amountBB = round2(a.to / bb);
+        actions[st].push(row);
+      });
+    });
+    return actions;
+  }
+
+  function ensureHandSpec(hand) {
+    if (hand && hand.spec && hand.spec.heroPos && hand.spec.heroCards) {
+      var s = hand.spec;
+      return {
+        format: s.format === '9max' ? '9max' : '6max',
+        heroPos: s.heroPos,
+        heroCards: (s.heroCards || []).slice(0, 2),
+        villains: (s.villains || []).map(function (v) {
+          return { pos: v.pos, cards: (v.cards || []).slice(0, 2) };
+        }),
+        board: (s.board || hand.boardAll || hand.board || []).slice(0, 5),
+        bbEuro: normalizeBbEuro(s.bbEuro != null ? s.bbEuro : (hand.bbEuro != null ? hand.bbEuro : hand.bb)),
+        actions: {
+          preflop: ((s.actions && s.actions.preflop) || []).map(cloneAct),
+          flop: ((s.actions && s.actions.flop) || []).map(cloneAct),
+          turn: ((s.actions && s.actions.turn) || []).map(cloneAct),
+          river: ((s.actions && s.actions.river) || []).map(cloneAct)
+        }
+      };
+    }
+    var villains = listSwappableVillains(hand).map(function (v) {
+      return { pos: v.pos, cards: v.cards.slice(0, 2) };
+    });
+    // Incluir villanos sin cartas que hayan actuado
+    var seen = {};
+    villains.forEach(function (v) { seen[v.pos] = true; });
+    if (hand.heroPos) seen[hand.heroPos] = true;
+    STREET_ORDER.forEach(function (st) {
+      (((hand.streets || {})[st]) || []).forEach(function (a) {
+        var pos = (hand.positions && hand.positions[a.player]) || a.player;
+        if (!pos || seen[pos]) return;
+        seen[pos] = true;
+        villains.push({ pos: pos, cards: [] });
+      });
+    });
+    return {
+      format: '6max',
+      heroPos: hand.heroPos,
+      heroCards: (hand.heroCards || []).slice(0, 2),
+      villains: villains,
+      board: (hand.boardAll || hand.board || []).slice(0, 5),
+      bbEuro: normalizeBbEuro(hand.bbEuro != null ? hand.bbEuro : hand.bb),
+      actions: actionsSpecFromHand(hand)
+    };
+  }
+
+  /**
+   * Genera una nueva mano de análisis con el POV de un villano (cartas conocidas).
+   * El héroe original pasa a ser villano con sus cartas.
+   */
+  function swapHeroWithVillain(hand, villainPos) {
+    if (!hand || !villainPos) return { ok: false, error: 'missing' };
+    var base = ensureHandSpec(hand);
+    var target = null;
+    (base.villains || []).forEach(function (v) {
+      if (v && v.pos === villainPos && v.cards && v.cards.length === 2) target = v;
+    });
+    if (!target) return { ok: false, error: 'no_cards' };
+    if (villainPos === base.heroPos) return { ok: false, error: 'same_seat' };
+
+    var oldHeroPos = base.heroPos;
+    var oldHeroCards = (base.heroCards || []).slice(0, 2);
+    var newVillains = (base.villains || [])
+      .filter(function (v) { return v && v.pos && v.pos !== villainPos; })
+      .map(function (v) {
+        return { pos: v.pos, cards: (v.cards || []).slice(0, 2) };
+      });
+    newVillains.push({ pos: oldHeroPos, cards: oldHeroCards });
+
+    var baseName = hand.savedName || ((hand.heroCode || '') + ' · ' + (hand.heroPos || ''));
+    var newSpec = {
+      format: base.format,
+      heroPos: villainPos,
+      heroCards: target.cards.slice(0, 2),
+      villains: newVillains,
+      board: (base.board || []).slice(0, 5),
+      bbEuro: base.bbEuro,
+      actions: {
+        preflop: (base.actions.preflop || []).map(cloneAct),
+        flop: (base.actions.flop || []).map(cloneAct),
+        turn: (base.actions.turn || []).map(cloneAct),
+        river: (base.actions.river || []).map(cloneAct)
+      },
+      _source: 'manual-swap',
+      _name: String(baseName).replace(/\s*\(como [A-Z0-9]+\)$/, '') + ' (como ' + villainPos + ')'
+    };
+
+    var errs = validateSpec(newSpec);
+    if (errs.length) return { ok: false, error: 'invalid', details: errs };
+
+    var check = canSave();
+    if (!check.ok) return { ok: false, error: 'analysis_limit', limit: check.limit };
+
+    var analyzed;
+    try {
+      analyzed = buildAnalyzedHand(newSpec, 'manual-swap');
+    } catch (e) {
+      return { ok: false, error: 'analyze', message: (e && e.message) || String(e) };
+    }
+    var res = saveHand(analyzed);
+    if (!res.ok) return res;
+    return { ok: true, hand: res.hand || analyzed };
+  }
+
   // ---------- persistencia / límites ----------
   function getHands() {
     return (global.Store && global.Store.getAnalysisHands) ? global.Store.getAnalysisHands() : [];
@@ -377,6 +540,7 @@
       boardFlop: [],
       boardTurn: [],
       boardRiver: [],
+      bbEuro: 0.05,
       actions: emptyActions()
     };
   }
@@ -386,6 +550,7 @@
     var d = emptyDraft(spec.format);
     d.heroPos = spec.heroPos || d.heroPos;
     d.heroCards = (spec.heroCards || []).slice(0, 2);
+    d.bbEuro = normalizeBbEuro(spec.bbEuro != null ? spec.bbEuro : 0.05);
     d.villains = (spec.villains && spec.villains.length)
       ? spec.villains.map(function (v) {
           return { pos: v.pos || '', cards: (v.cards || []).slice(0, 2) };
@@ -487,6 +652,7 @@
       format: draft.format,
       heroPos: draft.heroPos,
       heroCards: (draft.heroCards || []).slice(0, 2),
+      bbEuro: normalizeBbEuro(draft.bbEuro),
       villains: (draft.villains || [])
         .filter(function (v) { return v && v.pos; })
         .map(function (v) {
@@ -955,6 +1121,13 @@
     });
     html += '</div></div>';
 
+    html += '<div class="ha-field ha-bb-field"><label for="ha-bb-euro">Valor de la BB (€)</label>';
+    html += '<div class="ha-bb-row">';
+    html += '<input id="ha-bb-euro" class="ha-bb-euro" type="number" min="0.01" max="100" step="0.01" data-ha-bb-euro value="' +
+      esc(String(draft.bbEuro != null ? draft.bbEuro : 0.05)) + '" />';
+    html += '<span class="muted-text ha-bb-hint">SB = mitad. Ej.: 0.02 → NL2, 0.05 → NL5. Las acciones siguen en bb; el paso a paso muestra euros.</span>';
+    html += '</div></div>';
+
     html += '<div class="ha-field"><label>Posición del héroe</label><div class="ha-chips ha-hero-pos">';
     html += heroPosChipsHTML(draft);
     html += '</div></div>';
@@ -1025,6 +1198,16 @@
       S.picker = null;
       render();
     });
+
+    var bbInp = root.querySelector('[data-ha-bb-euro]');
+    if (bbInp) {
+      var syncBb = function () {
+        draft.bbEuro = normalizeBbEuro(bbInp.value);
+        bbInp.value = String(draft.bbEuro);
+      };
+      bbInp.addEventListener('change', syncBb);
+      bbInp.addEventListener('blur', syncBb);
+    }
 
     root.querySelectorAll('[data-ha-format]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -1219,6 +1402,8 @@
 
   function onManualSave() {
     var draft = S.draft;
+    var bbEl = S.container && S.container.querySelector('[data-ha-bb-euro]');
+    if (bbEl) draft.bbEuro = normalizeBbEuro(bbEl.value);
     syncActionsFromSeats(draft);
     var spec = draftToSpec(draft);
     var errs = validateSpec(spec);
@@ -1373,6 +1558,10 @@
     takenSeats: takenSeats,
     emptyDraft: emptyDraft,
     draftFromSpec: draftFromSpec,
-    computeStreetDisplayActions: computeStreetDisplayActions
+    computeStreetDisplayActions: computeStreetDisplayActions,
+    listSwappableVillains: listSwappableVillains,
+    swapHeroWithVillain: swapHeroWithVillain,
+    ensureHandSpec: ensureHandSpec,
+    normalizeBbEuro: normalizeBbEuro
   };
 })(window);
