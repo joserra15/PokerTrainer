@@ -70,10 +70,35 @@
   const EV_TIE_BB = 0.15;
   const EV_OPTIMA_BB = 0.01;
 
+  /** Frecuencia GTO de una acción en la mezcla legal (0 si no está). */
+  function mixFreqOf(action, opts, chosen, freq, freqBest, maxFreq) {
+    const legal = opts && opts.legalStrategy;
+    if (legal && legal[action] != null) return legal[action] || 0;
+    if (action === chosen) return freq;
+    if (action === freqBest) return maxFreq;
+    return 0;
+  }
+
+  /**
+   * "Mejor" en UI = líder de la mezcla GTO, salvo que el EV apunte a una acción
+   * también competitiva en frecuencia (o a fold por call sin odds).
+   * Evita marcar raise ~7% como óptimo cuando call tiene ~70%+ por un EV heurístico inflado.
+   */
+  function evBestTrustedInMix(bestAct, freqBest, maxFreq, evBestFreq, callSinOdds) {
+    if (bestAct === freqBest) return true;
+    if (callSinOdds && bestAct === 'fold') return true;
+    if (maxFreq <= 0) return true;
+    // Dentro de la banda de indiferencia (±8pp) o con peso material en la mezcla
+    if (evBestFreq >= maxFreq - 0.08) return true;
+    if (evBestFreq >= 0.40) return true;
+    return false;
+  }
+
   /** Si la acción elegida tiene el mismo EV que la óptima, suavizar penalización por frecuencia baja. */
   function reconcileWithEv(freqCls, chosen, freqBest, evResult, opts) {
     opts = opts || {};
     const freq = opts.freq != null ? opts.freq : 0;
+    const maxFreq = opts.maxFreq != null ? opts.maxFreq : (chosen === freqBest ? freq : 0);
     const equity = opts.equity != null ? opts.equity : 0;
     const isNuts = opts.band === 'nuts' || equity >= 0.95;
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
@@ -109,16 +134,21 @@
       return r.type === 'call_sin_odds';
     });
     if (callSinOdds && chosen === 'call') bestAct = 'fold';
-    const freqDominant = chosen === freqBest && freq >= 0.15;
+    const evBestFreq = mixFreqOf(bestAct, opts, chosen, freq, freqBest, maxFreq);
+    // Mezcla GTO casi empatada (p.ej. check 28.9% vs bet_100 29.2%): no degradar
+    // a imprecisa por un ΔEV heurístico; la frecuencia ya marca indiferencia.
+    const withinMixBand = freq >= 0.15 && maxFreq > 0 && freq >= maxFreq - 0.08;
+    const freqDominant = withinMixBand || (chosen === freqBest && freq >= 0.15);
+    const trustEvBest = evBestTrustedInMix(bestAct, freqBest, maxFreq, evBestFreq, callSinOdds);
     if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
       if (cls === 'optima' || cls === 'aceptable') {
         cls = evLoss >= 1 ? 'error' : 'imprecisa';
       }
-      best = bestAct;
+      if (trustEvBest || callSinOdds) best = bestAct;
     } else if (delta >= EV_TIE_BB && chosen !== bestAct && !freqDominant) {
       if (cls === 'optima') cls = delta >= 1 ? 'imprecisa' : 'aceptable';
       if (chosen === 'call' && freqBest === 'fold') bestAct = 'fold';
-      best = bestAct;
+      if (trustEvBest) best = bestAct;
     }
 
     return { cls, best };
