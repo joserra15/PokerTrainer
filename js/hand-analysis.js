@@ -721,20 +721,57 @@
     return renderList();
   }
 
+  function aiAccessSnapshot() {
+    if (!global.PTEntitlements || !global.PTEntitlements.canUseAI) {
+      return { ok: false, reason: 'ai_plan' };
+    }
+    return global.PTEntitlements.canUseAI(global.PTEntitlements.get ? global.PTEntitlements.get() : null);
+  }
+
+  function requireAiAccess() {
+    if (!global.PTEntitlements) {
+      if (global.PTBilling && global.PTBilling.showPaywall) global.PTBilling.showPaywall('ai_plan');
+      return Promise.resolve(false);
+    }
+    var load = global.PTEntitlements.refresh
+      ? global.PTEntitlements.refresh()
+      : (global.PTEntitlements.ensureLoaded
+        ? global.PTEntitlements.ensureLoaded()
+        : Promise.resolve(global.PTEntitlements.get && global.PTEntitlements.get()));
+    return load.then(function (ent) {
+      var check = global.PTEntitlements.canUseAI(ent);
+      if (check.ok) return true;
+      if (global.PTBilling && global.PTBilling.showPaywall) {
+        global.PTBilling.showPaywall(check.reason || 'ai_plan');
+      } else {
+        alert('Añadir manos con IA requiere consultas IA de tu plan o un bono.');
+      }
+      return false;
+    }).catch(function () {
+      if (global.PTBilling && global.PTBilling.showPaywall) global.PTBilling.showPaywall('ai_plan');
+      return false;
+    });
+  }
+
   function renderList() {
     var root = S.container;
     var hands = getHands();
     var max = handsMax();
     var used = hands.length;
+    var aiOk = aiAccessSnapshot().ok;
     var html = '';
     html += '<div class="ha-intro">';
     html += '<h2 class="ha-title">Análisis de manos</h2>';
-    html += '<p class="muted-text">Introduce una mano a mano o descríbela en texto y deja que la IA la prepare. Revísala paso a paso con GTO y vuelve a jugarla en el entrenador con las mismas cartas.</p>';
+    html += '<p class="muted-text">Introduce una mano a mano (gratis, según el cupo de tu plan) o descríbela en texto con IA Coach (consume 1 consulta). Revísala paso a paso con GTO y vuelve a jugarla en el entrenador.</p>';
     html += '<div class="ha-actions-top">';
     html += '<button class="btn btn-primary" data-ha-new="manual">+ Añadir mano (manual)</button>';
-    html += '<button class="btn btn-secondary" data-ha-new="text">Añadir con IA (texto)</button>';
+    html += '<button class="btn btn-secondary" data-ha-new="text"' + (aiOk ? '' : ' title="Requiere consulta IA disponible"') + '>Añadir con IA (texto)</button>';
     html += '</div>';
+    if (!aiOk) {
+      html += '<p class="muted-text ha-ai-gate">Añadir con IA no está disponible en tu plan actual sin consultas. El plan Gratis no incluye IA; Study incluye 5/mes y Coach 35/mes, o usa un bono.</p>';
+    }
     html += '<div class="ha-limit muted-text">Manos guardadas: <strong>' + used + ' / ' + max + '</strong>' +
+      ' (Gratis 5 · Study 20 · Coach 100)' +
       (used >= max ? ' — límite del plan alcanzado. Borra alguna o mejora tu plan.' : '') + '</div>';
     html += '</div>';
 
@@ -793,10 +830,13 @@
           syncActionsFromSeats(S.draft);
           S.view = 'manual';
           render();
-        } else {
+          return;
+        }
+        requireAiAccess().then(function (ok) {
+          if (!ok) return;
           S.view = 'text';
           render();
-        }
+        });
       });
     });
     root.querySelectorAll('[data-ha-review]').forEach(function (btn) {
@@ -1011,7 +1051,6 @@
     html += '</select>';
     html += '<input class="ha-aamt" type="number" min="0" step="0.5" placeholder="bb" data-ha-amt data-street="' + st + '"' +
       (act.amountBB != null ? ' value="' + esc(String(act.amountBB)) + '"' : '') + ' />';
-    html += '<button type="button" class="ha-row-clone" data-ha-clone-row aria-label="Duplicar">+</button>';
     html += '<button type="button" class="ha-row-del" data-ha-del-row aria-label="Quitar">&times;</button>';
     html += '</div>';
     return html;
@@ -1077,25 +1116,37 @@
     draft.actions[street].push(row);
   }
 
-  function cloneActionRowInDraft(draft, street, idx) {
-    var acts = draft.actions[street] || [];
-    var src = acts[idx];
-    if (!src) return;
-    acts.splice(idx + 1, 0, {
-      pos: src.pos,
-      action: 'call',
-      amountBB: null
+  function ensureVisibleActionRows(draft) {
+    STREET_ORDER.forEach(function (st) {
+      var players = activePlayersForStreet(draft, st);
+      if (!players.length) {
+        draft.actions[st] = [];
+        return;
+      }
+      var acts = draft.actions[st] || [];
+      if (!acts.length) {
+        draft.actions[st] = players.map(function (pos) {
+          return { pos: pos, action: defaultActionForStreet(st), amountBB: null };
+        });
+        return;
+      }
+      var present = {};
+      acts.forEach(function (a) { if (a && a.pos) present[a.pos] = true; });
+      players.forEach(function (pos) {
+        if (!present[pos]) {
+          acts.push({ pos: pos, action: defaultActionForStreet(st), amountBB: null });
+        }
+      });
+      draft.actions[st] = acts;
     });
   }
 
-  function ensureVisibleActionRows(draft) {
+  /** Renombra una posición en todas las acciones (al cambiar héroe/villano de asiento). */
+  function remapActionPositions(draft, fromPos, toPos) {
+    if (!fromPos || !toPos || fromPos === toPos) return;
     STREET_ORDER.forEach(function (st) {
-      var acts = draft.actions[st] || [];
-      if (acts.length) return;
-      var players = activePlayersForStreet(draft, st);
-      if (!players.length) return;
-      draft.actions[st] = players.map(function (pos) {
-        return { pos: pos, action: defaultActionForStreet(st), amountBB: null };
+      (draft.actions[st] || []).forEach(function (a) {
+        if (a && a.pos === fromPos) a.pos = toPos;
       });
     });
   }
@@ -1271,11 +1322,13 @@
       btn.addEventListener('click', function () {
         var pos = btn.dataset.haHeroPos;
         if (pos === draft.heroPos) return;
+        var oldHero = draft.heroPos;
         // Liberar ese asiento de villanos
         (draft.villains || []).forEach(function (v) {
           if (v.pos === pos) v.pos = '';
         });
         draft.heroPos = pos;
+        remapActionPositions(draft, oldHero, pos);
         syncActionsFromSeats(draft);
         refreshManualKeepScroll();
       });
@@ -1297,16 +1350,21 @@
           showErrors(['El asiento ' + pos + ' ya está ocupado.']);
           return;
         }
+        var oldPos = draft.villains[idx].pos || '';
         draft.villains[idx].pos = pos;
-        // Si el héroe tenía ese asiento, mover héroe al primer libre
+        // Si el héroe tenía ese asiento, mover héroe al primer libre y remapear sus acciones
         if (pos && draft.heroPos === pos) {
           var ring = ringFor(draft.format);
           var takenAfter = {};
           draft.villains.forEach(function (v) {
             if (v.pos) takenAfter[v.pos] = true;
           });
-          draft.heroPos = ring.find(function (p) { return !takenAfter[p]; }) || ring[0];
+          var newHero = ring.find(function (p) { return !takenAfter[p]; }) || ring[0];
+          var prevHero = draft.heroPos;
+          draft.heroPos = newHero;
+          remapActionPositions(draft, prevHero, newHero);
         }
+        if (oldPos && pos) remapActionPositions(draft, oldPos, pos);
         syncActionsFromSeats(draft);
         refreshManualKeepScroll();
       });
@@ -1380,53 +1438,46 @@
         refreshManualKeepScroll();
       });
     });
-    root.addEventListener('change', function (e) {
-      var row = e.target.closest('.ha-action-row');
-      if (!row) return;
-      var st = row.dataset.street;
-      commitDraftActionsFromDom(root, draft);
-      syncStreetInputs(row.parentNode, st);
-      var acts = draft.actions[st] || [];
-      if (e.target.matches('[data-ha-act]') && e.target.value === 'fold') {
-        syncActionsFromSeats(draft);
-        refreshManualKeepScroll();
-      }
-    });
-    root.addEventListener('input', function (e) {
-      if (!e.target.matches('[data-ha-amt]')) return;
-      var row = e.target.closest('.ha-action-row');
-      if (!row) return;
-      commitDraftActionsFromDom(root, draft);
-      syncStreetInputs(row.parentNode, row.dataset.street);
-    });
-    root.addEventListener('click', function (e) {
-      var delRow = e.target.closest('[data-ha-del-row]');
-      if (delRow) {
+
+    // Listeners delegados una sola vez: re-render no debe apilar handlers.
+    if (!S._manualDelegated) {
+      S._manualDelegated = true;
+      root.addEventListener('change', function (e) {
+        if (!S.draft || S.view !== 'manual') return;
+        var row = e.target.closest('.ha-action-row');
+        if (!row) return;
+        var st = row.dataset.street;
+        commitDraftActionsFromDom(root, S.draft);
+        syncStreetInputs(row.parentNode, st);
+        if (e.target.matches('[data-ha-act]') && e.target.value === 'fold') {
+          syncActionsFromSeats(S.draft);
+          refreshManualKeepScroll();
+        }
+      });
+      root.addEventListener('input', function (e) {
+        if (!S.draft || S.view !== 'manual') return;
+        if (!e.target.matches('[data-ha-amt]')) return;
+        var row = e.target.closest('.ha-action-row');
+        if (!row) return;
+        commitDraftActionsFromDom(root, S.draft);
+        syncStreetInputs(row.parentNode, row.dataset.street);
+      });
+      root.addEventListener('click', function (e) {
+        if (!S.draft || S.view !== 'manual') return;
+        var delRow = e.target.closest('[data-ha-del-row]');
+        if (!delRow) return;
         var rowDel = delRow.closest('.ha-action-row');
+        if (!rowDel) return;
         var stDel = rowDel.dataset.street;
         var rowsDel = Array.prototype.slice.call(rowDel.parentNode.querySelectorAll('.ha-action-row'));
         var idxDel = rowsDel.indexOf(rowDel);
         if (idxDel >= 0) {
-          commitDraftActionsFromDom(root, draft);
-          draft.actions[stDel].splice(idxDel, 1);
+          commitDraftActionsFromDom(root, S.draft);
+          S.draft.actions[stDel].splice(idxDel, 1);
           refreshManualKeepScroll();
         }
-        return;
-      }
-      var cloneRow = e.target.closest('[data-ha-clone-row]');
-      if (cloneRow) {
-        var row = cloneRow.closest('.ha-action-row');
-        var st = row.dataset.street;
-        var rows = Array.prototype.slice.call(row.parentNode.querySelectorAll('.ha-action-row'));
-        var idx = rows.indexOf(row);
-        commitDraftActionsFromDom(root, draft);
-        cloneActionRowInDraft(draft, st, idx);
-        refreshManualKeepScroll();
-        return;
-      }
-      var delV = e.target.closest('[data-ha-del-vrow]');
-      if (delV) return;
-    });
+      });
+    }
 
     var saveBtn = root.querySelector('[data-ha-manual-save]');
     if (saveBtn) saveBtn.addEventListener('click', onManualSave);
@@ -1492,7 +1543,7 @@
     var html = '';
     html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver</button>';
     html += '<h2 class="ha-title">Añadir mano con IA (texto)</h2>';
-    html += '<p class="muted-text">Describe la mano en lenguaje natural: posiciones, cartas del héroe y villanos (si se conocen), cartas comunitarias y las acciones. La IA la preparará para el paso a paso e incluirá su análisis. <strong>Esta acción consume una consulta de tu plan o bono.</strong></p>';
+    html += '<p class="muted-text">Describe la mano en lenguaje natural: posiciones, cartas del héroe y villanos (si se conocen), cartas comunitarias y las acciones. La IA la preparará para el paso a paso e incluirá su análisis. <strong>Esta acción consume una consulta de tu plan o bono.</strong> No disponible en Gratis sin bono.</p>';
     html += '<div class="ha-form">';
     html += '<textarea class="ha-text-input" rows="8" placeholder="Ej.: 6-max. Soy CO con As Kd. UTG se retira, HJ paga, yo subo a 3bb, BTN paga, se retiran las ciegas. Flop 9c Tc 8c: HJ pasa, yo apuesto 5bb, HJ paga. Turn 2h: pasa pasa. River 2s: HJ apuesta 10bb y me lo pienso."></textarea>';
     html += '<div class="ha-form-errors" data-ha-errors></div>';
@@ -1504,6 +1555,11 @@
     root.innerHTML = html;
     root.querySelector('[data-ha-back]').addEventListener('click', function () { S.view = 'list'; render(); });
     root.querySelector('[data-ha-text-go]').addEventListener('click', onTextAnalyze);
+    requireAiAccess().then(function (ok) {
+      if (ok || S.view !== 'text') return;
+      S.view = 'list';
+      render();
+    });
   }
 
   function normalizeAiSpec(aiHand) {
@@ -1551,9 +1607,18 @@
     }
     var btn = root.querySelector('[data-ha-text-go]');
     btn.disabled = true;
-    status.innerHTML = '<div class="ha-loading">La IA está leyendo la mano…</div>';
+    status.innerHTML = '<div class="ha-loading">Comprobando consultas IA…</div>';
 
-    global.PTAIReport.parseHand(text).then(function (data) {
+    requireAiAccess().then(function (ok) {
+      if (!ok) {
+        btn.disabled = false;
+        status.innerHTML = '';
+        return;
+      }
+      status.innerHTML = '<div class="ha-loading">La IA está leyendo la mano…</div>';
+      return global.PTAIReport.parseHand(text);
+    }).then(function (data) {
+      if (!data) return;
       if (!data || !data.hand) throw new Error('La IA no devolvió una mano válida.');
       var spec = normalizeAiSpec(data.hand);
       var errs = validateSpec(spec);
@@ -1594,6 +1659,7 @@
     buildAnalyzedHand: buildAnalyzedHand,
     toTrainerConfig: toTrainerConfig,
     syncActionsFromSeats: syncActionsFromSeats,
+    remapActionPositions: remapActionPositions,
     activePlayersForStreet: activePlayersForStreet,
     takenSeats: takenSeats,
     emptyDraft: emptyDraft,

@@ -95,7 +95,8 @@
       import_sessions_per_month: lim.import_sessions_per_month != null ? lim.import_sessions_per_month : defaults.import_sessions_per_month,
       max_hands_per_import: lim.max_hands_per_import != null ? lim.max_hands_per_import : defaults.max_hands_per_import,
       ai_reports_per_month: lim.ai_reports_per_month != null ? lim.ai_reports_per_month : defaults.ai_reports_per_month,
-      history_days: lim.history_days != null ? lim.history_days : defaults.history_days
+      history_days: lim.history_days != null ? lim.history_days : defaults.history_days,
+      analysis_hands_max: lim.analysis_hands_max != null ? lim.analysis_hands_max : defaults.analysis_hands_max
     };
     var usage = data.usage || {};
     data.usage = {

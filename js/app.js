@@ -1872,6 +1872,11 @@
         if (ent.limits.import_sessions_per_month != null) {
           line += ' · Imports mes: ' + (Number(ent.usage.import_sessions_month) || 0) + '/' + ent.limits.import_sessions_per_month;
         }
+        if (Ent && Ent.analysisHandsMax) {
+          var aMax = Ent.analysisHandsMax(ent);
+          var aUsed = (window.Store && Store.getAnalysisHands) ? Store.getAnalysisHands().length : 0;
+          line += ' · Análisis: ' + aUsed + '/' + aMax;
+        }
         if (Ent && Ent.aiQuotaSummary) {
           var aiLine = Ent.aiQuotaSummary(ent);
           if (aiLine.unlimited) {
@@ -1897,19 +1902,36 @@
     const cards = [
       {
         id: 'free', title: 'Gratis', price: '0 €', period: '/mes', featured: false,
-        features: ['15 manos entrenador/día', '1 sesión import/mes (máx. 200 manos)', 'IA solo con bono', 'Histórico 30 días'],
+        features: [
+          '15 manos entrenador/día',
+          '1 sesión import/mes (máx. 200 manos)',
+          '5 manos en análisis (solo manual)',
+          'Sin IA Coach (añadir/preguntar con IA requiere bono)',
+          'Histórico 30 días'
+        ],
         cta: null
       },
       {
         id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: false,
-        features: ['Entrenador ilimitado', 'Import ilimitado', '5 consultas IA Coach/mes', 'Sync, estadísticas y repaso'],
+        features: [
+          'Entrenador e import ilimitados',
+          '20 manos en análisis',
+          '5 consultas IA Coach/mes (añadir manos, análisis y preguntas)',
+          'Sync, estadísticas y repaso'
+        ],
         cta: 'pro'
       },
       {
         id: 'premium', title: plans.premium ? plans.premium.label : 'Coach',
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
-        features: ['Todo Study', '35 consultas IA Coach/mes', 'Informes y preguntas sobre manos y sesiones', 'Soporte prioritario'],
+        features: [
+          'Todo Study',
+          '100 manos en análisis',
+          '35 consultas IA Coach/mes',
+          'Informes y preguntas sobre manos, análisis y sesiones',
+          'Soporte prioritario'
+        ],
         cta: 'premium'
       }
     ];

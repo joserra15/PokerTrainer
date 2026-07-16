@@ -55,6 +55,15 @@
     if (lim.import_sessions_per_month != null) {
       rows += barRow('Imports este mes', use.import_sessions_month, lim.import_sessions_per_month);
     }
+    if (Ent && Ent.analysisHandsMax) {
+      var aMax = Ent.analysisHandsMax(ent);
+      var aUsed = (global.Store && global.Store.getAnalysisHands)
+        ? global.Store.getAnalysisHands().length
+        : 0;
+      if (aMax != null && aMax < 1000) {
+        rows += barRow('Manos en análisis', aUsed, aMax);
+      }
+    }
     var aiQ = Ent && Ent.aiCombinedQuota ? Ent.aiCombinedQuota(ent) : null;
     if (aiQ && aiQ.unlimited) {
       rows += '<div class="usage-row usage-row-static"><span>IA Coach</span><strong>Ilimitado</strong></div>';

@@ -59,17 +59,33 @@
     var cards = [
       {
         title: 'Gratis', price: '0 €', period: '/mes', featured: false,
-        features: ['15 manos entrenador/día', '1 sesión import/mes', 'Sesión de ejemplo incluida', 'Sin IA Coach']
+        features: [
+          '15 manos entrenador/día',
+          '1 sesión import/mes',
+          '5 manos en análisis (solo manual)',
+          'Sin IA Coach (bono opcional)'
+        ]
       },
       {
         title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: true,
-        features: ['Entrenador ilimitado', 'Import ilimitado', '3 consultas IA Coach/mes', 'Sync en la nube']
+        features: [
+          'Entrenador e import ilimitados',
+          '20 manos en análisis',
+          '5 consultas IA Coach/mes',
+          'Sync en la nube'
+        ]
       },
       {
         title: plans.premium ? plans.premium.label : 'Coach',
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
-        features: ['Todo Study', '30 consultas IA/mes', 'Informes de sesión', 'Soporte prioritario']
+        features: [
+          'Todo Study',
+          '100 manos en análisis',
+          '35 consultas IA Coach/mes',
+          'Informes, análisis y preguntas IA',
+          'Soporte prioritario'
+        ]
       }
     ];
     grid.innerHTML = cards.map(function (c) {
