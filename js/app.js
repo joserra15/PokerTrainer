@@ -1456,7 +1456,10 @@
       if (mp.actionEV != null && mp.bestEV != null) {
         parts.push(`EV acción ${mp.actionEV >= 0 ? '+' : ''}${mp.actionEV}bb · óptimo ${mp.bestEV >= 0 ? '+' : ''}${mp.bestEV}bb`);
       }
-      if (mp.deltaEV > 0) parts.push(`ΔEV ${mp.deltaEV}bb`);
+      // No mostrar ΔEV si la acción ya iguala el EV óptimo (evita contradicción UI)
+      if (mp.deltaEV > 0 && !(mp.actionEV != null && mp.bestEV != null && Math.abs(mp.bestEV - mp.actionEV) < 0.05)) {
+        parts.push(`ΔEV ${mp.deltaEV}bb`);
+      }
     } else if (d.heroEquity != null) {
       parts.push(`Equity ${d.heroEquity}%`);
     }

@@ -26,13 +26,14 @@
 
   function checkDeployInfo(build) {
     if (!('fetch' in global)) return;
-    fetch('deploy-info.json?t=' + Date.now(), { cache: 'no-store' })
+    var url = '/deploy-info.json?t=' + Date.now();
+    fetch(url, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (info) {
         if (!info || !info.build) return;
         if (info.build !== build) clearCachesAndReload();
       })
-      .catch(function () { /* noop */ });
+      .catch(function () { /* archivo ausente o red: no bloquear */ });
   }
 
   if (seen && seen !== build) {

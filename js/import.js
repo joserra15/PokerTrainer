@@ -719,6 +719,7 @@
         }
         const betSizeBB = a.type === 'bet' ? r2(a.amount / bb) : (a.type === 'raise' ? r2(a.to / bb) : 0);
         const chosen = resolvePostflopChosen(a.type, toCallBB, betSizeBB, potForEval);
+        const actionType = (a.type === 'raise' && toCallBB <= 0.0001) ? 'bet' : a.type;
         const opts = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'];
         const priorBoard = st === 'river' ? boardUpTo(hand, 'turn')
           : (st === 'turn' ? boardUpTo(hand, 'flop') : null);
@@ -745,7 +746,7 @@
         decisions.push({
           street: st, spot: `${cap(st)} · ${handName}`,
           spotKind: 'postflop', facing: 'postflop',
-          actionType: a.type, chosen, betSizeBB, class: ev.class, best: ev.best,
+          actionType, chosen, betSizeBB, class: ev.class, best: ev.best,
           gto: evalResult.strategy, evLoss: ev.evLoss, evLossEuro: ev.evLossEuro,
           evErroneous: ev.evErroneous, evErrorReasons: ev.evErrorReasons, mathParams: ev.mathParams,
           evLossTier: ev.evLossTier,
@@ -781,8 +782,9 @@
     if (type === 'fold') return 'fold';
     if (type === 'check') return 'check';
     if (type === 'bet') return 'bet';
-    if (type === 'raise') return 'raise';
-    if (type === 'call') return 'call';
+    // "Raise" sin apuesta previa = apuesta de apertura (error típico en entrada manual)
+    if (type === 'raise') return (toCallBB > 0.0001) ? 'raise' : 'bet';
+    if (type === 'call') return (toCallBB > 0.0001) ? 'call' : 'check';
     return type;
   }
 

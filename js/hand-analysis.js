@@ -60,6 +60,35 @@
     });
   }
 
+  /** Orden de habla: preflop UTG→BB; postflop SB→BTN. */
+  function speakingOrderRing(fmt, street) {
+    var ring = ringFor(fmt);
+    if (street === 'preflop') return ring.slice();
+    var sb = ring.indexOf('SB');
+    if (sb < 0) return ring.slice();
+    return ring.slice(sb).concat(ring.slice(0, sb));
+  }
+
+  function sortBySpeakingOrder(fmt, street, positions) {
+    var order = speakingOrderRing(fmt, street);
+    return positions.slice().sort(function (a, b) {
+      var ia = order.indexOf(a);
+      var ib = order.indexOf(b);
+      if (ia < 0) ia = 999;
+      if (ib < 0) ib = 999;
+      return ia - ib;
+    });
+  }
+
+  function speaksBefore(fmt, street, posA, posB) {
+    var order = speakingOrderRing(fmt, street);
+    var ia = order.indexOf(posA);
+    var ib = order.indexOf(posB);
+    if (ia < 0) ia = 999;
+    if (ib < 0) ib = 999;
+    return ia < ib;
+  }
+
   function streetCommittedInit(street) {
     return street === 'preflop' ? { SB: 0.5, BB: 1 } : {};
   }
@@ -120,10 +149,22 @@
     });
   }
 
-  /** Rellena calls vacíos con el auto y bet/raise vacíos con el mínimo lógico. */
+  /** Rellena calls vacíos con el auto y bet/raise vacíos con el mínimo lógico.
+   *  Postflop: "raise" sin apuesta previa se normaliza a "bet". */
   function fillActionAmounts(street, actions) {
-    var computed = computeStreetDisplayActions(street, actions, { fillDefaults: true });
-    return (actions || []).map(function (a, i) {
+    var normalized = (actions || []).map(cloneAct);
+    if (street !== 'preflop') {
+      var facing = 0;
+      normalized = normalized.map(function (out) {
+        if (out.action === 'raise' && facing <= 0) out.action = 'bet';
+        if (out.action === 'bet' || out.action === 'raise') {
+          facing = Math.max(facing, out.amountBB != null && out.amountBB > 0 ? out.amountBB : 1);
+        }
+        return out;
+      });
+    }
+    var computed = computeStreetDisplayActions(street, normalized, { fillDefaults: true });
+    return normalized.map(function (a, i) {
       var c = computed[i] || {};
       var out = cloneAct(a || {});
       if (out.action === 'check' || out.action === 'fold') {
@@ -215,6 +256,8 @@
         var player = a.pos;
         var type = a.action;
         var amtBB = Number(a.amountBB);
+        // Postflop: "raise" sin apuesta previa = bet de apertura
+        if (st !== 'preflop' && type === 'raise' && toMatch <= 0) type = 'bet';
         if (type === 'raise') {
           var to = roundEuro((isFinite(amtBB) && amtBB > 0 ? amtBB : (toMatch / bbVal + 2)) * bbVal);
           var inc = roundEuro(to - (committed[player] || 0));
@@ -1206,8 +1249,14 @@
   }
 
   function defaultSeatForStreet(draft, street) {
-    var players = activePlayersForStreet(draft, street);
-    return players[players.length - 1] || draft.heroPos || '';
+    var players = sortBySpeakingOrder(draft.format, street, activePlayersForStreet(draft, street));
+    if (!players.length) return draft.heroPos || '';
+    var acts = draft.actions[street] || [];
+    if (!acts.length) return players[0];
+    var last = acts[acts.length - 1] && acts[acts.length - 1].pos;
+    var idx = players.indexOf(last);
+    if (idx < 0) return players[0];
+    return players[(idx + 1) % players.length];
   }
 
   function addActionRowToDraft(draft, street, preset) {
@@ -1222,12 +1271,12 @@
 
   function ensureVisibleActionRows(draft) {
     STREET_ORDER.forEach(function (st) {
-      var players = activePlayersForStreet(draft, st);
+      var players = sortBySpeakingOrder(draft.format, st, activePlayersForStreet(draft, st));
       if (!players.length) {
         draft.actions[st] = [];
         return;
       }
-      var acts = draft.actions[st] || [];
+      var acts = (draft.actions[st] || []).slice();
       if (!acts.length) {
         draft.actions[st] = players.map(function (pos) {
           return { pos: pos, action: defaultActionForStreet(st), amountBB: null };
@@ -1236,10 +1285,31 @@
       }
       var present = {};
       acts.forEach(function (a) { if (a && a.pos) present[a.pos] = true; });
-      players.forEach(function (pos) {
-        if (!present[pos]) {
-          acts.push({ pos: pos, action: defaultActionForStreet(st), amountBB: null });
+      var missing = players.filter(function (pos) { return !present[pos]; });
+      if (!missing.length) {
+        var counts = {};
+        var multi = false;
+        acts.forEach(function (a) {
+          if (!a || !a.pos) return;
+          counts[a.pos] = (counts[a.pos] || 0) + 1;
+          if (counts[a.pos] > 1) multi = true;
+        });
+        if (!multi && acts.length === players.length) {
+          draft.actions[st] = sortBySpeakingOrder(draft.format, st, acts.map(function (a) { return a.pos; })).map(function (pos) {
+            return acts.find(function (a) { return a.pos === pos; });
+          });
         }
+        return;
+      }
+      missing.forEach(function (pos) {
+        var insertAt = acts.length;
+        for (var i = 0; i < acts.length; i++) {
+          if (acts[i] && acts[i].pos && speaksBefore(draft.format, st, pos, acts[i].pos)) {
+            insertAt = i;
+            break;
+          }
+        }
+        acts.splice(insertAt, 0, { pos: pos, action: defaultActionForStreet(st), amountBB: null });
       });
       draft.actions[st] = acts;
     });
@@ -1811,6 +1881,8 @@
     listSwappableVillains: listSwappableVillains,
     swapHeroWithVillain: swapHeroWithVillain,
     ensureHandSpec: ensureHandSpec,
-    normalizeBbEuro: normalizeBbEuro
+    normalizeBbEuro: normalizeBbEuro,
+    sortBySpeakingOrder: sortBySpeakingOrder,
+    speakingOrderRing: speakingOrderRing
   };
 })(window);

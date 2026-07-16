@@ -230,6 +230,8 @@ draft.villains = [{ pos: 'BB', cards: [] }, { pos: 'BTN', cards: [] }];
 PTHandAnalysis.syncActionsFromSeats(draft);
 assert(draft.actions.preflop.map((a) => a.pos).join(',') === 'CO,BTN,BB',
   'preflop players orden mesa: ' + draft.actions.preflop.map((a) => a.pos).join(','));
+assert(draft.actions.flop.map((a) => a.pos).join(',') === 'BB,CO,BTN',
+  'flop orden de habla SB→…: ' + draft.actions.flop.map((a) => a.pos).join(','));
 assert(draft.actions.flop.length === 3, 'flop 3 acciones iniciales');
 assert(draft.actions.turn.length === 3, 'turn 3 acciones iniciales');
 
@@ -380,6 +382,43 @@ const rvCards = rvSeat && replayed.table.holeCards[rvSeat] ? replayed.table.hole
 assert(rvCards === 'QsQd', 'replay villano QQ: ' + rvCards);
 assert((replayed._predeal.board || []).slice(0, 3).join(' ') === '9c Tc 8c',
   'replay board flop: ' + (replayed._predeal.board || []).slice(0, 3).join(' '));
+
+// --- 12) raise postflop sin apuesta previa → bet + sizing GTO ---
+const specOpenRaise = {
+  format: '6max',
+  heroPos: 'BTN',
+  heroCards: ['As', 'Ah'],
+  bbEuro: 0.20,
+  villains: [{ pos: 'BB', cards: [] }, { pos: 'HJ', cards: [] }],
+  board: ['Ks', 'Th', '6s'],
+  actions: {
+    preflop: [
+      { pos: 'HJ', action: 'call', amountBB: 1 },
+      { pos: 'BTN', action: 'raise', amountBB: 5 },
+      { pos: 'BB', action: 'call' },
+      { pos: 'HJ', action: 'call' }
+    ],
+    flop: [
+      { pos: 'BB', action: 'check' },
+      { pos: 'HJ', action: 'check' },
+      { pos: 'BTN', action: 'raise', amountBB: 15 }
+    ],
+    turn: [],
+    river: []
+  },
+  _source: 'manual'
+};
+const rawOpen = PTHandAnalysis.specToRawHand(specOpenRaise);
+const btnFlopAct = rawOpen.streets.flop.find((a) => a.player === 'BTN');
+assert(btnFlopAct && btnFlopAct.type === 'bet', 'raise sin prior → bet en raw: ' + (btnFlopAct && btnFlopAct.type));
+const anOpen = PTHandAnalysis.buildAnalyzedHand(specOpenRaise, 'manual');
+const flopDec = (anOpen.decisions || []).find((d) => d.street === 'flop');
+assert(flopDec && String(flopDec.chosen).indexOf('bet') === 0,
+  'chosen mapea a bet_*: ' + (flopDec && flopDec.chosen));
+assert(flopDec.class === 'optima' || flopDec.class === 'aceptable',
+  'no marcar error por raise mal etiquetado: ' + flopDec.class + ' ΔEV=' + flopDec.evLoss);
+assert(PTHandAnalysis.speakingOrderRing('6max', 'flop').join(',') === 'SB,BB,UTG,HJ,CO,BTN',
+  'anillo postflop desde SB');
 
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');
