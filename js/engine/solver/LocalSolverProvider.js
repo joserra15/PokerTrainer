@@ -152,6 +152,7 @@
         cls.cls, input.chosenAction, cls.best, evResult,
         {
           freq: cls.freq,
+          maxFreq: cls.maxFreq,
           equity: enriched.heroEquity,
           band: enriched.handRank && enriched.handRank.band
         }
