@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.stripe-sync-my-payments]
 verify_jwt = false
+
+[functions.share-hand]
+verify_jwt = false

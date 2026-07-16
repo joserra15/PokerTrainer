@@ -3850,3 +3850,37 @@ html.pwa-standalone body {
   .ha-picker-deck { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .ha-pick-card .card { width: 32px; height: 44px; font-size: 12px; }
 }
+
+/* ---- Compartir análisis (diálogo) ---- */
+.share-hand-dialog {
+  position: fixed; inset: 0; z-index: 1200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(0,0,0,.55);
+}
+.share-hand-dialog.hidden { display: none; }
+.share-hand-dialog-card {
+  position: relative; width: min(480px, 100%);
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px 18px 16px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.45);
+}
+.share-hand-dialog-card h3 { margin: 0 0 8px; font-size: 18px; }
+.share-hand-dialog-close {
+  position: absolute; top: 8px; right: 10px;
+  background: transparent; border: none; color: var(--muted);
+  font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px;
+}
+.share-hand-url-row {
+  display: flex; gap: 8px; margin: 12px 0 8px;
+}
+.share-hand-url-row input {
+  flex: 1; min-width: 0;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-size: 13px;
+}
+.btn-share { margin-top: 10px; }
+.review-share-row { margin: 0 0 12px; display: flex; justify-content: flex-end; }
+@media (max-width: 680px) {
+  .share-hand-url-row { flex-direction: column; }
+}

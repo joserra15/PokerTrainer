@@ -2188,6 +2188,8 @@
       html += '</div>';
     }
 
+    html += '<button type="button" class="btn btn-ghost btn-share" id="share-hand-trainer">Compartir análisis</button>';
+
     fb.innerHTML = html;
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-report-trainer'), {
@@ -2197,6 +2199,11 @@
         onThreadUpdate: (thread) => { if (hand) hand.coachThread = thread; }
       });
     }
+    bindShareButton($('#share-hand-trainer'), () => ({
+      source: 'trainer',
+      hand: hand,
+      title: shareHandTitle(hand)
+    }));
     renderTable();
     $('#hero-handname').textContent = r.heroHandName ? 'Tu mano: ' + r.heroHandName : handNameOnBoard();
   }
@@ -3445,6 +3452,181 @@
   }
 
   // --- Revisión paso a paso (lo que ocurrió realmente + evaluación GTO) ---
+  function shareSourceForCurrentReview() {
+    if (currentSession && currentSession.analysis) return 'analysis';
+    return 'session';
+  }
+
+  function shareHandTitle(h) {
+    if (!h) return 'Análisis de mano';
+    const code = h.heroCode || (h.hero && h.hero.code) || '';
+    const pos = h.heroPos || (h.hero && h.hero.pos) || '';
+    const parts = [code, pos].filter(Boolean);
+    return parts.length ? parts.join(' · ') : 'Análisis de mano';
+  }
+
+  function normalizeTrainerHandForShare(trainerHand) {
+    if (!trainerHand) return null;
+    const r = trainerHand.result || {};
+    const villainPos = trainerHand.villain && trainerHand.villain.pos ? trainerHand.villain.pos : '';
+    const villainName = villainPos || 'Villano';
+    const heroPos = (trainerHand.hero && trainerHand.hero.pos) || trainerHand.displayHeroPos || '';
+    const villainCards = (trainerHand.villain && trainerHand.villain.cards && trainerHand.villain.cards.length >= 2)
+      ? trainerHand.villain.cards.slice()
+      : null;
+    const h = {
+      id: trainerHand.id,
+      heroCards: (trainerHand.hero && trainerHand.hero.cards) ? trainerHand.hero.cards.slice() : [],
+      heroPos: heroPos,
+      heroCode: (trainerHand.hero && trainerHand.hero.code) || '',
+      board: (trainerHand.board || []).slice(),
+      decisions: trainerHand.decisions || [],
+      heroNetBB: r.heroNet || 0,
+      totalEvLoss: r.totalEvLoss || 0,
+      bb: null,
+      villainShows: {},
+      positions: {},
+      posts: null,
+      summary: null,
+      result: r,
+      spec: {
+        villains: villainPos ? [{ pos: villainPos, cards: villainCards || [] }] : [],
+        actions: {}
+      },
+      _shareTrainer: true
+    };
+    if (heroPos) h.positions.Héroe = heroPos;
+    if (villainCards) {
+      h.villainShows[villainName] = villainCards;
+      if (villainPos) h.positions[villainName] = villainPos;
+    }
+    if (window.Importer && Importer.ensureHandSummary) Importer.ensureHandSummary(h);
+    return h;
+  }
+
+  function shareActionWord(item, h) {
+    if (item && item.label) return escapeHtml(item.label);
+    if (h && h._shareTrainer) {
+      const t = item && item.type;
+      if (t === 'fold') return 'Fold';
+      if (t === 'check') return 'Check';
+      if (t === 'call') return 'Call' + (item.amount != null ? ' ' + fmtBB(item.amount) + 'bb' : '');
+      if (t === 'bet') return 'Bet' + (item.amount != null ? ' ' + fmtBB(item.amount) + 'bb' : '');
+      if (t === 'raise') return 'Raise' + (item.to != null ? ' a ' + fmtBB(item.to) + 'bb' : (item.amount != null ? ' ' + fmtBB(item.amount) + 'bb' : ''));
+      return escapeHtml(t || '');
+    }
+    return actionWord(item);
+  }
+
+  function buildShareReviewBodyHTML(rawHand, opts) {
+    const source = (opts && opts.source) || 'session';
+    let h = rawHand;
+    if (source === 'trainer' && rawHand && rawHand.hero && !rawHand.heroCards) {
+      h = normalizeTrainerHandForShare(rawHand);
+    }
+    if (!h) return '';
+    if (window.Importer && Importer.ensureHandSummary) Importer.ensureHandSummary(h);
+
+    const summary = h.summary && h.summary.length ? h.summary : [];
+    const heroName = (opts && opts.heroName) ||
+      (currentSession && !h._shareTrainer ? currentSession.hero : null) ||
+      'Héroe';
+
+    const heroDecQueue = {};
+    ['preflop', 'flop', 'turn', 'river'].forEach((st) => {
+      heroDecQueue[st] = (h.decisions || []).filter((d) => d.street === st).slice();
+    });
+
+    let html = `<div class="review-head">
+      <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
+      <div>
+        <h2>${escapeHtml(h.heroCode || '')} · ${escapeHtml(h.heroPos || '')}</h2>
+        <div class="muted-text">Resultado: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span> · EV perdido: -${fmtBB(h.totalEvLoss || 0)} bb</div>
+      </div>
+    </div>`;
+
+    html += renderShowdownTableHTML(h);
+
+    if (h._shareTrainer && h.result) {
+      const r = h.result;
+      html += '<div class="card-box"><h3>Resultado de la mano</h3>';
+      if (r.reason) html += `<div>${escapeHtml(r.reason)}</div>`;
+      if (r.villainProfile) {
+        html += `<div class="result-line">Perfil del rival: <strong>${escapeHtml(r.villainProfile)}</strong></div>`;
+      }
+      html += '</div>';
+    }
+
+    if (summary.length) {
+      html += '<div class="timeline">';
+      summary.forEach((item) => {
+        if (item.kind === 'street') {
+          html += `<div class="tl-street"><span>${cap(item.street)}</span> ${item.board && item.board.length ? '<span class="tl-board">' + item.board.map(Cards.cardToHTML).join('') + '</span>' : ''}</div>`;
+        } else if (item.kind === 'show') {
+          html += `<div class="tl-action showdown"><span class="tl-player">${escapeHtml(item.player)}${item.pos ? ' (' + item.pos + ')' : ''}</span> muestra <span class="rec-cards">${(item.cards || []).map(Cards.cardToHTML).join('')}</span></div>`;
+        } else {
+          const isHero = item.pos === h.heroPos || item.player === heroName || item.player === 'Héroe';
+          let heroDec = null;
+          let line = `<div class="tl-action ${isHero ? 'hero' : ''}">
+            <span class="tl-player">${escapeHtml(item.player)}${item.pos ? ' (' + item.pos + ')' : ''}</span>
+            <span class="tl-move">${shareActionWord(item, h)}</span>`;
+          if (isHero && (item.type === 'fold' || item.type === 'call' || item.type === 'raise' || item.type === 'bet' || item.type === 'check' || item.label)) {
+            heroDec = heroDecQueue[item.street] && heroDecQueue[item.street].shift();
+            if (heroDec) {
+              line += ` <span class="badge ${heroDec.class}">${verdictWord(heroDec.class)}</span>`;
+              if (heroDec.evLoss > 0) line += ` <span class="tl-eval">${decisionEvLossHtml(heroDec)}</span>`;
+              else if (heroDec.class !== 'optima') line += ` <span class="tl-eval muted-text">mejor: ${actionName(heroDec.best)}</span>`;
+            }
+          }
+          line += '</div>';
+          html += line;
+          if (heroDec) {
+            html += `<div class="tl-expl-block${heroDec.class === 'error' || heroDec.class === 'imprecisa' ? ' ' + heroDec.class : ''}">`;
+            html += renderDecisionMath(heroDec);
+            if (heroDec.explanation && heroDec.class !== 'optima') {
+              html += `<div class="tl-expl">${escapeHtml(heroDec.explanation)}</div>`;
+            }
+            if (heroDec.renderAlert) html += `<div class="tl-expl" style="color:var(--orange)">${escapeHtml(heroDec.renderAlert)}</div>`;
+            if (heroDec.villainAudit && heroDec.villainAudit.severity === 'critical') {
+              html += `<div class="tl-expl" style="color:var(--red,#e55)"><strong>Villano:</strong> ${escapeHtml(heroDec.villainAudit.label)}</div>`;
+            }
+            if (heroDec.optionBreakdown && heroDec.optionBreakdown.length) {
+              html += renderOptionGrid(heroDec.optionBreakdown, heroDec.chosen || heroDec.action, heroDec.best);
+            }
+            html += '</div>';
+          }
+        }
+      });
+      html += '</div>';
+    }
+
+    html += renderHandDecisionsSummary(h.decisions, null);
+
+    const shows = Object.keys(h.villainShows || {}).filter((n) => n !== heroName);
+    if (shows.length) {
+      html += '<div class="card-box"><h3>Cartas mostradas</h3>' + shows.map((n) =>
+        `<div class="tl-action"><span class="tl-player">${escapeHtml(n)}</span> <span class="rec-cards">${h.villainShows[n].map(Cards.cardToHTML).join('')}</span></div>`
+      ).join('') + '</div>';
+    }
+
+    if (h._shareTrainer && h.result && h.result.villainRangeLog && h.result.villainRangeLog.length) {
+      html += '<div class="card-box"><h3>Lectura del rango del villano</h3><ul class="range-log">';
+      h.result.villainRangeLog.forEach((e) => {
+        html += `<li><strong>${cap(e.street)}</strong> · ${escapeHtml(e.label)}${e.amountBB != null ? ' ' + e.amountBB + 'bb' : ''}: ${escapeHtml(e.summary || e.note || '')}</li>`;
+      });
+      html += '</ul></div>';
+    }
+
+    return html;
+  }
+
+  function bindShareButton(btn, getPayload) {
+    if (!btn || !window.PTShareHand || !PTShareHand.shareFromButton) return;
+    btn.addEventListener('click', () => {
+      PTShareHand.shareFromButton(btn, getPayload);
+    });
+  }
+
   function renderTimelineReview() {
     const h = currentHand;
     const box = $('#hand-review-content');
@@ -3460,7 +3642,9 @@
     const heroDecQueue = {};
     ['preflop', 'flop', 'turn', 'river'].forEach((st) => { heroDecQueue[st] = (h.decisions || []).filter((d) => d.street === st).slice(); });
 
-    let html = `<div class="review-head">
+    const shareSource = shareSourceForCurrentReview();
+    let html = `<div class="review-share-row"><button type="button" class="btn btn-ghost btn-small" id="share-hand-review">Compartir análisis</button></div>`;
+    html += `<div class="review-head">
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div>
         <h2>${h.heroCode} · ${h.heroPos}</h2>
@@ -3534,6 +3718,11 @@
     bindSessionReplayTheme();
     applyTableTheme(loadTableTheme());
     bindSwapRolesPanel(h);
+    bindShareButton($('#share-hand-review'), () => ({
+      source: shareSource,
+      hand: currentHand,
+      title: shareHandTitle(currentHand)
+    }));
     scrollSessionReviewToTop();
     if (window.PTAIReport) {
       const isAnalysis = !!(currentSession && currentSession.analysis);
@@ -3565,6 +3754,12 @@
       });
     }
   }
+
+  window.PTShareHandUI = {
+    buildBodyHTML: buildShareReviewBodyHTML,
+    handTitle: shareHandTitle,
+    normalizeTrainerHand: normalizeTrainerHandForShare
+  };
 
   function renderSwapRolesPanelHTML(h) {
     if (!window.PTHandAnalysis || !PTHandAnalysis.listSwappableVillains) return '';
