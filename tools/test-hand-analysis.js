@@ -109,6 +109,27 @@ assert(raw.hero === 'CO', 'hero = CO');
 assert(raw.positions.CO === 'CO', 'positions map ok');
 assert(raw.streets.preflop.length === 6, 'preflop 6 acciones');
 
+const displayActs = PTHandAnalysis.computeStreetDisplayActions('flop', [
+  { pos: 'BB', action: 'check' },
+  { pos: 'CO', action: 'bet', amountBB: 3 },
+  { pos: 'BB', action: 'call' }
+]);
+assert(displayActs[2] && displayActs[2].derivedAmountBB === 3, 'call flop hereda 3bb del bet previo');
+
+const displayActsChanged = PTHandAnalysis.computeStreetDisplayActions('river', [
+  { pos: 'BB', action: 'bet', amountBB: 11 },
+  { pos: 'CO', action: 'call' }
+]);
+assert(displayActsChanged[1] && displayActsChanged[1].derivedAmountBB === 11, 'call river se recalcula si cambia el bet');
+
+const displayRaise = PTHandAnalysis.computeStreetDisplayActions('preflop', [
+  { pos: 'CO', action: 'raise', amountBB: 2.5 },
+  { pos: 'BTN', action: 'call' },
+  { pos: 'BB', action: 'call' }
+]);
+assert(displayRaise[1] && displayRaise[1].derivedAmountBB === 2.5, 'caller sin inversión previa paga open completo');
+assert(displayRaise[2] && displayRaise[2].derivedAmountBB === 1.5, 'BB call descuenta la ciega ya puesta');
+
 const analyzed = PTHandAnalysis.buildAnalyzedHand(spec, 'manual');
 assert(analyzed.heroPos === 'CO', 'analyzed heroPos CO');
 assert(analyzed.heroCode === 'AKo' || analyzed.heroCode === 'AKs', 'heroCode ~ AK: ' + analyzed.heroCode);

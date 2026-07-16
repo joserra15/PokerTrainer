@@ -58,6 +58,46 @@
     });
   }
 
+  function streetCommittedInit(street) {
+    return street === 'preflop' ? { SB: 0.5, BB: 1 } : {};
+  }
+
+  function computeStreetDisplayActions(street, actions) {
+    var committed = streetCommittedInit(street);
+    var toMatch = street === 'preflop' ? 1 : 0;
+    return (actions || []).map(function (a) {
+      var out = {
+        pos: a && a.pos ? a.pos : '',
+        action: a && a.action ? a.action : 'fold',
+        amountBB: a && isFinite(Number(a.amountBB)) ? round2(Number(a.amountBB)) : null,
+        derivedAmountBB: null,
+        amountLocked: false
+      };
+      var pos = out.pos;
+      var action = out.action;
+      var cur = pos ? (committed[pos] || 0) : 0;
+      if (action === 'call') {
+        out.derivedAmountBB = round2(Math.max(0, toMatch - cur));
+        out.amountLocked = true;
+        if (pos) committed[pos] = toMatch;
+      } else if (action === 'check' || action === 'fold') {
+        out.derivedAmountBB = null;
+        out.amountLocked = true;
+      } else if (action === 'bet') {
+        if (out.amountBB == null || out.amountBB <= 0) out.amountBB = 1;
+        out.derivedAmountBB = out.amountBB;
+        if (pos) committed[pos] = out.amountBB;
+        toMatch = Math.max(toMatch, out.amountBB);
+      } else if (action === 'raise') {
+        if (out.amountBB == null || out.amountBB <= 0) out.amountBB = round2(Math.max(toMatch + 2, cur + 2));
+        out.derivedAmountBB = out.amountBB;
+        if (pos) committed[pos] = out.amountBB;
+        toMatch = out.amountBB;
+      }
+      return out;
+    });
+  }
+
   function normalizeCard(raw) {
     if (!raw) return null;
     var s = String(raw).trim().replace(/\s+/g, '');
@@ -785,20 +825,127 @@
     }).join('');
   }
 
-  function actionRowHTML(st, act) {
-    var needsAmt = act.action === 'bet' || act.action === 'raise';
+  function actionPosOptions(players, selected) {
+    return (players || []).map(function (p) {
+      return '<option value="' + p + '"' + (p === selected ? ' selected' : '') + '>' + p + '</option>';
+    }).join('');
+  }
+
+  function actionRowHTML(st, act, players) {
     var html = '<div class="ha-action-row" data-street="' + st + '" data-pos="' + esc(act.pos) + '">';
-    html += '<span class="ha-apos-label">' + esc(act.pos) + '</span>';
-    html += '<select class="ha-aact" data-ha-act="' + esc(act.pos) + '" data-street="' + st + '">';
+    html += '<select class="ha-apos" data-ha-apos data-street="' + st + '">';
+    html += actionPosOptions(players, act.pos);
+    html += '</select>';
+    html += '<select class="ha-aact" data-ha-act data-street="' + st + '">';
     Object.keys(ACTION_LABELS).forEach(function (k) {
       html += '<option value="' + k + '"' + (k === act.action ? ' selected' : '') + '>' + esc(ACTION_LABELS[k]) + '</option>';
     });
     html += '</select>';
-    html += '<input class="ha-aamt" type="number" min="0" step="0.5" placeholder="bb" data-ha-amt="' + esc(act.pos) + '" data-street="' + st + '"' +
-      (needsAmt ? '' : ' disabled') +
+    html += '<input class="ha-aamt" type="number" min="0" step="0.5" placeholder="bb" data-ha-amt data-street="' + st + '"' +
       (act.amountBB != null ? ' value="' + esc(String(act.amountBB)) + '"' : '') + ' />';
+    html += '<button type="button" class="ha-row-clone" data-ha-clone-row aria-label="Duplicar">+</button>';
+    html += '<button type="button" class="ha-row-del" data-ha-del-row aria-label="Quitar">&times;</button>';
     html += '</div>';
     return html;
+  }
+
+  function readStreetRows(listEl) {
+    var rows = [];
+    if (!listEl) return rows;
+    listEl.querySelectorAll('.ha-action-row').forEach(function (row) {
+      var posEl = row.querySelector('[data-ha-apos]');
+      var actEl = row.querySelector('[data-ha-act]');
+      var amtEl = row.querySelector('[data-ha-amt]');
+      var amt = amtEl ? parseFloat(amtEl.value) : NaN;
+      rows.push({
+        pos: posEl ? posEl.value : '',
+        action: actEl ? actEl.value : 'fold',
+        amountBB: isFinite(amt) ? amt : null
+      });
+    });
+    return rows;
+  }
+
+  function syncStreetInputs(listEl, street) {
+    if (!listEl) return;
+    var computed = computeStreetDisplayActions(street, readStreetRows(listEl));
+    listEl.querySelectorAll('.ha-action-row').forEach(function (row, idx) {
+      var data = computed[idx] || { action: 'fold', amountBB: null, derivedAmountBB: null, amountLocked: false };
+      var amtEl = row.querySelector('[data-ha-amt]');
+      if (!amtEl) return;
+      var shown = data.derivedAmountBB != null ? data.derivedAmountBB : data.amountBB;
+      amtEl.disabled = !!data.amountLocked;
+      amtEl.placeholder = data.action === 'call' ? 'auto' : 'bb';
+      if (shown == null || shown === '') amtEl.value = '';
+      else if (String(parseFloat(amtEl.value)) !== String(shown) || data.amountLocked) amtEl.value = String(shown);
+    });
+  }
+
+  function syncAllStreetInputs(root) {
+    STREET_ORDER.forEach(function (st) {
+      syncStreetInputs(root.querySelector('[data-street-list="' + st + '"]'), st);
+    });
+  }
+
+  function commitDraftActionsFromDom(root, draft) {
+    STREET_ORDER.forEach(function (st) {
+      var list = root.querySelector('[data-street-list="' + st + '"]');
+      draft.actions[st] = readStreetRows(list);
+    });
+  }
+
+  function defaultSeatForStreet(draft, street) {
+    var players = activePlayersForStreet(draft, street);
+    return players[players.length - 1] || draft.heroPos || '';
+  }
+
+  function addActionRowToDraft(draft, street, preset) {
+    var row = Object.assign({
+      pos: defaultSeatForStreet(draft, street),
+      action: street === 'preflop' ? 'call' : 'check',
+      amountBB: null
+    }, preset || {});
+    if (!draft.actions[street]) draft.actions[street] = [];
+    draft.actions[street].push(row);
+  }
+
+  function cloneActionRowInDraft(draft, street, idx) {
+    var acts = draft.actions[street] || [];
+    var src = acts[idx];
+    if (!src) return;
+    acts.splice(idx + 1, 0, {
+      pos: src.pos,
+      action: 'call',
+      amountBB: null
+    });
+  }
+
+  function ensureVisibleActionRows(draft) {
+    STREET_ORDER.forEach(function (st) {
+      var acts = draft.actions[st] || [];
+      if (acts.length) return;
+      var players = activePlayersForStreet(draft, st);
+      if (!players.length) return;
+      draft.actions[st] = players.map(function (pos) {
+        return { pos: pos, action: defaultActionForStreet(st), amountBB: null };
+      });
+    });
+  }
+
+  function syncActionsFromSeats(draft) {
+    var selected = {};
+    selectedPlayers(draft).forEach(function (pos) { selected[pos] = true; });
+    var foldedEarlier = {};
+    STREET_ORDER.forEach(function (st) {
+      var acts = (draft.actions[st] || []).filter(function (a) {
+        return a && a.pos && selected[a.pos] && !foldedEarlier[a.pos];
+      }).map(cloneAct);
+      draft.actions[st] = acts;
+      acts.forEach(function (a) {
+        if (a.action === 'fold') foldedEarlier[a.pos] = true;
+      });
+    });
+    ensureVisibleActionRows(draft);
   }
 
   function villainRowHTML(draft, v, idx) {
@@ -873,14 +1020,18 @@
 
     STREET_ORDER.forEach(function (st) {
       var acts = (draft.actions && draft.actions[st]) || [];
+      var players = activePlayersForStreet(draft, st);
       html += '<div class="ha-field ha-street-field" data-street-field="' + st + '"><label>Acciones · ' + STREET_LABELS[st] + '</label>';
+      html += '<p class="muted-text ha-street-hint">Cada fila es una acción en orden temporal. Puedes repetir un asiento varias veces en la misma calle: por ejemplo, check → bet → call.</p>';
       html += '<div class="ha-actions-list" data-street-list="' + st + '">';
       if (!acts.length) {
         html += '<p class="muted-text ha-street-empty">Selecciona héroe y villanos para cargar sus acciones.</p>';
       } else {
-        acts.forEach(function (a) { html += actionRowHTML(st, a); });
+        acts.forEach(function (a) { html += actionRowHTML(st, a, players); });
       }
-      html += '</div></div>';
+      html += '</div>';
+      if (players.length) html += '<button type="button" class="btn btn-small btn-ghost" data-ha-add-action="' + st + '">+ Acción</button>';
+      html += '</div>';
     });
 
     html += '<div class="ha-form-errors" data-ha-errors></div>';
@@ -1074,8 +1225,65 @@
       });
     });
 
+    root.querySelectorAll('[data-ha-add-action]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var st = btn.dataset.haAddAction;
+        commitDraftActionsFromDom(root, draft);
+        addActionRowToDraft(draft, st);
+        refreshManualKeepScroll();
+      });
+    });
+    root.addEventListener('change', function (e) {
+      var row = e.target.closest('.ha-action-row');
+      if (!row) return;
+      var st = row.dataset.street;
+      commitDraftActionsFromDom(root, draft);
+      syncStreetInputs(row.parentNode, st);
+      var acts = draft.actions[st] || [];
+      if (e.target.matches('[data-ha-act]') && e.target.value === 'fold') {
+        syncActionsFromSeats(draft);
+        refreshManualKeepScroll();
+      }
+    });
+    root.addEventListener('input', function (e) {
+      if (!e.target.matches('[data-ha-amt]')) return;
+      var row = e.target.closest('.ha-action-row');
+      if (!row) return;
+      commitDraftActionsFromDom(root, draft);
+      syncStreetInputs(row.parentNode, row.dataset.street);
+    });
+    root.addEventListener('click', function (e) {
+      var delRow = e.target.closest('[data-ha-del-row]');
+      if (delRow) {
+        var rowDel = delRow.closest('.ha-action-row');
+        var stDel = rowDel.dataset.street;
+        var rowsDel = Array.prototype.slice.call(rowDel.parentNode.querySelectorAll('.ha-action-row'));
+        var idxDel = rowsDel.indexOf(rowDel);
+        if (idxDel >= 0) {
+          commitDraftActionsFromDom(root, draft);
+          draft.actions[stDel].splice(idxDel, 1);
+          refreshManualKeepScroll();
+        }
+        return;
+      }
+      var cloneRow = e.target.closest('[data-ha-clone-row]');
+      if (cloneRow) {
+        var row = cloneRow.closest('.ha-action-row');
+        var st = row.dataset.street;
+        var rows = Array.prototype.slice.call(row.parentNode.querySelectorAll('.ha-action-row'));
+        var idx = rows.indexOf(row);
+        commitDraftActionsFromDom(root, draft);
+        cloneActionRowInDraft(draft, st, idx);
+        refreshManualKeepScroll();
+        return;
+      }
+      var delV = e.target.closest('[data-ha-del-vrow]');
+      if (delV) return;
+    });
+
     var saveBtn = root.querySelector('[data-ha-manual-save]');
     if (saveBtn) saveBtn.addEventListener('click', onManualSave);
+    syncAllStreetInputs(root);
   }
 
   function showErrors(errs) {
@@ -1240,6 +1448,7 @@
     activePlayersForStreet: activePlayersForStreet,
     takenSeats: takenSeats,
     emptyDraft: emptyDraft,
-    draftFromSpec: draftFromSpec
+    draftFromSpec: draftFromSpec,
+    computeStreetDisplayActions: computeStreetDisplayActions
   };
 })(window);

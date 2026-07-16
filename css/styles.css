@@ -3775,6 +3775,13 @@ html.pwa-standalone body {
 .ha-board-label { font-size: 12px; color: rgba(230,237,243,.7); }
 .ha-actions-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .ha-street-empty { margin: 0; font-size: 13px; }
+.ha-action-row .ha-aamt:disabled { opacity: .9; color: var(--text); background: rgba(255,255,255,.05); }
+.ha-street-hint { margin: 4px 0 8px; font-size: 12px; }
+.ha-row-clone {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+  width: 28px; height: 28px; border-radius: 7px; cursor: pointer; font-size: 18px; line-height: 1;
+}
+.ha-row-clone:hover { border-color: var(--accent); }
 .ha-row-del { background: transparent; border: none; color: rgba(255,120,120,.9); font-size: 20px; cursor: pointer; line-height: 1; padding: 0 6px; }
 .ha-form-errors { color: #ffb4b4; font-size: 13px; }
 .ha-form-errors ul { margin: 0; padding-left: 18px; }
