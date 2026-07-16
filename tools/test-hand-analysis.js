@@ -274,5 +274,42 @@ assert(swapped.hand.spec.villains.some((v) => v.pos === 'CO' && v.cards.join('')
 assert(swapped.hand.decisions && swapped.hand.decisions.length >= 1, 'decisiones recalculadas para BB');
 assert(/como BB/.test(swapped.hand.savedName || ''), 'nombre indica POV: ' + swapped.hand.savedName);
 
+// --- 10) forceDeal + forceScript en entrenador; cartas de villano bloqueadas ---
+assert(cfg.force.forceScript && cfg.force.forceScript.actions.length >= 6, 'forceScript con acciones');
+assert(trainerHand.forceDeal && trainerHand.forceDeal.villainCards.join('') === 'QsQd',
+  'forceDeal persistido en hand: ' + (trainerHand.forceDeal && trainerHand.forceDeal.villainCards && trainerHand.forceDeal.villainCards.join('')));
+assert(trainerHand._script && trainerHand._script.active, 'guion activo al inicio');
+
+// Héroe abre (misma acción real) → BB debe call por guion, no fold GTO
+const afterOpen = Engine.act(trainerHand, 'raise');
+assert(afterOpen.hand.stage === 'flop' || afterOpen.hand.stage === 'complete',
+  'tras open sigue viva o termina: ' + afterOpen.hand.stage);
+if (afterOpen.hand.stage === 'flop') {
+  const vSeat2 = afterOpen.hand.villain && afterOpen.hand.villain.pos;
+  const vCards2 = vSeat2 && afterOpen.hand.table.holeCards[vSeat2]
+    ? afterOpen.hand.table.holeCards[vSeat2].join('') : '';
+  assert(vCards2 === 'QsQd', 'villano mantiene QQ tras open: ' + vCards2 + ' @' + vSeat2);
+  assert(afterOpen.hand._script && afterOpen.hand._script.active, 'guion sigue activo tras misma línea');
+}
+
+// Desvío: nueva mano, hero fold en RFI → guion se desactiva
+const divert = Engine.newHand(cfg.force, cfg.playConfig);
+Engine.act(divert, 'fold');
+assert(!divert._script || !divert._script.active, 'guion desactivado si hero se desvía');
+
+// Repetir con forceDeal restaurado → mismas cartas
+const replayForce = Object.assign({}, cfg.force, {
+  seed: trainerHand.seed,
+  forceDeal: trainerHand.forceDeal,
+  forceScript: trainerHand.forceScript
+});
+const replayed = Engine.newHand(replayForce, cfg.playConfig);
+assert(replayed.hero.cards.join('') === 'AsKd', 'replay héroe AsKd');
+const rvSeat = (replayed._predeal && replayed._predeal.villainPos) || (replayed.villain && replayed.villain.pos);
+const rvCards = rvSeat && replayed.table.holeCards[rvSeat] ? replayed.table.holeCards[rvSeat].join('') : '';
+assert(rvCards === 'QsQd', 'replay villano QQ: ' + rvCards);
+assert((replayed._predeal.board || []).slice(0, 3).join(' ') === '9c Tc 8c',
+  'replay board flop: ' + (replayed._predeal.board || []).slice(0, 3).join(' '));
+
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');

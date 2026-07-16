@@ -434,7 +434,25 @@
         scenario: Object.assign({}, hand.replaySnapshot.scenario || {}),
         seed: hand.replaySnapshot.seed,
         playConfig: hand.replaySnapshot.playConfig ? Object.assign({}, hand.replaySnapshot.playConfig) : null,
-        displayHeroPos: hand.replaySnapshot.displayHeroPos || null
+        displayHeroPos: hand.replaySnapshot.displayHeroPos || null,
+        forceDeal: hand.replaySnapshot.forceDeal ? {
+          heroCards: (hand.replaySnapshot.forceDeal.heroCards || []).slice(),
+          villainCards: (hand.replaySnapshot.forceDeal.villainCards || []).slice(),
+          board: (hand.replaySnapshot.forceDeal.board || []).slice(),
+          villainPos: hand.replaySnapshot.forceDeal.villainPos || null
+        } : null,
+        forceScript: hand.replaySnapshot.forceScript ? {
+          heroPos: hand.replaySnapshot.forceScript.heroPos || null,
+          villainPos: hand.replaySnapshot.forceScript.villainPos || null,
+          actions: (hand.replaySnapshot.forceScript.actions || []).map(function (a) {
+            return {
+              street: a.street || null,
+              pos: a.pos,
+              action: a.action,
+              amountBB: a.amountBB != null ? a.amountBB : null
+            };
+          })
+        } : null
       } : null,
       heroPos: hand.hero.pos,
       heroCode: hand.hero.code,
