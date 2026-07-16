@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <script>
+  (function(){var h=location.hostname;if(!h||h==='localhost'||h==='127.0.0.1'||location.protocol==='file:')return;var c='www.pokerforgeai.com',p=h==='pokerforgeai.com'||h===c||/\.github\.io$/i.test(h);if(!p)return;if(location.protocol==='http:'||h!==c)location.replace('https://'+c+location.pathname+location.search+location.hash);})();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#0f1419" />
+  <title>Mano compartida · PokerForgeAI</title>
+  <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
+  <link rel="stylesheet" href="css/share.css" />
+  <script src="js/site-config.js"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/billing-config.js"></script>
+</head>
+<body>
+  <div id="share-loading" class="share-wrap">
+    <p class="muted-text">Cargando análisis compartido…</p>
+  </div>
+  <div id="share-unavailable" class="share-unavailable" hidden>
+    <img src="/icons/icon-192.png" alt="PokerForgeAI" width="64" height="64" />
+    <h1>Esta mano ya no está disponible</h1>
+    <p>
+      El enlace temporal ha caducado o se ha eliminado.
+      Entra en PokerForgeAI para entrenar y analizar manos iguales o mejores.
+    </p>
+    <a class="btn btn-primary" id="share-enter" href="/">Entrar</a>
+  </div>
+  <script>
+  (function () {
+    'use strict';
+
+    function appUrl() {
+      var site = window.PT_SITE || {};
+      var base = (site.appUrl || '/').replace(/\/?$/, '/');
+      return base;
+    }
+
+    function functionsBase() {
+      var billing = window.PT_BILLING || {};
+      if (billing.functionsUrl) return String(billing.functionsUrl).replace(/\/$/, '');
+      var sb = window.PT_SUPABASE || {};
+      if (sb.url) return String(sb.url).replace(/\/$/, '') + '/functions/v1';
+      return '';
+    }
+
+    function anonKey() {
+      return (window.PT_SUPABASE && window.PT_SUPABASE.anonKey) || '';
+    }
+
+    function showUnavailable() {
+      var loading = document.getElementById('share-loading');
+      var box = document.getElementById('share-unavailable');
+      var enter = document.getElementById('share-enter');
+      if (loading) loading.hidden = true;
+      if (box) box.hidden = false;
+      if (enter) enter.href = appUrl();
+      document.title = 'Mano no disponible · PokerForgeAI';
+    }
+
+    function showHtml(html) {
+      document.open();
+      document.write(html);
+      document.close();
+    }
+
+    async function boot() {
+      var enter = document.getElementById('share-enter');
+      if (enter) enter.href = appUrl();
+
+      var id = new URLSearchParams(location.search).get('id') || '';
+      id = id.trim();
+      if (!id) {
+        showUnavailable();
+        return;
+      }
+
+      var base = functionsBase();
+      if (!base) {
+        showUnavailable();
+        return;
+      }
+
+      try {
+        var headers = { Accept: 'application/json' };
+        var key = anonKey();
+        if (key) {
+          headers.apikey = key;
+          headers.Authorization = 'Bearer ' + key;
+        }
+        var res = await fetch(base + '/share-hand?id=' + encodeURIComponent(id), {
+          method: 'GET',
+          headers: headers
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.available || !data.html) {
+          showUnavailable();
+          return;
+        }
+        showHtml(data.html);
+      } catch (e) {
+        console.error('[share]', e);
+        showUnavailable();
+      }
+    }
+
+    boot();
+  })();
+  </script>
+</body>
+</html>
