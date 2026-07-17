@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <script>
+  (function(){var h=location.hostname;if(!h||h==='localhost'||h==='127.0.0.1'||location.protocol==='file:')return;var c='www.pokerforgeai.com',p=h==='pokerforgeai.com'||h===c||/\.github\.io$/i.test(h);if(!p)return;if(location.protocol==='http:'||h!==c)location.replace('https://'+c+location.pathname+location.search+location.hash);})();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#0f1419" />
+  <title>Promoción · PokerForgeAI</title>
+  <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
+  <link rel="stylesheet" href="css/promo.css" />
+  <script src="js/site-config.js"></script>
+  <script src="js/supabase-config.js"></script>
+</head>
+<body>
+  <div class="promo-page">
+    <header class="promo-top">
+      <a class="promo-brand" id="promo-home" href="/">
+        <img src="/icons/icon-192.png" alt="PokerForgeAI" width="44" height="44" />
+        <span>
+          <span class="promo-brand-name">PokerForgeAI</span>
+          <span class="promo-brand-tag">Entrenamiento de poker con IA</span>
+        </span>
+      </a>
+    </header>
+
+    <main class="promo-main">
+      <div id="promo-loading" class="promo-card promo-loading">
+        <div class="promo-spinner" aria-hidden="true"></div>
+        <p>Cargando promoción…</p>
+      </div>
+
+      <section id="promo-active" class="promo-card hidden" aria-live="polite">
+        <p class="promo-kicker">Promoción exclusiva</p>
+        <h1 id="promo-title">Promoción</h1>
+        <p id="promo-lead" class="promo-lead"></p>
+        <div id="promo-gifts" class="promo-gift" aria-label="Regalo de la promoción"></div>
+        <div class="promo-actions">
+          <button type="button" id="promo-register" class="btn btn-primary">Registrarme y activar</button>
+        </div>
+        <p id="promo-code-note" class="promo-note"></p>
+      </section>
+
+      <section id="promo-unavailable" class="promo-card promo-unavailable hidden" aria-live="polite">
+        <p class="promo-kicker">Promoción</p>
+        <h1 id="promo-unavail-title">Promoción no disponible</h1>
+        <p id="promo-unavail-lead" class="promo-lead">
+          Esta promoción no está activa o ha alcanzado el máximo de registros.
+        </p>
+        <div class="promo-alt-links">
+          <a id="promo-register-free" class="btn btn-primary" href="/">Registrarme con cuenta gratuita</a>
+          <a id="promo-see-plans" class="btn btn-ghost" href="/#landing-pricing">Ver planes Study y Coach</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="promo-footer">
+      <p>Solo cuentas nuevas · PokerForgeAI</p>
+    </footer>
+  </div>
+
+  <script src="js/promo-landing.js"></script>
+</body>
+</html>

@@ -86,7 +86,7 @@ const CHUNKS = {
   ranges: ['js/range-matrix.js'],
   learn: ['js/beginner-guide.js'],
   contact: ['js/contact.js'],
-  admin: ['js/admin-panel.js']
+  admin: ['js/admin-panel.js', 'js/admin-promotions.js']
 };
 
 /** Todos los JS de app (para validación). */
