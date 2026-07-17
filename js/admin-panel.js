@@ -1231,8 +1231,10 @@
     opts = opts || {};
     var msgPanel = $('#admin-messages-panel');
     var usersPanel = $('#admin-users-panel');
+    var promoPanel = $('#admin-promos-panel');
     if (msgPanel) msgPanel.classList.toggle('hidden', !show);
     if (usersPanel) usersPanel.classList.toggle('hidden', show);
+    if (show && promoPanel) promoPanel.classList.add('hidden');
     if (show) {
       bindAdminComposeModal();
       if (opts.userId) adminMsgSelectedUserId = opts.userId;

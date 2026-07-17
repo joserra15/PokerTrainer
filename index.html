@@ -103,6 +103,7 @@
       'js/log.js',
       'js/supabase-client.js',
       'js/cloud-store.js',
+      'js/promo-redeem.js',
       'js/landing.js',
       'js/auth-bootstrap.js'
     ];
@@ -785,9 +786,81 @@
           <p class="muted-text admin-sub">Usuarios, planes y consumo de IA Coach</p>
         </div>
         <div class="admin-head-actions">
+          <button type="button" id="admin-promos-btn" class="btn btn-ghost">Promociones</button>
           <button type="button" id="admin-messages-btn" class="btn btn-ghost admin-messages-btn">Mensajes <span id="admin-messages-badge" class="tab-badge hidden">0</span></button>
           <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
           <button type="button" id="admin-demo-start" class="btn btn-primary">Modo demo</button>
+        </div>
+      </div>
+
+      <div id="admin-promos-panel" class="admin-promos-panel hidden">
+        <div class="admin-section-head">
+          <h3>Promociones</h3>
+          <div class="admin-messages-head-actions">
+            <button type="button" id="admin-promos-back" class="btn btn-ghost btn-sm">Volver a usuarios</button>
+          </div>
+        </div>
+        <p class="muted-text admin-promos-intro">
+          Genera un enlace público para regalar un plan y/o bono IA a cuentas nuevas.
+          Al llegar al máximo de registros la promoción se desactiva sola.
+        </p>
+
+        <div class="admin-promo-create card-box">
+          <h4>Generar promoción</h4>
+          <div class="admin-promo-form">
+            <label class="admin-invite-label" for="admin-promo-title">Título</label>
+            <input type="text" id="admin-promo-title" class="admin-promo-input" placeholder="1 mes gratis de Study" maxlength="120" />
+
+            <label class="admin-invite-label" for="admin-promo-desc">Detalle (HTML / texto de la landing)</label>
+            <textarea id="admin-promo-desc" class="admin-promo-textarea" rows="3" placeholder="Entra con el enlace, regístrate y activa tu mes gratis de Study."></textarea>
+
+            <div class="admin-promo-grid">
+              <div>
+                <label class="admin-invite-label" for="admin-promo-plan">Plan de regalo</label>
+                <select id="admin-promo-plan" class="admin-promo-input">
+                  <option value="">Sin plan</option>
+                  <option value="pro" selected>Study</option>
+                  <option value="premium">Coach</option>
+                </select>
+              </div>
+              <div id="admin-promo-months-wrap">
+                <label class="admin-invite-label" for="admin-promo-months">Duración (meses)</label>
+                <input type="number" id="admin-promo-months" class="admin-promo-input" min="1" max="24" value="1" />
+              </div>
+              <div>
+                <label class="admin-invite-label" for="admin-promo-bonus">Bono IA</label>
+                <select id="admin-promo-bonus" class="admin-promo-input">
+                  <option value="0" selected>Sin bono</option>
+                  <option value="20">Pack S — 20 consultas</option>
+                  <option value="40">Pack M — 40 consultas</option>
+                  <option value="80">Pack L — 80 consultas</option>
+                  <option value="custom">Personalizado…</option>
+                </select>
+              </div>
+              <div id="admin-promo-bonus-custom-wrap" class="hidden">
+                <label class="admin-invite-label" for="admin-promo-bonus-custom">Consultas personalizadas</label>
+                <input type="number" id="admin-promo-bonus-custom" class="admin-promo-input" min="1" max="500" value="20" />
+              </div>
+              <div>
+                <label class="admin-invite-label" for="admin-promo-max">Máx. registros</label>
+                <input type="number" id="admin-promo-max" class="admin-promo-input" min="1" max="100000" value="100" />
+              </div>
+            </div>
+
+            <div class="admin-promo-actions">
+              <button type="button" id="admin-promo-generate" class="btn btn-primary">Generar promoción</button>
+              <span id="admin-promos-status" class="muted-text"></span>
+            </div>
+            <p id="admin-promos-error" class="admin-error" role="alert"></p>
+          </div>
+          <div id="admin-promo-generated" class="admin-promo-generated hidden"></div>
+        </div>
+
+        <div class="admin-section" style="margin-top:18px">
+          <div class="admin-section-head">
+            <h3>Gestión</h3>
+          </div>
+          <div id="admin-promos-list"></div>
         </div>
       </div>
 

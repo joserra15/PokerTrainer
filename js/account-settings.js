@@ -47,18 +47,22 @@
     if (kind === 'renewal') return 'Renovación';
     if (kind === 'bonus') return 'Bono IA';
     if (kind === 'invoice') return 'Factura';
+    if (kind === 'promo') return 'Promoción';
     return kind || 'Pago';
   }
 
   function bonusReasonLabel(reason) {
     if (reason === 'purchase') return 'Compra';
     if (reason === 'gift') return 'Bono IA';
+    if (reason === 'promo') return 'Promoción';
     if (reason === 'ai_usage') return 'Uso IA';
     return reason || '—';
   }
 
   function bonusPackLabel(packCode, reason) {
     if (packCode === 'gift' || reason === 'gift') return 'Bono de regalo';
+    if (reason === 'promo' && packCode) return 'Código ' + packCode;
+    if (packCode === 'gift') return 'Bono de regalo';
     return packCode || '';
   }
 
@@ -91,10 +95,17 @@
     return '<div class="account-settings-table-wrap"><table class="account-settings-table">' +
       '<thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th>Importe</th></tr></thead><tbody>' +
       payments.map(function (p) {
+        var concept = p.description || paymentKindLabel(p.kind);
+        if (p.kind === 'promo' && p.pack_code && String(concept).indexOf(p.pack_code) < 0) {
+          concept = concept + ' (' + p.pack_code + ')';
+        }
+        var amount = p.kind === 'promo' && (p.amount_cents == null || Number(p.amount_cents) === 0)
+          ? 'Gratis'
+          : formatMoney(p.amount_cents, p.currency);
         return '<tr><td>' + escapeHtml(formatDate(p.paid_at)) + '</td>' +
-          '<td>' + escapeHtml(p.description || paymentKindLabel(p.kind)) + '</td>' +
+          '<td>' + escapeHtml(concept) + '</td>' +
           '<td>' + escapeHtml(paymentKindLabel(p.kind)) + '</td>' +
-          '<td>' + escapeHtml(formatMoney(p.amount_cents, p.currency)) + '</td></tr>';
+          '<td>' + escapeHtml(amount) + '</td></tr>';
       }).join('') +
       '</tbody></table></div>';
   }
@@ -147,10 +158,12 @@
       '<section class="account-settings-card card-box">' +
       '<h3>Plan y suscripción</h3>' +
       row('Plan actual', escapeHtml(ent.plan_label || planLabel(prof.plan))) +
-      row('Estado', escapeHtml(prof.subscription_status || 'none')) +
+      row('Estado', escapeHtml(
+        prof.subscription_status === 'trialing' ? 'Promoción / prueba' : (prof.subscription_status || 'none')
+      )) +
       row('Fin periodo', escapeHtml(formatDate(prof.subscription_period_end))) +
       row('Intervalo', escapeHtml(prof.billing_interval || '—')) +
-      (prof.subscription_cancel_at_period_end ? row('Renovación', 'Cancelada al final del periodo') : '') +
+      (prof.subscription_cancel_at_period_end ? row('Renovación', 'Sin renovación automática') : '') +
       '<div class="account-settings-actions">' +
       (showBilling ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-billing">Gestionar suscripción</button>' : '') +
       '<button type="button" class="btn btn-primary btn-sm" id="settings-upgrade">Ver planes</button>' +

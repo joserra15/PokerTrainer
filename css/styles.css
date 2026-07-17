@@ -3894,3 +3894,90 @@ html.pwa-standalone body {
 @media (max-width: 680px) {
   .share-hand-url-row { flex-direction: column; }
 }
+
+/* ---- Admin promociones ---- */
+.admin-promos-panel { margin-top: 4px; }
+.admin-promos-intro { margin: 0 0 14px; max-width: 720px; }
+.admin-promo-create { padding: 16px; margin-bottom: 8px; }
+.admin-promo-create h4 { margin: 0 0 12px; font-size: 15px; }
+.admin-promo-form { display: flex; flex-direction: column; gap: 4px; }
+.admin-promo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+.admin-promo-input,
+.admin-promo-textarea,
+.admin-promo-html {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+}
+.admin-promo-textarea { resize: vertical; min-height: 72px; }
+.admin-promo-html {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  min-height: 140px;
+  resize: vertical;
+}
+.admin-promo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.admin-promo-generated {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.admin-promo-generated h4 { margin: 0 0 8px; }
+.admin-promo-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.admin-promo-link-row .admin-promo-input { flex: 1; min-width: 200px; }
+.admin-promos-table .admin-promo-count-input {
+  width: 72px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.admin-promo-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.admin-promo-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-promo-badge-on {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(63, 185, 80, 0.35);
+}
+.admin-promo-badge-off {
+  background: rgba(240, 83, 59, 0.12);
+  color: var(--red);
+  border: 1px solid rgba(240, 83, 59, 0.3);
+}
+@media (max-width: 720px) {
+  .admin-promo-link-row { flex-direction: column; align-items: stretch; }
+  .admin-promo-row-actions .btn { width: 100%; }
+}

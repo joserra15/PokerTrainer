@@ -155,12 +155,53 @@
     });
   }
 
+  function pendingPromoCode() {
+    if (global.PTPromoRedeem && global.PTPromoRedeem.captureFromUrl) {
+      return global.PTPromoRedeem.captureFromUrl();
+    }
+    try {
+      var params = new URLSearchParams(location.search || '');
+      var code = String(params.get('promo') || params.get('c') || '').trim().toUpperCase();
+      if (code) {
+        try { sessionStorage.setItem('pt_promo_pending', code); } catch (e) { /* noop */ }
+        return code;
+      }
+      return String(sessionStorage.getItem('pt_promo_pending') || '').trim().toUpperCase();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function renderPromoRegisterHint(code) {
+    if (!code) return;
+    var panel = document.getElementById('landing-login');
+    if (!panel) return;
+    var existing = document.getElementById('landing-promo-register-hint');
+    if (existing) existing.remove();
+    var hint = document.createElement('p');
+    hint.id = 'landing-promo-register-hint';
+    hint.className = 'landing-promo-pill';
+    hint.setAttribute('role', 'note');
+    hint.innerHTML = 'Promoción <code class="promo-code">' + escapeHtml(code) +
+      '</code>: regístrate con Google (cuenta nueva) para activar el regalo.';
+    panel.insertBefore(hint, panel.firstChild);
+  }
+
   function init() {
     if (!document.getElementById('auth-gate')) return;
     renderPromo();
     renderPricing();
     renderOAuthHints();
     bindNav();
+    var promoCode = pendingPromoCode();
+    if (promoCode) {
+      renderPromoRegisterHint(promoCode);
+      scrollToLogin();
+      // Si viene de la landing de promo, abre el login automáticamente.
+      if (/[?&]promo=/i.test(location.search || '')) {
+        global.setTimeout(function () { startLoginNow(); }, 350);
+      }
+    }
   }
 
   global.PTLanding = { init: init, scrollToLogin: scrollToLogin };

@@ -277,15 +277,30 @@
         .then(function () {
           renderAccountMenu(user);
           initAdminForUser(user);
-          if (global.PTBilling && global.PTBilling.syncSubscription && global.PTBilling.enabled()) {
-            global.PTBilling.syncSubscription()
+          var afterPromo = function () {
+            if (global.PTBilling && global.PTBilling.syncSubscription && global.PTBilling.enabled()) {
+              global.PTBilling.syncSubscription()
+                .then(function () {
+                  if (global.PTEntitlements && global.PTEntitlements.refresh) {
+                    return global.PTEntitlements.refresh();
+                  }
+                })
+                .then(function () { renderAccountMenu(user); })
+                .catch(function (e) { console.warn('[PTBilling] login sync', e); });
+            }
+          };
+          if (global.PTPromoRedeem && global.PTPromoRedeem.tryRedeemAfterLogin) {
+            withTimeout(global.PTPromoRedeem.tryRedeemAfterLogin(), 8000, 'promo')
               .then(function () {
-                if (global.PTEntitlements && global.PTEntitlements.refresh) {
-                  return global.PTEntitlements.refresh();
-                }
+                renderAccountMenu(user);
+                afterPromo();
               })
-              .then(function () { renderAccountMenu(user); })
-              .catch(function (e) { console.warn('[PTBilling] login sync', e); });
+              .catch(function (e) {
+                console.warn('[PTPromo]', e);
+                afterPromo();
+              });
+          } else {
+            afterPromo();
           }
         })
         .catch(function (e) {
