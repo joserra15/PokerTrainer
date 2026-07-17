@@ -21,6 +21,7 @@
   }
 
   function isReady() {
+    if (global.PT_E2E_MODE) return false;
     return !!(cfg().enabled && cfg().url && cfg().anonKey && getClient() && userId);
   }
 

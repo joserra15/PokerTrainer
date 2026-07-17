@@ -22,6 +22,10 @@ sesiones/*.txt
 supabase/.temp/
 tools/bin/
 
+# Generado en deploy (GitHub Pages); no versionar — un build desfasado
+# provoca bucle de reload en build-guard.js (rompe E2E local/CI).
+deploy-info.json
+
 # Playwright
 /test-results/
 /playwright-report/
