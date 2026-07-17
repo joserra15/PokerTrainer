@@ -1946,7 +1946,7 @@
         features: [
           'Entrenador e import ilimitados',
           '20 manos en análisis',
-          '5 consultas IA Coach/mes (añadir manos, análisis y preguntas)',
+          '40 consultas IA Coach/mes (añadir manos, análisis y preguntas)',
           'Sync, estadísticas y repaso'
         ],
         cta: 'pro'
@@ -1957,7 +1957,7 @@
         features: [
           'Todo Study',
           '100 manos en análisis',
-          '35 consultas IA Coach/mes',
+          '150 consultas IA Coach/mes',
           'Informes y preguntas sobre manos, análisis y sesiones',
           'Soporte prioritario'
         ],

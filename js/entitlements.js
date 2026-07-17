@@ -23,7 +23,7 @@
       trainer_hands_per_day: null,
       import_sessions_per_month: null,
       max_hands_per_import: null,
-      ai_reports_per_month: 5,
+      ai_reports_per_month: 40,
       history_days: null,
       analysis_hands_max: 20
     },
@@ -31,7 +31,7 @@
       trainer_hands_per_day: null,
       import_sessions_per_month: null,
       max_hands_per_import: null,
-      ai_reports_per_month: 35,
+      ai_reports_per_month: 150,
       history_days: null,
       analysis_hands_max: 100
     }

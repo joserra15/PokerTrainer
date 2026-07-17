@@ -11,7 +11,7 @@ window.PT_BILLING = {
   },
   bonus: {
     validityMonths: 12,
-    packs: { s: { credits: 10, label: 'Pack S' }, m: { credits: 20, label: 'Pack M' }, l: { credits: 40, label: 'Pack L' } },
+    packs: { s: { credits: 20, label: 'Pack S' }, m: { credits: 40, label: 'Pack M' }, l: { credits: 80, label: 'Pack L' } },
     prices: {
       free: { s: '7,99', m: '13,99', l: '22,99' },
       study: { s: '5,99', m: '9,99', l: '15,99' },

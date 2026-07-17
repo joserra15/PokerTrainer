@@ -192,7 +192,7 @@
     trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día).',
     import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis.',
     import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos.',
-    ai_plan: 'El IA Coach (añadir manos por texto, análisis y preguntas) requiere Study (5 consultas/mes), Coach (35/mes) o un bono. El plan Gratis no incluye IA. Los bonos están en la pestaña Planes.',
+    ai_plan: 'El IA Coach (añadir manos por texto, análisis y preguntas) requiere Study (40 consultas/mes), Coach (150/mes) o un bono. El plan Gratis no incluye IA. Los bonos están en la pestaña Planes.',
     ai_limit: 'Has agotado tus consultas IA disponibles. Compra un bono o sube de plan para seguir añadiendo manos con IA, analizando o preguntando.',
     billing_not_configured: '',
     no_subscription: ''
