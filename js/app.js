@@ -469,7 +469,8 @@
       try { fn(); } catch (e) { console.error('[PTLoader]', e); }
       return Promise.resolve();
     }
-    return PTLoader.ensure(chunk).then(fn).catch(function (e) {
+    var load = Array.isArray(chunk) ? PTLoader.ensureMany(chunk) : PTLoader.ensure(chunk);
+    return load.then(fn).catch(function (e) {
       console.error('[PTLoader]', chunk, e);
       fn();
     });
@@ -622,7 +623,8 @@
       });
     }
     if (tabId === 'analysis') {
-      withLazyChunk('analysis', function () {
+      // sessions: Importer.analyzeHand (requerido por buildAnalyzedHand / IA texto)
+      withLazyChunk(['sessions', 'analysis'], function () {
         if (window.PTHandAnalysis && PTHandAnalysis.render) {
           PTHandAnalysis.render($('#analysis-content'));
         }
