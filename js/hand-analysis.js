@@ -304,6 +304,18 @@
     };
   }
 
+  function ensureImporter() {
+    if (global.Importer && global.Importer.analyzeHand) return Promise.resolve();
+    if (!global.PTLoader) {
+      return Promise.reject(new Error('Módulo de análisis no cargado.'));
+    }
+    return global.PTLoader.ensure('sessions').then(function () {
+      if (!global.Importer || !global.Importer.analyzeHand) {
+        throw new Error('Módulo de análisis no cargado.');
+      }
+    });
+  }
+
   function buildAnalyzedHand(spec, source) {
     if (!global.Importer || !global.Importer.analyzeHand) {
       throw new Error('Módulo de análisis no cargado.');
@@ -1724,30 +1736,30 @@
     }
 
     var analyzed;
-    try {
-      analyzed = buildAnalyzedHand(spec, (S.editMeta && S.editMeta.source) || 'manual');
-    } catch (e) {
-      showErrors(['No se pudo analizar la mano: ' + (e.message || e)]);
-      return;
-    }
-    if (editing && S.editMeta) {
-      if (S.editMeta.coachThread) analyzed.coachThread = S.editMeta.coachThread;
-      if (S.editMeta.aiAnalysis) analyzed.aiAnalysis = S.editMeta.aiAnalysis;
-      if (S.editMeta.createdAt) analyzed.createdAt = S.editMeta.createdAt;
-    }
+    var source = (S.editMeta && S.editMeta.source) || 'manual';
+    ensureImporter().then(function () {
+      analyzed = buildAnalyzedHand(spec, source);
+      if (editing && S.editMeta) {
+        if (S.editMeta.coachThread) analyzed.coachThread = S.editMeta.coachThread;
+        if (S.editMeta.aiAnalysis) analyzed.aiAnalysis = S.editMeta.aiAnalysis;
+        if (S.editMeta.createdAt) analyzed.createdAt = S.editMeta.createdAt;
+      }
 
-    var res = editing ? updateHand(analyzed) : saveHand(analyzed);
-    if (!res.ok) {
-      showErrors(['No se pudo guardar: ' + (res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || ''))]);
-      return;
-    }
-    S.view = 'list';
-    S.draft = null;
-    S.editId = null;
-    S.editMeta = null;
-    S.picker = null;
-    render();
-    if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+      var res = editing ? updateHand(analyzed) : saveHand(analyzed);
+      if (!res.ok) {
+        showErrors(['No se pudo guardar: ' + (res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || ''))]);
+        return;
+      }
+      S.view = 'list';
+      S.draft = null;
+      S.editId = null;
+      S.editMeta = null;
+      S.picker = null;
+      render();
+      if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+    }).catch(function (e) {
+      showErrors(['No se pudo analizar la mano: ' + ((e && e.message) || e)]);
+    });
   }
 
   // ---------- render: texto / IA ----------
@@ -1838,23 +1850,25 @@
       if (errs.length) {
         throw new Error('La IA no pudo estructurar bien la mano (' + errs[0] + '). Revisa la descripción o usa la entrada manual.');
       }
-      var analyzed = buildAnalyzedHand(spec, 'text');
-      if (data.analysisMarkdown) {
-        analyzed.coachThread = [{
-          mode: 'report',
-          reportMarkdown: data.analysisMarkdown,
-          model: 'gemini',
-          createdAt: new Date().toISOString(),
-          truncated: false
-        }];
-        analyzed.aiAnalysis = data.analysisMarkdown;
-      }
-      var res = saveHand(analyzed);
-      if (!res.ok) throw new Error(res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || 'no se pudo guardar.'));
-      btn.disabled = false;
-      S.view = 'list';
-      render();
-      if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+      return ensureImporter().then(function () {
+        var analyzed = buildAnalyzedHand(spec, 'text');
+        if (data.analysisMarkdown) {
+          analyzed.coachThread = [{
+            mode: 'report',
+            reportMarkdown: data.analysisMarkdown,
+            model: 'gemini',
+            createdAt: new Date().toISOString(),
+            truncated: false
+          }];
+          analyzed.aiAnalysis = data.analysisMarkdown;
+        }
+        var res = saveHand(analyzed);
+        if (!res.ok) throw new Error(res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || 'no se pudo guardar.'));
+        btn.disabled = false;
+        S.view = 'list';
+        render();
+        if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+      });
     }).catch(function (e) {
       btn.disabled = false;
       status.innerHTML = '';
