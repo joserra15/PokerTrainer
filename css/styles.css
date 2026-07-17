@@ -150,7 +150,22 @@ body.nav-open .nav-toggle-bar:nth-child(3) { transform: translateY(-7px) rotate(
 /* ---- Login gate / Landing (G-02) ---- */
 body.auth-locked { overflow: hidden; }
 body.auth-locked.landing-scrollable { overflow: auto; }
-body.pt-cloud-syncing #app-shell { opacity: 0.92; pointer-events: none; }
+body.pt-cloud-syncing #app-shell { opacity: 1; }
+body.pt-cloud-syncing #app-shell::before {
+  content: 'Sincronizando…';
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 9999;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e6edf3;
+  background: rgba(15, 20, 25, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
 body.range-matrix-open { overflow: hidden; }
 .auth-gate {
   position: fixed; inset: 0; z-index: 100;

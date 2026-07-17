@@ -231,6 +231,18 @@
       .catch(function (e) { console.warn('[PTSampleSession]', e); });
   }
 
+  function initAdminForUser(user) {
+    if (!user || !user.isAdmin) return;
+    function run() {
+      if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
+    }
+    if (global.PTLoader) {
+      global.PTLoader.ensure('admin').then(run).catch(function (e) { console.warn('[PTAdmin]', e); });
+    } else {
+      run();
+    }
+  }
+
   async function enterApp(user) {
     if (!user) return;
     user = normalizeUser(user);
@@ -264,7 +276,7 @@
       withTimeout(global.PTProfile.touchAndApply(user), 8000, 'profile')
         .then(function () {
           renderAccountMenu(user);
-          if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
+          initAdminForUser(user);
           if (global.PTBilling && global.PTBilling.syncSubscription && global.PTBilling.enabled()) {
             global.PTBilling.syncSubscription()
               .then(function () {
@@ -281,12 +293,12 @@
           if (global.PTEntitlements && global.PTEntitlements.refresh) {
             global.PTEntitlements.refresh().then(function () {
               renderAccountMenu(user);
-              if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
+              initAdminForUser(user);
             });
           }
         });
-    } else if (global.PTAdmin && global.PTAdmin.initForUser) {
-      global.PTAdmin.initForUser(user);
+    } else {
+      initAdminForUser(user);
     }
   }
 

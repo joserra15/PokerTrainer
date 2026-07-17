@@ -26,7 +26,7 @@
 
   function checkDeployInfo(build) {
     if (!('fetch' in global)) return;
-    var url = '/deploy-info.json?t=' + Date.now();
+    var url = '/deploy-info.json?v=' + encodeURIComponent(build);
     fetch(url, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (info) {

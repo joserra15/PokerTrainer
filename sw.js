@@ -1,7 +1,7 @@
-/* Service worker — PWA instalable. Shell offline + assets con network-first. */
+/* Service worker — PWA instalable. Shell offline + assets versionados cache-first. */
 'use strict';
 
-var CACHE = 'pt-shell-v10';
+var CACHE = 'pt-shell-v11';
 var PRECACHE = [
   './offline.html',
   './apple-touch-icon.png',
@@ -14,9 +14,14 @@ var PRECACHE = [
 
 function isAppAsset(pathname) {
   return pathname.indexOf('/js/') >= 0 ||
+    pathname.indexOf('/dist/') >= 0 ||
     pathname.indexOf('/css/') >= 0 ||
     pathname.endsWith('/js/version.js') ||
     pathname.endsWith('/deploy-info.json');
+}
+
+function isVersionedRequest(url) {
+  return url.searchParams.has('v') || url.searchParams.has('t');
 }
 
 function isNavigateRequest(req) {
@@ -68,6 +73,27 @@ function networkFirst(req) {
   });
 }
 
+function cacheFirstVersioned(req) {
+  return caches.match(req).then(function (cached) {
+    var network = fetch(req).then(function (res) {
+      if (res && res.ok) {
+        var copy = res.clone();
+        caches.open(CACHE).then(function (cache) { cache.put(req, copy); });
+      }
+      return res;
+    }).catch(function () { return null; });
+
+    if (cached) {
+      network.catch(function () { /* background refresh best-effort */ });
+      return cached;
+    }
+    return network.then(function (res) {
+      if (res) return res;
+      return caches.match(req);
+    });
+  });
+}
+
 self.addEventListener('fetch', function (event) {
   var req = event.request;
   if (req.method !== 'GET') return;
@@ -76,6 +102,11 @@ self.addEventListener('fetch', function (event) {
 
   if (isNavigateRequest(req)) {
     event.respondWith(networkFirst(req));
+    return;
+  }
+
+  if (isAppAsset(url.pathname) && isVersionedRequest(url)) {
+    event.respondWith(cacheFirstVersioned(req));
     return;
   }
 

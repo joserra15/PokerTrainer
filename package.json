@@ -3,6 +3,7 @@
   "private": true,
   "description": "PokerForgeAI — tests E2E y tooling",
   "scripts": {
+    "build": "node tools/build-bundles.js",
     "test:import": "node tools/testimport.js",
     "test:unit": "node tools/selftest.js",
     "test:hand-analysis": "node tools/test-hand-analysis.js",

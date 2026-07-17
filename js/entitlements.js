@@ -170,7 +170,11 @@
     if (global.PTAuth && global.PTAuth.renderAccountMenu) {
       global.PTAuth.renderAccountMenu(u);
     }
-    if (global.PTAdmin && global.PTAdmin.initForUser) {
+    if (u.isAdmin && global.PTLoader) {
+      global.PTLoader.ensure('admin').then(function () {
+        if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(u);
+      }).catch(function (e) { console.warn('[PTAdmin]', e); });
+    } else if (global.PTAdmin && global.PTAdmin.initForUser) {
       global.PTAdmin.initForUser(u);
     }
   }

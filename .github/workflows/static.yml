@@ -25,6 +25,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Build JS bundles
+        run: node tools/build-bundles.js
       - name: Selftest
         run: node tools/selftest.js
       - name: Test importador ES/EN/Winamax
@@ -53,6 +55,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Build JS bundles
+        run: node tools/build-bundles.js
       - name: Write deploy metadata
         run: |
           BUILD=$(grep -oP "PT_BUILD = '\\K[^']+" js/version.js)

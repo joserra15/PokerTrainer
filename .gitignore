@@ -9,6 +9,7 @@ desktop.ini
 
 # Node (si se añade tooling)
 node_modules/
+dist/
 
 # Logs
 *.log

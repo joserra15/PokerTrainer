@@ -464,33 +464,40 @@
 
   let homeGreetingRequest = 0;
 
+  function withLazyChunk(chunk, fn) {
+    if (!window.PTLoader || !chunk) {
+      try { fn(); } catch (e) { console.error('[PTLoader]', e); }
+      return Promise.resolve();
+    }
+    return PTLoader.ensure(chunk).then(fn).catch(function (e) {
+      console.error('[PTLoader]', chunk, e);
+      fn();
+    });
+  }
+
   function loadHomeGreeting(leadEl) {
     if (!leadEl) return;
+    leadEl.classList.remove('home-lead--loading');
+    leadEl.innerHTML = DEFAULT_HOME_LEAD;
+    if (!window.PTAIReport || !PTAIReport.fetchHomeGreeting) return;
     const reqId = ++homeGreetingRequest;
-    leadEl.classList.add('home-lead--loading');
-    leadEl.textContent = 'Preparando tu plan de entrenamiento…';
-    if (!window.PTAIReport || !PTAIReport.fetchHomeGreeting) {
-      leadEl.classList.remove('home-lead--loading');
-      leadEl.innerHTML = DEFAULT_HOME_LEAD;
-      return;
+    const runFetch = function () {
+      PTAIReport.fetchHomeGreeting(buildHomeStatsBundle)
+        .then(function (text) {
+          if (reqId !== homeGreetingRequest) return;
+          const homeTab = $('#tab-home');
+          if (!homeTab || !homeTab.classList.contains('active')) return;
+          if (text && String(text).trim()) {
+            leadEl.textContent = String(text).trim();
+          }
+        })
+        .catch(function () { /* mantener texto por defecto */ });
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(runFetch, { timeout: 4000 });
+    } else {
+      setTimeout(runFetch, 200);
     }
-    PTAIReport.fetchHomeGreeting(buildHomeStatsBundle)
-      .then(function (text) {
-        if (reqId !== homeGreetingRequest) return;
-        const homeTab = $('#tab-home');
-        if (!homeTab || !homeTab.classList.contains('active')) return;
-        leadEl.classList.remove('home-lead--loading');
-        if (text) {
-          leadEl.textContent = text;
-        } else {
-          leadEl.innerHTML = DEFAULT_HOME_LEAD;
-        }
-      })
-      .catch(function () {
-        if (reqId !== homeGreetingRequest) return;
-        leadEl.classList.remove('home-lead--loading');
-        leadEl.innerHTML = DEFAULT_HOME_LEAD;
-      });
   }
 
   function renderHome() {
@@ -608,38 +615,48 @@
       else showPlaySetup();
     }
     if (tabId === 'learn') {
-      if (window.PTBeginnerGuide && PTBeginnerGuide.render) {
-        PTBeginnerGuide.render($('#learn-content'));
-      }
+      withLazyChunk('learn', function () {
+        if (window.PTBeginnerGuide && PTBeginnerGuide.render) {
+          PTBeginnerGuide.render($('#learn-content'));
+        }
+      });
     }
     if (tabId === 'analysis') {
-      if (window.PTHandAnalysis && PTHandAnalysis.render) {
-        PTHandAnalysis.render($('#analysis-content'));
-      }
+      withLazyChunk('analysis', function () {
+        if (window.PTHandAnalysis && PTHandAnalysis.render) {
+          PTHandAnalysis.render($('#analysis-content'));
+        }
+      });
     }
     if (tabId === 'history') renderHistory();
     if (tabId === 'errors') renderErrors();
     if (tabId === 'stats') renderStats();
     if (tabId === 'contact') {
-      if (window.PTContact && PTContact.render) PTContact.render();
-      if (window.PTContact && PTContact.refreshBadge) PTContact.refreshBadge();
+      withLazyChunk('contact', function () {
+        if (window.PTContact && PTContact.render) PTContact.render();
+        if (window.PTContact && PTContact.refreshBadge) PTContact.refreshBadge();
+      });
     }
     if (tabId === 'play' && window.PTUsageUI && PTUsageUI.refreshHost) {
       PTUsageUI.refreshHost($('#play-usage'));
     }
-    if (tabId === 'ranges') renderRangesExplorer();
+    if (tabId === 'ranges') {
+      withLazyChunk('ranges', function () { renderRangesExplorer(); });
+    }
     if (tabId === 'pricing') renderPricing();
     if (tabId === 'sessions') {
       if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#sessions-usage'));
-      if (opts.openSessionId) {
-        showSessionLoading('Cargando sesión…');
-        void openSession(opts.openSessionId);
+      withLazyChunk('sessions', function () {
+        if (opts.openSessionId) {
+          showSessionLoading('Cargando sesión…');
+          void openSession(opts.openSessionId);
+          refreshSessionsFromCloud();
+          return;
+        }
+        showSessionsView('home');
+        renderSessionsList();
         refreshSessionsFromCloud();
-        return;
-      }
-      showSessionsView('home');
-      renderSessionsList();
-      refreshSessionsFromCloud();
+      });
     }
     if (tabId === 'admin') {
       var adminUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
@@ -648,7 +665,9 @@
         goToTab('home');
         return;
       }
-      if (window.PTAdmin && window.PTAdmin.render) window.PTAdmin.render();
+      withLazyChunk('admin', function () {
+        if (window.PTAdmin && window.PTAdmin.render) window.PTAdmin.render();
+      });
     }
     if (tabId === 'account') {
       var accountUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
@@ -821,8 +840,10 @@
       if (isNaN(idx) || !h.decisions[idx]) return;
       e.preventDefault();
       const kind = btn.dataset.matrixKind || 'gto';
-      if (kind === 'villain') openVillainMatrixModal(h, h.decisions[idx], source);
-      else openRangeMatrixModal(h, h.decisions[idx], source);
+      withLazyChunk('ranges', function () {
+        if (kind === 'villain') openVillainMatrixModal(h, h.decisions[idx], source);
+        else openRangeMatrixModal(h, h.decisions[idx], source);
+      });
     });
 
     // sesiones
