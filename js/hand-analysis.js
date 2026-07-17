@@ -320,6 +320,7 @@
     if (!global.Importer || !global.Importer.analyzeHand) {
       throw new Error('Módulo de análisis no cargado.');
     }
+    ensureVillainsFromActions(spec);
     var raw = specToRawHand(spec);
     var analyzed = global.Importer.analyzeHand(raw);
     var bbEuro = normalizeBbEuro(spec.bbEuro != null ? spec.bbEuro : raw.bb);
@@ -525,10 +526,41 @@
     return actions;
   }
 
+  /**
+   * Completa villanos a partir de las acciones: si la IA (u otra fuente) guardó
+   * acciones de HJ/BTN/BB/… pero dejó villains vacío o incompleto, al editar
+   * syncActionsFromSeats borraría esas filas. Aquí se recuperan los asientos.
+   */
+  function ensureVillainsFromActions(spec) {
+    if (!spec) return spec;
+    var heroPos = spec.heroPos;
+    var fmt = spec.format === '9max' ? '9max' : '6max';
+    var byPos = {};
+    (spec.villains || []).forEach(function (v) {
+      if (!v || !v.pos || v.pos === heroPos) return;
+      if (!byPos[v.pos]) {
+        byPos[v.pos] = { pos: v.pos, cards: (v.cards || []).slice(0, 2) };
+      } else if ((!byPos[v.pos].cards || !byPos[v.pos].cards.length) && v.cards && v.cards.length) {
+        byPos[v.pos].cards = v.cards.slice(0, 2);
+      }
+    });
+    STREET_ORDER.forEach(function (st) {
+      ((spec.actions && spec.actions[st]) || []).forEach(function (a) {
+        if (!a || !a.pos || a.pos === heroPos || byPos[a.pos]) return;
+        byPos[a.pos] = { pos: a.pos, cards: [] };
+      });
+    });
+    var ordered = sortByRing(fmt, Object.keys(byPos)).map(function (pos) {
+      return byPos[pos];
+    });
+    spec.villains = ordered.length ? ordered : [{ pos: '', cards: [] }];
+    return spec;
+  }
+
   function ensureHandSpec(hand) {
     if (hand && hand.spec && hand.spec.heroPos && hand.spec.heroCards) {
       var s = hand.spec;
-      return {
+      var out = ensureVillainsFromActions({
         format: s.format === '9max' ? '9max' : '6max',
         heroPos: s.heroPos,
         heroCards: (s.heroCards || []).slice(0, 2),
@@ -543,7 +575,34 @@
           turn: ((s.actions && s.actions.turn) || []).map(cloneAct),
           river: ((s.actions && s.actions.river) || []).map(cloneAct)
         }
-      };
+      });
+      // Si el spec perdió acciones pero la mano analizada aún tiene streets,
+      // reconstruir acciones y villanos desde ahí (paso a paso sí las muestra).
+      var hasActs = STREET_ORDER.some(function (st) {
+        return out.actions[st] && out.actions[st].length;
+      });
+      if (!hasActs) {
+        out.actions = actionsSpecFromHand(hand);
+        ensureVillainsFromActions(out);
+      } else {
+        // Asientos que actúan en streets pero faltan en villains/acciones del spec
+        var seen = {};
+        if (out.heroPos) seen[out.heroPos] = true;
+        (out.villains || []).forEach(function (v) { if (v && v.pos) seen[v.pos] = true; });
+        STREET_ORDER.forEach(function (st) {
+          (((hand.streets || {})[st]) || []).forEach(function (a) {
+            var pos = (hand.positions && hand.positions[a.player]) || a.player;
+            if (!pos || seen[pos]) return;
+            seen[pos] = true;
+            out.villains.push({ pos: pos, cards: [] });
+          });
+        });
+        if (out.villains.length > 1 || (out.villains[0] && out.villains[0].pos)) {
+          out.villains = out.villains.filter(function (v) { return v && v.pos; });
+        }
+        ensureVillainsFromActions(out);
+      }
+      return out;
     }
     var villains = listSwappableVillains(hand).map(function (v) {
       return { pos: v.pos, cards: v.cards.slice(0, 2) };
@@ -560,7 +619,7 @@
         villains.push({ pos: pos, cards: [] });
       });
     });
-    return {
+    return ensureVillainsFromActions({
       format: '6max',
       heroPos: hand.heroPos,
       heroCards: (hand.heroCards || []).slice(0, 2),
@@ -568,7 +627,7 @@
       board: (hand.boardAll || hand.board || []).slice(0, 5),
       bbEuro: normalizeBbEuro(hand.bbEuro != null ? hand.bbEuro : hand.bb),
       actions: actionsSpecFromHand(hand)
-    };
+    });
   }
 
   /**
@@ -964,21 +1023,10 @@
   function startEditHand(id) {
     var h = global.Store.getAnalysisHand(id);
     if (!h) return;
-    var spec = h.spec;
-    if (!spec) {
-      // Fallback mínimo si la mano antigua no guardó spec
-      spec = {
-        format: '6max',
-        heroPos: h.heroPos,
-        heroCards: (h.heroCards || []).slice(0, 2),
-        villains: Object.keys(h.villainShows || {}).map(function (pos) {
-          return { pos: pos, cards: (h.villainShows[pos] || []).slice(0, 2) };
-        }),
-        board: (h.boardAll || h.board || []).slice(0, 5),
-        actions: emptyActions()
-      };
-      if (!spec.villains.length) spec.villains = [{ pos: '', cards: [] }];
-    }
+    // ensureHandSpec completa villanos desde acciones (manos IA a menudo
+    // guardan acciones de todos los asientos pero villains vacío).
+    var spec = ensureHandSpec(h);
+    if (!spec.villains || !spec.villains.length) spec.villains = [{ pos: '', cards: [] }];
     S.editId = h.id;
     S.editMeta = {
       createdAt: h.createdAt,
@@ -1290,6 +1338,8 @@
       }
       var acts = (draft.actions[st] || []).slice();
       if (!acts.length) {
+        // Solo al crear filas nuevas: orden de habla. Si ya hay acciones
+        // (p. ej. mano IA), se conserva el orden cronológico.
         draft.actions[st] = players.map(function (pos) {
           return { pos: pos, action: defaultActionForStreet(st), amountBB: null };
         });
@@ -1298,21 +1348,7 @@
       var present = {};
       acts.forEach(function (a) { if (a && a.pos) present[a.pos] = true; });
       var missing = players.filter(function (pos) { return !present[pos]; });
-      if (!missing.length) {
-        var counts = {};
-        var multi = false;
-        acts.forEach(function (a) {
-          if (!a || !a.pos) return;
-          counts[a.pos] = (counts[a.pos] || 0) + 1;
-          if (counts[a.pos] > 1) multi = true;
-        });
-        if (!multi && acts.length === players.length) {
-          draft.actions[st] = sortBySpeakingOrder(draft.format, st, acts.map(function (a) { return a.pos; })).map(function (pos) {
-            return acts.find(function (a) { return a.pos === pos; });
-          });
-        }
-        return;
-      }
+      if (!missing.length) return;
       missing.forEach(function (pos) {
         var insertAt = acts.length;
         for (var i = 0; i < acts.length; i++) {
@@ -1812,7 +1848,9 @@
         spec.actions[st].push({ pos: a.pos, action: action, amountBB: isFinite(amt) ? amt : null });
       });
     });
-    return spec;
+    // La IA a menudo omite villanos sin cartas conocidas; sin ellos el editor
+    // pierde las acciones al sincronizar asientos.
+    return ensureVillainsFromActions(spec);
   }
 
   function onTextAnalyze() {
@@ -1895,6 +1933,7 @@
     listSwappableVillains: listSwappableVillains,
     swapHeroWithVillain: swapHeroWithVillain,
     ensureHandSpec: ensureHandSpec,
+    ensureVillainsFromActions: ensureVillainsFromActions,
     normalizeBbEuro: normalizeBbEuro,
     sortBySpeakingOrder: sortBySpeakingOrder,
     speakingOrderRing: speakingOrderRing

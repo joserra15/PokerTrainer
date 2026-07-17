@@ -420,5 +420,86 @@ assert(flopDec.class === 'optima' || flopDec.class === 'aceptable',
 assert(PTHandAnalysis.speakingOrderRing('6max', 'flop').join(',') === 'SB,BB,UTG,HJ,CO,BTN',
   'anillo postflop desde SB');
 
+// --- 13) editar mano IA: villanos vacíos no deben borrar acciones ---
+const aiSpecSparse = {
+  format: '6max',
+  heroPos: 'SB',
+  heroCards: ['Jh', '9h'],
+  villains: [],
+  board: ['Ac', 'Qc', '5h', 'Th', '2s'],
+  bbEuro: 0.05,
+  actions: {
+    preflop: [
+      { pos: 'HJ', action: 'raise', amountBB: 7.6 },
+      { pos: 'BTN', action: 'call', amountBB: 7.6 },
+      { pos: 'SB', action: 'call', amountBB: 6.6 },
+      { pos: 'BB', action: 'call', amountBB: 6.6 },
+      { pos: 'UTG', action: 'call', amountBB: 5.6 }
+    ],
+    flop: [
+      { pos: 'UTG', action: 'check' },
+      { pos: 'HJ', action: 'check' },
+      { pos: 'BTN', action: 'check' },
+      { pos: 'SB', action: 'check' },
+      { pos: 'BB', action: 'check' }
+    ],
+    turn: [
+      { pos: 'SB', action: 'bet', amountBB: 10 },
+      { pos: 'BB', action: 'call', amountBB: 10 },
+      { pos: 'HJ', action: 'call', amountBB: 10 }
+    ],
+    river: [
+      { pos: 'SB', action: 'bet', amountBB: 20 }
+    ]
+  },
+  _source: 'text'
+};
+const filled = PTHandAnalysis.ensureVillainsFromActions(JSON.parse(JSON.stringify(aiSpecSparse)));
+const vPos = filled.villains.map((v) => v.pos).sort().join(',');
+assert(vPos === 'BB,BTN,HJ,UTG', 'villanos inferidos de acciones: ' + vPos);
+assert(filled.villains.every((v) => Array.isArray(v.cards)), 'villanos sin cartas conocidas → cards []');
+
+const draftEdit = PTHandAnalysis.draftFromSpec(filled);
+PTHandAnalysis.syncActionsFromSeats(draftEdit);
+assert(draftEdit.actions.preflop.length === 5,
+  'editar conserva 5 acciones preflop: ' + draftEdit.actions.preflop.length);
+assert(draftEdit.actions.preflop.map((a) => a.pos).join(',') === 'HJ,BTN,SB,BB,UTG',
+  'orden temporal preflop al editar: ' + draftEdit.actions.preflop.map((a) => a.pos).join(','));
+assert(draftEdit.actions.flop.length === 5, 'editar conserva checks del flop');
+assert(draftEdit.actions.turn.some((a) => a.pos === 'SB' && a.action === 'bet' && a.amountBB === 10),
+  'editar conserva lead turn 10bb');
+assert(draftEdit.actions.turn.some((a) => a.pos === 'BB' && a.action === 'call'),
+  'editar conserva call BB en turn');
+assert(draftEdit.actions.turn.some((a) => a.pos === 'HJ' && a.action === 'call'),
+  'editar conserva call HJ en turn');
+assert(draftEdit.actions.river.some((a) => a.pos === 'SB' && a.action === 'bet'),
+  'editar conserva bet river del héroe');
+
+// ensureHandSpec con spec incompleto (villains []) como manos IA guardadas
+const anSparse = PTHandAnalysis.buildAnalyzedHand(Object.assign({}, aiSpecSparse, {
+  villains: []
+}), 'text');
+// Simular lo que a veces queda guardado: acciones completas, villains vacíos
+anSparse.spec.villains = [];
+const recovered = PTHandAnalysis.ensureHandSpec(anSparse);
+assert(recovered.villains.map((v) => v.pos).sort().join(',') === 'BB,BTN,HJ,UTG',
+  'ensureHandSpec recupera villanos: ' + recovered.villains.map((v) => v.pos).sort().join(','));
+const draftFromHand = PTHandAnalysis.draftFromSpec(recovered);
+PTHandAnalysis.syncActionsFromSeats(draftFromHand);
+assert(draftFromHand.actions.preflop.filter((a) => a.pos === 'HJ').length === 1,
+  'tras sync sigue el open de HJ');
+assert(draftFromHand.villains.filter((v) => v.pos).length === 4,
+  'draft de edición tiene 4 villanos');
+
+// Caso bug: sync SIN completar villanos borra acciones (regresión documentada)
+const draftBroken = PTHandAnalysis.draftFromSpec(Object.assign({}, aiSpecSparse, {
+  villains: [{ pos: '', cards: [] }]
+}));
+PTHandAnalysis.syncActionsFromSeats(draftBroken);
+assert(draftBroken.actions.preflop.every((a) => a.pos === 'SB'),
+  'sin villanos, sync solo deja al héroe (comportamiento documentado)');
+assert(draftBroken.actions.preflop.length <= 2,
+  'sin villanos las acciones rivales desaparecen');
+
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');
