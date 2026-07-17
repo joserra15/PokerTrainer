@@ -114,6 +114,7 @@
     btn.addEventListener('click', function () {
       try {
         sessionStorage.setItem('pt_promo_pending', code);
+        sessionStorage.setItem('pt_promo_autologin', '1');
       } catch (e) { /* noop */ }
       location.assign(appUrl('?promo=' + encodeURIComponent(code)));
     });

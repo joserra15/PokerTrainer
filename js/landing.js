@@ -197,8 +197,10 @@
     if (promoCode) {
       renderPromoRegisterHint(promoCode);
       scrollToLogin();
-      // Si viene de la landing de promo, abre el login automáticamente.
-      if (/[?&]promo=/i.test(location.search || '')) {
+      var autoLogin = false;
+      try { autoLogin = sessionStorage.getItem('pt_promo_autologin') === '1'; } catch (e) { /* noop */ }
+      if (autoLogin || /[?&]promo=/i.test(location.search || '')) {
+        try { sessionStorage.removeItem('pt_promo_autologin'); } catch (e) { /* noop */ }
         global.setTimeout(function () { startLoginNow(); }, 350);
       }
     }
