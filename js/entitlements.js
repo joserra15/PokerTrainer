@@ -330,7 +330,7 @@
   }
 
   async function recordImportSession(handCount) {
-    if (!useAuth()) return { ok: true };
+    if (!useAuth() || e2eBypass()) return { ok: true };
     var c = client();
     if (!c) return { ok: true };
     var rpc = demoActive() ? 'pt_demo_record_import_session' : 'pt_record_import_session';
