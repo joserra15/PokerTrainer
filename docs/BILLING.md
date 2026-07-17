@@ -29,8 +29,8 @@ Para un producto SaaS con suscripciones mensuales/anuales y portal de cliente, *
 | Manos entrenador / día | 15 | Ilimitado | Ilimitado |
 | Sesiones import / mes | 1 | Ilimitado | Ilimitado |
 | Manos por import (free) | 200 máx. | — | — |
-| Informes IA / mes | 0 | 5 | 35 |
-| Bono IA (compra única) | Sí (precio Gratis) | Sí (precio Study) | Sí (precio Coach) |
+| Informes IA / mes | 0 | 40 | 150 |
+| Bono IA (compra única) | Sí (precio Gratis) · packs 20/40/80 | Sí (precio Study) | Sí (precio Coach) |
 | Histórico | 30 días | Completo | Completo |
 
 Los administradores (`is_admin`) no tienen límites.

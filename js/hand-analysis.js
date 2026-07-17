@@ -928,7 +928,7 @@
     html += '<button class="btn btn-secondary" data-ha-new="text"' + (aiOk ? '' : ' title="Requiere consulta IA disponible"') + '>Añadir con IA (texto)</button>';
     html += '</div>';
     if (!aiOk) {
-      html += '<p class="muted-text ha-ai-gate">Añadir con IA no está disponible en tu plan actual sin consultas. El plan Gratis no incluye IA; Study incluye 5/mes y Coach 35/mes, o usa un bono.</p>';
+      html += '<p class="muted-text ha-ai-gate">Añadir con IA no está disponible en tu plan actual sin consultas. El plan Gratis no incluye IA; Study incluye 40/mes y Coach 150/mes, o usa un bono.</p>';
     }
     html += '<div class="ha-limit muted-text">Manos guardadas: <strong>' + used + ' / ' + max + '</strong>' +
       ' (Gratis 5 · Study 20 · Coach 100)' +

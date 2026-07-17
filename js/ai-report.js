@@ -1115,7 +1115,7 @@
       '<li><strong>Entrenador</strong> — al finalizar cada mano, debajo del resultado.</li>' +
       '<li><strong>Sesiones</strong> — resumen de sesión, revisión de mano y paso a paso.</li>' +
       '<li><strong>Estadísticas</strong> — bloque IA Coach con informe global y preguntas.</li>' +
-      '<li><strong>Planes</strong> — Study incluye 5 consultas/mes; Coach, 35/mes. Puedes ampliar con bonos de consultas.</li>' +
+      '<li><strong>Planes</strong> — Study incluye 40 consultas/mes; Coach, 150/mes. Puedes ampliar con bonos de consultas.</li>' +
       '</ul></div>' +
       '<div class="home-coach-foot">' +
       '<p class="muted-text">Solo se envían datos de poker (cartas, acciones, análisis GTO y estadísticas de sesión) cuando lo solicitas y tras dar tu consentimiento. ' +
