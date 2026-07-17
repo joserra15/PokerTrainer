@@ -653,6 +653,7 @@
           refreshSessionsFromCloud();
           return;
         }
+        if (opts.skipDefaultView) return;
         showSessionsView('home');
         renderSessionsList();
         refreshSessionsFromCloud();
@@ -1036,17 +1037,19 @@
     currentSession = { id: '__analysis__', analysis: true, hero: hand.hero };
     analysisReviewReturn = true;
     setAnalysisReviewBackLabel();
-    if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
-    if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
-    try {
-      if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
-    } catch (e) {
-      console.error('[Analysis] recompute failed', e);
-    }
-    goToTab('sessions');
-    showSessionsView('review');
-    if (mode === 'replay') startInteractiveReplay();
-    else renderTimelineReview();
+    goToTab('sessions', { skipDefaultView: true });
+    withLazyChunk('sessions', function () {
+      if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
+      if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
+      try {
+        if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
+      } catch (e) {
+        console.error('[Analysis] recompute failed', e);
+      }
+      showSessionsView('review');
+      if (mode === 'replay') startInteractiveReplay();
+      else renderTimelineReview();
+    });
   }
   window.openAnalysisHandReview = openAnalysisHandReview;
 
