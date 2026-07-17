@@ -204,8 +204,9 @@ REGLAS ESTRICTAS:
 - Cartas SIEMPRE en formato de 2 caracteres: rango (2-9,T,J,Q,K,A) + palo en minúscula (s,h,d,c). Ejemplo: "As","Th","9c". La T es el 10.
 - "amountBB" es el TOTAL en ciegas grandes (bb) al que se sube o apuesta. Para raise = tamaño total (p.ej. open a 3 → 3; 3-bet a 9 → 9). Para bet = tamaño de la apuesta en bb. Para call/check/fold usa 0 o null.
 - Incluye en "actions" TODAS las acciones en orden real, incluida la del héroe. Usa las posiciones como identificador de cada jugador.
+- Incluye en "villains" TODOS los jugadores que no son el héroe y que aparecen en "actions" (aunque no se conozcan sus cartas). Si no hay cartas, usa "cards": [].
 - "board" puede tener 0, 3, 4 o 5 cartas. Si no se menciona flop/turn/river, deja las que falten fuera del array.
-- Si una carta de villano no se conoce, omite "cards" o deja [] en ese villano.
+- Si una carta de villano no se conoce, omite "cards" o deja [] en ese villano. NUNCA omitas al villano del array solo porque no se conozcan sus cartas.
 - Si un dato no está en el texto, haz la inferencia más razonable y coherente (por ejemplo, las ciegas se postean solas). NUNCA inventes cartas que contradigan el texto.
 - No incluyas comentarios ni texto fuera del objeto JSON.`;
 
