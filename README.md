@@ -72,6 +72,14 @@ directamente en el navegador (doble clic). Funciona offline y es **responsive**:
 se adapta a escritorio, **tablet y móvil** (los controles se apilan y las cartas
 se reescalan en pantallas pequeñas).
 
+Opcional (carga más rápida, como en producción): genera los bundles en `dist/`:
+
+```
+npm run build
+```
+
+Sin ese paso la app sigue arrancando con scripts individuales.
+
 > Recomendado: Chrome, Edge o Firefox actualizados.
 
 ## Qué entrena

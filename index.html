@@ -76,6 +76,7 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://browser.sentry-cdn.com https://plausible.io https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://accounts.google.com https://plausible.io https://browser.sentry-cdn.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.de.sentry.io; frame-src https://accounts.google.com; font-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self';" />
   <title>PokerForgeAI · Entrenador GTO de poker NL Hold'em con IA Coach</title>
   <script src="js/version.js"></script>
+  <script src="js/bundle-chunks.js"></script>
   <script src="js/pt-loader.js"></script>
   <script>
   (function () {
@@ -1063,13 +1064,13 @@
 
   <script>
   (function () {
-    var v = encodeURIComponent(window.PT_BUILD || '1');
-    var s = document.createElement('script');
-    s.src = 'dist/pt-core.js?v=' + v;
-    s.onerror = function () {
-      console.error('[PT] Failed to load pt-core.js — run: node tools/build-bundles.js');
-    };
-    document.body.appendChild(s);
+    if (!window.PTLoader || typeof window.PTLoader.loadCore !== 'function') {
+      console.error('[PT] PTLoader missing — check js/pt-loader.js');
+      return;
+    }
+    window.PTLoader.loadCore().catch(function (err) {
+      console.error('[PT] Failed to start app', err);
+    });
   })();
   </script>
 </body>
