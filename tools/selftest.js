@@ -258,6 +258,28 @@ if (recNuts.cls !== 'optima') {
   console.error('FAIL: nuts EV tie should stay optima');
   process.exit(1);
 }
+if (rec8.best !== 'check') {
+  console.error('FAIL: residual bet_33 EV-tie must keep check as best for UI; got', rec8.best);
+  process.exit(1);
+}
+// Probe turn: bet_33 ~11% con EV empatado y fuga → best sigue siendo check (verde en UI)
+{
+  const turnStrat = { check: 0.78, bet_33: 0.1144, bet_66: 0.0704, bet_100: 0.0352 };
+  const turnCls = Cls.classify(turnStrat, 'bet_33', ['check', 'bet_33', 'bet_66', 'bet_100']);
+  const turnRec = Cls.reconcileWithEv(turnCls.cls, 'bet_33', turnCls.best, {
+    actionEV: 1.52, bestEV: 1.52, bestAction: 'bet_33',
+    evLoss: 3.42, evErroneous: true,
+    evErrorReasons: [{ type: 'bluff_sin_fold_equity' }]
+  }, {
+    freq: turnCls.freq, maxFreq: turnCls.maxFreq,
+    legalStrategy: turnCls.legalStrategy, equity: 0.10
+  });
+  console.log('Turn probe residual best', turnRec.best, 'cls', turnRec.cls, '(expect best=check error)');
+  if (turnRec.best !== 'check') {
+    console.error('FAIL: turn check must stay best highlight; got', turnRec.best);
+    process.exit(1);
+  }
+}
 
 // Raise residual (7%) no debe marcarse como "mejor" cuando call domina la mezcla (~72%)
 {
