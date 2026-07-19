@@ -1512,7 +1512,8 @@
       } else if (d.gto) {
         html += renderGtoBars(d.gto);
       }
-      if (matrixSource && window.PTRangeMatrix) {
+      // Mostrar siempre con matrixSource: el click carga el chunk ranges bajo demanda.
+      if (matrixSource) {
         html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, i, matrixSource)}</div>`;
       }
       html += '</div>';
@@ -1554,12 +1555,22 @@
     breakdown.forEach((o) => {
       const isChosen = o.id === chosenId;
       const isBest = o.id === best;
-      html += `<div class="opt-pill ${isChosen ? 'chosen' : ''} ${isBest ? 'best' : ''}">
+      // Si coincide óptima y elegida: solo verde (best). Azul (chosen) solo si difiere.
+      const cls = isBest ? 'best' : (isChosen ? 'chosen' : '');
+      html += `<div class="opt-pill ${cls}">
         <span class="opt-lbl">${escapeHtml(o.label)}</span>
         <span class="opt-pct">${o.pct}%</span>
       </div>`;
     });
     return html + '</div>';
+  }
+
+  function findStreetDecisionIndex(hand, street) {
+    if (!hand || !hand.decisions) return -1;
+    for (let i = 0; i < hand.decisions.length; i++) {
+      if (hand.decisions[i].street === street) return i;
+    }
+    return -1;
   }
 
   let matrixJob = 0;
@@ -1587,9 +1598,9 @@
 
   function matrixStreetBtn(street, decisionIdx, source) {
     if (street === 'preflop') {
-      return `<button type="button" class="btn btn-ghost btn-matrix" data-range-matrix="1" data-matrix-kind="gto" data-matrix-street="${street}" data-matrix-decision-idx="${decisionIdx}" data-matrix-source="${source}">Matriz GTO</button>`;
+      return `<button type="button" class="btn btn-matrix" data-range-matrix="1" data-matrix-kind="gto" data-matrix-street="${street}" data-matrix-decision-idx="${decisionIdx}" data-matrix-source="${source}">Matriz GTO</button>`;
     }
-    return `<button type="button" class="btn btn-ghost btn-matrix" data-range-matrix="1" data-matrix-kind="villain" data-matrix-street="${street}" data-matrix-decision-idx="${decisionIdx}" data-matrix-source="${source}">Matriz villano</button>`;
+    return `<button type="button" class="btn btn-matrix" data-range-matrix="1" data-matrix-kind="villain" data-matrix-street="${street}" data-matrix-decision-idx="${decisionIdx}" data-matrix-source="${source}">Matriz villano</button>`;
   }
 
   function closeRangeMatrixModal() {
@@ -3718,7 +3729,7 @@
     html += '<div class="timeline">';
     summary.forEach((item) => {
       if (item.kind === 'street') {
-        const decIdx = window.PTRangeMatrix ? window.PTRangeMatrix.findDecisionIndex(h, item.street) : -1;
+        const decIdx = findStreetDecisionIndex(h, item.street);
         html += `<div class="tl-street"><span>${cap(item.street)}</span> ${item.board.length ? '<span class="tl-board">' + item.board.map(Cards.cardToHTML).join('') + '</span>' : ''}${decIdx >= 0 ? matrixStreetBtn(item.street, decIdx, 'session') : ''}</div>`;
       } else if (item.kind === 'show') {
         html += `<div class="tl-action showdown"><span class="tl-player">${escapeHtml(item.player)}${item.pos ? ' (' + item.pos + ')' : ''}</span> muestra <span class="rec-cards">${(item.cards || []).map(Cards.cardToHTML).join('')}</span></div>`;
