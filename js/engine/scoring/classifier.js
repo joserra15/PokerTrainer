@@ -83,6 +83,7 @@
    * "Mejor" en UI = líder de la mezcla GTO, salvo que el EV apunte a una acción
    * también competitiva en frecuencia (o a fold por call sin odds).
    * Evita marcar raise ~7% como óptimo cuando call tiene ~70%+ por un EV heurístico inflado.
+   * Evita marcar bet_33 ~11% como óptimo cuando check tiene ~78% por empate EV heurístico.
    */
   function evBestTrustedInMix(bestAct, freqBest, maxFreq, evBestFreq, callSinOdds) {
     if (bestAct === freqBest) return true;
@@ -107,13 +108,18 @@
     const delta = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
     let cls = freqCls;
     let best = freqBest;
+    // Solo promover chosen a "best" de UI si es competitiva en la mezcla GTO.
+    // Sin maxFreq conocido, no promover residuales (~5–12%) por empate EV.
+    const chosenTrusted = isNuts || chosen === freqBest || (maxFreq > 0
+      ? evBestTrustedInMix(chosen, freqBest, maxFreq, freq, false)
+      : freq >= 0.40);
     if (delta <= EV_OPTIMA_BB) {
       if (freq >= 0.15 || freqCls === 'optima' || freqCls === 'aceptable') {
         cls = 'optima';
-        best = chosen;
+        if (chosenTrusted) best = chosen;
       } else if (freq >= 0.05) {
         cls = 'aceptable';
-        best = chosen;
+        if (chosenTrusted) best = chosen;
       } else if (isNuts) {
         cls = 'optima';
         best = chosen;
@@ -122,7 +128,7 @@
       if (cls === 'error' || cls === 'imprecisa') {
         cls = (freq >= 0.05 || isNuts) ? 'aceptable' : cls;
       }
-      if ((evResult.actionEV || 0) >= (evResult.bestEV || 0) - EV_OPTIMA_BB && (freq >= 0.05 || isNuts)) {
+      if ((evResult.actionEV || 0) >= (evResult.bestEV || 0) - EV_OPTIMA_BB && chosenTrusted) {
         best = chosen;
       }
     }
@@ -144,7 +150,8 @@
       if (cls === 'optima' || cls === 'aceptable') {
         cls = evLoss >= 1 ? 'error' : 'imprecisa';
       }
-      if (trustEvBest || callSinOdds) best = bestAct;
+      // Si el EV "óptimo" es residual (~11% bet), mantener el líder de mezcla (check).
+      best = (trustEvBest || callSinOdds) ? bestAct : freqBest;
     } else if (delta >= EV_TIE_BB && chosen !== bestAct && !freqDominant) {
       if (cls === 'optima') cls = delta >= 1 ? 'imprecisa' : 'aceptable';
       if (chosen === 'call' && freqBest === 'fold') bestAct = 'fold';

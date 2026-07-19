@@ -1316,6 +1316,8 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 }
 .opt-pill.best { border-color: var(--green); }
 .opt-pill.chosen { background: rgba(47,129,247,.15); border-color: var(--accent); }
+/* Elegida y óptima: fondo azul + borde verde (no tapar el óptimo) */
+.opt-pill.chosen.best { border-color: var(--green); box-shadow: inset 0 0 0 1px rgba(47,129,247,.55); }
 .opt-pill .opt-pct { font-weight: 700; color: var(--gold); }
 .dec-review { border-top: 1px solid var(--border); padding: 12px 0; }
 .dec-head { font-size: 14px; margin-bottom: 6px; }

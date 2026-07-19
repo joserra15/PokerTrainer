@@ -1541,7 +1541,15 @@
 
   function renderOptionGrid(breakdown, chosenId, bestId) {
     if (!breakdown || !breakdown.length) return '';
-    const best = bestId || (breakdown[0] && breakdown[0].id);
+    // Preferir bestId si existe en el grid; si no, el de mayor % GTO.
+    let best = bestId;
+    const ids = {};
+    let top = breakdown[0];
+    breakdown.forEach((o) => {
+      ids[o.id] = true;
+      if ((o.pct || 0) > (top.pct || 0)) top = o;
+    });
+    if (!best || !ids[best]) best = top && top.id;
     let html = '<div class="opt-grid">';
     breakdown.forEach((o) => {
       const isChosen = o.id === chosenId;

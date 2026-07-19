@@ -84,7 +84,10 @@ assert((turn.explanation || '').indexOf('en posición') >= 0, 'explicación turn
 assert((turn.explanation || '').indexOf('fuera de posición') < 0, 'explicación turn: no OOP');
 assert((turn.explanation || '').indexOf('probe') >= 0, 'explicación turn: probe (no donk)');
 assert((turn.explanation || '').indexOf('donk') < 0, 'explicación turn: sin donk');
+assert(turn.best === 'check', 'turn best=check (líder GTO), no bet residual: ' + turn.best);
+assert(turn.chosen === 'bet_33', 'turn chosen=bet_33');
 assert((river.explanation || '').indexOf('probe') >= 0, 'explicación river: probe');
+assert(river.best === 'check', 'river best=check');
 assert(!(turn.renderAlert || '').includes('[SOLVER] ERROR'), 'sin falso SOLVER ERROR en turn');
 assert(!(river.renderAlert || '').includes('[SOLVER] ERROR'), 'sin falso SOLVER ERROR en river');
 
