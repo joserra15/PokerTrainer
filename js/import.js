@@ -174,16 +174,53 @@
     return BROAD_CONTINUE;
   }
 
+  // Orden postflop (primero → último). Quien actúa al final está en posición.
+  const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'UTG1', 'UTG2', 'EP0', 'EP1', 'LJ', 'HJ', 'CO', 'BTN'];
+
+  function postflopOrderIndex(pos) {
+    if (!pos) return -1;
+    const i = POSTFLOP_ORDER.indexOf(pos);
+    if (i >= 0) return i;
+    if (String(pos).indexOf('UTG') === 0 || String(pos).indexOf('EP') === 0) return POSTFLOP_ORDER.indexOf('UTG');
+    return -1;
+  }
+
+  /** Jugadores que llegan al flop (no foldearon preflop). */
+  function playersReachedFlop(hand) {
+    const folded = new Set();
+    ((hand.streets && hand.streets.preflop) || []).forEach((a) => {
+      if (a.type === 'fold') folded.add(a.player);
+    });
+    return Object.keys(hand.positions || {}).filter((p) => !folded.has(p));
+  }
+
+  /**
+   * Héroe en posición postflop si actúa el último entre los que siguen en el bote.
+   * Ej.: BB vs SB heads-up → BB está IP (antes se marcaba OOP por lista fija).
+   */
+  function heroIsInPositionPostflop(hand, hero) {
+    const heroPos = (hand.positions && hand.positions[hero]) || null;
+    if (!heroPos) return false;
+    const remaining = playersReachedFlop(hand);
+    if (remaining.length <= 1) return true;
+    const heroIdx = postflopOrderIndex(heroPos);
+    if (heroIdx < 0) return false;
+    let maxIdx = -1;
+    remaining.forEach((p) => {
+      const idx = postflopOrderIndex(hand.positions[p]);
+      if (idx > maxIdx) maxIdx = idx;
+    });
+    return heroIdx === maxIdx;
+  }
+
   function inferHeroPostflopContext(hand, hero) {
     let heroRaised = false;
     hand.streets.preflop.forEach((a) => {
       if (a.type === 'raise' && a.player === hero) heroRaised = true;
     });
-    const heroPos = hand.positions[hero] || '??';
-    const inPosition = ['CO', 'BTN', 'HJ'].indexOf(heroPos) >= 0;
     return {
       initiative: heroRaised ? 'aggressor' : 'caller',
-      inPosition
+      inPosition: heroIsInPositionPostflop(hand, hero)
     };
   }
 

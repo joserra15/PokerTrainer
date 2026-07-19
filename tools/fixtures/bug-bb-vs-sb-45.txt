@@ -1,0 +1,42 @@
+PokerStars Zoom Hand #261465695578:  Hold'em No Limit (€0.02/€0.05) - 2026/07/17 23:27:18 CET [2026/07/17 17:27:18 ET]
+Table 'Asterope' 6-max Seat #1 is the button
+Seat 1: batu157 (€5 in chips)
+Seat 2: ORTIS78 (€2.98 in chips)
+Seat 3: KazeDj (€5.53 in chips)
+Seat 4: MikuS85 (€5.30 in chips)
+Seat 5: pandemon (€6.02 in chips)
+Seat 6: pucelazo (€5 in chips)
+ORTIS78: posts small blind €0.02
+KazeDj: posts big blind €0.05
+*** HOLE CARDS ***
+Dealt to KazeDj [4c 5s]
+MikuS85: folds
+pandemon: folds
+pucelazo: folds
+batu157: folds
+ORTIS78: raises €0.05 to €0.10
+KazeDj: calls €0.05
+*** FLOP *** [9c 7s 3s]
+ORTIS78: bets €0.10
+KazeDj: calls €0.10
+*** TURN *** [9c 7s 3s] [7c]
+ORTIS78: checks
+KazeDj: bets €0.19
+ORTIS78: calls €0.19
+*** RIVER *** [9c 7s 3s 7c] [Tc]
+ORTIS78: checks
+KazeDj: bets €0.56
+ORTIS78: calls €0.56
+*** SHOW DOWN ***
+KazeDj: shows [4c 5s] (a pair of Sevens)
+ORTIS78: shows [Kh Ks] (two pair, Kings and Sevens)
+ORTIS78 collected €1.80 from pot
+*** SUMMARY ***
+Total pot €1.90 | Rake €0.10
+Board [9c 7s 3s 7c Tc]
+Seat 1: batu157 (button) folded before Flop (didn't bet)
+Seat 2: ORTIS78 (small blind) showed [Kh Ks] and won (€1.80) with two pair, Kings and Sevens
+Seat 3: KazeDj (big blind) showed [4c 5s] and lost with a pair of Sevens
+Seat 4: MikuS85 folded before Flop (didn't bet)
+Seat 5: pandemon folded before Flop (didn't bet)
+Seat 6: pucelazo folded before Flop (didn't bet)
