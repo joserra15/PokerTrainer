@@ -7,6 +7,7 @@
     "test:import": "node tools/testimport.js",
     "test:unit": "node tools/selftest.js",
     "test:hand-analysis": "node tools/test-hand-analysis.js",
+    "test:bb-vs-sb": "node tools/test-bb-vs-sb-position.js",
     "test:ranges": "node tools/validate-ranges-json.js",
     "test:e2e": "npm run build && playwright test",
     "sync:rfi": "node tools/sync-rfi-solver-data.js"
