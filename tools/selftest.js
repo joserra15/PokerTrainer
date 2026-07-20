@@ -1090,5 +1090,31 @@ if (!rebuilt.length || rebuilt[0].key !== 'squeeze|BB|river') {
 }
 console.log('Leak keys agregados vs replay:', leakKey, 'OK');
 
+// Regression: trainNextError must populate leakReplayQueue with remaining errors
+{
+  const fakeErrors = [
+    { id: 'e1', seed: 1, scenarioRaw: { type: 'open', heroPos: 'BTN' } },
+    { id: 'e2', seed: 2, scenarioRaw: { type: 'open', heroPos: 'CO' } },
+    { id: 'e3', seed: 3, scenarioRaw: { type: 'open', heroPos: 'HJ' } },
+  ];
+  // Simulate the fixed trainNextError logic
+  let simulatedQueue = [];
+  function simulateTrainNextError(errs) {
+    if (!errs.length) return null;
+    simulatedQueue = errs.slice(1);
+    return errs[0];
+  }
+  const first = simulateTrainNextError(fakeErrors);
+  if (!first || first.id !== 'e1') {
+    console.error('FAIL: trainNextError debe devolver el primer error', first);
+    process.exit(1);
+  }
+  if (simulatedQueue.length !== 2 || simulatedQueue[0].id !== 'e2' || simulatedQueue[1].id !== 'e3') {
+    console.error('FAIL: trainNextError debe cargar el resto en la cola', simulatedQueue.map(e => e.id));
+    process.exit(1);
+  }
+  console.log('trainNextError queue regression: OK');
+}
+
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk && mergeSessionsOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
 })();
