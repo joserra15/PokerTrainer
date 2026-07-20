@@ -148,6 +148,38 @@
    * Estima rango GTO estrecho según línea de agresión (tablas facing bet).
    * @param {Object} ctx — { baseRange, street, lastAction, betBB, potBeforeBB, board, tags }
    */
+  function mergeRangeStrings() {
+    const merged = new Set();
+    for (let i = 0; i < arguments.length; i++) {
+      const src = arguments[i];
+      rangeToSet(src).forEach(function (code) { merged.add(code); });
+    }
+    return setToRangeStr(merged);
+  }
+
+  function boardNeedsBroaderRiverValueRange(board) {
+    if (!board || board.length < 5 || !global.GTOBoardCluster) return false;
+    const tex = global.GTOBoardCluster.boardTexture(board);
+    if (!tex) return false;
+    return tex.category === 'MONOTONE'
+      || tex.category === 'HIGH_CONNECTED'
+      || tex.category === 'MIDDLE_CONNECTED'
+      || tex.category === 'LOW_CONNECTED';
+  }
+
+  function riverAggressiveRange(ctx, fallbackRange) {
+    const D = global.GTORangesData;
+    const base = fallbackRange || D.RANGE_FACING_RIVER_SHOVE;
+    if (!boardNeedsBroaderRiverValueRange(ctx.board)) return base;
+    // En rivers mono/ultra conectados el rango de apuesta no puede excluir
+    // todos los colores/escaleras fuertes, o la equity del héroe se infla a 100%.
+    return mergeRangeStrings(
+      base,
+      D.RANGE_FACING_LARGE_BET_WET,
+      '76s, 67s, J7s, QJs, KJs, KTs, QTs, A2s-A5s'
+    );
+  }
+
   function estimateGtoNarrowRange(ctx) {
     const D = global.GTORangesData;
     if (!D) return ctx.baseRange || D.BROAD_CONTINUE;
@@ -174,7 +206,7 @@
           }
           return D.RANGE_FACING_RIVER_3BET_SHOVE || D.RANGE_FACING_RIVER_SHOVE;
         }
-        return D.RANGE_FACING_RIVER_SHOVE;
+        return riverAggressiveRange(ctx, D.RANGE_FACING_RIVER_SHOVE);
       }
       if (street === 'turn') return D.RANGE_FACING_TURN_RAISE;
       return D.RANGE_FACING_LARGE_BET;
@@ -182,7 +214,7 @@
 
     if (action === 'bet') {
       if (betRatio >= 0.65) {
-        if (street === 'river') return D.RANGE_FACING_RIVER_SHOVE;
+        if (street === 'river') return riverAggressiveRange(ctx, D.RANGE_FACING_RIVER_SHOVE);
         if (street === 'turn') return D.RANGE_FACING_TURN_RAISE;
         return wet ? D.RANGE_FACING_LARGE_BET_WET : D.RANGE_FACING_LARGE_BET;
       }
