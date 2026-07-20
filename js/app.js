@@ -2726,6 +2726,8 @@
   function trainNextError() {
     const errs = Store.getErrors();
     if (!errs.length) { alert('No hay errores para entrenar.'); return; }
+    // Load remaining errors into the queue so "nueva mano" continues sequentially
+    leakReplayQueue = errs.slice(1);
     replayFromStored(errs[0]);
   }
 
