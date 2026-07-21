@@ -3416,10 +3416,14 @@
       return;
     }
     const buildVer = window.PT_BUILD || '';
+    if (Importer.ensureAnalyzedHandContext) {
+      currentSession.hands.forEach((h) => Importer.ensureAnalyzedHandContext(h));
+    }
     const needsRecompute = Importer.recomputeHandDecisions && Importer.computeStats
       && currentSession.analysisVersion !== buildVer;
     const needsHudStats = Importer.computeStats
-      && (!currentSession.stats || currentSession.stats.vpipPct == null || currentSession.stats.pfrPct == null);
+      && (!currentSession.stats || currentSession.stats.vpipPct == null || currentSession.stats.pfrPct == null
+        || currentSession.stats.vpipHands == null || currentSession.stats.pfrHands == null);
     if (needsRecompute) {
       currentSession.hands.forEach((h) => Importer.recomputeHandDecisions(h));
       currentSession.stats = Importer.computeStats(currentSession.hands);
