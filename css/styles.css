@@ -151,6 +151,7 @@ body.nav-open .nav-toggle-bar:nth-child(3) { transform: translateY(-7px) rotate(
 body.auth-locked { overflow: hidden; }
 body.auth-locked.landing-scrollable { overflow: auto; }
 body.pt-cloud-syncing #app-shell { opacity: 1; }
+body.home-boot-active.pt-cloud-syncing #app-shell::before { display: none; }
 body.pt-cloud-syncing #app-shell::before {
   content: 'Sincronizando…';
   position: fixed;

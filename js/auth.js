@@ -253,23 +253,31 @@
 
     setAppVisible(true);
     renderAccountMenu(user);
-    startAppIfNeeded();
-    global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
 
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) {
       global.PTCloudSessions.setUser(user);
     }
+    var cloudLoginSync = false;
     if (global.PTCloud && global.PTCloud.setUser) {
       global.PTCloud.setUser(user);
       document.body.classList.add('pt-cloud-syncing');
+      cloudLoginSync = true;
+    }
+
+    startAppIfNeeded();
+    global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
+
+    if (cloudLoginSync) {
       withTimeout(global.PTCloud.syncOnLogin(), 12000, 'cloud-sync')
         .catch(function (e) { console.warn('[PTCloud]', e); })
         .finally(function () {
           document.body.classList.remove('pt-cloud-syncing');
+          global.dispatchEvent(new CustomEvent('pt-cloud-login-sync-finished'));
           seedSampleSession(user);
         });
     } else {
       seedSampleSession(user);
+      global.dispatchEvent(new CustomEvent('pt-cloud-login-sync-finished'));
     }
 
     if (global.PTProfile && global.PTProfile.touchAndApply) {

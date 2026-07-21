@@ -72,7 +72,20 @@
 
   let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, byStreet: emptyByStreet() };
   let homeBootDone = false;
-  const HOME_BOOT_MAX_MS = 8000;
+  let homeBootRendered = false;
+  let homeBootCloudSettled = false;
+  const HOME_BOOT_MAX_MS = 12000;
+
+  function isHomeBootCloudPending() {
+    return document.body.classList.contains('pt-cloud-syncing') && !homeBootCloudSettled;
+  }
+
+  function maybeFinishHomeBoot(force) {
+    if (homeBootDone) return;
+    if (!homeBootRendered) return;
+    if (!force && isHomeBootCloudPending()) return;
+    finishHomeBoot();
+  }
 
   function scheduleHomeBootFallback() {
     setTimeout(function () {
@@ -98,6 +111,7 @@
       boot.setAttribute('aria-busy', visible ? 'true' : 'false');
     }
     if (page) page.classList.toggle('home-page--boot', !!visible);
+    document.body.classList.toggle('home-boot-active', !!visible);
     if (!visible) stopHomeBootTimer();
   }
 
@@ -556,7 +570,8 @@
       });
     }
 
-    finishHomeBoot();
+    homeBootRendered = true;
+    maybeFinishHomeBoot(false);
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#home-usage'));
     if (window.PTBilling && PTBilling.mountAnnualUpsell) {
       var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
@@ -592,7 +607,13 @@
     window.addEventListener('pt-auth-bootstrap', () => renderHome());
     window.addEventListener('pt-auth-ready', () => renderHome());
     window.addEventListener('pt-cloud-synced', () => {
+      homeBootCloudSettled = true;
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();
+      maybeFinishHomeBoot(true);
+    });
+    window.addEventListener('pt-cloud-login-sync-finished', () => {
+      homeBootCloudSettled = true;
+      maybeFinishHomeBoot(true);
     });
   }
 
