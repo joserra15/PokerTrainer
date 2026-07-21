@@ -31,6 +31,8 @@ jobs:
         run: node tools/selftest.js
       - name: Test importador ES/EN/Winamax
         run: node tools/testimport.js
+      - name: Test VPIP/PFR (incl. Poker91 Zoom)
+        run: node tools/test-vpip-pfr.js
       - name: Validar rangos JSON solver
         run: node tools/validate-ranges-json.js
       - name: Regresión EV Poker76

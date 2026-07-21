@@ -949,11 +949,16 @@
    * VPIP / PFR del héroe en una mano (definición Tracker):
    * - VPIP: call o raise voluntario preflop (no cuenta poste de blinds ni check de BB).
    * - PFR: al menos un raise (o bet) preflop del héroe.
+   * Si faltan streets (p. ej. payload slim), se reconstruyen desde summary.
    */
   function heroPreflopHud(hand) {
+    hand = ensureAnalyzedHandContext(hand);
     const hero = hand && hand.hero;
     if (!hero) return { vpip: false, pfr: false };
-    const acts = (hand.streets && hand.streets.preflop) || [];
+    let acts = (hand.streets && hand.streets.preflop) || [];
+    if (!acts.length && hand.summary && hand.summary.length) {
+      acts = rebuildStreetsFromSummary(hand).preflop || [];
+    }
     let vpip = false;
     let pfr = false;
     for (let i = 0; i < acts.length; i++) {
@@ -1052,6 +1057,7 @@
     const street = { preflop: { n: 0, good: 0 }, flop: { n: 0, good: 0 }, turn: { n: 0, good: 0 }, river: { n: 0, good: 0 } };
     const dist = { optima: 0, aceptable: 0, imprecisa: 0, error: 0 };
     hands.forEach((h) => {
+      ensureAnalyzedHandContext(h);
       netBB += h.heroNetBB;
       evLoss += h.totalEvLoss;
       const hud = heroPreflopHud(h);
@@ -1190,6 +1196,6 @@
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
     heroPlayed, computeStats, heroPreflopHud, assessVpipPfr, HUD_IDEAL, num, cardsFrom,
     buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions,
-    ensureHandSummary, ensureFullTimeline
+    ensureAnalyzedHandContext, ensureHandSummary, ensureFullTimeline
   };
 })(window);
