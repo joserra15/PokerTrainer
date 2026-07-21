@@ -23,7 +23,7 @@ const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const shareCss = fs.readFileSync(path.join(root, 'css/share.css'), 'utf8');
 
-assert(/PT_BUILD\s*=\s*'1\.57\.2'/.test(version), 'versión 1.57.2');
+assert(/PT_BUILD\s*=\s*'1\.57\.3'/.test(version), 'versión 1.57.3');
 
 assert(
   !/matrixSource\s*&&\s*window\.PTRangeMatrix/.test(app),
