@@ -5,7 +5,7 @@
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 4;
+  var AGG_VERSION = 5;
 
   function weekKey(date) {
     var d = new Date(date);
@@ -55,13 +55,22 @@
       (dist.optima || 0) + (dist.aceptable || 0) + (dist.imprecisa || 0) + (dist.error || 0)
     );
     var good = decN ? Math.round((decN * (stats.accuracy || 0)) / 100) : 0;
+    var hands = stats.nHands || 0;
+    var vpipHands = stats.vpipHands != null
+      ? stats.vpipHands
+      : (stats.vpipPct != null && hands ? Math.round((stats.vpipPct / 100) * hands) : 0);
+    var pfrHands = stats.pfrHands != null
+      ? stats.pfrHands
+      : (stats.pfrPct != null && hands ? Math.round((stats.pfrPct / 100) * hands) : 0);
     return {
       week: weekKey(stub.createdAt || Date.now()),
-      hands: stats.nHands || 0,
+      hands: hands,
       decisions: decN,
       good: good,
       evLoss: round2(Math.abs(stats.evLossBB || 0)),
-      netBB: round2(stats.netBB || 0)
+      netBB: round2(stats.netBB || 0),
+      vpipHands: vpipHands,
+      pfrHands: pfrHands
     };
   }
 
@@ -69,7 +78,7 @@
     var map = {};
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
-      if (!map[c.week]) map[c.week] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0 };
+      if (!map[c.week]) map[c.week] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
       var b = map[c.week];
       b.sessions += 1;
       b.hands += c.hands;
@@ -77,6 +86,8 @@
       b.good += c.good;
       b.evLoss = round2(b.evLoss + c.evLoss);
       b.netBB = round2(b.netBB + c.netBB);
+      b.vpipHands += c.vpipHands || 0;
+      b.pfrHands += c.pfrHands || 0;
     });
     return map;
   }
@@ -96,7 +107,7 @@
   }
 
   function rebuildSessionsTotal(agg) {
-    var tot = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0 };
+    var tot = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0, vpipPct: null, pfrPct: null };
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
       tot.sessions += 1;
@@ -105,7 +116,11 @@
       tot.good += c.good;
       tot.evLoss = round2(tot.evLoss + c.evLoss);
       tot.netBB = round2(tot.netBB + c.netBB);
+      tot.vpipHands += c.vpipHands || 0;
+      tot.pfrHands += c.pfrHands || 0;
     });
+    tot.vpipPct = tot.hands ? Math.round((tot.vpipHands / tot.hands) * 1000) / 10 : null;
+    tot.pfrPct = tot.hands ? Math.round((tot.pfrHands / tot.hands) * 1000) / 10 : null;
     return tot;
   }
 
@@ -268,7 +283,7 @@
       var d = new Date(now);
       d.setDate(d.getDate() - i * 7);
       var k = weekKey(d);
-      buckets[k] = { key: k, hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0 };
+      buckets[k] = { key: k, hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
     }
     Object.keys(map || {}).forEach(function (k) {
       if (!buckets[k]) return;
@@ -279,12 +294,16 @@
       buckets[k].good += src.good || 0;
       buckets[k].evLoss = round2(buckets[k].evLoss + (src.evLoss || 0));
       buckets[k].netBB = round2(buckets[k].netBB + (src.netBB || 0));
+      buckets[k].vpipHands += src.vpipHands || 0;
+      buckets[k].pfrHands += src.pfrHands || 0;
     });
     return Object.keys(buckets).sort().map(function (k) {
       var b = buckets[k];
       b.accuracy = b.decisions ? Math.round((b.good / b.decisions) * 100) : null;
       b.evLoss = round2(b.evLoss);
       b.netBB = round2(b.netBB);
+      b.vpipPct = b.hands ? Math.round((b.vpipHands / b.hands) * 1000) / 10 : null;
+      b.pfrPct = b.hands ? Math.round((b.pfrHands / b.hands) * 1000) / 10 : null;
       b.label = fmtWeekLabel(k);
       return b;
     });
