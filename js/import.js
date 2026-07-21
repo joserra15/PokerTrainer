@@ -945,16 +945,119 @@
     };
   }
 
+  /**
+   * VPIP / PFR del héroe en una mano (definición Tracker):
+   * - VPIP: call o raise voluntario preflop (no cuenta poste de blinds ni check de BB).
+   * - PFR: al menos un raise (o bet) preflop del héroe.
+   */
+  function heroPreflopHud(hand) {
+    const hero = hand && hand.hero;
+    if (!hero) return { vpip: false, pfr: false };
+    const acts = (hand.streets && hand.streets.preflop) || [];
+    let vpip = false;
+    let pfr = false;
+    for (let i = 0; i < acts.length; i++) {
+      const a = acts[i];
+      if (!a || a.player !== hero) continue;
+      if (a.type === 'raise' || a.type === 'bet') {
+        vpip = true;
+        pfr = true;
+      } else if (a.type === 'call') {
+        vpip = true;
+      }
+    }
+    return { vpip, pfr };
+  }
+
+  /** Rangos de referencia 6-max cash NL (estilo GTO/reg). */
+  const HUD_IDEAL = {
+    vpipMin: 20, vpipMax: 28,
+    pfrMin: 15, pfrMax: 22,
+    gapMin: 3, gapMax: 8
+  };
+
+  function assessVpipPfr(vpipPct, pfrPct) {
+    if (vpipPct == null || pfrPct == null) {
+      return {
+        status: 'unknown',
+        label: 'Sin datos',
+        comment: 'No hay suficientes acciones preflop del héroe para calcular VPIP/PFR.'
+      };
+    }
+    const gap = Math.max(0, vpipPct - pfrPct);
+    const parts = [];
+    let status = 'ok';
+
+    if (vpipPct < HUD_IDEAL.vpipMin) {
+      status = 'low';
+      parts.push(
+        'VPIP bajo (' + vpipPct + '%; ideal ~' + HUD_IDEAL.vpipMin + '–' + HUD_IDEAL.vpipMax +
+        '%). Estás jugando demasiado tight: abre un poco más desde late (BTN/CO) y revisa folds excesivos vs opens pequeños.'
+      );
+    } else if (vpipPct > HUD_IDEAL.vpipMax) {
+      status = 'high';
+      parts.push(
+        'VPIP alto (' + vpipPct + '%; ideal ~' + HUD_IDEAL.vpipMin + '–' + HUD_IDEAL.vpipMax +
+        '%). Estás entrando en demasiadas manos: recorta limps y calls especulativos out of position; prioriza raises con manos con plan postflop.'
+      );
+    } else {
+      parts.push(
+        'VPIP adecuado (' + vpipPct + '% dentro de ~' + HUD_IDEAL.vpipMin + '–' + HUD_IDEAL.vpipMax + '% en 6-max).'
+      );
+    }
+
+    if (pfrPct < HUD_IDEAL.pfrMin) {
+      if (status === 'ok') status = 'low';
+      parts.push(
+        'PFR bajo (' + pfrPct + '%; ideal ~' + HUD_IDEAL.pfrMin + '–' + HUD_IDEAL.pfrMax +
+        '%). Demasiado pasivo preflop: convierte más limps/calls en opens o 3-bets cuando la mano lo justifica.'
+      );
+    } else if (pfrPct > HUD_IDEAL.pfrMax) {
+      if (status === 'ok') status = 'high';
+      parts.push(
+        'PFR alto (' + pfrPct + '%; ideal ~' + HUD_IDEAL.pfrMin + '–' + HUD_IDEAL.pfrMax +
+        '%). Estás subiendo de más: reduce opens light UTG/HJ y 3-bets sin equity o sin fold equity clara.'
+      );
+    } else {
+      parts.push(
+        'PFR adecuado (' + pfrPct + '% dentro de ~' + HUD_IDEAL.pfrMin + '–' + HUD_IDEAL.pfrMax + '%).'
+      );
+    }
+
+    if (gap > HUD_IDEAL.gapMax) {
+      if (status === 'ok') status = 'gap';
+      parts.push(
+        'Hueco VPIP−PFR amplio (' + gap + ' pts; típico ~' + HUD_IDEAL.gapMin + '–' + HUD_IDEAL.gapMax +
+        '). Indica muchos limps/calls: prioriza raise-or-fold y evita completar SB o flattear manos débiles.'
+      );
+    } else if (gap < HUD_IDEAL.gapMin && vpipPct >= HUD_IDEAL.vpipMin) {
+      parts.push(
+        'Hueco VPIP−PFR muy estrecho (' + gap + ' pts): casi no flateas. Está bien si es intencional; asegúrate de no overfoldear spots rentables de call (p. ej. BB vs opens pequeños).'
+      );
+    }
+
+    let label = 'Adecuado';
+    if (status === 'low') label = 'Por debajo del ideal';
+    else if (status === 'high') label = 'Por encima del ideal';
+    else if (status === 'gap') label = 'Desbalance pasivo';
+
+    return { status, label, comment: parts.join(' '), gap, ideal: HUD_IDEAL };
+  }
+
   function computeStats(hands) {
     const n = hands.length;
     let decN = 0, decGood = 0, evLoss = 0, netBB = 0, evLossEuro = 0;
+    let vpipN = 0, pfrN = 0;
     const bbRef = hands[0] && hands[0].bb ? hands[0].bb : 0.05;
     const street = { preflop: { n: 0, good: 0 }, flop: { n: 0, good: 0 }, turn: { n: 0, good: 0 }, river: { n: 0, good: 0 } };
     const dist = { optima: 0, aceptable: 0, imprecisa: 0, error: 0 };
     hands.forEach((h) => {
       netBB += h.heroNetBB;
       evLoss += h.totalEvLoss;
-      h.decisions.forEach((d) => {
+      const hud = heroPreflopHud(h);
+      if (hud.vpip) vpipN++;
+      if (hud.pfr) pfrN++;
+      (h.decisions || []).forEach((d) => {
         if (d.evErroneous) evLossEuro += d.evLossEuro != null ? d.evLossEuro : r2((d.evLoss || 0) * bbRef);
         decN++;
         if (d.class === 'optima' || d.class === 'aceptable') decGood++;
@@ -989,6 +1092,9 @@
     const pctVariance = leakVar.pctVariance;
 
     const grade = sessionGrade(accuracy, evLoss, decN, netBB);
+    const vpipPct = n ? Math.round((vpipN / n) * 1000) / 10 : null;
+    const pfrPct = n ? Math.round((pfrN / n) * 1000) / 10 : null;
+    const vpipPfr = assessVpipPfr(vpipPct, pfrPct);
 
     return {
       nHands: n, nDecisions: decN, accuracy, accByStreet, dist,
@@ -998,6 +1104,9 @@
       evDecision: evLostBB, expectedNet, actualNet, varianceAdj, adjustedNet,
       perfectPlayNetBB, perfectPlayNetEuro, evLossEuroTotal,
       pctDecision, pctVariance, leakPartBB: leakVar.leakPartBB, varPartBB: leakVar.varPartBB,
+      vpipPct, pfrPct, vpipHands: vpipN, pfrHands: pfrN,
+      vpipPfrGap: vpipPct != null && pfrPct != null ? Math.round((vpipPct - pfrPct) * 10) / 10 : null,
+      vpipPfr: vpipPfr,
       grade
     };
   }
@@ -1079,7 +1188,7 @@
 
   global.Importer = {
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
-    heroPlayed, computeStats, num, cardsFrom,
+    heroPlayed, computeStats, heroPreflopHud, assessVpipPfr, HUD_IDEAL, num, cardsFrom,
     buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions,
     ensureHandSummary, ensureFullTimeline
   };

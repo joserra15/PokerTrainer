@@ -2351,7 +2351,11 @@
 
   function formatBarChartVal(raw, num, suffix, isSigned) {
     if (raw == null) return '—';
-    if (suffix === '%') return `${raw}%`;
+    if (suffix === '%') {
+      const n = Number(raw);
+      if (!Number.isNaN(n) && Math.round(n) !== n) return `${n}%`;
+      return `${raw}%`;
+    }
     if (suffix === ' bb') return `${isSigned && num > 0 ? '+' : ''}${raw}${suffix}`;
     return String(raw);
   }
@@ -2426,6 +2430,94 @@
           fileName: s.fileName || ('Sesión ' + (i + 1))
         };
       });
+  }
+
+  function buildSessionHudSeries(sessions) {
+    return (sessions || [])
+      .filter((s) => s && s.stats && s.stats.vpipPct != null && s.stats.pfrPct != null)
+      .sort((a, b) => String(a.importedAt || a.createdAt || '').localeCompare(String(b.importedAt || b.createdAt || '')))
+      .slice(-24)
+      .map((s, i) => {
+        const d = s.importedAt || s.createdAt;
+        let label = String(i + 1);
+        if (d) {
+          const dt = new Date(d);
+          if (!Number.isNaN(dt.getTime())) {
+            label = dt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+          }
+        }
+        return {
+          label,
+          vpipPct: Number(s.stats.vpipPct),
+          pfrPct: Number(s.stats.pfrPct),
+          fileName: s.fileName || ('Sesión ' + (i + 1))
+        };
+      });
+  }
+
+  function statsHudLineChart(title, series) {
+    if (!series || !series.length) {
+      return '<div class="stats-carousel-empty muted-text">Importa o reabre sesiones para ver la evolución de VPIP/PFR.</div>';
+    }
+    const w = Math.max(300, series.length * 40);
+    const h = 168;
+    const pad = { l: 30, r: 12, t: 14, b: 30 };
+    const innerW = w - pad.l - pad.r;
+    const innerH = h - pad.t - pad.b;
+    const yMax = 40;
+    const yOf = (v) => pad.t + innerH - (Math.max(0, Math.min(yMax, v)) / yMax) * innerH;
+    const xOf = (i) => pad.l + (series.length === 1 ? innerW / 2 : (i / (series.length - 1)) * innerW);
+    const ptsV = series.map((s, i) => ({ x: xOf(i), y: yOf(s.vpipPct), s }));
+    const ptsP = series.map((s, i) => ({ x: xOf(i), y: yOf(s.pfrPct), s }));
+    const polyV = ptsV.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+    const polyP = ptsP.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+    const grid = [0, 10, 20, 30, 40].map((v) => {
+      const y = yOf(v);
+      return `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="var(--border)" stroke-dasharray="2 4" opacity="0.45"/>
+        <text x="${pad.l - 6}" y="${y + 3}" text-anchor="end" font-size="8" fill="var(--muted)">${v}</text>`;
+    }).join('');
+    const dotsV = ptsV.map((p) =>
+      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="var(--accent)" stroke="var(--bg)" stroke-width="1">
+        <title>${escapeHtml(p.s.fileName)} · VPIP ${p.s.vpipPct}%</title>
+      </circle>`
+    ).join('');
+    const dotsP = ptsP.map((p) =>
+      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="var(--gold)" stroke="var(--bg)" stroke-width="1">
+        <title>${escapeHtml(p.s.fileName)} · PFR ${p.s.pfrPct}%</title>
+      </circle>`
+    ).join('');
+    const step = Math.max(1, Math.ceil(series.length / 8));
+    const labels = ptsV.map((p, i) => (i % step === 0 || i === series.length - 1)
+      ? `<text x="${p.x.toFixed(1)}" y="${h - 8}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml(p.s.label)}</text>`
+      : '').join('');
+    return `<div class="stats-carousel-chart stats-grade-chart"><h4>${escapeHtml(title)}</h4>
+      <div class="stats-hud-legend muted-text"><span class="stats-hud-leg-vpip">VPIP</span> · <span class="stats-hud-leg-pfr">PFR</span> · referencia 6-max ~20–28% / 15–22%</div>
+      <svg viewBox="0 0 ${w} ${h}" class="stats-grade-svg" role="img" aria-label="${escapeHtml(title)}">
+        ${grid}
+        <line x1="${pad.l}" y1="${pad.t + innerH}" x2="${w - pad.r}" y2="${pad.t + innerH}" stroke="var(--border)"/>
+        <polyline points="${polyV}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+        <polyline points="${polyP}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linejoin="round"/>
+        ${dotsV}${dotsP}${labels}
+      </svg></div>`;
+  }
+
+  function fmtHudPct(v) {
+    if (v == null || Number.isNaN(Number(v))) return '—';
+    const n = Number(v);
+    return (Math.round(n) === n ? String(n) : String(n)) + '%';
+  }
+
+  function sessionHudCommentHtml(st) {
+    const note = st.vpipPfr || (window.Importer && Importer.assessVpipPfr
+      ? Importer.assessVpipPfr(st.vpipPct, st.pfrPct)
+      : null);
+    if (!note) return '';
+    const statusCls = note.status === 'ok' ? 'hud-ok' : (note.status === 'unknown' ? 'hud-unknown' : 'hud-warn');
+    return `<div class="card-box session-hud-note ${statusCls}" style="margin-top:14px">
+      <h3>VPIP / PFR <span class="badge ${statusCls === 'hud-ok' ? 'grade-A' : (statusCls === 'hud-unknown' ? 'grade-C' : 'grade-D')}">${escapeHtml(note.label)}</span></h3>
+      <p class="muted-text" style="margin:8px 0 0;line-height:1.55">${escapeHtml(note.comment)}</p>
+      <p class="muted-text stats-section-note" style="margin-top:8px">Referencia 6-max cash: VPIP ~20–28%, PFR ~15–22%, hueco típico 3–8 pts.</p>
+    </div>`;
   }
 
   function statsGradeLineChart(title, series) {
@@ -2855,6 +2947,9 @@
     const sessionAccuracy = sessTot && sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : null;
     const sessionStreetBars = renderStreetAccBarsFromPct(sessionDerived.accByStreet);
     const sessionGradeSeries = buildSessionGradeSeries(sessions);
+    const sessionHudSeries = buildSessionHudSeries(sessions);
+    const sessionVpip = sessTot && sessTot.vpipPct != null ? sessTot.vpipPct : null;
+    const sessionPfr = sessTot && sessTot.pfrPct != null ? sessTot.pfrPct : null;
     const sessionSlides = [
       {
         title: 'Resumen general',
@@ -2862,12 +2957,17 @@
           <div class="stat-card"><div class="big">${sessTot ? sessTot.sessions : 0}</div><div class="lbl">Sesiones</div></div>
           <div class="stat-card"><div class="big">${sessTot ? sessTot.hands : 0}</div><div class="lbl">Manos</div></div>
           <div class="stat-card"><div class="big">${sessionAccuracy == null ? '—' : sessionAccuracy + '%'}</div><div class="lbl">Acierto</div></div>
+          <div class="stat-card"><div class="big">${fmtHudPct(sessionVpip)}</div><div class="lbl">VPIP</div></div>
+          <div class="stat-card"><div class="big">${fmtHudPct(sessionPfr)}</div><div class="lbl">PFR</div></div>
           <div class="stat-card"><div class="big ${sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot ? (sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB) : '—'}</div><div class="lbl">Resultado real</div></div>
           <div class="stat-card"><div class="big net-neg">${sessTot ? '-' + fmtBB(sessTot.evLoss) : '—'}</div><div class="lbl">EV perdido</div></div>
         </div>
-        <p class="muted-text stats-section-note">Las métricas acumuladas incluyen sesiones importadas persistentes. Los accesos directos a fugas solo aparecen si la sesión sigue disponible.</p>`
+        <p class="muted-text stats-section-note">VPIP/PFR agregados sobre manos importadas. Referencia 6-max: VPIP ~20–28%, PFR ~15–22%. Reabre sesiones antiguas si aún no muestran estas métricas.</p>`
       },
       { title: 'Evolución de notas', body: statsGradeLineChart('Nota por sesión (0–10)', sessionGradeSeries) },
+      { title: 'Evolución VPIP / PFR', body: statsHudLineChart('VPIP y PFR por sesión', sessionHudSeries) },
+      { title: 'Progreso semanal · VPIP', body: statsBarChart('VPIP semanal', sessionWeekly, 'vpipPct', '%', '--accent') },
+      { title: 'Progreso semanal · PFR', body: statsBarChart('PFR semanal', sessionWeekly, 'pfrPct', '%', '--gold') },
       { title: 'Progreso semanal · Acierto', body: statsBarChart('Acierto semanal', sessionWeekly, 'accuracy', '%', '--green') },
       { title: 'Progreso semanal · EV perdido', body: statsBarChart('EV perdido semanal', sessionWeekly, 'evLoss', ' bb', '--red') },
       { title: 'Progreso semanal · Resultado real', body: statsBarChart('Resultado real semanal', sessionWeekly, 'netBB', ' bb', '--accent') },
@@ -3318,10 +3418,15 @@
     const buildVer = window.PT_BUILD || '';
     const needsRecompute = Importer.recomputeHandDecisions && Importer.computeStats
       && currentSession.analysisVersion !== buildVer;
+    const needsHudStats = Importer.computeStats
+      && (!currentSession.stats || currentSession.stats.vpipPct == null || currentSession.stats.pfrPct == null);
     if (needsRecompute) {
       currentSession.hands.forEach((h) => Importer.recomputeHandDecisions(h));
       currentSession.stats = Importer.computeStats(currentSession.hands);
       currentSession.analysisVersion = buildVer;
+      await Store.saveSession(currentSession);
+    } else if (needsHudStats) {
+      currentSession.stats = Importer.computeStats(currentSession.hands);
       await Store.saveSession(currentSession);
     }
     renderSessionDetail('evLoss');
@@ -3347,7 +3452,10 @@
         <div class="stat-card"><div class="big ${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}</div><div class="lbl">bb ganadas/perdidas</div></div>
         <div class="stat-card"><div class="big">${st.accuracy}%</div><div class="lbl">Acierto global</div></div>
         <div class="stat-card"><div class="big net-neg">-${fmtBB(st.evLossBB)}</div><div class="lbl">EV perdido total (bb)</div></div>
+        <div class="stat-card"><div class="big">${fmtHudPct(st.vpipPct)}</div><div class="lbl">VPIP</div></div>
+        <div class="stat-card"><div class="big">${fmtHudPct(st.pfrPct)}</div><div class="lbl">PFR</div></div>
       </div>
+      ${sessionHudCommentHtml(st)}
       <div class="card-box" style="margin-top:14px">
         <h3>Acierto por calle</h3>
         <div class="street-acc">

@@ -3066,6 +3066,25 @@ body.admin-compose-open { overflow: hidden; }
   color: var(--muted);
   line-height: 1.5;
 }
+.session-hud-note h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.session-hud-note.hud-ok {
+  border-color: rgba(63, 185, 80, 0.28);
+}
+.session-hud-note.hud-warn {
+  border-color: rgba(224, 138, 43, 0.35);
+}
+.stats-hud-legend {
+  margin: -4px 0 10px;
+  font-size: 12px;
+}
+.stats-hud-leg-vpip { color: var(--accent); font-weight: 600; }
+.stats-hud-leg-pfr { color: var(--gold); font-weight: 600; }
 .stats-street-grid {
   gap: 12px;
 }

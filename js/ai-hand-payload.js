@@ -171,6 +171,8 @@
         acc: w.accuracy,
         ev: w.evLoss,
         net: w.netBB,
+        vpip: w.vpipPct,
+        pfr: w.pfrPct,
         src: 'imported'
       };
     });
@@ -228,7 +230,9 @@
         hands: sessTot.hands,
         acc: sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : null,
         evLost: Math.round(sessTot.evLoss * 100) / 100,
-        net: Math.round(sessTot.netBB * 100) / 100
+        net: Math.round(sessTot.netBB * 100) / 100,
+        vpip: sessTot.vpipPct != null ? sessTot.vpipPct : null,
+        pfr: sessTot.pfrPct != null ? sessTot.pfrPct : null
       } : undefined,
       player: player,
       solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.',
@@ -336,7 +340,10 @@
           e: dist.error || 0
         },
         pctLeak: st.pctDecision,
-        pctVar: st.pctVariance
+        pctVar: st.pctVariance,
+        vpip: st.vpipPct,
+        pfr: st.pfrPct,
+        vpipPfrNote: st.vpipPfr ? st.vpipPfr.comment : undefined
       },
       solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=id|mano pos|net|ev|wc'
     };
