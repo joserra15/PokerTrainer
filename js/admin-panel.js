@@ -518,16 +518,29 @@
   function ledgerReasonLabel(reason) {
     if (reason === 'purchase') return 'Compra bono';
     if (reason === 'gift') return 'Bono IA';
+    if (reason === 'promo') return 'Promo registro';
     if (reason === 'ai_usage') return 'Uso IA';
     return reason || '—';
   }
 
   function ledgerPackLabel(packCode, reason) {
     if (packCode === 'gift' || reason === 'gift') return 'Bono de regalo';
+    if (reason === 'promo' && packCode) return 'Promo ' + packCode;
     if (packCode === 's') return 'Pack S';
     if (packCode === 'm') return 'Pack M';
     if (packCode === 'l') return 'Pack L';
     return packCode || '—';
+  }
+
+  function promoGiftSummary(promo) {
+    var parts = [];
+    if (promo.plan_label || promo.plan_granted) {
+      parts.push('Plan ' + (promo.plan_label || promo.plan_granted));
+    }
+    if (promo.bonus_credits_granted > 0) {
+      parts.push(promo.bonus_credits_granted + ' consultas IA');
+    }
+    return parts.join(' · ') || 'Regalo de promoción';
   }
 
   function renderUserDetail(data) {
@@ -538,6 +551,7 @@
     var ledger = data.bonus_ledger || [];
     var usage = data.ai_usage_month || [];
     var threads = data.contact_threads || [];
+    var promos = data.promotion_redemptions || [];
 
     var quotaHtml;
     if (q.unlimited) {
@@ -554,6 +568,15 @@
         '<div><span class="muted-text">Bono caduca</span><strong>' + (q.bonus_expires_at ? formatPeriodLabel(q.bonus_expires_at) : '—') + '</strong></div>' +
         '</div>';
     }
+
+    var promoHtml = promos.length
+      ? '<ul class="admin-detail-list">' + promos.map(function (pr) {
+        return '<li><span><strong>Registro con promo ' + escapeHtml(pr.code || '—') + '</strong>' +
+          (pr.promotion_title ? '<span class="muted-text"> · ' + escapeHtml(pr.promotion_title) + '</span>' : '') +
+          '<br><span class="muted-text">' + escapeHtml(promoGiftSummary(pr)) + '</span></span>' +
+          '<span class="muted-text">' + escapeHtml(formatDateTime(pr.redeemed_at)) + '</span></li>';
+      }).join('') + '</ul>'
+      : '<p class="muted-text">Sin promoción de registro.</p>';
 
     var ledgerHtml = ledger.length
       ? '<table class="admin-detail-table"><thead><tr><th>Fecha</th><th>Movimiento</th><th>Pack</th><th>Δ</th><th>Saldo</th></tr></thead><tbody>' +
@@ -581,13 +604,20 @@
       }).join('') + '</ul>'
       : '<p class="muted-text">Sin conversaciones de contacto.</p>';
 
+    var promoHeadNote = promos.length
+      ? '<p class="admin-detail-promo-note">Registro con promo <strong>' + escapeHtml(promos[0].code || '—') + '</strong></p>'
+      : '';
+
     host.innerHTML =
       '<div class="admin-detail-head">' +
       '<div><h3>' + escapeHtml(p.name || p.email || p.user_id) + '</h3>' +
       '<p class="muted-text">' + escapeHtml(p.email || '') + ' · Plan ' + escapeHtml(p.plan || 'free') +
-      (p.is_admin ? ' · Admin' : '') + '</p></div>' +
+      (p.is_admin ? ' · Admin' : '') + '</p>' +
+      promoHeadNote +
+      '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-detail-close">Cerrar</button>' +
       '</div>' +
+      '<div class="admin-detail-section"><h4>Promoción de registro</h4>' + promoHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Cupo IA este mes</h4>' + quotaHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Regalar bono IA</h4>' +
       '<div class="admin-gift-bonus-form">' +
