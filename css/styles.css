@@ -2350,6 +2350,15 @@ body.cookie-banner-open { padding-bottom: 0; }
   margin-bottom: 12px;
 }
 .admin-detail-head h3 { margin: 0 0 4px; }
+.admin-detail-promo-note {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
+.admin-detail-promo-note strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .3px;
+}
 .admin-detail-section { margin-top: 16px; }
 .admin-detail-section h4 {
   margin: 0 0 8px;
