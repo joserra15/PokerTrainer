@@ -42,12 +42,14 @@
           user_email: t.user_email,
           last_message_at: t.last_message_at,
           admin_unread_count: 0,
+          user_unread_count: 0,
           thread_count: 0
         };
       }
       var u = map[t.user_id];
       u.thread_count += 1;
       u.admin_unread_count += Number(t.admin_unread_count) || 0;
+      u.user_unread_count += Number(t.user_unread_count) || 0;
       if (!u.user_name && t.user_name) u.user_name = t.user_name;
       if (!u.user_email && t.user_email) u.user_email = t.user_email;
       if (t.last_message_at && (!u.last_message_at || new Date(t.last_message_at) > new Date(u.last_message_at))) {
@@ -103,7 +105,8 @@
       var email = u.user_email ? '<span class="admin-msg-user-email">' + escapeHtml(u.user_email) + '</span>' : '';
       var meta = escapeHtml(formatRelative(u.last_message_at)) +
         ' · ' + u.thread_count + ' conv.' +
-        (u.admin_unread_count > 0 ? ' · <strong>' + u.admin_unread_count + ' sin leer</strong>' : '');
+        (u.admin_unread_count > 0 ? ' · <strong>' + u.admin_unread_count + ' sin leer</strong>' : '') +
+        (u.user_unread_count > 0 ? ' · <strong class="admin-msg-pending-read">pendiente usuario</strong>' : '');
       return '<button type="button" class="admin-msg-user-item' + active + unread + '" data-admin-msg-user="' +
         escapeHtml(u.user_id) + '" role="option" aria-selected="' + (active ? 'true' : 'false') + '">' +
         '<span class="admin-msg-user-name">' + who + '</span>' + email +
@@ -1209,10 +1212,13 @@
     el.innerHTML = threads.map(function (t) {
       var active = t.id === activeId ? ' contact-thread-active' : '';
       var unread = t.admin_unread_count > 0 ? ' contact-thread-unread' : '';
+      var statusBits = [];
+      if (t.admin_unread_count > 0) statusBits.push('<strong>Sin leer (tú)</strong>');
+      if ((Number(t.user_unread_count) || 0) > 0) statusBits.push('<strong class="admin-msg-pending-read">Pendiente lectura usuario</strong>');
       return '<button type="button" class="contact-thread-item' + active + unread + '" data-admin-thread="' + escapeHtml(t.id) + '">' +
         '<span class="contact-thread-subject">' + escapeHtml(t.subject) + '</span>' +
         '<span class="contact-thread-meta muted-text">' + escapeHtml(formatRelative(t.last_message_at)) +
-        (t.admin_unread_count > 0 ? ' · <strong>Sin leer</strong>' : '') + '</span></button>';
+        (statusBits.length ? ' · ' + statusBits.join(' · ') : '') + '</span></button>';
     }).join('');
     el.querySelectorAll('[data-admin-thread]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -1224,15 +1230,27 @@
     });
   }
 
+  function adminMessageReadBadge(m) {
+    if (!m || m.sender_role !== 'admin') return '';
+    if (m.read_at) {
+      return '<span class="admin-msg-read-status is-read" title="El usuario abrió la conversación">Leído · ' +
+        escapeHtml(formatDateTime(m.read_at)) + '</span>';
+    }
+    return '<span class="admin-msg-read-status is-pending" title="El usuario aún no ha abierto este mensaje">Pendiente de leer</span>';
+  }
+
   function renderAdminMessages(messages) {
     if (!messages || !messages.length) return '<p class="muted-text">Sin mensajes.</p>';
     return messages.map(function (m) {
       var cls = m.sender_role === 'admin' ? 'contact-msg admin' : 'contact-msg user';
       var who = m.sender_role === 'admin' ? 'Soporte (tú)' : 'Usuario';
+      var readBadge = adminMessageReadBadge(m);
       return '<div class="' + cls + '">' +
         '<div class="contact-msg-head"><strong>' + escapeHtml(who) + '</strong>' +
         '<span class="muted-text">' + escapeHtml(formatDateTime(m.created_at)) + '</span></div>' +
-        '<div class="contact-msg-body">' + escapeHtml(m.body).replace(/\n/g, '<br>') + '</div></div>';
+        '<div class="contact-msg-body">' + escapeHtml(m.body).replace(/\n/g, '<br>') + '</div>' +
+        (readBadge ? '<div class="contact-msg-foot">' + readBadge + '</div>' : '') +
+        '</div>';
     }).join('');
   }
 
@@ -1260,12 +1278,17 @@
     var th = (res.data && res.data.thread) || {};
     if (th.user_id) adminMsgSelectedUserId = th.user_id;
     var msgs = (res.data && res.data.messages) || [];
+    var userPending = (Number(th.user_unread_count) || 0) > 0;
+    var readSummary = userPending
+      ? '<span class="admin-msg-read-status is-pending">El usuario aún no ha leído tu(s) mensaje(s)</span>'
+      : '<span class="admin-msg-read-status is-read">Sin mensajes pendientes de lectura por el usuario</span>';
     detail.innerHTML =
       '<div class="contact-detail-head">' +
       '<h3>' + escapeHtml(th.subject) + '</h3>' +
       '</div>' +
       '<p class="muted-text contact-thread-user">' + escapeHtml(th.user_name || th.user_email || th.user_id) +
       (th.user_email ? ' · ' + escapeHtml(th.user_email) : '') + '</p>' +
+      '<p class="admin-msg-thread-read">' + readSummary + '</p>' +
       '<div class="contact-messages admin-msg-messages">' + renderAdminMessages(msgs) + '</div>' +
       '<form class="contact-reply-form" data-admin-reply="' + escapeHtml(th.id) + '">' +
       '<label>Respuesta<textarea name="body" rows="4" maxlength="3000" required placeholder="Escribe tu respuesta al usuario…"></textarea></label>' +
