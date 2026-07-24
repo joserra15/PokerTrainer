@@ -89,7 +89,7 @@
     return 'air';
   }
 
-  /** Agresor preflop sin apuesta que pagar → línea de c-bet (no probe/donk). */
+  /** Agresor preflop sin apuesta que pagar → lead de c-bet/barrel (no probe/donk). */
   function isContinuationBetSpot(input) {
     return input.initiative === 'aggressor' && (input.toCallBB || 0) <= 0;
   }
@@ -98,7 +98,13 @@
     return input.villainLastAction === 'check';
   }
 
-  /** Piso de frecuencia de apuesta en spots de c-bet (mezcla GTO aproximada). */
+  /** Equity de farol útil para barrel (FD/OESD/gutshot); aire puro suele checkear. */
+  function hasBarrelBluffEquity(input) {
+    const info = input.madeHandInfo || {};
+    return !!(info.flushDraw || info.oesd || info.gutshot || info.hasDraw);
+  }
+
+  /** Piso de frecuencia de apuesta en spots de c-bet/barrel (mezcla GTO aproximada). */
   function cbetMinBetTotal(input, band) {
     if (!isContinuationBetSpot(input)) return 0;
     const street = input.street || 'flop';
@@ -121,21 +127,47 @@
       }
     }
     if (street === 'turn') {
-      if (band === 'air') return inPosition ? 0.24 : 0.16;
+      // Segundo barrel: faroles con equity; aire puro rara vez fuerza bet.
+      if (band === 'air') {
+        if (!hasBarrelBluffEquity(input)) return inPosition ? 0.06 : 0.03;
+        return inPosition ? 0.22 : 0.14;
+      }
       if (band === 'nuts' || band === 'value') return inPosition ? 0.62 : 0.50;
       if (band === 'merge') return inPosition ? 0.36 : 0.26;
-      return inPosition ? 0.32 : 0.22;
+      return inPosition ? 0.28 : 0.18;
     }
     if (band === 'nuts' || band === 'value') return inPosition ? 0.55 : 0.45;
     return 0;
   }
 
+  /**
+   * Boost/penalización de fold equity al lead como agresor.
+   * Flop c-bet: FE alto. Turn/river barrel: el villano ya defendió → menos FE.
+   */
   function cbetFoldEquityBoost(input) {
     if (!isContinuationBetSpot(input)) return 0;
-    let boost = 0.05;
-    if (villainCheckedToHero(input)) boost += 0.09;
-    if ((input.street || 'flop') === 'flop') boost += 0.04;
-    if (input.inPosition !== false) boost += 0.03;
+    const street = input.street || 'flop';
+    const ip = input.inPosition !== false;
+    if (street === 'flop') {
+      let boost = 0.05;
+      if (villainCheckedToHero(input)) boost += 0.09;
+      boost += 0.04;
+      if (ip) boost += 0.03;
+      return boost;
+    }
+    if (street === 'turn') {
+      // Tras call de flop, un segundo barrel genera menos folds.
+      let boost = -0.10;
+      if (villainCheckedToHero(input)) boost += 0.04;
+      if (ip) boost += 0.02;
+      const texture = Board ? Board.boardTexture(input.board || []) : {};
+      if (texture.wet) boost -= 0.04;
+      return boost;
+    }
+    // River: tercer barrel / stab — FE más baja aún con aire.
+    let boost = -0.12;
+    if (villainCheckedToHero(input)) boost += 0.05;
+    if (ip) boost += 0.02;
     return boost;
   }
 
@@ -228,8 +260,16 @@
     if (isContinuationBetSpot(input) && band === 'air' && street === 'flop') {
       betTotal = Math.min(betTotal, inPosition ? 0.65 : 0.45);
     }
+    if (isContinuationBetSpot(input) && band === 'air' && street === 'turn') {
+      // Aire puro: no forzar segundo barrel; con draws, mezcla moderada.
+      if (!hasBarrelBluffEquity(input)) {
+        betTotal = Math.min(betTotal, inPosition ? 0.16 : 0.10);
+      } else {
+        betTotal = Math.min(betTotal, inPosition ? 0.42 : 0.28);
+      }
+    }
     if (isContinuationBetSpot(input) && band === 'air' && street === 'river') {
-      betTotal = Math.min(betTotal, inPosition ? 0.22 : 0.12);
+      betTotal = Math.min(betTotal, inPosition ? 0.16 : 0.08);
     }
     if (!isContinuationBetSpot(input) && input.initiative === 'caller') {
       if (band === 'air') betTotal = Math.min(betTotal, inPosition ? 0.22 : 0.10);
@@ -268,6 +308,6 @@
   global.GTOProbeEV = {
     computeProbeStrategy, actionEV, evCheck, evBet, estimateFoldEquity,
     dynamicSizeSplit, realizationFactor, normalize,
-    isContinuationBetSpot, cbetMinBetTotal, cbetFoldEquityBoost
+    isContinuationBetSpot, cbetMinBetTotal, cbetFoldEquityBoost, hasBarrelBluffEquity
   };
 })(window);

@@ -23,6 +23,31 @@
     return b.join(' ');
   }
 
+  function leadSuffix(spotKey) {
+    const SK = global.GTOSpotKey;
+    if (SK && SK.leadTypeLabel) {
+      const lbl = SK.leadTypeLabel(spotKey.leadType);
+      return lbl ? ` · ${lbl}` : '';
+    }
+    if (spotKey.leadType === 'cbet') return ' · c-bet';
+    if (spotKey.leadType === 'barrel2') return ' · segundo barrel';
+    if (spotKey.leadType === 'barrel3') return ' · tercer barrel';
+    if (spotKey.leadType === 'probe') return ' · probe';
+    if (spotKey.leadType === 'donk') return ' · donk';
+    return '';
+  }
+
+  function aggressorBetLabel(spotKey, street, chosen) {
+    const SK = global.GTOSpotKey;
+    if (spotKey.leadType === 'cbet' || spotKey.leadType === 'barrel2' || spotKey.leadType === 'barrel3') {
+      if (SK && SK.aggressorLeadLabel) return SK.aggressorLeadLabel(street);
+      if (street === 'turn') return 'segundo barrel';
+      if (street === 'river') return 'tercer barrel';
+      return 'c-bet';
+    }
+    return ACTION_NAMES[chosen] || chosen;
+  }
+
   function spotContext(input, spotKey) {
     const street = spotKey.street || input.street || 'preflop';
     const pot = input.potBB != null ? `${input.potBB}bb` : '';
@@ -30,9 +55,7 @@
     const pos = input.inPosition ? 'en posición' : 'fuera de posición';
     const role = spotKey.initiative === 'aggressor' ? 'agresor preflop'
       : spotKey.initiative === 'none' ? 'primero en hablar' : 'pagador preflop';
-    const lead = spotKey.leadType === 'cbet' ? ' · c-bet'
-      : spotKey.leadType === 'probe' ? ' · probe'
-      : spotKey.leadType === 'donk' ? ' · donk' : '';
+    const lead = leadSuffix(spotKey);
     return `${cap(street)} · bote ${pot} · ${role}${lead} · ${pos} · ${facing}.`;
   }
 
@@ -94,10 +117,12 @@
       if (chosen === 'check') {
         const cbetHint = spotKey.leadType === 'cbet' && street === 'flop'
           ? ' En flop como agresor, el check back deja EV de c-bet sobre la mesa.'
-          : '';
+          : (spotKey.leadType === 'barrel2'
+            ? ' En turn, un segundo barrel sin equity de farol infla el bote; check controla.'
+            : '');
         return `${ctx} Con ${hand} (${tier}), check controla el bote (${chPct}% GTO).${cbetHint}`;
       }
-      const betLabel = spotKey.leadType === 'cbet' ? 'c-bet' : (ACTION_NAMES[chosen] || chosen);
+      const betLabel = aggressorBetLabel(spotKey, street, chosen);
       return `${ctx} ${hand} en [${board}] quiere ${betLabel} (${chPct}%) por valor/protección/fold equity en este board ${spotKey.boardType}.`;
     }
 
@@ -106,6 +131,9 @@
     }
 
     if (!facing && chosen === 'check') {
+      if ((spotKey.leadType === 'barrel2' || spotKey.leadType === 'barrel3') && tier === 'air') {
+        return `${ctx} Con ${hand} (aire) en board ${spotKey.boardType}, check es razonable sin equity de farol. GTO barrearía una mezcla del rango: ${ACTION_NAMES[best] || best} (${bestPct}%) es la línea de mayor EV del nodo.`;
+      }
       return `${ctx} Con ${hand} en board ${spotKey.boardType}, estás dejando valor: ${ACTION_NAMES[best] || best} (${bestPct}%) captura más EV.`;
     }
 

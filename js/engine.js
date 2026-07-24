@@ -2335,9 +2335,12 @@
       });
       context = `${capitalize(street)}: bote ${fmt(hand.potBB)}bb · stack ${fmt(effStackForHand(hand))}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
       if (hand.heroIsAggressor) {
+        const leadLabel = (global.GTOSpotKey && global.GTOSpotKey.aggressorLeadLabel)
+          ? global.GTOSpotKey.aggressorLeadLabel(street)
+          : (street === 'turn' ? 'segundo barrel' : (street === 'river' ? 'tercer barrel' : 'c-bet'));
         context += villainLastAction === 'check'
-          ? ' El villano pasó: spot de c-bet.'
-          : ' Spot de c-bet (eres el agresor preflop).';
+          ? ` El villano pasó: spot de ${leadLabel}.`
+          : ` Spot de ${leadLabel} (eres el agresor preflop).`;
       } else if (hand.heroInPosition && villainLastAction === 'check') {
         context += ' El villano pasó: spot de probe.';
       }
