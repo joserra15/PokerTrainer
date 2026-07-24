@@ -543,6 +543,68 @@
     return parts.join(' · ') || 'Regalo de promoción';
   }
 
+  function formatActivityTs(value) {
+    if (value == null || value === '') return '—';
+    if (typeof value === 'number' || (/^\d+$/).test(String(value))) {
+      var n = Number(value);
+      if (!isNaN(n) && n > 0) {
+        var ms = n < 1e12 ? n * 1000 : n;
+        return formatDateTime(new Date(ms).toISOString());
+      }
+    }
+    return formatDateTime(value);
+  }
+
+  function formatActivityNumber(n, digits) {
+    var v = Number(n);
+    if (isNaN(v)) return '—';
+    if (digits != null) return (Math.round(v * Math.pow(10, digits)) / Math.pow(10, digits)).toFixed(digits);
+    return String(Math.round(v));
+  }
+
+  function activityPlayingLabel(act) {
+    if (!act) return 'Sin datos';
+    if (isOnline(act.last_seen_at)) return 'En línea ahora';
+    var hands = Number(act.hands_played) || 0;
+    var sessions = Number(act.import_sessions) || Number(act.session_stubs) || 0;
+    if (hands <= 0 && sessions <= 0) return 'Sin actividad de juego';
+    return 'Ha jugado / entrenado';
+  }
+
+  function renderActivitySection(act) {
+    if (!act) {
+      return '<p class="muted-text">Sin datos de actividad disponibles.</p>';
+    }
+    if (!act.has_cloud_data) {
+      return '<p class="muted-text">Este usuario aún no ha sincronizado datos en la nube.</p>' +
+        '<p class="muted-text">Última visita: ' + escapeHtml(formatRelative(act.last_seen_at)) + '</p>';
+    }
+    var accuracy = act.accuracy_pct != null ? act.accuracy_pct + '%' : '—';
+    var net = Number(act.total_net) || 0;
+    var ev = Number(act.total_ev_loss) || 0;
+    return '<p class="admin-activity-status"><strong>' + escapeHtml(activityPlayingLabel(act)) + '</strong>' +
+      '<span class="muted-text"> · visto ' + escapeHtml(formatRelative(act.last_seen_at)) +
+      ' · sync ' + escapeHtml(formatRelative(act.synced_at)) + '</span></p>' +
+      '<div class="admin-detail-grid">' +
+      '<div><span class="muted-text">Manos entrenador</span><strong>' + escapeHtml(formatActivityNumber(act.hands_played)) + '</strong></div>' +
+      '<div><span class="muted-text">Acierto</span><strong>' + escapeHtml(accuracy) + '</strong></div>' +
+      '<div><span class="muted-text">Decisiones</span><strong>' + escapeHtml(formatActivityNumber(act.decisions)) + '</strong></div>' +
+      '<div><span class="muted-text">Errores a repasar</span><strong>' + escapeHtml(formatActivityNumber(act.errors_count)) + '</strong></div>' +
+      '<div><span class="muted-text">Histórico</span><strong>' + escapeHtml(formatActivityNumber(act.history_count)) + '</strong></div>' +
+      '<div><span class="muted-text">Sesiones import</span><strong>' + escapeHtml(formatActivityNumber(act.import_sessions)) + '</strong></div>' +
+      '<div><span class="muted-text">Resultado (bb)</span><strong class="' + (net >= 0 ? 'net-pos' : 'net-neg') + '">' +
+      (net >= 0 ? '+' : '') + escapeHtml(formatActivityNumber(net, 2)) + '</strong></div>' +
+      '<div><span class="muted-text">EV perdido (bb)</span><strong class="net-neg">-' +
+      escapeHtml(formatActivityNumber(ev, 2)) + '</strong></div>' +
+      '<div><span class="muted-text">Óptimas / Acept.</span><strong>' +
+      escapeHtml(formatActivityNumber(act.optima)) + ' / ' + escapeHtml(formatActivityNumber(act.aceptable)) + '</strong></div>' +
+      '<div><span class="muted-text">Imprecisas / Error</span><strong>' +
+      escapeHtml(formatActivityNumber(act.imprecisa)) + ' / ' + escapeHtml(formatActivityNumber(act.error)) + '</strong></div>' +
+      '<div><span class="muted-text">Stats locales sync</span><strong>' + escapeHtml(formatActivityTs(act.stats_updated_at)) + '</strong></div>' +
+      '<div><span class="muted-text">Agregados sesión</span><strong>' + escapeHtml(formatActivityNumber(act.session_stubs)) + '</strong></div>' +
+      '</div>';
+  }
+
   function renderUserDetail(data) {
     var host = $('#admin-user-detail');
     if (!host || !data) return;
@@ -552,6 +614,7 @@
     var usage = data.ai_usage_month || [];
     var threads = data.contact_threads || [];
     var promos = data.promotion_redemptions || [];
+    var activity = data.activity || null;
 
     var quotaHtml;
     if (q.unlimited) {
@@ -617,6 +680,7 @@
       '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-detail-close">Cerrar</button>' +
       '</div>' +
+      '<div class="admin-detail-section"><h4>Actividad de juego</h4>' + renderActivitySection(activity) + '</div>' +
       '<div class="admin-detail-section"><h4>Promoción de registro</h4>' + promoHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Cupo IA este mes</h4>' + quotaHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Regalar bono IA</h4>' +
