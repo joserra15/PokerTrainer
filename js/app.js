@@ -422,6 +422,7 @@
     window.addEventListener('pt-go-tab', (e) => {
       const d = e.detail || {};
       if (d.tab === 'play') goToTab('play', { setup: !!d.setup, table: !!d.table });
+      else if (d.tab === 'contact') goToTab('contact', { threadId: d.threadId || null });
       else if (d.tab) goToTab(d.tab);
     });
     if (window.PTBilling) {
@@ -578,6 +579,9 @@
       PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
     }
     if (window.PTReEngage && PTReEngage.renderBanner) PTReEngage.renderBanner();
+    withLazyChunk('contact', function () {
+      if (window.PTContact && PTContact.renderHomeNotice) PTContact.renderHomeNotice();
+    });
   }
 
   function bindHome() {
@@ -656,8 +660,9 @@
     if (tabId === 'stats') renderStats();
     if (tabId === 'contact') {
       withLazyChunk('contact', function () {
-        if (window.PTContact && PTContact.render) PTContact.render();
+        if (window.PTContact && PTContact.render) PTContact.render(opts.threadId || null);
         if (window.PTContact && PTContact.refreshBadge) PTContact.refreshBadge();
+        if (window.PTContact && PTContact.renderHomeNotice) PTContact.renderHomeNotice();
       });
     }
     if (tabId === 'play' && window.PTUsageUI && PTUsageUI.refreshHost) {

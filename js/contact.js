@@ -66,6 +66,90 @@
     return n;
   }
 
+  function clearHomeNotice() {
+    var host = document.getElementById('home-contact-notice');
+    if (!host) return;
+    host.classList.add('hidden');
+    host.innerHTML = '';
+  }
+
+  function openContactThread(threadId) {
+    if (global.goToTab) {
+      global.goToTab('contact', { threadId: threadId || null });
+      return;
+    }
+    global.dispatchEvent(new CustomEvent('pt-go-tab', {
+      detail: { tab: 'contact', threadId: threadId || null }
+    }));
+  }
+
+  async function renderHomeNotice() {
+    var host = document.getElementById('home-contact-notice');
+    if (!host) return;
+
+    if (!isLoggedIn()) {
+      clearHomeNotice();
+      return;
+    }
+
+    var c = client();
+    if (!c) {
+      clearHomeNotice();
+      return;
+    }
+
+    var listRes = await c.rpc('pt_contact_my_threads');
+    if (listRes.error) {
+      clearHomeNotice();
+      return;
+    }
+
+    var unread = (listRes.data || []).filter(function (t) {
+      return t && (Number(t.user_unread_count) || 0) > 0;
+    });
+    var totalUnread = unread.reduce(function (sum, t) {
+      return sum + (Number(t.user_unread_count) || 0);
+    }, 0);
+    updateTabBadge(totalUnread);
+
+    if (!unread.length) {
+      clearHomeNotice();
+      return;
+    }
+
+    var primary = unread[0];
+    var more = unread.length - 1;
+    var subject = primary.subject || 'Conversación';
+    var meta = more > 0
+      ? ' y ' + more + ' conversación' + (more === 1 ? '' : 'es') + ' más'
+      : '';
+    var countLabel = totalUnread === 1
+      ? '1 mensaje nuevo'
+      : totalUnread + ' mensajes nuevos';
+
+    host.innerHTML =
+      '<button type="button" class="home-contact-notice-btn" data-home-contact-thread="' +
+      escapeHtml(primary.id) + '">' +
+      '<span class="home-contact-notice-icon" aria-hidden="true">' +
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">' +
+      '<path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg></span>' +
+      '<span class="home-contact-notice-copy">' +
+      '<strong>PokerForgeAI te ha escrito</strong>' +
+      '<span class="home-contact-notice-meta">' + escapeHtml(countLabel) +
+      ' · ' + escapeHtml(subject) + escapeHtml(meta) + '</span>' +
+      '</span>' +
+      '<span class="home-contact-notice-cta">Ver mensaje</span>' +
+      '</button>';
+    host.classList.remove('hidden');
+
+    var btn = host.querySelector('[data-home-contact-thread]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        openContactThread(btn.getAttribute('data-home-contact-thread'));
+      });
+    }
+  }
+
   function renderMessageList(messages) {
     if (!messages || !messages.length) {
       return '<p class="muted-text">Sin mensajes.</p>';
@@ -125,11 +209,16 @@
       return;
     }
     var threads = listRes.data || [];
-    await fetchUnreadCount();
 
     var detailHtml = '';
     var currentId = activeThreadId;
-    if (!currentId && threads.length) currentId = threads[0].id;
+    if (!currentId) {
+      var firstUnread = threads.find(function (t) {
+        return t && (Number(t.user_unread_count) || 0) > 0;
+      });
+      if (firstUnread) currentId = firstUnread.id;
+      else if (threads.length) currentId = threads[0].id;
+    }
 
     if (currentId) {
       try {
@@ -233,27 +322,36 @@
         renderContactView(null);
       });
     });
+
+    await fetchUnreadCount();
+    renderHomeNotice();
   }
 
   function startPolling() {
     if (pollTimer) return;
     pollTimer = setInterval(function () {
-      if (isLoggedIn()) fetchUnreadCount();
+      if (isLoggedIn()) {
+        fetchUnreadCount();
+        renderHomeNotice();
+      }
     }, 60000);
   }
 
   function init() {
     fetchUnreadCount();
+    renderHomeNotice();
     startPolling();
     global.addEventListener('pt-auth-ready', function () {
       fetchUnreadCount();
+      renderHomeNotice();
     });
   }
 
   global.PTContact = {
     init: init,
     render: renderContactView,
-    refreshBadge: fetchUnreadCount
+    refreshBadge: fetchUnreadCount,
+    renderHomeNotice: renderHomeNotice
   };
 
   init();
