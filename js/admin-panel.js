@@ -18,6 +18,18 @@
   var inviteModalBound = false;
   var syncRunning = false;
   var adminUsersCache = [];
+  var adminUsersSort = { key: 'seen', dir: 'desc' };
+  var adminUsersFilters = {
+    user: '',
+    plan: '',
+    periodFrom: '',
+    periodTo: '',
+    renewalFrom: '',
+    renewalTo: '',
+    seenFrom: '',
+    seenTo: ''
+  };
+  var adminUsersFiltersBound = false;
   var adminMessageMode = 'single';
   var adminMessageRecipients = [];
   var adminMessageFilter = '';
@@ -449,34 +461,210 @@
       (disabled ? ' disabled' : '') + '>' + opts + '</select>';
   }
 
-  async function loadUsers() {
-    var c = client();
+  function dayKeyFromIso(iso) {
+    if (!iso) return null;
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1);
+    var day = String(d.getDate());
+    if (m.length < 2) m = '0' + m;
+    if (day.length < 2) day = '0' + day;
+    return y + '-' + m + '-' + day;
+  }
+
+  function dateInRange(iso, fromStr, toStr) {
+    if (!fromStr && !toStr) return true;
+    var key = dayKeyFromIso(iso);
+    if (!key) return false;
+    if (fromStr && key < fromStr) return false;
+    if (toStr && key > toStr) return false;
+    return true;
+  }
+
+  function renewalIso(u) {
+    if (!u) return null;
+    var status = u.subscription_status || 'none';
+    var canceled = !!u.subscription_cancel_at_period_end
+      || status === 'canceled'
+      || status === 'canceling';
+    if (!canceled && status !== 'active' && status !== 'trialing') return null;
+    return effectivePeriodEnd(u);
+  }
+
+  function userSortValue(u, key) {
+    if (key === 'user') {
+      return String((u.name || '') + ' ' + (u.email || '')).toLowerCase();
+    }
+    if (key === 'plan') {
+      var order = { free: 0, pro: 1, premium: 2 };
+      var plan = u.plan || 'free';
+      return order[plan] != null ? order[plan] : 99;
+    }
+    if (key === 'period') {
+      var pe = effectivePeriodEnd(u);
+      return pe ? new Date(pe).getTime() : 0;
+    }
+    if (key === 'renewal') {
+      var re = renewalIso(u);
+      return re ? new Date(re).getTime() : 0;
+    }
+    if (key === 'ai') return Number(u.ai_today) || 0;
+    if (key === 'payment') {
+      return u.stripe_last_payment_at ? new Date(u.stripe_last_payment_at).getTime() : 0;
+    }
+    if (key === 'seen') {
+      return u.last_seen_at ? new Date(u.last_seen_at).getTime() : 0;
+    }
+    if (key === 'admin') return u.is_admin ? 1 : 0;
+    return 0;
+  }
+
+  function filteredSortedUsers() {
+    var q = String(adminUsersFilters.user || '').trim().toLowerCase();
+    var plan = adminUsersFilters.plan || '';
+    var rows = adminUsersCache.filter(function (u) {
+      if (!u) return false;
+      if (q) {
+        var text = ((u.name || '') + ' ' + (u.email || '') + ' ' + (u.user_id || '')).toLowerCase();
+        if (text.indexOf(q) < 0) return false;
+      }
+      if (plan && (u.plan || 'free') !== plan) return false;
+      if (!dateInRange(effectivePeriodEnd(u), adminUsersFilters.periodFrom, adminUsersFilters.periodTo)) {
+        return false;
+      }
+      if (!dateInRange(renewalIso(u), adminUsersFilters.renewalFrom, adminUsersFilters.renewalTo)) {
+        return false;
+      }
+      if (!dateInRange(u.last_seen_at, adminUsersFilters.seenFrom, adminUsersFilters.seenTo)) {
+        return false;
+      }
+      return true;
+    });
+
+    var key = adminUsersSort.key;
+    var dir = adminUsersSort.dir === 'asc' ? 1 : -1;
+    if (!key) return rows;
+    return rows.slice().sort(function (a, b) {
+      var va = userSortValue(a, key);
+      var vb = userSortValue(b, key);
+      if (typeof va === 'string' || typeof vb === 'string') {
+        var cmp = String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' });
+        if (cmp !== 0) return cmp * dir;
+      } else if (va !== vb) {
+        return (va < vb ? -1 : 1) * dir;
+      }
+      var na = String(a.name || a.email || '').toLowerCase();
+      var nb = String(b.name || b.email || '').toLowerCase();
+      return na.localeCompare(nb, 'es');
+    });
+  }
+
+  function updateSortHeaders() {
+    document.querySelectorAll('.admin-th-sort').forEach(function (btn) {
+      var key = btn.getAttribute('data-sort');
+      var active = key === adminUsersSort.key;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-sort', active
+        ? (adminUsersSort.dir === 'asc' ? 'ascending' : 'descending')
+        : 'none');
+      var label = btn.getAttribute('data-label') || btn.textContent.replace(/\s*[↑↓↕]\s*$/, '').trim();
+      btn.setAttribute('data-label', label);
+      var mark = !active ? ' ↕' : (adminUsersSort.dir === 'asc' ? ' ↑' : ' ↓');
+      btn.textContent = label + mark;
+    });
+  }
+
+  function readUsersFiltersFromDom() {
+    var userEl = $('#admin-filter-user');
+    var planEl = $('#admin-filter-plan');
+    adminUsersFilters.user = userEl ? String(userEl.value || '') : '';
+    adminUsersFilters.plan = planEl ? String(planEl.value || '') : '';
+    adminUsersFilters.periodFrom = ($('#admin-filter-period-from') || {}).value || '';
+    adminUsersFilters.periodTo = ($('#admin-filter-period-to') || {}).value || '';
+    adminUsersFilters.renewalFrom = ($('#admin-filter-renewal-from') || {}).value || '';
+    adminUsersFilters.renewalTo = ($('#admin-filter-renewal-to') || {}).value || '';
+    adminUsersFilters.seenFrom = ($('#admin-filter-seen-from') || {}).value || '';
+    adminUsersFilters.seenTo = ($('#admin-filter-seen-to') || {}).value || '';
+  }
+
+  function clearUsersFilters() {
+    adminUsersFilters = {
+      user: '', plan: '',
+      periodFrom: '', periodTo: '',
+      renewalFrom: '', renewalTo: '',
+      seenFrom: '', seenTo: ''
+    };
+    ['admin-filter-user', 'admin-filter-plan', 'admin-filter-period-from', 'admin-filter-period-to',
+      'admin-filter-renewal-from', 'admin-filter-renewal-to', 'admin-filter-seen-from', 'admin-filter-seen-to'
+    ].forEach(function (id) {
+      var el = $('#' + id);
+      if (el) el.value = '';
+    });
+    renderUsersTable();
+  }
+
+  function bindUsersFiltersAndSort() {
+    if (adminUsersFiltersBound) return;
+    adminUsersFiltersBound = true;
+    var filterIds = [
+      'admin-filter-user', 'admin-filter-plan',
+      'admin-filter-period-from', 'admin-filter-period-to',
+      'admin-filter-renewal-from', 'admin-filter-renewal-to',
+      'admin-filter-seen-from', 'admin-filter-seen-to'
+    ];
+    filterIds.forEach(function (id) {
+      var el = $('#' + id);
+      if (!el) return;
+      var evt = el.tagName === 'SELECT' || el.type === 'date' ? 'change' : 'input';
+      el.addEventListener(evt, function () {
+        readUsersFiltersFromDom();
+        renderUsersTable();
+      });
+    });
+    var clearBtn = $('#admin-filter-clear');
+    if (clearBtn) clearBtn.addEventListener('click', clearUsersFilters);
+    document.querySelectorAll('.admin-th-sort').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var key = btn.getAttribute('data-sort');
+        if (!key) return;
+        if (adminUsersSort.key === key) {
+          adminUsersSort.dir = adminUsersSort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          adminUsersSort.key = key;
+          adminUsersSort.dir = (key === 'user' || key === 'plan') ? 'asc' : 'desc';
+        }
+        renderUsersTable();
+      });
+    });
+  }
+
+  function renderUsersTable() {
     var tbody = $('#admin-users-body');
     var status = $('#admin-users-status');
-    if (!c || !tbody) return;
-    setAdminLoading(true, 'Cargando usuarios…');
-    if (status) status.textContent = '';
-    var res = await c.rpc('pt_admin_user_list');
-    if (res.error) {
-      tbody.innerHTML = '';
-      setAdminLoading(false);
-      if (status) status.textContent = '';
-      var err = $('#admin-users-error');
-      if (err) err.textContent = res.error.message;
+    if (!tbody) return;
+    bindUsersFiltersAndSort();
+    updateSortHeaders();
+    var me = currentUser();
+    var rows = filteredSortedUsers();
+    var total = adminUsersCache.length;
+    if (status) {
+      status.textContent = rows.length === total
+        ? (total + ' usuario' + (total === 1 ? '' : 's'))
+        : (rows.length + ' de ' + total + ' usuarios');
+    }
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="muted-text admin-users-empty">' +
+        (total ? 'Ningún usuario coincide con los filtros.' : 'Sin usuarios.') +
+        '</td></tr>';
       return;
     }
-    var errEl = $('#admin-users-error');
-    if (errEl) errEl.textContent = '';
-    var me = currentUser();
-    var rows = res.data || [];
-    adminUsersCache = rows.slice();
-    normalizeRecipientSelection();
-    if (status) status.textContent = rows.length + ' usuario' + (rows.length === 1 ? '' : 's');
     tbody.innerHTML = rows.map(function (u) {
       var online = isOnline(u.last_seen_at);
       var isSelf = me && me.sub === u.user_id;
       var isDemo = u.user_id === DEMO_USER_ID;
-      var rowCls = isDemo ? ' class="admin-row-demo"' : '';
       var activeDetail = adminDetailUserId === u.user_id ? ' admin-row-active' : '';
       return (
         '<tr data-user-id="' + escapeHtml(u.user_id) + '" class="admin-user-row' + (isDemo ? ' admin-row-demo' : '') + activeDetail + '">' +
@@ -503,6 +691,29 @@
     bindUserActions();
     bindUserRowClicks();
     renderAdminComposer();
+  }
+
+  async function loadUsers() {
+    var c = client();
+    var tbody = $('#admin-users-body');
+    var status = $('#admin-users-status');
+    if (!c || !tbody) return;
+    setAdminLoading(true, 'Cargando usuarios…');
+    if (status) status.textContent = '';
+    var res = await c.rpc('pt_admin_user_list');
+    if (res.error) {
+      tbody.innerHTML = '';
+      setAdminLoading(false);
+      if (status) status.textContent = '';
+      var err = $('#admin-users-error');
+      if (err) err.textContent = res.error.message;
+      return;
+    }
+    var errEl = $('#admin-users-error');
+    if (errEl) errEl.textContent = '';
+    adminUsersCache = (res.data || []).slice();
+    normalizeRecipientSelection();
+    renderUsersTable();
     setAdminLoading(false);
   }
 

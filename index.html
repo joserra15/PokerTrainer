@@ -922,6 +922,46 @@
           </div>
         </div>
         <p id="admin-users-error" class="admin-error" role="alert"></p>
+        <div class="admin-users-filters" id="admin-users-filters">
+          <label class="admin-filter-field admin-filter-user">
+            <span>Usuario</span>
+            <input type="search" id="admin-filter-user" placeholder="Nombre o correo" autocomplete="off" />
+          </label>
+          <label class="admin-filter-field">
+            <span>Plan</span>
+            <select id="admin-filter-plan">
+              <option value="">Todos</option>
+              <option value="free">Gratis</option>
+              <option value="pro">Study</option>
+              <option value="premium">Coach</option>
+            </select>
+          </label>
+          <div class="admin-filter-field admin-filter-dates">
+            <span>Fin plan</span>
+            <div class="admin-filter-date-row">
+              <input type="date" id="admin-filter-period-from" title="Fin plan desde" aria-label="Fin plan desde" />
+              <span class="admin-filter-sep">–</span>
+              <input type="date" id="admin-filter-period-to" title="Fin plan hasta" aria-label="Fin plan hasta" />
+            </div>
+          </div>
+          <div class="admin-filter-field admin-filter-dates">
+            <span>Renovación</span>
+            <div class="admin-filter-date-row">
+              <input type="date" id="admin-filter-renewal-from" title="Renovación desde" aria-label="Renovación desde" />
+              <span class="admin-filter-sep">–</span>
+              <input type="date" id="admin-filter-renewal-to" title="Renovación hasta" aria-label="Renovación hasta" />
+            </div>
+          </div>
+          <div class="admin-filter-field admin-filter-dates">
+            <span>Última conexión</span>
+            <div class="admin-filter-date-row">
+              <input type="date" id="admin-filter-seen-from" title="Última conexión desde" aria-label="Última conexión desde" />
+              <span class="admin-filter-sep">–</span>
+              <input type="date" id="admin-filter-seen-to" title="Última conexión hasta" aria-label="Última conexión hasta" />
+            </div>
+          </div>
+          <button type="button" id="admin-filter-clear" class="btn btn-ghost btn-sm">Limpiar</button>
+        </div>
         <div class="admin-table-wrap">
           <div id="admin-loading" class="admin-loading hidden" aria-live="polite">
             <div class="admin-loading-inner">
@@ -942,14 +982,14 @@
             </colgroup>
             <thead>
               <tr>
-                <th data-col="user">Usuario</th>
-                <th data-col="plan">Plan</th>
-                <th data-col="period">Fin plan</th>
-                <th data-col="renewal">Renovación</th>
-                <th data-col="ai">IA mes (+bono)</th>
-                <th data-col="payment">Último pago</th>
-                <th data-col="seen">Última conexión</th>
-                <th data-col="admin">Admin</th>
+                <th data-col="user"><button type="button" class="admin-th-sort" data-sort="user">Usuario</button></th>
+                <th data-col="plan"><button type="button" class="admin-th-sort" data-sort="plan">Plan</button></th>
+                <th data-col="period"><button type="button" class="admin-th-sort" data-sort="period">Fin plan</button></th>
+                <th data-col="renewal"><button type="button" class="admin-th-sort" data-sort="renewal">Renovación</button></th>
+                <th data-col="ai"><button type="button" class="admin-th-sort" data-sort="ai">IA mes (+bono)</button></th>
+                <th data-col="payment"><button type="button" class="admin-th-sort" data-sort="payment">Último pago</button></th>
+                <th data-col="seen"><button type="button" class="admin-th-sort" data-sort="seen">Última conexión</button></th>
+                <th data-col="admin"><button type="button" class="admin-th-sort" data-sort="admin">Admin</button></th>
               </tr>
             </thead>
             <tbody id="admin-users-body"></tbody>
