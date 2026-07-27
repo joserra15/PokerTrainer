@@ -400,6 +400,50 @@ body.range-matrix-open { overflow: hidden; }
   display: grid;
   gap: 6px;
 }
+.landing-promo-code-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  max-width: 480px;
+}
+.landing-promo-code-input {
+  flex: 1 1 180px;
+  min-width: 0;
+  box-sizing: border-box;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.landing-promo-code-input::placeholder {
+  letter-spacing: normal;
+  text-transform: none;
+  font-family: inherit;
+  color: var(--muted);
+}
+.landing-promo-code-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(47,129,247,.22);
+}
+.landing-promo-code-form .btn { flex: 0 0 auto; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .landing-cta-band {
   text-align: left;
   padding: 24px;
@@ -509,6 +553,8 @@ body.range-matrix-open { overflow: hidden; }
     align-items: center;
   }
   .landing-cta-band { padding: 20px 16px; }
+  .landing-promo-code-form { max-width: none; }
+  .landing-promo-code-form .btn { width: 100%; justify-content: center; }
   .landing-login-panel .auth-card { padding: 24px 18px; max-width: none; }
 }
 

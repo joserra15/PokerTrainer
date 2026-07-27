@@ -126,6 +126,28 @@
     if (appUrlEl && cfg.appUrl) appUrlEl.textContent = cfg.appUrl;
   }
 
+  function promoLandingUrl(code) {
+    var site = siteCfg();
+    var base = (site.appUrl || (location.origin + '/')).replace(/\/?$/, '/');
+    return base + 'promo.html?c=' + encodeURIComponent(code);
+  }
+
+  function bindPromoCodeForm() {
+    var form = document.getElementById('landing-promo-code-form');
+    var input = document.getElementById('landing-promo-code-input');
+    if (!form || !input) return;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var code = String(input.value || '').trim().toUpperCase();
+      if (!code) {
+        input.focus();
+        return;
+      }
+      input.value = code;
+      location.href = promoLandingUrl(code);
+    });
+  }
+
   function bindNav() {
     document.querySelectorAll('[data-landing-login]').forEach(function (el) {
       el.addEventListener('click', function (e) {
@@ -153,6 +175,7 @@
         scrollToLogin();
       });
     });
+    bindPromoCodeForm();
   }
 
   function pendingPromoCode() {
