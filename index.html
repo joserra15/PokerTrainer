@@ -142,13 +142,31 @@
         </header>
 
         <section class="landing-hero" id="landing-hero">
-          <p class="landing-eyebrow">Cash NL 6-max · MTT preflop</p>
           <div id="landing-promo-pill"></div>
           <h1>Entrena GTO, importa tus sesiones y mejora con IA Coach</h1>
           <p class="landing-lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV. También puedes instalarla en el móvil como app.</p>
           <div class="landing-hero-actions">
             <button type="button" class="btn btn-primary" data-landing-login>Empezar gratis</button>
             <a class="btn btn-ghost" href="#landing-features">Ver funciones</a>
+          </div>
+          <div class="landing-promo-code-block" id="landing-promo-code">
+            <h2>¿Tienes un código promocional?</h2>
+            <p class="landing-section-lead">Introdúcelo para activar tu oferta exclusiva.</p>
+            <form class="landing-promo-code-form" id="landing-promo-code-form" action="promo.html" method="get">
+              <label class="sr-only" for="landing-promo-code-input">Código promocional</label>
+              <input
+                type="text"
+                id="landing-promo-code-input"
+                name="c"
+                class="landing-promo-code-input"
+                placeholder="Ej. AB12XY99"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="64"
+                required
+              />
+              <button type="submit" class="btn btn-primary" id="landing-promo-code-submit">Activar código</button>
+            </form>
           </div>
           <ul class="landing-hero-bullets">
             <li>Sesión de ejemplo incluida al registrarte</li>
@@ -222,26 +240,6 @@
               <button type="button" class="btn btn-primary btn-block" data-landing-install="android">Instalar en Android</button>
             </article>
           </div>
-        </section>
-
-        <section class="landing-section" id="landing-promo-code">
-          <h2>¿Tienes un código promocional?</h2>
-          <p class="landing-section-lead">Introdúcelo para activar tu oferta exclusiva.</p>
-          <form class="landing-promo-code-form" id="landing-promo-code-form" action="promo.html" method="get">
-            <label class="sr-only" for="landing-promo-code-input">Código promocional</label>
-            <input
-              type="text"
-              id="landing-promo-code-input"
-              name="c"
-              class="landing-promo-code-input"
-              placeholder="Ej. CB57760F"
-              autocomplete="off"
-              spellcheck="false"
-              maxlength="64"
-              required
-            />
-            <button type="submit" class="btn btn-primary" id="landing-promo-code-submit">Activar código</button>
-          </form>
         </section>
 
         <section class="landing-section landing-cta-band">

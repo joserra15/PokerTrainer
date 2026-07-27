@@ -311,6 +311,18 @@ body.range-matrix-open { overflow: hidden; }
 }
 .landing-lead { color: var(--muted); font-size: 17px; line-height: 1.5; margin-bottom: 20px; }
 .landing-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.landing-promo-code-block {
+  margin: 0 0 18px;
+  max-width: 480px;
+}
+.landing-promo-code-block h2 {
+  font-size: 18px;
+  margin: 0 0 6px;
+}
+.landing-promo-code-block .landing-section-lead {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
 .landing-hero-bullets {
   margin: 0;
   padding-left: 18px;
