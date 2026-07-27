@@ -224,6 +224,26 @@
           </div>
         </section>
 
+        <section class="landing-section" id="landing-promo-code">
+          <h2>¿Tienes un código promocional?</h2>
+          <p class="landing-section-lead">Introdúcelo para activar tu oferta exclusiva.</p>
+          <form class="landing-promo-code-form" id="landing-promo-code-form" action="promo.html" method="get">
+            <label class="sr-only" for="landing-promo-code-input">Código promocional</label>
+            <input
+              type="text"
+              id="landing-promo-code-input"
+              name="c"
+              class="landing-promo-code-input"
+              placeholder="Ej. CB57760F"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="64"
+              required
+            />
+            <button type="submit" class="btn btn-primary" id="landing-promo-code-submit">Activar código</button>
+          </form>
+        </section>
+
         <section class="landing-section landing-cta-band">
           <h2>¿Listo para subir de nivel?</h2>
           <p class="muted-text">Crea tu cuenta con Google en segundos. Incluye sesión demo sin subir ficheros.</p>
