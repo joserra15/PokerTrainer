@@ -104,7 +104,8 @@
         if ((m = ln.match(/^PokerStars(?: Zoom)? Hand #(\d+):\s+(.+)/))) {
           hand.id = m[1];
           hand.isTournament = /Tournament #/i.test(ln);
-          const bl = ln.match(/Hold'em No Limit \(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)\)/);
+          // Cash stakes: (€0.02/€0.05), (€0.01/€0.02 EUR), ($0.05/$0.10 USD)
+          const bl = ln.match(/Hold'em No Limit \(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)(?:\s+[A-Z]{3})?\)/);
           if (bl) {
             hand.sb = num(bl[2]);
             hand.bb = num(bl[4]);

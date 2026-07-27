@@ -59,6 +59,7 @@ const enPath = !inCi && fs.existsSync(path.join(__dirname, '..', 'sesiones', 'Po
   ? 'sesiones/PokerEN1.txt'
   : 'tools/fixtures/PokerEN-sample.txt';
 runFile(enPath, 'EN PokerStars');
+runFile('tools/fixtures/PokerStars-EUR-stakes.txt', 'EN PokerStars EUR stakes');
 const wmPath = !inCi && fs.existsSync(path.join(__dirname, '..', 'sesiones', '20260703_Paris 06_real_holdem_no-limit.txt'))
   ? 'sesiones/20260703_Paris 06_real_holdem_no-limit.txt'
   : 'tools/fixtures/Winamax-sample.txt';
