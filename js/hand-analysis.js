@@ -1798,29 +1798,62 @@
     });
   }
 
+  function looksLikeHandHistory(text) {
+    if (!text) return false;
+    return /^Winamax Poker -/m.test(text) ||
+      /^PokerStars Hand #/m.test(text) ||
+      /^PokerStars Zoom Hand #/m.test(text) ||
+      /^Mano n/m.test(text) ||
+      /HandId:\s*#/i.test(text);
+  }
+
+  /** Importa HH PokerStars/Winamax localmente (sin IA) con collected/net correctos. */
+  function tryImportHandHistory(text) {
+    if (!looksLikeHandHistory(text) || !global.Importer || !global.Importer.parseHand) return null;
+    var parsed = null;
+    try {
+      var multiWm = (text.match(/^Winamax Poker -/gm) || []).length > 1;
+      var multiPs = (text.match(/^PokerStars (?:Zoom )?Hand #/gm) || []).length > 1 ||
+        (text.match(/^Mano n/gm) || []).length > 1;
+      if ((multiWm || multiPs) && global.Importer.parseSession) {
+        var sess = global.Importer.parseSession(text, 'paste.txt');
+        var hero = sess && sess.hero;
+        parsed = (sess.hands || []).find(function (h) {
+          return h && h.hero === hero && h.heroCards && h.heroCards.length >= 2;
+        }) || null;
+      } else {
+        parsed = global.Importer.parseHand(text);
+      }
+    } catch (e) {
+      return null;
+    }
+    if (!parsed || !parsed.hero || !parsed.heroCards || parsed.heroCards.length < 2) return null;
+    var analyzed = global.Importer.analyzeHand(parsed);
+    analyzed.spec = ensureHandSpec(analyzed);
+    analyzed.source = 'handhistory';
+    analyzed.createdAt = new Date().toISOString();
+    analyzed.savedName = (analyzed.heroCode || '') + ' · ' + (analyzed.heroPos || '');
+    return analyzed;
+  }
+
   // ---------- render: texto / IA ----------
   function renderText() {
     var root = S.container;
     var html = '';
     html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver</button>';
-    html += '<h2 class="ha-title">Añadir mano con IA (texto)</h2>';
-    html += '<p class="muted-text">Describe la mano en lenguaje natural: posiciones, cartas del héroe y villanos (si se conocen), cartas comunitarias y las acciones. La IA la preparará para el paso a paso e incluirá su análisis. <strong>Esta acción consume una consulta de tu plan o bono.</strong> No disponible en Gratis sin bono.</p>';
+    html += '<h2 class="ha-title">Añadir mano (texto / historial)</h2>';
+    html += '<p class="muted-text">Pega un historial Winamax/PokerStars (se analiza <strong>sin consumir IA</strong>) o describe la mano en lenguaje natural. La descripción libre usa el IA Coach y <strong>consume una consulta</strong>.</p>';
     html += '<div class="ha-form">';
-    html += '<textarea class="ha-text-input" rows="8" placeholder="Ej.: 6-max. Soy CO con As Kd. UTG se retira, HJ paga, yo subo a 3bb, BTN paga, se retiran las ciegas. Flop 9c Tc 8c: HJ pasa, yo apuesto 5bb, HJ paga. Turn 2h: pasa pasa. River 2s: HJ apuesta 10bb y me lo pienso."></textarea>';
+    html += '<textarea class="ha-text-input" rows="8" placeholder="Pega un Hand History o describe la mano: 6-max, CO con As Kd, acciones, board…"></textarea>';
     html += '<div class="ha-form-errors" data-ha-errors></div>';
     html += '<div class="ha-form-buttons">';
-    html += '<button class="btn btn-primary" data-ha-text-go>Analizar con IA y guardar</button>';
+    html += '<button class="btn btn-primary" data-ha-text-go>Analizar y guardar</button>';
     html += '</div>';
     html += '<div class="ha-text-status" data-ha-text-status></div>';
     html += '</div>';
     root.innerHTML = html;
     root.querySelector('[data-ha-back]').addEventListener('click', function () { S.view = 'list'; render(); });
     root.querySelector('[data-ha-text-go]').addEventListener('click', onTextAnalyze);
-    requireAiAccess().then(function (ok) {
-      if (ok || S.view !== 'text') return;
-      S.view = 'list';
-      render();
-    });
   }
 
   function normalizeAiSpec(aiHand) {
@@ -1858,55 +1891,65 @@
     var text = root.querySelector('.ha-text-input').value.trim();
     showErrors([]);
     var status = root.querySelector('[data-ha-text-status]');
-    if (!text) { showErrors(['Escribe la descripción de la mano.']); return; }
+    if (!text) { showErrors(['Escribe la descripción de la mano o pega un historial.']); return; }
     var check = canSave();
     if (!check.ok) {
       showErrors(['Has alcanzado el límite de manos guardadas de tu plan (' + check.limit + '). Borra alguna o mejora tu plan.']);
       return;
     }
-    if (!global.PTAIReport || !global.PTAIReport.parseHand) {
-      showErrors(['El IA Coach no está disponible ahora mismo.']);
-      return;
-    }
     var btn = root.querySelector('[data-ha-text-go]');
     btn.disabled = true;
-    status.innerHTML = '<div class="ha-loading">Comprobando consultas IA…</div>';
 
-    requireAiAccess().then(function (ok) {
-      if (!ok) {
-        btn.disabled = false;
-        status.innerHTML = '';
-        return;
+    function finishSaved(analyzed) {
+      var res = saveHand(analyzed);
+      if (!res.ok) throw new Error(res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || 'no se pudo guardar.'));
+      btn.disabled = false;
+      S.view = 'list';
+      render();
+      if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+    }
+
+    status.innerHTML = '<div class="ha-loading">Analizando…</div>';
+    ensureImporter().then(function () {
+      var local = tryImportHandHistory(text);
+      if (local) {
+        status.innerHTML = '<div class="ha-loading">Historial detectado · guardando…</div>';
+        finishSaved(local);
+        return null;
       }
-      status.innerHTML = '<div class="ha-loading">La IA está leyendo la mano…</div>';
-      return global.PTAIReport.parseHand(text);
+      if (!global.PTAIReport || !global.PTAIReport.parseHand) {
+        throw new Error('No es un historial reconocido y el IA Coach no está disponible.');
+      }
+      status.innerHTML = '<div class="ha-loading">Comprobando consultas IA…</div>';
+      return requireAiAccess().then(function (ok) {
+        if (!ok) {
+          btn.disabled = false;
+          status.innerHTML = '';
+          return null;
+        }
+        status.innerHTML = '<div class="ha-loading">La IA está leyendo la mano…</div>';
+        return global.PTAIReport.parseHand(text);
+      });
     }).then(function (data) {
       if (!data) return;
-      if (!data || !data.hand) throw new Error('La IA no devolvió una mano válida.');
+      if (!data.hand) throw new Error('La IA no devolvió una mano válida.');
       var spec = normalizeAiSpec(data.hand);
       var errs = validateSpec(spec);
       if (errs.length) {
         throw new Error('La IA no pudo estructurar bien la mano (' + errs[0] + '). Revisa la descripción o usa la entrada manual.');
       }
-      return ensureImporter().then(function () {
-        var analyzed = buildAnalyzedHand(spec, 'text');
-        if (data.analysisMarkdown) {
-          analyzed.coachThread = [{
-            mode: 'report',
-            reportMarkdown: data.analysisMarkdown,
-            model: 'gemini',
-            createdAt: new Date().toISOString(),
-            truncated: false
-          }];
-          analyzed.aiAnalysis = data.analysisMarkdown;
-        }
-        var res = saveHand(analyzed);
-        if (!res.ok) throw new Error(res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || 'no se pudo guardar.'));
-        btn.disabled = false;
-        S.view = 'list';
-        render();
-        if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
-      });
+      var analyzed = buildAnalyzedHand(spec, 'text');
+      if (data.analysisMarkdown) {
+        analyzed.coachThread = [{
+          mode: 'report',
+          reportMarkdown: data.analysisMarkdown,
+          model: 'gemini',
+          createdAt: new Date().toISOString(),
+          truncated: false
+        }];
+        analyzed.aiAnalysis = data.analysisMarkdown;
+      }
+      finishSaved(analyzed);
     }).catch(function (e) {
       btn.disabled = false;
       status.innerHTML = '';
@@ -1914,7 +1957,7 @@
         global.PTBilling.showPaywall(e.paywall);
         return;
       }
-      showErrors([(e && e.message) ? e.message : 'No se pudo analizar la mano con IA.']);
+      showErrors([(e && e.message) ? e.message : 'No se pudo analizar la mano.']);
     });
   }
 
@@ -1936,6 +1979,8 @@
     ensureVillainsFromActions: ensureVillainsFromActions,
     normalizeBbEuro: normalizeBbEuro,
     sortBySpeakingOrder: sortBySpeakingOrder,
-    speakingOrderRing: speakingOrderRing
+    speakingOrderRing: speakingOrderRing,
+    looksLikeHandHistory: looksLikeHandHistory,
+    tryImportHandHistory: tryImportHandHistory
   };
 })(window);
