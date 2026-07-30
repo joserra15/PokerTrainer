@@ -45,6 +45,10 @@ jobs:
         run: node tools/test-river-trips.js
       - name: Test análisis de manos (manual + cartas fijas)
         run: node tools/test-hand-analysis.js
+      - name: Regresión frecuencias flop/turn (Colorado 98s)
+        run: node tools/test-flop-turn-freq-duplicate.js
+      - name: Regresión BB vs SB posición
+        run: node tools/test-bb-vs-sb-position.js
 
   deploy:
     needs: test

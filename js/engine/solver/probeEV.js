@@ -232,9 +232,12 @@
       betTotal = Math.min(betTotal, inPosition ? 0.22 : 0.12);
     }
     if (!isContinuationBetSpot(input) && input.initiative === 'caller') {
-      if (band === 'air') betTotal = Math.min(betTotal, inPosition ? 0.22 : 0.10);
-      else if (band === 'bluffcatch') betTotal = Math.min(betTotal, inPosition ? 0.30 : 0.15);
-      else if (band === 'merge') betTotal = Math.min(betTotal, inPosition ? 0.36 : 0.22);
+      // Caps escalados por calle: si el tope fijo se aplica DESPUÉS de streetScale,
+      // flop/turn/river colapsan a la misma frecuencia (bug frecuencias idénticas).
+      const capScale = streetScale[street] || 1;
+      if (band === 'air') betTotal = Math.min(betTotal, (inPosition ? 0.22 : 0.10) * capScale);
+      else if (band === 'bluffcatch') betTotal = Math.min(betTotal, (inPosition ? 0.30 : 0.15) * capScale);
+      else if (band === 'merge') betTotal = Math.min(betTotal, (inPosition ? 0.36 : 0.22) * capScale);
     }
 
     const split = dynamicSizeSplit(input, band, polarization);
