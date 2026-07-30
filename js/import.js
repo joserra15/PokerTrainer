@@ -450,6 +450,7 @@
       hand.decisions.forEach((d) => recomputeDecisionGto(hand, d));
     } catch (e) {
       console.error('[Importer] recomputeHandDecisions failed', e);
+      recomputeHeroNet(hand);
       return hand;
     }
     let totalEvLoss = GTO.EvLoss.totalEvLossFromDecisions(hand.decisions);
@@ -468,6 +469,7 @@
     hand.decisions.forEach((d) => { if (order.indexOf(d.class) > order.indexOf(worst)) worst = d.class; });
     hand.worstClass = worst;
     attachProbeAlerts(hand, hand.decisions);
+    recomputeHeroNet(hand);
     return hand;
   }
 
@@ -521,6 +523,8 @@
 
     const heroNetEuro = heroNet(hand);
     const heroNetBB = bb ? r2(heroNetEuro / bb) : 0;
+    const collected = Object.assign({}, hand.collected || {});
+    const uncalledTo = Object.assign({}, hand.uncalledTo || {});
 
     let worst = 'optima';
     const order = ['optima', 'aceptable', 'imprecisa', 'error'];
@@ -535,6 +539,10 @@
       streets: hand.streets,
       posts: hand.posts,
       villainShows: hand.shows,
+      collected,
+      uncalledTo,
+      rake: hand.rake || 0,
+      potTotal: hand.potTotal || 0,
       decisions, totalEvLoss: r2(totalEvLoss),
       accuracy, accuracyByStreet: byStreet,
       heroNetBB, worstClass: worst,
@@ -543,27 +551,176 @@
     };
   }
 
+  function playerStreetCommit(hand, player, st) {
+    const posts = hand.posts || {};
+    const stActs = (hand.streets && hand.streets[st]) || [];
+    let committed = (st === 'preflop') ? (posts[player] || 0) : 0;
+    stActs.forEach((a) => {
+      if (a.player !== player) return;
+      if (a.type === 'raise') committed = a.to;
+      else if (a.type === 'bet') committed = a.amount;
+      else if (a.type === 'call') committed += a.amount;
+    });
+    return committed;
+  }
+
+  function playerInvested(hand, player) {
+    let invested = 0;
+    ['preflop', 'flop', 'turn', 'river'].forEach((st) => {
+      const c = playerStreetCommit(hand, player, st);
+      if (st === 'preflop') invested = c;
+      else invested += c;
+    });
+    return r2(invested);
+  }
+
+  function boardCardsForShowdown(hand) {
+    if (hand.boardAll && hand.boardAll.length) return hand.boardAll.slice();
+    if (Array.isArray(hand.board) && hand.board.length && typeof hand.board[0] === 'string') {
+      return hand.board.slice();
+    }
+    if (hand.board && hand.board.flop) {
+      return [].concat(hand.board.flop || [], hand.board.turn || [], hand.board.river || []);
+    }
+    return [];
+  }
+
+  function holeCardsByPlayer(hand) {
+    const map = Object.assign({}, hand.shows || {}, hand.villainShows || {});
+    if (hand.hero && hand.heroCards && hand.heroCards.length >= 2) {
+      map[hand.hero] = hand.heroCards.slice(0, 2);
+    }
+    return map;
+  }
+
+  function foldedPlayers(hand) {
+    const folded = {};
+    ['preflop', 'flop', 'turn', 'river'].forEach((st) => {
+      ((hand.streets && hand.streets[st]) || []).forEach((a) => {
+        if (a && a.type === 'fold' && a.player) folded[a.player] = true;
+      });
+    });
+    return folded;
+  }
+
+  /**
+   * Reconstruye collected[] en showdowns cuando el parser no lo rellenó
+   * (p. ej. manos antiguas o entrada manual/IA sin premios). Usa side pots
+   * estándar; el rake se descuenta del bote disputado (eligible >= 2), no del
+   * exceso uncalled.
+   */
+  function inferCollectedFromShowdown(hand) {
+    if (!hand || !C || !C.evaluate || !C.compare) return null;
+    const board = boardCardsForShowdown(hand);
+    if (board.length < 5) return null;
+    const holes = holeCardsByPlayer(hand);
+    const folded = foldedPlayers(hand);
+    const invested = {};
+    const players = {};
+    Object.keys(hand.posts || {}).forEach((p) => { players[p] = true; });
+    ['preflop', 'flop', 'turn', 'river'].forEach((st) => {
+      ((hand.streets && hand.streets[st]) || []).forEach((a) => {
+        if (a && a.player) players[a.player] = true;
+      });
+    });
+    Object.keys(holes).forEach((p) => { players[p] = true; });
+    Object.keys(players).forEach((p) => {
+      const v = playerInvested(hand, p);
+      if (v > 0) invested[p] = v;
+    });
+    const contrib = Object.keys(invested);
+    if (!contrib.length) return null;
+    if (!contrib.some((p) => !folded[p])) return null;
+
+    const active = contrib.filter((p) => !folded[p]);
+    const evalCache = {};
+    function evalPlayer(p) {
+      if (evalCache[p]) return evalCache[p];
+      const hole = holes[p];
+      if (!hole || hole.length < 2) return null;
+      evalCache[p] = C.evaluate(hole.concat(board));
+      return evalCache[p];
+    }
+    function winnersOf(eligible) {
+      const ranked = eligible.map((p) => ({ p, ev: evalPlayer(p) })).filter((x) => x.ev);
+      if (!ranked.length) return eligible.slice();
+      let best = ranked[0].ev;
+      ranked.forEach((x) => { if (C.compare(x.ev, best) > 0) best = x.ev; });
+      return ranked.filter((x) => C.compare(x.ev, best) === 0).map((x) => x.p);
+    }
+
+    // Bote principal = aportaciones hasta el menor stack activo (+ ciega muerta).
+    // Side pots / uncalled = exceso por encima de ese tope.
+    const mainCap = Math.min.apply(null, active.map((p) => invested[p]));
+    let mainGross = 0;
+    contrib.forEach((p) => { mainGross = r2(mainGross + Math.min(invested[p], mainCap)); });
+    let mainNet = mainGross;
+    if (hand.rake > 0) mainNet = r2(Math.max(0, mainGross - hand.rake));
+
+    const collected = {};
+    const mainWinners = winnersOf(active);
+    if (mainNet > 0 && mainWinners.length) {
+      const share = r2(mainNet / mainWinners.length);
+      mainWinners.forEach((w) => { collected[w] = r2((collected[w] || 0) + share); });
+    }
+
+    const above = active.filter((p) => invested[p] > mainCap).sort((a, b) => invested[a] - invested[b]);
+    let prevCap = mainCap;
+    for (let i = 0; i < above.length; i++) {
+      const lvl = invested[above[i]];
+      const layer = r2(lvl - prevCap);
+      if (layer <= 0) continue;
+      const eligible = above.filter((p) => invested[p] >= lvl);
+      const size = r2(layer * eligible.length);
+      if (size <= 0) { prevCap = lvl; continue; }
+      const winners = winnersOf(eligible);
+      const share = r2(size / winners.length);
+      winners.forEach((w) => { collected[w] = r2((collected[w] || 0) + share); });
+      prevCap = lvl;
+    }
+
+    if (hand.potTotal > 0 && hand.rake <= 0) {
+      const awarded = Object.keys(collected).reduce((s, k) => s + collected[k], 0);
+      const diff = r2(hand.potTotal - awarded);
+      if (Math.abs(diff) >= 0.01 && mainWinners.length) {
+        const share = r2(diff / mainWinners.length);
+        mainWinners.forEach((w) => { collected[w] = r2((collected[w] || 0) + share); });
+      }
+    }
+    return Object.keys(collected).length ? collected : null;
+  }
+
+  function resolveCollected(hand) {
+    const collected = hand.collected || {};
+    const hero = hand.hero;
+    const known = Object.keys(collected).some((k) => (collected[k] || 0) > 0);
+    if (known) return collected;
+    const inferred = inferCollectedFromShowdown(hand);
+    if (inferred) {
+      hand.collected = Object.assign({}, collected, inferred);
+      return hand.collected;
+    }
+    return collected;
+  }
+
   function heroNet(hand) {
     const hero = hand.hero;
-    const posts = hand.posts || {};
-    let invested = (posts[hero] || 0);
-    // suma del último compromiso del héroe en cada calle
-    ['preflop', 'flop', 'turn', 'river'].forEach((st) => {
-      const stActs = (hand.streets && hand.streets[st]) || [];
-      let committed = (st === 'preflop') ? (posts[hero] || 0) : 0;
-      stActs.forEach((a) => {
-        if (a.player !== hero) return;
-        if (a.type === 'raise') committed = a.to;
-        else if (a.type === 'bet') committed = a.amount;
-        else if (a.type === 'call') committed += a.amount;
-      });
-      if (st !== 'preflop') invested += committed;
-      else invested = committed; // preflop ya incluye blinds
-    });
-    const collected = hand.collected || {};
+    if (!hero) return 0;
+    const invested = playerInvested(hand, hero);
+    const collected = resolveCollected(hand);
     const uncalled = hand.uncalledTo || {};
     const won = (collected[hero] || 0) + (uncalled[hero] || 0);
     return r2(won - invested);
+  }
+
+  /** Recalcula heroNetBB (p. ej. sesiones antiguas sin collected). */
+  function recomputeHeroNet(hand) {
+    if (!hand) return hand;
+    hand = ensureAnalyzedHandContext(hand);
+    const bb = hand.bb || 0;
+    const euro = heroNet(hand);
+    hand.heroNetBB = bb ? r2(euro / bb) : 0;
+    return hand;
   }
 
   // Recorre el preflop y evalúa cada decisión voluntaria del héroe.
@@ -888,7 +1045,7 @@
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
   // ---------- ESTADÍSTICAS DE SESIÓN ----------
-  function buildSession(parsed, fileName) {
+  function buildSession(parsed, fileName, rawText) {
     const hero = parsed.hero;
     const kept = [];
     let discarded = 0;
@@ -899,11 +1056,11 @@
       kept.push(a);
     }
     const stats = computeStats(kept);
-    return sessionPayload(parsed, fileName, hero, kept, discarded, stats);
+    return sessionPayload(parsed, fileName, hero, kept, discarded, stats, rawText);
   }
 
   /** Analiza manos en lotes para no bloquear la UI del navegador (10k+ manos). */
-  function buildSessionAsync(parsed, fileName, onProgress) {
+  function buildSessionAsync(parsed, fileName, onProgress, rawText) {
     const hero = parsed.hero;
     const hands = parsed.hands || [];
     const kept = [];
@@ -921,14 +1078,15 @@
           }
           if (onProgress) onProgress(i, hands.length, 'analyze');
           if (i < hands.length) setTimeout(step, 0);
-          else resolve(sessionPayload(parsed, fileName, hero, kept, discarded, computeStats(kept)));
+          else resolve(sessionPayload(parsed, fileName, hero, kept, discarded, computeStats(kept), rawText));
         } catch (e) { reject(e); }
       }
       setTimeout(step, 0);
     });
   }
 
-  function sessionPayload(parsed, fileName, hero, kept, discarded, stats) {
+  function sessionPayload(parsed, fileName, hero, kept, discarded, stats, rawText) {
+    const txt = rawText != null ? rawText : (parsed && parsed.rawText) || null;
     return {
       id: 's' + Date.now() + Math.floor(Math.random() * 1000),
       createdAt: new Date().toISOString(),
@@ -940,8 +1098,8 @@
       stats,
       format: parsed.format || null,
       analysisVersion: global.PT_BUILD || '1',
-      hasTxt: false,
-      rawText: null
+      hasTxt: !!txt,
+      rawText: txt || null
     };
   }
 
@@ -1195,7 +1353,8 @@
   global.Importer = {
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
     heroPlayed, computeStats, heroPreflopHud, assessVpipPfr, HUD_IDEAL, num, cardsFrom,
-    buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions,
+    buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, recomputeHeroNet,
+    heroNet, inferCollectedFromShowdown,
     ensureAnalyzedHandContext, ensureHandSummary, ensureFullTimeline
   };
 })(window);

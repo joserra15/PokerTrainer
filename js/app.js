@@ -3309,8 +3309,8 @@
           openSession(finalSession.id, finalSession);
         };
         const build = Importer.buildSessionAsync
-          ? Importer.buildSessionAsync(parsed, file.name, onProgress)
-          : Promise.resolve(Importer.buildSession(parsed, file.name));
+          ? Importer.buildSessionAsync(parsed, file.name, onProgress, text)
+          : Promise.resolve(Importer.buildSession(parsed, file.name, text));
         build.then(finishSession).catch((err) => {
           hideProgress();
           status.innerHTML = '<span style="color:var(--red)">Error al procesar: ' + escapeHtml(err.message || String(err)) + '</span>';
@@ -3434,9 +3434,25 @@
       currentSession.stats = Importer.computeStats(currentSession.hands);
       currentSession.analysisVersion = buildVer;
       await Store.saveSession(currentSession);
-    } else if (needsHudStats) {
-      currentSession.stats = Importer.computeStats(currentSession.hands);
-      await Store.saveSession(currentSession);
+    } else {
+      // Sesiones guardadas con collected vacío marcaban −stack en wins con side pot.
+      let netFixed = false;
+      if (Importer.recomputeHeroNet) {
+        currentSession.hands.forEach((h) => {
+          const before = h.heroNetBB;
+          const hasCollected = h.collected && Object.keys(h.collected).some((k) => (h.collected[k] || 0) > 0);
+          if (hasCollected) return;
+          Importer.recomputeHeroNet(h);
+          if (h.heroNetBB !== before) netFixed = true;
+        });
+      }
+      if (netFixed && Importer.computeStats) {
+        currentSession.stats = Importer.computeStats(currentSession.hands);
+        await Store.saveSession(currentSession);
+      } else if (needsHudStats) {
+        currentSession.stats = Importer.computeStats(currentSession.hands);
+        await Store.saveSession(currentSession);
+      }
     }
     renderSessionDetail('evLoss');
     showSessionsView('detail');

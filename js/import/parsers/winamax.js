@@ -145,11 +145,15 @@
           if (b.length >= 5 && !hand.board.river.length) hand.board.river = [b[4]];
           continue;
         }
-        if ((m = ln.match(/^Seat \d+: (.+?) (?:\(.*?\) )?showed \[(.+?)\]/))) {
-          hand.shows[m[1]] = hand.shows[m[1]] || cardsFrom(m[2]);
+        // "showed [..] and won X" debe capturar el premio; un match solo de
+        // "showed" (con continue) dejaba collected[hero]=0 → resultado −stack.
+        if ((m = ln.match(/^Seat \d+: (.+?) (?:\([^)]*\) )?showed \[([^\]]+)\](?: and won ([\d.,]+)€?(?: with|$))?/))) {
+          const who = m[1].trim();
+          hand.shows[who] = hand.shows[who] || cardsFrom(m[2]);
+          if (m[3] != null) hand.collected[who] = Math.max(hand.collected[who] || 0, num(m[3]));
           continue;
         }
-        if ((m = ln.match(/^Seat \d+: (.+?) (?:\([^)]*\) )?(?:showed \[[^\]]+\] and )?won ([\d.,]+)€?(?: with|$)/))) {
+        if ((m = ln.match(/^Seat \d+: (.+?) (?:\([^)]*\) )?won ([\d.,]+)€?(?: with|$)/))) {
           const who = m[1].trim();
           hand.collected[who] = Math.max(hand.collected[who] || 0, num(m[2]));
           continue;
