@@ -5,16 +5,20 @@
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 6;
+  var AGG_VERSION = 7;
 
   var STYLE_OPP_KEYS = [
     'threeBetOpps', 'threeBetHits',
     'foldToThreeBetOpps', 'foldToThreeBetHits',
     'stealOpps', 'stealHits',
     'foldToStealOpps', 'foldToStealHits',
+    'squeezeOpps', 'squeezeHits',
     'cbetFlopOpps', 'cbetFlopHits',
     'foldToCbetFlopOpps', 'foldToCbetFlopHits',
-    'afBets', 'afRaises', 'afCalls', 'afChecks'
+    'cbetTurnOpps', 'cbetTurnHits',
+    'cbetRiverOpps', 'cbetRiverHits',
+    'afBets', 'afRaises', 'afCalls', 'afChecks',
+    'sawFlopN', 'wtsdN', 'wonAtSdN', 'wonSawFlopN'
   ];
 
   function addStyleCounters(target, src) {
@@ -31,15 +35,23 @@
     var afAgg = (c.afBets || 0) + (c.afRaises || 0);
     var afCalls = c.afCalls || 0;
     var afActions = afAgg + afCalls + (c.afChecks || 0);
+    var hands = c.hands || 0;
     return {
       threeBetPct: pct(c.threeBetHits, c.threeBetOpps),
       foldToThreeBetPct: pct(c.foldToThreeBetHits, c.foldToThreeBetOpps),
       stealPct: pct(c.stealHits, c.stealOpps),
       foldToStealPct: pct(c.foldToStealHits, c.foldToStealOpps),
+      squeezePct: pct(c.squeezeHits, c.squeezeOpps),
       cbetFlopPct: pct(c.cbetFlopHits, c.cbetFlopOpps),
       foldToCbetFlopPct: pct(c.foldToCbetFlopHits, c.foldToCbetFlopOpps),
+      cbetTurnPct: pct(c.cbetTurnHits, c.cbetTurnOpps),
+      cbetRiverPct: pct(c.cbetRiverHits, c.cbetRiverOpps),
       af: afCalls > 0 ? Math.round((afAgg / afCalls) * 100) / 100 : (afAgg > 0 ? afAgg : null),
-      afq: afActions > 0 ? Math.round((afAgg / afActions) * 1000) / 10 : null
+      afq: afActions > 0 ? Math.round((afAgg / afActions) * 1000) / 10 : null,
+      wtsdPct: pct(c.wtsdN, c.sawFlopN),
+      wsdPct: pct(c.wonAtSdN, c.wtsdN),
+      wwsfPct: pct(c.wonSawFlopN, c.sawFlopN),
+      bbPer100: hands ? Math.round(((c.netBB || 0) / hands) * 1000) / 10 : null
     };
   }
 
