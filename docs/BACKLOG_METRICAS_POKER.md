@@ -15,10 +15,10 @@
 | Dimensión | Industria (6-max cash) | PokerForgeAI hoy | Gap |
 |-----------|------------------------|------------------|-----|
 | Preflop estilo (VPIP/PFR/gap) | Núcleo de todo HUD | ✅ Calculado + ideal 20–28 / 15–24 / gap 3–8 | Menor: por posición (Fase C) |
-| Agresión preflop (3-bet, fold to 3-bet, steal, squeeze) | Tier 1 tras VPIP/PFR | ✅ 3-bet / fold to 3-bet / steal / fold to steal | Squeeze % pendiente (STAT-13) |
-| Postflop (C-bet, fold to C-bet, AF/AFq) | Tier 1–2 | ✅ Flop C-bet (+IP/OOP) / fold to c-bet / AF / AFq | Turn/river c-bet (STAT-09) |
-| Showdown (WTSD, W$SD, WWSF) | Tier 2–3 | ❌ No calculado | Medio |
-| Resultados (bb/100, winrate, sample) | Básico en trackers | Parcial (netBB, EV perdido, sample trust; sin bb/100) | Medio |
+| Agresión preflop (3-bet, fold to 3-bet, steal, squeeze) | Tier 1 tras VPIP/PFR | ✅ Incluye squeeze | — |
+| Postflop (C-bet, fold to C-bet, AF/AFq) | Tier 1–2 | ✅ Flop/turn/river C-bet + fold to flop c-bet + AF/AFq | — |
+| Showdown (WTSD, W$SD, WWSF) | Tier 2–3 | ✅ WTSD / W$SD / WWSF | — |
+| Resultados (bb/100, winrate, sample) | Básico en trackers | ✅ bb/100 + nota de varianza + sample trust | — |
 | KPIs de estudio GTO (acierto, ΔEV, leaks) | Nicho trainers (Snowie, GTOW) | ✅ Fuerte | Ampliar UI (SN-30–33) |
 | HUD de rivales / población | Core de trackers | ❌ Fuera de posicionamiento (OK) | No priorizar |
 
@@ -167,10 +167,11 @@ Cruzar con EPIC 10: no duplicar SN-*; aquí el foco es **métricas de estilo HUD
 
 **DoD Fase B:** Perfil “preflop + flop” suficiente para decir “pasivo postflop / c-bet automático / overfolder”.
 
-**Estado:** STAT-06/07/08 hechos (C-Bet flop + IP/OOP, Fold to C-Bet, AF/AFq). STAT-09 pendiente (turn/river c-bet).
+**Estado:** STAT-06/07/08/09 hechos (incluye C-Bet turn/river).
+
 ---
 
-### Fase C — Showdown, resultados y posición (P1)
+### Fase C — Showdown, resultados y posición (P1) ✅ implementada
 
 | ID | Cambio | Esf. | Criterio de aceptación |
 |----|--------|------|------------------------|
@@ -179,9 +180,11 @@ Cruzar con EPIC 10: no duplicar SN-*; aquí el foco es **métricas de estilo HUD
 | **STAT-12** | **VPIP/PFR/3bet por posición** (UTG…BB) | L | Tabla o heatmap; detecta “demasiado UTG” vs “BTN robando poco” |
 | **STAT-13** | **Squeeze %** del héroe | S | Ideal ~7–9%; sample alto obligatorio |
 
+**Estado:** implementado en `computeStats` / agregados v7 / UI perfil + tabla por posición.
+
 ---
 
-### Fase D — Coaching, IA y producto (P1/P2)
+### Fase D — Coaching, IA y producto (P1/P2) ✅ implementada
 
 | ID | Cambio | Esf. | Criterio de aceptación |
 |----|--------|------|------------------------|
@@ -190,6 +193,8 @@ Cruzar con EPIC 10: no duplicar SN-*; aquí el foco es **métricas de estilo HUD
 | **STAT-16** | Ideales **por formato**: 6-max vs 9-max vs MTT early | M | Usar `play-config` / tipo sesión; SN-35 alineado |
 | **STAT-17** | Tarjeta UI **“Perfil de estilo”** (hero radar o barras vs ideal) | M | Una composición clara en Estadísticas / detalle sesión; no dashboard de chips sueltos |
 | **STAT-18** | Tests unitarios parsers → cada nueva métrica (`tools/test-vpip-pfr.js` → `test-hero-hud-stats.js`) | M | Fixtures PS/Winamax; CI verde |
+
+**Estado:** drills CTA, barras vs ideal, ideales por formato, payload IA ampliado, tests en `test-vpip-pfr.js`.
 
 ---
 
