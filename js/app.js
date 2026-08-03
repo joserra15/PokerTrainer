@@ -2496,7 +2496,7 @@
       ? `<text x="${p.x.toFixed(1)}" y="${h - 8}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml(p.s.label)}</text>`
       : '').join('');
     return `<div class="stats-carousel-chart stats-grade-chart"><h4>${escapeHtml(title)}</h4>
-      <div class="stats-hud-legend muted-text"><span class="stats-hud-leg-vpip">VPIP</span> · <span class="stats-hud-leg-pfr">PFR</span> · referencia 6-max ~20–28% / 15–22%</div>
+      <div class="stats-hud-legend muted-text"><span class="stats-hud-leg-vpip">VPIP</span> · <span class="stats-hud-leg-pfr">PFR</span> · referencia 6-max ~20–28% / 15–24%</div>
       <svg viewBox="0 0 ${w} ${h}" class="stats-grade-svg" role="img" aria-label="${escapeHtml(title)}">
         ${grid}
         <line x1="${pad.l}" y1="${pad.t + innerH}" x2="${w - pad.r}" y2="${pad.t + innerH}" stroke="var(--border)"/>
@@ -2512,17 +2512,88 @@
     return (Math.round(n) === n ? String(n) : String(n)) + '%';
   }
 
+  function fmtHudAf(v) {
+    if (v == null || Number.isNaN(Number(v))) return '—';
+    return String(Number(v));
+  }
+
+  function sampleTrustBadge(sample) {
+    if (!sample) return '';
+    const lvl = sample.level || 'low';
+    const cls = lvl === 'high' || lvl === 'good' ? 'hud-trust-good'
+      : (lvl === 'ok' ? 'hud-trust-ok' : 'hud-trust-low');
+    return `<span class="hud-trust-badge ${cls}" title="n=${sample.n}">${escapeHtml(sample.label || '')}</span>`;
+  }
+
+  function styleMetricCard(label, valueHtml, sample, idealHint) {
+    return `<div class="stat-card style-metric-card">
+      <div class="big">${valueHtml}</div>
+      <div class="lbl">${escapeHtml(label)}${sample ? ' ' + sampleTrustBadge(sample) : ''}</div>
+      ${idealHint ? `<div class="style-ideal-hint muted-text">${escapeHtml(idealHint)}</div>` : ''}
+    </div>`;
+  }
+
+  function sessionStyleProfileHtml(st) {
+    const ideal = (window.Importer && Importer.STYLE_IDEAL) || {};
+    const style = st.style || st;
+    const assess = st.styleAssess || (window.Importer && Importer.assessStyleStats
+      ? Importer.assessStyleStats(style)
+      : null);
+    const sample = (style && style.sample) || {};
+    const cards = [
+      styleMetricCard('3-Bet', fmtHudPct(st.threeBetPct != null ? st.threeBetPct : style.threeBetPct), sample.threeBet,
+        ideal.threeBetMin != null ? `ideal ${ideal.threeBetMin}–${ideal.threeBetMax}%` : ''),
+      styleMetricCard('Fold to 3-Bet', fmtHudPct(st.foldToThreeBetPct != null ? st.foldToThreeBetPct : style.foldToThreeBetPct), sample.foldToThreeBet,
+        ideal.foldToThreeBetMin != null ? `ideal ${ideal.foldToThreeBetMin}–${ideal.foldToThreeBetMax}%` : ''),
+      styleMetricCard('Steal', fmtHudPct(st.stealPct != null ? st.stealPct : style.stealPct), sample.steal,
+        ideal.stealMin != null ? `ideal ${ideal.stealMin}–${ideal.stealMax}%` : ''),
+      styleMetricCard('Fold to Steal', fmtHudPct(st.foldToStealPct != null ? st.foldToStealPct : style.foldToStealPct), sample.foldToSteal,
+        ideal.foldToStealMin != null ? `ideal ${ideal.foldToStealMin}–${ideal.foldToStealMax}%` : ''),
+      styleMetricCard('C-Bet flop', fmtHudPct(st.cbetFlopPct != null ? st.cbetFlopPct : style.cbetFlopPct), sample.cbetFlop,
+        ideal.cbetFlopMin != null ? `ideal ${ideal.cbetFlopMin}–${ideal.cbetFlopMax}%` : ''),
+      styleMetricCard('Fold to C-Bet', fmtHudPct(st.foldToCbetFlopPct != null ? st.foldToCbetFlopPct : style.foldToCbetFlopPct), sample.foldToCbetFlop,
+        ideal.foldToCbetFlopMin != null ? `ideal ${ideal.foldToCbetFlopMin}–${ideal.foldToCbetFlopMax}%` : ''),
+      styleMetricCard('AF', fmtHudAf(st.af != null ? st.af : style.af), sample.af,
+        ideal.afMin != null ? `ideal ${ideal.afMin}–${ideal.afMax}` : ''),
+      styleMetricCard('AFq', fmtHudPct(st.afq != null ? st.afq : style.afq), sample.af,
+        ideal.afqMin != null ? `ideal ${ideal.afqMin}–${ideal.afqMax}%` : '')
+    ].join('');
+
+    const lines = (assess && assess.lines) ? assess.lines.filter((l) => l.text).map((l) => {
+      const cls = l.status === 'ok' ? 'style-line-ok'
+        : (l.status === 'low_sample' || l.status === 'unknown' ? 'style-line-soft' : 'style-line-warn');
+      const badge = sampleTrustBadge(l.sample);
+      return `<li class="${cls}"><span class="style-line-text">${escapeHtml(l.text)}</span> ${badge}</li>`;
+    }).join('') : '';
+
+    const statusCls = !assess ? 'hud-unknown'
+      : (assess.status === 'ok' ? 'hud-ok' : (assess.status === 'low_sample' || assess.status === 'unknown' ? 'hud-unknown' : 'hud-warn'));
+    const label = assess ? assess.label : 'Perfil de estilo';
+    const cbetSplit = (st.cbetFlopIpPct != null || st.cbetFlopOopPct != null)
+      ? `<p class="muted-text stats-section-note" style="margin-top:8px">C-Bet IP ${fmtHudPct(st.cbetFlopIpPct)} · OOP ${fmtHudPct(st.cbetFlopOopPct)}</p>`
+      : '';
+
+    return `<div class="card-box session-hud-note session-style-profile ${statusCls}" style="margin-top:14px">
+      <h3>Perfil de estilo <span class="badge ${statusCls === 'hud-ok' ? 'grade-A' : (statusCls === 'hud-unknown' ? 'grade-C' : 'grade-D')}">${escapeHtml(label)}</span></h3>
+      <div class="stats-content style-metrics-grid">${cards}</div>
+      ${cbetSplit}
+      ${lines ? `<ul class="style-assess-list">${lines}</ul>` : ''}
+      <p class="muted-text stats-section-note" style="margin-top:8px">Referencia cash 6-max. Las insignias indican fiabilidad de la muestra por métrica.</p>
+    </div>`;
+  }
+
   function sessionHudCommentHtml(st) {
     const note = st.vpipPfr || (window.Importer && Importer.assessVpipPfr
-      ? Importer.assessVpipPfr(st.vpipPct, st.pfrPct)
+      ? Importer.assessVpipPfr(st.vpipPct, st.pfrPct, st.nHands)
       : null);
-    if (!note) return '';
-    const statusCls = note.status === 'ok' ? 'hud-ok' : (note.status === 'unknown' ? 'hud-unknown' : 'hud-warn');
-    return `<div class="card-box session-hud-note ${statusCls}" style="margin-top:14px">
-      <h3>VPIP / PFR <span class="badge ${statusCls === 'hud-ok' ? 'grade-A' : (statusCls === 'hud-unknown' ? 'grade-C' : 'grade-D')}">${escapeHtml(note.label)}</span></h3>
+    const ideal = (window.Importer && Importer.STYLE_IDEAL) || {};
+    const vpipNote = note ? `<div class="card-box session-hud-note ${note.status === 'ok' ? 'hud-ok' : (note.status === 'unknown' || note.status === 'low_sample' ? 'hud-unknown' : 'hud-warn')}" style="margin-top:14px">
+      <h3>VPIP / PFR <span class="badge ${note.status === 'ok' ? 'grade-A' : (note.status === 'unknown' || note.status === 'low_sample' ? 'grade-C' : 'grade-D')}">${escapeHtml(note.label)}</span>
+        ${note.sample ? sampleTrustBadge(note.sample) : ''}</h3>
       <p class="muted-text" style="margin:8px 0 0;line-height:1.55">${escapeHtml(note.comment)}</p>
-      <p class="muted-text stats-section-note" style="margin-top:8px">Referencia 6-max cash: VPIP ~20–28%, PFR ~15–22%, hueco típico 3–8 pts.</p>
-    </div>`;
+      <p class="muted-text stats-section-note" style="margin-top:8px">Referencia 6-max cash: VPIP ~${ideal.vpipMin || 20}–${ideal.vpipMax || 28}%, PFR ~${ideal.pfrMin || 15}–${ideal.pfrMax || 24}%, hueco típico ${ideal.gapMin || 3}–${ideal.gapMax || 8} pts.</p>
+    </div>` : '';
+    return vpipNote + sessionStyleProfileHtml(st);
   }
 
   function statsGradeLineChart(title, series) {
@@ -2964,15 +3035,26 @@
           <div class="stat-card"><div class="big">${sessionAccuracy == null ? '—' : sessionAccuracy + '%'}</div><div class="lbl">Acierto</div></div>
           <div class="stat-card"><div class="big">${fmtHudPct(sessionVpip)}</div><div class="lbl">VPIP</div></div>
           <div class="stat-card"><div class="big">${fmtHudPct(sessionPfr)}</div><div class="lbl">PFR</div></div>
+          <div class="stat-card"><div class="big">${fmtHudPct(sessTot && sessTot.threeBetPct)}</div><div class="lbl">3-Bet</div></div>
+          <div class="stat-card"><div class="big">${fmtHudPct(sessTot && sessTot.cbetFlopPct)}</div><div class="lbl">C-Bet flop</div></div>
+          <div class="stat-card"><div class="big">${fmtHudAf(sessTot && sessTot.af)}</div><div class="lbl">AF</div></div>
           <div class="stat-card"><div class="big ${sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot ? (sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB) : '—'}</div><div class="lbl">Resultado real</div></div>
           <div class="stat-card"><div class="big net-neg">${sessTot ? '-' + fmtBB(sessTot.evLoss) : '—'}</div><div class="lbl">EV perdido</div></div>
         </div>
-        <p class="muted-text stats-section-note">VPIP/PFR agregados sobre manos importadas. Referencia 6-max: VPIP ~20–28%, PFR ~15–22%. Reabre sesiones antiguas si aún no muestran estas métricas.</p>`
+        <p class="muted-text stats-section-note">HUD de estilo agregado sobre manos importadas (VPIP/PFR/3-Bet/C-Bet/AF). Referencia 6-max. Reabre sesiones antiguas si aún no muestran estas métricas.</p>`
+      },
+      {
+        title: 'Perfil de estilo',
+        body: sessTot && (sessTot.threeBetOpps != null || sessTot.vpipPct != null)
+          ? sessionStyleProfileHtml(sessTot)
+          : '<div class="stats-carousel-empty muted-text">Importa o reabre sesiones para ver el perfil de estilo.</div>'
       },
       { title: 'Evolución de notas', body: statsGradeLineChart('Nota por sesión (0–10)', sessionGradeSeries) },
       { title: 'Evolución VPIP / PFR', body: statsHudLineChart('VPIP y PFR por sesión', sessionHudSeries) },
       { title: 'Progreso semanal · VPIP', body: statsBarChart('VPIP semanal', sessionWeekly, 'vpipPct', '%', '--accent') },
       { title: 'Progreso semanal · PFR', body: statsBarChart('PFR semanal', sessionWeekly, 'pfrPct', '%', '--gold') },
+      { title: 'Progreso semanal · 3-Bet', body: statsBarChart('3-Bet semanal', sessionWeekly, 'threeBetPct', '%', '--accent') },
+      { title: 'Progreso semanal · C-Bet flop', body: statsBarChart('C-Bet flop semanal', sessionWeekly, 'cbetFlopPct', '%', '--gold') },
       { title: 'Progreso semanal · Acierto', body: statsBarChart('Acierto semanal', sessionWeekly, 'accuracy', '%', '--green') },
       { title: 'Progreso semanal · EV perdido', body: statsBarChart('EV perdido semanal', sessionWeekly, 'evLoss', ' bb', '--red') },
       { title: 'Progreso semanal · Resultado real', body: statsBarChart('Resultado real semanal', sessionWeekly, 'netBB', ' bb', '--accent') },
@@ -3428,7 +3510,9 @@
       && currentSession.analysisVersion !== buildVer;
     const needsHudStats = Importer.computeStats
       && (!currentSession.stats || currentSession.stats.vpipPct == null || currentSession.stats.pfrPct == null
-        || currentSession.stats.vpipHands == null || currentSession.stats.pfrHands == null);
+        || currentSession.stats.vpipHands == null || currentSession.stats.pfrHands == null
+        || currentSession.stats.threeBetOpps == null || currentSession.stats.style == null
+        || currentSession.stats.cbetFlopOpps == null || currentSession.stats.afCalls == null);
     if (needsRecompute) {
       currentSession.hands.forEach((h) => Importer.recomputeHandDecisions(h));
       currentSession.stats = Importer.computeStats(currentSession.hands);

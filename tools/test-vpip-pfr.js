@@ -1,4 +1,4 @@
-/* Prueba VPIP / PFR en importación de sesiones. */
+/* Prueba HUD de estilo del héroe: VPIP/PFR + 3bet/steal/cbet/AF. */
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -39,7 +39,10 @@ function assert(cond, msg) {
   }
 }
 
-// Casos unitarios de heroPreflopHud
+assert(Importer.STYLE_IDEAL && Importer.STYLE_IDEAL.pfrMax === 24, 'STYLE_IDEAL.pfrMax=24');
+assert(Importer.HUD_IDEAL === Importer.STYLE_IDEAL, 'HUD_IDEAL alias');
+
+// Casos unitarios VPIP/PFR
 const foldHand = {
   hero: 'H',
   streets: { preflop: [{ player: 'H', type: 'fold' }] }
@@ -90,7 +93,7 @@ const callRaise = {
 assert(Importer.heroPreflopHud(callRaise).vpip === true, 'call raise es VPIP');
 assert(Importer.heroPreflopHud(callRaise).pfr === false, 'call raise no es PFR');
 
-// Reconstrucción desde summary (payload sin streets)
+// Reconstrucción desde summary
 const fromSummary = {
   hero: 'H',
   summary: [
@@ -102,11 +105,121 @@ assert(Importer.heroPreflopHud(fromSummary).vpip === true, 'summary raise es VPI
 assert(Importer.heroPreflopHud(fromSummary).pfr === true, 'summary raise es PFR');
 assert(fromSummary.streets && fromSummary.streets.preflop.length === 2, 'summary reconstruye streets');
 
-const assessHi = Importer.assessVpipPfr(35, 12);
+const assessHi = Importer.assessVpipPfr(35, 12, 200);
 assert(assessHi.status === 'high' || assessHi.status === 'low' || assessHi.status === 'gap', 'assess desvío');
 assert(/VPIP|PFR/.test(assessHi.comment), 'comentario menciona métricas');
-const assessOk = Importer.assessVpipPfr(24, 18);
+const assessOk = Importer.assessVpipPfr(24, 18, 200);
 assert(assessOk.status === 'ok', 'rango ideal ok, got ' + assessOk.status);
+const assessLagPfr = Importer.assessVpipPfr(26, 23, 200);
+assert(assessLagPfr.status === 'ok', 'PFR 23 ya no es alto, got ' + assessLagPfr.status);
+const assessLowSample = Importer.assessVpipPfr(40, 5, 20);
+assert(assessLowSample.status === 'low_sample', 'muestra baja suaviza coaching');
+
+const trustLow = Importer.sampleTrust(10, 'threeBet');
+assert(trustLow.level === 'low', 'sample trust low');
+const trustHigh = Importer.sampleTrust(500, 'threeBet');
+assert(trustHigh.level === 'high', 'sample trust high');
+
+// 3-bet: hero faces open and re-raises
+const threeBetHand = {
+  hero: 'H',
+  heroPos: 'BB',
+  positions: { V: 'BTN', H: 'BB' },
+  streets: {
+    preflop: [
+      { player: 'V', type: 'raise', amount: 0.10, to: 0.15 },
+      { player: 'H', type: 'raise', amount: 0.35, to: 0.50 }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const tb = Importer.heroStyleHud(threeBetHand);
+assert(tb.threeBetOpp === true, '3bet opp');
+assert(tb.threeBet === true, '3bet hit');
+assert(tb.foldToStealOpp === true, 'BB vs BTN también fold-to-steal opp');
+assert(tb.foldToSteal === false, '3bet no es fold to steal');
+
+// Fold to 3-bet: hero opens, villain 3bets, hero folds
+const foldTo3betHand = {
+  hero: 'H',
+  heroPos: 'BTN',
+  positions: { H: 'BTN', V: 'BB' },
+  streets: {
+    preflop: [
+      { player: 'H', type: 'raise', amount: 0.12, to: 0.15 },
+      { player: 'V', type: 'raise', amount: 0.35, to: 0.50 },
+      { player: 'H', type: 'fold' }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const f3 = Importer.heroStyleHud(foldTo3betHand);
+assert(f3.stealOpp === true && f3.steal === true, 'open BTN es steal');
+assert(f3.foldToThreeBetOpp === true, 'fold to 3bet opp');
+assert(f3.foldToThreeBet === true, 'fold to 3bet hit');
+
+// Steal miss: BTN folds when folded to
+const stealFold = {
+  hero: 'H',
+  heroPos: 'BTN',
+  positions: { H: 'BTN', SB: 'SB', BB: 'BB' },
+  streets: {
+    preflop: [
+      { player: 'H', type: 'fold' },
+      { player: 'SB', type: 'fold' },
+      { player: 'BB', type: 'check' }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const sf = Importer.heroStyleHud(stealFold);
+assert(sf.stealOpp === true, 'steal opp al fold');
+assert(sf.steal === false, 'fold no es steal');
+
+// C-bet flop: hero PFR bets flop
+const cbetHand = {
+  hero: 'H',
+  heroPos: 'BTN',
+  positions: { H: 'BTN', V: 'BB' },
+  streets: {
+    preflop: [
+      { player: 'H', type: 'raise', amount: 0.12, to: 0.15 },
+      { player: 'V', type: 'call', amount: 0.10 }
+    ],
+    flop: [
+      { player: 'V', type: 'check' },
+      { player: 'H', type: 'bet', amount: 0.20 }
+    ],
+    turn: [], river: []
+  }
+};
+const cb = Importer.heroStyleHud(cbetHand);
+assert(cb.cbetFlopOpp === true, 'cbet opp');
+assert(cb.cbetFlop === true, 'cbet hit');
+assert(cb.afBets === 1, 'AF bets');
+
+// Fold to c-bet: villain PFR bets, hero folds
+const foldCbetHand = {
+  hero: 'H',
+  heroPos: 'BB',
+  positions: { V: 'BTN', H: 'BB' },
+  streets: {
+    preflop: [
+      { player: 'V', type: 'raise', amount: 0.12, to: 0.15 },
+      { player: 'H', type: 'call', amount: 0.10 }
+    ],
+    flop: [
+      { player: 'H', type: 'check' },
+      { player: 'V', type: 'bet', amount: 0.20 },
+      { player: 'H', type: 'fold' }
+    ],
+    turn: [], river: []
+  }
+};
+const fc = Importer.heroStyleHud(foldCbetHand);
+assert(fc.foldToCbetFlopOpp === true, 'fold to cbet opp');
+assert(fc.foldToCbetFlop === true, 'fold to cbet hit');
+assert(fc.cbetFlopOpp === false, 'caller no tiene cbet opp');
 
 // Sesión real (sample EN)
 const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerEN-sample.txt'), 'utf8');
@@ -115,10 +228,16 @@ assert(session.stats.vpipPct != null, 'vpipPct presente');
 assert(session.stats.pfrPct != null, 'pfrPct presente');
 assert(session.stats.vpipHands >= session.stats.pfrHands, 'VPIP >= PFR en manos');
 assert(session.stats.vpipPfr && session.stats.vpipPfr.comment, 'comentario VPIP/PFR');
+assert(session.stats.style, 'style object');
+assert(session.stats.threeBetOpps != null, 'threeBetOpps');
+assert(session.stats.cbetFlopOpps != null, 'cbetFlopOpps');
+assert(session.stats.afCalls != null, 'afCalls');
+assert(session.stats.styleAssess, 'styleAssess');
 console.log('Sample VPIP', session.stats.vpipPct + '%', 'PFR', session.stats.pfrPct + '%',
+  '3Bet', session.stats.threeBetPct, 'CBet', session.stats.cbetFlopPct, 'AF', session.stats.af,
   '| manos', session.stats.vpipHands + '/' + session.stats.nHands);
 
-// PokerStars Zoom EN (caso reportado: Poker91)
+// PokerStars Zoom EN
 const zoomTxt = fs.readFileSync(path.join(__dirname, 'fixtures', 'Poker91.txt'), 'utf8');
 const zoom = Importer.buildSession(Importer.parseSession(zoomTxt, 'Poker91.txt'), 'Poker91.txt');
 assert(zoom.hands.length === 200, 'Poker91: 200 manos, got ' + zoom.hands.length);
@@ -129,14 +248,19 @@ assert(zoom.stats.pfrHands > 0, 'Poker91 tiene manos PFR');
 assert(zoom.stats.vpipHands >= zoom.stats.pfrHands, 'Poker91 VPIP >= PFR');
 assert(zoom.stats.vpipPct >= 15 && zoom.stats.vpipPct <= 35, 'Poker91 VPIP en rango plausible, got ' + zoom.stats.vpipPct);
 assert(zoom.stats.pfrPct >= 10 && zoom.stats.pfrPct <= 30, 'Poker91 PFR en rango plausible, got ' + zoom.stats.pfrPct);
+assert(zoom.stats.threeBetOpps > 0, 'Poker91 tiene 3bet opps');
+assert(zoom.stats.style && zoom.stats.style.sample, 'Poker91 style.sample');
 
-// Recalcular sin streets (como si el payload las hubiera perdido)
 const stripped = JSON.parse(JSON.stringify(zoom));
 stripped.hands.forEach((h) => { delete h.streets; });
 const recomputed = Importer.computeStats(stripped.hands);
 assert(recomputed.vpipPct === zoom.stats.vpipPct, 'recompute sin streets conserva vpipPct');
 assert(recomputed.pfrPct === zoom.stats.pfrPct, 'recompute sin streets conserva pfrPct');
+assert(recomputed.threeBetPct === zoom.stats.threeBetPct, 'recompute conserva 3bet');
+assert(recomputed.cbetFlopPct === zoom.stats.cbetFlopPct, 'recompute conserva cbet');
 console.log('Poker91 VPIP', zoom.stats.vpipPct + '%', 'PFR', zoom.stats.pfrPct + '%',
+  '3Bet', zoom.stats.threeBetPct + '% (' + zoom.stats.threeBetHits + '/' + zoom.stats.threeBetOpps + ')',
+  'CBet', zoom.stats.cbetFlopPct, 'AF', zoom.stats.af,
   '| manos', zoom.stats.vpipHands + '/' + zoom.stats.nHands);
 
 // Agregados semanales
@@ -145,10 +269,13 @@ PTStatsAggregate.applySessionStub(st, session);
 const tot = PTStatsAggregate.sessionsTotal(st);
 assert(tot.vpipPct === session.stats.vpipPct, 'total vpipPct');
 assert(tot.pfrPct === session.stats.pfrPct, 'total pfrPct');
+assert(tot.threeBetOpps === session.stats.threeBetOpps, 'total threeBetOpps');
+assert(tot.threeBetPct === session.stats.threeBetPct, 'total threeBetPct');
 const weekly = PTStatsAggregate.sessionWeeklySeries(st, 8);
 const withHands = weekly.filter((w) => w.hands > 0);
 assert(withHands.length >= 1, 'hay semana con manos');
 assert(withHands[0].vpipPct != null, 'semana con vpipPct');
 assert(withHands[0].pfrPct != null, 'semana con pfrPct');
+assert(withHands[0].threeBetOpps != null, 'semana con threeBetOpps');
 
-console.log('*** VPIP/PFR OK ***');
+console.log('*** HUD estilo (VPIP/PFR/3bet/cbet/AF) OK ***');
