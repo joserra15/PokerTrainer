@@ -14,11 +14,11 @@
 
 | Dimensión | Industria (6-max cash) | PokerForgeAI hoy | Gap |
 |-----------|------------------------|------------------|-----|
-| Preflop estilo (VPIP/PFR/gap) | Núcleo de todo HUD | ✅ Calculado + ideal 20–28 / 15–22 / gap 3–8 | Menor: afinar rangos y por posición |
-| Agresión preflop (3-bet, fold to 3-bet, steal, squeeze) | Tier 1 tras VPIP/PFR | ❌ No calculado en import | **Alto** |
-| Postflop (C-bet, fold to C-bet, AF/AFq) | Tier 1–2 | ❌ No calculado | **Alto** |
+| Preflop estilo (VPIP/PFR/gap) | Núcleo de todo HUD | ✅ Calculado + ideal 20–28 / 15–24 / gap 3–8 | Menor: por posición (Fase C) |
+| Agresión preflop (3-bet, fold to 3-bet, steal, squeeze) | Tier 1 tras VPIP/PFR | ✅ 3-bet / fold to 3-bet / steal / fold to steal | Squeeze % pendiente (STAT-13) |
+| Postflop (C-bet, fold to C-bet, AF/AFq) | Tier 1–2 | ✅ Flop C-bet (+IP/OOP) / fold to c-bet / AF / AFq | Turn/river c-bet (STAT-09) |
 | Showdown (WTSD, W$SD, WWSF) | Tier 2–3 | ❌ No calculado | Medio |
-| Resultados (bb/100, winrate, sample) | Básico en trackers | Parcial (netBB, EV perdido; sin bb/100 ni sample trust) | Medio |
+| Resultados (bb/100, winrate, sample) | Básico en trackers | Parcial (netBB, EV perdido, sample trust; sin bb/100) | Medio |
 | KPIs de estudio GTO (acierto, ΔEV, leaks) | Nicho trainers (Snowie, GTOW) | ✅ Fuerte | Ampliar UI (SN-30–33) |
 | HUD de rivales / población | Core de trackers | ❌ Fuera de posicionamiento (OK) | No priorizar |
 
@@ -38,7 +38,7 @@ Rangos orientativos para un regular sólido. No son “GTO único”: varían po
 | **PFR** | **15–22%** (a veces hasta ~24) | PFR muy bajo = pasivo |
 | **Gap VPIP−PFR** | **3–8 pts** (óptimo frecuente 3–6; PFR ≈ 75–90% de VPIP) | Gap &gt;10 = calling station |
 
-**App hoy:** `HUD_IDEAL` en `js/import.js` = VPIP 20–28, PFR 15–22, gap 3–8 → **alineado** con la industria.
+**App hoy:** `STYLE_IDEAL` en `js/import.js` = VPIP 20–28, PFR 15–24, gap 3–8 (+ 3-bet, steal, c-bet, AF…) → **alineado** con la industria.
 
 ### 2.2 Tier 1 — Agresión preflop (fiables ~400–500+ oportunidades)
 
