@@ -221,6 +221,68 @@ assert(fc.foldToCbetFlopOpp === true, 'fold to cbet opp');
 assert(fc.foldToCbetFlop === true, 'fold to cbet hit');
 assert(fc.cbetFlopOpp === false, 'caller no tiene cbet opp');
 
+// Squeeze: open + call, hero re-raises
+const squeezeHand = {
+  hero: 'H',
+  heroPos: 'BB',
+  positions: { O: 'CO', C: 'BTN', H: 'BB' },
+  streets: {
+    preflop: [
+      { player: 'O', type: 'raise', amount: 0.12, to: 0.15 },
+      { player: 'C', type: 'call', amount: 0.15 },
+      { player: 'H', type: 'raise', amount: 0.55, to: 0.70 }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const sq = Importer.heroStyleHud(squeezeHand);
+assert(sq.threeBetOpp === true && sq.threeBet === true, 'squeeze cuenta como 3bet');
+assert(sq.squeezeOpp === true && sq.squeeze === true, 'squeeze hit');
+
+// Turn/river c-bet after flop c-bet
+const barrelHand = {
+  hero: 'H',
+  heroPos: 'BTN',
+  positions: { H: 'BTN', V: 'BB' },
+  board: ['Ah', '7d', '2c', '9s', '3h'],
+  heroNetBB: 5,
+  streets: {
+    preflop: [
+      { player: 'H', type: 'raise', amount: 0.12, to: 0.15 },
+      { player: 'V', type: 'call', amount: 0.10 }
+    ],
+    flop: [
+      { player: 'V', type: 'check' },
+      { player: 'H', type: 'bet', amount: 0.20 },
+      { player: 'V', type: 'call', amount: 0.20 }
+    ],
+    turn: [
+      { player: 'V', type: 'check' },
+      { player: 'H', type: 'bet', amount: 0.50 },
+      { player: 'V', type: 'call', amount: 0.50 }
+    ],
+    river: [
+      { player: 'V', type: 'check' },
+      { player: 'H', type: 'bet', amount: 1.20 },
+      { player: 'V', type: 'call', amount: 1.20 }
+    ]
+  },
+  shows: { H: ['As', 'Kd'], V: ['7c', '7h'] }
+};
+const br = Importer.heroStyleHud(barrelHand);
+assert(br.cbetFlop === true, 'barrel flop cbet');
+assert(br.cbetTurnOpp === true && br.cbetTurn === true, 'turn cbet');
+assert(br.cbetRiverOpp === true && br.cbetRiver === true, 'river cbet');
+assert(br.sawFlop === true, 'saw flop');
+assert(br.wentToSd === true, 'went to SD');
+assert(br.wonAtSd === true, 'won at SD');
+assert(br.wonWhenSawFlop === true, 'won when saw flop');
+
+// Ideales por formato
+assert(Importer.styleIdealForFormat('9max').vpipMax === 22, '9max vpipMax');
+assert(Importer.styleIdealForFormat('mtt').threeBetMin === 5, 'mtt 3bet');
+assert(Importer.inferSessionFormat([{ heroPos: 'UTG1', positions: { A: 'UTG1', B: 'BB' } }]) === '9max', 'infer 9max');
+
 // Sesión real (sample EN)
 const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerEN-sample.txt'), 'utf8');
 const session = Importer.buildSession(Importer.parseSession(txt, 'PokerEN-sample.txt'), 'PokerEN-sample.txt');
@@ -233,8 +295,14 @@ assert(session.stats.threeBetOpps != null, 'threeBetOpps');
 assert(session.stats.cbetFlopOpps != null, 'cbetFlopOpps');
 assert(session.stats.afCalls != null, 'afCalls');
 assert(session.stats.styleAssess, 'styleAssess');
+assert(session.stats.bbPer100 != null, 'bbPer100');
+assert(session.stats.sawFlopN != null, 'sawFlopN');
+assert(session.stats.byPosition, 'byPosition');
+assert(session.stats.format, 'format');
+assert(Array.isArray(session.stats.styleAssess.drills), 'drills array');
 console.log('Sample VPIP', session.stats.vpipPct + '%', 'PFR', session.stats.pfrPct + '%',
   '3Bet', session.stats.threeBetPct, 'CBet', session.stats.cbetFlopPct, 'AF', session.stats.af,
+  'WTSD', session.stats.wtsdPct, 'bb/100', session.stats.bbPer100,
   '| manos', session.stats.vpipHands + '/' + session.stats.nHands);
 
 // PokerStars Zoom EN
@@ -250,6 +318,11 @@ assert(zoom.stats.vpipPct >= 15 && zoom.stats.vpipPct <= 35, 'Poker91 VPIP en ra
 assert(zoom.stats.pfrPct >= 10 && zoom.stats.pfrPct <= 30, 'Poker91 PFR en rango plausible, got ' + zoom.stats.pfrPct);
 assert(zoom.stats.threeBetOpps > 0, 'Poker91 tiene 3bet opps');
 assert(zoom.stats.style && zoom.stats.style.sample, 'Poker91 style.sample');
+assert(zoom.stats.wtsdPct != null || zoom.stats.sawFlopN === 0, 'Poker91 wtsd o sin flops');
+assert(zoom.stats.bbPer100 != null, 'Poker91 bbPer100');
+assert(zoom.stats.byPosition && Object.keys(zoom.stats.byPosition).length > 0, 'Poker91 byPosition');
+assert(zoom.stats.cbetTurnOpps != null, 'Poker91 cbetTurnOpps');
+assert(zoom.stats.squeezeOpps != null, 'Poker91 squeezeOpps');
 
 const stripped = JSON.parse(JSON.stringify(zoom));
 stripped.hands.forEach((h) => { delete h.streets; });
@@ -258,9 +331,12 @@ assert(recomputed.vpipPct === zoom.stats.vpipPct, 'recompute sin streets conserv
 assert(recomputed.pfrPct === zoom.stats.pfrPct, 'recompute sin streets conserva pfrPct');
 assert(recomputed.threeBetPct === zoom.stats.threeBetPct, 'recompute conserva 3bet');
 assert(recomputed.cbetFlopPct === zoom.stats.cbetFlopPct, 'recompute conserva cbet');
+assert(recomputed.wtsdPct === zoom.stats.wtsdPct, 'recompute conserva wtsd');
+assert(recomputed.bbPer100 === zoom.stats.bbPer100, 'recompute conserva bbPer100');
 console.log('Poker91 VPIP', zoom.stats.vpipPct + '%', 'PFR', zoom.stats.pfrPct + '%',
   '3Bet', zoom.stats.threeBetPct + '% (' + zoom.stats.threeBetHits + '/' + zoom.stats.threeBetOpps + ')',
-  'CBet', zoom.stats.cbetFlopPct, 'AF', zoom.stats.af,
+  'CBet', zoom.stats.cbetFlopPct, 'TurnCB', zoom.stats.cbetTurnPct, 'AF', zoom.stats.af,
+  'WTSD', zoom.stats.wtsdPct, 'bb/100', zoom.stats.bbPer100,
   '| manos', zoom.stats.vpipHands + '/' + zoom.stats.nHands);
 
 // Agregados semanales
@@ -271,11 +347,14 @@ assert(tot.vpipPct === session.stats.vpipPct, 'total vpipPct');
 assert(tot.pfrPct === session.stats.pfrPct, 'total pfrPct');
 assert(tot.threeBetOpps === session.stats.threeBetOpps, 'total threeBetOpps');
 assert(tot.threeBetPct === session.stats.threeBetPct, 'total threeBetPct');
+assert(tot.bbPer100 === session.stats.bbPer100, 'total bbPer100');
+assert(tot.sawFlopN === session.stats.sawFlopN, 'total sawFlopN');
 const weekly = PTStatsAggregate.sessionWeeklySeries(st, 8);
 const withHands = weekly.filter((w) => w.hands > 0);
 assert(withHands.length >= 1, 'hay semana con manos');
 assert(withHands[0].vpipPct != null, 'semana con vpipPct');
 assert(withHands[0].pfrPct != null, 'semana con pfrPct');
 assert(withHands[0].threeBetOpps != null, 'semana con threeBetOpps');
+assert(withHands[0].bbPer100 != null, 'semana con bbPer100');
 
-console.log('*** HUD estilo (VPIP/PFR/3bet/cbet/AF) OK ***');
+console.log('*** HUD estilo (fases A–D) OK ***');
