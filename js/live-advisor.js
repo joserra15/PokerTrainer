@@ -153,6 +153,7 @@
       '<div class="live-advisor-head">' +
       '<span class="live-advisor-badge">Avisador en vivo</span>' +
       '<span class="live-advisor-street">' + escapeHtml(cap(advice.street)) + '</span>' +
+      '<button type="button" class="live-advisor-disable" data-disable-live-advisor title="Desactivar avisador" aria-label="Desactivar avisador en vivo">×</button>' +
       '</div>' +
       (narr ? '<p class="live-advisor-narrative muted-text">' + escapeHtml(narr) + '</p>' : '') +
       (advice.context ? '<p class="live-advisor-context">' + escapeHtml(advice.context) + '</p>' : '') +

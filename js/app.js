@@ -283,6 +283,15 @@
     window.PTLiveAdvisor.update($('#live-advisor-panel'), hand, isLiveAdvisorOn());
   }
 
+  function disableLiveAdvisorFromPanel() {
+    if (playSessionConfig) playSessionConfig.liveAdvisor = false;
+    if (hand && hand.playConfig) hand.playConfig.liveAdvisor = false;
+    if (window.PTLiveAdvisor) PTLiveAdvisor.savePreference(false);
+    const laEl = $('#setup-live-advisor');
+    if (laEl) laEl.checked = false;
+    updateLiveAdvisor();
+  }
+
   function bindChipGroup(sel, onChange) {
     const box = $(sel);
     if (!box) return;
@@ -853,6 +862,14 @@
     $('#train-errors').addEventListener('click', () => trainNextError());
     $('#export-data').addEventListener('click', exportData);
     $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
+    const liveAdvPanel = $('#live-advisor-panel');
+    if (liveAdvPanel && !liveAdvPanel._ptDisableBound) {
+      liveAdvPanel._ptDisableBound = true;
+      liveAdvPanel.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-disable-live-advisor]')) return;
+        disableLiveAdvisorFromPanel();
+      });
+    }
     const rmm = $('#range-matrix-modal');
     if (rmm) {
       rmm.addEventListener('click', (e) => {
@@ -2460,10 +2477,13 @@
       });
   }
 
-  function statsHudLineChart(title, series) {
+  function statsHudLineChart(title, series, formatHint) {
     if (!series || !series.length) {
       return '<div class="stats-carousel-empty muted-text">Importa o reabre sesiones para ver la evolución de VPIP/PFR.</div>';
     }
+    const format = formatHint || '6max';
+    const ideal = idealForStatsFormat(format);
+    const formatLabel = formatDisplayLabel(format);
     const w = Math.max(300, series.length * 40);
     const h = 168;
     const pad = { l: 30, r: 12, t: 14, b: 30 };
@@ -2496,7 +2516,7 @@
       ? `<text x="${p.x.toFixed(1)}" y="${h - 8}" text-anchor="middle" font-size="9" fill="var(--muted)">${escapeHtml(p.s.label)}</text>`
       : '').join('');
     return `<div class="stats-carousel-chart stats-grade-chart"><h4>${escapeHtml(title)}</h4>
-      <div class="stats-hud-legend muted-text"><span class="stats-hud-leg-vpip">VPIP</span> · <span class="stats-hud-leg-pfr">PFR</span> · referencia 6-max ~20–28% / 15–24%</div>
+      <div class="stats-hud-legend muted-text"><span class="stats-hud-leg-vpip">VPIP</span> · <span class="stats-hud-leg-pfr">PFR</span> · referencia ${escapeHtml(formatLabel)} ~${ideal.vpipMin || 20}–${ideal.vpipMax || 28}% / ${ideal.pfrMin || 15}–${ideal.pfrMax || 24}%</div>
       <svg viewBox="0 0 ${w} ${h}" class="stats-grade-svg" role="img" aria-label="${escapeHtml(title)}">
         ${grid}
         <line x1="${pad.l}" y1="${pad.t + innerH}" x2="${w - pad.r}" y2="${pad.t + innerH}" stroke="var(--border)"/>
@@ -2525,7 +2545,287 @@
     return `<span class="hud-trust-badge ${cls}" title="n=${sample.n}">${escapeHtml(sample.label || '')}</span>`;
   }
 
-  function styleMetricCard(label, valueHtml, sample, idealHint) {
+  function resolveStatsFormat(st) {
+    return (st && (st.format || (st.style && st.style.format))) || '6max';
+  }
+
+  function formatDisplayLabel(format) {
+    return ({ '6max': 'cash 6-max', '9max': 'cash 9-max / full ring', mtt: 'torneo (MTT)' })[format] || 'cash 6-max';
+  }
+
+  function idealForStatsFormat(format) {
+    if (window.Importer && Importer.styleIdealForFormat) return Importer.styleIdealForFormat(format);
+    return (window.Importer && Importer.STYLE_IDEAL) || {};
+  }
+
+  function bandText(min, max, unit) {
+    if (min == null || max == null) return '';
+    return '~' + min + '–' + max + (unit == null ? '%' : unit);
+  }
+
+  /** Glosario de métricas para jugadores que no conocen el HUD. Ideales según formato de la sesión. */
+  function buildMetricExplain(key, format) {
+    const fmt = format || '6max';
+    const I = idealForStatsFormat(fmt);
+    const fmtLabel = formatDisplayLabel(fmt);
+    const catalog = {
+      vpip: {
+        title: 'VPIP',
+        fullName: 'Voluntarily Put money In Pot',
+        what: 'Porcentaje de manos en las que entras al bote de forma voluntaria preflop (limp, call o raise). No cuenta pagar la ciega grande ni hacer check en BB.',
+        how: 'Si juegas 25 de cada 100 manos, tu VPIP es 25%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.vpipMin, I.vpipMax) + '.',
+        tip: 'Muy bajo = demasiado tight (dejas valor). Muy alto = demasiadas manos débiles, sobre todo out of position.'
+      },
+      pfr: {
+        title: 'PFR',
+        fullName: 'Preflop Raise',
+        what: 'Porcentaje de manos en las que subes (raise) al menos una vez preflop. Mide agresión preflop, no solo “jugar manos”.',
+        how: 'Si abres o 3-beteas en 18 de cada 100 manos, tu PFR es 18%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.pfrMin, I.pfrMax) + '.',
+        tip: 'Un PFR mucho menor que el VPIP indica muchos limps/calls (pasivo). Idealmente el hueco VPIP−PFR es pequeño.'
+      },
+      gap: {
+        title: 'Hueco VPIP−PFR',
+        fullName: 'Diferencia VPIP menos PFR',
+        what: 'Cuántos puntos separan las manos que juegas de las que subes. Resume limps y flats preflop.',
+        how: 'VPIP 28% y PFR 18% → hueco de 10 puntos (bastante pasivo).',
+        ideal: 'Típico en ' + fmtLabel + ': ' + (I.gapMin != null ? (I.gapMin + '–' + I.gapMax + ' pts') : '3–8 pts') + '.',
+        tip: 'Hueco >10 suele ser calling-station: value-bea más fino y farolea menos.'
+      },
+      threeBet: {
+        title: '3-Bet',
+        fullName: 'Porcentaje de re-raise preflop',
+        what: 'De las veces que alguien abre (raise) delante y tú puedes responder, con qué frecuencia vuelves a subir (3-bet), incluido squeeze.',
+        how: 'Si enfrentas 50 opens y 3-beteas 4 veces, tu 3-Bet es 8%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.threeBetMin, I.threeBetMax) + '.',
+        tip: 'Muy bajo = solo premiuns. Muy alto = 3-bets light excesivos sin plan postflop.'
+      },
+      foldToThreeBet: {
+        title: 'Fold to 3-Bet',
+        fullName: 'Foldeo ante un 3-bet',
+        what: 'Cuando tú abriste y te 3-betean, con qué frecuencia tiras la mano en lugar de call o 4-bet.',
+        how: 'Si te 3-betean 20 veces y foldeas 12, es 60%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.foldToThreeBetMin, I.foldToThreeBetMax) + '.',
+        tip: 'Muy alto = overfold (te pueden 3-betear light). Muy bajo = defiendes de más OOP.'
+      },
+      steal: {
+        title: 'Steal',
+        fullName: 'Attempt to Steal (robo de ciegas)',
+        what: 'Con qué frecuencia abres el bote desde CO, BTN o SB cuando todo el mundo ha foldeado hasta ti.',
+        how: 'Si te llega folded-to 40 veces en late y abres 14, steal ≈ 35%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.stealMin, I.stealMax) + '.',
+        tip: 'Poco steal deja dinero en la mesa; demasiado steal te castigan blinds sticky.'
+      },
+      foldToSteal: {
+        title: 'Fold to Steal',
+        fullName: 'Foldeo ante robo de ciegas',
+        what: 'En BB (o SB vs BTN) frente a un open late, con qué frecuencia foldeas.',
+        how: 'Si te roban 30 veces y foldeas 20, es ≈ 67%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.foldToStealMin, I.foldToStealMax) + '.',
+        tip: 'Overfold = target de steals. Defender de más con basura también pierde EV.'
+      },
+      squeeze: {
+        title: 'Squeeze',
+        fullName: 'Squeeze (3-bet con callers detrás del open)',
+        what: 'Cuando hay open + al menos un call, con qué frecuencia 3-beteas (squeeze) en lugar de call/fold.',
+        how: 'Oportunidades = spots open+call; hits = tus squeezes.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.squeezeMin, I.squeezeMax) + '.',
+        tip: 'Necesita muestra grande. Úsalo con blockers y fold equity.'
+      },
+      cbetFlop: {
+        title: 'C-Bet flop',
+        fullName: 'Continuation bet en el flop',
+        what: 'Si fuiste el último en subir preflop (agresora), con qué frecuencia apuestas el flop cuando aún no te han apostado.',
+        how: 'Como PFR en flop, si apuestas 6 de 10 oportunidades, C-Bet = 60%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.cbetFlopMin, I.cbetFlopMax) + '.',
+        tip: 'Casi siempre c-betear es predecible; casi nunca c-betear regala pot.'
+      },
+      cbetTurn: {
+        title: 'C-Bet turn',
+        fullName: 'Continuation bet en el turn',
+        what: 'Tras haber c-beteado el flop, con qué frecuencia vuelves a apostar el turn cuando te dejan (segundo barrel).',
+        how: 'Solo cuenta si c-beteaste flop y llegas al turn sin haber enfrentado ya una apuesta.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.cbetTurnMin, I.cbetTurnMax) + '. Interpreta con muestra suficiente.',
+        tip: 'Barrela más en boards que favorecen tu rango; checkea más en boards malos.'
+      },
+      cbetRiver: {
+        title: 'C-Bet river',
+        fullName: 'Continuation bet en el river',
+        what: 'Tras barrelar turn, con qué frecuencia apuestas de nuevo en river (tercer barrel).',
+        how: 'Requiere haber c-beteado turn; la muestra suele ser pequeña.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.cbetRiverMin, I.cbetRiverMax) + '. Usa con cautela si n es bajo.',
+        tip: 'Mezcla value fino y bluffs con blockers; evita overbarrel sin ventaja de nuts.'
+      },
+      foldToCbet: {
+        title: 'Fold to C-Bet',
+        fullName: 'Foldeo ante continuation bet (flop)',
+        what: 'Cuando el agresor preflop apuesta el flop, con qué frecuencia foldeas.',
+        how: 'Si enfrentas 40 c-bets y foldeas 22, ≈ 55%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.foldToCbetFlopMin, I.foldToCbetFlopMax) + '.',
+        tip: 'Overfold = te farolean barato. Pegajoso = pierdes vs value bets.'
+      },
+      af: {
+        title: 'AF',
+        fullName: 'Aggression Factor',
+        what: 'Relación postflop entre acciones agresivas (bets+raises) y calls. No cuenta checks en el numerador clásico.',
+        how: 'AF = (bets + raises) / calls. Ejemplo: 20 bets y 10 calls → AF 2.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.afMin, I.afMax, '') + '.',
+        tip: 'AF bajo = pasivo (mucho call). AF muy alto = maniac / demasiados bluffs.'
+      },
+      afq: {
+        title: 'AFq',
+        fullName: 'Aggression Frequency',
+        what: 'Porcentaje de tus acciones postflop que son agresivas (bet/raise) sobre el total (bet+raise+call+check).',
+        how: 'Si de 100 acciones 40 son bet/raise, AFq = 40%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.afqMin, I.afqMax) + '.',
+        tip: 'Complementa al AF: mide frecuencia, no solo ratio vs calls.'
+      },
+      wtsd: {
+        title: 'WTSD',
+        fullName: 'Went To Showdown',
+        what: 'De las manos en las que viste el flop, con qué frecuencia llegas a showdown (no foldeas antes).',
+        how: 'Si viste 50 flops y 15 terminan en showdown, WTSD = 30%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.wtsdMin, I.wtsdMax) + '.',
+        tip: 'Alto = calling station en calles tardías. Bajo = overfold con equity.'
+      },
+      wsd: {
+        title: 'W$SD',
+        fullName: 'Won Money at Showdown',
+        what: 'Cuando llegas a showdown, con qué frecuencia ganas el bote.',
+        how: 'Si vas a SD 20 veces y ganas 11, W$SD = 55%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.wsdMin, I.wsdMax) + '.',
+        tip: 'Bajo sugiere peores calls o poco value. Alto: puedes value-betear más thin.'
+      },
+      wwsf: {
+        title: 'WWSF',
+        fullName: 'Won When Saw Flop',
+        what: 'De las manos en las que viste el flop, con qué frecuencia ganas el bote (foldeando al rival o en showdown).',
+        how: 'Ganar = resultado positivo en bb en esa mano tras ver flop.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.wwsfMin, I.wwsfMax) + '.',
+        tip: 'Resume agresividad y continuidad postflop de forma simple.'
+      },
+      bbPer100: {
+        title: 'bb/100',
+        fullName: 'Big blinds ganadas por 100 manos',
+        what: 'Tu resultado real normalizado: (bb netas / manos) × 100. Es la métrica clásica de winrate.',
+        how: 'Si ganas +40 bb en 200 manos, bb/100 = +20.',
+        ideal: 'No hay “ideal GTO” fijo: depende de stakes, rake y edge. Con pocas manos la varianza es enorme.',
+        tip: 'Con menos de ~20 000 manos interprétalo con mucha cautela.'
+      },
+      accuracy: {
+        title: 'Acierto global',
+        fullName: 'Decisiones óptimas o aceptables',
+        what: 'Porcentaje de tus decisiones de la sesión que la app marca como óptimas o aceptables frente a la guía GTO.',
+        how: 'Si 80 de 100 decisiones son buenas, acierto = 80%.',
+        ideal: 'Cuanto más alto, mejor. Úsalo junto al EV perdido, no solo como nota.',
+        tip: 'Puedes tener buen acierto y aun así perder EV en pocos errores graves.'
+      },
+      evLoss: {
+        title: 'EV perdido',
+        fullName: 'Expected Value perdido por fugas',
+        what: 'Suma (en bb) de lo que te costaron las decisiones peores que la mejor línea estimada.',
+        how: 'Cada error suma ΔEV; al final ves el total de la sesión.',
+        ideal: 'Ideal → cerca de 0. Prioriza spots con más EV perdido.',
+        tip: 'Es más útil que el resultado real para estudiar: mide calidad de decisión, no suerte.'
+      },
+      netBB: {
+        title: 'Resultado real',
+        fullName: 'bb ganadas o perdidas en la sesión',
+        what: 'Lo que realmente ganaste o perdiste en fichas (normalizado a big blinds), incluyendo varianza.',
+        how: 'Suma de heroNetBB de cada mano.',
+        ideal: 'A corto plazo no mide skill. Compáralo con EV esperado / fugas.',
+        tip: 'Puedes jugar bien y perder, o jugar mal y ganar: por eso existe el desglose fugas vs varianza.'
+      },
+      nHands: {
+        title: 'Manos jugadas',
+        fullName: 'Tamaño de muestra de la sesión',
+        what: 'Número de manos importadas en las que participaste (con cartas).',
+        how: 'Cada mano del historial cuenta 1.',
+        ideal: 'Más manos → métricas HUD más fiables (sobre todo 3-bet, WTSD, etc.).',
+        tip: 'Mira las insignias de muestra en cada métrica antes de cambiar tu juego.'
+      },
+      sessions: {
+        title: 'Sesiones',
+        fullName: 'Sesiones importadas acumuladas',
+        what: 'Cuántas sesiones de historial tienes guardadas en el agregado.',
+        how: 'Cada importación con stats cuenta como una sesión.',
+        ideal: 'Más sesiones suavizan la varianza del agregado.',
+        tip: 'Reabre sesiones antiguas si faltan métricas nuevas del HUD.'
+      }
+    };
+    const info = catalog[key];
+    if (!info) return null;
+    return Object.assign({ key: key, format: fmt, formatLabel: fmtLabel }, info);
+  }
+
+  function openMetricExplain(key, format) {
+    const info = buildMetricExplain(key, format);
+    if (!info) return;
+    const box = $('#modal-content');
+    if (!box) return;
+    box.innerHTML = `<div class="metric-explain">
+      <div class="metric-explain-head">
+        <h3>${escapeHtml(info.title)}</h3>
+        <button type="button" class="btn secondary btn-sm" data-close-metric-explain>Cerrar</button>
+      </div>
+      <p class="metric-explain-fullname muted-text">${escapeHtml(info.fullName)}</p>
+      <p class="metric-explain-format"><span class="badge grade-C">${escapeHtml(info.formatLabel)}</span>
+        <span class="muted-text">Ideales según el formato detectado en tus manos.</span></p>
+      <h4>Qué mide</h4>
+      <p>${escapeHtml(info.what)}</p>
+      <h4>Cómo se calcula</h4>
+      <p>${escapeHtml(info.how)}</p>
+      <h4>Rango de referencia</h4>
+      <p>${escapeHtml(info.ideal)}</p>
+      <h4>Cómo interpretarlo</h4>
+      <p>${escapeHtml(info.tip)}</p>
+      <p class="muted-text stats-section-note">Pulsa cualquier cuadrito de métrica para volver a abrir esta guía.</p>
+    </div>`;
+    const modal = $('#modal');
+    if (modal) modal.classList.remove('hidden');
+    const closeBtn = box.querySelector('[data-close-metric-explain]');
+    if (closeBtn) closeBtn.onclick = () => closeModal();
+  }
+
+  function bindMetricExplainClicks(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-metric-key]').forEach((el) => {
+      if (el._ptMetricBound) return;
+      el._ptMetricBound = true;
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('[data-style-drill], a, button:not([data-metric-key])')) return;
+        const key = el.getAttribute('data-metric-key');
+        const format = el.getAttribute('data-metric-format')
+          || (root.getAttribute && root.getAttribute('data-style-format'))
+          || '6max';
+        if (key) openMetricExplain(key, format);
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        el.click();
+      });
+    });
+  }
+
+  function explainableStatCard(metricKey, label, valueHtml, format, extraClass, sample, idealHint) {
+    const fmt = format || '6max';
+    return `<div class="stat-card style-metric-card metric-explainable"
+      role="button" tabindex="0"
+      data-metric-key="${escapeHtml(metricKey)}"
+      data-metric-format="${escapeHtml(fmt)}"
+      title="Pulsa para ver qué mide ${escapeHtml(label)}">
+      <div class="big ${extraClass || ''}">${valueHtml}</div>
+      <div class="lbl">${escapeHtml(label)}${sample ? ' ' + sampleTrustBadge(sample) : ''}
+        <span class="metric-info-dot" aria-hidden="true">i</span>
+      </div>
+      ${idealHint ? `<div class="style-ideal-hint muted-text">${escapeHtml(idealHint)}</div>` : ''}
+    </div>`;
+  }
+
+  function styleMetricCard(label, valueHtml, sample, idealHint, metricKey, format) {
+    if (metricKey) return explainableStatCard(metricKey, label, valueHtml, format, '', sample, idealHint);
     return `<div class="stat-card style-metric-card">
       <div class="big">${valueHtml}</div>
       <div class="lbl">${escapeHtml(label)}${sample ? ' ' + sampleTrustBadge(sample) : ''}</div>
@@ -2611,44 +2911,45 @@
   }
 
   function sessionStyleProfileHtml(st) {
+    const format = resolveStatsFormat(st);
     const ideal = st.styleIdeal || (st.styleAssess && st.styleAssess.ideal)
-      || (window.Importer && Importer.STYLE_IDEAL) || {};
+      || idealForStatsFormat(format);
     const style = st.style || st;
     const assess = st.styleAssess || (window.Importer && Importer.assessStyleStats
       ? Importer.assessStyleStats(style, ideal)
       : null);
     const sample = (style && style.sample) || {};
-    const formatLabel = ({ '6max': '6-max', '9max': '9-max', mtt: 'MTT' })[st.format || style.format] || (st.format || style.format || '6-max');
+    const formatLabel = formatDisplayLabel(format);
     const cards = [
       styleMetricCard('3-Bet', fmtHudPct(st.threeBetPct != null ? st.threeBetPct : style.threeBetPct), sample.threeBet,
-        ideal.threeBetMin != null ? `ideal ${ideal.threeBetMin}–${ideal.threeBetMax}%` : ''),
+        ideal.threeBetMin != null ? `ideal ${ideal.threeBetMin}–${ideal.threeBetMax}%` : '', 'threeBet', format),
       styleMetricCard('Fold to 3-Bet', fmtHudPct(st.foldToThreeBetPct != null ? st.foldToThreeBetPct : style.foldToThreeBetPct), sample.foldToThreeBet,
-        ideal.foldToThreeBetMin != null ? `ideal ${ideal.foldToThreeBetMin}–${ideal.foldToThreeBetMax}%` : ''),
+        ideal.foldToThreeBetMin != null ? `ideal ${ideal.foldToThreeBetMin}–${ideal.foldToThreeBetMax}%` : '', 'foldToThreeBet', format),
       styleMetricCard('Steal', fmtHudPct(st.stealPct != null ? st.stealPct : style.stealPct), sample.steal,
-        ideal.stealMin != null ? `ideal ${ideal.stealMin}–${ideal.stealMax}%` : ''),
+        ideal.stealMin != null ? `ideal ${ideal.stealMin}–${ideal.stealMax}%` : '', 'steal', format),
       styleMetricCard('Fold to Steal', fmtHudPct(st.foldToStealPct != null ? st.foldToStealPct : style.foldToStealPct), sample.foldToSteal,
-        ideal.foldToStealMin != null ? `ideal ${ideal.foldToStealMin}–${ideal.foldToStealMax}%` : ''),
+        ideal.foldToStealMin != null ? `ideal ${ideal.foldToStealMin}–${ideal.foldToStealMax}%` : '', 'foldToSteal', format),
       styleMetricCard('Squeeze', fmtHudPct(st.squeezePct != null ? st.squeezePct : style.squeezePct), sample.squeeze,
-        ideal.squeezeMin != null ? `ideal ${ideal.squeezeMin}–${ideal.squeezeMax}%` : ''),
+        ideal.squeezeMin != null ? `ideal ${ideal.squeezeMin}–${ideal.squeezeMax}%` : '', 'squeeze', format),
       styleMetricCard('C-Bet flop', fmtHudPct(st.cbetFlopPct != null ? st.cbetFlopPct : style.cbetFlopPct), sample.cbetFlop,
-        ideal.cbetFlopMin != null ? `ideal ${ideal.cbetFlopMin}–${ideal.cbetFlopMax}%` : ''),
+        ideal.cbetFlopMin != null ? `ideal ${ideal.cbetFlopMin}–${ideal.cbetFlopMax}%` : '', 'cbetFlop', format),
       styleMetricCard('C-Bet turn', fmtHudPct(st.cbetTurnPct != null ? st.cbetTurnPct : style.cbetTurnPct), sample.cbetTurn,
-        ideal.cbetTurnMin != null ? `ideal ${ideal.cbetTurnMin}–${ideal.cbetTurnMax}%` : ''),
+        ideal.cbetTurnMin != null ? `ideal ${ideal.cbetTurnMin}–${ideal.cbetTurnMax}%` : '', 'cbetTurn', format),
       styleMetricCard('C-Bet river', fmtHudPct(st.cbetRiverPct != null ? st.cbetRiverPct : style.cbetRiverPct), sample.cbetRiver,
-        ideal.cbetRiverMin != null ? `ideal ${ideal.cbetRiverMin}–${ideal.cbetRiverMax}%` : ''),
+        ideal.cbetRiverMin != null ? `ideal ${ideal.cbetRiverMin}–${ideal.cbetRiverMax}%` : '', 'cbetRiver', format),
       styleMetricCard('Fold to C-Bet', fmtHudPct(st.foldToCbetFlopPct != null ? st.foldToCbetFlopPct : style.foldToCbetFlopPct), sample.foldToCbetFlop,
-        ideal.foldToCbetFlopMin != null ? `ideal ${ideal.foldToCbetFlopMin}–${ideal.foldToCbetFlopMax}%` : ''),
+        ideal.foldToCbetFlopMin != null ? `ideal ${ideal.foldToCbetFlopMin}–${ideal.foldToCbetFlopMax}%` : '', 'foldToCbet', format),
       styleMetricCard('AF', fmtHudAf(st.af != null ? st.af : style.af), sample.af,
-        ideal.afMin != null ? `ideal ${ideal.afMin}–${ideal.afMax}` : ''),
+        ideal.afMin != null ? `ideal ${ideal.afMin}–${ideal.afMax}` : '', 'af', format),
       styleMetricCard('AFq', fmtHudPct(st.afq != null ? st.afq : style.afq), sample.af,
-        ideal.afqMin != null ? `ideal ${ideal.afqMin}–${ideal.afqMax}%` : ''),
+        ideal.afqMin != null ? `ideal ${ideal.afqMin}–${ideal.afqMax}%` : '', 'afq', format),
       styleMetricCard('WTSD', fmtHudPct(st.wtsdPct != null ? st.wtsdPct : style.wtsdPct), sample.wtsd,
-        ideal.wtsdMin != null ? `ideal ${ideal.wtsdMin}–${ideal.wtsdMax}%` : ''),
+        ideal.wtsdMin != null ? `ideal ${ideal.wtsdMin}–${ideal.wtsdMax}%` : '', 'wtsd', format),
       styleMetricCard('W$SD', fmtHudPct(st.wsdPct != null ? st.wsdPct : style.wsdPct), sample.wsd,
-        ideal.wsdMin != null ? `ideal ${ideal.wsdMin}–${ideal.wsdMax}%` : ''),
+        ideal.wsdMin != null ? `ideal ${ideal.wsdMin}–${ideal.wsdMax}%` : '', 'wsd', format),
       styleMetricCard('WWSF', fmtHudPct(st.wwsfPct != null ? st.wwsfPct : style.wwsfPct), sample.wwsf,
-        ideal.wwsfMin != null ? `ideal ${ideal.wwsfMin}–${ideal.wwsfMax}%` : ''),
-      styleMetricCard('bb/100', fmtHudAf(st.bbPer100 != null ? st.bbPer100 : style.bbPer100), sample.vpip, 'resultado / 100 manos')
+        ideal.wwsfMin != null ? `ideal ${ideal.wwsfMin}–${ideal.wwsfMax}%` : '', 'wwsf', format),
+      styleMetricCard('bb/100', fmtHudAf(st.bbPer100 != null ? st.bbPer100 : style.bbPer100), sample.vpip, 'resultado / 100 manos', 'bbPer100', format)
     ].join('');
 
     const bars = [
@@ -2677,9 +2978,10 @@
       ? `<p class="muted-text stats-section-note">${escapeHtml(st.bbPer100Note || style.bbPer100Note)}</p>`
       : '';
 
-    return `<div class="card-box session-hud-note session-style-profile ${statusCls}" style="margin-top:14px">
+    return `<div class="card-box session-hud-note session-style-profile ${statusCls}" style="margin-top:14px" data-style-format="${escapeHtml(format)}">
       <h3>Perfil de estilo <span class="badge ${statusCls === 'hud-ok' ? 'grade-A' : (statusCls === 'hud-unknown' ? 'grade-C' : 'grade-D')}">${escapeHtml(label)}</span>
         <span class="badge grade-C">${escapeHtml(formatLabel)}</span></h3>
+      <p class="muted-text stats-section-note" style="margin:6px 0 0">Pulsa un cuadrito para ver qué mide esa métrica (adaptado a ${escapeHtml(formatLabel)}).</p>
       <div class="style-bars">${bars}</div>
       <div class="stats-content style-metrics-grid">${cards}</div>
       ${cbetSplit}
@@ -2692,15 +2994,22 @@
   }
 
   function sessionHudCommentHtml(st) {
+    const format = resolveStatsFormat(st);
+    const ideal = st.styleIdeal || idealForStatsFormat(format);
     const note = st.vpipPfr || (window.Importer && Importer.assessVpipPfr
-      ? Importer.assessVpipPfr(st.vpipPct, st.pfrPct, st.nHands)
+      ? Importer.assessVpipPfr(st.vpipPct, st.pfrPct, st.nHands, ideal)
       : null);
-    const ideal = (window.Importer && Importer.STYLE_IDEAL) || {};
-    const vpipNote = note ? `<div class="card-box session-hud-note ${note.status === 'ok' ? 'hud-ok' : (note.status === 'unknown' || note.status === 'low_sample' ? 'hud-unknown' : 'hud-warn')}" style="margin-top:14px">
+    const formatLabel = formatDisplayLabel(format);
+    const vpipCards = [
+      explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), format, '', note && note.sample, ideal.vpipMin != null ? `ideal ${ideal.vpipMin}–${ideal.vpipMax}%` : ''),
+      explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), format, '', note && note.sample, ideal.pfrMin != null ? `ideal ${ideal.pfrMin}–${ideal.pfrMax}%` : '')
+    ].join('');
+    const vpipNote = note ? `<div class="card-box session-hud-note ${note.status === 'ok' ? 'hud-ok' : (note.status === 'unknown' || note.status === 'low_sample' ? 'hud-unknown' : 'hud-warn')}" style="margin-top:14px" data-style-format="${escapeHtml(format)}">
       <h3>VPIP / PFR <span class="badge ${note.status === 'ok' ? 'grade-A' : (note.status === 'unknown' || note.status === 'low_sample' ? 'grade-C' : 'grade-D')}">${escapeHtml(note.label)}</span>
         ${note.sample ? sampleTrustBadge(note.sample) : ''}</h3>
+      <div class="stats-content style-metrics-grid" style="margin-top:10px">${vpipCards}</div>
       <p class="muted-text" style="margin:8px 0 0;line-height:1.55">${escapeHtml(note.comment)}</p>
-      <p class="muted-text stats-section-note" style="margin-top:8px">Referencia 6-max cash: VPIP ~${ideal.vpipMin || 20}–${ideal.vpipMax || 28}%, PFR ~${ideal.pfrMin || 15}–${ideal.pfrMax || 24}%, hueco típico ${ideal.gapMin || 3}–${ideal.gapMax || 8} pts.</p>
+      <p class="muted-text stats-section-note" style="margin-top:8px">Referencia ${escapeHtml(formatLabel)}: VPIP ~${ideal.vpipMin || 20}–${ideal.vpipMax || 28}%, PFR ~${ideal.pfrMin || 15}–${ideal.pfrMax || 24}%, hueco típico ${ideal.gapMin || 3}–${ideal.gapMax || 8} pts.</p>
     </div>` : '';
     return vpipNote + sessionStyleProfileHtml(st);
   }
@@ -2936,6 +3245,7 @@
       };
     });
     bindStyleDrillButtons(document.getElementById('stats-box') || document.getElementById('tab-stats') || document);
+    bindMetricExplainClicks(document.getElementById('stats-box') || document.getElementById('tab-stats') || document);
 
     if (!window._ptStatsResizeBound) {
       window._ptStatsResizeBound = true;
@@ -3136,31 +3446,35 @@
     const sessionHudSeries = buildSessionHudSeries(sessions);
     const sessionVpip = sessTot && sessTot.vpipPct != null ? sessTot.vpipPct : null;
     const sessionPfr = sessTot && sessTot.pfrPct != null ? sessTot.pfrPct : null;
+    const aggFormat = (sessions || []).map((s) => s && s.stats && resolveStatsFormat(s.stats)).filter(Boolean)[0] || '6max';
+    const aggIdeal = idealForStatsFormat(aggFormat);
     const sessionSlides = [
       {
         title: 'Resumen general',
-        body: `<div class="stats-overview-grid">
-          <div class="stat-card"><div class="big">${sessTot ? sessTot.sessions : 0}</div><div class="lbl">Sesiones</div></div>
-          <div class="stat-card"><div class="big">${sessTot ? sessTot.hands : 0}</div><div class="lbl">Manos</div></div>
-          <div class="stat-card"><div class="big">${sessionAccuracy == null ? '—' : sessionAccuracy + '%'}</div><div class="lbl">Acierto</div></div>
-          <div class="stat-card"><div class="big">${fmtHudPct(sessionVpip)}</div><div class="lbl">VPIP</div></div>
-          <div class="stat-card"><div class="big">${fmtHudPct(sessionPfr)}</div><div class="lbl">PFR</div></div>
-          <div class="stat-card"><div class="big">${fmtHudPct(sessTot && sessTot.threeBetPct)}</div><div class="lbl">3-Bet</div></div>
-          <div class="stat-card"><div class="big">${fmtHudPct(sessTot && sessTot.cbetFlopPct)}</div><div class="lbl">C-Bet flop</div></div>
-          <div class="stat-card"><div class="big">${fmtHudAf(sessTot && sessTot.af)}</div><div class="lbl">AF</div></div>
-          <div class="stat-card"><div class="big">${fmtHudPct(sessTot && sessTot.wtsdPct)}</div><div class="lbl">WTSD</div></div>
-          <div class="stat-card"><div class="big">${fmtHudAf(sessTot && sessTot.bbPer100)}</div><div class="lbl">bb/100</div></div>
-          <div class="stat-card"><div class="big ${sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg'}">${sessTot ? (sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB) : '—'}</div><div class="lbl">Resultado real</div></div>
-          <div class="stat-card"><div class="big net-neg">${sessTot ? '-' + fmtBB(sessTot.evLoss) : '—'}</div><div class="lbl">EV perdido</div></div>
+        body: `<div class="stats-overview-grid" data-style-format="${escapeHtml(aggFormat)}">
+          ${explainableStatCard('sessions', 'Sesiones', String(sessTot ? sessTot.sessions : 0), aggFormat)}
+          ${explainableStatCard('nHands', 'Manos', String(sessTot ? sessTot.hands : 0), aggFormat)}
+          ${explainableStatCard('accuracy', 'Acierto', sessionAccuracy == null ? '—' : sessionAccuracy + '%', aggFormat)}
+          ${explainableStatCard('vpip', 'VPIP', fmtHudPct(sessionVpip), aggFormat, '', null, aggIdeal.vpipMin != null ? `ideal ${aggIdeal.vpipMin}–${aggIdeal.vpipMax}%` : '')}
+          ${explainableStatCard('pfr', 'PFR', fmtHudPct(sessionPfr), aggFormat, '', null, aggIdeal.pfrMin != null ? `ideal ${aggIdeal.pfrMin}–${aggIdeal.pfrMax}%` : '')}
+          ${explainableStatCard('threeBet', '3-Bet', fmtHudPct(sessTot && sessTot.threeBetPct), aggFormat)}
+          ${explainableStatCard('cbetFlop', 'C-Bet flop', fmtHudPct(sessTot && sessTot.cbetFlopPct), aggFormat)}
+          ${explainableStatCard('af', 'AF', fmtHudAf(sessTot && sessTot.af), aggFormat)}
+          ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(sessTot && sessTot.wtsdPct), aggFormat)}
+          ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(sessTot && sessTot.bbPer100), aggFormat)}
+          ${explainableStatCard('netBB', 'Resultado real', sessTot ? ((sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB)) : '—', aggFormat, sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg')}
+          ${explainableStatCard('evLoss', 'EV perdido', sessTot ? ('-' + fmtBB(sessTot.evLoss)) : '—', aggFormat, 'net-neg')}
         </div>
-        <p class="muted-text stats-section-note">HUD de estilo agregado (VPIP/PFR/3-Bet/C-Bet/AF/WTSD/bb/100). Reabre sesiones antiguas si faltan métricas.</p>`
+        <p class="muted-text stats-section-note">Pulsa un cuadrito para ver la explicación. Referencias adaptadas a ${escapeHtml(formatDisplayLabel(aggFormat))} cuando se detecta el formato.</p>`
       },
       {
         title: 'Perfil de estilo',
         body: sessTot && (sessTot.threeBetOpps != null || sessTot.vpipPct != null)
           ? sessionStyleProfileHtml(Object.assign({}, sessTot, {
+            format: aggFormat,
+            styleIdeal: aggIdeal,
             styleAssess: (window.Importer && Importer.assessStyleStats)
-              ? Importer.assessStyleStats(sessTot, window.Importer.STYLE_IDEAL)
+              ? Importer.assessStyleStats(sessTot, aggIdeal)
               : null,
             bbPer100Note: sessTot.hands < 20000
               ? 'Varianza alta con menos de 20k manos; interpreta bb/100 con cautela.'
@@ -3169,7 +3483,7 @@
           : '<div class="stats-carousel-empty muted-text">Importa o reabre sesiones para ver el perfil de estilo.</div>'
       },
       { title: 'Evolución de notas', body: statsGradeLineChart('Nota por sesión (0–10)', sessionGradeSeries) },
-      { title: 'Evolución VPIP / PFR', body: statsHudLineChart('VPIP y PFR por sesión', sessionHudSeries) },
+      { title: 'Evolución VPIP / PFR', body: statsHudLineChart('VPIP y PFR por sesión', sessionHudSeries, aggFormat) },
       { title: 'Progreso semanal · VPIP', body: statsBarChart('VPIP semanal', sessionWeekly, 'vpipPct', '%', '--accent') },
       { title: 'Progreso semanal · PFR', body: statsBarChart('PFR semanal', sessionWeekly, 'pfrPct', '%', '--gold') },
       { title: 'Progreso semanal · 3-Bet', body: statsBarChart('3-Bet semanal', sessionWeekly, 'threeBetPct', '%', '--accent') },
@@ -3679,15 +3993,15 @@
     const statHtml = `
       <h2>${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter} · ${st.grade.score}/10</span></h2>
       <p class="muted-text">${escapeHtml(st.grade.verdict)}</p>
-      <div class="stats-content">
-        <div class="stat-card"><div class="big">${st.nHands}</div><div class="lbl">Manos jugadas</div></div>
-        <div class="stat-card"><div class="big ${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}</div><div class="lbl">bb ganadas/perdidas</div></div>
-        <div class="stat-card"><div class="big">${st.accuracy}%</div><div class="lbl">Acierto global</div></div>
-        <div class="stat-card"><div class="big net-neg">-${fmtBB(st.evLossBB)}</div><div class="lbl">EV perdido total (bb)</div></div>
-        <div class="stat-card"><div class="big">${fmtHudPct(st.vpipPct)}</div><div class="lbl">VPIP</div></div>
-        <div class="stat-card"><div class="big">${fmtHudPct(st.pfrPct)}</div><div class="lbl">PFR</div></div>
-        <div class="stat-card"><div class="big">${fmtHudAf(st.bbPer100)}</div><div class="lbl">bb/100</div></div>
-        <div class="stat-card"><div class="big">${fmtHudPct(st.wtsdPct)}</div><div class="lbl">WTSD</div></div>
+      <div class="stats-content" data-style-format="${escapeHtml(resolveStatsFormat(st))}">
+        ${explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), resolveStatsFormat(st))}
+        ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, resolveStatsFormat(st), netCls)}
+        ${explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, resolveStatsFormat(st))}
+        ${explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, resolveStatsFormat(st), 'net-neg')}
+        ${explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), resolveStatsFormat(st))}
+        ${explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), resolveStatsFormat(st))}
+        ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), resolveStatsFormat(st))}
+        ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), resolveStatsFormat(st))}
       </div>
       ${sessionHudCommentHtml(st)}
       <div class="card-box" style="margin-top:14px">
@@ -3748,6 +4062,7 @@
 
     box.innerHTML = statHtml + sortHtml;
     bindStyleDrillButtons(box);
+    bindMetricExplainClicks(box);
     $('#hand-sort').addEventListener('change', (e) => renderSessionDetail(e.target.value));
     bindHandFilters('#session-hands-filters', 'sessionHands', () => renderSessionHands(sortBy));
     renderSessionHands(sortBy);
