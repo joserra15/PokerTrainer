@@ -140,7 +140,7 @@ Cruzar con EPIC 10: no duplicar SN-*; aquí el foco es **métricas de estilo HUD
 
 ---
 
-### Fase A — Preflop style completo (P0)
+### Fase A — Preflop style completo (P0) ✅ implementada
 
 | ID | Cambio | Esf. | Criterio de aceptación |
 |----|--------|------|------------------------|
@@ -152,9 +152,11 @@ Cruzar con EPIC 10: no duplicar SN-*; aquí el foco es **métricas de estilo HUD
 
 **DoD Fase A:** Tras importar una sesión Cash 6-max, el usuario ve VPIP/PFR/3bet/fold-to-3bet (y steal si hay late) con comentario de estilo, no solo dos números.
 
+**Estado:** implementado en `heroStyleHud` / `computeStats` / UI sesión + carousel / agregados v6 / payload IA (`tools/test-vpip-pfr.js`).
+
 ---
 
-### Fase B — Postflop y agresión (P0/P1)
+### Fase B — Postflop y agresión (P0/P1) ✅ implementada
 
 | ID | Cambio | Esf. | Criterio de aceptación |
 |----|--------|------|------------------------|
@@ -165,6 +167,7 @@ Cruzar con EPIC 10: no duplicar SN-*; aquí el foco es **métricas de estilo HUD
 
 **DoD Fase B:** Perfil “preflop + flop” suficiente para decir “pasivo postflop / c-bet automático / overfolder”.
 
+**Estado:** STAT-06/07/08 hechos (C-Bet flop + IP/OOP, Fold to C-Bet, AF/AFq). STAT-09 pendiente (turn/river c-bet).
 ---
 
 ### Fase C — Showdown, resultados y posición (P1)
@@ -258,7 +261,7 @@ Mantener VPIP/PFR planos por compatibilidad con UI/IA actuales; migrar lecturas 
 
 | ID | Cambio | Esf. | P |
 |----|--------|------|---|
-| **STAT-00** | Revisar `pfrMax` (22→24) y copy de gap &gt;10; documentar bandas en UI | S | P0 |
+| **STAT-00** | Revisar `pfrMax` (22→24) y copy de gap &gt;10; documentar bandas en UI | S | P0 | ✅ |
 
 ---
 

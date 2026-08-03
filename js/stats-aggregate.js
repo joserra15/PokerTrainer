@@ -5,7 +5,51 @@
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 5;
+  var AGG_VERSION = 6;
+
+  var STYLE_OPP_KEYS = [
+    'threeBetOpps', 'threeBetHits',
+    'foldToThreeBetOpps', 'foldToThreeBetHits',
+    'stealOpps', 'stealHits',
+    'foldToStealOpps', 'foldToStealHits',
+    'cbetFlopOpps', 'cbetFlopHits',
+    'foldToCbetFlopOpps', 'foldToCbetFlopHits',
+    'afBets', 'afRaises', 'afCalls', 'afChecks'
+  ];
+
+  function addStyleCounters(target, src) {
+    STYLE_OPP_KEYS.forEach(function (k) {
+      target[k] = (target[k] || 0) + (src && src[k] ? src[k] : 0);
+    });
+  }
+
+  function stylePctsFromCounters(c) {
+    function pct(hits, opps) {
+      if (!opps) return null;
+      return Math.round((hits / opps) * 1000) / 10;
+    }
+    var afAgg = (c.afBets || 0) + (c.afRaises || 0);
+    var afCalls = c.afCalls || 0;
+    var afActions = afAgg + afCalls + (c.afChecks || 0);
+    return {
+      threeBetPct: pct(c.threeBetHits, c.threeBetOpps),
+      foldToThreeBetPct: pct(c.foldToThreeBetHits, c.foldToThreeBetOpps),
+      stealPct: pct(c.stealHits, c.stealOpps),
+      foldToStealPct: pct(c.foldToStealHits, c.foldToStealOpps),
+      cbetFlopPct: pct(c.cbetFlopHits, c.cbetFlopOpps),
+      foldToCbetFlopPct: pct(c.foldToCbetFlopHits, c.foldToCbetFlopOpps),
+      af: afCalls > 0 ? Math.round((afAgg / afCalls) * 100) / 100 : (afAgg > 0 ? afAgg : null),
+      afq: afActions > 0 ? Math.round((afAgg / afActions) * 1000) / 10 : null
+    };
+  }
+
+  function pickStyleCounters(stats) {
+    var out = {};
+    STYLE_OPP_KEYS.forEach(function (k) {
+      out[k] = stats && stats[k] != null ? stats[k] : 0;
+    });
+    return out;
+  }
 
   function weekKey(date) {
     var d = new Date(date);
@@ -62,7 +106,7 @@
     var pfrHands = stats.pfrHands != null
       ? stats.pfrHands
       : (stats.pfrPct != null && hands ? Math.round((stats.pfrPct / 100) * hands) : 0);
-    return {
+    var row = {
       week: weekKey(stub.createdAt || Date.now()),
       hands: hands,
       decisions: decN,
@@ -72,13 +116,18 @@
       vpipHands: vpipHands,
       pfrHands: pfrHands
     };
+    addStyleCounters(row, pickStyleCounters(stats));
+    return row;
   }
 
   function rebuildSessionWeekly(agg) {
     var map = {};
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
-      if (!map[c.week]) map[c.week] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
+      if (!map[c.week]) {
+        map[c.week] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
+        addStyleCounters(map[c.week], {});
+      }
       var b = map[c.week];
       b.sessions += 1;
       b.hands += c.hands;
@@ -88,6 +137,7 @@
       b.netBB = round2(b.netBB + c.netBB);
       b.vpipHands += c.vpipHands || 0;
       b.pfrHands += c.pfrHands || 0;
+      addStyleCounters(b, c);
     });
     return map;
   }
@@ -108,6 +158,7 @@
 
   function rebuildSessionsTotal(agg) {
     var tot = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0, vpipPct: null, pfrPct: null };
+    addStyleCounters(tot, {});
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
       tot.sessions += 1;
@@ -118,9 +169,12 @@
       tot.netBB = round2(tot.netBB + c.netBB);
       tot.vpipHands += c.vpipHands || 0;
       tot.pfrHands += c.pfrHands || 0;
+      addStyleCounters(tot, c);
     });
     tot.vpipPct = tot.hands ? Math.round((tot.vpipHands / tot.hands) * 1000) / 10 : null;
     tot.pfrPct = tot.hands ? Math.round((tot.pfrHands / tot.hands) * 1000) / 10 : null;
+    var stylePct = stylePctsFromCounters(tot);
+    Object.keys(stylePct).forEach(function (k) { tot[k] = stylePct[k]; });
     return tot;
   }
 
@@ -284,6 +338,7 @@
       d.setDate(d.getDate() - i * 7);
       var k = weekKey(d);
       buckets[k] = { key: k, hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
+      addStyleCounters(buckets[k], {});
     }
     Object.keys(map || {}).forEach(function (k) {
       if (!buckets[k]) return;
@@ -296,6 +351,7 @@
       buckets[k].netBB = round2(buckets[k].netBB + (src.netBB || 0));
       buckets[k].vpipHands += src.vpipHands || 0;
       buckets[k].pfrHands += src.pfrHands || 0;
+      addStyleCounters(buckets[k], src);
     });
     return Object.keys(buckets).sort().map(function (k) {
       var b = buckets[k];
@@ -304,6 +360,8 @@
       b.netBB = round2(b.netBB);
       b.vpipPct = b.hands ? Math.round((b.vpipHands / b.hands) * 1000) / 10 : null;
       b.pfrPct = b.hands ? Math.round((b.pfrHands / b.hands) * 1000) / 10 : null;
+      var stylePct = stylePctsFromCounters(b);
+      Object.keys(stylePct).forEach(function (key) { b[key] = stylePct[key]; });
       b.label = fmtWeekLabel(k);
       return b;
     });

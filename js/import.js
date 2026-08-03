@@ -1103,114 +1103,388 @@
     };
   }
 
+  /** Rangos ideales 6-max cash NL + umbrales de muestra (STYLE_IDEAL). */
+  const STYLE_IDEAL = {
+    vpipMin: 20, vpipMax: 28,
+    pfrMin: 15, pfrMax: 24,
+    gapMin: 3, gapMax: 8,
+    threeBetMin: 6, threeBetMax: 10,
+    foldToThreeBetMin: 45, foldToThreeBetMax: 60,
+    stealMin: 30, stealMax: 40,
+    foldToStealMin: 55, foldToStealMax: 65,
+    cbetFlopMin: 50, cbetFlopMax: 70,
+    foldToCbetFlopMin: 45, foldToCbetFlopMax: 55,
+    afMin: 2, afMax: 3.5,
+    afqMin: 35, afqMax: 45,
+    sample: {
+      vpip: { low: 50, ok: 100, good: 200 },
+      pfr: { low: 50, ok: 100, good: 200 },
+      threeBet: { low: 30, ok: 100, good: 400 },
+      foldToThreeBet: { low: 20, ok: 50, good: 200 },
+      steal: { low: 30, ok: 80, good: 200 },
+      foldToSteal: { low: 20, ok: 50, good: 150 },
+      cbetFlop: { low: 20, ok: 50, good: 200 },
+      foldToCbetFlop: { low: 20, ok: 50, good: 200 },
+      af: { low: 30, ok: 80, good: 200 }
+    }
+  };
+  /** Alias retrocompatible. */
+  const HUD_IDEAL = STYLE_IDEAL;
+
+  const STEAL_POS = { CO: true, BTN: true, SB: true };
+
+  function emptyHeroStyleHud() {
+    return {
+      vpip: false, pfr: false,
+      threeBetOpp: false, threeBet: false,
+      foldToThreeBetOpp: false, foldToThreeBet: false,
+      stealOpp: false, steal: false,
+      foldToStealOpp: false, foldToSteal: false,
+      cbetFlopOpp: false, cbetFlop: false,
+      cbetFlopIpOpp: false, cbetFlopIp: false,
+      cbetFlopOopOpp: false, cbetFlopOop: false,
+      foldToCbetFlopOpp: false, foldToCbetFlop: false,
+      afBets: 0, afRaises: 0, afCalls: 0, afChecks: 0
+    };
+  }
+
+  function handStreets(hand) {
+    hand = ensureAnalyzedHandContext(hand);
+    let streets = (hand && hand.streets) || null;
+    if ((!streets || !(streets.preflop || []).length) && hand && hand.summary && hand.summary.length) {
+      streets = rebuildStreetsFromSummary(hand);
+      if (hand && !hand.streets) hand.streets = streets;
+    }
+    return streets || { preflop: [], flop: [], turn: [], river: [] };
+  }
+
   /**
-   * VPIP / PFR del héroe en una mano (definición Tracker):
-   * - VPIP: call o raise voluntario preflop (no cuenta poste de blinds ni check de BB).
-   * - PFR: al menos un raise (o bet) preflop del héroe.
+   * HUD de estilo del héroe por mano (Tracker-like).
+   * Recorre streets (no solo decisions) para denominadores de oportunidad.
+   */
+  function heroStyleHud(hand) {
+    const out = emptyHeroStyleHud();
+    hand = ensureAnalyzedHandContext(hand);
+    const hero = hand && hand.hero;
+    if (!hero) return out;
+    const streets = handStreets(hand);
+    const heroPos = (hand.positions && hand.positions[hero]) || hand.heroPos || null;
+    const preflop = streets.preflop || [];
+
+    let raiseCount = 0;
+    let lastRaiser = null;
+    let openRaiser = null;
+    let openRaiserPos = null;
+    let limpers = 0;
+    let callersAfterRaise = 0;
+    let heroHasRaised = false;
+
+    for (let i = 0; i < preflop.length; i++) {
+      const a = preflop[i];
+      if (!a) continue;
+      if (a.player === hero) {
+        if (a.type === 'raise' || a.type === 'bet' || a.type === 'call' || a.type === 'fold' || a.type === 'check') {
+          if (raiseCount === 0 && limpers === 0 && STEAL_POS[heroPos]) {
+            out.stealOpp = true;
+            if (a.type === 'raise' || a.type === 'bet') out.steal = true;
+          }
+          if (raiseCount === 1) {
+            out.threeBetOpp = true;
+            if (a.type === 'raise' || a.type === 'bet') out.threeBet = true;
+            const stealFace = openRaiserPos && STEAL_POS[openRaiserPos] && (
+              heroPos === 'BB' || (heroPos === 'SB' && openRaiserPos === 'BTN')
+            );
+            if (stealFace) {
+              out.foldToStealOpp = true;
+              if (a.type === 'fold') out.foldToSteal = true;
+            }
+          }
+          if (heroHasRaised && raiseCount === 2 && lastRaiser && lastRaiser !== hero) {
+            out.foldToThreeBetOpp = true;
+            if (a.type === 'fold') out.foldToThreeBet = true;
+          }
+        }
+        if (a.type === 'raise' || a.type === 'bet') {
+          out.vpip = true;
+          out.pfr = true;
+        } else if (a.type === 'call') {
+          out.vpip = true;
+        }
+      }
+
+      if (a.type === 'call') {
+        if (raiseCount === 0) limpers++;
+        else callersAfterRaise++;
+      } else if (a.type === 'raise' || a.type === 'bet') {
+        raiseCount++;
+        lastRaiser = a.player;
+        callersAfterRaise = 0;
+        if (raiseCount === 1) {
+          openRaiser = a.player;
+          openRaiserPos = (hand.positions && hand.positions[a.player]) || null;
+        }
+        if (a.player === hero) heroHasRaised = true;
+      }
+    }
+
+    const preflopLastRaiser = lastRaiser;
+    const flop = streets.flop || [];
+    if (flop.length && preflopLastRaiser) {
+      let facedBet = false;
+      let cbetFromPfr = false;
+      let heroCbetResolved = false;
+      let foldToCbetResolved = false;
+      const heroIp = heroIsInPositionPostflop(hand, hero);
+
+      for (let i = 0; i < flop.length; i++) {
+        const a = flop[i];
+        if (!a) continue;
+        if (a.player === hero) {
+          if (preflopLastRaiser === hero && !facedBet && !heroCbetResolved) {
+            out.cbetFlopOpp = true;
+            if (a.type === 'bet' || a.type === 'raise') out.cbetFlop = true;
+            if (heroIp) {
+              out.cbetFlopIpOpp = true;
+              if (a.type === 'bet' || a.type === 'raise') out.cbetFlopIp = true;
+            } else {
+              out.cbetFlopOopOpp = true;
+              if (a.type === 'bet' || a.type === 'raise') out.cbetFlopOop = true;
+            }
+            heroCbetResolved = true;
+          }
+          if (cbetFromPfr && !foldToCbetResolved) {
+            out.foldToCbetFlopOpp = true;
+            if (a.type === 'fold') out.foldToCbetFlop = true;
+            foldToCbetResolved = true;
+          }
+        }
+        if (a.type === 'bet' || a.type === 'raise') {
+          facedBet = true;
+          if (a.player === preflopLastRaiser && a.player !== hero) cbetFromPfr = true;
+        }
+      }
+    }
+
+    ['flop', 'turn', 'river'].forEach((stName) => {
+      (streets[stName] || []).forEach((a) => {
+        if (!a || a.player !== hero) return;
+        if (a.type === 'bet') out.afBets++;
+        else if (a.type === 'raise') out.afRaises++;
+        else if (a.type === 'call') out.afCalls++;
+        else if (a.type === 'check') out.afChecks++;
+      });
+    });
+
+    return out;
+  }
+
+  /**
+   * VPIP / PFR del héroe en una mano (definición Tracker).
    * Si faltan streets (p. ej. payload slim), se reconstruyen desde summary.
    */
   function heroPreflopHud(hand) {
-    hand = ensureAnalyzedHandContext(hand);
-    const hero = hand && hand.hero;
-    if (!hero) return { vpip: false, pfr: false };
-    let acts = (hand.streets && hand.streets.preflop) || [];
-    if (!acts.length && hand.summary && hand.summary.length) {
-      acts = rebuildStreetsFromSummary(hand).preflop || [];
-    }
-    let vpip = false;
-    let pfr = false;
-    for (let i = 0; i < acts.length; i++) {
-      const a = acts[i];
-      if (!a || a.player !== hero) continue;
-      if (a.type === 'raise' || a.type === 'bet') {
-        vpip = true;
-        pfr = true;
-      } else if (a.type === 'call') {
-        vpip = true;
-      }
-    }
-    return { vpip, pfr };
+    const s = heroStyleHud(hand);
+    return { vpip: s.vpip, pfr: s.pfr };
   }
 
-  /** Rangos de referencia 6-max cash NL (estilo GTO/reg). */
-  const HUD_IDEAL = {
-    vpipMin: 20, vpipMax: 28,
-    pfrMin: 15, pfrMax: 22,
-    gapMin: 3, gapMax: 8
-  };
+  function pctFrom(hits, opps) {
+    if (!opps) return null;
+    return Math.round((hits / opps) * 1000) / 10;
+  }
 
-  function assessVpipPfr(vpipPct, pfrPct) {
+  function sampleTrust(n, key) {
+    const th = (STYLE_IDEAL.sample && STYLE_IDEAL.sample[key]) || { low: 30, ok: 80, good: 200 };
+    const count = Number(n) || 0;
+    if (count < th.low) return { level: 'low', label: 'Muestra baja', n: count, thresholds: th };
+    if (count < th.ok) return { level: 'ok', label: 'Muestra orientativa', n: count, thresholds: th };
+    if (count < th.good) return { level: 'good', label: 'Muestra buena', n: count, thresholds: th };
+    return { level: 'high', label: 'Muestra sólida', n: count, thresholds: th };
+  }
+
+  function bandStatus(value, min, max, trust) {
+    if (value == null) return { status: 'unknown', soft: true };
+    if (trust && trust.level === 'low') return { status: 'low_sample', soft: true };
+    if (value < min) return { status: 'low', soft: false };
+    if (value > max) return { status: 'high', soft: false };
+    return { status: 'ok', soft: false };
+  }
+
+  function assessVpipPfr(vpipPct, pfrPct, handsN) {
     if (vpipPct == null || pfrPct == null) {
       return {
         status: 'unknown',
         label: 'Sin datos',
-        comment: 'No hay suficientes acciones preflop del héroe para calcular VPIP/PFR.'
+        comment: 'No hay suficientes acciones preflop del héroe para calcular VPIP/PFR.',
+        gap: null,
+        ideal: STYLE_IDEAL,
+        sample: sampleTrust(handsN || 0, 'vpip')
       };
     }
-    const gap = Math.max(0, vpipPct - pfrPct);
+    const gap = Math.max(0, Math.round((vpipPct - pfrPct) * 10) / 10);
+    const trust = sampleTrust(handsN != null ? handsN : 999, 'vpip');
     const parts = [];
     let status = 'ok';
+    const soft = trust.level === 'low';
 
-    if (vpipPct < HUD_IDEAL.vpipMin) {
-      status = 'low';
+    if (vpipPct < STYLE_IDEAL.vpipMin) {
+      if (!soft) status = 'low';
       parts.push(
-        'VPIP bajo (' + vpipPct + '%; ideal ~' + HUD_IDEAL.vpipMin + '–' + HUD_IDEAL.vpipMax +
+        'VPIP bajo (' + vpipPct + '%; ideal ~' + STYLE_IDEAL.vpipMin + '–' + STYLE_IDEAL.vpipMax +
         '%). Estás jugando demasiado tight: abre un poco más desde late (BTN/CO) y revisa folds excesivos vs opens pequeños.'
       );
-    } else if (vpipPct > HUD_IDEAL.vpipMax) {
-      status = 'high';
+    } else if (vpipPct > STYLE_IDEAL.vpipMax) {
+      if (!soft) status = 'high';
       parts.push(
-        'VPIP alto (' + vpipPct + '%; ideal ~' + HUD_IDEAL.vpipMin + '–' + HUD_IDEAL.vpipMax +
+        'VPIP alto (' + vpipPct + '%; ideal ~' + STYLE_IDEAL.vpipMin + '–' + STYLE_IDEAL.vpipMax +
         '%). Estás entrando en demasiadas manos: recorta limps y calls especulativos out of position; prioriza raises con manos con plan postflop.'
       );
     } else {
       parts.push(
-        'VPIP adecuado (' + vpipPct + '% dentro de ~' + HUD_IDEAL.vpipMin + '–' + HUD_IDEAL.vpipMax + '% en 6-max).'
+        'VPIP adecuado (' + vpipPct + '% dentro de ~' + STYLE_IDEAL.vpipMin + '–' + STYLE_IDEAL.vpipMax + '% en 6-max).'
       );
     }
 
-    if (pfrPct < HUD_IDEAL.pfrMin) {
-      if (status === 'ok') status = 'low';
+    if (pfrPct < STYLE_IDEAL.pfrMin) {
+      if (!soft && status === 'ok') status = 'low';
       parts.push(
-        'PFR bajo (' + pfrPct + '%; ideal ~' + HUD_IDEAL.pfrMin + '–' + HUD_IDEAL.pfrMax +
+        'PFR bajo (' + pfrPct + '%; ideal ~' + STYLE_IDEAL.pfrMin + '–' + STYLE_IDEAL.pfrMax +
         '%). Demasiado pasivo preflop: convierte más limps/calls en opens o 3-bets cuando la mano lo justifica.'
       );
-    } else if (pfrPct > HUD_IDEAL.pfrMax) {
-      if (status === 'ok') status = 'high';
+    } else if (pfrPct > STYLE_IDEAL.pfrMax) {
+      if (!soft && status === 'ok') status = 'high';
       parts.push(
-        'PFR alto (' + pfrPct + '%; ideal ~' + HUD_IDEAL.pfrMin + '–' + HUD_IDEAL.pfrMax +
+        'PFR alto (' + pfrPct + '%; ideal ~' + STYLE_IDEAL.pfrMin + '–' + STYLE_IDEAL.pfrMax +
         '%). Estás subiendo de más: reduce opens light UTG/HJ y 3-bets sin equity o sin fold equity clara.'
       );
     } else {
       parts.push(
-        'PFR adecuado (' + pfrPct + '% dentro de ~' + HUD_IDEAL.pfrMin + '–' + HUD_IDEAL.pfrMax + '%).'
+        'PFR adecuado (' + pfrPct + '% dentro de ~' + STYLE_IDEAL.pfrMin + '–' + STYLE_IDEAL.pfrMax + '%).'
       );
     }
 
-    if (gap > HUD_IDEAL.gapMax) {
-      if (status === 'ok') status = 'gap';
+    if (gap > STYLE_IDEAL.gapMax) {
+      if (!soft && status === 'ok') status = 'gap';
       parts.push(
-        'Hueco VPIP−PFR amplio (' + gap + ' pts; típico ~' + HUD_IDEAL.gapMin + '–' + HUD_IDEAL.gapMax +
+        'Hueco VPIP−PFR amplio (' + gap + ' pts; típico ~' + STYLE_IDEAL.gapMin + '–' + STYLE_IDEAL.gapMax +
         '). Indica muchos limps/calls: prioriza raise-or-fold y evita completar SB o flattear manos débiles.'
       );
-    } else if (gap < HUD_IDEAL.gapMin && vpipPct >= HUD_IDEAL.vpipMin) {
+      if (gap > 10) {
+        parts.push('Con más de 10 pts de hueco el perfil es claramente calling-station: value-bet fino y faroles mínimos.');
+      }
+    } else if (gap < STYLE_IDEAL.gapMin && vpipPct >= STYLE_IDEAL.vpipMin) {
       parts.push(
         'Hueco VPIP−PFR muy estrecho (' + gap + ' pts): casi no flateas. Está bien si es intencional; asegúrate de no overfoldear spots rentables de call (p. ej. BB vs opens pequeños).'
       );
+    }
+
+    if (soft) {
+      status = 'low_sample';
+      parts.unshift('Muestra baja (' + trust.n + ' manos): toma el diagnóstico como orientación, no como veredicto.');
     }
 
     let label = 'Adecuado';
     if (status === 'low') label = 'Por debajo del ideal';
     else if (status === 'high') label = 'Por encima del ideal';
     else if (status === 'gap') label = 'Desbalance pasivo';
+    else if (status === 'low_sample') label = 'Muestra insuficiente';
 
-    return { status, label, comment: parts.join(' '), gap, ideal: HUD_IDEAL };
+    return { status, label, comment: parts.join(' '), gap, ideal: STYLE_IDEAL, sample: trust };
+  }
+
+  function assessMetricLine(name, pct, min, max, trust, tips) {
+    const band = bandStatus(pct, min, max, trust);
+    if (pct == null) {
+      return { key: name, status: 'unknown', text: null, sample: trust };
+    }
+    const unit = name === 'AF' ? '' : '%';
+    const range = '~' + min + '–' + max + unit;
+    let text;
+    if (band.status === 'low_sample') {
+      text = name + ' ' + pct + unit + ' (ideal ' + range + '; ' + trust.label.toLowerCase() + ', n=' + trust.n + ').';
+    } else if (band.status === 'low') {
+      text = name + ' bajo (' + pct + unit + '; ideal ' + range + '). ' + (tips.low || '');
+    } else if (band.status === 'high') {
+      text = name + ' alto (' + pct + unit + '; ideal ' + range + '). ' + (tips.high || '');
+    } else {
+      text = name + ' adecuado (' + pct + unit + ' dentro de ' + range + ').';
+    }
+    return { key: name, status: band.status, text: text.trim(), sample: trust, value: pct, idealMin: min, idealMax: max };
+  }
+
+  function assessStyleStats(style) {
+    if (!style) {
+      return { status: 'unknown', label: 'Sin datos', comment: 'Sin métricas de estilo.', lines: [], sample: {} };
+    }
+    const lines = [];
+    const s = style;
+    lines.push(assessMetricLine('3-Bet', s.threeBetPct, STYLE_IDEAL.threeBetMin, STYLE_IDEAL.threeBetMax, s.sample.threeBet, {
+      low: 'Amplía 3-bets light IP y vs opens late.',
+      high: 'Recorta 3-bets sin plan; prioriza valor + bluffs con blockers.'
+    }));
+    lines.push(assessMetricLine('Fold to 3-Bet', s.foldToThreeBetPct, STYLE_IDEAL.foldToThreeBetMin, STYLE_IDEAL.foldToThreeBetMax, s.sample.foldToThreeBet, {
+      low: 'Estás defendiendo de más vs 3-bets: foldea peores suited connectors OOP.',
+      high: 'Overfold vs 3-bet: defiende más IP y 4-betea polarizado.'
+    }));
+    lines.push(assessMetricLine('Steal', s.stealPct, STYLE_IDEAL.stealMin, STYLE_IDEAL.stealMax, s.sample.steal, {
+      low: 'Roba más desde CO/BTN/SB cuando llega folded to you.',
+      high: 'Steals demasiado anchos: reduce basura OOP y vs blinds sticky.'
+    }));
+    lines.push(assessMetricLine('Fold to Steal', s.foldToStealPct, STYLE_IDEAL.foldToStealMin, STYLE_IDEAL.foldToStealMax, s.sample.foldToSteal, {
+      low: 'Defiendes de más los blinds: recorta calls dominados.',
+      high: 'Overfold a steals: amplia defensa BB vs opens late.'
+    }));
+    lines.push(assessMetricLine('C-Bet flop', s.cbetFlopPct, STYLE_IDEAL.cbetFlopMin, STYLE_IDEAL.cbetFlopMax, s.sample.cbetFlop, {
+      low: 'C-beteas poco: añade polarización en boards favorables.',
+      high: 'C-bet demasiado automático: check más en boards malos OOP.'
+    }));
+    lines.push(assessMetricLine('Fold to C-Bet', s.foldToCbetFlopPct, STYLE_IDEAL.foldToCbetFlopMin, STYLE_IDEAL.foldToCbetFlopMax, s.sample.foldToCbetFlop, {
+      low: 'Pegajoso vs c-bet: foldea peores backdoors OOP.',
+      high: 'Overfold al c-bet: defiende más equity y floats IP.'
+    }));
+    lines.push(assessMetricLine('AF', s.af, STYLE_IDEAL.afMin, STYLE_IDEAL.afMax, s.sample.af, {
+      low: 'Pasivo postflop: sustituye calls por bets/raises con value y bluffs.',
+      high: 'Agresión excesiva: reduce bluffs multi-street sin equity.'
+    }));
+    if (s.afq != null) {
+      lines.push(assessMetricLine('AFq', s.afq, STYLE_IDEAL.afqMin, STYLE_IDEAL.afqMax, s.sample.af, {
+        low: 'Pocas acciones agresivas postflop.',
+        high: 'Demasiada frecuencia agresiva postflop.'
+      }));
+    }
+
+    const hard = lines.filter((l) => l.status === 'low' || l.status === 'high');
+    let status = 'ok';
+    if (hard.length) status = hard[0].status;
+    else if (lines.every((l) => l.status === 'unknown' || l.status === 'low_sample')) status = 'low_sample';
+
+    let label = 'Estilo equilibrado';
+    if (status === 'low') label = 'Estilo conservador / pasivo';
+    else if (status === 'high') label = 'Estilo agresivo / loose';
+    else if (status === 'low_sample') label = 'Muestra insuficiente';
+
+    const commentParts = lines.map((l) => l.text).filter(Boolean);
+    return {
+      status,
+      label,
+      comment: commentParts.join(' '),
+      lines,
+      ideal: STYLE_IDEAL
+    };
   }
 
   function computeStats(hands) {
     const n = hands.length;
     let decN = 0, decGood = 0, evLoss = 0, netBB = 0, evLossEuro = 0;
     let vpipN = 0, pfrN = 0;
+    let threeBetOpps = 0, threeBetHits = 0;
+    let foldToThreeBetOpps = 0, foldToThreeBetHits = 0;
+    let stealOpps = 0, stealHits = 0;
+    let foldToStealOpps = 0, foldToStealHits = 0;
+    let cbetFlopOpps = 0, cbetFlopHits = 0;
+    let cbetFlopIpOpps = 0, cbetFlopIpHits = 0;
+    let cbetFlopOopOpps = 0, cbetFlopOopHits = 0;
+    let foldToCbetFlopOpps = 0, foldToCbetFlopHits = 0;
+    let afBets = 0, afRaises = 0, afCalls = 0, afChecks = 0;
     const bbRef = hands[0] && hands[0].bb ? hands[0].bb : 0.05;
     const street = { preflop: { n: 0, good: 0 }, flop: { n: 0, good: 0 }, turn: { n: 0, good: 0 }, river: { n: 0, good: 0 } };
     const dist = { optima: 0, aceptable: 0, imprecisa: 0, error: 0 };
@@ -1218,9 +1492,21 @@
       ensureAnalyzedHandContext(h);
       netBB += h.heroNetBB;
       evLoss += h.totalEvLoss;
-      const hud = heroPreflopHud(h);
+      const hud = heroStyleHud(h);
       if (hud.vpip) vpipN++;
       if (hud.pfr) pfrN++;
+      if (hud.threeBetOpp) { threeBetOpps++; if (hud.threeBet) threeBetHits++; }
+      if (hud.foldToThreeBetOpp) { foldToThreeBetOpps++; if (hud.foldToThreeBet) foldToThreeBetHits++; }
+      if (hud.stealOpp) { stealOpps++; if (hud.steal) stealHits++; }
+      if (hud.foldToStealOpp) { foldToStealOpps++; if (hud.foldToSteal) foldToStealHits++; }
+      if (hud.cbetFlopOpp) { cbetFlopOpps++; if (hud.cbetFlop) cbetFlopHits++; }
+      if (hud.cbetFlopIpOpp) { cbetFlopIpOpps++; if (hud.cbetFlopIp) cbetFlopIpHits++; }
+      if (hud.cbetFlopOopOpp) { cbetFlopOopOpps++; if (hud.cbetFlopOop) cbetFlopOopHits++; }
+      if (hud.foldToCbetFlopOpp) { foldToCbetFlopOpps++; if (hud.foldToCbetFlop) foldToCbetFlopHits++; }
+      afBets += hud.afBets;
+      afRaises += hud.afRaises;
+      afCalls += hud.afCalls;
+      afChecks += hud.afChecks;
       (h.decisions || []).forEach((d) => {
         if (d.evErroneous) evLossEuro += d.evLossEuro != null ? d.evLossEuro : r2((d.evLoss || 0) * bbRef);
         decN++;
@@ -1239,7 +1525,6 @@
     const best5 = byNet.slice(0, 5);
     const worst5 = byNet.slice(-5).reverse();
 
-    // EV por decisiones vs resultado real vs varianza
     const evLostBB = r2(evLoss);
     const actualNet = r2(netBB);
     const netEv = GTO.EvLoss.computeNetEvStats(actualNet, evLostBB);
@@ -1258,7 +1543,46 @@
     const grade = sessionGrade(accuracy, evLoss, decN, netBB);
     const vpipPct = n ? Math.round((vpipN / n) * 1000) / 10 : null;
     const pfrPct = n ? Math.round((pfrN / n) * 1000) / 10 : null;
-    const vpipPfr = assessVpipPfr(vpipPct, pfrPct);
+    const vpipPfr = assessVpipPfr(vpipPct, pfrPct, n);
+
+    const threeBetPct = pctFrom(threeBetHits, threeBetOpps);
+    const foldToThreeBetPct = pctFrom(foldToThreeBetHits, foldToThreeBetOpps);
+    const stealPct = pctFrom(stealHits, stealOpps);
+    const foldToStealPct = pctFrom(foldToStealHits, foldToStealOpps);
+    const cbetFlopPct = pctFrom(cbetFlopHits, cbetFlopOpps);
+    const cbetFlopIpPct = pctFrom(cbetFlopIpHits, cbetFlopIpOpps);
+    const cbetFlopOopPct = pctFrom(cbetFlopOopHits, cbetFlopOopOpps);
+    const foldToCbetFlopPct = pctFrom(foldToCbetFlopHits, foldToCbetFlopOpps);
+    const afAgg = afBets + afRaises;
+    const afActions = afAgg + afCalls + afChecks;
+    const af = afCalls > 0 ? Math.round((afAgg / afCalls) * 100) / 100
+      : (afAgg > 0 ? afAgg : null);
+    const afq = afActions > 0 ? Math.round((afAgg / afActions) * 1000) / 10 : null;
+
+    const style = {
+      vpipPct, pfrPct, gap: vpipPct != null && pfrPct != null ? Math.round((vpipPct - pfrPct) * 10) / 10 : null,
+      threeBetPct, threeBetOpps, threeBetHits,
+      foldToThreeBetPct, foldToThreeBetOpps, foldToThreeBetHits,
+      stealPct, stealOpps, stealHits,
+      foldToStealPct, foldToStealOpps, foldToStealHits,
+      cbetFlopPct, cbetFlopOpps, cbetFlopHits,
+      cbetFlopIpPct, cbetFlopIpOpps, cbetFlopIpHits,
+      cbetFlopOopPct, cbetFlopOopOpps, cbetFlopOopHits,
+      foldToCbetFlopPct, foldToCbetFlopOpps, foldToCbetFlopHits,
+      af, afq, afBets, afRaises, afCalls, afChecks,
+      sample: {
+        vpip: sampleTrust(n, 'vpip'),
+        pfr: sampleTrust(n, 'pfr'),
+        threeBet: sampleTrust(threeBetOpps, 'threeBet'),
+        foldToThreeBet: sampleTrust(foldToThreeBetOpps, 'foldToThreeBet'),
+        steal: sampleTrust(stealOpps, 'steal'),
+        foldToSteal: sampleTrust(foldToStealOpps, 'foldToSteal'),
+        cbetFlop: sampleTrust(cbetFlopOpps, 'cbetFlop'),
+        foldToCbetFlop: sampleTrust(foldToCbetFlopOpps, 'foldToCbetFlop'),
+        af: sampleTrust(afActions, 'af')
+      }
+    };
+    const styleAssess = assessStyleStats(style);
 
     return {
       nHands: n, nDecisions: decN, accuracy, accByStreet, dist,
@@ -1269,8 +1593,18 @@
       perfectPlayNetBB, perfectPlayNetEuro, evLossEuroTotal,
       pctDecision, pctVariance, leakPartBB: leakVar.leakPartBB, varPartBB: leakVar.varPartBB,
       vpipPct, pfrPct, vpipHands: vpipN, pfrHands: pfrN,
-      vpipPfrGap: vpipPct != null && pfrPct != null ? Math.round((vpipPct - pfrPct) * 10) / 10 : null,
+      vpipPfrGap: style.gap,
       vpipPfr: vpipPfr,
+      threeBetPct, threeBetOpps, threeBetHits,
+      foldToThreeBetPct, foldToThreeBetOpps, foldToThreeBetHits,
+      stealPct, stealOpps, stealHits,
+      foldToStealPct, foldToStealOpps, foldToStealHits,
+      cbetFlopPct, cbetFlopOpps, cbetFlopHits,
+      cbetFlopIpPct, cbetFlopIpOpps, cbetFlopIpHits,
+      cbetFlopOopPct, cbetFlopOopOpps, cbetFlopOopHits,
+      foldToCbetFlopPct, foldToCbetFlopOpps, foldToCbetFlopHits,
+      af, afq, afBets, afRaises, afCalls, afChecks,
+      style, styleAssess,
       grade
     };
   }
@@ -1352,7 +1686,8 @@
 
   global.Importer = {
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
-    heroPlayed, computeStats, heroPreflopHud, assessVpipPfr, HUD_IDEAL, num, cardsFrom,
+    heroPlayed, computeStats, heroPreflopHud, heroStyleHud, assessVpipPfr, assessStyleStats,
+    sampleTrust, STYLE_IDEAL, HUD_IDEAL, num, cardsFrom,
     buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, recomputeHeroNet,
     heroNet, inferCollectedFromShowdown,
     ensureAnalyzedHandContext, ensureHandSummary, ensureFullTimeline
