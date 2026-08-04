@@ -365,31 +365,6 @@ body.range-matrix-open { overflow: hidden; }
   display: grid;
   gap: 6px;
 }
-.landing-compare-wrap { overflow-x: auto; margin-bottom: 10px; }
-.landing-compare-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-  min-width: 640px;
-}
-.landing-compare-table th,
-.landing-compare-table td {
-  border: 1px solid var(--border);
-  padding: 10px 12px;
-  text-align: left;
-  vertical-align: top;
-}
-.landing-compare-table thead th {
-  background: var(--panel);
-  font-weight: 600;
-}
-.landing-compare-table tbody th {
-  background: rgba(255,255,255,.02);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.landing-compare-table td:nth-child(2) { color: var(--accent); }
-.landing-compare-note { font-size: 13px; }
 .home-onboarding { margin: 0 0 16px; }
 .onboarding-card {
   background: var(--panel);
@@ -630,36 +605,94 @@ body.range-matrix-open { overflow: hidden; }
   }
   .landing-nav .btn { width: 100%; max-width: 280px; margin: 4px auto 0; }
   .landing-hero { max-width: none; }
+  .landing-section { max-width: none; }
+  .landing-limits-box { max-width: none; }
+  .landing-pricing-grid { max-width: none; }
 }
 @media (max-width: 600px) {
-  .landing-main { padding: calc(18px + var(--safe-top)) max(14px, var(--safe-right)) calc(28px + var(--safe-bottom)) max(14px, var(--safe-left)); }
-  .landing-hero h1 { font-size: 26px; }
-  .landing-lead { font-size: 15px; }
-  .landing-hero-actions { flex-direction: column; }
-  .landing-hero-actions .btn { width: 100%; justify-content: center; }
+  .landing-page.auth-gate {
+    overflow-x: hidden;
+  }
+  .landing-main {
+    padding: calc(16px + var(--safe-top)) max(14px, var(--safe-right)) calc(24px + var(--safe-bottom)) max(14px, var(--safe-left));
+  }
+  .landing-brand { font-size: 15px; }
+  .landing-brand .app-logo { width: 36px; height: 36px; }
+  .landing-hero { margin-bottom: 36px; }
+  .landing-hero h1 {
+    font-size: clamp(24px, 7vw, 28px);
+    line-height: 1.18;
+  }
+  .landing-lead { font-size: 15px; margin-bottom: 16px; }
+  .landing-hero-actions {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .landing-hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .landing-hero-bullets {
+    font-size: 13px;
+    padding-left: 16px;
+  }
+  .landing-promo-pill {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
   .landing-features-grid,
   .landing-pricing-grid,
   .landing-install-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
-  .landing-section { margin-bottom: 36px; }
+  .landing-feature,
+  .landing-price-card,
+  .landing-install-card {
+    padding: 14px;
+  }
+  .landing-limits-box {
+    padding: 14px;
+  }
+  .landing-limits-list {
+    font-size: 13px;
+    padding-left: 16px;
+  }
+  .landing-price { font-size: 24px; }
+  .landing-price-card .btn {
+    min-height: 44px;
+    justify-content: center;
+  }
+  .landing-section { margin-bottom: 32px; }
   .landing-section h2 { font-size: 20px; }
+  .landing-section-lead { font-size: 14px; margin-bottom: 14px; }
   .landing-nav {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     width: 100%;
   }
   .landing-nav a:not(.btn) {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     font-size: 12px;
-    padding: 8px 4px;
+    line-height: 1.2;
+    padding: 10px 4px;
+    min-height: 40px;
+    word-break: break-word;
   }
   .landing-nav .btn {
     grid-column: 1 / -1;
     width: 100%;
     max-width: none;
+    min-height: 44px;
   }
   .landing-footer {
     flex-direction: column;
@@ -667,10 +700,55 @@ body.range-matrix-open { overflow: hidden; }
     text-align: center;
     align-items: center;
   }
-  .landing-cta-band { padding: 20px 16px; }
-  .landing-promo-code-form { max-width: none; }
-  .landing-promo-code-form .btn { width: 100%; justify-content: center; }
-  .landing-login-panel .auth-card { padding: 24px 18px; max-width: none; }
+  .landing-cta-band {
+    padding: 18px 14px;
+    text-align: center;
+  }
+  .landing-cta-band .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .landing-promo-code-block { max-width: none; }
+  .landing-promo-code-form {
+    max-width: none;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .landing-promo-code-input {
+    flex: none;
+    width: 100%;
+    min-height: 44px;
+    font-size: 16px; /* evita zoom iOS */
+  }
+  .landing-promo-code-form .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .promo-banner {
+    padding: 12px 14px;
+  }
+  .promo-banner-title { font-size: 15px; }
+  .landing-login-panel {
+    padding: calc(18px + var(--safe-top)) max(14px, var(--safe-right)) calc(24px + var(--safe-bottom)) max(14px, var(--safe-left));
+  }
+  .landing-login-panel .auth-card {
+    padding: 22px 16px;
+    max-width: none;
+    box-sizing: border-box;
+  }
+  .landing-install-card .btn {
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+@media (max-width: 380px) {
+  .landing-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .landing-hero h1 { font-size: 22px; }
+  .landing-nav a:not(.btn) { font-size: 11px; padding: 9px 3px; }
 }
 
 main { padding: 22px; max-width: 1280px; margin: 0 auto; }
