@@ -1,0 +1,129 @@
+Poker Hand #HD123456789: Hold'em No Limit ($0.05/$0.10) - 2024/06/15 18:22:40
+Table 'NLHGold50' 6-max Seat #3 is the button
+Seat 1: VillainA ($10.25 in chips)
+Seat 2: VillainB ($8.40 in chips)
+Seat 3: Hero ($10 in chips)
+Seat 4: VillainC ($12.10 in chips)
+Seat 5: VillainD ($9.55 in chips)
+Seat 6: VillainE ($11.20 in chips)
+VillainC: posts small blind $0.05
+VillainD: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [Ah Kd]
+VillainE: folds
+VillainA: folds
+VillainB: raises $0.20 to $0.30
+Hero: raises $0.70 to $1
+VillainC: folds
+VillainD: folds
+VillainB: calls $0.70
+*** FLOP *** [As 7c 2d]
+VillainB: checks
+Hero: bets $0.80
+VillainB: folds
+Uncalled bet ($0.80) returned to Hero
+*** SHOWDOWN ***
+Hero collected $2.05 from pot
+*** SUMMARY ***
+Total pot $2.15 | Rake $0.10
+Board [As 7c 2d]
+Seat 1: VillainA folded before Flop (didn't bet)
+Seat 2: VillainB folded on the Flop
+Seat 3: Hero (button) collected ($2.05)
+Seat 4: VillainC (small blind) folded before Flop
+Seat 5: VillainD (big blind) folded before Flop
+Seat 6: VillainE folded before Flop (didn't bet)
+
+
+Poker Hand #HD123456790: Hold'em No Limit ($0.05/$0.10) - 2024/06/15 18:23:12
+Table 'NLHGold50' 6-max Seat #4 is the button
+Seat 1: VillainA ($10.25 in chips)
+Seat 2: VillainB ($7.40 in chips)
+Seat 3: Hero ($11.05 in chips)
+Seat 4: VillainC ($12.05 in chips)
+Seat 5: VillainD ($9.45 in chips)
+Seat 6: VillainE ($11.20 in chips)
+VillainD: posts small blind $0.05
+VillainE: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [8c 3d]
+VillainA: folds
+VillainB: folds
+Hero: folds
+VillainC: folds
+VillainD: folds
+Uncalled bet ($0.05) returned to VillainE
+*** SHOWDOWN ***
+VillainE collected $0.10 from pot
+*** SUMMARY ***
+Total pot $0.10 | Rake $0
+Seat 1: VillainA folded before Flop (didn't bet)
+Seat 2: VillainB folded before Flop (didn't bet)
+Seat 3: Hero folded before Flop (didn't bet)
+Seat 4: VillainC (button) folded before Flop (didn't bet)
+Seat 5: VillainD (small blind) folded before Flop
+Seat 6: VillainE (big blind) collected ($0.10)
+
+
+Poker Hand #HD123456791: Hold'em No Limit ($0.05/$0.10) - 2024/06/15 18:23:45
+Table 'NLHGold50' 6-max Seat #5 is the button
+Seat 1: VillainA ($10.25 in chips)
+Seat 2: VillainB ($7.40 in chips)
+Seat 3: Hero ($11.05 in chips)
+Seat 4: VillainC ($12.05 in chips)
+Seat 5: VillainD ($9.40 in chips)
+Seat 6: VillainE ($11.25 in chips)
+VillainE: posts small blind $0.05
+VillainA: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [Tc Td]
+VillainB: folds
+Hero: raises $0.20 to $0.30
+VillainC: folds
+VillainD: folds
+VillainE: folds
+VillainA: calls $0.20
+*** FLOP *** [Kd 4s 7c]
+VillainA: checks
+Hero: bets $0.35
+VillainA: calls $0.35
+*** TURN *** [Kd 4s 7c] [9h]
+VillainA: checks
+Hero: checks
+*** RIVER *** [Kd 4s 7c 9h] [2s]
+VillainA: checks
+Hero: bets $0.80
+VillainA: folds
+Uncalled bet ($0.80) returned to Hero
+*** SHOWDOWN ***
+Hero collected $1.28 from pot
+*** SUMMARY ***
+Total pot $1.35 | Rake $0.07
+Board [Kd 4s 7c 9h 2s]
+Seat 1: VillainA (big blind) folded on the River
+Seat 2: VillainB folded before Flop (didn't bet)
+Seat 3: Hero collected ($1.28)
+Seat 4: VillainC folded before Flop (didn't bet)
+Seat 5: VillainD (button) folded before Flop (didn't bet)
+Seat 6: VillainE (small blind) folded before Flop
+
+
+Poker Hand #TM999888777: Tournament #5259595, Daily Special $25 Hold'em No Limit - Level2 (60/120) - 2024/06/15 19:00:00
+Table '6' 8-max Seat #1 is the button
+Seat 1: Hero (10000 in chips)
+Seat 2: Opp1 (12000 in chips)
+Hero: posts the ante 18
+Opp1: posts the ante 18
+Hero: posts small blind 60
+Opp1: posts big blind 120
+*** HOLE CARDS ***
+Dealt to Hero [Qh Jh]
+Hero: raises 156 to 276
+Opp1: folds
+Uncalled bet (156) returned to Hero
+*** SHOWDOWN ***
+Hero collected 336 from pot
+*** SUMMARY ***
+Total pot 336
+Seat 1: Hero (small blind) collected (336)
+Seat 2: Opp1 (big blind) folded before Flop

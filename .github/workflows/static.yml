@@ -29,8 +29,10 @@ jobs:
         run: node tools/build-bundles.js
       - name: Selftest
         run: node tools/selftest.js
-      - name: Test importador ES/EN/Winamax
+      - name: Test importador ES/EN/Winamax/GGPoker
         run: node tools/testimport.js
+      - name: Test P0 session/onboarding
+        run: node tools/test-p0-session-onboarding.js
       - name: Test VPIP/PFR (incl. Poker91 Zoom)
         run: node tools/test-vpip-pfr.js
       - name: Validar rangos JSON solver
@@ -45,6 +47,10 @@ jobs:
         run: node tools/test-river-trips.js
       - name: Test análisis de manos (manual + cartas fijas)
         run: node tools/test-hand-analysis.js
+      - name: Test GTO eval UI
+        run: node tools/test-gto-eval-ui.js
+      - name: Test BB vs SB
+        run: node tools/test-bb-vs-sb-position.js
 
   deploy:
     needs: test

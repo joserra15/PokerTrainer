@@ -70,6 +70,7 @@
       'js/demo-mode.js',
       'js/entitlements.js',
       'js/billing.js',
+      'js/onboarding.js',
       'js/pwa.js',
       'js/account-settings.js',
       'js/auth.js',
@@ -80,6 +81,7 @@
       'js/import/formatDetector.js',
       'js/import/parsers/pokerstars.js',
       'js/import/parsers/winamax.js',
+      'js/import/parsers/ggpoker.js',
       'js/import.js'
     ],
     analysis: ['js/hand-analysis.js'],

@@ -197,6 +197,7 @@
     const vlEl = $('#setup-villain-level .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
     const thEl = $('#setup-table-theme .setup-chip.active');
+    const htEl = $('#setup-hands-target .setup-chip.active');
     const laEl = $('#setup-live-advisor');
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
@@ -207,6 +208,7 @@
       villainLevel: vlEl ? vlEl.dataset.val : 'fish',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
       tableTheme: thEl ? thEl.dataset.val : loadTableTheme(),
+      handsTarget: htEl ? Number(htEl.dataset.val) || 0 : 0,
       liveAdvisor: laEl ? laEl.checked : false
     });
   }
@@ -348,6 +350,7 @@
     activate('#setup-hand-range', cfg.handRange);
     activate('#setup-villain-level', cfg.villainLevel);
     activate('#setup-practice-street', cfg.practiceStreet);
+    if (cfg.handsTarget != null) activate('#setup-hands-target', String(cfg.handsTarget || 0));
     if (cfg.tableTheme) {
       activate('#setup-table-theme', cfg.tableTheme);
       saveTableTheme(cfg.tableTheme);
@@ -363,7 +366,10 @@
       goToTab('play', { setup: true });
       return;
     }
-    playSessionConfig = cfg;
+    // Chips del DOM pueden no tener valores guiados (p.ej. handsTarget 10 del onboarding).
+    playSessionConfig = window.PTPlayConfig
+      ? PTPlayConfig.normalize(Object.assign({}, cfg, partial || {}))
+      : cfg;
     if (window.PTLiveAdvisor && playSessionConfig) {
       PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
     }
@@ -385,6 +391,7 @@
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
     bindChipGroup('#setup-practice-street');
+    bindChipGroup('#setup-hands-target');
     bindChipGroup('#setup-table-theme', () => {
       const thEl = $('#setup-table-theme .setup-chip.active');
       const theme = thEl ? thEl.dataset.val : 'emerald';
@@ -407,11 +414,27 @@
           PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
         }
         resetPlaySession(false);
+        goToTab('play', { table: true });
         showPlayTable();
         scrollPlayToTop();
         await yieldToPaint();
         scrollPlayToTop();
         void startNewHand();
+      });
+    }
+    const warmupBtn = $('#home-warmup-btn');
+    if (warmupBtn && !warmupBtn._ptBound) {
+      warmupBtn._ptBound = true;
+      warmupBtn.addEventListener('click', () => {
+        if (window.PTOnboarding && PTOnboarding.markDone) PTOnboarding.markDone('warmup');
+        void startGuidedTraining({
+          scenario: 'random',
+          practiceStreet: 'preflop',
+          handRange: 'playable',
+          villainLevel: 'fish',
+          liveAdvisor: true,
+          handsTarget: 50
+        });
       });
     }
     renderHeroPosChips();
@@ -587,6 +610,10 @@
       var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
       PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
     }
+    if (window.PTOnboarding) {
+      PTOnboarding.bind($('#home-onboarding'));
+      PTOnboarding.render($('#home-onboarding'));
+    }
     if (window.PTReEngage && PTReEngage.renderBanner) PTReEngage.renderBanner();
     withLazyChunk('contact', function () {
       if (window.PTContact && PTContact.renderHomeNotice) PTContact.renderHomeNotice();
@@ -614,6 +641,10 @@
         const tab = card.dataset.goTab;
         if (tab === 'play') goToTab('play', { setup: true });
         else goToTab(tab);
+        if (window.PTOnboarding) {
+          if (tab === 'sessions') PTOnboarding.markDone('demo');
+          if (tab === 'errors' || tab === 'stats') PTOnboarding.markDone('leaks');
+        }
       });
     }
 
@@ -728,6 +759,7 @@
   }
 
   window.goToTab = goToTab;
+  window.openSession = openSession;
 
   function isMobileLayout() {
     return window.matchMedia('(max-width: 680px)').matches;
@@ -926,7 +958,11 @@
   }
 
   function resetPlaySession(showSetup) {
-    session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, byStreet: emptyByStreet() };
+    session = {
+      hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0,
+      byStreet: emptyByStreet(),
+      startedAt: Date.now()
+    };
     refreshSessionUI();
     $('#hand-log').innerHTML = '';
     pendingForce = null;
@@ -1956,6 +1992,14 @@
 
     if (current) {
       let line = 'Tu plan actual: <strong>' + escapeHtml(ent.plan_label || ent.plan) + '</strong>';
+      if (ent.subscription_status === 'trialing' && window.PTBilling && PTBilling.trialDaysLeft) {
+        var daysLeft = PTBilling.trialDaysLeft(ent);
+        if (daysLeft != null) {
+          line += ' · <span class="trial-badge">Prueba: ' + daysLeft + ' día' + (daysLeft === 1 ? '' : 's') + ' restantes</span>';
+        } else {
+          line += ' · <span class="trial-badge">Periodo de prueba</span>';
+        }
+      }
       if (ent.usage && ent.limits) {
         if (ent.limits.trainer_hands_per_day != null) {
           line += ' · Entrenador hoy: ' + ent.usage.trainer_hands_today + '/' + ent.limits.trainer_hands_per_day;
@@ -2006,6 +2050,7 @@
         id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: false,
         features: [
+          'Prueba 10 días (una vez por cuenta)',
           'Entrenador e import ilimitados',
           '20 manos en análisis',
           '40 consultas IA Coach/mes (añadir manos, análisis y preguntas)',
@@ -2046,9 +2091,17 @@
       if (!isPaidSub) {
         // Usuario Gratis: alta normal por checkout.
         if (c.cta && !isCurrent) {
-          btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
-          if (billingOn) {
-            btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+          if (c.id === 'pro' && billingOn) {
+            const trial = window.PTBilling && PTBilling.trialInfo ? PTBilling.trialInfo() : null;
+            const trialLbl = trial ? trial.label : 'Probar Study 10 días';
+            btns = '<button type="button" class="btn btn-primary" data-checkout="pro" data-interval="month">' +
+              escapeHtml(trialLbl) + '</button>';
+            btns += '<button type="button" class="btn btn-ghost" data-checkout="pro" data-interval="year">Anual</button>';
+          } else {
+            btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
+            if (billingOn) {
+              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+            }
           }
         } else if (isCurrent) {
           btns = '<span class="muted-text">Plan actual</span>';
@@ -2233,12 +2286,6 @@
   function finishHand() {
     if (!hand || hand._finishHandled) return;
     hand._finishHandled = true;
-    $('#actions').innerHTML = `<button class="btn btn-primary" id="next-after">Siguiente mano &raquo;</button>
-      <button class="btn btn-ghost" id="replay-after">&#8635; Repetir esta mano</button>
-      <button class="btn btn-ghost" id="new-session-after">Nueva sesión</button>`;
-    $('#next-after').addEventListener('click', () => { continueLeakReplayOrNext(); });
-    $('#replay-after').addEventListener('click', () => replayCurrentHand());
-    $('#new-session-after').addEventListener('click', () => resetPlaySession());
 
     const r = hand.result;
     session.hands++;
@@ -2249,6 +2296,32 @@
       PTAnalytics.trackPlayHand({ decisions: (hand.decisions || []).length, evLoss: r.totalEvLoss || 0 });
     }
     refreshSessionUI();
+
+    const target = playSessionConfig && Number(playSessionConfig.handsTarget);
+    const blockDone = target > 0 && session.hands >= target && !leakReplayQueue.length;
+
+    if (blockDone) {
+      $('#actions').innerHTML =
+        '<button class="btn btn-primary" id="session-summary-new">Nueva sesión</button>' +
+        '<button class="btn btn-ghost" id="session-summary-continue">Seguir entrenando</button>';
+      const newBtn = $('#session-summary-new');
+      const contBtn = $('#session-summary-continue');
+      if (newBtn) newBtn.addEventListener('click', () => resetPlaySession());
+      if (contBtn) {
+        contBtn.addEventListener('click', () => {
+          if (playSessionConfig) playSessionConfig.handsTarget = 0;
+          session.startedAt = Date.now();
+          void startNewHand();
+        });
+      }
+    } else {
+      $('#actions').innerHTML = `<button class="btn btn-primary" id="next-after">Siguiente mano &raquo;</button>
+      <button class="btn btn-ghost" id="replay-after">&#8635; Repetir esta mano</button>
+      <button class="btn btn-ghost" id="new-session-after">Nueva sesión</button>`;
+      $('#next-after').addEventListener('click', () => { continueLeakReplayOrNext(); });
+      $('#replay-after').addEventListener('click', () => replayCurrentHand());
+      $('#new-session-after').addEventListener('click', () => resetPlaySession());
+    }
 
     // mostrar resultado completo + cartas del villano
     const fb = $('#feedback');
@@ -2284,6 +2357,10 @@
     if (nErr > 0) html += `<div class="result-line" style="border:none;padding-top:6px;color:var(--orange)">${nErr} decisión(es) guardada(s) en "Errores" para repaso.</div>`;
 
     html += renderHandDecisionsSummary(hand.decisions, 'trainer');
+
+    if (blockDone) {
+      html += renderSessionBlockSummary(target);
+    }
 
     html += '<div id="ai-report-trainer"></div>';
 
@@ -2321,6 +2398,27 @@
     $('#hero-handname').textContent = r.heroHandName ? 'Tu mano: ' + r.heroHandName : handNameOnBoard();
   }
 
+  function renderSessionBlockSummary(target) {
+    const acc = session.decisions
+      ? Math.round((session.good / session.decisions) * 100)
+      : null;
+    const elapsedMs = session.startedAt ? (Date.now() - session.startedAt) : 0;
+    const mins = Math.max(1, Math.round(elapsedMs / 60000));
+    const handsPerHour = elapsedMs > 0
+      ? Math.round(session.hands / (elapsedMs / 3600000))
+      : null;
+    let html = '<div class="card-box session-block-summary" style="margin-top:14px">';
+    html += '<h3>Bloque de ' + target + ' manos completado</h3>';
+    html += '<div class="stats-content" style="margin-bottom:0">';
+    html += '<div class="stat-card"><div class="big">' + session.hands + '</div><div class="lbl">Manos</div></div>';
+    html += '<div class="stat-card"><div class="big accent">' + (acc != null ? acc + '%' : '—') + '</div><div class="lbl">Acierto</div></div>';
+    html += '<div class="stat-card"><div class="big net-neg">-' + fmtBB(roundSession(session.evLossBB)) + '</div><div class="lbl">EV perdido</div></div>';
+    html += '<div class="stat-card"><div class="big">' + mins + ' min</div><div class="lbl">Tiempo' +
+      (handsPerHour != null ? ' · ~' + handsPerHour + '/h' : '') + '</div></div>';
+    html += '</div></div>';
+    return html;
+  }
+
   function refreshSessionUI() {
     $('#s-hands').textContent = session.hands;
     const net = roundSession(session.net);
@@ -2345,7 +2443,10 @@
     const sessLbl = $('#play-session-label');
     if (sessLbl) {
       if (playSessionConfig && window.PTPlayConfig) {
-        sessLbl.textContent = PTPlayConfig.labelFor(playSessionConfig);
+        let lbl = PTPlayConfig.labelFor(playSessionConfig);
+        const tgt = Number(playSessionConfig.handsTarget) || 0;
+        if (tgt > 0) lbl += ' · ' + session.hands + '/' + tgt;
+        sessLbl.textContent = lbl;
         sessLbl.classList.remove('hidden');
       } else {
         sessLbl.classList.add('hidden');
@@ -3738,20 +3839,23 @@
 
   function processSessionFile() {
     const input = $('#session-file');
-    if (!input.files.length) return;
-    const file = input.files[0];
+    if (!input.files || !input.files.length) return;
+    const files = Array.prototype.slice.call(input.files);
     const status = $('#import-status');
     const progWrap = $('#import-progress');
     const progFill = $('#import-progress-fill');
     const progLabel = $('#import-progress-label');
-    const reader = new FileReader();
 
-    function setProgress(done, total, phase) {
+    function setProgress(done, total, phase, fileLabel) {
       const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0;
       if (progWrap) progWrap.classList.remove('hidden');
       if (progFill) progFill.style.width = pct + '%';
-      const phaseLbl = phase === 'parse' ? 'Parseando' : 'Analizando';
-      if (progLabel) progLabel.textContent = phaseLbl + ' ' + done.toLocaleString('es-ES') + ' / ' + total.toLocaleString('es-ES') + ' (' + pct + '%)';
+      const phaseLbl = phase === 'parse' ? 'Parseando' : (phase === 'file' ? 'Archivo' : 'Analizando');
+      const prefix = fileLabel ? (fileLabel + ' · ') : '';
+      if (progLabel) {
+        progLabel.textContent = prefix + phaseLbl + ' ' + done.toLocaleString('es-ES') +
+          (total ? (' / ' + total.toLocaleString('es-ES')) : '') + ' (' + pct + '%)';
+      }
       if (status) status.textContent = progLabel ? progLabel.textContent : '';
     }
 
@@ -3760,88 +3864,124 @@
       if (progFill) progFill.style.width = '0%';
     }
 
-    reader.onload = async () => {
+    function readFileText(file) {
+      return new Promise(function (resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function () { resolve(reader.result); };
+        reader.onerror = function () { reject(new Error('No se pudo leer ' + file.name)); };
+        reader.readAsText(file, 'utf-8');
+      });
+    }
+
+    async function processOneFile(file, fileIndex, fileTotal) {
+      const fileLabel = fileTotal > 1
+        ? ('Archivo ' + (fileIndex + 1) + '/' + fileTotal + ' · ' + file.name)
+        : file.name;
+      status.textContent = 'Leyendo ' + file.name + '…';
+      const text = await readFileText(file);
+      const fmtMeta = Importer.detectSessionFormat ? Importer.detectSessionFormat(text) : null;
+      const parseFn = Importer.parseSessionAsync || function (t, n, cb) {
+        return Promise.resolve(Importer.parseSession(t, n));
+      };
+      const parsed = await parseFn(text, file.name, function (done, total, phase) {
+        setProgress(done, total, phase || 'parse', fileLabel);
+      });
+      if (!parsed.hero || !parsed.hands.length) {
+        return {
+          ok: false,
+          error: 'No se reconocieron manos de cash NL en «' + file.name +
+            '». Comprueba que sea PokerStars, Winamax o GGPoker.'
+        };
+      }
+      const Ent = window.PTEntitlements;
+      if (Ent && Ent.ensureLoaded) {
+        const ent = await Ent.ensureLoaded();
+        const check = Ent.canImportSession(parsed.hands.length, ent);
+        if (!check.ok) {
+          return { ok: false, paywall: check.reason, error: check.reason };
+        }
+      }
+      const onProgress = function (done, total, phase) {
+        setProgress(done, total, phase || 'analyze', fileLabel);
+      };
+      const session = Importer.buildSessionAsync
+        ? await Importer.buildSessionAsync(parsed, file.name, onProgress, text)
+        : Importer.buildSession(parsed, file.name, text);
+      if (Ent && Ent.recordImportSession) {
+        const rec = await Ent.recordImportSession(session.hands.length);
+        if (rec && rec.ok === false) {
+          return { ok: false, paywall: rec.error, error: rec.error };
+        }
+      }
+      const saveResult = await Store.saveSession(session);
+      const saved = saveResult && saveResult.ok !== false;
+      const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
+      if (window.PTAnalytics && PTAnalytics.trackImportSession) {
+        PTAnalytics.trackImportSession({
+          hands: finalSession.hands.length,
+          platform: finalSession.format && finalSession.format.platform
+        });
+      }
+      return {
+        ok: true,
+        saved: saved,
+        cloudOnly: !!(saveResult && saveResult.cloudOnly),
+        saveError: saveResult && saveResult.error,
+        session: finalSession,
+        format: finalSession.format || parsed.format || fmtMeta
+      };
+    }
+
+    (async function () {
       try {
-        status.textContent = 'Leyendo historial...';
-        const text = reader.result;
-        const fmtMeta = Importer.detectSessionFormat ? Importer.detectSessionFormat(text) : null;
-        const parseFn = Importer.parseSessionAsync || function (t, n, cb) {
-          return Promise.resolve(Importer.parseSession(t, n));
-        };
-        const parsed = await parseFn(text, file.name, function (done, total, phase) {
-          setProgress(done, total, phase || 'parse');
-        });
-        if (!parsed.hero || !parsed.hands.length) {
-          hideProgress();
-          status.innerHTML = '<span style="color:var(--red)">No se reconocieron manos de cash NL en el fichero. Comprueba que sea un historial de PokerStars o Winamax.</span>';
-          return;
-        }
-        const fmtLabel = (parsed.format || fmtMeta)
-          ? ((parsed.format || fmtMeta).platformLabel + ' · ' + (parsed.format || fmtMeta).localeLabel)
-          : null;
-        if (fmtLabel) status.textContent = 'Formato: ' + fmtLabel + ' · ' + parsed.hands.length.toLocaleString('es-ES') + ' manos detectadas';
-        const Ent = window.PTEntitlements;
-        if (Ent && Ent.ensureLoaded) {
-          const ent = await Ent.ensureLoaded();
-          const check = Ent.canImportSession(parsed.hands.length, ent);
-          if (!check.ok) {
+        const results = [];
+        let lastOk = null;
+        for (let i = 0; i < files.length; i++) {
+          setProgress(i, files.length, 'file', files[i].name);
+          const res = await processOneFile(files[i], i, files.length);
+          results.push(Object.assign({ fileName: files[i].name }, res));
+          if (res.ok) lastOk = res.session;
+          else if (res.paywall) {
             hideProgress();
-            if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
-            return;
+            if (window.PTBilling) window.PTBilling.showPaywall(res.paywall);
+            // Mostrar resumen parcial si hubo éxitos previos
+            break;
           }
         }
-        const onProgress = (done, total, phase) => {
-          setProgress(done, total, phase || 'analyze');
-        };
-        const finishSession = async (session) => {
-          hideProgress();
-          const Ent = window.PTEntitlements;
-          if (Ent && Ent.recordImportSession) {
-            const rec = await Ent.recordImportSession(session.hands.length);
-            if (rec && rec.ok === false) {
-              if (window.PTBilling) window.PTBilling.showPaywall(rec.error);
-              return;
-            }
+        hideProgress();
+        const ok = results.filter(function (r) { return r.ok; });
+        const fail = results.filter(function (r) { return !r.ok && !r.paywall; });
+        const hands = ok.reduce(function (n, r) { return n + ((r.session && r.session.hands) || []).length; }, 0);
+        let msg = '';
+        if (ok.length) {
+          msg = '<span style="color:var(--green)">' + ok.length + ' archivo(s) · ' +
+            hands.toLocaleString('es-ES') + ' manos analizadas</span>';
+          if (fail.length) {
+            msg += ' <span style="color:var(--yellow)">· ' + fail.length + ' con error</span>';
           }
-          const saveResult = await Store.saveSession(session);
-          const saved = saveResult && saveResult.ok !== false;
-          const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
-          if (!saved) {
-            status.innerHTML = `<span style="color:var(--yellow)">Análisis completado pero no se pudo guardar (${escapeHtml((saveResult && saveResult.error) || 'error de almacenamiento')}). Se muestra sin persistir.</span>`;
-          } else if (saveResult.cloudOnly) {
-            status.innerHTML = `<span style="color:var(--green)">Sesión guardada en la nube: ${finalSession.hands.length} manos analizadas (de ${finalSession.nTotal} cash${finalSession.nDiscarded ? `, ${finalSession.nDiscarded} sin cartas del héroe` : ''}).</span>`;
-          } else {
-            const fmt = finalSession.format ? ' · ' + finalSession.format.platformLabel + ' ' + finalSession.format.localeLabel : '';
-            status.innerHTML = `<span style="color:var(--green)">Sesión procesada${fmt}: ${finalSession.hands.length} manos analizadas (de ${finalSession.nTotal} cash${finalSession.nDiscarded ? `, ${finalSession.nDiscarded} sin cartas del héroe` : ''}).</span>`;
-          }
-          input.value = '';
-          $('#process-session').disabled = true;
-          if (window.PTAnalytics && PTAnalytics.trackImportSession) {
-            PTAnalytics.trackImportSession({
-              hands: finalSession.hands.length,
-              platform: finalSession.format && finalSession.format.platform
-            });
-          }
-          renderSessionsList();
-          openSession(finalSession.id, finalSession);
-        };
-        const build = Importer.buildSessionAsync
-          ? Importer.buildSessionAsync(parsed, file.name, onProgress, text)
-          : Promise.resolve(Importer.buildSession(parsed, file.name, text));
-        build.then(finishSession).catch((err) => {
-          hideProgress();
-          status.innerHTML = '<span style="color:var(--red)">Error al procesar: ' + escapeHtml(err.message || String(err)) + '</span>';
-          console.error('[Sessions] process failed', err);
-        });
+        } else if (fail.length) {
+          msg = '<span style="color:var(--red)">' + escapeHtml(fail[0].error || 'No se pudo importar') + '</span>';
+        }
+        if (fail.length > 1) {
+          msg += '<ul class="muted-text" style="margin:8px 0 0;padding-left:18px">' +
+            fail.map(function (f) {
+              return '<li>' + escapeHtml(f.fileName) + ': ' + escapeHtml(f.error || 'error') + '</li>';
+            }).join('') + '</ul>';
+        }
+        if (status) status.innerHTML = msg || '';
+        input.value = '';
+        $('#process-session').disabled = true;
+        renderSessionsList();
+        if (lastOk) openSession(lastOk.id, lastOk);
       } catch (err) {
         hideProgress();
-        status.innerHTML = '<span style="color:var(--red)">Error al procesar: ' + escapeHtml(err.message) + '</span>';
-        console.error('[Sessions] parse failed', err);
+        if (status) {
+          status.innerHTML = '<span style="color:var(--red)">Error al procesar: ' +
+            escapeHtml(err.message || String(err)) + '</span>';
+        }
+        console.error('[Sessions] multi import failed', err);
       }
-    };
-    status.textContent = 'Leyendo fichero...';
-    reader.onerror = () => { status.textContent = 'No se pudo leer el fichero.'; };
-    reader.readAsText(file, 'utf-8');
+    })();
   }
 
   function streetAccSummary(accByStreet) {

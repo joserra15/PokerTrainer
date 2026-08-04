@@ -52,16 +52,59 @@
     if (bannerHost) bannerHost.innerHTML = Promo.bannerHtml ? Promo.bannerHtml() : '';
   }
 
+  function renderLimitsBox() {
+    var host = document.getElementById('landing-limits-box');
+    if (!host) return;
+    var trial = (global.PT_BILLING && global.PT_BILLING.trial) || {};
+    var days = trial.days || 10;
+    host.innerHTML =
+      '<h3>Empieza sin fricción</h3>' +
+      '<ul class="landing-limits-list">' +
+      '<li><strong>Gratis:</strong> 15 manos/día · 1 import/mes (máx. 200) · 5 análisis · sin IA · histórico 30 días</li>' +
+      '<li><strong>Prueba Study ' + days + ' días:</strong> entrenador e import ilimitados (una vez por cuenta)</li>' +
+      '<li><strong>Sin tarjeta</strong> para el plan gratis; el trial de Study se activa en checkout</li>' +
+      '</ul>';
+  }
+
+  function renderCompare() {
+    var host = document.getElementById('landing-compare-table');
+    if (!host) return;
+    var plans = (global.PT_BILLING && global.PT_BILLING.plans) || {};
+    var studyPrice = (plans.pro && plans.pro.monthly) || '14,99';
+    var rows = [
+      ['Precio entrada', '0 € / Study ' + studyPrice + ' €', '~30 $/mes', 'desde ~39 $/mes'],
+      ['Español nativo', 'Sí', 'No', 'No'],
+      ['Entrenador + consejo en vivo', 'Sí', 'Sí (Snowie AI)', 'Sí (solver)'],
+      ['Import HH', 'PokerStars, Winamax, GGPoker', 'Multi-sala', 'Sí'],
+      ['IA Coach narrativa', 'Sí (Gemini)', 'Live Advice NN', 'AI solves / nodelock'],
+      ['Web / PWA', 'Sí', 'Desktop + apps', 'Cloud'],
+      ['Solver completo', 'No (heurístico)', 'No (red neuronal)', 'Sí']
+    ];
+    var html = '<table class="landing-compare-table"><thead><tr>' +
+      '<th>Qué importa</th><th>PokerForgeAI</th><th>PokerSnowie</th><th>GTO Wizard</th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      html += '<tr><th scope="row">' + escapeHtml(r[0]) + '</th>';
+      html += '<td>' + escapeHtml(r[1]) + '</td>';
+      html += '<td>' + escapeHtml(r[2]) + '</td>';
+      html += '<td>' + escapeHtml(r[3]) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    host.innerHTML = html;
+  }
+
   function renderPricing() {
     var grid = document.getElementById('landing-pricing-grid');
     if (!grid) return;
     var plans = (global.PT_BILLING && global.PT_BILLING.plans) || {};
+    var trial = (global.PT_BILLING && global.PT_BILLING.trial) || {};
+    var trialLabel = trial.label || 'Prueba Study 10 días';
     var cards = [
       {
         title: 'Gratis', price: '0 €', period: '/mes', featured: false,
         features: [
           '15 manos entrenador/día',
-          '1 sesión import/mes',
+          '1 sesión import/mes (máx. 200)',
           '5 manos en análisis (solo manual)',
           'Sin IA Coach (bono opcional)'
         ]
@@ -70,6 +113,7 @@
         title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: true,
         features: [
+          trialLabel + ' (una vez)',
           'Entrenador e import ilimitados',
           '20 manos en análisis',
           '40 consultas IA Coach/mes',
@@ -213,6 +257,8 @@
   function init() {
     if (!document.getElementById('auth-gate')) return;
     renderPromo();
+    renderLimitsBox();
+    renderCompare();
     renderPricing();
     renderOAuthHints();
     bindNav();

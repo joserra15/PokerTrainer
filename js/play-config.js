@@ -78,6 +78,8 @@
 
   const STACK_DEPTH_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
 
+  const HANDS_TARGETS = { 0: true, 10: true, 25: true, 50: true, 100: true };
+
   const DEFAULT = {
     gameType: 'cash6',
     stackDepth: 'bb100',
@@ -87,7 +89,9 @@
     villainLevel: 'fish',
     practiceStreet: 'random',
     liveAdvisor: false,
-    tableTheme: 'emerald'
+    tableTheme: 'emerald',
+    /** null/0 = sesión continua; 25/50/100 = bloque con resumen al final */
+    handsTarget: 0
   };
 
   const TABLE_THEMES = { emerald: true, midnight: true, crimson: true };
@@ -108,6 +112,9 @@
     if (!c.practiceStreet) c.practiceStreet = 'random';
     c.liveAdvisor = !!c.liveAdvisor;
     if (!TABLE_THEMES[c.tableTheme]) c.tableTheme = 'emerald';
+    var ht = Number(c.handsTarget);
+    if (!HANDS_TARGETS[ht]) ht = 0;
+    c.handsTarget = ht || 0;
     return c;
   }
 
@@ -662,7 +669,8 @@
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
     const st = { random: 'Todas las calles', preflop: 'Solo preflop', flop: 'Desde flop', turn: 'Desde turn', river: 'Desde river' }[c.practiceStreet] || c.practiceStreet;
-    return gt + ' · ' + sd + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st;
+    const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
+    return gt + ' · ' + sd + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block;
   }
 
   function stackBB(config) {

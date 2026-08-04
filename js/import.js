@@ -60,10 +60,11 @@
   }
 
   function splitHandBlocks(text) {
-    return text.split(/(?=^(?:Mano n\.º |PokerStars (?:Zoom )?Hand #|Winamax Poker - ))/m)
+    return text.split(/(?=^(?:Mano n\.º |PokerStars (?:Zoom )?Hand #|Poker Hand #|Winamax Poker - ))/m)
       .filter(function (b) {
         var t = b.trim();
-        return /^(Mano n\.º|PokerStars|Winamax)/.test(t);
+        // Poker Hand # = GGPoker; PokerStars Hand # = PokerStars EN
+        return /^(Mano n\.º|PokerStars|Poker Hand #|Winamax)/.test(t);
       });
   }
 
@@ -130,13 +131,19 @@
   }
 
   const BLOCK_TEST_WM = /^Winamax Poker - /;
+  const BLOCK_TEST_GG = /^Poker Hand #/;
 
   function parseHand(block) {
     const text = (block || '').trim();
     const WM = global.PTWinamaxParser;
+    const GG = global.PTGGPokerParser;
     const PS = global.PTPokerStarsParser;
     if (WM && BLOCK_TEST_WM.test(text)) return WM.parseHand(block);
-    if (PS && typeof PS.parseHand === 'function') {
+    // GGPoker: "Poker Hand #" sin prefijo PokerStars
+    if (GG && BLOCK_TEST_GG.test(text) && !/^PokerStars/i.test(text)) {
+      return GG.parseHand(block);
+    }
+    if (PS && typeof PS.parseHand === 'function' && (/^Mano n\.º/i.test(text) || /^PokerStars/i.test(text))) {
       const locale = PS.detectLocale ? PS.detectLocale(block) : null;
       return PS.parseHand(block, locale);
     }

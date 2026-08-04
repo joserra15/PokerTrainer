@@ -11,7 +11,7 @@ const importChain = [
   'import/hhUtils.js',
   'import/formatDetector.js',
   'import/parsers/pokerstars.js',
-  'import/parsers/winamax.js',
+  'import/parsers/winamax.js', 'import/parsers/ggpoker.js',
   'import.js'
 ];
 

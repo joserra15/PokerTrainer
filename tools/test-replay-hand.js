@@ -18,7 +18,7 @@ const scripts = [
   'engine/scoring/errors.js', 'engine/explanations/rules.js',
   'engine/solver/LocalSolverProvider.js', 'engine/evaluateSpot.js',
   'ranges.js', 'engine.js',
-  'import/hhUtils.js', 'import/formatDetector.js', 'import/parsers/winamax.js', 'import.js'
+  'import/hhUtils.js', 'import/formatDetector.js', 'import/parsers/winamax.js', 'import/parsers/ggpoker.js', 'import.js'
 ];
 
 scripts.forEach((f) => {

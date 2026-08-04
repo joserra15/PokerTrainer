@@ -132,6 +132,7 @@
           </div>
           <nav class="landing-nav" aria-label="Secciones">
             <a href="#landing-features">Funciones</a>
+            <a href="#landing-compare">Comparar</a>
             <a href="#landing-pricing">Planes</a>
             <a href="legal/metodologia.html">Metodología GTO</a>
             <a href="#landing-install">Instalar app</a>
@@ -147,7 +148,8 @@
           <p class="landing-lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV. También puedes instalarla en el móvil como app.</p>
           <div class="landing-hero-actions">
             <button type="button" class="btn btn-primary" data-landing-login>Empezar gratis</button>
-            <a class="btn btn-ghost" href="#landing-features">Ver funciones</a>
+            <a class="btn btn-ghost" href="#landing-compare">Comparar herramientas</a>
+            <button type="button" class="btn btn-ghost" data-landing-install>Instalar app</button>
           </div>
           <div class="landing-promo-code-block" id="landing-promo-code">
             <h2>¿Tienes un código promocional?</h2>
@@ -170,8 +172,8 @@
           </div>
           <ul class="landing-hero-bullets">
             <li>Sesión de ejemplo incluida al registrarte</li>
-            <li>Sincronización en la nube entre dispositivos</li>
-            <li>Plan gratis sin tarjeta</li>
+            <li>Import PokerStars, Winamax y GGPoker</li>
+            <li>Plan gratis + prueba Study 10 días</li>
           </ul>
         </section>
 
@@ -180,11 +182,11 @@
           <div class="landing-features-grid">
             <article class="landing-feature">
               <h3>Entrenador interactivo</h3>
-              <p>Mesa 6-max con evaluación GTO calle a calle, rangos y feedback inmediato.</p>
+              <p>Mesa 6-max con evaluación GTO calle a calle, rangos, avisador en vivo y bloques de 25/50/100 manos.</p>
             </article>
             <article class="landing-feature">
               <h3>Import de sesiones</h3>
-              <p>Sube tu historial .txt, obtén nota de sesión, EV perdido y repaso mano a mano.</p>
+              <p>Sube historiales .txt de PokerStars, Winamax o GGPoker (varios archivos a la vez) y revisa fugas mano a mano.</p>
             </article>
             <article class="landing-feature">
               <h3>Rangos preflop</h3>
@@ -205,12 +207,20 @@
           </div>
         </section>
 
+        <section class="landing-section" id="landing-compare">
+          <h2>Cómo nos comparamos</h2>
+          <p class="landing-section-lead">No somos un solver completo. Somos el compañero de estudio asequible en español: entrenar, importar y mejorar con IA.</p>
+          <div class="landing-compare-wrap" id="landing-compare-table"></div>
+          <p class="muted-text landing-compare-note">Precios orientativos de mercado 2026. PokerForgeAI usa heurísticas GTO educativas — ver <a href="legal/metodologia.html">metodología</a>.</p>
+        </section>
+
         <section class="landing-section" id="landing-pricing">
           <h2>Planes simples</h2>
-          <p class="landing-section-lead">Empieza gratis. Sube de plan cuando quieras más IA e imports ilimitados.</p>
+          <p class="landing-section-lead">Empieza gratis. Prueba Study 10 días. Sube de plan cuando quieras más IA e imports ilimitados.</p>
+          <div id="landing-limits-box" class="landing-limits-box" aria-label="Límites del plan gratis"></div>
           <div id="landing-promo-banner"></div>
           <div class="landing-pricing-grid" id="landing-pricing-grid"></div>
-          <p class="muted-text landing-pricing-note">Precios en EUR. IVA incluido cuando aplique. Sin permanencia.</p>
+          <p class="muted-text landing-pricing-note">Precios en EUR. IVA incluido cuando aplique. Sin permanencia. Trial Study una vez por cuenta.</p>
         </section>
 
         <section class="landing-section" id="landing-install">
@@ -371,8 +381,13 @@
               <span class="home-cta-icon" aria-hidden="true">&#9824;</span>
               Empezar a entrenar
             </button>
+            <button type="button" class="btn btn-ghost home-cta" id="home-warmup-btn">
+              Calentamiento 15 min
+            </button>
           </div>
         </header>
+
+        <div id="home-onboarding" class="home-onboarding hidden" aria-live="polite"></div>
 
         <div class="home-stats-strip" id="home-stats" aria-label="Resumen rápido"></div>
         <div id="home-contact-notice" class="home-contact-notice hidden" aria-live="polite"></div>
@@ -598,6 +613,17 @@
         </div>
 
         <div class="setup-group">
+          <span class="setup-label">Duración del bloque</span>
+          <div class="setup-chips" id="setup-hands-target">
+            <button type="button" class="setup-chip active" data-val="0">Continua</button>
+            <button type="button" class="setup-chip" data-val="25">25 manos</button>
+            <button type="button" class="setup-chip" data-val="50">50 manos</button>
+            <button type="button" class="setup-chip" data-val="100">100 manos</button>
+          </div>
+          <p class="muted-text setup-hint">Al terminar el bloque verás acierto, EV perdido y tiempo. «Continua» no tiene límite.</p>
+        </div>
+
+        <div class="setup-group">
           <label class="setup-toggle toggle-row">
             <input type="checkbox" id="setup-live-advisor" />
             <span><strong>Avisador en vivo</strong> — muestra qué ocurre en la mesa, la acción recomendada y la explicación antes de decidir</span>
@@ -732,10 +758,10 @@
         </div>
         <div class="import-box">
           <h3>Añadir sesión</h3>
-          <p class="muted-text">Adjunta un fichero <code>.txt</code> con el historial de manos (PokerStars o Winamax, Cash NL Hold'em, español o inglés). El formato se detecta automáticamente.</p>
+          <p class="muted-text">Adjunta uno o varios ficheros <code>.txt</code> con historiales de manos (PokerStars, Winamax o GGPoker · Cash NL Hold'em). El formato se detecta automáticamente.</p>
           <div id="sessions-usage" class="usage-quota-host hidden" aria-label="Límites de importación"></div>
           <div class="import-row">
-            <input type="file" id="session-file" accept=".txt,text/plain" />
+            <input type="file" id="session-file" accept=".txt,text/plain" multiple />
             <button id="process-session" class="btn btn-primary" disabled>Procesar</button>
           </div>
           <div id="import-status" class="import-status"></div>

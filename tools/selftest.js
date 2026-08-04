@@ -479,6 +479,7 @@ vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/hhUtils
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/formatDetector.js'), 'utf8'), sandbox, { filename: 'import/formatDetector.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/pokerstars.js'), 'utf8'), sandbox, { filename: 'import/parsers/pokerstars.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/winamax.js'), 'utf8'), sandbox, { filename: 'import/parsers/winamax.js' });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/ggpoker.js'), 'utf8'), sandbox, { filename: 'import/parsers/ggpoker.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import.js'), 'utf8'), sandbox, { filename: 'import.js' });
 const Importer = sandbox.window.Importer;
 const staleHand = {

@@ -35,6 +35,14 @@ Para un producto SaaS con suscripciones mensuales/anuales y portal de cliente, *
 
 Los administradores (`is_admin`) no tienen límites.
 
+## Trial Study (10 días)
+
+Checkout de **Study (`pro`)** ofrece `subscription_data[trial_period_days]=10` **una vez por cliente Stripe**
+(si el customer no tiene suscripciones previas). También usa `payment_method_collection=if_required`
+cuando hay trial. Coach no incluye trial automático.
+
+El backend ya trata `subscription_status=trialing` como plan de pago activo (`paid_active`).
+
 ## Configuración Stripe (producción)
 
 ### 1. Productos y precios en Stripe Dashboard
