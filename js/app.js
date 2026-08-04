@@ -422,21 +422,6 @@
         void startNewHand();
       });
     }
-    const warmupBtn = $('#home-warmup-btn');
-    if (warmupBtn && !warmupBtn._ptBound) {
-      warmupBtn._ptBound = true;
-      warmupBtn.addEventListener('click', () => {
-        if (window.PTOnboarding && PTOnboarding.markDone) PTOnboarding.markDone('warmup');
-        void startGuidedTraining({
-          scenario: 'random',
-          practiceStreet: 'preflop',
-          handRange: 'playable',
-          villainLevel: 'fish',
-          liveAdvisor: true,
-          handsTarget: 50
-        });
-      });
-    }
     renderHeroPosChips();
   }
 

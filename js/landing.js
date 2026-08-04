@@ -66,33 +66,6 @@
       '</ul>';
   }
 
-  function renderCompare() {
-    var host = document.getElementById('landing-compare-table');
-    if (!host) return;
-    var plans = (global.PT_BILLING && global.PT_BILLING.plans) || {};
-    var studyPrice = (plans.pro && plans.pro.monthly) || '14,99';
-    var rows = [
-      ['Precio entrada', '0 € / Study ' + studyPrice + ' €', '~30 $/mes', 'desde ~39 $/mes'],
-      ['Español nativo', 'Sí', 'No', 'No'],
-      ['Entrenador + consejo en vivo', 'Sí', 'Sí (Snowie AI)', 'Sí (solver)'],
-      ['Import HH', 'PokerStars, Winamax, GGPoker', 'Multi-sala', 'Sí'],
-      ['IA Coach narrativa', 'Sí (Gemini)', 'Live Advice NN', 'AI solves / nodelock'],
-      ['Web / PWA', 'Sí', 'Desktop + apps', 'Cloud'],
-      ['Solver completo', 'No (heurístico)', 'No (red neuronal)', 'Sí']
-    ];
-    var html = '<table class="landing-compare-table"><thead><tr>' +
-      '<th>Qué importa</th><th>PokerForgeAI</th><th>PokerSnowie</th><th>GTO Wizard</th>' +
-      '</tr></thead><tbody>';
-    rows.forEach(function (r) {
-      html += '<tr><th scope="row">' + escapeHtml(r[0]) + '</th>';
-      html += '<td>' + escapeHtml(r[1]) + '</td>';
-      html += '<td>' + escapeHtml(r[2]) + '</td>';
-      html += '<td>' + escapeHtml(r[3]) + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    host.innerHTML = html;
-  }
-
   function renderPricing() {
     var grid = document.getElementById('landing-pricing-grid');
     if (!grid) return;
@@ -199,7 +172,7 @@
         scrollToLogin();
       });
     });
-    document.querySelectorAll('.landing-nav a[href^="#"]').forEach(function (a) {
+    document.querySelectorAll('.landing-main a[href^="#"]').forEach(function (a) {
       a.addEventListener('click', function (e) {
         var id = a.getAttribute('href').slice(1);
         var target = document.getElementById(id);
@@ -258,7 +231,6 @@
     if (!document.getElementById('auth-gate')) return;
     renderPromo();
     renderLimitsBox();
-    renderCompare();
     renderPricing();
     renderOAuthHints();
     bindNav();
