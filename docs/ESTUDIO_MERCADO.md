@@ -1,6 +1,9 @@
 # Estudio de mercado — PokerForgeAI
 
-> Documento de referencia para llevar PokerForgeAI a mercado.  
+> **Obsoleto como foto del producto actual.** Este documento refleja el estado **v1.19.14** (junio 2026), antes de billing/PWA/legal en producción.  
+> Para el análisis actualizado (v1.60.x, agosto 2026) y priorización por reclamo a nuevos usuarios, ver **[`ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`](./ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md)**.
+>
+> Documento histórico de referencia para el lanzamiento comercial.  
 > Versión del producto analizada: **v1.19.14** (junio 2026).  
 > Repositorio: [joserra15/PokerTrainer](https://github.com/joserra15/PokerTrainer)
 
