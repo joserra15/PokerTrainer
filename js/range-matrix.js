@@ -520,6 +520,29 @@
     return input;
   }
 
+  /** Ajusta pot/toCall del explorador según open sizing (2.5x vs 3x). */
+  function applyOpenSizing(input, openSize) {
+    if (!input) return input;
+    const size = Number(openSize) === 3 ? 3 : 2.5;
+    const base = 2.5;
+    if (input.spotKind !== 'vsRFI' && input.spotKind !== 'squeeze' && input.spotKind !== 'face3bet') {
+      input.openSizeBB = size;
+      return input;
+    }
+    if (input.toCallBB != null && input.toCallBB > 0) {
+      if (input.toCallBB >= 2 && input.toCallBB <= 3.5) {
+        const dead = (input.potBB || 0) - input.toCallBB;
+        input.toCallBB = Math.round(size * 100) / 100;
+        input.potBB = Math.round((dead + size) * 100) / 100;
+      } else {
+        input.toCallBB = Math.round(input.toCallBB * (size / base) * 100) / 100;
+        input.potBB = Math.round((input.potBB || 0) * (size / base) * 100) / 100;
+      }
+    }
+    input.openSizeBB = size;
+    return input;
+  }
+
   function defaultCallerForSqueeze(heroPos, openerPos) {
     const callers = validSqueezeCallers(heroPos, openerPos);
     return callers.length ? callers[0] : null;
@@ -540,7 +563,7 @@
     return pairs;
   }
 
-  function buildExplorerInput(spotType, heroPos, villainPos, ctx, callerPos) {
+  function buildExplorerInput(spotType, heroPos, villainPos, ctx, callerPos, openSize) {
     const spot = EXPLORER_SPOTS[spotType];
     if (!spot) return null;
     if (spot.villainPositions && spot.villainPositions.length && !villainPos) return null;
@@ -576,6 +599,7 @@
       const reg = RR();
       if (!reg || !reg.getSqueezeRow(heroPos, villainPos, input.callerPos, ctx)) return null;
     }
+    applyOpenSizing(input, openSize);
     return attachExplorerMeta(input, ctx);
   }
 
@@ -724,6 +748,7 @@
     cellMixStyle,
     buildBaseInput,
     buildExplorerInput,
+    applyOpenSizing,
     explorerTitle,
     explorerCtx,
     heroPositionsForSpot,

@@ -10,7 +10,7 @@ const cors = {
 
 const TTL_DAYS = 14;
 const MAX_HTML_BYTES = 450_000;
-const ALLOWED_SOURCES = new Set(['trainer', 'analysis', 'session']);
+const ALLOWED_SOURCES = new Set(['trainer', 'analysis', 'session', 'leak']);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

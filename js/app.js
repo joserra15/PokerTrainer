@@ -877,6 +877,8 @@
       });
     }
     $('#train-errors').addEventListener('click', () => trainNextError());
+    const trainWorst = $('#train-worst-spots');
+    if (trainWorst) trainWorst.addEventListener('click', () => startWorstSpotsDrill());
     $('#export-data').addEventListener('click', exportData);
     $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
     const liveAdvPanel = $('#live-advisor-panel');
@@ -1638,7 +1640,7 @@
   }
 
   let matrixJob = 0;
-  let rangesState = { spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', callerPos: 'HJ', gameType: 'cash6', stackDepth: 'standard' };
+  let rangesState = { spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', callerPos: 'HJ', gameType: 'cash6', stackDepth: 'standard', openSize: 2.5 };
 
   function readRangesContext() {
     const gtEl = $('#ranges-game-type .setup-chip.active');
@@ -1913,12 +1915,80 @@
       rangesState.heroPos,
       needsVillain ? rangesState.villainPos : null,
       ctx,
-      squeezeCaller
+      squeezeCaller,
+      rangesState.openSize
     );
     if (titleEl) {
-      titleEl.textContent = isSqueeze
+      const baseTitle = isSqueeze
         ? RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos, squeezeCaller)
         : RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos);
+      const sizingNote = (rangesState.spot === '3bet' || rangesState.spot === 'squeeze')
+        ? ` · open ${rangesState.openSize}x`
+        : '';
+      titleEl.textContent = baseTitle + sizingNote;
+    }
+
+    const sizingRow = $('#ranges-sizing-row');
+    if (sizingRow) {
+      const showSizing = rangesState.spot === '3bet' || rangesState.spot === 'squeeze' || rangesState.spot === 'RFI';
+      sizingRow.classList.toggle('hidden', !showSizing);
+      sizingRow.querySelectorAll('[data-ranges-sizing]').forEach((b) => {
+        b.classList.toggle('active', Number(b.dataset.rangesSizing) === Number(rangesState.openSize));
+        b.onclick = function () {
+          rangesState.openSize = Number(b.dataset.rangesSizing) === 3 ? 3 : 2.5;
+          renderRangesExplorer();
+        };
+      });
+    }
+
+    const favBtn = $('#ranges-favorite-btn');
+    const favSpot = {
+      gameType: rangesState.gameType,
+      stackDepth: rangesState.stackDepth,
+      spot: rangesState.spot,
+      heroPos: rangesState.heroPos,
+      villainPos: needsVillain ? rangesState.villainPos : '',
+      callerPos: isSqueeze ? rangesState.callerPos : '',
+      openSize: rangesState.openSize,
+      label: titleEl ? titleEl.textContent : rangesState.spot
+    };
+    if (favBtn && Store.isFavoriteSpot) {
+      const isFav = Store.isFavoriteSpot(favSpot);
+      favBtn.textContent = isFav ? '★ Favorito' : '☆ Guardar spot';
+      favBtn.classList.toggle('active', isFav);
+      favBtn.onclick = function () {
+        Store.toggleFavoriteSpot(favSpot);
+        renderRangesExplorer();
+      };
+    }
+    const favHost = $('#ranges-favorites');
+    if (favHost && Store.getFavoriteSpots) {
+      const favs = Store.getFavoriteSpots();
+      if (!favs.length) {
+        favHost.innerHTML = '<p class="muted-text ranges-fav-empty">Sin spots favoritos aún.</p>';
+      } else {
+        favHost.innerHTML = '<div class="ranges-fav-list">' + favs.map((f, i) =>
+          `<button type="button" class="btn btn-ghost btn-sm ranges-fav-item" data-ranges-fav="${i}">${escapeHtml(f.label || (f.spot + ' · ' + f.heroPos))}</button>`
+        ).join('') + '</div>';
+        favHost.querySelectorAll('[data-ranges-fav]').forEach((b) => {
+          b.onclick = function () {
+            const f = favs[Number(b.dataset.rangesFav)];
+            if (!f) return;
+            rangesState.spot = f.spot || 'RFI';
+            rangesState.heroPos = f.heroPos || 'UTG';
+            rangesState.villainPos = f.villainPos || 'UTG';
+            rangesState.callerPos = f.callerPos || 'HJ';
+            rangesState.openSize = Number(f.openSize) === 3 ? 3 : 2.5;
+            if (f.gameType) {
+              $$('#ranges-game-type .setup-chip').forEach((c) => c.classList.toggle('active', c.dataset.val === f.gameType));
+            }
+            if (f.stackDepth) {
+              $$('#ranges-stack-depth .setup-chip').forEach((c) => c.classList.toggle('active', c.dataset.val === f.stackDepth));
+            }
+            renderRangesExplorer();
+          };
+        });
+      }
     }
 
     if (!input) {
@@ -2026,7 +2096,7 @@
           '15 manos entrenador/día',
           '1 sesión import/mes (máx. 200 manos)',
           '5 manos en análisis (solo manual)',
-          'Sin IA Coach (añadir/preguntar con IA requiere bono)',
+          '3 consultas IA Coach/mes de prueba',
           'Histórico 30 días'
         ],
         cta: null
@@ -3426,6 +3496,120 @@
     replayFromStored(errs[0]);
   }
 
+  function startWorstSpotsDrill() {
+    const PT = window.PTLeaks;
+    if (!PT || !PT.worstSpotsQueue) {
+      trainNextError();
+      return;
+    }
+    const queue = PT.worstSpotsQueue(Store.getErrors(), 8, 25);
+    if (!queue.length) {
+      alert('No hay spots débiles con manos para entrenar. Juega más manos o importa una sesión.');
+      return;
+    }
+    startLeakReplay({
+      key: 'adaptive',
+      label: 'Drill adaptativo · peores spots',
+      errors: queue
+    });
+  }
+
+  function matchErrorLeakFilter(e, filter) {
+    if (!filter) return true;
+    if (filter.street) {
+      const street = e.street || ((e.spotKey || '').split('|')[2]) || 'preflop';
+      if (String(street) !== String(filter.street)) return false;
+    }
+    if (filter.spotType) {
+      const sc = e.scenarioRaw && typeof e.scenarioRaw === 'object' ? e.scenarioRaw : {};
+      const type = sc.type || (e.spotKey ? String(e.spotKey).split('|')[0] : '') || '';
+      if (String(type) !== String(filter.spotType)) return false;
+    }
+    return true;
+  }
+
+  function drillFromLeakFilter(filter) {
+    const errs = Store.getErrors().filter((e) => matchErrorLeakFilter(e, filter));
+    if (errs.length) {
+      const label = filter.street
+        ? ('Fugas · ' + (window.PTLeaks && PTLeaks.STREET_LABELS[filter.street] || filter.street))
+        : ('Fugas · ' + (window.PTLeaks && PTLeaks.TYPE_LABELS[filter.spotType] || filter.spotType || 'spot'));
+      startLeakReplay({ key: 'filter', label: label, errors: errs });
+      return;
+    }
+    handListFilters.errors = handListFilters.errors || emptyHandFilters();
+    handListFilters.errors.street = filter.street || '';
+    handListFilters.errors.spotType = filter.spotType || '';
+    goToTab('errors');
+  }
+
+  function applyWhatIfDecision(decIdx, actionId) {
+    const h = currentHand;
+    if (!h || !h.decisions || !h.decisions[decIdx]) return;
+    if (!window.Importer || !Importer.recomputeDecisionGto) {
+      alert('What-if no disponible ahora mismo.');
+      return;
+    }
+    const d = h.decisions[decIdx];
+    if (d.originalChosen == null) d.originalChosen = d.chosen;
+    d.chosen = actionId;
+    d.action = actionId;
+    try {
+      if (window.GTOStreetValidation) GTOStreetValidation.invalidateSolverCache('what-if');
+      Importer.recomputeDecisionGto(h, d, actionId);
+      if (Importer.recomputeHeroNet) Importer.recomputeHeroNet(h);
+      let total = 0;
+      h.decisions.forEach((x) => { total += Number(x.evLoss) || 0; });
+      h.totalEvLoss = Math.round(total * 100) / 100;
+      const nGood = h.decisions.filter((x) => x.class === 'optima' || x.class === 'aceptable').length;
+      h.accuracy = h.decisions.length ? Math.round((nGood / h.decisions.length) * 100) : 100;
+    } catch (err) {
+      console.warn('[what-if]', err);
+      alert('No se pudo reevaluar esa acción.');
+      return;
+    }
+    renderTimelineReview();
+  }
+
+  function resetWhatIfDecision(decIdx) {
+    const h = currentHand;
+    if (!h || !h.decisions || !h.decisions[decIdx]) return;
+    if (!window.Importer || !Importer.recomputeDecisionGto) return;
+    const d = h.decisions[decIdx];
+    if (d.originalChosen == null) return;
+    const original = d.originalChosen;
+    d.chosen = original;
+    d.action = original;
+    delete d.originalChosen;
+    try {
+      if (window.GTOStreetValidation) GTOStreetValidation.invalidateSolverCache('what-if');
+      Importer.recomputeDecisionGto(h, d, original);
+      if (Importer.recomputeHeroNet) Importer.recomputeHeroNet(h);
+      let total = 0;
+      h.decisions.forEach((x) => { total += Number(x.evLoss) || 0; });
+      h.totalEvLoss = Math.round(total * 100) / 100;
+      const nGood = h.decisions.filter((x) => x.class === 'optima' || x.class === 'aceptable').length;
+      h.accuracy = h.decisions.length ? Math.round((nGood / h.decisions.length) * 100) : 100;
+    } catch (err) {
+      console.warn('[what-if-reset]', err);
+      return;
+    }
+    renderTimelineReview();
+  }
+
+  function renderWhatIfControls(heroDec, decIdx) {
+    if (!heroDec || !heroDec.optionBreakdown || !heroDec.optionBreakdown.length) return '';
+    const pills = heroDec.optionBreakdown.map((o) => {
+      const active = o.id === heroDec.chosen ? ' active' : '';
+      return `<button type="button" class="btn btn-ghost btn-sm whatif-action${active}" data-whatif-dec="${decIdx}" data-whatif-action="${escapeHtml(o.id)}">${escapeHtml(o.label || o.id)} · ${o.pct || 0}%</button>`;
+    }).join('');
+    const note = heroDec.originalChosen
+      ? `<span class="muted-text whatif-note">Original: <strong>${escapeHtml(actionName(heroDec.originalChosen))}</strong></span>
+         <button type="button" class="btn btn-ghost btn-sm" data-whatif-reset="${decIdx}">Restaurar</button>`
+      : '<span class="muted-text whatif-note">What-if: elige otra acción para reevaluar</span>';
+    return `<div class="whatif-row">${note}<div class="whatif-actions">${pills}</div></div>`;
+  }
+
   let statsLeaksRebuildPromise = null;
 
   function sessionsWithHandsForLeaks(sessions) {
@@ -3473,7 +3657,25 @@
   function renderStats() {
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#stats-usage'));
     if ($('#progress-dashboard')) $('#progress-dashboard').innerHTML = '';
-    if ($('#leaks-panel')) $('#leaks-panel').innerHTML = '';
+    const leaksHost = $('#leaks-panel');
+    if (leaksHost && window.PTLeaks && typeof PTLeaks.renderPanel === 'function') {
+      PTLeaks.renderPanel(leaksHost, Store.getErrors(), function (leak) {
+        startLeakReplay(leak);
+      }, {
+        onFilter: function (filter) { drillFromLeakFilter(filter); }
+      });
+      const shareLeakBtn = document.createElement('div');
+      shareLeakBtn.className = 'leaks-share-row';
+      shareLeakBtn.innerHTML = '<button type="button" class="btn btn-ghost btn-sm" id="share-weekly-leak">Compartir peor leak de la semana</button>' +
+        '<button type="button" class="btn btn-primary btn-sm" id="train-worst-spots-stats">Drill adaptativo</button>';
+      leaksHost.appendChild(shareLeakBtn);
+      const sw = $('#share-weekly-leak');
+      if (sw) sw.addEventListener('click', shareWeeklyTopLeak);
+      const tw = $('#train-worst-spots-stats');
+      if (tw) tw.addEventListener('click', startWorstSpotsDrill);
+    } else if (leaksHost) {
+      leaksHost.innerHTML = '';
+    }
     const st = Store.getStats();
     const sessions = Store.getSessions ? Store.getSessions() : [];
     if (window.PTStatsAggregate) {
@@ -3685,12 +3887,12 @@
   const FILTER_CLASSES = ['', 'optima', 'aceptable', 'imprecisa', 'error'];
   const handListFilters = {
     history: { class: '', pos: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
-    errors: { class: '', pos: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
+    errors: { class: '', pos: '', street: '', spotType: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
     sessionHands: { class: '', pos: '', expOp: '', expVal: '', realOp: '', realVal: '' }
   };
 
   function emptyHandFilters() {
-    return { class: '', pos: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' };
+    return { class: '', pos: '', street: '', spotType: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' };
   }
 
   function readHandFilters(scope) {
@@ -3775,6 +3977,7 @@
     if (f.class && e.class !== f.class) return false;
     const pos = e.displayHeroPos || e.heroPos || '';
     if (f.pos && pos !== f.pos) return false;
+    if (!matchErrorLeakFilter(e, { street: f.street, spotType: f.spotType })) return false;
     if (!passesDateRange(e.createdAt, f.dateFrom, f.dateTo)) return false;
     const evLoss = Number(e.evLoss) || 0;
     if (!passesEvCompare(evLoss, f.expOp, f.expVal)) return false;
@@ -4556,6 +4759,7 @@
         line += '</div>';
         html += line;
         if (heroDec) {
+          const decIdx = (h.decisions || []).indexOf(heroDec);
           html += `<div class="tl-expl-block${heroDec.class === 'error' || heroDec.class === 'imprecisa' ? ' ' + heroDec.class : ''}">`;
           html += renderDecisionMath(heroDec);
           if (heroDec.explanation && heroDec.class !== 'optima') {
@@ -4568,6 +4772,7 @@
           if (heroDec.optionBreakdown && heroDec.optionBreakdown.length) {
             html += renderOptionGrid(heroDec.optionBreakdown, heroDec.chosen, heroDec.best);
           }
+          if (decIdx >= 0) html += renderWhatIfControls(heroDec, decIdx);
           html += '</div>';
         }
       }
@@ -4599,6 +4804,16 @@
       hand: currentHand,
       title: shareHandTitle(currentHand)
     }));
+    $$('[data-whatif-action]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        applyWhatIfDecision(Number(btn.getAttribute('data-whatif-dec')), btn.getAttribute('data-whatif-action'));
+      });
+    });
+    $$('[data-whatif-reset]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        resetWhatIfDecision(Number(btn.getAttribute('data-whatif-reset')));
+      });
+    });
     scrollSessionReviewToTop();
     if (window.PTAIReport) {
       const isAnalysis = !!(currentSession && currentSession.analysis);
@@ -4633,9 +4848,60 @@
 
   window.PTShareHandUI = {
     buildBodyHTML: buildShareReviewBodyHTML,
+    buildLeakBodyHTML: buildLeakShareBodyHTML,
     handTitle: shareHandTitle,
     normalizeTrainerHand: normalizeTrainerHandForShare
   };
+
+  function buildLeakShareBodyHTML(leak) {
+    if (!leak) return '';
+    const fmt = (x) => (window.GTOPotMath ? GTOPotMath.formatBB(x) : String(x));
+    const samples = (leak.errors || []).slice(0, 5);
+    let html = `<div class="review-head"><div><h2>Peor leak de la semana</h2>
+      <div class="muted-text">${escapeHtml(leak.label || '')}</div>
+      <div class="muted-text">${leak.count || 0} error${(leak.count || 0) === 1 ? '' : 'es'} · EV perdido -${fmt(leak.evLoss || 0)} bb</div>
+    </div></div>`;
+    html += '<div class="card-box"><h3>Por qué importa</h3><p class="muted-text">Este spot concentra la mayor pérdida de EV en los últimos 7 días (o en todo el historial si aún no hay datos semanales).</p></div>';
+    if (samples.length) {
+      html += '<div class="card-box"><h3>Ejemplos</h3><ul class="leak-share-samples">';
+      samples.forEach((e) => {
+        html += `<li>${escapeHtml(e.heroCode || e.heroPos || 'mano')} · ${escapeHtml(e.street || '')} · elegiste <strong>${escapeHtml(e.chosen || '')}</strong>` +
+          (e.best ? `, mejor <strong>${escapeHtml(actionName(e.best))}</strong>` : '') +
+          ` · -${fmt(e.evLoss || 0)} bb</li>`;
+      });
+      html += '</ul></div>';
+    }
+    html += '<p class="muted-text">Analizado con PokerForgeAI · estudio GTO heurístico</p>';
+    return html;
+  }
+
+  async function shareWeeklyTopLeak() {
+    const PT = window.PTLeaks;
+    if (!PT || !PT.weeklyTopLeak) {
+      alert('Leak detector no disponible.');
+      return;
+    }
+    const leak = PT.weeklyTopLeak(Store.getErrors());
+    if (!leak) {
+      alert('Aún no hay fugas registradas para compartir. Entrena o importa sesiones.');
+      return;
+    }
+    if (!window.PTShareHand || !PTShareHand.create) {
+      alert('Compartir no está disponible ahora mismo.');
+      return;
+    }
+    try {
+      const result = await PTShareHand.create({
+        source: 'leak',
+        title: 'Mi peor leak · ' + (leak.label || 'spot'),
+        bodyHtml: buildLeakShareBodyHTML(leak),
+        hand: { id: 'leak-week', heroCode: leak.label, heroPos: '', heroNetBB: 0, totalEvLoss: leak.evLoss || 0, decisions: [], summary: [] }
+      });
+      if (result && PTShareHand.openDialog) PTShareHand.openDialog(result);
+    } catch (e) {
+      alert((e && e.message) || 'No se pudo compartir el leak.');
+    }
+  }
 
   function renderSwapRolesPanelHTML(h) {
     if (!window.PTHandAnalysis || !PTHandAnalysis.listSwappableVillains) return '';

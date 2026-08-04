@@ -33,6 +33,8 @@ jobs:
         run: node tools/testimport.js
       - name: Test P0 session/onboarding
         run: node tools/test-p0-session-onboarding.js
+      - name: P1 retention regression
+        run: node tools/test-p1-retention.js
       - name: Test VPIP/PFR (incl. Poker91 Zoom)
         run: node tools/test-vpip-pfr.js
       - name: Validar rangos JSON solver
