@@ -173,6 +173,7 @@
   }
 
   function openAdminComposeModal() {
+    if (!requireAdminAccess()) return;
     var modal = $('#admin-compose-modal');
     if (!modal) return;
     renderAdminComposer();
@@ -217,6 +218,111 @@
 
   function currentUser() {
     return global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+  }
+
+  function demoActive() {
+    return !!(global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive());
+  }
+
+  /** Acceso Admin en cliente: rol admin y fuera de modo demo. */
+  function hasAdminAccess() {
+    if (demoActive()) return false;
+    var u = currentUser();
+    return !!(u && u.isAdmin);
+  }
+
+  function isForbiddenError(err) {
+    if (!err) return false;
+    var msg = String(err.message || err.code || err || '').toLowerCase();
+    return msg.indexOf('forbidden') >= 0
+      || msg.indexOf('not authorized') >= 0
+      || msg.indexOf('permission') >= 0
+      || err.code === '42501';
+  }
+
+  function clearAdminDataUi() {
+    loaded = false;
+    adminUsersCache = [];
+    adminMessagesThreads = [];
+    adminMessageRecipients = [];
+    adminDetailUserId = null;
+    adminMsgSelectedUserId = null;
+    adminMsgSelectedThreadId = null;
+    adminMessageSubject = '';
+    adminMessageBody = '';
+    adminMessageStatus = '';
+    adminMessageFilter = '';
+    adminMsgUserFilter = '';
+
+    var stats = $('#admin-stats');
+    if (stats) stats.innerHTML = '';
+    var tbody = $('#admin-users-body');
+    if (tbody) tbody.innerHTML = '';
+    var status = $('#admin-users-status');
+    if (status) status.textContent = '';
+    var err = $('#admin-users-error');
+    if (err) err.textContent = '';
+    var detail = $('#admin-user-detail');
+    if (detail) {
+      detail.classList.add('hidden');
+      detail.innerHTML = '';
+    }
+    var badge = $('#admin-messages-badge');
+    if (badge) {
+      badge.textContent = '0';
+      badge.classList.add('hidden');
+    }
+    var msgList = $('#admin-contact-list');
+    if (msgList) msgList.innerHTML = '';
+    var msgDetail = $('#admin-contact-detail');
+    if (msgDetail) msgDetail.innerHTML = '';
+    var userList = $('#admin-msg-user-list');
+    if (userList) userList.innerHTML = '';
+    var threadsHead = $('#admin-msg-threads-head');
+    if (threadsHead) threadsHead.innerHTML = '';
+    var syncStatus = $('#admin-sync-status');
+    if (syncStatus) syncStatus.textContent = '';
+    var loading = $('#admin-loading');
+    if (loading) loading.classList.add('hidden');
+    closeInviteModal();
+    closeAdminComposeModal();
+    var msgPanel = $('#admin-messages-panel');
+    var promoPanel = $('#admin-promos-panel');
+    var usersPanel = $('#admin-users-panel');
+    if (msgPanel) msgPanel.classList.add('hidden');
+    if (promoPanel) promoPanel.classList.add('hidden');
+    if (usersPanel) usersPanel.classList.remove('hidden');
+    if (global.PTAdminPromos && global.PTAdminPromos.clear) {
+      global.PTAdminPromos.clear();
+    }
+  }
+
+  function lockdownAdmin() {
+    clearAdminDataUi();
+    setAdminVisible(false);
+    var tabAdmin = document.getElementById('tab-admin');
+    if (tabAdmin) {
+      tabAdmin.classList.remove('active');
+      tabAdmin.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  /** @returns {boolean} false si no hay acceso; limpia UI y no debe continuar. */
+  function requireAdminAccess() {
+    if (hasAdminAccess()) return true;
+    lockdownAdmin();
+    return false;
+  }
+
+  function handleAdminRpcError(err, fallbackEl) {
+    if (isForbiddenError(err)) {
+      lockdownAdmin();
+      return true;
+    }
+    if (fallbackEl && err && err.message) {
+      fallbackEl.innerHTML = '<p class="admin-error">' + escapeHtml(err.message) + '</p>';
+    }
+    return false;
   }
 
   function recipientUsers() {
@@ -430,18 +536,28 @@
   }
 
   function setAdminVisible(show) {
-    ensureAdminTab();
-    if (adminTabBtn) adminTabBtn.classList.toggle('hidden', !show);
+    document.body.classList.toggle('pt-is-admin', !!show);
+    if (show) {
+      ensureAdminTab();
+      if (adminTabBtn) adminTabBtn.classList.remove('hidden');
+    } else if (adminTabBtn) {
+      adminTabBtn.classList.add('hidden');
+      adminTabBtn.remove();
+      adminTabBtn = null;
+    }
     var accountBtn = $('#account-admin');
     if (accountBtn) accountBtn.classList.toggle('hidden', !show);
   }
 
   async function loadStats() {
+    if (!requireAdminAccess()) return;
     var c = client();
     var el = $('#admin-stats');
     if (!c || !el) return;
     var res = await c.rpc('pt_admin_stats');
+    if (!requireAdminAccess()) return;
     if (res.error) {
+      if (handleAdminRpcError(res.error, el)) return;
       el.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }
@@ -694,6 +810,7 @@
   }
 
   async function loadUsers() {
+    if (!requireAdminAccess()) return;
     var c = client();
     var tbody = $('#admin-users-body');
     var status = $('#admin-users-status');
@@ -701,10 +818,15 @@
     setAdminLoading(true, 'Cargando usuarios…');
     if (status) status.textContent = '';
     var res = await c.rpc('pt_admin_user_list');
+    if (!requireAdminAccess()) {
+      setAdminLoading(false);
+      return;
+    }
     if (res.error) {
       tbody.innerHTML = '';
       setAdminLoading(false);
       if (status) status.textContent = '';
+      if (handleAdminRpcError(res.error)) return;
       var err = $('#admin-users-error');
       if (err) err.textContent = res.error.message;
       return;
@@ -934,6 +1056,7 @@
   }
 
   async function giftAiBonus(userId, credits) {
+    if (!requireAdminAccess()) return;
     var c = client();
     if (!c || !userId) return;
     if (!credits || credits < 1 || credits > 500) {
@@ -948,7 +1071,9 @@
       p_credits: credits,
       p_send_message: true
     });
+    if (!requireAdminAccess()) return;
     if (res.error) {
+      if (handleAdminRpcError(res.error)) return;
       alert(res.error.message || 'No se pudo regalar el bono.');
       return;
     }
@@ -974,6 +1099,7 @@
   }
 
   async function openUserDetail(userId) {
+    if (!requireAdminAccess()) return;
     var c = client();
     var host = $('#admin-user-detail');
     if (!c || !host || !userId) return;
@@ -988,7 +1114,9 @@
       if (row) row.classList.add('admin-row-active');
     }
     var res = await c.rpc('pt_admin_user_detail', { p_user_id: userId });
+    if (!requireAdminAccess()) return;
     if (res.error) {
+      if (handleAdminRpcError(res.error, host)) return;
       host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }
@@ -1022,6 +1150,7 @@
   }
 
   async function updateUser(userId, patch) {
+    if (!requireAdminAccess()) return;
     var c = client();
     if (!c) return;
     var args = { p_user_id: userId };
@@ -1029,7 +1158,9 @@
     if (patch.is_admin !== undefined) args.p_is_admin = patch.is_admin;
     if (patch.subscription_period_end !== undefined) args.p_subscription_period_end = patch.subscription_period_end;
     var res = await c.rpc('pt_admin_update_user', args);
+    if (!requireAdminAccess()) return;
     if (res.error) {
+      if (handleAdminRpcError(res.error)) return;
       alert('Error al guardar: ' + res.error.message);
       await refresh();
       return;
@@ -1039,6 +1170,11 @@
       if (me && me.sub === userId) {
         me.isAdmin = patch.is_admin;
         if (global.PTProfile) global.PTProfile.applyProfileToUser(me, { is_admin: patch.is_admin });
+        if (!patch.is_admin) {
+          lockdownAdmin();
+          if (global.goToTab) global.goToTab('home');
+          return;
+        }
       }
     }
     if (patch.plan !== undefined) {
@@ -1067,6 +1203,7 @@
   }
 
   function openInviteModal() {
+    if (!requireAdminAccess()) return;
     var modal = $('#admin-invite-modal');
     var emailEl = $('#admin-invite-email');
     var planEl = $('#admin-invite-plan');
@@ -1148,33 +1285,36 @@
   }
 
   async function refresh() {
+    if (!requireAdminAccess()) return;
     setAdminLoading(true, 'Actualizando usuarios…');
     await Promise.all([loadStats(), loadUsers()]);
+    if (!hasAdminAccess()) return;
     loaded = true;
   }
 
   function render() {
-    var user = currentUser();
-    if (!user || !user.isAdmin) return;
+    if (!requireAdminAccess()) return;
     setAdminLoading(true, 'Sincronizando con Stripe…');
     loadAdminMessagesBadge();
     loadStats().then(function () {
+      if (!hasAdminAccess()) return;
       return syncStripePayments({ auto: true });
     }).then(function () {
+      if (!hasAdminAccess()) return;
       loaded = true;
     });
   }
 
   function initForUser(user) {
-    if (!user || !user.isAdmin) {
-      setAdminVisible(false);
+    if (!user || !user.isAdmin || demoActive()) {
+      lockdownAdmin();
       return;
     }
-    var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
-    setAdminVisible(!demoOn);
+    setAdminVisible(true);
   }
 
   async function syncStripeBonuses(opts) {
+    if (!requireAdminAccess()) return;
     opts = opts || {};
     var auto = !!opts.auto;
     var btn = $('#admin-sync-bonuses');
@@ -1190,6 +1330,7 @@
     if (status && !auto) status.textContent = 'Sincronizando bonos…';
     try {
       var data = await billing.syncBonusPurchases({ all: true });
+      if (!requireAdminAccess()) return;
       if (status) {
         var msg = 'Bonos: +' + (data.credited || 0) + ' acreditados';
         if (data.errors && data.errors.length) msg += ' · ' + data.errors.length + ' error(es)';
@@ -1207,6 +1348,7 @@
   }
 
   async function syncStripePayments(opts) {
+    if (!requireAdminAccess()) return;
     opts = opts || {};
     var auto = !!opts.auto;
     var btn = $('#admin-sync-payments');
@@ -1224,6 +1366,7 @@
     if (auto) setAdminLoading(true, 'Sincronizando con Stripe…');
     try {
       var data = await billing.syncPayments();
+      if (!requireAdminAccess()) return;
       if (status) {
         status.textContent = billing.formatSyncMessage
           ? billing.formatSyncMessage(data)
@@ -1245,11 +1388,30 @@
   }
 
   async function loadAdminMessagesBadge() {
+    if (!hasAdminAccess()) {
+      var badgeHidden = $('#admin-messages-badge');
+      if (badgeHidden) {
+        badgeHidden.textContent = '0';
+        badgeHidden.classList.add('hidden');
+      }
+      return;
+    }
     var c = client();
     var badge = $('#admin-messages-badge');
     if (!c || !badge) return;
     var res = await c.rpc('pt_admin_contact_unread_count');
-    var n = res.error ? 0 : (Number(res.data) || 0);
+    if (!hasAdminAccess()) {
+      badge.textContent = '0';
+      badge.classList.add('hidden');
+      return;
+    }
+    if (res.error) {
+      if (handleAdminRpcError(res.error)) return;
+      badge.textContent = '0';
+      badge.classList.add('hidden');
+      return;
+    }
+    var n = Number(res.data) || 0;
     badge.textContent = n > 99 ? '99+' : String(n);
     badge.classList.toggle('hidden', n <= 0);
   }
@@ -1322,8 +1484,9 @@
   }
 
   async function sendAdminMessage(subject, body) {
+    if (!requireAdminAccess()) return { error: { message: 'forbidden' } };
     var c = client();
-    if (!c) return;
+    if (!c) return { error: { message: 'unavailable' } };
     var payload = {
       p_subject: subject,
       p_body: body,
@@ -1473,6 +1636,7 @@
   }
 
   async function openAdminThread(threadId, opts) {
+    if (!requireAdminAccess()) return;
     opts = opts || {};
     var c = client();
     var detail = $('#admin-contact-detail');
@@ -1482,7 +1646,9 @@
     if (cached && cached.user_id) adminMsgSelectedUserId = cached.user_id;
     detail.innerHTML = '<div class="contact-loading"><div class="play-boot-spinner"></div></div>';
     var res = await c.rpc('pt_admin_contact_get_thread', { p_thread_id: threadId });
+    if (!requireAdminAccess()) return;
     if (res.error) {
+      if (handleAdminRpcError(res.error, detail)) return;
       detail.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }
@@ -1512,13 +1678,16 @@
     if (form) {
       form.addEventListener('submit', async function (ev) {
         ev.preventDefault();
+        if (!requireAdminAccess()) return;
         var body = (form.body.value || '').trim();
         if (!body) return;
         var btn = form.querySelector('button[type="submit"]');
         if (btn) btn.disabled = true;
         var reply = await c.rpc('pt_admin_contact_reply', { p_thread_id: th.id, p_body: body });
         if (btn) btn.disabled = false;
+        if (!requireAdminAccess()) return;
         if (reply.error) {
+          if (handleAdminRpcError(reply.error)) return;
           alert('Error: ' + (reply.error.message || 'no enviado'));
           return;
         }
@@ -1535,11 +1704,14 @@
   }
 
   async function loadAdminInbox(activeId) {
+    if (!requireAdminAccess()) return;
     var c = client();
     if (!c) return;
     var res = await c.rpc('pt_admin_contact_threads');
+    if (!requireAdminAccess()) return;
     if (res.error) {
       var listEl = $('#admin-contact-list');
+      if (handleAdminRpcError(res.error, listEl)) return;
       if (listEl) listEl.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }
@@ -1556,6 +1728,7 @@
   }
 
   function showAdminMessages(show, opts) {
+    if (show && !requireAdminAccess()) return;
     opts = opts || {};
     var msgPanel = $('#admin-messages-panel');
     var usersPanel = $('#admin-users-panel');
@@ -1568,6 +1741,7 @@
       if (opts.userId) adminMsgSelectedUserId = opts.userId;
       if (opts.threadId) adminMsgSelectedThreadId = opts.threadId;
       loadAdminInbox(adminMsgSelectedThreadId).then(function () {
+        if (!hasAdminAccess()) return;
         if (opts.userId) {
           selectAdminMsgUser(opts.userId, opts.threadId);
         } else if (opts.threadId) {
@@ -1603,7 +1777,10 @@
 
   function bindUi() {
     var refreshBtn = $('#admin-refresh');
-    if (refreshBtn) refreshBtn.addEventListener('click', function () { refresh(); });
+    if (refreshBtn) refreshBtn.addEventListener('click', function () {
+      if (!requireAdminAccess()) return;
+      refresh();
+    });
 
     bindInviteModal();
     bindAdminMessages();
@@ -1611,18 +1788,28 @@
     var syncBtn = $('#admin-sync-payments');
     if (syncBtn && !syncBtn.dataset.bound) {
       syncBtn.dataset.bound = '1';
-      syncBtn.addEventListener('click', function () { syncStripePayments({ auto: false }); });
+      syncBtn.addEventListener('click', function () {
+        if (!requireAdminAccess()) return;
+        syncStripePayments({ auto: false });
+      });
     }
 
     var syncBonusBtn = $('#admin-sync-bonuses');
     if (syncBonusBtn && !syncBonusBtn.dataset.bound) {
       syncBonusBtn.dataset.bound = '1';
-      syncBonusBtn.addEventListener('click', function () { syncStripeBonuses({ auto: false }); });
+      syncBonusBtn.addEventListener('click', function () {
+        if (!requireAdminAccess()) return;
+        syncStripeBonuses({ auto: false });
+      });
     }
 
     var accountAdmin = $('#account-admin');
     if (accountAdmin) {
       accountAdmin.addEventListener('click', function () {
+        if (!hasAdminAccess()) {
+          lockdownAdmin();
+          return;
+        }
         if (global.goToTab) global.goToTab('admin');
         var dropdown = $('#account-dropdown');
         if (dropdown) dropdown.classList.add('hidden');
@@ -1638,7 +1825,9 @@
     initForUser: initForUser,
     render: render,
     refresh: refresh,
-    setAdminVisible: setAdminVisible
+    setAdminVisible: setAdminVisible,
+    lockdown: lockdownAdmin,
+    hasAccess: hasAdminAccess
   };
 
   bindUi();

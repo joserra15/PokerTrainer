@@ -1,5 +1,6 @@
 /*
  * demo-mode.js — Admin prueba la app como usuario demo (plan/límites reales).
+ * Solo se inicia desde el menú Admin (`#admin-demo-start`). Parar demo: banner.
  */
 (function (global) {
   'use strict';
@@ -30,10 +31,20 @@
     return readFlag(sessionStorage) || readFlag(localStorage);
   }
 
+  function isAdminUser() {
+    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    return !!(u && u.isAdmin);
+  }
+
   function start() {
+    if (!isAdminUser()) {
+      alert('Inicia sesión como administrador para usar el modo demo.');
+      return;
+    }
     writeFlag(true);
     try {
-      if (global.PTAdmin && global.PTAdmin.setAdminVisible) global.PTAdmin.setAdminVisible(false);
+      if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+      else if (global.PTAdmin && global.PTAdmin.setAdminVisible) global.PTAdmin.setAdminVisible(false);
     } catch (e) { /* noop */ }
     global.location.reload();
   }
@@ -55,20 +66,7 @@
   }
 
   function bindUi() {
-    bindDemoButton(document.getElementById('account-demo'), function () {
-      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-      if (!u || !u.isAdmin) return;
-      start();
-    });
-    bindDemoButton(document.getElementById('account-stop-demo'), function () {
-      stop();
-    });
     bindDemoButton(document.getElementById('admin-demo-start'), function () {
-      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-      if (!u || !u.isAdmin) {
-        alert('Inicia sesión como administrador para usar el modo demo.');
-        return;
-      }
       start();
     });
     document.body.classList.toggle('demo-mode-active', isActive());
@@ -82,13 +80,19 @@
       if (existing) existing.remove();
       return;
     }
-    if (existing) return;
+    if (existing) {
+      bindDemoButton(existing.querySelector('#demo-mode-stop'), stop);
+      return;
+    }
     var el = document.createElement('div');
     el.id = id;
     el.className = 'demo-mode-banner';
     el.setAttribute('role', 'status');
-    el.textContent = 'Modo demo activo — pruebas con el plan del usuario demo. Pulsa «Parar demo» para volver a admin.';
+    el.innerHTML =
+      '<span class="demo-mode-banner-text">Modo demo activo — pruebas con el plan del usuario demo.</span>' +
+      '<button type="button" class="btn btn-primary btn-sm" id="demo-mode-stop">Parar demo</button>';
     document.body.prepend(el);
+    bindDemoButton(el.querySelector('#demo-mode-stop'), stop);
   }
 
   global.PTDemo = {

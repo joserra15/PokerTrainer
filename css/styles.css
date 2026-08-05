@@ -2802,11 +2802,20 @@ body.cookie-banner-open { padding-bottom: 0; }
 }
 .demo-mode-banner {
   position: sticky; top: 0; z-index: 1200;
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px;
   background: linear-gradient(90deg, rgba(212, 175, 55, 0.2), rgba(47, 129, 247, 0.15));
   border-bottom: 1px solid rgba(212, 175, 55, 0.35);
   color: var(--text); text-align: center; font-size: 13px; padding: 8px 12px;
 }
+.demo-mode-banner-text { line-height: 1.35; }
 body.demo-mode-active .tab-admin { display: none !important; }
+body.demo-mode-active #tab-admin { display: none !important; }
+body.demo-mode-active #account-admin { display: none !important; }
+body:not(.pt-is-admin) #tab-admin,
+body:not(.pt-is-admin) .tab-admin,
+body:not(.pt-is-admin) #account-admin {
+  display: none !important;
+}
 .admin-usage-note { font-size: 11px; color: var(--gold); margin-left: 2px; }
 .admin-invite-content { max-width: 560px; width: min(96vw, 560px); }
 .admin-invite-label { display: block; font-size: 13px; margin: 12px 0 6px; color: var(--muted); }
