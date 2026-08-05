@@ -89,6 +89,10 @@
     villainLevel: 'fish',
     practiceStreet: 'random',
     liveAdvisor: false,
+    /** 'always' | 'serious' — solo relevante si liveAdvisor */
+    advisorMode: 'always',
+    /** Umbral de EV perdido (bb) para avisar en modo serious */
+    seriousEvThreshold: 0.5,
     tableTheme: 'emerald',
     /** null/0 = sesión continua; 25/50/100 = bloque con resumen al final */
     handsTarget: 0
@@ -111,6 +115,11 @@
     if (!c.villainLevel) c.villainLevel = 'fish';
     if (!c.practiceStreet) c.practiceStreet = 'random';
     c.liveAdvisor = !!c.liveAdvisor;
+    c.advisorMode = c.advisorMode === 'serious' ? 'serious' : 'always';
+    var thr = Number(c.seriousEvThreshold);
+    if (isNaN(thr) || thr < 0) thr = 0.5;
+    if (thr > 20) thr = 20;
+    c.seriousEvThreshold = thr;
     if (!TABLE_THEMES[c.tableTheme]) c.tableTheme = 'emerald';
     var ht = Number(c.handsTarget);
     if (!HANDS_TARGETS[ht]) ht = 0;

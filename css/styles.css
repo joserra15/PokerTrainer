@@ -4108,6 +4108,32 @@ body.admin-compose-open { overflow: hidden; }
 .ranges-fav-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .ranges-fav-empty { font-size: 12px; margin: 0; }
 #ranges-favorite-btn.active { color: var(--gold); }
+.setup-advisor-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+}
+.session-export-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0 14px;
+}
+.session-export-errors { font-size: 13px; color: var(--muted); }
+.ranges-postflop-disclaimer {
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+.ranges-board-input {
+  width: 8rem;
+  margin-left: 6px;
+}
+.landing-lang { display: inline-flex; gap: 2px; }
+.landing-lang .btn.active,
+.landing-lang .btn[aria-pressed="true"] { border-color: var(--accent); }
 
 #stats-coach { margin-top: 18px; }
 

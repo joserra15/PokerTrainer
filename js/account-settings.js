@@ -191,6 +191,25 @@
       '</section>' +
 
       '<section class="account-settings-card card-box">' +
+      '<h3>Avisador y feedback</h3>' +
+      '<p class="muted-text">Controla cuándo el entrenador te avisa tras una decisión (SN-13).</p>' +
+      row('Modo',
+        '<select id="settings-advisor-mode">' +
+        '<option value="always">Siempre (consejo previo)</option>' +
+        '<option value="serious">Solo error grave</option>' +
+        '</select>') +
+      row('Umbral EV (bb)', '<input type="number" id="settings-serious-threshold" min="0" max="20" step="0.1" style="width:5rem" />') +
+      '</section>' +
+
+      '<section class="account-settings-card card-box">' +
+      '<h3>Idioma / Language</h3>' +
+      '<div class="account-settings-actions">' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-settings-lang="es">Español</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-settings-lang="en">English</button>' +
+      '</div>' +
+      '</section>' +
+
+      '<section class="account-settings-card card-box">' +
       '<h3>Privacidad y datos</h3>' +
       '<div class="account-settings-actions account-settings-actions-stack">' +
       '<button type="button" class="btn btn-ghost btn-block" id="settings-export">Exportar mis datos</button>' +
@@ -223,10 +242,35 @@
     if (global.PTPwa && global.PTPwa.updateInstallUI) {
       global.PTPwa.updateInstallUI();
     }
+    var modeEl = $('#settings-advisor-mode');
+    var thrEl = $('#settings-serious-threshold');
+    if (global.PTLiveAdvisor) {
+      if (modeEl && global.PTLiveAdvisor.loadMode) modeEl.value = global.PTLiveAdvisor.loadMode();
+      if (thrEl && global.PTLiveAdvisor.loadThreshold) thrEl.value = String(global.PTLiveAdvisor.loadThreshold());
+    }
     bindActions();
   }
 
   function bindActions() {
+    var modeEl = $('#settings-advisor-mode');
+    var thrEl = $('#settings-serious-threshold');
+    if (modeEl && global.PTLiveAdvisor && global.PTLiveAdvisor.saveMode) {
+      modeEl.onchange = function () {
+        global.PTLiveAdvisor.saveMode(modeEl.value === 'serious' ? 'serious' : 'always');
+      };
+    }
+    if (thrEl && global.PTLiveAdvisor && global.PTLiveAdvisor.saveThreshold) {
+      thrEl.onchange = function () {
+        global.PTLiveAdvisor.saveThreshold(thrEl.value);
+      };
+    }
+    document.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
+      btn.onclick = function () {
+        if (global.PTI18n && global.PTI18n.setLang) {
+          global.PTI18n.setLang(btn.getAttribute('data-settings-lang'));
+        }
+      };
+    });
     var billing = $('#settings-billing');
     if (billing) {
       billing.onclick = function () {

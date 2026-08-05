@@ -66,6 +66,7 @@
       'js/disclaimer.js',
       'js/re-engagement.js',
       'js/share-hand.js',
+      'js/session-export.js',
       'js/user-profile.js',
       'js/demo-mode.js',
       'js/entitlements.js',

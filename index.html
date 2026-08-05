@@ -98,6 +98,7 @@
       'js/seo-config.js',
       'js/analytics-config.js',
       'js/sentry-config.js',
+      'js/i18n.js',
       'js/legal.js',
       'js/analytics.js',
       'js/sentry.js',
@@ -131,24 +132,28 @@
             <span>PokerForgeAI</span>
           </div>
           <nav class="landing-nav" aria-label="Secciones">
-            <a href="#landing-features">Funciones</a>
-            <a href="#landing-pricing">Planes</a>
-            <a href="#landing-install">Instalar</a>
-            <a href="legal/metodologia.html">Metodología</a>
-            <a href="legal/faq.html">FAQ</a>
-            <a href="legal/soporte.html">Soporte</a>
-            <button type="button" class="btn btn-primary btn-sm" data-landing-login>Entrar</button>
+            <a href="#landing-features" data-i18n="nav.features">Funciones</a>
+            <a href="#landing-pricing" data-i18n="nav.pricing">Planes</a>
+            <a href="#landing-install" data-i18n="nav.install">Instalar</a>
+            <a href="legal/metodologia.html" data-i18n="nav.method">Metodología</a>
+            <a href="legal/faq.html" data-i18n="nav.faq">FAQ</a>
+            <a href="legal/soporte.html" data-i18n="nav.support">Soporte</a>
+            <div class="landing-lang" role="group" aria-label="Language">
+              <button type="button" class="btn btn-ghost btn-sm" data-set-lang="es">ES</button>
+              <button type="button" class="btn btn-ghost btn-sm" data-set-lang="en">EN</button>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" data-landing-login data-i18n="nav.login">Entrar</button>
           </nav>
         </header>
 
         <section class="landing-hero" id="landing-hero">
           <div id="landing-promo-pill"></div>
-          <h1>Entrena GTO, importa tus sesiones y mejora con IA Coach</h1>
-          <p class="landing-lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV. También puedes instalarla en el móvil como app.</p>
+          <h1 data-i18n="hero.title">Entrena GTO, importa tus sesiones y mejora con IA Coach</h1>
+          <p class="landing-lead" data-i18n="hero.lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV. También puedes instalarla en el móvil como app.</p>
           <div class="landing-hero-actions">
-            <button type="button" class="btn btn-primary" data-landing-login>Empezar gratis</button>
-            <a class="btn btn-ghost" href="#landing-pricing">Ver planes</a>
-            <button type="button" class="btn btn-ghost" data-landing-install>Instalar app</button>
+            <button type="button" class="btn btn-primary" data-landing-login data-i18n="hero.cta">Empezar gratis</button>
+            <a class="btn btn-ghost" href="#landing-pricing" data-i18n="hero.plans">Ver planes</a>
+            <button type="button" class="btn btn-ghost" data-landing-install data-i18n="hero.install">Instalar app</button>
           </div>
           <div class="landing-promo-code-block" id="landing-promo-code">
             <h2>¿Tienes un código promocional?</h2>
@@ -170,30 +175,30 @@
             </form>
           </div>
           <ul class="landing-hero-bullets">
-            <li>Sesión de ejemplo incluida al registrarte</li>
-            <li>Import PokerStars, Winamax y GGPoker</li>
-            <li>Plan gratis + prueba Study 10 días</li>
+            <li data-i18n="hero.bullet1">Sesión de ejemplo incluida al registrarte</li>
+            <li data-i18n="hero.bullet2">Import PokerStars, Winamax y GGPoker</li>
+            <li data-i18n="hero.bullet3">Plan gratis + prueba Study 10 días</li>
           </ul>
         </section>
 
         <section class="landing-section" id="landing-features">
-          <h2>Todo lo que necesitas para estudiar</h2>
+          <h2 data-i18n="features.title">Todo lo que necesitas para estudiar</h2>
           <div class="landing-features-grid">
             <article class="landing-feature">
-              <h3>Entrenador interactivo</h3>
-              <p>Mesa 6-max con evaluación GTO calle a calle, rangos, avisador en vivo y bloques de 25/50/100 manos.</p>
+              <h3 data-i18n="feat.train.title">Entrenador interactivo</h3>
+              <p data-i18n="feat.train.body">Mesa 6-max con evaluación GTO calle a calle, rangos, avisador en vivo y bloques de 25/50/100 manos.</p>
             </article>
             <article class="landing-feature">
-              <h3>Import de sesiones</h3>
-              <p>Sube historiales .txt de PokerStars, Winamax o GGPoker (varios archivos a la vez) y revisa fugas mano a mano.</p>
+              <h3 data-i18n="feat.import.title">Import de sesiones</h3>
+              <p data-i18n="feat.import.body">Sube historiales .txt de PokerStars, Winamax o GGPoker (varios archivos a la vez) y revisa fugas mano a mano.</p>
             </article>
             <article class="landing-feature">
-              <h3>Rangos preflop</h3>
-              <p>Matrices RFI y defensa vs open para cash y MTT, con profundidades configurables.</p>
+              <h3 data-i18n="feat.ranges.title">Rangos preflop</h3>
+              <p data-i18n="feat.ranges.body">Matrices RFI y defensa vs open para cash y MTT, con profundidades configurables.</p>
             </article>
             <article class="landing-feature">
-              <h3>IA Coach</h3>
-              <p>Consultas sobre manos y sesiones en planes Study y Coach (ver planes).</p>
+              <h3 data-i18n="feat.ai.title">IA Coach</h3>
+              <p data-i18n="feat.ai.body">Consultas sobre manos y sesiones en planes Study y Coach (ver planes).</p>
             </article>
             <article class="landing-feature">
               <h3>Estadísticas y errores</h3>
@@ -617,6 +622,19 @@
             <input type="checkbox" id="setup-live-advisor" />
             <span><strong>Avisador en vivo</strong> — muestra qué ocurre en la mesa, la acción recomendada y la explicación antes de decidir</span>
           </label>
+          <div class="setup-advisor-mode-row" id="setup-advisor-mode-row">
+            <label class="muted-text">Modo
+              <select id="setup-advisor-mode">
+                <option value="always">Siempre (consejo previo)</option>
+                <option value="serious">Solo error grave</option>
+              </select>
+            </label>
+            <label class="muted-text" id="setup-serious-threshold-wrap">
+              Umbral EV (bb)
+              <input type="number" id="setup-serious-threshold" min="0" max="20" step="0.1" value="0.5" style="width:4.5rem" />
+            </label>
+          </div>
+          <p class="muted-text setup-hint">En «Solo error grave» no hay consejo previo; solo toast/feedback si pierdes ≥ umbral de EV.</p>
         </div>
 
         <button type="button" id="play-start" class="btn btn-primary btn-block play-start-btn">Empezar sesión</button>
@@ -735,6 +753,17 @@
         <div class="ranges-pos-block hidden" id="ranges-caller-block">
           <span class="ranges-pos-label">Pagador:</span>
           <div class="ranges-pos-btns" id="ranges-caller-pos"></div>
+        </div>
+        <div class="ranges-pos-block hidden" id="ranges-postflop-block">
+          <label class="ranges-pos-label">Board
+            <input type="text" id="ranges-board-input" class="ranges-board-input" placeholder="As Kd 7c" maxlength="20" />
+          </label>
+          <label class="ranges-pos-label">Pot bb
+            <input type="number" id="ranges-pot-input" min="1" max="200" step="0.5" value="6" style="width:4.5rem" />
+          </label>
+          <label class="ranges-pos-label">To call
+            <input type="number" id="ranges-tocall-input" min="0" max="100" step="0.5" value="0" style="width:4.5rem" />
+          </label>
         </div>
         <div id="ranges-favorites" class="ranges-favorites" aria-label="Spots favoritos"></div>
         <p class="ranges-spot-title" id="ranges-spot-title"></p>

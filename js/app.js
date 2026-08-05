@@ -199,6 +199,16 @@
     const thEl = $('#setup-table-theme .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
     const laEl = $('#setup-live-advisor');
+    const modeEl = $('#setup-advisor-mode');
+    const thrEl = $('#setup-serious-threshold');
+    let advisorMode = 'always';
+    let seriousEvThreshold = 0.5;
+    if (window.PTLiveAdvisor) {
+      advisorMode = PTLiveAdvisor.loadMode ? PTLiveAdvisor.loadMode() : 'always';
+      seriousEvThreshold = PTLiveAdvisor.loadThreshold ? PTLiveAdvisor.loadThreshold() : 0.5;
+    }
+    if (modeEl) advisorMode = modeEl.value === 'serious' ? 'serious' : 'always';
+    if (thrEl && thrEl.value !== '') seriousEvThreshold = Number(thrEl.value);
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
       stackDepth: sdEl ? sdEl.dataset.val : 'bb100',
@@ -209,7 +219,9 @@
       practiceStreet: stEl ? stEl.dataset.val : 'random',
       tableTheme: thEl ? thEl.dataset.val : loadTableTheme(),
       handsTarget: htEl ? Number(htEl.dataset.val) || 0 : 0,
-      liveAdvisor: laEl ? laEl.checked : false
+      liveAdvisor: laEl ? laEl.checked : false,
+      advisorMode: advisorMode,
+      seriousEvThreshold: seriousEvThreshold
     });
   }
 
@@ -357,7 +369,21 @@
     }
     const laEl = $('#setup-live-advisor');
     if (laEl && typeof cfg.liveAdvisor === 'boolean') laEl.checked = cfg.liveAdvisor;
+    const modeEl = $('#setup-advisor-mode');
+    if (modeEl && cfg.advisorMode) modeEl.value = cfg.advisorMode === 'serious' ? 'serious' : 'always';
+    const thrEl = $('#setup-serious-threshold');
+    if (thrEl && cfg.seriousEvThreshold != null) thrEl.value = String(cfg.seriousEvThreshold);
+    syncAdvisorModeUI();
     return readPlayConfig();
+  }
+
+  function syncAdvisorModeUI() {
+    const modeEl = $('#setup-advisor-mode');
+    const thrWrap = $('#setup-serious-threshold-wrap');
+    const on = $('#setup-live-advisor') && $('#setup-live-advisor').checked;
+    const serious = modeEl && modeEl.value === 'serious';
+    if (modeEl) modeEl.disabled = !on;
+    if (thrWrap) thrWrap.classList.toggle('hidden', !on || !serious);
   }
 
   async function startGuidedTraining(partial) {
@@ -372,6 +398,8 @@
       : cfg;
     if (window.PTLiveAdvisor && playSessionConfig) {
       PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
+      if (PTLiveAdvisor.saveMode) PTLiveAdvisor.saveMode(playSessionConfig.advisorMode || 'always');
+      if (PTLiveAdvisor.saveThreshold) PTLiveAdvisor.saveThreshold(playSessionConfig.seriousEvThreshold);
     }
     resetPlaySession(false);
     goToTab('play', { table: true });
@@ -400,11 +428,28 @@
     });
     restoreTableThemeChip();
     const laEl = $('#setup-live-advisor');
+    const modeEl = $('#setup-advisor-mode');
+    const thrEl = $('#setup-serious-threshold');
     if (laEl && window.PTLiveAdvisor) {
       laEl.checked = PTLiveAdvisor.loadPreference();
+      if (modeEl && PTLiveAdvisor.loadMode) modeEl.value = PTLiveAdvisor.loadMode();
+      if (thrEl && PTLiveAdvisor.loadThreshold) thrEl.value = String(PTLiveAdvisor.loadThreshold());
+      syncAdvisorModeUI();
       laEl.addEventListener('change', function () {
         PTLiveAdvisor.savePreference(laEl.checked);
+        syncAdvisorModeUI();
       });
+      if (modeEl) {
+        modeEl.addEventListener('change', function () {
+          PTLiveAdvisor.saveMode(modeEl.value === 'serious' ? 'serious' : 'always');
+          syncAdvisorModeUI();
+        });
+      }
+      if (thrEl) {
+        thrEl.addEventListener('change', function () {
+          PTLiveAdvisor.saveThreshold(thrEl.value);
+        });
+      }
     }
     const startBtn = $('#play-start');
     if (startBtn) {
@@ -412,6 +457,8 @@
         playSessionConfig = readPlayConfig();
         if (window.PTLiveAdvisor && playSessionConfig) {
           PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
+          if (PTLiveAdvisor.saveMode) PTLiveAdvisor.saveMode(playSessionConfig.advisorMode || 'always');
+          if (PTLiveAdvisor.saveThreshold) PTLiveAdvisor.saveThreshold(playSessionConfig.seriousEvThreshold);
         }
         resetPlaySession(false);
         goToTab('play', { table: true });
@@ -1508,7 +1555,8 @@
     if (d.evErroneous) session.evLossBB = roundSession(session.evLossBB + (d.evLoss || 0));
 
     appendLog(d);
-    showVerdictToast(d);
+    const warn = shouldShowDecisionFeedback(d);
+    if (warn) showVerdictToast(d);
     $('#feedback').classList.add('hidden');
     renderTable();
 
@@ -1517,6 +1565,21 @@
     } else {
       renderActions();
     }
+  }
+
+  function shouldShowDecisionFeedback(d) {
+    if (!d) return true;
+    const LA = window.PTLiveAdvisor;
+    if (!LA || !LA.shouldWarn) return true;
+    const cfg = (hand && hand.playConfig) || playSessionConfig || {};
+    const advisorOn = !!(cfg && cfg.liveAdvisor) || (LA.loadPreference && LA.loadPreference());
+    if (!advisorOn) return true;
+    const mode = (cfg && cfg.advisorMode) || (LA.loadMode && LA.loadMode()) || 'always';
+    if (mode !== 'serious') return true;
+    const thr = (cfg && cfg.seriousEvThreshold != null)
+      ? cfg.seriousEvThreshold
+      : (LA.loadThreshold && LA.loadThreshold());
+    return LA.shouldWarn(d.evLoss, mode, thr);
   }
 
   function roundSession(x) { return Math.round((Number(x) || 0) * 100) / 100; }
@@ -1640,7 +1703,11 @@
   }
 
   let matrixJob = 0;
-  let rangesState = { spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', callerPos: 'HJ', gameType: 'cash6', stackDepth: 'standard', openSize: 2.5 };
+  let rangesState = {
+    spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', callerPos: 'HJ',
+    gameType: 'cash6', stackDepth: 'standard', openSize: 2.5,
+    boardText: 'As Kd 7c', potBB: 6, toCallBB: 0
+  };
 
   function readRangesContext() {
     const gtEl = $('#ranges-game-type .setup-chip.active');
@@ -1910,18 +1977,76 @@
     }
 
     const squeezeCaller = isSqueeze ? rangesState.callerPos : null;
-    const input = RM.buildExplorerInput(
-      rangesState.spot,
-      rangesState.heroPos,
-      needsVillain ? rangesState.villainPos : null,
-      ctx,
-      squeezeCaller,
-      rangesState.openSize
-    );
+    const isPostflop = rangesState.spot === 'postflop';
+    const postflopBlock = $('#ranges-postflop-block');
+    if (postflopBlock) postflopBlock.classList.toggle('hidden', !isPostflop);
+    if (isPostflop) {
+      const boardIn = $('#ranges-board-input');
+      const potIn = $('#ranges-pot-input');
+      const callIn = $('#ranges-tocall-input');
+      if (boardIn) {
+        if (!boardIn.dataset.bound) {
+          boardIn.dataset.bound = '1';
+          boardIn.value = rangesState.boardText || 'As Kd 7c';
+          boardIn.addEventListener('change', () => {
+            rangesState.boardText = boardIn.value;
+            renderRangesExplorer();
+          });
+        }
+        rangesState.boardText = boardIn.value || rangesState.boardText;
+      }
+      if (potIn) {
+        if (!potIn.dataset.bound) {
+          potIn.dataset.bound = '1';
+          potIn.value = String(rangesState.potBB || 6);
+          potIn.addEventListener('change', () => {
+            rangesState.potBB = Number(potIn.value) || 6;
+            renderRangesExplorer();
+          });
+        }
+        rangesState.potBB = Number(potIn.value) || rangesState.potBB;
+      }
+      if (callIn) {
+        if (!callIn.dataset.bound) {
+          callIn.dataset.bound = '1';
+          callIn.value = String(rangesState.toCallBB || 0);
+          callIn.addEventListener('change', () => {
+            rangesState.toCallBB = Number(callIn.value) || 0;
+            renderRangesExplorer();
+          });
+        }
+        rangesState.toCallBB = Number(callIn.value) || 0;
+      }
+    }
+
+    let input = null;
+    if (isPostflop && RM.buildPostflopExplorerInput) {
+      const c = RM.explorerCtx ? RM.explorerCtx(ctx) : { stackBB: 100 };
+      input = RM.buildPostflopExplorerInput({
+        heroPos: rangesState.heroPos,
+        villainPos: rangesState.villainPos,
+        board: rangesState.boardText,
+        potBB: rangesState.potBB,
+        toCallBB: rangesState.toCallBB,
+        stackDepth: c.stackBB || 100,
+        inPosition: ['BTN', 'CO', 'HJ'].indexOf(rangesState.heroPos) >= 0
+      });
+    } else {
+      input = RM.buildExplorerInput(
+        rangesState.spot,
+        rangesState.heroPos,
+        needsVillain ? rangesState.villainPos : null,
+        ctx,
+        squeezeCaller,
+        rangesState.openSize
+      );
+    }
     if (titleEl) {
-      const baseTitle = isSqueeze
-        ? RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos, squeezeCaller)
-        : RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos);
+      const baseTitle = isPostflop
+        ? ('Flop HU · ' + rangesState.heroPos + ' vs ' + rangesState.villainPos + ' · ' + (rangesState.boardText || ''))
+        : (isSqueeze
+          ? RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos, squeezeCaller)
+          : RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos));
       const sizingNote = (rangesState.spot === '3bet' || rangesState.spot === 'squeeze')
         ? ` · open ${rangesState.openSize}x`
         : '';
@@ -1931,7 +2056,7 @@
     const sizingRow = $('#ranges-sizing-row');
     if (sizingRow) {
       const showSizing = rangesState.spot === '3bet' || rangesState.spot === 'squeeze' || rangesState.spot === 'RFI';
-      sizingRow.classList.toggle('hidden', !showSizing);
+      sizingRow.classList.toggle('hidden', !showSizing || isPostflop);
       sizingRow.querySelectorAll('[data-ranges-sizing]').forEach((b) => {
         b.classList.toggle('active', Number(b.dataset.rangesSizing) === Number(rangesState.openSize));
         b.onclick = function () {
@@ -1992,19 +2117,34 @@
     }
 
     if (!input) {
-      host.innerHTML = '<p class="muted-text">Combinación de posiciones no disponible en las tablas.</p>';
+      host.innerHTML = isPostflop
+        ? '<p class="muted-text">Indica un board de 3 cartas (ej. As Kd 7c).</p>'
+        : '<p class="muted-text">Combinación de posiciones no disponible en las tablas.</p>';
       return;
     }
 
-    host.innerHTML = '<div class="range-matrix-progress">Calculando…</div>';
-    RM.computeGtoMatrixAsync(input, function (done, total) {
-      const prog = host.querySelector('.range-matrix-progress');
-      if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
-    }).then(function (result) {
-      host.innerHTML = renderRangeMatrixGrid(result, null, 'gto');
-    }).catch(function (e) {
-      host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
-    });
+    if (isPostflop) {
+      host.innerHTML = '<p class="ranges-postflop-disclaimer muted-text" data-i18n="ranges.postflop.disclaimer">Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.</p><div class="range-matrix-progress">Calculando…</div>';
+      RM.computePostflopFreqMatrixAsync(input, function (done, total) {
+        const prog = host.querySelector('.range-matrix-progress');
+        if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
+      }).then(function (result) {
+        const disc = '<p class="ranges-postflop-disclaimer muted-text">Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.</p>';
+        host.innerHTML = disc + renderRangeMatrixGrid(result, null, 'gto');
+      }).catch(function (e) {
+        host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
+      });
+    } else {
+      host.innerHTML = '<div class="range-matrix-progress">Calculando…</div>';
+      RM.computeGtoMatrixAsync(input, function (done, total) {
+        const prog = host.querySelector('.range-matrix-progress');
+        if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
+      }).then(function (result) {
+        host.innerHTML = renderRangeMatrixGrid(result, null, 'gto');
+      }).catch(function (e) {
+        host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
+      });
+    }
 
     spotRow.querySelectorAll('[data-ranges-spot]').forEach((b) => {
       b.onclick = function () {
@@ -2306,6 +2446,14 @@
   }
 
   function showFeedback(d) {
+    if (!shouldShowDecisionFeedback(d)) {
+      const fb = $('#feedback');
+      if (fb) {
+        fb.classList.add('hidden');
+        fb.innerHTML = '';
+      }
+      return;
+    }
     const fb = $('#feedback');
     fb.classList.remove('hidden');
     const verdict = verdictWord(d.class);
@@ -4321,6 +4469,13 @@
     const statHtml = `
       <h2>${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter} · ${st.grade.score}/10</span></h2>
       <p class="muted-text">${escapeHtml(st.grade.verdict)}</p>
+      <div class="session-export-bar">
+        <span class="muted-text" data-i18n="export.session">Exportar informe</span>
+        <label class="session-export-errors"><input type="checkbox" id="session-export-errors-only" /> <span data-i18n="export.errorsOnly">Solo manos con fuga</span></label>
+        <button type="button" class="btn btn-ghost btn-sm" data-export-session="json" data-i18n="export.json">JSON</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-export-session="csv" data-i18n="export.csv">CSV</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-export-session="pdf" data-i18n="export.pdf">PDF / Imprimir</button>
+      </div>
       <div class="stats-content" data-style-format="${escapeHtml(resolveStatsFormat(st))}">
         ${explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), resolveStatsFormat(st))}
         ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, resolveStatsFormat(st), netCls)}
@@ -4391,6 +4546,20 @@
     box.innerHTML = statHtml + sortHtml;
     bindStyleDrillButtons(box);
     bindMetricExplainClicks(box);
+    Array.from(box.querySelectorAll('[data-export-session]')).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!window.PTSessionExport || !currentSession) {
+          alert('Exportación no disponible.');
+          return;
+        }
+        const errorsOnly = !!(box.querySelector('#session-export-errors-only') && box.querySelector('#session-export-errors-only').checked);
+        try {
+          PTSessionExport.download(currentSession, btn.getAttribute('data-export-session'), { errorsOnly: errorsOnly });
+        } catch (e) {
+          alert((e && e.message) || 'No se pudo exportar.');
+        }
+      });
+    });
     $('#hand-sort').addEventListener('change', (e) => renderSessionDetail(e.target.value));
     bindHandFilters('#session-hands-filters', 'sessionHands', () => renderSessionHands(sortBy));
     renderSessionHands(sortBy);

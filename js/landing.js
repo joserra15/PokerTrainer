@@ -52,17 +52,21 @@
     if (bannerHost) bannerHost.innerHTML = Promo.bannerHtml ? Promo.bannerHtml() : '';
   }
 
+  function t(key, vars) {
+    return (global.PTI18n && global.PTI18n.t) ? global.PTI18n.t(key, vars) : key;
+  }
+
   function renderLimitsBox() {
     var host = document.getElementById('landing-limits-box');
     if (!host) return;
     var trial = (global.PT_BILLING && global.PT_BILLING.trial) || {};
     var days = trial.days || 10;
     host.innerHTML =
-      '<h3>Empieza sin fricción</h3>' +
+      '<h3>' + escapeHtml(t('limits.title')) + '</h3>' +
       '<ul class="landing-limits-list">' +
-      '<li><strong>Gratis:</strong> 15 manos/día · 1 import/mes (máx. 200) · 5 análisis · sin IA · histórico 30 días</li>' +
-      '<li><strong>Prueba Study ' + days + ' días:</strong> entrenador e import ilimitados (una vez por cuenta)</li>' +
-      '<li><strong>Sin tarjeta</strong> para el plan gratis; el trial de Study se activa en checkout</li>' +
+      '<li><strong>' + escapeHtml(t('plan.free')) + ':</strong> ' + escapeHtml(t('limits.free').replace(/^Gratis:\s*/i, '').replace(/^Free:\s*/i, '')) + '</li>' +
+      '<li>' + escapeHtml(t('limits.trial', { days: days })) + '</li>' +
+      '<li>' + escapeHtml(t('limits.card')) + '</li>' +
       '</ul>';
   }
 
@@ -74,34 +78,29 @@
     var trialLabel = trial.label || 'Prueba Study 10 días';
     var cards = [
       {
-        title: 'Gratis', price: '0 €', period: '/mes', featured: false,
-        features: [
-          '15 manos entrenador/día',
-          '1 sesión import/mes (máx. 200)',
-          '5 manos en análisis (solo manual)',
-          '3 consultas IA Coach/mes de prueba'
-        ]
+        title: t('plan.free'), price: '0 €', period: '/mes', featured: false,
+        features: [t('plan.free.f1'), t('plan.free.f2'), t('plan.free.f3'), t('plan.free.f4')]
       },
       {
         title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: true,
         features: [
-          trialLabel + ' (una vez)',
-          'Entrenador e import ilimitados',
-          '20 manos en análisis',
-          '40 consultas IA Coach/mes',
-          'Sync en la nube'
+          t('plan.study.f1', { trial: trialLabel }),
+          t('plan.study.f2'),
+          t('plan.study.f3'),
+          t('plan.study.f4'),
+          t('plan.study.f5')
         ]
       },
       {
         title: plans.premium ? plans.premium.label : 'Coach',
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
         features: [
-          'Todo Study',
-          '100 manos en análisis',
-          '150 consultas IA Coach/mes',
-          'Informes, análisis y preguntas IA',
-          'Soporte prioritario'
+          t('plan.coach.f1'),
+          t('plan.coach.f2'),
+          t('plan.coach.f3'),
+          t('plan.coach.f4'),
+          t('plan.coach.f5')
         ]
       }
     ];
@@ -110,7 +109,8 @@
         '<h3>' + escapeHtml(c.title) + '</h3>' +
         '<div class="landing-price">' + escapeHtml(c.price) + '<small>' + escapeHtml(c.period) + '</small></div>' +
         '<ul>' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +
-        '<button type="button" class="btn ' + (c.featured ? 'btn-primary' : 'btn-ghost') + ' btn-block landing-price-cta">Ir al login</button>' +
+        '<button type="button" class="btn ' + (c.featured ? 'btn-primary' : 'btn-ghost') + ' btn-block landing-price-cta">' +
+        escapeHtml(t('plan.cta')) + '</button>' +
         '</div>';
     }).join('');
     grid.querySelectorAll('.landing-price-cta').forEach(function (btn) {
@@ -172,6 +172,13 @@
         scrollToLogin();
       });
     });
+    document.querySelectorAll('[data-set-lang]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var lang = btn.getAttribute('data-set-lang');
+        if (global.PTI18n && global.PTI18n.setLang) global.PTI18n.setLang(lang);
+      });
+    });
     document.querySelectorAll('.landing-main a[href^="#"]').forEach(function (a) {
       a.addEventListener('click', function (e) {
         var id = a.getAttribute('href').slice(1);
@@ -227,8 +234,15 @@
     panel.insertBefore(hint, panel.firstChild);
   }
 
+  function refreshI18n() {
+    if (global.PTI18n && global.PTI18n.apply) global.PTI18n.apply(document.getElementById('auth-gate') || document);
+    renderLimitsBox();
+    renderPricing();
+  }
+
   function init() {
     if (!document.getElementById('auth-gate')) return;
+    if (global.PTI18n && global.PTI18n.apply) global.PTI18n.apply(document);
     renderPromo();
     renderLimitsBox();
     renderPricing();
@@ -247,7 +261,7 @@
     }
   }
 
-  global.PTLanding = { init: init, scrollToLogin: scrollToLogin };
+  global.PTLanding = { init: init, scrollToLogin: scrollToLogin, refreshI18n: refreshI18n };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

@@ -32,6 +32,14 @@
       },
       title: function (heroPos) { return 'RFI · ' + heroPos; }
     },
+    postflop: {
+      label: 'Flop HU',
+      heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
+      villainPositions: ['BTN', 'CO', 'HJ', 'UTG', 'SB', 'BB'],
+      villainLabel: 'Villano:',
+      build: function () { return null; },
+      title: function (heroPos, villainPos) { return 'Flop HU · ' + heroPos + ' vs ' + villainPos; }
+    },
     '3bet': {
       label: '3-Bet',
       heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
@@ -316,6 +324,17 @@
         reject(new Error('Matriz GTO solo disponible en preflop'));
         return;
       }
+      computeFreqMatrixAsync(baseInput, onProgress).then(resolve).catch(reject);
+    });
+  }
+
+  /** Matriz de frecuencias fold/call/raise (preflop o flop HU simplificado). */
+  function computeFreqMatrixAsync(baseInput, onProgress) {
+    return new Promise(function (resolve, reject) {
+      if (!baseInput) {
+        reject(new Error('Input inválido'));
+        return;
+      }
       const cells = [];
       let row = 0;
       let col = 0;
@@ -328,7 +347,8 @@
           while (n < CHUNK_SIZE && row < 13) {
             if (!cells[row]) cells[row] = [];
             const label = cellLabel(row, col);
-            const heroCards = pickRepresentativeCards(label, []);
+            const used = (baseInput.board || []).slice();
+            const heroCards = pickRepresentativeCards(label, used);
             let action = 'fold';
             let freqs = { raise: 0, call: 0, fold: 1 };
             if (heroCards) {
@@ -343,13 +363,67 @@
             n++;
           }
           if (onProgress) onProgress(done, total);
-          if (row >= 13) resolve({ ranks: RANKS, cells, mode: 'gto' });
+          if (row >= 13) resolve({ ranks: RANKS, cells, mode: 'gto', street: baseInput.street || 'preflop' });
           else setTimeout(tick, 0);
         } catch (e) {
           reject(e);
         }
       }
       tick();
+    });
+  }
+
+  function parseBoardText(text) {
+    if (!text) return [];
+    const tokens = String(text).replace(/,/g, ' ').match(/(?:10|[2-9TJQKAtjqka])[shdcSHDC]/g) || [];
+    const out = [];
+    tokens.forEach(function (t) {
+      let c = String(t).toUpperCase().replace('10', 'T');
+      c = c[0] + c[1].toLowerCase();
+      if (out.indexOf(c) < 0) out.push(c);
+    });
+    return out.slice(0, 5);
+  }
+
+  /**
+   * Input para explorador flop HU simplificado (SN-42).
+   * board: array de 3 cartas o texto "As Kd 7c".
+   */
+  function buildPostflopExplorerInput(opts) {
+    opts = opts || {};
+    let board = opts.board;
+    if (typeof board === 'string') board = parseBoardText(board);
+    board = board || [];
+    if (board.length < 3) return null;
+    board = board.slice(0, 3);
+    const potBB = opts.potBB != null ? Number(opts.potBB) : 6;
+    const toCallBB = opts.toCallBB != null ? Number(opts.toCallBB) : 0;
+    const facing = toCallBB > 0;
+    return {
+      spotKind: 'postflop',
+      position: opts.heroPos || 'BB',
+      vsPosition: opts.villainPos || 'BTN',
+      stackDepth: opts.stackDepth || 100,
+      street: 'flop',
+      board: board,
+      potBB: potBB,
+      toCallBB: toCallBB,
+      potBeforeBB: facing ? Math.max(potBB - toCallBB, 0.1) : potBB,
+      initiative: opts.initiative || (facing ? 'caller' : 'aggressor'),
+      inPosition: opts.inPosition != null ? opts.inPosition : false,
+      availableActions: facing ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'],
+      villainRange: opts.villainRange || D().BROAD_CONTINUE,
+      _postflopExplorer: true
+    };
+  }
+
+  function computePostflopFreqMatrixAsync(baseInput, onProgress) {
+    return new Promise(function (resolve, reject) {
+      if (!baseInput || baseInput.street !== 'flop' || !baseInput.board || baseInput.board.length < 3) {
+        reject(new Error('Vista postflop solo para flop HU con board de 3 cartas'));
+        return;
+      }
+      computeFreqMatrixAsync(baseInput, onProgress).then(resolve).catch(reject);
     });
   }
 
@@ -749,6 +823,10 @@
     buildBaseInput,
     buildExplorerInput,
     applyOpenSizing,
+    buildPostflopExplorerInput,
+    computePostflopFreqMatrixAsync,
+    computeFreqMatrixAsync,
+    parseBoardText,
     explorerTitle,
     explorerCtx,
     heroPositionsForSpot,

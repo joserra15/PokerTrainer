@@ -5,6 +5,9 @@
   'use strict';
 
   var STORAGE_KEY = 'pt_live_advisor_v1';
+  var MODE_KEY = 'pt_live_advisor_mode_v1';
+  var THRESHOLD_KEY = 'pt_serious_ev_threshold_v1';
+  var DEFAULT_THRESHOLD = 0.5;
   var matrixJob = 0;
 
   function escapeHtml(s) {
@@ -31,6 +34,47 @@
 
   function savePreference(on) {
     try { localStorage.setItem(STORAGE_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
+  }
+
+  /** 'always' | 'serious' */
+  function loadMode() {
+    try {
+      var m = localStorage.getItem(MODE_KEY);
+      return m === 'serious' ? 'serious' : 'always';
+    } catch (e) { return 'always'; }
+  }
+
+  function saveMode(mode) {
+    try { localStorage.setItem(MODE_KEY, mode === 'serious' ? 'serious' : 'always'); } catch (e) { /* ignore */ }
+  }
+
+  function loadThreshold() {
+    try {
+      var n = Number(localStorage.getItem(THRESHOLD_KEY));
+      if (!isNaN(n) && n >= 0 && n <= 20) return n;
+    } catch (e) { /* ignore */ }
+    return DEFAULT_THRESHOLD;
+  }
+
+  function saveThreshold(bb) {
+    var n = Number(bb);
+    if (isNaN(n) || n < 0) n = DEFAULT_THRESHOLD;
+    if (n > 20) n = 20;
+    try { localStorage.setItem(THRESHOLD_KEY, String(n)); } catch (e) { /* ignore */ }
+    return n;
+  }
+
+  /** true si debe avisarse (toast/feedback). En modo always siempre; en serious solo si EV perdido >= umbral. */
+  function shouldWarn(evLoss, mode, threshold) {
+    var m = mode || loadMode();
+    if (m !== 'serious') return true;
+    var t = threshold != null ? Number(threshold) : loadThreshold();
+    if (isNaN(t)) t = DEFAULT_THRESHOLD;
+    return (Number(evLoss) || 0) >= t;
+  }
+
+  function isPreActionVisible(mode) {
+    return (mode || loadMode()) !== 'serious';
   }
 
   function narrativeForHand(hand) {
@@ -178,6 +222,20 @@
       }
       return;
     }
+    // Modo «solo error grave»: no mostrar consejo previo; el aviso llega tras la acción si supera el umbral.
+    if (!isPreActionVisible()) {
+      matrixJob++;
+      if (host) {
+        host.classList.remove('hidden');
+        host.innerHTML =
+          '<div class="live-advisor-head">' +
+          '<span class="live-advisor-badge">Modo silencio</span>' +
+          '<span class="muted-text">Solo aviso si EV perdido ≥ ' + fmtBB(loadThreshold()) + ' bb</span>' +
+          '<button type="button" class="live-advisor-disable" data-disable-live-advisor title="Desactivar avisador" aria-label="Desactivar avisador en vivo">×</button>' +
+          '</div>';
+      }
+      return;
+    }
     var advice = global.Engine && global.Engine.previewAdvice
       ? global.Engine.previewAdvice(hand)
       : null;
@@ -187,6 +245,13 @@
   global.PTLiveAdvisor = {
     loadPreference: loadPreference,
     savePreference: savePreference,
+    loadMode: loadMode,
+    saveMode: saveMode,
+    loadThreshold: loadThreshold,
+    saveThreshold: saveThreshold,
+    shouldWarn: shouldWarn,
+    isPreActionVisible: isPreActionVisible,
+    DEFAULT_THRESHOLD: DEFAULT_THRESHOLD,
     update: update,
     renderPanel: renderPanel
   };
