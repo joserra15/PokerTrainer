@@ -212,15 +212,6 @@
   }
   function cardsHTML(list) { return (list || []).map(cardHTML).join(''); }
 
-  function fullDeck() {
-    if (global.Cards && global.Cards.fullDeck) return global.Cards.fullDeck();
-    var ranks = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
-    var suits = ['s', 'h', 'd', 'c'];
-    var out = [];
-    ranks.forEach(function (r) { suits.forEach(function (s) { out.push(r + s); }); });
-    return out;
-  }
-
   // ---------- construir mano cruda a partir de un "spec" ----------
   function normalizeBbEuro(raw) {
     var n = Number(raw);
@@ -986,6 +977,7 @@
           S.editId = null;
           S.editMeta = null;
           S.picker = null;
+          closeCardPickerModal();
           S.draft = emptyDraft(S.format);
           syncActionsFromSeats(S.draft);
           S.view = 'manual';
@@ -1036,6 +1028,7 @@
       source: h.source
     };
     S.picker = null;
+    closeCardPickerModal();
     S.format = spec.format === '9max' ? '9max' : '6max';
     S.draft = draftFromSpec(spec);
     ensureUniqueSeats(S.draft);
@@ -1120,38 +1113,34 @@
     return html;
   }
 
-  function pickerPanelHTML(draft) {
-    if (!S.picker) return '';
-    var key = S.picker.key;
-    var vIdx = S.picker.vIdx;
-    var max = S.picker.max;
-    var current = getPickTargetCards(draft, key, vIdx).slice();
-    var usedElsewhere = usedCardsExcept(draft, key, vIdx);
-    var title = {
+  function pickerTitleForKey(key) {
+    return {
       hero: 'Cartas del héroe',
       villain: 'Cartas del villano',
       flop: 'Flop (3 cartas)',
-      turn: 'Turn',
-      river: 'River'
+      turn: 'Turn (1 carta)',
+      river: 'River (1 carta)'
     }[key] || 'Elegir cartas';
+  }
 
-    var html = '<div class="ha-picker" data-ha-picker>';
-    html += '<div class="ha-picker-head"><span class="ha-picker-title">' + esc(title) +
-      '</span><span class="ha-picker-count muted-text">' + current.length + ' / ' + max +
-      '</span><button type="button" class="btn btn-small btn-ghost" data-ha-picker-close>Listo</button></div>';
-    html += '<div class="ha-picker-selected">' +
-      (current.length ? cardsHTML(current) : '<span class="muted-text">Toca una carta para seleccionarla</span>') +
-      '</div>';
-    html += '<div class="ha-picker-deck">';
-    fullDeck().forEach(function (c) {
-      var selected = current.indexOf(c) >= 0;
-      var busy = !selected && !!usedElsewhere[c];
-      var cls = 'ha-pick-card' + (selected ? ' selected' : '') + (busy ? ' busy' : '');
-      html += '<button type="button" class="' + cls + '" data-card="' + c + '"' +
-        (busy ? ' disabled' : '') + '>' + cardHTML(c) + '</button>';
+  function openCardPickerModal(draft, key, max, vIdx) {
+    if (!global.PTCardPicker || typeof global.PTCardPicker.open !== 'function') return;
+    global.PTCardPicker.open({
+      title: pickerTitleForKey(key),
+      max: max,
+      selected: getPickTargetCards(draft, key, vIdx).slice(),
+      blocked: usedCardsExcept(draft, key, vIdx),
+      onDone: function (cards) {
+        setPickTargetCards(draft, key, vIdx, cards || []);
+        refreshManualKeepScroll();
+      }
     });
-    html += '</div></div>';
-    return html;
+  }
+
+  function closeCardPickerModal() {
+    if (global.PTCardPicker && typeof global.PTCardPicker.close === 'function' && global.PTCardPicker.isOpen()) {
+      global.PTCardPicker.close(false);
+    }
   }
 
   function getPickTargetCards(draft, key, vIdx) {
@@ -1464,8 +1453,6 @@
     html += '<div class="ha-board-group"><span class="ha-board-label">River</span>' + cardSlotHTML(draft.boardRiver, 1, 'river', null) + '</div>';
     html += '</div></div>';
 
-    if (S.picker) html += pickerPanelHTML(draft);
-
     STREET_ORDER.forEach(function (st) {
       var acts = (draft.actions && draft.actions[st]) || [];
       var players = activePlayersForStreet(draft, st);
@@ -1504,6 +1491,7 @@
     var draft = S.draft;
 
     root.querySelector('[data-ha-back]').addEventListener('click', function () {
+      closeCardPickerModal();
       S.view = 'list';
       S.draft = null;
       S.editId = null;
@@ -1602,15 +1590,14 @@
       });
     });
 
-    // Abrir picker
+    // Abrir picker en ventana emergente (2 héroe/villano, 3 flop, 1 turn/river)
     root.querySelectorAll('[data-ha-pick]').forEach(function (slotWrap) {
       slotWrap.addEventListener('click', function (e) {
         if (e.target.closest('[data-ha-clear-cards]')) return;
         var key = slotWrap.dataset.haPick;
         var max = parseInt(slotWrap.dataset.max, 10) || 2;
         var vIdx = slotWrap.dataset.vidx != null ? parseInt(slotWrap.dataset.vidx, 10) : null;
-        S.picker = { key: key, max: max, vIdx: isNaN(vIdx) ? null : vIdx };
-        refreshManualKeepScroll();
+        openCardPickerModal(draft, key, max, isNaN(vIdx) ? null : vIdx);
       });
     });
 
@@ -1620,37 +1607,9 @@
         var key = btn.dataset.haClearCards;
         var vIdx = btn.dataset.vidx != null ? parseInt(btn.dataset.vidx, 10) : null;
         setPickTargetCards(draft, key, isNaN(vIdx) ? null : vIdx, []);
-        if (S.picker && S.picker.key === key && S.picker.vIdx === vIdx) {
-          /* keep open */
-        }
         refreshManualKeepScroll();
       });
     });
-
-    if (S.picker) {
-      var close = root.querySelector('[data-ha-picker-close]');
-      if (close) close.addEventListener('click', function () {
-        S.picker = null;
-        refreshManualKeepScroll();
-      });
-      root.querySelectorAll('.ha-pick-card[data-card]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          if (btn.disabled) return;
-          var c = btn.dataset.card;
-          var cur = getPickTargetCards(draft, S.picker.key, S.picker.vIdx).slice();
-          var ix = cur.indexOf(c);
-          if (ix >= 0) cur.splice(ix, 1);
-          else {
-            if (cur.length >= S.picker.max) {
-              // reemplaza la última
-              cur[cur.length - 1] = c;
-            } else cur.push(c);
-          }
-          setPickTargetCards(draft, S.picker.key, S.picker.vIdx, cur);
-          refreshManualKeepScroll();
-        });
-      });
-    }
 
     root.querySelectorAll('[data-ha-add-action]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -1786,6 +1745,7 @@
         showErrors(['No se pudo guardar: ' + (res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || ''))]);
         return;
       }
+      closeCardPickerModal();
       S.view = 'list';
       S.draft = null;
       S.editId = null;

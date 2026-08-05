@@ -4261,9 +4261,85 @@ html.session-print-open body {
   font-size: 12px;
   margin: 0 0 10px;
 }
-.ranges-board-input {
-  width: 8rem;
-  margin-left: 6px;
+.ranges-board-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ranges-board-btn {
+  min-height: 40px;
+  padding: 6px 10px;
+  justify-content: flex-start;
+}
+.ranges-board-preview {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-width: 6rem;
+}
+.ranges-board-preview .card {
+  width: 28px;
+  height: 40px;
+  font-size: 11px;
+}
+.ranges-board-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.adaptive-drill-help {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+}
+.adaptive-drill-help h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+.adaptive-drill-steps {
+  margin: 8px 0;
+  padding-left: 1.25rem;
+}
+.adaptive-drill-steps li {
+  margin: 4px 0;
+}
+.adaptive-drill-help-inline {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  background: color-mix(in srgb, var(--panel2) 70%, transparent);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.card-picker-modal {
+  z-index: 1200;
+}
+.card-picker-content {
+  width: min(560px, 96vw);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  padding: 16px 16px 14px;
+}
+.card-picker-hint {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+}
+.card-picker-panel .ha-picker-deck {
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  padding-right: 2px;
+}
+body.card-picker-open {
+  overflow: hidden;
+}
+@media (max-width: 640px) {
+  .card-picker-content {
+    width: 100%;
+    max-height: 92vh;
+    align-self: end;
+  }
 }
 .landing-lang { display: inline-flex; gap: 2px; }
 

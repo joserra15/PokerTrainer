@@ -754,9 +754,12 @@
           <div class="ranges-pos-btns" id="ranges-caller-pos"></div>
         </div>
         <div class="ranges-pos-block hidden" id="ranges-postflop-block">
-          <label class="ranges-pos-label">Board
-            <input type="text" id="ranges-board-input" class="ranges-board-input" placeholder="As Kd 7c" maxlength="20" />
-          </label>
+          <div class="ranges-board-pick">
+            <span class="ranges-pos-label">Board (flop)</span>
+            <button type="button" class="btn btn-ghost ranges-board-btn" id="ranges-board-pick-btn" aria-label="Elegir flop">
+              <span class="ranges-board-preview" id="ranges-board-preview">Elegir flop</span>
+            </button>
+          </div>
           <label class="ranges-pos-label">Pot bb
             <input type="number" id="ranges-pot-input" min="1" max="200" step="0.5" value="6" style="width:4.5rem" />
           </label>
@@ -832,12 +835,22 @@
       <div class="panel-head">
         <h2><span class="panel-icon home-card-icon home-card-icon-errors" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M12 4l8 15H4z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Spots fallados (repaso)</h2>
         <div>
-          <button id="train-worst-spots" class="btn btn-secondary">Drill adaptativo</button>
+          <button id="train-worst-spots" class="btn btn-secondary" title="Repasa primero tus peores spots por EV perdido">Drill adaptativo</button>
           <button id="train-errors" class="btn btn-primary">Entrenar errores</button>
           <button id="clear-errors" class="btn btn-danger">Vaciar errores</button>
         </div>
       </div>
-      <p class="muted-text" style="margin:-8px 0 12px">Solo la lista de spots fallados. El histórico y las estadísticas globales no se modifican.</p>
+      <p class="muted-text" style="margin:-8px 0 8px">Solo la lista de spots fallados. El histórico y las estadísticas globales no se modifican.</p>
+      <div class="adaptive-drill-help card-box">
+        <h3>¿Qué es el drill adaptativo?</h3>
+        <p class="muted-text">En lugar de repasar errores al azar o en orden de llegada, el drill <strong>elige solo tus peores fugas</strong>:</p>
+        <ol class="adaptive-drill-steps">
+          <li>Agrupa tus errores por spot (tipo · posición · calle).</li>
+          <li>Ordena esos spots por <strong>EV perdido</strong> y toma los más caros.</li>
+          <li>Monta una cola de hasta ~25 manos y las lanza en el entrenador para repetirlas.</li>
+        </ol>
+        <p class="muted-text">«Entrenar errores» sigue la lista completa; el drill adaptativo ataca primero donde más te sangra el EV.</p>
+      </div>
       <div id="errors-filters" class="hand-filters"></div>
       <div id="errors-list" class="record-list"></div>
     </section>
@@ -1149,6 +1162,10 @@
 
   <div id="range-matrix-modal" class="modal range-matrix-modal hidden" role="dialog" aria-modal="true" aria-labelledby="range-matrix-title">
     <div class="modal-content range-matrix-content" id="range-matrix-body"></div>
+  </div>
+
+  <div id="card-picker-modal" class="modal card-picker-modal hidden" role="dialog" aria-modal="true" aria-label="Elegir cartas">
+    <div class="modal-content card-picker-content" id="card-picker-body"></div>
   </div>
 
   <div id="paywall-modal" class="modal paywall-modal hidden" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
