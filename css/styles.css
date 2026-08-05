@@ -4115,6 +4115,67 @@ body.admin-compose-open { overflow: hidden; }
   align-items: center;
   margin-top: 8px;
 }
+.setup-advisor-extras {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  background: rgba(255, 255, 255, 0.03);
+}
+.setup-advisor-extras.is-disabled {
+  opacity: 0.55;
+}
+.setup-advisor-extras .setup-label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.setup-advisor-threshold {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.setup-advisor-threshold.hidden { display: none; }
+.setup-number-input {
+  width: 5.5rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.setup-number-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.account-advisor-block .setup-chips { margin-bottom: 10px; }
+.session-block-popup-head { margin-bottom: 12px; }
+.session-block-popup-head h3 { margin: 0 0 4px; font-size: 1.25rem; }
+.session-block-popup-stats { margin-bottom: 16px !important; }
+.session-block-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.session-block-popup-actions .btn { flex: 1 1 140px; }
+.landing-lang .btn.active,
+.landing-lang .btn[aria-pressed="true"],
+.setup-chips [data-settings-lang].active,
+.setup-chips [data-set-lang].active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #1a1200;
+}
 .session-export-bar {
   display: flex;
   flex-wrap: wrap;
@@ -4132,8 +4193,6 @@ body.admin-compose-open { overflow: hidden; }
   margin-left: 6px;
 }
 .landing-lang { display: inline-flex; gap: 2px; }
-.landing-lang .btn.active,
-.landing-lang .btn[aria-pressed="true"] { border-color: var(--accent); }
 
 #stats-coach { margin-top: 18px; }
 

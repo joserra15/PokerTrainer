@@ -57,7 +57,12 @@
   }
 
   function saveThreshold(bb) {
-    var n = Number(bb);
+    var raw = bb;
+    if (raw === '' || raw == null) {
+      try { localStorage.setItem(THRESHOLD_KEY, String(DEFAULT_THRESHOLD)); } catch (e) { /* ignore */ }
+      return DEFAULT_THRESHOLD;
+    }
+    var n = Number(raw);
     if (isNaN(n) || n < 0) n = DEFAULT_THRESHOLD;
     if (n > 20) n = 20;
     try { localStorage.setItem(THRESHOLD_KEY, String(n)); } catch (e) { /* ignore */ }

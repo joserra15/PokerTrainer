@@ -622,19 +622,18 @@
             <input type="checkbox" id="setup-live-advisor" />
             <span><strong>Avisador en vivo</strong> — muestra qué ocurre en la mesa, la acción recomendada y la explicación antes de decidir</span>
           </label>
-          <div class="setup-advisor-mode-row" id="setup-advisor-mode-row">
-            <label class="muted-text">Modo
-              <select id="setup-advisor-mode">
-                <option value="always">Siempre (consejo previo)</option>
-                <option value="serious">Solo error grave</option>
-              </select>
-            </label>
-            <label class="muted-text" id="setup-serious-threshold-wrap">
-              Umbral EV (bb)
-              <input type="number" id="setup-serious-threshold" min="0" max="20" step="0.1" value="0.5" style="width:4.5rem" />
-            </label>
+          <div class="setup-advisor-extras" id="setup-advisor-extras">
+            <span class="setup-label">Modo del avisador</span>
+            <div class="setup-chips" id="setup-advisor-mode">
+              <button type="button" class="setup-chip active" data-val="always">Siempre (consejo previo)</button>
+              <button type="button" class="setup-chip" data-val="serious">Solo error grave</button>
+            </div>
+            <div class="setup-advisor-threshold" id="setup-serious-threshold-wrap">
+              <label class="setup-label" for="setup-serious-threshold">Umbral EV perdido (bb)</label>
+              <input type="number" id="setup-serious-threshold" class="setup-number-input" min="0" max="20" step="0.1" value="0.5" inputmode="decimal" />
+            </div>
+            <p class="muted-text setup-hint">En «Solo error grave» no hay consejo previo; solo toast/feedback si pierdes ≥ umbral de EV.</p>
           </div>
-          <p class="muted-text setup-hint">En «Solo error grave» no hay consejo previo; solo toast/feedback si pierdes ≥ umbral de EV.</p>
         </div>
 
         <button type="button" id="play-start" class="btn btn-primary btn-block play-start-btn">Empezar sesión</button>

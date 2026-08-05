@@ -169,6 +169,17 @@
     return s;
   }
 
+  function syncLangButtons(root) {
+    root = root || document;
+    var lang = current;
+    root.querySelectorAll('[data-set-lang], [data-settings-lang]').forEach(function (btn) {
+      var val = btn.getAttribute('data-set-lang') || btn.getAttribute('data-settings-lang');
+      var on = val === lang;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
   function apply(root) {
     root = root || document;
     root.querySelectorAll('[data-i18n]').forEach(function (el) {
@@ -180,6 +191,7 @@
       else el.textContent = val;
     });
     try { document.documentElement.lang = current; } catch (e) { /* ignore */ }
+    syncLangButtons(root);
   }
 
   function setLang(lang) {
@@ -187,6 +199,9 @@
     try { localStorage.setItem(STORAGE_KEY, current); } catch (e) { /* ignore */ }
     apply(document);
     if (global.PTLanding && global.PTLanding.refreshI18n) global.PTLanding.refreshI18n();
+    try {
+      global.dispatchEvent(new CustomEvent('pt-lang-change', { detail: { lang: current } }));
+    } catch (e) { /* ignore */ }
     return current;
   }
 
@@ -199,6 +214,13 @@
     setLang: setLang,
     getLang: getLang,
     apply: apply,
+    syncLangButtons: syncLangButtons,
     DICT: DICT
   };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { apply(document); });
+  } else {
+    try { apply(document); } catch (e) { /* ignore */ }
+  }
 })(window);

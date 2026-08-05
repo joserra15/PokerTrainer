@@ -192,20 +192,24 @@
 
       '<section class="account-settings-card card-box">' +
       '<h3>Avisador y feedback</h3>' +
-      '<p class="muted-text">Controla cuándo el entrenador te avisa tras una decisión (SN-13).</p>' +
-      row('Modo',
-        '<select id="settings-advisor-mode">' +
-        '<option value="always">Siempre (consejo previo)</option>' +
-        '<option value="serious">Solo error grave</option>' +
-        '</select>') +
-      row('Umbral EV (bb)', '<input type="number" id="settings-serious-threshold" min="0" max="20" step="0.1" style="width:5rem" />') +
+      '<p class="muted-text">Controla cuándo el entrenador te avisa tras una decisión.</p>' +
+      '<div class="account-advisor-block">' +
+      '<span class="setup-label">Modo</span>' +
+      '<div class="setup-chips" id="settings-advisor-mode">' +
+      '<button type="button" class="setup-chip" data-val="always">Siempre (consejo previo)</button>' +
+      '<button type="button" class="setup-chip" data-val="serious">Solo error grave</button>' +
+      '</div>' +
+      '<label class="setup-label" for="settings-serious-threshold">Umbral EV perdido (bb)</label>' +
+      '<input type="number" id="settings-serious-threshold" class="setup-number-input" min="0" max="20" step="0.1" value="0.5" inputmode="decimal" />' +
+      '</div>' +
       '</section>' +
 
       '<section class="account-settings-card card-box">' +
       '<h3>Idioma / Language</h3>' +
-      '<div class="account-settings-actions">' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-settings-lang="es">Español</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-settings-lang="en">English</button>' +
+      '<p class="muted-text" id="settings-lang-status"></p>' +
+      '<div class="account-settings-actions setup-chips" id="settings-lang-chips">' +
+      '<button type="button" class="setup-chip" data-settings-lang="es">Español</button>' +
+      '<button type="button" class="setup-chip" data-settings-lang="en">English</button>' +
       '</div>' +
       '</section>' +
 
@@ -242,33 +246,70 @@
     if (global.PTPwa && global.PTPwa.updateInstallUI) {
       global.PTPwa.updateInstallUI();
     }
-    var modeEl = $('#settings-advisor-mode');
-    var thrEl = $('#settings-serious-threshold');
+    var mode = 'always';
+    var thr = 0.5;
     if (global.PTLiveAdvisor) {
-      if (modeEl && global.PTLiveAdvisor.loadMode) modeEl.value = global.PTLiveAdvisor.loadMode();
-      if (thrEl && global.PTLiveAdvisor.loadThreshold) thrEl.value = String(global.PTLiveAdvisor.loadThreshold());
+      if (global.PTLiveAdvisor.loadMode) mode = global.PTLiveAdvisor.loadMode();
+      if (global.PTLiveAdvisor.loadThreshold) thr = global.PTLiveAdvisor.loadThreshold();
     }
+    host.querySelectorAll('#settings-advisor-mode .setup-chip').forEach(function (c) {
+      c.classList.toggle('active', c.dataset.val === mode);
+    });
+    var thrEl = $('#settings-serious-threshold');
+    if (thrEl) thrEl.value = String(thr);
+    syncSettingsLangUI();
     bindActions();
   }
 
-  function bindActions() {
-    var modeEl = $('#settings-advisor-mode');
-    var thrEl = $('#settings-serious-threshold');
-    if (modeEl && global.PTLiveAdvisor && global.PTLiveAdvisor.saveMode) {
-      modeEl.onchange = function () {
-        global.PTLiveAdvisor.saveMode(modeEl.value === 'serious' ? 'serious' : 'always');
-      };
+  function syncSettingsLangUI() {
+    var root = $('#account-settings-content') || document;
+    var lang = (global.PTI18n && global.PTI18n.getLang) ? global.PTI18n.getLang() : 'es';
+    var status = $('#settings-lang-status');
+    if (status) {
+      status.textContent = lang === 'en'
+        ? 'Current language: English'
+        : 'Idioma actual: Español';
     }
+    if (global.PTI18n && global.PTI18n.syncLangButtons) {
+      global.PTI18n.syncLangButtons(root);
+    } else {
+      root.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
+        var on = btn.getAttribute('data-settings-lang') === lang;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+  }
+
+  function bindActions() {
+    var root = $('#account-settings-content') || document;
+    root.querySelectorAll('#settings-advisor-mode .setup-chip').forEach(function (chip) {
+      chip.onclick = function () {
+        root.querySelectorAll('#settings-advisor-mode .setup-chip').forEach(function (c) {
+          c.classList.toggle('active', c === chip);
+        });
+        if (global.PTLiveAdvisor && global.PTLiveAdvisor.saveMode) {
+          global.PTLiveAdvisor.saveMode(chip.dataset.val === 'serious' ? 'serious' : 'always');
+        }
+      };
+    });
+    var thrEl = $('#settings-serious-threshold');
     if (thrEl && global.PTLiveAdvisor && global.PTLiveAdvisor.saveThreshold) {
       thrEl.onchange = function () {
         global.PTLiveAdvisor.saveThreshold(thrEl.value);
       };
     }
-    document.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
-      btn.onclick = function () {
-        if (global.PTI18n && global.PTI18n.setLang) {
-          global.PTI18n.setLang(btn.getAttribute('data-settings-lang'));
+    root.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
+      btn.onclick = function (e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
         }
+        var next = btn.getAttribute('data-settings-lang');
+        if (global.PTI18n && global.PTI18n.setLang) {
+          global.PTI18n.setLang(next);
+        }
+        syncSettingsLangUI();
       };
     });
     var billing = $('#settings-billing');
