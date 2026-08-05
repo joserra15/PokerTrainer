@@ -191,21 +191,21 @@
       '</section>' +
 
       '<section class="account-settings-card card-box">' +
-      '<h3>Avisador y feedback</h3>' +
-      '<p class="muted-text">Controla cuándo el entrenador te avisa tras una decisión.</p>' +
+      '<h3 data-i18n="settings.advisorTitle">Avisador y feedback</h3>' +
+      '<p class="muted-text" data-i18n="settings.advisorLead">Controla cuándo el entrenador te avisa tras una decisión.</p>' +
       '<div class="account-advisor-block">' +
-      '<span class="setup-label">Modo</span>' +
+      '<span class="setup-label" data-i18n="settings.advisorMode">Modo</span>' +
       '<div class="setup-chips" id="settings-advisor-mode">' +
-      '<button type="button" class="setup-chip" data-val="always">Siempre (consejo previo)</button>' +
-      '<button type="button" class="setup-chip" data-val="serious">Solo error grave</button>' +
+      '<button type="button" class="setup-chip" data-val="always" data-i18n="advisor.always">Siempre (consejo previo)</button>' +
+      '<button type="button" class="setup-chip" data-val="serious" data-i18n="advisor.serious">Solo error grave</button>' +
       '</div>' +
-      '<label class="setup-label" for="settings-serious-threshold">Umbral EV perdido (bb)</label>' +
+      '<label class="setup-label" for="settings-serious-threshold" data-i18n="advisor.threshold">Umbral EV perdido (bb)</label>' +
       '<input type="number" id="settings-serious-threshold" class="setup-number-input" min="0" max="20" step="0.1" value="0.5" inputmode="decimal" />' +
       '</div>' +
       '</section>' +
 
       '<section class="account-settings-card card-box">' +
-      '<h3>Idioma / Language</h3>' +
+      '<h3 data-i18n="settings.langTitle">Idioma / Language</h3>' +
       '<p class="muted-text" id="settings-lang-status"></p>' +
       '<div class="account-settings-actions setup-chips" id="settings-lang-chips">' +
       '<button type="button" class="setup-chip" data-settings-lang="es">Español</button>' +
@@ -257,6 +257,9 @@
     });
     var thrEl = $('#settings-serious-threshold');
     if (thrEl) thrEl.value = String(thr);
+    if (global.PTI18n && global.PTI18n.apply) {
+      global.PTI18n.apply(host);
+    }
     syncSettingsLangUI();
     bindActions();
   }
@@ -266,18 +269,24 @@
     var lang = (global.PTI18n && global.PTI18n.getLang) ? global.PTI18n.getLang() : 'es';
     var status = $('#settings-lang-status');
     if (status) {
-      status.textContent = lang === 'en'
-        ? 'Current language: English'
-        : 'Idioma actual: Español';
+      status.textContent = (global.PTI18n && global.PTI18n.t)
+        ? global.PTI18n.t(lang === 'en' ? 'settings.langEn' : 'settings.langEs')
+        : (lang === 'en' ? 'Current language: English' : 'Idioma actual: Español');
     }
     if (global.PTI18n && global.PTI18n.syncLangButtons) {
-      global.PTI18n.syncLangButtons(root);
+      global.PTI18n.syncLangButtons(document);
     } else {
       root.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
         var on = btn.getAttribute('data-settings-lang') === lang;
         btn.classList.toggle('active', on);
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+    }
+  }
+
+  function pushAdvisorToSession(partial) {
+    if (typeof global.syncAdvisorSettingsToSession === 'function') {
+      global.syncAdvisorSettingsToSession(partial || {});
     }
   }
 
@@ -288,16 +297,24 @@
         root.querySelectorAll('#settings-advisor-mode .setup-chip').forEach(function (c) {
           c.classList.toggle('active', c === chip);
         });
+        var mode = chip.dataset.val === 'serious' ? 'serious' : 'always';
         if (global.PTLiveAdvisor && global.PTLiveAdvisor.saveMode) {
-          global.PTLiveAdvisor.saveMode(chip.dataset.val === 'serious' ? 'serious' : 'always');
+          global.PTLiveAdvisor.saveMode(mode);
         }
+        pushAdvisorToSession({ advisorMode: mode });
       };
     });
     var thrEl = $('#settings-serious-threshold');
     if (thrEl && global.PTLiveAdvisor && global.PTLiveAdvisor.saveThreshold) {
-      thrEl.onchange = function () {
-        global.PTLiveAdvisor.saveThreshold(thrEl.value);
+      var persistThr = function () {
+        var n = global.PTLiveAdvisor.saveThreshold(thrEl.value);
+        pushAdvisorToSession({
+          advisorMode: global.PTLiveAdvisor.loadMode ? global.PTLiveAdvisor.loadMode() : 'always',
+          seriousEvThreshold: n
+        });
       };
+      thrEl.onchange = persistThr;
+      thrEl.oninput = persistThr;
     }
     root.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
       btn.onclick = function (e) {
@@ -308,6 +325,9 @@
         var next = btn.getAttribute('data-settings-lang');
         if (global.PTI18n && global.PTI18n.setLang) {
           global.PTI18n.setLang(next);
+        }
+        if (global.PTI18n && global.PTI18n.apply) {
+          global.PTI18n.apply(root);
         }
         syncSettingsLangUI();
       };
