@@ -199,7 +199,7 @@
     const thEl = $('#setup-table-theme .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
     const laEl = $('#setup-live-advisor');
-    const modeEl = $('#setup-advisor-mode');
+    const modeEl = $('#setup-advisor-mode .setup-chip.active');
     const thrEl = $('#setup-serious-threshold');
     let advisorMode = 'always';
     let seriousEvThreshold = 0.5;
@@ -207,7 +207,7 @@
       advisorMode = PTLiveAdvisor.loadMode ? PTLiveAdvisor.loadMode() : 'always';
       seriousEvThreshold = PTLiveAdvisor.loadThreshold ? PTLiveAdvisor.loadThreshold() : 0.5;
     }
-    if (modeEl) advisorMode = modeEl.value === 'serious' ? 'serious' : 'always';
+    if (modeEl && modeEl.dataset.val) advisorMode = modeEl.dataset.val === 'serious' ? 'serious' : 'always';
     if (thrEl && thrEl.value !== '') seriousEvThreshold = Number(thrEl.value);
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
@@ -369,8 +369,10 @@
     }
     const laEl = $('#setup-live-advisor');
     if (laEl && typeof cfg.liveAdvisor === 'boolean') laEl.checked = cfg.liveAdvisor;
-    const modeEl = $('#setup-advisor-mode');
-    if (modeEl && cfg.advisorMode) modeEl.value = cfg.advisorMode === 'serious' ? 'serious' : 'always';
+    const mode = (cfg.advisorMode === 'serious') ? 'serious' : 'always';
+    $$('#setup-advisor-mode .setup-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.val === mode);
+    });
     const thrEl = $('#setup-serious-threshold');
     if (thrEl && cfg.seriousEvThreshold != null) thrEl.value = String(cfg.seriousEvThreshold);
     syncAdvisorModeUI();
@@ -378,12 +380,13 @@
   }
 
   function syncAdvisorModeUI() {
-    const modeEl = $('#setup-advisor-mode');
+    const extras = $('#setup-advisor-extras');
     const thrWrap = $('#setup-serious-threshold-wrap');
-    const on = $('#setup-live-advisor') && $('#setup-live-advisor').checked;
-    const serious = modeEl && modeEl.value === 'serious';
-    if (modeEl) modeEl.disabled = !on;
-    if (thrWrap) thrWrap.classList.toggle('hidden', !on || !serious);
+    const on = !!( $('#setup-live-advisor') && $('#setup-live-advisor').checked );
+    const modeChip = $('#setup-advisor-mode .setup-chip.active');
+    const serious = modeChip && modeChip.dataset.val === 'serious';
+    if (extras) extras.classList.toggle('is-disabled', !on);
+    if (thrWrap) thrWrap.classList.toggle('hidden', !serious);
   }
 
   async function startGuidedTraining(partial) {
@@ -428,23 +431,27 @@
     });
     restoreTableThemeChip();
     const laEl = $('#setup-live-advisor');
-    const modeEl = $('#setup-advisor-mode');
     const thrEl = $('#setup-serious-threshold');
-    if (laEl && window.PTLiveAdvisor) {
-      laEl.checked = PTLiveAdvisor.loadPreference();
-      if (modeEl && PTLiveAdvisor.loadMode) modeEl.value = PTLiveAdvisor.loadMode();
+    if (window.PTLiveAdvisor) {
+      if (laEl) laEl.checked = PTLiveAdvisor.loadPreference();
+      const mode = PTLiveAdvisor.loadMode ? PTLiveAdvisor.loadMode() : 'always';
+      $$('#setup-advisor-mode .setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === mode);
+      });
       if (thrEl && PTLiveAdvisor.loadThreshold) thrEl.value = String(PTLiveAdvisor.loadThreshold());
       syncAdvisorModeUI();
-      laEl.addEventListener('change', function () {
-        PTLiveAdvisor.savePreference(laEl.checked);
-        syncAdvisorModeUI();
-      });
-      if (modeEl) {
-        modeEl.addEventListener('change', function () {
-          PTLiveAdvisor.saveMode(modeEl.value === 'serious' ? 'serious' : 'always');
+      if (laEl) {
+        laEl.addEventListener('change', function () {
+          PTLiveAdvisor.savePreference(laEl.checked);
           syncAdvisorModeUI();
         });
       }
+      bindChipGroup('#setup-advisor-mode', function () {
+        const active = $('#setup-advisor-mode .setup-chip.active');
+        const modeVal = active && active.dataset.val === 'serious' ? 'serious' : 'always';
+        PTLiveAdvisor.saveMode(modeVal);
+        syncAdvisorModeUI();
+      });
       if (thrEl) {
         thrEl.addEventListener('change', function () {
           PTLiveAdvisor.saveThreshold(thrEl.value);
@@ -2517,6 +2524,7 @@
           void startNewHand();
         });
       }
+      try { openSessionBlockPopup(target); } catch (e) { console.warn('[session-block]', e); }
     } else {
       $('#actions').innerHTML = `<button class="btn btn-primary" id="next-after">Siguiente mano &raquo;</button>
       <button class="btn btn-ghost" id="replay-after">&#8635; Repetir esta mano</button>
@@ -2620,6 +2628,59 @@
       (handsPerHour != null ? ' · ~' + handsPerHour + '/h' : '') + '</div></div>';
     html += '</div></div>';
     return html;
+  }
+
+  function openSessionBlockPopup(target) {
+    const box = $('#modal-content');
+    const modal = $('#modal');
+    if (!box || !modal) return;
+    const acc = session.decisions
+      ? Math.round((session.good / session.decisions) * 100)
+      : null;
+    const elapsedMs = session.startedAt ? (Date.now() - session.startedAt) : 0;
+    const mins = Math.max(1, Math.round(elapsedMs / 60000));
+    const secs = Math.max(0, Math.round(elapsedMs / 1000) % 60);
+    const net = roundSession(session.net);
+    const evLost = roundSession(session.evLossBB);
+    const expected = roundSession(net - evLost);
+    box.innerHTML = `<div class="session-block-popup">
+      <div class="session-block-popup-head">
+        <h3>¡Bloque completado!</h3>
+        <p class="muted-text">${target} manos · ${mins} min ${secs > 0 ? secs + ' s' : ''}</p>
+      </div>
+      <div class="stats-content session-block-popup-stats">
+        <div class="stat-card"><div class="big">${session.hands}</div><div class="lbl">Manos</div></div>
+        <div class="stat-card"><div class="big accent">${acc != null ? acc + '%' : '—'}</div><div class="lbl">Acierto</div></div>
+        <div class="stat-card"><div class="big ${net >= 0 ? 'net-pos' : 'net-neg'}">${net >= 0 ? '+' : ''}${fmtBB(net)}</div><div class="lbl">Resultado</div></div>
+        <div class="stat-card"><div class="big net-neg">-${fmtBB(evLost)}</div><div class="lbl">EV perdido</div></div>
+        <div class="stat-card"><div class="big ${expected >= 0 ? 'net-pos' : 'net-neg'}">${expected >= 0 ? '+' : ''}${fmtBB(expected)}</div><div class="lbl">EV esperado</div></div>
+      </div>
+      <div class="session-block-popup-actions">
+        <button type="button" class="btn btn-primary" id="block-popup-new">Nueva sesión</button>
+        <button type="button" class="btn btn-ghost" id="block-popup-continue">Seguir entrenando</button>
+        <button type="button" class="btn btn-ghost" id="block-popup-close">Cerrar</button>
+      </div>
+    </div>`;
+    modal.classList.remove('hidden');
+    const close = () => closeModal();
+    const closeBtn = $('#block-popup-close');
+    if (closeBtn) closeBtn.onclick = close;
+    const newBtn = $('#block-popup-new');
+    if (newBtn) {
+      newBtn.onclick = () => {
+        closeModal();
+        resetPlaySession();
+      };
+    }
+    const contBtn = $('#block-popup-continue');
+    if (contBtn) {
+      contBtn.onclick = () => {
+        closeModal();
+        if (playSessionConfig) playSessionConfig.handsTarget = 0;
+        session.startedAt = Date.now();
+        void startNewHand();
+      };
+    }
   }
 
   function refreshSessionUI() {
