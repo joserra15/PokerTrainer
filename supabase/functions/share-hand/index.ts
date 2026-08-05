@@ -146,7 +146,12 @@ serve(async (req) => {
 
       if (error || !data) {
         console.error('[share-hand] insert', error);
-        return json({ error: 'db_error' }, 500);
+        const code = String(error && (error as { code?: string }).code || '');
+        const msg = String(error && (error as { message?: string }).message || '');
+        if (code === '23514' || /source/i.test(msg)) {
+          return json({ error: 'invalid_source', detail: msg }, 400);
+        }
+        return json({ error: 'db_error', detail: msg || undefined }, 500);
       }
 
       const shareUrl = `${siteBaseUrl()}/share.html?id=${data.id}`;
