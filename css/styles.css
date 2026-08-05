@@ -4068,6 +4068,46 @@ body.admin-compose-open { overflow: hidden; }
   min-height: 6px;
 }
 .leak-bar-meta { font-size: 9px; margin-top: 4px; text-align: center; }
+.leak-bar-col-click {
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  padding: 4px 2px;
+  border-radius: 6px;
+}
+.leak-bar-col-click:hover,
+.leak-bar-col-click:focus-visible {
+  border-color: var(--border, #333);
+  background: rgba(255, 255, 255, 0.04);
+}
+.leaks-share-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 16px;
+}
+.whatif-row {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border, #333);
+}
+.whatif-note { display: inline-block; margin-right: 8px; font-size: 12px; }
+.whatif-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.whatif-action.active {
+  border-color: var(--accent);
+  background: rgba(47, 129, 247, 0.15);
+}
+.ranges-favorites { margin: 8px 0 4px; }
+.ranges-fav-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.ranges-fav-empty { font-size: 12px; margin: 0; }
+#ranges-favorite-btn.active { color: var(--gold); }
 
 #stats-coach { margin-top: 18px; }
 

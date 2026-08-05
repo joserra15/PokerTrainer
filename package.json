@@ -6,6 +6,7 @@
     "build": "node tools/build-bundles.js",
     "test:import": "node tools/testimport.js",
     "test:p0": "node tools/test-p0-session-onboarding.js",
+    "test:p1": "node tools/test-p1-retention.js",
     "test:vpip": "node tools/test-vpip-pfr.js",
     "test:unit": "node tools/selftest.js",
     "test:hand-analysis": "node tools/test-hand-analysis.js",

@@ -1133,6 +1133,45 @@
     return Promise.resolve({ ok: false, error: 'invalid_target' });
   }
 
+  function getFavoriteSpots() {
+    return read(scopedKey('rangeFavorites'), []);
+  }
+
+  function favoriteSpotKey(spot) {
+    if (!spot) return '';
+    return [spot.gameType || 'cash6', spot.stackDepth || 'standard', spot.spot || '', spot.heroPos || '',
+      spot.villainPos || '', spot.callerPos || '', spot.openSize || 2.5].join('|');
+  }
+
+  function isFavoriteSpot(spot) {
+    const key = favoriteSpotKey(spot);
+    return getFavoriteSpots().some(function (f) { return favoriteSpotKey(f) === key; });
+  }
+
+  function toggleFavoriteSpot(spot) {
+    if (!spot || !spot.spot) return { ok: false, favorites: getFavoriteSpots() };
+    const key = favoriteSpotKey(spot);
+    let list = getFavoriteSpots().slice();
+    const idx = list.findIndex(function (f) { return favoriteSpotKey(f) === key; });
+    if (idx >= 0) list.splice(idx, 1);
+    else {
+      list.unshift({
+        gameType: spot.gameType || 'cash6',
+        stackDepth: spot.stackDepth || 'standard',
+        spot: spot.spot,
+        heroPos: spot.heroPos || '',
+        villainPos: spot.villainPos || '',
+        callerPos: spot.callerPos || '',
+        openSize: Number(spot.openSize) === 3 ? 3 : 2.5,
+        label: spot.label || '',
+        savedAt: new Date().toISOString()
+      });
+      if (list.length > 20) list = list.slice(0, 20);
+    }
+    write(scopedKey('rangeFavorites'), list);
+    return { ok: true, favorites: list, favorited: idx < 0 };
+  }
+
   global.Store = {
     setUserId,
     getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
@@ -1144,6 +1183,7 @@
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry,
-    getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand
+    getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
+    getFavoriteSpots, isFavoriteSpot, toggleFavoriteSpot, favoriteSpotKey
   };
 })(window);

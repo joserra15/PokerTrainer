@@ -79,7 +79,7 @@
           '15 manos entrenador/día',
           '1 sesión import/mes (máx. 200)',
           '5 manos en análisis (solo manual)',
-          'Sin IA Coach (bono opcional)'
+          '3 consultas IA Coach/mes de prueba'
         ]
       },
       {

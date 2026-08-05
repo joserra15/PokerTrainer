@@ -205,19 +205,23 @@
     var source = opts && opts.source;
     var hand = opts && opts.hand;
     var title = (opts && opts.title) || '';
-    if (!source || !hand) throw new Error('Faltan datos de la mano.');
+    var bodyOverride = opts && opts.bodyHtml;
+    if (!source) throw new Error('Faltan datos de la mano.');
+    if (!bodyOverride && !hand) throw new Error('Faltan datos de la mano.');
     if (!functionsBase()) throw new Error('Compartir no está disponible ahora mismo.');
 
     var ui = global.PTShareHandUI;
-    if (!ui || !ui.buildBodyHTML) throw new Error('El generador de análisis no está listo.');
-
-    var bodyHtml = ui.buildBodyHTML(hand, { source: source });
+    var bodyHtml = bodyOverride || '';
+    if (!bodyHtml) {
+      if (!ui || !ui.buildBodyHTML) throw new Error('El generador de análisis no está listo.');
+      bodyHtml = ui.buildBodyHTML(hand, { source: source });
+    }
     if (!bodyHtml) throw new Error('No se pudo generar el análisis para compartir.');
 
     var expiresAt = expiryFromNow();
     var css = await loadShareCss();
     var html = wrapDocument({
-      title: title || ui.handTitle(hand) || 'Análisis de mano',
+      title: title || (ui && ui.handTitle ? ui.handTitle(hand) : '') || 'Análisis de mano',
       css: css,
       bodyHtml: bodyHtml,
       expiresAt: expiresAt
@@ -229,7 +233,7 @@
       body: JSON.stringify({
         html: html,
         source: source,
-        title: title || ui.handTitle(hand) || 'Análisis de mano'
+        title: title || (ui && ui.handTitle ? ui.handTitle(hand) : '') || 'Análisis de mano'
       })
     });
     var data = await res.json().catch(function () { return {}; });
@@ -263,6 +267,7 @@
     ttlDays: TTL_DAYS,
     create: createShare,
     shareFromButton: shareFromButton,
+    openDialog: openDialog,
     wrapDocument: wrapDocument,
     formatExpiryDate: formatExpiryDate
   };

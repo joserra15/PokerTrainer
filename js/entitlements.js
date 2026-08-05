@@ -15,7 +15,7 @@
       trainer_hands_per_day: 15,
       import_sessions_per_month: 1,
       max_hands_per_import: 200,
-      ai_reports_per_month: 0,
+      ai_reports_per_month: 3,
       history_days: 30,
       analysis_hands_max: 5
     },

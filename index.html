@@ -716,6 +716,14 @@
           </div>
         </div>
         <div class="ranges-spot-row" id="ranges-spot-row"></div>
+        <div class="ranges-pos-block" id="ranges-sizing-row">
+          <span class="ranges-pos-label">Open:</span>
+          <div class="ranges-pos-btns setup-chips">
+            <button type="button" class="setup-chip active" data-ranges-sizing="2.5">2.5x</button>
+            <button type="button" class="setup-chip" data-ranges-sizing="3">3x</button>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="ranges-favorite-btn">☆ Guardar spot</button>
+        </div>
         <div class="ranges-pos-block">
           <span class="ranges-pos-label">Hero:</span>
           <div class="ranges-pos-btns" id="ranges-hero-pos"></div>
@@ -728,6 +736,7 @@
           <span class="ranges-pos-label">Pagador:</span>
           <div class="ranges-pos-btns" id="ranges-caller-pos"></div>
         </div>
+        <div id="ranges-favorites" class="ranges-favorites" aria-label="Spots favoritos"></div>
         <p class="ranges-spot-title" id="ranges-spot-title"></p>
         <div class="range-matrix-legend ranges-explorer-legend">
           <span><i class="raise"></i> Raise / 3-bet / 4-bet</span>
@@ -795,6 +804,7 @@
       <div class="panel-head">
         <h2><span class="panel-icon home-card-icon home-card-icon-errors" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M12 4l8 15H4z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Spots fallados (repaso)</h2>
         <div>
+          <button id="train-worst-spots" class="btn btn-secondary">Drill adaptativo</button>
           <button id="train-errors" class="btn btn-primary">Entrenar errores</button>
           <button id="clear-errors" class="btn btn-danger">Vaciar errores</button>
         </div>
