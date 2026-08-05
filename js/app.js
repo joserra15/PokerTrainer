@@ -8,6 +8,9 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const fmtBB = (x) => (window.GTOPotMath ? window.GTOPotMath.formatBB(x) : String(Math.round((Number(x) || 0) * 100) / 100));
+  function tt(key, vars) {
+    return (window.PTI18n && window.PTI18n.t) ? window.PTI18n.t(key, vars) : key;
+  }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
   const APP_VERSION = window.PT_BUILD || '1.5.2';
@@ -297,10 +300,44 @@
     window.PTLiveAdvisor.update($('#live-advisor-panel'), hand, isLiveAdvisorOn());
   }
 
+  /** Aplica modo/umbral de Configuración a la sesión activa (sin esperar a nueva sesión). */
+  function syncAdvisorSettingsToSession(partial) {
+    const LA = window.PTLiveAdvisor;
+    if (!LA) return;
+    const mode = partial && partial.advisorMode != null
+      ? (partial.advisorMode === 'serious' ? 'serious' : 'always')
+      : (LA.loadMode ? LA.loadMode() : 'always');
+    const thr = partial && partial.seriousEvThreshold != null
+      ? Number(partial.seriousEvThreshold)
+      : (LA.loadThreshold ? LA.loadThreshold() : 0.5);
+    const threshold = (!isNaN(thr) && thr >= 0) ? thr : 0.5;
+    if (playSessionConfig) {
+      playSessionConfig.advisorMode = mode;
+      playSessionConfig.seriousEvThreshold = threshold;
+    }
+    if (hand && hand.playConfig) {
+      hand.playConfig.advisorMode = mode;
+      hand.playConfig.seriousEvThreshold = threshold;
+    }
+    const modeChip = $('#setup-advisor-mode');
+    if (modeChip) {
+      modeChip.querySelectorAll('.setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === mode);
+      });
+    }
+    const thrEl = $('#setup-serious-threshold');
+    if (thrEl) thrEl.value = String(threshold);
+    syncAdvisorModeUI();
+    updateLiveAdvisor();
+  }
+
   function disableLiveAdvisorFromPanel() {
     if (playSessionConfig) playSessionConfig.liveAdvisor = false;
     if (hand && hand.playConfig) hand.playConfig.liveAdvisor = false;
-    if (window.PTLiveAdvisor) PTLiveAdvisor.savePreference(false);
+    if (window.PTLiveAdvisor) {
+      PTLiveAdvisor.savePreference(false);
+      if (PTLiveAdvisor.clearPendingAlert) PTLiveAdvisor.clearPendingAlert();
+    }
     const laEl = $('#setup-live-advisor');
     if (laEl) laEl.checked = false;
     updateLiveAdvisor();
@@ -451,11 +488,18 @@
         const modeVal = active && active.dataset.val === 'serious' ? 'serious' : 'always';
         PTLiveAdvisor.saveMode(modeVal);
         syncAdvisorModeUI();
+        syncAdvisorSettingsToSession({ advisorMode: modeVal });
       });
       if (thrEl) {
-        thrEl.addEventListener('change', function () {
+        const persistThr = function () {
           PTLiveAdvisor.saveThreshold(thrEl.value);
-        });
+          syncAdvisorSettingsToSession({
+            advisorMode: PTLiveAdvisor.loadMode ? PTLiveAdvisor.loadMode() : 'always',
+            seriousEvThreshold: PTLiveAdvisor.loadThreshold ? PTLiveAdvisor.loadThreshold() : thrEl.value
+          });
+        };
+        thrEl.addEventListener('change', persistThr);
+        thrEl.addEventListener('input', persistThr);
       }
     }
     const startBtn = $('#play-start');
@@ -799,6 +843,7 @@
 
   window.goToTab = goToTab;
   window.openSession = openSession;
+  window.syncAdvisorSettingsToSession = syncAdvisorSettingsToSession;
 
   function isMobileLayout() {
     return window.matchMedia('(max-width: 680px)').matches;
@@ -939,8 +984,23 @@
     if (liveAdvPanel && !liveAdvPanel._ptDisableBound) {
       liveAdvPanel._ptDisableBound = true;
       liveAdvPanel.addEventListener('click', (e) => {
+        if (e.target.closest('[data-dismiss-advisor-alert]')) {
+          if (window.PTLiveAdvisor && PTLiveAdvisor.clearPendingAlert) PTLiveAdvisor.clearPendingAlert();
+          updateLiveAdvisor();
+          return;
+        }
         if (!e.target.closest('[data-disable-live-advisor]')) return;
         disableLiveAdvisorFromPanel();
+      });
+    }
+    if (!window._ptLangBound) {
+      window._ptLangBound = true;
+      window.addEventListener('pt-lang-change', function () {
+        if (window.PTI18n && window.PTI18n.apply) window.PTI18n.apply(document);
+        if (hand) {
+          try { renderTable(); } catch (e) { /* ignore */ }
+          try { updateLiveAdvisor(); } catch (e2) { /* ignore */ }
+        }
       });
     }
     const rmm = $('#range-matrix-modal');
@@ -1004,6 +1064,7 @@
       byStreet: emptyByStreet(),
       startedAt: Date.now()
     };
+    if (window.PTLiveAdvisor && PTLiveAdvisor.clearPendingAlert) PTLiveAdvisor.clearPendingAlert();
     refreshSessionUI();
     $('#hand-log').innerHTML = '';
     pendingForce = null;
@@ -1018,6 +1079,7 @@
   async function startNewHand() {
     if (startingHand) return;
     startingHand = true;
+    if (window.PTLiveAdvisor && PTLiveAdvisor.clearPendingAlert) PTLiveAdvisor.clearPendingAlert();
     setPlayTableLoading(true);
     setPlayHandButtonsDisabled(true);
     $('#feedback').classList.add('hidden');
@@ -1314,7 +1376,7 @@
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
     const pot = hand.current ? hand.current.potBB : hand.potBB;
     $('#hero-pos').textContent = hand.displayHeroPos || hand.hero.pos;
-    $('#pot').innerHTML = '<span class="pot-chips"><span class="chip-ico"></span></span> Bote: ' + (pot != null ? fmt(pot) : '-') + ' bb';
+    $('#pot').innerHTML = '<span class="pot-chips"><span class="chip-ico"></span></span> ' + tt('play.pot') + ': ' + (pot != null ? fmt(pot) : '-') + ' bb';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardToHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
     $('#hero-action').innerHTML = actionBadgeHTML(hand.heroAction);
@@ -1360,7 +1422,9 @@
     const t = action.type;
     if (t === 'check') return '<span class="seat-act check">Check</span>';
     if (t === 'fold') return '<span class="seat-act fold">Fold</span>';
-    const labels = { open: 'Abre', bet: 'Apuesta', call: 'Iguala', raise: 'Sube', allin: 'All-in' };
+    const labels = window.PTI18n && window.PTI18n.getLang && window.PTI18n.getLang() === 'en'
+      ? { open: 'Open', bet: 'Bet', call: 'Call', raise: 'Raise', allin: 'All-in' }
+      : { open: 'Abre', bet: 'Apuesta', call: 'Iguala', raise: 'Sube', allin: 'All-in' };
     const lbl = labels[t] || t;
     const amt = action.amount != null ? `${action.amount} bb` : '';
     return `<span class="seat-act bet"><span class="chip-ico"></span>${lbl}${amt ? ' · ' + amt : ''}</span>`;
@@ -1370,7 +1434,7 @@
     if (!hand.board.length) return '';
     try {
       const ev = Cards.evaluate(hand.hero.cards.concat(hand.board));
-      return 'Tu mano: ' + ev.name;
+      return tt('play.yourHand') + ': ' + ev.name;
     } catch (e) { return ''; }
   }
 
@@ -1563,7 +1627,13 @@
 
     appendLog(d);
     const warn = shouldShowDecisionFeedback(d);
-    if (warn) showVerdictToast(d);
+    if (warn) {
+      const mode = advisorModeForFeedback();
+      if (mode === 'serious' && window.PTLiveAdvisor && PTLiveAdvisor.recordSeriousAlert) {
+        PTLiveAdvisor.recordSeriousAlert(d, advisorThresholdForFeedback());
+      }
+      showVerdictToast(d, mode === 'serious');
+    }
     $('#feedback').classList.add('hidden');
     renderTable();
 
@@ -1574,6 +1644,20 @@
     }
   }
 
+  function advisorModeForFeedback() {
+    const LA = window.PTLiveAdvisor;
+    if (LA && LA.loadMode) return LA.loadMode();
+    const cfg = (hand && hand.playConfig) || playSessionConfig || {};
+    return (cfg && cfg.advisorMode) || 'always';
+  }
+
+  function advisorThresholdForFeedback() {
+    const LA = window.PTLiveAdvisor;
+    if (LA && LA.loadThreshold) return LA.loadThreshold();
+    const cfg = (hand && hand.playConfig) || playSessionConfig || {};
+    return (cfg && cfg.seriousEvThreshold != null) ? cfg.seriousEvThreshold : 0.5;
+  }
+
   function shouldShowDecisionFeedback(d) {
     if (!d) return true;
     const LA = window.PTLiveAdvisor;
@@ -1581,11 +1665,9 @@
     const cfg = (hand && hand.playConfig) || playSessionConfig || {};
     const advisorOn = !!(cfg && cfg.liveAdvisor) || (LA.loadPreference && LA.loadPreference());
     if (!advisorOn) return true;
-    const mode = (cfg && cfg.advisorMode) || (LA.loadMode && LA.loadMode()) || 'always';
+    const mode = advisorModeForFeedback();
     if (mode !== 'serious') return true;
-    const thr = (cfg && cfg.seriousEvThreshold != null)
-      ? cfg.seriousEvThreshold
-      : (LA.loadThreshold && LA.loadThreshold());
+    const thr = advisorThresholdForFeedback();
     return LA.shouldWarn(d.evLoss, mode, thr);
   }
 
@@ -1664,7 +1746,7 @@
     $('#hand-log').appendChild(li);
   }
 
-  function showVerdictToast(d) {
+  function showVerdictToast(d, stickySerious) {
     const toast = $('#verdict-toast');
     if (!toast) return;
     const pct = Math.round((d.frequency || 0) * 100);
@@ -1673,7 +1755,8 @@
       <div class="vt-freq">${pct}% GTO</div>
       ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}`;
     clearTimeout(showVerdictToast._t);
-    showVerdictToast._t = setTimeout(() => { toast.classList.remove('visible'); }, 1100);
+    const ms = stickySerious ? 2800 : 1100;
+    showVerdictToast._t = setTimeout(() => { toast.classList.remove('visible'); }, ms);
   }
 
   function renderOptionGrid(breakdown, chosenId, bestId) {
@@ -2606,7 +2689,7 @@
       title: shareHandTitle(hand)
     }));
     renderTable();
-    $('#hero-handname').textContent = r.heroHandName ? 'Tu mano: ' + r.heroHandName : handNameOnBoard();
+    $('#hero-handname').textContent = r.heroHandName ? tt('play.yourHand') + ': ' + r.heroHandName : handNameOnBoard();
   }
 
   function renderSessionBlockSummary(target) {

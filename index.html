@@ -341,17 +341,17 @@
         </div>
       </div>
       <nav class="tabs">
-        <button class="tab" data-tab="play">Entrenar</button>
-        <button class="tab" data-tab="learn">Guía básica</button>
-        <button class="tab" data-tab="analysis">Análisis</button>
-        <button class="tab" data-tab="ranges">Rangos</button>
-        <button class="tab" data-tab="sessions">Sesiones</button>
-        <button class="tab" data-tab="history">Histórico</button>
-        <button class="tab" data-tab="errors">Errores</button>
-        <button class="tab" data-tab="stats">Estadísticas</button>
-        <button class="tab" data-tab="contact">Contacto</button>
-        <button class="tab" data-tab="pricing">Planes</button>
-        <a class="tab tab-link" href="legal/faq.html" target="_blank" rel="noopener">FAQ</a>
+        <button class="tab" data-tab="play" data-i18n="tab.play">Entrenar</button>
+        <button class="tab" data-tab="learn" data-i18n="tab.learn">Guía básica</button>
+        <button class="tab" data-tab="analysis" data-i18n="tab.analysis">Análisis</button>
+        <button class="tab" data-tab="ranges" data-i18n="tab.ranges">Rangos</button>
+        <button class="tab" data-tab="sessions" data-i18n="tab.sessions">Sesiones</button>
+        <button class="tab" data-tab="history" data-i18n="tab.history">Histórico</button>
+        <button class="tab" data-tab="errors" data-i18n="tab.errors">Errores</button>
+        <button class="tab" data-tab="stats" data-i18n="tab.stats">Estadísticas</button>
+        <button class="tab" data-tab="contact" data-i18n="tab.contact">Contacto</button>
+        <button class="tab" data-tab="pricing" data-i18n="tab.pricing">Planes</button>
+        <a class="tab tab-link" href="legal/faq.html" target="_blank" rel="noopener" data-i18n="tab.faq">FAQ</a>
       </nav>
     </div>
   </div>
@@ -623,13 +623,13 @@
             <span><strong>Avisador en vivo</strong> — muestra qué ocurre en la mesa, la acción recomendada y la explicación antes de decidir</span>
           </label>
           <div class="setup-advisor-extras" id="setup-advisor-extras">
-            <span class="setup-label">Modo del avisador</span>
+            <span class="setup-label" data-i18n="advisor.mode">Modo del avisador</span>
             <div class="setup-chips" id="setup-advisor-mode">
-              <button type="button" class="setup-chip active" data-val="always">Siempre (consejo previo)</button>
-              <button type="button" class="setup-chip" data-val="serious">Solo error grave</button>
+              <button type="button" class="setup-chip active" data-val="always" data-i18n="advisor.always">Siempre (consejo previo)</button>
+              <button type="button" class="setup-chip" data-val="serious" data-i18n="advisor.serious">Solo error grave</button>
             </div>
             <div class="setup-advisor-threshold" id="setup-serious-threshold-wrap">
-              <label class="setup-label" for="setup-serious-threshold">Umbral EV perdido (bb)</label>
+              <label class="setup-label" for="setup-serious-threshold" data-i18n="advisor.threshold">Umbral EV perdido (bb)</label>
               <input type="number" id="setup-serious-threshold" class="setup-number-input" min="0" max="20" step="0.1" value="0.5" inputmode="decimal" />
             </div>
             <p class="muted-text setup-hint">En «Solo error grave» no hay consejo previo; solo toast/feedback si pierdes ≥ umbral de EV.</p>
@@ -661,14 +661,14 @@
               <div id="seats" class="seats"></div>
               <div class="board-area">
                 <div id="villain-action-bar" class="villain-action-bar" aria-hidden="true"></div>
-                <div class="pot" id="pot">Bote: 0 bb</div>
+                <div class="pot" id="pot"><span data-i18n="play.pot">Bote</span>: 0 bb</div>
                 <div id="board" class="board"></div>
                 <div id="spot-context" class="spot-context"></div>
               </div>
               <div class="hero-area">
                 <div id="hero-action" class="action-badge-wrap"></div>
                 <div id="hero-chips" class="hero-chips"></div>
-                <div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE · <span id="hero-pos">-</span><span id="hero-dealer" class="hero-dealer hidden" title="Dealer">D</span></div>
+                <div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span><span data-i18n="play.hero">HÉROE</span> · <span id="hero-pos">-</span><span id="hero-dealer" class="hero-dealer hidden" title="Dealer">D</span></div>
                 <div id="hero-cards" class="hero-cards"></div>
                 <div id="hero-handname" class="hero-handname"></div>
               </div>
@@ -685,27 +685,27 @@
         <aside class="sidebar">
           <div id="play-usage" class="usage-quota-host hidden" aria-label="Límites del plan"></div>
           <div class="card-box">
-            <h3>Sesión</h3>
+            <h3 data-i18n="play.session">Sesión</h3>
             <p id="play-session-label" class="muted-text play-session-label hidden"></p>
             <div class="mini-stats">
-              <div><span id="s-hands">0</span><label>Manos</label></div>
-              <div><span id="s-net">0</span><label>Resultado (bb)</label></div>
-              <div><span id="s-ev-lost">0</span><label>EV perdido</label></div>
-              <div><span id="s-ev-perfect">0</span><label>EV esperado</label></div>
-              <div><span id="s-acc">-</span><label>Acierto</label></div>
+              <div><span id="s-hands">0</span><label data-i18n="play.hands">Manos</label></div>
+              <div><span id="s-net">0</span><label data-i18n="play.result">Resultado (bb)</label></div>
+              <div><span id="s-ev-lost">0</span><label data-i18n="play.evLost">EV perdido</label></div>
+              <div><span id="s-ev-perfect">0</span><label data-i18n="play.evExpected">EV esperado</label></div>
+              <div><span id="s-acc">-</span><label data-i18n="play.accuracy">Acierto</label></div>
             </div>
             <div id="s-street-acc" class="street-acc compact-street-acc"></div>
           </div>
           <div class="card-box">
-            <h3>Historial de la mano</h3>
+            <h3 data-i18n="play.handHistory">Historial de la mano</h3>
             <ol id="hand-log" class="hand-log"></ol>
           </div>
           <div class="card-box">
-            <button id="new-hand" class="btn btn-primary btn-block">Nueva mano</button>
-            <button id="replay-hand" class="btn btn-ghost btn-block" style="margin-top:8px">&#8635; Repetir esta mano</button>
-            <button id="new-session" class="btn btn-ghost btn-block" style="margin-top:8px">Nueva sesión</button>
+            <button id="new-hand" class="btn btn-primary btn-block" data-i18n="play.newHand">Nueva mano</button>
+            <button id="replay-hand" class="btn btn-ghost btn-block" style="margin-top:8px" data-i18n="play.replayHand">&#8635; Repetir esta mano</button>
+            <button id="new-session" class="btn btn-ghost btn-block" style="margin-top:8px" data-i18n="play.newSession">Nueva sesión</button>
             <label class="toggle-row">
-              <input type="checkbox" id="repeat-errors" /> Repetir mis spots fallados
+              <input type="checkbox" id="repeat-errors" /> <span data-i18n="play.repeatErrors">Repetir mis spots fallados</span>
             </label>
           </div>
         </aside>
