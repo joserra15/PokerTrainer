@@ -5,6 +5,62 @@ const vm = require('vm');
 const assert = require('assert');
 
 const localStore = {};
+
+function makeEl(tag) {
+  const el = {
+    tagName: String(tag || 'div').toUpperCase(),
+    id: '',
+    className: '',
+    textContent: '',
+    style: {},
+    children: [],
+    parentNode: null,
+    contentWindow: null,
+    contentDocument: null,
+    setAttribute(k, v) {
+      this[k] = v;
+      if (k === 'id') this.id = v;
+    },
+    getAttribute(k) { return this[k] == null ? null : String(this[k]); },
+    appendChild(child) {
+      child.parentNode = this;
+      this.children.push(child);
+      return child;
+    },
+    removeChild(child) {
+      this.children = this.children.filter((c) => c !== child);
+      child.parentNode = null;
+      return child;
+    },
+    addEventListener() {},
+    removeEventListener() {},
+    focus() {},
+    click() {}
+  };
+  if (String(tag).toLowerCase() === 'iframe') {
+    const fdoc = {
+      _html: '',
+      open() {},
+      write(html) { this._html = String(html || ''); },
+      close() {}
+    };
+    el.contentDocument = fdoc;
+    el.contentWindow = { document: fdoc, print() {} };
+  }
+  return el;
+}
+
+const docChildren = [];
+const documentElement = {
+  lang: 'es',
+  classList: {
+    _set: new Set(),
+    add(c) { this._set.add(c); },
+    remove(c) { this._set.delete(c); },
+    contains(c) { return this._set.has(c); }
+  }
+};
+
 const sandbox = {
   window: {},
   console,
@@ -24,10 +80,27 @@ const sandbox = {
   Blob: function (parts, opts) { this.parts = parts; this.type = (opts && opts.type) || ''; },
   URL: { createObjectURL: () => 'blob:test', revokeObjectURL: () => {} },
   document: {
-    createElement: () => ({ click() {}, style: {}, setAttribute() {}, appendChild() {} }),
-    body: { appendChild() {}, removeChild() {} },
+    createElement: (tag) => makeEl(tag),
+    body: {
+      appendChild(child) {
+        child.parentNode = this;
+        docChildren.push(child);
+        return child;
+      },
+      removeChild(child) {
+        const i = docChildren.indexOf(child);
+        if (i >= 0) docChildren.splice(i, 1);
+        child.parentNode = null;
+        return child;
+      }
+    },
+    documentElement,
+    getElementById(id) {
+      return docChildren.find((c) => c.id === id) || null;
+    },
     querySelectorAll: () => [],
-    documentElement: { lang: 'es' }
+    addEventListener() {},
+    removeEventListener() {}
   },
   localStorage: {
     getItem: (k) => (Object.prototype.hasOwnProperty.call(localStore, k) ? localStore[k] : null),
@@ -38,6 +111,7 @@ const sandbox = {
 sandbox.global = sandbox;
 sandbox.window.localStorage = sandbox.localStorage;
 sandbox.window.document = sandbox.document;
+sandbox.window.Object = Object;
 vm.createContext(sandbox);
 
 function load(rel) {
@@ -104,6 +178,17 @@ assert.ok(csv.indexOf('handId') === 0, 'csv header');
 assert.ok(csv.indexOf('AKs') >= 0, 'csv has hand');
 const html = Exp.buildPrintHtml(sample);
 assert.ok(/Informe de sesión/.test(html), 'print html');
+assert.ok(/Cerrar \/ Volver/.test(html), 'print html has back control');
+assert.ok(/Imprimir \/ Guardar PDF/.test(html), 'print html has print control');
+const htmlInApp = Exp.buildPrintHtml(sample, { inApp: true });
+assert.ok(!/Cerrar \/ Volver/.test(htmlInApp), 'in-app html omits window close');
+assert.ok(typeof Exp.shouldUseInAppPrint === 'function', 'shouldUseInAppPrint');
+assert.ok(typeof Exp.closePrintOverlay === 'function', 'closePrintOverlay');
+const opened = Exp.download(sample, 'pdf', { forceInApp: true });
+assert.ok(opened && opened.mode === 'overlay', 'pdf opens overlay when forced');
+assert.ok(sandbox.document.getElementById('session-print-overlay'), 'overlay mounted');
+Exp.closePrintOverlay();
+assert.ok(!sandbox.document.getElementById('session-print-overlay'), 'overlay closed');
 
 const RM = sandbox.window.PTRangeMatrix;
 assert.ok(RM.buildPostflopExplorerInput, 'buildPostflopExplorerInput');
