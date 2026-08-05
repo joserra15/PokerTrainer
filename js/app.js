@@ -1637,11 +1637,47 @@
     $('#feedback').classList.add('hidden');
     renderTable();
 
+    if (hand.runoutPending) {
+      void playAllInRunout();
+      return;
+    }
     if (hand.stage === 'complete') {
       finishHand();
     } else {
       renderActions();
     }
+  }
+
+  function sleepMs(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  /** All-in: reparte turn/river con pausa visible antes del resultado. */
+  async function playAllInRunout() {
+    const box = $('#actions');
+    if (box) {
+      box.className = 'actions';
+      box.innerHTML = '<div class="runout-status" role="status">All-in · repartiendo comunitarias…</div>';
+    }
+    if (window.PTLiveAdvisor) {
+      const panel = $('#live-advisor-panel');
+      if (panel) {
+        panel.classList.add('hidden');
+        panel.innerHTML = '';
+      }
+    }
+    setPlayHandButtonsDisabled(true);
+    renderTable();
+    while (hand && hand.runoutPending && hand.stage !== 'complete') {
+      await sleepMs(1400);
+      if (!hand || !Engine.advanceRunout) break;
+      Engine.advanceRunout(hand);
+      renderTable();
+    }
+    if (box) box.innerHTML = '';
+    setPlayHandButtonsDisabled(false);
+    if (hand && hand.stage === 'complete') finishHand();
+    else if (hand) renderActions();
   }
 
   function advisorModeForFeedback() {

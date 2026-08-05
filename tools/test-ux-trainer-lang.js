@@ -61,12 +61,11 @@ const root = {
   }
 };
 I18n.setLang('en');
-I18n.syncLangButtons(root);
-assert.ok(buttons[1].classList._on, 'EN button active');
-assert.ok(!buttons[0].classList._on, 'ES button inactive');
-assert.strictEqual(I18n.t('advisor.silent'), 'Silent mode');
-assert.strictEqual(I18n.t('tab.play'), 'Train');
-assert.ok(/Alert only if EV lost/.test(I18n.t('advisor.silentHint', { n: '2.00' })), 'EN silent hint');
+assert.strictEqual(I18n.getLang(), 'es', 'language locked to Spanish');
+assert.ok(I18n.isLangLocked && I18n.isLangLocked(), 'isLangLocked');
+assert.strictEqual(I18n.t('advisor.silent'), 'Modo silencio');
+assert.strictEqual(I18n.t('tab.play'), 'Entrenar');
+assert.ok(/Solo aviso si EV perdido/.test(I18n.t('advisor.silentHint', { n: '2.00' })), 'ES silent hint');
 I18n.setLang('es');
 assert.strictEqual(I18n.t('advisor.silent'), 'Modo silencio');
 assert.strictEqual(I18n.t('play.pot'), 'Bote');

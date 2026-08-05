@@ -5,6 +5,8 @@
   'use strict';
 
   var STORAGE_KEY = 'pt_lang_v1';
+  /** Idioma fijo por ahora: el selector EN queda oculto hasta completar i18n del entrenador. */
+  var LANG_LOCKED = true;
   var current = 'es';
 
   var DICT = {
@@ -243,6 +245,7 @@
   };
 
   function detect() {
+    if (LANG_LOCKED) return 'es';
     try {
       var saved = localStorage.getItem(STORAGE_KEY);
       if (saved === 'en' || saved === 'es') return saved;
@@ -287,6 +290,12 @@
   }
 
   function setLang(lang) {
+    if (LANG_LOCKED) {
+      current = 'es';
+      try { localStorage.setItem(STORAGE_KEY, 'es'); } catch (e) { /* ignore */ }
+      apply(document);
+      return current;
+    }
     current = lang === 'en' ? 'en' : 'es';
     try { localStorage.setItem(STORAGE_KEY, current); } catch (e) { /* ignore */ }
     apply(document);
@@ -298,8 +307,10 @@
   }
 
   function getLang() { return current; }
+  function isLangLocked() { return LANG_LOCKED; }
 
   current = detect();
+  try { localStorage.setItem(STORAGE_KEY, 'es'); } catch (e) { /* ignore */ }
 
   global.PTI18n = {
     t: t,
@@ -307,6 +318,7 @@
     getLang: getLang,
     apply: apply,
     syncLangButtons: syncLangButtons,
+    isLangLocked: isLangLocked,
     DICT: DICT
   };
 

@@ -61,8 +61,8 @@ const I18n = sandbox.window.PTI18n;
 assert.ok(I18n, 'PTI18n');
 assert.strictEqual(I18n.t('nav.login'), 'Entrar');
 I18n.setLang('en');
-assert.strictEqual(I18n.t('nav.login'), 'Log in');
-assert.ok(/Train GTO/.test(I18n.t('hero.title')), 'EN hero title');
+assert.strictEqual(I18n.getLang(), 'es', 'lang locked to es');
+assert.strictEqual(I18n.t('nav.login'), 'Entrar');
 I18n.setLang('es');
 assert.strictEqual(I18n.getLang(), 'es');
 

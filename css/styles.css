@@ -3956,6 +3956,18 @@ body.admin-compose-open { overflow: hidden; }
   margin-top: 4px;
 }
 .live-advisor-street { font-size: 12px; color: var(--muted); }
+.runout-status {
+  width: 100%;
+  text-align: center;
+  padding: 14px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(224, 138, 43, 0.45);
+  background: rgba(224, 138, 43, 0.12);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
 .live-advisor-disable {
   position: absolute;
   top: 10px;

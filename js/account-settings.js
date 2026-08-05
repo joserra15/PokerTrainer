@@ -204,7 +204,7 @@
       '</div>' +
       '</section>' +
 
-      '<section class="account-settings-card card-box">' +
+      '<section class="account-settings-card card-box hidden" hidden aria-hidden="true">' +
       '<h3 data-i18n="settings.langTitle">Idioma / Language</h3>' +
       '<p class="muted-text" id="settings-lang-status"></p>' +
       '<div class="account-settings-actions setup-chips" id="settings-lang-chips">' +
