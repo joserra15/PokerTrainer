@@ -232,7 +232,16 @@
   }
 
   function initAdminForUser(user) {
-    if (!user || !user.isAdmin) return;
+    if (!user || !user.isAdmin) {
+      if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+      else if (global.PTAdmin && global.PTAdmin.setAdminVisible) global.PTAdmin.setAdminVisible(false);
+      return;
+    }
+    var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
+    if (demoOn) {
+      if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+      return;
+    }
     function run() {
       if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
     }
@@ -371,6 +380,9 @@
   function signOut() {
     if (global.PTLog && global.PTLog.event) global.PTLog.event('logout');
     var done = function () {
+      if (global.PTAdmin && global.PTAdmin.lockdown) {
+        try { global.PTAdmin.lockdown(); } catch (e) { /* noop */ }
+      }
       localStorage.removeItem(SESSION_KEY);
       try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e) { /* noop */ }
       currentUser = null;

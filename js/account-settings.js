@@ -135,7 +135,6 @@
       || {};
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
-    var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
     var showBilling = billingOn && (prof.plan !== 'free' || prof.subscription_status === 'active');
     var cloudLabels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error' };
@@ -231,8 +230,6 @@
       '<button type="button" class="btn btn-ghost btn-block" id="settings-sync">Sincronizar datos</button>' +
       '<button type="button" class="btn btn-ghost btn-block" id="settings-contact">Contacto / soporte</button>' +
       '<button type="button" class="btn btn-ghost btn-block hidden" id="account-install-app">Instalar app</button>' +
-      (user.isAdmin ? '<button type="button" class="btn btn-ghost btn-block' + (demoOn ? ' hidden' : '') + '" id="account-demo">Modo demo</button>' : '') +
-      (demoOn ? '<button type="button" class="btn btn-primary btn-block" id="account-stop-demo">Parar demo</button>' : '') +
       '</div>' +
       '</section>' +
       '</div>';
@@ -385,23 +382,6 @@
     var installBtn = $('#account-install-app');
     if (installBtn && global.PTPwa && global.PTPwa.installApp) {
       installBtn.onclick = function () { global.PTPwa.installApp(); };
-    }
-    if (global.PTDemo) {
-      var demoBtn = $('#account-demo');
-      var stopDemoBtn = $('#account-stop-demo');
-      if (demoBtn && !demoBtn.dataset.bound) {
-        demoBtn.dataset.bound = '1';
-        demoBtn.onclick = function () {
-          var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-          if (u && u.isAdmin && global.PTDemo.start) global.PTDemo.start();
-        };
-      }
-      if (stopDemoBtn && !stopDemoBtn.dataset.bound) {
-        stopDemoBtn.dataset.bound = '1';
-        stopDemoBtn.onclick = function () {
-          if (global.PTDemo.stop) global.PTDemo.stop();
-        };
-      }
     }
   }
 

@@ -813,11 +813,21 @@
     if (tabId === 'admin') {
       var adminUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
       var demoOn = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
-      if (!adminUser || !adminUser.isAdmin || demoOn) {
+      var canAdmin = !!(adminUser && adminUser.isAdmin && !demoOn);
+      if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
+        canAdmin = window.PTAdmin.hasAccess();
+      }
+      if (!canAdmin) {
+        if (window.PTAdmin && window.PTAdmin.lockdown) window.PTAdmin.lockdown();
         goToTab('home');
         return;
       }
       withLazyChunk('admin', function () {
+        if (window.PTAdmin && window.PTAdmin.hasAccess && !window.PTAdmin.hasAccess()) {
+          window.PTAdmin.lockdown();
+          goToTab('home');
+          return;
+        }
         if (window.PTAdmin && window.PTAdmin.render) window.PTAdmin.render();
       });
     }

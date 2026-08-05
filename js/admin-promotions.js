@@ -74,6 +74,10 @@
   }
 
   function showPromosPanel(show) {
+    if (show && !(global.PTAdmin && global.PTAdmin.hasAccess && global.PTAdmin.hasAccess())) {
+      if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+      return;
+    }
     var promoPanel = $('#admin-promos-panel');
     var usersPanel = $('#admin-users-panel');
     var msgPanel = $('#admin-messages-panel');
@@ -249,7 +253,44 @@
     });
   }
 
+  function clearPromosUi() {
+    promotions = [];
+    lastCreated = null;
+    var host = $('#admin-promos-list');
+    if (host) host.innerHTML = '';
+    var box = $('#admin-promo-generated');
+    if (box) {
+      box.innerHTML = '';
+      box.classList.add('hidden');
+    }
+    setStatus('');
+    setError('');
+    var promoPanel = $('#admin-promos-panel');
+    if (promoPanel) promoPanel.classList.add('hidden');
+  }
+
+  function hasAdminAccess() {
+    return !!(global.PTAdmin && global.PTAdmin.hasAccess && global.PTAdmin.hasAccess());
+  }
+
+  function requireAdminAccess() {
+    if (hasAdminAccess()) return true;
+    clearPromosUi();
+    if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+    return false;
+  }
+
+  function isForbiddenError(err) {
+    if (!err) return false;
+    var msg = String(err.message || err.code || err || '').toLowerCase();
+    return msg.indexOf('forbidden') >= 0
+      || msg.indexOf('not authorized') >= 0
+      || msg.indexOf('permission') >= 0
+      || err.code === '42501';
+  }
+
   async function loadPromotions() {
+    if (!requireAdminAccess()) return;
     var c = client();
     if (!c) {
       setError('Supabase no disponible');
@@ -258,8 +299,14 @@
     setError('');
     setStatus('Cargando promociones…');
     var res = await c.rpc('pt_admin_list_promotions');
+    if (!requireAdminAccess()) return;
     if (res.error) {
       setStatus('');
+      if (isForbiddenError(res.error)) {
+        clearPromosUi();
+        if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+        return;
+      }
       setError(res.error.message || 'No se pudieron cargar las promociones');
       return;
     }
@@ -269,6 +316,7 @@
   }
 
   async function createPromotion() {
+    if (!requireAdminAccess()) return;
     var vals = formValues();
     if (!vals.title) {
       setError('Indica un título para la promoción');
@@ -293,8 +341,14 @@
       p_bonus_credits: vals.bonus_credits,
       p_max_redemptions: vals.max_redemptions
     });
+    if (!requireAdminAccess()) return;
     if (res.error) {
       setStatus('');
+      if (isForbiddenError(res.error)) {
+        clearPromosUi();
+        if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+        return;
+      }
       setError(res.error.message || 'No se pudo crear la promoción');
       return;
     }
@@ -310,6 +364,7 @@
   }
 
   async function updatePromotion(id, args) {
+    if (!requireAdminAccess()) return;
     var c = client();
     if (!c) return;
     setError('');
@@ -317,8 +372,14 @@
     var payload = { p_id: id };
     Object.keys(args || {}).forEach(function (k) { payload[k] = args[k]; });
     var res = await c.rpc('pt_admin_update_promotion', payload);
+    if (!requireAdminAccess()) return;
     if (res.error) {
       setStatus('');
+      if (isForbiddenError(res.error)) {
+        clearPromosUi();
+        if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+        return;
+      }
       setError(res.error.message || 'No se pudo actualizar');
       return;
     }
@@ -366,6 +427,7 @@
     bindUi: bindUi,
     load: loadPromotions,
     show: showPromosPanel,
+    clear: clearPromosUi,
     promoUrl: promoUrl,
     buildPromoHtml: buildPromoHtml
   };
