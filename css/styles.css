@@ -1384,6 +1384,7 @@ body.age-gate-open {
 .play-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
 @media (max-width: 980px) { .play-grid { grid-template-columns: 1fr; } }
 .table-wrap { position: relative; }
+.play-stage { position: relative; }
 /* Deja hueco bajo el header sticky al hacer scrollIntoView */
 #tab-play, #play-active, #play-setup { scroll-margin-top: 72px; }
 .spot-context { text-shadow: 0 1px 3px rgba(0,0,0,.6); }
@@ -2498,9 +2499,65 @@ body.paywall-open { overflow: hidden; }
   }
 }
 
+/* Móvil portrait: mesa ovalada a viewport; botones al borde; sesión bajo scroll */
+@media (max-width: 680px) and (orientation: portrait) {
+  /* Menos padding inferior para pegar acciones al borde del viewport */
+  body.play-table-active main {
+    padding-bottom: max(4px, var(--safe-bottom));
+  }
+  #play-active .play-stage {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-height: var(--play-stage-h, calc(100dvh - 4.75rem - env(safe-area-inset-top, 0px)));
+    min-height: var(--play-stage-h, calc(100svh - 4.75rem - env(safe-area-inset-top, 0px)));
+  }
+  #play-active .play-stage .poker-table {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    min-height: 0;
+    padding: 2px 0 6px;
+    /* Full-bleed horizontal para un óvalo más ancho */
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+  }
+  #play-active .play-stage .table-felt {
+    /* Crece con el viewport; óvalo/estadio a todo el ancho */
+    width: calc(100% - 8px);
+    max-width: calc(100vw - 8px);
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 250px;
+    max-height: none;
+    align-self: stretch;
+    border-radius: 46% / 38%;
+    padding: 12px 18px 10px;
+    border-width: 5px;
+    gap: 4px;
+  }
+  #play-active .play-stage .actions {
+    margin-top: auto;
+    flex-shrink: 0;
+    padding-left: 2px;
+    padding-right: 2px;
+    padding-bottom: max(2px, var(--safe-bottom));
+  }
+  #play-active .sidebar {
+    margin-top: 18px;
+  }
+}
+
 /* Móvil pequeño */
 @media (max-width: 400px) {
   .table-felt { min-height: 320px; padding: 10px 6px 12px; }
+  #play-active .play-stage .table-felt {
+    min-height: 220px;
+    padding: 8px 12px 6px;
+  }
   .card { width: 26px; height: 37px; font-size: 11px; }
   .hero-cards .card { width: 40px; height: 56px; font-size: 16px; }
   .seat { min-width: 44px; }

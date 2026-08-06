@@ -37,24 +37,25 @@
     { top: 16, left: 86 },
     { top: 42, left: 98 }
   ];
+  /* Coordenadas para óvalo horizontal en móvil (más aire en laterales). */
   const SEAT_COORDS_MOBILE = [
     { top: 94, left: 50 },
-    { top: 72, left: 6 },
-    { top: 34, left: 4 },
-    { top: 6, left: 28 },
-    { top: 6, left: 72 },
-    { top: 34, left: 96 }
+    { top: 70, left: 3 },
+    { top: 32, left: 2 },
+    { top: 5, left: 22 },
+    { top: 5, left: 78 },
+    { top: 32, left: 98 }
   ];
   const SEAT_COORDS_MOBILE_9 = [
     { top: 93, left: 50 },
-    { top: 78, left: 10 },
-    { top: 58, left: 3 },
-    { top: 36, left: 3 },
-    { top: 14, left: 16 },
-    { top: 5, left: 36 },
-    { top: 5, left: 64 },
-    { top: 14, left: 84 },
-    { top: 36, left: 97 }
+    { top: 76, left: 8 },
+    { top: 56, left: 2 },
+    { top: 34, left: 1 },
+    { top: 14, left: 12 },
+    { top: 4, left: 32 },
+    { top: 4, left: 68 },
+    { top: 14, left: 88 },
+    { top: 34, left: 99 }
   ];
 
   let hand = null;
@@ -164,11 +165,16 @@
   let playSessionConfig = null;
   let replayPlayConfig = null;
 
+  function setPlayTableActiveClass(active) {
+    document.body.classList.toggle('play-table-active', !!active);
+  }
+
   function showPlaySetup() {
     const setup = $('#play-setup');
     const active = $('#play-active');
     if (setup) setup.classList.remove('hidden');
     if (active) active.classList.add('hidden');
+    setPlayTableActiveClass(false);
   }
 
   function showPlayTable() {
@@ -176,8 +182,10 @@
     const active = $('#play-active');
     if (setup) setup.classList.add('hidden');
     if (active) active.classList.remove('hidden');
+    setPlayTableActiveClass(true);
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+    requestAnimationFrame(syncPlayMobileStage);
   }
 
   function scrollPlayToTop() {
@@ -958,6 +966,39 @@
     return window.matchMedia('(max-width: 680px)').matches;
   }
 
+  function isMobilePortraitLayout() {
+    return isMobileLayout() && window.matchMedia('(orientation: portrait)').matches;
+  }
+
+  /** Mide header/viewport y fija --play-stage-h / --play-actions-h para el layout móvil. */
+  function syncPlayMobileStage() {
+    const root = document.documentElement;
+    if (!isMobilePortraitLayout()) {
+      root.style.removeProperty('--play-stage-h');
+      root.style.removeProperty('--play-actions-h');
+      return;
+    }
+    const header = document.querySelector('.header-bar');
+    const main = document.querySelector('main');
+    const actions = document.querySelector('#play-active .play-stage .actions');
+    const headerH = header ? Math.round(header.getBoundingClientRect().height) : 56;
+    let padTop = 10;
+    if (main) {
+      const cs = getComputedStyle(main);
+      padTop = parseFloat(cs.paddingTop) || 0;
+    }
+    const vv = window.visualViewport;
+    const vh = Math.round((vv && vv.height) || window.innerHeight || 0);
+    /* Hasta el borde inferior del viewport: sesión/consultas quedan bajo scroll. */
+    const stage = Math.max(300, vh - headerH - padTop);
+    root.style.setProperty('--play-stage-h', stage + 'px');
+    let actionsH = 108;
+    if (actions && actions.offsetHeight > 0) {
+      actionsH = Math.round(actions.offsetHeight + 10);
+    }
+    root.style.setProperty('--play-actions-h', Math.max(72, actionsH) + 'px');
+  }
+
   function portalMobileNav() {
     if (!isMobileLayout()) return;
     const nav = $('#topbar-nav');
@@ -1028,8 +1069,16 @@
     window.addEventListener('resize', () => {
       if (isMobileLayout()) portalMobileNav();
       else restoreMobileNav();
+      syncPlayMobileStage();
       if (hand) renderTable();
     });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', syncPlayMobileStage);
+    }
+    window.addEventListener('orientationchange', () => {
+      setTimeout(syncPlayMobileStage, 120);
+    });
+    syncPlayMobileStage();
   }
 
   function bindTabs() {
@@ -1523,6 +1572,7 @@
     renderSeats();
     $('#spot-context').textContent = hand.current ? hand.current.context : (hand.result ? hand.result.reason : '');
     updateLiveAdvisor();
+    syncPlayMobileStage();
   }
 
   // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb)
@@ -1728,6 +1778,8 @@
     $$('#actions button').forEach((b) =>
       b.addEventListener('click', () => onAction(b.dataset.action)));
     updateLiveAdvisor();
+    syncPlayMobileStage();
+    requestAnimationFrame(syncPlayMobileStage);
   }
 
   function btnClassForAction(id) {
