@@ -18,9 +18,17 @@ assert.ok(!/id="ranges-board-input"/.test(html), 'HTML ya no usa input de texto 
 assert.ok(/id="card-picker-modal"/.test(html), 'HTML tiene modal card-picker');
 
 assert.ok(/PTCardPicker\.open/.test(appJs), 'Rangos abre PTCardPicker');
-assert.ok(/ranges-board-pick-btn/.test(appJs), 'Rangos enlaza el botón de flop');
+assert.ok(/ranges-board-pick-btn/.test(appJs), 'Rangos enlaza el botón de board');
 assert.ok(/adaptive-drill-help-inline/.test(appJs), 'Stats incluye descripción del drill');
-assert.ok(/max:\s*3/.test(appJs), 'Rangos pide 3 cartas de flop');
+assert.ok(/data-ranges-street/.test(html), 'HTML tiene pestañas de calle en rangos');
+assert.ok(/max:\s*boardNeed/.test(appJs), 'Rangos pide N cartas según calle (boardNeed)');
+assert.ok(/POSTFLOP_STREETS/.test(appJs) || /boardNeed/.test(appJs), 'Rangos usa conteo de cartas por calle');
+assert.ok(/Flop \(3 cartas\)/.test(fs.readFileSync(path.join(__dirname, '..', 'js', 'range-matrix.js'), 'utf8')),
+  'Flop HU pide 3 cartas');
+assert.ok(/Turn \(4 cartas\)/.test(fs.readFileSync(path.join(__dirname, '..', 'js', 'range-matrix.js'), 'utf8')),
+  'Turn HU pide 4 cartas');
+assert.ok(/River \(5 cartas\)/.test(fs.readFileSync(path.join(__dirname, '..', 'js', 'range-matrix.js'), 'utf8')),
+  'River HU pide 5 cartas');
 
 assert.ok(/openCardPickerModal/.test(haJs), 'Análisis usa modal de cartas');
 assert.ok(/PTCardPicker\.open/.test(haJs), 'Análisis llama a PTCardPicker.open');
