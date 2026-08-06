@@ -4441,6 +4441,10 @@ body.admin-compose-open { overflow: hidden; }
   opacity: 0.85;
   vertical-align: middle;
 }
+/* Atajos de teclado: solo en escritorio (en móvil no aportan). */
+@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+  .action-hotkey { display: none; }
+}
 .help-modal-content { max-width: 640px; }
 .help-modal-head {
   display: flex;
