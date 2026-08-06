@@ -38,8 +38,10 @@
       return 'small';
     }
 
-    if (call >= 50 || ratio >= 0.70) return 'shove';
-    if (call >= 30 || ratio >= 0.55) return 'overbet';
+    // Umbrales absolutos en bb solo cuentan si el sizing también es grande vs el bote.
+    // Evita marcar como overbet una apuesta media (p. ej. 36bb en bote de 97bb ≈ 37%).
+    if (ratio >= 0.70 || (call >= 50 && ratio >= 0.50)) return 'shove';
+    if (ratio >= 0.55 || (call >= 30 && ratio >= 0.45)) return 'overbet';
     if (ratio >= 0.66) return 'large';
     if (ratio >= 0.35) return 'medium';
     if (villainLastAction === 'raise' && ratio >= 0.45) return 'large';

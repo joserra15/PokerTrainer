@@ -467,7 +467,7 @@ const shoveBet = FB.calculateActionFrequencies({
   heroEquity: eqShove, tier: 'strong', heroCards: nutFlushHero, board: pairedBoard,
   handRank: { band: 'value', tier: 'strong' }, inPosition: true, villainLastAction: 'raise'
 });
-console.log('Nut flush paired board eq vs shove range ~', Math.round(eqShove * 100) + '% (expect <25%)');
+console.log('Nut flush paired board eq vs shove range ~', Math.round(eqShove * 100) + '% (expect >0; cap 22% en evaluateSpot)');
 console.log('Small bet call%', Math.round(smallBet.call * 100), 'shove fold%', Math.round(shoveBet.fold * 100), '(expect call high, shove fold high)');
 const nodeClone = SV.validateFacingNodeChange(
   { street: 'river', toCallBB: 9.6, potBB: 50, gto: smallBet },
