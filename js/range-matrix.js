@@ -32,14 +32,6 @@
       },
       title: function (heroPos) { return 'RFI · ' + heroPos; }
     },
-    postflop: {
-      label: 'Flop HU',
-      heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
-      villainPositions: ['BTN', 'CO', 'HJ', 'UTG', 'SB', 'BB'],
-      villainLabel: 'Villano:',
-      build: function () { return null; },
-      title: function (heroPos, villainPos) { return 'Flop HU · ' + heroPos + ' vs ' + villainPos; }
-    },
     '3bet': {
       label: '3-Bet',
       heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
@@ -373,6 +365,34 @@
     });
   }
 
+  const POSTFLOP_STREETS = {
+    flop: { cards: 3, label: 'Flop HU', boardLabel: 'Board (flop)', pickTitle: 'Flop (3 cartas)', emptyHint: 'Elegir flop' },
+    turn: { cards: 4, label: 'Turn HU', boardLabel: 'Board (turn)', pickTitle: 'Turn (4 cartas)', emptyHint: 'Elegir turn' },
+    river: { cards: 5, label: 'River HU', boardLabel: 'Board (river)', pickTitle: 'River (5 cartas)', emptyHint: 'Elegir river' }
+  };
+
+  /** Config de posiciones HU postflop (flop / turn / river). */
+  const POSTFLOP_EXPLORER = {
+    heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
+    villainPositions: ['BTN', 'CO', 'HJ', 'UTG', 'SB', 'BB'],
+    villainLabel: 'Villano:'
+  };
+
+  /** Compat: spot histórico "postflop" = Flop HU. */
+  EXPLORER_SPOTS.postflop = {
+    label: 'Flop HU',
+    heroPositions: POSTFLOP_EXPLORER.heroPositions.slice(),
+    villainPositions: POSTFLOP_EXPLORER.villainPositions.slice(),
+    villainLabel: POSTFLOP_EXPLORER.villainLabel,
+    build: function () { return null; },
+    title: function (heroPos, villainPos) { return 'Flop HU · ' + heroPos + ' vs ' + villainPos; }
+  };
+
+  function postflopBoardCount(street) {
+    const meta = POSTFLOP_STREETS[street] || POSTFLOP_STREETS.flop;
+    return meta.cards;
+  }
+
   function parseBoardText(text) {
     if (!text) return [];
     const tokens = String(text).replace(/,/g, ' ').match(/(?:10|[2-9TJQKAtjqka])[shdcSHDC]/g) || [];
@@ -386,16 +406,18 @@
   }
 
   /**
-   * Input para explorador flop HU simplificado (SN-42).
-   * board: array de 3 cartas o texto "As Kd 7c".
+   * Input para explorador HU postflop (SN-42 + turn/river).
+   * board: array o texto; street: 'flop' | 'turn' | 'river'.
    */
   function buildPostflopExplorerInput(opts) {
     opts = opts || {};
+    const street = (opts.street === 'turn' || opts.street === 'river') ? opts.street : 'flop';
+    const need = postflopBoardCount(street);
     let board = opts.board;
     if (typeof board === 'string') board = parseBoardText(board);
     board = board || [];
-    if (board.length < 3) return null;
-    board = board.slice(0, 3);
+    if (board.length < need) return null;
+    board = board.slice(0, need);
     const potBB = opts.potBB != null ? Number(opts.potBB) : 6;
     const toCallBB = opts.toCallBB != null ? Number(opts.toCallBB) : 0;
     const facing = toCallBB > 0;
@@ -404,7 +426,7 @@
       position: opts.heroPos || 'BB',
       vsPosition: opts.villainPos || 'BTN',
       stackDepth: opts.stackDepth || 100,
-      street: 'flop',
+      street: street,
       board: board,
       potBB: potBB,
       toCallBB: toCallBB,
@@ -419,8 +441,10 @@
 
   function computePostflopFreqMatrixAsync(baseInput, onProgress) {
     return new Promise(function (resolve, reject) {
-      if (!baseInput || baseInput.street !== 'flop' || !baseInput.board || baseInput.board.length < 3) {
-        reject(new Error('Vista postflop solo para flop HU con board de 3 cartas'));
+      const street = baseInput && baseInput.street;
+      const need = postflopBoardCount(street);
+      if (!baseInput || !POSTFLOP_STREETS[street] || !baseInput.board || baseInput.board.length < need) {
+        reject(new Error('Vista postflop: indica un board de ' + need + ' cartas (' + street + ')'));
         return;
       }
       computeFreqMatrixAsync(baseInput, onProgress).then(resolve).catch(reject);
@@ -815,6 +839,8 @@
   global.PTRangeMatrix = {
     RANKS,
     EXPLORER_SPOTS,
+    POSTFLOP_STREETS,
+    POSTFLOP_EXPLORER,
     SQUEEZE_COMBOS,
     cellLabel,
     collapseStrategy,
@@ -827,6 +853,7 @@
     computePostflopFreqMatrixAsync,
     computeFreqMatrixAsync,
     parseBoardText,
+    postflopBoardCount,
     explorerTitle,
     explorerCtx,
     heroPositionsForSpot,

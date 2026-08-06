@@ -193,6 +193,9 @@ assert.ok(!sandbox.document.getElementById('session-print-overlay'), 'overlay cl
 const RM = sandbox.window.PTRangeMatrix;
 assert.ok(RM.buildPostflopExplorerInput, 'buildPostflopExplorerInput');
 assert.ok(RM.parseBoardText('As Kd 7c').length === 3, 'parse board');
+assert.ok(RM.POSTFLOP_STREETS && RM.POSTFLOP_STREETS.flop.cards === 3, 'flop cards');
+assert.ok(RM.POSTFLOP_STREETS.turn.cards === 4, 'turn cards');
+assert.ok(RM.POSTFLOP_STREETS.river.cards === 5, 'river cards');
 const pf = RM.buildPostflopExplorerInput({
   heroPos: 'BB', villainPos: 'BTN', board: 'As Kd 7c', potBB: 6, toCallBB: 0
 });
@@ -201,5 +204,19 @@ assert.ok(RM.EXPLORER_SPOTS.postflop, 'postflop spot chip');
 
 const bad = RM.buildPostflopExplorerInput({ board: 'As Kd' });
 assert.strictEqual(bad, null, 'needs 3 cards');
+
+const turnOk = RM.buildPostflopExplorerInput({
+  street: 'turn', board: 'As Kd 7c 2h', heroPos: 'BB', villainPos: 'BTN'
+});
+assert.ok(turnOk && turnOk.street === 'turn' && turnOk.board.length === 4, 'turn input');
+const turnBad = RM.buildPostflopExplorerInput({ street: 'turn', board: 'As Kd 7c' });
+assert.strictEqual(turnBad, null, 'turn needs 4 cards');
+
+const riverOk = RM.buildPostflopExplorerInput({
+  street: 'river', board: 'As Kd 7c 2h 9s', heroPos: 'BB', villainPos: 'BTN'
+});
+assert.ok(riverOk && riverOk.street === 'river' && riverOk.board.length === 5, 'river input');
+const riverBad = RM.buildPostflopExplorerInput({ street: 'river', board: 'As Kd 7c 2h' });
+assert.strictEqual(riverBad, null, 'river needs 5 cards');
 
 console.log('OK test-p2-expansion');
