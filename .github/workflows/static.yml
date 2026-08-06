@@ -63,34 +63,9 @@ jobs:
         run: node tools/test-growth-ux.js
       - name: Test hotkeys, rake y ayuda
         run: node tools/test-hotkeys-rake-help.js
-
-  deploy:
-    needs: test
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
       - name: Build JS bundles
         run: node tools/build-bundles.js
-      - name: Write deploy metadata
-        run: |
-          BUILD=$(grep -oP "PT_BUILD = '\\K[^']+" js/version.js)
-          printf '{"sha":"%s","run":%s,"built":"%s","build":"%s"}\n' \
-            "${{ github.sha }}" \
-            "${{ github.run_number }}" \
-            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            "$BUILD" \
-            > deploy-info.json
-          cat deploy-info.json
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+
+  # Deploy: GitHub Pages está en modo branch (main). Un segundo deploy vía
+  # actions/deploy-pages competía con pages-build-deployment y acababa en
+  # timeout (deployment_queued). El sitio se publica desde main; dist/ va en el repo.
