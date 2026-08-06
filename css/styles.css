@@ -1385,6 +1385,43 @@ body.age-gate-open {
 @media (max-width: 980px) { .play-grid { grid-template-columns: 1fr; } }
 .table-wrap { position: relative; }
 .play-stage { position: relative; }
+
+/* HUD de sesión encima de la mesa */
+.play-hud {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  background: rgba(15, 20, 25, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+}
+.play-hud-item { min-width: 0; }
+.play-hud-item span {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.play-hud-item label {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.play-hud-item span.net-pos { color: var(--green); }
+.play-hud-item span.net-neg { color: var(--red); }
+
 /* Deja hueco bajo el header sticky al hacer scrollIntoView */
 #tab-play, #play-active, #play-setup { scroll-margin-top: 72px; }
 .spot-context { text-shadow: 0 1px 3px rgba(0,0,0,.6); }
@@ -2499,7 +2536,7 @@ body.paywall-open { overflow: hidden; }
   }
 }
 
-/* Móvil portrait: mesa ovalada a viewport; botones al borde; sesión bajo scroll */
+/* Móvil portrait: HUD + mesa ovalada a viewport; botones al borde; sesión bajo scroll */
 @media (max-width: 680px) and (orientation: portrait) {
   /* Menos padding inferior para pegar acciones al borde del viewport */
   body.play-table-active main {
@@ -2512,13 +2549,24 @@ body.paywall-open { overflow: hidden; }
     min-height: var(--play-stage-h, calc(100dvh - 4.75rem - env(safe-area-inset-top, 0px)));
     min-height: var(--play-stage-h, calc(100svh - 4.75rem - env(safe-area-inset-top, 0px)));
   }
+  #play-active .play-hud {
+    flex-shrink: 0;
+    margin: 0 0 6px;
+    padding: 6px 8px;
+    gap: 4px;
+    border-radius: 8px;
+    background: rgba(15, 20, 25, 0.88);
+  }
+  #play-active .play-hud-item span { font-size: 16px; }
+  #play-active .play-hud-item label { font-size: 9px; }
   #play-active .play-stage .poker-table {
     flex: 1 1 auto;
     display: flex;
-    align-items: stretch;
+    /* Mesa pegada a los botones; el aire sobrante queda bajo el HUD */
+    align-items: flex-end;
     justify-content: center;
     min-height: 0;
-    padding: 2px 0 6px;
+    padding: 2px 0 4px;
     /* Full-bleed horizontal para un óvalo más ancho */
     width: 100vw;
     max-width: 100vw;
@@ -2526,21 +2574,23 @@ body.paywall-open { overflow: hidden; }
     margin-right: calc(50% - 50vw);
   }
   #play-active .play-stage .table-felt {
-    /* Crece con el viewport; óvalo/estadio a todo el ancho */
-    width: calc(100% - 8px);
-    max-width: calc(100vw - 8px);
-    flex: 1 1 auto;
-    height: auto;
-    min-height: 250px;
-    max-height: none;
+    /* Llena el hueco entre HUD y botones; un poco más baja que antes por el HUD */
+    width: calc(100% - 12px);
+    max-width: calc(100vw - 12px);
+    height: calc(var(--play-stage-h, 70dvh) - var(--play-actions-h, 108px) - var(--play-hud-h, 48px) - 8px);
+    min-height: 210px;
+    max-height: calc(var(--play-stage-h, 70dvh) - var(--play-actions-h, 108px) - var(--play-hud-h, 48px) - 8px);
+    flex: 0 1 auto;
     align-self: stretch;
-    border-radius: 46% / 38%;
-    padding: 12px 18px 10px;
+    margin: 0 auto;
+    border-radius: 46% / 40%;
+    padding: 10px 16px 8px;
     border-width: 5px;
     gap: 4px;
   }
   #play-active .play-stage .actions {
-    margin-top: auto;
+    /* El flex:1 de .poker-table ya empuja los botones al borde inferior */
+    margin-top: 0;
     flex-shrink: 0;
     padding-left: 2px;
     padding-right: 2px;
@@ -2555,9 +2605,10 @@ body.paywall-open { overflow: hidden; }
 @media (max-width: 400px) {
   .table-felt { min-height: 320px; padding: 10px 6px 12px; }
   #play-active .play-stage .table-felt {
-    min-height: 220px;
+    min-height: 200px;
     padding: 8px 12px 6px;
   }
+  #play-active .play-hud-item span { font-size: 15px; }
   .card { width: 26px; height: 37px; font-size: 11px; }
   .hero-cards .card { width: 40px; height: 56px; font-size: 16px; }
   .seat { min-width: 44px; }

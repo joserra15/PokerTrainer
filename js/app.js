@@ -970,17 +970,19 @@
     return isMobileLayout() && window.matchMedia('(orientation: portrait)').matches;
   }
 
-  /** Mide header/viewport y fija --play-stage-h / --play-actions-h para el layout móvil. */
+  /** Mide header/viewport y fija --play-stage-h / --play-actions-h / --play-hud-h para el layout móvil. */
   function syncPlayMobileStage() {
     const root = document.documentElement;
     if (!isMobilePortraitLayout()) {
       root.style.removeProperty('--play-stage-h');
       root.style.removeProperty('--play-actions-h');
+      root.style.removeProperty('--play-hud-h');
       return;
     }
     const header = document.querySelector('.header-bar');
     const main = document.querySelector('main');
     const actions = document.querySelector('#play-active .play-stage .actions');
+    const hud = document.querySelector('#play-active .play-hud');
     const headerH = header ? Math.round(header.getBoundingClientRect().height) : 56;
     let padTop = 10;
     if (main) {
@@ -997,6 +999,11 @@
       actionsH = Math.round(actions.offsetHeight + 10);
     }
     root.style.setProperty('--play-actions-h', Math.max(72, actionsH) + 'px');
+    let hudH = 48;
+    if (hud && hud.offsetHeight > 0) {
+      hudH = Math.round(hud.offsetHeight + 8);
+    }
+    root.style.setProperty('--play-hud-h', Math.max(40, hudH) + 'px');
   }
 
   function portalMobileNav() {
@@ -3241,17 +3248,35 @@
   }
 
   function refreshSessionUI() {
-    $('#s-hands').textContent = session.hands;
+    const handsTarget = playSessionConfig ? (Number(playSessionConfig.handsTarget) || 0) : 0;
+    const handsLabel = handsTarget > 0 ? (session.hands + '/' + handsTarget) : String(session.hands);
+    const handsEl = $('#s-hands');
+    if (handsEl) handsEl.textContent = session.hands;
+    const hudHands = $('#hud-hands');
+    if (hudHands) hudHands.textContent = handsLabel;
     const net = roundSession(session.net);
     const evLost = roundSession(session.evLossBB);
     const expected = roundSession(net - evLost);
+    const netText = (net >= 0 ? '+' : '') + fmtBB(net);
+    const netCls = net >= 0 ? 'net-pos' : 'net-neg';
     const netEl = $('#s-net');
     if (netEl) {
-      netEl.textContent = (net >= 0 ? '+' : '') + fmtBB(net);
-      netEl.className = net >= 0 ? 'net-pos' : 'net-neg';
+      netEl.textContent = netText;
+      netEl.className = netCls;
     }
+    const hudNet = $('#hud-net');
+    if (hudNet) {
+      hudNet.textContent = netText;
+      hudNet.className = netCls;
+    }
+    const evLostText = '-' + fmtBB(evLost);
     const evLostEl = $('#s-ev-lost');
-    if (evLostEl) evLostEl.textContent = '-' + fmtBB(evLost);
+    if (evLostEl) evLostEl.textContent = evLostText;
+    const hudEv = $('#hud-ev-lost');
+    if (hudEv) {
+      hudEv.textContent = evLostText;
+      hudEv.className = evLost > 0 ? 'net-neg' : 'net-pos';
+    }
     const perfectEl = $('#s-ev-perfect');
     if (perfectEl) {
       perfectEl.textContent = (expected >= 0 ? '+' : '') + fmtBB(expected);
