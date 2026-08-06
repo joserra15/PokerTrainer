@@ -9,8 +9,8 @@ window.PT_SEO = {
   twitterHandle: '',
   home: {
     title: 'PokerForgeAI · Entrenador GTO de poker NL Hold\'em con IA Coach',
-    description: 'Entrena decisiones GTO en cash NL 6-max, importa PokerStars, Winamax y GGPoker, y mejora con IA Coach. Plan gratis, prueba Study 10 días y PWA.',
-    keywords: 'poker GTO, entrenador poker, NL Hold\'em, cash game 6-max, IA poker, PokerStars, Winamax, GGPoker, estudiar poker'
+    description: 'Entrena decisiones GTO en cash NL 6-max, importa PokerStars, Winamax y GGPoker, y mejora con IA Coach. Soporte de torneo parcial y principalmente preflop.',
+    keywords: 'poker GTO, entrenador poker, NL Hold\'em, cash game 6-max, IA poker, PokerStars, Winamax, GGPoker, estudiar poker, fugas NL25'
   },
   legal: {
     'faq.html': {
@@ -21,7 +21,7 @@ window.PT_SEO = {
         { q: '¿Qué es PokerForgeAI?', a: 'PokerForgeAI es una aplicación web para entrenar decisiones GTO en No-Limit Hold\'em, revisar sesiones importadas (PokerStars, Winamax, GGPoker) y usar IA Coach con planes de pago.' },
         { q: '¿Necesito cuenta para usarla?', a: 'Sí. El acceso requiere iniciar sesión con Google. Tus datos se asocian a tu cuenta para sincronización en la nube y límites según el plan.' },
         { q: '¿Cómo importo una sesión?', a: 'En la pestaña Sesiones, sube uno o varios ficheros .txt de PokerStars, Winamax o GGPoker (Cash NL Hold\'em). La app analiza cada mano calle a calle.' },
-        { q: '¿Qué formatos de historial admite?', a: 'Historiales de texto de PokerStars (ES/EN), Winamax y GGPoker/Natural8 en mesas Cash NLHE. Los torneos se ignoran.' },
+        { q: '¿Qué formatos de historial admite?', a: 'Historiales de texto de PokerStars (ES/EN), Winamax y GGPoker/Natural8 en mesas Cash NLHE. El soporte de torneo no es la promesa principal y hoy el análisis útil se centra en cash.' },
         { q: '¿Hay prueba de Study?', a: 'Sí. Puedes activar una prueba de Study de 10 días (una vez por cuenta) desde Planes.' },
         { q: '¿Cuáles son los planes?', a: 'Gratis (límites diarios), Study (14,99 €/mes) e Coach (34,99 €/mes) con más consultas IA y sin límites de entrenamiento.' }
       ]

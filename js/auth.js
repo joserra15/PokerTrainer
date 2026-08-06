@@ -255,6 +255,15 @@
   async function enterApp(user) {
     if (!user) return;
     user = normalizeUser(user);
+    if (global.PTAgeGate && global.PTAgeGate.ensureConfirmed) {
+      var ageOk = await global.PTAgeGate.ensureConfirmed(user);
+      if (!ageOk) {
+        var errEl = $('auth-error');
+        if (errEl) errEl.textContent = 'Debes confirmar que tienes más de 18 años para usar PokerForgeAI.';
+        signOut();
+        return;
+      }
+    }
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (e) { /* noop */ }
     currentUser = user;
     global.PT_AUTH_USER = user;
