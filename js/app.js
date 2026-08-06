@@ -1960,6 +1960,13 @@
     $('#hand-log').appendChild(li);
   }
 
+  function hideVerdictToast() {
+    const toast = $('#verdict-toast');
+    if (!toast) return;
+    clearTimeout(showVerdictToast._t);
+    toast.classList.remove('visible');
+  }
+
   function showVerdictToast(d, stickySerious) {
     const toast = $('#verdict-toast');
     if (!toast) return;
@@ -3084,10 +3091,14 @@
     const profile = r.villainProfile
       ? escapeHtml(r.villainProfile) + (r.villainProfileShort ? ' <span class="muted-text">(' + escapeHtml(r.villainProfileShort) + ')</span>' : '')
       : '';
-    const reason = r.reason && r.reason !== outcome.title
+    const reasonNorm = String(r.reason || '').replace(/\.+$/, '').trim().toLowerCase();
+    const titleNorm = outcome.title.replace(/\.+$/, '').trim().toLowerCase();
+    const reason = r.reason && reasonNorm && reasonNorm !== titleNorm
       ? '<p class="muted-text hand-end-reason">' + escapeHtml(r.reason) + '</p>'
       : '';
 
+    hideVerdictToast();
+    modal.classList.add('hand-end-modal');
     box.innerHTML = '<div class="hand-end-popup">' +
       '<div class="hand-end-popup-head ' + outcome.cls + '">' +
         '<p class="hand-end-kicker">Resultado de la mano</p>' +
@@ -4755,7 +4766,12 @@
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-  function closeModal() { $('#modal').classList.add('hidden'); }
+  function closeModal() {
+    const modal = $('#modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('hand-end-modal');
+  }
 
   // ============================================================
   //  SESIONES (importar, estadísticas y revisión de manos)

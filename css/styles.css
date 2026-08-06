@@ -4546,7 +4546,10 @@ body.admin-compose-open { overflow: hidden; }
 .session-block-popup-actions .btn { flex: 1 1 140px; }
 
 /* Pop-up fin de mano (entrenador) */
+#modal.hand-end-modal { z-index: 1100; }
 .hand-end-popup { display: flex; flex-direction: column; gap: 14px; }
+.hand-end-popup-stats .stat-card .big.net-pos { color: var(--green); }
+.hand-end-popup-stats .stat-card .big.net-neg { color: var(--red); }
 .hand-end-popup-head { text-align: center; }
 .hand-end-kicker {
   margin: 0 0 4px;
