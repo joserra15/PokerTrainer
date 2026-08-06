@@ -63,7 +63,10 @@
     var confirmBtn = document.getElementById('age-gate-confirm');
     var exitBtn = document.getElementById('age-gate-exit');
     var emailEl = document.getElementById('age-gate-user');
-    if (emailEl) emailEl.textContent = (user && (user.email || user.name)) || 'tu cuenta';
+    if (emailEl) {
+      var legalEmail = global.PT_LEGAL && (global.PT_LEGAL.supportEmail || global.PT_LEGAL.controllerEmail);
+      emailEl.textContent = legalEmail || 'info@pokerforgeai.com';
+    }
     return new Promise(function (resolve) {
       activeResolve = resolve;
       if (confirmBtn) {
