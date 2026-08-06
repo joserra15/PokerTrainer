@@ -1217,6 +1217,7 @@
   }
 
   function resetPlaySession(showSetup) {
+    closeModal();
     session = {
       hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0,
       byStreet: emptyByStreet(),
@@ -1237,6 +1238,7 @@
   async function startNewHand() {
     if (startingHand) return;
     startingHand = true;
+    closeModal();
     if (window.PTLiveAdvisor && PTLiveAdvisor.clearPendingAlert) PTLiveAdvisor.clearPendingAlert();
     setPlayTableLoading(true);
     setPlayHandButtonsDisabled(true);
@@ -2948,7 +2950,6 @@
           void startNewHand();
         });
       }
-      try { openSessionBlockPopup(target); } catch (e) { console.warn('[session-block]', e); }
     } else {
       $('#actions').innerHTML = `<button class="btn btn-primary" id="next-after">Siguiente mano &raquo;</button>
       <button class="btn btn-ghost" id="replay-after">&#8635; Repetir esta mano</button>
@@ -3031,6 +3032,127 @@
     }));
     renderTable();
     $('#hero-handname').textContent = r.heroHandName ? tt('play.yourHand') + ': ' + r.heroHandName : handNameOnBoard();
+
+    try {
+      openHandEndPopup(r, { blockDone: !!blockDone, handsTarget: target || 0 });
+    } catch (e) {
+      console.warn('[hand-end-popup]', e);
+      if (blockDone) {
+        try { openSessionBlockPopup(target); } catch (e2) { console.warn('[session-block]', e2); }
+      }
+    }
+  }
+
+  function handEndOutcome(r) {
+    const net = Number(r && r.heroNet) || 0;
+    if (r && r.showdown) {
+      if (net > 0) return { title: 'Ganas el showdown', cls: 'hand-end-win', kind: 'win' };
+      if (net < 0) return { title: 'Pierdes el showdown', cls: 'hand-end-lose', kind: 'lose' };
+      return { title: 'Empate en el showdown', cls: 'hand-end-tie', kind: 'tie' };
+    }
+    if (net > 0) return { title: 'Ganas la mano', cls: 'hand-end-win', kind: 'win' };
+    if (net < 0) return { title: 'Pierdes la mano', cls: 'hand-end-lose', kind: 'lose' };
+    return { title: 'Mano terminada', cls: 'hand-end-tie', kind: 'tie' };
+  }
+
+  function revealHandEndDetails() {
+    closeModal();
+    const fb = $('#feedback');
+    if (fb && !fb.classList.contains('hidden') && fb.scrollIntoView) {
+      fb.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function openHandEndPopup(r, opts) {
+    const box = $('#modal-content');
+    const modal = $('#modal');
+    if (!box || !modal || !hand || !r) return;
+    const options = opts || {};
+    const outcome = handEndOutcome(r);
+    const netCls = r.heroNet >= 0 ? 'net-pos' : 'net-neg';
+    const heroPos = hand.displayHeroPos || (hand.hero && hand.hero.pos) || '—';
+    const villainPos = (hand.villain && hand.villain.pos) || r.villainPos || '—';
+    const heroCards = (hand.hero && hand.hero.cards && hand.hero.cards.length)
+      ? hand.hero.cards.map(Cards.cardToHTML).join('')
+      : '<span class="muted-text">—</span>';
+    const villainCards = r.villainCards && r.villainCards.length
+      ? r.villainCards.map(Cards.cardToHTML).join('')
+      : '<span class="muted-text">no llegó a enseñar</span>';
+    const boardHtml = hand.board && hand.board.length
+      ? hand.board.map(Cards.cardToHTML).join('')
+      : '';
+    const profile = r.villainProfile
+      ? escapeHtml(r.villainProfile) + (r.villainProfileShort ? ' <span class="muted-text">(' + escapeHtml(r.villainProfileShort) + ')</span>' : '')
+      : '';
+    const reason = r.reason && r.reason !== outcome.title
+      ? '<p class="muted-text hand-end-reason">' + escapeHtml(r.reason) + '</p>'
+      : '';
+
+    box.innerHTML = '<div class="hand-end-popup">' +
+      '<div class="hand-end-popup-head ' + outcome.cls + '">' +
+        '<p class="hand-end-kicker">Resultado de la mano</p>' +
+        '<h3>' + escapeHtml(outcome.title) + '</h3>' +
+        reason +
+      '</div>' +
+      '<div class="hand-end-matchup">' +
+        '<div class="hand-end-seat">' +
+          '<div class="hand-end-seat-label">Héroe · ' + escapeHtml(heroPos) + '</div>' +
+          '<div class="hand-end-cards">' + heroCards + '</div>' +
+          (r.heroHandName ? '<div class="hand-end-handname">' + escapeHtml(r.heroHandName) + '</div>' : '') +
+        '</div>' +
+        '<div class="hand-end-vs" aria-hidden="true">vs</div>' +
+        '<div class="hand-end-seat">' +
+          '<div class="hand-end-seat-label">Villano · ' + escapeHtml(String(villainPos)) + '</div>' +
+          '<div class="hand-end-cards">' + villainCards + '</div>' +
+          (r.villainHandName ? '<div class="hand-end-handname">' + escapeHtml(r.villainHandName) + '</div>' : '') +
+          (profile ? '<div class="hand-end-profile">' + profile + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+      (boardHtml ? '<div class="hand-end-board"><span class="muted-text">Board</span><div class="hand-end-cards">' + boardHtml + '</div></div>' : '') +
+      '<div class="stats-content hand-end-popup-stats">' +
+        '<div class="stat-card"><div class="big ' + netCls + '">' + (r.heroNet >= 0 ? '+' : '') + fmtBB(r.heroNet) + '</div><div class="lbl">Resultado real (bb)</div></div>' +
+        '<div class="stat-card"><div class="big ' + (r.totalEvLoss > 0 ? 'net-neg' : 'net-pos') + '">-' + fmtBB(r.totalEvLoss || 0) + '</div><div class="lbl">EV perdido por errores</div></div>' +
+      '</div>' +
+      '<div class="hand-end-popup-actions">' +
+        '<button type="button" class="btn btn-ghost" id="hand-end-details">Ver detalles</button>' +
+        '<button type="button" class="btn btn-primary" id="hand-end-next">Siguiente mano &raquo;</button>' +
+        '<button type="button" class="btn btn-ghost" id="hand-end-replay">&#8635; Repetir esta mano</button>' +
+        '<button type="button" class="btn btn-ghost" id="hand-end-new-session">Nueva sesión</button>' +
+      '</div>' +
+    '</div>';
+
+    modal.classList.remove('hidden');
+
+    const detailsBtn = $('#hand-end-details');
+    if (detailsBtn) detailsBtn.onclick = () => revealHandEndDetails();
+
+    const nextBtn = $('#hand-end-next');
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        closeModal();
+        if (options.blockDone) {
+          try { openSessionBlockPopup(options.handsTarget); } catch (e) { console.warn('[session-block]', e); }
+          return;
+        }
+        continueLeakReplayOrNext();
+      };
+    }
+
+    const replayBtn = $('#hand-end-replay');
+    if (replayBtn) {
+      replayBtn.onclick = () => {
+        closeModal();
+        replayCurrentHand();
+      };
+    }
+
+    const newBtn = $('#hand-end-new-session');
+    if (newBtn) {
+      newBtn.onclick = () => {
+        closeModal();
+        resetPlaySession();
+      };
+    }
   }
 
   function renderSessionBlockSummary(target) {
