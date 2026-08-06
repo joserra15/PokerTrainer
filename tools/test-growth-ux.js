@@ -15,7 +15,7 @@ assert(/blog\/index\.html/.test(indexHtml), 'landing enlaza al blog');
 assert(/home-gamification/.test(indexHtml), 'home tiene host de gamificación');
 assert(/stats-gamification/.test(indexHtml), 'stats tiene host de gamificación');
 assert(/age-gate-modal/.test(indexHtml), 'modal de +18 presente');
-assert(/MTT preflop parcial/.test(indexHtml), 'claim MTT rebajado en cabecera');
+assert(/Tu entrenador IA de póker/.test(indexHtml), 'tagline de marca en cabecera');
 assert(/soporte de torneo es parcial/i.test(i18n), 'copy MTT rebajado en i18n');
 assert(/blog\/fugas-nl25\.html/.test(sitemap), 'sitemap incluye blog fugas');
 assert(/blog\/importar-winamax\.html/.test(sitemap), 'sitemap incluye blog Winamax');
