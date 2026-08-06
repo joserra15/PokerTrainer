@@ -21833,7 +21833,7 @@ window.PT_VS_3BET_JSON = {
       <div class="vt-freq">${pct}% GTO</div>
       ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}`;
     clearTimeout(showVerdictToast._t);
-    const ms = stickySerious ? 2800 : 1100;
+    const ms = stickySerious ? 1400 : 550;
     showVerdictToast._t = setTimeout(() => { toast.classList.remove('visible'); }, ms);
   }
 
