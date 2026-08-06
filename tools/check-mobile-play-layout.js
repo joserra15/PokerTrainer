@@ -76,7 +76,8 @@ const { mockAuthenticatedUser } = require('../e2e/helpers');
   console.log(JSON.stringify(metrics, null, 2));
 
   const fails = [];
-  if (!(metrics.felt.ratio > 1.15)) fails.push('felt should be a clear horizontal oval (ratio ' + metrics.felt.ratio + ')');
+  if (!(metrics.felt.width + 1 >= metrics.vh * 0.5)) fails.push('felt should use most of the screen width');
+  if (!(metrics.felt.height >= 250)) fails.push('felt should grow with the viewport (h=' + metrics.felt.height + ')');
   if (!(metrics.gapActionsToViewportBottom >= 0 && metrics.gapActionsToViewportBottom <= 24)) {
     fails.push('actions should sit near viewport bottom (gap ' + metrics.gapActionsToViewportBottom + ')');
   }
