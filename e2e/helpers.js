@@ -15,6 +15,11 @@ async function mockAuthenticatedUser(page) {
       analytics: false,
       ts: Date.now()
     }));
+    localStorage.setItem('pt_age_gate_v1', JSON.stringify({
+      users: {
+        'e2e-test-user': { confirmed: true, ts: Date.now() }
+      }
+    }));
   });
 }
 

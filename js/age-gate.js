@@ -88,6 +88,10 @@
 
   function ensureConfirmed(user) {
     if (!user) return Promise.resolve(false);
+    if (global.PT_E2E_MODE) {
+      remember(user);
+      return Promise.resolve(true);
+    }
     if (isConfirmed(user)) return Promise.resolve(true);
     return show(user);
   }

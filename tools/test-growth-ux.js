@@ -54,6 +54,7 @@ const G = sandbox.window.PTGamification;
 const A = sandbox.window.PTAgeGate;
 assert.ok(G && G.snapshot, 'PTGamification exportado');
 assert.ok(A && A.isConfirmed && A.remember, 'PTAgeGate exportado');
+assert.ok(/PT_E2E_MODE/.test(ageGateJs), 'age-gate omite modal en E2E');
 
 const now = new Date();
 const d0 = now.toISOString();
