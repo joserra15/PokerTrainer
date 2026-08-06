@@ -136,6 +136,7 @@
             <a href="#landing-pricing" data-i18n="nav.pricing">Planes</a>
             <a href="#landing-install" data-i18n="nav.install">Instalar</a>
             <a href="legal/metodologia.html" data-i18n="nav.method">Metodología</a>
+            <a href="blog/index.html">Blog</a>
             <a href="legal/faq.html" data-i18n="nav.faq">FAQ</a>
             <a href="legal/soporte.html" data-i18n="nav.support">Soporte</a>
             <div class="landing-lang hidden" role="group" aria-label="Language" hidden>
@@ -194,7 +195,7 @@
             </article>
             <article class="landing-feature">
               <h3 data-i18n="feat.ranges.title">Rangos preflop</h3>
-              <p data-i18n="feat.ranges.body">Matrices RFI y defensa vs open para cash y MTT, con profundidades configurables.</p>
+              <p data-i18n="feat.ranges.body">Matrices RFI y defensa vs open para cash. El soporte de torneo es parcial y sobre todo preflop.</p>
             </article>
             <article class="landing-feature">
               <h3 data-i18n="feat.ai.title">IA Coach</h3>
@@ -209,6 +210,29 @@
               <p>Tus datos y sesiones en Supabase — continúa en móvil u otro PC.</p>
             </article>
           </div>
+        </section>
+
+        <section class="landing-section" id="landing-blog">
+          <h2>Guías y blog</h2>
+          <p class="landing-section-lead">Contenido orientado a leaks reales, sesiones importadas y dudas concretas de cash NL que sí convierten en estudio útil.</p>
+          <div class="landing-blog-grid">
+            <article class="landing-blog-card">
+              <span class="landing-blog-tag">Leaks NL25</span>
+              <h3><a href="blog/fugas-nl25.html">5 fugas típicas en NL25 que más EV queman</a></h3>
+              <p>Overfolds, calls sin pot odds y c-bets automáticos: ejemplos prácticos y cómo entrenarlos dentro de PokerForgeAI.</p>
+            </article>
+            <article class="landing-blog-card">
+              <span class="landing-blog-tag">Import</span>
+              <h3><a href="blog/importar-winamax.html">Cómo importar manos de Winamax y detectar fugas</a></h3>
+              <p>Paso a paso para subir historiales, revisar spots calle a calle y convertir una sesión real en material de estudio.</p>
+            </article>
+            <article class="landing-blog-card">
+              <span class="landing-blog-tag">Review</span>
+              <h3><a href="blog/review-ggpoker.html">Review rápida de una sesión GGPoker sin depender de un solver caro</a></h3>
+              <p>Qué mirar primero, cómo leer el EV perdido y cómo priorizar un repaso cuando no tienes horas para analizar.</p>
+            </article>
+          </div>
+          <p class="landing-blog-foot"><a href="blog/index.html">Ver todas las guías →</a></p>
         </section>
 
         <section class="landing-section" id="landing-pricing">
@@ -257,6 +281,7 @@
 
         <footer class="landing-footer">
           <a href="legal/metodologia.html">Metodología GTO</a>
+          <a href="blog/index.html">Blog</a>
           <a href="legal/terminos.html">Términos</a>
           <a href="legal/privacidad.html">Privacidad</a>
           <a href="legal/faq.html">FAQ</a>
@@ -279,7 +304,7 @@
           <p id="auth-error" class="auth-error" role="alert"></p>
           <p class="auth-legal-note muted-text">
             Al continuar aceptas los <a href="legal/terminos.html">Términos de uso</a> y la
-            <a href="legal/privacidad.html">Política de privacidad</a>.
+            <a href="legal/privacidad.html">Política de privacidad</a>. El servicio está dirigido a mayores de 18 años.
           </p>
           <div id="auth-legal-foot" class="auth-legal-foot"></div>
           <div id="auth-setup" class="auth-setup hidden">
@@ -303,7 +328,7 @@
         <button type="button" class="brand-home-link" id="brand-home" title="Volver al inicio" aria-label="Inicio">
           <img src="icons/logo-header.png" class="app-logo" alt="PokerForgeAI" width="42" height="42" />
           <span class="brand-text">
-            <h1>PokerForgeAI <small>Cash NL · MTT</small></h1>
+            <h1>PokerForgeAI <small>Cash NL · MTT preflop parcial</small></h1>
           </span>
         </button>
       </div>
@@ -382,6 +407,7 @@
         </header>
 
         <div id="home-onboarding" class="home-onboarding hidden" aria-live="polite"></div>
+        <div id="home-gamification"></div>
 
         <div class="home-stats-strip" id="home-stats" aria-label="Resumen rápido"></div>
         <div id="home-contact-notice" class="home-contact-notice hidden" aria-live="polite"></div>
@@ -863,6 +889,7 @@
       </div>
       <p class="muted-text stats-reset-hint">Acumulado persistente del entrenador y sesiones importadas. Borrar histórico o sesiones no resta estos totales semanales ni los leaks agregados.</p>
       <div id="stats-usage" class="usage-quota-host hidden" aria-label="Límites del plan"></div>
+      <div id="stats-gamification"></div>
       <div id="progress-dashboard"></div>
       <div id="leaks-panel"></div>
       <div id="stats-content" class="stats-content"></div>
@@ -1166,6 +1193,18 @@
 
   <div id="card-picker-modal" class="modal card-picker-modal hidden" role="dialog" aria-modal="true" aria-label="Elegir cartas">
     <div class="modal-content card-picker-content" id="card-picker-body"></div>
+  </div>
+
+  <div id="age-gate-modal" class="modal age-gate-modal hidden" role="dialog" aria-modal="true" aria-labelledby="age-gate-title">
+    <div class="modal-content age-gate-content">
+      <h3 id="age-gate-title">Confirmación de mayoría de edad</h3>
+      <p>Antes de usar PokerForgeAI debes confirmar que tienes <strong>más de 18 años</strong>.</p>
+      <p class="muted-text">Esta confirmación se guarda para <span id="age-gate-user">tu cuenta</span>. Si no puedes confirmarlo, no continúes con el acceso.</p>
+      <div class="age-gate-actions">
+        <button type="button" class="btn btn-primary" id="age-gate-confirm">Sí, tengo más de 18 años</button>
+        <button type="button" class="btn btn-ghost" id="age-gate-exit">Salir</button>
+      </div>
+    </div>
   </div>
 
   <div id="paywall-modal" class="modal paywall-modal hidden" role="dialog" aria-modal="true" aria-labelledby="paywall-title">

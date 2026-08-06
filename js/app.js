@@ -697,6 +697,9 @@
       PTOnboarding.bind($('#home-onboarding'));
       PTOnboarding.render($('#home-onboarding'));
     }
+    if (window.PTGamification && PTGamification.renderHome) {
+      PTGamification.renderHome($('#home-gamification'));
+    }
     if (window.PTReEngage && PTReEngage.renderBanner) PTReEngage.renderBanner();
     withLazyChunk('contact', function () {
       if (window.PTContact && PTContact.renderHomeNotice) PTContact.renderHomeNotice();
@@ -4012,6 +4015,7 @@
   // ---------- Estadísticas ----------
   function renderStats() {
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#stats-usage'));
+    if (window.PTGamification && PTGamification.renderStats) PTGamification.renderStats($('#stats-gamification'));
     if ($('#progress-dashboard')) $('#progress-dashboard').innerHTML = '';
     const leaksHost = $('#leaks-panel');
     if (leaksHost && window.PTLeaks && typeof PTLeaks.renderPanel === 'function') {
