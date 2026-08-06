@@ -67,6 +67,7 @@
       'js/re-engagement.js',
       'js/share-hand.js',
       'js/session-export.js',
+      'js/card-picker.js',
       'js/user-profile.js',
       'js/demo-mode.js',
       'js/entitlements.js',

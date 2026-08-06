@@ -2117,19 +2117,37 @@
     const postflopBlock = $('#ranges-postflop-block');
     if (postflopBlock) postflopBlock.classList.toggle('hidden', !isPostflop);
     if (isPostflop) {
-      const boardIn = $('#ranges-board-input');
+      const boardBtn = $('#ranges-board-pick-btn');
+      const boardPreview = $('#ranges-board-preview');
       const potIn = $('#ranges-pot-input');
       const callIn = $('#ranges-tocall-input');
-      if (boardIn) {
-        if (!boardIn.dataset.bound) {
-          boardIn.dataset.bound = '1';
-          boardIn.value = rangesState.boardText || 'As Kd 7c';
-          boardIn.addEventListener('change', () => {
-            rangesState.boardText = boardIn.value;
-            renderRangesExplorer();
+      if (boardPreview) {
+        const boardCards = RM.parseBoardText
+          ? RM.parseBoardText(rangesState.boardText || '')
+          : String(rangesState.boardText || '').split(/\s+/).filter(Boolean);
+        boardPreview.innerHTML = boardCards.length
+          ? boardCards.map(Cards.cardToHTML).join('')
+          : '<span class="ranges-board-empty">Elegir flop</span>';
+      }
+      if (boardBtn && !boardBtn.dataset.bound) {
+        boardBtn.dataset.bound = '1';
+        boardBtn.addEventListener('click', () => {
+          if (!window.PTCardPicker) return;
+          const selected = RM.parseBoardText
+            ? RM.parseBoardText(rangesState.boardText || '')
+            : [];
+          PTCardPicker.open({
+            title: 'Flop (3 cartas)',
+            max: 3,
+            requireExact: true,
+            selected: selected.slice(0, 3),
+            onDone: function (cards) {
+              if (!cards || cards.length < 3) return;
+              rangesState.boardText = PTCardPicker.cardsToText(cards.slice(0, 3));
+              renderRangesExplorer();
+            }
           });
-        }
-        rangesState.boardText = boardIn.value || rangesState.boardText;
+        });
       }
       if (potIn) {
         if (!potIn.dataset.bound) {
@@ -4005,7 +4023,8 @@
       const shareLeakBtn = document.createElement('div');
       shareLeakBtn.className = 'leaks-share-row';
       shareLeakBtn.innerHTML = '<button type="button" class="btn btn-ghost btn-sm" id="share-weekly-leak">Compartir peor leak de la semana</button>' +
-        '<button type="button" class="btn btn-primary btn-sm" id="train-worst-spots-stats">Drill adaptativo</button>';
+        '<button type="button" class="btn btn-primary btn-sm" id="train-worst-spots-stats" title="Repasa primero tus peores spots por EV perdido">Drill adaptativo</button>' +
+        '<p class="adaptive-drill-help-inline">El drill adaptativo agrupa tus errores por spot, ordena por EV perdido y lanza ~25 manos de tus fugas más caras (no la lista completa al azar).</p>';
       leaksHost.appendChild(shareLeakBtn);
       const sw = $('#share-weekly-leak');
       if (sw) sw.addEventListener('click', shareWeeklyTopLeak);
