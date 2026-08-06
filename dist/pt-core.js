@@ -20083,11 +20083,16 @@ window.PT_VS_3BET_JSON = {
   let playSessionConfig = null;
   let replayPlayConfig = null;
 
+  function setPlayTableActiveClass(active) {
+    document.body.classList.toggle('play-table-active', !!active);
+  }
+
   function showPlaySetup() {
     const setup = $('#play-setup');
     const active = $('#play-active');
     if (setup) setup.classList.remove('hidden');
     if (active) active.classList.add('hidden');
+    setPlayTableActiveClass(false);
   }
 
   function showPlayTable() {
@@ -20095,6 +20100,7 @@ window.PT_VS_3BET_JSON = {
     const active = $('#play-active');
     if (setup) setup.classList.add('hidden');
     if (active) active.classList.remove('hidden');
+    setPlayTableActiveClass(true);
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
     requestAnimationFrame(syncPlayMobileStage);
@@ -20895,19 +20901,18 @@ window.PT_VS_3BET_JSON = {
     const actions = document.querySelector('#play-active .play-stage .actions');
     const headerH = header ? Math.round(header.getBoundingClientRect().height) : 56;
     let padTop = 10;
-    let padBottom = 16;
     if (main) {
       const cs = getComputedStyle(main);
       padTop = parseFloat(cs.paddingTop) || 0;
-      padBottom = parseFloat(cs.paddingBottom) || 0;
     }
     const vv = window.visualViewport;
     const vh = Math.round((vv && vv.height) || window.innerHeight || 0);
-    const stage = Math.max(300, vh - headerH - padTop - padBottom);
+    /* Hasta el borde inferior del viewport: sesión/consultas quedan bajo scroll. */
+    const stage = Math.max(300, vh - headerH - padTop);
     root.style.setProperty('--play-stage-h', stage + 'px');
     let actionsH = 108;
     if (actions && actions.offsetHeight > 0) {
-      actionsH = Math.round(actions.offsetHeight + 12);
+      actionsH = Math.round(actions.offsetHeight + 10);
     }
     root.style.setProperty('--play-actions-h', Math.max(72, actionsH) + 'px');
   }
@@ -21692,6 +21697,7 @@ window.PT_VS_3BET_JSON = {
       b.addEventListener('click', () => onAction(b.dataset.action)));
     updateLiveAdvisor();
     syncPlayMobileStage();
+    requestAnimationFrame(syncPlayMobileStage);
   }
 
   function btnClassForAction(id) {
