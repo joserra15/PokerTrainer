@@ -66,8 +66,11 @@ const { mockAuthenticatedUser } = require('../e2e/helpers');
     fails.push('actions should sit near viewport bottom (gap ' + metrics.gapActionsToViewportBottom + ')');
   }
   if (!metrics.sidebarBelowFold) fails.push('sidebar should stay below the fold');
-  if (!(metrics.felt.height >= 200 && metrics.felt.height <= 420)) {
-    fails.push('felt height should shrink for HUD (h=' + metrics.felt.height + ')');
+  if (!(metrics.felt.height >= 200 && metrics.felt.height <= 500)) {
+    fails.push('felt height out of expected mobile range (h=' + metrics.felt.height + ')');
+  }
+  if (!(metrics.felt.top - metrics.hud.bottom < 24)) {
+    fails.push('felt should sit close under the HUD');
   }
   if (metrics.hud.hands == null) fails.push('missing hud hands');
 

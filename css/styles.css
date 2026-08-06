@@ -2574,18 +2574,16 @@ body.paywall-open { overflow: hidden; }
     margin-right: calc(50% - 50vw);
   }
   #play-active .play-stage .table-felt {
-    /* Óvalo que deja sitio al HUD + botones sin forzar scroll */
+    /* Llena el hueco entre HUD y botones; un poco más baja que antes por el HUD */
     width: calc(100% - 12px);
     max-width: calc(100vw - 12px);
-    height: min(
-      calc(var(--play-stage-h, 70dvh) - var(--play-actions-h, 108px) - var(--play-hud-h, 48px) - 8px),
-      86vw
-    );
+    height: calc(var(--play-stage-h, 70dvh) - var(--play-actions-h, 108px) - var(--play-hud-h, 48px) - 8px);
     min-height: 210px;
     max-height: calc(var(--play-stage-h, 70dvh) - var(--play-actions-h, 108px) - var(--play-hud-h, 48px) - 8px);
     flex: 0 1 auto;
-    align-self: flex-end;
-    border-radius: 50%;
+    align-self: stretch;
+    margin: 0 auto;
+    border-radius: 46% / 40%;
     padding: 10px 16px 8px;
     border-width: 5px;
     gap: 4px;
