@@ -11,6 +11,7 @@
     "test:ux": "node tools/test-ux-trainer-lang.js",
     "test:card-picker": "node tools/test-card-picker-ux.js",
     "test:growth-ux": "node tools/test-growth-ux.js",
+    "test:landing-i18n": "node tools/test-landing-i18n.js",
     "test:allin-runout": "node tools/test-allin-runout.js",
     "test:vpip": "node tools/test-vpip-pfr.js",
     "test:unit": "node tools/selftest.js",

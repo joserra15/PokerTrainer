@@ -322,9 +322,17 @@
     DICT: DICT
   };
 
+  function applyAndRefreshLanding() {
+    apply(document);
+    // If landing rendered before this file ran (script race), re-paint pricing.
+    if (global.PTLanding && global.PTLanding.refreshI18n) {
+      try { global.PTLanding.refreshI18n(); } catch (e) { /* ignore */ }
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { apply(document); });
+    document.addEventListener('DOMContentLoaded', applyAndRefreshLanding);
   } else {
-    try { apply(document); } catch (e) { /* ignore */ }
+    try { applyAndRefreshLanding(); } catch (e) { /* ignore */ }
   }
 })(window);

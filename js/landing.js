@@ -56,9 +56,14 @@
     return (global.PTI18n && global.PTI18n.t) ? global.PTI18n.t(key, vars) : key;
   }
 
+  function i18nReady() {
+    return !!(global.PTI18n && global.PTI18n.t);
+  }
+
   function renderLimitsBox() {
     var host = document.getElementById('landing-limits-box');
     if (!host) return;
+    if (!i18nReady()) return;
     var trial = (global.PT_BILLING && global.PT_BILLING.trial) || {};
     var days = trial.days || 10;
     host.innerHTML =
@@ -73,6 +78,7 @@
   function renderPricing() {
     var grid = document.getElementById('landing-pricing-grid');
     if (!grid) return;
+    if (!i18nReady()) return;
     var plans = (global.PT_BILLING && global.PT_BILLING.plans) || {};
     var trial = (global.PT_BILLING && global.PT_BILLING.trial) || {};
     var trialLabel = trial.label || 'Prueba Study 10 días';
