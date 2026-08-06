@@ -2957,6 +2957,26 @@ window.PT_VS_3BET_JSON = {
     return counts;
   }
 
+  /**
+   * ¿El color del héroe es el máximo posible dado el board?
+   * El As del palo puede estar en mano O en mesa; lo que importa es que no exista
+   * un color mejor con las cartas restantes del palo.
+   */
+  function isNutFlushHolding(heroCards, board, flushSuit, heroScore) {
+    const dead = new Set(heroCards.concat(board));
+    const remaining = [];
+    for (let i = C.RANKS.length - 1; i >= 0; i--) {
+      const code = C.RANKS[i] + flushSuit;
+      if (!dead.has(code)) remaining.push(code);
+    }
+    const boardFlushCount = board.filter((c) => c[1] === flushSuit).length;
+    const need = Math.max(0, 5 - boardFlushCount);
+    if (remaining.length < need) return true;
+    const villainHole = remaining.slice(0, Math.min(2, remaining.length));
+    if (boardFlushCount + villainHole.length < 5) return true;
+    return C.compare(heroScore, C.evaluate(villainHole.concat(board))) >= 0;
+  }
+
   /** ¿El héroe tiene color hecho y le falta el As del palo dominante? */
   function heroNonNutFlushContext(heroCards, board) {
     if (!board || board.length < 3) return null;
@@ -2972,7 +2992,8 @@ window.PT_VS_3BET_JSON = {
 
     const heroHasAce = heroCards.some((c) => c[0] === 'A' && c[1] === flushSuit);
     const heroFlushHigh = heroScore.rank[1];
-    return { flushSuit, heroHasAce, heroFlushHigh, isNut: heroHasAce && heroFlushHigh >= 14 };
+    const isNut = isNutFlushHolding(heroCards, board, flushSuit, heroScore);
+    return { flushSuit, heroHasAce, heroFlushHigh, isNut };
   }
 
   /**
@@ -3045,6 +3066,8 @@ window.PT_VS_3BET_JSON = {
    * River shove/overbet: estrechar rango solo si el héroe tiene color vulnerable
    * en mesa doblada (full houses del villano). No filtrar «solo combos que ganan»
    * con manos fuertes hechas (trío+): eso forzaba equity 0 % erróneamente.
+   * Color máximo: no colapsar a solo fulls (también daba equity 0 %); la devaluación
+   * (capEquity) ya modela el riesgo en mesa doblada.
    */
   function filterCombosFacingShove(combos, heroCards, board, opts) {
     if (!opts || (!opts.riverShove && !opts.shoveNode)) return combos;
@@ -3056,14 +3079,14 @@ window.PT_VS_3BET_JSON = {
     const deval = RS.pairedBoardFlushDevaluation(heroCards, board);
     if (!deval.vulnerable) return combos;
 
-    const heroScore = C.evaluate(heroCards.concat(board));
     const ctx = heroNonNutFlushContext(heroCards, board);
+    if (ctx && ctx.isNut) return combos;
+
+    const heroScore = C.evaluate(heroCards.concat(board));
     const beating = combos.filter((vh) => C.compare(C.evaluate(vh.concat(board)), heroScore) > 0);
-    if (beating.length >= 1 && !(ctx && ctx.isNut)) return beating;
+    if (beating.length >= 1) return beating;
 
     const strong = combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 6);
-    if (ctx && ctx.isNut && strong.length) return strong;
-
     return strong.length ? strong : combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 5);
   }
 
@@ -4208,8 +4231,10 @@ window.PT_VS_3BET_JSON = {
       return 'small';
     }
 
-    if (call >= 50 || ratio >= 0.70) return 'shove';
-    if (call >= 30 || ratio >= 0.55) return 'overbet';
+    // Umbrales absolutos en bb solo cuentan si el sizing también es grande vs el bote.
+    // Evita marcar como overbet una apuesta media (p. ej. 36bb en bote de 97bb ≈ 37%).
+    if (ratio >= 0.70 || (call >= 50 && ratio >= 0.50)) return 'shove';
+    if (ratio >= 0.55 || (call >= 30 && ratio >= 0.45)) return 'overbet';
     if (ratio >= 0.66) return 'large';
     if (ratio >= 0.35) return 'medium';
     if (villainLastAction === 'raise' && ratio >= 0.45) return 'large';
