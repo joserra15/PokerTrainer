@@ -14425,10 +14425,34 @@ window.PT_VS_3BET_JSON = {
     return read(scopedKey('rangeFavorites'), []);
   }
 
+  function normalizeFavoriteStreet(spot) {
+    if (!spot) return 'preflop';
+    if (spot.street === 'flop' || spot.street === 'turn' || spot.street === 'river' || spot.street === 'preflop') {
+      return spot.street;
+    }
+    if (spot.spot === 'postflop') return 'flop';
+    return 'preflop';
+  }
+
   function favoriteSpotKey(spot) {
     if (!spot) return '';
-    return [spot.gameType || 'cash6', spot.stackDepth || 'standard', spot.spot || '', spot.heroPos || '',
-      spot.villainPos || '', spot.callerPos || '', spot.openSize || 2.5].join('|');
+    const street = normalizeFavoriteStreet(spot);
+    const parts = [
+      street,
+      spot.gameType || 'cash6',
+      spot.stackDepth || 'standard',
+      spot.spot || '',
+      spot.heroPos || '',
+      spot.villainPos || '',
+      spot.callerPos || '',
+      spot.openSize || 2.5
+    ];
+    if (street !== 'preflop') {
+      parts.push(spot.boardText || '');
+      parts.push(spot.potBB != null ? String(spot.potBB) : '');
+      parts.push(spot.toCallBB != null ? String(spot.toCallBB) : '');
+    }
+    return parts.join('|');
   }
 
   function isFavoriteSpot(spot) {
@@ -14436,28 +14460,57 @@ window.PT_VS_3BET_JSON = {
     return getFavoriteSpots().some(function (f) { return favoriteSpotKey(f) === key; });
   }
 
+  function serializeFavoriteSpot(spot) {
+    const street = normalizeFavoriteStreet(spot);
+    const entry = {
+      street: street,
+      gameType: spot.gameType || 'cash6',
+      stackDepth: spot.stackDepth || 'standard',
+      spot: spot.spot || (street === 'preflop' ? 'RFI' : 'postflop'),
+      heroPos: spot.heroPos || '',
+      villainPos: spot.villainPos || '',
+      callerPos: spot.callerPos || '',
+      openSize: Number(spot.openSize) === 3 ? 3 : 2.5,
+      label: spot.label || '',
+      savedAt: new Date().toISOString()
+    };
+    if (street !== 'preflop') {
+      entry.boardText = spot.boardText || '';
+      entry.potBB = spot.potBB != null ? Number(spot.potBB) : 6;
+      entry.toCallBB = spot.toCallBB != null ? Number(spot.toCallBB) : 0;
+    }
+    return entry;
+  }
+
   function toggleFavoriteSpot(spot) {
-    if (!spot || !spot.spot) return { ok: false, favorites: getFavoriteSpots() };
+    if (!spot || !(spot.spot || spot.street)) return { ok: false, favorites: getFavoriteSpots() };
     const key = favoriteSpotKey(spot);
     let list = getFavoriteSpots().slice();
     const idx = list.findIndex(function (f) { return favoriteSpotKey(f) === key; });
     if (idx >= 0) list.splice(idx, 1);
     else {
-      list.unshift({
-        gameType: spot.gameType || 'cash6',
-        stackDepth: spot.stackDepth || 'standard',
-        spot: spot.spot,
-        heroPos: spot.heroPos || '',
-        villainPos: spot.villainPos || '',
-        callerPos: spot.callerPos || '',
-        openSize: Number(spot.openSize) === 3 ? 3 : 2.5,
-        label: spot.label || '',
-        savedAt: new Date().toISOString()
-      });
+      list.unshift(serializeFavoriteSpot(spot));
       if (list.length > 20) list = list.slice(0, 20);
     }
     write(scopedKey('rangeFavorites'), list);
     return { ok: true, favorites: list, favorited: idx < 0 };
+  }
+
+  function removeFavoriteSpot(spotOrKey) {
+    let list = getFavoriteSpots().slice();
+    const key = typeof spotOrKey === 'string' ? spotOrKey : favoriteSpotKey(spotOrKey);
+    if (!key) return { ok: false, favorites: list };
+    const next = list.filter(function (f) { return favoriteSpotKey(f) !== key; });
+    if (next.length === list.length) return { ok: false, favorites: list };
+    write(scopedKey('rangeFavorites'), next);
+    return { ok: true, favorites: next };
+  }
+
+  function getFavoriteSpotsForStreet(street) {
+    const st = street || 'preflop';
+    return getFavoriteSpots().filter(function (f) {
+      return normalizeFavoriteStreet(f) === st;
+    });
   }
 
   global.Store = {
@@ -14472,7 +14525,8 @@ window.PT_VS_3BET_JSON = {
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry,
     getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
-    getFavoriteSpots, isFavoriteSpot, toggleFavoriteSpot, favoriteSpotKey
+    getFavoriteSpots, getFavoriteSpotsForStreet, isFavoriteSpot, toggleFavoriteSpot,
+    removeFavoriteSpot, favoriteSpotKey, normalizeFavoriteStreet
   };
 })(window);
 
@@ -21818,10 +21872,26 @@ window.PT_VS_3BET_JSON = {
 
   let matrixJob = 0;
   let rangesState = {
+    street: 'preflop',
     spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', callerPos: 'HJ',
     gameType: 'cash6', stackDepth: 'standard', openSize: 2.5,
-    boardText: 'As Kd 7c', potBB: 6, toCallBB: 0
+    boards: {
+      flop: 'As Kd 7c',
+      turn: 'As Kd 7c 2h',
+      river: 'As Kd 7c 2h 9s'
+    },
+    potBB: 6, toCallBB: 0
   };
+
+  function rangesBoardText() {
+    if (rangesState.street === 'preflop') return '';
+    return rangesState.boards[rangesState.street] || '';
+  }
+
+  function setRangesBoardText(text) {
+    if (rangesState.street === 'preflop') return;
+    rangesState.boards[rangesState.street] = text || '';
+  }
 
   function readRangesContext() {
     const gtEl = $('#ranges-game-type .setup-chip.active');
@@ -21841,6 +21911,27 @@ window.PT_VS_3BET_JSON = {
       rangesState.stackDepth = readRangesContext().stackDepth;
       renderRangesExplorer();
     });
+    const streetTabs = $('#ranges-street-tabs');
+    if (streetTabs && !streetTabs.dataset.bound) {
+      streetTabs.dataset.bound = '1';
+      streetTabs.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-ranges-street]');
+        if (!btn) return;
+        const street = btn.dataset.rangesStreet;
+        if (!street || street === rangesState.street) return;
+        rangesState.street = street;
+        if (street !== 'preflop') {
+          rangesState.spot = 'postflop';
+          if (['BB', 'SB', 'BTN', 'CO', 'HJ'].indexOf(rangesState.heroPos) < 0) {
+            rangesState.heroPos = 'BB';
+          }
+        } else if (rangesState.spot === 'postflop') {
+          rangesState.spot = 'RFI';
+          rangesState.heroPos = 'UTG';
+        }
+        renderRangesExplorer();
+      });
+    }
   }
 
   function matrixStreetBtn(street, decisionIdx, source) {
@@ -22026,27 +22117,50 @@ window.PT_VS_3BET_JSON = {
     rangesState.stackDepth = ctx.stackDepth;
     if (contextLabel && RR) contextLabel.textContent = RR.contextLabel(ctx);
 
-    const spot = RM.EXPLORER_SPOTS[rangesState.spot] || RM.EXPLORER_SPOTS.RFI;
+    const street = rangesState.street || 'preflop';
+    const isPostflop = street === 'flop' || street === 'turn' || street === 'river';
+    if (isPostflop) rangesState.spot = 'postflop';
+
+    $$('#ranges-street-tabs [data-ranges-street]').forEach((b) => {
+      const on = b.dataset.rangesStreet === street;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+
+    const spot = isPostflop
+      ? (RM.EXPLORER_SPOTS.postflop || RM.POSTFLOP_EXPLORER)
+      : (RM.EXPLORER_SPOTS[rangesState.spot] || RM.EXPLORER_SPOTS.RFI);
     const vsPairs = RM.validVsRfiPairs(ctx);
     const vs3Pairs = RM.validVs3betPairs ? RM.validVs3betPairs(ctx) : {};
 
-    spotRow.innerHTML = Object.keys(RM.EXPLORER_SPOTS).map((id) =>
-      `<button type="button" class="ranges-spot-btn${rangesState.spot === id ? ' active' : ''}" data-ranges-spot="${id}">${RM.EXPLORER_SPOTS[id].label}</button>`
-    ).join('');
+    if (isPostflop) {
+      spotRow.innerHTML = '';
+      spotRow.classList.add('hidden');
+    } else {
+      spotRow.classList.remove('hidden');
+      const preflopIds = Object.keys(RM.EXPLORER_SPOTS).filter((id) => id !== 'postflop');
+      spotRow.innerHTML = preflopIds.map((id) =>
+        `<button type="button" class="ranges-spot-btn${rangesState.spot === id ? ' active' : ''}" data-ranges-spot="${id}">${RM.EXPLORER_SPOTS[id].label}</button>`
+      ).join('');
+    }
 
-    let heroPositions = RM.heroPositionsForSpot(rangesState.spot, ctx);
-    if (rangesState.spot === '3bet' && vsPairs[rangesState.heroPos]) {
-      /* ok */
-    } else if (rangesState.spot === '3bet') {
-      rangesState.heroPos = heroPositions[0];
-    } else if (rangesState.spot === '4bet' && vs3Pairs[rangesState.heroPos]) {
-      /* ok */
-    } else if (rangesState.spot === '4bet') {
-      rangesState.heroPos = heroPositions[0];
-    } else if (rangesState.spot === 'squeeze') {
-      const sqHeroes = RM.validSqueezeHeroes ? RM.validSqueezeHeroes() : heroPositions;
-      if (sqHeroes.indexOf(rangesState.heroPos) < 0) rangesState.heroPos = sqHeroes[0];
-      heroPositions = sqHeroes;
+    let heroPositions = isPostflop
+      ? (RM.POSTFLOP_EXPLORER ? RM.POSTFLOP_EXPLORER.heroPositions.slice() : RM.heroPositionsForSpot('postflop', ctx))
+      : RM.heroPositionsForSpot(rangesState.spot, ctx);
+    if (!isPostflop) {
+      if (rangesState.spot === '3bet' && vsPairs[rangesState.heroPos]) {
+        /* ok */
+      } else if (rangesState.spot === '3bet') {
+        rangesState.heroPos = heroPositions[0];
+      } else if (rangesState.spot === '4bet' && vs3Pairs[rangesState.heroPos]) {
+        /* ok */
+      } else if (rangesState.spot === '4bet') {
+        rangesState.heroPos = heroPositions[0];
+      } else if (rangesState.spot === 'squeeze') {
+        const sqHeroes = RM.validSqueezeHeroes ? RM.validSqueezeHeroes() : heroPositions;
+        if (sqHeroes.indexOf(rangesState.heroPos) < 0) rangesState.heroPos = sqHeroes[0];
+        heroPositions = sqHeroes;
+      }
     }
     if (heroPositions.indexOf(rangesState.heroPos) < 0) rangesState.heroPos = heroPositions[0];
 
@@ -22054,16 +22168,18 @@ window.PT_VS_3BET_JSON = {
       `<button type="button" class="ranges-pos-btn${rangesState.heroPos === p ? ' hero-active' : ''}" data-ranges-hero="${p}">${p}</button>`
     ).join('');
 
-    const needsVillain = spot.villainPositions && spot.villainPositions.length > 0;
-    const isSqueeze = rangesState.spot === 'squeeze';
+    const needsVillain = isPostflop || (spot.villainPositions && spot.villainPositions.length > 0);
+    const isSqueeze = !isPostflop && rangesState.spot === 'squeeze';
     if (villainBlock) villainBlock.classList.toggle('hidden', !needsVillain);
     if (callerBlock) callerBlock.classList.toggle('hidden', !isSqueeze);
     if (needsVillain) {
-      let villainPositions = RM.villainPositionsForSpot(rangesState.spot, ctx);
-      if (rangesState.spot === '3bet') {
+      let villainPositions = isPostflop
+        ? (RM.POSTFLOP_EXPLORER ? RM.POSTFLOP_EXPLORER.villainPositions.slice() : RM.villainPositionsForSpot('postflop', ctx))
+        : RM.villainPositionsForSpot(rangesState.spot, ctx);
+      if (!isPostflop && rangesState.spot === '3bet') {
         villainPositions = vsPairs[rangesState.heroPos] || villainPositions;
         if (villainPositions.indexOf(rangesState.villainPos) < 0) rangesState.villainPos = villainPositions[0];
-      } else if (rangesState.spot === '4bet') {
+      } else if (!isPostflop && rangesState.spot === '4bet') {
         villainPositions = vs3Pairs[rangesState.heroPos] || villainPositions;
         if (villainPositions.indexOf(rangesState.villainPos) < 0) rangesState.villainPos = villainPositions[0];
       } else if (isSqueeze && RM.validSqueezeOpeners) {
@@ -22073,7 +22189,11 @@ window.PT_VS_3BET_JSON = {
       } else if (villainPositions.indexOf(rangesState.villainPos) < 0) {
         rangesState.villainPos = villainPositions[0];
       }
-      if (villainLabel) villainLabel.textContent = spot.villainLabel || 'Villano:';
+      if (villainLabel) {
+        villainLabel.textContent = (isPostflop
+          ? ((RM.POSTFLOP_EXPLORER && RM.POSTFLOP_EXPLORER.villainLabel) || 'Villano:')
+          : (spot.villainLabel || 'Villano:'));
+      }
       villainRow.innerHTML = villainPositions.map((p) =>
         `<button type="button" class="ranges-pos-btn${rangesState.villainPos === p ? ' villain-active' : ''}" data-ranges-villain="${p}">${p}</button>`
       ).join('');
@@ -22091,41 +22211,47 @@ window.PT_VS_3BET_JSON = {
     }
 
     const squeezeCaller = isSqueeze ? rangesState.callerPos : null;
-    const isPostflop = rangesState.spot === 'postflop';
+    const postflopMeta = isPostflop && RM.POSTFLOP_STREETS
+      ? (RM.POSTFLOP_STREETS[street] || RM.POSTFLOP_STREETS.flop)
+      : null;
+    const boardNeed = postflopMeta ? postflopMeta.cards : 3;
     const postflopBlock = $('#ranges-postflop-block');
     if (postflopBlock) postflopBlock.classList.toggle('hidden', !isPostflop);
     if (isPostflop) {
       const boardBtn = $('#ranges-board-pick-btn');
       const boardPreview = $('#ranges-board-preview');
+      const boardLabel = $('#ranges-board-label');
       const potIn = $('#ranges-pot-input');
       const callIn = $('#ranges-tocall-input');
+      const boardText = rangesBoardText();
+      if (boardLabel) boardLabel.textContent = postflopMeta.boardLabel;
       if (boardPreview) {
         const boardCards = RM.parseBoardText
-          ? RM.parseBoardText(rangesState.boardText || '')
-          : String(rangesState.boardText || '').split(/\s+/).filter(Boolean);
+          ? RM.parseBoardText(boardText)
+          : String(boardText || '').split(/\s+/).filter(Boolean);
         boardPreview.innerHTML = boardCards.length
           ? boardCards.map(Cards.cardToHTML).join('')
-          : '<span class="ranges-board-empty">Elegir flop</span>';
+          : '<span class="ranges-board-empty">' + escapeHtml(postflopMeta.emptyHint) + '</span>';
       }
-      if (boardBtn && !boardBtn.dataset.bound) {
-        boardBtn.dataset.bound = '1';
-        boardBtn.addEventListener('click', () => {
+      if (boardBtn) {
+        boardBtn.setAttribute('aria-label', postflopMeta.pickTitle);
+        boardBtn.onclick = function () {
           if (!window.PTCardPicker) return;
           const selected = RM.parseBoardText
-            ? RM.parseBoardText(rangesState.boardText || '')
+            ? RM.parseBoardText(rangesBoardText())
             : [];
           PTCardPicker.open({
-            title: 'Flop (3 cartas)',
-            max: 3,
+            title: postflopMeta.pickTitle,
+            max: boardNeed,
             requireExact: true,
-            selected: selected.slice(0, 3),
+            selected: selected.slice(0, boardNeed),
             onDone: function (cards) {
-              if (!cards || cards.length < 3) return;
-              rangesState.boardText = PTCardPicker.cardsToText(cards.slice(0, 3));
+              if (!cards || cards.length < boardNeed) return;
+              setRangesBoardText(PTCardPicker.cardsToText(cards.slice(0, boardNeed)));
               renderRangesExplorer();
             }
           });
-        });
+        };
       }
       if (potIn) {
         if (!potIn.dataset.bound) {
@@ -22155,15 +22281,16 @@ window.PT_VS_3BET_JSON = {
     if (isPostflop && RM.buildPostflopExplorerInput) {
       const c = RM.explorerCtx ? RM.explorerCtx(ctx) : { stackBB: 100 };
       input = RM.buildPostflopExplorerInput({
+        street: street,
         heroPos: rangesState.heroPos,
         villainPos: rangesState.villainPos,
-        board: rangesState.boardText,
+        board: rangesBoardText(),
         potBB: rangesState.potBB,
         toCallBB: rangesState.toCallBB,
         stackDepth: c.stackBB || 100,
         inPosition: ['BTN', 'CO', 'HJ'].indexOf(rangesState.heroPos) >= 0
       });
-    } else {
+    } else if (!isPostflop) {
       input = RM.buildExplorerInput(
         rangesState.spot,
         rangesState.heroPos,
@@ -22174,12 +22301,16 @@ window.PT_VS_3BET_JSON = {
       );
     }
     if (titleEl) {
-      const baseTitle = isPostflop
-        ? ('Flop HU · ' + rangesState.heroPos + ' vs ' + rangesState.villainPos + ' · ' + (rangesState.boardText || ''))
-        : (isSqueeze
-          ? RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos, squeezeCaller)
-          : RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos));
-      const sizingNote = (rangesState.spot === '3bet' || rangesState.spot === 'squeeze')
+      let baseTitle;
+      if (isPostflop) {
+        baseTitle = (postflopMeta.label || street) + ' · ' + rangesState.heroPos + ' vs ' + rangesState.villainPos
+          + ' · ' + (rangesBoardText() || '');
+      } else if (isSqueeze) {
+        baseTitle = RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos, squeezeCaller);
+      } else {
+        baseTitle = RM.explorerTitle(rangesState.spot, rangesState.heroPos, rangesState.villainPos);
+      }
+      const sizingNote = (!isPostflop && (rangesState.spot === '3bet' || rangesState.spot === 'squeeze'))
         ? ` · open ${rangesState.openSize}x`
         : '';
       titleEl.textContent = baseTitle + sizingNote;
@@ -22187,8 +22318,8 @@ window.PT_VS_3BET_JSON = {
 
     const sizingRow = $('#ranges-sizing-row');
     if (sizingRow) {
-      const showSizing = rangesState.spot === '3bet' || rangesState.spot === 'squeeze' || rangesState.spot === 'RFI';
-      sizingRow.classList.toggle('hidden', !showSizing || isPostflop);
+      const showSizing = !isPostflop && (rangesState.spot === '3bet' || rangesState.spot === 'squeeze' || rangesState.spot === 'RFI');
+      sizingRow.classList.toggle('hidden', !showSizing);
       sizingRow.querySelectorAll('[data-ranges-sizing]').forEach((b) => {
         b.classList.toggle('active', Number(b.dataset.rangesSizing) === Number(rangesState.openSize));
         b.onclick = function () {
@@ -22200,13 +22331,17 @@ window.PT_VS_3BET_JSON = {
 
     const favBtn = $('#ranges-favorite-btn');
     const favSpot = {
+      street: street,
       gameType: rangesState.gameType,
       stackDepth: rangesState.stackDepth,
-      spot: rangesState.spot,
+      spot: isPostflop ? 'postflop' : rangesState.spot,
       heroPos: rangesState.heroPos,
       villainPos: needsVillain ? rangesState.villainPos : '',
       callerPos: isSqueeze ? rangesState.callerPos : '',
       openSize: rangesState.openSize,
+      boardText: isPostflop ? rangesBoardText() : '',
+      potBB: isPostflop ? rangesState.potBB : undefined,
+      toCallBB: isPostflop ? rangesState.toCallBB : undefined,
       label: titleEl ? titleEl.textContent : rangesState.spot
     };
     if (favBtn && Store.isFavoriteSpot) {
@@ -22220,22 +22355,41 @@ window.PT_VS_3BET_JSON = {
     }
     const favHost = $('#ranges-favorites');
     if (favHost && Store.getFavoriteSpots) {
-      const favs = Store.getFavoriteSpots();
+      const favs = Store.getFavoriteSpotsForStreet
+        ? Store.getFavoriteSpotsForStreet(street)
+        : Store.getFavoriteSpots().filter(function (f) {
+          const st = Store.normalizeFavoriteStreet ? Store.normalizeFavoriteStreet(f) : 'preflop';
+          return st === street;
+        });
       if (!favs.length) {
-        favHost.innerHTML = '<p class="muted-text ranges-fav-empty">Sin spots favoritos aún.</p>';
+        favHost.innerHTML = '<p class="muted-text ranges-fav-empty">Sin spots favoritos en esta pestaña.</p>';
       } else {
         favHost.innerHTML = '<div class="ranges-fav-list">' + favs.map((f, i) =>
-          `<button type="button" class="btn btn-ghost btn-sm ranges-fav-item" data-ranges-fav="${i}">${escapeHtml(f.label || (f.spot + ' · ' + f.heroPos))}</button>`
+          `<div class="ranges-fav-chip">`
+            + `<button type="button" class="btn btn-ghost btn-sm ranges-fav-item" data-ranges-fav="${i}">${escapeHtml(f.label || (f.spot + ' · ' + f.heroPos))}</button>`
+            + `<button type="button" class="ranges-fav-remove" data-ranges-fav-remove="${i}" title="Eliminar favorito" aria-label="Eliminar favorito">×</button>`
+            + `</div>`
         ).join('') + '</div>';
         favHost.querySelectorAll('[data-ranges-fav]').forEach((b) => {
           b.onclick = function () {
             const f = favs[Number(b.dataset.rangesFav)];
             if (!f) return;
-            rangesState.spot = f.spot || 'RFI';
-            rangesState.heroPos = f.heroPos || 'UTG';
+            const favStreet = Store.normalizeFavoriteStreet ? Store.normalizeFavoriteStreet(f) : (f.street || 'preflop');
+            rangesState.street = favStreet;
+            rangesState.spot = f.spot || (favStreet === 'preflop' ? 'RFI' : 'postflop');
+            rangesState.heroPos = f.heroPos || (favStreet === 'preflop' ? 'UTG' : 'BB');
             rangesState.villainPos = f.villainPos || 'UTG';
             rangesState.callerPos = f.callerPos || 'HJ';
             rangesState.openSize = Number(f.openSize) === 3 ? 3 : 2.5;
+            if (favStreet !== 'preflop') {
+              rangesState.boards[favStreet] = f.boardText || rangesState.boards[favStreet] || '';
+              if (f.potBB != null) rangesState.potBB = Number(f.potBB) || 6;
+              if (f.toCallBB != null) rangesState.toCallBB = Number(f.toCallBB) || 0;
+              const potIn = $('#ranges-pot-input');
+              const callIn = $('#ranges-tocall-input');
+              if (potIn) potIn.value = String(rangesState.potBB);
+              if (callIn) callIn.value = String(rangesState.toCallBB);
+            }
             if (f.gameType) {
               $$('#ranges-game-type .setup-chip').forEach((c) => c.classList.toggle('active', c.dataset.val === f.gameType));
             }
@@ -22245,12 +22399,52 @@ window.PT_VS_3BET_JSON = {
             renderRangesExplorer();
           };
         });
+        favHost.querySelectorAll('[data-ranges-fav-remove]').forEach((b) => {
+          b.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const f = favs[Number(b.dataset.rangesFavRemove)];
+            if (f && Store.removeFavoriteSpot) Store.removeFavoriteSpot(f);
+            renderRangesExplorer();
+          };
+        });
       }
+    }
+
+    if (!isPostflop) {
+      spotRow.querySelectorAll('[data-ranges-spot]').forEach((b) => {
+        b.onclick = function () {
+          rangesState.spot = b.dataset.rangesSpot;
+          renderRangesExplorer();
+        };
+      });
+    }
+    heroRow.querySelectorAll('[data-ranges-hero]').forEach((b) => {
+      b.onclick = function () {
+        rangesState.heroPos = b.dataset.rangesHero;
+        renderRangesExplorer();
+      };
+    });
+    if (needsVillain) {
+      villainRow.querySelectorAll('[data-ranges-villain]').forEach((b) => {
+        b.onclick = function () {
+          rangesState.villainPos = b.dataset.rangesVillain;
+          renderRangesExplorer();
+        };
+      });
+    }
+    if (isSqueeze && callerRow) {
+      callerRow.querySelectorAll('[data-ranges-caller]').forEach((b) => {
+        b.onclick = function () {
+          rangesState.callerPos = b.dataset.rangesCaller;
+          renderRangesExplorer();
+        };
+      });
     }
 
     if (!input) {
       host.innerHTML = isPostflop
-        ? '<p class="muted-text">Indica un board de 3 cartas (ej. As Kd 7c).</p>'
+        ? ('<p class="muted-text">Indica un board de ' + boardNeed + ' cartas.</p>')
         : '<p class="muted-text">Combinación de posiciones no disponible en las tablas.</p>';
       return;
     }
@@ -22275,35 +22469,6 @@ window.PT_VS_3BET_JSON = {
         host.innerHTML = renderRangeMatrixGrid(result, null, 'gto');
       }).catch(function (e) {
         host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
-      });
-    }
-
-    spotRow.querySelectorAll('[data-ranges-spot]').forEach((b) => {
-      b.onclick = function () {
-        rangesState.spot = b.dataset.rangesSpot;
-        renderRangesExplorer();
-      };
-    });
-    heroRow.querySelectorAll('[data-ranges-hero]').forEach((b) => {
-      b.onclick = function () {
-        rangesState.heroPos = b.dataset.rangesHero;
-        renderRangesExplorer();
-      };
-    });
-    if (needsVillain) {
-      villainRow.querySelectorAll('[data-ranges-villain]').forEach((b) => {
-        b.onclick = function () {
-          rangesState.villainPos = b.dataset.rangesVillain;
-          renderRangesExplorer();
-        };
-      });
-    }
-    if (isSqueeze && callerRow) {
-      callerRow.querySelectorAll('[data-ranges-caller]').forEach((b) => {
-        b.onclick = function () {
-          rangesState.callerPos = b.dataset.rangesCaller;
-          renderRangesExplorer();
-        };
       });
     }
   }
