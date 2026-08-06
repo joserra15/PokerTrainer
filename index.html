@@ -759,12 +759,18 @@
       </div><!-- #play-active -->
     </section>
 
-    <!-- ===== RANGOS PREFLOP ===== -->
+    <!-- ===== RANGOS ===== -->
     <section id="tab-ranges" class="tab-panel">
       <div class="ranges-panel card-box">
         <div class="ranges-panel-head">
-          <h2><span class="panel-icon home-card-icon home-card-icon-ranges" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/><path d="M9 3v18"/><path d="M15 3v18"/></svg></span>Rangos preflop</h2>
+          <h2><span class="panel-icon home-card-icon home-card-icon-ranges" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/><path d="M9 3v18"/><path d="M15 3v18"/></svg></span>Rangos</h2>
           <span class="muted-text" id="ranges-context-label">Cash 6-max · 100bb</span>
+        </div>
+        <div class="ranges-street-tabs" id="ranges-street-tabs" role="tablist" aria-label="Calle">
+          <button type="button" class="ranges-street-tab active" role="tab" aria-selected="true" data-ranges-street="preflop">Preflop</button>
+          <button type="button" class="ranges-street-tab" role="tab" aria-selected="false" data-ranges-street="flop">Flop</button>
+          <button type="button" class="ranges-street-tab" role="tab" aria-selected="false" data-ranges-street="turn">Turn</button>
+          <button type="button" class="ranges-street-tab" role="tab" aria-selected="false" data-ranges-street="river">River</button>
         </div>
         <div class="ranges-filter-row">
           <div class="setup-chips" id="ranges-game-type">
@@ -779,13 +785,12 @@
           </div>
         </div>
         <div class="ranges-spot-row" id="ranges-spot-row"></div>
-        <div class="ranges-pos-block" id="ranges-sizing-row">
+        <div class="ranges-pos-block hidden" id="ranges-sizing-row">
           <span class="ranges-pos-label">Open:</span>
           <div class="ranges-pos-btns setup-chips">
             <button type="button" class="setup-chip active" data-ranges-sizing="2.5">2.5x</button>
             <button type="button" class="setup-chip" data-ranges-sizing="3">3x</button>
           </div>
-          <button type="button" class="btn btn-ghost btn-sm" id="ranges-favorite-btn">☆ Guardar spot</button>
         </div>
         <div class="ranges-pos-block">
           <span class="ranges-pos-label">Hero:</span>
@@ -801,9 +806,9 @@
         </div>
         <div class="ranges-pos-block hidden" id="ranges-postflop-block">
           <div class="ranges-board-pick">
-            <span class="ranges-pos-label">Board (flop)</span>
-            <button type="button" class="btn btn-ghost ranges-board-btn" id="ranges-board-pick-btn" aria-label="Elegir flop">
-              <span class="ranges-board-preview" id="ranges-board-preview">Elegir flop</span>
+            <span class="ranges-pos-label" id="ranges-board-label">Board (flop)</span>
+            <button type="button" class="btn btn-ghost ranges-board-btn" id="ranges-board-pick-btn" aria-label="Elegir board">
+              <span class="ranges-board-preview" id="ranges-board-preview">Elegir board</span>
             </button>
           </div>
           <label class="ranges-pos-label">Pot bb
@@ -812,6 +817,9 @@
           <label class="ranges-pos-label">To call
             <input type="number" id="ranges-tocall-input" min="0" max="100" step="0.5" value="0" style="width:4.5rem" />
           </label>
+        </div>
+        <div class="ranges-fav-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="ranges-favorite-btn">☆ Guardar spot</button>
         </div>
         <div id="ranges-favorites" class="ranges-favorites" aria-label="Spots favoritos"></div>
         <p class="ranges-spot-title" id="ranges-spot-title"></p>

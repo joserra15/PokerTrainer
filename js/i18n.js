@@ -124,6 +124,14 @@
       'export.errorsOnly': 'Solo manos con fuga',
       'ranges.postflop': 'Flop HU',
       'ranges.postflop.disclaimer': 'Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.',
+      'ranges.street.preflop': 'Preflop',
+      'ranges.street.flop': 'Flop',
+      'ranges.street.turn': 'Turn',
+      'ranges.street.river': 'River',
+      'ranges.fav.empty': 'Sin spots favoritos en esta pestaña.',
+      'ranges.fav.save': '☆ Guardar spot',
+      'ranges.fav.saved': '★ Favorito',
+      'ranges.fav.remove': 'Eliminar favorito',
       'lang.label': 'Idioma'
     },
     en: {
@@ -240,6 +248,14 @@
       'export.errorsOnly': 'Leak hands only',
       'ranges.postflop': 'HU Flop',
       'ranges.postflop.disclaimer': 'Heuristic fold/call/raise frequency view. Not a full-tree solver.',
+      'ranges.street.preflop': 'Preflop',
+      'ranges.street.flop': 'Flop',
+      'ranges.street.turn': 'Turn',
+      'ranges.street.river': 'River',
+      'ranges.fav.empty': 'No favorite spots on this tab yet.',
+      'ranges.fav.save': '☆ Save spot',
+      'ranges.fav.saved': '★ Favorite',
+      'ranges.fav.remove': 'Remove favorite',
       'lang.label': 'Language'
     }
   };
