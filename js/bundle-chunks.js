@@ -68,6 +68,8 @@
       'js/share-hand.js',
       'js/session-export.js',
       'js/card-picker.js',
+      'js/hotkeys.js',
+      'js/help.js',
       'js/user-profile.js',
       'js/demo-mode.js',
       'js/entitlements.js',

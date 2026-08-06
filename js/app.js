@@ -204,6 +204,9 @@
     const laEl = $('#setup-live-advisor');
     const modeEl = $('#setup-advisor-mode .setup-chip.active');
     const thrEl = $('#setup-serious-threshold');
+    const rakeEl = $('#setup-rake-mode .setup-chip.active');
+    const rakePctEl = $('#setup-rake-pct');
+    const rakeCapEl = $('#setup-rake-cap');
     let advisorMode = 'always';
     let seriousEvThreshold = 0.5;
     if (window.PTLiveAdvisor) {
@@ -212,6 +215,17 @@
     }
     if (modeEl && modeEl.dataset.val) advisorMode = modeEl.dataset.val === 'serious' ? 'serious' : 'always';
     if (thrEl && thrEl.value !== '') seriousEvThreshold = Number(thrEl.value);
+    let rakeMode = rakeEl ? rakeEl.dataset.val : 'none';
+    let rakePct = rakePctEl && rakePctEl.value !== '' ? Number(rakePctEl.value) : 5;
+    let rakeCapBB = rakeCapEl && rakeCapEl.value !== '' ? Number(rakeCapEl.value) : 3;
+    if (!rakeMode) {
+      const prefs = PC.loadRakePrefs ? PC.loadRakePrefs() : null;
+      if (prefs) {
+        rakeMode = prefs.rakeMode || 'none';
+        if (prefs.rakePct != null) rakePct = Number(prefs.rakePct);
+        if (prefs.rakeCapBB != null) rakeCapBB = Number(prefs.rakeCapBB);
+      }
+    }
     return PC.normalize({
       gameType: gtEl ? gtEl.dataset.val : 'cash6',
       stackDepth: sdEl ? sdEl.dataset.val : 'bb100',
@@ -224,7 +238,10 @@
       handsTarget: htEl ? Number(htEl.dataset.val) || 0 : 0,
       liveAdvisor: laEl ? laEl.checked : false,
       advisorMode: advisorMode,
-      seriousEvThreshold: seriousEvThreshold
+      seriousEvThreshold: seriousEvThreshold,
+      rakeMode: rakeMode || 'none',
+      rakePct: rakePct,
+      rakeCapBB: rakeCapBB
     });
   }
 
@@ -413,7 +430,32 @@
     const thrEl = $('#setup-serious-threshold');
     if (thrEl && cfg.seriousEvThreshold != null) thrEl.value = String(cfg.seriousEvThreshold);
     syncAdvisorModeUI();
+    if (cfg.rakeMode) {
+      activate('#setup-rake-mode', cfg.rakeMode);
+      const pctEl = $('#setup-rake-pct');
+      const capEl = $('#setup-rake-cap');
+      if (pctEl && cfg.rakePct != null) pctEl.value = String(cfg.rakePct);
+      if (capEl && cfg.rakeCapBB != null) capEl.value = String(cfg.rakeCapBB);
+      syncRakeUI();
+      if (PC.saveRakePrefs) {
+        PC.saveRakePrefs({
+          rakeMode: cfg.rakeMode,
+          rakePct: cfg.rakePct,
+          rakeCapBB: cfg.rakeCapBB
+        });
+      }
+    }
     return readPlayConfig();
+  }
+
+  function syncRakeUI() {
+    const wrap = $('#setup-rake-custom');
+    const modeChip = $('#setup-rake-mode .setup-chip.active');
+    const custom = modeChip && modeChip.dataset.val === 'custom';
+    if (wrap) {
+      wrap.hidden = !custom;
+      wrap.classList.toggle('hidden', !custom);
+    }
   }
 
   function syncAdvisorModeUI() {
@@ -467,6 +509,23 @@
       applyTableTheme(theme);
     });
     restoreTableThemeChip();
+    restoreRakeChips();
+    bindChipGroup('#setup-rake-mode', () => {
+      syncRakeUI();
+      persistRakeFromSetup();
+    });
+    const rakePctEl = $('#setup-rake-pct');
+    const rakeCapEl = $('#setup-rake-cap');
+    const persistRake = () => persistRakeFromSetup();
+    if (rakePctEl) {
+      rakePctEl.addEventListener('change', persistRake);
+      rakePctEl.addEventListener('input', persistRake);
+    }
+    if (rakeCapEl) {
+      rakeCapEl.addEventListener('change', persistRake);
+      rakeCapEl.addEventListener('input', persistRake);
+    }
+    syncRakeUI();
     const laEl = $('#setup-live-advisor');
     const thrEl = $('#setup-serious-threshold');
     if (window.PTLiveAdvisor) {
@@ -506,6 +565,13 @@
     if (startBtn) {
       startBtn.addEventListener('click', async () => {
         playSessionConfig = readPlayConfig();
+        if (window.PTPlayConfig && PTPlayConfig.saveRakePrefs && playSessionConfig) {
+          PTPlayConfig.saveRakePrefs({
+            rakeMode: playSessionConfig.rakeMode,
+            rakePct: playSessionConfig.rakePct,
+            rakeCapBB: playSessionConfig.rakeCapBB
+          });
+        }
         if (window.PTLiveAdvisor && playSessionConfig) {
           PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
           if (PTLiveAdvisor.saveMode) PTLiveAdvisor.saveMode(playSessionConfig.advisorMode || 'always');
@@ -523,6 +589,34 @@
     renderHeroPosChips();
   }
 
+  function restoreRakeChips() {
+    const PC = window.PTPlayConfig;
+    const box = $('#setup-rake-mode');
+    if (!box || !PC) return;
+    const prefs = PC.loadRakePrefs ? PC.loadRakePrefs() : null;
+    const mode = (prefs && prefs.rakeMode) || 'none';
+    box.querySelectorAll('.setup-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.val === mode);
+    });
+    const pctEl = $('#setup-rake-pct');
+    const capEl = $('#setup-rake-cap');
+    if (pctEl && prefs && prefs.rakePct != null) pctEl.value = String(prefs.rakePct);
+    if (capEl && prefs && prefs.rakeCapBB != null) capEl.value = String(prefs.rakeCapBB);
+  }
+
+  function persistRakeFromSetup() {
+    const PC = window.PTPlayConfig;
+    if (!PC || !PC.saveRakePrefs) return;
+    const modeEl = $('#setup-rake-mode .setup-chip.active');
+    const pctEl = $('#setup-rake-pct');
+    const capEl = $('#setup-rake-cap');
+    PC.saveRakePrefs({
+      rakeMode: modeEl ? modeEl.dataset.val : 'none',
+      rakePct: pctEl ? Number(pctEl.value) : 5,
+      rakeCapBB: capEl ? Number(capEl.value) : 3
+    });
+  }
+
   function init() {
     scheduleHomeBootFallback();
     bindTabs();
@@ -531,6 +625,8 @@
     bindPlaySetup();
     bindRangesFilters();
     bindHome();
+    if (window.PTHelp && PTHelp.bind) PTHelp.bind();
+    if (window.PTHotkeys && PTHotkeys.bind) PTHotkeys.bind();
     if (window.PTDisclaimer) {
       PTDisclaimer.mount('#app-disclaimer', 'foot');
     }
@@ -1608,9 +1704,24 @@
     if (!node) { box.innerHTML = ''; box.className = 'actions'; return; }
     const n = node.options.length;
     box.className = 'actions' + (n >= 2 && n <= 4 ? ' actions-grid' : '');
-    box.innerHTML = node.options.map((o) =>
-      `<button class="btn btn-${btnClassForAction(o.id)}" data-action="${o.id}">${o.label}</button>`
-    ).join('');
+    const hintFn = window.PTHotkeys && PTHotkeys.hintForAction ? PTHotkeys.hintForAction : null;
+    let aggIdx = 0;
+    box.innerHTML = node.options.map((o) => {
+      let hint = '';
+      if (hintFn) {
+        if (o.id === 'raise' || o.id === 'bet' || (o.id && o.id.indexOf('bet_') === 0)) {
+          aggIdx += 1;
+          hint = aggIdx <= 3 ? String(aggIdx) : (aggIdx === 1 ? 'R' : '');
+          if (aggIdx === 1) hint = 'R/' + aggIdx;
+        } else {
+          hint = hintFn(o.id);
+        }
+      }
+      const hintHtml = hint
+        ? ' <kbd class="action-hotkey" title="Atajo">' + hint + '</kbd>'
+        : '';
+      return `<button class="btn btn-${btnClassForAction(o.id)}" data-action="${o.id}">${o.label}${hintHtml}</button>`;
+    }).join('');
     $$('#actions button').forEach((b) =>
       b.addEventListener('click', () => onAction(b.dataset.action)));
     updateLiveAdvisor();

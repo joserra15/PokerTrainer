@@ -1018,12 +1018,20 @@
       spotKind = 'postflop';
     }
 
+    let potBB = node.potBB;
+    let potBeforeBB = node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB;
+    const PC = global.PTPlayConfig;
+    if (PC && hand.playConfig && hand.playConfig.rakeMode && hand.playConfig.rakeMode !== 'none') {
+      potBB = PC.potAfterRakeBB(potBB, hand.playConfig);
+      potBeforeBB = PC.potAfterRakeBB(potBeforeBB, hand.playConfig);
+    }
+
     const input = {
       spotKind, position: hand.hero.pos, vsPosition: hand.villain.pos,
       stackDepth: effStackForHand(hand), street: node.street,
       board: hand.board.slice(), heroCards: hand.hero.cards, handCode: hand.hero.code,
-      potBB: node.potBB, toCallBB: facingBet(node) ? node.toCallBB : 0,
-      potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
+      potBB: potBB, toCallBB: facingBet(node) ? node.toCallBB : 0,
+      potBeforeBB: potBeforeBB,
       initiative: hand.heroIsAggressor ? 'aggressor' : 'caller',
       inPosition: hand.heroInPosition,
       villainRange: villainRangeAtNode(hand, node),
