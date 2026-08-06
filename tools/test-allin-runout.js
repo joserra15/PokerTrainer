@@ -194,6 +194,13 @@ if (entered.runoutPending) {
 const app = fs.readFileSync(path.join(__dirname, '..', 'js/app.js'), 'utf8');
 assert.ok(/playAllInRunout/.test(app), 'UI animates runout');
 assert.ok(/runoutPending/.test(app), 'UI checks runoutPending');
+// Durante el runout all-in deben mostrarse las hole cards del villano (no solo dorsos).
+assert.ok(/revealHoles/.test(app), 'UI reveals hole cards during all-in runout');
+assert.ok(
+  /runoutPending[\s\S]{0,120}result\.showdown/.test(app)
+    || /revealHoles\s*=\s*!!\(hand\.runoutPending/.test(app),
+  'revealHoles includes runoutPending'
+);
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/landing-lang[^>]*hidden/.test(html) || /landing-lang hidden/.test(html), 'lang switcher hidden');

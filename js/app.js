@@ -1687,7 +1687,9 @@
     const invested = tbl.invested || {};
     const streetBet = tbl.streetBet || {};
     const inHand = tbl.inHand instanceof Set ? tbl.inHand : new Set(tbl.inHand || []);
-    const showdown = hand.stage === 'complete' && hand.result && hand.result.showdown;
+    // All-in heads-up: revelar hole cards del villano mientras se reparte el runout.
+    const revealHoles = !!(hand.runoutPending
+      || (hand.stage === 'complete' && hand.result && hand.result.showdown));
     const holeCards = tbl.holeCards || {};
     let html = '';
     ring.forEach((pos, i) => {
@@ -1720,7 +1722,7 @@
       const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
       let cardsHtml = '';
       if (showCards) {
-        if (showdown) {
+        if (revealHoles) {
           cardsHtml = '<div class="seat-cards showdown">' + holeCards[pos].map(Cards.cardToHTML).join('') + '</div>';
         } else {
           cardsHtml = '<div class="seat-cards">' + Cards.cardBackHTML() + Cards.cardBackHTML() + '</div>';
