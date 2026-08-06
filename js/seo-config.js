@@ -23,7 +23,9 @@ window.PT_SEO = {
         { q: '¿Cómo importo una sesión?', a: 'En la pestaña Sesiones, sube uno o varios ficheros .txt de PokerStars, Winamax o GGPoker (Cash NL Hold\'em). La app analiza cada mano calle a calle.' },
         { q: '¿Qué formatos de historial admite?', a: 'Historiales de texto de PokerStars (ES/EN), Winamax y GGPoker/Natural8 en mesas Cash NLHE. El soporte de torneo no es la promesa principal y hoy el análisis útil se centra en cash.' },
         { q: '¿Hay prueba de Study?', a: 'Sí. Puedes activar una prueba de Study de 10 días (una vez por cuenta) desde Planes.' },
-        { q: '¿Cuáles son los planes?', a: 'Gratis (límites diarios), Study (14,99 €/mes) e Coach (34,99 €/mes) con más consultas IA y sin límites de entrenamiento.' }
+        { q: '¿Cuáles son los planes?', a: 'Gratis (límites diarios), Study (14,99 €/mes) e Coach (34,99 €/mes) con más consultas IA y sin límites de entrenamiento.' },
+        { q: '¿Hay atajos de teclado?', a: 'Sí: F fold, C call, K/Espacio check-call, R raise/bet, 1–3 tamaños, N nueva mano, flechas/Enter en repaso, H/? ayuda.' },
+        { q: '¿Puedo entrenar con rake?', a: 'Sí. En Configurar sesión eliges sin rake, estándar (~5%/3bb) o personalizado; afecta pot odds y EV del consejo.' }
       ]
     },
     'metodologia.html': {

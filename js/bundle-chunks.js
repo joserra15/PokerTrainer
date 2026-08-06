@@ -70,6 +70,8 @@
       'js/session-export.js',
       'js/card-picker.js',
       'js/age-gate.js',
+      'js/hotkeys.js',
+      'js/help.js',
       'js/user-profile.js',
       'js/demo-mode.js',
       'js/entitlements.js',

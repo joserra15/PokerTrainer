@@ -548,7 +548,7 @@
     <section id="tab-play" class="tab-panel">
       <div id="play-setup" class="play-setup card-box">
         <h2 class="play-setup-title"><span class="panel-icon home-card-icon home-card-icon-train" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M6 4h8l4 4v12H6z"/><path d="M14 4v4h4"/><path d="M9 14l2 2 4-5"/></svg></span>Configurar sesión</h2>
-        <p class="muted-text play-setup-sub">Elige el tipo de spot y los rangos antes de empezar a practicar.</p>
+        <p class="muted-text play-setup-sub">Elige el tipo de spot y los rangos antes de empezar a practicar. <button type="button" class="btn-link" id="btn-help-setup" data-open-help>Atajos y ayuda</button></p>
 
         <div class="setup-group">
           <span class="setup-label">Tipo de mesa</span>
@@ -630,6 +630,22 @@
             <button type="button" class="setup-chip theme-chip" data-val="crimson"><span class="theme-swatch theme-swatch-crimson" aria-hidden="true"></span>Burdeos</button>
           </div>
           <p class="muted-text setup-hint">Cambia el tapete, el borde de la mesa y el reverso de las cartas.</p>
+        </div>
+
+        <div class="setup-group">
+          <span class="setup-label">Rake</span>
+          <div class="setup-chips" id="setup-rake-mode">
+            <button type="button" class="setup-chip active" data-val="none">Sin rake</button>
+            <button type="button" class="setup-chip" data-val="standard">Estándar (5%/3bb)</button>
+            <button type="button" class="setup-chip" data-val="custom">Personalizado</button>
+          </div>
+          <div class="setup-rake-custom" id="setup-rake-custom" hidden>
+            <label class="setup-label" for="setup-rake-pct">Porcentaje (%)</label>
+            <input type="number" id="setup-rake-pct" class="setup-number-input" min="0" max="20" step="0.5" value="5" inputmode="decimal" />
+            <label class="setup-label" for="setup-rake-cap">Tope (bb)</label>
+            <input type="number" id="setup-rake-cap" class="setup-number-input" min="0" max="50" step="0.5" value="3" inputmode="decimal" />
+          </div>
+          <p class="muted-text setup-hint">Ajusta el bote usado en pot odds y EV del consejo. Estándar ≈ 5 % con tope 3 bb. No replica el rake exacto de cada sala.</p>
         </div>
 
         <div class="setup-group">
@@ -730,6 +746,7 @@
             <button id="new-hand" class="btn btn-primary btn-block" data-i18n="play.newHand">Nueva mano</button>
             <button id="replay-hand" class="btn btn-ghost btn-block" style="margin-top:8px" data-i18n="play.replayHand">&#8635; Repetir esta mano</button>
             <button id="new-session" class="btn btn-ghost btn-block" style="margin-top:8px" data-i18n="play.newSession">Nueva sesión</button>
+            <button type="button" id="btn-help" class="btn btn-ghost btn-block" style="margin-top:8px" data-open-help>Ayuda · atajos (H)</button>
             <label class="toggle-row">
               <input type="checkbox" id="repeat-errors" /> <span data-i18n="play.repeatErrors">Repetir mis spots fallados</span>
             </label>
@@ -1204,6 +1221,16 @@
         <button type="button" class="btn btn-primary" id="age-gate-confirm">Sí, tengo más de 18 años</button>
         <button type="button" class="btn btn-ghost" id="age-gate-exit">Salir</button>
       </div>
+    </div>
+  </div>
+
+  <div id="help-modal" class="modal help-modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-modal-title">
+    <div class="modal-content help-modal-content">
+      <div class="help-modal-head">
+        <h2 id="help-modal-title">Ayuda</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="help-modal-close" aria-label="Cerrar">Cerrar</button>
+      </div>
+      <div class="help-modal-body" id="help-modal-body"></div>
     </div>
   </div>
 

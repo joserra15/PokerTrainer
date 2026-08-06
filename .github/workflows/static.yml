@@ -57,6 +57,12 @@ jobs:
         run: node tools/test-gto-eval-ui.js
       - name: Test BB vs SB
         run: node tools/test-bb-vs-sb-position.js
+      - name: Test card picker UX
+        run: node tools/test-card-picker-ux.js
+      - name: Test growth UX (blog/+18/gamificación)
+        run: node tools/test-growth-ux.js
+      - name: Test hotkeys, rake y ayuda
+        run: node tools/test-hotkeys-rake-help.js
 
   deploy:
     needs: test

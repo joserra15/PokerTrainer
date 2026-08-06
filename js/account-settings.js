@@ -228,6 +228,7 @@
       '<h3>Más opciones</h3>' +
       '<div class="account-settings-actions account-settings-actions-stack">' +
       '<button type="button" class="btn btn-ghost btn-block" id="settings-sync">Sincronizar datos</button>' +
+      '<button type="button" class="btn btn-ghost btn-block" id="settings-help" data-open-help>Ayuda · atajos</button>' +
       '<button type="button" class="btn btn-ghost btn-block" id="settings-contact">Contacto / soporte</button>' +
       '<button type="button" class="btn btn-ghost btn-block hidden" id="account-install-app">Instalar app</button>' +
       '</div>' +
@@ -377,6 +378,13 @@
     if (contactBtn) {
       contactBtn.onclick = function () {
         if (global.goToTab) global.goToTab('contact');
+      };
+    }
+    var helpBtn = $('#settings-help');
+    if (helpBtn) {
+      helpBtn.onclick = function (e) {
+        e.preventDefault();
+        if (global.PTHelp && global.PTHelp.open) global.PTHelp.open();
       };
     }
     var installBtn = $('#account-install-app');

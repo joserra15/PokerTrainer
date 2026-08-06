@@ -4350,6 +4350,70 @@ body.admin-compose-open { overflow: hidden; }
   outline: none;
   border-color: var(--accent);
 }
+.setup-rake-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+.setup-rake-custom[hidden],
+.setup-rake-custom.hidden { display: none; }
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.btn-link:hover { color: var(--gold, #e0c060); }
+.action-hotkey {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(0,0,0,0.25);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  vertical-align: middle;
+}
+.help-modal-content { max-width: 640px; }
+.help-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.help-modal-head h2 { margin: 0; font-size: 1.35rem; }
+.help-section { margin: 0 0 18px; }
+.help-section h3 { margin: 0 0 8px; font-size: 1.05rem; }
+.help-section ul { margin: 6px 0 0; padding-left: 1.2em; }
+.help-section li { margin-bottom: 4px; }
+.help-keys-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 14px;
+}
+.help-keys-table th,
+.help-keys-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.help-keys-table th {
+  width: 7.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  color: var(--gold, #e0c060);
+}
 .account-advisor-block .setup-chips { margin-bottom: 10px; }
 .session-block-popup-head { margin-bottom: 12px; }
 .session-block-popup-head h3 { margin: 0 0 4px; font-size: 1.25rem; }
