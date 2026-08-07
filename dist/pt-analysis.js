@@ -948,6 +948,13 @@
   function renderHandCard(h) {
     var boardStr = (h.boardAll && h.boardAll.length) ? cardsHTML(h.boardAll) : '<span class="muted-text">Preflop</span>';
     var acc = (typeof h.accuracy === 'number') ? (h.accuracy + '% acierto') : '';
+    var scoreTxt = '';
+    if (h.handScore == null && window.GTOScoring && GTOScoring.ensureHandScore) {
+      try { GTOScoring.ensureHandScore(h); } catch (e) { /* ignore */ }
+    }
+    if (typeof h.handScore === 'number') {
+      scoreTxt = 'Nota ' + (Math.round(h.handScore * 10) / 10).toFixed(1).replace(/\.0$/, '') + '/10';
+    }
     var src = h.source === 'text' ? 'IA' : 'Manual';
     var when = '';
     try { when = new Date(h.createdAt).toLocaleDateString('es-ES'); } catch (e) { when = ''; }
@@ -955,7 +962,8 @@
     html += '<div class="ha-card-head">';
     html += '<div class="ha-card-cards">' + cardsHTML(h.heroCards || []) + '</div>';
     html += '<div class="ha-card-info"><div class="ha-card-title">' + handTitle(h) + '</div>';
-    html += '<div class="ha-card-sub muted-text">' + esc(src) + (when ? ' · ' + esc(when) : '') + (acc ? ' · ' + esc(acc) : '') + '</div></div>';
+    html += '<div class="ha-card-sub muted-text">' + esc(src) + (when ? ' · ' + esc(when) : '') +
+      (acc ? ' · ' + esc(acc) : '') + (scoreTxt ? ' · ' + esc(scoreTxt) : '') + '</div></div>';
     html += '</div>';
     html += '<div class="ha-card-board">' + boardStr + '</div>';
     html += '<div class="ha-card-actions">';
