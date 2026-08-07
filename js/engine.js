@@ -996,6 +996,18 @@
     });
   }
 
+  /** True si el héroe ya bet/raise en una calle postflop anterior. */
+  function heroLedOnPriorStreets(hand, street) {
+    const prior = street === 'turn' ? ['flop']
+      : (street === 'river' ? ['flop', 'turn'] : []);
+    if (!prior.length) return false;
+    return (hand.decisions || []).some((d) => {
+      if (prior.indexOf(d.street) < 0) return false;
+      const a = d.action || d.chosen || '';
+      return a === 'bet' || a === 'raise' || (typeof a === 'string' && a.indexOf('bet_') === 0);
+    });
+  }
+
   /** Construye input para evaluateSpot desde el estado de la mano. */
   function buildSpotInput(hand, node, chosenAction) {
     const s = hand.scenario || {};
@@ -1026,14 +1038,17 @@
       potBeforeBB = PC.potAfterRakeBB(potBeforeBB, hand.playConfig);
     }
 
+    const isAgg = !!hand.heroIsAggressor;
+    const priorAggressorBet = isAgg ? heroLedOnPriorStreets(hand, node.street) : false;
     const input = {
       spotKind, position: hand.hero.pos, vsPosition: hand.villain.pos,
       stackDepth: effStackForHand(hand), street: node.street,
       board: hand.board.slice(), heroCards: hand.hero.cards, handCode: hand.hero.code,
       potBB: potBB, toCallBB: facingBet(node) ? node.toCallBB : 0,
       potBeforeBB: potBeforeBB,
-      initiative: hand.heroIsAggressor ? 'aggressor' : 'caller',
+      initiative: isAgg ? 'aggressor' : 'caller',
       inPosition: hand.heroInPosition,
+      priorAggressorBet,
       villainRange: villainRangeAtNode(hand, node),
       madeHandInfo: node.info,
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
@@ -2393,9 +2408,13 @@
       });
       context = `${capitalize(street)}: bote ${fmt(hand.potBB)}bb · stack ${fmt(effStackForHand(hand))}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
       if (hand.heroIsAggressor) {
+        const priorLead = heroLedOnPriorStreets(hand, street);
         const leadLabel = (global.GTOSpotKey && global.GTOSpotKey.aggressorLeadLabel)
-          ? global.GTOSpotKey.aggressorLeadLabel(street)
-          : (street === 'turn' ? 'segundo barrel' : (street === 'river' ? 'tercer barrel' : 'c-bet'));
+          ? global.GTOSpotKey.aggressorLeadLabel(street, priorLead)
+          : (street === 'flop' ? 'c-bet'
+            : (priorLead
+              ? (street === 'turn' ? 'segundo barrel' : 'tercer barrel')
+              : 'delayed c-bet'));
         context += villainLastAction === 'check'
           ? ` El villano pasó: spot de ${leadLabel}.`
           : ` Spot de ${leadLabel} (eres el agresor preflop).`;

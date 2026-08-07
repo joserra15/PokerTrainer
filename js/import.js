@@ -231,6 +231,16 @@
     };
   }
 
+  /** True si el héroe ya bet/raise en una calle postflop anterior a `street`. */
+  function heroLedOnPriorStreets(hand, hero, street) {
+    const prior = street === 'turn' ? ['flop']
+      : (street === 'river' ? ['flop', 'turn'] : []);
+    return prior.some((st) => {
+      const acts = (hand.streets && hand.streets[st]) || [];
+      return acts.some((a) => a.player === hero && (a.type === 'bet' || a.type === 'raise'));
+    });
+  }
+
   function attachProbeAlerts(hand, decisions) {
     if (!global.GTOStreetValidation) return;
     decisions.forEach((d) => { delete d.renderAlert; });
@@ -404,6 +414,13 @@
     };
     if (d.street === 'preflop') return attachRangeContext(base, hand);
 
+    const initiative = base.initiative;
+    let priorAggressorBet = d.priorAggressorBet;
+    if (priorAggressorBet == null && initiative === 'aggressor' && hand && hand.hero) {
+      priorAggressorBet = heroLedOnPriorStreets(ensureAnalyzedHandContext(hand), hand.hero, street);
+    }
+    if (priorAggressorBet == null) priorAggressorBet = false;
+
     return Object.assign(attachRangeContext(base, hand), {
       villainRange,
       heroEquity: d.heroEquity != null ? d.heroEquity / 100 : null,
@@ -411,7 +428,8 @@
       villainBetRatio,
       potBeforeBB,
       facingNode,
-      actionSequenceId: d.actionSequenceId
+      actionSequenceId: d.actionSequenceId,
+      priorAggressorBet
     });
   }
 
@@ -933,6 +951,9 @@
         const opts = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'];
         const priorBoard = st === 'river' ? boardUpTo(hand, 'turn')
           : (st === 'turn' ? boardUpTo(hand, 'flop') : null);
+        const priorAggressorBet = postflopCtx.initiative === 'aggressor'
+          ? heroLedOnPriorStreets(hand, hero, st)
+          : false;
         const evalResult = GTO.evaluateSpot(attachRangeContext({
           spotKind: 'postflop', position: hand.positions[hero] || '??',
           stackDepth: stackBB, street: st, board: boardSoFar, priorBoard, heroCards,
@@ -942,6 +963,7 @@
           villainLastAction, villainBetRatio,
           potBeforeBB, facingNode, actionSequenceId: acts.indexOf(a),
           initiative: postflopCtx.initiative, inPosition: postflopCtx.inPosition,
+          priorAggressorBet,
           availableActions: opts,
           betSizeBB,
           bbSizeEuro: bb
@@ -970,6 +992,7 @@
           toCallBB, villainLastAction, villainBetRatio, villainRange,
           priorBoard, actionSequenceId: acts.indexOf(a),
           initiative: postflopCtx.initiative, inPosition: postflopCtx.inPosition,
+          priorAggressorBet,
           board: boardSoFar.slice(),
           heroCards: heroCards.slice(),
           handRank: evalResult.handRank || null,
@@ -981,8 +1004,11 @@
             let ctx = `${cap(st)} [${boardSoFar.join(' ')}]: tienes ${handName}. Bote ${potForDisplay}bb${toCallBB > 0 ? `, pagar ${toCallBB}bb` : ''}.`;
             if (toCallBB <= 0 && postflopCtx.initiative === 'aggressor') {
               const lead = (global.GTOSpotKey && global.GTOSpotKey.aggressorLeadLabel)
-                ? global.GTOSpotKey.aggressorLeadLabel(st)
-                : (st === 'turn' ? 'segundo barrel' : (st === 'river' ? 'tercer barrel' : 'c-bet'));
+                ? global.GTOSpotKey.aggressorLeadLabel(st, priorAggressorBet)
+                : (st === 'flop' ? 'c-bet'
+                  : (priorAggressorBet
+                    ? (st === 'turn' ? 'segundo barrel' : 'tercer barrel')
+                    : 'delayed c-bet'));
               ctx += villainLastAction === 'check'
                 ? ` El villano pasó: spot de ${lead}.`
                 : ` Spot de ${lead}.`;

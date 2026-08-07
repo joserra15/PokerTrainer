@@ -24,23 +24,32 @@
 
   /**
    * Tipo de lead del agresor preflop: c-bet solo en flop;
-   * turn/river son barrels (no «c-bet»).
+   * turn/river son barrels si ya hubo lead previo; si no, delayed c-bet.
+   * @param {string} street
+   * @param {boolean} [priorAggressorBet] true si el héroe ya bet/raise en calle previa
    */
-  function aggressorLeadType(street) {
-    if (street === 'turn') return 'barrel2';
-    if (street === 'river') return 'barrel3';
+  function aggressorLeadType(street, priorAggressorBet) {
+    if (street === 'turn') {
+      return priorAggressorBet === false ? 'delayed_cbet' : 'barrel2';
+    }
+    if (street === 'river') {
+      return priorAggressorBet === false ? 'delayed_cbet' : 'barrel3';
+    }
     return 'cbet';
   }
 
   /** Etiqueta UI en español para lead del agresor. */
-  function aggressorLeadLabel(street) {
-    if (street === 'turn') return 'segundo barrel';
-    if (street === 'river') return 'tercer barrel';
+  function aggressorLeadLabel(street, priorAggressorBet) {
+    if (street === 'turn' || street === 'river') {
+      if (priorAggressorBet === false) return 'delayed c-bet';
+      return street === 'turn' ? 'segundo barrel' : 'tercer barrel';
+    }
     return 'c-bet';
   }
 
   function leadTypeLabel(leadType) {
     if (leadType === 'cbet') return 'c-bet';
+    if (leadType === 'delayed_cbet') return 'delayed c-bet';
     if (leadType === 'barrel2') return 'segundo barrel';
     if (leadType === 'barrel3') return 'tercer barrel';
     if (leadType === 'probe') return 'probe';
@@ -74,7 +83,9 @@
       facing: (input.toCallBB || 0) > 0 ? 'bet' : 'none',
       leadType: (function () {
         if ((input.toCallBB || 0) > 0) return 'none';
-        if (input.initiative === 'aggressor') return aggressorLeadType(street);
+        if (input.initiative === 'aggressor') {
+          return aggressorLeadType(street, input.priorAggressorBet);
+        }
         if (input.inPosition) return 'probe';
         return 'donk';
       })(),

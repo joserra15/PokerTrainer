@@ -30,6 +30,7 @@
       return lbl ? ` · ${lbl}` : '';
     }
     if (spotKey.leadType === 'cbet') return ' · c-bet';
+    if (spotKey.leadType === 'delayed_cbet') return ' · delayed c-bet';
     if (spotKey.leadType === 'barrel2') return ' · segundo barrel';
     if (spotKey.leadType === 'barrel3') return ' · tercer barrel';
     if (spotKey.leadType === 'probe') return ' · probe';
@@ -39,8 +40,12 @@
 
   function aggressorBetLabel(spotKey, street, chosen) {
     const SK = global.GTOSpotKey;
-    if (spotKey.leadType === 'cbet' || spotKey.leadType === 'barrel2' || spotKey.leadType === 'barrel3') {
-      if (SK && SK.aggressorLeadLabel) return SK.aggressorLeadLabel(street);
+    if (spotKey.leadType === 'cbet' || spotKey.leadType === 'delayed_cbet'
+      || spotKey.leadType === 'barrel2' || spotKey.leadType === 'barrel3') {
+      if (SK && SK.aggressorLeadLabel) {
+        return SK.aggressorLeadLabel(street, spotKey.leadType === 'delayed_cbet' ? false : true);
+      }
+      if (spotKey.leadType === 'delayed_cbet') return 'delayed c-bet';
       if (street === 'turn') return 'segundo barrel';
       if (street === 'river') return 'tercer barrel';
       return 'c-bet';

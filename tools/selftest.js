@@ -472,16 +472,20 @@ if (cbetAirIpPct < 40 || probeAirCallerPct >= cbetAirIpPct) process.exit(1);
 
 const SpotKey = sandbox.window.GTOSpotKey;
 const leadFlop = SpotKey.buildSpotKey({ street: 'flop', initiative: 'aggressor', toCallBB: 0, inPosition: true, board: ['As', '7c', '2d'], potBB: 6 });
-const leadTurn = SpotKey.buildSpotKey({ street: 'turn', initiative: 'aggressor', toCallBB: 0, inPosition: true, board: ['As', '7c', '2d', '9h'], potBB: 12 });
-const leadRiver = SpotKey.buildSpotKey({ street: 'river', initiative: 'aggressor', toCallBB: 0, inPosition: true, board: ['As', '7c', '2d', '9h', '3c'], potBB: 12 });
-console.log('Lead types', leadFlop.leadType, leadTurn.leadType, leadRiver.leadType,
-  SpotKey.aggressorLeadLabel('flop'), SpotKey.aggressorLeadLabel('turn'), SpotKey.aggressorLeadLabel('river'));
+const leadTurn = SpotKey.buildSpotKey({ street: 'turn', initiative: 'aggressor', toCallBB: 0, inPosition: true, board: ['As', '7c', '2d', '9h'], potBB: 12, priorAggressorBet: true });
+const leadRiver = SpotKey.buildSpotKey({ street: 'river', initiative: 'aggressor', toCallBB: 0, inPosition: true, board: ['As', '7c', '2d', '9h', '3c'], potBB: 12, priorAggressorBet: true });
+const leadDelayed = SpotKey.buildSpotKey({ street: 'turn', initiative: 'aggressor', toCallBB: 0, inPosition: true, board: ['Jh', 'Kd', '2s', '5c'], potBB: 23, priorAggressorBet: false });
+console.log('Lead types', leadFlop.leadType, leadTurn.leadType, leadRiver.leadType, leadDelayed.leadType,
+  SpotKey.aggressorLeadLabel('flop'), SpotKey.aggressorLeadLabel('turn', true), SpotKey.aggressorLeadLabel('river', true),
+  SpotKey.aggressorLeadLabel('turn', false));
 if (leadFlop.leadType !== 'cbet' || leadTurn.leadType !== 'barrel2' || leadRiver.leadType !== 'barrel3') process.exit(1);
+if (leadDelayed.leadType !== 'delayed_cbet') process.exit(1);
 if (SpotKey.aggressorLeadLabel('turn') !== 'segundo barrel') process.exit(1);
+if (SpotKey.aggressorLeadLabel('turn', false) !== 'delayed c-bet') process.exit(1);
 
 const turnPureAir = ProbeEV.computeProbeStrategy({
   street: 'turn', potBB: 15.78, heroEquity: 0.12, inPosition: true, initiative: 'aggressor',
-  villainLastAction: 'check',
+  villainLastAction: 'check', priorAggressorBet: true,
   heroCards: ['2h', '3d'], board: ['Ts', 'Ks', 'Js', '6c'],
   handRank: { band: 'air', percentile: 0.05, tier: 'air' },
   madeHandInfo: sandbox.window.GTOEquityMadeHand.classifyMadeHand(['2h', '3d'], ['Ts', 'Ks', 'Js', '6c'])
@@ -492,7 +496,7 @@ if (turnPureAirCheck < 70) process.exit(1);
 
 const turnAh3h = ProbeEV.computeProbeStrategy({
   street: 'turn', potBB: 15.78, heroEquity: 0.1675, inPosition: true, initiative: 'aggressor',
-  villainLastAction: 'check',
+  villainLastAction: 'check', priorAggressorBet: true,
   heroCards: ['Ah', '3h'], board: ['Ts', 'Ks', 'Js', '6c'],
   handRank: { band: 'air', percentile: 0.12, tier: 'air' },
   madeHandInfo: sandbox.window.GTOEquityMadeHand.classifyMadeHand(['Ah', '3h'], ['Ts', 'Ks', 'Js', '6c'])
@@ -502,6 +506,17 @@ console.log('Turn Ah3h gutshot check>=bet33:', turnAh3hOk ? 'OK' : 'FAIL',
   'check%', Math.round(turnAh3h.strategy.check * 100),
   'bet33%', Math.round(turnAh3h.strategy.bet_33 * 100));
 if (!turnAh3hOk) process.exit(1);
+
+const turnDelayedAir = ProbeEV.computeProbeStrategy({
+  street: 'turn', potBB: 23, heroEquity: 0.05, inPosition: true, initiative: 'aggressor',
+  villainLastAction: 'check', priorAggressorBet: false,
+  heroCards: ['7d', 'Ad'], board: ['Jh', 'Kd', '2s', '5c'],
+  handRank: { band: 'air', percentile: 0.05, tier: 'air' },
+  madeHandInfo: sandbox.window.GTOEquityMadeHand.classifyMadeHand(['7d', 'Ad'], ['Jh', 'Kd', '2s', '5c'])
+});
+const delayedBet33 = Math.round((turnDelayedAir.strategy.bet_33 || 0) * 100);
+console.log('Turn delayed c-bet air bet33%', delayedBet33, '(expect >=15)');
+if (delayedBet33 < 15) process.exit(1);
 
 const facing = FB.calculateActionFrequencies({
   street: 'flop', currentPot: 10, betSize: 5, heroEquity: 0.55, tier: 'medium',
@@ -738,7 +753,16 @@ for (let i = 0; i < 300; i++) {
   try {
     let h = Engine.newHand();
     let guard = 0;
-    while (h.stage !== 'complete' && guard < 30) {
+    while (h.stage !== 'complete' && guard < 40) {
+      // All-in: la UI anima el runout; en Node hay que avanzar cartas hasta showdown.
+      if (h.runoutPending && Engine.advanceRunout) {
+        Engine.advanceRunout(h);
+        guard++;
+        continue;
+      }
+      if (!h.current || !h.current.options || !h.current.options.length) {
+        throw new Error('current.options missing at stage=' + h.stage);
+      }
       const opts = h.current.options;
       const choice = opts[Math.floor(Math.random() * opts.length)].id;
       Engine.act(h, choice);
