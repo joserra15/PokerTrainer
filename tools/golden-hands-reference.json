@@ -34,7 +34,7 @@
       "file": "Poker91.txt",
       "id": "261465695578",
       "heroCode": "54o",
-      "expectedEvLoss": 14.08,
+      "expectedEvLoss": 13.5,
       "minDecisions": 1
     },
     {

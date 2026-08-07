@@ -36,13 +36,19 @@ const ref = JSON.parse(fs.readFileSync(path.join(__dirname, 'golden-hands-refere
 const tol = Number(ref.toleranceBB) || 0.35;
 const seed = ref.seed || 42;
 
+function resetDeterministic() {
+  if (sandbox.window.Cards && sandbox.window.Cards.rng) sandbox.window.Cards.rng.setSeed(seed);
+  if (sandbox.window.GTOCache) sandbox.window.GTOCache.clear();
+}
+
 const cache = Object.create(null);
 function sessionFor(file) {
   if (cache[file]) return cache[file];
-  if (sandbox.window.Cards && sandbox.window.Cards.rng) sandbox.window.Cards.rng.setSeed(seed);
-  if (sandbox.window.GTOCache) sandbox.window.GTOCache.clear();
+  // Misma disciplina que regression-poker76: seed antes de parse y de build.
+  resetDeterministic();
   const txt = fs.readFileSync(path.join(__dirname, 'fixtures', file), 'utf8');
   const parsed = Importer.parseSession(txt, file);
+  resetDeterministic();
   const session = Importer.buildSession(parsed, file);
   cache[file] = session;
   return session;
