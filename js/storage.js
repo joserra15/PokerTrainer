@@ -462,6 +462,8 @@
       board: r.board || hand.board,
       heroNet: r.heroNet || 0,
       totalEvLoss: r.totalEvLoss || 0,
+      handScore: r.handScore != null ? r.handScore : (hand.handScore != null ? hand.handScore : null),
+      handScoreMeta: r.handScoreMeta || hand.handScoreMeta || null,
       nErrors: r.nErrors || 0,
       showdown: !!r.showdown,
       reason: r.reason || '',

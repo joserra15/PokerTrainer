@@ -2568,10 +2568,15 @@
     };
     const totalEvLoss = erroneousEvLoss(hand);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');
+    const handScoreMeta = (global.GTOScoring && global.GTOScoring.scoreHand)
+      ? global.GTOScoring.scoreHand(hand.decisions, totalEvLoss)
+      : { score: totalEvLoss <= 0.01 && !errors.length ? 10 : 0, allOptimal: !errors.length, allGood: !errors.length };
     hand.current = null;
     hand.result = Object.assign({
       heroNet: 0, showdown: false, totalEvLoss,
       nErrors: errors.length,
+      handScore: handScoreMeta.score,
+      handScoreMeta: handScoreMeta,
       villainCards: hand.villain.cards,
       villainPos: hand.villain.pos,
       villainProfile: hand.villain.profileLabel,
@@ -2580,6 +2585,8 @@
       villainRangeSummary: VT ? VT.buildHandSummary(hand.villainRangeTracker) : null,
       villainRangeLog: hand.villainRangeTracker ? hand.villainRangeTracker.log.slice() : []
     }, res);
+    hand.handScore = handScoreMeta.score;
+    hand.handScoreMeta = handScoreMeta;
     return hand;
   }
 

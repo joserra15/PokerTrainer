@@ -475,6 +475,9 @@
     const order = ['optima', 'aceptable', 'imprecisa', 'error'];
     hand.decisions.forEach((d) => { if (order.indexOf(d.class) > order.indexOf(worst)) worst = d.class; });
     hand.worstClass = worst;
+    if (global.GTOScoring && global.GTOScoring.ensureHandScore) {
+      global.GTOScoring.ensureHandScore(hand);
+    }
     attachProbeAlerts(hand, hand.decisions);
     recomputeHeroNet(hand);
     return hand;
@@ -537,6 +540,10 @@
     const order = ['optima', 'aceptable', 'imprecisa', 'error'];
     decisions.forEach((d) => { if (order.indexOf(d.class) > order.indexOf(worst)) worst = d.class; });
 
+    const handScoreMeta = (global.GTOScoring && global.GTOScoring.scoreHand)
+      ? global.GTOScoring.scoreHand(decisions, totalEvLoss)
+      : null;
+
     return {
       id: hand.id, datetime: hand.datetime,
       heroPos, heroCards, heroCode: code,
@@ -553,6 +560,8 @@
       decisions, totalEvLoss: r2(totalEvLoss),
       accuracy, accuracyByStreet: byStreet,
       heroNetBB, worstClass: worst,
+      handScore: handScoreMeta ? handScoreMeta.score : null,
+      handScoreMeta: handScoreMeta,
       nDecisions: decisions.length,
       summary: buildHandTimeline(hand)
     };
@@ -1688,6 +1697,7 @@
     STYLE_IDEAL = ideal;
 
     let decN = 0, decGood = 0, evLoss = 0, netBB = 0, evLossEuro = 0;
+    let handScoreSum = 0, handScoreN = 0;
     let vpipN = 0, pfrN = 0;
     let threeBetOpps = 0, threeBetHits = 0;
     let foldToThreeBetOpps = 0, foldToThreeBetHits = 0;
@@ -1708,6 +1718,17 @@
     const dist = { optima: 0, aceptable: 0, imprecisa: 0, error: 0 };
     hands.forEach((h) => {
       ensureAnalyzedHandContext(h);
+      if (global.GTOScoring && global.GTOScoring.ensureHandScore) {
+        global.GTOScoring.ensureHandScore(h);
+      } else if (h.handScore == null && global.GTOScoring && global.GTOScoring.scoreHand) {
+        const graded = global.GTOScoring.scoreHand(h.decisions || [], h.totalEvLoss);
+        h.handScore = graded.score;
+        h.handScoreMeta = graded;
+      }
+      if (h.handScore != null) {
+        handScoreSum += Number(h.handScore) || 0;
+        handScoreN++;
+      }
       netBB += h.heroNetBB;
       evLoss += h.totalEvLoss;
       const hud = heroStyleHud(h);
@@ -1778,6 +1799,7 @@
     const pctVariance = leakVar.pctVariance;
 
     const grade = sessionGrade(accuracy, evLoss, decN, netBB);
+    const avgHandScore = handScoreN ? r2(handScoreSum / handScoreN) : null;
     const vpipPct = n ? Math.round((vpipN / n) * 1000) / 10 : null;
     const pfrPct = n ? Math.round((pfrN / n) * 1000) / 10 : null;
     const vpipPfr = assessVpipPfr(vpipPct, pfrPct, n, ideal);
@@ -1864,6 +1886,7 @@
       nHands: n, nDecisions: decN, accuracy, accByStreet, dist,
       netBB: actualNet, evLossBB: evLostBB,
       evPerHand: n ? r2(evLoss / n) : 0,
+      avgHandScore,
       best5: best5.map(slim), worst5: worst5.map(slim),
       evDecision: evLostBB, expectedNet, actualNet, varianceAdj, adjustedNet,
       perfectPlayNetBB, perfectPlayNetEuro, evLossEuroTotal,
@@ -1893,7 +1916,18 @@
   }
 
   function slim(h) {
-    return { id: h.id, heroCode: h.heroCode, heroCards: h.heroCards, heroPos: h.heroPos, board: h.board, heroNetBB: h.heroNetBB, totalEvLoss: h.totalEvLoss, accuracy: h.accuracy, worstClass: h.worstClass };
+    const scoreMeta = (h.handScoreMeta && h.handScore != null)
+      ? h.handScoreMeta
+      : (global.GTOScoring && global.GTOScoring.scoreHand
+        ? global.GTOScoring.scoreHand(h.decisions || [], h.totalEvLoss)
+        : null);
+    const handScore = h.handScore != null ? h.handScore : (scoreMeta ? scoreMeta.score : null);
+    return {
+      id: h.id, heroCode: h.heroCode, heroCards: h.heroCards, heroPos: h.heroPos, board: h.board,
+      heroNetBB: h.heroNetBB, totalEvLoss: h.totalEvLoss, accuracy: h.accuracy, worstClass: h.worstClass,
+      handScore: handScore,
+      handScoreMeta: scoreMeta
+    };
   }
 
   function sessionGrade(accuracy, evLoss, decN, netBB) {

@@ -44,6 +44,7 @@ const { mockAuthenticatedUser } = require('../e2e/helpers');
     const stats = [...popup.querySelectorAll('.hand-end-popup-stats .lbl')].map((el) => el.textContent.trim());
     const hasVillain = !!popup.querySelector('.hand-end-seat:nth-child(3) .hand-end-cards');
     const hasHero = !!popup.querySelector('.hand-end-seat:nth-child(1) .hand-end-cards .card, .hand-end-seat:nth-child(1) .muted-text');
+    const optimalBanner = popup.querySelector('.hand-score-optimal');
     return {
       title: title ? title.textContent.trim() : '',
       headClass: popup.querySelector('.hand-end-popup-head').className,
@@ -51,6 +52,7 @@ const { mockAuthenticatedUser } = require('../e2e/helpers');
       stats,
       hasVillain,
       hasHero,
+      hasOptimalBanner: !!(optimalBanner && /decisiones han sido óptimas/i.test(optimalBanner.textContent || '')),
       feedbackVisible: !document.querySelector('#feedback').classList.contains('hidden')
     };
   });
@@ -73,6 +75,8 @@ const { mockAuthenticatedUser } = require('../e2e/helpers');
   if (!info.buttons.every(Boolean)) fails.push('missing action buttons');
   if (!info.stats.some((s) => /resultado real/i.test(s))) fails.push('missing real result');
   if (!info.stats.some((s) => /EV perdido/i.test(s))) fails.push('missing EV lost');
+  if (!info.stats.some((s) => /Puntuaci[oó]n de la mano/i.test(s))) fails.push('missing hand score');
+  if (!info.hasOptimalBanner) fails.push('missing optimal/non-optimal banner');
   if (!info.hasHero || !info.hasVillain) fails.push('missing hero/villain cards block');
   if (!afterDetails.modalHidden) fails.push('modal should close on Ver detalles');
   if (!afterDetails.feedbackVisible) fails.push('feedback should remain visible after Ver detalles');

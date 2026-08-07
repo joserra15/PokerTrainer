@@ -39,6 +39,7 @@
         heroNetBB: h.heroNetBB,
         totalEvLoss: h.totalEvLoss,
         accuracy: h.accuracy,
+        handScore: h.handScore != null ? h.handScore : null,
         worstClass: h.worstClass,
         decisions: (h.decisions || []).map(function (d) {
           return {
@@ -62,6 +63,7 @@
         netBB: st.netBB,
         accuracy: st.accuracy,
         evLossBB: st.evLossBB,
+        avgHandScore: st.avgHandScore,
         grade: st.grade,
         vpipPct: st.vpipPct,
         pfrPct: st.pfrPct,
@@ -72,7 +74,7 @@
   }
 
   function buildCsv(session, opts) {
-    var rows = ['handId,heroCode,heroPos,netBB,evLoss,accuracy,worstClass,streets'];
+    var rows = ['handId,heroCode,heroPos,netBB,evLoss,accuracy,handScore,worstClass,streets'];
     handRows(session, opts).forEach(function (h) {
       var streets = (h.decisions || []).map(function (d) {
         return (d.street || '') + ':' + (d.chosen || d.action || '') + '>' + (d.best || '') + '(' + (d.class || '') + ',-' + fmt(d.evLoss || 0) + ')';
@@ -84,6 +86,7 @@
         escapeCsv(fmt(h.heroNetBB)),
         escapeCsv(fmt(h.totalEvLoss)),
         escapeCsv(h.accuracy != null ? h.accuracy : ''),
+        escapeCsv(h.handScore != null ? h.handScore : ''),
         escapeCsv(h.worstClass),
         escapeCsv(streets)
       ].join(','));
@@ -99,6 +102,7 @@
     var rows = (data.hands || []).map(function (h) {
       return '<tr><td>' + (h.heroCode || '') + '</td><td>' + (h.heroPos || '') + '</td>' +
         '<td>' + fmt(h.heroNetBB) + '</td><td>-' + fmt(h.totalEvLoss) + '</td>' +
+        '<td>' + (h.handScore != null ? h.handScore : '—') + '</td>' +
         '<td>' + (h.worstClass || '') + '</td></tr>';
     }).join('');
     var toolbar = opts.inApp
@@ -121,8 +125,9 @@
       '<h1>PokerForgeAI — Informe de sesión</h1>' +
       '<p><strong>' + String(data.fileName || '') + '</strong></p>' +
       '<p>Manos: ' + (st.nHands || 0) + ' · Acierto: ' + (st.accuracy != null ? st.accuracy + '%' : '—') +
-      ' · Resultado: ' + fmt(st.netBB) + ' bb · EV perdido: -' + fmt(st.evLossBB) + ' bb · Nota: ' + grade + '</p>' +
-      '<table><thead><tr><th>Mano</th><th>Pos</th><th>Net</th><th>EV loss</th><th>Clase</th></tr></thead>' +
+      ' · Resultado: ' + fmt(st.netBB) + ' bb · EV perdido: -' + fmt(st.evLossBB) + ' bb · Nota sesión: ' + grade +
+      (st.avgHandScore != null ? ' · Nota media manos: ' + st.avgHandScore + '/10' : '') + '</p>' +
+      '<table><thead><tr><th>Mano</th><th>Pos</th><th>Net</th><th>EV loss</th><th>Nota</th><th>Clase</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table>' +
       '<p class="muted">Exportado ' + data.exportedAt + ' · Estudio GTO heurístico</p></body></html>';
   }
