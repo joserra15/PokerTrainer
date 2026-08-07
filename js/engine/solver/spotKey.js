@@ -22,6 +22,32 @@
     return 150;
   }
 
+  /**
+   * Tipo de lead del agresor preflop: c-bet solo en flop;
+   * turn/river son barrels (no «c-bet»).
+   */
+  function aggressorLeadType(street) {
+    if (street === 'turn') return 'barrel2';
+    if (street === 'river') return 'barrel3';
+    return 'cbet';
+  }
+
+  /** Etiqueta UI en español para lead del agresor. */
+  function aggressorLeadLabel(street) {
+    if (street === 'turn') return 'segundo barrel';
+    if (street === 'river') return 'tercer barrel';
+    return 'c-bet';
+  }
+
+  function leadTypeLabel(leadType) {
+    if (leadType === 'cbet') return 'c-bet';
+    if (leadType === 'barrel2') return 'segundo barrel';
+    if (leadType === 'barrel3') return 'tercer barrel';
+    if (leadType === 'probe') return 'probe';
+    if (leadType === 'donk') return 'donk';
+    return '';
+  }
+
   /** Construye clave de spot sin redundancia. */
   function buildSpotKey(input) {
     const board = input.board || [];
@@ -32,6 +58,7 @@
     const gameType = rc.gameType || input.gameType || 'cash6';
     const stackLabel = rc.stackDepth || input.stackDepthLabel
       || (global.GTORangesRegistry ? global.GTORangesRegistry.stackLabelFromBB(effStack) : 'standard');
+    const street = input.street || 'preflop';
 
     return {
       position: input.position || '?',
@@ -39,7 +66,7 @@
       stackDepth: bucketStack(effStack),
       stackLabel: stackLabel,
       gameType: gameType,
-      street: input.street || 'preflop',
+      street: street,
       boardType: board.length >= 3 ? Board.classifyBoard(board) : 'PREFLOP',
       spr: bucketSpr(spr),
       initiative: input.initiative || 'none',
@@ -47,15 +74,15 @@
       facing: (input.toCallBB || 0) > 0 ? 'bet' : 'none',
       leadType: (function () {
         if ((input.toCallBB || 0) > 0) return 'none';
-        if (input.initiative === 'aggressor') return 'cbet';
+        if (input.initiative === 'aggressor') return aggressorLeadType(street);
         if (input.inPosition) return 'probe';
         return 'donk';
       })(),
       facingNode: (function () {
         const RS = global.GTORiverShoveNode;
-        if (!RS || (input.street || 'preflop') !== 'river' || !(input.toCallBB > 0)) return 'none';
+        if (!RS || street !== 'river' || !(input.toCallBB > 0)) return 'none';
         const potBefore = Math.max((input.potBB || 1) - (input.toCallBB || 0), 0.1);
-        return RS.classifyFacingNode(input.toCallBB, potBefore, input.street, input.villainLastAction);
+        return RS.classifyFacingNode(input.toCallBB, potBefore, street, input.villainLastAction);
       })(),
       inPosition: !!input.inPosition
     };
@@ -72,5 +99,8 @@
     ].join('|');
   }
 
-  global.GTOSpotKey = { buildSpotKey, spotKeyString, bucketSpr, bucketStack };
+  global.GTOSpotKey = {
+    buildSpotKey, spotKeyString, bucketSpr, bucketStack,
+    aggressorLeadType, aggressorLeadLabel, leadTypeLabel
+  };
 })(window);
