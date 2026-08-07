@@ -204,14 +204,19 @@ tools/selftest.js   Test en Node del evaluador, rangos y simulación de manos
 
 ## Tests
 
-Requiere Node.js:
+Requiere Node.js. Suites principales:
 
 ```
-node tools/selftest.js
+npm ci
+npm run build
+npm run test:unit          # selftest motor GTO
+npm run test:import        # importador HH
+npm run test:e2e           # Playwright (Chromium)
 ```
 
-Comprueba el evaluador de manos, el expansor de rangos y simula miles de manos
-completas verificando que ninguna se queda bloqueada.
+Otros scripts de regresión: `npm run test:p0` … `test:vpip`, `test:hand-analysis`, etc. (ver `package.json`). En CI: `.github/workflows/static.yml` (Node) y `e2e.yml` (Playwright).
+
+Backlog priorizado para cubrir toda la app en regresión (huecos de billing, nube, Edge Functions, E2E): [`docs/BACKLOG_REGRESION.md`](docs/BACKLOG_REGRESION.md).
 
 ## Notas sobre los rangos
 
