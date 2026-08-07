@@ -1,0 +1,72 @@
+PokerStars Hand #999000001:  Hold'em No Limit (€0.02/€0.05 EUR) - 2026/01/15 12:00:00 CET [2026/01/15 6:00:00 ET]
+Table 'MultiwayTest' 6-max Seat #1 is the button
+Seat 1: UTGPlayer (€5.00 in chips)
+Seat 2: HJPlayer (€5.00 in chips)
+Seat 3: COPlayer (€5.00 in chips)
+Seat 4: Hero (€5.00 in chips)
+Seat 5: SBPlayer (€5.00 in chips)
+Seat 6: BBPlayer (€5.00 in chips)
+Hero: posts small blind €0.02
+BBPlayer: posts big blind €0.05
+*** HOLE CARDS ***
+Dealt to Hero [Ah Kd]
+UTGPlayer: folds
+HJPlayer: raises €0.15 to €0.20
+COPlayer: calls €0.20
+Hero: calls €0.18
+SBPlayer: folds
+BBPlayer: folds
+*** FLOP *** [As 7c 2d]
+Hero: checks
+HJPlayer: bets €0.30
+COPlayer: calls €0.30
+Hero: raises €0.90 to €1.20
+HJPlayer: folds
+COPlayer: folds
+Uncalled bet (€0.90) returned to Hero
+Hero collected €1.55 from pot
+*** SUMMARY ***
+Total pot €1.55 | Rake €0.00
+Board [As 7c 2d]
+Seat 1: UTGPlayer (button) folded before Flop (didn't bet)
+Seat 2: HJPlayer folded on the Flop
+Seat 3: COPlayer folded on the Flop
+Seat 4: Hero (small blind) collected (€1.55)
+Seat 5: SBPlayer folded before Flop (didn't bet)
+Seat 6: BBPlayer (big blind) folded before Flop
+
+
+PokerStars Hand #999000002:  Hold'em No Limit (€0.02/€0.05 EUR) - 2026/01/15 12:05:00 CET [2026/01/15 6:05:00 ET]
+Table 'MultiwayTest' 6-max Seat #2 is the button
+Seat 1: P1 (€5 in chips)
+Seat 2: P2 (€5 in chips)
+Seat 3: Hero (€ (€5 in chips)
+Seat 4: P4 (€5 in chips)
+Seat 5: P5 (€5 in chips)
+Seat 6: P6 (€5 in chips)
+P4: posts small blind €0.02
+P5: posts big blind €0.05
+*** HOLE CARDS ***
+Dealt to HeroSeat [Qc Qd]
+P6: folds
+P1: folds
+P2: raises €0.10 to €0.15
+HeroSeat: raises €0.45 to €0.60
+P4: folds
+P5: folds
+P2: calls €0.45
+*** FLOP *** [9h 5s 2c]
+P2: checks
+HeroSeat: bets €0.50
+P2: folds
+Uncalled bet (€0.50) returned to HeroSeat
+HeroSeat collected €1.27 from pot
+*** SUMMARY ***
+Total pot €1.27 | Rake €0.00
+Board [9h 5s 2c]
+Seat 1: P1 folded before Flop (didn't bet)
+Seat 2: P2 (button) folded on the Flop
+Seat 3: HeroSeat collected (€1.27)
+Seat 4: P4 (small blind) folded before Flop
+Seat 5: P5 (big blind) folded before Flop
+Seat 6: P6 folded before Flop (didn't bet)

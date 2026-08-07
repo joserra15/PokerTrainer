@@ -1,9 +1,9 @@
 const STRIPE_API = 'https://api.stripe.com/v1';
 
 export const BONUS_PACKS = {
-  s: { credits: 10, label: 'Pack S' },
-  m: { credits: 20, label: 'Pack M' },
-  l: { credits: 40, label: 'Pack L' }
+  s: { credits: 20, label: 'Pack S' },
+  m: { credits: 40, label: 'Pack M' },
+  l: { credits: 80, label: 'Pack L' }
 } as const;
 
 export type BonusPack = keyof typeof BONUS_PACKS;

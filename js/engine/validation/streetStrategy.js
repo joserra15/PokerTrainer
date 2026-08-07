@@ -31,20 +31,35 @@
   function isBenignProbeDuplicate(prevDecision, decision) {
     const prevGto = prevDecision.gto || prevDecision.strategy || {};
     const curGto = decision.gto || decision.strategy || {};
-    const prevCheck = prevGto.check || 0;
-    const curCheck = curGto.check || 0;
-    const prevBetMax = Math.max(prevGto.bet_33 || 0, prevGto.bet_66 || 0, prevGto.bet_100 || 0);
-    const curBetMax = Math.max(curGto.bet_33 || 0, curGto.bet_66 || 0, curGto.bet_100 || 0);
-    if (prevCheck >= 0.92 && curCheck >= 0.92 && prevBetMax <= 0.08 && curBetMax <= 0.08) {
+    // Usar enteros % (misma base que frequencyFingerprint) para evitar falsos
+    // positivos cuando check=0.878 → fingerprint 88% pero 0.878 < 0.88.
+    const prevCheckPct = Math.round((prevGto.check || 0) * 100);
+    const curCheckPct = Math.round((curGto.check || 0) * 100);
+    const prevBetMaxPct = Math.max(
+      Math.round((prevGto.bet_33 || 0) * 100),
+      Math.round((prevGto.bet_66 || 0) * 100),
+      Math.round((prevGto.bet_100 || 0) * 100)
+    );
+    const curBetMaxPct = Math.max(
+      Math.round((curGto.bet_33 || 0) * 100),
+      Math.round((curGto.bet_66 || 0) * 100),
+      Math.round((curGto.bet_100 || 0) * 100)
+    );
+    // Check-down dominante (≥88% check, sin apuesta significativa) en ambas calles.
+    if (prevCheckPct >= 88 && curCheckPct >= 88 && prevBetMaxPct <= 10 && curBetMaxPct <= 10) {
       return true;
     }
     const prevBoard = (prevDecision.board || []).join('');
     const curBoard = (decision.board || []).join('');
     if (prevBoard && curBoard && prevBoard !== curBoard) {
-      const tier = decision.handRank && decision.handRank.tier
+      let tier = decision.handRank && decision.handRank.tier
         ? decision.handRank.tier
         : (decision.madeHandTier || '');
-      if (tier === 'weak' || tier === 'trash' || tier === 'marginal') return true;
+      if (!tier && decision.board && decision.heroCards && global.GTOEquityMadeHand) {
+        const info = global.GTOEquityMadeHand.classifyMadeHand(decision.heroCards, decision.board);
+        tier = info && info.tier ? info.tier : '';
+      }
+      if (tier === 'weak' || tier === 'trash' || tier === 'marginal' || tier === 'air') return true;
     }
     return false;
   }
@@ -183,6 +198,7 @@
 
   /**
    * Módulo 3 — Sanity check: board coordinado + check% clonado entre turn/river (solo nodos probe).
+   * No alerta líneas legítimas de check-down con aire/basura (mismo criterio que isBenignProbeDuplicate).
    * @param {Object} boardsByStreet — { turn: [...], river: [...] }
    */
   function sanityCheckSolver(decisions, boardsByStreet, tolerancePct) {
@@ -191,6 +207,11 @@
     const riverDec = (decisions || []).find((d) => d.street === 'river' && d.gto);
     if (!turnDec || !riverDec) return { ok: true };
     if (!isProbeDecision(turnDec) || !isProbeDecision(riverDec)) return { ok: true };
+
+    // Check-down con mano débil / frecuencias casi solo-check: no es bug de caché.
+    if (isBenignProbeDuplicate(turnDec, riverDec)) {
+      return { ok: true, benign: true };
+    }
 
     const checkTurn = Math.round((turnDec.gto.check || 0) * 100);
     const checkRiver = Math.round((riverDec.gto.check || 0) * 100);

@@ -183,6 +183,15 @@
         if (dropdown) dropdown.classList.add('hidden');
       });
     }
+
+    document.querySelectorAll('[data-home-install]').forEach(function (el) {
+      if (el.dataset.boundInstall) return;
+      el.dataset.boundInstall = '1';
+      el.addEventListener('click', function (e) {
+        e.preventDefault();
+        installApp();
+      });
+    });
   }
 
   function init() {

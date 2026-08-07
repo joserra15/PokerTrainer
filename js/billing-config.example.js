@@ -5,13 +5,19 @@ window.PT_BILLING = {
   enabled: false,
   // Base URL de Edge Functions (sin barra final)
   functionsUrl: 'https://YOUR_PROJECT.supabase.co/functions/v1',
+  trial: {
+    plan: 'pro',
+    days: 10,
+    label: 'Prueba Study 10 días',
+    note: 'Study con trial de 10 días (sin tarjeta si Stripe lo permite). Una vez por cuenta.'
+  },
   plans: {
     pro: { label: 'Study', monthly: '14,99', yearly: '119', yearlyPerMonth: '9,92' },
     premium: { label: 'Coach', monthly: '34,99', yearly: '279', yearlyPerMonth: '23,25' }
   },
   bonus: {
     validityMonths: 12,
-    packs: { s: { credits: 10, label: 'Pack S' }, m: { credits: 20, label: 'Pack M' }, l: { credits: 40, label: 'Pack L' } },
+    packs: { s: { credits: 20, label: 'Pack S' }, m: { credits: 40, label: 'Pack M' }, l: { credits: 80, label: 'Pack L' } },
     prices: {
       free: { s: '7,99', m: '13,99', l: '22,99' },
       study: { s: '5,99', m: '9,99', l: '15,99' },

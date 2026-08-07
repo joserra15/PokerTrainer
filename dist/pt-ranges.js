@@ -1,0 +1,885 @@
+/* PokerForgeAI bundle: pt-ranges.js — do not edit */
+/*
+ * range-matrix.js — Matrices 13×13: GTO hero (preflop) y rango villano (postflop).
+ */
+(function (global) {
+  'use strict';
+
+  const RANKS = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
+  const RAISE_KEYS = ['raise', 'bet', 'bet_33', 'bet_66', 'bet_100'];
+  const CALL_KEYS = ['call', 'check'];
+  const FOLD_KEYS = ['fold'];
+  const CHUNK_SIZE = 8;
+  const D = function () { return global.GTORangesData || {}; };
+  const RR = function () { return global.GTORangesRegistry; };
+
+  const EXPLORER_SPOTS = {
+    RFI: {
+      label: 'RFI',
+      heroPositions: ['UTG', 'HJ', 'CO', 'BTN', 'SB'],
+      villainPositions: [],
+      build: function (heroPos) {
+        return {
+          spotKind: 'RFI',
+          position: heroPos,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 1.5,
+          toCallBB: 0,
+          initiative: 'none',
+          availableActions: ['fold', 'raise']
+        };
+      },
+      title: function (heroPos) { return 'RFI · ' + heroPos; }
+    },
+    '3bet': {
+      label: '3-Bet',
+      heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
+      villainPositions: ['UTG', 'HJ', 'CO', 'BTN'],
+      build: function (heroPos, villainPos) {
+        return {
+          spotKind: 'vsRFI',
+          position: heroPos,
+          vsPosition: villainPos,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 5,
+          toCallBB: 2.5,
+          initiative: 'caller',
+          availableActions: ['fold', 'call', 'raise']
+        };
+      },
+      title: function (heroPos, villainPos) { return heroPos + ' vs open ' + villainPos; }
+    },
+    '4bet': {
+      label: 'Vs 3-Bet',
+      heroPositions: ['UTG', 'HJ', 'CO', 'BTN', 'SB'],
+      villainPositions: ['HJ', 'CO', 'BTN', 'SB', 'BB'],
+      build: function (heroPos, villainPos) {
+        return {
+          spotKind: 'face3bet',
+          position: heroPos,
+          vsPosition: villainPos,
+          vs3betKey: heroPos + '_vs_' + villainPos,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 22,
+          toCallBB: 7,
+          initiative: 'aggressor',
+          availableActions: ['fold', 'call', 'raise']
+        };
+      },
+      title: function (heroPos, villainPos) { return heroPos + ' open vs 3-bet ' + villainPos; }
+    },
+    iso: {
+      label: 'Iso limp',
+      heroPositions: ['CO', 'BTN', 'SB', 'BB', 'HJ'],
+      villainPositions: ['UTG', 'HJ', 'CO', 'BTN', 'SB'],
+      build: function (heroPos, villainPos) {
+        return {
+          spotKind: 'isoLimp',
+          position: heroPos,
+          vsPosition: villainPos,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 2.5,
+          toCallBB: 1,
+          initiative: 'caller',
+          availableActions: ['fold', 'call', 'raise']
+        };
+      },
+      title: function (heroPos, villainPos) { return heroPos + ' iso vs limp ' + villainPos; }
+    },
+    bbvsb: {
+      label: 'BB vs SB limp',
+      heroPositions: ['BB'],
+      villainPositions: [],
+      build: function (heroPos) {
+        return {
+          spotKind: 'bbVsSbLimp',
+          position: 'BB',
+          vsPosition: 'SB',
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 2,
+          toCallBB: 0,
+          initiative: 'caller',
+          availableActions: ['call', 'raise']
+        };
+      },
+      title: function () { return 'BB vs SB limp'; }
+    },
+    squeeze: {
+      label: 'Squeeze',
+      heroPositions: ['BB', 'SB', 'BTN', 'CO'],
+      villainPositions: ['UTG', 'HJ', 'CO', 'BTN'],
+      villainLabel: 'Opener',
+      callerPositions: ['HJ', 'CO', 'BTN', 'SB'],
+      build: function (heroPos, villainPos, callerPos) {
+        return {
+          spotKind: 'squeeze',
+          position: heroPos,
+          vsPosition: villainPos,
+          callerPos: callerPos,
+          stackDepth: 100,
+          street: 'preflop',
+          board: [],
+          potBB: 8,
+          toCallBB: 2.5,
+          initiative: 'caller',
+          availableActions: ['fold', 'call', 'raise']
+        };
+      },
+      title: function (heroPos, villainPos, callerPos) {
+        return heroPos + ' squeeze · open ' + villainPos + ' · call ' + (callerPos || '?');
+      }
+    }
+  };
+
+  const SQUEEZE_COMBOS = [
+    { heroPos: 'BB', openerPos: 'CO', callerPos: 'BTN' },
+    { heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO' },
+    { heroPos: 'SB', openerPos: 'UTG', callerPos: 'CO' },
+    { heroPos: 'BTN', openerPos: 'UTG', callerPos: 'HJ' },
+    { heroPos: 'BTN', openerPos: 'HJ', callerPos: 'CO' }
+  ];
+
+  function squeezeCombosList() {
+    const PC = global.PTPlayConfig;
+    return (PC && PC.SQUEEZE_COMBOS && PC.SQUEEZE_COMBOS.length) ? PC.SQUEEZE_COMBOS : SQUEEZE_COMBOS;
+  }
+
+  function validSqueezeHeroes() {
+    const set = new Set();
+    squeezeCombosList().forEach(function (c) { set.add(c.heroPos); });
+    return Array.from(set);
+  }
+
+  function validSqueezeOpeners(heroPos) {
+    const out = [];
+    squeezeCombosList().forEach(function (c) {
+      if (c.heroPos === heroPos && out.indexOf(c.openerPos) < 0) out.push(c.openerPos);
+    });
+    return out;
+  }
+
+  function validSqueezeCallers(heroPos, openerPos) {
+    const out = [];
+    squeezeCombosList().forEach(function (c) {
+      if (c.heroPos === heroPos && c.openerPos === openerPos && out.indexOf(c.callerPos) < 0) {
+        out.push(c.callerPos);
+      }
+    });
+    return out;
+  }
+
+  function cellLabel(row, col) {
+    const r1 = RANKS[row];
+    const r2 = RANKS[col];
+    if (row === col) return r1 + r2;
+    if (row < col) return r1 + r2 + 's';
+    return r2 + r1 + 'o';
+  }
+
+  function pickRepresentativeCards(code, dead) {
+    const Eq = global.GTO && global.GTO.Equity;
+    if (Eq && Eq.concreteCombos) {
+      const combos = Eq.concreteCombos(code, dead || []);
+      if (combos.length) return combos[0];
+    }
+    return null;
+  }
+
+  function expandRangeSet(rangeStr) {
+    const N = global.GTORangesNotation;
+    if (!N || !rangeStr) return new Set();
+    return N.toSet(rangeStr);
+  }
+
+  function collapseStrategy(freqs) {
+    let raise = 0;
+    let call = 0;
+    let fold = 0;
+    if (!freqs) return { raise: 0, call: 0, fold: 1 };
+    Object.keys(freqs).forEach(function (k) {
+      const v = freqs[k] || 0;
+      if (RAISE_KEYS.indexOf(k) >= 0) raise += v;
+      else if (CALL_KEYS.indexOf(k) >= 0) call += v;
+      else if (FOLD_KEYS.indexOf(k) >= 0) fold += v;
+    });
+    const sum = raise + call + fold;
+    if (sum > 0 && Math.abs(sum - 1) > 0.02) {
+      raise /= sum;
+      call /= sum;
+      fold /= sum;
+    }
+    return { raise, call, fold };
+  }
+
+  function dominantAction(collapsed, actionOrder) {
+    const order = actionOrder && actionOrder.length
+      ? actionOrder
+      : ['fold', 'call', 'raise'];
+    let best = order[0];
+    let max = -1;
+    order.forEach(function (a) {
+      const v = collapsed[a] || 0;
+      if (v > max) { max = v; best = a; }
+    });
+    return best;
+  }
+
+  var MIX_COLORS = { raise: '#e5534b', call: '#3fb950', fold: '#6e7681' };
+
+  function cellMixStyle(freqs, actionOrder) {
+    const collapsed = collapseStrategy(freqs);
+    const order = actionOrder && actionOrder.length ? actionOrder : ['raise', 'call', 'fold'];
+    let pos = 0;
+    const stops = [];
+    order.forEach(function (a) {
+      const frac = collapsed[a] || 0;
+      if (frac <= 0.001) return;
+      const end = pos + frac * 100;
+      stops.push(MIX_COLORS[a] + ' ' + pos.toFixed(2) + '%');
+      stops.push(MIX_COLORS[a] + ' ' + end.toFixed(2) + '%');
+      pos = end;
+    });
+    if (!stops.length) return 'background:#6e7681;color:#f0f0f0';
+    let color = '#f0f0f0';
+    if ((collapsed.raise || 0) >= 0.45) color = '#fff';
+    else if ((collapsed.call || 0) >= 0.45) color = '#101810';
+    return 'background:linear-gradient(to right,' + stops.join(',') + ');color:' + color;
+  }
+
+  function boardSliceForStreet(board, street) {
+    const n = { preflop: 0, flop: 3, turn: 4, river: 5 }[street] || 0;
+    return (board || []).slice(0, n);
+  }
+
+  function heroCardsFromHand(hand) {
+    if (hand.heroCards && hand.heroCards.length === 2) return hand.heroCards;
+    if (hand.hero && hand.hero.cards && hand.hero.cards.length === 2) return hand.hero.cards;
+    return [];
+  }
+
+  function villainCardsFromHand(hand) {
+    if (!hand) return [];
+    if (hand.villain && hand.villain.cards && hand.villain.cards.length === 2) return hand.villain.cards.slice();
+    if (hand.villainCards && hand.villainCards.length === 2) return hand.villainCards.slice();
+    const hero = hand.hero || hand.heroName;
+    if (hand.villainShows && hero) {
+      const names = Object.keys(hand.villainShows).filter(function (n) { return n !== hero; });
+      if (names.length && hand.villainShows[names[0]].length === 2) return hand.villainShows[names[0]].slice();
+    }
+    return [];
+  }
+
+  function villainCodeFromHand(hand) {
+    const cards = villainCardsFromHand(hand);
+    if (cards.length !== 2 || !global.Ranges) return null;
+    return global.Ranges.handCode(cards[0], cards[1]);
+  }
+
+  function buildBaseInput(hand, decision, source) {
+    if (decision.street !== 'preflop') return null;
+    if (source === 'session' && global.Importer && global.Importer.buildEvalInputFromDecision) {
+      const input = global.Importer.buildEvalInputFromDecision(hand, decision);
+      delete input.chosenAction;
+      return input;
+    }
+    if (global.Engine && global.Engine.buildMatrixInput) {
+      return global.Engine.buildMatrixInput(hand, decision);
+    }
+    return null;
+  }
+
+  function strategyForCombo(baseInput, handCode, heroCards) {
+    const input = Object.assign({}, baseInput, {
+      handCode: handCode,
+      heroCards: heroCards,
+      heroEquity: undefined,
+      madeHandInfo: undefined,
+      handRank: undefined
+    });
+    if (input.street !== 'preflop') input._equityIters = 120;
+    if (!global.GTO || !global.GTO.getStrategy) return { fold: 1 };
+    return global.GTO.getStrategy(input);
+  }
+
+  function computeGtoMatrixAsync(baseInput, onProgress) {
+    return new Promise(function (resolve, reject) {
+      if (!baseInput || baseInput.street !== 'preflop') {
+        reject(new Error('Matriz GTO solo disponible en preflop'));
+        return;
+      }
+      computeFreqMatrixAsync(baseInput, onProgress).then(resolve).catch(reject);
+    });
+  }
+
+  /** Matriz de frecuencias fold/call/raise (preflop o flop HU simplificado). */
+  function computeFreqMatrixAsync(baseInput, onProgress) {
+    return new Promise(function (resolve, reject) {
+      if (!baseInput) {
+        reject(new Error('Input inválido'));
+        return;
+      }
+      const cells = [];
+      let row = 0;
+      let col = 0;
+      let done = 0;
+      const total = 169;
+
+      function tick() {
+        try {
+          let n = 0;
+          while (n < CHUNK_SIZE && row < 13) {
+            if (!cells[row]) cells[row] = [];
+            const label = cellLabel(row, col);
+            const used = (baseInput.board || []).slice();
+            const heroCards = pickRepresentativeCards(label, used);
+            let action = 'fold';
+            let freqs = { raise: 0, call: 0, fold: 1 };
+            if (heroCards) {
+              const raw = strategyForCombo(baseInput, label, heroCards);
+              freqs = collapseStrategy(raw);
+              action = dominantAction(freqs, baseInput.availableActions);
+            }
+            cells[row][col] = { label, action, freqs };
+            done++;
+            col++;
+            if (col >= 13) { col = 0; row++; }
+            n++;
+          }
+          if (onProgress) onProgress(done, total);
+          if (row >= 13) resolve({ ranks: RANKS, cells, mode: 'gto', street: baseInput.street || 'preflop' });
+          else setTimeout(tick, 0);
+        } catch (e) {
+          reject(e);
+        }
+      }
+      tick();
+    });
+  }
+
+  const POSTFLOP_STREETS = {
+    flop: { cards: 3, label: 'Flop HU', boardLabel: 'Board (flop)', pickTitle: 'Flop (3 cartas)', emptyHint: 'Elegir flop' },
+    turn: { cards: 4, label: 'Turn HU', boardLabel: 'Board (turn)', pickTitle: 'Turn (4 cartas)', emptyHint: 'Elegir turn' },
+    river: { cards: 5, label: 'River HU', boardLabel: 'Board (river)', pickTitle: 'River (5 cartas)', emptyHint: 'Elegir river' }
+  };
+
+  /** Config de posiciones HU postflop (flop / turn / river). */
+  const POSTFLOP_EXPLORER = {
+    heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
+    villainPositions: ['BTN', 'CO', 'HJ', 'UTG', 'SB', 'BB'],
+    villainLabel: 'Villano:'
+  };
+
+  /** Compat: spot histórico "postflop" = Flop HU. */
+  EXPLORER_SPOTS.postflop = {
+    label: 'Flop HU',
+    heroPositions: POSTFLOP_EXPLORER.heroPositions.slice(),
+    villainPositions: POSTFLOP_EXPLORER.villainPositions.slice(),
+    villainLabel: POSTFLOP_EXPLORER.villainLabel,
+    build: function () { return null; },
+    title: function (heroPos, villainPos) { return 'Flop HU · ' + heroPos + ' vs ' + villainPos; }
+  };
+
+  function postflopBoardCount(street) {
+    const meta = POSTFLOP_STREETS[street] || POSTFLOP_STREETS.flop;
+    return meta.cards;
+  }
+
+  function parseBoardText(text) {
+    if (!text) return [];
+    const tokens = String(text).replace(/,/g, ' ').match(/(?:10|[2-9TJQKAtjqka])[shdcSHDC]/g) || [];
+    const out = [];
+    tokens.forEach(function (t) {
+      let c = String(t).toUpperCase().replace('10', 'T');
+      c = c[0] + c[1].toLowerCase();
+      if (out.indexOf(c) < 0) out.push(c);
+    });
+    return out.slice(0, 5);
+  }
+
+  /**
+   * Input para explorador HU postflop (SN-42 + turn/river).
+   * board: array o texto; street: 'flop' | 'turn' | 'river'.
+   */
+  function buildPostflopExplorerInput(opts) {
+    opts = opts || {};
+    const street = (opts.street === 'turn' || opts.street === 'river') ? opts.street : 'flop';
+    const need = postflopBoardCount(street);
+    let board = opts.board;
+    if (typeof board === 'string') board = parseBoardText(board);
+    board = board || [];
+    if (board.length < need) return null;
+    board = board.slice(0, need);
+    const potBB = opts.potBB != null ? Number(opts.potBB) : 6;
+    const toCallBB = opts.toCallBB != null ? Number(opts.toCallBB) : 0;
+    const facing = toCallBB > 0;
+    return {
+      spotKind: 'postflop',
+      position: opts.heroPos || 'BB',
+      vsPosition: opts.villainPos || 'BTN',
+      stackDepth: opts.stackDepth || 100,
+      street: street,
+      board: board,
+      potBB: potBB,
+      toCallBB: toCallBB,
+      potBeforeBB: facing ? Math.max(potBB - toCallBB, 0.1) : potBB,
+      initiative: opts.initiative || (facing ? 'caller' : 'aggressor'),
+      inPosition: opts.inPosition != null ? opts.inPosition : false,
+      availableActions: facing ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'],
+      villainRange: opts.villainRange || D().BROAD_CONTINUE,
+      _postflopExplorer: true
+    };
+  }
+
+  function computePostflopFreqMatrixAsync(baseInput, onProgress) {
+    return new Promise(function (resolve, reject) {
+      const street = baseInput && baseInput.street;
+      const need = postflopBoardCount(street);
+      if (!baseInput || !POSTFLOP_STREETS[street] || !baseInput.board || baseInput.board.length < need) {
+        reject(new Error('Vista postflop: indica un board de ' + need + ' cartas (' + street + ')'));
+        return;
+      }
+      computeFreqMatrixAsync(baseInput, onProgress).then(resolve).catch(reject);
+    });
+  }
+
+  function computeVillainRangeMatrix(profileOrStr) {
+    const profile = (profileOrStr && profileOrStr.coreSet)
+      ? profileOrStr
+      : { coreSet: expandRangeSet(profileOrStr || D().BROAD_CONTINUE), widenSet: new Set(), blockedSet: new Set(), cappedSet: new Set(), cellAction: null, cellTitle: null };
+    const cells = [];
+    for (let row = 0; row < 13; row++) {
+      const rowCells = [];
+      for (let col = 0; col < 13; col++) {
+        const label = cellLabel(row, col);
+        const action = profile.cellAction
+          ? profile.cellAction(label)
+          : (profile.coreSet.has(label) ? 'inrange' : 'out');
+        const title = profile.cellTitle ? profile.cellTitle(label) : label;
+        rowCells.push({
+          label,
+          action,
+          title,
+          inRange: action !== 'out'
+        });
+      }
+      cells.push(rowCells);
+    }
+    return {
+      ranks: RANKS,
+      cells,
+      mode: 'villain',
+      rangeStr: profile.rangeStr || '',
+      profile: profile
+    };
+  }
+
+  function buildVillainActionLine(hand, decision) {
+    const hero = hand.hero;
+    const streets = ['preflop', 'flop', 'turn', 'river'];
+    const line = [];
+    if (!hand.streets || !hero) return line;
+    const upto = streets.indexOf(decision.street);
+    if (upto < 0) return line;
+    for (let i = 0; i <= upto; i++) {
+      const st = streets[i];
+      const acts = hand.streets[st] || [];
+      const limit = (st === decision.street && decision.actionSequenceId != null)
+        ? decision.actionSequenceId
+        : acts.length;
+      acts.slice(0, limit).forEach(function (a) {
+        if (a.player === hero || a.type === 'show') return;
+        line.push({ street: st, action: a.type, amount: a.amount, to: a.to });
+      });
+    }
+    return line;
+  }
+
+  function buildVillainMatrixContext(hand, decision, source) {
+    const VT = global.GTOVillainTracking;
+    const board = decision.board && decision.board.length
+      ? decision.board
+      : boardSliceForStreet(hand.board || [], decision.street);
+    const heroName = hand.hero || (hand.heroName);
+    const heroCards = heroCardsFromHand(hand);
+    const heroCode = (heroCards.length === 2 && global.Ranges)
+      ? global.Ranges.handCode(heroCards[0], heroCards[1])
+      : (hand.heroCode || null);
+    const villainCards = villainCardsFromHand(hand);
+    const villainCode = villainCodeFromHand(hand);
+    const villainPos = VT && VT.villainPosFromHand
+      ? VT.villainPosFromHand(hand, heroName, decision)
+      : (decision.vsPosition || null);
+    const preflopRange = (VT && VT.preflopRangeFromHand && hand.streets)
+      ? VT.preflopRangeFromHand(hand, heroName)
+      : (hand.villain && hand.villain.rangeStr) || D().BROAD_CONTINUE;
+    const facingBet = (decision.toCallBB || 0) > 0;
+    const actionLine = buildVillainActionLine(hand, decision);
+    let lastAction = decision.villainLastAction || null;
+    let betBB = facingBet ? decision.toCallBB : 0;
+    if (!lastAction && actionLine.length) {
+      const last = actionLine[actionLine.length - 1];
+      lastAction = last.action;
+      if (last.action === 'bet' && hand.bb) betBB = last.amount / hand.bb;
+      else if (last.action === 'raise' && hand.bb) betBB = last.to / hand.bb;
+    }
+    if (!lastAction) lastAction = facingBet ? 'bet' : 'check';
+    const tags = (source === 'trainer' && hand.villainRangeTracker)
+      ? hand.villainRangeTracker.tags
+      : [];
+    return {
+      preflopRange: preflopRange,
+      baseRange: preflopRange,
+      street: decision.street,
+      lastAction: lastAction,
+      betBB: betBB,
+      potBeforeBB: decision.potBeforeBB || Math.max((decision.potBB || 1) - (decision.toCallBB || 0), 0.1),
+      board: board,
+      tags: tags,
+      actionLine: actionLine,
+      heroCards: heroCards,
+      heroCode: heroCode,
+      villainCode: villainCode,
+      villainCards: villainCards,
+      villainPos: villainPos
+    };
+  }
+
+  function getVillainMatrixProfile(hand, decision, source) {
+    const VT = global.GTOVillainTracking;
+    if (!VT || !VT.buildVillainMatrixProfile) {
+      return computeVillainRangeMatrix(decision.villainRange || D().BROAD_CONTINUE).profile;
+    }
+    return VT.buildVillainMatrixProfile(buildVillainMatrixContext(hand, decision, source));
+  }
+
+  function getVillainRangeForDecision(hand, decision, source) {
+    if (decision.villainRange) return decision.villainRange;
+    const profile = getVillainMatrixProfile(hand, decision, source);
+    return profile.rangeStr || profile.gtoStr || D().BROAD_CONTINUE;
+  }
+
+  function explorerCtx(ctx) {
+    const reg = RR();
+    return reg ? reg.normalize(ctx || {}) : { gameType: 'cash6', stackDepth: 'standard', stackBB: 100, is9Max: false };
+  }
+
+  function heroPositionsForSpot(spotType, ctx) {
+    const c = explorerCtx(ctx);
+    const reg = RR();
+    if (spotType === 'RFI') return reg ? reg.rfiPositions(ctx) : EXPLORER_SPOTS.RFI.heroPositions;
+    if (spotType === '3bet') {
+      if (c.is9Max) return ['BB', 'SB', 'BTN', 'CO', 'HJ', 'LJ', 'UTG2', 'UTG1', 'UTG'];
+      return EXPLORER_SPOTS['3bet'].heroPositions;
+    }
+    if (spotType === '4bet') {
+      if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB'];
+      const pairs = validVs3betPairs(ctx);
+      return Object.keys(pairs);
+    }
+    if (spotType === 'iso') return EXPLORER_SPOTS.iso.heroPositions;
+    if (spotType === 'bbvsb') return EXPLORER_SPOTS.bbvsb.heroPositions;
+    if (spotType === 'squeeze') {
+      const heroes = validSqueezeHeroes();
+      return heroes.length ? heroes : EXPLORER_SPOTS.squeeze.heroPositions;
+    }
+    const spot = EXPLORER_SPOTS[spotType];
+    return spot ? spot.heroPositions.slice() : [];
+  }
+
+  function villainPositionsForSpot(spotType, ctx) {
+    const c = explorerCtx(ctx);
+    if (spotType === '3bet') {
+      if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
+      return EXPLORER_SPOTS['3bet'].villainPositions;
+    }
+    if (spotType === '4bet') {
+      const spot = EXPLORER_SPOTS['4bet'];
+      return spot && spot.villainPositions ? spot.villainPositions.slice() : [];
+    }
+    if (spotType === 'iso') return EXPLORER_SPOTS.iso.villainPositions;
+    const spot = EXPLORER_SPOTS[spotType];
+    return spot && spot.villainPositions ? spot.villainPositions.slice() : [];
+  }
+
+  function attachExplorerMeta(input, ctx) {
+    const c = explorerCtx(ctx);
+    const reg = RR();
+    input.stackDepth = c.stackBB;
+    if (reg) reg.attachToInput(input, ctx);
+    return input;
+  }
+
+  /** Ajusta pot/toCall del explorador según open sizing (2.5x vs 3x). */
+  function applyOpenSizing(input, openSize) {
+    if (!input) return input;
+    const size = Number(openSize) === 3 ? 3 : 2.5;
+    const base = 2.5;
+    if (input.spotKind !== 'vsRFI' && input.spotKind !== 'squeeze' && input.spotKind !== 'face3bet') {
+      input.openSizeBB = size;
+      return input;
+    }
+    if (input.toCallBB != null && input.toCallBB > 0) {
+      if (input.toCallBB >= 2 && input.toCallBB <= 3.5) {
+        const dead = (input.potBB || 0) - input.toCallBB;
+        input.toCallBB = Math.round(size * 100) / 100;
+        input.potBB = Math.round((dead + size) * 100) / 100;
+      } else {
+        input.toCallBB = Math.round(input.toCallBB * (size / base) * 100) / 100;
+        input.potBB = Math.round((input.potBB || 0) * (size / base) * 100) / 100;
+      }
+    }
+    input.openSizeBB = size;
+    return input;
+  }
+
+  function defaultCallerForSqueeze(heroPos, openerPos) {
+    const callers = validSqueezeCallers(heroPos, openerPos);
+    return callers.length ? callers[0] : null;
+  }
+
+  function validVs3betPairs(ctx) {
+    const reg = RR();
+    if (reg && reg.validVs3betPairs) return reg.validVs3betPairs(ctx);
+    const ext = global.GTORangesExtended;
+    const keys = ext && ext.allVs3betPairKeys ? ext.allVs3betPairKeys() : [];
+    const pairs = {};
+    keys.forEach(function (k) {
+      const m = k.match(/^(\w+)_vs_(\w+)$/);
+      if (!m) return;
+      if (!pairs[m[1]]) pairs[m[1]] = [];
+      pairs[m[1]].push(m[2]);
+    });
+    return pairs;
+  }
+
+  function buildExplorerInput(spotType, heroPos, villainPos, ctx, callerPos, openSize) {
+    const spot = EXPLORER_SPOTS[spotType];
+    if (!spot) return null;
+    if (spot.villainPositions && spot.villainPositions.length && !villainPos) return null;
+    let input;
+    if (spotType === 'squeeze') {
+      const cp = callerPos || defaultCallerForSqueeze(heroPos, villainPos);
+      if (!cp) return null;
+      input = spot.build(heroPos, villainPos, cp);
+    } else {
+      input = spot.build(heroPos, villainPos);
+    }
+    if (!input) return null;
+    if (spotType === '3bet') {
+      const reg = RR();
+      const data = reg ? reg.getVsRfiRow(heroPos, villainPos, ctx) : (D().VS_RFI || {})[heroPos + '_vs_' + villainPos];
+      if (!data) return null;
+      const c = explorerCtx(ctx);
+      input.vsRfiKey = reg
+        ? ((c.is9Max || c.isMtt) ? reg.vsRfiPairKey(heroPos, villainPos) : reg.vsRfiKey(heroPos, villainPos, ctx))
+        : heroPos + '_vs_' + villainPos;
+    }
+    if (spotType === '4bet') {
+      const reg = RR();
+      const data = reg ? reg.getVs3betRow(heroPos, villainPos, ctx) : null;
+      if (!data) return null;
+      input.vs3betKey = heroPos + '_vs_' + villainPos;
+    }
+    if (spotType === 'iso') {
+      const reg = RR();
+      if (!reg || !reg.getIsoLimpRow(heroPos, villainPos, ctx)) return null;
+    }
+    if (spotType === 'squeeze') {
+      const reg = RR();
+      if (!reg || !reg.getSqueezeRow(heroPos, villainPos, input.callerPos, ctx)) return null;
+    }
+    applyOpenSizing(input, openSize);
+    return attachExplorerMeta(input, ctx);
+  }
+
+  function explorerTitle(spotType, heroPos, villainPos, callerPos) {
+    const spot = EXPLORER_SPOTS[spotType];
+    if (!spot) return '';
+    if (spotType === 'squeeze') {
+      const cp = callerPos || defaultCallerForSqueeze(heroPos, villainPos);
+      return spot.title(heroPos, villainPos, cp);
+    }
+    return spot.title(heroPos, villainPos);
+  }
+
+  function validVsRfiPairs(ctx) {
+    const reg = RR();
+    const heroes = heroPositionsForSpot('3bet', ctx);
+    const openers = villainPositionsForSpot('3bet', ctx);
+    const pairs = {};
+    heroes.forEach(function (hero) {
+      openers.forEach(function (opener) {
+        const key = reg ? reg.vsRfiKey(hero, opener, ctx) : hero + '_vs_' + opener;
+        const data = reg ? reg.getVsRfiRow(hero, opener, ctx) : (D().VS_RFI || {})[key];
+        if (!data) return;
+        if (!pairs[hero]) pairs[hero] = [];
+        if (pairs[hero].indexOf(opener) < 0) pairs[hero].push(opener);
+      });
+    });
+    if (Object.keys(pairs).length) return pairs;
+    const keys = D().VS_RFI_KEYS || Object.keys(D().VS_RFI || {});
+    keys.forEach(function (k) {
+      const m = k.match(/^(\w+)_vs_(\w+)$/);
+      if (!m) return;
+      if (!pairs[m[1]]) pairs[m[1]] = [];
+      pairs[m[1]].push(m[2]);
+    });
+    return pairs;
+  }
+
+  function findDecisionIndex(hand, street) {
+    if (!hand || !hand.decisions) return -1;
+    for (let i = 0; i < hand.decisions.length; i++) {
+      if (hand.decisions[i].street === street) return i;
+    }
+    return -1;
+  }
+
+  function shortRange(str) {
+    if (!str) return '—';
+    if (str.length > 72) return str.slice(0, 69) + '…';
+    return str;
+  }
+
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function decisionFromLiveHand(hand) {
+    if (!hand || !hand.current) return null;
+    var node = hand.current;
+    var va = hand.villainAction;
+    return {
+      street: node.street,
+      kind: node.kind,
+      context: node.context,
+      potBB: node.potBB,
+      toCallBB: node.toCallBB || 0,
+      potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
+      board: (hand.board || []).slice(),
+      gto: node.gto,
+      availableActions: (node.options || []).map(function (o) { return o.id; }),
+      villainLastAction: va ? va.type : null
+    };
+  }
+
+  function renderVillainLegend(opts) {
+    opts = opts || {};
+    var heroCode = opts.heroCode || null;
+    var villainCode = opts.hideVillainCards ? null : (opts.villainCode || null);
+    var html = '<div class="range-matrix-legend range-matrix-legend-compact">';
+    html += '<span><i class="value"></i> Valor</span>';
+    html += '<span><i class="semibluff"></i> Semibluff</span>';
+    html += '<span><i class="call"></i> Núcleo GTO</span>';
+    html += '<span><i class="borderline"></i> Borderline</span>';
+    html += '<span><i class="bluff"></i> Farol</span>';
+    html += '<span><i class="capped"></i> Capado</span>';
+    html += '<span><i class="fold"></i> Fuera</span>';
+    if (heroCode) html += '<span><i class="hero-mark"></i> Tu mano</span>';
+    if (villainCode) html += '<span><i class="villain-mark"></i> Villano</span>';
+    return html + '</div>';
+  }
+
+  function renderMatrixGrid(result, opts) {
+    opts = opts || {};
+    var ranks = result.ranks;
+    var heroCode = opts.heroCode || null;
+    var villainCode = opts.hideVillainCards ? null : (opts.villainCode || null);
+    var mode = opts.mode || 'gto';
+    var html = '';
+    if (mode === 'villain' && opts.showLegend !== false) {
+      html += renderVillainLegend(opts);
+    }
+    html += '<div class="range-matrix-wrap range-matrix-wrap-compact"><div class="range-matrix-grid">';
+    html += '<div class="rm-corner"></div>';
+    ranks.forEach(function (r) { html += '<div class="rm-label">' + r + '</div>'; });
+    for (var row = 0; row < 13; row++) {
+      html += '<div class="rm-label">' + ranks[row] + '</div>';
+      for (var col = 0; col < 13; col++) {
+        var cell = result.cells[row][col];
+        var isHero = heroCode && cell.label === heroCode;
+        var isVillain = villainCode && cell.label === villainCode;
+        var cls = 'rm-cell ' + cell.action;
+        if (isHero) cls += ' hero';
+        if (isVillain) cls += ' villain';
+        if (mode === 'villain') {
+          html += '<div class="' + cls + '" title="' + escapeHtml(cell.title || cell.label) + '">' + cell.label + '</div>';
+        } else {
+          var mixStyle = cellMixStyle(cell.freqs);
+          html += '<div class="' + cls + ' rm-cell-mix" style="' + mixStyle + '" title="' + cell.label + ': R' + Math.round(cell.freqs.raise * 100) + '% C' + Math.round(cell.freqs.call * 100) + '% F' + Math.round(cell.freqs.fold * 100) + '%">' + cell.label + '</div>';
+        }
+      }
+    }
+    return html + '</div></div>';
+  }
+
+  function getVillainMatrixProfileLive(hand, decision) {
+    var ctx = buildVillainMatrixContext(hand, decision, 'trainer');
+    ctx.villainCards = [];
+    ctx.villainCode = null;
+    var VT = global.GTOVillainTracking;
+    if (!VT || !VT.buildVillainMatrixProfile) {
+      return computeVillainRangeMatrix(decision.villainRange || D().BROAD_CONTINUE).profile;
+    }
+    return VT.buildVillainMatrixProfile(ctx);
+  }
+
+  global.PTRangeMatrix = {
+    RANKS,
+    EXPLORER_SPOTS,
+    POSTFLOP_STREETS,
+    POSTFLOP_EXPLORER,
+    SQUEEZE_COMBOS,
+    cellLabel,
+    collapseStrategy,
+    dominantAction,
+    cellMixStyle,
+    buildBaseInput,
+    buildExplorerInput,
+    applyOpenSizing,
+    buildPostflopExplorerInput,
+    computePostflopFreqMatrixAsync,
+    computeFreqMatrixAsync,
+    parseBoardText,
+    postflopBoardCount,
+    explorerTitle,
+    explorerCtx,
+    heroPositionsForSpot,
+    villainPositionsForSpot,
+    validVsRfiPairs,
+    validVs3betPairs,
+    validSqueezeHeroes,
+    validSqueezeOpeners,
+    validSqueezeCallers,
+    defaultCallerForSqueeze,
+    computeGtoMatrixAsync,
+    computeVillainRangeMatrix,
+    getVillainRangeForDecision,
+    getVillainMatrixProfile,
+    buildVillainActionLine,
+    findDecisionIndex,
+    heroCardsFromHand,
+    villainCardsFromHand,
+    villainCodeFromHand,
+    boardSliceForStreet,
+    shortRange,
+    expandRangeSet,
+    decisionFromLiveHand,
+    renderMatrixGrid,
+    renderVillainLegend,
+    getVillainMatrixProfileLive
+  };
+})(window);

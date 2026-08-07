@@ -15,24 +15,29 @@
       trainer_hands_per_day: 15,
       import_sessions_per_month: 1,
       max_hands_per_import: 200,
-      ai_reports_per_month: 0,
-      history_days: 30
+      ai_reports_per_month: 3,
+      history_days: 30,
+      analysis_hands_max: 5
     },
     pro: {
       trainer_hands_per_day: null,
       import_sessions_per_month: null,
       max_hands_per_import: null,
-      ai_reports_per_month: 5,
-      history_days: null
+      ai_reports_per_month: 40,
+      history_days: null,
+      analysis_hands_max: 20
     },
     premium: {
       trainer_hands_per_day: null,
       import_sessions_per_month: null,
       max_hands_per_import: null,
-      ai_reports_per_month: 35,
-      history_days: null
+      ai_reports_per_month: 150,
+      history_days: null,
+      analysis_hands_max: 100
     }
   };
+
+  var ANALYSIS_HANDS_MAX = { free: 5, pro: 20, premium: 100 };
 
   var state = null;
   var loading = null;
@@ -90,7 +95,8 @@
       import_sessions_per_month: lim.import_sessions_per_month != null ? lim.import_sessions_per_month : defaults.import_sessions_per_month,
       max_hands_per_import: lim.max_hands_per_import != null ? lim.max_hands_per_import : defaults.max_hands_per_import,
       ai_reports_per_month: lim.ai_reports_per_month != null ? lim.ai_reports_per_month : defaults.ai_reports_per_month,
-      history_days: lim.history_days != null ? lim.history_days : defaults.history_days
+      history_days: lim.history_days != null ? lim.history_days : defaults.history_days,
+      analysis_hands_max: lim.analysis_hands_max != null ? lim.analysis_hands_max : defaults.analysis_hands_max
     };
     var usage = data.usage || {};
     data.usage = {
@@ -164,7 +170,11 @@
     if (global.PTAuth && global.PTAuth.renderAccountMenu) {
       global.PTAuth.renderAccountMenu(u);
     }
-    if (global.PTAdmin && global.PTAdmin.initForUser) {
+    if (u.isAdmin && global.PTLoader) {
+      global.PTLoader.ensure('admin').then(function () {
+        if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(u);
+      }).catch(function (e) { console.warn('[PTAdmin]', e); });
+    } else if (global.PTAdmin && global.PTAdmin.initForUser) {
       global.PTAdmin.initForUser(u);
     }
   }
@@ -320,7 +330,7 @@
   }
 
   async function recordImportSession(handCount) {
-    if (!useAuth()) return { ok: true };
+    if (!useAuth() || e2eBypass()) return { ok: true };
     var c = client();
     if (!c) return { ok: true };
     var rpc = demoActive() ? 'pt_demo_record_import_session' : 'pt_record_import_session';
@@ -329,6 +339,25 @@
     if (res.error) return { ok: false, error: res.error.message };
     await refresh();
     return res.data || { ok: true };
+  }
+
+  function analysisHandsMax(ent) {
+    ent = ent || state || localFallback();
+    if (ent.is_admin || isAdmin()) return 1000;
+    var lim = ent.limits || {};
+    if (typeof lim.analysis_hands_max === 'number') return lim.analysis_hands_max;
+    var plan = ent.plan || 'free';
+    return ANALYSIS_HANDS_MAX[plan] != null ? ANALYSIS_HANDS_MAX[plan] : ANALYSIS_HANDS_MAX.free;
+  }
+
+  function canSaveAnalysisHand(currentCount, ent) {
+    ent = ent || state || localFallback();
+    var max = analysisHandsMax(ent);
+    var count = Number(currentCount) || 0;
+    if (count >= max) {
+      return { ok: false, reason: 'analysis_limit', used: count, limit: max, plan: ent.plan || 'free' };
+    }
+    return { ok: true, used: count, limit: max };
   }
 
   function historyCutoffDate(ent) {
@@ -351,6 +380,8 @@
     aiQuotaSummary: aiQuotaSummary,
     canStartTrainerHand: canStartTrainerHand,
     canImportSession: canImportSession,
+    analysisHandsMax: analysisHandsMax,
+    canSaveAnalysisHand: canSaveAnalysisHand,
     recordTrainerHand: recordTrainerHand,
     recordImportSession: recordImportSession,
     historyCutoffDate: historyCutoffDate,

@@ -10,15 +10,12 @@ drop policy if exists "insert_own" on public.pt_user_state;
 drop policy if exists "update_own" on public.pt_user_state;
 drop policy if exists "delete_own" on public.pt_user_state;
 
--- Lectura: fila con auth.uid() o legado Google sub (migración).
+-- Lectura / escritura: solo la fila del JWT (auth.uid()).
 create policy "select_own"
 on public.pt_user_state
 for select
 to authenticated
-using (
-  user_id = auth.uid()::text
-  or user_id = coalesce(auth.jwt() -> 'user_metadata' ->> 'sub', '')
-);
+using (user_id = auth.uid()::text);
 
 create policy "insert_own"
 on public.pt_user_state
@@ -30,17 +27,11 @@ create policy "update_own"
 on public.pt_user_state
 for update
 to authenticated
-using (
-  user_id = auth.uid()::text
-  or user_id = coalesce(auth.jwt() -> 'user_metadata' ->> 'sub', '')
-)
+using (user_id = auth.uid()::text)
 with check (user_id = auth.uid()::text);
 
 create policy "delete_own"
 on public.pt_user_state
 for delete
 to authenticated
-using (
-  user_id = auth.uid()::text
-  or user_id = coalesce(auth.jwt() -> 'user_metadata' ->> 'sub', '')
-);
+using (user_id = auth.uid()::text);

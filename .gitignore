@@ -9,6 +9,7 @@ desktop.ini
 
 # Node (si se añade tooling)
 node_modules/
+# dist/ se versiona: Pages despliega desde la rama main y necesita los bundles.
 
 # Logs
 *.log
@@ -20,6 +21,10 @@ sesiones/*.txt
 # Supabase CLI local / binarios
 supabase/.temp/
 tools/bin/
+
+# Generado en deploy (GitHub Pages); no versionar — un build desfasado
+# provoca bucle de reload en build-guard.js (rompe E2E local/CI).
+deploy-info.json
 
 # Playwright
 /test-results/

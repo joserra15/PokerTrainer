@@ -1,0 +1,513 @@
+/* PokerForgeAI bundle: pt-contact.js — do not edit */
+/*
+ * contact.js — Formulario de contacto y conversación con administración.
+ */
+(function (global) {
+  'use strict';
+
+  var TITLE_MAX = 200;
+  var BODY_MAX = 3000;
+  var POPUP_KEY = 'pt_contact_pending_popup';
+  var pollTimer = null;
+  var pendingPopupInfo = null;
+  var pendingPopupTimer = null;
+  var pendingPopupBound = false;
+
+  function $(sel) { return document.querySelector(sel); }
+
+  function currentAuthUser() {
+    return global.PTAuth && global.PTAuth.getUser
+      ? global.PTAuth.getUser()
+      : global.PT_AUTH_USER;
+  }
+
+  function popupStorageKey() {
+    var u = currentAuthUser();
+    if (!u || !u.sub) return POPUP_KEY;
+    // Una vez por login (loginAt); un refresh de la misma sesión no lo repite.
+    return POPUP_KEY + '_' + u.sub + '_' + String(u.loginAt || 0);
+  }
+
+  function wasPendingPopupShown() {
+    try { return sessionStorage.getItem(popupStorageKey()) === '1'; } catch (e) { return false; }
+  }
+
+  function markPendingPopupShown() {
+    try { sessionStorage.setItem(popupStorageKey(), '1'); } catch (e) { /* noop */ }
+  }
+
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function client() {
+    return global.PTSupabase && global.PTSupabase.getClient
+      ? global.PTSupabase.getClient()
+      : null;
+  }
+
+  function isLoggedIn() {
+    return !!(global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser());
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleString('es-ES', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) { return iso; }
+  }
+
+  function updateTabBadge(n) {
+    var tab = document.querySelector('.tab[data-tab="contact"]');
+    if (!tab) return;
+    var badge = tab.querySelector('.tab-badge');
+    if (!n || n <= 0) {
+      if (badge) badge.remove();
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'tab-badge';
+      tab.appendChild(badge);
+    }
+    badge.textContent = n > 99 ? '99+' : String(n);
+  }
+
+  async function fetchUnreadCount() {
+    var c = client();
+    if (!c || !isLoggedIn()) {
+      updateTabBadge(0);
+      return 0;
+    }
+    var res = await c.rpc('pt_contact_unread_count');
+    if (res.error) return 0;
+    var n = Number(res.data) || 0;
+    updateTabBadge(n);
+    return n;
+  }
+
+  function clearHomeNotice() {
+    var host = document.getElementById('home-contact-notice');
+    if (!host) return;
+    host.classList.add('hidden');
+    host.innerHTML = '';
+  }
+
+  function openContactThread(threadId) {
+    if (global.goToTab) {
+      global.goToTab('contact', { threadId: threadId || null });
+      return;
+    }
+    global.dispatchEvent(new CustomEvent('pt-go-tab', {
+      detail: { tab: 'contact', threadId: threadId || null }
+    }));
+  }
+
+  function isModalOpen(id) {
+    var el = document.getElementById(id);
+    return !!(el && !el.classList.contains('hidden'));
+  }
+
+  function canShowPendingPopup() {
+    if (!isLoggedIn()) return false;
+    if (document.body.classList.contains('home-boot-active')) return false;
+    if (document.body.classList.contains('age-gate-open')) return false;
+    if (isModalOpen('age-gate-modal')) return false;
+    if (isModalOpen('paywall-modal')) return false;
+    if (isModalOpen('modal')) return false;
+    if (isModalOpen('help-modal')) return false;
+    return true;
+  }
+
+  function hidePendingPopup() {
+    var modal = document.getElementById('contact-pending-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function bindPendingPopupOnce() {
+    if (pendingPopupBound) return;
+    var modal = document.getElementById('contact-pending-modal');
+    if (!modal) return;
+    pendingPopupBound = true;
+
+    var closeBtn = document.getElementById('contact-pending-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function () {
+        hidePendingPopup();
+      });
+    }
+
+    var openBtn = document.getElementById('contact-pending-open');
+    if (openBtn) {
+      openBtn.addEventListener('click', function () {
+        var threadId = openBtn.getAttribute('data-thread-id') || null;
+        hidePendingPopup();
+        openContactThread(threadId);
+      });
+    }
+
+    modal.addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'contact-pending-modal') hidePendingPopup();
+    });
+  }
+
+  function showPendingPopup(info) {
+    var modal = document.getElementById('contact-pending-modal');
+    var title = document.getElementById('contact-pending-title');
+    var body = document.getElementById('contact-pending-body');
+    var openBtn = document.getElementById('contact-pending-open');
+    if (!modal || !info || !info.primary) return;
+
+    bindPendingPopupOnce();
+
+    var primary = info.primary;
+    var totalUnread = info.totalUnread || 1;
+    var more = info.more || 0;
+    var subject = primary.subject || 'Conversación';
+    var countLabel = totalUnread === 1
+      ? '1 mensaje nuevo'
+      : totalUnread + ' mensajes nuevos';
+    var moreLabel = more > 0
+      ? ' y ' + more + ' conversación' + (more === 1 ? '' : 'es') + ' más'
+      : '';
+
+    if (title) {
+      title.textContent = totalUnread === 1
+        ? 'Tienes un mensaje de soporte'
+        : 'Tienes mensajes de soporte';
+    }
+    if (body) {
+      body.textContent = 'PokerForgeAI te ha escrito (' + countLabel +
+        '). Asunto: ' + subject + moreLabel + '. Ábrelo en Contacto para leerlo.';
+    }
+    if (openBtn) {
+      openBtn.setAttribute('data-thread-id', primary.id || '');
+      openBtn.textContent = totalUnread === 1 ? 'Ver mensaje' : 'Ver mensajes';
+    }
+
+    modal.classList.remove('hidden');
+    markPendingPopupShown();
+    pendingPopupInfo = null;
+  }
+
+  function attemptPendingPopup() {
+    if (!pendingPopupInfo || wasPendingPopupShown()) {
+      pendingPopupInfo = null;
+      return;
+    }
+    if (!canShowPendingPopup()) {
+      if (pendingPopupTimer) return;
+      pendingPopupTimer = setTimeout(function () {
+        pendingPopupTimer = null;
+        attemptPendingPopup();
+      }, 400);
+      return;
+    }
+    showPendingPopup(pendingPopupInfo);
+  }
+
+  function maybeShowPendingPopup(unread, totalUnread) {
+    if (!unread || !unread.length) {
+      pendingPopupInfo = null;
+      return;
+    }
+    if (wasPendingPopupShown()) return;
+    if (isModalOpen('contact-pending-modal')) return;
+
+    pendingPopupInfo = {
+      primary: unread[0],
+      totalUnread: totalUnread,
+      more: unread.length - 1
+    };
+    attemptPendingPopup();
+  }
+
+  async function renderHomeNotice() {
+    var host = document.getElementById('home-contact-notice');
+    if (!host) return;
+
+    if (!isLoggedIn()) {
+      clearHomeNotice();
+      hidePendingPopup();
+      return;
+    }
+
+    var c = client();
+    if (!c) {
+      clearHomeNotice();
+      return;
+    }
+
+    var listRes = await c.rpc('pt_contact_my_threads');
+    if (listRes.error) {
+      clearHomeNotice();
+      return;
+    }
+
+    var unread = (listRes.data || []).filter(function (t) {
+      return t && (Number(t.user_unread_count) || 0) > 0;
+    });
+    var totalUnread = unread.reduce(function (sum, t) {
+      return sum + (Number(t.user_unread_count) || 0);
+    }, 0);
+    updateTabBadge(totalUnread);
+
+    if (!unread.length) {
+      clearHomeNotice();
+      pendingPopupInfo = null;
+      return;
+    }
+
+    var primary = unread[0];
+    var more = unread.length - 1;
+    var subject = primary.subject || 'Conversación';
+    var meta = more > 0
+      ? ' y ' + more + ' conversación' + (more === 1 ? '' : 'es') + ' más'
+      : '';
+    var countLabel = totalUnread === 1
+      ? '1 mensaje nuevo'
+      : totalUnread + ' mensajes nuevos';
+
+    host.innerHTML =
+      '<button type="button" class="home-contact-notice-btn" data-home-contact-thread="' +
+      escapeHtml(primary.id) + '">' +
+      '<span class="home-contact-notice-icon" aria-hidden="true">' +
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">' +
+      '<path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg></span>' +
+      '<span class="home-contact-notice-copy">' +
+      '<strong>PokerForgeAI te ha escrito</strong>' +
+      '<span class="home-contact-notice-meta">' + escapeHtml(countLabel) +
+      ' · ' + escapeHtml(subject) + escapeHtml(meta) + '</span>' +
+      '</span>' +
+      '<span class="home-contact-notice-cta">Ver mensaje</span>' +
+      '</button>';
+    host.classList.remove('hidden');
+
+    var btn = host.querySelector('[data-home-contact-thread]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        openContactThread(btn.getAttribute('data-home-contact-thread'));
+      });
+    }
+
+    maybeShowPendingPopup(unread, totalUnread);
+  }
+
+  function renderMessageList(messages) {
+    if (!messages || !messages.length) {
+      return '<p class="muted-text">Sin mensajes.</p>';
+    }
+    return messages.map(function (m) {
+      var cls = m.sender_role === 'admin' ? 'contact-msg admin' : 'contact-msg user';
+      var who = m.sender_role === 'admin' ? 'Soporte' : 'Tú';
+      return '<div class="' + cls + '">' +
+        '<div class="contact-msg-head"><strong>' + escapeHtml(who) + '</strong>' +
+        '<span class="muted-text">' + escapeHtml(formatDate(m.created_at)) + '</span></div>' +
+        '<div class="contact-msg-body">' + escapeHtml(m.body).replace(/\n/g, '<br>') + '</div></div>';
+    }).join('');
+  }
+
+  function renderThreadList(threads, activeId) {
+    if (!threads.length) {
+      return '<p class="muted-text">Aún no has enviado mensajes. Usa el formulario para abrir una consulta.</p>';
+    }
+    return threads.map(function (t) {
+      var active = t.id === activeId ? ' contact-thread-active' : '';
+      var unread = t.user_unread_count > 0 ? ' contact-thread-unread' : '';
+      return '<button type="button" class="contact-thread-item' + active + unread + '" data-thread-id="' + escapeHtml(t.id) + '">' +
+        '<span class="contact-thread-subject">' + escapeHtml(t.subject) + '</span>' +
+        '<span class="contact-thread-meta muted-text">' + escapeHtml(formatDate(t.last_message_at)) +
+        (t.user_unread_count > 0 ? ' · <strong>Nueva respuesta</strong>' : '') +
+        '</span></button>';
+    }).join('');
+  }
+
+  async function loadThread(threadId) {
+    var c = client();
+    if (!c) return null;
+    var res = await c.rpc('pt_contact_get_thread', { p_thread_id: threadId });
+    if (res.error) throw new Error(res.error.message || 'Error al cargar');
+    return res.data;
+  }
+
+  async function renderContactView(activeThreadId) {
+    var host = $('#contact-content');
+    if (!host) return;
+
+    if (!isLoggedIn()) {
+      host.innerHTML = '<div class="card-box"><p>Inicia sesión para enviarnos un mensaje o ver tus conversaciones con soporte.</p></div>';
+      return;
+    }
+
+    host.innerHTML = '<div class="contact-loading"><div class="play-boot-spinner"></div><p class="muted-text">Cargando…</p></div>';
+    var c = client();
+    if (!c) {
+      host.innerHTML = '<p class="admin-error">Contacto no disponible (Supabase no configurado).</p>';
+      return;
+    }
+
+    var listRes = await c.rpc('pt_contact_my_threads');
+    if (listRes.error) {
+      host.innerHTML = '<p class="admin-error">' + escapeHtml(listRes.error.message) + '</p>';
+      return;
+    }
+    var threads = listRes.data || [];
+
+    var detailHtml = '';
+    var currentId = activeThreadId;
+    if (!currentId) {
+      var firstUnread = threads.find(function (t) {
+        return t && (Number(t.user_unread_count) || 0) > 0;
+      });
+      if (firstUnread) currentId = firstUnread.id;
+      else if (threads.length) currentId = threads[0].id;
+    }
+
+    if (currentId) {
+      try {
+        var data = await loadThread(currentId);
+        var th = data.thread || {};
+        var msgs = data.messages || [];
+        detailHtml = '<div class="contact-detail card-box">' +
+          '<div class="contact-detail-head">' +
+          '<h3>' + escapeHtml(th.subject) + '</h3>' +
+          '<button type="button" class="btn btn-danger btn-sm contact-delete-thread" data-thread-id="' + escapeHtml(th.id) + '" title="Eliminar conversación">Eliminar conversación</button>' +
+          '</div>' +
+          '<div class="contact-messages">' + renderMessageList(msgs) + '</div>' +
+          (th.status === 'open'
+            ? '<form class="contact-reply-form" data-thread-id="' + escapeHtml(th.id) + '">' +
+              '<label>Tu respuesta<textarea name="body" rows="4" maxlength="' + BODY_MAX + '" required placeholder="Escribe tu mensaje…"></textarea></label>' +
+              '<p class="muted-text contact-char-hint">Máx. ' + BODY_MAX + ' caracteres</p>' +
+              '<button type="submit" class="btn btn-primary">Enviar respuesta</button></form>'
+            : '<p class="muted-text">Esta conversación está cerrada.</p>') +
+          '</div>';
+      } catch (e) {
+        detailHtml = '<p class="admin-error">' + escapeHtml(e.message) + '</p>';
+      }
+    }
+
+    host.innerHTML =
+      '<div class="contact-layout">' +
+      '<div class="contact-sidebar card-box">' +
+      '<h3>Tus conversaciones</h3>' +
+      '<div class="contact-thread-list">' + renderThreadList(threads, currentId) + '</div>' +
+      '</div>' +
+      '<div class="contact-main">' +
+      detailHtml +
+      '<div class="contact-new card-box">' +
+      '<h3>Nueva consulta</h3>' +
+      '<form id="contact-new-form">' +
+      '<label>Título<input type="text" name="subject" maxlength="' + TITLE_MAX + '" required placeholder="Ej.: Problema al importar sesión Winamax"></label>' +
+      '<label>Mensaje<textarea name="body" rows="6" maxlength="' + BODY_MAX + '" required placeholder="Describe tu consulta con el máximo detalle posible…"></textarea></label>' +
+      '<p class="muted-text contact-char-hint">Título máx. ' + TITLE_MAX + ' · Mensaje máx. ' + BODY_MAX + ' caracteres</p>' +
+      '<button type="submit" class="btn btn-primary">Enviar mensaje</button>' +
+      '</form></div></div></div>';
+
+    host.querySelectorAll('.contact-thread-item').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        renderContactView(btn.getAttribute('data-thread-id'));
+      });
+    });
+
+    var newForm = $('#contact-new-form');
+    if (newForm) {
+      newForm.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var subj = (newForm.subject.value || '').trim();
+        var body = (newForm.body.value || '').trim();
+        if (subj.length < 3 || body.length < 5) {
+          alert('Completa título y mensaje.');
+          return;
+        }
+        var btn = newForm.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        var res = await c.rpc('pt_contact_create_thread', { p_subject: subj, p_body: body });
+        if (btn) btn.disabled = false;
+        if (res.error) {
+          alert('No se pudo enviar: ' + (res.error.message || 'error'));
+          return;
+        }
+        var tid = res.data && res.data.thread_id;
+        renderContactView(tid);
+      });
+    }
+
+    host.querySelectorAll('.contact-reply-form').forEach(function (form) {
+      form.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var tid = form.getAttribute('data-thread-id');
+        var body = (form.body.value || '').trim();
+        if (!body) return;
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        var res = await c.rpc('pt_contact_user_reply', { p_thread_id: tid, p_body: body });
+        if (btn) btn.disabled = false;
+        if (res.error) {
+          alert('No se pudo enviar: ' + (res.error.message || 'error'));
+          return;
+        }
+        renderContactView(tid);
+      });
+    });
+
+    host.querySelectorAll('.contact-delete-thread').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var tid = btn.getAttribute('data-thread-id');
+        if (!tid) return;
+        if (!confirm('¿Eliminar esta conversación? Se borrarán todos los mensajes y no se puede deshacer.')) return;
+        btn.disabled = true;
+        var res = await c.rpc('pt_contact_delete_thread', { p_thread_id: tid });
+        if (res.error) {
+          btn.disabled = false;
+          alert('No se pudo eliminar: ' + (res.error.message || 'error'));
+          return;
+        }
+        renderContactView(null);
+      });
+    });
+
+    await fetchUnreadCount();
+    renderHomeNotice();
+  }
+
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(function () {
+      if (isLoggedIn()) {
+        fetchUnreadCount();
+        renderHomeNotice();
+      }
+    }, 60000);
+  }
+
+  function init() {
+    bindPendingPopupOnce();
+    fetchUnreadCount();
+    renderHomeNotice();
+    startPolling();
+    global.addEventListener('pt-auth-ready', function () {
+      fetchUnreadCount();
+      renderHomeNotice();
+    });
+    global.addEventListener('pt-cloud-login-sync-finished', function () {
+      attemptPendingPopup();
+    });
+  }
+
+  global.PTContact = {
+    init: init,
+    render: renderContactView,
+    refreshBadge: fetchUnreadCount,
+    renderHomeNotice: renderHomeNotice,
+    maybeShowPendingPopup: maybeShowPendingPopup,
+    hidePendingPopup: hidePendingPopup
+  };
+
+  init();
+})(window);

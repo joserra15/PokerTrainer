@@ -17,7 +17,16 @@ test.describe('Modo Jugar', () => {
     const actionBtn = page.locator('#actions .btn').first();
     await actionBtn.click();
 
-    await expect(page.locator('#verdict-toast.visible')).toBeVisible({ timeout: 15000 });
+    // Si la acción cierra la mano (p. ej. fold), el pop-up de fin de mano
+    // oculta el toast a propósito. Aceptamos cualquiera de las dos señales.
+    const toast = page.locator('#verdict-toast.visible');
+    const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
+    await expect(toast.or(handEnd)).toBeVisible({ timeout: 15000 });
+
+    if (await handEnd.isVisible()) {
+      await expect(handEnd.locator('.hand-end-popup-stats .lbl', { hasText: /Puntuaci[oó]n de la mano/i })).toBeVisible();
+      await expect(handEnd.locator('.hand-score-optimal')).toBeVisible();
+    }
   });
 });
 

@@ -157,6 +157,59 @@ Responde centrándote en la pregunta con datos del JSON. Sé práctico y directo
 Responde markdown en español. Título breve relacionado con la pregunta.
 La respuesta debe quedar COMPLETA, sin cortarse al final. Cierra con una recomendación accionable en la app.`;
 
+const HOME_GREETING_PROMPT = `${COACH_IDENTITY}
+
+Es un SALUDO BREVE de inicio de sesión (2 o 3 frases máximo en texto plano).
+El JSON incluye estadísticas/leaks y, si viene, greetingFocus con el foco de entrenamiento elegido hoy y avoidRecent (focos ya recomendados recientemente).
+
+REGLAS DE VARIEDAD (obligatorias):
+- Debes recomendar ESPECÍFICAMENTE el foco indicado en greetingFocus.label (o el spot concreto de greetingFocus.spot si viene).
+- NO repitas focos listados en avoidRecent.
+- Varía el tono: a veces motivador, a veces directo, a veces con un reto concreto; no uses siempre las mismas frases de apertura.
+- Si no hay estadíticas aún, da la bienvenida y anima a empezar por ese foco en el entrenador.
+- Sin títulos, sin markdown, sin listas ni emojis. Solo el texto del saludo.
+- Menciona el entrenamiento de forma accionable (qué configurar o qué practicar hoy).`;
+
+const LEARN_QUESTION_PROMPT = `${COACH_IDENTITY}
+
+El usuario está en la Guía para principiantes de PokerForgeAI. Puede ser nuevo en el póker o tener nivel bajo.
+Recibes JSON con contexto beginner=true y una PREGUNTA.
+
+Explica conceptos de NL Hold'em 6-max cash en español claro, sin jerga innecesaria. Si usas un término técnico (GTO, RFI, 3-bet, c-bet, equity, pot odds…), defínelo en una frase.
+Usa ejemplos sencillos (cartas, posiciones UTG–BTN–blinds, tamaños en bb).
+Puedes recomendar practicar spots concretos en el entrenador de la app o seguir leyendo la guía.
+NO asumas que domina GTO ni soluce spots avanzados.
+Responde markdown en español. Título breve. Respuesta COMPLETA. Cierra con un tip práctico o una pregunta para seguir aprendiendo.`;
+
+const PARSE_HAND_PROMPT = `Eres un parser experto de manos de poker NL Hold'em 6-max/9-max cash. Recibes la DESCRIPCIÓN EN TEXTO LIBRE de una mano (en español) escrita por un usuario: posiciones, cartas del héroe, cartas de villanos si se conocen, cartas comunitarias y las acciones por calle.
+
+Tu tarea es DEVOLVER SOLO UN OBJETO JSON VÁLIDO (sin markdown, sin explicación fuera del JSON) con esta forma EXACTA:
+
+{
+  "format": "6max" | "9max",
+  "heroPos": "UTG"|"UTG1"|"UTG2"|"LJ"|"HJ"|"CO"|"BTN"|"SB"|"BB",
+  "heroCards": ["Ah","Kd"],
+  "villains": [ { "pos": "BTN", "cards": ["Qs","Qd"] } ],
+  "board": ["9c","Tc","8c","6s","2h"],
+  "actions": {
+    "preflop": [ { "pos": "CO", "action": "raise"|"call"|"fold"|"check"|"bet", "amountBB": 3 } ],
+    "flop": [],
+    "turn": [],
+    "river": []
+  },
+  "analysis": "Análisis breve de la mano en español (markdown permitido dentro de este string)."
+}
+
+REGLAS ESTRICTAS:
+- Cartas SIEMPRE en formato de 2 caracteres: rango (2-9,T,J,Q,K,A) + palo en minúscula (s,h,d,c). Ejemplo: "As","Th","9c". La T es el 10.
+- "amountBB" es el TOTAL en ciegas grandes (bb) al que se sube o apuesta. Para raise = tamaño total (p.ej. open a 3 → 3; 3-bet a 9 → 9). Para bet = tamaño de la apuesta en bb. Para call/check/fold usa 0 o null.
+- Incluye en "actions" TODAS las acciones en orden real, incluida la del héroe. Usa las posiciones como identificador de cada jugador.
+- Incluye en "villains" TODOS los jugadores que no son el héroe y que aparecen en "actions" (aunque no se conozcan sus cartas). Si no hay cartas, usa "cards": [].
+- "board" puede tener 0, 3, 4 o 5 cartas. Si no se menciona flop/turn/river, deja las que falten fuera del array.
+- Si una carta de villano no se conoce, omite "cards" o deja [] en ese villano. NUNCA omitas al villano del array solo porque no se conozcan sus cartas.
+- Si un dato no está en el texto, haz la inferencia más razonable y coherente (por ejemplo, las ciegas se postean solas). NUNCA inventes cartas que contradigan el texto.
+- No incluyas comentarios ni texto fuera del objeto JSON.`;
+
 interface GeminiPart {
   text?: string;
   thought?: boolean;
@@ -168,7 +221,7 @@ interface ThreadTurn {
   reportMarkdown?: string;
 }
 
-type AiMode = 'report' | 'question' | 'session_report' | 'session_question' | 'stats_report' | 'stats_question';
+type AiMode = 'report' | 'question' | 'session_report' | 'session_question' | 'stats_report' | 'stats_question' | 'parse_hand';
 
 const QUESTION_MAX = 500;
 const THREAD_MAX = 4;
@@ -180,6 +233,7 @@ function normalizeMode(raw: unknown): AiMode {
   if (raw === 'session_question') return 'session_question';
   if (raw === 'stats_report') return 'stats_report';
   if (raw === 'stats_question') return 'stats_question';
+  if (raw === 'parse_hand') return 'parse_hand';
   return 'report';
 }
 
@@ -204,21 +258,49 @@ function sanitizeThread(raw: unknown): ThreadTurn[] {
   }).filter((t) => t.reportMarkdown || t.question);
 }
 
-function promptForMode(mode: AiMode): string {
+function isBeginnerLearnPayload(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  const p = payload as Record<string, unknown>;
+  return p.beginner === true || p.src === 'learn';
+}
+
+function isHomeGreetingPayload(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  const p = payload as Record<string, unknown>;
+  return !!(p.greetingFocus && typeof p.greetingFocus === 'object');
+}
+
+function promptForMode(mode: AiMode, payload?: unknown, freePromo?: boolean): string {
+  if (mode === 'parse_hand') return PARSE_HAND_PROMPT;
   if (mode === 'session_report') return SESSION_REPORT_PROMPT;
   if (mode === 'session_question') return SESSION_QUESTION_PROMPT;
   if (mode === 'stats_report') return STATS_REPORT_PROMPT;
-  if (mode === 'stats_question') return STATS_QUESTION_PROMPT;
+  if (mode === 'stats_question') {
+    if (freePromo || isHomeGreetingPayload(payload)) return HOME_GREETING_PROMPT;
+    if (isBeginnerLearnPayload(payload)) return LEARN_QUESTION_PROMPT;
+    return STATS_QUESTION_PROMPT;
+  }
   if (mode === 'question') return QUESTION_PROMPT;
   return REPORT_PROMPT;
 }
 
 function userContentForMode(mode: AiMode, payload: unknown, question: string | null): string {
   const json = JSON.stringify(payload);
+  if (mode === 'parse_hand') {
+    const p = (payload && typeof payload === 'object') ? payload as Record<string, unknown> : {};
+    const rawText = typeof p.rawText === 'string' ? p.rawText : '';
+    return 'Descripción de la mano a parsear a JSON:\n' + rawText;
+  }
   if (mode === 'session_question') {
     return 'Pregunta del usuario:\n' + question + '\n\nSesión (JSON):\n' + json;
   }
   if (mode === 'stats_question') {
+    if (isHomeGreetingPayload(payload)) {
+      return 'Saludo de bienvenida / recomendación del día:\n' + question + '\n\nEstadísticas y foco (JSON):\n' + json;
+    }
+    if (isBeginnerLearnPayload(payload)) {
+      return 'Pregunta del alumno principiante:\n' + question + '\n\nContexto guía (JSON):\n' + json;
+    }
     return 'Pregunta del usuario:\n' + question + '\n\nEstadísticas del entrenador (JSON):\n' + json;
   }
   if (mode === 'session_report') {
@@ -534,10 +616,18 @@ async function callGemini(
   const isSession = mode.startsWith('session_');
   const isStats = mode.startsWith('stats_');
   const isQuestion = mode.endsWith('question');
+  const isParse = mode === 'parse_hand';
   const model = 'gemini-2.5-flash';
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/' + model +
     ':generateContent?key=' + geminiKey;
+
+  const generationConfig: Record<string, unknown> = {
+    temperature: isParse ? 0.15 : (isQuestion ? 0.4 : 0.35),
+    maxOutputTokens: isParse ? 4096 : (isQuestion ? 4096 : ((isSession || isStats) ? 4096 : 2048)),
+    thinkingConfig: { thinkingBudget: 0 }
+  };
+  if (isParse) generationConfig.responseMimeType = 'application/json';
 
   const geminiRes = await fetch(url, {
     method: 'POST',
@@ -545,11 +635,7 @@ async function callGemini(
     body: JSON.stringify({
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents,
-      generationConfig: {
-        temperature: isQuestion ? 0.4 : 0.35,
-        maxOutputTokens: isQuestion ? 4096 : ((isSession || isStats) ? 4096 : 2048),
-        thinkingConfig: { thinkingBudget: 0 }
-      }
+      generationConfig
     })
   });
 
@@ -676,6 +762,14 @@ serve(async (req) => {
   if ((mode === 'question' || mode === 'session_question' || mode === 'stats_question') && !question) {
     return json({ error: 'missing_question' }, 400);
   }
+  if (mode === 'parse_hand') {
+    const p = body.payload as Record<string, unknown>;
+    const rawText = typeof p?.rawText === 'string' ? p.rawText.trim() : '';
+    if (!rawText) return json({ error: 'missing_hand_text' }, 400);
+    if (rawText.length > 4000) {
+      (body.payload as Record<string, unknown>).rawText = rawText.slice(0, 4000);
+    }
+  }
 
   const thread = mode.endsWith('question') ? sanitizeThread(body.thread) : [];
   const rawPayload = body.payload as PayloadRecord;
@@ -684,7 +778,7 @@ serve(async (req) => {
     ? await enrichPayload(admin, billingUserId, mode, rawPayload)
     : rawPayload;
 
-  const systemPrompt = promptForMode(mode);
+  const systemPrompt = promptForMode(mode, enrichedPayload, freePromo);
   const userContent = userContentForMode(mode, enrichedPayload, question);
 
   let access: { ok: true; source: string; unlimited: boolean } | Awaited<ReturnType<typeof checkAiAccess>>;
@@ -713,6 +807,33 @@ serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'gemini_error';
     return json({ error: msg }, msg === 'empty_response' ? 502 : 502);
+  }
+
+  if (mode === 'parse_hand') {
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(result.text);
+    } catch {
+      const m = result.text.match(/\{[\s\S]*\}/);
+      if (m) {
+        try { parsed = JSON.parse(m[0]); } catch { parsed = null; }
+      }
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      return json({ error: 'parse_failed' }, 502);
+    }
+    if (!freePromo) {
+      await recordAiUsage(billingUserId, mode, access.source || 'plan');
+    }
+    const parsedObj = parsed as Record<string, unknown>;
+    const analysisMarkdown = typeof parsedObj.analysis === 'string' ? parsedObj.analysis : '';
+    return json({
+      hand: parsedObj,
+      analysisMarkdown: analysisMarkdown,
+      model: result.model,
+      mode: mode,
+      createdAt: new Date().toISOString()
+    });
   }
 
   const truncated = !coachResponseComplete(mode, result.text, result.finishReason || '');

@@ -11,7 +11,9 @@
 | `session_report` | Sesión importada | `SESSION_REPORT_PROMPT` | JSON sesión completa |
 | `session_question` | Pregunta sesión | `SESSION_QUESTION_PROMPT` | Pregunta + JSON sesión |
 | `stats_report` | Estadísticas globales | `STATS_REPORT_PROMPT` | JSON progreso + leaks |
-| `stats_question` | Pregunta stats | `STATS_QUESTION_PROMPT` | Pregunta + JSON stats |
+| `stats_question` | Pregunta stats | `STATS_QUESTION_PROMPT` (o `HOME_GREETING_PROMPT` / `LEARN_QUESTION_PROMPT`) | Pregunta + JSON stats |
+| — | Saludo login (freePromo) | `HOME_GREETING_PROMPT` | Saludo + JSON con `greetingFocus` |
+| — | Guía principiantes | `LEARN_QUESTION_PROMPT` | Pregunta + JSON `beginner`/`src:learn` |
 
 Cada consulta consume 1 crédito (plan o bono). El hilo conversacional (últimas 10 respuestas) se guarda en cliente; **no se reenvía al modelo** hoy.
 

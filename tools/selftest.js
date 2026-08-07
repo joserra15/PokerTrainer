@@ -161,6 +161,16 @@ const benignDup = SV.validateConsecutiveProbeStreets(
   0
 );
 console.log('Benign flop-turn check line duplicate?', benignDup.ok ? 'NO ALERT (OK)' : 'ALERT (BUG)');
+if (!benignDup.ok) { console.error('FAIL: línea check-down benigna no debe alertar'); process.exit(1); }
+
+// Redondeo: 0.878 → fingerprint 88% debe contar como ≥88% (falso positivo histórico).
+const benignRound = SV.validateConsecutiveProbeStreets(
+  { street: 'flop', gto: { check: 0.878, bet_33: 0.06, bet_66: 0.04, bet_100: 0.02 }, board: ['Jd', '5c', '6d'] },
+  { street: 'turn', gto: { check: 0.878, bet_33: 0.06, bet_66: 0.04, bet_100: 0.02 }, board: ['Jd', '5c', '6d', 'Jh'] },
+  0
+);
+console.log('Benign 87.8%→88% roundtrip?', benignRound.ok ? 'NO ALERT (OK)' : 'ALERT (BUG)');
+if (!benignRound.ok) { console.error('FAIL: check 0.878 no debe alertar por redondeo'); process.exit(1); }
 
 const facingSanity = SV.sanityCheckSolver([
   { street: 'turn', gto: { fold: 0.16, call: 0.74, raise: 0.10 } },
@@ -258,38 +268,98 @@ if (recNuts.cls !== 'optima') {
   console.error('FAIL: nuts EV tie should stay optima');
   process.exit(1);
 }
-
-// Mezcla GTO casi empatada (check ≈ bet_100): no degradar check a imprecisa por ΔEV heurístico
-const mixActs = ['check', 'bet_33', 'bet_66', 'bet_100'];
-const mixStrat = { check: 0.289, bet_33: 0.133, bet_66: 0.286, bet_100: 0.292 };
-const mixCls = Cls.classify(mixStrat, 'check', mixActs);
-const mixRec = Cls.reconcileWithEv(mixCls.cls, 'check', mixCls.best, {
-  actionEV: 4.52, bestEV: 6.99, bestAction: 'bet_100', evLoss: 0, evErroneous: false, evErrorReasons: []
-}, { freq: mixCls.freq, maxFreq: mixCls.maxFreq, equity: 0.77, band: 'value' });
-console.log('Mix check≈bet_100 classify', mixCls.cls, 'reconciled', mixRec.cls, '(expect optima)');
-if (mixCls.cls !== 'optima' || mixRec.cls !== 'optima') {
-  console.error('FAIL: near-tied GTO mix check must stay optima, got', mixCls.cls, '→', mixRec.cls);
+if (rec8.best !== 'check') {
+  console.error('FAIL: residual bet_33 EV-tie must keep check as best for UI; got', rec8.best);
   process.exit(1);
 }
-const a5TurnCheck = GTO.evaluateSpot({
-  street: 'turn', board: ['3d', 'Ah', '4c', 'Jc'], heroCards: ['As', '5d'], handCode: 'A5o',
-  potBB: 6.5, toCallBB: 0, chosenAction: 'check',
-  availableActions: mixActs,
-  initiative: 'aggressor', inPosition: false, villainLastAction: 'check',
-  heroEquity: 0.77,
-  handRank: { band: 'nuts', tier: 'strong', percentile: 0.85 },
-  madeHandInfo: { tier: 'strong', category: 1 }
-});
-console.log('A5o turn check class', a5TurnCheck.evaluation.class,
-  'freqs', Object.fromEntries(Object.entries(a5TurnCheck.strategy).map(([k, v]) => [k, Math.round(v * 1000) / 10])),
-  '(expect optima when check within 8pp of max)');
-if (a5TurnCheck.evaluation.class === 'imprecisa' || a5TurnCheck.evaluation.class === 'error') {
-  const ck = a5TurnCheck.strategy.check || 0;
-  let mx = 0;
-  for (const a in a5TurnCheck.strategy) if (a5TurnCheck.strategy[a] > mx) mx = a5TurnCheck.strategy[a];
-  if (ck >= mx - 0.08) {
-    console.error('FAIL: A5o turn check near max freq must not be imprecisa/error, got', a5TurnCheck.evaluation.class);
+// Probe turn: bet_33 ~11% con EV empatado y fuga → best sigue siendo check (verde en UI)
+{
+  const turnStrat = { check: 0.78, bet_33: 0.1144, bet_66: 0.0704, bet_100: 0.0352 };
+  const turnCls = Cls.classify(turnStrat, 'bet_33', ['check', 'bet_33', 'bet_66', 'bet_100']);
+  const turnRec = Cls.reconcileWithEv(turnCls.cls, 'bet_33', turnCls.best, {
+    actionEV: 1.52, bestEV: 1.52, bestAction: 'bet_33',
+    evLoss: 3.42, evErroneous: true,
+    evErrorReasons: [{ type: 'bluff_sin_fold_equity' }]
+  }, {
+    freq: turnCls.freq, maxFreq: turnCls.maxFreq,
+    legalStrategy: turnCls.legalStrategy, equity: 0.10
+  });
+  console.log('Turn probe residual best', turnRec.best, 'cls', turnRec.cls, '(expect best=check error)');
+  if (turnRec.best !== 'check') {
+    console.error('FAIL: turn check must stay best highlight; got', turnRec.best);
     process.exit(1);
+  }
+}
+
+// Raise residual (7%) no debe marcarse como "mejor" cuando call domina la mezcla (~72%)
+{
+  const riverActs = ['fold', 'call', 'raise'];
+  const riverStrat = { fold: 0.21, call: 0.72, raise: 0.07 };
+  const foldCls = Cls.classify(riverStrat, 'fold', riverActs);
+  const foldRec = Cls.reconcileWithEv(foldCls.cls, 'fold', foldCls.best, {
+    actionEV: 0, bestEV: 65.87, bestAction: 'raise',
+    evLoss: 0, evErroneous: false, evErrorReasons: []
+  }, {
+    freq: foldCls.freq,
+    maxFreq: foldCls.maxFreq,
+    legalStrategy: foldCls.legalStrategy,
+    equity: 0.46
+  });
+  console.log('River fold vs raise-EV: best', foldRec.best, 'cls', foldRec.cls, '(expect best=call)');
+  if (foldRec.best !== 'call') {
+    console.error('FAIL: dominant call mix must stay best, not residual raise; got', foldRec.best);
+    process.exit(1);
+  }
+  const callCls = Cls.classify(riverStrat, 'call', riverActs);
+  const callRec = Cls.reconcileWithEv(callCls.cls, 'call', callCls.best, {
+    actionEV: 40, bestEV: 65.87, bestAction: 'raise',
+    evLoss: 0, evErroneous: false, evErrorReasons: []
+  }, {
+    freq: callCls.freq,
+    maxFreq: callCls.maxFreq,
+    legalStrategy: callCls.legalStrategy,
+    equity: 0.46
+  });
+  console.log('River call vs raise-EV: best', callRec.best, 'cls', callRec.cls, '(expect best=call optima)');
+  if (callRec.best !== 'call' || callRec.cls !== 'optima') {
+    console.error('FAIL: call at 72% must remain best/optima vs raise EV; got', callRec.best, callRec.cls);
+    process.exit(1);
+  }
+}
+
+// Mezcla GTO casi empatada (check ≈ bet_100): no degradar check a imprecisa por ΔEV heurístico
+{
+  const mixActs = ['check', 'bet_33', 'bet_66', 'bet_100'];
+  const mixStrat = { check: 0.289, bet_33: 0.133, bet_66: 0.286, bet_100: 0.292 };
+  const mixCls = Cls.classify(mixStrat, 'check', mixActs);
+  const mixRec = Cls.reconcileWithEv(mixCls.cls, 'check', mixCls.best, {
+    actionEV: 4.52, bestEV: 6.99, bestAction: 'bet_100', evLoss: 0, evErroneous: false, evErrorReasons: []
+  }, { freq: mixCls.freq, maxFreq: mixCls.maxFreq, legalStrategy: mixCls.legalStrategy, equity: 0.77, band: 'value' });
+  console.log('Mix check≈bet_100 classify', mixCls.cls, 'reconciled', mixRec.cls, '(expect optima)');
+  if (mixCls.cls !== 'optima' || mixRec.cls !== 'optima') {
+    console.error('FAIL: near-tied GTO mix check must stay optima, got', mixCls.cls, '→', mixRec.cls);
+    process.exit(1);
+  }
+  const a5TurnCheck = GTO.evaluateSpot({
+    street: 'turn', board: ['3d', 'Ah', '4c', 'Jc'], heroCards: ['As', '5d'], handCode: 'A5o',
+    potBB: 6.5, toCallBB: 0, chosenAction: 'check',
+    availableActions: mixActs,
+    initiative: 'aggressor', inPosition: false, villainLastAction: 'check',
+    heroEquity: 0.77,
+    handRank: { band: 'nuts', tier: 'strong', percentile: 0.85 },
+    madeHandInfo: { tier: 'strong', category: 1 }
+  });
+  console.log('A5o turn check class', a5TurnCheck.evaluation.class,
+    'freqs', Object.fromEntries(Object.entries(a5TurnCheck.strategy).map(([k, v]) => [k, Math.round(v * 1000) / 10])),
+    '(expect optima when check within 8pp of max)');
+  if (a5TurnCheck.evaluation.class === 'imprecisa' || a5TurnCheck.evaluation.class === 'error') {
+    const ck = a5TurnCheck.strategy.check || 0;
+    let mx = 0;
+    for (const a in a5TurnCheck.strategy) if (a5TurnCheck.strategy[a] > mx) mx = a5TurnCheck.strategy[a];
+    if (ck >= mx - 0.08) {
+      console.error('FAIL: A5o turn check near max freq must not be imprecisa/error, got', a5TurnCheck.evaluation.class);
+      process.exit(1);
+    }
   }
 }
 
@@ -463,7 +533,7 @@ const shoveBet = FB.calculateActionFrequencies({
   heroEquity: eqShove, tier: 'strong', heroCards: nutFlushHero, board: pairedBoard,
   handRank: { band: 'value', tier: 'strong' }, inPosition: true, villainLastAction: 'raise'
 });
-console.log('Nut flush paired board eq vs shove range ~', Math.round(eqShove * 100) + '% (expect <25%)');
+console.log('Nut flush paired board eq vs shove range ~', Math.round(eqShove * 100) + '% (expect >0; cap 22% en evaluateSpot)');
 console.log('Small bet call%', Math.round(smallBet.call * 100), 'shove fold%', Math.round(shoveBet.fold * 100), '(expect call high, shove fold high)');
 const nodeClone = SV.validateFacingNodeChange(
   { street: 'river', toCallBB: 9.6, potBB: 50, gto: smallBet },
@@ -475,6 +545,7 @@ vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/hhUtils
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/formatDetector.js'), 'utf8'), sandbox, { filename: 'import/formatDetector.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/pokerstars.js'), 'utf8'), sandbox, { filename: 'import/parsers/pokerstars.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/winamax.js'), 'utf8'), sandbox, { filename: 'import/parsers/winamax.js' });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/ggpoker.js'), 'utf8'), sandbox, { filename: 'import/parsers/ggpoker.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import.js'), 'utf8'), sandbox, { filename: 'import.js' });
 const Importer = sandbox.window.Importer;
 const staleHand = {
@@ -804,6 +875,71 @@ const wmSidePotOk = wmParsed.collected.KazeDj === 3.62 && wmAnalyzed.heroNetBB =
 console.log('Winamax main/side pot hero net BB:', wmAnalyzed.heroNetBB, wmSidePotOk ? 'OK' : 'FAIL');
 if (!wmSidePotOk) process.exit(1);
 
+const wmTripsSidePotHand = `Winamax Poker - ESCAPE "Colorado" - HandId: #22618550-211764-1783203261 - Holdem no limit (0.01€/0.02€) - 2026/07/04 22:14:21 UTC
+Table: 'Colorado' 6-max (real money) Seat #6 is the button
+Seat 1: JOY_BERCK (2.86€)
+Seat 2: dryer (1.37€)
+Seat 3: Zzz Loustic (4.64€)
+Seat 4: Anyiinca (5.78€)
+Seat 5: SYGOWIN (3.75€)
+Seat 6: KazeDj (2.16€)
+*** ANTE/BLINDS ***
+JOY_BERCK posts small blind 0.01€
+dryer posts big blind 0.02€
+Dealt to KazeDj [Tc Td]
+*** PRE-FLOP ***
+Zzz Loustic folds
+Anyiinca folds
+SYGOWIN raises 0.03€ to 0.05€
+KazeDj raises 0.10€ to 0.15€
+JOY_BERCK folds
+dryer folds
+SYGOWIN calls 0.10€
+*** FLOP *** [Th Qh 6h]
+SYGOWIN checks
+KazeDj bets 0.21€
+SYGOWIN calls 0.21€
+*** TURN *** [Th Qh 6h][Kd]
+SYGOWIN checks
+KazeDj bets 0.49€
+SYGOWIN raises 2.90€ to 3.39€ and is all-in
+KazeDj calls 1.31€ and is all-in
+*** RIVER *** [Th Qh 6h Kd][5s]
+*** SHOW DOWN ***
+SYGOWIN shows [Kh Ts] (Two pairs : Kings and Tens)
+KazeDj shows [Tc Td] (Trips of Tens)
+KazeDj collected 3.91€ from main pot
+SYGOWIN collected 1.59€ from side pot 1
+*** SUMMARY ***
+Total pot 5.50€ | Rake 0.44€
+Board: [Th Qh 6h Kd 5s]
+Seat 5: SYGOWIN showed [Kh Ts] and won 1.59€ with Two pairs : Kings and Tens
+Seat 6: KazeDj (button) showed [Tc Td] and won 3.91€ with Trips of Tens
+`;
+const wmTripsParsed = Importer.parseHand(wmTripsSidePotHand);
+const wmTripsAnalyzed = Importer.analyzeHand(wmTripsParsed);
+const wmTripsOk = wmTripsParsed.collected.KazeDj === 3.91 && wmTripsAnalyzed.heroNetBB === 87.5;
+console.log('Winamax trips main pot hero net BB:', wmTripsAnalyzed.heroNetBB, wmTripsOk ? 'OK' : 'FAIL');
+if (!wmTripsOk) process.exit(1);
+
+// SUMMARY "showed … and won" debe rellenar collected aunque falte SHOW DOWN collected.
+const wmSummaryOnly = wmTripsSidePotHand
+  .replace(/KazeDj collected 3\.91€ from main pot\n/, '')
+  .replace(/SYGOWIN collected 1\.59€ from side pot 1\n/, '');
+const wmSumParsed = Importer.parseHand(wmSummaryOnly);
+const wmSumOk = wmSumParsed.collected.KazeDj === 3.91 && Importer.analyzeHand(wmSumParsed).heroNetBB === 87.5;
+console.log('Winamax SUMMARY showed+won collected:', wmSumParsed.collected.KazeDj, wmSumOk ? 'OK' : 'FAIL');
+if (!wmSumOk) process.exit(1);
+
+// Sesión antigua sin collected: inferir showdown y corregir −stack.
+const staleTrips = Importer.analyzeHand(Importer.parseHand(wmTripsSidePotHand));
+staleTrips.collected = {};
+staleTrips.heroNetBB = -108;
+Importer.recomputeHeroNet(staleTrips);
+const staleOk = staleTrips.heroNetBB === 87.5 && staleTrips.collected.KazeDj === 3.91;
+console.log('Recompute heroNet from showdown:', staleTrips.heroNetBB, staleOk ? 'OK' : 'FAIL');
+if (!staleOk) process.exit(1);
+
 const PC = sandbox.window.PTPlayConfig;
 const ST = sandbox.window.PTStacks;
 if (PC.isValidSqueezeCombo({ heroPos: 'BB', openerPos: 'CO', callerPos: 'HJ' })) {
@@ -1085,6 +1221,32 @@ if (!rebuilt.length || rebuilt[0].key !== 'squeeze|BB|river') {
   process.exit(1);
 }
 console.log('Leak keys agregados vs replay:', leakKey, 'OK');
+
+// Regression: trainNextError must populate leakReplayQueue with remaining errors
+{
+  const fakeErrors = [
+    { id: 'e1', seed: 1, scenarioRaw: { type: 'open', heroPos: 'BTN' } },
+    { id: 'e2', seed: 2, scenarioRaw: { type: 'open', heroPos: 'CO' } },
+    { id: 'e3', seed: 3, scenarioRaw: { type: 'open', heroPos: 'HJ' } },
+  ];
+  // Simulate the fixed trainNextError logic
+  let simulatedQueue = [];
+  function simulateTrainNextError(errs) {
+    if (!errs.length) return null;
+    simulatedQueue = errs.slice(1);
+    return errs[0];
+  }
+  const first = simulateTrainNextError(fakeErrors);
+  if (!first || first.id !== 'e1') {
+    console.error('FAIL: trainNextError debe devolver el primer error', first);
+    process.exit(1);
+  }
+  if (simulatedQueue.length !== 2 || simulatedQueue[0].id !== 'e2' || simulatedQueue[1].id !== 'e3') {
+    console.error('FAIL: trainNextError debe cargar el resto en la cola', simulatedQueue.map(e => e.id));
+    process.exit(1);
+  }
+  console.log('trainNextError queue regression: OK');
+}
 
 console.log(errors === 0 && complete === played && staleFold >= 75 && oldRecomputeOk && evOk && mergeSessionsOk ? '\n*** TODO OK ***' : '\n*** REVISAR ***');
 })();

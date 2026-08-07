@@ -134,6 +134,8 @@
     if (pct >= 0.62 || eq >= 0.58) return 'value';
     if (pct >= 0.42 || eq >= 0.42) return 'merge';
     if (pct >= 0.22 || eq >= 0.28) return 'bluffcatch';
+    // Pareja+ hecha (incl. board pair) no es aire puro: al menos bluffcatch.
+    if (madeInfo && madeInfo.ev && madeInfo.ev.category >= 1) return 'bluffcatch';
     return 'air';
   }
 

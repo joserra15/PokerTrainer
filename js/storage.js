@@ -205,6 +205,7 @@
     writeClearedAt(ca);
     if (key === 'stats') {
       try { localStorage.removeItem(scopedKey('stats_coach')); } catch (e) { /* noop */ }
+      try { localStorage.removeItem(scopedKey('learn_coach')); } catch (e) { /* noop */ }
     }
   }
 
@@ -433,7 +434,25 @@
         scenario: Object.assign({}, hand.replaySnapshot.scenario || {}),
         seed: hand.replaySnapshot.seed,
         playConfig: hand.replaySnapshot.playConfig ? Object.assign({}, hand.replaySnapshot.playConfig) : null,
-        displayHeroPos: hand.replaySnapshot.displayHeroPos || null
+        displayHeroPos: hand.replaySnapshot.displayHeroPos || null,
+        forceDeal: hand.replaySnapshot.forceDeal ? {
+          heroCards: (hand.replaySnapshot.forceDeal.heroCards || []).slice(),
+          villainCards: (hand.replaySnapshot.forceDeal.villainCards || []).slice(),
+          board: (hand.replaySnapshot.forceDeal.board || []).slice(),
+          villainPos: hand.replaySnapshot.forceDeal.villainPos || null
+        } : null,
+        forceScript: hand.replaySnapshot.forceScript ? {
+          heroPos: hand.replaySnapshot.forceScript.heroPos || null,
+          villainPos: hand.replaySnapshot.forceScript.villainPos || null,
+          actions: (hand.replaySnapshot.forceScript.actions || []).map(function (a) {
+            return {
+              street: a.street || null,
+              pos: a.pos,
+              action: a.action,
+              amountBB: a.amountBB != null ? a.amountBB : null
+            };
+          })
+        } : null
       } : null,
       heroPos: hand.hero.pos,
       heroCode: hand.hero.code,
@@ -443,6 +462,8 @@
       board: r.board || hand.board,
       heroNet: r.heroNet || 0,
       totalEvLoss: r.totalEvLoss || 0,
+      handScore: r.handScore != null ? r.handScore : (hand.handScore != null ? hand.handScore : null),
+      handScoreMeta: r.handScoreMeta || hand.handScoreMeta || null,
       nErrors: r.nErrors || 0,
       showdown: !!r.showdown,
       reason: r.reason || '',
@@ -962,11 +983,61 @@
     return thread.slice(0, COACH_THREAD_MAX);
   }
 
-  /** target: { kind: 'history'|'session'|'sessionHand'|'stats', handId?, sessionId? } */
+  // ---------- MANOS DE ANÁLISIS (menú "Análisis de manos") ----------
+  const ANALYSIS_KEY = 'analysis_hands';
+
+  function getAnalysisHands() {
+    const list = read(scopedKey(ANALYSIS_KEY), []);
+    return Array.isArray(list) ? list : [];
+  }
+
+  function getAnalysisHand(id) {
+    return getAnalysisHands().find(function (h) { return h.id === id; }) || null;
+  }
+
+  function saveAnalysisHand(hand) {
+    if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
+    const list = getAnalysisHands();
+    if (list.some(function (h) { return h.id === hand.id; })) {
+      return updateAnalysisHand(hand);
+    }
+    list.unshift(hand);
+    if (!write(scopedKey(ANALYSIS_KEY), list)) {
+      return { ok: false, error: 'storage_full' };
+    }
+    return { ok: true, hand: hand, count: list.length };
+  }
+
+  function updateAnalysisHand(hand) {
+    if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
+    const list = getAnalysisHands();
+    const idx = list.findIndex(function (h) { return h.id === hand.id; });
+    if (idx < 0) return { ok: false, error: 'hand_not_found' };
+    list[idx] = hand;
+    if (!write(scopedKey(ANALYSIS_KEY), list)) {
+      return { ok: false, error: 'storage_full' };
+    }
+    return { ok: true, hand: hand, count: list.length };
+  }
+
+  function removeAnalysisHand(id) {
+    const list = getAnalysisHands().filter(function (h) { return h.id !== id; });
+    write(scopedKey(ANALYSIS_KEY), list);
+    return { ok: true, count: list.length };
+  }
+
+  /** target: { kind: 'history'|'session'|'sessionHand'|'stats'|'learn'|'analysis', handId?, sessionId? } */
   function getCoachThread(target) {
     if (!target || !target.kind) return [];
     if (target.kind === 'stats') {
       return read(scopedKey('stats_coach'), []);
+    }
+    if (target.kind === 'learn') {
+      return read(scopedKey('learn_coach'), []);
+    }
+    if (target.kind === 'analysis' && target.handId) {
+      const rec = getAnalysisHand(target.handId);
+      return rec && rec.coachThread ? rec.coachThread.slice() : [];
     }
     if (target.kind === 'history' && target.handId) {
       const rec = getHistory().find(function (h) { return h.id === target.handId; });
@@ -998,6 +1069,27 @@
         return Promise.resolve({ ok: false, error: 'storage_full' });
       }
       return Promise.resolve({ ok: true, entry: e, thread: thread.slice() });
+    }
+
+    if (target.kind === 'learn') {
+      let thread = read(scopedKey('learn_coach'), []);
+      thread.unshift(e);
+      thread = trimCoachThread(thread);
+      if (!write(scopedKey('learn_coach'), thread)) {
+        return Promise.resolve({ ok: false, error: 'storage_full' });
+      }
+      return Promise.resolve({ ok: true, entry: e, thread: thread.slice() });
+    }
+
+    if (target.kind === 'analysis' && target.handId) {
+      const rec = getAnalysisHand(target.handId);
+      if (!rec) return Promise.resolve({ ok: false, error: 'hand_not_found' });
+      if (!rec.coachThread) rec.coachThread = [];
+      rec.coachThread.unshift(e);
+      rec.coachThread = trimCoachThread(rec.coachThread);
+      const res = updateAnalysisHand(rec);
+      if (!res.ok) return Promise.resolve({ ok: false, error: res.error || 'storage_full' });
+      return Promise.resolve({ ok: true, entry: e, thread: rec.coachThread.slice() });
     }
 
     if (target.kind === 'history' && target.handId) {
@@ -1043,6 +1135,98 @@
     return Promise.resolve({ ok: false, error: 'invalid_target' });
   }
 
+  function getFavoriteSpots() {
+    return read(scopedKey('rangeFavorites'), []);
+  }
+
+  function normalizeFavoriteStreet(spot) {
+    if (!spot) return 'preflop';
+    if (spot.street === 'flop' || spot.street === 'turn' || spot.street === 'river' || spot.street === 'preflop') {
+      return spot.street;
+    }
+    if (spot.spot === 'postflop') return 'flop';
+    return 'preflop';
+  }
+
+  function favoriteSpotKey(spot) {
+    if (!spot) return '';
+    const street = normalizeFavoriteStreet(spot);
+    const parts = [
+      street,
+      spot.gameType || 'cash6',
+      spot.stackDepth || 'standard',
+      spot.spot || '',
+      spot.heroPos || '',
+      spot.villainPos || '',
+      spot.callerPos || '',
+      spot.openSize || 2.5
+    ];
+    if (street !== 'preflop') {
+      parts.push(spot.boardText || '');
+      parts.push(spot.potBB != null ? String(spot.potBB) : '');
+      parts.push(spot.toCallBB != null ? String(spot.toCallBB) : '');
+    }
+    return parts.join('|');
+  }
+
+  function isFavoriteSpot(spot) {
+    const key = favoriteSpotKey(spot);
+    return getFavoriteSpots().some(function (f) { return favoriteSpotKey(f) === key; });
+  }
+
+  function serializeFavoriteSpot(spot) {
+    const street = normalizeFavoriteStreet(spot);
+    const entry = {
+      street: street,
+      gameType: spot.gameType || 'cash6',
+      stackDepth: spot.stackDepth || 'standard',
+      spot: spot.spot || (street === 'preflop' ? 'RFI' : 'postflop'),
+      heroPos: spot.heroPos || '',
+      villainPos: spot.villainPos || '',
+      callerPos: spot.callerPos || '',
+      openSize: Number(spot.openSize) === 3 ? 3 : 2.5,
+      label: spot.label || '',
+      savedAt: new Date().toISOString()
+    };
+    if (street !== 'preflop') {
+      entry.boardText = spot.boardText || '';
+      entry.potBB = spot.potBB != null ? Number(spot.potBB) : 6;
+      entry.toCallBB = spot.toCallBB != null ? Number(spot.toCallBB) : 0;
+    }
+    return entry;
+  }
+
+  function toggleFavoriteSpot(spot) {
+    if (!spot || !(spot.spot || spot.street)) return { ok: false, favorites: getFavoriteSpots() };
+    const key = favoriteSpotKey(spot);
+    let list = getFavoriteSpots().slice();
+    const idx = list.findIndex(function (f) { return favoriteSpotKey(f) === key; });
+    if (idx >= 0) list.splice(idx, 1);
+    else {
+      list.unshift(serializeFavoriteSpot(spot));
+      if (list.length > 20) list = list.slice(0, 20);
+    }
+    write(scopedKey('rangeFavorites'), list);
+    return { ok: true, favorites: list, favorited: idx < 0 };
+  }
+
+  function removeFavoriteSpot(spotOrKey) {
+    let list = getFavoriteSpots().slice();
+    const key = typeof spotOrKey === 'string' ? spotOrKey : favoriteSpotKey(spotOrKey);
+    if (!key) return { ok: false, favorites: list };
+    const next = list.filter(function (f) { return favoriteSpotKey(f) !== key; });
+    if (next.length === list.length) return { ok: false, favorites: list };
+    write(scopedKey('rangeFavorites'), next);
+    return { ok: true, favorites: next };
+  }
+
+  function getFavoriteSpotsForStreet(street) {
+    const st = street || 'preflop';
+    return getFavoriteSpots().filter(function (f) {
+      return normalizeFavoriteStreet(f) === st;
+    });
+  }
+
   global.Store = {
     setUserId,
     getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
@@ -1053,6 +1237,9 @@
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
-    getCoachThread, appendCoachEntry
+    getCoachThread, appendCoachEntry,
+    getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
+    getFavoriteSpots, getFavoriteSpotsForStreet, isFavoriteSpot, toggleFavoriteSpot,
+    removeFavoriteSpot, favoriteSpotKey, normalizeFavoriteStreet
   };
 })(window);

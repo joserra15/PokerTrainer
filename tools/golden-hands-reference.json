@@ -1,0 +1,70 @@
+{
+  "seed": 42,
+  "toleranceBB": 0.35,
+  "hands": [
+    {
+      "file": "Poker56.txt",
+      "id": "261078602161",
+      "heroCode": "J9s",
+      "expectedEvLoss": 7,
+      "minDecisions": 1
+    },
+    {
+      "file": "Poker56.txt",
+      "id": "261078498514",
+      "heroCode": "A5o",
+      "expectedEvLoss": 7.02,
+      "minDecisions": 1
+    },
+    {
+      "file": "Poker56.txt",
+      "id": "261078480487",
+      "heroCode": "A4o",
+      "expectedEvLoss": 4.5,
+      "minDecisions": 1
+    },
+    {
+      "file": "Poker91.txt",
+      "id": "261475753277",
+      "heroCode": "AQo",
+      "expectedEvLoss": 0.52,
+      "minDecisions": 1
+    },
+    {
+      "file": "Poker91.txt",
+      "id": "261465695578",
+      "heroCode": "54o",
+      "expectedEvLoss": 14.08,
+      "minDecisions": 1
+    },
+    {
+      "file": "GGPoker-sample.txt",
+      "id": "HD123456789",
+      "heroCode": null,
+      "expectedEvLoss": 0,
+      "minDecisions": 1
+    },
+    {
+      "file": "GGPoker-sample.txt",
+      "id": "HD123456791",
+      "heroCode": null,
+      "expectedEvLoss": 0,
+      "minDecisions": 1
+    },
+    {
+      "file": "Winamax-sample.txt",
+      "id": null,
+      "index": 0,
+      "heroCode": null,
+      "expectedEvLoss": 0,
+      "minDecisions": 1
+    },
+    {
+      "file": "PokerEN-sample.txt",
+      "id": "261319635753",
+      "heroCode": null,
+      "expectedEvLoss": 0,
+      "minDecisions": 1
+    }
+  ]
+}

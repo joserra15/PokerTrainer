@@ -171,6 +171,11 @@
         acc: w.accuracy,
         ev: w.evLoss,
         net: w.netBB,
+        vpip: w.vpipPct,
+        pfr: w.pfrPct,
+        threeBet: w.threeBetPct,
+        cbetFlop: w.cbetFlopPct,
+        af: w.af,
         src: 'imported'
       };
     });
@@ -199,7 +204,7 @@
       trend: trend || undefined
     };
     return {
-      src: 'statsGlobal',
+      src: data.beginner === true ? 'learn' : 'statsGlobal',
       st: {
         hands: st.handsPlayed || 0,
         decisions: total,
@@ -228,10 +233,22 @@
         hands: sessTot.hands,
         acc: sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : null,
         evLost: Math.round(sessTot.evLoss * 100) / 100,
-        net: Math.round(sessTot.netBB * 100) / 100
+        net: Math.round(sessTot.netBB * 100) / 100,
+        vpip: sessTot.vpipPct != null ? sessTot.vpipPct : null,
+        pfr: sessTot.pfrPct != null ? sessTot.pfrPct : null,
+        threeBet: sessTot.threeBetPct != null ? sessTot.threeBetPct : null,
+        cbetFlop: sessTot.cbetFlopPct != null ? sessTot.cbetFlopPct : null,
+        foldToCbet: sessTot.foldToCbetFlopPct != null ? sessTot.foldToCbetFlopPct : null,
+        af: sessTot.af != null ? sessTot.af : null,
+        afq: sessTot.afq != null ? sessTot.afq : null,
+        wtsd: sessTot.wtsdPct != null ? sessTot.wtsdPct : null,
+        wwsf: sessTot.wwsfPct != null ? sessTot.wwsfPct : null,
+        bbPer100: sessTot.bbPer100 != null ? sessTot.bbPer100 : null
       } : undefined,
       player: player,
-      solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.'
+      solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.',
+      greetingFocus: data.greetingFocus || undefined,
+      beginner: data.beginner === true ? true : undefined
     };
   }
 
@@ -247,7 +264,7 @@
   }
   function build(source, handObj) {
     if (!handObj) return null;
-    if (source === 'statsGlobal') return buildStats(handObj);
+    if (source === 'statsGlobal' || source === 'learn') return buildStats(handObj);
     if (source === 'sessionGlobal') return buildSession(handObj);
     return source === 'session' ? fromSession(handObj) : fromTrainer(handObj);
   }
@@ -334,7 +351,31 @@
           e: dist.error || 0
         },
         pctLeak: st.pctDecision,
-        pctVar: st.pctVariance
+        pctVar: st.pctVariance,
+        vpip: st.vpipPct,
+        pfr: st.pfrPct,
+        vpipPfrNote: st.vpipPfr ? st.vpipPfr.comment : undefined,
+        threeBet: st.threeBetPct,
+        threeBetOpps: st.threeBetOpps,
+        foldTo3bet: st.foldToThreeBetPct,
+        steal: st.stealPct,
+        foldToSteal: st.foldToStealPct,
+        squeeze: st.squeezePct,
+        cbetFlop: st.cbetFlopPct,
+        cbetTurn: st.cbetTurnPct,
+        cbetRiver: st.cbetRiverPct,
+        foldToCbet: st.foldToCbetFlopPct,
+        af: st.af,
+        afq: st.afq,
+        wtsd: st.wtsdPct,
+        wsd: st.wsdPct,
+        wwsf: st.wwsfPct,
+        bbPer100: st.bbPer100,
+        format: st.format,
+        styleNote: st.styleAssess ? st.styleAssess.comment : undefined,
+        drills: st.styleAssess && st.styleAssess.drills
+          ? st.styleAssess.drills.map(function (d) { return d.label; })
+          : undefined
       },
       solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=id|mano pos|net|ev|wc'
     };

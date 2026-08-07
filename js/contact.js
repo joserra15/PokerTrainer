@@ -6,9 +6,34 @@
 
   var TITLE_MAX = 200;
   var BODY_MAX = 3000;
+  var POPUP_KEY = 'pt_contact_pending_popup';
   var pollTimer = null;
+  var pendingPopupInfo = null;
+  var pendingPopupTimer = null;
+  var pendingPopupBound = false;
 
   function $(sel) { return document.querySelector(sel); }
+
+  function currentAuthUser() {
+    return global.PTAuth && global.PTAuth.getUser
+      ? global.PTAuth.getUser()
+      : global.PT_AUTH_USER;
+  }
+
+  function popupStorageKey() {
+    var u = currentAuthUser();
+    if (!u || !u.sub) return POPUP_KEY;
+    // Una vez por login (loginAt); un refresh de la misma sesión no lo repite.
+    return POPUP_KEY + '_' + u.sub + '_' + String(u.loginAt || 0);
+  }
+
+  function wasPendingPopupShown() {
+    try { return sessionStorage.getItem(popupStorageKey()) === '1'; } catch (e) { return false; }
+  }
+
+  function markPendingPopupShown() {
+    try { sessionStorage.setItem(popupStorageKey(), '1'); } catch (e) { /* noop */ }
+  }
 
   function escapeHtml(s) {
     return String(s || '')
@@ -64,6 +89,213 @@
     var n = Number(res.data) || 0;
     updateTabBadge(n);
     return n;
+  }
+
+  function clearHomeNotice() {
+    var host = document.getElementById('home-contact-notice');
+    if (!host) return;
+    host.classList.add('hidden');
+    host.innerHTML = '';
+  }
+
+  function openContactThread(threadId) {
+    if (global.goToTab) {
+      global.goToTab('contact', { threadId: threadId || null });
+      return;
+    }
+    global.dispatchEvent(new CustomEvent('pt-go-tab', {
+      detail: { tab: 'contact', threadId: threadId || null }
+    }));
+  }
+
+  function isModalOpen(id) {
+    var el = document.getElementById(id);
+    return !!(el && !el.classList.contains('hidden'));
+  }
+
+  function canShowPendingPopup() {
+    if (!isLoggedIn()) return false;
+    if (document.body.classList.contains('home-boot-active')) return false;
+    if (document.body.classList.contains('age-gate-open')) return false;
+    if (isModalOpen('age-gate-modal')) return false;
+    if (isModalOpen('paywall-modal')) return false;
+    if (isModalOpen('modal')) return false;
+    if (isModalOpen('help-modal')) return false;
+    return true;
+  }
+
+  function hidePendingPopup() {
+    var modal = document.getElementById('contact-pending-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function bindPendingPopupOnce() {
+    if (pendingPopupBound) return;
+    var modal = document.getElementById('contact-pending-modal');
+    if (!modal) return;
+    pendingPopupBound = true;
+
+    var closeBtn = document.getElementById('contact-pending-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function () {
+        hidePendingPopup();
+      });
+    }
+
+    var openBtn = document.getElementById('contact-pending-open');
+    if (openBtn) {
+      openBtn.addEventListener('click', function () {
+        var threadId = openBtn.getAttribute('data-thread-id') || null;
+        hidePendingPopup();
+        openContactThread(threadId);
+      });
+    }
+
+    modal.addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'contact-pending-modal') hidePendingPopup();
+    });
+  }
+
+  function showPendingPopup(info) {
+    var modal = document.getElementById('contact-pending-modal');
+    var title = document.getElementById('contact-pending-title');
+    var body = document.getElementById('contact-pending-body');
+    var openBtn = document.getElementById('contact-pending-open');
+    if (!modal || !info || !info.primary) return;
+
+    bindPendingPopupOnce();
+
+    var primary = info.primary;
+    var totalUnread = info.totalUnread || 1;
+    var more = info.more || 0;
+    var subject = primary.subject || 'Conversación';
+    var countLabel = totalUnread === 1
+      ? '1 mensaje nuevo'
+      : totalUnread + ' mensajes nuevos';
+    var moreLabel = more > 0
+      ? ' y ' + more + ' conversación' + (more === 1 ? '' : 'es') + ' más'
+      : '';
+
+    if (title) {
+      title.textContent = totalUnread === 1
+        ? 'Tienes un mensaje de soporte'
+        : 'Tienes mensajes de soporte';
+    }
+    if (body) {
+      body.textContent = 'PokerForgeAI te ha escrito (' + countLabel +
+        '). Asunto: ' + subject + moreLabel + '. Ábrelo en Contacto para leerlo.';
+    }
+    if (openBtn) {
+      openBtn.setAttribute('data-thread-id', primary.id || '');
+      openBtn.textContent = totalUnread === 1 ? 'Ver mensaje' : 'Ver mensajes';
+    }
+
+    modal.classList.remove('hidden');
+    markPendingPopupShown();
+    pendingPopupInfo = null;
+  }
+
+  function attemptPendingPopup() {
+    if (!pendingPopupInfo || wasPendingPopupShown()) {
+      pendingPopupInfo = null;
+      return;
+    }
+    if (!canShowPendingPopup()) {
+      if (pendingPopupTimer) return;
+      pendingPopupTimer = setTimeout(function () {
+        pendingPopupTimer = null;
+        attemptPendingPopup();
+      }, 400);
+      return;
+    }
+    showPendingPopup(pendingPopupInfo);
+  }
+
+  function maybeShowPendingPopup(unread, totalUnread) {
+    if (!unread || !unread.length) {
+      pendingPopupInfo = null;
+      return;
+    }
+    if (wasPendingPopupShown()) return;
+    if (isModalOpen('contact-pending-modal')) return;
+
+    pendingPopupInfo = {
+      primary: unread[0],
+      totalUnread: totalUnread,
+      more: unread.length - 1
+    };
+    attemptPendingPopup();
+  }
+
+  async function renderHomeNotice() {
+    var host = document.getElementById('home-contact-notice');
+    if (!host) return;
+
+    if (!isLoggedIn()) {
+      clearHomeNotice();
+      hidePendingPopup();
+      return;
+    }
+
+    var c = client();
+    if (!c) {
+      clearHomeNotice();
+      return;
+    }
+
+    var listRes = await c.rpc('pt_contact_my_threads');
+    if (listRes.error) {
+      clearHomeNotice();
+      return;
+    }
+
+    var unread = (listRes.data || []).filter(function (t) {
+      return t && (Number(t.user_unread_count) || 0) > 0;
+    });
+    var totalUnread = unread.reduce(function (sum, t) {
+      return sum + (Number(t.user_unread_count) || 0);
+    }, 0);
+    updateTabBadge(totalUnread);
+
+    if (!unread.length) {
+      clearHomeNotice();
+      pendingPopupInfo = null;
+      return;
+    }
+
+    var primary = unread[0];
+    var more = unread.length - 1;
+    var subject = primary.subject || 'Conversación';
+    var meta = more > 0
+      ? ' y ' + more + ' conversación' + (more === 1 ? '' : 'es') + ' más'
+      : '';
+    var countLabel = totalUnread === 1
+      ? '1 mensaje nuevo'
+      : totalUnread + ' mensajes nuevos';
+
+    host.innerHTML =
+      '<button type="button" class="home-contact-notice-btn" data-home-contact-thread="' +
+      escapeHtml(primary.id) + '">' +
+      '<span class="home-contact-notice-icon" aria-hidden="true">' +
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">' +
+      '<path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg></span>' +
+      '<span class="home-contact-notice-copy">' +
+      '<strong>PokerForgeAI te ha escrito</strong>' +
+      '<span class="home-contact-notice-meta">' + escapeHtml(countLabel) +
+      ' · ' + escapeHtml(subject) + escapeHtml(meta) + '</span>' +
+      '</span>' +
+      '<span class="home-contact-notice-cta">Ver mensaje</span>' +
+      '</button>';
+    host.classList.remove('hidden');
+
+    var btn = host.querySelector('[data-home-contact-thread]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        openContactThread(btn.getAttribute('data-home-contact-thread'));
+      });
+    }
+
+    maybeShowPendingPopup(unread, totalUnread);
   }
 
   function renderMessageList(messages) {
@@ -125,11 +357,16 @@
       return;
     }
     var threads = listRes.data || [];
-    await fetchUnreadCount();
 
     var detailHtml = '';
     var currentId = activeThreadId;
-    if (!currentId && threads.length) currentId = threads[0].id;
+    if (!currentId) {
+      var firstUnread = threads.find(function (t) {
+        return t && (Number(t.user_unread_count) || 0) > 0;
+      });
+      if (firstUnread) currentId = firstUnread.id;
+      else if (threads.length) currentId = threads[0].id;
+    }
 
     if (currentId) {
       try {
@@ -233,27 +470,42 @@
         renderContactView(null);
       });
     });
+
+    await fetchUnreadCount();
+    renderHomeNotice();
   }
 
   function startPolling() {
     if (pollTimer) return;
     pollTimer = setInterval(function () {
-      if (isLoggedIn()) fetchUnreadCount();
+      if (isLoggedIn()) {
+        fetchUnreadCount();
+        renderHomeNotice();
+      }
     }, 60000);
   }
 
   function init() {
+    bindPendingPopupOnce();
     fetchUnreadCount();
+    renderHomeNotice();
     startPolling();
     global.addEventListener('pt-auth-ready', function () {
       fetchUnreadCount();
+      renderHomeNotice();
+    });
+    global.addEventListener('pt-cloud-login-sync-finished', function () {
+      attemptPendingPopup();
     });
   }
 
   global.PTContact = {
     init: init,
     render: renderContactView,
-    refreshBadge: fetchUnreadCount
+    refreshBadge: fetchUnreadCount,
+    renderHomeNotice: renderHomeNotice,
+    maybeShowPendingPopup: maybeShowPendingPopup,
+    hidePendingPopup: hidePendingPopup
   };
 
   init();

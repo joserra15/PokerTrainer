@@ -1,19 +1,21 @@
-# Simple workflow for deploying static content to GitHub Pages
+# Tests on push/PR to main. GitHub Pages publica desde la rama main (legacy).
+# No usar actions/deploy-pages aquí: compite con pages-build-deployment
+# y acaba en timeout (deployment_queued / Page build failed).
 name: Deploy static content to Pages
 
 on:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: "pages-tests"
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -25,46 +27,5 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Selftest
-        run: node tools/selftest.js
-      - name: Test importador ES/EN/Winamax
-        run: node tools/testimport.js
-      - name: Validar rangos JSON solver
-        run: node tools/validate-ranges-json.js
-      - name: Regresión EV Poker76
-        run: node tools/regression-poker76.js
-      - name: Regresión EV modo Jugar
-        run: node tools/test-play-ev.js
-      - name: Test payload informe IA
-        run: node tools/test-ai-payload.js
-      - name: Test river trips board doblado
-        run: node tools/test-river-trips.js
-
-  deploy:
-    needs: test
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Write deploy metadata
-        run: |
-          BUILD=$(grep -oP "PT_BUILD = '\\K[^']+" js/version.js)
-          printf '{"sha":"%s","run":%s,"built":"%s","build":"%s"}\n' \
-            "${{ github.sha }}" \
-            "${{ github.run_number }}" \
-            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            "$BUILD" \
-            > deploy-info.json
-          cat deploy-info.json
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: CI regression suite (test:ci)
+        run: npm run test:ci

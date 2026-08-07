@@ -189,14 +189,35 @@
   }
 
   var MESSAGES = {
-    trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día).',
-    import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis.',
-    import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos.',
-    ai_plan: 'El IA Coach requiere Study (5 consultas/mes), Coach (35/mes) o un bono de consultas. Los bonos están en la pestaña Planes.',
-    ai_limit: 'Has agotado tus consultas IA incluidas este mes. Compra un bono o sube de plan.',
+    trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día). Prueba Study 10 días o mejora tu plan.',
+    import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis (1/mes). Study incluye imports ilimitados.',
+    import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos por import.',
+    ai_plan: 'El IA Coach (añadir manos por texto, análisis y preguntas) requiere Study (40 consultas/mes), Coach (150/mes) o un bono. El plan Gratis no incluye IA. Los bonos están en la pestaña Planes.',
+    ai_limit: 'Has agotado tus consultas IA disponibles. Compra un bono o sube de plan para seguir añadiendo manos con IA, analizando o preguntando.',
     billing_not_configured: '',
-    no_subscription: ''
+    no_subscription: '',
+    trial_ended: 'Tu prueba de Study ha terminado. Elige un plan de pago para seguir sin límites.'
   };
+
+  function trialInfo() {
+    var t = cfg().trial;
+    if (!t || !t.days) return null;
+    return {
+      plan: t.plan || 'pro',
+      days: Number(t.days) || 10,
+      label: t.label || ('Prueba Study ' + (t.days || 10) + ' días'),
+      note: t.note || ''
+    };
+  }
+
+  function trialDaysLeft(ent) {
+    if (!ent || ent.subscription_status !== 'trialing') return null;
+    var end = ent.subscription_period_end;
+    if (!end) return null;
+    var ms = new Date(end).getTime() - Date.now();
+    if (isNaN(ms)) return null;
+    return Math.max(0, Math.ceil(ms / 86400000));
+  }
 
   function showPaywall(reason, customMsg) {
     var modal = document.getElementById('paywall-modal');
@@ -414,6 +435,8 @@
     annualUpsellHtml: annualUpsellHtml,
     mountAnnualUpsell: mountAnnualUpsell,
     isMonthlySubscriber: isMonthlySubscriber,
+    trialInfo: trialInfo,
+    trialDaysLeft: trialDaysLeft,
     promoBannerHtml: function () {
       return global.PTBillingPromo && global.PTBillingPromo.bannerHtml
         ? global.PTBillingPromo.bannerHtml() : '';

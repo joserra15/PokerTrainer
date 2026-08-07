@@ -4,7 +4,8 @@
 >
 > **Referencia de mercado:** Snowie ~30 $/mes o ~200 $/año · trial 10 días · un solo plan todo incluido.
 >
-> **Versión producto base:** v1.39.0 (julio 2026).
+> **Versión producto base:** v1.39.0 (julio 2026).  
+> **Actualización agosto 2026 (v1.60.x):** Live Advisor (SN-10–12), PWA (SN-50) y sesión demo (SN-04) están **hechos**. Pendientes clave: trial UX (SN-01–03), modo sesión (SN-14), GG import (SN-20), what-if (SN-40), comparativa landing (SN-54). Ver estudio completo en [`ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`](./ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md).
 
 ---
 

@@ -75,8 +75,16 @@
   <meta http-equiv="Expires" content="0" />
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://browser.sentry-cdn.com https://plausible.io https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://accounts.google.com https://plausible.io https://browser.sentry-cdn.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.de.sentry.io; frame-src https://accounts.google.com; font-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self';" />
   <title>PokerForgeAI · Entrenador GTO de poker NL Hold'em con IA Coach</title>
-  <script>document.write('<script src="js/version.js?t=' + Date.now() + '"><\/script>');</script>
-  <script>document.write('<script src="js/build-guard.js?t=' + Date.now() + '"><\/script>');</script>
+  <script src="js/version.js"></script>
+  <script src="js/bundle-chunks.js"></script>
+  <script src="js/pt-loader.js"></script>
+  <script>
+  (function () {
+    var s = document.createElement('script');
+    s.src = 'js/build-guard.js?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    document.head.appendChild(s);
+  })();
+  </script>
   <script>
   (function () {
     var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
@@ -90,18 +98,24 @@
       'js/seo-config.js',
       'js/analytics-config.js',
       'js/sentry-config.js',
+      'js/i18n.js',
       'js/legal.js',
       'js/analytics.js',
       'js/sentry.js',
       'js/log.js',
       'js/supabase-client.js',
       'js/cloud-store.js',
-      'js/cloud-sessions.js',
+      'js/promo-redeem.js',
       'js/landing.js',
       'js/auth-bootstrap.js'
     ];
     for (var i = 0; i < early.length; i++) {
-      document.write('<script src="' + early[i] + v + '"><\/script>');
+      var el = document.createElement('script');
+      el.src = early[i] + v;
+      // Preserve insertion order: dynamic scripts default to async and can
+      // run landing.js before i18n.js (pricing then shows raw keys).
+      el.async = false;
+      document.head.appendChild(el);
     }
   })();
   </script>
@@ -121,50 +135,74 @@
             <span>PokerForgeAI</span>
           </div>
           <nav class="landing-nav" aria-label="Secciones">
-            <a href="#landing-features">Funciones</a>
-            <a href="#landing-pricing">Planes</a>
-            <a href="legal/metodologia.html">Metodología GTO</a>
-            <a href="#landing-install">Instalar app</a>
-            <a href="legal/faq.html">FAQ</a>
-            <a href="legal/soporte.html">Soporte</a>
-            <button type="button" class="btn btn-primary btn-sm" data-landing-login>Entrar</button>
+            <a href="#landing-features" data-i18n="nav.features">Funciones</a>
+            <a href="#landing-pricing" data-i18n="nav.pricing">Planes</a>
+            <a href="#landing-install" data-i18n="nav.install">Instalar</a>
+            <a href="legal/metodologia.html" data-i18n="nav.method">Metodología</a>
+            <a href="blog/index.html">Blog</a>
+            <a href="legal/faq.html" data-i18n="nav.faq">FAQ</a>
+            <a href="legal/soporte.html" data-i18n="nav.support">Soporte</a>
+            <div class="landing-lang hidden" role="group" aria-label="Language" hidden>
+              <button type="button" class="btn btn-ghost btn-sm" data-set-lang="es">ES</button>
+              <button type="button" class="btn btn-ghost btn-sm" data-set-lang="en">EN</button>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" data-landing-login data-i18n="nav.login">Entrar</button>
           </nav>
         </header>
 
         <section class="landing-hero" id="landing-hero">
-          <p class="landing-eyebrow">Cash NL 6-max · MTT preflop</p>
           <div id="landing-promo-pill"></div>
-          <h1>Entrena GTO, importa tus sesiones y mejora con IA Coach</h1>
-          <p class="landing-lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV. También puedes instalarla en el móvil como app.</p>
+          <h1 data-i18n="hero.title">Entrena GTO, importa tus sesiones y mejora con IA Coach</h1>
+          <p class="landing-lead" data-i18n="hero.lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV. También puedes instalarla en el móvil como app.</p>
           <div class="landing-hero-actions">
-            <button type="button" class="btn btn-primary" data-landing-login>Empezar gratis</button>
-            <a class="btn btn-ghost" href="#landing-features">Ver funciones</a>
+            <button type="button" class="btn btn-primary" data-landing-login data-i18n="hero.cta">Empezar gratis</button>
+            <a class="btn btn-ghost" href="#landing-pricing" data-i18n="hero.plans">Ver planes</a>
+            <button type="button" class="btn btn-ghost" data-landing-install data-i18n="hero.install">Instalar app</button>
+          </div>
+          <div class="landing-promo-code-block" id="landing-promo-code">
+            <h2>¿Tienes un código promocional?</h2>
+            <p class="landing-section-lead">Introdúcelo para activar tu oferta exclusiva.</p>
+            <form class="landing-promo-code-form" id="landing-promo-code-form" action="promo.html" method="get">
+              <label class="sr-only" for="landing-promo-code-input">Código promocional</label>
+              <input
+                type="text"
+                id="landing-promo-code-input"
+                name="c"
+                class="landing-promo-code-input"
+                placeholder="Ej. AB12XY99"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="64"
+                required
+              />
+              <button type="submit" class="btn btn-primary" id="landing-promo-code-submit">Activar código</button>
+            </form>
           </div>
           <ul class="landing-hero-bullets">
-            <li>Sesión de ejemplo incluida al registrarte</li>
-            <li>Sincronización en la nube entre dispositivos</li>
-            <li>Plan gratis sin tarjeta</li>
+            <li data-i18n="hero.bullet1">Sesión de ejemplo incluida al registrarte</li>
+            <li data-i18n="hero.bullet2">Import PokerStars, Winamax y GGPoker</li>
+            <li data-i18n="hero.bullet3">Plan gratis + prueba Study 10 días</li>
           </ul>
         </section>
 
         <section class="landing-section" id="landing-features">
-          <h2>Todo lo que necesitas para estudiar</h2>
+          <h2 data-i18n="features.title">Todo lo que necesitas para estudiar</h2>
           <div class="landing-features-grid">
             <article class="landing-feature">
-              <h3>Entrenador interactivo</h3>
-              <p>Mesa 6-max con evaluación GTO calle a calle, rangos y feedback inmediato.</p>
+              <h3 data-i18n="feat.train.title">Entrenador interactivo</h3>
+              <p data-i18n="feat.train.body">Mesa 6-max con evaluación GTO calle a calle, rangos, avisador en vivo y bloques de 25/50/100 manos.</p>
             </article>
             <article class="landing-feature">
-              <h3>Import de sesiones</h3>
-              <p>Sube tu historial .txt, obtén nota de sesión, EV perdido y repaso mano a mano.</p>
+              <h3 data-i18n="feat.import.title">Import de sesiones</h3>
+              <p data-i18n="feat.import.body">Sube historiales .txt de PokerStars, Winamax o GGPoker (varios archivos a la vez) y revisa fugas mano a mano.</p>
             </article>
             <article class="landing-feature">
-              <h3>Rangos preflop</h3>
-              <p>Matrices RFI y defensa vs open para cash y MTT, con profundidades configurables.</p>
+              <h3 data-i18n="feat.ranges.title">Rangos preflop</h3>
+              <p data-i18n="feat.ranges.body">Matrices RFI y defensa vs open para cash. El soporte de torneo es parcial y sobre todo preflop.</p>
             </article>
             <article class="landing-feature">
-              <h3>IA Coach</h3>
-              <p>Consultas sobre manos y sesiones en planes Study y Coach (ver planes).</p>
+              <h3 data-i18n="feat.ai.title">IA Coach</h3>
+              <p data-i18n="feat.ai.body">Consultas sobre manos y sesiones en planes Study y Coach (ver planes).</p>
             </article>
             <article class="landing-feature">
               <h3>Estadísticas y errores</h3>
@@ -177,12 +215,36 @@
           </div>
         </section>
 
+        <section class="landing-section" id="landing-blog">
+          <h2>Guías y blog</h2>
+          <p class="landing-section-lead">Contenido orientado a leaks reales, sesiones importadas y dudas concretas de cash NL que sí convierten en estudio útil.</p>
+          <div class="landing-blog-grid">
+            <article class="landing-blog-card">
+              <span class="landing-blog-tag">Leaks NL25</span>
+              <h3><a href="blog/fugas-nl25.html">5 fugas típicas en NL25 que más EV queman</a></h3>
+              <p>Overfolds, calls sin pot odds y c-bets automáticos: ejemplos prácticos y cómo entrenarlos dentro de PokerForgeAI.</p>
+            </article>
+            <article class="landing-blog-card">
+              <span class="landing-blog-tag">Import</span>
+              <h3><a href="blog/importar-winamax.html">Cómo importar manos de Winamax y detectar fugas</a></h3>
+              <p>Paso a paso para subir historiales, revisar spots calle a calle y convertir una sesión real en material de estudio.</p>
+            </article>
+            <article class="landing-blog-card">
+              <span class="landing-blog-tag">Review</span>
+              <h3><a href="blog/review-ggpoker.html">Review rápida de una sesión GGPoker sin depender de un solver caro</a></h3>
+              <p>Qué mirar primero, cómo leer el EV perdido y cómo priorizar un repaso cuando no tienes horas para analizar.</p>
+            </article>
+          </div>
+          <p class="landing-blog-foot"><a href="blog/index.html">Ver todas las guías →</a></p>
+        </section>
+
         <section class="landing-section" id="landing-pricing">
           <h2>Planes simples</h2>
-          <p class="landing-section-lead">Empieza gratis. Sube de plan cuando quieras más IA e imports ilimitados.</p>
+          <p class="landing-section-lead">Empieza gratis. Prueba Study 10 días. Sube de plan cuando quieras más IA e imports ilimitados.</p>
+          <div id="landing-limits-box" class="landing-limits-box" aria-label="Límites del plan gratis"></div>
           <div id="landing-promo-banner"></div>
           <div class="landing-pricing-grid" id="landing-pricing-grid"></div>
-          <p class="muted-text landing-pricing-note">Precios en EUR. IVA incluido cuando aplique. Sin permanencia.</p>
+          <p class="muted-text landing-pricing-note">Precios en EUR. IVA incluido cuando aplique. Sin permanencia. Trial Study una vez por cuenta.</p>
         </section>
 
         <section class="landing-section" id="landing-install">
@@ -222,6 +284,7 @@
 
         <footer class="landing-footer">
           <a href="legal/metodologia.html">Metodología GTO</a>
+          <a href="blog/index.html">Blog</a>
           <a href="legal/terminos.html">Términos</a>
           <a href="legal/privacidad.html">Privacidad</a>
           <a href="legal/faq.html">FAQ</a>
@@ -244,7 +307,7 @@
           <p id="auth-error" class="auth-error" role="alert"></p>
           <p class="auth-legal-note muted-text">
             Al continuar aceptas los <a href="legal/terminos.html">Términos de uso</a> y la
-            <a href="legal/privacidad.html">Política de privacidad</a>.
+            <a href="legal/privacidad.html">Política de privacidad</a>. El servicio está dirigido a mayores de 18 años.
           </p>
           <div id="auth-legal-foot" class="auth-legal-foot"></div>
           <div id="auth-setup" class="auth-setup hidden">
@@ -268,7 +331,7 @@
         <button type="button" class="brand-home-link" id="brand-home" title="Volver al inicio" aria-label="Inicio">
           <img src="icons/logo-header.png" class="app-logo" alt="PokerForgeAI" width="42" height="42" />
           <span class="brand-text">
-            <h1>PokerForgeAI <small>Cash NL · MTT</small></h1>
+            <h1>PokerForgeAI <small>Tu entrenador IA de póker</small></h1>
           </span>
         </button>
       </div>
@@ -306,15 +369,17 @@
         </div>
       </div>
       <nav class="tabs">
-        <button class="tab" data-tab="play">Entrenar</button>
-        <button class="tab" data-tab="ranges">Rangos</button>
-        <button class="tab" data-tab="sessions">Sesiones</button>
-        <button class="tab" data-tab="history">Histórico</button>
-        <button class="tab" data-tab="errors">Errores</button>
-        <button class="tab" data-tab="stats">Estadísticas</button>
-        <button class="tab" data-tab="contact">Contacto</button>
-        <button class="tab" data-tab="pricing">Planes</button>
-        <a class="tab tab-link" href="legal/faq.html" target="_blank" rel="noopener">FAQ</a>
+        <button class="tab" data-tab="play" data-i18n="tab.play">Entrenar</button>
+        <button class="tab" data-tab="learn" data-i18n="tab.learn">Guía básica</button>
+        <button class="tab" data-tab="analysis" data-i18n="tab.analysis">Análisis</button>
+        <button class="tab" data-tab="ranges" data-i18n="tab.ranges">Rangos</button>
+        <button class="tab" data-tab="sessions" data-i18n="tab.sessions">Sesiones</button>
+        <button class="tab" data-tab="history" data-i18n="tab.history">Histórico</button>
+        <button class="tab" data-tab="errors" data-i18n="tab.errors">Errores</button>
+        <button class="tab" data-tab="stats" data-i18n="tab.stats">Estadísticas</button>
+        <button class="tab" data-tab="contact" data-i18n="tab.contact">Contacto</button>
+        <button class="tab" data-tab="pricing" data-i18n="tab.pricing">Planes</button>
+        <a class="tab tab-link" href="legal/faq.html" target="_blank" rel="noopener" data-i18n="tab.faq">FAQ</a>
       </nav>
     </div>
   </div>
@@ -344,7 +409,11 @@
           </div>
         </header>
 
+        <div id="home-onboarding" class="home-onboarding hidden" aria-live="polite"></div>
+        <div id="home-gamification"></div>
+
         <div class="home-stats-strip" id="home-stats" aria-label="Resumen rápido"></div>
+        <div id="home-contact-notice" class="home-contact-notice hidden" aria-live="polite"></div>
         <div id="home-usage" class="usage-quota-host hidden" aria-label="Límites del plan"></div>
         <div id="home-annual-upsell" class="annual-upsell-host hidden" aria-live="polite"></div>
 
@@ -359,6 +428,20 @@
             </span>
             <span class="home-card-title">Entrenar</span>
             <span class="home-card-desc">Mesa interactiva con evaluación GTO calle a calle</span>
+          </button>
+          <button type="button" class="home-card" data-go-tab="learn">
+            <span class="home-card-icon home-card-icon-learn" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 19V5l8-2 8 2v14l-8 2z"/><path d="M12 3v18"/><path d="M8 8h2"/><path d="M8 12h2"/><path d="M14 8h2"/><path d="M14 12h2"/></svg>
+            </span>
+            <span class="home-card-title">Guía básica</span>
+            <span class="home-card-desc">Conceptos, GTO y práctica si empiezas de cero</span>
+          </button>
+          <button type="button" class="home-card" data-go-tab="analysis">
+            <span class="home-card-icon home-card-icon-analysis" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/><circle cx="7" cy="14" r="1"/><circle cx="18" cy="8" r="1"/></svg>
+            </span>
+            <span class="home-card-title">Análisis de manos</span>
+            <span class="home-card-desc">Analiza manos, revísalas con GTO y reprodúcelas</span>
           </button>
           <button type="button" class="home-card" data-go-tab="ranges">
             <span class="home-card-icon home-card-icon-ranges" aria-hidden="true">
@@ -408,15 +491,67 @@
           <div id="home-coach-mount"></div>
         </section>
 
+        <section class="home-install" id="home-install" aria-labelledby="home-install-title">
+          <div class="home-section-head">
+            <h3 id="home-install-title">Instálala como app</h3>
+          </div>
+          <p class="muted-text home-install-lead">Añade PokerForgeAI a la pantalla de inicio y ábrela como una app nativa en tu móvil o PC.</p>
+          <div class="landing-install-grid home-install-grid">
+            <article class="landing-install-card">
+              <div class="landing-install-pill">iPhone / iPad</div>
+              <h3>Instalar en iOS</h3>
+              <ol>
+                <li>Abre PokerForgeAI en <strong>Safari</strong>.</li>
+                <li>Pulsa <strong>Compartir</strong>.</li>
+                <li>Elige <strong>Añadir a pantalla de inicio</strong>.</li>
+                <li>Confirma con <strong>Añadir</strong>.</li>
+              </ol>
+              <button type="button" class="btn btn-ghost btn-block" data-home-install="ios">Ver guía iPhone/iPad</button>
+            </article>
+            <article class="landing-install-card">
+              <div class="landing-install-pill">Android</div>
+              <h3>Instalar en Android</h3>
+              <ol>
+                <li>Abre PokerForgeAI en <strong>Chrome</strong>.</li>
+                <li>Pulsa <strong>Instalar app</strong> si aparece el aviso.</li>
+                <li>Si no sale, abre el menú del navegador (⋮).</li>
+                <li>Elige <strong>Instalar aplicación</strong> o <strong>Añadir a pantalla de inicio</strong>.</li>
+              </ol>
+              <button type="button" class="btn btn-primary btn-block" data-home-install="android">Instalar en Android</button>
+            </article>
+            <article class="landing-install-card">
+              <div class="landing-install-pill">PC / Mac</div>
+              <h3>Instalar en escritorio</h3>
+              <ol>
+                <li>Abre PokerForgeAI en <strong>Chrome</strong> o <strong>Edge</strong>.</li>
+                <li>En la barra de direcciones, pulsa el icono de <strong>instalar</strong>.</li>
+                <li>O menú → <strong>Instalar PokerForgeAI…</strong> / <strong>Aplicaciones</strong>.</li>
+                <li>Confirma para abrirla en su propia ventana.</li>
+              </ol>
+              <button type="button" class="btn btn-ghost btn-block" data-home-install="desktop">Instalar en este dispositivo</button>
+            </article>
+          </div>
+        </section>
+
         <p class="home-foot muted-text">Consejo: configura mesa, escenario y rango antes de cada sesión de entrenamiento.</p>
       </div>
+    </section>
+
+    <!-- ===== GUÍA BÁSICA ===== -->
+    <section id="tab-learn" class="tab-panel">
+      <div id="learn-content" class="learn-content"></div>
+    </section>
+
+    <!-- ===== ANÁLISIS DE MANOS ===== -->
+    <section id="tab-analysis" class="tab-panel">
+      <div id="analysis-content" class="analysis-content"></div>
     </section>
 
     <!-- ===== ENTRENAR ===== -->
     <section id="tab-play" class="tab-panel">
       <div id="play-setup" class="play-setup card-box">
         <h2 class="play-setup-title"><span class="panel-icon home-card-icon home-card-icon-train" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M6 4h8l4 4v12H6z"/><path d="M14 4v4h4"/><path d="M9 14l2 2 4-5"/></svg></span>Configurar sesión</h2>
-        <p class="muted-text play-setup-sub">Elige el tipo de spot y los rangos antes de empezar a practicar.</p>
+        <p class="muted-text play-setup-sub">Elige el tipo de spot y los rangos antes de empezar a practicar. <button type="button" class="btn-link" id="btn-help-setup" data-open-help>Atajos y ayuda</button></p>
 
         <div class="setup-group">
           <span class="setup-label">Tipo de mesa</span>
@@ -501,10 +636,49 @@
         </div>
 
         <div class="setup-group">
+          <span class="setup-label">Rake</span>
+          <div class="setup-chips" id="setup-rake-mode">
+            <button type="button" class="setup-chip active" data-val="none">Sin rake</button>
+            <button type="button" class="setup-chip" data-val="standard">Estándar (5%/3bb)</button>
+            <button type="button" class="setup-chip" data-val="custom">Personalizado</button>
+          </div>
+          <div class="setup-rake-custom" id="setup-rake-custom" hidden>
+            <label class="setup-label" for="setup-rake-pct">Porcentaje (%)</label>
+            <input type="number" id="setup-rake-pct" class="setup-number-input" min="0" max="20" step="0.5" value="5" inputmode="decimal" />
+            <label class="setup-label" for="setup-rake-cap">Tope (bb)</label>
+            <input type="number" id="setup-rake-cap" class="setup-number-input" min="0" max="50" step="0.5" value="3" inputmode="decimal" />
+          </div>
+          <p class="muted-text setup-hint">Ajusta el bote usado en pot odds y EV del consejo. Estándar ≈ 5 % con tope 3 bb. No replica el rake exacto de cada sala.</p>
+        </div>
+
+        <div class="setup-group">
+          <span class="setup-label">Duración del bloque</span>
+          <div class="setup-chips" id="setup-hands-target">
+            <button type="button" class="setup-chip active" data-val="0">Continua</button>
+            <button type="button" class="setup-chip" data-val="25">25 manos</button>
+            <button type="button" class="setup-chip" data-val="50">50 manos</button>
+            <button type="button" class="setup-chip" data-val="100">100 manos</button>
+          </div>
+          <p class="muted-text setup-hint">Al terminar el bloque verás acierto, EV perdido y tiempo. «Continua» no tiene límite.</p>
+        </div>
+
+        <div class="setup-group">
           <label class="setup-toggle toggle-row">
             <input type="checkbox" id="setup-live-advisor" />
             <span><strong>Avisador en vivo</strong> — muestra qué ocurre en la mesa, la acción recomendada y la explicación antes de decidir</span>
           </label>
+          <div class="setup-advisor-extras" id="setup-advisor-extras">
+            <span class="setup-label" data-i18n="advisor.mode">Modo del avisador</span>
+            <div class="setup-chips" id="setup-advisor-mode">
+              <button type="button" class="setup-chip active" data-val="always" data-i18n="advisor.always">Siempre (consejo previo)</button>
+              <button type="button" class="setup-chip" data-val="serious" data-i18n="advisor.serious">Solo error grave</button>
+            </div>
+            <div class="setup-advisor-threshold" id="setup-serious-threshold-wrap">
+              <label class="setup-label" for="setup-serious-threshold" data-i18n="advisor.threshold">Umbral EV perdido (bb)</label>
+              <input type="number" id="setup-serious-threshold" class="setup-number-input" min="0" max="20" step="0.1" value="0.5" inputmode="decimal" />
+            </div>
+            <p class="muted-text setup-hint">En «Solo error grave» no hay consejo previo; solo toast/feedback si pierdes ≥ umbral de EV.</p>
+          </div>
         </div>
 
         <button type="button" id="play-start" class="btn btn-primary btn-block play-start-btn">Empezar sesión</button>
@@ -520,33 +694,49 @@
               <p class="muted-text play-boot-hint">Preparando mesa y motor de decisiones</p>
             </div>
           </div>
-          <div class="poker-table">
-            <div class="table-felt">
-              <div id="play-table-loading" class="play-table-loading hidden" aria-live="polite" aria-busy="false">
-                <div class="play-table-spinner" aria-hidden="true"></div>
+          <div class="play-stage">
+            <div class="play-hud" id="play-hud" aria-label="Resumen de sesión">
+              <div class="play-hud-item">
+                <span id="hud-hands">0</span>
+                <label data-i18n="play.hands">Manos</label>
               </div>
-              <div class="table-watermark" aria-hidden="true">
-                <span class="table-watermark-mark"></span>
-                <span class="table-watermark-text">PokerForgeAI</span>
+              <div class="play-hud-item">
+                <span id="hud-net">0</span>
+                <label data-i18n="play.result">Resultado (bb)</label>
               </div>
-              <div id="seats" class="seats"></div>
-              <div class="board-area">
-                <div id="villain-action-bar" class="villain-action-bar" aria-hidden="true"></div>
-                <div class="pot" id="pot">Bote: 0 bb</div>
-                <div id="board" class="board"></div>
-                <div id="spot-context" class="spot-context"></div>
-              </div>
-              <div class="hero-area">
-                <div id="hero-action" class="action-badge-wrap"></div>
-                <div id="hero-chips" class="hero-chips"></div>
-                <div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE · <span id="hero-pos">-</span><span id="hero-dealer" class="hero-dealer hidden" title="Dealer">D</span></div>
-                <div id="hero-cards" class="hero-cards"></div>
-                <div id="hero-handname" class="hero-handname"></div>
+              <div class="play-hud-item">
+                <span id="hud-ev-lost">0</span>
+                <label data-i18n="play.evLost">EV perdido</label>
               </div>
             </div>
-          </div>
+            <div class="poker-table">
+              <div class="table-felt">
+                <div id="play-table-loading" class="play-table-loading hidden" aria-live="polite" aria-busy="false">
+                  <div class="play-table-spinner" aria-hidden="true"></div>
+                </div>
+                <div class="table-watermark" aria-hidden="true">
+                  <span class="table-watermark-mark"></span>
+                  <span class="table-watermark-text">PokerForgeAI</span>
+                </div>
+                <div id="seats" class="seats"></div>
+                <div class="board-area">
+                  <div id="villain-action-bar" class="villain-action-bar" aria-hidden="true"></div>
+                  <div class="pot" id="pot"><span data-i18n="play.pot">Bote</span>: 0 bb</div>
+                  <div id="board" class="board"></div>
+                  <div id="spot-context" class="spot-context"></div>
+                </div>
+                <div class="hero-area">
+                  <div id="hero-action" class="action-badge-wrap"></div>
+                  <div id="hero-chips" class="hero-chips"></div>
+                  <div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span><span data-i18n="play.hero">HÉROE</span> · <span id="hero-pos">-</span><span id="hero-dealer" class="hero-dealer hidden" title="Dealer">D</span></div>
+                  <div id="hero-cards" class="hero-cards"></div>
+                  <div id="hero-handname" class="hero-handname"></div>
+                </div>
+              </div>
+            </div>
 
-          <div id="actions" class="actions"></div>
+            <div id="actions" class="actions"></div>
+          </div>
 
           <div id="live-advisor-panel" class="live-advisor-panel hidden" aria-live="polite"></div>
 
@@ -556,27 +746,28 @@
         <aside class="sidebar">
           <div id="play-usage" class="usage-quota-host hidden" aria-label="Límites del plan"></div>
           <div class="card-box">
-            <h3>Sesión</h3>
+            <h3 data-i18n="play.session">Sesión</h3>
             <p id="play-session-label" class="muted-text play-session-label hidden"></p>
             <div class="mini-stats">
-              <div><span id="s-hands">0</span><label>Manos</label></div>
-              <div><span id="s-net">0</span><label>Resultado (bb)</label></div>
-              <div><span id="s-ev-lost">0</span><label>EV perdido</label></div>
-              <div><span id="s-ev-perfect">0</span><label>EV esperado</label></div>
-              <div><span id="s-acc">-</span><label>Acierto</label></div>
+              <div><span id="s-hands">0</span><label data-i18n="play.hands">Manos</label></div>
+              <div><span id="s-net">0</span><label data-i18n="play.result">Resultado (bb)</label></div>
+              <div><span id="s-ev-lost">0</span><label data-i18n="play.evLost">EV perdido</label></div>
+              <div><span id="s-ev-perfect">0</span><label data-i18n="play.evExpected">EV esperado</label></div>
+              <div><span id="s-acc">-</span><label data-i18n="play.accuracy">Acierto</label></div>
             </div>
             <div id="s-street-acc" class="street-acc compact-street-acc"></div>
           </div>
           <div class="card-box">
-            <h3>Historial de la mano</h3>
+            <h3 data-i18n="play.handHistory">Historial de la mano</h3>
             <ol id="hand-log" class="hand-log"></ol>
           </div>
           <div class="card-box">
-            <button id="new-hand" class="btn btn-primary btn-block">Nueva mano</button>
-            <button id="replay-hand" class="btn btn-ghost btn-block" style="margin-top:8px">&#8635; Repetir esta mano</button>
-            <button id="new-session" class="btn btn-ghost btn-block" style="margin-top:8px">Nueva sesión</button>
+            <button id="new-hand" class="btn btn-primary btn-block" data-i18n="play.newHand">Nueva mano</button>
+            <button id="replay-hand" class="btn btn-ghost btn-block" style="margin-top:8px" data-i18n="play.replayHand">&#8635; Repetir esta mano</button>
+            <button id="new-session" class="btn btn-ghost btn-block" style="margin-top:8px" data-i18n="play.newSession">Nueva sesión</button>
+            <button type="button" id="btn-help" class="btn btn-ghost btn-block" style="margin-top:8px" data-open-help>Ayuda · atajos (H)</button>
             <label class="toggle-row">
-              <input type="checkbox" id="repeat-errors" /> Repetir mis spots fallados
+              <input type="checkbox" id="repeat-errors" /> <span data-i18n="play.repeatErrors">Repetir mis spots fallados</span>
             </label>
           </div>
         </aside>
@@ -584,12 +775,18 @@
       </div><!-- #play-active -->
     </section>
 
-    <!-- ===== RANGOS PREFLOP ===== -->
+    <!-- ===== RANGOS ===== -->
     <section id="tab-ranges" class="tab-panel">
       <div class="ranges-panel card-box">
         <div class="ranges-panel-head">
-          <h2><span class="panel-icon home-card-icon home-card-icon-ranges" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/><path d="M9 3v18"/><path d="M15 3v18"/></svg></span>Rangos preflop</h2>
+          <h2><span class="panel-icon home-card-icon home-card-icon-ranges" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/><path d="M9 3v18"/><path d="M15 3v18"/></svg></span>Rangos</h2>
           <span class="muted-text" id="ranges-context-label">Cash 6-max · 100bb</span>
+        </div>
+        <div class="ranges-street-tabs" id="ranges-street-tabs" role="tablist" aria-label="Calle">
+          <button type="button" class="ranges-street-tab active" role="tab" aria-selected="true" data-ranges-street="preflop">Preflop</button>
+          <button type="button" class="ranges-street-tab" role="tab" aria-selected="false" data-ranges-street="flop">Flop</button>
+          <button type="button" class="ranges-street-tab" role="tab" aria-selected="false" data-ranges-street="turn">Turn</button>
+          <button type="button" class="ranges-street-tab" role="tab" aria-selected="false" data-ranges-street="river">River</button>
         </div>
         <div class="ranges-filter-row">
           <div class="setup-chips" id="ranges-game-type">
@@ -604,6 +801,13 @@
           </div>
         </div>
         <div class="ranges-spot-row" id="ranges-spot-row"></div>
+        <div class="ranges-pos-block hidden" id="ranges-sizing-row">
+          <span class="ranges-pos-label">Open:</span>
+          <div class="ranges-pos-btns setup-chips">
+            <button type="button" class="setup-chip active" data-ranges-sizing="2.5">2.5x</button>
+            <button type="button" class="setup-chip" data-ranges-sizing="3">3x</button>
+          </div>
+        </div>
         <div class="ranges-pos-block">
           <span class="ranges-pos-label">Hero:</span>
           <div class="ranges-pos-btns" id="ranges-hero-pos"></div>
@@ -616,6 +820,24 @@
           <span class="ranges-pos-label">Pagador:</span>
           <div class="ranges-pos-btns" id="ranges-caller-pos"></div>
         </div>
+        <div class="ranges-pos-block hidden" id="ranges-postflop-block">
+          <div class="ranges-board-pick">
+            <span class="ranges-pos-label" id="ranges-board-label">Board (flop)</span>
+            <button type="button" class="btn btn-ghost ranges-board-btn" id="ranges-board-pick-btn" aria-label="Elegir board">
+              <span class="ranges-board-preview" id="ranges-board-preview">Elegir board</span>
+            </button>
+          </div>
+          <label class="ranges-pos-label">Pot bb
+            <input type="number" id="ranges-pot-input" min="1" max="200" step="0.5" value="6" style="width:4.5rem" />
+          </label>
+          <label class="ranges-pos-label">To call
+            <input type="number" id="ranges-tocall-input" min="0" max="100" step="0.5" value="0" style="width:4.5rem" />
+          </label>
+        </div>
+        <div class="ranges-fav-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="ranges-favorite-btn">☆ Guardar spot</button>
+        </div>
+        <div id="ranges-favorites" class="ranges-favorites" aria-label="Spots favoritos"></div>
         <p class="ranges-spot-title" id="ranges-spot-title"></p>
         <div class="range-matrix-legend ranges-explorer-legend">
           <span><i class="raise"></i> Raise / 3-bet / 4-bet</span>
@@ -635,10 +857,10 @@
         </div>
         <div class="import-box">
           <h3>Añadir sesión</h3>
-          <p class="muted-text">Adjunta un fichero <code>.txt</code> con el historial de manos (PokerStars o Winamax, Cash NL Hold'em, español o inglés). El formato se detecta automáticamente.</p>
+          <p class="muted-text">Adjunta uno o varios ficheros <code>.txt</code> con historiales de manos (PokerStars, Winamax o GGPoker · Cash NL Hold'em). El formato se detecta automáticamente.</p>
           <div id="sessions-usage" class="usage-quota-host hidden" aria-label="Límites de importación"></div>
           <div class="import-row">
-            <input type="file" id="session-file" accept=".txt,text/plain" />
+            <input type="file" id="session-file" accept=".txt,text/plain" multiple />
             <button id="process-session" class="btn btn-primary" disabled>Procesar</button>
           </div>
           <div id="import-status" class="import-status"></div>
@@ -683,11 +905,22 @@
       <div class="panel-head">
         <h2><span class="panel-icon home-card-icon home-card-icon-errors" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M12 4l8 15H4z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Spots fallados (repaso)</h2>
         <div>
+          <button id="train-worst-spots" class="btn btn-secondary" title="Repasa primero tus peores spots por EV perdido">Drill adaptativo</button>
           <button id="train-errors" class="btn btn-primary">Entrenar errores</button>
           <button id="clear-errors" class="btn btn-danger">Vaciar errores</button>
         </div>
       </div>
-      <p class="muted-text" style="margin:-8px 0 12px">Solo la lista de spots fallados. El histórico y las estadísticas globales no se modifican.</p>
+      <p class="muted-text" style="margin:-8px 0 8px">Solo la lista de spots fallados. El histórico y las estadísticas globales no se modifican.</p>
+      <div class="adaptive-drill-help card-box">
+        <h3>¿Qué es el drill adaptativo?</h3>
+        <p class="muted-text">En lugar de repasar errores al azar o en orden de llegada, el drill <strong>elige solo tus peores fugas</strong>:</p>
+        <ol class="adaptive-drill-steps">
+          <li>Agrupa tus errores por spot (tipo · posición · calle).</li>
+          <li>Ordena esos spots por <strong>EV perdido</strong> y toma los más caros.</li>
+          <li>Monta una cola de hasta ~25 manos y las lanza en el entrenador para repetirlas.</li>
+        </ol>
+        <p class="muted-text">«Entrenar errores» sigue la lista completa; el drill adaptativo ataca primero donde más te sangra el EV.</p>
+      </div>
       <div id="errors-filters" class="hand-filters"></div>
       <div id="errors-list" class="record-list"></div>
     </section>
@@ -700,6 +933,7 @@
       </div>
       <p class="muted-text stats-reset-hint">Acumulado persistente del entrenador y sesiones importadas. Borrar histórico o sesiones no resta estos totales semanales ni los leaks agregados.</p>
       <div id="stats-usage" class="usage-quota-host hidden" aria-label="Límites del plan"></div>
+      <div id="stats-gamification"></div>
       <div id="progress-dashboard"></div>
       <div id="leaks-panel"></div>
       <div id="stats-content" class="stats-content"></div>
@@ -751,9 +985,81 @@
           <p class="muted-text admin-sub">Usuarios, planes y consumo de IA Coach</p>
         </div>
         <div class="admin-head-actions">
+          <button type="button" id="admin-promos-btn" class="btn btn-ghost">Promociones</button>
           <button type="button" id="admin-messages-btn" class="btn btn-ghost admin-messages-btn">Mensajes <span id="admin-messages-badge" class="tab-badge hidden">0</span></button>
           <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
           <button type="button" id="admin-demo-start" class="btn btn-primary">Modo demo</button>
+        </div>
+      </div>
+
+      <div id="admin-promos-panel" class="admin-promos-panel hidden">
+        <div class="admin-section-head">
+          <h3>Promociones</h3>
+          <div class="admin-messages-head-actions">
+            <button type="button" id="admin-promos-back" class="btn btn-ghost btn-sm">Volver a usuarios</button>
+          </div>
+        </div>
+        <p class="muted-text admin-promos-intro">
+          Genera un enlace público para regalar un plan y/o bono IA a cuentas nuevas.
+          Al llegar al máximo de registros la promoción se desactiva sola.
+        </p>
+
+        <div class="admin-promo-create card-box">
+          <h4>Generar promoción</h4>
+          <div class="admin-promo-form">
+            <label class="admin-invite-label" for="admin-promo-title">Título</label>
+            <input type="text" id="admin-promo-title" class="admin-promo-input" placeholder="1 mes gratis de Study" maxlength="120" />
+
+            <label class="admin-invite-label" for="admin-promo-desc">Detalle (HTML / texto de la landing)</label>
+            <textarea id="admin-promo-desc" class="admin-promo-textarea" rows="3" placeholder="Entra con el enlace, regístrate y activa tu mes gratis de Study."></textarea>
+
+            <div class="admin-promo-grid">
+              <div>
+                <label class="admin-invite-label" for="admin-promo-plan">Plan de regalo</label>
+                <select id="admin-promo-plan" class="admin-promo-input">
+                  <option value="">Sin plan</option>
+                  <option value="pro" selected>Study</option>
+                  <option value="premium">Coach</option>
+                </select>
+              </div>
+              <div id="admin-promo-months-wrap">
+                <label class="admin-invite-label" for="admin-promo-months">Duración (meses)</label>
+                <input type="number" id="admin-promo-months" class="admin-promo-input" min="1" max="24" value="1" />
+              </div>
+              <div>
+                <label class="admin-invite-label" for="admin-promo-bonus">Bono IA</label>
+                <select id="admin-promo-bonus" class="admin-promo-input">
+                  <option value="0" selected>Sin bono</option>
+                  <option value="20">Pack S — 20 consultas</option>
+                  <option value="40">Pack M — 40 consultas</option>
+                  <option value="80">Pack L — 80 consultas</option>
+                  <option value="custom">Personalizado…</option>
+                </select>
+              </div>
+              <div id="admin-promo-bonus-custom-wrap" class="hidden">
+                <label class="admin-invite-label" for="admin-promo-bonus-custom">Consultas personalizadas</label>
+                <input type="number" id="admin-promo-bonus-custom" class="admin-promo-input" min="1" max="500" value="20" />
+              </div>
+              <div>
+                <label class="admin-invite-label" for="admin-promo-max">Máx. registros</label>
+                <input type="number" id="admin-promo-max" class="admin-promo-input" min="1" max="100000" value="100" />
+              </div>
+            </div>
+
+            <div class="admin-promo-actions">
+              <button type="button" id="admin-promo-generate" class="btn btn-primary">Generar promoción</button>
+              <span id="admin-promos-status" class="muted-text"></span>
+            </div>
+            <p id="admin-promos-error" class="admin-error" role="alert"></p>
+          </div>
+          <div id="admin-promo-generated" class="admin-promo-generated hidden"></div>
+        </div>
+
+        <div class="admin-section" style="margin-top:18px">
+          <div class="admin-section-head">
+            <h3>Gestión</h3>
+          </div>
+          <div id="admin-promos-list"></div>
         </div>
       </div>
 
@@ -813,6 +1119,47 @@
           </div>
         </div>
         <p id="admin-users-error" class="admin-error" role="alert"></p>
+        <div class="admin-users-filters" id="admin-users-filters">
+          <label class="admin-filter-field admin-filter-user">
+            <span>Usuario</span>
+            <input type="search" id="admin-filter-user" placeholder="Nombre o correo" autocomplete="off" />
+          </label>
+          <label class="admin-filter-field">
+            <span>Plan</span>
+            <select id="admin-filter-plan">
+              <option value="">Todos</option>
+              <option value="free">Gratis</option>
+              <option value="pro">Study</option>
+              <option value="premium">Coach</option>
+            </select>
+          </label>
+          <div class="admin-filter-field admin-filter-dates">
+            <span>Fin plan</span>
+            <div class="admin-filter-date-row">
+              <input type="date" id="admin-filter-period-from" title="Fin plan desde" aria-label="Fin plan desde" />
+              <span class="admin-filter-sep">–</span>
+              <input type="date" id="admin-filter-period-to" title="Fin plan hasta" aria-label="Fin plan hasta" />
+            </div>
+          </div>
+          <div class="admin-filter-field admin-filter-dates">
+            <span>Renovación</span>
+            <div class="admin-filter-date-row">
+              <input type="date" id="admin-filter-renewal-from" title="Renovación desde" aria-label="Renovación desde" />
+              <span class="admin-filter-sep">–</span>
+              <input type="date" id="admin-filter-renewal-to" title="Renovación hasta" aria-label="Renovación hasta" />
+            </div>
+          </div>
+          <div class="admin-filter-field admin-filter-dates">
+            <span>Última conexión</span>
+            <div class="admin-filter-date-row">
+              <input type="date" id="admin-filter-seen-from" title="Última conexión desde" aria-label="Última conexión desde" />
+              <span class="admin-filter-sep">–</span>
+              <input type="date" id="admin-filter-seen-to" title="Última conexión hasta" aria-label="Última conexión hasta" />
+            </div>
+          </div>
+          <button type="button" id="admin-filter-clear" class="btn btn-ghost btn-sm">Limpiar</button>
+        </div>
+        <p class="muted-text admin-table-scroll-hint" id="admin-table-scroll-hint">En móvil, desliza la tabla horizontalmente para ver todas las columnas.</p>
         <div class="admin-table-wrap">
           <div id="admin-loading" class="admin-loading hidden" aria-live="polite">
             <div class="admin-loading-inner">
@@ -833,14 +1180,14 @@
             </colgroup>
             <thead>
               <tr>
-                <th data-col="user">Usuario</th>
-                <th data-col="plan">Plan</th>
-                <th data-col="period">Fin plan</th>
-                <th data-col="renewal">Renovación</th>
-                <th data-col="ai">IA mes (+bono)</th>
-                <th data-col="payment">Último pago</th>
-                <th data-col="seen">Última conexión</th>
-                <th data-col="admin">Admin</th>
+                <th data-col="user"><button type="button" class="admin-th-sort" data-sort="user">Usuario</button></th>
+                <th data-col="plan"><button type="button" class="admin-th-sort" data-sort="plan">Plan</button></th>
+                <th data-col="period"><button type="button" class="admin-th-sort" data-sort="period">Fin plan</button></th>
+                <th data-col="renewal"><button type="button" class="admin-th-sort" data-sort="renewal">Renovación</button></th>
+                <th data-col="ai"><button type="button" class="admin-th-sort" data-sort="ai">IA mes (+bono)</button></th>
+                <th data-col="payment"><button type="button" class="admin-th-sort" data-sort="payment">Último pago</button></th>
+                <th data-col="seen"><button type="button" class="admin-th-sort" data-sort="seen">Última conexión</button></th>
+                <th data-col="admin"><button type="button" class="admin-th-sort" data-sort="admin">Admin</button></th>
               </tr>
             </thead>
             <tbody id="admin-users-body"></tbody>
@@ -848,7 +1195,7 @@
         </div>
         <div id="admin-user-detail" class="admin-user-detail card-box hidden" aria-live="polite"></div>
         <p class="muted-text admin-foot-note">
-          Planes: Gratis · Study (pro) · Coach (premium). Límite IA mensual: Gratis 0 · Study 5 · Coach 35/mes. Los bonos se suman al cupo cuando agotas las incluidas.
+          Planes: Gratis · Study (pro) · Coach (premium). Límite IA mensual: Gratis 0 · Study 40 · Coach 150/mes. Análisis de manos guardadas: Gratis 5 · Study 20 · Coach 100. Los bonos se suman al cupo cuando agotas las incluidas.
           Pulsa una fila de usuario para ver detalle (transacciones de bono, consultas IA y mensajes).
           Usuario <strong>demo</strong>: cambia su plan aquí y entra en Modo demo para probar límites.
           Caducidad automática diaria (00:05 UTC) vía pg_cron.
@@ -888,6 +1235,32 @@
     <div class="modal-content range-matrix-content" id="range-matrix-body"></div>
   </div>
 
+  <div id="card-picker-modal" class="modal card-picker-modal hidden" role="dialog" aria-modal="true" aria-label="Elegir cartas">
+    <div class="modal-content card-picker-content" id="card-picker-body"></div>
+  </div>
+
+  <div id="age-gate-modal" class="modal age-gate-modal hidden" role="dialog" aria-modal="true" aria-labelledby="age-gate-title">
+    <div class="modal-content age-gate-content">
+      <h3 id="age-gate-title">Confirmación de mayoría de edad</h3>
+      <p>Antes de usar PokerForgeAI debes confirmar que tienes <strong>más de 18 años</strong>.</p>
+      <p class="muted-text">Esta confirmación se guarda para <span id="age-gate-user">info@pokerforgeai.com</span>. Si no puedes confirmarlo, no continúes con el acceso.</p>
+      <div class="age-gate-actions">
+        <button type="button" class="btn btn-primary" id="age-gate-confirm">Sí, tengo más de 18 años</button>
+        <button type="button" class="btn btn-ghost" id="age-gate-exit">Salir</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="help-modal" class="modal help-modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-modal-title">
+    <div class="modal-content help-modal-content">
+      <div class="help-modal-head">
+        <h2 id="help-modal-title">Ayuda</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="help-modal-close" aria-label="Cerrar">Cerrar</button>
+      </div>
+      <div class="help-modal-body" id="help-modal-body"></div>
+    </div>
+  </div>
+
   <div id="paywall-modal" class="modal paywall-modal hidden" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
     <div class="modal-content paywall-content">
       <h3 id="paywall-title">Mejora tu plan</h3>
@@ -895,6 +1268,22 @@
       <div class="paywall-actions">
         <button type="button" class="btn btn-primary" id="paywall-to-pricing">Ver planes</button>
         <button type="button" class="btn btn-ghost" data-close-paywall>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="contact-pending-modal" class="modal contact-pending-modal hidden" role="dialog" aria-modal="true" aria-labelledby="contact-pending-title">
+    <div class="modal-content contact-pending-content">
+      <div class="contact-pending-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/>
+        </svg>
+      </div>
+      <h3 id="contact-pending-title">Tienes un mensaje de soporte</h3>
+      <p id="contact-pending-body" class="muted-text">PokerForgeAI te ha escrito. Ábrelo en Contacto para leerlo.</p>
+      <div class="contact-pending-actions">
+        <button type="button" class="btn btn-primary" id="contact-pending-open">Ver mensaje</button>
+        <button type="button" class="btn btn-ghost" id="contact-pending-close">Cerrar</button>
       </div>
     </div>
   </div>
@@ -956,92 +1345,13 @@
 
   <script>
   (function () {
-    var v = encodeURIComponent(window.PT_BUILD || '1');
-    var files = [
-      'js/cards.js',
-      'js/engine/cache.js',
-      'js/engine/ranges/notation.js',
-      'js/engine/ranges/data.js',
-      'js/engine/ranges/extended.js',
-      'js/engine/ranges/rfi-solver-data.js',
-      'js/engine/ranges/vs-rfi-solver-data.js',
-      'js/engine/ranges/vs-3bet-solver-data.js',
-      'js/engine/ranges/jsonLoader.js',
-      'js/engine/ranges/variants.js',
-      'js/engine/ranges/registry.js',
-      'js/engine/ranges/weights.js',
-      'js/engine/ranges/villainTracking.js',
-      'js/engine/handStrength.js',
-      'js/engine/equity/madeHand.js',
-      'js/engine/math/potMath.js',
-      'js/engine/math/evMath.js',
-      'js/engine/equity/monteCarlo.js',
-      'js/engine/equity/handRank.js',
-      'js/engine/equity/blockers.js',
-      'js/engine/solver/boardCluster.js',
-      'js/engine/validation/boardTextureShift.js',
-      'js/engine/validation/villainCallAudit.js',
-      'js/engine/validation/streetStrategy.js',
-      'js/engine/solver/rangeAdvantage.js',
-      'js/engine/solver/riverShoveNode.js',
-      'js/engine/solver/probeEV.js',
-      'js/engine/solver/villainStrategyAdjust.js',
-      'js/engine/solver/preflopSolver.js',
-      'js/engine/solver/facingBet.js',
-      'js/engine/solver/spotKey.js',
-      'js/engine/solver/strategyTables.js',
-      'js/engine/solver/SolverProvider.js',
-      'js/engine/scoring/classifier.js',
-      'js/engine/scoring/evLoss.js',
-      'js/engine/scoring/scoring.js',
-      'js/engine/scoring/errors.js',
-      'js/engine/explanations/rules.js',
-      'js/engine/solver/LocalSolverProvider.js',
-      'js/engine/evaluateSpot.js',
-      'js/engine/villainProfiles.js',
-      'js/engine/villainPreflop.js',
-      'js/engine/stacks.js',
-      'js/ranges.js',
-      'js/play-config.js',
-      'js/live-advisor.js',
-      'js/engine.js',
-      'js/import/hhUtils.js',
-      'js/import/formatDetector.js',
-      'js/import/parsers/pokerstars.js',
-      'js/import/parsers/winamax.js',
-      'js/import.js',
-      'js/range-matrix.js',
-      'js/ai-hand-payload.js',
-      'js/ai-report.js',
-      'js/storage.js',
-      'js/stats-aggregate.js',
-      'js/cloud-sessions.js',
-      'js/sample-session.js',
-      'js/usage-ui.js',
-      'js/leaks.js',
-      'js/progress.js',
-      'js/disclaimer.js',
-      'js/re-engagement.js',
-      'js/user-profile.js',
-      'js/demo-mode.js',
-      'js/entitlements.js',
-      'js/billing.js',
-      'js/contact.js',
-      'js/pwa.js',
-      'js/account-settings.js',
-      'js/admin-panel.js',
-      'js/auth.js',
-      'js/app.js'
-    ];
-    function loadNext(i) {
-      if (i >= files.length) return;
-      var s = document.createElement('script');
-      s.src = files[i] + '?v=' + v;
-      s.onload = function () { loadNext(i + 1); };
-      s.onerror = function () { console.error('Failed to load', files[i]); loadNext(i + 1); };
-      document.body.appendChild(s);
+    if (!window.PTLoader || typeof window.PTLoader.loadCore !== 'function') {
+      console.error('[PT] PTLoader missing — check js/pt-loader.js');
+      return;
     }
-    loadNext(0);
+    window.PTLoader.loadCore().catch(function (err) {
+      console.error('[PT] Failed to start app', err);
+    });
   })();
   </script>
 </body>

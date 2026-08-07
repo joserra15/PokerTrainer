@@ -1,0 +1,27 @@
+# RG-D03 — Smoke Supabase REST + RLS (anon). No bloquea PRs.
+name: Supabase smoke (optional)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * 1' # lunes 05:00 UTC
+
+jobs:
+  supabase-smoke:
+    runs-on: ubuntu-latest
+    environment: supabase-smoke
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Smoke test-supabase.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Secrets SUPABASE_URL / SUPABASE_ANON_KEY no configurados — skip"
+            exit 0
+          fi
+          node tools/test-supabase.js

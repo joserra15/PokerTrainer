@@ -1,0 +1,33 @@
+# RG-C08 — Smoke billing Stripe test-mode. Solo dispatch/nightly; no bloquea PR.
+name: Billing live smoke (optional)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 5 * * 1'
+
+jobs:
+  billing-live:
+    runs-on: ubuntu-latest
+    environment: billing-live
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Documented smoke placeholder
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          echo "Billing live smoke: configurar secrets STRIPE_SECRET_KEY_TEST + endpoint de prueba."
+          echo "Ver docs/BILLING.md § smoke opcional."
+          if [ -z "$STRIPE_SECRET_KEY" ]; then
+            echo "Sin STRIPE_SECRET_KEY_TEST — job informativo OK"
+            exit 0
+          fi
+          # Contrato mínimo: la key test empieza por sk_test_
+          case "$STRIPE_SECRET_KEY" in
+            sk_test_*) echo "Stripe test key presente" ;;
+            *) echo "FAIL: se esperaba sk_test_…"; exit 1 ;;
+          esac

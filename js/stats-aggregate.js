@@ -5,7 +5,63 @@
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 4;
+  var AGG_VERSION = 7;
+
+  var STYLE_OPP_KEYS = [
+    'threeBetOpps', 'threeBetHits',
+    'foldToThreeBetOpps', 'foldToThreeBetHits',
+    'stealOpps', 'stealHits',
+    'foldToStealOpps', 'foldToStealHits',
+    'squeezeOpps', 'squeezeHits',
+    'cbetFlopOpps', 'cbetFlopHits',
+    'foldToCbetFlopOpps', 'foldToCbetFlopHits',
+    'cbetTurnOpps', 'cbetTurnHits',
+    'cbetRiverOpps', 'cbetRiverHits',
+    'afBets', 'afRaises', 'afCalls', 'afChecks',
+    'sawFlopN', 'wtsdN', 'wonAtSdN', 'wonSawFlopN'
+  ];
+
+  function addStyleCounters(target, src) {
+    STYLE_OPP_KEYS.forEach(function (k) {
+      target[k] = (target[k] || 0) + (src && src[k] ? src[k] : 0);
+    });
+  }
+
+  function stylePctsFromCounters(c) {
+    function pct(hits, opps) {
+      if (!opps) return null;
+      return Math.round((hits / opps) * 1000) / 10;
+    }
+    var afAgg = (c.afBets || 0) + (c.afRaises || 0);
+    var afCalls = c.afCalls || 0;
+    var afActions = afAgg + afCalls + (c.afChecks || 0);
+    var hands = c.hands || 0;
+    return {
+      threeBetPct: pct(c.threeBetHits, c.threeBetOpps),
+      foldToThreeBetPct: pct(c.foldToThreeBetHits, c.foldToThreeBetOpps),
+      stealPct: pct(c.stealHits, c.stealOpps),
+      foldToStealPct: pct(c.foldToStealHits, c.foldToStealOpps),
+      squeezePct: pct(c.squeezeHits, c.squeezeOpps),
+      cbetFlopPct: pct(c.cbetFlopHits, c.cbetFlopOpps),
+      foldToCbetFlopPct: pct(c.foldToCbetFlopHits, c.foldToCbetFlopOpps),
+      cbetTurnPct: pct(c.cbetTurnHits, c.cbetTurnOpps),
+      cbetRiverPct: pct(c.cbetRiverHits, c.cbetRiverOpps),
+      af: afCalls > 0 ? Math.round((afAgg / afCalls) * 100) / 100 : (afAgg > 0 ? afAgg : null),
+      afq: afActions > 0 ? Math.round((afAgg / afActions) * 1000) / 10 : null,
+      wtsdPct: pct(c.wtsdN, c.sawFlopN),
+      wsdPct: pct(c.wonAtSdN, c.wtsdN),
+      wwsfPct: pct(c.wonSawFlopN, c.sawFlopN),
+      bbPer100: hands ? Math.round(((c.netBB || 0) / hands) * 1000) / 10 : null
+    };
+  }
+
+  function pickStyleCounters(stats) {
+    var out = {};
+    STYLE_OPP_KEYS.forEach(function (k) {
+      out[k] = stats && stats[k] != null ? stats[k] : 0;
+    });
+    return out;
+  }
 
   function weekKey(date) {
     var d = new Date(date);
@@ -55,21 +111,35 @@
       (dist.optima || 0) + (dist.aceptable || 0) + (dist.imprecisa || 0) + (dist.error || 0)
     );
     var good = decN ? Math.round((decN * (stats.accuracy || 0)) / 100) : 0;
-    return {
+    var hands = stats.nHands || 0;
+    var vpipHands = stats.vpipHands != null
+      ? stats.vpipHands
+      : (stats.vpipPct != null && hands ? Math.round((stats.vpipPct / 100) * hands) : 0);
+    var pfrHands = stats.pfrHands != null
+      ? stats.pfrHands
+      : (stats.pfrPct != null && hands ? Math.round((stats.pfrPct / 100) * hands) : 0);
+    var row = {
       week: weekKey(stub.createdAt || Date.now()),
-      hands: stats.nHands || 0,
+      hands: hands,
       decisions: decN,
       good: good,
       evLoss: round2(Math.abs(stats.evLossBB || 0)),
-      netBB: round2(stats.netBB || 0)
+      netBB: round2(stats.netBB || 0),
+      vpipHands: vpipHands,
+      pfrHands: pfrHands
     };
+    addStyleCounters(row, pickStyleCounters(stats));
+    return row;
   }
 
   function rebuildSessionWeekly(agg) {
     var map = {};
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
-      if (!map[c.week]) map[c.week] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0 };
+      if (!map[c.week]) {
+        map[c.week] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
+        addStyleCounters(map[c.week], {});
+      }
       var b = map[c.week];
       b.sessions += 1;
       b.hands += c.hands;
@@ -77,6 +147,9 @@
       b.good += c.good;
       b.evLoss = round2(b.evLoss + c.evLoss);
       b.netBB = round2(b.netBB + c.netBB);
+      b.vpipHands += c.vpipHands || 0;
+      b.pfrHands += c.pfrHands || 0;
+      addStyleCounters(b, c);
     });
     return map;
   }
@@ -96,7 +169,8 @@
   }
 
   function rebuildSessionsTotal(agg) {
-    var tot = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0 };
+    var tot = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0, vpipPct: null, pfrPct: null };
+    addStyleCounters(tot, {});
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
       tot.sessions += 1;
@@ -105,7 +179,14 @@
       tot.good += c.good;
       tot.evLoss = round2(tot.evLoss + c.evLoss);
       tot.netBB = round2(tot.netBB + c.netBB);
+      tot.vpipHands += c.vpipHands || 0;
+      tot.pfrHands += c.pfrHands || 0;
+      addStyleCounters(tot, c);
     });
+    tot.vpipPct = tot.hands ? Math.round((tot.vpipHands / tot.hands) * 1000) / 10 : null;
+    tot.pfrPct = tot.hands ? Math.round((tot.pfrHands / tot.hands) * 1000) / 10 : null;
+    var stylePct = stylePctsFromCounters(tot);
+    Object.keys(stylePct).forEach(function (k) { tot[k] = stylePct[k]; });
     return tot;
   }
 
@@ -268,7 +349,8 @@
       var d = new Date(now);
       d.setDate(d.getDate() - i * 7);
       var k = weekKey(d);
-      buckets[k] = { key: k, hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0 };
+      buckets[k] = { key: k, hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
+      addStyleCounters(buckets[k], {});
     }
     Object.keys(map || {}).forEach(function (k) {
       if (!buckets[k]) return;
@@ -279,12 +361,19 @@
       buckets[k].good += src.good || 0;
       buckets[k].evLoss = round2(buckets[k].evLoss + (src.evLoss || 0));
       buckets[k].netBB = round2(buckets[k].netBB + (src.netBB || 0));
+      buckets[k].vpipHands += src.vpipHands || 0;
+      buckets[k].pfrHands += src.pfrHands || 0;
+      addStyleCounters(buckets[k], src);
     });
     return Object.keys(buckets).sort().map(function (k) {
       var b = buckets[k];
       b.accuracy = b.decisions ? Math.round((b.good / b.decisions) * 100) : null;
       b.evLoss = round2(b.evLoss);
       b.netBB = round2(b.netBB);
+      b.vpipPct = b.hands ? Math.round((b.vpipHands / b.hands) * 1000) / 10 : null;
+      b.pfrPct = b.hands ? Math.round((b.pfrHands / b.hands) * 1000) / 10 : null;
+      var stylePct = stylePctsFromCounters(b);
+      Object.keys(stylePct).forEach(function (key) { b[key] = stylePct[key]; });
       b.label = fmtWeekLabel(k);
       return b;
     });

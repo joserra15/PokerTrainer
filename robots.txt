@@ -4,5 +4,6 @@ Allow: /legal/
 Disallow: /sesiones/
 Disallow: /tools/
 Disallow: /supabase/
+Disallow: /promo.html
 
 Sitemap: https://www.pokerforgeai.com/sitemap.xml

@@ -29,11 +29,19 @@ Para un producto SaaS con suscripciones mensuales/anuales y portal de cliente, *
 | Manos entrenador / día | 15 | Ilimitado | Ilimitado |
 | Sesiones import / mes | 1 | Ilimitado | Ilimitado |
 | Manos por import (free) | 200 máx. | — | — |
-| Informes IA / mes | 0 | 5 | 35 |
-| Bono IA (compra única) | Sí (precio Gratis) | Sí (precio Study) | Sí (precio Coach) |
+| Informes IA / mes | 0 | 40 | 150 |
+| Bono IA (compra única) | Sí (precio Gratis) · packs 20/40/80 | Sí (precio Study) | Sí (precio Coach) |
 | Histórico | 30 días | Completo | Completo |
 
 Los administradores (`is_admin`) no tienen límites.
+
+## Trial Study (10 días)
+
+Checkout de **Study (`pro`)** ofrece `subscription_data[trial_period_days]=10` **una vez por cliente Stripe**
+(si el customer no tiene suscripciones previas). También usa `payment_method_collection=if_required`
+cuando hay trial. Coach no incluye trial automático.
+
+El backend ya trata `subscription_status=trialing` como plan de pago activo (`paid_active`).
 
 ## Configuración Stripe (producción)
 
@@ -92,3 +100,7 @@ Copiar `js/billing-config.example.js` y poner `enabled: true` cuando Stripe est�
 ## Emails transaccionales (M-08)
 
 Stripe envía por defecto confirmación de pago y avisos de fallo. Emails de marca propia (Resend) quedan como mejora futura.
+
+## Smoke opcional (CI)
+
+Job `.github/workflows/billing-live.yml` (`workflow_dispatch` / nightly): comprueba que existe `STRIPE_SECRET_KEY_TEST` (`sk_test_…`) en el environment `billing-live`. **No bloquea PRs.** Contratos sin red: `npm run test:stripe-contracts` y `tools/test-stripe-sync-contracts.js`.

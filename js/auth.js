@@ -231,9 +231,39 @@
       .catch(function (e) { console.warn('[PTSampleSession]', e); });
   }
 
+  function initAdminForUser(user) {
+    if (!user || !user.isAdmin) {
+      if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+      else if (global.PTAdmin && global.PTAdmin.setAdminVisible) global.PTAdmin.setAdminVisible(false);
+      return;
+    }
+    var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
+    if (demoOn) {
+      if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+      return;
+    }
+    function run() {
+      if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
+    }
+    if (global.PTLoader) {
+      global.PTLoader.ensure('admin').then(run).catch(function (e) { console.warn('[PTAdmin]', e); });
+    } else {
+      run();
+    }
+  }
+
   async function enterApp(user) {
     if (!user) return;
     user = normalizeUser(user);
+    if (global.PTAgeGate && global.PTAgeGate.ensureConfirmed) {
+      var ageOk = await global.PTAgeGate.ensureConfirmed(user);
+      if (!ageOk) {
+        var errEl = $('auth-error');
+        if (errEl) errEl.textContent = 'Debes confirmar que tienes más de 18 años para usar PokerForgeAI.';
+        signOut();
+        return;
+      }
+    }
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (e) { /* noop */ }
     currentUser = user;
     global.PT_AUTH_USER = user;
@@ -241,39 +271,62 @@
 
     setAppVisible(true);
     renderAccountMenu(user);
-    startAppIfNeeded();
-    global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
 
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) {
       global.PTCloudSessions.setUser(user);
     }
+    var cloudLoginSync = false;
     if (global.PTCloud && global.PTCloud.setUser) {
       global.PTCloud.setUser(user);
       document.body.classList.add('pt-cloud-syncing');
+      cloudLoginSync = true;
+    }
+
+    startAppIfNeeded();
+    global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
+
+    if (cloudLoginSync) {
       withTimeout(global.PTCloud.syncOnLogin(), 12000, 'cloud-sync')
         .catch(function (e) { console.warn('[PTCloud]', e); })
         .finally(function () {
           document.body.classList.remove('pt-cloud-syncing');
+          global.dispatchEvent(new CustomEvent('pt-cloud-login-sync-finished'));
           seedSampleSession(user);
         });
     } else {
       seedSampleSession(user);
+      global.dispatchEvent(new CustomEvent('pt-cloud-login-sync-finished'));
     }
 
     if (global.PTProfile && global.PTProfile.touchAndApply) {
       withTimeout(global.PTProfile.touchAndApply(user), 8000, 'profile')
         .then(function () {
           renderAccountMenu(user);
-          if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
-          if (global.PTBilling && global.PTBilling.syncSubscription && global.PTBilling.enabled()) {
-            global.PTBilling.syncSubscription()
+          initAdminForUser(user);
+          var afterPromo = function () {
+            if (global.PTBilling && global.PTBilling.syncSubscription && global.PTBilling.enabled()) {
+              global.PTBilling.syncSubscription()
+                .then(function () {
+                  if (global.PTEntitlements && global.PTEntitlements.refresh) {
+                    return global.PTEntitlements.refresh();
+                  }
+                })
+                .then(function () { renderAccountMenu(user); })
+                .catch(function (e) { console.warn('[PTBilling] login sync', e); });
+            }
+          };
+          if (global.PTPromoRedeem && global.PTPromoRedeem.tryRedeemAfterLogin) {
+            withTimeout(global.PTPromoRedeem.tryRedeemAfterLogin(), 8000, 'promo')
               .then(function () {
-                if (global.PTEntitlements && global.PTEntitlements.refresh) {
-                  return global.PTEntitlements.refresh();
-                }
+                renderAccountMenu(user);
+                afterPromo();
               })
-              .then(function () { renderAccountMenu(user); })
-              .catch(function (e) { console.warn('[PTBilling] login sync', e); });
+              .catch(function (e) {
+                console.warn('[PTPromo]', e);
+                afterPromo();
+              });
+          } else {
+            afterPromo();
           }
         })
         .catch(function (e) {
@@ -281,12 +334,12 @@
           if (global.PTEntitlements && global.PTEntitlements.refresh) {
             global.PTEntitlements.refresh().then(function () {
               renderAccountMenu(user);
-              if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
+              initAdminForUser(user);
             });
           }
         });
-    } else if (global.PTAdmin && global.PTAdmin.initForUser) {
-      global.PTAdmin.initForUser(user);
+    } else {
+      initAdminForUser(user);
     }
   }
 
@@ -336,6 +389,9 @@
   function signOut() {
     if (global.PTLog && global.PTLog.event) global.PTLog.event('logout');
     var done = function () {
+      if (global.PTAdmin && global.PTAdmin.lockdown) {
+        try { global.PTAdmin.lockdown(); } catch (e) { /* noop */ }
+      }
       localStorage.removeItem(SESSION_KEY);
       try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e) { /* noop */ }
       currentUser = null;
