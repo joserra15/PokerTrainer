@@ -31,8 +31,8 @@
 |------|--------|----------------|----------|
 | **1** | Blindaje inmediato | Todo test útil ya escrito corre en cada PR; paywall y flujos core E2E en rojo si se rompen | 12 ✅ |
 | **2** | Dinero, datos e IA | Webhook/checkout, merge cloud/RLS y `analyze-hand` con contratos sin red externa | 11 ✅ |
-| **3** | Producto completo | E2E de estudio/cuenta/mobile, admin/promos, golden hands, proceso de suite | 22 |
-| **4** | Hygiene y live opcional | PWA/growth restantes, jobs nightly con secrets, checklist cobertura | 12 |
+| **3** | Producto completo | E2E de estudio/cuenta/mobile, admin/promos, golden hands, proceso de suite | 22 ✅ |
+| **4** | Hygiene y live opcional | PWA/growth restantes, jobs nightly con secrets, checklist cobertura | 12 ✅ |
 | | | **Total** | **57** |
 
 ---
@@ -173,7 +173,9 @@ Pilar (trazabilidad): **A** CI existente · **B** E2E · **C** billing · **D** 
 
 ---
 
-### Fase 3 — Producto completo
+### Fase 3 — Producto completo ✅
+
+**Estado:** implementada (`@smoke` en PR, E2E estudio/advisor/planes/móvil/i18n/age-gate, contratos sync/promo/share, rake/multiway/fuzz, admin/cuenta/demo, release docs).
 
 **Meta:** el resto del producto usable día a día tiene E2E o unit; admin/promos/cuenta cubiertos; suite E2E organizada (smoke vs full); motor profundizado (rake, multiway, fuzz).
 
@@ -207,7 +209,9 @@ Pilar (trazabilidad): **A** CI existente · **B** E2E · **C** billing · **D** 
 
 ---
 
-### Fase 4 — Hygiene y smokes live opcionales
+### Fase 4 — Hygiene y smokes live opcionales ✅
+
+**Estado:** implementada (PWA/guide/analytics guards, share/contact E2E, solver sanity JS, variants, workflows `supabase-smoke` + `billing-live`).
 
 **Meta:** cobertura periférica (PWA, guide, share UI, contact); jobs con secrets que no bloquean PR; mantenimiento del mapa de cobertura.
 
@@ -255,22 +259,22 @@ Marcar ✅ en “Meta” / IDs al cerrar cada fase.
 
 | Módulo | Hoy | Meta | IDs | Fase |
 |--------|-----|------|-----|------|
-| Engine / ranges / EV | CI fuerte | + golden + fuzz + vs-RFI/3bet | A02, F01–F06 | 1, 2, 3, 4 |
-| Import + HUD | CI fuerte | + multi-sala E2E + multiway | B02, F03 | 1, 3 |
-| Hand analysis | CI Node | + E2E UI | B04 | 2 |
-| Trainer / play UI | E2E humo | Sesión completa + advisor + mobile | B01, B06, B10, A04 | 1, 3 |
-| Histórico / Errores / Stats | Indirecto | E2E con seed | B05 | 3 |
-| Rangos UI | Guards | E2E matriz | B05, A02 | 1, 3 |
-| Entitlements / paywall | Parcial P1 | Matriz + E2E free | C01–C02, B07, E03 | 1 |
-| Stripe Edge | ❌ | Contratos + opcional live | C03–C08 | 2, 3, 4 |
-| Auth | Mock E2E | Stubs cliente + runbook | D05–D06 | 2, 3 |
-| Cloud sync | ❌ | Merge + sessions + RLS | D01–D04 | 2, 4 |
-| IA Coach | Payload | Edge contrato + cuotas | E01–E03 | 1, 2 |
-| Share | HTML local | Edge + E2E | A01, E04–E05, B09 | 1, 3, 4 |
-| Admin / promos | ❌ | Acceso + redeem | G01, C07 | 3 |
-| Growth / PWA / legal | Guards parciales | E2E fresh + PWA | G04–G07 | 3, 4 |
-| Contact | Fuera CI | CI + E2E | A01, B09 | 1, 4 |
-| Proceso CI/PR | Parcial | static+smoke en PR; release checklist | H01–H06, B12 | 1, 3, 4 |
+| Engine / ranges / EV | ✅ | golden + fuzz + vs-RFI/3bet + sanity | A02, F01–F06 | 1–4 ✅ |
+| Import + HUD | ✅ | multi-sala E2E + multiway | B02, F03 | 1, 3 ✅ |
+| Hand analysis | ✅ | E2E UI | B04 | 2 ✅ |
+| Trainer / play UI | ✅ | sesión + advisor + mobile | B01, B06, B10, A04 | 1, 3 ✅ |
+| Histórico / Errores / Stats | ✅ | E2E con seed | B05 | 3 ✅ |
+| Rangos UI | ✅ | E2E matriz | B05, A02 | 1, 3 ✅ |
+| Entitlements / paywall | ✅ | Matriz + E2E free | C01–C02, B07, E03 | 1 ✅ |
+| Stripe Edge | ✅ | Contratos + job live opcional | C03–C08 | 2–4 ✅ |
+| Auth | ✅ | Stubs + runbook release | D05–D06 | 2, 3 ✅ |
+| Cloud sync | ✅ | Merge + sessions + RLS + smoke opcional | D01–D04 | 2, 4 ✅ |
+| IA Coach | ✅ | Edge + cuotas | E01–E03 | 1, 2 ✅ |
+| Share | ✅ | Edge + E2E + mock | A01, E04–E05, B09 | 1, 3, 4 ✅ |
+| Admin / promos | ✅ | Acceso + redeem | G01, C07 | 3 ✅ |
+| Growth / PWA / legal | ✅ | E2E fresh + PWA + guide | G04–G07 | 3, 4 ✅ |
+| Contact | ✅ | CI + E2E | A01, B09 | 1, 4 ✅ |
+| Proceso CI/PR | ✅ | static+smoke en PR; release checklist | H01–H06, B12 | 1, 3, 4 ✅ |
 
 ---
 

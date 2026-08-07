@@ -212,18 +212,18 @@ Requiere Node.js. Matriz:
 | Unit motor | `npm run test:unit` | `selftest` GTO |
 | Import HH | `npm run test:import` | PokerStars ES/EN, Winamax, GGPoker |
 | E2E | `npm run test:e2e` | Playwright Chromium (entrenar, import, paywall, replay, análisis) — `.github/workflows/e2e.yml` |
-| Live opcional | `node tools/test-supabase.js` | REST+RLS con credenciales (no CI PR) |
+| Live opcional | `node tools/test-supabase.js` / workflows `supabase-smoke` · `billing-live` | Secrets; no bloquean PR |
+| Release | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | OAuth + billing + smoke |
 
 ```
 npm ci
 npm run test:ci            # regresión Node completa
-npm run test:e2e           # build + Playwright
+npm run test:e2e:smoke     # Playwright @smoke (PR)
+npm run test:e2e           # Playwright full + mobile @mobile
 ```
 
-Scripts sueltos: `test:entitlements`, `test:golden-hands`, `test:stripe-contracts`, etc. (ver `package.json`).
-
-Backlog por fases: [`docs/BACKLOG_REGRESION.md`](docs/BACKLOG_REGRESION.md).  
-`tools/test-hand-77.js` es diagnóstico puntual — **no** forma parte de `test:ci`.
+Cómo añadir tests: [`tools/README.md`](tools/README.md). Backlog: [`docs/BACKLOG_REGRESION.md`](docs/BACKLOG_REGRESION.md).  
+`tools/test-hand-77.js` es **diagnóstico puntual** — no forma parte de `test:ci` (RG-A05).
 
 ## Notas sobre los rangos
 

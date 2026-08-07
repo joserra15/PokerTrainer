@@ -48,7 +48,23 @@ const STEPS = [
   ['Test Stripe Edge contracts', ['node', 'tools/test-stripe-edge-contracts.js']],
   ['Test analyze-hand contract', ['node', 'tools/test-analyze-hand-contract.js']],
   ['Test billing UI markers', ['node', 'tools/test-billing-ui.js']],
-  ['Test golden hands EV', ['node', 'tools/test-golden-hands.js']]
+  ['Test golden hands EV', ['node', 'tools/test-golden-hands.js']],
+  // Fase 3
+  ['Test stripe-sync contracts', ['node', 'tools/test-stripe-sync-contracts.js']],
+  ['Test promo redeem', ['node', 'tools/test-promo-redeem.js']],
+  ['Test share-hand Edge contract', ['node', 'tools/test-share-hand-edge-contract.js']],
+  ['Test rake scoring', ['node', 'tools/test-rake-scoring.js']],
+  ['Test multiway import', ['node', 'tools/test-multiway-import.js']],
+  ['Test fuzz evaluateSpot', ['node', 'tools/test-fuzz-evaluate.js']],
+  ['Test admin panel', ['node', 'tools/test-admin-panel.js']],
+  ['Test account settings', ['node', 'tools/test-account-settings.js']],
+  ['Test demo / sample session', ['node', 'tools/test-demo-sample.js']],
+  // Fase 4
+  ['Test solver sanity JS', ['node', 'tools/test-solver-sanity-js.js']],
+  ['Test product variants 6-max', ['node', 'tools/test-product-variants.js']],
+  ['Test beginner guide', ['node', 'tools/test-beginner-guide.js']],
+  ['Test PWA manifest', ['node', 'tools/test-pwa-manifest.js']],
+  ['Test analytics/sentry guards', ['node', 'tools/test-analytics-sentry.js']]
 ];
 
 let failed = 0;
