@@ -2527,6 +2527,8 @@ window.PT_VS_3BET_JSON = {
     }
 
     applyLastFromActs(priorOnStreet, priorPotBB(hand, street));
+    const streetLastAction = lastAction;
+    const streetBetRatio = betRatio;
 
     const hasVillainAgg = priorOnStreet.some(
       (a) => a.player !== hero && (a.type === 'bet' || a.type === 'raise')
@@ -2544,10 +2546,17 @@ window.PT_VS_3BET_JSON = {
         const villBet = stActs.some((a) => a.player !== hero && (a.type === 'bet' || a.type === 'raise'));
         if (villBet || (r !== villainBase && r !== D.BROAD_CONTINUE)) {
           range = r;
-          applyLastFromActs(stActs, potSt);
+          // Solo heredar sizing/acción previa si en esta calle el villano aún no ha actuado
+          // (si ya checkeó/apostó en la calle actual, eso es la última acción real).
+          if (!streetLastAction) applyLastFromActs(stActs, potSt);
           break;
         }
       }
+    }
+
+    if (streetLastAction) {
+      lastAction = streetLastAction;
+      betRatio = streetBetRatio;
     }
 
     return { villainRange: range, villainLastAction: lastAction, villainBetRatio: betRatio };
@@ -3345,7 +3354,8 @@ window.PT_VS_3BET_JSON = {
   }
 
   function sampleCombosFromRange(rangeStr, dead, maxSamples, rnd) {
-    const r = rnd || Math.random;
+    // Preferir RNG con semilla (Cards.rng) para regresiones deterministas.
+    const r = rnd || (C && C.rng && C.rng.random ? C.rng.random.bind(C.rng) : Math.random);
     const codes = N.expand(rangeStr || '');
     const pool = [];
     codes.forEach((code) => {
@@ -3436,6 +3446,8 @@ window.PT_VS_3BET_JSON = {
     if (pct >= 0.62 || eq >= 0.58) return 'value';
     if (pct >= 0.42 || eq >= 0.42) return 'merge';
     if (pct >= 0.22 || eq >= 0.28) return 'bluffcatch';
+    // Pareja+ hecha (incl. board pair) no es aire puro: al menos bluffcatch.
+    if (madeInfo && madeInfo.ev && madeInfo.ev.category >= 1) return 'bluffcatch';
     return 'air';
   }
 
@@ -3905,20 +3917,34 @@ window.PT_VS_3BET_JSON = {
   function isBenignProbeDuplicate(prevDecision, decision) {
     const prevGto = prevDecision.gto || prevDecision.strategy || {};
     const curGto = decision.gto || decision.strategy || {};
-    const prevCheck = prevGto.check || 0;
-    const curCheck = curGto.check || 0;
-    const prevBetMax = Math.max(prevGto.bet_33 || 0, prevGto.bet_66 || 0, prevGto.bet_100 || 0);
-    const curBetMax = Math.max(curGto.bet_33 || 0, curGto.bet_66 || 0, curGto.bet_100 || 0);
+    // Usar enteros % (misma base que frequencyFingerprint) para evitar falsos
+    // positivos cuando check=0.878 → fingerprint 88% pero 0.878 < 0.88.
+    const prevCheckPct = Math.round((prevGto.check || 0) * 100);
+    const curCheckPct = Math.round((curGto.check || 0) * 100);
+    const prevBetMaxPct = Math.max(
+      Math.round((prevGto.bet_33 || 0) * 100),
+      Math.round((prevGto.bet_66 || 0) * 100),
+      Math.round((prevGto.bet_100 || 0) * 100)
+    );
+    const curBetMaxPct = Math.max(
+      Math.round((curGto.bet_33 || 0) * 100),
+      Math.round((curGto.bet_66 || 0) * 100),
+      Math.round((curGto.bet_100 || 0) * 100)
+    );
     // Check-down dominante (≥88% check, sin apuesta significativa) en ambas calles.
-    if (prevCheck >= 0.88 && curCheck >= 0.88 && prevBetMax <= 0.10 && curBetMax <= 0.10) {
+    if (prevCheckPct >= 88 && curCheckPct >= 88 && prevBetMaxPct <= 10 && curBetMaxPct <= 10) {
       return true;
     }
     const prevBoard = (prevDecision.board || []).join('');
     const curBoard = (decision.board || []).join('');
     if (prevBoard && curBoard && prevBoard !== curBoard) {
-      const tier = decision.handRank && decision.handRank.tier
+      let tier = decision.handRank && decision.handRank.tier
         ? decision.handRank.tier
         : (decision.madeHandTier || '');
+      if (!tier && decision.board && decision.heroCards && global.GTOEquityMadeHand) {
+        const info = global.GTOEquityMadeHand.classifyMadeHand(decision.heroCards, decision.board);
+        tier = info && info.tier ? info.tier : '';
+      }
       if (tier === 'weak' || tier === 'trash' || tier === 'marginal' || tier === 'air') return true;
     }
     return false;
@@ -4549,7 +4575,7 @@ window.PT_VS_3BET_JSON = {
     return 'air';
   }
 
-  /** Agresor preflop sin apuesta que pagar → línea de c-bet (no probe/donk). */
+  /** Agresor preflop sin apuesta que pagar → lead de c-bet/barrel (no probe/donk). */
   function isContinuationBetSpot(input) {
     return input.initiative === 'aggressor' && (input.toCallBB || 0) <= 0;
   }
@@ -4558,7 +4584,26 @@ window.PT_VS_3BET_JSON = {
     return input.villainLastAction === 'check';
   }
 
-  /** Piso de frecuencia de apuesta en spots de c-bet (mezcla GTO aproximada). */
+  /** Equity de farol útil para barrel (FD/OESD/gutshot); aire puro suele checkear. */
+  function hasBarrelBluffEquity(input) {
+    const info = input.madeHandInfo || {};
+    return !!(info.flushDraw || info.oesd || info.gutshot || info.hasDraw);
+  }
+
+  /**
+   * Segundo/tercer barrel = el agresor ya lideró en una calle previa.
+   * Delayed c-bet = check en flop (y/o turn) y lead posterior tras check del villano.
+   * Sin señal explícita, asumimos barrel en turn/river (conservador).
+   */
+  function isTrueBarrelLine(input) {
+    const street = input.street || 'flop';
+    if (street === 'flop' || street === 'preflop') return false;
+    if (input.priorAggressorBet === false || input.delayedCbet === true) return false;
+    if (input.priorAggressorBet === true) return true;
+    return true;
+  }
+
+  /** Piso de frecuencia de apuesta en spots de c-bet/barrel (mezcla GTO aproximada). */
   function cbetMinBetTotal(input, band) {
     if (!isContinuationBetSpot(input)) return 0;
     const street = input.street || 'flop';
@@ -4581,21 +4626,65 @@ window.PT_VS_3BET_JSON = {
       }
     }
     if (street === 'turn') {
-      if (band === 'air') return inPosition ? 0.24 : 0.16;
+      if (band === 'air') {
+        if (!isTrueBarrelLine(input)) {
+          // Delayed c-bet: más FE que barrel tras call de flop.
+          return inPosition ? 0.24 : 0.16;
+        }
+        // Segundo barrel: faroles con equity; aire puro rara vez fuerza bet.
+        if (!hasBarrelBluffEquity(input)) return inPosition ? 0.06 : 0.03;
+        return inPosition ? 0.22 : 0.14;
+      }
       if (band === 'nuts' || band === 'value') return inPosition ? 0.62 : 0.50;
       if (band === 'merge') return inPosition ? 0.36 : 0.26;
-      return inPosition ? 0.32 : 0.22;
+      return inPosition ? 0.28 : 0.18;
     }
     if (band === 'nuts' || band === 'value') return inPosition ? 0.55 : 0.45;
     return 0;
   }
 
+  /**
+   * Boost/penalización de fold equity al lead como agresor.
+   * Flop c-bet / delayed c-bet: FE alto. Barrel tras defensa: menos FE.
+   */
   function cbetFoldEquityBoost(input) {
     if (!isContinuationBetSpot(input)) return 0;
-    let boost = 0.05;
-    if (villainCheckedToHero(input)) boost += 0.09;
-    if ((input.street || 'flop') === 'flop') boost += 0.04;
-    if (input.inPosition !== false) boost += 0.03;
+    const street = input.street || 'flop';
+    const ip = input.inPosition !== false;
+    if (street === 'flop') {
+      let boost = 0.05;
+      if (villainCheckedToHero(input)) boost += 0.09;
+      boost += 0.04;
+      if (ip) boost += 0.03;
+      return boost;
+    }
+    if (street === 'turn') {
+      if (!isTrueBarrelLine(input)) {
+        // Delayed c-bet tras check-check: el villano no defendió bet → FE alta.
+        let boost = 0.05;
+        if (villainCheckedToHero(input)) boost += 0.09;
+        if (ip) boost += 0.03;
+        return boost;
+      }
+      // Tras call de flop, un segundo barrel genera menos folds.
+      let boost = -0.10;
+      if (villainCheckedToHero(input)) boost += 0.04;
+      if (ip) boost += 0.02;
+      const texture = Board ? Board.boardTexture(input.board || []) : {};
+      if (texture.wet) boost -= 0.04;
+      return boost;
+    }
+    if (!isTrueBarrelLine(input)) {
+      // Stab / delayed en river tras calle(s) checkeada(s).
+      let boost = 0.02;
+      if (villainCheckedToHero(input)) boost += 0.06;
+      if (ip) boost += 0.02;
+      return boost;
+    }
+    // River: tercer barrel — FE más baja aún con aire.
+    let boost = -0.12;
+    if (villainCheckedToHero(input)) boost += 0.05;
+    if (ip) boost += 0.02;
     return boost;
   }
 
@@ -4688,13 +4777,27 @@ window.PT_VS_3BET_JSON = {
     if (isContinuationBetSpot(input) && band === 'air' && street === 'flop') {
       betTotal = Math.min(betTotal, inPosition ? 0.65 : 0.45);
     }
+    if (isContinuationBetSpot(input) && band === 'air' && street === 'turn') {
+      if (!isTrueBarrelLine(input)) {
+        // Delayed c-bet: tope alineado con c-bet flop (FE de check-check).
+        betTotal = Math.min(betTotal, inPosition ? 0.65 : 0.45);
+      } else if (!hasBarrelBluffEquity(input)) {
+        // Aire puro: no forzar segundo barrel; con draws, mezcla moderada.
+        betTotal = Math.min(betTotal, inPosition ? 0.16 : 0.10);
+      } else {
+        betTotal = Math.min(betTotal, inPosition ? 0.42 : 0.28);
+      }
+    }
     if (isContinuationBetSpot(input) && band === 'air' && street === 'river') {
-      betTotal = Math.min(betTotal, inPosition ? 0.22 : 0.12);
+      betTotal = Math.min(betTotal, inPosition ? 0.16 : 0.08);
     }
     if (!isContinuationBetSpot(input) && input.initiative === 'caller') {
-      if (band === 'air') betTotal = Math.min(betTotal, inPosition ? 0.22 : 0.10);
-      else if (band === 'bluffcatch') betTotal = Math.min(betTotal, inPosition ? 0.30 : 0.15);
-      else if (band === 'merge') betTotal = Math.min(betTotal, inPosition ? 0.36 : 0.22);
+      // Caps escalados por calle: si el tope fijo se aplica DESPUÉS de streetScale,
+      // flop/turn/river colapsan a la misma frecuencia (bug frecuencias idénticas).
+      const capScale = streetScale[street] || 1;
+      if (band === 'air') betTotal = Math.min(betTotal, (inPosition ? 0.22 : 0.10) * capScale);
+      else if (band === 'bluffcatch') betTotal = Math.min(betTotal, (inPosition ? 0.30 : 0.15) * capScale);
+      else if (band === 'merge') betTotal = Math.min(betTotal, (inPosition ? 0.36 : 0.22) * capScale);
     }
 
     const split = dynamicSizeSplit(input, band, polarization);
@@ -4728,7 +4831,8 @@ window.PT_VS_3BET_JSON = {
   global.GTOProbeEV = {
     computeProbeStrategy, actionEV, evCheck, evBet, estimateFoldEquity,
     dynamicSizeSplit, realizationFactor, normalize,
-    isContinuationBetSpot, cbetMinBetTotal, cbetFoldEquityBoost
+    isContinuationBetSpot, cbetMinBetTotal, cbetFoldEquityBoost, hasBarrelBluffEquity,
+    isTrueBarrelLine
   };
 })(window);
 
@@ -5243,6 +5347,41 @@ window.PT_VS_3BET_JSON = {
     return 150;
   }
 
+  /**
+   * Tipo de lead del agresor preflop: c-bet solo en flop;
+   * turn/river son barrels si ya hubo lead previo; si no, delayed c-bet.
+   * @param {string} street
+   * @param {boolean} [priorAggressorBet] true si el héroe ya bet/raise en calle previa
+   */
+  function aggressorLeadType(street, priorAggressorBet) {
+    if (street === 'turn') {
+      return priorAggressorBet === false ? 'delayed_cbet' : 'barrel2';
+    }
+    if (street === 'river') {
+      return priorAggressorBet === false ? 'delayed_cbet' : 'barrel3';
+    }
+    return 'cbet';
+  }
+
+  /** Etiqueta UI en español para lead del agresor. */
+  function aggressorLeadLabel(street, priorAggressorBet) {
+    if (street === 'turn' || street === 'river') {
+      if (priorAggressorBet === false) return 'delayed c-bet';
+      return street === 'turn' ? 'segundo barrel' : 'tercer barrel';
+    }
+    return 'c-bet';
+  }
+
+  function leadTypeLabel(leadType) {
+    if (leadType === 'cbet') return 'c-bet';
+    if (leadType === 'delayed_cbet') return 'delayed c-bet';
+    if (leadType === 'barrel2') return 'segundo barrel';
+    if (leadType === 'barrel3') return 'tercer barrel';
+    if (leadType === 'probe') return 'probe';
+    if (leadType === 'donk') return 'donk';
+    return '';
+  }
+
   /** Construye clave de spot sin redundancia. */
   function buildSpotKey(input) {
     const board = input.board || [];
@@ -5253,6 +5392,7 @@ window.PT_VS_3BET_JSON = {
     const gameType = rc.gameType || input.gameType || 'cash6';
     const stackLabel = rc.stackDepth || input.stackDepthLabel
       || (global.GTORangesRegistry ? global.GTORangesRegistry.stackLabelFromBB(effStack) : 'standard');
+    const street = input.street || 'preflop';
 
     return {
       position: input.position || '?',
@@ -5260,7 +5400,7 @@ window.PT_VS_3BET_JSON = {
       stackDepth: bucketStack(effStack),
       stackLabel: stackLabel,
       gameType: gameType,
-      street: input.street || 'preflop',
+      street: street,
       boardType: board.length >= 3 ? Board.classifyBoard(board) : 'PREFLOP',
       spr: bucketSpr(spr),
       initiative: input.initiative || 'none',
@@ -5268,15 +5408,17 @@ window.PT_VS_3BET_JSON = {
       facing: (input.toCallBB || 0) > 0 ? 'bet' : 'none',
       leadType: (function () {
         if ((input.toCallBB || 0) > 0) return 'none';
-        if (input.initiative === 'aggressor') return 'cbet';
+        if (input.initiative === 'aggressor') {
+          return aggressorLeadType(street, input.priorAggressorBet);
+        }
         if (input.inPosition) return 'probe';
         return 'donk';
       })(),
       facingNode: (function () {
         const RS = global.GTORiverShoveNode;
-        if (!RS || (input.street || 'preflop') !== 'river' || !(input.toCallBB > 0)) return 'none';
+        if (!RS || street !== 'river' || !(input.toCallBB > 0)) return 'none';
         const potBefore = Math.max((input.potBB || 1) - (input.toCallBB || 0), 0.1);
-        return RS.classifyFacingNode(input.toCallBB, potBefore, input.street, input.villainLastAction);
+        return RS.classifyFacingNode(input.toCallBB, potBefore, street, input.villainLastAction);
       })(),
       inPosition: !!input.inPosition
     };
@@ -5293,7 +5435,10 @@ window.PT_VS_3BET_JSON = {
     ].join('|');
   }
 
-  global.GTOSpotKey = { buildSpotKey, spotKeyString, bucketSpr, bucketStack };
+  global.GTOSpotKey = {
+    buildSpotKey, spotKeyString, bucketSpr, bucketStack,
+    aggressorLeadType, aggressorLeadLabel, leadTypeLabel
+  };
 })(window);
 
 /*
@@ -6647,6 +6792,36 @@ window.PT_VS_3BET_JSON = {
     return b.join(' ');
   }
 
+  function leadSuffix(spotKey) {
+    const SK = global.GTOSpotKey;
+    if (SK && SK.leadTypeLabel) {
+      const lbl = SK.leadTypeLabel(spotKey.leadType);
+      return lbl ? ` · ${lbl}` : '';
+    }
+    if (spotKey.leadType === 'cbet') return ' · c-bet';
+    if (spotKey.leadType === 'delayed_cbet') return ' · delayed c-bet';
+    if (spotKey.leadType === 'barrel2') return ' · segundo barrel';
+    if (spotKey.leadType === 'barrel3') return ' · tercer barrel';
+    if (spotKey.leadType === 'probe') return ' · probe';
+    if (spotKey.leadType === 'donk') return ' · donk';
+    return '';
+  }
+
+  function aggressorBetLabel(spotKey, street, chosen) {
+    const SK = global.GTOSpotKey;
+    if (spotKey.leadType === 'cbet' || spotKey.leadType === 'delayed_cbet'
+      || spotKey.leadType === 'barrel2' || spotKey.leadType === 'barrel3') {
+      if (SK && SK.aggressorLeadLabel) {
+        return SK.aggressorLeadLabel(street, spotKey.leadType === 'delayed_cbet' ? false : true);
+      }
+      if (spotKey.leadType === 'delayed_cbet') return 'delayed c-bet';
+      if (street === 'turn') return 'segundo barrel';
+      if (street === 'river') return 'tercer barrel';
+      return 'c-bet';
+    }
+    return ACTION_NAMES[chosen] || chosen;
+  }
+
   function spotContext(input, spotKey) {
     const street = spotKey.street || input.street || 'preflop';
     const pot = input.potBB != null ? `${input.potBB}bb` : '';
@@ -6654,9 +6829,7 @@ window.PT_VS_3BET_JSON = {
     const pos = input.inPosition ? 'en posición' : 'fuera de posición';
     const role = spotKey.initiative === 'aggressor' ? 'agresor preflop'
       : spotKey.initiative === 'none' ? 'primero en hablar' : 'pagador preflop';
-    const lead = spotKey.leadType === 'cbet' ? ' · c-bet'
-      : spotKey.leadType === 'probe' ? ' · probe'
-      : spotKey.leadType === 'donk' ? ' · donk' : '';
+    const lead = leadSuffix(spotKey);
     return `${cap(street)} · bote ${pot} · ${role}${lead} · ${pos} · ${facing}.`;
   }
 
@@ -6718,10 +6891,12 @@ window.PT_VS_3BET_JSON = {
       if (chosen === 'check') {
         const cbetHint = spotKey.leadType === 'cbet' && street === 'flop'
           ? ' En flop como agresor, el check back deja EV de c-bet sobre la mesa.'
-          : '';
+          : (spotKey.leadType === 'barrel2'
+            ? ' En turn, un segundo barrel sin equity de farol infla el bote; check controla.'
+            : '');
         return `${ctx} Con ${hand} (${tier}), check controla el bote (${chPct}% GTO).${cbetHint}`;
       }
-      const betLabel = spotKey.leadType === 'cbet' ? 'c-bet' : (ACTION_NAMES[chosen] || chosen);
+      const betLabel = aggressorBetLabel(spotKey, street, chosen);
       return `${ctx} ${hand} en [${board}] quiere ${betLabel} (${chPct}%) por valor/protección/fold equity en este board ${spotKey.boardType}.`;
     }
 
@@ -6730,6 +6905,9 @@ window.PT_VS_3BET_JSON = {
     }
 
     if (!facing && chosen === 'check') {
+      if ((spotKey.leadType === 'barrel2' || spotKey.leadType === 'barrel3') && tier === 'air') {
+        return `${ctx} Con ${hand} (aire) en board ${spotKey.boardType}, check es razonable sin equity de farol. GTO barrearía una mezcla del rango: ${ACTION_NAMES[best] || best} (${bestPct}%) es la línea de mayor EV del nodo.`;
+      }
       return `${ctx} Con ${hand} en board ${spotKey.boardType}, estás dejando valor: ${ACTION_NAMES[best] || best} (${bestPct}%) captura más EV.`;
     }
 
@@ -10092,6 +10270,18 @@ window.PT_VS_3BET_JSON = {
     });
   }
 
+  /** True si el héroe ya bet/raise en una calle postflop anterior. */
+  function heroLedOnPriorStreets(hand, street) {
+    const prior = street === 'turn' ? ['flop']
+      : (street === 'river' ? ['flop', 'turn'] : []);
+    if (!prior.length) return false;
+    return (hand.decisions || []).some((d) => {
+      if (prior.indexOf(d.street) < 0) return false;
+      const a = d.action || d.chosen || '';
+      return a === 'bet' || a === 'raise' || (typeof a === 'string' && a.indexOf('bet_') === 0);
+    });
+  }
+
   /** Construye input para evaluateSpot desde el estado de la mano. */
   function buildSpotInput(hand, node, chosenAction) {
     const s = hand.scenario || {};
@@ -10122,14 +10312,17 @@ window.PT_VS_3BET_JSON = {
       potBeforeBB = PC.potAfterRakeBB(potBeforeBB, hand.playConfig);
     }
 
+    const isAgg = !!hand.heroIsAggressor;
+    const priorAggressorBet = isAgg ? heroLedOnPriorStreets(hand, node.street) : false;
     const input = {
       spotKind, position: hand.hero.pos, vsPosition: hand.villain.pos,
       stackDepth: effStackForHand(hand), street: node.street,
       board: hand.board.slice(), heroCards: hand.hero.cards, handCode: hand.hero.code,
       potBB: potBB, toCallBB: facingBet(node) ? node.toCallBB : 0,
       potBeforeBB: potBeforeBB,
-      initiative: hand.heroIsAggressor ? 'aggressor' : 'caller',
+      initiative: isAgg ? 'aggressor' : 'caller',
       inPosition: hand.heroInPosition,
+      priorAggressorBet,
       villainRange: villainRangeAtNode(hand, node),
       madeHandInfo: node.info,
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
@@ -11489,9 +11682,16 @@ window.PT_VS_3BET_JSON = {
       });
       context = `${capitalize(street)}: bote ${fmt(hand.potBB)}bb · stack ${fmt(effStackForHand(hand))}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
       if (hand.heroIsAggressor) {
+        const priorLead = heroLedOnPriorStreets(hand, street);
+        const leadLabel = (global.GTOSpotKey && global.GTOSpotKey.aggressorLeadLabel)
+          ? global.GTOSpotKey.aggressorLeadLabel(street, priorLead)
+          : (street === 'flop' ? 'c-bet'
+            : (priorLead
+              ? (street === 'turn' ? 'segundo barrel' : 'tercer barrel')
+              : 'delayed c-bet'));
         context += villainLastAction === 'check'
-          ? ' El villano pasó: spot de c-bet.'
-          : ' Spot de c-bet (eres el agresor preflop).';
+          ? ` El villano pasó: spot de ${leadLabel}.`
+          : ` Spot de ${leadLabel} (eres el agresor preflop).`;
       } else if (hand.heroInPosition && villainLastAction === 'check') {
         context += ' El villano pasó: spot de probe.';
       }

@@ -104,6 +104,19 @@
     return !!(info.flushDraw || info.oesd || info.gutshot || info.hasDraw);
   }
 
+  /**
+   * Segundo/tercer barrel = el agresor ya lideró en una calle previa.
+   * Delayed c-bet = check en flop (y/o turn) y lead posterior tras check del villano.
+   * Sin señal explícita, asumimos barrel en turn/river (conservador).
+   */
+  function isTrueBarrelLine(input) {
+    const street = input.street || 'flop';
+    if (street === 'flop' || street === 'preflop') return false;
+    if (input.priorAggressorBet === false || input.delayedCbet === true) return false;
+    if (input.priorAggressorBet === true) return true;
+    return true;
+  }
+
   /** Piso de frecuencia de apuesta en spots de c-bet/barrel (mezcla GTO aproximada). */
   function cbetMinBetTotal(input, band) {
     if (!isContinuationBetSpot(input)) return 0;
@@ -127,8 +140,12 @@
       }
     }
     if (street === 'turn') {
-      // Segundo barrel: faroles con equity; aire puro rara vez fuerza bet.
       if (band === 'air') {
+        if (!isTrueBarrelLine(input)) {
+          // Delayed c-bet: más FE que barrel tras call de flop.
+          return inPosition ? 0.24 : 0.16;
+        }
+        // Segundo barrel: faroles con equity; aire puro rara vez fuerza bet.
         if (!hasBarrelBluffEquity(input)) return inPosition ? 0.06 : 0.03;
         return inPosition ? 0.22 : 0.14;
       }
@@ -142,7 +159,7 @@
 
   /**
    * Boost/penalización de fold equity al lead como agresor.
-   * Flop c-bet: FE alto. Turn/river barrel: el villano ya defendió → menos FE.
+   * Flop c-bet / delayed c-bet: FE alto. Barrel tras defensa: menos FE.
    */
   function cbetFoldEquityBoost(input) {
     if (!isContinuationBetSpot(input)) return 0;
@@ -156,6 +173,13 @@
       return boost;
     }
     if (street === 'turn') {
+      if (!isTrueBarrelLine(input)) {
+        // Delayed c-bet tras check-check: el villano no defendió bet → FE alta.
+        let boost = 0.05;
+        if (villainCheckedToHero(input)) boost += 0.09;
+        if (ip) boost += 0.03;
+        return boost;
+      }
       // Tras call de flop, un segundo barrel genera menos folds.
       let boost = -0.10;
       if (villainCheckedToHero(input)) boost += 0.04;
@@ -164,7 +188,14 @@
       if (texture.wet) boost -= 0.04;
       return boost;
     }
-    // River: tercer barrel / stab — FE más baja aún con aire.
+    if (!isTrueBarrelLine(input)) {
+      // Stab / delayed en river tras calle(s) checkeada(s).
+      let boost = 0.02;
+      if (villainCheckedToHero(input)) boost += 0.06;
+      if (ip) boost += 0.02;
+      return boost;
+    }
+    // River: tercer barrel — FE más baja aún con aire.
     let boost = -0.12;
     if (villainCheckedToHero(input)) boost += 0.05;
     if (ip) boost += 0.02;
@@ -261,8 +292,11 @@
       betTotal = Math.min(betTotal, inPosition ? 0.65 : 0.45);
     }
     if (isContinuationBetSpot(input) && band === 'air' && street === 'turn') {
-      // Aire puro: no forzar segundo barrel; con draws, mezcla moderada.
-      if (!hasBarrelBluffEquity(input)) {
+      if (!isTrueBarrelLine(input)) {
+        // Delayed c-bet: tope alineado con c-bet flop (FE de check-check).
+        betTotal = Math.min(betTotal, inPosition ? 0.65 : 0.45);
+      } else if (!hasBarrelBluffEquity(input)) {
+        // Aire puro: no forzar segundo barrel; con draws, mezcla moderada.
         betTotal = Math.min(betTotal, inPosition ? 0.16 : 0.10);
       } else {
         betTotal = Math.min(betTotal, inPosition ? 0.42 : 0.28);
@@ -311,6 +345,7 @@
   global.GTOProbeEV = {
     computeProbeStrategy, actionEV, evCheck, evBet, estimateFoldEquity,
     dynamicSizeSplit, realizationFactor, normalize,
-    isContinuationBetSpot, cbetMinBetTotal, cbetFoldEquityBoost, hasBarrelBluffEquity
+    isContinuationBetSpot, cbetMinBetTotal, cbetFoldEquityBoost, hasBarrelBluffEquity,
+    isTrueBarrelLine
   };
 })(window);

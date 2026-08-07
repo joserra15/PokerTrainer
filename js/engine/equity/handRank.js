@@ -43,7 +43,8 @@
   }
 
   function sampleCombosFromRange(rangeStr, dead, maxSamples, rnd) {
-    const r = rnd || Math.random;
+    // Preferir RNG con semilla (Cards.rng) para regresiones deterministas.
+    const r = rnd || (C && C.rng && C.rng.random ? C.rng.random.bind(C.rng) : Math.random);
     const codes = N.expand(rangeStr || '');
     const pool = [];
     codes.forEach((code) => {
