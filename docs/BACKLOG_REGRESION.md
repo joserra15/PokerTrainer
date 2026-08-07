@@ -298,4 +298,4 @@ La app está **razonablemente blindada** cuando las 4 fases cumplen su criterio 
 
 ---
 
-*Versión: agosto 2026 — backlog repartido en 4 fases (57 tareas).*
+*Versión: agosto 2026 — 4 fases implementadas (57 tareas). Verificación: `npm run test:ci` + `SMOKE=1 npx playwright test`.*
