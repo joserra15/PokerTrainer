@@ -918,6 +918,40 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
   color: #9ecbff;
   white-space: nowrap;
 }
+
+/* Pop-up mensaje pendiente de soporte (tras login) */
+.contact-pending-modal { z-index: 70; }
+.contact-pending-content {
+  max-width: 420px;
+  text-align: center;
+}
+.contact-pending-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 12px;
+  border-radius: 14px;
+  color: #7eb6ff;
+  background: rgba(88, 166, 255, 0.12);
+  border: 1px solid rgba(88, 166, 255, 0.35);
+}
+.contact-pending-content h3 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+.contact-pending-content #contact-pending-body {
+  margin: 0 0 18px;
+  line-height: 1.45;
+}
+.contact-pending-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.contact-pending-actions .btn { flex: 1 1 140px; }
 .home-stat {
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 14px 16px; text-align: center;
