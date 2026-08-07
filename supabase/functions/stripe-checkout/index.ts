@@ -125,7 +125,27 @@ serve(async (req) => {
       return json({ error: 'billing_not_configured' }, 503);
     }
 
-    const session = await stripeRequest('/checkout/sessions', 'POST', {
+    // Trial Study 10 días: solo plan pro, una vez por cliente Stripe
+    // (si ya tuvo suscripción active/trialing, no volver a ofrecer trial).
+    let offerTrial = false;
+    if (plan === 'pro') {
+      try {
+        const hist = await stripeRequest(
+          '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=all&limit=20',
+          'GET'
+        );
+        const subs = (hist && hist.data) || [];
+        const hadPaidOrTrial = subs.some((s: { status?: string }) =>
+          ['active', 'trialing', 'past_due', 'canceled', 'unpaid'].includes(String(s.status || ''))
+        );
+        offerTrial = !hadPaidOrTrial;
+      } catch (e) {
+        console.warn('[stripe-checkout] trial eligibility check failed', e);
+        offerTrial = (profile?.plan as string) === 'free' && !profile?.stripe_subscription_id;
+      }
+    }
+
+    const checkoutParams: Record<string, string> = {
       mode: 'subscription',
       customer: customerId,
       'line_items[0][price]': stripePriceId,
@@ -137,9 +157,16 @@ serve(async (req) => {
       'subscription_data[metadata][supabase_user_id]': userId,
       'subscription_data[metadata][plan]': plan,
       allow_promotion_codes: 'true'
-    });
+    };
+    if (offerTrial) {
+      checkoutParams['subscription_data[trial_period_days]'] = '10';
+      checkoutParams['payment_method_collection'] = 'if_required';
+      checkoutParams['metadata[trial]'] = 'study_10d';
+    }
 
-    return json({ url: session.url });
+    const session = await stripeRequest('/checkout/sessions', 'POST', checkoutParams);
+
+    return json({ url: session.url, trial: offerTrial });
   } catch (e) {
     console.error('[stripe-checkout]', e);
     return json({ error: (e as Error).message || 'checkout_error' }, 502);

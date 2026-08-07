@@ -35,6 +35,14 @@ Para un producto SaaS con suscripciones mensuales/anuales y portal de cliente, *
 
 Los administradores (`is_admin`) no tienen límites.
 
+## Trial Study (10 días)
+
+Checkout de **Study (`pro`)** ofrece `subscription_data[trial_period_days]=10` **una vez por cliente Stripe**
+(si el customer no tiene suscripciones previas). También usa `payment_method_collection=if_required`
+cuando hay trial. Coach no incluye trial automático.
+
+El backend ya trata `subscription_status=trialing` como plan de pago activo (`paid_active`).
+
 ## Configuración Stripe (producción)
 
 ### 1. Productos y precios en Stripe Dashboard
@@ -92,3 +100,7 @@ Copiar `js/billing-config.example.js` y poner `enabled: true` cuando Stripe est�
 ## Emails transaccionales (M-08)
 
 Stripe envía por defecto confirmación de pago y avisos de fallo. Emails de marca propia (Resend) quedan como mejora futura.
+
+## Smoke opcional (CI)
+
+Job `.github/workflows/billing-live.yml` (`workflow_dispatch` / nightly): comprueba que existe `STRIPE_SECRET_KEY_TEST` (`sk_test_…`) en el environment `billing-live`. **No bloquea PRs.** Contratos sin red: `npm run test:stripe-contracts` y `tools/test-stripe-sync-contracts.js`.

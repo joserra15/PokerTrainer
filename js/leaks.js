@@ -172,18 +172,53 @@
     return aggregate(errors, { minClass: 'imprecisa' }).slice(0, limit || 5);
   }
 
-  function renderBreakdownBars(title, rows, colorVar) {
+  function renderBreakdownBars(title, rows, colorVar, clickKind) {
     if (!rows.length) return '';
     var max = 1;
     rows.forEach(function (r) { max = Math.max(max, r.evLoss || 0, r.count || 0); });
     var bars = rows.map(function (r) {
       var h = Math.max(10, Math.round(((r.evLoss || r.count || 0) / max) * 100));
-      return '<div class="leak-bar-col" title="' + escapeHtml(r.label) + ': ' + r.count + ' errores, EV ' + (r.evLoss || 0).toFixed(1) + ' bb">' +
+      var dataAttr = '';
+      if (clickKind === 'street' && r.street) dataAttr = ' data-leak-filter-street="' + escapeHtml(r.street) + '"';
+      if (clickKind === 'type' && r.type) dataAttr = ' data-leak-filter-type="' + escapeHtml(r.type) + '"';
+      var clickable = dataAttr ? ' leak-bar-col-click' : '';
+      return '<button type="button" class="leak-bar-col' + clickable + '"' + dataAttr +
+        ' title="' + escapeHtml(r.label) + ': ' + r.count + ' errores, EV ' + (r.evLoss || 0).toFixed(1) + ' bb — clic para filtrar/entrenar">' +
         '<span class="leak-bar-val">' + escapeHtml(r.label) + '</span>' +
         '<div class="leak-bar" style="height:' + h + '%;background:var(' + (colorVar || '--red') + ')"></div>' +
-        '<span class="leak-bar-meta muted-text">' + r.count + ' · ' + (r.evLoss || 0).toFixed(1) + ' bb</span></div>';
+        '<span class="leak-bar-meta muted-text">' + r.count + ' · ' + (r.evLoss || 0).toFixed(1) + ' bb</span></button>';
     }).join('');
     return '<div class="leak-breakdown"><h5>' + escapeHtml(title) + '</h5><div class="leak-bars">' + bars + '</div></div>';
+  }
+
+  /** Cola de peores spots ordenada por EV perdido (adaptive drill). */
+  function worstSpotsQueue(errors, limitSpots, limitHands) {
+    var spots = aggregate(errors, { minClass: 'imprecisa' }).slice(0, limitSpots || 8);
+    var out = [];
+    var seen = {};
+    spots.forEach(function (spot) {
+      (spot.errors || []).slice().sort(function (a, b) {
+        return (Number(b.evLoss) || 0) - (Number(a.evLoss) || 0);
+      }).forEach(function (err) {
+        if (seen[err.id]) return;
+        seen[err.id] = true;
+        out.push(err);
+      });
+    });
+    if (limitHands && out.length > limitHands) out = out.slice(0, limitHands);
+    return out;
+  }
+
+  function weeklyTopLeak(errors) {
+    var now = Date.now();
+    var weekMs = 7 * 24 * 60 * 60 * 1000;
+    var recent = (errors || []).filter(function (e) {
+      if (!e.createdAt) return true;
+      var t = new Date(e.createdAt).getTime();
+      return !isNaN(t) && (now - t) <= weekMs;
+    });
+    var list = aggregate(recent.length ? recent : errors, { minClass: 'imprecisa' });
+    return list[0] || null;
   }
 
   function renderPanel(host, errors, onTrain, opts) {
@@ -223,16 +258,16 @@
     html += '<p class="muted-text leaks-intro">Top spots con más EV perdido.</p>';
 
     if (trainerBreak.length) {
-      html += renderBreakdownBars('Entrenador · fugas por calle', trainerBreak, '--orange');
+      html += renderBreakdownBars('Entrenador · fugas por calle', trainerBreak, '--orange', 'street');
     }
     if (trainerTypeBreak.length) {
-      html += renderBreakdownBars('Entrenador · fugas por tipo de spot', trainerTypeBreak, '--red');
+      html += renderBreakdownBars('Entrenador · fugas por tipo de spot', trainerTypeBreak, '--red', 'type');
     }
     if (sessAgg.byStreet.length) {
-      html += renderBreakdownBars('Sesiones · fugas por calle', sessAgg.byStreet, '--accent');
+      html += renderBreakdownBars('Sesiones · fugas por calle', sessAgg.byStreet, '--accent', 'street');
     }
     if (sessAgg.byType.length) {
-      html += renderBreakdownBars('Sesiones · fugas por tipo', sessAgg.byType, '--gold');
+      html += renderBreakdownBars('Sesiones · fugas por tipo', sessAgg.byType, '--gold', 'type');
     }
 
     if (trainerLeaks.length) {
@@ -254,6 +289,16 @@
         if (leak && onTrain) onTrain(leak);
       });
     });
+    if (typeof opts.onFilter === 'function') {
+      host.querySelectorAll('[data-leak-filter-street], [data-leak-filter-type]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          opts.onFilter({
+            street: btn.getAttribute('data-leak-filter-street') || '',
+            spotType: btn.getAttribute('data-leak-filter-type') || ''
+          });
+        });
+      });
+    }
   }
 
   global.PTLeaks = {
@@ -267,7 +312,12 @@
     errorRateFromStats: errorRateFromStats,
     errorRateWeekly: errorRateWeekly,
     topLeaks: topLeaks,
+    worstSpotsQueue: worstSpotsQueue,
+    weeklyTopLeak: weeklyTopLeak,
     renderPanel: renderPanel,
-    labelForKey: labelForKey
+    renderBreakdownBars: renderBreakdownBars,
+    labelForKey: labelForKey,
+    TYPE_LABELS: TYPE_LABELS,
+    STREET_LABELS: STREET_LABELS
   };
 })(window);

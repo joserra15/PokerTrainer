@@ -78,6 +78,11 @@
 
   const STACK_DEPTH_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
 
+  const HANDS_TARGETS = { 0: true, 10: true, 25: true, 50: true, 100: true };
+
+  /** Rake orientativo cash mid-stakes (SN-53). */
+  const STANDARD_RAKE = { pct: 5, capBB: 3 };
+
   const DEFAULT = {
     gameType: 'cash6',
     stackDepth: 'bb100',
@@ -87,8 +92,65 @@
     villainLevel: 'fish',
     practiceStreet: 'random',
     liveAdvisor: false,
-    tableTheme: 'emerald'
+    /** 'always' | 'serious' — solo relevante si liveAdvisor */
+    advisorMode: 'always',
+    /** Umbral de EV perdido (bb) para avisar en modo serious */
+    seriousEvThreshold: 0.5,
+    tableTheme: 'emerald',
+    /** null/0 = sesión continua; 25/50/100 = bloque con resumen al final */
+    handsTarget: 0,
+    /** 'none' | 'standard' | 'custom' — rake estimado en EV/pot odds */
+    rakeMode: 'none',
+    rakePct: 5,
+    rakeCapBB: 3
   };
+
+  const RAKE_LS_KEY = 'pt_rake_prefs';
+
+  function loadRakePrefs() {
+    try {
+      const raw = localStorage.getItem(RAKE_LS_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      if (!o || typeof o !== 'object') return null;
+      return o;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveRakePrefs(partial) {
+    try {
+      const cur = Object.assign({}, loadRakePrefs() || {}, partial || {});
+      localStorage.setItem(RAKE_LS_KEY, JSON.stringify({
+        rakeMode: cur.rakeMode,
+        rakePct: cur.rakePct,
+        rakeCapBB: cur.rakeCapBB
+      }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function round2(x) {
+    return Math.round((Number(x) || 0) * 100) / 100;
+  }
+
+  /** Rake estimado en bb sobre un bote (tope incluido). */
+  function estimateRakeBB(potBB, config) {
+    const c = normalize(config);
+    if (!c.rakeMode || c.rakeMode === 'none') return 0;
+    const pot = Math.max(Number(potBB) || 0, 0);
+    if (pot <= 0) return 0;
+    let rake = pot * (Number(c.rakePct) || 0) / 100;
+    const cap = Number(c.rakeCapBB);
+    if (cap > 0) rake = Math.min(rake, cap);
+    return round2(Math.max(0, rake));
+  }
+
+  function potAfterRakeBB(potBB, config) {
+    const pot = Math.max(Number(potBB) || 0, 0);
+    const after = pot - estimateRakeBB(pot, config);
+    return Math.max(0.1, round2(after));
+  }
 
   const TABLE_THEMES = { emerald: true, midnight: true, crimson: true };
 
@@ -107,7 +169,28 @@
     if (!c.villainLevel) c.villainLevel = 'fish';
     if (!c.practiceStreet) c.practiceStreet = 'random';
     c.liveAdvisor = !!c.liveAdvisor;
+    c.advisorMode = c.advisorMode === 'serious' ? 'serious' : 'always';
+    var thr = Number(c.seriousEvThreshold);
+    if (isNaN(thr) || thr < 0) thr = 0.5;
+    if (thr > 20) thr = 20;
+    c.seriousEvThreshold = thr;
     if (!TABLE_THEMES[c.tableTheme]) c.tableTheme = 'emerald';
+    var ht = Number(c.handsTarget);
+    if (!HANDS_TARGETS[ht]) ht = 0;
+    c.handsTarget = ht || 0;
+    if (c.rakeMode !== 'standard' && c.rakeMode !== 'custom') c.rakeMode = 'none';
+    var pct = Number(c.rakePct);
+    if (isNaN(pct) || pct < 0) pct = STANDARD_RAKE.pct;
+    if (pct > 20) pct = 20;
+    c.rakePct = pct;
+    var cap = Number(c.rakeCapBB);
+    if (isNaN(cap) || cap < 0) cap = STANDARD_RAKE.capBB;
+    if (cap > 50) cap = 50;
+    c.rakeCapBB = cap;
+    if (c.rakeMode === 'standard') {
+      c.rakePct = STANDARD_RAKE.pct;
+      c.rakeCapBB = STANDARD_RAKE.capBB;
+    }
     return c;
   }
 
@@ -649,6 +732,13 @@
     return applyHeroPosFilter(Object.assign({}, picked), cfg.heroPos, cfg);
   }
 
+  function rakeLabel(config) {
+    const c = normalize(config);
+    if (c.rakeMode === 'none') return 'Sin rake';
+    if (c.rakeMode === 'standard') return 'Rake ~' + STANDARD_RAKE.pct + '%/' + STANDARD_RAKE.capBB + 'bb';
+    return 'Rake ' + c.rakePct + '%/' + c.rakeCapBB + 'bb';
+  }
+
   function labelFor(config) {
     const c = normalize(config);
     const gt = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' }[c.gameType] || c.gameType;
@@ -662,7 +752,8 @@
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
     const st = { random: 'Todas las calles', preflop: 'Solo preflop', flop: 'Desde flop', turn: 'Desde turn', river: 'Desde river' }[c.practiceStreet] || c.practiceStreet;
-    return gt + ' · ' + sd + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st;
+    const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
+    return gt + ' · ' + sd + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {
@@ -673,7 +764,8 @@
   }
 
   global.PTPlayConfig = {
-    DEFAULT, normalize, pickScenario, labelFor,
+    DEFAULT, normalize, pickScenario, labelFor, rakeLabel,
+    STANDARD_RAKE, estimateRakeBB, potAfterRakeBB, loadRakePrefs, saveRakePrefs,
     PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9,
     sampleHeroWeights, sampleHeroHand, sampleVillainWeights, sampleRfiDefenderWeights,

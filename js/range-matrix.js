@@ -316,6 +316,17 @@
         reject(new Error('Matriz GTO solo disponible en preflop'));
         return;
       }
+      computeFreqMatrixAsync(baseInput, onProgress).then(resolve).catch(reject);
+    });
+  }
+
+  /** Matriz de frecuencias fold/call/raise (preflop o flop HU simplificado). */
+  function computeFreqMatrixAsync(baseInput, onProgress) {
+    return new Promise(function (resolve, reject) {
+      if (!baseInput) {
+        reject(new Error('Input inválido'));
+        return;
+      }
       const cells = [];
       let row = 0;
       let col = 0;
@@ -328,7 +339,8 @@
           while (n < CHUNK_SIZE && row < 13) {
             if (!cells[row]) cells[row] = [];
             const label = cellLabel(row, col);
-            const heroCards = pickRepresentativeCards(label, []);
+            const used = (baseInput.board || []).slice();
+            const heroCards = pickRepresentativeCards(label, used);
             let action = 'fold';
             let freqs = { raise: 0, call: 0, fold: 1 };
             if (heroCards) {
@@ -343,13 +355,99 @@
             n++;
           }
           if (onProgress) onProgress(done, total);
-          if (row >= 13) resolve({ ranks: RANKS, cells, mode: 'gto' });
+          if (row >= 13) resolve({ ranks: RANKS, cells, mode: 'gto', street: baseInput.street || 'preflop' });
           else setTimeout(tick, 0);
         } catch (e) {
           reject(e);
         }
       }
       tick();
+    });
+  }
+
+  const POSTFLOP_STREETS = {
+    flop: { cards: 3, label: 'Flop HU', boardLabel: 'Board (flop)', pickTitle: 'Flop (3 cartas)', emptyHint: 'Elegir flop' },
+    turn: { cards: 4, label: 'Turn HU', boardLabel: 'Board (turn)', pickTitle: 'Turn (4 cartas)', emptyHint: 'Elegir turn' },
+    river: { cards: 5, label: 'River HU', boardLabel: 'Board (river)', pickTitle: 'River (5 cartas)', emptyHint: 'Elegir river' }
+  };
+
+  /** Config de posiciones HU postflop (flop / turn / river). */
+  const POSTFLOP_EXPLORER = {
+    heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
+    villainPositions: ['BTN', 'CO', 'HJ', 'UTG', 'SB', 'BB'],
+    villainLabel: 'Villano:'
+  };
+
+  /** Compat: spot histórico "postflop" = Flop HU. */
+  EXPLORER_SPOTS.postflop = {
+    label: 'Flop HU',
+    heroPositions: POSTFLOP_EXPLORER.heroPositions.slice(),
+    villainPositions: POSTFLOP_EXPLORER.villainPositions.slice(),
+    villainLabel: POSTFLOP_EXPLORER.villainLabel,
+    build: function () { return null; },
+    title: function (heroPos, villainPos) { return 'Flop HU · ' + heroPos + ' vs ' + villainPos; }
+  };
+
+  function postflopBoardCount(street) {
+    const meta = POSTFLOP_STREETS[street] || POSTFLOP_STREETS.flop;
+    return meta.cards;
+  }
+
+  function parseBoardText(text) {
+    if (!text) return [];
+    const tokens = String(text).replace(/,/g, ' ').match(/(?:10|[2-9TJQKAtjqka])[shdcSHDC]/g) || [];
+    const out = [];
+    tokens.forEach(function (t) {
+      let c = String(t).toUpperCase().replace('10', 'T');
+      c = c[0] + c[1].toLowerCase();
+      if (out.indexOf(c) < 0) out.push(c);
+    });
+    return out.slice(0, 5);
+  }
+
+  /**
+   * Input para explorador HU postflop (SN-42 + turn/river).
+   * board: array o texto; street: 'flop' | 'turn' | 'river'.
+   */
+  function buildPostflopExplorerInput(opts) {
+    opts = opts || {};
+    const street = (opts.street === 'turn' || opts.street === 'river') ? opts.street : 'flop';
+    const need = postflopBoardCount(street);
+    let board = opts.board;
+    if (typeof board === 'string') board = parseBoardText(board);
+    board = board || [];
+    if (board.length < need) return null;
+    board = board.slice(0, need);
+    const potBB = opts.potBB != null ? Number(opts.potBB) : 6;
+    const toCallBB = opts.toCallBB != null ? Number(opts.toCallBB) : 0;
+    const facing = toCallBB > 0;
+    return {
+      spotKind: 'postflop',
+      position: opts.heroPos || 'BB',
+      vsPosition: opts.villainPos || 'BTN',
+      stackDepth: opts.stackDepth || 100,
+      street: street,
+      board: board,
+      potBB: potBB,
+      toCallBB: toCallBB,
+      potBeforeBB: facing ? Math.max(potBB - toCallBB, 0.1) : potBB,
+      initiative: opts.initiative || (facing ? 'caller' : 'aggressor'),
+      inPosition: opts.inPosition != null ? opts.inPosition : false,
+      availableActions: facing ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'],
+      villainRange: opts.villainRange || D().BROAD_CONTINUE,
+      _postflopExplorer: true
+    };
+  }
+
+  function computePostflopFreqMatrixAsync(baseInput, onProgress) {
+    return new Promise(function (resolve, reject) {
+      const street = baseInput && baseInput.street;
+      const need = postflopBoardCount(street);
+      if (!baseInput || !POSTFLOP_STREETS[street] || !baseInput.board || baseInput.board.length < need) {
+        reject(new Error('Vista postflop: indica un board de ' + need + ' cartas (' + street + ')'));
+        return;
+      }
+      computeFreqMatrixAsync(baseInput, onProgress).then(resolve).catch(reject);
     });
   }
 
@@ -520,6 +618,29 @@
     return input;
   }
 
+  /** Ajusta pot/toCall del explorador según open sizing (2.5x vs 3x). */
+  function applyOpenSizing(input, openSize) {
+    if (!input) return input;
+    const size = Number(openSize) === 3 ? 3 : 2.5;
+    const base = 2.5;
+    if (input.spotKind !== 'vsRFI' && input.spotKind !== 'squeeze' && input.spotKind !== 'face3bet') {
+      input.openSizeBB = size;
+      return input;
+    }
+    if (input.toCallBB != null && input.toCallBB > 0) {
+      if (input.toCallBB >= 2 && input.toCallBB <= 3.5) {
+        const dead = (input.potBB || 0) - input.toCallBB;
+        input.toCallBB = Math.round(size * 100) / 100;
+        input.potBB = Math.round((dead + size) * 100) / 100;
+      } else {
+        input.toCallBB = Math.round(input.toCallBB * (size / base) * 100) / 100;
+        input.potBB = Math.round((input.potBB || 0) * (size / base) * 100) / 100;
+      }
+    }
+    input.openSizeBB = size;
+    return input;
+  }
+
   function defaultCallerForSqueeze(heroPos, openerPos) {
     const callers = validSqueezeCallers(heroPos, openerPos);
     return callers.length ? callers[0] : null;
@@ -540,7 +661,7 @@
     return pairs;
   }
 
-  function buildExplorerInput(spotType, heroPos, villainPos, ctx, callerPos) {
+  function buildExplorerInput(spotType, heroPos, villainPos, ctx, callerPos, openSize) {
     const spot = EXPLORER_SPOTS[spotType];
     if (!spot) return null;
     if (spot.villainPositions && spot.villainPositions.length && !villainPos) return null;
@@ -576,6 +697,7 @@
       const reg = RR();
       if (!reg || !reg.getSqueezeRow(heroPos, villainPos, input.callerPos, ctx)) return null;
     }
+    applyOpenSizing(input, openSize);
     return attachExplorerMeta(input, ctx);
   }
 
@@ -717,6 +839,8 @@
   global.PTRangeMatrix = {
     RANKS,
     EXPLORER_SPOTS,
+    POSTFLOP_STREETS,
+    POSTFLOP_EXPLORER,
     SQUEEZE_COMBOS,
     cellLabel,
     collapseStrategy,
@@ -724,6 +848,12 @@
     cellMixStyle,
     buildBaseInput,
     buildExplorerInput,
+    applyOpenSizing,
+    buildPostflopExplorerInput,
+    computePostflopFreqMatrixAsync,
+    computeFreqMatrixAsync,
+    parseBoardText,
+    postflopBoardCount,
     explorerTitle,
     explorerCtx,
     heroPositionsForSpot,

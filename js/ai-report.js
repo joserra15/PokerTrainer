@@ -506,7 +506,7 @@
     const body = { payload: payload, mode: apiMode(scope, mode) };
     if (mode === 'question' && question) body.question = question;
     if (mode === 'question' && thread && thread.length) {
-      body.thread = thread.slice(0, 4).map(function (t) {
+      body.thread = thread.slice(0, 8).map(function (t) {
         return {
           mode: t.mode,
           question: t.question,

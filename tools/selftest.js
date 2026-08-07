@@ -477,7 +477,7 @@ const shoveBet = FB.calculateActionFrequencies({
   heroEquity: eqShove, tier: 'strong', heroCards: nutFlushHero, board: pairedBoard,
   handRank: { band: 'value', tier: 'strong' }, inPosition: true, villainLastAction: 'raise'
 });
-console.log('Nut flush paired board eq vs shove range ~', Math.round(eqShove * 100) + '% (expect <25%)');
+console.log('Nut flush paired board eq vs shove range ~', Math.round(eqShove * 100) + '% (expect >0; cap 22% en evaluateSpot)');
 console.log('Small bet call%', Math.round(smallBet.call * 100), 'shove fold%', Math.round(shoveBet.fold * 100), '(expect call high, shove fold high)');
 const nodeClone = SV.validateFacingNodeChange(
   { street: 'river', toCallBB: 9.6, potBB: 50, gto: smallBet },
@@ -489,6 +489,7 @@ vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/hhUtils
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/formatDetector.js'), 'utf8'), sandbox, { filename: 'import/formatDetector.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/pokerstars.js'), 'utf8'), sandbox, { filename: 'import/parsers/pokerstars.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/winamax.js'), 'utf8'), sandbox, { filename: 'import/parsers/winamax.js' });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/ggpoker.js'), 'utf8'), sandbox, { filename: 'import/parsers/ggpoker.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import.js'), 'utf8'), sandbox, { filename: 'import.js' });
 const Importer = sandbox.window.Importer;
 const staleHand = {
@@ -817,6 +818,71 @@ const wmAnalyzed = Importer.analyzeHand(wmParsed);
 const wmSidePotOk = wmParsed.collected.KazeDj === 3.62 && wmAnalyzed.heroNetBB === 81;
 console.log('Winamax main/side pot hero net BB:', wmAnalyzed.heroNetBB, wmSidePotOk ? 'OK' : 'FAIL');
 if (!wmSidePotOk) process.exit(1);
+
+const wmTripsSidePotHand = `Winamax Poker - ESCAPE "Colorado" - HandId: #22618550-211764-1783203261 - Holdem no limit (0.01€/0.02€) - 2026/07/04 22:14:21 UTC
+Table: 'Colorado' 6-max (real money) Seat #6 is the button
+Seat 1: JOY_BERCK (2.86€)
+Seat 2: dryer (1.37€)
+Seat 3: Zzz Loustic (4.64€)
+Seat 4: Anyiinca (5.78€)
+Seat 5: SYGOWIN (3.75€)
+Seat 6: KazeDj (2.16€)
+*** ANTE/BLINDS ***
+JOY_BERCK posts small blind 0.01€
+dryer posts big blind 0.02€
+Dealt to KazeDj [Tc Td]
+*** PRE-FLOP ***
+Zzz Loustic folds
+Anyiinca folds
+SYGOWIN raises 0.03€ to 0.05€
+KazeDj raises 0.10€ to 0.15€
+JOY_BERCK folds
+dryer folds
+SYGOWIN calls 0.10€
+*** FLOP *** [Th Qh 6h]
+SYGOWIN checks
+KazeDj bets 0.21€
+SYGOWIN calls 0.21€
+*** TURN *** [Th Qh 6h][Kd]
+SYGOWIN checks
+KazeDj bets 0.49€
+SYGOWIN raises 2.90€ to 3.39€ and is all-in
+KazeDj calls 1.31€ and is all-in
+*** RIVER *** [Th Qh 6h Kd][5s]
+*** SHOW DOWN ***
+SYGOWIN shows [Kh Ts] (Two pairs : Kings and Tens)
+KazeDj shows [Tc Td] (Trips of Tens)
+KazeDj collected 3.91€ from main pot
+SYGOWIN collected 1.59€ from side pot 1
+*** SUMMARY ***
+Total pot 5.50€ | Rake 0.44€
+Board: [Th Qh 6h Kd 5s]
+Seat 5: SYGOWIN showed [Kh Ts] and won 1.59€ with Two pairs : Kings and Tens
+Seat 6: KazeDj (button) showed [Tc Td] and won 3.91€ with Trips of Tens
+`;
+const wmTripsParsed = Importer.parseHand(wmTripsSidePotHand);
+const wmTripsAnalyzed = Importer.analyzeHand(wmTripsParsed);
+const wmTripsOk = wmTripsParsed.collected.KazeDj === 3.91 && wmTripsAnalyzed.heroNetBB === 87.5;
+console.log('Winamax trips main pot hero net BB:', wmTripsAnalyzed.heroNetBB, wmTripsOk ? 'OK' : 'FAIL');
+if (!wmTripsOk) process.exit(1);
+
+// SUMMARY "showed … and won" debe rellenar collected aunque falte SHOW DOWN collected.
+const wmSummaryOnly = wmTripsSidePotHand
+  .replace(/KazeDj collected 3\.91€ from main pot\n/, '')
+  .replace(/SYGOWIN collected 1\.59€ from side pot 1\n/, '');
+const wmSumParsed = Importer.parseHand(wmSummaryOnly);
+const wmSumOk = wmSumParsed.collected.KazeDj === 3.91 && Importer.analyzeHand(wmSumParsed).heroNetBB === 87.5;
+console.log('Winamax SUMMARY showed+won collected:', wmSumParsed.collected.KazeDj, wmSumOk ? 'OK' : 'FAIL');
+if (!wmSumOk) process.exit(1);
+
+// Sesión antigua sin collected: inferir showdown y corregir −stack.
+const staleTrips = Importer.analyzeHand(Importer.parseHand(wmTripsSidePotHand));
+staleTrips.collected = {};
+staleTrips.heroNetBB = -108;
+Importer.recomputeHeroNet(staleTrips);
+const staleOk = staleTrips.heroNetBB === 87.5 && staleTrips.collected.KazeDj === 3.91;
+console.log('Recompute heroNet from showdown:', staleTrips.heroNetBB, staleOk ? 'OK' : 'FAIL');
+if (!staleOk) process.exit(1);
 
 const PC = sandbox.window.PTPlayConfig;
 const ST = sandbox.window.PTStacks;

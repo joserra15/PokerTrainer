@@ -204,14 +204,26 @@ tools/selftest.js   Test en Node del evaluador, rangos y simulación de manos
 
 ## Tests
 
-Requiere Node.js:
+Requiere Node.js. Matriz:
+
+| Capa | Comando | Qué cubre |
+|------|---------|-----------|
+| **CI Node (canónico)** | `npm run test:ci` | Misma lista que `.github/workflows/static.yml` (motor, import, entitlements, cloud, Stripe/IA contracts, golden hands, UX guards…) |
+| Unit motor | `npm run test:unit` | `selftest` GTO |
+| Import HH | `npm run test:import` | PokerStars ES/EN, Winamax, GGPoker |
+| E2E | `npm run test:e2e` | Playwright Chromium (entrenar, import, paywall, replay, análisis) — `.github/workflows/e2e.yml` |
+| Live opcional | `node tools/test-supabase.js` / workflows `supabase-smoke` · `billing-live` | Secrets; no bloquean PR |
+| Release | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | OAuth + billing + smoke |
 
 ```
-node tools/selftest.js
+npm ci
+npm run test:ci            # regresión Node completa
+npm run test:e2e:smoke     # Playwright @smoke (PR)
+npm run test:e2e           # Playwright full + mobile @mobile
 ```
 
-Comprueba el evaluador de manos, el expansor de rangos y simula miles de manos
-completas verificando que ninguna se queda bloqueada.
+Cómo añadir tests: [`tools/README.md`](tools/README.md). Backlog: [`docs/BACKLOG_REGRESION.md`](docs/BACKLOG_REGRESION.md).  
+`tools/test-hand-77.js` es **diagnóstico puntual** — no forma parte de `test:ci` (RG-A05).
 
 ## Notas sobre los rangos
 

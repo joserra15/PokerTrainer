@@ -462,6 +462,8 @@
       board: r.board || hand.board,
       heroNet: r.heroNet || 0,
       totalEvLoss: r.totalEvLoss || 0,
+      handScore: r.handScore != null ? r.handScore : (hand.handScore != null ? hand.handScore : null),
+      handScoreMeta: r.handScoreMeta || hand.handScoreMeta || null,
       nErrors: r.nErrors || 0,
       showdown: !!r.showdown,
       reason: r.reason || '',
@@ -1133,6 +1135,98 @@
     return Promise.resolve({ ok: false, error: 'invalid_target' });
   }
 
+  function getFavoriteSpots() {
+    return read(scopedKey('rangeFavorites'), []);
+  }
+
+  function normalizeFavoriteStreet(spot) {
+    if (!spot) return 'preflop';
+    if (spot.street === 'flop' || spot.street === 'turn' || spot.street === 'river' || spot.street === 'preflop') {
+      return spot.street;
+    }
+    if (spot.spot === 'postflop') return 'flop';
+    return 'preflop';
+  }
+
+  function favoriteSpotKey(spot) {
+    if (!spot) return '';
+    const street = normalizeFavoriteStreet(spot);
+    const parts = [
+      street,
+      spot.gameType || 'cash6',
+      spot.stackDepth || 'standard',
+      spot.spot || '',
+      spot.heroPos || '',
+      spot.villainPos || '',
+      spot.callerPos || '',
+      spot.openSize || 2.5
+    ];
+    if (street !== 'preflop') {
+      parts.push(spot.boardText || '');
+      parts.push(spot.potBB != null ? String(spot.potBB) : '');
+      parts.push(spot.toCallBB != null ? String(spot.toCallBB) : '');
+    }
+    return parts.join('|');
+  }
+
+  function isFavoriteSpot(spot) {
+    const key = favoriteSpotKey(spot);
+    return getFavoriteSpots().some(function (f) { return favoriteSpotKey(f) === key; });
+  }
+
+  function serializeFavoriteSpot(spot) {
+    const street = normalizeFavoriteStreet(spot);
+    const entry = {
+      street: street,
+      gameType: spot.gameType || 'cash6',
+      stackDepth: spot.stackDepth || 'standard',
+      spot: spot.spot || (street === 'preflop' ? 'RFI' : 'postflop'),
+      heroPos: spot.heroPos || '',
+      villainPos: spot.villainPos || '',
+      callerPos: spot.callerPos || '',
+      openSize: Number(spot.openSize) === 3 ? 3 : 2.5,
+      label: spot.label || '',
+      savedAt: new Date().toISOString()
+    };
+    if (street !== 'preflop') {
+      entry.boardText = spot.boardText || '';
+      entry.potBB = spot.potBB != null ? Number(spot.potBB) : 6;
+      entry.toCallBB = spot.toCallBB != null ? Number(spot.toCallBB) : 0;
+    }
+    return entry;
+  }
+
+  function toggleFavoriteSpot(spot) {
+    if (!spot || !(spot.spot || spot.street)) return { ok: false, favorites: getFavoriteSpots() };
+    const key = favoriteSpotKey(spot);
+    let list = getFavoriteSpots().slice();
+    const idx = list.findIndex(function (f) { return favoriteSpotKey(f) === key; });
+    if (idx >= 0) list.splice(idx, 1);
+    else {
+      list.unshift(serializeFavoriteSpot(spot));
+      if (list.length > 20) list = list.slice(0, 20);
+    }
+    write(scopedKey('rangeFavorites'), list);
+    return { ok: true, favorites: list, favorited: idx < 0 };
+  }
+
+  function removeFavoriteSpot(spotOrKey) {
+    let list = getFavoriteSpots().slice();
+    const key = typeof spotOrKey === 'string' ? spotOrKey : favoriteSpotKey(spotOrKey);
+    if (!key) return { ok: false, favorites: list };
+    const next = list.filter(function (f) { return favoriteSpotKey(f) !== key; });
+    if (next.length === list.length) return { ok: false, favorites: list };
+    write(scopedKey('rangeFavorites'), next);
+    return { ok: true, favorites: next };
+  }
+
+  function getFavoriteSpotsForStreet(street) {
+    const st = street || 'preflop';
+    return getFavoriteSpots().filter(function (f) {
+      return normalizeFavoriteStreet(f) === st;
+    });
+  }
+
   global.Store = {
     setUserId,
     getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
@@ -1144,6 +1238,8 @@
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry,
-    getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand
+    getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
+    getFavoriteSpots, getFavoriteSpotsForStreet, isFavoriteSpot, toggleFavoriteSpot,
+    removeFavoriteSpot, favoriteSpotKey, normalizeFavoriteStreet
   };
 })(window);

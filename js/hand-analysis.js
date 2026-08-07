@@ -212,15 +212,6 @@
   }
   function cardsHTML(list) { return (list || []).map(cardHTML).join(''); }
 
-  function fullDeck() {
-    if (global.Cards && global.Cards.fullDeck) return global.Cards.fullDeck();
-    var ranks = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
-    var suits = ['s', 'h', 'd', 'c'];
-    var out = [];
-    ranks.forEach(function (r) { suits.forEach(function (s) { out.push(r + s); }); });
-    return out;
-  }
-
   // ---------- construir mano cruda a partir de un "spec" ----------
   function normalizeBbEuro(raw) {
     var n = Number(raw);
@@ -956,6 +947,13 @@
   function renderHandCard(h) {
     var boardStr = (h.boardAll && h.boardAll.length) ? cardsHTML(h.boardAll) : '<span class="muted-text">Preflop</span>';
     var acc = (typeof h.accuracy === 'number') ? (h.accuracy + '% acierto') : '';
+    var scoreTxt = '';
+    if (h.handScore == null && window.GTOScoring && GTOScoring.ensureHandScore) {
+      try { GTOScoring.ensureHandScore(h); } catch (e) { /* ignore */ }
+    }
+    if (typeof h.handScore === 'number') {
+      scoreTxt = 'Nota ' + (Math.round(h.handScore * 10) / 10).toFixed(1).replace(/\.0$/, '') + '/10';
+    }
     var src = h.source === 'text' ? 'IA' : 'Manual';
     var when = '';
     try { when = new Date(h.createdAt).toLocaleDateString('es-ES'); } catch (e) { when = ''; }
@@ -963,7 +961,8 @@
     html += '<div class="ha-card-head">';
     html += '<div class="ha-card-cards">' + cardsHTML(h.heroCards || []) + '</div>';
     html += '<div class="ha-card-info"><div class="ha-card-title">' + handTitle(h) + '</div>';
-    html += '<div class="ha-card-sub muted-text">' + esc(src) + (when ? ' · ' + esc(when) : '') + (acc ? ' · ' + esc(acc) : '') + '</div></div>';
+    html += '<div class="ha-card-sub muted-text">' + esc(src) + (when ? ' · ' + esc(when) : '') +
+      (acc ? ' · ' + esc(acc) : '') + (scoreTxt ? ' · ' + esc(scoreTxt) : '') + '</div></div>';
     html += '</div>';
     html += '<div class="ha-card-board">' + boardStr + '</div>';
     html += '<div class="ha-card-actions">';
@@ -986,6 +985,7 @@
           S.editId = null;
           S.editMeta = null;
           S.picker = null;
+          closeCardPickerModal();
           S.draft = emptyDraft(S.format);
           syncActionsFromSeats(S.draft);
           S.view = 'manual';
@@ -1036,6 +1036,7 @@
       source: h.source
     };
     S.picker = null;
+    closeCardPickerModal();
     S.format = spec.format === '9max' ? '9max' : '6max';
     S.draft = draftFromSpec(spec);
     ensureUniqueSeats(S.draft);
@@ -1120,38 +1121,34 @@
     return html;
   }
 
-  function pickerPanelHTML(draft) {
-    if (!S.picker) return '';
-    var key = S.picker.key;
-    var vIdx = S.picker.vIdx;
-    var max = S.picker.max;
-    var current = getPickTargetCards(draft, key, vIdx).slice();
-    var usedElsewhere = usedCardsExcept(draft, key, vIdx);
-    var title = {
+  function pickerTitleForKey(key) {
+    return {
       hero: 'Cartas del héroe',
       villain: 'Cartas del villano',
       flop: 'Flop (3 cartas)',
-      turn: 'Turn',
-      river: 'River'
+      turn: 'Turn (1 carta)',
+      river: 'River (1 carta)'
     }[key] || 'Elegir cartas';
+  }
 
-    var html = '<div class="ha-picker" data-ha-picker>';
-    html += '<div class="ha-picker-head"><span class="ha-picker-title">' + esc(title) +
-      '</span><span class="ha-picker-count muted-text">' + current.length + ' / ' + max +
-      '</span><button type="button" class="btn btn-small btn-ghost" data-ha-picker-close>Listo</button></div>';
-    html += '<div class="ha-picker-selected">' +
-      (current.length ? cardsHTML(current) : '<span class="muted-text">Toca una carta para seleccionarla</span>') +
-      '</div>';
-    html += '<div class="ha-picker-deck">';
-    fullDeck().forEach(function (c) {
-      var selected = current.indexOf(c) >= 0;
-      var busy = !selected && !!usedElsewhere[c];
-      var cls = 'ha-pick-card' + (selected ? ' selected' : '') + (busy ? ' busy' : '');
-      html += '<button type="button" class="' + cls + '" data-card="' + c + '"' +
-        (busy ? ' disabled' : '') + '>' + cardHTML(c) + '</button>';
+  function openCardPickerModal(draft, key, max, vIdx) {
+    if (!global.PTCardPicker || typeof global.PTCardPicker.open !== 'function') return;
+    global.PTCardPicker.open({
+      title: pickerTitleForKey(key),
+      max: max,
+      selected: getPickTargetCards(draft, key, vIdx).slice(),
+      blocked: usedCardsExcept(draft, key, vIdx),
+      onDone: function (cards) {
+        setPickTargetCards(draft, key, vIdx, cards || []);
+        refreshManualKeepScroll();
+      }
     });
-    html += '</div></div>';
-    return html;
+  }
+
+  function closeCardPickerModal() {
+    if (global.PTCardPicker && typeof global.PTCardPicker.close === 'function' && global.PTCardPicker.isOpen()) {
+      global.PTCardPicker.close(false);
+    }
   }
 
   function getPickTargetCards(draft, key, vIdx) {
@@ -1464,8 +1461,6 @@
     html += '<div class="ha-board-group"><span class="ha-board-label">River</span>' + cardSlotHTML(draft.boardRiver, 1, 'river', null) + '</div>';
     html += '</div></div>';
 
-    if (S.picker) html += pickerPanelHTML(draft);
-
     STREET_ORDER.forEach(function (st) {
       var acts = (draft.actions && draft.actions[st]) || [];
       var players = activePlayersForStreet(draft, st);
@@ -1504,6 +1499,7 @@
     var draft = S.draft;
 
     root.querySelector('[data-ha-back]').addEventListener('click', function () {
+      closeCardPickerModal();
       S.view = 'list';
       S.draft = null;
       S.editId = null;
@@ -1602,15 +1598,14 @@
       });
     });
 
-    // Abrir picker
+    // Abrir picker en ventana emergente (2 héroe/villano, 3 flop, 1 turn/river)
     root.querySelectorAll('[data-ha-pick]').forEach(function (slotWrap) {
       slotWrap.addEventListener('click', function (e) {
         if (e.target.closest('[data-ha-clear-cards]')) return;
         var key = slotWrap.dataset.haPick;
         var max = parseInt(slotWrap.dataset.max, 10) || 2;
         var vIdx = slotWrap.dataset.vidx != null ? parseInt(slotWrap.dataset.vidx, 10) : null;
-        S.picker = { key: key, max: max, vIdx: isNaN(vIdx) ? null : vIdx };
-        refreshManualKeepScroll();
+        openCardPickerModal(draft, key, max, isNaN(vIdx) ? null : vIdx);
       });
     });
 
@@ -1620,37 +1615,9 @@
         var key = btn.dataset.haClearCards;
         var vIdx = btn.dataset.vidx != null ? parseInt(btn.dataset.vidx, 10) : null;
         setPickTargetCards(draft, key, isNaN(vIdx) ? null : vIdx, []);
-        if (S.picker && S.picker.key === key && S.picker.vIdx === vIdx) {
-          /* keep open */
-        }
         refreshManualKeepScroll();
       });
     });
-
-    if (S.picker) {
-      var close = root.querySelector('[data-ha-picker-close]');
-      if (close) close.addEventListener('click', function () {
-        S.picker = null;
-        refreshManualKeepScroll();
-      });
-      root.querySelectorAll('.ha-pick-card[data-card]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          if (btn.disabled) return;
-          var c = btn.dataset.card;
-          var cur = getPickTargetCards(draft, S.picker.key, S.picker.vIdx).slice();
-          var ix = cur.indexOf(c);
-          if (ix >= 0) cur.splice(ix, 1);
-          else {
-            if (cur.length >= S.picker.max) {
-              // reemplaza la última
-              cur[cur.length - 1] = c;
-            } else cur.push(c);
-          }
-          setPickTargetCards(draft, S.picker.key, S.picker.vIdx, cur);
-          refreshManualKeepScroll();
-        });
-      });
-    }
 
     root.querySelectorAll('[data-ha-add-action]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -1786,6 +1753,7 @@
         showErrors(['No se pudo guardar: ' + (res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || ''))]);
         return;
       }
+      closeCardPickerModal();
       S.view = 'list';
       S.draft = null;
       S.editId = null;
@@ -1798,29 +1766,62 @@
     });
   }
 
+  function looksLikeHandHistory(text) {
+    if (!text) return false;
+    return /^Winamax Poker -/m.test(text) ||
+      /^PokerStars Hand #/m.test(text) ||
+      /^PokerStars Zoom Hand #/m.test(text) ||
+      /^Mano n/m.test(text) ||
+      /HandId:\s*#/i.test(text);
+  }
+
+  /** Importa HH PokerStars/Winamax localmente (sin IA) con collected/net correctos. */
+  function tryImportHandHistory(text) {
+    if (!looksLikeHandHistory(text) || !global.Importer || !global.Importer.parseHand) return null;
+    var parsed = null;
+    try {
+      var multiWm = (text.match(/^Winamax Poker -/gm) || []).length > 1;
+      var multiPs = (text.match(/^PokerStars (?:Zoom )?Hand #/gm) || []).length > 1 ||
+        (text.match(/^Mano n/gm) || []).length > 1;
+      if ((multiWm || multiPs) && global.Importer.parseSession) {
+        var sess = global.Importer.parseSession(text, 'paste.txt');
+        var hero = sess && sess.hero;
+        parsed = (sess.hands || []).find(function (h) {
+          return h && h.hero === hero && h.heroCards && h.heroCards.length >= 2;
+        }) || null;
+      } else {
+        parsed = global.Importer.parseHand(text);
+      }
+    } catch (e) {
+      return null;
+    }
+    if (!parsed || !parsed.hero || !parsed.heroCards || parsed.heroCards.length < 2) return null;
+    var analyzed = global.Importer.analyzeHand(parsed);
+    analyzed.spec = ensureHandSpec(analyzed);
+    analyzed.source = 'handhistory';
+    analyzed.createdAt = new Date().toISOString();
+    analyzed.savedName = (analyzed.heroCode || '') + ' · ' + (analyzed.heroPos || '');
+    return analyzed;
+  }
+
   // ---------- render: texto / IA ----------
   function renderText() {
     var root = S.container;
     var html = '';
     html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver</button>';
-    html += '<h2 class="ha-title">Añadir mano con IA (texto)</h2>';
-    html += '<p class="muted-text">Describe la mano en lenguaje natural: posiciones, cartas del héroe y villanos (si se conocen), cartas comunitarias y las acciones. La IA la preparará para el paso a paso e incluirá su análisis. <strong>Esta acción consume una consulta de tu plan o bono.</strong> No disponible en Gratis sin bono.</p>';
+    html += '<h2 class="ha-title">Añadir mano (texto / historial)</h2>';
+    html += '<p class="muted-text">Pega un historial Winamax/PokerStars (se analiza <strong>sin consumir IA</strong>) o describe la mano en lenguaje natural. La descripción libre usa el IA Coach y <strong>consume una consulta</strong>.</p>';
     html += '<div class="ha-form">';
-    html += '<textarea class="ha-text-input" rows="8" placeholder="Ej.: 6-max. Soy CO con As Kd. UTG se retira, HJ paga, yo subo a 3bb, BTN paga, se retiran las ciegas. Flop 9c Tc 8c: HJ pasa, yo apuesto 5bb, HJ paga. Turn 2h: pasa pasa. River 2s: HJ apuesta 10bb y me lo pienso."></textarea>';
+    html += '<textarea class="ha-text-input" rows="8" placeholder="Pega un Hand History o describe la mano: 6-max, CO con As Kd, acciones, board…"></textarea>';
     html += '<div class="ha-form-errors" data-ha-errors></div>';
     html += '<div class="ha-form-buttons">';
-    html += '<button class="btn btn-primary" data-ha-text-go>Analizar con IA y guardar</button>';
+    html += '<button class="btn btn-primary" data-ha-text-go>Analizar y guardar</button>';
     html += '</div>';
     html += '<div class="ha-text-status" data-ha-text-status></div>';
     html += '</div>';
     root.innerHTML = html;
     root.querySelector('[data-ha-back]').addEventListener('click', function () { S.view = 'list'; render(); });
     root.querySelector('[data-ha-text-go]').addEventListener('click', onTextAnalyze);
-    requireAiAccess().then(function (ok) {
-      if (ok || S.view !== 'text') return;
-      S.view = 'list';
-      render();
-    });
   }
 
   function normalizeAiSpec(aiHand) {
@@ -1858,55 +1859,65 @@
     var text = root.querySelector('.ha-text-input').value.trim();
     showErrors([]);
     var status = root.querySelector('[data-ha-text-status]');
-    if (!text) { showErrors(['Escribe la descripción de la mano.']); return; }
+    if (!text) { showErrors(['Escribe la descripción de la mano o pega un historial.']); return; }
     var check = canSave();
     if (!check.ok) {
       showErrors(['Has alcanzado el límite de manos guardadas de tu plan (' + check.limit + '). Borra alguna o mejora tu plan.']);
       return;
     }
-    if (!global.PTAIReport || !global.PTAIReport.parseHand) {
-      showErrors(['El IA Coach no está disponible ahora mismo.']);
-      return;
-    }
     var btn = root.querySelector('[data-ha-text-go]');
     btn.disabled = true;
-    status.innerHTML = '<div class="ha-loading">Comprobando consultas IA…</div>';
 
-    requireAiAccess().then(function (ok) {
-      if (!ok) {
-        btn.disabled = false;
-        status.innerHTML = '';
-        return;
+    function finishSaved(analyzed) {
+      var res = saveHand(analyzed);
+      if (!res.ok) throw new Error(res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || 'no se pudo guardar.'));
+      btn.disabled = false;
+      S.view = 'list';
+      render();
+      if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+    }
+
+    status.innerHTML = '<div class="ha-loading">Analizando…</div>';
+    ensureImporter().then(function () {
+      var local = tryImportHandHistory(text);
+      if (local) {
+        status.innerHTML = '<div class="ha-loading">Historial detectado · guardando…</div>';
+        finishSaved(local);
+        return null;
       }
-      status.innerHTML = '<div class="ha-loading">La IA está leyendo la mano…</div>';
-      return global.PTAIReport.parseHand(text);
+      if (!global.PTAIReport || !global.PTAIReport.parseHand) {
+        throw new Error('No es un historial reconocido y el IA Coach no está disponible.');
+      }
+      status.innerHTML = '<div class="ha-loading">Comprobando consultas IA…</div>';
+      return requireAiAccess().then(function (ok) {
+        if (!ok) {
+          btn.disabled = false;
+          status.innerHTML = '';
+          return null;
+        }
+        status.innerHTML = '<div class="ha-loading">La IA está leyendo la mano…</div>';
+        return global.PTAIReport.parseHand(text);
+      });
     }).then(function (data) {
       if (!data) return;
-      if (!data || !data.hand) throw new Error('La IA no devolvió una mano válida.');
+      if (!data.hand) throw new Error('La IA no devolvió una mano válida.');
       var spec = normalizeAiSpec(data.hand);
       var errs = validateSpec(spec);
       if (errs.length) {
         throw new Error('La IA no pudo estructurar bien la mano (' + errs[0] + '). Revisa la descripción o usa la entrada manual.');
       }
-      return ensureImporter().then(function () {
-        var analyzed = buildAnalyzedHand(spec, 'text');
-        if (data.analysisMarkdown) {
-          analyzed.coachThread = [{
-            mode: 'report',
-            reportMarkdown: data.analysisMarkdown,
-            model: 'gemini',
-            createdAt: new Date().toISOString(),
-            truncated: false
-          }];
-          analyzed.aiAnalysis = data.analysisMarkdown;
-        }
-        var res = saveHand(analyzed);
-        if (!res.ok) throw new Error(res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || 'no se pudo guardar.'));
-        btn.disabled = false;
-        S.view = 'list';
-        render();
-        if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
-      });
+      var analyzed = buildAnalyzedHand(spec, 'text');
+      if (data.analysisMarkdown) {
+        analyzed.coachThread = [{
+          mode: 'report',
+          reportMarkdown: data.analysisMarkdown,
+          model: 'gemini',
+          createdAt: new Date().toISOString(),
+          truncated: false
+        }];
+        analyzed.aiAnalysis = data.analysisMarkdown;
+      }
+      finishSaved(analyzed);
     }).catch(function (e) {
       btn.disabled = false;
       status.innerHTML = '';
@@ -1914,7 +1925,7 @@
         global.PTBilling.showPaywall(e.paywall);
         return;
       }
-      showErrors([(e && e.message) ? e.message : 'No se pudo analizar la mano con IA.']);
+      showErrors([(e && e.message) ? e.message : 'No se pudo analizar la mano.']);
     });
   }
 
@@ -1936,6 +1947,8 @@
     ensureVillainsFromActions: ensureVillainsFromActions,
     normalizeBbEuro: normalizeBbEuro,
     sortBySpeakingOrder: sortBySpeakingOrder,
-    speakingOrderRing: speakingOrderRing
+    speakingOrderRing: speakingOrderRing,
+    looksLikeHandHistory: looksLikeHandHistory,
+    tryImportHandHistory: tryImportHandHistory
   };
 })(window);

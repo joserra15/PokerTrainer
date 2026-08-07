@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cómo importar manos de Winamax y detectar fugas</title>
+  <meta name="description" content="Guía para importar historiales de Winamax en PokerForgeAI y convertirlos en un repaso de leaks útil." />
+  <link rel="canonical" href="https://www.pokerforgeai.com/blog/importar-winamax.html" />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="Cómo importar manos de Winamax y detectar fugas" />
+  <meta property="og:description" content="Paso a paso para revisar una sesión de Winamax y priorizar las fugas con más EV perdido." />
+  <meta property="og:url" content="https://www.pokerforgeai.com/blog/importar-winamax.html" />
+  <meta property="og:image" content="https://www.pokerforgeai.com/icons/logo-512.png" />
+  <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
+  <link rel="stylesheet" href="../legal/legal-common.css" />
+</head>
+<body>
+  <article class="legal-wrap">
+    <header class="legal-top">
+      <a href="index.html">&larr; Volver al blog</a>
+      <h1>Cómo importar manos de Winamax y detectar fugas</h1>
+      <p class="legal-meta">Import de sesiones · review práctico</p>
+    </header>
+
+    <p>PokerForgeAI ya soporta historiales de Winamax en cash NLHE. La clave no es solo subir el archivo: es saber qué mirar primero.</p>
+
+    <h2>Paso 1 — Sube el .txt</h2>
+    <p>En <strong>Sesiones</strong>, adjunta el historial exportado. El parser detecta Winamax y analiza mano a mano sin gastar IA.</p>
+
+    <h2>Paso 2 — No mires el resultado, mira el EV perdido</h2>
+    <p>Una sesión ganadora puede estar llena de leaks. Prioriza siempre las manos con más coste de EV y deja el runout para el final.</p>
+
+    <h2>Paso 3 — Baja a los spots repetidos</h2>
+    <p>Si ves el mismo error varias veces —por ejemplo call de más en turn o folds demasiado tight en BB— ya no tienes una mano mala: tienes una fuga.</p>
+
+    <h2>Paso 4 — Repite con drill adaptativo</h2>
+    <p>Desde el banco de errores puedes mandar esos spots otra vez al entrenador, empezando por los que más EV te cuestan.</p>
+
+    <h2>Paso 5 — Aísla el contexto</h2>
+    <ul>
+      <li>posición</li>
+      <li>street</li>
+      <li>tipo de spot</li>
+      <li>board / sizing</li>
+    </ul>
+    <p>Ahí es donde el estudio empieza a parecerse a una mejora real y no a “ver manos interesantes”.</p>
+  </article>
+</body>
+</html>

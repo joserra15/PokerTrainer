@@ -232,7 +232,16 @@
   }
 
   function initAdminForUser(user) {
-    if (!user || !user.isAdmin) return;
+    if (!user || !user.isAdmin) {
+      if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+      else if (global.PTAdmin && global.PTAdmin.setAdminVisible) global.PTAdmin.setAdminVisible(false);
+      return;
+    }
+    var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
+    if (demoOn) {
+      if (global.PTAdmin && global.PTAdmin.lockdown) global.PTAdmin.lockdown();
+      return;
+    }
     function run() {
       if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(user);
     }
@@ -246,6 +255,15 @@
   async function enterApp(user) {
     if (!user) return;
     user = normalizeUser(user);
+    if (global.PTAgeGate && global.PTAgeGate.ensureConfirmed) {
+      var ageOk = await global.PTAgeGate.ensureConfirmed(user);
+      if (!ageOk) {
+        var errEl = $('auth-error');
+        if (errEl) errEl.textContent = 'Debes confirmar que tienes más de 18 años para usar PokerForgeAI.';
+        signOut();
+        return;
+      }
+    }
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (e) { /* noop */ }
     currentUser = user;
     global.PT_AUTH_USER = user;
@@ -371,6 +389,9 @@
   function signOut() {
     if (global.PTLog && global.PTLog.event) global.PTLog.event('logout');
     var done = function () {
+      if (global.PTAdmin && global.PTAdmin.lockdown) {
+        try { global.PTAdmin.lockdown(); } catch (e) { /* noop */ }
+      }
       localStorage.removeItem(SESSION_KEY);
       try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e) { /* noop */ }
       currentUser = null;

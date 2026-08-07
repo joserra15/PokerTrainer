@@ -119,5 +119,54 @@ if (!sessGlobal.clean || sessGlobal.clean.length !== 2) {
   process.exit(1);
 }
 
+// RG-E01: entrypoint stats/home (buildStats / statsGlobal)
+const statsPayload = P.build('statsGlobal', {
+  stats: {
+    handsPlayed: 12,
+    decisions: 40,
+    optima: 20,
+    aceptable: 10,
+    imprecisa: 6,
+    error: 4,
+    totalEvLoss: 9.5,
+    totalNet: -3.2,
+    byStreet: {
+      preflop: { n: 20, good: 16 },
+      flop: { n: 10, good: 7 },
+      turn: { n: 6, good: 4 },
+      river: { n: 4, good: 3 }
+    }
+  },
+  weekly: [{ label: 'W1', hands: 5, accuracy: 70, evLoss: 2 }],
+  weeklySessions: [{ label: 'W1', hands: 3, accuracy: 80, evLoss: 1 }],
+  topLeaks: [{ spotKey: 'RFI|CO|flop', n: 3, evLoss: 2.1 }]
+});
+const statsJson = JSON.stringify(statsPayload);
+if (!statsPayload || statsPayload.src !== 'statsGlobal' || !statsPayload.st) {
+  console.error('FAIL statsGlobal payload', statsPayload && Object.keys(statsPayload || {}));
+  process.exit(1);
+}
+if (!statsPayload.solverNote) {
+  console.error('FAIL statsGlobal solverNote');
+  process.exit(1);
+}
+if (statsJson.includes('@') && /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(statsJson)) {
+  console.error('FAIL stats payload email PII');
+  process.exit(1);
+}
+if (statsJson.length > 120000) {
+  console.error('FAIL stats payload demasiado grande');
+  process.exit(1);
+}
+if (typeof P.statsCacheKey !== 'function' || !P.statsCacheKey('report')) {
+  console.error('FAIL statsCacheKey');
+  process.exit(1);
+}
+if (typeof P.cacheKey !== 'function' || !P.sessionCacheKey('ses1', 'report')) {
+  console.error('FAIL cache keys');
+  process.exit(1);
+}
+
 console.log('OK test-ai-payload: trainer', trainer.dec.length, 'dec, vil line', session.vil.line,
-  'sessionGlobal leaks', sessGlobal.leaks.length, 'bytes', sgJson.length);
+  'sessionGlobal leaks', sessGlobal.leaks.length, 'bytes', sgJson.length,
+  'stats', statsJson.length);

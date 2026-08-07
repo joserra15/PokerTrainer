@@ -1,0 +1,12 @@
+{
+  "build": "1.64.7",
+  "chunks": {
+    "core": "dist/pt-core.js",
+    "sessions": "dist/pt-sessions.js",
+    "analysis": "dist/pt-analysis.js",
+    "ranges": "dist/pt-ranges.js",
+    "learn": "dist/pt-learn.js",
+    "contact": "dist/pt-contact.js",
+    "admin": "dist/pt-admin.js"
+  }
+}

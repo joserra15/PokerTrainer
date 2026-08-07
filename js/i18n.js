@@ -1,0 +1,354 @@
+/*
+ * i18n.js — Español / English para landing y chrome principal (P2 #12).
+ */
+(function (global) {
+  'use strict';
+
+  var STORAGE_KEY = 'pt_lang_v1';
+  /** Idioma fijo por ahora: el selector EN queda oculto hasta completar i18n del entrenador. */
+  var LANG_LOCKED = true;
+  var current = 'es';
+
+  var DICT = {
+    es: {
+      'nav.features': 'Funciones',
+      'nav.pricing': 'Planes',
+      'nav.install': 'Instalar',
+      'nav.method': 'Metodología',
+      'nav.faq': 'FAQ',
+      'nav.support': 'Soporte',
+      'nav.login': 'Entrar',
+      'hero.title': 'Entrena GTO, importa tus sesiones y mejora con IA Coach',
+      'hero.lead': 'Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV. También puedes instalarla en el móvil como app.',
+      'hero.cta': 'Empezar gratis',
+      'hero.plans': 'Ver planes',
+      'hero.install': 'Instalar app',
+      'hero.bullet1': 'Sesión de ejemplo incluida al registrarte',
+      'hero.bullet2': 'Import PokerStars, Winamax y GGPoker',
+      'hero.bullet3': 'Plan gratis + prueba Study 10 días',
+      'features.title': 'Todo lo que necesitas para estudiar',
+      'feat.train.title': 'Entrenador interactivo',
+      'feat.train.body': 'Mesa 6-max con evaluación GTO calle a calle, rangos, avisador en vivo y bloques de 25/50/100 manos.',
+      'feat.import.title': 'Import de sesiones',
+      'feat.import.body': 'Sube historiales .txt de PokerStars, Winamax o GGPoker (varios archivos a la vez) y revisa fugas mano a mano.',
+      'feat.ranges.title': 'Rangos preflop',
+      'feat.ranges.body': 'Matrices RFI y defensa vs open para cash. El soporte de torneo es parcial y sobre todo preflop.',
+      'feat.ai.title': 'IA Coach',
+      'feat.ai.body': 'Consultas sobre manos y sesiones en planes Study y Coach (ver planes).',
+      'feat.stats.title': 'Estadísticas y errores',
+      'feat.stats.body': 'Acierto, EV perdido, leaks por calle/spot y drill adaptativo de tus peores spots.',
+      'feat.pwa.title': 'App instalable',
+      'feat.pwa.body': 'PWA para móvil y escritorio: acceso rápido sin pasar por la tienda.',
+      'pricing.title': 'Planes claros',
+      'limits.title': 'Empieza sin fricción',
+      'limits.free': 'Gratis: 15 manos/día · 1 import/mes (máx. 200) · 5 análisis · 3 IA/mes · histórico 30 días',
+      'limits.trial': 'Prueba Study {days} días: entrenador e import ilimitados (una vez por cuenta)',
+      'limits.card': 'Sin tarjeta para el plan gratis; el trial de Study se activa en checkout',
+      'plan.free': 'Gratis',
+      'plan.free.f1': '15 manos entrenador/día',
+      'plan.free.f2': '1 sesión import/mes (máx. 200)',
+      'plan.free.f3': '5 manos en análisis (solo manual)',
+      'plan.free.f4': '3 consultas IA Coach/mes de prueba',
+      'plan.study.f1': '{trial} (una vez)',
+      'plan.study.f2': 'Entrenador e import ilimitados',
+      'plan.study.f3': '20 manos en análisis',
+      'plan.study.f4': '40 consultas IA Coach/mes',
+      'plan.study.f5': 'Sync en la nube',
+      'plan.coach.f1': 'Todo Study',
+      'plan.coach.f2': '100 manos en análisis',
+      'plan.coach.f3': '150 consultas IA Coach/mes',
+      'plan.coach.f4': 'Informes, análisis y preguntas IA',
+      'plan.coach.f5': 'Soporte prioritario',
+      'plan.cta': 'Ir al login',
+      'tab.home': 'Inicio',
+      'tab.play': 'Entrenar',
+      'tab.learn': 'Guía básica',
+      'tab.analysis': 'Análisis',
+      'tab.sessions': 'Sesiones',
+      'tab.ranges': 'Rangos',
+      'tab.history': 'Histórico',
+      'tab.stats': 'Estadísticas',
+      'tab.errors': 'Errores',
+      'tab.contact': 'Contacto',
+      'tab.pricing': 'Planes',
+      'tab.faq': 'FAQ',
+      'play.session': 'Sesión',
+      'play.hands': 'Manos',
+      'play.result': 'Resultado (bb)',
+      'play.evLost': 'EV perdido',
+      'play.evExpected': 'EV esperado',
+      'play.accuracy': 'Acierto',
+      'play.handHistory': 'Historial de la mano',
+      'play.newHand': 'Nueva mano',
+      'play.replayHand': '↻ Repetir esta mano',
+      'play.newSession': 'Nueva sesión',
+      'play.repeatErrors': 'Repetir mis spots fallados',
+      'play.pot': 'Bote',
+      'play.bet': 'Apuesta',
+      'play.hero': 'HÉROE',
+      'play.yourHand': 'Tu mano',
+      'advisor.mode': 'Modo del avisador',
+      'advisor.always': 'Siempre (consejo previo)',
+      'advisor.serious': 'Solo error grave',
+      'advisor.threshold': 'Umbral EV perdido (bb)',
+      'advisor.live': 'Avisador en vivo',
+      'advisor.silent': 'Modo silencio',
+      'advisor.silentHint': 'Solo aviso si EV perdido ≥ {n} bb',
+      'advisor.alert': 'Aviso grave',
+      'advisor.alertHint': 'EV perdido ≥ {n} bb',
+      'advisor.dismissAlert': 'Cerrar aviso',
+      'advisor.disable': 'Desactivar avisador en vivo',
+      'advisor.recommended': 'Acción recomendada',
+      'advisor.gtoFreq': 'Frecuencia GTO {n}%',
+      'advisor.street': 'Calle',
+      'advisor.villain': 'Villano',
+      'advisor.yourAction': 'Tu última acción',
+      'advisor.optimal': 'óptimo',
+      'advisor.matrixGto': 'Matriz GTO',
+      'advisor.matrixVillain': 'Matriz villano',
+      'advisor.matrixLoading': 'Calculando matriz…',
+      'advisor.matrixUnavailable': 'Matriz no disponible en este spot.',
+      'advisor.matrixGtoFail': 'No se pudo calcular la matriz GTO.',
+      'advisor.matrixGtoPreflopOnly': 'Matriz GTO solo disponible en preflop.',
+      'advisor.matrixVillainFail': 'No se pudo estimar el rango villano.',
+      'settings.advisorTitle': 'Avisador y feedback',
+      'settings.advisorLead': 'Controla cuándo el entrenador te avisa tras una decisión.',
+      'settings.advisorMode': 'Modo',
+      'settings.langTitle': 'Idioma / Language',
+      'settings.langEs': 'Idioma actual: Español',
+      'settings.langEn': 'Current language: English',
+      'export.session': 'Exportar informe',
+      'export.json': 'JSON',
+      'export.csv': 'CSV',
+      'export.pdf': 'PDF / Imprimir',
+      'export.errorsOnly': 'Solo manos con fuga',
+      'ranges.postflop': 'Flop HU',
+      'ranges.postflop.disclaimer': 'Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.',
+      'ranges.street.preflop': 'Preflop',
+      'ranges.street.flop': 'Flop',
+      'ranges.street.turn': 'Turn',
+      'ranges.street.river': 'River',
+      'ranges.fav.empty': 'Sin spots favoritos en esta pestaña.',
+      'ranges.fav.save': '☆ Guardar spot',
+      'ranges.fav.saved': '★ Favorito',
+      'ranges.fav.remove': 'Eliminar favorito',
+      'lang.label': 'Idioma'
+    },
+    en: {
+      'nav.features': 'Features',
+      'nav.pricing': 'Plans',
+      'nav.install': 'Install',
+      'nav.method': 'Methodology',
+      'nav.faq': 'FAQ',
+      'nav.support': 'Support',
+      'nav.login': 'Log in',
+      'hero.title': 'Train GTO, import your sessions and improve with AI Coach',
+      'hero.lead': 'Practice real spots at the table, review imported hands with heuristic analysis and find EV leaks. You can also install it on mobile as an app.',
+      'hero.cta': 'Start free',
+      'hero.plans': 'See plans',
+      'hero.install': 'Install app',
+      'hero.bullet1': 'Sample session included when you sign up',
+      'hero.bullet2': 'Import PokerStars, Winamax and GGPoker',
+      'hero.bullet3': 'Free plan + Study 10-day trial',
+      'features.title': 'Everything you need to study',
+      'feat.train.title': 'Interactive trainer',
+      'feat.train.body': '6-max table with street-by-street GTO evaluation, ranges, live advisor and 25/50/100 hand blocks.',
+      'feat.import.title': 'Session import',
+      'feat.import.body': 'Upload PokerStars, Winamax or GGPoker .txt hand histories (multiple files) and review leaks hand by hand.',
+      'feat.ranges.title': 'Preflop ranges',
+      'feat.ranges.body': 'RFI and vs-open defense matrices for cash. Tournament support is partial and mostly preflop.',
+      'feat.ai.title': 'AI Coach',
+      'feat.ai.body': 'Questions on hands and sessions on Study and Coach plans.',
+      'feat.stats.title': 'Stats and errors',
+      'feat.stats.body': 'Accuracy, EV lost, leaks by street/spot and adaptive drills on your worst spots.',
+      'feat.pwa.title': 'Installable app',
+      'feat.pwa.body': 'PWA for mobile and desktop: quick access without an app store.',
+      'pricing.title': 'Clear plans',
+      'limits.title': 'Start with no friction',
+      'limits.free': 'Free: 15 hands/day · 1 import/month (max 200) · 5 analysis · 3 AI/month · 30-day history',
+      'limits.trial': 'Study trial {days} days: unlimited trainer and import (once per account)',
+      'limits.card': 'No card required for Free; Study trial starts at checkout',
+      'plan.free': 'Free',
+      'plan.free.f1': '15 trainer hands/day',
+      'plan.free.f2': '1 import session/month (max 200)',
+      'plan.free.f3': '5 analysis hands (manual only)',
+      'plan.free.f4': '3 AI Coach queries/month trial',
+      'plan.study.f1': '{trial} (once)',
+      'plan.study.f2': 'Unlimited trainer and import',
+      'plan.study.f3': '20 analysis hands',
+      'plan.study.f4': '40 AI Coach queries/month',
+      'plan.study.f5': 'Cloud sync',
+      'plan.coach.f1': 'Everything in Study',
+      'plan.coach.f2': '100 analysis hands',
+      'plan.coach.f3': '150 AI Coach queries/month',
+      'plan.coach.f4': 'Reports, analysis and AI questions',
+      'plan.coach.f5': 'Priority support',
+      'plan.cta': 'Go to login',
+      'tab.home': 'Home',
+      'tab.play': 'Train',
+      'tab.learn': 'Basics',
+      'tab.analysis': 'Analysis',
+      'tab.sessions': 'Sessions',
+      'tab.ranges': 'Ranges',
+      'tab.history': 'History',
+      'tab.stats': 'Stats',
+      'tab.errors': 'Leaks',
+      'tab.contact': 'Contact',
+      'tab.pricing': 'Plans',
+      'tab.faq': 'FAQ',
+      'play.session': 'Session',
+      'play.hands': 'Hands',
+      'play.result': 'Result (bb)',
+      'play.evLost': 'EV lost',
+      'play.evExpected': 'Expected EV',
+      'play.accuracy': 'Accuracy',
+      'play.handHistory': 'Hand history',
+      'play.newHand': 'New hand',
+      'play.replayHand': '↻ Replay this hand',
+      'play.newSession': 'New session',
+      'play.repeatErrors': 'Repeat my missed spots',
+      'play.pot': 'Pot',
+      'play.bet': 'Bet',
+      'play.hero': 'HERO',
+      'play.yourHand': 'Your hand',
+      'advisor.mode': 'Advisor mode',
+      'advisor.always': 'Always (pre-action tip)',
+      'advisor.serious': 'Serious errors only',
+      'advisor.threshold': 'EV lost threshold (bb)',
+      'advisor.live': 'Live advisor',
+      'advisor.silent': 'Silent mode',
+      'advisor.silentHint': 'Alert only if EV lost ≥ {n} bb',
+      'advisor.alert': 'Serious alert',
+      'advisor.alertHint': 'EV lost ≥ {n} bb',
+      'advisor.dismissAlert': 'Dismiss alert',
+      'advisor.disable': 'Disable live advisor',
+      'advisor.recommended': 'Recommended action',
+      'advisor.gtoFreq': 'GTO frequency {n}%',
+      'advisor.street': 'Street',
+      'advisor.villain': 'Villain',
+      'advisor.yourAction': 'Your last action',
+      'advisor.optimal': 'optimal',
+      'advisor.matrixGto': 'GTO matrix',
+      'advisor.matrixVillain': 'Villain matrix',
+      'advisor.matrixLoading': 'Computing matrix…',
+      'advisor.matrixUnavailable': 'Matrix unavailable in this spot.',
+      'advisor.matrixGtoFail': 'Could not compute GTO matrix.',
+      'advisor.matrixGtoPreflopOnly': 'GTO matrix only available preflop.',
+      'advisor.matrixVillainFail': 'Could not estimate villain range.',
+      'settings.advisorTitle': 'Advisor and feedback',
+      'settings.advisorLead': 'Control when the trainer alerts you after a decision.',
+      'settings.advisorMode': 'Mode',
+      'settings.langTitle': 'Language / Idioma',
+      'settings.langEs': 'Idioma actual: Español',
+      'settings.langEn': 'Current language: English',
+      'export.session': 'Export report',
+      'export.json': 'JSON',
+      'export.csv': 'CSV',
+      'export.pdf': 'PDF / Print',
+      'export.errorsOnly': 'Leak hands only',
+      'ranges.postflop': 'HU Flop',
+      'ranges.postflop.disclaimer': 'Heuristic fold/call/raise frequency view. Not a full-tree solver.',
+      'ranges.street.preflop': 'Preflop',
+      'ranges.street.flop': 'Flop',
+      'ranges.street.turn': 'Turn',
+      'ranges.street.river': 'River',
+      'ranges.fav.empty': 'No favorite spots on this tab yet.',
+      'ranges.fav.save': '☆ Save spot',
+      'ranges.fav.saved': '★ Favorite',
+      'ranges.fav.remove': 'Remove favorite',
+      'lang.label': 'Language'
+    }
+  };
+
+  function detect() {
+    if (LANG_LOCKED) return 'es';
+    try {
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === 'en' || saved === 'es') return saved;
+    } catch (e) { /* ignore */ }
+    return 'es';
+  }
+
+  function t(key, vars) {
+    var dict = DICT[current] || DICT.es;
+    var s = dict[key] != null ? dict[key] : ((DICT.es[key] != null) ? DICT.es[key] : key);
+    if (vars) {
+      Object.keys(vars).forEach(function (k) {
+        s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(vars[k]));
+      });
+    }
+    return s;
+  }
+
+  function syncLangButtons(root) {
+    root = root || document;
+    var lang = current;
+    root.querySelectorAll('[data-set-lang], [data-settings-lang]').forEach(function (btn) {
+      var val = btn.getAttribute('data-set-lang') || btn.getAttribute('data-settings-lang');
+      var on = val === lang;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  function apply(root) {
+    root = root || document;
+    root.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var key = el.getAttribute('data-i18n');
+      if (!key) return;
+      var attr = el.getAttribute('data-i18n-attr');
+      var val = t(key);
+      if (attr) el.setAttribute(attr, val);
+      else el.textContent = val;
+    });
+    try { document.documentElement.lang = current; } catch (e) { /* ignore */ }
+    syncLangButtons(root);
+  }
+
+  function setLang(lang) {
+    if (LANG_LOCKED) {
+      current = 'es';
+      try { localStorage.setItem(STORAGE_KEY, 'es'); } catch (e) { /* ignore */ }
+      apply(document);
+      return current;
+    }
+    current = lang === 'en' ? 'en' : 'es';
+    try { localStorage.setItem(STORAGE_KEY, current); } catch (e) { /* ignore */ }
+    apply(document);
+    if (global.PTLanding && global.PTLanding.refreshI18n) global.PTLanding.refreshI18n();
+    try {
+      global.dispatchEvent(new CustomEvent('pt-lang-change', { detail: { lang: current } }));
+    } catch (e) { /* ignore */ }
+    return current;
+  }
+
+  function getLang() { return current; }
+  function isLangLocked() { return LANG_LOCKED; }
+
+  current = detect();
+  try { localStorage.setItem(STORAGE_KEY, 'es'); } catch (e) { /* ignore */ }
+
+  global.PTI18n = {
+    t: t,
+    setLang: setLang,
+    getLang: getLang,
+    apply: apply,
+    syncLangButtons: syncLangButtons,
+    isLangLocked: isLangLocked,
+    DICT: DICT
+  };
+
+  function applyAndRefreshLanding() {
+    apply(document);
+    // If landing rendered before this file ran (script race), re-paint pricing.
+    if (global.PTLanding && global.PTLanding.refreshI18n) {
+      try { global.PTLanding.refreshI18n(); } catch (e) { /* ignore */ }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyAndRefreshLanding);
+  } else {
+    try { applyAndRefreshLanding(); } catch (e) { /* ignore */ }
+  }
+})(window);

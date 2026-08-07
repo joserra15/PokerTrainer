@@ -135,7 +135,6 @@
       || {};
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
-    var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
     var showBilling = billingOn && (prof.plan !== 'free' || prof.subscription_status === 'active');
     var cloudLabels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error' };
@@ -191,6 +190,29 @@
       '</section>' +
 
       '<section class="account-settings-card card-box">' +
+      '<h3 data-i18n="settings.advisorTitle">Avisador y feedback</h3>' +
+      '<p class="muted-text" data-i18n="settings.advisorLead">Controla cuándo el entrenador te avisa tras una decisión.</p>' +
+      '<div class="account-advisor-block">' +
+      '<span class="setup-label" data-i18n="settings.advisorMode">Modo</span>' +
+      '<div class="setup-chips" id="settings-advisor-mode">' +
+      '<button type="button" class="setup-chip" data-val="always" data-i18n="advisor.always">Siempre (consejo previo)</button>' +
+      '<button type="button" class="setup-chip" data-val="serious" data-i18n="advisor.serious">Solo error grave</button>' +
+      '</div>' +
+      '<label class="setup-label" for="settings-serious-threshold" data-i18n="advisor.threshold">Umbral EV perdido (bb)</label>' +
+      '<input type="number" id="settings-serious-threshold" class="setup-number-input" min="0" max="20" step="0.1" value="0.5" inputmode="decimal" />' +
+      '</div>' +
+      '</section>' +
+
+      '<section class="account-settings-card card-box hidden" hidden aria-hidden="true">' +
+      '<h3 data-i18n="settings.langTitle">Idioma / Language</h3>' +
+      '<p class="muted-text" id="settings-lang-status"></p>' +
+      '<div class="account-settings-actions setup-chips" id="settings-lang-chips">' +
+      '<button type="button" class="setup-chip" data-settings-lang="es">Español</button>' +
+      '<button type="button" class="setup-chip" data-settings-lang="en">English</button>' +
+      '</div>' +
+      '</section>' +
+
+      '<section class="account-settings-card card-box">' +
       '<h3>Privacidad y datos</h3>' +
       '<div class="account-settings-actions account-settings-actions-stack">' +
       '<button type="button" class="btn btn-ghost btn-block" id="settings-export">Exportar mis datos</button>' +
@@ -206,10 +228,9 @@
       '<h3>Más opciones</h3>' +
       '<div class="account-settings-actions account-settings-actions-stack">' +
       '<button type="button" class="btn btn-ghost btn-block" id="settings-sync">Sincronizar datos</button>' +
+      '<button type="button" class="btn btn-ghost btn-block" id="settings-help" data-open-help>Ayuda · atajos</button>' +
       '<button type="button" class="btn btn-ghost btn-block" id="settings-contact">Contacto / soporte</button>' +
       '<button type="button" class="btn btn-ghost btn-block hidden" id="account-install-app">Instalar app</button>' +
-      (user.isAdmin ? '<button type="button" class="btn btn-ghost btn-block' + (demoOn ? ' hidden' : '') + '" id="account-demo">Modo demo</button>' : '') +
-      (demoOn ? '<button type="button" class="btn btn-primary btn-block" id="account-stop-demo">Parar demo</button>' : '') +
       '</div>' +
       '</section>' +
       '</div>';
@@ -223,10 +244,92 @@
     if (global.PTPwa && global.PTPwa.updateInstallUI) {
       global.PTPwa.updateInstallUI();
     }
+    var mode = 'always';
+    var thr = 0.5;
+    if (global.PTLiveAdvisor) {
+      if (global.PTLiveAdvisor.loadMode) mode = global.PTLiveAdvisor.loadMode();
+      if (global.PTLiveAdvisor.loadThreshold) thr = global.PTLiveAdvisor.loadThreshold();
+    }
+    host.querySelectorAll('#settings-advisor-mode .setup-chip').forEach(function (c) {
+      c.classList.toggle('active', c.dataset.val === mode);
+    });
+    var thrEl = $('#settings-serious-threshold');
+    if (thrEl) thrEl.value = String(thr);
+    if (global.PTI18n && global.PTI18n.apply) {
+      global.PTI18n.apply(host);
+    }
+    syncSettingsLangUI();
     bindActions();
   }
 
+  function syncSettingsLangUI() {
+    var root = $('#account-settings-content') || document;
+    var lang = (global.PTI18n && global.PTI18n.getLang) ? global.PTI18n.getLang() : 'es';
+    var status = $('#settings-lang-status');
+    if (status) {
+      status.textContent = (global.PTI18n && global.PTI18n.t)
+        ? global.PTI18n.t(lang === 'en' ? 'settings.langEn' : 'settings.langEs')
+        : (lang === 'en' ? 'Current language: English' : 'Idioma actual: Español');
+    }
+    if (global.PTI18n && global.PTI18n.syncLangButtons) {
+      global.PTI18n.syncLangButtons(document);
+    } else {
+      root.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
+        var on = btn.getAttribute('data-settings-lang') === lang;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+  }
+
+  function pushAdvisorToSession(partial) {
+    if (typeof global.syncAdvisorSettingsToSession === 'function') {
+      global.syncAdvisorSettingsToSession(partial || {});
+    }
+  }
+
   function bindActions() {
+    var root = $('#account-settings-content') || document;
+    root.querySelectorAll('#settings-advisor-mode .setup-chip').forEach(function (chip) {
+      chip.onclick = function () {
+        root.querySelectorAll('#settings-advisor-mode .setup-chip').forEach(function (c) {
+          c.classList.toggle('active', c === chip);
+        });
+        var mode = chip.dataset.val === 'serious' ? 'serious' : 'always';
+        if (global.PTLiveAdvisor && global.PTLiveAdvisor.saveMode) {
+          global.PTLiveAdvisor.saveMode(mode);
+        }
+        pushAdvisorToSession({ advisorMode: mode });
+      };
+    });
+    var thrEl = $('#settings-serious-threshold');
+    if (thrEl && global.PTLiveAdvisor && global.PTLiveAdvisor.saveThreshold) {
+      var persistThr = function () {
+        var n = global.PTLiveAdvisor.saveThreshold(thrEl.value);
+        pushAdvisorToSession({
+          advisorMode: global.PTLiveAdvisor.loadMode ? global.PTLiveAdvisor.loadMode() : 'always',
+          seriousEvThreshold: n
+        });
+      };
+      thrEl.onchange = persistThr;
+      thrEl.oninput = persistThr;
+    }
+    root.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
+      btn.onclick = function (e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        var next = btn.getAttribute('data-settings-lang');
+        if (global.PTI18n && global.PTI18n.setLang) {
+          global.PTI18n.setLang(next);
+        }
+        if (global.PTI18n && global.PTI18n.apply) {
+          global.PTI18n.apply(root);
+        }
+        syncSettingsLangUI();
+      };
+    });
     var billing = $('#settings-billing');
     if (billing) {
       billing.onclick = function () {
@@ -277,26 +380,16 @@
         if (global.goToTab) global.goToTab('contact');
       };
     }
+    var helpBtn = $('#settings-help');
+    if (helpBtn) {
+      helpBtn.onclick = function (e) {
+        e.preventDefault();
+        if (global.PTHelp && global.PTHelp.open) global.PTHelp.open();
+      };
+    }
     var installBtn = $('#account-install-app');
     if (installBtn && global.PTPwa && global.PTPwa.installApp) {
       installBtn.onclick = function () { global.PTPwa.installApp(); };
-    }
-    if (global.PTDemo) {
-      var demoBtn = $('#account-demo');
-      var stopDemoBtn = $('#account-stop-demo');
-      if (demoBtn && !demoBtn.dataset.bound) {
-        demoBtn.dataset.bound = '1';
-        demoBtn.onclick = function () {
-          var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-          if (u && u.isAdmin && global.PTDemo.start) global.PTDemo.start();
-        };
-      }
-      if (stopDemoBtn && !stopDemoBtn.dataset.bound) {
-        stopDemoBtn.dataset.bound = '1';
-        stopDemoBtn.onclick = function () {
-          if (global.PTDemo.stop) global.PTDemo.stop();
-        };
-      }
     }
   }
 

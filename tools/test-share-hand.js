@@ -84,6 +84,13 @@ const edge = fs.readFileSync(path.join(__dirname, '../supabase/functions/share-h
 assert(edge.indexOf("TTL_DAYS = 14") >= 0, 'edge TTL 14');
 assert(edge.indexOf("req.method === 'GET'") >= 0, 'edge GET público');
 assert(edge.indexOf("req.method === 'POST'") >= 0, 'edge POST autenticado');
+assert(edge.indexOf("'leak'") >= 0, 'edge acepta source leak');
+
+const mig036 = fs.readFileSync(
+  path.join(__dirname, '../supabase/migrations/036_shared_hands_source_leak.sql'),
+  'utf8'
+);
+assert(mig036.indexOf("'leak'") >= 0, 'migración 036 permite source leak');
 
 const sharePage = fs.readFileSync(path.join(__dirname, '../share.html'), 'utf8');
 assert(sharePage.indexOf('share.html') >= 0 || sharePage.indexOf('id=') >= 0, 'página pública con id');

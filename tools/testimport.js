@@ -12,6 +12,7 @@ const importChain = [
   'import/formatDetector.js',
   'import/parsers/pokerstars.js',
   'import/parsers/winamax.js',
+  'import/parsers/ggpoker.js',
   'import.js'
 ];
 
@@ -64,4 +65,33 @@ const wmPath = !inCi && fs.existsSync(path.join(__dirname, '..', 'sesiones', '20
   ? 'sesiones/20260703_Paris 06_real_holdem_no-limit.txt'
   : 'tools/fixtures/Winamax-sample.txt';
 runFile(wmPath, 'Winamax');
-console.log('*** IMPORTADOR OK (PokerStars ES/EN + Winamax) ***');
+runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
+
+// Regresión: PokerStars EN no debe detectarse como GGPoker
+(function () {
+  const ps = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerEN-sample.txt'), 'utf8');
+  const meta = Importer.detectSessionFormat(ps);
+  if (!meta || meta.platform !== 'pokerstars') {
+    console.error('FAIL: PokerStars EN detectado como', meta && meta.platform);
+    process.exit(1);
+  }
+  const gg = fs.readFileSync(path.join(__dirname, 'fixtures', 'GGPoker-sample.txt'), 'utf8');
+  const ggMeta = Importer.detectSessionFormat(gg);
+  if (!ggMeta || ggMeta.platform !== 'ggpoker') {
+    console.error('FAIL: GGPoker no detectado', ggMeta);
+    process.exit(1);
+  }
+  const parsed = Importer.parseSession(gg, 'GGPoker-sample.txt');
+  // Fixture tiene 3 cash + 1 MTT; solo cash
+  if (parsed.hands.length !== 3) {
+    console.error('FAIL GGPoker: esperaba 3 manos cash, got', parsed.hands.length);
+    process.exit(1);
+  }
+  if (parsed.hero !== 'Hero') {
+    console.error('FAIL GGPoker: héroe esperado Hero, got', parsed.hero);
+    process.exit(1);
+  }
+  console.log('GGPoker detect/filter OK (3 cash, MTT descartado)');
+})();
+
+console.log('*** IMPORTADOR OK (PokerStars ES/EN + Winamax + GGPoker) ***');

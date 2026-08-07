@@ -91,8 +91,15 @@
     } catch (e) { /* noop */ }
   }
 
-  function enterFromBootstrap(user) {
+  async function enterFromBootstrap(user) {
     user = normalizeUser(user);
+    if (global.PTAgeGate && global.PTAgeGate.ensureConfirmed) {
+      var ageOk = await global.PTAgeGate.ensureConfirmed(user);
+      if (!ageOk) {
+        retryLogin();
+        return;
+      }
+    }
     var shell = $('app-shell');
     var gate = $('auth-gate');
     if (shell) {

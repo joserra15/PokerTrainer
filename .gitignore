@@ -9,7 +9,7 @@ desktop.ini
 
 # Node (si se añade tooling)
 node_modules/
-dist/
+# dist/ se versiona: Pages despliega desde la rama main y necesita los bundles.
 
 # Logs
 *.log

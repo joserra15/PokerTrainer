@@ -54,7 +54,7 @@ const scripts = [
   'import/hhUtils.js',
   'import/formatDetector.js',
   'import/parsers/pokerstars.js',
-  'import/parsers/winamax.js',
+  'import/parsers/winamax.js', 'import/parsers/ggpoker.js',
   'import.js',
   'hand-analysis.js'
 ];
@@ -500,6 +500,55 @@ assert(draftBroken.actions.preflop.every((a) => a.pos === 'SB'),
   'sin villanos, sync solo deja al héroe (comportamiento documentado)');
 assert(draftBroken.actions.preflop.length <= 2,
   'sin villanos las acciones rivales desaparecen');
+
+// Historial Winamax pegado: parse local con resultado real positivo (trips ganan main pot)
+const wmHh = `Winamax Poker - ESCAPE "Colorado" - HandId: #22618550-211764-1783203261 - Holdem no limit (0.01€/0.02€) - 2026/07/04 22:14:21 UTC
+Table: 'Colorado' 6-max (real money) Seat #6 is the button
+Seat 1: JOY_BERCK (2.86€)
+Seat 2: dryer (1.37€)
+Seat 3: Zzz Loustic (4.64€)
+Seat 4: Anyiinca (5.78€)
+Seat 5: SYGOWIN (3.75€)
+Seat 6: KazeDj (2.16€)
+*** ANTE/BLINDS ***
+JOY_BERCK posts small blind 0.01€
+dryer posts big blind 0.02€
+Dealt to KazeDj [Tc Td]
+*** PRE-FLOP ***
+Zzz Loustic folds
+Anyiinca folds
+SYGOWIN raises 0.03€ to 0.05€
+KazeDj raises 0.10€ to 0.15€
+JOY_BERCK folds
+dryer folds
+SYGOWIN calls 0.10€
+*** FLOP *** [Th Qh 6h]
+SYGOWIN checks
+KazeDj bets 0.21€
+SYGOWIN calls 0.21€
+*** TURN *** [Th Qh 6h][Kd]
+SYGOWIN checks
+KazeDj bets 0.49€
+SYGOWIN raises 2.90€ to 3.39€ and is all-in
+KazeDj calls 1.31€ and is all-in
+*** RIVER *** [Th Qh 6h Kd][5s]
+*** SHOW DOWN ***
+SYGOWIN shows [Kh Ts] (Two pairs : Kings and Tens)
+KazeDj shows [Tc Td] (Trips of Tens)
+KazeDj collected 3.91€ from main pot
+SYGOWIN collected 1.59€ from side pot 1
+*** SUMMARY ***
+Total pot 5.50€ | Rake 0.44€
+Board: [Th Qh 6h Kd 5s]
+Seat 5: SYGOWIN showed [Kh Ts] and won 1.59€ with Two pairs : Kings and Tens
+Seat 6: KazeDj (button) showed [Tc Td] and won 3.91€ with Trips of Tens
+`;
+assert(PTHandAnalysis.looksLikeHandHistory(wmHh), 'detecta HH Winamax');
+const fromHh = PTHandAnalysis.tryImportHandHistory(wmHh);
+assert(!!fromHh, 'importa HH Winamax sin IA');
+assert(fromHh && fromHh.heroNetBB === 87.5, 'HH import heroNetBB 87.5 (era −108 sin collected)');
+assert(fromHh && fromHh.collected && fromHh.collected.KazeDj === 3.91, 'HH import conserva collected main pot');
+assert(fromHh && fromHh.source === 'handhistory', 'fuente handhistory');
 
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');

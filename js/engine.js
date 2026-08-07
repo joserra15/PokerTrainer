@@ -93,6 +93,56 @@
     return amount != null && amount > 0.01;
   }
 
+  /** true si ya no hay acción de apuesta posible (alguien all-in / sin stack). */
+  function noMoreBetting(hand) {
+    return heroRemainingBB(hand) <= 0.01 || villainRemainingBB(hand) <= 0.01;
+  }
+
+  /**
+   * All-in: reparte el board restante en pasos (runout) para que la UI anime calle a calle.
+   * Si no quedan cartas, va directo a showdown.
+   */
+  function prepareAllInRunout(hand) {
+    if (!hand.villain.cards) hand.villain.cards = villainHoleCards(hand);
+    syncTableToActivePot(hand);
+    hand.current = null;
+    if (hand.board.length < 3 && hand._predeal && hand._predeal.board) {
+      hand.board = hand._predeal.board.slice(0, 3);
+      hand._boardIdx = 3;
+      hand.stage = 'flop';
+      resetStreetBets(hand);
+    }
+    hand.runoutQueue = [];
+    var bi = Math.max(hand._boardIdx || 0, hand.board.length);
+    var pre = (hand._predeal && hand._predeal.board) || [];
+    while (hand.board.length + hand.runoutQueue.length < 5 && bi < pre.length) {
+      hand.runoutQueue.push(pre[bi++]);
+    }
+    hand._boardIdx = bi;
+    if (!hand.runoutQueue.length) {
+      hand.runoutPending = false;
+      return showdown(hand);
+    }
+    hand.runoutPending = true;
+    return hand;
+  }
+
+  function advanceRunout(hand) {
+    if (!hand || !hand.runoutPending) return showdown(hand);
+    if (!hand.runoutQueue || !hand.runoutQueue.length) {
+      hand.runoutPending = false;
+      return showdown(hand);
+    }
+    hand.board.push(hand.runoutQueue.shift());
+    if (hand.board.length === 4) hand.stage = 'turn';
+    if (hand.board.length >= 5) hand.stage = 'river';
+    if (!hand.runoutQueue.length) {
+      hand.runoutPending = false;
+      return showdown(hand);
+    }
+    return hand;
+  }
+
   function initHandStacks(hand) {
     const stacks = ST();
     const PC = global.PTPlayConfig;
@@ -968,12 +1018,20 @@
       spotKind = 'postflop';
     }
 
+    let potBB = node.potBB;
+    let potBeforeBB = node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB;
+    const PC = global.PTPlayConfig;
+    if (PC && hand.playConfig && hand.playConfig.rakeMode && hand.playConfig.rakeMode !== 'none') {
+      potBB = PC.potAfterRakeBB(potBB, hand.playConfig);
+      potBeforeBB = PC.potAfterRakeBB(potBeforeBB, hand.playConfig);
+    }
+
     const input = {
       spotKind, position: hand.hero.pos, vsPosition: hand.villain.pos,
       stackDepth: effStackForHand(hand), street: node.street,
       board: hand.board.slice(), heroCards: hand.hero.cards, handCode: hand.hero.code,
-      potBB: node.potBB, toCallBB: facingBet(node) ? node.toCallBB : 0,
-      potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
+      potBB: potBB, toCallBB: facingBet(node) ? node.toCallBB : 0,
+      potBeforeBB: potBeforeBB,
       initiative: hand.heroIsAggressor ? 'aggressor' : 'caller',
       inPosition: hand.heroInPosition,
       villainRange: villainRangeAtNode(hand, node),
@@ -2144,10 +2202,7 @@
     hand.heroInvested = eff; hand.villainInvested = eff;
     hand.potBB = round2(eff * 2 + SB);
     hand.villain.cards = villainHoleCards(hand);
-    hand.board = hand._predeal.board.slice();
-    hand._boardIdx = 5;
-    hand.stage = 'river';
-    return showdown(hand);
+    return prepareAllInRunout(hand);
   }
 
   // ----- Acciones visibles (para la UI) -----
@@ -2215,6 +2270,7 @@
   }
 
   function nextStreet(hand) {
+    if (noMoreBetting(hand)) return prepareAllInRunout(hand);
     const map = { flop: 'turn', turn: 'river' };
     const ns = map[hand.stage];
     if (!ns) return showdown(hand);
@@ -2230,12 +2286,11 @@
    */
   function enterStreet(hand) {
     clearStreetActions(hand);
+    // All-in: no hay más apuestas → runout de comunitarias.
+    if (noMoreBetting(hand)) return prepareAllInRunout(hand);
     if (hand.heroInPosition && hand.villain.cards) {
       if (villainRemainingBB(hand) <= 0.01) {
-        setVillainAct(hand, 'check');
-        const h = buildPostflopNode(hand, hand.stage);
-        hand.current.heroClosesOnCheck = true;
-        return h;
+        return prepareAllInRunout(hand);
       }
       const forcedLead = scriptForcedLead(hand);
       const vAct = forcedLead ? forcedLead.type : villainStreetOpen(hand);
@@ -2251,6 +2306,8 @@
         }
         hand.villainInvested += vBet; hand.potBB = round2(hand.potBB + vBet);
         setVillainAct(hand, 'bet', vBet);
+        // Si el héroe ya no tiene stack, no pedir Call(0.00): runout.
+        if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
         return buildPostflopNode(hand, hand.stage, { bet: vBet, potBefore: round2(hand.potBB - vBet) });
       }
       // el villano pasa: su Check queda visible y el héroe decide check/bet
@@ -2260,6 +2317,7 @@
       return h;
     }
     // héroe fuera de posición: actúa primero
+    if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
     return buildPostflopNode(hand, hand.stage);
   }
 
@@ -2375,12 +2433,14 @@
       let betSize = hand._betSizes && hand._betSizes[actionId] != null
         ? hand._betSizes[actionId]
         : hand._betSize;
+      const remBefore = heroRemainingBB(hand);
       betSize = capBetForSeat(hand, hand.hero.pos, betSize);
       if (betSize <= 0) return finish(hand, { reason: 'Sin stack para apostar.', heroNet: -round2(hand.heroInvested) });
+      const heroShoved = betSize >= remBefore - 0.01;
       hand.heroInvested += betSize; hand.potBB = round2(hand.potBB + betSize);
       if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, betSize);
       node.heroLastAction = 'bet';
-      setHeroAct(hand, ST() && hand.stacks && betSize >= heroRemainingBB(hand) - 0.01 ? 'allin' : 'bet', betSize);
+      setHeroAct(hand, heroShoved ? 'allin' : 'bet', betSize);
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'fold') { setVillainAct(hand, 'fold'); return finish(hand, { reason: `El villano foldea ante tu apuesta en ${node.street}.`, heroNet: round2(hand.potBB - betSize) }); }
       if (vAct === 'raise') {
@@ -2389,23 +2449,27 @@
         hand.villainInvested += vRaise; hand.potBB = round2(hand.potBB + vRaise);
         if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vRaise);
         setVillainAct(hand, 'raise', vRaise);
+        if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
         return buildPostflopNode(hand, node.street, { bet: round2(vRaise), potBefore: hand.potBB });
       }
       hand._scriptedVillainAmountBB = null;
       setVillainAct(hand, 'call', betSize);
       hand.villainInvested += betSize; hand.potBB = round2(hand.potBB + betSize);
       if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, betSize);
+      if (heroShoved || noMoreBetting(hand)) return prepareAllInRunout(hand);
       return nextStreet(hand);
     }
 
     if (actionId === 'check') {
       setHeroAct(hand, 'check');
+      // Héroe ya all-in: no hay acción del villano, reparte el resto.
+      if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
       // si el villano ya había pasado (héroe en posición cerrando), la calle termina
       if (node.heroClosesOnCheck) return nextStreet(hand);
       node.heroLastAction = 'check';
       if (villainRemainingBB(hand) <= 0.01) {
         setVillainAct(hand, 'check');
-        return nextStreet(hand);
+        return prepareAllInRunout(hand);
       }
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'check') { setVillainAct(hand, 'check'); return nextStreet(hand); }
@@ -2417,17 +2481,18 @@
       }
       hand.villainInvested += vBet; hand.potBB = round2(hand.potBB + vBet);
       setVillainAct(hand, 'bet', vBet);
+      if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
       return buildPostflopNode(hand, node.street, { bet: vBet, potBefore: round2(hand.potBB - vBet) });
     }
 
     if (actionId === 'call') {
       const heroRem = heroRemainingBB(hand);
       const toCall = Math.min(node.toCallBB, heroRem);
-      const isAllIn = toCall >= heroRem - 0.01;
+      const isAllIn = heroRem <= 0.01 || toCall >= heroRem - 0.01;
       hand.heroInvested += toCall; hand.potBB = round2(hand.potBB + toCall);
       if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, toCall);
       setHeroAct(hand, isAllIn ? 'allin' : 'call', toCall);
-      if (isAllIn) return showdown(hand);
+      if (isAllIn || villainRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
       return nextStreet(hand);
     }
 
@@ -2447,7 +2512,7 @@
         setVillainAct(hand, 'call', vPay);
         hand.villainInvested += vPay;
         if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vPay);
-        return showdown(hand);
+        return prepareAllInRunout(hand);
       }
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'fold') { setVillainAct(hand, 'fold'); return finish(hand, { reason: `El villano foldea ante tu raise en ${node.street}.`, heroNet: round2(hand.potBB - raiseTo) }); }
@@ -2455,6 +2520,7 @@
       setVillainAct(hand, 'call', vCall);
       hand.villainInvested += vCall; hand.potBB = round2(hand.potBB + (vCall - node.toCallBB));
       if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vCall);
+      if (noMoreBetting(hand)) return prepareAllInRunout(hand);
       return nextStreet(hand);
     }
 
@@ -2502,10 +2568,15 @@
     };
     const totalEvLoss = erroneousEvLoss(hand);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');
+    const handScoreMeta = (global.GTOScoring && global.GTOScoring.scoreHand)
+      ? global.GTOScoring.scoreHand(hand.decisions, totalEvLoss)
+      : { score: totalEvLoss <= 0.01 && !errors.length ? 10 : 0, allOptimal: !errors.length, allGood: !errors.length };
     hand.current = null;
     hand.result = Object.assign({
       heroNet: 0, showdown: false, totalEvLoss,
       nErrors: errors.length,
+      handScore: handScoreMeta.score,
+      handScoreMeta: handScoreMeta,
       villainCards: hand.villain.cards,
       villainPos: hand.villain.pos,
       villainProfile: hand.villain.profileLabel,
@@ -2514,6 +2585,8 @@
       villainRangeSummary: VT ? VT.buildHandSummary(hand.villainRangeTracker) : null,
       villainRangeLog: hand.villainRangeTracker ? hand.villainRangeTracker.log.slice() : []
     }, res);
+    hand.handScore = handScoreMeta.score;
+    hand.handScoreMeta = handScoreMeta;
     return hand;
   }
 
@@ -2719,6 +2792,8 @@
 
   global.Engine = {
     newHand, act, previewAdvice, syncTableInvested, fastForwardToStreet,
+    advanceRunout, prepareAllInRunout,
+
     // utilidades expuestas para UI/tests/importador
     handStrength01, equityVsRange, classifyMadeHand, sampleHandFromRange,
     rfiStrategy, vsRfiStrategy, classify,
