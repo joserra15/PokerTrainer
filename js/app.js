@@ -74,7 +74,7 @@
     };
   }
 
-  let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, byStreet: emptyByStreet() };
+  let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, handScoreSum: 0, byStreet: emptyByStreet() };
   let homeBootDone = false;
   let homeBootRendered = false;
   let homeBootCloudSettled = false;
@@ -1227,6 +1227,7 @@
     closeModal();
     session = {
       hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0,
+      handScoreSum: 0,
       byStreet: emptyByStreet(),
       startedAt: Date.now()
     };
@@ -2942,6 +2943,9 @@
     const r = hand.result;
     session.hands++;
     session.net += r.heroNet || 0;
+    if (r.handScore != null) {
+      session.handScoreSum = roundSession((session.handScoreSum || 0) + Number(r.handScore));
+    }
     Store.saveHand(hand);
     if (window.PTReEngage && PTReEngage.touchTrain) PTReEngage.touchTrain();
     if (window.PTAnalytics && PTAnalytics.trackPlayHand) {
@@ -2991,6 +2995,13 @@
     if (hand.board.length) html += `<div class="result-line" style="border:none;padding-top:6px">Board: ${hand.board.map(Cards.cardToHTML).join(' ')}</div>`;
     html += `<div class="result-line">Resultado: <span class="${netCls}">${r.heroNet >= 0 ? '+' : ''}${fmtBB(r.heroNet)} bb</span>`;
     html += ` &nbsp;·&nbsp; EV perdido por errores: <span class="${r.totalEvLoss > 0 ? 'net-neg' : 'net-pos'}">-${fmtBB(r.totalEvLoss)} bb</span></div>`;
+
+    const scoreMeta = resolveHandScoreMeta(hand, hand.decisions, r.totalEvLoss);
+    if (scoreMeta) {
+      html += `<div class="result-line hand-score-line">${handScoreBadgeHtml(scoreMeta)} ${handOptimalBannerHtml(scoreMeta)}`;
+      if (scoreMeta.verdict) html += ` <span class="muted-text">${escapeHtml(scoreMeta.verdict)}</span>`;
+      html += '</div>';
+    }
 
     const netEv = (window.GTOEvLoss && window.GTOEvLoss.computeNetEvStats)
       ? window.GTOEvLoss.computeNetEvStats(r.heroNet || 0, r.totalEvLoss || 0)
@@ -3105,6 +3116,7 @@
     const reason = r.reason && reasonNorm && reasonNorm !== titleNorm
       ? '<p class="muted-text hand-end-reason">' + escapeHtml(r.reason) + '</p>'
       : '';
+    const scoreMeta = resolveHandScoreMeta(hand, hand.decisions, r.totalEvLoss);
 
     hideVerdictToast();
     modal.classList.add('hand-end-modal');
@@ -3113,6 +3125,7 @@
         '<p class="hand-end-kicker">Resultado de la mano</p>' +
         '<h3>' + escapeHtml(outcome.title) + '</h3>' +
         reason +
+        handOptimalBannerHtml(scoreMeta) +
       '</div>' +
       '<div class="hand-end-matchup">' +
         '<div class="hand-end-seat">' +
@@ -3132,7 +3145,11 @@
       '<div class="stats-content hand-end-popup-stats">' +
         '<div class="stat-card"><div class="big ' + netCls + '">' + (r.heroNet >= 0 ? '+' : '') + fmtBB(r.heroNet) + '</div><div class="lbl">Resultado real (bb)</div></div>' +
         '<div class="stat-card"><div class="big ' + (r.totalEvLoss > 0 ? 'net-neg' : 'net-pos') + '">-' + fmtBB(r.totalEvLoss || 0) + '</div><div class="lbl">EV perdido por errores</div></div>' +
+        handScoreStatCardHtml(scoreMeta) +
       '</div>' +
+      (scoreMeta && scoreMeta.verdict
+        ? '<p class="muted-text hand-end-score-verdict">' + escapeHtml(scoreMeta.verdict) + '</p>'
+        : '') +
       '<div class="hand-end-popup-actions">' +
         '<button type="button" class="btn btn-ghost" id="hand-end-details">Ver detalles</button>' +
         '<button type="button" class="btn btn-primary" id="hand-end-next">Siguiente mano &raquo;</button>' +
@@ -3189,6 +3206,9 @@
     html += '<div class="stats-content" style="margin-bottom:0">';
     html += '<div class="stat-card"><div class="big">' + session.hands + '</div><div class="lbl">Manos</div></div>';
     html += '<div class="stat-card"><div class="big accent">' + (acc != null ? acc + '%' : '—') + '</div><div class="lbl">Acierto</div></div>';
+    html += '<div class="stat-card"><div class="big">' +
+      (session.hands ? fmtHandScore((session.handScoreSum || 0) / session.hands) + '<span class="hand-score-over">/10</span>' : '—') +
+      '</div><div class="lbl">Nota media</div></div>';
     html += '<div class="stat-card"><div class="big net-neg">-' + fmtBB(roundSession(session.evLossBB)) + '</div><div class="lbl">EV perdido</div></div>';
     html += '<div class="stat-card"><div class="big">' + mins + ' min</div><div class="lbl">Tiempo' +
       (handsPerHour != null ? ' · ~' + handsPerHour + '/h' : '') + '</div></div>';
@@ -3217,6 +3237,7 @@
       <div class="stats-content session-block-popup-stats">
         <div class="stat-card"><div class="big">${session.hands}</div><div class="lbl">Manos</div></div>
         <div class="stat-card"><div class="big accent">${acc != null ? acc + '%' : '—'}</div><div class="lbl">Acierto</div></div>
+        <div class="stat-card"><div class="big">${session.hands ? fmtHandScore((session.handScoreSum || 0) / session.hands) + '<span class="hand-score-over">/10</span>' : '—'}</div><div class="lbl">Nota media</div></div>
         <div class="stat-card"><div class="big ${net >= 0 ? 'net-pos' : 'net-neg'}">${net >= 0 ? '+' : ''}${fmtBB(net)}</div><div class="lbl">Resultado</div></div>
         <div class="stat-card"><div class="big net-neg">-${fmtBB(evLost)}</div><div class="lbl">EV perdido</div></div>
         <div class="stat-card"><div class="big ${expected >= 0 ? 'net-pos' : 'net-neg'}">${expected >= 0 ? '+' : ''}${fmtBB(expected)}</div><div class="lbl">EV esperado</div></div>
@@ -4234,10 +4255,11 @@
     box.innerHTML = cutoffNote + hist.map((h) => {
       const worst = worstClass(h.decisions);
       const netCls = h.heroNet >= 0 ? 'net-pos' : 'net-neg';
+      const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
       return `<div class="record">
         <div class="rec-cards">${h.heroCards.map(Cards.cardToHTML).join('')}</div>
         <div class="rec-main">
-          <div class="rec-scenario">${escapeHtml(h.scenario)} <span class="badge ${worst}">${verdictWord(worst)}</span></div>
+          <div class="rec-scenario">${escapeHtml(h.scenario)} <span class="badge ${worst}">${verdictWord(worst)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
           <div class="rec-sub">${h.heroCode} · ${fmtDate(h.createdAt)} · ${escapeHtml(h.reason)}</div>
         </div>
         <div class="rec-right">
@@ -4356,6 +4378,7 @@
       h.totalEvLoss = Math.round(total * 100) / 100;
       const nGood = h.decisions.filter((x) => x.class === 'optima' || x.class === 'aceptable').length;
       h.accuracy = h.decisions.length ? Math.round((nGood / h.decisions.length) * 100) : 100;
+      if (window.GTOScoring && GTOScoring.ensureHandScore) GTOScoring.ensureHandScore(h);
     } catch (err) {
       console.warn('[what-if]', err);
       alert('No se pudo reevaluar esa acción.');
@@ -4383,6 +4406,7 @@
       h.totalEvLoss = Math.round(total * 100) / 100;
       const nGood = h.decisions.filter((x) => x.class === 'optima' || x.class === 'aceptable').length;
       h.accuracy = h.decisions.length ? Math.round((nGood / h.decisions.length) * 100) : 100;
+      if (window.GTOScoring && GTOScoring.ensureHandScore) GTOScoring.ensureHandScore(h);
     } catch (err) {
       console.warn('[what-if-reset]', err);
       return;
@@ -4666,6 +4690,62 @@
 
   function verdictWord(cls) {
     return { optima: 'Óptima', aceptable: 'Aceptable', imprecisa: 'Imprecisa', error: 'Error' }[cls] || cls;
+  }
+
+  function resolveHandScoreMeta(handOrResult, decisions, totalEvLoss) {
+    const src = handOrResult || {};
+    if (src.handScoreMeta && src.handScoreMeta.score != null) return src.handScoreMeta;
+    if (src.result && src.result.handScoreMeta && src.result.handScoreMeta.score != null) {
+      return src.result.handScoreMeta;
+    }
+    const decs = decisions || src.decisions || (src.result && src.result.decisions) || [];
+    const ev = totalEvLoss != null
+      ? totalEvLoss
+      : (src.totalEvLoss != null ? src.totalEvLoss : (src.result && src.result.totalEvLoss));
+    if (window.GTOScoring && GTOScoring.scoreHand) return GTOScoring.scoreHand(decs, ev);
+    if (src.handScore != null) {
+      return { score: src.handScore, allOptimal: false, letter: 'C', label: 'Nota', verdict: '' };
+    }
+    return null;
+  }
+
+  function fmtHandScore(score) {
+    if (score == null || Number.isNaN(Number(score))) return '—';
+    const n = Number(score);
+    return (Math.round(n * 10) / 10).toFixed(1).replace(/\.0$/, '');
+  }
+
+  function handScoreBadgeClass(meta) {
+    if (!meta) return 'grade-C';
+    const letter = (meta.letter || 'C').charAt(0);
+    return 'grade-' + letter;
+  }
+
+  function handScoreBadgeHtml(meta, opts) {
+    if (!meta || meta.score == null) return '';
+    const options = opts || {};
+    const scoreTxt = fmtHandScore(meta.score);
+    const label = options.showLabel === false
+      ? scoreTxt + '/10'
+      : ('Nota ' + scoreTxt + '/10');
+    return '<span class="badge ' + handScoreBadgeClass(meta) + ' hand-score-badge">' +
+      escapeHtml(label) + '</span>';
+  }
+
+  function handOptimalBannerHtml(meta) {
+    if (!meta) return '';
+    if (meta.allOptimal) {
+      return '<div class="hand-score-optimal ok">Todas las decisiones han sido óptimas</div>';
+    }
+    return '<div class="hand-score-optimal no">No todas las decisiones han sido óptimas</div>';
+  }
+
+  function handScoreStatCardHtml(meta) {
+    if (!meta || meta.score == null) return '';
+    const cls = meta.score >= 8 ? 'net-pos' : (meta.score >= 6 ? 'accent' : 'net-neg');
+    return '<div class="stat-card hand-score-stat">' +
+      '<div class="big ' + cls + '">' + fmtHandScore(meta.score) + '<span class="hand-score-over">/10</span></div>' +
+      '<div class="lbl">Puntuación de la mano</div></div>';
   }
   function actionName(a) {
     return {
@@ -5133,6 +5213,7 @@
         ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, resolveStatsFormat(st), netCls)}
         ${explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, resolveStatsFormat(st))}
         ${explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, resolveStatsFormat(st), 'net-neg')}
+        ${st.avgHandScore != null ? `<div class="stat-card"><div class="big">${fmtHandScore(st.avgHandScore)}<span class="hand-score-over">/10</span></div><div class="lbl">Nota media por mano</div></div>` : ''}
         ${explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), resolveStatsFormat(st))}
         ${explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), resolveStatsFormat(st))}
         ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), resolveStatsFormat(st))}
@@ -5184,6 +5265,8 @@
             <select id="hand-sort">
               <option value="evLoss" ${sortBy === 'evLoss' ? 'selected' : ''}>Mayor EV perdido</option>
               <option value="evLossAsc" ${sortBy === 'evLossAsc' ? 'selected' : ''}>Menor EV perdido</option>
+              <option value="scoreAsc" ${sortBy === 'scoreAsc' ? 'selected' : ''}>Menor nota</option>
+              <option value="scoreDesc" ${sortBy === 'scoreDesc' ? 'selected' : ''}>Mayor nota</option>
               <option value="accAsc" ${sortBy === 'accAsc' ? 'selected' : ''}>Menor acierto</option>
               <option value="accDesc" ${sortBy === 'accDesc' ? 'selected' : ''}>Mayor acierto</option>
               <option value="netAsc" ${sortBy === 'netAsc' ? 'selected' : ''}>Más bb perdidas</option>
@@ -5237,12 +5320,14 @@
     if (!list.length) return '<div class="muted-text">—</div>';
     return list.map((h) => {
       const netCls = h.heroNetBB >= 0 ? 'net-pos' : 'net-neg';
+      const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
       return `<div class="mini-hand">
         <div class="mini-hand-row">
           <span class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</span>
           <span>${h.heroCode} ${h.heroPos}</span>
           <span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span>
           <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span>
+          ${handScoreBadgeHtml(scoreMeta)}
         </div>
         <div class="mini-hand-actions">
           <button class="btn btn-ghost mini-link" data-review="${h.id}">Paso a paso</button>
@@ -5261,7 +5346,9 @@
       accAsc: (a, b) => a.accuracy - b.accuracy,
       accDesc: (a, b) => b.accuracy - a.accuracy,
       netAsc: (a, b) => a.heroNetBB - b.heroNetBB,
-      netDesc: (a, b) => b.heroNetBB - a.heroNetBB
+      netDesc: (a, b) => b.heroNetBB - a.heroNetBB,
+      scoreAsc: (a, b) => (a.handScore != null ? a.handScore : -1) - (b.handScore != null ? b.handScore : -1),
+      scoreDesc: (a, b) => (b.handScore != null ? b.handScore : -1) - (a.handScore != null ? a.handScore : -1)
     };
     hands.sort(sorters[sortBy] || sorters.evLoss);
     const box = $('#session-hands');
@@ -5272,10 +5359,11 @@
     }
     box.innerHTML = hands.map((h) => {
       const netCls = h.heroNetBB >= 0 ? 'net-pos' : 'net-neg';
+      const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
       return `<div class="record">
         <div class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
         <div class="rec-main">
-          <div class="rec-scenario">${h.heroCode} <span style="color:var(--muted)">(${h.heroPos})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span></div>
+          <div class="rec-scenario">${h.heroCode} <span style="color:var(--muted)">(${h.heroPos})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
           <div class="rec-sub">Board: ${(h.board || []).map(Cards.cardToHTML).join('') || '—'} · ${h.nDecisions} decisiones · acierto ${h.accuracy}%</div>
         </div>
         <div class="rec-right" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
@@ -5383,6 +5471,8 @@
       decisions: trainerHand.decisions || [],
       heroNetBB: r.heroNet || 0,
       totalEvLoss: r.totalEvLoss || 0,
+      handScore: r.handScore != null ? r.handScore : trainerHand.handScore,
+      handScoreMeta: r.handScoreMeta || trainerHand.handScoreMeta || null,
       bb: null,
       villainShows: {},
       positions: {},
@@ -5440,8 +5530,9 @@
     let html = `<div class="review-head">
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div>
-        <h2>${escapeHtml(h.heroCode || '')} · ${escapeHtml(h.heroPos || '')}</h2>
+        <h2>${escapeHtml(h.heroCode || '')} · ${escapeHtml(h.heroPos || '')} ${handScoreBadgeHtml(resolveHandScoreMeta(h, h.decisions, h.totalEvLoss))}</h2>
         <div class="muted-text">Resultado: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span> · EV perdido: -${fmtBB(h.totalEvLoss || 0)} bb</div>
+        ${handOptimalBannerHtml(resolveHandScoreMeta(h, h.decisions, h.totalEvLoss))}
       </div>
     </div>`;
 
@@ -5543,12 +5634,14 @@
     ['preflop', 'flop', 'turn', 'river'].forEach((st) => { heroDecQueue[st] = (h.decisions || []).filter((d) => d.street === st).slice(); });
 
     const shareSource = shareSourceForCurrentReview();
+    const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
     let html = `<div class="review-share-row"><button type="button" class="btn btn-ghost btn-small" id="share-hand-review">Compartir análisis</button></div>`;
     html += `<div class="review-head">
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div>
-        <h2>${h.heroCode} · ${h.heroPos}</h2>
+        <h2>${h.heroCode} · ${h.heroPos} ${handScoreBadgeHtml(scoreMeta)}</h2>
         <div class="muted-text">Mano #${h.id} · Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span> · EV perdido: -${fmtBB(h.totalEvLoss)} bb${h.bb || (h.spec && h.spec.bbEuro) ? ' · BB ' + fmtBB(h.bb || h.spec.bbEuro) + '€' : ''}</div>
+        ${handOptimalBannerHtml(scoreMeta)}
       </div>
     </div>`;
 
@@ -6286,7 +6379,7 @@
     let html = `<div class="feedback" style="display:block">
       <h3>Resumen de tu repetición</h3>
       <div>Acierto: <strong>${acc}%</strong> · EV perdido por tus decisiones: <span class="${replayState.userEvLoss > 0 ? 'net-neg' : 'net-pos'}">-${fmtBB(replayState.userEvLoss)} bb</span></div>
-      <div class="muted-text" style="margin-top:6px">En la mano real: acierto ${h.accuracy}% · EV perdido -${fmtBB(h.totalEvLoss)} bb · resultado ${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb.</div>`;
+      <div class="muted-text" style="margin-top:6px">En la mano real: acierto ${h.accuracy}% · nota ${fmtHandScore((resolveHandScoreMeta(h, h.decisions, h.totalEvLoss) || {}).score)}/10 · EV perdido -${fmtBB(h.totalEvLoss)} bb · resultado ${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb.</div>`;
     if (shows.length) {
       html += '<div class="result-line">Cartas del rival: ' + shows.map((n) => `${escapeHtml(n)} ${h.villainShows[n].map(Cards.cardToHTML).join('')}`).join(' · ') + '</div>';
     }
