@@ -8,7 +8,9 @@ async function mockAuthenticatedUser(page) {
       sub: 'e2e-test-user',
       email: 'e2e@test.pokerforgeai.local',
       name: 'E2E Test',
-      authProvider: 'e2e'
+      authProvider: 'e2e',
+      loginAt: Date.now(),
+      plan: 'pro'
     }));
     localStorage.setItem('pt_cookie_consent_v1', JSON.stringify({
       necessary: true,
@@ -28,4 +30,14 @@ async function waitForAppShell(page) {
   await page.waitForSelector('#app-shell:not(.hidden)', { timeout: 30000 });
 }
 
-module.exports = { mockAuthenticatedUser, waitForAppShell };
+async function goTab(page, tab) {
+  await page.click('button.tab[data-tab="' + tab + '"]');
+  await page.waitForSelector('#tab-' + tab + ':not(.hidden), #tab-' + tab + '.tab-panel:not(.hidden), section#tab-' + tab + ':not(.hidden)', {
+    timeout: 15000
+  }).catch(async () => {
+    // Algunos paneles usan clase active en vez de hidden
+    await page.waitForTimeout(300);
+  });
+}
+
+module.exports = { mockAuthenticatedUser, waitForAppShell, goTab };

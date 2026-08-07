@@ -29,8 +29,8 @@
 
 | Fase | Nombre | Meta de salida | # tareas |
 |------|--------|----------------|----------|
-| **1** | Blindaje inmediato | Todo test útil ya escrito corre en cada PR; paywall y flujos core E2E en rojo si se rompen | 12 |
-| **2** | Dinero, datos e IA | Webhook/checkout, merge cloud/RLS y `analyze-hand` con contratos sin red externa | 11 |
+| **1** | Blindaje inmediato | Todo test útil ya escrito corre en cada PR; paywall y flujos core E2E en rojo si se rompen | 12 ✅ |
+| **2** | Dinero, datos e IA | Webhook/checkout, merge cloud/RLS y `analyze-hand` con contratos sin red externa | 11 ✅ |
 | **3** | Producto completo | E2E de estudio/cuenta/mobile, admin/promos, golden hands, proceso de suite | 22 |
 | **4** | Hygiene y live opcional | PWA/growth restantes, jobs nightly con secrets, checklist cobertura | 12 |
 | | | **Total** | **57** |
@@ -120,7 +120,9 @@ Pilar (trazabilidad): **A** CI existente · **B** E2E · **C** billing · **D** 
 
 ## 4. Backlog por fases
 
-### Fase 1 — Blindaje inmediato
+### Fase 1 — Blindaje inmediato ✅
+
+**Estado:** implementada (`npm run test:ci` + E2E Playwright en PR).
 
 **Meta:** cerrar agujeros baratos; cada PR ejecuta la red Node completa; E2E cubre entrenar / importar / paywall free; entitlements alineados con `BILLING.md`.
 
@@ -145,7 +147,9 @@ Pilar (trazabilidad): **A** CI existente · **B** E2E · **C** billing · **D** 
 
 ---
 
-### Fase 2 — Dinero, datos e IA
+### Fase 2 — Dinero, datos e IA ✅
+
+**Estado:** implementada (contratos Edge en Node, cloud merge/sessions, RLS SQL, golden hands, E2E replay/análisis).
 
 **Meta:** contratos de Stripe e IA sin red externa; sync cloud y RLS protegen pérdida/fuga de datos; E2E de replay y análisis manual.
 

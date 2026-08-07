@@ -1,10 +1,12 @@
-# Tests on push to main. GitHub Pages publica desde la rama main (legacy).
+# Tests on push/PR to main. GitHub Pages publica desde la rama main (legacy).
 # No usar actions/deploy-pages aquí: compite con pages-build-deployment
 # y acaba en timeout (deployment_queued / Page build failed).
 name: Deploy static content to Pages
 
 on:
   push:
+    branches: ["main"]
+  pull_request:
     branches: ["main"]
   workflow_dispatch:
 
@@ -25,41 +27,5 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Build JS bundles
-        run: node tools/build-bundles.js
-      - name: Selftest
-        run: node tools/selftest.js
-      - name: Test importador ES/EN/Winamax/GGPoker
-        run: node tools/testimport.js
-      - name: Test P0 session/onboarding
-        run: node tools/test-p0-session-onboarding.js
-      - name: P1 retention regression
-        run: node tools/test-p1-retention.js
-      - name: P2 expansion regression
-        run: node tools/test-p2-expansion.js
-      - name: UX trainer mode / lang
-        run: node tools/test-ux-trainer-lang.js
-      - name: Test VPIP/PFR (incl. Poker91 Zoom)
-        run: node tools/test-vpip-pfr.js
-      - name: Validar rangos JSON solver
-        run: node tools/validate-ranges-json.js
-      - name: Regresión EV Poker76
-        run: node tools/regression-poker76.js
-      - name: Regresión EV modo Jugar
-        run: node tools/test-play-ev.js
-      - name: Test payload informe IA
-        run: node tools/test-ai-payload.js
-      - name: Test river trips board doblado
-        run: node tools/test-river-trips.js
-      - name: Test análisis de manos (manual + cartas fijas)
-        run: node tools/test-hand-analysis.js
-      - name: Test GTO eval UI
-        run: node tools/test-gto-eval-ui.js
-      - name: Test BB vs SB
-        run: node tools/test-bb-vs-sb-position.js
-      - name: Test card picker UX
-        run: node tools/test-card-picker-ux.js
-      - name: Test growth UX (blog/+18/gamificación)
-        run: node tools/test-growth-ux.js
-      - name: Test hotkeys, rake y ayuda
-        run: node tools/test-hotkeys-rake-help.js
+      - name: CI regression suite (test:ci)
+        run: npm run test:ci

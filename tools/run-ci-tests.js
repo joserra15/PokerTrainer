@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+/**
+ * Lista canónica de regresiones Node (= `.github/workflows/static.yml`).
+ * Uso: node tools/run-ci-tests.js
+ */
+'use strict';
+const { spawnSync } = require('child_process');
+const path = require('path');
+
+const ROOT = path.join(__dirname, '..');
+
+const STEPS = [
+  ['Build JS bundles', ['node', 'tools/build-bundles.js']],
+  ['Selftest', ['node', 'tools/selftest.js']],
+  ['Test importador ES/EN/Winamax/GGPoker', ['node', 'tools/testimport.js']],
+  ['Test P0 session/onboarding', ['node', 'tools/test-p0-session-onboarding.js']],
+  ['P1 retention regression', ['node', 'tools/test-p1-retention.js']],
+  ['P2 expansion regression', ['node', 'tools/test-p2-expansion.js']],
+  ['UX trainer mode / lang', ['node', 'tools/test-ux-trainer-lang.js']],
+  ['Test VPIP/PFR (incl. Poker91 Zoom)', ['node', 'tools/test-vpip-pfr.js']],
+  ['Validar rangos JSON solver', ['node', 'tools/validate-ranges-json.js']],
+  ['Regresión EV Poker76', ['node', 'tools/regression-poker76.js']],
+  ['Regresión EV modo Jugar', ['node', 'tools/test-play-ev.js']],
+  ['Test payload informe IA', ['node', 'tools/test-ai-payload.js']],
+  ['Test river trips board doblado', ['node', 'tools/test-river-trips.js']],
+  ['Test análisis de manos', ['node', 'tools/test-hand-analysis.js']],
+  ['Test GTO eval UI', ['node', 'tools/test-gto-eval-ui.js']],
+  ['Test BB vs SB', ['node', 'tools/test-bb-vs-sb-position.js']],
+  ['Test card picker UX', ['node', 'tools/test-card-picker-ux.js']],
+  ['Test growth UX', ['node', 'tools/test-growth-ux.js']],
+  ['Test hotkeys, rake y ayuda', ['node', 'tools/test-hotkeys-rake-help.js']],
+  // Fase 1 — scripts que ya existían fuera de CI
+  ['Test all-in runout', ['node', 'tools/test-allin-runout.js']],
+  ['Test river nut flush', ['node', 'tools/test-river-board-ace-nut-flush.js']],
+  ['Test river monotone', ['node', 'tools/test-river-monotone-bet-range.js']],
+  ['Test hand score 0–10', ['node', 'tools/test-hand-score.js']],
+  ['Test share-hand HTML', ['node', 'tools/test-share-hand.js']],
+  ['Test landing i18n', ['node', 'tools/test-landing-i18n.js']],
+  ['Test contact pending popup', ['node', 'tools/test-contact-pending-popup.js']],
+  ['Test replay hand', ['node', 'tools/test-replay-hand.js']],
+  // Fase 1 — nuevos
+  ['Test entitlements / cuotas', ['node', 'tools/test-entitlements.js']],
+  // Fase 2
+  ['Test cloud merge', ['node', 'tools/test-cloud-merge.js']],
+  ['Test cloud sessions slim', ['node', 'tools/test-cloud-sessions.js']],
+  ['Test RLS policies (SQL)', ['node', 'tools/test-rls-policies.js']],
+  ['Test auth contract', ['node', 'tools/test-auth-contract.js']],
+  ['Test Stripe Edge contracts', ['node', 'tools/test-stripe-edge-contracts.js']],
+  ['Test analyze-hand contract', ['node', 'tools/test-analyze-hand-contract.js']],
+  ['Test billing UI markers', ['node', 'tools/test-billing-ui.js']],
+  ['Test golden hands EV', ['node', 'tools/test-golden-hands.js']]
+];
+
+let failed = 0;
+for (const [name, cmd] of STEPS) {
+  console.log('\n==> ' + name);
+  const r = spawnSync(cmd[0], cmd.slice(1), { cwd: ROOT, stdio: 'inherit', env: process.env });
+  if (r.status !== 0) {
+    console.error('FAIL step:', name, 'exit', r.status);
+    failed = r.status || 1;
+    break;
+  }
+}
+
+if (failed) process.exit(failed);
+console.log('\n*** test:ci OK (' + STEPS.length + ' steps) ***');

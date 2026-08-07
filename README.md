@@ -204,19 +204,26 @@ tools/selftest.js   Test en Node del evaluador, rangos y simulación de manos
 
 ## Tests
 
-Requiere Node.js. Suites principales:
+Requiere Node.js. Matriz:
+
+| Capa | Comando | Qué cubre |
+|------|---------|-----------|
+| **CI Node (canónico)** | `npm run test:ci` | Misma lista que `.github/workflows/static.yml` (motor, import, entitlements, cloud, Stripe/IA contracts, golden hands, UX guards…) |
+| Unit motor | `npm run test:unit` | `selftest` GTO |
+| Import HH | `npm run test:import` | PokerStars ES/EN, Winamax, GGPoker |
+| E2E | `npm run test:e2e` | Playwright Chromium (entrenar, import, paywall, replay, análisis) — `.github/workflows/e2e.yml` |
+| Live opcional | `node tools/test-supabase.js` | REST+RLS con credenciales (no CI PR) |
 
 ```
 npm ci
-npm run build
-npm run test:unit          # selftest motor GTO
-npm run test:import        # importador HH
-npm run test:e2e           # Playwright (Chromium)
+npm run test:ci            # regresión Node completa
+npm run test:e2e           # build + Playwright
 ```
 
-Otros scripts de regresión: `npm run test:p0` … `test:vpip`, `test:hand-analysis`, etc. (ver `package.json`). En CI: `.github/workflows/static.yml` (Node) y `e2e.yml` (Playwright).
+Scripts sueltos: `test:entitlements`, `test:golden-hands`, `test:stripe-contracts`, etc. (ver `package.json`).
 
-Backlog priorizado para cubrir toda la app en regresión (huecos de billing, nube, Edge Functions, E2E): [`docs/BACKLOG_REGRESION.md`](docs/BACKLOG_REGRESION.md).
+Backlog por fases: [`docs/BACKLOG_REGRESION.md`](docs/BACKLOG_REGRESION.md).  
+`tools/test-hand-77.js` es diagnóstico puntual — **no** forma parte de `test:ci`.
 
 ## Notas sobre los rangos
 
