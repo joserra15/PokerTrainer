@@ -17324,7 +17324,7 @@ window.PT_VS_3BET_JSON = {
 
   function anyModalOpen() {
     return !!document.querySelector(
-      ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #modal:not(.hidden), #age-gate-modal:not(.hidden)"
+      ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #modal:not(.hidden), #age-gate-modal:not(.hidden), #contact-pending-modal:not(.hidden)"
     );
   }
 
