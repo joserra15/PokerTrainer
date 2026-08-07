@@ -1,0 +1,43 @@
+Winamax Poker - ESCAPE "Colorado" - HandId: #22618550-214812-1783206382 - Holdem no limit (0.01€/0.02€) - 2026/07/04 23:06:22 UTC
+Table: 'Colorado' 6-max (real money) Seat #6 is the button
+Seat 1: luc1456e (1.98€)
+Seat 2: KazeDj (2.14€)
+Seat 3: donariett (2.37€)
+Seat 4: Berig (1.73€)
+Seat 5: BABA AU-RHUM (5.19€)
+Seat 6: Adaken (2€)
+*** ANTE/BLINDS ***
+luc1456e posts small blind 0.01€
+KazeDj posts big blind 0.02€
+Dealt to KazeDj [9h 8h]
+*** PRE-FLOP *** 
+donariett folds
+Berig folds
+BABA AU-RHUM raises 0.03€ to 0.05€
+Adaken folds
+luc1456e calls 0.04€
+KazeDj calls 0.03€
+*** FLOP *** [Jd 5c 6d]
+luc1456e checks
+KazeDj checks
+BABA AU-RHUM checks
+*** TURN *** [Jd 5c 6d][Jh]
+luc1456e checks
+KazeDj checks
+BABA AU-RHUM bets 0.05€
+luc1456e calls 0.05€
+KazeDj calls 0.05€
+*** RIVER *** [Jd 5c 6d Jh][7d]
+luc1456e bets 0.20€
+KazeDj raises 0.38€ to 0.58€
+BABA AU-RHUM folds
+luc1456e calls 0.38€
+*** SHOW DOWN ***
+luc1456e shows [Th Jc] (Trips of Jacks)
+KazeDj shows [9h 8h] (Straight 9 high)
+KazeDj collected 1.31€ from pot
+*** SUMMARY ***
+Total pot 1.31€ | Rake 0.15€
+Board: [Jd 5c 6d Jh 7d]
+Seat 1: luc1456e (small blind) showed [Th Jc] and lost with Trips of Jacks
+Seat 2: KazeDj (big blind) showed [9h 8h] and won 1.31€ with Straight 9 high

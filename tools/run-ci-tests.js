@@ -26,6 +26,7 @@ const STEPS = [
   ['Test análisis de manos', ['node', 'tools/test-hand-analysis.js']],
   ['Test GTO eval UI', ['node', 'tools/test-gto-eval-ui.js']],
   ['Test BB vs SB', ['node', 'tools/test-bb-vs-sb-position.js']],
+  ['Regresión frecuencias flop/turn (Colorado 98s)', ['node', 'tools/test-flop-turn-freq-duplicate.js']],
   ['Test card picker UX', ['node', 'tools/test-card-picker-ux.js']],
   ['Test growth UX', ['node', 'tools/test-growth-ux.js']],
   ['Test hotkeys, rake y ayuda', ['node', 'tools/test-hotkeys-rake-help.js']],

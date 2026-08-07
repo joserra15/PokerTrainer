@@ -161,6 +161,16 @@ const benignDup = SV.validateConsecutiveProbeStreets(
   0
 );
 console.log('Benign flop-turn check line duplicate?', benignDup.ok ? 'NO ALERT (OK)' : 'ALERT (BUG)');
+if (!benignDup.ok) { console.error('FAIL: línea check-down benigna no debe alertar'); process.exit(1); }
+
+// Redondeo: 0.878 → fingerprint 88% debe contar como ≥88% (falso positivo histórico).
+const benignRound = SV.validateConsecutiveProbeStreets(
+  { street: 'flop', gto: { check: 0.878, bet_33: 0.06, bet_66: 0.04, bet_100: 0.02 }, board: ['Jd', '5c', '6d'] },
+  { street: 'turn', gto: { check: 0.878, bet_33: 0.06, bet_66: 0.04, bet_100: 0.02 }, board: ['Jd', '5c', '6d', 'Jh'] },
+  0
+);
+console.log('Benign 87.8%→88% roundtrip?', benignRound.ok ? 'NO ALERT (OK)' : 'ALERT (BUG)');
+if (!benignRound.ok) { console.error('FAIL: check 0.878 no debe alertar por redondeo'); process.exit(1); }
 
 const facingSanity = SV.sanityCheckSolver([
   { street: 'turn', gto: { fold: 0.16, call: 0.74, raise: 0.10 } },
