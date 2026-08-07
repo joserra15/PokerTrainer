@@ -100,3 +100,7 @@ Copiar `js/billing-config.example.js` y poner `enabled: true` cuando Stripe est�
 ## Emails transaccionales (M-08)
 
 Stripe envía por defecto confirmación de pago y avisos de fallo. Emails de marca propia (Resend) quedan como mejora futura.
+
+## Smoke opcional (CI)
+
+Job `.github/workflows/billing-live.yml` (`workflow_dispatch` / nightly): comprueba que existe `STRIPE_SECRET_KEY_TEST` (`sk_test_…`) en el environment `billing-live`. **No bloquea PRs.** Contratos sin red: `npm run test:stripe-contracts` y `tools/test-stripe-sync-contracts.js`.
