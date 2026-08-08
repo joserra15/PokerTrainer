@@ -17973,12 +17973,14 @@ window.PT_VS_3BET_JSON = {
 
 /*
  * demo-mode.js — Admin prueba la app como usuario demo (plan/límites reales).
- * Solo se inicia desde el menú Admin (`#admin-demo-start`). Parar demo: banner.
+ * Solo se inicia desde el menú Admin (`#admin-demo-start`).
+ * Salir: opción en el menú de cuenta (solo en modo demo) y banner.
  */
 (function (global) {
   'use strict';
 
   var KEY = 'pt_demo_mode_v1';
+  var MENU_EXIT_ID = 'account-demo-stop';
 
   function readFlag(storage) {
     try {
@@ -18038,12 +18040,22 @@ window.PT_VS_3BET_JSON = {
     });
   }
 
+  function onExitClick() {
+    try {
+      if (global.PTAuth && global.PTAuth.collapseAccountAccordion) {
+        global.PTAuth.collapseAccountAccordion();
+      }
+    } catch (e) { /* noop */ }
+    stop();
+  }
+
   function bindUi() {
     bindDemoButton(document.getElementById('admin-demo-start'), function () {
       start();
     });
     document.body.classList.toggle('demo-mode-active', isActive());
     ensureDemoBanner();
+    ensureDemoMenuExit();
   }
 
   function ensureDemoBanner() {
@@ -18066,6 +18078,39 @@ window.PT_VS_3BET_JSON = {
       '<button type="button" class="btn btn-primary btn-sm" id="demo-mode-stop">Parar demo</button>';
     document.body.prepend(el);
     bindDemoButton(el.querySelector('#demo-mode-stop'), stop);
+  }
+
+  /** Añade "Salir del modo demo" al menú de cuenta solo mientras el modo demo está activo. */
+  function ensureDemoMenuExit() {
+    var existing = document.getElementById(MENU_EXIT_ID);
+    if (!isActive()) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) {
+      existing.classList.remove('hidden');
+      bindDemoButton(existing, onExitClick);
+      return;
+    }
+    var actions = document.querySelector('#account-dropdown .account-dropdown-actions');
+    if (!actions) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = MENU_EXIT_ID;
+    btn.className = 'btn btn-primary btn-block';
+    btn.textContent = 'Salir del modo demo';
+    var adminBtn = document.getElementById('account-admin');
+    if (adminBtn && adminBtn.parentNode === actions) {
+      actions.insertBefore(btn, adminBtn.nextSibling);
+    } else {
+      var settingsBtn = document.getElementById('account-settings');
+      if (settingsBtn && settingsBtn.parentNode === actions) {
+        actions.insertBefore(btn, settingsBtn.nextSibling);
+      } else {
+        actions.insertBefore(btn, actions.firstChild);
+      }
+    }
+    bindDemoButton(btn, onExitClick);
   }
 
   global.PTDemo = {
