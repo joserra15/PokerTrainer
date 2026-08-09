@@ -25379,7 +25379,6 @@ window.PT_VS_3BET_JSON = {
       <label class="muted-text">Perfil importado por formato
         <select id="stats-format-filter">${formatFilterOpts}</select>
       </label>
-      <span class="muted-text" style="font-size:12px;margin-left:8px">Evita mezclar VPIP de cash con spins/MTT.</span>
     </div>`;
     const total = st.decisions || 1;
     const accuracy = st.decisions ? Math.round(((st.optima + st.aceptable) / st.decisions) * 100) : 0;
@@ -25506,9 +25505,9 @@ window.PT_VS_3BET_JSON = {
     ];
 
     box.innerHTML = `
-      ${formatFilterHtml}
       <div class="stats-redesign">
         ${renderStatsCarousel('trainer', 'Entrenador', 'Tus manos jugadas en el entrenador, separadas del análisis de sesiones importadas.', trainerSlides)}
+        ${formatFilterHtml}
         ${renderStatsCarousel('sessions', 'Sesiones importadas', 'Resultados y fugas de manos reales importadas, con acceso a la sesión cuando siga disponible.', sessionSlides)}
       </div>`;
     bindStatsView();
