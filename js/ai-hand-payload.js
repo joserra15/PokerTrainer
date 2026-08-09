@@ -372,10 +372,28 @@
         wwsf: st.wwsfPct,
         bbPer100: st.bbPer100,
         format: st.format,
+        formatKey: st.formatKey,
+        gameKind: st.gameKind,
+        tableMax: st.tableMax,
+        stakesLabel: st.stakesLabel,
+        stakeTier: st.stakeTier,
+        mttPhase: st.mttPhase,
+        shortHandedShare: st.shortHandedShare,
+        fourBet: st.fourBetPct,
+        foldTo4bet: st.foldToFourBetPct,
+        roiPct: st.roiPct,
+        profitEuro: st.profitEuro,
         styleNote: st.styleAssess ? st.styleAssess.comment : undefined,
         drills: st.styleAssess && st.styleAssess.drills
           ? st.styleAssess.drills.map(function (d) { return d.label; })
-          : undefined
+          : undefined,
+        coachingNote: st.gameKind === 'spin'
+          ? 'Sesión Spin & Go: usa bandas loose y stack-aware; no aconsejes como cash 100bb.'
+          : (st.gameKind === 'mtt' || st.gameKind === 'sng'
+            ? 'Sesión de torneo: prioriza stack depth / fase; no trates como cash 6-max 100bb.'
+            : (st.formatKey === 'cash9'
+              ? 'Cash 9-max / full ring: rangos más tight que 6-max.'
+              : 'Cash NLHE: bandas 6-max estándar salvo short-handed.'))
       },
       solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=id|mano pos|net|ev|wc'
     };

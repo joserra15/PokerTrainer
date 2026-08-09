@@ -3516,11 +3516,74 @@
   }
 
   function resolveStatsFormat(st) {
-    return (st && (st.format || (st.style && st.style.format))) || '6max';
+    if (!st) return '6max';
+    if (st.formatKey && window.Importer && Importer.styleIdealForFormat) {
+      // Preferir clave canónica si hay ideales asociados
+      return st.formatKey;
+    }
+    return st.format || (st.style && st.style.format) || '6max';
   }
 
   function formatDisplayLabel(format) {
-    return ({ '6max': 'cash 6-max', '9max': 'cash 9-max / full ring', mtt: 'torneo (MTT)' })[format] || 'cash 6-max';
+    return ({
+      '6max': 'cash 6-max',
+      cash6: 'cash 6-max',
+      '9max': 'cash 9-max / full ring',
+      cash9: 'cash 9-max / full ring',
+      mtt: 'torneo (MTT)',
+      mtt6: 'torneo (MTT)',
+      mtt9: 'torneo full ring',
+      mtt3: 'torneo corto',
+      spin: 'Spin & Go',
+      spin3: 'Spin & Go',
+      shorthand: 'short-handed',
+      cash2: 'heads-up',
+      cash3: 'cash 3-max'
+    })[format] || 'cash 6-max';
+  }
+
+  function gameKindBadge(kind) {
+    const labels = { cash: 'Cash', spin: 'Spin', mtt: 'MTT', sng: 'SNG', unknown: '?' };
+    const k = kind || 'cash';
+    return '<span class="badge session-kind session-kind-' + escapeHtml(k) + '">' + escapeHtml(labels[k] || k) + '</span>';
+  }
+
+  function tableMaxBadge(tableMax) {
+    if (!tableMax) return '';
+    return '<span class="badge session-tablemax">Max-' + escapeHtml(String(tableMax)) + '</span>';
+  }
+
+  function sessionContextBadgesHtml(session) {
+    const ctx = (session && session.context) || {};
+    const st = (session && session.stats) || {};
+    const kind = ctx.gameKind || st.gameKind || 'cash';
+    const tmax = ctx.tableMax != null ? ctx.tableMax : st.tableMax;
+    const stakes = ctx.stakesLabel || st.stakesLabel || '';
+    let html = gameKindBadge(kind) + ' ' + tableMaxBadge(tmax);
+    if (stakes) html += ' <span class="badge session-stakes">' + escapeHtml(stakes) + '</span>';
+    if (st.stakeTier) html += ' <span class="badge session-tier">' + escapeHtml(st.stakeTier) + '</span>';
+    if (st.mttPhase && (kind === 'mtt' || kind === 'spin' || kind === 'sng')) {
+      html += ' <span class="badge session-phase">' + escapeHtml(st.mttPhase) + '</span>';
+    }
+    return html;
+  }
+
+  function importDiscardSummaryHtml(session) {
+    const reasons = (session && (session.nDiscardedByReason || (session.context && session.context.nDiscardedByReason))) || {};
+    const mix = (session && session.context && session.context.mix) || {};
+    const parts = [];
+    if (mix.cash) parts.push(mix.cash + ' cash');
+    if (mix.spin) parts.push(mix.spin + ' spin');
+    if (mix.mtt) parts.push(mix.mtt + ' MTT');
+    if (mix.sng) parts.push(mix.sng + ' SNG');
+    const dropped = [];
+    Object.keys(reasons).forEach((k) => {
+      if (reasons[k] > 0 && k !== 'noHeroCards') dropped.push(reasons[k] + ' ' + k);
+    });
+    if (session && session.nDiscarded) dropped.push(session.nDiscarded + ' sin cartas héroe');
+    let html = parts.length ? ('Manos: ' + parts.join(', ')) : '';
+    if (dropped.length) html += (html ? ' · ' : '') + 'Descartadas: ' + dropped.join(', ');
+    return html;
   }
 
   function idealForStatsFormat(format) {
@@ -4507,13 +4570,31 @@
       if (withHands.length) PTStatsAggregate.refreshSessionLeaks(st, withHands);
       if (PTStatsAggregate.sessionTopLeaks(st, 5).length > leakCountBefore) Store.persistStats(st);
     }
-    const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st) : null;
+    const statsFormatFilter = (window.__ptStatsFormatFilter != null) ? window.__ptStatsFormatFilter : 'all';
+    const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st, statsFormatFilter) : null;
+    const byFormat = window.PTStatsAggregate && PTStatsAggregate.sessionsTotalByFormat
+      ? PTStatsAggregate.sessionsTotalByFormat(st)
+      : {};
     const trainerWeekly = window.PTStatsAggregate ? PTStatsAggregate.trainerWeeklySeries(st, 8) : [];
     const sessionWeekly = window.PTStatsAggregate ? PTStatsAggregate.sessionWeeklySeries(st, 8) : [];
     const trainerLeaks = trainerLeaksForStats(st);
     const sessionLeaks = window.PTStatsAggregate ? PTStatsAggregate.sessionTopLeaks(st, 5) : [];
     const sessionDerived = buildSessionDerivedStats(sessions);
     const box = $('#stats-content');
+    const formatFilterOpts = [
+      { v: 'all', l: 'Todo' },
+      { v: 'cash6', l: 'Cash 6-max' },
+      { v: 'cash9', l: 'Cash 9-max' },
+      { v: 'spin', l: 'Spins' },
+      { v: 'mtt', l: 'MTT' },
+      { v: 'shorthand', l: 'Short-handed' }
+    ].map((o) => `<option value="${o.v}"${statsFormatFilter === o.v ? ' selected' : ''}>${o.l}${byFormat[o.v] ? ' (' + byFormat[o.v].hands + ')' : ''}</option>`).join('');
+    const formatFilterHtml = `<div class="stats-format-filter card-box" style="margin-bottom:12px">
+      <label class="muted-text">Perfil importado por formato
+        <select id="stats-format-filter">${formatFilterOpts}</select>
+      </label>
+      <span class="muted-text" style="font-size:12px;margin-left:8px">Evita mezclar VPIP de cash con spins/MTT.</span>
+    </div>`;
     const total = st.decisions || 1;
     const accuracy = st.decisions ? Math.round(((st.optima + st.aceptable) / st.decisions) * 100) : 0;
     const byStreet = st.byStreet || emptyByStreet();
@@ -4614,11 +4695,20 @@
     ];
 
     box.innerHTML = `
+      ${formatFilterHtml}
       <div class="stats-redesign">
         ${renderStatsCarousel('trainer', 'Entrenador', 'Tus manos jugadas en el entrenador, separadas del análisis de sesiones importadas.', trainerSlides)}
         ${renderStatsCarousel('sessions', 'Sesiones importadas', 'Resultados y fugas de manos reales importadas, con acceso a la sesión cuando siga disponible.', sessionSlides)}
       </div>`;
     bindStatsView();
+    const fmtSel = $('#stats-format-filter');
+    if (fmtSel && !fmtSel.dataset.bound) {
+      fmtSel.dataset.bound = '1';
+      fmtSel.addEventListener('change', () => {
+        window.__ptStatsFormatFilter = fmtSel.value || 'all';
+        renderStats();
+      });
+    }
 
     const coachHost = $('#stats-coach');
     if (coachHost && window.PTAIReport) {
@@ -4767,11 +4857,11 @@
   const handListFilters = {
     history: { class: '', pos: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
     errors: { class: '', pos: '', street: '', spotType: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
-    sessionHands: { class: '', pos: '', expOp: '', expVal: '', realOp: '', realVal: '' }
+    sessionHands: { class: '', pos: '', street: '', gameKind: '', stackBin: '', expOp: '', expVal: '', realOp: '', realVal: '' }
   };
 
   function emptyHandFilters() {
-    return { class: '', pos: '', street: '', spotType: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' };
+    return { class: '', pos: '', street: '', spotType: '', gameKind: '', stackBin: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' };
   }
 
   function readHandFilters(scope) {
@@ -4811,9 +4901,27 @@
     ).join('');
     const cmpOpts = (sel, val) =>
       `<option value=""${!val ? ' selected' : ''}>—</option><option value="gte"${val === 'gte' ? ' selected' : ''}>≥</option><option value="lte"${val === 'lte' ? ' selected' : ''}>≤</option>`;
+    const streetOpts = scope === 'sessionHands'
+      ? ['', 'preflop', 'flop', 'turn', 'river'].map((st) =>
+        `<option value="${st}"${f.street === st ? ' selected' : ''}>${st || 'Todas las calles'}</option>`
+      ).join('')
+      : '';
+    const kindOpts = scope === 'sessionHands'
+      ? ['', 'cash', 'spin', 'mtt', 'sng'].map((k) =>
+        `<option value="${k}"${f.gameKind === k ? ' selected' : ''}>${k || 'Todo tipo'}</option>`
+      ).join('')
+      : '';
+    const stackOpts = scope === 'sessionHands'
+      ? ['', 'lt15', '15-25', '25-40', '40-100', 'gt100'].map((k) =>
+        `<option value="${k}"${f.stackBin === k ? ' selected' : ''}>${k || 'Todo stack'}</option>`
+      ).join('')
+      : '';
     return `
       <label>Clase<select data-filter-scope="${scope}" data-filter="class">${classOpts}</select></label>
       <label>Posición héroe<select data-filter-scope="${scope}" data-filter="pos">${posOpts}</select></label>
+      ${streetOpts ? `<label>Calle peor fuga<select data-filter-scope="${scope}" data-filter="street">${streetOpts}</select></label>` : ''}
+      ${kindOpts ? `<label>Tipo<select data-filter-scope="${scope}" data-filter="gameKind">${kindOpts}</select></label>` : ''}
+      ${stackOpts ? `<label>Stack<select data-filter-scope="${scope}" data-filter="stackBin">${stackOpts}</select></label>` : ''}
       ${showDate ? `<label>Desde<input type="date" data-filter-scope="${scope}" data-filter="dateFrom" value="${escapeHtml(f.dateFrom || '')}"></label>
       <label>Hasta<input type="date" data-filter-scope="${scope}" data-filter="dateTo" value="${escapeHtml(f.dateTo || '')}"></label>` : ''}
       <label>EV esperado<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
@@ -4864,9 +4972,33 @@
     return true;
   }
 
+  function stackBinOfHand(h) {
+    const bb = h && h.stackDepthBB;
+    if (bb == null || Number.isNaN(Number(bb))) return '';
+    const n = Number(bb);
+    if (n < 15) return 'lt15';
+    if (n < 25) return '15-25';
+    if (n < 40) return '25-40';
+    if (n <= 100) return '40-100';
+    return 'gt100';
+  }
+
+  function worstStreetOfHand(h) {
+    let worst = null;
+    let worstLoss = -1;
+    (h.decisions || []).forEach((d) => {
+      const loss = Number(d.evLoss) || 0;
+      if (loss > worstLoss) { worstLoss = loss; worst = d.street; }
+    });
+    return worst;
+  }
+
   function passesSessionHandFilters(h, f) {
     if (f.class && h.worstClass !== f.class) return false;
     if (f.pos && h.heroPos !== f.pos) return false;
+    if (f.gameKind && (h.gameKind || 'cash') !== f.gameKind) return false;
+    if (f.stackBin && stackBinOfHand(h) !== f.stackBin) return false;
+    if (f.street && worstStreetOfHand(h) !== f.street) return false;
     const realNet = roundSession(h.heroNetBB || 0);
     const expNet = roundSession(realNet - (h.totalEvLoss || 0));
     if (!passesEvCompare(expNet, f.expOp, f.expVal)) return false;
@@ -4959,10 +5091,13 @@
         setProgress(done, total, phase || 'parse', fileLabel);
       });
       if (!parsed.hero || !parsed.hands.length) {
+        const disc = parsed.discardedByReason || {};
+        const discParts = Object.keys(disc).filter((k) => disc[k] > 0).map((k) => disc[k] + ' ' + k);
         return {
           ok: false,
-          error: 'No se reconocieron manos de cash NL en «' + file.name +
-            '». Comprueba que sea PokerStars, Winamax o GGPoker.'
+          error: 'No se reconocieron manos NLHE (cash/spins/torneo) en «' + file.name +
+            '». Comprueba que sea PokerStars, Winamax o GGPoker.' +
+            (discParts.length ? ' Descartadas: ' + discParts.join(', ') + '.' : '')
         };
       }
       const Ent = window.PTEntitlements;
@@ -5028,6 +5163,18 @@
         if (ok.length) {
           msg = '<span style="color:var(--green)">' + ok.length + ' archivo(s) · ' +
             hands.toLocaleString('es-ES') + ' manos analizadas</span>';
+          const mixBits = [];
+          ok.forEach(function (r) {
+            const mix = r.session && r.session.context && r.session.context.mix;
+            if (!mix) return;
+            if (mix.cash) mixBits.push(mix.cash + ' cash');
+            if (mix.spin) mixBits.push(mix.spin + ' spin');
+            if (mix.mtt) mixBits.push(mix.mtt + ' MTT');
+            if (mix.sng) mixBits.push(mix.sng + ' SNG');
+          });
+          if (mixBits.length) {
+            msg += ' <span class="muted-text">(' + escapeHtml(mixBits.join(', ')) + ')</span>';
+          }
           if (fail.length) {
             msg += ' <span style="color:var(--yellow)">· ' + fail.length + ' con error</span>';
           }
@@ -5102,9 +5249,9 @@
       const sampleBadge = isSample(s) ? '<span class="session-sample-badge">Ejemplo</span>' : '';
       return `<div class="record session-card">
         <div class="rec-main">
-          <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span></div>
+          <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span> ${sessionContextBadgesHtml(s)}</div>
           <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands} manos · ${fmtDate(s.createdAt)}</div>
-          <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)} bb</span> · EV perdido -${fmtBB(st.evLossBB)} bb</div>
+          <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)} bb</span> · EV perdido -${fmtBB(st.evLossBB)} bb${st.roiPct != null ? ' · ROI ' + st.roiPct + '%' : ''}</div>
           <div class="rec-sub muted-text" style="font-size:12px">${streetAccSummary(st.accByStreet)}</div>
         </div>
         <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
@@ -5161,10 +5308,18 @@
         || currentSession.stats.threeBetOpps == null || currentSession.stats.style == null
         || currentSession.stats.cbetFlopOpps == null || currentSession.stats.afCalls == null
         || currentSession.stats.sawFlopN == null || currentSession.stats.squeezeOpps == null
-        || currentSession.stats.cbetTurnOpps == null || currentSession.stats.bbPer100 == null);
+        || currentSession.stats.cbetTurnOpps == null || currentSession.stats.bbPer100 == null
+        || currentSession.stats.formatKey == null || currentSession.stats.fourBetOpps == null
+        || !currentSession.context);
     if (needsRecompute) {
       currentSession.hands.forEach((h) => Importer.recomputeHandDecisions(h));
       currentSession.stats = Importer.computeStats(currentSession.hands);
+      if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
+        currentSession.context = PTHHUtils.buildSessionContext(
+          currentSession.hands,
+          currentSession.nDiscardedByReason || null
+        );
+      }
       currentSession.analysisVersion = buildVer;
       await Store.saveSession(currentSession);
     } else {
@@ -5181,9 +5336,21 @@
       }
       if (netFixed && Importer.computeStats) {
         currentSession.stats = Importer.computeStats(currentSession.hands);
+        if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
+          currentSession.context = PTHHUtils.buildSessionContext(
+            currentSession.hands,
+            currentSession.nDiscardedByReason || null
+          );
+        }
         await Store.saveSession(currentSession);
       } else if (needsHudStats) {
         currentSession.stats = Importer.computeStats(currentSession.hands);
+        if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
+          currentSession.context = PTHHUtils.buildSessionContext(
+            currentSession.hands,
+            currentSession.nDiscardedByReason || null
+          );
+        }
         await Store.saveSession(currentSession);
       }
     }
@@ -5202,9 +5369,11 @@
     const accSt = st.accByStreet;
     const box = $('#session-detail-content');
 
+    const fmtKey = resolveStatsFormat(st);
     const statHtml = `
-      <h2>${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter} · ${st.grade.score}/10</span></h2>
+      <h2>${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter} · ${st.grade.score}/10</span> ${sessionContextBadgesHtml(s)}</h2>
       <p class="muted-text">${escapeHtml(st.grade.verdict)}</p>
+      <p class="muted-text" style="font-size:12px">${escapeHtml(importDiscardSummaryHtml(s))} · Formato coaching: <strong>${escapeHtml(formatDisplayLabel(fmtKey))}</strong>${st.shortHandedShare > 20 ? ' · Mesa corta ~' + st.shortHandedShare + '%' : ''}</p>
       <div class="session-export-bar">
         <span class="muted-text" data-i18n="export.session">Exportar informe</span>
         <label class="session-export-errors"><input type="checkbox" id="session-export-errors-only" /> <span data-i18n="export.errorsOnly">Solo manos con fuga</span></label>
@@ -5212,16 +5381,19 @@
         <button type="button" class="btn btn-ghost btn-sm" data-export-session="csv" data-i18n="export.csv">CSV</button>
         <button type="button" class="btn btn-ghost btn-sm" data-export-session="pdf" data-i18n="export.pdf">PDF / Imprimir</button>
       </div>
-      <div class="stats-content" data-style-format="${escapeHtml(resolveStatsFormat(st))}">
-        ${explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), resolveStatsFormat(st))}
-        ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, resolveStatsFormat(st), netCls)}
-        ${explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, resolveStatsFormat(st))}
-        ${explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, resolveStatsFormat(st), 'net-neg')}
+      <div class="stats-content" data-style-format="${escapeHtml(fmtKey)}">
+        ${explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), fmtKey)}
+        ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, fmtKey, netCls)}
+        ${explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, fmtKey)}
+        ${explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, fmtKey, 'net-neg')}
         ${st.avgHandScore != null ? `<div class="stat-card"><div class="big">${fmtHandScore(st.avgHandScore)}<span class="hand-score-over">/10</span></div><div class="lbl">Nota media por mano</div></div>` : ''}
-        ${explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), resolveStatsFormat(st))}
-        ${explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), resolveStatsFormat(st))}
-        ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), resolveStatsFormat(st))}
-        ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), resolveStatsFormat(st))}
+        ${explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), fmtKey)}
+        ${explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), fmtKey)}
+        ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), fmtKey)}
+        ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), fmtKey)}
+        ${st.fourBetPct != null ? explainableStatCard('threeBet', '4-Bet', fmtHudPct(st.fourBetPct), fmtKey) : ''}
+        ${st.roiPct != null ? `<div class="stat-card"><div class="big">${st.roiPct}%</div><div class="lbl">ROI (aprox.)</div></div>` : ''}
+        ${st.profitEuro != null && (st.gameKind === 'spin' || st.gameKind === 'mtt' || st.gameKind === 'sng') ? `<div class="stat-card"><div class="big ${st.profitEuro >= 0 ? 'net-pos' : 'net-neg'}">${st.profitEuro >= 0 ? '+' : ''}${st.profitEuro.toFixed(2)}€</div><div class="lbl">Profit €</div></div>` : ''}
       </div>
       ${sessionHudCommentHtml(st)}
       <div class="card-box" style="margin-top:14px">

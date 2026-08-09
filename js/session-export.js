@@ -36,11 +36,17 @@
         id: h.id,
         heroCode: h.heroCode,
         heroPos: h.heroPos,
+        gameKind: h.gameKind || null,
+        tableMax: h.tableMax != null ? h.tableMax : null,
+        formatKey: h.formatKey || null,
+        stackDepthBB: h.stackDepthBB != null ? h.stackDepthBB : null,
+        mttPhase: h.mttPhase || null,
         heroNetBB: h.heroNetBB,
         totalEvLoss: h.totalEvLoss,
         accuracy: h.accuracy,
         handScore: h.handScore != null ? h.handScore : null,
         worstClass: h.worstClass,
+        byPosition: undefined,
         decisions: (h.decisions || []).map(function (d) {
           return {
             street: d.street,
@@ -58,6 +64,7 @@
       source: 'PokerForgeAI',
       fileName: session.fileName || '',
       hero: session.hero || '',
+      context: session.context || null,
       stats: {
         nHands: st.nHands,
         netBB: st.netBB,
@@ -67,14 +74,36 @@
         grade: st.grade,
         vpipPct: st.vpipPct,
         pfrPct: st.pfrPct,
-        bbPer100: st.bbPer100
+        bbPer100: st.bbPer100,
+        format: st.format,
+        formatKey: st.formatKey,
+        gameKind: st.gameKind,
+        tableMax: st.tableMax,
+        stakesLabel: st.stakesLabel,
+        stakeTier: st.stakeTier,
+        mttPhase: st.mttPhase,
+        roiPct: st.roiPct,
+        profitEuro: st.profitEuro,
+        fourBetPct: st.fourBetPct,
+        foldToFourBetPct: st.foldToFourBetPct,
+        threeBetPct: st.threeBetPct,
+        stealPct: st.stealPct,
+        cbetFlopPct: st.cbetFlopPct,
+        af: st.af,
+        afq: st.afq,
+        wtsdPct: st.wtsdPct,
+        wsdPct: st.wsdPct,
+        wwsfPct: st.wwsfPct,
+        byPosition: st.byPosition || null,
+        style: st.style || null,
+        styleAssess: st.styleAssess || null
       },
       hands: hands
     };
   }
 
   function buildCsv(session, opts) {
-    var rows = ['handId,heroCode,heroPos,netBB,evLoss,accuracy,handScore,worstClass,streets'];
+    var rows = ['handId,heroCode,heroPos,gameKind,tableMax,stackBB,netBB,evLoss,accuracy,handScore,worstClass,streets'];
     handRows(session, opts).forEach(function (h) {
       var streets = (h.decisions || []).map(function (d) {
         return (d.street || '') + ':' + (d.chosen || d.action || '') + '>' + (d.best || '') + '(' + (d.class || '') + ',-' + fmt(d.evLoss || 0) + ')';
@@ -83,6 +112,9 @@
         escapeCsv(h.id),
         escapeCsv(h.heroCode),
         escapeCsv(h.heroPos),
+        escapeCsv(h.gameKind || ''),
+        escapeCsv(h.tableMax != null ? h.tableMax : ''),
+        escapeCsv(h.stackDepthBB != null ? h.stackDepthBB : ''),
         escapeCsv(fmt(h.heroNetBB)),
         escapeCsv(fmt(h.totalEvLoss)),
         escapeCsv(h.accuracy != null ? h.accuracy : ''),

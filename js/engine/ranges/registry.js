@@ -15,7 +15,10 @@
   };
 
   const STACK_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
-  const GAME_LABELS = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' };
+  const GAME_LABELS = {
+    cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT',
+    cash2: 'Heads-up', cash3: 'Cash 3-max', spin3: 'Spin & Go'
+  };
   const STACK_LABELS = { bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb', standard: '100bb', short: '40bb', deep: '150bb' };
 
   function rangeStackCategory(stackDepth, stackBB) {
@@ -373,12 +376,24 @@
   }
 
   function inferFromHand(hand) {
-    const n = hand && hand.seats ? hand.seats.length : 6;
+    const nSeats = hand && hand.seats ? hand.seats.length : (hand && hand.playersSeated) || 6;
+    const tableMax = (hand && hand.tableMax) || nSeats || 6;
     let gameType = 'cash6';
-    if (hand && hand.isTournament) gameType = 'mtt';
-    else if (n >= 8) gameType = 'cash9';
+    if (hand && hand.formatKey) {
+      const fk = hand.formatKey;
+      if (fk.indexOf('spin') === 0 || fk.indexOf('mtt') === 0) gameType = 'mtt';
+      else if (fk === 'cash9') gameType = 'cash9';
+      else gameType = 'cash6';
+    } else if (hand && (hand.gameKind === 'spin' || hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.isTournament)) {
+      gameType = 'mtt';
+    } else if (tableMax >= 8 || nSeats >= 8) {
+      gameType = 'cash9';
+    }
     let stackDepth = 'standard';
-    if (hand && hand.seats && hand.bb) {
+    const stackBB = hand && hand.stackDepthBB != null ? hand.stackDepthBB : null;
+    if (stackBB != null) {
+      stackDepth = stackLabelFromBB(stackBB);
+    } else if (hand && hand.seats && hand.bb) {
       const bb = hand.bb || 1;
       const stacks = hand.seats.map(function (s) { return (s.stack || 0) / bb; }).filter(function (x) { return x > 0; });
       if (stacks.length) {

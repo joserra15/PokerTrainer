@@ -1,9 +1,10 @@
 /*
  * import.js
- * Importa y analiza historiales de manos (PokerStars ES/EN y futuras salas).
+ * Importa y analiza historiales de manos (PokerStars ES/EN, Winamax, GGPoker).
  * - Detección automática de plataforma e idioma (PTHandHistoryFormats).
  * - Parsea cada mano (asientos, posiciones, acciones, board, resultado).
- * - Filtra cash NL Hold'em (descarta torneos).
+ * - Conserva cash / spins / MTT-SNG NLHE; descarta variantes no soportadas.
+ * - Metadata: gameKind, tableMax, formatKey; ideales y rangos por formato.
  * - Analiza todas las manos del héroe con cartas (incl. folds preflop).
  * Expuesto como `Importer`.
  */
@@ -91,6 +92,9 @@
     var hands = [];
     var heroCount = {};
     var detectedFormat = null;
+    var discardedByReason = global.PTHHUtils && global.PTHHUtils.emptyDiscardCounts
+      ? global.PTHHUtils.emptyDiscardCounts()
+      : { badParse: 0, unsupportedVariant: 0, noBlinds: 0, unknownGame: 0, noHeroCards: 0 };
     var i = 0;
     var chunk = parseChunkSize(blocks.length);
     return new Promise(function (resolve, reject) {
@@ -99,10 +103,25 @@
           var end = Math.min(i + chunk, blocks.length);
           for (; i < end; i++) {
             var h = parseHand(blocks[i]);
-            if (!h || !h.isCash) continue;
+            var keep = global.PTHHUtils && global.PTHHUtils.isKeepableHand
+              ? global.PTHHUtils.isKeepableHand(h)
+              : { ok: !!(h && h.bb > 0), reason: 'badParse' };
+            if (!keep.ok) {
+              if (keep.reason && discardedByReason[keep.reason] != null) discardedByReason[keep.reason]++;
+              else discardedByReason.badParse++;
+              continue;
+            }
             if (h.hero) heroCount[h.hero] = (heroCount[h.hero] || 0) + 1;
             hands.push(h);
-            if (!detectedFormat && h.format) detectedFormat = h.format;
+            if (!detectedFormat && h.platform) {
+              detectedFormat = {
+                platform: h.platform,
+                platformLabel: h.platform === 'ggpoker' ? 'GGPoker'
+                  : (h.platform === 'winamax' ? 'Winamax' : 'PokerStars'),
+                locale: h.locale || null,
+                localeLabel: h.locale === 'es' ? 'Español' : 'English'
+              };
+            }
           }
           if (onProgress) onProgress(i, blocks.length, 'parse');
           if (i < blocks.length) setTimeout(step, 0);
@@ -121,6 +140,7 @@
               fileName: fileName || 'sesion.txt',
               hero: hero,
               hands: hands,
+              discardedByReason: discardedByReason,
               format: fmt
             });
           }
@@ -562,19 +582,49 @@
       ? global.GTOScoring.scoreHand(decisions, totalEvLoss)
       : null;
 
+    const U = global.PTHHUtils;
+    const formatKey = hand.formatKey || (U && U.formatKeyFromMeta ? U.formatKeyFromMeta(hand) : 'cash6');
+    const seatsCopy = (hand.seats || []).map((s) => ({ seat: s.seat, name: s.name, stack: s.stack }));
+
     return {
       id: hand.id, datetime: hand.datetime,
       heroPos, heroCards, heroCode: code,
       board: hand.boardAll, sb: hand.sb, bb: hand.bb,
+      currency: hand.currency || '€',
       hero: hand.hero,
       positions: hand.positions,
+      seats: seatsCopy,
       streets: hand.streets,
       posts: hand.posts,
+      blinds: hand.blinds,
       villainShows: hand.shows,
       collected,
       uncalledTo,
       rake: hand.rake || 0,
       potTotal: hand.potTotal || 0,
+      // Metadata de formato (P0/P1)
+      gameKind: hand.gameKind || (hand.isTournament ? 'mtt' : 'cash'),
+      isCash: !!hand.isCash,
+      isTournament: !!hand.isTournament,
+      isZoom: !!hand.isZoom,
+      tableMax: hand.tableMax || null,
+      playersSeated: hand.playersSeated || seatsCopy.length,
+      shortHanded: !!hand.shortHanded,
+      variant: hand.variant || 'nlhe',
+      platform: hand.platform || null,
+      locale: hand.locale || null,
+      formatKey: formatKey,
+      format: U && U.legacyFormatFromKey ? U.legacyFormatFromKey(formatKey) : '6max',
+      stakeTier: hand.stakeTier || null,
+      stakesLabel: hand.stakesLabel || '',
+      stackDepthBB: hand.stackDepthBB != null ? hand.stackDepthBB : null,
+      avgStackBB: hand.avgStackBB != null ? hand.avgStackBB : null,
+      mttPhase: hand.mttPhase || null,
+      buyIn: hand.buyIn != null ? hand.buyIn : null,
+      buyInFee: hand.buyInFee != null ? hand.buyInFee : null,
+      multiplier: hand.multiplier != null ? hand.multiplier : null,
+      ante: hand.ante || 0,
+      rangeContext: hand.rangeContext || null,
       decisions, totalEvLoss: r2(totalEvLoss),
       accuracy, accuracyByStreet: byStreet,
       heroNetBB, worstClass: worst,
@@ -1101,18 +1151,34 @@
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
   // ---------- ESTADÍSTICAS DE SESIÓN ----------
+  function mergeDiscardCounts(a, b) {
+    const out = global.PTHHUtils && global.PTHHUtils.emptyDiscardCounts
+      ? global.PTHHUtils.emptyDiscardCounts()
+      : { badParse: 0, unsupportedVariant: 0, noBlinds: 0, unknownGame: 0, noHeroCards: 0 };
+    [a, b].forEach((src) => {
+      if (!src) return;
+      Object.keys(out).forEach((k) => { out[k] += src[k] || 0; });
+    });
+    return out;
+  }
+
   function buildSession(parsed, fileName, rawText) {
     const hero = parsed.hero;
     const kept = [];
     let discarded = 0;
+    const discardCounts = mergeDiscardCounts(parsed.discardedByReason, null);
     for (const h of parsed.hands) {
       if (h.hero !== hero) { /* mano de otra mesa/heroe */ }
-      if (!heroPlayed(h)) { discarded++; continue; }
+      if (!heroPlayed(h)) {
+        discarded++;
+        discardCounts.noHeroCards++;
+        continue;
+      }
       const a = analyzeHand(h);
       kept.push(a);
     }
     const stats = computeStats(kept);
-    return sessionPayload(parsed, fileName, hero, kept, discarded, stats, rawText);
+    return sessionPayload(parsed, fileName, hero, kept, discarded, stats, rawText, discardCounts);
   }
 
   /** Analiza manos en lotes para no bloquear la UI del navegador (10k+ manos). */
@@ -1121,6 +1187,7 @@
     const hands = parsed.hands || [];
     const kept = [];
     let discarded = 0;
+    const discardCounts = mergeDiscardCounts(parsed.discardedByReason, null);
     let i = 0;
     const CHUNK = analyzeChunkSize(hands.length);
     return new Promise(function (resolve, reject) {
@@ -1129,29 +1196,51 @@
           const end = Math.min(i + CHUNK, hands.length);
           for (; i < end; i++) {
             const h = hands[i];
-            if (!heroPlayed(h)) { discarded++; continue; }
+            if (!heroPlayed(h)) {
+              discarded++;
+              discardCounts.noHeroCards++;
+              continue;
+            }
             kept.push(analyzeHand(h));
           }
           if (onProgress) onProgress(i, hands.length, 'analyze');
           if (i < hands.length) setTimeout(step, 0);
-          else resolve(sessionPayload(parsed, fileName, hero, kept, discarded, computeStats(kept), rawText));
+          else resolve(sessionPayload(parsed, fileName, hero, kept, discarded, computeStats(kept), rawText, discardCounts));
         } catch (e) { reject(e); }
       }
       setTimeout(step, 0);
     });
   }
 
-  function sessionPayload(parsed, fileName, hero, kept, discarded, stats, rawText) {
+  function sessionPayload(parsed, fileName, hero, kept, discarded, stats, rawText, discardCounts) {
     const txt = rawText != null ? rawText : (parsed && parsed.rawText) || null;
+    const U = global.PTHHUtils;
+    const context = U && U.buildSessionContext
+      ? U.buildSessionContext(kept, discardCounts || parsed.discardedByReason)
+      : { gameKind: 'cash', formatKey: 'cash6', format: '6max', mix: {}, nDiscardedByReason: discardCounts || {} };
+    if (stats) {
+      stats.formatKey = stats.formatKey || context.formatKey;
+      stats.format = stats.format || context.format;
+      stats.gameKind = stats.gameKind || context.gameKind;
+      stats.tableMax = stats.tableMax != null ? stats.tableMax : context.tableMax;
+      stats.context = context;
+    }
     return {
       id: 's' + Date.now() + Math.floor(Math.random() * 1000),
       createdAt: new Date().toISOString(),
       fileName: fileName || parsed.fileName,
       hero,
-      nTotal: parsed.hands.length,
+      nTotal: (parsed.hands || []).length + (
+        discardCounts
+          ? Object.keys(discardCounts).reduce((s, k) => s + (k === 'noHeroCards' ? 0 : (discardCounts[k] || 0)), 0)
+          : 0
+      ),
+      nParsed: (parsed.hands || []).length,
       nDiscarded: discarded,
+      nDiscardedByReason: context.nDiscardedByReason || discardCounts || {},
       hands: kept,
       stats,
+      context,
       format: parsed.format || null,
       analysisVersion: global.PT_BUILD || '1',
       hasTxt: !!txt,
@@ -1166,6 +1255,8 @@
     gapMin: 3, gapMax: 8,
     threeBetMin: 6, threeBetMax: 10,
     foldToThreeBetMin: 45, foldToThreeBetMax: 60,
+    fourBetMin: 2, fourBetMax: 4,
+    foldToFourBetMin: 45, foldToFourBetMax: 65,
     stealMin: 30, stealMax: 40,
     foldToStealMin: 55, foldToStealMax: 65,
     squeezeMin: 7, squeezeMax: 9,
@@ -1183,6 +1274,8 @@
       pfr: { low: 50, ok: 100, good: 200 },
       threeBet: { low: 30, ok: 100, good: 400 },
       foldToThreeBet: { low: 20, ok: 50, good: 200 },
+      fourBet: { low: 15, ok: 40, good: 150 },
+      foldToFourBet: { low: 10, ok: 30, good: 100 },
       steal: { low: 30, ok: 80, good: 200 },
       foldToSteal: { low: 20, ok: 50, good: 150 },
       squeeze: { low: 20, ok: 50, good: 200 },
@@ -1213,16 +1306,47 @@
 
   const STYLE_IDEAL_BY_FORMAT = {
     '6max': STYLE_IDEAL_6MAX,
+    cash6: STYLE_IDEAL_6MAX,
     '9max': cloneIdeal(STYLE_IDEAL_6MAX, {
       vpipMin: 15, vpipMax: 22, pfrMin: 12, pfrMax: 18,
-      threeBetMin: 5, threeBetMax: 9, stealMin: 25, stealMax: 35
+      threeBetMin: 5, threeBetMax: 9, fourBetMin: 1.5, fourBetMax: 3.5,
+      stealMin: 25, stealMax: 35
     }),
+    cash9: null, // filled below
+    shorthand: cloneIdeal(STYLE_IDEAL_6MAX, {
+      vpipMin: 28, vpipMax: 42, pfrMin: 22, pfrMax: 36,
+      threeBetMin: 8, threeBetMax: 14, stealMin: 40, stealMax: 60,
+      foldToStealMin: 45, foldToStealMax: 60
+    }),
+    cash2: null,
+    cash3: null,
     mtt: cloneIdeal(STYLE_IDEAL_6MAX, {
       vpipMin: 18, vpipMax: 28, pfrMin: 14, pfrMax: 24,
-      threeBetMin: 5, threeBetMax: 9, stealMin: 28, stealMax: 42,
+      threeBetMin: 5, threeBetMax: 9, fourBetMin: 1.5, fourBetMax: 4,
+      stealMin: 28, stealMax: 42,
       foldToStealMin: 50, foldToStealMax: 65
-    })
+    }),
+    mtt6: null,
+    mtt9: null,
+    mtt3: null,
+    spin: cloneIdeal(STYLE_IDEAL_6MAX, {
+      vpipMin: 35, vpipMax: 55, pfrMin: 28, pfrMax: 48,
+      threeBetMin: 8, threeBetMax: 16, fourBetMin: 2, fourBetMax: 8,
+      stealMin: 45, stealMax: 70,
+      foldToStealMin: 35, foldToStealMax: 55,
+      foldToThreeBetMin: 35, foldToThreeBetMax: 55,
+      cbetFlopMin: 45, cbetFlopMax: 75,
+      wtsdMin: 22, wtsdMax: 35
+    }),
+    spin3: null
   };
+  STYLE_IDEAL_BY_FORMAT.cash9 = STYLE_IDEAL_BY_FORMAT['9max'];
+  STYLE_IDEAL_BY_FORMAT.cash2 = STYLE_IDEAL_BY_FORMAT.shorthand;
+  STYLE_IDEAL_BY_FORMAT.cash3 = STYLE_IDEAL_BY_FORMAT.shorthand;
+  STYLE_IDEAL_BY_FORMAT.mtt6 = STYLE_IDEAL_BY_FORMAT.mtt;
+  STYLE_IDEAL_BY_FORMAT.mtt9 = STYLE_IDEAL_BY_FORMAT.mtt;
+  STYLE_IDEAL_BY_FORMAT.mtt3 = STYLE_IDEAL_BY_FORMAT.spin;
+  STYLE_IDEAL_BY_FORMAT.spin3 = STYLE_IDEAL_BY_FORMAT.spin;
 
   /** Alias activo (6-max por defecto); computeStats puede sustituir por formato. */
   let STYLE_IDEAL = STYLE_IDEAL_6MAX;
@@ -1236,6 +1360,8 @@
       vpip: false, pfr: false,
       threeBetOpp: false, threeBet: false,
       foldToThreeBetOpp: false, foldToThreeBet: false,
+      fourBetOpp: false, fourBet: false,
+      foldToFourBetOpp: false, foldToFourBet: false,
       stealOpp: false, steal: false,
       foldToStealOpp: false, foldToSteal: false,
       squeezeOpp: false, squeeze: false,
@@ -1283,24 +1409,74 @@
     return false;
   }
 
-  function inferSessionFormat(hands) {
+  function inferSessionFormatKey(hands) {
+    let isSpin = false;
     let isMtt = false;
+    let maxTable = 0;
+    let hasExplicitMeta = false;
     const posSet = {};
+    const keyVotes = {};
     (hands || []).forEach((h) => {
-      if (h && (h.isTournament || h.tournament)) isMtt = true;
-      const pos = (h && h.positions) || {};
+      if (!h) return;
+      if (h.gameKind || h.formatKey || h.tableMax) hasExplicitMeta = true;
+      if (h.gameKind === 'spin' || h.formatKey === 'spin3') isSpin = true;
+      if (h.gameKind === 'mtt' || h.gameKind === 'sng' || h.isTournament) isMtt = true;
+      const tm = h.tableMax || h.playersSeated || (h.seats && h.seats.length) || 0;
+      if (tm > maxTable) maxTable = tm;
+      const pos = h.positions || {};
       Object.keys(pos).forEach((p) => { posSet[pos[p]] = true; });
-      if (h && h.heroPos) posSet[h.heroPos] = true;
+      if (h.heroPos) posSet[h.heroPos] = true;
+      if (h.formatKey) keyVotes[h.formatKey] = (keyVotes[h.formatKey] || 0) + 1;
     });
-    if (isMtt) return 'mtt';
-    if (posSet.UTG1 || posSet.UTG2 || posSet.LJ) return '9max';
+    if (isSpin) return 'spin3';
+    if (isMtt) return maxTable >= 8 ? 'mtt9' : (maxTable <= 3 ? 'mtt3' : 'mtt6');
+    // Con metadata explícita de mesa, priorizar tableMax
+    if (hasExplicitMeta && maxTable >= 8) return 'cash9';
+    if (hasExplicitMeta && maxTable > 0 && maxTable <= 3) return maxTable <= 2 ? 'cash2' : 'cash3';
+    if (hasExplicitMeta && maxTable > 0 && maxTable <= 6) {
+      // aún así, posiciones 9-max ganan si aparecen
+      if (posSet.UTG1 || posSet.UTG2 || posSet.LJ) return 'cash9';
+      return 'cash6';
+    }
+    // Heurística clásica por posiciones (sesiones antiguas sin tableMax)
+    if (posSet.UTG1 || posSet.UTG2 || posSet.LJ) return 'cash9';
     const nPos = Object.keys(posSet).length;
-    if (nPos >= 8) return '9max';
-    return '6max';
+    if (nPos >= 8 || maxTable >= 8) return 'cash9';
+    if (maxTable > 0 && maxTable <= 3) return maxTable <= 2 ? 'cash2' : 'cash3';
+    let bestKey = null; let bestN = -1;
+    Object.keys(keyVotes).forEach((k) => {
+      if (keyVotes[k] > bestN) { bestN = keyVotes[k]; bestKey = k; }
+    });
+    return bestKey || 'cash6';
+  }
+
+  function inferSessionFormat(hands) {
+    const U = global.PTHHUtils;
+    const key = inferSessionFormatKey(hands);
+    return (U && U.legacyFormatFromKey) ? U.legacyFormatFromKey(key) : (
+      key.indexOf('spin') === 0 ? 'spin'
+        : (key.indexOf('mtt') === 0 ? 'mtt'
+          : (key === 'cash9' ? '9max' : (key === 'cash2' || key === 'cash3' ? 'shorthand' : '6max')))
+    );
   }
 
   function styleIdealForFormat(format) {
-    return STYLE_IDEAL_BY_FORMAT[format] || STYLE_IDEAL_6MAX;
+    if (!format) return STYLE_IDEAL_6MAX;
+    if (STYLE_IDEAL_BY_FORMAT[format]) return STYLE_IDEAL_BY_FORMAT[format];
+    const U = global.PTHHUtils;
+    // Acepta formatKey o legacy
+    if (format.indexOf('cash') === 0 || format.indexOf('spin') === 0 || format.indexOf('mtt') === 0) {
+      const legacy = U && U.legacyFormatFromKey ? U.legacyFormatFromKey(format) : format;
+      return STYLE_IDEAL_BY_FORMAT[legacy] || STYLE_IDEAL_BY_FORMAT[format] || STYLE_IDEAL_6MAX;
+    }
+    return STYLE_IDEAL_6MAX;
+  }
+
+  function formatKeyToRangeGameType(formatKey) {
+    const k = formatKey || 'cash6';
+    if (k.indexOf('spin') === 0 || k.indexOf('mtt') === 0) return 'mtt';
+    if (k === 'cash9') return 'cash9';
+    return 'cash6';
   }
 
   /**
@@ -1352,6 +1528,15 @@
           if (heroHasRaised && raiseCount === 2 && lastRaiser && lastRaiser !== hero) {
             out.foldToThreeBetOpp = true;
             if (a.type === 'fold') out.foldToThreeBet = true;
+          }
+          // 4-bet opp: facing a 3-bet (open-raiser o cold 4-bet)
+          if (raiseCount === 2 && lastRaiser && lastRaiser !== hero) {
+            out.fourBetOpp = true;
+            if (a.type === 'raise' || a.type === 'bet') out.fourBet = true;
+          }
+          if (heroHasRaised && raiseCount >= 3 && lastRaiser && lastRaiser !== hero) {
+            out.foldToFourBetOpp = true;
+            if (a.type === 'fold') out.foldToFourBet = true;
           }
         }
         if (a.type === 'raise' || a.type === 'bet') {
@@ -1599,6 +1784,8 @@
   const STYLE_DRILL_MAP = {
     '3-Bet': { low: { scenario: '3bet', practiceStreet: 'preflop', label: 'Practicar 3-bets' }, high: { scenario: '3bet', practiceStreet: 'preflop', label: 'Afinar 3-bets' } },
     'Fold to 3-Bet': { low: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Defender vs 3-bet' }, high: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Defender vs 3-bet' } },
+    '4-Bet': { low: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Practicar 4-bets' }, high: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Afinar 4-bets' } },
+    'Fold to 4-Bet': { low: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'vs 4-bet' }, high: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'vs 4-bet' } },
     'Steal': { low: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Robar blinds (RFI late)' }, high: { scenario: 'rfi', practiceStreet: 'preflop', label: 'RFI más selectivo' } },
     'Fold to Steal': { low: { scenario: '3bet', practiceStreet: 'preflop', label: 'Defensa de blinds' }, high: { scenario: '3bet', practiceStreet: 'preflop', label: 'Defensa de blinds' } },
     'Squeeze': { low: { scenario: 'squeeze', practiceStreet: 'preflop', label: 'Practicar squeezes' }, high: { scenario: 'squeeze', practiceStreet: 'preflop', label: 'Squeezes selectivos' } },
@@ -1648,6 +1835,14 @@
     lines.push(assessMetricLine('Fold to 3-Bet', s.foldToThreeBetPct, I.foldToThreeBetMin, I.foldToThreeBetMax, samp.foldToThreeBet, {
       low: 'Estás defendiendo de más vs 3-bets: foldea peores suited connectors OOP.',
       high: 'Overfold vs 3-bet: defiende más IP y 4-betea polarizado.'
+    }));
+    lines.push(assessMetricLine('4-Bet', s.fourBetPct, I.fourBetMin, I.fourBetMax, samp.fourBet, {
+      low: 'Añade 4-bets polarizados (value + blockers) vs 3-bets.',
+      high: '4-beteas demasiado light: reduce bluffs sin plan postflop.'
+    }));
+    lines.push(assessMetricLine('Fold to 4-Bet', s.foldToFourBetPct, I.foldToFourBetMin, I.foldToFourBetMax, samp.foldToFourBet, {
+      low: 'Llamas/shippeas de más vs 4-bet: foldea peores bluffcatchers.',
+      high: 'Overfold vs 4-bet: defiende más combos de valor.'
     }));
     lines.push(assessMetricLine('Steal', s.stealPct, I.stealMin, I.stealMax, samp.steal, {
       low: 'Roba más desde CO/BTN/SB cuando llega folded to you.',
@@ -1732,18 +1927,40 @@
 
   function computeStats(hands) {
     const n = hands.length;
+    const formatKey = inferSessionFormatKey(hands);
     const format = inferSessionFormat(hands);
-    const ideal = styleIdealForFormat(format);
+    let ideal = styleIdealForFormat(formatKey);
+    // Short-handed efectivo: afloja bandas cash si muchas manos a mesa incompleta
+    const shortN = (hands || []).filter((h) => h && h.shortHanded).length;
+    if (shortN > n * 0.5 && (formatKey === 'cash6' || formatKey === 'cash9')) {
+      ideal = cloneIdeal(ideal, {
+        vpipMin: ideal.vpipMin + 3, vpipMax: ideal.vpipMax + 5,
+        pfrMin: ideal.pfrMin + 2, pfrMax: ideal.pfrMax + 4,
+        stealMin: (ideal.stealMin || 30) + 5, stealMax: (ideal.stealMax || 40) + 8
+      });
+    }
     STYLE_IDEAL = ideal;
+
+    const U = global.PTHHUtils;
+    const ctx = U && U.buildSessionContext ? U.buildSessionContext(hands, null) : null;
+    const gameKind = (ctx && ctx.gameKind) || 'cash';
+    const tableMax = ctx && ctx.tableMax;
 
     let decN = 0, decGood = 0, evLoss = 0, netBB = 0, evLossEuro = 0;
     let handScoreSum = 0, handScoreN = 0;
     let vpipN = 0, pfrN = 0;
     let threeBetOpps = 0, threeBetHits = 0;
     let foldToThreeBetOpps = 0, foldToThreeBetHits = 0;
+    let fourBetOpps = 0, fourBetHits = 0;
+    let foldToFourBetOpps = 0, foldToFourBetHits = 0;
     let stealOpps = 0, stealHits = 0;
     let foldToStealOpps = 0, foldToStealHits = 0;
     let squeezeOpps = 0, squeezeHits = 0;
+    let netEuro = 0;
+    let buyInTotal = 0;
+    let buyInEvents = 0;
+    const stakeTierCount = {};
+    const phaseCount = {};
     let cbetFlopOpps = 0, cbetFlopHits = 0;
     let cbetFlopIpOpps = 0, cbetFlopIpHits = 0;
     let cbetFlopOopOpps = 0, cbetFlopOopHits = 0;
@@ -1771,11 +1988,20 @@
       }
       netBB += h.heroNetBB;
       evLoss += h.totalEvLoss;
+      if (h.bb) netEuro += (h.heroNetBB || 0) * h.bb;
+      if (h.buyIn != null) {
+        buyInTotal += h.buyIn + (h.buyInFee || 0);
+        buyInEvents++;
+      }
+      if (h.stakeTier) stakeTierCount[h.stakeTier] = (stakeTierCount[h.stakeTier] || 0) + 1;
+      if (h.mttPhase) phaseCount[h.mttPhase] = (phaseCount[h.mttPhase] || 0) + 1;
       const hud = heroStyleHud(h);
       if (hud.vpip) vpipN++;
       if (hud.pfr) pfrN++;
       if (hud.threeBetOpp) { threeBetOpps++; if (hud.threeBet) threeBetHits++; }
       if (hud.foldToThreeBetOpp) { foldToThreeBetOpps++; if (hud.foldToThreeBet) foldToThreeBetHits++; }
+      if (hud.fourBetOpp) { fourBetOpps++; if (hud.fourBet) fourBetHits++; }
+      if (hud.foldToFourBetOpp) { foldToFourBetOpps++; if (hud.foldToFourBet) foldToFourBetHits++; }
       if (hud.stealOpp) { stealOpps++; if (hud.steal) stealHits++; }
       if (hud.foldToStealOpp) { foldToStealOpps++; if (hud.foldToSteal) foldToStealHits++; }
       if (hud.squeezeOpp) { squeezeOpps++; if (hud.squeeze) squeezeHits++; }
@@ -1846,6 +2072,8 @@
 
     const threeBetPct = pctFrom(threeBetHits, threeBetOpps);
     const foldToThreeBetPct = pctFrom(foldToThreeBetHits, foldToThreeBetOpps);
+    const fourBetPct = pctFrom(fourBetHits, fourBetOpps);
+    const foldToFourBetPct = pctFrom(foldToFourBetHits, foldToFourBetOpps);
     const stealPct = pctFrom(stealHits, stealOpps);
     const foldToStealPct = pctFrom(foldToStealHits, foldToStealOpps);
     const squeezePct = pctFrom(squeezeHits, squeezeOpps);
@@ -1884,11 +2112,37 @@
       };
     });
 
+    // ROI aproximado (spins/MTT): profit € / buy-ins invertidos
+    // Nota: sin ficheros de resultados de torneo, usamos buyIn declarado × manos/estimación débil.
+    const avgBuyIn = buyInEvents ? (buyInTotal / buyInEvents) : (ctx && ctx.avgBuyIn) || null;
+    let roiPct = null;
+    let profitEuro = r2(netEuro);
+    if (avgBuyIn && (gameKind === 'spin' || gameKind === 'mtt' || gameKind === 'sng')) {
+      // Heurística: 1 buy-in por sesión-archivo si no hay mejor señal; si hay buyIn en manos, usamos suma
+      const invested = buyInEvents ? buyInTotal : avgBuyIn;
+      if (invested > 0) roiPct = Math.round(((profitEuro) / invested) * 1000) / 10;
+    }
+    let dominantStakeTier = null;
+    let bestTierN = -1;
+    Object.keys(stakeTierCount).forEach((k) => {
+      if (stakeTierCount[k] > bestTierN) { bestTierN = stakeTierCount[k]; dominantStakeTier = k; }
+    });
+    let dominantPhase = null;
+    let bestPhaseN = -1;
+    Object.keys(phaseCount).forEach((k) => {
+      if (phaseCount[k] > bestPhaseN) { bestPhaseN = phaseCount[k]; dominantPhase = k; }
+    });
+
     const style = {
       format,
+      formatKey,
+      gameKind,
+      tableMax,
       vpipPct, pfrPct, gap: vpipPct != null && pfrPct != null ? Math.round((vpipPct - pfrPct) * 10) / 10 : null,
       threeBetPct, threeBetOpps, threeBetHits,
       foldToThreeBetPct, foldToThreeBetOpps, foldToThreeBetHits,
+      fourBetPct, fourBetOpps, fourBetHits,
+      foldToFourBetPct, foldToFourBetOpps, foldToFourBetHits,
       stealPct, stealOpps, stealHits,
       foldToStealPct, foldToStealOpps, foldToStealHits,
       squeezePct, squeezeOpps, squeezeHits,
@@ -1907,6 +2161,8 @@
         pfr: sampleTrust(n, 'pfr', ideal),
         threeBet: sampleTrust(threeBetOpps, 'threeBet', ideal),
         foldToThreeBet: sampleTrust(foldToThreeBetOpps, 'foldToThreeBet', ideal),
+        fourBet: sampleTrust(fourBetOpps, 'fourBet', ideal),
+        foldToFourBet: sampleTrust(foldToFourBetOpps, 'foldToFourBet', ideal),
         steal: sampleTrust(stealOpps, 'steal', ideal),
         foldToSteal: sampleTrust(foldToStealOpps, 'foldToSteal', ideal),
         squeeze: sampleTrust(squeezeOpps, 'squeeze', ideal),
@@ -1936,6 +2192,8 @@
       vpipPfr: vpipPfr,
       threeBetPct, threeBetOpps, threeBetHits,
       foldToThreeBetPct, foldToThreeBetOpps, foldToThreeBetHits,
+      fourBetPct, fourBetOpps, fourBetHits,
+      foldToFourBetPct, foldToFourBetOpps, foldToFourBetHits,
       stealPct, stealOpps, stealHits,
       foldToStealPct, foldToStealOpps, foldToStealHits,
       squeezePct, squeezeOpps, squeezeHits,
@@ -1949,7 +2207,13 @@
       wtsdPct, wsdPct, wwsfPct, sawFlopN, wtsdN, wonAtSdN, wonSawFlopN,
       bbPer100, bbPer100Note,
       byPosition: byPositionOut,
-      format, styleIdeal: ideal,
+      format, formatKey, gameKind, tableMax,
+      stakesLabel: (ctx && ctx.stakesLabel) || '',
+      stakeTier: dominantStakeTier,
+      mttPhase: dominantPhase,
+      shortHandedShare: ctx ? ctx.shortHandedShare : 0,
+      profitEuro, avgBuyIn, roiPct,
+      styleIdeal: ideal,
       style, styleAssess,
       grade
     };
@@ -2045,7 +2309,8 @@
   global.Importer = {
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
     heroPlayed, computeStats, heroPreflopHud, heroStyleHud, assessVpipPfr, assessStyleStats,
-    sampleTrust, styleIdealForFormat, inferSessionFormat, drillsFromAssess,
+    sampleTrust, styleIdealForFormat, inferSessionFormat, inferSessionFormatKey, formatKeyToRangeGameType,
+    drillsFromAssess,
     STYLE_IDEAL: STYLE_IDEAL_6MAX, STYLE_IDEAL_6MAX, STYLE_IDEAL_BY_FORMAT, HUD_IDEAL,
     num, cardsFrom,
     buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, recomputeHeroNet,

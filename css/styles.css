@@ -619,6 +619,31 @@ body.range-matrix-open { overflow: hidden; }
   margin-left: 6px;
   vertical-align: middle;
 }
+.badge.session-kind,
+.badge.session-tablemax,
+.badge.session-stakes,
+.badge.session-tier,
+.badge.session-phase {
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+}
+.badge.session-kind-cash { color: var(--green); border-color: rgba(63,185,80,.35); }
+.badge.session-kind-spin { color: var(--gold); border-color: rgba(245,196,81,.4); }
+.badge.session-kind-mtt,
+.badge.session-kind-sng { color: #8ab4ff; border-color: rgba(138,180,255,.4); }
+.stats-format-filter label { display: inline-flex; align-items: center; gap: 8px; }
+.stats-format-filter select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+}
 
 @media (max-width: 960px) {
   body.auth-locked { overflow: auto; }

@@ -2,7 +2,7 @@
 
 > Objetivo: que el importador **detecte el tipo de juego y de mesa**, **persista esa metadata**, y **adapte estadísticas, ideales GTO y coaching** al contexto real de cada sesión. Además, ampliar capacidades útiles para jugadores profesionales / regulares serios.
 >
-> **Estado actual (resumen):** parsers cash NLHE (PokerStars ES/EN+Zoom, Winamax, GGPoker). Torneos/Spins se detectan en parte y **se descartan** (`if (!h.isCash) continue`). El formato `6max`/`9max`/`mtt` se **infiere heurísticamente** tras el parse (`inferSessionFormat`) y ya hay `STYLE_IDEAL_BY_FORMAT`, pero **no hay campos first-class** `gameKind` / `tableMax` / `spin`, y los agregados mezclan formatos.
+> **Estado actual (resumen):** parsers NLHE cash/spins/MTT (PokerStars ES/EN+Zoom, Winamax, GGPoker) con metadata first-class (`gameKind`, `tableMax`, `formatKey`). **P0 + P1 implementados** (IMP-01…22). Agregados filtrables por formato (v8). Pendiente P2/P3.
 >
 > **Relacionado:** `BACKLOG_METRICAS_POKER.md` (STAT-16 ideales por formato), `EPIC_10_PARIDAD_SNOWIE.md` (SN-20/21/35), `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`.
 
@@ -120,43 +120,43 @@ Prioridad: **P0** (cimiento / pedida explícitamente) · **P1** (alto valor pro)
 
 ---
 
-### P0 — Cimiento de detección y metadata (debe ir primero)
+### P0 — Cimiento de detección y metadata ✅ implementado
 
-| ID | Tarea | Esf. | Criterio de aceptación |
-|----|-------|------|------------------------|
-| **IMP-01** | Introducir `gameKind` + `tableMax` + `playersSeated` en parsers PS/Winamax/GG | M | Fixtures con cash 6-max, cash 9-max, tournament y (si hay) spin clasifican bien; tests en `tools/testimport.js` |
-| **IMP-02** | Parsear `N-max` de líneas Table (no ignorar la línea en PS EN) | S | `tableMax` = 6/9/… desde texto; fallback a moda de seats |
-| **IMP-03** | Dejar de **descartar a ciegas** no-cash: flag de política `keepTournaments` / por defecto **importar y etiquetar** | M | Import mixto muestra manos MTT/Spin con badge; contador `nDiscardedByReason` en UI |
-| **IMP-04** | Persistir metadata en `analyzeHand` / `session.context` (hoy se pierden `seats`, flags tournament, platform…) | M | Tras reload/recompute, `inferSessionFormat` / `formatKey` siguen siendo correctos |
-| **IMP-05** | Unificar `formatKey` (`cash6`…) con mapper a ideals + `GTORangesRegistry` | S | Un solo sitio decide rangos e ideales; sin `6max` vs `cash6` divergentes |
-| **IMP-06** | Fix `assignPositions` para 9-max (**incluir LJ**) y 3-max/HU | M | Posiciones estables; stats por posición coherentes en fixtures 9-max |
-| **IMP-07** | UI sesión: chips **Cash · Spin · MTT** + **Max-6 / Max-9 / 3-max** + stakes | S | Visible en lista y detalle; export JSON incluye `context` |
-| **IMP-08** | Adaptar `STYLE_IDEAL_BY_FORMAT` / assess al `formatKey` real (no solo heurística de posiciones) | M | Misma sesión 9-max etiquetada usa bandas 9-max aunque falte UTG2 en sample corto |
-| **IMP-09** | Split de agregados (`stats-aggregate`) por `formatKey` | L | Filtro en pestaña Estadísticas; leaks no mezclan formatos |
-| **IMP-10** | Copy de import: “X manos cash, Y torneo, Z spin descartadas/importadas” | S | Usuario entiende qué pasó (hoy solo “no cash NL”) |
+| ID | Tarea | Esf. | Estado |
+|----|-------|------|--------|
+| **IMP-01** | `gameKind` + `tableMax` + `playersSeated` en parsers | M | ✅ |
+| **IMP-02** | Parsear `N-max` de líneas Table | S | ✅ |
+| **IMP-03** | Conservar cash/spins/MTT etiquetados | M | ✅ |
+| **IMP-04** | Persistir metadata en `analyzeHand` / `session.context` | M | ✅ |
+| **IMP-05** | Unificar `formatKey` con ideals + registry | S | ✅ |
+| **IMP-06** | Fix posiciones 9-max (LJ) / 3-max / HU | M | ✅ |
+| **IMP-07** | UI badges Cash/Spin/MTT + Max-N + stakes | S | ✅ |
+| **IMP-08** | Ideales por `formatKey` real | M | ✅ |
+| **IMP-09** | Split agregados por formato (filtro Stats) | L | ✅ |
+| **IMP-10** | Copy de import con mix / descartes | S | ✅ |
 
-**DoD P0:** Un HH de PokerStars 6-max y otro 9-max, más un MTT, se importan con badges correctos, ideales distintos, y los agregados se pueden filtrar.
+**DoD P0:** cumplido (`tools/testimport.js` + fixtures spin/9max).
 
 ---
 
-### P1 — Spins + MTT usables + coaching pro core
+### P1 — Spins + MTT usables + coaching pro core ✅ implementado
 
-| ID | Tarea | Esf. | Criterio de aceptación |
-|----|-------|------|------------------------|
-| **IMP-11** | Detector **Spin & Go** (PS/GG/Winamax) + `tableMax=3` | M | Fixtures spin → `gameKind:'spin'`; no caen en cash ni mtt genérico |
-| **IMP-12** | Pipeline de análisis **stack-aware** para spins/MTT (binning 8/10/12/15/20/25/40bb) | L | Cada decisión lleva `stackDepthBB`; rangos cortos cuando existan |
-| **IMP-13** | Ideales HUD **spins** (VPIP/PFR/ATS mucho más altos; sample trust estricto) | M | Assess no castiga VPIP 45% en spin 10bb como si fuera cash |
-| **IMP-14** | Ideales / copy **MTT** por fase (early / mid / bubble) heurística por stack medio del field si no hay ICM | L | Badge de fase; coaching distinto |
-| **IMP-15** | KPIs spins/MTT: **ROI%**, ITM%, profit €, buy-ins | M | En `computeStats` si hay buy-in parseado; UI tarjeta resultados |
-| **IMP-16** | Parse buy-in / prize / multiplier en headers spin & tournament | M | `stakes.buyIn`, `multiplier` cuando el HH lo trae |
-| **IMP-17** | **4-Bet %** (+ fold to 4-bet) en HUD héroe | M | Ideal cash ~2–4%; aparece en perfil + IA |
-| **IMP-18** | Tag **stake tier** (micro/low/mid) y bandas coaching opcionales | S | NL2 ≠ NL100 en copy (“en micros el 3-bet light…”) |
-| **IMP-19** | Detección **short-handed efectivo** (`playersSeated` vs `tableMax`) y ajuste RFI/steal ideals | M | Sesión 6-max a 4-handed no usa bandas full 6-max sin aviso |
-| **IMP-20** | Filtros en detalle sesión: por posición, street, clase error, gameKind, stack bin | M | Flujo pro de estudio “solo errores BTN vs 3bet” |
-| **IMP-21** | Payload IA + prompts conscientes de formato (`cash6` vs `spin3` vs `mtt`) | M | Informes no dan consejos de cash 100bb en spin 12bb |
-| **IMP-22** | Export CSV/JSON **completo** (style block + context + por posición) | S | Compatible con Excel / Notion del jugador pro |
+| ID | Tarea | Esf. | Estado |
+|----|-------|------|--------|
+| **IMP-11** | Detector Spin & Go + `tableMax=3` | M | ✅ |
+| **IMP-12** | Stack-aware (`stackDepthBB` / bins en filtros + registry) | L | ✅ (bins en UI; rangos vía `inferFromHand`) |
+| **IMP-13** | Ideales HUD spins | M | ✅ |
+| **IMP-14** | Fase MTT (`early/mid/short/push`) + badge | L | ✅ heurística por stack |
+| **IMP-15** | ROI% / profit € / avg buy-in | M | ✅ (ROI aprox. con buy-in del HH) |
+| **IMP-16** | Parse buy-in / multiplier | M | ✅ |
+| **IMP-17** | 4-Bet % + fold to 4-bet | M | ✅ |
+| **IMP-18** | Stake tier micro/low/mid/high | S | ✅ |
+| **IMP-19** | Short-handed efectivo + ajuste ideals | M | ✅ |
+| **IMP-20** | Filtros sesión: calle / gameKind / stack bin | M | ✅ |
+| **IMP-21** | Payload IA consciente de formato | M | ✅ `coachingNote` |
+| **IMP-22** | Export JSON/CSV ampliado | S | ✅ |
 
-**DoD P1:** Un regular de spins puede importar, ver ROI + perfil con bandas spin, y el coach IA habla el idioma del formato.
+**DoD P1:** cumplido. ITM% fino queda como mejora P2 (requiere resultados de torneo fuera del HH de manos).
 
 ---
 

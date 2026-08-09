@@ -1354,7 +1354,10 @@ window.PT_VS_3BET_JSON = {
   };
 
   const STACK_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
-  const GAME_LABELS = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' };
+  const GAME_LABELS = {
+    cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT',
+    cash2: 'Heads-up', cash3: 'Cash 3-max', spin3: 'Spin & Go'
+  };
   const STACK_LABELS = { bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb', standard: '100bb', short: '40bb', deep: '150bb' };
 
   function rangeStackCategory(stackDepth, stackBB) {
@@ -1712,12 +1715,24 @@ window.PT_VS_3BET_JSON = {
   }
 
   function inferFromHand(hand) {
-    const n = hand && hand.seats ? hand.seats.length : 6;
+    const nSeats = hand && hand.seats ? hand.seats.length : (hand && hand.playersSeated) || 6;
+    const tableMax = (hand && hand.tableMax) || nSeats || 6;
     let gameType = 'cash6';
-    if (hand && hand.isTournament) gameType = 'mtt';
-    else if (n >= 8) gameType = 'cash9';
+    if (hand && hand.formatKey) {
+      const fk = hand.formatKey;
+      if (fk.indexOf('spin') === 0 || fk.indexOf('mtt') === 0) gameType = 'mtt';
+      else if (fk === 'cash9') gameType = 'cash9';
+      else gameType = 'cash6';
+    } else if (hand && (hand.gameKind === 'spin' || hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.isTournament)) {
+      gameType = 'mtt';
+    } else if (tableMax >= 8 || nSeats >= 8) {
+      gameType = 'cash9';
+    }
     let stackDepth = 'standard';
-    if (hand && hand.seats && hand.bb) {
+    const stackBB = hand && hand.stackDepthBB != null ? hand.stackDepthBB : null;
+    if (stackBB != null) {
+      stackDepth = stackLabelFromBB(stackBB);
+    } else if (hand && hand.seats && hand.bb) {
       const bb = hand.bb || 1;
       const stacks = hand.seats.map(function (s) { return (s.stack || 0) / bb; }).filter(function (x) { return x > 0; });
       if (stacks.length) {
@@ -12472,10 +12487,28 @@ window.PT_VS_3BET_JSON = {
         wwsf: st.wwsfPct,
         bbPer100: st.bbPer100,
         format: st.format,
+        formatKey: st.formatKey,
+        gameKind: st.gameKind,
+        tableMax: st.tableMax,
+        stakesLabel: st.stakesLabel,
+        stakeTier: st.stakeTier,
+        mttPhase: st.mttPhase,
+        shortHandedShare: st.shortHandedShare,
+        fourBet: st.fourBetPct,
+        foldTo4bet: st.foldToFourBetPct,
+        roiPct: st.roiPct,
+        profitEuro: st.profitEuro,
         styleNote: st.styleAssess ? st.styleAssess.comment : undefined,
         drills: st.styleAssess && st.styleAssess.drills
           ? st.styleAssess.drills.map(function (d) { return d.label; })
-          : undefined
+          : undefined,
+        coachingNote: st.gameKind === 'spin'
+          ? 'Sesión Spin & Go: usa bandas loose y stack-aware; no aconsejes como cash 100bb.'
+          : (st.gameKind === 'mtt' || st.gameKind === 'sng'
+            ? 'Sesión de torneo: prioriza stack depth / fase; no trates como cash 6-max 100bb.'
+            : (st.formatKey === 'cash9'
+              ? 'Cash 9-max / full ring: rangos más tight que 6-max.'
+              : 'Cash NLHE: bandas 6-max estándar salvo short-handed.'))
       },
       solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=id|mano pos|net|ev|wc'
     };
@@ -14901,11 +14934,13 @@ window.PT_VS_3BET_JSON = {
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 7;
+  var AGG_VERSION = 8;
 
   var STYLE_OPP_KEYS = [
     'threeBetOpps', 'threeBetHits',
     'foldToThreeBetOpps', 'foldToThreeBetHits',
+    'fourBetOpps', 'fourBetHits',
+    'foldToFourBetOpps', 'foldToFourBetHits',
     'stealOpps', 'stealHits',
     'foldToStealOpps', 'foldToStealHits',
     'squeezeOpps', 'squeezeHits',
@@ -14935,6 +14970,8 @@ window.PT_VS_3BET_JSON = {
     return {
       threeBetPct: pct(c.threeBetHits, c.threeBetOpps),
       foldToThreeBetPct: pct(c.foldToThreeBetHits, c.foldToThreeBetOpps),
+      fourBetPct: pct(c.fourBetHits, c.fourBetOpps),
+      foldToFourBetPct: pct(c.foldToFourBetHits, c.foldToFourBetOpps),
       stealPct: pct(c.stealHits, c.stealOpps),
       foldToStealPct: pct(c.foldToStealHits, c.foldToStealOpps),
       squeezePct: pct(c.squeezeHits, c.squeezeOpps),
@@ -15014,6 +15051,11 @@ window.PT_VS_3BET_JSON = {
     var pfrHands = stats.pfrHands != null
       ? stats.pfrHands
       : (stats.pfrPct != null && hands ? Math.round((stats.pfrPct / 100) * hands) : 0);
+    var formatKey = stats.formatKey
+      || (stub.context && stub.context.formatKey)
+      || (stats.format === '9max' ? 'cash9'
+        : (stats.format === 'mtt' ? 'mtt6'
+          : (stats.format === 'spin' ? 'spin3' : 'cash6')));
     var row = {
       week: weekKey(stub.createdAt || Date.now()),
       hands: hands,
@@ -15022,7 +15064,12 @@ window.PT_VS_3BET_JSON = {
       evLoss: round2(Math.abs(stats.evLossBB || 0)),
       netBB: round2(stats.netBB || 0),
       vpipHands: vpipHands,
-      pfrHands: pfrHands
+      pfrHands: pfrHands,
+      formatKey: formatKey,
+      gameKind: stats.gameKind || (stub.context && stub.context.gameKind) || null,
+      tableMax: stats.tableMax != null ? stats.tableMax : (stub.context && stub.context.tableMax),
+      roiPct: stats.roiPct != null ? stats.roiPct : null,
+      profitEuro: stats.profitEuro != null ? stats.profitEuro : null
     };
     addStyleCounters(row, pickStyleCounters(stats));
     return row;
@@ -15064,11 +15111,52 @@ window.PT_VS_3BET_JSON = {
     return map;
   }
 
-  function rebuildSessionsTotal(agg) {
-    var tot = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0, vpipPct: null, pfrPct: null };
+  function formatFamily(formatKey) {
+    var k = formatKey || 'cash6';
+    if (k.indexOf('spin') === 0) return 'spin';
+    if (k.indexOf('mtt') === 0) return 'mtt';
+    if (k === 'cash9') return 'cash9';
+    if (k === 'cash2' || k === 'cash3') return 'shorthand';
+    return 'cash6';
+  }
+
+  function matchesFormatFilter(rowFormatKey, filter) {
+    if (!filter || filter === 'all' || filter === 'Todo') return true;
+    var fam = formatFamily(rowFormatKey);
+    if (filter === fam || filter === rowFormatKey) return true;
+    // aliases UI
+    if (filter === '6max' && fam === 'cash6') return true;
+    if (filter === '9max' && fam === 'cash9') return true;
+    return false;
+  }
+
+  function rebuildSessionsTotal(agg, formatFilter) {
+    var tot = {
+      sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0,
+      vpipHands: 0, pfrHands: 0, vpipPct: null, pfrPct: null,
+      formatFilter: formatFilter || 'all', byFormat: {}
+    };
     addStyleCounters(tot, {});
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
+      var fk = c.formatKey || 'cash6';
+      var fam = formatFamily(fk);
+      if (!tot.byFormat[fam]) {
+        tot.byFormat[fam] = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
+        addStyleCounters(tot.byFormat[fam], {});
+      }
+      var bf = tot.byFormat[fam];
+      bf.sessions += 1;
+      bf.hands += c.hands;
+      bf.decisions += c.decisions;
+      bf.good += c.good;
+      bf.evLoss = round2(bf.evLoss + c.evLoss);
+      bf.netBB = round2(bf.netBB + c.netBB);
+      bf.vpipHands += c.vpipHands || 0;
+      bf.pfrHands += c.pfrHands || 0;
+      addStyleCounters(bf, c);
+
+      if (!matchesFormatFilter(fk, formatFilter)) return;
       tot.sessions += 1;
       tot.hands += c.hands;
       tot.decisions += c.decisions;
@@ -15083,6 +15171,13 @@ window.PT_VS_3BET_JSON = {
     tot.pfrPct = tot.hands ? Math.round((tot.pfrHands / tot.hands) * 1000) / 10 : null;
     var stylePct = stylePctsFromCounters(tot);
     Object.keys(stylePct).forEach(function (k) { tot[k] = stylePct[k]; });
+    Object.keys(tot.byFormat).forEach(function (fam) {
+      var bf = tot.byFormat[fam];
+      bf.vpipPct = bf.hands ? Math.round((bf.vpipHands / bf.hands) * 1000) / 10 : null;
+      bf.pfrPct = bf.hands ? Math.round((bf.pfrHands / bf.hands) * 1000) / 10 : null;
+      var sp = stylePctsFromCounters(bf);
+      Object.keys(sp).forEach(function (k) { bf[k] = sp[k]; });
+    });
     return tot;
   }
 
@@ -15392,9 +15487,14 @@ window.PT_VS_3BET_JSON = {
     sessionTopLeaks: function (st, limit) {
       return leaksToList(ensureAggregates(st).sessionLeaks, limit);
     },
-    sessionsTotal: function (st) {
-      return rebuildSessionsTotal(ensureAggregates(st));
+    sessionsTotal: function (st, formatFilter) {
+      return rebuildSessionsTotal(ensureAggregates(st), formatFilter);
     },
+    sessionsTotalByFormat: function (st) {
+      var tot = rebuildSessionsTotal(ensureAggregates(st), 'all');
+      return tot.byFormat || {};
+    },
+    formatFamily: formatFamily,
     refreshSessionLeaks: function (st, sessions) {
       var agg = ensureAggregates(st);
       if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};
@@ -16930,11 +17030,17 @@ window.PT_VS_3BET_JSON = {
         id: h.id,
         heroCode: h.heroCode,
         heroPos: h.heroPos,
+        gameKind: h.gameKind || null,
+        tableMax: h.tableMax != null ? h.tableMax : null,
+        formatKey: h.formatKey || null,
+        stackDepthBB: h.stackDepthBB != null ? h.stackDepthBB : null,
+        mttPhase: h.mttPhase || null,
         heroNetBB: h.heroNetBB,
         totalEvLoss: h.totalEvLoss,
         accuracy: h.accuracy,
         handScore: h.handScore != null ? h.handScore : null,
         worstClass: h.worstClass,
+        byPosition: undefined,
         decisions: (h.decisions || []).map(function (d) {
           return {
             street: d.street,
@@ -16952,6 +17058,7 @@ window.PT_VS_3BET_JSON = {
       source: 'PokerForgeAI',
       fileName: session.fileName || '',
       hero: session.hero || '',
+      context: session.context || null,
       stats: {
         nHands: st.nHands,
         netBB: st.netBB,
@@ -16961,14 +17068,36 @@ window.PT_VS_3BET_JSON = {
         grade: st.grade,
         vpipPct: st.vpipPct,
         pfrPct: st.pfrPct,
-        bbPer100: st.bbPer100
+        bbPer100: st.bbPer100,
+        format: st.format,
+        formatKey: st.formatKey,
+        gameKind: st.gameKind,
+        tableMax: st.tableMax,
+        stakesLabel: st.stakesLabel,
+        stakeTier: st.stakeTier,
+        mttPhase: st.mttPhase,
+        roiPct: st.roiPct,
+        profitEuro: st.profitEuro,
+        fourBetPct: st.fourBetPct,
+        foldToFourBetPct: st.foldToFourBetPct,
+        threeBetPct: st.threeBetPct,
+        stealPct: st.stealPct,
+        cbetFlopPct: st.cbetFlopPct,
+        af: st.af,
+        afq: st.afq,
+        wtsdPct: st.wtsdPct,
+        wsdPct: st.wsdPct,
+        wwsfPct: st.wwsfPct,
+        byPosition: st.byPosition || null,
+        style: st.style || null,
+        styleAssess: st.styleAssess || null
       },
       hands: hands
     };
   }
 
   function buildCsv(session, opts) {
-    var rows = ['handId,heroCode,heroPos,netBB,evLoss,accuracy,handScore,worstClass,streets'];
+    var rows = ['handId,heroCode,heroPos,gameKind,tableMax,stackBB,netBB,evLoss,accuracy,handScore,worstClass,streets'];
     handRows(session, opts).forEach(function (h) {
       var streets = (h.decisions || []).map(function (d) {
         return (d.street || '') + ':' + (d.chosen || d.action || '') + '>' + (d.best || '') + '(' + (d.class || '') + ',-' + fmt(d.evLoss || 0) + ')';
@@ -16977,6 +17106,9 @@ window.PT_VS_3BET_JSON = {
         escapeCsv(h.id),
         escapeCsv(h.heroCode),
         escapeCsv(h.heroPos),
+        escapeCsv(h.gameKind || ''),
+        escapeCsv(h.tableMax != null ? h.tableMax : ''),
+        escapeCsv(h.stackDepthBB != null ? h.stackDepthBB : ''),
         escapeCsv(fmt(h.heroNetBB)),
         escapeCsv(fmt(h.totalEvLoss)),
         escapeCsv(h.accuracy != null ? h.accuracy : ''),
@@ -23848,11 +23980,74 @@ window.PT_VS_3BET_JSON = {
   }
 
   function resolveStatsFormat(st) {
-    return (st && (st.format || (st.style && st.style.format))) || '6max';
+    if (!st) return '6max';
+    if (st.formatKey && window.Importer && Importer.styleIdealForFormat) {
+      // Preferir clave canónica si hay ideales asociados
+      return st.formatKey;
+    }
+    return st.format || (st.style && st.style.format) || '6max';
   }
 
   function formatDisplayLabel(format) {
-    return ({ '6max': 'cash 6-max', '9max': 'cash 9-max / full ring', mtt: 'torneo (MTT)' })[format] || 'cash 6-max';
+    return ({
+      '6max': 'cash 6-max',
+      cash6: 'cash 6-max',
+      '9max': 'cash 9-max / full ring',
+      cash9: 'cash 9-max / full ring',
+      mtt: 'torneo (MTT)',
+      mtt6: 'torneo (MTT)',
+      mtt9: 'torneo full ring',
+      mtt3: 'torneo corto',
+      spin: 'Spin & Go',
+      spin3: 'Spin & Go',
+      shorthand: 'short-handed',
+      cash2: 'heads-up',
+      cash3: 'cash 3-max'
+    })[format] || 'cash 6-max';
+  }
+
+  function gameKindBadge(kind) {
+    const labels = { cash: 'Cash', spin: 'Spin', mtt: 'MTT', sng: 'SNG', unknown: '?' };
+    const k = kind || 'cash';
+    return '<span class="badge session-kind session-kind-' + escapeHtml(k) + '">' + escapeHtml(labels[k] || k) + '</span>';
+  }
+
+  function tableMaxBadge(tableMax) {
+    if (!tableMax) return '';
+    return '<span class="badge session-tablemax">Max-' + escapeHtml(String(tableMax)) + '</span>';
+  }
+
+  function sessionContextBadgesHtml(session) {
+    const ctx = (session && session.context) || {};
+    const st = (session && session.stats) || {};
+    const kind = ctx.gameKind || st.gameKind || 'cash';
+    const tmax = ctx.tableMax != null ? ctx.tableMax : st.tableMax;
+    const stakes = ctx.stakesLabel || st.stakesLabel || '';
+    let html = gameKindBadge(kind) + ' ' + tableMaxBadge(tmax);
+    if (stakes) html += ' <span class="badge session-stakes">' + escapeHtml(stakes) + '</span>';
+    if (st.stakeTier) html += ' <span class="badge session-tier">' + escapeHtml(st.stakeTier) + '</span>';
+    if (st.mttPhase && (kind === 'mtt' || kind === 'spin' || kind === 'sng')) {
+      html += ' <span class="badge session-phase">' + escapeHtml(st.mttPhase) + '</span>';
+    }
+    return html;
+  }
+
+  function importDiscardSummaryHtml(session) {
+    const reasons = (session && (session.nDiscardedByReason || (session.context && session.context.nDiscardedByReason))) || {};
+    const mix = (session && session.context && session.context.mix) || {};
+    const parts = [];
+    if (mix.cash) parts.push(mix.cash + ' cash');
+    if (mix.spin) parts.push(mix.spin + ' spin');
+    if (mix.mtt) parts.push(mix.mtt + ' MTT');
+    if (mix.sng) parts.push(mix.sng + ' SNG');
+    const dropped = [];
+    Object.keys(reasons).forEach((k) => {
+      if (reasons[k] > 0 && k !== 'noHeroCards') dropped.push(reasons[k] + ' ' + k);
+    });
+    if (session && session.nDiscarded) dropped.push(session.nDiscarded + ' sin cartas héroe');
+    let html = parts.length ? ('Manos: ' + parts.join(', ')) : '';
+    if (dropped.length) html += (html ? ' · ' : '') + 'Descartadas: ' + dropped.join(', ');
+    return html;
   }
 
   function idealForStatsFormat(format) {
@@ -24839,13 +25034,31 @@ window.PT_VS_3BET_JSON = {
       if (withHands.length) PTStatsAggregate.refreshSessionLeaks(st, withHands);
       if (PTStatsAggregate.sessionTopLeaks(st, 5).length > leakCountBefore) Store.persistStats(st);
     }
-    const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st) : null;
+    const statsFormatFilter = (window.__ptStatsFormatFilter != null) ? window.__ptStatsFormatFilter : 'all';
+    const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st, statsFormatFilter) : null;
+    const byFormat = window.PTStatsAggregate && PTStatsAggregate.sessionsTotalByFormat
+      ? PTStatsAggregate.sessionsTotalByFormat(st)
+      : {};
     const trainerWeekly = window.PTStatsAggregate ? PTStatsAggregate.trainerWeeklySeries(st, 8) : [];
     const sessionWeekly = window.PTStatsAggregate ? PTStatsAggregate.sessionWeeklySeries(st, 8) : [];
     const trainerLeaks = trainerLeaksForStats(st);
     const sessionLeaks = window.PTStatsAggregate ? PTStatsAggregate.sessionTopLeaks(st, 5) : [];
     const sessionDerived = buildSessionDerivedStats(sessions);
     const box = $('#stats-content');
+    const formatFilterOpts = [
+      { v: 'all', l: 'Todo' },
+      { v: 'cash6', l: 'Cash 6-max' },
+      { v: 'cash9', l: 'Cash 9-max' },
+      { v: 'spin', l: 'Spins' },
+      { v: 'mtt', l: 'MTT' },
+      { v: 'shorthand', l: 'Short-handed' }
+    ].map((o) => `<option value="${o.v}"${statsFormatFilter === o.v ? ' selected' : ''}>${o.l}${byFormat[o.v] ? ' (' + byFormat[o.v].hands + ')' : ''}</option>`).join('');
+    const formatFilterHtml = `<div class="stats-format-filter card-box" style="margin-bottom:12px">
+      <label class="muted-text">Perfil importado por formato
+        <select id="stats-format-filter">${formatFilterOpts}</select>
+      </label>
+      <span class="muted-text" style="font-size:12px;margin-left:8px">Evita mezclar VPIP de cash con spins/MTT.</span>
+    </div>`;
     const total = st.decisions || 1;
     const accuracy = st.decisions ? Math.round(((st.optima + st.aceptable) / st.decisions) * 100) : 0;
     const byStreet = st.byStreet || emptyByStreet();
@@ -24946,11 +25159,20 @@ window.PT_VS_3BET_JSON = {
     ];
 
     box.innerHTML = `
+      ${formatFilterHtml}
       <div class="stats-redesign">
         ${renderStatsCarousel('trainer', 'Entrenador', 'Tus manos jugadas en el entrenador, separadas del análisis de sesiones importadas.', trainerSlides)}
         ${renderStatsCarousel('sessions', 'Sesiones importadas', 'Resultados y fugas de manos reales importadas, con acceso a la sesión cuando siga disponible.', sessionSlides)}
       </div>`;
     bindStatsView();
+    const fmtSel = $('#stats-format-filter');
+    if (fmtSel && !fmtSel.dataset.bound) {
+      fmtSel.dataset.bound = '1';
+      fmtSel.addEventListener('change', () => {
+        window.__ptStatsFormatFilter = fmtSel.value || 'all';
+        renderStats();
+      });
+    }
 
     const coachHost = $('#stats-coach');
     if (coachHost && window.PTAIReport) {
@@ -25099,11 +25321,11 @@ window.PT_VS_3BET_JSON = {
   const handListFilters = {
     history: { class: '', pos: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
     errors: { class: '', pos: '', street: '', spotType: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
-    sessionHands: { class: '', pos: '', expOp: '', expVal: '', realOp: '', realVal: '' }
+    sessionHands: { class: '', pos: '', street: '', gameKind: '', stackBin: '', expOp: '', expVal: '', realOp: '', realVal: '' }
   };
 
   function emptyHandFilters() {
-    return { class: '', pos: '', street: '', spotType: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' };
+    return { class: '', pos: '', street: '', spotType: '', gameKind: '', stackBin: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' };
   }
 
   function readHandFilters(scope) {
@@ -25143,9 +25365,27 @@ window.PT_VS_3BET_JSON = {
     ).join('');
     const cmpOpts = (sel, val) =>
       `<option value=""${!val ? ' selected' : ''}>—</option><option value="gte"${val === 'gte' ? ' selected' : ''}>≥</option><option value="lte"${val === 'lte' ? ' selected' : ''}>≤</option>`;
+    const streetOpts = scope === 'sessionHands'
+      ? ['', 'preflop', 'flop', 'turn', 'river'].map((st) =>
+        `<option value="${st}"${f.street === st ? ' selected' : ''}>${st || 'Todas las calles'}</option>`
+      ).join('')
+      : '';
+    const kindOpts = scope === 'sessionHands'
+      ? ['', 'cash', 'spin', 'mtt', 'sng'].map((k) =>
+        `<option value="${k}"${f.gameKind === k ? ' selected' : ''}>${k || 'Todo tipo'}</option>`
+      ).join('')
+      : '';
+    const stackOpts = scope === 'sessionHands'
+      ? ['', 'lt15', '15-25', '25-40', '40-100', 'gt100'].map((k) =>
+        `<option value="${k}"${f.stackBin === k ? ' selected' : ''}>${k || 'Todo stack'}</option>`
+      ).join('')
+      : '';
     return `
       <label>Clase<select data-filter-scope="${scope}" data-filter="class">${classOpts}</select></label>
       <label>Posición héroe<select data-filter-scope="${scope}" data-filter="pos">${posOpts}</select></label>
+      ${streetOpts ? `<label>Calle peor fuga<select data-filter-scope="${scope}" data-filter="street">${streetOpts}</select></label>` : ''}
+      ${kindOpts ? `<label>Tipo<select data-filter-scope="${scope}" data-filter="gameKind">${kindOpts}</select></label>` : ''}
+      ${stackOpts ? `<label>Stack<select data-filter-scope="${scope}" data-filter="stackBin">${stackOpts}</select></label>` : ''}
       ${showDate ? `<label>Desde<input type="date" data-filter-scope="${scope}" data-filter="dateFrom" value="${escapeHtml(f.dateFrom || '')}"></label>
       <label>Hasta<input type="date" data-filter-scope="${scope}" data-filter="dateTo" value="${escapeHtml(f.dateTo || '')}"></label>` : ''}
       <label>EV esperado<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
@@ -25196,9 +25436,33 @@ window.PT_VS_3BET_JSON = {
     return true;
   }
 
+  function stackBinOfHand(h) {
+    const bb = h && h.stackDepthBB;
+    if (bb == null || Number.isNaN(Number(bb))) return '';
+    const n = Number(bb);
+    if (n < 15) return 'lt15';
+    if (n < 25) return '15-25';
+    if (n < 40) return '25-40';
+    if (n <= 100) return '40-100';
+    return 'gt100';
+  }
+
+  function worstStreetOfHand(h) {
+    let worst = null;
+    let worstLoss = -1;
+    (h.decisions || []).forEach((d) => {
+      const loss = Number(d.evLoss) || 0;
+      if (loss > worstLoss) { worstLoss = loss; worst = d.street; }
+    });
+    return worst;
+  }
+
   function passesSessionHandFilters(h, f) {
     if (f.class && h.worstClass !== f.class) return false;
     if (f.pos && h.heroPos !== f.pos) return false;
+    if (f.gameKind && (h.gameKind || 'cash') !== f.gameKind) return false;
+    if (f.stackBin && stackBinOfHand(h) !== f.stackBin) return false;
+    if (f.street && worstStreetOfHand(h) !== f.street) return false;
     const realNet = roundSession(h.heroNetBB || 0);
     const expNet = roundSession(realNet - (h.totalEvLoss || 0));
     if (!passesEvCompare(expNet, f.expOp, f.expVal)) return false;
@@ -25291,10 +25555,13 @@ window.PT_VS_3BET_JSON = {
         setProgress(done, total, phase || 'parse', fileLabel);
       });
       if (!parsed.hero || !parsed.hands.length) {
+        const disc = parsed.discardedByReason || {};
+        const discParts = Object.keys(disc).filter((k) => disc[k] > 0).map((k) => disc[k] + ' ' + k);
         return {
           ok: false,
-          error: 'No se reconocieron manos de cash NL en «' + file.name +
-            '». Comprueba que sea PokerStars, Winamax o GGPoker.'
+          error: 'No se reconocieron manos NLHE (cash/spins/torneo) en «' + file.name +
+            '». Comprueba que sea PokerStars, Winamax o GGPoker.' +
+            (discParts.length ? ' Descartadas: ' + discParts.join(', ') + '.' : '')
         };
       }
       const Ent = window.PTEntitlements;
@@ -25360,6 +25627,18 @@ window.PT_VS_3BET_JSON = {
         if (ok.length) {
           msg = '<span style="color:var(--green)">' + ok.length + ' archivo(s) · ' +
             hands.toLocaleString('es-ES') + ' manos analizadas</span>';
+          const mixBits = [];
+          ok.forEach(function (r) {
+            const mix = r.session && r.session.context && r.session.context.mix;
+            if (!mix) return;
+            if (mix.cash) mixBits.push(mix.cash + ' cash');
+            if (mix.spin) mixBits.push(mix.spin + ' spin');
+            if (mix.mtt) mixBits.push(mix.mtt + ' MTT');
+            if (mix.sng) mixBits.push(mix.sng + ' SNG');
+          });
+          if (mixBits.length) {
+            msg += ' <span class="muted-text">(' + escapeHtml(mixBits.join(', ')) + ')</span>';
+          }
           if (fail.length) {
             msg += ' <span style="color:var(--yellow)">· ' + fail.length + ' con error</span>';
           }
@@ -25434,9 +25713,9 @@ window.PT_VS_3BET_JSON = {
       const sampleBadge = isSample(s) ? '<span class="session-sample-badge">Ejemplo</span>' : '';
       return `<div class="record session-card">
         <div class="rec-main">
-          <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span></div>
+          <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span> ${sessionContextBadgesHtml(s)}</div>
           <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands} manos · ${fmtDate(s.createdAt)}</div>
-          <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)} bb</span> · EV perdido -${fmtBB(st.evLossBB)} bb</div>
+          <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)} bb</span> · EV perdido -${fmtBB(st.evLossBB)} bb${st.roiPct != null ? ' · ROI ' + st.roiPct + '%' : ''}</div>
           <div class="rec-sub muted-text" style="font-size:12px">${streetAccSummary(st.accByStreet)}</div>
         </div>
         <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
@@ -25493,10 +25772,18 @@ window.PT_VS_3BET_JSON = {
         || currentSession.stats.threeBetOpps == null || currentSession.stats.style == null
         || currentSession.stats.cbetFlopOpps == null || currentSession.stats.afCalls == null
         || currentSession.stats.sawFlopN == null || currentSession.stats.squeezeOpps == null
-        || currentSession.stats.cbetTurnOpps == null || currentSession.stats.bbPer100 == null);
+        || currentSession.stats.cbetTurnOpps == null || currentSession.stats.bbPer100 == null
+        || currentSession.stats.formatKey == null || currentSession.stats.fourBetOpps == null
+        || !currentSession.context);
     if (needsRecompute) {
       currentSession.hands.forEach((h) => Importer.recomputeHandDecisions(h));
       currentSession.stats = Importer.computeStats(currentSession.hands);
+      if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
+        currentSession.context = PTHHUtils.buildSessionContext(
+          currentSession.hands,
+          currentSession.nDiscardedByReason || null
+        );
+      }
       currentSession.analysisVersion = buildVer;
       await Store.saveSession(currentSession);
     } else {
@@ -25513,9 +25800,21 @@ window.PT_VS_3BET_JSON = {
       }
       if (netFixed && Importer.computeStats) {
         currentSession.stats = Importer.computeStats(currentSession.hands);
+        if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
+          currentSession.context = PTHHUtils.buildSessionContext(
+            currentSession.hands,
+            currentSession.nDiscardedByReason || null
+          );
+        }
         await Store.saveSession(currentSession);
       } else if (needsHudStats) {
         currentSession.stats = Importer.computeStats(currentSession.hands);
+        if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
+          currentSession.context = PTHHUtils.buildSessionContext(
+            currentSession.hands,
+            currentSession.nDiscardedByReason || null
+          );
+        }
         await Store.saveSession(currentSession);
       }
     }
@@ -25534,9 +25833,11 @@ window.PT_VS_3BET_JSON = {
     const accSt = st.accByStreet;
     const box = $('#session-detail-content');
 
+    const fmtKey = resolveStatsFormat(st);
     const statHtml = `
-      <h2>${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter} · ${st.grade.score}/10</span></h2>
+      <h2>${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter} · ${st.grade.score}/10</span> ${sessionContextBadgesHtml(s)}</h2>
       <p class="muted-text">${escapeHtml(st.grade.verdict)}</p>
+      <p class="muted-text" style="font-size:12px">${escapeHtml(importDiscardSummaryHtml(s))} · Formato coaching: <strong>${escapeHtml(formatDisplayLabel(fmtKey))}</strong>${st.shortHandedShare > 20 ? ' · Mesa corta ~' + st.shortHandedShare + '%' : ''}</p>
       <div class="session-export-bar">
         <span class="muted-text" data-i18n="export.session">Exportar informe</span>
         <label class="session-export-errors"><input type="checkbox" id="session-export-errors-only" /> <span data-i18n="export.errorsOnly">Solo manos con fuga</span></label>
@@ -25544,16 +25845,19 @@ window.PT_VS_3BET_JSON = {
         <button type="button" class="btn btn-ghost btn-sm" data-export-session="csv" data-i18n="export.csv">CSV</button>
         <button type="button" class="btn btn-ghost btn-sm" data-export-session="pdf" data-i18n="export.pdf">PDF / Imprimir</button>
       </div>
-      <div class="stats-content" data-style-format="${escapeHtml(resolveStatsFormat(st))}">
-        ${explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), resolveStatsFormat(st))}
-        ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, resolveStatsFormat(st), netCls)}
-        ${explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, resolveStatsFormat(st))}
-        ${explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, resolveStatsFormat(st), 'net-neg')}
+      <div class="stats-content" data-style-format="${escapeHtml(fmtKey)}">
+        ${explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), fmtKey)}
+        ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, fmtKey, netCls)}
+        ${explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, fmtKey)}
+        ${explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, fmtKey, 'net-neg')}
         ${st.avgHandScore != null ? `<div class="stat-card"><div class="big">${fmtHandScore(st.avgHandScore)}<span class="hand-score-over">/10</span></div><div class="lbl">Nota media por mano</div></div>` : ''}
-        ${explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), resolveStatsFormat(st))}
-        ${explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), resolveStatsFormat(st))}
-        ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), resolveStatsFormat(st))}
-        ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), resolveStatsFormat(st))}
+        ${explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), fmtKey)}
+        ${explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), fmtKey)}
+        ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), fmtKey)}
+        ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), fmtKey)}
+        ${st.fourBetPct != null ? explainableStatCard('threeBet', '4-Bet', fmtHudPct(st.fourBetPct), fmtKey) : ''}
+        ${st.roiPct != null ? `<div class="stat-card"><div class="big">${st.roiPct}%</div><div class="lbl">ROI (aprox.)</div></div>` : ''}
+        ${st.profitEuro != null && (st.gameKind === 'spin' || st.gameKind === 'mtt' || st.gameKind === 'sng') ? `<div class="stat-card"><div class="big ${st.profitEuro >= 0 ? 'net-pos' : 'net-neg'}">${st.profitEuro >= 0 ? '+' : ''}${st.profitEuro.toFixed(2)}€</div><div class="lbl">Profit €</div></div>` : ''}
       </div>
       ${sessionHudCommentHtml(st)}
       <div class="card-box" style="margin-top:14px">
