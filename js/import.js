@@ -586,7 +586,7 @@
     const formatKey = hand.formatKey || (U && U.formatKeyFromMeta ? U.formatKeyFromMeta(hand) : 'cash6');
     const seatsCopy = (hand.seats || []).map((s) => ({ seat: s.seat, name: s.name, stack: s.stack }));
 
-    return {
+    const analyzed = {
       id: hand.id, datetime: hand.datetime,
       heroPos, heroCards, heroCode: code,
       board: hand.boardAll, sb: hand.sb, bb: hand.bb,
@@ -624,6 +624,7 @@
       buyInFee: hand.buyInFee != null ? hand.buyInFee : null,
       multiplier: hand.multiplier != null ? hand.multiplier : null,
       ante: hand.ante || 0,
+      straddle: hand.straddle || null,
       rangeContext: hand.rangeContext || null,
       decisions, totalEvLoss: r2(totalEvLoss),
       accuracy, accuracyByStreet: byStreet,
@@ -633,6 +634,8 @@
       nDecisions: decisions.length,
       summary: buildHandTimeline(hand)
     };
+    analyzed.tags = buildHandTags(analyzed);
+    return analyzed;
   }
 
   function playerStreetCommit(hand, player, st) {
@@ -818,9 +821,20 @@
     let raiseCount = 0, lastRaiser = null, potBB = 0, toMatch = hand.bb;
     let limpers = 0, callersAfterRaise = 0, heroHasRaised = false, openRaiser = null;
     const committed = {};
-    if (hand.blinds.sb) committed[hand.blinds.sb] = hand.sb;
-    if (hand.blinds.bb) committed[hand.blinds.bb] = hand.bb;
-    potBB = (hand.sb + hand.bb) / hand.bb;
+    // Ciegas + antes/straddles desde posts (si existen)
+    if (hand.posts && Object.keys(hand.posts).length) {
+      Object.keys(hand.posts).forEach((p) => { committed[p] = hand.posts[p] || 0; });
+    } else {
+      if (hand.blinds && hand.blinds.sb) committed[hand.blinds.sb] = hand.sb;
+      if (hand.blinds && hand.blinds.bb) committed[hand.blinds.bb] = hand.bb;
+      if (hand.ante && hand.seats && hand.seats.length) {
+        hand.seats.forEach((s) => {
+          if (!s || !s.name) return;
+          committed[s.name] = (committed[s.name] || 0) + hand.ante;
+        });
+      }
+    }
+    potBB = Object.values(committed).reduce((s, v) => s + v, 0) / (hand.bb || 1);
 
     for (const a of hand.streets.preflop) {
       const isHero = a.player === hero;
@@ -1162,13 +1176,49 @@
     return out;
   }
 
+  /** Candidatos a héroe (IMP-29): nicks con «Dealt to» en el archivo. */
+  function heroCandidatesFromParsed(parsed) {
+    if (parsed && Array.isArray(parsed.heroCandidates) && parsed.heroCandidates.length) {
+      return parsed.heroCandidates.slice();
+    }
+    const count = {};
+    (parsed && parsed.hands || []).forEach((h) => {
+      if (h && h.hero) count[h.hero] = (count[h.hero] || 0) + 1;
+    });
+    return Object.keys(count).map((n) => ({ name: n, hands: count[n] }))
+      .sort((a, b) => b.hands - a.hands);
+  }
+
+  /** True si hay ≥2 nicks con manos hero (archivo compartido / equipo). */
+  function needsHeroConfirmation(parsed) {
+    const cands = heroCandidatesFromParsed(parsed);
+    if (cands.length < 2) return false;
+    // Segundo nick con al menos 1 mano hero o ≥5% del top
+    const top = cands[0].hands || 0;
+    const second = cands[1].hands || 0;
+    return second >= 1 && (second >= 3 || second / Math.max(1, top) >= 0.05);
+  }
+
+  function handDedupeKey(hand) {
+    if (!hand) return '';
+    const platform = hand.platform || (hand.format && hand.format.platform) || '';
+    const id = hand.id != null ? String(hand.id) : '';
+    return platform + '|' + id;
+  }
+
   function buildSession(parsed, fileName, rawText) {
     const hero = parsed.hero;
+    // Solo filtrar por nick si el usuario confirmó un héroe (IMP-29); si no, conservar todas
+    // las manos con cartas hero (HH mixtos / fixtures con varios Dealt to).
+    const filterHero = !!(parsed && (parsed.heroConfirmed || parsed.filterHero));
     const kept = [];
     let discarded = 0;
     const discardCounts = mergeDiscardCounts(parsed.discardedByReason, null);
     for (const h of parsed.hands) {
-      if (h.hero !== hero) { /* mano de otra mesa/heroe */ }
+      if (filterHero && hero && h.hero && h.hero !== hero) {
+        discarded++;
+        continue;
+      }
       if (!heroPlayed(h)) {
         discarded++;
         discardCounts.noHeroCards++;
@@ -1184,6 +1234,7 @@
   /** Analiza manos en lotes para no bloquear la UI del navegador (10k+ manos). */
   function buildSessionAsync(parsed, fileName, onProgress, rawText) {
     const hero = parsed.hero;
+    const filterHero = !!(parsed && (parsed.heroConfirmed || parsed.filterHero));
     const hands = parsed.hands || [];
     const kept = [];
     let discarded = 0;
@@ -1196,6 +1247,10 @@
           const end = Math.min(i + CHUNK, hands.length);
           for (; i < end; i++) {
             const h = hands[i];
+            if (filterHero && hero && h.hero && h.hero !== hero) {
+              discarded++;
+              continue;
+            }
             if (!heroPlayed(h)) {
               discarded++;
               discardCounts.noHeroCards++;
@@ -1257,6 +1312,9 @@
     foldToThreeBetMin: 45, foldToThreeBetMax: 60,
     fourBetMin: 2, fourBetMax: 4,
     foldToFourBetMin: 45, foldToFourBetMax: 65,
+    limpMin: 0, limpMax: 4,
+    overlimpMin: 0, overlimpMax: 2,
+    isoLimpMin: 40, isoLimpMax: 70,
     stealMin: 30, stealMax: 40,
     foldToStealMin: 55, foldToStealMax: 65,
     squeezeMin: 7, squeezeMax: 9,
@@ -1264,6 +1322,7 @@
     foldToCbetFlopMin: 45, foldToCbetFlopMax: 55,
     cbetTurnMin: 40, cbetTurnMax: 60,
     cbetRiverMin: 30, cbetRiverMax: 55,
+    delayedCbetMin: 25, delayedCbetMax: 50,
     afMin: 2, afMax: 3.5,
     afqMin: 35, afqMax: 45,
     wtsdMin: 27, wtsdMax: 32,
@@ -1276,6 +1335,9 @@
       foldToThreeBet: { low: 20, ok: 50, good: 200 },
       fourBet: { low: 15, ok: 40, good: 150 },
       foldToFourBet: { low: 10, ok: 30, good: 100 },
+      limp: { low: 30, ok: 80, good: 200 },
+      overlimp: { low: 15, ok: 40, good: 120 },
+      isoLimp: { low: 15, ok: 40, good: 120 },
       steal: { low: 30, ok: 80, good: 200 },
       foldToSteal: { low: 20, ok: 50, good: 150 },
       squeeze: { low: 20, ok: 50, good: 200 },
@@ -1283,6 +1345,7 @@
       foldToCbetFlop: { low: 20, ok: 50, good: 200 },
       cbetTurn: { low: 15, ok: 40, good: 150 },
       cbetRiver: { low: 10, ok: 30, good: 100 },
+      delayedCbet: { low: 15, ok: 40, good: 120 },
       af: { low: 30, ok: 80, good: 200 },
       wtsd: { low: 30, ok: 80, good: 200 },
       wsd: { low: 20, ok: 50, good: 150 },
@@ -1358,6 +1421,9 @@
   function emptyHeroStyleHud() {
     return {
       vpip: false, pfr: false,
+      limpOpp: false, limp: false,
+      overlimpOpp: false, overlimp: false,
+      isoLimpOpp: false, isoLimp: false,
       threeBetOpp: false, threeBet: false,
       foldToThreeBetOpp: false, foldToThreeBet: false,
       fourBetOpp: false, fourBet: false,
@@ -1371,6 +1437,7 @@
       foldToCbetFlopOpp: false, foldToCbetFlop: false,
       cbetTurnOpp: false, cbetTurn: false,
       cbetRiverOpp: false, cbetRiver: false,
+      delayedCbetOpp: false, delayedCbet: false,
       sawFlop: false, wentToSd: false, wonAtSd: false, wonWhenSawFlop: false,
       afBets: 0, afRaises: 0, afCalls: 0, afChecks: 0,
       heroPos: null
@@ -1506,6 +1573,18 @@
       if (!a) continue;
       if (a.player === hero) {
         if (a.type === 'raise' || a.type === 'bet' || a.type === 'call' || a.type === 'fold' || a.type === 'check') {
+          // Limp / overlimp / iso: acción voluntaria preflop sin raise previo (BB check no cuenta)
+          if (raiseCount === 0 && !(heroPos === 'BB' && a.type === 'check') && !(heroPos === 'BB' && a.type === 'fold')) {
+            if (limpers === 0) {
+              out.limpOpp = true;
+              if (a.type === 'call') out.limp = true;
+            } else {
+              out.overlimpOpp = true;
+              out.isoLimpOpp = true;
+              if (a.type === 'call') out.overlimp = true;
+              if (a.type === 'raise' || a.type === 'bet') out.isoLimp = true;
+            }
+          }
           if (raiseCount === 0 && limpers === 0 && STEAL_POS[heroPos]) {
             out.stealOpp = true;
             if (a.type === 'raise' || a.type === 'bet') out.steal = true;
@@ -1564,6 +1643,7 @@
 
     const preflopLastRaiser = lastRaiser;
     const flop = streets.flop || [];
+    let heroCheckedFlopAsPfr = false;
     if (flop.length && preflopLastRaiser) {
       let facedBet = false;
       let cbetFromPfr = false;
@@ -1578,6 +1658,7 @@
           if (preflopLastRaiser === hero && !facedBet && !heroCbetResolved) {
             out.cbetFlopOpp = true;
             if (a.type === 'bet' || a.type === 'raise') out.cbetFlop = true;
+            if (a.type === 'check') heroCheckedFlopAsPfr = true;
             if (heroIp) {
               out.cbetFlopIpOpp = true;
               if (a.type === 'bet' || a.type === 'raise') out.cbetFlopIp = true;
@@ -1600,7 +1681,8 @@
       }
     }
 
-    function walkDelayedCbet(streetActs, prevCbetHit, oppKey, hitKey) {
+    // Barrel = c-bet en calle previa acertado; delayed = PFR checkeó flop y lidera turn
+    function walkBarrel(streetActs, prevCbetHit, oppKey, hitKey) {
       if (!prevCbetHit || !(streetActs || []).length) return;
       let facedBet = false;
       let resolved = false;
@@ -1617,8 +1699,25 @@
         if (a.type === 'bet' || a.type === 'raise') facedBet = true;
       }
     }
-    walkDelayedCbet(streets.turn || [], out.cbetFlop, 'cbetTurnOpp', 'cbetTurn');
-    walkDelayedCbet(streets.river || [], out.cbetTurn, 'cbetRiverOpp', 'cbetRiver');
+    walkBarrel(streets.turn || [], out.cbetFlop, 'cbetTurnOpp', 'cbetTurn');
+    walkBarrel(streets.river || [], out.cbetTurn, 'cbetRiverOpp', 'cbetRiver');
+
+    if (heroCheckedFlopAsPfr && preflopLastRaiser === hero && (streets.turn || []).length) {
+      let facedBet = false;
+      let resolved = false;
+      for (let i = 0; i < streets.turn.length; i++) {
+        const a = streets.turn[i];
+        if (!a) continue;
+        if (a.player === hero && !resolved) {
+          if (!facedBet) {
+            out.delayedCbetOpp = true;
+            if (a.type === 'bet' || a.type === 'raise') out.delayedCbet = true;
+          }
+          resolved = true;
+        }
+        if (a.type === 'bet' || a.type === 'raise') facedBet = true;
+      }
+    }
 
     ['flop', 'turn', 'river'].forEach((stName) => {
       (streets[stName] || []).forEach((a) => {
@@ -1786,6 +1885,10 @@
     'Fold to 3-Bet': { low: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Defender vs 3-bet' }, high: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Defender vs 3-bet' } },
     '4-Bet': { low: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Practicar 4-bets' }, high: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Afinar 4-bets' } },
     'Fold to 4-Bet': { low: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'vs 4-bet' }, high: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'vs 4-bet' } },
+    'Limp': { low: { scenario: 'rfi', practiceStreet: 'preflop', label: 'RFI en vez de limp' }, high: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Raise or fold' } },
+    'Overlimp': { low: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Iso vs limpers' }, high: { scenario: 'rfi', practiceStreet: 'preflop', label: 'No overlimpear' } },
+    'Iso-limp': { low: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Aislar limpers' }, high: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Iso selectivo' } },
+    'Delayed C-Bet': { low: { scenario: 'rfi', practiceStreet: 'flop', label: 'Delayed c-bet' }, high: { scenario: 'rfi', practiceStreet: 'flop', label: 'Delayed selectivo' } },
     'Steal': { low: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Robar blinds (RFI late)' }, high: { scenario: 'rfi', practiceStreet: 'preflop', label: 'RFI más selectivo' } },
     'Fold to Steal': { low: { scenario: '3bet', practiceStreet: 'preflop', label: 'Defensa de blinds' }, high: { scenario: '3bet', practiceStreet: 'preflop', label: 'Defensa de blinds' } },
     'Squeeze': { low: { scenario: 'squeeze', practiceStreet: 'preflop', label: 'Practicar squeezes' }, high: { scenario: 'squeeze', practiceStreet: 'preflop', label: 'Squeezes selectivos' } },
@@ -1797,9 +1900,10 @@
     'WTSD': { low: { scenario: 'rfi', practiceStreet: 'flop', label: 'Llegar a showdown' }, high: { scenario: 'rfi', practiceStreet: 'flop', label: 'Foldear peores manos' } }
   };
 
-  function drillsFromAssess(lines) {
+  function drillsFromAssess(lines, formatKey) {
     const drills = [];
     const seen = {};
+    const gameType = formatKeyToRangeGameType(formatKey || (STYLE_IDEAL && STYLE_IDEAL._formatKey) || 'cash6');
     (lines || []).forEach((l) => {
       if (!l || (l.status !== 'low' && l.status !== 'high' && l.status !== 'gap')) return;
       const map = STYLE_DRILL_MAP[l.key];
@@ -1814,6 +1918,7 @@
         handRange: 'playable',
         villainLevel: 'fish',
         liveAdvisor: true,
+        gameType: gameType,
         reason: l.key + ' ' + l.status
       });
     });
@@ -1825,6 +1930,7 @@
     if (!style) {
       return { status: 'unknown', label: 'Sin datos', comment: 'Sin métricas de estilo.', lines: [], drills: [], sample: {}, ideal: I };
     }
+    const formatKey = (style && (style.formatKey || style.format)) || null;
     const lines = [];
     const s = style;
     const samp = s.sample || {};
@@ -1843,6 +1949,18 @@
     lines.push(assessMetricLine('Fold to 4-Bet', s.foldToFourBetPct, I.foldToFourBetMin, I.foldToFourBetMax, samp.foldToFourBet, {
       low: 'Llamas/shippeas de más vs 4-bet: foldea peores bluffcatchers.',
       high: 'Overfold vs 4-bet: defiende más combos de valor.'
+    }));
+    lines.push(assessMetricLine('Limp', s.limpPct, I.limpMin, I.limpMax, samp.limp, {
+      low: 'Casi no limpeas (bien en regs).',
+      high: 'Demasiados limps: prefer raise or fold, sobre todo EP/MP.'
+    }));
+    lines.push(assessMetricLine('Overlimp', s.overlimpPct, I.overlimpMin, I.overlimpMax, samp.overlimp, {
+      low: 'Pocos overlimps.',
+      high: 'Overlimpeas: aísla o foldea en vez de pagar limps.'
+    }));
+    lines.push(assessMetricLine('Iso-limp', s.isoLimpPct, I.isoLimpMin, I.isoLimpMax, samp.isoLimp, {
+      low: 'Aísla poco vs limpers: añade value + blockers.',
+      high: 'Iso demasiado wide: reduce basura OOP.'
     }));
     lines.push(assessMetricLine('Steal', s.stealPct, I.stealMin, I.stealMax, samp.steal, {
       low: 'Roba más desde CO/BTN/SB cuando llega folded to you.',
@@ -1871,6 +1989,10 @@
     lines.push(assessMetricLine('C-Bet river', s.cbetRiverPct, I.cbetRiverMin, I.cbetRiverMax, samp.cbetRiver, {
       low: 'Pocos rivers como aggressor: value fino + bluffs con blockers.',
       high: 'Overbarrel river: reduce bluffs sin nut advantage.'
+    }));
+    lines.push(assessMetricLine('Delayed C-Bet', s.delayedCbetPct, I.delayedCbetMin, I.delayedCbetMax, samp.delayedCbet, {
+      low: 'Poco delayed tras check flop: añade leads en turn favorables.',
+      high: 'Demasiados delayed: elige boards donde el check-raise range del villano sea estrecho.'
     }));
     lines.push(assessMetricLine('AF', s.af, I.afMin, I.afMax, samp.af, {
       low: 'Pasivo postflop: sustituye calls por bets/raises con value y bluffs.',
@@ -1910,19 +2032,75 @@
       style.gap != null && style.gap > (I.gapMax || 8)
         ? [{ key: 'Steal', status: 'low', text: 'gap' }]
         : []
-    ));
+    ), formatKey);
     return {
       status,
       label,
       comment: commentParts.join(' '),
       lines,
       drills,
-      ideal: I
+      ideal: I,
+      formatKey: formatKey || null
     };
   }
 
   function emptyPosBucket() {
     return { hands: 0, vpip: 0, pfr: 0, threeBetOpps: 0, threeBetHits: 0, stealOpps: 0, stealHits: 0 };
+  }
+
+  /** IC aproximado 95% para bb/100 (normal, SE = sd/sqrt(n) * 100). */
+  function computeBbPer100CI(handNets) {
+    const arr = handNets || [];
+    const n = arr.length;
+    if (n < 30) return null;
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += arr[i];
+    const mean = sum / n;
+    let ss = 0;
+    for (let i = 0; i < n; i++) {
+      const d = arr[i] - mean;
+      ss += d * d;
+    }
+    const sd = Math.sqrt(ss / Math.max(1, n - 1));
+    const se100 = (sd / Math.sqrt(n)) * 100;
+    const mean100 = mean * 100;
+    const z = 1.96;
+    return {
+      mean: Math.round(mean100 * 10) / 10,
+      se: Math.round(se100 * 10) / 10,
+      low: Math.round((mean100 - z * se100) * 10) / 10,
+      high: Math.round((mean100 + z * se100) * 10) / 10,
+      n: n
+    };
+  }
+
+  /** Tags ligeros tipo estudio (IMP-26). */
+  function buildHandTags(hand, hud) {
+    const tags = [];
+    const h = hand || {};
+    const style = hud || heroStyleHud(h);
+    const hero = h.hero;
+    const pos = h.heroPos || (h.positions && hero && h.positions[hero]) || null;
+    const pre = ((h.streets && h.streets.preflop) || []);
+    let raises = 0;
+    pre.forEach((a) => { if (a && (a.type === 'raise' || a.type === 'bet')) raises++; });
+    const ip = hero ? heroIsInPositionPostflop(h, hero) : null;
+    if (raises >= 2) tags.push(ip ? '3bet pot IP' : '3bet pot OOP');
+    else if (raises === 1) tags.push(ip ? 'SRP IP' : 'SRP OOP');
+    else if (style.limp || style.overlimp) tags.push('limped pot');
+    if (style.isoLimp) tags.push('iso limp');
+    if (style.squeeze) tags.push('squeeze');
+    if (style.cbetFlopOpp && !style.cbetFlop) tags.push('miss cbet flop');
+    if (style.foldToCbetFlop) tags.push('fold to cbet');
+    if (style.delayedCbet) tags.push('delayed cbet');
+    if (style.cbetTurn) tags.push('barrel turn');
+    if (h.shortHanded) tags.push('short-handed');
+    if (h.gameKind && h.gameKind !== 'cash') tags.push(h.gameKind);
+    if (h.mttPhase) tags.push('stack:' + h.mttPhase);
+    if (pos) tags.push('pos:' + pos);
+    // unique
+    const seen = {};
+    return tags.filter((t) => { if (seen[t]) return false; seen[t] = true; return true; });
   }
 
   function computeStats(hands) {
@@ -1956,11 +2134,16 @@
     let stealOpps = 0, stealHits = 0;
     let foldToStealOpps = 0, foldToStealHits = 0;
     let squeezeOpps = 0, squeezeHits = 0;
+    let limpOpps = 0, limpHits = 0;
+    let overlimpOpps = 0, overlimpHits = 0;
+    let isoLimpOpps = 0, isoLimpHits = 0;
+    let delayedCbetOpps = 0, delayedCbetHits = 0;
     let netEuro = 0;
     let buyInTotal = 0;
     let buyInEvents = 0;
     const stakeTierCount = {};
     const phaseCount = {};
+    const byStakesMap = {};
     let cbetFlopOpps = 0, cbetFlopHits = 0;
     let cbetFlopIpOpps = 0, cbetFlopIpHits = 0;
     let cbetFlopOopOpps = 0, cbetFlopOopHits = 0;
@@ -1970,6 +2153,7 @@
     let afBets = 0, afRaises = 0, afCalls = 0, afChecks = 0;
     let sawFlopN = 0, wtsdN = 0, wonAtSdN = 0, wonSawFlopN = 0;
     const byPosition = {};
+    const handNets = [];
     const bbRef = hands[0] && hands[0].bb ? hands[0].bb : 0.05;
     const street = { preflop: { n: 0, good: 0 }, flop: { n: 0, good: 0 }, turn: { n: 0, good: 0 }, river: { n: 0, good: 0 } };
     const dist = { optima: 0, aceptable: 0, imprecisa: 0, error: 0 };
@@ -1987,6 +2171,7 @@
         handScoreN++;
       }
       netBB += h.heroNetBB;
+      handNets.push(Number(h.heroNetBB) || 0);
       evLoss += h.totalEvLoss;
       if (h.bb) netEuro += (h.heroNetBB || 0) * h.bb;
       if (h.buyIn != null) {
@@ -1995,9 +2180,16 @@
       }
       if (h.stakeTier) stakeTierCount[h.stakeTier] = (stakeTierCount[h.stakeTier] || 0) + 1;
       if (h.mttPhase) phaseCount[h.mttPhase] = (phaseCount[h.mttPhase] || 0) + 1;
+      const stakeKey = h.stakesLabel || (h.bb ? ((h.currency || '€') + (h.sb || h.bb / 2) + '/' + (h.currency || '€') + h.bb) : 'unknown');
+      if (!byStakesMap[stakeKey]) byStakesMap[stakeKey] = { hands: 0, netBB: 0, stakeTier: h.stakeTier || null };
+      byStakesMap[stakeKey].hands++;
+      byStakesMap[stakeKey].netBB += Number(h.heroNetBB) || 0;
       const hud = heroStyleHud(h);
       if (hud.vpip) vpipN++;
       if (hud.pfr) pfrN++;
+      if (hud.limpOpp) { limpOpps++; if (hud.limp) limpHits++; }
+      if (hud.overlimpOpp) { overlimpOpps++; if (hud.overlimp) overlimpHits++; }
+      if (hud.isoLimpOpp) { isoLimpOpps++; if (hud.isoLimp) isoLimpHits++; }
       if (hud.threeBetOpp) { threeBetOpps++; if (hud.threeBet) threeBetHits++; }
       if (hud.foldToThreeBetOpp) { foldToThreeBetOpps++; if (hud.foldToThreeBet) foldToThreeBetHits++; }
       if (hud.fourBetOpp) { fourBetOpps++; if (hud.fourBet) fourBetHits++; }
@@ -2011,6 +2203,7 @@
       if (hud.foldToCbetFlopOpp) { foldToCbetFlopOpps++; if (hud.foldToCbetFlop) foldToCbetFlopHits++; }
       if (hud.cbetTurnOpp) { cbetTurnOpps++; if (hud.cbetTurn) cbetTurnHits++; }
       if (hud.cbetRiverOpp) { cbetRiverOpps++; if (hud.cbetRiver) cbetRiverHits++; }
+      if (hud.delayedCbetOpp) { delayedCbetOpps++; if (hud.delayedCbet) delayedCbetHits++; }
       afBets += hud.afBets;
       afRaises += hud.afRaises;
       afCalls += hud.afCalls;
@@ -2070,6 +2263,9 @@
     const pfrPct = n ? Math.round((pfrN / n) * 1000) / 10 : null;
     const vpipPfr = assessVpipPfr(vpipPct, pfrPct, n, ideal);
 
+    const limpPct = pctFrom(limpHits, limpOpps);
+    const overlimpPct = pctFrom(overlimpHits, overlimpOpps);
+    const isoLimpPct = pctFrom(isoLimpHits, isoLimpOpps);
     const threeBetPct = pctFrom(threeBetHits, threeBetOpps);
     const foldToThreeBetPct = pctFrom(foldToThreeBetHits, foldToThreeBetOpps);
     const fourBetPct = pctFrom(fourBetHits, fourBetOpps);
@@ -2083,6 +2279,7 @@
     const foldToCbetFlopPct = pctFrom(foldToCbetFlopHits, foldToCbetFlopOpps);
     const cbetTurnPct = pctFrom(cbetTurnHits, cbetTurnOpps);
     const cbetRiverPct = pctFrom(cbetRiverHits, cbetRiverOpps);
+    const delayedCbetPct = pctFrom(delayedCbetHits, delayedCbetOpps);
     const afAgg = afBets + afRaises;
     const afActions = afAgg + afCalls + afChecks;
     const af = afCalls > 0 ? Math.round((afAgg / afCalls) * 100) / 100
@@ -2092,9 +2289,24 @@
     const wsdPct = pctFrom(wonAtSdN, wtsdN);
     const wwsfPct = pctFrom(wonSawFlopN, sawFlopN);
     const bbPer100 = n ? Math.round((actualNet / n) * 1000) / 10 : null;
+    const bbPer100CI = computeBbPer100CI(handNets);
     const bbPer100Note = n < 20000
       ? 'Varianza alta con menos de 20k manos; interpreta bb/100 con cautela.'
-      : null;
+        + (bbPer100CI ? (' IC95%: ' + (bbPer100CI.low >= 0 ? '+' : '') + bbPer100CI.low
+          + ' … ' + (bbPer100CI.high >= 0 ? '+' : '') + bbPer100CI.high + ' bb/100.') : '')
+      : (bbPer100CI ? ('IC95% ≈ ' + (bbPer100CI.low >= 0 ? '+' : '') + bbPer100CI.low
+        + ' … ' + (bbPer100CI.high >= 0 ? '+' : '') + bbPer100CI.high + ' bb/100.') : null);
+    const evLossPer100 = n ? Math.round((evLostBB / n) * 1000) / 10 : null;
+    const byStakes = Object.keys(byStakesMap).map((k) => {
+      const b = byStakesMap[k];
+      return {
+        stakesLabel: k,
+        stakeTier: b.stakeTier,
+        hands: b.hands,
+        netBB: r2(b.netBB),
+        bbPer100: b.hands ? Math.round((b.netBB / b.hands) * 1000) / 10 : null
+      };
+    }).sort((a, b) => b.hands - a.hands);
 
     const byPositionOut = {};
     POS_ORDER.concat(Object.keys(byPosition)).forEach((pos) => {
@@ -2139,6 +2351,9 @@
       gameKind,
       tableMax,
       vpipPct, pfrPct, gap: vpipPct != null && pfrPct != null ? Math.round((vpipPct - pfrPct) * 10) / 10 : null,
+      limpPct, limpOpps, limpHits,
+      overlimpPct, overlimpOpps, overlimpHits,
+      isoLimpPct, isoLimpOpps, isoLimpHits,
       threeBetPct, threeBetOpps, threeBetHits,
       foldToThreeBetPct, foldToThreeBetOpps, foldToThreeBetHits,
       fourBetPct, fourBetOpps, fourBetHits,
@@ -2152,13 +2367,18 @@
       foldToCbetFlopPct, foldToCbetFlopOpps, foldToCbetFlopHits,
       cbetTurnPct, cbetTurnOpps, cbetTurnHits,
       cbetRiverPct, cbetRiverOpps, cbetRiverHits,
+      delayedCbetPct, delayedCbetOpps, delayedCbetHits,
       af, afq, afBets, afRaises, afCalls, afChecks,
       wtsdPct, wsdPct, wwsfPct, sawFlopN, wtsdN, wonAtSdN, wonSawFlopN,
-      bbPer100, bbPer100Note,
+      bbPer100, bbPer100Note, bbPer100CI, evLossPer100,
       byPosition: byPositionOut,
+      byStakes,
       sample: {
         vpip: sampleTrust(n, 'vpip', ideal),
         pfr: sampleTrust(n, 'pfr', ideal),
+        limp: sampleTrust(limpOpps, 'limp', ideal),
+        overlimp: sampleTrust(overlimpOpps, 'overlimp', ideal),
+        isoLimp: sampleTrust(isoLimpOpps, 'isoLimp', ideal),
         threeBet: sampleTrust(threeBetOpps, 'threeBet', ideal),
         foldToThreeBet: sampleTrust(foldToThreeBetOpps, 'foldToThreeBet', ideal),
         fourBet: sampleTrust(fourBetOpps, 'fourBet', ideal),
@@ -2170,6 +2390,7 @@
         foldToCbetFlop: sampleTrust(foldToCbetFlopOpps, 'foldToCbetFlop', ideal),
         cbetTurn: sampleTrust(cbetTurnOpps, 'cbetTurn', ideal),
         cbetRiver: sampleTrust(cbetRiverOpps, 'cbetRiver', ideal),
+        delayedCbet: sampleTrust(delayedCbetOpps, 'delayedCbet', ideal),
         af: sampleTrust(afActions, 'af', ideal),
         wtsd: sampleTrust(sawFlopN, 'wtsd', ideal),
         wsd: sampleTrust(wtsdN, 'wsd', ideal),
@@ -2190,6 +2411,9 @@
       vpipPct, pfrPct, vpipHands: vpipN, pfrHands: pfrN,
       vpipPfrGap: style.gap,
       vpipPfr: vpipPfr,
+      limpPct, limpOpps, limpHits,
+      overlimpPct, overlimpOpps, overlimpHits,
+      isoLimpPct, isoLimpOpps, isoLimpHits,
       threeBetPct, threeBetOpps, threeBetHits,
       foldToThreeBetPct, foldToThreeBetOpps, foldToThreeBetHits,
       fourBetPct, fourBetOpps, fourBetHits,
@@ -2203,10 +2427,12 @@
       foldToCbetFlopPct, foldToCbetFlopOpps, foldToCbetFlopHits,
       cbetTurnPct, cbetTurnOpps, cbetTurnHits,
       cbetRiverPct, cbetRiverOpps, cbetRiverHits,
+      delayedCbetPct, delayedCbetOpps, delayedCbetHits,
       af, afq, afBets, afRaises, afCalls, afChecks,
       wtsdPct, wsdPct, wwsfPct, sawFlopN, wtsdN, wonAtSdN, wonSawFlopN,
-      bbPer100, bbPer100Note,
+      bbPer100, bbPer100Note, bbPer100CI, evLossPer100,
       byPosition: byPositionOut,
+      byStakes,
       format, formatKey, gameKind, tableMax,
       stakesLabel: (ctx && ctx.stakesLabel) || '',
       stakeTier: dominantStakeTier,
@@ -2310,7 +2536,8 @@
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
     heroPlayed, computeStats, heroPreflopHud, heroStyleHud, assessVpipPfr, assessStyleStats,
     sampleTrust, styleIdealForFormat, inferSessionFormat, inferSessionFormatKey, formatKeyToRangeGameType,
-    drillsFromAssess,
+    drillsFromAssess, buildHandTags, computeBbPer100CI,
+    heroCandidatesFromParsed, needsHeroConfirmation, handDedupeKey,
     STYLE_IDEAL: STYLE_IDEAL_6MAX, STYLE_IDEAL_6MAX, STYLE_IDEAL_BY_FORMAT, HUD_IDEAL,
     num, cardsFrom,
     buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, recomputeHeroNet,

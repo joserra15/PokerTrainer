@@ -135,7 +135,18 @@
         hand.posts[m[1].trim()] = (hand.posts[m[1].trim()] || 0) + num(m[3]);
         continue;
       }
-      if (/^(.+?): posts the ante /i.test(ln) || /^(.+?): straddle /i.test(ln)) continue;
+      if ((m = ln.match(/^(.+?): posts the ante ((?:[€$£]|â‚¬)?)([\d.,]+)/i))) {
+        const who = m[1].trim();
+        hand.posts[who] = (hand.posts[who] || 0) + num(m[3]);
+        hand.ante = hand.ante || num(m[3]);
+        continue;
+      }
+      if ((m = ln.match(/^(.+?): straddle[s]? ((?:[€$£]|â‚¬)?)([\d.,]+)/i))) {
+        const who = m[1].trim();
+        hand.posts[who] = (hand.posts[who] || 0) + num(m[3]);
+        hand.straddle = { player: who, amount: num(m[3]) };
+        continue;
+      }
 
       if (/^\*\*\* HOLE CARDS \*\*\*/i.test(ln) || /^\*\*\* PRE-FLOP \*\*\*/i.test(ln)) {
         street = 'preflop';
@@ -247,12 +258,15 @@
     }
     let hero = null;
     let best = -1;
-    for (const n in heroCount) {
-      if (heroCount[n] > best) { best = heroCount[n]; hero = n; }
+    const heroCandidates = Object.keys(heroCount).map((n) => ({ name: n, hands: heroCount[n] }))
+      .sort((a, b) => b.hands - a.hands);
+    for (let i = 0; i < heroCandidates.length; i++) {
+      if (heroCandidates[i].hands > best) { best = heroCandidates[i].hands; hero = heroCandidates[i].name; }
     }
     return {
       fileName: fileName || 'ggpoker.txt',
       hero,
+      heroCandidates,
       hands,
       discardedByReason,
       format: {

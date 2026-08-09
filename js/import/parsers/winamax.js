@@ -125,6 +125,11 @@
 
       if (/^\*\*\* ANTE\/BLINDS \*\*\*/.test(ln)) { street = 'preflop'; continue; }
 
+      if ((m = ln.match(/^(.+?) posts ante ([\d.,]+)/i)) || (m = ln.match(/^(.+?) posts the ante ([\d.,]+)/i))) {
+        hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+        hand.ante = hand.ante || num(m[2]);
+        continue;
+      }
       if ((m = ln.match(/^(.+?) posts small blind ([\d.,]+)/))) {
         hand.blinds.sb = m[1];
         hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
@@ -133,6 +138,11 @@
       if ((m = ln.match(/^(.+?) posts big blind ([\d.,]+)/))) {
         hand.blinds.bb = m[1];
         hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+        continue;
+      }
+      if ((m = ln.match(/^(.+?) posts straddle ([\d.,]+)/i))) {
+        hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+        hand.straddle = { player: m[1], amount: num(m[2]) };
         continue;
       }
 
@@ -230,12 +240,15 @@
     }
     let hero = null;
     let best = -1;
-    for (const n in heroCount) {
-      if (heroCount[n] > best) { best = heroCount[n]; hero = n; }
+    const heroCandidates = Object.keys(heroCount).map((n) => ({ name: n, hands: heroCount[n] }))
+      .sort((a, b) => b.hands - a.hands);
+    for (let i = 0; i < heroCandidates.length; i++) {
+      if (heroCandidates[i].hands > best) { best = heroCandidates[i].hands; hero = heroCandidates[i].name; }
     }
     return {
       fileName: fileName || 'winamax.txt',
       hero,
+      heroCandidates,
       hands,
       discardedByReason,
       format: {

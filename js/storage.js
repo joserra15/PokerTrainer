@@ -695,8 +695,69 @@
     writeStats(st);
   }
 
+  function sessionHandKey(hand) {
+    if (global.Importer && global.Importer.handDedupeKey) return global.Importer.handDedupeKey(hand);
+    if (!hand) return '';
+    return String(hand.platform || '') + '|' + String(hand.id != null ? hand.id : '');
+  }
+
+  /**
+   * IMP-30: si reimportas el mismo archivo (o solapa manos), fusiona y deduplica
+   * por platform+hand.id conservando el id de sesión previo.
+   */
+  async function mergeSessionIfDuplicate(session) {
+    if (!session || !session.hands || !session.hands.length || !session.fileName) return session;
+    const list = getSessionIndex();
+    const candidates = list.filter(function (s) {
+      return s && s.id !== session.id
+        && s.fileName === session.fileName
+        && (!session.hero || !s.hero || s.hero === session.hero);
+    });
+    if (!candidates.length) return session;
+    const existing = await getSessionAsync(candidates[0].id);
+    if (!existing || !existing.hands || !existing.hands.length) return session;
+
+    const byKey = {};
+    let anon = 0;
+    function put(h, preferNew) {
+      var k = sessionHandKey(h);
+      if (!k || k === '|') k = '_anon_' + (anon++);
+      if (!byKey[k] || preferNew) byKey[k] = h;
+    }
+    existing.hands.forEach(function (h) { put(h, false); });
+    var replaced = 0;
+    var added = 0;
+    session.hands.forEach(function (h) {
+      var k = sessionHandKey(h);
+      if (k && k !== '|' && byKey[k]) replaced++;
+      else added++;
+      put(h, true);
+    });
+
+    const mergedHands = Object.keys(byKey).map(function (k) { return byKey[k]; });
+    session.id = existing.id;
+    session.createdAt = existing.createdAt || session.createdAt;
+    session.hands = mergedHands;
+    session.nParsed = Math.max(session.nParsed || 0, existing.nParsed || 0, mergedHands.length);
+    session.nTotal = Math.max(session.nTotal || 0, existing.nTotal || 0, mergedHands.length);
+    session.mergedHands = true;
+    session.mergeMeta = { replaced: replaced, added: added, previousHands: existing.hands.length };
+    if (global.Importer && global.Importer.computeStats) {
+      session.stats = global.Importer.computeStats(mergedHands);
+    }
+    if (global.PTHHUtils && global.PTHHUtils.buildSessionContext) {
+      session.context = global.PTHHUtils.buildSessionContext(
+        mergedHands,
+        session.nDiscardedByReason || existing.nDiscardedByReason || null
+      );
+    }
+    if (session.rawText == null && existing.rawText) session.rawText = existing.rawText;
+    return session;
+  }
+
   async function saveSession(session) {
     migrateLegacySessionsList();
+    session = await mergeSessionIfDuplicate(session);
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const upload = await CS.uploadSession(session);

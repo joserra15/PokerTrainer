@@ -2,7 +2,7 @@
 
 > Objetivo: que el importador **detecte el tipo de juego y de mesa**, **persista esa metadata**, y **adapte estadísticas, ideales GTO y coaching** al contexto real de cada sesión. Además, ampliar capacidades útiles para jugadores profesionales / regulares serios.
 >
-> **Estado actual (resumen):** parsers NLHE cash/spins/MTT (PokerStars ES/EN+Zoom, Winamax, GGPoker) con metadata first-class (`gameKind`, `tableMax`, `formatKey`). **P0 + P1 implementados** (IMP-01…22). Agregados filtrables por formato (v8). Pendiente P2/P3.
+> **Estado actual (resumen):** parsers NLHE cash/spins/MTT (PokerStars ES/EN+Zoom, Winamax, GGPoker) con metadata first-class (`gameKind`, `tableMax`, `formatKey`). **P0 + P1 implementados** (IMP-01…22). **P2 implementado salvo What-if (IMP-34)** — limp/delayed, tags, ante/straddle, stakes/día, CI bb/100, banner reanálisis, hero picker, merge/dedup, leaks por formato, cola graves. Agregados v9. Pendiente P3.
 >
 > **Relacionado:** `BACKLOG_METRICAS_POKER.md` (STAT-16 ideales por formato), `EPIC_10_PARIDAD_SNOWIE.md` (SN-20/21/35), `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`.
 
@@ -162,20 +162,22 @@ Prioridad: **P0** (cimiento / pedida explícitamente) · **P1** (alto valor pro)
 
 ### P2 — Profundidad profesional (estudio diario serio)
 
-| ID | Tarea | Esf. | Criterio de aceptación |
-|----|-------|------|------------------------|
-| **IMP-23** | **Limp %** / overlimp / iso-limp stats | S | Detecta calling stations preflop |
-| **IMP-24** | **Probe / delayed c-bet** ya parcialmente; exponer en UI con ideales | S | Métricas turn no enterradas |
-| **IMP-25** | Winrate **por stakes** y por **día/semana** (sesión real, no solo trainer) | M | Gráfica filtrable cash6 NL25 vs NL50 |
-| **IMP-26** | **Hand2Note-like tags** ligeros: “3bet pot OOP”, “SRP IP”, “vs miss cbet” auto | L | Filtros de estudio sin DB de población |
-| **IMP-27** | Ante / straddle aware (pot y stacks correctos en GG/PS) | M | Pot math no se rompe en mesas con ante |
-| **IMP-28** | Recompute versionado: `analysisVersion` + banner “reanalizar con motor nuevo” | M | Pros pueden re-scorear archivo antiguo |
-| **IMP-29** | Import **multi-hero / shared HH**: confirmación de nick héroe | S | No atribuir mal el héroe en archivos de equipo |
-| **IMP-30** | Session **merge** inteligente (mismo file reimportado / manos solapadas) | M | Dedup por `hand.id`+platform |
-| **IMP-31** | Leak map **separado por formato** + CTA drill con `gameType` correcto | M | Click “steal bajo” abre trainer cash9/mtt acorde |
-| **IMP-32** | Confidence intervals bb/100 y EV loss rate (honestidad estadística) | M | Tooltip sample / ± |
-| **IMP-33** | Hotkeys / cola de revisión “solo errores graves” para volumen alto | S | 500 manos/sesión revisables en minutos |
-| **IMP-34** | What-if acotado en mano importada (cambiar acción hero y re-eval) | L | Pedido mercado (SN-40); enorme para pros |
+| ID | Tarea | Esf. | Estado | Criterio de aceptación |
+|----|-------|------|--------|------------------------|
+| **IMP-23** | **Limp %** / overlimp / iso-limp stats | S | ✅ | Detecta calling stations preflop |
+| **IMP-24** | **Probe / delayed c-bet** ya parcialmente; exponer en UI con ideales | S | ✅ | Métricas turn no enterradas |
+| **IMP-25** | Winrate **por stakes** y por **día/semana** (sesión real, no solo trainer) | M | ✅ | Gráfica filtrable cash6 NL25 vs NL50 |
+| **IMP-26** | **Hand2Note-like tags** ligeros: “3bet pot OOP”, “SRP IP”, “vs miss cbet” auto | L | ✅ | Filtros de estudio sin DB de población |
+| **IMP-27** | Ante / straddle aware (pot y stacks correctos en GG/PS/Winamax) | M | ✅ | Pot math no se rompe en mesas con ante |
+| **IMP-28** | Recompute versionado: `analysisVersion` + banner “reanalizar con motor nuevo” | M | ✅ | Pros pueden re-scorear archivo antiguo |
+| **IMP-29** | Import **multi-hero / shared HH**: confirmación de nick héroe | S | ✅ | No atribuir mal el héroe en archivos de equipo |
+| **IMP-30** | Session **merge** inteligente (mismo file reimportado / manos solapadas) | M | ✅ | Dedup por `hand.id`+platform |
+| **IMP-31** | Leak map **separado por formato** + CTA drill con `gameType` correcto | M | ✅ | Click “steal bajo” abre trainer cash9/mtt acorde |
+| **IMP-32** | Confidence intervals bb/100 y EV loss rate (honestidad estadística) | M | ✅ | Tooltip sample / ± |
+| **IMP-33** | Hotkeys / cola de revisión “solo errores graves” para volumen alto | S | ✅ | 500 manos/sesión revisables en minutos |
+| **IMP-34** | What-if acotado en mano importada (cambiar acción hero y re-eval) | L | ⏭ omitido | Pedido mercado (SN-40); fuera de este corte (producto ocultó What-if en #142) |
+
+**DoD P2 (sin What-if):** cumplido.
 
 ---
 

@@ -5,13 +5,16 @@
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 8;
+  var AGG_VERSION = 9;
 
   var STYLE_OPP_KEYS = [
     'threeBetOpps', 'threeBetHits',
     'foldToThreeBetOpps', 'foldToThreeBetHits',
     'fourBetOpps', 'fourBetHits',
     'foldToFourBetOpps', 'foldToFourBetHits',
+    'limpOpps', 'limpHits',
+    'overlimpOpps', 'overlimpHits',
+    'isoLimpOpps', 'isoLimpHits',
     'stealOpps', 'stealHits',
     'foldToStealOpps', 'foldToStealHits',
     'squeezeOpps', 'squeezeHits',
@@ -19,6 +22,7 @@
     'foldToCbetFlopOpps', 'foldToCbetFlopHits',
     'cbetTurnOpps', 'cbetTurnHits',
     'cbetRiverOpps', 'cbetRiverHits',
+    'delayedCbetOpps', 'delayedCbetHits',
     'afBets', 'afRaises', 'afCalls', 'afChecks',
     'sawFlopN', 'wtsdN', 'wonAtSdN', 'wonSawFlopN'
   ];
@@ -43,6 +47,9 @@
       foldToThreeBetPct: pct(c.foldToThreeBetHits, c.foldToThreeBetOpps),
       fourBetPct: pct(c.fourBetHits, c.fourBetOpps),
       foldToFourBetPct: pct(c.foldToFourBetHits, c.foldToFourBetOpps),
+      limpPct: pct(c.limpHits, c.limpOpps),
+      overlimpPct: pct(c.overlimpHits, c.overlimpOpps),
+      isoLimpPct: pct(c.isoLimpHits, c.isoLimpOpps),
       stealPct: pct(c.stealHits, c.stealOpps),
       foldToStealPct: pct(c.foldToStealHits, c.foldToStealOpps),
       squeezePct: pct(c.squeezeHits, c.squeezeOpps),
@@ -50,6 +57,7 @@
       foldToCbetFlopPct: pct(c.foldToCbetFlopHits, c.foldToCbetFlopOpps),
       cbetTurnPct: pct(c.cbetTurnHits, c.cbetTurnOpps),
       cbetRiverPct: pct(c.cbetRiverHits, c.cbetRiverOpps),
+      delayedCbetPct: pct(c.delayedCbetHits, c.delayedCbetOpps),
       af: afCalls > 0 ? Math.round((afAgg / afCalls) * 100) / 100 : (afAgg > 0 ? afAgg : null),
       afq: afActions > 0 ? Math.round((afAgg / afActions) * 1000) / 10 : null,
       wtsdPct: pct(c.wtsdN, c.sawFlopN),
@@ -139,8 +147,12 @@
       formatKey: formatKey,
       gameKind: stats.gameKind || (stub.context && stub.context.gameKind) || null,
       tableMax: stats.tableMax != null ? stats.tableMax : (stub.context && stub.context.tableMax),
+      stakesLabel: stats.stakesLabel || (stub.context && stub.context.stakesLabel) || null,
+      stakeTier: stats.stakeTier || null,
       roiPct: stats.roiPct != null ? stats.roiPct : null,
-      profitEuro: stats.profitEuro != null ? stats.profitEuro : null
+      profitEuro: stats.profitEuro != null ? stats.profitEuro : null,
+      byStakes: stats.byStakes || null,
+      day: (stub.createdAt || '').slice(0, 10) || null
     };
     addStyleCounters(row, pickStyleCounters(stats));
     return row;
@@ -275,14 +287,69 @@
   }
 
   function sessionSpotKey(h, d) {
-    if (d.spotKind) return d.spotKind + '|' + (h.heroPos || '?') + '|' + (d.street || 'preflop');
-    return 'postflop|' + (h.heroPos || '?') + '|' + (d.street || 'postflop');
+    var fmt = h.formatKey || h.format || 'cash6';
+    var fam = formatFamily(fmt);
+    if (d.spotKind) return fam + '|' + d.spotKind + '|' + (h.heroPos || '?') + '|' + (d.street || 'preflop');
+    return fam + '|postflop|' + (h.heroPos || '?') + '|' + (d.street || 'postflop');
   }
 
   function sessionSpotLabel(h, d, key) {
-    if (d.spot) return d.spot;
-    if (global.PTLeaks && global.PTLeaks.labelForKey) return global.PTLeaks.labelForKey(key);
-    return key;
+    var base = d.spot || (global.PTLeaks && global.PTLeaks.labelForKey ? global.PTLeaks.labelForKey(key) : key);
+    var fam = formatFamily(h.formatKey || h.format || 'cash6');
+    if (fam && fam !== 'cash6' && String(base).indexOf(fam) !== 0) return fam + ' · ' + base;
+    return base;
+  }
+
+  function rebuildByStakes(agg) {
+    var map = {};
+    Object.keys(agg.sessionById || {}).forEach(function (id) {
+      var c = agg.sessionById[id];
+      var rows = c.byStakes;
+      if (rows && rows.length) {
+        rows.forEach(function (r) {
+          var k = r.stakesLabel || 'unknown';
+          if (!map[k]) map[k] = { stakesLabel: k, stakeTier: r.stakeTier || null, hands: 0, netBB: 0 };
+          map[k].hands += r.hands || 0;
+          map[k].netBB = round2(map[k].netBB + (r.netBB || 0));
+        });
+        return;
+      }
+      var k2 = c.stakesLabel || 'unknown';
+      if (!map[k2]) map[k2] = { stakesLabel: k2, stakeTier: c.stakeTier || null, hands: 0, netBB: 0 };
+      map[k2].hands += c.hands || 0;
+      map[k2].netBB = round2(map[k2].netBB + (c.netBB || 0));
+    });
+    return Object.keys(map).map(function (k) {
+      var b = map[k];
+      b.bbPer100 = b.hands ? Math.round((b.netBB / b.hands) * 1000) / 10 : null;
+      return b;
+    }).sort(function (a, b) { return b.hands - a.hands; });
+  }
+
+  function rebuildByDay(agg, days) {
+    days = days || 14;
+    var buckets = {};
+    var now = new Date();
+    for (var i = days - 1; i >= 0; i--) {
+      var d = new Date(now);
+      d.setDate(d.getDate() - i);
+      var k = d.toISOString().slice(0, 10);
+      buckets[k] = { key: k, hands: 0, netBB: 0, sessions: 0 };
+    }
+    Object.keys(agg.sessionById || {}).forEach(function (id) {
+      var c = agg.sessionById[id];
+      var day = c.day || (c.week ? c.week : null);
+      if (!day || !buckets[day]) return;
+      buckets[day].hands += c.hands || 0;
+      buckets[day].netBB = round2(buckets[day].netBB + (c.netBB || 0));
+      buckets[day].sessions += 1;
+    });
+    return Object.keys(buckets).sort().map(function (k) {
+      var b = buckets[k];
+      b.bbPer100 = b.hands ? Math.round((b.netBB / b.hands) * 1000) / 10 : null;
+      b.label = k.slice(5); // MM-DD
+      return b;
+    });
   }
 
   function clearTrainerHandLeaks(agg, handId) {
@@ -564,6 +631,12 @@
     sessionsTotalByFormat: function (st) {
       var tot = rebuildSessionsTotal(ensureAggregates(st), 'all');
       return tot.byFormat || {};
+    },
+    sessionsByStakes: function (st) {
+      return rebuildByStakes(ensureAggregates(st));
+    },
+    sessionDailySeries: function (st, days) {
+      return rebuildByDay(ensureAggregates(st), days);
     },
     formatFamily: formatFamily,
     refreshSessionLeaks: function (st, sessions) {

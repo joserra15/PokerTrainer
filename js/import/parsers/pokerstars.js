@@ -147,11 +147,21 @@
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) });
           continue;
         }
+        if ((m = ln.match(/^(.+?): posts the ante ((?:[€$£]|â‚¬)?)([\d.,]+)/i))) {
+          hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]);
+          hand.ante = hand.ante || num(m[3]);
+          continue;
+        }
         if ((m = ln.match(/^(.+?): posts small blind ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
           hand.blinds.sb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]); continue;
         }
         if ((m = ln.match(/^(.+?): posts big blind ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
           hand.blinds.bb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]); continue;
+        }
+        if ((m = ln.match(/^(.+?): posts straddle ((?:[€$£]|â‚¬)?)([\d.,]+)/i))) {
+          hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]);
+          hand.straddle = { player: m[1], amount: num(m[3]) };
+          continue;
         }
         if (/^\*\*\* HOLE CARDS \*\*\*/.test(ln)) { street = 'preflop'; continue; }
         if ((m = ln.match(/^Dealt to (.+?) \[(.+?)\]/))) {
@@ -216,6 +226,11 @@
         if ((m = ln.match(/^Asiento (\d+):\s*(.+?)\s*\(([\d.,]+)\s*€?\s*en fichas\)/))) {
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) }); continue;
         }
+        if ((m = ln.match(/^(.+?): pone la ante ([\d.,]+)/i)) || (m = ln.match(/^(.+?): posts the ante ([\d.,]+)/i))) {
+          hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+          hand.ante = hand.ante || num(m[2]);
+          continue;
+        }
         if ((m = ln.match(/^(.+?): pone la ciega pequeña ([\d.,]+)/))) {
           hand.blinds.sb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]); continue;
         }
@@ -224,6 +239,11 @@
         }
         if ((m = ln.match(/^(.+?): pone las ciegas pequeña y grande ([\d.,]+)/))) {
           hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]); continue;
+        }
+        if ((m = ln.match(/^(.+?): pone straddle ([\d.,]+)/i))) {
+          hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+          hand.straddle = { player: m[1], amount: num(m[2]) };
+          continue;
         }
         if (/^\*\*\* CARTAS DE MANO \*\*\*/.test(ln)) { street = 'preflop'; continue; }
         if ((m = ln.match(/^Repartidas a (.+?) \[(.+?)\]/))) {
@@ -296,12 +316,15 @@
     }
     let hero = null;
     let best = -1;
-    for (const n in heroCount) {
-      if (heroCount[n] > best) { best = heroCount[n]; hero = n; }
+    const heroCandidates = Object.keys(heroCount).map((n) => ({ name: n, hands: heroCount[n] }))
+      .sort((a, b) => b.hands - a.hands);
+    for (let i = 0; i < heroCandidates.length; i++) {
+      if (heroCandidates[i].hands > best) { best = heroCandidates[i].hands; hero = heroCandidates[i].name; }
     }
     return {
       fileName: fileName || 'sesion.txt',
       hero,
+      heroCandidates,
       hands,
       discardedByReason,
       format: {

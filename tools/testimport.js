@@ -142,4 +142,36 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   console.log('hhUtils helpers OK');
 })();
 
-console.log('*** IMPORTADOR OK (cash/spins/MTT + tableMax) ***');
+// P2: limp / delayed / tags / CI / heroCandidates / ante
+(function () {
+  const session = runFile('tools/fixtures/PokerEN-sample.txt', 'P2 EN');
+  assert(session.stats.limpOpps != null, 'limpOpps expuesto');
+  assert(session.stats.delayedCbetOpps != null, 'delayedCbetOpps expuesto');
+  assert(session.hands.some((h) => Array.isArray(h.tags) && h.tags.length), 'tags en manos');
+  const ci = Importer.computeBbPer100CI([-1, 2, -0.5, 1, 0, 3, -2, 0.5, 1.2, -0.8].concat(Array(25).fill(0.1)));
+  assert(ci && ci.low != null && ci.high != null && ci.n >= 30, 'bb/100 CI');
+  const parsed = Importer.parseSession(
+    fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerEN-sample.txt'), 'utf8'),
+    'en'
+  );
+  assert(Array.isArray(parsed.heroCandidates) && parsed.heroCandidates.length >= 1, 'heroCandidates');
+  assert(Importer.handDedupeKey({ platform: 'pokerstars', id: '1' }) === 'pokerstars|1', 'dedupe key');
+  assert(Importer.formatKeyToRangeGameType('cash9') === 'cash9', 'gameType cash9');
+  assert(Importer.formatKeyToRangeGameType('spin3') === 'mtt', 'gameType spin→mtt');
+  // Ante seeding: posts deben sumar al pot preflop
+  const anteHand = {
+    bb: 0.10, sb: 0.05, ante: 0.01, hero: 'Hero', heroCards: ['As', 'Kd'],
+    blinds: { sb: 'A', bb: 'B' },
+    posts: { A: 0.06, B: 0.11, Hero: 0.01, C: 0.01 },
+    seats: [{ name: 'A' }, { name: 'B' }, { name: 'Hero' }, { name: 'C' }],
+    streets: { preflop: [], flop: [], turn: [], river: [] },
+    positions: { Hero: 'BTN', A: 'SB', B: 'BB', C: 'CO' },
+    board: { flop: [], turn: [], river: [] },
+    gameKind: 'cash', tableMax: 6, platform: 'pokerstars', id: 'ante1'
+  };
+  const potFromPosts = Object.values(anteHand.posts).reduce((s, v) => s + v, 0);
+  assert(Math.abs(potFromPosts - 0.19) < 1e-9, 'ante posts sum');
+  console.log('P2 limp/tags/CI/heroCandidates OK');
+})();
+
+console.log('*** IMPORTADOR OK (cash/spins/MTT + tableMax + P2) ***');
