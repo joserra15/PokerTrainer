@@ -207,4 +207,23 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   console.log('P3 888/PLO/SD/ICM OK');
 })();
 
+// Resúmenes Tournament History (sin manos) → mensaje claro
+(function () {
+  const spinSum = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerStars-tournament-summary-spin.txt'), 'utf8');
+  const mttSum = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerStars-tournament-summary-mtt.txt'), 'utf8');
+  assert(U.looksLikeHandHistory(spinSum) === false, 'spin summary no es HH');
+  assert(U.looksLikeHandHistory(mttSum) === false, 'mtt summary no es HH');
+  const dSpin = U.detectNonHandHistory(spinSum);
+  const dMtt = U.detectNonHandHistory(mttSum);
+  assert(dSpin && dSpin.kind === 'psTournamentSummary', 'detect spin summary');
+  assert(dMtt && dMtt.kind === 'psTournamentSummary', 'detect mtt summary');
+  const msg = Importer.importFailureMessage('Spin1.txt', spinSum, { hands: [], hero: null });
+  assert(/Tournament History|historial de manos|Hand History/i.test(msg), 'mensaje útil got: ' + msg);
+  const cash = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerEN-sample.txt'), 'utf8');
+  assert(U.detectNonHandHistory(cash) == null, 'HH real no marcado como summary');
+  const parsedEmpty = Importer.parseSession(spinSum, 'Spin1.txt');
+  assert(!parsedEmpty.hands.length, 'summary no parsea manos');
+  console.log('Tournament History summary detect OK');
+})();
+
 console.log('*** IMPORTADOR OK (cash/spins/MTT + P2 + P3) ***');

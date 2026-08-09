@@ -25899,14 +25899,11 @@ window.PT_VS_3BET_JSON = {
         setProgress(done, total, phase || 'parse', fileLabel);
       });
       if (!parsed.hero || !parsed.hands.length) {
-        const disc = parsed.discardedByReason || {};
-        const discParts = Object.keys(disc).filter((k) => disc[k] > 0).map((k) => disc[k] + ' ' + k);
-        return {
-          ok: false,
-          error: 'No se reconocieron manos NLHE (cash/spins/torneo) en «' + file.name +
-            '». Comprueba que sea PokerStars, Winamax o GGPoker.' +
-            (discParts.length ? ' Descartadas: ' + discParts.join(', ') + '.' : '')
-        };
+        const errMsg = (Importer.importFailureMessage
+          ? Importer.importFailureMessage(file.name, text, parsed)
+          : ('No se reconocieron manos NLHE (cash/spins/torneo) en «' + file.name
+            + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker o 888poker.'));
+        return { ok: false, error: errMsg };
       }
       const Ent = window.PTEntitlements;
       if (Ent && Ent.ensureLoaded) {

@@ -7,11 +7,12 @@
   var seen = null;
   try { seen = localStorage.getItem(key); } catch (e) { /* noop */ }
 
-  function clearCachesAndReload() {
-    // Evita bucle si deploy-info.json está desfasado respecto a version.js
+  function clearCachesAndReload(targetBuild) {
+    var mark = String(targetBuild || build);
+    // Evita bucle si deploy-info.json / version.js están desfasados
     try {
-      if (sessionStorage.getItem(reloadKey) === build) return;
-      sessionStorage.setItem(reloadKey, build);
+      if (sessionStorage.getItem(reloadKey) === mark) return;
+      sessionStorage.setItem(reloadKey, mark);
     } catch (e) { /* noop */ }
 
     var tasks = [];
@@ -26,28 +27,44 @@
       }));
     }
     Promise.all(tasks).finally(function () {
-      try { localStorage.setItem(key, build); } catch (e) { /* noop */ }
+      try { localStorage.setItem(key, mark); } catch (e) { /* noop */ }
       global.location.reload();
     });
   }
 
-  function checkDeployInfo(build) {
+  function checkDeployInfo(currentBuild) {
     if (global.PT_E2E_MODE) return;
     if (!('fetch' in global)) return;
-    var url = '/deploy-info.json?v=' + encodeURIComponent(build);
+    var url = '/deploy-info.json?v=' + encodeURIComponent(currentBuild) + '&t=' + Date.now();
     fetch(url, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (info) {
         if (!info || !info.build) return;
-        if (info.build !== build) clearCachesAndReload();
+        if (String(info.build) !== String(currentBuild)) clearCachesAndReload(info.build);
       })
       .catch(function () { /* archivo ausente o red: no bloquear */ });
   }
 
+  /** Contrarresta max-age de GitHub Pages en js/version.js. */
+  function checkFreshVersionJs(currentBuild) {
+    if (global.PT_E2E_MODE) return;
+    if (!('fetch' in global)) return;
+    var url = '/js/version.js?t=' + Date.now();
+    fetch(url, { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.text() : ''; })
+      .then(function (txt) {
+        var m = String(txt || '').match(/PT_BUILD\s*=\s*['"]([^'"]+)['"]/);
+        if (!m || !m[1]) return;
+        if (String(m[1]) !== String(currentBuild)) clearCachesAndReload(m[1]);
+      })
+      .catch(function () { /* noop */ });
+  }
+
   if (seen && seen !== build) {
-    clearCachesAndReload();
+    clearCachesAndReload(build);
     return;
   }
   try { localStorage.setItem(key, build); } catch (e) { /* noop */ }
   checkDeployInfo(build);
+  checkFreshVersionJs(build);
 })(window);

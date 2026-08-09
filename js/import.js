@@ -2624,12 +2624,21 @@
     return ensureFullTimeline(h);
   }
 
+  function importFailureMessage(fileName, text, parsed) {
+    if (global.PTHHUtils && typeof global.PTHHUtils.importFailureMessage === 'function') {
+      return global.PTHHUtils.importFailureMessage(fileName, text, parsed);
+    }
+    return 'No se reconocieron manos NLHE (cash/spins/torneo) en «' + (fileName || 'archivo.txt')
+      + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker o 888poker.';
+  }
+
   global.Importer = {
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
     heroPlayed, computeStats, heroPreflopHud, heroStyleHud, assessVpipPfr, assessStyleStats,
     sampleTrust, styleIdealForFormat, inferSessionFormat, inferSessionFormatKey, formatKeyToRangeGameType,
     drillsFromAssess, buildHandTags, computeBbPer100CI,
     heroCandidatesFromParsed, needsHeroConfirmation, handDedupeKey,
+    importFailureMessage,
     STYLE_IDEAL: STYLE_IDEAL_6MAX, STYLE_IDEAL_6MAX, STYLE_IDEAL_BY_FORMAT, HUD_IDEAL,
     num, cardsFrom,
     buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, recomputeHeroNet,
