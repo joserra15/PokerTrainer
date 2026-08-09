@@ -237,6 +237,7 @@ contrastar con un solver dedicado.
 ## Roadmap comercial
 
 Estudio de mercado, pricing y backlog de lanzamiento: [`docs/ESTUDIO_MERCADO.md`](docs/ESTUDIO_MERCADO.md).  
+Importador (cash / spins / MTT + table max): [`docs/BACKLOG_IMPORTADOR_SESIONES.md`](docs/BACKLOG_IMPORTADOR_SESIONES.md).  
 Issues en GitHub: [Roadmap #1](https://github.com/joserra15/PokerTrainer/issues/1).
 
 ## Posibles mejoras futuras

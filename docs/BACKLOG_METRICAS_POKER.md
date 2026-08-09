@@ -6,7 +6,7 @@
 >
 > **Fuentes de referencia (industria):** RiverOdds HUD guide, Upswing/Seeker Start optimal values, PokerCoaching, BlackRain79, PokerStars ES (HUD), Pokerati 2026.
 >
-> **Relacionado:** `EPIC_10_PARIDAD_SNOWIE.md` (SN-30–35), `ESTUDIO_MERCADO.md` (P-02/P-03, sin HUD población).
+> **Relacionado:** `EPIC_10_PARIDAD_SNOWIE.md` (SN-30–35), `ESTUDIO_MERCADO.md` (P-02/P-03, sin HUD población), `BACKLOG_IMPORTADOR_SESIONES.md` (detección cash/spins/MTT + table max + split de stats).
 
 ---
 
