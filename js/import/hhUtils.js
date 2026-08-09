@@ -394,6 +394,62 @@
     };
   }
 
+  /** True si el texto parece un historial de manos (no un resumen de resultados). */
+  function looksLikeHandHistory(text) {
+    const t = String(text || '');
+    if (/(?:Mano n\.º\s*\d+|PokerStars (?:Zoom )?Hand #\d+|Poker Hand #(?:HM)?\d+|Winamax Poker\s*-)/i.test(t)) {
+      return true;
+    }
+    if (/\*\*\*\s*HOLE CARDS\s*\*\*\*/i.test(t) || /Dealt to\s+\S+\s*\[/i.test(t)) return true;
+    if (/Seat \d+:\s+.+\(/i.test(t) && /posts (?:the )?(?:small|big) blind/i.test(t)) return true;
+    return false;
+  }
+
+  /**
+   * Detecta ficheros que parecen historial pero no lo son (p.ej. Tournament History de PokerStars).
+   * Devuelve null si no aplica, o { kind, hint } con mensaje para el usuario.
+   */
+  function detectNonHandHistory(text) {
+    const t = String(text || '');
+    if (!t.trim()) {
+      return {
+        kind: 'empty',
+        hint: 'El archivo está vacío.'
+      };
+    }
+    if (looksLikeHandHistory(t)) return null;
+
+    // PokerStars Tournament History se importa como sesión de resultados (PTTournamentSummary).
+    if (global.PTTournamentSummary
+      && global.PTTournamentSummary.isPokerStarsTournamentSummary
+      && global.PTTournamentSummary.isPokerStarsTournamentSummary(t)) {
+      return null;
+    }
+
+    if (/You finished in \d+/i.test(t) && /Prize Pool/i.test(t) && !/Hand #/i.test(t)) {
+      return {
+        kind: 'tournamentResults',
+        hint: 'Parece un resumen de resultados de torneo no soportado. Usa Tournament History de PokerStars o el Hand History (.txt) con manos.'
+      };
+    }
+
+    return null;
+  }
+
+  function importFailureMessage(fileName, text, parsed) {
+    const name = fileName || 'archivo.txt';
+    const rooms = 'PokerStars, Winamax, GGPoker o 888poker';
+    const nonHh = detectNonHandHistory(text);
+    if (nonHh) {
+      return 'No se importó «' + name + '»: ' + nonHh.hint;
+    }
+    const disc = (parsed && parsed.discardedByReason) || {};
+    const discParts = Object.keys(disc).filter((k) => disc[k] > 0).map((k) => disc[k] + ' ' + k);
+    return 'No se reconocieron manos NLHE (cash/spins/torneo) en «' + name
+      + '». Comprueba que sea un historial de manos de ' + rooms + '.'
+      + (discParts.length ? ' Descartadas: ' + discParts.join(', ') + '.' : '');
+  }
+
   global.PTHHUtils = {
     num,
     normalizeMoneyText,
@@ -421,6 +477,9 @@
     finalizeHandMeta,
     isKeepableHand,
     emptyDiscardCounts,
-    buildSessionContext
+    buildSessionContext,
+    looksLikeHandHistory,
+    detectNonHandHistory,
+    importFailureMessage
   };
 })(window);

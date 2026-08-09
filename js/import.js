@@ -51,6 +51,10 @@
   }
 
   function parseSession(text, fileName) {
+    const TS = global.PTTournamentSummary;
+    if (TS && TS.isPokerStarsTournamentSummary && TS.isPokerStarsTournamentSummary(text)) {
+      return TS.parsePokerStarsTournamentSummary(text, fileName);
+    }
     const Formats = global.PTHandHistoryFormats;
     if (!Formats) throw new Error('Módulos de importación no cargados');
     const format = Formats.detectBest(text);
@@ -1299,6 +1303,10 @@
   }
 
   function buildSession(parsed, fileName, rawText) {
+    const TS = global.PTTournamentSummary;
+    if (parsed && parsed.source === 'tournamentSummary' && TS && TS.buildTournamentSummarySession) {
+      return TS.buildTournamentSummarySession(parsed, fileName, rawText);
+    }
     const hero = parsed.hero;
     // Solo filtrar por nick si el usuario confirmó un héroe (IMP-29); si no, conservar todas
     // las manos con cartas hero (HH mixtos / fixtures con varios Dealt to).
@@ -1325,6 +1333,11 @@
 
   /** Analiza manos en lotes para no bloquear la UI del navegador (10k+ manos). */
   function buildSessionAsync(parsed, fileName, onProgress, rawText) {
+    const TS = global.PTTournamentSummary;
+    if (parsed && parsed.source === 'tournamentSummary' && TS && TS.buildTournamentSummarySession) {
+      if (onProgress) onProgress(1, 1, 'analyze');
+      return Promise.resolve(TS.buildTournamentSummarySession(parsed, fileName, rawText));
+    }
     const hero = parsed.hero;
     const filterHero = !!(parsed && (parsed.heroConfirmed || parsed.filterHero));
     const hands = parsed.hands || [];
@@ -2624,12 +2637,21 @@
     return ensureFullTimeline(h);
   }
 
+  function importFailureMessage(fileName, text, parsed) {
+    if (global.PTHHUtils && typeof global.PTHHUtils.importFailureMessage === 'function') {
+      return global.PTHHUtils.importFailureMessage(fileName, text, parsed);
+    }
+    return 'No se reconocieron manos NLHE (cash/spins/torneo) en «' + (fileName || 'archivo.txt')
+      + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker o 888poker.';
+  }
+
   global.Importer = {
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
     heroPlayed, computeStats, heroPreflopHud, heroStyleHud, assessVpipPfr, assessStyleStats,
     sampleTrust, styleIdealForFormat, inferSessionFormat, inferSessionFormatKey, formatKeyToRangeGameType,
     drillsFromAssess, buildHandTags, computeBbPer100CI,
     heroCandidatesFromParsed, needsHeroConfirmation, handDedupeKey,
+    importFailureMessage,
     STYLE_IDEAL: STYLE_IDEAL_6MAX, STYLE_IDEAL_6MAX, STYLE_IDEAL_BY_FORMAT, HUD_IDEAL,
     num, cardsFrom,
     buildEvalInputFromDecision, recomputeDecisionGto, recomputeHandDecisions, recomputeHeroNet,

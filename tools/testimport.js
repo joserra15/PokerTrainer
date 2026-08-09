@@ -12,6 +12,7 @@ const importChain = [
   'import/formatDetector.js',
   'import/icmLite.js',
   'import/populationCompare.js',
+  'import/tournamentSummary.js',
   'import/parsers/pokerstars.js',
   'import/parsers/winamax.js',
   'import/parsers/ggpoker.js',
@@ -205,6 +206,53 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
     assert(Math.abs(eq[0] - eq[1]) < 0.05, 'ICM simétrico 3-way');
   }
   console.log('P3 888/PLO/SD/ICM OK');
+})();
+
+// Tournament History PokerStars → sesión de resultados (Spin1 + Torneo2)
+(function () {
+  const TS = sandbox.window.PTTournamentSummary;
+  assert(TS, 'PTTournamentSummary cargado');
+  const spinSum = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerStars-tournament-summary-spin.txt'), 'utf8');
+  const mttSum = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerStars-tournament-summary-mtt.txt'), 'utf8');
+  assert(U.looksLikeHandHistory(spinSum) === false, 'spin summary no es HH');
+  assert(TS.isPokerStarsTournamentSummary(spinSum), 'detect spin Tournament History');
+  assert(TS.isPokerStarsTournamentSummary(mttSum), 'detect mtt Tournament History');
+  assert(U.detectNonHandHistory(spinSum) == null, 'summary soportado no es error');
+
+  const spinParsed = Importer.parseSession(spinSum, 'Spin1.txt');
+  assert(spinParsed.source === 'tournamentSummary', 'spin source');
+  assert(spinParsed.hero === 'KazeDj', 'spin hero got ' + spinParsed.hero);
+  assert(spinParsed.tournament.gameKind === 'spin', 'spin kind');
+  assert(spinParsed.tournament.players === 3, 'spin 3 players');
+  assert(spinParsed.tournament.finishPlace === 2, 'spin 2nd');
+  assert(Math.abs(spinParsed.tournament.invested - 0.5) < 1e-9, 'spin invested 0.50 got ' + spinParsed.tournament.invested);
+  assert(Math.abs(spinParsed.tournament.profitEuro - (-0.5)) < 1e-9, 'spin profit -0.50 got ' + spinParsed.tournament.profitEuro);
+  const spinSes = Importer.buildSession(spinParsed, 'Spin1.txt', spinSum);
+  assert(spinSes.source === 'tournamentSummary', 'spin session source');
+  assert(spinSes.hands.length === 0, 'spin sin manos');
+  assert(spinSes.stats.gameKind === 'spin', 'spin stats kind');
+  assert(spinSes.context.gameKind === 'spin', 'spin context');
+  assert(spinSes.stats.finishPlace === 2, 'spin stats place');
+  assert(spinSes.tournamentId === '4022632627', 'spin tournament id');
+
+  const mttParsed = Importer.parseSession(mttSum, 'Torneo2.txt');
+  assert(mttParsed.source === 'tournamentSummary', 'mtt source');
+  assert(mttParsed.hero === 'KazeDj', 'mtt hero');
+  assert(mttParsed.tournament.gameKind === 'mtt', 'mtt kind got ' + mttParsed.tournament.gameKind);
+  assert(mttParsed.tournament.players === 259, 'mtt players');
+  assert(mttParsed.tournament.finishPlace === 8, 'mtt 8th');
+  assert(Math.abs(mttParsed.tournament.invested - 1.0) < 1e-9, 'mtt invested 1.00 got ' + mttParsed.tournament.invested);
+  assert(Math.abs(mttParsed.tournament.bountyCollected - 1.8) < 1e-9, 'mtt bounties 1.80');
+  assert(Math.abs(mttParsed.tournament.profitEuro - 0.8) < 1e-9, 'mtt profit +0.80 got ' + mttParsed.tournament.profitEuro);
+  assert(mttParsed.tournament.roiPct === 80, 'mtt ROI 80 got ' + mttParsed.tournament.roiPct);
+  const mttSes = Importer.buildSession(mttParsed, 'Torneo2.txt', mttSum);
+  assert(mttSes.stats.gameKind === 'mtt', 'mtt session kind');
+  assert(mttSes.stats.profitEuro === 0.8, 'mtt session profit');
+  assert(mttSes.tournamentId === '4019894550', 'mtt tournament id');
+
+  const cash = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerEN-sample.txt'), 'utf8');
+  assert(TS.isPokerStarsTournamentSummary(cash) === false, 'HH no es Tournament History');
+  console.log('Tournament History Spin1/Torneo2 OK');
 })();
 
 console.log('*** IMPORTADOR OK (cash/spins/MTT + P2 + P3) ***');

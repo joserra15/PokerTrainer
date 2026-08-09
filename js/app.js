@@ -5250,20 +5250,25 @@
       const parsed = await parseFn(text, file.name, function (done, total, phase) {
         setProgress(done, total, phase || 'parse', fileLabel);
       });
-      if (!parsed.hero || !parsed.hands.length) {
-        const disc = parsed.discardedByReason || {};
-        const discParts = Object.keys(disc).filter((k) => disc[k] > 0).map((k) => disc[k] + ' ' + k);
+      const isTournamentSummary = !!(parsed && parsed.source === 'tournamentSummary');
+      if (!isTournamentSummary && (!parsed.hero || !parsed.hands.length)) {
+        const errMsg = (Importer.importFailureMessage
+          ? Importer.importFailureMessage(file.name, text, parsed)
+          : ('No se reconocieron manos NLHE (cash/spins/torneo) en «' + file.name
+            + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker o 888poker.'));
+        return { ok: false, error: errMsg };
+      }
+      if (isTournamentSummary && !parsed.hero) {
         return {
           ok: false,
-          error: 'No se reconocieron manos NLHE (cash/spins/torneo) en «' + file.name +
-            '». Comprueba que sea PokerStars, Winamax o GGPoker.' +
-            (discParts.length ? ' Descartadas: ' + discParts.join(', ') + '.' : '')
+          error: 'No se pudo leer el héroe en el Tournament History «' + file.name + '».'
         };
       }
       const Ent = window.PTEntitlements;
       if (Ent && Ent.ensureLoaded) {
         const ent = await Ent.ensureLoaded();
-        const check = Ent.canImportSession(parsed.hands.length, ent);
+        const handCount = isTournamentSummary ? 0 : parsed.hands.length;
+        const check = Ent.canImportSession(handCount, ent);
         if (!check.ok) {
           return { ok: false, paywall: check.reason, error: check.reason };
         }
@@ -5446,8 +5451,28 @@
     }
     box.innerHTML = filtered.map((s) => {
       const st = s.stats || {};
-      const netCls = (st.netBB || 0) >= 0 ? 'net-pos' : 'net-neg';
+      const isSummary = s.source === 'tournamentSummary' || st.source === 'tournamentSummary';
       const sampleBadge = isSample(s) ? '<span class="session-sample-badge">Ejemplo</span>' : '';
+      if (isSummary) {
+        const profit = st.profitEuro != null ? st.profitEuro : 0;
+        const pCls = profit >= 0 ? 'net-pos' : 'net-neg';
+        const place = st.finishPlace != null ? (st.finishPlace + 'º') : '—';
+        const roi = st.roiPct != null ? (' · ROI ' + st.roiPct + '%') : '';
+        const bounty = st.bountyCollected ? (' · Bounties +' + Number(st.bountyCollected).toFixed(2) + '€') : '';
+        return `<div class="record session-card">
+          <div class="rec-main">
+            <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge">Resultados</span> ${sessionContextBadgesHtml(s)}</div>
+            <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · Puesto ${place} · ${fmtDate(s.createdAt)}</div>
+            <div class="rec-sub"><span class="${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)}€</span>${roi}${bounty}${st.stakesLabel ? ' · ' + escapeHtml(st.stakesLabel) : ''}</div>
+            <div class="rec-sub muted-text" style="font-size:12px">Tournament History · sin manos GTO (importa Hand History para revisar decisiones)</div>
+          </div>
+          <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-open="${s.id}">Ver resumen</button>
+            <button class="btn btn-danger" style="padding:4px 10px;font-size:12px" data-delses="${s.id}">Borrar sesión</button>
+          </div>
+        </div>`;
+      }
+      const netCls = (st.netBB || 0) >= 0 ? 'net-pos' : 'net-neg';
       const gradeLetter = st.grade && st.grade.letter ? st.grade.letter[0] : 'C';
       const acc = st.accuracy != null ? st.accuracy + '%' : '—';
       return `<div class="record session-card">
@@ -5648,12 +5673,15 @@
       return;
     }
     const buildVer = window.PT_BUILD || '';
-    if (Importer.ensureAnalyzedHandContext) {
+    const isTournamentSummary = currentSession.source === 'tournamentSummary'
+      || (currentSession.stats && currentSession.stats.source === 'tournamentSummary');
+    if (!isTournamentSummary && Importer.ensureAnalyzedHandContext) {
       currentSession.hands.forEach((h) => Importer.ensureAnalyzedHandContext(h));
     }
-    const versionMismatch = !!(buildVer && currentSession.analysisVersion && currentSession.analysisVersion !== buildVer);
+    const versionMismatch = !isTournamentSummary
+      && !!(buildVer && currentSession.analysisVersion && currentSession.analysisVersion !== buildVer);
     currentSession.pendingReanalyze = versionMismatch;
-    const needsHudStats = Importer.computeStats
+    const needsHudStats = !isTournamentSummary && Importer.computeStats
       && (!currentSession.stats || currentSession.stats.vpipPct == null || currentSession.stats.pfrPct == null
         || currentSession.stats.vpipHands == null || currentSession.stats.pfrHands == null
         || currentSession.stats.threeBetOpps == null || currentSession.stats.style == null
@@ -5707,9 +5735,42 @@
       return;
     }
     const st = s.stats;
+    const box = $('#session-detail-content');
+    const isSummary = s.source === 'tournamentSummary' || st.source === 'tournamentSummary';
+    if (isSummary) {
+      const profit = st.profitEuro != null ? st.profitEuro : 0;
+      const pCls = profit >= 0 ? 'net-pos' : 'net-neg';
+      const t = s.tournament || {};
+      box.innerHTML = `
+        <h2>${escapeHtml(s.fileName)} <span class="badge">Resultados</span> ${sessionContextBadgesHtml(s)}</h2>
+        <p class="muted-text">${escapeHtml((st.grade && st.grade.verdict) || 'Tournament History de PokerStars (sin manos).')}</p>
+        <div class="stats-content">
+          <div class="stat-card"><div class="big">${st.finishPlace != null ? st.finishPlace + 'º' : '—'}</div><div class="lbl">Puesto</div></div>
+          <div class="stat-card"><div class="big ${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)}€</div><div class="lbl">Profit €</div></div>
+          ${st.roiPct != null ? `<div class="stat-card"><div class="big">${st.roiPct}%</div><div class="lbl">ROI</div></div>` : ''}
+          <div class="stat-card"><div class="big">${st.avgBuyIn != null ? Number(st.avgBuyIn).toFixed(2) + '€' : '—'}</div><div class="lbl">Buy-in total</div></div>
+          <div class="stat-card"><div class="big">${Number(st.cashPrize || 0).toFixed(2)}€</div><div class="lbl">Premio mesa</div></div>
+          <div class="stat-card"><div class="big">${Number(st.bountyCollected || 0).toFixed(2)}€</div><div class="lbl">Bounties (${st.bountyCount || 0})</div></div>
+          <div class="stat-card"><div class="big">${st.players != null ? st.players : '—'}</div><div class="lbl">Jugadores</div></div>
+          <div class="stat-card"><div class="big">${st.prizePool != null ? Number(st.prizePool).toFixed(2) + '€' : '—'}</div><div class="lbl">Prize pool</div></div>
+        </div>
+        <div class="card-box" style="margin-top:14px">
+          <h3>Detalle</h3>
+          <p class="muted-text" style="margin:0;font-size:13px">
+            Héroe: <strong>${escapeHtml(s.hero)}</strong>
+            ${st.tournamentId || t.id ? ' · Torneo #' + escapeHtml(String(st.tournamentId || t.id)) : ''}
+            ${st.stakesLabel ? ' · ' + escapeHtml(st.stakesLabel) : ''}
+            · ${fmtDate(s.createdAt)}
+          </p>
+          <p class="muted-text" style="margin:10px 0 0;font-size:12px">
+            Este archivo es un resumen de resultados. Para análisis GTO y revisión de manos, exporta el
+            <strong>Hand History</strong> del mismo torneo desde PokerStars.
+          </p>
+        </div>`;
+      return;
+    }
     const netCls = st.netBB >= 0 ? 'net-pos' : 'net-neg';
     const accSt = st.accByStreet;
-    const box = $('#session-detail-content');
 
     const fmtKey = resolveStatsFormat(st);
     const buildVer = window.PT_BUILD || '';
@@ -5724,9 +5785,11 @@
         </div>`
       : '';
     const graveN = (s.hands || []).filter(handHasGraveError).length;
+    const gradeLetter = st.grade && st.grade.letter ? String(st.grade.letter)[0] : 'C';
+    const gradeScore = st.grade && st.grade.score != null ? st.grade.score : '—';
     const statHtml = `
       ${reanalyzeBanner}
-      <h2>${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter} · ${st.grade.score}/10</span> ${sessionContextBadgesHtml(s)}</h2>
+      <h2>${escapeHtml(s.fileName)} <span class="badge grade-${gradeLetter}">Nota ${st.grade ? st.grade.letter : '—'} · ${gradeScore}/10</span> ${sessionContextBadgesHtml(s)}</h2>
       <p class="muted-text">${escapeHtml(st.grade.verdict)}</p>
       <p class="muted-text" style="font-size:12px">${escapeHtml(importDiscardSummaryHtml(s))} · Formato coaching: <strong>${escapeHtml(formatDisplayLabel(fmtKey))}</strong>${st.shortHandedShare > 20 ? ' · Mesa corta ~' + st.shortHandedShare + '%' : ''}</p>
       <div class="session-export-bar">
