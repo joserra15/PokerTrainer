@@ -4414,7 +4414,11 @@
     renderTimelineReview();
   }
 
+  // What-if del paso a paso de sesiones: oculto por ahora (lógica lista para reactivar).
+  const SESSION_WHAT_IF_ENABLED = false;
+
   function renderWhatIfControls(heroDec, decIdx) {
+    if (!SESSION_WHAT_IF_ENABLED) return '';
     if (!heroDec || !heroDec.optionBreakdown || !heroDec.optionBreakdown.length) return '';
     const pills = heroDec.optionBreakdown.map((o) => {
       const active = o.id === heroDec.chosen ? ' active' : '';
