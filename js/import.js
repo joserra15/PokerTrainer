@@ -51,6 +51,10 @@
   }
 
   function parseSession(text, fileName) {
+    const TS = global.PTTournamentSummary;
+    if (TS && TS.isPokerStarsTournamentSummary && TS.isPokerStarsTournamentSummary(text)) {
+      return TS.parsePokerStarsTournamentSummary(text, fileName);
+    }
     const Formats = global.PTHandHistoryFormats;
     if (!Formats) throw new Error('Módulos de importación no cargados');
     const format = Formats.detectBest(text);
@@ -1299,6 +1303,10 @@
   }
 
   function buildSession(parsed, fileName, rawText) {
+    const TS = global.PTTournamentSummary;
+    if (parsed && parsed.source === 'tournamentSummary' && TS && TS.buildTournamentSummarySession) {
+      return TS.buildTournamentSummarySession(parsed, fileName, rawText);
+    }
     const hero = parsed.hero;
     // Solo filtrar por nick si el usuario confirmó un héroe (IMP-29); si no, conservar todas
     // las manos con cartas hero (HH mixtos / fixtures con varios Dealt to).
@@ -1325,6 +1333,11 @@
 
   /** Analiza manos en lotes para no bloquear la UI del navegador (10k+ manos). */
   function buildSessionAsync(parsed, fileName, onProgress, rawText) {
+    const TS = global.PTTournamentSummary;
+    if (parsed && parsed.source === 'tournamentSummary' && TS && TS.buildTournamentSummarySession) {
+      if (onProgress) onProgress(1, 1, 'analyze');
+      return Promise.resolve(TS.buildTournamentSummarySession(parsed, fileName, rawText));
+    }
     const hero = parsed.hero;
     const filterHero = !!(parsed && (parsed.heroConfirmed || parsed.filterHero));
     const hands = parsed.hands || [];

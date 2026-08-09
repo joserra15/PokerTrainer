@@ -705,7 +705,33 @@
    * IMP-30: si reimportas el mismo archivo (o solapa manos), fusiona y deduplica
    * por platform+hand.id conservando el id de sesión previo.
    */
+  async function mergeTournamentSummaryIfDuplicate(session) {
+    if (!session || session.source !== 'tournamentSummary') return session;
+    const tid = session.tournamentId
+      || (session.stats && session.stats.tournamentId)
+      || (session.tournament && session.tournament.id);
+    if (!tid) return session;
+    const list = getSessionIndex();
+    for (let i = 0; i < list.length; i++) {
+      const stub = list[i];
+      if (!stub || stub.id === session.id) continue;
+      const existing = await getSessionAsync(stub.id);
+      if (!existing) continue;
+      const exTid = existing.tournamentId
+        || (existing.stats && existing.stats.tournamentId)
+        || (existing.tournament && existing.tournament.id);
+      if (String(exTid) === String(tid)) {
+        session.id = existing.id;
+        return session;
+      }
+    }
+    return session;
+  }
+
   async function mergeSessionIfDuplicate(session) {
+    if (session && session.source === 'tournamentSummary') {
+      return mergeTournamentSummaryIfDuplicate(session);
+    }
     if (!session || !session.hands || !session.hands.length || !session.fileName) return session;
     const list = getSessionIndex();
     const candidates = list.filter(function (s) {

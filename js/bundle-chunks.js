@@ -87,6 +87,7 @@
       'js/import/formatDetector.js',
       'js/import/icmLite.js',
       'js/import/populationCompare.js',
+      'js/import/tournamentSummary.js',
       'js/import/parsers/pokerstars.js',
       'js/import/parsers/winamax.js',
       'js/import/parsers/ggpoker.js',

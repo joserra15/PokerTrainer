@@ -419,28 +419,17 @@
     }
     if (looksLikeHandHistory(t)) return null;
 
-    const psTournamentSummary =
-      /Tournament History for your last/i.test(t)
-      || (
-        /PokerStars Tournament #\d+/i.test(t)
-        && /(?:Buy-In:|Total Prize Pool:|You finished in|Tournament (?:started|finished))/i.test(t)
-        && !/PokerStars (?:Zoom )?Hand #\d+/i.test(t)
-        && !/Mano n\.º\s*\d+/i.test(t)
-      );
-
-    if (psTournamentSummary) {
-      return {
-        kind: 'psTournamentSummary',
-        hint: 'Es un resumen de resultados de torneo (Tournament History), no un historial de manos. '
-          + 'En PokerStars ve a Historial → Hands / Hand History y exporta el .txt con las manos '
-          + '(líneas «PokerStars Hand #…» o «Mano n.º …»). Los spins y MTT sí se importan si el archivo incluye esas manos.'
-      };
+    // PokerStars Tournament History se importa como sesión de resultados (PTTournamentSummary).
+    if (global.PTTournamentSummary
+      && global.PTTournamentSummary.isPokerStarsTournamentSummary
+      && global.PTTournamentSummary.isPokerStarsTournamentSummary(t)) {
+      return null;
     }
 
     if (/You finished in \d+/i.test(t) && /Prize Pool/i.test(t) && !/Hand #/i.test(t)) {
       return {
         kind: 'tournamentResults',
-        hint: 'Parece un resumen de resultados de torneo, no el historial de manos. Exporta el Hand History (.txt) con las manos jugadas.'
+        hint: 'Parece un resumen de resultados de torneo no soportado. Usa Tournament History de PokerStars o el Hand History (.txt) con manos.'
       };
     }
 

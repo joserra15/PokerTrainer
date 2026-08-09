@@ -55,7 +55,11 @@
       stats: session.stats,
       analysisVersion: session.analysisVersion,
       hasTxt: false,
-      cloudOnly: true
+      cloudOnly: true,
+      source: session.source || (session.stats && session.stats.source) || null,
+      tournamentId: session.tournamentId
+        || (session.stats && session.stats.tournamentId)
+        || null
     };
   }
 
