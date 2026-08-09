@@ -93,10 +93,23 @@
 
   function detectVariant(text) {
     if (!text) return 'unknown';
+    if (/5[\s-]?Card\s+Omaha|Omaha\s*5|PLO[\s-]?5|Pot[\s-]?Limit\s+Omaha\s*5/i.test(text)) return 'plo5';
     if (/Omaha|PLO|Pot[\s-]?Limit\s+Omaha/i.test(text)) return 'plo';
-    if (/Short\s*Deck|6\+\s*Hold'?em/i.test(text)) return 'shortdeck';
+    if (/Short\s*Deck|6\+\s*Hold'?em|Hold'?em\s*6\+/i.test(text)) return 'shortdeck';
     if (/Hold'?em|Holdem/i.test(text)) return 'nlhe';
     return 'unknown';
+  }
+
+  function isAnalysisUnsupportedVariant(variant) {
+    return variant === 'plo' || variant === 'plo5' || variant === 'shortdeck';
+  }
+
+  function variantLabel(variant) {
+    if (variant === 'plo') return 'PLO';
+    if (variant === 'plo5') return 'PLO5';
+    if (variant === 'shortdeck') return 'Short Deck';
+    if (variant === 'nlhe') return 'NLHE';
+    return variant || '?';
   }
 
   function parseBuyInFromText(text) {
@@ -302,19 +315,22 @@
     return hand;
   }
 
-  /** ¿Se puede conservar la mano para análisis? */
+  /** ¿Se puede conservar la mano? PLO/Short Deck: parse-only (sin GTO). */
   function isKeepableHand(hand) {
     if (!hand || !hand.id) return { ok: false, reason: 'badParse' };
+    if (!hand.bb || hand.bb <= 0) return { ok: false, reason: 'noBlinds' };
+    const kind = hand.gameKind || 'unknown';
+    if (!(kind === 'cash' || kind === 'spin' || kind === 'mtt' || kind === 'sng')) {
+      return { ok: false, reason: 'unknownGame' };
+    }
+    if (isAnalysisUnsupportedVariant(hand.variant)) {
+      hand.analysisUnsupported = true;
+      return { ok: true, reason: null, analysisUnsupported: true };
+    }
     if (hand.variant && hand.variant !== 'nlhe' && hand.variant !== 'unknown') {
       return { ok: false, reason: 'unsupportedVariant' };
     }
-    // Si unknown pero parece Hold'em por acciones, permitir
-    if (!hand.bb || hand.bb <= 0) return { ok: false, reason: 'noBlinds' };
-    const kind = hand.gameKind || 'unknown';
-    if (kind === 'cash' || kind === 'spin' || kind === 'mtt' || kind === 'sng') {
-      return { ok: true, reason: null };
-    }
-    return { ok: false, reason: 'unknownGame' };
+    return { ok: true, reason: null };
   }
 
   function emptyDiscardCounts() {
@@ -391,6 +407,8 @@
     isSpinSignal,
     isSngSignal,
     detectVariant,
+    isAnalysisUnsupportedVariant,
+    variantLabel,
     parseBuyInFromText,
     parseMultiplierFromText,
     parseTournamentBlinds,
@@ -452,6 +470,197 @@
 
   global.PTHandHistoryFormats = { register, list, detectBest, describe };
 })(window);
+
+/*
+ * icmLite.js — ICM aproximado para spins 3-max / burbuja MTT (IMP-39).
+ * No sustituye un modelo ICM completo; da presión relativa chip-EV → $EV.
+ */
+(function (global) {
+  'use strict';
+
+  /** Payouts spin aprox. sobre prizepool normalizado a 1 (2× BI típico). */
+  const SPIN_PAYOUTS_2X = [0.65, 0.35, 0];
+
+  /**
+   * Harville simplificado: P(1º) ∝ stack; P(2º) condicionado.
+   * `payouts` suma ~1 (fracciones del prizepool).
+   */
+  function icmEquities(stacks, payouts) {
+    const n = stacks.length;
+    if (n < 2 || n > 4) return null;
+    const total = stacks.reduce((s, x) => s + Math.max(0, Number(x) || 0), 0);
+    if (total <= 0) return null;
+    const pays = (payouts && payouts.length) ? payouts.slice(0, n) : null;
+    if (!pays) return null;
+
+    const pFirst = stacks.map((s) => Math.max(0, Number(s) || 0) / total);
+    const pSecond = new Array(n).fill(0);
+    for (let w = 0; w < n; w++) {
+      const rem = total - Math.max(0, Number(stacks[w]) || 0);
+      if (rem <= 0) continue;
+      for (let j = 0; j < n; j++) {
+        if (j === w) continue;
+        pSecond[j] += pFirst[w] * (Math.max(0, Number(stacks[j]) || 0) / rem);
+      }
+    }
+    const eq = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      eq[i] = (pFirst[i] || 0) * (pays[0] || 0) + (pSecond[i] || 0) * (pays[1] || 0);
+      if (pays[2]) {
+        const pThird = Math.max(0, 1 - (pFirst[i] || 0) - (pSecond[i] || 0));
+        eq[i] += pThird * pays[2];
+      }
+      eq[i] = Math.round(eq[i] * 1000) / 1000;
+    }
+    return eq;
+  }
+
+  function chipEvShare(stacks) {
+    const total = stacks.reduce((s, x) => s + Math.max(0, Number(x) || 0), 0);
+    if (total <= 0) return stacks.map(() => 0);
+    return stacks.map((s) => Math.max(0, Number(s) || 0) / total);
+  }
+
+  /** >0 ⇒ stack sobrevalorado en chips (jugar más tight). */
+  function icmPressure(stacks, payouts) {
+    const eq = icmEquities(stacks, payouts);
+    const chip = chipEvShare(stacks);
+    if (!eq) return null;
+    const prize = (payouts || []).reduce((s, x) => s + x, 0) || 1;
+    return eq.map((e, i) => Math.round(((chip[i] || 0) * prize - e) * 1000) / 1000);
+  }
+
+  function annotateHand(hand, decisions) {
+    if (!hand || !decisions || !decisions.length) return;
+    const kind = hand.gameKind || 'cash';
+    if (kind !== 'spin' && kind !== 'mtt' && kind !== 'sng') return;
+    const seats = hand.seats || [];
+    if (seats.length < 2 || seats.length > 4) return;
+    const bb = hand.bb || 1;
+    const stacks = seats.map((s) => Math.max(0, (Number(s.stack) || 0) / bb));
+    const hero = hand.hero;
+    const heroIdx = seats.findIndex((s) => s.name === hero);
+    if (heroIdx < 0) return;
+
+    if (kind !== 'spin') {
+      const phase = hand.mttPhase || '';
+      const stackBB = hand.stackDepthBB;
+      if (stackBB != null && stackBB <= 20) {
+        decisions.forEach((d) => {
+          if (d.street !== 'preflop') return;
+          d.icmNote = 'Stack corto en ' + (phase || 'torneo') + ' (~' + Math.round(stackBB)
+            + ' bb): prioriza $EV/ICM frente a chipEV puro.';
+          d.icmLite = true;
+        });
+      }
+      return;
+    }
+
+    const payouts = SPIN_PAYOUTS_2X.slice(0, seats.length);
+    while (payouts.length < seats.length) payouts.push(0);
+    const pressure = icmPressure(stacks, payouts);
+    if (!pressure) return;
+    const pHero = pressure[heroIdx];
+    const eq = icmEquities(stacks, payouts);
+    hand.icmLite = {
+      stacksBB: stacks.map((x) => Math.round(x * 10) / 10),
+      equities: eq,
+      pressure: pressure,
+      heroPressure: pHero,
+      note: pHero > 0.05
+        ? 'ICM lite: tu stack está sobrevalorado en chips → juega más tight (especialmente shove/call).'
+        : (pHero < -0.05
+          ? 'ICM lite: puedes aplicar más presión; chipEV puro te infravalora.'
+          : 'ICM lite: presión moderada; chipEV ≈ $EV en este spot.')
+    };
+    decisions.forEach((d) => {
+      if (d.street !== 'preflop') return;
+      d.icmLite = true;
+      d.icmNote = hand.icmLite.note;
+      d.icmPressure = pHero;
+    });
+  }
+
+  global.PTIcmLite = {
+    icmEquities: icmEquities,
+    icmPressure: icmPressure,
+    annotateHand: annotateHand,
+    SPIN_PAYOUTS_2X: SPIN_PAYOUTS_2X
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * populationCompare.js — Comparativa vs rangos GTO genéricos (IMP-40).
+ * No es HUD de población live: usa OPEN_RAISE del trainer como referencia.
+ */
+(function (global) {
+  'use strict';
+
+  function handInRange(code, rangeStr) {
+    if (!code || !rangeStr) return null;
+    const R = global.Ranges;
+    if (!R || typeof R.toSet !== 'function') return null;
+    try {
+      return R.toSet(rangeStr).has(code);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function rfiRangeFor(hand, pos) {
+    const R = global.Ranges;
+    if (R && R.OPEN_RAISE && R.OPEN_RAISE[pos]) return R.OPEN_RAISE[pos];
+    const RR = global.GTORangesRegistry;
+    if (RR && typeof RR.getRfi === 'function') {
+      try {
+        const ctx = hand.rangeContext || (RR.inferFromHand ? RR.inferFromHand(hand) : {});
+        const table = RR.getRfi(ctx || {});
+        if (table && table[pos]) return table[pos];
+      } catch (e) { /* ignore */ }
+    }
+    return null;
+  }
+
+  function annotateDecisions(hand, decisions) {
+    if (!hand || !decisions) return;
+    if (hand.analysisUnsupported) return;
+    const hero = hand.hero;
+    const pos = hand.heroPos || (hand.positions && hand.positions[hero]);
+    let code = hand.heroCode;
+    const R = global.Ranges;
+    if (!code && hand.heroCards && hand.heroCards.length === 2 && R && typeof R.handCode === 'function') {
+      code = R.handCode(hand.heroCards[0], hand.heroCards[1]);
+    }
+    if (!pos || !code) return;
+
+    decisions.forEach((d) => {
+      if (!d || d.street !== 'preflop') return;
+      const kind = d.spotKind || '';
+      const spot = String(d.spot || '');
+      const isRfi = kind === 'RFI' || /^RFI\b/i.test(spot);
+      if (!isRfi) return;
+      const rangeStr = rfiRangeFor(hand, pos);
+      if (!rangeStr) return;
+      const inRange = handInRange(code, rangeStr);
+      if (inRange == null) return;
+      d.populationCompare = {
+        spot: 'RFI ' + pos,
+        hand: code,
+        inGtoRange: inRange,
+        rangeLabel: 'RFI GTO genérico ' + pos,
+        note: inRange
+          ? (code + ' está dentro del rango RFI GTO genérico en ' + pos + '.')
+          : (code + ' está fuera del rango RFI GTO genérico en ' + pos + ' (referencia trainer, no población live).')
+      };
+    });
+  }
+
+  global.PTPopulationCompare = {
+    annotateDecisions: annotateDecisions,
+    handInRange: handInRange,
+    rfiRangeFor: rfiRangeFor
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
 
 /*
  * parsers/pokerstars.js — Parser PokerStars NLHE (cash / spins / MTT; ES + EN).
@@ -574,13 +783,13 @@
           hand.isZoom = /Zoom/i.test(ln);
           headerText += ' ' + ln;
           hand.isTournament = /Tournament #/i.test(ln) || U.isSpinSignal(ln) || U.isSngSignal(ln);
-          const bl = ln.match(/Hold'em No Limit \(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)(?:\s+[A-Z]{3})?\)/);
+          const bl = ln.match(/(?:Hold'?em No Limit|Pot Limit Omaha|Omaha Pot Limit|Short Deck Hold'?em No Limit)\s*\(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)(?:\s+[A-Z]{3})?\)/i);
           if (bl) {
             hand.sb = num(bl[2]);
             hand.bb = num(bl[4]);
             hand.currency = bl[1] || bl[3] || '€';
             hand.isCash = !hand.isTournament;
-            hand.variant = 'nlhe';
+            hand.variant = U.detectVariant(ln) || 'nlhe';
           } else {
             const lvl = U.parseTournamentBlinds(ln);
             if (lvl) {
@@ -589,10 +798,13 @@
               if (lvl.ante) hand.ante = lvl.ante;
               hand.isTournament = true;
               hand.isCash = false;
-              hand.variant = 'nlhe';
+              hand.variant = U.detectVariant(ln) || 'nlhe';
             }
           }
-          if (/Hold'?em/i.test(ln)) hand.variant = 'nlhe';
+          {
+            const det = U.detectVariant(ln);
+            if (det && det !== 'unknown') hand.variant = det;
+          }
           const dt = ln.match(/-\s*(\d{4}\/\d{2}\/\d{2} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
           continue;
@@ -661,7 +873,7 @@
             hand.sb = num(bl[1]);
             hand.bb = num(bl[2]);
             hand.isCash = !hand.isTournament;
-            hand.variant = 'nlhe';
+            hand.variant = U.detectVariant(ln) || 'nlhe';
           } else {
             const lvl = U.parseTournamentBlinds(ln);
             if (lvl) {
@@ -669,10 +881,13 @@
               hand.bb = lvl.bb;
               hand.isTournament = true;
               hand.isCash = false;
-              hand.variant = 'nlhe';
+              hand.variant = U.detectVariant(ln) || 'nlhe';
             }
           }
-          if (/Hold'?em/i.test(ln)) hand.variant = 'nlhe';
+          {
+            const det = U.detectVariant(ln);
+            if (det && det !== 'unknown') hand.variant = det;
+          }
           const dt = ln.match(/-\s*(\d{2}-\d{2}-\d{4} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
           continue;
@@ -1428,6 +1643,248 @@
 })(window);
 
 /*
+ * parsers/eightyeight.js — Parser 888poker / Pacific (NLHE cash + torneos).
+ * Formato típico: "***** 888poker Hand History for Game … *****"
+ */
+(function (global) {
+  'use strict';
+
+  const U = global.PTHHUtils;
+  const Formats = global.PTHandHistoryFormats;
+  if (!U || !Formats) return;
+
+  const num = U.num;
+  const cardsFrom = U.cardsFrom;
+  const finalizeHandMeta = U.finalizeHandMeta;
+  const isKeepableHand = U.isKeepableHand;
+  const emptyDiscardCounts = U.emptyDiscardCounts;
+
+  const BLOCK_SPLIT = /(?=^\*{3,}\s*888poker Hand History for Game\s+\d+|\n?#Game No\s*:\s*\d+)/im;
+  const BLOCK_TEST = /888poker Hand History for Game|^\s*#Game No\s*:/i;
+
+  function countHandBlocks(text) {
+    const a = (text.match(/\*{3,}\s*888poker Hand History for Game\s+\d+/gi) || []).length;
+    const b = (text.match(/^\s*#Game No\s*:\s*\d+/gim) || []).length;
+    return Math.max(a, b);
+  }
+
+  function parseAction(ln) {
+    let m;
+    if ((m = ln.match(/^(.+?) folds$/i))) return { player: m[1].trim(), type: 'fold' };
+    if ((m = ln.match(/^(.+?) checks$/i))) return { player: m[1].trim(), type: 'check' };
+    if ((m = ln.match(/^(.+?) calls?\s*\[?\s*((?:[€$£]|â‚¬)?)([\d.,]+)\s*\]?/i))) {
+      return { player: m[1].trim(), type: 'call', amount: num(m[3]), allin: /all[\s-]?in/i.test(ln) };
+    }
+    if ((m = ln.match(/^(.+?) bets?\s*\[?\s*((?:[€$£]|â‚¬)?)([\d.,]+)\s*\]?/i))) {
+      return { player: m[1].trim(), type: 'bet', amount: num(m[3]), allin: /all[\s-]?in/i.test(ln) };
+    }
+    if ((m = ln.match(/^(.+?) raises?\s*\[?\s*((?:[€$£]|â‚¬)?)([\d.,]+)\s*\]?/i))) {
+      return { player: m[1].trim(), type: 'raise', amount: num(m[3]), to: num(m[3]), allin: /all[\s-]?in/i.test(ln) };
+    }
+    return null;
+  }
+
+  function parseHand(block) {
+    const lines = String(block || '').split(/\r?\n/);
+    const hand = {
+      id: null, datetime: null, sb: 0, bb: 0, currency: '$',
+      buttonSeat: null, seats: [], hero: null, heroCards: [],
+      blinds: { sb: null, bb: null }, posts: {},
+      streets: { preflop: [], flop: [], turn: [], river: [] },
+      board: { flop: [], turn: [], river: [] }, boardAll: [],
+      shows: {}, collected: {}, uncalledTo: {},
+      rake: 0, potTotal: 0, positions: {}, isCash: false, isTournament: false,
+      platform: '888poker', locale: 'en',
+      gameKind: 'unknown', tableMax: null, variant: 'unknown', isZoom: false
+    };
+
+    let street = 'preheader';
+    let headerText = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const ln = lines[i].trim();
+      if (!ln) continue;
+
+      let m;
+      if ((m = ln.match(/#Game No\s*:\s*(\d+)/i)) || (m = ln.match(/Hand History for Game\s+(\d+)/i))) {
+        hand.id = m[1];
+        headerText += ' ' + ln;
+        continue;
+      }
+
+      // Blinds line: $0.05/$0.10 Blinds No Limit Holdem
+      if ((m = ln.match(/((?:[€$£]|â‚¬)?)([\d.,]+)\s*\/\s*((?:[€$£]|â‚¬)?)([\d.,]+)\s*Blinds/i))) {
+        headerText += ' ' + ln;
+        hand.sb = num(m[2]);
+        hand.bb = num(m[4]);
+        hand.currency = (m[1] === '€' || m[1] === 'â‚¬') ? '€' : (m[1] === '£' ? '£' : '$');
+        hand.isTournament = /Tournament/i.test(ln) || /Tournament/i.test(headerText);
+        hand.isCash = !hand.isTournament;
+        const det = U.detectVariant(ln);
+        hand.variant = (det && det !== 'unknown') ? det : 'nlhe';
+        continue;
+      }
+
+      // Tournament blinds without $ in blinds line
+      if (/Tournament\s*#/i.test(ln) || /\bTournament\b/i.test(ln)) {
+        headerText += ' ' + ln;
+        hand.isTournament = true;
+        hand.isCash = false;
+        continue;
+      }
+
+      if ((m = ln.match(/Table\s+(.+?)\s+(\d+)\s*Max/i))) {
+        hand.tableMax = +m[2];
+        headerText += ' ' + ln;
+        continue;
+      }
+      if ((m = ln.match(/Seat\s+(\d+)\s+is the button/i))) {
+        hand.buttonSeat = +m[1];
+        continue;
+      }
+      if ((m = ln.match(/^Seat\s+(\d+):\s*(.+?)\s*\(\s*((?:[€$£]|â‚¬)?)([\d.,]+)\s*\)/i))) {
+        hand.seats.push({ seat: +m[1], name: m[2].trim(), stack: num(m[4]) });
+        continue;
+      }
+
+      if ((m = ln.match(/^(.+?)\s+posts ante\s*\[?\s*((?:[€$£]|â‚¬)?)([\d.,]+)\s*\]?/i))) {
+        const who = m[1].trim();
+        hand.posts[who] = (hand.posts[who] || 0) + num(m[3]);
+        hand.ante = hand.ante || num(m[3]);
+        continue;
+      }
+      if ((m = ln.match(/^(.+?)\s+posts small blind\s*\[?\s*((?:[€$£]|â‚¬)?)([\d.,]+)\s*\]?/i))) {
+        hand.blinds.sb = m[1].trim();
+        hand.posts[hand.blinds.sb] = (hand.posts[hand.blinds.sb] || 0) + num(m[3]);
+        continue;
+      }
+      if ((m = ln.match(/^(.+?)\s+posts big blind\s*\[?\s*((?:[€$£]|â‚¬)?)([\d.,]+)\s*\]?/i))) {
+        hand.blinds.bb = m[1].trim();
+        hand.posts[hand.blinds.bb] = (hand.posts[hand.blinds.bb] || 0) + num(m[3]);
+        continue;
+      }
+
+      if (/\*\*\s*Dealing down cards\s*\*\*/i.test(ln)) {
+        street = 'preflop';
+        continue;
+      }
+      if ((m = ln.match(/^Dealt to\s+(.+?)\s*\[\s*(.+?)\s*\]/i))) {
+        hand.hero = m[1].trim();
+        hand.heroCards = cardsFrom(m[2]);
+        street = 'preflop';
+        continue;
+      }
+      if ((m = ln.match(/\*\*\s*Dealing flop\s*\*\*\s*\[\s*(.+?)\s*\]/i))) {
+        street = 'flop';
+        hand.board.flop = cardsFrom(m[1]);
+        continue;
+      }
+      if ((m = ln.match(/\*\*\s*Dealing turn\s*\*\*\s*\[\s*(.+?)\s*\]/i))) {
+        street = 'turn';
+        hand.board.turn = cardsFrom(m[1]);
+        continue;
+      }
+      if ((m = ln.match(/\*\*\s*Dealing river\s*\*\*\s*\[\s*(.+?)\s*\]/i))) {
+        street = 'river';
+        hand.board.river = cardsFrom(m[1]);
+        continue;
+      }
+      if (/\*\*\s*Summary\s*\*\*/i.test(ln)) {
+        street = 'summary';
+        continue;
+      }
+
+      if (street === 'summary') {
+        if ((m = ln.match(/^(.+?)\s+shows?\s*\[\s*(.+?)\s*\]/i))) {
+          hand.shows[m[1].trim()] = cardsFrom(m[2]);
+          continue;
+        }
+        if ((m = ln.match(/^(.+?)\s+collected\s*\[?\s*((?:[€$£]|â‚¬)?)([\d.,]+)\s*\]?/i))) {
+          const who = m[1].trim();
+          hand.collected[who] = (hand.collected[who] || 0) + num(m[3]);
+          continue;
+        }
+        continue;
+      }
+
+      if (street === 'preflop' || street === 'flop' || street === 'turn' || street === 'river') {
+        const act = parseAction(ln);
+        if (act) {
+          hand.streets[street].push(act);
+          continue;
+        }
+      }
+    }
+
+    hand.boardAll = [].concat(hand.board.flop || [], hand.board.turn || [], hand.board.river || []);
+    if (!hand.bb && hand.blinds.bb && hand.posts[hand.blinds.bb]) hand.bb = hand.posts[hand.blinds.bb];
+    if (!hand.sb && hand.blinds.sb && hand.posts[hand.blinds.sb]) hand.sb = hand.posts[hand.blinds.sb];
+    finalizeHandMeta(hand, headerText);
+    return hand;
+  }
+
+  function parseSession(text, fileName) {
+    const blocks = String(text || '').split(BLOCK_SPLIT).filter((b) => BLOCK_TEST.test(b.trim()));
+    const hands = [];
+    const heroCount = {};
+    const discardedByReason = emptyDiscardCounts();
+    for (let i = 0; i < blocks.length; i++) {
+      try {
+        const h = parseHand(blocks[i]);
+        const keep = isKeepableHand(h);
+        if (!keep.ok) {
+          if (keep.reason && discardedByReason[keep.reason] != null) discardedByReason[keep.reason]++;
+          else discardedByReason.badParse++;
+          continue;
+        }
+        if (h.hero) heroCount[h.hero] = (heroCount[h.hero] || 0) + 1;
+        hands.push(h);
+      } catch (e) { discardedByReason.badParse++; }
+    }
+    let hero = null;
+    let best = -1;
+    const heroCandidates = Object.keys(heroCount).map((n) => ({ name: n, hands: heroCount[n] }))
+      .sort((a, b) => b.hands - a.hands);
+    for (let i = 0; i < heroCandidates.length; i++) {
+      if (heroCandidates[i].hands > best) { best = heroCandidates[i].hands; hero = heroCandidates[i].name; }
+    }
+    return {
+      fileName: fileName || '888poker.txt',
+      hero,
+      heroCandidates,
+      hands,
+      discardedByReason,
+      format: {
+        platform: '888poker',
+        platformLabel: '888poker',
+        locale: 'en',
+        localeLabel: 'English'
+      }
+    };
+  }
+
+  function detect(text) {
+    return countHandBlocks(text);
+  }
+
+  Formats.register({
+    id: '888poker',
+    name: '888poker',
+    detect: detect,
+    parseSession: parseSession,
+    parseHand: parseHand,
+    describe: function () {
+      return {
+        platform: '888poker',
+        platformLabel: '888poker',
+        locale: 'en',
+        localeLabel: 'English'
+      };
+    }
+  });
+})(window);
+
+/*
  * import.js
  * Importa y analiza historiales de manos (PokerStars ES/EN, Winamax, GGPoker).
  * - Detección automática de plataforma e idioma (PTHandHistoryFormats).
@@ -1606,7 +2063,11 @@
 
   // ---------- ¿analizar esta mano del héroe? ----------
   function heroPlayed(hand) {
-    return !!(hand.hero && hand.heroCards && hand.heroCards.length >= 2);
+    if (!hand || !hand.hero || !hand.heroCards) return false;
+    const n = hand.heroCards.length;
+    const v = hand.variant || 'nlhe';
+    if (v === 'plo' || v === 'plo5') return n >= 4;
+    return n >= 2;
   }
 
   // ---------- ANALIZADOR GTO (vía evaluateSpot) ----------
@@ -1950,7 +2411,83 @@
     return hand;
   }
 
+  /** PLO / Short Deck: parse + timeline, sin scoring GTO (IMP-36/37). */
+  function analyzeUnsupportedHand(hand) {
+    const U = global.PTHHUtils;
+    if (U && U.finalizeHandMeta) U.finalizeHandMeta(hand);
+    const hero = hand.hero;
+    const heroPos = (hand.positions && hand.positions[hero]) || '??';
+    const heroCards = hand.heroCards || [];
+    const bb = hand.bb || 0.05;
+    const formatKey = hand.formatKey || (U && U.formatKeyFromMeta ? U.formatKeyFromMeta(hand) : 'cash6');
+    const seatsCopy = (hand.seats || []).map((s) => ({ seat: s.seat, name: s.name, stack: s.stack }));
+    const vLabel = U && U.variantLabel ? U.variantLabel(hand.variant) : (hand.variant || '?');
+    const heroNetEuro = heroNet(hand);
+    const heroNetBB = bb ? r2(heroNetEuro / bb) : 0;
+    const analyzed = {
+      id: hand.id, datetime: hand.datetime,
+      heroPos, heroCards, heroCode: null,
+      board: hand.boardAll, sb: hand.sb, bb: hand.bb,
+      currency: hand.currency || '€',
+      hero: hand.hero,
+      positions: hand.positions,
+      seats: seatsCopy,
+      streets: hand.streets,
+      posts: hand.posts,
+      blinds: hand.blinds,
+      villainShows: hand.shows,
+      collected: Object.assign({}, hand.collected || {}),
+      uncalledTo: Object.assign({}, hand.uncalledTo || {}),
+      rake: hand.rake || 0,
+      potTotal: hand.potTotal || 0,
+      gameKind: hand.gameKind || (hand.isTournament ? 'mtt' : 'cash'),
+      isCash: !!hand.isCash,
+      isTournament: !!hand.isTournament,
+      isZoom: !!hand.isZoom,
+      tableMax: hand.tableMax || null,
+      playersSeated: hand.playersSeated || seatsCopy.length,
+      shortHanded: !!hand.shortHanded,
+      variant: hand.variant,
+      analysisUnsupported: true,
+      unsupportedReason: 'Variante ' + vLabel + ': importada sin análisis GTO (aún no soportada).',
+      platform: hand.platform || null,
+      locale: hand.locale || null,
+      formatKey: formatKey,
+      format: U && U.legacyFormatFromKey ? U.legacyFormatFromKey(formatKey) : '6max',
+      stakeTier: hand.stakeTier || null,
+      stakesLabel: hand.stakesLabel || '',
+      stackDepthBB: hand.stackDepthBB != null ? hand.stackDepthBB : null,
+      avgStackBB: hand.avgStackBB != null ? hand.avgStackBB : null,
+      mttPhase: hand.mttPhase || null,
+      buyIn: hand.buyIn != null ? hand.buyIn : null,
+      buyInFee: hand.buyInFee != null ? hand.buyInFee : null,
+      multiplier: hand.multiplier != null ? hand.multiplier : null,
+      ante: hand.ante || 0,
+      straddle: hand.straddle || null,
+      rangeContext: null,
+      decisions: [],
+      totalEvLoss: 0,
+      accuracy: null,
+      accuracyByStreet: {},
+      heroNetBB,
+      worstClass: 'optima',
+      handScore: null,
+      handScoreMeta: null,
+      nDecisions: 0,
+      summary: buildHandTimeline(hand),
+      tags: [vLabel, 'sin GTO']
+    };
+    return analyzed;
+  }
+
   function analyzeHand(hand) {
+    const U0 = global.PTHHUtils;
+    const unsupported = !!(hand.analysisUnsupported
+      || (U0 && U0.isAnalysisUnsupportedVariant && U0.isAnalysisUnsupportedVariant(hand.variant)));
+    if (unsupported) {
+      return analyzeUnsupportedHand(hand);
+    }
+
     const RR = global.GTORangesRegistry;
     if (RR) hand.rangeContext = RR.inferFromHand(hand);
 
@@ -1985,6 +2522,16 @@
         decisions.forEach((d) => recomputeDecisionGto(hand, d));
         attachProbeAlerts(hand, decisions);
       }
+    }
+
+    // ICM lite (spins/MTT): anota presión en decisiones cortas
+    if (global.PTIcmLite && global.PTIcmLite.annotateHand) {
+      global.PTIcmLite.annotateHand(hand, decisions);
+    }
+
+    // Comparativa vs rango GTO genérico (población) en spots RFI
+    if (global.PTPopulationCompare && global.PTPopulationCompare.annotateDecisions) {
+      global.PTPopulationCompare.annotateDecisions(hand, decisions);
     }
 
     // EV y acierto
@@ -2040,6 +2587,7 @@
       playersSeated: hand.playersSeated || seatsCopy.length,
       shortHanded: !!hand.shortHanded,
       variant: hand.variant || 'nlhe',
+      analysisUnsupported: false,
       platform: hand.platform || null,
       locale: hand.locale || null,
       formatKey: formatKey,
@@ -2055,6 +2603,7 @@
       ante: hand.ante || 0,
       straddle: hand.straddle || null,
       rangeContext: hand.rangeContext || null,
+      icmLite: hand.icmLite || null,
       decisions, totalEvLoss: r2(totalEvLoss),
       accuracy, accuracyByStreet: byStreet,
       heroNetBB, worstClass: worst,

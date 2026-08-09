@@ -2,7 +2,7 @@
 
 > Objetivo: que el importador **detecte el tipo de juego y de mesa**, **persista esa metadata**, y **adapte estadísticas, ideales GTO y coaching** al contexto real de cada sesión. Además, ampliar capacidades útiles para jugadores profesionales / regulares serios.
 >
-> **Estado actual (resumen):** parsers NLHE cash/spins/MTT (PokerStars ES/EN+Zoom, Winamax, GGPoker) con metadata first-class (`gameKind`, `tableMax`, `formatKey`). **P0 + P1 implementados** (IMP-01…22). **P2 implementado salvo What-if (IMP-34)** — limp/delayed, tags, ante/straddle, stakes/día, CI bb/100, banner reanálisis, hero picker, merge/dedup, leaks por formato, cola graves. Agregados v9. Pendiente P3.
+> **Estado actual (resumen):** parsers NLHE cash/spins/MTT (PokerStars ES/EN+Zoom, Winamax, GGPoker, **888poker**) con metadata first-class (`gameKind`, `tableMax`, `formatKey`). **P0–P2** (salvo What-if IMP-34) + **P3** (888, PLO/SD parse-only, auto-import carpeta, ICM lite, vs GTO genérico). UI sesiones con pestañas Cash / Spins / Torneos. Pendiente ampliar salas (Party/WPN/iPoker) según demanda.
 >
 > **Relacionado:** `BACKLOG_METRICAS_POKER.md` (STAT-16 ideales por formato), `EPIC_10_PARIDAD_SNOWIE.md` (SN-20/21/35), `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`.
 
@@ -183,14 +183,16 @@ Prioridad: **P0** (cimiento / pedida explícitamente) · **P1** (alto valor pro)
 
 ### P3 — Cobertura y moat (después del core)
 
-| ID | Tarea | Esf. | Criterio de aceptación |
-|----|-------|------|------------------------|
-| **IMP-35** | Más salas: iPoker / 888 / Party / WPN (según demanda usuarios) | XL | Detector + 1 parser + fixtures |
-| **IMP-36** | PLO / PLO5 import (parse only + “no GTO aún”) | L | No romper NLHE; badge unsupported analysis |
-| **IMP-37** | Short Deck | L | Idem |
-| **IMP-38** | Auto-import watcher / carpeta HH (PWA/desktop bridge) | XL | Pros odian subir a mano |
-| **IMP-39** | ICM module real para bubbles MTT/spins (o partner datos) | XL | Solo si se decide profundizar MTT (ver estudio mercado) |
-| **IMP-40** | Comparativa vs population ranges **genéricos** (no HUD rivales live) | L | “Tu BTN open vs rango GTO 6-max” ya parcialmente vía decisions |
+| ID | Tarea | Esf. | Estado | Criterio de aceptación |
+|----|-------|------|--------|------------------------|
+| **IMP-35** | Más salas: **888poker** (+ iPoker/Party/WPN bajo demanda) | XL | ✅ 888 | Detector + parser + fixtures (888); otras salas a demanda |
+| **IMP-36** | PLO / PLO5 import (parse only + “no GTO aún”) | L | ✅ | No romper NLHE; badge unsupported analysis |
+| **IMP-37** | Short Deck | L | ✅ | Idem |
+| **IMP-38** | Auto-import watcher / carpeta HH (File System Access API) | XL | ✅ MVP | Vigilancia carpeta Chrome/Edge + import manual |
+| **IMP-39** | ICM lite spins 3-max + nota bubble MTT | XL | ✅ lite | Presión ICM aprox.; no motor ICM completo |
+| **IMP-40** | Comparativa vs rangos GTO **genéricos** (OPEN_RAISE trainer) | L | ✅ | Nota en RFI: dentro/fuera del rango GTO genérico |
+
+**DoD P3 (MVP):** cumplido. Party/WPN/iPoker e ICM completo quedan como follow-ups.
 
 ---
 

@@ -25,8 +25,10 @@ const scripts = [
   'engine/solver/LocalSolverProvider.js', 'engine/evaluateSpot.js',
   'engine/villainProfiles.js', 'engine/villainPreflop.js',
   'ranges.js', 'engine.js',
-  'import/hhUtils.js', 'import/formatDetector.js', 'import/parsers/pokerstars.js',
-  'import/parsers/winamax.js', 'import/parsers/ggpoker.js', 'import.js'
+  'import/hhUtils.js', 'import/formatDetector.js',
+  'import/icmLite.js', 'import/populationCompare.js', 'import/parsers/pokerstars.js',
+  'import/parsers/winamax.js', 'import/parsers/ggpoker.js',
+  'import/parsers/eightyeight.js', 'import.js'
 ];
 
 scripts.forEach((f) => {

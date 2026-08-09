@@ -92,10 +92,23 @@
 
   function detectVariant(text) {
     if (!text) return 'unknown';
+    if (/5[\s-]?Card\s+Omaha|Omaha\s*5|PLO[\s-]?5|Pot[\s-]?Limit\s+Omaha\s*5/i.test(text)) return 'plo5';
     if (/Omaha|PLO|Pot[\s-]?Limit\s+Omaha/i.test(text)) return 'plo';
-    if (/Short\s*Deck|6\+\s*Hold'?em/i.test(text)) return 'shortdeck';
+    if (/Short\s*Deck|6\+\s*Hold'?em|Hold'?em\s*6\+/i.test(text)) return 'shortdeck';
     if (/Hold'?em|Holdem/i.test(text)) return 'nlhe';
     return 'unknown';
+  }
+
+  function isAnalysisUnsupportedVariant(variant) {
+    return variant === 'plo' || variant === 'plo5' || variant === 'shortdeck';
+  }
+
+  function variantLabel(variant) {
+    if (variant === 'plo') return 'PLO';
+    if (variant === 'plo5') return 'PLO5';
+    if (variant === 'shortdeck') return 'Short Deck';
+    if (variant === 'nlhe') return 'NLHE';
+    return variant || '?';
   }
 
   function parseBuyInFromText(text) {
@@ -301,19 +314,22 @@
     return hand;
   }
 
-  /** ¿Se puede conservar la mano para análisis? */
+  /** ¿Se puede conservar la mano? PLO/Short Deck: parse-only (sin GTO). */
   function isKeepableHand(hand) {
     if (!hand || !hand.id) return { ok: false, reason: 'badParse' };
+    if (!hand.bb || hand.bb <= 0) return { ok: false, reason: 'noBlinds' };
+    const kind = hand.gameKind || 'unknown';
+    if (!(kind === 'cash' || kind === 'spin' || kind === 'mtt' || kind === 'sng')) {
+      return { ok: false, reason: 'unknownGame' };
+    }
+    if (isAnalysisUnsupportedVariant(hand.variant)) {
+      hand.analysisUnsupported = true;
+      return { ok: true, reason: null, analysisUnsupported: true };
+    }
     if (hand.variant && hand.variant !== 'nlhe' && hand.variant !== 'unknown') {
       return { ok: false, reason: 'unsupportedVariant' };
     }
-    // Si unknown pero parece Hold'em por acciones, permitir
-    if (!hand.bb || hand.bb <= 0) return { ok: false, reason: 'noBlinds' };
-    const kind = hand.gameKind || 'unknown';
-    if (kind === 'cash' || kind === 'spin' || kind === 'mtt' || kind === 'sng') {
-      return { ok: true, reason: null };
-    }
-    return { ok: false, reason: 'unknownGame' };
+    return { ok: true, reason: null };
   }
 
   function emptyDiscardCounts() {
@@ -390,6 +406,8 @@
     isSpinSignal,
     isSngSignal,
     detectVariant,
+    isAnalysisUnsupportedVariant,
+    variantLabel,
     parseBuyInFromText,
     parseMultiplierFromText,
     parseTournamentBlinds,

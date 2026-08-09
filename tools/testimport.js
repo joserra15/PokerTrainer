@@ -10,9 +10,12 @@ vm.createContext(sandbox);
 const importChain = [
   'import/hhUtils.js',
   'import/formatDetector.js',
+  'import/icmLite.js',
+  'import/populationCompare.js',
   'import/parsers/pokerstars.js',
   'import/parsers/winamax.js',
   'import/parsers/ggpoker.js',
+  'import/parsers/eightyeight.js',
   'import.js'
 ];
 
@@ -174,4 +177,34 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   console.log('P2 limp/tags/CI/heroCandidates OK');
 })();
 
-console.log('*** IMPORTADOR OK (cash/spins/MTT + tableMax + P2) ***');
+// P3: 888poker + PLO/Short Deck parse-only + ICM lite
+(function () {
+  const s888 = runFile('tools/fixtures/888poker-sample.txt', '888poker');
+  assert(s888.format && s888.format.platform === '888poker', '888 platform');
+  assert(s888.hands.length >= 2, '888 hands');
+  assert(s888.context.gameKind === 'cash', '888 cash');
+
+  const ploTxt = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerStars-plo-sample.txt'), 'utf8');
+  const ploParsed = Importer.parseSession(ploTxt, 'plo');
+  assert(ploParsed.hands.length >= 1, 'PLO parse keep');
+  assert(ploParsed.hands[0].variant === 'plo', 'PLO variant');
+  const ploSes = Importer.buildSession(ploParsed, 'plo');
+  assert(ploSes.hands[0].analysisUnsupported === true, 'PLO sin GTO');
+  assert((ploSes.hands[0].decisions || []).length === 0, 'PLO sin decisions GTO');
+
+  const sdTxt = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerStars-shortdeck-sample.txt'), 'utf8');
+  const sdParsed = Importer.parseSession(sdTxt, 'sd');
+  assert(sdParsed.hands.length >= 1, 'Short Deck parse keep');
+  assert(sdParsed.hands[0].variant === 'shortdeck', 'SD variant got ' + (sdParsed.hands[0] && sdParsed.hands[0].variant));
+  const sdSes = Importer.buildSession(sdParsed, 'sd');
+  assert(sdSes.hands[0].analysisUnsupported === true, 'SD sin GTO');
+
+  if (sandbox.window.PTIcmLite) {
+    const eq = sandbox.window.PTIcmLite.icmEquities([10, 10, 10], [0.65, 0.35, 0]);
+    assert(eq && eq.length === 3, 'ICM equities');
+    assert(Math.abs(eq[0] - eq[1]) < 0.05, 'ICM simétrico 3-way');
+  }
+  console.log('P3 888/PLO/SD/ICM OK');
+})();
+
+console.log('*** IMPORTADOR OK (cash/spins/MTT + P2 + P3) ***');

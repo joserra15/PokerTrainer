@@ -64,6 +64,8 @@
   let leakReplayQueue = [];
   let latestTrainerStatsLeaks = [];
   let latestSessionStatsLeaks = [];
+  let sessionsListTab = 'cash';
+  let autoImportState = { handle: null, timer: null, seen: {} };
 
   function emptyByStreet() {
     return {
@@ -1196,6 +1198,21 @@
       $('#import-status').textContent = e.target.files.length ? `Listo para procesar: ${e.target.files[0].name}` : '';
     });
     $('#process-session').addEventListener('click', processSessionFile);
+    const autoBtn = $('#auto-import-folder');
+    const autoStop = $('#auto-import-stop');
+    if (autoBtn) autoBtn.addEventListener('click', () => { void startAutoImportFolder(); });
+    if (autoStop) autoStop.addEventListener('click', stopAutoImportFolder);
+    $$('.sessions-kind-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        sessionsListTab = btn.getAttribute('data-sessions-tab') || 'cash';
+        try { sessionStorage.setItem('pt_sessions_tab', sessionsListTab); } catch (e) { /* ignore */ }
+        renderSessionsList();
+      });
+    });
+    try {
+      const savedTab = sessionStorage.getItem('pt_sessions_tab');
+      if (savedTab === 'cash' || savedTab === 'spin' || savedTab === 'mtt') sessionsListTab = savedTab;
+    } catch (e) { /* ignore */ }
     $('#back-to-sessions').addEventListener('click', () => {
       if (analysisReviewReturn) {
         analysisReviewReturn = false;
@@ -3565,7 +3582,29 @@
     if (st.mttPhase && (kind === 'mtt' || kind === 'spin' || kind === 'sng')) {
       html += ' <span class="badge session-phase">' + escapeHtml(st.mttPhase) + '</span>';
     }
+    const unsupportedN = session && session.hands
+      ? session.hands.filter((h) => h && h.analysisUnsupported).length
+      : (st.unsupportedHands || 0);
+    if (unsupportedN) {
+      html += ' <span class="badge session-unsupported" title="Manos importadas sin análisis GTO">Sin GTO ×'
+        + unsupportedN + '</span>';
+    }
     return html;
+  }
+
+  function sessionBucket(session) {
+    const kind = (session && session.context && session.context.gameKind)
+      || (session && session.stats && session.stats.gameKind)
+      || 'cash';
+    if (kind === 'spin') return 'spin';
+    if (kind === 'mtt' || kind === 'sng') return 'mtt';
+    return 'cash';
+  }
+
+  function sessionsTabHint(tab) {
+    if (tab === 'spin') return 'Spins / Spin & Go / Jackpot SNG.';
+    if (tab === 'mtt') return 'Torneos MTT y Sit & Go (no spins).';
+    return 'Sesiones de cash NL Hold\'em (y mesas cortas).';
   }
 
   function importDiscardSummaryHtml(session) {
@@ -5323,6 +5362,10 @@
         if (status) status.innerHTML = msg || '';
         input.value = '';
         $('#process-session').disabled = true;
+        if (lastOk) {
+          sessionsListTab = sessionBucket(lastOk);
+          try { sessionStorage.setItem('pt_sessions_tab', sessionsListTab); } catch (e) { /* ignore */ }
+        }
         renderSessionsList();
         if (lastOk) openSession(lastOk.id, lastOk);
       } catch (err) {
@@ -5375,16 +5418,43 @@
     const box = $('#sessions-list');
     const isSample = (s) => window.PTSampleSession && window.PTSampleSession.isSampleSession
       ? window.PTSampleSession.isSampleSession(s) : s.id === 'pt_sample_session_v1';
-    if (!sessions.length) { box.innerHTML = '<div class="empty">No hay sesiones. Añade un fichero .txt arriba.</div>'; return; }
-    box.innerHTML = sessions.map((s) => {
-      const st = s.stats;
-      const netCls = st.netBB >= 0 ? 'net-pos' : 'net-neg';
+    const counts = { cash: 0, spin: 0, mtt: 0 };
+    sessions.forEach((s) => { counts[sessionBucket(s)] = (counts[sessionBucket(s)] || 0) + 1; });
+    $$('.sessions-kind-tab').forEach((btn) => {
+      const tab = btn.getAttribute('data-sessions-tab');
+      const on = tab === sessionsListTab;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    $$('[data-tab-count]').forEach((el) => {
+      const k = el.getAttribute('data-tab-count');
+      el.textContent = String(counts[k] || 0);
+    });
+    const hint = $('#sessions-tab-hint');
+    if (hint) hint.textContent = sessionsTabHint(sessionsListTab);
+
+    const filtered = sessions.filter((s) => sessionBucket(s) === sessionsListTab);
+    if (!sessions.length) {
+      box.innerHTML = '<div class="empty">No hay sesiones. Añade un fichero .txt arriba.</div>';
+      return;
+    }
+    if (!filtered.length) {
+      box.innerHTML = '<div class="empty">No hay sesiones en «'
+        + (sessionsListTab === 'spin' ? 'Spins' : (sessionsListTab === 'mtt' ? 'Torneos' : 'Cash'))
+        + '». Importa un historial o cambia de pestaña.</div>';
+      return;
+    }
+    box.innerHTML = filtered.map((s) => {
+      const st = s.stats || {};
+      const netCls = (st.netBB || 0) >= 0 ? 'net-pos' : 'net-neg';
       const sampleBadge = isSample(s) ? '<span class="session-sample-badge">Ejemplo</span>' : '';
+      const gradeLetter = st.grade && st.grade.letter ? st.grade.letter[0] : 'C';
+      const acc = st.accuracy != null ? st.accuracy + '%' : '—';
       return `<div class="record session-card">
         <div class="rec-main">
-          <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span> ${sessionContextBadgesHtml(s)}</div>
-          <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands} manos · ${fmtDate(s.createdAt)}</div>
-          <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)} bb</span> · EV perdido -${fmtBB(st.evLossBB)} bb${st.roiPct != null ? ' · ROI ' + st.roiPct + '%' : ''}</div>
+          <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge grade-${gradeLetter}">Nota ${st.grade ? st.grade.letter : '—'}</span> ${sessionContextBadgesHtml(s)}</div>
+          <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands || 0} manos · ${fmtDate(s.createdAt)}</div>
+          <div class="rec-sub">Acierto ${acc} · <span class="${netCls}">${(st.netBB || 0) >= 0 ? '+' : ''}${fmtBB(st.netBB || 0)} bb</span> · EV perdido -${fmtBB(st.evLossBB || 0)} bb${st.roiPct != null ? ' · ROI ' + st.roiPct + '%' : ''}</div>
           <div class="rec-sub muted-text" style="font-size:12px">${streetAccSummary(st.accByStreet)}</div>
         </div>
         <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
@@ -5400,6 +5470,88 @@
         renderSessionsList();
       }
     }));
+  }
+
+  // ---- Auto-import carpeta HH (IMP-38) ----
+  function stopAutoImportFolder() {
+    if (autoImportState.timer) {
+      clearInterval(autoImportState.timer);
+      autoImportState.timer = null;
+    }
+    autoImportState.handle = null;
+    const stop = $('#auto-import-stop');
+    const start = $('#auto-import-folder');
+    if (stop) stop.classList.add('hidden');
+    if (start) start.classList.remove('hidden');
+    const st = $('#auto-import-status');
+    if (st) st.textContent = 'Vigilancia detenida.';
+  }
+
+  async function scanAutoImportFolder() {
+    const dir = autoImportState.handle;
+    if (!dir) return;
+    const status = $('#auto-import-status');
+    const toImport = [];
+    try {
+      for await (const [name, handle] of dir.entries()) {
+        if (!handle || handle.kind !== 'file') continue;
+        if (!/\.txt$/i.test(name)) continue;
+        const key = name + ':' + (handle.name || name);
+        if (autoImportState.seen[key]) continue;
+        const file = await handle.getFile();
+        const stamp = file.lastModified + ':' + file.size;
+        if (autoImportState.seen[key] === stamp) continue;
+        autoImportState.seen[key] = stamp;
+        toImport.push(file);
+      }
+    } catch (e) {
+      if (status) status.textContent = 'No se pudo leer la carpeta (permiso revocado?).';
+      stopAutoImportFolder();
+      return;
+    }
+    if (!toImport.length) {
+      if (status) status.textContent = 'Vigilando «' + (dir.name || 'carpeta') + '»… sin archivos nuevos.';
+      return;
+    }
+    if (status) status.textContent = 'Importando ' + toImport.length + ' archivo(s) nuevos…';
+    // Reutilizar processSessionFile vía DataTransfer simulado
+    const input = $('#session-file');
+    if (!input) return;
+    try {
+      const dt = new DataTransfer();
+      toImport.forEach((f) => dt.items.add(f));
+      input.files = dt.files;
+      $('#process-session').disabled = false;
+      processSessionFile();
+    } catch (e) {
+      if (status) status.textContent = 'Auto-import: ' + (e.message || 'error al encolar archivos');
+    }
+  }
+
+  async function startAutoImportFolder() {
+    const status = $('#auto-import-status');
+    if (!window.showDirectoryPicker) {
+      if (status) {
+        status.textContent = 'Tu navegador no soporta vigilancia de carpeta (usa Chrome/Edge). Puedes seguir subiendo .txt a mano.';
+      }
+      return;
+    }
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'read' });
+      autoImportState.handle = handle;
+      autoImportState.seen = {};
+      const stop = $('#auto-import-stop');
+      const start = $('#auto-import-folder');
+      if (stop) stop.classList.remove('hidden');
+      if (start) start.classList.add('hidden');
+      if (status) status.textContent = 'Vigilando «' + (handle.name || 'carpeta') + '» cada 15s…';
+      await scanAutoImportFolder();
+      if (autoImportState.timer) clearInterval(autoImportState.timer);
+      autoImportState.timer = setInterval(() => { void scanAutoImportFolder(); }, 15000);
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      if (status) status.textContent = 'No se pudo abrir la carpeta.';
+    }
   }
 
   function sessionLoadingHtml(message) {
@@ -6088,14 +6240,23 @@
     const shareSource = shareSourceForCurrentReview();
     const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
     let html = `<div class="review-share-row"><button type="button" class="btn btn-ghost btn-small" id="share-hand-review">Compartir análisis</button></div>`;
+    const unsupportedBanner = h.analysisUnsupported
+      ? `<div class="card-box" style="margin:10px 0;border-color:var(--yellow)"><strong>Sin análisis GTO</strong>
+          <p class="muted-text" style="margin:6px 0 0">${escapeHtml(h.unsupportedReason || 'Variante importada solo para consulta (PLO / Short Deck).')}</p></div>`
+      : '';
+    const icmBanner = (!h.analysisUnsupported && h.icmLite && h.icmLite.note)
+      ? `<div class="card-box" style="margin:10px 0;border-color:rgba(138,180,255,.45)"><strong>ICM lite</strong>
+          <p class="muted-text" style="margin:6px 0 0">${escapeHtml(h.icmLite.note)}</p></div>`
+      : '';
     html += `<div class="review-head">
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div>
-        <h2>${h.heroCode} · ${h.heroPos} ${handScoreBadgeHtml(scoreMeta)}</h2>
+        <h2>${h.heroCode || (h.variant || 'mano')} · ${h.heroPos || '?'} ${handScoreBadgeHtml(scoreMeta)}</h2>
         <div class="muted-text">Mano #${h.id} · Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span> · EV perdido: -${fmtBB(h.totalEvLoss)} bb${h.bb || (h.spec && h.spec.bbEuro) ? ' · BB ' + fmtBB(h.bb || h.spec.bbEuro) + '€' : ''}</div>
         ${handOptimalBannerHtml(scoreMeta)}
       </div>
     </div>`;
+    html += unsupportedBanner + icmBanner;
 
     html += sessionReplayThemeHTML();
     html += renderShowdownTableHTML(h);
@@ -6132,6 +6293,13 @@
             html += `<div class="tl-expl">${escapeHtml(heroDec.explanation)}</div>`;
           }
           if (heroDec.renderAlert) html += `<div class="tl-expl" style="color:var(--orange)">${escapeHtml(heroDec.renderAlert)}</div>`;
+          if (heroDec.icmNote) {
+            html += `<div class="tl-expl" style="color:#8ab4ff"><strong>ICM lite:</strong> ${escapeHtml(heroDec.icmNote)}</div>`;
+          }
+          if (heroDec.populationCompare && heroDec.populationCompare.note) {
+            const ok = heroDec.populationCompare.inGtoRange;
+            html += `<div class="tl-expl" style="color:${ok ? 'var(--green)' : 'var(--yellow)'}"><strong>vs GTO genérico:</strong> ${escapeHtml(heroDec.populationCompare.note)}</div>`;
+          }
           if (heroDec.villainAudit && heroDec.villainAudit.severity === 'critical') {
             html += `<div class="tl-expl" style="color:var(--red,#e55)"><strong>Villano:</strong> ${escapeHtml(heroDec.villainAudit.label)}</div>`;
           }

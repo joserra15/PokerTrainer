@@ -636,6 +636,45 @@ body.range-matrix-open { overflow: hidden; }
 .badge.session-kind-spin { color: var(--gold); border-color: rgba(245,196,81,.4); }
 .badge.session-kind-mtt,
 .badge.session-kind-sng { color: #8ab4ff; border-color: rgba(138,180,255,.4); }
+.badge.session-unsupported {
+  color: var(--yellow);
+  border-color: rgba(245,196,81,.45);
+}
+.sessions-kind-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 8px;
+  flex-wrap: wrap;
+}
+.sessions-kind-tab {
+  appearance: none;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sessions-kind-tab:hover { border-color: rgba(245,196,81,.4); color: var(--text); }
+.sessions-kind-tab.active {
+  background: rgba(245,196,81,.12);
+  border-color: rgba(245,196,81,.55);
+  color: var(--gold);
+}
+.sessions-tab-count {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  font-size: 11px;
+  font-weight: 700;
+}
+.sessions-kind-tab.active .sessions-tab-count { background: rgba(245,196,81,.2); }
+.sessions-tab-hint { margin: 0 0 10px; font-size: 12px; }
 .stats-format-filter label { display: inline-flex; align-items: center; gap: 8px; }
 .stats-format-filter select {
   background: var(--panel);

@@ -1,0 +1,28 @@
+PokerStars Hand #991000001:  Pot Limit Omaha ($0.05/$0.10 USD) - 2024/06/01 12:00:00 ET
+Table 'PLOTable' 6-max Seat #3 is the button
+Seat 1: VillainA ($10 in chips)
+Seat 2: VillainB ($10 in chips)
+Seat 3: VillainC ($10 in chips)
+Seat 4: Hero ($10 in chips)
+Seat 5: VillainD ($10 in chips)
+Seat 6: VillainE ($10 in chips)
+Hero: posts small blind $0.05
+VillainD: posts big blind $0.10
+*** HOLE CARDS ***
+Dealt to Hero [Ah Kh Qd Jc]
+VillainE: folds
+VillainA: raises $0.30 to $0.30
+VillainB: folds
+VillainC: folds
+Hero: calls $0.25
+VillainD: folds
+*** FLOP *** [2c 7d Ts]
+Hero: checks
+VillainA: bets $0.40
+Hero: folds
+Uncalled bet ($0.40) returned to VillainA
+VillainA collected $0.70 from pot
+*** SUMMARY ***
+Total pot $0.70 | Rake $0
+Board [2c 7d Ts]
+Seat 4: Hero (small blind) folded on the Flop

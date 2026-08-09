@@ -177,7 +177,11 @@
 
   // ---------- ¿analizar esta mano del héroe? ----------
   function heroPlayed(hand) {
-    return !!(hand.hero && hand.heroCards && hand.heroCards.length >= 2);
+    if (!hand || !hand.hero || !hand.heroCards) return false;
+    const n = hand.heroCards.length;
+    const v = hand.variant || 'nlhe';
+    if (v === 'plo' || v === 'plo5') return n >= 4;
+    return n >= 2;
   }
 
   // ---------- ANALIZADOR GTO (vía evaluateSpot) ----------
@@ -521,7 +525,83 @@
     return hand;
   }
 
+  /** PLO / Short Deck: parse + timeline, sin scoring GTO (IMP-36/37). */
+  function analyzeUnsupportedHand(hand) {
+    const U = global.PTHHUtils;
+    if (U && U.finalizeHandMeta) U.finalizeHandMeta(hand);
+    const hero = hand.hero;
+    const heroPos = (hand.positions && hand.positions[hero]) || '??';
+    const heroCards = hand.heroCards || [];
+    const bb = hand.bb || 0.05;
+    const formatKey = hand.formatKey || (U && U.formatKeyFromMeta ? U.formatKeyFromMeta(hand) : 'cash6');
+    const seatsCopy = (hand.seats || []).map((s) => ({ seat: s.seat, name: s.name, stack: s.stack }));
+    const vLabel = U && U.variantLabel ? U.variantLabel(hand.variant) : (hand.variant || '?');
+    const heroNetEuro = heroNet(hand);
+    const heroNetBB = bb ? r2(heroNetEuro / bb) : 0;
+    const analyzed = {
+      id: hand.id, datetime: hand.datetime,
+      heroPos, heroCards, heroCode: null,
+      board: hand.boardAll, sb: hand.sb, bb: hand.bb,
+      currency: hand.currency || '€',
+      hero: hand.hero,
+      positions: hand.positions,
+      seats: seatsCopy,
+      streets: hand.streets,
+      posts: hand.posts,
+      blinds: hand.blinds,
+      villainShows: hand.shows,
+      collected: Object.assign({}, hand.collected || {}),
+      uncalledTo: Object.assign({}, hand.uncalledTo || {}),
+      rake: hand.rake || 0,
+      potTotal: hand.potTotal || 0,
+      gameKind: hand.gameKind || (hand.isTournament ? 'mtt' : 'cash'),
+      isCash: !!hand.isCash,
+      isTournament: !!hand.isTournament,
+      isZoom: !!hand.isZoom,
+      tableMax: hand.tableMax || null,
+      playersSeated: hand.playersSeated || seatsCopy.length,
+      shortHanded: !!hand.shortHanded,
+      variant: hand.variant,
+      analysisUnsupported: true,
+      unsupportedReason: 'Variante ' + vLabel + ': importada sin análisis GTO (aún no soportada).',
+      platform: hand.platform || null,
+      locale: hand.locale || null,
+      formatKey: formatKey,
+      format: U && U.legacyFormatFromKey ? U.legacyFormatFromKey(formatKey) : '6max',
+      stakeTier: hand.stakeTier || null,
+      stakesLabel: hand.stakesLabel || '',
+      stackDepthBB: hand.stackDepthBB != null ? hand.stackDepthBB : null,
+      avgStackBB: hand.avgStackBB != null ? hand.avgStackBB : null,
+      mttPhase: hand.mttPhase || null,
+      buyIn: hand.buyIn != null ? hand.buyIn : null,
+      buyInFee: hand.buyInFee != null ? hand.buyInFee : null,
+      multiplier: hand.multiplier != null ? hand.multiplier : null,
+      ante: hand.ante || 0,
+      straddle: hand.straddle || null,
+      rangeContext: null,
+      decisions: [],
+      totalEvLoss: 0,
+      accuracy: null,
+      accuracyByStreet: {},
+      heroNetBB,
+      worstClass: 'optima',
+      handScore: null,
+      handScoreMeta: null,
+      nDecisions: 0,
+      summary: buildHandTimeline(hand),
+      tags: [vLabel, 'sin GTO']
+    };
+    return analyzed;
+  }
+
   function analyzeHand(hand) {
+    const U0 = global.PTHHUtils;
+    const unsupported = !!(hand.analysisUnsupported
+      || (U0 && U0.isAnalysisUnsupportedVariant && U0.isAnalysisUnsupportedVariant(hand.variant)));
+    if (unsupported) {
+      return analyzeUnsupportedHand(hand);
+    }
+
     const RR = global.GTORangesRegistry;
     if (RR) hand.rangeContext = RR.inferFromHand(hand);
 
@@ -556,6 +636,16 @@
         decisions.forEach((d) => recomputeDecisionGto(hand, d));
         attachProbeAlerts(hand, decisions);
       }
+    }
+
+    // ICM lite (spins/MTT): anota presión en decisiones cortas
+    if (global.PTIcmLite && global.PTIcmLite.annotateHand) {
+      global.PTIcmLite.annotateHand(hand, decisions);
+    }
+
+    // Comparativa vs rango GTO genérico (población) en spots RFI
+    if (global.PTPopulationCompare && global.PTPopulationCompare.annotateDecisions) {
+      global.PTPopulationCompare.annotateDecisions(hand, decisions);
     }
 
     // EV y acierto
@@ -611,6 +701,7 @@
       playersSeated: hand.playersSeated || seatsCopy.length,
       shortHanded: !!hand.shortHanded,
       variant: hand.variant || 'nlhe',
+      analysisUnsupported: false,
       platform: hand.platform || null,
       locale: hand.locale || null,
       formatKey: formatKey,
@@ -626,6 +717,7 @@
       ante: hand.ante || 0,
       straddle: hand.straddle || null,
       rangeContext: hand.rangeContext || null,
+      icmLite: hand.icmLite || null,
       decisions, totalEvLoss: r2(totalEvLoss),
       accuracy, accuracyByStreet: byStreet,
       heroNetBB, worstClass: worst,

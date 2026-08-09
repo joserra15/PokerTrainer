@@ -119,13 +119,13 @@
           hand.isZoom = /Zoom/i.test(ln);
           headerText += ' ' + ln;
           hand.isTournament = /Tournament #/i.test(ln) || U.isSpinSignal(ln) || U.isSngSignal(ln);
-          const bl = ln.match(/Hold'em No Limit \(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)(?:\s+[A-Z]{3})?\)/);
+          const bl = ln.match(/(?:Hold'?em No Limit|Pot Limit Omaha|Omaha Pot Limit|Short Deck Hold'?em No Limit)\s*\(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)(?:\s+[A-Z]{3})?\)/i);
           if (bl) {
             hand.sb = num(bl[2]);
             hand.bb = num(bl[4]);
             hand.currency = bl[1] || bl[3] || '€';
             hand.isCash = !hand.isTournament;
-            hand.variant = 'nlhe';
+            hand.variant = U.detectVariant(ln) || 'nlhe';
           } else {
             const lvl = U.parseTournamentBlinds(ln);
             if (lvl) {
@@ -134,10 +134,13 @@
               if (lvl.ante) hand.ante = lvl.ante;
               hand.isTournament = true;
               hand.isCash = false;
-              hand.variant = 'nlhe';
+              hand.variant = U.detectVariant(ln) || 'nlhe';
             }
           }
-          if (/Hold'?em/i.test(ln)) hand.variant = 'nlhe';
+          {
+            const det = U.detectVariant(ln);
+            if (det && det !== 'unknown') hand.variant = det;
+          }
           const dt = ln.match(/-\s*(\d{4}\/\d{2}\/\d{2} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
           continue;
@@ -206,7 +209,7 @@
             hand.sb = num(bl[1]);
             hand.bb = num(bl[2]);
             hand.isCash = !hand.isTournament;
-            hand.variant = 'nlhe';
+            hand.variant = U.detectVariant(ln) || 'nlhe';
           } else {
             const lvl = U.parseTournamentBlinds(ln);
             if (lvl) {
@@ -214,10 +217,13 @@
               hand.bb = lvl.bb;
               hand.isTournament = true;
               hand.isCash = false;
-              hand.variant = 'nlhe';
+              hand.variant = U.detectVariant(ln) || 'nlhe';
             }
           }
-          if (/Hold'?em/i.test(ln)) hand.variant = 'nlhe';
+          {
+            const det = U.detectVariant(ln);
+            if (det && det !== 'unknown') hand.variant = det;
+          }
           const dt = ln.match(/-\s*(\d{2}-\d{2}-\d{4} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
           continue;
