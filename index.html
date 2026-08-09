@@ -17,19 +17,19 @@
   <link rel="apple-touch-icon-precomposed" href="/icons/apple-touch-icon.png" sizes="180x180" />
   <link rel="manifest" href="/site.webmanifest" />
   <link rel="canonical" href="https://www.pokerforgeai.com/" />
-  <meta name="description" content="Entrena decisiones GTO en cash NL 6-max, importa sesiones de PokerStars y mejora con IA Coach. Planes gratis, Study y Coach. Instalable como app." />
+  <meta name="description" content="Entrena decisiones GTO en cash NL, importa PokerStars, Winamax, GGPoker y 888poker (cash, spins y torneos) y mejora con IA Coach. Planes gratis, Study y Coach." />
   <meta name="keywords" content="poker GTO, entrenador poker, NL Hold'em, cash game 6-max, IA poker, PokerStars, estudiar poker" />
   <meta name="robots" content="index, follow" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="PokerForgeAI" />
   <meta property="og:title" content="PokerForgeAI · Entrenador GTO de poker NL Hold'em con IA Coach" />
-  <meta property="og:description" content="Entrena decisiones GTO en cash NL 6-max, importa sesiones de PokerStars y mejora con IA Coach. Planes gratis, Study y Coach." />
+  <meta property="og:description" content="Entrena GTO, importa PokerStars/Winamax/GGPoker/888poker (cash, spins y torneos) y mejora con IA Coach. Planes gratis, Study y Coach." />
   <meta property="og:url" content="https://www.pokerforgeai.com/" />
   <meta property="og:image" content="https://www.pokerforgeai.com/icons/logo-512.png" />
   <meta property="og:locale" content="es_ES" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="PokerForgeAI · Entrenador GTO de poker NL Hold'em" />
-  <meta name="twitter:description" content="Entrena GTO, importa sesiones PokerStars y mejora con IA Coach." />
+  <meta name="twitter:description" content="Entrena GTO, importa sesiones (cash/spins/torneos) y mejora con IA Coach." />
   <meta name="twitter:image" content="https://www.pokerforgeai.com/icons/logo-512.png" />
   <script type="application/ld+json">
   {
@@ -65,7 +65,7 @@
           "priceCurrency": "EUR",
           "offerCount": "3"
         },
-        "featureList": "Entrenamiento GTO 6-max, importación PokerStars, IA Coach, estadísticas de fugas EV"
+        "featureList": "Entrenamiento GTO 6-max, importación PokerStars/Winamax/GGPoker/888poker (cash/spins/torneos), IA Coach, estadísticas de fugas EV"
       }
     ]
   }
@@ -180,7 +180,7 @@
           </div>
           <ul class="landing-hero-bullets">
             <li data-i18n="hero.bullet1">Sesión de ejemplo incluida al registrarte</li>
-            <li data-i18n="hero.bullet2">Import PokerStars, Winamax y GGPoker</li>
+            <li data-i18n="hero.bullet2">Import PokerStars, Winamax, GGPoker y 888poker</li>
             <li data-i18n="hero.bullet3">Plan gratis + prueba Study 10 días</li>
           </ul>
         </section>
@@ -194,7 +194,7 @@
             </article>
             <article class="landing-feature">
               <h3 data-i18n="feat.import.title">Import de sesiones</h3>
-              <p data-i18n="feat.import.body">Sube historiales .txt de PokerStars, Winamax o GGPoker (varios archivos a la vez) y revisa fugas mano a mano.</p>
+              <p data-i18n="feat.import.body">Sube historiales .txt (PokerStars, Winamax, GGPoker, 888poker · cash/spins/torneos) y revísalos en pestañas por tipo de juego.</p>
             </article>
             <article class="landing-feature">
               <h3 data-i18n="feat.ranges.title">Rangos preflop</h3>
@@ -857,18 +857,27 @@
         </div>
         <div class="import-box">
           <h3>Añadir sesión</h3>
-          <p class="muted-text">Adjunta uno o varios ficheros <code>.txt</code> con historiales de manos (PokerStars, Winamax o GGPoker · Cash NL Hold'em). El formato se detecta automáticamente.</p>
+          <p class="muted-text">Adjunta ficheros <code>.txt</code> (PokerStars, Winamax, GGPoker, 888poker · NLHE; PLO/Short Deck se importan sin análisis GTO). El formato se detecta automáticamente.</p>
           <div id="sessions-usage" class="usage-quota-host hidden" aria-label="Límites de importación"></div>
           <div class="import-row">
             <input type="file" id="session-file" accept=".txt,text/plain" multiple />
             <button id="process-session" class="btn btn-primary" disabled>Procesar</button>
+            <button type="button" id="auto-import-folder" class="btn btn-ghost" title="Vigilar carpeta de historiales (Chrome/Edge)">Auto-importar carpeta</button>
+            <button type="button" id="auto-import-stop" class="btn btn-ghost hidden">Parar vigilancia</button>
           </div>
+          <div id="auto-import-status" class="muted-text" style="font-size:12px;margin-top:6px"></div>
           <div id="import-status" class="import-status"></div>
           <div id="import-progress" class="import-progress hidden" aria-live="polite">
             <div class="import-progress-track"><div id="import-progress-fill" class="import-progress-fill"></div></div>
             <span id="import-progress-label" class="muted-text"></span>
           </div>
         </div>
+        <div class="sessions-kind-tabs" role="tablist" aria-label="Tipo de sesión">
+          <button type="button" class="sessions-kind-tab active" data-sessions-tab="cash" role="tab" aria-selected="true">Cash <span class="sessions-tab-count" data-tab-count="cash">0</span></button>
+          <button type="button" class="sessions-kind-tab" data-sessions-tab="spin" role="tab" aria-selected="false">Spins <span class="sessions-tab-count" data-tab-count="spin">0</span></button>
+          <button type="button" class="sessions-kind-tab" data-sessions-tab="mtt" role="tab" aria-selected="false">Torneos <span class="sessions-tab-count" data-tab-count="mtt">0</span></button>
+        </div>
+        <p id="sessions-tab-hint" class="muted-text sessions-tab-hint">Sesiones de cash NL Hold'em (y mesas cortas).</p>
         <div id="sessions-list" class="record-list"></div>
       </div>
 

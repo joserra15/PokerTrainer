@@ -1354,7 +1354,10 @@ window.PT_VS_3BET_JSON = {
   };
 
   const STACK_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
-  const GAME_LABELS = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' };
+  const GAME_LABELS = {
+    cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT',
+    cash2: 'Heads-up', cash3: 'Cash 3-max', spin3: 'Spin & Go'
+  };
   const STACK_LABELS = { bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb', standard: '100bb', short: '40bb', deep: '150bb' };
 
   function rangeStackCategory(stackDepth, stackBB) {
@@ -1712,12 +1715,24 @@ window.PT_VS_3BET_JSON = {
   }
 
   function inferFromHand(hand) {
-    const n = hand && hand.seats ? hand.seats.length : 6;
+    const nSeats = hand && hand.seats ? hand.seats.length : (hand && hand.playersSeated) || 6;
+    const tableMax = (hand && hand.tableMax) || nSeats || 6;
     let gameType = 'cash6';
-    if (hand && hand.isTournament) gameType = 'mtt';
-    else if (n >= 8) gameType = 'cash9';
+    if (hand && hand.formatKey) {
+      const fk = hand.formatKey;
+      if (fk.indexOf('spin') === 0 || fk.indexOf('mtt') === 0) gameType = 'mtt';
+      else if (fk === 'cash9') gameType = 'cash9';
+      else gameType = 'cash6';
+    } else if (hand && (hand.gameKind === 'spin' || hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.isTournament)) {
+      gameType = 'mtt';
+    } else if (tableMax >= 8 || nSeats >= 8) {
+      gameType = 'cash9';
+    }
     let stackDepth = 'standard';
-    if (hand && hand.seats && hand.bb) {
+    const stackBB = hand && hand.stackDepthBB != null ? hand.stackDepthBB : null;
+    if (stackBB != null) {
+      stackDepth = stackLabelFromBB(stackBB);
+    } else if (hand && hand.seats && hand.bb) {
       const bb = hand.bb || 1;
       const stacks = hand.seats.map(function (s) { return (s.stack || 0) / bb; }).filter(function (x) { return x > 0; });
       if (stacks.length) {
@@ -12472,10 +12487,28 @@ window.PT_VS_3BET_JSON = {
         wwsf: st.wwsfPct,
         bbPer100: st.bbPer100,
         format: st.format,
+        formatKey: st.formatKey,
+        gameKind: st.gameKind,
+        tableMax: st.tableMax,
+        stakesLabel: st.stakesLabel,
+        stakeTier: st.stakeTier,
+        mttPhase: st.mttPhase,
+        shortHandedShare: st.shortHandedShare,
+        fourBet: st.fourBetPct,
+        foldTo4bet: st.foldToFourBetPct,
+        roiPct: st.roiPct,
+        profitEuro: st.profitEuro,
         styleNote: st.styleAssess ? st.styleAssess.comment : undefined,
         drills: st.styleAssess && st.styleAssess.drills
           ? st.styleAssess.drills.map(function (d) { return d.label; })
-          : undefined
+          : undefined,
+        coachingNote: st.gameKind === 'spin'
+          ? 'Sesión Spin & Go: usa bandas loose y stack-aware; no aconsejes como cash 100bb.'
+          : (st.gameKind === 'mtt' || st.gameKind === 'sng'
+            ? 'Sesión de torneo: prioriza stack depth / fase; no trates como cash 6-max 100bb.'
+            : (st.formatKey === 'cash9'
+              ? 'Cash 9-max / full ring: rangos más tight que 6-max.'
+              : 'Cash NLHE: bandas 6-max estándar salvo short-handed.'))
       },
       solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=id|mano pos|net|ev|wc'
     };
@@ -14345,8 +14378,69 @@ window.PT_VS_3BET_JSON = {
     writeStats(st);
   }
 
+  function sessionHandKey(hand) {
+    if (global.Importer && global.Importer.handDedupeKey) return global.Importer.handDedupeKey(hand);
+    if (!hand) return '';
+    return String(hand.platform || '') + '|' + String(hand.id != null ? hand.id : '');
+  }
+
+  /**
+   * IMP-30: si reimportas el mismo archivo (o solapa manos), fusiona y deduplica
+   * por platform+hand.id conservando el id de sesión previo.
+   */
+  async function mergeSessionIfDuplicate(session) {
+    if (!session || !session.hands || !session.hands.length || !session.fileName) return session;
+    const list = getSessionIndex();
+    const candidates = list.filter(function (s) {
+      return s && s.id !== session.id
+        && s.fileName === session.fileName
+        && (!session.hero || !s.hero || s.hero === session.hero);
+    });
+    if (!candidates.length) return session;
+    const existing = await getSessionAsync(candidates[0].id);
+    if (!existing || !existing.hands || !existing.hands.length) return session;
+
+    const byKey = {};
+    let anon = 0;
+    function put(h, preferNew) {
+      var k = sessionHandKey(h);
+      if (!k || k === '|') k = '_anon_' + (anon++);
+      if (!byKey[k] || preferNew) byKey[k] = h;
+    }
+    existing.hands.forEach(function (h) { put(h, false); });
+    var replaced = 0;
+    var added = 0;
+    session.hands.forEach(function (h) {
+      var k = sessionHandKey(h);
+      if (k && k !== '|' && byKey[k]) replaced++;
+      else added++;
+      put(h, true);
+    });
+
+    const mergedHands = Object.keys(byKey).map(function (k) { return byKey[k]; });
+    session.id = existing.id;
+    session.createdAt = existing.createdAt || session.createdAt;
+    session.hands = mergedHands;
+    session.nParsed = Math.max(session.nParsed || 0, existing.nParsed || 0, mergedHands.length);
+    session.nTotal = Math.max(session.nTotal || 0, existing.nTotal || 0, mergedHands.length);
+    session.mergedHands = true;
+    session.mergeMeta = { replaced: replaced, added: added, previousHands: existing.hands.length };
+    if (global.Importer && global.Importer.computeStats) {
+      session.stats = global.Importer.computeStats(mergedHands);
+    }
+    if (global.PTHHUtils && global.PTHHUtils.buildSessionContext) {
+      session.context = global.PTHHUtils.buildSessionContext(
+        mergedHands,
+        session.nDiscardedByReason || existing.nDiscardedByReason || null
+      );
+    }
+    if (session.rawText == null && existing.rawText) session.rawText = existing.rawText;
+    return session;
+  }
+
   async function saveSession(session) {
     migrateLegacySessionsList();
+    session = await mergeSessionIfDuplicate(session);
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const upload = await CS.uploadSession(session);
@@ -14901,11 +14995,16 @@ window.PT_VS_3BET_JSON = {
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 7;
+  var AGG_VERSION = 9;
 
   var STYLE_OPP_KEYS = [
     'threeBetOpps', 'threeBetHits',
     'foldToThreeBetOpps', 'foldToThreeBetHits',
+    'fourBetOpps', 'fourBetHits',
+    'foldToFourBetOpps', 'foldToFourBetHits',
+    'limpOpps', 'limpHits',
+    'overlimpOpps', 'overlimpHits',
+    'isoLimpOpps', 'isoLimpHits',
     'stealOpps', 'stealHits',
     'foldToStealOpps', 'foldToStealHits',
     'squeezeOpps', 'squeezeHits',
@@ -14913,6 +15012,7 @@ window.PT_VS_3BET_JSON = {
     'foldToCbetFlopOpps', 'foldToCbetFlopHits',
     'cbetTurnOpps', 'cbetTurnHits',
     'cbetRiverOpps', 'cbetRiverHits',
+    'delayedCbetOpps', 'delayedCbetHits',
     'afBets', 'afRaises', 'afCalls', 'afChecks',
     'sawFlopN', 'wtsdN', 'wonAtSdN', 'wonSawFlopN'
   ];
@@ -14935,6 +15035,11 @@ window.PT_VS_3BET_JSON = {
     return {
       threeBetPct: pct(c.threeBetHits, c.threeBetOpps),
       foldToThreeBetPct: pct(c.foldToThreeBetHits, c.foldToThreeBetOpps),
+      fourBetPct: pct(c.fourBetHits, c.fourBetOpps),
+      foldToFourBetPct: pct(c.foldToFourBetHits, c.foldToFourBetOpps),
+      limpPct: pct(c.limpHits, c.limpOpps),
+      overlimpPct: pct(c.overlimpHits, c.overlimpOpps),
+      isoLimpPct: pct(c.isoLimpHits, c.isoLimpOpps),
       stealPct: pct(c.stealHits, c.stealOpps),
       foldToStealPct: pct(c.foldToStealHits, c.foldToStealOpps),
       squeezePct: pct(c.squeezeHits, c.squeezeOpps),
@@ -14942,6 +15047,7 @@ window.PT_VS_3BET_JSON = {
       foldToCbetFlopPct: pct(c.foldToCbetFlopHits, c.foldToCbetFlopOpps),
       cbetTurnPct: pct(c.cbetTurnHits, c.cbetTurnOpps),
       cbetRiverPct: pct(c.cbetRiverHits, c.cbetRiverOpps),
+      delayedCbetPct: pct(c.delayedCbetHits, c.delayedCbetOpps),
       af: afCalls > 0 ? Math.round((afAgg / afCalls) * 100) / 100 : (afAgg > 0 ? afAgg : null),
       afq: afActions > 0 ? Math.round((afAgg / afActions) * 1000) / 10 : null,
       wtsdPct: pct(c.wtsdN, c.sawFlopN),
@@ -15014,6 +15120,11 @@ window.PT_VS_3BET_JSON = {
     var pfrHands = stats.pfrHands != null
       ? stats.pfrHands
       : (stats.pfrPct != null && hands ? Math.round((stats.pfrPct / 100) * hands) : 0);
+    var formatKey = stats.formatKey
+      || (stub.context && stub.context.formatKey)
+      || (stats.format === '9max' ? 'cash9'
+        : (stats.format === 'mtt' ? 'mtt6'
+          : (stats.format === 'spin' ? 'spin3' : 'cash6')));
     var row = {
       week: weekKey(stub.createdAt || Date.now()),
       hands: hands,
@@ -15022,7 +15133,16 @@ window.PT_VS_3BET_JSON = {
       evLoss: round2(Math.abs(stats.evLossBB || 0)),
       netBB: round2(stats.netBB || 0),
       vpipHands: vpipHands,
-      pfrHands: pfrHands
+      pfrHands: pfrHands,
+      formatKey: formatKey,
+      gameKind: stats.gameKind || (stub.context && stub.context.gameKind) || null,
+      tableMax: stats.tableMax != null ? stats.tableMax : (stub.context && stub.context.tableMax),
+      stakesLabel: stats.stakesLabel || (stub.context && stub.context.stakesLabel) || null,
+      stakeTier: stats.stakeTier || null,
+      roiPct: stats.roiPct != null ? stats.roiPct : null,
+      profitEuro: stats.profitEuro != null ? stats.profitEuro : null,
+      byStakes: stats.byStakes || null,
+      day: (stub.createdAt || '').slice(0, 10) || null
     };
     addStyleCounters(row, pickStyleCounters(stats));
     return row;
@@ -15064,11 +15184,52 @@ window.PT_VS_3BET_JSON = {
     return map;
   }
 
-  function rebuildSessionsTotal(agg) {
-    var tot = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0, vpipPct: null, pfrPct: null };
+  function formatFamily(formatKey) {
+    var k = formatKey || 'cash6';
+    if (k.indexOf('spin') === 0) return 'spin';
+    if (k.indexOf('mtt') === 0) return 'mtt';
+    if (k === 'cash9') return 'cash9';
+    if (k === 'cash2' || k === 'cash3') return 'shorthand';
+    return 'cash6';
+  }
+
+  function matchesFormatFilter(rowFormatKey, filter) {
+    if (!filter || filter === 'all' || filter === 'Todo') return true;
+    var fam = formatFamily(rowFormatKey);
+    if (filter === fam || filter === rowFormatKey) return true;
+    // aliases UI
+    if (filter === '6max' && fam === 'cash6') return true;
+    if (filter === '9max' && fam === 'cash9') return true;
+    return false;
+  }
+
+  function rebuildSessionsTotal(agg, formatFilter) {
+    var tot = {
+      sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0,
+      vpipHands: 0, pfrHands: 0, vpipPct: null, pfrPct: null,
+      formatFilter: formatFilter || 'all', byFormat: {}
+    };
     addStyleCounters(tot, {});
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
+      var fk = c.formatKey || 'cash6';
+      var fam = formatFamily(fk);
+      if (!tot.byFormat[fam]) {
+        tot.byFormat[fam] = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
+        addStyleCounters(tot.byFormat[fam], {});
+      }
+      var bf = tot.byFormat[fam];
+      bf.sessions += 1;
+      bf.hands += c.hands;
+      bf.decisions += c.decisions;
+      bf.good += c.good;
+      bf.evLoss = round2(bf.evLoss + c.evLoss);
+      bf.netBB = round2(bf.netBB + c.netBB);
+      bf.vpipHands += c.vpipHands || 0;
+      bf.pfrHands += c.pfrHands || 0;
+      addStyleCounters(bf, c);
+
+      if (!matchesFormatFilter(fk, formatFilter)) return;
       tot.sessions += 1;
       tot.hands += c.hands;
       tot.decisions += c.decisions;
@@ -15083,6 +15244,13 @@ window.PT_VS_3BET_JSON = {
     tot.pfrPct = tot.hands ? Math.round((tot.pfrHands / tot.hands) * 1000) / 10 : null;
     var stylePct = stylePctsFromCounters(tot);
     Object.keys(stylePct).forEach(function (k) { tot[k] = stylePct[k]; });
+    Object.keys(tot.byFormat).forEach(function (fam) {
+      var bf = tot.byFormat[fam];
+      bf.vpipPct = bf.hands ? Math.round((bf.vpipHands / bf.hands) * 1000) / 10 : null;
+      bf.pfrPct = bf.hands ? Math.round((bf.pfrHands / bf.hands) * 1000) / 10 : null;
+      var sp = stylePctsFromCounters(bf);
+      Object.keys(sp).forEach(function (k) { bf[k] = sp[k]; });
+    });
     return tot;
   }
 
@@ -15109,14 +15277,69 @@ window.PT_VS_3BET_JSON = {
   }
 
   function sessionSpotKey(h, d) {
-    if (d.spotKind) return d.spotKind + '|' + (h.heroPos || '?') + '|' + (d.street || 'preflop');
-    return 'postflop|' + (h.heroPos || '?') + '|' + (d.street || 'postflop');
+    var fmt = h.formatKey || h.format || 'cash6';
+    var fam = formatFamily(fmt);
+    if (d.spotKind) return fam + '|' + d.spotKind + '|' + (h.heroPos || '?') + '|' + (d.street || 'preflop');
+    return fam + '|postflop|' + (h.heroPos || '?') + '|' + (d.street || 'postflop');
   }
 
   function sessionSpotLabel(h, d, key) {
-    if (d.spot) return d.spot;
-    if (global.PTLeaks && global.PTLeaks.labelForKey) return global.PTLeaks.labelForKey(key);
-    return key;
+    var base = d.spot || (global.PTLeaks && global.PTLeaks.labelForKey ? global.PTLeaks.labelForKey(key) : key);
+    var fam = formatFamily(h.formatKey || h.format || 'cash6');
+    if (fam && fam !== 'cash6' && String(base).indexOf(fam) !== 0) return fam + ' · ' + base;
+    return base;
+  }
+
+  function rebuildByStakes(agg) {
+    var map = {};
+    Object.keys(agg.sessionById || {}).forEach(function (id) {
+      var c = agg.sessionById[id];
+      var rows = c.byStakes;
+      if (rows && rows.length) {
+        rows.forEach(function (r) {
+          var k = r.stakesLabel || 'unknown';
+          if (!map[k]) map[k] = { stakesLabel: k, stakeTier: r.stakeTier || null, hands: 0, netBB: 0 };
+          map[k].hands += r.hands || 0;
+          map[k].netBB = round2(map[k].netBB + (r.netBB || 0));
+        });
+        return;
+      }
+      var k2 = c.stakesLabel || 'unknown';
+      if (!map[k2]) map[k2] = { stakesLabel: k2, stakeTier: c.stakeTier || null, hands: 0, netBB: 0 };
+      map[k2].hands += c.hands || 0;
+      map[k2].netBB = round2(map[k2].netBB + (c.netBB || 0));
+    });
+    return Object.keys(map).map(function (k) {
+      var b = map[k];
+      b.bbPer100 = b.hands ? Math.round((b.netBB / b.hands) * 1000) / 10 : null;
+      return b;
+    }).sort(function (a, b) { return b.hands - a.hands; });
+  }
+
+  function rebuildByDay(agg, days) {
+    days = days || 14;
+    var buckets = {};
+    var now = new Date();
+    for (var i = days - 1; i >= 0; i--) {
+      var d = new Date(now);
+      d.setDate(d.getDate() - i);
+      var k = d.toISOString().slice(0, 10);
+      buckets[k] = { key: k, hands: 0, netBB: 0, sessions: 0 };
+    }
+    Object.keys(agg.sessionById || {}).forEach(function (id) {
+      var c = agg.sessionById[id];
+      var day = c.day || (c.week ? c.week : null);
+      if (!day || !buckets[day]) return;
+      buckets[day].hands += c.hands || 0;
+      buckets[day].netBB = round2(buckets[day].netBB + (c.netBB || 0));
+      buckets[day].sessions += 1;
+    });
+    return Object.keys(buckets).sort().map(function (k) {
+      var b = buckets[k];
+      b.bbPer100 = b.hands ? Math.round((b.netBB / b.hands) * 1000) / 10 : null;
+      b.label = k.slice(5); // MM-DD
+      return b;
+    });
   }
 
   function clearTrainerHandLeaks(agg, handId) {
@@ -15392,9 +15615,20 @@ window.PT_VS_3BET_JSON = {
     sessionTopLeaks: function (st, limit) {
       return leaksToList(ensureAggregates(st).sessionLeaks, limit);
     },
-    sessionsTotal: function (st) {
-      return rebuildSessionsTotal(ensureAggregates(st));
+    sessionsTotal: function (st, formatFilter) {
+      return rebuildSessionsTotal(ensureAggregates(st), formatFilter);
     },
+    sessionsTotalByFormat: function (st) {
+      var tot = rebuildSessionsTotal(ensureAggregates(st), 'all');
+      return tot.byFormat || {};
+    },
+    sessionsByStakes: function (st) {
+      return rebuildByStakes(ensureAggregates(st));
+    },
+    sessionDailySeries: function (st, days) {
+      return rebuildByDay(ensureAggregates(st), days);
+    },
+    formatFamily: formatFamily,
     refreshSessionLeaks: function (st, sessions) {
       var agg = ensureAggregates(st);
       if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};
@@ -16930,11 +17164,17 @@ window.PT_VS_3BET_JSON = {
         id: h.id,
         heroCode: h.heroCode,
         heroPos: h.heroPos,
+        gameKind: h.gameKind || null,
+        tableMax: h.tableMax != null ? h.tableMax : null,
+        formatKey: h.formatKey || null,
+        stackDepthBB: h.stackDepthBB != null ? h.stackDepthBB : null,
+        mttPhase: h.mttPhase || null,
         heroNetBB: h.heroNetBB,
         totalEvLoss: h.totalEvLoss,
         accuracy: h.accuracy,
         handScore: h.handScore != null ? h.handScore : null,
         worstClass: h.worstClass,
+        byPosition: undefined,
         decisions: (h.decisions || []).map(function (d) {
           return {
             street: d.street,
@@ -16952,6 +17192,7 @@ window.PT_VS_3BET_JSON = {
       source: 'PokerForgeAI',
       fileName: session.fileName || '',
       hero: session.hero || '',
+      context: session.context || null,
       stats: {
         nHands: st.nHands,
         netBB: st.netBB,
@@ -16961,14 +17202,36 @@ window.PT_VS_3BET_JSON = {
         grade: st.grade,
         vpipPct: st.vpipPct,
         pfrPct: st.pfrPct,
-        bbPer100: st.bbPer100
+        bbPer100: st.bbPer100,
+        format: st.format,
+        formatKey: st.formatKey,
+        gameKind: st.gameKind,
+        tableMax: st.tableMax,
+        stakesLabel: st.stakesLabel,
+        stakeTier: st.stakeTier,
+        mttPhase: st.mttPhase,
+        roiPct: st.roiPct,
+        profitEuro: st.profitEuro,
+        fourBetPct: st.fourBetPct,
+        foldToFourBetPct: st.foldToFourBetPct,
+        threeBetPct: st.threeBetPct,
+        stealPct: st.stealPct,
+        cbetFlopPct: st.cbetFlopPct,
+        af: st.af,
+        afq: st.afq,
+        wtsdPct: st.wtsdPct,
+        wsdPct: st.wsdPct,
+        wwsfPct: st.wwsfPct,
+        byPosition: st.byPosition || null,
+        style: st.style || null,
+        styleAssess: st.styleAssess || null
       },
       hands: hands
     };
   }
 
   function buildCsv(session, opts) {
-    var rows = ['handId,heroCode,heroPos,netBB,evLoss,accuracy,handScore,worstClass,streets'];
+    var rows = ['handId,heroCode,heroPos,gameKind,tableMax,stackBB,netBB,evLoss,accuracy,handScore,worstClass,streets'];
     handRows(session, opts).forEach(function (h) {
       var streets = (h.decisions || []).map(function (d) {
         return (d.street || '') + ':' + (d.chosen || d.action || '') + '>' + (d.best || '') + '(' + (d.class || '') + ',-' + fmt(d.evLoss || 0) + ')';
@@ -16977,6 +17240,9 @@ window.PT_VS_3BET_JSON = {
         escapeCsv(h.id),
         escapeCsv(h.heroCode),
         escapeCsv(h.heroPos),
+        escapeCsv(h.gameKind || ''),
+        escapeCsv(h.tableMax != null ? h.tableMax : ''),
+        escapeCsv(h.stackDepthBB != null ? h.stackDepthBB : ''),
         escapeCsv(fmt(h.heroNetBB)),
         escapeCsv(fmt(h.totalEvLoss)),
         escapeCsv(h.accuracy != null ? h.accuracy : ''),
@@ -17621,6 +17887,54 @@ window.PT_VS_3BET_JSON = {
     return false;
   }
 
+  function sessionStudyVisible() {
+    const sessions = document.getElementById("view-sessions") || document.getElementById("tab-sessions");
+    if (!sessions) return false;
+    if (sessions.classList.contains("tab-panel") && !sessions.classList.contains("active")) return false;
+    if (sessions.hidden || sessions.classList.contains("hidden")) return false;
+    return true;
+  }
+
+  function handleSessionStudyKey(e) {
+    if (!sessionStudyVisible()) return false;
+    const study = g.PTSessionStudy;
+    const lower = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+    if (lower === "g" && study && typeof study.toggleGraveFilter === "function") {
+      const detail = document.getElementById("session-detail");
+      if (detail && !detail.classList.contains("hidden")) {
+        e.preventDefault();
+        return !!study.toggleGraveFilter();
+      }
+    }
+
+    if (e.key === "ArrowRight" || e.key === "Enter") {
+      if (clickFirst("#replay-next")) {
+        e.preventDefault();
+        return true;
+      }
+      if (clickFirst("#replay-actions button[data-act='next']")) {
+        e.preventDefault();
+        return true;
+      }
+      if (study && typeof study.navigateReview === "function" && study.navigateReview(1)) {
+        e.preventDefault();
+        return true;
+      }
+    }
+    if (e.key === "ArrowLeft") {
+      if (clickFirst("#replay-actions button[data-act='prev']")) {
+        e.preventDefault();
+        return true;
+      }
+      if (study && typeof study.navigateReview === "function" && study.navigateReview(-1)) {
+        e.preventDefault();
+        return true;
+      }
+    }
+    return false;
+  }
+
   function handleReplayKey(e) {
     const k = e.key;
     if (k === "ArrowRight" || k === "Enter") {
@@ -17676,6 +17990,7 @@ window.PT_VS_3BET_JSON = {
     }
     if (handleHelpKey(e)) return;
     if (handleTrainerKey(e)) return;
+    if (handleSessionStudyKey(e)) return;
     handleReplayKey(e);
   }
 
@@ -17752,8 +18067,9 @@ window.PT_VS_3BET_JSON = {
       "<tr><th>R</th><td>Raise / primera opción de bet</td></tr>" +
       "<tr><th>1 · 2 · 3</th><td>1.ª / 2.ª / 3.ª opción de bet o raise</td></tr>" +
       "<tr><th>N</th><td>Nueva / siguiente mano</td></tr>" +
-      "<tr><th>→ / Enter</th><td>Siguiente paso en repaso de sesión</td></tr>" +
-      "<tr><th>←</th><td>Paso anterior en repaso (si está disponible)</td></tr>" +
+      "<tr><th>→ / Enter</th><td>Siguiente paso en repaso de sesión / siguiente mano filtrada</td></tr>" +
+      "<tr><th>←</th><td>Paso anterior o mano filtrada anterior</td></tr>" +
+      "<tr><th>G</th><td>En detalle de sesión: filtrar solo errores graves</td></tr>" +
       "<tr><th>H / ?</th><td>Abrir o cerrar esta ayuda</td></tr>" +
       "<tr><th>Esc</th><td>Cerrar este panel</td></tr>" +
       "</tbody></table>" +
@@ -20396,6 +20712,8 @@ window.PT_VS_3BET_JSON = {
   let leakReplayQueue = [];
   let latestTrainerStatsLeaks = [];
   let latestSessionStatsLeaks = [];
+  let sessionsListTab = 'cash';
+  let autoImportState = { handle: null, timer: null, seen: {} };
 
   function emptyByStreet() {
     return {
@@ -21528,6 +21846,21 @@ window.PT_VS_3BET_JSON = {
       $('#import-status').textContent = e.target.files.length ? `Listo para procesar: ${e.target.files[0].name}` : '';
     });
     $('#process-session').addEventListener('click', processSessionFile);
+    const autoBtn = $('#auto-import-folder');
+    const autoStop = $('#auto-import-stop');
+    if (autoBtn) autoBtn.addEventListener('click', () => { void startAutoImportFolder(); });
+    if (autoStop) autoStop.addEventListener('click', stopAutoImportFolder);
+    $$('.sessions-kind-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        sessionsListTab = btn.getAttribute('data-sessions-tab') || 'cash';
+        try { sessionStorage.setItem('pt_sessions_tab', sessionsListTab); } catch (e) { /* ignore */ }
+        renderSessionsList();
+      });
+    });
+    try {
+      const savedTab = sessionStorage.getItem('pt_sessions_tab');
+      if (savedTab === 'cash' || savedTab === 'spin' || savedTab === 'mtt') sessionsListTab = savedTab;
+    } catch (e) { /* ignore */ }
     $('#back-to-sessions').addEventListener('click', () => {
       if (analysisReviewReturn) {
         analysisReviewReturn = false;
@@ -23848,11 +24181,96 @@ window.PT_VS_3BET_JSON = {
   }
 
   function resolveStatsFormat(st) {
-    return (st && (st.format || (st.style && st.style.format))) || '6max';
+    if (!st) return '6max';
+    if (st.formatKey && window.Importer && Importer.styleIdealForFormat) {
+      // Preferir clave canónica si hay ideales asociados
+      return st.formatKey;
+    }
+    return st.format || (st.style && st.style.format) || '6max';
   }
 
   function formatDisplayLabel(format) {
-    return ({ '6max': 'cash 6-max', '9max': 'cash 9-max / full ring', mtt: 'torneo (MTT)' })[format] || 'cash 6-max';
+    return ({
+      '6max': 'cash 6-max',
+      cash6: 'cash 6-max',
+      '9max': 'cash 9-max / full ring',
+      cash9: 'cash 9-max / full ring',
+      mtt: 'torneo (MTT)',
+      mtt6: 'torneo (MTT)',
+      mtt9: 'torneo full ring',
+      mtt3: 'torneo corto',
+      spin: 'Spin & Go',
+      spin3: 'Spin & Go',
+      shorthand: 'short-handed',
+      cash2: 'heads-up',
+      cash3: 'cash 3-max'
+    })[format] || 'cash 6-max';
+  }
+
+  function gameKindBadge(kind) {
+    const labels = { cash: 'Cash', spin: 'Spin', mtt: 'MTT', sng: 'SNG', unknown: '?' };
+    const k = kind || 'cash';
+    return '<span class="badge session-kind session-kind-' + escapeHtml(k) + '">' + escapeHtml(labels[k] || k) + '</span>';
+  }
+
+  function tableMaxBadge(tableMax) {
+    if (!tableMax) return '';
+    return '<span class="badge session-tablemax">Max-' + escapeHtml(String(tableMax)) + '</span>';
+  }
+
+  function sessionContextBadgesHtml(session) {
+    const ctx = (session && session.context) || {};
+    const st = (session && session.stats) || {};
+    const kind = ctx.gameKind || st.gameKind || 'cash';
+    const tmax = ctx.tableMax != null ? ctx.tableMax : st.tableMax;
+    const stakes = ctx.stakesLabel || st.stakesLabel || '';
+    let html = gameKindBadge(kind) + ' ' + tableMaxBadge(tmax);
+    if (stakes) html += ' <span class="badge session-stakes">' + escapeHtml(stakes) + '</span>';
+    if (st.stakeTier) html += ' <span class="badge session-tier">' + escapeHtml(st.stakeTier) + '</span>';
+    if (st.mttPhase && (kind === 'mtt' || kind === 'spin' || kind === 'sng')) {
+      html += ' <span class="badge session-phase">' + escapeHtml(st.mttPhase) + '</span>';
+    }
+    const unsupportedN = session && session.hands
+      ? session.hands.filter((h) => h && h.analysisUnsupported).length
+      : (st.unsupportedHands || 0);
+    if (unsupportedN) {
+      html += ' <span class="badge session-unsupported" title="Manos importadas sin análisis GTO">Sin GTO ×'
+        + unsupportedN + '</span>';
+    }
+    return html;
+  }
+
+  function sessionBucket(session) {
+    const kind = (session && session.context && session.context.gameKind)
+      || (session && session.stats && session.stats.gameKind)
+      || 'cash';
+    if (kind === 'spin') return 'spin';
+    if (kind === 'mtt' || kind === 'sng') return 'mtt';
+    return 'cash';
+  }
+
+  function sessionsTabHint(tab) {
+    if (tab === 'spin') return 'Spins / Spin & Go / Jackpot SNG.';
+    if (tab === 'mtt') return 'Torneos MTT y Sit & Go (no spins).';
+    return 'Sesiones de cash NL Hold\'em (y mesas cortas).';
+  }
+
+  function importDiscardSummaryHtml(session) {
+    const reasons = (session && (session.nDiscardedByReason || (session.context && session.context.nDiscardedByReason))) || {};
+    const mix = (session && session.context && session.context.mix) || {};
+    const parts = [];
+    if (mix.cash) parts.push(mix.cash + ' cash');
+    if (mix.spin) parts.push(mix.spin + ' spin');
+    if (mix.mtt) parts.push(mix.mtt + ' MTT');
+    if (mix.sng) parts.push(mix.sng + ' SNG');
+    const dropped = [];
+    Object.keys(reasons).forEach((k) => {
+      if (reasons[k] > 0 && k !== 'noHeroCards') dropped.push(reasons[k] + ' ' + k);
+    });
+    if (session && session.nDiscarded) dropped.push(session.nDiscarded + ' sin cartas héroe');
+    let html = parts.length ? ('Manos: ' + parts.join(', ')) : '';
+    if (dropped.length) html += (html ? ' · ' : '') + 'Descartadas: ' + dropped.join(', ');
+    return html;
   }
 
   function idealForStatsFormat(format) {
@@ -23910,6 +24328,46 @@ window.PT_VS_3BET_JSON = {
         how: 'Si te 3-betean 20 veces y foldeas 12, es 60%.',
         ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.foldToThreeBetMin, I.foldToThreeBetMax) + '.',
         tip: 'Muy alto = overfold (te pueden 3-betear light). Muy bajo = defiendes de más OOP.'
+      },
+      fourBet: {
+        title: '4-Bet',
+        fullName: 'Porcentaje de 4-bet preflop',
+        what: 'Cuando enfrentas un 3-bet (tras haber abierto o 3-beteado), con qué frecuencia vuelves a subir (4-bet).',
+        how: 'Si te 3-betean 40 veces y 4-beteas 2, ≈ 5%.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.fourBetMin, I.fourBetMax) + '.',
+        tip: 'Mezcla value polarizado + blockers; evita 4-bet light sin plan.'
+      },
+      limp: {
+        title: 'Limp',
+        fullName: 'Limp open (entrar pagando sin raise previo)',
+        what: 'Cuando nadie ha subido y no hay limpers, con qué frecuencia pagas (limp) en lugar de raise/fold.',
+        how: 'Oportunidades = folded-to sin limpers; hits = tus limps.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.limpMin, I.limpMax) + '.',
+        tip: 'En mesas de regs, limp alto suele ser leak: prefer raise or fold.'
+      },
+      overlimp: {
+        title: 'Overlimp',
+        fullName: 'Pagar detrás de limpers',
+        what: 'Con limpers por delante, con qué frecuencia pagas también (overlimp) en vez de aislar o foldear.',
+        how: 'Oportunidades = spots con ≥1 limper y sin raise; hits = tus calls.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.overlimpMin, I.overlimpMax) + '.',
+        tip: 'Overlimp crea pots multiway pasivos; aísla o foldea.'
+      },
+      isoLimp: {
+        title: 'Iso-limp',
+        fullName: 'Isolation raise vs limpers',
+        what: 'Con limpers por delante, con qué frecuencia aislas (raise) en lugar de call/fold.',
+        how: 'Hits = tus raises vs limpers / oportunidades vs limpers.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.isoLimpMin, I.isoLimpMax) + '.',
+        tip: 'Iso demasiado wide OOP pierde; demasiado bajo deja valor vs limpers.'
+      },
+      delayedCbet: {
+        title: 'Delayed C-Bet',
+        fullName: 'Continuation bet retrasada (turn tras check flop)',
+        what: 'Si fuiste agresora preflop, checkeaste flop y el turn llega checked-to-you, con qué frecuencia apuestas el turn (delayed c-bet / probe).',
+        how: 'No cuenta barrels tras c-bet flop; solo el lead en turn tras check flop.',
+        ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.delayedCbetMin, I.delayedCbetMax) + '.',
+        tip: 'Útil en boards que mejoran tu rango en turn; evita delayed automático.'
       },
       steal: {
         title: 'Steal',
@@ -24201,12 +24659,17 @@ window.PT_VS_3BET_JSON = {
         const idx = Number(btn.getAttribute('data-style-drill'));
         const d = drills[idx];
         if (!d || typeof window.startGuidedTraining !== 'function') return;
+        const gt = d.gameType
+          || (window.Importer && Importer.formatKeyToRangeGameType
+            ? Importer.formatKeyToRangeGameType(resolveStatsFormat(currentSession && currentSession.stats))
+            : null);
         window.startGuidedTraining({
           scenario: d.scenario,
           practiceStreet: d.practiceStreet || 'preflop',
           handRange: d.handRange || 'playable',
           villainLevel: d.villainLevel || 'fish',
-          liveAdvisor: d.liveAdvisor !== false
+          liveAdvisor: d.liveAdvisor !== false,
+          gameType: gt || d.gameType || 'cash6'
         });
       });
     });
@@ -24218,7 +24681,7 @@ window.PT_VS_3BET_JSON = {
       || idealForStatsFormat(format);
     const style = st.style || st;
     const assess = st.styleAssess || (window.Importer && Importer.assessStyleStats
-      ? Importer.assessStyleStats(style, ideal)
+      ? Importer.assessStyleStats(Object.assign({}, style, { formatKey: format }), ideal)
       : null);
     const sample = (style && style.sample) || {};
     const formatLabel = formatDisplayLabel(format);
@@ -24227,6 +24690,14 @@ window.PT_VS_3BET_JSON = {
         ideal.threeBetMin != null ? `ideal ${ideal.threeBetMin}–${ideal.threeBetMax}%` : '', 'threeBet', format),
       styleMetricCard('Fold to 3-Bet', fmtHudPct(st.foldToThreeBetPct != null ? st.foldToThreeBetPct : style.foldToThreeBetPct), sample.foldToThreeBet,
         ideal.foldToThreeBetMin != null ? `ideal ${ideal.foldToThreeBetMin}–${ideal.foldToThreeBetMax}%` : '', 'foldToThreeBet', format),
+      styleMetricCard('4-Bet', fmtHudPct(st.fourBetPct != null ? st.fourBetPct : style.fourBetPct), sample.fourBet,
+        ideal.fourBetMin != null ? `ideal ${ideal.fourBetMin}–${ideal.fourBetMax}%` : '', 'fourBet', format),
+      styleMetricCard('Limp', fmtHudPct(st.limpPct != null ? st.limpPct : style.limpPct), sample.limp,
+        ideal.limpMin != null ? `ideal ${ideal.limpMin}–${ideal.limpMax}%` : '', 'limp', format),
+      styleMetricCard('Overlimp', fmtHudPct(st.overlimpPct != null ? st.overlimpPct : style.overlimpPct), sample.overlimp,
+        ideal.overlimpMin != null ? `ideal ${ideal.overlimpMin}–${ideal.overlimpMax}%` : '', 'overlimp', format),
+      styleMetricCard('Iso-limp', fmtHudPct(st.isoLimpPct != null ? st.isoLimpPct : style.isoLimpPct), sample.isoLimp,
+        ideal.isoLimpMin != null ? `ideal ${ideal.isoLimpMin}–${ideal.isoLimpMax}%` : '', 'isoLimp', format),
       styleMetricCard('Steal', fmtHudPct(st.stealPct != null ? st.stealPct : style.stealPct), sample.steal,
         ideal.stealMin != null ? `ideal ${ideal.stealMin}–${ideal.stealMax}%` : '', 'steal', format),
       styleMetricCard('Fold to Steal', fmtHudPct(st.foldToStealPct != null ? st.foldToStealPct : style.foldToStealPct), sample.foldToSteal,
@@ -24237,6 +24708,8 @@ window.PT_VS_3BET_JSON = {
         ideal.cbetFlopMin != null ? `ideal ${ideal.cbetFlopMin}–${ideal.cbetFlopMax}%` : '', 'cbetFlop', format),
       styleMetricCard('C-Bet turn', fmtHudPct(st.cbetTurnPct != null ? st.cbetTurnPct : style.cbetTurnPct), sample.cbetTurn,
         ideal.cbetTurnMin != null ? `ideal ${ideal.cbetTurnMin}–${ideal.cbetTurnMax}%` : '', 'cbetTurn', format),
+      styleMetricCard('Delayed C-Bet', fmtHudPct(st.delayedCbetPct != null ? st.delayedCbetPct : style.delayedCbetPct), sample.delayedCbet,
+        ideal.delayedCbetMin != null ? `ideal ${ideal.delayedCbetMin}–${ideal.delayedCbetMax}%` : '', 'delayedCbet', format),
       styleMetricCard('C-Bet river', fmtHudPct(st.cbetRiverPct != null ? st.cbetRiverPct : style.cbetRiverPct), sample.cbetRiver,
         ideal.cbetRiverMin != null ? `ideal ${ideal.cbetRiverMin}–${ideal.cbetRiverMax}%` : '', 'cbetRiver', format),
       styleMetricCard('Fold to C-Bet', fmtHudPct(st.foldToCbetFlopPct != null ? st.foldToCbetFlopPct : style.foldToCbetFlopPct), sample.foldToCbetFlop,
@@ -24274,10 +24747,22 @@ window.PT_VS_3BET_JSON = {
       : (assess.status === 'ok' ? 'hud-ok' : (assess.status === 'low_sample' || assess.status === 'unknown' ? 'hud-unknown' : 'hud-warn'));
     const label = assess ? assess.label : 'Perfil de estilo';
     const cbetSplit = (st.cbetFlopIpPct != null || st.cbetFlopOopPct != null)
-      ? `<p class="muted-text stats-section-note" style="margin-top:8px">C-Bet IP ${fmtHudPct(st.cbetFlopIpPct)} · OOP ${fmtHudPct(st.cbetFlopOopPct)} · Turn ${fmtHudPct(st.cbetTurnPct)} · River ${fmtHudPct(st.cbetRiverPct)}</p>`
+      ? `<p class="muted-text stats-section-note" style="margin-top:8px">C-Bet IP ${fmtHudPct(st.cbetFlopIpPct)} · OOP ${fmtHudPct(st.cbetFlopOopPct)} · Turn ${fmtHudPct(st.cbetTurnPct)} · Delayed ${fmtHudPct(st.delayedCbetPct != null ? st.delayedCbetPct : style.delayedCbetPct)} · River ${fmtHudPct(st.cbetRiverPct)}</p>`
       : '';
     const bbNote = (st.bbPer100Note || style.bbPer100Note)
       ? `<p class="muted-text stats-section-note">${escapeHtml(st.bbPer100Note || style.bbPer100Note)}</p>`
+      : '';
+    const ci = st.bbPer100CI || style.bbPer100CI;
+    const ciNote = ci
+      ? `<p class="muted-text stats-section-note" title="Intervalo de confianza 95% aproximado (normal)">bb/100 IC95%: <strong>${ci.low >= 0 ? '+' : ''}${ci.low} … ${ci.high >= 0 ? '+' : ''}${ci.high}</strong> (n=${ci.n}, SE=${ci.se})</p>`
+      : '';
+    const byStakes = st.byStakes || style.byStakes || [];
+    const stakesHtml = byStakes.length
+      ? `<div class="card-box" style="margin-top:10px"><h4 style="margin:0 0 8px">Winrate por stakes</h4>
+          <table class="style-pos-table"><thead><tr><th>Stakes</th><th>Manos</th><th>Net</th><th>bb/100</th></tr></thead>
+          <tbody>${byStakes.slice(0, 8).map((r) =>
+            `<tr><td>${escapeHtml(r.stakesLabel)}</td><td>${r.hands}</td><td class="${r.netBB >= 0 ? 'net-pos' : 'net-neg'}">${r.netBB >= 0 ? '+' : ''}${fmtBB(r.netBB)}</td><td>${r.bbPer100 == null ? '—' : fmtHudAf(r.bbPer100)}</td></tr>`
+          ).join('')}</tbody></table></div>`
       : '';
 
     return `<div class="card-box session-hud-note session-style-profile ${statusCls}" style="margin-top:14px" data-style-format="${escapeHtml(format)}">
@@ -24288,6 +24773,8 @@ window.PT_VS_3BET_JSON = {
       <div class="stats-content style-metrics-grid">${cards}</div>
       ${cbetSplit}
       ${bbNote}
+      ${ciNote}
+      ${stakesHtml}
       ${byPositionTableHtml(st.byPosition || style.byPosition)}
       ${lines ? `<ul class="style-assess-list">${lines}</ul>` : ''}
       ${styleDrillsHtml(assess)}
@@ -24839,13 +25326,31 @@ window.PT_VS_3BET_JSON = {
       if (withHands.length) PTStatsAggregate.refreshSessionLeaks(st, withHands);
       if (PTStatsAggregate.sessionTopLeaks(st, 5).length > leakCountBefore) Store.persistStats(st);
     }
-    const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st) : null;
+    const statsFormatFilter = (window.__ptStatsFormatFilter != null) ? window.__ptStatsFormatFilter : 'all';
+    const sessTot = window.PTStatsAggregate ? PTStatsAggregate.sessionsTotal(st, statsFormatFilter) : null;
+    const byFormat = window.PTStatsAggregate && PTStatsAggregate.sessionsTotalByFormat
+      ? PTStatsAggregate.sessionsTotalByFormat(st)
+      : {};
     const trainerWeekly = window.PTStatsAggregate ? PTStatsAggregate.trainerWeeklySeries(st, 8) : [];
     const sessionWeekly = window.PTStatsAggregate ? PTStatsAggregate.sessionWeeklySeries(st, 8) : [];
     const trainerLeaks = trainerLeaksForStats(st);
     const sessionLeaks = window.PTStatsAggregate ? PTStatsAggregate.sessionTopLeaks(st, 5) : [];
     const sessionDerived = buildSessionDerivedStats(sessions);
     const box = $('#stats-content');
+    const formatFilterOpts = [
+      { v: 'all', l: 'Todo' },
+      { v: 'cash6', l: 'Cash 6-max' },
+      { v: 'cash9', l: 'Cash 9-max' },
+      { v: 'spin', l: 'Spins' },
+      { v: 'mtt', l: 'MTT' },
+      { v: 'shorthand', l: 'Short-handed' }
+    ].map((o) => `<option value="${o.v}"${statsFormatFilter === o.v ? ' selected' : ''}>${o.l}${byFormat[o.v] ? ' (' + byFormat[o.v].hands + ')' : ''}</option>`).join('');
+    const formatFilterHtml = `<div class="stats-format-filter card-box" style="margin-bottom:12px">
+      <label class="muted-text">Perfil importado por formato
+        <select id="stats-format-filter">${formatFilterOpts}</select>
+      </label>
+      <span class="muted-text" style="font-size:12px;margin-left:8px">Evita mezclar VPIP de cash con spins/MTT.</span>
+    </div>`;
     const total = st.decisions || 1;
     const accuracy = st.decisions ? Math.round(((st.optima + st.aceptable) / st.decisions) * 100) : 0;
     const byStreet = st.byStreet || emptyByStreet();
@@ -24927,6 +25432,31 @@ window.PT_VS_3BET_JSON = {
       },
       { title: 'Evolución de notas', body: statsGradeLineChart('Nota por sesión (0–10)', sessionGradeSeries) },
       { title: 'Evolución VPIP / PFR', body: statsHudLineChart('VPIP y PFR por sesión', sessionHudSeries, aggFormat) },
+      {
+        title: 'Winrate por stakes',
+        body: (function () {
+          const rows = window.PTStatsAggregate && PTStatsAggregate.sessionsByStakes
+            ? PTStatsAggregate.sessionsByStakes(st)
+            : [];
+          if (!rows.length) {
+            return '<div class="stats-carousel-empty muted-text">Importa sesiones con stakes detectados (p. ej. NL25) para ver bb/100 por nivel.</div>';
+          }
+          return `<table class="style-pos-table"><thead><tr><th>Stakes</th><th>Manos</th><th>Net</th><th>bb/100</th></tr></thead><tbody>${
+            rows.slice(0, 12).map((r) =>
+              `<tr><td>${escapeHtml(r.stakesLabel)}</td><td>${r.hands}</td><td class="${r.netBB >= 0 ? 'net-pos' : 'net-neg'}">${r.netBB >= 0 ? '+' : ''}${fmtBB(r.netBB)}</td><td>${r.bbPer100 == null ? '—' : fmtHudAf(r.bbPer100)}</td></tr>`
+            ).join('')
+          }</tbody></table>`;
+        })()
+      },
+      {
+        title: 'Winrate diario (14d)',
+        body: (function () {
+          const series = window.PTStatsAggregate && PTStatsAggregate.sessionDailySeries
+            ? PTStatsAggregate.sessionDailySeries(st, 14)
+            : [];
+          return statsBarChart('bb/100 por día', series, 'bbPer100', '', '--accent');
+        })()
+      },
       { title: 'Progreso semanal · VPIP', body: statsBarChart('VPIP semanal', sessionWeekly, 'vpipPct', '%', '--accent') },
       { title: 'Progreso semanal · PFR', body: statsBarChart('PFR semanal', sessionWeekly, 'pfrPct', '%', '--gold') },
       { title: 'Progreso semanal · 3-Bet', body: statsBarChart('3-Bet semanal', sessionWeekly, 'threeBetPct', '%', '--accent') },
@@ -24946,11 +25476,20 @@ window.PT_VS_3BET_JSON = {
     ];
 
     box.innerHTML = `
+      ${formatFilterHtml}
       <div class="stats-redesign">
         ${renderStatsCarousel('trainer', 'Entrenador', 'Tus manos jugadas en el entrenador, separadas del análisis de sesiones importadas.', trainerSlides)}
         ${renderStatsCarousel('sessions', 'Sesiones importadas', 'Resultados y fugas de manos reales importadas, con acceso a la sesión cuando siga disponible.', sessionSlides)}
       </div>`;
     bindStatsView();
+    const fmtSel = $('#stats-format-filter');
+    if (fmtSel && !fmtSel.dataset.bound) {
+      fmtSel.dataset.bound = '1';
+      fmtSel.addEventListener('change', () => {
+        window.__ptStatsFormatFilter = fmtSel.value || 'all';
+        renderStats();
+      });
+    }
 
     const coachHost = $('#stats-coach');
     if (coachHost && window.PTAIReport) {
@@ -25099,11 +25638,11 @@ window.PT_VS_3BET_JSON = {
   const handListFilters = {
     history: { class: '', pos: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
     errors: { class: '', pos: '', street: '', spotType: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' },
-    sessionHands: { class: '', pos: '', expOp: '', expVal: '', realOp: '', realVal: '' }
+    sessionHands: { class: '', pos: '', street: '', gameKind: '', stackBin: '', tag: '', graveOnly: '', expOp: '', expVal: '', realOp: '', realVal: '' }
   };
 
   function emptyHandFilters() {
-    return { class: '', pos: '', street: '', spotType: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' };
+    return { class: '', pos: '', street: '', spotType: '', gameKind: '', stackBin: '', tag: '', graveOnly: '', dateFrom: '', dateTo: '', expOp: '', expVal: '', realOp: '', realVal: '' };
   }
 
   function readHandFilters(scope) {
@@ -25143,9 +25682,44 @@ window.PT_VS_3BET_JSON = {
     ).join('');
     const cmpOpts = (sel, val) =>
       `<option value=""${!val ? ' selected' : ''}>—</option><option value="gte"${val === 'gte' ? ' selected' : ''}>≥</option><option value="lte"${val === 'lte' ? ' selected' : ''}>≤</option>`;
+    const streetOpts = scope === 'sessionHands'
+      ? ['', 'preflop', 'flop', 'turn', 'river'].map((st) =>
+        `<option value="${st}"${f.street === st ? ' selected' : ''}>${st || 'Todas las calles'}</option>`
+      ).join('')
+      : '';
+    const kindOpts = scope === 'sessionHands'
+      ? ['', 'cash', 'spin', 'mtt', 'sng'].map((k) =>
+        `<option value="${k}"${f.gameKind === k ? ' selected' : ''}>${k || 'Todo tipo'}</option>`
+      ).join('')
+      : '';
+    const stackOpts = scope === 'sessionHands'
+      ? ['', 'lt15', '15-25', '25-40', '40-100', 'gt100'].map((k) =>
+        `<option value="${k}"${f.stackBin === k ? ' selected' : ''}>${k || 'Todo stack'}</option>`
+      ).join('')
+      : '';
+    const tagSet = {};
+    if (scope === 'sessionHands' && currentSession && currentSession.hands) {
+      currentSession.hands.forEach((h) => {
+        (h.tags || []).forEach((t) => { if (t) tagSet[t] = true; });
+      });
+    }
+    const tagKeys = Object.keys(tagSet).sort();
+    const tagOpts = scope === 'sessionHands'
+      ? ([''].concat(tagKeys)).map((t) =>
+        `<option value="${escapeHtml(t)}"${f.tag === t ? ' selected' : ''}>${t || 'Todos los tags'}</option>`
+      ).join('')
+      : '';
+    const graveOpts = scope === 'sessionHands'
+      ? `<label class="session-grave-filter"><input type="checkbox" data-filter-scope="${scope}" data-filter="graveOnly" value="1"${f.graveOnly ? ' checked' : ''}> Solo errores graves</label>`
+      : '';
     return `
       <label>Clase<select data-filter-scope="${scope}" data-filter="class">${classOpts}</select></label>
       <label>Posición héroe<select data-filter-scope="${scope}" data-filter="pos">${posOpts}</select></label>
+      ${streetOpts ? `<label>Calle peor fuga<select data-filter-scope="${scope}" data-filter="street">${streetOpts}</select></label>` : ''}
+      ${kindOpts ? `<label>Tipo<select data-filter-scope="${scope}" data-filter="gameKind">${kindOpts}</select></label>` : ''}
+      ${stackOpts ? `<label>Stack<select data-filter-scope="${scope}" data-filter="stackBin">${stackOpts}</select></label>` : ''}
+      ${tagOpts ? `<label>Tag<select data-filter-scope="${scope}" data-filter="tag">${tagOpts}</select></label>` : ''}
+      ${graveOpts}
       ${showDate ? `<label>Desde<input type="date" data-filter-scope="${scope}" data-filter="dateFrom" value="${escapeHtml(f.dateFrom || '')}"></label>
       <label>Hasta<input type="date" data-filter-scope="${scope}" data-filter="dateTo" value="${escapeHtml(f.dateTo || '')}"></label>` : ''}
       <label>EV esperado<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
@@ -25162,11 +25736,13 @@ window.PT_VS_3BET_JSON = {
       host.innerHTML = handFiltersHtml(scope, { showDate: scope !== 'sessionHands' });
       host.querySelectorAll('[data-filter]').forEach((el) => {
         const handler = () => {
-          handListFilters[scope][el.getAttribute('data-filter')] = el.value;
+          const key = el.getAttribute('data-filter');
+          if (el.type === 'checkbox') handListFilters[scope][key] = el.checked ? '1' : '';
+          else handListFilters[scope][key] = el.value;
           if (typeof onChange === 'function') onChange();
         };
         el.addEventListener('change', handler);
-        if (el.tagName === 'INPUT') el.addEventListener('input', handler);
+        if (el.tagName === 'INPUT' && el.type !== 'checkbox') el.addEventListener('input', handler);
       });
     }
   }
@@ -25196,9 +25772,41 @@ window.PT_VS_3BET_JSON = {
     return true;
   }
 
+  function stackBinOfHand(h) {
+    const bb = h && h.stackDepthBB;
+    if (bb == null || Number.isNaN(Number(bb))) return '';
+    const n = Number(bb);
+    if (n < 15) return 'lt15';
+    if (n < 25) return '15-25';
+    if (n < 40) return '25-40';
+    if (n <= 100) return '40-100';
+    return 'gt100';
+  }
+
+  function worstStreetOfHand(h) {
+    let worst = null;
+    let worstLoss = -1;
+    (h.decisions || []).forEach((d) => {
+      const loss = Number(d.evLoss) || 0;
+      if (loss > worstLoss) { worstLoss = loss; worst = d.street; }
+    });
+    return worst;
+  }
+
+  function handHasGraveError(h) {
+    if (!h) return false;
+    if (h.worstClass === 'error') return true;
+    return (h.decisions || []).some((d) => d && (d.class === 'error' || (Number(d.evLoss) || 0) >= 0.5));
+  }
+
   function passesSessionHandFilters(h, f) {
     if (f.class && h.worstClass !== f.class) return false;
     if (f.pos && h.heroPos !== f.pos) return false;
+    if (f.gameKind && (h.gameKind || 'cash') !== f.gameKind) return false;
+    if (f.stackBin && stackBinOfHand(h) !== f.stackBin) return false;
+    if (f.street && worstStreetOfHand(h) !== f.street) return false;
+    if (f.tag && !(h.tags || []).includes(f.tag)) return false;
+    if (f.graveOnly && !handHasGraveError(h)) return false;
     const realNet = roundSession(h.heroNetBB || 0);
     const expNet = roundSession(realNet - (h.totalEvLoss || 0));
     if (!passesEvCompare(expNet, f.expOp, f.expVal)) return false;
@@ -25291,10 +25899,13 @@ window.PT_VS_3BET_JSON = {
         setProgress(done, total, phase || 'parse', fileLabel);
       });
       if (!parsed.hero || !parsed.hands.length) {
+        const disc = parsed.discardedByReason || {};
+        const discParts = Object.keys(disc).filter((k) => disc[k] > 0).map((k) => disc[k] + ' ' + k);
         return {
           ok: false,
-          error: 'No se reconocieron manos de cash NL en «' + file.name +
-            '». Comprueba que sea PokerStars, Winamax o GGPoker.'
+          error: 'No se reconocieron manos NLHE (cash/spins/torneo) en «' + file.name +
+            '». Comprueba que sea PokerStars, Winamax o GGPoker.' +
+            (discParts.length ? ' Descartadas: ' + discParts.join(', ') + '.' : '')
         };
       }
       const Ent = window.PTEntitlements;
@@ -25304,6 +25915,18 @@ window.PT_VS_3BET_JSON = {
         if (!check.ok) {
           return { ok: false, paywall: check.reason, error: check.reason };
         }
+      }
+      if (Importer.needsHeroConfirmation && Importer.needsHeroConfirmation(parsed)) {
+        const cands = Importer.heroCandidatesFromParsed
+          ? Importer.heroCandidatesFromParsed(parsed)
+          : (parsed.heroCandidates || []);
+        const chosen = await pickImportHero(cands, parsed.hero, file.name);
+        if (!chosen) {
+          return { ok: false, error: 'Importación cancelada: falta confirmar el nick héroe.' };
+        }
+        parsed.hero = chosen;
+        parsed.heroConfirmed = true;
+        parsed.filterHero = true;
       }
       const onProgress = function (done, total, phase) {
         setProgress(done, total, phase || 'analyze', fileLabel);
@@ -25360,6 +25983,18 @@ window.PT_VS_3BET_JSON = {
         if (ok.length) {
           msg = '<span style="color:var(--green)">' + ok.length + ' archivo(s) · ' +
             hands.toLocaleString('es-ES') + ' manos analizadas</span>';
+          const mixBits = [];
+          ok.forEach(function (r) {
+            const mix = r.session && r.session.context && r.session.context.mix;
+            if (!mix) return;
+            if (mix.cash) mixBits.push(mix.cash + ' cash');
+            if (mix.spin) mixBits.push(mix.spin + ' spin');
+            if (mix.mtt) mixBits.push(mix.mtt + ' MTT');
+            if (mix.sng) mixBits.push(mix.sng + ' SNG');
+          });
+          if (mixBits.length) {
+            msg += ' <span class="muted-text">(' + escapeHtml(mixBits.join(', ')) + ')</span>';
+          }
           if (fail.length) {
             msg += ' <span style="color:var(--yellow)">· ' + fail.length + ' con error</span>';
           }
@@ -25375,6 +26010,10 @@ window.PT_VS_3BET_JSON = {
         if (status) status.innerHTML = msg || '';
         input.value = '';
         $('#process-session').disabled = true;
+        if (lastOk) {
+          sessionsListTab = sessionBucket(lastOk);
+          try { sessionStorage.setItem('pt_sessions_tab', sessionsListTab); } catch (e) { /* ignore */ }
+        }
         renderSessionsList();
         if (lastOk) openSession(lastOk.id, lastOk);
       } catch (err) {
@@ -25427,16 +26066,43 @@ window.PT_VS_3BET_JSON = {
     const box = $('#sessions-list');
     const isSample = (s) => window.PTSampleSession && window.PTSampleSession.isSampleSession
       ? window.PTSampleSession.isSampleSession(s) : s.id === 'pt_sample_session_v1';
-    if (!sessions.length) { box.innerHTML = '<div class="empty">No hay sesiones. Añade un fichero .txt arriba.</div>'; return; }
-    box.innerHTML = sessions.map((s) => {
-      const st = s.stats;
-      const netCls = st.netBB >= 0 ? 'net-pos' : 'net-neg';
+    const counts = { cash: 0, spin: 0, mtt: 0 };
+    sessions.forEach((s) => { counts[sessionBucket(s)] = (counts[sessionBucket(s)] || 0) + 1; });
+    $$('.sessions-kind-tab').forEach((btn) => {
+      const tab = btn.getAttribute('data-sessions-tab');
+      const on = tab === sessionsListTab;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    $$('[data-tab-count]').forEach((el) => {
+      const k = el.getAttribute('data-tab-count');
+      el.textContent = String(counts[k] || 0);
+    });
+    const hint = $('#sessions-tab-hint');
+    if (hint) hint.textContent = sessionsTabHint(sessionsListTab);
+
+    const filtered = sessions.filter((s) => sessionBucket(s) === sessionsListTab);
+    if (!sessions.length) {
+      box.innerHTML = '<div class="empty">No hay sesiones. Añade un fichero .txt arriba.</div>';
+      return;
+    }
+    if (!filtered.length) {
+      box.innerHTML = '<div class="empty">No hay sesiones en «'
+        + (sessionsListTab === 'spin' ? 'Spins' : (sessionsListTab === 'mtt' ? 'Torneos' : 'Cash'))
+        + '». Importa un historial o cambia de pestaña.</div>';
+      return;
+    }
+    box.innerHTML = filtered.map((s) => {
+      const st = s.stats || {};
+      const netCls = (st.netBB || 0) >= 0 ? 'net-pos' : 'net-neg';
       const sampleBadge = isSample(s) ? '<span class="session-sample-badge">Ejemplo</span>' : '';
+      const gradeLetter = st.grade && st.grade.letter ? st.grade.letter[0] : 'C';
+      const acc = st.accuracy != null ? st.accuracy + '%' : '—';
       return `<div class="record session-card">
         <div class="rec-main">
-          <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter}</span></div>
-          <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands} manos · ${fmtDate(s.createdAt)}</div>
-          <div class="rec-sub">Acierto ${st.accuracy}% · <span class="${netCls}">${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)} bb</span> · EV perdido -${fmtBB(st.evLossBB)} bb</div>
+          <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge grade-${gradeLetter}">Nota ${st.grade ? st.grade.letter : '—'}</span> ${sessionContextBadgesHtml(s)}</div>
+          <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · ${st.nHands || 0} manos · ${fmtDate(s.createdAt)}</div>
+          <div class="rec-sub">Acierto ${acc} · <span class="${netCls}">${(st.netBB || 0) >= 0 ? '+' : ''}${fmtBB(st.netBB || 0)} bb</span> · EV perdido -${fmtBB(st.evLossBB || 0)} bb${st.roiPct != null ? ' · ROI ' + st.roiPct + '%' : ''}</div>
           <div class="rec-sub muted-text" style="font-size:12px">${streetAccSummary(st.accByStreet)}</div>
         </div>
         <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
@@ -25454,6 +26120,88 @@ window.PT_VS_3BET_JSON = {
     }));
   }
 
+  // ---- Auto-import carpeta HH (IMP-38) ----
+  function stopAutoImportFolder() {
+    if (autoImportState.timer) {
+      clearInterval(autoImportState.timer);
+      autoImportState.timer = null;
+    }
+    autoImportState.handle = null;
+    const stop = $('#auto-import-stop');
+    const start = $('#auto-import-folder');
+    if (stop) stop.classList.add('hidden');
+    if (start) start.classList.remove('hidden');
+    const st = $('#auto-import-status');
+    if (st) st.textContent = 'Vigilancia detenida.';
+  }
+
+  async function scanAutoImportFolder() {
+    const dir = autoImportState.handle;
+    if (!dir) return;
+    const status = $('#auto-import-status');
+    const toImport = [];
+    try {
+      for await (const [name, handle] of dir.entries()) {
+        if (!handle || handle.kind !== 'file') continue;
+        if (!/\.txt$/i.test(name)) continue;
+        const key = name + ':' + (handle.name || name);
+        if (autoImportState.seen[key]) continue;
+        const file = await handle.getFile();
+        const stamp = file.lastModified + ':' + file.size;
+        if (autoImportState.seen[key] === stamp) continue;
+        autoImportState.seen[key] = stamp;
+        toImport.push(file);
+      }
+    } catch (e) {
+      if (status) status.textContent = 'No se pudo leer la carpeta (permiso revocado?).';
+      stopAutoImportFolder();
+      return;
+    }
+    if (!toImport.length) {
+      if (status) status.textContent = 'Vigilando «' + (dir.name || 'carpeta') + '»… sin archivos nuevos.';
+      return;
+    }
+    if (status) status.textContent = 'Importando ' + toImport.length + ' archivo(s) nuevos…';
+    // Reutilizar processSessionFile vía DataTransfer simulado
+    const input = $('#session-file');
+    if (!input) return;
+    try {
+      const dt = new DataTransfer();
+      toImport.forEach((f) => dt.items.add(f));
+      input.files = dt.files;
+      $('#process-session').disabled = false;
+      processSessionFile();
+    } catch (e) {
+      if (status) status.textContent = 'Auto-import: ' + (e.message || 'error al encolar archivos');
+    }
+  }
+
+  async function startAutoImportFolder() {
+    const status = $('#auto-import-status');
+    if (!window.showDirectoryPicker) {
+      if (status) {
+        status.textContent = 'Tu navegador no soporta vigilancia de carpeta (usa Chrome/Edge). Puedes seguir subiendo .txt a mano.';
+      }
+      return;
+    }
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'read' });
+      autoImportState.handle = handle;
+      autoImportState.seen = {};
+      const stop = $('#auto-import-stop');
+      const start = $('#auto-import-folder');
+      if (stop) stop.classList.remove('hidden');
+      if (start) start.classList.add('hidden');
+      if (status) status.textContent = 'Vigilando «' + (handle.name || 'carpeta') + '» cada 15s…';
+      await scanAutoImportFolder();
+      if (autoImportState.timer) clearInterval(autoImportState.timer);
+      autoImportState.timer = setInterval(() => { void scanAutoImportFolder(); }, 15000);
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      if (status) status.textContent = 'No se pudo abrir la carpeta.';
+    }
+  }
+
   function sessionLoadingHtml(message) {
     return '<div class="session-loading">' +
       '<div class="play-boot-spinner" aria-hidden="true"></div>' +
@@ -25465,6 +26213,72 @@ window.PT_VS_3BET_JSON = {
     showSessionsView('detail');
     const detailBox = $('#session-detail-content');
     if (detailBox) detailBox.innerHTML = sessionLoadingHtml(message);
+  }
+
+  function pickImportHero(candidates, defaultHero, fileName) {
+    return new Promise(function (resolve) {
+      const list = (candidates || []).slice();
+      if (!list.length) { resolve(defaultHero || null); return; }
+      const modal = $('#modal');
+      const body = $('#modal-content') || modal;
+      if (!modal || !body) {
+        const names = list.map((c) => c.name + ' (' + c.hands + ')').join('\n');
+        const pick = window.prompt(
+          'Varios nicks héroe en «' + (fileName || 'archivo') + '». Escribe el nick:\n' + names,
+          defaultHero || list[0].name
+        );
+        resolve(pick || null);
+        return;
+      }
+      const opts = list.map((c, i) =>
+        `<label class="hero-pick-row" style="display:flex;gap:8px;align-items:center;margin:6px 0">
+          <input type="radio" name="import-hero" value="${escapeHtml(c.name)}"${(c.name === defaultHero || (!defaultHero && i === 0)) ? ' checked' : ''}>
+          <span><strong>${escapeHtml(c.name)}</strong> <span class="muted-text">· ${c.hands} manos</span></span>
+        </label>`
+      ).join('');
+      body.innerHTML = `<h3>Confirmar nick héroe</h3>
+        <p class="muted-text">«${escapeHtml(fileName || '')}» tiene varios nicks con cartas hero (HH compartido / equipo). Elige el tuyo:</p>
+        <div class="hero-pick-list">${opts}</div>
+        <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+          <button type="button" class="btn secondary" id="hero-pick-cancel">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="hero-pick-ok">Analizar</button>
+        </div>`;
+      modal.classList.remove('hidden');
+      const finish = (val) => {
+        modal.classList.add('hidden');
+        resolve(val);
+      };
+      const ok = body.querySelector('#hero-pick-ok');
+      const cancel = body.querySelector('#hero-pick-cancel');
+      if (ok) ok.onclick = () => {
+        const sel = body.querySelector('input[name="import-hero"]:checked');
+        finish(sel ? sel.value : null);
+      };
+      if (cancel) cancel.onclick = () => finish(null);
+    });
+  }
+
+  async function reanalyzeCurrentSession() {
+    if (!currentSession || !currentSession.hands || !Importer.recomputeHandDecisions) return;
+    showSessionLoading('Reanalizando con motor ' + (window.PT_BUILD || '') + '…');
+    const buildVer = window.PT_BUILD || '';
+    currentSession.hands.forEach((h) => {
+      if (Importer.ensureAnalyzedHandContext) Importer.ensureAnalyzedHandContext(h);
+      Importer.recomputeHandDecisions(h);
+      if (Importer.buildHandTags) h.tags = Importer.buildHandTags(h);
+    });
+    currentSession.stats = Importer.computeStats(currentSession.hands);
+    if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
+      currentSession.context = PTHHUtils.buildSessionContext(
+        currentSession.hands,
+        currentSession.nDiscardedByReason || null
+      );
+    }
+    currentSession.analysisVersion = buildVer;
+    currentSession.pendingReanalyze = false;
+    await Store.saveSession(currentSession);
+    renderSessionDetail('evLoss');
+    showSessionsView('detail');
   }
 
   async function openSession(id, sessionObj) {
@@ -25485,39 +26299,50 @@ window.PT_VS_3BET_JSON = {
     if (Importer.ensureAnalyzedHandContext) {
       currentSession.hands.forEach((h) => Importer.ensureAnalyzedHandContext(h));
     }
-    const needsRecompute = Importer.recomputeHandDecisions && Importer.computeStats
-      && currentSession.analysisVersion !== buildVer;
+    const versionMismatch = !!(buildVer && currentSession.analysisVersion && currentSession.analysisVersion !== buildVer);
+    currentSession.pendingReanalyze = versionMismatch;
     const needsHudStats = Importer.computeStats
       && (!currentSession.stats || currentSession.stats.vpipPct == null || currentSession.stats.pfrPct == null
         || currentSession.stats.vpipHands == null || currentSession.stats.pfrHands == null
         || currentSession.stats.threeBetOpps == null || currentSession.stats.style == null
         || currentSession.stats.cbetFlopOpps == null || currentSession.stats.afCalls == null
         || currentSession.stats.sawFlopN == null || currentSession.stats.squeezeOpps == null
-        || currentSession.stats.cbetTurnOpps == null || currentSession.stats.bbPer100 == null);
-    if (needsRecompute) {
-      currentSession.hands.forEach((h) => Importer.recomputeHandDecisions(h));
+        || currentSession.stats.cbetTurnOpps == null || currentSession.stats.bbPer100 == null
+        || currentSession.stats.formatKey == null || currentSession.stats.fourBetOpps == null
+        || currentSession.stats.limpOpps == null || currentSession.stats.delayedCbetOpps == null
+        || !currentSession.context);
+    // Sesiones guardadas con collected vacío marcaban −stack en wins con side pot.
+    let netFixed = false;
+    if (Importer.recomputeHeroNet) {
+      currentSession.hands.forEach((h) => {
+        const before = h.heroNetBB;
+        const hasCollected = h.collected && Object.keys(h.collected).some((k) => (h.collected[k] || 0) > 0);
+        if (hasCollected) return;
+        Importer.recomputeHeroNet(h);
+        if (h.heroNetBB !== before) netFixed = true;
+      });
+    }
+    // Tags ligeros si faltan (sin re-score GTO)
+    let tagsFixed = false;
+    if (Importer.buildHandTags) {
+      currentSession.hands.forEach((h) => {
+        if (!h.tags || !h.tags.length) {
+          h.tags = Importer.buildHandTags(h);
+          tagsFixed = true;
+        }
+      });
+    }
+    if ((netFixed || needsHudStats) && Importer.computeStats) {
       currentSession.stats = Importer.computeStats(currentSession.hands);
-      currentSession.analysisVersion = buildVer;
+      if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
+        currentSession.context = PTHHUtils.buildSessionContext(
+          currentSession.hands,
+          currentSession.nDiscardedByReason || null
+        );
+      }
       await Store.saveSession(currentSession);
-    } else {
-      // Sesiones guardadas con collected vacío marcaban −stack en wins con side pot.
-      let netFixed = false;
-      if (Importer.recomputeHeroNet) {
-        currentSession.hands.forEach((h) => {
-          const before = h.heroNetBB;
-          const hasCollected = h.collected && Object.keys(h.collected).some((k) => (h.collected[k] || 0) > 0);
-          if (hasCollected) return;
-          Importer.recomputeHeroNet(h);
-          if (h.heroNetBB !== before) netFixed = true;
-        });
-      }
-      if (netFixed && Importer.computeStats) {
-        currentSession.stats = Importer.computeStats(currentSession.hands);
-        await Store.saveSession(currentSession);
-      } else if (needsHudStats) {
-        currentSession.stats = Importer.computeStats(currentSession.hands);
-        await Store.saveSession(currentSession);
-      }
+    } else if (tagsFixed) {
+      await Store.saveSession(currentSession);
     }
     renderSessionDetail('evLoss');
     showSessionsView('detail');
@@ -25534,9 +26359,24 @@ window.PT_VS_3BET_JSON = {
     const accSt = st.accByStreet;
     const box = $('#session-detail-content');
 
+    const fmtKey = resolveStatsFormat(st);
+    const buildVer = window.PT_BUILD || '';
+    const reanalyzeBanner = s.pendingReanalyze
+      ? `<div class="card-box session-reanalyze-banner" style="margin-bottom:12px;border-color:var(--yellow)">
+          <strong>Motor nuevo disponible</strong>
+          <span class="muted-text"> · Analizado con ${escapeHtml(s.analysisVersion || '?')} · actual ${escapeHtml(buildVer)}</span>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button type="button" class="btn btn-primary btn-sm" id="btn-reanalyze-session">Reanalizar con motor nuevo</button>
+            <span class="muted-text" style="font-size:12px">Rescorea decisiones GTO y stats HUD (puede tardar en sesiones grandes).</span>
+          </div>
+        </div>`
+      : '';
+    const graveN = (s.hands || []).filter(handHasGraveError).length;
     const statHtml = `
-      <h2>${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter} · ${st.grade.score}/10</span></h2>
+      ${reanalyzeBanner}
+      <h2>${escapeHtml(s.fileName)} <span class="badge grade-${st.grade.letter[0]}">Nota ${st.grade.letter} · ${st.grade.score}/10</span> ${sessionContextBadgesHtml(s)}</h2>
       <p class="muted-text">${escapeHtml(st.grade.verdict)}</p>
+      <p class="muted-text" style="font-size:12px">${escapeHtml(importDiscardSummaryHtml(s))} · Formato coaching: <strong>${escapeHtml(formatDisplayLabel(fmtKey))}</strong>${st.shortHandedShare > 20 ? ' · Mesa corta ~' + st.shortHandedShare + '%' : ''}</p>
       <div class="session-export-bar">
         <span class="muted-text" data-i18n="export.session">Exportar informe</span>
         <label class="session-export-errors"><input type="checkbox" id="session-export-errors-only" /> <span data-i18n="export.errorsOnly">Solo manos con fuga</span></label>
@@ -25544,17 +26384,23 @@ window.PT_VS_3BET_JSON = {
         <button type="button" class="btn btn-ghost btn-sm" data-export-session="csv" data-i18n="export.csv">CSV</button>
         <button type="button" class="btn btn-ghost btn-sm" data-export-session="pdf" data-i18n="export.pdf">PDF / Imprimir</button>
       </div>
-      <div class="stats-content" data-style-format="${escapeHtml(resolveStatsFormat(st))}">
-        ${explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), resolveStatsFormat(st))}
-        ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, resolveStatsFormat(st), netCls)}
-        ${explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, resolveStatsFormat(st))}
-        ${explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, resolveStatsFormat(st), 'net-neg')}
+      <div class="stats-content" data-style-format="${escapeHtml(fmtKey)}">
+        ${explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), fmtKey)}
+        ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, fmtKey, netCls)}
+        ${explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, fmtKey)}
+        ${explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, fmtKey, 'net-neg')}
         ${st.avgHandScore != null ? `<div class="stat-card"><div class="big">${fmtHandScore(st.avgHandScore)}<span class="hand-score-over">/10</span></div><div class="lbl">Nota media por mano</div></div>` : ''}
-        ${explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), resolveStatsFormat(st))}
-        ${explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), resolveStatsFormat(st))}
-        ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), resolveStatsFormat(st))}
-        ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), resolveStatsFormat(st))}
+        ${explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), fmtKey)}
+        ${explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), fmtKey)}
+        ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), fmtKey)}
+        ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), fmtKey)}
+        ${st.fourBetPct != null ? explainableStatCard('threeBet', '4-Bet', fmtHudPct(st.fourBetPct), fmtKey) : ''}
+        ${st.limpPct != null ? explainableStatCard('vpip', 'Limp %', fmtHudPct(st.limpPct), fmtKey) : ''}
+        ${st.delayedCbetPct != null ? explainableStatCard('cbetTurn', 'Delayed C-Bet', fmtHudPct(st.delayedCbetPct), fmtKey) : ''}
+        ${st.roiPct != null ? `<div class="stat-card"><div class="big">${st.roiPct}%</div><div class="lbl">ROI (aprox.)</div></div>` : ''}
+        ${st.profitEuro != null && (st.gameKind === 'spin' || st.gameKind === 'mtt' || st.gameKind === 'sng') ? `<div class="stat-card"><div class="big ${st.profitEuro >= 0 ? 'net-pos' : 'net-neg'}">${st.profitEuro >= 0 ? '+' : ''}${st.profitEuro.toFixed(2)}€</div><div class="lbl">Profit €</div></div>` : ''}
       </div>
+      ${(st.bbPer100CI || (st.style && st.style.bbPer100CI)) ? `<p class="muted-text stats-section-note">bb/100 IC95%: ${fmtHudAf((st.bbPer100CI || st.style.bbPer100CI).low)} … ${fmtHudAf((st.bbPer100CI || st.style.bbPer100CI).high)}${st.bbPer100Note ? ' · ' + escapeHtml(st.bbPer100Note) : ''}</p>` : (st.bbPer100Note ? `<p class="muted-text stats-section-note">${escapeHtml(st.bbPer100Note)}</p>` : '')}
       ${sessionHudCommentHtml(st)}
       <div class="card-box" style="margin-top:14px">
         <h3>Acierto por calle</h3>
@@ -25596,7 +26442,8 @@ window.PT_VS_3BET_JSON = {
     const sortHtml = `
       <div class="panel-head" style="margin-top:18px">
         <h3>Manos de la sesión (${currentSession.hands.length})</h3>
-        <div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button type="button" class="btn secondary btn-sm" id="btn-grave-queue" title="Atajo G">Solo graves (${graveN})</button>
           <label class="muted-text" style="font-size:13px">Ordenar:
             <select id="hand-sort">
               <option value="evLoss" ${sortBy === 'evLoss' ? 'selected' : ''}>Mayor EV perdido</option>
@@ -25612,11 +26459,25 @@ window.PT_VS_3BET_JSON = {
         </div>
       </div>
       <div id="session-hands-filters" class="hand-filters"></div>
+      <p class="muted-text" style="font-size:12px;margin:6px 0 0">Cola graves: <kbd>G</kbd> filtra · en revisión <kbd>→</kbd>/<kbd>Enter</kbd> siguiente · <kbd>←</kbd> anterior.</p>
       <div id="session-hands" class="record-list"></div>`;
 
     box.innerHTML = statHtml + sortHtml;
     bindStyleDrillButtons(box);
     bindMetricExplainClicks(box);
+    const reBtn = box.querySelector('#btn-reanalyze-session');
+    if (reBtn) reBtn.addEventListener('click', () => { void reanalyzeCurrentSession(); });
+    const graveBtn = box.querySelector('#btn-grave-queue');
+    if (graveBtn) {
+      graveBtn.addEventListener('click', () => {
+        handListFilters.sessionHands.graveOnly = handListFilters.sessionHands.graveOnly ? '' : '1';
+        // reset bound filters host so checkbox reflects state
+        const host = $('#session-hands-filters');
+        if (host) { host.dataset.bound = ''; host.innerHTML = ''; }
+        bindHandFilters('#session-hands-filters', 'sessionHands', () => renderSessionHands(sortBy));
+        renderSessionHands(sortBy);
+      });
+    }
     Array.from(box.querySelectorAll('[data-export-session]')).forEach((btn) => {
       btn.addEventListener('click', () => {
         if (!window.PTSessionExport || !currentSession) {
@@ -25696,11 +26557,16 @@ window.PT_VS_3BET_JSON = {
     box.innerHTML = hands.map((h) => {
       const netCls = h.heroNetBB >= 0 ? 'net-pos' : 'net-neg';
       const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
+      const tags = (h.tags || []).filter((t) => t && t.indexOf('pos:') !== 0).slice(0, 4);
+      const tagsHtml = tags.length
+        ? `<div class="rec-tags" style="margin-top:4px">${tags.map((t) => `<span class="badge grade-C" style="font-size:10px">${escapeHtml(t)}</span>`).join(' ')}</div>`
+        : '';
       return `<div class="record">
         <div class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
         <div class="rec-main">
           <div class="rec-scenario">${h.heroCode} <span style="color:var(--muted)">(${h.heroPos})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
           <div class="rec-sub">Board: ${(h.board || []).map(Cards.cardToHTML).join('') || '—'} · ${h.nDecisions} decisiones · acierto ${h.accuracy}%</div>
+          ${tagsHtml}
         </div>
         <div class="rec-right" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
           <div><span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span> · <span style="color:var(--red)">EV -${fmtBB(h.totalEvLoss)}bb</span></div>
@@ -25717,6 +26583,56 @@ window.PT_VS_3BET_JSON = {
     if (!currentSession || !currentSession.hands) return null;
     return currentSession.hands.find((h) => String(h.id) === String(id)) || null;
   }
+
+  function filteredSessionHands(sortBy) {
+    const f = handListFilters.sessionHands;
+    const hands = (currentSession && currentSession.hands ? currentSession.hands : [])
+      .filter((h) => passesSessionHandFilters(h, f)).slice();
+    const sorters = {
+      evLoss: (a, b) => b.totalEvLoss - a.totalEvLoss,
+      evLossAsc: (a, b) => a.totalEvLoss - b.totalEvLoss,
+      accAsc: (a, b) => a.accuracy - b.accuracy,
+      accDesc: (a, b) => b.accuracy - a.accuracy,
+      netAsc: (a, b) => a.heroNetBB - b.heroNetBB,
+      netDesc: (a, b) => b.heroNetBB - a.heroNetBB,
+      scoreAsc: (a, b) => (a.handScore != null ? a.handScore : -1) - (b.handScore != null ? b.handScore : -1),
+      scoreDesc: (a, b) => (b.handScore != null ? b.handScore : -1) - (a.handScore != null ? a.handScore : -1)
+    };
+    hands.sort(sorters[sortBy] || sorters.evLoss);
+    return hands;
+  }
+
+  function toggleSessionGraveFilter() {
+    const detail = $('#session-detail');
+    if (!detail || detail.classList.contains('hidden') || !currentSession) return false;
+    handListFilters.sessionHands.graveOnly = handListFilters.sessionHands.graveOnly ? '' : '1';
+    const host = $('#session-hands-filters');
+    if (host) { host.dataset.bound = ''; host.innerHTML = ''; }
+    const sortEl = $('#hand-sort');
+    const sortBy = sortEl ? sortEl.value : 'evLoss';
+    bindHandFilters('#session-hands-filters', 'sessionHands', () => renderSessionHands(sortBy));
+    renderSessionHands(sortBy);
+    return true;
+  }
+
+  function navigateSessionReviewHand(dir) {
+    const review = $('#hand-review');
+    if (!review || review.classList.contains('hidden') || !currentSession || !currentHand) return false;
+    // Prefer cola filtrada actual (p. ej. solo graves)
+    const list = filteredSessionHands('evLoss');
+    if (!list.length) return false;
+    const idx = list.findIndex((h) => String(h.id) === String(currentHand.id));
+    const next = list[idx < 0 ? 0 : idx + (dir < 0 ? -1 : 1)];
+    if (!next) return false;
+    openHandReview(next.id, 'review');
+    return true;
+  }
+
+  window.PTSessionStudy = {
+    toggleGraveFilter: toggleSessionGraveFilter,
+    navigateReview: navigateSessionReviewHand,
+    reanalyze: function () { return reanalyzeCurrentSession(); }
+  };
 
   function openHandReview(handId, mode) {
     currentHand = findHand(handId);
@@ -25972,14 +26888,23 @@ window.PT_VS_3BET_JSON = {
     const shareSource = shareSourceForCurrentReview();
     const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
     let html = `<div class="review-share-row"><button type="button" class="btn btn-ghost btn-small" id="share-hand-review">Compartir análisis</button></div>`;
+    const unsupportedBanner = h.analysisUnsupported
+      ? `<div class="card-box" style="margin:10px 0;border-color:var(--yellow)"><strong>Sin análisis GTO</strong>
+          <p class="muted-text" style="margin:6px 0 0">${escapeHtml(h.unsupportedReason || 'Variante importada solo para consulta (PLO / Short Deck).')}</p></div>`
+      : '';
+    const icmBanner = (!h.analysisUnsupported && h.icmLite && h.icmLite.note)
+      ? `<div class="card-box" style="margin:10px 0;border-color:rgba(138,180,255,.45)"><strong>ICM lite</strong>
+          <p class="muted-text" style="margin:6px 0 0">${escapeHtml(h.icmLite.note)}</p></div>`
+      : '';
     html += `<div class="review-head">
       <div class="rec-cards big-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div>
-        <h2>${h.heroCode} · ${h.heroPos} ${handScoreBadgeHtml(scoreMeta)}</h2>
+        <h2>${h.heroCode || (h.variant || 'mano')} · ${h.heroPos || '?'} ${handScoreBadgeHtml(scoreMeta)}</h2>
         <div class="muted-text">Mano #${h.id} · Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span> · EV perdido: -${fmtBB(h.totalEvLoss)} bb${h.bb || (h.spec && h.spec.bbEuro) ? ' · BB ' + fmtBB(h.bb || h.spec.bbEuro) + '€' : ''}</div>
         ${handOptimalBannerHtml(scoreMeta)}
       </div>
     </div>`;
+    html += unsupportedBanner + icmBanner;
 
     html += sessionReplayThemeHTML();
     html += renderShowdownTableHTML(h);
@@ -26016,6 +26941,13 @@ window.PT_VS_3BET_JSON = {
             html += `<div class="tl-expl">${escapeHtml(heroDec.explanation)}</div>`;
           }
           if (heroDec.renderAlert) html += `<div class="tl-expl" style="color:var(--orange)">${escapeHtml(heroDec.renderAlert)}</div>`;
+          if (heroDec.icmNote) {
+            html += `<div class="tl-expl" style="color:#8ab4ff"><strong>ICM lite:</strong> ${escapeHtml(heroDec.icmNote)}</div>`;
+          }
+          if (heroDec.populationCompare && heroDec.populationCompare.note) {
+            const ok = heroDec.populationCompare.inGtoRange;
+            html += `<div class="tl-expl" style="color:${ok ? 'var(--green)' : 'var(--yellow)'}"><strong>vs GTO genérico:</strong> ${escapeHtml(heroDec.populationCompare.note)}</div>`;
+          }
           if (heroDec.villainAudit && heroDec.villainAudit.severity === 'critical') {
             html += `<div class="tl-expl" style="color:var(--red,#e55)"><strong>Villano:</strong> ${escapeHtml(heroDec.villainAudit.label)}</div>`;
           }

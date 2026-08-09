@@ -1,0 +1,54 @@
+#Game No : 4813258751
+***** 888poker Hand History for Game 4813258751 *****
+$0.05/$0.10 Blinds No Limit Holdem - *** 14 07 2017 15:03:39
+Table Milan 6 Max (Real Money)
+Seat 4 is the button
+Total number of players : 6
+Seat 1: Player1 ( $5.70 )
+Seat 2: Player2 ( $10.00 )
+Seat 3: Player3 ( $9.50 )
+Seat 4: Player4 ( $10.20 )
+Seat 5: SBPlayer ( $10.00 )
+Seat 6: Hero ( $10.00 )
+SBPlayer posts small blind [$0.05]
+Hero posts big blind [$0.10]
+** Dealing down cards **
+Dealt to Hero [ Ah Kd ]
+Player1 raises [$0.30]
+Player2 folds
+Player3 folds
+Player4 folds
+SBPlayer folds
+Hero raises [$1.20]
+Player1 calls [$1.00]
+** Dealing flop ** [ 2c, 7d, Qs ]
+Hero bets [$1.40]
+Player1 folds
+** Summary **
+Hero collected [$2.95]
+
+#Game No : 4813258752
+***** 888poker Hand History for Game 4813258752 *****
+$0.02/$0.05 Blinds No Limit Holdem - *** 14 07 2017 15:05:01
+Table Rome 6 Max (Real Money)
+Seat 1 is the button
+Total number of players : 5
+Seat 1: Hero ( $5.00 )
+Seat 2: VillainA ( $5.00 )
+Seat 3: VillainB ( $4.80 )
+Seat 4: VillainC ( $6.10 )
+Seat 5: VillainD ( $5.50 )
+Hero posts small blind [$0.02]
+VillainA posts big blind [$0.05]
+** Dealing down cards **
+Dealt to Hero [ 9s 9h ]
+VillainB folds
+VillainC folds
+VillainD folds
+Hero raises [$0.15]
+VillainA calls [$0.12]
+** Dealing flop ** [ 3h, 9d, Tc ]
+Hero bets [$0.20]
+VillainA folds
+** Summary **
+Hero collected [$0.34]

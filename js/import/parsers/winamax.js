@@ -1,5 +1,5 @@
 /*
- * parsers/winamax.js — Parser Winamax Cash NL (historial .txt exportado).
+ * parsers/winamax.js — Parser Winamax NLHE (cash / tournament / spins).
  */
 (function (global) {
   'use strict';
@@ -10,7 +10,12 @@
 
   const num = U.num;
   const cardsFrom = U.cardsFrom;
-  const assignPositions = U.assignPositions;
+  const finalizeHandMeta = U.finalizeHandMeta;
+  const isKeepableHand = U.isKeepableHand;
+  const emptyDiscardCounts = U.emptyDiscardCounts;
+  const norm = U.normalizeMoneyText || function (s) { return String(s == null ? '' : s); };
+  // Tras el número puede ir €, â‚¬ (mojibake) u otros restos de encoding
+  const CUR = '[^0-9./\\s)]*';
 
   const BLOCK_SPLIT = /(?=^Winamax Poker - )/m;
   const BLOCK_TEST = /^Winamax Poker - /;
@@ -21,16 +26,15 @@
 
   function parseAction(ln) {
     let m;
-    // Winamax estándar: "Player folds" (sin dos puntos). Algunos exports usan "Player: folds".
     if ((m = ln.match(/^(.+?)(?::\s*|\s+)folds$/))) return { player: m[1].trim(), type: 'fold' };
     if ((m = ln.match(/^(.+?)(?::\s*|\s+)checks$/))) return { player: m[1].trim(), type: 'check' };
-    if ((m = ln.match(/^(.+?)(?::\s*|\s+)calls ([\d.,]+)€?/))) {
+      if ((m = ln.match(/^(.+?)(?::\s*|\s+)calls ([\d.,]+)/))) {
       return { player: m[1].trim(), type: 'call', amount: num(m[2]), allin: /all-in/i.test(ln) };
     }
-    if ((m = ln.match(/^(.+?)(?::\s*|\s+)bets ([\d.,]+)€?/))) {
+    if ((m = ln.match(/^(.+?)(?::\s*|\s+)bets ([\d.,]+)/))) {
       return { player: m[1].trim(), type: 'bet', amount: num(m[2]), allin: /all-in/i.test(ln) };
     }
-    if ((m = ln.match(/^(.+?)(?::\s*|\s+)raises ([\d.,]+)€? to ([\d.,]+)€?/))) {
+    if ((m = ln.match(/^(.+?)(?::\s*|\s+)raises ([\d.,]+)(?:€|â‚¬)? to ([\d.,]+)/))) {
       return {
         player: m[1].trim(), type: 'raise', amount: num(m[2]), to: num(m[3]),
         allin: /all-in/i.test(ln)
@@ -49,50 +53,96 @@
       board: { flop: [], turn: [], river: [] }, boardAll: [],
       shows: {}, collected: {}, uncalledTo: {},
       rake: 0, potTotal: 0, positions: {}, isCash: false, isTournament: false,
-      platform: 'winamax', locale: 'en'
+      platform: 'winamax', locale: 'en',
+      gameKind: 'unknown', tableMax: null, variant: 'unknown'
     };
 
     let street = 'preheader';
+    let headerText = '';
 
     for (let i = 0; i < lines.length; i++) {
-      const ln = lines[i].trim();
+      const ln = norm(lines[i].trim());
       if (!ln) continue;
 
       let m;
 
       if (/^Escape to Pot:/i.test(ln)) continue;
 
-      if ((m = ln.match(/^Winamax Poker - .+ - HandId: #([\d-]+) - Holdem no limit \(([\d.,]+)€\/([\d.,]+)€\) - (.+)/i))) {
+      if ((m = ln.match(new RegExp('^Winamax Poker - .+ - HandId: #([\\d-]+) - Holdem no limit \\(([\\d.,]+)' + CUR + '\\/([\\d.,]+)' + CUR + '\\) - (.+)', 'i')))) {
         hand.id = (m[1].split('-').pop() || m[1]);
         hand.sb = num(m[2]);
         hand.bb = num(m[3]);
         hand.datetime = m[4].replace(' UTC', '').trim();
-        hand.isTournament = /tournament/i.test(ln);
+        headerText += ' ' + ln;
+        hand.isTournament = /tournament|spin|sit\s*&?\s*go|expresso/i.test(ln);
         hand.isCash = !hand.isTournament;
+        hand.variant = 'nlhe';
+        continue;
+      }
+      // Tournament / Expresso sin stakes €/€ en la misma forma
+      if ((m = ln.match(/^Winamax Poker - .+ - HandId: #([\d-]+) - (.+)/i))) {
+        if (!hand.id) {
+          hand.id = (m[1].split('-').pop() || m[1]);
+          headerText += ' ' + ln;
+          hand.isTournament = /tournament|spin|expresso|sit\s*&?\s*go/i.test(ln);
+          hand.isCash = !hand.isTournament;
+          if (/Holdem|Hold'em/i.test(ln)) hand.variant = 'nlhe';
+          const lvl = U.parseTournamentBlinds(ln);
+          if (lvl) { hand.sb = lvl.sb; hand.bb = lvl.bb; }
+          const cash = ln.match(new RegExp('\\(([\\d.,]+)' + CUR + '\\/([\\d.,]+)' + CUR + '\\)'));
+          if (cash) { hand.sb = num(cash[1]); hand.bb = num(cash[2]); }
+          const dt = ln.match(/(\d{4}\/\d{2}\/\d{2}\s+\d{1,2}:\d{2}:\d{2})/);
+          if (dt) hand.datetime = dt[1];
+        }
+        continue;
+      }
+
+      if ((m = ln.match(/^Table: '([^']*)'\s+(\d+)-max/i)) || (m = ln.match(/^Table: .+ (\d+)-max/i))) {
+        headerText += ' ' + ln;
+        if (m[2]) hand.tableMax = parseInt(m[2], 10);
+        else {
+          const tmax = U.detectTableMaxFromText(ln);
+          if (tmax) hand.tableMax = tmax;
+        }
+        if (/real money/i.test(ln) && !hand.isTournament) hand.isCash = true;
+        if ((m = ln.match(/Seat #(\d+) is the button/))) hand.buttonSeat = +m[1];
         continue;
       }
 
       if ((m = ln.match(/^Table: .+ Seat #(\d+) is the button/))) {
         hand.buttonSeat = +m[1];
-        if (/real money/i.test(ln)) hand.isCash = true;
+        headerText += ' ' + ln;
+        const tmax = U.detectTableMaxFromText(ln);
+        if (tmax) hand.tableMax = tmax;
+        if (/real money/i.test(ln) && !hand.isTournament) hand.isCash = true;
         continue;
       }
 
-      if ((m = ln.match(/^Seat (\d+):\s*(.+?)\s*\(([\d.,]+)€\)/))) {
+      if ((m = ln.match(/^Seat (\d+):\s*(.+?)\s*\(([\d.,]+)/))) {
         hand.seats.push({ seat: +m[1], name: m[2].trim(), stack: num(m[3]) });
         continue;
       }
 
       if (/^\*\*\* ANTE\/BLINDS \*\*\*/.test(ln)) { street = 'preflop'; continue; }
 
-      if ((m = ln.match(/^(.+?) posts small blind ([\d.,]+)€?/))) {
+      if ((m = ln.match(/^(.+?) posts ante ([\d.,]+)/i)) || (m = ln.match(/^(.+?) posts the ante ([\d.,]+)/i))) {
+        hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+        hand.ante = hand.ante || num(m[2]);
+        continue;
+      }
+      if ((m = ln.match(/^(.+?) posts small blind ([\d.,]+)/))) {
         hand.blinds.sb = m[1];
         hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
         continue;
       }
-      if ((m = ln.match(/^(.+?) posts big blind ([\d.,]+)€?/))) {
+      if ((m = ln.match(/^(.+?) posts big blind ([\d.,]+)/))) {
         hand.blinds.bb = m[1];
         hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+        continue;
+      }
+      if ((m = ln.match(/^(.+?) posts straddle ([\d.,]+)/i))) {
+        hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+        hand.straddle = { player: m[1], amount: num(m[2]) };
         continue;
       }
 
@@ -145,8 +195,6 @@
           if (b.length >= 5 && !hand.board.river.length) hand.board.river = [b[4]];
           continue;
         }
-        // "showed [..] and won X" debe capturar el premio; un match solo de
-        // "showed" (con continue) dejaba collected[hero]=0 → resultado −stack.
         if ((m = ln.match(/^Seat \d+: (.+?) (?:\([^)]*\) )?showed \[([^\]]+)\](?: and won ([\d.,]+)€?(?: with|$))?/))) {
           const who = m[1].trim();
           hand.shows[who] = hand.shows[who] || cardsFrom(m[2]);
@@ -168,7 +216,7 @@
     }
 
     hand.boardAll = hand.board.flop.concat(hand.board.turn, hand.board.river);
-    if (hand.isCash && hand.buttonSeat != null && hand.seats.length) assignPositions(hand);
+    finalizeHandMeta(hand, headerText);
     return hand;
   }
 
@@ -176,23 +224,33 @@
     const blocks = text.split(BLOCK_SPLIT).filter((b) => BLOCK_TEST.test(b.trim()));
     const hands = [];
     const heroCount = {};
+    const discardedByReason = emptyDiscardCounts();
     for (let i = 0; i < blocks.length; i++) {
       try {
         const h = parseHand(blocks[i]);
-        if (!h || !h.isCash) continue;
+        const keep = isKeepableHand(h);
+        if (!keep.ok) {
+          if (keep.reason && discardedByReason[keep.reason] != null) discardedByReason[keep.reason]++;
+          else discardedByReason.badParse++;
+          continue;
+        }
         if (h.hero) heroCount[h.hero] = (heroCount[h.hero] || 0) + 1;
         hands.push(h);
-      } catch (e) { /* mano malformada */ }
+      } catch (e) { discardedByReason.badParse++; }
     }
     let hero = null;
     let best = -1;
-    for (const n in heroCount) {
-      if (heroCount[n] > best) { best = heroCount[n]; hero = n; }
+    const heroCandidates = Object.keys(heroCount).map((n) => ({ name: n, hands: heroCount[n] }))
+      .sort((a, b) => b.hands - a.hands);
+    for (let i = 0; i < heroCandidates.length; i++) {
+      if (heroCandidates[i].hands > best) { best = heroCandidates[i].hands; hero = heroCandidates[i].name; }
     }
     return {
       fileName: fileName || 'winamax.txt',
       hero,
+      heroCandidates,
       hands,
+      discardedByReason,
       format: {
         platform: 'winamax',
         platformLabel: 'Winamax',

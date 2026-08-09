@@ -7,5 +7,5 @@ window.PT_LEGAL = {
   controllerEmail: 'info@pokerforgeai.com',
   supportEmail: 'info@pokerforgeai.com',
   appUrl: 'https://www.pokerforgeai.com/',
-  lastUpdated: '12 de julio de 2026'
+  lastUpdated: '9 de agosto de 2026'
 };

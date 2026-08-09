@@ -52,8 +52,9 @@
       "<tr><th>R</th><td>Raise / primera opción de bet</td></tr>" +
       "<tr><th>1 · 2 · 3</th><td>1.ª / 2.ª / 3.ª opción de bet o raise</td></tr>" +
       "<tr><th>N</th><td>Nueva / siguiente mano</td></tr>" +
-      "<tr><th>→ / Enter</th><td>Siguiente paso en repaso de sesión</td></tr>" +
-      "<tr><th>←</th><td>Paso anterior en repaso (si está disponible)</td></tr>" +
+      "<tr><th>→ / Enter</th><td>Siguiente paso en repaso de sesión / siguiente mano filtrada</td></tr>" +
+      "<tr><th>←</th><td>Paso anterior o mano filtrada anterior</td></tr>" +
+      "<tr><th>G</th><td>En detalle de sesión: filtrar solo errores graves</td></tr>" +
       "<tr><th>H / ?</th><td>Abrir o cerrar esta ayuda</td></tr>" +
       "<tr><th>Esc</th><td>Cerrar este panel</td></tr>" +
       "</tbody></table>" +

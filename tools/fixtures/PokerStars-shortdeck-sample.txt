@@ -1,0 +1,22 @@
+PokerStars Hand #991000002:  Short Deck Hold'em No Limit ($0.10/$0.20 USD) - 2024/06/01 13:00:00 ET
+Table 'SDTable' 6-max Seat #1 is the button
+Seat 1: Hero ($20 in chips)
+Seat 2: VillainA ($20 in chips)
+Seat 3: VillainB ($20 in chips)
+Seat 4: VillainC ($20 in chips)
+Hero: posts ante $0.20
+VillainA: posts ante $0.20
+VillainB: posts ante $0.20
+VillainC: posts ante $0.20
+*** HOLE CARDS ***
+Dealt to Hero [As Kd]
+VillainA: raises $0.40 to $0.60
+VillainB: folds
+VillainC: folds
+Hero: raises $1.40 to $2
+VillainA: folds
+Uncalled bet ($1.40) returned to Hero
+Hero collected $1.80 from pot
+*** SUMMARY ***
+Total pot $1.80 | Rake $0
+Seat 1: Hero (button) collected ($1.80)

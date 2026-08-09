@@ -85,9 +85,12 @@
     sessions: [
       'js/import/hhUtils.js',
       'js/import/formatDetector.js',
+      'js/import/icmLite.js',
+      'js/import/populationCompare.js',
       'js/import/parsers/pokerstars.js',
       'js/import/parsers/winamax.js',
       'js/import/parsers/ggpoker.js',
+      'js/import/parsers/eightyeight.js',
       'js/import.js'
     ],
     analysis: ['js/hand-analysis.js'],

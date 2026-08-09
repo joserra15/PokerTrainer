@@ -1,7 +1,5 @@
 /*
- * parsers/ggpoker.js — Parser GGPoker / Natural8 Cash NL (historial PokerCraft .txt).
- * Formato cercano a PokerStars EN, pero cabecera "Poker Hand #" (sin "PokerStars")
- * y secciones "*** HOLE CARDS ***" / "*** SHOWDOWN ***".
+ * parsers/ggpoker.js — Parser GGPoker / Natural8 NLHE (cash / spins / MTT).
  */
 (function (global) {
   'use strict';
@@ -12,11 +10,12 @@
 
   const num = U.num;
   const cardsFrom = U.cardsFrom;
-  const assignPositions = U.assignPositions;
+  const finalizeHandMeta = U.finalizeHandMeta;
+  const isKeepableHand = U.isKeepableHand;
+  const emptyDiscardCounts = U.emptyDiscardCounts;
 
   const BLOCK_SPLIT = /(?=^Poker Hand #)/m;
   const BLOCK_TEST = /^Poker Hand #/;
-  /** Evita colisión con PokerStars EN ("PokerStars Hand #"). */
   const GG_HAND_RE = /^Poker Hand #([A-Z]{0,2}\d+)/gm;
   const PS_HAND_RE = /^PokerStars (?:Zoom )?Hand #/gm;
 
@@ -25,7 +24,6 @@
     const gg = (text.match(GG_HAND_RE) || []).length;
     if (!gg) return 0;
     const ps = (text.match(PS_HAND_RE) || []).length;
-    // Si el fichero es PokerStars, no puntuar como GG.
     if (ps > 0 && /PokerStars/i.test(text.slice(0, 400))) return 0;
     return gg;
   }
@@ -59,10 +57,12 @@
       board: { flop: [], turn: [], river: [] }, boardAll: [],
       shows: {}, collected: {}, uncalledTo: {},
       rake: 0, potTotal: 0, positions: {}, isCash: false, isTournament: false,
-      platform: 'ggpoker', locale: 'en'
+      platform: 'ggpoker', locale: 'en',
+      gameKind: 'unknown', tableMax: null, variant: 'unknown'
     };
 
     let street = 'preheader';
+    let headerText = '';
 
     for (let i = 0; i < lines.length; i++) {
       const ln = lines[i].trim();
@@ -70,12 +70,12 @@
 
       let m;
 
-      // Cash: Poker Hand #HD123: Hold'em No Limit ($0.05/$0.10) - 2024/...
-      // MTT:  Poker Hand #TM123: Tournament #..., Hold'em No Limit - Level2 (60/120) - ...
       if ((m = ln.match(/^Poker Hand #([A-Z]{0,2}\d+):\s*(.+)$/))) {
         hand.id = m[1];
         const rest = m[2];
-        hand.isTournament = /Tournament\s*#/i.test(rest) || /^TM/i.test(m[1]);
+        headerText += ' ' + ln;
+        hand.isTournament = /Tournament\s*#/i.test(rest) || /^TM/i.test(m[1])
+          || U.isSpinSignal(rest) || U.isSngSignal(rest);
         hand.isCash = !hand.isTournament;
 
         const cashStakes = rest.match(/Hold'?em\s+No\s+Limit\s+\(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)\)/i);
@@ -84,21 +84,35 @@
             : (cashStakes[1] === '£' ? '£' : '$');
           hand.sb = num(cashStakes[2]);
           hand.bb = num(cashStakes[4]);
-          hand.isCash = true;
-          hand.isTournament = false;
+          // Si el id es TM… o hay Tournament, mantener torneo aunque haya (sb/bb) en chips
+          if (!hand.isTournament) {
+            hand.isCash = true;
+            hand.isTournament = false;
+          }
+          hand.variant = 'nlhe';
+        } else {
+          const lvl = U.parseTournamentBlinds(rest);
+          if (lvl) {
+            hand.sb = lvl.sb;
+            hand.bb = lvl.bb;
+            if (lvl.ante) hand.ante = lvl.ante;
+            hand.isTournament = true;
+            hand.isCash = false;
+            hand.variant = 'nlhe';
+          }
         }
+        if (/Hold'?em/i.test(rest)) hand.variant = 'nlhe';
 
         const dt = rest.match(/-\s+(\d{4}\/\d{2}\/\d{2}\s+\d{1,2}:\d{2}(?::\d{2})?)/);
         if (dt) hand.datetime = dt[1].trim();
         continue;
       }
 
-      if ((m = ln.match(/^Table\s+'[^']*'\s+(?:\d+-max\s+)?Seat\s+#(\d+)\s+is the button/i))) {
-        hand.buttonSeat = +m[1];
-        continue;
-      }
-      if ((m = ln.match(/^Table\s+.+\s+Seat\s+#(\d+)\s+is the button/i))) {
-        hand.buttonSeat = +m[1];
+      if (/^Table\s+/i.test(ln)) {
+        headerText += ' ' + ln;
+        const tmax = U.detectTableMaxFromText(ln);
+        if (tmax) hand.tableMax = tmax;
+        if ((m = ln.match(/Seat\s+#(\d+)\s+is the button/i))) hand.buttonSeat = +m[1];
         continue;
       }
 
@@ -121,21 +135,30 @@
         hand.posts[m[1].trim()] = (hand.posts[m[1].trim()] || 0) + num(m[3]);
         continue;
       }
-      if (/^(.+?): posts the ante /i.test(ln) || /^(.+?): straddle /i.test(ln)) continue;
+      if ((m = ln.match(/^(.+?): posts the ante ((?:[€$£]|â‚¬)?)([\d.,]+)/i))) {
+        const who = m[1].trim();
+        hand.posts[who] = (hand.posts[who] || 0) + num(m[3]);
+        hand.ante = hand.ante || num(m[3]);
+        continue;
+      }
+      if ((m = ln.match(/^(.+?): straddle[s]? ((?:[€$£]|â‚¬)?)([\d.,]+)/i))) {
+        const who = m[1].trim();
+        hand.posts[who] = (hand.posts[who] || 0) + num(m[3]);
+        hand.straddle = { player: who, amount: num(m[3]) };
+        continue;
+      }
 
       if (/^\*\*\* HOLE CARDS \*\*\*/i.test(ln) || /^\*\*\* PRE-FLOP \*\*\*/i.test(ln)) {
         street = 'preflop';
         continue;
       }
       if ((m = ln.match(/^Dealt to (.+?) \[(.+?)\]/))) {
-        // Solo la primera "Dealt to X [cards]" con cartas cuenta como héroe.
         if (!hand.hero && m[2] && m[2].trim()) {
           hand.hero = m[1].trim();
           hand.heroCards = cardsFrom(m[2]);
         }
         continue;
       }
-      // Líneas "Dealt to Opp" sin cartas (GG a menudo las incluye vacías)
       if (/^Dealt to /i.test(ln)) continue;
 
       if ((m = ln.match(/^\*\*\* FLOP \*\*\* \[(.+?)\]/i))) {
@@ -211,7 +234,7 @@
     }
 
     hand.boardAll = hand.board.flop.concat(hand.board.turn, hand.board.river);
-    if (hand.isCash && hand.buttonSeat != null && hand.seats.length) assignPositions(hand);
+    finalizeHandMeta(hand, headerText);
     return hand;
   }
 
@@ -219,23 +242,33 @@
     const blocks = text.split(BLOCK_SPLIT).filter((b) => BLOCK_TEST.test(b.trim()));
     const hands = [];
     const heroCount = {};
+    const discardedByReason = emptyDiscardCounts();
     for (let i = 0; i < blocks.length; i++) {
       try {
         const h = parseHand(blocks[i]);
-        if (!h || !h.isCash) continue;
+        const keep = isKeepableHand(h);
+        if (!keep.ok) {
+          if (keep.reason && discardedByReason[keep.reason] != null) discardedByReason[keep.reason]++;
+          else discardedByReason.badParse++;
+          continue;
+        }
         if (h.hero) heroCount[h.hero] = (heroCount[h.hero] || 0) + 1;
         hands.push(h);
-      } catch (e) { /* mano malformada */ }
+      } catch (e) { discardedByReason.badParse++; }
     }
     let hero = null;
     let best = -1;
-    for (const n in heroCount) {
-      if (heroCount[n] > best) { best = heroCount[n]; hero = n; }
+    const heroCandidates = Object.keys(heroCount).map((n) => ({ name: n, hands: heroCount[n] }))
+      .sort((a, b) => b.hands - a.hands);
+    for (let i = 0; i < heroCandidates.length; i++) {
+      if (heroCandidates[i].hands > best) { best = heroCandidates[i].hands; hero = heroCandidates[i].name; }
     }
     return {
       fileName: fileName || 'ggpoker.txt',
       hero,
+      heroCandidates,
       hands,
+      discardedByReason,
       format: {
         platform: 'ggpoker',
         platformLabel: 'GGPoker',

@@ -1,5 +1,5 @@
 /*
- * parsers/pokerstars.js — Parser PokerStars Cash NL (español e inglés).
+ * parsers/pokerstars.js — Parser PokerStars NLHE (cash / spins / MTT; ES + EN).
  */
 (function (global) {
   'use strict';
@@ -10,7 +10,9 @@
 
   const num = U.num;
   const cardsFrom = U.cardsFrom;
-  const assignPositions = U.assignPositions;
+  const finalizeHandMeta = U.finalizeHandMeta;
+  const isKeepableHand = U.isKeepableHand;
+  const emptyDiscardCounts = U.emptyDiscardCounts;
 
   const LOCALES = {
     es: {
@@ -84,10 +86,12 @@
       board: { flop: [], turn: [], river: [] }, boardAll: [],
       shows: {}, collected: {}, uncalledTo: {},
       rake: 0, potTotal: 0, positions: {}, isCash: false, isTournament: false,
-      platform: 'pokerstars', locale: locale
+      platform: 'pokerstars', locale: locale,
+      gameKind: 'unknown', tableMax: null, variant: 'unknown', isZoom: false
     };
 
     let street = 'preheader';
+    let headerText = '';
     const L = LOCALES[locale] || LOCALES.es;
 
     for (let i = 0; i < lines.length; i++) {
@@ -96,21 +100,46 @@
 
       if (/^Dealer:|has timed out|disconnected|will be allowed|is sitting out|joins the table|leaves the table/i.test(ln)) continue;
       if (/^[^*].* says?:/i.test(ln) && !L.skipActionNoise.test(ln)) continue;
-      if (/^Table '/i.test(ln) && !/Seat #\d+ is the button/i.test(ln)) continue;
 
+      // Table line: captura N-max + botón (antes se ignoraba si no traía Seat #)
       let m;
+      if (/^Table '/i.test(ln) || /^Mesa '/i.test(ln)) {
+        headerText += ' ' + ln;
+        const tmax = U.detectTableMaxFromText(ln);
+        if (tmax) hand.tableMax = tmax;
+        if ((m = ln.match(/Seat #(\d+) is the button/i)) || (m = ln.match(/asiento n\.º (\d+) es el botón/i))) {
+          hand.buttonSeat = +m[1];
+        }
+        continue;
+      }
 
       if (locale === 'en') {
         if ((m = ln.match(/^PokerStars(?: Zoom)? Hand #(\d+):\s+(.+)/))) {
           hand.id = m[1];
-          hand.isTournament = /Tournament #/i.test(ln);
-          // Cash stakes: (€0.02/€0.05), (€0.01/€0.02 EUR), ($0.05/$0.10 USD)
-          const bl = ln.match(/Hold'em No Limit \(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)(?:\s+[A-Z]{3})?\)/);
+          hand.isZoom = /Zoom/i.test(ln);
+          headerText += ' ' + ln;
+          hand.isTournament = /Tournament #/i.test(ln) || U.isSpinSignal(ln) || U.isSngSignal(ln);
+          const bl = ln.match(/(?:Hold'?em No Limit|Pot Limit Omaha|Omaha Pot Limit|Short Deck Hold'?em No Limit)\s*\(((?:[€$£]|â‚¬)?)([\d.,]+)\/((?:[€$£]|â‚¬)?)([\d.,]+)(?:\s+[A-Z]{3})?\)/i);
           if (bl) {
             hand.sb = num(bl[2]);
             hand.bb = num(bl[4]);
             hand.currency = bl[1] || bl[3] || '€';
             hand.isCash = !hand.isTournament;
+            hand.variant = U.detectVariant(ln) || 'nlhe';
+          } else {
+            const lvl = U.parseTournamentBlinds(ln);
+            if (lvl) {
+              hand.sb = lvl.sb;
+              hand.bb = lvl.bb;
+              if (lvl.ante) hand.ante = lvl.ante;
+              hand.isTournament = true;
+              hand.isCash = false;
+              hand.variant = U.detectVariant(ln) || 'nlhe';
+            }
+          }
+          {
+            const det = U.detectVariant(ln);
+            if (det && det !== 'unknown') hand.variant = det;
           }
           const dt = ln.match(/-\s*(\d{4}\/\d{2}\/\d{2} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
@@ -121,11 +150,21 @@
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) });
           continue;
         }
+        if ((m = ln.match(/^(.+?): posts the ante ((?:[€$£]|â‚¬)?)([\d.,]+)/i))) {
+          hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]);
+          hand.ante = hand.ante || num(m[3]);
+          continue;
+        }
         if ((m = ln.match(/^(.+?): posts small blind ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
           hand.blinds.sb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]); continue;
         }
         if ((m = ln.match(/^(.+?): posts big blind ((?:[€$£]|â‚¬)?)([\d.,]+)/))) {
           hand.blinds.bb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]); continue;
+        }
+        if ((m = ln.match(/^(.+?): posts straddle ((?:[€$£]|â‚¬)?)([\d.,]+)/i))) {
+          hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[3]);
+          hand.straddle = { player: m[1], amount: num(m[3]) };
+          continue;
         }
         if (/^\*\*\* HOLE CARDS \*\*\*/.test(ln)) { street = 'preflop'; continue; }
         if ((m = ln.match(/^Dealt to (.+?) \[(.+?)\]/))) {
@@ -163,9 +202,28 @@
       } else {
         if ((m = ln.match(/^Mano n\.º\s*(\d+)\s*de (.+?):\s*(.*)/))) {
           hand.id = m[1];
-          hand.isTournament = /Torneo/.test(ln);
+          headerText += ' ' + ln;
+          hand.isTournament = /Torneo|Tournament|Spin/i.test(ln);
           const bl = ln.match(/Hold'em No Limit \(([\d.,]+)\s*€\/([\d.,]+)\s*€\)/);
-          if (bl) { hand.sb = num(bl[1]); hand.bb = num(bl[2]); hand.isCash = !hand.isTournament; }
+          if (bl) {
+            hand.sb = num(bl[1]);
+            hand.bb = num(bl[2]);
+            hand.isCash = !hand.isTournament;
+            hand.variant = U.detectVariant(ln) || 'nlhe';
+          } else {
+            const lvl = U.parseTournamentBlinds(ln);
+            if (lvl) {
+              hand.sb = lvl.sb;
+              hand.bb = lvl.bb;
+              hand.isTournament = true;
+              hand.isCash = false;
+              hand.variant = U.detectVariant(ln) || 'nlhe';
+            }
+          }
+          {
+            const det = U.detectVariant(ln);
+            if (det && det !== 'unknown') hand.variant = det;
+          }
           const dt = ln.match(/-\s*(\d{2}-\d{2}-\d{4} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
           continue;
@@ -173,6 +231,11 @@
         if ((m = ln.match(/El asiento n\.º (\d+) es el botón/))) { hand.buttonSeat = +m[1]; continue; }
         if ((m = ln.match(/^Asiento (\d+):\s*(.+?)\s*\(([\d.,]+)\s*€?\s*en fichas\)/))) {
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) }); continue;
+        }
+        if ((m = ln.match(/^(.+?): pone la ante ([\d.,]+)/i)) || (m = ln.match(/^(.+?): posts the ante ([\d.,]+)/i))) {
+          hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+          hand.ante = hand.ante || num(m[2]);
+          continue;
         }
         if ((m = ln.match(/^(.+?): pone la ciega pequeña ([\d.,]+)/))) {
           hand.blinds.sb = m[1]; hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]); continue;
@@ -182,6 +245,11 @@
         }
         if ((m = ln.match(/^(.+?): pone las ciegas pequeña y grande ([\d.,]+)/))) {
           hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]); continue;
+        }
+        if ((m = ln.match(/^(.+?): pone straddle ([\d.,]+)/i))) {
+          hand.posts[m[1]] = (hand.posts[m[1]] || 0) + num(m[2]);
+          hand.straddle = { player: m[1], amount: num(m[2]) };
+          continue;
         }
         if (/^\*\*\* CARTAS DE MANO \*\*\*/.test(ln)) { street = 'preflop'; continue; }
         if ((m = ln.match(/^Repartidas a (.+?) \[(.+?)\]/))) {
@@ -228,7 +296,7 @@
     }
 
     hand.boardAll = hand.board.flop.concat(hand.board.turn, hand.board.river);
-    if (hand.isCash && hand.buttonSeat != null && hand.seats.length) assignPositions(hand);
+    finalizeHandMeta(hand, headerText);
     return hand;
   }
 
@@ -238,23 +306,33 @@
     const blocks = text.split(L.blockSplit).filter((b) => L.blockTest.test(b.trim()));
     const hands = [];
     const heroCount = {};
+    const discardedByReason = emptyDiscardCounts();
     for (let i = 0; i < blocks.length; i++) {
       try {
         const h = parseHand(blocks[i], locale);
-        if (!h || !h.isCash) continue;
+        const keep = isKeepableHand(h);
+        if (!keep.ok) {
+          if (keep.reason && discardedByReason[keep.reason] != null) discardedByReason[keep.reason]++;
+          else discardedByReason.badParse++;
+          continue;
+        }
         if (h.hero) heroCount[h.hero] = (heroCount[h.hero] || 0) + 1;
         hands.push(h);
-      } catch (e) { /* mano malformada */ }
+      } catch (e) { discardedByReason.badParse++; }
     }
     let hero = null;
     let best = -1;
-    for (const n in heroCount) {
-      if (heroCount[n] > best) { best = heroCount[n]; hero = n; }
+    const heroCandidates = Object.keys(heroCount).map((n) => ({ name: n, hands: heroCount[n] }))
+      .sort((a, b) => b.hands - a.hands);
+    for (let i = 0; i < heroCandidates.length; i++) {
+      if (heroCandidates[i].hands > best) { best = heroCandidates[i].hands; hero = heroCandidates[i].name; }
     }
     return {
       fileName: fileName || 'sesion.txt',
       hero,
+      heroCandidates,
       hands,
+      discardedByReason,
       format: {
         platform: 'pokerstars',
         platformLabel: 'PokerStars',

@@ -5,11 +5,16 @@
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 7;
+  var AGG_VERSION = 9;
 
   var STYLE_OPP_KEYS = [
     'threeBetOpps', 'threeBetHits',
     'foldToThreeBetOpps', 'foldToThreeBetHits',
+    'fourBetOpps', 'fourBetHits',
+    'foldToFourBetOpps', 'foldToFourBetHits',
+    'limpOpps', 'limpHits',
+    'overlimpOpps', 'overlimpHits',
+    'isoLimpOpps', 'isoLimpHits',
     'stealOpps', 'stealHits',
     'foldToStealOpps', 'foldToStealHits',
     'squeezeOpps', 'squeezeHits',
@@ -17,6 +22,7 @@
     'foldToCbetFlopOpps', 'foldToCbetFlopHits',
     'cbetTurnOpps', 'cbetTurnHits',
     'cbetRiverOpps', 'cbetRiverHits',
+    'delayedCbetOpps', 'delayedCbetHits',
     'afBets', 'afRaises', 'afCalls', 'afChecks',
     'sawFlopN', 'wtsdN', 'wonAtSdN', 'wonSawFlopN'
   ];
@@ -39,6 +45,11 @@
     return {
       threeBetPct: pct(c.threeBetHits, c.threeBetOpps),
       foldToThreeBetPct: pct(c.foldToThreeBetHits, c.foldToThreeBetOpps),
+      fourBetPct: pct(c.fourBetHits, c.fourBetOpps),
+      foldToFourBetPct: pct(c.foldToFourBetHits, c.foldToFourBetOpps),
+      limpPct: pct(c.limpHits, c.limpOpps),
+      overlimpPct: pct(c.overlimpHits, c.overlimpOpps),
+      isoLimpPct: pct(c.isoLimpHits, c.isoLimpOpps),
       stealPct: pct(c.stealHits, c.stealOpps),
       foldToStealPct: pct(c.foldToStealHits, c.foldToStealOpps),
       squeezePct: pct(c.squeezeHits, c.squeezeOpps),
@@ -46,6 +57,7 @@
       foldToCbetFlopPct: pct(c.foldToCbetFlopHits, c.foldToCbetFlopOpps),
       cbetTurnPct: pct(c.cbetTurnHits, c.cbetTurnOpps),
       cbetRiverPct: pct(c.cbetRiverHits, c.cbetRiverOpps),
+      delayedCbetPct: pct(c.delayedCbetHits, c.delayedCbetOpps),
       af: afCalls > 0 ? Math.round((afAgg / afCalls) * 100) / 100 : (afAgg > 0 ? afAgg : null),
       afq: afActions > 0 ? Math.round((afAgg / afActions) * 1000) / 10 : null,
       wtsdPct: pct(c.wtsdN, c.sawFlopN),
@@ -118,6 +130,11 @@
     var pfrHands = stats.pfrHands != null
       ? stats.pfrHands
       : (stats.pfrPct != null && hands ? Math.round((stats.pfrPct / 100) * hands) : 0);
+    var formatKey = stats.formatKey
+      || (stub.context && stub.context.formatKey)
+      || (stats.format === '9max' ? 'cash9'
+        : (stats.format === 'mtt' ? 'mtt6'
+          : (stats.format === 'spin' ? 'spin3' : 'cash6')));
     var row = {
       week: weekKey(stub.createdAt || Date.now()),
       hands: hands,
@@ -126,7 +143,16 @@
       evLoss: round2(Math.abs(stats.evLossBB || 0)),
       netBB: round2(stats.netBB || 0),
       vpipHands: vpipHands,
-      pfrHands: pfrHands
+      pfrHands: pfrHands,
+      formatKey: formatKey,
+      gameKind: stats.gameKind || (stub.context && stub.context.gameKind) || null,
+      tableMax: stats.tableMax != null ? stats.tableMax : (stub.context && stub.context.tableMax),
+      stakesLabel: stats.stakesLabel || (stub.context && stub.context.stakesLabel) || null,
+      stakeTier: stats.stakeTier || null,
+      roiPct: stats.roiPct != null ? stats.roiPct : null,
+      profitEuro: stats.profitEuro != null ? stats.profitEuro : null,
+      byStakes: stats.byStakes || null,
+      day: (stub.createdAt || '').slice(0, 10) || null
     };
     addStyleCounters(row, pickStyleCounters(stats));
     return row;
@@ -168,11 +194,52 @@
     return map;
   }
 
-  function rebuildSessionsTotal(agg) {
-    var tot = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0, vpipPct: null, pfrPct: null };
+  function formatFamily(formatKey) {
+    var k = formatKey || 'cash6';
+    if (k.indexOf('spin') === 0) return 'spin';
+    if (k.indexOf('mtt') === 0) return 'mtt';
+    if (k === 'cash9') return 'cash9';
+    if (k === 'cash2' || k === 'cash3') return 'shorthand';
+    return 'cash6';
+  }
+
+  function matchesFormatFilter(rowFormatKey, filter) {
+    if (!filter || filter === 'all' || filter === 'Todo') return true;
+    var fam = formatFamily(rowFormatKey);
+    if (filter === fam || filter === rowFormatKey) return true;
+    // aliases UI
+    if (filter === '6max' && fam === 'cash6') return true;
+    if (filter === '9max' && fam === 'cash9') return true;
+    return false;
+  }
+
+  function rebuildSessionsTotal(agg, formatFilter) {
+    var tot = {
+      sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0,
+      vpipHands: 0, pfrHands: 0, vpipPct: null, pfrPct: null,
+      formatFilter: formatFilter || 'all', byFormat: {}
+    };
     addStyleCounters(tot, {});
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
+      var fk = c.formatKey || 'cash6';
+      var fam = formatFamily(fk);
+      if (!tot.byFormat[fam]) {
+        tot.byFormat[fam] = { sessions: 0, hands: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
+        addStyleCounters(tot.byFormat[fam], {});
+      }
+      var bf = tot.byFormat[fam];
+      bf.sessions += 1;
+      bf.hands += c.hands;
+      bf.decisions += c.decisions;
+      bf.good += c.good;
+      bf.evLoss = round2(bf.evLoss + c.evLoss);
+      bf.netBB = round2(bf.netBB + c.netBB);
+      bf.vpipHands += c.vpipHands || 0;
+      bf.pfrHands += c.pfrHands || 0;
+      addStyleCounters(bf, c);
+
+      if (!matchesFormatFilter(fk, formatFilter)) return;
       tot.sessions += 1;
       tot.hands += c.hands;
       tot.decisions += c.decisions;
@@ -187,6 +254,13 @@
     tot.pfrPct = tot.hands ? Math.round((tot.pfrHands / tot.hands) * 1000) / 10 : null;
     var stylePct = stylePctsFromCounters(tot);
     Object.keys(stylePct).forEach(function (k) { tot[k] = stylePct[k]; });
+    Object.keys(tot.byFormat).forEach(function (fam) {
+      var bf = tot.byFormat[fam];
+      bf.vpipPct = bf.hands ? Math.round((bf.vpipHands / bf.hands) * 1000) / 10 : null;
+      bf.pfrPct = bf.hands ? Math.round((bf.pfrHands / bf.hands) * 1000) / 10 : null;
+      var sp = stylePctsFromCounters(bf);
+      Object.keys(sp).forEach(function (k) { bf[k] = sp[k]; });
+    });
     return tot;
   }
 
@@ -213,14 +287,69 @@
   }
 
   function sessionSpotKey(h, d) {
-    if (d.spotKind) return d.spotKind + '|' + (h.heroPos || '?') + '|' + (d.street || 'preflop');
-    return 'postflop|' + (h.heroPos || '?') + '|' + (d.street || 'postflop');
+    var fmt = h.formatKey || h.format || 'cash6';
+    var fam = formatFamily(fmt);
+    if (d.spotKind) return fam + '|' + d.spotKind + '|' + (h.heroPos || '?') + '|' + (d.street || 'preflop');
+    return fam + '|postflop|' + (h.heroPos || '?') + '|' + (d.street || 'postflop');
   }
 
   function sessionSpotLabel(h, d, key) {
-    if (d.spot) return d.spot;
-    if (global.PTLeaks && global.PTLeaks.labelForKey) return global.PTLeaks.labelForKey(key);
-    return key;
+    var base = d.spot || (global.PTLeaks && global.PTLeaks.labelForKey ? global.PTLeaks.labelForKey(key) : key);
+    var fam = formatFamily(h.formatKey || h.format || 'cash6');
+    if (fam && fam !== 'cash6' && String(base).indexOf(fam) !== 0) return fam + ' · ' + base;
+    return base;
+  }
+
+  function rebuildByStakes(agg) {
+    var map = {};
+    Object.keys(agg.sessionById || {}).forEach(function (id) {
+      var c = agg.sessionById[id];
+      var rows = c.byStakes;
+      if (rows && rows.length) {
+        rows.forEach(function (r) {
+          var k = r.stakesLabel || 'unknown';
+          if (!map[k]) map[k] = { stakesLabel: k, stakeTier: r.stakeTier || null, hands: 0, netBB: 0 };
+          map[k].hands += r.hands || 0;
+          map[k].netBB = round2(map[k].netBB + (r.netBB || 0));
+        });
+        return;
+      }
+      var k2 = c.stakesLabel || 'unknown';
+      if (!map[k2]) map[k2] = { stakesLabel: k2, stakeTier: c.stakeTier || null, hands: 0, netBB: 0 };
+      map[k2].hands += c.hands || 0;
+      map[k2].netBB = round2(map[k2].netBB + (c.netBB || 0));
+    });
+    return Object.keys(map).map(function (k) {
+      var b = map[k];
+      b.bbPer100 = b.hands ? Math.round((b.netBB / b.hands) * 1000) / 10 : null;
+      return b;
+    }).sort(function (a, b) { return b.hands - a.hands; });
+  }
+
+  function rebuildByDay(agg, days) {
+    days = days || 14;
+    var buckets = {};
+    var now = new Date();
+    for (var i = days - 1; i >= 0; i--) {
+      var d = new Date(now);
+      d.setDate(d.getDate() - i);
+      var k = d.toISOString().slice(0, 10);
+      buckets[k] = { key: k, hands: 0, netBB: 0, sessions: 0 };
+    }
+    Object.keys(agg.sessionById || {}).forEach(function (id) {
+      var c = agg.sessionById[id];
+      var day = c.day || (c.week ? c.week : null);
+      if (!day || !buckets[day]) return;
+      buckets[day].hands += c.hands || 0;
+      buckets[day].netBB = round2(buckets[day].netBB + (c.netBB || 0));
+      buckets[day].sessions += 1;
+    });
+    return Object.keys(buckets).sort().map(function (k) {
+      var b = buckets[k];
+      b.bbPer100 = b.hands ? Math.round((b.netBB / b.hands) * 1000) / 10 : null;
+      b.label = k.slice(5); // MM-DD
+      return b;
+    });
   }
 
   function clearTrainerHandLeaks(agg, handId) {
@@ -496,9 +625,20 @@
     sessionTopLeaks: function (st, limit) {
       return leaksToList(ensureAggregates(st).sessionLeaks, limit);
     },
-    sessionsTotal: function (st) {
-      return rebuildSessionsTotal(ensureAggregates(st));
+    sessionsTotal: function (st, formatFilter) {
+      return rebuildSessionsTotal(ensureAggregates(st), formatFilter);
     },
+    sessionsTotalByFormat: function (st) {
+      var tot = rebuildSessionsTotal(ensureAggregates(st), 'all');
+      return tot.byFormat || {};
+    },
+    sessionsByStakes: function (st) {
+      return rebuildByStakes(ensureAggregates(st));
+    },
+    sessionDailySeries: function (st, days) {
+      return rebuildByDay(ensureAggregates(st), days);
+    },
+    formatFamily: formatFamily,
     refreshSessionLeaks: function (st, sessions) {
       var agg = ensureAggregates(st);
       if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};

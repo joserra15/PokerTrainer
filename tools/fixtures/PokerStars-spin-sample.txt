@@ -1,0 +1,39 @@
+PokerStars Hand #270000000001: Tournament #11223344, $5+$0.50 USD Spin & Go Hold'em No Limit - Level I (10/20) - 2024/06/15 12:00:00 ET
+Table '1' 3-max Seat #1 is the button
+Seat 1: Hero (500 in chips)
+Seat 2: OppA (500 in chips)
+Seat 3: OppB (500 in chips)
+Hero: posts small blind 10
+OppA: posts big blind 20
+*** HOLE CARDS ***
+Dealt to Hero [As Kd]
+OppB: folds
+Hero: raises 40 to 60
+OppA: folds
+Uncalled bet (40) returned to Hero
+Hero collected 40 from pot
+*** SUMMARY ***
+Total pot 40 | Rake 0
+Seat 1: Hero (button) (small blind) collected (40)
+Seat 2: OppA (big blind) folded before Flop
+Seat 3: OppB folded before Flop (didn't bet)
+
+
+PokerStars Hand #270000000002: Tournament #11223344, $5+$0.50 USD Spin & Go Hold'em No Limit - Level I (10/20) - 2024/06/15 12:01:00 ET
+Table '1' 3-max Seat #2 is the button
+Seat 1: Hero (530 in chips)
+Seat 2: OppA (470 in chips)
+Seat 3: OppB (500 in chips)
+OppA: posts small blind 10
+OppB: posts big blind 20
+*** HOLE CARDS ***
+Dealt to Hero [7c 2d]
+Hero: folds
+OppA: folds
+Uncalled bet (10) returned to OppB
+OppB collected 20 from pot
+*** SUMMARY ***
+Total pot 20 | Rake 0
+Seat 1: Hero folded before Flop (didn't bet)
+Seat 2: OppA (button) (small blind) folded before Flop
+Seat 3: OppB (big blind) collected (20)

@@ -9,23 +9,25 @@ window.PT_SEO = {
   twitterHandle: '',
   home: {
     title: 'PokerForgeAI · Entrenador GTO de poker NL Hold\'em con IA Coach',
-    description: 'Entrena decisiones GTO en cash NL 6-max, importa PokerStars, Winamax y GGPoker, y mejora con IA Coach. Soporte de torneo parcial y principalmente preflop.',
-    keywords: 'poker GTO, entrenador poker, NL Hold\'em, cash game 6-max, IA poker, PokerStars, Winamax, GGPoker, estudiar poker, fugas NL25'
+    description: 'Entrena decisiones GTO en cash NL, importa PokerStars, Winamax, GGPoker y 888poker (cash, spins y torneos), y mejora con IA Coach.',
+    keywords: 'poker GTO, entrenador poker, NL Hold\'em, cash game 6-max, spins, MTT, IA poker, PokerStars, Winamax, GGPoker, 888poker, estudiar poker, fugas NL25'
   },
   legal: {
     'faq.html': {
       title: 'Preguntas frecuentes · PokerForgeAI',
-      description: 'FAQ de PokerForgeAI: entrenamiento GTO, import PokerStars/Winamax/GGPoker, trial Study, planes, IA Coach, PWA y soporte.',
+      description: 'FAQ de PokerForgeAI: import PokerStars/Winamax/GGPoker/888poker, pestañas Cash/Spins/Torneos, trial Study, planes, IA Coach, PWA y soporte.',
       type: 'FAQPage',
       faq: [
-        { q: '¿Qué es PokerForgeAI?', a: 'PokerForgeAI es una aplicación web para entrenar decisiones GTO en No-Limit Hold\'em, revisar sesiones importadas (PokerStars, Winamax, GGPoker) y usar IA Coach con planes de pago.' },
+        { q: '¿Qué es PokerForgeAI?', a: 'PokerForgeAI es una app web para entrenar GTO en NL Hold\'em, revisar sesiones importadas (PokerStars, Winamax, GGPoker, 888poker) y usar IA Coach. El entrenador se centra en cash; el importador también organiza spins y torneos.' },
         { q: '¿Necesito cuenta para usarla?', a: 'Sí. El acceso requiere iniciar sesión con Google. Tus datos se asocian a tu cuenta para sincronización en la nube y límites según el plan.' },
-        { q: '¿Cómo importo una sesión?', a: 'En la pestaña Sesiones, sube uno o varios ficheros .txt de PokerStars, Winamax o GGPoker (Cash NL Hold\'em). La app analiza cada mano calle a calle.' },
-        { q: '¿Qué formatos de historial admite?', a: 'Historiales de texto de PokerStars (ES/EN), Winamax y GGPoker/Natural8 en mesas Cash NLHE. El soporte de torneo no es la promesa principal y hoy el análisis útil se centra en cash.' },
+        { q: '¿Cómo importo una sesión?', a: 'En Sesiones, sube uno o varios .txt. Debajo del importador hay pestañas Cash, Spins y Torneos. En Chrome/Edge puedes auto-importar una carpeta de historiales.' },
+        { q: '¿Qué formatos de historial admite?', a: 'PokerStars (ES/EN+Zoom), Winamax, GGPoker/Natural8 y 888poker. NLHE cash/spins/MTT con análisis GTO; PLO y Short Deck se importan sin análisis GTO.' },
+        { q: '¿Cómo organizo Cash, Spins y Torneos?', a: 'Tras importar, cada sesión se lista en la pestaña Cash, Spins o Torneos según el tipo detectado, con badges de formato y Max-N.' },
         { q: '¿Hay prueba de Study?', a: 'Sí. Puedes activar una prueba de Study de 10 días (una vez por cuenta) desde Planes.' },
         { q: '¿Cuáles son los planes?', a: 'Gratis (límites diarios), Study (14,99 €/mes) e Coach (34,99 €/mes) con más consultas IA y sin límites de entrenamiento.' },
-        { q: '¿Hay atajos de teclado?', a: 'Sí: F fold, C call, K/Espacio check-call, R raise/bet, 1–3 tamaños, N nueva mano, flechas/Enter en repaso, H/? ayuda.' },
-        { q: '¿Puedo entrenar con rake?', a: 'Sí. En Configurar sesión eliges sin rake, estándar (~5%/3bb) o personalizado; afecta pot odds y EV del consejo.' }
+        { q: '¿Hay atajos de teclado?', a: 'Sí: F fold, C call, K/Espacio check-call, R raise/bet, 1–3 tamaños, N nueva mano, G solo errores graves en sesión, flechas/Enter en repaso, H/? ayuda.' },
+        { q: '¿Puedo entrenar con rake?', a: 'Sí. En Configurar sesión eliges sin rake, estándar (~5%/3bb) o personalizado; afecta pot odds y EV del consejo.' },
+        { q: '¿Las stats de spins usan las mismas bandas que cash?', a: 'No. Ideales y KPIs se adaptan al formato. En spins/MTT hay ICM lite orientativo; no es un modelo ICM completo de torneo.' }
       ]
     },
     'metodologia.html': {

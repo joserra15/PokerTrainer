@@ -114,6 +114,54 @@
     return false;
   }
 
+  function sessionStudyVisible() {
+    const sessions = document.getElementById("view-sessions") || document.getElementById("tab-sessions");
+    if (!sessions) return false;
+    if (sessions.classList.contains("tab-panel") && !sessions.classList.contains("active")) return false;
+    if (sessions.hidden || sessions.classList.contains("hidden")) return false;
+    return true;
+  }
+
+  function handleSessionStudyKey(e) {
+    if (!sessionStudyVisible()) return false;
+    const study = g.PTSessionStudy;
+    const lower = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+    if (lower === "g" && study && typeof study.toggleGraveFilter === "function") {
+      const detail = document.getElementById("session-detail");
+      if (detail && !detail.classList.contains("hidden")) {
+        e.preventDefault();
+        return !!study.toggleGraveFilter();
+      }
+    }
+
+    if (e.key === "ArrowRight" || e.key === "Enter") {
+      if (clickFirst("#replay-next")) {
+        e.preventDefault();
+        return true;
+      }
+      if (clickFirst("#replay-actions button[data-act='next']")) {
+        e.preventDefault();
+        return true;
+      }
+      if (study && typeof study.navigateReview === "function" && study.navigateReview(1)) {
+        e.preventDefault();
+        return true;
+      }
+    }
+    if (e.key === "ArrowLeft") {
+      if (clickFirst("#replay-actions button[data-act='prev']")) {
+        e.preventDefault();
+        return true;
+      }
+      if (study && typeof study.navigateReview === "function" && study.navigateReview(-1)) {
+        e.preventDefault();
+        return true;
+      }
+    }
+    return false;
+  }
+
   function handleReplayKey(e) {
     const k = e.key;
     if (k === "ArrowRight" || k === "Enter") {
@@ -169,6 +217,7 @@
     }
     if (handleHelpKey(e)) return;
     if (handleTrainerKey(e)) return;
+    if (handleSessionStudyKey(e)) return;
     handleReplayKey(e);
   }
 
