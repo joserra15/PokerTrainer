@@ -2293,6 +2293,16 @@
     // el héroe no se desvíe de su acción original.
     scriptConsumeHero(hand, actionId);
 
+    // Escuela de Póker: evaluar solo el nodo pedagógico (sin continuar la mano).
+    if (hand.playConfig && hand.playConfig.schoolDecisionEnd) {
+      finish(hand, {
+        reason: 'Escuela de Póker · spot evaluado',
+        heroNet: 0,
+        school: true
+      });
+      return { decision, hand };
+    }
+
     // Avanza el estado según la acción
     advance(hand, actionId, decision);
     return { decision, hand };

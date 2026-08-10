@@ -7,6 +7,7 @@
     analysis: 'dist/pt-analysis.js',
     ranges: 'dist/pt-ranges.js',
     learn: 'dist/pt-learn.js',
+    school: 'dist/pt-school.js',
     contact: 'dist/pt-contact.js',
     admin: 'dist/pt-admin.js'
   };

@@ -12973,6 +12973,16 @@ window.PT_VS_3BET_JSON = {
     // el héroe no se desvíe de su acción original.
     scriptConsumeHero(hand, actionId);
 
+    // Escuela de Póker: evaluar solo el nodo pedagógico (sin continuar la mano).
+    if (hand.playConfig && hand.playConfig.schoolDecisionEnd) {
+      finish(hand, {
+        reason: 'Escuela de Póker · spot evaluado',
+        heroNet: 0,
+        school: true
+      });
+      return { decision, hand };
+    }
+
     // Avanza el estado según la acción
     advance(hand, actionId, decision);
     return { decision, hand };
@@ -16342,6 +16352,41 @@ window.PT_VS_3BET_JSON = {
     }
   }
 
+  function mergeSchoolProgress(aSchool, bSchool) {
+    const a = aSchool && typeof aSchool === 'object' ? aSchool : null;
+    const b = bSchool && typeof bSchool === 'object' ? bSchool : null;
+    if (!a && !b) return undefined;
+    if (!a) return JSON.parse(JSON.stringify(b));
+    if (!b) return JSON.parse(JSON.stringify(a));
+    const lessons = {};
+    const ids = {};
+    Object.keys(a.lessons || {}).forEach(function (id) { ids[id] = true; });
+    Object.keys(b.lessons || {}).forEach(function (id) { ids[id] = true; });
+    Object.keys(ids).forEach(function (id) {
+      const la = (a.lessons && a.lessons[id]) || null;
+      const lb = (b.lessons && b.lessons[id]) || null;
+      if (!la) { lessons[id] = lb; return; }
+      if (!lb) { lessons[id] = la; return; }
+      const bestScore = Math.max(Number(la.bestScore) || 0, Number(lb.bestScore) || 0);
+      lessons[id] = {
+        bestScore: bestScore,
+        bestPct: Math.round(bestScore * 1000) / 10,
+        attempts: Math.max(Number(la.attempts) || 0, Number(lb.attempts) || 0),
+        passed: !!(la.passed || lb.passed),
+        gold: !!(la.gold || lb.gold),
+        perfect: !!(la.perfect || lb.perfect),
+        lastScore: (la.updatedAt || '') >= (lb.updatedAt || '') ? la.lastScore : lb.lastScore,
+        lastPct: (la.updatedAt || '') >= (lb.updatedAt || '') ? la.lastPct : lb.lastPct,
+        updatedAt: (la.updatedAt || '') >= (lb.updatedAt || '') ? la.updatedAt : lb.updatedAt
+      };
+    });
+    return {
+      xp: Math.max(Number(a.xp) || 0, Number(b.xp) || 0),
+      lessons: lessons,
+      updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0)
+    };
+  }
+
   function mergeStats(localStats, cloudStats) {
     const a = localStats && typeof localStats === 'object' ? localStats : defaultStats();
     const b = cloudStats && typeof cloudStats === 'object' ? cloudStats : defaultStats();
@@ -16351,6 +16396,8 @@ window.PT_VS_3BET_JSON = {
     const other = lt >= ct ? b : a;
     const out = JSON.parse(JSON.stringify(pick));
     delete out.updatedAt;
+    const mergedSchool = mergeSchoolProgress(a.school, b.school);
+    if (mergedSchool) out.school = mergedSchool;
     if (global.PTStatsAggregate && global.PTStatsAggregate.mergeAggregates) {
       out.aggregates = global.PTStatsAggregate.mergeAggregates(
         pick.aggregates,
@@ -24056,6 +24103,28 @@ window.PT_VS_3BET_JSON = {
       if (opts.table || inTable) showPlayTable();
       else showPlaySetup();
     }
+    if (tabId === 'school') {
+      var schoolUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
+      var schoolDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
+      var canSchool = !!(schoolUser && schoolUser.isAdmin && !schoolDemo);
+      if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function') {
+        canSchool = window.PTSchool.hasAdminAccess();
+      } else if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
+        canSchool = window.PTAdmin.hasAccess();
+      }
+      if (!canSchool) {
+        goToTab('home');
+        return;
+      }
+      withLazyChunk('school', function () {
+        if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function' && !window.PTSchool.hasAdminAccess()) {
+          goToTab('home');
+          return;
+        }
+        if (window.PTSchool && window.PTSchool.ensureBannerEl) window.PTSchool.ensureBannerEl();
+        if (window.PTSchool && window.PTSchool.render) window.PTSchool.render($('#school-content'));
+      });
+    }
     if (tabId === 'learn') {
       withLazyChunk('learn', function () {
         if (window.PTBeginnerGuide && PTBeginnerGuide.render) {
@@ -25074,6 +25143,12 @@ window.PT_VS_3BET_JSON = {
     }
     $('#feedback').classList.add('hidden');
     renderTable();
+
+    if (window.PTSchool && typeof window.PTSchool.afterTrainerAction === 'function') {
+      if (window.PTSchool.afterTrainerAction(hand, d)) {
+        return;
+      }
+    }
 
     if (hand.runoutPending) {
       void playAllInRunout();

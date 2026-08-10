@@ -1017,6 +1017,28 @@
       if (opts.table || inTable) showPlayTable();
       else showPlaySetup();
     }
+    if (tabId === 'school') {
+      var schoolUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
+      var schoolDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
+      var canSchool = !!(schoolUser && schoolUser.isAdmin && !schoolDemo);
+      if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function') {
+        canSchool = window.PTSchool.hasAdminAccess();
+      } else if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
+        canSchool = window.PTAdmin.hasAccess();
+      }
+      if (!canSchool) {
+        goToTab('home');
+        return;
+      }
+      withLazyChunk('school', function () {
+        if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function' && !window.PTSchool.hasAdminAccess()) {
+          goToTab('home');
+          return;
+        }
+        if (window.PTSchool && window.PTSchool.ensureBannerEl) window.PTSchool.ensureBannerEl();
+        if (window.PTSchool && window.PTSchool.render) window.PTSchool.render($('#school-content'));
+      });
+    }
     if (tabId === 'learn') {
       withLazyChunk('learn', function () {
         if (window.PTBeginnerGuide && PTBeginnerGuide.render) {
@@ -2035,6 +2057,12 @@
     }
     $('#feedback').classList.add('hidden');
     renderTable();
+
+    if (window.PTSchool && typeof window.PTSchool.afterTrainerAction === 'function') {
+      if (window.PTSchool.afterTrainerAction(hand, d)) {
+        return;
+      }
+    }
 
     if (hand.runoutPending) {
       void playAllInRunout();

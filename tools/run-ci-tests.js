@@ -65,6 +65,7 @@ const STEPS = [
   ['Test solver sanity JS', ['node', 'tools/test-solver-sanity-js.js']],
   ['Test product variants 6-max', ['node', 'tools/test-product-variants.js']],
   ['Test beginner guide', ['node', 'tools/test-beginner-guide.js']],
+  ['Test Escuela de Póker M0', ['node', 'tools/test-school.js']],
   ['Test PWA manifest', ['node', 'tools/test-pwa-manifest.js']],
   ['Test analytics/sentry guards', ['node', 'tools/test-analytics-sentry.js']],
   // v2.0 — formatos cash/spin/mtt + bluffs + ICM trainer
