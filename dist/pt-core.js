@@ -11355,6 +11355,72 @@ window.PT_VS_3BET_JSON = {
     });
   }
 
+  /**
+   * Asientos que aún deben hablar preflop después del héroe (p.ej. BB tras SB).
+   * No se pueden marcar folded: actúan después de la decisión del héroe.
+   */
+  function seatsYetToActPreflop(hand, heroPos) {
+    const order = preflopOrderForHand(hand);
+    const heroIdx = order.indexOf(heroPos || (hand.hero && hand.hero.pos));
+    if (heroIdx < 0) return [];
+    const out = [];
+    for (let i = heroIdx + 1; i < order.length; i++) out.push(order[i]);
+    return out;
+  }
+
+  function withYetToActParticipants(hand, baseList, heroPos) {
+    const out = (baseList || []).slice();
+    seatsYetToActPreflop(hand, heroPos).forEach(function (p) {
+      if (out.indexOf(p) < 0) out.push(p);
+    });
+    return out;
+  }
+
+  /**
+   * Tras call del héroe ante open (multiway): seats posteriores (BB…) fold/call/3bet.
+   */
+  function resolveSeatsAfterHeroCallOpen(hand, openSize) {
+    const responders = respondersAfterHero(hand);
+    let threeBettor = null;
+    let threeBetSize = 0;
+    const callers = [];
+
+    for (let ri = 0; ri < responders.length; ri++) {
+      const pos = responders[ri];
+      if (sessionStrict(hand)) ensureDefenderHand(hand, pos, hand.hero.pos);
+      const act = scriptForcedDefend(hand, pos) || blindDefendVsOpen(hand, pos, openSize);
+      if (act === 'fold') {
+        markFolded(hand, pos);
+        setSeatAction(hand, pos, 'fold', null);
+        continue;
+      }
+      if (act === '3bet') {
+        threeBetSize = round2(openSize * (pos === 'SB' ? 3.6 : 3.4));
+        threeBettor = pos;
+        setSeatAction(hand, pos, 'raise', threeBetSize);
+        const add = seatToCall(hand, pos, threeBetSize);
+        if (add > 0) addInvest(hand, pos, add);
+        setPreflopSeatBet(hand, pos, threeBetSize);
+        recalcPot(hand);
+        ensureThreeBetHand(hand, threeBettor, hand.hero.pos);
+        hand.villain.pos = threeBettor;
+        hand.villain.cards = villainHoleCards(hand);
+        hand.villain.rangeStr = bb3betRange(hand.hero.pos, hand);
+        syncVillainMeta(hand);
+        initVillainTracker(hand);
+        hand.villainInvested = threeBetSize;
+        setVillainAct(hand, 'raise', threeBetSize);
+        return { type: 'face3bet', size: threeBetSize };
+      }
+      const addC = seatToCall(hand, pos, openSize);
+      if (addC > 0) addInvest(hand, pos, addC);
+      setPreflopSeatBet(hand, pos, openSize);
+      setSeatAction(hand, pos, 'call', openSize);
+      callers.push(pos);
+    }
+    return { type: 'continue', callers: callers };
+  }
+
   /** Garantiza que cada caller pagó openSize y recalcula el bote. */
   function ensureCallersPaidOpen(hand, callers, openSize) {
     (callers || []).forEach(function (cPos) {
@@ -12528,11 +12594,18 @@ window.PT_VS_3BET_JSON = {
     hand.villain.rangeStr = openRangeStr(opener, hand);
     initVillainTracker(hand);
 
-    const participants = [heroPos, opener].concat(callers).filter(function (p, i, arr) {
+    let participants = [heroPos, opener].concat(callers).filter(function (p, i, arr) {
       return p && arr.indexOf(p) === i;
     });
-    // Foldear YA a quien no está en el bote (evita 6-way fantasma)
+    // BB (u otras seats tras el héroe) aún no han hablado: no foldearlas
+    participants = withYetToActParticipants(hand, participants, heroPos);
     foldSeatsExcept(hand, participants);
+    // Ciega BB visible en mesa si sigue viva
+    if (participants.indexOf('BB') >= 0 && !hand.table.folded.BB) {
+      hand.table.folded.BB = false;
+      hand.table.inHand.add('BB');
+      if (!hand.table.streetBet.BB) setPreflopSeatBet(hand, 'BB', BBET);
+    }
 
     setPreflopSeatBet(hand, opener, openSize);
     const openerBlind = opener === 'SB' ? SB : (opener === 'BB' ? BBET : 0);
@@ -12564,24 +12637,31 @@ window.PT_VS_3BET_JSON = {
 
     const order = preflopOrderForHand(hand);
     const toCall = round2(openSize - heroBlind);
+    const yetToAct = seatsYetToActPreflop(hand, heroPos);
     if (toCall > 0.01 && (heroPos === 'BB' || heroPos === 'SB' || order.indexOf(heroPos) > order.indexOf(callers[callers.length - 1] || opener))) {
       const freqs = strategyForNode(hand, { street: 'preflop', kind: 'vsRFI', potBB: hand.potBB, toCallBB: toCall });
+      const yetNote = yetToAct.length ? ` ${yetToAct.join('+')} aún por hablar.` : '';
       hand.current = {
         street: 'preflop',
         kind: 'vsRFI',
         potBB: hand.potBB,
         toCallBB: toCall,
         openSize: openSize,
+        threeBetSize: round2(openSize * 3.5),
         options: [
           { id: 'fold', label: 'Fold' },
           { id: 'call', label: `Call (${toCall}bb)` },
           { id: 'raise', label: `3-Bet a ${round2(openSize * 3.5)}bb` }
         ],
         gto: freqs,
-        context: `Bote multiway: ${opener} abre, ${callers.join('+')} pagan. Eres ${heroPos}. Bote ${hand.potBB}bb.`
+        context: `Bote multiway: ${opener} abre, ${callers.join('+')} pagan. Eres ${heroPos}. Bote ${hand.potBB}bb.${yetNote}`
       };
       hand._multiwayPendingCallers = callers.filter(function (c) { return c !== heroPos && c !== opener; });
       hand._multiwayOpenSize = openSize;
+      // Marcar multiway ya en preflop para UI (BB visible como vivo)
+      hand.multiway = true;
+      hand.potType = s.type === 'srp4way' ? 'srp4way' : 'srp3way';
+      if (MW()) MW().syncOpponents(hand);
       return;
     }
 
@@ -13174,10 +13254,27 @@ window.PT_VS_3BET_JSON = {
           if (seatToCall(hand, opener, openSize) > 0) {
             addInvest(hand, opener, seatToCall(hand, opener, openSize));
           }
-          const participants = [hero, opener].concat(extras);
+          // BB u otras seats tras el héroe deben actuar antes del flop
+          seatsYetToActPreflop(hand, hero).forEach(function (p) {
+            if (hand.table.folded[p]) {
+              hand.table.folded[p] = false;
+              hand.table.inHand.add(p);
+            }
+          });
+          const after = resolveSeatsAfterHeroCallOpen(hand, openSize);
+          if (after.type === 'face3bet') {
+            delete hand._multiwayPendingCallers;
+            delete hand._multiwayOpenSize;
+            return setupFace3Bet(hand, after.size);
+          }
+          const bbCallers = after.callers || [];
+          const allExtras = extras.concat(bbCallers).filter(function (p, i, arr) {
+            return p && p !== opener && p !== hero && arr.indexOf(p) === i && seatStillIn(hand, p);
+          });
+          const participants = [hero, opener].concat(allExtras);
           foldSeatsExcept(hand, participants);
-          MW().markMultiwayHand(hand, extras.length >= 2 ? 'srp4way' : 'srp3way', extras);
-          MW().syncTableToMultiwayPot(hand, extras);
+          MW().markMultiwayHand(hand, allExtras.length >= 2 ? 'srp4way' : 'srp3way', allExtras);
+          MW().syncTableToMultiwayPot(hand, allExtras);
           hand.heroInPosition = heroIpMultiway(hand);
           delete hand._multiwayPendingCallers;
           delete hand._multiwayOpenSize;
@@ -13191,10 +13288,39 @@ window.PT_VS_3BET_JSON = {
       }
       // 3-bet
       hand.heroIsAggressor = true;
-      hand.heroInvested = node.threeBetSize;
-      setHeroAct(hand, 'raise', node.threeBetSize);
+      const threeBetSize = node.threeBetSize || round2((node.openSize || OPEN) * 3.5);
+      hand.heroInvested = threeBetSize;
+      addInvest(hand, hero, round2(threeBetSize - (hand.table.invested[hero] || 0)));
+      setHeroAct(hand, 'raise', threeBetSize);
+      setPreflopSeatBet(hand, hero, threeBetSize);
+      // Seats tras el héroe (BB) enfrentan el 3-bet antes que el opener
+      if (hand._multiwayPendingCallers && MW() && MW().allowMultiway(hand)) {
+        seatsYetToActPreflop(hand, hero).forEach(function (p) {
+          if (hand.table.folded[p]) {
+            hand.table.folded[p] = false;
+            hand.table.inHand.add(p);
+          }
+        });
+        const behind = respondersAfterHero(hand);
+        for (let bi = 0; bi < behind.length; bi++) {
+          const bPos = behind[bi];
+          const bAct = scriptForcedDefend(hand, bPos) || blindDefendVsOpen(hand, bPos, threeBetSize);
+          if (bAct === 'fold' || bAct === '3bet') {
+            // ante 3-bet: fold o call (no 4-bet cold aquí)
+            if (bAct === 'fold' || C.rng.random() < 0.72) {
+              markFolded(hand, bPos);
+              setSeatAction(hand, bPos, 'fold', null);
+              continue;
+            }
+          }
+          const bAdd = seatToCall(hand, bPos, threeBetSize);
+          if (bAdd > 0) addInvest(hand, bPos, bAdd);
+          setPreflopSeatBet(hand, bPos, threeBetSize);
+          setSeatAction(hand, bPos, 'call', threeBetSize);
+        }
+      }
       resolvePendingAfterHero(hand);
-      let cont = openerVs3Bet(hand, opener, node.threeBetSize);
+      let cont = openerVs3Bet(hand, opener, threeBetSize);
       if (cont === 'fold') {
         setVillainAct(hand, 'fold');
         return finish(hand, { reason: `${opener} foldea ante tu 3-bet.`, heroNet: round2(hand.potBB) });
@@ -13207,19 +13333,39 @@ window.PT_VS_3BET_JSON = {
         }
       }
       if (cont === '4bet') {
-        const fbSize = round2(node.threeBetSize * 2.3);
+        const fbSize = round2(threeBetSize * 2.3);
         hand.villainInvested = fbSize;
-        hand.potBB = round2(node.threeBetSize + fbSize + SB);
+        hand.potBB = round2(threeBetSize + fbSize + SB);
         hand.villain.rangeStr = VPF ? VPF.rangeStrFor4Bet(rangeCtx(hand)) : R.VS_3BET.fourBet;
         setVillainAct(hand, 'raise', fbSize);
         return setupFace4Bet(hand, fbSize);
       }
       hand.villain.rangeStr = VPF ? VPF.rangeStrForCall3Bet(rangeCtx(hand)) : (R.VS_3BET.call + ', ' + R.VS_3BET.callMix);
       // villano iguala el 3bet -> flop en bote resubido, hero agresor
-      setVillainAct(hand, 'call', node.threeBetSize);
-      hand.villainInvested = node.threeBetSize;
-      hand.potBB = round2(node.threeBetSize * 2 + SB);
-      hand.heroInPosition = inPos(hero, opener);
+      setVillainAct(hand, 'call', threeBetSize);
+      hand.villainInvested = threeBetSize;
+      const callAdd = seatToCall(hand, opener, threeBetSize);
+      if (callAdd > 0) addInvest(hand, opener, callAdd);
+      // Cold callers pending también enfrentan el 3-bet
+      if (hand._multiwayPendingCallers && hand._multiwayPendingCallers.length) {
+        hand._multiwayPendingCallers.forEach(function (cPos) {
+          if (!seatStillIn(hand, cPos) || cPos === opener) return;
+          const cAct = C.rng.random() < 0.78 ? 'fold' : 'call';
+          if (cAct === 'fold') {
+            markFolded(hand, cPos);
+            setSeatAction(hand, cPos, 'fold', null);
+            return;
+          }
+          const cAdd = seatToCall(hand, cPos, threeBetSize);
+          if (cAdd > 0) addInvest(hand, cPos, cAdd);
+          setPreflopSeatBet(hand, cPos, threeBetSize);
+          setSeatAction(hand, cPos, 'call', threeBetSize);
+        });
+      }
+      recalcPot(hand);
+      hand.heroInPosition = heroIpMultiway(hand);
+      delete hand._multiwayPendingCallers;
+      delete hand._multiwayOpenSize;
       return goFlop(hand);
     }
 
@@ -22828,7 +22974,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.1.3';
+  const APP_VERSION = window.PT_BUILD || '2.1.4';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -24765,7 +24911,7 @@ window.PT_VS_3BET_JSON = {
       if (folded[pos]) cls.push('folded');
 
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? (hand.multiway ? 'En bote' : 'Pagador') : ''));
-      if (hand.multiway && inPot && !isVillain && !isHero) role = role || 'En bote';
+      if ((hand.multiway || inPot) && inPot && !isVillain && !isHero) role = role || 'En bote';
       const seatActs = hand.seatActions || {};
       let actHtml = '';
       if (!folded[pos]) {
@@ -24787,7 +24933,8 @@ window.PT_VS_3BET_JSON = {
       const totalInv = invested[pos] || 0;
       const stBet = streetBet[pos] || 0;
       const inFront = folded[pos] ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
-      const showFullSeat = !mobile || isVillain || isCaller || stBet > 0 || showCards;
+      // En móvil: asientos vivos en el bote (p.ej. BB aún por hablar) no se colapsan a mini
+      const showFullSeat = !mobile || isVillain || isCaller || inPot || stBet > 0 || inFront > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
       const betHtml = renderSeatBet(inFront, seatBetPlacement(c));

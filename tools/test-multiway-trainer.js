@@ -391,7 +391,7 @@ console.log('12) Pool multiway + UI markers');
   assert.ok(indexHtml.includes('data-val="multiway"'), 'UI chip multiway');
   assert.ok(indexHtml.includes('setup-multiway-pot-type'), 'UI pot type');
   const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-  assert.ok(/PT_BUILD\s*=\s*'2\.1\.3'/.test(version), 'version 2.1.3');
+  assert.ok(/PT_BUILD\s*=\s*'2\.1\.4'/.test(version), 'version 2.1.4');
   const chunks = fs.readFileSync(path.join(__dirname, '..', 'js', 'bundle-chunks.js'), 'utf8');
   assert.ok(chunks.includes('multiway.js'), 'multiway in bundle');
 }
@@ -538,6 +538,49 @@ console.log('16) Postflop multiway: SB responde bet de CO (no check stale) y sum
   }
   assert.ok(exercised >= 4, 'ejercido wrap SB ante bet: ' + exercised);
   assert.ok(sawCall >= 1, 'al menos un call de SB sumó al bote');
+}
+
+console.log('17) Preflop multiway SB: BB sigue vivo (aún por hablar) y actúa tras call');
+{
+  const play = cfg({ scenario: 'multiway', multiwayPotType: 'srp3way', heroPos: 'SB', villainLevel: 'fish' });
+  const hand = Engine.newHand({
+    type: 'srp3way',
+    heroPos: 'SB',
+    openerPos: 'CO',
+    callerPos: 'BTN',
+    callerPositions: ['BTN'],
+    potType: 'srp3way',
+    seed: 42
+  }, play);
+  assert.equal(hand.hero.pos, 'SB', 'héroe SB');
+  assert.ok(hand.stage === 'preflop', 'preflop');
+  assert.ok(hand.current && hand.current.toCallBB > 0, 'SB afronta open');
+  const alive0 = alive(hand);
+  assert.ok(alive0.indexOf('BB') >= 0, 'BB vivo al decidir SB: ' + alive0.join(','));
+  assert.ok(!hand.table.folded.BB, 'BB no folded');
+  assert.ok(hand.table.inHand.has('BB'), 'BB inHand');
+  assert.ok((hand.table.invested.BB || 0) >= 1, 'BB tiene ciega en invested');
+  assert.ok(/BB aún por hablar|aún por hablar/.test(hand.current.context || ''),
+    'contexto menciona seats por hablar: ' + hand.current.context);
+
+  Engine.act(hand, 'call');
+  // Tras call: o flop (BB fold/call) o face3bet (BB squeeze)
+  if (hand.current && hand.current.kind === 'face3bet') {
+    assert.ok(hand.villain.pos === 'BB', 'squeeze del BB');
+  } else {
+    assert.ok(hand.stage === 'flop' || (hand.current && hand.current.street === 'flop'),
+      'va a flop tras resolver BB, stage=' + hand.stage);
+    const alive1 = alive(hand);
+    // Si BB foldeó, no debe estar; si llamó, sí
+    if (hand.seatActions && hand.seatActions.BB && hand.seatActions.BB.type === 'fold') {
+      assert.ok(alive1.indexOf('BB') < 0, 'BB folded → fuera');
+      assert.ok(alive1.indexOf('CO') >= 0 && alive1.indexOf('BTN') >= 0 && alive1.indexOf('SB') >= 0,
+        '3-way sin BB: ' + alive1.join(','));
+    } else if (hand.seatActions && hand.seatActions.BB && hand.seatActions.BB.type === 'call') {
+      assert.ok(alive1.indexOf('BB') >= 0, 'BB call → sigue en flop');
+      assert.ok(alive1.length >= 4, '4-way con BB call: ' + alive1.join(','));
+    }
+  }
 }
 
 console.log('\n*** test-multiway-trainer OK ***');

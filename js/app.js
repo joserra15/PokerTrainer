@@ -13,7 +13,7 @@
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.1.3';
+  const APP_VERSION = window.PT_BUILD || '2.1.4';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -1950,7 +1950,7 @@
       if (folded[pos]) cls.push('folded');
 
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? (hand.multiway ? 'En bote' : 'Pagador') : ''));
-      if (hand.multiway && inPot && !isVillain && !isHero) role = role || 'En bote';
+      if ((hand.multiway || inPot) && inPot && !isVillain && !isHero) role = role || 'En bote';
       const seatActs = hand.seatActions || {};
       let actHtml = '';
       if (!folded[pos]) {
@@ -1972,7 +1972,8 @@
       const totalInv = invested[pos] || 0;
       const stBet = streetBet[pos] || 0;
       const inFront = folded[pos] ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
-      const showFullSeat = !mobile || isVillain || isCaller || stBet > 0 || showCards;
+      // En móvil: asientos vivos en el bote (p.ej. BB aún por hablar) no se colapsan a mini
+      const showFullSeat = !mobile || isVillain || isCaller || inPot || stBet > 0 || inFront > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
       const betHtml = renderSeatBet(inFront, seatBetPlacement(c));
