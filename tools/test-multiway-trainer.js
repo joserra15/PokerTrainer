@@ -391,7 +391,7 @@ console.log('12) Pool multiway + UI markers');
   assert.ok(indexHtml.includes('data-val="multiway"'), 'UI chip multiway');
   assert.ok(indexHtml.includes('setup-multiway-pot-type'), 'UI pot type');
   const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-  assert.ok(/PT_BUILD\s*=\s*'2\.1\.2'/.test(version), 'version 2.1.2');
+  assert.ok(/PT_BUILD\s*=\s*'2\.1\.3'/.test(version), 'version 2.1.3');
   const chunks = fs.readFileSync(path.join(__dirname, '..', 'js', 'bundle-chunks.js'), 'utf8');
   assert.ok(chunks.includes('multiway.js'), 'multiway in bundle');
 }
@@ -480,6 +480,64 @@ console.log('15) Postflop multiway: BTN actúa antes de que el héroe afronte ap
     }
   }
   assert.ok(exercised >= 3, 'ejercido orden multiway postflop: ' + exercised);
+}
+
+console.log('16) Postflop multiway: SB responde bet de CO (no check stale) y suma al bote');
+{
+  const play = cfg({ scenario: 'multiway', multiwayPotType: 'srp3way', heroPos: 'BB', villainLevel: 'fish' });
+  let exercised = 0;
+  let sawCall = 0;
+  for (let i = 0; i < 120; i++) {
+    const hand = Engine.newHand({
+      type: 'srp3way',
+      heroPos: 'BB',
+      openerPos: 'CO',
+      callerPos: 'SB',
+      callerPositions: ['SB'],
+      potType: 'srp3way',
+      seed: 22000 + i
+    }, play);
+    forceOpenCallFlop(hand);
+    if (hand.stage !== 'flop' || !hand.current) continue;
+    if ((hand.current.toCallBB || 0) > 0) continue;
+    const alive0 = alive(hand);
+    if (alive0.indexOf('SB') < 0 || alive0.indexOf('CO') < 0) continue;
+    const potBeforeCheck = hand.potBB;
+    Engine.act(hand, 'check');
+    if (hand.stage === 'complete') continue;
+    if (!(hand.current && (hand.current.toCallBB || 0) > 0)) continue;
+    const bet = hand.current.toCallBB;
+    const aggressor = hand.villain && hand.villain.pos;
+    // Caso del bug: CO (o alguien detrás del BB) apuesta → SB no puede quedar en check
+    if (aggressor !== 'CO' && aggressor !== 'BTN' && aggressor !== 'HJ') {
+      // si SB fue el agresor, no aplica wrap
+      exercised++;
+      continue;
+    }
+    const sbAct = hand.seatActions && hand.seatActions.SB;
+    const sbAlive = alive(hand).indexOf('SB') >= 0;
+    assert.ok(sbAct, 'SB tiene seatAction al afrontar bet tras check del héroe');
+    assert.ok(sbAct.type !== 'check',
+      'SB no puede conservar Check ante bet de ' + aggressor + ': ' + sbAct.type);
+    assert.ok(['call', 'fold', 'raise'].indexOf(sbAct.type) >= 0,
+      'SB acción válida ante bet: ' + sbAct.type);
+    if (sbAct.type === 'call' && sbAlive) {
+      // pot = pot pre-check-round + bet aggressor + call SB (+ posibles más)
+      assert.ok(hand.potBB + 0.01 >= potBeforeCheck + bet + bet * 0.5,
+        'call de SB debe sumar al bote: pot=' + hand.potBB +
+        ' pot0=' + potBeforeCheck + ' bet=' + bet);
+      const sbStreet = hand.table.streetBet && hand.table.streetBet.SB;
+      assert.ok(sbStreet >= bet - 0.01, 'SB streetBet iguala la apuesta: ' + sbStreet);
+      sawCall++;
+    }
+    if (sbAct.type === 'fold') {
+      assert.ok(!sbAlive, 'SB fold → no alive');
+    }
+    exercised++;
+    if (exercised >= 8 && sawCall >= 1) break;
+  }
+  assert.ok(exercised >= 4, 'ejercido wrap SB ante bet: ' + exercised);
+  assert.ok(sawCall >= 1, 'al menos un call de SB sumó al bote');
 }
 
 console.log('\n*** test-multiway-trainer OK ***');

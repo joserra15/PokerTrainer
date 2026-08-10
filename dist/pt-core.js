@@ -12045,9 +12045,62 @@ window.PT_VS_3BET_JSON = {
     return { type: 'call' };
   }
 
+  /** Asientos vivos entre aggressor y héroe en orden circular postflop (sin incluir hero). */
+  function seatsUntilHero(hand, aggressorPos) {
+    const order = multiwayAliveOrder(hand);
+    const hero = hand.hero.pos;
+    const fromIdx = order.indexOf(aggressorPos);
+    if (fromIdx < 0 || !hero) return [];
+    const out = [];
+    for (let k = 1; k < order.length; k++) {
+      const p = order[(fromIdx + k) % order.length];
+      if (p === hero) break;
+      out.push(p);
+    }
+    return out;
+  }
+
+  /**
+   * Tras bet/raise de un villano: todos los asientos hasta el héroe deben
+   * fold/call/raise (incluye wrap SB tras bet de CO cuando héroe es BB).
+   */
+  function resolveFacingUntilHero(hand, aggressorPos, betSize) {
+    let currentBet = betSize;
+    let currentAgg = aggressorPos;
+    let guard = 0;
+    while (guard++ < 24) {
+      const queue = seatsUntilHero(hand, currentAgg);
+      let raised = false;
+      for (let i = 0; i < queue.length; i++) {
+        const r = queue[i];
+        if (!seatStillIn(hand, r)) continue;
+        const already = (hand.table.streetBet && hand.table.streetBet[r]) || 0;
+        if (already + 0.01 >= currentBet) continue;
+        const face = resolveSeatFacingBet(hand, r, currentBet);
+        if (face.type === 'raise') {
+          currentBet = face.raiseSize;
+          currentAgg = r;
+          raised = true;
+          break;
+        }
+      }
+      if (!raised) break;
+    }
+    if (MW()) MW().syncOpponents(hand);
+    return { bet: currentBet, aggressor: currentAgg };
+  }
+
+  function heroFacesBetNode(hand, betSize) {
+    if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
+    return buildPostflopNode(hand, hand.stage, {
+      bet: betSize,
+      potBefore: round2(Math.max(hand.potBB - betSize, 0.1))
+    });
+  }
+
   /**
    * Tras check del héroe en multiway: rivales detrás actúan en orden.
-   * Si alguien apuesta, los siguientes responden y el héroe afronta la apuesta.
+   * Si alguien apuesta, los asientos hasta el héroe (con wrap) responden.
    */
   function resolveMultiwayAfterHeroCheck(hand) {
     const order = multiwayAliveOrder(hand);
@@ -12070,24 +12123,8 @@ window.PT_VS_3BET_JSON = {
         continue;
       }
       applySeatBet(hand, pos, vBet);
-      for (let j = i + 1; j < after.length; j++) {
-        const r = after[j];
-        if (!seatStillIn(hand, r)) continue;
-        const face = resolveSeatFacingBet(hand, r, vBet);
-        if (face.type === 'raise') {
-          if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
-          return buildPostflopNode(hand, hand.stage, {
-            bet: face.raiseSize,
-            potBefore: round2(hand.potBB - face.raiseSize)
-          });
-        }
-      }
-      if (MW()) MW().syncOpponents(hand);
-      if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
-      return buildPostflopNode(hand, hand.stage, {
-        bet: vBet,
-        potBefore: round2(hand.potBB - vBet)
-      });
+      const faced = resolveFacingUntilHero(hand, pos, vBet);
+      return heroFacesBetNode(hand, faced.bet);
     }
     if (MW()) MW().syncOpponents(hand);
     return nextStreet(hand);
@@ -12095,7 +12132,7 @@ window.PT_VS_3BET_JSON = {
 
   /**
    * Entrada multiway: jugadores antes del héroe actúan; si alguien apuesta,
-   * los intermedios responden y el héroe afronta. Si todos check, decide el héroe.
+   * los intermedios (y wrap si hay raise) responden y el héroe afronta.
    */
   function enterStreetMultiway(hand) {
     const order = multiwayAliveOrder(hand);
@@ -12118,24 +12155,8 @@ window.PT_VS_3BET_JSON = {
         continue;
       }
       applySeatBet(hand, pos, vBet);
-      for (let j = i + 1; j < before.length; j++) {
-        const r = before[j];
-        if (!seatStillIn(hand, r)) continue;
-        const face = resolveSeatFacingBet(hand, r, vBet);
-        if (face.type === 'raise') {
-          if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
-          return buildPostflopNode(hand, hand.stage, {
-            bet: face.raiseSize,
-            potBefore: round2(hand.potBB - face.raiseSize)
-          });
-        }
-      }
-      if (MW()) MW().syncOpponents(hand);
-      if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
-      return buildPostflopNode(hand, hand.stage, {
-        bet: vBet,
-        potBefore: round2(hand.potBB - vBet)
-      });
+      const faced = resolveFacingUntilHero(hand, pos, vBet);
+      return heroFacesBetNode(hand, faced.bet);
     }
 
     if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
@@ -22807,7 +22828,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.1.2';
+  const APP_VERSION = window.PT_BUILD || '2.1.3';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
