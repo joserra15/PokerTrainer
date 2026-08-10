@@ -174,7 +174,7 @@ assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2\.1\.0'/.test(version), 'version 2.1.0');
+assert.ok(/PT_BUILD\s*=\s*'2\.1\.1'/.test(version), 'version 2.1.1');
 
 const chunks = fs.readFileSync(path.join(__dirname, '..', 'js', 'bundle-chunks.js'), 'utf8');
 assert.ok(chunks.includes('format/taxonomy.js'), 'taxonomy in bundle');

@@ -140,7 +140,7 @@
     hand.multiway = true;
     hand.potType = potType || potTypeFromAlive((callers || []).length + 2);
     hand._callersAtFlop = (callers || []).slice();
-    syncOpponents(hand);
+    syncTableToMultiwayPot(hand, callers);
   }
 
   /**

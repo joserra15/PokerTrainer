@@ -112,6 +112,14 @@ console.log('2) Dedicated srp3way — siempre ≥3 al flop');
     assert.ok(['flop', 'turn', 'river'].indexOf(hand.stage) >= 0, 'should reach postflop, got ' + hand.stage);
     const n = alive(hand).length;
     assert.ok(n >= 3, 'srp3way alive≥3 got ' + n + ' seats=' + alive(hand).join(','));
+    assert.strictEqual(n, 3, 'srp3way exactamente 3 vivos, no fantasmas: ' + alive(hand).join(','));
+    // CO 2.5 + BTN 2.5 + BB 2.5 + SB dead 0.5 = 8.0
+    assert.ok(hand.potBB >= 7.9 && hand.potBB <= 8.2, 'srp3way pot~8bb got ' + hand.potBB);
+    ['CO', 'BTN', 'BB'].forEach(function (p) {
+      assert.ok((hand.table.invested[p] || 0) >= 2.4, p + ' paid open, inv=' + hand.table.invested[p]);
+    });
+    assert.ok(hand.table.folded.UTG || !hand.table.inHand.has('UTG'), 'UTG folded');
+    assert.ok(hand.table.folded.HJ || !hand.table.inHand.has('HJ'), 'HJ folded');
     assert.ok(hand.multiway, 'hand.multiway true');
     assert.ok(hand.potType === 'srp3way' || hand.potType === 'srp4way', 'potType srp*');
     const input = Engine.buildSpotInput(hand, hand.current, null);
@@ -139,6 +147,9 @@ console.log('3) Dedicated srp4way — ≥4 vivos');
     if (hand.stage === 'complete') continue;
     const n = alive(hand).length;
     assert.ok(n >= 4, 'srp4way alive≥4 got ' + n);
+    assert.strictEqual(n, 4, 'srp4way exactamente 4 vivos got ' + n + ' ' + alive(hand).join(','));
+    // HJ+CO+BTN+BB @2.5 + SB dead 0.5 = 10.5
+    assert.ok(hand.potBB >= 10.0 && hand.potBB <= 11.0, 'srp4way pot~10.5 got ' + hand.potBB);
     assert.ok(hand.multiway);
     ok++;
   }
@@ -380,7 +391,7 @@ console.log('12) Pool multiway + UI markers');
   assert.ok(indexHtml.includes('data-val="multiway"'), 'UI chip multiway');
   assert.ok(indexHtml.includes('setup-multiway-pot-type'), 'UI pot type');
   const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-  assert.ok(/PT_BUILD\s*=\s*'2\.1\.0'/.test(version), 'version 2.1.0');
+  assert.ok(/PT_BUILD\s*=\s*'2\.1\.1'/.test(version), 'version 2.1.1');
   const chunks = fs.readFileSync(path.join(__dirname, '..', 'js', 'bundle-chunks.js'), 'utf8');
   assert.ok(chunks.includes('multiway.js'), 'multiway in bundle');
 }
@@ -393,6 +404,35 @@ console.log('13) policy mult perfiles (fish llama más que nit en multiway)');
   assert.ok(fish.call > nit.call, 'fish callMult > nit');
   assert.ok(pro.bluff < 0.6, 'pro bluffs less multiway');
   assert.ok(nit.cbet < fish.cbet, 'nit cbets less');
+}
+
+console.log('14) Pot multiway: sin asientos fantasma y bote = suma de invested');
+{
+  const play = cfg({ scenario: 'multiway', multiwayPotType: 'srp4way', heroPos: 'BB' });
+  const hand = Engine.newHand({
+    type: 'srp4way',
+    heroPos: 'BB',
+    openerPos: 'UTG',
+    callerPos: 'CO',
+    callerPositions: ['HJ', 'CO'],
+    potType: 'srp4way',
+    seed: 42
+  }, play);
+  forceOpenCallFlop(hand);
+  assert.ok(hand.stage === 'flop' || hand.stage === 'turn' || hand.stage === 'river', 'postflop');
+  const seats = alive(hand).slice().sort().join(',');
+  assert.strictEqual(seats, 'BB,CO,HJ,UTG', 'solo participantes: ' + seats);
+  assert.ok(seats.indexOf('BTN') < 0, 'BTN no está en el bote');
+  assert.ok(!hand.table.inHand.has('SB') || hand.table.folded.SB, 'SB no vivo');
+  let sum = 0;
+  Object.keys(hand.table.invested).forEach(function (p) { sum += hand.table.invested[p] || 0; });
+  assert.ok(Math.abs(hand.potBB - Engine.round2(sum)) < 0.02, 'potBB == sum invested ' + hand.potBB + ' vs ' + sum);
+  // 4 × 2.5 + SB 0.5 muerto = 10.5
+  assert.ok(hand.potBB >= 10.4 && hand.potBB <= 10.6, 'bote esperado ~10.5, got ' + hand.potBB);
+  // Context no debe decir 6-way
+  const ctx = (hand.current && hand.current.context) || '';
+  assert.ok(!/6-way/.test(ctx), 'context no dice 6-way: ' + ctx);
+  assert.ok(alive(hand).length === 4, 'alive count 4');
 }
 
 console.log('\n*** test-multiway-trainer OK ***');
