@@ -1,9 +1,11 @@
 # RoadMap — Lecciones dirigidas (Cash · Spins · MTT)
 
-> Estudio de producto y diseño pedagógico para un sistema de **entrenamiento dirigido por lecciones** en PokerForgeAI.  
+> Estudio de producto y diseño pedagógico para **Escuela de Póker** (entrenamiento dirigido por lecciones) en PokerForgeAI.  
 > **Alcance de este documento:** análisis, currículum, monetización, UX de progresión y fases de entrega. **Sin implementación de código.**  
 > Complementa: `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`, Guía básica actual (`js/beginner-guide.js`), taxonomía de formatos (`js/engine/format/taxonomy.js`), IA Coach y planes Gratis / Study / Coach.  
-> Fecha: agosto 2026 · Producto: PokerForgeAI (PokerTrainer)
+> Fecha: agosto 2026 · Producto: PokerForgeAI (PokerTrainer)  
+>  
+> **Decisiones cerradas:** nombre de menú **Escuela de Póker** · manos de lección **consumen cupo Free** (15/día del trainer) · menú **solo visible para administrador** hasta apertura controlada.
 
 ---
 
@@ -49,7 +51,7 @@ Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía b
 | **Study** (`pro`) | Hasta ~mitad de cada ruta (fundamentos + intermedio) |
 | **Coach** (`premium`) | Ruta completa, incluyendo lecciones **pro**, bubble ICM, bluff construction, range work avanzado |
 
-**Veredicto de producto:** es el mayor salto de *activación + retención + upsell a Coach* posible sin construir un solver. Reutiliza `startGuidedTraining`, grading EV, seeds/replay y IA Coach; añade **contenido autorado + estado de progresión + UI de skill tree**.
+**Veredicto de producto:** es el mayor salto de *activación + retención + upsell a Coach* posible sin construir un solver. Reutiliza `startGuidedTraining`, grading EV, seeds/replay y IA Coach; añade **contenido autorado + estado de progresión + UI de skill tree** bajo el menú **Escuela de Póker** (admin-only al inicio).
 
 ---
 
@@ -235,7 +237,7 @@ Mientras el motor sea heurístico (no árbol solver):
 ### 6.1 Estructura del árbol
 
 ```
-Academia
+Escuela de Póker  (menú; admin-only hasta Fase E)
 ├── Ruta Cash (prioridad P0)
 │   ├── M0 Fundamentos
 │   ├── M1 Preflop core
@@ -271,7 +273,7 @@ Academia
 
 1. Dentro de un módulo: lineal (L1 → L2 → …).  
 2. Examen de módulo desbloquea el siguiente módulo.  
-3. Rutas Cash / Spins / MTT son **independientes** (no forzar Cash completo para abrir Spins), salvo un **M0 compartido opcional** “Cómo funciona la Academia” (gratis).  
+3. Rutas Cash / Spins / MTT son **independientes** (no forzar Cash completo para abrir Spins), salvo un **M0 compartido opcional** “Cómo funciona la Escuela” (gratis).  
 4. Lecciones pro (Coach) visibles siempre para seducir upsell; jugables solo con plan Coach (o trial).  
 5. Study llega ~hasta el 50 % de lecciones de cada ruta (ver §13).
 
@@ -285,9 +287,9 @@ Academia
 | Módulos Pro / ICM hard / range pro | Teaser | Teaser | Sí |
 | Repetición maestría | En lecciones free | En lecciones Study | Todas |
 | IA Coach en lección | Cuota free (3/mes) | 40/mes | 150/mes |
-| Spots diarios Academia | Cuenta contra 15 manos/día **o** cuota aparte “lecciones” (ver decisión abierta) | Ilimitado en lecciones desbloqueadas | Ilimitado |
+| Spots diarios Escuela | **Consumen el cupo Free de trainer (15 manos/día)** | Ilimitado en lecciones desbloqueadas | Ilimitado |
 
-**Recomendación de producto:** las manos de Academia **comparten** el cupo de trainer en Free (simplicidad), pero en Study/Coach son ilimitadas como el entrenador. Alternativa premium: cuota diaria separada solo Free para no quemar las 15 en teoría.
+**Decisión cerrada:** cada mano jugada dentro de una lección descuenta del mismo contador diario Free que Entrenar. Study/Coach siguen ilimitados. El paywall al agotar cupo puede apuntar a Study con copy del tipo “sigue la lección sin límite”.
 
 ### 6.5 Trial
 
@@ -305,11 +307,11 @@ El trial Study de 10 días debería desbloquear **contenido Study** del árbol (
 - Evitar cards innecesarias; los nodos del path *son* la interacción.
 - Motion: (1) fill de progreso al aprobar, (2) unlock reveal del siguiente nodo, (3) contador XP al sumar puntos.
 
-### 7.2 Elementos permanentes (header Academia)
+### 7.2 Elementos permanentes (header Escuela de Póker)
 
 | Elemento | Descripción |
 |----------|-------------|
-| **Nivel Academia** | 1–30 (o tiers: Novato → Estudiante → Reg → Coach mente) derivado de XP |
+| **Nivel Escuela** | 1–30 (o tiers: Novato → Estudiante → Reg → Coach mente) derivado de XP |
 | **XP / puntos** | Suma de primeras aprobaciones + bonuses oro + rachas de lección |
 | **Racha de estudio** | Reutilizar gamificación actual |
 | **Dominancia por ruta** | 3 barras: Cash / Spins / MTT (% lecciones oro) |
@@ -337,10 +339,10 @@ Cada nodo muestra:
 ### 7.5 Relación con rating actual
 
 Mantener el **rating de estudio** (700–1800) del entrenador libre.  
-La Academia tiene **XP/Nivel propios** para no contaminar el rating con packs fáciles. Mostrar ambos en perfil, con copy claro:
+Escuela de Póker tiene **XP/Nivel propios** para no contaminar el rating con packs fáciles. Mostrar ambos en perfil, con copy claro:
 
 - Rating = rendimiento en juego libre / import.  
-- Nivel Academia = progreso curricular.
+- Nivel Escuela = progreso curricular.
 
 ---
 
@@ -379,7 +381,7 @@ Evitar dumps enormes; el teach-back autorado es la ancla (la IA narra, no invent
 
 | ID | Lección | Tipo | Manos | Objetivo | Trampas clave |
 |----|---------|------|-------|----------|---------------|
-| C-00 | Cómo funciona la Academia | Onboarding | 0 | Entender nodos, % y planes | — |
+| C-00 | Cómo funciona la Escuela | Onboarding | 0 | Entender nodos, % y planes | — |
 | C-01 | Posición y por qué manda | A | 12 | Elegir open/fold según posición con la misma mano | Position blind |
 | C-02 | Open-raise (RFI) básico | A | 14 | Memorizar ranges UTG–BTN simplificados | Dominadas UTG |
 | C-03 | Fold equity y por qué subir | A | 10 | Distinguir open vs limp mental (siempre open o fold) | Fancy limp |
@@ -591,64 +593,197 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 
 ## 14. RoadMap de entrega por fases
 
-> Estimación en **complejidad técnica y de contenido**, no en calendario.
+> Complejidad técnica y de contenido, no calendario.  
+> **Por dónde empezar:** Fase A (esqueleto admin-only) → Fase B (1 lección jugable end-to-end) → ampliar contenido. No abrir Spins/MTT ni UI pública hasta que el loop Cash esté validado por admin.
 
-### Fase 0 — Diseño cerrado (doc + prototipos)
+### Decisiones de producto que condicionan las fases
 
-**Entregables:** este RoadMap; wireframes del mapa; contrato JSON de `Lesson` / `SpotPack`; umbrales de aprobación; matriz plan↔lección.  
-**Riesgo bajo.** Sin código de producto aún (sí puede haber mock HTML aparte si se desea).
+| Decisión | Valor |
+|----------|-------|
+| Nombre del menú | **Escuela de Póker** |
+| Cupo Free | Las manos de lección **consumen** las 15/día del trainer |
+| Visibilidad inicial | Tab/menú **solo si `isAdmin`** (flag o rol admin existente) |
+| Primera ruta | **Cash** (núcleo del motor) |
+| Apertura a usuarios | Solo tras validar loop + 1 módulo Cash en admin |
 
-### Fase 1 — MVP Academia Cash (P0 activación)
+```
+Admin-only ──────────────────────────────────────► Beta usuarios ──► GA
+   A          B           C           D
+ esqueleto  1 lección   M0 Cash    M1 + gates
+              E2E        completo   Study/Free
+```
 
-**Alcance:**
+---
 
-- Nueva superficie “Academia” (tab o hub en Inicio / Guía).  
-- Modelo de progreso en cloud (`lessonProgress`).  
-- 8–10 lecciones Cash M0–M1 con packs fijos (manos cortas).  
-- Estados visuales básicos + % + desbloqueo lineal.  
-- Gate Free/Study (sin módulos Coach aún).  
-- IA Coach chips en teoría.
+### Fase A — Esqueleto “Escuela de Póker” (admin-only) ← **EMPEZAR AQUÍ**
 
-**Éxito:** % usuarios nuevos que completan C-02 en D1; uplift trial→Study.
+**Objetivo:** que el admin vea la opción en el menú y una pantalla vacía creíble, sin romper el producto para el resto.
 
-### Fase 2 — Postflop Cash + repetición maestría
+| Entrega | Detalle |
+|---------|---------|
+| Tab/menú | Label **Escuela de Póker**; `goToTab('school')` (o id equivalente) |
+| Gate visibilidad | Render del ítem solo para administrador; usuarios normales no ven nada |
+| Shell UI | Header (nivel/XP placeholder), selector de ruta Cash (Spins/MTT disabled o “Próximamente”), lista/mapa stub de nodos |
+| Copy | Título + 1 frase de valor; sin paywall aún |
+| Telemetría mínima | `school_tab_open` (solo admin) |
 
-- C-12–C-18, trampas postflop, anillo de resultado, estrellas, XP/Nivel Academia.  
-- Repetir para 100 %.  
-- Informe IA fin de sesión.
+**Fuera de alcance:** spots, progreso cloud, IA, gates de plan.  
+**Criterio de hecho:** admin entra, ve el hub; cuenta free/study normal no ve el menú.  
+**Por qué primero:** desbloquea iteración visual y de navegación sin deuda de contenido.
 
-### Fase 3 — Spins path
+---
 
-- S-00–S-10 (Study) con ICM grading existente.  
-- Integrar payout preset como variable de lección.
+### Fase B — Vertical slice: 1 lección Cash jugable E2E
 
-### Fase 4 — MTT path + Bubble Coach
+**Objetivo:** demostrar el producto completo con **una sola lección** (recomendado: **C-02 Open-raise / RFI básico**).
 
-- T-00–T-10 Study; T-13–T-18 Coach.  
-- Copy de honestidad ICM.  
-- Upsell fuerte en nodos burbuja.
+| Entrega | Detalle |
+|---------|---------|
+| Contrato `Lesson` + `SpotPack` | JSON versionado (brief Anexo A) |
+| Spot runner scripted | Forzar cartas/posición/línea; **corte en nodo** (fold/call/raise); grading existente |
+| Flujo lección | Teoría corta → 1 ejemplo → N spots (p. ej. 12) → pantalla resultado con % |
+| Cupo Free | Cada spot llama al mismo `canStartTrainerHand` / consumo diario |
+| Progreso local o cloud mínimo | `bestScore`, `attempts`, `passed` para esa lección |
+| Desbloqueo stub | Nodo C-03 visible bloqueado tras aprobar C-02 (aunque C-03 aún no exista jugable) |
+| Admin-only | Sigue oculto al resto |
 
-### Fase 5 — Laboratorio de rangos + Pro packs
+**Criterio de hecho:** admin completa C-02, ve %, agota cupo Free si prueba con cuenta free admin/demo, puede repetir.  
+**Por qué segundo:** valida el 80 % del riesgo técnico (runner + cupo + UI de resultado) antes de autorar decenas de packs.
 
-- Quizzes de matriz; C-26–C-31; S/T pro exams.  
-- Frecuencias / node locking lite.  
-- Certificaciones internas (badge perfil).
+---
 
-### Fase 6 — Personalización
+### Fase C — Módulo M0 Cash completo (admin dogfood)
 
-- Sugerir lección desde leaks (`TRAINING_FOCUSES` → `lessonId`).  
-- “Tu fuga top = Lección C-15” CTA desde Errores/Stats.  
-- A/B de umbrales de aprobación.
+**Objetivo:** ruta jugable C-00 → C-04 (fundamentos) con desbloqueo lineal y mapa con estados.
 
-### Dependencias técnicas (para planificación futura)
+| Entrega | Detalle |
+|---------|---------|
+| Contenido | C-00 (onboarding Escuela), C-01 posición, C-02 RFI, C-03 fold equity, C-04 examen |
+| Mapa de nodos | Completada (con %) / desbloqueada / bloqueada |
+| Umbrales | Aprobar ≥70 %; oro ≥90 %; repetir para mejorar % |
+| XP/Nivel v1 | Sumar XP al aprobar; nivel Escuela básico |
+| Trampas | 20–25 % en packs M0 |
+| Persistencia cloud | Sync progreso en cuenta (no solo localStorage) |
+| IA Coach | Chips de preguntas en pantalla de teoría (cuota IA normal) |
 
-| Necesidad | Notas |
-|-----------|-------|
-| Spot runner “scripted” | Extender engine para forzar hole cards, board, línea y corte en nodo |
-| Persistencia progreso | Tabla o payload cloud por `lessonId`: bestScore, attempts, unlockedAt |
-| Entitlement contenido | Nuevo flag `canPlayLesson(lessonId)` además de manos/día |
-| Authoring pipeline | JSON/YAML packs versionados + selftests de solución |
-| Analytics | `lesson_start`, `lesson_complete`, `lesson_fail`, `lesson_unlock_block_plan` |
+**Criterio de hecho:** admin puede “pasar el módulo” de punta a punta en una sesión de dogfood.  
+**Aún admin-only.**
+
+---
+
+### Fase D — Gates de plan + preparación de beta
+
+**Objetivo:** reglas Free / Study / Coach sobre el árbol Cash, todavía sin abrir el menú a todos (o abrir a lista blanca).
+
+| Entrega | Detalle |
+|---------|---------|
+| `canPlayLesson(lessonId)` | Free: C-00–C-02 · Study: hasta ~mitad M1/M2 · Coach: nodos pro (aunque vacíos = teaser) |
+| UI plan superior | Badge Coach / Study en nodos; CTA upgrade |
+| Paywall cupo | Al 15/15 en lección → modal Study (mismo entitlement trainer) |
+| Flag feature | `schoolEnabledForUser` = admin **o** allowlist beta **o** 100 % (GA) |
+| Analytics | `lesson_start/complete/fail`, `lesson_blocked_plan`, `lesson_quota_hit` |
+
+**Criterio de hecho:** cuenta free admin ve muro en C-03; Study puede más; flag permite enseñar a 1–2 betas sin menú global.
+
+---
+
+### Fase E — Apertura controlada + M1 Preflop Cash
+
+**Objetivo:** primer valor público + más contenido Study.
+
+| Entrega | Detalle |
+|---------|---------|
+| Visibilidad | Menú visible para todos (o % rollout); quitar admin-only |
+| Contenido | C-05–C-11 (defensa BB, 3-bet, face 3-bet, squeeze, iso, examen) |
+| UX resultado | Anillo %, lista de fallos, replay 1-tap |
+| Onboarding | CTA desde Inicio / Guía básica → Escuela (mapa Anexo C) |
+| Métricas producto | D1 completa ≥1 lección; conversión tras muro Free |
+
+**Por dónde “lanzar” al usuario:** aquí, no antes.
+
+---
+
+### Fase F — Postflop Cash + maestría visual
+
+| Entrega | Detalle |
+|---------|---------|
+| Contenido | C-12–C-18 (textura, c-bet IP/OOP, defensa, barrel, river, examen) |
+| Maestría | Estrellas / % histórico / empujar al 100 % |
+| IA | Informe breve fin de sesión (1 consulta) |
+| Polish motion | Unlock reveal, XP tick, fill de progreso |
+
+---
+
+### Fase G — Ruta Spins
+
+| Entrega | Detalle |
+|---------|---------|
+| Activar ruta Spins en el hub | Ya no “Próximamente” |
+| Contenido Study | S-00–S-10 (steal, defensa, shove, push/fold, ICM call) |
+| Payout | Variable 2×/3×/5× en briefs de lección |
+| Cupo Free | Igual regla (1–2 lecciones Spins free) |
+
+---
+
+### Fase H — Ruta MTT + burbuja (Coach)
+
+| Entrega | Detalle |
+|---------|---------|
+| Contenido Study | T-00–T-10 (early/mid/short/push) |
+| Contenido Coach | T-13–T-18 burbuja/ITM + teasers visibles en Study |
+| Copy honestidad | Principios ICM, no solver de field completo |
+| Upsell | Nodos burbuja como gancho Coach |
+
+---
+
+### Fase I — Laboratorio de rangos + packs Pro
+
+| Entrega | Detalle |
+|---------|---------|
+| Quizzes matriz 13×13 | R-01–R-03 Study; R-04–R-06 Coach |
+| Pro Cash/Spins/MTT | C-26–C-31, S-14–S-17, T-19–T-22 |
+| Certificación interna | Badge de ruta completada (opcional share) |
+
+---
+
+### Fase J — Personalización y cierre del loop con leaks
+
+| Entrega | Detalle |
+|---------|---------|
+| Bridge leaks → lección | Desde Errores/Stats: “Practica en Escuela: C-15” |
+| Map `TRAINING_FOCUSES` → `lessonId` | Sustituye solo el drill random cuando exista lección |
+| A/B umbrales | Ajustar pass rate según datos reales |
+
+---
+
+### Resumen: orden de arranque
+
+| Orden | Fase | Pregunta que responde | ¿Usuario final lo ve? |
+|-------|------|------------------------|------------------------|
+| **1** | **A** Esqueleto menú admin | ¿Cabe en la app? | No (solo admin) |
+| **2** | **B** 1 lección E2E | ¿Funciona el runner + cupo? | No |
+| **3** | **C** M0 Cash | ¿Se siente como curso? | No |
+| **4** | **D** Gates + flag beta | ¿Monetiza y se puede beta? | Allowlist |
+| **5** | **E** GA menú + M1 | ¿Activa y convierte? | **Sí** |
+| 6 | F Postflop | ¿Retiene? | Sí |
+| 7 | G Spins | ¿Cubre formato 2? | Sí |
+| 8 | H MTT/burbuja | ¿Upsell Coach? | Sí |
+| 9 | I Rangos/Pro | ¿Diferencia Coach? | Sí |
+| 10 | J Leaks→Escuela | ¿Cierra el producto? | Sí |
+
+### Dependencias técnicas (checklist de ingeniería)
+
+| Necesidad | Fase mínima |
+|-----------|-------------|
+| Tab + `isAdmin` gate | A |
+| Spot runner scripted + decision-end | B |
+| Consumo cupo Free en lección | B |
+| Packs JSON + selftests de solución | B–C |
+| Progreso cloud `lessonProgress` | C |
+| `canPlayLesson` + badges plan | D |
+| Feature flag apertura | D–E |
+| Analytics embudo Escuela | D |
+| ICM/payout en briefs Spins/MTT | G–H |
 
 ---
 
@@ -680,17 +815,17 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 
 ### 15.3 Encaje con roadmap agosto 2026
 
-El estudio de producto prioriza activación (trial, import, bloque con resultado). La Academia **es** ese bloque con resultado — superior al calentamiento genérico 15 min — y debería listarse como iniciativa P0/P1 de crecimiento junto a trial UX, no como “más solver”.
+El estudio de producto prioriza activación (trial, import, bloque con resultado). **Escuela de Póker** es ese bloque con resultado — superior al calentamiento genérico 15 min — y debería listarse como iniciativa P0/P1 de crecimiento junto a trial UX, no como “más solver”. Arranque admin-only (Fases A–C) reduce riesgo de UX a medias.
 
 ---
 
-## 16. Glosario y decisiones abiertas
+## 16. Glosario y decisiones
 
 ### 16.1 Glosario de producto
 
 | Término | Significado |
 |---------|-------------|
-| **Academia** | Nombre propuesto de la superficie de lecciones |
+| **Escuela de Póker** | Nombre del menú / superficie de lecciones |
 | **Ruta** | Cash / Spins / MTT (/ Rangos) |
 | **Lección** | Teoría + ejemplos + sesión dirigida |
 | **Spot pack** | Lista ordenada/barajada de spots fijos |
@@ -699,14 +834,18 @@ El estudio de producto prioriza activación (trial, import, bloque con resultado
 | **Study / Coach** | Planes de suscripción |
 | **IA Coach** | Asistente Gemini, no el plan |
 
-### 16.2 Decisiones abiertas (para producto)
+### 16.2 Decisiones cerradas
 
-1. ¿Nombre final: **Academia**, **Ruta de estudio**, **Lecciones**?  
-2. ¿Manos de lección consumen cupo Free trainer o tienen cupo propio?  
-3. ¿Spins/MTT se abren desde día 1 o tras C-02 Cash? (recomendado: día 1 independientes + CTA a Cash).  
-4. ¿Exámenes de módulo obligatorios u opcionales para avanzar? (recomendado: obligatorios).  
-5. ¿Mostrar solución GTO freqs en fundaciones o solo acción correcta? (recomendado: acción + tip; freqs desde intermedio).  
-6. ¿Certificados compartibles al completar ruta Coach? (alto valor marketing).
+1. Nombre de menú: **Escuela de Póker**.  
+2. Manos de lección **consumen cupo Free** del trainer (15/día).  
+3. Visibilidad inicial: **solo administrador**; apertura en Fase E (o beta allowlist en D).
+
+### 16.3 Decisiones aún abiertas
+
+1. ¿Spins/MTT se abren desde el hub en GA o tras completar C-02 Cash? (recomendado: visibles en hub, CTA a Cash).  
+2. ¿Exámenes de módulo obligatorios u opcionales? (recomendado: obligatorios).  
+3. ¿En fundaciones: solo acción correcta + tip, o también frecuencias? (recomendado: tip; freqs desde intermedio).  
+4. ¿Certificados compartibles al completar ruta Coach?
 
 ---
 
@@ -752,8 +891,8 @@ spot_pack: cash-cbet-ip-dry-v1
 
 La Guía básica (8 secciones + 4 mini-drills) **no se elimina**: se convierte en material de apoyo y se mapea a lecciones:
 
-| Sección Guía | Lección Academia |
-|--------------|------------------|
+| Sección Guía | Lección Escuela |
+|--------------|-----------------|
 | Hold'em / manos / posiciones | C-00, C-01 |
 | Acciones / RFI / 3-bet | C-02, C-06 |
 | GTO intro | C-00 + tip en M1 |
@@ -764,4 +903,4 @@ La Guía básica (8 secciones + 4 mini-drills) **no se elimina**: se convierte e
 
 ---
 
-*Fin del estudio. Próximo paso natural tras validación de producto: Fase 0 wireframes + contrato JSON de SpotPack, aún sin lógica de motor hasta cerrar el brief de las 4 primeras lecciones Cash.*
+*Fin del estudio. **Siguiente paso de implementación:** Fase A (menú Escuela de Póker solo admin) y, en cuanto el shell exista, Fase B (C-02 RFI end-to-end con cupo Free).*
