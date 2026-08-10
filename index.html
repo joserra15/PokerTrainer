@@ -621,9 +621,21 @@
             <button type="button" class="setup-chip" data-val="iso" data-sc-cash>Iso limp</button>
             <button type="button" class="setup-chip" data-val="bbvsb">BB vs SB</button>
             <button type="button" class="setup-chip" data-val="cold4bet" data-sc-cash>Cold 4-Bet</button>
+            <button type="button" class="setup-chip" data-val="multiway" data-sc-cash data-sc-mtt>Multiway</button>
             <button type="button" class="setup-chip" data-val="push" data-sc-spin data-sc-mtt hidden>Push/fold</button>
             <button type="button" class="setup-chip" data-val="steal" data-sc-spin data-sc-mtt hidden>Steal</button>
           </div>
+        </div>
+
+        <div class="setup-group" id="setup-multiway-type-wrap" hidden>
+          <span class="setup-label">Tipo de bote multiway</span>
+          <div class="setup-chips" id="setup-multiway-pot-type">
+            <button type="button" class="setup-chip active" data-val="any">Cualquiera</button>
+            <button type="button" class="setup-chip" data-val="srp3way">SRP 3-way</button>
+            <button type="button" class="setup-chip" data-val="srp4way">SRP 4-way</button>
+            <button type="button" class="setup-chip" data-val="limpPot">Limp pot</button>
+          </div>
+          <p class="muted-text setup-hint">Las cartas de cada villano se muestrean según su rol (open/cold-call/limp) y perfil.</p>
         </div>
 
         <div class="setup-group">

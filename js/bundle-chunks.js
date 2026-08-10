@@ -49,6 +49,7 @@
     'js/engine/evaluateSpot.js',
     'js/engine/villainProfiles.js',
     'js/engine/villainPreflop.js',
+    'js/engine/multiway.js',
     'js/engine/stacks.js'
   ];
 

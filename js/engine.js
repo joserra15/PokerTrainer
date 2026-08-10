@@ -13,6 +13,7 @@
   const VT = global.GTOVillainTracking;
   const VP = global.GTOVillainProfiles;
   const VPF = global.GTOVillainPreflop;
+  const MW = function () { return global.GTOMultiway; };
   const ST = function () { return global.PTStacks; };
 
   // --- Parámetros de juego (en ciegas grandes) ---
@@ -595,6 +596,10 @@
   /** Deja en mesa solo héroe y villano activo (oculta ciegas y resto en UI). */
   function syncTableToActivePot(hand) {
     if (!hand.table || !hand.hero.pos) return;
+    if (hand.multiway && MW() && MW().allowMultiway(hand)) {
+      MW().syncTableToMultiwayPot(hand, hand._callersAtFlop || []);
+      return;
+    }
     const heroSeat = heroTableSeat(hand);
     const vSeat = villainTableSeat(hand);
     const alive = new Set([heroSeat]);
@@ -605,6 +610,10 @@
   }
 
   function resolvePendingAfterHero(hand) {
+    if (hand.multiway && MW() && MW().allowMultiway(hand)) {
+      MW().syncTableToMultiwayPot(hand, hand._callersAtFlop || []);
+      return;
+    }
     const order = preflopOrderForHand(hand);
     const heroSeat = heroTableSeat(hand);
     const vSeat = villainTableSeat(hand);
@@ -737,11 +746,28 @@
     initVillainTracker(hand);
     hand.villainInvested = openSize;
     hand.heroInvested = openSize;
-    hand._callersAtFlop = callers.filter(function (c) { return c !== villainPos; });
+    const extras = callers.filter(function (c) { return c !== villainPos; });
+    hand._callersAtFlop = extras;
+    if (MW() && MW().allowMultiway(hand) && callers.length >= 2) {
+      MW().markMultiwayHand(hand, callers.length >= 3 ? 'srp4way' : 'srp3way', extras);
+    }
     recalcPot(hand);
-    hand.heroInPosition = inPos(hand.hero.pos, villainPos);
+    hand.heroInPosition = heroIpMultiway(hand);
     setVillainAct(hand, 'call', openSize);
     return { type: 'goFlop' };
+  }
+
+  function heroIpMultiway(hand) {
+    if (!MW() || !hand.multiway) {
+      return hand.villain && hand.villain.pos ? inPos(hand.hero.pos, hand.villain.pos) : false;
+    }
+    const order = MW().postflopOrderFor(hand);
+    const alive = MW().aliveSeats(hand);
+    let last = null;
+    order.forEach(function (p) {
+      if (alive.indexOf(p) >= 0) last = p;
+    });
+    return last === hand.hero.pos;
   }
 
   function limperDefendVsIso(hand, limperPos, isoSize) {
@@ -1056,6 +1082,11 @@
       availableActions,
       betSizeBB: opt && opt.size != null ? opt.size : (chosenAction === 'raise' ? round2((node.toCallBB || 0) * 3) : 0)
     };
+    if (hand.multiway || (MW() && MW().aliveCount(hand) >= 3)) {
+      input.multiway = true;
+      input.potType = hand.potType || 'srp3way';
+      input.aliveCount = MW() ? MW().aliveCount(hand) : 3;
+    }
     if (s.type === 'vsRFI' && node.street === 'preflop') {
       input.vsRfiKey = s.key;
       input.vsPosition = parseVsKey(s.key).opener;
@@ -1132,8 +1163,81 @@
     return {
       street: hand.stage,
       tier: info.tier,
-      madeCategory: info.ev ? info.ev.category : 0
+      madeCategory: info.ev ? info.ev.category : 0,
+      multiway: !!(hand.multiway || (MW() && MW().aliveCount(hand) >= 3))
     };
+  }
+
+  /** Respuesta de un oponente concreto (multiway) ante apuesta del héroe. */
+  function opponentFacingHeroBet(hand, pos, toCallBB) {
+    const profile = profileFor(hand, pos);
+    const cards = (hand.table.holeCards[pos]) || null;
+    const info = cards ? classifyMadeHand(cards, hand.board) : { tier: 'weak', ev: { category: 0 } };
+    const eq = cards
+      ? equityVsRange(cards, hand.board, hand.villain.rangeStr || GTO.Ranges.data.BROAD_CONTINUE, 120, { street: hand.stage })
+      : null;
+    const strength = villainPostflopStrength(info, eq);
+    const potBefore = Math.max(hand.potBB - toCallBB, 0.1);
+    const potOdds = toCallBB > 0 ? toCallBB / (potBefore + toCallBB) : 0.33;
+    const rnd = C.rng.random();
+    const pfOpts = villainPostflopOpts(hand, info);
+    if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd, pfOpts);
+    if (strength > potOdds + 0.08) return 'call';
+    return strength > potOdds - 0.05 ? (rnd < 0.45 ? 'call' : 'fold') : 'fold';
+  }
+
+  /**
+   * Tras apuesta del héroe en multiway: cada oponente vivo actúa en orden.
+   * Retorna { type: 'foldWin'|'raise'|'called'|'allFolded' , raiser?, raiseSize? }
+   */
+  function resolveMultiwayFacingHeroBet(hand, betSize) {
+    const order = MW() ? MW().postflopOrderFor(hand) : POSTFLOP_ORDER;
+    const hero = hand.hero.pos;
+    const alive = MW() ? MW().aliveSeats(hand).filter(function (p) { return p !== hero; }) : [hand.villain.pos];
+    let callers = 0;
+    let raiser = null;
+    let raiseSize = 0;
+    for (let i = 0; i < order.length; i++) {
+      const pos = order[i];
+      if (alive.indexOf(pos) < 0) continue;
+      if (raiser) break;
+      const act = opponentFacingHeroBet(hand, pos, betSize);
+      if (act === 'fold') {
+        markFolded(hand, pos);
+        setSeatAction(hand, pos, 'fold', null);
+        continue;
+      }
+      if (act === 'raise') {
+        raiseSize = capBetForSeat(hand, pos, round2(betSize * 3));
+        if (raiseSize <= betSize) raiseSize = capBetForSeat(hand, pos, betSize);
+        const add = seatToCall(hand, pos, raiseSize);
+        if (add > 0) addInvest(hand, pos, add);
+        hand.potBB = round2(hand.potBB + add);
+        setSeatAction(hand, pos, 'raise', raiseSize);
+        if (pos === hand.villain.pos) {
+          hand.villainInvested = round2((hand.villainInvested || 0) + add);
+          setVillainAct(hand, 'raise', raiseSize);
+        }
+        raiser = pos;
+        break;
+      }
+      // call
+      const pay = capBetForSeat(hand, pos, betSize);
+      const addC = seatToCall(hand, pos, pay);
+      if (addC > 0) addInvest(hand, pos, addC);
+      hand.potBB = round2(hand.potBB + addC);
+      setSeatAction(hand, pos, 'call', pay);
+      if (pos === hand.villain.pos) {
+        hand.villainInvested = round2((hand.villainInvested || 0) + addC);
+        setVillainAct(hand, 'call', pay);
+      }
+      callers++;
+    }
+    if (MW()) MW().syncOpponents(hand);
+    const left = MW() ? MW().aliveSeats(hand).filter(function (p) { return p !== hero; }) : [];
+    if (raiser) return { type: 'raise', raiser: raiser, raiseSize: raiseSize };
+    if (!left.length) return { type: 'foldWin' };
+    return { type: 'called', callers: callers };
   }
 
   function villainPostflopAction(hand, node) {
@@ -1260,6 +1364,7 @@
     if (s.type === 'bbVsSbLimp') return 'BB';
     if (s.type === 'sbLimp') return 'SB';
     if (s.type === 'cold4bet') return s.heroPos || 'CO';
+    if (s.type === 'srp3way' || s.type === 'srp4way' || s.type === 'limpPot') return s.heroPos || 'BB';
     return s.heroPos;
   }
 
@@ -1377,6 +1482,11 @@
       const vsKey = vPos + '_vs_' + (scenario.openerPos || 'UTG');
       const d = R.VS_RFI[vsKey];
       vRange = d ? (d.threeBet + ', ' + (d.threeBetMix || '')) : 'QQ+, AKs, AKo';
+    } else if (scenario.type === 'srp3way' || scenario.type === 'srp4way' || scenario.type === 'limpPot') {
+      vPos = scenario.openerPos || scenario.limperPos || 'CO';
+      vRange = scenario.type === 'limpPot'
+        ? LIMP_RANGE
+        : openRangeStr(vPos, { playConfig: playConfig });
     } else {
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
@@ -1420,6 +1530,9 @@
     else if (scenario.type === 'bbVsSbLimp') setupBbVsSbLimp(hand);
     else if (scenario.type === 'sbLimp') setupSbLimp(hand);
     else if (scenario.type === 'cold4bet') setupCold4betInitial(hand);
+    else if (scenario.type === 'srp3way' || scenario.type === 'srp4way') setupSrpMultiway(hand);
+    else if (scenario.type === 'limpPot') setupLimpMultiway(hand);
+    else if (scenario.type === 'squeezeMulti') setupSqueeze(hand);
     else setupVsRFI(hand);
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
@@ -1433,6 +1546,10 @@
     }
     if (force && force.forceScript) initForceScript(hand, force.forceScript);
     applyAnteToHand(hand);
+    if (hand._autoGoFlop) {
+      delete hand._autoGoFlop;
+      goFlop(hand);
+    }
     return hand;
   }
 
@@ -1471,6 +1588,158 @@
   }
 
   function inPos(a, b) { return POSTFLOP_ORDER.indexOf(a) > POSTFLOP_ORDER.indexOf(b); }
+
+  /** SRP multiway dedicado: open + cold-call(s) + hero (BB u otra seat). */
+  function setupSrpMultiway(hand) {
+    const s = hand.scenario;
+    const opener = s.openerPos || 'CO';
+    const callers = (s.callerPositions || (s.callerPos ? [s.callerPos] : ['BTN'])).slice();
+    const heroPos = s.heroPos || s.engineHeroPos || 'BB';
+    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    hand.hero.pos = heroPos;
+    hand.villain.pos = opener;
+    ensureOpenerOpenHand(hand, opener);
+    hand.villain.rangeStr = openRangeStr(opener, hand);
+    initVillainTracker(hand);
+
+    // Folds previos al open
+    const order = preflopOrderForHand(hand);
+    const openerIdx = order.indexOf(opener);
+    order.forEach(function (pos, i) {
+      if (i < openerIdx && pos !== heroPos && callers.indexOf(pos) < 0) markFolded(hand, pos);
+    });
+
+    setPreflopSeatBet(hand, opener, openSize);
+    addInvest(hand, opener, openSize - (opener === 'SB' ? SB : (opener === 'BB' ? BBET : 0)));
+    setSeatAction(hand, opener, 'raise', openSize);
+
+    callers.forEach(function (cPos) {
+      if (cPos === heroPos) return;
+      if (hand.table.folded[cPos]) hand.table.folded[cPos] = false;
+      hand.table.inHand.add(cPos);
+      const add = seatToCall(hand, cPos, openSize);
+      if (add > 0) addInvest(hand, cPos, add);
+      setPreflopSeatBet(hand, cPos, openSize);
+      setSeatAction(hand, cPos, 'call', openSize);
+    });
+
+    const heroBlind = heroPos === 'SB' ? SB : (heroPos === 'BB' ? BBET : 0);
+    hand.heroInvested = heroBlind;
+    hand.villainInvested = openSize;
+    recalcPot(hand);
+
+    // Si practiceStreet es preflop y hero aún no ha igualado: decisión vs open+callers
+    const toCall = round2(openSize - heroBlind);
+    if (toCall > 0.01 && (heroPos === 'BB' || heroPos === 'SB' || order.indexOf(heroPos) > order.indexOf(callers[callers.length - 1] || opener))) {
+      const freqs = strategyForNode(hand, { street: 'preflop', kind: 'vsRFI', potBB: hand.potBB, toCallBB: toCall });
+      hand.current = {
+        street: 'preflop',
+        kind: 'vsRFI',
+        potBB: hand.potBB,
+        toCallBB: toCall,
+        openSize: openSize,
+        options: [
+          { id: 'fold', label: 'Fold' },
+          { id: 'call', label: `Call (${toCall}bb)` },
+          { id: 'raise', label: `3-Bet a ${round2(openSize * 3.5)}bb` }
+        ],
+        gto: freqs,
+        context: `Bote multiway: ${opener} abre, ${callers.join('+')} pagan. Eres ${heroPos}.`
+      };
+      hand._multiwayPendingCallers = callers.slice();
+      return;
+    }
+
+    // Ya estamos listos para flop (hero ya en pot)
+    hand.heroInvested = openSize;
+    const heroAdd = seatToCall(hand, heroPos, openSize);
+    if (heroAdd > 0) addInvest(hand, heroPos, heroAdd);
+    setSeatAction(hand, heroPos, 'call', openSize);
+    recalcPot(hand);
+    hand.heroIsAggressor = false;
+    const extras = callers.filter(function (c) { return c !== opener; });
+    MW() && MW().markMultiwayHand(hand, s.type === 'srp4way' || callers.length >= 2 ? 'srp4way' : 'srp3way', extras);
+    hand.heroInPosition = heroIpMultiway(hand);
+    hand.current = {
+      street: 'preflop',
+      kind: 'multiwayReady',
+      potBB: hand.potBB,
+      toCallBB: 0,
+      options: [{ id: 'call', label: 'Ir al flop' }],
+      gto: { call: 1 },
+      context: `SRP multiway listo (${MW() ? MW().aliveCount(hand) : 3}-way).`
+    };
+    // Auto-advance al flop en act si kind multiwayReady — mejor: ir directo
+    hand._autoGoFlop = true;
+  }
+
+  function setupLimpMultiway(hand) {
+    const s = hand.scenario;
+    const limpers = (s.limperPositions || (s.limperPos ? [s.limperPos] : ['UTG', 'HJ'])).slice();
+    const heroPos = s.heroPos || 'BB';
+    hand.hero.pos = heroPos;
+    hand.villain.pos = limpers[0];
+    hand.villain.rangeStr = LIMP_RANGE;
+    initVillainTracker(hand);
+
+    limpers.forEach(function (lp) {
+      hand.table.folded[lp] = false;
+      hand.table.inHand.add(lp);
+      const add = seatToCall(hand, lp, BBET);
+      if (add > 0) addInvest(hand, lp, add);
+      setPreflopSeatBet(hand, lp, BBET);
+      setSeatAction(hand, lp, 'call', BBET);
+    });
+
+    // Folds who didn't limp before hero
+    const order = preflopOrderForHand(hand);
+    order.forEach(function (pos) {
+      if (pos === heroPos || limpers.indexOf(pos) >= 0 || pos === 'BB' || pos === 'SB') return;
+      if (order.indexOf(pos) < order.indexOf(limpers[0])) markFolded(hand, pos);
+      else if (limpers.indexOf(pos) < 0 && pos !== heroPos) markFolded(hand, pos);
+    });
+
+    hand.heroInvested = heroPos === 'SB' ? SB : BBET;
+    hand.villainInvested = BBET;
+    recalcPot(hand);
+    const extras = limpers.filter(function (p) { return p !== hand.villain.pos; });
+    if (heroPos === 'BB') {
+      // BB can check → limp pot
+      hand.heroIsAggressor = false;
+      MW() && MW().markMultiwayHand(hand, 'limpPot', extras.concat(heroPos === 'BB' ? [] : ['BB']).filter(Boolean));
+      // Ensure BB in hand
+      hand.table.folded.BB = false;
+      hand.table.inHand.add('BB');
+      hand.heroInPosition = heroIpMultiway(hand);
+      hand._autoGoFlop = true;
+      hand.current = {
+        street: 'preflop',
+        kind: 'multiwayReady',
+        potBB: hand.potBB,
+        toCallBB: 0,
+        options: [{ id: 'check', label: 'Check / ir al flop' }],
+        gto: { check: 1 },
+        context: `Limp pot multiway (${limpers.join('+')} limp). Eres BB.`
+      };
+      return;
+    }
+    const toCall = round2(BBET - (heroPos === 'SB' ? SB : 0));
+    hand.current = {
+      street: 'preflop',
+      kind: 'isoLimp',
+      potBB: hand.potBB,
+      toCallBB: toCall,
+      isoSize: round2(BBET * 3.5),
+      options: [
+        { id: 'fold', label: 'Fold' },
+        { id: 'call', label: 'Overlimp' },
+        { id: 'raise', label: `Iso a ${round2(BBET * 3.5)}bb` }
+      ],
+      gto: strategyForNode(hand, { street: 'preflop', kind: 'isoLimp', potBB: hand.potBB, toCallBB: toCall }),
+      context: `Varios limps (${limpers.join('+')}). Eres ${heroPos}.`
+    };
+    hand._multiwayPendingCallers = limpers.slice();
+  }
 
   function setupRFI(hand) {
     const pos = scenarioHeroPos(hand);
@@ -1697,6 +1966,14 @@
   function advancePreflop(hand, actionId, decision) {
     const node = hand.current;
 
+    if (node.kind === 'multiwayReady') {
+      setHeroAct(hand, actionId === 'check' ? 'check' : 'call', 0);
+      if (hand._multiwayPendingCallers && MW()) {
+        MW().markMultiwayHand(hand, hand.potType || hand.scenario.type || 'srp3way', hand._multiwayPendingCallers);
+      }
+      return goFlop(hand);
+    }
+
     if (node.kind === 'squeeze') {
       const heroBlind = hand.heroInvested; // ciega puesta antes de actuar
       if (actionId === 'fold') {
@@ -1710,7 +1987,11 @@
         hand.villainInvested = node.openSize;
         hand.potBB = round2(node.openSize * 2 + node.openSize + SB); // + dinero muerto del pagador
         hand.heroInPosition = inPos(hand.hero.pos, hand.villain.pos);
-        if (hand.scenario.callerPos) markFolded(hand, hand.scenario.callerPos);
+        if (hand.scenario.callerPos && !(MW() && MW().allowMultiway(hand))) {
+          markFolded(hand, hand.scenario.callerPos);
+        } else if (hand.scenario.callerPos && MW() && MW().allowMultiway(hand)) {
+          MW().markMultiwayHand(hand, 'squeezeMulti', [hand.scenario.callerPos]);
+        }
         return goFlop(hand);
       }
       // squeeze (3-bet)
@@ -1763,7 +2044,10 @@
       hand.villainInvested = round2((hand.villainInvested || 0) + openerAdd);
       if (openerAdd > 0) addInvest(hand, hand.villain.pos, openerAdd);
       hand.potBB = round2(hand.potBB + squeezeAdd + openerAdd + (callerIn ? seatToCall(hand, callerPos, node.squeezeSize) : 0));
-      hand.heroInPosition = inPos(hand.hero.pos, hand.villain.pos);
+      if (callerIn && callerPos && MW() && MW().allowMultiway(hand)) {
+        MW().markMultiwayHand(hand, 'squeezeMulti', [callerPos]);
+      }
+      hand.heroInPosition = hand.multiway ? heroIpMultiway(hand) : inPos(hand.hero.pos, hand.villain.pos);
       if (callerPos && !callerIn) markFolded(hand, callerPos);
       return goFlop(hand);
     }
@@ -1775,14 +2059,22 @@
       }
       hand.villain.cards = villainHoleCards(hand);
       if (actionId === 'call') {
-        // over-limp: bote multivía sin agresor, se simplifica a HU vs limper
+        // over-limp: bote multiway pasivo (limper + hero + BB si sigue)
         setHeroAct(hand, 'call', node.toCallBB);
         hand.heroIsAggressor = false;
         hand.heroInvested = BBET;
         hand.villainInvested = BBET;
         hand.potBB = round2(BBET * 2 + SB);
         hand.heroInPosition = inPos(hand.hero.pos, hand.villain.pos);
-        resolvePendingAfterHero(hand);
+        if (MW() && MW().allowMultiway(hand) && hand.hero.pos !== 'BB' && hand.table && !hand.table.folded.BB) {
+          const extras = ['BB'];
+          if (hand.villain.pos !== 'BB') {
+            MW().markMultiwayHand(hand, 'limpPot', extras.filter(function (p) { return p !== hand.villain.pos; }));
+            addInvest(hand, 'BB', 0); // ya tiene ciega
+          }
+        } else {
+          resolvePendingAfterHero(hand);
+        }
         return goFlop(hand);
       }
       // aislar con subida
@@ -1903,7 +2195,16 @@
     }
 
     if (node.kind === 'vsRFI') {
-      const { hero, opener } = parseVsKey(hand.scenario.key);
+      let hero = hand.hero.pos;
+      let opener = hand.villain.pos;
+      if (hand.scenario && hand.scenario.key) {
+        const pk = parseVsKey(hand.scenario.key);
+        hero = pk.hero || hero;
+        opener = pk.opener || opener;
+      } else if (hand.scenario) {
+        hero = hand.scenario.heroPos || hero;
+        opener = hand.scenario.openerPos || opener;
+      }
       if (actionId === 'fold') {
         return finish(hand, { reason: 'Te retiras ante la subida.', heroNet: -(hand.heroInvested || 0) });
       }
@@ -1917,7 +2218,18 @@
         hand.potBB = round2(node.openSize * 2 + (hero === 'BB' ? 0 : SB) + (['SB', 'BB'].includes(hero) ? 0 : 0) + (opener === 'SB' ? 0 : 0));
         hand.potBB = round2(node.openSize * 2 + SB); // ciega muerta aprox
         hand.heroInPosition = inPos(hero, opener);
-        resolvePendingAfterHero(hand);
+        if (hand._multiwayPendingCallers && hand._multiwayPendingCallers.length && MW() && MW().allowMultiway(hand)) {
+          const extras = hand._multiwayPendingCallers.filter(function (c) { return c !== opener && c !== hero; });
+          extras.forEach(function (c) {
+            if (hand.table.folded[c]) hand.table.folded[c] = false;
+            hand.table.inHand.add(c);
+          });
+          MW().markMultiwayHand(hand, extras.length >= 2 ? 'srp4way' : 'srp3way', extras);
+          hand.heroInPosition = heroIpMultiway(hand);
+          delete hand._multiwayPendingCallers;
+        } else {
+          resolvePendingAfterHero(hand);
+        }
         return goFlop(hand);
       }
       // 3-bet
@@ -2324,14 +2636,24 @@
   // ----- Transición a flop / showdown (usa el board pre-repartido) -----
   function goFlop(hand) {
     const vSeat = villainTableSeat(hand) || hand.villain.pos;
+    const keepMulti = !!(hand.multiway && MW() && MW().allowMultiway(hand));
     if (hand._callersAtFlop && hand._callersAtFlop.length) {
-      // El pagador del squeeze puede pasar a ser el villano si el abridor foldea; no marcarlo fold.
-      hand._callersAtFlop.forEach(function (pos) {
-        if (pos !== vSeat) markFolded(hand, pos);
-      });
-      delete hand._callersAtFlop;
+      if (keepMulti) {
+        MW().syncTableToMultiwayPot(hand, hand._callersAtFlop);
+      } else {
+        // El pagador del squeeze puede pasar a ser el villano si el abridor foldea; no marcarlo fold.
+        hand._callersAtFlop.forEach(function (pos) {
+          if (pos !== vSeat) markFolded(hand, pos);
+        });
+      }
+      if (!keepMulti) delete hand._callersAtFlop;
     }
-    syncTableToActivePot(hand);
+    if (keepMulti) {
+      MW().syncTableToMultiwayPot(hand, hand._callersAtFlop || []);
+      MW().syncOpponents(hand);
+    } else {
+      syncTableToActivePot(hand);
+    }
     syncVillainMeta(hand);
     hand.stage = 'flop';
     hand.villain.cards = villainHoleCards(hand);
@@ -2339,6 +2661,7 @@
     resetStreetBets(hand);
     hand.board = hand._predeal.board.slice(0, 3);
     hand._boardIdx = 3;
+    if (hand.multiway) hand.heroInPosition = heroIpMultiway(hand);
     return enterStreet(hand);
   }
 
@@ -2424,7 +2747,17 @@
         tags: []
       })
       : baseRange;
-    const heroEquity = GTO.computeHeroEquity
+    const heroEquity = (hand.multiway && MW() && GTO.Equity && GTO.Equity.equityVsN)
+      ? GTO.Equity.equityVsN(
+        hand.hero.cards,
+        hand.board,
+        (hand.opponents || MW().buildOpponents(hand)).map(function (o) {
+          return o.cards ? { cards: o.cards } : { rangeStr: o.rangeStr || baseRange };
+        }),
+        220,
+        { street: street, facingBet: !!toCallBB }
+      )
+      : (GTO.computeHeroEquity
       ? GTO.computeHeroEquity({
         street, board: hand.board.slice(), heroCards: hand.hero.cards,
         villainRange, potBB: hand.potBB, toCallBB, potBeforeBB,
@@ -2434,7 +2767,7 @@
       })
       : equityVsRange(hand.hero.cards, hand.board, villainRange, 400, {
         street, facingBet: !!toCallBB
-      });
+      }));
 
     let options, heroLastAction = null, context;
     const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
@@ -2465,6 +2798,10 @@
         }
       });
       context = `${capitalize(street)}: bote ${fmt(hand.potBB)}bb · stack ${fmt(effStackForHand(hand))}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
+      if (hand.multiway) {
+        const n = MW() ? MW().aliveCount(hand) : 3;
+        context += ` Bote multiway (${n}-way${hand.potType ? ', ' + hand.potType : ''}): c-bet más selectivo, menos faroles.`;
+      }
       if (hand.heroIsAggressor) {
         const priorLead = heroLedOnPriorStreets(hand, street);
         const leadLabel = (global.GTOSpotKey && global.GTOSpotKey.aggressorLeadLabel)
@@ -2521,6 +2858,21 @@
       if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, betSize);
       node.heroLastAction = 'bet';
       setHeroAct(hand, heroShoved ? 'allin' : 'bet', betSize);
+      if (hand.multiway && MW() && MW().aliveCount(hand) >= 3) {
+        const mw = resolveMultiwayFacingHeroBet(hand, betSize);
+        if (mw.type === 'foldWin') {
+          return finish(hand, { reason: `Todos foldean ante tu apuesta en ${node.street} (multiway).`, heroNet: round2(hand.potBB - betSize) });
+        }
+        if (mw.type === 'raise') {
+          hand.villain.pos = mw.raiser;
+          hand.villain.cards = villainHoleCards(hand);
+          syncVillainMeta(hand);
+          if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
+          return buildPostflopNode(hand, node.street, { bet: round2(mw.raiseSize), potBefore: hand.potBB });
+        }
+        if (heroShoved || noMoreBetting(hand)) return prepareAllInRunout(hand);
+        return nextStreet(hand);
+      }
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'fold') { setVillainAct(hand, 'fold'); return finish(hand, { reason: `El villano foldea ante tu apuesta en ${node.street}.`, heroNet: round2(hand.potBB - betSize) }); }
       if (vAct === 'raise') {
@@ -2609,6 +2961,10 @@
 
   // ----- Showdown -----
   function showdown(hand) {
+    if (hand.multiway && MW() && MW().aliveCount(hand) >= 3) {
+      const res = MW().resolveShowdown(hand, C);
+      return finish(hand, res);
+    }
     if (!hand.villain.cards) {
       return finish(hand, { reason: 'Mano terminada sin showdown.', heroNet: round2(hand.potBB / 2) });
     }
@@ -2620,7 +2976,6 @@
     const vScore = C.evaluate(hand.villain.cards.concat(hand.board));
     const cmp = C.compare(hScore, vScore);
     let net;
-    const won = hand.potBB - hand.heroInvested; // lo que ganaría además de lo invertido
     if (cmp > 0) net = round2(hand.potBB - hand.heroInvested);
     else if (cmp < 0) net = -round2(hand.heroInvested);
     else net = round2((hand.potBB / 2) - hand.heroInvested);
@@ -2636,7 +2991,11 @@
   }
 
   function finish(hand, res) {
-    syncTableToActivePot(hand);
+    if (hand.multiway && MW() && MW().allowMultiway(hand)) {
+      MW().syncTableToMultiwayPot(hand, hand._callersAtFlop || []);
+    } else {
+      syncTableToActivePot(hand);
+    }
     hand.stage = 'complete';
     hand.replaySnapshot = {
       scenario: Object.assign({}, hand.scenario || {}),
@@ -2644,7 +3003,9 @@
       playConfig: hand.playConfig ? Object.assign({}, hand.playConfig) : null,
       displayHeroPos: hand.displayHeroPos || null,
       forceDeal: cloneForceDeal(hand.forceDeal),
-      forceScript: cloneForceScript(hand.forceScript)
+      forceScript: cloneForceScript(hand.forceScript),
+      multiway: !!hand.multiway,
+      potType: hand.potType || null
     };
     const totalEvLoss = erroneousEvLoss(hand);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');
@@ -2652,6 +3013,7 @@
       ? global.GTOScoring.scoreHand(hand.decisions, totalEvLoss)
       : { score: totalEvLoss <= 0.01 && !errors.length ? 10 : 0, allOptimal: !errors.length, allGood: !errors.length };
     hand.current = null;
+    if (MW()) MW().syncOpponents(hand);
     hand.result = Object.assign({
       heroNet: 0, showdown: false, totalEvLoss,
       nErrors: errors.length,
@@ -2663,7 +3025,11 @@
       villainProfileShort: hand.villain.profileShort,
       board: hand.board.slice(),
       villainRangeSummary: VT ? VT.buildHandSummary(hand.villainRangeTracker) : null,
-      villainRangeLog: hand.villainRangeTracker ? hand.villainRangeTracker.log.slice() : []
+      villainRangeLog: hand.villainRangeTracker ? hand.villainRangeTracker.log.slice() : [],
+      multiway: !!hand.multiway,
+      potType: hand.potType || 'hu',
+      opponents: hand.opponents || null,
+      aliveCount: MW() ? MW().aliveCount(hand) : 2
     }, res);
     hand.handScore = handScoreMeta.score;
     hand.handScoreMeta = handScoreMeta;
@@ -2879,6 +3245,10 @@
     handStrength01, equityVsRange, classifyMadeHand, sampleHandFromRange,
     rfiStrategy, vsRfiStrategy, classify,
     postflopStrategy, boardTexture, preflopEvLoss, postflopEvLoss, round2,
-    buildMatrixInput
+    buildMatrixInput,
+    // multiway
+    goFlopForTest: goFlop,
+    multiwayAliveCount: function (hand) { return MW() ? MW().aliveCount(hand) : 0; },
+    allowMultiway: function (hand) { return MW() ? MW().allowMultiway(hand) : false; }
   };
 })(window);

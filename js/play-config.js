@@ -115,7 +115,11 @@
     /** 'none' | 'standard' | 'custom' — rake estimado en EV/pot odds */
     rakeMode: 'none',
     rakePct: 5,
-    rakeCapBB: 3
+    rakeCapBB: 3,
+    /** Permitir botes multiway (default on en random/cash) */
+    allowMultiway: true,
+    /** any | srp3way | srp4way | limpPot — solo si scenario=multiway */
+    multiwayPotType: 'any'
   };
 
   const RAKE_LS_KEY = 'pt_rake_prefs';
@@ -255,6 +259,11 @@
     if (c.rakeMode === 'standard') {
       c.rakePct = STANDARD_RAKE.pct;
       c.rakeCapBB = STANDARD_RAKE.capBB;
+    }
+    if (c.allowMultiway == null) c.allowMultiway = true;
+    c.allowMultiway = !!c.allowMultiway;
+    if (c.multiwayPotType !== 'srp3way' && c.multiwayPotType !== 'srp4way' && c.multiwayPotType !== 'limpPot') {
+      c.multiwayPotType = 'any';
     }
     return c;
   }
@@ -637,13 +646,54 @@
 
   /** Pagador en squeeze: rango de call, no cartas aleatorias. */
   function sampleCallerWeights(scenario, config) {
-    if (scenario.type !== 'squeeze' || !scenario.callerPos) return {};
+    if (scenario.type !== 'squeeze' && scenario.type !== 'squeezeMulti') return {};
+    if (!scenario.callerPos) return {};
     const reg = RR();
     const data = reg
       ? reg.getSqueezeRow(scenario.heroPos, scenario.openerPos, scenario.callerPos, config || {})
       : D.SQUEEZE;
     if (!data) return {};
     return W.fromSets({ call: data.call, callMix: data.callMix });
+  }
+
+  /** Cold-call / overcall weights modulados por perfil (modo multiway). */
+  function sampleColdCallWeights(openerPos, callerPos, config, profileId) {
+    const reg = RR();
+    const vsKey = callerPos + '_vs_' + openerPos;
+    const d = vsRfiTable(config || {})[vsKey] || (reg ? reg.getVsRfiRow(callerPos, openerPos, config) : null);
+    let weights = {};
+    if (d && W) {
+      weights = W.fromSets({ call: d.call, callMix: d.callMix });
+    } else if (W) {
+      weights = W.fromSets({ call: '22+, A2s+, K9s+, QTs+, JTs, T9s, 98s, 87s, ATo+, KJo+, QJo' });
+    }
+    const id = profileId || 'tag';
+    if (id === 'fish' || id === 'maniac' || id === 'lag') {
+      if (W) {
+        const wide = W.fromSets({ call: '22+, A2s+, K7s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A9o+, KTo+, QTo+, JTo, T9o' });
+        Object.keys(wide).forEach(function (k) {
+          weights[k] = Math.max(weights[k] || 0, wide[k] * (id === 'fish' ? 1.2 : 1));
+        });
+      }
+    } else if (id === 'nit' || id === 'pro') {
+      Object.keys(weights).forEach(function (k) {
+        if (/[2-9].*o$/.test(k) || /^[2-8][2-8]$/.test(k)) weights[k] *= (id === 'nit' ? 0.15 : 0.45);
+      });
+    }
+    return weights;
+  }
+
+  function sampleMultiwayHeroWeights(scenario, config) {
+    if (scenario.type === 'limpPot') {
+      return sampleLimpWeights(config);
+    }
+    const opener = scenario.openerPos || 'CO';
+    const hero = scenario.heroPos || 'BB';
+    const reg = RR();
+    const vsKey = hero + '_vs_' + opener;
+    const d = vsRfiTable(config || {})[vsKey] || (reg ? reg.getVsRfiRow(hero, opener, config) : null);
+    if (!d || !W) return {};
+    return W.fromSets({ call: d.call, callMix: d.callMix });
   }
 
   /** Jugadores extra en 9-max/MTT no modelados en el motor 6-max. */
@@ -696,6 +746,28 @@
       if (scenario.threeBettorPos) {
         deals.push({ pos: scenario.threeBettorPos, weights: sampleThreeBettorWeights(scenario, config), role: 'threeBettor' });
       }
+    } else if (scenario.type === 'srp3way' || scenario.type === 'srp4way') {
+      const opener = scenario.openerPos || 'CO';
+      deals.push({ pos: opener, weights: sampleVillainWeights(Object.assign({}, scenario, { type: 'vsRFI', key: (scenario.heroPos || 'BB') + '_vs_' + opener }), config), role: 'opener' });
+      const callers = scenario.callerPositions || (scenario.callerPos ? [scenario.callerPos] : ['BTN']);
+      callers.forEach(function (cPos) {
+        if (cPos === heroSeat) return;
+        deals.push({
+          pos: cPos,
+          weights: sampleColdCallWeights(opener, cPos, config, 'tag'),
+          role: 'coldCaller'
+        });
+      });
+      if (heroSeat) {
+        // replace hero weights
+        const hi = deals.findIndex(function (d) { return d.role === 'hero'; });
+        if (hi >= 0) deals[hi].weights = sampleMultiwayHeroWeights(scenario, config);
+      }
+    } else if (scenario.type === 'limpPot') {
+      const limpers = scenario.limperPositions || (scenario.limperPos ? [scenario.limperPos] : ['UTG', 'HJ']);
+      limpers.forEach(function (lp) {
+        deals.push({ pos: lp, weights: sampleLimpWeights(config), role: 'limper' });
+      });
     }
     return deals;
   }
@@ -725,6 +797,9 @@
     if (scenario.type === 'squeeze') {
       return scenario.heroPos === eng || scenario.heroPos === filterPos;
     }
+    if (scenario.type === 'srp3way' || scenario.type === 'srp4way' || scenario.type === 'limpPot') {
+      return scenario.heroPos === eng || scenario.heroPos === filterPos;
+    }
     return true;
   }
 
@@ -745,7 +820,7 @@
       scenario.key = eng + '_vs_' + pk.threeBettor;
       scenario.displayHeroPos = filterPos;
       scenario.engineHeroPos = eng;
-    } else if (scenario.type === 'squeeze' || scenario.type === 'isoLimp' || scenario.type === 'bbVsSbLimp' || scenario.type === 'sbLimp' || scenario.type === 'cold4bet') {
+    } else if (scenario.type === 'squeeze' || scenario.type === 'isoLimp' || scenario.type === 'bbVsSbLimp' || scenario.type === 'sbLimp' || scenario.type === 'cold4bet' || scenario.type === 'srp3way' || scenario.type === 'srp4way' || scenario.type === 'limpPot') {
       scenario.heroPos = filterPos;
       scenario.engineHeroPos = enginePos(filterPos);
     }
@@ -767,6 +842,12 @@
       else if (spin) types = ['RFI', 'vsRFI', 'face3bet', 'bbVsSbLimp'];
       else if (isMtt(config) && (phase === 'short' || phase === 'bubble')) types = ['RFI', 'vsRFI', 'face3bet', 'squeeze'];
       else types = ['RFI', 'vsRFI', 'face3bet', 'squeeze', 'face4bet', 'isoLimp', 'bbVsSbLimp', 'sbLimp', 'cold4bet'];
+    } else if (sc === 'multiway') {
+      const pot = config.multiwayPotType || 'any';
+      if (pot === 'srp3way') types = ['srp3way'];
+      else if (pot === 'srp4way') types = ['srp4way'];
+      else if (pot === 'limpPot') types = ['limpPot'];
+      else types = spin ? ['srp3way'] : ['srp3way', 'srp3way', 'srp4way', 'limpPot'];
     } else {
       types = [mapScenarioType(sc)];
     }
@@ -815,6 +896,26 @@
           pool.push({ type: 'cold4bet', heroPos: 'BTN', openerPos: 'CO', threeBettorPos: 'SB' });
           pool.push({ type: 'cold4bet', heroPos: 'BB', openerPos: 'BTN', threeBettorPos: 'SB' });
         }
+      } else if (type === 'srp3way') {
+        pool.push({ type: 'srp3way', heroPos: 'BB', openerPos: 'CO', callerPos: 'BTN', callerPositions: ['BTN'], potType: 'srp3way' });
+        pool.push({ type: 'srp3way', heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO', callerPositions: ['CO'], potType: 'srp3way' });
+        pool.push({ type: 'srp3way', heroPos: 'BB', openerPos: 'UTG', callerPos: 'BTN', callerPositions: ['BTN'], potType: 'srp3way' });
+        pool.push({ type: 'srp3way', heroPos: 'SB', openerPos: 'CO', callerPos: 'BTN', callerPositions: ['BTN'], potType: 'srp3way' });
+        if (spin) {
+          pool.push({ type: 'srp3way', heroPos: 'BB', openerPos: 'BTN', callerPos: 'SB', callerPositions: ['SB'], potType: 'srp3way' });
+        }
+      } else if (type === 'srp4way') {
+        if (!spin) {
+          pool.push({ type: 'srp4way', heroPos: 'BB', openerPos: 'UTG', callerPos: 'CO', callerPositions: ['HJ', 'CO'], potType: 'srp4way' });
+          pool.push({ type: 'srp4way', heroPos: 'BB', openerPos: 'HJ', callerPos: 'BTN', callerPositions: ['CO', 'BTN'], potType: 'srp4way' });
+          pool.push({ type: 'srp4way', heroPos: 'BB', openerPos: 'CO', callerPos: 'SB', callerPositions: ['BTN', 'SB'], potType: 'srp4way' });
+        }
+      } else if (type === 'limpPot') {
+        if (!spin) {
+          pool.push({ type: 'limpPot', heroPos: 'BB', limperPos: 'UTG', limperPositions: ['UTG', 'HJ'], potType: 'limpPot' });
+          pool.push({ type: 'limpPot', heroPos: 'BB', limperPos: 'CO', limperPositions: ['HJ', 'CO'], potType: 'limpPot' });
+          pool.push({ type: 'limpPot', heroPos: 'BB', limperPos: 'UTG', limperPositions: ['UTG', 'CO', 'BTN'], potType: 'limpPot' });
+        }
       }
     });
     if (!pool.length) {
@@ -833,6 +934,7 @@
     if (sc === 'bbvsb') return 'bbVsSbLimp';
     if (sc === 'sbLimp') return 'sbLimp';
     if (sc === 'cold4bet') return 'cold4bet';
+    if (sc === 'multiway') return 'srp3way';
     return 'RFI';
   }
 
@@ -871,7 +973,7 @@
       random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
       '4bet': '4-Bet', squeeze: 'Squeeze', iso: 'Iso limp',
       bbvsb: 'BB vs SB limp', sbLimp: 'SB limp', cold4bet: 'Cold 4-Bet',
-      push: 'Push/fold', steal: 'Steal'
+      multiway: 'Multiway', push: 'Push/fold', steal: 'Steal'
     }[c.scenario] || c.scenario;
     const intent = Tax && Tax.INTENT_LABELS
       ? (Tax.INTENT_LABELS[c.practiceIntent] || c.practiceIntent)
@@ -900,10 +1002,10 @@
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9, POS_SPIN, DEAL_ORDER_SPIN, RFI_POS_SPIN,
     sampleHeroWeights, sampleHeroHand, sampleVillainWeights, sampleRfiDefenderWeights,
     sampleFace4betVillainWeights, face4betVillainRangeStr, sampleLimpWeights,
-    sampleCallerWeights, sampleThreeBettorWeights, sampleFromWeights,
+    sampleCallerWeights, sampleColdCallWeights, sampleMultiwayHeroWeights, sampleThreeBettorWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
     is9Max, isMtt, isSpin, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
-    vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, ISO_COMBOS, buildScenarioPool
+    vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, ISO_COMBOS, buildScenarioPool, mapScenarioType
   };
 })(window);

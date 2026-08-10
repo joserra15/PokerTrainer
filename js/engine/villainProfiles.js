@@ -231,6 +231,20 @@
     });
   }
 
+  function multiwayFacingScale(opts, profile) {
+    if (!opts || !opts.multiway) return { call: 1, raise: 1, bluff: 1 };
+    const MW = global.GTOMultiway;
+    const m = MW && MW.multiwayPolicyMult ? MW.multiwayPolicyMult(profile) : { call: 0.88, raise: 0.7, bluff: 0.5 };
+    return { call: m.call, raise: m.raise, bluff: m.bluff };
+  }
+
+  function multiwayLeadScale(opts, profile) {
+    if (!opts || !opts.multiway) return { cbet: 1, bluff: 1 };
+    const MW = global.GTOMultiway;
+    const m = MW && MW.multiwayPolicyMult ? MW.multiwayPolicyMult(profile) : { cbet: 0.7, bluff: 0.5 };
+    return { cbet: m.cbet, bluff: m.bluff };
+  }
+
   /** Acción postflop cuando el villano afronta apuesta/raise del héroe. */
   function postflopFacingBet(strength, potOdds, profile, rnd, opts) {
     opts = opts || {};
@@ -239,6 +253,7 @@
     const madeCat = opts.madeCategory != null ? opts.madeCategory : 0;
     const r = rnd != null ? rnd : Math.random();
     const strict = profile.preflopStrict != null && profile.preflopStrict >= 0.99;
+    const mwFace = multiwayFacingScale(opts, profile);
 
     if (strict && madeCat >= 2) {
       if (r < 0.14) return 'raise';
@@ -260,11 +275,11 @@
     }
 
     const p = profile.postflop;
-    let bluffRaise = clamp(0.1 * p.raiseFreqMult * p.bluffFreqMult, 0.05, 0.48);
-    const valueRaise = clamp(0.22 * p.raiseFreqMult, 0.1, 0.45);
+    let bluffRaise = clamp(0.1 * p.raiseFreqMult * p.bluffFreqMult * mwFace.bluff, 0.02, 0.48);
+    let valueRaise = clamp(0.22 * p.raiseFreqMult * mwFace.raise, 0.06, 0.5);
 
     if (street === 'river') {
-      bluffRaise = clamp(bluffRaise * 0.45, 0.02, 0.18);
+      bluffRaise = clamp(bluffRaise * 0.45, 0.01, 0.18);
       if ((tier === 'weak' || strength < 0.35) && strength <= potOdds + 0.05) {
         return r < bluffRaise ? 'raise' : 'fold';
       }
@@ -272,13 +287,13 @@
 
     if (strength > 0.72) return r < valueRaise ? 'raise' : 'call';
     if (strength > potOdds + 0.08) {
-      return r < clamp(0.82 * p.callMult, 0.32, 0.96) ? 'call' : 'fold';
+      return r < clamp(0.82 * p.callMult * mwFace.call, 0.28, 0.96) ? 'call' : 'fold';
     }
     if (strength > potOdds - 0.05) {
-      return r < clamp(0.48 * p.callMult, 0.18, 0.82) ? 'call' : 'fold';
+      return r < clamp(0.48 * p.callMult * mwFace.call, 0.14, 0.82) ? 'call' : 'fold';
     }
     if (r < bluffRaise) return 'raise';
-    return r < clamp(0.14 * p.callMult, 0.04, 0.38) ? 'call' : 'fold';
+    return r < clamp(0.14 * p.callMult * mwFace.call, 0.03, 0.38) ? 'call' : 'fold';
   }
 
   /** Acción postflop cuando el villano puede apostar o pasar (lead / probe). */
@@ -289,6 +304,7 @@
     const madeCat = opts.madeCategory != null ? opts.madeCategory : 0;
     const r = rnd != null ? rnd : Math.random();
     const strict = profile.preflopStrict != null && profile.preflopStrict >= 0.99;
+    const mwLead = multiwayLeadScale(opts, profile);
 
     if (strict && madeCat >= 2) {
       if (villainIsAgg) return r < 0.9 ? 'bet' : 'check';
@@ -317,18 +333,18 @@
       }
     }
 
-    const bluffMult = strength <= 0.28 ? p.bluffFreqMult : (strength <= 0.42 ? p.bluffFreqMult * 0.75 : 1);
+    const bluffMult = (strength <= 0.28 ? p.bluffFreqMult : (strength <= 0.42 ? p.bluffFreqMult * 0.75 : 1)) * mwLead.bluff;
     let betFreq;
     if (villainIsAgg) {
-      if (strength > 0.68) betFreq = clamp(0.58 * p.betFreqMult, 0.22, 0.92);
-      else if (strength > 0.42) betFreq = clamp(0.34 * p.betFreqMult, 0.14, 0.68);
-      else if (strength > 0.22) betFreq = clamp(0.38 * p.betFreqMult * bluffMult, 0.16, 0.72);
-      else betFreq = clamp(0.22 * p.betFreqMult * bluffMult, 0.1, 0.58);
+      if (strength > 0.68) betFreq = clamp(0.58 * p.betFreqMult * mwLead.cbet, 0.18, 0.92);
+      else if (strength > 0.42) betFreq = clamp(0.34 * p.betFreqMult * mwLead.cbet, 0.1, 0.68);
+      else if (strength > 0.22) betFreq = clamp(0.38 * p.betFreqMult * bluffMult, 0.1, 0.72);
+      else betFreq = clamp(0.22 * p.betFreqMult * bluffMult, 0.06, 0.58);
     } else {
-      if (strength > 0.68) betFreq = clamp(0.48 * p.betFreqMult, 0.18, 0.82);
-      else if (strength > 0.42) betFreq = clamp(0.28 * p.betFreqMult, 0.12, 0.58);
-      else if (strength > 0.22) betFreq = clamp(0.34 * p.betFreqMult * bluffMult, 0.14, 0.65);
-      else betFreq = clamp(0.18 * p.betFreqMult * bluffMult, 0.08, 0.52);
+      if (strength > 0.68) betFreq = clamp(0.48 * p.betFreqMult * mwLead.cbet, 0.14, 0.82);
+      else if (strength > 0.42) betFreq = clamp(0.28 * p.betFreqMult * mwLead.cbet, 0.08, 0.58);
+      else if (strength > 0.22) betFreq = clamp(0.34 * p.betFreqMult * bluffMult, 0.08, 0.65);
+      else betFreq = clamp(0.18 * p.betFreqMult * bluffMult, 0.05, 0.52);
     }
     return r < betFreq ? 'bet' : 'check';
   }

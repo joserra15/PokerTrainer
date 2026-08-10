@@ -13,7 +13,7 @@
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '1.5.2';
+  const APP_VERSION = window.PT_BUILD || '2.1.0';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -278,6 +278,7 @@
       if (v === 'push' || v === 'steal') show = h === 'spin' || h === 'mtt';
       if (v === '4bet' || v === 'squeeze') show = h !== 'spin';
       if (v === 'iso' || v === 'cold4bet') show = h === 'cash';
+      if (v === 'multiway') show = h === 'cash' || h === 'mtt';
       chip.hidden = !show;
       if (!show) chip.classList.remove('active');
     });
@@ -285,7 +286,16 @@
     if (visSc.length && !visSc.some((c) => c.classList.contains('active'))) {
       visSc[0].classList.add('active');
     }
+    syncMultiwayTypeUI();
     renderHeroPosChips();
+  }
+
+  function syncMultiwayTypeUI() {
+    const wrap = $('#setup-multiway-type-wrap');
+    if (!wrap) return;
+    const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
+    const isMw = scEl && scEl.dataset.val === 'multiway';
+    wrap.hidden = !isMw;
   }
 
   function readPlayConfig() {
@@ -304,6 +314,7 @@
     const payoutEl = $('#setup-spin-payout .setup-chip.active');
     const thEl = $('#setup-table-theme .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
+    const mwPotEl = $('#setup-multiway-pot-type .setup-chip.active');
     const laEl = $('#setup-live-advisor');
     const modeEl = $('#setup-advisor-mode .setup-chip.active');
     const thrEl = $('#setup-serious-threshold');
@@ -354,7 +365,9 @@
       seriousEvThreshold: seriousEvThreshold,
       rakeMode: hub === 'cash' ? (rakeMode || 'none') : 'none',
       rakePct: rakePct,
-      rakeCapBB: rakeCapBB
+      rakeCapBB: rakeCapBB,
+      allowMultiway: true,
+      multiwayPotType: mwPotEl ? mwPotEl.dataset.val : 'any'
     });
   }
 
@@ -531,6 +544,8 @@
     activate('#setup-practice-intent', cfg.practiceIntent || 'mixed');
     activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
     activate('#setup-spin-payout', cfg.spinPayout || '2x');
+    if (cfg.multiwayPotType) activate('#setup-multiway-pot-type', cfg.multiwayPotType);
+    syncMultiwayTypeUI();
     renderHeroPosChips();
     activate('#setup-hero-pos', cfg.heroPos);
     activate('#setup-hand-range', cfg.handRange);
@@ -626,7 +641,11 @@
     syncFormatHubUI(activeFormatHub());
     bindChipGroup('#setup-game-type', renderHeroPosChips);
     bindChipGroup('#setup-stack-depth');
-    bindChipGroup('#setup-scenario', renderHeroPosChips);
+    bindChipGroup('#setup-scenario', () => {
+      syncMultiwayTypeUI();
+      renderHeroPosChips();
+    });
+    bindChipGroup('#setup-multiway-pot-type');
     bindChipGroup('#setup-practice-intent');
     bindChipGroup('#setup-mtt-phase');
     bindChipGroup('#setup-spin-payout');
@@ -1911,12 +1930,17 @@
       const c = coords[i];
       const isHero = pos === heroSeatOnTable();
       const isVillain = villainPos && pos === villainPos;
-      const isCaller = hand.scenario && hand.scenario.callerPos === pos;
+      const isCaller = hand.scenario && (
+        hand.scenario.callerPos === pos
+        || (hand.scenario.callerPositions && hand.scenario.callerPositions.indexOf(pos) >= 0)
+        || (hand.opponents && hand.opponents.some(function (o) { return o.pos === pos; }))
+      );
       const inPot = inHand.has(pos) && !folded[pos] && !isHero;
       const cls = ['seat'];
       if (isHero) cls.push('hero');
       if (isVillain) cls.push('villain');
-      if (isCaller) cls.push('caller');
+      if (isCaller && !isVillain) cls.push('caller');
+      if (hand.multiway && inPot) cls.push('multiway-alive');
       if (pos === 'BTN') cls.push('dealer');
       if (c.top < 20) cls.push('seat-top');
       if (c.top > 70) cls.push('seat-bottom');
@@ -1925,7 +1949,8 @@
       if (c.top < 12) cls.push('seat-edge-top');
       if (folded[pos]) cls.push('folded');
 
-      let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? 'Pagador' : ''));
+      let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? (hand.multiway ? 'En bote' : 'Pagador') : ''));
+      if (hand.multiway && inPot && !isVillain && !isHero) role = role || 'En bote';
       const seatActs = hand.seatActions || {};
       let actHtml = '';
       if (!folded[pos]) {
@@ -3319,6 +3344,19 @@
     const villainCards = r.villainCards && r.villainCards.length
       ? r.villainCards.map(Cards.cardToHTML).join('')
       : '<span class="muted-text">no llegó a enseñar</span>';
+    const opponents = r.opponentCards || r.opponents || [];
+    const multiwaySeats = (r.multiway && opponents.length)
+      ? opponents.map(function (o) {
+        const cards = o.cards && o.cards.length
+          ? o.cards.map(Cards.cardToHTML).join('')
+          : '<span class="muted-text">—</span>';
+        return '<div class="hand-end-seat">' +
+          '<div class="hand-end-seat-label">' + escapeHtml(String(o.pos)) + '</div>' +
+          '<div class="hand-end-cards">' + cards + '</div>' +
+          (o.handName ? '<div class="hand-end-handname">' + escapeHtml(o.handName) + '</div>' : '') +
+        '</div>';
+      }).join('')
+      : '';
     const boardHtml = hand.board && hand.board.length
       ? hand.board.map(Cards.cardToHTML).join('')
       : '';
@@ -3331,6 +3369,10 @@
       ? '<p class="muted-text hand-end-reason">' + escapeHtml(r.reason) + '</p>'
       : '';
     const scoreMeta = resolveHandScoreMeta(hand, hand.decisions, r.totalEvLoss);
+    const mwBadge = r.multiway
+      ? '<p class="muted-text">Multiway' + (r.potType ? ' · ' + escapeHtml(String(r.potType)) : '') +
+        (r.aliveCount ? ' · ' + r.aliveCount + '-way' : '') + '</p>'
+      : '';
 
     hideVerdictToast();
     modal.classList.add('hand-end-modal');
@@ -3338,22 +3380,25 @@
       '<div class="hand-end-popup-head ' + outcome.cls + '">' +
         '<p class="hand-end-kicker">Resultado de la mano</p>' +
         '<h3>' + escapeHtml(outcome.title) + '</h3>' +
+        mwBadge +
         reason +
         handOptimalBannerHtml(scoreMeta) +
       '</div>' +
-      '<div class="hand-end-matchup">' +
+      '<div class="hand-end-matchup' + (multiwaySeats ? ' hand-end-matchup-multi' : '') + '">' +
         '<div class="hand-end-seat">' +
           '<div class="hand-end-seat-label">Héroe · ' + escapeHtml(heroPos) + '</div>' +
           '<div class="hand-end-cards">' + heroCards + '</div>' +
           (r.heroHandName ? '<div class="hand-end-handname">' + escapeHtml(r.heroHandName) + '</div>' : '') +
         '</div>' +
-        '<div class="hand-end-vs" aria-hidden="true">vs</div>' +
-        '<div class="hand-end-seat">' +
-          '<div class="hand-end-seat-label">Villano · ' + escapeHtml(String(villainPos)) + '</div>' +
-          '<div class="hand-end-cards">' + villainCards + '</div>' +
-          (r.villainHandName ? '<div class="hand-end-handname">' + escapeHtml(r.villainHandName) + '</div>' : '') +
-          (profile ? '<div class="hand-end-profile">' + profile + '</div>' : '') +
-        '</div>' +
+        (multiwaySeats
+          ? multiwaySeats
+          : ('<div class="hand-end-vs" aria-hidden="true">vs</div>' +
+            '<div class="hand-end-seat">' +
+              '<div class="hand-end-seat-label">Villano · ' + escapeHtml(String(villainPos)) + '</div>' +
+              '<div class="hand-end-cards">' + villainCards + '</div>' +
+              (r.villainHandName ? '<div class="hand-end-handname">' + escapeHtml(r.villainHandName) + '</div>' : '') +
+              (profile ? '<div class="hand-end-profile">' + profile + '</div>' : '') +
+            '</div>')) +
       '</div>' +
       (boardHtml ? '<div class="hand-end-board"><span class="muted-text">Board</span><div class="hand-end-cards">' + boardHtml + '</div></div>' : '') +
       '<div class="stats-content hand-end-popup-stats">' +
