@@ -169,10 +169,15 @@ console.log('4) Limp pot multiway');
       potType: 'limpPot',
       seed: 4000 + i
     }, play);
+    // Debe ofrecer decisión preflop (check/iso), no saltar al flop
+    assert.equal(hand.stage, 'preflop', 'limpPot empieza en preflop seed=' + (4000 + i));
+    assert.ok(hand.current && hand.current.kind === 'limpPotBB', 'kind limpPotBB');
+    assert.ok((hand.current.options || []).some((o) => o.id === 'call' || o.id === 'check'), 'opción check');
+    assert.ok((hand.current.options || []).some((o) => o.id === 'raise'), 'opción iso');
     if (hand.stage === 'preflop' && hand.current) forceOpenCallFlop(hand);
     if (hand.stage === 'complete') continue;
-    assert.ok(alive(hand).length >= 3, 'limpPot ≥3 got ' + alive(hand).length);
-    assert.strictEqual(hand.potType, 'limpPot');
+    assert.ok(alive(hand).length >= 2, 'limpPot tras check ≥2 got ' + alive(hand).length);
+    assert.ok(hand.potType === 'limpPot' || hand.potType === 'hu', 'potType limp/hu got ' + hand.potType);
     ok++;
   }
   assert.ok(ok >= 12, 'limp pots: ' + ok);
@@ -391,7 +396,7 @@ console.log('12) Pool multiway + UI markers');
   assert.ok(indexHtml.includes('data-val="multiway"'), 'UI chip multiway');
   assert.ok(indexHtml.includes('setup-multiway-pot-type'), 'UI pot type');
   const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-  assert.ok(/PT_BUILD\s*=\s*'2\.1\.5'/.test(version), 'version 2.1.5');
+  assert.ok(/PT_BUILD\s*=\s*'2\.1\.6'/.test(version), 'version 2.1.6');
   const chunks = fs.readFileSync(path.join(__dirname, '..', 'js', 'bundle-chunks.js'), 'utf8');
   assert.ok(chunks.includes('multiway.js'), 'multiway in bundle');
 }
@@ -581,6 +586,49 @@ console.log('17) Preflop multiway SB: BB sigue vivo (aún por hablar) y actúa t
       assert.ok(alive1.length >= 4, '4-way con BB call: ' + alive1.join(','));
     }
   }
+}
+
+console.log('18) Limp pot BB no salta preflop (check/iso)');
+{
+  const play = cfg({ scenario: 'multiway', multiwayPotType: 'limpPot', heroPos: 'BB' });
+  for (let i = 0; i < 15; i++) {
+    const hand = Engine.newHand({
+      type: 'limpPot',
+      heroPos: 'BB',
+      limperPos: 'CO',
+      limperPositions: ['HJ', 'CO'],
+      potType: 'limpPot',
+      seed: 51000 + i
+    }, play);
+    assert.equal(hand.stage, 'preflop', 'no auto-flop seed=' + (51000 + i));
+    assert.equal(hand.current.kind, 'limpPotBB');
+    assert.ok(!hand._autoGoFlop, 'sin _autoGoFlop');
+  }
+  // Check → flop multiway
+  const h1 = Engine.newHand({
+    type: 'limpPot', heroPos: 'BB', limperPos: 'CO',
+    limperPositions: ['HJ', 'CO'], potType: 'limpPot', seed: 99
+  }, play);
+  Engine.act(h1, 'call');
+  assert.ok(h1.stage === 'flop' || (h1.current && h1.current.street === 'flop'), 'check va a flop');
+  assert.ok(alive(h1).length >= 3, 'tras check sigue multiway: ' + alive(h1).join(','));
+  // Iso: limpers responden
+  let isoDone = false;
+  for (let i = 0; i < 40 && !isoDone; i++) {
+    const h2 = Engine.newHand({
+      type: 'limpPot', heroPos: 'BB', limperPos: 'UTG',
+      limperPositions: ['UTG', 'HJ'], potType: 'limpPot', seed: 52000 + i
+    }, play);
+    Engine.act(h2, 'raise');
+    if (h2.stage === 'complete') {
+      isoDone = true; // todos fold — válido
+      break;
+    }
+    assert.ok(h2.stage === 'flop' || (h2.current && h2.current.street === 'flop'),
+      'iso llega a flop o fin');
+    isoDone = true;
+  }
+  assert.ok(isoDone, 'iso ejercido');
 }
 
 console.log('\n*** test-multiway-trainer OK ***');

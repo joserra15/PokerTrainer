@@ -12686,7 +12686,7 @@ window.PT_VS_3BET_JSON = {
       gto: { call: 1 },
       context: `SRP multiway listo (${MW() ? MW().aliveCount(hand) : participants.length}-way, bote ${hand.potBB}bb).`
     };
-    hand._autoGoFlop = true;
+    // No auto-skip: el usuario debe confirmar (evita saltar preflop en silencio)
   }
 
   function setupLimpMultiway(hand) {
@@ -12702,7 +12702,8 @@ window.PT_VS_3BET_JSON = {
     if (heroPos === 'BB' || limpers.indexOf('BB') >= 0) {
       if (participants.indexOf('BB') < 0) participants.push('BB');
     }
-    foldSeatsExcept(hand, participants);
+    // SB aún por hablar si héroe no es SB/BB last — en limp pot BB suele cerrar
+    foldSeatsExcept(hand, withYetToActParticipants(hand, participants, heroPos));
 
     limpers.forEach(function (lp) {
       hand.table.folded[lp] = false;
@@ -12722,22 +12723,33 @@ window.PT_VS_3BET_JSON = {
       hand.heroIsAggressor = false;
       hand.table.folded.BB = false;
       hand.table.inHand.add('BB');
+      if (!hand.table.streetBet.BB) setPreflopSeatBet(hand, 'BB', BBET);
       if (MW()) {
         MW().markMultiwayHand(hand, 'limpPot', extras);
         MW().syncTableToMultiwayPot(hand, extras);
       }
-      foldSeatsExcept(hand, participants);
+      foldSeatsExcept(hand, participants.concat(seatsYetToActPreflop(hand, heroPos)));
       hand.heroInPosition = heroIpMultiway(hand);
-      hand._autoGoFlop = true;
+      // Iso multiway: un poco más grande que HU
+      const isoSize = round2(Math.max(BBET * 4, hand.potBB + BBET));
+      const freqs = strategyForNode(hand, {
+        street: 'preflop', kind: 'bbVsSbLimp', potBB: hand.potBB, toCallBB: 0
+      });
       hand.current = {
         street: 'preflop',
-        kind: 'multiwayReady',
+        kind: 'limpPotBB',
         potBB: hand.potBB,
         toCallBB: 0,
-        options: [{ id: 'check', label: 'Check / ir al flop' }],
-        gto: { check: 1 },
-        context: `Limp pot multiway (${limpers.join('+')} limp, bote ${hand.potBB}bb). Eres BB.`
+        isoSize: isoSize,
+        options: [
+          { id: 'call', label: 'Check (ver flop)' },
+          { id: 'raise', label: 'Iso-raise a ' + isoSize + 'bb' }
+        ],
+        gto: freqs,
+        context: `Limp pot multiway (${limpers.join('+')} limp, bote ${hand.potBB}bb). Eres BB. ¿Check o iso-raise?`
       };
+      hand._multiwayPendingCallers = limpers.slice();
+      hand._multiwayOpenSize = BBET;
       return;
     }
     const toCall = round2(BBET - (heroPos === 'SB' ? SB : 0));
@@ -12997,6 +13009,75 @@ window.PT_VS_3BET_JSON = {
       recalcPot(hand);
       delete hand._multiwayPendingCallers;
       delete hand._multiwayOpenSize;
+      return goFlop(hand);
+    }
+
+    if (node.kind === 'limpPotBB') {
+      if (actionId === 'call' || actionId === 'check') {
+        setHeroAct(hand, 'check');
+        setSeatAction(hand, hand.hero.pos, 'check', null);
+        hand.heroIsAggressor = false;
+        hand.heroInPosition = heroIpMultiway(hand);
+        if (MW() && hand._multiwayPendingCallers) {
+          MW().markMultiwayHand(hand, 'limpPot', hand._multiwayPendingCallers);
+          MW().syncTableToMultiwayPot(hand, hand._multiwayPendingCallers);
+        }
+        delete hand._multiwayPendingCallers;
+        delete hand._multiwayOpenSize;
+        recalcPot(hand);
+        return goFlop(hand);
+      }
+      // Iso-raise vs limpers multiway
+      const isoSize = node.isoSize || round2(BBET * 4);
+      const heroBlind = hand.table.invested[hand.hero.pos] || BBET;
+      const heroAdd = round2(isoSize - heroBlind);
+      hand.heroIsAggressor = true;
+      hand.heroInvested = isoSize;
+      if (heroAdd > 0) addInvest(hand, hand.hero.pos, heroAdd);
+      setHeroAct(hand, 'raise', isoSize);
+      setPreflopSeatBet(hand, hand.hero.pos, isoSize);
+      setSeatAction(hand, hand.hero.pos, 'raise', isoSize);
+
+      const limpers = (hand._multiwayPendingCallers || []).slice();
+      const callers = [];
+      for (let li = 0; li < limpers.length; li++) {
+        const lp = limpers[li];
+        if (!seatStillIn(hand, lp)) continue;
+        const d = limperDefendVsIso(hand, lp, isoSize);
+        if (d === 'fold') {
+          markFolded(hand, lp);
+          setSeatAction(hand, lp, 'fold', null);
+          continue;
+        }
+        const add = seatToCall(hand, lp, isoSize);
+        if (add > 0) addInvest(hand, lp, add);
+        setPreflopSeatBet(hand, lp, isoSize);
+        setSeatAction(hand, lp, 'call', isoSize);
+        callers.push(lp);
+      }
+      delete hand._multiwayPendingCallers;
+      delete hand._multiwayOpenSize;
+      recalcPot(hand);
+      if (!callers.length) {
+        return finish(hand, {
+          reason: 'Todos foldean ante tu iso-raise.',
+          heroNet: round2(hand.potBB - heroBlind)
+        });
+      }
+      hand.villain.pos = callers[0];
+      hand.villain.cards = villainHoleCards(hand);
+      hand.villainInvested = isoSize;
+      syncVillainMeta(hand);
+      const extras = callers.slice(1);
+      if (callers.length >= 2 && MW()) {
+        MW().markMultiwayHand(hand, 'limpPot', extras);
+        MW().syncTableToMultiwayPot(hand, extras);
+      } else if (MW()) {
+        hand.multiway = false;
+        hand.potType = 'hu';
+        foldSeatsExcept(hand, [hand.hero.pos, callers[0]]);
+      }
+      hand.heroInPosition = heroIpMultiway(hand);
       return goFlop(hand);
     }
 
@@ -22971,7 +23052,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.1.5';
+  const APP_VERSION = window.PT_BUILD || '2.1.6';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
