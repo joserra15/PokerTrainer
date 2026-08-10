@@ -1646,7 +1646,8 @@
 
   function formatKeyToRangeGameType(formatKey) {
     const k = formatKey || 'cash6';
-    if (k.indexOf('spin') === 0 || k.indexOf('mtt') === 0) return 'mtt';
+    if (k.indexOf('spin') === 0) return 'spin3';
+    if (k.indexOf('mtt') === 0) return 'mtt';
     if (k === 'cash9') return 'cash9';
     return 'cash6';
   }
@@ -2016,6 +2017,8 @@
       const d = map[l.status] || map.low || map.high;
       if (!d || seen[d.label]) return;
       seen[d.label] = true;
+      const Tax = global.PTFormatTaxonomy;
+      const formatHub = Tax ? Tax.hubFromGameType(gameType) : (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash'));
       drills.push({
         label: d.label,
         scenario: d.scenario,
@@ -2023,6 +2026,7 @@
         handRange: 'playable',
         villainLevel: 'fish',
         liveAdvisor: true,
+        formatHub: formatHub,
         gameType: gameType,
         reason: l.key + ' ' + l.status
       });

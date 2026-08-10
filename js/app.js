@@ -199,16 +199,97 @@
     if (window.scrollTo) window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function activeFormatHub() {
+    const el = $('#setup-format-hub .sessions-kind-tab.active, #setup-format-hub .setup-chip.active');
+    return el && el.dataset.val ? el.dataset.val : 'cash';
+  }
+
+  function syncFormatHubUI(hub) {
+    const h = hub || activeFormatHub();
+    const hubBox = $('#setup-format-hub');
+    if (hubBox) {
+      hubBox.querySelectorAll('[data-val]').forEach((btn) => {
+        const on = btn.dataset.val === h;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    }
+    $$('#setup-game-type .setup-chip').forEach((chip) => {
+      const chipHub = chip.dataset.hub || 'cash';
+      const show = chipHub === h;
+      chip.hidden = !show;
+      if (!show) chip.classList.remove('active');
+    });
+    const visibleGt = $$('#setup-game-type .setup-chip').filter((c) => !c.hidden);
+    if (visibleGt.length && !visibleGt.some((c) => c.classList.contains('active'))) {
+      visibleGt[0].classList.add('active');
+    }
+    const phaseGroup = $('#setup-group-phase');
+    const payoutGroup = $('#setup-group-spin-payout');
+    const rakeGroup = $('#setup-rake-mode') && $('#setup-rake-mode').closest('.setup-group');
+    if (phaseGroup) phaseGroup.hidden = h === 'cash';
+    if (payoutGroup) payoutGroup.hidden = h !== 'spin';
+    if (rakeGroup) rakeGroup.hidden = h !== 'cash';
+
+    $$('#setup-stack-depth .setup-chip').forEach((chip) => {
+      let show = true;
+      if (h === 'cash') show = chip.hasAttribute('data-stack-cash') || (!chip.hasAttribute('data-stack-spin') && !chip.hasAttribute('data-stack-mtt'));
+      if (h === 'spin') show = chip.hasAttribute('data-stack-spin');
+      if (h === 'mtt') {
+        show = chip.hasAttribute('data-stack-mtt')
+          || chip.dataset.val === 'bb200'
+          || chip.dataset.val === 'bb100'
+          || chip.dataset.val === 'bb50';
+      }
+      if (h === 'cash' && (chip.dataset.val === 'bb20' || chip.dataset.val === 'bb15' || chip.dataset.val === 'bb10')) show = false;
+      if (h === 'spin' && (chip.dataset.val === 'bb200' || chip.dataset.val === 'bb100' || chip.dataset.val === 'bb50')) show = false;
+      chip.hidden = !show;
+      if (!show) chip.classList.remove('active');
+    });
+    const visStack = $$('#setup-stack-depth .setup-chip').filter((c) => !c.hidden);
+    if (visStack.length && !visStack.some((c) => c.classList.contains('active'))) {
+      const prefer = h === 'spin' ? 'bb25' : (h === 'mtt' ? 'bb50' : 'bb100');
+      const prefChip = visStack.find((c) => c.dataset.val === prefer) || visStack[0];
+      prefChip.classList.add('active');
+    }
+
+    $$('#setup-scenario .setup-chip').forEach((chip) => {
+      const v = chip.dataset.val;
+      let show = true;
+      if (chip.hasAttribute('data-sc-spin') || chip.hasAttribute('data-sc-mtt') || chip.hasAttribute('data-sc-cash')) {
+        show = (h === 'cash' && chip.hasAttribute('data-sc-cash'))
+          || (h === 'spin' && chip.hasAttribute('data-sc-spin'))
+          || (h === 'mtt' && chip.hasAttribute('data-sc-mtt'));
+        // Common scenarios without exclusivity attrs stay visible
+        if (!chip.hasAttribute('data-sc-cash') && !chip.hasAttribute('data-sc-spin') && !chip.hasAttribute('data-sc-mtt')) show = true;
+      }
+      if (v === 'push' || v === 'steal') show = h === 'spin' || h === 'mtt';
+      if (v === '4bet' || v === 'squeeze') show = h !== 'spin';
+      if (v === 'iso' || v === 'cold4bet') show = h === 'cash';
+      chip.hidden = !show;
+      if (!show) chip.classList.remove('active');
+    });
+    const visSc = $$('#setup-scenario .setup-chip').filter((c) => !c.hidden);
+    if (visSc.length && !visSc.some((c) => c.classList.contains('active'))) {
+      visSc[0].classList.add('active');
+    }
+    renderHeroPosChips();
+  }
+
   function readPlayConfig() {
     const PC = window.PTPlayConfig;
     if (!PC) return null;
-    const gtEl = $('#setup-game-type .setup-chip.active');
-    const sdEl = $('#setup-stack-depth .setup-chip.active');
-    const scEl = $('#setup-scenario .setup-chip.active');
+    const hub = activeFormatHub();
+    const gtEl = $('#setup-game-type .setup-chip.active:not([hidden])') || $('#setup-game-type .setup-chip.active');
+    const sdEl = $('#setup-stack-depth .setup-chip.active:not([hidden])') || $('#setup-stack-depth .setup-chip.active');
+    const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
     const posEl = $('#setup-hero-pos .setup-chip.active');
     const hrEl = $('#setup-hand-range .setup-chip.active');
     const vlEl = $('#setup-villain-level .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
+    const intentEl = $('#setup-practice-intent .setup-chip.active');
+    const phaseEl = $('#setup-mtt-phase .setup-chip.active');
+    const payoutEl = $('#setup-spin-payout .setup-chip.active');
     const thEl = $('#setup-table-theme .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
     const laEl = $('#setup-live-advisor');
@@ -236,20 +317,30 @@
         if (prefs.rakeCapBB != null) rakeCapBB = Number(prefs.rakeCapBB);
       }
     }
+    const Tax = window.PTFormatTaxonomy;
+    let gameType = gtEl ? gtEl.dataset.val : 'cash6';
+    if (hub === 'spin') gameType = 'spin3';
+    if (hub === 'mtt') gameType = 'mtt';
+    if (hub === 'cash' && gameType !== 'cash6' && gameType !== 'cash9') gameType = 'cash6';
     return PC.normalize({
-      gameType: gtEl ? gtEl.dataset.val : 'cash6',
-      stackDepth: sdEl ? sdEl.dataset.val : 'bb100',
+      formatHub: hub,
+      gameType: gameType,
+      stackDepth: sdEl ? sdEl.dataset.val : (hub === 'spin' ? 'bb25' : 'bb100'),
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'playable',
       villainLevel: vlEl ? vlEl.dataset.val : 'fish',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
+      practiceIntent: intentEl ? intentEl.dataset.val : 'mixed',
+      mttPhase: phaseEl ? phaseEl.dataset.val : 'auto',
+      spinPayout: payoutEl ? payoutEl.dataset.val : '2x',
+      anteBB: Tax && hub !== 'cash' ? null : 0,
       tableTheme: thEl ? thEl.dataset.val : loadTableTheme(),
       handsTarget: htEl ? Number(htEl.dataset.val) || 0 : 0,
       liveAdvisor: laEl ? laEl.checked : false,
       advisorMode: advisorMode,
       seriousEvThreshold: seriousEvThreshold,
-      rakeMode: rakeMode || 'none',
+      rakeMode: hub === 'cash' ? (rakeMode || 'none') : 'none',
       rakePct: rakePct,
       rakeCapBB: rakeCapBB
     });
@@ -418,9 +509,16 @@
       });
       return found;
     }
+    const hub = cfg.formatHub || (window.PTFormatTaxonomy
+      ? PTFormatTaxonomy.hubFromGameType(cfg.gameType)
+      : 'cash');
+    syncFormatHubUI(hub);
     activate('#setup-game-type', cfg.gameType);
     activate('#setup-stack-depth', cfg.stackDepth);
     activate('#setup-scenario', cfg.scenario);
+    activate('#setup-practice-intent', cfg.practiceIntent || 'mixed');
+    activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
+    activate('#setup-spin-payout', cfg.spinPayout || '2x');
     renderHeroPosChips();
     activate('#setup-hero-pos', cfg.heroPos);
     activate('#setup-hand-range', cfg.handRange);
@@ -505,9 +603,21 @@
   window.applyPlaySetupConfig = applyPlaySetupConfig;
 
   function bindPlaySetup() {
+    const hubBox = $('#setup-format-hub');
+    if (hubBox) {
+      hubBox.querySelectorAll('[data-val]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          syncFormatHubUI(btn.dataset.val);
+        });
+      });
+    }
+    syncFormatHubUI(activeFormatHub());
     bindChipGroup('#setup-game-type', renderHeroPosChips);
     bindChipGroup('#setup-stack-depth');
     bindChipGroup('#setup-scenario', renderHeroPosChips);
+    bindChipGroup('#setup-practice-intent');
+    bindChipGroup('#setup-mtt-phase');
+    bindChipGroup('#setup-spin-payout');
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
     bindChipGroup('#setup-practice-street');
@@ -1302,13 +1412,25 @@
       }
       replayPlayConfig = null;
       const streetTarget = cfg && cfg.practiceStreet;
+      const intent = cfg && cfg.practiceIntent;
       const needsStreetFastForward = streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet;
-      if (needsStreetFastForward) {
+      const needsBluffFilter = intent && intent !== 'mixed' && !force;
+      if (needsStreetFastForward || needsBluffFilter) {
         let tries = 0;
-        while (tries < 12) {
+        const maxTries = needsBluffFilter ? 18 : 12;
+        while (tries < maxTries) {
           hand = Engine.newHand(force || undefined, cfg);
-          Engine.fastForwardToStreet(hand, streetTarget);
-          if (!hand.result && hand.current && hand.stage === streetTarget) break;
+          if (needsStreetFastForward) Engine.fastForwardToStreet(hand, streetTarget);
+          else if (needsBluffFilter && streetTarget === 'random' && Engine.fastForwardToStreet) {
+            // Faroles: preferir postflop (river con más peso).
+            const target = Math.random() < 0.55 ? 'river' : (Math.random() < 0.5 ? 'turn' : 'flop');
+            Engine.fastForwardToStreet(hand, target);
+          }
+          const streetOk = !needsStreetFastForward
+            || (!hand.result && hand.current && hand.stage === streetTarget);
+          const intentOk = !needsBluffFilter
+            || (Engine.currentMatchesPracticeIntent && Engine.currentMatchesPracticeIntent(hand));
+          if (streetOk && intentOk && !hand.result && hand.current) break;
           tries++;
         }
       } else {
@@ -1598,8 +1720,51 @@
     renderBoard();
     renderSeats();
     $('#spot-context').textContent = hand.current ? hand.current.context : (hand.result ? hand.result.reason : '');
+    renderBluffSpotBadge();
     updateLiveAdvisor();
     syncPlayMobileStage();
+  }
+
+  function renderBluffSpotBadge() {
+    let el = $('#bluff-spot-badge');
+    const host = $('#spot-context') && $('#spot-context').parentElement;
+    if (!host) return;
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'bluff-spot-badge';
+      el.className = 'bluff-spot-badge hidden';
+      host.appendChild(el);
+    }
+    if (!hand || !hand.current || hand.current.street === 'preflop' || !window.GTOBluffSpotDetector) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      return;
+    }
+    try {
+      const input = Engine.buildSpotInput
+        ? Engine.buildSpotInput(hand, hand.current, null)
+        : null;
+      if (!input) { el.classList.add('hidden'); return; }
+      const strat = window.GTO && GTO.getStrategy ? GTO.getStrategy(input) : {};
+      const info = GTOBluffSpotDetector.isGoodSpot(
+        Object.assign({}, input, { strategy: strat }),
+        (hand.playConfig && hand.playConfig.practiceIntent) || 'mixed',
+        0.55
+      );
+      if (!info || !info.good) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+      }
+      const intent = info.intent || info.mixedBest || 'bluff_make';
+      el.dataset.intent = intent;
+      el.classList.remove('hidden');
+      const label = intent === 'bluff_catch' ? 'Buen spot para cazar farol' : 'Buen spot para farolear';
+      const why = (info.reasons && info.reasons[0]) ? ' — ' + info.reasons[0] : '';
+      el.textContent = label + ' (' + Math.round(info.score * 100) + '%)' + why;
+    } catch (e) {
+      el.classList.add('hidden');
+    }
   }
 
   // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb)
@@ -4015,13 +4180,17 @@
           || (window.Importer && Importer.formatKeyToRangeGameType
             ? Importer.formatKeyToRangeGameType(resolveStatsFormat(currentSession && currentSession.stats))
             : null);
+        const Tax = window.PTFormatTaxonomy;
+        const gtFinal = gt || d.gameType || 'cash6';
         window.startGuidedTraining({
           scenario: d.scenario,
           practiceStreet: d.practiceStreet || 'preflop',
+          practiceIntent: d.practiceIntent || 'mixed',
           handRange: d.handRange || 'playable',
           villainLevel: d.villainLevel || 'fish',
           liveAdvisor: d.liveAdvisor !== false,
-          gameType: gt || d.gameType || 'cash6'
+          formatHub: d.formatHub || (Tax ? Tax.hubFromGameType(gtFinal) : undefined),
+          gameType: gtFinal
         });
       });
     });

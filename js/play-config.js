@@ -76,14 +76,19 @@
     return { opener: parts[0], threeBettor: parts[2] };
   }
 
-  const STACK_DEPTH_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
+  const STACK_DEPTH_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, bb20: 20, bb15: 15, bb10: 10, standard: 100, short: 40, deep: 150 };
 
   const HANDS_TARGETS = { 0: true, 10: true, 25: true, 50: true, 100: true };
+
+  const POS_SPIN = ['BTN', 'SB', 'BB'];
+  const DEAL_ORDER_SPIN = ['SB', 'BB', 'BTN'];
+  const RFI_POS_SPIN = ['BTN', 'SB'];
 
   /** Rake orientativo cash mid-stakes (SN-53). */
   const STANDARD_RAKE = { pct: 5, capBB: 3 };
 
   const DEFAULT = {
+    formatHub: 'cash',
     gameType: 'cash6',
     stackDepth: 'bb100',
     scenario: 'random',
@@ -91,6 +96,14 @@
     handRange: 'playable',
     villainLevel: 'fish',
     practiceStreet: 'random',
+    /** mixed | bluff_make | bluff_catch */
+    practiceIntent: 'mixed',
+    /** auto | early | mid | short | push | bubble — spins/MTT */
+    mttPhase: 'auto',
+    /** ante en bb (0 en cash; auto en MTT) */
+    anteBB: null,
+    /** 2x | 3x | 5x — payouts spin */
+    spinPayout: '2x',
     liveAdvisor: false,
     /** 'always' | 'serious' — solo relevante si liveAdvisor */
     advisorMode: 'always',
@@ -157,17 +170,69 @@
   const RR = function () { return global.GTORangesRegistry; };
 
   function normalize(config) {
-    const c = Object.assign({}, DEFAULT, config || {});
+    const raw = config || {};
+    const c = Object.assign({}, DEFAULT, raw);
+    const Tax = global.PTFormatTaxonomy;
+    const hubExplicit = Object.prototype.hasOwnProperty.call(raw, 'formatHub');
+    const gtExplicit = Object.prototype.hasOwnProperty.call(raw, 'gameType');
+    const stackExplicit = Object.prototype.hasOwnProperty.call(raw, 'stackDepth');
+
     if (!c.gameType) c.gameType = 'cash6';
+    if (c.gameType === 'spin') c.gameType = 'spin3';
+
+    if (Tax) {
+      if (hubExplicit && !gtExplicit) {
+        c.formatHub = Tax.normalizeHub(c.formatHub);
+        if (c.formatHub === 'cash' && (c.gameType === 'cash6' || c.gameType === 'cash9')) {
+          /* keep table size */
+        } else {
+          c.gameType = Tax.defaultGameTypeForHub(c.formatHub);
+        }
+      } else if (hubExplicit && gtExplicit) {
+        c.formatHub = Tax.normalizeHub(c.formatHub);
+        if (Tax.hubFromGameType(c.gameType) !== c.formatHub) {
+          c.gameType = Tax.defaultGameTypeForHub(c.formatHub);
+        }
+      } else {
+        c.formatHub = Tax.hubFromGameType(c.gameType);
+      }
+    } else {
+      c.formatHub = c.gameType === 'spin3' ? 'spin' : (c.gameType === 'mtt' ? 'mtt' : 'cash');
+    }
+
     if (!c.stackDepth) c.stackDepth = 'bb100';
     if (c.stackDepth === 'standard') c.stackDepth = 'bb100';
-    if (c.stackDepth === 'short') c.stackDepth = 'bb50';
+    if (c.stackDepth === 'short') c.stackDepth = c.formatHub === 'spin' ? 'bb25' : 'bb50';
     if (c.stackDepth === 'deep') c.stackDepth = 'bb200';
+    if (c.formatHub === 'spin' && !stackExplicit && (c.stackDepth === 'bb200' || c.stackDepth === 'bb100')) {
+      c.stackDepth = 'bb25';
+    }
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
     if (!c.handRange) c.handRange = 'random';
     if (!c.villainLevel) c.villainLevel = 'fish';
     if (!c.practiceStreet) c.practiceStreet = 'random';
+    if (Tax) c.practiceIntent = Tax.normalizeIntent(c.practiceIntent);
+    else if (c.practiceIntent !== 'bluff_make' && c.practiceIntent !== 'bluff_catch') c.practiceIntent = 'mixed';
+    if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
+    else if (!c.mttPhase) c.mttPhase = 'auto';
+    if (c.spinPayout !== '3x' && c.spinPayout !== '5x') c.spinPayout = '2x';
+
+    c.stackBB = STACK_DEPTH_BB[c.stackDepth] != null ? STACK_DEPTH_BB[c.stackDepth] : 100;
+    if (Tax) c.resolvedPhase = Tax.resolvePhase(c);
+
+    if (c.anteBB == null || c.anteBB === '') {
+      c.anteBB = (Tax && c.formatHub !== 'cash') ? Tax.defaultAnteBB(c) : 0;
+    }
+    var ante = Number(c.anteBB);
+    if (isNaN(ante) || ante < 0) ante = 0;
+    if (ante > 2) ante = 2;
+    if (c.formatHub === 'cash') ante = 0;
+    c.anteBB = ante;
+
+    // Rake solo cash; torneos/spins sin rake de bote cash.
+    if (c.formatHub !== 'cash') c.rakeMode = 'none';
+
     c.liveAdvisor = !!c.liveAdvisor;
     c.advisorMode = c.advisorMode === 'serious' ? 'serious' : 'always';
     var thr = Number(c.seriousEvThreshold);
@@ -195,21 +260,41 @@
   }
 
   function is9Max(config) {
-    return config.gameType === 'cash9' || config.gameType === 'mtt';
+    const c = config || {};
+    return c.gameType === 'cash9' || c.gameType === 'mtt';
   }
 
   function isMtt(config) {
-    return config.gameType === 'mtt';
+    return (config && config.gameType) === 'mtt';
+  }
+
+  function isSpin(config) {
+    return (config && config.gameType) === 'spin3' || (config && config.formatHub) === 'spin';
+  }
+
+  function is3Max(config) {
+    return isSpin(config);
   }
 
   function heroPositions(config) {
     const c = normalize(config);
+    if (isSpin(c)) {
+      if (c.scenario === 'rfi' || c.scenario === 'push') return RFI_POS_SPIN.slice();
+      return POS_SPIN.slice();
+    }
     if (c.scenario === 'rfi') return is9Max(c) ? RFI_POS_9.slice() : RFI_POS_6.slice();
     return is9Max(c) ? POS_9.slice() : POS_6.slice();
   }
 
   function tablePositions(config) {
+    if (isSpin(config)) return POS_SPIN.slice();
     return is9Max(config) ? POS_9.slice() : POS_6.slice();
+  }
+
+  function dealOrder(config) {
+    if (isSpin(config)) return DEAL_ORDER_SPIN.slice();
+    if (is9Max(config)) return DEAL_ORDER_9.slice();
+    return ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
   }
 
   function displaySeatForEngine(enginePos, reserved) {
@@ -251,10 +336,6 @@
     if (s.type === 'squeeze' && s.openerPos) return s.openerPos;
     if (s.type === 'RFI') return 'BB';
     return openerDealSeat(s, hand.playConfig) || displaySeatForEngine(hand.villain.pos, [heroSeat, s.callerPos]);
-  }
-
-  function dealOrder(config) {
-    return is9Max(config) ? DEAL_ORDER_9.slice() : POS_6.slice();
   }
 
   function enginePos(displayPos) {
@@ -674,41 +755,76 @@
   function buildScenarioPool(config) {
     const pool = [];
     const sc = config.scenario || 'random';
-    const types = sc === 'random'
-      ? ['RFI', 'vsRFI', 'face3bet', 'squeeze', 'face4bet', 'isoLimp', 'bbVsSbLimp', 'sbLimp', 'cold4bet']
-      : [mapScenarioType(sc)];
-    const rfiPos = is9Max(config) ? RFI_POS_9 : RFI_POS_6;
+    const spin = isSpin(config);
+    const phase = config.resolvedPhase || (global.PTFormatTaxonomy
+      ? global.PTFormatTaxonomy.resolvePhase(config)
+      : 'early');
+    const pushMode = sc === 'push' || phase === 'push' || (spin && (config.stackBB || 25) <= 12 && sc === 'random');
+
+    let types;
+    if (sc === 'random') {
+      if (pushMode) types = ['RFI', 'vsRFI'];
+      else if (spin) types = ['RFI', 'vsRFI', 'face3bet', 'bbVsSbLimp'];
+      else if (isMtt(config) && (phase === 'short' || phase === 'bubble')) types = ['RFI', 'vsRFI', 'face3bet', 'squeeze'];
+      else types = ['RFI', 'vsRFI', 'face3bet', 'squeeze', 'face4bet', 'isoLimp', 'bbVsSbLimp', 'sbLimp', 'cold4bet'];
+    } else {
+      types = [mapScenarioType(sc)];
+    }
+
+    const rfiPos = spin ? RFI_POS_SPIN : (is9Max(config) ? RFI_POS_9 : RFI_POS_6);
 
     types.forEach((type) => {
       if (type === 'RFI') {
         rfiPos.forEach((p) => {
-          pool.push({ type: 'RFI', heroPos: p, engineHeroPos: enginePos(p) });
+          pool.push({
+            type: 'RFI',
+            heroPos: p,
+            engineHeroPos: enginePos(p),
+            pushFold: !!pushMode
+          });
         });
       } else if (type === 'vsRFI') {
-        vsKeys().forEach((key) => pool.push({ type: 'vsRFI', key: key }));
+        if (spin) {
+          pool.push({ type: 'vsRFI', key: 'BB_vs_BTN', pushFold: !!pushMode });
+          pool.push({ type: 'vsRFI', key: 'BB_vs_SB', pushFold: !!pushMode });
+          pool.push({ type: 'vsRFI', key: 'SB_vs_BTN', pushFold: !!pushMode });
+        } else {
+          vsKeys().forEach((key) => pool.push({ type: 'vsRFI', key: key, pushFold: !!pushMode }));
+        }
       } else if (type === 'face3bet') {
-        vs3betKeys().forEach((key) => pool.push({ type: 'face3bet', key: key }));
+        if (spin) {
+          pool.push({ type: 'face3bet', key: 'BTN_vs_SB' });
+          pool.push({ type: 'face3bet', key: 'BTN_vs_BB' });
+          pool.push({ type: 'face3bet', key: 'SB_vs_BB' });
+        } else {
+          vs3betKeys().forEach((key) => pool.push({ type: 'face3bet', key: key }));
+        }
       } else if (type === 'squeeze') {
-        SQUEEZE_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'squeeze' }, c)));
+        if (!spin) SQUEEZE_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'squeeze' }, c)));
       } else if (type === 'face4bet') {
-        vsKeys().forEach((key) => pool.push({ type: 'face4bet', key: key }));
+        if (!spin) vsKeys().forEach((key) => pool.push({ type: 'face4bet', key: key }));
       } else if (type === 'isoLimp') {
-        ISO_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'isoLimp' }, c)));
+        if (!spin) ISO_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'isoLimp' }, c)));
       } else if (type === 'bbVsSbLimp') {
         pool.push({ type: 'bbVsSbLimp', heroPos: 'BB' });
       } else if (type === 'sbLimp') {
-        pool.push({ type: 'sbLimp', heroPos: 'SB' });
+        if (!spin) pool.push({ type: 'sbLimp', heroPos: 'SB' });
       } else if (type === 'cold4bet') {
-        pool.push({ type: 'cold4bet', heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ' });
-        pool.push({ type: 'cold4bet', heroPos: 'BTN', openerPos: 'CO', threeBettorPos: 'SB' });
-        pool.push({ type: 'cold4bet', heroPos: 'BB', openerPos: 'BTN', threeBettorPos: 'SB' });
+        if (!spin) {
+          pool.push({ type: 'cold4bet', heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ' });
+          pool.push({ type: 'cold4bet', heroPos: 'BTN', openerPos: 'CO', threeBettorPos: 'SB' });
+          pool.push({ type: 'cold4bet', heroPos: 'BB', openerPos: 'BTN', threeBettorPos: 'SB' });
+        }
       }
     });
+    if (!pool.length) {
+      rfiPos.forEach((p) => pool.push({ type: 'RFI', heroPos: p, engineHeroPos: enginePos(p) }));
+    }
     return pool;
   }
 
   function mapScenarioType(sc) {
-    if (sc === 'rfi') return 'RFI';
+    if (sc === 'rfi' || sc === 'push' || sc === 'steal') return 'RFI';
     if (sc === '3bet') return 'vsRFI';
     if (sc === 'face3bet') return 'face3bet';
     if (sc === '4bet') return 'face4bet';
@@ -741,19 +857,33 @@
 
   function labelFor(config) {
     const c = normalize(config);
-    const gt = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' }[c.gameType] || c.gameType;
-    const sd = { bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb', standard: '100bb', short: '50bb', deep: '200bb' }[c.stackDepth] || c.stackDepth;
+    const Tax = global.PTFormatTaxonomy;
+    const hub = Tax && Tax.HUB_LABELS ? (Tax.HUB_LABELS[c.formatHub] || c.formatHub) : c.formatHub;
+    const gt = {
+      cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT', spin3: 'Spin 3-max'
+    }[c.gameType] || c.gameType;
+    const sd = {
+      bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb',
+      bb20: '20bb', bb15: '15bb', bb10: '10bb',
+      standard: '100bb', short: '50bb', deep: '200bb'
+    }[c.stackDepth] || c.stackDepth;
     const sc = {
       random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
       '4bet': '4-Bet', squeeze: 'Squeeze', iso: 'Iso limp',
-      bbvsb: 'BB vs SB limp', sbLimp: 'SB limp', cold4bet: 'Cold 4-Bet'
+      bbvsb: 'BB vs SB limp', sbLimp: 'SB limp', cold4bet: 'Cold 4-Bet',
+      push: 'Push/fold', steal: 'Steal'
     }[c.scenario] || c.scenario;
+    const intent = Tax && Tax.INTENT_LABELS
+      ? (Tax.INTENT_LABELS[c.practiceIntent] || c.practiceIntent)
+      : c.practiceIntent;
     const hr = { random: 'Todas', playable: 'Jugables', borderline: 'Borderline', all: 'Todas' }[c.handRange] || c.handRange;
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
     const st = { random: 'Todas las calles', preflop: 'Solo preflop', flop: 'Desde flop', turn: 'Desde turn', river: 'Desde river' }[c.practiceStreet] || c.practiceStreet;
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
-    return gt + ' · ' + sd + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
+    const phase = c.formatHub !== 'cash' ? (' · ' + (c.resolvedPhase || c.mttPhase)) : '';
+    const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + intent + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {
@@ -767,13 +897,13 @@
     DEFAULT, normalize, pickScenario, labelFor, rakeLabel,
     STANDARD_RAKE, estimateRakeBB, potAfterRakeBB, loadRakePrefs, saveRakePrefs,
     PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB,
-    POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9,
+    POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9, POS_SPIN, DEAL_ORDER_SPIN, RFI_POS_SPIN,
     sampleHeroWeights, sampleHeroHand, sampleVillainWeights, sampleRfiDefenderWeights,
     sampleFace4betVillainWeights, face4betVillainRangeStr, sampleLimpWeights,
     sampleCallerWeights, sampleThreeBettorWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
-    is9Max, isMtt, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
-    vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, ISO_COMBOS
+    is9Max, isMtt, isSpin, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
+    vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, ISO_COMBOS, buildScenarioPool
   };
 })(window);

@@ -443,15 +443,30 @@
       ? Math.round(input.handRank.percentile * 100) : '-';
     const RS = global.GTORiverShoveNode;
     const nodeKey = RS ? RS.facingNodeCacheKey(input) : '';
+    const PF = global.GTOPushFold;
+    const pushFlag = input.pushFold || (PF && PF.isPushPhase(input)) ? 'pf1' : 'pf0';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
-      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey;
+      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey + '|' + pushFlag;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
       const ctx = input.rangeContext || (global.GTORangesRegistry ? global.GTORangesRegistry.normalize({
         gameType: input.gameType,
-        stackDepth: input.stackDepthLabel || global.GTORangesRegistry.stackLabelFromBB(input.stackDepth)
+        formatHub: input.formatHub,
+        stackDepth: input.stackDepthLabel || global.GTORangesRegistry.stackLabelFromBB(input.stackDepth),
+        stackBB: input.stackDepth || input.effStack,
+        mttPhase: input.mttPhase
       }) : null);
+
+      // Push/fold corto: charts Nash-aprox (spins / MTT push).
+      if (PF && (input.pushFold || PF.isPushPhase(Object.assign({}, input, ctx || {})))
+        && (spotKey.street === 'preflop' || kind === 'RFI' || kind === 'vsRFI')) {
+        return PF.pushFoldStrategy(Object.assign({}, input, {
+          position: input.position,
+          effStack: input.effStack || input.stackDepth || (ctx && ctx.stackBB),
+          openerPos: input.vsPosition || input.openerPos
+        }));
+      }
 
       if (kind === 'RFI') return rfiStrategy(input.position, code, ctx);
       if (kind === 'vsRFI') {

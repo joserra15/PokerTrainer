@@ -38,10 +38,14 @@
     Strategy: global.GTOStrategyTables,
     Classifier: global.GTOClassifier,
     EvLoss: global.GTOEvLoss,
+    IcmEv: global.GTOIcmEv,
     Scoring: global.GTOScoring,
     Errors: global.GTOErrors,
     Explanations: global.GTOExplanations,
     HandStrength: global.GTOHandStrength,
-    VillainTracking: global.GTOVillainTracking
+    VillainTracking: global.GTOVillainTracking,
+    BluffSpotDetector: global.GTOBluffSpotDetector,
+    PushFold: global.GTOPushFold,
+    FormatTaxonomy: global.PTFormatTaxonomy
   });
 })(window);

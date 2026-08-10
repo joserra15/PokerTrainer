@@ -257,6 +257,157 @@
 })(window);
 
 /*
+ * taxonomy.js — Contrato de formatos del entrenador v2 (cash / spin / mtt).
+ * Fuente única para hubs, fases, intents y claves de fuga.
+ */
+(function (global) {
+  'use strict';
+
+  const FORMAT_HUBS = ['cash', 'spin', 'mtt'];
+  const GAME_TYPES = ['cash6', 'cash9', 'spin3', 'mtt'];
+  const PRACTICE_INTENTS = ['mixed', 'bluff_make', 'bluff_catch'];
+  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble'];
+  const SPIN_PAYOUT_PRESETS = {
+    '2x': [0.65, 0.35, 0],
+    '3x': [0.70, 0.30, 0],
+    '5x': [0.80, 0.20, 0]
+  };
+
+  const HUB_LABELS = { cash: 'Cash', spin: 'Spins', mtt: 'Torneos' };
+  const INTENT_LABELS = {
+    mixed: 'Value y mixed',
+    bluff_make: 'Hacer faroles',
+    bluff_catch: 'Cazar faroles'
+  };
+  const PHASE_LABELS = {
+    auto: 'Auto (por stack)',
+    early: 'Early',
+    mid: 'Mid',
+    short: 'Short',
+    push: 'Push/fold',
+    bubble: 'Burbuja'
+  };
+
+  function hubFromGameType(gameType) {
+    const g = String(gameType || 'cash6');
+    if (g.indexOf('spin') === 0) return 'spin';
+    if (g === 'mtt' || g.indexOf('mtt') === 0 || g === 'sng') return 'mtt';
+    return 'cash';
+  }
+
+  function defaultGameTypeForHub(hub) {
+    if (hub === 'spin') return 'spin3';
+    if (hub === 'mtt') return 'mtt';
+    return 'cash6';
+  }
+
+  function normalizeHub(hub) {
+    return FORMAT_HUBS.indexOf(hub) >= 0 ? hub : 'cash';
+  }
+
+  function normalizeIntent(intent) {
+    return PRACTICE_INTENTS.indexOf(intent) >= 0 ? intent : 'mixed';
+  }
+
+  function normalizePhase(phase) {
+    return MTT_PHASES.indexOf(phase) >= 0 ? phase : 'auto';
+  }
+
+  function phaseFromStackBB(stackBB, hub) {
+    const bb = Number(stackBB) || 100;
+    if (hub === 'spin') {
+      if (bb <= 12) return 'push';
+      if (bb <= 20) return 'mid';
+      return 'early';
+    }
+    if (bb <= 12) return 'push';
+    if (bb <= 25) return 'short';
+    if (bb <= 45) return 'mid';
+    return 'early';
+  }
+
+  function resolvePhase(config) {
+    const hub = normalizeHub(config && config.formatHub || hubFromGameType(config && config.gameType));
+    const phase = normalizePhase(config && config.mttPhase);
+    if (phase !== 'auto') return phase;
+    const stackBB = Number(config && config.stackBB) || 100;
+    return phaseFromStackBB(stackBB, hub);
+  }
+
+  function defaultAnteBB(config) {
+    const hub = normalizeHub(config && config.formatHub || hubFromGameType(config && config.gameType));
+    if (hub === 'cash') return 0;
+    if (hub === 'spin') return 0;
+    const phase = resolvePhase(config);
+    if (phase === 'early') return 0.1;
+    if (phase === 'mid') return 0.125;
+    if (phase === 'short' || phase === 'bubble') return 0.15;
+    if (phase === 'push') return 0.2;
+    return 0.125;
+  }
+
+  function spinPayouts(preset) {
+    const key = preset && SPIN_PAYOUT_PRESETS[preset] ? preset : '2x';
+    return SPIN_PAYOUT_PRESETS[key].slice();
+  }
+
+  function isTournamentHub(hub) {
+    return hub === 'spin' || hub === 'mtt';
+  }
+
+  function usesIcm(config) {
+    const hub = normalizeHub(config && config.formatHub || hubFromGameType(config && config.gameType));
+    if (!isTournamentHub(hub)) return false;
+    const phase = resolvePhase(Object.assign({}, config || {}, { formatHub: hub }));
+    if (hub === 'spin') return true;
+    return phase === 'bubble' || phase === 'push' || phase === 'short';
+  }
+
+  function spotTags(meta) {
+    const m = meta || {};
+    const hub = normalizeHub(m.formatHub || hubFromGameType(m.gameType));
+    const intent = normalizeIntent(m.practiceIntent || m.intent);
+    const phase = m.mttPhase && m.mttPhase !== 'auto' ? m.mttPhase : (m.phase || null);
+    return {
+      formatHub: hub,
+      gameType: m.gameType || defaultGameTypeForHub(hub),
+      practiceIntent: intent,
+      phase: phase,
+      street: m.street || null
+    };
+  }
+
+  function formatSpotKey(baseKey, tags) {
+    const t = spotTags(tags);
+    return [baseKey || 'spot', t.formatHub, t.practiceIntent, t.phase || '-', t.street || '-'].join('|');
+  }
+
+  global.PTFormatTaxonomy = {
+    FORMAT_HUBS: FORMAT_HUBS,
+    GAME_TYPES: GAME_TYPES,
+    PRACTICE_INTENTS: PRACTICE_INTENTS,
+    MTT_PHASES: MTT_PHASES,
+    SPIN_PAYOUT_PRESETS: SPIN_PAYOUT_PRESETS,
+    HUB_LABELS: HUB_LABELS,
+    INTENT_LABELS: INTENT_LABELS,
+    PHASE_LABELS: PHASE_LABELS,
+    hubFromGameType: hubFromGameType,
+    defaultGameTypeForHub: defaultGameTypeForHub,
+    normalizeHub: normalizeHub,
+    normalizeIntent: normalizeIntent,
+    normalizePhase: normalizePhase,
+    phaseFromStackBB: phaseFromStackBB,
+    resolvePhase: resolvePhase,
+    defaultAnteBB: defaultAnteBB,
+    spinPayouts: spinPayouts,
+    isTournamentHub: isTournamentHub,
+    usesIcm: usesIcm,
+    spotTags: spotTags,
+    formatSpotKey: formatSpotKey
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
  * notation.js — Expansor de notación de rangos y utilidades de mano.
  */
 (function (global) {
@@ -1338,6 +1489,134 @@ window.PT_VS_3BET_JSON = {
 })(window);
 
 /*
+ * pushFold.js — Charts push/fold simplificados (spins / MTT short).
+ * Heurístico Nash-aprox por posición; no es una tabla solver exacta.
+ */
+(function (global) {
+  'use strict';
+
+  // Códigos de mano (notation) agrupados por tier de shove.
+  const ALWAYS_SHOVE = [
+    'AA', 'KK', 'QQ', 'JJ', 'TT', '99', '88', '77',
+    'AKs', 'AKo', 'AQs', 'AQo', 'AJs', 'AJo', 'ATs', 'ATo',
+    'KQs', 'KQo', 'KJs', 'QJs', 'JTs', 'T9s', '98s',
+    'A9s', 'A8s', 'A5s', 'A4s', 'A3s', 'A2s', 'KTs', 'QTs', 'J9s'
+  ];
+
+  const WIDE_BTN = [
+    '66', '55', '44', '33', '22',
+    'A7s', 'A6s', 'A9o', 'A8o', 'A7o',
+    'K9s', 'K8s', 'KJo', 'KTo', 'QJo', 'Q9s', 'J8s', 'T8s', '97s', '87s', '76s', '65s'
+  ];
+
+  const WIDE_SB = [
+    '66', '55', '44',
+    'A7s', 'A6s', 'A9o', 'A8o',
+    'K9s', 'KJo', 'QJo', 'Q9s', 'J8s', 'T8s', '97s', '87s'
+  ];
+
+  const CALL_SHOVE_TIGHT = [
+    'AA', 'KK', 'QQ', 'JJ', 'TT', '99', '88',
+    'AKs', 'AKo', 'AQs', 'AQo', 'AJs', 'AJo', 'ATs', 'KQs', 'KQo', 'KJs'
+  ];
+
+  const CALL_SHOVE_WIDE = CALL_SHOVE_TIGHT.concat([
+    '77', '66', 'A9s', 'A8s', 'A5s', 'ATo', 'KTs', 'QJs', 'JTs', 'T9s'
+  ]);
+
+  function setFrom(list) {
+    const o = Object.create(null);
+    (list || []).forEach(function (c) { o[c] = 1; });
+    return o;
+  }
+
+  const SET_ALWAYS = setFrom(ALWAYS_SHOVE);
+  const SET_BTN = setFrom(ALWAYS_SHOVE.concat(WIDE_BTN));
+  const SET_SB = setFrom(ALWAYS_SHOVE.concat(WIDE_SB));
+  const SET_CALL_T = setFrom(CALL_SHOVE_TIGHT);
+  const SET_CALL_W = setFrom(CALL_SHOVE_WIDE);
+
+  function openShoveWeights(pos, stackBB) {
+    const bb = Number(stackBB) || 10;
+    let base = SET_ALWAYS;
+    if (pos === 'BTN' || pos === 'CO' || pos === 'HJ') base = bb <= 12 ? SET_BTN : SET_ALWAYS;
+    else if (pos === 'SB') base = bb <= 14 ? SET_SB : SET_ALWAYS;
+    else if (pos === 'BB') base = SET_ALWAYS;
+    else base = bb <= 10 ? SET_SB : SET_ALWAYS;
+
+    const out = {};
+    Object.keys(base).forEach(function (code) {
+      out[code] = 1;
+    });
+    // En stacks ultra-cortos, ensanchar un poco más BTN/SB
+    if (bb <= 8 && (pos === 'BTN' || pos === 'SB')) {
+      ['54s', '64s', 'K7s', 'Q8s', 'J7s', 'T7s'].forEach(function (c) { out[c] = 0.7; });
+    }
+    return out;
+  }
+
+  function callShoveWeights(pos, stackBB, openerPos) {
+    const bb = Number(stackBB) || 10;
+    const wide = bb <= 12 || openerPos === 'BTN' || openerPos === 'SB';
+    const base = wide ? SET_CALL_W : SET_CALL_T;
+    const out = {};
+    Object.keys(base).forEach(function (code) { out[code] = 1; });
+    if (pos === 'BB' && openerPos === 'SB' && bb <= 15) {
+      ['77', '66', 'A9s', 'A8s', 'A5s', 'KTs', 'QJs'].forEach(function (c) { out[c] = 1; });
+    }
+    return out;
+  }
+
+  function shouldOpenShove(handCode, pos, stackBB) {
+    const w = openShoveWeights(pos, stackBB);
+    return (w[handCode] || 0) >= 0.5;
+  }
+
+  function shouldCallShove(handCode, pos, stackBB, openerPos) {
+    const w = callShoveWeights(pos, stackBB, openerPos);
+    return (w[handCode] || 0) >= 0.5;
+  }
+
+  /** Frecuencias preflop simplificadas para nodos push. */
+  function pushFoldStrategy(input) {
+    const code = input.handCode;
+    const pos = input.position || input.heroPos || 'BTN';
+    const stack = Number(input.effStack || input.stackDepth) || 10;
+    const toCall = Number(input.toCallBB) || 0;
+    if (toCall > 0) {
+      const ok = shouldCallShove(code, pos, stack, input.openerPos || 'BTN');
+      return ok
+        ? { call: 0.85, fold: 0.15, raise: 0 }
+        : { call: 0.08, fold: 0.92, raise: 0 };
+    }
+    const shove = shouldOpenShove(code, pos, stack);
+    return shove
+      ? { raise: 0.9, fold: 0.1, call: 0, allin: 0.9 }
+      : { raise: 0.05, fold: 0.95, call: 0 };
+  }
+
+  function isPushPhase(config) {
+    const Tax = global.PTFormatTaxonomy;
+    if (!Tax) {
+      const bb = Number(config && (config.stackBB || config.effStack)) || 100;
+      return bb <= 12;
+    }
+    const phase = Tax.resolvePhase(config);
+    return phase === 'push' || (Number(config && config.stackBB) || 100) <= 12;
+  }
+
+  global.GTOPushFold = {
+    openShoveWeights: openShoveWeights,
+    callShoveWeights: callShoveWeights,
+    shouldOpenShove: shouldOpenShove,
+    shouldCallShove: shouldCallShove,
+    pushFoldStrategy: pushFoldStrategy,
+    isPushPhase: isPushPhase,
+    ALWAYS_SHOVE: ALWAYS_SHOVE
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
  * registry.js — Selección de rangos por formato (6-max / 9-max / MTT) y profundidad (standard / short / deep).
  */
 (function (global) {
@@ -1353,7 +1632,10 @@ window.PT_VS_3BET_JSON = {
     UTG: 'UTG', UTG1: 'UTG', UTG2: 'HJ', LJ: 'HJ', HJ: 'CO', CO: 'CO', BTN: 'BTN', SB: 'SB', BB: 'BB'
   };
 
-  const STACK_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
+  const STACK_BB = {
+    bb200: 200, bb100: 100, bb50: 50, bb25: 25, bb20: 20, bb15: 15, bb10: 10,
+    standard: 100, short: 40, deep: 150
+  };
   const GAME_LABELS = {
     cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT',
     cash2: 'Heads-up', cash3: 'Cash 3-max', spin3: 'Spin & Go'
@@ -1369,17 +1651,24 @@ window.PT_VS_3BET_JSON = {
 
   function normalize(ctx) {
     const c = ctx || {};
-    const gameType = c.gameType || 'cash6';
+    let gameType = c.gameType || 'cash6';
+    if (gameType === 'spin') gameType = 'spin3';
     const stackDepthKey = c.stackDepth || 'bb100';
-    const stackBB = STACK_BB[stackDepthKey] || 100;
+    const stackBB = c.stackBB != null ? Number(c.stackBB) : (STACK_BB[stackDepthKey] || 100);
     const stackDepth = rangeStackCategory(stackDepthKey, stackBB);
+    const Tax = global.PTFormatTaxonomy;
+    const formatHub = c.formatHub || (Tax ? Tax.hubFromGameType(gameType) : (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash')));
     return {
       gameType: gameType,
+      formatHub: formatHub,
       stackDepth: stackDepth,
       stackDepthKey: stackDepthKey,
       is9Max: gameType === 'cash9' || gameType === 'mtt',
       isMtt: gameType === 'mtt',
-      stackBB: stackBB
+      isSpin: gameType === 'spin3' || formatHub === 'spin',
+      stackBB: stackBB,
+      mttPhase: c.mttPhase || c.resolvedPhase || null,
+      practiceIntent: c.practiceIntent || 'mixed'
     };
   }
 
@@ -1699,12 +1988,14 @@ window.PT_VS_3BET_JSON = {
 
   function heroPositions(ctx) {
     const c = normalize(ctx);
+    if (c.isSpin) return ['BTN', 'SB', 'BB'];
     if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
     return ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   }
 
   function rfiPositions(ctx) {
     const c = normalize(ctx);
+    if (c.isSpin) return ['BTN', 'SB'];
     if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB'];
     return ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
   }
@@ -1720,11 +2011,16 @@ window.PT_VS_3BET_JSON = {
     let gameType = 'cash6';
     if (hand && hand.formatKey) {
       const fk = hand.formatKey;
-      if (fk.indexOf('spin') === 0 || fk.indexOf('mtt') === 0) gameType = 'mtt';
+      if (fk.indexOf('spin') === 0) gameType = 'spin3';
+      else if (fk.indexOf('mtt') === 0) gameType = 'mtt';
       else if (fk === 'cash9') gameType = 'cash9';
       else gameType = 'cash6';
-    } else if (hand && (hand.gameKind === 'spin' || hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.isTournament)) {
+    } else if (hand && hand.gameKind === 'spin') {
+      gameType = 'spin3';
+    } else if (hand && (hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.isTournament)) {
       gameType = 'mtt';
+    } else if (tableMax === 3 || nSeats === 3) {
+      gameType = hand && hand.isTournament ? 'spin3' : 'cash6';
     } else if (tableMax >= 8 || nSeats >= 8) {
       gameType = 'cash9';
     }
@@ -5901,15 +6197,30 @@ window.PT_VS_3BET_JSON = {
       ? Math.round(input.handRank.percentile * 100) : '-';
     const RS = global.GTORiverShoveNode;
     const nodeKey = RS ? RS.facingNodeCacheKey(input) : '';
+    const PF = global.GTOPushFold;
+    const pushFlag = input.pushFold || (PF && PF.isPushPhase(input)) ? 'pf1' : 'pf0';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
-      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey;
+      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey + '|' + pushFlag;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
       const ctx = input.rangeContext || (global.GTORangesRegistry ? global.GTORangesRegistry.normalize({
         gameType: input.gameType,
-        stackDepth: input.stackDepthLabel || global.GTORangesRegistry.stackLabelFromBB(input.stackDepth)
+        formatHub: input.formatHub,
+        stackDepth: input.stackDepthLabel || global.GTORangesRegistry.stackLabelFromBB(input.stackDepth),
+        stackBB: input.stackDepth || input.effStack,
+        mttPhase: input.mttPhase
       }) : null);
+
+      // Push/fold corto: charts Nash-aprox (spins / MTT push).
+      if (PF && (input.pushFold || PF.isPushPhase(Object.assign({}, input, ctx || {})))
+        && (spotKey.street === 'preflop' || kind === 'RFI' || kind === 'vsRFI')) {
+        return PF.pushFoldStrategy(Object.assign({}, input, {
+          position: input.position,
+          effStack: input.effStack || input.stackDepth || (ctx && ctx.stackBB),
+          openerPos: input.vsPosition || input.openerPos
+        }));
+      }
 
       if (kind === 'RFI') return rfiStrategy(input.position, code, ctx);
       if (kind === 'vsRFI') {
@@ -6008,6 +6319,210 @@ window.PT_VS_3BET_JSON = {
     postflopStrategy, probeStrategy, probeStrategyLegacy, getStrategy, actionEV, bestAction, betSizingOptions
   };
 })(window);
+
+/*
+ * bluffSpotDetector.js — Detecta spots buenos para hacer / cazar faroles.
+ * Heurístico educativo; no es un solver de frecuencias exactas.
+ */
+(function (global) {
+  'use strict';
+
+  const Tax = function () { return global.PTFormatTaxonomy; };
+  const Block = function () { return global.GTOBlockers; };
+  const HandRank = function () { return global.GTOHandRank; };
+
+  const DEFAULT_THRESHOLD = 0.55;
+
+  function bandOf(input) {
+    if (input.handRank && input.handRank.band) return input.handRank.band;
+    if (input.handRank && input.handRank.tier) {
+      const t = input.handRank.tier;
+      if (t === 'air') return 'air';
+      if (t === 'weak') return 'bluffcatch';
+      if (t === 'medium') return 'merge';
+      if (t === 'strong') return 'value';
+    }
+    if (input.madeHandInfo && input.madeHandInfo.tier) {
+      const t = input.madeHandInfo.tier;
+      if (t === 'air') return 'air';
+      if (t === 'weak') return 'bluffcatch';
+      if (t === 'medium') return 'merge';
+      return 'value';
+    }
+    return null;
+  }
+
+  function foldEquity(input) {
+    if (input.foldEquity != null) return Number(input.foldEquity);
+    const ratio = input.villainBetRatio || 0.5;
+    // Estimación tosca: más grande el size, más FE potencial al farolear nosotros.
+    if ((input.toCallBB || 0) > 0) return Math.max(0.08, 0.42 - ratio * 0.15);
+    return input.inPosition ? 0.38 : 0.28;
+  }
+
+  function blockerScore(input) {
+    const B = Block();
+    if (!B || !input.heroCards || !input.board) return 0.2;
+    try {
+      return Number(B.computeBlockerScore(input.heroCards, input.board)) || 0;
+    } catch (e) {
+      return 0.2;
+    }
+  }
+
+  function icmPenalty(input) {
+    const Taxo = Tax();
+    if (!Taxo || !Taxo.usesIcm(input)) return 0;
+    const Icm = global.GTOIcmEv;
+    if (!Icm) return 0.15;
+    const mult = Icm.riskMultiplier(input);
+    return Math.max(0, (mult - 1) * 0.35);
+  }
+
+  function strategyBluffFreq(input) {
+    const freqs = input.strategy || input.gto || {};
+    let bet = 0;
+    Object.keys(freqs).forEach(function (k) {
+      if (k === 'bet' || k === 'raise' || k.indexOf('bet_') === 0) bet += Number(freqs[k]) || 0;
+    });
+    return bet;
+  }
+
+  /**
+   * Score 0–1: calidad del spot para HACER farol.
+   */
+  function scoreBluffMake(input) {
+    const street = input.street || 'preflop';
+    if (street === 'preflop') {
+      return { score: 0, reasons: ['Preflop no se entrena como farol postflop.'], intent: 'bluff_make' };
+    }
+    const band = bandOf(input);
+    const reasons = [];
+    let score = 0.15;
+
+    if (band === 'air' || band === 'bluffcatch') {
+      score += band === 'air' ? 0.28 : 0.12;
+      reasons.push(band === 'air' ? 'Mano air / semi-bluff potencial.' : 'Showdown débil; posible bluff con blockers.');
+    } else if (band === 'value' || band === 'merge') {
+      score -= 0.25;
+      reasons.push('Mano de valor/merge: no es drill de farol puro.');
+    }
+
+    const fe = foldEquity(input);
+    if (fe >= 0.32) { score += 0.22; reasons.push('Fold equity razonable (~' + Math.round(fe * 100) + '%).'); }
+    else if (fe < 0.15) { score -= 0.2; reasons.push('Poca fold equity.'); }
+    else { score += 0.08; }
+
+    const blk = blockerScore(input);
+    if (blk >= 0.35) { score += 0.18; reasons.push('Buenos blockers.'); }
+    else if (blk < 0.12) { score -= 0.08; reasons.push('Blockers pobres.'); }
+
+    if (input.inPosition) { score += 0.08; reasons.push('En posición.'); }
+    if (street === 'river') { score += 0.1; reasons.push('River: nodo polarizado típico.'); }
+    if (street === 'turn') score += 0.05;
+
+    const gtoBluff = strategyBluffFreq(input);
+    if (gtoBluff >= 0.2) { score += 0.15; reasons.push('Estrategia mezcla bet/raise con frecuencia útil.'); }
+    else if (gtoBluff > 0 && gtoBluff < 0.08) { score -= 0.12; reasons.push('GTO casi nunca farolea aquí.'); }
+
+    const pen = icmPenalty(input);
+    if (pen > 0) { score -= pen; reasons.push('Penalización ICM / burbuja.'); }
+
+    score = Math.max(0, Math.min(1, Math.round(score * 100) / 100));
+    return { score: score, reasons: reasons, intent: 'bluff_make', foldEquity: fe, blockers: blk, band: band };
+  }
+
+  /**
+   * Score 0–1: calidad del spot para CAZAR faroles.
+   */
+  function scoreBluffCatch(input) {
+    const street = input.street || 'preflop';
+    const reasons = [];
+    let score = 0.1;
+    if (street === 'preflop') {
+      return { score: 0, reasons: ['Bluffcatch es postflop.'], intent: 'bluff_catch' };
+    }
+    const toCall = Number(input.toCallBB) || 0;
+    if (toCall <= 0) {
+      return { score: 0.05, reasons: ['No hay apuesta rival que cazar.'], intent: 'bluff_catch' };
+    }
+
+    const band = bandOf(input);
+    if (band === 'bluffcatch' || band === 'merge') {
+      score += 0.35;
+      reasons.push('Mano tipo bluffcatch / medium showdown.');
+    } else if (band === 'air') {
+      score -= 0.15;
+      reasons.push('Air puro: no es bluffcatch.');
+    } else if (band === 'value') {
+      score -= 0.1;
+      reasons.push('Valor fuerte: decisión trivial de call/raise.');
+    }
+
+    const ratio = input.villainBetRatio != null ? input.villainBetRatio : (toCall / Math.max(input.potBeforeBB || input.potBB || 1, 0.1));
+    if (ratio >= 0.6 || input.facingNode === 'shove' || input.facingNode === 'overbet') {
+      score += 0.25;
+      reasons.push('Línea polarizada del villano.');
+    } else if (ratio >= 0.4) {
+      score += 0.12;
+      reasons.push('Bet mediano-grande.');
+    }
+
+    const blk = blockerScore(input);
+    if (blk >= 0.3) { score += 0.12; reasons.push('Blockers ayudan a call/fold.'); }
+
+    if (street === 'river') { score += 0.15; reasons.push('River: decisión de bluffcatch clásica.'); }
+    if (street === 'turn') score += 0.06;
+
+    const eq = input.heroEquity;
+    if (eq != null) {
+      const potBefore = Math.max((input.potBB || 1) - toCall, 0.1);
+      const be = toCall / (potBefore + toCall);
+      if (eq >= be - 0.08 && eq <= be + 0.12) {
+        score += 0.15;
+        reasons.push('Equity cercana al break-even (decisión interesante).');
+      }
+    }
+
+    score = Math.max(0, Math.min(1, Math.round(score * 100) / 100));
+    return { score: score, reasons: reasons, intent: 'bluff_catch', band: band, blockers: blk };
+  }
+
+  function scoreForIntent(input, intent) {
+    const Taxo = Tax();
+    const i = Taxo ? Taxo.normalizeIntent(intent || (input && input.practiceIntent)) : (intent || 'mixed');
+    if (i === 'bluff_make') return scoreBluffMake(input);
+    if (i === 'bluff_catch') return scoreBluffCatch(input);
+    const make = scoreBluffMake(input);
+    const catchS = scoreBluffCatch(input);
+    if (make.score >= catchS.score) return Object.assign({}, make, { mixedBest: 'bluff_make' });
+    return Object.assign({}, catchS, { mixedBest: 'bluff_catch' });
+  }
+
+  function isGoodSpot(input, intent, threshold) {
+    const thr = threshold != null ? threshold : DEFAULT_THRESHOLD;
+    const result = scoreForIntent(input, intent);
+    return Object.assign({}, result, { good: result.score >= thr, threshold: thr });
+  }
+
+  /** ¿La mano/nodo encaja con el intent de práctica? */
+  function matchesPracticeIntent(input, intent) {
+    const Taxo = Tax();
+    const i = Taxo ? Taxo.normalizeIntent(intent) : intent;
+    if (!i || i === 'mixed') return true;
+    return isGoodSpot(input, i, i === 'bluff_catch' ? 0.45 : 0.5).good;
+  }
+
+  global.GTOBluffSpotDetector = {
+    DEFAULT_THRESHOLD: DEFAULT_THRESHOLD,
+    scoreBluffMake: scoreBluffMake,
+    scoreBluffCatch: scoreBluffCatch,
+    scoreForIntent: scoreForIntent,
+    isGoodSpot: isGoodSpot,
+    matchesPracticeIntent: matchesPracticeIntent,
+    bandOf: bandOf
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
 
 /*
  * SolverProvider.js — Interfaz abstracta para solver (local o remoto futuro).
@@ -6197,6 +6712,203 @@ window.PT_VS_3BET_JSON = {
 
   global.GTOClassifier = { classify, filterStrategy, reconcileWithEv, adjustStrategyForHand, normalizeStrategy };
 })(window);
+
+/*
+ * icmEv.js — ICM aproximado para grading del entrenador (spins / MTT late).
+ * Harville simplificado; no sustituye un solver ICM completo.
+ */
+(function (global) {
+  'use strict';
+
+  const Tax = function () { return global.PTFormatTaxonomy; };
+
+  function icmEquities(stacks, payouts) {
+    const n = stacks.length;
+    if (n < 2 || n > 9) return null;
+    const total = stacks.reduce((s, x) => s + Math.max(0, Number(x) || 0), 0);
+    if (total <= 0) return null;
+    const pays = (payouts && payouts.length) ? payouts.slice(0, n) : null;
+    if (!pays) return null;
+
+    const pFirst = stacks.map((s) => Math.max(0, Number(s) || 0) / total);
+    const pSecond = new Array(n).fill(0);
+    for (let w = 0; w < n; w++) {
+      const rem = total - Math.max(0, Number(stacks[w]) || 0);
+      if (rem <= 0) continue;
+      for (let j = 0; j < n; j++) {
+        if (j === w) continue;
+        pSecond[j] += pFirst[w] * (Math.max(0, Number(stacks[j]) || 0) / rem);
+      }
+    }
+    const eq = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      eq[i] = (pFirst[i] || 0) * (pays[0] || 0) + (pSecond[i] || 0) * (pays[1] || 0);
+      if (pays[2]) {
+        const pThird = Math.max(0, 1 - (pFirst[i] || 0) - (pSecond[i] || 0));
+        eq[i] += pThird * pays[2];
+      }
+      eq[i] = Math.round(eq[i] * 1000) / 1000;
+    }
+    return eq;
+  }
+
+  function chipEvShare(stacks) {
+    const total = stacks.reduce((s, x) => s + Math.max(0, Number(x) || 0), 0);
+    if (total <= 0) return stacks.map(() => 0);
+    return stacks.map((s) => Math.max(0, Number(s) || 0) / total);
+  }
+
+  /** >0 ⇒ stack sobrevalorado en chips (jugar más tight). */
+  function icmPressure(stacks, payouts) {
+    const eq = icmEquities(stacks, payouts);
+    const chip = chipEvShare(stacks);
+    if (!eq) return null;
+    const prize = (payouts || []).reduce((s, x) => s + x, 0) || 1;
+    return eq.map((e, i) => Math.round(((chip[i] || 0) * prize - e) * 1000) / 1000);
+  }
+
+  /**
+   * Bubble factor aproximado hero vs villain:
+   * BF ≈ (ΔchipEV risk) / (Δ$EV risk) — aquí usamos ratio presión.
+   */
+  function bubbleFactor(stacks, heroIdx, villainIdx, payouts) {
+    const pressure = icmPressure(stacks, payouts);
+    if (!pressure) return 1;
+    const pH = pressure[heroIdx] || 0;
+    // Más presión ⇒ BF más alto (llamar/farolear cuesta más en $EV).
+    const bf = 1 + Math.max(0, pH) * 4 + Math.max(0, -(pressure[villainIdx] || 0)) * 1.5;
+    return Math.round(Math.min(3.5, Math.max(0.7, bf)) * 100) / 100;
+  }
+
+  function defaultStacks(input) {
+    const hero = Number(input.heroStackBB != null ? input.heroStackBB : input.effStack) || 25;
+    const villain = Number(input.villainStackBB != null ? input.villainStackBB : input.effStack) || hero;
+    const n = Number(input.tableMax) || (input.gameType === 'spin3' ? 3 : 2);
+    const stacks = [hero, villain];
+    while (stacks.length < Math.min(n, 3)) {
+      stacks.push(Math.max(8, Math.round((hero + villain) / 2)));
+    }
+    return stacks;
+  }
+
+  function resolvePayouts(input) {
+    const Taxo = Tax();
+    if (input.icmPayouts && input.icmPayouts.length) return input.icmPayouts.slice();
+    if (Taxo && input.spinPayout && Taxo.spinPayouts) return Taxo.spinPayouts(input.spinPayout);
+    if (input.gameType === 'spin3' || (input.formatHub === 'spin')) {
+      return (Taxo && Taxo.spinPayouts) ? Taxo.spinPayouts('2x') : [0.65, 0.35, 0];
+    }
+    // MTT bubble simplificada: top-heavy 3 pays
+    return [0.5, 0.3, 0.2];
+  }
+
+  function shouldApply(input) {
+    const Taxo = Tax();
+    if (input && input.icmEnabled === false) return false;
+    if (input && input.icmEnabled === true) return true;
+    if (!Taxo || !Taxo.usesIcm) {
+      const hub = input && (input.formatHub || (input.gameType === 'spin3' ? 'spin' : null));
+      return hub === 'spin' || hub === 'mtt';
+    }
+    return Taxo.usesIcm(input);
+  }
+
+  /**
+   * Escala pérdidas EV de faroles/calls spewy cuando hay presión ICM.
+   * Devuelve factor >= 1 para castigar spew; < 1 rara vez (short stack applying pressure).
+   */
+  function riskMultiplier(input) {
+    if (!shouldApply(input)) return 1;
+    const stacks = input.icmStacksBB || defaultStacks(input);
+    const payouts = resolvePayouts(input);
+    const heroIdx = input.icmHeroIdx != null ? input.icmHeroIdx : 0;
+    const villainIdx = input.icmVillainIdx != null ? input.icmVillainIdx : 1;
+    const bf = bubbleFactor(stacks, heroIdx, villainIdx, payouts);
+    const pressure = icmPressure(stacks, payouts);
+    const pHero = pressure ? (pressure[heroIdx] || 0) : 0;
+    let mult = bf;
+    // Faroles y calls marginales cuestan más con presión positiva.
+    const action = input.chosenAction || '';
+    const isAggro = action === 'bet' || action === 'raise' || (action && action.indexOf('bet_') === 0);
+    const isCall = action === 'call';
+    if (pHero > 0.03 && (isAggro || isCall)) mult *= 1 + Math.min(0.8, pHero * 3);
+    if (pHero < -0.05 && action === 'fold') mult *= 0.85;
+    return Math.round(Math.min(2.8, Math.max(0.75, mult)) * 1000) / 1000;
+  }
+
+  function adjustEvLoss(evLossBB, input) {
+    const base = Number(evLossBB) || 0;
+    if (base <= 0) return base;
+    return Math.round(base * riskMultiplier(input) * 100) / 100;
+  }
+
+  function annotateDecision(decision, input) {
+    if (!decision || !shouldApply(input)) return decision;
+    const stacks = input.icmStacksBB || defaultStacks(input);
+    const payouts = resolvePayouts(input);
+    const pressure = icmPressure(stacks, payouts);
+    const heroIdx = input.icmHeroIdx != null ? input.icmHeroIdx : 0;
+    const pHero = pressure ? (pressure[heroIdx] || 0) : 0;
+    const bf = bubbleFactor(stacks, heroIdx, input.icmVillainIdx != null ? input.icmVillainIdx : 1, payouts);
+    decision.icmLite = true;
+    decision.icmPressure = pHero;
+    decision.bubbleFactor = bf;
+    decision.icmNote = pHero > 0.05
+      ? 'ICM: stack sobrevalorado en chips → prioriza $EV (menos spew / calls ligeros).'
+      : (pHero < -0.05
+        ? 'ICM: puedes aplicar presión; chipEV puro te infravalora.'
+        : 'ICM: presión moderada; chipEV ≈ $EV.');
+    return decision;
+  }
+
+  function contextForHand(hand, playConfig) {
+    const cfg = playConfig || (hand && hand.playConfig) || {};
+    const Taxo = Tax();
+    const hub = Taxo
+      ? Taxo.normalizeHub(cfg.formatHub || Taxo.hubFromGameType(cfg.gameType))
+      : 'cash';
+    if (hub === 'cash') return null;
+    const heroBB = hand && hand.stacks && hand.stacks.hero != null
+      ? hand.stacks.hero
+      : (hand && hand.effStack) || 25;
+    const villainBB = hand && hand.stacks && hand.stacks.villain != null
+      ? hand.stacks.villain
+      : heroBB;
+    const tableMax = hub === 'spin' ? 3 : (cfg.gameType === 'cash9' || cfg.gameType === 'mtt' ? 9 : 3);
+    const stacks = [heroBB, villainBB];
+    if (tableMax >= 3) stacks.push(Math.max(8, Math.round((heroBB + villainBB) / 2)));
+    const payouts = hub === 'spin'
+      ? ((Taxo && Taxo.spinPayouts) ? Taxo.spinPayouts(cfg.spinPayout || '2x') : [0.65, 0.35, 0])
+      : [0.5, 0.3, 0.2];
+    return {
+      formatHub: hub,
+      gameType: cfg.gameType,
+      mttPhase: cfg.mttPhase,
+      spinPayout: cfg.spinPayout || '2x',
+      icmEnabled: true,
+      icmStacksBB: stacks,
+      icmPayouts: payouts,
+      icmHeroIdx: 0,
+      icmVillainIdx: 1,
+      tableMax: tableMax,
+      heroStackBB: heroBB,
+      villainStackBB: villainBB,
+      effStack: hand && hand.effStack
+    };
+  }
+
+  global.GTOIcmEv = {
+    icmEquities: icmEquities,
+    icmPressure: icmPressure,
+    bubbleFactor: bubbleFactor,
+    riskMultiplier: riskMultiplier,
+    adjustEvLoss: adjustEvLoss,
+    annotateDecision: annotateDecision,
+    shouldApply: shouldApply,
+    contextForHand: contextForHand,
+    resolvePayouts: resolvePayouts
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
 
 /*
  * evLoss.js — ΔEV = EV_óptimo − EV_elegida (bb y €).
@@ -7139,6 +7851,14 @@ window.PT_VS_3BET_JSON = {
         if (mathParams) mathParams.deltaEV = evLoss;
       }
 
+      // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).
+      const Icm = global.GTOIcmEv;
+      let icmMult = 1;
+      if (Icm && Icm.shouldApply(enriched) && evLoss > 0) {
+        icmMult = Icm.riskMultiplier(Object.assign({}, enriched, { chosenAction: input.chosenAction }));
+        evLoss = Icm.adjustEvLoss(evLoss, Object.assign({}, enriched, { chosenAction: input.chosenAction }));
+      }
+
       const scoring = Scoring.scoreDecision({
         strategy, chosenAction: input.chosenAction, classification: finalCls,
         evLoss: evLoss, betSizeBB: input.betSizeBB, potBB: enriched.potBB,
@@ -7156,6 +7876,12 @@ window.PT_VS_3BET_JSON = {
         riverShove: !!enriched.riverShove,
         multiway: !!enriched.multiway
       });
+
+      const Bluff = global.GTOBluffSpotDetector;
+      const bluffInfo = Bluff && enriched.street && enriched.street !== 'preflop'
+        ? Bluff.scoreForIntent(Object.assign({}, enriched, { strategy: strategy }), enriched.practiceIntent || 'mixed')
+        : null;
+
       result.evaluation = {
         class: finalCls,
         best: finalBest,
@@ -7177,8 +7903,13 @@ window.PT_VS_3BET_JSON = {
         score: scoring.score,
         scoreBreakdown: scoring.breakdown,
         errors: stratErrors,
-        legalStrategy: cls.legalStrategy
+        legalStrategy: cls.legalStrategy,
+        icmMultiplier: icmMult,
+        bluffSpot: bluffInfo
       };
+      if (Icm && Icm.shouldApply(enriched)) {
+        Icm.annotateDecision(result.evaluation, enriched);
+      }
       result.explanation = Explanations.generate(enriched, spotKey, strategy, result.evaluation);
     } else {
       result.explanation = Explanations.generate(enriched, spotKey, strategy, null);
@@ -7254,11 +7985,15 @@ window.PT_VS_3BET_JSON = {
     Strategy: global.GTOStrategyTables,
     Classifier: global.GTOClassifier,
     EvLoss: global.GTOEvLoss,
+    IcmEv: global.GTOIcmEv,
     Scoring: global.GTOScoring,
     Errors: global.GTOErrors,
     Explanations: global.GTOExplanations,
     HandStrength: global.GTOHandStrength,
-    VillainTracking: global.GTOVillainTracking
+    VillainTracking: global.GTOVillainTracking,
+    BluffSpotDetector: global.GTOBluffSpotDetector,
+    PushFold: global.GTOPushFold,
+    FormatTaxonomy: global.PTFormatTaxonomy
   });
 })(window);
 
@@ -8237,14 +8972,19 @@ window.PT_VS_3BET_JSON = {
     return { opener: parts[0], threeBettor: parts[2] };
   }
 
-  const STACK_DEPTH_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
+  const STACK_DEPTH_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, bb20: 20, bb15: 15, bb10: 10, standard: 100, short: 40, deep: 150 };
 
   const HANDS_TARGETS = { 0: true, 10: true, 25: true, 50: true, 100: true };
+
+  const POS_SPIN = ['BTN', 'SB', 'BB'];
+  const DEAL_ORDER_SPIN = ['SB', 'BB', 'BTN'];
+  const RFI_POS_SPIN = ['BTN', 'SB'];
 
   /** Rake orientativo cash mid-stakes (SN-53). */
   const STANDARD_RAKE = { pct: 5, capBB: 3 };
 
   const DEFAULT = {
+    formatHub: 'cash',
     gameType: 'cash6',
     stackDepth: 'bb100',
     scenario: 'random',
@@ -8252,6 +8992,14 @@ window.PT_VS_3BET_JSON = {
     handRange: 'playable',
     villainLevel: 'fish',
     practiceStreet: 'random',
+    /** mixed | bluff_make | bluff_catch */
+    practiceIntent: 'mixed',
+    /** auto | early | mid | short | push | bubble — spins/MTT */
+    mttPhase: 'auto',
+    /** ante en bb (0 en cash; auto en MTT) */
+    anteBB: null,
+    /** 2x | 3x | 5x — payouts spin */
+    spinPayout: '2x',
     liveAdvisor: false,
     /** 'always' | 'serious' — solo relevante si liveAdvisor */
     advisorMode: 'always',
@@ -8318,17 +9066,69 @@ window.PT_VS_3BET_JSON = {
   const RR = function () { return global.GTORangesRegistry; };
 
   function normalize(config) {
-    const c = Object.assign({}, DEFAULT, config || {});
+    const raw = config || {};
+    const c = Object.assign({}, DEFAULT, raw);
+    const Tax = global.PTFormatTaxonomy;
+    const hubExplicit = Object.prototype.hasOwnProperty.call(raw, 'formatHub');
+    const gtExplicit = Object.prototype.hasOwnProperty.call(raw, 'gameType');
+    const stackExplicit = Object.prototype.hasOwnProperty.call(raw, 'stackDepth');
+
     if (!c.gameType) c.gameType = 'cash6';
+    if (c.gameType === 'spin') c.gameType = 'spin3';
+
+    if (Tax) {
+      if (hubExplicit && !gtExplicit) {
+        c.formatHub = Tax.normalizeHub(c.formatHub);
+        if (c.formatHub === 'cash' && (c.gameType === 'cash6' || c.gameType === 'cash9')) {
+          /* keep table size */
+        } else {
+          c.gameType = Tax.defaultGameTypeForHub(c.formatHub);
+        }
+      } else if (hubExplicit && gtExplicit) {
+        c.formatHub = Tax.normalizeHub(c.formatHub);
+        if (Tax.hubFromGameType(c.gameType) !== c.formatHub) {
+          c.gameType = Tax.defaultGameTypeForHub(c.formatHub);
+        }
+      } else {
+        c.formatHub = Tax.hubFromGameType(c.gameType);
+      }
+    } else {
+      c.formatHub = c.gameType === 'spin3' ? 'spin' : (c.gameType === 'mtt' ? 'mtt' : 'cash');
+    }
+
     if (!c.stackDepth) c.stackDepth = 'bb100';
     if (c.stackDepth === 'standard') c.stackDepth = 'bb100';
-    if (c.stackDepth === 'short') c.stackDepth = 'bb50';
+    if (c.stackDepth === 'short') c.stackDepth = c.formatHub === 'spin' ? 'bb25' : 'bb50';
     if (c.stackDepth === 'deep') c.stackDepth = 'bb200';
+    if (c.formatHub === 'spin' && !stackExplicit && (c.stackDepth === 'bb200' || c.stackDepth === 'bb100')) {
+      c.stackDepth = 'bb25';
+    }
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
     if (!c.handRange) c.handRange = 'random';
     if (!c.villainLevel) c.villainLevel = 'fish';
     if (!c.practiceStreet) c.practiceStreet = 'random';
+    if (Tax) c.practiceIntent = Tax.normalizeIntent(c.practiceIntent);
+    else if (c.practiceIntent !== 'bluff_make' && c.practiceIntent !== 'bluff_catch') c.practiceIntent = 'mixed';
+    if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
+    else if (!c.mttPhase) c.mttPhase = 'auto';
+    if (c.spinPayout !== '3x' && c.spinPayout !== '5x') c.spinPayout = '2x';
+
+    c.stackBB = STACK_DEPTH_BB[c.stackDepth] != null ? STACK_DEPTH_BB[c.stackDepth] : 100;
+    if (Tax) c.resolvedPhase = Tax.resolvePhase(c);
+
+    if (c.anteBB == null || c.anteBB === '') {
+      c.anteBB = (Tax && c.formatHub !== 'cash') ? Tax.defaultAnteBB(c) : 0;
+    }
+    var ante = Number(c.anteBB);
+    if (isNaN(ante) || ante < 0) ante = 0;
+    if (ante > 2) ante = 2;
+    if (c.formatHub === 'cash') ante = 0;
+    c.anteBB = ante;
+
+    // Rake solo cash; torneos/spins sin rake de bote cash.
+    if (c.formatHub !== 'cash') c.rakeMode = 'none';
+
     c.liveAdvisor = !!c.liveAdvisor;
     c.advisorMode = c.advisorMode === 'serious' ? 'serious' : 'always';
     var thr = Number(c.seriousEvThreshold);
@@ -8356,21 +9156,41 @@ window.PT_VS_3BET_JSON = {
   }
 
   function is9Max(config) {
-    return config.gameType === 'cash9' || config.gameType === 'mtt';
+    const c = config || {};
+    return c.gameType === 'cash9' || c.gameType === 'mtt';
   }
 
   function isMtt(config) {
-    return config.gameType === 'mtt';
+    return (config && config.gameType) === 'mtt';
+  }
+
+  function isSpin(config) {
+    return (config && config.gameType) === 'spin3' || (config && config.formatHub) === 'spin';
+  }
+
+  function is3Max(config) {
+    return isSpin(config);
   }
 
   function heroPositions(config) {
     const c = normalize(config);
+    if (isSpin(c)) {
+      if (c.scenario === 'rfi' || c.scenario === 'push') return RFI_POS_SPIN.slice();
+      return POS_SPIN.slice();
+    }
     if (c.scenario === 'rfi') return is9Max(c) ? RFI_POS_9.slice() : RFI_POS_6.slice();
     return is9Max(c) ? POS_9.slice() : POS_6.slice();
   }
 
   function tablePositions(config) {
+    if (isSpin(config)) return POS_SPIN.slice();
     return is9Max(config) ? POS_9.slice() : POS_6.slice();
+  }
+
+  function dealOrder(config) {
+    if (isSpin(config)) return DEAL_ORDER_SPIN.slice();
+    if (is9Max(config)) return DEAL_ORDER_9.slice();
+    return ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
   }
 
   function displaySeatForEngine(enginePos, reserved) {
@@ -8412,10 +9232,6 @@ window.PT_VS_3BET_JSON = {
     if (s.type === 'squeeze' && s.openerPos) return s.openerPos;
     if (s.type === 'RFI') return 'BB';
     return openerDealSeat(s, hand.playConfig) || displaySeatForEngine(hand.villain.pos, [heroSeat, s.callerPos]);
-  }
-
-  function dealOrder(config) {
-    return is9Max(config) ? DEAL_ORDER_9.slice() : POS_6.slice();
   }
 
   function enginePos(displayPos) {
@@ -8835,41 +9651,76 @@ window.PT_VS_3BET_JSON = {
   function buildScenarioPool(config) {
     const pool = [];
     const sc = config.scenario || 'random';
-    const types = sc === 'random'
-      ? ['RFI', 'vsRFI', 'face3bet', 'squeeze', 'face4bet', 'isoLimp', 'bbVsSbLimp', 'sbLimp', 'cold4bet']
-      : [mapScenarioType(sc)];
-    const rfiPos = is9Max(config) ? RFI_POS_9 : RFI_POS_6;
+    const spin = isSpin(config);
+    const phase = config.resolvedPhase || (global.PTFormatTaxonomy
+      ? global.PTFormatTaxonomy.resolvePhase(config)
+      : 'early');
+    const pushMode = sc === 'push' || phase === 'push' || (spin && (config.stackBB || 25) <= 12 && sc === 'random');
+
+    let types;
+    if (sc === 'random') {
+      if (pushMode) types = ['RFI', 'vsRFI'];
+      else if (spin) types = ['RFI', 'vsRFI', 'face3bet', 'bbVsSbLimp'];
+      else if (isMtt(config) && (phase === 'short' || phase === 'bubble')) types = ['RFI', 'vsRFI', 'face3bet', 'squeeze'];
+      else types = ['RFI', 'vsRFI', 'face3bet', 'squeeze', 'face4bet', 'isoLimp', 'bbVsSbLimp', 'sbLimp', 'cold4bet'];
+    } else {
+      types = [mapScenarioType(sc)];
+    }
+
+    const rfiPos = spin ? RFI_POS_SPIN : (is9Max(config) ? RFI_POS_9 : RFI_POS_6);
 
     types.forEach((type) => {
       if (type === 'RFI') {
         rfiPos.forEach((p) => {
-          pool.push({ type: 'RFI', heroPos: p, engineHeroPos: enginePos(p) });
+          pool.push({
+            type: 'RFI',
+            heroPos: p,
+            engineHeroPos: enginePos(p),
+            pushFold: !!pushMode
+          });
         });
       } else if (type === 'vsRFI') {
-        vsKeys().forEach((key) => pool.push({ type: 'vsRFI', key: key }));
+        if (spin) {
+          pool.push({ type: 'vsRFI', key: 'BB_vs_BTN', pushFold: !!pushMode });
+          pool.push({ type: 'vsRFI', key: 'BB_vs_SB', pushFold: !!pushMode });
+          pool.push({ type: 'vsRFI', key: 'SB_vs_BTN', pushFold: !!pushMode });
+        } else {
+          vsKeys().forEach((key) => pool.push({ type: 'vsRFI', key: key, pushFold: !!pushMode }));
+        }
       } else if (type === 'face3bet') {
-        vs3betKeys().forEach((key) => pool.push({ type: 'face3bet', key: key }));
+        if (spin) {
+          pool.push({ type: 'face3bet', key: 'BTN_vs_SB' });
+          pool.push({ type: 'face3bet', key: 'BTN_vs_BB' });
+          pool.push({ type: 'face3bet', key: 'SB_vs_BB' });
+        } else {
+          vs3betKeys().forEach((key) => pool.push({ type: 'face3bet', key: key }));
+        }
       } else if (type === 'squeeze') {
-        SQUEEZE_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'squeeze' }, c)));
+        if (!spin) SQUEEZE_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'squeeze' }, c)));
       } else if (type === 'face4bet') {
-        vsKeys().forEach((key) => pool.push({ type: 'face4bet', key: key }));
+        if (!spin) vsKeys().forEach((key) => pool.push({ type: 'face4bet', key: key }));
       } else if (type === 'isoLimp') {
-        ISO_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'isoLimp' }, c)));
+        if (!spin) ISO_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'isoLimp' }, c)));
       } else if (type === 'bbVsSbLimp') {
         pool.push({ type: 'bbVsSbLimp', heroPos: 'BB' });
       } else if (type === 'sbLimp') {
-        pool.push({ type: 'sbLimp', heroPos: 'SB' });
+        if (!spin) pool.push({ type: 'sbLimp', heroPos: 'SB' });
       } else if (type === 'cold4bet') {
-        pool.push({ type: 'cold4bet', heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ' });
-        pool.push({ type: 'cold4bet', heroPos: 'BTN', openerPos: 'CO', threeBettorPos: 'SB' });
-        pool.push({ type: 'cold4bet', heroPos: 'BB', openerPos: 'BTN', threeBettorPos: 'SB' });
+        if (!spin) {
+          pool.push({ type: 'cold4bet', heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ' });
+          pool.push({ type: 'cold4bet', heroPos: 'BTN', openerPos: 'CO', threeBettorPos: 'SB' });
+          pool.push({ type: 'cold4bet', heroPos: 'BB', openerPos: 'BTN', threeBettorPos: 'SB' });
+        }
       }
     });
+    if (!pool.length) {
+      rfiPos.forEach((p) => pool.push({ type: 'RFI', heroPos: p, engineHeroPos: enginePos(p) }));
+    }
     return pool;
   }
 
   function mapScenarioType(sc) {
-    if (sc === 'rfi') return 'RFI';
+    if (sc === 'rfi' || sc === 'push' || sc === 'steal') return 'RFI';
     if (sc === '3bet') return 'vsRFI';
     if (sc === 'face3bet') return 'face3bet';
     if (sc === '4bet') return 'face4bet';
@@ -8902,19 +9753,33 @@ window.PT_VS_3BET_JSON = {
 
   function labelFor(config) {
     const c = normalize(config);
-    const gt = { cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT' }[c.gameType] || c.gameType;
-    const sd = { bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb', standard: '100bb', short: '50bb', deep: '200bb' }[c.stackDepth] || c.stackDepth;
+    const Tax = global.PTFormatTaxonomy;
+    const hub = Tax && Tax.HUB_LABELS ? (Tax.HUB_LABELS[c.formatHub] || c.formatHub) : c.formatHub;
+    const gt = {
+      cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT', spin3: 'Spin 3-max'
+    }[c.gameType] || c.gameType;
+    const sd = {
+      bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb',
+      bb20: '20bb', bb15: '15bb', bb10: '10bb',
+      standard: '100bb', short: '50bb', deep: '200bb'
+    }[c.stackDepth] || c.stackDepth;
     const sc = {
       random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
       '4bet': '4-Bet', squeeze: 'Squeeze', iso: 'Iso limp',
-      bbvsb: 'BB vs SB limp', sbLimp: 'SB limp', cold4bet: 'Cold 4-Bet'
+      bbvsb: 'BB vs SB limp', sbLimp: 'SB limp', cold4bet: 'Cold 4-Bet',
+      push: 'Push/fold', steal: 'Steal'
     }[c.scenario] || c.scenario;
+    const intent = Tax && Tax.INTENT_LABELS
+      ? (Tax.INTENT_LABELS[c.practiceIntent] || c.practiceIntent)
+      : c.practiceIntent;
     const hr = { random: 'Todas', playable: 'Jugables', borderline: 'Borderline', all: 'Todas' }[c.handRange] || c.handRange;
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
     const st = { random: 'Todas las calles', preflop: 'Solo preflop', flop: 'Desde flop', turn: 'Desde turn', river: 'Desde river' }[c.practiceStreet] || c.practiceStreet;
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
-    return gt + ' · ' + sd + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
+    const phase = c.formatHub !== 'cash' ? (' · ' + (c.resolvedPhase || c.mttPhase)) : '';
+    const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + intent + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {
@@ -8928,14 +9793,14 @@ window.PT_VS_3BET_JSON = {
     DEFAULT, normalize, pickScenario, labelFor, rakeLabel,
     STANDARD_RAKE, estimateRakeBB, potAfterRakeBB, loadRakePrefs, saveRakePrefs,
     PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB,
-    POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9,
+    POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9, POS_SPIN, DEAL_ORDER_SPIN, RFI_POS_SPIN,
     sampleHeroWeights, sampleHeroHand, sampleVillainWeights, sampleRfiDefenderWeights,
     sampleFace4betVillainWeights, face4betVillainRangeStr, sampleLimpWeights,
     sampleCallerWeights, sampleThreeBettorWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
-    is9Max, isMtt, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
-    vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, ISO_COMBOS
+    is9Max, isMtt, isSpin, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
+    vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, ISO_COMBOS, buildScenarioPool
   };
 })(window);
 
@@ -10370,6 +11235,20 @@ window.PT_VS_3BET_JSON = {
     input.effStack = input.stackDepth;
     input.heroRemainingBB = rem;
     input.spr = node.potBB > 0 ? rem / node.potBB : rem;
+    const cfg = hand.playConfig || {};
+    input.formatHub = cfg.formatHub || null;
+    input.practiceIntent = cfg.practiceIntent || 'mixed';
+    input.mttPhase = cfg.resolvedPhase || cfg.mttPhase || null;
+    input.spinPayout = cfg.spinPayout || '2x';
+    input.anteBB = cfg.anteBB || 0;
+    input.pushFold = !!(s.pushFold || cfg.scenario === 'push' || (cfg.resolvedPhase === 'push'));
+    input.heroStackBB = hand.stacks && hand.stacks.hero != null ? hand.stacks.hero : input.effStack;
+    input.villainStackBB = hand.stacks && hand.stacks.villain != null ? hand.stacks.villain : input.effStack;
+    const Icm = global.GTOIcmEv;
+    if (Icm && Icm.contextForHand) {
+      const icmCtx = Icm.contextForHand(hand, cfg);
+      if (icmCtx) Object.assign(input, icmCtx);
+    }
     const RR = global.GTORangesRegistry;
     if (RR) RR.attachToInput(input, rangeCtx(hand));
     return input;
@@ -10509,7 +11388,8 @@ window.PT_VS_3BET_JSON = {
       }
       return s;
     }
-    if (!forceKey && PC && playConfig) {
+    // force solo con seed/forceDeal/forceScript: respetar playConfig (hubs v2).
+    if (PC && playConfig) {
       return PC.pickScenario(playConfig, null);
     }
     const roll = Math.random();
@@ -10539,7 +11419,9 @@ window.PT_VS_3BET_JSON = {
 
   function dealForPlayConfig(scenario, playConfig) {
     const PC = global.PTPlayConfig;
-    const order = PC && PC.is9Max(playConfig) ? PC.DEAL_ORDER_9 : DEAL_ORDER;
+    const order = PC && PC.dealOrder
+      ? PC.dealOrder(playConfig)
+      : (PC && PC.is9Max(playConfig) ? PC.DEAL_ORDER_9 : DEAL_ORDER);
     const holeCards = {};
     order.forEach(function (pos) { holeCards[pos] = null; });
     let dead = [];
@@ -10704,7 +11586,42 @@ window.PT_VS_3BET_JSON = {
       if (hand.villain && hand.villain.pos) hand.villain.cards = villainHoleCards(hand);
     }
     if (force && force.forceScript) initForceScript(hand, force.forceScript);
+    applyAnteToHand(hand);
     return hand;
+  }
+
+  /** Suma ante MTT/spin al bote inicial (aprox. 2–3 jugadores activos). */
+  function applyAnteToHand(hand) {
+    const cfg = hand && hand.playConfig;
+    if (!cfg) return;
+    const ante = Number(cfg.anteBB) || 0;
+    if (ante <= 0) return;
+    const seats = global.PTPlayConfig && global.PTPlayConfig.isSpin && global.PTPlayConfig.isSpin(cfg)
+      ? 3
+      : (global.PTPlayConfig && global.PTPlayConfig.is9Max && global.PTPlayConfig.is9Max(cfg) ? 9 : 6);
+    // Antes típicos: todos pagan; en HU efectivo usamos 2.
+    const payers = Math.min(seats, hand.table && hand.table.length ? hand.table.length : seats);
+    const add = round2(ante * Math.max(2, Math.min(payers, 3)));
+    hand.potBB = round2((hand.potBB || 0) + add);
+    hand.anteBB = ante;
+    hand.antePotBB = add;
+    if (hand.current) hand.current.potBB = hand.potBB;
+  }
+
+  /** True si el nodo actual encaja con practiceIntent de faroles. */
+  function currentMatchesPracticeIntent(hand) {
+    const cfg = hand && hand.playConfig;
+    if (!cfg || !cfg.practiceIntent || cfg.practiceIntent === 'mixed') return true;
+    const Det = global.GTOBluffSpotDetector;
+    if (!Det || !hand.current) return true;
+    if (hand.current.street === 'preflop') return cfg.practiceIntent === 'mixed';
+    try {
+      const input = buildSpotInput(hand, hand.current, null);
+      const strat = GTO.getStrategy(input);
+      return Det.matchesPracticeIntent(Object.assign({}, input, { strategy: strat }), cfg.practiceIntent);
+    } catch (e) {
+      return true;
+    }
   }
 
   function inPos(a, b) { return POSTFLOP_ORDER.indexOf(a) > POSTFLOP_ORDER.indexOf(b); }
@@ -10896,7 +11813,13 @@ window.PT_VS_3BET_JSON = {
       villainRange: node.street !== 'preflop' ? villainRangeAtNode(hand, node) : null,
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
       potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
-      context: node.context
+      context: node.context,
+      bluffSpot: ev.bluffSpot || null,
+      icmMultiplier: ev.icmMultiplier != null ? ev.icmMultiplier : null,
+      icmPressure: ev.icmPressure != null ? ev.icmPressure : null,
+      bubbleFactor: ev.bubbleFactor != null ? ev.bubbleFactor : null,
+      icmNote: ev.icmNote || null,
+      formatHub: (hand.playConfig && hand.playConfig.formatHub) || null
     };
     hand.decisions.push(decision);
     hand.log.push(describeDecision(hand, decision));
@@ -12103,7 +13026,8 @@ window.PT_VS_3BET_JSON = {
 
   global.Engine = {
     newHand, act, previewAdvice, syncTableInvested, fastForwardToStreet,
-    advanceRunout, prepareAllInRunout,
+    advanceRunout, prepareAllInRunout, currentMatchesPracticeIntent,
+    applyAnteToHand, buildSpotInput,
 
     // utilidades expuestas para UI/tests/importador
     handStrength01, equityVsRange, classifyMadeHand, sampleHandFromRange,
@@ -14048,7 +14972,20 @@ window.PT_VS_3BET_JSON = {
     hand.decisions.forEach((d, idx) => {
       if (d.class === 'error' || d.class === 'imprecisa') {
         const sc = hand.scenario || {};
-        const spotKey = sc.type + '|' + (hand.displayHeroPos || hand.hero.pos || rec.heroPos || '?') + '|' + (d.street || 'preflop');
+        const cfg = hand.playConfig || {};
+        const Tax = global.PTFormatTaxonomy;
+        const formatHub = cfg.formatHub || (Tax ? Tax.hubFromGameType(cfg.gameType) : 'cash');
+        const practiceIntent = cfg.practiceIntent || (d.bluffSpot && d.bluffSpot.intent) || 'mixed';
+        const baseKey = sc.type + '|' + (hand.displayHeroPos || hand.hero.pos || rec.heroPos || '?') + '|' + (d.street || 'preflop');
+        const spotKey = Tax && Tax.formatSpotKey
+          ? Tax.formatSpotKey(baseKey, {
+            formatHub: formatHub,
+            gameType: cfg.gameType,
+            practiceIntent: practiceIntent,
+            phase: cfg.resolvedPhase || cfg.mttPhase,
+            street: d.street
+          })
+          : baseKey;
         errs.unshift({
           id: rec.id + '_' + idx,
           handId: rec.id,
@@ -14064,6 +15001,9 @@ window.PT_VS_3BET_JSON = {
           heroCards: rec.heroCards,
           street: d.street,
           spotKey: spotKey,
+          formatHub: formatHub,
+          practiceIntent: practiceIntent,
+          mttPhase: cfg.resolvedPhase || cfg.mttPhase || null,
           chosen: d.label,
           chosenAction: d.action,
           best: d.best,
@@ -14073,6 +15013,7 @@ window.PT_VS_3BET_JSON = {
           mathParams: d.mathParams,
           context: d.context,
           gto: d.gto,
+          icmPressure: d.icmPressure != null ? d.icmPressure : null,
           repeated: 0
         });
       }
@@ -20877,16 +21818,97 @@ window.PT_VS_3BET_JSON = {
     if (window.scrollTo) window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function activeFormatHub() {
+    const el = $('#setup-format-hub .sessions-kind-tab.active, #setup-format-hub .setup-chip.active');
+    return el && el.dataset.val ? el.dataset.val : 'cash';
+  }
+
+  function syncFormatHubUI(hub) {
+    const h = hub || activeFormatHub();
+    const hubBox = $('#setup-format-hub');
+    if (hubBox) {
+      hubBox.querySelectorAll('[data-val]').forEach((btn) => {
+        const on = btn.dataset.val === h;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    }
+    $$('#setup-game-type .setup-chip').forEach((chip) => {
+      const chipHub = chip.dataset.hub || 'cash';
+      const show = chipHub === h;
+      chip.hidden = !show;
+      if (!show) chip.classList.remove('active');
+    });
+    const visibleGt = $$('#setup-game-type .setup-chip').filter((c) => !c.hidden);
+    if (visibleGt.length && !visibleGt.some((c) => c.classList.contains('active'))) {
+      visibleGt[0].classList.add('active');
+    }
+    const phaseGroup = $('#setup-group-phase');
+    const payoutGroup = $('#setup-group-spin-payout');
+    const rakeGroup = $('#setup-rake-mode') && $('#setup-rake-mode').closest('.setup-group');
+    if (phaseGroup) phaseGroup.hidden = h === 'cash';
+    if (payoutGroup) payoutGroup.hidden = h !== 'spin';
+    if (rakeGroup) rakeGroup.hidden = h !== 'cash';
+
+    $$('#setup-stack-depth .setup-chip').forEach((chip) => {
+      let show = true;
+      if (h === 'cash') show = chip.hasAttribute('data-stack-cash') || (!chip.hasAttribute('data-stack-spin') && !chip.hasAttribute('data-stack-mtt'));
+      if (h === 'spin') show = chip.hasAttribute('data-stack-spin');
+      if (h === 'mtt') {
+        show = chip.hasAttribute('data-stack-mtt')
+          || chip.dataset.val === 'bb200'
+          || chip.dataset.val === 'bb100'
+          || chip.dataset.val === 'bb50';
+      }
+      if (h === 'cash' && (chip.dataset.val === 'bb20' || chip.dataset.val === 'bb15' || chip.dataset.val === 'bb10')) show = false;
+      if (h === 'spin' && (chip.dataset.val === 'bb200' || chip.dataset.val === 'bb100' || chip.dataset.val === 'bb50')) show = false;
+      chip.hidden = !show;
+      if (!show) chip.classList.remove('active');
+    });
+    const visStack = $$('#setup-stack-depth .setup-chip').filter((c) => !c.hidden);
+    if (visStack.length && !visStack.some((c) => c.classList.contains('active'))) {
+      const prefer = h === 'spin' ? 'bb25' : (h === 'mtt' ? 'bb50' : 'bb100');
+      const prefChip = visStack.find((c) => c.dataset.val === prefer) || visStack[0];
+      prefChip.classList.add('active');
+    }
+
+    $$('#setup-scenario .setup-chip').forEach((chip) => {
+      const v = chip.dataset.val;
+      let show = true;
+      if (chip.hasAttribute('data-sc-spin') || chip.hasAttribute('data-sc-mtt') || chip.hasAttribute('data-sc-cash')) {
+        show = (h === 'cash' && chip.hasAttribute('data-sc-cash'))
+          || (h === 'spin' && chip.hasAttribute('data-sc-spin'))
+          || (h === 'mtt' && chip.hasAttribute('data-sc-mtt'));
+        // Common scenarios without exclusivity attrs stay visible
+        if (!chip.hasAttribute('data-sc-cash') && !chip.hasAttribute('data-sc-spin') && !chip.hasAttribute('data-sc-mtt')) show = true;
+      }
+      if (v === 'push' || v === 'steal') show = h === 'spin' || h === 'mtt';
+      if (v === '4bet' || v === 'squeeze') show = h !== 'spin';
+      if (v === 'iso' || v === 'cold4bet') show = h === 'cash';
+      chip.hidden = !show;
+      if (!show) chip.classList.remove('active');
+    });
+    const visSc = $$('#setup-scenario .setup-chip').filter((c) => !c.hidden);
+    if (visSc.length && !visSc.some((c) => c.classList.contains('active'))) {
+      visSc[0].classList.add('active');
+    }
+    renderHeroPosChips();
+  }
+
   function readPlayConfig() {
     const PC = window.PTPlayConfig;
     if (!PC) return null;
-    const gtEl = $('#setup-game-type .setup-chip.active');
-    const sdEl = $('#setup-stack-depth .setup-chip.active');
-    const scEl = $('#setup-scenario .setup-chip.active');
+    const hub = activeFormatHub();
+    const gtEl = $('#setup-game-type .setup-chip.active:not([hidden])') || $('#setup-game-type .setup-chip.active');
+    const sdEl = $('#setup-stack-depth .setup-chip.active:not([hidden])') || $('#setup-stack-depth .setup-chip.active');
+    const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
     const posEl = $('#setup-hero-pos .setup-chip.active');
     const hrEl = $('#setup-hand-range .setup-chip.active');
     const vlEl = $('#setup-villain-level .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
+    const intentEl = $('#setup-practice-intent .setup-chip.active');
+    const phaseEl = $('#setup-mtt-phase .setup-chip.active');
+    const payoutEl = $('#setup-spin-payout .setup-chip.active');
     const thEl = $('#setup-table-theme .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
     const laEl = $('#setup-live-advisor');
@@ -20914,20 +21936,30 @@ window.PT_VS_3BET_JSON = {
         if (prefs.rakeCapBB != null) rakeCapBB = Number(prefs.rakeCapBB);
       }
     }
+    const Tax = window.PTFormatTaxonomy;
+    let gameType = gtEl ? gtEl.dataset.val : 'cash6';
+    if (hub === 'spin') gameType = 'spin3';
+    if (hub === 'mtt') gameType = 'mtt';
+    if (hub === 'cash' && gameType !== 'cash6' && gameType !== 'cash9') gameType = 'cash6';
     return PC.normalize({
-      gameType: gtEl ? gtEl.dataset.val : 'cash6',
-      stackDepth: sdEl ? sdEl.dataset.val : 'bb100',
+      formatHub: hub,
+      gameType: gameType,
+      stackDepth: sdEl ? sdEl.dataset.val : (hub === 'spin' ? 'bb25' : 'bb100'),
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'playable',
       villainLevel: vlEl ? vlEl.dataset.val : 'fish',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
+      practiceIntent: intentEl ? intentEl.dataset.val : 'mixed',
+      mttPhase: phaseEl ? phaseEl.dataset.val : 'auto',
+      spinPayout: payoutEl ? payoutEl.dataset.val : '2x',
+      anteBB: Tax && hub !== 'cash' ? null : 0,
       tableTheme: thEl ? thEl.dataset.val : loadTableTheme(),
       handsTarget: htEl ? Number(htEl.dataset.val) || 0 : 0,
       liveAdvisor: laEl ? laEl.checked : false,
       advisorMode: advisorMode,
       seriousEvThreshold: seriousEvThreshold,
-      rakeMode: rakeMode || 'none',
+      rakeMode: hub === 'cash' ? (rakeMode || 'none') : 'none',
       rakePct: rakePct,
       rakeCapBB: rakeCapBB
     });
@@ -21096,9 +22128,16 @@ window.PT_VS_3BET_JSON = {
       });
       return found;
     }
+    const hub = cfg.formatHub || (window.PTFormatTaxonomy
+      ? PTFormatTaxonomy.hubFromGameType(cfg.gameType)
+      : 'cash');
+    syncFormatHubUI(hub);
     activate('#setup-game-type', cfg.gameType);
     activate('#setup-stack-depth', cfg.stackDepth);
     activate('#setup-scenario', cfg.scenario);
+    activate('#setup-practice-intent', cfg.practiceIntent || 'mixed');
+    activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
+    activate('#setup-spin-payout', cfg.spinPayout || '2x');
     renderHeroPosChips();
     activate('#setup-hero-pos', cfg.heroPos);
     activate('#setup-hand-range', cfg.handRange);
@@ -21183,9 +22222,21 @@ window.PT_VS_3BET_JSON = {
   window.applyPlaySetupConfig = applyPlaySetupConfig;
 
   function bindPlaySetup() {
+    const hubBox = $('#setup-format-hub');
+    if (hubBox) {
+      hubBox.querySelectorAll('[data-val]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          syncFormatHubUI(btn.dataset.val);
+        });
+      });
+    }
+    syncFormatHubUI(activeFormatHub());
     bindChipGroup('#setup-game-type', renderHeroPosChips);
     bindChipGroup('#setup-stack-depth');
     bindChipGroup('#setup-scenario', renderHeroPosChips);
+    bindChipGroup('#setup-practice-intent');
+    bindChipGroup('#setup-mtt-phase');
+    bindChipGroup('#setup-spin-payout');
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
     bindChipGroup('#setup-practice-street');
@@ -21980,13 +23031,25 @@ window.PT_VS_3BET_JSON = {
       }
       replayPlayConfig = null;
       const streetTarget = cfg && cfg.practiceStreet;
+      const intent = cfg && cfg.practiceIntent;
       const needsStreetFastForward = streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet;
-      if (needsStreetFastForward) {
+      const needsBluffFilter = intent && intent !== 'mixed' && !force;
+      if (needsStreetFastForward || needsBluffFilter) {
         let tries = 0;
-        while (tries < 12) {
+        const maxTries = needsBluffFilter ? 18 : 12;
+        while (tries < maxTries) {
           hand = Engine.newHand(force || undefined, cfg);
-          Engine.fastForwardToStreet(hand, streetTarget);
-          if (!hand.result && hand.current && hand.stage === streetTarget) break;
+          if (needsStreetFastForward) Engine.fastForwardToStreet(hand, streetTarget);
+          else if (needsBluffFilter && streetTarget === 'random' && Engine.fastForwardToStreet) {
+            // Faroles: preferir postflop (river con más peso).
+            const target = Math.random() < 0.55 ? 'river' : (Math.random() < 0.5 ? 'turn' : 'flop');
+            Engine.fastForwardToStreet(hand, target);
+          }
+          const streetOk = !needsStreetFastForward
+            || (!hand.result && hand.current && hand.stage === streetTarget);
+          const intentOk = !needsBluffFilter
+            || (Engine.currentMatchesPracticeIntent && Engine.currentMatchesPracticeIntent(hand));
+          if (streetOk && intentOk && !hand.result && hand.current) break;
           tries++;
         }
       } else {
@@ -22276,8 +23339,51 @@ window.PT_VS_3BET_JSON = {
     renderBoard();
     renderSeats();
     $('#spot-context').textContent = hand.current ? hand.current.context : (hand.result ? hand.result.reason : '');
+    renderBluffSpotBadge();
     updateLiveAdvisor();
     syncPlayMobileStage();
+  }
+
+  function renderBluffSpotBadge() {
+    let el = $('#bluff-spot-badge');
+    const host = $('#spot-context') && $('#spot-context').parentElement;
+    if (!host) return;
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'bluff-spot-badge';
+      el.className = 'bluff-spot-badge hidden';
+      host.appendChild(el);
+    }
+    if (!hand || !hand.current || hand.current.street === 'preflop' || !window.GTOBluffSpotDetector) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      return;
+    }
+    try {
+      const input = Engine.buildSpotInput
+        ? Engine.buildSpotInput(hand, hand.current, null)
+        : null;
+      if (!input) { el.classList.add('hidden'); return; }
+      const strat = window.GTO && GTO.getStrategy ? GTO.getStrategy(input) : {};
+      const info = GTOBluffSpotDetector.isGoodSpot(
+        Object.assign({}, input, { strategy: strat }),
+        (hand.playConfig && hand.playConfig.practiceIntent) || 'mixed',
+        0.55
+      );
+      if (!info || !info.good) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+      }
+      const intent = info.intent || info.mixedBest || 'bluff_make';
+      el.dataset.intent = intent;
+      el.classList.remove('hidden');
+      const label = intent === 'bluff_catch' ? 'Buen spot para cazar farol' : 'Buen spot para farolear';
+      const why = (info.reasons && info.reasons[0]) ? ' — ' + info.reasons[0] : '';
+      el.textContent = label + ' (' + Math.round(info.score * 100) + '%)' + why;
+    } catch (e) {
+      el.classList.add('hidden');
+    }
   }
 
   // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb)
@@ -24693,13 +25799,17 @@ window.PT_VS_3BET_JSON = {
           || (window.Importer && Importer.formatKeyToRangeGameType
             ? Importer.formatKeyToRangeGameType(resolveStatsFormat(currentSession && currentSession.stats))
             : null);
+        const Tax = window.PTFormatTaxonomy;
+        const gtFinal = gt || d.gameType || 'cash6';
         window.startGuidedTraining({
           scenario: d.scenario,
           practiceStreet: d.practiceStreet || 'preflop',
+          practiceIntent: d.practiceIntent || 'mixed',
           handRange: d.handRange || 'playable',
           villainLevel: d.villainLevel || 'fish',
           liveAdvisor: d.liveAdvisor !== false,
-          gameType: gt || d.gameType || 'cash6'
+          formatHub: d.formatHub || (Tax ? Tax.hubFromGameType(gtFinal) : undefined),
+          gameType: gtFinal
         });
       });
     });

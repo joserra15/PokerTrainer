@@ -551,26 +551,62 @@
     <section id="tab-play" class="tab-panel">
       <div id="play-setup" class="play-setup card-box">
         <h2 class="play-setup-title"><span class="panel-icon home-card-icon home-card-icon-train" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M6 4h8l4 4v12H6z"/><path d="M14 4v4h4"/><path d="M9 14l2 2 4-5"/></svg></span>Configurar sesión</h2>
-        <p class="muted-text play-setup-sub">Elige el tipo de spot y los rangos antes de empezar a practicar. <button type="button" class="btn-link" id="btn-help-setup" data-open-help>Atajos y ayuda</button></p>
+        <p class="muted-text play-setup-sub">Entrena por formato (Cash, Spins o Torneos) con escenarios, ICM y drills de faroles. <button type="button" class="btn-link" id="btn-help-setup" data-open-help>Atajos y ayuda</button></p>
 
         <div class="setup-group">
+          <span class="setup-label">Formato</span>
+          <div class="sessions-kind-tabs play-format-tabs" id="setup-format-hub" role="tablist" aria-label="Formato de entrenamiento">
+            <button type="button" class="sessions-kind-tab active" data-val="cash" role="tab" aria-selected="true">Cash</button>
+            <button type="button" class="sessions-kind-tab" data-val="spin" role="tab" aria-selected="false">Spins</button>
+            <button type="button" class="sessions-kind-tab" data-val="mtt" role="tab" aria-selected="false">Torneos</button>
+          </div>
+        </div>
+
+        <div class="setup-group" id="setup-group-game-type">
           <span class="setup-label">Tipo de mesa</span>
           <div class="setup-chips" id="setup-game-type">
-            <button type="button" class="setup-chip active" data-val="cash6">Cash 6-max</button>
-            <button type="button" class="setup-chip" data-val="cash9">Cash 9-max</button>
-            <button type="button" class="setup-chip" data-val="mtt">MTT</button>
+            <button type="button" class="setup-chip active" data-val="cash6" data-hub="cash">Cash 6-max</button>
+            <button type="button" class="setup-chip" data-val="cash9" data-hub="cash">Cash 9-max</button>
+            <button type="button" class="setup-chip" data-val="spin3" data-hub="spin" hidden>Spin 3-max</button>
+            <button type="button" class="setup-chip" data-val="mtt" data-hub="mtt" hidden>MTT</button>
           </div>
+        </div>
+
+        <div class="setup-group" id="setup-group-phase" hidden>
+          <span class="setup-label">Fase</span>
+          <div class="setup-chips" id="setup-mtt-phase">
+            <button type="button" class="setup-chip active" data-val="auto">Auto</button>
+            <button type="button" class="setup-chip" data-val="early">Early</button>
+            <button type="button" class="setup-chip" data-val="mid">Mid</button>
+            <button type="button" class="setup-chip" data-val="short">Short</button>
+            <button type="button" class="setup-chip" data-val="push">Push/fold</button>
+            <button type="button" class="setup-chip" data-val="bubble" data-hub-mtt>Burbuja</button>
+          </div>
+          <p class="muted-text setup-hint">La fase ajusta rangos, antes e ICM. En Spins, «Burbuja» equivale a presión ICM de mesa corta.</p>
+        </div>
+
+        <div class="setup-group" id="setup-group-spin-payout" hidden>
+          <span class="setup-label">Payout Spin</span>
+          <div class="setup-chips" id="setup-spin-payout">
+            <button type="button" class="setup-chip active" data-val="2x">2×</button>
+            <button type="button" class="setup-chip" data-val="3x">3×</button>
+            <button type="button" class="setup-chip" data-val="5x">5×</button>
+          </div>
+          <p class="muted-text setup-hint">Se usa para grading ICM aproximado ($EV), no solo chip-EV.</p>
         </div>
 
         <div class="setup-group">
           <span class="setup-label">Stack del héroe</span>
           <div class="setup-chips" id="setup-stack-depth">
-            <button type="button" class="setup-chip" data-val="bb200">200 bb</button>
-            <button type="button" class="setup-chip active" data-val="bb100">100 bb</button>
-            <button type="button" class="setup-chip" data-val="bb50">50 bb</button>
-            <button type="button" class="setup-chip" data-val="bb25">25 bb</button>
+            <button type="button" class="setup-chip" data-val="bb200" data-stack-cash>200 bb</button>
+            <button type="button" class="setup-chip active" data-val="bb100" data-stack-cash>100 bb</button>
+            <button type="button" class="setup-chip" data-val="bb50" data-stack-cash data-stack-mtt>50 bb</button>
+            <button type="button" class="setup-chip" data-val="bb25" data-stack-cash data-stack-spin data-stack-mtt>25 bb</button>
+            <button type="button" class="setup-chip" data-val="bb20" data-stack-spin data-stack-mtt hidden>20 bb</button>
+            <button type="button" class="setup-chip" data-val="bb15" data-stack-spin data-stack-mtt hidden>15 bb</button>
+            <button type="button" class="setup-chip" data-val="bb10" data-stack-spin data-stack-mtt hidden>10 bb</button>
           </div>
-          <p class="muted-text setup-hint">Los villanos reciben un stack aleatorio cercano al tuyo. Las apuestas respetan el stack efectivo calle a calle.</p>
+          <p class="muted-text setup-hint">Los villanos reciben un stack aleatorio cercano al tuyo. En Spins/MTT el stack define la fase si eliges Auto.</p>
         </div>
 
         <div class="setup-group">
@@ -580,12 +616,24 @@
             <button type="button" class="setup-chip" data-val="rfi">RFI</button>
             <button type="button" class="setup-chip" data-val="3bet">3-Bet</button>
             <button type="button" class="setup-chip" data-val="face3bet">Vs 3-Bet</button>
-            <button type="button" class="setup-chip" data-val="4bet">4-Bet</button>
-            <button type="button" class="setup-chip" data-val="squeeze">Squeeze</button>
-            <button type="button" class="setup-chip" data-val="iso">Iso limp</button>
+            <button type="button" class="setup-chip" data-val="4bet" data-sc-cash data-sc-mtt>4-Bet</button>
+            <button type="button" class="setup-chip" data-val="squeeze" data-sc-cash data-sc-mtt>Squeeze</button>
+            <button type="button" class="setup-chip" data-val="iso" data-sc-cash>Iso limp</button>
             <button type="button" class="setup-chip" data-val="bbvsb">BB vs SB</button>
-            <button type="button" class="setup-chip" data-val="cold4bet">Cold 4-Bet</button>
+            <button type="button" class="setup-chip" data-val="cold4bet" data-sc-cash>Cold 4-Bet</button>
+            <button type="button" class="setup-chip" data-val="push" data-sc-spin data-sc-mtt hidden>Push/fold</button>
+            <button type="button" class="setup-chip" data-val="steal" data-sc-spin data-sc-mtt hidden>Steal</button>
           </div>
+        </div>
+
+        <div class="setup-group">
+          <span class="setup-label">Enfoque (faroles)</span>
+          <div class="setup-chips" id="setup-practice-intent">
+            <button type="button" class="setup-chip active" data-val="mixed">Value y mixed</button>
+            <button type="button" class="setup-chip" data-val="bluff_make">Hacer faroles</button>
+            <button type="button" class="setup-chip" data-val="bluff_catch">Cazar faroles</button>
+          </div>
+          <p class="muted-text setup-hint">El entrenador prioriza spots con buena fold equity/blockers (hacer) o líneas polarizadas (cazar). En Spins/MTT los faroles se penalizan con ICM.</p>
         </div>
 
         <div class="setup-group">
@@ -792,6 +840,7 @@
           <div class="setup-chips" id="ranges-game-type">
             <button type="button" class="setup-chip active" data-val="cash6">6-max</button>
             <button type="button" class="setup-chip" data-val="cash9">9-max</button>
+            <button type="button" class="setup-chip" data-val="spin3">Spin 3-max</button>
             <button type="button" class="setup-chip" data-val="mtt">MTT</button>
           </div>
           <div class="setup-chips" id="ranges-stack-depth">
