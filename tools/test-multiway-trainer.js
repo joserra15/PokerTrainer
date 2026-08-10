@@ -391,7 +391,7 @@ console.log('12) Pool multiway + UI markers');
   assert.ok(indexHtml.includes('data-val="multiway"'), 'UI chip multiway');
   assert.ok(indexHtml.includes('setup-multiway-pot-type'), 'UI pot type');
   const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-  assert.ok(/PT_BUILD\s*=\s*'2\.1\.4'/.test(version), 'version 2.1.4');
+  assert.ok(/PT_BUILD\s*=\s*'2\.1\.5'/.test(version), 'version 2.1.5');
   const chunks = fs.readFileSync(path.join(__dirname, '..', 'js', 'bundle-chunks.js'), 'utf8');
   assert.ok(chunks.includes('multiway.js'), 'multiway in bundle');
 }
