@@ -26,7 +26,7 @@
 13. [Mapa de lecciones vs planes](#13-mapa-de-lecciones-vs-planes)
 14. [RoadMap de entrega por fases](#14-roadmap-de-entrega-por-fases)
 15. [Riesgos, honestidad del motor y métricas de éxito](#15-riesgos-honestidad-del-motor-y-métricas-de-éxito)
-16. [Glosario y decisiones abiertas](#16-glosario-y-decisiones-abiertas)
+16. [Glosario y decisiones](#16-glosario-y-decisiones)
 
 ---
 
