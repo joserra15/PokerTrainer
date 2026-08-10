@@ -216,8 +216,8 @@
     if (!c.handRange) c.handRange = 'random';
     if (!c.villainLevel) c.villainLevel = 'fish';
     if (!c.practiceStreet) c.practiceStreet = 'random';
-    if (Tax) c.practiceIntent = Tax.normalizeIntent(c.practiceIntent);
-    else if (c.practiceIntent !== 'bluff_make' && c.practiceIntent !== 'bluff_catch') c.practiceIntent = 'mixed';
+    // Faroles (hacer/cazar) ocultos en el entrenador: forzar mixed.
+    c.practiceIntent = 'mixed';
     if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
     else if (!c.mttPhase) c.mttPhase = 'auto';
     if (c.spinPayout !== '3x' && c.spinPayout !== '5x') c.spinPayout = '2x';
@@ -975,9 +975,6 @@
       bbvsb: 'BB vs SB limp', sbLimp: 'SB limp', cold4bet: 'Cold 4-Bet',
       multiway: 'Multiway', push: 'Push/fold', steal: 'Steal'
     }[c.scenario] || c.scenario;
-    const intent = Tax && Tax.INTENT_LABELS
-      ? (Tax.INTENT_LABELS[c.practiceIntent] || c.practiceIntent)
-      : c.practiceIntent;
     const hr = { random: 'Todas', playable: 'Jugables', borderline: 'Borderline', all: 'Todas' }[c.handRange] || c.handRange;
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
@@ -985,7 +982,7 @@
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
     const phase = c.formatHub !== 'cash' ? (' · ' + (c.resolvedPhase || c.mttPhase)) : '';
     const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + intent + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {

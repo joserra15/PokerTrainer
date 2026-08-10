@@ -13,7 +13,7 @@
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.1.4';
+  const APP_VERSION = window.PT_BUILD || '2.1.5';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -309,7 +309,6 @@
     const hrEl = $('#setup-hand-range .setup-chip.active');
     const vlEl = $('#setup-villain-level .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
-    const intentEl = $('#setup-practice-intent .setup-chip.active');
     const phaseEl = $('#setup-mtt-phase .setup-chip.active');
     const payoutEl = $('#setup-spin-payout .setup-chip.active');
     const thEl = $('#setup-table-theme .setup-chip.active');
@@ -354,7 +353,8 @@
       handRange: hrEl ? hrEl.dataset.val : 'playable',
       villainLevel: vlEl ? vlEl.dataset.val : 'fish',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
-      practiceIntent: intentEl ? intentEl.dataset.val : 'mixed',
+      // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
+      practiceIntent: 'mixed',
       mttPhase: phaseEl ? phaseEl.dataset.val : 'auto',
       spinPayout: payoutEl ? payoutEl.dataset.val : '2x',
       anteBB: Tax && hub !== 'cash' ? null : 0,
@@ -541,7 +541,7 @@
     activate('#setup-game-type', cfg.gameType);
     activate('#setup-stack-depth', cfg.stackDepth);
     activate('#setup-scenario', cfg.scenario);
-    activate('#setup-practice-intent', cfg.practiceIntent || 'mixed');
+    activate('#setup-practice-intent', 'mixed');
     activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
     activate('#setup-spin-payout', cfg.spinPayout || '2x');
     if (cfg.multiwayPotType) activate('#setup-multiway-pot-type', cfg.multiwayPotType);
@@ -1760,44 +1760,11 @@
   }
 
   function renderBluffSpotBadge() {
+    // Mensajes de farol/cazar faroles ocultos en la mesa del entrenador.
     let el = $('#bluff-spot-badge');
-    const host = $('#spot-context') && $('#spot-context').parentElement;
-    if (!host) return;
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'bluff-spot-badge';
-      el.className = 'bluff-spot-badge hidden';
-      host.appendChild(el);
-    }
-    if (!hand || !hand.current || hand.current.street === 'preflop' || !window.GTOBluffSpotDetector) {
+    if (el) {
       el.classList.add('hidden');
       el.textContent = '';
-      return;
-    }
-    try {
-      const input = Engine.buildSpotInput
-        ? Engine.buildSpotInput(hand, hand.current, null)
-        : null;
-      if (!input) { el.classList.add('hidden'); return; }
-      const strat = window.GTO && GTO.getStrategy ? GTO.getStrategy(input) : {};
-      const info = GTOBluffSpotDetector.isGoodSpot(
-        Object.assign({}, input, { strategy: strat }),
-        (hand.playConfig && hand.playConfig.practiceIntent) || 'mixed',
-        0.55
-      );
-      if (!info || !info.good) {
-        el.classList.add('hidden');
-        el.textContent = '';
-        return;
-      }
-      const intent = info.intent || info.mixedBest || 'bluff_make';
-      el.dataset.intent = intent;
-      el.classList.remove('hidden');
-      const label = intent === 'bluff_catch' ? 'Buen spot para cazar farol' : 'Buen spot para farolear';
-      const why = (info.reasons && info.reasons[0]) ? ' — ' + info.reasons[0] : '';
-      el.textContent = label + ' (' + Math.round(info.score * 100) + '%)' + why;
-    } catch (e) {
-      el.classList.add('hidden');
     }
   }
 

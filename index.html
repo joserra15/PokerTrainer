@@ -638,12 +638,12 @@
           <p class="muted-text setup-hint">Las cartas de cada villano se muestrean según su rol (open/cold-call/limp) y perfil.</p>
         </div>
 
-        <div class="setup-group">
+        <div class="setup-group" id="setup-practice-intent-wrap" hidden>
           <span class="setup-label">Enfoque (faroles)</span>
           <div class="setup-chips" id="setup-practice-intent">
             <button type="button" class="setup-chip active" data-val="mixed">Value y mixed</button>
-            <button type="button" class="setup-chip" data-val="bluff_make">Hacer faroles</button>
-            <button type="button" class="setup-chip" data-val="bluff_catch">Cazar faroles</button>
+            <button type="button" class="setup-chip" data-val="bluff_make" hidden>Hacer faroles</button>
+            <button type="button" class="setup-chip" data-val="bluff_catch" hidden>Cazar faroles</button>
           </div>
           <p class="muted-text setup-hint">El entrenador prioriza spots con buena fold equity/blockers (hacer) o líneas polarizadas (cazar). En Spins/MTT los faroles se penalizan con ICM.</p>
         </div>

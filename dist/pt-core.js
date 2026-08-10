@@ -9539,8 +9539,8 @@ window.PT_VS_3BET_JSON = {
     if (!c.handRange) c.handRange = 'random';
     if (!c.villainLevel) c.villainLevel = 'fish';
     if (!c.practiceStreet) c.practiceStreet = 'random';
-    if (Tax) c.practiceIntent = Tax.normalizeIntent(c.practiceIntent);
-    else if (c.practiceIntent !== 'bluff_make' && c.practiceIntent !== 'bluff_catch') c.practiceIntent = 'mixed';
+    // Faroles (hacer/cazar) ocultos en el entrenador: forzar mixed.
+    c.practiceIntent = 'mixed';
     if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
     else if (!c.mttPhase) c.mttPhase = 'auto';
     if (c.spinPayout !== '3x' && c.spinPayout !== '5x') c.spinPayout = '2x';
@@ -10298,9 +10298,6 @@ window.PT_VS_3BET_JSON = {
       bbvsb: 'BB vs SB limp', sbLimp: 'SB limp', cold4bet: 'Cold 4-Bet',
       multiway: 'Multiway', push: 'Push/fold', steal: 'Steal'
     }[c.scenario] || c.scenario;
-    const intent = Tax && Tax.INTENT_LABELS
-      ? (Tax.INTENT_LABELS[c.practiceIntent] || c.practiceIntent)
-      : c.practiceIntent;
     const hr = { random: 'Todas', playable: 'Jugables', borderline: 'Borderline', all: 'Todas' }[c.handRange] || c.handRange;
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
@@ -10308,7 +10305,7 @@ window.PT_VS_3BET_JSON = {
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
     const phase = c.formatHub !== 'cash' ? (' · ' + (c.resolvedPhase || c.mttPhase)) : '';
     const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + intent + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {
@@ -22974,7 +22971,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.1.4';
+  const APP_VERSION = window.PT_BUILD || '2.1.5';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -23270,7 +23267,6 @@ window.PT_VS_3BET_JSON = {
     const hrEl = $('#setup-hand-range .setup-chip.active');
     const vlEl = $('#setup-villain-level .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
-    const intentEl = $('#setup-practice-intent .setup-chip.active');
     const phaseEl = $('#setup-mtt-phase .setup-chip.active');
     const payoutEl = $('#setup-spin-payout .setup-chip.active');
     const thEl = $('#setup-table-theme .setup-chip.active');
@@ -23315,7 +23311,8 @@ window.PT_VS_3BET_JSON = {
       handRange: hrEl ? hrEl.dataset.val : 'playable',
       villainLevel: vlEl ? vlEl.dataset.val : 'fish',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
-      practiceIntent: intentEl ? intentEl.dataset.val : 'mixed',
+      // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
+      practiceIntent: 'mixed',
       mttPhase: phaseEl ? phaseEl.dataset.val : 'auto',
       spinPayout: payoutEl ? payoutEl.dataset.val : '2x',
       anteBB: Tax && hub !== 'cash' ? null : 0,
@@ -23502,7 +23499,7 @@ window.PT_VS_3BET_JSON = {
     activate('#setup-game-type', cfg.gameType);
     activate('#setup-stack-depth', cfg.stackDepth);
     activate('#setup-scenario', cfg.scenario);
-    activate('#setup-practice-intent', cfg.practiceIntent || 'mixed');
+    activate('#setup-practice-intent', 'mixed');
     activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
     activate('#setup-spin-payout', cfg.spinPayout || '2x');
     if (cfg.multiwayPotType) activate('#setup-multiway-pot-type', cfg.multiwayPotType);
@@ -24721,44 +24718,11 @@ window.PT_VS_3BET_JSON = {
   }
 
   function renderBluffSpotBadge() {
+    // Mensajes de farol/cazar faroles ocultos en la mesa del entrenador.
     let el = $('#bluff-spot-badge');
-    const host = $('#spot-context') && $('#spot-context').parentElement;
-    if (!host) return;
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'bluff-spot-badge';
-      el.className = 'bluff-spot-badge hidden';
-      host.appendChild(el);
-    }
-    if (!hand || !hand.current || hand.current.street === 'preflop' || !window.GTOBluffSpotDetector) {
+    if (el) {
       el.classList.add('hidden');
       el.textContent = '';
-      return;
-    }
-    try {
-      const input = Engine.buildSpotInput
-        ? Engine.buildSpotInput(hand, hand.current, null)
-        : null;
-      if (!input) { el.classList.add('hidden'); return; }
-      const strat = window.GTO && GTO.getStrategy ? GTO.getStrategy(input) : {};
-      const info = GTOBluffSpotDetector.isGoodSpot(
-        Object.assign({}, input, { strategy: strat }),
-        (hand.playConfig && hand.playConfig.practiceIntent) || 'mixed',
-        0.55
-      );
-      if (!info || !info.good) {
-        el.classList.add('hidden');
-        el.textContent = '';
-        return;
-      }
-      const intent = info.intent || info.mixedBest || 'bluff_make';
-      el.dataset.intent = intent;
-      el.classList.remove('hidden');
-      const label = intent === 'bluff_catch' ? 'Buen spot para cazar farol' : 'Buen spot para farolear';
-      const why = (info.reasons && info.reasons[0]) ? ' — ' + info.reasons[0] : '';
-      el.textContent = label + ' (' + Math.round(info.score * 100) + '%)' + why;
-    } catch (e) {
-      el.classList.add('hidden');
     }
   }
 
