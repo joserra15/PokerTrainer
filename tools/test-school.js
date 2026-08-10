@@ -148,9 +148,38 @@ lessons.forEach(function (lesson) {
     const bestRaise = raiseRes.decision.class === 'optima' || raiseRes.decision.class === 'aceptable';
     const bestFold = foldRes.decision.class === 'optima' || foldRes.decision.class === 'aceptable';
     assert.ok(bestRaise || bestFold, 'al menos una acción razonable en ' + spot.id);
+
+    /* Regresión: schoolDecisionEnd no avanza a flop tras raise */
+    assert.strictEqual(raiseHand.stage, 'complete', 'raise corta en complete ' + spot.id);
+    assert.ok(!raiseHand.board || raiseHand.board.length === 0, 'sin board tras decisionEnd ' + spot.id);
+    assert.ok(raiseHand.result && raiseHand.result.school, 'result.school ' + spot.id);
+    assert.strictEqual(foldHand.stage, 'complete', 'fold complete ' + spot.id);
   });
 });
 assert.ok(spotCount >= 50, 'suficientes spots M0: ' + spotCount);
+
+/* Regresión: sin schoolDecisionEnd un raise puede ir a flop (control negativo en 1 spot) */
+(function () {
+  const spot = Data.getLesson('C-02').spots[0];
+  const force = {
+    type: 'RFI',
+    heroPos: spot.heroPos,
+    seed: spot.seed,
+    forceDeal: spot.forceDeal
+  };
+  const cfgNoCut = {
+    scenario: 'rfi',
+    practiceStreet: 'preflop',
+    handRange: 'all',
+    villainLevel: 'fish',
+    formatHub: 'cash',
+    gameType: 'cash6'
+  };
+  const h = Engine.newHand(force, cfgNoCut);
+  Engine.act(h, 'raise');
+  assert.ok(h.stage === 'complete' || h.stage === 'flop' || h.stage === 'preflop',
+    'raise sin decisionEnd avanza o completa: ' + h.stage);
+})();
 
 /* Progreso / desbloqueo con Store mínimo */
 sandbox.Store = {
