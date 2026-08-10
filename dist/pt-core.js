@@ -21635,6 +21635,7 @@ window.PT_VS_3BET_JSON = {
   const APP_VERSION = window.PT_BUILD || '1.5.2';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const POS_3 = ['BTN', 'SB', 'BB'];
   const POS_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   // coordenadas (top%, left%) de los asientos; el héroe siempre abajo (índice 0)
   const SEAT_COORDS = [
@@ -21644,6 +21645,12 @@ window.PT_VS_3BET_JSON = {
     { top: 4, left: 38 },
     { top: 4, left: 70 },
     { top: 80, left: 92 }
+  ];
+  /* Spins / 3-max: héroe abajo, rivales simétricos arriba-izquierda / arriba-derecha. */
+  const SEAT_COORDS_3 = [
+    { top: 96, left: 50 },
+    { top: 18, left: 14 },
+    { top: 18, left: 86 }
   ];
   const SEAT_COORDS_9 = [
     { top: 96, left: 50 },
@@ -21664,6 +21671,11 @@ window.PT_VS_3BET_JSON = {
     { top: 5, left: 22 },
     { top: 5, left: 78 },
     { top: 32, left: 98 }
+  ];
+  const SEAT_COORDS_MOBILE_3 = [
+    { top: 94, left: 50 },
+    { top: 16, left: 10 },
+    { top: 16, left: 90 }
   ];
   const SEAT_COORDS_MOBILE_9 = [
     { top: 93, left: 50 },
@@ -23330,7 +23342,10 @@ window.PT_VS_3BET_JSON = {
     const boardArea = document.querySelector('.board-area');
     if (boardArea) boardArea.classList.toggle('has-villain-bar', !!(mobile && hand.villainAction));
     const felt = document.querySelector('#play-active .table-felt');
-    if (felt) felt.classList.toggle('table-9max', is9MaxTable());
+    if (felt) {
+      felt.classList.toggle('table-9max', is9MaxTable());
+      felt.classList.toggle('table-3max', is3MaxTable());
+    }
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
     const heroSeatPos = hand.displayHeroPos || hand.hero.pos;
@@ -23443,17 +23458,34 @@ window.PT_VS_3BET_JSON = {
     return `<div class="seat-bet ${placement || 'bet-below'}" title="Fichas en juego"><span class="chip-ico"></span><span class="seat-bet-amt">${fmt(inFrontBB)} bb</span></div>`;
   }
 
+  function playTableConfig() {
+    return (hand && hand.playConfig) || playSessionConfig;
+  }
+
   function is9MaxTable() {
-    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    const cfg = playTableConfig();
     return !!(window.PTPlayConfig && cfg && PTPlayConfig.is9Max(cfg));
   }
 
+  function is3MaxTable() {
+    const cfg = playTableConfig();
+    if (!window.PTPlayConfig || !cfg) return false;
+    if (PTPlayConfig.is3Max) return !!PTPlayConfig.is3Max(cfg);
+    return !!(PTPlayConfig.isSpin && PTPlayConfig.isSpin(cfg));
+  }
+
   function tablePosRing() {
+    const cfg = playTableConfig();
+    if (window.PTPlayConfig && cfg && PTPlayConfig.tablePositions) {
+      return PTPlayConfig.tablePositions(cfg);
+    }
+    if (is3MaxTable()) return POS_3;
     return is9MaxTable() ? POS_9 : POS;
   }
 
   function seatCoordsForTable() {
     const mobile = isMobileLayout();
+    if (is3MaxTable()) return mobile ? SEAT_COORDS_MOBILE_3 : SEAT_COORDS_3;
     if (is9MaxTable()) return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
     return mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS;
   }
@@ -28409,10 +28441,10 @@ window.PT_VS_3BET_JSON = {
   }
 
   function renderShowdownTableHTML(h) {
-    const is9 = sessionTableIs9Max(h);
+    const layout = sessionTableLayout(h);
     const mobile = isMobileLayout();
-    const coords = is9 ? (mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9) : (mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS);
-    const posList = is9 ? POS_9 : POS;
+    const coords = sessionSeatCoords(layout, mobile);
+    const posList = sessionPosList(layout);
     const posRing = ringFromHeroPos(h.heroPos, posList);
     const board = h.board || [];
     const participants = sessionParticipantPosSet(h);
@@ -28455,7 +28487,8 @@ window.PT_VS_3BET_JSON = {
       ? '<div class="hero-cards">' + heroCards.map(Cards.cardToHTML).join('') + '</div>'
       : '';
 
-    return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}" data-theme="${loadTableTheme()}">
+    const feltClass = layout === '9' ? ' table-9max' : (layout === '3' ? ' table-3max' : '');
+    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}">
       ${tableWatermarkHTML()}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${potBB != null ? fmtBB(potBB) : '—'} bb</div>
@@ -28514,6 +28547,37 @@ window.PT_VS_3BET_JSON = {
   function sessionTableIs9Max(h) {
     const p9 = ['UTG1', 'UTG2', 'LJ'];
     return (h.summary || []).some((item) => item.pos && p9.indexOf(item.pos) >= 0);
+  }
+
+  function sessionTableIs3Max(h) {
+    if (!h) return false;
+    if (sessionTableIs9Max(h)) return false;
+    if (h.tableMax === 3 || h.formatKey === 'spin3' || h.gameKind === 'spin') return true;
+    const cfg = h.playConfig;
+    if (window.PTPlayConfig && cfg) {
+      if (PTPlayConfig.is3Max && PTPlayConfig.is3Max(cfg)) return true;
+      if (PTPlayConfig.isSpin && PTPlayConfig.isSpin(cfg)) return true;
+    }
+    return false;
+  }
+
+  /** '3' | '6' | '9' — layout de asientos para replay/showdown de sesión. */
+  function sessionTableLayout(h) {
+    if (sessionTableIs9Max(h)) return '9';
+    if (sessionTableIs3Max(h)) return '3';
+    return '6';
+  }
+
+  function sessionPosList(layout) {
+    if (layout === '9') return POS_9;
+    if (layout === '3') return POS_3;
+    return POS;
+  }
+
+  function sessionSeatCoords(layout, mobile) {
+    if (layout === '9') return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
+    if (layout === '3') return mobile ? SEAT_COORDS_MOBILE_3 : SEAT_COORDS_3;
+    return mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS;
   }
 
   function ringFromHeroPos(heroPos, list) {
@@ -28676,10 +28740,10 @@ window.PT_VS_3BET_JSON = {
 
   function renderSessionReplayTableHTML(h, d, decisionIdx, state) {
     state = state || computeSessionReplayState(h, decisionIdx);
-    const is9 = sessionTableIs9Max(h);
+    const layout = sessionTableLayout(h);
     const mobile = isMobileLayout();
-    const coords = is9 ? (mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9) : (mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS);
-    const posList = is9 ? POS_9 : POS;
+    const coords = sessionSeatCoords(layout, mobile);
+    const posList = sessionPosList(layout);
     const posRing = ringFromHeroPos(h.heroPos, posList);
     const board = boardForStreet(h, d.street);
     const villainPos = state.villainPos;
@@ -28735,8 +28799,9 @@ window.PT_VS_3BET_JSON = {
       '</div>';
 
     const potDisplay = d.potBB;
+    const feltClass = layout === '9' ? ' table-9max' : (layout === '3' ? ' table-3max' : '');
 
-    return `<div class="poker-table session-replay-table"><div class="table-felt${is9 ? ' table-9max' : ''}" data-theme="${loadTableTheme()}">
+    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}">
       ${tableWatermarkHTML()}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${fmtBB(potDisplay)} bb</div>

@@ -52,7 +52,13 @@ assert.strictEqual(spin.gameType, 'spin3');
 assert.strictEqual(spin.formatHub, 'spin');
 assert.strictEqual(spin.stackDepth, 'bb25');
 assert.ok(PC.isSpin(spin));
+assert.ok(PC.is3Max(spin));
 assert.strictEqual(PC.heroPositions(spin).slice().sort().join(','), 'BB,BTN,SB');
+assert.strictEqual(PC.tablePositions(spin).join(','), 'BTN,SB,BB');
+assert.strictEqual(PC.dealOrder(spin).join(','), 'SB,BB,BTN');
+assert.ok(PC.tablePositions(spin).indexOf('UTG') < 0);
+assert.ok(PC.tablePositions(spin).indexOf('HJ') < 0);
+assert.ok(PC.tablePositions(spin).indexOf('CO') < 0);
 
 // gameType explícito mtt no debe ser pisado por DEFAULT formatHub
 const mtt2 = PC.normalize({ gameType: 'mtt' });
