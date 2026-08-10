@@ -1291,6 +1291,224 @@ body.age-gate-open {
 }
 @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
+/* ---- Escuela de Póker ---- */
+.school-content { max-width: 920px; margin: 0 auto; }
+.school-page { display: flex; flex-direction: column; gap: 16px; padding-bottom: 28px; }
+.school-hero, .school-lesson-header, .school-result-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 28px 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(900px 280px at 8% -30%, rgba(234,179,8,.18), transparent 55%),
+    radial-gradient(700px 260px at 95% 10%, rgba(34,197,94,.10), transparent 50%),
+    linear-gradient(165deg, rgba(15,23,42,.96), rgba(17,24,39,.98));
+}
+.school-eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold, #e3b341);
+}
+.school-title {
+  margin: 0 0 10px;
+  font-size: clamp(1.35rem, 3.5vw, 1.85rem);
+  line-height: 1.25;
+}
+.school-lead {
+  margin: 0 0 16px;
+  max-width: 62ch;
+  color: rgba(230,237,243,.88);
+  line-height: 1.55;
+}
+.school-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.school-stat {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.03);
+}
+.school-stat-val { display: block; font-weight: 700; font-size: 1.1rem; color: #fff; }
+.school-stat-lbl { display: block; font-size: 11px; color: rgba(230,237,243,.65); margin-top: 2px; }
+.school-xp-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  overflow: hidden;
+}
+.school-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #eab308, #22c55e);
+  transition: width .45s ease;
+}
+.school-routes { display: flex; flex-wrap: wrap; gap: 8px; }
+.school-route-tab {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  color: rgba(230,237,243,.9);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.school-route-tab.is-active {
+  border-color: rgba(234,179,8,.55);
+  background: rgba(234,179,8,.12);
+  color: #fff;
+}
+.school-route-tab.is-soon { opacity: .55; cursor: not-allowed; }
+.school-soon { font-size: 11px; color: var(--muted); }
+.school-map-title { margin: 0 0 6px; font-size: 1.05rem; }
+.school-map-lead { margin: 0 0 14px; }
+.school-nodes { display: flex; flex-direction: column; gap: 10px; }
+.school-node {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  width: 100%;
+  padding: 14px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color .2s ease, transform .2s ease, background .2s ease;
+}
+.school-node:hover:not(:disabled) {
+  border-color: rgba(234,179,8,.45);
+  transform: translateY(-1px);
+}
+.school-node.is-done {
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.06);
+}
+.school-node.is-open {
+  border-color: rgba(47,129,247,.35);
+  box-shadow: 0 0 0 1px rgba(47,129,247,.12);
+}
+.school-node.is-locked {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.school-node-idx {
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  font-weight: 700;
+  background: rgba(234,179,8,.12);
+  border: 1px solid rgba(234,179,8,.28);
+  color: var(--gold, #e3b341);
+}
+.school-node-title { display: block; font-weight: 650; color: #fff; }
+.school-node-meta { display: block; font-size: 12px; color: rgba(230,237,243,.7); margin-top: 3px; }
+.school-node-pct { font-weight: 700; color: #86efac; margin-right: 6px; }
+.school-stars { color: var(--gold, #e3b341); letter-spacing: 1px; font-size: 12px; }
+.school-node-lock { font-size: 11px; color: var(--muted); }
+.school-plan-badge {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.school-plan-free { color: #86efac; border-color: rgba(34,197,94,.35); }
+.school-plan-study { color: #93c5fd; border-color: rgba(47,129,247,.4); }
+.school-plan-coach { color: #fcd34d; border-color: rgba(234,179,8,.45); }
+.school-section h3 { margin: 0 0 10px; }
+.school-theory { margin: 0; padding-left: 18px; line-height: 1.55; color: rgba(230,237,243,.9); }
+.school-theory li { margin: 8px 0; }
+.school-example {
+  border-left: 3px solid rgba(234,179,8,.55);
+  background: rgba(234,179,8,.06);
+  padding: 10px 12px;
+  border-radius: 0 10px 10px 0;
+  margin-bottom: 10px;
+}
+.school-example-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--gold, #e3b341);
+  margin-bottom: 4px;
+}
+.school-example p { margin: 0; line-height: 1.5; color: rgba(230,237,243,.9); }
+.school-ask-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+.school-ask-chip {
+  font-size: 12px;
+  color: rgba(230,237,243,.9);
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+.school-ask-chip:hover { border-color: rgba(47,129,247,.45); }
+.school-lesson-cta { display: flex; gap: 10px; }
+.school-back { align-self: flex-start; }
+.school-best { color: #86efac; }
+.school-result-hero { text-align: center; }
+.school-result-hero.is-pass {
+  background:
+    radial-gradient(700px 240px at 50% -20%, rgba(34,197,94,.22), transparent 55%),
+    linear-gradient(165deg, rgba(15,23,42,.96), rgba(17,24,39,.98));
+}
+.school-result-hero.is-fail {
+  background:
+    radial-gradient(700px 240px at 50% -20%, rgba(248,113,113,.18), transparent 55%),
+    linear-gradient(165deg, rgba(15,23,42,.96), rgba(17,24,39,.98));
+}
+.school-ring {
+  width: 140px; height: 140px;
+  margin: 12px auto 16px;
+  border-radius: 50%;
+  border: 6px solid rgba(234,179,8,.35);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.2);
+}
+.school-result-hero.is-pass .school-ring { border-color: rgba(34,197,94,.55); }
+.school-result-hero.is-fail .school-ring { border-color: rgba(248,113,113,.5); }
+.school-ring-pct { font-size: 2rem; font-weight: 800; color: #fff; line-height: 1; }
+.school-ring-lbl { font-size: 12px; color: rgba(230,237,243,.7); }
+.school-result-meta { color: rgba(230,237,243,.85); }
+.school-gold-tag { color: var(--gold, #e3b341); font-weight: 650; }
+.school-fail-list { margin: 0; padding-left: 18px; line-height: 1.55; }
+.school-result-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.school-play-banner {
+  margin: 0 0 10px;
+  border: 1px solid rgba(234,179,8,.35);
+  background: linear-gradient(90deg, rgba(234,179,8,.14), rgba(47,129,247,.08));
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+.school-play-banner-inner {
+  display: flex; flex-wrap: wrap; gap: 10px 14px;
+  align-items: center; justify-content: space-between;
+}
+.school-play-banner-label { font-weight: 650; color: #fff; }
+.school-play-banner-progress { color: rgba(230,237,243,.85); font-size: 13px; }
+.school-spot-feedback { padding: 4px 2px 8px; }
+.school-spot-feedback.is-good h3 { color: #86efac; }
+.school-spot-feedback.is-bad h3 { color: #fca5a5; }
+.school-spot-teach { line-height: 1.5; color: rgba(230,237,243,.9); }
+@media (max-width: 680px) {
+  .school-hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .school-node { grid-template-columns: 36px 1fr; }
+  .school-node-pct, .school-stars, .school-node-lock { grid-column: 2; }
+}
+
 /* ---- Guía básica (principiantes) ---- */
 .learn-content { max-width: 920px; margin: 0 auto; }
 .learn-page { display: flex; flex-direction: column; gap: 16px; padding-bottom: 28px; }
@@ -3226,6 +3444,14 @@ body.demo-mode-active #account-admin { display: none !important; }
 body:not(.pt-is-admin) #tab-admin,
 body:not(.pt-is-admin) .tab-admin,
 body:not(.pt-is-admin) #account-admin {
+  display: none !important;
+}
+body:not(.pt-is-admin) #tab-school,
+body:not(.pt-is-admin) .tab-school {
+  display: none !important;
+}
+body.demo-mode-active #tab-school,
+body.demo-mode-active .tab-school {
   display: none !important;
 }
 .admin-usage-note { font-size: 11px; color: var(--gold); margin-left: 2px; }
