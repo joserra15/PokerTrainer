@@ -42,6 +42,10 @@ assert.strictEqual(cash.formatHub, 'cash');
 assert.strictEqual(cash.practiceIntent, 'mixed');
 assert.strictEqual(cash.anteBB, 0);
 
+// Faroles ocultos en entrenador: bluff_make/catch se normalizan a mixed
+assert.strictEqual(PC.normalize({ practiceIntent: 'bluff_make' }).practiceIntent, 'mixed');
+assert.strictEqual(PC.normalize({ practiceIntent: 'bluff_catch' }).practiceIntent, 'mixed');
+
 const mtt = PC.normalize({ gameType: 'mtt', stackDepth: 'bb50' });
 assert.strictEqual(mtt.formatHub, 'mtt');
 assert.strictEqual(mtt.gameType, 'mtt');
@@ -170,11 +174,17 @@ assert.ok(spot.evaluation && spot.evaluation.class, 'spin evaluateSpot');
 const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(indexHtml.includes('setup-format-hub'), 'hub tabs UI');
 assert.ok(indexHtml.includes('setup-practice-intent'), 'intent UI');
+assert.ok(indexHtml.includes('id="setup-practice-intent-wrap" hidden'), 'intent UI oculta');
+assert.ok(indexHtml.includes('data-val="bluff_make" hidden'), 'chip hacer faroles oculto');
+assert.ok(indexHtml.includes('data-val="bluff_catch" hidden'), 'chip cazar faroles oculto');
 assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2\.1\.4'/.test(version), 'version 2.1.4');
+assert.ok(/PT_BUILD\s*=\s*'2\.1\.5'/.test(version), 'version 2.1.5');
+
+const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
+assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');
 
 const chunks = fs.readFileSync(path.join(__dirname, '..', 'js', 'bundle-chunks.js'), 'utf8');
 assert.ok(chunks.includes('format/taxonomy.js'), 'taxonomy in bundle');
