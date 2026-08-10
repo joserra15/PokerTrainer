@@ -1,8 +1,10 @@
 # Roadmap — Botes multiway en el entrenador
 
+> **Estado (v2.1.0):** Fases 0–3 **implementadas**. Ver `js/engine/multiway.js`, escenario UI `multiway`, y `tools/test-multiway-trainer.js`.
+>
 > Análisis del estado actual del motor y plan de cambios para: **(A)** aparición realista de multiway en modo Random, y **(B)** opción dedicada de entrenamiento multiway con cartas de villanos coherentes con el tipo de bote y su perfil.
 >
-> **Contexto:** Hoy la mesa se reparte a 6/9/3 jugadores, pero las decisiones jugables y el scoring son **heads-up**. El multiway preflop existe solo como andamiaje (squeeze caller, multi-call tras RFI) y se **colapsa a HU** al llegar al flop.
+> **Contexto:** Hoy la mesa se reparte a 6/9/3 jugadores; con `allowMultiway` (default on) los callers extra **permanecen** al flop. El escenario **Multiway** fuerza SRP 3/4-way o limp pot con deals por rol.
 
 ---
 
