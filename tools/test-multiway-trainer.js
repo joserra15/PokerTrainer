@@ -391,7 +391,7 @@ console.log('12) Pool multiway + UI markers');
   assert.ok(indexHtml.includes('data-val="multiway"'), 'UI chip multiway');
   assert.ok(indexHtml.includes('setup-multiway-pot-type'), 'UI pot type');
   const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-  assert.ok(/PT_BUILD\s*=\s*'2\.1\.1'/.test(version), 'version 2.1.1');
+  assert.ok(/PT_BUILD\s*=\s*'2\.1\.2'/.test(version), 'version 2.1.2');
   const chunks = fs.readFileSync(path.join(__dirname, '..', 'js', 'bundle-chunks.js'), 'utf8');
   assert.ok(chunks.includes('multiway.js'), 'multiway in bundle');
 }
@@ -433,6 +433,53 @@ console.log('14) Pot multiway: sin asientos fantasma y bote = suma de invested')
   const ctx = (hand.current && hand.current.context) || '';
   assert.ok(!/6-way/.test(ctx), 'context no dice 6-way: ' + ctx);
   assert.ok(alive(hand).length === 4, 'alive count 4');
+}
+
+console.log('15) Postflop multiway: BTN actúa antes de que el héroe afronte apuesta');
+{
+  const play = cfg({ scenario: 'multiway', multiwayPotType: 'srp3way', heroPos: 'BB', villainLevel: 'fish' });
+  let exercised = 0;
+  for (let i = 0; i < 80; i++) {
+    const hand = Engine.newHand({
+      type: 'srp3way',
+      heroPos: 'BB',
+      openerPos: 'UTG',
+      callerPos: 'BTN',
+      callerPositions: ['BTN'],
+      potType: 'srp3way',
+      seed: 12000 + i
+    }, play);
+    forceOpenCallFlop(hand);
+    if (hand.stage !== 'flop' || !hand.current) continue;
+    if ((hand.current.toCallBB || 0) > 0) continue; // already facing — skip
+    const alive0 = alive(hand);
+    if (alive0.indexOf('BTN') < 0 || alive0.indexOf('UTG') < 0) continue;
+    Engine.act(hand, 'check');
+    if (hand.stage === 'complete') continue;
+    if (hand.stage !== 'flop' && hand.stage !== 'turn') {
+      // went to next street: everyone checked — BTN must have check label or street advanced
+      exercised++;
+      continue;
+    }
+    if (hand.current && (hand.current.toCallBB || 0) > 0) {
+      // Facing a bet: BTN must have acted (call/fold/raise) if still relevant,
+      // or folded. Never silent while still in hand without action.
+      const btnAct = hand.seatActions && hand.seatActions.BTN;
+      const btnAlive = alive(hand).indexOf('BTN') >= 0;
+      if (btnAlive) {
+        assert.ok(btnAct, 'BTN tiene seatAction al afrontar apuesta el héroe');
+        assert.ok(['call', 'fold', 'raise', 'check', 'bet'].indexOf(btnAct.type) >= 0,
+          'BTN acción válida: ' + (btnAct && btnAct.type));
+        // Si UTG apostó y BTN sigue vivo, no puede ser check sin streetBet del bettor detrás
+        if (hand.villainAction && hand.villainAction.type === 'bet' && hand.villain.pos === 'UTG') {
+          assert.ok(btnAct.type !== 'check', 'BTN no puede checkear ante bet de UTG: ' + btnAct.type);
+        }
+      }
+      exercised++;
+      if (exercised >= 5) break;
+    }
+  }
+  assert.ok(exercised >= 3, 'ejercido orden multiway postflop: ' + exercised);
 }
 
 console.log('\n*** test-multiway-trainer OK ***');

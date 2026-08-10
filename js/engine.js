@@ -1235,6 +1235,7 @@
       const pos = order[i];
       if (alive.indexOf(pos) < 0) continue;
       if (raiser) break;
+      if (hand.table.folded[pos] || !hand.table.inHand.has(pos)) continue;
       const act = opponentFacingHeroBet(hand, pos, betSize);
       if (act === 'fold') {
         markFolded(hand, pos);
@@ -1248,6 +1249,7 @@
         if (add > 0) addInvest(hand, pos, add);
         hand.potBB = round2(hand.potBB + add);
         setSeatAction(hand, pos, 'raise', raiseSize);
+        if (hand.table) hand.table.streetBet[pos] = raiseSize;
         if (pos === hand.villain.pos) {
           hand.villainInvested = round2((hand.villainInvested || 0) + add);
           setVillainAct(hand, 'raise', raiseSize);
@@ -1255,12 +1257,12 @@
         raiser = pos;
         break;
       }
-      // call
       const pay = capBetForSeat(hand, pos, betSize);
       const addC = seatToCall(hand, pos, pay);
       if (addC > 0) addInvest(hand, pos, addC);
       hand.potBB = round2(hand.potBB + addC);
       setSeatAction(hand, pos, 'call', pay);
+      if (hand.table) hand.table.streetBet[pos] = pay;
       if (pos === hand.villain.pos) {
         hand.villainInvested = round2((hand.villainInvested || 0) + addC);
         setVillainAct(hand, 'call', pay);
@@ -1272,6 +1274,192 @@
     if (raiser) return { type: 'raise', raiser: raiser, raiseSize: raiseSize };
     if (!left.length) return { type: 'foldWin' };
     return { type: 'called', callers: callers };
+  }
+
+  function isMultiwayLive(hand) {
+    return !!(hand && hand.multiway && MW() && MW().aliveCount(hand) >= 3);
+  }
+
+  function multiwayAliveOrder(hand) {
+    const order = MW() ? MW().postflopOrderFor(hand) : POSTFLOP_ORDER;
+    const alive = MW() ? MW().aliveSeats(hand) : [];
+    return order.filter(function (p) { return alive.indexOf(p) >= 0; });
+  }
+
+  function seatStillIn(hand, pos) {
+    return !!(hand.table && hand.table.inHand.has(pos) && !hand.table.folded[pos]);
+  }
+
+  function focusVillainSeat(hand, pos) {
+    if (!pos || !hand.villain) return;
+    hand.villain.pos = pos;
+    hand.villain.cards = villainHoleCards(hand);
+    syncVillainMeta(hand);
+  }
+
+  function seatBetAmount(hand, pos) {
+    const prev = hand.villain && hand.villain.pos;
+    if (hand.villain) hand.villain.pos = pos;
+    let size = villainBetAmount(hand);
+    if (hand.villain && prev) hand.villain.pos = prev;
+    if (hand.multiway) size = round2(size * 0.85);
+    return capBetForSeat(hand, pos, size);
+  }
+
+  function opponentLeadAction(hand, pos) {
+    const profile = profileFor(hand, pos);
+    const cards = hand.table.holeCards[pos] || null;
+    const info = cards ? classifyMadeHand(cards, hand.board) : { tier: 'air', ev: { category: 0 } };
+    const eq = cards
+      ? equityVsRange(cards, hand.board, GTO.Ranges.data.BROAD_CONTINUE, 100, { street: hand.stage })
+      : null;
+    const strength = villainPostflopStrength(info, eq);
+    const villainIsAgg = !hand.heroIsAggressor && pos === (hand._predeal && hand._predeal.villainPos);
+    const pfOpts = villainPostflopOpts(hand, info);
+    if (VP) return VP.postflopLead(strength, profile, !!villainIsAgg, C.rng.random(), pfOpts);
+    return C.rng.random() < (0.1 + strength * 0.4) ? 'bet' : 'check';
+  }
+
+  function applySeatBet(hand, pos, amount) {
+    const already = (hand.table.streetBet && hand.table.streetBet[pos]) || 0;
+    const need = round2(Math.max(amount - already, 0));
+    if (need > 0) addInvest(hand, pos, need);
+    hand.potBB = round2(hand.potBB + need);
+    if (hand.table) hand.table.streetBet[pos] = amount;
+    hand.seatActions = hand.seatActions || {};
+    hand.seatActions[pos] = { type: 'bet', amount: amount };
+    hand.villainInvested = round2((hand.villainInvested || 0) + need);
+    focusVillainSeat(hand, pos);
+    hand.villainAction = { type: 'bet', amount: amount };
+  }
+
+  function resolveSeatFacingBet(hand, pos, betSize) {
+    const act = opponentFacingHeroBet(hand, pos, betSize);
+    if (act === 'fold') {
+      markFolded(hand, pos);
+      setSeatAction(hand, pos, 'fold', null);
+      return { type: 'fold' };
+    }
+    if (act === 'raise') {
+      let raiseSize = capBetForSeat(hand, pos, round2(betSize * 3));
+      if (raiseSize <= betSize) raiseSize = capBetForSeat(hand, pos, betSize);
+      const already = (hand.table.streetBet && hand.table.streetBet[pos]) || 0;
+      const need = round2(Math.max(raiseSize - already, 0));
+      if (need > 0) addInvest(hand, pos, need);
+      hand.potBB = round2(hand.potBB + need);
+      if (hand.table) hand.table.streetBet[pos] = raiseSize;
+      setSeatAction(hand, pos, 'raise', raiseSize);
+      focusVillainSeat(hand, pos);
+      hand.villainAction = { type: 'raise', amount: raiseSize };
+      return { type: 'raise', raiseSize: raiseSize };
+    }
+    const already = (hand.table.streetBet && hand.table.streetBet[pos]) || 0;
+    const need = round2(Math.max(betSize - already, 0));
+    if (need > 0) addInvest(hand, pos, need);
+    hand.potBB = round2(hand.potBB + need);
+    if (hand.table) hand.table.streetBet[pos] = betSize;
+    setSeatAction(hand, pos, 'call', betSize);
+    return { type: 'call' };
+  }
+
+  /**
+   * Tras check del héroe en multiway: rivales detrás actúan en orden.
+   * Si alguien apuesta, los siguientes responden y el héroe afronta la apuesta.
+   */
+  function resolveMultiwayAfterHeroCheck(hand) {
+    const order = multiwayAliveOrder(hand);
+    const hero = hand.hero.pos;
+    const heroIdx = order.indexOf(hero);
+    const after = order.slice(heroIdx + 1);
+
+    for (let i = 0; i < after.length; i++) {
+      const pos = after[i];
+      if (!seatStillIn(hand, pos)) continue;
+      const act = opponentLeadAction(hand, pos);
+      if (act !== 'bet') {
+        setSeatAction(hand, pos, 'check', null);
+        if (pos === hand.villain.pos) setVillainAct(hand, 'check');
+        continue;
+      }
+      const vBet = seatBetAmount(hand, pos);
+      if (!isMeaningfulBet(vBet)) {
+        setSeatAction(hand, pos, 'check', null);
+        continue;
+      }
+      applySeatBet(hand, pos, vBet);
+      for (let j = i + 1; j < after.length; j++) {
+        const r = after[j];
+        if (!seatStillIn(hand, r)) continue;
+        const face = resolveSeatFacingBet(hand, r, vBet);
+        if (face.type === 'raise') {
+          if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
+          return buildPostflopNode(hand, hand.stage, {
+            bet: face.raiseSize,
+            potBefore: round2(hand.potBB - face.raiseSize)
+          });
+        }
+      }
+      if (MW()) MW().syncOpponents(hand);
+      if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
+      return buildPostflopNode(hand, hand.stage, {
+        bet: vBet,
+        potBefore: round2(hand.potBB - vBet)
+      });
+    }
+    if (MW()) MW().syncOpponents(hand);
+    return nextStreet(hand);
+  }
+
+  /**
+   * Entrada multiway: jugadores antes del héroe actúan; si alguien apuesta,
+   * los intermedios responden y el héroe afronta. Si todos check, decide el héroe.
+   */
+  function enterStreetMultiway(hand) {
+    const order = multiwayAliveOrder(hand);
+    const hero = hand.hero.pos;
+    const heroIdx = order.indexOf(hero);
+    const before = order.slice(0, heroIdx);
+
+    for (let i = 0; i < before.length; i++) {
+      const pos = before[i];
+      if (!seatStillIn(hand, pos)) continue;
+      const act = opponentLeadAction(hand, pos);
+      if (act !== 'bet') {
+        setSeatAction(hand, pos, 'check', null);
+        if (pos === hand.villain.pos) setVillainAct(hand, 'check');
+        continue;
+      }
+      const vBet = seatBetAmount(hand, pos);
+      if (!isMeaningfulBet(vBet)) {
+        setSeatAction(hand, pos, 'check', null);
+        continue;
+      }
+      applySeatBet(hand, pos, vBet);
+      for (let j = i + 1; j < before.length; j++) {
+        const r = before[j];
+        if (!seatStillIn(hand, r)) continue;
+        const face = resolveSeatFacingBet(hand, r, vBet);
+        if (face.type === 'raise') {
+          if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
+          return buildPostflopNode(hand, hand.stage, {
+            bet: face.raiseSize,
+            potBefore: round2(hand.potBB - face.raiseSize)
+          });
+        }
+      }
+      if (MW()) MW().syncOpponents(hand);
+      if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
+      return buildPostflopNode(hand, hand.stage, {
+        bet: vBet,
+        potBefore: round2(hand.potBB - vBet)
+      });
+    }
+
+    if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
+    const h = buildPostflopNode(hand, hand.stage);
+    // Solo cierra la calle con check si el héroe es el último en hablar
+    hand.current.heroClosesOnCheck = heroIdx >= order.length - 1;
+    return h;
   }
 
   function villainPostflopAction(hand, node) {
@@ -2750,6 +2938,9 @@
     clearStreetActions(hand);
     // All-in: no hay más apuestas → runout de comunitarias.
     if (noMoreBetting(hand)) return prepareAllInRunout(hand);
+    if (isMultiwayLive(hand)) {
+      return enterStreetMultiway(hand);
+    }
     if (hand.heroInPosition && hand.villain.cards) {
       if (villainRemainingBB(hand) <= 0.01) {
         return prepareAllInRunout(hand);
@@ -2960,11 +3151,15 @@
 
     if (actionId === 'check') {
       setHeroAct(hand, 'check');
+      setSeatAction(hand, hand.hero.pos, 'check', null);
       // Héroe ya all-in: no hay acción del villano, reparte el resto.
       if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
       // si el villano ya había pasado (héroe en posición cerrando), la calle termina
       if (node.heroClosesOnCheck) return nextStreet(hand);
       node.heroLastAction = 'check';
+      if (isMultiwayLive(hand)) {
+        return resolveMultiwayAfterHeroCheck(hand);
+      }
       if (villainRemainingBB(hand) <= 0.01) {
         setVillainAct(hand, 'check');
         return prepareAllInRunout(hand);
@@ -3003,6 +3198,21 @@
       if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, raiseTo);
       node.heroLastAction = 'raise';
       setHeroAct(hand, isAllIn ? 'allin' : 'raise', raiseTo);
+      if (isMultiwayLive(hand)) {
+        const mw = resolveMultiwayFacingHeroBet(hand, raiseTo);
+        if (mw.type === 'foldWin') {
+          return finish(hand, { reason: `Todos foldean ante tu raise en ${node.street} (multiway).`, heroNet: round2(hand.potBB - raiseTo) });
+        }
+        if (mw.type === 'raise') {
+          hand.villain.pos = mw.raiser;
+          hand.villain.cards = villainHoleCards(hand);
+          syncVillainMeta(hand);
+          if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
+          return buildPostflopNode(hand, node.street, { bet: round2(mw.raiseSize), potBefore: hand.potBB });
+        }
+        if (isAllIn || noMoreBetting(hand)) return prepareAllInRunout(hand);
+        return nextStreet(hand);
+      }
       if (isAllIn) {
         const vAct = villainPostflopAction(hand, node);
         if (vAct === 'fold') { setVillainAct(hand, 'fold'); return finish(hand, { reason: `El villano foldea ante tu all-in en ${node.street}.`, heroNet: round2(hand.potBB - raiseTo) }); }
