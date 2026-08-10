@@ -91,7 +91,7 @@ Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía b
 | Bloques 25/50/100 manos | Modelo de “sesión de lección” (adaptar a 8–20) |
 | Guía básica + 4 mini-drills | Contenido fundacional a absorber en L1–L4 Cash |
 | `TRAINING_FOCUSES` | Catálogo de temas alineados a leaks |
-| Gamificación (racha, rating 700–1800, tiers) | Extender a XP/nivel de Academia |
+| Gamificación (racha, rating 700–1800, tiers) | Extender a XP/nivel de Escuela |
 | Entitlements Free / Study / Coach | Gate de contenido (hoy solo volumen) |
 | Fases MTT `early\|mid\|short\|push\|bubble` + ICM spins | Ancla de lecciones torneo |
 
