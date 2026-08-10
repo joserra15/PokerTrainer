@@ -13,7 +13,7 @@
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.1.6';
+  const APP_VERSION = window.PT_BUILD || '2.1.7';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -33,16 +33,20 @@
     { top: 18, left: 14 },
     { top: 18, left: 86 }
   ];
+  /*
+   * 9-max: asientos en elipse equiespaciada (héroe abajo, anillo CCW hacia la izquierda).
+   * Evita el cluster CO/BTN arriba-derecha del layout anterior.
+   */
   const SEAT_COORDS_9 = [
     { top: 96, left: 50 },
-    { top: 84, left: 14 },
-    { top: 66, left: 3 },
-    { top: 42, left: 2 },
-    { top: 16, left: 14 },
-    { top: 4, left: 34 },
-    { top: 4, left: 66 },
-    { top: 16, left: 86 },
-    { top: 42, left: 98 }
+    { top: 84, left: 16 },
+    { top: 58, left: 3 },
+    { top: 28, left: 8 },
+    { top: 8, left: 34 },
+    { top: 8, left: 66 },
+    { top: 28, left: 92 },
+    { top: 58, left: 97 },
+    { top: 84, left: 84 }
   ];
   /* Coordenadas para óvalo horizontal en móvil (más aire en laterales). */
   const SEAT_COORDS_MOBILE = [
@@ -60,14 +64,14 @@
   ];
   const SEAT_COORDS_MOBILE_9 = [
     { top: 93, left: 50 },
-    { top: 76, left: 8 },
-    { top: 56, left: 2 },
-    { top: 34, left: 1 },
-    { top: 14, left: 12 },
-    { top: 4, left: 32 },
-    { top: 4, left: 68 },
-    { top: 14, left: 88 },
-    { top: 34, left: 99 }
+    { top: 80, left: 14 },
+    { top: 57, left: 2 },
+    { top: 30, left: 7 },
+    { top: 10, left: 32 },
+    { top: 10, left: 68 },
+    { top: 30, left: 93 },
+    { top: 57, left: 98 },
+    { top: 80, left: 86 }
   ];
 
   let hand = null;

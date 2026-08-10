@@ -181,10 +181,45 @@ assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2\.1\.6'/.test(version), 'version 2.1.6');
+assert.ok(/PT_BUILD\s*=\s*'2\.1\.7'/.test(version), 'version 2.1.7');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');
+
+// 9-max: asientos equiespaciados (sin cluster CO/BTN arriba-derecha)
+{
+  function parseCoords(name) {
+    const re = new RegExp('const ' + name + ' = \\[([\\s\\S]*?)\\];');
+    const m = appJs.match(re);
+    assert.ok(m, name + ' definido');
+    const tops = [...m[1].matchAll(/top:\s*(\d+)/g)].map((x) => Number(x[1]));
+    const lefts = [...m[1].matchAll(/left:\s*(\d+)/g)].map((x) => Number(x[1]));
+    assert.equal(tops.length, 9, name + ' tiene 9 tops');
+    assert.equal(lefts.length, 9, name + ' tiene 9 lefts');
+    return tops.map((t, i) => ({ top: t, left: lefts[i] }));
+  }
+  function minAdjacentDist(coords) {
+    let min = Infinity;
+    for (let i = 0; i < coords.length; i++) {
+      const a = coords[i];
+      const b = coords[(i + 1) % coords.length];
+      const d = Math.hypot((a.left - b.left) * 1.2, (a.top - b.top) * 1.6);
+      if (d < min) min = d;
+    }
+    return min;
+  }
+  const mob9 = parseCoords('SEAT_COORDS_MOBILE_9');
+  const desk9 = parseCoords('SEAT_COORDS_9');
+  assert.ok(minAdjacentDist(mob9) >= 34, 'móvil 9-max spacing ≥34 got ' + minAdjacentDist(mob9).toFixed(1));
+  assert.ok(minAdjacentDist(desk9) >= 34, 'desktop 9-max spacing ≥34 got ' + minAdjacentDist(desk9).toFixed(1));
+  // Lado derecho (left>70): al menos 3 tops distintos bien separados (no 2 pegados arriba)
+  const rightMob = mob9.filter((c) => c.left >= 70).sort((a, b) => a.top - b.top);
+  assert.ok(rightMob.length >= 3, 'móvil 9-max ≥3 asientos a la derecha');
+  for (let i = 1; i < rightMob.length; i++) {
+    assert.ok(rightMob[i].top - rightMob[i - 1].top >= 18,
+      'móvil derecha gap vertical ≥18: ' + rightMob.map((c) => c.top).join(','));
+  }
+}
 
 const chunks = fs.readFileSync(path.join(__dirname, '..', 'js', 'bundle-chunks.js'), 'utf8');
 assert.ok(chunks.includes('format/taxonomy.js'), 'taxonomy in bundle');

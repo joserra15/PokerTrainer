@@ -190,6 +190,8 @@ body {
 .table-9max .seat { min-width: 52px; padding: 3px 6px; }
 .table-9max .seat .seat-pos { font-size: 10px; }
 .table-9max .seat-cards .card { width: 18px; height: 26px; }
+.table-9max .seat.seat-bottom.seat-edge-right { transform: translate(-88%, -55%); }
+.table-9max .seat.seat-bottom.seat-edge-left { transform: translate(-12%, -55%); }
 
 .seats { position: absolute; inset: 0; z-index: 3; }
 .seat {
