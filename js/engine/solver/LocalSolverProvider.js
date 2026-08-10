@@ -179,6 +179,14 @@
         if (mathParams) mathParams.deltaEV = evLoss;
       }
 
+      // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).
+      const Icm = global.GTOIcmEv;
+      let icmMult = 1;
+      if (Icm && Icm.shouldApply(enriched) && evLoss > 0) {
+        icmMult = Icm.riskMultiplier(Object.assign({}, enriched, { chosenAction: input.chosenAction }));
+        evLoss = Icm.adjustEvLoss(evLoss, Object.assign({}, enriched, { chosenAction: input.chosenAction }));
+      }
+
       const scoring = Scoring.scoreDecision({
         strategy, chosenAction: input.chosenAction, classification: finalCls,
         evLoss: evLoss, betSizeBB: input.betSizeBB, potBB: enriched.potBB,
@@ -196,6 +204,12 @@
         riverShove: !!enriched.riverShove,
         multiway: !!enriched.multiway
       });
+
+      const Bluff = global.GTOBluffSpotDetector;
+      const bluffInfo = Bluff && enriched.street && enriched.street !== 'preflop'
+        ? Bluff.scoreForIntent(Object.assign({}, enriched, { strategy: strategy }), enriched.practiceIntent || 'mixed')
+        : null;
+
       result.evaluation = {
         class: finalCls,
         best: finalBest,
@@ -217,8 +231,13 @@
         score: scoring.score,
         scoreBreakdown: scoring.breakdown,
         errors: stratErrors,
-        legalStrategy: cls.legalStrategy
+        legalStrategy: cls.legalStrategy,
+        icmMultiplier: icmMult,
+        bluffSpot: bluffInfo
       };
+      if (Icm && Icm.shouldApply(enriched)) {
+        Icm.annotateDecision(result.evaluation, enriched);
+      }
       result.explanation = Explanations.generate(enriched, spotKey, strategy, result.evaluation);
     } else {
       result.explanation = Explanations.generate(enriched, spotKey, strategy, null);

@@ -2252,6 +2252,28 @@ body.paywall-open { overflow: hidden; }
 
 /* Móvil grande / tablet pequeña */
 /* ===== Configuración sesión de entrenamiento ===== */
+.play-format-tabs {
+  margin-bottom: 4px;
+}
+.setup-group[hidden] { display: none !important; }
+.bluff-spot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--gold, #f5c451);
+  border: 1px solid rgba(245, 196, 81, 0.35);
+  border-radius: 8px;
+  background: rgba(245, 196, 81, 0.08);
+}
+.bluff-spot-badge[data-intent="bluff_catch"] {
+  color: #8ec7ff;
+  border-color: rgba(142, 199, 255, 0.35);
+  background: rgba(142, 199, 255, 0.08);
+}
+
 .play-setup {
   max-width: 520px; margin: 0 auto 20px; padding: 20px 22px;
 }

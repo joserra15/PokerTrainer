@@ -11,7 +11,7 @@ sandbox.global = sandbox;
 vm.createContext(sandbox);
 
 const scripts = [
-  'cards.js', 'engine/cache.js', 'engine/ranges/notation.js', 'engine/ranges/data.js',
+  'cards.js', 'engine/cache.js', 'engine/format/taxonomy.js', 'engine/ranges/notation.js', 'engine/ranges/data.js',
   'engine/ranges/weights.js', 'engine/ranges/villainTracking.js', 'engine/handStrength.js',
   'engine/equity/madeHand.js', 'engine/math/potMath.js', 'engine/math/evMath.js',
   'engine/equity/monteCarlo.js', 'engine/equity/handRank.js', 'engine/equity/blockers.js',
@@ -19,8 +19,8 @@ const scripts = [
   'engine/validation/villainCallAudit.js', 'engine/validation/streetStrategy.js',
   'engine/solver/rangeAdvantage.js', 'engine/solver/riverShoveNode.js', 'engine/solver/probeEV.js',
   'engine/solver/villainStrategyAdjust.js', 'engine/solver/preflopSolver.js',
-  'engine/solver/facingBet.js', 'engine/solver/spotKey.js', 'engine/solver/strategyTables.js',
-  'engine/solver/SolverProvider.js', 'engine/scoring/classifier.js', 'engine/scoring/evLoss.js',
+  'engine/solver/facingBet.js', 'engine/solver/spotKey.js', 'engine/solver/strategyTables.js', 'engine/solver/bluffSpotDetector.js',
+  'engine/solver/SolverProvider.js', 'engine/scoring/classifier.js', 'engine/scoring/icmEv.js', 'engine/scoring/evLoss.js',
   'engine/scoring/scoring.js', 'engine/scoring/errors.js', 'engine/explanations/rules.js',
   'engine/solver/LocalSolverProvider.js', 'engine/evaluateSpot.js',
   'engine/villainProfiles.js',

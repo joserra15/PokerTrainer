@@ -65,7 +65,9 @@ const STEPS = [
   ['Test product variants 6-max', ['node', 'tools/test-product-variants.js']],
   ['Test beginner guide', ['node', 'tools/test-beginner-guide.js']],
   ['Test PWA manifest', ['node', 'tools/test-pwa-manifest.js']],
-  ['Test analytics/sentry guards', ['node', 'tools/test-analytics-sentry.js']]
+  ['Test analytics/sentry guards', ['node', 'tools/test-analytics-sentry.js']],
+  // v2.0 — formatos cash/spin/mtt + bluffs + ICM trainer
+  ['Test trainer formats v2', ['node', 'tools/test-trainer-formats-v2.js']]
 ];
 
 let failed = 0;

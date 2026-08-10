@@ -1081,6 +1081,20 @@
     input.effStack = input.stackDepth;
     input.heroRemainingBB = rem;
     input.spr = node.potBB > 0 ? rem / node.potBB : rem;
+    const cfg = hand.playConfig || {};
+    input.formatHub = cfg.formatHub || null;
+    input.practiceIntent = cfg.practiceIntent || 'mixed';
+    input.mttPhase = cfg.resolvedPhase || cfg.mttPhase || null;
+    input.spinPayout = cfg.spinPayout || '2x';
+    input.anteBB = cfg.anteBB || 0;
+    input.pushFold = !!(s.pushFold || cfg.scenario === 'push' || (cfg.resolvedPhase === 'push'));
+    input.heroStackBB = hand.stacks && hand.stacks.hero != null ? hand.stacks.hero : input.effStack;
+    input.villainStackBB = hand.stacks && hand.stacks.villain != null ? hand.stacks.villain : input.effStack;
+    const Icm = global.GTOIcmEv;
+    if (Icm && Icm.contextForHand) {
+      const icmCtx = Icm.contextForHand(hand, cfg);
+      if (icmCtx) Object.assign(input, icmCtx);
+    }
     const RR = global.GTORangesRegistry;
     if (RR) RR.attachToInput(input, rangeCtx(hand));
     return input;
@@ -1220,7 +1234,8 @@
       }
       return s;
     }
-    if (!forceKey && PC && playConfig) {
+    // force solo con seed/forceDeal/forceScript: respetar playConfig (hubs v2).
+    if (PC && playConfig) {
       return PC.pickScenario(playConfig, null);
     }
     const roll = Math.random();
@@ -1250,7 +1265,9 @@
 
   function dealForPlayConfig(scenario, playConfig) {
     const PC = global.PTPlayConfig;
-    const order = PC && PC.is9Max(playConfig) ? PC.DEAL_ORDER_9 : DEAL_ORDER;
+    const order = PC && PC.dealOrder
+      ? PC.dealOrder(playConfig)
+      : (PC && PC.is9Max(playConfig) ? PC.DEAL_ORDER_9 : DEAL_ORDER);
     const holeCards = {};
     order.forEach(function (pos) { holeCards[pos] = null; });
     let dead = [];
@@ -1415,7 +1432,42 @@
       if (hand.villain && hand.villain.pos) hand.villain.cards = villainHoleCards(hand);
     }
     if (force && force.forceScript) initForceScript(hand, force.forceScript);
+    applyAnteToHand(hand);
     return hand;
+  }
+
+  /** Suma ante MTT/spin al bote inicial (aprox. 2–3 jugadores activos). */
+  function applyAnteToHand(hand) {
+    const cfg = hand && hand.playConfig;
+    if (!cfg) return;
+    const ante = Number(cfg.anteBB) || 0;
+    if (ante <= 0) return;
+    const seats = global.PTPlayConfig && global.PTPlayConfig.isSpin && global.PTPlayConfig.isSpin(cfg)
+      ? 3
+      : (global.PTPlayConfig && global.PTPlayConfig.is9Max && global.PTPlayConfig.is9Max(cfg) ? 9 : 6);
+    // Antes típicos: todos pagan; en HU efectivo usamos 2.
+    const payers = Math.min(seats, hand.table && hand.table.length ? hand.table.length : seats);
+    const add = round2(ante * Math.max(2, Math.min(payers, 3)));
+    hand.potBB = round2((hand.potBB || 0) + add);
+    hand.anteBB = ante;
+    hand.antePotBB = add;
+    if (hand.current) hand.current.potBB = hand.potBB;
+  }
+
+  /** True si el nodo actual encaja con practiceIntent de faroles. */
+  function currentMatchesPracticeIntent(hand) {
+    const cfg = hand && hand.playConfig;
+    if (!cfg || !cfg.practiceIntent || cfg.practiceIntent === 'mixed') return true;
+    const Det = global.GTOBluffSpotDetector;
+    if (!Det || !hand.current) return true;
+    if (hand.current.street === 'preflop') return cfg.practiceIntent === 'mixed';
+    try {
+      const input = buildSpotInput(hand, hand.current, null);
+      const strat = GTO.getStrategy(input);
+      return Det.matchesPracticeIntent(Object.assign({}, input, { strategy: strat }), cfg.practiceIntent);
+    } catch (e) {
+      return true;
+    }
   }
 
   function inPos(a, b) { return POSTFLOP_ORDER.indexOf(a) > POSTFLOP_ORDER.indexOf(b); }
@@ -1607,7 +1659,13 @@
       villainRange: node.street !== 'preflop' ? villainRangeAtNode(hand, node) : null,
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
       potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
-      context: node.context
+      context: node.context,
+      bluffSpot: ev.bluffSpot || null,
+      icmMultiplier: ev.icmMultiplier != null ? ev.icmMultiplier : null,
+      icmPressure: ev.icmPressure != null ? ev.icmPressure : null,
+      bubbleFactor: ev.bubbleFactor != null ? ev.bubbleFactor : null,
+      icmNote: ev.icmNote || null,
+      formatHub: (hand.playConfig && hand.playConfig.formatHub) || null
     };
     hand.decisions.push(decision);
     hand.log.push(describeDecision(hand, decision));
@@ -2814,7 +2872,8 @@
 
   global.Engine = {
     newHand, act, previewAdvice, syncTableInvested, fastForwardToStreet,
-    advanceRunout, prepareAllInRunout,
+    advanceRunout, prepareAllInRunout, currentMatchesPracticeIntent,
+    applyAnteToHand, buildSpotInput,
 
     // utilidades expuestas para UI/tests/importador
     handStrength01, equityVsRange, classifyMadeHand, sampleHandFromRange,

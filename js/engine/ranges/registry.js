@@ -14,7 +14,10 @@
     UTG: 'UTG', UTG1: 'UTG', UTG2: 'HJ', LJ: 'HJ', HJ: 'CO', CO: 'CO', BTN: 'BTN', SB: 'SB', BB: 'BB'
   };
 
-  const STACK_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, standard: 100, short: 40, deep: 150 };
+  const STACK_BB = {
+    bb200: 200, bb100: 100, bb50: 50, bb25: 25, bb20: 20, bb15: 15, bb10: 10,
+    standard: 100, short: 40, deep: 150
+  };
   const GAME_LABELS = {
     cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT',
     cash2: 'Heads-up', cash3: 'Cash 3-max', spin3: 'Spin & Go'
@@ -30,17 +33,24 @@
 
   function normalize(ctx) {
     const c = ctx || {};
-    const gameType = c.gameType || 'cash6';
+    let gameType = c.gameType || 'cash6';
+    if (gameType === 'spin') gameType = 'spin3';
     const stackDepthKey = c.stackDepth || 'bb100';
-    const stackBB = STACK_BB[stackDepthKey] || 100;
+    const stackBB = c.stackBB != null ? Number(c.stackBB) : (STACK_BB[stackDepthKey] || 100);
     const stackDepth = rangeStackCategory(stackDepthKey, stackBB);
+    const Tax = global.PTFormatTaxonomy;
+    const formatHub = c.formatHub || (Tax ? Tax.hubFromGameType(gameType) : (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash')));
     return {
       gameType: gameType,
+      formatHub: formatHub,
       stackDepth: stackDepth,
       stackDepthKey: stackDepthKey,
       is9Max: gameType === 'cash9' || gameType === 'mtt',
       isMtt: gameType === 'mtt',
-      stackBB: stackBB
+      isSpin: gameType === 'spin3' || formatHub === 'spin',
+      stackBB: stackBB,
+      mttPhase: c.mttPhase || c.resolvedPhase || null,
+      practiceIntent: c.practiceIntent || 'mixed'
     };
   }
 
@@ -360,12 +370,14 @@
 
   function heroPositions(ctx) {
     const c = normalize(ctx);
+    if (c.isSpin) return ['BTN', 'SB', 'BB'];
     if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
     return ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   }
 
   function rfiPositions(ctx) {
     const c = normalize(ctx);
+    if (c.isSpin) return ['BTN', 'SB'];
     if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB'];
     return ['UTG', 'HJ', 'CO', 'BTN', 'SB'];
   }
@@ -381,11 +393,16 @@
     let gameType = 'cash6';
     if (hand && hand.formatKey) {
       const fk = hand.formatKey;
-      if (fk.indexOf('spin') === 0 || fk.indexOf('mtt') === 0) gameType = 'mtt';
+      if (fk.indexOf('spin') === 0) gameType = 'spin3';
+      else if (fk.indexOf('mtt') === 0) gameType = 'mtt';
       else if (fk === 'cash9') gameType = 'cash9';
       else gameType = 'cash6';
-    } else if (hand && (hand.gameKind === 'spin' || hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.isTournament)) {
+    } else if (hand && hand.gameKind === 'spin') {
+      gameType = 'spin3';
+    } else if (hand && (hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.isTournament)) {
       gameType = 'mtt';
+    } else if (tableMax === 3 || nSeats === 3) {
+      gameType = hand && hand.isTournament ? 'spin3' : 'cash6';
     } else if (tableMax >= 8 || nSeats >= 8) {
       gameType = 'cash9';
     }

@@ -21,15 +21,15 @@ const importChain = [
 ];
 
 const scripts = [
-  'cards.js', 'engine/cache.js', 'engine/ranges/notation.js', 'engine/ranges/data.js',
+  'cards.js', 'engine/cache.js', 'engine/format/taxonomy.js', 'engine/ranges/notation.js', 'engine/ranges/data.js',
   'engine/ranges/weights.js', 'engine/ranges/villainTracking.js', 'engine/handStrength.js',
   'engine/equity/madeHand.js', 'engine/math/potMath.js', 'engine/math/evMath.js', 'engine/equity/monteCarlo.js',
   'engine/solver/boardCluster.js', 'engine/solver/facingBet.js', 'engine/solver/spotKey.js',
-  'engine/solver/strategyTables.js', 'engine/solver/SolverProvider.js',
-  'engine/scoring/classifier.js', 'engine/scoring/evLoss.js', 'engine/scoring/scoring.js',
+  'engine/solver/strategyTables.js', 'engine/solver/bluffSpotDetector.js', 'engine/solver/SolverProvider.js',
+  'engine/scoring/classifier.js', 'engine/scoring/icmEv.js', 'engine/scoring/evLoss.js', 'engine/scoring/scoring.js',
   'engine/scoring/errors.js', 'engine/explanations/rules.js',
   'engine/solver/LocalSolverProvider.js', 'engine/evaluateSpot.js',
-  'engine/ranges/registry.js',
+  'engine/ranges/pushFold.js', 'engine/ranges/registry.js',
   'ranges.js', 'engine.js'
 ].concat(importChain);
 
@@ -161,7 +161,7 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   assert(Array.isArray(parsed.heroCandidates) && parsed.heroCandidates.length >= 1, 'heroCandidates');
   assert(Importer.handDedupeKey({ platform: 'pokerstars', id: '1' }) === 'pokerstars|1', 'dedupe key');
   assert(Importer.formatKeyToRangeGameType('cash9') === 'cash9', 'gameType cash9');
-  assert(Importer.formatKeyToRangeGameType('spin3') === 'mtt', 'gameType spin→mtt');
+  assert(Importer.formatKeyToRangeGameType('spin3') === 'spin3', 'gameType spin→spin3');
   // Ante seeding: posts deben sumar al pot preflop
   const anteHand = {
     bb: 0.10, sb: 0.05, ante: 0.01, hero: 'Hero', heroCards: ['As', 'Kd'],

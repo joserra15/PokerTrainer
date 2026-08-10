@@ -365,7 +365,20 @@
     hand.decisions.forEach((d, idx) => {
       if (d.class === 'error' || d.class === 'imprecisa') {
         const sc = hand.scenario || {};
-        const spotKey = sc.type + '|' + (hand.displayHeroPos || hand.hero.pos || rec.heroPos || '?') + '|' + (d.street || 'preflop');
+        const cfg = hand.playConfig || {};
+        const Tax = global.PTFormatTaxonomy;
+        const formatHub = cfg.formatHub || (Tax ? Tax.hubFromGameType(cfg.gameType) : 'cash');
+        const practiceIntent = cfg.practiceIntent || (d.bluffSpot && d.bluffSpot.intent) || 'mixed';
+        const baseKey = sc.type + '|' + (hand.displayHeroPos || hand.hero.pos || rec.heroPos || '?') + '|' + (d.street || 'preflop');
+        const spotKey = Tax && Tax.formatSpotKey
+          ? Tax.formatSpotKey(baseKey, {
+            formatHub: formatHub,
+            gameType: cfg.gameType,
+            practiceIntent: practiceIntent,
+            phase: cfg.resolvedPhase || cfg.mttPhase,
+            street: d.street
+          })
+          : baseKey;
         errs.unshift({
           id: rec.id + '_' + idx,
           handId: rec.id,
@@ -381,6 +394,9 @@
           heroCards: rec.heroCards,
           street: d.street,
           spotKey: spotKey,
+          formatHub: formatHub,
+          practiceIntent: practiceIntent,
+          mttPhase: cfg.resolvedPhase || cfg.mttPhase || null,
           chosen: d.label,
           chosenAction: d.action,
           best: d.best,
@@ -390,6 +406,7 @@
           mathParams: d.mathParams,
           context: d.context,
           gto: d.gto,
+          icmPressure: d.icmPressure != null ? d.icmPressure : null,
           repeated: 0
         });
       }
