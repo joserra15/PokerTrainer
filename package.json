@@ -34,6 +34,7 @@
     "test:share-edge": "node tools/test-share-hand-edge-contract.js",
     "test:rake": "node tools/test-rake-scoring.js",
     "test:multiway": "node tools/test-multiway-import.js",
+    "test:multiway-trainer": "node tools/test-multiway-trainer.js",
     "test:fuzz": "node tools/test-fuzz-evaluate.js",
     "test:admin": "node tools/test-admin-panel.js",
     "test:account-settings": "node tools/test-account-settings.js",

@@ -368,8 +368,19 @@
     return Math.min(1, Math.max(0, outs / deck));
   }
 
+  /** Equity vs N oponentes (delega a GTOMultiway si está cargado). */
+  function equityVsN(heroCards, board, opponents, iters, opts) {
+    const MW = global.GTOMultiway;
+    if (MW && MW.equityVsN) return MW.equityVsN(heroCards, board, opponents, iters, opts);
+    if (opponents && opponents.length === 1) {
+      const o = opponents[0];
+      return equityVsRange(heroCards, board, (o && o.rangeStr) || '22+,A2s+,K9s+,AJo+', iters, opts);
+    }
+    return 0.5;
+  }
+
   global.GTOEquity = {
-    equityVsRange, equityExact, equityExactRunout, sampleHandFromRange, concreteCombos, allVillainCombos,
+    equityVsRange, equityVsN, equityExact, equityExactRunout, sampleHandFromRange, concreteCombos, allVillainCombos,
     augmentVillainRange, heroNonNutFlushContext, isFlushBoard, filterCombosFacingBet,
     combosOf: W ? W.combosOf : function () { return 1; },
     streetFromBoard, cardsToRun, equityOneCardByOuts

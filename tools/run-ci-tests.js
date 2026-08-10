@@ -56,6 +56,7 @@ const STEPS = [
   ['Test share-hand Edge contract', ['node', 'tools/test-share-hand-edge-contract.js']],
   ['Test rake scoring', ['node', 'tools/test-rake-scoring.js']],
   ['Test multiway import', ['node', 'tools/test-multiway-import.js']],
+  ['Test multiway trainer', ['node', 'tools/test-multiway-trainer.js']],
   ['Test fuzz evaluateSpot', ['node', 'tools/test-fuzz-evaluate.js']],
   ['Test admin panel', ['node', 'tools/test-admin-panel.js']],
   ['Test account settings', ['node', 'tools/test-account-settings.js']],
