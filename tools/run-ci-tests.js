@@ -37,6 +37,7 @@ const STEPS = [
   ['Test hand score 0–10', ['node', 'tools/test-hand-score.js']],
   ['Test share-hand HTML', ['node', 'tools/test-share-hand.js']],
   ['Test landing i18n', ['node', 'tools/test-landing-i18n.js']],
+  ['Test landing login CTA', ['node', 'tools/test-landing-login-cta.js']],
   ['Test contact pending popup', ['node', 'tools/test-contact-pending-popup.js']],
   ['Test replay hand', ['node', 'tools/test-replay-hand.js']],
   // Fase 1 — nuevos
