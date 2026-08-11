@@ -6,7 +6,7 @@
  * - Voz de profesor a alumno: natural, clara, sin telegramas ni jerga suelta.
  * - Breve pero completo: 2–4 frases por bullet de teoría; teachBack 1–3 frases.
  * - Primera aparición de un concepto: nómbralo y explícalo entre paréntesis o
- *   en la frase siguiente. Ej.: «limpiar (igualar la ciega grande para entrar)».
+ *   en la frase siguiente. Ej.: «limpear (igualar la ciega grande para entrar)».
  * - Si el concepto ya se explicó en una lección anterior del mismo módulo,
  *   úsalo sin redefinir (el alumno ya lo vio).
  * - Orden de introducción en M0: posiciones → open/fold → RFI → limp →
@@ -164,20 +164,20 @@
       hands: 14,
       concept: 'Si nadie ha entrado todavía, o subes tú primero (RFI) o tiras: esa es la base del preflop en cash.',
       theory: [
-        'RFI significa Raise First In: eres el primero en meter dinero voluntario en el bote. Nadie ha limpiao ni subido; tú eliges open o fold según tu posición y tu mano.',
-        'Limpiar (o limp) es igualar la ciega grande para ver el flop barato, sin subir. En cash 6-max moderno casi no lo usamos para abrir: regalas la iniciativa y dejas que cualquiera te aísle por detrás. Aquí la disciplina es binaria — open o fold.',
-        'El tamaño típico del open ronda 2–2,5 bb (lo trabajamos con calma en C-04). Hoy lo importante no es el tamaño exacto, sino si esa mano entra en el rango de tu silla: UTG más tight, botón más wide.',
+        'RFI significa Raise First In: eres el primero en meter dinero voluntario en el bote. Nadie ha limpeado ni subido; tú eliges open o fold según tu posición y tu mano.',
+        'Limpear (o limp) es igualar la ciega grande para ver el flop barato, sin subir. En cash 6-max moderno casi no lo usamos para abrir: regalas la iniciativa y dejas que cualquiera te aísle por detrás. Aquí la disciplina es binaria — open o fold.',
+        'El tamaño típico del open ronda 2–2,5 bb (lo trabajamos con calma en C-04). Hoy lo importante no es el tamaño exacto, sino si esa mano entra en el rango de tu silla: UTG más tight, botón más wide. Puedes estudiar los rangos RFI de cada posición en el menú Rangos.',
         'Trampas habituales: abrir manos dominadas en early, foldear manos claras en late, o “inventar” un limp mental cuando deberías tirar o subir.'
       ],
       examples: [
         {
           title: 'Open desde cutoff',
-          body: 'Pliegan UTG y HJ. Estás en CO con AJs: subes a unas 2,2–2,5 bb. No limpies “para ver flop”. O la mano merece open, o fold.'
+          body: 'Pliegan UTG y HJ. Estás en CO con AJs: subes a unas 2,2–2,5 bb. No limpees “para ver flop”. O la mano merece open, o fold.'
         }
       ],
       aiQuestions: [
         '¿Qué manos debo abrir desde UTG a 100 bb?',
-        '¿Por qué no se limpia en vez de open-raise en cash 6-max?'
+        '¿Por qué no se limpea en vez de open-raise en cash 6-max?'
       ],
       spots: [
         rfiSpot('c02-01', 'UTG', ['As', 'Ad'], 12001, {
@@ -241,14 +241,14 @@
       hands: 10,
       concept: 'Al open-raise no solo juegas tu equity: también compras la posibilidad de que todos plieguen. Por eso en RFI es open o fold, no “ver barato”.',
       theory: [
-        'Fold equity es la probabilidad de que los rivales tiren ante tu subida. Esa parte del valor no existe si limpias: el bote queda multiway o te aíslan, y tú ya regalaste la iniciativa.',
+        'Fold equity es la probabilidad de que los rivales tiren ante tu subida. Esa parte del valor no existe si limpeas: el bote queda multiway o te aíslan, y tú ya regalaste la iniciativa.',
         'Si la mano no es lo bastante fuerte para open en esa posición, la respuesta correcta es fold — no “pasar el flop barato”. Ver cartas sin fold equity suele ser peor a largo plazo en cash.',
         'La trampa de turno (fancy play) es doble: pasar manos que sí merecen open, o forzar opens sin fold equity ni equity real. Disciplina: o subes con intención, o tiras.'
       ],
       examples: [
         {
           title: 'Sin limps mentales',
-          body: 'En el botón con KTo quieres robar: open. La misma mano desde UTG, si no entra en rango, es fold. En ninguno de los dos casos limpies “por si conecta”.'
+          body: 'En el botón con KTo quieres robar: open. La misma mano desde UTG, si no entra en rango, es fold. En ninguno de los dos casos limpees “por si conecta”.'
         }
       ],
       aiQuestions: [
@@ -287,7 +287,7 @@
           teachBack: '76o en el botón es frontera; muchas estrategias lo abren casi solo por fold equity. Mira qué dice el motor aquí.'
         }),
         rfiSpot('c03-10', 'HJ', ['Ad', 'Kd'], 13010, {
-          teachBack: 'AKs se abre por valor y por fold equity. Nunca limpies con esto.'
+          teachBack: 'AKs se abre por valor y por fold equity. Nunca limpees con esto.'
         })
       ]
     },
@@ -312,7 +312,7 @@
       examples: [
         {
           title: 'Open estándar, no hero size',
-          body: 'En cutoff con AJs abres unas 2,2–2,5 bb. No subas a 5 bb “por si acaso” ni limpies. O la mano merece open con tamaño normal, o tiras.'
+          body: 'En cutoff con AJs abres unas 2,2–2,5 bb. No subas a 5 bb “por si acaso” ni limpees. O la mano merece open con tamaño normal, o tiras.'
         }
       ],
       aiQuestions: [
@@ -345,7 +345,7 @@
           teachBack: '87s en el botón: open de robo con sizing normal.'
         }),
         rfiSpot('c04-08', 'HJ', ['5s', '5c'], 14008, {
-          teachBack: '55 desde hijack: open. El tamaño típico basta; no hace falta aislar enorme si nadie ha limpiao.'
+          teachBack: '55 desde hijack: open. El tamaño típico basta; no hace falta aislar enorme si nadie ha limpeado.'
         }),
         rfiSpot('c04-09', 'UTG', ['Jd', 'Td'], 14009, {
           teachBack: 'JTs desde UTG suele ser open en charts modernos, con sizing estándar.'

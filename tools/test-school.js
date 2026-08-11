@@ -126,8 +126,12 @@ lessons.forEach(function (l) {
 assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en school-data');
 assert.ok(/hacen call \(si te igualan la apuesta\)/.test(Data.getLesson('C-01').theory.join(' ')), 'C-01 explica call');
 assert.ok(
-  /Limpiar \(o limp\) es igualar la ciega grande/.test(Data.getLesson('C-02').theory.join(' ')),
-  'C-02 explica limpiar la primera vez'
+  /Limpear \(o limp\) es igualar la ciega grande/.test(Data.getLesson('C-02').theory.join(' ')),
+  'C-02 explica limpear la primera vez'
+);
+assert.ok(
+  /menú Rangos/.test(Data.getLesson('C-02').theory.join(' ')),
+  'C-02 apunta a rangos RFI en menú Rangos'
 );
 assert.ok(
   /Fold equity es la probabilidad/.test(Data.getLesson('C-03').theory.join(' ')),
@@ -143,7 +147,7 @@ assert.ok(
   'C-05 introduce OOP'
 );
 assert.ok(
-  !/Limpiar \(o limp\) es igualar/.test(Data.getLesson('C-03').theory.join(' ')),
+  !/Limpear \(o limp\) es igualar/.test(Data.getLesson('C-03').theory.join(' ')),
   'C-03 no redefine limp'
 );
 lessons.forEach(function (l) {

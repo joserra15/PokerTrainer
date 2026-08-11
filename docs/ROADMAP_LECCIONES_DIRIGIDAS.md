@@ -176,7 +176,7 @@ Las lecciones hablan como un **profesor a sus alumnos**, no como un cheat-sheet 
 |-------|-----------|------------|
 | **Natural** | Frases completas, tono oral claro | Telegramas (`ATo UTG fold.`) y anglicismos sin ancla |
 | **Breve pero no telegráfica** | 2–4 frases por bullet de teoría; teach-back 1–3 frases | Un solo eslogan; párrafos de media página |
-| **Concepto la 1ª vez** | Nombre + explicación inline: *limpiar (igualar la ciega grande para entrar en la mano)* | Usar jerga cruda (`limp`, `FE`, `OOP`) sin decir qué es |
+| **Concepto la 1ª vez** | Nombre + explicación inline: *limpear (igualar la ciega grande para entrar en la mano)* | Usar jerga cruda (`limp`, `FE`, `OOP`) sin decir qué es |
 | **No repetir definiciones** | Si M0 ya explicó *fold equity* en C-03, C-04+ lo usa sin redefinir | Copiar el mismo glosario en cada lección |
 | **Un trabajo mental** | La teoría prepara solo el concepto de esa lección | Meter sizing, SB y 3-bet en la misma página “por si acaso” |
 
@@ -184,7 +184,7 @@ Las lecciones hablan como un **profesor a sus alumnos**, no como un cheat-sheet 
 
 1. **C-00** — lección, spots fijos, umbral, cupo del entrenador.  
 2. **C-01** — posiciones (UTG→BTN, SB/BB), early/late, *open* (subir primero), *fold*.  
-3. **C-02** — *RFI*, *limpiar/limp*, por qué en cash moderno es open o fold.  
+3. **C-02** — *RFI*, *limpear/limp*, por qué en cash moderno es open o fold; apuntar al menú **Rangos** para estudiar RFI por posición.  
 4. **C-03** — *fold equity*.  
 5. **C-04** — *sizing* en *bb* (ciegas grandes).  
 6. **C-05** — SB vs BTN, *fuera de posición (OOP)*.  
