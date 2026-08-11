@@ -346,7 +346,8 @@
     return {
       xp: Math.max(Number(a.xp) || 0, Number(b.xp) || 0),
       lessons: lessons,
-      updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0)
+      updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0),
+      version: Math.max(Number(a.version) || 1, Number(b.version) || 1)
     };
   }
 

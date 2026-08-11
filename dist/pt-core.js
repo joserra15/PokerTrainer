@@ -16383,7 +16383,8 @@ window.PT_VS_3BET_JSON = {
     return {
       xp: Math.max(Number(a.xp) || 0, Number(b.xp) || 0),
       lessons: lessons,
-      updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0)
+      updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0),
+      version: Math.max(Number(a.version) || 1, Number(b.version) || 1)
     };
   }
 
@@ -23129,7 +23130,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.2.0';
+  const APP_VERSION = window.PT_BUILD || '2.2.1';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];

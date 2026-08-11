@@ -1,4 +1,4 @@
-/* Escuela de Póker M0: datos, spots RFI forzados y progreso. */
+/* Escuela de Póker M0 v2: 7 lecciones gratis, spots RFI, migración C-04→C-06. */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -11,6 +11,8 @@ const css = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 const loader = fs.readFileSync(path.join(root, 'js/pt-loader.js'), 'utf8');
 const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+const schoolDataSrc = fs.readFileSync(path.join(root, 'js/school-data.js'), 'utf8');
+const schoolSrc = fs.readFileSync(path.join(root, 'js/school.js'), 'utf8');
 
 assert.ok(/data-tab="school"/.test(html), 'nav school');
 assert.ok(/id="tab-school"/.test(html), 'panel school');
@@ -20,6 +22,9 @@ assert.ok(/school:\s*\[/.test(chunks), 'chunk school');
 assert.ok(/school:\s*'dist\/pt-school\.js'/.test(loader), 'loader school');
 assert.ok(/tabId === 'school'/.test(app), 'goToTab school');
 assert.ok(/PTSchool\.afterTrainerAction/.test(app), 'hook afterTrainerAction');
+assert.ok(/canPlayLesson/.test(schoolSrc), 'canPlayLesson preparado Fase D');
+assert.ok(/migrateSchoolProgress|C-06/.test(schoolSrc), 'migración v2');
+assert.ok(/Sizing del open|RFI desde SB|Examen M0/.test(schoolDataSrc), 'lecciones M0 v2');
 
 const sandbox = {
   window: {},
@@ -101,14 +106,34 @@ const Data = sandbox.PTSchoolData;
 const School = sandbox.PTSchool;
 const Engine = sandbox.Engine || sandbox.window.Engine;
 assert.ok(Data && School && Engine, 'APIs cargadas');
+assert.strictEqual(Data.SCHOOL_DATA_VERSION, 2, 'data version 2');
 
 const lessons = Data.lessonsForRoute('cash');
-assert.strictEqual(lessons.length, 5, 'M0 tiene 5 lecciones');
+assert.strictEqual(lessons.length, 7, 'M0 tiene 7 lecciones');
 assert.strictEqual(
   lessons.map(function (l) { return l.id; }).join(','),
-  'C-00,C-01,C-02,C-03,C-04',
+  'C-00,C-01,C-02,C-03,C-04,C-05,C-06',
   'ids M0 en orden'
 );
+assert.strictEqual(Data.getLesson('C-04').title, 'Sizing del open', 'C-04 sizing');
+assert.strictEqual(Data.getLesson('C-05').title, 'RFI desde SB', 'C-05 SB');
+assert.ok(/Examen/.test(Data.getLesson('C-06').title), 'C-06 examen');
+lessons.forEach(function (l) {
+  assert.strictEqual(l.plan, 'free', l.id + ' plan free');
+});
+
+/* Validar códigos de carta */
+(function () {
+  const re = /\['([A-Za-z0-9]{2})',\s*'([A-Za-z0-9]{2})'\]/g;
+  let m;
+  const bad = [];
+  while ((m = re.exec(schoolDataSrc))) {
+    [m[1], m[2]].forEach(function (c) {
+      if (!/^[AKQJT98765432][hdcs]$/.test(c)) bad.push(c);
+    });
+  }
+  assert.strictEqual(bad.length, 0, 'cartas válidas: ' + bad.join(','));
+})();
 
 let spotCount = 0;
 lessons.forEach(function (lesson) {
@@ -149,16 +174,15 @@ lessons.forEach(function (lesson) {
     const bestFold = foldRes.decision.class === 'optima' || foldRes.decision.class === 'aceptable';
     assert.ok(bestRaise || bestFold, 'al menos una acción razonable en ' + spot.id);
 
-    /* Regresión: schoolDecisionEnd no avanza a flop tras raise */
     assert.strictEqual(raiseHand.stage, 'complete', 'raise corta en complete ' + spot.id);
     assert.ok(!raiseHand.board || raiseHand.board.length === 0, 'sin board tras decisionEnd ' + spot.id);
     assert.ok(raiseHand.result && raiseHand.result.school, 'result.school ' + spot.id);
     assert.strictEqual(foldHand.stage, 'complete', 'fold complete ' + spot.id);
   });
 });
-assert.ok(spotCount >= 50, 'suficientes spots M0: ' + spotCount);
+assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
 
-/* Regresión: sin schoolDecisionEnd un raise puede ir a flop (control negativo en 1 spot) */
+/* Control: sin schoolDecisionEnd puede avanzar */
 (function () {
   const spot = Data.getLesson('C-02').spots[0];
   const force = {
@@ -181,26 +205,44 @@ assert.ok(spotCount >= 50, 'suficientes spots M0: ' + spotCount);
     'raise sin decisionEnd avanza o completa: ' + h.stage);
 })();
 
-/* Progreso / desbloqueo con Store mínimo */
+/* Migración C-04 (examen v1) → C-06 */
+(function () {
+  const migrated = School.migrateSchoolProgress({
+    xp: 150,
+    version: 1,
+    lessons: {
+      'C-00': { passed: true, bestScore: 1, bestPct: 100, attempts: 1 },
+      'C-01': { passed: true, bestScore: 0.8, bestPct: 80, attempts: 2 },
+      'C-02': { passed: true, bestScore: 0.75, bestPct: 75, attempts: 1 },
+      'C-03': { passed: true, bestScore: 0.7, bestPct: 70, attempts: 1 },
+      'C-04': { passed: true, bestScore: 0.85, bestPct: 85, attempts: 3, gold: true }
+    }
+  });
+  assert.strictEqual(migrated.version, 2, 'version 2 tras migrate');
+  assert.ok(migrated.lessons['C-06'] && migrated.lessons['C-06'].passed, 'examen migrado a C-06');
+  assert.ok(!migrated.lessons['C-04'], 'C-04 limpio para sizing');
+  assert.strictEqual(migrated.lessons['C-06'].bestPct, 85, 'bestPct conservado');
+})();
+
+/* Progreso / desbloqueo / canPlayLesson */
+sandbox.PTAdmin = { hasAccess: function () { return true; } };
 sandbox.Store = {
-  _st: { handsPlayed: 0, school: { xp: 0, lessons: {}, updatedAt: 0 } },
+  _st: { handsPlayed: 0, school: { xp: 0, lessons: {}, updatedAt: 0, version: 2 } },
   getStats: function () { return this._st; },
   persistStats: function (st) { this._st = st; },
   saveHand: function () { return {}; }
 };
 assert.ok(School.isLessonUnlocked('C-00'), 'C-00 desbloqueada');
 assert.ok(!School.isLessonUnlocked('C-01'), 'C-01 bloqueada al inicio');
+assert.ok(School.canPlayLesson('C-00').ok, 'canPlay C-00 admin');
+assert.ok(!School.canPlayLesson('C-01').ok, 'canPlay C-01 locked');
 
 School._state.view = 'hub';
-const summary = School.startLessonSession
-  ? (function () {
-    /* C-00 sin spots: completa teoría */
-    School.startLessonSession('C-00');
-    return School._state.lastResult && School._state.lastResult.summary;
-  })()
-  : null;
+School.startLessonSession('C-00');
+const summary = School._state.lastResult && School._state.lastResult.summary;
 assert.ok(summary && summary.passed, 'C-00 se completa');
 assert.ok(School.isLessonPassed('C-00'), 'C-00 passed');
 assert.ok(School.isLessonUnlocked('C-01'), 'C-01 desbloqueada tras C-00');
+assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
 
-console.log('*** school M0 OK (' + spotCount + ' spots) ***');
+console.log('*** school M0 v2 OK (' + spotCount + ' spots, 7 lecciones free) ***');
