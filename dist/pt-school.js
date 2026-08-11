@@ -11,6 +11,8 @@
  * - Si el concepto ya se explicó en una lección anterior del mismo módulo,
  *   úsalo sin redefinir (el alumno ya lo vio).
  * - Verbo del limp: siempre «limpear» (nunca «limpiar»).
+ * - Acción call: siempre «hacer call» (haces/hacen call, hacer call de más).
+ *   Nunca «llamar/llaman/llamar de más» cuando signifique call.
  * - Orden de introducción en M0: posiciones → open/fold → RFI → limp →
  *   fold equity → sizing (bb) → SB/OOP. El examen no introduce vocabulario nuevo.
  * Ver también docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
@@ -327,7 +329,7 @@
           teachBack: 'QTs en cutoff es open estándar en charts de 6-max.'
         }),
         rfiSpot('c02-05', 'BTN', ['Td', '9d'], 12005, {
-          teachBack: 'T9s en el botón: open para robar y, si te llaman, buena jugabilidad.'
+          teachBack: 'T9s en el botón: open para robar y, si hacen call, buena jugabilidad.'
         }),
         rfiSpot('c02-06', 'UTG', ['Ah', '9c'], 12006, {
           trapTag: 'dominated',
@@ -723,6 +725,8 @@
 /*
  * school-data-m1.js — Cash M1 Preflop core (Study). C-07…C-13.
  * Se registra sobre PTSchoolData tras school-data.js (Fase E).
+ * Estilo: call = «hacer call» (nunca «llamar»); limp = «limpear».
+ * Ver docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
  */
 (function (global) {
   'use strict';
@@ -744,7 +748,7 @@
       theory: [
         'Tras el open del rival, en BB ya tienes 1 bb invertida: eso mejora tus odds para call, pero no justifica defender basura.',
         'Contra opens late (CO/BTN) defiendes más wide; contra UTG/HJ eres más tight. El 3-bet mezcla valor y bluffs (polar).',
-        'Trampa: overdefend (llamar de más con manos dominadas) o 3-bet spew vs opens tempranos.'
+        'Trampa: overdefend (hacer call de más con manos dominadas) o 3-bet spew vs opens tempranos.'
       ],
       examples: [{
         title: 'Misma mano, distinto open',
@@ -824,7 +828,7 @@
       concept: 'Hay open y cold-call: el squeeze (re-raise) castiga rangos anchos y gana un bote muerto grande.',
       theory: [
         'Squeezeas con value fuerte y algunos bluffs con blockers. Multiway, el cold-caller suele tener capped range.',
-        'No squeezes loco con basura: si te llaman, juegas un bote enorme OOP o multiway.',
+        'No squeezes loco con basura: si hacen call, juegas un bote enorme OOP o multiway.',
         'Trampa: squeeze spew (J9o) o pasar spots claros de value (QQ+/AK).'
       ],
       examples: [{
@@ -925,6 +929,8 @@
 /*
  * school-data-m2.js — Cash M2 Postflop core (Study). C-14…C-20.
  * Se registra sobre PTSchoolData (Fase F). Menú sigue admin-only.
+ * Estilo: call = «hacer call» (nunca «llamar»); limp = «limpear».
+ * Ver docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
  */
 (function (global) {
   'use strict';

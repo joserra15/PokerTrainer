@@ -1,6 +1,8 @@
 /*
  * school-data-m2.js — Cash M2 Postflop core (Study). C-14…C-20.
  * Se registra sobre PTSchoolData (Fase F). Menú sigue admin-only.
+ * Estilo: call = «hacer call» (nunca «llamar»); limp = «limpear».
+ * Ver docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
  */
 (function (global) {
   'use strict';

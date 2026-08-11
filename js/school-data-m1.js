@@ -1,6 +1,8 @@
 /*
  * school-data-m1.js — Cash M1 Preflop core (Study). C-07…C-13.
  * Se registra sobre PTSchoolData tras school-data.js (Fase E).
+ * Estilo: call = «hacer call» (nunca «llamar»); limp = «limpear».
+ * Ver docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
  */
 (function (global) {
   'use strict';
@@ -22,7 +24,7 @@
       theory: [
         'Tras el open del rival, en BB ya tienes 1 bb invertida: eso mejora tus odds para call, pero no justifica defender basura.',
         'Contra opens late (CO/BTN) defiendes más wide; contra UTG/HJ eres más tight. El 3-bet mezcla valor y bluffs (polar).',
-        'Trampa: overdefend (llamar de más con manos dominadas) o 3-bet spew vs opens tempranos.'
+        'Trampa: overdefend (hacer call de más con manos dominadas) o 3-bet spew vs opens tempranos.'
       ],
       examples: [{
         title: 'Misma mano, distinto open',
@@ -102,7 +104,7 @@
       concept: 'Hay open y cold-call: el squeeze (re-raise) castiga rangos anchos y gana un bote muerto grande.',
       theory: [
         'Squeezeas con value fuerte y algunos bluffs con blockers. Multiway, el cold-caller suele tener capped range.',
-        'No squeezes loco con basura: si te llaman, juegas un bote enorme OOP o multiway.',
+        'No squeezes loco con basura: si hacen call, juegas un bote enorme OOP o multiway.',
         'Trampa: squeeze spew (J9o) o pasar spots claros de value (QQ+/AK).'
       ],
       examples: [{

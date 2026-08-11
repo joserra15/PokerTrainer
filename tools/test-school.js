@@ -156,6 +156,7 @@ Data.m1Lessons().concat(Data.m2Lessons()).forEach(function (l) {
 assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en school-data');
 
 /* Verbo limpear: en textos de lección no usar limpiar=limp */
+/* Call: «hacer call», no «llamar» */
 (function () {
   var blob = '';
   Data.LESSONS.forEach(function (l) {
@@ -167,6 +168,12 @@ assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en sc
   });
   assert.ok(!/\b[Ll]impiar\b|\blimpies\b|\blimpias\b|\blimpiao\b/.test(blob), 'lecciones sin limpiar=limp');
   assert.ok(/\b[Ll]impear\b|\blimpees\b|\blimpeas\b|\blimpeado\b/.test(blob), 'lecciones usan limpear');
+  assert.ok(!/\b[Ll]lamar\b|\bllaman\b|\bllamas\b|\bllame\b|\bllames\b/.test(blob), 'lecciones sin llamar=call');
+  assert.ok(/\bhacer call\b|\bhaces call\b|\bhacen call\b/.test(blob), 'lecciones usan hacer call');
+  assert.ok(/Hacer call/.test(schoolDataSrc) || /hacer call/.test(schoolDataSrc), 'estilo documentado en school-data');
+  assert.ok(/Hacer call/.test(
+    fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
+  ), 'roadmap §4.5 documenta Hacer call');
 })();
 
 assert.ok(/hacen call \(si te igualan la apuesta\)/.test(Data.getLesson('C-01').theory.join(' ')), 'C-01 explica call');
