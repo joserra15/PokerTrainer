@@ -122,6 +122,41 @@ lessons.forEach(function (l) {
   assert.strictEqual(l.plan, 'free', l.id + ' plan free');
 });
 
+/* Voz pedagógica: conceptos clave se introducen una vez en M0 */
+assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en school-data');
+assert.ok(
+  /Limpiar \(o limp\) es igualar la ciega grande/.test(Data.getLesson('C-02').theory.join(' ')),
+  'C-02 explica limpiar la primera vez'
+);
+assert.ok(
+  /Fold equity es la probabilidad/.test(Data.getLesson('C-03').theory.join(' ')),
+  'C-03 define fold equity'
+);
+assert.ok(
+  /Sizing es el tamaño/.test(Data.getLesson('C-04').theory.join(' ')) &&
+    /bb \(ciegas grandes\)/.test(Data.getLesson('C-04').theory.join(' ')),
+  'C-04 define sizing/bb'
+);
+assert.ok(
+  /fuera de posición|OOP \(out of position\)/.test(Data.getLesson('C-05').theory.join(' ')),
+  'C-05 introduce OOP'
+);
+assert.ok(
+  !/Limpiar \(o limp\) es igualar/.test(Data.getLesson('C-03').theory.join(' ')),
+  'C-03 no redefine limp'
+);
+lessons.forEach(function (l) {
+  assert.ok((l.concept || '').length > 40, l.id + ' concept no telegráfico');
+  (l.theory || []).forEach(function (t, i) {
+    assert.ok(t.length > 60, l.id + ' theory[' + i + '] demasiado corta');
+  });
+  (l.spots || []).forEach(function (s) {
+    assert.ok((s.teachBack || '').length > 25, l.id + ' teachBack ' + s.id);
+  });
+});
+assert.ok(/4\.5 Voz pedagógica/.test(fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')), 'roadmap §4.5');
+
+
 /* Validar códigos de carta */
 (function () {
   const re = /\['([A-Za-z0-9]{2})',\s*'([A-Za-z0-9]{2})'\]/g;
