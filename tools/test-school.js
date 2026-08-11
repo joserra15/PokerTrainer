@@ -202,6 +202,22 @@ assert.ok(
 assert.ok(/si hacen call, siempre juegas fuera de posición/.test(Data.getLesson('C-05').concept), 'C-05 concept call');
 assert.ok(/polar \(/.test(Data.getLesson('C-05').examples[0].body) && /wide \(/.test(Data.getLesson('C-05').examples[0].body), 'C-05 ejemplo explica polar y wide');
 
+/* C-08: conceptos polar / bluff / blockers / spew en lenguaje natural */
+(function () {
+  var c08 = Data.getLesson('C-08');
+  var blob = [c08.concept].concat(c08.theory || []).concat(
+    (c08.examples || []).map(function (ex) { return (ex.title || '') + ' ' + (ex.body || ''); })
+  ).join(' ');
+  assert.ok(/bluff \(farol\)|farol/.test(blob), 'C-08 explica bluff/farol');
+  assert.ok(/blockers?:/.test(blob) || /blockers /.test(blob), 'C-08 explica blockers');
+  assert.ok(/Polar significa/.test(blob), 'C-08 define polar');
+  assert.ok(/Spew es/.test(blob), 'C-08 define spew');
+  assert.ok(!/Value: QQ\+|Polar light:|linear\/value/.test(blob), 'C-08 no es telegrama de chart');
+  assert.ok(/Cash M1 \(referencia de autoría\)/.test(
+    fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
+  ), 'roadmap orden vocabulario M1');
+})();
+
 assert.ok(
   !/Limpear \(o limp\) es igualar/.test(Data.getLesson('C-03').theory.join(' ')),
   'C-03 no redefine limp'

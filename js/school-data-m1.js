@@ -18,26 +18,26 @@
       title: 'Defender BB vs open',
       route: 'cash', module: 'M1', order: 7, plan: 'study',
       xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
-      concept: 'Desde la ciega grande, frente a un open, eliges fold, call o 3-bet según la posición del agresor y tu mano.',
+      concept: 'Desde la ciega grande, frente a un open, eliges fold, hacer call o 3-bet según la posición del agresor y tu mano.',
       theory: [
-        'Tras el open del rival, en BB ya tienes 1 bb invertida: eso mejora tus odds para call, pero no justifica defender basura.',
-        'Contra opens late (CO/BTN) defiendes más wide; contra UTG/HJ eres más tight. El 3-bet mezcla valor y bluffs (polar).',
-        'Trampa: overdefend (llamar de más con manos dominadas) o 3-bet spew vs opens tempranos.'
+        'Tras el open del rival, en BB ya tienes 1 bb invertida: eso mejora tus odds para hacer call, pero no justifica defender basura.',
+        'Contra opens late (CO/BTN) defiendes más wide (con más manos); contra UTG/HJ eres más tight. A veces haces 3-bet (vuelves a subir): en la siguiente lección verás con qué manos y por qué.',
+        'Trampa: overdefend — hacer call de más con manos dominadas — o 3-betear basura vs opens tempranos sin un plan claro.'
       ],
       examples: [{
         title: 'Misma mano, distinto open',
-        body: 'Con KJo vs open UTG suele ser fold. La misma KJo vs open BTN entra a menudo en call o 3-bet light según chart.'
+        body: 'Con KJo vs open UTG suele ser fold. La misma KJo vs open BTN entra a menudo en call o 3-bet ligero según el chart. La silla del agresor cambia tu respuesta.'
       }],
-      aiQuestions: ['¿Qué cambia al defender BB vs BTN respecto a vs UTG?', '¿Cuándo 3-beteo polar desde BB?'],
+      aiQuestions: ['¿Qué cambia al defender BB vs BTN respecto a vs UTG?', '¿Cuándo prefiero 3-betear en vez de hacer call desde BB?'],
       spots: [
-        vs('c07-01', 'BB_vs_BTN', ['Ah', 'Kd'], 17001, { teachBack: 'AKo vs BTN: 3-bet de valor claro.' }),
-        vs('c07-02', 'BB_vs_UTG', ['Kh', 'Jd'], 17002, { trapTag: 'dominated', teachBack: 'KJo vs UTG está dominada. Fold típico.' }),
-        vs('c07-03', 'BB_vs_BTN', ['Kh', 'Jd'], 17003, { teachBack: 'KJo vs BTN: defensa razonable (call/3-bet según mix).' }),
-        vs('c07-04', 'BB_vs_CO', ['7c', '2d'], 17004, { trapTag: 'dominated', teachBack: '72o vs CO: fold. No overdefend.' }),
-        vs('c07-05', 'BB_vs_BTN', ['9s', '8s'], 17005, { teachBack: '98s vs BTN: call cómodo, buena jugabilidad.' }),
-        vs('c07-06', 'BB_vs_HJ', ['Ad', '5d'], 17006, { teachBack: 'A5s vs HJ: 3-bet polar frecuente (blockers + equity).' }),
-        vs('c07-07', 'BB_vs_UTG', ['Qh', '9c'], 17007, { trapTag: 'dominated', teachBack: 'Q9o vs UTG: fold. No overdefend trash.' }),
-        vs('c07-08', 'BB_vs_CO', ['Jc', 'Tc'], 17008, { teachBack: 'JTs vs CO: call/3-bet sólido.' })
+        vs('c07-01', 'BB_vs_BTN', ['Ah', 'Kd'], 17001, { teachBack: 'AKo vs BTN: 3-bet de valor claro. Quieres más dinero en el bote.' }),
+        vs('c07-02', 'BB_vs_UTG', ['Kh', 'Jd'], 17002, { trapTag: 'dominated', teachBack: 'KJo vs UTG está dominada por AK, KQ, KJ. Fold típico.' }),
+        vs('c07-03', 'BB_vs_BTN', ['Kh', 'Jd'], 17003, { teachBack: 'KJo vs BTN: defensa razonable (hacer call o 3-bet ligero según el mix).' }),
+        vs('c07-04', 'BB_vs_CO', ['7c', '2d'], 17004, { trapTag: 'dominated', teachBack: '72o vs CO: fold. No hagas call de más solo porque estás en BB.' }),
+        vs('c07-05', 'BB_vs_BTN', ['9s', '8s'], 17005, { teachBack: '98s vs BTN: call cómodo, buena jugabilidad si ves flop.' }),
+        vs('c07-06', 'BB_vs_HJ', ['Ad', '5d'], 17006, { teachBack: 'A5s vs HJ: 3-bet frecuente en muchos charts. En C-08 verás por qué este tipo de mano encaja como farol.' }),
+        vs('c07-07', 'BB_vs_UTG', ['Qh', '9c'], 17007, { trapTag: 'dominated', teachBack: 'Q9o vs UTG: fold. No defiendas basura vs opens tempranos.' }),
+        vs('c07-08', 'BB_vs_CO', ['Jc', 'Tc'], 17008, { teachBack: 'JTs vs CO: call o 3-bet sólido; conectores altos suited se defienden bien.' })
       ]
     },
     {
@@ -45,26 +45,48 @@
       title: '3-bet value y polar',
       route: 'cash', module: 'M1', order: 8, plan: 'study',
       xp: 130, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
-      concept: 'El 3-bet no es solo “manos premium”: construyes valor y, en late, una capa polar de bluffs con blockers.',
+      concept: 'El 3-bet no es solo con manos bestiales: también puedes farolear con manos elegidas. Ese mix “muy fuerte + faroles” se llama polar.',
       theory: [
-        'Value: QQ+, AK y a menudo JJ/AQ según posición. Polar light: ases suited bajos, conectores suited, desde blinds vs late.',
-        'Vs open UTG tu 3-bet es más linear/value; vs BTN puedes 3-betear más light.',
-        'Trampa: 3-bet spew (KJo/QTo offsuit vs early) o nunca 3-betear light cuando el spot lo pide.'
+        'Un 3-bet es volver a subir después del open del rival. La parte value es la fácil: manos con las que quieres mucho dinero en el bote — típico QQ, KK, AA, AK, y a veces JJ o AQ según posición.',
+        'Un bluff (farol) es 3-betear sin tener aún una mano “para value”: ganas sobre todo si el rival se tira. Los faroles buenos suelen llevar blockers: cartas que restan combinaciones fuertes al rival. Ejemplo: con A4s tienes un as; al rival le cuesta tener AA o AK porque tú ya “ocupas” un as.',
+        'Polar significa que tu rango de 3-bet se parte en dos polos — manos muy fuertes y faroles elegidos — y casi nada del medio (KTo, Q9o…). Contra open del botón puedes 3-betear más light (más faroles). Contra open UTG vas más a value: el rival abre tight y te paga o te 4-betea con manos mejores.',
+        'Spew es tirar fichas sin plan: 3-betear basura offsuit (KJo, QTo) sobre todo vs opens tempranos. La trampa opuesta también existe: nunca farolear cuando el spot (blinds vs BTN) sí lo pide.'
       ],
       examples: [{
-        title: 'Polar vs BTN',
-        body: 'BB vs open BTN con A4s: muchos charts 3-betean (bloqueas AK/AQ y tienes equity). Con KTo offsuit, mejor fold o call selectivo — no spew.'
+        title: 'A4s sí, KTo no',
+        body: 'Estás en BB y el botón abre. Con A4s del mismo palo muchos charts 3-betean: es un farol con blockers (quitas AA/AK del rival) y algo de equity si te pagan. Con KTo offsuit, mejor fold o a veces hacer call — 3-betear eso suele ser spew: fichas mal gastadas sin historia clara postflop.'
       }],
-      aiQuestions: ['¿Qué es un 3-bet polar?', '¿Por qué 3-beteo menos light vs UTG?'],
+      aiQuestions: [
+        '¿Qué es un 3-bet polar, en una frase de profesor?',
+        '¿Por qué A4s puede ser farol de 3-bet y KTo no?'
+      ],
       spots: [
-        vs('c08-01', 'BB_vs_BTN', ['Qs', 'Qd'], 18001, { teachBack: 'QQ vs BTN: 3-bet value.' }),
-        vs('c08-02', 'BB_vs_BTN', ['Ad', '4d'], 18002, { teachBack: 'A4s vs BTN: 3-bet polar habitual.' }),
-        vs('c08-03', 'BB_vs_UTG', ['Kh', 'Td'], 18003, { trapTag: 'fancy_play', teachBack: 'KTo vs UTG: no spew. Fold.' }),
-        vs('c08-04', 'SB_vs_BTN', ['As', '5s'], 18004, { teachBack: 'A5s SB vs BTN: 3-bet polar frecuente.' }),
-        vs('c08-05', 'BB_vs_CO', ['Ah', 'Kh'], 18005, { teachBack: 'AKs vs CO: 3-bet value.' }),
-        vs('c08-06', 'BB_vs_HJ', ['Qc', '9d'], 18006, { trapTag: 'fancy_play', teachBack: 'Q9o vs HJ: no es 3-bet light. Fold/call selectivo — aquí fold.' }),
-        vs('c08-07', 'BB_vs_BTN', ['7h', '6h'], 18007, { teachBack: '76s vs BTN: 3-bet light/call según mix; muchas líneas lo incluyen.' }),
-        vs('c08-08', 'BB_vs_UTG', ['Jd', 'Jd'], 18008, { teachBack: 'JJ vs UTG: 3-bet o call mixto; value claro frente a open early.' })
+        vs('c08-01', 'BB_vs_BTN', ['Qs', 'Qd'], 18001, {
+          teachBack: 'QQ vs BTN es 3-bet de value: quieres aislar y jugar un bote grande con una mano fuerte.'
+        }),
+        vs('c08-02', 'BB_vs_BTN', ['Ad', '4d'], 18002, {
+          teachBack: 'A4s vs BTN: 3-bet polar habitual. Es un farol con blockers (tienes un as) y algo de equity si hacen call.'
+        }),
+        vs('c08-03', 'BB_vs_UTG', ['Kh', 'Td'], 18003, {
+          trapTag: 'fancy_play',
+          teachBack: 'KTo vs UTG: 3-betear aquí suele ser spew (fichas sin plan). Fold típico ante un open temprano.'
+        }),
+        vs('c08-04', 'SB_vs_BTN', ['As', '5s'], 18004, {
+          teachBack: 'A5s SB vs BTN: 3-bet polar frecuente — mismo idea que A4s: farol con as como blocker.'
+        }),
+        vs('c08-05', 'BB_vs_CO', ['Ah', 'Kh'], 18005, {
+          teachBack: 'AKs vs CO: 3-bet de value claro. Quieres presión y un bote grande con una mano premium.'
+        }),
+        vs('c08-06', 'BB_vs_HJ', ['Qc', '9d'], 18006, {
+          trapTag: 'fancy_play',
+          teachBack: 'Q9o vs HJ no es farol de 3-bet: es mano media/offsuit. Aquí fold (o call muy selectivo); no spew.'
+        }),
+        vs('c08-07', 'BB_vs_BTN', ['7h', '6h'], 18007, {
+          teachBack: '76s vs BTN: muchas líneas lo meten como 3-bet ligero o call. Tiene jugabilidad; no es spew como Q9o.'
+        }),
+        vs('c08-08', 'BB_vs_UTG', ['Jd', 'Jd'], 18008, {
+          teachBack: 'JJ vs UTG: value claro. 3-bet o call mixto según el chart; no la trates como farol.'
+        })
       ]
     },
     {

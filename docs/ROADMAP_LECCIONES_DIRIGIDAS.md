@@ -191,9 +191,15 @@ Las lecciones hablan como un **profesor a sus alumnos**, no como un cheat-sheet 
 6. **C-05** — SB vs BTN, *fuera de posición (OOP)*.  
 7. **C-06** — examen: cero vocabulario nuevo; solo aplicar.
 
+**Orden de introducción en Cash M1 (referencia de autoría):**
+
+1. **C-07** — defender BB: fold / hacer call / 3-bet; wide vs tight según el open. Sin definir aún polar/spew.  
+2. **C-08** — *value*, *bluff/farol*, *blockers*, *polar*, *spew* (cada uno con explicación en lenguaje natural la 1ª vez).  
+3. **C-09+** — usan esos términos sin redefinir el glosario entero.
+
 **Teach-back:** misma voz. Recuerda *por qué* falló en esa posición/mano; no inventes otra solución ni reexpliques el glosario entero.
 
-Implementación de referencia: `js/school-data.js` (cabecera del archivo + textos C-00…C-06).
+Implementación de referencia: `js/school-data.js` (M0) y `js/school-data-m1.js` (C-08 polar/spew/blockers).
 
 ---
 
