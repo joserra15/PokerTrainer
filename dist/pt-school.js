@@ -11,6 +11,8 @@
  * - Si el concepto ya se explicó en una lección anterior del mismo módulo,
  *   úsalo sin redefinir (el alumno ya lo vio).
  * - Verbo del limp: siempre «limpear» (nunca «limpiar»).
+ * - Acción call: siempre «hacer call» (haces/hacen call); nunca «llamar/llaman».
+ * - C-09+: término de póker + ancla en español la 1ª vez en la lección.
  * - Orden de introducción en M0: posiciones → open/fold → RFI → limp →
  *   fold equity → sizing (bb) → SB/OOP. El examen no introduce vocabulario nuevo.
  * Ver también docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
@@ -327,7 +329,7 @@
           teachBack: 'QTs en cutoff es open estándar en charts de 6-max.'
         }),
         rfiSpot('c02-05', 'BTN', ['Td', '9d'], 12005, {
-          teachBack: 'T9s en el botón: open para robar y, si te llaman, buena jugabilidad.'
+          teachBack: 'T9s en el botón: open para robar y, si hacen call, buena jugabilidad.'
         }),
         rfiSpot('c02-06', 'UTG', ['Ah', '9c'], 12006, {
           trapTag: 'dominated',
