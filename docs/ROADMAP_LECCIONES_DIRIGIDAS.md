@@ -1,9 +1,11 @@
-# RoadMap — Lecciones dirigidas (Cash · Spins · MTT)
+# RoadMap — Lecciones dirigidas (Cash · Spins · MTT) — v2
 
-> Estudio de producto y diseño pedagógico para un sistema de **entrenamiento dirigido por lecciones** en PokerForgeAI.  
-> **Alcance de este documento:** análisis, currículum, monetización, UX de progresión y fases de entrega. **Sin implementación de código.**  
-> Complementa: `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`, Guía básica actual (`js/beginner-guide.js`), taxonomía de formatos (`js/engine/format/taxonomy.js`), IA Coach y planes Gratis / Study / Coach.  
-> Fecha: agosto 2026 · Producto: PokerForgeAI (PokerTrainer)
+> Estudio de producto y diseño pedagógico para **Escuela de Póker** en PokerForgeAI.  
+> **Alcance:** análisis, currículum ampliado, monetización, UX y fases de entrega. **Sin implementación de código.**  
+> Complementa: `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`, `js/beginner-guide.js`, taxonomía de formatos, IA Coach, planes Gratis / Study / Coach.  
+> Fecha: agosto 2026 — **v2 (revisión currículum)**  
+>  
+> **Decisiones cerradas:** nombre de menú **Escuela de Póker** · manos de lección **consumen cupo Free** (15/día del trainer) · menú **solo visible para administrador** hasta apertura controlada · M0 Cash completo en Gratis.
 
 ---
 
@@ -24,32 +26,28 @@
 13. [Mapa de lecciones vs planes](#13-mapa-de-lecciones-vs-planes)
 14. [RoadMap de entrega por fases](#14-roadmap-de-entrega-por-fases)
 15. [Riesgos, honestidad del motor y métricas de éxito](#15-riesgos-honestidad-del-motor-y-métricas-de-éxito)
-16. [Glosario y decisiones abiertas](#16-glosario-y-decisiones-abiertas)
+16. [Glosario y decisiones](#16-glosario-y-decisiones)
 
 ---
 
 ## 1. Resumen ejecutivo
 
-Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía básica estática** y **drills adaptativos** desde leaks. Falta el eslabón que convierte a un jugador recreativo en alguien con sistema: un **árbol de lecciones ordenadas**, con teoría breve, ejemplos y **sesión de spots autorados** (no RNG) que evalúan un único concepto.
+**Escuela de Póker** convierte el entrenador libre de PokerForgeAI en un sistema curricular ordenado: teoría breve → ejemplos → sesión de spots fijos con trampas → umbral de acierto → desbloqueo. Tres rutas independientes (Cash, Spins, MTT) más un Laboratorio de Rangos transversal.
 
-**Propuesta:** tres rutas (Cash, Spins, MTT), cada una con lecciones de simple → pro. Cada lección:
+**Cambio v2:** se amplían sustancialmente las lecciones de los tres formatos para que:
 
-1. Explica el concepto (texto + 1–2 ejemplos visuales).
-2. Lanza una **sesión dirigida** de N manos con spots fijos, trampas y situaciones límite.
-3. Termina la mano en el **punto de decisión** del concepto (p. ej. open / call / fold) cuando no aporte seguir.
-4. Aprueba con un umbral de acierto → desbloquea la siguiente.
-5. Expone **IA Coach** en teoría, feedback y post-sesión.
-6. Permite **repetir** lecciones superadas para subir el % hacia 100 % y ganar puntos de maestría.
+- **Gratis** incluya el **módulo M0 completo de Cash** (fundamentos: posición, RFI, fold equity, examen) y una lección de presentación de Spins y MTT.
+- **Study** tenga un recorrido largo y progresivo (preflop completo, postflop completo, estrategia intermedia, NL2→NL50 específico, Spins hasta ICM, MTT hasta push/fold + bubble temprana).
+- **Coach** sea visiblemente distinto: todo lo pro, conceptos de NL75–NL100, bluff construction avanzada, spots de burbuja y final table, exploits sistemáticos, exámenes de certificación.
 
-**Monetización alineada al producto actual:**
+**Resumen de volumen v2:**
 
-| Plan | Acceso curricular |
-|------|-------------------|
-| **Gratis** | 1–2 primeras lecciones de cada ruta (o solo Cash L1–L2) + vista del árbol |
-| **Study** (`pro`) | Hasta ~mitad de cada ruta (fundamentos + intermedio) |
-| **Coach** (`premium`) | Ruta completa, incluyendo lecciones **pro**, bubble ICM, bluff construction, range work avanzado |
-
-**Veredicto de producto:** es el mayor salto de *activación + retención + upsell a Coach* posible sin construir un solver. Reutiliza `startGuidedTraining`, grading EV, seeds/replay y IA Coach; añade **contenido autorado + estado de progresión + UI de skill tree**.
+| Ruta | Total lecciones | Gratis | Study | Coach |
+|------|-----------------|--------|-------|-------|
+| Cash | ~58 | M0 completo (C-00–C-07) | M1–M4 (C-08–C-40) | M5–M6 (C-41–C-58) |
+| Spins | ~32 | S-00–S-02 | S-03–S-20 | S-21–S-32 |
+| MTT | ~38 | T-00–T-02 | T-03–T-24 | T-25–T-38 |
+| Rangos | ~10 | R-00–R-01 | R-02–R-06 | R-07–R-10 |
 
 ---
 
@@ -57,598 +55,652 @@ Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía b
 
 ### 2.1 Dolor del usuario
 
-| Momento | Qué pasa hoy | Qué debería pasar |
-|---------|--------------|-------------------|
-| Primera hora | “¿Por dónde empiezo?” → chips del entrenador o Guía | Ruta clara: Lección 1 → práctica 12 manos → aprobado |
-| Estudio diario | Sesión random; el concepto se diluye | Bloque de 10–20 manos *solo* sobre c-bet / bubble / short |
-| Tras un leak | Drill adaptativo útil, pero sin teoría | Lección que enseña el porqué y luego examina |
-| Upsell a Coach | Solo más cupo de IA/análisis | Contenido pro exclusivo visible en el árbol |
+| Momento | Hoy | Con Escuela v2 |
+|---------|-----|-----------------|
+| Primera hora | Duda por dónde empezar | M0 gratis: ruta clara y manejable |
+| Estudio diario | Sesión random genérica | Lección en 15 min con un solo concepto |
+| Avanzar en micros | Sin guía NL2→NL50 | Módulos de nivel específico |
+| Spins/MTT | Formato diferente sin guía | Rutas propias con ICM explícito |
+| Upsell | Solo cuota de IA mayor | Contenido pro visible y bloqueado |
 
-### 2.2 Diferenciación vs mercado
+### 2.2 Principio rector
 
-- **GTO Wizard / Gecko:** drills masivos solver; poca narrativa en español y poca “lección con trama”.
-- **Snowie:** sparring continuo; menos currículum por concepto.
-- **PokerForgeAI oportunidad:** español nativo + lecciones guiadas + trampas pedagógicas + IA Coach + precio Study, con Coach como capa pro.
-
-### 2.3 Principio rector
-
-> Una lección = **un trabajo mental**. Si el usuario puede aprobar sin entender el concepto, el pack de spots está mal diseñado.
+> Una lección = un trabajo mental. Si se puede aprobar sin entender el concepto, el pack está mal diseñado.
 
 ---
 
 ## 3. Estado actual y piezas reutilizables
 
-### 3.1 Lo que ya existe
-
-| Pieza | Uso para lecciones |
-|-------|-------------------|
-| `startGuidedTraining(partialConfig)` | Arranque de sesión con preset |
-| Escenarios (`rfi`, `3bet`, `face3bet`, `cbet` vía street, `push`, `steal`, fases MTT) | Tipología de spots |
-| Seeds + `replaySnapshot` | Spots **reproducibles** (base de packs fijos) |
-| Grading `optima` / `aceptable` / `imprecisa` / `error` | Criterio de acierto |
-| Bloques 25/50/100 manos | Modelo de “sesión de lección” (adaptar a 8–20) |
-| Guía básica + 4 mini-drills | Contenido fundacional a absorber en L1–L4 Cash |
-| `TRAINING_FOCUSES` | Catálogo de temas alineados a leaks |
-| Gamificación (racha, rating 700–1800, tiers) | Extender a XP/nivel de Academia |
-| Entitlements Free / Study / Coach | Gate de contenido (hoy solo volumen) |
-| Fases MTT `early\|mid\|short\|push\|bubble` + ICM spins | Ancla de lecciones torneo |
-
-### 3.2 Gaps a cubrir (producto, no solo UI)
-
-1. Modelo de datos: `Track` → `Module` → `Lesson` → `SpotPack`.
-2. Spots **autorados** (cartas, posiciones, board, línea, respuesta esperada, trampa).
-3. Modo “decisión única” (mano corta en el nodo pedagógico).
-4. Estado de progresión: desbloqueado / bloqueado / premium / % mejor intento.
-5. UI de árbol + perfil de nivel.
-6. Entitlement por **contenido** (no solo manos/día e IA).
-7. Banco de trampas y quizzes de rango.
+| Pieza | Uso |
+|-------|-----|
+| `startGuidedTraining(partialConfig)` | Arranque de sesión preconfigurada |
+| `playAnalysisHand(force, playConfig)` + `pendingForce` | Spots fijos con cartas/posición scriptadas |
+| `schoolDecisionEnd` flag (implementado) | Corte en el nodo pedagógico |
+| Grading `optima / aceptable / imprecisa / error` | Criterio de acierto |
+| Seeds + `replaySnapshot` | Reproducibilidad |
+| Fases MTT + ICM / Spins ICM | Ancla para lecciones torneo |
+| Gamificación (racha, rating 700–1800) | Extender a XP/nivel Escuela |
+| `stats.school` + merge cloud (implementado) | Persistencia de progreso |
+| Entitlements Free / Study / Coach | Gate de contenido |
+| Guía básica + mini-drills | Contenido M0 reutilizable |
 
 ---
 
 ## 4. Modelo pedagógico de una lección
 
-### 4.1 Anatomía fija (todas las lecciones)
-
 ```
-┌─────────────────────────────────────────────────────────┐
-│  A. HEADER: título · formato · dificultad · XP · plan   │
-├─────────────────────────────────────────────────────────┤
-│  B. TEORÍA (2–4 min lectura)                            │
-│     · Concepto en 1 frase                               │
-│     · Por qué importa (EV / ICM / frecuencia)           │
-│     · Regla práctica memorable                          │
-│     · IA Coach: preguntas sugeridas del concepto        │
-├─────────────────────────────────────────────────────────┤
-│  C. EJEMPLOS (1–2 spots comentados, no puntuados)       │
-│     · Mesa estática + explicación + rango rival tip     │
-├─────────────────────────────────────────────────────────┤
-│  D. SESIÓN DIRIGIDA (N spots fijos)                     │
-│     · Feedback inmediato por mano                       │
-│     · Trampas mezcladas (~20–30 % del pack)             │
-│     · IA Coach opcional tras error (gasta cuota)        │
-├─────────────────────────────────────────────────────────┤
-│  E. RESULTADO                                           │
-│     · % acierto · puntos · vs umbral · desbloqueo       │
-│     · Repetir / Siguiente / Pedir explicación IA        │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  A. Header: título · formato · dificultad · XP · plan badge │
+├─────────────────────────────────────────────────────────────┤
+│  B. Teoría (2–4 min)                                        │
+│     Concepto en 1 frase · porqué importa · regla práctica   │
+│     IA Coach: preguntas sugeridas                           │
+├─────────────────────────────────────────────────────────────┤
+│  C. Ejemplo (1–2 spots comentados, sin puntuación)          │
+├─────────────────────────────────────────────────────────────┤
+│  D. Sesión dirigida (N spots fijos, 20–30 % trampas)        │
+│     Feedback inmediato · IA Coach opcional tras error       │
+├─────────────────────────────────────────────────────────────┤
+│  E. Resultado: % · XP · desbloqueo · repetir para 100 %    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 Tipos de lección (taxonomía interna)
+### 4.1 Tipos de lección
 
-| Tipo | Qué entrena | Fin de mano típico | Manos/sesión |
-|------|-------------|--------------------|--------------|
-| **A. Decisión binaria/ternaria** | Open / fold; call / fold; c-bet / check | Tras la acción del concepto | 12–16 |
-| **B. Frecuencia y sizing** | ¿Bet 33 o 75? ¿3-bet o call?** | Tras sizing o action mix | 14–18 |
-| **C. Lectura de rango** | “¿Qué % del rango rival llega aquí?” / elegir combo más probable | Tras responder quiz (sin mesa completa) | 10–14 |
-| **D. Línea multi-street** | Barrel / give up / raise | Hasta turn o river según lección | 8–12 |
-| **E. ICM / torneo** | Call/fold burbuja, push/fold | Tras decisión ICM | 12–20 |
-| **F. Examen de módulo** | Mezcla de trampas del módulo | Mixto | 16–24 |
+| Tipo | Qué entrena | Manos/sesión |
+|------|-------------|--------------|
+| **A** Decisión binaria/ternaria | Open/fold, call/fold, c-bet/check | 12–16 |
+| **B** Frecuencia y sizing | Bet 33 vs 75, 3-bet vs call | 14–18 |
+| **C** Lectura de rango | Quiz: ¿qué % del rango llega aquí? | 10–14 |
+| **D** Línea multi-street | Barrel / give up / raise (2–3 nodos) | 8–12 |
+| **E** ICM / torneo | Call/fold con $EV, push/fold | 12–20 |
+| **F** Examen de módulo | Mix de trampas del módulo | 16–24 |
+| **G** Nivel NL específico | Exploits de población por nivel | 14–18 |
 
-### 4.3 Criterios de aprobación (recomendados)
+### 4.2 Criterios de aprobación
 
-| Dificultad | Umbral aprobar | Umbral “oro” (maestría) | Notas |
-|------------|----------------|-------------------------|--------|
-| Fundamentos | ≥ 70 % óptima+aceptable | ≥ 90 % | `aceptable` cuenta como acierto suave |
-| Intermedio | ≥ 75 % | ≥ 92 % | Peso mayor a errores graves |
-| Avanzado / Pro | ≥ 80 % | ≥ 95 % | Solo `optima` cuenta pleno; `aceptable` 0,5 |
-
-**Puntuación por mano (propuesta):**
-
-- `optima` = 1,0  
-- `aceptable` = 0,6 (fundamentos) / 0,5 (pro)  
-- `imprecisa` = 0,2  
-- `error` = 0  
-- Bonus trampa detectada (si el usuario evita la trampa obvia) = +0,1 al score de sesión (cap)
-
-**Repetición:** se guarda el **mejor % histórico**; el último intento actualiza XP parcial (menor que la primera aprobación).
-
-### 4.4 Duración objetivo
-
-- Teoría + ejemplos: **3–6 min**.  
-- Sesión: **8–15 min**.  
-- Total lección: **≤ 20 min** (encaja con “calentamiento” del backlog Snowie).
+| Dificultad | Aprobar | Oro | Comentario |
+|------------|---------|-----|------------|
+| Fundamentos | ≥ 70 % | ≥ 90 % | `aceptable` cuenta pleno |
+| Intermedio | ≥ 72 % | ≥ 90 % | `aceptable` = 0,6 pts |
+| Avanzado | ≥ 75 % | ≥ 92 % | `aceptable` = 0,5 pts |
+| Pro | ≥ 80 % | ≥ 95 % | solo `optima` cuenta pleno |
 
 ---
 
 ## 5. Diseño de spots fijos y trampas
 
-### 5.1 Spot autorado (contrato de contenido)
+### 5.1 Contrato de spot autorado
 
-Cada spot del pack declara:
-
-| Campo | Ejemplo |
-|-------|---------|
-| `id` | `cash-rfi-btn-01` |
-| `formatHub` | `cash` / `spin` / `mtt` |
-| `heroPos`, `stackBB`, `effective` | BTN, 100 bb |
-| `heroCards` | `AJo` |
-| `villainProfile` | fish / reg / nit / maniac (etiqueta pedagógica) |
-| `line` | acción previa fija (blinds posted, CO folds…) |
-| `board` | opcional según street |
-| `decisionNode` | `preflop_rfi` · `flop_cbet` · `bubble_call` … |
-| `allowedActions` | subset UI (fold/call/raise o bet sizes) |
-| `solution` | acción(es) correctas + freqs si aplica |
-| `trapTag` | `none` · `dominated` · `icm_suicide` · `overfold` · `fancy_play` … |
+| Campo | Descripción |
+|-------|-------------|
+| `id` | slug único (`cash-rfi-btn-07`) |
+| `type` | RFI, vsRFI, face3bet, 3bet, squeeze, flop, turn, river… |
+| `heroPos`, `stackBB` | Posición y stack hero |
+| `forceDeal` | `heroCards`, `villainCards`, `board`, `villainPos` |
+| `decisionNode` | `preflop_rfi`, `flop_cbet`, `bubble_call`… |
+| `solution` | Acción(es) correctas + frecuencias si aplica |
+| `trapTag` | `none`, `dominated`, `overfold`, `icm_suicide`, `fancy_play`… |
 | `teachBack` | 1–2 frases al fallar |
-| `rangeHint` | rango rival simplificado para UI post-mano |
+| `rangeHint` | Rango rival simplificado post-mano |
+| `nlContext` | `any`, `nl2`, `nl10`, `nl25`, `nl50`, `nl75`, `nl100` |
 
-### 5.2 Tipos de trampa (banco transversal)
+### 5.2 Banco de trampas (ampliado)
 
-| Trampa | Objetivo pedagógico | Ejemplo |
-|--------|---------------------|---------|
-| **Dominada / reverse implied** | Evitar opens basura late | KTo UTG a 100 bb cash |
-| **Fancy play syndrome** | No check-raise spewy con air vs fish | Flop seco vs calling station |
-| **Overfold vs small bet** | Defender vs c-bet 33 % | BB con gutshot + backdoor |
-| **Overcall multiway** | Ajustar rangos 3-way | Cold call HJ vs UTG+MP |
-| **ICM suicide** | No hero-call burbuja | Mid stack llama shove chip leader |
-| **Covered wrong** | Push/fold con stack covered mal | Spin 12 bb shove wide vs short |
-| **Sizing tell ignore** | Respetar overbet polar | River overbet sin bluff-catcher |
-| **Position blind** | No open igual UTG y BTN | Mismo combo, distinta posición |
-| **Blocker misuse** | Bluff con mal blocker | River bluff con 2x que bloquea folds |
-| **Sticky second pair** | Pot control / fold turn | Second pair sticky vs triple barrel |
-
-**Regla de diseño:** 20–30 % del pack son trampas; el resto consolida el patrón correcto. Las trampas **nunca** deben ser ambigüedad GTO irresoluble: el teach-back debe ser inequívoco al nivel de la lección.
-
-### 5.3 Manos cortas (decision-point end)
-
-Para lecciones tipo A/B/E:
-
-- El motor presenta el spot hasta el nodo.
-- El usuario actúa.
-- Se muestra feedback + rango rival tip + teach-back.
-- **No se juega** flop/turn/river si no aportan al concepto.
-
-Para tipo D (líneas): se permite 2–3 nodos encadenados del mismo pack, siempre scriptados.
-
-### 5.4 Honestidad de solución
-
-Mientras el motor sea heurístico (no árbol solver):
-
-- Spots fundacionales: soluciones **populares/GTO-lite** ya alineadas con matrices de la app.
-- Spots pro: etiquetar “Referencia PokerForge (heurística avanzada)” y, si hay duda, rango de acciones aceptables.
-- No prometer “solver exacto” en copy de lección.
+| Trampa | Concepto puesto a prueba |
+|--------|--------------------------|
+| Dominated UTG | RFI tight early |
+| Position blind | Misma mano, distinta posición |
+| Fancy play syndrome | No limp ni slowplay innecesario |
+| Overfold vs small bet | Defender vs 33 % |
+| Overcall multiway | Ajustar rangos 3-way |
+| ICM suicide | No hero-call burbuja |
+| Covered wrong | Push/fold con stack covered |
+| Sizing tell ignore | Respetar overbet polar |
+| Sticky second pair | Pot control vs triple barrel |
+| NL2 fish over-bluff | Fold menos vs station |
+| NL50 reg 3-bet light | Ajustar defensa vs reg |
+| Blockers misuse | Elegir bluffs con buenos blockers |
+| Probe delay | Lead turn tras check flop |
+| Short stack limp | Push/fold en lugar de limp-call |
+| FT pressure | Call/fold con pay jump en mesa final |
 
 ---
 
 ## 6. Progresión, desbloqueo y planes
 
-### 6.1 Estructura del árbol
+### 6.1 Árbol revisado (v2)
 
 ```
-Academia
-├── Ruta Cash (prioridad P0)
-│   ├── M0 Fundamentos
-│   ├── M1 Preflop core
-│   ├── M2 Postflop core
-│   ├── M3 Estrategia & faroles
-│   └── M4 Pro (Coach)
+Escuela de Póker  (admin-only hasta Fase E)
+│
+├── Ruta Cash
+│   ├── M0 Fundamentos base   → GRATIS completo
+│   ├── M1 Preflop completo   → Study
+│   ├── M2 Postflop completo  → Study
+│   ├── M3 Estrategia media   → Study
+│   ├── M4 NL por nivel       → Study (NL2–NL25) / Coach (NL50–NL100)
+│   ├── M5 Bluffs & lines pro → Coach
+│   └── M6 Examen certificación Cash → Coach
+│
 ├── Ruta Spins
-│   ├── M0 Spin basics
-│   ├── M1 Ante / steal / iso
-│   ├── M2 ICM mid-late
-│   └── M3 Pro (Coach)
-└── Ruta MTT
-    ├── M0 Torneo basics
-    ├── M1 Early–Mid
-    ├── M2 Short & Push
-    ├── M3 Bubble & ITM
-    └── M4 Pro (Coach)
+│   ├── M0 Spin intro         → GRATIS (1–2)
+│   ├── M1 Fundamentos spin   → Study
+│   ├── M2 ICM fundamentos    → Study
+│   ├── M3 Mid-late pressures → Study
+│   ├── M4 ICM avanzado       → Coach
+│   └── M5 Pro Spins          → Coach
+│
+├── Ruta MTT
+│   ├── M0 Torneo intro       → GRATIS (1–2)
+│   ├── M1 Early & mid        → Study
+│   ├── M2 Short & push       → Study
+│   ├── M3 Bubble & ITM       → Study (básico) / Coach (avanzado)
+│   ├── M4 Final table        → Coach
+│   └── M5 Pro MTT            → Coach
+│
+└── Lab de Rangos
+    ├── R0 Intro matrices     → GRATIS (1)
+    ├── R1–R4                  → Study
+    └── R5–R9                  → Coach
 ```
 
-### 6.2 Estados visuales de una lección
+### 6.2 Estados de un nodo
 
-| Estado | Significado | UI |
-|--------|-------------|----|
-| **Completada** | Umbral superado ≥ 1 vez | Check + **mejor %** + CTA “Repetir → 100 %” |
-| **Desbloqueada** | Prerrequisito OK y plan permite | CTA “Empezar” / “Continuar” |
-| **Bloqueada (accesible)** | Visible, falta lección previa *o* falta subir % | Candado suave + “Completa Lx” |
-| **Plan superior** | Contenido Coach (o Study si user free) | Badge plan + blur/teaser + CTA upgrade |
-| **En progreso** | Sesión a medias | Barra parcial |
+| Estado | UX |
+|--------|----|
+| **Completada** | Check + % + estrellas (1–3) |
+| **Desbloqueada** | CTA "Empezar" / "Repetir" |
+| **Bloqueada** | Candado suave + "Completa Lx" |
+| **Plan superior** | Badge Study/Coach + blur + CTA upgrade |
+| **En progreso** | Barra parcial |
 
-“Bloqueada pero accesible” = se ve título, dificultad, XP y teaser del concepto; no se puede jugar hasta cumplir regla.
-
-### 6.3 Reglas de desbloqueo
-
-1. Dentro de un módulo: lineal (L1 → L2 → …).  
-2. Examen de módulo desbloquea el siguiente módulo.  
-3. Rutas Cash / Spins / MTT son **independientes** (no forzar Cash completo para abrir Spins), salvo un **M0 compartido opcional** “Cómo funciona la Academia” (gratis).  
-4. Lecciones pro (Coach) visibles siempre para seducir upsell; jugables solo con plan Coach (o trial).  
-5. Study llega ~hasta el 50 % de lecciones de cada ruta (ver §13).
-
-### 6.4 Monetización detallada
+### 6.3 Monetización detallada (v2)
 
 | Capa | Gratis | Study | Coach |
 |------|--------|-------|-------|
-| Vista del árbol completo | Sí | Sí | Sí |
-| Lecciones jugables | 1–2 por ruta (o Cash L1–L2 + 1 Spin + 1 MTT) | Hasta mitad (~fundamentos + intermedio temprano) | 100 % |
-| Exámenes de módulo mid | No | Sí (módulos abiertos) | Sí |
-| Módulos Pro / ICM hard / range pro | Teaser | Teaser | Sí |
-| Repetición maestría | En lecciones free | En lecciones Study | Todas |
-| IA Coach en lección | Cuota free (3/mes) | 40/mes | 150/mes |
-| Spots diarios Academia | Cuenta contra 15 manos/día **o** cuota aparte “lecciones” (ver decisión abierta) | Ilimitado en lecciones desbloqueadas | Ilimitado |
-
-**Recomendación de producto:** las manos de Academia **comparten** el cupo de trainer en Free (simplicidad), pero en Study/Coach son ilimitadas como el entrenador. Alternativa premium: cuota diaria separada solo Free para no quemar las 15 en teoría.
-
-### 6.5 Trial
-
-El trial Study de 10 días debería desbloquear **contenido Study** del árbol (no Coach pro), para que el usuario “sienta” la mitad del camino y vea el muro pro.
+| Cash M0 completo (7 lecciones) | ✅ | ✅ | ✅ |
+| Cash M1–M3 (preflop + postflop + estrategia) | — | ✅ | ✅ |
+| Cash M4 NL2–NL25 | — | ✅ | ✅ |
+| Cash M4 NL50–NL100 + M5–M6 | — | — | ✅ |
+| Spins intro (S-00–S-02) | ✅ | ✅ | ✅ |
+| Spins M1–M3 | — | ✅ | ✅ |
+| Spins M4–M5 pro | — | — | ✅ |
+| MTT intro (T-00–T-02) | ✅ | ✅ | ✅ |
+| MTT M1–M3 básico | — | ✅ | ✅ |
+| MTT M3 avanzado + M4–M5 | — | — | ✅ |
+| Lab Rangos R-00 | ✅ | ✅ | ✅ |
+| Lab Rangos R-01–R-04 | — | ✅ | ✅ |
+| Lab Rangos R-05–R-09 | — | — | ✅ |
+| IA Coach en lección | 3/mes | 40/mes | 150/mes |
+| Manos de lección en Free | Comparten 15/día | Ilimitadas | Ilimitadas |
 
 ---
 
 ## 7. UX visual: evolución, puntos y niveles
 
-### 7.1 Principios de interfaz
+### 7.1 Principios
 
-- Una composición de **mapa de progresión** (no dashboard de métricas en el primer viewport).
-- Jerarquía: **nivel del jugador + ruta activa + siguiente lección** como héroe.
-- Evolución visible: camino/nodos con estados de color, % en nodos completados, brillo sutil solo en “siguiente”.
-- Evitar cards innecesarias; los nodos del path *son* la interacción.
-- Motion: (1) fill de progreso al aprobar, (2) unlock reveal del siguiente nodo, (3) contador XP al sumar puntos.
+- Mapa de nodos como primer viewport (no dashboard de métricas).
+- Nivel Escuela (1–30) + XP separado del rating de trainer libre.
+- Nodos completados muestran **% mejor** y estrellas (aprobar / oro / 100 %).
+- Nodos Study/Coach bloqueados muestran título, XP y badge de plan para seducir upsell.
 
-### 7.2 Elementos permanentes (header Academia)
+### 7.2 Header Escuela
 
 | Elemento | Descripción |
 |----------|-------------|
-| **Nivel Academia** | 1–30 (o tiers: Novato → Estudiante → Reg → Coach mente) derivado de XP |
-| **XP / puntos** | Suma de primeras aprobaciones + bonuses oro + rachas de lección |
-| **Racha de estudio** | Reutilizar gamificación actual |
-| **Dominancia por ruta** | 3 barras: Cash / Spins / MTT (% lecciones oro) |
-| **Siguiente objetivo** | Una sola CTA primaria |
+| **Nivel Escuela** | 1–30 · tiers: Novato → Estudiante → Reg → Crusher |
+| **XP** | Suma de aprobaciones + bonos oro |
+| **Racha** | Reutilizar gamificación |
+| **Barras de ruta** | % Cash / Spins / MTT completado |
 
-### 7.3 Vista de lección en el mapa
+### 7.3 Pantalla de resultado
 
-Cada nodo muestra:
-
-- Número + título corto  
-- Icono de tipo (preflop / flop / ICM / rango)  
-- Estado (completo / abierto / candado / corona Coach)  
-- Si completo: **% mejor** (ej. 86 %) y estrellas 1–3 (aprobar / ≥ umbral oro / 100 %)  
-- XP de la lección  
-
-### 7.4 Pantalla de resultado (potente)
-
-- Anillo de % grande.  
-- “+120 XP” animado.  
-- Comparativa: tu % vs media anónima del spot pack (si hay datos).  
-- Lista corta de manos falladas con replay 1-tap.  
-- Si aprueba: confetti contenido + “Desbloqueada: C-bet en seco”.  
-- Si falla: “Te faltan 2 aciertos” + CTA repetir + CTA IA.
-
-### 7.5 Relación con rating actual
-
-Mantener el **rating de estudio** (700–1800) del entrenador libre.  
-La Academia tiene **XP/Nivel propios** para no contaminar el rating con packs fáciles. Mostrar ambos en perfil, con copy claro:
-
-- Rating = rendimiento en juego libre / import.  
-- Nivel Academia = progreso curricular.
+- Anillo de % grande · "+XP" animado · estrellas 1–3.
+- Spots fallados con replay 1-tap.
+- Si aprueba: "Desbloqueada: X".
+- Si falla: "Te faltan N aciertos" + repetir + IA.
 
 ---
 
 ## 8. IA Coach en cada paso
 
-### 8.1 Puntos de inserción
-
-| Momento | UX | Consumo cuota |
-|---------|-----|---------------|
-| Teoría | Chips de preguntas sugeridas del concepto | Sí |
-| Tras ejemplo | “¿Por qué este sizing?” | Sí |
-| Tras error en spot | “Explícame mi error en 3 frases” (contexto del spot + teach-back) | Sí |
-| Fin de sesión | Informe breve del patrón de fallos | Sí (1 informe) |
-| Lección bloqueada pro | Teaser: respuesta genérica sin spoiler del pack | No / copy estático |
-
-### 8.2 Contexto mínimo al modelo
-
-Enviar: `lessonId`, concepto, spot id, acción usuario, solución, teach-back, formato.  
-Evitar dumps enormes; el teach-back autorado es la ancla (la IA narra, no inventa otra solución).
-
-### 8.3 Preguntas sugeridas por fase (ejemplos)
-
-- RFI: “¿Por qué UTG abre más tight que BTN?”  
-- C-bet: “¿Cuándo check-back con top pair débil IP?”  
-- Bubble: “¿Por qué el mid-stack debe fold AEVs +EV chip?”  
-- Bluff: “¿Qué blockers importan en este river?”  
+| Momento | Cuota |
+|---------|-------|
+| Teoría (chips sugeridos) | Sí |
+| Tras ejemplo | Sí |
+| Tras error en spot (teach-back + IA) | Sí |
+| Informe fin de sesión (1 consulta) | Sí |
+| Nodo bloqueado (respuesta genérica) | No |
 
 ---
 
 ## 9. Currículum Cash
 
-**Stack default:** 100 bb, cash 6-max (núcleo del motor). 9-max solo como variante late en pro.  
-**Orden:** simple → pro. **Study** ≈ M0–M2 (parcial M3). **Coach** = resto + M4.
+**Stack default:** 100 bb, cash 6-max. 9-max aparece en lecciones de posición avanzada.
 
-### M0 — Fundamentos de mesa (Gratis → Study)
+### M0 — Fundamentos base (GRATIS completo)
 
-| ID | Lección | Tipo | Manos | Objetivo | Trampas clave |
-|----|---------|------|-------|----------|---------------|
-| C-00 | Cómo funciona la Academia | Onboarding | 0 | Entender nodos, % y planes | — |
-| C-01 | Posición y por qué manda | A | 12 | Elegir open/fold según posición con la misma mano | Position blind |
-| C-02 | Open-raise (RFI) básico | A | 14 | Memorizar ranges UTG–BTN simplificados | Dominadas UTG |
-| C-03 | Fold equity y por qué subir | A | 10 | Distinguir open vs limp mental (siempre open o fold) | Fancy limp |
-| C-04 | Examen M0 | F | 16 | Consolidar | Mix |
+*7 lecciones · solo preflop open/fold · corte en nodo de decisión*
 
-### M1 — Preflop core (Study)
+| ID | Lección | Tipo | Manos | Concepto core |
+|----|---------|------|-------|---------------|
+| C-00 | Cómo funciona la Escuela | Onboarding | 0 | Loop lección, %, planes |
+| C-01 | Posición y por qué manda | A | 12 | Misma mano ≠ en UTG vs BTN |
+| C-02 | Open-raise (RFI) básico | A | 14 | Ranges UTG–BTN simplificados |
+| C-03 | Fold equity: open o fold | A | 10 | No limpear; open o fold |
+| C-04 | Sizing del open | A | 12 | 2–2,5 bb estándar; ajuste según sala |
+| C-05 | RFI desde SB (cabeza de serie de blinds) | A | 12 | SB es early OOP; abrir más tight que BTN |
+| C-06 | Examen M0 — Fundamentos | F | 16 | Mix posición + RFI + sizing |
 
-| ID | Lección | Tipo | Manos | Objetivo | Trampas |
-|----|---------|------|-------|----------|---------|
-| C-05 | Defender BB vs open | A/B | 16 | Call/fold/3-bet vs opens por posición | Overdefend trash |
-| C-06 | 3-bet value y polar light | B | 16 | Construir 3-bet vs CO/BTN | 3-bet spew vs UTG |
-| C-07 | Enfrentar 3-bet (continue / 4-bet / fold) | A | 16 | Rangos de defensa por posición | Hero-call dominated |
-| C-08 | Squeeze tras open+call | B | 14 | Cuándo squeeze vs flat | Squeeze multiway loco |
-| C-09 | Iso-raise vs limps | A | 12 | Aislar tamaño y mano | Overiso trash |
-| C-10 | BB vs SB limp | A | 12 | Punish / check option | Overfold BB |
-| C-11 | Examen preflop | F | 20 | Mix + trampas | Mix |
+> Trampa clave M0: position blind, dominated early, fancy limp, over-open SB.
 
-### M2 — Postflop core (Study → borde Coach)
+---
 
-| ID | Lección | Tipo | Manos | Objetivo | Trampas |
-|----|---------|------|-------|----------|---------|
-| C-12 | Textura de flop y plan | C/A | 12 | Clasificar seco / semi / wet | Mal plan en monotone |
-| C-13 | C-bet IP en seco | A/B | 16 | Frecuencia y sizing pequeño | C-bet 75 siempre |
-| C-14 | C-bet OOP y when to give up | A | 16 | Check range construction lite | Autocbet OOP wet |
-| C-15 | Defensa vs c-bet | A | 16 | Continue equity + backdoors | Overfold vs 33 % |
-| C-16 | Second barrel (turn) | D | 12 | Value vs bluff vs pot control | Sticky second pair |
-| C-17 | River value | A | 12 | Value thin vs fat | Undervalue strong |
-| C-18 | Examen postflop | F | 18 | Mix | Mix |
+### M1 — Preflop completo (Study)
 
-### M3 — Estrategia & faroles (Study parcial / Coach)
+*12 lecciones · abre todo el árbol preflop · examen de módulo*
 
-| ID | Lección | Tipo | Manos | Plan | Objetivo |
-|----|---------|------|-------|------|----------|
-| C-19 | Bluff con equity (semi) | D | 12 | Study | Semibluffs con plan |
-| C-20 | Bluff river + blockers | A/C | 14 | Coach | Elegir bluffs con blockers |
-| C-21 | Bluff-catching | A/C | 14 | Coach | Llamar con bluff-catchers correctos |
-| C-22 | Probe / delayed c-bet | D | 12 | Study | Turn lead tras check flop |
-| C-23 | Raise vs c-bet (polar) | B | 12 | Coach | No raise mergeado |
-| C-24 | Multiway: c-bet y control | A | 14 | Coach | Ajuste 3-way |
-| C-25 | Examen estrategia | F | 20 | Coach | Mix |
+| ID | Lección | Tipo | Manos | Concepto core |
+|----|---------|------|-------|---------------|
+| C-07 | Defender BB vs open (MDF lite) | A/B | 16 | Call/fold/3-bet vs opens por posición |
+| C-08 | 3-bet value y polar | B | 16 | Construir rango 3-bet vs CO/BTN |
+| C-09 | 3-bet bluff (polarizar) | B | 14 | Qué manos sirven de bluff 3-bet |
+| C-10 | Enfrentar 3-bet: call vs 4-bet vs fold | A | 16 | Rangos de defensa por posición |
+| C-11 | Squeeze: oportunidad y rango | B | 14 | Cuándo squeeze; tamaño |
+| C-12 | Iso-raise vs limps | A | 12 | Tamaño y mano para aislar |
+| C-13 | BB vs SB limp | A | 12 | Punish / check vs wide SB |
+| C-14 | Preflop multiway: call frío vs 3-bet | A | 12 | Cold-call HJ vs UTG-MP abre |
+| C-15 | Blinds en batalla: SB vs BB | A/B | 14 | SB abre con rango wide; BB defiende |
+| C-16 | Stack depth ajusta rangos (50 bb / 25 bb) | A | 12 | Short stack: tighter en calls, más shoves |
+| C-17 | Rake y cómo afecta al rango | A | 10 | Manos borderline se doblan vs rake alto |
+| C-18 | Examen M1 — Preflop completo | F | 20 | Mix + trampas |
 
-### M4 — Pro Cash (solo Coach)
+---
+
+### M2 — Postflop completo (Study)
+
+*10 lecciones · textura de flop, calles y sizing · examen*
+
+| ID | Lección | Tipo | Manos | Concepto core |
+|----|---------|------|-------|---------------|
+| C-19 | Clasificar textura de flop | C/A | 12 | Seco / rainbow · semi-coordinated · wet-mono |
+| C-20 | C-bet IP en flop seco | A/B | 16 | Alta freq, sizing pequeño; caped villano |
+| C-21 | C-bet OOP y cuándo ceder | A | 16 | Check range OOP; donar en wet boards |
+| C-22 | Defensa vs c-bet: continue equity | A | 16 | MDF lite; backdoors + OESD valen |
+| C-23 | Defensa vs c-bet OOP: donk, check-call | A | 14 | Donk en seco raro; check-call con medio |
+| C-24 | Second barrel (turn) | D | 14 | Value barrel vs pot control vs give-up |
+| C-25 | Probe / delayed c-bet | D | 12 | Lead turn tras check flop IP |
+| C-26 | River: value thin y fat | A | 12 | ¿Cuánto apostar con qué mano? |
+| C-27 | River: decision vs bet | A | 12 | Call/fold en river: MDF y conteo combos |
+| C-28 | Examen M2 — Postflop | F | 20 | Mix textura + calles |
+
+---
+
+### M3 — Estrategia intermedia (Study)
+
+*8 lecciones · faroles, líneas, rangos*
+
+| ID | Lección | Tipo | Manos | Plan | Concepto core |
+|----|---------|------|-------|------|---------------|
+| C-29 | Semibluff: equity como seguro | D | 14 | Study | Draws como bluffs con plan B |
+| C-30 | Check-raise en flop: polar vs merged | B | 12 | Study | No check-raise mergeado vs fish |
+| C-31 | Probe + 2nd barrel: línea completa | D | 12 | Study | Barrel o give-up en turn-river |
+| C-32 | Multiway postflop: ajustar sizing | A | 14 | Study | Apostar más pequeño vs más callers |
+| C-33 | Bluff river + blockers (intro) | A/C | 14 | Study | Elegir bluffs que no bloqueen folds |
+| C-34 | Bluff-catching: MDF y combos | A/C | 14 | Study | Contar combos para decidir call |
+| C-35 | Posición postflop: IP vs OOP | A | 14 | Study | Ventaja de posición en calles |
+| C-36 | Examen M3 — Estrategia | F | 20 | Study | Mix + trampas |
+
+---
+
+### M4 — Por nivel NL (Study NL2–NL25 · Coach NL50–NL100)
+
+*Lecciones de explotación de población, ajustes de perfil y conceptos específicos del nivel.*
+
+#### M4a — NL2–NL10 (Study)
+
+| ID | Lección | Tipo | Manos | Concepto core |
+|----|---------|------|-------|---------------|
+| C-37 | Explotación del fish: over-fold y over-bluff | G | 14 | Bet/raise más value; fold menos vs bet |
+| C-38 | Foldear menos vs estaciones de call | G | 14 | Thin value; no bluffear cuando llaman todo |
+| C-39 | Iso-raise vs multiway fish: ajustar rango | G | 12 | Manos con showdown value en multiway |
+| C-40 | Sizing vs fish: sobreapuesta por value | G | 12 | Overbets como value en seco con top pair |
+| C-41 | Examen NL2–NL10 | F | 18 | Mix explotación |
+
+#### M4b — NL25–NL50 (Study)
+
+| ID | Lección | Tipo | Manos | Concepto core |
+|----|---------|------|-------|---------------|
+| C-42 | El reg medio: ajustar vs 3-bet light | G | 14 | Defender más vs regs; fold menos vs 3-bet polarizado |
+| C-43 | Double barrel vs reg: credibilidad | G | 14 | Barrel en turns que mejoran tu rango percibido |
+| C-44 | Raise flop vs c-bet reg | G | 12 | Momento para check-raise; no vs fish |
+| C-45 | Imagen de mesa: ajustar vs historial | G | 12 | Bluffear menos vs alguien que ya te has visto |
+| C-46 | Examen NL25–NL50 | F | 18 | Mix regs |
+
+#### M4c — NL75–NL100 (Coach)
+
+| ID | Lección | Tipo | Manos | Concepto core |
+|----|---------|------|-------|---------------|
+| C-47 | 4-bet / cold 4-bet: polar vs linear | B | 14 | Construir rango 4-bet sólido |
+| C-48 | Equity realization OOP vs in-position | B/C | 12 | Por qué mismo % equity ≠ mismo EV |
+| C-49 | Caped ranges: bet pequeño con set | B | 14 | Polar vs caped en flop seco |
+| C-50 | Protection bets: apostar con 2p | B | 12 | Apostar para denegar equity |
+| C-51 | Node locking mental (frecuencias mix) | B/C | 14 | Elegir freq 0/25/50/75/100 |
+| C-52 | Examen NL75–NL100 | F | 20 | Mix conceptos pro |
+
+---
+
+### M5 — Bluffs & lines pro (Coach)
+
+*Líneas multi-street, construcción de rangos, spots complejos*
+
+| ID | Lección | Tipo | Manos | Concepto core |
+|----|---------|------|-------|---------------|
+| C-53 | Bluff construction: elegir combos river | A/C | 14 | Blockers correctos + fold equity |
+| C-54 | Range vs range en flop | C | 14 | Quiz: % de rango que conecta con board |
+| C-55 | Asignar rango rival tras línea (intro) | C | 12 | "Villain bet-bet-shove: polar o merge?" |
+| C-56 | SRP OOP 100 bb: líneas check-call/raise | D | 12 | Cuándo CR vs CC en flop single raised pot |
+| C-57 | Overbet como herramienta polar | B | 12 | Cuándo overbet; qué rangos lo justifican |
+| C-58 | Explotación sistemática vs población ES | G | 16 | Adaptar a tendencias micros ES específicas |
+
+---
+
+### M6 — Examen de certificación Cash (Coach)
 
 | ID | Lección | Tipo | Manos | Objetivo |
 |----|---------|------|-------|----------|
-| C-26 | 4-bet / cold 4-bet | B | 14 | Polar vs linear por villain |
-| C-27 | SRP OOP deep (150 bb mental → 100) | D | 10 | Líneas check-call / check-raise |
-| C-28 | Explotación fish vs reg | A | 16 | Mismo spot, dos rivales |
-| C-29 | Range vs range (quiz) | C | 14 | Adivinar composición del rango rival |
-| C-30 | Node locking mental (frecuencias) | B/C | 12 | Elegir frecuencia correcta 0/25/50/75/100 |
-| C-31 | Examen Pro Cash | F | 24 | Certificación interna |
+| C-59 | Repaso express: preflop | F | 14 | Consolidar M0–M1 |
+| C-60 | Repaso express: postflop | F | 14 | Consolidar M2–M3 |
+| C-61 | Examen final Cash (mezcla total) | F | 28 | Certificación interna |
 
-**Totales Cash orientativos:** ~32 nodos · Study juega ~C-00–C-19/C-22 · Coach completo.
+**Totales Cash v2:** 62 lecciones · Gratis: C-00–C-06 (7) · Study: C-07–C-46 (40) · Coach: C-47–C-61 (15).
 
 ---
 
 ## 10. Currículum Spins
 
-**Formato:** `spin3`, payouts 2×/3×/5× como variable pedagógica. ICM desde temprano.  
-Spots usan stacks 25 → 15 → 10 → 8 bb según módulo.
+**Formato:** `spin3`, payouts 2×/3×/5×. ICM desde M2. Stacks: 25 → 15 → 10 → 8 bb según módulo.
 
-### M0 — Spin basics (Gratis 1–2 · Study)
+### M0 — Intro Spin (Gratis: S-00–S-02)
 
-| ID | Lección | Manos | Objetivo |
+| ID | Lección | Manos | Concepto |
 |----|---------|-------|----------|
-| S-00 | Anatomía de un Spin (antes/ciegas/ICM lite) | 0–8 | Entender payout y por qué no es cash |
-| S-01 | Open steal desde BTN/SB a 20–25 bb | 14 | Robos + folds correctos |
-| S-02 | Defensa ciega vs steal | 14 | 3-bet/call/fold ajustado ICM |
-| S-03 | Examen M0 | 16 | Mix |
+| S-00 | Anatomía de un Spin: antes, ciega, ICM | 0–8 | Por qué no es cash; payout y prize pool |
+| S-01 | Open steal BTN/SB a 20–25 bb | 14 | Robar antes de volverse corto |
+| S-02 | Defensa ciega vs steal (20–25 bb) | 14 | 3-bet, call o fold ajustando ICM |
 
-### M1 — Ante-game & presión (Study)
+---
 
-| ID | Lección | Manos | Objetivo |
+### M1 — Fundamentos Spin (Study)
+
+| ID | Lección | Manos | Concepto |
 |----|---------|-------|----------|
-| S-04 | Iso y open vs limps cortos | 12 | No overcommit |
-| S-05 | 3-bet shove vs flat (stack-off thresholds) | 16 | Elegir shove correctos |
-| S-06 | Jugar el chip lead vs short | 14 | Presión sin suicidio |
-| S-07 | Jugar short vs cover | 14 | Survive + double spots |
-| S-08 | Examen M1 | 18 | Mix |
+| S-03 | Iso-raise vs limps (15–20 bb) | 12 | No overcommit antes de saber stack |
+| S-04 | Tamaño del open vs profundidad de stack | 12 | Open min o 2bb; rango ajustado |
+| S-05 | Jugar el chip lead vs short (presión) | 14 | Aislar al corto; no flipear innecesario |
+| S-06 | Jugar corto vs cover (survive + doubles) | 14 | Push o fold; evitar call -EV$ |
+| S-07 | HU básico: open estándar heads-up | 14 | Open casi todo BTN; defend BB wide |
+| S-08 | HU avanzado: 3-bet ranges HU | 14 | Polarizar en HU; fold equity HU |
+| S-09 | Examen M1 — Fundamentos | 18 | Mix |
 
-### M2 — ICM mid-late (Study borde / Coach)
+---
 
-| ID | Lección | Manos | Plan | Objetivo |
+### M2 — ICM fundamentos (Study)
+
+| ID | Lección | Manos | Concepto |
+|----|---------|-------|----------|
+| S-10 | Concepto ICM lite: chip $EV ≠ $ | 8 | Teoría con quiz; sin spots aún |
+| S-11 | Push/fold 12–8 bb (memorizar bandas) | 20 | Charts push/fold adaptados a Spin |
+| S-12 | Call shove ICM: foldar +EV chip | 16 | Overfold correcto: ICM suicide es real |
+| S-13 | Ajuste 2× vs 5× payout | 14 | Tighter en 5×; less pressure en 2× |
+| S-14 | Malos spots: +EV chip / −EV $ | 14 | Trampa clásica mid-stack |
+| S-15 | Examen M2 — ICM fundamentos | 20 | Mix |
+
+---
+
+### M3 — Mid-late pressures (Study → borde Coach)
+
+| ID | Lección | Manos | Plan | Concepto |
 |----|---------|-------|------|----------|
-| S-09 | Push/fold charts 12–8 bb | 20 | Study | Memorizar bandas |
-| S-10 | Call shove ICM (no chip EV) | 16 | Study | Overfold correcto |
-| S-11 | Malos spots “+EV chips / −EV $” | 14 | Coach | Trampa ICM suicide |
-| S-12 | Ajuste 3× vs 5× payout | 12 | Coach | Más tight en 5× |
-| S-13 | Examen ICM | 20 | Coach | Mix |
+| S-16 | 3-bet shove vs flat: thresholds | 16 | Study | Shove directamente vs flat 3-bet |
+| S-17 | Call shove ICM (mid stack vs short) | 14 | Study | No obligado a llamar todo |
+| S-18 | Limp-call: cuándo y cuándo no | 12 | Study | En Spin puede salir bien con cortos |
+| S-19 | Postflop básico corto (12–15 bb) | 12 | Study | Apuesta todo o nada; draws como shove |
+| S-20 | Examen M3 | 18 | Study | Mix |
 
-### M3 — Pro Spins (Coach)
+---
 
-| ID | Lección | Manos | Objetivo |
+### M4 — ICM avanzado (Coach)
+
+| ID | Lección | Manos | Concepto |
 |----|---------|-------|----------|
-| S-14 | Bubble factor mental heads-up pay jump | 12 | Lectura de pay jumps |
-| S-15 | Range vs range shove/call | 14 | Quiz + decisión |
-| S-16 | Explotación nit vs maniac en spins | 14 | Ajuste rival |
-| S-17 | Final exam Spin Pro | 22 | Certificación |
+| S-21 | Bubble factor: cálculo mental | 12 | Multiplicador ICM por situación en Spin |
+| S-22 | Pay jumps y heads-up pay delta | 12 | Cuánto vale ganar el duelo HU |
+| S-23 | Range vs range shove/call (quiz) | 14 | Asignar rango shove rival; responder |
+| S-24 | 3-way ICM: presión del chip leader | 14 | Explotar short; no exponer al big |
+| S-25 | Ajuste vs tipos de rival (nit / maniac) | 14 | Call vs nit; fold vs push-wide |
+| S-26 | Postflop ICM (mano de valor en flop) | 12 | Stack-off con sets vs ICM cost |
+| S-27 | Examen M4 — ICM avanzado | 22 | Mix |
+
+---
+
+### M5 — Pro Spins (Coach)
+
+| ID | Lección | Manos | Concepto |
+|----|---------|-------|----------|
+| S-28 | Construcción de rango HU pro | 14 | Frequency-based HU con blockers |
+| S-29 | Explotar tendencias de población en Spins | 14 | Fish llama demasiado; reg overfolds |
+| S-30 | Spin postflop intermedio: c-bet y barrel | 14 | Cuando stack lo permite (18+ bb) |
+| S-31 | Spots de alta presión 3-way corto | 12 | All-in o fold sin postflop |
+| S-32 | Examen final Spin Pro | 24 | Certificación |
+
+**Totales Spins v2:** 33 lecciones · Gratis: S-00–S-02 (3) · Study: S-03–S-20 (18) · Coach: S-21–S-32 (12).
 
 ---
 
 ## 11. Currículum MTT
 
-**Fases motor:** `early`, `mid`, `short`, `push`, `bubble` (taxonomía actual).  
-Honestidad: lecciones MTT enseñan **principios ICM y stack strategy**; no simulan field de 1000 con precisión de solver ICM completo.
+**Fases motor:** `early`, `mid`, `short`, `push`, `bubble`. Honestidad: principios ICM, no solver de campo completo.
 
-### M0 — Torneo basics (Gratis 1 · Study)
+### M0 — Intro MTT (Gratis: T-00–T-02)
 
-| ID | Lección | Manos | Objetivo |
+| ID | Lección | Manos | Concepto |
 |----|---------|-------|----------|
-| T-00 | Stages del torneo y ante | 8 | Identificar fase por stack bb |
-| T-01 | Early: cash-like con paciencia | 14 | No spew early |
-| T-02 | Antenas de stack (M / big stacks) | 12 | Lectura de mesa |
-| T-03 | Examen M0 | 14 | Mix |
+| T-00 | Anatomía de un torneo: fases y antes | 0–8 | Identificar fase por stack bb |
+| T-01 | Early: cash-like con más paciencia | 14 | No spew early; profundidad de campo |
+| T-02 | Lectura rápida de mesa: stacks y M | 12 | Estimar M; identificar short/mid/big |
 
-### M1 — Mid tournament (Study)
+---
 
-| ID | Lección | Manos | Objetivo |
+### M1 — Early & mid (Study)
+
+| ID | Lección | Manos | Concepto |
 |----|---------|-------|----------|
-| T-04 | Steal antes de la zona corta | 14 | Abrir late |
-| T-05 | 3-bet polar mid stacks | 14 | Presión |
-| T-06 | Resteal y defense | 14 | BB/SB war |
-| T-07 | Examen Mid | 16 | Mix |
+| T-03 | RFI MTT early (ajuste por antes) | A | 14 | Rango con ante: abrir más; pot bigger |
+| T-04 | 3-bet early MTT: solo value | A/B | 12 | No light 3-bet early; chips valen mucho |
+| T-05 | Transición early→mid: stack awareness | A | 12 | Cambiar engranaje al llegar a 40 bb |
+| T-06 | Open steal mid (antes grandes) | A | 14 | Ante = incentivo de robo; open BTN/CO/SB |
+| T-07 | 3-bet polar mid: presionar | B | 14 | 3-bet vs late opens; tamaño ajustado |
+| T-08 | Resteal vs steal (BB/SB war) | A | 14 | Resteal con manos de valor + blockers |
+| T-09 | Confrontación mid stack vs mid stack | A | 12 | Evitar flip innecesario; no allin ligero |
+| T-10 | Postflop básico MTT (50 bb) | D | 12 | C-bet continuación y give-up sencillos |
+| T-11 | Examen M1 — Early & mid | F | 20 | Mix |
 
-### M2 — Short & Push (Study → Coach)
+---
 
-| ID | Lección | Manos | Plan | Objetivo |
+### M2 — Short & push (Study)
+
+| ID | Lección | Manos | Concepto |
+|----|---------|-------|----------|
+| T-12 | Zona 20–12 bb: open-shove threshold | A/E | 16 | Cuándo open shove vs raise normal |
+| T-13 | Push/fold 12–8 bb (charts MTT) | E | 20 | Memorizar bandas push/fold por posición |
+| T-14 | Push/fold <8 bb: ampliar rango | E | 16 | Shove casi todo en BB cuando corto |
+| T-15 | Calling shove (chip EV): base | E | 16 | Manos para call vs push en chip EV |
+| T-16 | Limp-shove vs raise-fold (zonas grises) | E | 14 | Cuándo limp-shove en BB; trampas |
+| T-17 | Short stack: elegir tus spots | A/E | 14 | Esperar manos con buen blockers y FE |
+| T-18 | Postflop corto MTT: stack-off o fold | D | 12 | Con 20 bb en flop: call/shove o fold |
+| T-19 | Examen M2 — Short & push | F | 20 | Mix |
+
+---
+
+### M3 — Bubble & ITM básico (Study · avanzado Coach)
+
+| ID | Lección | Manos | Plan | Concepto |
 |----|---------|-------|------|----------|
-| T-08 | Zona 20–12 bb: open/shove | 16 | Study | Thresholds |
-| T-09 | Push/fold 12–8 bb | 20 | Study | Charts |
-| T-10 | Calling ranges vs shove (chip EV) | 16 | Study | Base |
-| T-11 | Calling ranges con ICM | 16 | Coach | Ajuste |
-| T-12 | Examen Short | 18 | Coach | Mix |
+| T-20 | Concepto burbuja: roles (big/mid/short) | C/E | 12 | Study | Identificar tu rol antes de actuar |
+| T-21 | Big stack en burbuja: presión al mid | E | 14 | Study | Aislar shorts; no flipear vs mids grandes |
+| T-22 | Mid stack en burbuja: survival primero | E | 16 | Study | Overfold; pick spots vs cortos |
+| T-23 | Short stack en burbuja: shove timing | E | 14 | Study | Empujar con FE; no esperar al cierre |
+| T-24 | Examen M3 básico — Burbuja | F | 18 | Study | Mix roles |
+| T-25 | ICM pressure en burbuja: cuantificar | E/C | 14 | Coach | Multiplicador ICM; call range más tight |
+| T-26 | Pay jump ITM: primer dinero | E | 14 | Coach | No flip innecesario justo al entrar |
+| T-27 | Burbuja: multiway all-in decision | E | 14 | Coach | Cuando hay 3-4 all-ins simultáneos |
+| T-28 | Near-bubble: satelite vs deep-stack | E | 12 | Coach | Diferencia entre satélite y torneo normal |
+| T-29 | Examen M3 avanzado — ICM burbuja | F | 22 | Coach | Mix trampas ICM |
 
-### M3 — Bubble & ITM (Coach-heavy)
+---
 
-| ID | Lección | Manos | Plan | Objetivo |
-|----|---------|-------|------|----------|
-| T-13 | Roles en burbuja (short/mid/big) | 12 | Study teaser / Coach play | Identificar rol |
-| T-14 | Big stack pressure | 14 | Coach | Aislar shorts |
-| T-15 | Mid stack survival | 16 | Coach | Overfold + pick spots |
-| T-16 | Short stack ladder | 14 | Coach | Shove timing |
-| T-17 | Pay jumps post-ITM | 12 | Coach | No flip innecesario |
-| T-18 | Examen Bubble | 20 | Coach | Mix trampas ICM |
+### M4 — Final table (Coach)
 
-### M4 — Pro MTT (Coach)
-
-| ID | Lección | Manos | Objetivo |
+| ID | Lección | Manos | Concepto |
 |----|---------|-------|----------|
-| T-19 | Final table ICM intro | 12 | Conceptos FT |
-| T-20 | Chip EV vs $EV drills | 14 | Comparar dos respuestas |
-| T-21 | Range reading en burbuja | 12 | Quiz |
-| T-22 | Examen Pro MTT | 22 | Certificación |
+| T-30 | Final table: pay jumps y renegociar | E/C | 12 | Cada eliminación = $ real; ajustar |
+| T-31 | Chip leader FT: presión sin flipear | E | 14 | Aislar; no colisionar innecesariamente |
+| T-32 | Short stack FT: shove-or-fold estricto | E | 14 | No limp-call; no slow-play |
+| T-33 | HU en torneo: diferencias vs cash HU | E/A | 14 | ICM + meta + presión de tiempo |
+| T-34 | Examen FT | F | 20 | Mix |
+
+---
+
+### M5 — Pro MTT (Coach)
+
+| ID | Lección | Manos | Concepto |
+|----|---------|-------|----------|
+| T-35 | Chip EV vs $EV: comparar decisiones | E/C | 14 | Ver ambas métricas; elegir la correcta |
+| T-36 | Range reading en burbuja (quiz ICM) | C/E | 12 | Asignar rango rival; ajustar ICM |
+| T-37 | Explotación de población en torneos ES | G | 14 | Tendencias regs ES; ajustar |
+| T-38 | Examen final MTT | F | 26 | Certificación |
+
+**Totales MTT v2:** 39 lecciones · Gratis: T-00–T-02 (3) · Study: T-03–T-24 (22) · Coach: T-25–T-38 (14).
 
 ---
 
 ## 12. Módulos transversales (rangos, estrategia, pro)
 
-Insertables en las tres rutas o como **ruta 4 opcional: Laboratorio de Rangos** (recomendado Coach + parte Study).
+### 12.1 Laboratorio de Rangos
 
-### 12.1 Laboratorio de rangos
+| ID | Lección | Formato | Plan | Objetivo |
+|----|---------|---------|------|----------|
+| R-00 | Cómo leer una matriz 13×13 | Onboarding | Gratis | Familiaridad con la UI de rangos |
+| R-01 | Construir RFI BTN en 60 s | Interactive | Study | Memoria muscular del rango BTN |
+| R-02 | Construir RFI CO y UTG | Interactive | Study | Ajuste por posición |
+| R-03 | Dado un board, % del rango que conecta | C | Study | Texture × range |
+| R-04 | Eliminación de combos (blockers) | C | Study | Contar combos post-turn |
+| R-05 | Asignar rango rival tras línea bet-bet | C | Study | ¿Polar o merge? |
+| R-06 | Examen Lab Rangos Study | F | Study | Mix R-01–R-05 |
+| R-07 | Rango vs rango en flop (quiz) | C | Coach | % de equity por rango en board |
+| R-08 | Node frequencies: elegir mix | B/C | Coach | 0/25/50/75/100 de frecuencia |
+| R-09 | Rango de 4-bet / call shove | C | Coach | Polar en 4-bet; threshold de call |
+| R-10 | Examen Lab Rangos Pro | F | Coach | Certificación |
 
-| ID | Lección | Formato | Objetivo |
-|----|---------|---------|----------|
-| R-01 | Matriz 13×13: leer un range chart | Quiz UI | Familiaridad con la matriz de la app |
-| R-02 | Construir RFI BTN en 60 s | Interactive matrix | Memoria muscular |
-| R-03 | Dado un board, % de rango que conecta | C | Flop texture × range |
-| R-04 | Eliminación de combos (blockers) | C | Contar combos |
-| R-05 | Asignar rango rival tras línea | C | “Villain bet-bet-shove: ¿polar o merge?” |
-| R-06 | Pro: node frequencies | C | Elegir mix correcto |
+---
 
-### 12.2 Conceptos pro (catálogo Coach)
+### 12.2 Conceptos pro adicionales (material de cada lección Coach)
 
-- Polar vs linear.  
-- Caped ranges y por qué bet small.  
-- Protection bets.  
-- Minimum defense frequency (MDF) lite.  
-- Equity realization OOP.  
-- Explotación sistemática (population tendencies ES microlímites).  
-- Multiway pot geometry.  
-- ICM pressure multipliers (narrados).  
-
-Cada concepto pro = 1 lección tipo teoría corta + 12 spots + 1 quiz de rango.
+- Polar vs linear (C-47, C-53).
+- Caped ranges (C-49).
+- Protection bets (C-50).
+- MDF completo (C-27).
+- Equity realization OOP (C-48).
+- Explotación sistemática population ES (C-58, T-37, S-29).
+- Multiway pot geometry (C-32).
+- ICM pressure multipliers (S-21, T-25).
 
 ---
 
 ## 13. Mapa de lecciones vs planes
 
-### 13.1 Regla “hasta la mitad en Study”
+### 13.1 Resumen de cobertura por plan (v2)
 
-Definición operativa por ruta:
+| Ruta | Total | Gratis | Study | Coach |
+|------|-------|--------|-------|-------|
+| Cash | 62 | 7 (M0) | 40 (M1–M4b) | 15 (M4c–M6) |
+| Spins | 33 | 3 (M0) | 18 (M1–M3) | 12 (M4–M5) |
+| MTT | 39 | 3 (M0) | 22 (M1–M3 básico) | 14 (M3 avanzado–M5) |
+| Rangos | 11 | 1 | 6 | 4 |
+| **TOTAL** | **145** | **14** | **86** | **45** |
 
-| Ruta | Total lecciones jugables (aprox.) | Gratis | Study (≈50 %) | Coach |
-|------|-----------------------------------|--------|---------------|-------|
-| Cash | 32 | C-00–C-02 | C-00–C-18 + C-19/C-22 | Todas |
-| Spins | 18 | S-00–S-01 | S-00–S-10 | Todas |
-| MTT | 23 | T-00–T-01 | T-00–T-10 + teaser T-13 | Todas |
-| Rangos | 6 | R-01 | R-01–R-03 | Todas |
+> Study tiene ~86 lecciones de contenido; es decir, varias semanas de estudio diario serio (15 min/lección = ~21 h de contenido). Coach añade 45 lecciones pro que justifican el precio diferencial.
 
-Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concepto.
+### 13.2 Por qué este reparto convierte
 
-### 13.2 Por qué esto convierte
-
-- Free prueba el loop (teoría → spots → %).  
-- Study da sensación de progresión real (~semanas de contenido).  
-- Coach es el único sitio con **burbuja, bluff construction, range pro, exámenes finales** — valor distinto a “más IA”, comunicable en pricing.
+- **Gratis:** el usuario completa M0 Cash (7 lecciones) y toca el intro de Spins/MTT. Siente el producto sin llegar a las cosas interesantes → muro Study clarísimo.
+- **Study:** recorrido largo y variado (preflop, postflop, NL-by-level, Spins con ICM, MTT hasta burbuja básica). Da para meses de trabajo progresivo.
+- **Coach:** contenido pro diferenciado (NL75–NL100, bluff construction avanzada, ICM avanzado, FT, certificaciones). Comunicable en pricing como contenido distinto, no solo más cuota de IA.
 
 ---
 
 ## 14. RoadMap de entrega por fases
 
-> Estimación en **complejidad técnica y de contenido**, no en calendario.
+### Estado actual (post-Fases A–C)
 
-### Fase 0 — Diseño cerrado (doc + prototipos)
+- ✅ Menú Escuela admin-only.
+- ✅ Runner spots fijos con `schoolDecisionEnd`.
+- ✅ M0 Cash (C-00–C-06 → C-04 en código actual: se amplía a 7 en siguiente iteración).
+- ✅ Progreso `stats.school`, XP/nivel, desbloqueo lineal.
 
-**Entregables:** este RoadMap; wireframes del mapa; contrato JSON de `Lesson` / `SpotPack`; umbrales de aprobación; matriz plan↔lección.  
-**Riesgo bajo.** Sin código de producto aún (sí puede haber mock HTML aparte si se desea).
+### Próximas fases
 
-### Fase 1 — MVP Academia Cash (P0 activación)
+#### Fase D — Gates de plan + allowlist beta
 
-**Alcance:**
+- `canPlayLesson(lessonId)` con Free / Study / Coach.
+- Badges plan en nodos bloqueados.
+- Paywall al agotar cupo Free en lección.
+- Feature flag `schoolEnabledForUser`.
+- Analytics: `lesson_start`, `lesson_complete`, `lesson_fail`, `lesson_blocked_plan`.
 
-- Nueva superficie “Academia” (tab o hub en Inicio / Guía).  
-- Modelo de progreso en cloud (`lessonProgress`).  
-- 8–10 lecciones Cash M0–M1 con packs fijos (manos cortas).  
-- Estados visuales básicos + % + desbloqueo lineal.  
-- Gate Free/Study (sin módulos Coach aún).  
-- IA Coach chips en teoría.
+#### Fase E — Apertura pública + M1 Preflop completo
 
-**Éxito:** % usuarios nuevos que completan C-02 en D1; uplift trial→Study.
+- Menú visible para todos (o rollout %).
+- C-07–C-18 (12 lecciones preflop Study).
+- Resultado visual mejorado: anillo, estrellas, replay 1-tap.
+- CTA desde Inicio → Escuela.
 
-### Fase 2 — Postflop Cash + repetición maestría
+#### Fase F — M2 + M3 Postflop + maestría
 
-- C-12–C-18, trampas postflop, anillo de resultado, estrellas, XP/Nivel Academia.  
-- Repetir para 100 %.  
-- Informe IA fin de sesión.
+- C-19–C-36 (postflop completo + estrategia intermedia).
+- Repetir para 100 %; estrellas 1–3.
+- Informe IA fin de sesión (1 consulta).
 
-### Fase 3 — Spins path
+#### Fase G — NL por nivel (M4a + M4b Study)
 
-- S-00–S-10 (Study) con ICM grading existente.  
-- Integrar payout preset como variable de lección.
+- C-37–C-46 (NL2–NL50).
+- Spots con `nlContext` para personalización futura.
 
-### Fase 4 — MTT path + Bubble Coach
+#### Fase H — Ruta Spins completa
 
-- T-00–T-10 Study; T-13–T-18 Coach.  
-- Copy de honestidad ICM.  
-- Upsell fuerte en nodos burbuja.
+- S-03–S-20 Study; S-21–S-32 Coach.
+- Payout 2×/3×/5× como variable de lección.
 
-### Fase 5 — Laboratorio de rangos + Pro packs
+#### Fase I — Ruta MTT completa
 
-- Quizzes de matriz; C-26–C-31; S/T pro exams.  
-- Frecuencias / node locking lite.  
-- Certificaciones internas (badge perfil).
+- T-03–T-24 Study; T-25–T-38 Coach.
+- Copy honestidad ICM.
+- Upsell en nodos burbuja y FT.
 
-### Fase 6 — Personalización
+#### Fase J — Coach pro: Cash M4c–M6 + Lab Rangos + Spins/MTT pro
 
-- Sugerir lección desde leaks (`TRAINING_FOCUSES` → `lessonId`).  
-- “Tu fuga top = Lección C-15” CTA desde Errores/Stats.  
-- A/B de umbrales de aprobación.
+- C-47–C-61 (NL75–NL100 + bluffs pro + certificaciones).
+- R-00–R-10.
+- S/T exámenes finales.
 
-### Dependencias técnicas (para planificación futura)
+#### Fase K — Personalización y cierre loop
 
-| Necesidad | Notas |
-|-----------|-------|
-| Spot runner “scripted” | Extender engine para forzar hole cards, board, línea y corte en nodo |
-| Persistencia progreso | Tabla o payload cloud por `lessonId`: bestScore, attempts, unlockedAt |
-| Entitlement contenido | Nuevo flag `canPlayLesson(lessonId)` además de manos/día |
-| Authoring pipeline | JSON/YAML packs versionados + selftests de solución |
-| Analytics | `lesson_start`, `lesson_complete`, `lesson_fail`, `lesson_unlock_block_plan` |
+- Bridge leaks → lección (`TRAINING_FOCUSES` → `lessonId`).
+- "Tu fuga top = Lección C-20" desde Errores/Stats.
+- A/B umbrales de aprobación.
 
 ---
 
@@ -658,110 +710,118 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 
 | Riesgo | Mitigación |
 |--------|------------|
-| Prometer GTO solver en spots autorados | Copy “referencia PokerForge”; rangos alineados a matrices app |
-| MTT/Spins poco profundos vs cash | Currículum de principios + trampas ICM; no simular campos enormes |
-| Grinding packs memorizando respuestas | Rotar orden, variantes isomorfas (suits), trampas espejo |
-| Inflación de XP | Caps diarios; menos XP en repeticiones |
-| Confundir “Coach” plan vs “IA Coach” | Copy UI: plan **Coach** · función **IA Coach** |
-| Contenido caro de producir | Empezar Cash M0–M1; templates de spot |
+| GTO prometido en spots = heurístico | Copy "referencia PokerForge"; lecciones NL-by-level son explotación, no GTO puro |
+| MTT/Spins con motor poco profundo | Principios + ICM lite; honestidad en copy |
+| Memorizar packs repetidos | Rotar orden, variantes isomorfas de suits, trampas espejo |
+| 145 lecciones = coste de contenido alto | Priorizar fases E–G (valor a usuarios activos); Coach se entrega iterativamente |
+| Confundir plan "Coach" vs función "IA Coach" | Copy: plan Coach · función IA Coach |
 
 ### 15.2 Métricas de éxito
 
 | Métrica | Señal |
 |---------|-------|
-| D1: inicio C-01 | Activación |
-| D1: aprueba ≥ 1 lección | Aha moment |
+| D1: completa ≥ 1 lección M0 | Aha moment |
 | D7: lecciones distintas ≥ 3 | Retención |
-| Click en nodo Coach bloqueado | Intención upsell |
-| Conversión Free→Study tras muro L3 | Monetización Study |
-| Conversión Study→Coach tras teaser bubble/bluff | Monetización Coach |
+| Click nodo Study bloqueado | Intención upsell Study |
+| Click nodo Coach bloqueado | Intención upsell Coach |
+| Conversión Free → Study tras muro C-07 | Monetización |
+| Conversión Study → Coach tras muro C-47 | Monetización Coach |
 | % oro en lecciones core | Calidad de aprendizaje |
 | Uso IA en lección vs libre | Valor cuota IA |
-
-### 15.3 Encaje con roadmap agosto 2026
-
-El estudio de producto prioriza activación (trial, import, bloque con resultado). La Academia **es** ese bloque con resultado — superior al calentamiento genérico 15 min — y debería listarse como iniciativa P0/P1 de crecimiento junto a trial UX, no como “más solver”.
+| Time-in-app días 8–30 con Escuela vs sin | Retención medio plazo |
 
 ---
 
-## 16. Glosario y decisiones abiertas
+## 16. Glosario y decisiones
 
-### 16.1 Glosario de producto
+### 16.1 Glosario
 
 | Término | Significado |
 |---------|-------------|
-| **Academia** | Nombre propuesto de la superficie de lecciones |
-| **Ruta** | Cash / Spins / MTT (/ Rangos) |
+| **Escuela de Póker** | Menú / superficie de lecciones |
+| **Ruta** | Cash / Spins / MTT / Rangos |
 | **Lección** | Teoría + ejemplos + sesión dirigida |
-| **Spot pack** | Lista ordenada/barajada de spots fijos |
-| **Trampa** | Spot diseñado para castigar el error típico del concepto |
+| **Spot pack** | Lista de spots fijos de una lección |
+| **Trampa** | Spot diseñado para el error típico del concepto |
 | **Maestría** | Mejor % ≥ umbral oro / 100 % |
 | **Study / Coach** | Planes de suscripción |
-| **IA Coach** | Asistente Gemini, no el plan |
+| **IA Coach** | Asistente Gemini (no el plan) |
+| **nlContext** | Nivel NL al que aplica un spot (`nl2`–`nl100`) |
 
-### 16.2 Decisiones abiertas (para producto)
+### 16.2 Decisiones cerradas
 
-1. ¿Nombre final: **Academia**, **Ruta de estudio**, **Lecciones**?  
-2. ¿Manos de lección consumen cupo Free trainer o tienen cupo propio?  
-3. ¿Spins/MTT se abren desde día 1 o tras C-02 Cash? (recomendado: día 1 independientes + CTA a Cash).  
-4. ¿Exámenes de módulo obligatorios u opcionales para avanzar? (recomendado: obligatorios).  
-5. ¿Mostrar solución GTO freqs en fundaciones o solo acción correcta? (recomendado: acción + tip; freqs desde intermedio).  
-6. ¿Certificados compartibles al completar ruta Coach? (alto valor marketing).
+1. Nombre de menú: **Escuela de Póker**.
+2. M0 Cash **completo en Gratis** (C-00–C-06, 7 lecciones).
+3. Manos de lección consumen cupo Free del trainer.
+4. Visibilidad inicial: solo admin.
+
+### 16.3 Decisiones aún abiertas
+
+1. ¿Exámenes de módulo obligatorios u opcionales para avanzar? (recomendado: obligatorios).
+2. ¿Mostrar frecuencias GTO en fundamentos o solo acción correcta? (recomendado: acción + tip; freqs desde M2).
+3. ¿Certificaciones compartibles en RRSS al completar ruta Coach?
+4. ¿9-max como variante explícita en M1 o solo nota en lecciones de posición?
 
 ---
 
 ## Anexo A — Plantilla de brief de lección (para autores)
 
 ```yaml
-id: C-13
+id: C-20
 title: C-bet IP en flop seco
 route: cash
 module: M2
 plan: study
 difficulty: intermediate
 xp: 120
-pass_threshold: 0.75
-gold_threshold: 0.92
+pass_threshold: 0.72
+gold_threshold: 0.90
 hands: 16
 decision_end: true
+nl_context: any
 concept: >
-  En flops secos como K72r, el agresor IP c-betea alto con sizing pequeño
-  para negar equity y proteger su range advantage.
-examples:
-  - id: ex1
-    narrative: "BTN vs BB, flop K♠7♦2♣, hero A♠Q♠ → bet 33%."
+  Agresor IP en flop seco (K72r): c-betea alto con sizing pequeño para
+  negar equity y proteger range advantage.
 traps_ratio: 0.25
 ai_suggested_questions:
-  - "¿Por qué sizing pequeño y no 75% en seco?"
+  - "¿Por qué sizing pequeño en seco y no 75%?"
   - "¿Qué manos check-back IP aquí?"
 spot_pack: cash-cbet-ip-dry-v1
 ```
 
-## Anexo B — Prioridad de autoría de packs
+---
 
-1. `cash-rfi-positions-v1` (C-01–C-02)  
-2. `cash-bb-defend-v1` (C-05)  
-3. `cash-3bet-v1` (C-06–C-07)  
-4. `cash-cbet-ip-dry-v1` (C-13)  
-5. `spin-steal-defend-v1` (S-01–S-02)  
-6. `mtt-pushfold-v1` (T-09)  
-7. `mtt-bubble-roles-v1` (T-13–T-16, Coach)  
-8. `range-lab-v1` (R-01–R-03)
+## Anexo B — Orden de autoría prioritario de packs (para iteración)
+
+1. `cash-m0-complete-v1` (C-00–C-06) — ya implementado en code ✅
+2. `cash-preflop-bb-defend-v1` (C-07)
+3. `cash-3bet-polar-v1` (C-08–C-09)
+4. `cash-face3bet-v1` (C-10)
+5. `cash-cbet-ip-dry-v1` + `cash-cbet-oop-v1` (C-20–C-21)
+6. `cash-defense-cbet-v1` (C-22–C-23)
+7. `cash-nl2-exploit-v1` (C-37–C-40)
+8. `spin-steal-defend-v1` (S-01–S-02)
+9. `spin-pushfold-v1` (S-11)
+10. `mtt-steal-mid-v1` (T-06–T-08)
+11. `mtt-pushfold-v1` (T-13–T-14)
+12. `mtt-bubble-roles-v1` (T-20–T-23)
+
+---
 
 ## Anexo C — Relación con Guía básica actual
 
-La Guía básica (8 secciones + 4 mini-drills) **no se elimina**: se convierte en material de apoyo y se mapea a lecciones:
+La Guía básica (8 secciones + 4 mini-drills) **no se elimina**; pasa a ser material de apoyo:
 
-| Sección Guía | Lección Academia |
-|--------------|------------------|
+| Sección Guía | Lección Escuela |
+|--------------|-----------------|
 | Hold'em / manos / posiciones | C-00, C-01 |
-| Acciones / RFI / 3-bet | C-02, C-06 |
+| Acciones / RFI / 3-bet | C-02, C-08 |
 | GTO intro | C-00 + tip en M1 |
 | Mini-drill RFI | Sesión de C-02 |
-| Mini-drill 3-bet / face3bet | C-06 / C-07 |
-| Mini-drill flop | C-13 entrada |
+| Mini-drill 3-bet / face3bet | C-08 / C-10 |
+| Mini-drill flop | C-20 entrada |
 | Preguntas IA | Chips por lección |
 
 ---
 
-*Fin del estudio. Próximo paso natural tras validación de producto: Fase 0 wireframes + contrato JSON de SpotPack, aún sin lógica de motor hasta cerrar el brief de las 4 primeras lecciones Cash.*
+*Fin del RoadMap v2. Siguiente paso de implementación: Fase D (gates de plan + allowlist beta) cuando M0 esté validado por admin.*
