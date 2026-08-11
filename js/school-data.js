@@ -1,6 +1,17 @@
 /*
  * school-data.js — Currículum M0 Escuela de Póker (Cash fundamentos, Gratis completo).
  * RoadMap v2: C-00…C-06. Spots RFI fijos; grading del motor GTO.
+ *
+ * Estilo de texto (obligatorio en M0 y lecciones siguientes):
+ * - Voz de profesor a alumno: natural, clara, sin telegramas ni jerga suelta.
+ * - Breve pero completo: 2–4 frases por bullet de teoría; teachBack 1–3 frases.
+ * - Primera aparición de un concepto: nómbralo y explícalo entre paréntesis o
+ *   en la frase siguiente. Ej.: «limpiar (igualar la ciega grande para entrar)».
+ * - Si el concepto ya se explicó en una lección anterior del mismo módulo,
+ *   úsalo sin redefinir (el alumno ya lo vio).
+ * - Orden de introducción en M0: posiciones → open/fold → RFI → limp →
+ *   fold equity → sizing (bb) → SB/OOP. El examen no introduce vocabulario nuevo.
+ * Ver también docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
  */
 (function (global) {
   'use strict';
@@ -47,18 +58,18 @@
       goldThreshold: 1,
       decisionEnd: true,
       hands: 0,
-      concept: 'La Escuela de Póker enseña un concepto por lección y lo examina con spots fijos, no aleatorios.',
+      concept: 'Aquí no entrenas a ciegas: cada lección enseña una idea y la comprueba con manos preparadas, no aleatorias.',
       theory: [
-        'El módulo M0 (Fundamentos Cash) es completo en plan Gratis: 7 lecciones de posición, RFI, fold equity, sizing y SB.',
-        'Cada lección tiene teoría breve, un ejemplo y (si aplica) una sesión de manos preparadas.',
-        'La mano se evalúa en el punto de decisión del concepto: open o fold — sin obligarte a jugar el resto si no aporta.',
-        'Si apruebas el umbral, desbloqueas la siguiente. Puedes repetir para subir tu mejor porcentaje hacia el 100 %.',
-        'En plan Gratis, cada mano de lección consume el mismo cupo diario del entrenador (15/día). Study y Coach desbloquean el resto del árbol.'
+        'Bienvenido. La Escuela funciona como una clase: primero te explico el concepto, luego lo practicas en spots fijos (manos diseñadas a propósito, no al azar del entrenador libre).',
+        'El módulo M0 —Fundamentos de cash— está completo en plan Gratis: siete lecciones que van de la posición a cómo abrir el bote, cuánto subir y el caso especial de la ciega pequeña.',
+        'En cada mano solo te evalúo en el momento que importa para esa lección (por ejemplo, subir o tirar). Si el resto de la mano no aporta al concepto, no te obligo a jugarlo entero.',
+        'Apruebas al llegar al umbral de aciertos y se abre la siguiente. Puedes repetir para subir tu mejor marca hacia el 100 %.',
+        'En Gratis, cada mano de lección gasta el mismo cupo diario del entrenador (15 al día). Study y Coach abren el resto del árbol más adelante.'
       ],
       examples: [
         {
-          title: 'Flujo de una lección',
-          body: 'Lees el concepto → ves un ejemplo comentado → juegas N spots fijos → ves tu % → si apruebas, se abre la siguiente lección.'
+          title: 'Cómo se vive una lección',
+          body: 'Lees la explicación → miras un ejemplo comentado → juegas las manos preparadas → ves tu porcentaje. Si apruebas, desbloqueas la siguiente. Simple, pero con método.'
         }
       ],
       aiQuestions: [
@@ -79,16 +90,17 @@
       goldThreshold: 0.9,
       decisionEnd: true,
       hands: 12,
-      concept: 'La misma mano no se juega igual desde UTG que desde BTN: la posición cambia el open-raise y el fold equity.',
+      concept: 'La misma mano no vale lo mismo en todas las sillas: quién actúa detrás de ti cambia si debes abrir el bote o tirar.',
       theory: [
-        'Cuanto más temprana la posición, más jugadores quedan por actuar detrás: tu rango de open debe ser más tight.',
-        'En late (CO/BTN) puedes abrir más ancho porque robas ciegas con más frecuencia y juegas más manos en posición postflop.',
-        'Trampa clásica: abrir basura UTG “porque es premium-looking” (KTo, A9o) o foldear opens claros en BTN por miedo.'
+        'En una mesa de cash 6-max las posiciones, de más temprana a más tardía, son: UTG (under the gun, el primero en hablar), HJ (hijack), CO (cutoff), BTN (el botón, la mejor silla), y luego SB y BB (ciegas pequeña y grande).',
+        'Cuanto más temprana tu posición, más jugadores quedan por hablar detrás. Por eso desde UTG abrimos un rango más tight (más selectivo): si alguien tiene una mano fuerte, todavía puede castigarte.',
+        'En late —sobre todo CO y BTN— puedes abrir más wide (más manos). Robas las ciegas con más frecuencia y, si te llaman, sueles jugar el flop en posición (actúas después del rival), que es una ventaja enorme.',
+        'La decisión de esta lección es simple: open (subir primero el bote cuando nadie ha entrado) o fold (tirar la mano). La trampa clásica es abrir basura desde UTG “porque se ve bonita” (KTo, A9o) o, al revés, foldear opens claros en BTN por miedo.'
       ],
       examples: [
         {
-          title: 'Misma mano, distinta posición',
-          body: 'ATo es un fold frecuente UTG a 100 bb, pero un open estándar en BTN. El combo no cambió: cambió quién actúa detrás.'
+          title: 'Misma mano, distinta silla',
+          body: 'Tienes ATo. Desde UTG, con stacks de 100 bb, suele ser fold: hay demasiada gente detrás y muchas manos mejores te dominan. La misma ATo en BTN es un open habitual. Las cartas no cambiaron; cambió quién habla después de ti.'
         }
       ],
       aiQuestions: [
@@ -98,43 +110,43 @@
       spots: [
         rfiSpot('c01-01', 'UTG', ['Ah', 'Td'], 11001, {
           trapTag: 'position_blind',
-          teachBack: 'ATo UTG enfrenta demasiado frío detrás. Mejor fold; en BTN sería open.'
+          teachBack: 'ATo desde UTG es incómoda: demasiada gente detrás y muchas manos mejores te dominan. Aquí fold; en el botón sería open.'
         }),
         rfiSpot('c01-02', 'BTN', ['Ah', 'Td'], 11002, {
-          teachBack: 'En BTN ATo es un open claro: pocas manos detrás y buen playability.'
+          teachBack: 'En el botón ATo es un open claro: casi nadie detrás y la mano se juega bien postflop.'
         }),
         rfiSpot('c01-03', 'UTG', ['Kc', 'Td'], 11003, {
           trapTag: 'dominated',
-          teachBack: 'KTo UTG está dominado por AK/KQ/KJ. Fold estándar a 100 bb.'
+          teachBack: 'KTo desde UTG suele estar dominada por AK, KQ o KJ. Fold estándar a 100 bb.'
         }),
         rfiSpot('c01-04', 'CO', ['Kc', 'Ts'], 11004, {
-          teachBack: 'KTs en CO entra en muchos rangos de open: buena jugabilidad y fold equity.'
+          teachBack: 'KTs en cutoff entra en muchos rangos de open: mismo color (suited) y buena jugabilidad.'
         }),
         rfiSpot('c01-05', 'HJ', ['Qs', 'Js'], 11005, {
-          teachBack: 'QJs es open cómodo desde HJ: suited connector high con buen plan postflop.'
+          teachBack: 'QJs desde hijack es un open cómodo: conectores altos del mismo palo, con plan claro si ves flop.'
         }),
         rfiSpot('c01-06', 'UTG', ['Qd', 'Jd'], 11006, {
-          teachBack: 'QJs también se abre UTG en muchos charts modernos; no la trates como basura early.'
+          teachBack: 'QJs también se abre desde UTG en charts modernos. No la trates como basura solo por ser early.'
         }),
         rfiSpot('c01-07', 'BTN', ['8h', '7h'], 11007, {
-          teachBack: 'Suited connectors en BTN son opens de posición y steal.'
+          teachBack: 'Conectores suited en el botón son opens de posición: robas ciegas y, si te llaman, tienes equity especulativa.'
         }),
         rfiSpot('c01-08', 'UTG', ['8c', '7c'], 11008, {
           trapTag: 'position_blind',
-          teachBack: '87s UTG suele ser fold: poco fold equity y malas spots OOP multiway.'
+          teachBack: '87s desde UTG suele ser fold: poco margen para que todos plieguen y peores spots si hay multiway fuera de posición.'
         }),
         rfiSpot('c01-09', 'CO', ['Ad', '5d'], 11009, {
-          teachBack: 'A5s CO se abre: blockers + jugabilidad. (El SB lo trabajamos en C-05.)'
+          teachBack: 'A5s en cutoff se abre: bloqueas ases y se juega bien. El caso de la ciega pequeña lo vemos en C-05.'
         }),
         rfiSpot('c01-10', 'HJ', ['9s', '9c'], 11010, {
-          teachBack: 'Parejas medias se abren casi desde cualquier posición. Open.'
+          teachBack: 'Las parejas medias se abren casi desde cualquier sitio. Aquí open sin drama.'
         }),
         rfiSpot('c01-11', 'CO', ['Ah', '2c'], 11011, {
           trapTag: 'dominated',
-          teachBack: 'A2o en CO es marginal/basura offsuit: muchas veces fold vs open wide no justificado.'
+          teachBack: 'A2o en cutoff es débil (offsuit, as bajo). Abrirla wide no está justificado; muchas veces fold.'
         }),
         rfiSpot('c01-12', 'BTN', ['Kh', '9d'], 11012, {
-          teachBack: 'K9o BTN es un steal frecuente. La posición justifica el open.'
+          teachBack: 'K9o en el botón es un robo frecuente. La posición justifica el open.'
         })
       ]
     },
@@ -150,16 +162,17 @@
       goldThreshold: 0.9,
       decisionEnd: true,
       hands: 14,
-      concept: 'Raise First In: si nadie ha entrado, decides open-raise o fold según tu rango de posición.',
+      concept: 'Si nadie ha entrado todavía, o subes tú primero (RFI) o tiras: esa es la base del preflop en cash.',
       theory: [
-        'RFI es la base del preflop cash: memoriza rangos por posición (UTG más tight → BTN más wide).',
-        'Sizing típico ~2–2,5 bb (lo profundizamos en C-04); aquí lo importante es la decisión open vs fold.',
-        'Trampas: opens dominados early, foldear manos claras de late, y “inventar” limps (aquí solo open o fold).'
+        'RFI significa Raise First In: eres el primero en meter dinero voluntario en el bote. Nadie ha limpiao ni subido; tú eliges open o fold según tu posición y tu mano.',
+        'Limpiar (o limp) es igualar la ciega grande para ver el flop barato, sin subir. En cash 6-max moderno casi no lo usamos para abrir: regalas la iniciativa y dejas que cualquiera te aísle por detrás. Aquí la disciplina es binaria — open o fold.',
+        'El tamaño típico del open ronda 2–2,5 bb (lo trabajamos con calma en C-04). Hoy lo importante no es el tamaño exacto, sino si esa mano entra en el rango de tu silla: UTG más tight, botón más wide.',
+        'Trampas habituales: abrir manos dominadas en early, foldear manos claras en late, o “inventar” un limp mental cuando deberías tirar o subir.'
       ],
       examples: [
         {
-          title: 'Open desde CO',
-          body: 'Pliega UTG y HJ. En CO con AJs subes a ~2,2–2,5 bb. No limpes: open o fold.'
+          title: 'Open desde cutoff',
+          body: 'Pliegan UTG y HJ. Estás en CO con AJs: subes a unas 2,2–2,5 bb. No limpies “para ver flop”. O la mano merece open, o fold.'
         }
       ],
       aiQuestions: [
@@ -167,30 +180,50 @@
         '¿Por qué no se limpia en vez de open-raise en cash 6-max?'
       ],
       spots: [
-        rfiSpot('c02-01', 'UTG', ['As', 'Ad'], 12001, { teachBack: 'AA siempre open. Sin drama.' }),
+        rfiSpot('c02-01', 'UTG', ['As', 'Ad'], 12001, {
+          teachBack: 'Con AA siempre abres. No hay debate: es la mejor mano de partida.'
+        }),
         rfiSpot('c02-02', 'UTG', ['7h', '2d'], 12002, {
           trapTag: 'dominated',
-          teachBack: '72o es la mano más débil. Fold desde cualquier posición en RFI.'
+          teachBack: '72o es la mano más débil del mazo. Fold desde cualquier silla cuando nadie ha entrado.'
         }),
-        rfiSpot('c02-03', 'HJ', ['Ah', 'Ks'], 12003, { teachBack: 'AKo es open universal.' }),
-        rfiSpot('c02-04', 'CO', ['Qs', 'Ts'], 12004, { teachBack: 'QTs CO: open estándar en charts 6-max.' }),
-        rfiSpot('c02-05', 'BTN', ['Td', '9d'], 12005, { teachBack: 'T9s BTN: open de steal + jugabilidad.' }),
+        rfiSpot('c02-03', 'HJ', ['Ah', 'Ks'], 12003, {
+          teachBack: 'AKo se abre desde casi todas partes. Open.'
+        }),
+        rfiSpot('c02-04', 'CO', ['Qs', 'Ts'], 12004, {
+          teachBack: 'QTs en cutoff es open estándar en charts de 6-max.'
+        }),
+        rfiSpot('c02-05', 'BTN', ['Td', '9d'], 12005, {
+          teachBack: 'T9s en el botón: open para robar y, si te llaman, buena jugabilidad.'
+        }),
         rfiSpot('c02-06', 'UTG', ['Ah', '9c'], 12006, {
           trapTag: 'dominated',
-          teachBack: 'A9o UTG se domina por AJ+/AQ/AK. Fold típico.'
+          teachBack: 'A9o desde UTG se queda corta frente a AJ+, AQ o AK. Fold típico.'
         }),
-        rfiSpot('c02-07', 'BTN', ['Ac', '9h'], 12007, { teachBack: 'A9o BTN suele ser open; late position cambia la respuesta.' }),
-        rfiSpot('c02-08', 'HJ', ['Kh', 'Qd'], 12008, { teachBack: 'KQo HJ es open frecuente.' }),
-        rfiSpot('c02-09', 'HJ', ['6s', '6c'], 12009, { teachBack: '66 se abre desde HJ sin dudar.' }),
-        rfiSpot('c02-10', 'CO', ['Jd', '8d'], 12010, { teachBack: 'J8s CO entra en muchos rangos de open wide.' }),
+        rfiSpot('c02-07', 'BTN', ['Ac', '9h'], 12007, {
+          teachBack: 'La misma A9o en el botón suele ser open: la posición cambia la respuesta.'
+        }),
+        rfiSpot('c02-08', 'HJ', ['Kh', 'Qd'], 12008, {
+          teachBack: 'KQo desde hijack es un open frecuente.'
+        }),
+        rfiSpot('c02-09', 'HJ', ['6s', '6c'], 12009, {
+          teachBack: '66 se abre desde HJ sin dudar: pareja media con valor claro.'
+        }),
+        rfiSpot('c02-10', 'CO', ['Jd', '8d'], 12010, {
+          teachBack: 'J8s en cutoff entra en muchos rangos de open wide.'
+        }),
         rfiSpot('c02-11', 'UTG', ['Kd', 'Js'], 12011, {
           trapTag: 'dominated',
-          teachBack: 'KJo UTG es spot fronterizo/fold en muchos charts; no es un open automático.'
+          teachBack: 'KJo desde UTG es frontera o fold en muchos charts. No la trates como open automático.'
         }),
-        rfiSpot('c02-12', 'BTN', ['5h', '4h'], 12012, { teachBack: '54s BTN: open especulativo de posición.' }),
-        rfiSpot('c02-13', 'CO', ['Ah', 'Qc'], 12013, { teachBack: 'AQo CO: value open claro.' }),
+        rfiSpot('c02-12', 'BTN', ['5h', '4h'], 12012, {
+          teachBack: '54s en el botón es un open especulativo de posición: poca gente detrás.'
+        }),
+        rfiSpot('c02-13', 'CO', ['Ah', 'Qc'], 12013, {
+          teachBack: 'AQo en cutoff es value claro. Open.'
+        }),
         rfiSpot('c02-14', 'UTG', ['2h', '2c'], 12014, {
-          teachBack: 'Parejas bajas a veces se abren UTG (set-mining / defensa de rango); sigue la referencia del motor.'
+          teachBack: 'Las parejas bajas a veces se abren desde UTG (buscas set y mantienes el rango vivo). Sigue la referencia del motor en este spot.'
         })
       ]
     },
@@ -206,16 +239,16 @@
       goldThreshold: 0.9,
       decisionEnd: true,
       hands: 10,
-      concept: 'El open-raise compra fold equity; limpear (o “esperar”) regala la iniciativa. En RFI la decisión es binaria: open o fold.',
+      concept: 'Al open-raise no solo juegas tu equity: también compras la posibilidad de que todos plieguen. Por eso en RFI es open o fold, no “ver barato”.',
       theory: [
-        'Fold equity = probabilidad de que los rivales tiren la mano ante tu subida. Por eso open > limp en cash moderno.',
-        'Si tu mano no es lo bastante fuerte para open en esa posición, la respuesta correcta es fold — no “ver flop barato”.',
-        'Trampa fancy-play: pasar manos openables o forzar opens sin FE ni equity.'
+        'Fold equity es la probabilidad de que los rivales tiren ante tu subida. Esa parte del valor no existe si limpias: el bote queda multiway o te aíslan, y tú ya regalaste la iniciativa.',
+        'Si la mano no es lo bastante fuerte para open en esa posición, la respuesta correcta es fold — no “pasar el flop barato”. Ver cartas sin fold equity suele ser peor a largo plazo en cash.',
+        'La trampa de turno (fancy play) es doble: pasar manos que sí merecen open, o forzar opens sin fold equity ni equity real. Disciplina: o subes con intención, o tiras.'
       ],
       examples: [
         {
           title: 'Sin limps mentales',
-          body: 'En BTN con KTo quieres robar. Open. Si estuvieras UTG con la misma mano y no entra en rango, fold — no limpees.'
+          body: 'En el botón con KTo quieres robar: open. La misma mano desde UTG, si no entra en rango, es fold. En ninguno de los dos casos limpies “por si conecta”.'
         }
       ],
       aiQuestions: [
@@ -224,37 +257,37 @@
       ],
       spots: [
         rfiSpot('c03-01', 'BTN', ['Kc', 'Td'], 13001, {
-          teachBack: 'KTo BTN tiene FE real: open para robar ciegas.'
+          teachBack: 'KTo en el botón tiene fold equity real: open para robar las ciegas.'
         }),
         rfiSpot('c03-02', 'UTG', ['Kc', 'Td'], 13002, {
           trapTag: 'fancy_play',
-          teachBack: 'Misma mano UTG: sin FE suficiente ni equity. Fold, no “ver flop”.'
+          teachBack: 'Misma mano desde UTG: poca gente pliega detrás y la equity no compensa. Fold; no “veas flop”.'
         }),
         rfiSpot('c03-03', 'CO', ['As', '5s'], 13003, {
-          teachBack: 'A5s CO se abre: blockers + FE + jugabilidad.'
+          teachBack: 'A5s en cutoff se abre: bloqueas ases, tienes fold equity y se juega bien.'
         }),
         rfiSpot('c03-04', 'HJ', ['Qh', '9c'], 13004, {
           trapTag: 'fancy_play',
-          teachBack: 'Q9o HJ no es un open cómodo; fold es la línea disciplinada.'
+          teachBack: 'Q9o desde hijack no es un open cómodo. Fold es la línea disciplinada.'
         }),
         rfiSpot('c03-05', 'BTN', ['Qh', '9c'], 13005, {
-          teachBack: 'Q9o gana FE en BTN. Open de steal.'
+          teachBack: 'Q9o gana fold equity en el botón. Open de robo.'
         }),
         rfiSpot('c03-06', 'CO', ['9d', '8d'], 13006, {
-          teachBack: '98s CO: open con FE y playability. (SB lo vemos en C-05.)'
+          teachBack: '98s en cutoff: open con fold equity y jugabilidad. El SB lo vemos en C-05.'
         }),
         rfiSpot('c03-07', 'UTG', ['Th', '7h'], 13007, {
           trapTag: 'dominated',
-          teachBack: 'T7s UTG: poco FE, mala realización. Fold.'
+          teachBack: 'T7s desde UTG: poco fold equity y mala realización. Fold.'
         }),
         rfiSpot('c03-08', 'CO', ['Jh', 'Tc'], 13008, {
-          teachBack: 'JTo CO es open común: suficiente FE y boards que puedes continuar.'
+          teachBack: 'JTo en cutoff es open común: suficiente fold equity y boards que puedes continuar.'
         }),
         rfiSpot('c03-09', 'BTN', ['7c', '6d'], 13009, {
-          teachBack: '76o BTN es frontera; muchas estrategias lo abren por FE puro. Evalúa con el motor.'
+          teachBack: '76o en el botón es frontera; muchas estrategias lo abren casi solo por fold equity. Mira qué dice el motor aquí.'
         }),
         rfiSpot('c03-10', 'HJ', ['Ad', 'Kd'], 13010, {
-          teachBack: 'AKs: open por value y FE. Nunca limp.'
+          teachBack: 'AKs se abre por valor y por fold equity. Nunca limpies con esto.'
         })
       ]
     },
@@ -270,16 +303,16 @@
       goldThreshold: 0.9,
       decisionEnd: true,
       hands: 12,
-      concept: 'En cash 6-max a 100 bb el open estándar es ~2–2,5 bb. La decisión clave sigue siendo open o fold; el sizing no sustituye un rango malo.',
+      concept: 'En cash 6-max a 100 bb el open estándar ronda 2–2,5 bb. El tamaño no salva una mano que no debería abrirse.',
       theory: [
-        'Sizing estándar (~2–2,5 bb) mantiene el bote jugable y te da FE suficiente sin inflar el pot con manos mediocres.',
-        'No “arreglas” un open malo abriendo más grande: si la mano no entra en rango, fold.',
-        'Más adelante (Study) verás ajustes por sala, vs fish o stacks cortos; en M0 interioriza el estándar y la disciplina open/fold.'
+        'Sizing es el tamaño de tu subida. Lo medimos en bb (ciegas grandes): si la ciega grande es 1 bb, un open a 2,5 bb es dos veces y media esa ciega. El estándar en cash profundo (~100 bb) suele ser 2–2,5 bb.',
+        'Ese tamaño te da fold equity suficiente y deja el bote manejable. Abrir a 4–5 bb “para proteger” infla el pot con manos mediocres y no convierte una basura en una buena open.',
+        'Si la mano no entra en el rango de tu silla, fold. Más adelante, en Study, verás ajustes por sala, vs jugadores muy pasivos o stacks cortos. En M0 interioriza el estándar y la disciplina: open normal o fold.'
       ],
       examples: [
         {
           title: 'Open estándar, no hero size',
-          body: 'En CO con AJs abres ~2,2–2,5 bb. No subas a 5 bb “para proteger” ni limpees: open estándar o fold.'
+          body: 'En cutoff con AJs abres unas 2,2–2,5 bb. No subas a 5 bb “por si acaso” ni limpies. O la mano merece open con tamaño normal, o tiras.'
         }
       ],
       aiQuestions: [
@@ -288,44 +321,44 @@
       ],
       spots: [
         rfiSpot('c04-01', 'CO', ['Ah', 'Js'], 14001, {
-          teachBack: 'AJs CO: open claro con sizing estándar. No limpees ni inventes oversize.'
+          teachBack: 'AJs en cutoff: open claro con sizing estándar. Ni limp ni oversize.'
         }),
         rfiSpot('c04-02', 'UTG', ['7h', '2d'], 14002, {
           trapTag: 'dominated',
-          teachBack: '72o no se “arregla” abriendo grande. Fold.'
+          teachBack: '72o no se arregla abriendo más grande. Fold.'
         }),
         rfiSpot('c04-03', 'BTN', ['Td', '9d'], 14003, {
-          teachBack: 'T9s BTN: open steal con sizing normal. La FE viene de la posición, no del oversize.'
+          teachBack: 'T9s en el botón: open de robo con tamaño normal. El fold equity viene de la posición, no de inflar el open.'
         }),
         rfiSpot('c04-04', 'HJ', ['Qs', '9c'], 14004, {
           trapTag: 'fancy_play',
-          teachBack: 'Q9o HJ no entra cómodo: fold. Un open grande no lo convierte en bueno.'
+          teachBack: 'Q9o desde hijack no entra cómodo: fold. Un open grande no la convierte en buena.'
         }),
         rfiSpot('c04-05', 'CO', ['Kh', 'Qs'], 14005, {
-          teachBack: 'KQo CO: value open. Sizing estándar.'
+          teachBack: 'KQo en cutoff: open de valor. Sizing estándar.'
         }),
         rfiSpot('c04-06', 'UTG', ['Ah', '9d'], 14006, {
           trapTag: 'dominated',
-          teachBack: 'A9o UTG: fold. No compensas con sizing.'
+          teachBack: 'A9o desde UTG: fold. El tamaño no compensa una mano fuera de rango.'
         }),
         rfiSpot('c04-07', 'BTN', ['8c', '7c'], 14007, {
-          teachBack: '87s BTN: open steal estándar.'
+          teachBack: '87s en el botón: open de robo con sizing normal.'
         }),
         rfiSpot('c04-08', 'HJ', ['5s', '5c'], 14008, {
-          teachBack: '55 HJ: open. El tamaño típico basta; no necesitas iso enorme sin limps.'
+          teachBack: '55 desde hijack: open. El tamaño típico basta; no hace falta aislar enorme si nadie ha limpiao.'
         }),
         rfiSpot('c04-09', 'UTG', ['Jd', 'Td'], 14009, {
-          teachBack: 'JTs UTG suele ser open en charts modernos con sizing estándar.'
+          teachBack: 'JTs desde UTG suele ser open en charts modernos, con sizing estándar.'
         }),
         rfiSpot('c04-10', 'CO', ['6h', '5d'], 14010, {
           trapTag: 'fancy_play',
-          teachBack: '65o CO: fold frecuente. No lo forces con un open “para ver flop”.'
+          teachBack: '65o en cutoff: fold frecuente. No lo forces “para ver flop” ni con un open raro.'
         }),
         rfiSpot('c04-11', 'BTN', ['Ac', '4c'], 14011, {
-          teachBack: 'A4s BTN: open wide / blockers con sizing normal.'
+          teachBack: 'A4s en el botón: open wide con blockers y tamaño normal.'
         }),
         rfiSpot('c04-12', 'HJ', ['Kd', 'Jc'], 14012, {
-          teachBack: 'KJo HJ: open habitual. Disciplina: open estándar o fold, no limp.'
+          teachBack: 'KJo desde hijack: open habitual. Disciplina: sizing estándar o fold — no limp.'
         })
       ]
     },
@@ -341,16 +374,16 @@
       goldThreshold: 0.9,
       decisionEnd: true,
       hands: 12,
-      concept: 'El SB es early OOP frente al BB: abres más tight que en BTN. Over-open desde SB es una trampa clásica.',
+      concept: 'La ciega pequeña no es el botón: si te llaman, casi siempre juegas fuera de posición. Por eso abres más tight.',
       theory: [
-        'Tras el SB queda el BB: juegas casi siempre fuera de posición postflop si te llaman.',
-        'Por eso el rango RFI SB es más tight que BTN: menos basura offsuit, más manos con playability o blockers.',
-        'Trampa: abrir K9o/Q8o/JTo “porque es late” — en SB no eres BTN.'
+        'Desde la SB solo queda la ciega grande detrás. Si el BB te paga, vas a jugar el flop fuera de posición — OOP (out of position): actúas primero en cada calle, sin ver qué hace el rival.',
+        'Por eso el rango de open desde SB es más tight que desde el botón: menos basura offsuit, más manos con jugabilidad o blockers. Abrir K9o o Q8o “porque es late” es la trampa clásica: en SB no eres BTN.',
+        'Prioriza manos suited, broadway decentes y parejas. Las offsuit mediocres que en el botón eran steals aquí suelen ser fold (o, más adelante, 3-bet muy selectivo — eso lo dejamos para otro módulo).'
       ],
       examples: [
         {
-          title: 'BTN ≠ SB',
-          body: 'K9o en BTN suele ser steal. La misma mano en SB vs BB es mucho más marginal: muchas veces fold o 3-bet polar, no open automático wide.'
+          title: 'El botón no es la SB',
+          body: 'K9o en el botón suele ser robo. La misma mano en SB contra el BB es mucho más marginal: muchas estrategias foldean o solo 3-betean de forma polar. No la abras wide por inercia.'
         }
       ],
       aiQuestions: [
@@ -359,45 +392,45 @@
       ],
       spots: [
         rfiSpot('c05-01', 'SB', ['As', 'Kd'], 15001, {
-          teachBack: 'AKo SB: open/3-bet fuerte. Clear open vs BB.'
+          teachBack: 'AKo desde SB es fuerte frente al BB. Open claro.'
         }),
         rfiSpot('c05-02', 'SB', ['Kh', '9c'], 15002, {
           trapTag: 'over_open_sb',
-          teachBack: 'K9o SB: trampa over-open. OOP vs BB; muchas estrategias fold o 3-bet polar, no open wide automático.'
+          teachBack: 'K9o desde SB es la trampa del over-open: fuera de posición vs BB. Aquí no la trates como un steal de botón.'
         }),
         rfiSpot('c05-03', 'SB', ['Qs', 'Js'], 15003, {
-          teachBack: 'QJs SB: open sólido (suited, playability).'
+          teachBack: 'QJs desde SB es open sólido: suited y con buena jugabilidad.'
         }),
         rfiSpot('c05-04', 'SB', ['7d', '2c'], 15004, {
           trapTag: 'dominated',
-          teachBack: '72o SB: fold. Nunca.'
+          teachBack: '72o desde SB: fold. Siempre.'
         }),
         rfiSpot('c05-05', 'SB', ['Ad', '5d'], 15005, {
-          teachBack: 'A5s SB: open frecuente (blockers + equity).'
+          teachBack: 'A5s desde SB se abre a menudo: blockers y equity decente.'
         }),
         rfiSpot('c05-06', 'SB', ['Jh', 'Tc'], 15006, {
           trapTag: 'over_open_sb',
-          teachBack: 'JTo SB es frontera/fold en muchos charts: OOP duele. No lo trates como BTN.'
+          teachBack: 'JTo desde SB es frontera o fold en muchos charts: fuera de posición duele. No es un open de botón.'
         }),
         rfiSpot('c05-07', 'SB', ['9s', '9c'], 15007, {
-          teachBack: '99 SB: open claro.'
+          teachBack: '99 desde SB: open claro. Pareja media, sin discusión.'
         }),
         rfiSpot('c05-08', 'SB', ['Qc', '8d'], 15008, {
           trapTag: 'over_open_sb',
-          teachBack: 'Q8o SB: basura offsuit OOP. Fold.'
+          teachBack: 'Q8o desde SB es basura offsuit fuera de posición. Fold.'
         }),
         rfiSpot('c05-09', 'SB', ['Kh', 'Qs'], 15009, {
-          teachBack: 'KQo SB: open habitual vs BB.'
+          teachBack: 'KQo desde SB es open habitual contra el BB.'
         }),
         rfiSpot('c05-10', 'SB', ['8h', '7h'], 15010, {
-          teachBack: '87s SB: open especulativo pero razonable (suited).'
+          teachBack: '87s desde SB es especulativa pero razonable: el mismo palo ayuda.'
         }),
         rfiSpot('c05-11', 'SB', ['Ah', '2c'], 15011, {
           trapTag: 'over_open_sb',
-          teachBack: 'A2o SB: débil offsuit OOP. Suele ser fold o 3-bet polar muy selectivo — no open automático.'
+          teachBack: 'A2o desde SB es débil offsuit fuera de posición. Suele ser fold — no open automático.'
         }),
         rfiSpot('c05-12', 'SB', ['Jc', 'Tc'], 15012, {
-          teachBack: 'JTs SB: open fuerte (suited connector high).'
+          teachBack: 'JTs desde SB: open fuerte, conectores altos suited.'
         })
       ]
     },
@@ -413,15 +446,15 @@
       goldThreshold: 0.9,
       decisionEnd: true,
       hands: 16,
-      concept: 'Examen del módulo: posición, RFI, fold equity, sizing mental y SB mezclados con trampas.',
+      concept: 'Repaso del módulo: posición, RFI, fold equity, sizing mental y la SB, con trampas mezcladas. Sin teoría nueva.',
       theory: [
-        'No hay teoría nueva: aplica C-01 a C-05.',
-        'Checklist: posición → ¿entra en rango? → open estándar o fold. En SB, más tight que BTN.'
+        'No hay concepto nuevo. Solo aplica lo de C-01 a C-05: mira la silla, pregunta si la mano entra en el rango de open, y decide.',
+        'Checklist rápido: ¿qué posición? → ¿merece open? → si sí, sizing estándar; si no, fold. En SB, más tight que en el botón.'
       ],
       examples: [
         {
-          title: 'Checklist rápido',
-          body: '1) ¿Qué posición? 2) ¿El combo está en el rango de open? 3) Si no, fold. Si sí, open (sizing estándar).'
+          title: 'Antes de pulsar',
+          body: '1) Identifica la posición. 2) Pregúntate si ese combo se abre ahí. 3) Si no, fold. Si sí, open con tamaño normal. En SB, recuerda que no eres el botón.'
         }
       ],
       aiQuestions: [
@@ -429,39 +462,59 @@
         'Resume en una frase RFI UTG vs BTN vs SB.'
       ],
       spots: [
-        rfiSpot('c06-01', 'UTG', ['As', 'Ks'], 16001, { teachBack: 'AKs UTG: open.' }),
+        rfiSpot('c06-01', 'UTG', ['As', 'Ks'], 16001, {
+          teachBack: 'AKs desde UTG: open. Mano premium en early.'
+        }),
         rfiSpot('c06-02', 'UTG', ['Kd', '9c'], 16002, {
           trapTag: 'dominated',
-          teachBack: 'K9o UTG: fold.'
+          teachBack: 'K9o desde UTG: fold. Demasiado frágil con gente detrás.'
         }),
-        rfiSpot('c06-03', 'BTN', ['Kd', '9c'], 16003, { teachBack: 'K9o BTN: open.' }),
+        rfiSpot('c06-03', 'BTN', ['Kd', '9c'], 16003, {
+          teachBack: 'K9o en el botón: open. Misma mano, otra silla.'
+        }),
         rfiSpot('c06-04', 'SB', ['Kd', '9c'], 16004, {
           trapTag: 'over_open_sb',
-          teachBack: 'K9o SB: no es BTN. Fold / no over-open.'
+          teachBack: 'K9o desde SB: no es el botón. Evita el over-open; aquí fold.'
         }),
-        rfiSpot('c06-05', 'CO', ['Qh', 'Qd'], 16005, { teachBack: 'QQ: open siempre (sizing estándar).' }),
-        rfiSpot('c06-06', 'HJ', ['Ah', 'Td'], 16006, { teachBack: 'ATo HJ suele ser open.' }),
+        rfiSpot('c06-05', 'CO', ['Qh', 'Qd'], 16005, {
+          teachBack: 'QQ: open siempre, con sizing estándar.'
+        }),
+        rfiSpot('c06-06', 'HJ', ['Ah', 'Td'], 16006, {
+          teachBack: 'ATo desde hijack suele ser open.'
+        }),
         rfiSpot('c06-07', 'UTG', ['Ah', 'Td'], 16007, {
           trapTag: 'position_blind',
-          teachBack: 'ATo UTG: fold frecuente.'
+          teachBack: 'ATo desde UTG: fold frecuente. La posición manda.'
         }),
-        rfiSpot('c06-08', 'SB', ['Js', 'Ts'], 16008, { teachBack: 'JTs SB: open.' }),
-        rfiSpot('c06-09', 'BTN', ['4h', '4c'], 16009, { teachBack: '44 BTN: open.' }),
+        rfiSpot('c06-08', 'SB', ['Js', 'Ts'], 16008, {
+          teachBack: 'JTs desde SB: open. Buena jugabilidad suited.'
+        }),
+        rfiSpot('c06-09', 'BTN', ['4h', '4c'], 16009, {
+          teachBack: '44 en el botón: open. Pareja baja con posición a favor.'
+        }),
         rfiSpot('c06-10', 'CO', ['9c', '8h'], 16010, {
           trapTag: 'fancy_play',
-          teachBack: '98o CO no es automático; muchas veces fold. No inventes el limp ni el oversize.'
+          teachBack: '98o en cutoff no es automático; muchas veces fold. Ni limp ni oversize.'
         }),
-        rfiSpot('c06-11', 'BTN', ['9c', '8h'], 16011, { teachBack: '98o BTN: steal razonable.' }),
-        rfiSpot('c06-12', 'UTG', ['Qc', 'Jc'], 16012, { teachBack: 'QJs UTG: open en charts modernos.' }),
+        rfiSpot('c06-11', 'BTN', ['9c', '8h'], 16011, {
+          teachBack: '98o en el botón: robo razonable.'
+        }),
+        rfiSpot('c06-12', 'UTG', ['Qc', 'Jc'], 16012, {
+          teachBack: 'QJs desde UTG: open en charts modernos.'
+        }),
         rfiSpot('c06-13', 'SB', ['Qc', '8d'], 16013, {
           trapTag: 'over_open_sb',
-          teachBack: 'Q8o SB: fold. Over-open típico.'
+          teachBack: 'Q8o desde SB: fold. Over-open típico fuera de posición.'
         }),
-        rfiSpot('c06-14', 'CO', ['Ad', 'Jc'], 16014, { teachBack: 'AJo CO: open.' }),
-        rfiSpot('c06-15', 'BTN', ['Kh', '5h'], 16015, { teachBack: 'K5s BTN: open wide / blockers.' }),
+        rfiSpot('c06-14', 'CO', ['Ad', 'Jc'], 16014, {
+          teachBack: 'AJo en cutoff: open de valor habitual en 6-max.'
+        }),
+        rfiSpot('c06-15', 'BTN', ['Kh', '5h'], 16015, {
+          teachBack: 'K5s en el botón: open wide con blockers.'
+        }),
         rfiSpot('c06-16', 'UTG', ['Td', '8d'], 16016, {
           trapTag: 'position_blind',
-          teachBack: 'T8s UTG: fold típico; guárdalo para late.'
+          teachBack: 'T8s desde UTG: fold típico. Guárdala para late.'
         })
       ]
     }

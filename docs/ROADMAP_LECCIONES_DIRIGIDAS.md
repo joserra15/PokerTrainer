@@ -12,7 +12,7 @@
 1. [Resumen ejecutivo](#1-resumen-ejecutivo)
 2. [Problema que resolvemos](#2-problema-que-resolvemos)
 3. [Estado actual y piezas reutilizables](#3-estado-actual-y-piezas-reutilizables)
-4. [Modelo pedagógico de una lección](#4-modelo-pedagógico-de-una-lección)
+4. [Modelo pedagógico de una lección](#4-modelo-pedagógico-de-una-lección) (incluye [§4.5 voz pedagógica](#45-voz-pedagógica-explicaciones))
 5. [Diseño de spots fijos y trampas](#5-diseño-de-spots-fijos-y-trampas)
 6. [Progresión, desbloqueo y planes](#6-progresión-desbloqueo-y-planes)
 7. [UX visual: evolución, puntos y niveles](#7-ux-visual-evolución-puntos-y-niveles)
@@ -168,6 +168,32 @@ Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía b
 - Sesión: **8–15 min**.  
 - Total lección: **≤ 20 min** (encaja con “calentamiento” del backlog Snowie).
 
+### 4.5 Voz pedagógica (explicaciones)
+
+Las lecciones hablan como un **profesor a sus alumnos**, no como un cheat-sheet ni un manual de solver.
+
+| Regla | Qué hacer | Qué evitar |
+|-------|-----------|------------|
+| **Natural** | Frases completas, tono oral claro | Telegramas (`ATo UTG fold.`) y anglicismos sin ancla |
+| **Breve pero no telegráfica** | 2–4 frases por bullet de teoría; teach-back 1–3 frases | Un solo eslogan; párrafos de media página |
+| **Concepto la 1ª vez** | Nombre + explicación inline: *limpiar (igualar la ciega grande para entrar en la mano)* | Usar jerga cruda (`limp`, `FE`, `OOP`) sin decir qué es |
+| **No repetir definiciones** | Si M0 ya explicó *fold equity* en C-03, C-04+ lo usa sin redefinir | Copiar el mismo glosario en cada lección |
+| **Un trabajo mental** | La teoría prepara solo el concepto de esa lección | Meter sizing, SB y 3-bet en la misma página “por si acaso” |
+
+**Orden de introducción de vocabulario en Cash M0 (referencia de autoría):**
+
+1. **C-00** — lección, spots fijos, umbral, cupo del entrenador.  
+2. **C-01** — posiciones (UTG→BTN, SB/BB), early/late, *open* (subir primero), *fold*.  
+3. **C-02** — *RFI*, *limpiar/limp*, por qué en cash moderno es open o fold.  
+4. **C-03** — *fold equity*.  
+5. **C-04** — *sizing* en *bb* (ciegas grandes).  
+6. **C-05** — SB vs BTN, *fuera de posición (OOP)*.  
+7. **C-06** — examen: cero vocabulario nuevo; solo aplicar.
+
+**Teach-back:** misma voz. Recuerda *por qué* falló en esa posición/mano; no inventes otra solución ni reexpliques el glosario entero.
+
+Implementación de referencia: `js/school-data.js` (cabecera del archivo + textos C-00…C-06).
+
 ---
 
 ## 5. Diseño de spots fijos y trampas
@@ -189,7 +215,7 @@ Cada spot del pack declara:
 | `allowedActions` | subset UI (fold/call/raise o bet sizes) |
 | `solution` | acción(es) correctas + freqs si aplica |
 | `trapTag` | `none` · `dominated` · `icm_suicide` · `overfold` · `fancy_play` … |
-| `teachBack` | 1–2 frases al fallar |
+| `teachBack` | 1–3 frases de profesor al fallar (natural; sin redefinir conceptos ya vistos) |
 | `rangeHint` | rango rival simplificado para UI post-mano |
 
 ### 5.2 Tipos de trampa (banco transversal)
@@ -724,17 +750,26 @@ pass_threshold: 0.75
 gold_threshold: 0.92
 hands: 16
 decision_end: true
+# Voz: profesor (§4.5). Primera vez que sale un término en la ruta → explícalo;
+# si ya salió en lecciones previas del módulo, úsalo sin redefinir.
 concept: >
-  En flops secos como K72r, el agresor IP c-betea alto con sizing pequeño
-  para negar equity y proteger su range advantage.
+  Cuando has sido el agresor preflop y el flop es seco (pocas cartas conectadas,
+  p. ej. K-7-2 de distintos palos), en posición conviene apostar a menudo
+  con un tamaño pequeño: niegas equity barata al rival y aprovechas que tu
+  rango llega más fuerte a ese board.
 examples:
   - id: ex1
-    narrative: "BTN vs BB, flop K♠7♦2♣, hero A♠Q♠ → bet 33%."
+    narrative: >
+      BTN vs BB, flop K♠7♦2♣, tú con A♠Q♠. Aquí un c-bet (~1/3 del bote)
+      es la línea habitual: muchas manos del BB no conectan y te dejan pasar.
 traps_ratio: 0.25
 ai_suggested_questions:
   - "¿Por qué sizing pequeño y no 75% en seco?"
   - "¿Qué manos check-back IP aquí?"
 spot_pack: cash-cbet-ip-dry-v1
+new_terms: # solo los que esta lección introduce por primera vez en la ruta
+  - "c-bet (continuation bet): apostar de nuevo en el flop tras haber subido preflop"
+  - "flop seco: board con poca conectividad (pocos draws obvios)"
 ```
 
 ## Anexo B — Prioridad de autoría de packs
