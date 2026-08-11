@@ -15061,17 +15061,18 @@ window.PT_VS_3BET_JSON = {
   const GREETING_HISTORY_MAX = 8;
 
   /** Catálogo rotativo de focos de entrenamiento para el saludo de bienvenida. */
+  /* Fase J: cada foco apunta a una lección Escuela (CTA en Leaks, solo admin). */
   const TRAINING_FOCUSES = [
-    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'] },
-    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'] },
-    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'] },
-    { id: 'squeeze', label: 'squeeze (subir tras open + call)', scenario: 'squeeze', street: 'preflop', leakTypes: ['squeeze'] },
-    { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'] },
-    { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['bbVsSbLimp', 'sbLimp'] },
-    { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'] },
-    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop' },
-    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn' },
-    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river' }
+    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'], lessonId: 'C-02' },
+    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'], lessonId: 'C-08' },
+    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'], lessonId: 'C-09' },
+    { id: 'squeeze', label: 'squeeze (subir tras open + call)', scenario: 'squeeze', street: 'preflop', leakTypes: ['squeeze'], lessonId: 'C-10' },
+    { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'], lessonId: 'C-26' },
+    { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['sbLimp'], lessonId: 'C-11' },
+    { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'], lessonId: 'C-12' },
+    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15' },
+    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18' },
+    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19' }
   ];
 
   function cfg() {
@@ -15971,8 +15972,15 @@ window.PT_VS_3BET_JSON = {
       label: leak.label || key,
       spot: leak.label || key,
       scenario: 'random',
-      street: street
+      street: street,
+      lessonId: null
     };
+  }
+
+  /** Mapea un leak agregado → lessonId Escuela (Fase J). */
+  function lessonFromLeak(leak) {
+    const f = focusFromLeak(leak);
+    return (f && f.lessonId) ? f.lessonId : null;
   }
 
   function pickGreetingFocus(bundle) {
@@ -16133,7 +16141,8 @@ window.PT_VS_3BET_JSON = {
   }
 
   global.PTAIReport = {
-    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX
+    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX,
+    TRAINING_FOCUSES, focusFromLeak, lessonFromLeak
   };
 })(window);
 
@@ -18795,17 +18804,53 @@ window.PT_VS_3BET_JSON = {
       return;
     }
 
+    function schoolLessonCtaVisible() {
+      if (global.PTSchool && typeof global.PTSchool.schoolMenuVisible === 'function') {
+        return !!global.PTSchool.schoolMenuVisible();
+      }
+      if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) return false;
+      if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
+        return !!global.PTAdmin.hasAccess();
+      }
+      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+      return !!(u && u.isAdmin);
+    }
+
+    function lessonIdForLeak(leak) {
+      if (!global.PTAIReport || typeof global.PTAIReport.lessonFromLeak !== 'function') return null;
+      return global.PTAIReport.lessonFromLeak(leak);
+    }
+
+    function openSchoolLesson(lessonId) {
+      if (!lessonId) return;
+      global.__ptPendingSchoolLesson = lessonId;
+      if (global.PTSchool && typeof global.PTSchool.openLesson === 'function') {
+        global.PTSchool.openLesson(lessonId);
+        return;
+      }
+      if (typeof global.goToTab === 'function') global.goToTab('school');
+    }
+
     function leakRows(leaks, trainPrefix) {
+      var showSchool = schoolLessonCtaVisible();
       return leaks.map(function (l, i) {
         var trainBtn = trainPrefix && onTrain
           ? '<button type="button" class="btn btn-primary btn-sm" data-leak-train="' + escapeHtml(trainPrefix + ':' + l.key) + '">Repetir</button>'
           : '';
+        var schoolBtn = '';
+        if (showSchool) {
+          var lid = lessonIdForLeak(l);
+          if (lid) {
+            schoolBtn = '<button type="button" class="btn btn-ghost btn-sm" data-leak-school="' +
+              escapeHtml(lid) + '">Ver lección</button>';
+          }
+        }
         return '<div class="leak-row">' +
           '<div class="leak-rank">#' + (i + 1) + '</div>' +
           '<div class="leak-main">' +
           '<div class="leak-title">' + escapeHtml(l.label) + '</div>' +
           '<div class="leak-sub muted-text">' + l.count + ' error' + (l.count === 1 ? '' : 'es') + ' · EV perdido ' + fmt(l.evLoss) + ' bb</div>' +
-          '</div>' + trainBtn + '</div>';
+          '</div><div class="leak-actions">' + schoolBtn + trainBtn + '</div></div>';
       }).join('');
     }
 
@@ -18842,6 +18887,11 @@ window.PT_VS_3BET_JSON = {
         var key = parts.slice(1).join(':');
         var leak = trainerLeaks.find(function (l) { return l.key === key; });
         if (leak && onTrain) onTrain(leak);
+      });
+    });
+    host.querySelectorAll('[data-leak-school]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openSchoolLesson(btn.getAttribute('data-leak-school'));
       });
     });
     if (typeof opts.onFilter === 'function') {
@@ -23232,7 +23282,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.4.3';
+  const APP_VERSION = window.PT_BUILD || '2.5.0';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
