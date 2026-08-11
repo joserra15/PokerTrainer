@@ -345,30 +345,87 @@
     });
   }
 
+  function cleanOAuthUrl() {
+    try {
+      // Evitar dejar "www.../#" suelto tras el callback
+      history.replaceState(null, '', location.pathname || '/');
+    } catch (e) { /* noop */ }
+  }
+
+  function oauthCallbackParams() {
+    var params = new URLSearchParams(location.search || '');
+    var hash = location.hash || '';
+    if (hash && hash !== '#') {
+      var raw = hash.charAt(0) === '#' ? hash.slice(1) : hash;
+      var hp = new URLSearchParams(raw);
+      hp.forEach(function (v, k) { if (!params.has(k)) params.set(k, v); });
+    }
+    return params;
+  }
+
+  function hasOAuthCallback() {
+    try {
+      var p = oauthCallbackParams();
+      return !!(p.get('code') || p.get('access_token') || p.get('error') || p.get('error_code'));
+    } catch (e) {
+      return /[?&#](code|access_token|error)=/.test(location.href || '');
+    }
+  }
+
   function showOAuthCallbackError() {
     try {
-      var params = new URLSearchParams(location.search || '');
-      var hash = location.hash || '';
-      if (hash.charAt(0) === '#') {
-        var hp = new URLSearchParams(hash.slice(1));
-        hp.forEach(function (v, k) { if (!params.has(k)) params.set(k, v); });
-      }
+      var params = oauthCallbackParams();
       var err = params.get('error') || params.get('error_code');
       if (!err) return false;
       var desc = params.get('error_description') || err;
       try { desc = decodeURIComponent(String(desc).replace(/\+/g, ' ')); } catch (e) { /* noop */ }
       showError('Google/Supabase: ' + desc);
-      history.replaceState(null, '', location.pathname);
+      cleanOAuthUrl();
       return true;
     } catch (e) {
       return false;
     }
   }
 
+  /** Consume ?code= (PKCE) o #access_token= tras volver de Google. */
+  async function consumeOAuthCallback(client) {
+    if (!client || !client.auth) return null;
+    if (showOAuthCallbackError()) return null;
+    var params = oauthCallbackParams();
+    var code = params.get('code');
+    if (code) {
+      var exchanged = await client.auth.exchangeCodeForSession(code);
+      if (exchanged.error) {
+        showError(exchanged.error.message || 'No se pudo completar el login con Google.');
+        cleanOAuthUrl();
+        return null;
+      }
+      cleanOAuthUrl();
+      return (exchanged.data && exchanged.data.session) || null;
+    }
+    var access = params.get('access_token');
+    var refresh = params.get('refresh_token');
+    if (access) {
+      var setRes = await client.auth.setSession({
+        access_token: access,
+        refresh_token: refresh || ''
+      });
+      if (setRes.error) {
+        showError(setRes.error.message || 'Token de sesión inválido.');
+        cleanOAuthUrl();
+        return null;
+      }
+      cleanOAuthUrl();
+      return (setRes.data && setRes.data.session) || null;
+    }
+    // URL residual "www.../#" sin tokens: limpiar
+    if (location.hash === '#') cleanOAuthUrl();
+    return null;
+  }
+
   async function bootSupabase() {
     // Enlazar Continuar YA: no esperar a getSession (puede colgarse o tardar).
     setupLoginUi();
-    showOAuthCallbackError();
     var ok = await waitFor(function () {
       return global.supabase && global.PTSupabase && global.PTSupabase.getClient();
     }, 120, 50);
@@ -385,6 +442,22 @@
         }
       });
     } catch (e2) { /* noop */ }
+
+    // 1) Callback OAuth explícito (prioridad sobre getSession)
+    try {
+      var fromUrl = await consumeOAuthCallback(client);
+      if (fromUrl && fromUrl.user) {
+        var userFromUrl = global.PTSupabase.userFromSession(fromUrl);
+        if (userFromUrl) {
+          enterFromBootstrap(userFromUrl);
+          return;
+        }
+      }
+    } catch (eCb) {
+      showError((eCb && eCb.message) || 'Error al procesar el login.');
+    }
+
+    // 2) Sesión ya persistida
     try {
       var sessionRes = await withTimeout(client.auth.getSession(), 8000);
       var session = sessionRes && sessionRes.data && sessionRes.data.session;
@@ -396,8 +469,6 @@
         }
       }
     } catch (e) {
-      // UI de login ya está activa; el usuario puede pulsar Continuar.
-      // Reintento corto por si el exchange PKCE aún no terminó.
       try {
         var retry = await withTimeout(client.auth.getSession(), 4000);
         var sess2 = retry && retry.data && retry.data.session;

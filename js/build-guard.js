@@ -7,7 +7,17 @@
   var seen = null;
   try { seen = localStorage.getItem(key); } catch (e) { /* noop */ }
 
+  function hasOAuthCallback() {
+    try {
+      return /[?&#](code|access_token|error|error_description)=/.test(location.href || '');
+    } catch (e) {
+      return false;
+    }
+  }
+
   function clearCachesAndReload(targetBuild) {
+    // Nunca recargar a mitad del retorno de Google OAuth (perdería ?code=).
+    if (hasOAuthCallback()) return;
     var mark = String(targetBuild || build);
     // Evita bucle si version.js está desfasado respecto a la página
     try {
@@ -35,6 +45,7 @@
   /** Contrarresta max-age de GitHub Pages en js/version.js. */
   function checkFreshVersionJs(currentBuild) {
     if (global.PT_E2E_MODE) return;
+    if (hasOAuthCallback()) return;
     if (!('fetch' in global)) return;
     var url = '/js/version.js?t=' + Date.now();
     fetch(url, { cache: 'no-store' })
@@ -49,7 +60,12 @@
 
   if (seen && seen !== build) {
     clearCachesAndReload(build);
-    return;
+    // Si hay callback OAuth no recargamos; seguimos para no bloquear el login.
+    if (hasOAuthCallback()) {
+      try { localStorage.setItem(key, build); } catch (e) { /* noop */ }
+    } else {
+      return;
+    }
   }
   try { localStorage.setItem(key, build); } catch (e) { /* noop */ }
   // Solo contrastar version.js fresco (GitHub Pages max-age); evita 404 en consola.

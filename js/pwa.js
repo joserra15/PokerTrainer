@@ -64,6 +64,7 @@
         var refreshing = false;
         global.navigator.serviceWorker.addEventListener('controllerchange', function () {
           if (!hadController || refreshing) return;
+          if (/[?&#](code|access_token)=/.test(location.href || '')) return;
           refreshing = true;
           try {
             if (sessionStorage.getItem('pt_sw_refresh') === build) return;

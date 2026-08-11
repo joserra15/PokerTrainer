@@ -1,7 +1,7 @@
 /* Service worker — PWA instalable. Assets con ?v=PT_BUILD; version.js siempre fresco. */
 'use strict';
 
-var CACHE = 'pt-shell-v17';
+var CACHE = 'pt-shell-v18';
 var PRECACHE = [
   './offline.html',
   './apple-touch-icon.png',

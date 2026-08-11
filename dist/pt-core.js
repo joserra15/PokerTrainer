@@ -21987,6 +21987,7 @@ window.PT_VS_3BET_JSON = {
         var refreshing = false;
         global.navigator.serviceWorker.addEventListener('controllerchange', function () {
           if (!hadController || refreshing) return;
+          if (/[?&#](code|access_token)=/.test(location.href || '')) return;
           refreshing = true;
           try {
             if (sessionStorage.getItem('pt_sw_refresh') === build) return;
@@ -23076,7 +23077,19 @@ window.PT_VS_3BET_JSON = {
     window.addEventListener('resize', function () { /* noop */ });
 
     let gsiAttempts = 0;
+    function ensureGsiScript() {
+      if (global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth()) return;
+      if (global.google && global.google.accounts && global.google.accounts.id) return;
+      if (document.getElementById('pt-gsi-client')) return;
+      var s = document.createElement('script');
+      s.id = 'pt-gsi-client';
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      document.head.appendChild(s);
+    }
     function waitGsi() {
+      if (global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth()) return;
+      ensureGsiScript();
       if (global.google && global.google.accounts && global.google.accounts.id) {
         setupGsiButton();
         return;
@@ -23116,7 +23129,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.1.9';
+  const APP_VERSION = window.PT_BUILD || '2.2.0';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
