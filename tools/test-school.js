@@ -312,4 +312,34 @@ assert.ok(School.isLessonPassed('C-00'), 'C-00 passed');
 assert.ok(School.isLessonUnlocked('C-01'), 'C-01 desbloqueada tras C-00');
 assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
 
+/* Resumen spots a repasar: cartas/pos/board + teachBack, sin trapTag */
+(function () {
+  assert.ok(typeof School.formatFailSpotHtml === 'function', 'formatFailSpotHtml export');
+  const html = School.formatFailSpotHtml({
+    spotId: 'c06-02',
+    class: 'error',
+    heroPos: 'UTG',
+    heroCards: ['Kd', '9c'],
+    board: [],
+    teachBack: 'K9o desde UTG: fold. Demasiado frágil con gente detrás.',
+    trapTag: 'dominated'
+  });
+  assert.ok(/UTG/.test(html) && /Kd 9c/.test(html), 'muestra pos y cartas');
+  assert.ok(/K9o desde UTG/.test(html), 'muestra teachBack');
+  assert.ok(!/trampa/i.test(html) && !/dominated/.test(html), 'no muestra trapTag');
+  assert.ok(!/c06-02/.test(html), 'no muestra id interno');
+  const withBoard = School.formatFailSpotHtml({
+    class: 'imprecisa',
+    heroPos: 'BTN',
+    heroCards: ['As', 'Kh'],
+    board: ['Td', '7c', '2h'],
+    teachBack: 'En seco, c-bet pequeño suele bastar.'
+  });
+  assert.ok(/board Td 7c 2h/.test(withBoard), 'incluye board cuando aplica');
+  assert.ok(!/Trampa:/.test(schoolSrc), 'feedback spot no imprime Trampa:');
+  assert.ok(/5\.2bis Resumen de lección/.test(
+    fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
+  ), 'roadmap §5.2bis resumen spots');
+})();
+
 console.log('*** school M0 v2 OK (' + spotCount + ' spots, 7 lecciones free) ***');

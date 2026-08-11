@@ -1484,7 +1484,12 @@ body.age-gate-open {
 .school-ring-lbl { font-size: 12px; color: rgba(230,237,243,.7); }
 .school-result-meta { color: rgba(230,237,243,.85); }
 .school-gold-tag { color: var(--gold, #e3b341); font-weight: 650; }
-.school-fail-list { margin: 0; padding-left: 18px; line-height: 1.55; }
+.school-fail-list { margin: 0; padding-left: 0; list-style: none; line-height: 1.55; }
+.school-fail-item { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.18); }
+.school-fail-item:last-child { margin-bottom: 0; }
+.school-fail-head { font-weight: 600; color: rgba(254,226,226,.95); }
+.school-fail-teach { margin: 6px 0 0; color: rgba(230,237,243,.88); font-size: .92em; }
+.school-spot-meta { margin: 0 0 6px; color: rgba(230,237,243,.75); font-size: .92em; }
 .school-result-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .school-m0-progress { margin: 10px 0 0; font-size: 13px; }
 .school-route-teasers { margin: 0 0 8px; }

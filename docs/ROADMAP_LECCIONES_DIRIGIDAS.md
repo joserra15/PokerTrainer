@@ -215,7 +215,7 @@ Cada spot del pack declara:
 | `decisionNode` | `preflop_rfi` · `flop_cbet` · `bubble_call` … |
 | `allowedActions` | subset UI (fold/call/raise o bet sizes) |
 | `solution` | acción(es) correctas + freqs si aplica |
-| `trapTag` | `none` · `dominated` · `icm_suicide` · `overfold` · `fancy_play` … |
+| `trapTag` | `none` · `dominated` · `icm_suicide` · `overfold` · `fancy_play` … (**interno**: autoría/analytics; **no** mostrar al alumno en resúmenes) |
 | `teachBack` | 1–3 frases de profesor al fallar (natural; sin redefinir conceptos ya vistos) |
 | `rangeHint` | rango rival simplificado para UI post-mano |
 
@@ -235,6 +235,20 @@ Cada spot del pack declara:
 | **Sticky second pair** | Pot control / fold turn | Second pair sticky vs triple barrel |
 
 **Regla de diseño:** 20–30 % del pack son trampas; el resto consolida el patrón correcto. Las trampas **nunca** deben ser ambigüedad GTO irresoluble: el teach-back debe ser inequívoco al nivel de la lección.
+
+### 5.2bis Resumen de lección (“Spots a repasar”)
+
+En la pantalla de resultado **no** se muestra `trapTag` ni ids internos (`c06-02`). Cada fallo lista:
+
+1. **Posición** del héroe  
+2. **Cartas** de la mano  
+3. **Board** si la decisión es postflop / hay cartas comunitarias  
+4. Clase (`Error` / `Imprecisa`)  
+5. **teachBack** breve (voz de profesor)
+
+`trapTag` sigue en el spot y en analytics para autores; solo se oculta en UI al alumno. Misma regla en fases siguientes (M1+, Spins, MTT).
+
+---
 
 ### 5.3 Manos cortas (decision-point end)
 

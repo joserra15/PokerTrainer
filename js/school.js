@@ -322,6 +322,36 @@
     return cls || '—';
   }
 
+  /** Cartas legibles en resumen (códigos del motor: Ah Td). */
+  function formatCards(cards) {
+    if (!cards || !cards.length) return '';
+    return cards.map(function (c) { return String(c); }).join(' ');
+  }
+
+  function formatBoard(board) {
+    if (!board || !board.length) return '';
+    return formatCards(board);
+  }
+
+  /**
+   * Resumen de spot fallido: posición · cartas · board (si hay) · clase + teachBack.
+   * trapTag es interno (autoría/analytics): no se muestra al alumno.
+   */
+  function formatFailSpotHtml(f) {
+    var parts = [];
+    if (f.heroPos) parts.push(f.heroPos);
+    var cards = formatCards(f.heroCards);
+    if (cards) parts.push(cards);
+    var board = formatBoard(f.board);
+    if (board) parts.push('board ' + board);
+    parts.push(classLabel(f.class));
+    var explain = f.teachBack || f.reason || '';
+    return '<li class="school-fail-item">' +
+      '<div class="school-fail-head">' + esc(parts.join(' · ')) + '</div>' +
+      (explain ? '<p class="school-fail-teach">' + esc(explain) + '</p>' : '') +
+      '</li>';
+  }
+
   function showSpotFeedback(decision, spot) {
     var s = state.session;
     var fb = document.getElementById('feedback');
@@ -330,15 +360,19 @@
     var good = decision.class === 'optima' || decision.class === 'aceptable';
     var teach = (spot && spot.teachBack) || decision.reason || '';
     var remaining = s.spots.length - s.index - 1;
+    var cards = spot && spot.forceDeal ? formatCards(spot.forceDeal.heroCards) : '';
+    var board = spot && spot.forceDeal ? formatBoard(spot.forceDeal.board) : '';
+    var meta = [];
+    if (spot && spot.heroPos) meta.push(spot.heroPos);
+    if (cards) meta.push(cards);
+    if (board) meta.push('board ' + board);
     fb.classList.remove('hidden');
     fb.innerHTML =
       '<div class="school-spot-feedback ' + (good ? 'is-good' : 'is-bad') + '">' +
       '<h3>Spot ' + (s.index + 1) + ' / ' + s.spots.length + ' · ' + esc(classLabel(decision.class)) + '</h3>' +
+      (meta.length ? '<p class="school-spot-meta">' + esc(meta.join(' · ')) + '</p>' : '') +
       '<p class="school-spot-action">Tu acción: <strong>' + esc(decision.label || decision.action || decision.id || '—') + '</strong></p>' +
       (teach ? '<p class="school-spot-teach">' + esc(teach) + '</p>' : '') +
-      (spot && spot.trapTag && spot.trapTag !== 'none'
-        ? '<p class="muted-text">Trampa: ' + esc(spot.trapTag) + '</p>'
-        : '') +
       '</div>';
     if (actions) {
       var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
@@ -419,6 +453,15 @@
       class: decision.class,
       action: decision.action || decision.id,
       actionLabel: decision.label || decision.action || decision.id,
+      heroPos: spot && spot.heroPos,
+      heroCards: spot && spot.forceDeal && spot.forceDeal.heroCards
+        ? spot.forceDeal.heroCards.slice()
+        : null,
+      board: spot && spot.forceDeal && spot.forceDeal.board
+        ? spot.forceDeal.board.slice()
+        : null,
+      teachBack: (spot && spot.teachBack) || decision.reason || '',
+      reason: decision.reason || '',
       trapTag: spot && spot.trapTag
     });
 
@@ -702,10 +745,7 @@
       '</header>' +
       (fails.length
         ? '<section class="card-box"><h3>Spots a repasar</h3><ul class="school-fail-list">' +
-          fails.map(function (f) {
-            return '<li>' + esc(f.spotId || 'spot') + ' · ' + esc(classLabel(f.class)) +
-              (f.trapTag && f.trapTag !== 'none' ? ' · trampa ' + esc(f.trapTag) : '') + '</li>';
-          }).join('') + '</ul></section>'
+          fails.map(formatFailSpotHtml).join('') + '</ul></section>'
         : '') +
       '<div class="school-result-actions">' +
       '<button type="button" class="btn btn-primary" id="school-retry">Repetir lección</button>' +
@@ -773,6 +813,8 @@
     startLessonSession: startLessonSession,
     abandonSession: abandonSession,
     ensureBannerEl: ensureBannerEl,
+    formatFailSpotHtml: formatFailSpotHtml,
+    formatCards: formatCards,
     _state: state
   };
 })(typeof window !== 'undefined' ? window : globalThis);
