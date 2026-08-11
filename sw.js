@@ -1,7 +1,7 @@
-/* Service worker — PWA instalable. Shell offline + assets versionados cache-first. */
+/* Service worker — PWA instalable. Assets con ?v=PT_BUILD; version.js siempre fresco. */
 'use strict';
 
-var CACHE = 'pt-shell-v16';
+var CACHE = 'pt-shell-v17';
 var PRECACHE = [
   './offline.html',
   './apple-touch-icon.png',
@@ -16,7 +16,12 @@ function isAppAsset(pathname) {
   return pathname.indexOf('/js/') >= 0 ||
     pathname.indexOf('/dist/') >= 0 ||
     pathname.indexOf('/css/') >= 0 ||
-    pathname.endsWith('/js/version.js');
+    pathname.endsWith('/js/version.js') ||
+    pathname.endsWith('/version.js');
+}
+
+function isVersionJs(pathname) {
+  return pathname.endsWith('/js/version.js') || pathname.endsWith('/version.js');
 }
 
 function isVersionedRequest(url) {
@@ -43,9 +48,9 @@ function emptyFallback(status) {
   return new Response('', { status: status || 503, statusText: 'Offline' });
 }
 
-function networkFirst(req, htmlFallback) {
-  return fetch(req).then(function (res) {
-    if (res && res.ok && isNavigateRequest(req)) {
+function networkFirst(req, htmlFallback, cacheOk) {
+  return fetch(req, cacheOk === false ? { cache: 'no-store' } : undefined).then(function (res) {
+    if (res && res.ok && (isNavigateRequest(req) || cacheOk)) {
       var copy = res.clone();
       caches.open(CACHE).then(function (cache) { cache.put(req, copy); }).catch(function () { /* noop */ });
     }
@@ -125,7 +130,13 @@ self.addEventListener('fetch', function (event) {
   if (url.origin !== self.location.origin) return;
 
   if (isNavigateRequest(req)) {
-    event.respondWith(networkFirst(req, true));
+    event.respondWith(networkFirst(req, true, false));
+    return;
+  }
+
+  // version.js nunca cache-first: es la fuente de PT_BUILD en cada visita.
+  if (isVersionJs(url.pathname)) {
+    event.respondWith(networkFirst(req, false, false));
     return;
   }
 
@@ -135,7 +146,8 @@ self.addEventListener('fetch', function (event) {
   }
 
   if (isAppAsset(url.pathname)) {
-    event.respondWith(networkFirst(req, false));
+    // Sin ?v=: network-first para no servir JS viejo tras deploy.
+    event.respondWith(networkFirst(req, false, true));
     return;
   }
 

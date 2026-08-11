@@ -13,8 +13,8 @@ assert(!/deploy-info\.json/.test(guard), 'build-guard no debe fetchear deploy-in
 assert(!/\/deploy-info/.test(guard), 'build-guard no debe pedir /deploy-info');
 assert(!/checkDeployInfo/.test(guard), 'checkDeployInfo eliminado');
 assert(/checkFreshVersionJs/.test(guard), 'build-guard sigue contrastando version.js');
-assert(/PT_BUILD\s*=\s*'2\.1\.8'/.test(version), 'PT_BUILD 2.1.8 para invalidar caché');
-assert(/pt-shell-v16/.test(sw), 'SW cache bump v16');
+assert(/PT_BUILD\s*=\s*'2\.1\.9'/.test(version), 'PT_BUILD 2.1.9 para invalidar caché');
+assert(/pt-shell-v17/.test(sw), 'SW cache bump v17');
 assert(!/deploy-info\.json/.test(sw), 'SW no trata deploy-info como asset de app');
 
 console.log('*** build-guard-no-deploy-info OK ***');

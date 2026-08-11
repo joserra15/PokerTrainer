@@ -11,10 +11,19 @@
   <title>Mano compartida · PokerForgeAI</title>
   <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
-  <link rel="stylesheet" href="css/share.css" />
-  <script src="js/site-config.js"></script>
-  <script src="js/supabase-config.js"></script>
-  <script src="js/billing-config.js"></script>
+  <link rel="stylesheet" href="css/share.css" id="pt-share-css" />
+  <script>document.write('<script src="js/version.js?t=' + Date.now() + '"><\/script>');</script>
+  <script>
+  (function () {
+    var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    var css = document.getElementById('pt-share-css');
+    if (css) css.href = 'css/share.css' + v;
+    function w(src) { document.write('<script src="' + src + v + '"><\/script>'); }
+    w('js/site-config.js');
+    w('js/supabase-config.js');
+    w('js/billing-config.js');
+  })();
+  </script>
 </head>
 <body>
   <div id="share-loading" class="share-wrap">
