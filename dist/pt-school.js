@@ -1,17 +1,18 @@
 /* PokerForgeAI bundle: pt-school.js — do not edit */
 /*
- * school-data.js — Currículum M0 Escuela de Póker (Cash fundamentos).
- * Spots fijos autorados; el grading lo hace el motor GTO del entrenador.
+ * school-data.js — Currículum M0 Escuela de Póker (Cash fundamentos, Gratis completo).
+ * RoadMap v2: C-00…C-06. Spots RFI fijos; grading del motor GTO.
  */
 (function (global) {
   'use strict';
 
   var XP_PER_LEVEL = 200;
+  var SCHOOL_DATA_VERSION = 2;
 
   var ROUTES = [
     { id: 'cash', label: 'Cash', status: 'active' },
-    { id: 'spin', label: 'Spins', status: 'soon' },
-    { id: 'mtt', label: 'Torneos', status: 'soon' }
+    { id: 'spin', label: 'Spins', status: 'soon', teaser: 'Intro gratis próximamente (S-00–S-02)' },
+    { id: 'mtt', label: 'Torneos', status: 'soon', teaser: 'Intro gratis próximamente (T-00–T-02)' }
   ];
 
   /** Spots RFI: hero actúa open/fold; decisionEnd corta tras la 1ª decisión. */
@@ -49,10 +50,11 @@
       hands: 0,
       concept: 'La Escuela de Póker enseña un concepto por lección y lo examina con spots fijos, no aleatorios.',
       theory: [
+        'El módulo M0 (Fundamentos Cash) es completo en plan Gratis: 7 lecciones de posición, RFI, fold equity, sizing y SB.',
         'Cada lección tiene teoría breve, un ejemplo y (si aplica) una sesión de manos preparadas.',
-        'La mano se evalúa en el punto de decisión del concepto: open, call o fold — sin obligarte a jugar el resto si no aporta.',
+        'La mano se evalúa en el punto de decisión del concepto: open o fold — sin obligarte a jugar el resto si no aporta.',
         'Si apruebas el umbral, desbloqueas la siguiente. Puedes repetir para subir tu mejor porcentaje hacia el 100 %.',
-        'En plan Gratis, cada mano de lección consume el mismo cupo diario del entrenador (15/día).'
+        'En plan Gratis, cada mano de lección consume el mismo cupo diario del entrenador (15/día). Study y Coach desbloquean el resto del árbol.'
       ],
       examples: [
         {
@@ -62,7 +64,7 @@
       ],
       aiQuestions: [
         '¿En qué se diferencia la Escuela del entrenador libre?',
-        '¿Las manos de la Escuela consumen mi cupo gratis?'
+        '¿Qué incluye el módulo M0 gratis?'
       ],
       spots: []
     },
@@ -81,7 +83,7 @@
       concept: 'La misma mano no se juega igual desde UTG que desde BTN: la posición cambia el open-raise y el fold equity.',
       theory: [
         'Cuanto más temprana la posición, más jugadores quedan por actuar detrás: tu rango de open debe ser más tight.',
-        'En late (CO/BTN/SB) puedes abrir más ancho porque robas ciegas con más frecuencia y juegas más manos en posición postflop.',
+        'En late (CO/BTN) puedes abrir más ancho porque robas ciegas con más frecuencia y juegas más manos en posición postflop.',
         'Trampa clásica: abrir basura UTG “porque es premium-looking” (KTo, A9o) o foldear opens claros en BTN por miedo.'
       ],
       examples: [
@@ -122,8 +124,8 @@
           trapTag: 'position_blind',
           teachBack: '87s UTG suele ser fold: poco fold equity y malas spots OOP multiway.'
         }),
-        rfiSpot('c01-09', 'SB', ['Ad', '5d'], 11009, {
-          teachBack: 'Axs en SB se abre o se 3-betea según estrategia; aquí evalúa el open RFI vs BB.'
+        rfiSpot('c01-09', 'CO', ['Ad', '5d'], 11009, {
+          teachBack: 'A5s CO se abre: blockers + jugabilidad. (El SB lo trabajamos en C-05.)'
         }),
         rfiSpot('c01-10', 'HJ', ['9s', '9c'], 11010, {
           teachBack: 'Parejas medias se abren casi desde cualquier posición. Open.'
@@ -152,7 +154,7 @@
       concept: 'Raise First In: si nadie ha entrado, decides open-raise o fold según tu rango de posición.',
       theory: [
         'RFI es la base del preflop cash: memoriza rangos por posición (UTG más tight → BTN más wide).',
-        'Sizing típico ~2–2,5 bb (o el que use tu sala); lo importante es la decisión open vs fold.',
+        'Sizing típico ~2–2,5 bb (lo profundizamos en C-04); aquí lo importante es la decisión open vs fold.',
         'Trampas: opens dominados early, foldear manos claras de late, y “inventar” limps (aquí solo open o fold).'
       ],
       examples: [
@@ -179,7 +181,7 @@
           teachBack: 'A9o UTG se domina por AJ+/AQ/AK. Fold típico.'
         }),
         rfiSpot('c02-07', 'BTN', ['Ac', '9h'], 12007, { teachBack: 'A9o BTN suele ser open; late position cambia la respuesta.' }),
-        rfiSpot('c02-08', 'SB', ['Kh', 'Qd'], 12008, { teachBack: 'KQo SB es open/3-bet frecuente vs BB.' }),
+        rfiSpot('c02-08', 'HJ', ['Kh', 'Qd'], 12008, { teachBack: 'KQo HJ es open frecuente.' }),
         rfiSpot('c02-09', 'HJ', ['6s', '6c'], 12009, { teachBack: '66 se abre desde HJ sin dudar.' }),
         rfiSpot('c02-10', 'CO', ['Jd', '8d'], 12010, { teachBack: 'J8s CO entra en muchos rangos de open wide.' }),
         rfiSpot('c02-11', 'UTG', ['Kd', 'Js'], 12011, {
@@ -199,7 +201,7 @@
       route: 'cash',
       module: 'M0',
       order: 3,
-      plan: 'study',
+      plan: 'free',
       xp: 100,
       passThreshold: 0.7,
       goldThreshold: 0.9,
@@ -239,8 +241,8 @@
         rfiSpot('c03-05', 'BTN', ['Qh', '9c'], 13005, {
           teachBack: 'Q9o gana FE en BTN. Open de steal.'
         }),
-        rfiSpot('c03-06', 'SB', ['9d', '8d'], 13006, {
-          teachBack: 'Suited connectors SB: open para no regalar la iniciativa a BB.'
+        rfiSpot('c03-06', 'CO', ['9d', '8d'], 13006, {
+          teachBack: '98s CO: open con FE y playability. (SB lo vemos en C-05.)'
         }),
         rfiSpot('c03-07', 'UTG', ['Th', '7h'], 13007, {
           trapTag: 'dominated',
@@ -259,60 +261,206 @@
     },
     {
       id: 'C-04',
-      title: 'Examen M0 · Fundamentos',
+      title: 'Sizing del open',
       route: 'cash',
       module: 'M0',
       order: 4,
-      plan: 'study',
+      plan: 'free',
+      xp: 100,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 12,
+      concept: 'En cash 6-max a 100 bb el open estándar es ~2–2,5 bb. La decisión clave sigue siendo open o fold; el sizing no sustituye un rango malo.',
+      theory: [
+        'Sizing estándar (~2–2,5 bb) mantiene el bote jugable y te da FE suficiente sin inflar el pot con manos mediocres.',
+        'No “arreglas” un open malo abriendo más grande: si la mano no entra en rango, fold.',
+        'Más adelante (Study) verás ajustes por sala, vs fish o stacks cortos; en M0 interioriza el estándar y la disciplina open/fold.'
+      ],
+      examples: [
+        {
+          title: 'Open estándar, no hero size',
+          body: 'En CO con AJs abres ~2,2–2,5 bb. No subas a 5 bb “para proteger” ni limpees: open estándar o fold.'
+        }
+      ],
+      aiQuestions: [
+        '¿Por qué open a 2–2,5 bb y no a 4 bb en cash 100 bb?',
+        '¿El sizing grande justifica abrir manos peores?'
+      ],
+      spots: [
+        rfiSpot('c04-01', 'CO', ['Ah', 'Js'], 14001, {
+          teachBack: 'AJs CO: open claro con sizing estándar. No limpees ni inventes oversize.'
+        }),
+        rfiSpot('c04-02', 'UTG', ['7h', '2d'], 14002, {
+          trapTag: 'dominated',
+          teachBack: '72o no se “arregla” abriendo grande. Fold.'
+        }),
+        rfiSpot('c04-03', 'BTN', ['Td', '9d'], 14003, {
+          teachBack: 'T9s BTN: open steal con sizing normal. La FE viene de la posición, no del oversize.'
+        }),
+        rfiSpot('c04-04', 'HJ', ['Qs', '9c'], 14004, {
+          trapTag: 'fancy_play',
+          teachBack: 'Q9o HJ no entra cómodo: fold. Un open grande no lo convierte en bueno.'
+        }),
+        rfiSpot('c04-05', 'CO', ['Kh', 'Qs'], 14005, {
+          teachBack: 'KQo CO: value open. Sizing estándar.'
+        }),
+        rfiSpot('c04-06', 'UTG', ['Ah', '9d'], 14006, {
+          trapTag: 'dominated',
+          teachBack: 'A9o UTG: fold. No compensas con sizing.'
+        }),
+        rfiSpot('c04-07', 'BTN', ['8c', '7c'], 14007, {
+          teachBack: '87s BTN: open steal estándar.'
+        }),
+        rfiSpot('c04-08', 'HJ', ['5s', '5c'], 14008, {
+          teachBack: '55 HJ: open. El tamaño típico basta; no necesitas iso enorme sin limps.'
+        }),
+        rfiSpot('c04-09', 'UTG', ['Jd', 'Td'], 14009, {
+          teachBack: 'JTs UTG suele ser open en charts modernos con sizing estándar.'
+        }),
+        rfiSpot('c04-10', 'CO', ['6h', '5d'], 14010, {
+          trapTag: 'fancy_play',
+          teachBack: '65o CO: fold frecuente. No lo forces con un open “para ver flop”.'
+        }),
+        rfiSpot('c04-11', 'BTN', ['Ac', '4c'], 14011, {
+          teachBack: 'A4s BTN: open wide / blockers con sizing normal.'
+        }),
+        rfiSpot('c04-12', 'HJ', ['Kd', 'Jc'], 14012, {
+          teachBack: 'KJo HJ: open habitual. Disciplina: open estándar o fold, no limp.'
+        })
+      ]
+    },
+    {
+      id: 'C-05',
+      title: 'RFI desde SB',
+      route: 'cash',
+      module: 'M0',
+      order: 5,
+      plan: 'free',
+      xp: 110,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 12,
+      concept: 'El SB es early OOP frente al BB: abres más tight que en BTN. Over-open desde SB es una trampa clásica.',
+      theory: [
+        'Tras el SB queda el BB: juegas casi siempre fuera de posición postflop si te llaman.',
+        'Por eso el rango RFI SB es más tight que BTN: menos basura offsuit, más manos con playability o blockers.',
+        'Trampa: abrir K9o/Q8o/JTo “porque es late” — en SB no eres BTN.'
+      ],
+      examples: [
+        {
+          title: 'BTN ≠ SB',
+          body: 'K9o en BTN suele ser steal. La misma mano en SB vs BB es mucho más marginal: muchas veces fold o 3-bet polar, no open automático wide.'
+        }
+      ],
+      aiQuestions: [
+        '¿Por qué el SB abre más tight que el BTN?',
+        '¿Qué manos priorizo al abrir desde SB?'
+      ],
+      spots: [
+        rfiSpot('c05-01', 'SB', ['As', 'Kd'], 15001, {
+          teachBack: 'AKo SB: open/3-bet fuerte. Clear open vs BB.'
+        }),
+        rfiSpot('c05-02', 'SB', ['Kh', '9c'], 15002, {
+          trapTag: 'over_open_sb',
+          teachBack: 'K9o SB: trampa over-open. OOP vs BB; muchas estrategias fold o 3-bet polar, no open wide automático.'
+        }),
+        rfiSpot('c05-03', 'SB', ['Qs', 'Js'], 15003, {
+          teachBack: 'QJs SB: open sólido (suited, playability).'
+        }),
+        rfiSpot('c05-04', 'SB', ['7d', '2c'], 15004, {
+          trapTag: 'dominated',
+          teachBack: '72o SB: fold. Nunca.'
+        }),
+        rfiSpot('c05-05', 'SB', ['Ad', '5d'], 15005, {
+          teachBack: 'A5s SB: open frecuente (blockers + equity).'
+        }),
+        rfiSpot('c05-06', 'SB', ['Jh', 'Tc'], 15006, {
+          trapTag: 'over_open_sb',
+          teachBack: 'JTo SB es frontera/fold en muchos charts: OOP duele. No lo trates como BTN.'
+        }),
+        rfiSpot('c05-07', 'SB', ['9s', '9c'], 15007, {
+          teachBack: '99 SB: open claro.'
+        }),
+        rfiSpot('c05-08', 'SB', ['Qc', '8d'], 15008, {
+          trapTag: 'over_open_sb',
+          teachBack: 'Q8o SB: basura offsuit OOP. Fold.'
+        }),
+        rfiSpot('c05-09', 'SB', ['Kh', 'Qs'], 15009, {
+          teachBack: 'KQo SB: open habitual vs BB.'
+        }),
+        rfiSpot('c05-10', 'SB', ['8h', '7h'], 15010, {
+          teachBack: '87s SB: open especulativo pero razonable (suited).'
+        }),
+        rfiSpot('c05-11', 'SB', ['Ah', '2c'], 15011, {
+          trapTag: 'over_open_sb',
+          teachBack: 'A2o SB: débil offsuit OOP. Suele ser fold o 3-bet polar muy selectivo — no open automático.'
+        }),
+        rfiSpot('c05-12', 'SB', ['Jc', 'Tc'], 15012, {
+          teachBack: 'JTs SB: open fuerte (suited connector high).'
+        })
+      ]
+    },
+    {
+      id: 'C-06',
+      title: 'Examen M0 · Fundamentos',
+      route: 'cash',
+      module: 'M0',
+      order: 6,
+      plan: 'free',
       xp: 150,
       passThreshold: 0.7,
       goldThreshold: 0.9,
       decisionEnd: true,
       hands: 16,
-      concept: 'Examen del módulo: posición, RFI y fold equity mezclados con trampas.',
+      concept: 'Examen del módulo: posición, RFI, fold equity, sizing mental y SB mezclados con trampas.',
       theory: [
-        'No hay teoría nueva: aplica lo de C-01 a C-03.',
-        'Lee posición + combo antes de actuar. Las trampas repiten errores típicos de principiantes.'
+        'No hay teoría nueva: aplica C-01 a C-05.',
+        'Checklist: posición → ¿entra en rango? → open estándar o fold. En SB, más tight que BTN.'
       ],
       examples: [
         {
           title: 'Checklist rápido',
-          body: '1) ¿Qué posición? 2) ¿El combo está en el rango de open? 3) Si no, fold. Si sí, open.'
+          body: '1) ¿Qué posición? 2) ¿El combo está en el rango de open? 3) Si no, fold. Si sí, open (sizing estándar).'
         }
       ],
       aiQuestions: [
         '¿Cuáles son mis fugas más típicas al abrir el bote?',
-        'Resume rangos RFI UTG vs BTN en una frase.'
+        'Resume en una frase RFI UTG vs BTN vs SB.'
       ],
       spots: [
-        rfiSpot('c04-01', 'UTG', ['As', 'Ks'], 14001, { teachBack: 'AKs UTG: open.' }),
-        rfiSpot('c04-02', 'UTG', ['Kd', '9c'], 14002, {
+        rfiSpot('c06-01', 'UTG', ['As', 'Ks'], 16001, { teachBack: 'AKs UTG: open.' }),
+        rfiSpot('c06-02', 'UTG', ['Kd', '9c'], 16002, {
           trapTag: 'dominated',
           teachBack: 'K9o UTG: fold.'
         }),
-        rfiSpot('c04-03', 'BTN', ['Kd', '9c'], 14003, { teachBack: 'K9o BTN: open.' }),
-        rfiSpot('c04-04', 'CO', ['Qh', 'Qd'], 14004, { teachBack: 'QQ: open siempre.' }),
-        rfiSpot('c04-05', 'HJ', ['Ah', 'Td'], 14005, { teachBack: 'ATo HJ suele ser open.' }),
-        rfiSpot('c04-06', 'UTG', ['Ah', 'Td'], 14006, {
+        rfiSpot('c06-03', 'BTN', ['Kd', '9c'], 16003, { teachBack: 'K9o BTN: open.' }),
+        rfiSpot('c06-04', 'SB', ['Kd', '9c'], 16004, {
+          trapTag: 'over_open_sb',
+          teachBack: 'K9o SB: no es BTN. Fold / no over-open.'
+        }),
+        rfiSpot('c06-05', 'CO', ['Qh', 'Qd'], 16005, { teachBack: 'QQ: open siempre (sizing estándar).' }),
+        rfiSpot('c06-06', 'HJ', ['Ah', 'Td'], 16006, { teachBack: 'ATo HJ suele ser open.' }),
+        rfiSpot('c06-07', 'UTG', ['Ah', 'Td'], 16007, {
           trapTag: 'position_blind',
           teachBack: 'ATo UTG: fold frecuente.'
         }),
-        rfiSpot('c04-07', 'SB', ['Js', 'Ts'], 14007, { teachBack: 'JTs SB: open.' }),
-        rfiSpot('c04-08', 'BTN', ['4h', '4c'], 14008, { teachBack: '44 BTN: open.' }),
-        rfiSpot('c04-09', 'CO', ['9c', '8h'], 14009, {
+        rfiSpot('c06-08', 'SB', ['Js', 'Ts'], 16008, { teachBack: 'JTs SB: open.' }),
+        rfiSpot('c06-09', 'BTN', ['4h', '4c'], 16009, { teachBack: '44 BTN: open.' }),
+        rfiSpot('c06-10', 'CO', ['9c', '8h'], 16010, {
           trapTag: 'fancy_play',
-          teachBack: '98o CO no es automático; muchas veces fold. No inventes el limp.'
+          teachBack: '98o CO no es automático; muchas veces fold. No inventes el limp ni el oversize.'
         }),
-        rfiSpot('c04-10', 'BTN', ['9c', '8h'], 14010, { teachBack: '98o BTN: steal razonable.' }),
-        rfiSpot('c04-11', 'UTG', ['Qc', 'Jc'], 14011, { teachBack: 'QJs UTG: open en charts modernos.' }),
-        rfiSpot('c04-12', 'HJ', ['7d', '2c'], 14012, {
-          trapTag: 'dominated',
-          teachBack: '72o: fold.'
+        rfiSpot('c06-11', 'BTN', ['9c', '8h'], 16011, { teachBack: '98o BTN: steal razonable.' }),
+        rfiSpot('c06-12', 'UTG', ['Qc', 'Jc'], 16012, { teachBack: 'QJs UTG: open en charts modernos.' }),
+        rfiSpot('c06-13', 'SB', ['Qc', '8d'], 16013, {
+          trapTag: 'over_open_sb',
+          teachBack: 'Q8o SB: fold. Over-open típico.'
         }),
-        rfiSpot('c04-13', 'CO', ['Ad', 'Jc'], 14013, { teachBack: 'AJo CO: open.' }),
-        rfiSpot('c04-14', 'BTN', ['Kh', '5h'], 14014, { teachBack: 'K5s BTN: open wide / blockers.' }),
-        rfiSpot('c04-15', 'SB', ['Ac', 'Qc'], 14015, { teachBack: 'AQs SB: open fuerte.' }),
-        rfiSpot('c04-16', 'UTG', ['Td', '8d'], 14016, {
+        rfiSpot('c06-14', 'CO', ['Ad', 'Jc'], 16014, { teachBack: 'AJo CO: open.' }),
+        rfiSpot('c06-15', 'BTN', ['Kh', '5h'], 16015, { teachBack: 'K5s BTN: open wide / blockers.' }),
+        rfiSpot('c06-16', 'UTG', ['Td', '8d'], 16016, {
           trapTag: 'position_blind',
           teachBack: 'T8s UTG: fold típico; guárdalo para late.'
         })
@@ -346,14 +494,20 @@
     return null;
   }
 
+  function m0Lessons() {
+    return lessonsForRoute('cash').filter(function (l) { return l.module === 'M0'; });
+  }
+
   global.PTSchoolData = {
     XP_PER_LEVEL: XP_PER_LEVEL,
+    SCHOOL_DATA_VERSION: SCHOOL_DATA_VERSION,
     ROUTES: ROUTES,
     LESSONS: LESSONS,
     getLessons: getLessons,
     getLesson: getLesson,
     lessonsForRoute: lessonsForRoute,
     nextLessonId: nextLessonId,
+    m0Lessons: m0Lessons,
     rfiSpot: rfiSpot
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -402,17 +556,47 @@
   /* ---------- Progreso (stats.school → cloud via stats) ---------- */
 
   function defaultSchool() {
-    return { xp: 0, lessons: {}, updatedAt: 0 };
+    return { xp: 0, lessons: {}, updatedAt: 0, version: 2 };
+  }
+
+  /**
+   * v1→v2: el examen M0 pasó de C-04 a C-06; C-04 es ahora "Sizing del open".
+   * Migra progreso del examen antiguo a C-06 y deja C-04 limpio.
+   */
+  function migrateSchoolProgress(school) {
+    var out = school && typeof school === 'object' ? school : defaultSchool();
+    var ver = Number(out.version) || 1;
+    if (ver >= 2) return out;
+    var lessons = out.lessons && typeof out.lessons === 'object' ? Object.assign({}, out.lessons) : {};
+    if (lessons['C-04'] && !lessons['C-06']) {
+      lessons['C-06'] = lessons['C-04'];
+      delete lessons['C-04'];
+    }
+    out.lessons = lessons;
+    out.version = 2;
+    out._migrated = true;
+    return out;
   }
 
   function readSchool() {
     var st = Store() && Store().getStats ? Store().getStats() : null;
     var school = (st && st.school) ? st.school : null;
     if (!school || typeof school !== 'object') return defaultSchool();
-    return {
+    var migrated = migrateSchoolProgress({
       xp: Number(school.xp) || 0,
       lessons: school.lessons && typeof school.lessons === 'object' ? school.lessons : {},
-      updatedAt: Number(school.updatedAt) || 0
+      updatedAt: Number(school.updatedAt) || 0,
+      version: Number(school.version) || 1
+    });
+    if (migrated._migrated) {
+      delete migrated._migrated;
+      writeSchool(migrated);
+    }
+    return {
+      xp: Number(migrated.xp) || 0,
+      lessons: migrated.lessons || {},
+      updatedAt: Number(migrated.updatedAt) || 0,
+      version: Number(migrated.version) || 2
     };
   }
 
@@ -423,7 +607,8 @@
     st.school = {
       xp: Number(school.xp) || 0,
       lessons: school.lessons || {},
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      version: Number(school.version) || 2
     };
     S.persistStats(st);
     if (global.PTCloud) {
@@ -463,6 +648,23 @@
       if (list[i].id === lessonId) return isLessonPassed(list[i - 1].id);
     }
     return false;
+  }
+
+  /**
+   * Gate de contenido (preparado para Fase D).
+   * Hoy: admin-only UI + desbloqueo lineal. En D se añadirá Study/Coach.
+   */
+  function canPlayLesson(lessonId) {
+    if (!hasAdminAccess()) {
+      return { ok: false, reason: 'admin_only', message: 'Escuela en pruebas (solo administración).' };
+    }
+    var lesson = Data() && Data().getLesson(lessonId);
+    if (!lesson) return { ok: false, reason: 'missing', message: 'Lección no encontrada.' };
+    if (!isLessonUnlocked(lessonId)) {
+      return { ok: false, reason: 'locked', message: 'Completa la lección anterior.' };
+    }
+    // Fase D: comprobar lesson.plan vs entitlements (free/study/coach).
+    return { ok: true, lesson: lesson };
   }
 
   function scorePoints(cls, pro) {
@@ -691,7 +893,8 @@
     var data = Data();
     var lesson = data && data.getLesson(lessonId);
     if (!lesson) return;
-    if (!isLessonUnlocked(lessonId)) return;
+    var gate = canPlayLesson(lessonId);
+    if (!gate.ok) return;
     if (!lesson.spots || !lesson.spots.length) {
       var summary = completeTheoryLesson(lesson);
       state.view = VIEW.result;
@@ -784,14 +987,23 @@
     var routes = (data && data.ROUTES) || [];
     var lessons = data.lessonsForRoute(state.route);
     var rp = routeProgress(state.route);
+    var m0 = data.m0Lessons ? data.m0Lessons() : lessons.filter(function (l) { return l.module === 'M0'; });
+    var m0Passed = 0;
+    m0.forEach(function (l) { if (isLessonPassed(l.id)) m0Passed += 1; });
+    var m0Pct = m0.length ? Math.round((m0Passed / m0.length) * 100) : 0;
 
     var routeTabs = routes.map(function (r) {
       var active = r.id === state.route ? ' is-active' : '';
       var soon = r.status === 'soon' ? ' is-soon' : '';
+      var title = r.status === 'soon' ? (r.teaser || 'Próximamente') : '';
       return '<button type="button" class="school-route-tab' + active + soon + '" data-school-route="' + esc(r.id) + '"' +
-        (r.status === 'soon' ? ' disabled title="Próximamente"' : '') + '>' +
+        (r.status === 'soon' ? ' disabled title="' + esc(title) + '"' : '') + '>' +
         esc(r.label) + (r.status === 'soon' ? ' <span class="school-soon">Pronto</span>' : '') +
         '</button>';
+    }).join('');
+
+    var soonTeasers = routes.filter(function (r) { return r.status === 'soon' && r.teaser; }).map(function (r) {
+      return '<li><strong>' + esc(r.label) + ':</strong> ' + esc(r.teaser) + '</li>';
     }).join('');
 
     var nodes = lessons.map(function (l, idx) {
@@ -820,22 +1032,27 @@
     root.innerHTML =
       '<div class="school-page">' +
       '<header class="school-hero">' +
-      '<p class="school-eyebrow">Admin · Fase A–C</p>' +
+      '<p class="school-eyebrow">Admin · M0 v2 · Preparado para Fase D</p>' +
       '<h2 class="school-title">Escuela de Póker</h2>' +
-      '<p class="school-lead">Lecciones dirigidas con spots fijos. Aprueba para desbloquear la siguiente. Las manos consumen el cupo Free del entrenador.</p>' +
+      '<p class="school-lead">Módulo M0 Cash completo en Gratis (7 lecciones). Spots fijos, desbloqueo lineal. Las manos consumen el cupo Free del entrenador.</p>' +
       '<div class="school-hero-stats">' +
       '<div class="school-stat"><span class="school-stat-val">Nv. ' + lv.level + '</span><span class="school-stat-lbl">Nivel Escuela</span></div>' +
       '<div class="school-stat"><span class="school-stat-val">' + lv.xp + '</span><span class="school-stat-lbl">XP</span></div>' +
-      '<div class="school-stat"><span class="school-stat-val">' + rp.passed + '/' + rp.total + '</span><span class="school-stat-lbl">Cash superadas</span></div>' +
+      '<div class="school-stat"><span class="school-stat-val">' + m0Passed + '/' + m0.length + '</span><span class="school-stat-lbl">M0 Cash</span></div>' +
       '<div class="school-stat"><span class="school-stat-val">' + rp.gold + '</span><span class="school-stat-lbl">Oro</span></div>' +
       '</div>' +
       '<div class="school-xp-bar" aria-hidden="true"><div class="school-xp-fill" style="width:' +
       Math.min(100, Math.round((lv.into / lv.per) * 100)) + '%"></div></div>' +
+      '<p class="muted-text school-m0-progress">Progreso M0: ' + m0Passed + ' de ' + m0.length +
+      ' lecciones (' + m0Pct + '%)</p>' +
       '</header>' +
       '<div class="school-routes" role="tablist">' + routeTabs + '</div>' +
+      (soonTeasers
+        ? '<div class="muted-text school-route-teasers">Próximas rutas:<ul class="school-teaser-list">' + soonTeasers + '</ul></div>'
+        : '') +
       '<section class="school-map card-box">' +
-      '<h3 class="school-map-title">Módulo M0 · Fundamentos Cash</h3>' +
-      '<p class="muted-text school-map-lead">De simple a examen. Completa en orden.</p>' +
+      '<h3 class="school-map-title">Módulo M0 · Fundamentos Cash (Gratis)</h3>' +
+      '<p class="muted-text school-map-lead">7 lecciones de simple a examen. Completa en orden. Tras M0, Study abre el preflop completo (Fase E).</p>' +
       '<div class="school-nodes">' + nodes + '</div>' +
       '</section>' +
       '</div>';
@@ -851,7 +1068,8 @@
     root.querySelectorAll('[data-school-lesson]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = btn.getAttribute('data-school-lesson');
-        if (!id || !isLessonUnlocked(id)) return;
+        var gate = canPlayLesson(id);
+        if (!gate.ok) return;
         state.view = VIEW.lesson;
         state.lessonId = id;
         render(root);
@@ -1064,6 +1282,8 @@
     readSchool: readSchool,
     isLessonUnlocked: isLessonUnlocked,
     isLessonPassed: isLessonPassed,
+    canPlayLesson: canPlayLesson,
+    migrateSchoolProgress: migrateSchoolProgress,
     startLessonSession: startLessonSession,
     abandonSession: abandonSession,
     ensureBannerEl: ensureBannerEl,

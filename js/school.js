@@ -42,17 +42,47 @@
   /* ---------- Progreso (stats.school → cloud via stats) ---------- */
 
   function defaultSchool() {
-    return { xp: 0, lessons: {}, updatedAt: 0 };
+    return { xp: 0, lessons: {}, updatedAt: 0, version: 2 };
+  }
+
+  /**
+   * v1→v2: el examen M0 pasó de C-04 a C-06; C-04 es ahora "Sizing del open".
+   * Migra progreso del examen antiguo a C-06 y deja C-04 limpio.
+   */
+  function migrateSchoolProgress(school) {
+    var out = school && typeof school === 'object' ? school : defaultSchool();
+    var ver = Number(out.version) || 1;
+    if (ver >= 2) return out;
+    var lessons = out.lessons && typeof out.lessons === 'object' ? Object.assign({}, out.lessons) : {};
+    if (lessons['C-04'] && !lessons['C-06']) {
+      lessons['C-06'] = lessons['C-04'];
+      delete lessons['C-04'];
+    }
+    out.lessons = lessons;
+    out.version = 2;
+    out._migrated = true;
+    return out;
   }
 
   function readSchool() {
     var st = Store() && Store().getStats ? Store().getStats() : null;
     var school = (st && st.school) ? st.school : null;
     if (!school || typeof school !== 'object') return defaultSchool();
-    return {
+    var migrated = migrateSchoolProgress({
       xp: Number(school.xp) || 0,
       lessons: school.lessons && typeof school.lessons === 'object' ? school.lessons : {},
-      updatedAt: Number(school.updatedAt) || 0
+      updatedAt: Number(school.updatedAt) || 0,
+      version: Number(school.version) || 1
+    });
+    if (migrated._migrated) {
+      delete migrated._migrated;
+      writeSchool(migrated);
+    }
+    return {
+      xp: Number(migrated.xp) || 0,
+      lessons: migrated.lessons || {},
+      updatedAt: Number(migrated.updatedAt) || 0,
+      version: Number(migrated.version) || 2
     };
   }
 
@@ -63,7 +93,8 @@
     st.school = {
       xp: Number(school.xp) || 0,
       lessons: school.lessons || {},
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      version: Number(school.version) || 2
     };
     S.persistStats(st);
     if (global.PTCloud) {
@@ -103,6 +134,23 @@
       if (list[i].id === lessonId) return isLessonPassed(list[i - 1].id);
     }
     return false;
+  }
+
+  /**
+   * Gate de contenido (preparado para Fase D).
+   * Hoy: admin-only UI + desbloqueo lineal. En D se añadirá Study/Coach.
+   */
+  function canPlayLesson(lessonId) {
+    if (!hasAdminAccess()) {
+      return { ok: false, reason: 'admin_only', message: 'Escuela en pruebas (solo administración).' };
+    }
+    var lesson = Data() && Data().getLesson(lessonId);
+    if (!lesson) return { ok: false, reason: 'missing', message: 'Lección no encontrada.' };
+    if (!isLessonUnlocked(lessonId)) {
+      return { ok: false, reason: 'locked', message: 'Completa la lección anterior.' };
+    }
+    // Fase D: comprobar lesson.plan vs entitlements (free/study/coach).
+    return { ok: true, lesson: lesson };
   }
 
   function scorePoints(cls, pro) {
@@ -331,7 +379,8 @@
     var data = Data();
     var lesson = data && data.getLesson(lessonId);
     if (!lesson) return;
-    if (!isLessonUnlocked(lessonId)) return;
+    var gate = canPlayLesson(lessonId);
+    if (!gate.ok) return;
     if (!lesson.spots || !lesson.spots.length) {
       var summary = completeTheoryLesson(lesson);
       state.view = VIEW.result;
@@ -424,14 +473,23 @@
     var routes = (data && data.ROUTES) || [];
     var lessons = data.lessonsForRoute(state.route);
     var rp = routeProgress(state.route);
+    var m0 = data.m0Lessons ? data.m0Lessons() : lessons.filter(function (l) { return l.module === 'M0'; });
+    var m0Passed = 0;
+    m0.forEach(function (l) { if (isLessonPassed(l.id)) m0Passed += 1; });
+    var m0Pct = m0.length ? Math.round((m0Passed / m0.length) * 100) : 0;
 
     var routeTabs = routes.map(function (r) {
       var active = r.id === state.route ? ' is-active' : '';
       var soon = r.status === 'soon' ? ' is-soon' : '';
+      var title = r.status === 'soon' ? (r.teaser || 'Próximamente') : '';
       return '<button type="button" class="school-route-tab' + active + soon + '" data-school-route="' + esc(r.id) + '"' +
-        (r.status === 'soon' ? ' disabled title="Próximamente"' : '') + '>' +
+        (r.status === 'soon' ? ' disabled title="' + esc(title) + '"' : '') + '>' +
         esc(r.label) + (r.status === 'soon' ? ' <span class="school-soon">Pronto</span>' : '') +
         '</button>';
+    }).join('');
+
+    var soonTeasers = routes.filter(function (r) { return r.status === 'soon' && r.teaser; }).map(function (r) {
+      return '<li><strong>' + esc(r.label) + ':</strong> ' + esc(r.teaser) + '</li>';
     }).join('');
 
     var nodes = lessons.map(function (l, idx) {
@@ -460,22 +518,27 @@
     root.innerHTML =
       '<div class="school-page">' +
       '<header class="school-hero">' +
-      '<p class="school-eyebrow">Admin · Fase A–C</p>' +
+      '<p class="school-eyebrow">Admin · M0 v2 · Preparado para Fase D</p>' +
       '<h2 class="school-title">Escuela de Póker</h2>' +
-      '<p class="school-lead">Lecciones dirigidas con spots fijos. Aprueba para desbloquear la siguiente. Las manos consumen el cupo Free del entrenador.</p>' +
+      '<p class="school-lead">Módulo M0 Cash completo en Gratis (7 lecciones). Spots fijos, desbloqueo lineal. Las manos consumen el cupo Free del entrenador.</p>' +
       '<div class="school-hero-stats">' +
       '<div class="school-stat"><span class="school-stat-val">Nv. ' + lv.level + '</span><span class="school-stat-lbl">Nivel Escuela</span></div>' +
       '<div class="school-stat"><span class="school-stat-val">' + lv.xp + '</span><span class="school-stat-lbl">XP</span></div>' +
-      '<div class="school-stat"><span class="school-stat-val">' + rp.passed + '/' + rp.total + '</span><span class="school-stat-lbl">Cash superadas</span></div>' +
+      '<div class="school-stat"><span class="school-stat-val">' + m0Passed + '/' + m0.length + '</span><span class="school-stat-lbl">M0 Cash</span></div>' +
       '<div class="school-stat"><span class="school-stat-val">' + rp.gold + '</span><span class="school-stat-lbl">Oro</span></div>' +
       '</div>' +
       '<div class="school-xp-bar" aria-hidden="true"><div class="school-xp-fill" style="width:' +
       Math.min(100, Math.round((lv.into / lv.per) * 100)) + '%"></div></div>' +
+      '<p class="muted-text school-m0-progress">Progreso M0: ' + m0Passed + ' de ' + m0.length +
+      ' lecciones (' + m0Pct + '%)</p>' +
       '</header>' +
       '<div class="school-routes" role="tablist">' + routeTabs + '</div>' +
+      (soonTeasers
+        ? '<div class="muted-text school-route-teasers">Próximas rutas:<ul class="school-teaser-list">' + soonTeasers + '</ul></div>'
+        : '') +
       '<section class="school-map card-box">' +
-      '<h3 class="school-map-title">Módulo M0 · Fundamentos Cash</h3>' +
-      '<p class="muted-text school-map-lead">De simple a examen. Completa en orden.</p>' +
+      '<h3 class="school-map-title">Módulo M0 · Fundamentos Cash (Gratis)</h3>' +
+      '<p class="muted-text school-map-lead">7 lecciones de simple a examen. Completa en orden. Tras M0, Study abre el preflop completo (Fase E).</p>' +
       '<div class="school-nodes">' + nodes + '</div>' +
       '</section>' +
       '</div>';
@@ -491,7 +554,8 @@
     root.querySelectorAll('[data-school-lesson]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = btn.getAttribute('data-school-lesson');
-        if (!id || !isLessonUnlocked(id)) return;
+        var gate = canPlayLesson(id);
+        if (!gate.ok) return;
         state.view = VIEW.lesson;
         state.lessonId = id;
         render(root);
@@ -704,6 +768,8 @@
     readSchool: readSchool,
     isLessonUnlocked: isLessonUnlocked,
     isLessonPassed: isLessonPassed,
+    canPlayLesson: canPlayLesson,
+    migrateSchoolProgress: migrateSchoolProgress,
     startLessonSession: startLessonSession,
     abandonSession: abandonSession,
     ensureBannerEl: ensureBannerEl,

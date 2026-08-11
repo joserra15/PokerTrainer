@@ -1486,13 +1486,10 @@ body.age-gate-open {
 .school-gold-tag { color: var(--gold, #e3b341); font-weight: 650; }
 .school-fail-list { margin: 0; padding-left: 18px; line-height: 1.55; }
 .school-result-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.school-play-banner {
-  margin: 0 0 10px;
-  border: 1px solid rgba(234,179,8,.35);
-  background: linear-gradient(90deg, rgba(234,179,8,.14), rgba(47,129,247,.08));
-  border-radius: 10px;
-  padding: 8px 12px;
-}
+.school-m0-progress { margin: 10px 0 0; font-size: 13px; }
+.school-route-teasers { margin: 0 0 8px; }
+.school-teaser-list { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }
+.school-teaser-list li { margin: 4px 0; }
 .school-play-banner-inner {
   display: flex; flex-wrap: wrap; gap: 10px 14px;
   align-items: center; justify-content: space-between;
