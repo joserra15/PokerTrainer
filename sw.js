@@ -1,7 +1,7 @@
 /* Service worker — PWA instalable. Shell offline + assets versionados cache-first. */
 'use strict';
 
-var CACHE = 'pt-shell-v15';
+var CACHE = 'pt-shell-v16';
 var PRECACHE = [
   './offline.html',
   './apple-touch-icon.png',
@@ -16,8 +16,7 @@ function isAppAsset(pathname) {
   return pathname.indexOf('/js/') >= 0 ||
     pathname.indexOf('/dist/') >= 0 ||
     pathname.indexOf('/css/') >= 0 ||
-    pathname.endsWith('/js/version.js') ||
-    pathname.endsWith('/deploy-info.json');
+    pathname.endsWith('/js/version.js');
 }
 
 function isVersionedRequest(url) {

@@ -9,7 +9,7 @@
 
   function clearCachesAndReload(targetBuild) {
     var mark = String(targetBuild || build);
-    // Evita bucle si deploy-info.json / version.js están desfasados
+    // Evita bucle si version.js está desfasado respecto a la página
     try {
       if (sessionStorage.getItem(reloadKey) === mark) return;
       sessionStorage.setItem(reloadKey, mark);
@@ -32,19 +32,6 @@
     });
   }
 
-  function checkDeployInfo(currentBuild) {
-    if (global.PT_E2E_MODE) return;
-    if (!('fetch' in global)) return;
-    var url = '/deploy-info.json?v=' + encodeURIComponent(currentBuild) + '&t=' + Date.now();
-    fetch(url, { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (info) {
-        if (!info || !info.build) return;
-        if (String(info.build) !== String(currentBuild)) clearCachesAndReload(info.build);
-      })
-      .catch(function () { /* archivo ausente o red: no bloquear */ });
-  }
-
   /** Contrarresta max-age de GitHub Pages en js/version.js. */
   function checkFreshVersionJs(currentBuild) {
     if (global.PT_E2E_MODE) return;
@@ -65,6 +52,6 @@
     return;
   }
   try { localStorage.setItem(key, build); } catch (e) { /* noop */ }
-  checkDeployInfo(build);
+  // Solo contrastar version.js fresco (GitHub Pages max-age); evita 404 en consola.
   checkFreshVersionJs(build);
 })(window);

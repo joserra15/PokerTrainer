@@ -15,6 +15,7 @@
     "test:landing-i18n": "node tools/test-landing-i18n.js",
     "test:landing-login": "node tools/test-landing-login-cta.js",
     "test:login-desktop": "node tools/test-login-desktop-regression.js",
+    "test:build-guard": "node tools/test-build-guard-no-deploy-info.js",
     "test:allin-runout": "node tools/test-allin-runout.js",
     "test:river-nut-flush": "node tools/test-river-board-ace-nut-flush.js",
     "test:river-monotone": "node tools/test-river-monotone-bet-range.js",
