@@ -126,6 +126,11 @@ lessons.forEach(function (l) {
 assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en school-data');
 assert.ok(/hacen call \(si te igualan la apuesta\)/.test(Data.getLesson('C-01').theory.join(' ')), 'C-01 explica call');
 assert.ok(
+  /todos folden \(tiren su mano\)/.test(Data.getLesson('C-03').concept) &&
+    /no limpear para/.test(Data.getLesson('C-03').concept),
+  'C-03 concept folden + no limpear'
+);
+assert.ok(
   /Limpear \(o limp\) es igualar la ciega grande/.test(Data.getLesson('C-02').theory.join(' ')),
   'C-02 explica limpear la primera vez'
 );
