@@ -42,7 +42,7 @@ Estudio y plan de posicionamiento para `www.pokerforgeai.com` (julio 2026).
 - `aria-hidden` en `#app-shell` cuando el usuario no está logueado
 
 ### Contenido / keywords objetivo
-- **Primarios:** entrenador GTO poker, NL Hold'em 6-max, estudiar poker, IA coach poker
+- **Primarios:** entrenador GTO poker, NL Hold'em 6-max, estudiar poker, ForgeCoach poker
 - **Secundarios:** importar PokerStars, cash game, fugas EV, metodología GTO
 - **Long-tail:** FAQ importación sesiones, planes Study Coach
 

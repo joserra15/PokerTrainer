@@ -21,7 +21,7 @@
 
 ## 1. Resumen ejecutivo
 
-**PokerForgeAI** es un SaaS de estudio NL Hold'em en español: entrenador GTO heurístico + importación de sesiones (PokerStars ES/EN, Winamax) + leak detection + IA Coach (Gemini) + freemium Stripe. No es un solver completo: es un **compañero de estudio asequible** orientado a jugadores recreativos–serios (NL10–NL100+).
+**PokerForgeAI** es un SaaS de estudio NL Hold'em en español: entrenador GTO heurístico + importación de sesiones (PokerStars ES/EN, Winamax) + leak detection + ForgeCoach (Gemini) + freemium Stripe. No es un solver completo: es un **compañero de estudio asequible** orientado a jugadores recreativos–serios (NL10–NL100+).
 
 | Dimensión | Valoración agosto 2026 |
 |-----------|------------------------|
@@ -40,7 +40,7 @@
 
 ### 2.1 Propuesta de valor
 
-> Entrena decisiones GTO, importa tus sesiones reales y mejora con IA Coach — en español, desde el navegador, sin tarjeta para empezar.
+> Entrena decisiones GTO, importa tus sesiones reales y mejora con ForgeCoach — en español, desde el navegador, sin tarjeta para empezar.
 
 Pilares reales en código:
 
@@ -49,7 +49,7 @@ Pilares reales en código:
 3. **Análisis** — mano manual / texto → estructura → review / train / share.
 4. **Rangos** — matrices 13×13 preflop (cash/MTT, stacks).
 5. **Errores / Stats / Leaks** — banco de errores, HUD estilo héroe, top leaks.
-6. **IA Coach** — informes mano/sesión/stats vía Gemini Edge Function.
+6. **ForgeCoach** — informes mano/sesión/stats vía Gemini Edge Function.
 7. **Cuenta cloud** — Google + Supabase sync + Stripe entitlements.
 
 ### 2.2 Público objetivo
@@ -117,13 +117,13 @@ El mercado de herramientas de poker se parte en **cinco categorías** que los ju
 | **B. Trainers GTO (drill)** | Repetición con grading EV | GTO Wizard Trainer, GTO Gecko, Lucid GTO, DTO, Postflop+ |
 | **C. AI sparring / coach interactivo** | Jugar vs IA + consejo en vivo | PokerSnowie, (parcialmente) PokerForgeAI |
 | **D. Trackers / HUD** | Stats de población y oponentes | Hand2Note, DriveHUD, PokerTracker |
-| **E. AI coaching narrativo** | Interpretar datos/manos en lenguaje natural | ClarityPoker, DriveHUD AI add-on, EdgeCore, PokerForgeAI IA Coach |
+| **E. ForgeCoaching narrativo** | Interpretar datos/manos en lenguaje natural | ClarityPoker, DriveHUD AI add-on, EdgeCore, PokerForgeAI ForgeCoach |
 
 **PokerForgeAI opera en C + E + parte de B**, con un pie en review de HH (sin ser tracker D).
 
 ### 3.2 Matriz comparativa (precios orientativos junio–agosto 2026)
 
-| Producto | Tipo | Precio | Trainer EV | Import HH | IA coach | ES nativo | Web/PWA | Público |
+| Producto | Tipo | Precio | Trainer EV | Import HH | ForgeCoach | ES nativo | Web/PWA | Público |
 |----------|------|--------|------------|-----------|----------|-----------|---------|---------|
 | **PokerForgeAI** | C+E+B | €0 / 15 / 35 | Sí (heurístico) | PS, Winamax | Gemini informes | **Sí** | Sí | Rec–serio ES |
 | PokerSnowie | C | ~$30/mes o ~$200–290/año | Sí (NN) | PS, GG, Winamax… | Live Advice (NN) | No | Desktop + apps | Beginner–intermedio |
@@ -169,9 +169,9 @@ Fuentes de precios: sitios oficiales y comparativas 2026 (GTO Gecko blog junio 2
 
 - El jugador que busca HUD/población **no** es nuestro comprador primario.
 - DriveHUD añade GTO + ChatGPT: señal de que el mercado mezcla tracker + IA.
-- **Implicación:** no construir HUD población; sí **export/interop** futuro (CSV/PT4) para que IA Coach lea leaks de tracker = upsell Coach.
+- **Implicación:** no construir HUD población; sí **export/interop** futuro (CSV/PT4) para que ForgeCoach lea leaks de tracker = upsell Coach.
 
-#### AI coaches narrativos (ClarityPoker, EdgeCore, add-ons)
+#### ForgeCoaches narrativos (ClarityPoker, EdgeCore, add-ons)
 
 - Emergen en 2025–2026: LLM + datos estructurados (RAG sobre solver docs o CSV).
 - PokerForgeAI ya tiene este pilar (Gemini + motor propio). Riesgo: proliferación de “ChatGPT + HH” baratos.
@@ -194,7 +194,7 @@ Fuentes de precios: sitios oficiales y comparativas 2026 (GTO Gecko blog junio 2
                     Precio alto
 ```
 
-Espacio vacío explotable: **“estudio de sesiones reales + coach IA en español bajo €20/mes”**. Casi nadie ocupa ese cuadrante con producto web listo.
+Espacio vacío explotable: **“estudio de sesiones reales + ForgeCoach en español bajo €20/mes”**. Casi nadie ocupa ese cuadrante con producto web listo.
 
 ### 3.5 Qué buscan los nuevos usuarios (jobs-to-be-done)
 
@@ -265,7 +265,7 @@ Escala de reclamo: 5 = “razón principal para registrarse o pagar”; 1 = nice
 |---|--------|---------|---------|-------|
 | **6** | **Dashboard leaks por calle y por spot (clic → drill)** | 4 | “Encontré mis fugas” es el momento de pago más fuerte tras import | Ampliar SN-30–32 sobre stats actuales |
 | **7** | **What-if en mano importada** (cambiar acción/carta y re-evaluar) | 4 | Diferenciador vs “solo nota”; sensación de solver ligero | SN-40; acotar HU |
-| **8** | **IA Coach: primer informe gratis / trial 3 informes + hilo de conversación real** | 4 | Upsell Coach; hoy free = 0 IA es muro duro | Coste Gemini; fair-use; reenviar contexto (gap en ESTUDIO_PROMPTS_IA) |
+| **8** | **ForgeCoach: primer informe gratis / trial 3 informes + hilo de conversación real** | 4 | Upsell Coach; hoy free = 0 IA es muro duro | Coste Gemini; fair-use; reenviar contexto (gap en ESTUDIO_PROMPTS_IA) |
 | **9** | **Adaptive drill: cola automática de peores spots (no solo “repetir fallados” manual)** | 3.5 | Paridad con expectativa Gecko/Wizard trainer | Usa error bank existente |
 | **10** | **Preflop sizing toggle (2.5x vs 3x) en rangos + spots favoritos** | 3.5 | Usuarios que vienen de charts preguntan sizing día 1 | SN-43/44 |
 | **11** | **Compartir mano / progreso social (ya hay share) potenciado: “mi peor leak de la semana”** | 3 | Virality ES en foros/Telegram/Discord | Extender `share.html` |
@@ -308,7 +308,7 @@ Escala de reclamo: 5 = “razón principal para registrarse o pagar”; 1 = nice
 
 ### Mensaje recomendado (post-P0)
 
-> **PokerForgeAI** — Entrena con consejo en vivo, importa PokerStars / Winamax / GG, detecta fugas y profundiza con IA Coach. En español, instalable como app, desde €0. Study €14,99/mes.  
+> **PokerForgeAI** — Entrena con consejo en vivo, importa PokerStars / Winamax / GG, detecta fugas y profundiza con ForgeCoach. En español, instalable como app, desde €0. Study €14,99/mes.  
 > No sustituye a GTO Wizard si necesitas un solver. Sustituye a Snowie si quieres idioma, precio e informes IA sobre **tus** sesiones.
 
 ### Pricing
@@ -357,7 +357,7 @@ Escala de reclamo: 5 = “razón principal para registrarse o pagar”; 1 = nice
 ### Anexo A — Fuentes
 
 - Producto interno: `README.md`, `docs/BILLING.md`, `docs/EPIC_10_PARIDAD_SNOWIE.md`, `docs/ESTUDIO_MERCADO.md` (histórico), código `js/*`, `legal/metodologia.html`
-- Mercado: [PokerSnowie](https://pokersnowie.com/), [GTO Gecko — Best trainers 2026](https://gtogecko.com/blog/best-gto-apps-platforms), [PokerNews GTO Wizard](https://www.pokernews.com/poker-tools/gto-wizard/), [DeucesCracked solvers](https://www.deucescracked.com/tools/gto-solvers), [PokerCorner solvers comparison](https://pokercorner.io/en/tools/solvers-comparison), [DriveHUD 3](https://drivehud.com/), Hand2Note pricing retailers, ClarityPoker / AI coach trend 2026
+- Mercado: [PokerSnowie](https://pokersnowie.com/), [GTO Gecko — Best trainers 2026](https://gtogecko.com/blog/best-gto-apps-platforms), [PokerNews GTO Wizard](https://www.pokernews.com/poker-tools/gto-wizard/), [DeucesCracked solvers](https://www.deucescracked.com/tools/gto-solvers), [PokerCorner solvers comparison](https://pokercorner.io/en/tools/solvers-comparison), [DriveHUD 3](https://drivehud.com/), Hand2Note pricing retailers, ClarityPoker / ForgeCoach trend 2026
 
 ### Anexo B — Relación con docs existentes
 

@@ -26,7 +26,7 @@
 
 ## 1. Resumen ejecutivo
 
-**PokerForgeAI** es una aplicación web de estudio de poker NLHE (JavaScript puro, sin build) desplegada en GitHub Pages. Combina entrenador GTO interactivo, importación de sesiones PokerStars (español), repaso de manos con evaluación por decisión, sincronización en nube (Supabase) e IA Coach (Gemini vía Edge Function).
+**PokerForgeAI** es una aplicación web de estudio de poker NLHE (JavaScript puro, sin build) desplegada en GitHub Pages. Combina entrenador GTO interactivo, importación de sesiones PokerStars (español), repaso de manos con evaluación por decisión, sincronización en nube (Supabase) e ForgeCoach (Gemini vía Edge Function).
 
 ### Veredicto
 
@@ -40,7 +40,7 @@
 
 **Conclusión:** El producto tiene valor real para el jugador recreativo-serio hispanohablante, pero **no está listo para mercado abierto** sin cerrar legal, auth/RLS, monetización y GTM básico.
 
-**Posicionamiento recomendado:** no competir con solvers premium (GTO Wizard). Ser el **compañero de estudio GTO asequible**: entrenamiento + repaso de sesiones reales + coach IA.
+**Posicionamiento recomendado:** no competir con solvers premium (GTO Wizard). Ser el **compañero de estudio GTO asequible**: entrenamiento + repaso de sesiones reales + ForgeCoach.
 
 **Pricing recomendado:** freemium + **Study ~€15/mes** + **Coach ~€35/mes**, con IA como palanca de upsell.
 
@@ -58,7 +58,7 @@
 | Import sesiones | PokerStars `.txt` ES Cash NL; análisis por decisión; nota de sesión | `js/import.js` |
 | Repaso de manos | Paso a paso, rejugar decisiones, matriz villano narrativa | `js/app.js`, `js/engine/ranges/villainTracking.js` |
 | Historial / errores / stats | localStorage, export JSON, drill de errores | `js/storage.js` |
-| IA Coach | Informes mano/sesión, caché local, consentimiento | `js/ai-report.js`, `supabase/functions/analyze-hand/` |
+| ForgeCoach | Informes mano/sesión, caché local, consentimiento | `js/ai-report.js`, `supabase/functions/analyze-hand/` |
 | Auth | Google OAuth (GIS); datos por `sub` | `js/auth-bootstrap.js`, `js/google-config.js` |
 | Sync nube | Supabase `pt_user_state`; merge al login | `js/cloud-store.js`, `supabase/schema.sql` |
 | CI/CD | Tests + deploy GitHub Pages | `.github/workflows/static.yml` |
@@ -99,7 +99,7 @@ Híbrido entre:
 
 1. **GTO decision trainer** (GTO Wizard Trainer, Upswing drills)
 2. **Hand-history reviewer** con scoring heurístico GTO
-3. **AI coaching layer** (informes cualitativos sobre manos/sesiones)
+3. **ForgeCoaching layer** (informes cualitativos sobre manos/sesiones)
 
 ### 3.2 Diferenciadores de PokerForgeAI
 
@@ -229,7 +229,7 @@ Menos fricción de decisión al lanzar.
 | 1 sesión import/mes | Import ilimitado |
 | Stats básicas | Dashboard progreso / leaks |
 | Repaso limitado | Matriz villano completa |
-| — | Informes IA Coach |
+| — | Informes ForgeCoach |
 | — | Sync multi-dispositivo prioritario |
 
 ---
@@ -289,7 +289,7 @@ Inversión única para pasar de proyecto personal a producto comercial mínimo v
 | Precio Coach | €34,99/mes | €34,99 | €34,99 |
 | Mix pagos | 70% Study / 30% Coach | 80% / 20% | 60% / 40% |
 | Comisión Stripe | 2,5% + €0,25/transacción | 3,0% + €0,25 | 2,0% + €0,25 |
-| Informes IA Coach/mes (media real) | 12 de 30 incluidos | 8 | 20 |
+| Informes ForgeCoach/mes (media real) | 12 de 30 incluidos | 8 | 20 |
 | Coste medio por informe IA (Gemini Flash) | €0,06 | €0,10 | €0,04 |
 | Conversión free → paid | 4% | 2% | 6% |
 | Churn mensual pagos | 7% | 10% | 5% |
@@ -622,7 +622,7 @@ Leyenda de esfuerzo: **S** = pequeño (1–2 días), **M** = medio (3–5 días)
 | Q-04 | Documento “Metodología GTO” público | S |
 | Q-05 | Indicador confianza por decisión | M |
 
-### EPIC 8 — IA Coach comercial `P1`
+### EPIC 8 — ForgeCoach comercial `P1`
 
 | ID | Tarea | Esfuerzo |
 |----|-------|----------|
@@ -658,7 +658,7 @@ Backlog creado en [github.com/joserra15/PokerTrainer/issues](https://github.com/
 | [#6](https://github.com/joserra15/PokerTrainer/issues/6) | [EPIC] Producto core — retención |
 | [#7](https://github.com/joserra15/PokerTrainer/issues/7) | [EPIC] Import y cobertura de mercado |
 | [#8](https://github.com/joserra15/PokerTrainer/issues/8) | [EPIC] Calidad y confianza del motor |
-| [#9](https://github.com/joserra15/PokerTrainer/issues/9) | [EPIC] IA Coach comercial |
+| [#9](https://github.com/joserra15/PokerTrainer/issues/9) | [EPIC] ForgeCoach comercial |
 | [#10](https://github.com/joserra15/PokerTrainer/issues/10) | [EPIC] Operaciones y escala |
 
 Tareas L-01…O-05: issues [#11](https://github.com/joserra15/PokerTrainer/issues/11)–[#69](https://github.com/joserra15/PokerTrainer/issues/69).
@@ -680,7 +680,7 @@ Tareas L-01…O-05: issues [#11](https://github.com/joserra15/PokerTrainer/issue
 | `product` | Features producto |
 | `import` | Import sesiones |
 | `quality` | Calidad / tests |
-| `ai` | IA Coach |
+| `ai` | ForgeCoach |
 | `ops` | Operaciones |
 
 ### Recrear issues (idempotente)

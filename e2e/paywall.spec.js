@@ -25,7 +25,7 @@ test.describe('Paywall free @smoke', () => {
     await expect(page.locator('#paywall-to-pricing')).toBeVisible();
   });
 
-  test('cuota IA agotada muestra paywall al invocar showPaywall', async ({ page }) => {
+  test('cuota ForgeCoach agotada muestra paywall al invocar showPaywall', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
@@ -34,7 +34,7 @@ test.describe('Paywall free @smoke', () => {
     });
 
     await expect(page.locator('#paywall-modal:not(.hidden)')).toBeVisible();
-    await expect(page.locator('#paywall-title')).toContainText(/IA/i);
-    await expect(page.locator('#paywall-body')).toContainText(/consultas|bono|IA/i);
+    await expect(page.locator('#paywall-title')).toContainText(/ForgeCoach/i);
+    await expect(page.locator('#paywall-body')).toContainText(/consultas|bono|ForgeCoach|IA/i);
   });
 });

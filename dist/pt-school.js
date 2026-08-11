@@ -2182,7 +2182,7 @@
       '<h3>Concepto</h3><ul class="school-theory">' + theory + '</ul></section>' +
       '<section class="card-box school-section"><h3>Ejemplos</h3>' + examples + '</section>' +
       '<section class="card-box school-section">' +
-      '<h3>IA Coach</h3>' +
+      '<h3>ForgeCoach</h3>' +
       '<p class="muted-text">Preguntas sugeridas (consumen cuota de IA del plan).</p>' +
       '<div class="school-ask-chips">' + asks + '</div>' +
       '<div id="school-coach-mount" class="school-coach-mount"></div>' +
@@ -2235,7 +2235,7 @@
       scope: 'learn',
       hideReport: true,
       openQuestionForm: true,
-      questionToggleLabel: 'Preguntar al IA Coach',
+      questionToggleLabel: 'Preguntar al ForgeCoach',
       getData: function () {
         return {
           school: true,

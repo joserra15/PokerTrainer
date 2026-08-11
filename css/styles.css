@@ -1189,7 +1189,7 @@ body.age-gate-open {
 }
 .home-foot { text-align: center; font-size: 13px; margin-top: -8px; }
 
-/* ---- IA Coach en inicio ---- */
+/* ---- ForgeCoach en inicio ---- */
 .home-coach { margin-top: 4px; }
 .home-install {
   margin-top: 8px;
@@ -3076,7 +3076,7 @@ body.cookie-banner-open { padding-bottom: 0; }
 
 .btn-sm { padding: 6px 12px; font-size: 13px; }
 
-/* ---- IA Coach ---- */
+/* ---- ForgeCoach ---- */
 .ai-report-panel { margin-top: 14px; }
 .ai-coach-embed.home-coach-panel {
   margin-top: 0; padding: clamp(16px, 3vw, 22px);

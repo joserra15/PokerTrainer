@@ -828,7 +828,7 @@
   }
 
   const DEFAULT_HOME_LEAD =
-    'Practica spots reales, consulta rangos solver, repasa tus errores y resuelve dudas con el <strong>IA Coach</strong>.';
+    'Practica spots reales, consulta rangos solver, repasa tus errores y resuelve dudas con el <strong>ForgeCoach</strong>.';
 
   function buildHomeStatsBundle() {
     const stats = Store.getStats();
@@ -2932,7 +2932,7 @@
           '15 manos entrenador/día',
           '1 sesión import/mes (máx. 200 manos)',
           '5 manos en análisis (solo manual)',
-          '3 consultas IA Coach/mes de prueba',
+          '3 consultas ForgeCoach/mes de prueba',
           'Histórico 30 días'
         ],
         cta: null
@@ -2944,7 +2944,7 @@
           'Prueba 10 días (una vez por cuenta)',
           'Entrenador e import ilimitados',
           '20 manos en análisis',
-          '40 consultas IA Coach/mes (añadir manos, análisis y preguntas)',
+          '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
           'Sync, estadísticas y repaso'
         ],
         cta: 'pro'
@@ -2955,7 +2955,7 @@
         features: [
           'Todo Study',
           '100 manos en análisis',
-          '150 consultas IA Coach/mes',
+          '150 consultas ForgeCoach/mes',
           'Informes y preguntas sobre manos, análisis y sesiones',
           'Soporte prioritario'
         ],

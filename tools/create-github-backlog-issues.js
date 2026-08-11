@@ -31,7 +31,7 @@ const LABELS = [
   { name: 'product', color: 'd4c5f9', description: 'Features producto' },
   { name: 'import', color: 'fef2c0', description: 'Import sesiones' },
   { name: 'quality', color: 'ededed', description: 'Calidad / tests' },
-  { name: 'ai', color: '7057ff', description: 'IA Coach' },
+  { name: 'ai', color: '7057ff', description: 'ForgeCoach' },
   { name: 'ops', color: '006b75', description: 'Operaciones' },
   { name: 'roadmap', color: 'e99695', description: 'Roadmap comercial' }
 ];
@@ -129,9 +129,9 @@ Ampliar salas y formatos más allá de PokerStars ES Cash NL.`
 Tests E2E, rangos solver JSON y transparencia metodológica.`
   },
   {
-    title: '[EPIC] IA Coach comercial',
+    title: '[EPIC] ForgeCoach comercial',
     labels: ['epic', 'P1', 'ai'],
-    body: `## Epic 8 — IA Coach comercial
+    body: `## Epic 8 — ForgeCoach comercial
 
 **Prioridad:** P1
 
@@ -155,7 +155,7 @@ const TASKS = [
   { epic: 0, id: 'L-01', title: 'L-01: Redactar Política de Privacidad (ES + EN)', labels: ['P0', 'legal'], effort: 'S', body: 'Redactar política de privacidad RGPD: datos recogidos (Google profile, manos, sesiones, IA), subprocesadores (Google, Supabase, Gemini), retención, derechos del usuario.\n\nPublicar en `/legal/privacidad.html` o ruta equivalente y enlazar desde login y menú cuenta.' },
   { epic: 0, id: 'L-02', title: 'L-02: Redactar Términos de Uso', labels: ['P0', 'legal'], effort: 'S', body: 'Términos: naturaleza educativa del análisis GTO, no asesoramiento de juego, limitación de responsabilidad, edad mínima, cancelación.\n\nEnlazar desde registro/login.' },
   { epic: 0, id: 'L-03', title: 'L-03: Banner cookies y consentimiento', labels: ['P0', 'legal'], effort: 'M', body: 'Implementar banner GDPR para cookies/localStorage y scripts de terceros (Google OAuth, analytics futuro). Guardar preferencia del usuario.' },
-  { epic: 0, id: 'L-04', title: 'L-04: Página transparencia IA', labels: ['P0', 'legal', 'ai'], effort: 'S', body: 'Explicar qué datos de manos/sesiones se envían a Gemini, que no es consejo profesional, y opción de no usar IA Coach.' },
+  { epic: 0, id: 'L-04', title: 'L-04: Página transparencia IA', labels: ['P0', 'legal', 'ai'], effort: 'S', body: 'Explicar qué datos de manos/sesiones se envían a Gemini, que no es consejo profesional, y opción de no usar ForgeCoach.' },
   { epic: 0, id: 'L-05', title: 'L-05: Flujo exportar mis datos', labels: ['P0', 'legal'], effort: 'M', body: 'Botón en menú cuenta: export JSON con auth, stats, history, errors, sessions, metadatos. Derecho de portabilidad RGPD.' },
   { epic: 0, id: 'L-06', title: 'L-06: Flujo eliminar mi cuenta', labels: ['P0', 'legal'], effort: 'M', body: 'Eliminar fila Supabase `pt_user_state`, limpiar localStorage del usuario, cerrar sesión. Confirmación explícita.' },
   { epic: 0, id: 'L-07', title: 'L-07: Registro de subprocesadores', labels: ['P0', 'legal'], effort: 'S', body: 'Documentar en privacidad: Google (OAuth), Supabase (hosting/DB), Google AI/Gemini (informes). Incluir enlaces a sus DPAs.' },
@@ -177,7 +177,7 @@ const TASKS = [
   { epic: 2, id: 'M-03', title: 'M-03: Stripe Checkout y Customer Portal', labels: ['P1', 'billing'], effort: 'L', body: 'Integrar Checkout para Study/Coach. Portal para cancelar/cambiar plan.' },
   { epic: 2, id: 'M-04', title: 'M-04: Webhook Stripe → entitlements', labels: ['P1', 'billing'], effort: 'L', body: 'Edge Function o webhook handler: `checkout.session.completed`, `customer.subscription.updated/deleted` → actualizar Supabase.' },
   { epic: 2, id: 'M-05', title: 'M-05: Middleware entitlements en app', labels: ['P1', 'billing'], effort: 'M', body: 'Módulo `js/entitlements.js`: `canUseAI()`, `trainerHandsLeft()`, `canImportSession()`. Fetch plan al login.' },
-  { epic: 2, id: 'M-06', title: 'M-06: UI Pricing y paywall', labels: ['P1', 'billing', 'gtm'], effort: 'M', body: 'Página/tab Pricing. Modales paywall al agotar límites free. CTAs upgrade en IA Coach e import.' },
+  { epic: 2, id: 'M-06', title: 'M-06: UI Pricing y paywall', labels: ['P1', 'billing', 'gtm'], effort: 'M', body: 'Página/tab Pricing. Modales paywall al agotar límites free. CTAs upgrade en ForgeCoach e import.' },
   { epic: 2, id: 'M-07', title: 'M-07: Trial 7 días Coach (opcional)', labels: ['P2', 'billing'], effort: 'M', body: 'Trial con tarjeta vía Stripe. Mostrar días restantes en UI.' },
   { epic: 2, id: 'M-08', title: 'M-08: Emails transaccionales', labels: ['P1', 'billing'], effort: 'M', body: 'Confirmación suscripción, renovación, fallo de pago, cancelación. Resend o Stripe emails.' },
 

@@ -1,4 +1,4 @@
-# Estudio de prompts IA Coach — PokerForgeAI
+# Estudio de prompts ForgeCoach — PokerForgeAI
 
 > Versión analizada: v1.33.0 · Motor: Gemini 2.5 Flash · Archivo: `supabase/functions/analyze-hand/index.ts`
 

@@ -1,6 +1,6 @@
 # EPIC 10 — Paridad competitiva PokerSnowie
 
-> **Objetivo:** Cerrar el gap funcional con [PokerSnowie](https://pokersnowie.com/) en lo que importa para retener y convertir usuarios de pago, **sin copiar lo que ya nos diferencia** (español nativo, IA Coach narrativa, web sin instalar, precio Study ~15 €).
+> **Objetivo:** Cerrar el gap funcional con [PokerSnowie](https://pokersnowie.com/) en lo que importa para retener y convertir usuarios de pago, **sin copiar lo que ya nos diferencia** (español nativo, ForgeCoach narrativa, web sin instalar, precio Study ~15 €).
 >
 > **Referencia de mercado:** Snowie ~30 $/mes o ~200 $/año · trial 10 días · un solo plan todo incluido.
 >
@@ -39,7 +39,7 @@
 | Apps nativas iOS/Android | PWA primero; coste/beneficio bajo al inicio |
 | Multivía profundo | Snowie gana aquí; nicho nuestro es 6-max cash ES |
 | “GTO perfecto” en marketing | Nosotros: metodología pública + confianza por decisión |
-| Bundle Coach Snowie | Nuestro **IA Coach Gemini** ya es el upsell (EPIC 8) |
+| Bundle Coach Snowie | Nuestro **ForgeCoach Gemini** ya es el upsell (EPIC 8) |
 
 ---
 
@@ -131,7 +131,7 @@ Prioridad: **P0** antes de marketing de pago · **P1** retención · **P2** nice
 | SN-51 | Atajo **“Calentamiento 15 min”** desde home | P1 | S | Lanza SN-14 con 50 manos y consejo ON |
 | SN-52 | **Hotkeys** entrenador (F/C/R, flechas calle en repaso) | P2 | M | Documentado en ayuda |
 | SN-53 | Modo **sin rake / rake configurable** en entrenador | P2 | S | Alineado con Snowie custom cash |
-| SN-54 | Tabla comparativa **PokerForgeAI vs Snowie** en landing (G-02) | P0 | S | Honesta; destaca ES, precio, IA Coach |
+| SN-54 | Tabla comparativa **PokerForgeAI vs Snowie** en landing (G-02) | P0 | S | Honesta; destaca ES, precio, ForgeCoach |
 
 **Estado:** PWA y calentamiento pendientes.
 
@@ -203,7 +203,7 @@ SN-13 → SN-33 → SN-41 → SN-42 → SN-44 → SN-23 → SN-34 → SN-52 → 
 | EPIC 3 Monetización | SN-01/02/03 extienden M-06/M-07 |
 | EPIC 5 Retención | P-02/P-03 hechos; SN-30–32 amplían |
 | EPIC 6 Import | I-01/I-02 parcial; SN-20/21/22 completan |
-| EPIC 8 IA Coach | No duplicar Live Advisor con IA; Coach = informes profundos |
+| EPIC 8 ForgeCoach | No duplicar Live Advisor con IA; Coach = informes profundos |
 | EPIC 4 GTM | SN-54 alimenta G-02 landing |
 
 ---
@@ -223,7 +223,7 @@ SN-13 → SN-33 → SN-41 → SN-42 → SN-44 → SN-23 → SN-34 → SN-52 → 
 
 ## 9. Mensaje de posicionamiento (post EPIC 10)
 
-> **PokerForgeAI** — Entrena con consejo en vivo, importa PokerStars y Winamax, detecta fugas y profundiza con IA Coach. En español, desde el navegador, desde ~15 €/mes.  
+> **PokerForgeAI** — Entrena con consejo en vivo, importa PokerStars y Winamax, detecta fugas y profundiza con ForgeCoach. En español, desde el navegador, desde ~15 €/mes.  
 > Snowie cuesta el doble en mensual y no habla tu idioma; GTO Wizard cuesta 3–10× y es un solver, no un compañero de sesiones reales.
 
 ---
