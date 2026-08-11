@@ -1,4 +1,4 @@
--- ForgeCoach: resumen persistente, índice RAG ligero, fix admin bootstrap.
+-- Coach IA: resumen persistente, índice RAG ligero, fix admin bootstrap.
 
 alter table public.pt_user_profiles
   add column if not exists coach_summary text,

@@ -16,7 +16,7 @@ declare
   new_bal int;
   new_exp timestamptz;
   thread_id uuid;
-  subj text := 'Bono de consultas ForgeCoach';
+  subj text := 'Bono de consultas IA Coach';
   body text;
 begin
   if not public.is_pt_admin() then
@@ -58,7 +58,7 @@ begin
 
   if coalesce(p_send_message, true) then
     body := format(
-      'Te hemos regalado un bono de %s consultas con ForgeCoach. Las consultas ya están disponibles en tu cuenta y se consumirán después de las incluidas en tu plan. ¡Buen estudio!',
+      'Te hemos regalado un bono de %s consultas con IA Coach. Las consultas ya están disponibles en tu cuenta y se consumirán después de las incluidas en tu plan. ¡Buen estudio!',
       p_credits
     );
 
