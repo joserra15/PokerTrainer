@@ -13,7 +13,7 @@
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.2.5';
+  const APP_VERSION = window.PT_BUILD || '2.2.6';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -3934,10 +3934,10 @@
       limp: {
         title: 'Limp',
         fullName: 'Limp open (entrar pagando sin raise previo)',
-        what: 'Cuando nadie ha subido y no hay limpers, con qué frecuencia pagas (limp) en lugar de raise/fold.',
+        what: 'Cuando nadie ha subido y no hay limpers, con qué frecuencia limpeas (igualas la ciega grande sin subir) en lugar de raise/fold.',
         how: 'Oportunidades = folded-to sin limpers; hits = tus limps.',
         ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.limpMin, I.limpMax) + '.',
-        tip: 'En mesas de regs, limp alto suele ser leak: prefer raise or fold.'
+        tip: 'En mesas de regs, limpear mucho suele ser leak: mejor raise or fold.'
       },
       overlimp: {
         title: 'Overlimp',

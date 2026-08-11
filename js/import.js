@@ -1991,7 +1991,7 @@
     'Fold to 3-Bet': { low: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Defender vs 3-bet' }, high: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Defender vs 3-bet' } },
     '4-Bet': { low: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Practicar 4-bets' }, high: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'Afinar 4-bets' } },
     'Fold to 4-Bet': { low: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'vs 4-bet' }, high: { scenario: 'face3bet', practiceStreet: 'preflop', label: 'vs 4-bet' } },
-    'Limp': { low: { scenario: 'rfi', practiceStreet: 'preflop', label: 'RFI en vez de limp' }, high: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Raise or fold' } },
+    'Limp': { low: { scenario: 'rfi', practiceStreet: 'preflop', label: 'RFI en vez de limpear' }, high: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Raise or fold' } },
     'Overlimp': { low: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Iso vs limpers' }, high: { scenario: 'rfi', practiceStreet: 'preflop', label: 'No overlimpear' } },
     'Iso-limp': { low: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Aislar limpers' }, high: { scenario: 'rfi', practiceStreet: 'preflop', label: 'Iso selectivo' } },
     'Delayed C-Bet': { low: { scenario: 'rfi', practiceStreet: 'flop', label: 'Delayed c-bet' }, high: { scenario: 'rfi', practiceStreet: 'flop', label: 'Delayed selectivo' } },
@@ -2061,7 +2061,7 @@
     }));
     lines.push(assessMetricLine('Limp', s.limpPct, I.limpMin, I.limpMax, samp.limp, {
       low: 'Casi no limpeas (bien en regs).',
-      high: 'Demasiados limps: prefer raise or fold, sobre todo EP/MP.'
+      high: 'Limpeas demasiado: prefer raise or fold, sobre todo EP/MP.'
     }));
     lines.push(assessMetricLine('Overlimp', s.overlimpPct, I.overlimpMin, I.overlimpMax, samp.overlimp, {
       low: 'Pocos overlimps.',

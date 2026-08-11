@@ -1632,7 +1632,7 @@
     { heroPos: 'BTN', limperPos: 'CO' },
     { heroPos: 'SB', limperPos: 'CO' }
   ];
-  // Rango aproximado con el que un rival hace limp (pasivo/débil)
+  // Rango aproximado con el que un rival limpea (pasivo/débil)
   const LIMP_RANGE = '22-99, A2s-A9s, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ATo-AJo, KJo, QJo, JTo';
 
   function pickScenario(forceKey, playConfig) {
@@ -2231,7 +2231,7 @@
         { id: 'raise', label: `Aislar a ${isoSize}bb` }
       ],
       gto: freqs,
-      context: `Eres ${heroPos}. ${limperPos} hace limp. ¿Fold, over-limp o aislar con una subida?`
+      context: `Eres ${heroPos}. ${limperPos} limpea. ¿Fold, over-limp o aislar con una subida?`
     };
     setVillainAct(hand, 'check', null);
     addInvest(hand, limperPos, BBET);
@@ -2961,7 +2961,7 @@
         { id: 'raise', label: 'Raise a ' + openSize + 'bb' }
       ],
       gto: freqs,
-      context: 'Eres SB con acción folded to you. ¿Fold, limp o raise?'
+      context: 'Eres SB con acción folded to you. ¿Fold, limpear o raise?'
     };
     markFoldedBeforeHeroRFI(hand);
   }

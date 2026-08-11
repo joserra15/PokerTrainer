@@ -12312,7 +12312,7 @@ window.PT_VS_3BET_JSON = {
     { heroPos: 'BTN', limperPos: 'CO' },
     { heroPos: 'SB', limperPos: 'CO' }
   ];
-  // Rango aproximado con el que un rival hace limp (pasivo/débil)
+  // Rango aproximado con el que un rival limpea (pasivo/débil)
   const LIMP_RANGE = '22-99, A2s-A9s, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ATo-AJo, KJo, QJo, JTo';
 
   function pickScenario(forceKey, playConfig) {
@@ -12911,7 +12911,7 @@ window.PT_VS_3BET_JSON = {
         { id: 'raise', label: `Aislar a ${isoSize}bb` }
       ],
       gto: freqs,
-      context: `Eres ${heroPos}. ${limperPos} hace limp. ¿Fold, over-limp o aislar con una subida?`
+      context: `Eres ${heroPos}. ${limperPos} limpea. ¿Fold, over-limp o aislar con una subida?`
     };
     setVillainAct(hand, 'check', null);
     addInvest(hand, limperPos, BBET);
@@ -13641,7 +13641,7 @@ window.PT_VS_3BET_JSON = {
         { id: 'raise', label: 'Raise a ' + openSize + 'bb' }
       ],
       gto: freqs,
-      context: 'Eres SB con acción folded to you. ¿Fold, limp o raise?'
+      context: 'Eres SB con acción folded to you. ¿Fold, limpear o raise?'
     };
     markFoldedBeforeHeroRFI(hand);
   }
@@ -23130,7 +23130,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.2.5';
+  const APP_VERSION = window.PT_BUILD || '2.2.6';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -27051,10 +27051,10 @@ window.PT_VS_3BET_JSON = {
       limp: {
         title: 'Limp',
         fullName: 'Limp open (entrar pagando sin raise previo)',
-        what: 'Cuando nadie ha subido y no hay limpers, con qué frecuencia pagas (limp) en lugar de raise/fold.',
+        what: 'Cuando nadie ha subido y no hay limpers, con qué frecuencia limpeas (igualas la ciega grande sin subir) en lugar de raise/fold.',
         how: 'Oportunidades = folded-to sin limpers; hits = tus limps.',
         ideal: 'Referencia en ' + fmtLabel + ': ' + bandText(I.limpMin, I.limpMax) + '.',
-        tip: 'En mesas de regs, limp alto suele ser leak: prefer raise or fold.'
+        tip: 'En mesas de regs, limpear mucho suele ser leak: mejor raise or fold.'
       },
       overlimp: {
         title: 'Overlimp',
