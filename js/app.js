@@ -13,7 +13,7 @@
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.3.0';
+  const APP_VERSION = window.PT_BUILD || '2.4.0';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -1021,7 +1021,9 @@
       var schoolUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
       var schoolDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
       var canSchool = !!(schoolUser && schoolUser.isAdmin && !schoolDemo);
-      if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function') {
+      if (window.PTSchool && typeof window.PTSchool.schoolMenuVisible === 'function') {
+        canSchool = window.PTSchool.schoolMenuVisible();
+      } else if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function') {
         canSchool = window.PTSchool.hasAdminAccess();
       } else if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
         canSchool = window.PTAdmin.hasAccess();
@@ -1031,7 +1033,12 @@
         return;
       }
       withLazyChunk('school', function () {
-        if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function' && !window.PTSchool.hasAdminAccess()) {
+        var visible = window.PTSchool && typeof window.PTSchool.schoolMenuVisible === 'function'
+          ? window.PTSchool.schoolMenuVisible()
+          : (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function'
+            ? window.PTSchool.hasAdminAccess()
+            : true);
+        if (!visible) {
           goToTab('home');
           return;
         }
