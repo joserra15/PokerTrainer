@@ -47,6 +47,7 @@ const STEPS = [
   ['Test cloud sessions slim', ['node', 'tools/test-cloud-sessions.js']],
   ['Test RLS policies (SQL)', ['node', 'tools/test-rls-policies.js']],
   ['Test auth contract', ['node', 'tools/test-auth-contract.js']],
+  ['Test auth bootstrap login UI', ['node', 'tools/test-auth-bootstrap-login-ui.js']],
   ['Test Stripe Edge contracts', ['node', 'tools/test-stripe-edge-contracts.js']],
   ['Test analyze-hand contract', ['node', 'tools/test-analyze-hand-contract.js']],
   ['Test billing UI markers', ['node', 'tools/test-billing-ui.js']],
