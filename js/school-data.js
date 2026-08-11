@@ -239,7 +239,7 @@
       goldThreshold: 0.9,
       decisionEnd: true,
       hands: 10,
-      concept: 'Al open-raise no solo juegas tu equity: también compras la posibilidad de que todos plieguen. Por eso en RFI es open o fold, no “ver barato”.',
+      concept: 'Al hacer open-raise no solo juegas tu equity, también compras la posibilidad de que todos folden (tiren su mano). Por eso en RFI es open o fold, no limpear para “ver barato”.',
       theory: [
         'Fold equity es la probabilidad de que los rivales tiren ante tu subida. Esa parte del valor no existe si limpeas: el bote queda multiway o te aíslan, y tú ya regalaste la iniciativa.',
         'Si la mano no es lo bastante fuerte para open en esa posición, la respuesta correcta es fold — no “pasar el flop barato”. Ver cartas sin fold equity suele ser peor a largo plazo en cash.',
