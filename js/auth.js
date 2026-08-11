@@ -449,7 +449,19 @@
     window.addEventListener('resize', function () { /* noop */ });
 
     let gsiAttempts = 0;
+    function ensureGsiScript() {
+      if (global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth()) return;
+      if (global.google && global.google.accounts && global.google.accounts.id) return;
+      if (document.getElementById('pt-gsi-client')) return;
+      var s = document.createElement('script');
+      s.id = 'pt-gsi-client';
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      document.head.appendChild(s);
+    }
     function waitGsi() {
+      if (global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth()) return;
+      ensureGsiScript();
       if (global.google && global.google.accounts && global.google.accounts.id) {
         setupGsiButton();
         return;

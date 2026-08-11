@@ -27,7 +27,10 @@
         auth: {
           persistSession: true,
           autoRefreshToken: true,
-          detectSessionInUrl: true,
+          // El callback se consume de forma explícita en auth-bootstrap
+          // (evita perder INITIAL_SESSION / code antes de suscribirse).
+          detectSessionInUrl: false,
+          flowType: 'pkce',
           storage: global.localStorage
         }
       });

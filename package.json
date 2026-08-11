@@ -17,6 +17,7 @@
     "test:login-desktop": "node tools/test-login-desktop-regression.js",
     "test:build-guard": "node tools/test-build-guard-no-deploy-info.js",
     "test:js-versioning": "node tools/test-js-asset-versioning.js",
+    "test:oauth-callback": "node tools/test-oauth-callback-explicit.js",
     "test:allin-runout": "node tools/test-allin-runout.js",
     "test:river-nut-flush": "node tools/test-river-board-ace-nut-flush.js",
     "test:river-monotone": "node tools/test-river-monotone-bet-range.js",
