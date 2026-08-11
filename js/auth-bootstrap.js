@@ -217,7 +217,12 @@
       return;
     }
     showError('');
-    var client = global.PTSupabase && global.PTSupabase.getClient();
+    // En portátil el panel derecho es clickable al instante; no fallar si el
+    // CDN de Supabase aún está cargando (getSession del boot puede retrasarse).
+    var ready = await waitFor(function () {
+      return !!(global.supabase && global.PTSupabase && global.PTSupabase.getClient());
+    }, 100, 50);
+    var client = ready && global.PTSupabase.getClient();
     if (!client) {
       showError('Supabase no está listo. Recarga la página.');
       return;
@@ -288,24 +293,61 @@
       /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
   }
 
-  function setupLoginUi() {
+  var loginUiBound = false;
+
+  function applyLoginVisibility() {
     var mobileBtn = $('auth-mobile-login');
     var gsiHost = $('google-signin-btn');
-    if (mobileBtn) {
-      mobileBtn.classList.remove('hidden');
-      mobileBtn.addEventListener('click', function (e) {
-        e.preventDefault();
-        startGoogleLogin();
-      });
-    }
-    if (useSupabaseAuth()) {
+    if (mobileBtn) mobileBtn.classList.remove('hidden');
+    // Con Supabase Auth el CTA propio (redirect) es el único fiable en desktop;
+    // el popup GSI se bloquea o queda inerte en muchos portátiles.
+    if (useSupabaseAuth() || isTouchUi()) {
       if (gsiHost) gsiHost.classList.add('hidden');
-      return;
     }
-    if (isTouchUi() && gsiHost) gsiHost.classList.add('hidden');
+  }
+
+  function setupLoginUi() {
+    applyLoginVisibility();
+    if (loginUiBound) return;
+    loginUiBound = true;
+
+    // Delegación: el botón del panel derecho existe en el HTML antes de que
+    // termine getSession()/CDN; sin esto el click en portátil no hace nada.
+    document.addEventListener('click', function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var btn = t.closest('#auth-mobile-login');
+      if (!btn) return;
+      e.preventDefault();
+      startGoogleLogin();
+    });
+  }
+
+  function withTimeout(promise, ms) {
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error('timeout'));
+      }, ms);
+      promise.then(function (v) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(v);
+      }, function (err) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
   }
 
   async function bootSupabase() {
+    // Enlazar Continuar YA: no esperar a getSession (puede colgarse o tardar).
+    setupLoginUi();
     var ok = await waitFor(function () {
       return global.supabase && global.PTSupabase && global.PTSupabase.getClient();
     }, 120, 50);
@@ -314,42 +356,49 @@
       return;
     }
     var client = global.PTSupabase.getClient();
-    var sessionRes = await client.auth.getSession();
-    var session = sessionRes.data && sessionRes.data.session;
-    if (session && session.user) {
-      var user = global.PTSupabase.userFromSession(session);
-      if (user) {
-        enterFromBootstrap(user);
-        return;
+    try {
+      var sessionRes = await withTimeout(client.auth.getSession(), 8000);
+      var session = sessionRes && sessionRes.data && sessionRes.data.session;
+      if (session && session.user) {
+        var user = global.PTSupabase.userFromSession(session);
+        if (user) {
+          enterFromBootstrap(user);
+          return;
+        }
       }
+    } catch (e) {
+      // UI de login ya está activa; el usuario puede pulsar Continuar.
     }
-    client.auth.onAuthStateChange(function (event, sess) {
-      if (sess && sess.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        var u = global.PTSupabase.userFromSession(sess);
-        if (u) enterFromBootstrap(u);
-      }
-    });
+    try {
+      client.auth.onAuthStateChange(function (event, sess) {
+        if (sess && sess.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          var u = global.PTSupabase.userFromSession(sess);
+          if (u) enterFromBootstrap(u);
+        }
+      });
+    } catch (e2) { /* noop */ }
     setupLoginUi();
   }
 
   function legacyBoot() {
+    setupLoginUi();
     if (processHashLogin()) return;
     var saved = loadSavedSession();
     if (saved && saved.authProvider !== 'supabase') {
       enterFromBootstrap(saved);
       return;
     }
-    setupLoginUi();
   }
 
   async function boot() {
+    // Siempre enlazar el CTA de login antes de cualquier await.
+    setupLoginUi();
     if (global.PT_E2E_MODE) {
       var e2eUser = loadSavedSession();
       if (e2eUser) {
         enterFromBootstrap(e2eUser);
         return;
       }
-      setupLoginUi();
       return;
     }
     if (useSupabaseAuth()) {
