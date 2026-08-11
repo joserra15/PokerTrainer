@@ -61,6 +61,6 @@ const pwa = fs.readFileSync(path.join(root, 'js/pwa.js'), 'utf8');
 assert(/updateViaCache:\s*'none'/.test(pwa), 'SW register updateViaCache none');
 
 const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
-assert(/PT_BUILD\s*=\s*'2\.2\.8'/.test(version), 'PT_BUILD 2.2.8');
+assert(/PT_BUILD\s*=\s*'2\.2\.9'/.test(version), 'PT_BUILD 2.2.9');
 
 console.log('*** js-asset-versioning OK (' + htmlFiles.length + ' html) ***');

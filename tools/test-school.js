@@ -118,6 +118,7 @@ assert.strictEqual(
 assert.strictEqual(Data.getLesson('C-04').title, 'Sizing del open', 'C-04 sizing');
 assert.strictEqual(Data.getLesson('C-05').title, 'RFI desde SB', 'C-05 SB');
 assert.ok(/Examen/.test(Data.getLesson('C-06').title), 'C-06 examen');
+assert.ok(/menú Rangos/.test(Data.getLesson('C-06').theory.join(' ')), 'C-06 recuerda menú Rangos');
 lessons.forEach(function (l) {
   assert.strictEqual(l.plan, 'free', l.id + ' plan free');
 });
