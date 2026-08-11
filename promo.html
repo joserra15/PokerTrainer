@@ -11,9 +11,18 @@
   <title>Promoción · PokerForgeAI</title>
   <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
-  <link rel="stylesheet" href="css/promo.css" />
-  <script src="js/site-config.js"></script>
-  <script src="js/supabase-config.js"></script>
+  <link rel="stylesheet" href="css/promo.css" id="pt-promo-css" />
+  <script>document.write('<script src="js/version.js?t=' + Date.now() + '"><\/script>');</script>
+  <script>
+  (function () {
+    var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    var css = document.getElementById('pt-promo-css');
+    if (css) css.href = 'css/promo.css' + v;
+    function w(src) { document.write('<script src="' + src + v + '"><\/script>'); }
+    w('js/site-config.js');
+    w('js/supabase-config.js');
+  })();
+  </script>
 </head>
 <body>
   <div class="promo-page">
@@ -62,6 +71,11 @@
     </footer>
   </div>
 
-  <script src="js/promo-landing.js"></script>
+  <script>
+  (function () {
+    var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    document.write('<script src="js/promo-landing.js' + v + '"><\/script>');
+  })();
+  </script>
 </body>
 </html>

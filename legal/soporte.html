@@ -12,9 +12,16 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="PokerForgeAI" />
   <link rel="stylesheet" href="legal-common.css" />
-  <script src="../js/site-config.js"></script>
-  <script src="../js/seo-config.js"></script>
-  <script src="../js/legal-seo.js"></script>
+    <script>document.write('<script src="../js/version.js?t=' + Date.now() + '"><\/script>');</script>
+  <script>
+  (function () {
+    var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    function w(src) { document.write('<script src="' + src + v + '"><\/script>'); }
+    w('../js/site-config.js');
+    w('../js/seo-config.js');
+    w('../js/legal-seo.js');
+  })();
+  </script>
 </head>
 <body>
   <article class="legal-wrap">
@@ -52,7 +59,24 @@
 
     <footer class="legal-foot">PokerForgeAI · Soporte</footer>
   </article>
-  <script src="../js/legal-config.js" onerror="(function(){var s=document.createElement('script');s.src='../js/legal-config.example.js';document.body.appendChild(s);})()"></script>
-  <script src="legal-page.js"></script>
+  <script>
+  (function () {
+    var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    var s = document.createElement('script');
+    s.src = '../js/legal-config.js' + v;
+    s.onerror = function () {
+      var fb = document.createElement('script');
+      fb.src = '../js/legal-config.example.js' + v;
+      document.body.appendChild(fb);
+    };
+    document.body.appendChild(s);
+  })();
+  </script>
+  <script>
+  (function () {
+    var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    document.write('<script src="legal-page.js' + v + '"><\/script>');
+  })();
+  </script>
 </body>
 </html>

@@ -54,7 +54,24 @@
     var base = appBasePath();
     var swUrl = base + 'sw.js?v=' + encodeURIComponent(build);
     global.addEventListener('load', function () {
-      global.navigator.serviceWorker.register(swUrl, { scope: base }).catch(function (e) {
+      var hadController = !!global.navigator.serviceWorker.controller;
+      global.navigator.serviceWorker.register(swUrl, {
+        scope: base,
+        updateViaCache: 'none'
+      }).then(function (reg) {
+        try { reg.update(); } catch (e) { /* noop */ }
+        // Solo recargar cuando hay UPDATE de SW (no en la 1ª instalación)
+        var refreshing = false;
+        global.navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (!hadController || refreshing) return;
+          refreshing = true;
+          try {
+            if (sessionStorage.getItem('pt_sw_refresh') === build) return;
+            sessionStorage.setItem('pt_sw_refresh', build);
+          } catch (e2) { /* noop */ }
+          global.location.reload();
+        });
+      }).catch(function (e) {
         console.warn('[PWA] Service worker', e);
       });
     });
