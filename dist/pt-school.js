@@ -95,7 +95,7 @@
       theory: [
         'En una mesa de cash 6-max las posiciones, de más temprana a más tardía, son: UTG (under the gun, el primero en hablar), HJ (hijack), CO (cutoff), BTN (el botón, la mejor silla), y luego SB y BB (ciegas pequeña y grande).',
         'Cuanto más temprana tu posición, más jugadores quedan por hablar detrás. Por eso desde UTG abrimos un rango más tight (más selectivo): si alguien tiene una mano fuerte, todavía puede castigarte.',
-        'En late —sobre todo CO y BTN— puedes abrir más wide (más manos). Robas las ciegas con más frecuencia y, si te llaman, sueles jugar el flop en posición (actúas después del rival), que es una ventaja enorme.',
+        'En late —sobre todo CO y BTN— puedes abrir más wide (más manos). Robas las ciegas con más frecuencia y, si hacen call (si te igualan la apuesta), sueles jugar el flop en posición (actúas después del rival), que es una ventaja enorme.',
         'La decisión de esta lección es simple: open (subir primero el bote cuando nadie ha entrado) o fold (tirar la mano). La trampa clásica es abrir basura desde UTG “porque se ve bonita” (KTo, A9o) o, al revés, foldear opens claros en BTN por miedo.'
       ],
       examples: [
@@ -130,7 +130,7 @@
           teachBack: 'QJs también se abre desde UTG en charts modernos. No la trates como basura solo por ser early.'
         }),
         rfiSpot('c01-07', 'BTN', ['8h', '7h'], 11007, {
-          teachBack: 'Conectores suited en el botón son opens de posición: robas ciegas y, si te llaman, tienes equity especulativa.'
+          teachBack: 'Conectores suited en el botón son opens de posición: robas ciegas y, si hacen call (si te igualan la apuesta), tienes equity especulativa.'
         }),
         rfiSpot('c01-08', 'UTG', ['8c', '7c'], 11008, {
           trapTag: 'position_blind',
