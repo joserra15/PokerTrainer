@@ -376,7 +376,7 @@
       goldThreshold: 0.9,
       decisionEnd: true,
       hands: 12,
-      concept: 'La ciega pequeña no es el botón: si te llaman, casi siempre juegas fuera de posición. Por eso abres más tight.',
+      concept: 'La ciega pequeña no es el botón: si hacen call, siempre juegas fuera de posición. Por eso abres más tight.',
       theory: [
         'Desde la SB solo queda la ciega grande detrás. Si el BB te paga, vas a jugar el flop fuera de posición — OOP (out of position): actúas primero en cada calle, sin ver qué hace el rival.',
         'Por eso el rango de open desde SB es más tight que desde el botón: menos basura offsuit, más manos con jugabilidad o blockers. Abrir K9o o Q8o “porque es late” es la trampa clásica: en SB no eres BTN.',
@@ -385,7 +385,7 @@
       examples: [
         {
           title: 'El botón no es la SB',
-          body: 'K9o en el botón suele ser robo. La misma mano en SB contra el BB es mucho más marginal: muchas estrategias foldean o solo 3-betean de forma polar. No la abras wide por inercia.'
+          body: 'K9o en el botón suele ser robo. La misma mano en SB contra el BB es mucho más marginal: muchas estrategias foldean o solo 3-betean de forma polar (un 3-bet polar mezcla manos muy fuertes con algunos bluffs, sin el “medio” del rango). No la abras wide (con un rango muy amplio, como si fueras el botón) por inercia.'
         }
       ],
       aiQuestions: [
