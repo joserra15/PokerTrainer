@@ -102,7 +102,7 @@
     analysis: ['js/hand-analysis.js'],
     ranges: ['js/range-matrix.js'],
     learn: ['js/beginner-guide.js'],
-    school: ['js/school-data.js', 'js/school.js'],
+    school: ['js/school-data.js', 'js/school-data-m1.js', 'js/school-data-m2.js', 'js/school.js'],
     contact: ['js/contact.js'],
     admin: ['js/admin-panel.js', 'js/admin-promotions.js']
   };

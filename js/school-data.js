@@ -18,7 +18,7 @@
   'use strict';
 
   var XP_PER_LEVEL = 200;
-  var SCHOOL_DATA_VERSION = 2;
+  var SCHOOL_DATA_VERSION = 3;
 
   var ROUTES = [
     { id: 'cash', label: 'Cash', status: 'active' },
@@ -37,13 +37,144 @@
       forceDeal: {
         heroCards: heroCards.slice(),
         villainCards: meta.villainCards || null,
-        board: [],
-        villainPos: 'BB'
+        board: (meta.board || []).slice(),
+        villainPos: meta.villainPos || 'BB'
       },
+      playConfig: meta.playConfig || { scenario: 'rfi', practiceStreet: 'preflop' },
       trapTag: meta.trapTag || 'none',
       teachBack: meta.teachBack || '',
       label: meta.label || (heroPos + ' · ' + heroCards.join(''))
     };
+  }
+
+  /** vs open: hero en blinds/cold decide fold/call/3-bet. key = 'BB_vs_BTN'. */
+  function vsRfiSpot(id, key, heroCards, seed, meta) {
+    meta = meta || {};
+    var parts = String(key || '').split('_vs_');
+    return {
+      id: id,
+      type: 'vsRFI',
+      key: key,
+      heroPos: parts[0] || 'BB',
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: (meta.board || []).slice(),
+        villainPos: parts[1] || 'BTN'
+      },
+      playConfig: meta.playConfig || { scenario: '3bet', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || key
+    };
+  }
+
+  /** Tras open, enfrentas 3-bet. key = 'BTN_vs_BB'. */
+  function face3betSpot(id, key, heroCards, seed, meta) {
+    meta = meta || {};
+    var parts = String(key || '').split('_vs_');
+    return {
+      id: id,
+      type: 'face3bet',
+      key: key,
+      heroPos: parts[0] || 'BTN',
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: [],
+        villainPos: parts[1] || 'BB'
+      },
+      playConfig: meta.playConfig || { scenario: 'face3bet', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || key
+    };
+  }
+
+  function isoSpot(id, heroPos, limperPos, heroCards, seed, meta) {
+    meta = meta || {};
+    return {
+      id: id,
+      type: 'isoLimp',
+      heroPos: heroPos,
+      limperPos: limperPos,
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: [],
+        villainPos: limperPos
+      },
+      playConfig: meta.playConfig || { scenario: 'iso', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || (heroPos + ' iso vs ' + limperPos)
+    };
+  }
+
+  function squeezeSpot(id, heroPos, openerPos, callerPos, heroCards, seed, meta) {
+    meta = meta || {};
+    return {
+      id: id,
+      type: 'squeeze',
+      heroPos: heroPos,
+      openerPos: openerPos,
+      callerPos: callerPos,
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: [],
+        villainPos: openerPos
+      },
+      playConfig: meta.playConfig || { scenario: 'squeeze', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || ('Squeeze ' + heroPos)
+    };
+  }
+
+  function bbVsSbLimpSpot(id, heroCards, seed, meta) {
+    meta = meta || {};
+    return {
+      id: id,
+      type: 'bbVsSbLimp',
+      heroPos: 'BB',
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: [],
+        villainPos: 'SB'
+      },
+      playConfig: meta.playConfig || { scenario: 'bbvsb', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || 'BB vs SB limp'
+    };
+  }
+
+  /** Postflop: open RFI + board forzado; practiceStreet flop/turn/river.
+   *  facingBet: héroe defiende vs c-bet (villano apuesta ~33 %). */
+  function flopSpot(id, heroPos, heroCards, board, seed, meta) {
+    meta = meta || {};
+    var street = meta.street || 'flop';
+    var spot = rfiSpot(id, heroPos, heroCards, seed, {
+      board: board,
+      villainPos: meta.villainPos || (meta.facingBet ? 'BTN' : 'BB'),
+      villainCards: meta.villainCards || null,
+      trapTag: meta.trapTag,
+      teachBack: meta.teachBack,
+      label: meta.label,
+      playConfig: { scenario: 'rfi', practiceStreet: street }
+    });
+    if (meta.facingBet) {
+      spot.facingBet = true;
+      spot.forceDeal.facingBet = true;
+    }
+    return spot;
   }
 
   var LESSONS = [
@@ -552,6 +683,19 @@
     return lessonsForRoute('cash').filter(function (l) { return l.module === 'M0'; });
   }
 
+  function m1Lessons() {
+    return lessonsForRoute('cash').filter(function (l) { return l.module === 'M1'; });
+  }
+
+  function m2Lessons() {
+    return lessonsForRoute('cash').filter(function (l) { return l.module === 'M2'; });
+  }
+
+  function registerLessons(extra) {
+    if (!extra || !extra.length) return;
+    for (var i = 0; i < extra.length; i++) LESSONS.push(extra[i]);
+  }
+
   global.PTSchoolData = {
     XP_PER_LEVEL: XP_PER_LEVEL,
     SCHOOL_DATA_VERSION: SCHOOL_DATA_VERSION,
@@ -562,6 +706,15 @@
     lessonsForRoute: lessonsForRoute,
     nextLessonId: nextLessonId,
     m0Lessons: m0Lessons,
-    rfiSpot: rfiSpot
+    m1Lessons: m1Lessons,
+    m2Lessons: m2Lessons,
+    registerLessons: registerLessons,
+    rfiSpot: rfiSpot,
+    vsRfiSpot: vsRfiSpot,
+    face3betSpot: face3betSpot,
+    isoSpot: isoSpot,
+    squeezeSpot: squeezeSpot,
+    bbVsSbLimpSpot: bbVsSbLimpSpot,
+    flopSpot: flopSpot
   };
 })(typeof window !== 'undefined' ? window : globalThis);

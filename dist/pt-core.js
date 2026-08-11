@@ -12538,8 +12538,110 @@ window.PT_VS_3BET_JSON = {
     if (hand._autoGoFlop) {
       delete hand._autoGoFlop;
       goFlop(hand);
+    } else {
+      const schoolStreet = schoolPostflopTarget(hand, force);
+      if (schoolStreet) {
+        setupSchoolPostflopJump(hand, schoolStreet, force);
+      }
     }
     return hand;
+  }
+
+  /** Escuela: saltar a flop/turn/river con SRP HU determinista (sin RNG de folds). */
+  function schoolPostflopTarget(hand, force) {
+    const cfg = hand && hand.playConfig;
+    if (!cfg || !cfg.schoolMode) return null;
+    const st = cfg.practiceStreet;
+    if (!st || st === 'random' || st === 'preflop') return null;
+    const board = (force && force.forceDeal && force.forceDeal.board)
+      || (hand.forceDeal && hand.forceDeal.board)
+      || (hand._predeal && hand._predeal.board);
+    if (!board || board.length < 3) return null;
+    return st;
+  }
+
+  function setupSchoolPostflopJump(hand, target, force) {
+    const heroPos = (hand.hero && hand.hero.pos) || scenarioHeroPos(hand);
+    let villainPos = (force && force.forceDeal && force.forceDeal.villainPos)
+      || (hand.forceDeal && hand.forceDeal.villainPos)
+      || (hand.villain && hand.villain.pos)
+      || 'BB';
+    const facingBet = !!(force && force.facingBet)
+      || !!(force && force.forceDeal && force.forceDeal.facingBet);
+
+    if (facingBet) {
+      if (!villainPos || villainPos === heroPos || villainPos === 'BB') villainPos = 'BTN';
+      hand.villain.pos = villainPos;
+      if (hand._predeal) hand._predeal.villainPos = villainPos;
+      const openSize = OPEN;
+      foldSeatsExcept(hand, [heroPos, villainPos]);
+      hand.table.folded[heroPos] = false;
+      hand.table.folded[villainPos] = false;
+      hand.table.inHand.add(heroPos);
+      hand.table.inHand.add(villainPos);
+      hand.table.invested[heroPos] = openSize;
+      hand.table.invested[villainPos] = openSize;
+      hand.heroInvested = openSize;
+      hand.villainInvested = openSize;
+      hand.potBB = round2(openSize * 2);
+      hand.heroIsAggressor = false;
+      hand.heroInPosition = inPos(heroPos, villainPos);
+    } else {
+      if (!villainPos || villainPos === heroPos) villainPos = (heroPos === 'BB' ? 'BTN' : 'BB');
+      hand.villain.pos = villainPos;
+      if (hand._predeal) hand._predeal.villainPos = villainPos;
+      const openSize = heroPos === 'SB' ? SB_OPEN : OPEN;
+      foldSeatsExcept(hand, [heroPos, villainPos]);
+      hand.table.folded[heroPos] = false;
+      hand.table.folded[villainPos] = false;
+      hand.table.inHand.add(heroPos);
+      hand.table.inHand.add(villainPos);
+      hand.table.invested[heroPos] = openSize;
+      hand.table.invested[villainPos] = openSize;
+      hand.heroInvested = openSize;
+      hand.villainInvested = openSize;
+      hand.potBB = round2(openSize * 2);
+      hand.heroIsAggressor = true;
+      hand.heroInPosition = inPos(heroPos, villainPos);
+    }
+
+    hand.villain.cards = villainHoleCards(hand);
+    if (!hand.villainRangeTracker) initVillainTracker(hand);
+    syncTableToActivePot(hand);
+    syncVillainMeta(hand);
+    resetStreetBets(hand);
+
+    const full = (hand._predeal && hand._predeal.board) || [];
+    if (target === 'turn') {
+      hand.stage = 'turn';
+      hand.board = full.slice(0, 4);
+      hand._boardIdx = 4;
+    } else if (target === 'river') {
+      hand.stage = 'river';
+      hand.board = full.slice(0, 5);
+      hand._boardIdx = 5;
+    } else {
+      hand.stage = 'flop';
+      hand.board = full.slice(0, 3);
+      hand._boardIdx = 3;
+    }
+    recalcPot(hand);
+
+    if (facingBet) {
+      const vBet = round2(Math.max(0.5, hand.potBB * 0.33));
+      hand.villainInvested = round2((hand.villainInvested || 0) + vBet);
+      hand.table.invested[villainPos] = hand.villainInvested;
+      hand.potBB = round2(hand.potBB + vBet);
+      setVillainAct(hand, 'bet', vBet);
+      return buildPostflopNode(hand, hand.stage, { bet: vBet, potBefore: round2(hand.potBB - vBet) });
+    }
+    if (hand.heroInPosition) {
+      setVillainAct(hand, 'check');
+      const node = buildPostflopNode(hand, hand.stage);
+      if (hand.current) hand.current.heroClosesOnCheck = true;
+      return node;
+    }
+    return buildPostflopNode(hand, hand.stage);
   }
 
   /** Suma ante MTT/spin al bote inicial (aprox. 2–3 jugadores activos). */
@@ -23130,7 +23232,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.3.0';
+  const APP_VERSION = window.PT_BUILD || '2.4.0';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -24138,7 +24240,9 @@ window.PT_VS_3BET_JSON = {
       var schoolUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
       var schoolDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
       var canSchool = !!(schoolUser && schoolUser.isAdmin && !schoolDemo);
-      if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function') {
+      if (window.PTSchool && typeof window.PTSchool.schoolMenuVisible === 'function') {
+        canSchool = window.PTSchool.schoolMenuVisible();
+      } else if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function') {
         canSchool = window.PTSchool.hasAdminAccess();
       } else if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
         canSchool = window.PTAdmin.hasAccess();
@@ -24148,7 +24252,12 @@ window.PT_VS_3BET_JSON = {
         return;
       }
       withLazyChunk('school', function () {
-        if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function' && !window.PTSchool.hasAdminAccess()) {
+        var visible = window.PTSchool && typeof window.PTSchool.schoolMenuVisible === 'function'
+          ? window.PTSchool.schoolMenuVisible()
+          : (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function'
+            ? window.PTSchool.hasAdminAccess()
+            : true);
+        if (!visible) {
           goToTab('home');
           return;
         }

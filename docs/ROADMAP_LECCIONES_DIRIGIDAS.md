@@ -634,6 +634,19 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 
 > Estimación en **complejidad técnica y de contenido**, no en calendario.
 
+### Estado de implementación (letras A–F)
+
+| Fase | Alcance | Estado | Visibilidad menú |
+|------|---------|--------|------------------|
+| **A** | Esqueleto tab Escuela | ✅ | Solo admin |
+| **B** | Vertical slice C-02 + runner | ✅ | Solo admin |
+| **C** | M0 Cash gratis C-00…C-06 | ✅ | Solo admin |
+| **D** | Gates Free/Study/Coach + analytics + flag beta | ✅ | **Sigue solo admin** (`SCHOOL_PUBLIC=false`; allowlist lista) |
+| **E** | M1 Preflop Study C-07…C-13 | ✅ contenido | **Menú no se abre a usuarios** (aplazado a petición) |
+| **F** | M2 Postflop C-14…C-20 + estrellas/maestría + tip coach | ✅ | Solo admin |
+
+**Decisión de producto:** aunque el plan original abría el menú en E, el menú permanece **admin-only** hasta nuevo aviso. Gates de plan y currículum M1/M2 sí están activos dentro del tab admin.
+
 ### Fase 0 — Diseño cerrado (doc + prototipos)
 
 **Entregables:** este RoadMap; wireframes del mapa; contrato JSON de `Lesson` / `SpotPack`; umbrales de aprobación; matriz plan↔lección.  

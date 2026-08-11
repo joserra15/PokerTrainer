@@ -1,6 +1,7 @@
 /*
- * school.js — Escuela de Póker: hub, lecciones M0, runner de spots fijos.
- * Visible solo para admin (Fases A–C). Las manos consumen cupo Free del trainer.
+ * school.js — Escuela de Póker: hub, lecciones M0–M2, runner de spots fijos.
+ * Menú visible solo para admin (Fases D–F implementadas; apertura pública = Fase E diferida).
+ * Las manos consumen cupo Free del trainer.
  */
 (function (global) {
   'use strict';
@@ -137,11 +138,94 @@
   }
 
   /**
-   * Gate de contenido (preparado para Fase D).
-   * Hoy: admin-only UI + desbloqueo lineal. En D se añadirá Study/Coach.
+   * Visibilidad del menú Escuela.
+   * Fase D/E/F: sigue admin-only (pedido explícito). La allowlist beta queda lista
+   * para cuando se quite este candado sin reabrir a 100 %.
+   */
+  var SCHOOL_BETA_EMAILS = [
+    /* añadir emails beta aquí cuando se abra sin menú global */
+  ];
+  var SCHOOL_PUBLIC = false; // true = GA (Fase E completa)
+
+  function userEmail() {
+    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    return (u && u.email) ? String(u.email).toLowerCase() : '';
+  }
+
+  function isSchoolBetaUser() {
+    var email = userEmail();
+    if (!email) return false;
+    for (var i = 0; i < SCHOOL_BETA_EMAILS.length; i++) {
+      if (String(SCHOOL_BETA_EMAILS[i]).toLowerCase() === email) return true;
+    }
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('pt_school_beta') === '1') return true;
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  /** ¿Puede ver el tab Escuela? Hoy: solo admin. */
+  function schoolMenuVisible() {
+    if (SCHOOL_PUBLIC) return !!(global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser());
+    return hasAdminAccess();
+  }
+
+  function trackSchool(eventName, props) {
+    try {
+      if (global.PTLog && typeof global.PTLog.event === 'function') {
+        global.PTLog.event(eventName, props || {});
+        return;
+      }
+      if (global.PTAnalytics && typeof global.PTAnalytics.track === 'function') {
+        global.PTAnalytics.track(eventName, props || {});
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function entitlementsPlan() {
+    var ent = global.PTEntitlements && global.PTEntitlements.get
+      ? global.PTEntitlements.get()
+      : null;
+    if (ent && ent.plan) return String(ent.plan);
+    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    return (u && u.plan) || 'free';
+  }
+
+  /** free=0, study/pro=1, coach/premium=2 */
+  function planRank(plan) {
+    var p = String(plan || 'free').toLowerCase();
+    if (p === 'premium' || p === 'coach') return 2;
+    if (p === 'pro' || p === 'study') return 1;
+    return 0;
+  }
+
+  function lessonPlanRank(lesson) {
+    if (!lesson) return 0;
+    return planRank(lesson.plan || 'free');
+  }
+
+  function planLabelFor(plan) {
+    var p = String(plan || 'free').toLowerCase();
+    if (p === 'premium' || p === 'coach') return 'Coach';
+    if (p === 'pro' || p === 'study') return 'Study';
+    return 'Gratis';
+  }
+
+  function openUpgrade(reason) {
+    trackSchool('lesson_blocked_plan', { reason: reason || 'plan' });
+    if (global.PTBilling && typeof global.PTBilling.showPaywall === 'function') {
+      global.PTBilling.showPaywall(reason || 'school_plan');
+      return;
+    }
+    if (typeof global.goToTab === 'function') global.goToTab('pricing');
+  }
+
+  /**
+   * Gate de contenido (Fase D): plan Free/Study/Coach + desbloqueo lineal.
+   * Menú sigue admin-only; dentro, el plan se respeta (admin free ve muros Study).
    */
   function canPlayLesson(lessonId) {
-    if (!hasAdminAccess()) {
+    if (!schoolMenuVisible()) {
       return { ok: false, reason: 'admin_only', message: 'Escuela en pruebas (solo administración).' };
     }
     var lesson = Data() && Data().getLesson(lessonId);
@@ -149,8 +233,64 @@
     if (!isLessonUnlocked(lessonId)) {
       return { ok: false, reason: 'locked', message: 'Completa la lección anterior.' };
     }
-    // Fase D: comprobar lesson.plan vs entitlements (free/study/coach).
+    var need = lessonPlanRank(lesson);
+    var have = planRank(entitlementsPlan());
+    if (have < need) {
+      return {
+        ok: false,
+        reason: 'plan',
+        message: 'Esta lección requiere plan ' + planLabelFor(lesson.plan) + '.',
+        requiredPlan: lesson.plan,
+        upgrade: true
+      };
+    }
     return { ok: true, lesson: lesson };
+  }
+
+  function schoolPlayConfig(spot) {
+    var base = {
+      scenario: 'rfi',
+      practiceStreet: 'preflop',
+      handRange: 'all',
+      villainLevel: 'fish',
+      formatHub: 'cash',
+      gameType: 'cash6',
+      liveAdvisor: false,
+      handsTarget: 0,
+      schoolMode: true,
+      schoolDecisionEnd: true
+    };
+    var extra = (spot && spot.playConfig) || {};
+    var out = {};
+    var k;
+    for (k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
+    for (k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) out[k] = extra[k];
+    return out;
+  }
+
+  function spotToForce(spot) {
+    var fd = spot.forceDeal || {};
+    var force = {
+      type: spot.type || 'RFI',
+      heroPos: spot.heroPos,
+      seed: spot.seed,
+      forceDeal: {
+        heroCards: fd.heroCards || spot.heroCards,
+        villainCards: fd.villainCards || null,
+        board: (fd.board || []).slice(),
+        villainPos: fd.villainPos || 'BB'
+      }
+    };
+    if (spot.key) force.key = spot.key;
+    if (spot.limperPos) force.limperPos = spot.limperPos;
+    if (spot.openerPos) force.openerPos = spot.openerPos;
+    if (spot.callerPos) force.callerPos = spot.callerPos;
+    if (spot.limperPositions) force.limperPositions = spot.limperPositions;
+    if (spot.facingBet || (spot.forceDeal && spot.forceDeal.facingBet)) {
+      force.facingBet = true;
+      force.forceDeal.facingBet = true;
+    }
+    return force;
   }
 
   function scorePoints(cls, pro) {
@@ -220,35 +360,6 @@
 
   /* ---------- Sesión de spots ---------- */
 
-  function schoolPlayConfig() {
-    return {
-      scenario: 'rfi',
-      practiceStreet: 'preflop',
-      handRange: 'all',
-      villainLevel: 'fish',
-      formatHub: 'cash',
-      gameType: 'cash6',
-      liveAdvisor: false,
-      handsTarget: 0,
-      schoolMode: true,
-      schoolDecisionEnd: true
-    };
-  }
-
-  function spotToForce(spot) {
-    return {
-      type: spot.type || 'RFI',
-      heroPos: spot.heroPos,
-      seed: spot.seed,
-      forceDeal: {
-        heroCards: (spot.forceDeal && spot.forceDeal.heroCards) || spot.heroCards,
-        villainCards: (spot.forceDeal && spot.forceDeal.villainCards) || null,
-        board: (spot.forceDeal && spot.forceDeal.board) || [],
-        villainPos: (spot.forceDeal && spot.forceDeal.villainPos) || 'BB'
-      }
-    };
-  }
-
   function activeSession() {
     return state.session;
   }
@@ -310,7 +421,7 @@
     updateSchoolBanner();
     var force = spotToForce(s.spots[index]);
     if (typeof global.playAnalysisHand === 'function') {
-      global.playAnalysisHand(force, schoolPlayConfig());
+      global.playAnalysisHand(force, schoolPlayConfig(s.spots[index]));
     }
   }
 
@@ -400,6 +511,12 @@
     if (!s) return;
     var lesson = Data().getLesson(s.lessonId);
     var summary = recordLessonAttempt(lesson, s.results);
+    trackSchool(summary.passed ? 'lesson_complete' : 'lesson_fail', {
+      lessonId: lesson.id,
+      pct: summary.pct,
+      passed: summary.passed,
+      gold: summary.gold
+    });
     s.active = false;
     state.session = null;
     updateSchoolBanner();
@@ -414,9 +531,15 @@
     var lesson = data && data.getLesson(lessonId);
     if (!lesson) return;
     var gate = canPlayLesson(lessonId);
-    if (!gate.ok) return;
+    if (!gate.ok) {
+      trackSchool('lesson_blocked_plan', { lessonId: lessonId, reason: gate.reason });
+      if (gate.upgrade) openUpgrade(gate.reason);
+      return;
+    }
+    trackSchool('lesson_start', { lessonId: lesson.id, module: lesson.module, plan: lesson.plan });
     if (!lesson.spots || !lesson.spots.length) {
       var summary = completeTheoryLesson(lesson);
+      trackSchool('lesson_complete', { lessonId: lesson.id, pct: summary.pct, passed: summary.passed });
       state.view = VIEW.result;
       state.lessonId = lesson.id;
       state.lastResult = { lesson: lesson, summary: summary, results: [] };
@@ -499,8 +622,11 @@
   function nodeState(lesson) {
     var p = lessonProgress(lesson.id);
     if (p && p.passed) return 'done';
-    if (isLessonUnlocked(lesson.id)) return 'open';
-    return 'locked';
+    if (!isLessonUnlocked(lesson.id)) return 'locked';
+    var need = lessonPlanRank(lesson);
+    var have = planRank(entitlementsPlan());
+    if (have < need) return 'plan';
+    return 'open';
   }
 
   function planBadge(plan) {
@@ -516,12 +642,7 @@
     var routes = (data && data.ROUTES) || [];
     var lessons = data.lessonsForRoute(state.route);
     var rp = routeProgress(state.route);
-    var m0 = data.m0Lessons ? data.m0Lessons() : lessons.filter(function (l) { return l.module === 'M0'; });
-    var m0Passed = 0;
-    m0.forEach(function (l) { if (isLessonPassed(l.id)) m0Passed += 1; });
-    var m0Pct = m0.length ? Math.round((m0Passed / m0.length) * 100) : 0;
-
-    var routeTabs = routes.map(function (r) {
+        var routeTabs = routes.map(function (r) {
       var active = r.id === state.route ? ' is-active' : '';
       var soon = r.status === 'soon' ? ' is-soon' : '';
       var title = r.status === 'soon' ? (r.teaser || 'Próximamente') : '';
@@ -535,55 +656,74 @@
       return '<li><strong>' + esc(r.label) + ':</strong> ' + esc(r.teaser) + '</li>';
     }).join('');
 
-    var nodes = lessons.map(function (l, idx) {
-      var st = nodeState(l);
-      var p = lessonProgress(l.id);
-      var pctHtml = p && p.passed
-        ? '<span class="school-node-pct">' + esc(String(p.bestPct)) + '%</span>'
-        : '';
-      var stars = '';
-      if (p && p.passed) {
-        stars = '<span class="school-stars" aria-label="maestría">' +
-          (p.perfect ? '★★★' : (p.gold ? '★★☆' : '★☆☆')) + '</span>';
-      }
-      var lock = st === 'locked' ? '<span class="school-node-lock" aria-hidden="true">Bloqueada</span>' : '';
-      return '<button type="button" class="school-node is-' + st + '" data-school-lesson="' + esc(l.id) + '"' +
-        (st === 'locked' ? ' disabled' : '') + '>' +
-        '<span class="school-node-idx">' + (idx + 1) + '</span>' +
-        '<span class="school-node-body">' +
-        '<span class="school-node-title">' + esc(l.title) + '</span>' +
-        '<span class="school-node-meta">' + planBadge(l.plan) + ' · ' + (l.hands || 0) + ' manos · +' + (l.xp || 0) + ' XP</span>' +
-        '</span>' +
-        pctHtml + stars + lock +
-        '</button>';
-    }).join('');
+    function renderModuleNodes(modLessons, startIdx) {
+      return modLessons.map(function (l, i) {
+        var st = nodeState(l);
+        var p = lessonProgress(l.id);
+        var pctHtml = p && p.passed
+          ? '<span class="school-node-pct">' + esc(String(p.bestPct)) + '%</span>'
+          : '';
+        var stars = '';
+        if (p && p.passed) {
+          stars = '<span class="school-stars" aria-label="maestría">' +
+            (p.perfect ? '★★★' : (p.gold ? '★★☆' : '★☆☆')) + '</span>';
+        }
+        var lock = '';
+        if (st === 'locked') lock = '<span class="school-node-lock" aria-hidden="true">Bloqueada</span>';
+        if (st === 'plan') lock = '<span class="school-node-lock school-node-plan" aria-hidden="true">' +
+          planLabelFor(l.plan) + '</span>';
+        return '<button type="button" class="school-node is-' + st + '" data-school-lesson="' + esc(l.id) + '"' +
+          (st === 'locked' ? ' disabled' : '') + '>' +
+          '<span class="school-node-idx">' + (startIdx + i + 1) + '</span>' +
+          '<span class="school-node-body">' +
+          '<span class="school-node-title">' + esc(l.title) + '</span>' +
+          '<span class="school-node-meta">' + planBadge(l.plan) + ' · ' + (l.hands || 0) + ' manos · +' + (l.xp || 0) + ' XP</span>' +
+          '</span>' +
+          pctHtml + stars + lock +
+          '</button>';
+      }).join('');
+    }
+    var m0 = data.m0Lessons ? data.m0Lessons() : lessons.filter(function (l) { return l.module === 'M0'; });
+    var m1 = data.m1Lessons ? data.m1Lessons() : lessons.filter(function (l) { return l.module === 'M1'; });
+    var m2 = data.m2Lessons ? data.m2Lessons() : lessons.filter(function (l) { return l.module === 'M2'; });
+    var m0Passed = 0; m0.forEach(function (l) { if (isLessonPassed(l.id)) m0Passed += 1; });
+    var m1Passed = 0; m1.forEach(function (l) { if (isLessonPassed(l.id)) m1Passed += 1; });
+    var m2Passed = 0; m2.forEach(function (l) { if (isLessonPassed(l.id)) m2Passed += 1; });
+    var nodesM0 = renderModuleNodes(m0, 0);
+    var nodesM1 = renderModuleNodes(m1, m0.length);
+    var nodesM2 = renderModuleNodes(m2, m0.length + m1.length);
 
     root.innerHTML =
       '<div class="school-page">' +
       '<header class="school-hero">' +
-      '<p class="school-eyebrow">Admin · M0 v2 · Preparado para Fase D</p>' +
+      '<p class="school-eyebrow">Admin · Fases D–F · Menú solo administración</p>' +
       '<h2 class="school-title">Escuela de Póker</h2>' +
-      '<p class="school-lead">Módulo M0 Cash completo en Gratis (7 lecciones). Spots fijos, desbloqueo lineal. Las manos consumen el cupo Free del entrenador.</p>' +
+      '<p class="school-lead">M0 Gratis + M1/M2 Study (preflop y postflop). Gates de plan activos. Las manos consumen el cupo Free del entrenador.</p>' +
       '<div class="school-hero-stats">' +
       '<div class="school-stat"><span class="school-stat-val">Nv. ' + lv.level + '</span><span class="school-stat-lbl">Nivel Escuela</span></div>' +
       '<div class="school-stat"><span class="school-stat-val">' + lv.xp + '</span><span class="school-stat-lbl">XP</span></div>' +
-      '<div class="school-stat"><span class="school-stat-val">' + m0Passed + '/' + m0.length + '</span><span class="school-stat-lbl">M0 Cash</span></div>' +
-      '<div class="school-stat"><span class="school-stat-val">' + rp.gold + '</span><span class="school-stat-lbl">Oro</span></div>' +
+      '<div class="school-stat"><span class="school-stat-val">' + m0Passed + '/' + m0.length + '</span><span class="school-stat-lbl">M0</span></div>' +
+      '<div class="school-stat"><span class="school-stat-val">' + (m1Passed + m2Passed) + '/' + (m1.length + m2.length) + '</span><span class="school-stat-lbl">M1–M2</span></div>' +
       '</div>' +
-      '<div class="school-xp-bar" aria-hidden="true"><div class="school-xp-fill" style="width:' +
+      '<div class="school-xp-bar" aria-hidden="true"><div class="school-xp-fill school-xp-fill-anim" style="width:' +
       Math.min(100, Math.round((lv.into / lv.per) * 100)) + '%"></div></div>' +
-      '<p class="muted-text school-m0-progress">Progreso M0: ' + m0Passed + ' de ' + m0.length +
-      ' lecciones (' + m0Pct + '%)</p>' +
       '</header>' +
       '<div class="school-routes" role="tablist">' + routeTabs + '</div>' +
       (soonTeasers
         ? '<div class="muted-text school-route-teasers">Próximas rutas:<ul class="school-teaser-list">' + soonTeasers + '</ul></div>'
         : '') +
       '<section class="school-map card-box">' +
-      '<h3 class="school-map-title">Módulo M0 · Fundamentos Cash (Gratis)</h3>' +
-      '<p class="muted-text school-map-lead">7 lecciones de simple a examen. Completa en orden. Tras M0, Study abre el preflop completo (Fase E).</p>' +
-      '<div class="school-nodes">' + nodes + '</div>' +
-      '</section>' +
+      '<h3 class="school-map-title">M0 · Fundamentos Cash (Gratis)</h3>' +
+      '<p class="muted-text school-map-lead">' + m0Passed + '/' + m0.length + ' completadas. Desbloqueo lineal.</p>' +
+      '<div class="school-nodes">' + nodesM0 + '</div></section>' +
+      '<section class="school-map card-box">' +
+      '<h3 class="school-map-title">M1 · Preflop core (Study)</h3>' +
+      '<p class="muted-text school-map-lead">' + m1Passed + '/' + m1.length + ' · Defensa BB, 3-bet, squeeze, iso.</p>' +
+      '<div class="school-nodes">' + nodesM1 + '</div></section>' +
+      '<section class="school-map card-box">' +
+      '<h3 class="school-map-title">M2 · Postflop core (Study)</h3>' +
+      '<p class="muted-text school-map-lead">' + m2Passed + '/' + m2.length + ' · Textura, c-bet, defensa, barrels.</p>' +
+      '<div class="school-nodes">' + nodesM2 + '</div></section>' +
       '</div>';
 
     root.querySelectorAll('[data-school-route]').forEach(function (btn) {
@@ -598,7 +738,10 @@
       btn.addEventListener('click', function () {
         var id = btn.getAttribute('data-school-lesson');
         var gate = canPlayLesson(id);
-        if (!gate.ok) return;
+        if (!gate.ok) {
+          if (gate.upgrade) openUpgrade(gate.reason);
+          return;
+        }
         state.view = VIEW.lesson;
         state.lessonId = id;
         render(root);
@@ -632,7 +775,7 @@
       '<div class="school-page school-lesson-page">' +
       '<button type="button" class="btn btn-ghost school-back" id="school-back-hub">« Volver al mapa</button>' +
       '<header class="school-lesson-header">' +
-      '<p class="school-eyebrow">' + esc(lesson.id) + ' · M0 Cash ' + planBadge(lesson.plan) + '</p>' +
+      '<p class="school-eyebrow">' + esc(lesson.id) + ' · ' + esc(lesson.module || 'M0') + ' Cash ' + planBadge(lesson.plan) + '</p>' +
       '<h2 class="school-title">' + esc(lesson.title) + '</h2>' +
       '<p class="school-lead">' + esc(lesson.concept) + '</p>' +
       (p && p.passed
@@ -713,6 +856,31 @@
     });
   }
 
+  /** Tip breve tipo coach al cerrar la sesión (Fase F). */
+  function schoolCoachTip(lesson, passed, fails) {
+    if (!lesson) return '';
+    if (passed && lesson.exam) return 'Examen superado. El módulo queda marcado y puedes seguir al siguiente.';
+    if (passed) {
+      if (lesson.module === 'M2') return 'Buen trabajo postflop. En mesa real, nombra la textura antes del sizing.';
+      if (lesson.module === 'M1') return 'Preflop sólido. Posición y stack definen el tamaño; no copies ciegas de torneo.';
+      return 'Lección superada. Siguiente nodo del mapa cuando quieras.';
+    }
+    var blob = (fails || []).map(function (f) {
+      return String(f.reason || '') + ' ' + String(f.teachBack || '') + ' ' + String(f.spotId || '');
+    }).join(' ').toLowerCase();
+    if (/fold|pasaste|pasas/.test(blob) && /call|defend|defender|overfold/.test(blob + ' ' + (lesson.id || '') + ' ' + (lesson.title || '').toLowerCase())) {
+      return 'Estás foldando de más en spots de defensa. Revisa pot odds y si tienes equity realization.';
+    }
+    if (/3-?bet|squeeze|raise/.test(blob) && /spew|fancy|value|bluff|polar/.test(blob)) {
+      return 'Revisa tu mix value/bluff: el sizing debe corresponder al plan (negar equity vs value-heavy).';
+    }
+    if (/c-?bet|barrel|flop|textura|wet|seco/.test(blob) || lesson.module === 'M2') {
+      return 'En postflop, nombra la textura antes de actuar: ¿quién tiene más nut advantage? Luego bet o check.';
+    }
+    if (lesson.exam) return 'Repasa las lecciones del módulo y vuelve al examen con calma.';
+    return 'Revisa los fallos abajo, lee otra vez el teach-back y reintenta la lección.';
+  }
+
   function renderResult(root) {
     var pack = state.lastResult;
     if (!pack || !pack.lesson) {
@@ -728,6 +896,7 @@
     var fails = (pack.results || []).filter(function (r) {
       return r.class === 'error' || r.class === 'imprecisa';
     });
+    var tip = schoolCoachTip(lesson, sum.passed, fails);
 
     root.innerHTML =
       '<div class="school-page school-result-page">' +
@@ -743,6 +912,9 @@
       (sum.gold ? '<p class="school-gold-tag">Marca oro</p>' : '') +
       (sum.perfect ? '<p class="school-gold-tag">¡100 %!</p>' : '') +
       '</header>' +
+      (tip
+        ? '<div class="school-coach-note card-box"><span class="school-coach-label">Coach</span><p>' + esc(tip) + '</p></div>'
+        : '') +
       (fails.length
         ? '<section class="card-box"><h3>Spots a repasar</h3><ul class="school-fail-list">' +
           fails.map(formatFailSpotHtml).join('') + '</ul></section>'
@@ -775,7 +947,7 @@
   function render(container) {
     var root = container || document.getElementById('school-content');
     if (!root) return;
-    if (!hasAdminAccess()) {
+    if (!schoolMenuVisible()) {
       root.innerHTML = '<div class="school-page"><p class="muted-text">Escuela de Póker está en pruebas (solo administración).</p></div>';
       return;
     }
@@ -815,6 +987,12 @@
     ensureBannerEl: ensureBannerEl,
     formatFailSpotHtml: formatFailSpotHtml,
     formatCards: formatCards,
+    schoolCoachTip: schoolCoachTip,
+    schoolMenuVisible: schoolMenuVisible,
+    isSchoolBetaUser: isSchoolBetaUser,
+    planRank: planRank,
+    entitlementsPlan: entitlementsPlan,
+    trackSchool: trackSchool,
     _state: state
   };
 })(typeof window !== 'undefined' ? window : globalThis);

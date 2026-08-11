@@ -19,7 +19,7 @@
   'use strict';
 
   var XP_PER_LEVEL = 200;
-  var SCHOOL_DATA_VERSION = 2;
+  var SCHOOL_DATA_VERSION = 3;
 
   var ROUTES = [
     { id: 'cash', label: 'Cash', status: 'active' },
@@ -38,13 +38,144 @@
       forceDeal: {
         heroCards: heroCards.slice(),
         villainCards: meta.villainCards || null,
-        board: [],
-        villainPos: 'BB'
+        board: (meta.board || []).slice(),
+        villainPos: meta.villainPos || 'BB'
       },
+      playConfig: meta.playConfig || { scenario: 'rfi', practiceStreet: 'preflop' },
       trapTag: meta.trapTag || 'none',
       teachBack: meta.teachBack || '',
       label: meta.label || (heroPos + ' · ' + heroCards.join(''))
     };
+  }
+
+  /** vs open: hero en blinds/cold decide fold/call/3-bet. key = 'BB_vs_BTN'. */
+  function vsRfiSpot(id, key, heroCards, seed, meta) {
+    meta = meta || {};
+    var parts = String(key || '').split('_vs_');
+    return {
+      id: id,
+      type: 'vsRFI',
+      key: key,
+      heroPos: parts[0] || 'BB',
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: (meta.board || []).slice(),
+        villainPos: parts[1] || 'BTN'
+      },
+      playConfig: meta.playConfig || { scenario: '3bet', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || key
+    };
+  }
+
+  /** Tras open, enfrentas 3-bet. key = 'BTN_vs_BB'. */
+  function face3betSpot(id, key, heroCards, seed, meta) {
+    meta = meta || {};
+    var parts = String(key || '').split('_vs_');
+    return {
+      id: id,
+      type: 'face3bet',
+      key: key,
+      heroPos: parts[0] || 'BTN',
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: [],
+        villainPos: parts[1] || 'BB'
+      },
+      playConfig: meta.playConfig || { scenario: 'face3bet', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || key
+    };
+  }
+
+  function isoSpot(id, heroPos, limperPos, heroCards, seed, meta) {
+    meta = meta || {};
+    return {
+      id: id,
+      type: 'isoLimp',
+      heroPos: heroPos,
+      limperPos: limperPos,
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: [],
+        villainPos: limperPos
+      },
+      playConfig: meta.playConfig || { scenario: 'iso', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || (heroPos + ' iso vs ' + limperPos)
+    };
+  }
+
+  function squeezeSpot(id, heroPos, openerPos, callerPos, heroCards, seed, meta) {
+    meta = meta || {};
+    return {
+      id: id,
+      type: 'squeeze',
+      heroPos: heroPos,
+      openerPos: openerPos,
+      callerPos: callerPos,
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: [],
+        villainPos: openerPos
+      },
+      playConfig: meta.playConfig || { scenario: 'squeeze', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || ('Squeeze ' + heroPos)
+    };
+  }
+
+  function bbVsSbLimpSpot(id, heroCards, seed, meta) {
+    meta = meta || {};
+    return {
+      id: id,
+      type: 'bbVsSbLimp',
+      heroPos: 'BB',
+      seed: seed,
+      forceDeal: {
+        heroCards: heroCards.slice(),
+        villainCards: meta.villainCards || null,
+        board: [],
+        villainPos: 'SB'
+      },
+      playConfig: meta.playConfig || { scenario: 'bbvsb', practiceStreet: 'preflop' },
+      trapTag: meta.trapTag || 'none',
+      teachBack: meta.teachBack || '',
+      label: meta.label || 'BB vs SB limp'
+    };
+  }
+
+  /** Postflop: open RFI + board forzado; practiceStreet flop/turn/river.
+   *  facingBet: héroe defiende vs c-bet (villano apuesta ~33 %). */
+  function flopSpot(id, heroPos, heroCards, board, seed, meta) {
+    meta = meta || {};
+    var street = meta.street || 'flop';
+    var spot = rfiSpot(id, heroPos, heroCards, seed, {
+      board: board,
+      villainPos: meta.villainPos || (meta.facingBet ? 'BTN' : 'BB'),
+      villainCards: meta.villainCards || null,
+      trapTag: meta.trapTag,
+      teachBack: meta.teachBack,
+      label: meta.label,
+      playConfig: { scenario: 'rfi', practiceStreet: street }
+    });
+    if (meta.facingBet) {
+      spot.facingBet = true;
+      spot.forceDeal.facingBet = true;
+    }
+    return spot;
   }
 
   var LESSONS = [
@@ -553,6 +684,19 @@
     return lessonsForRoute('cash').filter(function (l) { return l.module === 'M0'; });
   }
 
+  function m1Lessons() {
+    return lessonsForRoute('cash').filter(function (l) { return l.module === 'M1'; });
+  }
+
+  function m2Lessons() {
+    return lessonsForRoute('cash').filter(function (l) { return l.module === 'M2'; });
+  }
+
+  function registerLessons(extra) {
+    if (!extra || !extra.length) return;
+    for (var i = 0; i < extra.length; i++) LESSONS.push(extra[i]);
+  }
+
   global.PTSchoolData = {
     XP_PER_LEVEL: XP_PER_LEVEL,
     SCHOOL_DATA_VERSION: SCHOOL_DATA_VERSION,
@@ -563,13 +707,417 @@
     lessonsForRoute: lessonsForRoute,
     nextLessonId: nextLessonId,
     m0Lessons: m0Lessons,
-    rfiSpot: rfiSpot
+    m1Lessons: m1Lessons,
+    m2Lessons: m2Lessons,
+    registerLessons: registerLessons,
+    rfiSpot: rfiSpot,
+    vsRfiSpot: vsRfiSpot,
+    face3betSpot: face3betSpot,
+    isoSpot: isoSpot,
+    squeezeSpot: squeezeSpot,
+    bbVsSbLimpSpot: bbVsSbLimpSpot,
+    flopSpot: flopSpot
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /*
- * school.js — Escuela de Póker: hub, lecciones M0, runner de spots fijos.
- * Visible solo para admin (Fases A–C). Las manos consumen cupo Free del trainer.
+ * school-data-m1.js — Cash M1 Preflop core (Study). C-07…C-13.
+ * Se registra sobre PTSchoolData tras school-data.js (Fase E).
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+  var vs = D.vsRfiSpot;
+  var f3 = D.face3betSpot;
+  var iso = D.isoSpot;
+  var sq = D.squeezeSpot;
+  var bb = D.bbVsSbLimpSpot;
+
+  D.registerLessons([
+    {
+      id: 'C-07',
+      title: 'Defender BB vs open',
+      route: 'cash', module: 'M1', order: 7, plan: 'study',
+      xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
+      concept: 'Desde la ciega grande, frente a un open, eliges fold, call o 3-bet según la posición del agresor y tu mano.',
+      theory: [
+        'Tras el open del rival, en BB ya tienes 1 bb invertida: eso mejora tus odds para call, pero no justifica defender basura.',
+        'Contra opens late (CO/BTN) defiendes más wide; contra UTG/HJ eres más tight. El 3-bet mezcla valor y bluffs (polar).',
+        'Trampa: overdefend (llamar de más con manos dominadas) o 3-bet spew vs opens tempranos.'
+      ],
+      examples: [{
+        title: 'Misma mano, distinto open',
+        body: 'Con KJo vs open UTG suele ser fold. La misma KJo vs open BTN entra a menudo en call o 3-bet light según chart.'
+      }],
+      aiQuestions: ['¿Qué cambia al defender BB vs BTN respecto a vs UTG?', '¿Cuándo 3-beteo polar desde BB?'],
+      spots: [
+        vs('c07-01', 'BB_vs_BTN', ['Ah', 'Kd'], 17001, { teachBack: 'AKo vs BTN: 3-bet de valor claro.' }),
+        vs('c07-02', 'BB_vs_UTG', ['Kh', 'Jd'], 17002, { trapTag: 'dominated', teachBack: 'KJo vs UTG está dominada. Fold típico.' }),
+        vs('c07-03', 'BB_vs_BTN', ['Kh', 'Jd'], 17003, { teachBack: 'KJo vs BTN: defensa razonable (call/3-bet según mix).' }),
+        vs('c07-04', 'BB_vs_CO', ['7c', '2d'], 17004, { trapTag: 'dominated', teachBack: '72o vs CO: fold. No overdefend.' }),
+        vs('c07-05', 'BB_vs_BTN', ['9s', '8s'], 17005, { teachBack: '98s vs BTN: call cómodo, buena jugabilidad.' }),
+        vs('c07-06', 'BB_vs_HJ', ['Ad', '5d'], 17006, { teachBack: 'A5s vs HJ: 3-bet polar frecuente (blockers + equity).' }),
+        vs('c07-07', 'BB_vs_UTG', ['Qh', '9c'], 17007, { trapTag: 'dominated', teachBack: 'Q9o vs UTG: fold. No overdefend trash.' }),
+        vs('c07-08', 'BB_vs_CO', ['Jc', 'Tc'], 17008, { teachBack: 'JTs vs CO: call/3-bet sólido.' })
+      ]
+    },
+    {
+      id: 'C-08',
+      title: '3-bet value y polar',
+      route: 'cash', module: 'M1', order: 8, plan: 'study',
+      xp: 130, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
+      concept: 'El 3-bet no es solo “manos premium”: construyes valor y, en late, una capa polar de bluffs con blockers.',
+      theory: [
+        'Value: QQ+, AK y a menudo JJ/AQ según posición. Polar light: ases suited bajos, conectores suited, desde blinds vs late.',
+        'Vs open UTG tu 3-bet es más linear/value; vs BTN puedes 3-betear más light.',
+        'Trampa: 3-bet spew (KJo/QTo offsuit vs early) o nunca 3-betear light cuando el spot lo pide.'
+      ],
+      examples: [{
+        title: 'Polar vs BTN',
+        body: 'BB vs open BTN con A4s: muchos charts 3-betean (bloqueas AK/AQ y tienes equity). Con KTo offsuit, mejor fold o call selectivo — no spew.'
+      }],
+      aiQuestions: ['¿Qué es un 3-bet polar?', '¿Por qué 3-beteo menos light vs UTG?'],
+      spots: [
+        vs('c08-01', 'BB_vs_BTN', ['Qs', 'Qd'], 18001, { teachBack: 'QQ vs BTN: 3-bet value.' }),
+        vs('c08-02', 'BB_vs_BTN', ['Ad', '4d'], 18002, { teachBack: 'A4s vs BTN: 3-bet polar habitual.' }),
+        vs('c08-03', 'BB_vs_UTG', ['Kh', 'Td'], 18003, { trapTag: 'fancy_play', teachBack: 'KTo vs UTG: no spew. Fold.' }),
+        vs('c08-04', 'SB_vs_BTN', ['As', '5s'], 18004, { teachBack: 'A5s SB vs BTN: 3-bet polar frecuente.' }),
+        vs('c08-05', 'BB_vs_CO', ['Ah', 'Kh'], 18005, { teachBack: 'AKs vs CO: 3-bet value.' }),
+        vs('c08-06', 'BB_vs_HJ', ['Qc', '9d'], 18006, { trapTag: 'fancy_play', teachBack: 'Q9o vs HJ: no es 3-bet light. Fold/call selectivo — aquí fold.' }),
+        vs('c08-07', 'BB_vs_BTN', ['7h', '6h'], 18007, { teachBack: '76s vs BTN: 3-bet light/call según mix; muchas líneas lo incluyen.' }),
+        vs('c08-08', 'BB_vs_UTG', ['Jd', 'Jd'], 18008, { teachBack: 'JJ vs UTG: 3-bet o call mixto; value claro frente a open early.' })
+      ]
+    },
+    {
+      id: 'C-09',
+      title: 'Enfrentar 3-bet',
+      route: 'cash', module: 'M1', order: 9, plan: 'study',
+      xp: 130, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
+      concept: 'Tras tu open, el rival 3-betea: decides fold, call o 4-bet según posición y mano.',
+      theory: [
+        'Fuera de posición (abriste UTG/HJ) continúas más tight. En el botón tienes más call.',
+        '4-bet value: QQ+/AK. 4-bet bluff: ases suited con blockers, selectivo.',
+        'Trampa: hero-call dominado (ATo/KQo flat OOP vs 3-bet) o foldear de más con suited connectors IP.'
+      ],
+      examples: [{
+        title: 'BTN vs BB 3-bet',
+        body: 'Abriste BTN con ATs y BB 3-betea: call frecuente. Con A9o offsuit, muchas veces fold.'
+      }],
+      aiQuestions: ['¿Cuándo 4-beteo vs 3-bet?', '¿Por qué continúo más tight OOP?'],
+      spots: [
+        f3('c09-01', 'BTN_vs_BB', ['As', 'Ad'], 19001, { teachBack: 'AA vs 3-bet: 4-bet value.' }),
+        f3('c09-02', 'BTN_vs_BB', ['Ah', 'Ts'], 19002, { teachBack: 'ATs BTN vs BB: call frecuente.' }),
+        f3('c09-03', 'UTG_vs_BB', ['Ah', 'Td'], 19003, { trapTag: 'dominated', teachBack: 'ATo UTG vs 3-bet: fold típico OOP.' }),
+        f3('c09-04', 'CO_vs_BTN', ['Kh', 'Qs'], 19004, { teachBack: 'KQs CO vs BTN: call/4-bet mixto razonable.' }),
+        f3('c09-05', 'BTN_vs_SB', ['7c', '2d'], 19005, { trapTag: 'dominated', teachBack: '72o vs 3-bet: fold siempre.' }),
+        f3('c09-06', 'HJ_vs_BB', ['9s', '9c'], 19006, { teachBack: '99 HJ vs 3-bet: call frecuente.' }),
+        f3('c09-07', 'BTN_vs_BB', ['Ad', '5d'], 19007, { teachBack: 'A5s BTN vs BB: call o 4-bet bluff según mix.' }),
+        f3('c09-08', 'CO_vs_BB', ['Qd', 'Jh'], 19008, { trapTag: 'dominated', teachBack: 'QJo CO vs 3-bet BB: a menudo fold OOP.' })
+      ]
+    },
+    {
+      id: 'C-10',
+      title: 'Squeeze tras open+call',
+      route: 'cash', module: 'M1', order: 10, plan: 'study',
+      xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
+      concept: 'Hay open y cold-call: el squeeze (re-raise) castiga rangos anchos y gana un bote muerto grande.',
+      theory: [
+        'Squeezeas con value fuerte y algunos bluffs con blockers. Multiway, el cold-caller suele tener capped range.',
+        'No squeezes loco con basura: si te llaman, juegas un bote enorme OOP o multiway.',
+        'Trampa: squeeze spew (J9o) o pasar spots claros de value (QQ+/AK).'
+      ],
+      examples: [{
+        title: 'BB squeeze',
+        body: 'CO open, BTN call, tú en BB con AKo: squeeze value. Con 85o: fold.'
+      }],
+      aiQuestions: ['¿Por qué el squeeze gana fold equity extra?', '¿Qué manos uso de bluff en squeeze?'],
+      spots: [
+        sq('c10-01', 'BB', 'CO', 'BTN', ['As', 'Kd'], 20001, { teachBack: 'AKo: squeeze value claro.' }),
+        sq('c10-02', 'BB', 'CO', 'BTN', ['8c', '5d'], 20002, { trapTag: 'fancy_play', teachBack: '85o: no squeeze spew. Fold.' }),
+        sq('c10-03', 'BB', 'HJ', 'CO', ['Qh', 'Qd'], 20003, { teachBack: 'QQ: squeeze value.' }),
+        sq('c10-04', 'SB', 'CO', 'BTN', ['Ad', '5d'], 20004, { teachBack: 'A5s: squeeze polar frecuente.' }),
+        sq('c10-05', 'BB', 'UTG', 'BTN', ['Jh', '9c'], 20005, { trapTag: 'fancy_play', teachBack: 'J9o vs UTG+call: fold. No squeeze loco.' }),
+        sq('c10-06', 'BB', 'CO', 'BTN', ['9s', '9c'], 20006, { teachBack: '99: squeeze/call mixto; value razonable.' })
+      ]
+    },
+    {
+      id: 'C-11',
+      title: 'Iso-raise vs limps',
+      route: 'cash', module: 'M1', order: 11, plan: 'study',
+      xp: 110, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
+      concept: 'Si alguien limpea, aísla (iso-raise) con manos que juegan bien heads-up; no overlimpees basura.',
+      theory: [
+        'El iso castiga el limpeo y te deja la iniciativa. Tamaño típico ~3–4 bb +1 por limper.',
+        'Aísla value y manos con playability. No aísles cualquier offsuit basura OOP.',
+        'Trampa: overiso trash o overlimp detrás.'
+      ],
+      examples: [{
+        title: 'BTN vs limp UTG',
+        body: 'UTG limpea, tú en BTN con AJs: iso. Con 72o: fold.'
+      }],
+      aiQuestions: ['¿Qué tamaño de iso uso?', '¿Cuándo overlimpeo en vez de aislar?'],
+      spots: [
+        iso('c11-01', 'BTN', 'UTG', ['Ah', 'Js'], 21001, { teachBack: 'AJs BTN vs limp: iso claro.' }),
+        iso('c11-02', 'BTN', 'UTG', ['7c', '2d'], 21002, { trapTag: 'dominated', teachBack: '72o: fold. No overiso.' }),
+        iso('c11-03', 'CO', 'HJ', ['Kd', 'Qs'], 21003, { teachBack: 'KQs CO: iso value.' }),
+        iso('c11-04', 'SB', 'CO', ['9h', '8h'], 21004, { teachBack: '98s SB: iso razonable (suited).' }),
+        iso('c11-05', 'CO', 'UTG', ['Qd', '8c'], 21005, { trapTag: 'fancy_play', teachBack: 'Q8o: fold frecuente. No overiso trash.' }),
+        iso('c11-06', 'BTN', 'HJ', ['5s', '5c'], 21006, { teachBack: '55 BTN: iso común.' })
+      ]
+    },
+    {
+      id: 'C-12',
+      title: 'BB vs SB limp',
+      route: 'cash', module: 'M1', order: 12, plan: 'study',
+      xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
+      concept: 'El SB limpea: en BB puedes check (opción gratis) o iso-raise para castigar.',
+      theory: [
+        'Check con manos mediocres aprovecha la opción. Iso con value y algunas hands de steal.',
+        'No overfold: ya estás en BB. Tampoco aísles cada mano.',
+        'Trampa: check eterno con AA/KK o iso spew con basura.'
+      ],
+      examples: [{
+        title: 'Opción vs castigo',
+        body: 'SB limpea, tú con 22: check frecuente. Con AKo: iso.'
+      }],
+      aiQuestions: ['¿Cuándo checkeo vs SB limp?', '¿Qué manos aíslo desde BB?'],
+      spots: [
+        bb('c12-01', ['As', 'Kd'], 22001, { teachBack: 'AKo: iso vs SB limp.' }),
+        bb('c12-02', ['7c', '2d'], 22002, { trapTag: 'fancy_play', teachBack: '72o: check (opción). No iso spew.' }),
+        bb('c12-03', ['Qh', 'Qd'], 22003, { teachBack: 'QQ: iso value.' }),
+        bb('c12-04', ['9s', '8c'], 22004, { teachBack: '98o: check frecuente.' }),
+        bb('c12-05', ['Ad', '5d'], 22005, { teachBack: 'A5s: iso frecuente (blockers + equity).' }),
+        bb('c12-06', ['2h', '2c'], 22006, { teachBack: '22: check típico (set-mine barato).' })
+      ]
+    },
+    {
+      id: 'C-13',
+      title: 'Examen M1 · Preflop',
+      route: 'cash', module: 'M1', order: 13, plan: 'study',
+      xp: 160, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 10,
+      concept: 'Repaso M1: defensa BB, 3-bet, vs 3-bet, squeeze, iso y BB vs SB limp. Sin teoría nueva.',
+      theory: [
+        'Aplica C-07 a C-12. Mira el spot: ¿quién abrió? ¿hay limp o 3-bet?',
+        'Checklist: posición → tipo de spot → ¿value, continue o fold?'
+      ],
+      examples: [{
+        title: 'Antes de pulsar',
+        body: 'Identifica el nodo (vs open / vs 3-bet / squeeze / iso). Luego decide con el rango de esa silla.'
+      }],
+      aiQuestions: ['¿Cuál es mi fuga preflop más típica?', 'Resume 3-bet polar en una frase.'],
+      spots: [
+        vs('c13-01', 'BB_vs_BTN', ['As', 'Ks'], 23001, { teachBack: 'AKs vs BTN: 3-bet value.' }),
+        vs('c13-02', 'BB_vs_UTG', ['Qh', '9c'], 23002, { trapTag: 'dominated', teachBack: 'Q9o vs UTG: fold.' }),
+        f3('c13-03', 'BTN_vs_BB', ['Ah', 'Td'], 23003, { teachBack: 'ATo BTN vs 3-bet: call frecuente.' }),
+        f3('c13-04', 'UTG_vs_BB', ['Kh', 'Td'], 23004, { trapTag: 'dominated', teachBack: 'KTo UTG vs 3-bet: fold.' }),
+        sq('c13-05', 'BB', 'CO', 'BTN', ['Qc', 'Qd'], 23005, { teachBack: 'QQ: squeeze.' }),
+        iso('c13-06', 'BTN', 'UTG', ['7d', '2c'], 23006, { trapTag: 'dominated', teachBack: '72o: fold vs limp.' }),
+        bb('c13-07', ['Ah', 'Kd'], 23007, { teachBack: 'AKo BB vs SB limp: iso.' }),
+        vs('c13-08', 'BB_vs_CO', ['9s', '8s'], 23008, { teachBack: '98s vs CO: defensa sólida.' }),
+        iso('c13-09', 'CO', 'HJ', ['Jd', 'Ts'], 23009, { teachBack: 'JTs: iso razonable.' }),
+        sq('c13-10', 'BB', 'HJ', 'BTN', ['8c', '5d'], 23010, { trapTag: 'fancy_play', teachBack: '85o: no squeeze. Fold.' })
+      ]
+    }
+  ]);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school-data-m2.js — Cash M2 Postflop core (Study). C-14…C-20.
+ * Se registra sobre PTSchoolData (Fase F). Menú sigue admin-only.
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+  var flop = D.flopSpot;
+
+  D.registerLessons([
+    {
+      id: 'C-14',
+      title: 'Textura de flop y plan',
+      route: 'cash', module: 'M2', order: 14, plan: 'study',
+      xp: 110, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
+      concept: 'Clasifica el flop (seco / semi / wet) y elige un plan: c-bet pequeño, check o pot control.',
+      theory: [
+        'Flop seco (p. ej. K72 rainbow): pocas draws; el agresor IP c-betea alto con sizing pequeño.',
+        'Flop wet/monotone: más equity rival; reduce c-bet automático y checkea más.',
+        'Trampa: mismo sizing 75 % en todos los boards.'
+      ],
+      examples: [{
+        title: 'Seco vs wet',
+        body: 'BTN vs BB, flop K♠7♦2♣ con AQo: c-bet ~1/3. En 9♠8♠7♥ con AQo: muchas veces check o c-bet más selectivo.'
+      }],
+      aiQuestions: ['¿Qué es un flop seco?', '¿Por qué sizing pequeño en seco?'],
+      spots: [
+        flop('c14-01', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 24001, { teachBack: 'Seco K72: c-bet pequeño IP habitual con AQo.' }),
+        flop('c14-02', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 24002, { trapTag: 'fancy_play', teachBack: 'Wet conectado: no c-bet automático grande. Check o bet selectivo.' }),
+        flop('c14-03', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 24003, { teachBack: 'Overpair en board muy wet: pot control frecuente.' }),
+        flop('c14-04', 'BTN', ['8h', '7h'], ['As', '4d', '2c'], 24004, { teachBack: 'Seco A-high: c-bet light IP razonable con backdoors.' }),
+        flop('c14-05', 'BTN', ['Jc', 'Tc'], ['Ah', '7h', '2h'], 24005, { trapTag: 'fancy_play', teachBack: 'Monotone: reduce c-bet spew sin flush/draw fuerte.' }),
+        flop('c14-06', 'HJ', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 24006, { teachBack: 'QQ en K-high seco: c-bet value frecuente.' })
+      ]
+    },
+    {
+      id: 'C-15',
+      title: 'C-bet IP en flop seco',
+      route: 'cash', module: 'M2', order: 15, plan: 'study',
+      xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
+      concept: 'En posición, en flops secos, c-beteas muy a menudo a sizing pequeño para negar equity.',
+      theory: [
+        'Range advantage en A-high/K-high secos: muchas manos del BB no conectan.',
+        'Sizing ~25–33 % del bote. No necesitas 75 % para ganar la mayoría de folds.',
+        'Trampa: check-back demasiado o overbet seco sin razón.'
+      ],
+      examples: [{
+        title: 'BTN vs BB seco',
+        body: 'Flop A♠8♦3♣, tú con KQo: c-bet pequeño. Con 72o que llegó milagroso: también puedes bet o check según mix — prioriza el patrón c-bet.'
+      }],
+      aiQuestions: ['¿Por qué 33 % y no 75 % en seco?', '¿Qué manos check-back IP?'],
+      spots: [
+        flop('c15-01', 'BTN', ['Kh', 'Qd'], ['As', '8d', '3c'], 25001, { teachBack: 'A-high seco: c-bet pequeño con KQo.' }),
+        flop('c15-02', 'BTN', ['Ah', '5d'], ['Kc', '7s', '2d'], 25002, { teachBack: 'K-high seco: c-bet frecuente IP.' }),
+        flop('c15-03', 'CO', ['Jd', 'Td'], ['Qs', '4h', '4c'], 25003, { teachBack: 'Paired seco: c-bet pequeño habitual.' }),
+        flop('c15-04', 'BTN', ['9s', '8s'], ['Ah', 'Kd', '2c'], 25004, { teachBack: 'AK seco: c-bet light con backdoors.' }),
+        flop('c15-05', 'BTN', ['Qc', 'Jc'], ['Th', '7d', '2s'], 25005, { teachBack: 'T-high seco: c-bet IP estándar.' }),
+        flop('c15-06', 'BTN', ['Ad', 'Kd'], ['9c', '8h', '7s'], 25006, { trapTag: 'fancy_play', teachBack: 'Board muy conectado: no trates como seco. Selectivo.' }),
+        flop('c15-07', 'CO', ['5h', '5c'], ['As', 'Td', '3c'], 25007, { teachBack: 'Pocket pair en A-high seco: c-bet/check mixto; value pequeño OK.' }),
+        flop('c15-08', 'BTN', ['Kh', '9s'], ['Kd', '7c', '2h'], 25008, { teachBack: 'Top pair seco: c-bet value.' })
+      ]
+    },
+    {
+      id: 'C-16',
+      title: 'C-bet OOP y cuándo ceder',
+      route: 'cash', module: 'M2', order: 16, plan: 'study',
+      xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
+      concept: 'Fuera de posición reduces c-bets automáticos: construyes un rango de check y cedes en boards malos.',
+      theory: [
+        'OOP no ves la reacción del rival: c-betear wet boards te mete en botes difíciles.',
+        'Checkea más en boards que favorecen al caller (bajos conectados, monotone).',
+        'Trampa: autocbet OOP en wet.'
+      ],
+      examples: [{
+        title: 'BB agresor vs BTN',
+        body: '3-beteaste BB vs BTN, flop 8♠7♠6♥: muchas manos checkean. En A♠2♦2♣ puedes c-bet más.'
+      }],
+      aiQuestions: ['¿Por qué c-beteo menos OOP?', '¿En qué boards cedo?'],
+      spots: [
+        flop('c16-01', 'SB', ['Ah', 'Kd'], ['As', '2d', '2c'], 26001, { teachBack: 'A-high paired: c-bet OOP razonable.' }),
+        flop('c16-02', 'SB', ['Ah', 'Kd'], ['8s', '7s', '6h'], 26002, { trapTag: 'fancy_play', teachBack: 'Wet conectado OOP: cede/check más. No autocbet.' }),
+        flop('c16-03', 'BB', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 26003, { teachBack: 'QQ en K-high: mix; a menudo bet pequeño o check.' }),
+        flop('c16-04', 'SB', ['Jc', 'Tc'], ['Ah', '7h', '2h'], 26004, { trapTag: 'fancy_play', teachBack: 'Monotone OOP: no autocbet spew.' }),
+        flop('c16-05', 'BB', ['Ad', '5d'], ['Kc', '4s', '4d'], 26005, { teachBack: 'A high paired: c-bet frecuente posible.' }),
+        flop('c16-06', 'SB', ['9h', '8h'], ['Qd', 'Jc', '2s'], 26006, { teachBack: 'Missed OOP en QJ: check frecuente.' })
+      ]
+    },
+    {
+      id: 'C-17',
+      title: 'Defensa vs c-bet',
+      route: 'cash', module: 'M2', order: 17, plan: 'study',
+      xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
+      concept: 'Vs c-bet pequeño continúas con equity y backdoors; no overfoldeas solo porque “no pegaste top pair”.',
+      theory: [
+        'C-bet a 33 % ofrece odds: gutshots, backdoors y pair+draw continúan.',
+        'Vs overbet o boards que te destrozan, foldear es correcto.',
+        'Trampa: overfold vs 33 %.'
+      ],
+      examples: [{
+        title: 'Odds vs sizing',
+        body: 'BB vs c-bet 1/3 en A72r con 86s (gutshot+backs): call. Con 72o sin backdoors: fold.'
+      }],
+      aiQuestions: ['¿Por qué defiendo más vs c-bet pequeño?', '¿Qué es un backdoor?'],
+      spots: [
+        flop('c17-01', 'BB', ['8h', '6h'], ['As', '7d', '2c'], 27001, { facingBet: true, teachBack: 'Vs sizing pequeño, 86s con equity/backdoors: continue.' }),
+        flop('c17-02', 'BB', ['7c', '2d'], ['As', 'Kd', 'Qc'], 27002, { facingBet: true, trapTag: 'dominated', teachBack: '72o en AKQ: fold. Sin equity.' }),
+        flop('c17-03', 'BB', ['Jh', 'Th'], ['9s', '8d', '2c'], 27003, { facingBet: true, teachBack: 'JT con straight draw: continue claro.' }),
+        flop('c17-04', 'BB', ['Ad', '4c'], ['Kh', '7s', '2d'], 27004, { facingBet: true, teachBack: 'A-high + backdoor: call vs bet pequeño frecuente.' }),
+        flop('c17-05', 'BB', ['Qc', '5d'], ['As', 'Ah', 'Kd'], 27005, { facingBet: true, trapTag: 'dominated', teachBack: 'Q5o en AA K: fold típico.' }),
+        flop('c17-06', 'BB', ['9s', '8s'], ['7h', '6d', '2c'], 27006, { facingBet: true, teachBack: '98s con straight draw: continue.' })
+      ]
+    },
+    {
+      id: 'C-18',
+      title: 'Second barrel (turn)',
+      route: 'cash', module: 'M2', order: 18, plan: 'study',
+      xp: 130, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
+      concept: 'En el turn decides si disparas segunda bala (value/bluff) o controlas el bote.',
+      theory: [
+        'Barrel value cuando mejoras o sigues adelante. Bluff cuando el turn asusta al rango rival (overcards, flush cards).',
+        'Sticky second pair: no barrels eternos sin plan.',
+        'Trampa: pegarte a segunda pareja en todas las calles.'
+      ],
+      examples: [{
+        title: 'Turn scare',
+        body: 'C-beteaste A72r con KQ, turn K: value barrel. Turn 8 que completa draws rivales: a menudo check.'
+      }],
+      aiQuestions: ['¿Cuándo doy second barrel?', '¿Qué es sticky second pair?'],
+      spots: [
+        flop('c18-01', 'BTN', ['Kh', 'Qd'], ['As', '7d', '2c'], 28001, { street: 'turn', teachBack: 'Con KQ en A-high: plan de barrel/value en turns buenos.' }),
+        flop('c18-02', 'BTN', ['Jh', '9c'], ['As', '7d', '2c'], 28002, { street: 'turn', trapTag: 'fancy_play', teachBack: 'Segunda/weak sin mejora: no sticky barrel eterno.' }),
+        flop('c18-03', 'CO', ['Ad', 'Kd'], ['Ah', '8c', '3s'], 28003, { street: 'turn', teachBack: 'Top pair top kicker: barrel value frecuente.' }),
+        flop('c18-04', 'BTN', ['8s', '7s'], ['As', 'Kd', '2h'], 28004, { street: 'turn', teachBack: 'Missed: give up turn a menudo si no hay scare card.' }),
+        flop('c18-05', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c'], 28005, { street: 'turn', teachBack: 'Overpair: barrel value en turns seguros.' }),
+        flop('c18-06', 'BTN', ['5h', '5c'], ['As', 'Kd', 'Qc'], 28006, { street: 'turn', trapTag: 'fancy_play', teachBack: 'Underpair en broadway: pot control / fold a presión.' })
+      ]
+    },
+    {
+      id: 'C-19',
+      title: 'River value',
+      route: 'cash', module: 'M2', order: 19, plan: 'study',
+      xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
+      concept: 'En river buscas value thin cuando manos peores pagan, y value fat con nuts; no undervalueas fuertes.',
+      theory: [
+        'Value thin: apuestas manos que ganan a peores calls. Value fat: sizing mayor con la nuez.',
+        'Undervalue: checkear top pair strong vs rangos que pagan es un leak común.',
+        'Trampa: check-back strong o bluff sin blockers.'
+      ],
+      examples: [{
+        title: 'Thin vs fat',
+        body: 'River seco, top pair top kicker vs BB caller: value bet. Con nuts: sizing más grande.'
+      }],
+      aiQuestions: ['¿Qué es value thin?', '¿Cuándo sizing grande en river?'],
+      spots: [
+        flop('c19-01', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d'], 29001, { street: 'river', teachBack: 'TPTK: value bet river frecuente.' }),
+        flop('c19-02', 'BTN', ['Kh', 'Kd'], ['As', '7c', '2d'], 29002, { street: 'river', teachBack: 'KK en A-high: pot control; no overvalue.' }),
+        flop('c19-03', 'CO', ['Qh', 'Qd'], ['Qc', '8s', '3h'], 29003, { street: 'river', teachBack: 'Set: value fat.' }),
+        flop('c19-04', 'BTN', ['Jh', '9c'], ['As', 'Kd', 'Qc'], 29004, { street: 'river', trapTag: 'fancy_play', teachBack: 'Air en broadway: no bluff spew sin blockers.' }),
+        flop('c19-05', 'BTN', ['Ad', '5d'], ['Ah', '9c', '4s'], 29005, { street: 'river', teachBack: 'Top pair weak: thin value o check según rivales.' }),
+        flop('c19-06', 'BTN', ['8s', '7s'], ['9h', '6d', '2c'], 29006, { street: 'river', teachBack: 'Straight: value fat.' })
+      ]
+    },
+    {
+      id: 'C-20',
+      title: 'Examen M2 · Postflop',
+      route: 'cash', module: 'M2', order: 20, plan: 'study',
+      xp: 170, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
+      concept: 'Repaso M2: textura, c-bet IP/OOP, defensa, barrels y river. Sin teoría nueva.',
+      theory: [
+        'Clasifica el board, tu posición y tu plan. Seco IP → c-bet pequeño. Wet OOP → más checks.',
+        'Repasa el menú Rangos y tus fallos de M1 si el leak venía del preflop.'
+      ],
+      examples: [{
+        title: 'Checklist',
+        body: '¿Board seco o wet? ¿IP u OOP? ¿Value, bluff o surrender?'
+      }],
+      aiQuestions: ['¿Cuál es mi fuga postflop principal?', 'Resume c-bet IP en seco.'],
+      spots: [
+        flop('c20-01', 'BTN', ['Kh', 'Qd'], ['As', '8c', '3d'], 30001, { teachBack: 'Seco IP: c-bet.' }),
+        flop('c20-02', 'SB', ['Ah', 'Kd'], ['9s', '8s', '7h'], 30002, { trapTag: 'fancy_play', teachBack: 'Wet OOP: no autocbet.' }),
+        flop('c20-03', 'BB', ['Jh', 'Th'], ['9s', '8d', '2c'], 30003, { facingBet: true, teachBack: 'Draw: continue vs c-bet.' }),
+        flop('c20-04', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c'], 30004, { street: 'turn', teachBack: 'Overpair: barrel value.' }),
+        flop('c20-05', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d'], 30005, { street: 'river', teachBack: 'TPTK: value river.' }),
+        flop('c20-06', 'BTN', ['7c', '2d'], ['As', 'Kd', 'Qc'], 30006, { trapTag: 'dominated', teachBack: 'Air: fold/give up.' }),
+        flop('c20-07', 'CO', ['9s', '9c'], ['Ah', 'Td', '3c'], 30007, { teachBack: 'Mid pair A-high: mix; a menudo pot control.' }),
+        flop('c20-08', 'BTN', ['8h', '7h'], ['As', '4d', '2c'], 30008, { teachBack: 'Seco con backs: c-bet light OK.' })
+      ]
+    }
+  ]);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school.js — Escuela de Póker: hub, lecciones M0–M2, runner de spots fijos.
+ * Menú visible solo para admin (Fases D–F implementadas; apertura pública = Fase E diferida).
+ * Las manos consumen cupo Free del trainer.
  */
 (function (global) {
   'use strict';
@@ -706,11 +1254,94 @@
   }
 
   /**
-   * Gate de contenido (preparado para Fase D).
-   * Hoy: admin-only UI + desbloqueo lineal. En D se añadirá Study/Coach.
+   * Visibilidad del menú Escuela.
+   * Fase D/E/F: sigue admin-only (pedido explícito). La allowlist beta queda lista
+   * para cuando se quite este candado sin reabrir a 100 %.
+   */
+  var SCHOOL_BETA_EMAILS = [
+    /* añadir emails beta aquí cuando se abra sin menú global */
+  ];
+  var SCHOOL_PUBLIC = false; // true = GA (Fase E completa)
+
+  function userEmail() {
+    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    return (u && u.email) ? String(u.email).toLowerCase() : '';
+  }
+
+  function isSchoolBetaUser() {
+    var email = userEmail();
+    if (!email) return false;
+    for (var i = 0; i < SCHOOL_BETA_EMAILS.length; i++) {
+      if (String(SCHOOL_BETA_EMAILS[i]).toLowerCase() === email) return true;
+    }
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('pt_school_beta') === '1') return true;
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  /** ¿Puede ver el tab Escuela? Hoy: solo admin. */
+  function schoolMenuVisible() {
+    if (SCHOOL_PUBLIC) return !!(global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser());
+    return hasAdminAccess();
+  }
+
+  function trackSchool(eventName, props) {
+    try {
+      if (global.PTLog && typeof global.PTLog.event === 'function') {
+        global.PTLog.event(eventName, props || {});
+        return;
+      }
+      if (global.PTAnalytics && typeof global.PTAnalytics.track === 'function') {
+        global.PTAnalytics.track(eventName, props || {});
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function entitlementsPlan() {
+    var ent = global.PTEntitlements && global.PTEntitlements.get
+      ? global.PTEntitlements.get()
+      : null;
+    if (ent && ent.plan) return String(ent.plan);
+    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    return (u && u.plan) || 'free';
+  }
+
+  /** free=0, study/pro=1, coach/premium=2 */
+  function planRank(plan) {
+    var p = String(plan || 'free').toLowerCase();
+    if (p === 'premium' || p === 'coach') return 2;
+    if (p === 'pro' || p === 'study') return 1;
+    return 0;
+  }
+
+  function lessonPlanRank(lesson) {
+    if (!lesson) return 0;
+    return planRank(lesson.plan || 'free');
+  }
+
+  function planLabelFor(plan) {
+    var p = String(plan || 'free').toLowerCase();
+    if (p === 'premium' || p === 'coach') return 'Coach';
+    if (p === 'pro' || p === 'study') return 'Study';
+    return 'Gratis';
+  }
+
+  function openUpgrade(reason) {
+    trackSchool('lesson_blocked_plan', { reason: reason || 'plan' });
+    if (global.PTBilling && typeof global.PTBilling.showPaywall === 'function') {
+      global.PTBilling.showPaywall(reason || 'school_plan');
+      return;
+    }
+    if (typeof global.goToTab === 'function') global.goToTab('pricing');
+  }
+
+  /**
+   * Gate de contenido (Fase D): plan Free/Study/Coach + desbloqueo lineal.
+   * Menú sigue admin-only; dentro, el plan se respeta (admin free ve muros Study).
    */
   function canPlayLesson(lessonId) {
-    if (!hasAdminAccess()) {
+    if (!schoolMenuVisible()) {
       return { ok: false, reason: 'admin_only', message: 'Escuela en pruebas (solo administración).' };
     }
     var lesson = Data() && Data().getLesson(lessonId);
@@ -718,8 +1349,64 @@
     if (!isLessonUnlocked(lessonId)) {
       return { ok: false, reason: 'locked', message: 'Completa la lección anterior.' };
     }
-    // Fase D: comprobar lesson.plan vs entitlements (free/study/coach).
+    var need = lessonPlanRank(lesson);
+    var have = planRank(entitlementsPlan());
+    if (have < need) {
+      return {
+        ok: false,
+        reason: 'plan',
+        message: 'Esta lección requiere plan ' + planLabelFor(lesson.plan) + '.',
+        requiredPlan: lesson.plan,
+        upgrade: true
+      };
+    }
     return { ok: true, lesson: lesson };
+  }
+
+  function schoolPlayConfig(spot) {
+    var base = {
+      scenario: 'rfi',
+      practiceStreet: 'preflop',
+      handRange: 'all',
+      villainLevel: 'fish',
+      formatHub: 'cash',
+      gameType: 'cash6',
+      liveAdvisor: false,
+      handsTarget: 0,
+      schoolMode: true,
+      schoolDecisionEnd: true
+    };
+    var extra = (spot && spot.playConfig) || {};
+    var out = {};
+    var k;
+    for (k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
+    for (k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) out[k] = extra[k];
+    return out;
+  }
+
+  function spotToForce(spot) {
+    var fd = spot.forceDeal || {};
+    var force = {
+      type: spot.type || 'RFI',
+      heroPos: spot.heroPos,
+      seed: spot.seed,
+      forceDeal: {
+        heroCards: fd.heroCards || spot.heroCards,
+        villainCards: fd.villainCards || null,
+        board: (fd.board || []).slice(),
+        villainPos: fd.villainPos || 'BB'
+      }
+    };
+    if (spot.key) force.key = spot.key;
+    if (spot.limperPos) force.limperPos = spot.limperPos;
+    if (spot.openerPos) force.openerPos = spot.openerPos;
+    if (spot.callerPos) force.callerPos = spot.callerPos;
+    if (spot.limperPositions) force.limperPositions = spot.limperPositions;
+    if (spot.facingBet || (spot.forceDeal && spot.forceDeal.facingBet)) {
+      force.facingBet = true;
+      force.forceDeal.facingBet = true;
+    }
+    return force;
   }
 
   function scorePoints(cls, pro) {
@@ -789,35 +1476,6 @@
 
   /* ---------- Sesión de spots ---------- */
 
-  function schoolPlayConfig() {
-    return {
-      scenario: 'rfi',
-      practiceStreet: 'preflop',
-      handRange: 'all',
-      villainLevel: 'fish',
-      formatHub: 'cash',
-      gameType: 'cash6',
-      liveAdvisor: false,
-      handsTarget: 0,
-      schoolMode: true,
-      schoolDecisionEnd: true
-    };
-  }
-
-  function spotToForce(spot) {
-    return {
-      type: spot.type || 'RFI',
-      heroPos: spot.heroPos,
-      seed: spot.seed,
-      forceDeal: {
-        heroCards: (spot.forceDeal && spot.forceDeal.heroCards) || spot.heroCards,
-        villainCards: (spot.forceDeal && spot.forceDeal.villainCards) || null,
-        board: (spot.forceDeal && spot.forceDeal.board) || [],
-        villainPos: (spot.forceDeal && spot.forceDeal.villainPos) || 'BB'
-      }
-    };
-  }
-
   function activeSession() {
     return state.session;
   }
@@ -879,7 +1537,7 @@
     updateSchoolBanner();
     var force = spotToForce(s.spots[index]);
     if (typeof global.playAnalysisHand === 'function') {
-      global.playAnalysisHand(force, schoolPlayConfig());
+      global.playAnalysisHand(force, schoolPlayConfig(s.spots[index]));
     }
   }
 
@@ -969,6 +1627,12 @@
     if (!s) return;
     var lesson = Data().getLesson(s.lessonId);
     var summary = recordLessonAttempt(lesson, s.results);
+    trackSchool(summary.passed ? 'lesson_complete' : 'lesson_fail', {
+      lessonId: lesson.id,
+      pct: summary.pct,
+      passed: summary.passed,
+      gold: summary.gold
+    });
     s.active = false;
     state.session = null;
     updateSchoolBanner();
@@ -983,9 +1647,15 @@
     var lesson = data && data.getLesson(lessonId);
     if (!lesson) return;
     var gate = canPlayLesson(lessonId);
-    if (!gate.ok) return;
+    if (!gate.ok) {
+      trackSchool('lesson_blocked_plan', { lessonId: lessonId, reason: gate.reason });
+      if (gate.upgrade) openUpgrade(gate.reason);
+      return;
+    }
+    trackSchool('lesson_start', { lessonId: lesson.id, module: lesson.module, plan: lesson.plan });
     if (!lesson.spots || !lesson.spots.length) {
       var summary = completeTheoryLesson(lesson);
+      trackSchool('lesson_complete', { lessonId: lesson.id, pct: summary.pct, passed: summary.passed });
       state.view = VIEW.result;
       state.lessonId = lesson.id;
       state.lastResult = { lesson: lesson, summary: summary, results: [] };
@@ -1068,8 +1738,11 @@
   function nodeState(lesson) {
     var p = lessonProgress(lesson.id);
     if (p && p.passed) return 'done';
-    if (isLessonUnlocked(lesson.id)) return 'open';
-    return 'locked';
+    if (!isLessonUnlocked(lesson.id)) return 'locked';
+    var need = lessonPlanRank(lesson);
+    var have = planRank(entitlementsPlan());
+    if (have < need) return 'plan';
+    return 'open';
   }
 
   function planBadge(plan) {
@@ -1085,12 +1758,7 @@
     var routes = (data && data.ROUTES) || [];
     var lessons = data.lessonsForRoute(state.route);
     var rp = routeProgress(state.route);
-    var m0 = data.m0Lessons ? data.m0Lessons() : lessons.filter(function (l) { return l.module === 'M0'; });
-    var m0Passed = 0;
-    m0.forEach(function (l) { if (isLessonPassed(l.id)) m0Passed += 1; });
-    var m0Pct = m0.length ? Math.round((m0Passed / m0.length) * 100) : 0;
-
-    var routeTabs = routes.map(function (r) {
+        var routeTabs = routes.map(function (r) {
       var active = r.id === state.route ? ' is-active' : '';
       var soon = r.status === 'soon' ? ' is-soon' : '';
       var title = r.status === 'soon' ? (r.teaser || 'Próximamente') : '';
@@ -1104,55 +1772,74 @@
       return '<li><strong>' + esc(r.label) + ':</strong> ' + esc(r.teaser) + '</li>';
     }).join('');
 
-    var nodes = lessons.map(function (l, idx) {
-      var st = nodeState(l);
-      var p = lessonProgress(l.id);
-      var pctHtml = p && p.passed
-        ? '<span class="school-node-pct">' + esc(String(p.bestPct)) + '%</span>'
-        : '';
-      var stars = '';
-      if (p && p.passed) {
-        stars = '<span class="school-stars" aria-label="maestría">' +
-          (p.perfect ? '★★★' : (p.gold ? '★★☆' : '★☆☆')) + '</span>';
-      }
-      var lock = st === 'locked' ? '<span class="school-node-lock" aria-hidden="true">Bloqueada</span>' : '';
-      return '<button type="button" class="school-node is-' + st + '" data-school-lesson="' + esc(l.id) + '"' +
-        (st === 'locked' ? ' disabled' : '') + '>' +
-        '<span class="school-node-idx">' + (idx + 1) + '</span>' +
-        '<span class="school-node-body">' +
-        '<span class="school-node-title">' + esc(l.title) + '</span>' +
-        '<span class="school-node-meta">' + planBadge(l.plan) + ' · ' + (l.hands || 0) + ' manos · +' + (l.xp || 0) + ' XP</span>' +
-        '</span>' +
-        pctHtml + stars + lock +
-        '</button>';
-    }).join('');
+    function renderModuleNodes(modLessons, startIdx) {
+      return modLessons.map(function (l, i) {
+        var st = nodeState(l);
+        var p = lessonProgress(l.id);
+        var pctHtml = p && p.passed
+          ? '<span class="school-node-pct">' + esc(String(p.bestPct)) + '%</span>'
+          : '';
+        var stars = '';
+        if (p && p.passed) {
+          stars = '<span class="school-stars" aria-label="maestría">' +
+            (p.perfect ? '★★★' : (p.gold ? '★★☆' : '★☆☆')) + '</span>';
+        }
+        var lock = '';
+        if (st === 'locked') lock = '<span class="school-node-lock" aria-hidden="true">Bloqueada</span>';
+        if (st === 'plan') lock = '<span class="school-node-lock school-node-plan" aria-hidden="true">' +
+          planLabelFor(l.plan) + '</span>';
+        return '<button type="button" class="school-node is-' + st + '" data-school-lesson="' + esc(l.id) + '"' +
+          (st === 'locked' ? ' disabled' : '') + '>' +
+          '<span class="school-node-idx">' + (startIdx + i + 1) + '</span>' +
+          '<span class="school-node-body">' +
+          '<span class="school-node-title">' + esc(l.title) + '</span>' +
+          '<span class="school-node-meta">' + planBadge(l.plan) + ' · ' + (l.hands || 0) + ' manos · +' + (l.xp || 0) + ' XP</span>' +
+          '</span>' +
+          pctHtml + stars + lock +
+          '</button>';
+      }).join('');
+    }
+    var m0 = data.m0Lessons ? data.m0Lessons() : lessons.filter(function (l) { return l.module === 'M0'; });
+    var m1 = data.m1Lessons ? data.m1Lessons() : lessons.filter(function (l) { return l.module === 'M1'; });
+    var m2 = data.m2Lessons ? data.m2Lessons() : lessons.filter(function (l) { return l.module === 'M2'; });
+    var m0Passed = 0; m0.forEach(function (l) { if (isLessonPassed(l.id)) m0Passed += 1; });
+    var m1Passed = 0; m1.forEach(function (l) { if (isLessonPassed(l.id)) m1Passed += 1; });
+    var m2Passed = 0; m2.forEach(function (l) { if (isLessonPassed(l.id)) m2Passed += 1; });
+    var nodesM0 = renderModuleNodes(m0, 0);
+    var nodesM1 = renderModuleNodes(m1, m0.length);
+    var nodesM2 = renderModuleNodes(m2, m0.length + m1.length);
 
     root.innerHTML =
       '<div class="school-page">' +
       '<header class="school-hero">' +
-      '<p class="school-eyebrow">Admin · M0 v2 · Preparado para Fase D</p>' +
+      '<p class="school-eyebrow">Admin · Fases D–F · Menú solo administración</p>' +
       '<h2 class="school-title">Escuela de Póker</h2>' +
-      '<p class="school-lead">Módulo M0 Cash completo en Gratis (7 lecciones). Spots fijos, desbloqueo lineal. Las manos consumen el cupo Free del entrenador.</p>' +
+      '<p class="school-lead">M0 Gratis + M1/M2 Study (preflop y postflop). Gates de plan activos. Las manos consumen el cupo Free del entrenador.</p>' +
       '<div class="school-hero-stats">' +
       '<div class="school-stat"><span class="school-stat-val">Nv. ' + lv.level + '</span><span class="school-stat-lbl">Nivel Escuela</span></div>' +
       '<div class="school-stat"><span class="school-stat-val">' + lv.xp + '</span><span class="school-stat-lbl">XP</span></div>' +
-      '<div class="school-stat"><span class="school-stat-val">' + m0Passed + '/' + m0.length + '</span><span class="school-stat-lbl">M0 Cash</span></div>' +
-      '<div class="school-stat"><span class="school-stat-val">' + rp.gold + '</span><span class="school-stat-lbl">Oro</span></div>' +
+      '<div class="school-stat"><span class="school-stat-val">' + m0Passed + '/' + m0.length + '</span><span class="school-stat-lbl">M0</span></div>' +
+      '<div class="school-stat"><span class="school-stat-val">' + (m1Passed + m2Passed) + '/' + (m1.length + m2.length) + '</span><span class="school-stat-lbl">M1–M2</span></div>' +
       '</div>' +
-      '<div class="school-xp-bar" aria-hidden="true"><div class="school-xp-fill" style="width:' +
+      '<div class="school-xp-bar" aria-hidden="true"><div class="school-xp-fill school-xp-fill-anim" style="width:' +
       Math.min(100, Math.round((lv.into / lv.per) * 100)) + '%"></div></div>' +
-      '<p class="muted-text school-m0-progress">Progreso M0: ' + m0Passed + ' de ' + m0.length +
-      ' lecciones (' + m0Pct + '%)</p>' +
       '</header>' +
       '<div class="school-routes" role="tablist">' + routeTabs + '</div>' +
       (soonTeasers
         ? '<div class="muted-text school-route-teasers">Próximas rutas:<ul class="school-teaser-list">' + soonTeasers + '</ul></div>'
         : '') +
       '<section class="school-map card-box">' +
-      '<h3 class="school-map-title">Módulo M0 · Fundamentos Cash (Gratis)</h3>' +
-      '<p class="muted-text school-map-lead">7 lecciones de simple a examen. Completa en orden. Tras M0, Study abre el preflop completo (Fase E).</p>' +
-      '<div class="school-nodes">' + nodes + '</div>' +
-      '</section>' +
+      '<h3 class="school-map-title">M0 · Fundamentos Cash (Gratis)</h3>' +
+      '<p class="muted-text school-map-lead">' + m0Passed + '/' + m0.length + ' completadas. Desbloqueo lineal.</p>' +
+      '<div class="school-nodes">' + nodesM0 + '</div></section>' +
+      '<section class="school-map card-box">' +
+      '<h3 class="school-map-title">M1 · Preflop core (Study)</h3>' +
+      '<p class="muted-text school-map-lead">' + m1Passed + '/' + m1.length + ' · Defensa BB, 3-bet, squeeze, iso.</p>' +
+      '<div class="school-nodes">' + nodesM1 + '</div></section>' +
+      '<section class="school-map card-box">' +
+      '<h3 class="school-map-title">M2 · Postflop core (Study)</h3>' +
+      '<p class="muted-text school-map-lead">' + m2Passed + '/' + m2.length + ' · Textura, c-bet, defensa, barrels.</p>' +
+      '<div class="school-nodes">' + nodesM2 + '</div></section>' +
       '</div>';
 
     root.querySelectorAll('[data-school-route]').forEach(function (btn) {
@@ -1167,7 +1854,10 @@
       btn.addEventListener('click', function () {
         var id = btn.getAttribute('data-school-lesson');
         var gate = canPlayLesson(id);
-        if (!gate.ok) return;
+        if (!gate.ok) {
+          if (gate.upgrade) openUpgrade(gate.reason);
+          return;
+        }
         state.view = VIEW.lesson;
         state.lessonId = id;
         render(root);
@@ -1201,7 +1891,7 @@
       '<div class="school-page school-lesson-page">' +
       '<button type="button" class="btn btn-ghost school-back" id="school-back-hub">« Volver al mapa</button>' +
       '<header class="school-lesson-header">' +
-      '<p class="school-eyebrow">' + esc(lesson.id) + ' · M0 Cash ' + planBadge(lesson.plan) + '</p>' +
+      '<p class="school-eyebrow">' + esc(lesson.id) + ' · ' + esc(lesson.module || 'M0') + ' Cash ' + planBadge(lesson.plan) + '</p>' +
       '<h2 class="school-title">' + esc(lesson.title) + '</h2>' +
       '<p class="school-lead">' + esc(lesson.concept) + '</p>' +
       (p && p.passed
@@ -1282,6 +1972,31 @@
     });
   }
 
+  /** Tip breve tipo coach al cerrar la sesión (Fase F). */
+  function schoolCoachTip(lesson, passed, fails) {
+    if (!lesson) return '';
+    if (passed && lesson.exam) return 'Examen superado. El módulo queda marcado y puedes seguir al siguiente.';
+    if (passed) {
+      if (lesson.module === 'M2') return 'Buen trabajo postflop. En mesa real, nombra la textura antes del sizing.';
+      if (lesson.module === 'M1') return 'Preflop sólido. Posición y stack definen el tamaño; no copies ciegas de torneo.';
+      return 'Lección superada. Siguiente nodo del mapa cuando quieras.';
+    }
+    var blob = (fails || []).map(function (f) {
+      return String(f.reason || '') + ' ' + String(f.teachBack || '') + ' ' + String(f.spotId || '');
+    }).join(' ').toLowerCase();
+    if (/fold|pasaste|pasas/.test(blob) && /call|defend|defender|overfold/.test(blob + ' ' + (lesson.id || '') + ' ' + (lesson.title || '').toLowerCase())) {
+      return 'Estás foldando de más en spots de defensa. Revisa pot odds y si tienes equity realization.';
+    }
+    if (/3-?bet|squeeze|raise/.test(blob) && /spew|fancy|value|bluff|polar/.test(blob)) {
+      return 'Revisa tu mix value/bluff: el sizing debe corresponder al plan (negar equity vs value-heavy).';
+    }
+    if (/c-?bet|barrel|flop|textura|wet|seco/.test(blob) || lesson.module === 'M2') {
+      return 'En postflop, nombra la textura antes de actuar: ¿quién tiene más nut advantage? Luego bet o check.';
+    }
+    if (lesson.exam) return 'Repasa las lecciones del módulo y vuelve al examen con calma.';
+    return 'Revisa los fallos abajo, lee otra vez el teach-back y reintenta la lección.';
+  }
+
   function renderResult(root) {
     var pack = state.lastResult;
     if (!pack || !pack.lesson) {
@@ -1297,6 +2012,7 @@
     var fails = (pack.results || []).filter(function (r) {
       return r.class === 'error' || r.class === 'imprecisa';
     });
+    var tip = schoolCoachTip(lesson, sum.passed, fails);
 
     root.innerHTML =
       '<div class="school-page school-result-page">' +
@@ -1312,6 +2028,9 @@
       (sum.gold ? '<p class="school-gold-tag">Marca oro</p>' : '') +
       (sum.perfect ? '<p class="school-gold-tag">¡100 %!</p>' : '') +
       '</header>' +
+      (tip
+        ? '<div class="school-coach-note card-box"><span class="school-coach-label">Coach</span><p>' + esc(tip) + '</p></div>'
+        : '') +
       (fails.length
         ? '<section class="card-box"><h3>Spots a repasar</h3><ul class="school-fail-list">' +
           fails.map(formatFailSpotHtml).join('') + '</ul></section>'
@@ -1344,7 +2063,7 @@
   function render(container) {
     var root = container || document.getElementById('school-content');
     if (!root) return;
-    if (!hasAdminAccess()) {
+    if (!schoolMenuVisible()) {
       root.innerHTML = '<div class="school-page"><p class="muted-text">Escuela de Póker está en pruebas (solo administración).</p></div>';
       return;
     }
@@ -1384,6 +2103,12 @@
     ensureBannerEl: ensureBannerEl,
     formatFailSpotHtml: formatFailSpotHtml,
     formatCards: formatCards,
+    schoolCoachTip: schoolCoachTip,
+    schoolMenuVisible: schoolMenuVisible,
+    isSchoolBetaUser: isSchoolBetaUser,
+    planRank: planRank,
+    entitlementsPlan: entitlementsPlan,
+    trackSchool: trackSchool,
     _state: state
   };
 })(typeof window !== 'undefined' ? window : globalThis);
