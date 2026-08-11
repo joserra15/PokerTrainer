@@ -39,6 +39,7 @@ const STEPS = [
   ['Test landing i18n', ['node', 'tools/test-landing-i18n.js']],
   ['Test landing login CTA', ['node', 'tools/test-landing-login-cta.js']],
   ['Test login desktop regression', ['node', 'tools/test-login-desktop-regression.js']],
+  ['Test build-guard no deploy-info', ['node', 'tools/test-build-guard-no-deploy-info.js']],
   ['Test contact pending popup', ['node', 'tools/test-contact-pending-popup.js']],
   ['Test replay hand', ['node', 'tools/test-replay-hand.js']],
   // Fase 1 — nuevos

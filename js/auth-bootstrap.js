@@ -345,9 +345,30 @@
     });
   }
 
+  function showOAuthCallbackError() {
+    try {
+      var params = new URLSearchParams(location.search || '');
+      var hash = location.hash || '';
+      if (hash.charAt(0) === '#') {
+        var hp = new URLSearchParams(hash.slice(1));
+        hp.forEach(function (v, k) { if (!params.has(k)) params.set(k, v); });
+      }
+      var err = params.get('error') || params.get('error_code');
+      if (!err) return false;
+      var desc = params.get('error_description') || err;
+      try { desc = decodeURIComponent(String(desc).replace(/\+/g, ' ')); } catch (e) { /* noop */ }
+      showError('Google/Supabase: ' + desc);
+      history.replaceState(null, '', location.pathname);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function bootSupabase() {
     // Enlazar Continuar YA: no esperar a getSession (puede colgarse o tardar).
     setupLoginUi();
+    showOAuthCallbackError();
     var ok = await waitFor(function () {
       return global.supabase && global.PTSupabase && global.PTSupabase.getClient();
     }, 120, 50);
@@ -356,6 +377,14 @@
       return;
     }
     var client = global.PTSupabase.getClient();
+    try {
+      client.auth.onAuthStateChange(function (event, sess) {
+        if (sess && sess.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION')) {
+          var u = global.PTSupabase.userFromSession(sess);
+          if (u) enterFromBootstrap(u);
+        }
+      });
+    } catch (e2) { /* noop */ }
     try {
       var sessionRes = await withTimeout(client.auth.getSession(), 8000);
       var session = sessionRes && sessionRes.data && sessionRes.data.session;
@@ -368,15 +397,19 @@
       }
     } catch (e) {
       // UI de login ya está activa; el usuario puede pulsar Continuar.
-    }
-    try {
-      client.auth.onAuthStateChange(function (event, sess) {
-        if (sess && sess.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          var u = global.PTSupabase.userFromSession(sess);
-          if (u) enterFromBootstrap(u);
+      // Reintento corto por si el exchange PKCE aún no terminó.
+      try {
+        var retry = await withTimeout(client.auth.getSession(), 4000);
+        var sess2 = retry && retry.data && retry.data.session;
+        if (sess2 && sess2.user) {
+          var u2 = global.PTSupabase.userFromSession(sess2);
+          if (u2) {
+            enterFromBootstrap(u2);
+            return;
+          }
         }
-      });
-    } catch (e2) { /* noop */ }
+      } catch (e3) { /* noop */ }
+    }
     setupLoginUi();
   }
 
