@@ -273,7 +273,7 @@
     if (!q.totalLimit) {
       return { unlimited: false, label: 'Tu plan no incluye consultas IA. Compra un bono en Planes.', totalLeft: 0, bonus: 0 };
     }
-    var line = 'IA Coach: ' + q.used + '/' + q.totalLimit;
+    var line = 'ForgeCoach: ' + q.used + '/' + q.totalLimit;
     if (q.bonus > 0) line += ' (incl. ' + q.bonus + ' bono)';
     line += ' · ' + q.totalLeft + ' disponibles';
     return {

@@ -2,7 +2,7 @@
 
 > Objetivo: que **ningún cambio futuro rompa** flujos críticos de PokerForgeAI en producción. Inventario del estado actual, huecos, y backlog **repartido en fases**.
 >
-> **Contexto:** La app ya está en producción (entrenador GTO + import de sesiones + billing Stripe + Supabase + IA Coach). El motor, importador y análisis manual tienen buena cobertura Node; monetización, nube, Edge Functions y E2E de producto están flojos o fuera de CI.
+> **Contexto:** La app ya está en producción (entrenador GTO + import de sesiones + billing Stripe + Supabase + ForgeCoach). El motor, importador y análisis manual tienen buena cobertura Node; monetización, nube, Edge Functions y E2E de producto están flojos o fuera de CI.
 >
 > **Relacionado:** `docs/BILLING.md`, `docs/EPIC_10_PARIDAD_SNOWIE.md`, `.github/workflows/static.yml`, `.github/workflows/e2e.yml`.
 
@@ -19,7 +19,7 @@
 | E2E Playwright | ⚠️ Humo mínimo (auth mock + 1 jugada + 1 import) | **Alto** en flujos de producto |
 | Billing / paywall / Stripe Edge | ❌ Casi nada | **Crítico** (ingresos) |
 | Cloud sync / Auth real | ❌ Casi nada | **Crítico** (pérdida de datos / login) |
-| IA Coach Edge (`analyze-hand`) | ⚠️ Solo forma del payload | **Alto** |
+| ForgeCoach Edge (`analyze-hand`) | ⚠️ Solo forma del payload | **Alto** |
 | Admin / promos / cuenta | ❌ Nada | Medio |
 | Scripts Node existentes fuera de CI | ⚠️ Varios listos pero no cableados | Medio (regresiones silenciosas) |
 
@@ -269,7 +269,7 @@ Marcar ✅ en “Meta” / IDs al cerrar cada fase.
 | Stripe Edge | ✅ | Contratos + job live opcional | C03–C08 | 2–4 ✅ |
 | Auth | ✅ | Stubs + runbook release | D05–D06 | 2, 3 ✅ |
 | Cloud sync | ✅ | Merge + sessions + RLS + smoke opcional | D01–D04 | 2, 4 ✅ |
-| IA Coach | ✅ | Edge + cuotas | E01–E03 | 1, 2 ✅ |
+| ForgeCoach | ✅ | Edge + cuotas | E01–E03 | 1, 2 ✅ |
 | Share | ✅ | Edge + E2E + mock | A01, E04–E05, B09 | 1, 3, 4 ✅ |
 | Admin / promos | ✅ | Acceso + redeem | G01, C07 | 3 ✅ |
 | Growth / PWA / legal | ✅ | E2E fresh + PWA + guide | G04–G07 | 3, 4 ✅ |

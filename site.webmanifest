@@ -2,7 +2,7 @@
   "id": "com.pokerforgeai.gto",
   "name": "PokerForgeAI",
   "short_name": "PokerForgeAI",
-  "description": "Entrenador GTO de poker NL Hold'em: practica spots, importa sesiones y mejora con IA Coach.",
+  "description": "Entrenador GTO de poker NL Hold'em: practica spots, importa sesiones y mejora con ForgeCoach.",
   "lang": "es",
   "dir": "ltr",
   "start_url": "./?source=pwa",

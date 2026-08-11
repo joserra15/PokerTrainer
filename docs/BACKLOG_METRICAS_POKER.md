@@ -275,7 +275,7 @@ Mantener VPIP/PFR planos por compatibilidad con UI/IA actuales; migrar lecturas 
 | Señal | Objetivo |
 |-------|----------|
 | % sesiones importadas donde el usuario abre “Perfil de estilo” | Medir post STAT-17 |
-| Coherencia coach IA vs números HUD | Spot-check: informe menciona métrica fuera de banda real |
+| Coherencia ForgeCoach vs números HUD | Spot-check: informe menciona métrica fuera de banda real |
 | Reducción de fugas ligadas a estilo (gap, fold-to-cbet) en usuarios recurrentes | Antes/después 30 días con STAT-14 |
 | Cero regressions en `test-vpip-pfr` / nuevo suite HUD | CI |
 

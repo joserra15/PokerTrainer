@@ -507,7 +507,7 @@
     var url = siteUrl();
     return (
       'Hola,\n\n' +
-      'Te invito a probar PokerForgeAI, el entrenador GTO de póker NLHE (entrenador interactivo, importación de sesiones e IA Coach).\n\n' +
+      'Te invito a probar PokerForgeAI, el entrenador GTO de póker NLHE (entrenador interactivo, importación de sesiones e ForgeCoach).\n\n' +
       'Plan recomendado: ' + meta.label + ' (' + meta.price + ').\n' +
       'Accede aquí: ' + url + '\n\n' +
       'Regístrate con Google y, si quieres el plan de pago, entra en la pestaña Planes dentro de la app.\n\n' +

@@ -72,7 +72,7 @@ assert(html.indexOf('Evaluación GTO de la mano') >= 0, 'incluye análisis GTO')
 assert(html.indexOf('paso a paso') >= 0, 'incluye paso a paso');
 assert(html.indexOf('Volver a jugar') < 0, 'sin botón de replay');
 assert(html.indexOf('Matriz GTO') < 0, 'sin botones de matriz');
-assert(html.indexOf('ai-report') < 0, 'sin IA Coach');
+assert(html.indexOf('ai-report') < 0, 'sin ForgeCoach');
 assert(html.indexOf('<style>') >= 0 && html.indexOf('body{color:red}') >= 0, 'CSS embebido');
 
 const mig = fs.readFileSync(path.join(__dirname, '../supabase/migrations/027_shared_hands.sql'), 'utf8');

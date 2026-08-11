@@ -66,13 +66,13 @@
     }
     var aiQ = Ent && Ent.aiCombinedQuota ? Ent.aiCombinedQuota(ent) : null;
     if (aiQ && aiQ.unlimited) {
-      rows += '<div class="usage-row usage-row-static"><span>IA Coach</span><strong>Ilimitado</strong></div>';
+      rows += '<div class="usage-row usage-row-static"><span>ForgeCoach</span><strong>Ilimitado</strong></div>';
     } else if (aiQ && aiQ.totalLimit > 0) {
-      rows += barRow('IA Coach (plan + bono)', aiQ.used, aiQ.totalLimit);
+      rows += barRow('ForgeCoach (plan + bono)', aiQ.used, aiQ.totalLimit);
     } else if (lim.ai_reports_per_month != null && lim.ai_reports_per_month > 0) {
-      rows += barRow('IA Coach mes', use.ai_reports_month, lim.ai_reports_per_month);
+      rows += barRow('ForgeCoach mes', use.ai_reports_month, lim.ai_reports_per_month);
     } else if (lim.ai_reports_per_month === 0 && !(aiQ && aiQ.bonus > 0)) {
-      rows += barRow('IA Coach mes', use.ai_reports_month, 0);
+      rows += barRow('ForgeCoach mes', use.ai_reports_month, 0);
     }
     if (Ent && Ent.aiQuotaSummary) {
       var summary = Ent.aiQuotaSummary(ent);

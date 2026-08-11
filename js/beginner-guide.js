@@ -155,7 +155,7 @@
       '</div>' +
       '<div class="learn-gto-card">' +
       '<h4>En PokerForgeAI</h4>' +
-      '<p>El entrenador y el IA Coach usan <strong>estimaciones</strong> orientativas (no un solver exacto en vivo). Son herramientas de estudio, no oráculos.</p>' +
+      '<p>El entrenador y el ForgeCoach usan <strong>estimaciones</strong> orientativas (no un solver exacto en vivo). Son herramientas de estudio, no oráculos.</p>' +
       '</div>' +
       '</div>' +
       exampleBlock('Traducción simple',
@@ -171,7 +171,7 @@
       '<li><strong>Activa el avisador en vivo</strong> al configurar el entrenador. Te muestra qué ocurre en la mesa, la acción recomendada y una explicación <em>antes</em> de decidir: ideal para aprender sin ir a ciegas.</li>' +
       '<li><strong>Haz un mini entrenamiento</strong> de RFI o 3-bet (abajo) con rivales fish — ya llevan el avisador activado.</li>' +
       '<li><strong>Revisa el feedback</strong> tras cada mano: frecuencia GTO y EV estimado.</li>' +
-      '<li><strong>Pregunta al IA Coach</strong> al final de esta página cuando tengas dudas concretas.</li>' +
+      '<li><strong>Pregunta al ForgeCoach</strong> al final de esta página cuando tengas dudas concretas.</li>' +
       '<li>Cuando tengas base, importa sesiones y mira estadísticas / leaks.</li>' +
       '</ol>' +
       exampleBlock('Consejo',
@@ -198,7 +198,7 @@
       return '<button type="button" class="learn-ask-chip" data-learn-ask="' + escapeHtml(q) + '">' +
         escapeHtml(q) + '</button>';
     }).join('');
-    return sectionHtml('learn-coach', '8. Pregunta al IA Coach',
+    return sectionHtml('learn-coach', '8. Pregunta al ForgeCoach',
       'Resuelve dudas de conceptos o de cómo entrenar. Cada pregunta consume consulta del plan (estudio / coach), salvo que tengas bonos.',
       '<div class="learn-ask-chips" aria-label="Preguntas sugeridas">' + chips + '</div>' +
       '<div id="learn-coach-mount" class="learn-coach-mount"></div>'
@@ -274,7 +274,7 @@
       '<header class="learn-hero">' +
       '<p class="learn-eyebrow">Guía para principiantes</p>' +
       '<h2 class="learn-title">' + escapeHtml(hello) + 'Empieza aquí antes del entrenador</h2>' +
-      '<p class="learn-lead">Si nunca has jugado o aún no controlas conceptos (ciegas, manos, posiciones, 3-bets, GTO…), esta guía te da la base y un mini entrenamiento con avisador en vivo. Luego podrás preguntar dudas al IA Coach.</p>' +
+      '<p class="learn-lead">Si nunca has jugado o aún no controlas conceptos (ciegas, manos, posiciones, 3-bets, GTO…), esta guía te da la base y un mini entrenamiento con avisador en vivo. Luego podrás preguntar dudas al ForgeCoach.</p>' +
       '<nav class="learn-toc" aria-label="Contenidos">' +
       '<a href="#learn-basics">Reglas</a>' +
       '<a href="#learn-hands">Manos</a>' +
@@ -283,7 +283,7 @@
       '<a href="#learn-gto">GTO</a>' +
       '<a href="#learn-path">Ruta</a>' +
       '<a href="#learn-drills">Práctica</a>' +
-      '<a href="#learn-coach">IA Coach</a>' +
+      '<a href="#learn-coach">ForgeCoach</a>' +
       '</nav>' +
       '</header>' +
       renderBasics() +

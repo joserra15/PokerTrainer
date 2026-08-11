@@ -2,7 +2,7 @@
 
 > Estudio de producto y diseño pedagógico para un sistema de **entrenamiento dirigido por lecciones** en PokerForgeAI.  
 > **Alcance de este documento:** análisis, currículum, monetización, UX de progresión y fases de entrega. **Sin implementación de código.**  
-> Complementa: `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`, Guía básica actual (`js/beginner-guide.js`), taxonomía de formatos (`js/engine/format/taxonomy.js`), IA Coach y planes Gratis / Study / Coach.  
+> Complementa: `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`, Guía básica actual (`js/beginner-guide.js`), taxonomía de formatos (`js/engine/format/taxonomy.js`), ForgeCoach y planes Gratis / Study / Coach.  
 > Fecha: agosto 2026 · Producto: PokerForgeAI (PokerTrainer)
 
 ---
@@ -16,7 +16,7 @@
 5. [Diseño de spots fijos y trampas](#5-diseño-de-spots-fijos-y-trampas)
 6. [Progresión, desbloqueo y planes](#6-progresión-desbloqueo-y-planes)
 7. [UX visual: evolución, puntos y niveles](#7-ux-visual-evolución-puntos-y-niveles)
-8. [IA Coach en cada paso](#8-ia-coach-en-cada-paso)
+8. [ForgeCoach en cada paso](#8-forgecoach-en-cada-paso)
 9. [Currículum Cash](#9-currículum-cash)
 10. [Currículum Spins](#10-currículum-spins)
 11. [Currículum MTT](#11-currículum-mtt)
@@ -38,7 +38,7 @@ Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía b
 2. Lanza una **sesión dirigida** de N manos con spots fijos, trampas y situaciones límite.
 3. Termina la mano en el **punto de decisión** del concepto (p. ej. open / call / fold) cuando no aporte seguir.
 4. Aprueba con un umbral de acierto → desbloquea la siguiente.
-5. Expone **IA Coach** en teoría, feedback y post-sesión.
+5. Expone **ForgeCoach** en teoría, feedback y post-sesión.
 6. Permite **repetir** lecciones superadas para subir el % hacia 100 % y ganar puntos de maestría.
 
 **Monetización alineada al producto actual:**
@@ -49,7 +49,7 @@ Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía b
 | **Study** (`pro`) | Hasta ~mitad de cada ruta (fundamentos + intermedio) |
 | **Coach** (`premium`) | Ruta completa, incluyendo lecciones **pro**, bubble ICM, bluff construction, range work avanzado |
 
-**Veredicto de producto:** es el mayor salto de *activación + retención + upsell a Coach* posible sin construir un solver. Reutiliza `startGuidedTraining`, grading EV, seeds/replay y IA Coach; añade **contenido autorado + estado de progresión + UI de skill tree**.
+**Veredicto de producto:** es el mayor salto de *activación + retención + upsell a Coach* posible sin construir un solver. Reutiliza `startGuidedTraining`, grading EV, seeds/replay y ForgeCoach; añade **contenido autorado + estado de progresión + UI de skill tree**.
 
 ---
 
@@ -68,7 +68,7 @@ Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía b
 
 - **GTO Wizard / Gecko:** drills masivos solver; poca narrativa en español y poca “lección con trama”.
 - **Snowie:** sparring continuo; menos currículum por concepto.
-- **PokerForgeAI oportunidad:** español nativo + lecciones guiadas + trampas pedagógicas + IA Coach + precio Study, con Coach como capa pro.
+- **PokerForgeAI oportunidad:** español nativo + lecciones guiadas + trampas pedagógicas + ForgeCoach + precio Study, con Coach como capa pro.
 
 ### 2.3 Principio rector
 
@@ -117,7 +117,7 @@ Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía b
 │     · Concepto en 1 frase                               │
 │     · Por qué importa (EV / ICM / frecuencia)           │
 │     · Regla práctica memorable                          │
-│     · IA Coach: preguntas sugeridas del concepto        │
+│     · ForgeCoach: preguntas sugeridas del concepto        │
 ├─────────────────────────────────────────────────────────┤
 │  C. EJEMPLOS (1–2 spots comentados, no puntuados)       │
 │     · Mesa estática + explicación + rango rival tip     │
@@ -125,7 +125,7 @@ Hoy PokerForgeAI enseña con **entrenamiento aleatorio filtrado**, una **Guía b
 │  D. SESIÓN DIRIGIDA (N spots fijos)                     │
 │     · Feedback inmediato por mano                       │
 │     · Trampas mezcladas (~20–30 % del pack)             │
-│     · IA Coach opcional tras error (gasta cuota)        │
+│     · ForgeCoach opcional tras error (gasta cuota)        │
 ├─────────────────────────────────────────────────────────┤
 │  E. RESULTADO                                           │
 │     · % acierto · puntos · vs umbral · desbloqueo       │
@@ -349,7 +349,7 @@ Academia
 | Exámenes de módulo mid | No | Sí (módulos abiertos) | Sí |
 | Módulos Pro / ICM hard / range pro | Teaser | Teaser | Sí |
 | Repetición maestría | En lecciones free | En lecciones Study | Todas |
-| IA Coach en lección | Cuota free (3/mes) | 40/mes | 150/mes |
+| ForgeCoach en lección | Cuota free (3/mes) | 40/mes | 150/mes |
 | Spots diarios Academia | Cuenta contra 15 manos/día **o** cuota aparte “lecciones” (ver decisión abierta) | Ilimitado en lecciones desbloqueadas | Ilimitado |
 
 **Recomendación de producto:** las manos de Academia **comparten** el cupo de trainer en Free (simplicidad), pero en Study/Coach son ilimitadas como el entrenador. Alternativa premium: cuota diaria separada solo Free para no quemar las 15 en teoría.
@@ -409,7 +409,7 @@ La Academia tiene **XP/Nivel propios** para no contaminar el rating con packs f�
 
 ---
 
-## 8. IA Coach en cada paso
+## 8. ForgeCoach en cada paso
 
 ### 8.1 Puntos de inserción
 
@@ -685,7 +685,7 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 - 8–10 lecciones Cash M0–M1 con packs fijos (manos cortas).  
 - Estados visuales básicos + % + desbloqueo lineal.  
 - Gate Free/Study (sin módulos Coach aún).  
-- IA Coach chips en teoría.
+- ForgeCoach chips en teoría.
 
 **Éxito:** % usuarios nuevos que completan C-02 en D1; uplift trial→Study.
 
@@ -740,7 +740,7 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 | MTT/Spins poco profundos vs cash | Currículum de principios + trampas ICM; no simular campos enormes |
 | Grinding packs memorizando respuestas | Rotar orden, variantes isomorfas (suits), trampas espejo |
 | Inflación de XP | Caps diarios; menos XP en repeticiones |
-| Confundir “Coach” plan vs “IA Coach” | Copy UI: plan **Coach** · función **IA Coach** |
+| Confundir “Coach” plan vs “ForgeCoach” | Copy UI: plan **Coach** · función **ForgeCoach** |
 | Contenido caro de producir | Empezar Cash M0–M1; templates de spot |
 
 ### 15.2 Métricas de éxito
@@ -775,7 +775,7 @@ El estudio de producto prioriza activación (trial, import, bloque con resultado
 | **Trampa** | Spot diseñado para castigar el error típico del concepto |
 | **Maestría** | Mejor % ≥ umbral oro / 100 % |
 | **Study / Coach** | Planes de suscripción |
-| **IA Coach** | Asistente Gemini, no el plan |
+| **ForgeCoach** | Asistente Gemini, no el plan |
 
 ### 16.2 Decisiones abiertas (para producto)
 

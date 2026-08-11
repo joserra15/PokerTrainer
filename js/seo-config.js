@@ -8,17 +8,17 @@ window.PT_SEO = {
   ogImage: 'https://www.pokerforgeai.com/icons/logo-512.png',
   twitterHandle: '',
   home: {
-    title: 'PokerForgeAI · Entrenador GTO de poker NL Hold\'em con IA Coach',
-    description: 'Entrena decisiones GTO en cash NL, importa PokerStars, Winamax, GGPoker y 888poker (cash, spins y torneos), y mejora con IA Coach.',
+    title: 'PokerForgeAI · Entrenador GTO de poker NL Hold\'em con ForgeCoach',
+    description: 'Entrena decisiones GTO en cash NL, importa PokerStars, Winamax, GGPoker y 888poker (cash, spins y torneos), y mejora con ForgeCoach.',
     keywords: 'poker GTO, entrenador poker, NL Hold\'em, cash game 6-max, spins, MTT, IA poker, PokerStars, Winamax, GGPoker, 888poker, estudiar poker, fugas NL25'
   },
   legal: {
     'faq.html': {
       title: 'Preguntas frecuentes · PokerForgeAI',
-      description: 'FAQ de PokerForgeAI: import PokerStars/Winamax/GGPoker/888poker, pestañas Cash/Spins/Torneos, trial Study, planes, IA Coach, PWA y soporte.',
+      description: 'FAQ de PokerForgeAI: import PokerStars/Winamax/GGPoker/888poker, pestañas Cash/Spins/Torneos, trial Study, planes, ForgeCoach, PWA y soporte.',
       type: 'FAQPage',
       faq: [
-        { q: '¿Qué es PokerForgeAI?', a: 'PokerForgeAI es una app web para entrenar GTO en NL Hold\'em, revisar sesiones importadas (PokerStars, Winamax, GGPoker, 888poker) y usar IA Coach. El entrenador se centra en cash; el importador también organiza spins y torneos.' },
+        { q: '¿Qué es PokerForgeAI?', a: 'PokerForgeAI es una app web para entrenar GTO en NL Hold\'em, revisar sesiones importadas (PokerStars, Winamax, GGPoker, 888poker) y usar ForgeCoach. El entrenador se centra en cash; el importador también organiza spins y torneos.' },
         { q: '¿Necesito cuenta para usarla?', a: 'Sí. El acceso requiere iniciar sesión con Google. Tus datos se asocian a tu cuenta para sincronización en la nube y límites según el plan.' },
         { q: '¿Cómo importo una sesión?', a: 'En Sesiones, sube uno o varios .txt. Debajo del importador hay pestañas Cash, Spins y Torneos. En Chrome/Edge puedes auto-importar una carpeta de historiales.' },
         { q: '¿Qué formatos de historial admite?', a: 'PokerStars (ES/EN+Zoom), Winamax, GGPoker/Natural8 y 888poker. NLHE cash/spins/MTT con análisis GTO; PLO y Short Deck se importan sin análisis GTO.' },
@@ -37,7 +37,7 @@ window.PT_SEO = {
     },
     'soporte.html': {
       title: 'Soporte · PokerForgeAI',
-      description: 'Contacta con el soporte de PokerForgeAI: ayuda con la app, facturación, importación de sesiones e IA Coach.',
+      description: 'Contacta con el soporte de PokerForgeAI: ayuda con la app, facturación, importación de sesiones e ForgeCoach.',
       type: 'WebPage'
     },
     'terminos.html': {
@@ -65,7 +65,7 @@ window.PT_SEO = {
     },
     'ia.html': {
       title: 'Uso de inteligencia artificial · PokerForgeAI',
-      description: 'Cómo PokerForgeAI usa IA Coach: límites por plan, privacidad de consultas, bonos y buenas prácticas.',
+      description: 'Cómo PokerForgeAI usa ForgeCoach: límites por plan, privacidad de consultas, bonos y buenas prácticas.',
       type: 'WebPage'
     }
   }

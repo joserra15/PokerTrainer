@@ -181,7 +181,7 @@ node tools/test-supabase.js
 
 6. Recarga la app e inicia sesión con Google (vía Supabase Auth).
 
-> **RLS (EPIC 2):** solo usuarios autenticados acceden a su fila en `pt_user_state`. El IA Coach requiere sesión (JWT), sin token en el cliente.
+> **RLS (EPIC 2):** solo usuarios autenticados acceden a su fila en `pt_user_state`. El ForgeCoach requiere sesión (JWT), sin token en el cliente.
 
 ## Estructura del proyecto
 

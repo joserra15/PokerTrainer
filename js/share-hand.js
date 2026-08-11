@@ -78,7 +78,7 @@
       '<div class="share-invite-brand">' +
       '<img src="' + esc(home) + 'icons/icon-192.png" alt="PokerForgeAI" width="42" height="42" />' +
       '<div><h1>PokerForgeAI</h1>' +
-      '<p>Entrena y analiza manos con GTO e IA Coach.</p></div>' +
+      '<p>Entrena y analiza manos con GTO e ForgeCoach.</p></div>' +
       '</div>' +
       '<a class="btn btn-primary" href="' + esc(home) + '">Entrar</a>' +
       '</div>';

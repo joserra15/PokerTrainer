@@ -1,4 +1,4 @@
--- Study: 3 consultas IA Coach/mes (prueba del upsell a Coach)
+-- Study: 3 consultas ForgeCoach/mes (prueba del upsell a Coach)
 create or replace function public.pt_plan_limits(p_plan text)
 returns json
 language sql

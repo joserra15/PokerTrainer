@@ -1,5 +1,5 @@
 /*
- * ai-report.js — IA Coach: mano, sesión, preguntas concretas y caché.
+ * ai-report.js — ForgeCoach: mano, sesión, preguntas concretas y caché.
  */
 (function (global) {
   'use strict';
@@ -522,7 +522,7 @@
       token = await global.PTSupabase.getAccessToken();
     }
     if (!token) {
-      throw new Error('Inicia sesión para usar el IA Coach');
+      throw new Error('Inicia sesión para usar el ForgeCoach');
     }
     const key = anonKey();
     const res = await fetch(c.endpoint, {
@@ -551,7 +551,7 @@
     const actions = panel.querySelector('[data-ai-actions]');
     if (status) status.textContent = state === 'loading' ? '' : (message || '');
     if (state === 'loading') {
-      if (body) body.innerHTML = loadingHtml(message || 'Consultando IA Coach…', hint);
+      if (body) body.innerHTML = loadingHtml(message || 'Consultando ForgeCoach…', hint);
       if (actions) actions.querySelectorAll('button').forEach((b) => { b.disabled = true; });
       const sendQ = panel.querySelector('[data-ai-question-send]');
       if (sendQ) sendQ.disabled = true;
@@ -662,7 +662,7 @@
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
 
     if (!isEnabled()) {
-      alert('IA Coach no configurado. Copia js/ai-config.example.js como js/ai-config.js y activa el endpoint.');
+      alert('ForgeCoach no configurado. Copia js/ai-config.example.js como js/ai-config.js y activa el endpoint.');
       return;
     }
     if (!(await assertAiAccess()).ok) return;
@@ -795,7 +795,7 @@
   async function parseHand(text) {
     const raw = String(text || '').trim();
     if (!raw) throw new Error('Escribe la descripción de la mano.');
-    if (!isEnabled()) throw new Error('IA Coach no configurado.');
+    if (!isEnabled()) throw new Error('ForgeCoach no configurado.');
 
     const access = await assertAiAccess({ showPaywall: false });
     if (!access.ok) {
@@ -815,7 +815,7 @@
     if (global.PTSupabase && global.PTSupabase.getAccessToken) {
       token = await global.PTSupabase.getAccessToken();
     }
-    if (!token) throw new Error('Inicia sesión para usar el IA Coach');
+    if (!token) throw new Error('Inicia sesión para usar el ForgeCoach');
 
     const res = await fetch(c.endpoint, {
       method: 'POST',
@@ -1085,8 +1085,8 @@
     options = options || {};
     const first = userFirstName(options);
     const greet = first
-      ? ('¡Hola, <strong>' + escapeHtml(first) + '</strong>! Soy tu IA Coach.')
-      : '¡Hola! Soy tu <strong>IA Coach</strong> de poker GTO.';
+      ? ('¡Hola, <strong>' + escapeHtml(first) + '</strong>! Soy tu ForgeCoach.')
+      : '¡Hola! Soy tu <strong>ForgeCoach</strong> de poker GTO.';
     const titleId = 'home-coach-title';
     const copy = {
       title: greet,
@@ -1114,7 +1114,7 @@
       '<li><strong>Guía básica</strong> — conceptos para principiantes y dudas al coach.</li>' +
       '<li><strong>Entrenador</strong> — al finalizar cada mano, debajo del resultado.</li>' +
       '<li><strong>Sesiones</strong> — resumen de sesión, revisión de mano y paso a paso.</li>' +
-      '<li><strong>Estadísticas</strong> — bloque IA Coach con informe global y preguntas.</li>' +
+      '<li><strong>Estadísticas</strong> — bloque ForgeCoach con informe global y preguntas.</li>' +
       '<li><strong>Planes</strong> — Study incluye 40 consultas/mes; Coach, 150/mes. Puedes ampliar con bonos de consultas.</li>' +
       '</ul></div>' +
       '<div class="home-coach-foot">' +

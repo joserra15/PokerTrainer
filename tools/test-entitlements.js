@@ -171,7 +171,7 @@ assert.strictEqual(ai.ok, true);
 assert.strictEqual(ai.unlimited, true);
 
 const sumFree = Ent.aiQuotaSummary(ent('free', { ai_reports_month: 1, ai_plan_used_month: 1 }));
-assert.ok(/IA Coach/.test(sumFree.label), 'label cuota free');
+assert.ok(/ForgeCoach/.test(sumFree.label), 'label cuota free');
 assert.ok(sumFree.totalLeft >= 0);
 
 // Fuente alineada con BILLING / migración free=3

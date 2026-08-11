@@ -192,7 +192,7 @@
     trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día). Prueba Study 10 días o mejora tu plan.',
     import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis (1/mes). Study incluye imports ilimitados.',
     import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos por import.',
-    ai_plan: 'El IA Coach (añadir manos por texto, análisis y preguntas) requiere Study (40 consultas/mes), Coach (150/mes) o un bono. El plan Gratis no incluye IA. Los bonos están en la pestaña Planes.',
+    ai_plan: 'El ForgeCoach (añadir manos por texto, análisis y preguntas) requiere Study (40 consultas/mes), Coach (150/mes) o un bono. El plan Gratis no incluye IA. Los bonos están en la pestaña Planes.',
     ai_limit: 'Has agotado tus consultas IA disponibles. Compra un bono o sube de plan para seguir añadiendo manos con IA, analizando o preguntando.',
     billing_not_configured: '',
     no_subscription: '',
@@ -230,7 +230,7 @@
     var title = document.getElementById('paywall-title');
     var body = document.getElementById('paywall-body');
     var msg = customMsg || MESSAGES[reason] || 'Esta función requiere un plan de pago.';
-    if (title) title.textContent = reason === 'ai_plan' || reason === 'ai_limit' ? 'IA Coach' : 'Mejora tu plan';
+    if (title) title.textContent = reason === 'ai_plan' || reason === 'ai_limit' ? 'ForgeCoach' : 'Mejora tu plan';
     if (body) {
       body.innerHTML = '<p>' + escapeHtml(msg) + '</p>';
       if (reason === 'ai_plan' || reason === 'ai_limit') {

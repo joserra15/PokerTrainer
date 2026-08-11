@@ -14999,7 +14999,7 @@ window.PT_VS_3BET_JSON = {
 })(window);
 
 /*
- * ai-report.js — IA Coach: mano, sesión, preguntas concretas y caché.
+ * ai-report.js — ForgeCoach: mano, sesión, preguntas concretas y caché.
  */
 (function (global) {
   'use strict';
@@ -15522,7 +15522,7 @@ window.PT_VS_3BET_JSON = {
       token = await global.PTSupabase.getAccessToken();
     }
     if (!token) {
-      throw new Error('Inicia sesión para usar el IA Coach');
+      throw new Error('Inicia sesión para usar el ForgeCoach');
     }
     const key = anonKey();
     const res = await fetch(c.endpoint, {
@@ -15551,7 +15551,7 @@ window.PT_VS_3BET_JSON = {
     const actions = panel.querySelector('[data-ai-actions]');
     if (status) status.textContent = state === 'loading' ? '' : (message || '');
     if (state === 'loading') {
-      if (body) body.innerHTML = loadingHtml(message || 'Consultando IA Coach…', hint);
+      if (body) body.innerHTML = loadingHtml(message || 'Consultando ForgeCoach…', hint);
       if (actions) actions.querySelectorAll('button').forEach((b) => { b.disabled = true; });
       const sendQ = panel.querySelector('[data-ai-question-send]');
       if (sendQ) sendQ.disabled = true;
@@ -15662,7 +15662,7 @@ window.PT_VS_3BET_JSON = {
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
 
     if (!isEnabled()) {
-      alert('IA Coach no configurado. Copia js/ai-config.example.js como js/ai-config.js y activa el endpoint.');
+      alert('ForgeCoach no configurado. Copia js/ai-config.example.js como js/ai-config.js y activa el endpoint.');
       return;
     }
     if (!(await assertAiAccess()).ok) return;
@@ -15795,7 +15795,7 @@ window.PT_VS_3BET_JSON = {
   async function parseHand(text) {
     const raw = String(text || '').trim();
     if (!raw) throw new Error('Escribe la descripción de la mano.');
-    if (!isEnabled()) throw new Error('IA Coach no configurado.');
+    if (!isEnabled()) throw new Error('ForgeCoach no configurado.');
 
     const access = await assertAiAccess({ showPaywall: false });
     if (!access.ok) {
@@ -15815,7 +15815,7 @@ window.PT_VS_3BET_JSON = {
     if (global.PTSupabase && global.PTSupabase.getAccessToken) {
       token = await global.PTSupabase.getAccessToken();
     }
-    if (!token) throw new Error('Inicia sesión para usar el IA Coach');
+    if (!token) throw new Error('Inicia sesión para usar el ForgeCoach');
 
     const res = await fetch(c.endpoint, {
       method: 'POST',
@@ -16085,8 +16085,8 @@ window.PT_VS_3BET_JSON = {
     options = options || {};
     const first = userFirstName(options);
     const greet = first
-      ? ('¡Hola, <strong>' + escapeHtml(first) + '</strong>! Soy tu IA Coach.')
-      : '¡Hola! Soy tu <strong>IA Coach</strong> de poker GTO.';
+      ? ('¡Hola, <strong>' + escapeHtml(first) + '</strong>! Soy tu ForgeCoach.')
+      : '¡Hola! Soy tu <strong>ForgeCoach</strong> de poker GTO.';
     const titleId = 'home-coach-title';
     const copy = {
       title: greet,
@@ -16114,7 +16114,7 @@ window.PT_VS_3BET_JSON = {
       '<li><strong>Guía básica</strong> — conceptos para principiantes y dudas al coach.</li>' +
       '<li><strong>Entrenador</strong> — al finalizar cada mano, debajo del resultado.</li>' +
       '<li><strong>Sesiones</strong> — resumen de sesión, revisión de mano y paso a paso.</li>' +
-      '<li><strong>Estadísticas</strong> — bloque IA Coach con informe global y preguntas.</li>' +
+      '<li><strong>Estadísticas</strong> — bloque ForgeCoach con informe global y preguntas.</li>' +
       '<li><strong>Planes</strong> — Study incluye 40 consultas/mes; Coach, 150/mes. Puedes ampliar con bonos de consultas.</li>' +
       '</ul></div>' +
       '<div class="home-coach-foot">' +
@@ -18494,13 +18494,13 @@ window.PT_VS_3BET_JSON = {
     }
     var aiQ = Ent && Ent.aiCombinedQuota ? Ent.aiCombinedQuota(ent) : null;
     if (aiQ && aiQ.unlimited) {
-      rows += '<div class="usage-row usage-row-static"><span>IA Coach</span><strong>Ilimitado</strong></div>';
+      rows += '<div class="usage-row usage-row-static"><span>ForgeCoach</span><strong>Ilimitado</strong></div>';
     } else if (aiQ && aiQ.totalLimit > 0) {
-      rows += barRow('IA Coach (plan + bono)', aiQ.used, aiQ.totalLimit);
+      rows += barRow('ForgeCoach (plan + bono)', aiQ.used, aiQ.totalLimit);
     } else if (lim.ai_reports_per_month != null && lim.ai_reports_per_month > 0) {
-      rows += barRow('IA Coach mes', use.ai_reports_month, lim.ai_reports_per_month);
+      rows += barRow('ForgeCoach mes', use.ai_reports_month, lim.ai_reports_per_month);
     } else if (lim.ai_reports_per_month === 0 && !(aiQ && aiQ.bonus > 0)) {
-      rows += barRow('IA Coach mes', use.ai_reports_month, 0);
+      rows += barRow('ForgeCoach mes', use.ai_reports_month, 0);
     }
     if (Ent && Ent.aiQuotaSummary) {
       var summary = Ent.aiQuotaSummary(ent);
@@ -19472,7 +19472,7 @@ window.PT_VS_3BET_JSON = {
       '<div class="share-invite-brand">' +
       '<img src="' + esc(home) + 'icons/icon-192.png" alt="PokerForgeAI" width="42" height="42" />' +
       '<div><h1>PokerForgeAI</h1>' +
-      '<p>Entrena y analiza manos con GTO e IA Coach.</p></div>' +
+      '<p>Entrena y analiza manos con GTO e ForgeCoach.</p></div>' +
       '</div>' +
       '<a class="btn btn-primary" href="' + esc(home) + '">Entrar</a>' +
       '</div>';
@@ -21261,7 +21261,7 @@ window.PT_VS_3BET_JSON = {
     if (!q.totalLimit) {
       return { unlimited: false, label: 'Tu plan no incluye consultas IA. Compra un bono en Planes.', totalLeft: 0, bonus: 0 };
     }
-    var line = 'IA Coach: ' + q.used + '/' + q.totalLimit;
+    var line = 'ForgeCoach: ' + q.used + '/' + q.totalLimit;
     if (q.bonus > 0) line += ' (incl. ' + q.bonus + ' bono)';
     line += ' · ' + q.totalLeft + ' disponibles';
     return {
@@ -21573,7 +21573,7 @@ window.PT_VS_3BET_JSON = {
     trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día). Prueba Study 10 días o mejora tu plan.',
     import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis (1/mes). Study incluye imports ilimitados.',
     import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos por import.',
-    ai_plan: 'El IA Coach (añadir manos por texto, análisis y preguntas) requiere Study (40 consultas/mes), Coach (150/mes) o un bono. El plan Gratis no incluye IA. Los bonos están en la pestaña Planes.',
+    ai_plan: 'El ForgeCoach (añadir manos por texto, análisis y preguntas) requiere Study (40 consultas/mes), Coach (150/mes) o un bono. El plan Gratis no incluye IA. Los bonos están en la pestaña Planes.',
     ai_limit: 'Has agotado tus consultas IA disponibles. Compra un bono o sube de plan para seguir añadiendo manos con IA, analizando o preguntando.',
     billing_not_configured: '',
     no_subscription: '',
@@ -21611,7 +21611,7 @@ window.PT_VS_3BET_JSON = {
     var title = document.getElementById('paywall-title');
     var body = document.getElementById('paywall-body');
     var msg = customMsg || MESSAGES[reason] || 'Esta función requiere un plan de pago.';
-    if (title) title.textContent = reason === 'ai_plan' || reason === 'ai_limit' ? 'IA Coach' : 'Mejora tu plan';
+    if (title) title.textContent = reason === 'ai_plan' || reason === 'ai_limit' ? 'ForgeCoach' : 'Mejora tu plan';
     if (body) {
       body.innerHTML = '<p>' + escapeHtml(msg) + '</p>';
       if (reason === 'ai_plan' || reason === 'ai_limit') {
@@ -24047,7 +24047,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   const DEFAULT_HOME_LEAD =
-    'Practica spots reales, consulta rangos solver, repasa tus errores y resuelve dudas con el <strong>IA Coach</strong>.';
+    'Practica spots reales, consulta rangos solver, repasa tus errores y resuelve dudas con el <strong>ForgeCoach</strong>.';
 
   function buildHomeStatsBundle() {
     const stats = Store.getStats();
@@ -26151,7 +26151,7 @@ window.PT_VS_3BET_JSON = {
           '15 manos entrenador/día',
           '1 sesión import/mes (máx. 200 manos)',
           '5 manos en análisis (solo manual)',
-          '3 consultas IA Coach/mes de prueba',
+          '3 consultas ForgeCoach/mes de prueba',
           'Histórico 30 días'
         ],
         cta: null
@@ -26163,7 +26163,7 @@ window.PT_VS_3BET_JSON = {
           'Prueba 10 días (una vez por cuenta)',
           'Entrenador e import ilimitados',
           '20 manos en análisis',
-          '40 consultas IA Coach/mes (añadir manos, análisis y preguntas)',
+          '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
           'Sync, estadísticas y repaso'
         ],
         cta: 'pro'
@@ -26174,7 +26174,7 @@ window.PT_VS_3BET_JSON = {
         features: [
           'Todo Study',
           '100 manos en análisis',
-          '150 consultas IA Coach/mes',
+          '150 consultas ForgeCoach/mes',
           'Informes y preguntas sobre manos, análisis y sesiones',
           'Soporte prioritario'
         ],

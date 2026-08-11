@@ -1,7 +1,7 @@
 /*
  * hand-analysis.js — Menú "Análisis de manos".
  * - Entrada manual de una mano (posiciones, cartas, comunitarias y acciones).
- * - Entrada por texto libre con IA Coach (consume consulta): la IA genera la
+ * - Entrada por texto libre con ForgeCoach (consume consulta): la IA genera la
  *   estructura de la mano + un análisis.
  * - Guarda las manos (límite por plan: 5 / 20 / 100), permite revisarlas paso a
  *   paso (reutiliza la revisión de sesiones) y jugarlas en el entrenador con las
@@ -913,7 +913,7 @@
     var html = '';
     html += '<div class="ha-intro">';
     html += '<h2 class="ha-title">Análisis de manos</h2>';
-    html += '<p class="muted-text">Introduce una mano a mano (gratis, según el cupo de tu plan) o descríbela en texto con IA Coach (consume 1 consulta). Revísala paso a paso con GTO y vuelve a jugarla en el entrenador.</p>';
+    html += '<p class="muted-text">Introduce una mano a mano (gratis, según el cupo de tu plan) o descríbela en texto con ForgeCoach (consume 1 consulta). Revísala paso a paso con GTO y vuelve a jugarla en el entrenador.</p>';
     html += '<div class="ha-actions-top">';
     html += '<button class="btn btn-primary" data-ha-new="manual">+ Añadir mano (manual)</button>';
     html += '<button class="btn btn-secondary" data-ha-new="text"' + (aiOk ? '' : ' title="Requiere consulta IA disponible"') + '>Añadir con IA (texto)</button>';
@@ -1810,7 +1810,7 @@
     var html = '';
     html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver</button>';
     html += '<h2 class="ha-title">Añadir mano (texto / historial)</h2>';
-    html += '<p class="muted-text">Pega un historial Winamax/PokerStars (se analiza <strong>sin consumir IA</strong>) o describe la mano en lenguaje natural. La descripción libre usa el IA Coach y <strong>consume una consulta</strong>.</p>';
+    html += '<p class="muted-text">Pega un historial Winamax/PokerStars (se analiza <strong>sin consumir IA</strong>) o describe la mano en lenguaje natural. La descripción libre usa el ForgeCoach y <strong>consume una consulta</strong>.</p>';
     html += '<div class="ha-form">';
     html += '<textarea class="ha-text-input" rows="8" placeholder="Pega un Hand History o describe la mano: 6-max, CO con As Kd, acciones, board…"></textarea>';
     html += '<div class="ha-form-errors" data-ha-errors></div>';
@@ -1886,7 +1886,7 @@
         return null;
       }
       if (!global.PTAIReport || !global.PTAIReport.parseHand) {
-        throw new Error('No es un historial reconocido y el IA Coach no está disponible.');
+        throw new Error('No es un historial reconocido y el ForgeCoach no está disponible.');
       }
       status.innerHTML = '<div class="ha-loading">Comprobando consultas IA…</div>';
       return requireAiAccess().then(function (ok) {
