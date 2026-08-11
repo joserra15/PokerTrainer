@@ -176,9 +176,11 @@ Las lecciones hablan como un **profesor a sus alumnos**, no como un cheat-sheet 
 |-------|-----------|------------|
 | **Natural** | Frases completas, tono oral claro | Telegramas (`ATo UTG fold.`) y anglicismos sin ancla |
 | **Limpear** | Verbo del limp siempre *limpear* (limpeas, limpees, limpeado) | *limpiar/limpia/limpies* cuando hable de limp |
+| **Hacer call** | Acción *call* siempre *hacer call* (haces/hacen call) | *llamar/llaman* cuando signifique call |
+| **Término + ancla (C-09+)** | Usa el término de póker **y** una glosa breve en español la 1ª vez en esa lección: *squeeze (3-bet con open+call delante)* | Listas densas (`4-bet value: QQ+/AK. 4-bet bluff:…`) sin explicar |
 | **Breve pero no telegráfica** | 2–4 frases por bullet de teoría; teach-back 1–3 frases | Un solo eslogan; párrafos de media página |
 | **Concepto la 1ª vez** | Nombre + explicación inline: *limpear (igualar la ciega grande para entrar en la mano)* | Usar jerga cruda (`limp`, `FE`, `OOP`) sin decir qué es |
-| **No repetir definiciones** | Si M0 ya explicó *fold equity* en C-03, C-04+ lo usa sin redefinir | Copiar el mismo glosario en cada lección |
+| **No repetir definiciones** | Si M0/M1 ya explicó el término, las lecciones siguientes lo usan sin re-glosar entero | Copiar el mismo glosario en cada lección |
 | **Un trabajo mental** | La teoría prepara solo el concepto de esa lección | Meter sizing, SB y 3-bet en la misma página “por si acaso” |
 
 **Orden de introducción de vocabulario en Cash M0 (referencia de autoría):**
@@ -194,12 +196,28 @@ Las lecciones hablan como un **profesor a sus alumnos**, no como un cheat-sheet 
 **Orden de introducción en Cash M1 (referencia de autoría):**
 
 1. **C-07** — defender BB: fold / hacer call / 3-bet; wide vs tight según el open. Sin definir aún polar/spew.  
-2. **C-08** — *value*, *bluff/farol*, *blockers*, *polar*, *spew* (cada uno con explicación en lenguaje natural la 1ª vez).  
-3. **C-09+** — usan esos términos sin redefinir el glosario entero.
+2. **C-08** — *value*, *bluff/farol*, *blockers*, *polar*, *spew*.  
+3. **C-09** — *4-bet*, *continue*, *hero-call* (pagar de más por orgullo).  
+4. **C-10** — *cold-call*, *squeeze*, *dead money*, *capped range*, *multiway*.  
+5. **C-11** — *iso-raise*, *heads-up*, *overlimp* / *overiso*.  
+6. **C-12** — *opción* (check gratis en BB), *set-mine*.  
+7. **C-13** — examen: cero vocabulario nuevo.
+
+**Orden de introducción en Cash M2:**
+
+1. **C-14** — textura *seco / wet / monotone*, *c-bet*, *pot control*.  
+2. **C-15** — *range advantage*, *check-back*, sizing pequeño IP.  
+3. **C-16** — c-bet OOP, *autocbet*, cuándo *ceder*.  
+4. **C-17** — *pot odds*, *gutshot*, *backdoors*, *overfold*.  
+5. **C-18** — *second barrel*, *scare card*, *sticky second pair*.  
+6. **C-19** — *value thin / fat*, *nuts*, *undervalue*, *TPTK*.  
+7. **C-20** — examen: cero vocabulario nuevo.
+
+**Regla para lecciones futuras (C-09 en adelante, Spins/MTT igual):** el motivo de la lección puede ser técnico, pero la explicación debe poder leerla alguien que acaba de terminar M0. Mantén el término de póker (el alumno debe familiarizarse) y ancla siempre con español claro la primera vez que aparece en esa lección. Teach-backs: 1–3 frases con el *por qué*, no solo `AA: 4-bet value.`
 
 **Teach-back:** misma voz. Recuerda *por qué* falló en esa posición/mano; no inventes otra solución ni reexpliques el glosario entero.
 
-Implementación de referencia: `js/school-data.js` (M0) y `js/school-data-m1.js` (C-08 polar/spew/blockers).
+Implementación de referencia: `js/school-data.js` (M0), `js/school-data-m1.js` (C-07…C-13), `js/school-data-m2.js` (C-14…C-20).
 
 ---
 

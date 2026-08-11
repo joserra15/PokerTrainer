@@ -1,6 +1,10 @@
 /*
  * school-data-m2.js — Cash M2 Postflop core (Study). C-14…C-20.
  * Se registra sobre PTSchoolData (Fase F). Menú sigue admin-only.
+ *
+ * Estilo (C-09+ / M2 y futuras): términos de póker con ancla en español
+ * la 1ª vez en la lección. Voz de profesor, no telegrama. Call = «hacer call».
+ * Ver docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
  */
 (function (global) {
   'use strict';
@@ -14,24 +18,41 @@
       title: 'Textura de flop y plan',
       route: 'cash', module: 'M2', order: 14, plan: 'study',
       xp: 110, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
-      concept: 'Clasifica el flop (seco / semi / wet) y elige un plan: c-bet pequeño, check o pot control.',
+      concept: 'Antes de apostar, mira la textura del flop: ¿seco, semi o wet? Eso decide si haces c-bet (continuación) pequeño, check o controlas el bote.',
       theory: [
-        'Flop seco (p. ej. K72 rainbow): pocas draws; el agresor IP c-betea alto con sizing pequeño.',
-        'Flop wet/monotone: más equity rival; reduce c-bet automático y checkea más.',
-        'Trampa: mismo sizing 75 % en todos los boards.'
+        'Un flop seco tiene pocas draws (pocas formas de mejorar fuerte): ejemplo K♠7♦2♣ rainbow (tres palos distintos). El agresor en posición (IP) suele hacer c-bet — apostar de continuación tras haber subido preflop — con sizing pequeño.',
+        'Un flop wet está conectado o con muchos draws (9♠8♠7♥). Monotone es cuando las tres cartas son del mismo palo. Ahí el rival conecta más: reduces el c-bet automático y checkeas más.',
+        'Trampa: usar siempre el mismo tamaño (por ejemplo 75 % del bote) en todos los boards. El plan cambia con la textura.'
       ],
       examples: [{
-        title: 'Seco vs wet',
-        body: 'BTN vs BB, flop K♠7♦2♣ con AQo: c-bet ~1/3. En 9♠8♠7♥ con AQo: muchas veces check o c-bet más selectivo.'
+        title: 'Seco vs wet con la misma mano',
+        body: 'BTN vs BB con AQo. En K♠7♦2♣ (seco): c-bet pequeño (~1/3 del bote) es habitual. En 9♠8♠7♥ (wet): muchas veces check o bet más selectivo — el board ayuda más al rival.'
       }],
-      aiQuestions: ['¿Qué es un flop seco?', '¿Por qué sizing pequeño en seco?'],
+      aiQuestions: [
+        '¿Qué es un flop seco, en una frase?',
+        '¿Por qué en seco el sizing pequeño suele bastar?'
+      ],
       spots: [
-        flop('c14-01', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 24001, { teachBack: 'Seco K72: c-bet pequeño IP habitual con AQo.' }),
-        flop('c14-02', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 24002, { trapTag: 'fancy_play', teachBack: 'Wet conectado: no c-bet automático grande. Check o bet selectivo.' }),
-        flop('c14-03', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 24003, { teachBack: 'Overpair en board muy wet: pot control frecuente.' }),
-        flop('c14-04', 'BTN', ['8h', '7h'], ['As', '4d', '2c'], 24004, { teachBack: 'Seco A-high: c-bet light IP razonable con backdoors.' }),
-        flop('c14-05', 'BTN', ['Jc', 'Tc'], ['Ah', '7h', '2h'], 24005, { trapTag: 'fancy_play', teachBack: 'Monotone: reduce c-bet spew sin flush/draw fuerte.' }),
-        flop('c14-06', 'HJ', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 24006, { teachBack: 'QQ en K-high seco: c-bet value frecuente.' })
+        flop('c14-01', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 24001, {
+          teachBack: 'Flop seco K72: c-bet pequeño en posición con AQo es el plan habitual.'
+        }),
+        flop('c14-02', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 24002, {
+          trapTag: 'fancy_play',
+          teachBack: 'Board wet conectado: no hagas c-bet grande automático. Check o bet selectivo.'
+        }),
+        flop('c14-03', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 24003, {
+          teachBack: 'Overpair (pareja por encima del board) en board muy wet: a menudo pot control — no hinches el bote sin necesidad.'
+        }),
+        flop('c14-04', 'BTN', ['8h', '7h'], ['As', '4d', '2c'], 24004, {
+          teachBack: 'Seco A-high: c-bet ligero IP razonable; tienes backdoors (mejoras en dos calles) con el suited.'
+        }),
+        flop('c14-05', 'BTN', ['Jc', 'Tc'], ['Ah', '7h', '2h'], 24005, {
+          trapTag: 'fancy_play',
+          teachBack: 'Monotone (tres del mismo palo): reduce el c-bet spew si no tienes color ni draw fuerte.'
+        }),
+        flop('c14-06', 'HJ', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 24006, {
+          teachBack: 'QQ en K-high seco: c-bet de value frecuente — niegas cartas y cobras a peores manos.'
+        })
       ]
     },
     {
@@ -39,26 +60,46 @@
       title: 'C-bet IP en flop seco',
       route: 'cash', module: 'M2', order: 15, plan: 'study',
       xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
-      concept: 'En posición, en flops secos, c-beteas muy a menudo a sizing pequeño para negar equity.',
+      concept: 'En posición, en flops secos, haces c-bet muy a menudo a tamaño pequeño: niegas equity (cartas que mejorarían al rival) sin meter un bote gigante.',
       theory: [
-        'Range advantage en A-high/K-high secos: muchas manos del BB no conectan.',
-        'Sizing ~25–33 % del bote. No necesitas 75 % para ganar la mayoría de folds.',
-        'Trampa: check-back demasiado o overbet seco sin razón.'
+        'Range advantage significa que tu rango de agresor “encaja” mejor que el del BB en boards A-high o K-high secos: muchas manos del BB no conectaron. Por eso el c-bet frecuente tiene sentido.',
+        'Sizing típico: ~25–33 % del bote. No necesitas 75 % para que muchas manos flojas se tiren. Pequeño y a menudo gana más que grande y raro.',
+        'Trampa: check-back (pasar en posición) demasiado con manos que deberían negar equity, o overbet en seco sin razón.'
       ],
       examples: [{
-        title: 'BTN vs BB seco',
-        body: 'Flop A♠8♦3♣, tú con KQo: c-bet pequeño. Con 72o que llegó milagroso: también puedes bet o check según mix — prioriza el patrón c-bet.'
+        title: 'BTN vs BB en seco',
+        body: 'Flop A♠8♦3♣, tú con KQo: c-bet pequeño. El patrón importa más que memorizar una sola mano: en seco IP, piensa primero en apostar pequeño.'
       }],
-      aiQuestions: ['¿Por qué 33 % y no 75 % en seco?', '¿Qué manos check-back IP?'],
+      aiQuestions: [
+        '¿Por qué ~33 % y no 75 % en un flop seco?',
+        '¿Qué manos tiene sentido check-back IP?'
+      ],
       spots: [
-        flop('c15-01', 'BTN', ['Kh', 'Qd'], ['As', '8d', '3c'], 25001, { teachBack: 'A-high seco: c-bet pequeño con KQo.' }),
-        flop('c15-02', 'BTN', ['Ah', '5d'], ['Kc', '7s', '2d'], 25002, { teachBack: 'K-high seco: c-bet frecuente IP.' }),
-        flop('c15-03', 'CO', ['Jd', 'Td'], ['Qs', '4h', '4c'], 25003, { teachBack: 'Paired seco: c-bet pequeño habitual.' }),
-        flop('c15-04', 'BTN', ['9s', '8s'], ['Ah', 'Kd', '2c'], 25004, { teachBack: 'AK seco: c-bet light con backdoors.' }),
-        flop('c15-05', 'BTN', ['Qc', 'Jc'], ['Th', '7d', '2s'], 25005, { teachBack: 'T-high seco: c-bet IP estándar.' }),
-        flop('c15-06', 'BTN', ['Ad', 'Kd'], ['9c', '8h', '7s'], 25006, { trapTag: 'fancy_play', teachBack: 'Board muy conectado: no trates como seco. Selectivo.' }),
-        flop('c15-07', 'CO', ['5h', '5c'], ['As', 'Td', '3c'], 25007, { teachBack: 'Pocket pair en A-high seco: c-bet/check mixto; value pequeño OK.' }),
-        flop('c15-08', 'BTN', ['Kh', '9s'], ['Kd', '7c', '2h'], 25008, { teachBack: 'Top pair seco: c-bet value.' })
+        flop('c15-01', 'BTN', ['Kh', 'Qd'], ['As', '8d', '3c'], 25001, {
+          teachBack: 'A-high seco: c-bet pequeño con KQo. Niega outs y cobra a peores manos.'
+        }),
+        flop('c15-02', 'BTN', ['Ah', '5d'], ['Kc', '7s', '2d'], 25002, {
+          teachBack: 'K-high seco: c-bet frecuente en posición — muchas manos del BB fallaron.'
+        }),
+        flop('c15-03', 'CO', ['Jd', 'Td'], ['Qs', '4h', '4c'], 25003, {
+          teachBack: 'Board paired seco (pareja en mesa): c-bet pequeño habitual.'
+        }),
+        flop('c15-04', 'BTN', ['9s', '8s'], ['Ah', 'Kd', '2c'], 25004, {
+          teachBack: 'AK seco: c-bet ligero con backdoors (posibles mejoras en turn/river).'
+        }),
+        flop('c15-05', 'BTN', ['Qc', 'Jc'], ['Th', '7d', '2s'], 25005, {
+          teachBack: 'T-high seco: c-bet IP estándar. Plan simple: negar equity barato.'
+        }),
+        flop('c15-06', 'BTN', ['Ad', 'Kd'], ['9c', '8h', '7s'], 25006, {
+          trapTag: 'fancy_play',
+          teachBack: 'Board muy conectado: no lo trates como seco. Sé selectivo; no autocbet.'
+        }),
+        flop('c15-07', 'CO', ['5h', '5c'], ['As', 'Td', '3c'], 25007, {
+          teachBack: 'Pareja baja en A-high seco: c-bet o check mixto; un bet pequeño de value/control está bien.'
+        }),
+        flop('c15-08', 'BTN', ['Kh', '9s'], ['Kd', '7c', '2h'], 25008, {
+          teachBack: 'Top pair (pareja alta) en seco: c-bet de value — cobra a peores manos y draws flojos.'
+        })
       ]
     },
     {
@@ -66,24 +107,41 @@
       title: 'C-bet OOP y cuándo ceder',
       route: 'cash', module: 'M2', order: 16, plan: 'study',
       xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
-      concept: 'Fuera de posición reduces c-bets automáticos: construyes un rango de check y cedes en boards malos.',
+      concept: 'Fuera de posición (OOP) reduces los c-bets automáticos: construyes un rango de check y cedes en boards malos para ti.',
       theory: [
-        'OOP no ves la reacción del rival: c-betear wet boards te mete en botes difíciles.',
-        'Checkea más en boards que favorecen al caller (bajos conectados, monotone).',
-        'Trampa: autocbet OOP en wet.'
+        'OOP no ves la reacción del rival antes de actuar: c-betear boards wet te mete en botes difíciles. Por eso checkeas más que en posición.',
+        'Cede (checkea) más en boards que favorecen al que solo hizo call preflop: bajos conectados, monotone. En A-high paired puedes c-betear más a menudo.',
+        'Trampa: autocbet OOP en wet — apostar siempre “porque fui el agresor”. A veces el plan correcto es ceder la calle.'
       ],
       examples: [{
-        title: 'BB agresor vs BTN',
-        body: '3-beteaste BB vs BTN, flop 8♠7♠6♥: muchas manos checkean. En A♠2♦2♣ puedes c-bet más.'
+        title: 'Agresor OOP: dos flops distintos',
+        body: '3-beteaste desde BB vs BTN. Flop 8♠7♠6♥: muchas manos checkean. Flop A♠2♦2♣: puedes c-betear más — el board favorece tu rango de 3-bet.'
       }],
-      aiQuestions: ['¿Por qué c-beteo menos OOP?', '¿En qué boards cedo?'],
+      aiQuestions: [
+        '¿Por qué c-beteo menos fuera de posición?',
+        '¿En qué boards tiene sentido ceder?'
+      ],
       spots: [
-        flop('c16-01', 'SB', ['Ah', 'Kd'], ['As', '2d', '2c'], 26001, { teachBack: 'A-high paired: c-bet OOP razonable.' }),
-        flop('c16-02', 'SB', ['Ah', 'Kd'], ['8s', '7s', '6h'], 26002, { trapTag: 'fancy_play', teachBack: 'Wet conectado OOP: cede/check más. No autocbet.' }),
-        flop('c16-03', 'BB', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 26003, { teachBack: 'QQ en K-high: mix; a menudo bet pequeño o check.' }),
-        flop('c16-04', 'SB', ['Jc', 'Tc'], ['Ah', '7h', '2h'], 26004, { trapTag: 'fancy_play', teachBack: 'Monotone OOP: no autocbet spew.' }),
-        flop('c16-05', 'BB', ['Ad', '5d'], ['Kc', '4s', '4d'], 26005, { teachBack: 'A high paired: c-bet frecuente posible.' }),
-        flop('c16-06', 'SB', ['9h', '8h'], ['Qd', 'Jc', '2s'], 26006, { teachBack: 'Missed OOP en QJ: check frecuente.' })
+        flop('c16-01', 'SB', ['Ah', 'Kd'], ['As', '2d', '2c'], 26001, {
+          teachBack: 'A-high paired: c-bet OOP razonable — el board te favorece más que al caller.'
+        }),
+        flop('c16-02', 'SB', ['Ah', 'Kd'], ['8s', '7s', '6h'], 26002, {
+          trapTag: 'fancy_play',
+          teachBack: 'Wet conectado OOP: cede/check más. No hagas autocbet solo por ser agresor.'
+        }),
+        flop('c16-03', 'BB', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 26003, {
+          teachBack: 'QQ en K-high: mix — a menudo bet pequeño o check. No hinches sin plan.'
+        }),
+        flop('c16-04', 'SB', ['Jc', 'Tc'], ['Ah', '7h', '2h'], 26004, {
+          trapTag: 'fancy_play',
+          teachBack: 'Monotone OOP: no autocbet spew sin color ni draw fuerte.'
+        }),
+        flop('c16-05', 'BB', ['Ad', '5d'], ['Kc', '4s', '4d'], 26005, {
+          teachBack: 'A-high paired: c-bet frecuente posible. Board relativamente amable para tu rango.'
+        }),
+        flop('c16-06', 'SB', ['9h', '8h'], ['Qd', 'Jc', '2s'], 26006, {
+          teachBack: 'Fallaste el flop OOP en QJ: check frecuente. No inventes c-bets con aire puro.'
+        })
       ]
     },
     {
@@ -91,24 +149,47 @@
       title: 'Defensa vs c-bet',
       route: 'cash', module: 'M2', order: 17, plan: 'study',
       xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
-      concept: 'Vs c-bet pequeño continúas con equity y backdoors; no overfoldeas solo porque “no pegaste top pair”.',
+      concept: 'Contra un c-bet pequeño continúas con equity y backdoors; no overfoldeas solo porque “no pegaste top pair”.',
       theory: [
-        'C-bet a 33 % ofrece odds: gutshots, backdoors y pair+draw continúan.',
-        'Vs overbet o boards que te destrozan, foldear es correcto.',
-        'Trampa: overfold vs 33 %.'
+        'Si te apuestan ~33 % del bote, las pot odds (precio que te dan) son buenas: puedes continuar con gutshot (proyecto de escalera a una carta), backdoors (mejoras en dos calles) y pair+draw.',
+        'Contra overbet (apuesta enorme) o boards que te destrozan (AKQ con 72o), foldear es correcto. No “defendemos todo”.',
+        'Trampa: overfold vs 33 % — tirar demasiadas manos con outs reales solo porque no tienes pareja alta.'
       ],
       examples: [{
         title: 'Odds vs sizing',
-        body: 'BB vs c-bet 1/3 en A72r con 86s (gutshot+backs): call. Con 72o sin backdoors: fold.'
+        body: 'BB vs c-bet a 1/3 en A72 rainbow con 86s (gutshot + backdoors): hacer call. Con 72o sin backdoors: fold. El sizing pequeño te invita a continuar cuando tienes camino.'
       }],
-      aiQuestions: ['¿Por qué defiendo más vs c-bet pequeño?', '¿Qué es un backdoor?'],
+      aiQuestions: [
+        '¿Por qué defiendo más vs un c-bet pequeño?',
+        '¿Qué es un backdoor, con un ejemplo?'
+      ],
       spots: [
-        flop('c17-01', 'BB', ['8h', '6h'], ['As', '7d', '2c'], 27001, { facingBet: true, teachBack: 'Vs sizing pequeño, 86s con equity/backdoors: continue.' }),
-        flop('c17-02', 'BB', ['7c', '2d'], ['As', 'Kd', 'Qc'], 27002, { facingBet: true, trapTag: 'dominated', teachBack: '72o en AKQ: fold. Sin equity.' }),
-        flop('c17-03', 'BB', ['Jh', 'Th'], ['9s', '8d', '2c'], 27003, { facingBet: true, teachBack: 'JT con straight draw: continue claro.' }),
-        flop('c17-04', 'BB', ['Ad', '4c'], ['Kh', '7s', '2d'], 27004, { facingBet: true, teachBack: 'A-high + backdoor: call vs bet pequeño frecuente.' }),
-        flop('c17-05', 'BB', ['Qc', '5d'], ['As', 'Ah', 'Kd'], 27005, { facingBet: true, trapTag: 'dominated', teachBack: 'Q5o en AA K: fold típico.' }),
-        flop('c17-06', 'BB', ['9s', '8s'], ['7h', '6d', '2c'], 27006, { facingBet: true, teachBack: '98s con straight draw: continue.' })
+        flop('c17-01', 'BB', ['8h', '6h'], ['As', '7d', '2c'], 27001, {
+          facingBet: true,
+          teachBack: 'Vs sizing pequeño, 86s con equity y backdoors: continúa (call). No overfoldees.'
+        }),
+        flop('c17-02', 'BB', ['7c', '2d'], ['As', 'Kd', 'Qc'], 27002, {
+          facingBet: true,
+          trapTag: 'dominated',
+          teachBack: '72o en AKQ: fold. Sin equity real — aquí sí te tiras.'
+        }),
+        flop('c17-03', 'BB', ['Jh', 'Th'], ['9s', '8d', '2c'], 27003, {
+          facingBet: true,
+          teachBack: 'JT con straight draw (proyecto de escalera): continue claro vs c-bet pequeño.'
+        }),
+        flop('c17-04', 'BB', ['Ad', '4c'], ['Kh', '7s', '2d'], 27004, {
+          facingBet: true,
+          teachBack: 'A-high + backdoor: call vs bet pequeño frecuente. Tienes outs y precio.'
+        }),
+        flop('c17-05', 'BB', ['Qc', '5d'], ['As', 'Ah', 'Kd'], 27005, {
+          facingBet: true,
+          trapTag: 'dominated',
+          teachBack: 'Q5o en AA-K: fold típico. El board te aplasta; no hero-call.'
+        }),
+        flop('c17-06', 'BB', ['9s', '8s'], ['7h', '6d', '2c'], 27006, {
+          facingBet: true,
+          teachBack: '98s con straight draw: continue. Buena equity vs c-bet pequeño.'
+        })
       ]
     },
     {
@@ -116,24 +197,47 @@
       title: 'Second barrel (turn)',
       route: 'cash', module: 'M2', order: 18, plan: 'study',
       xp: 130, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
-      concept: 'En el turn decides si disparas segunda bala (value/bluff) o controlas el bote.',
+      concept: 'En el turn decides si das second barrel (segunda bala: apostar de nuevo tras el c-bet) de value/farol, o controlas el bote.',
       theory: [
-        'Barrel value cuando mejoras o sigues adelante. Bluff cuando el turn asusta al rango rival (overcards, flush cards).',
-        'Sticky second pair: no barrels eternos sin plan.',
-        'Trampa: pegarte a segunda pareja en todas las calles.'
+        'Barrel de value cuando mejoras o sigues delante (top pair bueno, overpair). Barrel de farol cuando el turn asusta al rango rival — overcard o carta de color que completa draws posibles.',
+        'Sticky second pair es pegarte a una segunda pareja mediocre en todas las calles sin plan. A veces hay que checkear o tirar ante presión.',
+        'Trampa: barrel eterno “porque ya aposté flop”. Cada calle necesita una razón.'
       ],
       examples: [{
-        title: 'Turn scare',
-        body: 'C-beteaste A72r con KQ, turn K: value barrel. Turn 8 que completa draws rivales: a menudo check.'
+        title: 'Turn que ayuda vs turn que asusta',
+        body: 'C-beteaste A72 rainbow con KQ. Turn K: value barrel — mejoraste. Turn 8 que completa draws rivales: a menudo check; el board se volvió más peligroso.'
       }],
-      aiQuestions: ['¿Cuándo doy second barrel?', '¿Qué es sticky second pair?'],
+      aiQuestions: [
+        '¿Cuándo doy second barrel?',
+        '¿Qué es sticky second pair, en lenguaje simple?'
+      ],
       spots: [
-        flop('c18-01', 'BTN', ['Kh', 'Qd'], ['As', '7d', '2c'], 28001, { street: 'turn', teachBack: 'Con KQ en A-high: plan de barrel/value en turns buenos.' }),
-        flop('c18-02', 'BTN', ['Jh', '9c'], ['As', '7d', '2c'], 28002, { street: 'turn', trapTag: 'fancy_play', teachBack: 'Segunda/weak sin mejora: no sticky barrel eterno.' }),
-        flop('c18-03', 'CO', ['Ad', 'Kd'], ['Ah', '8c', '3s'], 28003, { street: 'turn', teachBack: 'Top pair top kicker: barrel value frecuente.' }),
-        flop('c18-04', 'BTN', ['8s', '7s'], ['As', 'Kd', '2h'], 28004, { street: 'turn', teachBack: 'Missed: give up turn a menudo si no hay scare card.' }),
-        flop('c18-05', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c'], 28005, { street: 'turn', teachBack: 'Overpair: barrel value en turns seguros.' }),
-        flop('c18-06', 'BTN', ['5h', '5c'], ['As', 'Kd', 'Qc'], 28006, { street: 'turn', trapTag: 'fancy_play', teachBack: 'Underpair en broadway: pot control / fold a presión.' })
+        flop('c18-01', 'BTN', ['Kh', 'Qd'], ['As', '7d', '2c'], 28001, {
+          street: 'turn',
+          teachBack: 'Con KQ en A-high: plan de barrel/value en turns buenos (cuando mejoras o el board sigue amable).'
+        }),
+        flop('c18-02', 'BTN', ['Jh', '9c'], ['As', '7d', '2c'], 28002, {
+          street: 'turn',
+          trapTag: 'fancy_play',
+          teachBack: 'Segunda pareja floja sin mejora: no hagas sticky barrel eterno. Controla o cede.'
+        }),
+        flop('c18-03', 'CO', ['Ad', 'Kd'], ['Ah', '8c', '3s'], 28003, {
+          street: 'turn',
+          teachBack: 'Top pair top kicker (pareja alta con el mejor kicker): barrel de value frecuente.'
+        }),
+        flop('c18-04', 'BTN', ['8s', '7s'], ['As', 'Kd', '2h'], 28004, {
+          street: 'turn',
+          teachBack: 'Fallaste: en turn, a menudo give up (cedes) si no hay scare card que justifique farol.'
+        }),
+        flop('c18-05', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c'], 28005, {
+          street: 'turn',
+          teachBack: 'Overpair: barrel de value en turns seguros. Cobras a peores pares y draws.'
+        }),
+        flop('c18-06', 'BTN', ['5h', '5c'], ['As', 'Kd', 'Qc'], 28006, {
+          street: 'turn',
+          trapTag: 'fancy_play',
+          teachBack: 'Underpair en broadway: pot control o fold a presión. No te pegues a la pareja baja.'
+        })
       ]
     },
     {
@@ -141,24 +245,46 @@
       title: 'River value',
       route: 'cash', module: 'M2', order: 19, plan: 'study',
       xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
-      concept: 'En river buscas value thin cuando manos peores pagan, y value fat con nuts; no undervalueas fuertes.',
+      concept: 'En river buscas value thin (cobrar a peores manos que aún pagan) y value fat con la nuez; no dejes de apostar manos fuertes por miedo.',
       theory: [
-        'Value thin: apuestas manos que ganan a peores calls. Value fat: sizing mayor con la nuez.',
-        'Undervalue: checkear top pair strong vs rangos que pagan es un leak común.',
-        'Trampa: check-back strong o bluff sin blockers.'
+        'Value thin: apuestas manos que ganan a peores calls — por ejemplo top pair decente vs un rival que paga de más. Value fat: con nuts (la mejor mano posible) o casi nuez, sizing más grande.',
+        'Undervalue es el leak contrario: checkear top pair fuerte vs rangos que sí pagan. Si peores manos hacen call, debes apostar.',
+        'Trampa: check-back con manos fuertes por miedo, o farolear river sin blockers ni historia creíble.'
       ],
       examples: [{
         title: 'Thin vs fat',
-        body: 'River seco, top pair top kicker vs BB caller: value bet. Con nuts: sizing más grande.'
+        body: 'River seco, top pair top kicker vs BB que solo hizo call: value bet (thin/estándar). Con la nuez: sizing más grande (fat). No trates ambas manos igual.'
       }],
-      aiQuestions: ['¿Qué es value thin?', '¿Cuándo sizing grande en river?'],
+      aiQuestions: [
+        '¿Qué es value thin?',
+        '¿Cuándo uso sizing grande en river?'
+      ],
       spots: [
-        flop('c19-01', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d'], 29001, { street: 'river', teachBack: 'TPTK: value bet river frecuente.' }),
-        flop('c19-02', 'BTN', ['Kh', 'Kd'], ['As', '7c', '2d'], 29002, { street: 'river', teachBack: 'KK en A-high: pot control; no overvalue.' }),
-        flop('c19-03', 'CO', ['Qh', 'Qd'], ['Qc', '8s', '3h'], 29003, { street: 'river', teachBack: 'Set: value fat.' }),
-        flop('c19-04', 'BTN', ['Jh', '9c'], ['As', 'Kd', 'Qc'], 29004, { street: 'river', trapTag: 'fancy_play', teachBack: 'Air en broadway: no bluff spew sin blockers.' }),
-        flop('c19-05', 'BTN', ['Ad', '5d'], ['Ah', '9c', '4s'], 29005, { street: 'river', teachBack: 'Top pair weak: thin value o check según rivales.' }),
-        flop('c19-06', 'BTN', ['8s', '7s'], ['9h', '6d', '2c'], 29006, { street: 'river', teachBack: 'Straight: value fat.' })
+        flop('c19-01', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d'], 29001, {
+          street: 'river',
+          teachBack: 'TPTK (top pair top kicker): value bet de river frecuente. Peores manos aún pagan.'
+        }),
+        flop('c19-02', 'BTN', ['Kh', 'Kd'], ['As', '7c', '2d'], 29002, {
+          street: 'river',
+          teachBack: 'KK en A-high: pot control — no overvalues (no hinches como si tuvieras la nuez).'
+        }),
+        flop('c19-03', 'CO', ['Qh', 'Qd'], ['Qc', '8s', '3h'], 29003, {
+          street: 'river',
+          teachBack: 'Set (trío): value fat. Sizing mayor — quieres valor máximo.'
+        }),
+        flop('c19-04', 'BTN', ['Jh', '9c'], ['As', 'Kd', 'Qc'], 29004, {
+          street: 'river',
+          trapTag: 'fancy_play',
+          teachBack: 'Aire en broadway: no hagas bluff spew sin blockers ni historia. Better give up.'
+        }),
+        flop('c19-05', 'BTN', ['Ad', '5d'], ['Ah', '9c', '4s'], 29005, {
+          street: 'river',
+          teachBack: 'Top pair débil: thin value o check según el rival. No es nuts; tampoco es aire.'
+        }),
+        flop('c19-06', 'BTN', ['8s', '7s'], ['9h', '6d', '2c'], 29006, {
+          street: 'river',
+          teachBack: 'Escalera: value fat. Cobras fuerte; pocas manos te ganan.'
+        })
       ]
     },
     {
@@ -166,25 +292,49 @@
       title: 'Examen M2 · Postflop',
       route: 'cash', module: 'M2', order: 20, plan: 'study',
       xp: 170, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
-      concept: 'Repaso M2: textura, c-bet IP/OOP, defensa, barrels y river. Sin teoría nueva.',
+      concept: 'Repaso M2: textura, c-bet IP/OOP, defensa vs c-bet, barrels y river. Sin teoría nueva.',
       theory: [
-        'Clasifica el board, tu posición y tu plan. Seco IP → c-bet pequeño. Wet OOP → más checks.',
-        'Repasa el menú Rangos y tus fallos de M1 si el leak venía del preflop.'
+        'Clasifica el board, tu posición y tu plan. Seco + IP → c-bet pequeño frecuente. Wet + OOP → más checks.',
+        'Si tu fuga venía del preflop, repasa también el menú Rangos y tus fallos de M1. El flop no arregla un open malo.'
       ],
       examples: [{
-        title: 'Checklist',
-        body: '¿Board seco o wet? ¿IP u OOP? ¿Value, bluff o surrender?'
+        title: 'Checklist de tres preguntas',
+        body: '1) ¿Board seco o wet? 2) ¿Estoy IP u OOP? 3) ¿Mi plan es value, farol o ceder? Si respondes las tres, la acción suele aparecer sola.'
       }],
-      aiQuestions: ['¿Cuál es mi fuga postflop principal?', 'Resume c-bet IP en seco.'],
+      aiQuestions: [
+        '¿Cuál es mi fuga postflop principal?',
+        'Resume c-bet IP en seco en una frase de profesor.'
+      ],
       spots: [
-        flop('c20-01', 'BTN', ['Kh', 'Qd'], ['As', '8c', '3d'], 30001, { teachBack: 'Seco IP: c-bet.' }),
-        flop('c20-02', 'SB', ['Ah', 'Kd'], ['9s', '8s', '7h'], 30002, { trapTag: 'fancy_play', teachBack: 'Wet OOP: no autocbet.' }),
-        flop('c20-03', 'BB', ['Jh', 'Th'], ['9s', '8d', '2c'], 30003, { facingBet: true, teachBack: 'Draw: continue vs c-bet.' }),
-        flop('c20-04', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c'], 30004, { street: 'turn', teachBack: 'Overpair: barrel value.' }),
-        flop('c20-05', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d'], 30005, { street: 'river', teachBack: 'TPTK: value river.' }),
-        flop('c20-06', 'BTN', ['7c', '2d'], ['As', 'Kd', 'Qc'], 30006, { trapTag: 'dominated', teachBack: 'Air: fold/give up.' }),
-        flop('c20-07', 'CO', ['9s', '9c'], ['Ah', 'Td', '3c'], 30007, { teachBack: 'Mid pair A-high: mix; a menudo pot control.' }),
-        flop('c20-08', 'BTN', ['8h', '7h'], ['As', '4d', '2c'], 30008, { teachBack: 'Seco con backs: c-bet light OK.' })
+        flop('c20-01', 'BTN', ['Kh', 'Qd'], ['As', '8c', '3d'], 30001, {
+          teachBack: 'Seco IP: c-bet pequeño. Niega equity barato.'
+        }),
+        flop('c20-02', 'SB', ['Ah', 'Kd'], ['9s', '8s', '7h'], 30002, {
+          trapTag: 'fancy_play',
+          teachBack: 'Wet OOP: no autocbet. Cede más en boards peligrosos.'
+        }),
+        flop('c20-03', 'BB', ['Jh', 'Th'], ['9s', '8d', '2c'], 30003, {
+          facingBet: true,
+          teachBack: 'Draw vs c-bet pequeño: continue. Tienes equity y precio.'
+        }),
+        flop('c20-04', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c'], 30004, {
+          street: 'turn',
+          teachBack: 'Overpair: barrel de value en turn seguro.'
+        }),
+        flop('c20-05', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d'], 30005, {
+          street: 'river',
+          teachBack: 'TPTK: value bet de river. No undervaluees.'
+        }),
+        flop('c20-06', 'BTN', ['7c', '2d'], ['As', 'Kd', 'Qc'], 30006, {
+          trapTag: 'dominated',
+          teachBack: 'Aire en board fuerte: fold / give up. No spew.'
+        }),
+        flop('c20-07', 'CO', ['9s', '9c'], ['Ah', 'Td', '3c'], 30007, {
+          teachBack: 'Pareja media en A-high: mix; a menudo pot control.'
+        }),
+        flop('c20-08', 'BTN', ['8h', '7h'], ['As', '4d', '2c'], 30008, {
+          teachBack: 'Seco con backdoors: c-bet ligero OK en posición.'
+        })
       ]
     }
   ]);

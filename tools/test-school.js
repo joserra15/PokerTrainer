@@ -213,9 +213,42 @@ assert.ok(/polar \(/.test(Data.getLesson('C-05').examples[0].body) && /wide \(/.
   assert.ok(/Polar significa/.test(blob), 'C-08 define polar');
   assert.ok(/Spew es/.test(blob), 'C-08 define spew');
   assert.ok(!/Value: QQ\+|Polar light:|linear\/value/.test(blob), 'C-08 no es telegrama de chart');
-  assert.ok(/Cash M1 \(referencia de autoría\)/.test(
-    fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
-  ), 'roadmap orden vocabulario M1');
+})();
+
+/* C-09+: voz novato — ancla términos, sin telegramas densos */
+(function () {
+  function lessonBlob(id) {
+    var l = Data.getLesson(id);
+    return [l.concept].concat(l.theory || []).concat(
+      (l.examples || []).map(function (ex) { return (ex.title || '') + ' ' + (ex.body || ''); })
+    ).join(' ');
+  }
+  var c09 = lessonBlob('C-09');
+  assert.ok(/4-bet/.test(c09) && /hero-call/.test(c09), 'C-09 introduce 4-bet y hero-call');
+  assert.ok(/vuelve a subir|siguiente subida/.test(c09), 'C-09 ancla 4-bet en español');
+  assert.ok(!/4-bet value: QQ\+\/AK\. 4-bet bluff:/.test(c09), 'C-09 no es telegrama');
+
+  var c10 = lessonBlob('C-10');
+  assert.ok(/cold-call|Cold-call/.test(c10) && /Squeeze/.test(c10), 'C-10 define cold-call/squeeze');
+  assert.ok(/dead money|fichas ya en el bote/.test(c10), 'C-10 ancla dead money');
+
+  var c14 = lessonBlob('C-14');
+  assert.ok(/flop seco|seco /.test(c14) && /c-bet/.test(c14), 'C-14 textura + c-bet');
+  assert.ok(/continuación|apost/.test(c14), 'C-14 ancla c-bet');
+
+  var c17 = lessonBlob('C-17');
+  assert.ok(/pot odds|precio/.test(c17) && /backdoor/.test(c17), 'C-17 pot odds/backdoors');
+
+  assert.ok(!/\b[Ll]lamar\b|\bllaman\b/.test(
+    Data.m1Lessons().concat(Data.m2Lessons()).map(function (l) {
+      return lessonBlob(l.id) + ' ' + (l.spots || []).map(function (s) { return s.teachBack || ''; }).join(' ');
+    }).join(' ')
+  ), 'M1/M2 sin llamar=call');
+
+  var road = fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8');
+  assert.ok(/Término \+ ancla \(C-09\+\)/.test(road), 'roadmap regla C-09+');
+  assert.ok(/Orden de introducción en Cash M2/.test(road), 'roadmap vocabulario M2');
+  assert.ok(/Regla para lecciones futuras/.test(road), 'roadmap regla futuras');
 })();
 
 assert.ok(
