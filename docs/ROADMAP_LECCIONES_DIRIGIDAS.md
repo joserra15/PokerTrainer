@@ -658,7 +658,7 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 
 > Estimación en **complejidad técnica y de contenido**, no en calendario.
 
-### Estado de implementación (letras A–F)
+### Estado de implementación (letras A–J)
 
 | Fase | Alcance | Estado | Visibilidad menú |
 |------|---------|--------|------------------|
@@ -668,8 +668,12 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 | **D** | Gates Free/Study/Coach + analytics + flag beta | ✅ | **Sigue solo admin** (`SCHOOL_PUBLIC=false`; allowlist lista) |
 | **E** | M1 Preflop Study C-07…C-13 | ✅ contenido | **Menú no se abre a usuarios** (aplazado a petición) |
 | **F** | M2 Postflop C-14…C-20 + estrellas/maestría + tip coach | ✅ | Solo admin |
+| **G** | Ruta Spins S-00…S-17 + hub activo | ✅ | Solo admin |
+| **H** | Ruta MTT T-00…T-22 (burbuja/FT Coach) | ✅ | Solo admin |
+| **I** | Laboratorio rangos R-01…R-06 + Pro Cash C-26…C-31 | ✅ | Solo admin |
+| **J** | Leaks → lección Escuela (`TRAINING_FOCUSES.lessonId` + CTA «Ver lección») | ✅ | CTA solo si menú Escuela visible (admin) |
 
-**Decisión de producto:** aunque el plan original abría el menú en E, el menú permanece **admin-only** hasta nuevo aviso. Gates de plan y currículum M1/M2 sí están activos dentro del tab admin.
+**Decisión de producto:** aunque el plan original abría el menú en E, el menú permanece **admin-only** hasta nuevo aviso (`SCHOOL_PUBLIC=false`). Gates de plan y rutas G–I están activos dentro del tab admin.
 
 ### Fase 0 — Diseño cerrado (doc + prototipos)
 
@@ -714,9 +718,8 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 
 ### Fase 6 — Personalización
 
-- Sugerir lección desde leaks (`TRAINING_FOCUSES` → `lessonId`).  
-- “Tu fuga top = Lección C-15” CTA desde Errores/Stats.  
-- A/B de umbrales de aprobación.
+- ✅ Sugerir lección desde leaks (`TRAINING_FOCUSES` → `lessonId`; CTA «Ver lección» en Leak detector, admin-only).  
+- A/B de umbrales de aprobación (pendiente).
 
 ### Dependencias técnicas (para planificación futura)
 

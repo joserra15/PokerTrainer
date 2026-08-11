@@ -61,17 +61,18 @@
   const GREETING_HISTORY_MAX = 8;
 
   /** Catálogo rotativo de focos de entrenamiento para el saludo de bienvenida. */
+  /* Fase J: cada foco apunta a una lección Escuela (CTA en Leaks, solo admin). */
   const TRAINING_FOCUSES = [
-    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'] },
-    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'] },
-    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'] },
-    { id: 'squeeze', label: 'squeeze (subir tras open + call)', scenario: 'squeeze', street: 'preflop', leakTypes: ['squeeze'] },
-    { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'] },
-    { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['bbVsSbLimp', 'sbLimp'] },
-    { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'] },
-    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop' },
-    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn' },
-    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river' }
+    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'], lessonId: 'C-02' },
+    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'], lessonId: 'C-08' },
+    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'], lessonId: 'C-09' },
+    { id: 'squeeze', label: 'squeeze (subir tras open + call)', scenario: 'squeeze', street: 'preflop', leakTypes: ['squeeze'], lessonId: 'C-10' },
+    { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'], lessonId: 'C-26' },
+    { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['sbLimp'], lessonId: 'C-11' },
+    { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'], lessonId: 'C-12' },
+    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15' },
+    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18' },
+    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19' }
   ];
 
   function cfg() {
@@ -971,8 +972,15 @@
       label: leak.label || key,
       spot: leak.label || key,
       scenario: 'random',
-      street: street
+      street: street,
+      lessonId: null
     };
+  }
+
+  /** Mapea un leak agregado → lessonId Escuela (Fase J). */
+  function lessonFromLeak(leak) {
+    const f = focusFromLeak(leak);
+    return (f && f.lessonId) ? f.lessonId : null;
   }
 
   function pickGreetingFocus(bundle) {
@@ -1133,6 +1141,7 @@
   }
 
   global.PTAIReport = {
-    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX
+    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX,
+    TRAINING_FOCUSES, focusFromLeak, lessonFromLeak
   };
 })(window);
