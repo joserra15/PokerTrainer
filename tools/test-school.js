@@ -124,6 +124,7 @@ lessons.forEach(function (l) {
 
 /* Voz pedagógica: conceptos clave se introducen una vez en M0 */
 assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en school-data');
+assert.ok(/hacen call \(si te igualan la apuesta\)/.test(Data.getLesson('C-01').theory.join(' ')), 'C-01 explica call');
 assert.ok(
   /Limpiar \(o limp\) es igualar la ciega grande/.test(Data.getLesson('C-02').theory.join(' ')),
   'C-02 explica limpiar la primera vez'
