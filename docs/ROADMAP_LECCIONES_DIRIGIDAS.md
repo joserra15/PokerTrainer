@@ -175,6 +175,7 @@ Las lecciones hablan como un **profesor a sus alumnos**, no como un cheat-sheet 
 | Regla | Qué hacer | Qué evitar |
 |-------|-----------|------------|
 | **Natural** | Frases completas, tono oral claro | Telegramas (`ATo UTG fold.`) y anglicismos sin ancla |
+| **Limpear** | Verbo del limp siempre *limpear* (limpeas, limpees, limpeado) | *limpiar/limpia/limpies* cuando hable de limp |
 | **Breve pero no telegráfica** | 2–4 frases por bullet de teoría; teach-back 1–3 frases | Un solo eslogan; párrafos de media página |
 | **Concepto la 1ª vez** | Nombre + explicación inline: *limpear (igualar la ciega grande para entrar en la mano)* | Usar jerga cruda (`limp`, `FE`, `OOP`) sin decir qué es |
 | **No repetir definiciones** | Si M0 ya explicó *fold equity* en C-03, C-04+ lo usa sin redefinir | Copiar el mismo glosario en cada lección |

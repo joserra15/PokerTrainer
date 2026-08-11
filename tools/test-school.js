@@ -124,6 +124,21 @@ lessons.forEach(function (l) {
 
 /* Voz pedagógica: conceptos clave se introducen una vez en M0 */
 assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en school-data');
+
+/* Verbo limpear: en textos de lección no usar limpiar=limp */
+(function () {
+  var blob = '';
+  Data.LESSONS.forEach(function (l) {
+    blob += ' ' + (l.concept || '');
+    (l.theory || []).forEach(function (x) { blob += ' ' + x; });
+    (l.examples || []).forEach(function (ex) { blob += ' ' + (ex.title || '') + ' ' + (ex.body || ''); });
+    (l.aiQuestions || []).forEach(function (q) { blob += ' ' + q; });
+    (l.spots || []).forEach(function (s) { blob += ' ' + (s.teachBack || ''); });
+  });
+  assert.ok(!/\b[Ll]impiar\b|\blimpies\b|\blimpias\b|\blimpiao\b/.test(blob), 'lecciones sin limpiar=limp');
+  assert.ok(/\b[Ll]impear\b|\blimpees\b|\blimpeas\b|\blimpeado\b/.test(blob), 'lecciones usan limpear');
+})();
+
 assert.ok(/hacen call \(si te igualan la apuesta\)/.test(Data.getLesson('C-01').theory.join(' ')), 'C-01 explica call');
 assert.ok(
   /todos folden \(tiren su mano\)/.test(Data.getLesson('C-03').concept) &&

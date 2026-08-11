@@ -9,6 +9,7 @@
  *   en la frase siguiente. Ej.: «limpear (igualar la ciega grande para entrar)».
  * - Si el concepto ya se explicó en una lección anterior del mismo módulo,
  *   úsalo sin redefinir (el alumno ya lo vio).
+ * - Verbo del limp: siempre «limpear» (nunca «limpiar»).
  * - Orden de introducción en M0: posiciones → open/fold → RFI → limp →
  *   fold equity → sizing (bb) → SB/OOP. El examen no introduce vocabulario nuevo.
  * Ver también docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
@@ -167,7 +168,7 @@
         'RFI significa Raise First In: eres el primero en meter dinero voluntario en el bote. Nadie ha limpeado ni subido; tú eliges open o fold según tu posición y tu mano.',
         'Limpear (o limp) es igualar la ciega grande para ver el flop barato, sin subir. En cash 6-max moderno casi no lo usamos para abrir: regalas la iniciativa y dejas que cualquiera te aísle por detrás. Aquí la disciplina es binaria — open o fold.',
         'El tamaño típico del open ronda 2–2,5 bb (lo trabajamos con calma en C-04). Hoy lo importante no es el tamaño exacto, sino si esa mano entra en el rango de tu silla: UTG más tight, botón más wide. Puedes estudiar los rangos RFI de cada posición en el menú Rangos.',
-        'Trampas habituales: abrir manos dominadas en early, foldear manos claras en late, o “inventar” un limp mental cuando deberías tirar o subir.'
+        'Trampas habituales: abrir manos dominadas en early, foldear manos claras en late, o “inventar” un limpeo mental cuando deberías tirar o subir.'
       ],
       examples: [
         {
@@ -247,7 +248,7 @@
       ],
       examples: [
         {
-          title: 'Sin limps mentales',
+          title: 'Sin limpeos mentales',
           body: 'En el botón con KTo quieres robar: open. La misma mano desde UTG, si no entra en rango, es fold. En ninguno de los dos casos limpees “por si conecta”.'
         }
       ],
@@ -321,7 +322,7 @@
       ],
       spots: [
         rfiSpot('c04-01', 'CO', ['Ah', 'Js'], 14001, {
-          teachBack: 'AJs en cutoff: open claro con sizing estándar. Ni limp ni oversize.'
+          teachBack: 'AJs en cutoff: open claro con sizing estándar. Ni limpees ni abras oversized.'
         }),
         rfiSpot('c04-02', 'UTG', ['7h', '2d'], 14002, {
           trapTag: 'dominated',
@@ -358,7 +359,7 @@
           teachBack: 'A4s en el botón: open wide con blockers y tamaño normal.'
         }),
         rfiSpot('c04-12', 'HJ', ['Kd', 'Jc'], 14012, {
-          teachBack: 'KJo desde hijack: open habitual. Disciplina: sizing estándar o fold — no limp.'
+          teachBack: 'KJo desde hijack: open habitual. Disciplina: sizing estándar o fold — no limpees.'
         })
       ]
     },
@@ -494,7 +495,7 @@
         }),
         rfiSpot('c06-10', 'CO', ['9c', '8h'], 16010, {
           trapTag: 'fancy_play',
-          teachBack: '98o en cutoff no es automático; muchas veces fold. Ni limp ni oversize.'
+          teachBack: '98o en cutoff no es automático; muchas veces fold. Ni limpees ni abras oversized.'
         }),
         rfiSpot('c06-11', 'BTN', ['9c', '8h'], 16011, {
           teachBack: '98o en el botón: robo razonable.'
