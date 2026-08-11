@@ -169,6 +169,9 @@ assert.ok(
   /fuera de posición|OOP \(out of position\)/.test(Data.getLesson('C-05').theory.join(' ')),
   'C-05 introduce OOP'
 );
+assert.ok(/si hacen call, siempre juegas fuera de posición/.test(Data.getLesson('C-05').concept), 'C-05 concept call');
+assert.ok(/polar \(/.test(Data.getLesson('C-05').examples[0].body) && /wide \(/.test(Data.getLesson('C-05').examples[0].body), 'C-05 ejemplo explica polar y wide');
+
 assert.ok(
   !/Limpear \(o limp\) es igualar/.test(Data.getLesson('C-03').theory.join(' ')),
   'C-03 no redefine limp'
