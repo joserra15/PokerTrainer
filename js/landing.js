@@ -175,7 +175,9 @@
     document.querySelectorAll('[data-landing-login]').forEach(function (el) {
       el.addEventListener('click', function (e) {
         e.preventDefault();
-        scrollToLogin();
+        // Desktop: el panel de login ya está sticky/visible, así que solo
+        // hacer scroll parece un no-op. Arrancar OAuth igual que los CTA de planes.
+        startLoginNow();
       });
     });
     document.querySelectorAll('[data-set-lang]').forEach(function (btn) {
