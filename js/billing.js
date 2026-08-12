@@ -28,7 +28,7 @@
 
   function founderLaunchLabel() {
     var f = founderInfo();
-    return (f && f.launchLabel) || '15 de noviembre de 2026';
+    return (f && f.launchLabel) || 'próximamente';
   }
 
   function purchasesPausedShortMsg() {
@@ -37,19 +37,26 @@
 
   function paywallFounderHtml() {
     var f = founderInfo() || {};
+    var studyBtn = (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml)
+      ? global.PTFounderRequest.requestButtonHtml('study', 'btn-sm')
+      : '<button type="button" class="btn btn-primary btn-sm" data-founder-request="study">Solicitar plaza FOUNDER Study</button>';
+    var coachBtn = (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml)
+      ? global.PTFounderRequest.requestButtonHtml('coach', 'btn-sm')
+      : '<button type="button" class="btn btn-primary btn-sm" data-founder-request="coach">Solicitar plaza FOUNDER Coach</button>';
     return '<div class="paywall-founder" role="note">' +
       '<p><strong>Beta abierta · compras pausadas</strong></p>' +
       '<ul class="paywall-founder-list">' +
       '<li>Puedes usar el plan <strong>Gratis</strong> con sus límites.</li>' +
       '<li>Study/Coach y bonos IA <strong>no se pueden comprar</strong> ahora.</li>' +
       '<li>Si tienes un <strong>código promocional</strong> de acceso, regístrate con él o escríbenos en Contacto.</li>' +
-      '<li><strong>Coach</strong> solo por invitación durante la beta.</li>' +
+      '<li><strong>Plazas FOUNDER limitadas por petición</strong> (Study o Coach).</li>' +
       '</ul>' +
-      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> el ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
-      ' · ' + escapeHtml(f.discount || '40%') + ' dto. · ' + escapeHtml(f.seatsNote || 'Plazas limitadas') + '.</p>' +
+      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
+      ' · ' + escapeHtml(f.discount || '40%') + ' dto. · <strong>' +
+      escapeHtml(f.seatsNote || 'Plazas limitadas por petición') + '</strong>.</p>' +
       '<p class="muted-text">' + escapeHtml(f.priorityNote ||
-        'Prioridad para usuarios ya registrados que lo soliciten.') + '</p>' +
-      '<p class="paywall-founder-cta-wrap"><button type="button" class="btn btn-primary btn-sm" data-founder-request="1">Solicitar plaza FOUNDER</button></p>' +
+        'Solicita plaza FOUNDER Study o Coach; revisamos cada petición en soporte.') + '</p>' +
+      '<p class="paywall-founder-cta-wrap">' + studyBtn + ' ' + coachBtn + '</p>' +
       '</div>';
   }
 

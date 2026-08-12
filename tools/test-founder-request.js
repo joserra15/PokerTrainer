@@ -1,4 +1,4 @@
-/* FOUNDER request UI + migration markers */
+/* FOUNDER Study/Coach request UI + migration markers */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -6,33 +6,46 @@ const vm = require('vm');
 const assert = require('assert');
 
 const root = path.join(__dirname, '..');
-const migration = fs.readFileSync(path.join(root, 'supabase/migrations/037_founder_seats.sql'), 'utf8');
+const mig037 = fs.readFileSync(path.join(root, 'supabase/migrations/037_founder_seats.sql'), 'utf8');
+const mig038 = fs.readFileSync(path.join(root, 'supabase/migrations/038_founder_study_coach.sql'), 'utf8');
 const founderSrc = fs.readFileSync(path.join(root, 'js/founder-request.js'), 'utf8');
 const adminSrc = fs.readFileSync(path.join(root, 'js/admin-panel.js'), 'utf8');
 const accountSrc = fs.readFileSync(path.join(root, 'js/account-settings.js'), 'utf8');
+const landingSrc = fs.readFileSync(path.join(root, 'js/landing.js'), 'utf8');
+const appSrc = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const billingSrc = fs.readFileSync(path.join(root, 'js/billing.js'), 'utf8');
+const billingCfg = fs.readFileSync(path.join(root, 'js/billing-config.js'), 'utf8');
 
-assert.ok(/is_founder/.test(migration), 'migration is_founder');
-assert.ok(/pt_request_founder_seat/.test(migration), 'migration request RPC');
-assert.ok(/Solicitud de Founder/.test(migration), 'subject Solicitud de Founder');
-assert.ok(/p_is_founder/.test(migration), 'admin update p_is_founder');
-assert.ok(/founder_requested_at/.test(migration), 'founder_requested_at');
+assert.ok(/is_founder/.test(mig037), '037 is_founder');
+assert.ok(/is_founder_study/.test(mig038), '038 is_founder_study');
+assert.ok(/is_founder_coach/.test(mig038), '038 is_founder_coach');
+assert.ok(/Solicitud de Founder/.test(mig038) && /plan_label := 'Study'/.test(mig038), 'subject Study');
+assert.ok(/plan_label := 'Coach'/.test(mig038), 'subject Coach');
+assert.ok(/p_is_founder_study/.test(mig038), 'admin update study');
+assert.ok(/p_is_founder_coach/.test(mig038), 'admin update coach');
+assert.ok(/pt_request_founder_seat\(p_plan text/.test(mig038), 'RPC con p_plan');
 
-assert.ok(/PTFounderRequest/.test(founderSrc), 'PTFounderRequest export');
-assert.ok(/tryRequestAfterLogin/.test(founderSrc), 'tryRequestAfterLogin');
-assert.ok(/pt_request_founder_seat/.test(founderSrc), 'RPC client call');
+assert.ok(/normalizePlan/.test(founderSrc), 'normalizePlan');
+assert.ok(/data-founder-request/.test(founderSrc), 'data attr');
+assert.ok(/p_plan/.test(founderSrc), 'RPC client p_plan');
 
-assert.ok(/founder-request\.js/.test(html), 'founder-request en early scripts');
-assert.ok(/admin-filter-founder/.test(html), 'filtro Founder en admin');
-assert.ok(/data-sort="founder"/.test(html), 'sort Founder en admin');
+assert.ok(/próximamente/.test(billingCfg), 'billing-config próximamente');
+assert.ok(/Plazas limitadas por petición/.test(billingCfg), 'plazas por petición');
+assert.ok(/próximamente/.test(html), 'HTML próximamente');
+assert.ok(!/15 de noviembre/.test(html), 'HTML sin 15 de noviembre');
 
-assert.ok(/data-field="is_founder"/.test(adminSrc), 'checkbox Founder en tabla');
-assert.ok(/p_is_founder/.test(adminSrc), 'updateUser envía p_is_founder');
-assert.ok(/adminUsersFilters\.founder/.test(adminSrc), 'filtro founder en JS');
+assert.ok(/data-founder-request="study"/.test(landingSrc) || /founderPlan.*study/.test(landingSrc), 'landing Study');
+assert.ok(/founderPlan: paused \? 'coach'/.test(landingSrc), 'landing Coach founder CTA');
+assert.ok(/requestButtonHtml\('study'/.test(appSrc), 'planes Study CTA');
+assert.ok(/requestButtonHtml\('coach'/.test(appSrc), 'planes Coach CTA');
 
-assert.ok(/FOUNDER/.test(accountSrc) && /is_founder/.test(accountSrc), 'cuenta muestra Founder');
-assert.ok(/data-founder-request/.test(billingSrc), 'paywall CTA founder');
+assert.ok(/is_founder_study/.test(adminSrc) && /is_founder_coach/.test(adminSrc), 'admin dual flags');
+assert.ok(/req_study/.test(adminSrc) && /req_coach/.test(adminSrc), 'admin filters');
+assert.ok(/FOUNDER Study/.test(accountSrc) && /FOUNDER Coach/.test(accountSrc), 'cuenta dual');
+
+assert.ok(/admin-filter-founder/.test(html), 'filtro Founder');
+assert.ok(/data-sort="founder_study"/.test(html), 'sort Study');
+assert.ok(/data-sort="founder_coach"/.test(html), 'sort Coach');
 
 const sandbox = {
   window: {},
@@ -51,11 +64,14 @@ sandbox.window = sandbox;
 sandbox.global = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(founderSrc, sandbox, { filename: 'founder-request.js' });
-assert.ok(sandbox.PTFounderRequest, 'export global');
-assert.strictEqual(sandbox.PTFounderRequest.subject, 'Solicitud de Founder');
-sandbox.PTFounderRequest.markPending();
-assert.ok(sandbox.PTFounderRequest.hasPending(), 'pending flag');
-sandbox.PTFounderRequest.clearPending();
-assert.ok(!sandbox.PTFounderRequest.hasPending(), 'clear pending');
+const F = sandbox.PTFounderRequest;
+assert.ok(F, 'export');
+assert.strictEqual(F.normalizePlan('premium'), 'coach');
+assert.strictEqual(F.subjectFor('study'), 'Solicitud de Founder Study');
+assert.strictEqual(F.subjectFor('coach'), 'Solicitud de Founder Coach');
+F.markPending('coach');
+assert.strictEqual(F.readPending(), 'coach');
+F.clearPending();
+assert.ok(!F.hasPending());
 
-console.log('*** founder-request OK ***');
+console.log('*** founder-request OK (Study/Coach) ***');

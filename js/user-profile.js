@@ -34,8 +34,12 @@
   function applyProfileToUser(user, profile) {
     if (!user || !profile) return user;
     user.isAdmin = !!profile.is_admin || isBootstrapAdmin(user.email);
-    user.isFounder = !!profile.is_founder;
+    user.isFounder = !!(profile.is_founder || profile.is_founder_study || profile.is_founder_coach);
+    user.isFounderStudy = !!profile.is_founder_study;
+    user.isFounderCoach = !!profile.is_founder_coach;
     user.founderRequestedAt = profile.founder_requested_at || null;
+    user.founderStudyRequestedAt = profile.founder_study_requested_at || null;
+    user.founderCoachRequestedAt = profile.founder_coach_requested_at || null;
     user.plan = profile.plan || 'free';
     user.planLabel = PLAN_LABELS[user.plan] || user.plan;
     user.aiDailyLimit = profile.ai_limit || profile.ai_daily_limit || null;

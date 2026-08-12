@@ -636,8 +636,21 @@
     }
     if (key === 'admin') return u.is_admin ? 1 : 0;
     if (key === 'founder') {
-      if (u.is_founder) return 2;
-      if (u.founder_requested_at) return 1;
+      var score = 0;
+      if (u.is_founder_study) score += 4;
+      if (u.is_founder_coach) score += 2;
+      if (u.founder_study_requested_at && !u.is_founder_study) score += 1;
+      if (u.founder_coach_requested_at && !u.is_founder_coach) score += 1;
+      return score;
+    }
+    if (key === 'founder_study') {
+      if (u.is_founder_study) return 2;
+      if (u.founder_study_requested_at) return 1;
+      return 0;
+    }
+    if (key === 'founder_coach') {
+      if (u.is_founder_coach) return 2;
+      if (u.founder_coach_requested_at) return 1;
       return 0;
     }
     return 0;
@@ -654,9 +667,18 @@
         if (text.indexOf(q) < 0) return false;
       }
       if (plan && (u.plan || 'free') !== plan) return false;
-      if (founder === 'yes' && !u.is_founder) return false;
-      if (founder === 'no' && u.is_founder) return false;
-      if (founder === 'requested' && (u.is_founder || !u.founder_requested_at)) return false;
+      if (founder === 'study' && !u.is_founder_study) return false;
+      if (founder === 'coach' && !u.is_founder_coach) return false;
+      if (founder === 'any' && !(u.is_founder_study || u.is_founder_coach || u.is_founder)) return false;
+      if (founder === 'none' && (u.is_founder_study || u.is_founder_coach || u.is_founder)) return false;
+      if (founder === 'req_study' && (u.is_founder_study || !u.founder_study_requested_at)) return false;
+      if (founder === 'req_coach' && (u.is_founder_coach || !u.founder_coach_requested_at)) return false;
+      if (founder === 'yes' && !(u.is_founder_study || u.is_founder_coach || u.is_founder)) return false;
+      if (founder === 'no' && (u.is_founder_study || u.is_founder_coach || u.is_founder)) return false;
+      if (founder === 'requested' && (
+        (u.is_founder_study || u.is_founder_coach) ||
+        !(u.founder_study_requested_at || u.founder_coach_requested_at || u.founder_requested_at)
+      )) return false;
       if (!dateInRange(effectivePeriodEnd(u), adminUsersFilters.periodFrom, adminUsersFilters.periodTo)) {
         return false;
       }
@@ -787,7 +809,7 @@
         : (rows.length + ' de ' + total + ' usuarios');
     }
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="muted-text admin-users-empty">' +
+      tbody.innerHTML = '<tr><td colspan="10" class="muted-text admin-users-empty">' +
         (total ? 'Ningún usuario coincide con los filtros.' : 'Sin usuarios.') +
         '</td></tr>';
       return;
@@ -797,15 +819,16 @@
       var isSelf = me && me.sub === u.user_id;
       var isDemo = u.user_id === DEMO_USER_ID;
       var activeDetail = adminDetailUserId === u.user_id ? ' admin-row-active' : '';
-      var founderTitle = u.is_founder
-        ? 'FOUNDER confirmado'
-        : (u.founder_requested_at ? 'Solicitud pendiente' : 'Sin plaza FOUNDER');
+      var badges = '';
+      if (u.is_founder_study) badges += ' <span class="admin-founder-badge">F·Study</span>';
+      else if (u.founder_study_requested_at) badges += ' <span class="admin-founder-pending-badge">Sol·Study</span>';
+      if (u.is_founder_coach) badges += ' <span class="admin-founder-badge">F·Coach</span>';
+      else if (u.founder_coach_requested_at) badges += ' <span class="admin-founder-pending-badge">Sol·Coach</span>';
       return (
         '<tr data-user-id="' + escapeHtml(u.user_id) + '" class="admin-user-row' + (isDemo ? ' admin-row-demo' : '') + activeDetail + '">' +
         '<td class="admin-user-cell" data-col="user">' +
         '<span class="admin-user-name">' + escapeHtml(u.name || '—') + (isDemo ? ' <span class="admin-demo-badge">DEMO</span>' : '') +
-        (u.is_founder ? ' <span class="admin-founder-badge">FOUNDER</span>' : '') +
-        (!u.is_founder && u.founder_requested_at ? ' <span class="admin-founder-pending-badge">Solicitó</span>' : '') +
+        badges +
         '</span>' +
         '<span class="admin-user-email">' + escapeHtml(u.email) + '</span>' +
         '</td>' +
@@ -816,10 +839,16 @@
         '<td class="admin-payment" data-col="payment">' + escapeHtml(formatPayment(u.stripe_last_payment_at)) + '</td>' +
         '<td data-col="seen"><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
         (online ? '● ' : '') + escapeHtml(formatRelative(u.last_seen_at)) + '</span></td>' +
-        '<td class="admin-center" data-col="founder">' +
-        '<label class="admin-toggle" title="' + escapeHtml(founderTitle) + '">' +
-        '<input type="checkbox" class="admin-check" data-field="is_founder"' +
-        (u.is_founder ? ' checked' : '') +
+        '<td class="admin-center" data-col="founder_study">' +
+        '<label class="admin-toggle" title="FOUNDER Study">' +
+        '<input type="checkbox" class="admin-check" data-field="is_founder_study"' +
+        (u.is_founder_study ? ' checked' : '') +
+        (isDemo ? ' disabled' : '') + ' />' +
+        '</label></td>' +
+        '<td class="admin-center" data-col="founder_coach">' +
+        '<label class="admin-toggle" title="FOUNDER Coach">' +
+        '<input type="checkbox" class="admin-check" data-field="is_founder_coach"' +
+        (u.is_founder_coach ? ' checked' : '') +
         (isDemo ? ' disabled' : '') + ' />' +
         '</label></td>' +
         '<td class="admin-center" data-col="admin">' +
@@ -1039,19 +1068,26 @@
       '<div><h3>' + escapeHtml(p.name || p.email || p.user_id) + '</h3>' +
       '<p class="muted-text">' + escapeHtml(p.email || '') + ' · Plan ' + escapeHtml(p.plan || 'free') +
       (p.is_admin ? ' · Admin' : '') +
-      (p.is_founder ? ' · FOUNDER' : '') + '</p>' +
+      (p.is_founder_study ? ' · FOUNDER Study' : '') +
+      (p.is_founder_coach ? ' · FOUNDER Coach' : '') + '</p>' +
       promoHeadNote +
       '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-detail-close">Cerrar</button>' +
       '</div>' +
       '<div class="admin-detail-section"><h4>FOUNDER</h4>' +
       '<label class="admin-toggle admin-detail-founder">' +
-      '<input type="checkbox" id="admin-detail-is-founder"' + (p.is_founder ? ' checked' : '') + ' />' +
-      '<span>Founder = Sí</span></label>' +
+      '<input type="checkbox" id="admin-detail-is-founder-study"' + (p.is_founder_study ? ' checked' : '') + ' />' +
+      '<span>Founder Study = Sí</span></label>' +
+      '<label class="admin-toggle admin-detail-founder">' +
+      '<input type="checkbox" id="admin-detail-is-founder-coach"' + (p.is_founder_coach ? ' checked' : '') + ' />' +
+      '<span>Founder Coach = Sí</span></label>' +
       '<p class="muted-text">' +
-      (p.founder_requested_at
-        ? ('Solicitud recibida: ' + escapeHtml(formatDateTime(p.founder_requested_at)))
-        : 'Sin solicitud de plaza todavía.') +
+      (p.founder_study_requested_at
+        ? ('Solicitud Study: ' + escapeHtml(formatDateTime(p.founder_study_requested_at)) + '. ')
+        : 'Sin solicitud Study. ') +
+      (p.founder_coach_requested_at
+        ? ('Solicitud Coach: ' + escapeHtml(formatDateTime(p.founder_coach_requested_at)) + '.')
+        : 'Sin solicitud Coach.') +
       '</p></div>' +
       '<div class="admin-detail-section"><h4>Actividad de juego</h4>' + renderActivitySection(activity) + '</div>' +
       '<div class="admin-detail-section"><h4>Promoción de registro</h4>' + promoHtml + '</div>' +
@@ -1071,10 +1107,18 @@
     host.classList.remove('hidden');
     var closeBtn = $('#admin-detail-close');
     if (closeBtn) closeBtn.addEventListener('click', closeUserDetail);
-    var founderChk = $('#admin-detail-is-founder');
-    if (founderChk) {
-      founderChk.addEventListener('change', function () {
-        updateUser(p.user_id, { is_founder: founderChk.checked }).then(function () {
+    var founderStudyChk = $('#admin-detail-is-founder-study');
+    if (founderStudyChk) {
+      founderStudyChk.addEventListener('change', function () {
+        updateUser(p.user_id, { is_founder_study: founderStudyChk.checked }).then(function () {
+          openUserDetail(p.user_id);
+        });
+      });
+    }
+    var founderCoachChk = $('#admin-detail-is-founder-coach');
+    if (founderCoachChk) {
+      founderCoachChk.addEventListener('change', function () {
+        updateUser(p.user_id, { is_founder_coach: founderCoachChk.checked }).then(function () {
           openUserDetail(p.user_id);
         });
       });
@@ -1182,8 +1226,16 @@
         var uid = row && row.dataset.userId;
         if (!uid) return;
         var field = chk.getAttribute('data-field');
+        if (field === 'is_founder_study') {
+          updateUser(uid, { is_founder_study: chk.checked });
+          return;
+        }
+        if (field === 'is_founder_coach') {
+          updateUser(uid, { is_founder_coach: chk.checked });
+          return;
+        }
         if (field === 'is_founder') {
-          updateUser(uid, { is_founder: chk.checked });
+          updateUser(uid, { is_founder_study: chk.checked });
           return;
         }
         updateUser(uid, { is_admin: chk.checked });
@@ -1207,6 +1259,8 @@
     if (patch.plan !== undefined) args.p_plan = patch.plan;
     if (patch.is_admin !== undefined) args.p_is_admin = patch.is_admin;
     if (patch.is_founder !== undefined) args.p_is_founder = patch.is_founder;
+    if (patch.is_founder_study !== undefined) args.p_is_founder_study = patch.is_founder_study;
+    if (patch.is_founder_coach !== undefined) args.p_is_founder_coach = patch.is_founder_coach;
     if (patch.subscription_period_end !== undefined) args.p_subscription_period_end = patch.subscription_period_end;
     var res = await c.rpc('pt_admin_update_user', args);
     if (!requireAdminAccess()) return;
