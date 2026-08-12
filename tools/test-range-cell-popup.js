@@ -15,7 +15,7 @@ const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const rmSrc = fs.readFileSync(path.join(root, 'js/range-matrix.js'), 'utf8');
 const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2\.5\.7'/.test(version), 'versión 2.5.7');
+assert.ok(/PT_BUILD\s*=\s*'2\.5\.8'/.test(version), 'versión 2.5.8');
 assert.ok(/id="range-cell-modal"/.test(html), 'modal de celda en index.html');
 assert.ok(/id="range-cell-body"/.test(html), 'body del modal de celda');
 assert.ok(/data-rm-detail/.test(rmSrc), 'celdas con data-rm-detail');
@@ -29,6 +29,10 @@ assert.ok(/\[data-rm-detail\]/.test(app), 'click handler data-rm-detail');
 assert.ok(/range-cell-modal/.test(styles), 'estilos modal celda');
 assert.ok(/rm-detail-bar/.test(styles), 'estilos barras %');
 assert.ok(/rm-cell-btn/.test(styles), 'estilos botón celda');
+assert.ok(
+  /button\.rm-cell-btn\s*\{[^}]*font-size:\s*8px/.test(styles) && !/button\.rm-cell-btn\s*\{[^}]*font:\s*inherit/.test(styles),
+  'botón celda conserva font-size 8px (sin font:inherit)'
+);
 assert.ok(/Clic en una celda/.test(html), 'hint en explorador Rangos');
 assert.ok(/range-matrix\.js/.test(chunks), 'chunk ranges incluye range-matrix');
 
