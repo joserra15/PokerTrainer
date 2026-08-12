@@ -295,6 +295,20 @@ Data.m0Lessons().forEach(function (l) {
 Data.m1Lessons().concat(Data.m2Lessons()).forEach(function (l) {
   assert.strictEqual(l.plan, 'study', l.id + ' plan study');
 });
+/* M0 Spins y MTT enteros en plan Gratis */
+['S-00', 'S-01', 'S-02', 'S-03'].forEach(function (id) {
+  var l = Data.getLesson(id);
+  assert.ok(l && l.module === 'M0', id + ' es M0');
+  assert.strictEqual(l.plan, 'free', id + ' plan free');
+});
+['T-00', 'T-01', 'T-02', 'T-03'].forEach(function (id) {
+  var l = Data.getLesson(id);
+  assert.ok(l && l.module === 'M0', id + ' es M0');
+  assert.strictEqual(l.plan, 'free', id + ' plan free');
+});
+assert.strictEqual(Data.getLesson('S-04').plan, 'study', 'S-04 M1 sigue Study');
+assert.strictEqual(Data.getLesson('T-04').plan, 'study', 'T-04 M1 sigue Study');
+assert.ok(/M0 completo en Gratis/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Spins/MTT menciona M0 gratis');
 
 /* Voz pedagógica: conceptos clave se introducen una vez en M0 */
 assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en school-data');
@@ -629,6 +643,36 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.PTEntitlements.get = function () { return { plan: 'pro' }; };
   assert.ok(School.canPlayLesson('C-07').ok, 'C-07 OK con Study/pro');
   assert.ok(School.planRank('pro') >= 1 && School.planRank('free') === 0, 'planRank');
+  sandbox.PTEntitlements.get = function () { return { plan: 'free' }; };
+})();
+
+/* M0 Spins/MTT jugable en plan free (tras desbloqueo lineal) */
+(function () {
+  sandbox.PTEntitlements.get = function () { return { plan: 'free' }; };
+  ['S-00', 'S-01', 'S-02'].forEach(function (id) {
+    sandbox.Store._st.school.lessons[id] = {
+      passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
+    };
+  });
+  assert.ok(School.isLessonUnlocked('S-03'), 'S-03 desbloqueada');
+  assert.ok(School.canPlayLesson('S-03').ok, 'S-03 examen M0 jugable en free');
+  sandbox.Store._st.school.lessons['S-03'] = {
+    passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
+  };
+  assert.ok(School.isLessonUnlocked('S-04'), 'S-04 desbloqueada tras examen M0 spin');
+  const gateS04 = School.canPlayLesson('S-04');
+  assert.ok(!gateS04.ok && gateS04.reason === 'plan', 'S-04 M1 sigue muro Study en free');
+  ['T-00', 'T-01', 'T-02'].forEach(function (id) {
+    sandbox.Store._st.school.lessons[id] = {
+      passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
+    };
+  });
+  assert.ok(School.canPlayLesson('T-03').ok, 'T-03 examen M0 jugable en free');
+  sandbox.Store._st.school.lessons['T-03'] = {
+    passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
+  };
+  const gateT04 = School.canPlayLesson('T-04');
+  assert.ok(!gateT04.ok && gateT04.reason === 'plan', 'T-04 M1 sigue muro Study en free');
 })();
 
 /* Sin admin: menú oculto */
