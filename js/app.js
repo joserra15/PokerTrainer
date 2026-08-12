@@ -13,7 +13,7 @@
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.5.6';
+  const APP_VERSION = window.PT_BUILD || '2.5.7';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -1350,7 +1350,38 @@
         if (e.target.id === 'range-matrix-modal' || e.target.closest('[data-close-matrix]')) closeRangeMatrixModal();
       });
     }
+    const rcm = $('#range-cell-modal');
+    if (rcm) {
+      rcm.addEventListener('click', (e) => {
+        if (e.target.id === 'range-cell-modal' || e.target.closest('[data-close-cell-detail]')) {
+          closeRangeCellDetail();
+        }
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const cellModal = $('#range-cell-modal');
+      if (cellModal && !cellModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeRangeCellDetail();
+        return;
+      }
+      const matrixModal = $('#range-matrix-modal');
+      if (matrixModal && !matrixModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeRangeMatrixModal();
+      }
+    });
     document.addEventListener('click', (e) => {
+      const cellBtn = e.target.closest('[data-rm-detail]');
+      if (cellBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        withLazyChunk('ranges', function () {
+          openRangeCellDetail(cellBtn.getAttribute('data-rm-detail'));
+        });
+        return;
+      }
       const btn = e.target.closest('[data-range-matrix]');
       if (!btn) return;
       const source = btn.dataset.matrixSource || 'session';
@@ -2348,6 +2379,15 @@
   }
 
   function renderRangeMatrixGrid(result, heroCode, mode, villainCode) {
+    const RM = window.PTRangeMatrix;
+    if (RM && typeof RM.renderMatrixGrid === 'function') {
+      return RM.renderMatrixGrid(result, {
+        heroCode: heroCode || null,
+        villainCode: villainCode || null,
+        mode: mode || 'gto',
+        showLegend: false
+      }).replace(' range-matrix-wrap-compact', '');
+    }
     const ranks = result.ranks;
     let html = '<div class="range-matrix-wrap"><div class="range-matrix-grid">';
     html += '<div class="rm-corner"></div>';
@@ -2356,6 +2396,14 @@
       html += `<div class="rm-label">${ranks[row]}</div>`;
       for (let col = 0; col < 13; col++) {
         const cell = result.cells[row][col];
+        if (RM && RM.renderCellHtml) {
+          html += RM.renderCellHtml(cell, {
+            mode: mode || 'gto',
+            isHero: !!(heroCode && cell.label === heroCode),
+            isVillain: !!(villainCode && cell.label === villainCode)
+          });
+          continue;
+        }
         const isHero = heroCode && cell.label === heroCode;
         const isVillain = villainCode && cell.label === villainCode;
         let cls = 'rm-cell ' + cell.action;
@@ -2373,6 +2421,22 @@
       }
     }
     return html + '</div></div>';
+  }
+
+  function closeRangeCellDetail() {
+    const modal = $('#range-cell-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function openRangeCellDetail(encoded) {
+    const RM = window.PTRangeMatrix;
+    const modal = $('#range-cell-modal');
+    const body = $('#range-cell-body');
+    if (!modal || !body || !RM || !RM.decodeCellDetail || !RM.buildCellDetailHtml) return;
+    const detail = RM.decodeCellDetail(encoded);
+    if (!detail) return;
+    body.innerHTML = RM.buildCellDetailHtml(detail);
+    modal.classList.remove('hidden');
   }
 
   function openRangeMatrixModal(handObj, decision, source) {
