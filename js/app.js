@@ -3064,11 +3064,20 @@
       if (paused && !isPaidSub) {
         if (isCurrent) {
           btns = '<span class="muted-text">Plan actual</span>';
+          if (c.id === 'free') {
+            btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
+              ? window.PTFounderRequest.requestButtonHtml('btn-block')
+              : '<button type="button" class="btn btn-primary btn-block" data-founder-request="1">Solicitar plaza FOUNDER</button>';
+          }
         } else if (c.id === 'pro') {
-          btns = '<button type="button" class="btn btn-primary" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
-            'Compra el ' + escapeHtml((founder && founder.launchLabel) || '15 de noviembre') + '</button>' +
-            '<p class="muted-text pricing-cta-note">FOUNDER · ' + escapeHtml((founder && founder.discount) || '40%') +
-            ' dto. · ' + escapeHtml((founder && founder.seatsNote) || 'plazas limitadas') + '</p>';
+          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
+            'Compra el ' + escapeHtml((founder && founder.launchLabel) || '15 de noviembre') + '</button>';
+          btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
+            ? window.PTFounderRequest.requestButtonHtml('btn-block')
+            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="1">Solicitar plaza FOUNDER</button>';
+          btns += '<p class="muted-text pricing-cta-note">FOUNDER · ' + escapeHtml((founder && founder.discount) || '40%') +
+            ' dto. · ' + escapeHtml((founder && founder.seatsNote) || 'plazas limitadas') +
+            '. Se envía un mensaje a soporte automáticamente.</p>';
         } else if (c.id === 'premium') {
           btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true">Solo por invitación</button>' +
             '<p class="muted-text pricing-cta-note">Coach cerrado en la beta. Se abre con FOUNDER o por regalo.</p>';
@@ -3136,6 +3145,12 @@
           alert(e.message || 'No se pudo iniciar el pago.');
         });
       });
+    });
+
+    grid.querySelectorAll('[data-founder-request]').forEach(function (btn) {
+      if (window.PTFounderRequest && window.PTFounderRequest.bindButton) {
+        window.PTFounderRequest.bindButton(btn);
+      }
     });
 
     grid.querySelectorAll('[data-plan-change]').forEach(function (btn) {

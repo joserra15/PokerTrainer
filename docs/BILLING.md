@@ -8,6 +8,7 @@ Con `PT_BILLING.purchasesPaused: true` (activo en cliente):
 - El paywall explica la beta y anuncia **FOUNDER** (`founder.launchLabel`, 40 % dto., plazas limitadas, prioridad a usuarios registrados que lo soliciten).
 - `startCheckout` / `startBonusCheckout` rechazan cobros aunque alguien force la API del cliente.
 - Para reabrir cobros el **15 de noviembre de 2026**: poner `purchasesPaused: false` y reactivar el cupón Stripe que corresponda (FOUNDER).
+- Botón **Solicitar plaza FOUNDER** (landing + Planes + paywall + cuenta): llama a `pt_request_founder_seat` (migración `037`), crea hilo de Contacto con asunto `Solicitud de Founder` y deja `founder_requested_at`. El admin marca `is_founder` en la tabla/detalle de usuarios.
 
 ## Proveedor: Stripe
 

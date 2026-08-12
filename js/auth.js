@@ -315,18 +315,30 @@
                 .catch(function (e) { console.warn('[PTBilling] login sync', e); });
             }
           };
+          var afterFounder = function () {
+            if (global.PTFounderRequest && global.PTFounderRequest.tryRequestAfterLogin) {
+              withTimeout(global.PTFounderRequest.tryRequestAfterLogin(), 8000, 'founder')
+                .then(function () { afterPromo(); })
+                .catch(function (e) {
+                  console.warn('[PTFounderRequest]', e);
+                  afterPromo();
+                });
+            } else {
+              afterPromo();
+            }
+          };
           if (global.PTPromoRedeem && global.PTPromoRedeem.tryRedeemAfterLogin) {
             withTimeout(global.PTPromoRedeem.tryRedeemAfterLogin(), 8000, 'promo')
               .then(function () {
                 renderAccountMenu(user);
-                afterPromo();
+                afterFounder();
               })
               .catch(function (e) {
                 console.warn('[PTPromo]', e);
-                afterPromo();
+                afterFounder();
               });
           } else {
-            afterPromo();
+            afterFounder();
           }
         })
         .catch(function (e) {

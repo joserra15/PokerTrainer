@@ -23,6 +23,7 @@
   var adminUsersFilters = {
     user: '',
     plan: '',
+    founder: '',
     periodFrom: '',
     periodTo: '',
     renewalFrom: '',
@@ -634,12 +635,18 @@
       return u.last_seen_at ? new Date(u.last_seen_at).getTime() : 0;
     }
     if (key === 'admin') return u.is_admin ? 1 : 0;
+    if (key === 'founder') {
+      if (u.is_founder) return 2;
+      if (u.founder_requested_at) return 1;
+      return 0;
+    }
     return 0;
   }
 
   function filteredSortedUsers() {
     var q = String(adminUsersFilters.user || '').trim().toLowerCase();
     var plan = adminUsersFilters.plan || '';
+    var founder = adminUsersFilters.founder || '';
     var rows = adminUsersCache.filter(function (u) {
       if (!u) return false;
       if (q) {
@@ -647,6 +654,9 @@
         if (text.indexOf(q) < 0) return false;
       }
       if (plan && (u.plan || 'free') !== plan) return false;
+      if (founder === 'yes' && !u.is_founder) return false;
+      if (founder === 'no' && u.is_founder) return false;
+      if (founder === 'requested' && (u.is_founder || !u.founder_requested_at)) return false;
       if (!dateInRange(effectivePeriodEnd(u), adminUsersFilters.periodFrom, adminUsersFilters.periodTo)) {
         return false;
       }
@@ -695,8 +705,10 @@
   function readUsersFiltersFromDom() {
     var userEl = $('#admin-filter-user');
     var planEl = $('#admin-filter-plan');
+    var founderEl = $('#admin-filter-founder');
     adminUsersFilters.user = userEl ? String(userEl.value || '') : '';
     adminUsersFilters.plan = planEl ? String(planEl.value || '') : '';
+    adminUsersFilters.founder = founderEl ? String(founderEl.value || '') : '';
     adminUsersFilters.periodFrom = ($('#admin-filter-period-from') || {}).value || '';
     adminUsersFilters.periodTo = ($('#admin-filter-period-to') || {}).value || '';
     adminUsersFilters.renewalFrom = ($('#admin-filter-renewal-from') || {}).value || '';
@@ -707,13 +719,15 @@
 
   function clearUsersFilters() {
     adminUsersFilters = {
-      user: '', plan: '',
+      user: '', plan: '', founder: '',
       periodFrom: '', periodTo: '',
       renewalFrom: '', renewalTo: '',
       seenFrom: '', seenTo: ''
     };
-    ['admin-filter-user', 'admin-filter-plan', 'admin-filter-period-from', 'admin-filter-period-to',
-      'admin-filter-renewal-from', 'admin-filter-renewal-to', 'admin-filter-seen-from', 'admin-filter-seen-to'
+    ['admin-filter-user', 'admin-filter-plan', 'admin-filter-founder',
+      'admin-filter-period-from', 'admin-filter-period-to',
+      'admin-filter-renewal-from', 'admin-filter-renewal-to',
+      'admin-filter-seen-from', 'admin-filter-seen-to'
     ].forEach(function (id) {
       var el = $('#' + id);
       if (el) el.value = '';
@@ -725,7 +739,7 @@
     if (adminUsersFiltersBound) return;
     adminUsersFiltersBound = true;
     var filterIds = [
-      'admin-filter-user', 'admin-filter-plan',
+      'admin-filter-user', 'admin-filter-plan', 'admin-filter-founder',
       'admin-filter-period-from', 'admin-filter-period-to',
       'admin-filter-renewal-from', 'admin-filter-renewal-to',
       'admin-filter-seen-from', 'admin-filter-seen-to'
@@ -773,7 +787,7 @@
         : (rows.length + ' de ' + total + ' usuarios');
     }
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="muted-text admin-users-empty">' +
+      tbody.innerHTML = '<tr><td colspan="9" class="muted-text admin-users-empty">' +
         (total ? 'Ningún usuario coincide con los filtros.' : 'Sin usuarios.') +
         '</td></tr>';
       return;
@@ -783,10 +797,16 @@
       var isSelf = me && me.sub === u.user_id;
       var isDemo = u.user_id === DEMO_USER_ID;
       var activeDetail = adminDetailUserId === u.user_id ? ' admin-row-active' : '';
+      var founderTitle = u.is_founder
+        ? 'FOUNDER confirmado'
+        : (u.founder_requested_at ? 'Solicitud pendiente' : 'Sin plaza FOUNDER');
       return (
         '<tr data-user-id="' + escapeHtml(u.user_id) + '" class="admin-user-row' + (isDemo ? ' admin-row-demo' : '') + activeDetail + '">' +
         '<td class="admin-user-cell" data-col="user">' +
-        '<span class="admin-user-name">' + escapeHtml(u.name || '—') + (isDemo ? ' <span class="admin-demo-badge">DEMO</span>' : '') + '</span>' +
+        '<span class="admin-user-name">' + escapeHtml(u.name || '—') + (isDemo ? ' <span class="admin-demo-badge">DEMO</span>' : '') +
+        (u.is_founder ? ' <span class="admin-founder-badge">FOUNDER</span>' : '') +
+        (!u.is_founder && u.founder_requested_at ? ' <span class="admin-founder-pending-badge">Solicitó</span>' : '') +
+        '</span>' +
         '<span class="admin-user-email">' + escapeHtml(u.email) + '</span>' +
         '</td>' +
         '<td data-col="plan">' + planSelect(u.user_id, u.plan || 'free', false) + '</td>' +
@@ -796,6 +816,12 @@
         '<td class="admin-payment" data-col="payment">' + escapeHtml(formatPayment(u.stripe_last_payment_at)) + '</td>' +
         '<td data-col="seen"><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
         (online ? '● ' : '') + escapeHtml(formatRelative(u.last_seen_at)) + '</span></td>' +
+        '<td class="admin-center" data-col="founder">' +
+        '<label class="admin-toggle" title="' + escapeHtml(founderTitle) + '">' +
+        '<input type="checkbox" class="admin-check" data-field="is_founder"' +
+        (u.is_founder ? ' checked' : '') +
+        (isDemo ? ' disabled' : '') + ' />' +
+        '</label></td>' +
         '<td class="admin-center" data-col="admin">' +
         '<label class="admin-toggle" title="' + (isDemo ? 'Usuario demo' : (isSelf ? 'No puedes quitarte admin a ti mismo' : 'Administrador')) + '">' +
         '<input type="checkbox" class="admin-check" data-field="is_admin"' +
@@ -1012,11 +1038,21 @@
       '<div class="admin-detail-head">' +
       '<div><h3>' + escapeHtml(p.name || p.email || p.user_id) + '</h3>' +
       '<p class="muted-text">' + escapeHtml(p.email || '') + ' · Plan ' + escapeHtml(p.plan || 'free') +
-      (p.is_admin ? ' · Admin' : '') + '</p>' +
+      (p.is_admin ? ' · Admin' : '') +
+      (p.is_founder ? ' · FOUNDER' : '') + '</p>' +
       promoHeadNote +
       '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-detail-close">Cerrar</button>' +
       '</div>' +
+      '<div class="admin-detail-section"><h4>FOUNDER</h4>' +
+      '<label class="admin-toggle admin-detail-founder">' +
+      '<input type="checkbox" id="admin-detail-is-founder"' + (p.is_founder ? ' checked' : '') + ' />' +
+      '<span>Founder = Sí</span></label>' +
+      '<p class="muted-text">' +
+      (p.founder_requested_at
+        ? ('Solicitud recibida: ' + escapeHtml(formatDateTime(p.founder_requested_at)))
+        : 'Sin solicitud de plaza todavía.') +
+      '</p></div>' +
       '<div class="admin-detail-section"><h4>Actividad de juego</h4>' + renderActivitySection(activity) + '</div>' +
       '<div class="admin-detail-section"><h4>Promoción de registro</h4>' + promoHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Cupo IA este mes</h4>' + quotaHtml + '</div>' +
@@ -1035,6 +1071,14 @@
     host.classList.remove('hidden');
     var closeBtn = $('#admin-detail-close');
     if (closeBtn) closeBtn.addEventListener('click', closeUserDetail);
+    var founderChk = $('#admin-detail-is-founder');
+    if (founderChk) {
+      founderChk.addEventListener('change', function () {
+        updateUser(p.user_id, { is_founder: founderChk.checked }).then(function () {
+          openUserDetail(p.user_id);
+        });
+      });
+    }
     host.querySelectorAll('[data-admin-user-thread]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var threadId = btn.getAttribute('data-admin-user-thread');
@@ -1137,6 +1181,11 @@
         var row = chk.closest('tr');
         var uid = row && row.dataset.userId;
         if (!uid) return;
+        var field = chk.getAttribute('data-field');
+        if (field === 'is_founder') {
+          updateUser(uid, { is_founder: chk.checked });
+          return;
+        }
         updateUser(uid, { is_admin: chk.checked });
       };
     });
@@ -1157,6 +1206,7 @@
     var args = { p_user_id: userId };
     if (patch.plan !== undefined) args.p_plan = patch.plan;
     if (patch.is_admin !== undefined) args.p_is_admin = patch.is_admin;
+    if (patch.is_founder !== undefined) args.p_is_founder = patch.is_founder;
     if (patch.subscription_period_end !== undefined) args.p_subscription_period_end = patch.subscription_period_end;
     var res = await c.rpc('pt_admin_update_user', args);
     if (!requireAdminAccess()) return;

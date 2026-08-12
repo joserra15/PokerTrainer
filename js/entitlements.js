@@ -73,6 +73,8 @@
       plan: plan,
       plan_label: PLAN_LABELS[plan] || plan,
       is_admin: false,
+      is_founder: !!(u && u.isFounder),
+      founder_requested_at: (u && u.founderRequestedAt) || null,
       demo_mode: demoActive(),
       subscription_status: 'none',
       paid_active: plan === 'pro' || plan === 'premium',
@@ -107,6 +109,8 @@
       ai_bonus_used_month: Number(usage.ai_bonus_used_month) || 0
     };
     if (!data.bonus) data.bonus = { balance: 0, expires_at: null };
+    data.is_founder = !!data.is_founder;
+    data.founder_requested_at = data.founder_requested_at || null;
     if (!data.is_admin && isAdmin()) data.is_admin = true;
     if (data.is_admin) {
       data.limits.ai_reports_per_month = null;
@@ -166,6 +170,8 @@
     u.planLabel = ent.plan_label || PLAN_LABELS[u.plan] || u.plan;
     u.subscriptionStatus = ent.subscription_status;
     u.paidActive = !!ent.paid_active;
+    u.isFounder = !!ent.is_founder;
+    u.founderRequestedAt = ent.founder_requested_at || null;
     if (ent.is_admin) u.isAdmin = true;
     if (global.PTAuth && global.PTAuth.renderAccountMenu) {
       global.PTAuth.renderAccountMenu(u);

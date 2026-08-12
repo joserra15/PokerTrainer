@@ -21001,6 +21001,8 @@ window.PT_VS_3BET_JSON = {
   function applyProfileToUser(user, profile) {
     if (!user || !profile) return user;
     user.isAdmin = !!profile.is_admin || isBootstrapAdmin(user.email);
+    user.isFounder = !!profile.is_founder;
+    user.founderRequestedAt = profile.founder_requested_at || null;
     user.plan = profile.plan || 'free';
     user.planLabel = PLAN_LABELS[user.plan] || user.plan;
     user.aiDailyLimit = profile.ai_limit || profile.ai_daily_limit || null;
@@ -21322,6 +21324,8 @@ window.PT_VS_3BET_JSON = {
       plan: plan,
       plan_label: PLAN_LABELS[plan] || plan,
       is_admin: false,
+      is_founder: !!(u && u.isFounder),
+      founder_requested_at: (u && u.founderRequestedAt) || null,
       demo_mode: demoActive(),
       subscription_status: 'none',
       paid_active: plan === 'pro' || plan === 'premium',
@@ -21356,6 +21360,8 @@ window.PT_VS_3BET_JSON = {
       ai_bonus_used_month: Number(usage.ai_bonus_used_month) || 0
     };
     if (!data.bonus) data.bonus = { balance: 0, expires_at: null };
+    data.is_founder = !!data.is_founder;
+    data.founder_requested_at = data.founder_requested_at || null;
     if (!data.is_admin && isAdmin()) data.is_admin = true;
     if (data.is_admin) {
       data.limits.ai_reports_per_month = null;
@@ -21415,6 +21421,8 @@ window.PT_VS_3BET_JSON = {
     u.planLabel = ent.plan_label || PLAN_LABELS[u.plan] || u.plan;
     u.subscriptionStatus = ent.subscription_status;
     u.paidActive = !!ent.paid_active;
+    u.isFounder = !!ent.is_founder;
+    u.founderRequestedAt = ent.founder_requested_at || null;
     if (ent.is_admin) u.isAdmin = true;
     if (global.PTAuth && global.PTAuth.renderAccountMenu) {
       global.PTAuth.renderAccountMenu(u);
@@ -21655,6 +21663,46 @@ window.PT_VS_3BET_JSON = {
     return !!(c.enabled && c.functionsUrl && global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth());
   }
 
+  function purchasesPaused() {
+    return !!cfg().purchasesPaused;
+  }
+
+  function purchasesOpen() {
+    return enabled() && !purchasesPaused();
+  }
+
+  function founderInfo() {
+    var f = cfg().founder;
+    return f && typeof f === 'object' ? f : null;
+  }
+
+  function founderLaunchLabel() {
+    var f = founderInfo();
+    return (f && f.launchLabel) || '15 de noviembre de 2026';
+  }
+
+  function purchasesPausedShortMsg() {
+    return 'Las compras están cerradas hasta el lanzamiento FOUNDER (' + founderLaunchLabel() + ').';
+  }
+
+  function paywallFounderHtml() {
+    var f = founderInfo() || {};
+    return '<div class="paywall-founder" role="note">' +
+      '<p><strong>Beta abierta · compras pausadas</strong></p>' +
+      '<ul class="paywall-founder-list">' +
+      '<li>Puedes usar el plan <strong>Gratis</strong> con sus límites.</li>' +
+      '<li>Study/Coach y bonos IA <strong>no se pueden comprar</strong> ahora.</li>' +
+      '<li>Si tienes un <strong>código promocional</strong> de acceso, regístrate con él o escríbenos en Contacto.</li>' +
+      '<li><strong>Coach</strong> solo por invitación durante la beta.</li>' +
+      '</ul>' +
+      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> el ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
+      ' · ' + escapeHtml(f.discount || '40%') + ' dto. · ' + escapeHtml(f.seatsNote || 'Plazas limitadas') + '.</p>' +
+      '<p class="muted-text">' + escapeHtml(f.priorityNote ||
+        'Prioridad para usuarios ya registrados que lo soliciten.') + '</p>' +
+      '<p class="paywall-founder-cta-wrap"><button type="button" class="btn btn-primary btn-sm" data-founder-request="1">Solicitar plaza FOUNDER</button></p>' +
+      '</div>';
+  }
+
   function functionsBase() {
     return String(cfg().functionsUrl || '').replace(/\/$/, '');
   }
@@ -21785,6 +21833,10 @@ window.PT_VS_3BET_JSON = {
   }
 
   async function startCheckout(plan, interval) {
+    if (purchasesPaused()) {
+      showPaywall('purchases_paused', purchasesPausedShortMsg());
+      return;
+    }
     if (!enabled()) {
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto. Mientras tanto, contacta con soporte.');
       return;
@@ -21797,6 +21849,10 @@ window.PT_VS_3BET_JSON = {
   }
 
   async function startBonusCheckout(pack) {
+    if (purchasesPaused()) {
+      showPaywall('purchases_paused', purchasesPausedShortMsg() + ' Los bonos de IA también estarán disponibles entonces.');
+      return;
+    }
     if (!enabled()) {
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto.');
       return;
@@ -21831,14 +21887,15 @@ window.PT_VS_3BET_JSON = {
   }
 
   var MESSAGES = {
-    trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día). Prueba Study 10 días o mejora tu plan.',
-    import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis (1/mes). Study incluye imports ilimitados.',
+    trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día).',
+    import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis (1/mes).',
     import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos por import.',
-    ai_plan: 'El ForgeCoach (añadir manos por texto, análisis y preguntas) requiere Study (40 consultas/mes), Coach (150/mes) o un bono. El plan Gratis no incluye IA. Los bonos están en la pestaña Planes.',
-    ai_limit: 'Has agotado tus consultas IA disponibles. Compra un bono o sube de plan para seguir añadiendo manos con IA, analizando o preguntando.',
+    ai_plan: 'ForgeCoach (añadir manos por texto, análisis y preguntas) requiere Study, Coach o un acceso regalado. El plan Gratis no incluye IA de pago.',
+    ai_limit: 'Has agotado tus consultas IA disponibles (ForgeCoach).',
     billing_not_configured: '',
+    purchases_paused: '',
     no_subscription: '',
-    trial_ended: 'Tu prueba de Study ha terminado. Elige un plan de pago para seguir sin límites.'
+    trial_ended: 'Tu prueba de Study ha terminado.'
   };
 
   function trialInfo() {
@@ -21871,16 +21928,34 @@ window.PT_VS_3BET_JSON = {
     }
     var title = document.getElementById('paywall-title');
     var body = document.getElementById('paywall-body');
-    var msg = customMsg || MESSAGES[reason] || 'Esta función requiere un plan de pago.';
-    if (title) title.textContent = reason === 'ai_plan' || reason === 'ai_limit' ? 'ForgeCoach' : 'Mejora tu plan';
+    var toPricing = document.getElementById('paywall-to-pricing');
+    var msg = customMsg || MESSAGES[reason] || 'Esta función requiere un plan superior.';
+    var paused = purchasesPaused();
+    if (title) {
+      if (reason === 'ai_plan' || reason === 'ai_limit') title.textContent = 'ForgeCoach';
+      else if (paused) title.textContent = 'Límite del plan Gratis';
+      else title.textContent = 'Mejora tu plan';
+    }
     if (body) {
       body.innerHTML = '<p>' + escapeHtml(msg) + '</p>';
-      if (reason === 'ai_plan' || reason === 'ai_limit') {
+      if (paused) {
+        body.innerHTML += paywallFounderHtml();
+      } else if (reason === 'ai_plan' || reason === 'ai_limit') {
         body.innerHTML += '<p class="muted-text" style="margin-top:10px">También puedes comprar un <strong>bono de consultas IA</strong> (válido 12 meses) en Planes.</p>';
       }
     }
+    if (toPricing) {
+      toPricing.textContent = paused ? 'Ver planes y FOUNDER' : 'Ver planes';
+    }
     modal.classList.remove('hidden');
     document.body.classList.add('paywall-open');
+    if (body && typeof body.querySelectorAll === 'function') {
+      body.querySelectorAll('[data-founder-request]').forEach(function (btn) {
+        if (global.PTFounderRequest && global.PTFounderRequest.bindButton) {
+          global.PTFounderRequest.bindButton(btn);
+        }
+      });
+    }
   }
 
   function closePaywall() {
@@ -22054,6 +22129,9 @@ window.PT_VS_3BET_JSON = {
 
   global.PTBilling = {
     enabled: enabled,
+    purchasesPaused: purchasesPaused,
+    purchasesOpen: purchasesOpen,
+    founderInfo: founderInfo,
     startCheckout: startCheckout,
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
@@ -22083,6 +22161,198 @@ window.PT_VS_3BET_JSON = {
       return global.PTBillingPromo && global.PTBillingPromo.bannerHtml
         ? global.PTBillingPromo.bannerHtml() : '';
     }
+  };
+})(window);
+
+/*
+ * founder-request.js — Solicitud de plaza FOUNDER (Contacto + flag perfil).
+ */
+(function (global) {
+  'use strict';
+
+  var PENDING_KEY = 'pt_founder_request_pending';
+  var SUBJECT = 'Solicitud de Founder';
+
+  function client() {
+    return global.PTSupabase && global.PTSupabase.getClient
+      ? global.PTSupabase.getClient()
+      : null;
+  }
+
+  function isLoggedIn() {
+    return !!(global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser());
+  }
+
+  function markPending() {
+    try { sessionStorage.setItem(PENDING_KEY, '1'); } catch (e) { /* noop */ }
+  }
+
+  function clearPending() {
+    try { sessionStorage.removeItem(PENDING_KEY); } catch (e) { /* noop */ }
+  }
+
+  function hasPending() {
+    try { return sessionStorage.getItem(PENDING_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  function startLoginNow() {
+    if (global.PT_startGoogleLogin) {
+      global.PT_startGoogleLogin();
+      return;
+    }
+    var btn = document.getElementById('auth-mobile-login');
+    if (btn) btn.click();
+  }
+
+  function founderCfg() {
+    return (global.PT_BILLING && global.PT_BILLING.founder) || {};
+  }
+
+  function entitlementsFounder() {
+    var ent = global.PTEntitlements && global.PTEntitlements.get
+      ? global.PTEntitlements.get()
+      : null;
+    return {
+      isFounder: !!(ent && ent.is_founder),
+      requested: !!(ent && ent.founder_requested_at)
+    };
+  }
+
+  async function submitRequest() {
+    var c = client();
+    if (!c) throw new Error('No hay conexión con el servidor.');
+    var res = await c.rpc('pt_request_founder_seat');
+    if (res.error) throw new Error(res.error.message || 'request_failed');
+    var data = res.data || {};
+    if (global.PTEntitlements && global.PTEntitlements.refresh) {
+      try { await global.PTEntitlements.refresh(); } catch (e) { /* noop */ }
+    }
+    if (global.PTContact && global.PTContact.refreshBadge) {
+      try { global.PTContact.refreshBadge(); } catch (e) { /* noop */ }
+    }
+    return data;
+  }
+
+  function explainResult(data) {
+    if (!data) return 'No se pudo completar la solicitud.';
+    if (data.already_founder) {
+      return 'Ya tienes plaza FOUNDER confirmada. La verás en Configuración de cuenta.';
+    }
+    if (data.already_requested) {
+      return 'Ya habías enviado una Solicitud de Founder. Puedes seguirla en Contacto.';
+    }
+    if (data.created || data.ok) {
+      return 'Solicitud de Founder enviada. El equipo la revisará en mensajes de soporte.';
+    }
+    return 'Solicitud registrada.';
+  }
+
+  async function requestSeat(opts) {
+    opts = opts || {};
+    if (!isLoggedIn()) {
+      markPending();
+      if (opts.promptLogin !== false) startLoginNow();
+      return { ok: false, pending_login: true };
+    }
+    clearPending();
+    var data = await submitRequest();
+    if (opts.notify !== false) {
+      try { alert(explainResult(data)); } catch (e) { /* noop */ }
+    }
+    if (opts.goContact && global.goToTab) {
+      global.goToTab('contact');
+      if (global.PTContact && global.PTContact.render && data.thread_id) {
+        global.setTimeout(function () {
+          global.PTContact.render(data.thread_id);
+        }, 80);
+      }
+    }
+    return data;
+  }
+
+  async function tryRequestAfterLogin() {
+    if (!hasPending()) return null;
+    if (!isLoggedIn()) return null;
+    clearPending();
+    try {
+      var data = await submitRequest();
+      try { alert(explainResult(data)); } catch (e) { /* noop */ }
+      if (global.goToTab) {
+        global.goToTab('contact');
+        if (global.PTContact && global.PTContact.render && data.thread_id) {
+          global.setTimeout(function () {
+            global.PTContact.render(data.thread_id);
+          }, 120);
+        }
+      }
+      return data;
+    } catch (e) {
+      console.warn('[PTFounderRequest]', e);
+      try {
+        alert('No se pudo enviar la Solicitud de Founder: ' + (e.message || 'error'));
+      } catch (e2) { /* noop */ }
+      return { ok: false, error: e.message || 'error' };
+    }
+  }
+
+  function bindButton(btn) {
+    if (!btn || btn.dataset.founderBound) return;
+    btn.dataset.founderBound = '1';
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      btn.disabled = true;
+      requestSeat({ goContact: true })
+        .catch(function (err) {
+          alert(err.message || 'No se pudo solicitar la plaza FOUNDER.');
+        })
+        .then(function () {
+          if (!btn.isConnected) return;
+          var st = entitlementsFounder();
+          if (st.isFounder) {
+            btn.textContent = 'Plaza FOUNDER confirmada';
+            btn.disabled = true;
+          } else if (st.requested || hasPending()) {
+            btn.textContent = 'Solicitud enviada';
+            btn.disabled = true;
+          } else {
+            btn.disabled = false;
+          }
+        });
+    });
+  }
+
+  function ctaLabel() {
+    var st = entitlementsFounder();
+    if (st.isFounder) return 'Plaza FOUNDER confirmada';
+    if (st.requested) return 'Solicitud FOUNDER enviada';
+    return 'Solicitar plaza FOUNDER';
+  }
+
+  function ctaDisabled() {
+    var st = entitlementsFounder();
+    return !!(st.isFounder || st.requested);
+  }
+
+  function requestButtonHtml(extraClass) {
+    var disabled = ctaDisabled();
+    var cls = 'btn btn-primary' + (extraClass ? ' ' + extraClass : '');
+    return '<button type="button" class="' + cls + ' founder-request-btn"' +
+      (disabled ? ' disabled aria-disabled="true"' : '') +
+      ' data-founder-request="1">' + ctaLabel() + '</button>';
+  }
+
+  global.PTFounderRequest = {
+    subject: SUBJECT,
+    markPending: markPending,
+    clearPending: clearPending,
+    hasPending: hasPending,
+    requestSeat: requestSeat,
+    tryRequestAfterLogin: tryRequestAfterLogin,
+    bindButton: bindButton,
+    ctaLabel: ctaLabel,
+    ctaDisabled: ctaDisabled,
+    requestButtonHtml: requestButtonHtml,
+    founderCfg: founderCfg
   };
 })(window);
 
@@ -22700,6 +22970,11 @@ window.PT_VS_3BET_JSON = {
       '<section class="account-settings-card card-box">' +
       '<h3>Plan y suscripción</h3>' +
       row('Plan actual', escapeHtml(ent.plan_label || planLabel(prof.plan))) +
+      row('FOUNDER', prof.is_founder
+        ? '<span class="account-settings-founder">Sí · plaza confirmada</span>'
+        : (prof.founder_requested_at
+          ? 'Solicitud enviada · pendiente de revisión'
+          : 'No')) +
       row('Estado', escapeHtml(
         prof.subscription_status === 'trialing' ? 'Promoción / prueba' : (prof.subscription_status || 'none')
       )) +
@@ -22709,6 +22984,9 @@ window.PT_VS_3BET_JSON = {
       '<div class="account-settings-actions">' +
       (showBilling ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-billing">Gestionar suscripción</button>' : '') +
       '<button type="button" class="btn btn-primary btn-sm" id="settings-upgrade">Ver planes</button>' +
+      (!prof.is_founder
+        ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-founder-request">Solicitar plaza FOUNDER</button>'
+        : '') +
       '</div>' +
       '</section>' +
 
@@ -22887,6 +23165,16 @@ window.PT_VS_3BET_JSON = {
     if (upgrade) upgrade.onclick = function () {
       if (global.goToTab) global.goToTab('pricing');
     };
+    var founderBtn = $('#settings-founder-request');
+    if (founderBtn) {
+      if (global.PTFounderRequest && global.PTFounderRequest.bindButton) {
+        global.PTFounderRequest.bindButton(founderBtn);
+      } else {
+        founderBtn.onclick = function () {
+          if (global.goToTab) global.goToTab('pricing');
+        };
+      }
+    }
     var sync = $('#settings-sync');
     if (sync) {
       sync.onclick = function () {
@@ -23307,18 +23595,30 @@ window.PT_VS_3BET_JSON = {
                 .catch(function (e) { console.warn('[PTBilling] login sync', e); });
             }
           };
+          var afterFounder = function () {
+            if (global.PTFounderRequest && global.PTFounderRequest.tryRequestAfterLogin) {
+              withTimeout(global.PTFounderRequest.tryRequestAfterLogin(), 8000, 'founder')
+                .then(function () { afterPromo(); })
+                .catch(function (e) {
+                  console.warn('[PTFounderRequest]', e);
+                  afterPromo();
+                });
+            } else {
+              afterPromo();
+            }
+          };
           if (global.PTPromoRedeem && global.PTPromoRedeem.tryRedeemAfterLogin) {
             withTimeout(global.PTPromoRedeem.tryRedeemAfterLogin(), 8000, 'promo')
               .then(function () {
                 renderAccountMenu(user);
-                afterPromo();
+                afterFounder();
               })
               .catch(function (e) {
                 console.warn('[PTPromo]', e);
-                afterPromo();
+                afterFounder();
               });
           } else {
-            afterPromo();
+            afterFounder();
           }
         })
         .catch(function (e) {
@@ -26484,31 +26784,49 @@ window.PT_VS_3BET_JSON = {
       {
         id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: false,
-        features: [
-          'Prueba 10 días (una vez por cuenta)',
-          'Entrenador e import ilimitados',
-          '20 manos en análisis',
-          '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
-          'Sync, estadísticas y repaso'
-        ],
+        features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
+          ? [
+            'Disponible con código o acceso regalado en la beta',
+            'Entrenador e import ilimitados',
+            '20 manos en análisis',
+            '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
+            'Sync, estadísticas y repaso'
+          ]
+          : [
+            'Prueba 10 días (una vez por cuenta)',
+            'Entrenador e import ilimitados',
+            '20 manos en análisis',
+            '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
+            'Sync, estadísticas y repaso'
+          ],
         cta: 'pro'
       },
       {
         id: 'premium', title: plans.premium ? plans.premium.label : 'Coach',
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
-        features: [
-          'Todo Study',
-          '100 manos en análisis',
-          '150 consultas ForgeCoach/mes',
-          'Informes y preguntas sobre manos, análisis y sesiones',
-          'Soporte prioritario'
-        ],
+        features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
+          ? [
+            'Solo por invitación durante la beta',
+            'Todo Study',
+            '100 manos en análisis',
+            '150 consultas ForgeCoach/mes',
+            'Soporte prioritario'
+          ]
+          : [
+            'Todo Study',
+            '100 manos en análisis',
+            '150 consultas ForgeCoach/mes',
+            'Informes y preguntas sobre manos, análisis y sesiones',
+            'Soporte prioritario'
+          ],
         cta: 'premium'
       }
     ];
 
     const Billing = window.PTBilling;
     const billingOn = !!(Billing && Billing.enabled && Billing.enabled());
+    const paused = !!(Billing && Billing.purchasesPaused && Billing.purchasesPaused());
+    const founder = (Billing && Billing.founderInfo) ? Billing.founderInfo() : (window.PT_BILLING && window.PT_BILLING.founder) || null;
     const isPaidSub = !!ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium');
     const curInterval = ent.billing_interval === 'year' ? 'year'
       : (ent.billing_interval === 'month' ? 'month' : null);
@@ -26523,7 +26841,28 @@ window.PT_VS_3BET_JSON = {
     grid.innerHTML = cards.map(function (c) {
       const isCurrent = ent.plan === c.id;
       let btns = '';
-      if (!isPaidSub) {
+      if (paused && !isPaidSub) {
+        if (isCurrent) {
+          btns = '<span class="muted-text">Plan actual</span>';
+          if (c.id === 'free') {
+            btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
+              ? window.PTFounderRequest.requestButtonHtml('btn-block')
+              : '<button type="button" class="btn btn-primary btn-block" data-founder-request="1">Solicitar plaza FOUNDER</button>';
+          }
+        } else if (c.id === 'pro') {
+          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
+            'Compra el ' + escapeHtml((founder && founder.launchLabel) || '15 de noviembre') + '</button>';
+          btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
+            ? window.PTFounderRequest.requestButtonHtml('btn-block')
+            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="1">Solicitar plaza FOUNDER</button>';
+          btns += '<p class="muted-text pricing-cta-note">FOUNDER · ' + escapeHtml((founder && founder.discount) || '40%') +
+            ' dto. · ' + escapeHtml((founder && founder.seatsNote) || 'plazas limitadas') +
+            '. Se envía un mensaje a soporte automáticamente.</p>';
+        } else if (c.id === 'premium') {
+          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true">Solo por invitación</button>' +
+            '<p class="muted-text pricing-cta-note">Coach cerrado en la beta. Se abre con FOUNDER o por regalo.</p>';
+        }
+      } else if (!isPaidSub) {
         // Usuario Gratis: alta normal por checkout.
         if (c.cta && !isCurrent) {
           if (c.id === 'pro' && billingOn) {
@@ -26552,20 +26891,23 @@ window.PT_VS_3BET_JSON = {
         const intervalNote = curInterval === 'year' ? 'Facturación anual'
           : (curInterval === 'month' ? 'Facturación mensual' : 'Plan actual');
         btns = '<span class="muted-text">Plan actual · ' + escapeHtml(intervalNote) + '</span>';
-        if (billingOn && curInterval === 'month') {
+        if (billingOn && !paused && curInterval === 'month') {
           btns += '<button type="button" class="btn btn-ghost btn-sm" data-plan-change="' + c.id + '" data-interval="year">Cambiar a anual</button>';
-        } else if (billingOn && curInterval === 'year') {
+        } else if (billingOn && !paused && curInterval === 'year') {
           btns += '<button type="button" class="btn btn-ghost btn-sm" data-plan-change="' + c.id + '" data-interval="month">Cambiar a mensual</button>';
         }
         if (canceling && billingOn) {
           btns += '<button type="button" class="btn btn-primary btn-sm" data-plan-portal="1">Reactivar</button>';
         }
-      } else if (billingOn) {
+      } else if (billingOn && !paused) {
         // Otro plan de pago: upgrade o downgrade.
         const verb = c.id === 'premium' ? 'Mejorar a ' : 'Cambiar a ';
         btns = '<button type="button" class="btn btn-primary" data-plan-change="' + c.id + '" data-interval="' + (curInterval || 'month') + '">' + escapeHtml(verb + c.title) + '</button>';
+      } else if (paused) {
+        btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true">Cambios de plan cerrados</button>';
       }
-      return '<div class="pricing-card' + (isCurrent ? ' featured' : '') + '">' +
+      var featured = paused ? (c.id === 'pro') : isCurrent;
+      return '<div class="pricing-card' + (featured ? ' featured' : '') + '">' +
         '<h3>' + escapeHtml(c.title) + '</h3>' +
         '<div class="pricing-price">' + escapeHtml(c.price) + '<small>' + escapeHtml(c.period) + '</small></div>' +
         '<ul class="pricing-features">' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +
@@ -26583,6 +26925,12 @@ window.PT_VS_3BET_JSON = {
           alert(e.message || 'No se pudo iniciar el pago.');
         });
       });
+    });
+
+    grid.querySelectorAll('[data-founder-request]').forEach(function (btn) {
+      if (window.PTFounderRequest && window.PTFounderRequest.bindButton) {
+        window.PTFounderRequest.bindButton(btn);
+      }
     });
 
     grid.querySelectorAll('[data-plan-change]').forEach(function (btn) {
@@ -26617,7 +26965,14 @@ window.PT_VS_3BET_JSON = {
 
     const changeNote = $('#pricing-change-note');
     if (changeNote) {
-      if (isPaidSub) {
+      if (paused && !isPaidSub) {
+        changeNote.innerHTML = 'Compras cerradas hasta el <strong>FOUNDER</strong> (' +
+          escapeHtml((founder && founder.launchLabel) || '15 de noviembre de 2026') +
+          '). ' + escapeHtml((founder && founder.priorityNote) ||
+            'Prioridad para usuarios ya registrados que lo soliciten.') +
+          ' Coach solo por invitación en la beta.';
+        changeNote.classList.remove('hidden');
+      } else if (isPaidSub) {
         changeNote.innerHTML = 'Gestiona tu suscripción (cambio de plan, facturación anual o cancelación) en el portal seguro de Stripe. Pulsa <strong>«Actualiza la suscripción»</strong> dentro del portal.';
         changeNote.classList.remove('hidden');
       } else {
@@ -26626,8 +26981,14 @@ window.PT_VS_3BET_JSON = {
       }
     }
 
-    if (Billing && Billing.mountAnnualUpsell) {
+    if (Billing && Billing.mountAnnualUpsell && !paused) {
       Billing.mountAnnualUpsell($('#pricing-annual-upsell'), ent);
+    } else {
+      var upsell = $('#pricing-annual-upsell');
+      if (upsell) {
+        upsell.innerHTML = '';
+        upsell.classList.add('hidden');
+      }
     }
 
     renderBonusPacks(ent);
@@ -26641,6 +27002,10 @@ window.PT_VS_3BET_JSON = {
       host.innerHTML = '';
       return;
     }
+    var paused = !!(window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused());
+    var founder = (window.PTBilling && window.PTBilling.founderInfo)
+      ? window.PTBilling.founderInfo()
+      : (window.PT_BILLING && window.PT_BILLING.founder) || null;
     var tier = (window.PTBilling.bonusTierForPlan)
       ? window.PTBilling.bonusTierForPlan(ent.plan || 'free')
       : 'free';
@@ -26650,20 +27015,28 @@ window.PT_VS_3BET_JSON = {
     var rows = packs.map(function (pk) {
       var def = bonus.packs[pk];
       var price = prices[pk] || '—';
+      var buyBtn = paused
+        ? '<button type="button" class="btn btn-primary btn-sm" disabled aria-disabled="true">No disponible</button>'
+        : '<button type="button" class="btn btn-primary btn-sm" data-bonus-pack="' + pk + '">Comprar</button>';
       return '<div class="bonus-pack-card">' +
         '<div class="bonus-pack-main">' +
         '<strong>' + escapeHtml(def.label) + '</strong>' +
         '<span class="muted-text">' + def.credits + ' consultas</span>' +
         '</div>' +
         '<div class="bonus-pack-price">' + escapeHtml(price) + ' €</div>' +
-        '<button type="button" class="btn btn-primary btn-sm" data-bonus-pack="' + pk + '">Comprar</button>' +
+        buyBtn +
         '</div>';
     }).join('');
+    var pausedNote = paused
+      ? '<p class="muted-text">Compra de bonos cerrada hasta el <strong>FOUNDER</strong> (' +
+        escapeHtml((founder && founder.launchLabel) || '15 de noviembre de 2026') + ').</p>'
+      : '';
     host.innerHTML = '<div class="pricing-bonus-panel card-box">' +
       '<h3>Bono de consultas IA</h3>' +
       '<p class="muted-text">Precio para tu plan <strong>' + escapeHtml(tierLabel) + '</strong>. ' +
       'Los bonos tienen <strong>mejores precios en los planes superiores</strong> (Study y Coach). ' +
       'Válido 12 meses. Se consumen después de las consultas incluidas en tu plan.</p>' +
+      pausedNote +
       '<div class="bonus-pack-grid">' + rows + '</div>' +
       '<p class="muted-text pricing-foot">Pago único · Sin renovación automática</p>' +
       '</div>';

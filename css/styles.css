@@ -332,6 +332,40 @@ body.range-matrix-open { overflow: hidden; }
 }
 .paywall-founder-list li { margin-bottom: 4px; }
 .paywall-founder-launch { font-size: 14px; }
+.paywall-founder-cta-wrap { margin-top: 10px; }
+.landing-founder-cta { margin-top: 8px; }
+.account-settings-founder {
+  color: var(--accent);
+  font-weight: 700;
+}
+.admin-col-founder { width: 64px; }
+.admin-founder-badge,
+.admin-founder-pending-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  vertical-align: middle;
+}
+.admin-founder-badge {
+  background: rgba(230,161,90,.22);
+  border: 1px solid rgba(230,161,90,.45);
+  color: #e6a15a;
+}
+.admin-founder-pending-badge {
+  background: rgba(47,129,247,.14);
+  border: 1px solid rgba(47,129,247,.35);
+  color: var(--accent);
+}
+.admin-detail-founder {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
 .promo-code {
   display: inline-block; padding: 1px 8px; border-radius: 6px;
   background: rgba(0,0,0,.28); border: 1px dashed rgba(255,255,255,.25);

@@ -49,6 +49,7 @@
       ' · ' + escapeHtml(f.discount || '40%') + ' dto. · ' + escapeHtml(f.seatsNote || 'Plazas limitadas') + '.</p>' +
       '<p class="muted-text">' + escapeHtml(f.priorityNote ||
         'Prioridad para usuarios ya registrados que lo soliciten.') + '</p>' +
+      '<p class="paywall-founder-cta-wrap"><button type="button" class="btn btn-primary btn-sm" data-founder-request="1">Solicitar plaza FOUNDER</button></p>' +
       '</div>';
   }
 
@@ -298,6 +299,13 @@
     }
     modal.classList.remove('hidden');
     document.body.classList.add('paywall-open');
+    if (body && typeof body.querySelectorAll === 'function') {
+      body.querySelectorAll('[data-founder-request]').forEach(function (btn) {
+        if (global.PTFounderRequest && global.PTFounderRequest.bindButton) {
+          global.PTFounderRequest.bindButton(btn);
+        }
+      });
+    }
   }
 
   function closePaywall() {

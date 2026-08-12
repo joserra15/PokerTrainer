@@ -116,7 +116,8 @@
           ? t('plan.cta.paused', { date: founder.launchLabel || '15 de noviembre de 2026' })
           : t('plan.cta'),
         ctaLogin: !paused,
-        disabled: paused
+        disabled: paused,
+        founderCta: paused
       },
       {
         id: 'premium',
@@ -139,7 +140,8 @@
           ],
         ctaLabel: paused ? t('plan.cta.invite') : t('plan.cta'),
         ctaLogin: !paused,
-        disabled: paused
+        disabled: paused,
+        founderCta: false
       }
     ];
     grid.innerHTML = cards.map(function (c) {
@@ -147,12 +149,19 @@
         ' btn-block' + (c.ctaLogin ? ' landing-price-cta' : '');
       var disabledAttr = c.disabled ? ' disabled aria-disabled="true"' : '';
       var note = '';
+      var founderBtn = '';
       if (paused && c.id === 'pro') {
         note = '<p class="muted-text landing-price-note">' +
           escapeHtml(t('plan.founder.note', {
             discount: founder.discount || '40%',
             seats: founder.seatsNote || 'plazas limitadas'
           })) + '</p>';
+        if (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml) {
+          founderBtn = global.PTFounderRequest.requestButtonHtml('btn-block landing-founder-cta');
+        } else {
+          founderBtn = '<button type="button" class="btn btn-primary btn-block landing-founder-cta" data-founder-request="1">' +
+            escapeHtml(t('plan.cta.founder')) + '</button>';
+        }
       }
       return '<div class="landing-price-card' + (c.featured ? ' featured' : '') + '">' +
         '<h3>' + escapeHtml(c.title) + '</h3>' +
@@ -160,6 +169,7 @@
         '<ul>' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +
         '<button type="button" class="' + btnClass + '"' + disabledAttr + '>' +
         escapeHtml(c.ctaLabel) + '</button>' +
+        founderBtn +
         note +
         '</div>';
     }).join('');
@@ -168,6 +178,17 @@
         e.preventDefault();
         startLoginNow();
       });
+    });
+    grid.querySelectorAll('[data-founder-request]').forEach(function (btn) {
+      if (global.PTFounderRequest && global.PTFounderRequest.bindButton) {
+        global.PTFounderRequest.bindButton(btn);
+      } else {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          try { sessionStorage.setItem('pt_founder_request_pending', '1'); } catch (err) { /* noop */ }
+          startLoginNow();
+        });
+      }
     });
   }
 

@@ -38,6 +38,7 @@ const REQUIRED_KEYS = [
   'plan.cta',
   'plan.cta.paused',
   'plan.cta.invite',
+  'plan.cta.founder',
   'plan.founder.note'
 ];
 
@@ -157,6 +158,8 @@ assert.ok(pricingHtml.indexOf('Gratis') >= 0, 'pricing muestra Gratis');
 assert.ok(pricingHtml.indexOf('Empezar gratis') >= 0, 'pricing muestra CTA free traducido');
 assert.ok(pricingHtml.indexOf('Compra el 15 de noviembre') >= 0, 'Study muestra CTA pausado');
 assert.ok(pricingHtml.indexOf('Solo por invitación') >= 0, 'Coach muestra CTA invitación');
+assert.ok(pricingHtml.indexOf('Solicitar plaza FOUNDER') >= 0 || pricingHtml.indexOf('data-founder-request') >= 0,
+  'Study muestra CTA solicitud FOUNDER');
 assert.ok(pricingHtml.indexOf('disabled') >= 0, 'botones de compra deshabilitados');
 assert.ok(pricingHtml.indexOf('plan.free.f1') < 0, 'features free traducidas');
 assert.ok(pricingHtml.indexOf('15 manos entrenador') >= 0, 'feature free f1 visible');

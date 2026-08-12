@@ -112,6 +112,7 @@
       'js/supabase-client.js',
       'js/cloud-store.js',
       'js/promo-redeem.js',
+      'js/founder-request.js',
       'js/landing.js',
       'js/auth-bootstrap.js'
     ];
@@ -1216,6 +1217,15 @@
               <option value="premium">Coach</option>
             </select>
           </label>
+          <label class="admin-filter-field">
+            <span>Founder</span>
+            <select id="admin-filter-founder">
+              <option value="">Todos</option>
+              <option value="yes">Sí</option>
+              <option value="no">No</option>
+              <option value="requested">Solicitud pendiente</option>
+            </select>
+          </label>
           <div class="admin-filter-field admin-filter-dates">
             <span>Fin plan</span>
             <div class="admin-filter-date-row">
@@ -1259,6 +1269,7 @@
               <col class="admin-col-ai">
               <col class="admin-col-payment">
               <col class="admin-col-seen">
+              <col class="admin-col-founder">
               <col class="admin-col-admin">
             </colgroup>
             <thead>
@@ -1270,6 +1281,7 @@
                 <th data-col="ai"><button type="button" class="admin-th-sort" data-sort="ai">IA mes (+bono)</button></th>
                 <th data-col="payment"><button type="button" class="admin-th-sort" data-sort="payment">Último pago</button></th>
                 <th data-col="seen"><button type="button" class="admin-th-sort" data-sort="seen">Última conexión</button></th>
+                <th data-col="founder"><button type="button" class="admin-th-sort" data-sort="founder">Founder</button></th>
                 <th data-col="admin"><button type="button" class="admin-th-sort" data-sort="admin">Admin</button></th>
               </tr>
             </thead>
