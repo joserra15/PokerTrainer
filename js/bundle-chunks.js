@@ -110,6 +110,7 @@
       'js/school-data-mtt.js',
       'js/school-data-ranges.js',
       'js/school-data-pro.js',
+      'js/school-extra-spots.js',
       'js/school.js'
     ],
     contact: ['js/contact.js'],
