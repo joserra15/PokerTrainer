@@ -100,6 +100,29 @@
   }
 
   /**
+   * Normaliza un raise a total "hasta X bb".
+   * Si el valor es ≤ la apuesta a igualar, se interpreta como tamaño de la
+   * resubida (incremento), no como total — error frecuente al meter varias subidas.
+   */
+  function resolveRaiseToAmountBB(amountBB, toMatch, cur) {
+    var facing = Math.max(0, Number(toMatch) || 0);
+    var invested = Math.max(0, Number(cur) || 0);
+    if (amountBB == null || !isFinite(amountBB) || amountBB <= 0) {
+      return defaultRaiseAmountBB(facing, invested);
+    }
+    var amt = round2(amountBB);
+    if (amt <= facing) return round2(facing + amt);
+    return amt;
+  }
+
+  function normalizeAnteBB(raw) {
+    var n = Number(raw);
+    if (!isFinite(n) || n < 0) return 0;
+    if (n > 50) n = 50;
+    return round2(n);
+  }
+
+  /**
    * Recalcula importes mostrados por calle.
    * - call: derivedAmountBB = lo que falta para igualar (toMatch - committed).
    * - raise amountBB = total "hasta" en bb; bet amountBB = tamaño de la apuesta.
@@ -126,6 +149,8 @@
         // Siempre editable: el auto es sugerencia, no candado.
         out.derivedAmountBB = round2(Math.max(0, toMatch - cur));
         out.amountLocked = false;
+        // Tras igualar, para el hilo de la calle queda emparejado al toMatch
+        // (el importe manual solo afecta al histórico/pote al guardar).
         if (pos) committed[pos] = toMatch;
       } else if (action === 'check' || action === 'fold') {
         out.derivedAmountBB = null;
@@ -140,8 +165,15 @@
         toMatch = Math.max(toMatch, betAmt);
       } else if (action === 'raise') {
         var raiseEmpty = out.amountBB == null || out.amountBB <= 0;
-        var raiseAmt = raiseEmpty ? defaultRaiseAmountBB(toMatch, cur) : out.amountBB;
-        if (raiseEmpty) out.amountBB = fillDefaults ? raiseAmt : null;
+        var raiseAmt = raiseEmpty
+          ? defaultRaiseAmountBB(toMatch, cur)
+          : resolveRaiseToAmountBB(out.amountBB, toMatch, cur);
+        if (raiseEmpty) {
+          out.amountBB = fillDefaults ? raiseAmt : null;
+        } else if (fillDefaults && out.amountBB !== raiseAmt) {
+          // Persistimos el total resuelto (p. ej. incremento → hasta X).
+          out.amountBB = raiseAmt;
+        }
         out.derivedAmountBB = (out.amountBB != null && out.amountBB > 0) ? out.amountBB : null;
         if (pos) committed[pos] = raiseAmt;
         toMatch = Math.max(toMatch, raiseAmt);
@@ -151,7 +183,8 @@
   }
 
   /** Rellena calls vacíos con el auto y bet/raise vacíos con el mínimo lógico.
-   *  Postflop: "raise" sin apuesta previa se normaliza a "bet". */
+   *  Postflop: "raise" sin apuesta previa se normaliza a "bet".
+   *  Raises cortos (≤ toMatch) se guardan ya resueltos a total "hasta X". */
   function fillActionAmounts(street, actions) {
     var normalized = (actions || []).map(cloneAct);
     if (street !== 'preflop') {
@@ -177,6 +210,9 @@
       } else if (out.action === 'bet' || out.action === 'raise') {
         if (out.amountBB == null || out.amountBB <= 0) {
           out.amountBB = c.amountBB != null ? c.amountBB : (out.action === 'bet' ? 1 : 2);
+        } else if (out.action === 'raise' && c.amountBB != null && c.amountBB > 0) {
+          // Persistir total resuelto si el usuario escribió un incremento.
+          out.amountBB = c.amountBB;
         }
       }
       return out;
@@ -224,6 +260,9 @@
   function specToRawHand(spec) {
     var bbVal = normalizeBbEuro(spec.bbEuro != null ? spec.bbEuro : 0.05);
     var sbVal = roundEuro(bbVal / 2);
+    var anteBB = normalizeAnteBB(spec.anteBB);
+    var anteVal = roundEuro(anteBB * bbVal);
+    var isTourney = anteBB > 0;
     var fmt = spec.format === '9max' ? '9max' : '6max';
     var ring = ringFor(fmt);
     var positions = {};
@@ -237,10 +276,23 @@
       if (v && v.pos && v.cards && v.cards.length === 2) shows[v.pos] = v.cards.slice();
     });
 
+    // Posts: ciegas + ante de toda la mesa (dead money de torneo).
+    var posts = {};
+    if (anteVal > 0) {
+      ring.forEach(function (p) { posts[p] = anteVal; });
+    }
+    posts.SB = roundEuro((posts.SB || 0) + sbVal);
+    posts.BB = roundEuro((posts.BB || 0) + bbVal);
+
+    var seats = ring.map(function (p, i) {
+      return { seat: i + 1, name: p, stack: roundEuro(100 * bbVal) };
+    });
+
     var streets = { preflop: [], flop: [], turn: [], river: [] };
     STREET_ORDER.forEach(function (st) {
       var committed = {};
       var toMatch = 0;
+      // Ciegas sí cuentan para toMatch; el ante es dead money en posts, no apuesta a igualar.
       if (st === 'preflop') { committed.SB = sbVal; committed.BB = bbVal; toMatch = bbVal; }
       var acts = (spec.actions && spec.actions[st]) || [];
       acts.forEach(function (a) {
@@ -251,7 +303,14 @@
         // Postflop: "raise" sin apuesta previa = bet de apertura
         if (st !== 'preflop' && type === 'raise' && toMatch <= 0) type = 'bet';
         if (type === 'raise') {
-          var to = roundEuro((isFinite(amtBB) && amtBB > 0 ? amtBB : (toMatch / bbVal + 2)) * bbVal);
+          var toMatchBB = bbVal > 0 ? toMatch / bbVal : 0;
+          var curBB = bbVal > 0 ? (committed[player] || 0) / bbVal : 0;
+          var toBB = resolveRaiseToAmountBB(
+            (isFinite(amtBB) && amtBB > 0) ? amtBB : null,
+            toMatchBB,
+            curBB
+          );
+          var to = roundEuro(toBB * bbVal);
           var inc = roundEuro(to - (committed[player] || 0));
           if (inc < 0) inc = roundEuro(to);
           streets[st].push({ player: player, type: 'raise', amount: inc, to: to, allin: false });
@@ -286,13 +345,18 @@
       hero: hero, heroCards: heroCards,
       positions: positions,
       blinds: { sb: 'SB', bb: 'BB' },
-      posts: { SB: sbVal, BB: bbVal },
+      posts: posts,
+      seats: seats,
+      ante: anteVal,
       streets: streets,
       board: { flop: board.slice(0, 3), turn: board.slice(3, 4), river: board.slice(4, 5) },
       boardAll: board,
       shows: shows,
       collected: {}, uncalledTo: {}, rake: 0, potTotal: 0,
-      isCash: true, isTournament: false, platform: 'manual'
+      isCash: !isTourney,
+      isTournament: isTourney,
+      gameKind: isTourney ? 'mtt' : 'cash',
+      platform: 'manual'
     };
   }
 
@@ -316,6 +380,7 @@
     var raw = specToRawHand(spec);
     var analyzed = global.Importer.analyzeHand(raw);
     var bbEuro = normalizeBbEuro(spec.bbEuro != null ? spec.bbEuro : raw.bb);
+    var anteBB = normalizeAnteBB(spec.anteBB);
     analyzed.spec = {
       format: spec.format === '9max' ? '9max' : '6max',
       heroPos: spec.heroPos,
@@ -325,6 +390,7 @@
       }),
       board: (spec.board || []).slice(),
       bbEuro: bbEuro,
+      anteBB: anteBB,
       actions: {
         preflop: ((spec.actions && spec.actions.preflop) || []).slice(),
         flop: ((spec.actions && spec.actions.flop) || []).slice(),
@@ -334,6 +400,7 @@
       _source: source || spec._source || 'manual'
     };
     analyzed.bbEuro = bbEuro;
+    analyzed.anteBB = anteBB;
     analyzed.boardAll = (raw.boardAll || analyzed.board || []).slice();
     analyzed.source = source || spec._source || 'manual';
     analyzed.createdAt = spec._createdAt || new Date().toISOString();
@@ -349,6 +416,9 @@
     if (!spec.heroCards || spec.heroCards.length !== 2) errs.push('Elige las 2 cartas del héroe.');
     if (spec.bbEuro != null && (!isFinite(Number(spec.bbEuro)) || Number(spec.bbEuro) <= 0)) {
       errs.push('El valor de la BB en € debe ser mayor que 0.');
+    }
+    if (spec.anteBB != null && (!isFinite(Number(spec.anteBB)) || Number(spec.anteBB) < 0)) {
+      errs.push('El ante en bb no puede ser negativo.');
     }
     var seenPos = {};
     seenPos[spec.heroPos] = 'héroe';
@@ -561,6 +631,11 @@
         }),
         board: (s.board || hand.boardAll || hand.board || []).slice(0, 5),
         bbEuro: normalizeBbEuro(s.bbEuro != null ? s.bbEuro : (hand.bbEuro != null ? hand.bbEuro : hand.bb)),
+        anteBB: normalizeAnteBB(
+          s.anteBB != null ? s.anteBB
+            : (hand.anteBB != null ? hand.anteBB
+              : (hand.ante && hand.bb ? hand.ante / hand.bb : 0))
+        ),
         actions: {
           preflop: ((s.actions && s.actions.preflop) || []).map(cloneAct),
           flop: ((s.actions && s.actions.flop) || []).map(cloneAct),
@@ -618,6 +693,10 @@
       villains: villains,
       board: (hand.boardAll || hand.board || []).slice(0, 5),
       bbEuro: normalizeBbEuro(hand.bbEuro != null ? hand.bbEuro : hand.bb),
+      anteBB: normalizeAnteBB(
+        hand.anteBB != null ? hand.anteBB
+          : (hand.ante && hand.bb ? hand.ante / hand.bb : 0)
+      ),
       actions: actionsSpecFromHand(hand)
     });
   }
@@ -653,6 +732,7 @@
       villains: newVillains,
       board: (base.board || []).slice(0, 5),
       bbEuro: base.bbEuro,
+      anteBB: normalizeAnteBB(base.anteBB),
       actions: {
         preflop: (base.actions.preflop || []).map(cloneAct),
         flop: (base.actions.flop || []).map(cloneAct),
@@ -733,6 +813,7 @@
       boardTurn: [],
       boardRiver: [],
       bbEuro: 0.05,
+      anteBB: 0,
       actions: emptyActions()
     };
   }
@@ -743,6 +824,7 @@
     d.heroPos = spec.heroPos || d.heroPos;
     d.heroCards = (spec.heroCards || []).slice(0, 2);
     d.bbEuro = normalizeBbEuro(spec.bbEuro != null ? spec.bbEuro : 0.05);
+    d.anteBB = normalizeAnteBB(spec.anteBB != null ? spec.anteBB : 0);
     d.villains = (spec.villains && spec.villains.length)
       ? spec.villains.map(function (v) {
           return { pos: v.pos || '', cards: (v.cards || []).slice(0, 2) };
@@ -845,6 +927,7 @@
       heroPos: draft.heroPos,
       heroCards: (draft.heroCards || []).slice(0, 2),
       bbEuro: normalizeBbEuro(draft.bbEuro),
+      anteBB: normalizeAnteBB(draft.anteBB),
       villains: (draft.villains || [])
         .filter(function (v) { return v && v.pos; })
         .map(function (v) {
@@ -1233,7 +1316,7 @@
     if (!listEl) return;
     opts = opts || {};
     var fillDefaults = !!opts.fillDefaults;
-    var forceCalls = !!opts.forceCalls;
+    // forceCalls se acepta por compatibilidad; los calls manuales ya no se pisan.
     var active = global.document && global.document.activeElement;
     var computed = computeStreetDisplayActions(street, readStreetRows(listEl), { fillDefaults: fillDefaults });
     listEl.querySelectorAll('.ha-action-row').forEach(function (row, idx) {
@@ -1258,13 +1341,14 @@
         var callShown = data.derivedAmountBB;
         var curCall = parseAmountInput(amtEl.value);
         // Actualiza el auto si está vacío, o si el valor actual era el auto previo
-        // (atributo) y cambió el bet/raise anterior.
+        // (atributo) y cambió el bet/raise anterior. Nunca pisar un importe manual
+        // (forceCalls/fillDefaults no deben borrar lo que el usuario escribió).
         var prevAuto = amtEl.dataset.haAuto;
         var wasAuto = prevAuto != null && curCall != null && String(curCall) === String(Number(prevAuto));
         if (callShown == null) {
           amtEl.value = '';
           delete amtEl.dataset.haAuto;
-        } else if (curCall == null || wasAuto || forceCalls || fillDefaults) {
+        } else if (curCall == null || wasAuto) {
           amtEl.value = String(callShown);
           amtEl.dataset.haAuto = String(callShown);
         } else {
@@ -1439,6 +1523,13 @@
     html += '<span class="muted-text ha-bb-hint">SB = mitad. Ej.: 0.02 → NL2, 0.05 → NL5. Las acciones siguen en bb; el paso a paso muestra euros.</span>';
     html += '</div></div>';
 
+    html += '<div class="ha-field ha-ante-field"><label for="ha-ante-bb">Ante (bb) · torneos</label>';
+    html += '<div class="ha-bb-row">';
+    html += '<input id="ha-ante-bb" class="ha-ante-bb" type="number" min="0" max="50" step="any" inputmode="decimal" data-ha-ante-bb value="' +
+      esc(String(draft.anteBB != null ? draft.anteBB : 0)) + '" />';
+    html += '<span class="muted-text ha-bb-hint">0 = cash / sin ante. En MTT cada asiento de la mesa aporta ese ante al bote inicial.</span>';
+    html += '</div></div>';
+
     html += '<div class="ha-field"><label>Posición del héroe</label><div class="ha-chips ha-hero-pos">';
     html += heroPosChipsHTML(draft);
     html += '</div></div>';
@@ -1466,7 +1557,7 @@
       var acts = (draft.actions && draft.actions[st]) || [];
       var players = activePlayersForStreet(draft, st);
       html += '<div class="ha-field ha-street-field" data-street-field="' + st + '"><label>Acciones · ' + STREET_LABELS[st] + '</label>';
-      html += '<p class="muted-text ha-street-hint">Cada fila es una acción en orden temporal (p. ej. raise → re-raise → call). Los importes de igualar se calculan solos, pero puedes borrarlos y escribir el número exacto. En subir, el valor es el total (hasta X bb).</p>';
+      html += '<p class="muted-text ha-street-hint">Cada fila es una acción en orden temporal (p. ej. raise → re-raise → call). Los importes de igualar se calculan solos, pero puedes borrarlos y escribir el número exacto. En subir, el valor es el total (hasta X bb); si pones un número menor o igual que la apuesta actual, se interpreta como tamaño de la resubida.</p>';
       html += '<div class="ha-actions-list" data-street-list="' + st + '">';
       if (!acts.length) {
         html += '<p class="muted-text ha-street-empty">Selecciona héroe y villanos para cargar sus acciones.</p>';
@@ -1517,6 +1608,16 @@
       };
       bbInp.addEventListener('change', syncBb);
       bbInp.addEventListener('blur', syncBb);
+    }
+
+    var anteInp = root.querySelector('[data-ha-ante-bb]');
+    if (anteInp) {
+      var syncAnte = function () {
+        draft.anteBB = normalizeAnteBB(anteInp.value);
+        anteInp.value = String(draft.anteBB);
+      };
+      anteInp.addEventListener('change', syncAnte);
+      anteInp.addEventListener('blur', syncAnte);
     }
 
     root.querySelectorAll('[data-ha-format]').forEach(function (btn) {
@@ -1718,6 +1819,8 @@
     var draft = S.draft;
     var bbEl = S.container && S.container.querySelector('[data-ha-bb-euro]');
     if (bbEl) draft.bbEuro = normalizeBbEuro(bbEl.value);
+    var anteEl = S.container && S.container.querySelector('[data-ha-ante-bb]');
+    if (anteEl) draft.anteBB = normalizeAnteBB(anteEl.value);
     if (S.container) {
       // Volcar DOM → draft (incl. calls editados) y completar vacíos con auto/mínimo.
       syncAllStreetInputs(S.container, { fillDefaults: true, forceCalls: true });
@@ -1942,11 +2045,13 @@
     emptyDraft: emptyDraft,
     draftFromSpec: draftFromSpec,
     computeStreetDisplayActions: computeStreetDisplayActions,
+    resolveRaiseToAmountBB: resolveRaiseToAmountBB,
     listSwappableVillains: listSwappableVillains,
     swapHeroWithVillain: swapHeroWithVillain,
     ensureHandSpec: ensureHandSpec,
     ensureVillainsFromActions: ensureVillainsFromActions,
     normalizeBbEuro: normalizeBbEuro,
+    normalizeAnteBB: normalizeAnteBB,
     sortBySpeakingOrder: sortBySpeakingOrder,
     speakingOrderRing: speakingOrderRing,
     looksLikeHandHistory: looksLikeHandHistory,

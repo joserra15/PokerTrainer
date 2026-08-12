@@ -144,6 +144,61 @@ assert(display3bet[2] && display3bet[2].derivedAmountBB === 5.5, 'CO call tras 3
 assert(display3bet[3] && display3bet[3].derivedAmountBB === 7, 'BB call final tras 3bet = 8-1: ' + (display3bet[3] && display3bet[3].derivedAmountBB));
 assert(display3bet[3].amountLocked === false, 'último call editable');
 
+// River: bet → raise → re-raise → call (totales)
+const riverReraise = PTHandAnalysis.computeStreetDisplayActions('river', [
+  { pos: 'SB', action: 'bet', amountBB: 15 },
+  { pos: 'BB', action: 'raise', amountBB: 65.98 },
+  { pos: 'SB', action: 'raise', amountBB: 120 },
+  { pos: 'BB', action: 'call' }
+]);
+assert(riverReraise[3] && Math.abs(riverReraise[3].derivedAmountBB - 54.02) < 1e-9,
+  'BB call tras re-raise river = 120-65.98: ' + (riverReraise[3] && riverReraise[3].derivedAmountBB));
+assert(riverReraise[3].amountLocked === false, 'call river tras resubidas editable');
+
+// Raise escrito como tamaño (≤ toMatch) se interpreta como incremento
+const riverRaiseBy = PTHandAnalysis.computeStreetDisplayActions('river', [
+  { pos: 'SB', action: 'bet', amountBB: 15 },
+  { pos: 'BB', action: 'raise', amountBB: 65.98 },
+  { pos: 'SB', action: 'raise', amountBB: 41.68 },
+  { pos: 'BB', action: 'call' }
+]);
+assert(Math.abs(riverRaiseBy[3].derivedAmountBB - 41.68) < 1e-9,
+  'raise-by 41.68 → BB call 41.68: ' + riverRaiseBy[3].derivedAmountBB);
+const riverRaiseByFilled = PTHandAnalysis.computeStreetDisplayActions('river', [
+  { pos: 'SB', action: 'bet', amountBB: 15 },
+  { pos: 'BB', action: 'raise', amountBB: 65.98 },
+  { pos: 'SB', action: 'raise', amountBB: 41.68 },
+  { pos: 'BB', action: 'call' }
+], { fillDefaults: true });
+assert(Math.abs(riverRaiseByFilled[2].amountBB - 107.66) < 1e-9,
+  'fillDefaults normaliza raise-by a total 107.66: ' + riverRaiseByFilled[2].amountBB);
+
+// Misma línea con call intermedio (captura del bug) + raise corto
+const riverBugShot = PTHandAnalysis.computeStreetDisplayActions('river', [
+  { pos: 'SB', action: 'bet', amountBB: 15 },
+  { pos: 'BB', action: 'raise', amountBB: 65.98 },
+  { pos: 'SB', action: 'call' },
+  { pos: 'SB', action: 'raise', amountBB: 41.68 },
+  { pos: 'BB', action: 'call' }
+]);
+assert(Math.abs(riverBugShot[4].derivedAmountBB - 41.68) < 1e-9,
+  'tras call+raise-by, BB call auto = 41.68 (antes 0): ' + riverBugShot[4].derivedAmountBB);
+
+// Ante de torneo en spec manual
+assert(PTHandAnalysis.normalizeAnteBB(-1) === 0, 'ante negativo → 0');
+assert(PTHandAnalysis.normalizeAnteBB(0.1) === 0.1, 'ante 0.1 bb');
+const anteNorm = PTHandAnalysis.normalizeAnteBB(0.125);
+const specAnte = Object.assign({}, spec, { anteBB: 0.125, bbEuro: 0.05 });
+const rawAnte = PTHandAnalysis.specToRawHand(specAnte);
+assert(rawAnte.isTournament === true && rawAnte.isCash === false, 'ante > 0 marca torneo');
+assert(Math.abs(rawAnte.ante - anteNorm * 0.05) < 1e-9, 'ante € = anteBB*BB: ' + rawAnte.ante);
+assert(Math.abs((rawAnte.posts.UTG || 0) - rawAnte.ante) < 1e-9, 'todos los asientos postean ante');
+assert(Math.abs(rawAnte.posts.BB - (0.05 + rawAnte.ante)) < 1e-9, 'BB = ciega + ante');
+const anAnte = PTHandAnalysis.buildAnalyzedHand(specAnte, 'manual');
+assert(anAnte.spec.anteBB === anteNorm, 'anteBB persistido en spec: ' + anAnte.spec.anteBB);
+const draftAnte = PTHandAnalysis.draftFromSpec(anAnte.spec);
+assert(draftAnte.anteBB === anteNorm, 'draft conserva anteBB: ' + draftAnte.anteBB);
+
 // Raise vacío no debe tumbar el cálculo del call (usa mínimo provisional)
 const displayEmptyRaise = PTHandAnalysis.computeStreetDisplayActions('preflop', [
   { pos: 'CO', action: 'raise', amountBB: null },
