@@ -25,6 +25,25 @@ const allSchoolDataSrc = [
   schoolDataSrc, schoolM1Src, schoolM2Src, schoolSpinSrc, schoolMttSrc, schoolRangesSrc, schoolProSrc
 ].join('\n');
 
+/** Normaliza theory[] (string | {title,body}) a texto plano para asserts. */
+function theoryText(t) {
+  if (t && typeof t === 'object') return String(t.title || '') + ' ' + String(t.body || t.text || '');
+  return String(t || '');
+}
+function theoryJoin(arr) {
+  return (arr || []).map(theoryText).join(' ');
+}
+function lessonBlob(lesson) {
+  var blob = ' ' + (lesson.concept || '');
+  blob += ' ' + theoryJoin(lesson.theory);
+  (lesson.examples || []).forEach(function (ex) {
+    blob += ' ' + (ex.title || '') + ' ' + (ex.body || '');
+  });
+  (lesson.aiQuestions || []).forEach(function (q) { blob += ' ' + q; });
+  (lesson.spots || []).forEach(function (s) { blob += ' ' + (s.teachBack || ''); });
+  return blob;
+}
+
 assert.ok(/data-tab="school"/.test(html), 'nav school');
 assert.ok(/id="tab-school"/.test(html), 'panel school');
 assert.ok(/Escuela de Póker/.test(html), 'label Escuela');
@@ -175,14 +194,10 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   assert.strictEqual(spinLessons.length, 18, '18 lecciones Spins');
   var blob = '';
   spinLessons.forEach(function (l) {
-    blob += ' ' + (l.concept || '');
-    (l.theory || []).forEach(function (x) { blob += ' ' + x; });
-    (l.examples || []).forEach(function (ex) { blob += ' ' + (ex.title || '') + ' ' + (ex.body || ''); });
-    (l.aiQuestions || []).forEach(function (q) { blob += ' ' + q; });
-    (l.spots || []).forEach(function (s) { blob += ' ' + (s.teachBack || ''); });
+    blob += lessonBlob(l);
     assert.ok((l.concept || '').length > 60, l.id + ' concept explicativo');
     (l.theory || []).forEach(function (t, i) {
-      assert.ok(t.length > 70, l.id + ' theory[' + i + '] demasiado corta');
+      assert.ok(theoryText(t).length > 70, l.id + ' theory[' + i + '] demasiado corta');
     });
     assert.ok((l.examples || []).length >= 1, l.id + ' tiene ejemplo');
   });
@@ -190,6 +205,36 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   assert.ok(/\b[Ll]impear\b/.test(blob), 'Spins usa limpear donde aplica');
   assert.ok(/steal|robar ciegas/.test(blob), 'Spins explica steal');
   assert.ok(/ICM|fichas/.test(blob), 'Spins explica ICM/fichas');
+})();
+
+/* Voz pedagógica MTT / Rangos / Pro */
+(function () {
+  function assertRouteVoice(routeId, minLessons) {
+    var lessons = Data.lessonsForRoute(routeId);
+    assert.ok(lessons.length >= minLessons, routeId + ' count');
+    var blob = '';
+    lessons.forEach(function (l) {
+      blob += lessonBlob(l);
+      assert.ok((l.concept || '').length > 60, l.id + ' concept explicativo');
+      assert.ok((l.theory || []).length >= 2, l.id + ' theory suficiente');
+      (l.theory || []).forEach(function (t, i) {
+        assert.ok(theoryText(t).length > 70, l.id + ' theory[' + i + '] corta');
+        if (t && typeof t === 'object') {
+          assert.ok(t.title && t.title.length > 2, l.id + ' theory title');
+        }
+      });
+      assert.ok((l.examples || []).length >= 1, l.id + ' ejemplo');
+    });
+    assert.ok(!/\b[Ll]lamar\b|\bllaman\b/.test(blob), routeId + ' sin llamar=call');
+    return blob;
+  }
+  var mttBlob = assertRouteVoice('mtt', 23);
+  assert.ok(/ante|ICM|steal|push|burbuja|bb/.test(mttBlob), 'MTT vocabulario torneo');
+  var rangesBlob = assertRouteVoice('ranges', 6);
+  assert.ok(/matriz|rango|frecuencia|blocker|menú Rangos/.test(rangesBlob), 'Rangos vocabulario');
+  var proBlob = assertRouteVoice('cash', 27); // includes M0-M4
+  assert.ok(/4-bet|farol|fish|reg/.test(proBlob), 'Pro cash vocabulario');
+  assert.ok(/school-theory-title/.test(schoolSrc), 'UI títulos de teoría');
 })();
 assert.strictEqual(Data.getLesson('T-00').route, 'mtt', 'T-00 mtt');
 assert.strictEqual(Data.getLesson('R-01').route, 'ranges', 'R-01 ranges');
@@ -204,7 +249,7 @@ assert.strictEqual(Data.getLesson('C-14').plan, 'study', 'C-14 study');
 assert.strictEqual(Data.getLesson('C-04').title, 'Sizing del open', 'C-04 sizing');
 assert.strictEqual(Data.getLesson('C-05').title, 'RFI desde SB', 'C-05 SB');
 assert.ok(/Examen/.test(Data.getLesson('C-06').title), 'C-06 examen');
-assert.ok(/menú Rangos/.test(Data.getLesson('C-06').theory.join(' ')), 'C-06 recuerda menú Rangos');
+assert.ok(/menú Rangos/.test(theoryJoin(Data.getLesson('C-06').theory)), 'C-06 recuerda menú Rangos');
 Data.m0Lessons().forEach(function (l) {
   assert.strictEqual(l.plan, 'free', l.id + ' plan free');
 });
@@ -219,44 +264,40 @@ assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en sc
 (function () {
   var blob = '';
   Data.LESSONS.forEach(function (l) {
-    blob += ' ' + (l.concept || '');
-    (l.theory || []).forEach(function (x) { blob += ' ' + x; });
-    (l.examples || []).forEach(function (ex) { blob += ' ' + (ex.title || '') + ' ' + (ex.body || ''); });
-    (l.aiQuestions || []).forEach(function (q) { blob += ' ' + q; });
-    (l.spots || []).forEach(function (s) { blob += ' ' + (s.teachBack || ''); });
+    blob += lessonBlob(l);
   });
   assert.ok(!/\b[Ll]impiar\b|\blimpies\b|\blimpias\b|\blimpiao\b/.test(blob), 'lecciones sin limpiar=limp');
   assert.ok(/\b[Ll]impear\b|\blimpees\b|\blimpeas\b|\blimpeado\b/.test(blob), 'lecciones usan limpear');
 })();
 
-assert.ok(/hacen call \(si te igualan la apuesta\)/.test(Data.getLesson('C-01').theory.join(' ')), 'C-01 explica call');
+assert.ok(/hacen call \(si te igualan la apuesta\)/.test(theoryJoin(Data.getLesson('C-01').theory)), 'C-01 explica call');
 assert.ok(
   /todos folden \(tiren su mano\)/.test(Data.getLesson('C-03').concept) &&
     /no limpear para/.test(Data.getLesson('C-03').concept),
   'C-03 concept folden + no limpear'
 );
-assert.ok(/o te tiras/.test(Data.getLesson('C-03').theory.join(' ')), 'C-03 te tiras');
+assert.ok(/o te tiras/.test(theoryJoin(Data.getLesson('C-03').theory)), 'C-03 te tiras');
 assert.ok(/limpees .por si conecta./.test(Data.getLesson('C-03').examples[0].body) || /limpees “por si conecta”/.test(Data.getLesson('C-03').examples[0].body), 'C-03 ejemplo limpees');
 
 assert.ok(
-  /Limpear \(o limp\) es igualar la ciega grande/.test(Data.getLesson('C-02').theory.join(' ')),
+  /Limpear \(o limp\) es igualar la ciega grande/.test(theoryJoin(Data.getLesson('C-02').theory)),
   'C-02 explica limpear la primera vez'
 );
 assert.ok(
-  /menú Rangos/.test(Data.getLesson('C-02').theory.join(' ')),
+  /menú Rangos/.test(theoryJoin(Data.getLesson('C-02').theory)),
   'C-02 apunta a rangos RFI en menú Rangos'
 );
 assert.ok(
-  /Fold equity es la probabilidad/.test(Data.getLesson('C-03').theory.join(' ')),
+  /Fold equity es la probabilidad/.test(theoryJoin(Data.getLesson('C-03').theory)),
   'C-03 define fold equity'
 );
 assert.ok(
-  /Sizing es el tamaño/.test(Data.getLesson('C-04').theory.join(' ')) &&
-    /bb \(ciegas grandes\)/.test(Data.getLesson('C-04').theory.join(' ')),
+  /Sizing es el tamaño/.test(theoryJoin(Data.getLesson('C-04').theory)) &&
+    /bb \(ciegas grandes\)/.test(theoryJoin(Data.getLesson('C-04').theory)),
   'C-04 define sizing/bb'
 );
 assert.ok(
-  /fuera de posición|OOP \(out of position\)/.test(Data.getLesson('C-05').theory.join(' ')),
+  /fuera de posición|OOP \(out of position\)/.test(theoryJoin(Data.getLesson('C-05').theory)),
   'C-05 introduce OOP'
 );
 assert.ok(/si hacen call, siempre juegas fuera de posición/.test(Data.getLesson('C-05').concept), 'C-05 concept call');
@@ -265,9 +306,7 @@ assert.ok(/polar \(/.test(Data.getLesson('C-05').examples[0].body) && /wide \(/.
 /* C-08: conceptos polar / bluff / blockers / spew en lenguaje natural */
 (function () {
   var c08 = Data.getLesson('C-08');
-  var blob = [c08.concept].concat(c08.theory || []).concat(
-    (c08.examples || []).map(function (ex) { return (ex.title || '') + ' ' + (ex.body || ''); })
-  ).join(' ');
+  var blob = lessonBlob(c08);
   assert.ok(/bluff \(farol\)|farol/.test(blob), 'C-08 explica bluff/farol');
   assert.ok(/blockers?:/.test(blob) || /blockers /.test(blob), 'C-08 explica blockers');
   assert.ok(/Polar significa/.test(blob), 'C-08 define polar');
@@ -277,31 +316,28 @@ assert.ok(/polar \(/.test(Data.getLesson('C-05').examples[0].body) && /wide \(/.
 
 /* C-09+: voz novato — ancla términos, sin telegramas densos */
 (function () {
-  function lessonBlob(id) {
-    var l = Data.getLesson(id);
-    return [l.concept].concat(l.theory || []).concat(
-      (l.examples || []).map(function (ex) { return (ex.title || '') + ' ' + (ex.body || ''); })
-    ).join(' ');
+  function blobOf(id) {
+    return lessonBlob(Data.getLesson(id));
   }
-  var c09 = lessonBlob('C-09');
+  var c09 = blobOf('C-09');
   assert.ok(/4-bet/.test(c09) && /hero-call/.test(c09), 'C-09 introduce 4-bet y hero-call');
   assert.ok(/vuelve a subir|siguiente subida/.test(c09), 'C-09 ancla 4-bet en español');
   assert.ok(!/4-bet value: QQ\+\/AK\. 4-bet bluff:/.test(c09), 'C-09 no es telegrama');
 
-  var c10 = lessonBlob('C-10');
+  var c10 = blobOf('C-10');
   assert.ok(/cold-call|Cold-call/.test(c10) && /Squeeze/.test(c10), 'C-10 define cold-call/squeeze');
   assert.ok(/dead money|fichas ya en el bote/.test(c10), 'C-10 ancla dead money');
 
-  var c14 = lessonBlob('C-14');
+  var c14 = blobOf('C-14');
   assert.ok(/flop seco|seco /.test(c14) && /c-bet/.test(c14), 'C-14 textura + c-bet');
   assert.ok(/continuación|apost/.test(c14), 'C-14 ancla c-bet');
 
-  var c17 = lessonBlob('C-17');
+  var c17 = blobOf('C-17');
   assert.ok(/pot odds|precio/.test(c17) && /backdoor/.test(c17), 'C-17 pot odds/backdoors');
 
   assert.ok(!/\b[Ll]lamar\b|\bllaman\b/.test(
     Data.m1Lessons().concat(Data.m2Lessons()).map(function (l) {
-      return lessonBlob(l.id) + ' ' + (l.spots || []).map(function (s) { return s.teachBack || ''; }).join(' ');
+      return blobOf(l.id);
     }).join(' ')
   ), 'M1/M2 sin llamar=call');
 
@@ -312,13 +348,13 @@ assert.ok(/polar \(/.test(Data.getLesson('C-05').examples[0].body) && /wide \(/.
 })();
 
 assert.ok(
-  !/Limpear \(o limp\) es igualar/.test(Data.getLesson('C-03').theory.join(' ')),
+  !/Limpear \(o limp\) es igualar/.test(theoryJoin(Data.getLesson('C-03').theory)),
   'C-03 no redefine limp'
 );
 Data.m0Lessons().forEach(function (l) {
   assert.ok((l.concept || '').length > 40, l.id + ' concept no telegráfico');
   (l.theory || []).forEach(function (t, i) {
-    assert.ok(t.length > 60, l.id + ' theory[' + i + '] demasiado corta');
+    assert.ok(theoryText(t).length > 60, l.id + ' theory[' + i + '] demasiado corta');
   });
   (l.spots || []).forEach(function (s) {
     assert.ok((s.teachBack || '').length > 25, l.id + ' teachBack ' + s.id);

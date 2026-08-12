@@ -813,6 +813,11 @@
     }
     var p = lessonProgress(lesson.id);
     var theory = (lesson.theory || []).map(function (t) {
+      if (t && typeof t === 'object') {
+        var title = t.title ? '<strong class="school-theory-title">' + esc(t.title) + '</strong>' : '';
+        var body = esc(t.body || t.text || '');
+        return '<li>' + title + (title ? ' ' : '') + body + '</li>';
+      }
       return '<li>' + esc(t) + '</li>';
     }).join('');
     var examples = (lesson.examples || []).map(function (ex) {

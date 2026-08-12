@@ -1428,7 +1428,14 @@ body.age-gate-open {
 .school-plan-coach { color: #fcd34d; border-color: rgba(234,179,8,.45); }
 .school-section h3 { margin: 0 0 10px; }
 .school-theory { margin: 0; padding-left: 18px; line-height: 1.55; color: rgba(230,237,243,.9); }
-.school-theory li { margin: 8px 0; }
+.school-theory li { margin: 12px 0; }
+.school-theory-title {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.01em;
+}
 .school-example {
   border-left: 3px solid rgba(234,179,8,.55);
   background: rgba(234,179,8,.06);
