@@ -1457,16 +1457,16 @@
     ];
     if (kind === 'SPIN_EXAM_M0') return packSpots('SPIN_RFI_STEAL', D).slice(0, 3).concat(packSpots('SPIN_VS_STEAL', D).slice(0, 3));
     if (kind === 'SPIN_ISO') return [
-      iso('s04-01', 'BTN', 'SB', ['Ah', 'Js'], 40401, { teachBack: 'AJs BTN vs limp: iso (aislar). Subes para jugar heads-up contra el limper con mano fuerte.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-02', 'BTN', 'SB', ['7c', '2d'], 40402, { trapTag: 'dominated', teachBack: '72o: fold. No overiso (aislar) con basura — te dejan en pot multiway o te pagan dominado.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-03', 'SB', 'BTN', ['Kd', 'Qs'], 40403, { teachBack: 'KQs: iso por valor. Mano fuerte vs limp corto — quieres bote heads-up con iniciativa.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
-      iso('s04-04', 'BTN', 'SB', ['Qd', '8c'], 40404, { trapTag: 'fancy_play', teachBack: 'Q8o: fold frecuente vs limp. No aísles manos frágiles que no mejoran bien postflop.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) })
+      iso('s04-01', 'BTN', 'SB', ['Ah', 'Js'], 40401, { teachBack: 'AJs en BTN vs limp de SB: iso (aislar). Subes para jugar heads-up contra el limper con una mano fuerte que domina muchos limps wide. No hagas call flat detrás — quieres iniciativa, no multiway.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-02', 'BTN', 'SB', ['7c', '2d'], 40402, { trapTag: 'dominated', teachBack: '72o vs limp: fold. No overiso (aislar de más) con basura: o te dejan en pot multiway o te pagan dominado. A stack corto ese error duele entero el torneo.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-03', 'SB', 'BTN', ['Kd', 'Qs'], 40403, { teachBack: 'KQs vs limp corto: iso por valor. Mano fuerte — quieres bote heads-up con iniciativa, no limpear detrás ni hacer call pasivo. Castiga el limp y juega con ventaja.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
+      iso('s04-04', 'BTN', 'SB', ['Qd', '8c'], 40404, { trapTag: 'fancy_play', teachBack: 'Q8o vs limp: fold frecuente. No aísles manos frágiles que no mejoran bien postflop y se dominan fácil. Si no merecería open sin limp, tampoco merece iso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) })
     ];
     if (kind === 'SPIN_SHOVE' || kind === 'SPIN_PUSH' || kind === 'SPIN_EXAM_M1') return [
-      rfi('sp-01', 'BTN', ['As', 'Ts'], 40501, { teachBack: 'ATs con stack ~12 bb: shove (all-in) candidato. A estas profundidades open pequeño suele ser peor que ir all-in o fold.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
-      rfi('sp-02', 'BTN', ['7c', '2d'], 40502, { trapTag: 'dominated', teachBack: '72o: fold. No panic shove (all-in por desesperación) — sin fold equity ni equity real.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
-      rfi('sp-03', 'SB', ['Kh', 'Js'], 40503, { teachBack: 'KJs SB ~10 bb: shove frecuente. Stack corto + ciegas en juego = push/fold, no open min.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) }),
-      rfi('sp-04', 'BTN', ['9s', '9c'], 40504, { teachBack: '99 a 10–12 bb: shove por valor claro. Par medio fuerte en zona push/fold — quieres doblar o robar.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) })
+      rfi('sp-01', 'BTN', ['As', 'Ts'], 40501, { teachBack: 'ATs con ~12 bb en BTN: shove (all-in) candidato. A esta profundidad un open pequeño suele ser peor que ir all-in o fold: ganas fold equity o vas a doblar con equity decente si te pagan.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-02', 'BTN', ['7c', '2d'], 40502, { trapTag: 'dominated', teachBack: '72o a ~12 bb: fold. No hagas panic shove (all-in por desesperación): no tienes fold equity real ni equity cuando te pagan. Espera un spot con historia.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-03', 'SB', ['Kh', 'Js'], 40503, { teachBack: 'KJs SB ~10 bb: shove frecuente. Stack corto + ciegas ya en juego = zona push/fold. No abras min «como cash»; o all-in o fold.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) }),
+      rfi('sp-04', 'BTN', ['9s', '9c'], 40504, { teachBack: '99 a 10–12 bb: shove por valor claro. Par medio fuerte en push/fold — quieres doblar o robar ciegas, no open min que te deja mal stacked ante un 3-bet.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) })
     ];
     if (kind === 'MTT_EARLY') return [
       rfi('t01-01', 'BTN', ['Ah', 'Td'], 50101, { teachBack: 'ATo BTN early: open cash-like.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
@@ -1509,629 +1509,901 @@
     D.setRouteStatus('spin', 'active');
   }
   var RAW = [
-  {
-    "route": "spin",
-    "module": "M0",
-    "order": 0,
-    "plan": "free",
-    "xp": 40,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Pagas una entrada (buy-in) en dinero real y la sala te reparte fichas de torneo: en mesa nunca juegas «euros», solo fichas. Un Spin & Go es un torneo de tres jugadores (3-max); el premio total se sortea al inicio (2×, 3× o 5× las entradas). Por eso no es cash: sobrevivir y quedar bien posicionado vale más que acumular fichas sin plan.",
-    "theory": [
-      "Spin & Go (o «Spin»): torneo muy corto de 3 jugadores. Pagas una entrada fija (por ejemplo 10 €) y recibes un stack de fichas con ciegas (apuestas obligatorias cada mano). Igual que en un MTT normal: las fichas son moneda del torneo, no se cambian 1 a 1 por dinero en la mesa.",
-      "Buy-in (entrada): lo que pagas para registrarte. Las tres entradas forman un prize pool (bote de premios). Antes de repartir cartas, una ruleta decide el multiplicador: 2×, 3× o 5×. Con entradas de 10 € y 3× hay 30 € en juego para repartir según 1.º, 2.º y 3.º — no según «cuántas fichas te quedan» convertidas a euros.",
-      "Fichas y ciegas: la ciega pequeña (SB) y la ciega grande (BB) suben cada cierto tiempo (levels). Medir tu stack en bb (ciegas grandes) ayuda: «tengo 20 bb» = tu stack ÷ BB. En spins empiezas corto (a menudo 15–25 bb), así que cada mano pesa más que en cash a 100 bb.",
-      "ICM (modelo de fichas vs dinero): en torneo, doblar fichas no siempre duplica tu premio esperado en €. Cuanto más cerca estás de cobrar (top 2 o ganar), más caro es arriesgar todo en un flip (cara a cara). A veces fold es correcto aunque «en fichas» el call parezca rentable — lo profundizamos en S-02 y M2.",
-      "Mapa mental antes de practicar (S-01 en adelante): ¿estoy robando ciegas (steal = abrir para que todos tiren)? ¿Defendiendo BB o SB? ¿En zona push/fold (solo shove o fold)? Si vienes del cash, olvida «cada ficha vale X céntimos»: piensa supervivencia + payout, no pot de cash."
-    ],
-    "examples": [
-      {
-        "title": "Entrada ≠ fichas en mesa",
-        "body": "Entras por 5 € y te dan 500 fichas con ciegas 10/20. Tienes 25 bb (500 ÷ 20). Nadie te paga 5 € por tus 500 fichas: solo sirven para ganar posición y llevarte el premio del torneo."
-      },
-      {
-        "title": "Payout 3× en números",
-        "body": "Tres jugadores entran a 10 €. Sale 3× → 30 € en premios. El 1.º se lleva la mayor parte; el 2.º una fracción; el 3.º no cobra. Eliminar a un rival te acerca a dinero real, no solo a tener más fichas sin eliminar a nadie."
-      },
-      {
-        "title": "Por qué no es cash",
-        "body": "En cash 6-max puedes levantarte y cambiar fichas por dinero. En un Spin no: o ganas el torneo (o quedas 2.º) o pierdes la entrada. Las decisiones miden riesgo de eliminación, no solo EV (valor esperado) de fichas aisladas."
-      }
-    ],
-    "aiQuestions": [
-      "¿Por qué mis fichas no valen lo mismo que euros en un Spin?",
-      "¿Qué significa payout 2×, 3× o 5× con un ejemplo?",
-      "¿En qué se diferencia jugar un Spin del cash 6-max?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "S-00",
-    "title": "Anatomía de un Spin"
-  },
-  {
-    "route": "spin",
-    "module": "M0",
-    "order": 1,
-    "plan": "free",
-    "xp": 100,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 6,
-    "concept": "Con 20–25 bb (ciegas grandes), desde BTN o SB robas ciegas (steal) con dos tamaños: shove (all-in) con manos fuertes y open ~2,5 bb con manos medias del rango GTO — no todo es min-raise.",
-    "theory": [
-      "Steal (robo de ciegas): open-raise esperando que todos folden. A 20–25 bb las ciegas son un % grande del stack; fold equity vale mucho.",
-      "Dos tamaños a ~20 bb: premium y pares medios fuertes (99+, ATo+, KQs) suelen ir shove; suited connectors y broadways medias van open ~2,5 bb (3 bb desde SB).",
-      "BTN vs SB: desde BTN robas más wide porque solo quedan SB y BB detrás. Desde SB abres más tight y con menos shoves marginales — si te pagan, juegas OOP.",
-      "Trampa clásica: min-open con AK/99 a 20 bb o pagar un 3-bet shove con basura — en Spin perder el stack suele ser perder el torneo."
-    ],
-    "examples": [
-      {
-        "title": "Steal desde BTN",
-        "body": "BTN con 22 bb y 99: shove all-in (fold equity + valor). Con 87s: open a ~2,5 bb — roba ciegas sin commitear todo el stack."
-      },
-      {
-        "title": "SB más tight que BTN",
-        "body": "Misma mano Q8o: open desde BTN a veces OK; desde SB a menudo fold porque el BB aún actúa y tú quedarás OOP si te pagan."
-      }
-    ],
-    "aiQuestions": [
-      "¿Por qué robo más ciegas a 20 bb que a 100 bb en cash?",
-      "¿Qué hago si me 3-betean shove tras mi steal?"
-    ],
-    "spots": "SPIN_RFI_STEAL",
-    "exam": false,
-    "id": "S-01",
-    "title": "Open steal BTN/SB 20–25 bb"
-  },
-  {
-    "route": "spin",
-    "module": "M0",
-    "order": 2,
-    "plan": "study",
-    "xp": 110,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 6,
-    "concept": "Cuando BTN o SB abren corto (steal), desde la ciega grande (BB) eliges fold, hacer call o 3-bet — a veces shove (all-in). En torneo corto un error cuesta la entrada entera, no solo un pot.",
-    "theory": [
-      "Defensa de ciegas: el rival intenta robarte SB+BB. Tú puedes fold (tirar), call (igualar para ver flop) o 3-bet (resubir). A 20–25 bb el 3-bet shove es frecuente: o vas all-in o fold — pocos flats.",
-      "Vs steal wide del BTN defiendes más selectivo que en cash 100 bb: manos dominadas (K9o vs range fuerte) y basura foldean. Value (TT+, AQo+) y algunos 3-bet de presión (A5s) entran en el plan.",
-      "ICM reminder (S-00): pagar light «porque tengo outs» puede ser +EV en fichas pero −EV en € si quedas fuera. En M0 prioriza no overdefender; en M2 afinamos calls vs shove.",
-      "Trampa: overdefend (pagar demasiadas manos) o nunca 3-betear cuando el spot pide presión — regalas ciegas gratis al steal."
-    ],
-    "examples": [
-      {
-        "title": "3-bet shove vs steal",
-        "body": "BTN abre steal a 20 bb, tú BB con AKo: 3-bet shove suele ser mejor que call — maximizas fold equity o vas all-in con mano premium."
-      },
-      {
-        "title": "Fold correcto",
-        "body": "BTN steal, tú BB con T8o: fold típico. Dominada, OOP y stack corto — no es spot para hero-call."
-      }
-    ],
-    "aiQuestions": [
-      "¿Cuándo defiendo BB con call vs 3-bet shove en un Spin?",
-      "¿Qué es overdefender en ciegas?"
-    ],
-    "spots": "SPIN_VS_STEAL",
-    "exam": false,
-    "id": "S-02",
-    "title": "Defensa ciega vs steal"
-  },
-  {
-    "route": "spin",
-    "module": "M0",
-    "order": 3,
-    "plan": "study",
-    "xp": 120,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 6,
-    "concept": "Repaso M0: anatomía Spin (fichas ≠ €), steal desde BTN/SB y defensa BB. Sin vocabulario nuevo — aplica el checklist con calma.",
-    "theory": [
-      "Paso 1 — ¿Qué spot es? Steal (tú abres para robar) vs defensa BB (te abren). Examen = mezcla de ambos.",
-      "Paso 2 — Stack en bb: ~20 bb → opens y 3-bets más agresivos; no juegues como cash 100 bb.",
-      "Paso 3 — Acción: fold / open / 3-bet (o shove). Recuerda: en Spin perder stack ≈ perder torneo.",
-      "Checklist rápido: posición → stack bb → ¿fold equity o necesito valor? → ejecuta sin spew."
-    ],
-    "examples": [
-      {
-        "title": "Antes de clicar",
-        "body": "Lee posición y stack antes de la mano. «BTN 22 bb steal» y «BB 20 bb vs steal» no usan el mismo rango mental."
-      }
-    ],
-    "aiQuestions": [
-      "Repásame steal vs defensa BB en 20 bb",
-      "¿Qué errores evitar en el examen M0 Spins?"
-    ],
-    "spots": "SPIN_EXAM_M0",
-    "exam": true,
-    "id": "S-03",
-    "title": "Examen M0 · Spins"
-  },
-  {
-    "route": "spin",
-    "module": "M1",
-    "order": 4,
-    "plan": "study",
-    "xp": 100,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 4,
-    "concept": "Si alguien limpea (igualar la ciega grande para entrar sin subir), aíslas (iso = subir para jugar heads-up) con manos fuertes. No overcommiteas con basura a stack corto.",
-    "theory": [
-      "Limpear en recreativos: entran baratos. Iso castiga: subes para que solo el limper pague (idealmente) y tú llevas iniciativa heads-up (1 vs 1).",
-      "Sizing iso: bastante para aislar, pero sin meter todo el stack sin querer a 15–20 bb. Objetivo: pot manejable con mano que domina limps wide.",
-      "Manos iso: Ax suited, broadways, pares medios+. Fold basura (72o, Q8o) — no aísles «porque estoy en BTN».",
-      "Trampa: overiso trash o limpear tú detrás sin plan — regalas ciegas o entras multiway OOP."
-    ],
-    "examples": [
-      {
-        "title": "Iso clásico",
-        "body": "SB limpea, BTN con AJs: iso a ~3–4 bb. Quieres heads-up con mano que domina el rango de limp."
-      },
-      {
-        "title": "Fold vs limp",
-        "body": "BTN con 72o vs limp SB: fold. No iso — no domina nada y el pot se complica."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué manos iso desde BTN vs limp en Spin?",
-      "¿Por qué no limpear yo en stacks cortos?"
-    ],
-    "spots": "SPIN_ISO",
-    "exam": false,
-    "id": "S-04",
-    "title": "Iso y open vs limps cortos"
-  },
-  {
-    "route": "spin",
-    "module": "M1",
-    "order": 5,
-    "plan": "study",
-    "xp": 120,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 6,
-    "concept": "Con stacks cortos (~10–15 bb), el 3-bet correcto suele ser shove (all-in), no una resubida pequeña que te deja en calle sin salida.",
-    "theory": [
-      "Stack-off threshold: por debajo de ~15–20 bb (según spot), 3-bet shove es más limpio que 3-bet pequeño + decisión en turn/river imposible.",
-      "Shove value: AX fuerte, pares medios+. Shove farol: algunas Ax suited con blockers. Flat (hacer call al open) solo manos que quieren ver flop barato — pocas aquí.",
-      "Open shove desde BTN/SB a ~10 bb entra en push/fold (S-09): no min-raise «como cash».",
-      "Trampa: 3-bet pequeño spew o flat dominado vs open short — te quedan 5 bb y OOP."
-    ],
-    "examples": [
-      {
-        "title": "3-bet shove vs open",
-        "body": "CO open a 12 bb, tú BTN con 99: shove suele ser mejor que 3-bet a 3 bb — o doblas o foldas limpio."
-      },
-      {
-        "title": "No flat dominado",
-        "body": "Open steal, tú BB con K9o a 14 bb: fold o shove selectivo — flat OOP rara vez es correcto."
-      }
-    ],
-    "aiQuestions": [
-      "¿Cuándo 3-bet shove en lugar de 3-bet pequeño?",
-      "¿Qué es flat en preflop?"
-    ],
-    "spots": "SPIN_SHOVE",
-    "exam": false,
-    "id": "S-05",
-    "title": "3-bet shove vs flat"
-  },
-  {
-    "route": "spin",
-    "module": "M1",
-    "order": 6,
-    "plan": "study",
-    "xp": 90,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Chip lead (más fichas que los rivales): puedes presionar ciegas y opens flojos, pero no pagas shoves light solo porque «tengo más fichas» — recuerda fichas ≠ € (ICM).",
-    "theory": [
-      "Cover vs short: si eres el stack más grande (cover), aplicas presión — steals, iso, 3-bets — para robar o eliminar al short.",
-      "No suicides el lead: call shove light vs short porque «soy favorito en equity» puede ser ICM suicide — pierdes torneo y el 2.º puesto no paga igual que el 1.º.",
-      "Objetivo: acumular fichas sin regalar dobles fáciles. Presiona spots donde el short folda; foldea cuando su shove representa value.",
-      "Trampa: confundir «tengo más fichas» con «debo pagar todo» — en Spin el payout manda."
-    ],
-    "examples": [
-      {
-        "title": "Presión con cover",
-        "body": "Short tiene 8 bb, tú 25 bb en BTN: steal wide — el short no puede defenderte todo."
-      },
-      {
-        "title": "Fold con cover",
-        "body": "Short shove 10 bb desde SB, tú BB cover con A9o: a veces fold es correcto si ICM aprieta (cerca del dinero)."
-      }
-    ],
-    "aiQuestions": [
-      "¿Cómo uso el chip lead sin spew?",
-      "¿Qué es ICM suicide?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "S-06",
-    "title": "Chip lead vs short"
-  },
-  {
-    "route": "spin",
-    "module": "M1",
-    "order": 7,
-    "plan": "study",
-    "xp": 90,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Short stack (pocas bb): necesitas fichas para llegar al payout, pero no cualquier all-in. Elige double-up (doblar) claros con fold equity o equity decente.",
-    "theory": [
-      "Short vs cover: el rival tiene más fichas y puede eliminarte. Shove selectivo — manos que foldan often o van bien cuando te pagan.",
-      "Survive + pick spots: a veces fold es correcto aunque «necesites fichas». Perder todo en flip malo = 0 €.",
-      "Fold equity: si shoveas y todos folden, ganas el bote sin showdown — vital cuando eres short.",
-      "Trampa: panic shove con basura vs cover que paga wide — te eliminan sin EV real."
-    ],
-    "examples": [
-      {
-        "title": "Shove con fold equity",
-        "body": "10 bb en BTN, todos fold hasta ti: shove A5s — folds ganan ciegas; si te pagan, aún tienes equity."
-      },
-      {
-        "title": "Fold para sobrevivir",
-        "body": "8 bb en BB, cover shove desde SB: fold 65o aunque «necesites fichas» — dominada y sin fold equity."
-      }
-    ],
-    "aiQuestions": [
-      "¿Cuándo shovea el short stack?",
-      "¿Qué es double-up en un Spin?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "S-07",
-    "title": "Short vs cover"
-  },
-  {
-    "route": "spin",
-    "module": "M1",
-    "order": 8,
-    "plan": "study",
-    "xp": 130,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 4,
-    "concept": "Repaso M1: iso vs limp, 3-bet shove, chip lead y short vs cover. Examen = mezcla sin teoría nueva.",
-    "theory": [
-      "¿Limp en mesa? → iso (aislar) con manos fuertes; fold basura — no regales pot multiway.",
-      "¿Te abren en zona corta? → 3-bet shove o fold; evita 3-bet pequeño que te deja sin stack útil.",
-      "¿Eres cover (más fichas) o short? → cover presiona steals; short elige shoves con fold equity, no panic.",
-      "Antes de actuar: anota stack en bb + posición + rol (steal / defensa / iso / push)."
-    ],
-    "examples": [
-      {
-        "title": "Checklist examen",
-        "body": "Lee stack y limp/open antes de clicar. M1 Spins = acciones binarias (shove/fold) más often que en M0."
-      }
-    ],
-    "aiQuestions": [
-      "Repásame iso y 3-bet shove en Spins",
-      "¿Cover o short — cómo cambia mi plan?"
-    ],
-    "spots": "SPIN_EXAM_M1",
-    "exam": true,
-    "id": "S-08",
-    "title": "Examen M1 · Spins"
-  },
-  {
-    "route": "spin",
-    "module": "M2",
-    "order": 9,
-    "plan": "study",
-    "xp": 140,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 6,
-    "concept": "Entre 12 y 8 bb entras en push/fold: casi no hay open pequeño — decides shove (all-in) o fold según charts de stack corto.",
-    "theory": [
-      "Push/fold: con stack muy corto, min-raise deja poco fold equity y te commitea mal. Regla práctica: all-in o fold.",
-      "BTN shovea más wide que posiciones tempranas (en 3-max: BTN vs blinds es el steal más loose). Usa menú Rangos / charts push-fold como referencia.",
-      "Shove = poner todas las fichas. No confundas con open 2x — a 10 bb eso suele ser leak.",
-      "Trampa: open min a 10 bb «como cash» y fold al 3-bet — pierdes ciegas + iniciativa."
-    ],
-    "examples": [
-      {
-        "title": "Push desde BTN",
-        "body": "10 bb BTN, folds a ti: shove KTs — o robas o vas all-in con equity si te pagan."
-      },
-      {
-        "title": "Fold en zona gris",
-        "body": "9 bb UTG equivalente (HJ first in 3-max): Q9o often fold — peor fold equity que BTN."
-      }
-    ],
-    "aiQuestions": [
-      "¿Por qué no min-raise a 10 bb?",
-      "¿Dónde veo charts push/fold en la app?"
-    ],
-    "spots": "SPIN_PUSH",
-    "exam": false,
-    "id": "S-09",
-    "title": "Push/fold 12–8 bb"
-  },
-  {
-    "route": "spin",
-    "module": "M2",
-    "order": 10,
-    "plan": "study",
-    "xp": 130,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Cuando te shovean, el call correcto suele ser más tight que «chip EV» (valor en fichas): ICM castiga arriesgar tu torneo por un flip.",
-    "theory": [
-      "Chip EV: solo mira fichas ganadas/perdidas en promedio. ICM: mira € según payout 1.º/2.º/3.º. En Spins, overfold vs shove suele ser correcto.",
-      "Call shove con manos fuertes (pares altos, Ax fuerte); fold manos medias que en cash 100 bb pagarías (A9o, KQo marginal).",
-      "Hero-call: pagar shove «porque puedo ganar» sin odds de payout — trampa ICM.",
-      "Vs shove del short: a veces pagas wider (eliminarlo te da €); vs cover, más tight."
-    ],
-    "examples": [
-      {
-        "title": "Fold ICM correcto",
-        "body": "Cover te shovea, tú 22 bb con AJo: a veces fold es mejor que flip — quedarte 2.º paga algo; bust = 0 €."
-      },
-      {
-        "title": "Call vs short",
-        "body": "Short shove 7 bb, tú BB con 99: call claro — equity alta y eliminar rival acerca al 1.º puesto."
-      }
-    ],
-    "aiQuestions": [
-      "¿Chip EV vs ICM en un call shove?",
-      "¿Qué es hero-call en torneo?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "S-10",
-    "title": "Call shove ICM"
-  },
-  {
-    "route": "spin",
-    "module": "M2",
-    "order": 11,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "A veces un call gana fichas en promedio (+EV chips) pero pierde dinero de torneo (−EV $). Aprende a oler esos spots antes de pagar.",
-    "theory": [
-      "+EV chips / −EV $: ganas fichas a largo plazo pero reduces tu premio esperado en € porque arriesgas eliminación cerca del dinero.",
-      "Pay jump: salto entre 2.º y 1.º (o ITM vs bust). Cuanto mayor el salto, más caro es flippear.",
-      "Prioriza supervivencia cuando el payout pesa: fold manos que «van bien en fichas» pero no justifican bust.",
-      "Trampa ICM suicide: call shove light porque «soy 55 % favorito» ignorando que bust = perder la entrada entera."
-    ],
-    "examples": [
-      {
-        "title": "Spot +EV chips / −EV $",
-        "body": "3-max, 2.º ya cobra, tú mid con 18 bb call shove de cover con A8s: puede ser +chips pero −€ si bust te cuesta el segundo premio grande."
-      }
-    ],
-    "aiQuestions": [
-      "¿Cómo detecto un spot −EV en dinero?",
-      "¿Qué es pay jump en un Spin 3-max?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "S-11",
-    "title": "Malos spots +EV chips / −EV $"
-  },
-  {
-    "route": "spin",
-    "module": "M2",
-    "order": 12,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Payout 5× (premio total cinco veces las entradas) aprieta más que 2×/3×: juegas más tight — el 1.º pesa mucho y el 2.º duele más perder.",
-    "theory": [
-      "Multiplicador (S-00): 2×/3×/5× cambia cuánto € hay en juego. En 5× el 1.º se lleva una parte mayor — ICM más fuerte.",
-      "5× → menos steals locos, más tight vs shove, menos flips marginales. 2× → algo más de chip EV permitido.",
-      "Misma mano, distinto payout: AJo call shove puede ser OK en 2× y fold en 5×.",
-      "Trampa: jugar igual el spin de 2× que el de 5× — leak muy caro en lobbies reales."
-    ],
-    "examples": [
-      {
-        "title": "5× más tight",
-        "body": "Ruleta mostró 5× antes de empezar: guarda ese dato mental. Si dudas entre shove marginal y fold, inclínate a fold."
-      }
-    ],
-    "aiQuestions": [
-      "¿Cómo cambia mi juego en payout 5×?",
-      "¿Dónde veo el multiplicador en la mesa?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "S-12",
-    "title": "Ajuste 3× vs 5× payout"
-  },
-  {
-    "route": "spin",
-    "module": "M2",
-    "order": 13,
-    "plan": "coach",
-    "xp": 150,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Examen ICM Spins: push/fold, call shove, +EV chips vs −EV $ y ajuste por payout. Sin teoría nueva.",
-    "theory": [
-      "Pregunta clave en cada spot: ¿decido mirando solo fichas (chip EV) o el premio en € (ICM)?",
-      "¿Stack ≤12 bb? → push/fold: shove (all-in) o fold; no min-raise estilo cash.",
-      "¿Multiplicador 2×/3× vs 5×? → en 5× juega más tight en calls y steals marginales.",
-      "Checklist examen: stack bb → rol cover/short → payout → fold / shove / call."
-    ],
-    "examples": [
-      {
-        "title": "Antes del examen",
-        "body": "Repasa S-09…S-12: push/fold, overfold vs shove, spots −EV $, 5× más tight."
-      }
-    ],
-    "aiQuestions": [
-      "Repásame ICM en Spins en 3 frases",
-      "¿Cuándo fold aunque sea +EV en fichas?"
-    ],
-    "spots": [],
-    "exam": true,
-    "id": "S-13",
-    "title": "Examen ICM · Spins"
-  },
-  {
-    "route": "spin",
-    "module": "M3",
-    "order": 14,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Bubble factor (presión de «burbuja»): mide cuánto duele arriesgar fichas cerca de un salto de pago. En Spin 3-max el heads-up (HU) ya es pay jump decisivo.",
-    "theory": [
-      "Bubble: zona donde un bust te deja sin € y otro jugador cobra. En 3-max, pasar de 3.º a 2.º o de 2.º a 1.º ya es bubble mental.",
-      "Pay jump HU: el 1.º vs 2.º puede ser 70/30 o similar — no es indiferente flippear.",
-      "Bubble factor alto → fold más, shove más selectivo. No regales el second place barato.",
-      "Trampa: ignorar el payout en el all-in que decide el torneo — un flip puede costarte € aunque sea 50/50 en fichas."
-    ],
-    "examples": [
-      {
-        "title": "HU pay jump",
-        "body": "Heads-up (2 jugadores): el 1.º gana mucho más que el 2.º. Un flip innecesario puede costarte la diferencia en € aunque ganes fichas 50/50."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué es bubble factor en un Spin?",
-      "¿Por qué importa el pay jump heads-up?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "S-14",
-    "title": "Bubble factor mental HU pay jump"
-  },
-  {
-    "route": "spin",
-    "module": "M3",
-    "order": 15,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Range vs range: antes de shove o call, piensa en bandas de manos (rangos), no solo «mi carta es bonita».",
-    "theory": [
-      "Rango: conjunto de manos que el rival puede tener. Ej.: «BTN shove 10 bb» suele ser más wide que «BB call vs shove».",
-      "Tu shove: ¿qué manos peores pagan? ¿qué manos mejores te tienen? Si estás dominado often, fold.",
-      "Range vs range: tu AK vs su shove range — no AK vs «creo que tiene QQ».",
-      "Trampa: decidir solo por sensación («me gusta mi mano») sin nombrar el rango rival probable."
-    ],
-    "examples": [
-      {
-        "title": "Nombrar rangos",
-        "body": "BTN shove 10 bb: muchas Ax, pares, conectadas. BB call: más tight — pares, Ax fuerte. A5o desde BB vs shove BTN: often fold."
-      }
-    ],
-    "aiQuestions": [
-      "¿Cómo estimo el rango de shove del BTN?",
-      "¿Range vs range en call shove?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "S-15",
-    "title": "Range vs range shove/call"
-  },
-  {
-    "route": "spin",
-    "module": "M3",
-    "order": 16,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Explotación: vs nit (pasa mucho) stealeas más; vs maniac (juega muchas manos agresivo) defiendes tighter y value-shoveas más limpio.",
-    "theory": [
-      "Nit: folda steals — abre/stealea más wide. No necesitas GTO perfecto si el rival tira todo.",
-      "Maniac: paga y shovea wide — reduce faroles, value-shove más grueso, no bluffcatch light.",
-      "Ajuste > chart ciego: observa 10–20 manos del rival en lobby si puedes.",
-      "Trampa: jugar GTO de libro vs nit/maniac obvios — dejas € sobre la mesa si no ajustas al rival real."
-    ],
-    "examples": [
-      {
-        "title": "Vs nit",
-        "body": "SB folda 80 % vs steal BTN: abre wider — cualquier fold es fichas gratis hacia el payout."
-      },
-      {
-        "title": "Vs maniac",
-        "body": "BB paga y 3-betea light: tighten opens marginales, shove value (TT+) más often."
-      }
-    ],
-    "aiQuestions": [
-      "¿Cómo exploto a un nit en Spins?",
-      "¿Qué cambio vs un maniac?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "S-16",
-    "title": "Explotación nit vs maniac"
-  },
-  {
-    "route": "spin",
-    "module": "M3",
-    "order": 17,
-    "plan": "coach",
-    "xp": 150,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Certificación Spin Pro: integra anatomía (fichas≠€), steal/defensa, push/fold, ICM, payout y explotación. Sin vocabulario nuevo.",
-    "theory": [
-      "Repaso mental: ¿cuántas bb tengo? ¿Es spot de steal, defensa BB, iso vs limp o push/fold?",
-      "¿Soy cover (más fichas) o short? ¿El multiplicador fue 2×/3× o 5×? Eso cambia tightness.",
-      "¿Decido en fichas (chip EV) o en euros (ICM)? ¿Nombré el rango rival antes de call/shove?",
-      "Checklist final del examen: posición → stack bb → payout → acción sin spew ni hero-call."
-    ],
-    "examples": [
-      {
-        "title": "Plan Pro en una frase",
-        "body": "Sobrevive al payout correcto, presiona con cover, shove/fold limpio short, overfold ICM cuando el pay jump duele."
-      }
-    ],
-    "aiQuestions": [
-      "Repásame plan Spin Pro completo",
-      "¿Cuándo overfoldeo vs shove en 5×?"
-    ],
-    "spots": [],
-    "exam": true,
-    "id": "S-17",
-    "title": "Examen Pro · Spins"
-  }
-];
+    {
+      "route": "spin",
+      "module": "M0",
+      "order": 0,
+      "plan": "free",
+      "xp": 40,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Pagas una entrada (buy-in) en dinero real y la sala te reparte fichas de torneo: en mesa nunca juegas «euros», solo fichas. Un Spin & Go es un torneo de tres jugadores (3-max); el premio total se sortea al inicio (2×, 3× o 5× las entradas). Por eso no es cash: sobrevivir y quedar bien posicionado vale más que acumular fichas sin plan.",
+      "theory": [
+        "Spin & Go (o «Spin»): torneo muy corto de 3 jugadores. Pagas una entrada fija (por ejemplo 10 €) y recibes un stack de fichas con ciegas (apuestas obligatorias cada mano). Igual que en un MTT normal: las fichas son moneda del torneo, no se cambian 1 a 1 por dinero en la mesa.",
+        "Buy-in (entrada): lo que pagas para registrarte. Las tres entradas forman un prize pool (bote de premios). Antes de repartir cartas, una ruleta decide el multiplicador: 2×, 3× o 5×. Con entradas de 10 € y 3× hay 30 € en juego para repartir según 1.º, 2.º y 3.º — no según «cuántas fichas te quedan» convertidas a euros.",
+        "Fichas y ciegas: la ciega pequeña (SB) y la ciega grande (BB) suben cada cierto tiempo (levels). Medir tu stack en bb (ciegas grandes) ayuda: «tengo 20 bb» = tu stack ÷ BB. En spins empiezas corto (a menudo 15–25 bb), así que cada mano pesa más que en cash a 100 bb.",
+        "ICM (modelo de fichas vs dinero): en torneo, doblar fichas no siempre duplica tu premio esperado en €. Cuanto más cerca estás de cobrar (top 2 o ganar), más caro es arriesgar todo en un flip (cara a cara). A veces fold es correcto aunque «en fichas» el call parezca rentable — lo profundizamos en S-02 y M2.",
+        "Mapa mental antes de practicar (S-01 en adelante): ¿estoy robando ciegas (steal = abrir para que todos tiren)? ¿Defendiendo BB o SB? ¿En zona push/fold (solo shove o fold)? Si vienes del cash, olvida «cada ficha vale X céntimos»: piensa supervivencia + payout, no pot de cash."
+      ],
+      "examples": [
+        {
+          "title": "Entrada ≠ fichas en mesa",
+          "body": "Entras por 5 € y te dan 500 fichas con ciegas 10/20. Tienes 25 bb (500 ÷ 20). Nadie te paga 5 € por tus 500 fichas: solo sirven para ganar posición y llevarte el premio del torneo."
+        },
+        {
+          "title": "Payout 3× en números",
+          "body": "Tres jugadores entran a 10 €. Sale 3× → 30 € en premios. El 1.º se lleva la mayor parte; el 2.º una fracción; el 3.º no cobra. Eliminar a un rival te acerca a dinero real, no solo a tener más fichas sin eliminar a nadie."
+        },
+        {
+          "title": "Por qué no es cash",
+          "body": "En cash 6-max puedes levantarte y cambiar fichas por dinero. En un Spin no: o ganas el torneo (o quedas 2.º) o pierdes la entrada. Las decisiones miden riesgo de eliminación, no solo EV (valor esperado) de fichas aisladas."
+        }
+      ],
+      "aiQuestions": [
+        "¿Por qué mis fichas no valen lo mismo que euros en un Spin?",
+        "¿Qué significa payout 2×, 3× o 5× con un ejemplo?",
+        "¿En qué se diferencia jugar un Spin del cash 6-max?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "S-00",
+      "title": "Anatomía de un Spin"
+    },
+    {
+      "route": "spin",
+      "module": "M0",
+      "order": 1,
+      "plan": "free",
+      "xp": 100,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 6,
+      "concept": "Con 20–25 bb (ciegas grandes), desde BTN o SB robas ciegas (steal) con dos tamaños: shove (all-in) con manos fuertes y open ~2,5 bb con manos medias del rango GTO — no todo es min-raise.",
+      "theory": [
+        "Steal (robo de ciegas): open-raise esperando que todos folden. A 20–25 bb las ciegas son un % grande del stack; fold equity vale mucho.",
+        "Dos tamaños a ~20 bb: premium y pares medios fuertes (99+, ATo+, KQs) suelen ir shove; suited connectors y broadways medias van open ~2,5 bb (3 bb desde SB).",
+        "BTN vs SB: desde BTN robas más wide porque solo quedan SB y BB detrás. Desde SB abres más tight y con menos shoves marginales — si te pagan, juegas OOP.",
+        "Trampa clásica: min-open con AK/99 a 20 bb o pagar un 3-bet shove con basura — en Spin perder el stack suele ser perder el torneo."
+      ],
+      "examples": [
+        {
+          "title": "Steal desde BTN",
+          "body": "BTN con 22 bb y 99: shove all-in (fold equity + valor). Con 87s: open a ~2,5 bb — roba ciegas sin commitear todo el stack."
+        },
+        {
+          "title": "SB más tight que BTN",
+          "body": "Misma mano Q8o: open desde BTN a veces OK; desde SB a menudo fold porque el BB aún actúa y tú quedarás OOP si te pagan."
+        }
+      ],
+      "aiQuestions": [
+        "¿Por qué robo más ciegas a 20 bb que a 100 bb en cash?",
+        "¿Qué hago si me 3-betean shove tras mi steal?"
+      ],
+      "spots": "SPIN_RFI_STEAL",
+      "exam": false,
+      "id": "S-01",
+      "title": "Open steal BTN/SB 20–25 bb"
+    },
+    {
+      "route": "spin",
+      "module": "M0",
+      "order": 2,
+      "plan": "study",
+      "xp": 110,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 6,
+      "concept": "Cuando BTN o SB abren corto (steal), desde la ciega grande (BB) eliges fold, hacer call o 3-bet — a veces shove (all-in). En torneo corto un error cuesta la entrada entera, no solo un pot.",
+      "theory": [
+        "Defensa de ciegas: el rival intenta robarte SB+BB. Tú puedes fold (tirar), call (igualar para ver flop) o 3-bet (resubir). A 20–25 bb el 3-bet shove es frecuente: o vas all-in o fold — pocos flats.",
+        "Vs steal wide del BTN defiendes más selectivo que en cash 100 bb: manos dominadas (K9o vs range fuerte) y basura foldean. Value (TT+, AQo+) y algunos 3-bet de presión (A5s) entran en el plan.",
+        "ICM reminder (S-00): pagar light «porque tengo outs» puede ser +EV en fichas pero −EV en € si quedas fuera. En M0 prioriza no overdefender; en M2 afinamos calls vs shove.",
+        "Trampa: overdefend (pagar demasiadas manos) o nunca 3-betear cuando el spot pide presión — regalas ciegas gratis al steal."
+      ],
+      "examples": [
+        {
+          "title": "3-bet shove vs steal",
+          "body": "BTN abre steal a 20 bb, tú BB con AKo: 3-bet shove suele ser mejor que call — maximizas fold equity o vas all-in con mano premium."
+        },
+        {
+          "title": "Fold correcto",
+          "body": "BTN steal, tú BB con T8o: fold típico. Dominada, OOP y stack corto — no es spot para hero-call."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cuándo defiendo BB con call vs 3-bet shove en un Spin?",
+        "¿Qué es overdefender en ciegas?"
+      ],
+      "spots": "SPIN_VS_STEAL",
+      "exam": false,
+      "id": "S-02",
+      "title": "Defensa ciega vs steal"
+    },
+    {
+      "route": "spin",
+      "module": "M0",
+      "order": 3,
+      "plan": "study",
+      "xp": 120,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 6,
+      "concept": "Repaso M0 sin vocabulario nuevo: anatomía del Spin (fichas ≠ euros), steal desde BTN/SB a ~20 bb y defensa desde BB. Aplica el checklist con calma antes de cada clic.",
+      "theory": [
+        {
+          "title": "Identifica el spot",
+          "body": "El examen mezcla dos trabajos mentales que ya viste. O estás robando ciegas (steal: abres tú para que SB y BB se tiren) o estás defendiendo la ciega grande cuando te abren. Antes de actuar, nombra en voz baja qué spot es: no uses el mismo rango mental para ambos."
+        },
+        {
+          "title": "Stack en bb, no en cash",
+          "body": "Mide el stack en ciegas grandes (bb). A ~20 bb los opens y los 3-bets son más agresivos que en cash a 100 bb: hay más fold equity (probabilidad de que el rival se tire) y menos margen para jugar postflop cómodo. Si piensas «como en cash», te vas a quedar corto de plan."
+        },
+        {
+          "title": "Acción limpia",
+          "body": "Las respuestas típicas son fold, open (subir primero) o 3-bet — a menudo shove (all-in). Recuerda: en un Spin perder el stack suele ser perder el torneo. No inventes min-raises raros ni hero-calls «porque puedo ganar»."
+        },
+        {
+          "title": "Checklist rápido",
+          "body": "Orden mental: posición → stack en bb → ¿busco fold equity o valor? → ejecuta sin spew (tirar fichas sin plan). Si dudas entre una jugada fancy y la jugada simple del chart, elige la simple."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Antes de clicar",
+          "body": "Lee posición y stack antes de la mano. «BTN 22 bb, folds a ti» pide un rango de steal; «BB 20 bb vs steal BTN» pide defensa selectiva. Misma profundidad, distinto trabajo."
+        },
+        {
+          "title": "Error típico del examen",
+          "body": "Min-open con 99 o AKo a 20 bb «como en cash», o hacer call light desde BB con basura dominada. En M0 Spins, premium corto suele ir shove; basura se tira."
+        },
+        {
+          "title": "Una frase para aprobar",
+          "body": "Si eres el primero en entrar a ~20 bb, piensa steal (shove o open ~2,5 bb). Si te abren en BB, piensa fold / hacer call / 3-bet shove — no overdefiendas."
+        }
+      ],
+      "aiQuestions": [
+        "Repásame steal vs defensa BB en 20 bb",
+        "¿Qué errores evitar en el examen M0 Spins?"
+      ],
+      "spots": "SPIN_EXAM_M0",
+      "exam": true,
+      "id": "S-03",
+      "title": "Examen M0 · Spins"
+    },
+    {
+      "route": "spin",
+      "module": "M1",
+      "order": 4,
+      "plan": "study",
+      "xp": 100,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 4,
+      "concept": "Si alguien limpea (iguala la ciega grande para entrar sin subir), aíslas con un iso-raise: subes para jugar heads-up (1 vs 1) con manos fuertes. A stack corto no overiso con basura ni limpeas tú sin plan.",
+      "theory": [
+        {
+          "title": "Qué es limpear e iso",
+          "body": "Limpear es igualar la BB para ver flop barato, sin iniciativa. Iso (aislar) es subir por encima del limp para que, idealmente, solo el limper pague y tú lleves la iniciativa heads-up. Castigas el limp recreativo y evitas el pot multiway (varios jugadores) fuera de posición."
+        },
+        {
+          "title": "Sizing y profundidad",
+          "body": "El iso debe ser lo bastante grande para aislar, pero a 15–20 bb no metas el stack entero «sin querer». Buscas un pot manejable con una mano que domina rangos de limp wide (Ax suited, broadways, pares medios+). Si el sizing te deja committed con basura, el plan ya falló preflop."
+        },
+        {
+          "title": "Qué manos iso (y cuáles no)",
+          "body": "Iso con manos que quieres heads-up con ventaja: AJs, KQs, 99+, broadways fuertes. Fold con basura (72o, Q8o): no aísles «porque estás en BTN». Overiso trash te deja multiway dominado o pagando un shove sin equity real."
+        },
+        {
+          "title": "Trampa: limpear tú detrás",
+          "body": "Limpear detrás de un limp a stack corto suele regalar ciegas o meterte multiway OOP (fuera de posición). Si la mano no merece iso, fold. Open/iso o tirar — no «ver barato» sin plan en un Spin."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Iso clásico desde BTN",
+          "body": "SB limpea, tú BTN con AJs a ~20 bb: iso a ~3–4 bb. Quieres heads-up contra un rango de limp débil, con iniciativa y una mano que domina muchas de sus combinaciones."
+        },
+        {
+          "title": "Fold correcto vs limp",
+          "body": "BTN con 72o vs limp SB: fold. No hay valor en aislar: no dominas nada, y si te pagan o entra alguien más el pot se complica sin equity."
+        },
+        {
+          "title": "KQs desde SB vs limp",
+          "body": "BTN limpea corto y tú SB con KQs: iso por valor. Mano fuerte, quieres bote heads-up con iniciativa — no hacer call flat detrás del limp."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué manos iso desde BTN vs limp en Spin?",
+        "¿Por qué no limpear yo en stacks cortos?"
+      ],
+      "spots": "SPIN_ISO",
+      "exam": false,
+      "id": "S-04",
+      "title": "Iso y open vs limps cortos"
+    },
+    {
+      "route": "spin",
+      "module": "M1",
+      "order": 5,
+      "plan": "study",
+      "xp": 120,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 6,
+      "concept": "Con stacks cortos (~10–15 bb), el 3-bet correcto suele ser shove (all-in), no una resubida pequeña que te deja en calle sin stack útil. Flat (hacer call al open) casi no existe aquí.",
+      "theory": [
+        {
+          "title": "Umbral de stack-off",
+          "body": "Por debajo de ~15–20 bb (según el spot), un 3-bet pequeño te deja con poquísimas bb detrás y decisiones imposibles en turn/river. El 3-bet shove es más limpio: o doblas, o el rival se tira, o vas all-in con un plan cerrado preflop."
+        },
+        {
+          "title": "Shove value y farol",
+          "body": "Shove por valor con Ax fuerte, pares medios+ y premiums. Algunos Ax suited (con blockers: cartas que restan combinaciones fuertes al rival) entran como shove de presión. Flat — hacer call al open para ver flop barato — solo tiene sentido con manos que realmente quieren flop barato; a esta profundidad casi no las hay."
+        },
+        {
+          "title": "Open shove y push/fold",
+          "body": "Desde BTN/SB a ~10 bb entras en zona push/fold (lo profundizamos en S-09): no min-raisees «como en cash». Un open min a 10 bb suele ser leak: poco fold equity y mal committed si te 3-betean."
+        },
+        {
+          "title": "Trampas a evitar",
+          "body": "3-bet pequeño spew (fichas sin plan) o flat dominado vs open short: te quedas con 5 bb OOP y sin fold equity. Si no es shove claro ni fold claro, no inventes el medio."
+        }
+      ],
+      "examples": [
+        {
+          "title": "3-bet shove vs open",
+          "body": "Alguien abre a 12 bb y tú BTN con 99: shove suele ser mejor que 3-bet a 3 bb. Quieres doblar limpio o que folden; no quieres un pot extraño con stack residual inútil."
+        },
+        {
+          "title": "No flat dominado",
+          "body": "Steal a 14 bb, tú BB con K9o: fold o, como mucho, shove muy selectivo según el rival. Hacer call OOP con mano dominada rara vez es correcto a esta profundidad."
+        },
+        {
+          "title": "Premium = all-in",
+          "body": "BB vs steal SB con AKo a 15 bb: 3-bet shove. Un 3-bet pequeño deja al rival hacer call wide y a ti jugando un stack corto sin salida clara."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cuándo 3-bet shove en lugar de 3-bet pequeño?",
+        "¿Qué es flat en preflop?"
+      ],
+      "spots": "SPIN_SHOVE",
+      "exam": false,
+      "id": "S-05",
+      "title": "3-bet shove vs flat"
+    },
+    {
+      "route": "spin",
+      "module": "M1",
+      "order": 6,
+      "plan": "study",
+      "xp": 90,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Chip lead (más fichas que los rivales): puedes presionar ciegas y opens flojos, pero no pagues shoves light solo porque «tengo más fichas». Recuerda fichas ≠ euros (ICM).",
+      "theory": [
+        {
+          "title": "Cover vs short",
+          "body": "Si eres el stack más grande (cover), aplicas presión: steals, iso, 3-bets. Quieres robar ciegas o poner al short en decisiones difíciles. El lead te da fold equity extra porque el rival arriesga su torneo al pegarte."
+        },
+        {
+          "title": "No suicides el lead",
+          "body": "Hacer call shove light vs short «porque soy favorito en equity» puede ser ICM suicide: pierdes el torneo y el 2.º puesto no paga igual que el 1.º. Chip EV (valor solo en fichas) no es lo mismo que € esperados según el payout."
+        },
+        {
+          "title": "Objetivo con cover",
+          "body": "Acumula fichas sin regalar dobles fáciles. Presiona spots donde el short folda mucho; foldea cuando su shove representa value claro. El lead se usa para robar, no para hero-call por orgullo."
+        },
+        {
+          "title": "Trampa mental",
+          "body": "Confundir «tengo más fichas» con «debo pagar todo» es el leak clásico del chip leader en Spins. El payout manda: a veces fold con cover es la jugada profesional."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Presión con cover",
+          "body": "Short tiene 8 bb, tú 25 bb en BTN: steal wide. El short no puede defenderte todas las manos; muchas veces te regala las ciegas sin showdown."
+        },
+        {
+          "title": "Fold con cover",
+          "body": "Short shove 10 bb desde SB, tú BB cover con A9o cerca del dinero: a menudo fold es correcto. Eliminarlo es bonito en fichas, pero bustarte a ti mismo cuesta el premio."
+        },
+        {
+          "title": "Cuándo sí pagas",
+          "body": "Short shove 7 bb y tú BB con 99 o AKo: ahí sí haces call — equity alta y eliminar rival acerca al 1.º. No es light; es value claro."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo uso el chip lead sin spew?",
+        "¿Qué es ICM suicide?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "S-06",
+      "title": "Chip lead vs short"
+    },
+    {
+      "route": "spin",
+      "module": "M1",
+      "order": 7,
+      "plan": "study",
+      "xp": 90,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Short stack (pocas bb): necesitas fichas para llegar al payout, pero no cualquier all-in. Elige double-up (doblar) claros con fold equity o equity decente; evita panic shove.",
+      "theory": [
+        {
+          "title": "Short vs cover",
+          "body": "El rival tiene más fichas y puede eliminarte. Tu shove debe ser selectivo: manos que foldan a menudo (fold equity) o que van razonablemente bien cuando te pagan. No eres un cash game a 100 bb — cada all-in decide el torneo."
+        },
+        {
+          "title": "Sobrevive y elige spots",
+          "body": "A veces fold es correcto aunque «necesites fichas». Perder todo en un flip malo = 0 €. Survive + pick spots: esperas un shove con historia (posición, fold equity, mano decent) en lugar de tirarte con basura por ansiedad."
+        },
+        {
+          "title": "Fold equity del short",
+          "body": "Si shoveas y todos folden, ganas el bote sin showdown — vital cuando eres short. Por eso BTN/SB a 8–12 bb shovean más wide que en early: las ciegas ya están en juego y el fold equity paga."
+        },
+        {
+          "title": "Trampa: panic shove",
+          "body": "Panic shove con basura vs un cover que paga wide te elimina sin EV real. Si la mano no tiene fold equity ni equity, fold y espera el siguiente spot — aunque duela el reloj de ciegas."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Shove con fold equity",
+          "body": "10 bb en BTN, folds hasta ti: shove A5s. Si folden, ganas ciegas; si te pagan, aún tienes equity y blockers. Es un double-up candidato, no desesperación."
+        },
+        {
+          "title": "Fold para sobrevivir",
+          "body": "8 bb en BB, cover shove desde SB: fold 65o aunque «necesites fichas». Estás dominado, sin fold equity (él ya está all-in) y el call es solo orgullo."
+        },
+        {
+          "title": "No min-raise short",
+          "body": "Con 9 bb en SB no abras a 2 bb «por ver». Push/fold: shove manos del chart o fold. El open min te deja sin plan si hacen call o te resuben."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cuándo shovea el short stack?",
+        "¿Qué es double-up en un Spin?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "S-07",
+      "title": "Short vs cover"
+    },
+    {
+      "route": "spin",
+      "module": "M1",
+      "order": 8,
+      "plan": "study",
+      "xp": 130,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 4,
+      "concept": "Repaso M1: iso vs limp, 3-bet shove, chip lead y short vs cover. Examen = mezcla de esos spots sin teoría nueva. Más decisiones binarias (shove/fold) que en M0.",
+      "theory": [
+        {
+          "title": "¿Hay limp en mesa?",
+          "body": "Si alguien limpea, iso con manos fuertes y fold basura. No regales pot multiway ni overiso trash. La pregunta útil es si quieres heads-up con esa mano, no si «puedes ver flop» barato."
+        },
+        {
+          "title": "¿Te abren en zona corta?",
+          "body": "A ~10–15 bb responde con 3-bet shove o fold. Evita el 3-bet pequeño que te deja sin stack útil. Flat (hacer call) dominado OOP es trampa de examen."
+        },
+        {
+          "title": "¿Eres cover o short?",
+          "body": "Cover: presiona steals e iso; no hero-call shoves light. Short: elige shoves con fold equity o equity, no panic. El rol (quién tiene más fichas) cambia el plan aunque la mano sea la misma."
+        },
+        {
+          "title": "Antes de actuar",
+          "body": "Anota mentalmente: stack en bb + posición + rol (steal / defensa / iso / push) + ¿cover o short? Luego ejecuta. Si no puedes nombrar el rol en una frase, párate un segundo."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Checklist del examen",
+          "body": "Lee stack y si hay limp u open antes de clicar. M1 Spins premia acciones binarias claras: iso o fold, shove o fold — menos «inventar» que en cash profundo."
+        },
+        {
+          "title": "Misma mano, distinto rol",
+          "body": "A9o: como cover vs short shove cerca del dinero a menudo fold; como short en BTN a 10 bb a menudo shove. El examen mira si leíste el contexto, no solo las cartas."
+        },
+        {
+          "title": "Error M1 típico",
+          "body": "Iso con Q8o «porque limp», o 3-bet a 2,5× con 99 a 12 bb. Ambos son leaks que M1 castiga: basura no se aísla; corto se shovea o se tira."
+        }
+      ],
+      "aiQuestions": [
+        "Repásame iso y 3-bet shove en Spins",
+        "¿Cover o short — cómo cambia mi plan?"
+      ],
+      "spots": "SPIN_EXAM_M1",
+      "exam": true,
+      "id": "S-08",
+      "title": "Examen M1 · Spins"
+    },
+    {
+      "route": "spin",
+      "module": "M2",
+      "order": 9,
+      "plan": "study",
+      "xp": 140,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 6,
+      "concept": "Entre 12 y 8 bb entras en push/fold: casi no hay open pequeño. Decides shove (all-in) o fold según charts de stack corto — el min-raise estilo cash es leak.",
+      "theory": [
+        {
+          "title": "Qué es push/fold",
+          "body": "Con stack muy corto, un min-raise deja poco fold equity y te commitea mal si te resuben. La regla práctica es binaria: all-in o fold. Shove = poner todas las fichas de una vez; no confundas con open a 2 bb."
+        },
+        {
+          "title": "Posición en 3-max",
+          "body": "BTN shovea más wide que las posiciones «tempranas» del Spin (quien habla primero). Desde BTN vs blinds el steal es el más loose; desde SB aún shoveas wide pero el BB defiende mejor. Usa el menú Rangos / charts push-fold como referencia."
+        },
+        {
+          "title": "Por qué no min-raise a 10 bb",
+          "body": "Open min a 10 bb «como cash» y fold al 3-bet: pierdes ciegas e iniciativa. Si la mano merece entrar, suele merecer shove; si no, fold. El medio te deja con 7–8 bb y sin plan."
+        },
+        {
+          "title": "Trampa de zona gris",
+          "body": "Manos medias offsuit en primera voz (equivalente UTG/HJ en 3-max) a menudo son fold aunque en BTN serían shove. Peor fold equity y peor precio cuando te pagan. No copies el chart de BTN a todas las sillas."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Push desde BTN",
+          "body": "10 bb BTN, folds a ti: shove KTs. O robas las ciegas, o vas all-in con equity decente si hacen call. Open a 2 bb aquí suele ser peor."
+        },
+        {
+          "title": "Fold en zona gris",
+          "body": "9 bb first-in (no BTN): Q9o often fold. Tienes peor fold equity que en botón y muchas manos te dominan cuando te pagan."
+        },
+        {
+          "title": "Par medio = shove value",
+          "body": "99 a 10–12 bb en BTN: shove por valor claro. Quieres doblar o robar; no «ver flop barato» con un open min que te deja mal stacked."
+        }
+      ],
+      "aiQuestions": [
+        "¿Por qué no min-raise a 10 bb?",
+        "¿Dónde veo charts push/fold en la app?"
+      ],
+      "spots": "SPIN_PUSH",
+      "exam": false,
+      "id": "S-09",
+      "title": "Push/fold 12–8 bb"
+    },
+    {
+      "route": "spin",
+      "module": "M2",
+      "order": 10,
+      "plan": "study",
+      "xp": 130,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Cuando te shovean, el call correcto suele ser más tight que el «chip EV» (valor solo en fichas): el ICM castiga arriesgar tu torneo por un flip. Overfold vs shove suele ser correcto en Spins.",
+      "theory": [
+        {
+          "title": "Chip EV vs ICM",
+          "body": "Chip EV mira solo fichas ganadas o perdidas a largo plazo. ICM (Independent Chip Model) traduce stacks y payout (primero, segundo, tercero) a euros esperados. En Spins, un call que gana fichas en promedio puede perder € porque el bust te deja a cero."
+        },
+        {
+          "title": "Qué manos hacen call",
+          "body": "Haces call shove con manos fuertes: pares altos, Ax fuerte. Fold muchas manos medias que en cash a 100 bb pagarías (A9o, KQo marginal). Hero-call — pagar «porque puedo ganar» sin mirar el payout — es la trampa ICM."
+        },
+        {
+          "title": "Short vs cover al shove",
+          "body": "Vs shove del short a veces pagas un poco más wide: eliminarlo te da € y arriesgas menos de tu stack relativo. Vs shove del cover, más tight: te juegas el torneo entero contra un stack que te elimina."
+        },
+        {
+          "title": "Regla práctica",
+          "body": "Si dudas entre hacer call y fold cerca del dinero, inclínate a fold salvo que la mano sea claramente fuerte. En Spins el overfold vs shove no es «debilidad»: es disciplina de payout."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Fold ICM correcto",
+          "body": "Cover te shovea, tú con 22 bb y AJo: a veces fold es mejor que flip. Quedarte vivo hacia el 2.º paga algo; bust = 0 € aunque fueras favorito en fichas."
+        },
+        {
+          "title": "Call vs short",
+          "body": "Short shove 7 bb, tú BB con 99: hacer call claro. Equity alta y eliminar rival acerca al 1.º — aquí chip EV e ICM apuntan al mismo lado."
+        },
+        {
+          "title": "No hero-call",
+          "body": "Shove desde BTN a 12 bb, tú BB con KTo: fold típico. Dominada, sin odds de payout claras — «puedo ganar» no es argumento ICM."
+        }
+      ],
+      "aiQuestions": [
+        "¿Chip EV vs ICM en un call shove?",
+        "¿Qué es hero-call en torneo?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "S-10",
+      "title": "Call shove ICM"
+    },
+    {
+      "route": "spin",
+      "module": "M2",
+      "order": 11,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "A veces un call gana fichas en promedio (+EV chips) pero pierde dinero de torneo (−EV $). Aprende a oler esos spots antes de pagar: el pay jump decide.",
+      "theory": [
+        {
+          "title": "+EV chips / −EV $",
+          "body": "Ganas fichas a largo plazo pero reduces tu premio esperado en euros porque arriesgas eliminación cerca del dinero. El spot se ve «correcto» en equity de cartas y es incorrecto en payout. Spins viven de detectar esa trampa."
+        },
+        {
+          "title": "Pay jump",
+          "body": "Pay jump es el salto de premio entre puestos (segundo vs primero, o cobrar vs bust). Cuanto mayor el salto, más caro es flippear. En 3-max cada eliminación mueve € de verdad, no solo fichas de vanity."
+        },
+        {
+          "title": "Prioriza supervivencia cuando pesa",
+          "body": "Cuando el payout aprieta, fold manos que «van bien en fichas» pero no justifican el bust. No necesitas ser el favorito al 55 % si perder te saca del dinero grande."
+        },
+        {
+          "title": "ICM suicide",
+          "body": "ICM suicide: hacer call shove light porque «soy 55 % favorito» ignorando que bust = perder la entrada entera. No preguntes solo si ganas el flip; pregunta cuánto € arriesgas frente a cuánto ganas."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Spot +EV chips / −EV $",
+          "body": "3-max, el 2.º ya tiene sentido de premio, tú mid-stack con 18 bb haces call al shove de cover con A8s: puede ser +chips y −€ si el bust te cuesta el segundo premio grande."
+        },
+        {
+          "title": "Oler el mal spot",
+          "body": "Si tu argumento para pagar es solo «tengo outs / soy ligero favorito» y no has mirado stacks ni multiplicador, párate. Ese olor suele ser −EV $ disfrazado de valentía."
+        },
+        {
+          "title": "Cuándo sí está alineado",
+          "body": "Short shove tiny, tú con TT+ o AK: chip EV e ICM suelen coincidir. El problema son los calls marginales (A9o, KQo, pares bajos) cerca del pay jump."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo detecto un spot −EV en dinero?",
+        "¿Qué es pay jump en un Spin 3-max?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "S-11",
+      "title": "Malos spots +EV chips / −EV $"
+    },
+    {
+      "route": "spin",
+      "module": "M2",
+      "order": 12,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Payout 5× (premio total cinco veces las entradas) aprieta más que 2×/3×: juegas más tight — el 1.º pesa mucho y perder el 2.º duele más. Misma mano, distinto multiplicador.",
+      "theory": [
+        {
+          "title": "Multiplicador y € en juego",
+          "body": "La ruleta del Spin (2× / 3× / 5×) cambia cuánto dinero hay en el prize pool. En 5× el 1.º se lleva una parte mayor: el ICM es más fuerte. Guarda ese dato mental desde la mano 1; no es decoración de lobby."
+        },
+        {
+          "title": "Cómo ajustar",
+          "body": "En 5×: menos steals locos, más tight vs shove, menos flips marginales. En 2×: algo más de chip EV permitido — aún no es cash, pero el castigo ICM es menor. El error caro es jugar igual el spin de 2× que el de 5×."
+        },
+        {
+          "title": "Misma mano, distinto payout",
+          "body": "AJo haciendo call a un shove puede ser razonable en 2× y fold en 5×. No cambian tus cartas: cambia el precio en euros de equivocarte. Entrena esa pregunta: «¿qué multiplicador salió?»."
+        },
+        {
+          "title": "Trampa de lobby",
+          "body": "Ignorar el multiplicador y repetir el mismo chart mental en todos los Spins es leak muy caro en lobbies reales. Mira la ruleta; luego elige tightness."
+        }
+      ],
+      "examples": [
+        {
+          "title": "5× más tight",
+          "body": "La ruleta mostró 5× antes de empezar: si dudas entre shove marginal y fold, inclínate a fold. Si dudas entre hacer call marginal y fold vs shove, fold otra vez."
+        },
+        {
+          "title": "2× un poco más flexible",
+          "body": "En 2× puedes robar y pagar un poco más wide que en 5×, pero sigue sin ser cash: bust = 0 €. Flexibilidad no es spew."
+        },
+        {
+          "title": "Checklist pre-mano",
+          "body": "Antes del primer steal del torneo: ¿2×, 3× o 5×? Ese número fija cuánto aprietas calls y shoves grises el resto de la mesa."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo cambia mi juego en payout 5×?",
+        "¿Dónde veo el multiplicador en la mesa?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "S-12",
+      "title": "Ajuste 3× vs 5× payout"
+    },
+    {
+      "route": "spin",
+      "module": "M2",
+      "order": 13,
+      "plan": "coach",
+      "xp": 150,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Examen ICM Spins: push/fold, call shove, spots +EV chips vs −EV $ y ajuste por payout 2×/3×/5×. Sin teoría nueva — solo aplicar el checklist de M2.",
+      "theory": [
+        {
+          "title": "Fichas o euros",
+          "body": "Pregunta clave en cada spot: ¿decido mirando solo fichas (chip EV) o el premio en euros (ICM)? Si no puedes responder en una frase, no hagas call todavía."
+        },
+        {
+          "title": "¿Stack ≤12 bb?",
+          "body": "Entra push/fold: shove (all-in) o fold. No min-raise estilo cash. El examen castiga el open pequeño que te deja sin plan ante un 3-bet."
+        },
+        {
+          "title": "¿Multiplicador?",
+          "body": "2×/3× vs 5× cambia tightness en calls y steals marginales. En 5×, ante la duda, fold. El multiplicador no es opcional: es parte del spot."
+        },
+        {
+          "title": "Checklist del examen",
+          "body": "Stack en bb → rol cover/short → payout → fold / shove / hacer call. Nombra el rango rival en una frase antes de pagar un shove. Cero vocabulario nuevo: solo disciplina."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Antes del examen",
+          "body": "Repasa S-09…S-12: push/fold limpio, overfold vs shove, oler −EV $, 5× más tight. Si esos cuatro bloques están claros, el examen es aplicación."
+        },
+        {
+          "title": "Spot trampa del examen",
+          "body": "Te shovean, tienes A9o, eres mid-stack, payout 5×: muchas veces fold aunque «en fichas» el call se vea decente. El examen mira si leíste ICM, no solo equity."
+        },
+        {
+          "title": "Spot limpio",
+          "body": "10 bb BTN first-in con ATs o 99: shove. No hay drama ICM que justifique min-raise. Binario y limpio."
+        }
+      ],
+      "aiQuestions": [
+        "Repásame ICM en Spins en 3 frases",
+        "¿Cuándo fold aunque sea +EV en fichas?"
+      ],
+      "spots": [],
+      "exam": true,
+      "id": "S-13",
+      "title": "Examen ICM · Spins"
+    },
+    {
+      "route": "spin",
+      "module": "M3",
+      "order": 14,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Bubble factor (presión de «burbuja»): mide cuánto duele arriesgar fichas cerca de un salto de pago. En Spin 3-max el heads-up (HU) ya es un pay jump decisivo — no flippees barato el 2.º.",
+      "theory": [
+        {
+          "title": "Qué es bubble en 3-max",
+          "body": "Bubble es la zona donde un bust te deja sin € (o te baja de premio) mientras otro jugador cobra. En Spin 3-max, pasar de tercero a segundo o de segundo a primero ya es bubble mental: no hace falta mesa de 100 runners para sentir la presión."
+        },
+        {
+          "title": "Pay jump heads-up",
+          "body": "En heads-up (dos jugadores) el premio del primero frente al segundo puede repartir cerca de 70/30 según multiplicador. No es indiferente flippear: un 50/50 en fichas puede ser un mal negocio en euros si el salto de premio es grande."
+        },
+        {
+          "title": "Bubble factor alto",
+          "body": "Cuando el bubble factor es alto → fold más, shove más selectivo. No regales el second place barato por «ganar el flip». Presiona spots baratos; evita all-ins que deciden el torneo sin edge claro."
+        },
+        {
+          "title": "Trampa final",
+          "body": "Ignorar el payout en el all-in que decide el torneo. Un flip puede costarte € aunque sea 50/50 en fichas. Antes de shove o hacer call HU, nombra el pay jump en voz baja."
+        }
+      ],
+      "examples": [
+        {
+          "title": "HU pay jump",
+          "body": "Heads-up: el 1.º gana mucho más que el 2.º. Un flip innecesario con A9o vs shove wide puede costarte la diferencia en € aunque ganes fichas a coin-flip."
+        },
+        {
+          "title": "Presión correcta en bubble",
+          "body": "Eres cover en 3-max cerca de eliminar al short: roba ciegas y fuerza decisiones. No hace falta hero-call su shove con manos medias — la presión ya trabaja por ti."
+        },
+        {
+          "title": "Fold que duele y paga",
+          "body": "HU, rival shove, tú con KJo en payout alto: a menudo fold. Duele, pero preservar el 2.º (o forzar mejor spot) vale más que el ego del call."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué es bubble factor en un Spin?",
+        "¿Por qué importa el pay jump heads-up?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "S-14",
+      "title": "Bubble factor mental HU pay jump"
+    },
+    {
+      "route": "spin",
+      "module": "M3",
+      "order": 15,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Range vs range: antes de shove o hacer call, piensa en bandas de manos (rangos), no solo «mi carta es bonita». Tu AK se mide contra el rango de shove rival, no contra «creo que tiene QQ».",
+      "theory": [
+        {
+          "title": "Qué es un rango",
+          "body": "Rango es el conjunto de manos que el rival puede tener en ese spot. Ejemplo: «BTN shove 10 bb» suele ser más wide (más manos) que «BB hace call vs ese shove». Nombrar el rango evita pelear contra una mano concreta imaginaria."
+        },
+        {
+          "title": "Tu shove vs su call",
+          "body": "Antes de shovear pregunta: ¿qué manos peores me pagan? ¿qué manos mejores me tienen? Si estás dominado a menudo cuando te hacen call, el shove era vanity. Fold equity + equity vs rango de call = la cuenta real."
+        },
+        {
+          "title": "Call vs rango de shove",
+          "body": "Range vs range en call shove: tu A5o desde BB no se mide vs «tal vez tenga 72o»; se mide vs el rango real de shove BTN (muchas Ax, pares, conectadas). A5o often fold — dominada por Ax mejores y por pares."
+        },
+        {
+          "title": "Trampa de sensación",
+          "body": "Decidir solo por «me gusta mi mano» sin nombrar el rango rival. En Spins cortos esa sensación te hace hero-call y panic shove. Oblígate a una frase: «él shovea X; yo contra X hago Y»."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Nombrar rangos",
+          "body": "BTN shove 10 bb: muchas Ax, pares, suited connectors. BB call: más tight — pares medios+, Ax fuerte. Por eso A5o BB vs shove BTN often fold, y 99 hace call."
+        },
+        {
+          "title": "AK vs rango, no vs QQ",
+          "body": "Rival shove desde SB a 12 bb. Tu AKo no pregunta «¿y si tiene QQ?»; pregunta equity vs su rango de shove SB (que incluye muchas peores Ax y Kx). Suele ser call/shove value, no terror a una mano concreta."
+        },
+        {
+          "title": "Shove con blockers",
+          "body": "A5s shove desde BTN bloquea AA/AK del rival: ganas fold equity y algo de equity cuando te pagan. Ese razonamiento es range-based, no «me gusta el as»."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo estimo el rango de shove del BTN?",
+        "¿Range vs range en call shove?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "S-15",
+      "title": "Range vs range shove/call"
+    },
+    {
+      "route": "spin",
+      "module": "M3",
+      "order": 16,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Explotación: vs nit (folda mucho) stealeas más; vs maniac (juega muchas manos agresivo) defiendes tighter y value-shoveas más limpio. Ajusta al rival real, no solo al chart ciego.",
+      "theory": [
+        {
+          "title": "Vs nit",
+          "body": "Nit: se tira demasiado vs steals y abre tight. Puedes abrir/steal más wide — cada fold suyo es fichas gratis hacia el payout. No necesitas GTO perfecto si el rival tira el 80 % de las ciegas."
+        },
+        {
+          "title": "Vs maniac",
+          "body": "Maniac: paga y shovea wide. Reduce faroles, value-shove más grueso (TT+, Ax fuerte) y no hagas bluffcatch light (pagar faroles con manos medias). Contra alguien que nunca folda, el bluff pierde sentido."
+        },
+        {
+          "title": "Ajuste > chart ciego",
+          "body": "Observa 10–20 manos del rival en lobby si puedes: ¿folda BTN steal? ¿paga light? ¿shovea cualquier Ax? El chart GTO es base; la explotación es el € extra cuando el leak es obvio."
+        },
+        {
+          "title": "Trampa de libro",
+          "body": "Jugar GTO de manual vs nit o maniac obvios deja dinero en la mesa. Si ves el leak y no ajustas, estás regalando EV por «parecer equilibrado» en un Spin de tres manos decisivas."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Vs nit",
+          "body": "SB folda ~80 % vs steal BTN: abre wider. Cualquier fold es fichas hacia el payout sin showdown — castiga la pasividad."
+        },
+        {
+          "title": "Vs maniac",
+          "body": "BB paga y 3-betea light: aprieta opens marginales, shove value (TT+, AQo+) más often y deja de farolear thin. Que él spewee; tú cobra value."
+        },
+        {
+          "title": "Lectura rápida",
+          "body": "Tras dos steals: si ambos foldan, marca nit-leaning. Si te pagan o te shovean light, marca maniac-leaning. Ajusta la tercera mano — en Spins no hay 200 manos para confirmar."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo exploto a un nit en Spins?",
+        "¿Qué cambio vs un maniac?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "S-16",
+      "title": "Explotación nit vs maniac"
+    },
+    {
+      "route": "spin",
+      "module": "M3",
+      "order": 17,
+      "plan": "coach",
+      "xp": 150,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Certificación Spin Pro: integra anatomía (fichas ≠ €), steal/defensa, iso, push/fold, ICM, payout y explotación. Sin vocabulario nuevo — plan completo en una mesa corta.",
+      "theory": [
+        {
+          "title": "Mapa del spot",
+          "body": "Repaso mental: ¿cuántas bb tengo? ¿Es steal, defensa BB, iso vs limp o push/fold? Si no puedes etiquetar el spot, no actúes todavía. El Pro nombra el trabajo antes de clicar."
+        },
+        {
+          "title": "Cover, short y multiplicador",
+          "body": "¿Soy cover (más fichas) o short? ¿El multiplicador fue 2×/3× o 5×? Eso cambia tightness de steals, shoves y calls. El mismo A9o no se juega igual en todos esos mundos."
+        },
+        {
+          "title": "Fichas vs euros + rangos",
+          "body": "¿Decido en fichas (chip EV) o en euros (ICM)? ¿Nombré el rango rival antes de hacer call o shove? Range vs range + payout > sensación de «carta bonita»."
+        },
+        {
+          "title": "Checklist final",
+          "body": "Posición → stack bb → payout → cover/short → acción sin spew ni hero-call. Sobrevive al payout correcto, presiona con cover, shove/fold limpio de short, overfold ICM cuando el pay jump duele."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Plan Pro en una frase",
+          "body": "Sobrevive al payout correcto, presiona con cover, shove/fold limpio de short, overfold ICM cuando el pay jump duele, y explota nit/maniac cuando el leak es obvio."
+        },
+        {
+          "title": "Pregunta de certificación",
+          "body": "Te shovean en 5× con KQo mid-stack: ¿chip EV o ICM? Si respondes ICM y fold (salvo reads maniac extremos), estás pensando Pro. Si solo dices «puedo ganar», aún no."
+        },
+        {
+          "title": "Spot de cierre",
+          "body": "10 bb BTN, payout 3×, ATs: shove. No es examen de filosofía — es push/fold limpio. El Pro también sabe cuándo el spot es simple."
+        }
+      ],
+      "aiQuestions": [
+        "Repásame plan Spin Pro completo",
+        "¿Cuándo overfoldeo vs shove en 5×?"
+      ],
+      "spots": [],
+      "exam": true,
+      "id": "S-17",
+      "title": "Examen Pro · Spins"
+    }
+  ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
   D.registerLessons(lessons);
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -2183,34 +2455,34 @@
       rfi('sp-04', 'BTN', ['9s', '9c'], 40504, { teachBack: '99: shove value claro a 10–12 bb.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) })
     ];
     if (kind === 'MTT_EARLY') return [
-      rfi('t01-01', 'BTN', ['Ah', 'Td'], 50101, { teachBack: 'ATo BTN early: open cash-like.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
-      rfi('t01-02', 'UTG', ['Qd', '8c'], 50102, { trapTag: 'dominated', teachBack: 'Q8o UTG early: fold. Paciencia.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
-      rfi('t01-03', 'CO', ['Ks', 'Js'], 50103, { teachBack: 'KJs CO: open estándar early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
-      rfi('t01-04', 'UTG', ['7h', '2d'], 50104, { trapTag: 'dominated', teachBack: '72o: fold. No spew early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
-      rfi('t01-05', 'BTN', ['9s', '9c'], 50105, { teachBack: '99 BTN: open claro.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
-      rfi('t01-06', 'HJ', ['Ah', '5d'], 50106, { trapTag: 'fancy_play', teachBack: 'A5o HJ early: a menudo fold — no spew.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) })
+      rfi('t01-01', 'BTN', ['Ah', 'Td'], 50101, { teachBack: 'ATo en BTN early (~40 bb): open cash-like claro. Estás en late con una broadway fuerte; quieres robar o jugar un pot manejable, no limpear ni ir all-in sin necesidad.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-02', 'UTG', ['Qd', '8c'], 50102, { trapTag: 'dominated', teachBack: 'Q8o UTG early: fold. Hay mucha gente detrás y la mano se domina fácil; early pide paciencia, no forzar basura desde early position.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-03', 'CO', ['Ks', 'Js'], 50103, { teachBack: 'KJs CO early: open estándar. Buena broadway suited en late-ish; construyes stack con iniciativa sin spew.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-04', 'UTG', ['7h', '2d'], 50104, { trapTag: 'dominated', teachBack: '72o: fold siempre aquí. Sin equity real ni jugabilidad; abrirlo early es spew puro.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-05', 'BTN', ['9s', '9c'], 50105, { teachBack: '99 BTN early: open claro. Par medio fuerte en posición — quieres robar ciegas o ver flop barato con iniciativa, no limpear.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-06', 'HJ', ['Ah', '5d'], 50106, { trapTag: 'fancy_play', teachBack: 'A5o HJ early: a menudo fold. El as offsuit bajo se domina mucho y no tiene la jugabilidad de A5s; no spewees buscando acción.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) })
     ];
     if (kind === 'MTT_EXAM_M0') return packSpots('MTT_EARLY', D).slice(0, 4);
     if (kind === 'MTT_STEAL') return [
-      rfi('t04-01', 'BTN', ['Kh', '9s'], 50401, { teachBack: 'K9o BTN mid: steal razonable.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
-      rfi('t04-02', 'BTN', ['7c', '2d'], 50402, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
-      rfi('t04-03', 'CO', ['As', '5s'], 50403, { teachBack: 'A5s CO: steal/open OK mid.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
-      rfi('t04-04', 'SB', ['Qd', 'Td'], 50404, { teachBack: 'QTs SB: open/steal frecuente.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
-      rfi('t04-05', 'CO', ['Jd', '8c'], 50405, { trapTag: 'fancy_play', teachBack: 'J8o CO: fold típico.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
-      rfi('t04-06', 'BTN', ['8h', '7h'], 50406, { teachBack: '87s BTN: steal con jugabilidad.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) })
+      rfi('t04-01', 'BTN', ['Kh', '9s'], 50401, { teachBack: 'K9o BTN mid (~25 bb): steal razonable. Robas ciegas+ante con fold equity; si te 3-betean fuerte, te tiras sin drama.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-02', 'BTN', ['7c', '2d'], 50402, { trapTag: 'dominated', teachBack: '72o BTN: fold. Steal no es "cualquier dos cartas"; sin equity ni plan vs 3-bet, solo regalas fichas.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-03', 'CO', ['As', '5s'], 50403, { teachBack: 'A5s CO mid: steal/open OK. Blocker de as y jugabilidad postflop; buen candidato a robar antes de zona corta.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-04', 'SB', ['Qd', 'Td'], 50404, { teachBack: 'QTs SB mid: open/steal frecuente. Desde SB quieres dead money; la mano juega mejor que basura offsuit si te igualan.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-05', 'CO', ['Jd', '8c'], 50405, { trapTag: 'fancy_play', teachBack: 'J8o CO: fold típico. Domina poco, te pueden castigar detrás y postflop duele — no es steal automático.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-06', 'BTN', ['8h', '7h'], 50406, { teachBack: '87s BTN mid: steal con jugabilidad. Suited connector roba bien y tiene plan si te hacen call; sigue sin ser shove obligatorio a 25 bb.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) })
     ];
     if (kind === 'MTT_3BET' || kind === 'MTT_RESTEAL') return [
-      vs('t05-01', 'BB_vs_BTN', ['As', 'Kd'], 50501, { teachBack: 'AKo: 3-bet value vs steal.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
-      vs('t05-02', 'BB_vs_BTN', ['Ad', '4d'], 50502, { teachBack: 'A4s: 3-bet polar/farol frecuente.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
-      vs('t05-03', 'BB_vs_CO', ['7c', '2d'], 50503, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
-      vs('t05-04', 'BB_vs_BTN', ['Qh', '9c'], 50504, { trapTag: 'fancy_play', teachBack: 'Q9o: no 3-bet spew. Fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) })
+      vs('t05-01', 'BB_vs_BTN', ['As', 'Kd'], 50501, { teachBack: 'AKo vs steal: 3-bet por valor. Mano premium — quieres aislar o ir a stack-off favorable, no hacer call pasivo sin iniciativa.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-02', 'BB_vs_BTN', ['Ad', '4d'], 50502, { teachBack: 'A4s vs steal: 3-bet polar/farol frecuente. Blocker de as + equity si te pagan; si te 4-betean, a menudo fold según stack.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-03', 'BB_vs_CO', ['7c', '2d'], 50503, { trapTag: 'dominated', teachBack: '72o vs open: fold. No overdefiendas ni 3-betees basura; sin blockers útiles ni valor, te tiras.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-04', 'BB_vs_BTN', ['Qh', '9c'], 50504, { trapTag: 'fancy_play', teachBack: 'Q9o vs steal: no 3-bet spew — fold (o defensa muy selectiva). Es mano media dominada, no farol polar limpio.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) })
     ];
     if (kind === 'MTT_EXAM_M1') return packSpots('MTT_STEAL', D).slice(0, 2).concat(packSpots('MTT_3BET', D).slice(0, 2));
     if (kind === 'MTT_SHORT' || kind === 'MTT_PUSH') return [
-      rfi('t09-01', 'BTN', ['Ah', '5s'], 50901, { teachBack: 'A5o BTN a ~10–12 bb: shove candidato.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
-      rfi('t09-02', 'BTN', ['7c', '2d'], 50902, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
-      rfi('t09-03', 'SB', ['Ks', 'Ts'], 50903, { teachBack: 'KTs SB corto: shove frecuente.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
-      rfi('t09-04', 'CO', ['9s', '9c'], 50904, { teachBack: '99: shove value.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) })
+      rfi('t09-01', 'BTN', ['Ah', '5s'], 50901, { teachBack: 'A5o BTN a ~10–12 bb: shove candidato. En push/fold quieres fold equity o ir a equity; open min suele ser peor.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
+      rfi('t09-02', 'BTN', ['7c', '2d'], 50902, { trapTag: 'dominated', teachBack: '72o a stack corto: fold. No panic shove — sin equity ni fold equity real solo te eliminas.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-03', 'SB', ['Ks', 'Ts'], 50903, { teachBack: 'KTs SB corto: shove frecuente. Ciegas/antes en juego + posición obligada: push/fold limpio, no open pequeño.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-04', 'CO', ['9s', '9c'], 50904, { teachBack: '99 a ~10–12 bb: shove por valor claro. Par medio fuerte en zona push/fold — quieres que folden o que paguen peor.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) })
     ];
     return [];
   }
@@ -2223,707 +2495,1134 @@
     D.setRouteStatus('mtt', 'active');
   }
   var RAW = [
-  {
-    "route": "mtt",
-    "module": "M0",
-    "order": 0,
-    "plan": "free",
-    "xp": 40,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Un MTT tiene fases: early, mid, short, push y burbuja. El ante y el stack en bb cambian tu plan.",
-    "theory": [
-      "Early: stacks profundos, juego parecido a cash (con paciencia). Mid: más steals. Short/push: open/shove y push/fold. Bubble: ICM fuerte.",
-      "El ante (pago obligatorio extra) engorda el bote y empuja a robar más. Identifica tu stack en bb, no solo las fichas absolutas.",
-      "Honestidad: aquí entrenamos principios ICM y fases; no un solver de field completo de cientos de jugadores."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Early: stacks profundos, juego parecido a cash (con paciencia). Mid: más steals. Short/push: open/shove y push/fold. Bubble: ICM fuerte."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-00",
-    "title": "Stages del torneo y ante"
-  },
-  {
-    "route": "mtt",
-    "module": "M0",
-    "order": 1,
-    "plan": "free",
-    "xp": 100,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 6,
-    "concept": "En early no spewees: juegas spots claros, builds stack sin coin flips inútiles.",
-    "theory": [
-      "Con 40–60+ bb el juego se parece al cash, pero el objetivo es llegar a mid con stack jugable, no hero-callar early.",
-      "Evita spew: 3-bet wars sin necesidad, bluffs sin plan. Las fichas early se defienden mejor.",
-      "Trampa: jugar “final table” en la primera ciega."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Con 40–60+ bb el juego se parece al cash, pero el objetivo es llegar a mid con stack jugable, no hero-callar early."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": "MTT_EARLY",
-    "exam": false,
-    "id": "T-01",
-    "title": "Early: cash-like con paciencia"
-  },
-  {
-    "route": "mtt",
-    "module": "M0",
-    "order": 2,
-    "plan": "study",
-    "xp": 80,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Lee la mesa: quién es big stack, mid o short. Eso cambia quién puede presionar y a quién.",
-    "theory": [
-      "M (o “M-ratio”) es una forma de pensar stacks en ciegas/antes. En la práctica: cuenta bb efectivas.",
-      "Big stacks presionan; shorts buscan double; mids sobreviven. No trates a todos igual.",
-      "Trampa: ignorear stacks y jugar solo tu mano."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "M (o “M-ratio”) es una forma de pensar stacks en ciegas/antes. En la práctica: cuenta bb efectivas."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-02",
-    "title": "Antenas de stack (M / big stacks)"
-  },
-  {
-    "route": "mtt",
-    "module": "M0",
-    "order": 3,
-    "plan": "study",
-    "xp": 110,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 4,
-    "concept": "Repaso fases y early game. Sin teoría nueva.",
-    "theory": [
-      "¿Early, mid o short?",
-      "¿Paciencia o presión?"
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "¿Early, mid o short?"
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": "MTT_EXAM_M0",
-    "exam": true,
-    "id": "T-03",
-    "title": "Examen M0 · MTT"
-  },
-  {
-    "route": "mtt",
-    "module": "M1",
-    "order": 4,
-    "plan": "study",
-    "xp": 110,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 6,
-    "concept": "Antes de entrar en push/fold, roba ciegas desde late con opens estándar.",
-    "theory": [
-      "Steal mid-late: abres CO/BTN/SB para ganar ciegas+ante sin ir all-in aún.",
-      "Elige manos con plan si te 3-betean. No abras basura y te pegues.",
-      "Trampa: passivity total hasta 12 bb — llegas short sin fichas robadas."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Steal mid-late: abres CO/BTN/SB para ganar ciegas+ante sin ir all-in aún."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": "MTT_STEAL",
-    "exam": false,
-    "id": "T-04",
-    "title": "Steal antes de zona corta"
-  },
-  {
-    "route": "mtt",
-    "module": "M1",
-    "order": 5,
-    "plan": "study",
-    "xp": 120,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 4,
-    "concept": "A mid stacks, el 3-bet polar (value + faroles) aplica presión; no es solo QQ+.",
-    "theory": [
-      "Igual que en cash M1, polarizas: manos fuertes y faroles con blockers. El stack define si cabe un 3-bet non-all-in.",
-      "Vs opens late puedes 3-betear más light; vs early, más value.",
-      "Trampa: 3-bet spew mid sin fold equity."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Igual que en cash M1, polarizas: manos fuertes y faroles con blockers. El stack define si cabe un 3-bet non-all-in."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": "MTT_3BET",
-    "exam": false,
-    "id": "T-05",
-    "title": "3-bet polar mid stacks"
-  },
-  {
-    "route": "mtt",
-    "module": "M1",
-    "order": 6,
-    "plan": "study",
-    "xp": 120,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 4,
-    "concept": "Resteal: 3-betear (a veces shove) al steal del late. Defense: no overfoldear ciegas vs robos.",
-    "theory": [
-      "Cuando el BTN stealea, BB/SB pueden restealear con value y faroles elegidos.",
-      "Defensa: fold/call/3-bet según stack. A mid stacks aún hay flats selectivos.",
-      "Trampa: never-defend o resteal loco vs UTG."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Cuando el BTN stealea, BB/SB pueden restealear con value y faroles elegidos."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": "MTT_RESTEAL",
-    "exam": false,
-    "id": "T-06",
-    "title": "Resteal y defense"
-  },
-  {
-    "route": "mtt",
-    "module": "M1",
-    "order": 7,
-    "plan": "study",
-    "xp": 130,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 4,
-    "concept": "Repaso mid: steal, 3-bet, resteal. Sin teoría nueva.",
-    "theory": [
-      "¿Steal o resteal?",
-      "¿Polar o fold?"
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "¿Steal o resteal?"
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": "MTT_EXAM_M1",
-    "exam": true,
-    "id": "T-07",
-    "title": "Examen Mid · MTT"
-  },
-  {
-    "route": "mtt",
-    "module": "M2",
-    "order": 8,
-    "plan": "study",
-    "xp": 130,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 4,
-    "concept": "Entre 20 y 12 bb eliges open-raise o shove según mano y posición; ya no eres deep.",
-    "theory": [
-      "Thresholds: algunas manos open; otras shove; basura fold. Depende de bb y de quién queda detrás.",
-      "No min-raiseas manos shove por miedo — te metes en spots peores.",
-      "Trampa: open/fold ranges rotos (open flojo y fold al shove)."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Thresholds: algunas manos open; otras shove; basura fold. Depende de bb y de quién queda detrás."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": "MTT_SHORT",
-    "exam": false,
-    "id": "T-08",
-    "title": "Zona 20–12 bb: open/shove"
-  },
-  {
-    "route": "mtt",
-    "module": "M2",
-    "order": 9,
-    "plan": "study",
-    "xp": 140,
-    "passThreshold": 0.7,
-    "goldThreshold": 0.9,
-    "decisionEnd": true,
-    "hands": 6,
-    "concept": "Como en Spins: a 12–8 bb el plan base es shove o fold según chart y posición.",
-    "theory": [
-      "Push/fold simplifica: all-in o fold. Usa charts como referencia (menú Rangos / push-fold).",
-      "BTN shoves más wide. Early positions más tight.",
-      "Trampa: open small a 10 bb."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Push/fold simplifica: all-in o fold. Usa charts como referencia (menú Rangos / push-fold)."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": "MTT_PUSH",
-    "exam": false,
-    "id": "T-09",
-    "title": "Push/fold 12–8 bb"
-  },
-  {
-    "route": "mtt",
-    "module": "M2",
-    "order": 10,
-    "plan": "study",
-    "xp": 120,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Primero aprendes calls vs shove mirando chip EV; luego (Coach) añadimos ICM.",
-    "theory": [
-      "Chip EV: ¿tengo equity suficiente vs el rango de shove para call? Es la base.",
-      "Manos fuertes pagan; medias dependen de posición y sizing (aquí: all-in).",
-      "Trampa: call light “para ver” o fold panic con AQ vs shove corto."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Chip EV: ¿tengo equity suficiente vs el rango de shove para call? Es la base."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-10",
-    "title": "Calling ranges vs shove (chip EV)"
-  },
-  {
-    "route": "mtt",
-    "module": "M2",
-    "order": 11,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Con ICM, calls vs shove son más tight que en chip EV puro.",
-    "theory": [
-      "El $EV castiga arriesgar tu stack cerca de premios. Overfold es a menudo correcto.",
-      "Honestidad: usamos principios, no un ICM de field completo."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "El $EV castiga arriesgar tu stack cerca de premios. Overfold es a menudo correcto."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-11",
-    "title": "Calling ranges con ICM"
-  },
-  {
-    "route": "mtt",
-    "module": "M2",
-    "order": 12,
-    "plan": "coach",
-    "xp": 150,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Repaso short/push. Sin teoría nueva.",
-    "theory": [
-      "¿Open, shove o fold?",
-      "¿Call shove chip EV o ya pienso ICM?"
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "¿Open, shove o fold?"
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": true,
-    "id": "T-12",
-    "title": "Examen Short · MTT"
-  },
-  {
-    "route": "mtt",
-    "module": "M3",
-    "order": 13,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "En burbuja cada rol tiene un plan: big presiona, mid sobrevive, short busca spots.",
-    "theory": [
-      "Teaser Study visible en mapa; jugar el pack es Coach.",
-      "Big stack aplica presión. Mid evita coin flips. Short pick spots.",
-      "Trampa: mid stack hero-call vs big."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Teaser Study visible en mapa; jugar el pack es Coach."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-13",
-    "title": "Roles en burbuja (short/mid/big)"
-  },
-  {
-    "route": "mtt",
-    "module": "M3",
-    "order": 14,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Como big stack en burbuja, abres y shoves más; no regalas dobles al short sin fold equity.",
-    "theory": [
-      "Presión ≠ call light. Haces que los mids se tiren.",
-      "Trampa: pagar al short “porque puedo”."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Presión ≠ call light. Haces que los mids se tiren."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-14",
-    "title": "Big stack pressure"
-  },
-  {
-    "route": "mtt",
-    "module": "M3",
-    "order": 15,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Mid stack en burbuja: prioridad no chocarte con el big; deja que shorts se eliminen.",
-    "theory": [
-      "Fold equity propia baja vs big. Evita spots −EV $ aunque sean +EV chips.",
-      "Trampa: open spew mid vs big."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Fold equity propia baja vs big. Evita spots −EV $ aunque sean +EV chips."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-15",
-    "title": "Mid stack survival"
-  },
-  {
-    "route": "mtt",
-    "module": "M3",
-    "order": 16,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Short en burbuja: shoves selectivos para escalar; no min-raise suicide.",
-    "theory": [
-      "Necesitas doble, pero elige spots. Ladder = subir un peldaño de payout.",
-      "Trampa: shove panic UTG con basura."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Necesitas doble, pero elige spots. Ladder = subir un peldaño de payout."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-16",
-    "title": "Short stack ladder"
-  },
-  {
-    "route": "mtt",
-    "module": "M3",
-    "order": 17,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Tras el ITM, los saltos de pago siguen importando: no “ya estoy pagado, all-in light”.",
-    "theory": [
-      "Cada eliminación puede subir tu prize. Sigue pensando ICM.",
-      "Trampa: spew post-bubble."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Cada eliminación puede subir tu prize. Sigue pensando ICM."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-17",
-    "title": "Pay jumps post-ITM"
-  },
-  {
-    "route": "mtt",
-    "module": "M3",
-    "order": 18,
-    "plan": "coach",
-    "xp": 150,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Repaso burbuja y roles. Sin teoría nueva.",
-    "theory": [
-      "¿Soy short, mid o big?",
-      "¿Presiono o sobrevivo?"
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "¿Soy short, mid o big?"
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": true,
-    "id": "T-18",
-    "title": "Examen Bubble"
-  },
-  {
-    "route": "mtt",
-    "module": "M4",
-    "order": 19,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "En final table el ICM se intensifica: pay jumps grandes, covers y shorts extremos.",
-    "theory": [
-      "Principios: covers presionan; mids cuidan; shorts pick spots.",
-      "No prometemos solver de FT completa."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Principios: covers presionan; mids cuidan; shorts pick spots."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-19",
-    "title": "Final table ICM intro"
-  },
-  {
-    "route": "mtt",
-    "module": "M4",
-    "order": 20,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Entrena a separar “gano fichas” de “gano dinero de torneo”.",
-    "theory": [
-      "Si el spot es +EV chips y −EV $, fold es a menudo correcto en burbuja/FT.",
-      "Trampa: idolatrar solo equity."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Si el spot es +EV chips y −EV $, fold es a menudo correcto en burbuja/FT."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-20",
-    "title": "Chip EV vs $EV drills"
-  },
-  {
-    "route": "mtt",
-    "module": "M4",
-    "order": 21,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Asigna rangos de shove/call según rol y stack, no solo tu mano.",
-    "theory": [
-      "Pregunta: ¿qué shoves este short? ¿Qué paga este mid?",
-      "Trampa: hand-reading de cash deep en burbuja."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Pregunta: ¿qué shoves este short? ¿Qué paga este mid?"
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "T-21",
-    "title": "Range reading en burbuja"
-  },
-  {
-    "route": "mtt",
-    "module": "M4",
-    "order": 22,
-    "plan": "coach",
-    "xp": 150,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Certificación MTT Pro. Sin teoría nueva.",
-    "theory": [
-      "Resume bubble roles.",
-      "Chip EV vs $EV en una frase."
-    ],
-    "examples": [
-      {
-        "title": "En la práctica",
-        "body": "Resume bubble roles."
-      }
-    ],
-    "aiQuestions": [
-      "¿En qué fase del torneo estoy?",
-      "¿Qué cambia vs cash?"
-    ],
-    "spots": [],
-    "exam": true,
-    "id": "T-22",
-    "title": "Examen Pro · MTT"
-  }
-];
+    {
+      "route": "mtt",
+      "module": "M0",
+      "order": 0,
+      "plan": "free",
+      "xp": 40,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Un MTT (torneo multi-mesa) se juega por fases: early, mid, short, push y burbuja. El ante (pago extra obligatorio cada mano) y tu stack en bb (ciegas grandes) cambian el plan mucho antes de mirar las cartas.",
+      "theory": [
+        {
+          "title": "Mapa de fases",
+          "body": "Early suele ser 40–60+ bb: juego parecido al cash, con paciencia. Mid baja hacia 25–35 bb y empiezas a robar más. Short (aprox. 20–12 bb) fuerza opens o shoves; push (aprox. 12–8 bb) es casi solo shove o fold. Bubble (burbuja) es cuando faltan pocos para cobrar: el ICM (valor en dinero real de tus fichas según el payout) manda."
+        },
+        {
+          "title": "Ante y bote muerto",
+          "body": "El ante engorda el bote sin que nadie haya abierto. Eso sube la recompensa de un steal (robar ciegas) exitoso y hace que pasar de largo cueste más a largo plazo. No juegues \"sin ante\" cuando la mesa ya paga ante cada mano."
+        },
+        {
+          "title": "Cuenta en bb, no en fichas absolutas",
+          "body": "\"Tengo 12.000 fichas\" no decide nada hasta que divides por la ciega grande. Diez bb a ciegas altas es un short stack; cuarenta bb es early profundo. Antes de cada nivel, ancla: fase + stack en bb + quién es big/mid/short en tu mesa."
+        },
+        {
+          "title": "Honestidad del curso",
+          "body": "Aquí entrenamos principios de fases e ICM, no un solver de field de cientos de jugadores. Si entiendes el mapa mental, luego afinamos números; si no, las charts no te salvan."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Misma mano, distinta fase",
+          "body": "K9o en BTN a 50 bb early: open estándar cash-like. La misma K9o a 11 bb en push: a menudo shove (ir all-in) o fold según chart — ya no es un open de 2,5 bb \"para ver flop\"."
+        },
+        {
+          "title": "Ante que empuja el robo",
+          "body": "Sin ante, robar SB+BB vale poco relativo a tu stack profundo. Con ante, el dead money (fichas ya en el bote) justifica steals más wide desde CO/BTN antes de entrar en zona corta."
+        },
+        {
+          "title": "Lectura rápida de mesa",
+          "body": "Antes de la mano: \"Estoy mid a 22 bb, hay un short a 9 bb y un cover a 55 bb\". Ese mapa decide si presionas, sobrevives o buscas doble — no solo si \"te gusta\" la mano."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo sé si estoy en early, mid, short o push solo mirando bb?",
+        "¿Por qué el ante cambia mi plan de robos?",
+        "¿Qué es ICM en una frase y cuándo empieza a importar?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-00",
+      "title": "Stages del torneo y ante"
+    },
+    {
+      "route": "mtt",
+      "module": "M0",
+      "order": 1,
+      "plan": "free",
+      "xp": 100,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 6,
+      "concept": "En early (stacks profundos, a menudo 40–60+ bb) juegas spots claros y con paciencia: construyes stack sin coin flips inútiles ni spew (regalar fichas en spots −EV). El objetivo es llegar a mid con un stack jugable, no \"hacer acción\" en la primera ciega.",
+      "theory": [
+        {
+          "title": "Cash-like, no cash idéntico",
+          "body": "Con muchas bb el preflop se parece al cash: open o fold desde early, rangos más wide en late, sin limpear (igualar la ciega grande para entrar sin subir) en mesas modernas. Aun así el objetivo es supervivencia y stack usable más adelante, no maximizar cada pot como si pudieras cash-out."
+        },
+        {
+          "title": "Evita spew early",
+          "body": "Spew típico: 3-bet wars sin necesidad, faroles sin plan postflop, hero-calls \"porque estoy deep\". Las fichas early se defienden mejor: un error grande aquí te deja short mucho antes de la burbuja."
+        },
+        {
+          "title": "Trampa de mentalidad",
+          "body": "Jugar \"como final table\" en la primera órbita es un leak: no hay ICM de FT ni presión de burbuja. Sé selectivo, acumula sin drama y guarda energía mental para mid y short."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Open claro BTN",
+          "body": "ATo o 99 en BTN a ~40 bb: open estándar. Quieres pot manejable o robar ciegas; no necesitas all-in ni inventar líneas raras."
+        },
+        {
+          "title": "Fold UTG con paciencia",
+          "body": "Q8o UTG early: fold. Hay mucha gente detrás y la mano no juega bien multiway. Early no se \"fuerza\" basura solo porque te aburres."
+        },
+        {
+          "title": "HJ marginal",
+          "body": "A5o HJ early: a menudo fold. El as offsuit bajo se domina mucho y no tiene la jugabilidad de A5s; no es spot para spew buscando acción."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué cambia en early respecto al cash 100 bb?",
+        "¿Por qué no debo forzar manos mediocres UTG early?",
+        "Dame un ejemplo de spew típico en early MTT"
+      ],
+      "spots": "MTT_EARLY",
+      "exam": false,
+      "id": "T-01",
+      "title": "Early: cash-like con paciencia"
+    },
+    {
+      "route": "mtt",
+      "module": "M0",
+      "order": 2,
+      "plan": "study",
+      "xp": 80,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Antes de mirar solo tu mano, lee antenas de stack: quién es big stack, mid o short. Eso decide quién puede aplicar presión, quién necesita doble y a quién no conviene chocar. Piensa en bb efectivas (y en M si te ayuda), no en fichas absolutas.",
+      "theory": [
+        {
+          "title": "M y bb efectivas",
+          "body": "M (o M-ratio) resume cuántas órbitas te quedan pagando ciegas y antes. En la práctica del día a día, contar bb efectivas suele bastar: stack ÷ ciega grande (ajustando si el rival tiene menos). Lo importante es clasificar roles, no memorizar fórmulas."
+        },
+        {
+          "title": "Roles en la mesa",
+          "body": "Big stacks pueden abrir más y forzar folds. Short stacks buscan spots de doble o shove. Mid stacks a menudo sobreviven: no quieren coin flips grandes vs covers. No trates a todos igual solo porque \"tienes la misma mano\"."
+        },
+        {
+          "title": "Trampa: ceguera de stack",
+          "body": "Jugar solo tu combo e ignorar covers/shorts es un leak clásico. Un open wide vs un short desperate o un call light vs un big que te puede eliminar cambian el EV aunque la equity de la mano sea similar."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Cover vs short",
+          "body": "Tú 45 bb, short 11 bb en BTN: su shove es más wide por desesperación. Tú no pagas light \"porque soy cover\"; primero preguntas si el call mejora tu prize o solo tus fichas."
+        },
+        {
+          "title": "Mid entre dos fuegos",
+          "body": "Tú 22 bb, big 60 bb a tu izquierda y short 8 bb: opens flojos vs el big te meten en spots feos. Mejor spots claros o dejar que el short se juegue la vida."
+        },
+        {
+          "title": "Misma mano, distinto rival",
+          "body": "99 vs open de un mid a 28 bb no es lo mismo que 99 vs shove de un short a 9 bb. El stack relativo cambia fold equity, rangos y riesgo de eliminación."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo clasifico big, mid y short en mi mesa?",
+        "¿Para qué sirve pensar en M o en bb efectivas?",
+        "¿Por qué no juego igual vs un cover que vs un short?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-02",
+      "title": "Antenas de stack (M / big stacks)"
+    },
+    {
+      "route": "mtt",
+      "module": "M0",
+      "order": 3,
+      "plan": "study",
+      "xp": 110,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 4,
+      "concept": "Examen M0: repasas fases del torneo y early con paciencia. Sin teoría nueva — solo checklist de cómo revisar cada decisión antes de clicar.",
+      "theory": [
+        {
+          "title": "Paso 1",
+          "body": "Identifica la fase: ¿early profundo, mid, o ya cerca de short? Mira tu stack en bb y el de los rivales relevantes. Si estás early, prioriza spots claros y evita spew."
+        },
+        {
+          "title": "Paso 2",
+          "body": "Lee posición y antenas: UTG no es BTN. Pregunta quién puede castigarte detrás y si tu mano tiene plan si te 3-betean. Early: open o fold; no limpees ni forces basura."
+        },
+        {
+          "title": "Paso 3",
+          "body": "Ejecuta sin inventar drama de final table. Si la mano es clara (99 BTN open, 72o fold), hazlo. Si es marginal early desde early position, fold suele ser disciplina, no cobardía."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Antes de la sesión",
+          "body": "Repasa en voz alta: fase → stack bb → posición → ¿open claro o fold? El examen mezcla spots early; no busques \"jugadas de burbuja\" aquí."
+        },
+        {
+          "title": "Señal de alarma",
+          "body": "Si te pillas pensando \"voy all-in porque me aburro\" a 45 bb, párate. Eso es spew early, no estrategia de torneo."
+        },
+        {
+          "title": "Checklist de 5 segundos",
+          "body": "¿Estoy early? ¿Hay mucha gente detrás? ¿La mano juega bien si me pagan? Si dos respuestas son no, fold y siguiente mano."
+        }
+      ],
+      "aiQuestions": [
+        "Repásame el checklist de early antes del examen",
+        "¿Qué errores típicos de M0 debo evitar?"
+      ],
+      "spots": "MTT_EXAM_M0",
+      "exam": true,
+      "id": "T-03",
+      "title": "Examen M0 · MTT"
+    },
+    {
+      "route": "mtt",
+      "module": "M1",
+      "order": 4,
+      "plan": "study",
+      "xp": 110,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 6,
+      "concept": "Antes de entrar en zona corta, en mid (a menudo ~25–35 bb) robás ciegas con steals (opens desde late) desde CO, BTN y SB. El ante engorda el premio del robo; no llegues a 12 bb sin haber intentado acumular fichas baratas.",
+      "theory": [
+        {
+          "title": "Steal mid-late",
+          "body": "Steal: open-raise esperando que folden ciegas y antes. Aún no estás obligado a shove: abres a sizing estándar y eliges manos con plan si te 3-betean (fold, call o 4-bet según stack y rival)."
+        },
+        {
+          "title": "Manos con plan",
+          "body": "Buenas candidatas: broadways, Ax suited, suited connectors y pares. Basura total (72o) no se convierte en steal solo por estar en BTN. Si te 3-betean, sabes si te tiras o continúas — no abras \"y ya veremos\"."
+        },
+        {
+          "title": "Trampa de pasividad",
+          "body": "Pasar de largo todas las órbitas hasta 12 bb te deja short sin fichas robadas. Mid es la ventana para engordar el stack con fold equity antes del push/fold."
+        }
+      ],
+      "examples": [
+        {
+          "title": "K9o BTN mid",
+          "body": "BTN ~25 bb, K9o: steal razonable. Si las ciegas foldean mucho, ganas dead money; si te 3-betean fuerte, foldas sin drama."
+        },
+        {
+          "title": "A5s CO",
+          "body": "A5s CO mid: open/steal OK. Tiene blockers de as y jugabilidad; no es basura, pero tampoco es shove obligatorio a estas bb."
+        },
+        {
+          "title": "J8o CO fold",
+          "body": "J8o CO: fold típico. Domina poco, te castigan detrás y postflop duele. Steal no significa \"cualquier dos cartas en late\"."
+        }
+      ],
+      "aiQuestions": [
+        "¿Desde qué posiciones stealeo en mid y con qué manos?",
+        "¿Qué hago si me 3-betean tras un steal a 25 bb?",
+        "¿Por qué no debo esperar pasivo hasta 12 bb?"
+      ],
+      "spots": "MTT_STEAL",
+      "exam": false,
+      "id": "T-04",
+      "title": "Steal antes de zona corta"
+    },
+    {
+      "route": "mtt",
+      "module": "M1",
+      "order": 5,
+      "plan": "study",
+      "xp": 120,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 4,
+      "concept": "A mid stacks, el 3-bet polar (mezcla de manos fuertes por valor y faroles elegidos) aplica presión frente a opens late. No es solo QQ+: también usas blockers y fold equity, sin spew (3-betear basura sin plan).",
+      "theory": [
+        {
+          "title": "Qué significa polar",
+          "body": "Polar: tu rango de 3-bet se concentra en value (manos que quieren acción o stack-off) y en faroles con blockers (cartas que quitan al rival combinaciones fuertes), no en manos medias \"ni fu ni fa\". El stack decide si cabe un 3-bet non-all-in o si el spot pide shove."
+        },
+        {
+          "title": "Vs late vs early",
+          "body": "Vs open late (CO/BTN) puedes 3-betear más light: su rango es wide y fold equity sube. Vs open early (UTG/HJ) priorizas value: ellos abren tight y pagan o 4-betean más a menudo."
+        },
+        {
+          "title": "Trampa spew",
+          "body": "3-betear Q9o \"porque sí\" mid sin fold equity ni blockers útiles es spew. Si no tienes historia clara postflop o plan vs 4-bet, fold o hacer call selectivo — no inventes polaridad falsa."
+        }
+      ],
+      "examples": [
+        {
+          "title": "AKo value",
+          "body": "BTN stealea, tú BB con AKo: 3-bet por valor. Quieres aislar o ir hacia stack-off favorable; no es un farol."
+        },
+        {
+          "title": "A4s polar/farol",
+          "body": "Misma situación con A4s: 3-bet polar frecuente. Blocker de as + equity si te pagan; si te 4-betean, a menudo te tiras según stack y rival."
+        },
+        {
+          "title": "Q9o no spew",
+          "body": "Q9o vs steal: fold o a veces defensa pasiva — no 3-bet spew. Es mano media, dominada, sin blockers limpios de premium."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué es un 3-bet polar en mid stacks?",
+        "¿Cuándo 3-beteo light vs open late?",
+        "Dame un ejemplo de 3-bet spew que debo evitar"
+      ],
+      "spots": "MTT_3BET",
+      "exam": false,
+      "id": "T-05",
+      "title": "3-bet polar mid stacks"
+    },
+    {
+      "route": "mtt",
+      "module": "M1",
+      "order": 6,
+      "plan": "study",
+      "xp": 120,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 4,
+      "concept": "Resteal: 3-betear (a veces shove) al steal del late para ganar el bote muerto o aislar. Defense: desde ciegas no overfoldeas todo vs robos, pero tampoco overdefiendes basura — eliges fold, hacer call o 3-bet según stack y rival.",
+      "theory": [
+        {
+          "title": "Resteal con intención",
+          "body": "Cuando BTN o CO stealea wide, SB/BB pueden restealear: value claro (AK, pares fuertes) y faroles elegidos con blockers. A mid stacks aún cabe 3-bet non-all-in; si el stack se acorta, el resteal se acerca a shove."
+        },
+        {
+          "title": "Defense equilibrada",
+          "body": "Defense no es \"pagar todo\". Haces call con manos que juegan bien postflop o tienen odds; 3-beteas polar; foldeas dominadas. Vs UTG open tight, resteal loco es leak — no es un steal wide."
+        },
+        {
+          "title": "Trampas de extremos",
+          "body": "Never-defend (tirar casi todo) regala ciegas+ante gratis. Resteal maníaco vs opens early te elimina mid sin necesidad. Busca el medio: castiga steals, respeta ranges tight."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Resteal vs BTN",
+          "body": "BTN open steal a 25 bb, tú BB con A4s o TT: 3-bet (resteal) tiene sentido. Castigas el rango wide y tomas la iniciativa."
+        },
+        {
+          "title": "Fold correcto",
+          "body": "CO open, tú BB con 72o: fold. No hay defense heroica con basura; overdefend mid también es spew."
+        },
+        {
+          "title": "No resteal vs UTG",
+          "body": "UTG open tight, tú SB con K9o: fold frecuente. Aquí no hay el mismo fold equity que vs un steal de BTN."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué es un resteal y cuándo lo uso?",
+        "¿Cómo defiendo ciegas sin overdefender?",
+        "¿Por qué no restealeo igual vs UTG que vs BTN?"
+      ],
+      "spots": "MTT_RESTEAL",
+      "exam": false,
+      "id": "T-06",
+      "title": "Resteal y defense"
+    },
+    {
+      "route": "mtt",
+      "module": "M1",
+      "order": 7,
+      "plan": "study",
+      "xp": 130,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 4,
+      "concept": "Examen Mid: repasas steal, 3-bet polar y resteal/defense. Sin vocabulario nuevo — checklist de cómo leer el spot mid antes de actuar.",
+      "theory": [
+        {
+          "title": "Paso 1",
+          "body": "¿Eres el que abre (steal) o el que responde (defense/resteal)? Mira posición: CO/BTN/SB no son lo mismo, y BB vs steal no es BB vs UTG."
+        },
+        {
+          "title": "Paso 2",
+          "body": "Stack en bb mid: ¿cabe open estándar o el spot pide 3-bet/shove? Elige manos con plan si te resuben. Basura: fold. Value y polar limpio: presión."
+        },
+        {
+          "title": "Paso 3",
+          "body": "Evita los extremos del examen: passivity total (nunca robar) y spew (3-betear medias sin blockers). Roba late, castiga steals, foldea lo dominado."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Antes de clicar",
+          "body": "Di en una frase el job: \"Steal BTN\", \"3-bet polar BB vs BTN\" o \"fold basura\". Si no puedes nombrarlo, no inventes acción."
+        },
+        {
+          "title": "Señal polar vs spew",
+          "body": "A4s vs steal puede ser 3-bet polar. Q9o vs steal casi nunca. El examen premia esa distinción, no la agresión ciega."
+        },
+        {
+          "title": "Checklist rápido",
+          "body": "Posición → stack bb → ¿steal o defense? → ¿value, farol limpio o fold? Ejecuta y pasa a la siguiente."
+        }
+      ],
+      "aiQuestions": [
+        "Repásame steal vs resteal en mid",
+        "¿Qué errores de mid debo vigilar en el examen?"
+      ],
+      "spots": "MTT_EXAM_M1",
+      "exam": true,
+      "id": "T-07",
+      "title": "Examen Mid · MTT"
+    },
+    {
+      "route": "mtt",
+      "module": "M2",
+      "order": 8,
+      "plan": "study",
+      "xp": 130,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 4,
+      "concept": "Entre ~20 y 12 bb ya no eres deep: eliges open-raise o shove (ir all-in) según mano, posición y quién queda detrás. Min-raisear manos que deberían ir shove te mete en spots peores.",
+      "theory": [
+        {
+          "title": "Zona de umbrales",
+          "body": "En short (aprox. 20–12 bb) aparecen thresholds: algunas manos open a sizing reducido, otras shove directo, el resto fold. Depende de bb exactas, posición y stacks detrás — no de \"me gusta el flop imaginario\"."
+        },
+        {
+          "title": "Por qué no open/fold roto",
+          "body": "Abrir flojo y foldear siempre al shove rival es un leak: regalas fold equity y te dejan sin stack. Si la mano no aguanta presión, a menudo era fold pre; si es fuerte, considera shove limpio."
+        },
+        {
+          "title": "Trampa del miedo",
+          "body": "Min-raisear AK/99 \"por miedo a ir all-in\" a 14 bb suele ser peor: te comprometes sin maximizar fold equity. En esta zona, commit consciente > open tímido."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Shove candidato",
+          "body": "A5o BTN a ~12 bb: shove candidato frecuente. Open pequeño te deja mal vs 3-bet; shove toma el dead money o vas a equity."
+        },
+        {
+          "title": "Open aún viable",
+          "body": "Algunas manos medias a ~18–20 bb desde BTN aún abren sin shove. La clave es saber qué harás si te resuben — no open automático sin plan."
+        },
+        {
+          "title": "Fold basura",
+          "body": "72o a 15 bb: fold. Zona corta no justifica panic open; sin equity ni fold equity real, solo spew."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cuándo open y cuándo shove entre 20 y 12 bb?",
+        "¿Por qué es malo open flojo y fold al shove?",
+        "¿Qué miró además de mi mano en esta zona?"
+      ],
+      "spots": "MTT_SHORT",
+      "exam": false,
+      "id": "T-08",
+      "title": "Zona 20–12 bb: open/shove"
+    },
+    {
+      "route": "mtt",
+      "module": "M2",
+      "order": 9,
+      "plan": "study",
+      "xp": 140,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 6,
+      "concept": "A ~12–8 bb el plan base es push/fold: shove (all-in) o fold según chart y posición. Como en Spins cortos, el open min suele ser un error; quieres fold equity inmediata o ir a equity vs call.",
+      "theory": [
+        {
+          "title": "Push/fold simplifica",
+          "body": "Push/fold: o vas all-in o te tiras. Usa charts (menú Rangos / push-fold) como referencia, no como religión ciega: ajusta a rivals que overfolden o overcallen, pero no reinventes opens de cash a 10 bb."
+        },
+        {
+          "title": "Posición ensancha el rango",
+          "body": "BTN shoves más wide que CO; SB vs BB tiene dinámica propia. Early positions quedan más tight: hay más gente detrás que puede despertar con value."
+        },
+        {
+          "title": "Trampa open small",
+          "body": "Open a 2 bb con 10 bb de stack te deja en tierra de nadie: poco fold equity y commitment accidental. Si el chart dice shove, shove; si dice fold, fold."
+        }
+      ],
+      "examples": [
+        {
+          "title": "A5o BTN shove",
+          "body": "A5o BTN ~10–12 bb: shove candidato. As + fold equity; open min aquí suele ser peor que push/fold limpio."
+        },
+        {
+          "title": "KTs SB",
+          "body": "KTs SB corto: shove frecuente. Estás obligado a actuar; el dead money de ciegas/antes justifica presión."
+        },
+        {
+          "title": "99 value shove",
+          "body": "99 a 10–12 bb: shove por valor claro. Quieres que paguen peor o que folden; no min-raise \"para ver flop barato\"."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo uso un chart de push/fold sin robotizarme?",
+        "¿Por qué BTN shoves más wide que UTG a 10 bb?",
+        "¿Qué error es abrir pequeño a 10 bb?"
+      ],
+      "spots": "MTT_PUSH",
+      "exam": false,
+      "id": "T-09",
+      "title": "Push/fold 12–8 bb"
+    },
+    {
+      "route": "mtt",
+      "module": "M2",
+      "order": 10,
+      "plan": "study",
+      "xp": 120,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Antes del ICM fino, aprendes a hacer call vs shove mirando chip EV: ¿tienes equity suficiente contra el rango de all-in para que el call gane fichas a largo plazo? Es la base; luego apretamos con dinero real.",
+      "theory": [
+        {
+          "title": "Chip EV primero",
+          "body": "Chip EV (valor esperado en fichas): comparas la equity de tu mano vs el rango de shove con el precio que pagas. Si el call es +EV en fichas, en un mundo sin premios sería automático; en MTT es el suelo sobre el que luego aplicas ICM."
+        },
+        {
+          "title": "Manos y precios",
+          "body": "Manos fuertes (TT+, AQ+) suelen pagar shoves cortos. Manos medias dependen de posición, sizing (aquí all-in) y de lo wide que sea el shove. No \"ves flop\": vs shove ya estás en showdown equity."
+        },
+        {
+          "title": "Trampas de extremos",
+          "body": "Call light \"para ver\" con basura es spew. Fold panic con AQ vs shove corto también: a veces el chip EV es claramente positivo y el miedo te roba fichas."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Call claro chip EV",
+          "body": "Short shove 10 bb desde BTN, tú BB con AQo: hacer call suele ser +chip EV vs un rango wide. No necesitas ICM aún para ver que es fuerte."
+        },
+        {
+          "title": "Fold chip EV",
+          "body": "Mismo shove, tú con J9o: fold. Equity insuficiente vs el rango; \"quiero ver\" no es argumento."
+        },
+        {
+          "title": "Zona gris",
+          "body": "AJo vs shove CO a 12 bb puede ser call o fold según lo wide del rival. Entrena el hábito: estima rango → equity → precio, antes de inventar narrativa."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué es chip EV al hacer call vs un shove?",
+        "¿Por qué no debo hacer call light \"para ver\"?",
+        "¿Cuándo AQ es call claro vs shove corto?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-10",
+      "title": "Calling ranges vs shove (chip EV)"
+    },
+    {
+      "route": "mtt",
+      "module": "M2",
+      "order": 11,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Con ICM (el valor en dinero real de tus fichas según el payout), hacer call vs shove es más tight que en chip EV puro: el $EV castiga arriesgar tu stack cerca de premios. Overfold (foldear de más vs chip EV) es a menudo correcto.",
+      "theory": [
+        {
+          "title": "De fichas a dinero",
+          "body": "$EV (valor esperado en dinero de torneo) no es lo mismo que chip EV. Doblar fichas no duplica tu prize esperado; quedarte fuera cerca de la burbuja o de un pay jump duele más que \"perder un pot\" en cash."
+        },
+        {
+          "title": "Calls más tight",
+          "body": "Manos que eran call claros en fichas pueden ser fold en $EV si hay muchos shorts que pueden eliminarse o si tú eres mid vs cover. Pregunta: ¿este call mejora mi dinero esperado o solo mi ego de equity?"
+        },
+        {
+          "title": "Honestidad",
+          "body": "Usamos principios ICM, no un cálculo exacto de field completo. Si internalizas \"cerca de premios, paga menos light\", ya evitas el leak más caro del módulo."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Overfold correcto",
+          "body": "Burbuja, tú mid 18 bb, big shove 22 bb con cobertura: AJo que era call chip EV puede ser fold $EV. Dejas que otros se eliminen."
+        },
+        {
+          "title": "Aún pagas value",
+          "body": "ICM no significa fold forever. QQ vs shove corto sigue siendo call en casi todos los spots razonables: el value es demasiado fuerte."
+        },
+        {
+          "title": "Contraste mental",
+          "body": "Entrena la frase: \"+EV chips, −EV dinero → fold\". Si no puedes decir por qué el ICM aprieta, no uses ICM como excusa para foldear premiums."
+        }
+      ],
+      "aiQuestions": [
+        "¿Por qué el ICM hace los calls más tight?",
+        "¿Cuándo overfoldear vs shove es correcto?",
+        "¿Chip EV y $EV pueden discrepar en el mismo spot?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-11",
+      "title": "Calling ranges con ICM"
+    },
+    {
+      "route": "mtt",
+      "module": "M2",
+      "order": 12,
+      "plan": "coach",
+      "xp": 150,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Examen Short: repasas zona 20–12, push/fold y calls vs shove (chip EV e ICM básico). Sin teoría nueva — checklist de cómo revisar cada decisión short.",
+      "theory": [
+        {
+          "title": "Paso 1",
+          "body": "Cuenta bb: ¿20–12 (open/shove thresholds) o 12–8 (push/fold)? La herramienta cambia. No juegues 10 bb como si tuvieras 40."
+        },
+        {
+          "title": "Paso 2",
+          "body": "Si abres: ¿open, shove o fold? Si te shovena: ¿call por chip EV o ya aprieta el ICM? Nombra el criterio antes de clicar."
+        },
+        {
+          "title": "Paso 3",
+          "body": "Evita open small basura, panic shove 72o y call light \"porque equity\". En short, la disciplina de umbrales vale más que la creatividad."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Pregunta ancla",
+          "body": "Antes de cada mano del examen: \"¿Qué zona de bb estoy?\" Si no lo sabes, no elijas sizing de cash."
+        },
+        {
+          "title": "Vs shove",
+          "body": "Primero chip EV mental; luego, si hay olor a burbuja o pay jump, aprieta el call. El examen premia ese orden, no adivinar."
+        },
+        {
+          "title": "Señal de leak",
+          "body": "Si min-raiseas a 9 bb \"para ver\", corrige en caliente: push/fold o fold — no tierra de nadie."
+        }
+      ],
+      "aiQuestions": [
+        "Repásame open/shove vs push/fold",
+        "¿Cómo decido call vs shove en el examen short?"
+      ],
+      "spots": [],
+      "exam": true,
+      "id": "T-12",
+      "title": "Examen Short · MTT"
+    },
+    {
+      "route": "mtt",
+      "module": "M3",
+      "order": 13,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "En burbuja (bubble) cada rol tiene un plan distinto: el big stack presiona, el mid sobrevive y el short busca spots de ladder (subir peldaños de payout). Identificar tu rol vale más que enamorar una mano concreta.",
+      "theory": [
+        {
+          "title": "Tres roles, tres jobs",
+          "body": "Big: aplica presión y fuerza folds ICM. Mid: evita coin flips grandes vs covers; deja que los shorts se eliminen. Short: necesita doble o robos selectivos, no min-raise suicida."
+        },
+        {
+          "title": "ICM en burbuja",
+          "body": "El ICM (valor en dinero real según payout) está en máximo dramático: un call malo te saca sin cobrar mientras otros entran ITM (in the money). Por eso los mids overfoldean vs bigs más que en chip EV."
+        },
+        {
+          "title": "Trampa de rol confuso",
+          "body": "Mid que hero-callea al big \"porque tengo equity\" es el leak clásico de burbuja. Juega tu job, no el del short desesperado ni el del cover rico en fichas."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Big presiona",
+          "body": "Cover 50 bb abre wide vs mids a 20 bb: ellos no pueden defender todo. La presión es open/shove selectivo, no call light a shorts."
+        },
+        {
+          "title": "Mid sobrevive",
+          "body": "Mid 18 bb foldea A9o vs shove del big en burbuja. Doloroso en fichas, a menudo correcto en $EV."
+        },
+        {
+          "title": "Short pick spot",
+          "body": "Short 9 bb espera BTN/SB o un fold equity claro; no shoves UTG basura solo por pánico."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo sé si soy short, mid o big en burbuja?",
+        "¿Qué debe hacer cada rol?",
+        "¿Por qué el mid overfoldea vs el big?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-13",
+      "title": "Roles en burbuja (short/mid/big)"
+    },
+    {
+      "route": "mtt",
+      "module": "M3",
+      "order": 14,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Como big stack en burbuja, abres y shoves más para aplicar presión ICM: haces que los mids se tiren. Presión no significa hacer call light a los shorts — no regalas dobles fáciles sin fold equity.",
+      "theory": [
+        {
+          "title": "Presión ≠ pagar todo",
+          "body": "Tu arma es el fold equity: opens wide, 3-bets y shoves que ponen a los mids en dilemas $EV. Si el short ya está all-in, tú decides con rango; \"porque puedo\" no es razón para pagar basura."
+        },
+        {
+          "title": "Aislar y castigar",
+          "body": "Busca spots donde el mid no puede defenderse: late position, stacks que temen eliminarse. Castiga overfolds; no te suicides en flips innecesarios vs otro cover."
+        },
+        {
+          "title": "Trampa del cover generoso",
+          "body": "Pagar shove light del short \"para eliminarlo\" puede ser −$EV si tu call es flojo: le das vida barata o te expones sin necesidad. Eliminar con buena mano, no con ego."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Steal de cover",
+          "body": "Tú 55 bb BTN, mids 20 bb en ciegas: steal wide. Ellos foldean de más; tú recoges antes y ciegas sin showdown."
+        },
+        {
+          "title": "Fold con cover",
+          "body": "Short shove 11 bb, tú BB con KTo: a menudo fold. No necesitas ese flip; tu presión futura vale más."
+        },
+        {
+          "title": "Value cuando toca",
+          "body": "Mismo shove, tú con JJ: call/shove claro. Big stack tampoco foldea la joyería — solo deja de spew calls medios."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo presiono siendo big stack sin spew?",
+        "¿Por qué no pago light al short solo por eliminarlo?",
+        "¿Qué spots de mid son más explotables?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-14",
+      "title": "Big stack pressure"
+    },
+    {
+      "route": "mtt",
+      "module": "M3",
+      "order": 15,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Mid stack en burbuja: prioridad no chocarte con el big stack. Sobrevives dejando que los shorts se eliminen; evitas spots −$EV aunque sean +chip EV. Pick spots claros, no open spew vs covers.",
+      "theory": [
+        {
+          "title": "Fold equity baja vs big",
+          "body": "Vs un cover, tus robos se respetan menos y tus calls duelen más: él puede eliminarte y tú no le haces el mismo daño ICM. Por eso mid survival = menos guerras vs el chip leader."
+        },
+        {
+          "title": "Deja que el short se juegue",
+          "body": "Si hay shorts por debajo, cada órbita que sobreviven sin chocarte mejora tu ladder esperado. No hace falta ser el héroe que elimina a todos a la fuerza."
+        },
+        {
+          "title": "Trampa open spew",
+          "body": "Open flojo mid vs big a tu izquierda es invitar al resteal ICM. Preferible folds o manos con plan claro; la paciencia aquí es skill, no pasividad ciega vs todos."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Fold $EV",
+          "body": "Big shove 25 bb, tú mid 20 bb con AJo: fold frecuente en burbuja. Chip EV puede gustar; $EV a menudo no."
+        },
+        {
+          "title": "Spot vs short",
+          "body": "Short 8 bb shove a tu BB, tú mid con AQo: más dispuesto a pagar — el ICM vs short duele menos que vs cover."
+        },
+        {
+          "title": "No spew open",
+          "body": "CO mid, big en BTN: K9o a menudo fold. Abrir para que el cover te meta presión es regalarte un dilema."
+        }
+      ],
+      "aiQuestions": [
+        "¿Por qué el mid sobrevive en burbuja?",
+        "¿Cuándo sí hago call siendo mid?",
+        "¿Qué opens evito vs el big stack?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-15",
+      "title": "Mid stack survival"
+    },
+    {
+      "route": "mtt",
+      "module": "M3",
+      "order": 16,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Short stack en burbuja: necesitas ladder (subir un peldaño de payout) con shoves selectivos y timing. No min-raise suicida ni panic shove UTG con basura — elige spots con fold equity o equity decente.",
+      "theory": [
+        {
+          "title": "Doble con criterio",
+          "body": "Sí, necesitas fichas; no, no cualquier mano en cualquier asiento. Prioriza late position, folds delante y rivales mid que overfoldean por ICM. UTG basura es el antitexto."
+        },
+        {
+          "title": "Ladder mental",
+          "body": "Cada eliminación ajena te acerca a cobrar o a un salto. A veces fold + esperar un mejor spot sube más tu $EV que un flip feo ahora. Equilibra urgencia de ciegas con calidad del spot."
+        },
+        {
+          "title": "Trampa panic",
+          "body": "Shove panic porque \"me comen las ciegas\" con 72o UTG suele ser −EV en ambos mundos. Si estás muerto de fichas, al menos elige manos con blockers o equity real."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Shove late",
+          "body": "9 bb BTN, folds delante, A5o: shove selectivo típico. Fold equity vs mids + equity si te pagan."
+        },
+        {
+          "title": "Fold UTG",
+          "body": "9 bb UTG, J8o: fold. Aunque estés short, este spot no laddera — solo spew."
+        },
+        {
+          "title": "Timing vs cover",
+          "body": "Big en BB que paga light: aprieta tu rango de shove. Mid en BB que overfoldea: puedes ir más wide. Lee el rol, no solo el chart estático."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo elijo spots de shove siendo short en burbuja?",
+        "¿Qué es el ladder en payout?",
+        "¿Por qué no panic shove desde UTG?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-16",
+      "title": "Short stack ladder"
+    },
+    {
+      "route": "mtt",
+      "module": "M3",
+      "order": 17,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Tras el ITM (ya cobras algo), los pay jumps (saltos de premio entre puestos) siguen importando: no \"ya estoy pagado, all-in light\". El ICM continúa; cada eliminación puede subir tu prize.",
+      "theory": [
+        {
+          "title": "ITM no apaga el ICM",
+          "body": "Cobrar el mínimo no iguala tu $EV al chip EV. Entre el min-cash y la mesa final hay escalones: arriesgar stack light regala jumps a otros. Sigue pensando roles y covers."
+        },
+        {
+          "title": "Ajusta la agresión",
+          "body": "Puedes abrir más que en burbuja extrema, pero no spew post-bubble. Los jumps grandes (cerca de FT o de pagos altos) aprietan otra vez los calls y los flips innecesarios."
+        },
+        {
+          "title": "Trampa \"ya cobré\"",
+          "body": "Mentalidad de spew tras el min-cash es leak caro: conviertes un buen resultado en mediocre. Celebra el ITM fuera de la mesa; dentro, sigue el plan de saltos."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Jump cerca",
+          "body": "Quedan 12, pagan fuerte de 9 en adelante: mid vs big shove con AJo puede ser fold otra vez. El jump importa más que el min-cash ya asegurado."
+        },
+        {
+          "title": "Presión razonable",
+          "body": "Cover post-ITM puede robar a mids que aún temen saltos. Misma lógica de burbuja, algo menos extrema."
+        },
+        {
+          "title": "No flip gratis",
+          "body": "Dos mids con stacks similares cerca de un salto grande: evita coin flip marginal. Espera un mejor edge o un short que se elimine."
+        }
+      ],
+      "aiQuestions": [
+        "¿Por qué el ICM sigue tras el ITM?",
+        "¿Qué es un pay jump y cómo cambia mis calls?",
+        "¿Qué leak evita la mentalidad \"ya estoy pagado\"?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-17",
+      "title": "Pay jumps post-ITM"
+    },
+    {
+      "route": "mtt",
+      "module": "M3",
+      "order": 18,
+      "plan": "coach",
+      "xp": 150,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Examen Bubble: repasas roles short/mid/big, presión, supervivencia y ladder. Sin teoría nueva — checklist de cómo revisar cada spot de burbuja.",
+      "theory": [
+        {
+          "title": "Paso 1",
+          "body": "¿Soy short, mid o big? Clasifica stacks en bb relativos a la mesa. Si no sabes tu rol, no elijas línea: el job cambia la respuesta correcta."
+        },
+        {
+          "title": "Paso 2",
+          "body": "¿Presiono o sobrevivo? Big → presión con fold equity. Mid → evita covers, pick spots. Short → shove selectivo, no panic. Nombra el job en una frase."
+        },
+        {
+          "title": "Paso 3",
+          "body": "Separar chip EV de $EV: si el spot es +fichas y −dinero, fold suele ganar el examen. No hero-call de mid vs big \"por equity\"."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Ancla de rol",
+          "body": "Antes de cada mano: \"Soy mid, big a la izquierda, short debajo\". Esa frase evita el 50 % de leaks de burbuja."
+        },
+        {
+          "title": "Señal de spew",
+          "body": "Si siendo mid pagas shove del cover con mano media, párate. El examen castiga ese heroísmo."
+        },
+        {
+          "title": "Checklist rápido",
+          "body": "Rol → presión/supervivencia/ladder → ¿ICM aprieta? → actúa. Sin vocabulario nuevo, solo aplicación."
+        }
+      ],
+      "aiQuestions": [
+        "Repásame los tres roles de burbuja",
+        "¿Qué errores ICM debo evitar en el examen?"
+      ],
+      "spots": [],
+      "exam": true,
+      "id": "T-18",
+      "title": "Examen Bubble"
+    },
+    {
+      "route": "mtt",
+      "module": "M4",
+      "order": 19,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "En final table (FT) el ICM se intensifica: pay jumps grandes, covers que aplastan y shorts extremos. Los principios de burbuja escalan — no prometemos un solver completo de FT, sí un mapa mental usable.",
+      "theory": [
+        {
+          "title": "FT = ICM a máximo volumen",
+          "body": "Los saltos entre puestos de FT suelen ser enormes. Covers presionan; mids cuidan stacks; shorts pick spots. Un flip mal elegido destroza horas de torneo en un click."
+        },
+        {
+          "title": "Covers y malas estructuras",
+          "body": "Si un chip leader tiene covers sobre varios, puede abrir muy wide. Si tú eres mid con otro mid similar, a menudo preferís que el short se elimine antes de chocaros."
+        },
+        {
+          "title": "Límite honesto",
+          "body": "No calculamos ICM de 9-handed exacto en cada mano. Si aplicas roles + jumps + \"no spew vs cover\", ya juegas FT por encima del recreativo medio."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Cover FT",
+          "body": "Chip leader 80 bb vs mesa de 15–25 bb: steal y presión constantes. Los mids no pueden despertar con medias."
+        },
+        {
+          "title": "Dos mids",
+          "body": "Dos stacks 22 bb, short 6 bb: ambos evitan all-in mutuo hasta que el short se juegue. Ladder compartido."
+        },
+        {
+          "title": "Short FT",
+          "body": "Short 7 bb espera fold equity en late; no open min. Misma lección de ladder, con jumps más caros."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué cambia el ICM en final table vs burbuja?",
+        "¿Cómo deben actuar cover, mid y short en FT?",
+        "¿Por qué dos mids evitan chocarse con un short vivo?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-19",
+      "title": "Final table ICM intro"
+    },
+    {
+      "route": "mtt",
+      "module": "M4",
+      "order": 20,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Entrenas a separar \"gano fichas\" (chip EV) de \"gano dinero de torneo\" ($EV). Si el spot es +EV en chips y −EV en dinero — típico en burbuja/FT — fold es a menudo correcto; no idolatres solo la equity.",
+      "theory": [
+        {
+          "title": "Dos respuestas posibles",
+          "body": "Ante un shove, puedes tener call chip EV y fold $EV. El drill es verbalizar ambas: \"En fichas pago; en dinero me tiro porque…\" Sin esa frase, confundes valentía con spew."
+        },
+        {
+          "title": "Cuándo coinciden",
+          "body": "Premiums fuertes y spots vs shorts desesperados suelen alinear chip EV y $EV: pagas. La discrepancia aparece en medias vs covers cerca de jumps."
+        },
+        {
+          "title": "Trampa equity-only",
+          "body": "\"Tengo 35 % y el precio es 30 %\" no cierra el caso en MTT. El prize risk puede hacer que ese 5 % de edge en fichas sea −$EV. Equity es input, no veredicto."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Discrepancia clásica",
+          "body": "Burbuja, mid vs big shove, AJo: call chip EV / fold $EV. El drill correcto nombra las dos lecturas y elige dinero."
+        },
+        {
+          "title": "Alineación",
+          "body": "QQ vs shove short 10 bb en FT: call en ambos marcos. No uses ICM para foldear la joyería."
+        },
+        {
+          "title": "Frase de entrenamiento",
+          "body": "Di en voz alta: \"+chips −$ → fold; +ambos → call; −ambos → fold\". Si no encaja, reestima rango y rol."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo separo chip EV de $EV en un call vs shove?",
+        "¿Cuándo coinciden y cuándo discrepan?",
+        "Dame un ejemplo +chip EV y −$EV"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-20",
+      "title": "Chip EV vs $EV drills"
+    },
+    {
+      "route": "mtt",
+      "module": "M4",
+      "order": 21,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "En burbuja/FT asignas rangos de shove y de call según rol y stack, no solo según \"tu mano te gusta\". Range reading: qué shoves este short, qué paga este mid, qué foldea este big — luego encajas tu combo.",
+      "theory": [
+        {
+          "title": "Preguntas de rango",
+          "body": "Antes de actuar: ¿qué % shoves este short desde BTN? ¿Este mid overfoldea vs cover? ¿El big paga light por ego? Esas respuestas definen si tu mano es value, bluff-catcher malo o fold automático."
+        },
+        {
+          "title": "No leas como cash deep",
+          "body": "Hand-reading de cash a 100 bb (líneas multi-street, sizes raros) no es el job aquí. En burbuja priorizas stack, rol e ICM: rangos de push/call polarizados, no pot control fancy."
+        },
+        {
+          "title": "Trampa combo-centrismo",
+          "body": "Enamorarte de KJo sin preguntar el rango rival es leak. La misma KJo es call vs short wide y fold vs cover tight en burbuja. El combo es el último paso, no el primero."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Short wide",
+          "body": "Short 8 bb BTN shove: rango amplio (Ax, broadways, suited). Tu A9o en BB mid gana más peso de call que vs un shove UTG desesperado pero más tight."
+        },
+        {
+          "title": "Mid overfold",
+          "body": "Estimás que el mid foldea todo menos QQ+ vs tu shove de cover: puedes ir más wide. Si paga ATo+, aprietas value."
+        },
+        {
+          "title": "Big ego-call",
+          "body": "Cover que odia foldear: no bluff-shoves light contra él; value más limpio. Lee tendencias de rol + player type."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué preguntas hago para leer rangos en burbuja?",
+        "¿Por qué no sirvo el hand-reading de cash deep aquí?",
+        "¿Cómo cambia KJo vs short wide o vs cover?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "T-21",
+      "title": "Range reading en burbuja"
+    },
+    {
+      "route": "mtt",
+      "module": "M4",
+      "order": 22,
+      "plan": "coach",
+      "xp": 150,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Examen Pro MTT: certificación de fases, short/push, burbuja e ICM de FT. Sin teoría nueva — checklist de cómo revisar spots de torneo de punta a punta.",
+      "theory": [
+        {
+          "title": "Paso 1",
+          "body": "Fase y bb: early/mid/short/push/bubble/FT. Si fallas la fase, fallas el sizing y el rol. Ancla stack en bb antes de la mano."
+        },
+        {
+          "title": "Paso 2",
+          "body": "Rol y job: ¿robo, presión de cover, supervivencia mid, ladder short? Resume bubble roles en una frase y aplícalos también en FT con jumps mayores."
+        },
+        {
+          "title": "Paso 3",
+          "body": "Chip EV vs $EV en una frase: si discrepan cerca de premios, prioriza dinero. No spew calls medios vs covers; no foldees premiums claros vs shorts."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Certificación mental",
+          "body": "Antes del pack: \"Fase → rol → ¿chips o dinero?\". Esa tríada es la rúbrica del examen Pro."
+        },
+        {
+          "title": "Resume roles",
+          "body": "Big presiona, mid sobrevive, short ladder. Si tu línea contradice el rol sin motivo, corrige."
+        },
+        {
+          "title": "Frase $EV",
+          "body": "Practica: \"Call chip EV, fold $EV → me tiro\". Si no puedes decirlo, no uses ICM como muletilla."
+        }
+      ],
+      "aiQuestions": [
+        "Repásame el checklist Pro: fase, rol y $EV",
+        "¿Cómo resumo bubble roles en una frase?",
+        "¿Qué errores matan una certificación MTT?"
+      ],
+      "spots": [],
+      "exam": true,
+      "id": "T-22",
+      "title": "Examen Pro · MTT"
+    }
+  ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
   D.registerLessons(lessons);
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -3018,188 +3717,301 @@
     }
   }
   var RAW = [
-  {
-    "route": "ranges",
-    "module": "M0",
-    "order": 0,
-    "plan": "free",
-    "xp": 40,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "La matriz 13×13 muestra con qué frecuencia se juega cada mano. Aprende a leerla antes de memorizar.",
-    "theory": [
-      "Filas/columnas son ranks (A…2). Suited arriba/un lado, offsuit al otro, pares en diagonal — según la UI del menú Rangos.",
-      "Un color o % indica frecuencia: no todo es “siempre” o “nunca”.",
-      "Abre el menú Rangos y localiza RFI BTN vs UTG: el BTN es mucho más wide."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Filas/columnas son ranks (A…2). Suited arriba/un lado, offsuit al otro, pares en diagonal — según la UI del menú Rangos."
-      }
-    ],
-    "aiQuestions": [
-      "¿Dónde están los pares en la matriz?",
-      "¿Qué significa un % en una celda?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "R-01",
-    "title": "Leer un range chart 13×13"
-  },
-  {
-    "route": "ranges",
-    "module": "M0",
-    "order": 1,
-    "plan": "study",
-    "xp": 70,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Ejercicio mental: lista las categorías de open desde el botón (pares, broadway, suited connectors…).",
-    "theory": [
-      "En 60 segundos, nombra bandas: 22+, A2s+, ATo+, K9s+, etc. Luego contrasta con el menú Rangos.",
-      "El objetivo no es memorizar pixel a pixel; es tener un mapa mental.",
-      "Trampa: open BTN “cualquier dos” sin bandas."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "En 60 segundos, nombra bandas: 22+, A2s+, ATo+, K9s+, etc. Luego contrasta con el menú Rangos."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "R-02",
-    "title": "Construir RFI BTN en 60 s"
-  },
-  {
-    "route": "ranges",
-    "module": "M0",
-    "order": 2,
-    "plan": "study",
-    "xp": 80,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Dado un flop, estima qué parte del rango rival pegó pareja, draw o aire.",
-    "theory": [
-      "Ejemplo: rango BTN wide en K72r conecta top pair menos que en JTs9. La textura cambia la ventaja de rango.",
-      "Úsalo para decidir c-bet (enlace con Cash M2).",
-      "Trampa: asumir que “siempre conectó” o “nunca conectó”."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Ejemplo: rango BTN wide en K72r conecta top pair menos que en JTs9. La textura cambia la ventaja de rango."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "R-03",
-    "title": "Qué % del rango conecta un board"
-  },
-  {
-    "route": "ranges",
-    "module": "M1",
-    "order": 3,
-    "plan": "coach",
-    "xp": 90,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Tus cartas quitan combinaciones del rango rival (blockers). Eso cambia faroles y bluff-catchers.",
-    "theory": [
-      "Con A♠X, el rival tiene menos AA y menos AKx de ese palo. Por eso Axs es farol frecuente de 3-bet (C-08).",
-      "Practica: “¿qué combos quito?” antes de farolear river.",
-      "Trampa: farolear sin blockers en rivers pesados."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Con A♠X, el rival tiene menos AA y menos AKx de ese palo. Por eso Axs es farol frecuente de 3-bet (C-08)."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "R-04",
-    "title": "Eliminación de combos (blockers)"
-  },
-  {
-    "route": "ranges",
-    "module": "M1",
-    "order": 4,
-    "plan": "coach",
-    "xp": 90,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Tras open–call–check–bet, reduce el rango rival a una historia creíble.",
-    "theory": [
-      "Cada acción elimina manos. El rango se “capea” o se polariza según la línea.",
-      "Ejercicio: escribe 2–3 manos tipo que llegan a ese river.",
-      "Trampa: poner al rival siempre en la mano que te gana."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Cada acción elimina manos. El rango se “capea” o se polariza según la línea."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "R-05",
-    "title": "Asignar rango rival tras una línea"
-  },
-  {
-    "route": "ranges",
-    "module": "M1",
-    "order": 5,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "En un nodo GTO, las acciones tienen frecuencias (a veces bet 70 / check 30). No todo es puro.",
-    "theory": [
-      "Node locking mental: eliges una acción “como si” mezclaras, aunque en práctica juegues una línea.",
-      "Útil para entender por qué un spot no es “siempre c-bet”.",
-      "Trampa: exigir 100 % o 0 % en todos los spots."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Node locking mental: eliges una acción “como si” mezclaras, aunque en práctica juegues una línea."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "R-06",
-    "title": "Node frequencies (pro)"
-  }
-];
+    {
+      "route": "ranges",
+      "module": "M0",
+      "order": 0,
+      "plan": "free",
+      "xp": 40,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Antes de memorizar un open, aprende a leer la matriz 13×13 del menú Rangos: cada celda es una mano y el color o el % te dice con qué frecuencia se juega.",
+      "theory": [
+        {
+          "title": "Qué es la matriz",
+          "body": "La matriz (o range chart) es una cuadrícula de 13 filas × 13 columnas con los ranks de A a 2. Cada celda representa una combinación de dos cartas. Ábrela en el menú Rangos de la app: ahí verás RFI, defensa y más por posición, no solo un dibujo estático."
+        },
+        {
+          "title": "Suited, offsuit y pares",
+          "body": "Los pares (AA, KK… 22) viven en la diagonal. Las manos suited (mismo palo, p. ej. AKs) suelen estar a un lado de la diagonal; las offsuit (palos distintos, AKo) al otro. Localiza primero AA y 72o: si no sabes dónde caen, aún no “lees” el chart."
+        },
+        {
+          "title": "Frecuencias, no solo sí/no",
+          "body": "Un color o un porcentaje en la celda indica frecuencia: no todo es “siempre open” o “nunca”. Una mano al 40 % se mezcla (a veces se juega, a veces no). Compara RFI BTN con RFI UTG en el menú Rangos: el botón es mucho más wide (más manos)."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Localizar tres celdas",
+          "body": "En el menú Rangos, RFI BTN: encuentra 99 (diagonal), ATs (suited) y KJo (offsuit). Si las tres te salen a la primera, ya orientas la matriz."
+        },
+        {
+          "title": "BTN vs UTG a simple vista",
+          "body": "Mismo chart tipo RFI: UTG tiene pocas celdas “encendidas”; BTN muchas más. El mensaje del profesor: posición late = rango más ancho, no “cualquier dos”."
+        },
+        {
+          "title": "Leer un %",
+          "body": "Si K9s aparece al 65 %, no es “siempre open”: en dos de cada tres veces se abre y en una se fold. El chart habla en frecuencias, no en absolutos."
+        }
+      ],
+      "aiQuestions": [
+        "¿Dónde están los pares en la matriz 13×13?",
+        "¿Qué diferencia visual ves entre RFI BTN y RFI UTG en el menú Rangos?",
+        "¿Qué significa un porcentaje en una celda?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-01",
+      "title": "Leer un range chart 13×13"
+    },
+    {
+      "route": "ranges",
+      "module": "M0",
+      "order": 1,
+      "plan": "study",
+      "xp": 70,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Construir el RFI del botón en sesenta segundos no es memorizar píxeles: es tener bandas mentales (pares, broadway, suited connectors) y luego contrastarlas con el menú Rangos.",
+      "theory": [
+        {
+          "title": "Qué es RFI BTN",
+          "body": "RFI (raise first in) es subir primero el bote cuando nadie ha entrado. Desde BTN (botón) tu rango de open es el más wide de las posiciones late: muchas manos tienen fold equity (posibilidad de que todos tiren) y, si hacen call, juegas el flop en posición."
+        },
+        {
+          "title": "Bandas en 60 segundos",
+          "body": "Cronómetro: di en voz alta categorías, no celdas sueltas. Ejemplo de mapa: 22+, A2s+, ATo+, K9s+, KTo+, QTs+, J9s+, T8s+, 98s–65s, y algunas suited gapers. Luego abre el menú Rangos y marca qué te faltó o qué sobró."
+        },
+        {
+          "title": "Trampa del “cualquier dos”",
+          "body": "Wide no significa limpear (igualar la ciega grande para entrar) ni openear 72o “porque soy botón”. El objetivo es un mapa usable bajo presión, no un permiso para spew. Si no puedes nombrar bandas, no tienes rango: solo intuición."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Drill de un minuto",
+          "body": "Cierra los ojos: “Pares todos; ases suited casi todos; broadway offsuit selectivo; conectores suited medios.” Abre el chart RFI BTN y anota tres manos que olvidaste."
+        },
+        {
+          "title": "Contraste con CO",
+          "body": "Repite el drill para CO: verás menos manos (más tight). Si tu mapa mental BTN y CO son idénticos, aún no discriminas por posición."
+        },
+        {
+          "title": "Manos frontera",
+          "body": "K9o, Q8s, 54s: ¿dentro o fuera de tu banda BTN? Decide en cinco segundos y comprueba el % en el menú Rangos. Ahí se entrena el borde del rango, no solo el centro."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué bandas nombrarías en 60 s para RFI BTN?",
+        "¿Por qué wide en BTN no autoriza openear basura total?",
+        "¿Cómo usas el menú Rangos después del drill mental?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-02",
+      "title": "Construir RFI BTN en 60 s"
+    },
+    {
+      "route": "ranges",
+      "module": "M0",
+      "order": 2,
+      "plan": "study",
+      "xp": 80,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Dado un flop, estima qué porcentaje del rango rival conectó pareja, proyecto o aire: la textura decide la ventaja de rango y, con ella, tu plan de c-bet.",
+      "theory": [
+        {
+          "title": "Conectar un board",
+          "body": "“Qué % del rango conecta” pregunta cuántas combinaciones del rango preflop mejoraron a pareja, dos pares, trío, straight/flush draw, etc. No hace falta un solver: piensa en categorías. Un rango BTN wide en K♠7♦2♣ rainbow conecta top pair menos que en J♥T♥9♦."
+        },
+        {
+          "title": "Textura y range advantage",
+          "body": "La textura (seco, wet, monotone) cambia quién “encaja” mejor. Range advantage (ventaja de rango) significa que tu distribución de manos fuertes supera a la del rival en ese board. En A-high seco el agresor RFI suele tener ventaja; en bajos conectados el caller recupera mucho."
+        },
+        {
+          "title": "Enlace con el c-bet",
+          "body": "Si tu rango conecta más (o el rival falla más), el c-bet (apuesta de continuación tras haber subido preflop) tiene más sentido, a menudo a sizing pequeño. Si el board favorece al que solo hizo call, reduces frecuencia y cedes más. Enlace directo con Cash M2 (C-14…C-16)."
+        }
+      ],
+      "examples": [
+        {
+          "title": "BTN wide en K72r",
+          "body": "Rango de open BTN vs BB. Flop K♠7♦2♣: muchas manos del BB fallan; tú tienes Ax, Kx y overpairs. Estimas: rival conectó poco → c-bet frecuente."
+        },
+        {
+          "title": "Mismo rango en JT9",
+          "body": "Flop J♥T♠9♦: el BB con suited connectors y broadway media conecta draws y pares fuertes. Tu ventaja se reduce → menos autocbet, más selectividad."
+        },
+        {
+          "title": "Pregunta de profesor",
+          "body": "Antes de pulsar bet: “¿Este board ayuda más a mi rango de agresor o al de defensa?” Si no sabes responder, aún no estimaste el % que conectó."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo cambia el % que conecta un rango wide entre K72r y JT9?",
+        "¿Qué es range advantage en una frase?",
+        "¿Cómo enlazas esa estimación con tu frecuencia de c-bet?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-03",
+      "title": "Qué % del rango conecta un board"
+    },
+    {
+      "route": "ranges",
+      "module": "M1",
+      "order": 3,
+      "plan": "coach",
+      "xp": 90,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Tus cartas quitan combinaciones del rango rival: eso son blockers. Contar qué combos eliminas cambia cuándo faroleas y cuándo haces call con bluff-catchers.",
+      "theory": [
+        {
+          "title": "Blockers = eliminación de combos",
+          "body": "Un combo es una combinación concreta (p. ej. A♠K♥). Si tú tienes el A♠, el rival ya no puede tener AA con ese as ni AKs del palo de picas. Blockers (bloqueadores) son tus cartas vistas que reducen las manos fuertes o los bluff-catchers del villano."
+        },
+        {
+          "title": "Faroles con buen blocker",
+          "body": "Por eso Axs (as suited) aparece mucho como farol de 3-bet o de river: bloqueas AA y AKx del mismo palo y a menudo tienes equity de respaldo. Antes de farolear, pregunta: “¿qué combos de value quito? ¿qué bluff-catchers dejo vivos?”"
+        },
+        {
+          "title": "Trampa sin blockers",
+          "body": "Farolear river en boards pesados sin blocker de nuts (la mejor mano posible) es spew frecuente: dejas intactas las manos que te pagan y las que te ganan. Practica en voz alta: “quito X, no quito Y” antes de meter fichas."
+        }
+      ],
+      "examples": [
+        {
+          "title": "3-bet farol con A5s",
+          "body": "Vs open BTN, A♠5♠: bloqueas AA y muchos AKo/AKs de picas. El farol tiene historia; K9o offsuit no bloquea lo mismo y suele ser peor candidato (enlace con C-08)."
+        },
+        {
+          "title": "River: as de picas en board de color",
+          "body": "Board con tres picas; tú tienes A♠x sin color. Bloqueas la nuts de color: a veces farol o semi-farol tiene más sentido que con 7♦6♣, que no bloquea nada relevante."
+        },
+        {
+          "title": "Bluff-catcher y blockers",
+          "body": "Con Kx en un river donde el rival apuesta polar, tener el as del palo del flush posible puede justificar hacer call: reduces combos de color value y dejas más faroles en su rango."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué combos quita A♠X del rango rival?",
+        "¿Por qué Axs es farol frecuente de 3-bet?",
+        "¿Qué pregunta te haces antes de farolear un river?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-04",
+      "title": "Eliminación de combos (blockers)"
+    },
+    {
+      "route": "ranges",
+      "module": "M1",
+      "order": 4,
+      "plan": "coach",
+      "xp": 90,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Tras una línea (open, call, check, bet…), no pongas al rival en “una mano”: reduce su rango a una historia creíble de value, medias y aire.",
+      "theory": [
+        {
+          "title": "Cada acción elimina manos",
+          "body": "Asignar rango es ir capeando (recortando) combinaciones imposibles. Quien hace open RFI no tiene 72o. Quien hace call a un 3-bet grande rara vez tiene aire puro. Quien check-raisea flop polariza: fuertes y faroles, menos medias sticky."
+        },
+        {
+          "title": "Escribe la historia en bandas",
+          "body": "Ejercicio de profesor: en el river, lista 2–3 manos tipo de value, 2–3 medias y 2–3 aires que llegan a esa línea. Si solo puedes imaginar la nuts que te gana, estás sesgado. Contrasta con el menú Rangos cuando exista chart del spot."
+        },
+        {
+          "title": "Trampa del “siempre me tiene”",
+          "body": "El error clásico es poner al villano siempre en la mano que te gana tras un bet grande. Oblígate a nombrar también faroles y manos medias. Sin aire en su rango, nunca puedes hacer call; sin value, nunca puedes fold — y ambos extremos son sospechosos."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Línea simple IP",
+          "body": "BTN open, BB call, flop check-check, turn bet BTN, river bet. El rango del BTN en river ya no es el RFI entero: se densificó en value y algunos faroles; muchas basuras checkearon atrás en turn."
+        },
+        {
+          "title": "Check-raise en flop",
+          "body": "BB check-raisea un c-bet en board seco. Historia típica: sets, dos pares, a veces faroles con blockers. QJ sin pareja queda fuera del value; no digas “me tiene AK” sin mirar la línea."
+        },
+        {
+          "title": "Drill de tres columnas",
+          "body": "Papel: Value | Medias | Aire. Rellena tras narrar la línea en voz alta. Si una columna está vacía, tu asignación es incompleta."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué manos elimina un check-raise de flop del rango “solo call”?",
+        "¿Cómo evitas poner al rival siempre en la nuts?",
+        "¿Qué tres columnas usas para describir un rango en river?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-05",
+      "title": "Asignar rango rival tras una línea"
+    },
+    {
+      "route": "ranges",
+      "module": "M1",
+      "order": 5,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "En un nodo GTO las acciones suelen mezclarse: bet 70 / check 30 no es indecisión, es frecuencia. Entender el mix te evita exigir “siempre” o “nunca”.",
+      "theory": [
+        {
+          "title": "Frecuencias de nodo",
+          "body": "Un nodo es un punto de decisión (p. ej. c-bet flop IP en A72r). GTO (game theory optimal) asigna frecuencias: la misma mano o el mismo rango puede apostar a veces y checkear otras. El chart del menú Rangos o del solver habla en %; tú en mesa eliges una acción concreta."
+        },
+        {
+          "title": "Node locking mental",
+          "body": "Node locking mental es decirte: “aquí el mix sano es ~70 % bet / 30 % check” aunque en esta mano ejecutes solo una línea. Sirve para no tiltar cuando el chart “a veces checkea” con una mano que tú siempre apostarías, y para no rigidizar spots que el solver mezcla."
+        },
+        {
+          "title": "Trampa del 100 % o 0 %",
+          "body": "Exigir pure strategies (siempre bet o siempre check) en todos los spots te pelea con el mix. En live/online eliges una acción; en estudio respetas que el equilibrio a menudo es frecuencia. Enlace natural con C-30 en Pro Cash."
+        }
+      ],
+      "examples": [
+        {
+          "title": "C-bet 70 / check 30",
+          "body": "Flop seco IP: el nodo puede mandar c-bet ~70 %. Tú con KQo apuestas esta mano; la próxima vez similar podrías checkear otra combinación. El estudio enseña el mix; la mesa ejecuta una muestra."
+        },
+        {
+          "title": "Misma mano, dos frecuencias",
+          "body": "A5s en un 3-bet: a veces value/pressure, a veces fold vs 4-bet. No es contradicción: son nodos distintos con frecuencias distintas según el tamaño y la posición."
+        },
+        {
+          "title": "Frase de mesa",
+          "body": "En vez de “siempre c-bet”, di “aquí c-beteo la mayoría”. Ese lenguaje de frecuencias es el puente entre el laboratorio de rangos y el juego real."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué significa bet 70 / check 30 en un nodo?",
+        "¿Para qué sirve el node locking mental si en mesa solo eliges una acción?",
+        "¿Por qué es un error exigir 100 % o 0 % en todos los spots?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-06",
+      "title": "Node frequencies (pro)"
+    }
+  ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
   D.registerLessons(lessons);
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -3291,186 +4103,297 @@
 
   }
   var RAW = [
-  {
-    "route": "cash",
-    "module": "M4",
-    "order": 26,
-    "plan": "coach",
-    "xp": 120,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "El 4-bet (y cold 4-bet sin haber abierto) es la capa siguiente al 3-bet: value premium y faroles con blockers.",
-    "theory": [
-      "Value: KK+/AK a menudo. Faroles: ases suited selectivos. Cold 4-bet: subes sin haber entrado antes — más tight.",
-      "Vs 3-bet early, 4-beteas menos light que vs 3-bet BTN.",
-      "Trampa: 4-bet spew con KQo offsuit."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Value: KK+/AK a menudo. Faroles: ases suited selectivos. Cold 4-bet: subes sin haber entrado antes — más tight."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "C-26",
-    "title": "4-bet / cold 4-bet"
-  },
-  {
-    "route": "cash",
-    "module": "M4",
-    "order": 27,
-    "plan": "coach",
-    "xp": 110,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "En single-raised pot fuera de posición a stacks deep, construyes check-call y check-raise con plan.",
-    "theory": [
-      "No autocbet OOP en wet (C-16). Deep: más calles por delante; pot control importa.",
-      "Líneas: check-call con medias; check-raise polar con fuertes/faroles.",
-      "Trampa: donk bet spew sin plan."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "No autocbet OOP en wet (C-16). Deep: más calles por delante; pot control importa."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "C-27",
-    "title": "SRP OOP deep"
-  },
-  {
-    "route": "cash",
-    "module": "M4",
-    "order": 28,
-    "plan": "coach",
-    "xp": 120,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Mismo spot, dos rivales: vs fish value-bet más thin; vs reg bluffea más selectivo.",
-    "theory": [
-      "Fish: paga de más → value thin. Reg: defiende mejor → faroles con blockers y menos thin crazy.",
-      "No juegues un solo “GTO” ciego a la población.",
-      "Trampa: farolear rivers vs calling station."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Fish: paga de más → value thin. Reg: defiende mejor → faroles con blockers y menos thin crazy."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "C-28",
-    "title": "Explotación fish vs reg"
-  },
-  {
-    "route": "cash",
-    "module": "M4",
-    "order": 29,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Ejercicio: dado un board y una línea, describe el rango rival en bandas (no una sola mano).",
-    "theory": [
-      "Escribe value / medias / aire. Contrasta con el menú Rangos cuando exista chart.",
-      "Enlace con R-05.",
-      "Trampa: put hero en “siempre la nuts”."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Escribe value / medias / aire. Contrasta con el menú Rangos cuando exista chart."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "C-29",
-    "title": "Range vs range (quiz)"
-  },
-  {
-    "route": "cash",
-    "module": "M4",
-    "order": 30,
-    "plan": "coach",
-    "xp": 100,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Piensa frecuencias: “aquí c-beteo ~70 %”. Aunque ejecutes una acción, entiendes el mix.",
-    "theory": [
-      "Ayuda a no tiltar cuando el chart “a veces check”.",
-      "Enlace con R-06.",
-      "Trampa: exigir pure strategies en todos lados."
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Ayuda a no tiltar cuando el chart “a veces check”."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": false,
-    "id": "C-30",
-    "title": "Node locking mental"
-  },
-  {
-    "route": "cash",
-    "module": "M4",
-    "order": 31,
-    "plan": "coach",
-    "xp": 160,
-    "passThreshold": 1,
-    "goldThreshold": 1,
-    "decisionEnd": true,
-    "hands": 0,
-    "concept": "Certificación Cash Pro: 4-bet, SRP OOP, explotación y rangos. Sin teoría nueva.",
-    "theory": [
-      "Resume 4-bet value vs farol.",
-      "Fish vs reg en river value: ¿qué cambia?"
-    ],
-    "examples": [
-      {
-        "title": "Idea clave",
-        "body": "Resume 4-bet value vs farol."
-      }
-    ],
-    "aiQuestions": [
-      "¿Qué debo recordar de esta lección?"
-    ],
-    "spots": [],
-    "exam": true,
-    "id": "C-31",
-    "title": "Examen Pro · Cash"
-  }
-];
+    {
+      "route": "cash",
+      "module": "M4",
+      "order": 26,
+      "plan": "coach",
+      "xp": 120,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "El 4-bet —y el cold 4-bet cuando aún no has entrado— es la capa después del 3-bet: value premium por un lado y faroles con blockers por el otro, más tight si entras en frío.",
+      "theory": [
+        {
+          "title": "Qué es un 4-bet",
+          "body": "Tras un open y un 3-bet (resubida), el 4-bet es la siguiente subida. Separar value (manos fuertes que quieren stack o un bote grande: a menudo KK+, AK) de faroles (manos que bloquean premium y se tiran ante mucha presión: ases suited selectivos). Sin esa separación, el 4-bet se vuelve spew."
+        },
+        {
+          "title": "Cold 4-bet",
+          "body": "Cold 4-bet significa subir a 4-bet sin haber entrado antes en la mano (no abriste ni hiciste call al open): llegas “en frío” frente a open + 3-bet. Tu rango debe ser más tight que el del que ya abrió: menos faroles, más claridad de value, porque no tienes fold equity de “continuar tu historia” de open."
+        },
+        {
+          "title": "Posición del 3-bet y trampas",
+          "body": "Vs 3-bet desde early (UTG/HJ) 4-beteas menos light que vs 3-bet del botón: el rango de 3-bet temprano es más fuerte. Trampa clásica: 4-bet spew con KQo offsuit o “porque ya metí fichas”. Si no es value claro ni farol con blocker bueno, fold o, a veces, hacer call en posición con manos jugables — no inventes 4-bets de orgullo."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Value claro",
+          "body": "Abres BTN, BB 3-betea. Con KK o AK: 4-bet de value. Quieres que paguen de más o que stackeen peor; no “slow-play” eterno por miedo."
+        },
+        {
+          "title": "Farol con blocker",
+          "body": "Misma línea, A5s: candidato a 4-bet farol porque bloqueas AA/AK. K9o no bloquea lo mismo — suele ser fold, no hero 4-bet."
+        },
+        {
+          "title": "Cold 4-bet desde ciegas",
+          "body": "UTG open, BTN 3-bet, tú en BB sin haber entrado: cold 4-bet. Aquí QQ+/AK entran; Axs light se reduce mucho respecto a si tú fueras el opener enfrentando el 3-bet."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué diferencia un 4-bet de value de un 4-bet farol?",
+        "¿Qué es un cold 4-bet y por qué suele ser más tight?",
+        "¿Vs qué 3-bet 4-beteas menos light?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "C-26",
+      "title": "4-bet / cold 4-bet"
+    },
+    {
+      "route": "cash",
+      "module": "M4",
+      "order": 27,
+      "plan": "coach",
+      "xp": 110,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "En un single-raised pot fuera de posición a stacks deep construyes check-call y check-raise con plan: pot control importa porque quedan muchas calles por delante.",
+      "theory": [
+        {
+          "title": "SRP OOP deep",
+          "body": "SRP (single-raised pot) es un bote con una sola subida preflop (open + call, sin 3-bet). OOP (out of position, fuera de posición) significa actuar antes que el rival en las calles postflop. Deep (stacks profundos, p. ej. 100 bb+) multiplica el coste de un error: hay turn y river con mucho dinero detrás."
+        },
+        {
+          "title": "Líneas: check-call y check-raise",
+          "body": "Check-call (pasar y luego hacer call) protege medias y algunas fuertes que no quieren bote hinchado aún. Check-raise (pasar y resubir) polariza: value fuerte y faroles elegidos. No autocbetees OOP en boards wet solo por ser el agresor (recuerda C-16): a menudo el plan es ceder la iniciativa y decidir en turn."
+        },
+        {
+          "title": "Pot control y trampa donk",
+          "body": "Pot control es mantener el bote manejable cuando tu mano es media o el board es peligroso. Trampa: donk bet (apostar de primero OOP sin plan) o hinchar con segunda pareja sticky. Deep, un donk spew te mete en ríos imposibles; prefiere líneas de check que cuenten una historia."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Medias en seco",
+          "body": "BB vs BTN, flop K72r, tú con 99: check-call frecuente. No check-raiseas “para ver si va”; controlas el bote y reevalúas turn."
+        },
+        {
+          "title": "Check-raise polar",
+          "body": "Mismo spot, set de sietes o farol con A♠x en board que bloquea: check-raise tiene historia. QJ sin pareja no es check-raise de value."
+        },
+        {
+          "title": "Wet OOP",
+          "body": "Flop 9♠8♠7♥ tras tu open desde SB: muchas manos checkean. Autocbet aquí es la fuga típica; pot control y selectividad ganan más EV a 100 bb."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué es un SRP y por qué duele más OOP deep?",
+        "¿Cuándo prefieres check-call frente a check-raise?",
+        "¿Por qué el donk bet sin plan es peligroso a 100 bb?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "C-27",
+      "title": "SRP OOP deep"
+    },
+    {
+      "route": "cash",
+      "module": "M4",
+      "order": 28,
+      "plan": "coach",
+      "xp": 120,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Mismo spot, dos rivales: contra fish cobras value más fino; contra reg eliges faroles con blockers y sueltas el thin loco. La población manda más que un GTO ciego.",
+      "theory": [
+        {
+          "title": "Fish vs reg",
+          "body": "Fish (jugador recreacional, paga de más y foldea mal) y reg (regular, defiende mejor y castiga líneas flojas) piden estrategias distintas. Explotación es desviarte del mix equilibrado para ganar más contra el error típico de esa población — sin inventar jugadas que solo funcionan en el vacío."
+        },
+        {
+          "title": "Value thin y faroles selectivos",
+          "body": "Vs fish: value thin (cobrar con manos decentes que un reg no pagaría) y menos faroles en river — te pagan el value y no tirarán lo suficiente al farol. Vs reg: faroles con blockers buenos, menos thin crazy, y respeto a sus raises. No juegues “un solo GTO” ignorando quién tienes enfrente."
+        },
+        {
+          "title": "Trampa vs calling station",
+          "body": "Farolear rivers vs calling station (alguien que hace call de más) es regalar fichas. Si te han mostrado que pagan con segunda pareja, deja de farolear y empieza a value-betear manos medias. La explotación correcta a veces es aburrida: cobras, no inventas."
+        }
+      ],
+      "examples": [
+        {
+          "title": "River value thin vs fish",
+          "body": "Tú con top pair kicker medio en un river seco: vs fish, bet de value. Vs reg tight que solo paga fuertes, a veces check-back gana más."
+        },
+        {
+          "title": "Farol vs reg con blocker",
+          "body": "Missed draw con as del palo del flush posible vs un reg que overfoldea rivers: candidato a farol. Misma mano vs fish pegajoso: check y rinde."
+        },
+        {
+          "title": "Misma línea, distinto plan",
+          "body": "Flop c-bet + turn barrel: vs fish busca value en river con manos medias; vs reg evalúa si tu historia de farol es creíble y si él tiene bluff-catchers que tirará."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué cambia en river value thin entre fish y reg?",
+        "¿Cuándo dejo de farolear aunque “GTO diga mix”?",
+        "¿Qué error cometo faroleando a una calling station?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "C-28",
+      "title": "Explotación fish vs reg"
+    },
+    {
+      "route": "cash",
+      "module": "M4",
+      "order": 29,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Ejercicio guiado: dado un board y una línea, describe el rango rival en bandas (value / medias / aire), no como una sola mano — el mismo músculo que R-05, ahora en modo quiz.",
+      "theory": [
+        {
+          "title": "Range vs range",
+          "body": "Pensar range vs range es comparar tu distribución de manos con la del villano en ese nodo, no “mi mano contra la suya”. El quiz te obliga a escribir bandas: qué value llega, qué medias sobreviven, qué aire aún farolea. Sin eso, cada decisión se vuelve adivinanza de una carta."
+        },
+        {
+          "title": "Cómo responder el ejercicio",
+          "body": "Narrativa corta: posición, acciones preflop y postflop, textura del board. Luego tres columnas. Contrasta con el menú Rangos si hay chart del spot. Si tu columna de aire está vacía ante un bet polar, estás sesgado hacia “siempre value”."
+        },
+        {
+          "title": "Trampa de la nuts fija",
+          "body": "Poner al hero o al villano “siempre en la nuts” mata el ejercicio. Oblígate a nombrar al menos un farol creíble y una media. El profesor no busca la mano exacta: busca una historia de rango coherente con la línea."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Plantilla de respuesta",
+          "body": "“BTN open, BB call; flop A72r check-check; turn 2 bet BTN; river 8 bet. Value: Ax fuerte, trips. Medias: Kx, mid pair. Aire: missed broadway con blocker.” Esa forma aprueba el quiz."
+        },
+        {
+          "title": "Quiz express",
+          "body": "Te dan: CO open, BTN 3-bet, CO call; flop K93r; CO check, BTN bet, CO raise. Escribe rangos de CO en el raise antes de mirar cualquier chart."
+        },
+        {
+          "title": "Autocorrección",
+          "body": "Si tu lista de value del rival no incluye ninguna mano que tú también podrías tener en su silla, revisa: o te falta realismo o estás inventando monstruos."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo describes un rango rival en tres bandas?",
+        "¿Por qué “siempre la nuts” invalida el ejercicio?",
+        "¿Qué datos mínimos necesitas antes de asignar el rango (línea + board)?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "C-29",
+      "title": "Range vs range (quiz)"
+    },
+    {
+      "route": "cash",
+      "module": "M4",
+      "order": 30,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Lleva el node locking mental a la mesa de cash: piensa en frecuencias (“aquí c-beteo ~70 %”) aunque ejecutes una sola acción — así no tiltas cuando el chart a veces checkea.",
+      "theory": [
+        {
+          "title": "Frecuencias en la práctica",
+          "body": "En Pro Cash no juegas un solver en vivo, pero sí internalizas nodos: “en este flop seco IP el mix sano es c-bet frecuente”. Elegir bet o check hoy es una muestra de ese mix. Enlace con R-06: el laboratorio enseña el %; esta lección lo convierte en hábito de mesa."
+        },
+        {
+          "title": "Para qué sirve el locking mental",
+          "body": "Sirve para no pelearte con la realidad del chart (“¿por qué checkea AQo a veces?”) y para no rigidizar tu juego a pure strategies. También te ayuda a estudiar: cuando revises una mano, pregunta qué frecuencia tenía sentido, no solo si tu acción fue “la única correcta”."
+        },
+        {
+          "title": "Trampa de la pure strategy",
+          "body": "Exigir siempre bet o siempre check en todos los spots te hace predecible y te enfada con el material de estudio. Acepta el mix: en nodos mezclados, dos acciones pueden ser razonables; lo que falla es la tercera (sizing loco, donk spew, hero-call sin historia)."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Frase en mesa",
+          "body": "Antes del c-bet: “Aquí apuesto la mayoría, no el 100 %.” Si checkeas una media borderline, no es traición al plan: es una muestra del 30 %."
+        },
+        {
+          "title": "Estudio post-sesión",
+          "body": "Marca tres nodos de tu sesión (c-bet flop, face raise, river). Anota qué frecuencia intuías. Compárala con el menú Rangos o con notas de clase — calibración, no castigo."
+        },
+        {
+          "title": "Vs explotación",
+          "body": "El mix GTO es el punto de partida; vs fish puedes “lockear” más value bets (C-28). El locking mental no te impide explotar: te impide mentirte sobre qué estás haciendo."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué frase de frecuencias usarías en un c-bet seco IP?",
+        "¿Cómo te ayuda el node locking al revisar una mano?",
+        "¿Cuándo tiene sentido desviarte del mix hacia explotación?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "C-30",
+      "title": "Node locking mental"
+    },
+    {
+      "route": "cash",
+      "module": "M4",
+      "order": 31,
+      "plan": "coach",
+      "xp": 160,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Examen Pro Cash: certifica que aplicas 4-bet, SRP OOP, explotación fish/reg y lectura de rangos con el checklist de esta ruta — sin introducir teoría nueva.",
+      "theory": [
+        {
+          "title": "Qué se evalúa",
+          "body": "Repasas lo ya visto en C-26…C-30 y el músculo de rangos (R-05/R-06): value vs farol en 4-bet, pot control OOP deep, fish vs reg en river, bandas de rango y frecuencias mentales. No hay glosario nuevo: solo aplicación."
+        },
+        {
+          "title": "Checklist de profesor",
+          "body": "Antes de cada decisión del examen: (1) ¿qué capa preflop es — open, 3-bet, 4-bet o cold? (2) ¿SRP u OOP deep — cuál es mi línea de check? (3) ¿rival fish o reg — value thin o farol selectivo? (4) ¿puedo describir el rango rival en bandas? (5) ¿estoy pensando en frecuencia o en “siempre”?"
+        }
+      ],
+      "examples": [
+        {
+          "title": "Mini checklist 4-bet",
+          "body": "¿Value premium o farol con blocker? ¿Cold o ya abrí? ¿El 3-bet viene de early o de BTN? Si no respondes las tres, no pulses 4-bet."
+        },
+        {
+          "title": "Mini checklist river",
+          "body": "¿Me pagan de más (fish) o defienden bien (reg)? ¿Mi mano es value thin, bluff-catcher o aire con blocker? Una pregunta de población evita el spew."
+        },
+        {
+          "title": "Antes de pulsar",
+          "body": "Di en voz alta la banda del rival (value / medias / aire) y tu plan en una frase. Si la frase es solo “voy”, aún no estás listo para el examen."
+        }
+      ],
+      "aiQuestions": [
+        "Resume 4-bet value vs farol en una frase de profesor.",
+        "¿Qué cambia en river value entre fish y reg?",
+        "¿Cuáles son las cinco preguntas del checklist Pro Cash?"
+      ],
+      "spots": [],
+      "exam": true,
+      "id": "C-31",
+      "title": "Examen Pro · Cash"
+    }
+  ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
   D.registerLessons(lessons);
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -4290,6 +5213,11 @@
     }
     var p = lessonProgress(lesson.id);
     var theory = (lesson.theory || []).map(function (t) {
+      if (t && typeof t === 'object') {
+        var title = t.title ? '<strong class="school-theory-title">' + esc(t.title) + '</strong>' : '';
+        var body = esc(t.body || t.text || '');
+        return '<li>' + title + (title ? ' ' : '') + body + '</li>';
+      }
       return '<li>' + esc(t) + '</li>';
     }).join('');
     var examples = (lesson.examples || []).map(function (ex) {
