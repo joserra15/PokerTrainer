@@ -34,6 +34,8 @@
   function applyProfileToUser(user, profile) {
     if (!user || !profile) return user;
     user.isAdmin = !!profile.is_admin || isBootstrapAdmin(user.email);
+    user.isFounder = !!profile.is_founder;
+    user.founderRequestedAt = profile.founder_requested_at || null;
     user.plan = profile.plan || 'free';
     user.planLabel = PLAN_LABELS[user.plan] || user.plan;
     user.aiDailyLimit = profile.ai_limit || profile.ai_daily_limit || null;

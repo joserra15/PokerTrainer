@@ -51,9 +51,20 @@ function makeEl(id) {
 ['paywall-modal', 'paywall-title', 'paywall-body', 'paywall-to-pricing'].forEach(makeEl);
 
 const bodyClass = new Set();
+const founderCfg = {
+  enabled: false,
+  purchasesPaused: true,
+  trial: { days: 10, plan: 'pro' },
+  founder: {
+    launchLabel: '15 de noviembre de 2026',
+    discount: '40%',
+    seatsNote: 'Plazas limitadas',
+    priorityNote: 'Prioridad para usuarios ya registrados que lo soliciten.'
+  }
+};
 const sandbox = {
   window: {
-    PT_BILLING: { enabled: false, trial: { days: 10, plan: 'pro' } }
+    PT_BILLING: Object.assign({}, founderCfg)
   },
   console,
   document: {
@@ -78,25 +89,28 @@ sandbox.window = Object.assign(sandbox.window, {
   PT_BILLING: sandbox.window.PT_BILLING
 });
 // billing IIFE uses global === window
-sandbox.window.PT_BILLING = { enabled: false, trial: { days: 10, plan: 'pro' } };
+sandbox.window.PT_BILLING = Object.assign({}, founderCfg);
 vm.createContext(sandbox);
 vm.runInContext(billingSrc, sandbox, { filename: 'billing.js' });
 
 const B = sandbox.window.PTBilling;
 assert.ok(B && B.showPaywall, 'PTBilling.showPaywall');
+assert.ok(B.purchasesPaused && B.purchasesPaused(), 'purchasesPaused activo');
 B.showPaywall('trainer_limit');
 assert.ok(!docEls['paywall-modal'].classList.contains('hidden'), 'modal visible');
 assert.ok(bodyClass.has('paywall-open'), 'body paywall-open');
-assert.ok(/Mejora|plan|manos|día|IA/i.test(docEls['paywall-body'].innerHTML + docEls['paywall-title'].textContent),
+assert.ok(/plan|manos|Gratis|FOUNDER|noviembre/i.test(docEls['paywall-body'].innerHTML + docEls['paywall-title'].textContent),
   'mensaje paywall');
 
 B.showPaywall('ai_limit');
-assert.ok(/bono|IA/i.test(docEls['paywall-body'].innerHTML), 'ai_limit menciona bono');
+assert.ok(/ForgeCoach|IA|FOUNDER|consultas/i.test(docEls['paywall-body'].innerHTML), 'ai_limit menciona IA/FOUNDER');
 
 const trial = B.trialInfo && B.trialInfo();
 if (trial) {
   assert.strictEqual(trial.plan, 'pro');
   assert.strictEqual(trial.days, 10);
 }
+
+assert.ok(/purchasesPaused|founder/.test(billingCfgEx), 'billing-config.example documenta pause/FOUNDER');
 
 console.log('*** billing-ui OK (paywall markers + no price leak) ***');

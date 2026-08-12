@@ -81,6 +81,7 @@
       'js/demo-mode.js',
       'js/entitlements.js',
       'js/billing.js',
+      'js/founder-request.js',
       'js/onboarding.js',
       'js/pwa.js',
       'js/account-settings.js',

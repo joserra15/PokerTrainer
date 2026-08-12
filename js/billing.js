@@ -13,6 +13,46 @@
     return !!(c.enabled && c.functionsUrl && global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth());
   }
 
+  function purchasesPaused() {
+    return !!cfg().purchasesPaused;
+  }
+
+  function purchasesOpen() {
+    return enabled() && !purchasesPaused();
+  }
+
+  function founderInfo() {
+    var f = cfg().founder;
+    return f && typeof f === 'object' ? f : null;
+  }
+
+  function founderLaunchLabel() {
+    var f = founderInfo();
+    return (f && f.launchLabel) || '15 de noviembre de 2026';
+  }
+
+  function purchasesPausedShortMsg() {
+    return 'Las compras están cerradas hasta el lanzamiento FOUNDER (' + founderLaunchLabel() + ').';
+  }
+
+  function paywallFounderHtml() {
+    var f = founderInfo() || {};
+    return '<div class="paywall-founder" role="note">' +
+      '<p><strong>Beta abierta · compras pausadas</strong></p>' +
+      '<ul class="paywall-founder-list">' +
+      '<li>Puedes usar el plan <strong>Gratis</strong> con sus límites.</li>' +
+      '<li>Study/Coach y bonos IA <strong>no se pueden comprar</strong> ahora.</li>' +
+      '<li>Si tienes un <strong>código promocional</strong> de acceso, regístrate con él o escríbenos en Contacto.</li>' +
+      '<li><strong>Coach</strong> solo por invitación durante la beta.</li>' +
+      '</ul>' +
+      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> el ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
+      ' · ' + escapeHtml(f.discount || '40%') + ' dto. · ' + escapeHtml(f.seatsNote || 'Plazas limitadas') + '.</p>' +
+      '<p class="muted-text">' + escapeHtml(f.priorityNote ||
+        'Prioridad para usuarios ya registrados que lo soliciten.') + '</p>' +
+      '<p class="paywall-founder-cta-wrap"><button type="button" class="btn btn-primary btn-sm" data-founder-request="1">Solicitar plaza FOUNDER</button></p>' +
+      '</div>';
+  }
+
   function functionsBase() {
     return String(cfg().functionsUrl || '').replace(/\/$/, '');
   }
@@ -143,6 +183,10 @@
   }
 
   async function startCheckout(plan, interval) {
+    if (purchasesPaused()) {
+      showPaywall('purchases_paused', purchasesPausedShortMsg());
+      return;
+    }
     if (!enabled()) {
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto. Mientras tanto, contacta con soporte.');
       return;
@@ -155,6 +199,10 @@
   }
 
   async function startBonusCheckout(pack) {
+    if (purchasesPaused()) {
+      showPaywall('purchases_paused', purchasesPausedShortMsg() + ' Los bonos de IA también estarán disponibles entonces.');
+      return;
+    }
     if (!enabled()) {
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto.');
       return;
@@ -189,14 +237,15 @@
   }
 
   var MESSAGES = {
-    trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día). Prueba Study 10 días o mejora tu plan.',
-    import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis (1/mes). Study incluye imports ilimitados.',
+    trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día).',
+    import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis (1/mes).',
     import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos por import.',
-    ai_plan: 'El ForgeCoach (añadir manos por texto, análisis y preguntas) requiere Study (40 consultas/mes), Coach (150/mes) o un bono. El plan Gratis no incluye IA. Los bonos están en la pestaña Planes.',
-    ai_limit: 'Has agotado tus consultas IA disponibles. Compra un bono o sube de plan para seguir añadiendo manos con IA, analizando o preguntando.',
+    ai_plan: 'ForgeCoach (añadir manos por texto, análisis y preguntas) requiere Study, Coach o un acceso regalado. El plan Gratis no incluye IA de pago.',
+    ai_limit: 'Has agotado tus consultas IA disponibles (ForgeCoach).',
     billing_not_configured: '',
+    purchases_paused: '',
     no_subscription: '',
-    trial_ended: 'Tu prueba de Study ha terminado. Elige un plan de pago para seguir sin límites.'
+    trial_ended: 'Tu prueba de Study ha terminado.'
   };
 
   function trialInfo() {
@@ -229,16 +278,34 @@
     }
     var title = document.getElementById('paywall-title');
     var body = document.getElementById('paywall-body');
-    var msg = customMsg || MESSAGES[reason] || 'Esta función requiere un plan de pago.';
-    if (title) title.textContent = reason === 'ai_plan' || reason === 'ai_limit' ? 'ForgeCoach' : 'Mejora tu plan';
+    var toPricing = document.getElementById('paywall-to-pricing');
+    var msg = customMsg || MESSAGES[reason] || 'Esta función requiere un plan superior.';
+    var paused = purchasesPaused();
+    if (title) {
+      if (reason === 'ai_plan' || reason === 'ai_limit') title.textContent = 'ForgeCoach';
+      else if (paused) title.textContent = 'Límite del plan Gratis';
+      else title.textContent = 'Mejora tu plan';
+    }
     if (body) {
       body.innerHTML = '<p>' + escapeHtml(msg) + '</p>';
-      if (reason === 'ai_plan' || reason === 'ai_limit') {
+      if (paused) {
+        body.innerHTML += paywallFounderHtml();
+      } else if (reason === 'ai_plan' || reason === 'ai_limit') {
         body.innerHTML += '<p class="muted-text" style="margin-top:10px">También puedes comprar un <strong>bono de consultas IA</strong> (válido 12 meses) en Planes.</p>';
       }
     }
+    if (toPricing) {
+      toPricing.textContent = paused ? 'Ver planes y FOUNDER' : 'Ver planes';
+    }
     modal.classList.remove('hidden');
     document.body.classList.add('paywall-open');
+    if (body && typeof body.querySelectorAll === 'function') {
+      body.querySelectorAll('[data-founder-request]').forEach(function (btn) {
+        if (global.PTFounderRequest && global.PTFounderRequest.bindButton) {
+          global.PTFounderRequest.bindButton(btn);
+        }
+      });
+    }
   }
 
   function closePaywall() {
@@ -412,6 +479,9 @@
 
   global.PTBilling = {
     enabled: enabled,
+    purchasesPaused: purchasesPaused,
+    purchasesOpen: purchasesOpen,
+    founderInfo: founderInfo,
     startCheckout: startCheckout,
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,

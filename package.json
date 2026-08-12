@@ -35,6 +35,7 @@
     "test:stripe-sync": "node tools/test-stripe-sync-contracts.js",
     "test:analyze-hand-contract": "node tools/test-analyze-hand-contract.js",
     "test:billing-ui": "node tools/test-billing-ui.js",
+    "test:founder": "node tools/test-founder-request.js",
     "test:golden-hands": "node tools/test-golden-hands.js",
     "test:promo": "node tools/test-promo-redeem.js",
     "test:share-edge": "node tools/test-share-hand-edge-contract.js",

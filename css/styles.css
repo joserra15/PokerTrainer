@@ -298,6 +298,74 @@ body.range-matrix-open { overflow: hidden; }
 }
 .promo-banner-title { margin: 0 0 6px; font-size: 16px; line-height: 1.45; }
 .promo-banner-note { margin: 0; font-size: 13px; line-height: 1.45; }
+.founder-banner {
+  background: linear-gradient(135deg, rgba(230,161,90,.16), rgba(47,129,247,.12));
+  border-color: rgba(230,161,90,.35);
+}
+.founder-banner .promo-banner-kicker { color: var(--warn, #e6a15a); }
+.pricing-cta-note,
+.landing-price-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.pricing-card button[disabled],
+.landing-price-card button[disabled],
+.bonus-pack-card button[disabled] {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.paywall-founder {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(47,129,247,.08);
+  border: 1px solid rgba(47,129,247,.22);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.paywall-founder p { margin: 0 0 8px; }
+.paywall-founder p:last-child { margin-bottom: 0; }
+.paywall-founder-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+.paywall-founder-list li { margin-bottom: 4px; }
+.paywall-founder-launch { font-size: 14px; }
+.paywall-founder-cta-wrap { margin-top: 10px; }
+.landing-founder-cta { margin-top: 8px; }
+.account-settings-founder {
+  color: var(--accent);
+  font-weight: 700;
+}
+.admin-col-founder { width: 64px; }
+.admin-founder-badge,
+.admin-founder-pending-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  vertical-align: middle;
+}
+.admin-founder-badge {
+  background: rgba(230,161,90,.22);
+  border: 1px solid rgba(230,161,90,.45);
+  color: #e6a15a;
+}
+.admin-founder-pending-badge {
+  background: rgba(47,129,247,.14);
+  border: 1px solid rgba(47,129,247,.35);
+  color: var(--accent);
+}
+.admin-detail-founder {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
 .promo-code {
   display: inline-block; padding: 1px 8px; border-radius: 6px;
   background: rgba(0,0,0,.28); border: 1px dashed rgba(255,255,255,.25);

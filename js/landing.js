@@ -82,41 +82,95 @@
     var plans = (global.PT_BILLING && global.PT_BILLING.plans) || {};
     var trial = (global.PT_BILLING && global.PT_BILLING.trial) || {};
     var trialLabel = trial.label || 'Prueba Study 10 días';
+    var paused = !!(global.PT_BILLING && global.PT_BILLING.purchasesPaused);
+    var founder = (global.PT_BILLING && global.PT_BILLING.founder) || {};
     var cards = [
       {
+        id: 'free',
         title: t('plan.free'), price: '0 €', period: '/mes', featured: false,
-        features: [t('plan.free.f1'), t('plan.free.f2'), t('plan.free.f3'), t('plan.free.f4')]
+        features: [t('plan.free.f1'), t('plan.free.f2'), t('plan.free.f3'), t('plan.free.f4')],
+        ctaLabel: t('plan.cta'),
+        ctaLogin: true,
+        disabled: false
       },
       {
+        id: 'pro',
         title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: true,
-        features: [
-          t('plan.study.f1', { trial: trialLabel }),
-          t('plan.study.f2'),
-          t('plan.study.f3'),
-          t('plan.study.f4'),
-          t('plan.study.f5')
-        ]
+        features: paused
+          ? [
+            t('plan.study.beta'),
+            t('plan.study.f2'),
+            t('plan.study.f3'),
+            t('plan.study.f4'),
+            t('plan.study.f5')
+          ]
+          : [
+            t('plan.study.f1', { trial: trialLabel }),
+            t('plan.study.f2'),
+            t('plan.study.f3'),
+            t('plan.study.f4'),
+            t('plan.study.f5')
+          ],
+        ctaLabel: paused
+          ? t('plan.cta.paused', { date: founder.launchLabel || '15 de noviembre de 2026' })
+          : t('plan.cta'),
+        ctaLogin: !paused,
+        disabled: paused,
+        founderCta: paused
       },
       {
+        id: 'premium',
         title: plans.premium ? plans.premium.label : 'Coach',
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
-        features: [
-          t('plan.coach.f1'),
-          t('plan.coach.f2'),
-          t('plan.coach.f3'),
-          t('plan.coach.f4'),
-          t('plan.coach.f5')
-        ]
+        features: paused
+          ? [
+            t('plan.coach.invite'),
+            t('plan.coach.f1'),
+            t('plan.coach.f2'),
+            t('plan.coach.f3'),
+            t('plan.coach.f5')
+          ]
+          : [
+            t('plan.coach.f1'),
+            t('plan.coach.f2'),
+            t('plan.coach.f3'),
+            t('plan.coach.f4'),
+            t('plan.coach.f5')
+          ],
+        ctaLabel: paused ? t('plan.cta.invite') : t('plan.cta'),
+        ctaLogin: !paused,
+        disabled: paused,
+        founderCta: false
       }
     ];
     grid.innerHTML = cards.map(function (c) {
+      var btnClass = 'btn ' + (c.featured && !c.disabled ? 'btn-primary' : 'btn-ghost') +
+        ' btn-block' + (c.ctaLogin ? ' landing-price-cta' : '');
+      var disabledAttr = c.disabled ? ' disabled aria-disabled="true"' : '';
+      var note = '';
+      var founderBtn = '';
+      if (paused && c.id === 'pro') {
+        note = '<p class="muted-text landing-price-note">' +
+          escapeHtml(t('plan.founder.note', {
+            discount: founder.discount || '40%',
+            seats: founder.seatsNote || 'plazas limitadas'
+          })) + '</p>';
+        if (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml) {
+          founderBtn = global.PTFounderRequest.requestButtonHtml('btn-block landing-founder-cta');
+        } else {
+          founderBtn = '<button type="button" class="btn btn-primary btn-block landing-founder-cta" data-founder-request="1">' +
+            escapeHtml(t('plan.cta.founder')) + '</button>';
+        }
+      }
       return '<div class="landing-price-card' + (c.featured ? ' featured' : '') + '">' +
         '<h3>' + escapeHtml(c.title) + '</h3>' +
         '<div class="landing-price">' + escapeHtml(c.price) + '<small>' + escapeHtml(c.period) + '</small></div>' +
         '<ul>' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +
-        '<button type="button" class="btn ' + (c.featured ? 'btn-primary' : 'btn-ghost') + ' btn-block landing-price-cta">' +
-        escapeHtml(t('plan.cta')) + '</button>' +
+        '<button type="button" class="' + btnClass + '"' + disabledAttr + '>' +
+        escapeHtml(c.ctaLabel) + '</button>' +
+        founderBtn +
+        note +
         '</div>';
     }).join('');
     grid.querySelectorAll('.landing-price-cta').forEach(function (btn) {
@@ -124,6 +178,17 @@
         e.preventDefault();
         startLoginNow();
       });
+    });
+    grid.querySelectorAll('[data-founder-request]').forEach(function (btn) {
+      if (global.PTFounderRequest && global.PTFounderRequest.bindButton) {
+        global.PTFounderRequest.bindButton(btn);
+      } else {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          try { sessionStorage.setItem('pt_founder_request_pending', '1'); } catch (err) { /* noop */ }
+          startLoginNow();
+        });
+      }
     });
   }
 
