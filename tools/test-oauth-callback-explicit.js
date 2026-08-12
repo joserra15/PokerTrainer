@@ -20,6 +20,6 @@ assert(/hasOAuthCallback/.test(guard), 'build-guard no recarga durante OAuth cal
 assert(!/accounts\.google\.com\/gsi\/client/.test(indexHtml), 'GSI no se carga siempre en index');
 assert(/accounts\.google\.com/.test(indexHtml) && /style-src[^"]*accounts\.google\.com/.test(indexHtml),
   'CSP permite estilos GSI por si hay fallback');
-assert(/PT_BUILD\s*=\s*'2\.5\.5'/.test(version), 'PT_BUILD 2.5.5');
+assert(/PT_BUILD\s*=\s*'2\.5\.6'/.test(version), 'PT_BUILD 2.5.6');
 
 console.log('*** oauth-callback-explicit OK ***');

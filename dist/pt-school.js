@@ -1666,7 +1666,7 @@
       "route": "spin",
       "module": "M0",
       "order": 2,
-      "plan": "study",
+      "plan": "free",
       "xp": 110,
       "passThreshold": 0.7,
       "goldThreshold": 0.9,
@@ -1702,7 +1702,7 @@
       "route": "spin",
       "module": "M0",
       "order": 3,
-      "plan": "study",
+      "plan": "free",
       "xp": 120,
       "passThreshold": 0.7,
       "goldThreshold": 0.9,
@@ -2738,7 +2738,7 @@
       "route": "mtt",
       "module": "M0",
       "order": 2,
-      "plan": "study",
+      "plan": "free",
       "xp": 80,
       "passThreshold": 1,
       "goldThreshold": 1,
@@ -2787,7 +2787,7 @@
       "route": "mtt",
       "module": "M0",
       "order": 3,
-      "plan": "study",
+      "plan": "free",
       "xp": 110,
       "passThreshold": 0.7,
       "goldThreshold": 0.9,
@@ -5330,12 +5330,12 @@
     spin: {
       eyebrow: 'Admin · Spins · Menú solo administración',
       title: 'Ruta Spins',
-      lead: 'ICM, steal, push/fold y heads-up. Intro gratis; Study hasta M1; Pro en Coach.'
+      lead: 'ICM, steal, push/fold y heads-up. M0 completo en Gratis; Study desde M1; Pro en Coach.'
     },
     mtt: {
       eyebrow: 'Admin · MTT · Menú solo administración',
       title: 'Ruta Torneos',
-      lead: 'Early game, mid, short stack y burbuja. El bloque burbuja/FT exige Coach.'
+      lead: 'Early game, mid, short stack y burbuja. M0 completo en Gratis; Study desde M1; burbuja/FT en Coach.'
     },
     ranges: {
       eyebrow: 'Admin · Rangos · Menú solo administración',
@@ -5352,13 +5352,13 @@
       M4: { title: 'M4 · Pro Cash (Coach)', lead: '4-bet, SRP OOP, explotación y examen Pro.' }
     },
     spin: {
-      M0: { title: 'M0 · Intro Spins (Gratis/Study)', lead: 'Lobbies, steal y defensa.' },
+      M0: { title: 'M0 · Intro Spins (Gratis)', lead: 'Lobbies, steal, defensa y examen.' },
       M1: { title: 'M1 · Short stack (Study)', lead: 'Iso, shove y charts.' },
       M2: { title: 'M2 · ICM / HU (Study–Coach)', lead: 'Payout, pressure y heads-up.' },
       M3: { title: 'M3 · Pro Spins (Coach)', lead: 'Explotación y examen Pro.' }
     },
     mtt: {
-      M0: { title: 'M0 · Early MTT', lead: 'Paciencia y opens deep.' },
+      M0: { title: 'M0 · Early MTT (Gratis)', lead: 'Fases, paciencia y examen early.' },
       M1: { title: 'M1 · Mid / steal', lead: 'Steal, 3-bet y resteal.' },
       M2: { title: 'M2 · Short stack', lead: 'Push/fold antes de la burbuja.' },
       M3: { title: 'M3 · Antes de burbuja', lead: 'Ajuste de stack y presión.' },
