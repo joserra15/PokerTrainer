@@ -95,21 +95,32 @@
     "goldThreshold": 1,
     "decisionEnd": true,
     "hands": 0,
-    "concept": "Un Spin es un torneo de 3 jugadores con payout aleatorio (2×, 3× o 5×). No es cash: el valor en $ no siempre coincide con las fichas.",
+    "concept": "Pagas una entrada (buy-in) en dinero real y la sala te reparte fichas de torneo: en mesa nunca juegas «euros», solo fichas. Un Spin & Go es un torneo de tres jugadores (3-max); el premio total se sortea al inicio (2×, 3× o 5× las entradas). Por eso no es cash: sobrevivir y quedar bien posicionado vale más que acumular fichas sin plan.",
     "theory": [
-      "En un Spin (o Spin & Go) sois tres jugadores. El prize pool se multiplica al azar: a veces 2×, a veces 3× o 5×. Eso cambia cuánto “duele” eliminarte.",
-      "ICM lite: las fichas no valen lo mismo en $ al final. A veces un call +EV en fichas es malo en dinero porque arriesgas tu torneo.",
-      "Antes de cada lección, piensa: ¿estoy robando ciegas, defendiendo, o en zona push/fold? El stack en bb manda más que en cash deep."
+      "Spin & Go (o «Spin»): torneo muy corto de 3 jugadores. Pagas una entrada fija (por ejemplo 10 €) y recibes un stack de fichas con ciegas (apuestas obligatorias cada mano). Igual que en un MTT normal: las fichas son moneda del torneo, no se cambian 1 a 1 por dinero en la mesa.",
+      "Buy-in (entrada): lo que pagas para registrarte. Las tres entradas forman un prize pool (bote de premios). Antes de repartir cartas, una ruleta decide el multiplicador: 2×, 3× o 5×. Con entradas de 10 € y 3× hay 30 € en juego para repartir según 1.º, 2.º y 3.º — no según «cuántas fichas te quedan» convertidas a euros.",
+      "Fichas y ciegas: la ciega pequeña (SB) y la ciega grande (BB) suben cada cierto tiempo (levels). Medir tu stack en bb (ciegas grandes) ayuda: «tengo 20 bb» = tu stack ÷ BB. En spins empiezas corto (a menudo 15–25 bb), así que cada mano pesa más que en cash a 100 bb.",
+      "ICM (modelo de fichas vs dinero): en torneo, doblar fichas no siempre duplica tu premio esperado en €. Cuanto más cerca estás de cobrar (top 2 o ganar), más caro es arriesgar todo en un flip (cara a cara). A veces fold es correcto aunque «en fichas» el call parezca rentable — lo profundizamos en S-02 y M2.",
+      "Mapa mental antes de practicar (S-01 en adelante): ¿estoy robando ciegas (steal = abrir para que todos tiren)? ¿Defendiendo BB o SB? ¿En zona push/fold (solo shove o fold)? Si vienes del cash, olvida «cada ficha vale X céntimos»: piensa supervivencia + payout, no pot de cash."
     ],
     "examples": [
       {
-        "title": "En la práctica",
-        "body": "Antes de cada lección, piensa: ¿estoy robando ciegas, defendiendo, o en zona push/fold? El stack en bb manda más que en cash deep."
+        "title": "Entrada ≠ fichas en mesa",
+        "body": "Entras por 5 € y te dan 500 fichas con ciegas 10/20. Tienes 25 bb (500 ÷ 20). Nadie te paga 5 € por tus 500 fichas: solo sirven para ganar posición y llevarte el premio del torneo."
+      },
+      {
+        "title": "Payout 3× en números",
+        "body": "Tres jugadores entran a 10 €. Sale 3× → 30 € en premios. El 1.º se lleva la mayor parte; el 2.º una fracción; el 3.º no cobra. Eliminar a un rival te acerca a dinero real, no solo a tener más fichas sin eliminar a nadie."
+      },
+      {
+        "title": "Por qué no es cash",
+        "body": "En cash 6-max puedes levantarte y cambiar fichas por dinero. En un Spin no: o ganas el torneo (o quedas 2.º) o pierdes la entrada. Las decisiones miden riesgo de eliminación, no solo EV (valor esperado) de fichas aisladas."
       }
     ],
     "aiQuestions": [
-      "¿Por qué un Spin no se juega igual que el cash?",
-      "¿Qué es el payout 2×/3×/5×?"
+      "¿Por qué mis fichas no valen lo mismo que euros en un Spin?",
+      "¿Qué significa payout 2×, 3× o 5× con un ejemplo?",
+      "¿En qué se diferencia jugar un Spin del cash 6-max?"
     ],
     "spots": [],
     "exam": false,

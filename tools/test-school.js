@@ -49,6 +49,7 @@ assert.ok(/Sizing del open|RFI desde SB|Examen M0/.test(schoolDataSrc), 'leccion
 assert.ok(/Defender BB vs open|Examen M1/.test(schoolM1Src), 'lecciones M1');
 assert.ok(/Textura de flop|Examen M2/.test(schoolM2Src), 'lecciones M2');
 assert.ok(/S-00|S-17/.test(schoolSpinSrc), 'lecciones Spins');
+assert.ok(/buy-in|entrada/.test(schoolSpinSrc) && /fichas no valen|fichas ≠|Entrada ≠ fichas/.test(schoolSpinSrc), 'S-00 explica entrada vs fichas');
 assert.ok(/T-00|T-22/.test(schoolMttSrc), 'lecciones MTT');
 assert.ok(/R-01|R-06/.test(schoolRangesSrc), 'lecciones Rangos');
 assert.ok(/C-26|C-31/.test(schoolProSrc), 'lecciones Pro Cash');
@@ -168,6 +169,20 @@ assert.strictEqual(
   assert.ok(r && r.status === 'active', rid + ' route active');
 });
 assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
+(function () {
+  var s00 = Data.getLesson('S-00');
+  var blob = [s00.concept].concat(s00.theory || []).concat(
+    (s00.examples || []).map(function (ex) { return (ex.title || '') + ' ' + (ex.body || ''); })
+  ).join(' ');
+  assert.ok(/entrada|buy-in/i.test(blob), 'S-00 menciona entrada/buy-in');
+  assert.ok(/fichas/.test(blob) && (/no valen|no se cambian|≠|no es cash|moneda del torneo/.test(blob)), 'S-00 separa fichas de dinero');
+  assert.ok(/payout|2×|3×|5×/.test(blob), 'S-00 explica multiplicador');
+  assert.ok(/ICM/.test(blob) && (/modelo|dinero|€|euros|premio/.test(blob)), 'S-00 ancla ICM');
+  assert.ok(/bb \(ciegas grandes\)|ciega grande \(BB\)|en bb/.test(blob), 'S-00 explica bb');
+  (s00.theory || []).forEach(function (t, i) {
+    assert.ok(t.length > 80, 'S-00 theory[' + i + '] suficientemente explicativa');
+  });
+})();
 assert.strictEqual(Data.getLesson('T-00').route, 'mtt', 'T-00 mtt');
 assert.strictEqual(Data.getLesson('R-01').route, 'ranges', 'R-01 ranges');
 assert.strictEqual(Data.getLesson('C-26').module, 'M4', 'C-26 Pro M4');
