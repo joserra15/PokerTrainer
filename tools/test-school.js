@@ -55,6 +55,7 @@ assert.ok(/school-data-m1\.js/.test(chunks) && /school-data-m2\.js/.test(chunks)
 assert.ok(/school-data-spin\.js/.test(chunks) && /school-data-mtt\.js/.test(chunks), 'chunk Spins/MTT');
 assert.ok(/school-data-ranges\.js/.test(chunks) && /school-data-pro\.js/.test(chunks), 'chunk Rangos/Pro');
 assert.ok(/school-extra-spots\.js/.test(chunks), 'chunk extra spots (≥10 manos)');
+assert.ok(/school-share\.js/.test(chunks), 'chunk school-share (redes / logro)');
 assert.ok(/school:\s*'dist\/pt-school\.js'/.test(loader), 'loader school');
 assert.ok(/tabId === 'school'/.test(app), 'goToTab school');
 assert.ok(/schoolMenuVisible/.test(app), 'goToTab usa schoolMenuVisible');
@@ -158,6 +159,7 @@ const engineScripts = [
   'js/school-data-ranges.js',
   'js/school-data-pro.js',
   'js/school-extra-spots.js',
+  'js/school-share.js',
   'js/school.js'
 ];
 
