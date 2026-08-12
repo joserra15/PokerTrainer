@@ -5,10 +5,10 @@
 Con `PT_BILLING.purchasesPaused: true` (activo en cliente):
 
 - Los planes se muestran en landing y en la pestaña Planes, pero **los botones de compra/trial/bonos quedan deshabilitados**.
-- El paywall explica la beta y anuncia **FOUNDER** (`founder.launchLabel`, 40 % dto., plazas limitadas, prioridad a usuarios registrados que lo soliciten).
+- El paywall explica la beta y anuncia **FOUNDER próximamente** (40 % dto., **plazas limitadas por petición**).
 - `startCheckout` / `startBonusCheckout` rechazan cobros aunque alguien force la API del cliente.
-- Para reabrir cobros el **15 de noviembre de 2026**: poner `purchasesPaused: false` y reactivar el cupón Stripe que corresponda (FOUNDER).
-- Botón **Solicitar plaza FOUNDER** (landing + Planes + paywall + cuenta): llama a `pt_request_founder_seat` (migración `037`), crea hilo de Contacto con asunto `Solicitud de Founder` y deja `founder_requested_at`. El admin marca `is_founder` en la tabla/detalle de usuarios.
+- Para reabrir cobros: `purchasesPaused: false` y cupón Stripe FOUNDER.
+- Botones **Solicitar plaza FOUNDER Study / Coach** (landing + Planes + paywall + cuenta): `pt_request_founder_seat(p_plan)` (migraciones `037`/`038`) crea hilo `Solicitud de Founder Study|Coach`. Admin marca `is_founder_study` / `is_founder_coach`.
 
 ## Proveedor: Stripe
 

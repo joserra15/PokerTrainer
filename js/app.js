@@ -3006,7 +3006,7 @@
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: false,
         features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
           ? [
-            'Disponible con código o acceso regalado en la beta',
+            'FOUNDER Study · plazas limitadas por petición',
             'Entrenador e import ilimitados',
             '20 manos en análisis',
             '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
@@ -3026,7 +3026,7 @@
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
         features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
           ? [
-            'Solo por invitación durante la beta',
+            'FOUNDER Coach · plazas limitadas por petición',
             'Todo Study',
             '100 manos en análisis',
             '150 consultas ForgeCoach/mes',
@@ -3064,23 +3064,24 @@
       if (paused && !isPaidSub) {
         if (isCurrent) {
           btns = '<span class="muted-text">Plan actual</span>';
-          if (c.id === 'free') {
-            btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
-              ? window.PTFounderRequest.requestButtonHtml('btn-block')
-              : '<button type="button" class="btn btn-primary btn-block" data-founder-request="1">Solicitar plaza FOUNDER</button>';
-          }
         } else if (c.id === 'pro') {
           btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
-            'Compra el ' + escapeHtml((founder && founder.launchLabel) || '15 de noviembre') + '</button>';
+            'Compra ' + escapeHtml((founder && founder.launchLabel) || 'próximamente') + '</button>';
           btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
-            ? window.PTFounderRequest.requestButtonHtml('btn-block')
-            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="1">Solicitar plaza FOUNDER</button>';
-          btns += '<p class="muted-text pricing-cta-note">FOUNDER · ' + escapeHtml((founder && founder.discount) || '40%') +
-            ' dto. · ' + escapeHtml((founder && founder.seatsNote) || 'plazas limitadas') +
-            '. Se envía un mensaje a soporte automáticamente.</p>';
+            ? window.PTFounderRequest.requestButtonHtml('study', 'btn-block')
+            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="study">Solicitar plaza FOUNDER Study</button>';
+          btns += '<p class="muted-text pricing-cta-note"><strong>Plazas limitadas por petición</strong>. FOUNDER Study · ' +
+            escapeHtml((founder && founder.discount) || '40%') +
+            ' dto. Se envía un mensaje a soporte automáticamente.</p>';
         } else if (c.id === 'premium') {
-          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true">Solo por invitación</button>' +
-            '<p class="muted-text pricing-cta-note">Coach cerrado en la beta. Se abre con FOUNDER o por regalo.</p>';
+          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
+            'Compra ' + escapeHtml((founder && founder.launchLabel) || 'próximamente') + '</button>';
+          btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
+            ? window.PTFounderRequest.requestButtonHtml('coach', 'btn-block')
+            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="coach">Solicitar plaza FOUNDER Coach</button>';
+          btns += '<p class="muted-text pricing-cta-note"><strong>Plazas limitadas por petición</strong>. FOUNDER Coach · ' +
+            escapeHtml((founder && founder.discount) || '40%') +
+            ' dto. Se envía un mensaje a soporte automáticamente.</p>';
         }
       } else if (!isPaidSub) {
         // Usuario Gratis: alta normal por checkout.
@@ -3187,10 +3188,11 @@
     if (changeNote) {
       if (paused && !isPaidSub) {
         changeNote.innerHTML = 'Compras cerradas hasta el <strong>FOUNDER</strong> (' +
-          escapeHtml((founder && founder.launchLabel) || '15 de noviembre de 2026') +
-          '). ' + escapeHtml((founder && founder.priorityNote) ||
-            'Prioridad para usuarios ya registrados que lo soliciten.') +
-          ' Coach solo por invitación en la beta.';
+          escapeHtml((founder && founder.launchLabel) || 'próximamente') +
+          '). <strong>' + escapeHtml((founder && founder.seatsNote) || 'Plazas limitadas por petición') +
+          '</strong>. ' + escapeHtml((founder && founder.priorityNote) ||
+            'Solicita plaza FOUNDER Study o Coach; revisamos cada petición.') +
+          ' Usa el botón en cada plan.';
         changeNote.classList.remove('hidden');
       } else if (isPaidSub) {
         changeNote.innerHTML = 'Gestiona tu suscripción (cambio de plan, facturación anual o cancelación) en el portal seguro de Stripe. Pulsa <strong>«Actualiza la suscripción»</strong> dentro del portal.';
@@ -3249,7 +3251,7 @@
     }).join('');
     var pausedNote = paused
       ? '<p class="muted-text">Compra de bonos cerrada hasta el <strong>FOUNDER</strong> (' +
-        escapeHtml((founder && founder.launchLabel) || '15 de noviembre de 2026') + ').</p>'
+        escapeHtml((founder && founder.launchLabel) || 'próximamente') + ').</p>'
       : '';
     host.innerHTML = '<div class="pricing-bonus-panel card-box">' +
       '<h3>Bono de consultas IA</h3>' +

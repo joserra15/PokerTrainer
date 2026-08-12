@@ -56,10 +56,10 @@ const founderCfg = {
   purchasesPaused: true,
   trial: { days: 10, plan: 'pro' },
   founder: {
-    launchLabel: '15 de noviembre de 2026',
+    launchLabel: 'próximamente',
     discount: '40%',
-    seatsNote: 'Plazas limitadas',
-    priorityNote: 'Prioridad para usuarios ya registrados que lo soliciten.'
+    seatsNote: 'Plazas limitadas por petición',
+    priorityNote: 'Solicita plaza FOUNDER Study o Coach.'
   }
 };
 const sandbox = {
@@ -99,7 +99,7 @@ assert.ok(B.purchasesPaused && B.purchasesPaused(), 'purchasesPaused activo');
 B.showPaywall('trainer_limit');
 assert.ok(!docEls['paywall-modal'].classList.contains('hidden'), 'modal visible');
 assert.ok(bodyClass.has('paywall-open'), 'body paywall-open');
-assert.ok(/plan|manos|Gratis|FOUNDER|noviembre/i.test(docEls['paywall-body'].innerHTML + docEls['paywall-title'].textContent),
+assert.ok(/plan|manos|Gratis|FOUNDER|próximamente|petición/i.test(docEls['paywall-body'].innerHTML + docEls['paywall-title'].textContent),
   'mensaje paywall');
 
 B.showPaywall('ai_limit');

@@ -157,10 +157,15 @@
       '<section class="account-settings-card card-box">' +
       '<h3>Plan y suscripción</h3>' +
       row('Plan actual', escapeHtml(ent.plan_label || planLabel(prof.plan))) +
-      row('FOUNDER', prof.is_founder
+      row('FOUNDER Study', prof.is_founder_study
         ? '<span class="account-settings-founder">Sí · plaza confirmada</span>'
-        : (prof.founder_requested_at
-          ? 'Solicitud enviada · pendiente de revisión'
+        : (prof.founder_study_requested_at
+          ? 'Solicitud enviada · pendiente'
+          : 'No')) +
+      row('FOUNDER Coach', prof.is_founder_coach
+        ? '<span class="account-settings-founder">Sí · plaza confirmada</span>'
+        : (prof.founder_coach_requested_at
+          ? 'Solicitud enviada · pendiente'
           : 'No')) +
       row('Estado', escapeHtml(
         prof.subscription_status === 'trialing' ? 'Promoción / prueba' : (prof.subscription_status || 'none')
@@ -171,8 +176,11 @@
       '<div class="account-settings-actions">' +
       (showBilling ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-billing">Gestionar suscripción</button>' : '') +
       '<button type="button" class="btn btn-primary btn-sm" id="settings-upgrade">Ver planes</button>' +
-      (!prof.is_founder
-        ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-founder-request">Solicitar plaza FOUNDER</button>'
+      (!prof.is_founder_study
+        ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-founder-study" data-founder-request="study">Solicitar FOUNDER Study</button>'
+        : '') +
+      (!prof.is_founder_coach
+        ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-founder-coach" data-founder-request="coach">Solicitar FOUNDER Coach</button>'
         : '') +
       '</div>' +
       '</section>' +
@@ -352,8 +360,9 @@
     if (upgrade) upgrade.onclick = function () {
       if (global.goToTab) global.goToTab('pricing');
     };
-    var founderBtn = $('#settings-founder-request');
-    if (founderBtn) {
+    ['settings-founder-study', 'settings-founder-coach'].forEach(function (id) {
+      var founderBtn = $('#' + id);
+      if (!founderBtn) return;
       if (global.PTFounderRequest && global.PTFounderRequest.bindButton) {
         global.PTFounderRequest.bindButton(founderBtn);
       } else {
@@ -361,7 +370,7 @@
           if (global.goToTab) global.goToTab('pricing');
         };
       }
-    }
+    });
     var sync = $('#settings-sync');
     if (sync) {
       sync.onclick = function () {
