@@ -1,5 +1,14 @@
 # Billing — Epic 3
 
+## Estado comercial (beta → FOUNDER)
+
+Con `PT_BILLING.purchasesPaused: true` (activo en cliente):
+
+- Los planes se muestran en landing y en la pestaña Planes, pero **los botones de compra/trial/bonos quedan deshabilitados**.
+- El paywall explica la beta y anuncia **FOUNDER** (`founder.launchLabel`, 40 % dto., plazas limitadas, prioridad a usuarios registrados que lo soliciten).
+- `startCheckout` / `startBonusCheckout` rechazan cobros aunque alguien force la API del cliente.
+- Para reabrir cobros el **15 de noviembre de 2026**: poner `purchasesPaused: false` y reactivar el cupón Stripe que corresponda (FOUNDER).
+
 ## Proveedor: Stripe
 
 **Decisión (M-01):** Stripe frente a Lemon Squeezy.

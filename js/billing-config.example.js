@@ -3,6 +3,8 @@
  */
 window.PT_BILLING = {
   enabled: false,
+  /** Si true: no hay checkout ni compra de bonos; planes visibles a título informativo. */
+  purchasesPaused: true,
   // Base URL de Edge Functions (sin barra final)
   functionsUrl: 'https://YOUR_PROJECT.supabase.co/functions/v1',
   trial: {
@@ -24,8 +26,19 @@ window.PT_BILLING = {
       coach: { s: '3,99', m: '6,99', l: '11,99' }
     }
   },
+  founder: {
+    code: 'FOUNDER',
+    launchDate: '2026-11-15',
+    launchLabel: '15 de noviembre de 2026',
+    discount: '40%',
+    seatsNote: 'Plazas limitadas',
+    priorityNote: 'Prioridad para usuarios ya registrados que lo soliciten (Contacto o Instagram).',
+    kicker: 'Lanzamiento FOUNDER',
+    title: 'Plan FOUNDER el 15 de noviembre · 40% de descuento',
+    note: 'Compras cerradas hasta esa fecha. Los planes se muestran informativos. Coach solo por invitación durante la beta.'
+  },
   promo: {
-    active: true,
+    active: false,
     code: 'SUMMER26',
     couponId: 'wrv35N6u',
     discount: '50%',
@@ -36,18 +49,54 @@ window.PT_BILLING = {
 
 (function (global) {
   'use strict';
+  function billing() {
+    return global.PT_BILLING || {};
+  }
+  function founderCfg() {
+    var f = billing().founder;
+    return f && typeof f === 'object' ? f : null;
+  }
+  function purchasesPaused() {
+    return billing().purchasesPaused !== false && !!billing().purchasesPaused;
+  }
   function promoCfg() {
-    var b = global.PT_BILLING || {};
+    if (purchasesPaused()) return null;
+    var b = billing();
     return b.promo && b.promo.active !== false && b.promo.code ? b.promo : null;
   }
   function esc(s) {
     return String(s || '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+  function founderBannerHtml() {
+    var f = founderCfg();
+    if (!f || !purchasesPaused()) return '';
+    return '<div class="promo-banner founder-banner" role="note">' +
+      '<p class="promo-banner-kicker">' + esc(f.kicker || 'FOUNDER') + '</p>' +
+      '<p class="promo-banner-title"><strong>' + esc(f.title || ('Plan FOUNDER · ' + (f.discount || '40%') + ' dto.')) + '</strong></p>' +
+      '<p class="promo-banner-note muted-text">' +
+      esc(f.launchLabel || '15 de noviembre') + ' · ' + esc(f.seatsNote || 'Plazas limitadas') + '. ' +
+      esc(f.priorityNote || '') +
+      '</p>' +
+      '<p class="promo-banner-note muted-text">' + esc(f.note || '') + '</p>' +
+      '</div>';
+  }
+  function founderPillHtml() {
+    var f = founderCfg();
+    if (!f || !purchasesPaused()) return '';
+    return '<p class="landing-promo-pill founder-pill" role="note">' +
+      '<strong>FOUNDER</strong> el ' + esc(f.launchLabel || '15 de noviembre') +
+      ' · ' + esc(f.discount || '40%') + ' dto. · ' + esc(f.seatsNote || 'plazas limitadas') +
+      ' · <a href="#landing-pricing">Ver planes</a></p>';
+  }
   global.PTBillingPromo = {
-    active: function () { return !!promoCfg(); },
+    active: function () { return !!promoCfg() || purchasesPaused(); },
     config: promoCfg,
+    purchasesPaused: purchasesPaused,
+    founder: founderCfg,
+    founderBannerHtml: founderBannerHtml,
     pillHtml: function () {
+      if (purchasesPaused()) return founderPillHtml();
       var p = promoCfg();
       if (!p) return '';
       return '<p class="landing-promo-pill" role="note">' +
@@ -56,6 +105,7 @@ window.PT_BILLING = {
         '<a href="#landing-pricing">Ver condiciones</a></p>';
     },
     bannerHtml: function () {
+      if (purchasesPaused()) return founderBannerHtml();
       var p = promoCfg();
       if (!p) return '';
       return '<div class="promo-banner" role="note">' +

@@ -33,7 +33,12 @@ const REQUIRED_KEYS = [
   'plan.coach.f3',
   'plan.coach.f4',
   'plan.coach.f5',
-  'plan.cta'
+  'plan.coach.invite',
+  'plan.study.beta',
+  'plan.cta',
+  'plan.cta.paused',
+  'plan.cta.invite',
+  'plan.founder.note'
 ];
 
 let limitsHtml = '';
@@ -115,11 +120,17 @@ const sandbox = {
 sandbox.window = sandbox;
 sandbox.global = sandbox;
 sandbox.window.PT_BILLING = {
+  purchasesPaused: true,
   plans: {
     pro: { label: 'Study', monthly: '14,99' },
     premium: { label: 'Coach', monthly: '34,99' }
   },
-  trial: { days: 10, label: 'Prueba Study 10 días' }
+  trial: { days: 10, label: 'Prueba Study 10 días' },
+  founder: {
+    launchLabel: '15 de noviembre de 2026',
+    discount: '40%',
+    seatsNote: 'plazas limitadas'
+  }
 };
 
 vm.createContext(sandbox);
@@ -143,7 +154,10 @@ assert.ok(limitsHtml.indexOf('Empieza sin fricción') >= 0, 'limits muestra tít
 assert.ok(pricingHtml.indexOf('plan.free') < 0, 'pricing no muestra plan.free');
 assert.ok(pricingHtml.indexOf('plan.cta') < 0, 'pricing no muestra plan.cta');
 assert.ok(pricingHtml.indexOf('Gratis') >= 0, 'pricing muestra Gratis');
-assert.ok(pricingHtml.indexOf('Ir al login') >= 0, 'pricing muestra CTA traducido');
+assert.ok(pricingHtml.indexOf('Empezar gratis') >= 0, 'pricing muestra CTA free traducido');
+assert.ok(pricingHtml.indexOf('Compra el 15 de noviembre') >= 0, 'Study muestra CTA pausado');
+assert.ok(pricingHtml.indexOf('Solo por invitación') >= 0, 'Coach muestra CTA invitación');
+assert.ok(pricingHtml.indexOf('disabled') >= 0, 'botones de compra deshabilitados');
 assert.ok(pricingHtml.indexOf('plan.free.f1') < 0, 'features free traducidas');
 assert.ok(pricingHtml.indexOf('15 manos entrenador') >= 0, 'feature free f1 visible');
 

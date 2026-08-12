@@ -3004,31 +3004,49 @@
       {
         id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: false,
-        features: [
-          'Prueba 10 días (una vez por cuenta)',
-          'Entrenador e import ilimitados',
-          '20 manos en análisis',
-          '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
-          'Sync, estadísticas y repaso'
-        ],
+        features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
+          ? [
+            'Disponible con código o acceso regalado en la beta',
+            'Entrenador e import ilimitados',
+            '20 manos en análisis',
+            '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
+            'Sync, estadísticas y repaso'
+          ]
+          : [
+            'Prueba 10 días (una vez por cuenta)',
+            'Entrenador e import ilimitados',
+            '20 manos en análisis',
+            '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
+            'Sync, estadísticas y repaso'
+          ],
         cta: 'pro'
       },
       {
         id: 'premium', title: plans.premium ? plans.premium.label : 'Coach',
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
-        features: [
-          'Todo Study',
-          '100 manos en análisis',
-          '150 consultas ForgeCoach/mes',
-          'Informes y preguntas sobre manos, análisis y sesiones',
-          'Soporte prioritario'
-        ],
+        features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
+          ? [
+            'Solo por invitación durante la beta',
+            'Todo Study',
+            '100 manos en análisis',
+            '150 consultas ForgeCoach/mes',
+            'Soporte prioritario'
+          ]
+          : [
+            'Todo Study',
+            '100 manos en análisis',
+            '150 consultas ForgeCoach/mes',
+            'Informes y preguntas sobre manos, análisis y sesiones',
+            'Soporte prioritario'
+          ],
         cta: 'premium'
       }
     ];
 
     const Billing = window.PTBilling;
     const billingOn = !!(Billing && Billing.enabled && Billing.enabled());
+    const paused = !!(Billing && Billing.purchasesPaused && Billing.purchasesPaused());
+    const founder = (Billing && Billing.founderInfo) ? Billing.founderInfo() : (window.PT_BILLING && window.PT_BILLING.founder) || null;
     const isPaidSub = !!ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium');
     const curInterval = ent.billing_interval === 'year' ? 'year'
       : (ent.billing_interval === 'month' ? 'month' : null);
@@ -3043,7 +3061,19 @@
     grid.innerHTML = cards.map(function (c) {
       const isCurrent = ent.plan === c.id;
       let btns = '';
-      if (!isPaidSub) {
+      if (paused && !isPaidSub) {
+        if (isCurrent) {
+          btns = '<span class="muted-text">Plan actual</span>';
+        } else if (c.id === 'pro') {
+          btns = '<button type="button" class="btn btn-primary" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
+            'Compra el ' + escapeHtml((founder && founder.launchLabel) || '15 de noviembre') + '</button>' +
+            '<p class="muted-text pricing-cta-note">FOUNDER · ' + escapeHtml((founder && founder.discount) || '40%') +
+            ' dto. · ' + escapeHtml((founder && founder.seatsNote) || 'plazas limitadas') + '</p>';
+        } else if (c.id === 'premium') {
+          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true">Solo por invitación</button>' +
+            '<p class="muted-text pricing-cta-note">Coach cerrado en la beta. Se abre con FOUNDER o por regalo.</p>';
+        }
+      } else if (!isPaidSub) {
         // Usuario Gratis: alta normal por checkout.
         if (c.cta && !isCurrent) {
           if (c.id === 'pro' && billingOn) {
@@ -3072,20 +3102,23 @@
         const intervalNote = curInterval === 'year' ? 'Facturación anual'
           : (curInterval === 'month' ? 'Facturación mensual' : 'Plan actual');
         btns = '<span class="muted-text">Plan actual · ' + escapeHtml(intervalNote) + '</span>';
-        if (billingOn && curInterval === 'month') {
+        if (billingOn && !paused && curInterval === 'month') {
           btns += '<button type="button" class="btn btn-ghost btn-sm" data-plan-change="' + c.id + '" data-interval="year">Cambiar a anual</button>';
-        } else if (billingOn && curInterval === 'year') {
+        } else if (billingOn && !paused && curInterval === 'year') {
           btns += '<button type="button" class="btn btn-ghost btn-sm" data-plan-change="' + c.id + '" data-interval="month">Cambiar a mensual</button>';
         }
         if (canceling && billingOn) {
           btns += '<button type="button" class="btn btn-primary btn-sm" data-plan-portal="1">Reactivar</button>';
         }
-      } else if (billingOn) {
+      } else if (billingOn && !paused) {
         // Otro plan de pago: upgrade o downgrade.
         const verb = c.id === 'premium' ? 'Mejorar a ' : 'Cambiar a ';
         btns = '<button type="button" class="btn btn-primary" data-plan-change="' + c.id + '" data-interval="' + (curInterval || 'month') + '">' + escapeHtml(verb + c.title) + '</button>';
+      } else if (paused) {
+        btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true">Cambios de plan cerrados</button>';
       }
-      return '<div class="pricing-card' + (isCurrent ? ' featured' : '') + '">' +
+      var featured = paused ? (c.id === 'pro') : isCurrent;
+      return '<div class="pricing-card' + (featured ? ' featured' : '') + '">' +
         '<h3>' + escapeHtml(c.title) + '</h3>' +
         '<div class="pricing-price">' + escapeHtml(c.price) + '<small>' + escapeHtml(c.period) + '</small></div>' +
         '<ul class="pricing-features">' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +
@@ -3137,7 +3170,14 @@
 
     const changeNote = $('#pricing-change-note');
     if (changeNote) {
-      if (isPaidSub) {
+      if (paused && !isPaidSub) {
+        changeNote.innerHTML = 'Compras cerradas hasta el <strong>FOUNDER</strong> (' +
+          escapeHtml((founder && founder.launchLabel) || '15 de noviembre de 2026') +
+          '). ' + escapeHtml((founder && founder.priorityNote) ||
+            'Prioridad para usuarios ya registrados que lo soliciten.') +
+          ' Coach solo por invitación en la beta.';
+        changeNote.classList.remove('hidden');
+      } else if (isPaidSub) {
         changeNote.innerHTML = 'Gestiona tu suscripción (cambio de plan, facturación anual o cancelación) en el portal seguro de Stripe. Pulsa <strong>«Actualiza la suscripción»</strong> dentro del portal.';
         changeNote.classList.remove('hidden');
       } else {
@@ -3146,8 +3186,14 @@
       }
     }
 
-    if (Billing && Billing.mountAnnualUpsell) {
+    if (Billing && Billing.mountAnnualUpsell && !paused) {
       Billing.mountAnnualUpsell($('#pricing-annual-upsell'), ent);
+    } else {
+      var upsell = $('#pricing-annual-upsell');
+      if (upsell) {
+        upsell.innerHTML = '';
+        upsell.classList.add('hidden');
+      }
     }
 
     renderBonusPacks(ent);
@@ -3161,6 +3207,10 @@
       host.innerHTML = '';
       return;
     }
+    var paused = !!(window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused());
+    var founder = (window.PTBilling && window.PTBilling.founderInfo)
+      ? window.PTBilling.founderInfo()
+      : (window.PT_BILLING && window.PT_BILLING.founder) || null;
     var tier = (window.PTBilling.bonusTierForPlan)
       ? window.PTBilling.bonusTierForPlan(ent.plan || 'free')
       : 'free';
@@ -3170,20 +3220,28 @@
     var rows = packs.map(function (pk) {
       var def = bonus.packs[pk];
       var price = prices[pk] || '—';
+      var buyBtn = paused
+        ? '<button type="button" class="btn btn-primary btn-sm" disabled aria-disabled="true">No disponible</button>'
+        : '<button type="button" class="btn btn-primary btn-sm" data-bonus-pack="' + pk + '">Comprar</button>';
       return '<div class="bonus-pack-card">' +
         '<div class="bonus-pack-main">' +
         '<strong>' + escapeHtml(def.label) + '</strong>' +
         '<span class="muted-text">' + def.credits + ' consultas</span>' +
         '</div>' +
         '<div class="bonus-pack-price">' + escapeHtml(price) + ' €</div>' +
-        '<button type="button" class="btn btn-primary btn-sm" data-bonus-pack="' + pk + '">Comprar</button>' +
+        buyBtn +
         '</div>';
     }).join('');
+    var pausedNote = paused
+      ? '<p class="muted-text">Compra de bonos cerrada hasta el <strong>FOUNDER</strong> (' +
+        escapeHtml((founder && founder.launchLabel) || '15 de noviembre de 2026') + ').</p>'
+      : '';
     host.innerHTML = '<div class="pricing-bonus-panel card-box">' +
       '<h3>Bono de consultas IA</h3>' +
       '<p class="muted-text">Precio para tu plan <strong>' + escapeHtml(tierLabel) + '</strong>. ' +
       'Los bonos tienen <strong>mejores precios en los planes superiores</strong> (Study y Coach). ' +
       'Válido 12 meses. Se consumen después de las consultas incluidas en tu plan.</p>' +
+      pausedNote +
       '<div class="bonus-pack-grid">' + rows + '</div>' +
       '<p class="muted-text pricing-foot">Pago único · Sin renovación automática</p>' +
       '</div>';

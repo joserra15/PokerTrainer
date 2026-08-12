@@ -298,6 +298,40 @@ body.range-matrix-open { overflow: hidden; }
 }
 .promo-banner-title { margin: 0 0 6px; font-size: 16px; line-height: 1.45; }
 .promo-banner-note { margin: 0; font-size: 13px; line-height: 1.45; }
+.founder-banner {
+  background: linear-gradient(135deg, rgba(230,161,90,.16), rgba(47,129,247,.12));
+  border-color: rgba(230,161,90,.35);
+}
+.founder-banner .promo-banner-kicker { color: var(--warn, #e6a15a); }
+.pricing-cta-note,
+.landing-price-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.pricing-card button[disabled],
+.landing-price-card button[disabled],
+.bonus-pack-card button[disabled] {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.paywall-founder {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(47,129,247,.08);
+  border: 1px solid rgba(47,129,247,.22);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.paywall-founder p { margin: 0 0 8px; }
+.paywall-founder p:last-child { margin-bottom: 0; }
+.paywall-founder-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+.paywall-founder-list li { margin-bottom: 4px; }
+.paywall-founder-launch { font-size: 14px; }
 .promo-code {
   display: inline-block; padding: 1px 8px; border-radius: 6px;
   background: rgba(0,0,0,.28); border: 1px dashed rgba(255,255,255,.25);
