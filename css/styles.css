@@ -5799,7 +5799,7 @@ html.pwa-standalone body {
 .ha-bb-row {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
 }
-.ha-bb-euro { width: 110px; max-width: 100%; }
+.ha-bb-euro, .ha-ante-bb { width: 110px; max-width: 100%; }
 .ha-bb-hint { flex: 1; min-width: 180px; font-size: 12px; line-height: 1.35; }
 .ha-swap-panel { margin: 12px 0 16px; }
 .ha-swap-panel h3 { margin: 0 0 6px; font-size: 15px; }

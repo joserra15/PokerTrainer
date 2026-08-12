@@ -13,8 +13,10 @@ on:
 permissions:
   contents: read
 
+# Un grupo por PR/ref: evita que un push a main u otro PR cancele checks ajenos
+# (antes group fijo "pages-tests" hacía fallar PRs con conclusion=cancelled).
 concurrency:
-  group: "pages-tests"
+  group: pages-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
