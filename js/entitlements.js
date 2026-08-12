@@ -74,7 +74,11 @@
       plan_label: PLAN_LABELS[plan] || plan,
       is_admin: false,
       is_founder: !!(u && u.isFounder),
+      is_founder_study: !!(u && u.isFounderStudy),
+      is_founder_coach: !!(u && u.isFounderCoach),
       founder_requested_at: (u && u.founderRequestedAt) || null,
+      founder_study_requested_at: (u && u.founderStudyRequestedAt) || null,
+      founder_coach_requested_at: (u && u.founderCoachRequestedAt) || null,
       demo_mode: demoActive(),
       subscription_status: 'none',
       paid_active: plan === 'pro' || plan === 'premium',
@@ -109,8 +113,12 @@
       ai_bonus_used_month: Number(usage.ai_bonus_used_month) || 0
     };
     if (!data.bonus) data.bonus = { balance: 0, expires_at: null };
-    data.is_founder = !!data.is_founder;
+    data.is_founder_study = !!data.is_founder_study;
+    data.is_founder_coach = !!data.is_founder_coach;
+    data.is_founder = !!(data.is_founder || data.is_founder_study || data.is_founder_coach);
     data.founder_requested_at = data.founder_requested_at || null;
+    data.founder_study_requested_at = data.founder_study_requested_at || null;
+    data.founder_coach_requested_at = data.founder_coach_requested_at || null;
     if (!data.is_admin && isAdmin()) data.is_admin = true;
     if (data.is_admin) {
       data.limits.ai_reports_per_month = null;
@@ -170,8 +178,12 @@
     u.planLabel = ent.plan_label || PLAN_LABELS[u.plan] || u.plan;
     u.subscriptionStatus = ent.subscription_status;
     u.paidActive = !!ent.paid_active;
-    u.isFounder = !!ent.is_founder;
+    u.isFounderStudy = !!ent.is_founder_study;
+    u.isFounderCoach = !!ent.is_founder_coach;
+    u.isFounder = !!(ent.is_founder || ent.is_founder_study || ent.is_founder_coach);
     u.founderRequestedAt = ent.founder_requested_at || null;
+    u.founderStudyRequestedAt = ent.founder_study_requested_at || null;
+    u.founderCoachRequestedAt = ent.founder_coach_requested_at || null;
     if (ent.is_admin) u.isAdmin = true;
     if (global.PTAuth && global.PTAuth.renderAccountMenu) {
       global.PTAuth.renderAccountMenu(u);

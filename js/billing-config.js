@@ -31,14 +31,14 @@ window.PT_BILLING = {
   },
   founder: {
     code: 'FOUNDER',
-    launchDate: '2026-11-15',
-    launchLabel: '15 de noviembre de 2026',
+    launchDate: null,
+    launchLabel: 'próximamente',
     discount: '40%',
-    seatsNote: 'Plazas limitadas',
-    priorityNote: 'Prioridad para usuarios ya registrados que lo soliciten (Contacto o Instagram).',
-    kicker: 'Lanzamiento FOUNDER',
-    title: 'Plan FOUNDER el 15 de noviembre · 40% de descuento',
-    note: 'Compras cerradas hasta esa fecha. Los planes se muestran informativos. Coach solo por invitación durante la beta.'
+    seatsNote: 'Plazas limitadas por petición',
+    priorityNote: 'Solicita plaza FOUNDER Study o FOUNDER Coach: plazas limitadas por petición; revisamos cada solicitud en soporte.',
+    kicker: 'FOUNDER próximamente',
+    title: 'FOUNDER Study y FOUNDER Coach · 40% de descuento · plazas limitadas por petición',
+    note: 'Compras cerradas hasta el lanzamiento. Solicita tu plaza en Study o Coach; el administrador confirmará según disponibilidad.'
   },
   promo: {
     // Cupón Stripe de verano desactivado mientras las compras estén pausadas.
@@ -78,8 +78,8 @@ window.PT_BILLING = {
     return '<div class="promo-banner founder-banner" role="note">' +
       '<p class="promo-banner-kicker">' + esc(f.kicker || 'FOUNDER') + '</p>' +
       '<p class="promo-banner-title"><strong>' + esc(f.title || ('Plan FOUNDER · ' + (f.discount || '40%') + ' dto.')) + '</strong></p>' +
-      '<p class="promo-banner-note muted-text">' +
-      esc(f.launchLabel || '15 de noviembre') + ' · ' + esc(f.seatsNote || 'Plazas limitadas') + '. ' +
+      '<p class="promo-banner-note muted-text"><strong>' + esc(f.launchLabel || 'próximamente') +
+      '</strong> · <strong>' + esc(f.seatsNote || 'Plazas limitadas por petición') + '</strong>. ' +
       esc(f.priorityNote || '') +
       '</p>' +
       '<p class="promo-banner-note muted-text">' + esc(f.note || '') + '</p>' +
@@ -89,8 +89,8 @@ window.PT_BILLING = {
     var f = founderCfg();
     if (!f || !purchasesPaused()) return '';
     return '<p class="landing-promo-pill founder-pill" role="note">' +
-      '<strong>FOUNDER</strong> el ' + esc(f.launchLabel || '15 de noviembre') +
-      ' · ' + esc(f.discount || '40%') + ' dto. · ' + esc(f.seatsNote || 'plazas limitadas') +
+      '<strong>FOUNDER</strong> ' + esc(f.launchLabel || 'próximamente') +
+      ' · ' + esc(f.discount || '40%') + ' dto. · <strong>' + esc(f.seatsNote || 'plazas limitadas por petición') + '</strong>' +
       ' · <a href="#landing-pricing">Ver planes</a></p>';
   }
   global.PTBillingPromo = {

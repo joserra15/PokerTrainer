@@ -113,11 +113,11 @@
             t('plan.study.f5')
           ],
         ctaLabel: paused
-          ? t('plan.cta.paused', { date: founder.launchLabel || '15 de noviembre de 2026' })
+          ? t('plan.cta.paused', { date: founder.launchLabel || 'próximamente' })
           : t('plan.cta'),
         ctaLogin: !paused,
         disabled: paused,
-        founderCta: paused
+        founderPlan: paused ? 'study' : null
       },
       {
         id: 'premium',
@@ -138,10 +138,12 @@
             t('plan.coach.f4'),
             t('plan.coach.f5')
           ],
-        ctaLabel: paused ? t('plan.cta.invite') : t('plan.cta'),
+        ctaLabel: paused
+          ? t('plan.cta.paused', { date: founder.launchLabel || 'próximamente' })
+          : t('plan.cta'),
         ctaLogin: !paused,
         disabled: paused,
-        founderCta: false
+        founderPlan: paused ? 'coach' : null
       }
     ];
     grid.innerHTML = cards.map(function (c) {
@@ -150,17 +152,18 @@
       var disabledAttr = c.disabled ? ' disabled aria-disabled="true"' : '';
       var note = '';
       var founderBtn = '';
-      if (paused && c.id === 'pro') {
+      if (paused && c.founderPlan) {
         note = '<p class="muted-text landing-price-note">' +
           escapeHtml(t('plan.founder.note', {
             discount: founder.discount || '40%',
-            seats: founder.seatsNote || 'plazas limitadas'
+            seats: founder.seatsNote || 'plazas limitadas por petición'
           })) + '</p>';
         if (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml) {
-          founderBtn = global.PTFounderRequest.requestButtonHtml('btn-block landing-founder-cta');
+          founderBtn = global.PTFounderRequest.requestButtonHtml(c.founderPlan, 'btn-block landing-founder-cta');
         } else {
-          founderBtn = '<button type="button" class="btn btn-primary btn-block landing-founder-cta" data-founder-request="1">' +
-            escapeHtml(t('plan.cta.founder')) + '</button>';
+          var key = c.founderPlan === 'coach' ? 'plan.cta.founder.coach' : 'plan.cta.founder.study';
+          founderBtn = '<button type="button" class="btn btn-primary btn-block landing-founder-cta" data-founder-request="' +
+            c.founderPlan + '">' + escapeHtml(t(key)) + '</button>';
         }
       }
       return '<div class="landing-price-card' + (c.featured ? ' featured' : '') + '">' +
@@ -185,7 +188,8 @@
       } else {
         btn.addEventListener('click', function (e) {
           e.preventDefault();
-          try { sessionStorage.setItem('pt_founder_request_pending', '1'); } catch (err) { /* noop */ }
+          var plan = btn.getAttribute('data-founder-request') || 'study';
+          try { sessionStorage.setItem('pt_founder_request_pending', plan); } catch (err) { /* noop */ }
           startLoginNow();
         });
       }

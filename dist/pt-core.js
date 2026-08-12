@@ -21001,8 +21001,12 @@ window.PT_VS_3BET_JSON = {
   function applyProfileToUser(user, profile) {
     if (!user || !profile) return user;
     user.isAdmin = !!profile.is_admin || isBootstrapAdmin(user.email);
-    user.isFounder = !!profile.is_founder;
+    user.isFounder = !!(profile.is_founder || profile.is_founder_study || profile.is_founder_coach);
+    user.isFounderStudy = !!profile.is_founder_study;
+    user.isFounderCoach = !!profile.is_founder_coach;
     user.founderRequestedAt = profile.founder_requested_at || null;
+    user.founderStudyRequestedAt = profile.founder_study_requested_at || null;
+    user.founderCoachRequestedAt = profile.founder_coach_requested_at || null;
     user.plan = profile.plan || 'free';
     user.planLabel = PLAN_LABELS[user.plan] || user.plan;
     user.aiDailyLimit = profile.ai_limit || profile.ai_daily_limit || null;
@@ -21325,7 +21329,11 @@ window.PT_VS_3BET_JSON = {
       plan_label: PLAN_LABELS[plan] || plan,
       is_admin: false,
       is_founder: !!(u && u.isFounder),
+      is_founder_study: !!(u && u.isFounderStudy),
+      is_founder_coach: !!(u && u.isFounderCoach),
       founder_requested_at: (u && u.founderRequestedAt) || null,
+      founder_study_requested_at: (u && u.founderStudyRequestedAt) || null,
+      founder_coach_requested_at: (u && u.founderCoachRequestedAt) || null,
       demo_mode: demoActive(),
       subscription_status: 'none',
       paid_active: plan === 'pro' || plan === 'premium',
@@ -21360,8 +21368,12 @@ window.PT_VS_3BET_JSON = {
       ai_bonus_used_month: Number(usage.ai_bonus_used_month) || 0
     };
     if (!data.bonus) data.bonus = { balance: 0, expires_at: null };
-    data.is_founder = !!data.is_founder;
+    data.is_founder_study = !!data.is_founder_study;
+    data.is_founder_coach = !!data.is_founder_coach;
+    data.is_founder = !!(data.is_founder || data.is_founder_study || data.is_founder_coach);
     data.founder_requested_at = data.founder_requested_at || null;
+    data.founder_study_requested_at = data.founder_study_requested_at || null;
+    data.founder_coach_requested_at = data.founder_coach_requested_at || null;
     if (!data.is_admin && isAdmin()) data.is_admin = true;
     if (data.is_admin) {
       data.limits.ai_reports_per_month = null;
@@ -21421,8 +21433,12 @@ window.PT_VS_3BET_JSON = {
     u.planLabel = ent.plan_label || PLAN_LABELS[u.plan] || u.plan;
     u.subscriptionStatus = ent.subscription_status;
     u.paidActive = !!ent.paid_active;
-    u.isFounder = !!ent.is_founder;
+    u.isFounderStudy = !!ent.is_founder_study;
+    u.isFounderCoach = !!ent.is_founder_coach;
+    u.isFounder = !!(ent.is_founder || ent.is_founder_study || ent.is_founder_coach);
     u.founderRequestedAt = ent.founder_requested_at || null;
+    u.founderStudyRequestedAt = ent.founder_study_requested_at || null;
+    u.founderCoachRequestedAt = ent.founder_coach_requested_at || null;
     if (ent.is_admin) u.isAdmin = true;
     if (global.PTAuth && global.PTAuth.renderAccountMenu) {
       global.PTAuth.renderAccountMenu(u);
@@ -21678,7 +21694,7 @@ window.PT_VS_3BET_JSON = {
 
   function founderLaunchLabel() {
     var f = founderInfo();
-    return (f && f.launchLabel) || '15 de noviembre de 2026';
+    return (f && f.launchLabel) || 'próximamente';
   }
 
   function purchasesPausedShortMsg() {
@@ -21687,19 +21703,26 @@ window.PT_VS_3BET_JSON = {
 
   function paywallFounderHtml() {
     var f = founderInfo() || {};
+    var studyBtn = (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml)
+      ? global.PTFounderRequest.requestButtonHtml('study', 'btn-sm')
+      : '<button type="button" class="btn btn-primary btn-sm" data-founder-request="study">Solicitar plaza FOUNDER Study</button>';
+    var coachBtn = (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml)
+      ? global.PTFounderRequest.requestButtonHtml('coach', 'btn-sm')
+      : '<button type="button" class="btn btn-primary btn-sm" data-founder-request="coach">Solicitar plaza FOUNDER Coach</button>';
     return '<div class="paywall-founder" role="note">' +
       '<p><strong>Beta abierta · compras pausadas</strong></p>' +
       '<ul class="paywall-founder-list">' +
       '<li>Puedes usar el plan <strong>Gratis</strong> con sus límites.</li>' +
       '<li>Study/Coach y bonos IA <strong>no se pueden comprar</strong> ahora.</li>' +
       '<li>Si tienes un <strong>código promocional</strong> de acceso, regístrate con él o escríbenos en Contacto.</li>' +
-      '<li><strong>Coach</strong> solo por invitación durante la beta.</li>' +
+      '<li><strong>Plazas FOUNDER limitadas por petición</strong> (Study o Coach).</li>' +
       '</ul>' +
-      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> el ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
-      ' · ' + escapeHtml(f.discount || '40%') + ' dto. · ' + escapeHtml(f.seatsNote || 'Plazas limitadas') + '.</p>' +
+      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
+      ' · ' + escapeHtml(f.discount || '40%') + ' dto. · <strong>' +
+      escapeHtml(f.seatsNote || 'Plazas limitadas por petición') + '</strong>.</p>' +
       '<p class="muted-text">' + escapeHtml(f.priorityNote ||
-        'Prioridad para usuarios ya registrados que lo soliciten.') + '</p>' +
-      '<p class="paywall-founder-cta-wrap"><button type="button" class="btn btn-primary btn-sm" data-founder-request="1">Solicitar plaza FOUNDER</button></p>' +
+        'Solicita plaza FOUNDER Study o Coach; revisamos cada petición en soporte.') + '</p>' +
+      '<p class="paywall-founder-cta-wrap">' + studyBtn + ' ' + coachBtn + '</p>' +
       '</div>';
   }
 
@@ -22165,13 +22188,12 @@ window.PT_VS_3BET_JSON = {
 })(window);
 
 /*
- * founder-request.js — Solicitud de plaza FOUNDER (Contacto + flag perfil).
+ * founder-request.js — Solicitud FOUNDER Study / Coach (Contacto + flags perfil).
  */
 (function (global) {
   'use strict';
 
   var PENDING_KEY = 'pt_founder_request_pending';
-  var SUBJECT = 'Solicitud de Founder';
 
   function client() {
     return global.PTSupabase && global.PTSupabase.getClient
@@ -22183,16 +22205,40 @@ window.PT_VS_3BET_JSON = {
     return !!(global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser());
   }
 
-  function markPending() {
-    try { sessionStorage.setItem(PENDING_KEY, '1'); } catch (e) { /* noop */ }
+  function normalizePlan(plan) {
+    var p = String(plan || 'study').toLowerCase();
+    if (p === 'pro' || p === 'study') return 'study';
+    if (p === 'premium' || p === 'coach') return 'coach';
+    return 'study';
+  }
+
+  function planLabel(plan) {
+    return normalizePlan(plan) === 'coach' ? 'Coach' : 'Study';
+  }
+
+  function subjectFor(plan) {
+    return 'Solicitud de Founder ' + planLabel(plan);
+  }
+
+  function markPending(plan) {
+    try { sessionStorage.setItem(PENDING_KEY, normalizePlan(plan)); } catch (e) { /* noop */ }
   }
 
   function clearPending() {
     try { sessionStorage.removeItem(PENDING_KEY); } catch (e) { /* noop */ }
   }
 
+  function readPending() {
+    try {
+      var v = sessionStorage.getItem(PENDING_KEY);
+      return v ? normalizePlan(v) : '';
+    } catch (e) {
+      return '';
+    }
+  }
+
   function hasPending() {
-    try { return sessionStorage.getItem(PENDING_KEY) === '1'; } catch (e) { return false; }
+    return !!readPending();
   }
 
   function startLoginNow() {
@@ -22208,20 +22254,25 @@ window.PT_VS_3BET_JSON = {
     return (global.PT_BILLING && global.PT_BILLING.founder) || {};
   }
 
-  function entitlementsFounder() {
+  function entitlementsFounder(plan) {
     var ent = global.PTEntitlements && global.PTEntitlements.get
       ? global.PTEntitlements.get()
       : null;
-    return {
-      isFounder: !!(ent && ent.is_founder),
-      requested: !!(ent && ent.founder_requested_at)
-    };
+    var tier = normalizePlan(plan);
+    var isFounder = tier === 'coach'
+      ? !!(ent && ent.is_founder_coach)
+      : !!(ent && ent.is_founder_study);
+    var requested = tier === 'coach'
+      ? !!(ent && ent.founder_coach_requested_at)
+      : !!(ent && ent.founder_study_requested_at);
+    return { plan: tier, isFounder: isFounder, requested: requested };
   }
 
-  async function submitRequest() {
+  async function submitRequest(plan) {
+    var tier = normalizePlan(plan);
     var c = client();
     if (!c) throw new Error('No hay conexión con el servidor.');
-    var res = await c.rpc('pt_request_founder_seat');
+    var res = await c.rpc('pt_request_founder_seat', { p_plan: tier });
     if (res.error) throw new Error(res.error.message || 'request_failed');
     var data = res.data || {};
     if (global.PTEntitlements && global.PTEntitlements.refresh) {
@@ -22235,27 +22286,29 @@ window.PT_VS_3BET_JSON = {
 
   function explainResult(data) {
     if (!data) return 'No se pudo completar la solicitud.';
+    var label = data.plan_label || planLabel(data.plan);
     if (data.already_founder) {
-      return 'Ya tienes plaza FOUNDER confirmada. La verás en Configuración de cuenta.';
+      return 'Ya tienes plaza FOUNDER ' + label + ' confirmada. La verás en Configuración de cuenta.';
     }
     if (data.already_requested) {
-      return 'Ya habías enviado una Solicitud de Founder. Puedes seguirla en Contacto.';
+      return 'Ya habías enviado una Solicitud de Founder ' + label + '. Puedes seguirla en Contacto.';
     }
     if (data.created || data.ok) {
-      return 'Solicitud de Founder enviada. El equipo la revisará en mensajes de soporte.';
+      return 'Solicitud de Founder ' + label + ' enviada. Plazas limitadas por petición; el equipo la revisará en soporte.';
     }
     return 'Solicitud registrada.';
   }
 
   async function requestSeat(opts) {
     opts = opts || {};
+    var plan = normalizePlan(opts.plan || opts.tier || 'study');
     if (!isLoggedIn()) {
-      markPending();
+      markPending(plan);
       if (opts.promptLogin !== false) startLoginNow();
-      return { ok: false, pending_login: true };
+      return { ok: false, pending_login: true, plan: plan };
     }
     clearPending();
-    var data = await submitRequest();
+    var data = await submitRequest(plan);
     if (opts.notify !== false) {
       try { alert(explainResult(data)); } catch (e) { /* noop */ }
     }
@@ -22271,11 +22324,12 @@ window.PT_VS_3BET_JSON = {
   }
 
   async function tryRequestAfterLogin() {
-    if (!hasPending()) return null;
+    var plan = readPending();
+    if (!plan) return null;
     if (!isLoggedIn()) return null;
     clearPending();
     try {
-      var data = await submitRequest();
+      var data = await submitRequest(plan);
       try { alert(explainResult(data)); } catch (e) { /* noop */ }
       if (global.goToTab) {
         global.goToTab('contact');
@@ -22300,19 +22354,20 @@ window.PT_VS_3BET_JSON = {
     btn.dataset.founderBound = '1';
     btn.addEventListener('click', function (e) {
       e.preventDefault();
+      var plan = normalizePlan(btn.getAttribute('data-founder-request') || 'study');
       btn.disabled = true;
-      requestSeat({ goContact: true })
+      requestSeat({ plan: plan, goContact: true })
         .catch(function (err) {
           alert(err.message || 'No se pudo solicitar la plaza FOUNDER.');
         })
         .then(function () {
           if (!btn.isConnected) return;
-          var st = entitlementsFounder();
+          var st = entitlementsFounder(plan);
           if (st.isFounder) {
-            btn.textContent = 'Plaza FOUNDER confirmada';
+            btn.textContent = 'Plaza FOUNDER ' + planLabel(plan) + ' confirmada';
             btn.disabled = true;
-          } else if (st.requested || hasPending()) {
-            btn.textContent = 'Solicitud enviada';
+          } else if (st.requested || readPending() === plan) {
+            btn.textContent = 'Solicitud FOUNDER ' + planLabel(plan) + ' enviada';
             btn.disabled = true;
           } else {
             btn.disabled = false;
@@ -22321,31 +22376,36 @@ window.PT_VS_3BET_JSON = {
     });
   }
 
-  function ctaLabel() {
-    var st = entitlementsFounder();
-    if (st.isFounder) return 'Plaza FOUNDER confirmada';
-    if (st.requested) return 'Solicitud FOUNDER enviada';
-    return 'Solicitar plaza FOUNDER';
+  function ctaLabel(plan) {
+    var st = entitlementsFounder(plan);
+    var label = planLabel(plan);
+    if (st.isFounder) return 'Plaza FOUNDER ' + label + ' confirmada';
+    if (st.requested) return 'Solicitud FOUNDER ' + label + ' enviada';
+    return 'Solicitar plaza FOUNDER ' + label;
   }
 
-  function ctaDisabled() {
-    var st = entitlementsFounder();
+  function ctaDisabled(plan) {
+    var st = entitlementsFounder(plan);
     return !!(st.isFounder || st.requested);
   }
 
-  function requestButtonHtml(extraClass) {
-    var disabled = ctaDisabled();
+  function requestButtonHtml(plan, extraClass) {
+    var tier = normalizePlan(plan);
+    var disabled = ctaDisabled(tier);
     var cls = 'btn btn-primary' + (extraClass ? ' ' + extraClass : '');
     return '<button type="button" class="' + cls + ' founder-request-btn"' +
       (disabled ? ' disabled aria-disabled="true"' : '') +
-      ' data-founder-request="1">' + ctaLabel() + '</button>';
+      ' data-founder-request="' + tier + '">' + ctaLabel(tier) + '</button>';
   }
 
   global.PTFounderRequest = {
-    subject: SUBJECT,
+    subjectFor: subjectFor,
+    normalizePlan: normalizePlan,
+    planLabel: planLabel,
     markPending: markPending,
     clearPending: clearPending,
     hasPending: hasPending,
+    readPending: readPending,
     requestSeat: requestSeat,
     tryRequestAfterLogin: tryRequestAfterLogin,
     bindButton: bindButton,
@@ -22970,10 +23030,15 @@ window.PT_VS_3BET_JSON = {
       '<section class="account-settings-card card-box">' +
       '<h3>Plan y suscripción</h3>' +
       row('Plan actual', escapeHtml(ent.plan_label || planLabel(prof.plan))) +
-      row('FOUNDER', prof.is_founder
+      row('FOUNDER Study', prof.is_founder_study
         ? '<span class="account-settings-founder">Sí · plaza confirmada</span>'
-        : (prof.founder_requested_at
-          ? 'Solicitud enviada · pendiente de revisión'
+        : (prof.founder_study_requested_at
+          ? 'Solicitud enviada · pendiente'
+          : 'No')) +
+      row('FOUNDER Coach', prof.is_founder_coach
+        ? '<span class="account-settings-founder">Sí · plaza confirmada</span>'
+        : (prof.founder_coach_requested_at
+          ? 'Solicitud enviada · pendiente'
           : 'No')) +
       row('Estado', escapeHtml(
         prof.subscription_status === 'trialing' ? 'Promoción / prueba' : (prof.subscription_status || 'none')
@@ -22984,8 +23049,11 @@ window.PT_VS_3BET_JSON = {
       '<div class="account-settings-actions">' +
       (showBilling ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-billing">Gestionar suscripción</button>' : '') +
       '<button type="button" class="btn btn-primary btn-sm" id="settings-upgrade">Ver planes</button>' +
-      (!prof.is_founder
-        ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-founder-request">Solicitar plaza FOUNDER</button>'
+      (!prof.is_founder_study
+        ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-founder-study" data-founder-request="study">Solicitar FOUNDER Study</button>'
+        : '') +
+      (!prof.is_founder_coach
+        ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-founder-coach" data-founder-request="coach">Solicitar FOUNDER Coach</button>'
         : '') +
       '</div>' +
       '</section>' +
@@ -23165,8 +23233,9 @@ window.PT_VS_3BET_JSON = {
     if (upgrade) upgrade.onclick = function () {
       if (global.goToTab) global.goToTab('pricing');
     };
-    var founderBtn = $('#settings-founder-request');
-    if (founderBtn) {
+    ['settings-founder-study', 'settings-founder-coach'].forEach(function (id) {
+      var founderBtn = $('#' + id);
+      if (!founderBtn) return;
       if (global.PTFounderRequest && global.PTFounderRequest.bindButton) {
         global.PTFounderRequest.bindButton(founderBtn);
       } else {
@@ -23174,7 +23243,7 @@ window.PT_VS_3BET_JSON = {
           if (global.goToTab) global.goToTab('pricing');
         };
       }
-    }
+    });
     var sync = $('#settings-sync');
     if (sync) {
       sync.onclick = function () {
@@ -26786,7 +26855,7 @@ window.PT_VS_3BET_JSON = {
         price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: false,
         features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
           ? [
-            'Disponible con código o acceso regalado en la beta',
+            'FOUNDER Study · plazas limitadas por petición',
             'Entrenador e import ilimitados',
             '20 manos en análisis',
             '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
@@ -26806,7 +26875,7 @@ window.PT_VS_3BET_JSON = {
         price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
         features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
           ? [
-            'Solo por invitación durante la beta',
+            'FOUNDER Coach · plazas limitadas por petición',
             'Todo Study',
             '100 manos en análisis',
             '150 consultas ForgeCoach/mes',
@@ -26844,23 +26913,24 @@ window.PT_VS_3BET_JSON = {
       if (paused && !isPaidSub) {
         if (isCurrent) {
           btns = '<span class="muted-text">Plan actual</span>';
-          if (c.id === 'free') {
-            btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
-              ? window.PTFounderRequest.requestButtonHtml('btn-block')
-              : '<button type="button" class="btn btn-primary btn-block" data-founder-request="1">Solicitar plaza FOUNDER</button>';
-          }
         } else if (c.id === 'pro') {
           btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
-            'Compra el ' + escapeHtml((founder && founder.launchLabel) || '15 de noviembre') + '</button>';
+            'Compra ' + escapeHtml((founder && founder.launchLabel) || 'próximamente') + '</button>';
           btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
-            ? window.PTFounderRequest.requestButtonHtml('btn-block')
-            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="1">Solicitar plaza FOUNDER</button>';
-          btns += '<p class="muted-text pricing-cta-note">FOUNDER · ' + escapeHtml((founder && founder.discount) || '40%') +
-            ' dto. · ' + escapeHtml((founder && founder.seatsNote) || 'plazas limitadas') +
-            '. Se envía un mensaje a soporte automáticamente.</p>';
+            ? window.PTFounderRequest.requestButtonHtml('study', 'btn-block')
+            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="study">Solicitar plaza FOUNDER Study</button>';
+          btns += '<p class="muted-text pricing-cta-note"><strong>Plazas limitadas por petición</strong>. FOUNDER Study · ' +
+            escapeHtml((founder && founder.discount) || '40%') +
+            ' dto. Se envía un mensaje a soporte automáticamente.</p>';
         } else if (c.id === 'premium') {
-          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true">Solo por invitación</button>' +
-            '<p class="muted-text pricing-cta-note">Coach cerrado en la beta. Se abre con FOUNDER o por regalo.</p>';
+          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
+            'Compra ' + escapeHtml((founder && founder.launchLabel) || 'próximamente') + '</button>';
+          btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
+            ? window.PTFounderRequest.requestButtonHtml('coach', 'btn-block')
+            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="coach">Solicitar plaza FOUNDER Coach</button>';
+          btns += '<p class="muted-text pricing-cta-note"><strong>Plazas limitadas por petición</strong>. FOUNDER Coach · ' +
+            escapeHtml((founder && founder.discount) || '40%') +
+            ' dto. Se envía un mensaje a soporte automáticamente.</p>';
         }
       } else if (!isPaidSub) {
         // Usuario Gratis: alta normal por checkout.
@@ -26967,10 +27037,11 @@ window.PT_VS_3BET_JSON = {
     if (changeNote) {
       if (paused && !isPaidSub) {
         changeNote.innerHTML = 'Compras cerradas hasta el <strong>FOUNDER</strong> (' +
-          escapeHtml((founder && founder.launchLabel) || '15 de noviembre de 2026') +
-          '). ' + escapeHtml((founder && founder.priorityNote) ||
-            'Prioridad para usuarios ya registrados que lo soliciten.') +
-          ' Coach solo por invitación en la beta.';
+          escapeHtml((founder && founder.launchLabel) || 'próximamente') +
+          '). <strong>' + escapeHtml((founder && founder.seatsNote) || 'Plazas limitadas por petición') +
+          '</strong>. ' + escapeHtml((founder && founder.priorityNote) ||
+            'Solicita plaza FOUNDER Study o Coach; revisamos cada petición.') +
+          ' Usa el botón en cada plan.';
         changeNote.classList.remove('hidden');
       } else if (isPaidSub) {
         changeNote.innerHTML = 'Gestiona tu suscripción (cambio de plan, facturación anual o cancelación) en el portal seguro de Stripe. Pulsa <strong>«Actualiza la suscripción»</strong> dentro del portal.';
@@ -27029,7 +27100,7 @@ window.PT_VS_3BET_JSON = {
     }).join('');
     var pausedNote = paused
       ? '<p class="muted-text">Compra de bonos cerrada hasta el <strong>FOUNDER</strong> (' +
-        escapeHtml((founder && founder.launchLabel) || '15 de noviembre de 2026') + ').</p>'
+        escapeHtml((founder && founder.launchLabel) || 'próximamente') + ').</p>'
       : '';
     host.innerHTML = '<div class="pricing-bonus-panel card-box">' +
       '<h3>Bono de consultas IA</h3>' +
