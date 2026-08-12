@@ -2292,7 +2292,14 @@ button.rm-cell-btn {
   min-width: 0;
   margin: 0;
   cursor: pointer;
-  font: inherit;
+  /* Evitar shorthand font (pisa el 8px de .rm-cell y las letras no caben). */
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  padding: 3px 0;
+  color: inherit;
   appearance: none;
   -webkit-appearance: none;
   box-sizing: border-box;
