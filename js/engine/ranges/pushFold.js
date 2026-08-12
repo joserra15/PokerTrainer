@@ -46,6 +46,17 @@
   const SET_CALL_T = setFrom(CALL_SHOVE_TIGHT);
   const SET_CALL_W = setFrom(CALL_SHOVE_WIDE);
 
+  /** ~20 bb steal: shove con valor; open min con el resto del rango GTO. */
+  const STEAL_SHOVE_BTN = setFrom([
+    'AA', 'KK', 'QQ', 'JJ', 'TT', '99', '88',
+    'AKs', 'AKo', 'AQs', 'AQo', 'AJs', 'AJo', 'ATs', 'ATo',
+    'KQs', 'KQo'
+  ]);
+  const STEAL_SHOVE_SB = setFrom([
+    'AA', 'KK', 'QQ', 'JJ', 'TT', '99',
+    'AKs', 'AKo', 'AQs', 'AQo', 'AJs', 'ATs', 'KQs'
+  ]);
+
   function openShoveWeights(pos, stackBB) {
     const bb = Number(stackBB) || 10;
     let base = SET_ALWAYS;
@@ -87,6 +98,86 @@
     return (w[handCode] || 0) >= 0.5;
   }
 
+  function openRangeTier(code, pos, ctx) {
+    const RR = global.GTORangesRegistry;
+    const N = global.GTORangesNotation;
+    const D = global.GTORangesData;
+    const data = RR && ctx ? RR.getOpenRaiseRow(pos, ctx) : (D && D.OPEN_RAISE ? D.OPEN_RAISE[pos] : null);
+    if (!data) return 'fold';
+    const raiseSet = N.toSet(data.raise);
+    const mixSet = N.toSet(data.mix);
+    if (raiseSet.has(code)) return 'raise';
+    if (mixSet.has(code)) return 'mix';
+    return 'fold';
+  }
+
+  function stealShoveSet(pos) {
+    return pos === 'SB' ? STEAL_SHOVE_SB : STEAL_SHOVE_BTN;
+  }
+
+  /** Steal ~15–25 bb: premium → shove; medio GTO → open min; resto fold. */
+  function stealOpenStrategy(input) {
+    const code = input.handCode;
+    const pos = input.position || input.heroPos || 'BTN';
+    const shoveSet = stealShoveSet(pos);
+    const ctx = input.rangeContext || null;
+    if (shoveSet[code]) {
+      return { fold: 0.1, raise: 0.05, allin: 0.85, call: 0 };
+    }
+    const tier = openRangeTier(code, pos, ctx);
+    if (tier === 'raise') return { fold: 0.12, raise: 0.83, allin: 0.05, call: 0 };
+    if (tier === 'mix') return { fold: 0.48, raise: 0.47, allin: 0.05, call: 0 };
+    return { fold: 0.96, raise: 0.03, allin: 0.01, call: 0 };
+  }
+
+  /** Defensa BB/SB vs steal ~20 bb: 3-bet shove en lugar de 3-bet pequeño. */
+  function stealDefenseStrategy(input) {
+    const code = input.handCode;
+    const pos = input.position || input.heroPos || 'BB';
+    const openerPos = input.vsPosition || input.openerPos || 'BTN';
+    const RR = global.GTORangesRegistry;
+    const N = global.GTORangesNotation;
+    const D = global.GTORangesData;
+    const ctx = input.rangeContext || (RR ? RR.normalize(input) : null);
+    let data = null;
+    if (RR && ctx) data = RR.getVsRfiRow(pos, openerPos, ctx);
+    if (!data) {
+      const key = input.vsRfiKey || (pos + '_vs_' + openerPos);
+      data = D && D.VS_RFI ? D.VS_RFI[key] : null;
+    }
+    if (data) {
+      const tb = N.toSet(data.threeBet);
+      const tbMix = N.toSet(data.threeBetMix);
+      const callSet = N.toSet(data.call);
+      const callMix = N.toSet(data.callMix || '');
+      if (tb.has(code)) return { fold: 0.08, call: 0.04, allin: 0.88, raise: 0 };
+      if (tbMix.has(code)) {
+        return callSet.has(code)
+          ? { fold: 0.32, call: 0.38, allin: 0.3, raise: 0 }
+          : { fold: 0.42, call: 0.08, allin: 0.5, raise: 0 };
+      }
+      if (callSet.has(code)) return { fold: 0.14, call: 0.82, allin: 0.04, raise: 0 };
+      if (callMix.has(code)) return { fold: 0.52, call: 0.44, allin: 0.04, raise: 0 };
+      return { fold: 0.94, call: 0.05, allin: 0.01, raise: 0 };
+    }
+    const stack = Number(input.effStack || input.stackDepth) || 20;
+    if (shouldCallShove(code, pos, stack, openerPos)) {
+      return { fold: 0.18, call: 0.72, allin: 0.1, raise: 0 };
+    }
+    return { fold: 0.92, call: 0.06, allin: 0.02, raise: 0 };
+  }
+
+  function isStealPhase(config) {
+    const bb = Number(config && (config.stackBB || config.effStack || config.stackDepth)) || 100;
+    const sc = config && config.scenario;
+    if (sc === 'steal') return bb >= 14 && bb <= 25;
+    if (sc === '3bet' && bb >= 14 && bb <= 25) {
+      const hub = config.formatHub || '';
+      return hub === 'spin' || hub === 'mtt';
+    }
+    return false;
+  }
+
   /** Frecuencias preflop simplificadas para nodos push. */
   function pushFoldStrategy(input) {
     const code = input.handCode;
@@ -121,7 +212,10 @@
     shouldOpenShove: shouldOpenShove,
     shouldCallShove: shouldCallShove,
     pushFoldStrategy: pushFoldStrategy,
+    stealOpenStrategy: stealOpenStrategy,
+    stealDefenseStrategy: stealDefenseStrategy,
     isPushPhase: isPushPhase,
+    isStealPhase: isStealPhase,
     ALWAYS_SHOVE: ALWAYS_SHOVE
   };
 })(typeof window !== 'undefined' ? window : globalThis);

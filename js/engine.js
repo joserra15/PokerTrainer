@@ -68,6 +68,26 @@
     return EFF;
   }
 
+  /** standard | steal | stealDefense | push — tamaños preflop según temática del spot. */
+  function preflopSizingMode(hand) {
+    const cfg = hand.playConfig || {};
+    const s = hand.scenario || {};
+    const stack = effStackForHand(hand);
+    const sc = cfg.scenario || 'rfi';
+    const PF = global.GTOPushFold;
+    if (sc === 'push' || cfg.resolvedPhase === 'push' || s.pushFold) {
+      if (stack <= 14 || sc === 'push') return 'push';
+    }
+    if (PF && PF.isPushPhase(Object.assign({}, cfg, { stackBB: stack, effStack: stack })) && sc !== 'steal') {
+      return 'push';
+    }
+    if (sc === 'steal' && stack >= 14 && stack <= 25) return 'steal';
+    if (sc === '3bet' && stack >= 14 && stack <= 25 && (cfg.formatHub === 'spin' || cfg.formatHub === 'mtt')) {
+      return 'stealDefense';
+    }
+    return 'standard';
+  }
+
   function heroRemainingBB(hand) {
     const stacks = ST();
     if (stacks && hand && hand.stacks && hand.hero.pos) {
@@ -1218,7 +1238,9 @@
     input.mttPhase = cfg.resolvedPhase || cfg.mttPhase || null;
     input.spinPayout = cfg.spinPayout || '2x';
     input.anteBB = cfg.anteBB || 0;
-    input.pushFold = !!(s.pushFold || cfg.scenario === 'push' || (cfg.resolvedPhase === 'push'));
+    input.preflopMode = preflopSizingMode(hand);
+    input.pushFold = input.preflopMode === 'push';
+    input.stealMode = input.preflopMode === 'steal' || input.preflopMode === 'stealDefense';
     input.heroStackBB = hand.stacks && hand.stacks.hero != null ? hand.stacks.hero : input.effStack;
     input.villainStackBB = hand.stacks && hand.stacks.villain != null ? hand.stacks.villain : input.effStack;
     const Icm = global.GTOIcmEv;
@@ -2198,22 +2220,43 @@
     hand.hero.pos = pos;
     const displayPos = hand.displayHeroPos || hand.scenario.heroPos || pos;
     const openSize = pos === 'SB' ? SB_OPEN : OPEN;
+    const mode = preflopSizingMode(hand);
+    const stackBB = round2(effStackForHand(hand));
+    const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
     // pot inicial con ciegas
     hand.potBB = SB + BBET;
-    // hero abrirá o foldeará
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'RFI', potBB: hand.potBB, toCallBB: 0 });
+    let options;
+    let context;
+    if (mode === 'push') {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'allin', label: `Shove (${fmt(stackBB)}bb)` }
+      ];
+      context = `Eres ${displayPos} con ~${fmt(stackBB)}bb. Zona push/fold: ¿shove o fold?`;
+    } else if (mode === 'steal') {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'raise', label: `Open steal a ${openSize}bb` },
+        { id: 'allin', label: `Shove (${fmt(stackBB)}bb)` }
+      ];
+      context = `Eres ${displayPos} con ~${fmt(stackBB)}bb (steal). Manos fuertes suelen ir shove; medias del rango, open ~${openSize}bb.`;
+    } else {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'raise', label: `Subir a ${openSize}bb` }
+      ];
+      context = `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`;
+    }
     hand.current = {
       street: 'preflop',
       kind: 'RFI',
       potBB: hand.potBB,
       toCallBB: 0,
       openSize,
-      options: [
-        { id: 'fold', label: 'Fold (retirarse)' },
-        { id: 'raise', label: `Subir a ${openSize}bb` }
-      ],
+      options,
       gto: freqs,
-      context: `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`
+      context
     };
     markFoldedBeforeHeroRFI(hand);
   }
@@ -2246,6 +2289,32 @@
 
     const threeBetSize = inPos(hero, opener) ? round2(openSize * 3) : round2(openSize * 4);
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'vsRFI', potBB: hand.potBB, toCallBB: hand.toCallBB });
+    const mode = preflopSizingMode(hand);
+    const stackBB = round2(effStackForHand(hand));
+    const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
+    let options;
+    let context;
+    if (mode === 'push') {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` }
+      ];
+      context = `Eres ${hero}. ${opener} abre steal a ${openSize}bb (~${fmt(stackBB)}bb efectivos). ¿Fold o call shove?`;
+    } else if (mode === 'stealDefense') {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` },
+        { id: 'allin', label: `3-bet shove (${fmt(stackBB)}bb)` }
+      ];
+      context = `Eres ${hero}. ${opener} abre steal a ${openSize}bb con ~${fmt(stackBB)}bb. ¿Fold, call o 3-bet shove?`;
+    } else {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` },
+        { id: 'raise', label: `3-Bet a ${threeBetSize}bb` }
+      ];
+      context = `Eres ${hero}. ${opener} abre a ${openSize}bb y te llega la acción. ¿Fold, call o 3-bet?`;
+    }
     hand.current = {
       street: 'preflop',
       kind: 'vsRFI',
@@ -2253,13 +2322,9 @@
       toCallBB: hand.toCallBB,
       openSize,
       threeBetSize,
-      options: [
-        { id: 'fold', label: 'Fold (retirarse)' },
-        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` },
-        { id: 'raise', label: `3-Bet a ${threeBetSize}bb` }
-      ],
+      options,
       gto: freqs,
-      context: `Eres ${hero}. ${opener} abre a ${openSize}bb y te llega la acción. ¿Fold, call o 3-bet?`
+      context
     };
     setVillainAct(hand, 'open', openSize);
     addInvest(hand, opener, openSize);
@@ -2714,6 +2779,25 @@
       if (actionId === 'fold') {
         return finish(hand, { reason: 'Te retiras antes del flop.', heroNet: -(hand.heroInvested || 0) });
       }
+      if (actionId === 'allin') {
+        hand.heroIsAggressor = true;
+        const shoveTo = round2(effStackForHand(hand));
+        const heroAdd = seatToCall(hand, hand.hero.pos, shoveTo);
+        if (heroAdd > 0) addInvest(hand, hand.hero.pos, heroAdd);
+        hand.heroInvested = shoveTo;
+        setHeroAct(hand, 'allin', shoveTo);
+        setPreflopSeatBet(hand, hand.hero.pos, shoveTo);
+        recalcPot(hand);
+        const res = resolveBlindsAfterHeroOpen(hand, shoveTo);
+        if (res.type === 'allFold') {
+          return finish(hand, {
+            reason: 'Todos se retiran ante tu shove. Te llevas el bote.',
+            heroNet: round2(hand.potBB - shoveTo)
+          });
+        }
+        if (res.type === 'face3bet') return setupFace3Bet(hand, res.size);
+        return goFlop(hand);
+      }
       hand.heroIsAggressor = true;
       const heroAdd = seatToCall(hand, hand.hero.pos, node.openSize);
       if (heroAdd > 0) addInvest(hand, hand.hero.pos, heroAdd);
@@ -2748,6 +2832,26 @@
         return finish(hand, { reason: 'Te retiras ante la subida.', heroNet: -(hand.heroInvested || 0) });
       }
       hand.villain.cards = villainHoleCards(hand);
+      if (actionId === 'allin') {
+        hand.heroIsAggressor = true;
+        const shoveTo = round2(effStackForHand(hand));
+        hand.heroInvested = shoveTo;
+        addInvest(hand, hero, round2(shoveTo - (hand.table.invested[hero] || 0)));
+        setHeroAct(hand, 'allin', shoveTo);
+        setPreflopSeatBet(hand, hero, shoveTo);
+        resolvePendingAfterHero(hand);
+        let cont = openerVs3Bet(hand, opener, shoveTo);
+        if (cont === 'fold') {
+          setVillainAct(hand, 'fold');
+          return finish(hand, { reason: `${opener} foldea ante tu 3-bet shove.`, heroNet: round2(hand.potBB) });
+        }
+        setVillainAct(hand, 'call', shoveTo);
+        hand.villainInvested = shoveTo;
+        const callAdd = seatToCall(hand, opener, shoveTo);
+        if (callAdd > 0) addInvest(hand, opener, callAdd);
+        recalcPot(hand);
+        return allInShowdown(hand);
+      }
       if (actionId === 'call') {
         setHeroAct(hand, 'call', node.toCallBB);
         hand.heroIsAggressor = false; // el villano (abridor) es el agresor
