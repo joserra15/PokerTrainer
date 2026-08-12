@@ -16,20 +16,20 @@
   function packSpots(kind, D) {
     var rfi = D.rfiSpot, vs = D.vsRfiSpot, iso = D.isoSpot;
     if (kind === 'SPIN_RFI_STEAL') return [
-      rfi('s01-01', 'BTN', ['Ah', 'Td'], 40101, { teachBack: 'ATo en el botón (BTN) con ~20 bb: open/steal claro. Si todos folden, ganas las ciegas sin ver flop — por eso robamos más cuando el stack es corto.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
-      rfi('s01-02', 'BTN', ['7c', '2d'], 40102, { trapTag: 'dominated', teachBack: '72o: fold. No stealees (abrir para robar ciegas) basura total: si te pagan o te re-suben, la mano casi nunca aguanta.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
-      rfi('s01-03', 'SB', ['Ks', 'Js'], 40103, { teachBack: 'KJs desde SB a ~20 bb: open/steal razonable. Ojo: si te pagan, juegas fuera de posición (OOP) — por eso abrimos un poco más tight que desde BTN.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
-      rfi('s01-04', 'SB', ['Qd', '8c'], 40104, { trapTag: 'fancy_play', teachBack: 'Q8o SB: a menudo fold. No estás en BTN: aquí el steal es más arriesgado porque quedarás OOP si te igualan.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
-      rfi('s01-05', 'BTN', ['9s', '9c'], 40105, { teachBack: '99 BTN: open claro. Par medio fuerte a 20 bb — quieres robar o jugar un pot manejable, no limpear.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
-      rfi('s01-06', 'BTN', ['8h', '7h'], 40106, { teachBack: '87s BTN: steal razonable. Conectada (suited) y puede mejorar en flop; buen candidato a robar ciegas.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) })
+      rfi('s01-01', 'BTN', ['Ah', 'Td'], 40101, { teachBack: 'ATo BTN ~20 bb: shove (all-in) por valor. A esta profundidad no min-raisees premium offsuit — shove o fold.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-02', 'BTN', ['7c', '2d'], 40102, { trapTag: 'dominated', teachBack: '72o: fold. No stealees basura total: si te pagan o te re-suben, la mano casi nunca aguanta.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-03', 'SB', ['Ks', 'Js'], 40103, { teachBack: 'KJs SB ~20 bb: open steal a ~2,5–3 bb (no shove). Mano media del rango — roba ciegas con sizing normal; shove reservado a premiums.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-04', 'SB', ['Qd', '8c'], 40104, { trapTag: 'fancy_play', teachBack: 'Q8o SB: fold. No estás en BTN: aquí el steal es más arriesgado porque quedarás OOP si te igualan.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-05', 'BTN', ['9s', '9c'], 40105, { teachBack: '99 BTN ~20 bb: shove claro. Par medio fuerte en zona steal — quieres fold equity o ir all-in, no open min.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-06', 'BTN', ['8h', '7h'], 40106, { teachBack: '87s BTN ~20 bb: open steal a ~2,5 bb. Mano media con jugabilidad — roba ciegas sin commitear todo el stack.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) })
     ];
     if (kind === 'SPIN_VS_STEAL') return [
-      vs('s02-01', 'BB_vs_BTN', ['As', 'Kd'], 40201, { teachBack: 'AKo vs steal del BTN: 3-bet (resubida) por valor claro. Mano premium a stack corto — presionas o vas all-in si te conviene.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
-      vs('s02-02', 'BB_vs_BTN', ['7c', '2d'], 40202, { trapTag: 'dominated', teachBack: '72o BB: fold. No overdefiendas (pagar de más) las ciegas con basura — en torneo corto un error elimina.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
-      vs('s02-03', 'BB_vs_SB', ['Qh', 'Js'], 40203, { teachBack: 'QJs vs steal de SB: defensa razonable. Puedes 3-betear o hacer call según stack; no es mano para pagar a ciegas siempre.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
-      vs('s02-04', 'BB_vs_BTN', ['Ad', '5d'], 40204, { teachBack: 'A5s: 3-bet de presión/farol frecuente vs BTN. Blocker de as y jugabilidad si te pagan — castiga steals wide.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
-      vs('s02-05', 'BB_vs_BTN', ['Td', '8c'], 40205, { trapTag: 'fancy_play', teachBack: 'T8o: fold típico vs steal. No hero-call (pagar solo porque «puede ir bien») — dominada y difícil de jugar OOP.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
-      vs('s02-06', 'BB_vs_SB', ['9s', '9c'], 40206, { teachBack: '99 vs SB: 3-bet o continue sólido. Par medio fuerte en spot corto — no foldees por defecto.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) })
+      vs('s02-01', 'BB_vs_BTN', ['As', 'Kd'], 40201, { teachBack: 'AKo vs steal BTN ~20 bb: 3-bet shove (all-in). Mano premium — no 3-bet pequeño que te deja en calle sin salida.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-02', 'BB_vs_BTN', ['7c', '2d'], 40202, { trapTag: 'dominated', teachBack: '72o BB: fold. No overdefiendas las ciegas con basura — en torneo corto un error elimina.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-03', 'BB_vs_SB', ['Qh', 'Js'], 40203, { teachBack: 'QJs vs steal SB ~20 bb: call o 3-bet shove según mezcla; no es auto-shove pero sí defiende. Fold sería demasiado tight.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-04', 'BB_vs_BTN', ['Ad', '5d'], 40204, { teachBack: 'A5s vs steal BTN: 3-bet shove de presión/farol frecuente. Blocker de as — castiga opens wide sin min-3bet.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-05', 'BB_vs_BTN', ['Td', '8c'], 40205, { trapTag: 'fancy_play', teachBack: 'T8o: fold típico vs steal. Dominada, OOP y stack corto — no hero-call.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-06', 'BB_vs_SB', ['9s', '9c'], 40206, { teachBack: '99 vs steal SB ~20 bb: 3-bet shove por valor. Par medio fuerte — shove, no 3-bet pequeño.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) })
     ];
     if (kind === 'SPIN_EXAM_M0') return packSpots('SPIN_RFI_STEAL', D).slice(0, 3).concat(packSpots('SPIN_VS_STEAL', D).slice(0, 3));
     if (kind === 'SPIN_ISO') return [
@@ -137,17 +137,17 @@
     "goldThreshold": 0.9,
     "decisionEnd": true,
     "hands": 6,
-    "concept": "Con 20–25 bb (ciegas grandes), desde el botón (BTN, último en hablar preflop) o la ciega pequeña (SB), puedes abrir más manos que en cash deep: robar ciegas (steal) gana fichas sin pelear un pot grande — y en torneo corto eso acerca al payout.",
+    "concept": "Con 20–25 bb (ciegas grandes), desde BTN o SB robas ciegas (steal) con dos tamaños: shove (all-in) con manos fuertes y open ~2,5 bb con manos medias del rango GTO — no todo es min-raise.",
     "theory": [
-      "Steal (robo de ciegas): open-raise (subir de entrada) esperando que todos folden. A 20–25 bb las ciegas ya en mesa son un % grande de tu stack; fold equity (probabilidad de que tiren) vale mucho.",
-      "BTN vs SB: desde BTN robas más wide porque solo quedan SB y BB detrás. Desde SB abres un poco más tight: si te pagan, juegas fuera de posición (OOP = actúas primero postflop) y eso penaliza manos marginales.",
-      "Open no es «cualquier mano»: basura (72o, Q8o fuera de lugar) se castiga si te 3-betean (resubida) o si te pagan y quedas OOP. Ten plan: ¿fold al shove? ¿call shove con value?",
-      "Trampa clásica: stealear wide y luego pagar un 3-bet shove (all-in) con mano dominada. En Spin, perder el stack suele ser perder el torneo — no spew (tirar fichas)."
+      "Steal (robo de ciegas): open-raise esperando que todos folden. A 20–25 bb las ciegas son un % grande del stack; fold equity vale mucho.",
+      "Dos tamaños a ~20 bb: premium y pares medios fuertes (99+, ATo+, KQs) suelen ir shove; suited connectors y broadways medias van open ~2,5 bb (3 bb desde SB).",
+      "BTN vs SB: desde BTN robas más wide porque solo quedan SB y BB detrás. Desde SB abres más tight y con menos shoves marginales — si te pagan, juegas OOP.",
+      "Trampa clásica: min-open con AK/99 a 20 bb o pagar un 3-bet shove con basura — en Spin perder el stack suele ser perder el torneo."
     ],
     "examples": [
       {
         "title": "Steal desde BTN",
-        "body": "Todos folden hasta BTN con 22 bb. Abres 2.2x: si SB y BB folden, ganas las ciegas sin ver flop. No «ganaste euros» — ganaste fichas que te acercan a eliminar rivales."
+        "body": "BTN con 22 bb y 99: shove all-in (fold equity + valor). Con 87s: open a ~2,5 bb — roba ciegas sin commitear todo el stack."
       },
       {
         "title": "SB más tight que BTN",

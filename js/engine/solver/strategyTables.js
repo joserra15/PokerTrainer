@@ -444,9 +444,10 @@
     const RS = global.GTORiverShoveNode;
     const nodeKey = RS ? RS.facingNodeCacheKey(input) : '';
     const PF = global.GTOPushFold;
-    const pushFlag = input.pushFold || (PF && PF.isPushPhase(input)) ? 'pf1' : 'pf0';
+    const pushFlag = input.pushFold || input.preflopMode === 'push' || (PF && PF.isPushPhase(input)) ? 'pf1' : 'pf0';
+    const preflopFlag = input.preflopMode || 'std';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
-      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey + '|' + pushFlag;
+      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey + '|' + pushFlag + '|pm' + preflopFlag;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
@@ -458,8 +459,20 @@
         mttPhase: input.mttPhase
       }) : null);
 
+      // Steal ~20 bb (spins/MTT): shove valor + open min según rango GTO.
+      if (PF && input.preflopMode === 'steal' && kind === 'RFI') {
+        return PF.stealOpenStrategy(Object.assign({}, input, { rangeContext: ctx }));
+      }
+      if (PF && input.preflopMode === 'stealDefense' && kind === 'vsRFI') {
+        return PF.stealDefenseStrategy(Object.assign({}, input, {
+          rangeContext: ctx,
+          vsPosition: input.vsPosition,
+          vsRfiKey: input.vsRfiKey
+        }));
+      }
+
       // Push/fold corto: charts Nash-aprox (spins / MTT push).
-      if (PF && (input.pushFold || PF.isPushPhase(Object.assign({}, input, ctx || {})))
+      if (PF && (input.pushFold || input.preflopMode === 'push' || PF.isPushPhase(Object.assign({}, input, ctx || {})))
         && (spotKey.street === 'preflop' || kind === 'RFI' || kind === 'vsRFI')) {
         return PF.pushFoldStrategy(Object.assign({}, input, {
           position: input.position,

@@ -1536,6 +1536,17 @@ window.PT_VS_3BET_JSON = {
   const SET_CALL_T = setFrom(CALL_SHOVE_TIGHT);
   const SET_CALL_W = setFrom(CALL_SHOVE_WIDE);
 
+  /** ~20 bb steal: shove con valor; open min con el resto del rango GTO. */
+  const STEAL_SHOVE_BTN = setFrom([
+    'AA', 'KK', 'QQ', 'JJ', 'TT', '99', '88',
+    'AKs', 'AKo', 'AQs', 'AQo', 'AJs', 'AJo', 'ATs', 'ATo',
+    'KQs', 'KQo'
+  ]);
+  const STEAL_SHOVE_SB = setFrom([
+    'AA', 'KK', 'QQ', 'JJ', 'TT', '99',
+    'AKs', 'AKo', 'AQs', 'AQo', 'AJs', 'ATs', 'KQs'
+  ]);
+
   function openShoveWeights(pos, stackBB) {
     const bb = Number(stackBB) || 10;
     let base = SET_ALWAYS;
@@ -1577,6 +1588,86 @@ window.PT_VS_3BET_JSON = {
     return (w[handCode] || 0) >= 0.5;
   }
 
+  function openRangeTier(code, pos, ctx) {
+    const RR = global.GTORangesRegistry;
+    const N = global.GTORangesNotation;
+    const D = global.GTORangesData;
+    const data = RR && ctx ? RR.getOpenRaiseRow(pos, ctx) : (D && D.OPEN_RAISE ? D.OPEN_RAISE[pos] : null);
+    if (!data) return 'fold';
+    const raiseSet = N.toSet(data.raise);
+    const mixSet = N.toSet(data.mix);
+    if (raiseSet.has(code)) return 'raise';
+    if (mixSet.has(code)) return 'mix';
+    return 'fold';
+  }
+
+  function stealShoveSet(pos) {
+    return pos === 'SB' ? STEAL_SHOVE_SB : STEAL_SHOVE_BTN;
+  }
+
+  /** Steal ~15–25 bb: premium → shove; medio GTO → open min; resto fold. */
+  function stealOpenStrategy(input) {
+    const code = input.handCode;
+    const pos = input.position || input.heroPos || 'BTN';
+    const shoveSet = stealShoveSet(pos);
+    const ctx = input.rangeContext || null;
+    if (shoveSet[code]) {
+      return { fold: 0.1, raise: 0.05, allin: 0.85, call: 0 };
+    }
+    const tier = openRangeTier(code, pos, ctx);
+    if (tier === 'raise') return { fold: 0.12, raise: 0.83, allin: 0.05, call: 0 };
+    if (tier === 'mix') return { fold: 0.48, raise: 0.47, allin: 0.05, call: 0 };
+    return { fold: 0.96, raise: 0.03, allin: 0.01, call: 0 };
+  }
+
+  /** Defensa BB/SB vs steal ~20 bb: 3-bet shove en lugar de 3-bet pequeño. */
+  function stealDefenseStrategy(input) {
+    const code = input.handCode;
+    const pos = input.position || input.heroPos || 'BB';
+    const openerPos = input.vsPosition || input.openerPos || 'BTN';
+    const RR = global.GTORangesRegistry;
+    const N = global.GTORangesNotation;
+    const D = global.GTORangesData;
+    const ctx = input.rangeContext || (RR ? RR.normalize(input) : null);
+    let data = null;
+    if (RR && ctx) data = RR.getVsRfiRow(pos, openerPos, ctx);
+    if (!data) {
+      const key = input.vsRfiKey || (pos + '_vs_' + openerPos);
+      data = D && D.VS_RFI ? D.VS_RFI[key] : null;
+    }
+    if (data) {
+      const tb = N.toSet(data.threeBet);
+      const tbMix = N.toSet(data.threeBetMix);
+      const callSet = N.toSet(data.call);
+      const callMix = N.toSet(data.callMix || '');
+      if (tb.has(code)) return { fold: 0.08, call: 0.04, allin: 0.88, raise: 0 };
+      if (tbMix.has(code)) {
+        return callSet.has(code)
+          ? { fold: 0.32, call: 0.38, allin: 0.3, raise: 0 }
+          : { fold: 0.42, call: 0.08, allin: 0.5, raise: 0 };
+      }
+      if (callSet.has(code)) return { fold: 0.14, call: 0.82, allin: 0.04, raise: 0 };
+      if (callMix.has(code)) return { fold: 0.52, call: 0.44, allin: 0.04, raise: 0 };
+      return { fold: 0.94, call: 0.05, allin: 0.01, raise: 0 };
+    }
+    const stack = Number(input.effStack || input.stackDepth) || 20;
+    if (shouldCallShove(code, pos, stack, openerPos)) {
+      return { fold: 0.18, call: 0.72, allin: 0.1, raise: 0 };
+    }
+    return { fold: 0.92, call: 0.06, allin: 0.02, raise: 0 };
+  }
+
+  function isStealPhase(config) {
+    const bb = Number(config && (config.stackBB || config.effStack || config.stackDepth)) || 100;
+    const sc = config && config.scenario;
+    if (sc === 'steal') return bb >= 14 && bb <= 25;
+    if (sc === '3bet' && bb >= 14 && bb <= 25) {
+      const hub = config.formatHub || '';
+      return hub === 'spin' || hub === 'mtt';
+    }
+    return false;
+  }
+
   /** Frecuencias preflop simplificadas para nodos push. */
   function pushFoldStrategy(input) {
     const code = input.handCode;
@@ -1611,7 +1702,10 @@ window.PT_VS_3BET_JSON = {
     shouldOpenShove: shouldOpenShove,
     shouldCallShove: shouldCallShove,
     pushFoldStrategy: pushFoldStrategy,
+    stealOpenStrategy: stealOpenStrategy,
+    stealDefenseStrategy: stealDefenseStrategy,
     isPushPhase: isPushPhase,
+    isStealPhase: isStealPhase,
     ALWAYS_SHOVE: ALWAYS_SHOVE
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -6209,9 +6303,10 @@ window.PT_VS_3BET_JSON = {
     const RS = global.GTORiverShoveNode;
     const nodeKey = RS ? RS.facingNodeCacheKey(input) : '';
     const PF = global.GTOPushFold;
-    const pushFlag = input.pushFold || (PF && PF.isPushPhase(input)) ? 'pf1' : 'pf0';
+    const pushFlag = input.pushFold || input.preflopMode === 'push' || (PF && PF.isPushPhase(input)) ? 'pf1' : 'pf0';
+    const preflopFlag = input.preflopMode || 'std';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
-      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey + '|' + pushFlag;
+      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey + '|' + pushFlag + '|pm' + preflopFlag;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
@@ -6223,8 +6318,20 @@ window.PT_VS_3BET_JSON = {
         mttPhase: input.mttPhase
       }) : null);
 
+      // Steal ~20 bb (spins/MTT): shove valor + open min según rango GTO.
+      if (PF && input.preflopMode === 'steal' && kind === 'RFI') {
+        return PF.stealOpenStrategy(Object.assign({}, input, { rangeContext: ctx }));
+      }
+      if (PF && input.preflopMode === 'stealDefense' && kind === 'vsRFI') {
+        return PF.stealDefenseStrategy(Object.assign({}, input, {
+          rangeContext: ctx,
+          vsPosition: input.vsPosition,
+          vsRfiKey: input.vsRfiKey
+        }));
+      }
+
       // Push/fold corto: charts Nash-aprox (spins / MTT push).
-      if (PF && (input.pushFold || PF.isPushPhase(Object.assign({}, input, ctx || {})))
+      if (PF && (input.pushFold || input.preflopMode === 'push' || PF.isPushPhase(Object.assign({}, input, ctx || {})))
         && (spotKey.street === 'preflop' || kind === 'RFI' || kind === 'vsRFI')) {
         return PF.pushFoldStrategy(Object.assign({}, input, {
           position: input.position,
@@ -10748,6 +10855,26 @@ window.PT_VS_3BET_JSON = {
     return EFF;
   }
 
+  /** standard | steal | stealDefense | push — tamaños preflop según temática del spot. */
+  function preflopSizingMode(hand) {
+    const cfg = hand.playConfig || {};
+    const s = hand.scenario || {};
+    const stack = effStackForHand(hand);
+    const sc = cfg.scenario || 'rfi';
+    const PF = global.GTOPushFold;
+    if (sc === 'push' || cfg.resolvedPhase === 'push' || s.pushFold) {
+      if (stack <= 14 || sc === 'push') return 'push';
+    }
+    if (PF && PF.isPushPhase(Object.assign({}, cfg, { stackBB: stack, effStack: stack })) && sc !== 'steal') {
+      return 'push';
+    }
+    if (sc === 'steal' && stack >= 14 && stack <= 25) return 'steal';
+    if (sc === '3bet' && stack >= 14 && stack <= 25 && (cfg.formatHub === 'spin' || cfg.formatHub === 'mtt')) {
+      return 'stealDefense';
+    }
+    return 'standard';
+  }
+
   function heroRemainingBB(hand) {
     const stacks = ST();
     if (stacks && hand && hand.stacks && hand.hero.pos) {
@@ -11898,7 +12025,9 @@ window.PT_VS_3BET_JSON = {
     input.mttPhase = cfg.resolvedPhase || cfg.mttPhase || null;
     input.spinPayout = cfg.spinPayout || '2x';
     input.anteBB = cfg.anteBB || 0;
-    input.pushFold = !!(s.pushFold || cfg.scenario === 'push' || (cfg.resolvedPhase === 'push'));
+    input.preflopMode = preflopSizingMode(hand);
+    input.pushFold = input.preflopMode === 'push';
+    input.stealMode = input.preflopMode === 'steal' || input.preflopMode === 'stealDefense';
     input.heroStackBB = hand.stacks && hand.stacks.hero != null ? hand.stacks.hero : input.effStack;
     input.villainStackBB = hand.stacks && hand.stacks.villain != null ? hand.stacks.villain : input.effStack;
     const Icm = global.GTOIcmEv;
@@ -12878,22 +13007,43 @@ window.PT_VS_3BET_JSON = {
     hand.hero.pos = pos;
     const displayPos = hand.displayHeroPos || hand.scenario.heroPos || pos;
     const openSize = pos === 'SB' ? SB_OPEN : OPEN;
+    const mode = preflopSizingMode(hand);
+    const stackBB = round2(effStackForHand(hand));
+    const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
     // pot inicial con ciegas
     hand.potBB = SB + BBET;
-    // hero abrirá o foldeará
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'RFI', potBB: hand.potBB, toCallBB: 0 });
+    let options;
+    let context;
+    if (mode === 'push') {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'allin', label: `Shove (${fmt(stackBB)}bb)` }
+      ];
+      context = `Eres ${displayPos} con ~${fmt(stackBB)}bb. Zona push/fold: ¿shove o fold?`;
+    } else if (mode === 'steal') {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'raise', label: `Open steal a ${openSize}bb` },
+        { id: 'allin', label: `Shove (${fmt(stackBB)}bb)` }
+      ];
+      context = `Eres ${displayPos} con ~${fmt(stackBB)}bb (steal). Manos fuertes suelen ir shove; medias del rango, open ~${openSize}bb.`;
+    } else {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'raise', label: `Subir a ${openSize}bb` }
+      ];
+      context = `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`;
+    }
     hand.current = {
       street: 'preflop',
       kind: 'RFI',
       potBB: hand.potBB,
       toCallBB: 0,
       openSize,
-      options: [
-        { id: 'fold', label: 'Fold (retirarse)' },
-        { id: 'raise', label: `Subir a ${openSize}bb` }
-      ],
+      options,
       gto: freqs,
-      context: `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`
+      context
     };
     markFoldedBeforeHeroRFI(hand);
   }
@@ -12926,6 +13076,32 @@ window.PT_VS_3BET_JSON = {
 
     const threeBetSize = inPos(hero, opener) ? round2(openSize * 3) : round2(openSize * 4);
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'vsRFI', potBB: hand.potBB, toCallBB: hand.toCallBB });
+    const mode = preflopSizingMode(hand);
+    const stackBB = round2(effStackForHand(hand));
+    const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
+    let options;
+    let context;
+    if (mode === 'push') {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` }
+      ];
+      context = `Eres ${hero}. ${opener} abre steal a ${openSize}bb (~${fmt(stackBB)}bb efectivos). ¿Fold o call shove?`;
+    } else if (mode === 'stealDefense') {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` },
+        { id: 'allin', label: `3-bet shove (${fmt(stackBB)}bb)` }
+      ];
+      context = `Eres ${hero}. ${opener} abre steal a ${openSize}bb con ~${fmt(stackBB)}bb. ¿Fold, call o 3-bet shove?`;
+    } else {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` },
+        { id: 'raise', label: `3-Bet a ${threeBetSize}bb` }
+      ];
+      context = `Eres ${hero}. ${opener} abre a ${openSize}bb y te llega la acción. ¿Fold, call o 3-bet?`;
+    }
     hand.current = {
       street: 'preflop',
       kind: 'vsRFI',
@@ -12933,13 +13109,9 @@ window.PT_VS_3BET_JSON = {
       toCallBB: hand.toCallBB,
       openSize,
       threeBetSize,
-      options: [
-        { id: 'fold', label: 'Fold (retirarse)' },
-        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` },
-        { id: 'raise', label: `3-Bet a ${threeBetSize}bb` }
-      ],
+      options,
       gto: freqs,
-      context: `Eres ${hero}. ${opener} abre a ${openSize}bb y te llega la acción. ¿Fold, call o 3-bet?`
+      context
     };
     setVillainAct(hand, 'open', openSize);
     addInvest(hand, opener, openSize);
@@ -13394,6 +13566,25 @@ window.PT_VS_3BET_JSON = {
       if (actionId === 'fold') {
         return finish(hand, { reason: 'Te retiras antes del flop.', heroNet: -(hand.heroInvested || 0) });
       }
+      if (actionId === 'allin') {
+        hand.heroIsAggressor = true;
+        const shoveTo = round2(effStackForHand(hand));
+        const heroAdd = seatToCall(hand, hand.hero.pos, shoveTo);
+        if (heroAdd > 0) addInvest(hand, hand.hero.pos, heroAdd);
+        hand.heroInvested = shoveTo;
+        setHeroAct(hand, 'allin', shoveTo);
+        setPreflopSeatBet(hand, hand.hero.pos, shoveTo);
+        recalcPot(hand);
+        const res = resolveBlindsAfterHeroOpen(hand, shoveTo);
+        if (res.type === 'allFold') {
+          return finish(hand, {
+            reason: 'Todos se retiran ante tu shove. Te llevas el bote.',
+            heroNet: round2(hand.potBB - shoveTo)
+          });
+        }
+        if (res.type === 'face3bet') return setupFace3Bet(hand, res.size);
+        return goFlop(hand);
+      }
       hand.heroIsAggressor = true;
       const heroAdd = seatToCall(hand, hand.hero.pos, node.openSize);
       if (heroAdd > 0) addInvest(hand, hand.hero.pos, heroAdd);
@@ -13428,6 +13619,26 @@ window.PT_VS_3BET_JSON = {
         return finish(hand, { reason: 'Te retiras ante la subida.', heroNet: -(hand.heroInvested || 0) });
       }
       hand.villain.cards = villainHoleCards(hand);
+      if (actionId === 'allin') {
+        hand.heroIsAggressor = true;
+        const shoveTo = round2(effStackForHand(hand));
+        hand.heroInvested = shoveTo;
+        addInvest(hand, hero, round2(shoveTo - (hand.table.invested[hero] || 0)));
+        setHeroAct(hand, 'allin', shoveTo);
+        setPreflopSeatBet(hand, hero, shoveTo);
+        resolvePendingAfterHero(hand);
+        let cont = openerVs3Bet(hand, opener, shoveTo);
+        if (cont === 'fold') {
+          setVillainAct(hand, 'fold');
+          return finish(hand, { reason: `${opener} foldea ante tu 3-bet shove.`, heroNet: round2(hand.potBB) });
+        }
+        setVillainAct(hand, 'call', shoveTo);
+        hand.villainInvested = shoveTo;
+        const callAdd = seatToCall(hand, opener, shoveTo);
+        if (callAdd > 0) addInvest(hand, opener, callAdd);
+        recalcPot(hand);
+        return allInShowdown(hand);
+      }
       if (actionId === 'call') {
         setHeroAct(hand, 'call', node.toCallBB);
         hand.heroIsAggressor = false; // el villano (abridor) es el agresor
@@ -23282,7 +23493,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.5.2';
+  const APP_VERSION = window.PT_BUILD || '2.5.3';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];

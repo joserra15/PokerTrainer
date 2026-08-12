@@ -450,6 +450,36 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
   });
 })();
 
+/* Spins S-01/S-02: sizing steal ~20 bb (shove vs open min vs 3-bet shove) */
+(function () {
+  function spotById(lessonId, sid) {
+    return Data.getLesson(lessonId).spots.filter(function (s) { return s.id === sid; })[0];
+  }
+  function grade(spot, actionId) {
+    const h = openHand(spot).hand;
+    const res = Engine.act(h, actionId);
+    assert.ok(res && res.decision, 'grade ' + spot.id + ' ' + actionId);
+    return res.decision.class;
+  }
+  const s0101 = spotById('S-01', 's01-01');
+  const hSteal = openHand(s0101).hand;
+  assert.ok(hSteal.current.options.some(function (o) { return o.id === 'allin'; }), 'S-01 steal ofrece shove');
+  assert.ok(hSteal.current.options.some(function (o) { return o.id === 'raise'; }), 'S-01 steal ofrece open min');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0101, 'allin')) >= 0, 'ATo steal: shove óptimo');
+  const s0106 = spotById('S-01', 's01-06');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0106, 'raise')) >= 0, '87s steal: open min óptimo');
+  const s0105 = spotById('S-01', 's01-05');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0105, 'allin')) >= 0, '99 steal: shove óptimo');
+  const s0201 = spotById('S-02', 's02-01');
+  const hDef = openHand(s0201).hand;
+  assert.ok(hDef.current.options.some(function (o) { return o.id === 'allin'; }), 'S-02 defensa ofrece 3-bet shove');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0201, 'allin')) >= 0, 'AKo vs steal: 3-bet shove óptimo');
+  const s0501 = spotById('S-05', 'sp-01');
+  const hPush = openHand(s0501).hand;
+  assert.ok(hPush.current.options.some(function (o) { return o.id === 'allin'; }), 'S-05 push ofrece shove');
+  assert.ok(!hPush.current.options.some(function (o) { return o.id === 'raise'; }), 'S-05 push sin min-raise');
+})();
+
 /* Control: sin schoolDecisionEnd puede avanzar */
 (function () {
   const spot = Data.getLesson('C-02').spots[0];
