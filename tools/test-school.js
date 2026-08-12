@@ -49,6 +49,7 @@ assert.ok(/Sizing del open|RFI desde SB|Examen M0/.test(schoolDataSrc), 'leccion
 assert.ok(/Defender BB vs open|Examen M1/.test(schoolM1Src), 'lecciones M1');
 assert.ok(/Textura de flop|Examen M2/.test(schoolM2Src), 'lecciones M2');
 assert.ok(/S-00|S-17/.test(schoolSpinSrc), 'lecciones Spins');
+assert.ok(/buy-in|entrada/.test(schoolSpinSrc) && /fichas no valen|fichas ≠|Entrada ≠ fichas/.test(schoolSpinSrc), 'S-00 explica entrada vs fichas');
 assert.ok(/T-00|T-22/.test(schoolMttSrc), 'lecciones MTT');
 assert.ok(/R-01|R-06/.test(schoolRangesSrc), 'lecciones Rangos');
 assert.ok(/C-26|C-31/.test(schoolProSrc), 'lecciones Pro Cash');
@@ -168,6 +169,28 @@ assert.strictEqual(
   assert.ok(r && r.status === 'active', rid + ' route active');
 });
 assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
+/* Voz pedagógica Spins S-00…S-17: términos anclados, sin telegramas */
+(function () {
+  var spinLessons = Data.lessonsForRoute('spin');
+  assert.strictEqual(spinLessons.length, 18, '18 lecciones Spins');
+  var blob = '';
+  spinLessons.forEach(function (l) {
+    blob += ' ' + (l.concept || '');
+    (l.theory || []).forEach(function (x) { blob += ' ' + x; });
+    (l.examples || []).forEach(function (ex) { blob += ' ' + (ex.title || '') + ' ' + (ex.body || ''); });
+    (l.aiQuestions || []).forEach(function (q) { blob += ' ' + q; });
+    (l.spots || []).forEach(function (s) { blob += ' ' + (s.teachBack || ''); });
+    assert.ok((l.concept || '').length > 60, l.id + ' concept explicativo');
+    (l.theory || []).forEach(function (t, i) {
+      assert.ok(t.length > 70, l.id + ' theory[' + i + '] demasiado corta');
+    });
+    assert.ok((l.examples || []).length >= 1, l.id + ' tiene ejemplo');
+  });
+  assert.ok(!/\b[Ll]lamar\b|\bllaman\b/.test(blob), 'Spins sin llamar=call');
+  assert.ok(/\b[Ll]impear\b/.test(blob), 'Spins usa limpear donde aplica');
+  assert.ok(/steal|robar ciegas/.test(blob), 'Spins explica steal');
+  assert.ok(/ICM|fichas/.test(blob), 'Spins explica ICM/fichas');
+})();
 assert.strictEqual(Data.getLesson('T-00').route, 'mtt', 'T-00 mtt');
 assert.strictEqual(Data.getLesson('R-01').route, 'ranges', 'R-01 ranges');
 assert.strictEqual(Data.getLesson('C-26').module, 'M4', 'C-26 Pro M4');
