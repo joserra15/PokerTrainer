@@ -20592,7 +20592,7 @@ window.PT_VS_3BET_JSON = {
 
   function anyModalOpen() {
     return !!document.querySelector(
-      ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #modal:not(.hidden), #age-gate-modal:not(.hidden), #contact-pending-modal:not(.hidden)"
+      ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #range-cell-modal:not(.hidden), #modal:not(.hidden), #age-gate-modal:not(.hidden), #contact-pending-modal:not(.hidden)"
     );
   }
 
@@ -23493,7 +23493,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.5.6';
+  const APP_VERSION = window.PT_BUILD || '2.5.7';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -24830,7 +24830,38 @@ window.PT_VS_3BET_JSON = {
         if (e.target.id === 'range-matrix-modal' || e.target.closest('[data-close-matrix]')) closeRangeMatrixModal();
       });
     }
+    const rcm = $('#range-cell-modal');
+    if (rcm) {
+      rcm.addEventListener('click', (e) => {
+        if (e.target.id === 'range-cell-modal' || e.target.closest('[data-close-cell-detail]')) {
+          closeRangeCellDetail();
+        }
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const cellModal = $('#range-cell-modal');
+      if (cellModal && !cellModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeRangeCellDetail();
+        return;
+      }
+      const matrixModal = $('#range-matrix-modal');
+      if (matrixModal && !matrixModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeRangeMatrixModal();
+      }
+    });
     document.addEventListener('click', (e) => {
+      const cellBtn = e.target.closest('[data-rm-detail]');
+      if (cellBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        withLazyChunk('ranges', function () {
+          openRangeCellDetail(cellBtn.getAttribute('data-rm-detail'));
+        });
+        return;
+      }
       const btn = e.target.closest('[data-range-matrix]');
       if (!btn) return;
       const source = btn.dataset.matrixSource || 'session';
@@ -25828,6 +25859,15 @@ window.PT_VS_3BET_JSON = {
   }
 
   function renderRangeMatrixGrid(result, heroCode, mode, villainCode) {
+    const RM = window.PTRangeMatrix;
+    if (RM && typeof RM.renderMatrixGrid === 'function') {
+      return RM.renderMatrixGrid(result, {
+        heroCode: heroCode || null,
+        villainCode: villainCode || null,
+        mode: mode || 'gto',
+        showLegend: false
+      }).replace(' range-matrix-wrap-compact', '');
+    }
     const ranks = result.ranks;
     let html = '<div class="range-matrix-wrap"><div class="range-matrix-grid">';
     html += '<div class="rm-corner"></div>';
@@ -25836,6 +25876,14 @@ window.PT_VS_3BET_JSON = {
       html += `<div class="rm-label">${ranks[row]}</div>`;
       for (let col = 0; col < 13; col++) {
         const cell = result.cells[row][col];
+        if (RM && RM.renderCellHtml) {
+          html += RM.renderCellHtml(cell, {
+            mode: mode || 'gto',
+            isHero: !!(heroCode && cell.label === heroCode),
+            isVillain: !!(villainCode && cell.label === villainCode)
+          });
+          continue;
+        }
         const isHero = heroCode && cell.label === heroCode;
         const isVillain = villainCode && cell.label === villainCode;
         let cls = 'rm-cell ' + cell.action;
@@ -25853,6 +25901,22 @@ window.PT_VS_3BET_JSON = {
       }
     }
     return html + '</div></div>';
+  }
+
+  function closeRangeCellDetail() {
+    const modal = $('#range-cell-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function openRangeCellDetail(encoded) {
+    const RM = window.PTRangeMatrix;
+    const modal = $('#range-cell-modal');
+    const body = $('#range-cell-body');
+    if (!modal || !body || !RM || !RM.decodeCellDetail || !RM.buildCellDetailHtml) return;
+    const detail = RM.decodeCellDetail(encoded);
+    if (!detail) return;
+    body.innerHTML = RM.buildCellDetailHtml(detail);
+    modal.classList.remove('hidden');
   }
 
   function openRangeMatrixModal(handObj, decision, source) {

@@ -6,9 +6,25 @@
   'use strict';
 
   const RANKS = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
-  const RAISE_KEYS = ['raise', 'bet', 'bet_33', 'bet_66', 'bet_100'];
+  const RAISE_KEYS = ['raise', 'bet', 'bet_33', 'bet_66', 'bet_100', 'allin'];
   const CALL_KEYS = ['call', 'check'];
   const FOLD_KEYS = ['fold'];
+  const ACTION_LABELS = {
+    raise: 'Raise',
+    bet: 'Bet',
+    bet_33: 'Bet 33%',
+    bet_66: 'Bet 66%',
+    bet_100: 'Bet pot',
+    allin: 'All-in',
+    call: 'Call',
+    check: 'Check',
+    fold: 'Fold'
+  };
+  const ACTION_GROUP_LABELS = {
+    raise: 'Raise / Bet / All-in',
+    call: 'Call / Check',
+    fold: 'Fold'
+  };
   const CHUNK_SIZE = 8;
   const D = function () { return global.GTORangesData || {}; };
   const RR = function () { return global.GTORangesRegistry; };
@@ -344,12 +360,13 @@
             const heroCards = pickRepresentativeCards(label, used);
             let action = 'fold';
             let freqs = { raise: 0, call: 0, fold: 1 };
+            let raw = null;
             if (heroCards) {
-              const raw = strategyForCombo(baseInput, label, heroCards);
+              raw = strategyForCombo(baseInput, label, heroCards);
               freqs = collapseStrategy(raw);
               action = dominantAction(freqs, baseInput.availableActions);
             }
-            cells[row][col] = { label, action, freqs };
+            cells[row][col] = { label, action, freqs, raw };
             done++;
             col++;
             if (col >= 13) { col = 0; row++; }
@@ -793,6 +810,128 @@
     return html + '</div>';
   }
 
+  function escapeAttr(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function pct(v) {
+    return Math.round((Number(v) || 0) * 100);
+  }
+
+  function handKindLabel(label) {
+    if (!label) return '';
+    if (label.length === 2) return 'Pareja';
+    if (label.charAt(2) === 's') return 'Suited';
+    if (label.charAt(2) === 'o') return 'Offsuit';
+    return '';
+  }
+
+  function encodeCellDetail(cell, mode) {
+    var payload = {
+      label: cell.label,
+      mode: mode || 'gto',
+      action: cell.action || '',
+      title: cell.title || '',
+      freqs: cell.freqs || null,
+      raw: cell.raw || null
+    };
+    return encodeURIComponent(JSON.stringify(payload));
+  }
+
+  function decodeCellDetail(encoded) {
+    if (!encoded) return null;
+    try {
+      return JSON.parse(decodeURIComponent(encoded));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function renderCellHtml(cell, opts) {
+    opts = opts || {};
+    var mode = opts.mode || 'gto';
+    var isHero = opts.isHero;
+    var isVillain = opts.isVillain;
+    var cls = 'rm-cell rm-cell-btn ' + (cell.action || 'fold');
+    if (isHero) cls += ' hero';
+    if (isVillain) cls += ' villain';
+    var payload = encodeCellDetail(cell, mode);
+    var title;
+    var style = '';
+    if (mode === 'villain') {
+      title = cell.title || cell.label;
+    } else {
+      cls += ' rm-cell-mix';
+      style = cellMixStyle(cell.freqs);
+      var f = cell.freqs || { raise: 0, call: 0, fold: 1 };
+      title = cell.label + ': R' + pct(f.raise) + '% C' + pct(f.call) + '% F' + pct(f.fold) + '% · clic para detalle';
+    }
+    return '<button type="button" class="' + cls + '"' +
+      (style ? ' style="' + escapeAttr(style) + '"' : '') +
+      ' title="' + escapeAttr(title) + '"' +
+      ' aria-label="' + escapeAttr((cell.label || '') + ' — ver porcentajes') + '"' +
+      ' data-rm-detail="' + escapeAttr(payload) + '">' +
+      escapeHtml(cell.label) +
+      '</button>';
+  }
+
+  function barRow(label, frac, tone) {
+    var p = pct(frac);
+    return '<div class="rm-detail-row">' +
+      '<div class="rm-detail-row-head"><span>' + escapeHtml(label) + '</span><strong>' + p + '%</strong></div>' +
+      '<div class="rm-detail-bar"><i class="' + tone + '" style="width:' + p + '%"></i></div>' +
+      '</div>';
+  }
+
+  function buildCellDetailHtml(detail) {
+    if (!detail || !detail.label) return '<p class="muted-text">Sin datos de celda.</p>';
+    var kind = handKindLabel(detail.label);
+    var html = '<div class="rm-detail-head">' +
+      '<h3 id="range-cell-title">' + escapeHtml(detail.label) + '</h3>' +
+      (kind ? '<span class="rm-detail-kind">' + escapeHtml(kind) + '</span>' : '') +
+      '</div>';
+
+    if (detail.mode === 'villain') {
+      var cat = detail.action || 'out';
+      html += '<p class="rm-detail-villain-title">' + escapeHtml(detail.title || cat) + '</p>';
+      html += '<p class="muted-text">Matriz villano: categoría estimada del rango rival (no es frecuencia GTO de acciones).</p>';
+      html += '<button type="button" class="btn btn-primary btn-block" data-close-cell-detail>Cerrar</button>';
+      return html;
+    }
+
+    var f = detail.freqs || collapseStrategy(detail.raw);
+    html += '<p class="muted-text rm-detail-lead">Frecuencia GTO colapsada (raise/call/fold).</p>';
+    html += '<div class="rm-detail-bars">' +
+      barRow(ACTION_GROUP_LABELS.raise, f.raise, 'raise') +
+      barRow(ACTION_GROUP_LABELS.call, f.call, 'call') +
+      barRow(ACTION_GROUP_LABELS.fold, f.fold, 'fold') +
+      '</div>';
+
+    var raw = detail.raw;
+    if (raw && typeof raw === 'object') {
+      var keys = Object.keys(raw).filter(function (k) { return (raw[k] || 0) > 0.004; })
+        .sort(function (a, b) { return (raw[b] || 0) - (raw[a] || 0); });
+      if (keys.length) {
+        html += '<div class="rm-detail-raw"><h4>Desglose</h4><ul>';
+        keys.forEach(function (k) {
+          html += '<li><span>' + escapeHtml(ACTION_LABELS[k] || k) + '</span><strong>' + pct(raw[k]) + '%</strong></li>';
+        });
+        html += '</ul></div>';
+      }
+    }
+
+    var dom = detail.action || dominantAction(f);
+    html += '<p class="rm-detail-dom">Acción dominante: <strong>' +
+      escapeHtml(ACTION_LABELS[dom] || ACTION_GROUP_LABELS[dom] || dom) +
+      '</strong></p>';
+    html += '<button type="button" class="btn btn-primary btn-block" data-close-cell-detail>Cerrar</button>';
+    return html;
+  }
+
   function renderMatrixGrid(result, opts) {
     opts = opts || {};
     var ranks = result.ranks;
@@ -810,17 +949,11 @@
       html += '<div class="rm-label">' + ranks[row] + '</div>';
       for (var col = 0; col < 13; col++) {
         var cell = result.cells[row][col];
-        var isHero = heroCode && cell.label === heroCode;
-        var isVillain = villainCode && cell.label === villainCode;
-        var cls = 'rm-cell ' + cell.action;
-        if (isHero) cls += ' hero';
-        if (isVillain) cls += ' villain';
-        if (mode === 'villain') {
-          html += '<div class="' + cls + '" title="' + escapeHtml(cell.title || cell.label) + '">' + cell.label + '</div>';
-        } else {
-          var mixStyle = cellMixStyle(cell.freqs);
-          html += '<div class="' + cls + ' rm-cell-mix" style="' + mixStyle + '" title="' + cell.label + ': R' + Math.round(cell.freqs.raise * 100) + '% C' + Math.round(cell.freqs.call * 100) + '% F' + Math.round(cell.freqs.fold * 100) + '%">' + cell.label + '</div>';
-        }
+        html += renderCellHtml(cell, {
+          mode: mode,
+          isHero: !!(heroCode && cell.label === heroCode),
+          isVillain: !!(villainCode && cell.label === villainCode)
+        });
       }
     }
     return html + '</div></div>';
@@ -847,6 +980,11 @@
     collapseStrategy,
     dominantAction,
     cellMixStyle,
+    renderCellHtml,
+    encodeCellDetail,
+    decodeCellDetail,
+    buildCellDetailHtml,
+    handKindLabel,
     buildBaseInput,
     buildExplorerInput,
     applyOpenSizing,
