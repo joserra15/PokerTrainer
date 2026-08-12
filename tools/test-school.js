@@ -54,6 +54,7 @@ assert.ok(/school:\s*\[/.test(chunks), 'chunk school');
 assert.ok(/school-data-m1\.js/.test(chunks) && /school-data-m2\.js/.test(chunks), 'chunk incluye M1/M2');
 assert.ok(/school-data-spin\.js/.test(chunks) && /school-data-mtt\.js/.test(chunks), 'chunk Spins/MTT');
 assert.ok(/school-data-ranges\.js/.test(chunks) && /school-data-pro\.js/.test(chunks), 'chunk Rangos/Pro');
+assert.ok(/school-extra-spots\.js/.test(chunks), 'chunk extra spots (≥10 manos)');
 assert.ok(/school:\s*'dist\/pt-school\.js'/.test(loader), 'loader school');
 assert.ok(/tabId === 'school'/.test(app), 'goToTab school');
 assert.ok(/schoolMenuVisible/.test(app), 'goToTab usa schoolMenuVisible');
@@ -156,6 +157,7 @@ const engineScripts = [
   'js/school-data-mtt.js',
   'js/school-data-ranges.js',
   'js/school-data-pro.js',
+  'js/school-extra-spots.js',
   'js/school.js'
 ];
 
@@ -188,6 +190,43 @@ assert.strictEqual(
   assert.ok(r && r.status === 'active', rid + ' route active');
 });
 assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
+
+/** Práctica: mínimo 10 manos; hands alineado con spots; progresión por dificultad. */
+(function assertPracticeVolume() {
+  const routes = ['cash', 'spin', 'mtt', 'ranges', 'pro'];
+  const practice = [];
+  routes.forEach(function (route) {
+    Data.lessonsForRoute(route).forEach(function (lesson) {
+      const n = Array.isArray(lesson.spots) ? lesson.spots.length : 0;
+      if (n === 0) {
+        assert.strictEqual(lesson.hands, 0, lesson.id + ' teoría-only hands=0');
+        return;
+      }
+      assert.ok(n >= 10, lesson.id + ' debe tener ≥10 spots, tiene ' + n);
+      assert.strictEqual(lesson.hands, n, lesson.id + ' hands debe igualar spots.length');
+      practice.push(lesson);
+    });
+  });
+  assert.ok(practice.length >= 30, 'hay suficientes lecciones con práctica');
+
+  function minSpots(route, lessonId) {
+    const lesson = Data.getLesson(lessonId);
+    return lesson && Array.isArray(lesson.spots) ? lesson.spots.length : 0;
+  }
+  assert.ok(minSpots('spin', 'S-01') >= 10, 'S-01 ≥10');
+  assert.ok(minSpots('spin', 'S-09') > minSpots('spin', 'S-01'), 'Spins: push/fold > steal intro');
+  assert.ok(minSpots('spin', 'S-08') >= minSpots('spin', 'S-04'), 'Spins: examen M1 ≥ iso');
+  assert.ok(minSpots('spin', 'S-03') > minSpots('spin', 'S-01'), 'Spins: examen M0 > S-01');
+  assert.ok(minSpots('mtt', 'T-01') >= 10, 'T-01 ≥10');
+  assert.ok(minSpots('mtt', 'T-09') > minSpots('mtt', 'T-01'), 'MTT: push/fold > early');
+  assert.ok(minSpots('mtt', 'T-07') >= minSpots('mtt', 'T-04'), 'MTT: examen mid ≥ steal');
+  assert.ok(minSpots('cash', 'C-07') >= 10, 'C-07 ≥10');
+  assert.ok(minSpots('cash', 'C-06') > minSpots('cash', 'C-01'), 'Cash: examen M0 > C-01');
+  assert.ok(minSpots('cash', 'C-13') > minSpots('cash', 'C-07'), 'Cash: examen M1 > M1 intro');
+  assert.ok(minSpots('cash', 'C-20') > minSpots('cash', 'C-14'), 'Cash: examen M2 > postflop intro');
+  assert.ok(minSpots('cash', 'C-14') > minSpots('cash', 'C-07'), 'Cash M2 > M1 volumen base');
+})();
+
 /* Voz pedagógica Spins S-00…S-17: términos anclados, sin telegramas */
 (function () {
   var spinLessons = Data.lessonsForRoute('spin');

@@ -723,8 +723,21 @@
 
   function registerLessons(extra) {
     if (!extra || !extra.length) return;
-    for (var i = 0; i < extra.length; i++) LESSONS.push(extra[i]);
+    for (var i = 0; i < extra.length; i++) {
+      var lesson = extra[i];
+      if (Array.isArray(lesson.spots) && lesson.spots.length) {
+        lesson.hands = lesson.spots.length;
+      }
+      LESSONS.push(lesson);
+    }
   }
+
+  /** Toda lección con spots de práctica: hands = nº de spots (≥10 en currículum). */
+  LESSONS.forEach(function (lesson) {
+    if (Array.isArray(lesson.spots) && lesson.spots.length) {
+      lesson.hands = lesson.spots.length;
+    }
+  });
 
   global.PTSchoolData = {
     XP_PER_LEVEL: XP_PER_LEVEL,
