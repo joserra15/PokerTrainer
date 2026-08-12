@@ -1,4 +1,4 @@
-/* Escuela de Póker D–F: M0 free + M1/M2 study, gates plan, menú admin-only. */
+/* Escuela de Póker G–J: Cash + Spins + MTT + Rangos/Pro + leaks→lección; menú admin-only. */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -14,8 +14,16 @@ const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const schoolDataSrc = fs.readFileSync(path.join(root, 'js/school-data.js'), 'utf8');
 const schoolM1Src = fs.readFileSync(path.join(root, 'js/school-data-m1.js'), 'utf8');
 const schoolM2Src = fs.readFileSync(path.join(root, 'js/school-data-m2.js'), 'utf8');
+const schoolSpinSrc = fs.readFileSync(path.join(root, 'js/school-data-spin.js'), 'utf8');
+const schoolMttSrc = fs.readFileSync(path.join(root, 'js/school-data-mtt.js'), 'utf8');
+const schoolRangesSrc = fs.readFileSync(path.join(root, 'js/school-data-ranges.js'), 'utf8');
+const schoolProSrc = fs.readFileSync(path.join(root, 'js/school-data-pro.js'), 'utf8');
 const schoolSrc = fs.readFileSync(path.join(root, 'js/school.js'), 'utf8');
-const allSchoolDataSrc = schoolDataSrc + '\n' + schoolM1Src + '\n' + schoolM2Src;
+const aiReportSrc = fs.readFileSync(path.join(root, 'js/ai-report.js'), 'utf8');
+const leaksSrc = fs.readFileSync(path.join(root, 'js/leaks.js'), 'utf8');
+const allSchoolDataSrc = [
+  schoolDataSrc, schoolM1Src, schoolM2Src, schoolSpinSrc, schoolMttSrc, schoolRangesSrc, schoolProSrc
+].join('\n');
 
 assert.ok(/data-tab="school"/.test(html), 'nav school');
 assert.ok(/id="tab-school"/.test(html), 'panel school');
@@ -25,6 +33,8 @@ assert.ok(/body:not\(\.pt-is-admin\)[^{]*#tab-school/.test(css) ||
   /body:not\(\.pt-is-admin\) #tab-school/.test(css), 'CSS oculta school sin admin');
 assert.ok(/school:\s*\[/.test(chunks), 'chunk school');
 assert.ok(/school-data-m1\.js/.test(chunks) && /school-data-m2\.js/.test(chunks), 'chunk incluye M1/M2');
+assert.ok(/school-data-spin\.js/.test(chunks) && /school-data-mtt\.js/.test(chunks), 'chunk Spins/MTT');
+assert.ok(/school-data-ranges\.js/.test(chunks) && /school-data-pro\.js/.test(chunks), 'chunk Rangos/Pro');
 assert.ok(/school:\s*'dist\/pt-school\.js'/.test(loader), 'loader school');
 assert.ok(/tabId === 'school'/.test(app), 'goToTab school');
 assert.ok(/schoolMenuVisible/.test(app), 'goToTab usa schoolMenuVisible');
@@ -32,16 +42,23 @@ assert.ok(/PTSchool\.afterTrainerAction/.test(app), 'hook afterTrainerAction');
 assert.ok(/SCHOOL_PUBLIC\s*=\s*false/.test(schoolSrc), 'SCHOOL_PUBLIC false (menú admin-only)');
 assert.ok(/schoolMenuVisible/.test(schoolSrc), 'schoolMenuVisible');
 assert.ok(/canPlayLesson/.test(schoolSrc), 'canPlayLesson Fase D');
+assert.ok(/openLesson/.test(schoolSrc), 'openLesson Fase J');
 assert.ok(/lesson_start|lesson_complete|lesson_fail|lesson_blocked_plan/.test(schoolSrc), 'analytics Escuela');
 assert.ok(/migrateSchoolProgress|C-06/.test(schoolSrc), 'migración v2');
 assert.ok(/Sizing del open|RFI desde SB|Examen M0/.test(schoolDataSrc), 'lecciones M0 v2');
 assert.ok(/Defender BB vs open|Examen M1/.test(schoolM1Src), 'lecciones M1');
 assert.ok(/Textura de flop|Examen M2/.test(schoolM2Src), 'lecciones M2');
+assert.ok(/S-00|S-17/.test(schoolSpinSrc), 'lecciones Spins');
+assert.ok(/T-00|T-22/.test(schoolMttSrc), 'lecciones MTT');
+assert.ok(/R-01|R-06/.test(schoolRangesSrc), 'lecciones Rangos');
+assert.ok(/C-26|C-31/.test(schoolProSrc), 'lecciones Pro Cash');
+assert.ok(/lessonId:\s*'C-02'/.test(aiReportSrc) && /lessonFromLeak/.test(aiReportSrc), 'TRAINING_FOCUSES → lessonId');
+assert.ok(/data-leak-school|Ver lección/.test(leaksSrc), 'CTA Ver lección en leaks');
 assert.ok(/school-coach-note|schoolCoachTip/.test(schoolSrc), 'tip coach resultado F');
 assert.ok(/school-stars|is-plan/.test(schoolSrc + css), 'maestría / muro plan UI');
-assert.ok(/Estado de implementación \(letras A–F\)/.test(
+assert.ok(/Estado de implementación \(letras A–J\)/.test(
   fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
-), 'roadmap letras A–F');
+), 'roadmap letras A–J');
 
 const sandbox = {
   window: {},
@@ -51,6 +68,8 @@ const sandbox = {
   Set,
   Map,
   JSON,
+  Object,
+  Array,
   localStorage: {
     _d: {},
     getItem: function (k) { return Object.prototype.hasOwnProperty.call(this._d, k) ? this._d[k] : null; },
@@ -113,6 +132,10 @@ const engineScripts = [
   'js/school-data.js',
   'js/school-data-m1.js',
   'js/school-data-m2.js',
+  'js/school-data-spin.js',
+  'js/school-data-mtt.js',
+  'js/school-data-ranges.js',
+  'js/school-data-pro.js',
   'js/school.js'
 ];
 
@@ -125,10 +148,13 @@ const Data = sandbox.PTSchoolData;
 const School = sandbox.PTSchool;
 const Engine = sandbox.Engine || sandbox.window.Engine;
 assert.ok(Data && School && Engine, 'APIs cargadas');
-assert.strictEqual(Data.SCHOOL_DATA_VERSION, 3, 'data version 3');
+assert.strictEqual(Data.SCHOOL_DATA_VERSION, 4, 'data version 4');
 
 const lessons = Data.lessonsForRoute('cash');
-assert.strictEqual(lessons.length, 21, 'Cash M0+M1+M2 = 21 lecciones');
+assert.strictEqual(lessons.length, 27, 'Cash M0+M1+M2+Pro = 27 lecciones');
+assert.strictEqual(Data.lessonsForRoute('spin').length, 18, 'Spins 18');
+assert.strictEqual(Data.lessonsForRoute('mtt').length, 23, 'MTT 23');
+assert.strictEqual(Data.lessonsForRoute('ranges').length, 6, 'Rangos 6');
 assert.strictEqual(Data.m0Lessons().length, 7, 'M0 7');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
 assert.strictEqual(Data.m2Lessons().length, 7, 'M2 7');
@@ -137,6 +163,17 @@ assert.strictEqual(
   'C-00,C-01,C-02,C-03,C-04,C-05,C-06',
   'ids M0 en orden'
 );
+['spin', 'mtt', 'ranges'].forEach(function (rid) {
+  const r = Data.ROUTES.find(function (x) { return x.id === rid; });
+  assert.ok(r && r.status === 'active', rid + ' route active');
+});
+assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
+assert.strictEqual(Data.getLesson('T-00').route, 'mtt', 'T-00 mtt');
+assert.strictEqual(Data.getLesson('R-01').route, 'ranges', 'R-01 ranges');
+assert.strictEqual(Data.getLesson('C-26').module, 'M4', 'C-26 Pro M4');
+assert.strictEqual(Data.getLesson('C-26').plan, 'coach', 'C-26 coach');
+assert.ok((Data.getLesson('S-01').spots || []).length >= 4, 'S-01 spots resueltos');
+assert.ok((Data.getLesson('T-01').spots || []).length >= 4, 'T-01 spots resueltos');
 assert.strictEqual(Data.getLesson('C-07').module, 'M1', 'C-07 M1');
 assert.strictEqual(Data.getLesson('C-07').plan, 'study', 'C-07 study');
 assert.strictEqual(Data.getLesson('C-14').module, 'M2', 'C-14 M2');
@@ -358,7 +395,7 @@ Data.m0Lessons().forEach(function (lesson) {
 });
 assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
 
-/* Muestras M1 (vsRFI / face3bet / squeeze / iso / bbVsSb) y M2 (flop) */
+/* Muestras M1/M2 + Spins/MTT */
 (function () {
   const samples = [
     Data.getLesson('C-07').spots[0],
@@ -367,7 +404,11 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
     Data.getLesson('C-11').spots[0],
     Data.getLesson('C-12').spots[0],
     Data.getLesson('C-14').spots[0],
-    Data.getLesson('C-15').spots[0]
+    Data.getLesson('C-15').spots[0],
+    Data.getLesson('S-01').spots[0],
+    Data.getLesson('S-02').spots[0],
+    Data.getLesson('T-01').spots[0],
+    Data.getLesson('T-04').spots[0]
   ];
   samples.forEach(function (spot) {
     const pack = openHand(spot);
@@ -468,7 +509,17 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.PTAuth = { getUser: function () { return { email: 'user@x.com', isAdmin: false, plan: 'pro' }; } };
   assert.ok(!School.schoolMenuVisible(), 'menú oculto sin admin');
   assert.ok(!School.canPlayLesson('C-00').ok, 'canPlay denegado sin menú');
+  assert.ok(!School.openLesson('C-02'), 'openLesson denegado sin admin');
   sandbox.PTAdmin = { hasAccess: function () { return true; } };
+})();
+
+/* openLesson deep-link (admin) */
+(function () {
+  sandbox.PTAdmin = { hasAccess: function () { return true; } };
+  assert.ok(School.openLesson('S-00'), 'openLesson S-00');
+  assert.strictEqual(School._state.route, 'spin', 'ruta spin tras openLesson');
+  assert.strictEqual(School._state.lessonId, 'S-00', 'lessonId S-00');
+  assert.strictEqual(School._state.view, 'lesson', 'view lesson');
 })();
 
 /* Resumen spots a repasar: cartas/pos/board + teachBack, sin trapTag */
@@ -502,4 +553,38 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   assert.ok(/postflop|Textura/.test(School.schoolCoachTip(Data.getLesson('C-14'), false, [])), 'coach tip M2');
 })();
 
-console.log('*** school D–F OK (M0 ' + spotCount + ' spots + M1/M2 samples, 21 lecciones, admin-only) ***');
+/* Fase J: lessonFromLeak vía TRAINING_FOCUSES (cargamos ai-report en sandbox ligero) */
+(function () {
+  const aiSandbox = {
+    window: {},
+    console: console,
+    Math: Math,
+    Date: Date,
+    Set: Set,
+    Map: Map,
+    JSON: JSON,
+    Object: Object,
+    Array: Array,
+    localStorage: sandbox.localStorage,
+    sessionStorage: { _d: {}, getItem: function () { return null; }, setItem: function () {} },
+    document: { createElement: function () { return {}; } }
+  };
+  aiSandbox.global = aiSandbox;
+  aiSandbox.window = aiSandbox;
+  vm.createContext(aiSandbox);
+  vm.runInContext(aiReportSrc, aiSandbox, { filename: 'ai-report.js' });
+  const AI = aiSandbox.PTAIReport;
+  assert.ok(AI && typeof AI.lessonFromLeak === 'function', 'lessonFromLeak export');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'RFI|BTN|preflop' }), 'C-02', 'RFI→C-02');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'vsRFI|BB|preflop' }), 'C-08', 'vsRFI→C-08');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'face3bet|BTN|preflop' }), 'C-09', 'face3bet→C-09');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'squeeze|BB|preflop' }), 'C-10', 'squeeze→C-10');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'sbLimp|SB|preflop' }), 'C-11', 'sbLimp→C-11');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'bbVsSbLimp|BB|preflop' }), 'C-12', 'bbvsb→C-12');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'postflop|BTN|flop' }), 'C-15', 'flop→C-15');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'postflop|BTN|turn' }), 'C-18', 'turn→C-18');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'postflop|BTN|river' }), 'C-19', 'river→C-19');
+  assert.strictEqual(AI.lessonFromLeak({ key: 'face4bet|BTN|preflop' }), 'C-26', '4bet→C-26');
+})();
+
+console.log('*** school G–J OK (M0 ' + spotCount + ' spots + Spins/MTT/Rangos/Pro + leaks→lección, admin-only) ***');

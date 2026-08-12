@@ -240,17 +240,53 @@
       return;
     }
 
+    function schoolLessonCtaVisible() {
+      if (global.PTSchool && typeof global.PTSchool.schoolMenuVisible === 'function') {
+        return !!global.PTSchool.schoolMenuVisible();
+      }
+      if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) return false;
+      if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
+        return !!global.PTAdmin.hasAccess();
+      }
+      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+      return !!(u && u.isAdmin);
+    }
+
+    function lessonIdForLeak(leak) {
+      if (!global.PTAIReport || typeof global.PTAIReport.lessonFromLeak !== 'function') return null;
+      return global.PTAIReport.lessonFromLeak(leak);
+    }
+
+    function openSchoolLesson(lessonId) {
+      if (!lessonId) return;
+      global.__ptPendingSchoolLesson = lessonId;
+      if (global.PTSchool && typeof global.PTSchool.openLesson === 'function') {
+        global.PTSchool.openLesson(lessonId);
+        return;
+      }
+      if (typeof global.goToTab === 'function') global.goToTab('school');
+    }
+
     function leakRows(leaks, trainPrefix) {
+      var showSchool = schoolLessonCtaVisible();
       return leaks.map(function (l, i) {
         var trainBtn = trainPrefix && onTrain
           ? '<button type="button" class="btn btn-primary btn-sm" data-leak-train="' + escapeHtml(trainPrefix + ':' + l.key) + '">Repetir</button>'
           : '';
+        var schoolBtn = '';
+        if (showSchool) {
+          var lid = lessonIdForLeak(l);
+          if (lid) {
+            schoolBtn = '<button type="button" class="btn btn-ghost btn-sm" data-leak-school="' +
+              escapeHtml(lid) + '">Ver lección</button>';
+          }
+        }
         return '<div class="leak-row">' +
           '<div class="leak-rank">#' + (i + 1) + '</div>' +
           '<div class="leak-main">' +
           '<div class="leak-title">' + escapeHtml(l.label) + '</div>' +
           '<div class="leak-sub muted-text">' + l.count + ' error' + (l.count === 1 ? '' : 'es') + ' · EV perdido ' + fmt(l.evLoss) + ' bb</div>' +
-          '</div>' + trainBtn + '</div>';
+          '</div><div class="leak-actions">' + schoolBtn + trainBtn + '</div></div>';
       }).join('');
     }
 
@@ -287,6 +323,11 @@
         var key = parts.slice(1).join(':');
         var leak = trainerLeaks.find(function (l) { return l.key === key; });
         if (leak && onTrain) onTrain(leak);
+      });
+    });
+    host.querySelectorAll('[data-leak-school]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openSchoolLesson(btn.getAttribute('data-leak-school'));
       });
     });
     if (typeof opts.onFilter === 'function') {

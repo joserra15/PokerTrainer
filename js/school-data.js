@@ -20,13 +20,26 @@
   'use strict';
 
   var XP_PER_LEVEL = 200;
-  var SCHOOL_DATA_VERSION = 3;
+  var SCHOOL_DATA_VERSION = 4;
 
   var ROUTES = [
     { id: 'cash', label: 'Cash', status: 'active' },
-    { id: 'spin', label: 'Spins', status: 'soon', teaser: 'Intro gratis próximamente (S-00–S-02)' },
-    { id: 'mtt', label: 'Torneos', status: 'soon', teaser: 'Intro gratis próximamente (T-00–T-02)' }
+    { id: 'spin', label: 'Spins', status: 'soon', teaser: 'Cargando Spins…' },
+    { id: 'mtt', label: 'Torneos', status: 'soon', teaser: 'Cargando MTT…' },
+    { id: 'ranges', label: 'Rangos', status: 'soon', teaser: 'Cargando laboratorio…' }
   ];
+
+  function setRouteStatus(id, status, teaser) {
+    for (var i = 0; i < ROUTES.length; i++) {
+      if (ROUTES[i].id === id) {
+        ROUTES[i].status = status || 'active';
+        if (teaser != null) ROUTES[i].teaser = teaser;
+        if (status === 'active') delete ROUTES[i].teaser;
+        return;
+      }
+    }
+    ROUTES.push({ id: id, label: id, status: status || 'active', teaser: teaser });
+  }
 
   /** Spots RFI: hero actúa open/fold; decisionEnd corta tras la 1ª decisión. */
   function rfiSpot(id, heroPos, heroCards, seed, meta) {
@@ -693,6 +706,21 @@
     return lessonsForRoute('cash').filter(function (l) { return l.module === 'M2'; });
   }
 
+  function lessonsForModule(routeId, moduleId) {
+    return lessonsForRoute(routeId).filter(function (l) { return l.module === moduleId; });
+  }
+
+  function modulesInRoute(routeId) {
+    var seen = {};
+    var out = [];
+    lessonsForRoute(routeId).forEach(function (l) {
+      var m = l.module || 'M0';
+      if (!seen[m]) { seen[m] = true; out.push(m); }
+    });
+    out.sort();
+    return out;
+  }
+
   function registerLessons(extra) {
     if (!extra || !extra.length) return;
     for (var i = 0; i < extra.length; i++) LESSONS.push(extra[i]);
@@ -710,6 +738,9 @@
     m0Lessons: m0Lessons,
     m1Lessons: m1Lessons,
     m2Lessons: m2Lessons,
+    lessonsForModule: lessonsForModule,
+    modulesInRoute: modulesInRoute,
+    setRouteStatus: setRouteStatus,
     registerLessons: registerLessons,
     rfiSpot: rfiSpot,
     vsRfiSpot: vsRfiSpot,

@@ -21,13 +21,26 @@
   'use strict';
 
   var XP_PER_LEVEL = 200;
-  var SCHOOL_DATA_VERSION = 3;
+  var SCHOOL_DATA_VERSION = 4;
 
   var ROUTES = [
     { id: 'cash', label: 'Cash', status: 'active' },
-    { id: 'spin', label: 'Spins', status: 'soon', teaser: 'Intro gratis próximamente (S-00–S-02)' },
-    { id: 'mtt', label: 'Torneos', status: 'soon', teaser: 'Intro gratis próximamente (T-00–T-02)' }
+    { id: 'spin', label: 'Spins', status: 'soon', teaser: 'Cargando Spins…' },
+    { id: 'mtt', label: 'Torneos', status: 'soon', teaser: 'Cargando MTT…' },
+    { id: 'ranges', label: 'Rangos', status: 'soon', teaser: 'Cargando laboratorio…' }
   ];
+
+  function setRouteStatus(id, status, teaser) {
+    for (var i = 0; i < ROUTES.length; i++) {
+      if (ROUTES[i].id === id) {
+        ROUTES[i].status = status || 'active';
+        if (teaser != null) ROUTES[i].teaser = teaser;
+        if (status === 'active') delete ROUTES[i].teaser;
+        return;
+      }
+    }
+    ROUTES.push({ id: id, label: id, status: status || 'active', teaser: teaser });
+  }
 
   /** Spots RFI: hero actúa open/fold; decisionEnd corta tras la 1ª decisión. */
   function rfiSpot(id, heroPos, heroCards, seed, meta) {
@@ -694,6 +707,21 @@
     return lessonsForRoute('cash').filter(function (l) { return l.module === 'M2'; });
   }
 
+  function lessonsForModule(routeId, moduleId) {
+    return lessonsForRoute(routeId).filter(function (l) { return l.module === moduleId; });
+  }
+
+  function modulesInRoute(routeId) {
+    var seen = {};
+    var out = [];
+    lessonsForRoute(routeId).forEach(function (l) {
+      var m = l.module || 'M0';
+      if (!seen[m]) { seen[m] = true; out.push(m); }
+    });
+    out.sort();
+    return out;
+  }
+
   function registerLessons(extra) {
     if (!extra || !extra.length) return;
     for (var i = 0; i < extra.length; i++) LESSONS.push(extra[i]);
@@ -711,6 +739,9 @@
     m0Lessons: m0Lessons,
     m1Lessons: m1Lessons,
     m2Lessons: m2Lessons,
+    lessonsForModule: lessonsForModule,
+    modulesInRoute: modulesInRoute,
+    setRouteStatus: setRouteStatus,
     registerLessons: registerLessons,
     rfiSpot: rfiSpot,
     vsRfiSpot: vsRfiSpot,
@@ -1392,8 +1423,1988 @@
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /*
- * school.js — Escuela de Póker: hub, lecciones M0–M2, runner de spots fijos.
- * Menú visible solo para admin (Fases D–F implementadas; apertura pública = Fase E diferida).
+ * school-data-spin.js — Fase G: Spins S-00…S-17
+ * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+  
+  function spinCfg(extra) {
+    return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'spin', gameType: 'spin3', stackDepth: 'bb20' }, extra || {});
+  }
+  function mttCfg(extra) {
+    return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'early' }, extra || {});
+  }
+  function packSpots(kind, D) {
+    var rfi = D.rfiSpot, vs = D.vsRfiSpot, iso = D.isoSpot;
+    if (kind === 'SPIN_RFI_STEAL') return [
+      rfi('s01-01', 'BTN', ['Ah', 'Td'], 40101, { teachBack: 'ATo BTN a ~20 bb: steal/open claro.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-02', 'BTN', ['7c', '2d'], 40102, { trapTag: 'dominated', teachBack: '72o: fold. No stealees basura total.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-03', 'SB', ['Ks', 'Js'], 40103, { teachBack: 'KJs SB: open/steal razonable a 20 bb.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-04', 'SB', ['Qd', '8c'], 40104, { trapTag: 'fancy_play', teachBack: 'Q8o SB: a menudo fold — no eres BTN.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-05', 'BTN', ['9s', '9c'], 40105, { teachBack: '99 BTN: open claro.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-06', 'BTN', ['8h', '7h'], 40106, { teachBack: '87s BTN: steal razonable con jugabilidad.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_VS_STEAL') return [
+      vs('s02-01', 'BB_vs_BTN', ['As', 'Kd'], 40201, { teachBack: 'AKo vs steal BTN: 3-bet/value claro.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-02', 'BB_vs_BTN', ['7c', '2d'], 40202, { trapTag: 'dominated', teachBack: '72o: fold. No overdefend.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-03', 'BB_vs_SB', ['Qh', 'Js'], 40203, { teachBack: 'QJs vs SB steal: defensa razonable.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-04', 'BB_vs_BTN', ['Ad', '5d'], 40204, { teachBack: 'A5s: 3-bet farol/pressure frecuente vs BTN.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-05', 'BB_vs_BTN', ['Td', '8c'], 40205, { trapTag: 'fancy_play', teachBack: 'T8o: fold típico vs steal — no hero-call.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-06', 'BB_vs_SB', ['9s', '9c'], 40206, { teachBack: '99 vs SB: 3-bet o continue sólido.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_EXAM_M0') return packSpots('SPIN_RFI_STEAL', D).slice(0, 3).concat(packSpots('SPIN_VS_STEAL', D).slice(0, 3));
+    if (kind === 'SPIN_ISO') return [
+      iso('s04-01', 'BTN', 'SB', ['Ah', 'Js'], 40401, { teachBack: 'AJs BTN vs limp: iso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-02', 'BTN', 'SB', ['7c', '2d'], 40402, { trapTag: 'dominated', teachBack: '72o: fold. No overiso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-03', 'SB', 'BTN', ['Kd', 'Qs'], 40403, { teachBack: 'KQs: iso value.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
+      iso('s04-04', 'BTN', 'SB', ['Qd', '8c'], 40404, { trapTag: 'fancy_play', teachBack: 'Q8o: fold frecuente.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_SHOVE' || kind === 'SPIN_PUSH' || kind === 'SPIN_EXAM_M1') return [
+      rfi('sp-01', 'BTN', ['As', 'Ts'], 40501, { teachBack: 'ATs corto: shove/open shove candidato.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-02', 'BTN', ['7c', '2d'], 40502, { trapTag: 'dominated', teachBack: '72o: fold. No panic shove.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-03', 'SB', ['Kh', 'Js'], 40503, { teachBack: 'KJs SB corto: shove frecuente.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) }),
+      rfi('sp-04', 'BTN', ['9s', '9c'], 40504, { teachBack: '99: shove value claro a 10–12 bb.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) })
+    ];
+    if (kind === 'MTT_EARLY') return [
+      rfi('t01-01', 'BTN', ['Ah', 'Td'], 50101, { teachBack: 'ATo BTN early: open cash-like.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-02', 'UTG', ['Qd', '8c'], 50102, { trapTag: 'dominated', teachBack: 'Q8o UTG early: fold. Paciencia.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-03', 'CO', ['Ks', 'Js'], 50103, { teachBack: 'KJs CO: open estándar early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-04', 'UTG', ['7h', '2d'], 50104, { trapTag: 'dominated', teachBack: '72o: fold. No spew early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-05', 'BTN', ['9s', '9c'], 50105, { teachBack: '99 BTN: open claro.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-06', 'HJ', ['Ah', '5d'], 50106, { trapTag: 'fancy_play', teachBack: 'A5o HJ early: a menudo fold — no spew.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) })
+    ];
+    if (kind === 'MTT_EXAM_M0') return packSpots('MTT_EARLY', D).slice(0, 4);
+    if (kind === 'MTT_STEAL') return [
+      rfi('t04-01', 'BTN', ['Kh', '9s'], 50401, { teachBack: 'K9o BTN mid: steal razonable.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-02', 'BTN', ['7c', '2d'], 50402, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-03', 'CO', ['As', '5s'], 50403, { teachBack: 'A5s CO: steal/open OK mid.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-04', 'SB', ['Qd', 'Td'], 50404, { teachBack: 'QTs SB: open/steal frecuente.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-05', 'CO', ['Jd', '8c'], 50405, { trapTag: 'fancy_play', teachBack: 'J8o CO: fold típico.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-06', 'BTN', ['8h', '7h'], 50406, { teachBack: '87s BTN: steal con jugabilidad.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) })
+    ];
+    if (kind === 'MTT_3BET' || kind === 'MTT_RESTEAL') return [
+      vs('t05-01', 'BB_vs_BTN', ['As', 'Kd'], 50501, { teachBack: 'AKo: 3-bet value vs steal.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-02', 'BB_vs_BTN', ['Ad', '4d'], 50502, { teachBack: 'A4s: 3-bet polar/farol frecuente.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-03', 'BB_vs_CO', ['7c', '2d'], 50503, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-04', 'BB_vs_BTN', ['Qh', '9c'], 50504, { trapTag: 'fancy_play', teachBack: 'Q9o: no 3-bet spew. Fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) })
+    ];
+    if (kind === 'MTT_EXAM_M1') return packSpots('MTT_STEAL', D).slice(0, 2).concat(packSpots('MTT_3BET', D).slice(0, 2));
+    if (kind === 'MTT_SHORT' || kind === 'MTT_PUSH') return [
+      rfi('t09-01', 'BTN', ['Ah', '5s'], 50901, { teachBack: 'A5o BTN a ~10–12 bb: shove candidato.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
+      rfi('t09-02', 'BTN', ['7c', '2d'], 50902, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-03', 'SB', ['Ks', 'Ts'], 50903, { teachBack: 'KTs SB corto: shove frecuente.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-04', 'CO', ['9s', '9c'], 50904, { teachBack: '99: shove value.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) })
+    ];
+    return [];
+  }
+  function resolveSpots(lesson, D) {
+    if (typeof lesson.spots === 'string') lesson.spots = packSpots(lesson.spots, D);
+    return lesson;
+  }
+
+  if (D.setRouteStatus) {
+    D.setRouteStatus('spin', 'active');
+  }
+  var RAW = [
+  {
+    "route": "spin",
+    "module": "M0",
+    "order": 0,
+    "plan": "free",
+    "xp": 40,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Un Spin es un torneo de 3 jugadores con payout aleatorio (2×, 3× o 5×). No es cash: el valor en $ no siempre coincide con las fichas.",
+    "theory": [
+      "En un Spin (o Spin & Go) sois tres jugadores. El prize pool se multiplica al azar: a veces 2×, a veces 3× o 5×. Eso cambia cuánto “duele” eliminarte.",
+      "ICM lite: las fichas no valen lo mismo en $ al final. A veces un call +EV en fichas es malo en dinero porque arriesgas tu torneo.",
+      "Antes de cada lección, piensa: ¿estoy robando ciegas, defendiendo, o en zona push/fold? El stack en bb manda más que en cash deep."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Antes de cada lección, piensa: ¿estoy robando ciegas, defendiendo, o en zona push/fold? El stack en bb manda más que en cash deep."
+      }
+    ],
+    "aiQuestions": [
+      "¿Por qué un Spin no se juega igual que el cash?",
+      "¿Qué es el payout 2×/3×/5×?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "S-00",
+    "title": "Anatomía de un Spin"
+  },
+  {
+    "route": "spin",
+    "module": "M0",
+    "order": 1,
+    "plan": "free",
+    "xp": 100,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 6,
+    "concept": "Con 20–25 bb, desde el botón o la SB, abres (steal) más wide que en cash deep: las ciegas valen más relativas a tu stack.",
+    "theory": [
+      "Steal: abrir el bote para robar las ciegas. A 20–25 bb el bote muerto (ciegas) es un % grande de tu stack, así que el fold equity importa.",
+      "Desde BTN puedes abrir más manos; desde SB un poco más tight porque quedarás fuera de posición si te pagan.",
+      "Trampa: abrir basura y luego pagar un 3-bet shove. Si te re-suben all-in, necesitas un plan (fold o call shove), no spew."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: abrir basura y luego pagar un 3-bet shove. Si te re-suben all-in, necesitas un plan (fold o call shove), no spew."
+      }
+    ],
+    "aiQuestions": [
+      "¿Por qué stealeo más a 20 bb que a 100 bb?",
+      "¿Qué hago si me 3-betean shove?"
+    ],
+    "spots": "SPIN_RFI_STEAL",
+    "exam": false,
+    "id": "S-01",
+    "title": "Open steal BTN/SB 20–25 bb"
+  },
+  {
+    "route": "spin",
+    "module": "M0",
+    "order": 2,
+    "plan": "study",
+    "xp": 110,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 6,
+    "concept": "Cuando el botón o la SB abren corto, desde BB eliges fold, hacer call o 3-bet (a veces shove) según stack e ICM.",
+    "theory": [
+      "Vs steal a 20–25 bb defiendes más selectivo que en cash 100 bb: el stack es corto y un error cuesta el torneo.",
+      "3-bet shove con value y algunos faroles con blockers; hacer call con manos que juegan bien multiway corto es raro — a menudo es fold o shove.",
+      "Trampa: overdefend (pagar de más) o nunca 3-betear cuando el spot pide presión."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: overdefend (pagar de más) o nunca 3-betear cuando el spot pide presión."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": "SPIN_VS_STEAL",
+    "exam": false,
+    "id": "S-02",
+    "title": "Defensa ciega vs steal"
+  },
+  {
+    "route": "spin",
+    "module": "M0",
+    "order": 3,
+    "plan": "study",
+    "xp": 120,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 6,
+    "concept": "Repaso: anatomía Spin, steal y defensa. Sin teoría nueva.",
+    "theory": [
+      "Identifica el spot: ¿steal o defensa? ¿Stack ~20 bb?",
+      "Checklist: posición → stack → fold / open / 3-bet."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Checklist: posición → stack → fold / open / 3-bet."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": "SPIN_EXAM_M0",
+    "exam": true,
+    "id": "S-03",
+    "title": "Examen M0 · Spins"
+  },
+  {
+    "route": "spin",
+    "module": "M1",
+    "order": 4,
+    "plan": "study",
+    "xp": 100,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 4,
+    "concept": "Si alguien limpea corto, aísla (iso) con manos que quieren heads-up; no overcommiteas con basura.",
+    "theory": [
+      "A stacks medios-cortos, limpear es frecuente en Spins recreacionales. El iso castiga y te deja la iniciativa.",
+      "Tamaño: suficiente para aislar sin meter todo el stack sin querer. No aísles 72o.",
+      "Trampa: overiso trash o limpear detrás sin plan."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: overiso trash o limpear detrás sin plan."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": "SPIN_ISO",
+    "exam": false,
+    "id": "S-04",
+    "title": "Iso y open vs limps cortos"
+  },
+  {
+    "route": "spin",
+    "module": "M1",
+    "order": 5,
+    "plan": "study",
+    "xp": 120,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 4,
+    "concept": "Con stacks cortos a menudo el 3-bet correcto es shove (all-in), no un 3-bet pequeño que deja decisiones difíciles.",
+    "theory": [
+      "Stack-off threshold: por debajo de cierto stack (p. ej. ~15–20 bb según spot), 3-bet shove es más limpio que flat o 3-bet pequeño.",
+      "Shovea value (AX strong, pares medios+) y faroles elegidos. Flat (hacer call) solo con manos que quieren ver flop barato — pocas a estos stacks.",
+      "Trampa: 3-bet pequeño spew o flat dominado vs open short."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: 3-bet pequeño spew o flat dominado vs open short."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": "SPIN_SHOVE",
+    "exam": false,
+    "id": "S-05",
+    "title": "3-bet shove vs flat"
+  },
+  {
+    "route": "spin",
+    "module": "M1",
+    "order": 6,
+    "plan": "study",
+    "xp": 90,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Si tienes más fichas que el short, puedes presionar; no suicides el chip lead en spots −EV $.",
+    "theory": [
+      "Chip lead: eres el stack más grande. Presionas ciegas y opens flojos, pero no pagas shoves locos “porque soy cover”.",
+      "Tu objetivo es aplicar presión sin regalar dobles fáciles al short.",
+      "Trampa: call shove light solo por tener más fichas (ICM suicide light)."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: call shove light solo por tener más fichas (ICM suicide light)."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "S-06",
+    "title": "Chip lead vs short"
+  },
+  {
+    "route": "spin",
+    "module": "M1",
+    "order": 7,
+    "plan": "study",
+    "xp": 90,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Si eres el short stack, priorizas spots de double-up claros y evitas coin flips malos vs el cover.",
+    "theory": [
+      "Short vs cover: necesitas fichas, pero no cualquier all-in. Elige spots con fold equity o equity decente.",
+      "Survive + pick spots: a veces fold es correcto aunque “necesites fichas ya”.",
+      "Trampa: shove panic con basura vs cover que te paga siempre."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: shove panic con basura vs cover que te paga siempre."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "S-07",
+    "title": "Short vs cover"
+  },
+  {
+    "route": "spin",
+    "module": "M1",
+    "order": 8,
+    "plan": "study",
+    "xp": 130,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 4,
+    "concept": "Repaso M1 Spins: iso, shove thresholds, chip lead y short. Sin teoría nueva.",
+    "theory": [
+      "¿Iso, shove o fold?",
+      "¿Soy cover o short? Eso cambia mi plan."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "¿Soy cover o short? Eso cambia mi plan."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": "SPIN_EXAM_M1",
+    "exam": true,
+    "id": "S-08",
+    "title": "Examen M1 · Spins"
+  },
+  {
+    "route": "spin",
+    "module": "M2",
+    "order": 9,
+    "plan": "study",
+    "xp": 140,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 6,
+    "concept": "Entre 12 y 8 bb entras en push/fold: casi no hay open small; decides shove o fold.",
+    "theory": [
+      "Push/fold: con stack muy corto, open-raise pequeño deja poco fold equity y commits mal. Mejor all-in o fold según chart.",
+      "BTN shoves más wide que UTG (en 3-max: BTN vs blinds). Usa el menú Rangos / charts de push como referencia.",
+      "Trampa: open min-raise a 10 bb “como en cash” y luego fold al 3-bet — leak clásico."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: open min-raise a 10 bb “como en cash” y luego fold al 3-bet — leak clásico."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": "SPIN_PUSH",
+    "exam": false,
+    "id": "S-09",
+    "title": "Push/fold 12–8 bb"
+  },
+  {
+    "route": "spin",
+    "module": "M2",
+    "order": 10,
+    "plan": "study",
+    "xp": 130,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Cuando te shoven, el call correcto suele ser más tight que en chip EV: el ICM castiga arriesgar tu torneo.",
+    "theory": [
+      "Chip EV mira solo fichas. ICM (Independent Chip Model, lite aquí) mira el valor en $ según payouts. En Spins, overfold vs shove suele ser correcto.",
+      "Vs shove del short, paga manos fuertes; foldea manos medias que en cash deep serían call.",
+      "Trampa: hero-call “porque tengo outs” ignorando el pay jump."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: hero-call “porque tengo outs” ignorando el pay jump."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "S-10",
+    "title": "Call shove ICM"
+  },
+  {
+    "route": "spin",
+    "module": "M2",
+    "order": 11,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "A veces un call gana fichas en promedio pero pierde dinero de torneo. Aprende a oler esos spots.",
+    "theory": [
+      "+EV chips no implica +EV $. En burbuja o pay jumps, prioriza supervivencia.",
+      "Trampa ICM suicide: pagar shoves light porque “soy favorito en equity”."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa ICM suicide: pagar shoves light porque “soy favorito en equity”."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "S-11",
+    "title": "Malos spots +EV chips / −EV $"
+  },
+  {
+    "route": "spin",
+    "module": "M2",
+    "order": 12,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Con payout 5× juegas más tight que en 2×/3×: el premio top pesa más y los seconds duelen distinto.",
+    "theory": [
+      "En 5× el ICM aprieta más. Robas menos loco y calls shove más tight.",
+      "Trampa: jugar igual el 2× y el 5×."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: jugar igual el 2× y el 5×."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "S-12",
+    "title": "Ajuste 3× vs 5× payout"
+  },
+  {
+    "route": "spin",
+    "module": "M2",
+    "order": 13,
+    "plan": "coach",
+    "xp": 150,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Repaso ICM Spins. Sin teoría nueva.",
+    "theory": [
+      "¿Chip EV o $EV?",
+      "¿Payout 2× o 5× cambia mi call?"
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "¿Payout 2× o 5× cambia mi call?"
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": true,
+    "id": "S-13",
+    "title": "Examen ICM · Spins"
+  },
+  {
+    "route": "spin",
+    "module": "M3",
+    "order": 14,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "El bubble factor mide cuánto “duele” arriesgar fichas cerca de un salto de pago.",
+    "theory": [
+      "Aunque en Spin 3-max el “bubble” es corto, el concepto de pay jump sigue: no arriesgues el second barato.",
+      "Trampa: ignorar el payout cuando queda un all-in decisivo."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: ignorar el payout cuando queda un all-in decisivo."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "S-14",
+    "title": "Bubble factor mental HU pay jump"
+  },
+  {
+    "route": "spin",
+    "module": "M3",
+    "order": 15,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Antes de shove o call, nombra el rango rival y el tuyo: no es “mi mano vs su mano”.",
+    "theory": [
+      "Piensa en bandas: ¿qué shoves el BTN a 10 bb? ¿Qué calls la BB?",
+      "Trampa: decidir solo por “me gusta mi mano”."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: decidir solo por “me gusta mi mano”."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "S-15",
+    "title": "Range vs range shove/call"
+  },
+  {
+    "route": "spin",
+    "module": "M3",
+    "order": 16,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Vs nit stealeas más; vs maniac defiendes más tight y value-shoveas más limpio.",
+    "theory": [
+      "Ajusta al rival real del lobby, no solo al chart GTO.",
+      "Trampa: jugar GTO ciego vs extremos obvios."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Trampa: jugar GTO ciego vs extremos obvios."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "S-16",
+    "title": "Explotación nit vs maniac"
+  },
+  {
+    "route": "spin",
+    "module": "M3",
+    "order": 17,
+    "plan": "coach",
+    "xp": 150,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Certificación Spin Pro: aplica ICM, payout y explotación. Sin teoría nueva.",
+    "theory": [
+      "Resume tu plan short vs cover.",
+      "¿Cuándo overfoldeo vs shove?"
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "¿Cuándo overfoldeo vs shove?"
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué se diferencia esto del cash?",
+      "¿Qué error evitar aquí?"
+    ],
+    "spots": [],
+    "exam": true,
+    "id": "S-17",
+    "title": "Examen Pro · Spins"
+  }
+];
+  var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
+  D.registerLessons(lessons);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school-data-mtt.js — Fase H: MTT T-00…T-22
+ * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+  
+  function spinCfg(extra) {
+    return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'spin', gameType: 'spin3', stackDepth: 'bb20' }, extra || {});
+  }
+  function mttCfg(extra) {
+    return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'early' }, extra || {});
+  }
+  function packSpots(kind, D) {
+    var rfi = D.rfiSpot, vs = D.vsRfiSpot, iso = D.isoSpot;
+    if (kind === 'SPIN_RFI_STEAL') return [
+      rfi('s01-01', 'BTN', ['Ah', 'Td'], 40101, { teachBack: 'ATo BTN a ~20 bb: steal/open claro.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-02', 'BTN', ['7c', '2d'], 40102, { trapTag: 'dominated', teachBack: '72o: fold. No stealees basura total.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-03', 'SB', ['Ks', 'Js'], 40103, { teachBack: 'KJs SB: open/steal razonable a 20 bb.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-04', 'SB', ['Qd', '8c'], 40104, { trapTag: 'fancy_play', teachBack: 'Q8o SB: a menudo fold — no eres BTN.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-05', 'BTN', ['9s', '9c'], 40105, { teachBack: '99 BTN: open claro.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-06', 'BTN', ['8h', '7h'], 40106, { teachBack: '87s BTN: steal razonable con jugabilidad.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_VS_STEAL') return [
+      vs('s02-01', 'BB_vs_BTN', ['As', 'Kd'], 40201, { teachBack: 'AKo vs steal BTN: 3-bet/value claro.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-02', 'BB_vs_BTN', ['7c', '2d'], 40202, { trapTag: 'dominated', teachBack: '72o: fold. No overdefend.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-03', 'BB_vs_SB', ['Qh', 'Js'], 40203, { teachBack: 'QJs vs SB steal: defensa razonable.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-04', 'BB_vs_BTN', ['Ad', '5d'], 40204, { teachBack: 'A5s: 3-bet farol/pressure frecuente vs BTN.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-05', 'BB_vs_BTN', ['Td', '8c'], 40205, { trapTag: 'fancy_play', teachBack: 'T8o: fold típico vs steal — no hero-call.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-06', 'BB_vs_SB', ['9s', '9c'], 40206, { teachBack: '99 vs SB: 3-bet o continue sólido.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_EXAM_M0') return packSpots('SPIN_RFI_STEAL', D).slice(0, 3).concat(packSpots('SPIN_VS_STEAL', D).slice(0, 3));
+    if (kind === 'SPIN_ISO') return [
+      iso('s04-01', 'BTN', 'SB', ['Ah', 'Js'], 40401, { teachBack: 'AJs BTN vs limp: iso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-02', 'BTN', 'SB', ['7c', '2d'], 40402, { trapTag: 'dominated', teachBack: '72o: fold. No overiso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-03', 'SB', 'BTN', ['Kd', 'Qs'], 40403, { teachBack: 'KQs: iso value.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
+      iso('s04-04', 'BTN', 'SB', ['Qd', '8c'], 40404, { trapTag: 'fancy_play', teachBack: 'Q8o: fold frecuente.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_SHOVE' || kind === 'SPIN_PUSH' || kind === 'SPIN_EXAM_M1') return [
+      rfi('sp-01', 'BTN', ['As', 'Ts'], 40501, { teachBack: 'ATs corto: shove/open shove candidato.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-02', 'BTN', ['7c', '2d'], 40502, { trapTag: 'dominated', teachBack: '72o: fold. No panic shove.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-03', 'SB', ['Kh', 'Js'], 40503, { teachBack: 'KJs SB corto: shove frecuente.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) }),
+      rfi('sp-04', 'BTN', ['9s', '9c'], 40504, { teachBack: '99: shove value claro a 10–12 bb.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) })
+    ];
+    if (kind === 'MTT_EARLY') return [
+      rfi('t01-01', 'BTN', ['Ah', 'Td'], 50101, { teachBack: 'ATo BTN early: open cash-like.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-02', 'UTG', ['Qd', '8c'], 50102, { trapTag: 'dominated', teachBack: 'Q8o UTG early: fold. Paciencia.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-03', 'CO', ['Ks', 'Js'], 50103, { teachBack: 'KJs CO: open estándar early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-04', 'UTG', ['7h', '2d'], 50104, { trapTag: 'dominated', teachBack: '72o: fold. No spew early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-05', 'BTN', ['9s', '9c'], 50105, { teachBack: '99 BTN: open claro.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-06', 'HJ', ['Ah', '5d'], 50106, { trapTag: 'fancy_play', teachBack: 'A5o HJ early: a menudo fold — no spew.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) })
+    ];
+    if (kind === 'MTT_EXAM_M0') return packSpots('MTT_EARLY', D).slice(0, 4);
+    if (kind === 'MTT_STEAL') return [
+      rfi('t04-01', 'BTN', ['Kh', '9s'], 50401, { teachBack: 'K9o BTN mid: steal razonable.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-02', 'BTN', ['7c', '2d'], 50402, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-03', 'CO', ['As', '5s'], 50403, { teachBack: 'A5s CO: steal/open OK mid.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-04', 'SB', ['Qd', 'Td'], 50404, { teachBack: 'QTs SB: open/steal frecuente.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-05', 'CO', ['Jd', '8c'], 50405, { trapTag: 'fancy_play', teachBack: 'J8o CO: fold típico.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-06', 'BTN', ['8h', '7h'], 50406, { teachBack: '87s BTN: steal con jugabilidad.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) })
+    ];
+    if (kind === 'MTT_3BET' || kind === 'MTT_RESTEAL') return [
+      vs('t05-01', 'BB_vs_BTN', ['As', 'Kd'], 50501, { teachBack: 'AKo: 3-bet value vs steal.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-02', 'BB_vs_BTN', ['Ad', '4d'], 50502, { teachBack: 'A4s: 3-bet polar/farol frecuente.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-03', 'BB_vs_CO', ['7c', '2d'], 50503, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-04', 'BB_vs_BTN', ['Qh', '9c'], 50504, { trapTag: 'fancy_play', teachBack: 'Q9o: no 3-bet spew. Fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) })
+    ];
+    if (kind === 'MTT_EXAM_M1') return packSpots('MTT_STEAL', D).slice(0, 2).concat(packSpots('MTT_3BET', D).slice(0, 2));
+    if (kind === 'MTT_SHORT' || kind === 'MTT_PUSH') return [
+      rfi('t09-01', 'BTN', ['Ah', '5s'], 50901, { teachBack: 'A5o BTN a ~10–12 bb: shove candidato.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
+      rfi('t09-02', 'BTN', ['7c', '2d'], 50902, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-03', 'SB', ['Ks', 'Ts'], 50903, { teachBack: 'KTs SB corto: shove frecuente.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-04', 'CO', ['9s', '9c'], 50904, { teachBack: '99: shove value.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) })
+    ];
+    return [];
+  }
+  function resolveSpots(lesson, D) {
+    if (typeof lesson.spots === 'string') lesson.spots = packSpots(lesson.spots, D);
+    return lesson;
+  }
+
+  if (D.setRouteStatus) {
+    D.setRouteStatus('mtt', 'active');
+  }
+  var RAW = [
+  {
+    "route": "mtt",
+    "module": "M0",
+    "order": 0,
+    "plan": "free",
+    "xp": 40,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Un MTT tiene fases: early, mid, short, push y burbuja. El ante y el stack en bb cambian tu plan.",
+    "theory": [
+      "Early: stacks profundos, juego parecido a cash (con paciencia). Mid: más steals. Short/push: open/shove y push/fold. Bubble: ICM fuerte.",
+      "El ante (pago obligatorio extra) engorda el bote y empuja a robar más. Identifica tu stack en bb, no solo las fichas absolutas.",
+      "Honestidad: aquí entrenamos principios ICM y fases; no un solver de field completo de cientos de jugadores."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Early: stacks profundos, juego parecido a cash (con paciencia). Mid: más steals. Short/push: open/shove y push/fold. Bubble: ICM fuerte."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-00",
+    "title": "Stages del torneo y ante"
+  },
+  {
+    "route": "mtt",
+    "module": "M0",
+    "order": 1,
+    "plan": "free",
+    "xp": 100,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 6,
+    "concept": "En early no spewees: juegas spots claros, builds stack sin coin flips inútiles.",
+    "theory": [
+      "Con 40–60+ bb el juego se parece al cash, pero el objetivo es llegar a mid con stack jugable, no hero-callar early.",
+      "Evita spew: 3-bet wars sin necesidad, bluffs sin plan. Las fichas early se defienden mejor.",
+      "Trampa: jugar “final table” en la primera ciega."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Con 40–60+ bb el juego se parece al cash, pero el objetivo es llegar a mid con stack jugable, no hero-callar early."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": "MTT_EARLY",
+    "exam": false,
+    "id": "T-01",
+    "title": "Early: cash-like con paciencia"
+  },
+  {
+    "route": "mtt",
+    "module": "M0",
+    "order": 2,
+    "plan": "study",
+    "xp": 80,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Lee la mesa: quién es big stack, mid o short. Eso cambia quién puede presionar y a quién.",
+    "theory": [
+      "M (o “M-ratio”) es una forma de pensar stacks en ciegas/antes. En la práctica: cuenta bb efectivas.",
+      "Big stacks presionan; shorts buscan double; mids sobreviven. No trates a todos igual.",
+      "Trampa: ignorear stacks y jugar solo tu mano."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "M (o “M-ratio”) es una forma de pensar stacks en ciegas/antes. En la práctica: cuenta bb efectivas."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-02",
+    "title": "Antenas de stack (M / big stacks)"
+  },
+  {
+    "route": "mtt",
+    "module": "M0",
+    "order": 3,
+    "plan": "study",
+    "xp": 110,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 4,
+    "concept": "Repaso fases y early game. Sin teoría nueva.",
+    "theory": [
+      "¿Early, mid o short?",
+      "¿Paciencia o presión?"
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "¿Early, mid o short?"
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": "MTT_EXAM_M0",
+    "exam": true,
+    "id": "T-03",
+    "title": "Examen M0 · MTT"
+  },
+  {
+    "route": "mtt",
+    "module": "M1",
+    "order": 4,
+    "plan": "study",
+    "xp": 110,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 6,
+    "concept": "Antes de entrar en push/fold, roba ciegas desde late con opens estándar.",
+    "theory": [
+      "Steal mid-late: abres CO/BTN/SB para ganar ciegas+ante sin ir all-in aún.",
+      "Elige manos con plan si te 3-betean. No abras basura y te pegues.",
+      "Trampa: passivity total hasta 12 bb — llegas short sin fichas robadas."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Steal mid-late: abres CO/BTN/SB para ganar ciegas+ante sin ir all-in aún."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": "MTT_STEAL",
+    "exam": false,
+    "id": "T-04",
+    "title": "Steal antes de zona corta"
+  },
+  {
+    "route": "mtt",
+    "module": "M1",
+    "order": 5,
+    "plan": "study",
+    "xp": 120,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 4,
+    "concept": "A mid stacks, el 3-bet polar (value + faroles) aplica presión; no es solo QQ+.",
+    "theory": [
+      "Igual que en cash M1, polarizas: manos fuertes y faroles con blockers. El stack define si cabe un 3-bet non-all-in.",
+      "Vs opens late puedes 3-betear más light; vs early, más value.",
+      "Trampa: 3-bet spew mid sin fold equity."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Igual que en cash M1, polarizas: manos fuertes y faroles con blockers. El stack define si cabe un 3-bet non-all-in."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": "MTT_3BET",
+    "exam": false,
+    "id": "T-05",
+    "title": "3-bet polar mid stacks"
+  },
+  {
+    "route": "mtt",
+    "module": "M1",
+    "order": 6,
+    "plan": "study",
+    "xp": 120,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 4,
+    "concept": "Resteal: 3-betear (a veces shove) al steal del late. Defense: no overfoldear ciegas vs robos.",
+    "theory": [
+      "Cuando el BTN stealea, BB/SB pueden restealear con value y faroles elegidos.",
+      "Defensa: fold/call/3-bet según stack. A mid stacks aún hay flats selectivos.",
+      "Trampa: never-defend o resteal loco vs UTG."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Cuando el BTN stealea, BB/SB pueden restealear con value y faroles elegidos."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": "MTT_RESTEAL",
+    "exam": false,
+    "id": "T-06",
+    "title": "Resteal y defense"
+  },
+  {
+    "route": "mtt",
+    "module": "M1",
+    "order": 7,
+    "plan": "study",
+    "xp": 130,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 4,
+    "concept": "Repaso mid: steal, 3-bet, resteal. Sin teoría nueva.",
+    "theory": [
+      "¿Steal o resteal?",
+      "¿Polar o fold?"
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "¿Steal o resteal?"
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": "MTT_EXAM_M1",
+    "exam": true,
+    "id": "T-07",
+    "title": "Examen Mid · MTT"
+  },
+  {
+    "route": "mtt",
+    "module": "M2",
+    "order": 8,
+    "plan": "study",
+    "xp": 130,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 4,
+    "concept": "Entre 20 y 12 bb eliges open-raise o shove según mano y posición; ya no eres deep.",
+    "theory": [
+      "Thresholds: algunas manos open; otras shove; basura fold. Depende de bb y de quién queda detrás.",
+      "No min-raiseas manos shove por miedo — te metes en spots peores.",
+      "Trampa: open/fold ranges rotos (open flojo y fold al shove)."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Thresholds: algunas manos open; otras shove; basura fold. Depende de bb y de quién queda detrás."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": "MTT_SHORT",
+    "exam": false,
+    "id": "T-08",
+    "title": "Zona 20–12 bb: open/shove"
+  },
+  {
+    "route": "mtt",
+    "module": "M2",
+    "order": 9,
+    "plan": "study",
+    "xp": 140,
+    "passThreshold": 0.7,
+    "goldThreshold": 0.9,
+    "decisionEnd": true,
+    "hands": 6,
+    "concept": "Como en Spins: a 12–8 bb el plan base es shove o fold según chart y posición.",
+    "theory": [
+      "Push/fold simplifica: all-in o fold. Usa charts como referencia (menú Rangos / push-fold).",
+      "BTN shoves más wide. Early positions más tight.",
+      "Trampa: open small a 10 bb."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Push/fold simplifica: all-in o fold. Usa charts como referencia (menú Rangos / push-fold)."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": "MTT_PUSH",
+    "exam": false,
+    "id": "T-09",
+    "title": "Push/fold 12–8 bb"
+  },
+  {
+    "route": "mtt",
+    "module": "M2",
+    "order": 10,
+    "plan": "study",
+    "xp": 120,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Primero aprendes calls vs shove mirando chip EV; luego (Coach) añadimos ICM.",
+    "theory": [
+      "Chip EV: ¿tengo equity suficiente vs el rango de shove para call? Es la base.",
+      "Manos fuertes pagan; medias dependen de posición y sizing (aquí: all-in).",
+      "Trampa: call light “para ver” o fold panic con AQ vs shove corto."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Chip EV: ¿tengo equity suficiente vs el rango de shove para call? Es la base."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-10",
+    "title": "Calling ranges vs shove (chip EV)"
+  },
+  {
+    "route": "mtt",
+    "module": "M2",
+    "order": 11,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Con ICM, calls vs shove son más tight que en chip EV puro.",
+    "theory": [
+      "El $EV castiga arriesgar tu stack cerca de premios. Overfold es a menudo correcto.",
+      "Honestidad: usamos principios, no un ICM de field completo."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "El $EV castiga arriesgar tu stack cerca de premios. Overfold es a menudo correcto."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-11",
+    "title": "Calling ranges con ICM"
+  },
+  {
+    "route": "mtt",
+    "module": "M2",
+    "order": 12,
+    "plan": "coach",
+    "xp": 150,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Repaso short/push. Sin teoría nueva.",
+    "theory": [
+      "¿Open, shove o fold?",
+      "¿Call shove chip EV o ya pienso ICM?"
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "¿Open, shove o fold?"
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": true,
+    "id": "T-12",
+    "title": "Examen Short · MTT"
+  },
+  {
+    "route": "mtt",
+    "module": "M3",
+    "order": 13,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "En burbuja cada rol tiene un plan: big presiona, mid sobrevive, short busca spots.",
+    "theory": [
+      "Teaser Study visible en mapa; jugar el pack es Coach.",
+      "Big stack aplica presión. Mid evita coin flips. Short pick spots.",
+      "Trampa: mid stack hero-call vs big."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Teaser Study visible en mapa; jugar el pack es Coach."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-13",
+    "title": "Roles en burbuja (short/mid/big)"
+  },
+  {
+    "route": "mtt",
+    "module": "M3",
+    "order": 14,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Como big stack en burbuja, abres y shoves más; no regalas dobles al short sin fold equity.",
+    "theory": [
+      "Presión ≠ call light. Haces que los mids se tiren.",
+      "Trampa: pagar al short “porque puedo”."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Presión ≠ call light. Haces que los mids se tiren."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-14",
+    "title": "Big stack pressure"
+  },
+  {
+    "route": "mtt",
+    "module": "M3",
+    "order": 15,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Mid stack en burbuja: prioridad no chocarte con el big; deja que shorts se eliminen.",
+    "theory": [
+      "Fold equity propia baja vs big. Evita spots −EV $ aunque sean +EV chips.",
+      "Trampa: open spew mid vs big."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Fold equity propia baja vs big. Evita spots −EV $ aunque sean +EV chips."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-15",
+    "title": "Mid stack survival"
+  },
+  {
+    "route": "mtt",
+    "module": "M3",
+    "order": 16,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Short en burbuja: shoves selectivos para escalar; no min-raise suicide.",
+    "theory": [
+      "Necesitas doble, pero elige spots. Ladder = subir un peldaño de payout.",
+      "Trampa: shove panic UTG con basura."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Necesitas doble, pero elige spots. Ladder = subir un peldaño de payout."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-16",
+    "title": "Short stack ladder"
+  },
+  {
+    "route": "mtt",
+    "module": "M3",
+    "order": 17,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Tras el ITM, los saltos de pago siguen importando: no “ya estoy pagado, all-in light”.",
+    "theory": [
+      "Cada eliminación puede subir tu prize. Sigue pensando ICM.",
+      "Trampa: spew post-bubble."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Cada eliminación puede subir tu prize. Sigue pensando ICM."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-17",
+    "title": "Pay jumps post-ITM"
+  },
+  {
+    "route": "mtt",
+    "module": "M3",
+    "order": 18,
+    "plan": "coach",
+    "xp": 150,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Repaso burbuja y roles. Sin teoría nueva.",
+    "theory": [
+      "¿Soy short, mid o big?",
+      "¿Presiono o sobrevivo?"
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "¿Soy short, mid o big?"
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": true,
+    "id": "T-18",
+    "title": "Examen Bubble"
+  },
+  {
+    "route": "mtt",
+    "module": "M4",
+    "order": 19,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "En final table el ICM se intensifica: pay jumps grandes, covers y shorts extremos.",
+    "theory": [
+      "Principios: covers presionan; mids cuidan; shorts pick spots.",
+      "No prometemos solver de FT completa."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Principios: covers presionan; mids cuidan; shorts pick spots."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-19",
+    "title": "Final table ICM intro"
+  },
+  {
+    "route": "mtt",
+    "module": "M4",
+    "order": 20,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Entrena a separar “gano fichas” de “gano dinero de torneo”.",
+    "theory": [
+      "Si el spot es +EV chips y −EV $, fold es a menudo correcto en burbuja/FT.",
+      "Trampa: idolatrar solo equity."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Si el spot es +EV chips y −EV $, fold es a menudo correcto en burbuja/FT."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-20",
+    "title": "Chip EV vs $EV drills"
+  },
+  {
+    "route": "mtt",
+    "module": "M4",
+    "order": 21,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Asigna rangos de shove/call según rol y stack, no solo tu mano.",
+    "theory": [
+      "Pregunta: ¿qué shoves este short? ¿Qué paga este mid?",
+      "Trampa: hand-reading de cash deep en burbuja."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Pregunta: ¿qué shoves este short? ¿Qué paga este mid?"
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "T-21",
+    "title": "Range reading en burbuja"
+  },
+  {
+    "route": "mtt",
+    "module": "M4",
+    "order": 22,
+    "plan": "coach",
+    "xp": 150,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Certificación MTT Pro. Sin teoría nueva.",
+    "theory": [
+      "Resume bubble roles.",
+      "Chip EV vs $EV en una frase."
+    ],
+    "examples": [
+      {
+        "title": "En la práctica",
+        "body": "Resume bubble roles."
+      }
+    ],
+    "aiQuestions": [
+      "¿En qué fase del torneo estoy?",
+      "¿Qué cambia vs cash?"
+    ],
+    "spots": [],
+    "exam": true,
+    "id": "T-22",
+    "title": "Examen Pro · MTT"
+  }
+];
+  var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
+  D.registerLessons(lessons);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school-data-ranges.js — Fase I: laboratorio R-01…R-06
+ * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+  
+  function spinCfg(extra) {
+    return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'spin', gameType: 'spin3', stackDepth: 'bb20' }, extra || {});
+  }
+  function mttCfg(extra) {
+    return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'early' }, extra || {});
+  }
+  function packSpots(kind, D) {
+    var rfi = D.rfiSpot, vs = D.vsRfiSpot, iso = D.isoSpot;
+    if (kind === 'SPIN_RFI_STEAL') return [
+      rfi('s01-01', 'BTN', ['Ah', 'Td'], 40101, { teachBack: 'ATo BTN a ~20 bb: steal/open claro.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-02', 'BTN', ['7c', '2d'], 40102, { trapTag: 'dominated', teachBack: '72o: fold. No stealees basura total.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-03', 'SB', ['Ks', 'Js'], 40103, { teachBack: 'KJs SB: open/steal razonable a 20 bb.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-04', 'SB', ['Qd', '8c'], 40104, { trapTag: 'fancy_play', teachBack: 'Q8o SB: a menudo fold — no eres BTN.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-05', 'BTN', ['9s', '9c'], 40105, { teachBack: '99 BTN: open claro.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-06', 'BTN', ['8h', '7h'], 40106, { teachBack: '87s BTN: steal razonable con jugabilidad.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_VS_STEAL') return [
+      vs('s02-01', 'BB_vs_BTN', ['As', 'Kd'], 40201, { teachBack: 'AKo vs steal BTN: 3-bet/value claro.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-02', 'BB_vs_BTN', ['7c', '2d'], 40202, { trapTag: 'dominated', teachBack: '72o: fold. No overdefend.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-03', 'BB_vs_SB', ['Qh', 'Js'], 40203, { teachBack: 'QJs vs SB steal: defensa razonable.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-04', 'BB_vs_BTN', ['Ad', '5d'], 40204, { teachBack: 'A5s: 3-bet farol/pressure frecuente vs BTN.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-05', 'BB_vs_BTN', ['Td', '8c'], 40205, { trapTag: 'fancy_play', teachBack: 'T8o: fold típico vs steal — no hero-call.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-06', 'BB_vs_SB', ['9s', '9c'], 40206, { teachBack: '99 vs SB: 3-bet o continue sólido.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_EXAM_M0') return packSpots('SPIN_RFI_STEAL', D).slice(0, 3).concat(packSpots('SPIN_VS_STEAL', D).slice(0, 3));
+    if (kind === 'SPIN_ISO') return [
+      iso('s04-01', 'BTN', 'SB', ['Ah', 'Js'], 40401, { teachBack: 'AJs BTN vs limp: iso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-02', 'BTN', 'SB', ['7c', '2d'], 40402, { trapTag: 'dominated', teachBack: '72o: fold. No overiso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-03', 'SB', 'BTN', ['Kd', 'Qs'], 40403, { teachBack: 'KQs: iso value.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
+      iso('s04-04', 'BTN', 'SB', ['Qd', '8c'], 40404, { trapTag: 'fancy_play', teachBack: 'Q8o: fold frecuente.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_SHOVE' || kind === 'SPIN_PUSH' || kind === 'SPIN_EXAM_M1') return [
+      rfi('sp-01', 'BTN', ['As', 'Ts'], 40501, { teachBack: 'ATs corto: shove/open shove candidato.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-02', 'BTN', ['7c', '2d'], 40502, { trapTag: 'dominated', teachBack: '72o: fold. No panic shove.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-03', 'SB', ['Kh', 'Js'], 40503, { teachBack: 'KJs SB corto: shove frecuente.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) }),
+      rfi('sp-04', 'BTN', ['9s', '9c'], 40504, { teachBack: '99: shove value claro a 10–12 bb.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) })
+    ];
+    if (kind === 'MTT_EARLY') return [
+      rfi('t01-01', 'BTN', ['Ah', 'Td'], 50101, { teachBack: 'ATo BTN early: open cash-like.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-02', 'UTG', ['Qd', '8c'], 50102, { trapTag: 'dominated', teachBack: 'Q8o UTG early: fold. Paciencia.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-03', 'CO', ['Ks', 'Js'], 50103, { teachBack: 'KJs CO: open estándar early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-04', 'UTG', ['7h', '2d'], 50104, { trapTag: 'dominated', teachBack: '72o: fold. No spew early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-05', 'BTN', ['9s', '9c'], 50105, { teachBack: '99 BTN: open claro.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-06', 'HJ', ['Ah', '5d'], 50106, { trapTag: 'fancy_play', teachBack: 'A5o HJ early: a menudo fold — no spew.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) })
+    ];
+    if (kind === 'MTT_EXAM_M0') return packSpots('MTT_EARLY', D).slice(0, 4);
+    if (kind === 'MTT_STEAL') return [
+      rfi('t04-01', 'BTN', ['Kh', '9s'], 50401, { teachBack: 'K9o BTN mid: steal razonable.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-02', 'BTN', ['7c', '2d'], 50402, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-03', 'CO', ['As', '5s'], 50403, { teachBack: 'A5s CO: steal/open OK mid.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-04', 'SB', ['Qd', 'Td'], 50404, { teachBack: 'QTs SB: open/steal frecuente.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-05', 'CO', ['Jd', '8c'], 50405, { trapTag: 'fancy_play', teachBack: 'J8o CO: fold típico.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-06', 'BTN', ['8h', '7h'], 50406, { teachBack: '87s BTN: steal con jugabilidad.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) })
+    ];
+    if (kind === 'MTT_3BET' || kind === 'MTT_RESTEAL') return [
+      vs('t05-01', 'BB_vs_BTN', ['As', 'Kd'], 50501, { teachBack: 'AKo: 3-bet value vs steal.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-02', 'BB_vs_BTN', ['Ad', '4d'], 50502, { teachBack: 'A4s: 3-bet polar/farol frecuente.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-03', 'BB_vs_CO', ['7c', '2d'], 50503, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-04', 'BB_vs_BTN', ['Qh', '9c'], 50504, { trapTag: 'fancy_play', teachBack: 'Q9o: no 3-bet spew. Fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) })
+    ];
+    if (kind === 'MTT_EXAM_M1') return packSpots('MTT_STEAL', D).slice(0, 2).concat(packSpots('MTT_3BET', D).slice(0, 2));
+    if (kind === 'MTT_SHORT' || kind === 'MTT_PUSH') return [
+      rfi('t09-01', 'BTN', ['Ah', '5s'], 50901, { teachBack: 'A5o BTN a ~10–12 bb: shove candidato.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
+      rfi('t09-02', 'BTN', ['7c', '2d'], 50902, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-03', 'SB', ['Ks', 'Ts'], 50903, { teachBack: 'KTs SB corto: shove frecuente.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-04', 'CO', ['9s', '9c'], 50904, { teachBack: '99: shove value.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) })
+    ];
+    return [];
+  }
+  function resolveSpots(lesson, D) {
+    if (typeof lesson.spots === 'string') lesson.spots = packSpots(lesson.spots, D);
+    return lesson;
+  }
+
+  if (D.setRouteStatus) {
+    D.setRouteStatus('ranges', 'active');
+    if (D.ROUTES && !D.ROUTES.some(function (r) { return r.id === 'ranges'; })) {
+      D.ROUTES.push({ id: 'ranges', label: 'Rangos', status: 'active' });
+    }
+  }
+  var RAW = [
+  {
+    "route": "ranges",
+    "module": "M0",
+    "order": 0,
+    "plan": "free",
+    "xp": 40,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "La matriz 13×13 muestra con qué frecuencia se juega cada mano. Aprende a leerla antes de memorizar.",
+    "theory": [
+      "Filas/columnas son ranks (A…2). Suited arriba/un lado, offsuit al otro, pares en diagonal — según la UI del menú Rangos.",
+      "Un color o % indica frecuencia: no todo es “siempre” o “nunca”.",
+      "Abre el menú Rangos y localiza RFI BTN vs UTG: el BTN es mucho más wide."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Filas/columnas son ranks (A…2). Suited arriba/un lado, offsuit al otro, pares en diagonal — según la UI del menú Rangos."
+      }
+    ],
+    "aiQuestions": [
+      "¿Dónde están los pares en la matriz?",
+      "¿Qué significa un % en una celda?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "R-01",
+    "title": "Leer un range chart 13×13"
+  },
+  {
+    "route": "ranges",
+    "module": "M0",
+    "order": 1,
+    "plan": "study",
+    "xp": 70,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Ejercicio mental: lista las categorías de open desde el botón (pares, broadway, suited connectors…).",
+    "theory": [
+      "En 60 segundos, nombra bandas: 22+, A2s+, ATo+, K9s+, etc. Luego contrasta con el menú Rangos.",
+      "El objetivo no es memorizar pixel a pixel; es tener un mapa mental.",
+      "Trampa: open BTN “cualquier dos” sin bandas."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "En 60 segundos, nombra bandas: 22+, A2s+, ATo+, K9s+, etc. Luego contrasta con el menú Rangos."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "R-02",
+    "title": "Construir RFI BTN en 60 s"
+  },
+  {
+    "route": "ranges",
+    "module": "M0",
+    "order": 2,
+    "plan": "study",
+    "xp": 80,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Dado un flop, estima qué parte del rango rival pegó pareja, draw o aire.",
+    "theory": [
+      "Ejemplo: rango BTN wide en K72r conecta top pair menos que en JTs9. La textura cambia la ventaja de rango.",
+      "Úsalo para decidir c-bet (enlace con Cash M2).",
+      "Trampa: asumir que “siempre conectó” o “nunca conectó”."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Ejemplo: rango BTN wide en K72r conecta top pair menos que en JTs9. La textura cambia la ventaja de rango."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "R-03",
+    "title": "Qué % del rango conecta un board"
+  },
+  {
+    "route": "ranges",
+    "module": "M1",
+    "order": 3,
+    "plan": "coach",
+    "xp": 90,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Tus cartas quitan combinaciones del rango rival (blockers). Eso cambia faroles y bluff-catchers.",
+    "theory": [
+      "Con A♠X, el rival tiene menos AA y menos AKx de ese palo. Por eso Axs es farol frecuente de 3-bet (C-08).",
+      "Practica: “¿qué combos quito?” antes de farolear river.",
+      "Trampa: farolear sin blockers en rivers pesados."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Con A♠X, el rival tiene menos AA y menos AKx de ese palo. Por eso Axs es farol frecuente de 3-bet (C-08)."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "R-04",
+    "title": "Eliminación de combos (blockers)"
+  },
+  {
+    "route": "ranges",
+    "module": "M1",
+    "order": 4,
+    "plan": "coach",
+    "xp": 90,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Tras open–call–check–bet, reduce el rango rival a una historia creíble.",
+    "theory": [
+      "Cada acción elimina manos. El rango se “capea” o se polariza según la línea.",
+      "Ejercicio: escribe 2–3 manos tipo que llegan a ese river.",
+      "Trampa: poner al rival siempre en la mano que te gana."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Cada acción elimina manos. El rango se “capea” o se polariza según la línea."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "R-05",
+    "title": "Asignar rango rival tras una línea"
+  },
+  {
+    "route": "ranges",
+    "module": "M1",
+    "order": 5,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "En un nodo GTO, las acciones tienen frecuencias (a veces bet 70 / check 30). No todo es puro.",
+    "theory": [
+      "Node locking mental: eliges una acción “como si” mezclaras, aunque en práctica juegues una línea.",
+      "Útil para entender por qué un spot no es “siempre c-bet”.",
+      "Trampa: exigir 100 % o 0 % en todos los spots."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Node locking mental: eliges una acción “como si” mezclaras, aunque en práctica juegues una línea."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "R-06",
+    "title": "Node frequencies (pro)"
+  }
+];
+  var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
+  D.registerLessons(lessons);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school-data-pro.js — Fase I: Pro Cash C-26…C-31 (Coach)
+ * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+  
+  function spinCfg(extra) {
+    return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'spin', gameType: 'spin3', stackDepth: 'bb20' }, extra || {});
+  }
+  function mttCfg(extra) {
+    return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'early' }, extra || {});
+  }
+  function packSpots(kind, D) {
+    var rfi = D.rfiSpot, vs = D.vsRfiSpot, iso = D.isoSpot;
+    if (kind === 'SPIN_RFI_STEAL') return [
+      rfi('s01-01', 'BTN', ['Ah', 'Td'], 40101, { teachBack: 'ATo BTN a ~20 bb: steal/open claro.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-02', 'BTN', ['7c', '2d'], 40102, { trapTag: 'dominated', teachBack: '72o: fold. No stealees basura total.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-03', 'SB', ['Ks', 'Js'], 40103, { teachBack: 'KJs SB: open/steal razonable a 20 bb.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-04', 'SB', ['Qd', '8c'], 40104, { trapTag: 'fancy_play', teachBack: 'Q8o SB: a menudo fold — no eres BTN.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-05', 'BTN', ['9s', '9c'], 40105, { teachBack: '99 BTN: open claro.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-06', 'BTN', ['8h', '7h'], 40106, { teachBack: '87s BTN: steal razonable con jugabilidad.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_VS_STEAL') return [
+      vs('s02-01', 'BB_vs_BTN', ['As', 'Kd'], 40201, { teachBack: 'AKo vs steal BTN: 3-bet/value claro.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-02', 'BB_vs_BTN', ['7c', '2d'], 40202, { trapTag: 'dominated', teachBack: '72o: fold. No overdefend.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-03', 'BB_vs_SB', ['Qh', 'Js'], 40203, { teachBack: 'QJs vs SB steal: defensa razonable.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-04', 'BB_vs_BTN', ['Ad', '5d'], 40204, { teachBack: 'A5s: 3-bet farol/pressure frecuente vs BTN.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-05', 'BB_vs_BTN', ['Td', '8c'], 40205, { trapTag: 'fancy_play', teachBack: 'T8o: fold típico vs steal — no hero-call.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-06', 'BB_vs_SB', ['9s', '9c'], 40206, { teachBack: '99 vs SB: 3-bet o continue sólido.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_EXAM_M0') return packSpots('SPIN_RFI_STEAL', D).slice(0, 3).concat(packSpots('SPIN_VS_STEAL', D).slice(0, 3));
+    if (kind === 'SPIN_ISO') return [
+      iso('s04-01', 'BTN', 'SB', ['Ah', 'Js'], 40401, { teachBack: 'AJs BTN vs limp: iso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-02', 'BTN', 'SB', ['7c', '2d'], 40402, { trapTag: 'dominated', teachBack: '72o: fold. No overiso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
+      iso('s04-03', 'SB', 'BTN', ['Kd', 'Qs'], 40403, { teachBack: 'KQs: iso value.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
+      iso('s04-04', 'BTN', 'SB', ['Qd', '8c'], 40404, { trapTag: 'fancy_play', teachBack: 'Q8o: fold frecuente.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'SPIN_SHOVE' || kind === 'SPIN_PUSH' || kind === 'SPIN_EXAM_M1') return [
+      rfi('sp-01', 'BTN', ['As', 'Ts'], 40501, { teachBack: 'ATs corto: shove/open shove candidato.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-02', 'BTN', ['7c', '2d'], 40502, { trapTag: 'dominated', teachBack: '72o: fold. No panic shove.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
+      rfi('sp-03', 'SB', ['Kh', 'Js'], 40503, { teachBack: 'KJs SB corto: shove frecuente.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) }),
+      rfi('sp-04', 'BTN', ['9s', '9c'], 40504, { teachBack: '99: shove value claro a 10–12 bb.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) })
+    ];
+    if (kind === 'MTT_EARLY') return [
+      rfi('t01-01', 'BTN', ['Ah', 'Td'], 50101, { teachBack: 'ATo BTN early: open cash-like.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-02', 'UTG', ['Qd', '8c'], 50102, { trapTag: 'dominated', teachBack: 'Q8o UTG early: fold. Paciencia.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-03', 'CO', ['Ks', 'Js'], 50103, { teachBack: 'KJs CO: open estándar early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-04', 'UTG', ['7h', '2d'], 50104, { trapTag: 'dominated', teachBack: '72o: fold. No spew early.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-05', 'BTN', ['9s', '9c'], 50105, { teachBack: '99 BTN: open claro.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
+      rfi('t01-06', 'HJ', ['Ah', '5d'], 50106, { trapTag: 'fancy_play', teachBack: 'A5o HJ early: a menudo fold — no spew.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) })
+    ];
+    if (kind === 'MTT_EXAM_M0') return packSpots('MTT_EARLY', D).slice(0, 4);
+    if (kind === 'MTT_STEAL') return [
+      rfi('t04-01', 'BTN', ['Kh', '9s'], 50401, { teachBack: 'K9o BTN mid: steal razonable.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-02', 'BTN', ['7c', '2d'], 50402, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-03', 'CO', ['As', '5s'], 50403, { teachBack: 'A5s CO: steal/open OK mid.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-04', 'SB', ['Qd', 'Td'], 50404, { teachBack: 'QTs SB: open/steal frecuente.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-05', 'CO', ['Jd', '8c'], 50405, { trapTag: 'fancy_play', teachBack: 'J8o CO: fold típico.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t04-06', 'BTN', ['8h', '7h'], 50406, { teachBack: '87s BTN: steal con jugabilidad.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) })
+    ];
+    if (kind === 'MTT_3BET' || kind === 'MTT_RESTEAL') return [
+      vs('t05-01', 'BB_vs_BTN', ['As', 'Kd'], 50501, { teachBack: 'AKo: 3-bet value vs steal.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-02', 'BB_vs_BTN', ['Ad', '4d'], 50502, { teachBack: 'A4s: 3-bet polar/farol frecuente.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-03', 'BB_vs_CO', ['7c', '2d'], 50503, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t05-04', 'BB_vs_BTN', ['Qh', '9c'], 50504, { trapTag: 'fancy_play', teachBack: 'Q9o: no 3-bet spew. Fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) })
+    ];
+    if (kind === 'MTT_EXAM_M1') return packSpots('MTT_STEAL', D).slice(0, 2).concat(packSpots('MTT_3BET', D).slice(0, 2));
+    if (kind === 'MTT_SHORT' || kind === 'MTT_PUSH') return [
+      rfi('t09-01', 'BTN', ['Ah', '5s'], 50901, { teachBack: 'A5o BTN a ~10–12 bb: shove candidato.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
+      rfi('t09-02', 'BTN', ['7c', '2d'], 50902, { trapTag: 'dominated', teachBack: '72o: fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-03', 'SB', ['Ks', 'Ts'], 50903, { teachBack: 'KTs SB corto: shove frecuente.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-04', 'CO', ['9s', '9c'], 50904, { teachBack: '99: shove value.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) })
+    ];
+    return [];
+  }
+  function resolveSpots(lesson, D) {
+    if (typeof lesson.spots === 'string') lesson.spots = packSpots(lesson.spots, D);
+    return lesson;
+  }
+
+  if (D.setRouteStatus) {
+
+  }
+  var RAW = [
+  {
+    "route": "cash",
+    "module": "M4",
+    "order": 26,
+    "plan": "coach",
+    "xp": 120,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "El 4-bet (y cold 4-bet sin haber abierto) es la capa siguiente al 3-bet: value premium y faroles con blockers.",
+    "theory": [
+      "Value: KK+/AK a menudo. Faroles: ases suited selectivos. Cold 4-bet: subes sin haber entrado antes — más tight.",
+      "Vs 3-bet early, 4-beteas menos light que vs 3-bet BTN.",
+      "Trampa: 4-bet spew con KQo offsuit."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Value: KK+/AK a menudo. Faroles: ases suited selectivos. Cold 4-bet: subes sin haber entrado antes — más tight."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "C-26",
+    "title": "4-bet / cold 4-bet"
+  },
+  {
+    "route": "cash",
+    "module": "M4",
+    "order": 27,
+    "plan": "coach",
+    "xp": 110,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "En single-raised pot fuera de posición a stacks deep, construyes check-call y check-raise con plan.",
+    "theory": [
+      "No autocbet OOP en wet (C-16). Deep: más calles por delante; pot control importa.",
+      "Líneas: check-call con medias; check-raise polar con fuertes/faroles.",
+      "Trampa: donk bet spew sin plan."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "No autocbet OOP en wet (C-16). Deep: más calles por delante; pot control importa."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "C-27",
+    "title": "SRP OOP deep"
+  },
+  {
+    "route": "cash",
+    "module": "M4",
+    "order": 28,
+    "plan": "coach",
+    "xp": 120,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Mismo spot, dos rivales: vs fish value-bet más thin; vs reg bluffea más selectivo.",
+    "theory": [
+      "Fish: paga de más → value thin. Reg: defiende mejor → faroles con blockers y menos thin crazy.",
+      "No juegues un solo “GTO” ciego a la población.",
+      "Trampa: farolear rivers vs calling station."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Fish: paga de más → value thin. Reg: defiende mejor → faroles con blockers y menos thin crazy."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "C-28",
+    "title": "Explotación fish vs reg"
+  },
+  {
+    "route": "cash",
+    "module": "M4",
+    "order": 29,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Ejercicio: dado un board y una línea, describe el rango rival en bandas (no una sola mano).",
+    "theory": [
+      "Escribe value / medias / aire. Contrasta con el menú Rangos cuando exista chart.",
+      "Enlace con R-05.",
+      "Trampa: put hero en “siempre la nuts”."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Escribe value / medias / aire. Contrasta con el menú Rangos cuando exista chart."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "C-29",
+    "title": "Range vs range (quiz)"
+  },
+  {
+    "route": "cash",
+    "module": "M4",
+    "order": 30,
+    "plan": "coach",
+    "xp": 100,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Piensa frecuencias: “aquí c-beteo ~70 %”. Aunque ejecutes una acción, entiendes el mix.",
+    "theory": [
+      "Ayuda a no tiltar cuando el chart “a veces check”.",
+      "Enlace con R-06.",
+      "Trampa: exigir pure strategies en todos lados."
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Ayuda a no tiltar cuando el chart “a veces check”."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": false,
+    "id": "C-30",
+    "title": "Node locking mental"
+  },
+  {
+    "route": "cash",
+    "module": "M4",
+    "order": 31,
+    "plan": "coach",
+    "xp": 160,
+    "passThreshold": 1,
+    "goldThreshold": 1,
+    "decisionEnd": true,
+    "hands": 0,
+    "concept": "Certificación Cash Pro: 4-bet, SRP OOP, explotación y rangos. Sin teoría nueva.",
+    "theory": [
+      "Resume 4-bet value vs farol.",
+      "Fish vs reg en river value: ¿qué cambia?"
+    ],
+    "examples": [
+      {
+        "title": "Idea clave",
+        "body": "Resume 4-bet value vs farol."
+      }
+    ],
+    "aiQuestions": [
+      "¿Qué debo recordar de esta lección?"
+    ],
+    "spots": [],
+    "exam": true,
+    "id": "C-31",
+    "title": "Examen Pro · Cash"
+  }
+];
+  var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
+  D.registerLessons(lessons);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school.js — Escuela de Póker: hub multi-ruta (Cash/Spins/MTT/Rangos), runner de spots.
+ * Menú visible solo para admin (SCHOOL_PUBLIC=false). Fases G–J: Spins, MTT, rangos/pro, leaks→lección.
  * Las manos consumen cupo Free del trainer.
  */
 (function (global) {
@@ -1640,14 +3651,16 @@
     return { ok: true, lesson: lesson };
   }
 
-  function schoolPlayConfig(spot) {
+  function schoolPlayConfig(spot, lesson) {
+    var route = (lesson && lesson.route) || (spot && spot.route) || state.route || 'cash';
+    var hub = route === 'spin' ? 'spin' : (route === 'mtt' ? 'mtt' : 'cash');
     var base = {
       scenario: 'rfi',
       practiceStreet: 'preflop',
       handRange: 'all',
       villainLevel: 'fish',
-      formatHub: 'cash',
-      gameType: 'cash6',
+      formatHub: hub,
+      gameType: hub === 'spin' ? 'spin3' : (hub === 'mtt' ? 'mtt' : 'cash6'),
       liveAdvisor: false,
       handsTarget: 0,
       schoolMode: true,
@@ -1814,7 +3827,8 @@
     updateSchoolBanner();
     var force = spotToForce(s.spots[index]);
     if (typeof global.playAnalysisHand === 'function') {
-      global.playAnalysisHand(force, schoolPlayConfig(s.spots[index]));
+      var lesson = Data() && Data().getLesson(s.lessonId);
+      global.playAnalysisHand(force, schoolPlayConfig(s.spots[index], lesson));
     }
   }
 
@@ -2028,19 +4042,69 @@
     return '<span class="school-plan-badge school-plan-free">Gratis</span>';
   }
 
+  var ROUTE_HERO = {
+    cash: {
+      eyebrow: 'Admin · Cash · Menú solo administración',
+      title: 'Escuela de Póker',
+      lead: 'Fundamentos → preflop → postflop → Pro Coach. Gates de plan activos. Las manos consumen el cupo Free del entrenador.'
+    },
+    spin: {
+      eyebrow: 'Admin · Spins · Menú solo administración',
+      title: 'Ruta Spins',
+      lead: 'ICM, steal, push/fold y heads-up. Intro gratis; Study hasta M1; Pro en Coach.'
+    },
+    mtt: {
+      eyebrow: 'Admin · MTT · Menú solo administración',
+      title: 'Ruta Torneos',
+      lead: 'Early game, mid, short stack y burbuja. El bloque burbuja/FT exige Coach.'
+    },
+    ranges: {
+      eyebrow: 'Admin · Rangos · Menú solo administración',
+      title: 'Laboratorio de rangos',
+      lead: 'Construir, defender y leer rangos. Complementa cash y torneos.'
+    }
+  };
+
+  var MODULE_COPY = {
+    cash: {
+      M0: { title: 'M0 · Fundamentos Cash (Gratis)', lead: 'Desbloqueo lineal.' },
+      M1: { title: 'M1 · Preflop core (Study)', lead: 'Defensa BB, 3-bet, squeeze, iso.' },
+      M2: { title: 'M2 · Postflop core (Study)', lead: 'Textura, c-bet, defensa, barrels.' },
+      M4: { title: 'M4 · Pro Cash (Coach)', lead: '4-bet, SRP OOP, explotación y examen Pro.' }
+    },
+    spin: {
+      M0: { title: 'M0 · Intro Spins (Gratis/Study)', lead: 'Lobbies, steal y defensa.' },
+      M1: { title: 'M1 · Short stack (Study)', lead: 'Iso, shove y charts.' },
+      M2: { title: 'M2 · ICM / HU (Study–Coach)', lead: 'Payout, pressure y heads-up.' },
+      M3: { title: 'M3 · Pro Spins (Coach)', lead: 'Explotación y examen Pro.' }
+    },
+    mtt: {
+      M0: { title: 'M0 · Early MTT', lead: 'Paciencia y opens deep.' },
+      M1: { title: 'M1 · Mid / steal', lead: 'Steal, 3-bet y resteal.' },
+      M2: { title: 'M2 · Short stack', lead: 'Push/fold antes de la burbuja.' },
+      M3: { title: 'M3 · Antes de burbuja', lead: 'Ajuste de stack y presión.' },
+      M4: { title: 'M4 · Burbuja / FT (Coach)', lead: 'ICM, roles y mesa final.' }
+    },
+    ranges: {
+      M0: { title: 'M0 · Bases de rangos', lead: 'Construir y defender.' },
+      M1: { title: 'M1 · Lectura y frecuencias', lead: 'Asignar rango y node frequencies.' }
+    }
+  };
+
   function renderHub(root) {
     var data = Data();
     var school = readSchool();
     var lv = levelFromXp(school.xp);
     var routes = (data && data.ROUTES) || [];
-    var lessons = data.lessonsForRoute(state.route);
-    var rp = routeProgress(state.route);
-        var routeTabs = routes.map(function (r) {
-      var active = r.id === state.route ? ' is-active' : '';
+    var routeId = state.route || 'cash';
+    var hero = ROUTE_HERO[routeId] || ROUTE_HERO.cash;
+    var rp = routeProgress(routeId);
+    var routeTabs = routes.map(function (r) {
+      var active = r.id === routeId ? ' is-active' : '';
       var soon = r.status === 'soon' ? ' is-soon' : '';
       var title = r.status === 'soon' ? (r.teaser || 'Próximamente') : '';
       return '<button type="button" class="school-route-tab' + active + soon + '" data-school-route="' + esc(r.id) + '"' +
-        (r.status === 'soon' ? ' disabled title="' + esc(title) + '"' : '') + '>' +
+        (r.status !== 'active' ? ' disabled title="' + esc(title) + '"' : '') + '>' +
         esc(r.label) + (r.status === 'soon' ? ' <span class="school-soon">Pronto</span>' : '') +
         '</button>';
     }).join('');
@@ -2076,27 +4140,39 @@
           '</button>';
       }).join('');
     }
-    var m0 = data.m0Lessons ? data.m0Lessons() : lessons.filter(function (l) { return l.module === 'M0'; });
-    var m1 = data.m1Lessons ? data.m1Lessons() : lessons.filter(function (l) { return l.module === 'M1'; });
-    var m2 = data.m2Lessons ? data.m2Lessons() : lessons.filter(function (l) { return l.module === 'M2'; });
-    var m0Passed = 0; m0.forEach(function (l) { if (isLessonPassed(l.id)) m0Passed += 1; });
-    var m1Passed = 0; m1.forEach(function (l) { if (isLessonPassed(l.id)) m1Passed += 1; });
-    var m2Passed = 0; m2.forEach(function (l) { if (isLessonPassed(l.id)) m2Passed += 1; });
-    var nodesM0 = renderModuleNodes(m0, 0);
-    var nodesM1 = renderModuleNodes(m1, m0.length);
-    var nodesM2 = renderModuleNodes(m2, m0.length + m1.length);
+
+    var modules = typeof data.modulesInRoute === 'function'
+      ? data.modulesInRoute(routeId)
+      : [];
+    var modCopy = MODULE_COPY[routeId] || {};
+    var idx = 0;
+    var sections = modules.map(function (modId) {
+      var modLessons = typeof data.lessonsForModule === 'function'
+        ? data.lessonsForModule(routeId, modId)
+        : data.lessonsForRoute(routeId).filter(function (l) { return l.module === modId; });
+      var passed = 0;
+      modLessons.forEach(function (l) { if (isLessonPassed(l.id)) passed += 1; });
+      var copy = modCopy[modId] || { title: modId, lead: '' };
+      var html = '<section class="school-map card-box">' +
+        '<h3 class="school-map-title">' + esc(copy.title) + '</h3>' +
+        '<p class="muted-text school-map-lead">' + passed + '/' + modLessons.length +
+        (copy.lead ? ' · ' + esc(copy.lead) : '') + '</p>' +
+        '<div class="school-nodes">' + renderModuleNodes(modLessons, idx) + '</div></section>';
+      idx += modLessons.length;
+      return html;
+    }).join('');
 
     root.innerHTML =
       '<div class="school-page">' +
       '<header class="school-hero">' +
-      '<p class="school-eyebrow">Admin · Fases D–F · Menú solo administración</p>' +
-      '<h2 class="school-title">Escuela de Póker</h2>' +
-      '<p class="school-lead">M0 Gratis + M1/M2 Study (preflop y postflop). Gates de plan activos. Las manos consumen el cupo Free del entrenador.</p>' +
+      '<p class="school-eyebrow">' + esc(hero.eyebrow) + '</p>' +
+      '<h2 class="school-title">' + esc(hero.title) + '</h2>' +
+      '<p class="school-lead">' + esc(hero.lead) + '</p>' +
       '<div class="school-hero-stats">' +
       '<div class="school-stat"><span class="school-stat-val">Nv. ' + lv.level + '</span><span class="school-stat-lbl">Nivel Escuela</span></div>' +
       '<div class="school-stat"><span class="school-stat-val">' + lv.xp + '</span><span class="school-stat-lbl">XP</span></div>' +
-      '<div class="school-stat"><span class="school-stat-val">' + m0Passed + '/' + m0.length + '</span><span class="school-stat-lbl">M0</span></div>' +
-      '<div class="school-stat"><span class="school-stat-val">' + (m1Passed + m2Passed) + '/' + (m1.length + m2.length) + '</span><span class="school-stat-lbl">M1–M2</span></div>' +
+      '<div class="school-stat"><span class="school-stat-val">' + rp.passed + '/' + rp.total + '</span><span class="school-stat-lbl">Ruta</span></div>' +
+      '<div class="school-stat"><span class="school-stat-val">' + rp.gold + '</span><span class="school-stat-lbl">Oro</span></div>' +
       '</div>' +
       '<div class="school-xp-bar" aria-hidden="true"><div class="school-xp-fill school-xp-fill-anim" style="width:' +
       Math.min(100, Math.round((lv.into / lv.per) * 100)) + '%"></div></div>' +
@@ -2105,24 +4181,14 @@
       (soonTeasers
         ? '<div class="muted-text school-route-teasers">Próximas rutas:<ul class="school-teaser-list">' + soonTeasers + '</ul></div>'
         : '') +
-      '<section class="school-map card-box">' +
-      '<h3 class="school-map-title">M0 · Fundamentos Cash (Gratis)</h3>' +
-      '<p class="muted-text school-map-lead">' + m0Passed + '/' + m0.length + ' completadas. Desbloqueo lineal.</p>' +
-      '<div class="school-nodes">' + nodesM0 + '</div></section>' +
-      '<section class="school-map card-box">' +
-      '<h3 class="school-map-title">M1 · Preflop core (Study)</h3>' +
-      '<p class="muted-text school-map-lead">' + m1Passed + '/' + m1.length + ' · Defensa BB, 3-bet, squeeze, iso.</p>' +
-      '<div class="school-nodes">' + nodesM1 + '</div></section>' +
-      '<section class="school-map card-box">' +
-      '<h3 class="school-map-title">M2 · Postflop core (Study)</h3>' +
-      '<p class="muted-text school-map-lead">' + m2Passed + '/' + m2.length + ' · Textura, c-bet, defensa, barrels.</p>' +
-      '<div class="school-nodes">' + nodesM2 + '</div></section>' +
+      (sections || '<p class="muted-text">No hay lecciones en esta ruta.</p>') +
       '</div>';
 
     root.querySelectorAll('[data-school-route]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = btn.getAttribute('data-school-route');
-        if (!id || id === 'spin' || id === 'mtt') return;
+        var route = routes.find(function (r) { return r.id === id; });
+        if (!id || !route || route.status !== 'active') return;
         state.route = id;
         render(root);
       });
@@ -2168,7 +4234,9 @@
       '<div class="school-page school-lesson-page">' +
       '<button type="button" class="btn btn-ghost school-back" id="school-back-hub">« Volver al mapa</button>' +
       '<header class="school-lesson-header">' +
-      '<p class="school-eyebrow">' + esc(lesson.id) + ' · ' + esc(lesson.module || 'M0') + ' Cash ' + planBadge(lesson.plan) + '</p>' +
+      '<p class="school-eyebrow">' + esc(lesson.id) + ' · ' + esc(lesson.module || 'M0') + ' · ' +
+      esc((Data().ROUTES.find(function (r) { return r.id === lesson.route; }) || { label: lesson.route || 'Cash' }).label) +
+      ' ' + planBadge(lesson.plan) + '</p>' +
       '<h2 class="school-title">' + esc(lesson.title) + '</h2>' +
       '<p class="school-lead">' + esc(lesson.concept) + '</p>' +
       (p && p.passed
@@ -2337,6 +4405,36 @@
     });
   }
 
+  /** Deep-link desde Leaks / reportes → lección (solo si el menú Escuela es visible). */
+  function openLesson(lessonId) {
+    if (!schoolMenuVisible() || !lessonId) return false;
+    var data = Data();
+    var lesson = data && data.getLesson(lessonId);
+    if (!lesson) return false;
+    try { delete global.__ptPendingSchoolLesson; } catch (e) { /* ignore */ }
+    state.route = lesson.route || 'cash';
+    state.view = VIEW.lesson;
+    state.lessonId = lesson.id;
+    state.session = null;
+    if (typeof global.goToTab === 'function') global.goToTab('school');
+    else {
+      var host = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+      if (host) render(host);
+    }
+    return true;
+  }
+
+  function consumePendingLesson() {
+    var pending = global.__ptPendingSchoolLesson;
+    if (!pending) return;
+    try { delete global.__ptPendingSchoolLesson; } catch (e) { /* ignore */ }
+    var lesson = Data() && Data().getLesson(pending);
+    if (!lesson) return;
+    state.route = lesson.route || 'cash';
+    state.view = VIEW.lesson;
+    state.lessonId = lesson.id;
+  }
+
   function render(container) {
     var root = container || document.getElementById('school-content');
     if (!root) return;
@@ -2348,6 +4446,7 @@
       root.innerHTML = '<div class="school-page"><p class="muted-text">Cargando currículum…</p></div>';
       return;
     }
+    consumePendingLesson();
     if (state.view === VIEW.lesson) renderLesson(root);
     else if (state.view === VIEW.result) renderResult(root);
     else renderHub(root);
@@ -2366,6 +4465,7 @@
 
   global.PTSchool = {
     render: render,
+    openLesson: openLesson,
     afterTrainerAction: afterTrainerAction,
     isSessionActive: isSessionActive,
     activeSession: activeSession,
