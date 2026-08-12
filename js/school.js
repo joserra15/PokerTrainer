@@ -981,6 +981,9 @@
         ? '<section class="card-box"><h3>Spots a repasar</h3><ul class="school-fail-list">' +
           fails.map(formatFailSpotHtml).join('') + '</ul></section>'
         : '') +
+      (global.PTSchoolShare && global.PTSchoolShare.buildPanelHtml
+        ? global.PTSchoolShare.buildPanelHtml(lesson, sum)
+        : '') +
       '<div class="school-result-actions">' +
       '<button type="button" class="btn btn-primary" id="school-retry">Repetir lección</button>' +
       (sum.passed && next
@@ -1004,6 +1007,18 @@
       state.view = VIEW.hub;
       render(root);
     });
+    var shareRoot = root.querySelector('.school-share');
+    if (shareRoot && global.PTSchoolShare && global.PTSchoolShare.mountSharePanel) {
+      try {
+        global.PTSchoolShare.mountSharePanel(shareRoot, lesson, sum);
+        trackSchool('lesson_share_panel', {
+          lessonId: lesson.id,
+          passed: !!sum.passed,
+          gold: !!sum.gold,
+          exam: !!lesson.exam
+        });
+      } catch (eShare) { /* ignore */ }
+    }
   }
 
   /** Deep-link desde Leaks / reportes → lección (solo si el menú Escuela es visible). */

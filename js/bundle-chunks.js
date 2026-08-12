@@ -112,6 +112,7 @@
       'js/school-data-ranges.js',
       'js/school-data-pro.js',
       'js/school-extra-spots.js',
+      'js/school-share.js',
       'js/school.js'
     ],
     contact: ['js/contact.js'],
