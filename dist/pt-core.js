@@ -23282,7 +23282,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.5.1';
+  const APP_VERSION = window.PT_BUILD || '2.5.2';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
