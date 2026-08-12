@@ -1605,34 +1605,24 @@ body.age-gate-open {
   font-size: 1.05rem;
 }
 .school-share-head .muted-text { margin: 0 0 12px; font-size: 13px; }
-.school-share-preview-wrap {
-  display: flex;
-  justify-content: center;
-  margin: 0 0 12px;
-  padding: 10px;
-  border-radius: 12px;
-  background: rgba(0,0,0,.25);
+.school-share-canvas-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  pointer-events: none;
 }
-.school-share-canvas {
-  width: min(100%, 320px);
-  height: auto;
-  aspect-ratio: 1;
-  border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(0,0,0,.35);
-  background: #0f172a;
-}
-.school-share-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.school-share-actions .school-share-btn { flex: 1 1 auto; min-width: 7.5rem; }
+.school-share { position: relative; }
+.school-share-actions { display: flex; }
+.school-share-actions .school-share-btn { width: 100%; }
 .school-share-status { margin: 10px 0 0; font-size: 13px; }
 .school-share-status.is-ok { color: #86efac; }
 .school-share-status.is-err { color: #fca5a5; }
-@media (max-width: 520px) {
-  .school-share-actions .school-share-btn { min-width: calc(50% - 8px); }
-}
 .school-m0-progress { margin: 10px 0 0; font-size: 13px; }
 .school-route-teasers { margin: 0 0 8px; }
 .school-teaser-list { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }

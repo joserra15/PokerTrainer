@@ -4913,36 +4913,17 @@
     });
   }
 
-  function openWindow(url) {
-    try {
-      global.open(url, '_blank', 'noopener,noreferrer');
-    } catch (e) {
-      global.location.href = url;
-    }
-  }
-
-  function encodeShare(text) {
-    return encodeURIComponent(text);
-  }
-
   function buildPanelHtml(lesson, summary) {
     var passed = !!(summary && summary.passed);
     return (
       '<section class="school-share card-box" aria-label="Compartir logro">' +
       '<div class="school-share-head">' +
       '<h3>' + (passed ? 'Comparte tu logro' : 'Comparte tu progreso') + '</h3>' +
-      '<p class="muted-text">Imagen lista para redes · incluye la URL de PokerForgeAI</p>' +
+      '<p class="muted-text">Se comparte la imagen del logro con la URL de PokerForgeAI.</p>' +
       '</div>' +
-      '<div class="school-share-preview-wrap">' +
-      '<canvas class="school-share-canvas" width="1080" height="1080" aria-label="Vista previa del logro"></canvas>' +
-      '</div>' +
-      '<div class="school-share-actions" role="group" aria-label="Redes sociales">' +
+      '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
+      '<div class="school-share-actions">' +
       '<button type="button" class="btn btn-primary school-share-btn" data-school-share="native">Compartir</button>' +
-      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="whatsapp">WhatsApp</button>' +
-      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="x">X</button>' +
-      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="facebook">Facebook</button>' +
-      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="download">Descargar imagen</button>' +
-      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="copy">Copiar texto + URL</button>' +
       '</div>' +
       '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
       '</section>'
@@ -4971,87 +4952,19 @@
     var text = buildShareText(lesson, summary);
     var url = siteUrl();
 
-    root.querySelectorAll('[data-school-share]').forEach(function (btn) {
+    var btn = root.querySelector('[data-school-share="native"]');
+    if (btn) {
       btn.addEventListener('click', function () {
-        var kind = btn.getAttribute('data-school-share');
-        handleShare(kind, canvas, text, url, root);
+        shareNative(canvas, text, url, root);
       });
-    });
+    }
     return { canvas: canvas, text: text, url: url };
-  }
-
-  function handleShare(kind, canvas, text, url, root) {
-    if (kind === 'whatsapp') {
-      openWindow('https://wa.me/?text=' + encodeShare(text));
-      setStatus(root, 'WhatsApp abierto. Si puedes, adjunta la imagen descargada.', true);
-      return;
-    }
-    if (kind === 'x') {
-      openWindow('https://twitter.com/intent/tweet?text=' + encodeShare(text));
-      setStatus(root, 'X abierto con el texto y la URL.', true);
-      return;
-    }
-    if (kind === 'facebook') {
-      openWindow('https://www.facebook.com/sharer/sharer.php?u=' + encodeShare(url) + '&quote=' + encodeShare(text));
-      setStatus(root, 'Facebook abierto. La imagen la puedes subir desde «Descargar imagen».', true);
-      return;
-    }
-    if (kind === 'copy') {
-      copyText(text).then(function () {
-        setStatus(root, 'Texto y URL copiados al portapapeles.', true);
-      }).catch(function () {
-        setStatus(root, 'No se pudo copiar, selecciónalo manualmente.', false);
-      });
-      return;
-    }
-    if (kind === 'download') {
-      canvasToBlob(canvas).then(function (blob) {
-        var a = document.createElement('a');
-        var obj = URL.createObjectURL(blob);
-        a.href = obj;
-        a.download = 'pokerforgeai-escuela-logro.png';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(function () { URL.revokeObjectURL(obj); }, 1500);
-        setStatus(root, 'Imagen descargada. Súbela a tus redes con el enlace.', true);
-      }).catch(function () {
-        setStatus(root, 'No se pudo descargar la imagen.', false);
-      });
-      return;
-    }
-    if (kind === 'native') {
-      shareNative(canvas, text, url, root);
-    }
-  }
-
-  function copyText(text) {
-    if (global.navigator && navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(text);
-    }
-    return new Promise(function (resolve, reject) {
-      try {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        var ok = document.execCommand('copy');
-        ta.remove();
-        if (ok) resolve();
-        else reject(new Error('copy failed'));
-      } catch (e) {
-        reject(e);
-      }
-    });
   }
 
   function shareNative(canvas, text, url, root) {
     var nav = global.navigator;
     if (!nav || typeof nav.share !== 'function') {
-      setStatus(root, 'Este dispositivo no tiene compartir nativo. Usa WhatsApp o descarga la imagen.', false);
+      setStatus(root, 'Este dispositivo no permite compartir desde el navegador.', false);
       return;
     }
     canvasToBlob(canvas).then(function (blob) {
@@ -5061,9 +4974,17 @@
       } catch (e) {
         file = null;
       }
-      var data = { title: 'PokerForgeAI · Escuela', text: text, url: url };
-      var withFile = file && nav.canShare && nav.canShare({ files: [file] });
-      if (withFile) data.files = [file];
+      /* Preferir solo la imagen (+ título corto): la URL ya va dibujada en la tarjeta. */
+      var data;
+      var withFile = file && (!nav.canShare || nav.canShare({ files: [file] }));
+      if (withFile) {
+        data = { title: 'PokerForgeAI · Escuela', files: [file] };
+        if (nav.canShare && !nav.canShare(data) && nav.canShare({ files: [file], text: text })) {
+          data = { title: 'PokerForgeAI · Escuela', text: text, files: [file] };
+        }
+      } else {
+        data = { title: 'PokerForgeAI · Escuela', text: text, url: url };
+      }
       return nav.share(data);
     }).then(function () {
       setStatus(root, 'Listo para compartir.', true);
@@ -5072,7 +4993,16 @@
         setStatus(root, '', true);
         return;
       }
-      setStatus(root, 'No se pudo abrir el menú de compartir. Prueba descargar la imagen.', false);
+      /* Fallback: algunos navegadores rechazan files-only */
+      return nav.share({ title: 'PokerForgeAI · Escuela', text: text, url: url }).then(function () {
+        setStatus(root, 'Listo para compartir.', true);
+      }).catch(function (err2) {
+        if (err2 && err2.name === 'AbortError') {
+          setStatus(root, '', true);
+          return;
+        }
+        setStatus(root, 'No se pudo abrir el menú de compartir.', false);
+      });
     });
   }
 
