@@ -2188,8 +2188,28 @@ body.age-gate-open {
 .hero-chips .seat-stack { font-size: 11px; margin-bottom: 3px; }
 .hero-chips { min-height: 22px; display: flex; justify-content: center; margin-bottom: 4px; }
 .hero-chips .seat-chips { margin: 0; }
-.seat.folded { opacity: 0.35; }
-.seat.folded .seat-cards { display: none; }
+.seat.folded { opacity: 0.88; }
+.seat.folded .seat-cards .card { display: none; }
+.seat-folded-mark {
+  min-height: 30px;
+  align-items: center;
+}
+.seat-fold-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f3e0b8;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(243, 224, 184, 0.35);
+}
 .seat.acting {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(244, 213, 141, .5), 0 4px 16px rgba(0, 0, 0, .45);
@@ -2207,6 +2227,7 @@ body.age-gate-open {
 .seat.seat-mini .seat-chips,
 .seat.seat-mini .seat-act-wrap,
 .seat.seat-mini .seat-role { display: none; }
+.seat.folded .seat-folded-mark { display: flex; }
 .card.back {
   background: linear-gradient(150deg, #121820 0%, #05080b 55%, #0d141c 100%);
   color: transparent;

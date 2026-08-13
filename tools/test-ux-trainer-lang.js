@@ -121,5 +121,10 @@ assert.ok(/function openSessionBlockPopup/.test(app), 'block popup exists');
 assert.ok(/openSessionBlockPopup\(target\)/.test(app), 'block popup called on finish');
 assert.ok(/recordSeriousAlert/.test(app), 'app records serious alerts');
 assert.ok(/syncAdvisorSettingsToSession/.test(app), 'settings sync to live session');
+assert.ok(/seatFoldMarkHTML/.test(app) && /seat-fold-label/.test(app), 'Fold en asiento al foldear villano');
+
+const styles = fs.readFileSync(path.join(__dirname, '..', 'css/styles.css'), 'utf8');
+assert.ok(/seat-fold-label/.test(styles), 'estilo etiqueta Fold');
+assert.ok(!/\.seat\.folded\s+\.seat-cards\s*\{\s*display:\s*none/.test(styles.replace(/\s+/g, ' ')), 'cartas foldeadas no ocultan el asiento entero');
 
 console.log('OK test-ux-trainer-lang');

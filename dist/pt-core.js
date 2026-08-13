@@ -26516,6 +26516,10 @@ window.PT_VS_3BET_JSON = {
     return `<span class="seat-act bet"><span class="chip-ico"></span>${lbl}${amt ? ' · ' + amt : ''}</span>`;
   }
 
+  function seatFoldMarkHTML() {
+    return '<div class="seat-cards seat-folded-mark" aria-label="Fold"><span class="seat-fold-label">Fold</span></div>';
+  }
+
   function handNameOnBoard() {
     const view = handPresent(hand);
     const board = view && view.board ? view.board : hand.board;
@@ -26645,7 +26649,8 @@ window.PT_VS_3BET_JSON = {
         || (hand.scenario.callerPositions && hand.scenario.callerPositions.indexOf(pos) >= 0)
         || (hand.opponents && hand.opponents.some(function (o) { return o.pos === pos; }))
       );
-      const inPot = inHand.has(pos) && !folded[pos] && !isHero;
+      const isFolded = !!folded[pos];
+      const inPot = inHand.has(pos) && !isFolded && !isHero;
       const cls = ['seat'];
       if (isHero) cls.push('hero');
       if (isVillain) cls.push('villain');
@@ -26657,7 +26662,7 @@ window.PT_VS_3BET_JSON = {
       if (c.left < 22) cls.push('seat-edge-left');
       else if (c.left > 78) cls.push('seat-edge-right');
       if (c.top < 12) cls.push('seat-edge-top');
-      if (folded[pos]) cls.push('folded');
+      if (isFolded) cls.push('folded');
       if (actingPos && pos === actingPos) cls.push('acting');
 
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? (hand.multiway ? 'En bote' : 'Pagador') : ''));
@@ -26665,17 +26670,17 @@ window.PT_VS_3BET_JSON = {
       const seatActs = view ? (view.seatActions || {}) : (hand.seatActions || {});
       const villainAct = view ? view.villainAction : hand.villainAction;
       let actHtml = '';
-      if (!folded[pos]) {
+      if (!isFolded) {
         const skipSeatAct = mobile && isVillain && villainAct;
         if (!skipSeatAct && isVillain && villainAct) actHtml = actionBadgeHTML(villainAct);
         else if (seatActs[pos]) actHtml = actionBadgeHTML(seatActs[pos]);
-      } else if (view && seatActs[pos]) {
-        actHtml = actionBadgeHTML(seatActs[pos]);
       }
 
       const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
       let cardsHtml = '';
-      if (showCards) {
+      if (isFolded && !isHero) {
+        cardsHtml = seatFoldMarkHTML();
+      } else if (showCards) {
         if (revealHoles) {
           cardsHtml = '<div class="seat-cards showdown">' + holeCards[pos].map(Cards.cardToHTML).join('') + '</div>';
         } else {
@@ -26685,9 +26690,9 @@ window.PT_VS_3BET_JSON = {
 
       const totalInv = invested[pos] || 0;
       const stBet = streetBet[pos] || 0;
-      const inFront = folded[pos] ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
-      // En móvil: asientos vivos en el bote (p.ej. BB aún por hablar) no se colapsan a mini
-      const showFullSeat = !mobile || isVillain || isCaller || inPot || stBet > 0 || inFront > 0 || showCards;
+      const inFront = isFolded ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
+      // En móvil: asientos vivos o foldeados (Fold en lugar de cartas) no se colapsan a mini
+      const showFullSeat = !mobile || isVillain || isCaller || inPot || isFolded || stBet > 0 || inFront > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
       const betHtml = renderSeatBet(inFront, seatBetPlacement(c));
@@ -32078,7 +32083,9 @@ window.PT_VS_3BET_JSON = {
       if (c.top < 12) cls.push('seat-edge-top');
       const role = isHero ? 'Héroe' : (isVillain ? 'Villano' : '');
       let cardsHtml = '';
-      if (isVillain && !folded[pos]) {
+      if (isVillain && folded[pos]) {
+        cardsHtml = seatFoldMarkHTML();
+      } else if (isVillain && !folded[pos]) {
         const known = holeByPos[pos];
         cardsHtml = seatCardsHTML(known, !!(known && known.length >= 2));
       }
@@ -32377,7 +32384,9 @@ window.PT_VS_3BET_JSON = {
       const actHtml = act && !state.folded[pos] ? actionBadgeHTML(act) : '';
       const chipsHtml = renderSeatChips(state.totalInvBB[pos] || 0, state.streetBetBB[pos] || 0);
       let cardsHtml = '';
-      if (!isHero && isParticipant && !state.folded[pos]) {
+      if (!isHero && isParticipant && state.folded[pos]) {
+        cardsHtml = seatFoldMarkHTML();
+      } else if (!isHero && isParticipant && !state.folded[pos]) {
         cardsHtml = seatCardsHTML(null, false);
       }
 
