@@ -87,6 +87,36 @@
     return 60;
   }
 
+  /** Límite de .txt embebido: dumps grandes (30k+ manos) no caben en localStorage/nube. */
+  const RAW_TEXT_MAX_CHARS = 1200000;
+  /** Payload JSON ~2.5 MB/sesión; dumps CoinPoker de 20k+ manos hay que partirlos. */
+  const MAX_HANDS_PER_SESSION = 500;
+
+  function chunkFileName(fileName, index, total) {
+    if (total <= 1) return fileName || 'sesion.txt';
+    return (fileName || 'sesion.txt') + ' · ' + (index + 1) + '/' + total;
+  }
+
+  /** Parte un parseo grande en varios payloads para guardar sin reventar cuota/API. */
+  function chunkParsedSession(parsed, maxHands) {
+    if (!parsed || parsed.source === 'tournamentSummary') return [parsed];
+    const cap = maxHands > 0 ? maxHands : MAX_HANDS_PER_SESSION;
+    const hands = parsed.hands || [];
+    if (hands.length <= cap) return [parsed];
+    const total = Math.ceil(hands.length / cap);
+    const out = [];
+    for (let i = 0; i < total; i++) {
+      out.push(Object.assign({}, parsed, {
+        hands: hands.slice(i * cap, (i + 1) * cap),
+        fileName: chunkFileName(parsed.fileName, i, total),
+        sourceFileName: parsed.sourceFileName || parsed.fileName,
+        chunkIndex: i,
+        chunkTotal: total
+      }));
+    }
+    return out;
+  }
+
   /** Parsea sesiones grandes en lotes para no bloquear la UI. */
   function parseSessionAsync(text, fileName, onProgress) {
     var blocks = splitHandBlocks(text || '');
@@ -106,25 +136,27 @@
         try {
           var end = Math.min(i + chunk, blocks.length);
           for (; i < end; i++) {
-            var h = parseHand(blocks[i]);
-            var keep = global.PTHHUtils && global.PTHHUtils.isKeepableHand
-              ? global.PTHHUtils.isKeepableHand(h)
-              : { ok: !!(h && h.bb > 0), reason: 'badParse' };
-            if (!keep.ok) {
-              if (keep.reason && discardedByReason[keep.reason] != null) discardedByReason[keep.reason]++;
-              else discardedByReason.badParse++;
-              continue;
-            }
-            if (h.hero) heroCount[h.hero] = (heroCount[h.hero] || 0) + 1;
-            hands.push(h);
-            if (!detectedFormat && h.platform) {
-              detectedFormat = {
-                platform: h.platform,
-                platformLabel: platformLabelFor(h.platform),
-                locale: h.locale || null,
-                localeLabel: h.locale === 'es' ? 'Español' : 'English'
-              };
-            }
+            try {
+              var h = parseHand(blocks[i]);
+              var keep = global.PTHHUtils && global.PTHHUtils.isKeepableHand
+                ? global.PTHHUtils.isKeepableHand(h)
+                : { ok: !!(h && h.bb > 0), reason: 'badParse' };
+              if (!keep.ok) {
+                if (keep.reason && discardedByReason[keep.reason] != null) discardedByReason[keep.reason]++;
+                else discardedByReason.badParse++;
+                continue;
+              }
+              if (h.hero) heroCount[h.hero] = (heroCount[h.hero] || 0) + 1;
+              hands.push(h);
+              if (!detectedFormat && h.platform) {
+                detectedFormat = {
+                  platform: h.platform,
+                  platformLabel: platformLabelFor(h.platform),
+                  locale: h.locale || null,
+                  localeLabel: h.locale === 'es' ? 'Español' : 'English'
+                };
+              }
+            } catch (parseErr) { discardedByReason.badParse++; }
           }
           if (onProgress) onProgress(i, blocks.length, 'parse');
           if (i < blocks.length) setTimeout(step, 0);
@@ -139,9 +171,13 @@
               var d = detectSessionFormat(text);
               if (d) fmt = { platform: d.platform, platformLabel: d.platformLabel, locale: d.locale, localeLabel: d.localeLabel };
             }
+            var heroCandidates = Object.keys(heroCount).map(function (n) {
+              return { name: n, hands: heroCount[n] };
+            }).sort(function (a, b) { return b.hands - a.hands; });
             resolve({
               fileName: fileName || 'sesion.txt',
               hero: hero,
+              heroCandidates: heroCandidates,
               hands: hands,
               discardedByReason: discardedByReason,
               format: fmt
@@ -209,7 +245,7 @@
     if (VT && VT.preflopRangeFromHand) return VT.preflopRangeFromHand(hand, hero);
     let raiseCount = 0;
     let heroRaised = false;
-    hand.streets.preflop.forEach((a) => {
+    (hand.streets && hand.streets.preflop || []).forEach((a) => {
       if (a.type === 'raise') {
         raiseCount++;
         if (a.player === hero) heroRaised = true;
@@ -261,7 +297,7 @@
 
   function inferHeroPostflopContext(hand, hero) {
     let heroRaised = false;
-    hand.streets.preflop.forEach((a) => {
+    (hand.streets && hand.streets.preflop || []).forEach((a) => {
       if (a.type === 'raise' && a.player === hero) heroRaised = true;
     });
     return {
@@ -621,8 +657,8 @@
     if (RR) hand.rangeContext = RR.inferFromHand(hand);
 
     const hero = hand.hero;
-    const heroPos = hand.positions[hero] || '??';
-    const heroCards = hand.heroCards;
+    const heroPos = (hand.positions && hero && hand.positions[hero]) || '??';
+    const heroCards = hand.heroCards || [];
     const code = heroCards.length === 2 ? R.handCode(heroCards[0], heroCards[1]) : null;
     const bb = hand.bb || 0.05;
 
@@ -1335,8 +1371,12 @@
         discardCounts.noHeroCards++;
         continue;
       }
-      const a = analyzeHand(h);
-      kept.push(a);
+      try {
+        kept.push(analyzeHand(h));
+      } catch (e) {
+        discarded++;
+        discardCounts.badParse++;
+      }
     }
     const stats = computeStats(kept);
     return sessionPayload(parsed, fileName, hero, kept, discarded, stats, rawText, discardCounts);
@@ -1372,7 +1412,12 @@
               discardCounts.noHeroCards++;
               continue;
             }
-            kept.push(analyzeHand(h));
+            try {
+              kept.push(analyzeHand(h));
+            } catch (e) {
+              discarded++;
+              discardCounts.badParse++;
+            }
           }
           if (onProgress) onProgress(i, hands.length, 'analyze');
           if (i < hands.length) setTimeout(step, 0);
@@ -1384,7 +1429,8 @@
   }
 
   function sessionPayload(parsed, fileName, hero, kept, discarded, stats, rawText, discardCounts) {
-    const txt = rawText != null ? rawText : (parsed && parsed.rawText) || null;
+    const srcTxt = rawText != null ? rawText : (parsed && parsed.rawText) || null;
+    const txt = (srcTxt && srcTxt.length <= RAW_TEXT_MAX_CHARS) ? srcTxt : null;
     const U = global.PTHHUtils;
     const context = U && U.buildSessionContext
       ? U.buildSessionContext(kept, discardCounts || parsed.discardedByReason)
@@ -2662,6 +2708,7 @@
 
   global.Importer = {
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
+    chunkParsedSession, MAX_HANDS_PER_SESSION, RAW_TEXT_MAX_CHARS,
     heroPlayed, computeStats, heroPreflopHud, heroStyleHud, assessVpipPfr, assessStyleStats,
     sampleTrust, styleIdealForFormat, inferSessionFormat, inferSessionFormatKey, formatKeyToRangeGameType,
     drillsFromAssess, buildHandTags, computeBbPer100CI,

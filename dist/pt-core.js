@@ -16436,7 +16436,14 @@ window.PT_VS_3BET_JSON = {
 
   /** Reduce tamaño de sesión para localStorage (197 manos ≈ 580 KB → 230 KB). */
   function slimSession(session) {
-    const s = JSON.parse(JSON.stringify(session));
+    const raw = session && session.rawText;
+    if (session) session.rawText = null;
+    let s;
+    try {
+      s = JSON.parse(JSON.stringify(session || {}));
+    } finally {
+      if (session && raw != null) session.rawText = raw;
+    }
     delete s.rawText;
     (s.hands || []).forEach(function (h) {
       (h.decisions || []).forEach(function (d) {
@@ -18587,7 +18594,14 @@ window.PT_VS_3BET_JSON = {
   }
 
   function slimPayload(session) {
-    const s = JSON.parse(JSON.stringify(session || {}));
+    const raw = session && session.rawText;
+    if (session) session.rawText = null;
+    let s;
+    try {
+      s = JSON.parse(JSON.stringify(session || {}));
+    } finally {
+      if (session && raw != null) session.rawText = raw;
+    }
     delete s.rawText;
     (s.hands || []).forEach(function (h) {
       (h.decisions || []).forEach(function (d) {
@@ -29674,34 +29688,75 @@ window.PT_VS_3BET_JSON = {
         parsed.heroConfirmed = true;
         parsed.filterHero = true;
       }
-      const onProgress = function (done, total, phase) {
-        setProgress(done, total, phase || 'analyze', fileLabel);
-      };
-      const session = Importer.buildSessionAsync
-        ? await Importer.buildSessionAsync(parsed, file.name, onProgress, text)
-        : Importer.buildSession(parsed, file.name, text);
-      if (Ent && Ent.recordImportSession) {
-        const rec = await Ent.recordImportSession(session.hands.length);
+      const parts = (!isTournamentSummary && Importer.chunkParsedSession)
+        ? Importer.chunkParsedSession(parsed)
+        : [parsed];
+      const totalHands = isTournamentSummary ? 0 : (parsed.hands || []).length;
+      let analyzedBase = 0;
+      let lastSession = null;
+      let lastSave = null;
+      let handsImported = 0;
+      let anySaved = false;
+      let lastSaveError = null;
+      for (let p = 0; p < parts.length; p++) {
+        const part = parts[p];
+        const partLabel = parts.length > 1
+          ? (fileLabel + ' · parte ' + (p + 1) + '/' + parts.length)
+          : fileLabel;
+        const onProgress = function (done, total, phase) {
+          const overallDone = (phase === 'analyze') ? (analyzedBase + done) : done;
+          const overallTotal = (phase === 'analyze' && totalHands) ? totalHands : total;
+          setProgress(overallDone, overallTotal, phase || 'analyze', partLabel);
+        };
+        let session;
+        try {
+          session = Importer.buildSessionAsync
+            ? await Importer.buildSessionAsync(part, part.fileName || file.name, onProgress, text)
+            : Importer.buildSession(part, part.fileName || file.name, text);
+        } catch (partErr) {
+          lastSaveError = (partErr && partErr.message) || String(partErr);
+          analyzedBase += (part.hands || []).length;
+          continue;
+        }
+        analyzedBase += (part.hands || []).length;
+        const saveResult = await Store.saveSession(session);
+        lastSave = saveResult;
+        if (saveResult && saveResult.ok === false) {
+          lastSaveError = saveResult.error || lastSaveError;
+        } else {
+          anySaved = true;
+        }
+        const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
+        handsImported += (finalSession.hands || []).length;
+        lastSession = finalSession;
+      }
+      if (!lastSession) {
+        return {
+          ok: false,
+          error: lastSaveError || ('No se pudo analizar «' + file.name + '».')
+        };
+      }
+      if (Ent && Ent.recordImportSession && anySaved) {
+        const rec = await Ent.recordImportSession(handsImported || totalHands);
         if (rec && rec.ok === false) {
           return { ok: false, paywall: rec.error, error: rec.error };
         }
       }
-      const saveResult = await Store.saveSession(session);
-      const saved = saveResult && saveResult.ok !== false;
-      const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
       if (window.PTAnalytics && PTAnalytics.trackImportSession) {
         PTAnalytics.trackImportSession({
-          hands: finalSession.hands.length,
-          platform: finalSession.format && finalSession.format.platform
+          hands: handsImported,
+          platform: lastSession.format && lastSession.format.platform
         });
       }
       return {
         ok: true,
-        saved: saved,
-        cloudOnly: !!(saveResult && saveResult.cloudOnly),
-        saveError: saveResult && saveResult.error,
-        session: finalSession,
-        format: finalSession.format || parsed.format || fmtMeta
+        saved: anySaved,
+        cloudOnly: !!(lastSave && lastSave.cloudOnly),
+        saveError: lastSaveError,
+        session: lastSession,
+        handsImported: handsImported,
+        sessionParts: parts.length,
+        format: lastSession.format || parsed.format || fmtMeta
       };
     }
 
@@ -29724,11 +29779,19 @@ window.PT_VS_3BET_JSON = {
         hideProgress();
         const ok = results.filter(function (r) { return r.ok; });
         const fail = results.filter(function (r) { return !r.ok && !r.paywall; });
-        const hands = ok.reduce(function (n, r) { return n + ((r.session && r.session.hands) || []).length; }, 0);
+        const hands = ok.reduce(function (n, r) {
+          return n + (r.handsImported != null
+            ? r.handsImported
+            : ((r.session && r.session.hands) || []).length);
+        }, 0);
         let msg = '';
         if (ok.length) {
+          const partN = ok.reduce(function (n, r) { return n + (r.sessionParts || 1); }, 0);
           msg = '<span style="color:var(--green)">' + ok.length + ' archivo(s) · ' +
             hands.toLocaleString('es-ES') + ' manos analizadas</span>';
+          if (partN > ok.length) {
+            msg += ' <span class="muted-text">(' + partN + ' sesiones)</span>';
+          }
           const mixBits = [];
           ok.forEach(function (r) {
             const mix = r.session && r.session.context && r.session.context.mix;
@@ -29744,6 +29807,11 @@ window.PT_VS_3BET_JSON = {
           if (fail.length) {
             msg += ' <span style="color:var(--yellow)">· ' + fail.length + ' con error</span>';
           }
+          ok.forEach(function (r) {
+            if (r.saveError) {
+              msg += ' <span style="color:var(--yellow)">· ' + escapeHtml(r.saveError) + '</span>';
+            }
+          });
         } else if (fail.length) {
           msg = '<span style="color:var(--red)">' + escapeHtml(fail[0].error || 'No se pudo importar') + '</span>';
         }

@@ -47,7 +47,14 @@
 
   /** Reduce tamaño de sesión para localStorage (197 manos ≈ 580 KB → 230 KB). */
   function slimSession(session) {
-    const s = JSON.parse(JSON.stringify(session));
+    const raw = session && session.rawText;
+    if (session) session.rawText = null;
+    let s;
+    try {
+      s = JSON.parse(JSON.stringify(session || {}));
+    } finally {
+      if (session && raw != null) session.rawText = raw;
+    }
     delete s.rawText;
     (s.hands || []).forEach(function (h) {
       (h.decisions || []).forEach(function (d) {

@@ -133,24 +133,31 @@
         continue;
       }
 
-      if ((m = ln.match(/^Tournament\s+'([^']+)'\s+'(\d+)'(.*)$/i))) {
+      // Nombre puede llevar apóstrofe (Champion's); el id es el último '12345'
+      if (/^Tournament\s+/i.test(ln)) {
         headerText += ' ' + ln;
         hand.isTournament = true;
         hand.isCash = false;
-        hand.tournamentName = m[1];
-        hand.tournamentId = m[2];
-        const rest = m[3] || '';
-        const tmax = U.detectTableMaxFromText(ln) || U.detectTableMaxFromText(rest);
-        if (tmax) hand.tableMax = tmax;
-        if ((m = ln.match(/Seat\s+#(\d+)\s+is the button/i))) hand.buttonSeat = +m[1];
-        const bi = String(hand.tournamentName).match(/[₮€$£]\s*([\d.,]+)/);
-        if (bi) {
-          hand.buyIn = numCp(bi[1]);
-          hand.buyInFee = hand.buyInFee || 0;
-          if (/₮/.test(hand.tournamentName)) hand.currency = '₮';
-          else if (/€/.test(hand.tournamentName)) hand.currency = '€';
-          else if (/\$/.test(hand.tournamentName)) hand.currency = '$';
+        const tm = ln.match(/^Tournament\s+'(.+)'\s+'(\d+)'(.*)$/i);
+        if (tm) {
+          hand.tournamentName = tm[1];
+          hand.tournamentId = tm[2];
+          const rest = tm[3] || '';
+          const tmax = U.detectTableMaxFromText(ln) || U.detectTableMaxFromText(rest);
+          if (tmax) hand.tableMax = tmax;
+          const bi = String(hand.tournamentName).match(/[₮€$£]\s*([\d.,]+)/);
+          if (bi) {
+            hand.buyIn = numCp(bi[1]);
+            hand.buyInFee = hand.buyInFee || 0;
+            if (/₮/.test(hand.tournamentName)) hand.currency = '₮';
+            else if (/€/.test(hand.tournamentName)) hand.currency = '€';
+            else if (/\$/.test(hand.tournamentName)) hand.currency = '$';
+          }
+        } else {
+          const tmax = U.detectTableMaxFromText(ln);
+          if (tmax) hand.tableMax = tmax;
         }
+        if ((m = ln.match(/Seat\s+#(\d+)\s+is the button/i))) hand.buttonSeat = +m[1];
         continue;
       }
 
@@ -243,11 +250,12 @@
         hand.uncalledTo[m[2].trim()] = (hand.uncalledTo[m[2].trim()] || 0) + numCp(m[1]);
         continue;
       }
-      if ((m = ln.match(new RegExp('^(.+?) collected\\s+' + CUR + '([\\d.,]+) from (?:main )?pot', 'i')))) {
+      if ((m = ln.match(new RegExp('^(.+?) collected\\s+' + CUR + '([\\d.,]+) from (?:(?:main|side)\\s+)?pot', 'i')))) {
         const who = m[1].trim();
         hand.collected[who] = (hand.collected[who] || 0) + numCp(m[2]);
         continue;
       }
+      if (/^(.+?): (?:mucks|doesn't show)/i.test(ln)) continue;
       if ((m = ln.match(/^(.+?): shows \[(.+?)\]/i))) {
         hand.shows[m[1].trim()] = cardsFrom(m[2]);
         continue;

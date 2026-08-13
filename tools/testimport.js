@@ -328,6 +328,55 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   assert(cashParsed.hands[0].tableMax === 6, 'CoinPoker cash 6-max');
   assert(cashParsed.hands[0].bb === 0.5, 'CoinPoker cash bb 0.50 got ' + cashParsed.hands[0].bb);
   console.log('CoinPoker detect/keep OK (9 MTT + 1 cash)');
+
+  const champHh = [
+    "CoinPoker Hand #129883400001: NLH (50/100/13) 2026/08/09 17:30:11 CEST",
+    "Tournament 'BoM-H Champion's Trials QTR Final' '83321' 6-max Seat #2 is the button",
+    "Seat 1: Hero (2,500 in chips)",
+    "Seat 2: e07e8310 (2,500 in chips)",
+    "Seat 3: 748e39a8 (2,500 in chips)",
+    "Hero: posts ante 13",
+    "e07e8310: posts ante 13",
+    "748e39a8: posts ante 13",
+    "748e39a8: posts small blind 50",
+    "Hero: posts big blind 100",
+    "*** HOLE CARDS ***",
+    "Dealt to Hero [7s 6c]",
+    "Dealt to e07e8310",
+    "Dealt to 748e39a8",
+    "e07e8310: raises 150 to 250",
+    "748e39a8: folds",
+    "Hero: folds",
+    "e07e8310: RETURN 150",
+    "*** SHOWDOWN ***",
+    "e07e8310 collected 328 from pot",
+    "*** SUMMARY ***",
+    "Total pot 328",
+    "Board [  ]",
+    "Seat 1: Hero folded before Flop (didn't bet)",
+    "Seat 2: e07e8310 won (328)",
+    "Seat 3: 748e39a8 folded before Flop (didn't bet)"
+  ].join('\n');
+  const champParsed = Importer.parseSession(champHh, 'coinpoker-champion.txt');
+  assert(champParsed.hands.length === 1, 'Champion apostrophe 1 mano');
+  assert(champParsed.hands[0].gameKind === 'mtt', 'Champion apostrophe es MTT got ' + champParsed.hands[0].gameKind);
+  assert(champParsed.hands[0].tournamentId === '83321', 'Champion tournamentId');
+  assert(champParsed.hands[0].tournamentName.indexOf("Champion's") >= 0, 'Champion name conserva apóstrofe');
+  assert(champParsed.hands[0].buttonSeat === 2, 'Champion buttonSeat 2 got ' + champParsed.hands[0].buttonSeat);
+  assert(champParsed.hands[0].tableMax === 6, 'Champion 6-max');
+  const champSes = Importer.buildSession(champParsed, 'coinpoker-champion.txt');
+  assert(champSes.hands.length === 1, 'Champion sesión 1 mano');
+  assert(champSes.hands[0].heroPos, 'Champion heroPos asignado got ' + champSes.hands[0].heroPos);
+  console.log("CoinPoker Champion's apostrophe MTT OK");
+
+  const chunked = Importer.chunkParsedSession({
+    fileName: 'big.txt', hero: 'Hero', hands: Array.from({ length: 1200 }, (_, i) => ({ id: String(i) }))
+  }, 500);
+  assert(chunked.length === 3, 'chunk 1200/500 → 3 partes got ' + chunked.length);
+  assert(chunked[0].fileName === 'big.txt · 1/3', 'chunk nombre 1/3 got ' + chunked[0].fileName);
+  assert(chunked[2].hands.length === 200, 'chunk última parte 200 got ' + chunked[2].hands.length);
+  assert(Importer.chunkParsedSession({ fileName: 's.txt', hands: [{ id: '1' }] }).length === 1, 'chunk pequeño no parte');
+  console.log('chunkParsedSession OK');
 })();
 
 console.log('*** IMPORTADOR OK (cash/spins/MTT + P2 + P3 + CoinPoker) ***');
