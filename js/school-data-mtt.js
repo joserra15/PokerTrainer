@@ -14,7 +14,7 @@
     return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'early' }, extra || {});
   }
   function packSpots(kind, D) {
-    var rfi = D.rfiSpot, vs = D.vsRfiSpot, iso = D.isoSpot;
+    var rfi = D.rfiSpot, vs = D.vsRfiSpot, iso = D.isoSpot, bb = D.bbVsSbLimpSpot;
     if (kind === 'SPIN_RFI_STEAL') return [
       rfi('s01-01', 'BTN', ['Ah', 'Td'], 40101, { teachBack: 'ATo BTN ~20 bb: shove (all-in) por valor. A esta profundidad no min-raisees premium offsuit — shove o fold.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
       rfi('s01-02', 'BTN', ['7c', '2d'], 40102, { trapTag: 'dominated', teachBack: '72o: fold. No stealees basura total: si te pagan o te re-suben, la mano casi nunca aguanta.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
@@ -44,19 +44,20 @@
       vs('s02-12', 'BB_vs_SB', ['Jd', '8c'], 40212, { trapTag: 'fancy_play', teachBack: 'J8o vs steal SB: fold. No hero-defiendas basura en Spin.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) })
     ];
     if (kind === 'SPIN_EXAM_M0') return packSpots('SPIN_RFI_STEAL', D).slice(0, 7).concat(packSpots('SPIN_VS_STEAL', D).slice(0, 7));
+    /* Spins 3-max: BTN actúa primero. No existe «SB limpea, hero BTN». */
     if (kind === 'SPIN_ISO') return [
-      iso('s04-01', 'BTN', 'SB', ['Ah', 'Js'], 40401, { teachBack: 'AJs en BTN vs limp de SB: iso (aislar). Subes para jugar heads-up contra el limper con una mano fuerte que domina muchos limps wide. No hagas call flat detrás — quieres iniciativa, no multiway.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-02', 'BTN', 'SB', ['7c', '2d'], 40402, { trapTag: 'dominated', teachBack: '72o vs limp: fold. No overiso (aislar de más) con basura: o te dejan en pot multiway o te pagan dominado. A stack corto ese error duele entero el torneo.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-03', 'SB', 'BTN', ['Kd', 'Qs'], 40403, { teachBack: 'KQs vs limp corto: iso por valor. Mano fuerte — quieres bote heads-up con iniciativa, no limpear detrás ni hacer call pasivo. Castiga el limp y juega con ventaja.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
-      iso('s04-04', 'BTN', 'SB', ['Qd', '8c'], 40404, { trapTag: 'fancy_play', teachBack: 'Q8o vs limp: fold frecuente. No aísles manos frágiles que no mejoran bien postflop y se dominan fácil. Si no merecería open sin limp, tampoco merece iso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-05', 'BTN', 'SB', ['9s', '9c'], 40405, { teachBack: '99 BTN vs limp: iso claro. Par medio fuerte — aísla y cobra a limps wide.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-06', 'BTN', 'SB', ['Jh', 'Td'], 40406, { teachBack: 'JTo vs limp: a menudo fold o iso muy selectivo. Offsuit marginal — no overiso.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-07', 'SB', 'BTN', ['As', 'Kd'], 40407, { teachBack: 'AKo vs limp: iso value. Premium — quieres heads-up con iniciativa.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
-      iso('s04-08', 'BTN', 'SB', ['5c', '4d'], 40408, { trapTag: 'dominated', teachBack: '54o vs limp: fold. No aísles conectores offsuit basura a stack corto.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-09', 'BTN', 'SB', ['Ah', '5h'], 40409, { teachBack: 'A5s vs limp: iso razonable. Ax suited castiga limps y juega bien postflop.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-10', 'BTN', 'SB', ['Kc', '9d'], 40410, { trapTag: 'fancy_play', teachBack: 'K9o vs limp: fold frecuente. Frágil offsuit — no mereces iso automático.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) }),
-      iso('s04-11', 'SB', 'BTN', ['Ts', 'Ts'], 40411, { teachBack: 'TT vs limp: iso value. Par fuerte — aísla y construye bote.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
-      iso('s04-12', 'BTN', 'SB', ['8h', '7h'], 40412, { teachBack: '87s vs limp: iso selectivo OK. Conectores suited con plan; sizing ~3–4 bb, no shove.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb20' }) })
+      bb('s04-01', ['Ah', 'Js'], 40401, { teachBack: 'AJs en BB vs limp de SB: iso (aislar). En Spin 3-max el BTN actúa primero; si ya foldó y el SB limpea, tú en BB aíslas con manos fuertes. Quieres heads-up con iniciativa, no check eterno con value.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
+      bb('s04-02', ['7c', '2d'], 40402, { trapTag: 'dominated', teachBack: '72o vs limp SB: check (opción gratis). No overiso con basura: ya estás en el bote. A stack corto aislar trash duele entero el torneo.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
+      iso('s04-03', 'SB', 'BTN', ['Kd', 'Qs'], 40403, { teachBack: 'KQs en SB vs limp de BTN: iso por valor. En 3-max el BTN puede limpear primero; desde SB castigas el limp con manos fuertes — heads-up con iniciativa, no limpear detrás.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
+      bb('s04-04', ['Qd', '8c'], 40404, { trapTag: 'fancy_play', teachBack: 'Q8o vs limp SB: check frecuente. No aísles manos frágiles que no mejoran bien postflop. Si no merecería open sin limp, tampoco merece iso desde BB.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
+      bb('s04-05', ['9s', '9c'], 40405, { teachBack: '99 BB vs limp SB: iso claro. Par medio fuerte — aísla y cobra a limps wide.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
+      bb('s04-06', ['Jh', 'Td'], 40406, { teachBack: 'JTo vs limp SB: a menudo check. Offsuit marginal — no overiso desde BB.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
+      iso('s04-07', 'SB', 'BTN', ['As', 'Kd'], 40407, { teachBack: 'AKo en SB vs limp BTN: iso value. Premium — quieres heads-up con iniciativa.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
+      bb('s04-08', ['5c', '4d'], 40408, { trapTag: 'dominated', teachBack: '54o vs limp SB: check. No aísles conectores offsuit basura a stack corto.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
+      bb('s04-09', ['Ah', '5h'], 40409, { teachBack: 'A5s BB vs limp SB: iso razonable. Ax suited castiga limps y juega bien postflop.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
+      bb('s04-10', ['Kc', '9d'], 40410, { trapTag: 'fancy_play', teachBack: 'K9o vs limp SB: check frecuente. Frágil offsuit — no mereces iso automático.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
+      iso('s04-11', 'SB', 'BTN', ['Ts', 'Ts'], 40411, { teachBack: 'TT en SB vs limp BTN: iso value. Par fuerte — aísla y construye bote.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
+      bb('s04-12', ['8h', '7h'], 40412, { teachBack: '87s BB vs limp SB: iso selectivo OK. Conectores suited con plan; sizing ~3–4 bb, no shove.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) })
     ];
     if (kind === 'SPIN_SHOVE' || kind === 'SPIN_PUSH') return [
       rfi('sp-01', 'BTN', ['As', 'Ts'], 40501, { teachBack: 'ATs con ~12 bb en BTN: shove (all-in) candidato. A esta profundidad un open pequeño suele ser peor que ir all-in o fold: ganas fold equity o vas a doblar con equity decente si te pagan.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
