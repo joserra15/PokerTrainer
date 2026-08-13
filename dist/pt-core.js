@@ -1727,7 +1727,8 @@ window.PT_VS_3BET_JSON = {
   };
 
   const STACK_BB = {
-    bb200: 200, bb100: 100, bb50: 50, bb25: 25, bb20: 20, bb15: 15, bb10: 10,
+    bb200: 200, bb100: 100, bb50: 50, bb45: 45, bb40: 40, bb25: 25, bb22: 22, bb20: 20,
+    bb15: 15, bb12: 12, bb11: 11, bb10: 10,
     standard: 100, short: 40, deep: 150
   };
   const GAME_LABELS = {
@@ -1748,7 +1749,11 @@ window.PT_VS_3BET_JSON = {
     let gameType = c.gameType || 'cash6';
     if (gameType === 'spin') gameType = 'spin3';
     const stackDepthKey = c.stackDepth || 'bb100';
-    const stackBB = c.stackBB != null ? Number(c.stackBB) : (STACK_BB[stackDepthKey] || 100);
+    let stackBB = c.stackBB != null ? Number(c.stackBB) : (STACK_BB[stackDepthKey] || null);
+    if (stackBB == null || isNaN(stackBB)) {
+      const m = /^bb(\d+(?:\.\d+)?)$/.exec(String(stackDepthKey));
+      stackBB = m ? Number(m[1]) : 100;
+    }
     const stackDepth = rangeStackCategory(stackDepthKey, stackBB);
     const Tax = global.PTFormatTaxonomy;
     const formatHub = c.formatHub || (Tax ? Tax.hubFromGameType(gameType) : (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash')));
@@ -9506,7 +9511,24 @@ window.PT_VS_3BET_JSON = {
     return { opener: parts[0], threeBettor: parts[2] };
   }
 
-  const STACK_DEPTH_BB = { bb200: 200, bb100: 100, bb50: 50, bb25: 25, bb20: 20, bb15: 15, bb10: 10, standard: 100, short: 40, deep: 150 };
+  const STACK_DEPTH_BB = {
+    bb200: 200, bb100: 100, bb50: 50, bb45: 45, bb40: 40, bb25: 25, bb22: 22, bb20: 20,
+    bb15: 15, bb12: 12, bb11: 11, bb10: 10,
+    standard: 100, short: 40, deep: 150
+  };
+
+  /** Resuelve claves bbN (p. ej. bb11) además de las entradas fijas del mapa. */
+  function stackDepthToBB(stackDepth) {
+    if (stackDepth == null || stackDepth === '') return null;
+    const key = String(stackDepth);
+    if (STACK_DEPTH_BB[key] != null) return STACK_DEPTH_BB[key];
+    const m = /^bb(\d+(?:\.\d+)?)$/.exec(key);
+    if (m) {
+      const n = Number(m[1]);
+      if (n > 0 && n <= 500) return n;
+    }
+    return null;
+  }
 
   const HANDS_TARGETS = { 0: true, 10: true, 25: true, 50: true, 100: true };
 
@@ -9652,7 +9674,8 @@ window.PT_VS_3BET_JSON = {
     else if (!c.mttPhase) c.mttPhase = 'auto';
     if (c.spinPayout !== '3x' && c.spinPayout !== '5x') c.spinPayout = '2x';
 
-    c.stackBB = STACK_DEPTH_BB[c.stackDepth] != null ? STACK_DEPTH_BB[c.stackDepth] : 100;
+    const parsedStack = stackDepthToBB(c.stackDepth);
+    c.stackBB = parsedStack != null ? parsedStack : 100;
     if (Tax) c.resolvedPhase = Tax.resolvePhase(c);
 
     if (c.anteBB == null || c.anteBB === '') {
@@ -10395,10 +10418,10 @@ window.PT_VS_3BET_JSON = {
       cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT', spin3: 'Spin 3-max'
     }[c.gameType] || c.gameType;
     const sd = {
-      bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb',
-      bb20: '20bb', bb15: '15bb', bb10: '10bb',
+      bb200: '200bb', bb100: '100bb', bb50: '50bb', bb45: '45bb', bb40: '40bb', bb25: '25bb',
+      bb22: '22bb', bb20: '20bb', bb15: '15bb', bb12: '12bb', bb11: '11bb', bb10: '10bb',
       standard: '100bb', short: '50bb', deep: '200bb'
-    }[c.stackDepth] || c.stackDepth;
+    }[c.stackDepth] || (stackDepthToBB(c.stackDepth) != null ? c.stackBB + 'bb' : c.stackDepth);
     const sc = {
       random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
       '4bet': '4-Bet', squeeze: 'Squeeze', iso: 'Iso limp',
@@ -10417,15 +10440,13 @@ window.PT_VS_3BET_JSON = {
 
   function stackBB(config) {
     const c = normalize(config);
-    if (STACK_DEPTH_BB[c.stackDepth] != null) return STACK_DEPTH_BB[c.stackDepth];
-    const reg = RR();
-    return reg ? reg.stackBB(c) : 100;
+    return c.stackBB;
   }
 
   global.PTPlayConfig = {
     DEFAULT, normalize, pickScenario, labelFor, rakeLabel,
     STANDARD_RAKE, estimateRakeBB, potAfterRakeBB, loadRakePrefs, saveRakePrefs,
-    PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB,
+    PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB, stackDepthToBB,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9, POS_SPIN, DEAL_ORDER_SPIN, RFI_POS_SPIN,
     sampleHeroWeights, sampleHeroHand, sampleVillainWeights, sampleRfiDefenderWeights,
     sampleFace4betVillainWeights, face4betVillainRangeStr, sampleLimpWeights,

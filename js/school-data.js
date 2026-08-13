@@ -183,7 +183,7 @@
       trapTag: meta.trapTag,
       teachBack: meta.teachBack,
       label: meta.label,
-      playConfig: { scenario: 'rfi', practiceStreet: street }
+      playConfig: Object.assign({ scenario: 'rfi' }, meta.playConfig || {}, { practiceStreet: street })
     });
     if (meta.facingBet) {
       spot.facingBet = true;
