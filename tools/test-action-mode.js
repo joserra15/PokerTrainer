@@ -105,6 +105,24 @@ console.log('5) face3bet: open automático del héroe + 3-bet villano');
   assert.ok(autoIdx < script.length - 1, 'el 3-bet va después del open del héroe');
 }
 
+console.log('5b) face3bet CO vs BTN: SB y BB foldean tras el 3-bet');
+{
+  const play = cfg({ scenario: 'face3bet', heroPos: 'CO' });
+  const hand = Engine.newHand({ type: 'face3bet', key: 'CO_vs_BTN', seed: 34 }, play);
+  const script = Engine.buildOpeningActionScript(hand);
+  const keys = script.map(scriptKey);
+  assert.ok(keys.indexOf('CO:open') >= 0, 'héroe abre');
+  assert.ok(keys.indexOf('BTN:raise') >= 0, 'BTN 3-betea');
+  assert.ok(keys.indexOf('SB:fold') >= 0, 'SB foldea al 3-bet');
+  assert.ok(keys.indexOf('BB:fold') >= 0, 'BB foldea al 3-bet');
+  assert.ok(keys.indexOf('BTN:raise') < keys.indexOf('SB:fold'), 'SB actúa después del 3-bet');
+  assert.ok(keys.indexOf('SB:fold') < keys.indexOf('BB:fold'), 'BB actúa después de SB');
+  assert.strictEqual(keys[keys.length - 1], 'BB:fold', 'la acción vuelve al héroe tras las ciegas');
+  assert.ok(hand.table.folded.SB, 'SB folded en el motor');
+  assert.ok(hand.table.folded.BB, 'BB folded en el motor');
+  assert.ok(!hand.table.folded.CO && !hand.table.folded.BTN, 'CO y BTN siguen vivos');
+}
+
 console.log('6) face4bet: 3-bet automático del héroe + 4-bet villano');
 {
   const play = cfg({ scenario: '4bet', heroPos: 'BB' });
@@ -120,6 +138,20 @@ console.log('6) face4bet: 3-bet automático del héroe + 4-bet villano');
   assert.strictEqual(last.type, 'raise');
   assert.strictEqual(last.pos, 'UTG');
   assert.ok(keys.indexOf('BB:raise') < keys.lastIndexOf('UTG:raise'), '4-bet después del 3-bet');
+}
+
+console.log('6b) face4bet CO vs UTG: BTN/SB/BB foldean tras el 3-bet del héroe');
+{
+  const play = cfg({ scenario: '4bet', heroPos: 'CO' });
+  const hand = Engine.newHand({ type: 'face4bet', key: 'CO_vs_UTG', seed: 45 }, play);
+  const keys = Engine.buildOpeningActionScript(hand).map(scriptKey);
+  const hero3 = keys.indexOf('CO:raise');
+  const vill4 = keys.lastIndexOf('UTG:raise');
+  assert.ok(hero3 >= 0 && vill4 > hero3, '4-bet del opener después del 3-bet');
+  ['BTN', 'SB', 'BB'].forEach(function (pos) {
+    const idx = keys.indexOf(pos + ':fold');
+    assert.ok(idx > hero3 && idx < vill4, pos + ' foldea al 3-bet antes del 4-bet');
+  });
 }
 
 console.log('7) squeeze: open + call + folds');
