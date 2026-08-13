@@ -14,7 +14,7 @@
     return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'early' }, extra || {});
   }
   function packSpots(kind, D) {
-    var rfi = D.rfiSpot, vs = D.vsRfiSpot, iso = D.isoSpot, bb = D.bbVsSbLimpSpot;
+    var rfi = D.rfiSpot, vs = D.vsRfiSpot, iso = D.isoSpot, bb = D.bbVsSbLimpSpot, f3 = D.face3betSpot;
     if (kind === 'SPIN_RFI_STEAL') return [
       rfi('s01-01', 'BTN', ['Ah', 'Td'], 40101, { teachBack: 'ATo BTN ~20 bb: shove (all-in) por valor. A esta profundidad no min-raisees premium offsuit — shove o fold.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
       rfi('s01-02', 'BTN', ['7c', '2d'], 40102, { trapTag: 'dominated', teachBack: '72o: fold. No stealees basura total: si te pagan o te re-suben, la mano casi nunca aguanta.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
@@ -91,6 +91,21 @@
       rfi('t01-12', 'BTN', ['Ah', '5s'], 50112, { teachBack: 'A5s BTN early: open claro. Ax suited en botón — open cash-like.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) })
     ];
     if (kind === 'MTT_EXAM_M0') return packSpots('MTT_EARLY', D).slice(0, 12);
+    /* Antenas de stack (T-02): short busca doblarse; mid evita chocar; big/cover no spew ni call light. */
+    if (kind === 'MTT_STACK') return [
+      rfi('t02-01', 'BTN', ['As', 'Ts'], 50201, { teachBack: 'Vas short (~11 bb) en BTN con ATs: shove para doblarte. A esta profundidad no abras min «como cash»: o all-in o fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb11' }) }),
+      rfi('t02-02', 'BTN', ['7c', '2d'], 50202, { trapTag: 'dominated', teachBack: 'Short con 72o: fold. Necesitas doblarte, sí, pero no con basura: sin equity ni fold equity real es panic shove.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb11' }) }),
+      rfi('t02-03', 'SB', ['Kh', 'Js'], 50203, { teachBack: 'Short en SB con KJs (~10 bb): shove frecuente. Spot para doblarte con broadway usable en push/fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t02-04', 'CO', ['Qd', '8c'], 50204, { trapTag: 'fancy_play', teachBack: 'Eres mid (~22 bb) en CO con Q8o y hay covers detrás: fold. No abras flojo: un 3-bet del big te mete en un spot feo o te elimina.', playConfig: mttCfg({ mttPhase: 'mid', stackDepth: 'bb22' }) }),
+      rfi('t02-05', 'UTG', ['Ah', '5d'], 50205, { trapTag: 'dominated', teachBack: 'Mid en UTG con A5o: fold. Desde early, con stack medio, no forces Ax flojo: hay demasiada gente (y covers) detrás.', playConfig: mttCfg({ mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t02-06', 'BTN', ['9s', '9c'], 50206, { teachBack: 'Mid en BTN con 99 (~25 bb): open claro. Spot limpio con stack jugable — no hace falta esperar a ser short para jugar manos fuertes.', playConfig: mttCfg({ mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      rfi('t02-07', 'BTN', ['Kh', '9s'], 50207, { teachBack: 'Eres big stack (~45 bb) en BTN con K9o: open/steal razonable. El big puede aplicar presión en late; no eres un mid sobreviviendo.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb45' }) }),
+      rfi('t02-08', 'BTN', ['7c', '2h'], 50208, { trapTag: 'dominated', teachBack: 'Aunque seas big, 72o es fold. Presión de stack no es spew con basura: si te pagan o te 3-betean, la mano no aguanta.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb45' }) }),
+      vs('t02-09', 'BB_vs_BTN', ['Kc', '9d'], 50209, { trapTag: 'fancy_play', teachBack: 'Eres cover (~45 bb) y el BTN abre wide: con K9o fold. No pagues light «porque soy cover»; primero pregunta si el call mejora tu premio o solo tus fichas.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb45' }) }),
+      vs('t02-10', 'BB_vs_BTN', ['Qs', 'Qd'], 50210, { teachBack: 'Cover con QQ frente al open del BTN: 3-bet por valor. Aquí sí quieres un bote grande: tienes una mano que domina muchos opens late.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb45' }) }),
+      vs('t02-11', 'BB_vs_BTN', ['As', 'Kd'], 50211, { teachBack: 'Cover con AKo vs open BTN: 3-bet value. Misma lógica que QQ: no eres short buscando desesperación; cobras con premium.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb40' }) }),
+      f3('t02-12', 'BTN_vs_BB', ['9h', '9c'], 50212, { trapTag: 'fancy_play', teachBack: 'Eres mid (~22 bb) y el BB (cover) te 3-betea: con 99 fold frecuente. Evitas un coin flip (~50/50) contra alguien que te puede eliminar del torneo.', playConfig: mttCfg({ scenario: 'face3bet', mttPhase: 'mid', stackDepth: 'bb22' }) })
+    ];
     if (kind === 'MTT_STEAL') return [
       rfi('t04-01', 'BTN', ['Kh', '9s'], 50401, { teachBack: 'K9o BTN mid (~25 bb): steal razonable. Late position + ante: open para robar ciegas sin shove aún.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
       rfi('t04-02', 'BTN', ['7c', '2d'], 50402, { trapTag: 'dominated', teachBack: '72o: fold. Ni en mid stealees basura total — si te 3-betean estás perdido.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
@@ -255,11 +270,11 @@
       "module": "M0",
       "order": 2,
       "plan": "free",
-      "xp": 80,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "xp": 100,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
-      "hands": 0,
+      "hands": 12,
       "concept": "Antes de mirar solo tu mano, lee las antenas de stack: quién es big stack, mid o short. Eso decide quién puede aplicar presión, quién necesita doblarse porque va muy corto, y a quién no le conviene chocar (por ejemplo, un mid contra un cover que lo puede eliminar). Piensa en bb efectivas (y en M si te ayuda), no en fichas absolutas.",
       "theory": [
         {
@@ -294,7 +309,7 @@
         "¿Para qué sirve pensar en M o en bb efectivas?",
         "¿Por qué no juego igual vs un cover que vs un short?"
       ],
-      "spots": [],
+      "spots": "MTT_STACK",
       "exam": false,
       "id": "T-02",
       "title": "Antenas de stack (M / big stacks)"
