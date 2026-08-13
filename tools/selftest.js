@@ -655,9 +655,11 @@ const VP = sandbox.window.GTOVillainProfiles;
 const profHand = Engine.newHand({ type: 'RFI', heroPos: 'BTN', seed: 7777 });
 const profCount = profHand.table && profHand.table.profiles ? Object.keys(profHand.table.profiles).length : 0;
 console.log('Villain profiles per hand', profCount, '(expect 5)');
-const maniacAgg = VP.postflopLead(0.12, VP.getProfile('maniac'), true, 0.1);
+const maniacAgg = VP.postflopLead(0.12, VP.getProfile('maniac'), true, 0.1, { tier: 'air', holeStrength: 0.2 });
+const maniacGoodMiss = VP.postflopLead(0.12, VP.getProfile('maniac'), true, 0.1, { tier: 'air', holeStrength: 0.72 });
+const fishTrash = VP.postflopLead(0.12, VP.getProfile('fish'), true, 0.1, { tier: 'air', holeStrength: 0.15 });
 const nitAgg = VP.postflopLead(0.12, VP.getProfile('nit'), true, 0.99);
-console.log('Maniac bluffs air', maniacAgg, 'Nit checks air', nitAgg);
+console.log('Maniac trash air', maniacAgg, 'Maniac good miss', maniacGoodMiss, 'Fish trash', fishTrash, 'Nit checks air', nitAgg);
 const VPF = sandbox.window.GTOVillainPreflop;
 const trash3b = VPF.defendVsOpen('63s', VP.getProfile('maniac'), 0.5, 'BB', 'CO');
 const trash4b = VPF.openerVs3BetAction('54o', VP.getProfile('maniac'), 0.99);
@@ -787,7 +789,7 @@ console.log(`Simulación: ${played} manos, ${complete} completadas, ${errors} er
 const evOk = badCall.evLoss >= 2 && badCall.evErroneous
   && sessStats.expectedNet === -62 && sessStats.varianceAdj === 82
   && handEv.expectedNet === 8.96 && handEv.varianceAdj === 90.62
-  && profCount === 5 && maniacAgg === 'bet' && nitAgg === 'check'
+  && profCount === 5 && maniacAgg === 'check' && maniacGoodMiss === 'bet' && fishTrash === 'check' && nitAgg === 'check'
   && trash3b === 'fold' && trash4b === 'fold' && trashAi === 'fold' && weakRiver === 'check'
   && trash4bPro === 'fold' && trash3bPro === 'fold'
   && trashIsoPro === 'fold' && trashSqPro === 'fold' && rfiProRaiseOk

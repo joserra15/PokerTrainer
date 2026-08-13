@@ -8367,6 +8367,22 @@ window.PT_VS_3BET_JSON = {
     return { cbet: m.cbet, bluff: m.bluff };
   }
 
+  /** Fish / hiper-agresivo: agresión solo con buenas cartas o manos medias, nunca basura. */
+  function isLooseSpewyProfile(profile) {
+    return !!(profile && (profile.id === 'fish' || profile.id === 'maniac'));
+  }
+
+  function canAggressWithoutTrash(strength, opts, profile) {
+    if (!isLooseSpewyProfile(profile)) return true;
+    const tier = (opts && opts.tier) || 'medium';
+    if (tier === 'strong' || tier === 'medium' || tier === 'weak') return true;
+    if (strength > 0.42) return true;
+    const hole = opts && opts.holeStrength;
+    // Buenas cartas (p. ej. broadways/premium) pueden cbet aunque fallen el flop.
+    if (hole != null && hole >= 0.55) return true;
+    return false;
+  }
+
   /** Acción postflop cuando el villano afronta apuesta/raise del héroe. */
   function postflopFacingBet(strength, potOdds, profile, rnd, opts) {
     opts = opts || {};
@@ -8403,6 +8419,7 @@ window.PT_VS_3BET_JSON = {
     if (street === 'river') {
       bluffRaise = clamp(bluffRaise * 0.45, 0.01, 0.18);
       if ((tier === 'weak' || strength < 0.35) && strength <= potOdds + 0.05) {
+        if (!canAggressWithoutTrash(strength, opts, profile)) return 'fold';
         return r < bluffRaise ? 'raise' : 'fold';
       }
     }
@@ -8414,7 +8431,7 @@ window.PT_VS_3BET_JSON = {
     if (strength > potOdds - 0.05) {
       return r < clamp(0.48 * p.callMult * mwFace.call, 0.14, 0.82) ? 'call' : 'fold';
     }
-    if (r < bluffRaise) return 'raise';
+    if (canAggressWithoutTrash(strength, opts, profile) && r < bluffRaise) return 'raise';
     return r < clamp(0.14 * p.callMult * mwFace.call, 0.03, 0.38) ? 'call' : 'fold';
   }
 
@@ -8445,6 +8462,10 @@ window.PT_VS_3BET_JSON = {
     }
 
     const p = profile.postflop;
+
+    if (!canAggressWithoutTrash(strength, opts, profile)) {
+      return 'check';
+    }
 
     if (street === 'river') {
       if (tier === 'weak' || strength < 0.32) {
@@ -8595,6 +8616,10 @@ window.PT_VS_3BET_JSON = {
   function allowsLeak(profile, action, rnd) {
     const s = strictness(profile);
     if (s >= 0.99) return false;
+    // Fish / hiper-agresivo: no 3-bet/4-bet fuera de rango con basura.
+    if ((action === '3bet' || action === '4bet') && profile && (profile.id === 'fish' || profile.id === 'maniac')) {
+      return false;
+    }
     const leak = profile.leakRate != null ? profile.leakRate : (s >= 0.75 ? 0.025 : 0.09);
     const r = rnd != null ? rnd : Math.random();
     if (action === '3bet' || action === '4bet') return r < leak * 0.3;
@@ -9546,7 +9571,7 @@ window.PT_VS_3BET_JSON = {
     scenario: 'random',
     heroPos: 'random',
     handRange: 'playable',
-    villainLevel: 'fish',
+    villainLevel: 'pro',
     practiceStreet: 'random',
     /** mixed | bluff_make | bluff_catch */
     practiceIntent: 'mixed',
@@ -9573,7 +9598,7 @@ window.PT_VS_3BET_JSON = {
     /** any | srp3way | srp4way | limpPot — solo si scenario=multiway */
     multiwayPotType: 'any',
     /** 'quick' = salta a la decisión del héroe; 'complete' = muestra UTG→BB */
-    actionMode: 'quick'
+    actionMode: 'complete'
   };
 
   const RAKE_LS_KEY = 'pt_rake_prefs';
@@ -9668,7 +9693,7 @@ window.PT_VS_3BET_JSON = {
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
     if (!c.handRange) c.handRange = 'random';
-    if (!c.villainLevel) c.villainLevel = 'fish';
+    if (!c.villainLevel) c.villainLevel = 'pro';
     if (!c.practiceStreet) c.practiceStreet = 'random';
     // Faroles (hacer/cazar) ocultos en el entrenador: forzar mixed.
     c.practiceIntent = 'mixed';
@@ -9720,7 +9745,7 @@ window.PT_VS_3BET_JSON = {
     if (c.multiwayPotType !== 'srp3way' && c.multiwayPotType !== 'srp4way' && c.multiwayPotType !== 'limpPot') {
       c.multiwayPotType = 'any';
     }
-    c.actionMode = c.actionMode === 'complete' ? 'complete' : 'quick';
+    c.actionMode = c.actionMode === 'quick' ? 'quick' : 'complete';
     return c;
   }
 
@@ -11423,7 +11448,7 @@ window.PT_VS_3BET_JSON = {
 
   function assignSeatProfiles(hand) {
     if (!VP || !hand.table) return;
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     VP.assignTableProfiles(hand, tablePositionsForHand(hand), heroTableSeat(hand), level);
   }
 
@@ -11484,7 +11509,7 @@ window.PT_VS_3BET_JSON = {
     if (VPF && code && hand.hero.pos) {
       return VPF.defendVsOpen(code, profile, C.rng.random(), 'BB', hand.hero.pos, rangeCtx(hand));
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, 'BB');
     const r = C.rng.random();
@@ -11615,7 +11640,7 @@ window.PT_VS_3BET_JSON = {
     if (VPF && code && hand.hero.pos) {
       return VPF.defendVsOpen(code, profile, C.rng.random(), pos, hand.hero.pos, rangeCtx(hand));
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, pos);
     const toCall = seatToCall(hand, pos, openSize);
@@ -11733,7 +11758,7 @@ window.PT_VS_3BET_JSON = {
     if (VPF && code) {
       return VPF.limperVsIsoAction(code, profile, C.rng.random());
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, limperPos);
     let callProb = clamp(0.18 + s * 0.62 - isoSize * 0.02, 0.12, 0.78);
@@ -11742,7 +11767,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   function sessionStrict(hand) {
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     return level === 'pro' || level === 'intermediate';
   }
 
@@ -11885,7 +11910,7 @@ window.PT_VS_3BET_JSON = {
     if (VPF && code) {
       return VPF.openerVs3BetAction(code, profile, C.rng.random(), rangeCtx(hand));
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, opener);
     let foldProb = clamp(0.58 - s * 0.48, 0.14, 0.70);
@@ -11909,7 +11934,7 @@ window.PT_VS_3BET_JSON = {
     if (VPF && code) {
       return VPF.openerVsSqueezeAction(code, profile, C.rng.random(), opener, rangeCtx(hand));
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, opener);
     let foldProb = clamp(0.55 - s * 0.44, 0.16, 0.68);
@@ -12116,12 +12141,20 @@ window.PT_VS_3BET_JSON = {
     return s;
   }
 
-  function villainPostflopOpts(hand, info) {
+  function villainPostflopOpts(hand, info, cards) {
+    let holeStrength = null;
+    const hc = cards || (hand.villain && hand.villain.cards);
+    if (hc && hc.length >= 2 && R && typeof R.handCode === 'function') {
+      try {
+        holeStrength = handStrength01(R.handCode(hc[0], hc[1]));
+      } catch (e) { /* ignore */ }
+    }
     return {
       street: hand.stage,
       tier: info.tier,
       madeCategory: info.ev ? info.ev.category : 0,
-      multiway: !!(hand.multiway || (MW() && MW().aliveCount(hand) >= 3))
+      multiway: !!(hand.multiway || (MW() && MW().aliveCount(hand) >= 3)),
+      holeStrength: holeStrength
     };
   }
 
@@ -12137,7 +12170,7 @@ window.PT_VS_3BET_JSON = {
     const potBefore = Math.max(hand.potBB - toCallBB, 0.1);
     const potOdds = toCallBB > 0 ? toCallBB / (potBefore + toCallBB) : 0.33;
     const rnd = C.rng.random();
-    const pfOpts = villainPostflopOpts(hand, info);
+    const pfOpts = villainPostflopOpts(hand, info, cards);
     if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd, pfOpts);
     if (strength > potOdds + 0.08) return 'call';
     return strength > potOdds - 0.05 ? (rnd < 0.45 ? 'call' : 'fold') : 'fold';
@@ -12238,7 +12271,7 @@ window.PT_VS_3BET_JSON = {
       : null;
     const strength = villainPostflopStrength(info, eq);
     const villainIsAgg = !hand.heroIsAggressor && pos === (hand._predeal && hand._predeal.villainPos);
-    const pfOpts = villainPostflopOpts(hand, info);
+    const pfOpts = villainPostflopOpts(hand, info, cards);
     if (VP) return VP.postflopLead(strength, profile, !!villainIsAgg, C.rng.random(), pfOpts);
     return C.rng.random() < (0.1 + strength * 0.4) ? 'bet' : 'check';
   }
@@ -12414,7 +12447,7 @@ window.PT_VS_3BET_JSON = {
     const eq = villainEquity01(hand);
     const strength = villainPostflopStrength(info, eq);
     const rnd = C.rng.random();
-    const pfOpts = villainPostflopOpts(hand, info);
+    const pfOpts = villainPostflopOpts(hand, info, hand.villain.cards);
 
     if (profile.preflopStrict >= 0.99 && hand.villain.cards && GTO && GTO.Strategy) {
       const villainToCall = (hand.table && hand.table.streetBet && hand.hero.pos)
@@ -13570,7 +13603,7 @@ window.PT_VS_3BET_JSON = {
         if (VPF && vCode) {
           vAct = VPF.villainVs4BetAction(vCode, vProf, C.rng.random());
         } else {
-          const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+          const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
           if (level === 'pro' || level === 'intermediate') vAct = 'fold';
           else if (C.rng.random() < foldProb) vAct = 'fold';
         }
@@ -14240,7 +14273,7 @@ window.PT_VS_3BET_JSON = {
     const eq = villainEquity01(hand);
     const strength = villainPostflopStrength(info, eq);
     const villainIsAgg = !hand.heroIsAggressor;
-    const pfOpts = villainPostflopOpts(hand, info);
+    const pfOpts = villainPostflopOpts(hand, info, hand.villain.cards);
     if (VP) return VP.postflopLead(strength, profile, villainIsAgg, C.rng.random(), pfOpts);
     const betFreq = villainIsAgg
       ? clamp(0.12 + strength * 0.55, 0.08, 0.68)
@@ -24902,7 +24935,7 @@ window.PT_VS_3BET_JSON = {
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'playable',
-      villainLevel: vlEl ? vlEl.dataset.val : 'fish',
+      villainLevel: vlEl ? vlEl.dataset.val : 'pro',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
       // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
       practiceIntent: 'mixed',
@@ -24929,16 +24962,16 @@ window.PT_VS_3BET_JSON = {
       const v = localStorage.getItem(ACTION_MODE_KEY);
       if (v === 'complete' || v === 'quick') return v;
     } catch (e) { /* ignore */ }
-    return 'quick';
+    return 'complete';
   }
   function saveActionMode(mode) {
-    const v = mode === 'complete' ? 'complete' : 'quick';
+    const v = mode === 'quick' ? 'quick' : 'complete';
     try { localStorage.setItem(ACTION_MODE_KEY, v); } catch (e) { /* ignore */ }
     return v;
   }
   function readActionModeFromSetup() {
     const el = $('#setup-action-mode .setup-chip.active');
-    if (el && el.dataset.val) return el.dataset.val === 'complete' ? 'complete' : 'quick';
+    if (el && el.dataset.val) return el.dataset.val === 'quick' ? 'quick' : 'complete';
     return loadActionMode();
   }
   function currentActionMode() {
@@ -25250,7 +25283,7 @@ window.PT_VS_3BET_JSON = {
     bindChipGroup('#setup-practice-street');
     bindChipGroup('#setup-action-mode', () => {
       const el = $('#setup-action-mode .setup-chip.active');
-      saveActionMode(el ? el.dataset.val : 'quick');
+      saveActionMode(el ? el.dataset.val : 'complete');
     });
     bindChipGroup('#setup-hands-target');
     bindChipGroup('#setup-table-theme', () => {
@@ -26132,7 +26165,7 @@ window.PT_VS_3BET_JSON = {
         PTLog.event('hand_start', {
           scenario: (hand.scenario && hand.scenario.type) || 'unknown',
           range: (cfg && cfg.handRange) || 'playable',
-          villain: (cfg && cfg.villainLevel) || 'fish',
+          villain: (cfg && cfg.villainLevel) || 'pro',
           replay: !!force
         });
       }
@@ -29254,7 +29287,7 @@ window.PT_VS_3BET_JSON = {
           practiceStreet: d.practiceStreet || 'preflop',
           practiceIntent: d.practiceIntent || 'mixed',
           handRange: d.handRange || 'playable',
-          villainLevel: d.villainLevel || 'fish',
+          villainLevel: d.villainLevel || 'pro',
           liveAdvisor: d.liveAdvisor !== false,
           formatHub: d.formatHub || (Tax ? Tax.hubFromGameType(gtFinal) : undefined),
           gameType: gtFinal

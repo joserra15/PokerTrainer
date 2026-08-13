@@ -39,9 +39,11 @@ function scriptKey(e) {
 
 console.log('1) normalize + labelFor actionMode');
 {
-  assert.strictEqual(PTPlayConfig.normalize({}).actionMode, 'quick');
+  assert.strictEqual(PTPlayConfig.normalize({}).actionMode, 'complete');
   assert.strictEqual(PTPlayConfig.normalize({ actionMode: 'complete' }).actionMode, 'complete');
-  assert.strictEqual(PTPlayConfig.normalize({ actionMode: 'nope' }).actionMode, 'quick');
+  assert.strictEqual(PTPlayConfig.normalize({ actionMode: 'quick' }).actionMode, 'quick');
+  assert.strictEqual(PTPlayConfig.normalize({ actionMode: 'nope' }).actionMode, 'complete');
+  assert.strictEqual(PTPlayConfig.normalize({}).villainLevel, 'pro');
   const quick = PTPlayConfig.normalize({ actionMode: 'quick' });
   const full = PTPlayConfig.normalize({ actionMode: 'complete' });
   assert.ok(/Modo rápido/.test(PTPlayConfig.labelFor(quick)), 'label rápido');
@@ -271,6 +273,9 @@ console.log('13) UI / i18n / timing del modo');
 
   assert.ok(/id="setup-action-mode"/.test(html), 'chips modo de mesa');
   assert.ok(/data-val="quick"/.test(html) && /data-val="complete"/.test(html), 'chips rápido/completo');
+  assert.ok(/id="setup-action-mode"[\s\S]*?data-val="complete"[^>]*class="setup-chip active"|id="setup-action-mode"[\s\S]*?class="setup-chip active"[^>]*data-val="complete"/.test(html)
+    || /class="setup-chip active" data-val="complete"/.test(html), 'completo activo por defecto');
+  assert.ok(/class="setup-chip active" data-val="pro"/.test(html), 'rivales Pro activos por defecto');
   assert.ok(/play\.actionMode/.test(html) && /play\.actionModeHint/.test(html), 'i18n en setup');
   assert.ok(/pt_action_mode/.test(appJs), 'persiste preferencia');
   assert.ok(/function playActionScript/.test(appJs), 'reproductor de acción');

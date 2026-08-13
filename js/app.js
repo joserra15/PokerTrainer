@@ -355,7 +355,7 @@
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'playable',
-      villainLevel: vlEl ? vlEl.dataset.val : 'fish',
+      villainLevel: vlEl ? vlEl.dataset.val : 'pro',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
       // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
       practiceIntent: 'mixed',
@@ -382,16 +382,16 @@
       const v = localStorage.getItem(ACTION_MODE_KEY);
       if (v === 'complete' || v === 'quick') return v;
     } catch (e) { /* ignore */ }
-    return 'quick';
+    return 'complete';
   }
   function saveActionMode(mode) {
-    const v = mode === 'complete' ? 'complete' : 'quick';
+    const v = mode === 'quick' ? 'quick' : 'complete';
     try { localStorage.setItem(ACTION_MODE_KEY, v); } catch (e) { /* ignore */ }
     return v;
   }
   function readActionModeFromSetup() {
     const el = $('#setup-action-mode .setup-chip.active');
-    if (el && el.dataset.val) return el.dataset.val === 'complete' ? 'complete' : 'quick';
+    if (el && el.dataset.val) return el.dataset.val === 'quick' ? 'quick' : 'complete';
     return loadActionMode();
   }
   function currentActionMode() {
@@ -703,7 +703,7 @@
     bindChipGroup('#setup-practice-street');
     bindChipGroup('#setup-action-mode', () => {
       const el = $('#setup-action-mode .setup-chip.active');
-      saveActionMode(el ? el.dataset.val : 'quick');
+      saveActionMode(el ? el.dataset.val : 'complete');
     });
     bindChipGroup('#setup-hands-target');
     bindChipGroup('#setup-table-theme', () => {
@@ -1585,7 +1585,7 @@
         PTLog.event('hand_start', {
           scenario: (hand.scenario && hand.scenario.type) || 'unknown',
           range: (cfg && cfg.handRange) || 'playable',
-          villain: (cfg && cfg.villainLevel) || 'fish',
+          villain: (cfg && cfg.villainLevel) || 'pro',
           replay: !!force
         });
       }
@@ -4707,7 +4707,7 @@
           practiceStreet: d.practiceStreet || 'preflop',
           practiceIntent: d.practiceIntent || 'mixed',
           handRange: d.handRange || 'playable',
-          villainLevel: d.villainLevel || 'fish',
+          villainLevel: d.villainLevel || 'pro',
           liveAdvisor: d.liveAdvisor !== false,
           formatHub: d.formatHub || (Tax ? Tax.hubFromGameType(gtFinal) : undefined),
           gameType: gtFinal
