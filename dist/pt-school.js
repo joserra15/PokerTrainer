@@ -2751,33 +2751,33 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Antes de mirar solo tu mano, lee antenas de stack: quién es big stack, mid o short. Eso decide quién puede aplicar presión, quién necesita doble y a quién no conviene chocar. Piensa en bb efectivas (y en M si te ayuda), no en fichas absolutas.",
+      "concept": "Antes de mirar solo tu mano, lee las antenas de stack: quién es big stack, mid o short. Eso decide quién puede aplicar presión, quién necesita doblarse porque va muy corto, y a quién no le conviene chocar (por ejemplo, un mid contra un cover que lo puede eliminar). Piensa en bb efectivas (y en M si te ayuda), no en fichas absolutas.",
       "theory": [
         {
           "title": "M y bb efectivas",
-          "body": "M (o M-ratio) resume cuántas órbitas te quedan pagando ciegas y antes. En la práctica del día a día, contar bb efectivas suele bastar: stack ÷ ciega grande (ajustando si el rival tiene menos). Lo importante es clasificar roles, no memorizar fórmulas."
+          "body": "M (o M-ratio) resume cuántas vueltas de mesa te quedan pagando ciegas y antes. En la práctica del día a día, contar bb efectivas suele bastar: stack ÷ ciega grande (ajustando si el rival tiene menos). Lo importante es clasificar roles, no memorizar fórmulas."
         },
         {
           "title": "Roles en la mesa",
-          "body": "Big stacks pueden abrir más y forzar folds. Short stacks buscan spots de doble o shove. Mid stacks a menudo sobreviven: no quieren coin flips grandes vs covers. No trates a todos igual solo porque \"tienes la misma mano\"."
+          "body": "Los big stacks pueden abrir más y forzar folds. Los short stacks buscan spots para doblarse o shovear. Los mid stacks a menudo priorizan sobrevivir: no quieren meterse en coin flips grandes contra covers — un coin flip es un all-in casi 50/50 (por ejemplo pareja media contra AK) donde te la juegas a cara o cruz. No trates a todos igual solo porque «tienes la misma mano»."
         },
         {
           "title": "Trampa: ceguera de stack",
-          "body": "Jugar solo tu combo e ignorar covers/shorts es un leak clásico. Un open wide vs un short desperate o un call light vs un big que te puede eliminar cambian el EV aunque la equity de la mano sea similar."
+          "body": "Jugar solo tu combo e ignorar covers y shorts es un leak clásico. Un open wide contra un short desesperado, o un call light contra un big que te puede eliminar, cambian el EV aunque la equity de la mano sea similar."
         }
       ],
       "examples": [
         {
           "title": "Cover vs short",
-          "body": "Tú 45 bb, short 11 bb en BTN: su shove es más wide por desesperación. Tú no pagas light \"porque soy cover\"; primero preguntas si el call mejora tu prize o solo tus fichas."
+          "body": "Tú tienes 45 bb y hay un short con 11 bb en BTN que hace un shove por desesperación. Aunque seas cover, no pagues light «porque soy cover»: primero pregunta si ese call mejora tu premio o solo tus fichas."
         },
         {
           "title": "Mid entre dos fuegos",
-          "body": "Tú 22 bb, big 60 bb a tu izquierda y short 8 bb: opens flojos vs el big te meten en spots feos. Mejor spots claros o dejar que el short se juegue la vida."
+          "body": "Tú tienes 22 bb, con un big de 60 bb a tu izquierda y un short de 8 bb en mesa. Opens flojos contra el big te meten en spots feos. Mejor eliges spots claros o dejas que el short se juegue la vida."
         },
         {
           "title": "Misma mano, distinto rival",
-          "body": "99 vs open de un mid a 28 bb no es lo mismo que 99 vs shove de un short a 9 bb. El stack relativo cambia fold equity, rangos y riesgo de eliminación."
+          "body": "Jugar 99 contra el open de un mid a 28 bb no es lo mismo que pagar el shove de un short a 9 bb. El stack relativo cambia la fold equity, los rangos y el riesgo de eliminación."
         }
       ],
       "aiQuestions": [
