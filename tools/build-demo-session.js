@@ -28,7 +28,7 @@ const scripts = [
   'ranges.js', 'range-matrix.js', 'engine.js',
   'import/hhUtils.js', 'import/formatDetector.js',
   'import/icmLite.js', 'import/populationCompare.js', 'import/parsers/pokerstars.js', 'import/parsers/winamax.js', 'import/parsers/ggpoker.js',
-  'import/parsers/eightyeight.js', 'import.js'
+  'import/parsers/eightyeight.js', 'import/parsers/coinpoker.js', 'import.js'
 ];
 
 const root = path.join(__dirname, '..', 'js');

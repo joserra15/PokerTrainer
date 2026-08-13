@@ -6,7 +6,8 @@ const FIXTURES = [
   { name: 'Winamax', file: 'Winamax-sample.txt' },
   { name: 'PokerStars ES', file: 'Poker56.txt' },
   { name: 'PokerStars EN', file: 'PokerEN-sample.txt' },
-  { name: 'GGPoker', file: 'GGPoker-sample.txt' }
+  { name: 'GGPoker', file: 'GGPoker-sample.txt' },
+  { name: 'CoinPoker', file: 'CoinPoker-sample.txt' }
 ];
 
 test.describe('Import multi-sala @smoke', () => {

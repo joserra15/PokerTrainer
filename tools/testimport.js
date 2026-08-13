@@ -17,6 +17,7 @@ const importChain = [
   'import/parsers/winamax.js',
   'import/parsers/ggpoker.js',
   'import/parsers/eightyeight.js',
+  'import/parsers/coinpoker.js',
   'import.js'
 ];
 
@@ -255,4 +256,78 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   console.log('Tournament History Spin1/Torneo2 OK');
 })();
 
-console.log('*** IMPORTADOR OK (cash/spins/MTT + P2 + P3) ***');
+// CoinPoker MTT (NLH, 7-max, ALLIN/RETURN, miles US)
+(function () {
+  const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'CoinPoker-sample.txt'), 'utf8');
+  const meta = Importer.detectSessionFormat(txt);
+  assert(meta && meta.platform === 'coinpoker', 'CoinPoker detectado como ' + (meta && meta.platform));
+  assert(U.looksLikeHandHistory(txt), 'CoinPoker parece HH');
+  const parsed = Importer.parseSession(txt, 'CoinPoker-sample.txt');
+  assert(parsed.hero === 'Hero', 'CoinPoker héroe got ' + parsed.hero);
+  assert(parsed.hands.length === 9, 'CoinPoker: esperaba 9 manos, got ' + parsed.hands.length);
+  assert(parsed.hands.every((h) => h.gameKind === 'mtt'), 'CoinPoker todas MTT');
+  assert(parsed.hands.every((h) => h.tableMax === 7), 'CoinPoker 7-max got ' + (parsed.hands[0] && parsed.hands[0].tableMax));
+  assert(parsed.hands.every((h) => h.variant === 'nlhe'), 'CoinPoker NLHE');
+  const h1 = parsed.hands[0];
+  assert(h1.id === '3580620001', 'CoinPoker id mano 1');
+  assert(h1.sb === 250 && h1.bb === 500 && h1.ante === 63, 'CoinPoker blinds/ante mano 1');
+  assert(h1.heroCards.join('') === '9c7h', 'CoinPoker cartas 9c7h got ' + (h1.heroCards && h1.heroCards.join(' ')));
+  assert(h1.boardAll.join('') === 'TsTd8h2c4c', 'CoinPoker board mano 1 got ' + (h1.boardAll && h1.boardAll.join(' ')));
+  const riverBets = (h1.streets.river || []).filter((a) => a.type === 'bet');
+  assert(riverBets.length >= 1 && riverBets[0].amount === 1752, 'CoinPoker bet 1,752 US miles got ' + (riverBets[0] && riverBets[0].amount));
+  assert(h1.collected['1b744cda'] === 3504, 'CoinPoker collected 3504 got ' + h1.collected['1b744cda']);
+  assert(h1.buyIn === 8.88, 'CoinPoker buy-in 8.88 got ' + h1.buyIn);
+
+  const h2 = parsed.hands[1];
+  const pfAllin = (h2.streets.preflop || []).find((a) => a.player === 'Hero' && a.allin);
+  assert(pfAllin && pfAllin.type === 'raise', 'CoinPoker ALLIN héroe es raise, got ' + (pfAllin && pfAllin.type));
+  assert(h2.uncalledTo.Hero === 7886, 'CoinPoker RETURN 7886 got ' + h2.uncalledTo.Hero);
+  assert(h2.collected.Hero === 1500, 'CoinPoker Hero collected 1500');
+  assert(h2.heroCards.join('') === 'KdQh', 'CoinPoker KdQh');
+
+  const h7 = parsed.hands[6];
+  assert(h7.heroCards.join('') === 'Qs5s', 'CoinPoker Qs5s showdown');
+  assert((h7.shows.Hero || []).join('') === 'Qs5s', 'CoinPoker shows Hero');
+  assert((h7.shows.ae239435 || []).join('') === 'Ad7h', 'CoinPoker shows villain Ad7h');
+  assert(h7.collected.ae239435 === 17612, 'CoinPoker pot 17612 got ' + h7.collected.ae239435);
+
+  const last = parsed.hands[parsed.hands.length - 1];
+  assert(last.buyIn === 5.5, 'CoinPoker ₮5.50 buy-in got ' + last.buyIn);
+
+  const session = Importer.buildSession(parsed, 'CoinPoker-sample.txt');
+  assert(session.format && session.format.platform === 'coinpoker', 'sesión platform CoinPoker');
+  assert(session.context.gameKind === 'mtt', 'sesión MTT');
+  assert(session.hero === 'Hero', 'sesión héroe');
+  assert(session.hands.length === 9, 'sesión 9 manos');
+  assert(session.hands.some((h) => (h.decisions || []).length > 0), 'CoinPoker genera decisiones');
+
+  const cashHh = [
+    "CoinPoker Hand #99: NLH ($0.25/$0.50) 2026/04/28 12:00:00 UTC",
+    "Table 'Cash6' 6-max Seat #1 is the button",
+    "Seat 1: Hero (50.00 in chips)",
+    "Seat 2: Villain (50.00 in chips)",
+    "Hero: posts small blind $0.25",
+    "Villain: posts big blind $0.50",
+    "*** HOLE CARDS ***",
+    "Dealt to Hero [Ah Kd]",
+    "Dealt to Villain",
+    "Hero: raises $0.50 to $1.00",
+    "Villain: folds",
+    "Hero: RETURN $0.50",
+    "*** SHOWDOWN ***",
+    "Hero collected $1.00 from pot",
+    "*** SUMMARY ***",
+    "Total pot $1.00",
+    "Board [  ]",
+    "Seat 1: Hero showed [Ah Kd] and won ($1.00)",
+    "Seat 2: Villain folded before Flop (didn't bet)"
+  ].join('\n');
+  const cashParsed = Importer.parseSession(cashHh, 'coinpoker-cash.txt');
+  assert(cashParsed.hands.length === 1, 'CoinPoker cash 1 mano');
+  assert(cashParsed.hands[0].gameKind === 'cash', 'CoinPoker cash gameKind got ' + cashParsed.hands[0].gameKind);
+  assert(cashParsed.hands[0].tableMax === 6, 'CoinPoker cash 6-max');
+  assert(cashParsed.hands[0].bb === 0.5, 'CoinPoker cash bb 0.50 got ' + cashParsed.hands[0].bb);
+  console.log('CoinPoker detect/keep OK (9 MTT + 1 cash)');
+})();
+
+console.log('*** IMPORTADOR OK (cash/spins/MTT + P2 + P3 + CoinPoker) ***');

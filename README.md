@@ -119,14 +119,15 @@ el reparto es reproducible. Si tomas la misma línea, el board y la mano del
 villano serán idénticos; ideal para reintentar un spot en el que te equivocaste.
 También puedes repetir manos exactas desde el **Histórico** y los **Errores**.
 
-## Importar sesiones reales de PokerStars
+## Importar sesiones reales
 
 En la pestaña **Sesiones** puedes adjuntar un fichero `.txt` con el historial de
-manos exportado de PokerStars (Cash NL Hold'em, en español) y pulsar **Procesar**:
+manos exportado de **PokerStars**, **Winamax**, **GGPoker**, **888poker** o
+**CoinPoker** (NL Hold'em: cash, spins y torneos) y pulsar **Procesar**:
 
 - Detecta automáticamente al **héroe** (el nombre cuyas cartas se reparten).
-- Recorre todas las manos de cash NL, **analiza cada mano del héroe con cartas**
-  (incluidos folds preflop) y descarta solo las de torneo o sin reparto al héroe.
+- Recorre las manos NLHE (cash, spins y MTT), **analiza cada mano del héroe con cartas**
+  (incluidos folds preflop) y descarta solo variantes no soportadas o sin ciegas.
 - Clasifica **cada decisión** del héroe contra GTO (óptima / aceptable /
   imprecisa / error), estima el **EV perdido** y el resultado en bb por mano.
 - Genera una **ficha de sesión** con estadísticas: acierto global y **por calle**,
@@ -210,7 +211,7 @@ Requiere Node.js. Matriz:
 |------|---------|-----------|
 | **CI Node (canónico)** | `npm run test:ci` | Misma lista que `.github/workflows/static.yml` (motor, import, entitlements, cloud, Stripe/IA contracts, golden hands, UX guards…) |
 | Unit motor | `npm run test:unit` | `selftest` GTO |
-| Import HH | `npm run test:import` | PokerStars ES/EN, Winamax, GGPoker |
+| Import HH | `npm run test:import` | PokerStars ES/EN, Winamax, GGPoker, 888poker, CoinPoker |
 | E2E | `npm run test:e2e` | Playwright Chromium (entrenar, import, paywall, replay, análisis) — `.github/workflows/e2e.yml` |
 | Live opcional | `node tools/test-supabase.js` / workflows `supabase-smoke` · `billing-live` | Secrets; no bloquean PR |
 | Release | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | OAuth + billing + smoke |

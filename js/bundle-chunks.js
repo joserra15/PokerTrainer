@@ -98,6 +98,7 @@
       'js/import/parsers/winamax.js',
       'js/import/parsers/ggpoker.js',
       'js/import/parsers/eightyeight.js',
+      'js/import/parsers/coinpoker.js',
       'js/import.js'
     ],
     analysis: ['js/hand-analysis.js'],

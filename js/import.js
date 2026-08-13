@@ -1,6 +1,6 @@
 /*
  * import.js
- * Importa y analiza historiales de manos (PokerStars ES/EN, Winamax, GGPoker).
+ * Importa y analiza historiales de manos (PokerStars ES/EN, Winamax, GGPoker, 888poker, CoinPoker).
  * - Detección automática de plataforma e idioma (PTHandHistoryFormats).
  * - Parsea cada mano (asientos, posiciones, acciones, board, resultado).
  * - Conserva cash / spins / MTT-SNG NLHE; descarta variantes no soportadas.
@@ -65,11 +65,11 @@
   }
 
   function splitHandBlocks(text) {
-    return text.split(/(?=^(?:Mano n\.º |PokerStars (?:Zoom )?Hand #|Poker Hand #|Winamax Poker - ))/m)
+    return text.split(/(?=^(?:Mano n\.º |PokerStars (?:Zoom )?Hand #|Poker Hand #|Winamax Poker - |CoinPoker Hand #))/m)
       .filter(function (b) {
         var t = b.trim();
         // Poker Hand # = GGPoker; PokerStars Hand # = PokerStars EN
-        return /^(Mano n\.º|PokerStars|Poker Hand #|Winamax)/.test(t);
+        return /^(Mano n\.º|PokerStars|Poker Hand #|Winamax|CoinPoker)/.test(t);
       });
   }
 
@@ -120,8 +120,7 @@
             if (!detectedFormat && h.platform) {
               detectedFormat = {
                 platform: h.platform,
-                platformLabel: h.platform === 'ggpoker' ? 'GGPoker'
-                  : (h.platform === 'winamax' ? 'Winamax' : 'PokerStars'),
+                platformLabel: platformLabelFor(h.platform),
                 locale: h.locale || null,
                 localeLabel: h.locale === 'es' ? 'Español' : 'English'
               };
@@ -156,13 +155,25 @@
 
   const BLOCK_TEST_WM = /^Winamax Poker - /;
   const BLOCK_TEST_GG = /^Poker Hand #/;
+  const BLOCK_TEST_CP = /^CoinPoker Hand #/;
+
+  function platformLabelFor(platform) {
+    if (platform === 'ggpoker') return 'GGPoker';
+    if (platform === 'winamax') return 'Winamax';
+    if (platform === '888poker') return '888poker';
+    if (platform === 'coinpoker') return 'CoinPoker';
+    if (platform === 'pokerstars') return 'PokerStars';
+    return platform || 'PokerStars';
+  }
 
   function parseHand(block) {
     const text = (block || '').trim();
     const WM = global.PTWinamaxParser;
     const GG = global.PTGGPokerParser;
     const PS = global.PTPokerStarsParser;
+    const CP = global.PTCoinPokerParser;
     if (WM && BLOCK_TEST_WM.test(text)) return WM.parseHand(block);
+    if (CP && BLOCK_TEST_CP.test(text)) return CP.parseHand(block);
     // GGPoker: "Poker Hand #" sin prefijo PokerStars
     if (GG && BLOCK_TEST_GG.test(text) && !/^PokerStars/i.test(text)) {
       return GG.parseHand(block);
@@ -2646,7 +2657,7 @@
       return global.PTHHUtils.importFailureMessage(fileName, text, parsed);
     }
     return 'No se reconocieron manos NLHE (cash/spins/torneo) en «' + (fileName || 'archivo.txt')
-      + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker o 888poker.';
+      + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker, 888poker o CoinPoker.';
   }
 
   global.Importer = {
