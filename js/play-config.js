@@ -111,7 +111,7 @@
     scenario: 'random',
     heroPos: 'random',
     handRange: 'playable',
-    villainLevel: 'fish',
+    villainLevel: 'pro',
     practiceStreet: 'random',
     /** mixed | bluff_make | bluff_catch */
     practiceIntent: 'mixed',
@@ -138,7 +138,7 @@
     /** any | srp3way | srp4way | limpPot — solo si scenario=multiway */
     multiwayPotType: 'any',
     /** 'quick' = salta a la decisión del héroe; 'complete' = muestra UTG→BB */
-    actionMode: 'quick'
+    actionMode: 'complete'
   };
 
   const RAKE_LS_KEY = 'pt_rake_prefs';
@@ -233,7 +233,7 @@
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
     if (!c.handRange) c.handRange = 'random';
-    if (!c.villainLevel) c.villainLevel = 'fish';
+    if (!c.villainLevel) c.villainLevel = 'pro';
     if (!c.practiceStreet) c.practiceStreet = 'random';
     // Faroles (hacer/cazar) ocultos en el entrenador: forzar mixed.
     c.practiceIntent = 'mixed';
@@ -285,7 +285,7 @@
     if (c.multiwayPotType !== 'srp3way' && c.multiwayPotType !== 'srp4way' && c.multiwayPotType !== 'limpPot') {
       c.multiwayPotType = 'any';
     }
-    c.actionMode = c.actionMode === 'complete' ? 'complete' : 'quick';
+    c.actionMode = c.actionMode === 'quick' ? 'quick' : 'complete';
     return c;
   }
 

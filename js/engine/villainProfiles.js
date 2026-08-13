@@ -245,6 +245,22 @@
     return { cbet: m.cbet, bluff: m.bluff };
   }
 
+  /** Fish / hiper-agresivo: agresión solo con buenas cartas o manos medias, nunca basura. */
+  function isLooseSpewyProfile(profile) {
+    return !!(profile && (profile.id === 'fish' || profile.id === 'maniac'));
+  }
+
+  function canAggressWithoutTrash(strength, opts, profile) {
+    if (!isLooseSpewyProfile(profile)) return true;
+    const tier = (opts && opts.tier) || 'medium';
+    if (tier === 'strong' || tier === 'medium' || tier === 'weak') return true;
+    if (strength > 0.42) return true;
+    const hole = opts && opts.holeStrength;
+    // Buenas cartas (p. ej. broadways/premium) pueden cbet aunque fallen el flop.
+    if (hole != null && hole >= 0.55) return true;
+    return false;
+  }
+
   /** Acción postflop cuando el villano afronta apuesta/raise del héroe. */
   function postflopFacingBet(strength, potOdds, profile, rnd, opts) {
     opts = opts || {};
@@ -281,6 +297,7 @@
     if (street === 'river') {
       bluffRaise = clamp(bluffRaise * 0.45, 0.01, 0.18);
       if ((tier === 'weak' || strength < 0.35) && strength <= potOdds + 0.05) {
+        if (!canAggressWithoutTrash(strength, opts, profile)) return 'fold';
         return r < bluffRaise ? 'raise' : 'fold';
       }
     }
@@ -292,7 +309,7 @@
     if (strength > potOdds - 0.05) {
       return r < clamp(0.48 * p.callMult * mwFace.call, 0.14, 0.82) ? 'call' : 'fold';
     }
-    if (r < bluffRaise) return 'raise';
+    if (canAggressWithoutTrash(strength, opts, profile) && r < bluffRaise) return 'raise';
     return r < clamp(0.14 * p.callMult * mwFace.call, 0.03, 0.38) ? 'call' : 'fold';
   }
 
@@ -323,6 +340,10 @@
     }
 
     const p = profile.postflop;
+
+    if (!canAggressWithoutTrash(strength, opts, profile)) {
+      return 'check';
+    }
 
     if (street === 'river') {
       if (tier === 'weak' || strength < 0.32) {

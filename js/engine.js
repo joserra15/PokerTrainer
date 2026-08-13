@@ -611,7 +611,7 @@
 
   function assignSeatProfiles(hand) {
     if (!VP || !hand.table) return;
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     VP.assignTableProfiles(hand, tablePositionsForHand(hand), heroTableSeat(hand), level);
   }
 
@@ -672,7 +672,7 @@
     if (VPF && code && hand.hero.pos) {
       return VPF.defendVsOpen(code, profile, C.rng.random(), 'BB', hand.hero.pos, rangeCtx(hand));
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, 'BB');
     const r = C.rng.random();
@@ -803,7 +803,7 @@
     if (VPF && code && hand.hero.pos) {
       return VPF.defendVsOpen(code, profile, C.rng.random(), pos, hand.hero.pos, rangeCtx(hand));
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, pos);
     const toCall = seatToCall(hand, pos, openSize);
@@ -921,7 +921,7 @@
     if (VPF && code) {
       return VPF.limperVsIsoAction(code, profile, C.rng.random());
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, limperPos);
     let callProb = clamp(0.18 + s * 0.62 - isoSize * 0.02, 0.12, 0.78);
@@ -930,7 +930,7 @@
   }
 
   function sessionStrict(hand) {
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     return level === 'pro' || level === 'intermediate';
   }
 
@@ -1073,7 +1073,7 @@
     if (VPF && code) {
       return VPF.openerVs3BetAction(code, profile, C.rng.random(), rangeCtx(hand));
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, opener);
     let foldProb = clamp(0.58 - s * 0.48, 0.14, 0.70);
@@ -1097,7 +1097,7 @@
     if (VPF && code) {
       return VPF.openerVsSqueezeAction(code, profile, C.rng.random(), opener, rangeCtx(hand));
     }
-    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+    const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
     if (level === 'pro' || level === 'intermediate') return 'fold';
     const s = strengthAtPos(hand, opener);
     let foldProb = clamp(0.55 - s * 0.44, 0.16, 0.68);
@@ -1304,12 +1304,20 @@
     return s;
   }
 
-  function villainPostflopOpts(hand, info) {
+  function villainPostflopOpts(hand, info, cards) {
+    let holeStrength = null;
+    const hc = cards || (hand.villain && hand.villain.cards);
+    if (hc && hc.length >= 2 && R && typeof R.handCode === 'function') {
+      try {
+        holeStrength = handStrength01(R.handCode(hc[0], hc[1]));
+      } catch (e) { /* ignore */ }
+    }
     return {
       street: hand.stage,
       tier: info.tier,
       madeCategory: info.ev ? info.ev.category : 0,
-      multiway: !!(hand.multiway || (MW() && MW().aliveCount(hand) >= 3))
+      multiway: !!(hand.multiway || (MW() && MW().aliveCount(hand) >= 3)),
+      holeStrength: holeStrength
     };
   }
 
@@ -1325,7 +1333,7 @@
     const potBefore = Math.max(hand.potBB - toCallBB, 0.1);
     const potOdds = toCallBB > 0 ? toCallBB / (potBefore + toCallBB) : 0.33;
     const rnd = C.rng.random();
-    const pfOpts = villainPostflopOpts(hand, info);
+    const pfOpts = villainPostflopOpts(hand, info, cards);
     if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd, pfOpts);
     if (strength > potOdds + 0.08) return 'call';
     return strength > potOdds - 0.05 ? (rnd < 0.45 ? 'call' : 'fold') : 'fold';
@@ -1426,7 +1434,7 @@
       : null;
     const strength = villainPostflopStrength(info, eq);
     const villainIsAgg = !hand.heroIsAggressor && pos === (hand._predeal && hand._predeal.villainPos);
-    const pfOpts = villainPostflopOpts(hand, info);
+    const pfOpts = villainPostflopOpts(hand, info, cards);
     if (VP) return VP.postflopLead(strength, profile, !!villainIsAgg, C.rng.random(), pfOpts);
     return C.rng.random() < (0.1 + strength * 0.4) ? 'bet' : 'check';
   }
@@ -1602,7 +1610,7 @@
     const eq = villainEquity01(hand);
     const strength = villainPostflopStrength(info, eq);
     const rnd = C.rng.random();
-    const pfOpts = villainPostflopOpts(hand, info);
+    const pfOpts = villainPostflopOpts(hand, info, hand.villain.cards);
 
     if (profile.preflopStrict >= 0.99 && hand.villain.cards && GTO && GTO.Strategy) {
       const villainToCall = (hand.table && hand.table.streetBet && hand.hero.pos)
@@ -2758,7 +2766,7 @@
         if (VPF && vCode) {
           vAct = VPF.villainVs4BetAction(vCode, vProf, C.rng.random());
         } else {
-          const level = (hand.playConfig && hand.playConfig.villainLevel) || 'fish';
+          const level = (hand.playConfig && hand.playConfig.villainLevel) || 'pro';
           if (level === 'pro' || level === 'intermediate') vAct = 'fold';
           else if (C.rng.random() < foldProb) vAct = 'fold';
         }
@@ -3428,7 +3436,7 @@
     const eq = villainEquity01(hand);
     const strength = villainPostflopStrength(info, eq);
     const villainIsAgg = !hand.heroIsAggressor;
-    const pfOpts = villainPostflopOpts(hand, info);
+    const pfOpts = villainPostflopOpts(hand, info, hand.villain.cards);
     if (VP) return VP.postflopLead(strength, profile, villainIsAgg, C.rng.random(), pfOpts);
     const betFreq = villainIsAgg
       ? clamp(0.12 + strength * 0.55, 0.08, 0.68)

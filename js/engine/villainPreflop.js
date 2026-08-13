@@ -69,6 +69,10 @@
   function allowsLeak(profile, action, rnd) {
     const s = strictness(profile);
     if (s >= 0.99) return false;
+    // Fish / hiper-agresivo: no 3-bet/4-bet fuera de rango con basura.
+    if ((action === '3bet' || action === '4bet') && profile && (profile.id === 'fish' || profile.id === 'maniac')) {
+      return false;
+    }
     const leak = profile.leakRate != null ? profile.leakRate : (s >= 0.75 ? 0.025 : 0.09);
     const r = rnd != null ? rnd : Math.random();
     if (action === '3bet' || action === '4bet') return r < leak * 0.3;
