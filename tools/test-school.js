@@ -55,6 +55,7 @@ assert.ok(/school-data-m1\.js/.test(chunks) && /school-data-m2\.js/.test(chunks)
 assert.ok(/school-data-spin\.js/.test(chunks) && /school-data-mtt\.js/.test(chunks), 'chunk Spins/MTT');
 assert.ok(/school-data-ranges\.js/.test(chunks) && /school-data-pro\.js/.test(chunks), 'chunk Rangos/Pro');
 assert.ok(/school-extra-spots\.js/.test(chunks), 'chunk extra spots (≥10 manos)');
+assert.ok(/school-data-practice\.js/.test(chunks), 'chunk práctica teoría-only (≥10 manos)');
 assert.ok(/school-share\.js/.test(chunks), 'chunk school-share (redes / logro)');
 assert.ok(/school:\s*'dist\/pt-school\.js'/.test(loader), 'loader school');
 assert.ok(/tabId === 'school'/.test(app), 'goToTab school');
@@ -160,6 +161,7 @@ const engineScripts = [
   'js/school-data-ranges.js',
   'js/school-data-pro.js',
   'js/school-extra-spots.js',
+  'js/school-data-practice.js',
   'js/school-share.js',
   'js/school.js'
 ];
@@ -201,10 +203,6 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   routes.forEach(function (route) {
     Data.lessonsForRoute(route).forEach(function (lesson) {
       const n = Array.isArray(lesson.spots) ? lesson.spots.length : 0;
-      if (n === 0) {
-        assert.strictEqual(lesson.hands, 0, lesson.id + ' teoría-only hands=0');
-        return;
-      }
       assert.ok(n >= 10, lesson.id + ' debe tener ≥10 spots, tiene ' + n);
       assert.strictEqual(lesson.hands, n, lesson.id + ' hands debe igualar spots.length');
       practice.push(lesson);
@@ -229,6 +227,23 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   assert.ok(minSpots('cash', 'C-13') > minSpots('cash', 'C-07'), 'Cash: examen M1 > M1 intro');
   assert.ok(minSpots('cash', 'C-20') > minSpots('cash', 'C-14'), 'Cash: examen M2 > postflop intro');
   assert.ok(minSpots('cash', 'C-14') > minSpots('cash', 'C-07'), 'Cash M2 > M1 volumen base');
+  assert.ok(minSpots('cash', 'C-00') >= 10, 'C-00 práctica ≥10');
+  assert.ok(minSpots('spin', 'S-00') >= 10, 'S-00 práctica ≥10');
+  assert.ok(minSpots('mtt', 'T-00') >= 10, 'T-00 práctica ≥10');
+  assert.ok(minSpots('ranges', 'R-01') >= 10, 'R-01 práctica ≥10');
+  assert.ok(minSpots('cash', 'C-26') >= 10, 'C-26 4-bet ≥10');
+  assert.ok(minSpots('spin', 'S-10') >= 10, 'S-10 call shove ICM ≥10');
+  assert.ok(minSpots('mtt', 'T-13') >= 10, 'T-13 roles burbuja ≥10');
+})();
+
+/** T-00 recorre early / mid / push para sentir las fases. */
+(function assertT00Stages() {
+  const PC = sandbox.PTPlayConfig;
+  const lesson = Data.getLesson('T-00');
+  const depths = lesson.spots.map(function (sp) { return PC.normalize(sp.playConfig).stackBB; });
+  assert.ok(depths.some(function (d) { return d >= 35; }), 'T-00 incluye early ~40bb');
+  assert.ok(depths.some(function (d) { return d >= 20 && d <= 30; }), 'T-00 incluye mid ~25bb');
+  assert.ok(depths.some(function (d) { return d <= 12; }), 'T-00 incluye push ~10–12bb');
 })();
 
 /** T-02: profundidades bb11/bb22/etc. no deben caer a 100bb por defecto. */
@@ -647,9 +662,9 @@ assert.ok(School.canPlayLesson('C-00').ok, 'canPlay C-00');
 assert.ok(!School.canPlayLesson('C-01').ok, 'canPlay C-01 locked');
 
 School._state.view = 'hub';
-School.startLessonSession('C-00');
-const summary = School._state.lastResult && School._state.lastResult.summary;
-assert.ok(summary && summary.passed, 'C-00 se completa');
+sandbox.Store._st.school.lessons['C-00'] = {
+  passed: true, bestScore: 1, bestPct: 100, attempts: 1
+};
 assert.ok(School.isLessonPassed('C-00'), 'C-00 passed');
 assert.ok(School.isLessonUnlocked('C-01'), 'C-01 desbloqueada tras C-00');
 assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
