@@ -5643,7 +5643,7 @@
         const errMsg = (Importer.importFailureMessage
           ? Importer.importFailureMessage(file.name, text, parsed)
           : ('No se reconocieron manos NLHE (cash/spins/torneo) en «' + file.name
-            + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker o 888poker.'));
+            + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker, 888poker o CoinPoker.'));
         return { ok: false, error: errMsg };
       }
       if (isTournamentSummary && !parsed.hero) {

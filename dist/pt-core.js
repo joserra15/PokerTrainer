@@ -21057,7 +21057,7 @@ window.PT_VS_3BET_JSON = {
       "<li><strong>Drill adaptativo</strong> (Estadísticas / Errores) — prioriza tus fugas por EV perdido (~25 manos), no un muestreo al azar de todos los errores.</li>" +
       "<li><strong>Selectores de cartas</strong> — en Rangos (flop) y Análisis eliges cartas en un modal, sin teclear notación.</li>" +
       "<li><strong>Rangos preflop + flop HU</strong> — matriz y contexto de calle en la pestaña Rangos.</li>" +
-      "<li><strong>Import de sesiones</strong> — PokerStars (ES/EN), Winamax y GGPoker/Natural8 (cash NLHE); multi-archivo.</li>" +
+      "<li><strong>Import de sesiones</strong> — PokerStars (ES/EN), Winamax, GGPoker/Natural8, 888poker y CoinPoker (cash/spins/torneos); multi-archivo.</li>" +
       "<li><strong>Export</strong> — JSON / CSV / PDF-imprimir en el detalle de sesión.</li>" +
       "<li><strong>Calentamiento</strong> — atajo desde Inicio para un bloque corto con avisador.</li>" +
       "<li><strong>Repetir spots fallados</strong> — checkbox en la mesa del entrenador.</li>" +
@@ -29644,7 +29644,7 @@ window.PT_VS_3BET_JSON = {
         const errMsg = (Importer.importFailureMessage
           ? Importer.importFailureMessage(file.name, text, parsed)
           : ('No se reconocieron manos NLHE (cash/spins/torneo) en «' + file.name
-            + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker o 888poker.'));
+            + '». Comprueba que sea un historial de manos de PokerStars, Winamax, GGPoker, 888poker o CoinPoker.'));
         return { ok: false, error: errMsg };
       }
       if (isTournamentSummary && !parsed.hero) {

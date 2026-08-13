@@ -95,7 +95,7 @@
     if (/5[\s-]?Card\s+Omaha|Omaha\s*5|PLO[\s-]?5|Pot[\s-]?Limit\s+Omaha\s*5/i.test(text)) return 'plo5';
     if (/Omaha|PLO|Pot[\s-]?Limit\s+Omaha/i.test(text)) return 'plo';
     if (/Short\s*Deck|6\+\s*Hold'?em|Hold'?em\s*6\+/i.test(text)) return 'shortdeck';
-    if (/Hold'?em|Holdem/i.test(text)) return 'nlhe';
+    if (/\bNLH\b|\bNLHE\b|Hold'?em|Holdem/i.test(text)) return 'nlhe';
     return 'unknown';
   }
 
@@ -397,7 +397,7 @@
   /** True si el texto parece un historial de manos (no un resumen de resultados). */
   function looksLikeHandHistory(text) {
     const t = String(text || '');
-    if (/(?:Mano n\.º\s*\d+|PokerStars (?:Zoom )?Hand #\d+|Poker Hand #(?:HM)?\d+|Winamax Poker\s*-)/i.test(t)) {
+    if (/(?:Mano n\.º\s*\d+|PokerStars (?:Zoom )?Hand #\d+|Poker Hand #(?:HM)?\d+|Winamax Poker\s*-|CoinPoker Hand #\d+)/i.test(t)) {
       return true;
     }
     if (/\*\*\*\s*HOLE CARDS\s*\*\*\*/i.test(t) || /Dealt to\s+\S+\s*\[/i.test(t)) return true;
@@ -438,7 +438,7 @@
 
   function importFailureMessage(fileName, text, parsed) {
     const name = fileName || 'archivo.txt';
-    const rooms = 'PokerStars, Winamax, GGPoker o 888poker';
+    const rooms = 'PokerStars, Winamax, GGPoker, 888poker o CoinPoker';
     const nonHh = detectNonHandHistory(text);
     if (nonHh) {
       return 'No se importó «' + name + '»: ' + nonHh.hint;

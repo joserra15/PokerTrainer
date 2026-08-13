@@ -14,6 +14,7 @@ const importChain = [
   'import/parsers/pokerstars.js',
   'import/parsers/winamax.js', 'import/parsers/ggpoker.js',
   'import/parsers/eightyeight.js',
+  'import/parsers/coinpoker.js',
   'import.js'
 ];
 

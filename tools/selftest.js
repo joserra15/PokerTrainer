@@ -601,6 +601,7 @@ vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/icmLite
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/populationCompare.js'), 'utf8'), sandbox, { filename: 'import/populationCompare.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/ggpoker.js'), 'utf8'), sandbox, { filename: 'import/parsers/ggpoker.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/eightyeight.js'), 'utf8'), sandbox, { filename: 'import/parsers/eightyeight.js' });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import/parsers/coinpoker.js'), 'utf8'), sandbox, { filename: 'import/parsers/coinpoker.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'import.js'), 'utf8'), sandbox, { filename: 'import.js' });
 const Importer = sandbox.window.Importer;
 const staleHand = {

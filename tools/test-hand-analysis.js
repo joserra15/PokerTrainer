@@ -57,6 +57,7 @@ const scripts = [
   'import/parsers/pokerstars.js',
   'import/parsers/winamax.js', 'import/parsers/ggpoker.js',
   'import/parsers/eightyeight.js',
+  'import/parsers/coinpoker.js',
   'import.js',
   'hand-analysis.js'
 ];
@@ -606,6 +607,14 @@ assert(!!fromHh, 'importa HH Winamax sin IA');
 assert(fromHh && fromHh.heroNetBB === 87.5, 'HH import heroNetBB 87.5 (era −108 sin collected)');
 assert(fromHh && fromHh.collected && fromHh.collected.KazeDj === 3.91, 'HH import conserva collected main pot');
 assert(fromHh && fromHh.source === 'handhistory', 'fuente handhistory');
+
+const cpHh = fs.readFileSync(path.join(__dirname, 'fixtures', 'CoinPoker-sample.txt'), 'utf8');
+assert(PTHandAnalysis.looksLikeHandHistory(cpHh), 'detecta HH CoinPoker');
+const fromCp = PTHandAnalysis.tryImportHandHistory(cpHh);
+assert(!!fromCp, 'importa HH CoinPoker sin IA');
+assert(fromCp && fromCp.hero === 'Hero', 'CoinPoker paste héroe');
+assert(fromCp && fromCp.heroCards && fromCp.heroCards.length >= 2, 'CoinPoker paste cartas');
+assert(fromCp && fromCp.source === 'handhistory', 'CoinPoker fuente handhistory');
 
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');

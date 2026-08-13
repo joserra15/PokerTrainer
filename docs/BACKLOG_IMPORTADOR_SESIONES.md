@@ -2,7 +2,7 @@
 
 > Objetivo: que el importador **detecte el tipo de juego y de mesa**, **persista esa metadata**, y **adapte estadísticas, ideales GTO y coaching** al contexto real de cada sesión. Además, ampliar capacidades útiles para jugadores profesionales / regulares serios.
 >
-> **Estado actual (resumen):** parsers NLHE cash/spins/MTT (PokerStars ES/EN+Zoom, Winamax, GGPoker, **888poker**) con metadata first-class (`gameKind`, `tableMax`, `formatKey`). **P0–P2** (salvo What-if IMP-34) + **P3** (888, PLO/SD parse-only, auto-import carpeta, ICM lite, vs GTO genérico). UI sesiones con pestañas Cash / Spins / Torneos. Pendiente ampliar salas (Party/WPN/iPoker) según demanda.
+> **Estado actual (resumen):** parsers NLHE cash/spins/MTT (PokerStars ES/EN+Zoom, Winamax, GGPoker, **888poker**, **CoinPoker**) con metadata first-class (`gameKind`, `tableMax`, `formatKey`). **P0–P2** (salvo What-if IMP-34) + **P3** (888, CoinPoker, PLO/SD parse-only, auto-import carpeta, ICM lite, vs GTO genérico). UI sesiones con pestañas Cash / Spins / Torneos. Pendiente ampliar salas (Party/WPN/iPoker) según demanda.
 >
 > **Relacionado:** `BACKLOG_METRICAS_POKER.md` (STAT-16 ideales por formato), `EPIC_10_PARIDAD_SNOWIE.md` (SN-20/21/35), `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`.
 
@@ -185,7 +185,7 @@ Prioridad: **P0** (cimiento / pedida explícitamente) · **P1** (alto valor pro)
 
 | ID | Tarea | Esf. | Estado | Criterio de aceptación |
 |----|-------|------|--------|------------------------|
-| **IMP-35** | Más salas: **888poker** (+ iPoker/Party/WPN bajo demanda) | XL | ✅ 888 | Detector + parser + fixtures (888); otras salas a demanda |
+| **IMP-35** | Más salas: **888poker**, **CoinPoker** (+ iPoker/Party/WPN bajo demanda) | XL | ✅ 888 + CoinPoker | Detector + parser + fixtures; otras salas a demanda |
 | **IMP-36** | PLO / PLO5 import (parse only + “no GTO aún”) | L | ✅ | No romper NLHE; badge unsupported analysis |
 | **IMP-37** | Short Deck | L | ✅ | Idem |
 | **IMP-38** | Auto-import watcher / carpeta HH (File System Access API) | XL | ✅ MVP | Vigilancia carpeta Chrome/Edge + import manual |

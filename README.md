@@ -210,7 +210,7 @@ Requiere Node.js. Matriz:
 |------|---------|-----------|
 | **CI Node (canónico)** | `npm run test:ci` | Misma lista que `.github/workflows/static.yml` (motor, import, entitlements, cloud, Stripe/IA contracts, golden hands, UX guards…) |
 | Unit motor | `npm run test:unit` | `selftest` GTO |
-| Import HH | `npm run test:import` | PokerStars ES/EN, Winamax, GGPoker |
+| Import HH | `npm run test:import` | PokerStars ES/EN, Winamax, GGPoker, 888poker, CoinPoker |
 | E2E | `npm run test:e2e` | Playwright Chromium (entrenar, import, paywall, replay, análisis) — `.github/workflows/e2e.yml` |
 | Live opcional | `node tools/test-supabase.js` / workflows `supabase-smoke` · `billing-live` | Secrets; no bloquean PR |
 | Release | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) | OAuth + billing + smoke |

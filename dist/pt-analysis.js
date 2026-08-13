@@ -1875,6 +1875,7 @@
     return /^Winamax Poker -/m.test(text) ||
       /^PokerStars Hand #/m.test(text) ||
       /^PokerStars Zoom Hand #/m.test(text) ||
+      /^CoinPoker Hand #/m.test(text) ||
       /^Mano n/m.test(text) ||
       /HandId:\s*#/i.test(text);
   }

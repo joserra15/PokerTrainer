@@ -35,13 +35,14 @@ assert.ok(/Rake en el entrenador/.test(help), 'help documenta rake');
 assert.ok(/atajos de teclado/i.test(faq), 'FAQ menciona atajos');
 assert.ok(/entrenar con rake/i.test(faq), 'FAQ menciona rake');
 assert.ok(/888poker/i.test(faq), 'FAQ menciona 888poker');
+assert.ok(/coinpoker/i.test(faq), 'FAQ menciona CoinPoker');
 assert.ok(/Cash/i.test(faq) && /Spins/i.test(faq) && /Torneos/i.test(faq), 'FAQ menciona pestañas Cash/Spins/Torneos');
 assert.ok(/PLO/i.test(faq) && /Short Deck/i.test(faq), 'FAQ menciona PLO/Short Deck');
 assert.ok(/help-modal-content/.test(css) && /action-hotkey/.test(css), 'CSS ayuda y hotkeys');
 assert.ok(/action-hotkey\s*\{\s*display:\s*none/.test(css.replace(/\s+/g, ' ')) ||
   /@media[^{]*max-width:\s*720px[\s\S]*?\.action-hotkey\s*\{\s*display:\s*none/.test(css),
   'hotkeys ocultas en móvil');
-assert.ok(/PT_BUILD\s*=\s*'2\.5\.18'/.test(version), 'versión 2.5.11');
+assert.ok(/PT_BUILD\s*=\s*'2\.5\.19'/.test(version), 'versión 2.5.11');
 
 const localStore = {};
 const sandbox = {

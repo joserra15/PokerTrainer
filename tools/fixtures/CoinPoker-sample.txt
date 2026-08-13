@@ -1,0 +1,399 @@
+CoinPoker Hand #3580620001: NLH (250/500/63) 2026/04/28 17:15:18 CEST
+Tournament '₮8.88 Asia Hyper' '51211' 7-max Seat #3 is the button
+Seat 1: Hero (10,000 in chips)
+Seat 2: be85c6d9 (13,459.82 in chips)
+Seat 3: 304770ad (20,035 in chips)
+Seat 4: 1b744cda (8,937 in chips)
+Hero: posts ante 63
+be85c6d9: posts ante 63
+304770ad: posts ante 63
+1b744cda: posts ante 63
+1b744cda: posts small blind 250
+Hero: posts big blind 500
+*** HOLE CARDS ***
+Dealt to Hero [9c 7h]
+Dealt to be85c6d9
+Dealt to 304770ad
+Dealt to 1b744cda
+be85c6d9: calls 500
+304770ad: folds
+1b744cda: calls 250
+Hero: checks
+*** FLOP *** [Ts Td 8h]
+1b744cda: checks
+Hero: checks
+be85c6d9: checks
+*** TURN *** [Ts Td 8h] [2c]
+1b744cda: bets 876
+Hero: calls 876
+be85c6d9: folds
+*** RIVER *** [Ts Td 8h 2c] [4c]
+1b744cda: bets 1,752
+Hero: folds
+1b744cda: RETURN 1,752
+*** SHOWDOWN ***
+1b744cda collected 3,504 from pot
+*** SUMMARY ***
+Total pot 3,504
+Board [ Ts Td 8h 2c 4c ]
+Game ended: 2026/04/28 17:16:34 CEST
+Seat 1: Hero folded on the River
+Seat 2: be85c6d9 folded on the Turn
+Seat 3: 304770ad folded before Flop (didn't bet)
+Seat 4: 1b744cda won (3,504)
+
+
+CoinPoker Hand #3580620002: NLH (300/600/75) 2026/04/28 17:16:39 CEST
+Tournament '₮8.88 Asia Hyper' '51211' 7-max Seat #4 is the button
+Seat 1: Hero (8,561 in chips)
+Seat 2: c365985b (12,896.82 in chips)
+Seat 3: e5177c46 (19,972 in chips)
+Seat 4: cbaad53f (11,002 in chips)
+Hero: posts ante 75
+c365985b: posts ante 75
+e5177c46: posts ante 75
+cbaad53f: posts ante 75
+Hero: posts small blind 300
+c365985b: posts big blind 600
+*** HOLE CARDS ***
+Dealt to Hero [Kd Qh]
+Dealt to c365985b
+Dealt to e5177c46
+Dealt to cbaad53f
+e5177c46: folds
+cbaad53f: folds
+Hero: ALLIN 8,186
+c365985b: folds
+Hero: RETURN 7,886
+*** SHOWDOWN ***
+Hero collected 1,500 from pot
+*** SUMMARY ***
+Total pot 1,500
+Board [  ]
+Game ended: 2026/04/28 17:16:59 CEST
+Seat 1: Hero showed [Kd Qh] and won (1,500)
+Seat 2: c365985b folded before Flop (didn't bet)
+Seat 3: e5177c46 folded before Flop (didn't bet)
+Seat 4: cbaad53f folded before Flop (didn't bet)
+
+
+CoinPoker Hand #3580620003: NLH (300/600/75) 2026/04/28 17:17:04 CEST
+Tournament '₮8.88 Asia Hyper' '51211' 7-max Seat #1 is the button
+Seat 1: Hero (9,386 in chips)
+Seat 2: 875e8a0c (12,221.82 in chips)
+Seat 3: b1d339c2 (19,897 in chips)
+Seat 4: fff66889 (10,927 in chips)
+Seat 5: cc136ac1 (10,000 in chips)
+Seat 6: da297343 (10,000 in chips)
+Hero: posts ante 75
+875e8a0c: posts ante 75
+b1d339c2: posts ante 75
+fff66889: posts ante 75
+cc136ac1: posts ante 75
+da297343: posts ante 75
+875e8a0c: posts small blind 300
+b1d339c2: posts big blind 600
+*** HOLE CARDS ***
+Dealt to Hero [Qs 6c]
+Dealt to 875e8a0c
+Dealt to b1d339c2
+Dealt to fff66889
+Dealt to cc136ac1
+Dealt to da297343
+fff66889: folds
+cc136ac1: folds
+da297343: raises 600 to 1,200
+Hero: folds
+875e8a0c: folds
+b1d339c2: calls 600
+*** FLOP *** [4d Tc 9d]
+b1d339c2: checks
+da297343: bets 1,039.50
+b1d339c2: folds
+da297343: RETURN 1,039.50
+*** SHOWDOWN ***
+da297343 collected 3,150 from pot
+*** SUMMARY ***
+Total pot 3,150
+Board [ 4d Tc 9d ]
+Game ended: 2026/04/28 17:17:56 CEST
+Seat 1: Hero folded before Flop (didn't bet)
+Seat 2: 875e8a0c folded before Flop (didn't bet)
+Seat 3: b1d339c2 folded on the Flop
+Seat 4: fff66889 folded before Flop (didn't bet)
+Seat 5: cc136ac1 folded before Flop (didn't bet)
+Seat 6: da297343 won (3,150)
+
+
+CoinPoker Hand #3580620004: NLH (300/600/75) 2026/04/28 17:18:01 CEST
+Tournament '₮8.88 Asia Hyper' '51211' 7-max Seat #2 is the button
+Seat 1: Hero (9,311 in chips)
+Seat 2: b0fa481f (11,846.82 in chips)
+Seat 3: 58e52506 (18,622 in chips)
+Seat 4: c8d1c241 (10,852 in chips)
+Seat 5: 79a916e1 (9,925 in chips)
+Seat 6: 7c70f52f (11,875 in chips)
+Seat 7: 233a9e42 (10,000 in chips)
+Hero: posts ante 75
+b0fa481f: posts ante 75
+58e52506: posts ante 75
+c8d1c241: posts ante 75
+79a916e1: posts ante 75
+7c70f52f: posts ante 75
+233a9e42: posts ante 75
+58e52506: posts small blind 300
+c8d1c241: posts big blind 600
+*** HOLE CARDS ***
+Dealt to Hero [7s 3s]
+Dealt to b0fa481f
+Dealt to 58e52506
+Dealt to c8d1c241
+Dealt to 79a916e1
+Dealt to 7c70f52f
+Dealt to 233a9e42
+79a916e1: folds
+7c70f52f: folds
+233a9e42: folds
+Hero: folds
+b0fa481f: folds
+58e52506: folds
+c8d1c241: RETURN 300
+*** SHOWDOWN ***
+c8d1c241 collected 1,125 from pot
+*** SUMMARY ***
+Total pot 1,125
+Board [  ]
+Game ended: 2026/04/28 17:18:24 CEST
+Seat 1: Hero folded before Flop (didn't bet)
+Seat 2: b0fa481f folded before Flop (didn't bet)
+Seat 3: 58e52506 folded before Flop (didn't bet)
+Seat 4: c8d1c241 won (1,125)
+Seat 5: 79a916e1 folded before Flop (didn't bet)
+Seat 6: 7c70f52f folded before Flop (didn't bet)
+Seat 7: 233a9e42 folded before Flop (didn't bet)
+
+
+CoinPoker Hand #3580800001: NLH (300/600/75) 2026/04/28 17:18:43 CEST
+Tournament '₮8.88 Asia Hyper' '51211' 7-max Seat #3 is the button
+Seat 1: 6b1affb2 (10,000 in chips)
+Seat 2: eefcc80b (10,000 in chips)
+Seat 3: Hero (9,236 in chips)
+Seat 4: edbfac26 (10,000 in chips)
+6b1affb2: posts ante 75
+eefcc80b: posts ante 75
+Hero: posts ante 75
+edbfac26: posts ante 75
+edbfac26: posts small blind 300
+6b1affb2: posts big blind 600
+*** HOLE CARDS ***
+Dealt to 6b1affb2
+Dealt to eefcc80b
+Dealt to Hero [Js Th]
+Dealt to edbfac26
+eefcc80b: folds
+Hero: raises 600 to 1,200
+edbfac26: ALLIN 9,625
+6b1affb2: folds
+Hero: folds
+edbfac26: RETURN 8,725
+*** SHOWDOWN ***
+edbfac26 collected 3,300 from pot
+*** SUMMARY ***
+Total pot 3,300
+Board [  ]
+Game ended: 2026/04/28 17:19:15 CEST
+Seat 1: 6b1affb2 folded before Flop (didn't bet)
+Seat 2: eefcc80b folded before Flop (didn't bet)
+Seat 3: Hero folded before Flop (didn't bet)
+Seat 4: edbfac26 won (3,300)
+
+
+CoinPoker Hand #3580800002: NLH (300/600/75) 2026/04/28 17:19:20 CEST
+Tournament '₮8.88 Asia Hyper' '51211' 7-max Seat #4 is the button
+Seat 1: 8497f308 (9,325 in chips)
+Seat 2: 10c175bd (9,925 in chips)
+Seat 3: Hero (7,961 in chips)
+Seat 4: 217fb109 (12,025 in chips)
+8497f308: posts ante 75
+10c175bd: posts ante 75
+Hero: posts ante 75
+217fb109: posts ante 75
+8497f308: posts small blind 300
+10c175bd: posts big blind 600
+*** HOLE CARDS ***
+Dealt to 8497f308
+Dealt to 10c175bd
+Dealt to Hero [Jd 4s]
+Dealt to 217fb109
+Hero: folds
+217fb109: folds
+8497f308: calls 300
+10c175bd: ALLIN 9,250
+8497f308: folds
+10c175bd: RETURN 9,250
+*** SHOWDOWN ***
+10c175bd collected 1,500 from pot
+*** SUMMARY ***
+Total pot 1,500
+Board [  ]
+Game ended: 2026/04/28 17:20:10 CEST
+Seat 1: 8497f308 folded before Flop (didn't bet)
+Seat 2: 10c175bd won (1,500)
+Seat 3: Hero folded before Flop (didn't bet)
+Seat 4: 217fb109 folded before Flop (didn't bet)
+
+
+CoinPoker Hand #3580800003: NLH (350/700/88) 2026/04/28 17:20:15 CEST
+Tournament '₮8.88 Asia Hyper' '51211' 7-max Seat #1 is the button
+Seat 1: 9b26750a (8,650 in chips)
+Seat 2: 004c62f6 (10,750 in chips)
+Seat 3: Hero (7,886 in chips)
+Seat 4: 2f16d374 (11,950 in chips)
+Seat 5: d8f70a17 (25,874.33 in chips)
+Seat 6: ae239435 (10,000 in chips)
+Seat 7: 09dfa4c8 (10,000 in chips)
+9b26750a: posts ante 88
+004c62f6: posts ante 88
+Hero: posts ante 88
+2f16d374: posts ante 88
+d8f70a17: posts ante 88
+ae239435: posts ante 88
+09dfa4c8: posts ante 88
+004c62f6: posts small blind 350
+Hero: posts big blind 700
+*** HOLE CARDS ***
+Dealt to 9b26750a
+Dealt to 004c62f6
+Dealt to Hero [Qs 5s]
+Dealt to 2f16d374
+Dealt to d8f70a17
+Dealt to ae239435
+Dealt to 09dfa4c8
+2f16d374: folds
+d8f70a17: folds
+ae239435: calls 700
+09dfa4c8: folds
+9b26750a: calls 700
+004c62f6: calls 350
+Hero: ALLIN 7,098
+ae239435: calls 7,098
+9b26750a: folds
+004c62f6: folds
+*** FLOP *** [2h 9c 6c]
+*** TURN *** [2h 9c 6c] [9h]
+*** RIVER *** [2h 9c 6c 9h] [Kd]
+*** SHOWDOWN ***
+ae239435: shows [Ad 7h] (One Pair)
+ae239435 collected 17,612 from pot
+Hero: shows [Qs 5s] (One Pair)
+*** SUMMARY ***
+Total pot 17,612
+Board [ 2h 9c 6c 9h Kd ]
+Game ended: 2026/04/28 17:21:33 CEST
+Seat 1: 9b26750a folded before Flop (didn't bet)
+Seat 2: 004c62f6 folded before Flop (didn't bet)
+Seat 3: Hero showed [Qs 5s] and lost with One Pair
+Seat 4: 2f16d374 folded before Flop (didn't bet)
+Seat 5: d8f70a17 folded before Flop (didn't bet)
+Seat 6: ae239435 showed [Ad 7h] and won (17,612) with One Pair
+Seat 7: 09dfa4c8 folded before Flop (didn't bet)
+
+
+CoinPoker Hand #3580990019: NLH (150/300/38) 2026/04/28 17:39:53 CEST
+Tournament '₮5.50 Turbo' '51223' 7-max Seat #2 is the button
+Seat 1: 0f45e24b (17,601.44 in chips)
+Seat 2: 9674d606 (31,356.28 in chips)
+Seat 3: ccf72897 (11,286.14 in chips)
+Seat 4: 385d2660 (37,133.14 in chips)
+Seat 5: d3cec82c (10,000 in chips)
+Seat 6: 885c265a (7,431.49 in chips)
+Seat 7: Hero (10,000 in chips)
+0f45e24b: posts ante 38
+9674d606: posts ante 38
+ccf72897: posts ante 38
+385d2660: posts ante 38
+d3cec82c: posts ante 38
+885c265a: posts ante 38
+Hero: posts ante 38
+ccf72897: posts small blind 150
+385d2660: posts big blind 300
+*** HOLE CARDS ***
+Dealt to 0f45e24b
+Dealt to 9674d606
+Dealt to ccf72897
+Dealt to 385d2660
+Dealt to d3cec82c
+Dealt to 885c265a
+Dealt to Hero [As 5d]
+d3cec82c: raises 360 to 660
+885c265a: folds
+Hero: folds
+0f45e24b: folds
+9674d606: calls 660
+ccf72897: folds
+385d2660: folds
+*** FLOP *** [9h 5c 5h]
+d3cec82c: bets 1,827
+9674d606: folds
+d3cec82c: RETURN 1,827
+*** SHOWDOWN ***
+d3cec82c collected 2,036 from pot
+*** SUMMARY ***
+Total pot 2,036
+Board [ 9h 5c 5h ]
+Game ended: 2026/04/28 17:40:57 CEST
+Seat 1: 0f45e24b folded before Flop (didn't bet)
+Seat 2: 9674d606 folded on the Flop
+Seat 3: ccf72897 folded before Flop (didn't bet)
+Seat 4: 385d2660 folded before Flop (didn't bet)
+Seat 5: d3cec82c won (2,036)
+Seat 6: 885c265a folded before Flop (didn't bet)
+Seat 7: Hero folded before Flop (didn't bet)
+
+
+CoinPoker Hand #3580990020: NLH (175/350/44) 2026/04/28 17:41:02 CEST
+Tournament '₮5.50 Turbo' '51223' 7-max Seat #3 is the button
+Seat 1: d24f19aa (17,563.44 in chips)
+Seat 2: 7404eecd (30,658.28 in chips)
+Seat 3: f816a83d (11,098.14 in chips)
+Seat 4: d1c07438 (36,795.14 in chips)
+Seat 5: 83f36a80 (11,338 in chips)
+Seat 6: 16a651e8 (7,393.49 in chips)
+Seat 7: Hero (9,962 in chips)
+d24f19aa: posts ante 44
+7404eecd: posts ante 44
+f816a83d: posts ante 44
+d1c07438: posts ante 44
+83f36a80: posts ante 44
+16a651e8: posts ante 44
+Hero: posts ante 44
+d1c07438: posts small blind 175
+83f36a80: posts big blind 350
+*** HOLE CARDS ***
+Dealt to d24f19aa
+Dealt to 7404eecd
+Dealt to f816a83d
+Dealt to d1c07438
+Dealt to 83f36a80
+Dealt to 16a651e8
+Dealt to Hero [8c 7d]
+16a651e8: folds
+Hero: folds
+d24f19aa: folds
+7404eecd: folds
+f816a83d: folds
+d1c07438: folds
+83f36a80: RETURN 175
+*** SHOWDOWN ***
+83f36a80 collected 658 from pot
+*** SUMMARY ***
+Total pot 658
+Board [  ]
+Game ended: 2026/04/28 17:41:38 CEST
+Seat 1: d24f19aa folded before Flop (didn't bet)
+Seat 2: 7404eecd folded before Flop (didn't bet)
+Seat 3: f816a83d folded before Flop (didn't bet)
+Seat 4: d1c07438 folded before Flop (didn't bet)
+Seat 5: 83f36a80 won (658)
+Seat 6: 16a651e8 folded before Flop (didn't bet)
+Seat 7: Hero folded before Flop (didn't bet)
