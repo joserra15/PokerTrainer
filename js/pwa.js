@@ -7,6 +7,13 @@
   var DISMISS_KEY = 'pt_pwa_install_dismiss_v1';
   var deferredPrompt = null;
   var bannerEl = null;
+  var pendingSwReload = false;
+
+  global.PTBusy = global.PTBusy || { import: false };
+
+  function importInProgress() {
+    return !!(global.PTBusy && global.PTBusy.import);
+  }
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -65,6 +72,10 @@
         global.navigator.serviceWorker.addEventListener('controllerchange', function () {
           if (!hadController || refreshing) return;
           if (/[?&#](code|access_token)=/.test(location.href || '')) return;
+          if (importInProgress()) {
+            pendingSwReload = true;
+            return;
+          }
           refreshing = true;
           try {
             if (sessionStorage.getItem('pt_sw_refresh') === build) return;
@@ -250,6 +261,11 @@
     installApp: installApp,
     isStandalone: isStandalone,
     isIOS: isIOS,
-    updateInstallUI: updateInstallUI
+    updateInstallUI: updateInstallUI,
+    setImportBusy: function (on) {
+      global.PTBusy = global.PTBusy || {};
+      global.PTBusy.import = !!on;
+      if (!on) pendingSwReload = false;
+    }
   };
 })(window);

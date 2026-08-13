@@ -20,6 +20,16 @@ assert.ok(Array.isArray(manifest.icons) && manifest.icons.length, 'icons');
 
 const pwa = fs.readFileSync(path.join(root, 'js/pwa.js'), 'utf8');
 assert.ok(/serviceWorker|sw\.js/.test(pwa), 'pwa registra SW');
+assert.ok(/PTBusy/.test(pwa), 'PTBusy evita reload a mitad de import');
+assert.ok(/importInProgress/.test(pwa), 'controllerchange respeta import en curso');
+
+const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+assert.ok(/import-progress-clock/.test(indexHtml), 'reloj de importación en UI');
+const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
+assert.ok(/pt-import-spin/.test(styles), 'animación reloj import');
+const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+assert.ok(/Cargando manos/.test(app) && /Guardando/.test(app), 'fases de progreso con ETA');
+assert.ok(/session-hands-more/.test(app), 'lista de manos paginada');
 
 const offline = fs.readFileSync(path.join(root, 'offline.html'), 'utf8');
 assert.ok(/PokerForgeAI|offline|conexión/i.test(offline), 'offline copy');

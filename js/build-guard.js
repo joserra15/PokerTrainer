@@ -18,6 +18,7 @@
   function clearCachesAndReload(targetBuild) {
     // Nunca recargar a mitad del retorno de Google OAuth (perdería ?code=).
     if (hasOAuthCallback()) return;
+    if (global.PTBusy && global.PTBusy.import) return;
     var mark = String(targetBuild || build);
     // Evita bucle si version.js está desfasado respecto a la página
     try {
@@ -46,6 +47,7 @@
   function checkFreshVersionJs(currentBuild) {
     if (global.PT_E2E_MODE) return;
     if (hasOAuthCallback()) return;
+    if (global.PTBusy && global.PTBusy.import) return;
     if (!('fetch' in global)) return;
     var url = '/js/version.js?t=' + Date.now();
     fetch(url, { cache: 'no-store' })

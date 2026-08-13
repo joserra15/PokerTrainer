@@ -942,9 +942,12 @@
           </div>
           <div id="auto-import-status" class="muted-text" style="font-size:12px;margin-top:6px"></div>
           <div id="import-status" class="import-status"></div>
-          <div id="import-progress" class="import-progress hidden" aria-live="polite">
+          <div id="import-progress" class="import-progress hidden" aria-live="polite" aria-busy="true">
+            <div class="import-progress-label-row">
+              <span class="import-progress-clock" aria-hidden="true"></span>
+              <span id="import-progress-label" class="muted-text"></span>
+            </div>
             <div class="import-progress-track"><div id="import-progress-fill" class="import-progress-fill"></div></div>
-            <span id="import-progress-label" class="muted-text"></span>
           </div>
         </div>
         <div class="sessions-kind-tabs" role="tablist" aria-label="Tipo de sesión">

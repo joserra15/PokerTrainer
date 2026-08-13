@@ -4073,7 +4073,16 @@
           }
           if (onProgress) onProgress(i, hands.length, 'analyze');
           if (i < hands.length) setTimeout(step, 0);
-          else resolve(sessionPayload(parsed, fileName, hero, kept, discarded, computeStats(kept), rawText, discardCounts));
+          else {
+            setTimeout(function () {
+              try {
+                if (onProgress) onProgress(0, 1, 'stats');
+                const stats = computeStats(kept);
+                if (onProgress) onProgress(1, 1, 'stats');
+                resolve(sessionPayload(parsed, fileName, hero, kept, discarded, stats, rawText, discardCounts));
+              } catch (e2) { reject(e2); }
+            }, 0);
+          }
         } catch (e) { reject(e); }
       }
       setTimeout(step, 0);
@@ -4998,7 +5007,7 @@
     const dist = { optima: 0, aceptable: 0, imprecisa: 0, error: 0 };
     hands.forEach((h) => {
       ensureAnalyzedHandContext(h);
-      if (global.GTOScoring && global.GTOScoring.ensureHandScore) {
+      if (h.handScore == null && global.GTOScoring && global.GTOScoring.ensureHandScore) {
         global.GTOScoring.ensureHandScore(h);
       } else if (h.handScore == null && global.GTOScoring && global.GTOScoring.scoreHand) {
         const graded = global.GTOScoring.scoreHand(h.decisions || [], h.totalEvLoss);

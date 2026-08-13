@@ -442,6 +442,7 @@
     if (!session || !session.id || !session.stats) return false;
     applySessionStub(st, session);
     var agg = ensureAggregates(st);
+    if ((session.hands || []).length > 4000) return true;
     indexSessionLeaksForSession(agg, session);
     return true;
   }

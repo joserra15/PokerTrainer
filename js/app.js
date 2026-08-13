@@ -5571,6 +5571,9 @@
   let currentHand = null;
   let replayState = null;
   let analysisReviewReturn = false;
+  const SESSION_HANDS_PAGE = 80;
+  const HEAVY_OPEN_HANDS = 2000;
+  let sessionHandsShown = SESSION_HANDS_PAGE;
 
   function showSessionsView(which) {
     $('#sessions-home').classList.toggle('hidden', which !== 'home');
@@ -5597,18 +5600,85 @@
     const progWrap = $('#import-progress');
     const progFill = $('#import-progress-fill');
     const progLabel = $('#import-progress-label');
+    let progressPhase = '';
+    let progressPhaseStartedAt = 0;
+    let wakeLock = null;
+
+    const PHASE_LABELS = {
+      file: 'Archivo',
+      parse: 'Cargando manos',
+      analyze: 'Analizando',
+      stats: 'Estadísticas',
+      save: 'Guardando',
+      open: 'Abriendo sesión'
+    };
+
+    function fmtEta(ms) {
+      if (!isFinite(ms) || ms < 0) return '';
+      const s = Math.round(ms / 1000);
+      if (s < 5) return 'unos segundos';
+      if (s < 90) return s + ' s';
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      if (m < 60) return r ? (m + ' min ' + r + ' s') : (m + ' min');
+      const h = Math.floor(m / 60);
+      const mm = m % 60;
+      return h + ' h ' + mm + ' min';
+    }
+
+    function setImportBusy(on) {
+      window.PTBusy = window.PTBusy || {};
+      window.PTBusy.import = !!on;
+      if (window.PTPwa && window.PTPwa.setImportBusy) window.PTPwa.setImportBusy(on);
+    }
+
+    async function requestWakeLock() {
+      try {
+        if (navigator.wakeLock && navigator.wakeLock.request) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (e) { wakeLock = null; }
+    }
+
+    async function releaseWakeLock() {
+      try { if (wakeLock) await wakeLock.release(); } catch (e) { /* ignore */ }
+      wakeLock = null;
+    }
+
+    function onImportVisibility() {
+      if (document.visibilityState === 'visible' && window.PTBusy && window.PTBusy.import) {
+        void requestWakeLock();
+      }
+    }
 
     function setProgress(done, total, phase, fileLabel) {
+      const now = Date.now();
+      if (phase && phase !== progressPhase) {
+        progressPhase = phase;
+        progressPhaseStartedAt = now;
+      }
       const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0;
       if (progWrap) progWrap.classList.remove('hidden');
       if (progFill) progFill.style.width = pct + '%';
-      const phaseLbl = phase === 'parse' ? 'Parseando' : (phase === 'file' ? 'Archivo' : 'Analizando');
+      const phaseLbl = PHASE_LABELS[phase] || 'Procesando';
       const prefix = fileLabel ? (fileLabel + ' · ') : '';
-      if (progLabel) {
-        progLabel.textContent = prefix + phaseLbl + ' ' + done.toLocaleString('es-ES') +
-          (total ? (' / ' + total.toLocaleString('es-ES')) : '') + ' (' + pct + '%)';
+      let counts = '';
+      if (total) {
+        counts = ' ' + Number(done).toLocaleString('es-ES') + ' / ' + Number(total).toLocaleString('es-ES')
+          + ' (' + pct + '%)';
       }
-      if (status) status.textContent = progLabel ? progLabel.textContent : '';
+      let etaTxt = '';
+      if (total && done > 0 && done < total) {
+        const elapsed = now - progressPhaseStartedAt;
+        etaTxt = ' · quedan ' + fmtEta((elapsed / done) * (total - done));
+      } else if (total && done >= total) {
+        etaTxt = ' · un momento…';
+      } else {
+        etaTxt = ' · calculando tiempo…';
+      }
+      const line = prefix + phaseLbl + counts + etaTxt;
+      if (progLabel) progLabel.textContent = line;
+      if (status) status.textContent = line;
     }
 
     function hideProgress() {
@@ -5629,6 +5699,7 @@
       const fileLabel = fileTotal > 1
         ? ('Archivo ' + (fileIndex + 1) + '/' + fileTotal + ' · ' + file.name)
         : file.name;
+      setProgress(0, 1, 'parse', fileLabel);
       status.textContent = 'Leyendo ' + file.name + '…';
       const text = await readFileText(file);
       const fmtMeta = Importer.detectSessionFormat ? Importer.detectSessionFormat(text) : null;
@@ -5696,7 +5767,9 @@
           return { ok: false, paywall: rec.error, error: rec.error };
         }
       }
-      const saveResult = await Store.saveSession(session);
+      session.freshImport = true;
+      setProgress(0, 1, 'save', fileLabel);
+      const saveResult = await Store.saveSession(session, onProgress);
       const saved = saveResult && saveResult.ok !== false;
       const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
       if (window.PTAnalytics && PTAnalytics.trackImportSession) {
@@ -5719,6 +5792,9 @@
     }
 
     (async function () {
+      setImportBusy(true);
+      document.addEventListener('visibilitychange', onImportVisibility);
+      await requestWakeLock();
       try {
         const results = [];
         let lastOk = null;
@@ -5728,13 +5804,10 @@
           results.push(Object.assign({ fileName: files[i].name }, res));
           if (res.ok) lastOk = res.session;
           else if (res.paywall) {
-            hideProgress();
             if (window.PTBilling) window.PTBilling.showPaywall(res.paywall);
-            // Mostrar resumen parcial si hubo éxitos previos
             break;
           }
         }
-        hideProgress();
         const ok = results.filter(function (r) { return r.ok; });
         const fail = results.filter(function (r) { return !r.ok && !r.paywall; });
         const hands = ok.reduce(function (n, r) {
@@ -5779,7 +5852,6 @@
               return '<li>' + escapeHtml(f.fileName) + ': ' + escapeHtml(f.error || 'error') + '</li>';
             }).join('') + '</ul>';
         }
-        if (status) status.innerHTML = msg || '';
         input.value = '';
         $('#process-session').disabled = true;
         if (lastOk) {
@@ -5787,14 +5859,22 @@
           try { sessionStorage.setItem('pt_sessions_tab', sessionsListTab); } catch (e) { /* ignore */ }
         }
         renderSessionsList();
-        if (lastOk) openSession(lastOk.id, lastOk);
+        if (lastOk) {
+          setProgress(0, 1, 'open', lastOk.fileName);
+          await openSession(lastOk.id, lastOk, { skipHeavyPrep: true });
+        }
+        if (status) status.innerHTML = msg || '';
       } catch (err) {
-        hideProgress();
         if (status) {
           status.innerHTML = '<span style="color:var(--red)">Error al procesar: ' +
             escapeHtml(err.message || String(err)) + '</span>';
         }
         console.error('[Sessions] multi import failed', err);
+      } finally {
+        hideProgress();
+        setImportBusy(false);
+        document.removeEventListener('visibilitychange', onImportVisibility);
+        await releaseWakeLock();
       }
     })();
   }
@@ -6073,7 +6153,8 @@
     showSessionsView('detail');
   }
 
-  async function openSession(id, sessionObj) {
+  async function openSession(id, sessionObj, opts) {
+    opts = opts || {};
     showSessionLoading('Cargando sesión…');
     currentSession = sessionObj || await Store.getSessionAsync(id);
     if (!currentSession || !currentSession.hands) {
@@ -6090,13 +6171,16 @@
     const buildVer = window.PT_BUILD || '';
     const isTournamentSummary = currentSession.source === 'tournamentSummary'
       || (currentSession.stats && currentSession.stats.source === 'tournamentSummary');
-    if (!isTournamentSummary && Importer.ensureAnalyzedHandContext) {
+    const nHands = (currentSession.hands || []).length;
+    const skipHeavy = !!(opts.skipHeavyPrep || currentSession.freshImport || nHands > HEAVY_OPEN_HANDS);
+    currentSession.freshImport = false;
+    if (!isTournamentSummary && Importer.ensureAnalyzedHandContext && !skipHeavy) {
       currentSession.hands.forEach((h) => Importer.ensureAnalyzedHandContext(h));
     }
     const versionMismatch = !isTournamentSummary
       && !!(buildVer && currentSession.analysisVersion && currentSession.analysisVersion !== buildVer);
     currentSession.pendingReanalyze = versionMismatch;
-    const needsHudStats = !isTournamentSummary && Importer.computeStats
+    const needsHudStats = !skipHeavy && !isTournamentSummary && Importer.computeStats
       && (!currentSession.stats || currentSession.stats.vpipPct == null || currentSession.stats.pfrPct == null
         || currentSession.stats.vpipHands == null || currentSession.stats.pfrHands == null
         || currentSession.stats.threeBetOpps == null || currentSession.stats.style == null
@@ -6108,7 +6192,7 @@
         || !currentSession.context);
     // Sesiones guardadas con collected vacío marcaban −stack en wins con side pot.
     let netFixed = false;
-    if (Importer.recomputeHeroNet) {
+    if (!skipHeavy && Importer.recomputeHeroNet) {
       currentSession.hands.forEach((h) => {
         const before = h.heroNetBB;
         const hasCollected = h.collected && Object.keys(h.collected).some((k) => (h.collected[k] || 0) > 0);
@@ -6119,7 +6203,7 @@
     }
     // Tags ligeros si faltan (sin re-score GTO)
     let tagsFixed = false;
-    if (Importer.buildHandTags) {
+    if (!skipHeavy && Importer.buildHandTags) {
       currentSession.hands.forEach((h) => {
         if (!h.tags || !h.tags.length) {
           h.tags = Importer.buildHandTags(h);
@@ -6139,11 +6223,13 @@
     } else if (tagsFixed) {
       await Store.saveSession(currentSession);
     }
+    sessionHandsShown = SESSION_HANDS_PAGE;
     renderSessionDetail('evLoss');
     showSessionsView('detail');
   }
 
   function renderSessionDetail(sortBy) {
+    sessionHandsShown = SESSION_HANDS_PAGE;
     const s = currentSession;
     if (!s || !s.stats) {
       $('#session-detail-content').innerHTML = '<p class="muted-text">No hay datos de sesión para mostrar.</p>';
@@ -6384,7 +6470,9 @@
       box.innerHTML = '<div class="empty">No hay manos que coincidan con los filtros.</div>';
       return;
     }
-    box.innerHTML = hands.map((h) => {
+    const shown = Math.min(sessionHandsShown || SESSION_HANDS_PAGE, hands.length);
+    const slice = hands.slice(0, shown);
+    box.innerHTML = slice.map((h) => {
       const netCls = h.heroNetBB >= 0 ? 'net-pos' : 'net-neg';
       const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
       const tags = (h.tags || []).filter((t) => t && t.indexOf('pos:') !== 0).slice(0, 4);
@@ -6407,6 +6495,20 @@
         </div>
       </div>`;
     }).join('');
+    if (shown < hands.length) {
+      box.innerHTML += '<div class="session-hands-more-wrap" style="margin:12px 0 4px;text-align:center">'
+        + '<p class="muted-text" style="font-size:12px;margin:0 0 8px">'
+        + shown.toLocaleString('es-ES') + ' de ' + hands.length.toLocaleString('es-ES') + ' manos</p>'
+        + '<button type="button" class="btn btn-ghost" id="session-hands-more">Mostrar más</button>'
+        + '</div>';
+      const more = $('#session-hands-more');
+      if (more) {
+        more.onclick = function () {
+          sessionHandsShown = shown + SESSION_HANDS_PAGE;
+          renderSessionHands(sortBy);
+        };
+      }
+    }
   }
 
   function findHand(id) {

@@ -110,7 +110,7 @@
 
   function parentForStorage(session, shardIds) {
     const n = (session.hands && session.hands.length) || (session.stats && session.stats.nHands) || 0;
-    return Object.assign({}, session, {
+    const parent = Object.assign({}, session, {
       hands: [],
       sharded: true,
       shardCount: shardIds.length,
@@ -119,6 +119,8 @@
       rawText: null,
       hasTxt: false
     });
+    delete parent.freshImport;
+    return parent;
   }
 
   async function assembleShardedSession(parent) {
@@ -984,6 +986,12 @@
         && (!session.hero || !s.hero || s.hero === session.hero);
     });
     if (!candidates.length) return session;
+    const nNew = (session.hands && session.hands.length) || 0;
+    if (nNew > HANDS_PER_SHARD) {
+      session.id = candidates[0].id;
+      session.createdAt = candidates[0].createdAt || session.createdAt;
+      return session;
+    }
     const existing = await getSessionAsync(candidates[0].id);
     if (!existing || !existing.hands || !existing.hands.length) return session;
 
@@ -1025,9 +1033,37 @@
     return session;
   }
 
-  async function saveShardedSession(session) {
+  function yieldToUi() {
+    return new Promise(function (resolve) { setTimeout(resolve, 0); });
+  }
+
+  async function mapWithConcurrency(items, limit, fn) {
+    let idx = 0;
+    let failed = null;
+    async function worker() {
+      while (idx < items.length && !failed) {
+        const i = idx++;
+        const err = await fn(items[i], i);
+        if (err) failed = err;
+      }
+    }
+    const n = Math.min(Math.max(1, limit || 3), items.length || 1);
+    const workers = [];
+    for (let w = 0; w < n; w++) workers.push(worker());
+    await Promise.all(workers);
+    return failed;
+  }
+
+  async function saveShardedSession(session, onProgress) {
     const built = buildHandShards(session, HANDS_PER_SHARD);
     const parent = parentForStorage(session, built.ids);
+    const totalSteps = 1 + built.payloads.length;
+    let completed = 0;
+    function tick() {
+      completed++;
+      if (onProgress) onProgress(completed, totalSteps, 'save');
+    }
+    if (onProgress) onProgress(0, totalSteps, 'save');
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const upParent = await CS.uploadSession(parent);
@@ -1039,15 +1075,20 @@
             : (upParent.error || 'No se pudo guardar en la nube.')
         };
       }
-      for (let i = 0; i < built.payloads.length; i++) {
-        const up = await CS.uploadSession(built.payloads[i]);
-        if (!up.ok) {
-          return {
-            ok: false,
-            error: 'No se pudieron guardar todas las manos (' + (i + 1) + '/' + built.payloads.length
-              + '). ' + (up.error || 'Inténtalo de nuevo.')
-          };
-        }
+      tick();
+      const fail = await mapWithConcurrency(built.payloads, 3, async function (payload) {
+        const up = await CS.uploadSession(payload);
+        if (!up.ok) return up;
+        tick();
+        await yieldToUi();
+        return null;
+      });
+      if (fail) {
+        return {
+          ok: false,
+          error: 'No se pudieron guardar todas las manos (' + completed + '/' + totalSteps
+            + '). ' + (fail.error || 'Inténtalo de nuevo.')
+        };
       }
       sessionMemoryCache[session.id] = session;
       const list = visibleSessionList(getSessionIndex().filter(function (s) { return s.id !== session.id; }));
@@ -1062,18 +1103,20 @@
     }
     const localParent = saveSessionLocal(parent);
     if (!localParent.ok) return localParent;
+    if (onProgress) onProgress(totalSteps, totalSteps, 'save');
     sessionMemoryCache[session.id] = session;
     recordSessionStats(session);
     return { ok: true, session: session, cloudOnly: false };
   }
 
-  async function saveSession(session) {
+  async function saveSession(session, onProgress) {
     migrateLegacySessionsList();
     session = await mergeSessionIfDuplicate(session);
     const nHands = (session.hands && session.hands.length) || 0;
     if (nHands > HANDS_PER_SHARD) {
-      return saveShardedSession(session);
+      return saveShardedSession(session, onProgress);
     }
+    if (onProgress) onProgress(0, 1, 'save');
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const upload = await CS.uploadSession(session);
@@ -1092,10 +1135,12 @@
       try { localStorage.removeItem(scopedKey('sessions')); } catch (e) { /* ignore */ }
       try { localStorage.removeItem(sessionTxtKey(session.id)); } catch (e) { /* ignore */ }
       recordSessionStats(session);
+      if (onProgress) onProgress(1, 1, 'save');
       return { ok: true, session: session, cloudOnly: true };
     }
     const local = saveSessionLocal(session);
     if (local.ok) recordSessionStats(local.session);
+    if (onProgress) onProgress(1, 1, 'save');
     return local;
   }
 
