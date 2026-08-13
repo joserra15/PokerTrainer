@@ -44,7 +44,7 @@
 | Script | Qué protege |
 |--------|-------------|
 | `tools/selftest.js` | Evaluador, rangos, equity, solver, scoring, sims |
-| `tools/testimport.js` | PokerStars ES/EN, Winamax, GGPoker |
+| `tools/testimport.js` | PokerStars ES/EN, Winamax, GGPoker, 888poker, CoinPoker |
 | `tools/test-p0-session-onboarding.js` | Sesión / onboarding |
 | `tools/test-p1-retention.js` | Leaks, favorites, free AI=3, what-if |
 | `tools/test-p2-expansion.js` | Live advisor, export, matriz postflop, i18n |
@@ -139,7 +139,7 @@ Pilar (trazabilidad): **A** CI existente · **B** E2E · **C** billing · **D** 
 | RG-C02 | C | Tests **usage counters**: incrementar, reset, techo, bono IA | P0 | M | `canUse` / `consume` (o equiv.) sin red |
 | RG-E01 | E | Ampliar `test-ai-payload.js`: home + session + hand; cero PII; tamaños máx. | P0 | S | Casos por entrypoint en CI |
 | RG-B01 | B | E2E **entrenamiento completo**: setup → decisión → score → Histórico | P0 | M | Spec CI; falla sin score o sin persistencia |
-| RG-B02 | B | E2E **import multi-sala**: PS ES, PS EN, Winamax, GGPoker | P0 | M | Parametrizado; ≥1 mano listada; timeout acotado |
+| RG-B02 | B | E2E **import multi-sala**: PS ES, PS EN, Winamax, GGPoker, CoinPoker | P0 | M | Parametrizado; ≥1 mano listada; timeout acotado |
 | RG-B07 | B | E2E **paywall free**: seed free → techo manos/IA → upgrade/bloqueo | P0 | M | Mock entitlements; coherente con `BILLING.md` |
 | RG-E03 | E | Regresión **cuotas IA** UI al agotar (free=3, techos pro/premium) | P0 | M | Ligado a C01/C02 + E2E B07 |
 

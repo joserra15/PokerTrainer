@@ -6,7 +6,7 @@
     controllerEmail: 'privacidad@ejemplo.com',
     supportEmail: 'soporte@ejemplo.com',
     appUrl: location.origin + location.pathname.replace(/\/legal\/[^/]*$/, '/'),
-    lastUpdated: '19 de junio de 2026'
+    lastUpdated: '13 de agosto de 2026'
   };
   function val(k) { return cfg[k] || defaults[k] || ''; }
   document.querySelectorAll('[data-legal]').forEach(function (el) {

@@ -1880,7 +1880,7 @@
       /HandId:\s*#/i.test(text);
   }
 
-  /** Importa HH PokerStars/Winamax localmente (sin IA) con collected/net correctos. */
+  /** Importa HH PokerStars/Winamax/GG/888/CoinPoker localmente (sin IA) con collected/net correctos. */
   function tryImportHandHistory(text) {
     if (!looksLikeHandHistory(text) || !global.Importer || !global.Importer.parseHand) return null;
     var parsed = null;
@@ -1915,7 +1915,7 @@
     var html = '';
     html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver</button>';
     html += '<h2 class="ha-title">Añadir mano (texto / historial)</h2>';
-    html += '<p class="muted-text">Pega un historial Winamax/PokerStars (se analiza <strong>sin consumir IA</strong>) o describe la mano en lenguaje natural. La descripción libre usa el ForgeCoach y <strong>consume una consulta</strong>.</p>';
+    html += '<p class="muted-text">Pega un historial PokerStars, Winamax, GGPoker, 888poker o CoinPoker (se analiza <strong>sin consumir IA</strong>) o describe la mano en lenguaje natural. La descripción libre usa el ForgeCoach y <strong>consume una consulta</strong>.</p>';
     html += '<div class="ha-form">';
     html += '<textarea class="ha-text-input" rows="8" placeholder="Pega un Hand History o describe la mano: 6-max, CO con As Kd, acciones, board…"></textarea>';
     html += '<div class="ha-form-errors" data-ha-errors></div>';
