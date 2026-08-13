@@ -1,4 +1,4 @@
-/* Escuela de Póker G–J: Cash + Spins + MTT + Rangos/Pro + leaks→lección; menú admin-only. */
+/* Escuela de Póker G–J: Cash + Spins + MTT + Rangos/Pro + leaks→lección; abierta a usuarios. */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -47,9 +47,9 @@ function lessonBlob(lesson) {
 assert.ok(/data-tab="school"/.test(html), 'nav school');
 assert.ok(/id="tab-school"/.test(html), 'panel school');
 assert.ok(/Escuela de Póker/.test(html), 'label Escuela');
-assert.ok(/tab-school/.test(css) && /pt-is-admin/.test(css), 'CSS admin gate school');
-assert.ok(/body:not\(\.pt-is-admin\)[^{]*#tab-school/.test(css) ||
-  /body:not\(\.pt-is-admin\) #tab-school/.test(css), 'CSS oculta school sin admin');
+assert.ok(/tab-school/.test(css), 'CSS tab school');
+assert.ok(/demo-mode-active[^{]*#tab-school/.test(css) || /demo-mode-active #tab-school/.test(css), 'CSS oculta school en demo');
+assert.ok(!/body:not\(\.pt-is-admin\) #tab-school/.test(css), 'CSS ya no oculta school a no-admin');
 assert.ok(/school:\s*\[/.test(chunks), 'chunk school');
 assert.ok(/school-data-m1\.js/.test(chunks) && /school-data-m2\.js/.test(chunks), 'chunk incluye M1/M2');
 assert.ok(/school-data-spin\.js/.test(chunks) && /school-data-mtt\.js/.test(chunks), 'chunk Spins/MTT');
@@ -59,8 +59,9 @@ assert.ok(/school-share\.js/.test(chunks), 'chunk school-share (redes / logro)')
 assert.ok(/school:\s*'dist\/pt-school\.js'/.test(loader), 'loader school');
 assert.ok(/tabId === 'school'/.test(app), 'goToTab school');
 assert.ok(/schoolMenuVisible/.test(app), 'goToTab usa schoolMenuVisible');
+assert.ok(/schoolUser && !schoolDemo/.test(app), 'goToTab school para usuarios autenticados');
 assert.ok(/PTSchool\.afterTrainerAction/.test(app), 'hook afterTrainerAction');
-assert.ok(/SCHOOL_PUBLIC\s*=\s*false/.test(schoolSrc), 'SCHOOL_PUBLIC false (menú admin-only)');
+assert.ok(/SCHOOL_PUBLIC\s*=\s*true/.test(schoolSrc), 'SCHOOL_PUBLIC true (abierta a usuarios)');
 assert.ok(/schoolMenuVisible/.test(schoolSrc), 'schoolMenuVisible');
 assert.ok(/canPlayLesson/.test(schoolSrc), 'canPlayLesson Fase D');
 assert.ok(/openLesson/.test(schoolSrc), 'openLesson Fase J');
@@ -610,6 +611,8 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
 
 /* Progreso / desbloqueo / canPlayLesson + muro plan */
 sandbox.PTAdmin = { hasAccess: function () { return true; } };
+sandbox.PTAuth = { getUser: function () { return { email: 'admin@x.com', isAdmin: true, plan: 'free' }; } };
+sandbox.PTDemo = { isActive: function () { return false; } };
 sandbox.PTEntitlements = { get: function () { return { plan: 'free' }; } };
 sandbox.Store = {
   _st: { handsPlayed: 0, school: { xp: 0, lessons: {}, updatedAt: 0, version: 2 } },
@@ -617,10 +620,10 @@ sandbox.Store = {
   persistStats: function (st) { this._st = st; },
   saveHand: function () { return {}; }
 };
-assert.ok(School.schoolMenuVisible(), 'menú visible admin');
+assert.ok(School.schoolMenuVisible(), 'menú visible con usuario autenticado');
 assert.ok(School.isLessonUnlocked('C-00'), 'C-00 desbloqueada');
 assert.ok(!School.isLessonUnlocked('C-01'), 'C-01 bloqueada al inicio');
-assert.ok(School.canPlayLesson('C-00').ok, 'canPlay C-00 admin');
+assert.ok(School.canPlayLesson('C-00').ok, 'canPlay C-00');
 assert.ok(!School.canPlayLesson('C-01').ok, 'canPlay C-01 locked');
 
 School._state.view = 'hub';
@@ -677,23 +680,29 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   assert.ok(!gateT04.ok && gateT04.reason === 'plan', 'T-04 M1 sigue muro Study en free');
 })();
 
-/* Sin admin: menú oculto */
+/* Usuario autenticado no-admin: menú visible; sin login: oculto */
 (function () {
   sandbox.PTAdmin = { hasAccess: function () { return false; } };
   sandbox.PTAuth = { getUser: function () { return { email: 'user@x.com', isAdmin: false, plan: 'pro' }; } };
-  assert.ok(!School.schoolMenuVisible(), 'menú oculto sin admin');
-  assert.ok(!School.canPlayLesson('C-00').ok, 'canPlay denegado sin menú');
-  assert.ok(!School.openLesson('C-02'), 'openLesson denegado sin admin');
+  sandbox.PTDemo = { isActive: function () { return false; } };
+  assert.ok(School.schoolMenuVisible(), 'menú visible para usuario autenticado');
+  assert.ok(School.canPlayLesson('C-00').ok || School.isLessonUnlocked('C-00'), 'usuario puede acceder lecciones');
+  sandbox.PTAuth = { getUser: function () { return null; } };
+  assert.ok(!School.schoolMenuVisible(), 'menú oculto sin login');
+  assert.ok(!School.openLesson('C-02'), 'openLesson denegado sin login');
+  sandbox.PTAuth = { getUser: function () { return { email: 'user@x.com', isAdmin: false, plan: 'pro' }; } };
   sandbox.PTAdmin = { hasAccess: function () { return true; } };
 })();
 
-/* openLesson deep-link (admin) */
+/* openLesson deep-link (usuario autenticado) */
 (function () {
-  sandbox.PTAdmin = { hasAccess: function () { return true; } };
+  sandbox.PTAdmin = { hasAccess: function () { return false; } };
+  sandbox.PTAuth = { getUser: function () { return { email: 'user@x.com', isAdmin: false, plan: 'free' }; } };
   assert.ok(School.openLesson('S-00'), 'openLesson S-00');
   assert.strictEqual(School._state.route, 'spin', 'ruta spin tras openLesson');
   assert.strictEqual(School._state.lessonId, 'S-00', 'lessonId S-00');
   assert.strictEqual(School._state.view, 'lesson', 'view lesson');
+  sandbox.PTAdmin = { hasAccess: function () { return true; } };
 })();
 
 /* Resumen spots a repasar: cartas/pos/board + teachBack, sin trapTag */
@@ -761,4 +770,4 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   assert.strictEqual(AI.lessonFromLeak({ key: 'face4bet|BTN|preflop' }), 'C-26', '4bet→C-26');
 })();
 
-console.log('*** school G–J OK (M0 ' + spotCount + ' spots + Spins/MTT/Rangos/Pro + leaks→lección, admin-only) ***');
+console.log('*** school G–J OK (M0 ' + spotCount + ' spots + Spins/MTT/Rangos/Pro + leaks→lección, abierta a usuarios) ***');

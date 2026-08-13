@@ -1,6 +1,6 @@
 /*
  * school.js — Escuela de Póker: hub multi-ruta (Cash/Spins/MTT/Rangos), runner de spots.
- * Menú visible solo para admin (SCHOOL_PUBLIC=false). Fases G–J: Spins, MTT, rangos/pro, leaks→lección.
+ * Escuela abierta a usuarios autenticados (SCHOOL_PUBLIC=true). Fases G–J: Spins, MTT, rangos/pro, leaks→lección.
  * Las manos consumen cupo Free del trainer.
  */
 (function (global) {
@@ -139,13 +139,12 @@
 
   /**
    * Visibilidad del menú Escuela.
-   * Fase D/E/F: sigue admin-only (pedido explícito). La allowlist beta queda lista
-   * para cuando se quite este candado sin reabrir a 100 %.
+   * SCHOOL_PUBLIC=true → cualquier usuario autenticado (no demo).
    */
   var SCHOOL_BETA_EMAILS = [
-    /* añadir emails beta aquí cuando se abra sin menú global */
+    /* legacy allowlist; con SCHOOL_PUBLIC ya no hace falta */
   ];
-  var SCHOOL_PUBLIC = false; // true = GA (Fase E completa)
+  var SCHOOL_PUBLIC = true;
 
   function userEmail() {
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
@@ -164,10 +163,15 @@
     return false;
   }
 
-  /** ¿Puede ver el tab Escuela? Hoy: solo admin. */
+  function isDemoActive() {
+    return !!(global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive());
+  }
+
+  /** ¿Puede ver el tab Escuela? Usuarios autenticados (GA). */
   function schoolMenuVisible() {
+    if (isDemoActive()) return false;
     if (SCHOOL_PUBLIC) return !!(global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser());
-    return hasAdminAccess();
+    return hasAdminAccess() || isSchoolBetaUser();
   }
 
   function trackSchool(eventName, props) {
@@ -222,7 +226,7 @@
 
   /**
    * Gate de contenido (Fase D): plan Free/Study/Coach + desbloqueo lineal.
-   * Menú sigue admin-only; dentro, el plan se respeta (admin free ve muros Study).
+   * Menú visible a usuarios autenticados; dentro, el plan se respeta (free ve muros Study).
    */
   function canPlayLesson(lessonId) {
     if (!schoolMenuVisible()) {
@@ -640,22 +644,22 @@
 
   var ROUTE_HERO = {
     cash: {
-      eyebrow: 'Admin · Cash · Menú solo administración',
+      eyebrow: 'Cash · Ruta principal',
       title: 'Escuela de Póker',
       lead: 'Fundamentos → preflop → postflop → Pro Coach. Gates de plan activos. Las manos consumen el cupo Free del entrenador.'
     },
     spin: {
-      eyebrow: 'Admin · Spins · Menú solo administración',
+      eyebrow: 'Spins · Ruta torneo corto',
       title: 'Ruta Spins',
       lead: 'ICM, steal, push/fold y heads-up. M0 completo en Gratis; Study desde M1; Pro en Coach.'
     },
     mtt: {
-      eyebrow: 'Admin · MTT · Menú solo administración',
+      eyebrow: 'MTT · Ruta torneos',
       title: 'Ruta Torneos',
       lead: 'Early game, mid, short stack y burbuja. M0 completo en Gratis; Study desde M1; burbuja/FT en Coach.'
     },
     ranges: {
-      eyebrow: 'Admin · Rangos · Menú solo administración',
+      eyebrow: 'Rangos · Laboratorio',
       title: 'Laboratorio de rangos',
       lead: 'Construir, defender y leer rangos. Complementa cash y torneos.'
     }
@@ -772,6 +776,9 @@
       '</div>' +
       '<div class="school-xp-bar" aria-hidden="true"><div class="school-xp-fill school-xp-fill-anim" style="width:' +
       Math.min(100, Math.round((lv.into / lv.per) * 100)) + '%"></div></div>' +
+      (global.PTSchoolShare && global.PTSchoolShare.buildHubPanelHtml
+        ? global.PTSchoolShare.buildHubPanelHtml()
+        : '') +
       '</header>' +
       '<div class="school-routes" role="tablist">' + routeTabs + '</div>' +
       (soonTeasers
@@ -780,6 +787,23 @@
       (sections || '<p class="muted-text">No hay lecciones en esta ruta.</p>') +
       '</div>';
 
+    var hubShare = root.querySelector('.school-share-hub');
+    if (hubShare && global.PTSchoolShare && global.PTSchoolShare.mountHubSharePanel) {
+      try {
+        global.PTSchoolShare.mountHubSharePanel(hubShare, {
+          eyebrow: hero.eyebrow,
+          title: hero.title,
+          lead: hero.lead,
+          level: lv.level,
+          xp: lv.xp,
+          routePassed: rp.passed,
+          routeTotal: rp.total,
+          gold: rp.gold,
+          xpPct: Math.min(100, Math.round((lv.into / lv.per) * 100)),
+          routeId: routeId
+        });
+      } catch (eHub) { /* ignore */ }
+    }
     root.querySelectorAll('[data-school-route]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = btn.getAttribute('data-school-route');
