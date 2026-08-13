@@ -15,7 +15,8 @@
   };
 
   const STACK_BB = {
-    bb200: 200, bb100: 100, bb50: 50, bb25: 25, bb20: 20, bb15: 15, bb10: 10,
+    bb200: 200, bb100: 100, bb50: 50, bb45: 45, bb40: 40, bb25: 25, bb22: 22, bb20: 20,
+    bb15: 15, bb12: 12, bb11: 11, bb10: 10,
     standard: 100, short: 40, deep: 150
   };
   const GAME_LABELS = {
@@ -36,7 +37,11 @@
     let gameType = c.gameType || 'cash6';
     if (gameType === 'spin') gameType = 'spin3';
     const stackDepthKey = c.stackDepth || 'bb100';
-    const stackBB = c.stackBB != null ? Number(c.stackBB) : (STACK_BB[stackDepthKey] || 100);
+    let stackBB = c.stackBB != null ? Number(c.stackBB) : (STACK_BB[stackDepthKey] || null);
+    if (stackBB == null || isNaN(stackBB)) {
+      const m = /^bb(\d+(?:\.\d+)?)$/.exec(String(stackDepthKey));
+      stackBB = m ? Number(m[1]) : 100;
+    }
     const stackDepth = rangeStackCategory(stackDepthKey, stackBB);
     const Tax = global.PTFormatTaxonomy;
     const formatHub = c.formatHub || (Tax ? Tax.hubFromGameType(gameType) : (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash')));

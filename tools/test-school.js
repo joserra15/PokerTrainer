@@ -231,6 +231,25 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   assert.ok(minSpots('cash', 'C-14') > minSpots('cash', 'C-07'), 'Cash M2 > M1 volumen base');
 })();
 
+/** T-02: profundidades bb11/bb22/etc. no deben caer a 100bb por defecto. */
+(function assertT02StackDepths() {
+  const PC = sandbox.PTPlayConfig;
+  const lesson = Data.getLesson('T-02');
+  assert.ok(lesson && Array.isArray(lesson.spots) && lesson.spots.length >= 12, 'T-02 spots');
+  const expected = {
+    't02-01': 11, 't02-02': 11, 't02-03': 10, 't02-04': 22, 't02-05': 25,
+    't02-06': 25, 't02-07': 45, 't02-08': 45, 't02-09': 45, 't02-10': 45,
+    't02-11': 40, 't02-12': 22
+  };
+  lesson.spots.forEach(function (sp) {
+    const bb = PC.normalize(sp.playConfig).stackBB;
+    assert.strictEqual(bb, expected[sp.id], sp.id + ' stackBB');
+  });
+  const first = PC.normalize(lesson.spots[0].playConfig);
+  assert.strictEqual(first.stackBB, 11, 't02-01 short ~11bb, no push/fold a 100bb');
+  assert.strictEqual(first.scenario, 'push');
+})();
+
 /* Voz pedagógica Spins S-00…S-17: términos anclados, sin telegramas */
 (function () {
   var spinLessons = Data.lessonsForRoute('spin');
