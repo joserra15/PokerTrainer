@@ -26463,16 +26463,13 @@ window.PT_VS_3BET_JSON = {
       heroChipsEl.innerHTML = heroHtml;
     }
     const vBar = $('#villain-action-bar');
-    const mobile = isMobileLayout();
-    const villainAct = view ? view.villainAction : hand.villainAction;
     if (vBar) {
-      const showBar = mobile && villainAct;
-      vBar.innerHTML = showBar ? actionBadgeHTML(villainAct) : '';
-      vBar.setAttribute('aria-hidden', showBar ? 'false' : 'true');
-      vBar.classList.toggle('is-visible', !!showBar);
+      vBar.innerHTML = '';
+      vBar.setAttribute('aria-hidden', 'true');
+      vBar.classList.remove('is-visible');
     }
     const boardArea = document.querySelector('.board-area');
-    if (boardArea) boardArea.classList.toggle('has-villain-bar', !!(mobile && villainAct));
+    if (boardArea) boardArea.classList.remove('has-villain-bar');
     const felt = document.querySelector('#play-active .table-felt');
     if (felt) {
       felt.classList.toggle('table-9max', is9MaxTable());
@@ -26669,11 +26666,13 @@ window.PT_VS_3BET_JSON = {
       if ((hand.multiway || inPot) && inPot && !isVillain && !isHero) role = role || 'En bote';
       const seatActs = view ? (view.seatActions || {}) : (hand.seatActions || {});
       const villainAct = view ? view.villainAction : hand.villainAction;
+      const isActing = !!(actingPos && pos === actingPos && !isHero);
       let actHtml = '';
-      if (!isFolded) {
-        const skipSeatAct = mobile && isVillain && villainAct;
-        if (!skipSeatAct && isVillain && villainAct) actHtml = actionBadgeHTML(villainAct);
-        else if (seatActs[pos]) actHtml = actionBadgeHTML(seatActs[pos]);
+      if (isActing) {
+        const act = seatActs[pos] || (isVillain ? villainAct : null);
+        if (act) actHtml = actionBadgeHTML(act);
+      } else if (!view && isVillain && villainAct && !isFolded) {
+        actHtml = actionBadgeHTML(villainAct);
       }
 
       const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
@@ -26691,20 +26690,23 @@ window.PT_VS_3BET_JSON = {
       const totalInv = invested[pos] || 0;
       const stBet = streetBet[pos] || 0;
       const inFront = isFolded ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
-      // En móvil: asientos vivos o foldeados (Fold en lugar de cartas) no se colapsan a mini
-      const showFullSeat = !mobile || isVillain || isCaller || inPot || isFolded || stBet > 0 || inFront > 0 || showCards;
+      const showFullSeat = !mobile || isVillain || isCaller || inPot || isFolded || isActing
+        || stBet > 0 || inFront > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
       const betHtml = renderSeatBet(inFront, seatBetPlacement(c));
+      const holeHtml = '<div class="seat-hole">'
+        + (actHtml ? '<div class="seat-act-wrap">' + actHtml + '</div>' : '')
+        + (cardsHtml || (actHtml ? '<div class="seat-cards seat-cards-placeholder"></div>' : ''))
+        + '</div>';
 
       html += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
         <div class="seat-body">
           <span class="seat-avatar">${SEAT_AVATAR_SVG}</span>
-          ${cardsHtml}
+          ${holeHtml}
           <div class="seat-pos">${pos}</div>
           <div class="seat-role">${role}</div>
           ${stackHtml}
-          ${actHtml ? `<div class="seat-act-wrap">${actHtml}</div>` : ''}
         </div>
         ${betHtml}
       </div>`;
