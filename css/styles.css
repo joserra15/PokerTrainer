@@ -2190,6 +2190,16 @@ body.age-gate-open {
 .hero-chips .seat-chips { margin: 0; }
 .seat.folded { opacity: 0.35; }
 .seat.folded .seat-cards { display: none; }
+.seat.acting {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(244, 213, 141, .5), 0 4px 16px rgba(0, 0, 0, .45);
+  z-index: 5;
+}
+.action-play-status {
+  display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+  width: 100%; color: #dfe7ef; font-size: 13px; font-weight: 600;
+}
+.action-play-status .action-play-skip { min-width: auto; padding: 6px 12px; }
 .seat.caller { border-color: rgba(47,129,247,.5); }
 .seat.caller .seat-pos { color: #7eb8ff; }
 .seat.seat-mini { min-width: 0; padding: 2px 7px; }
