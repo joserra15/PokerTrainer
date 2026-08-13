@@ -248,7 +248,11 @@
       player: player,
       solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.',
       greetingFocus: data.greetingFocus || undefined,
-      beginner: data.beginner === true ? true : undefined
+      beginner: data.beginner === true ? true : undefined,
+      school: data.school === true ? true : undefined,
+      lessonId: data.lessonId || undefined,
+      lessonTitle: data.lessonTitle || undefined,
+      concept: data.concept || undefined
     };
   }
 

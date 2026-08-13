@@ -6100,7 +6100,7 @@
           beginner: true
         };
       },
-      persist: { kind: 'learn' }
+      persist: { kind: 'learn', lessonId: lesson.id }
     });
   }
 

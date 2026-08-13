@@ -10,9 +10,11 @@ assert.ok(/hasAdminAccess|hasAccess/.test(src), 'hasAccess');
 assert.ok(/isAdmin/.test(src), 'isAdmin gate');
 assert.ok(/lockdown/.test(src), 'lockdown');
 assert.ok(/pt-is-admin|tab-admin|account-admin/.test(src), 'UI admin markers');
+assert.ok(/pt_admin_usage_stats/.test(src) && /renderSchoolSection/.test(src), 'uso + escuela admin');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/id="tab-admin"|data-tab="admin"|account-admin/.test(html), 'admin en HTML');
+assert.ok(/admin-usage-panel/.test(html), 'panel uso en HTML');
 
 const localStore = {};
 const sandbox = {

@@ -43,6 +43,40 @@
   var adminMsgSelectedThreadId = null;
   var adminMsgUserFilter = '';
   var adminComposeModalBound = false;
+  var adminUsageCache = null;
+
+  var FEATURE_EVENT_LABELS = {
+    tab_view: 'Visitas a pestañas',
+    hand_start: 'Manos entrenador',
+    play_hand: 'Jugar mano',
+    ai_coach_used: 'Consultas ForgeCoach',
+    lesson_start: 'Escuela: inicio lección',
+    lesson_complete: 'Escuela: lección aprobada',
+    lesson_fail: 'Escuela: lección fallida',
+    lesson_blocked_plan: 'Escuela: bloqueada por plan',
+    lesson_share_panel: 'Escuela: compartir',
+    import_session: 'Importar sesión',
+    checkout_start: 'Checkout',
+    register: 'Registro',
+    login: 'Login',
+    logout: 'Logout'
+  };
+
+  var TAB_LABELS = {
+    home: 'Inicio',
+    play: 'Entrenador',
+    trainer: 'Entrenador',
+    sessions: 'Sesiones',
+    ranges: 'Rangos',
+    school: 'Escuela',
+    learn: 'Aprende',
+    stats: 'Estadísticas',
+    analysis: 'Analizar',
+    contact: 'Contacto',
+    account: 'Cuenta',
+    admin: 'Admin',
+    leaks: 'Leaks'
+  };
 
   function aggregateUsersFromThreads(threads) {
     var map = {};
@@ -290,9 +324,16 @@
     var msgPanel = $('#admin-messages-panel');
     var promoPanel = $('#admin-promos-panel');
     var usersPanel = $('#admin-users-panel');
+    var usagePanel = $('#admin-usage-panel');
     if (msgPanel) msgPanel.classList.add('hidden');
     if (promoPanel) promoPanel.classList.add('hidden');
+    if (usagePanel) usagePanel.classList.add('hidden');
     if (usersPanel) usersPanel.classList.remove('hidden');
+    var usageContent = $('#admin-usage-content');
+    if (usageContent) usageContent.innerHTML = '';
+    var usageErr = $('#admin-usage-error');
+    if (usageErr) usageErr.textContent = '';
+    adminUsageCache = null;
     if (global.PTAdminPromos && global.PTAdminPromos.clear) {
       global.PTAdminPromos.clear();
     }
@@ -996,6 +1037,131 @@
       '</div>';
   }
 
+  function schoolLessonTitle(lessonId) {
+    var data = global.PTSchoolData;
+    if (data && typeof data.getLesson === 'function') {
+      var lesson = data.getLesson(lessonId);
+      if (lesson && lesson.title) return lesson.title;
+    }
+    return lessonId;
+  }
+
+  function schoolLevelFromXp(xp) {
+    var per = (global.PTSchoolData && global.PTSchoolData.XP_PER_LEVEL) || 200;
+    var level = Math.floor((Number(xp) || 0) / per) + 1;
+    if (level < 1) level = 1;
+    if (level > 30) level = 30;
+    return { level: level, into: (Number(xp) || 0) % per, per: per, xp: Number(xp) || 0 };
+  }
+
+  function summarizeSchool(school) {
+    var lessons = (school && school.lessons && typeof school.lessons === 'object') ? school.lessons : {};
+    var ids = Object.keys(lessons);
+    var passed = 0;
+    var gold = 0;
+    var perfect = 0;
+    var attempts = 0;
+    ids.forEach(function (id) {
+      var L = lessons[id] || {};
+      if (L.passed) passed += 1;
+      if (L.gold) gold += 1;
+      if (L.perfect) perfect += 1;
+      attempts += Number(L.attempts) || 0;
+    });
+    return {
+      xp: Number(school && school.xp) || 0,
+      lessonCount: ids.length,
+      passed: passed,
+      gold: gold,
+      perfect: perfect,
+      attempts: attempts,
+      updatedAt: school && school.updatedAt,
+      lessons: lessons
+    };
+  }
+
+  function renderSchoolSection(school) {
+    var sum = summarizeSchool(school);
+    if (!sum.lessonCount && sum.xp <= 0) {
+      return '<p class="muted-text">Sin progreso en la Escuela de Póker.</p>';
+    }
+    var lv = schoolLevelFromXp(sum.xp);
+    var rows = Object.keys(sum.lessons).sort(function (a, b) {
+      var ta = sum.lessons[a] && sum.lessons[a].updatedAt ? String(sum.lessons[a].updatedAt) : '';
+      var tb = sum.lessons[b] && sum.lessons[b].updatedAt ? String(sum.lessons[b].updatedAt) : '';
+      if (tb !== ta) return tb.localeCompare(ta);
+      return a.localeCompare(b);
+    }).map(function (id) {
+      var L = sum.lessons[id] || {};
+      var flags = [];
+      if (L.passed) flags.push('OK');
+      if (L.gold) flags.push('Oro');
+      if (L.perfect) flags.push('Perfect');
+      return '<tr><td><strong>' + escapeHtml(id) + '</strong><br><span class="muted-text">' +
+        escapeHtml(schoolLessonTitle(id)) + '</span></td>' +
+        '<td>' + escapeHtml(L.bestPct != null ? L.bestPct + '%' : (L.bestScore != null ? Math.round(Number(L.bestScore) * 1000) / 10 + '%' : '—')) + '</td>' +
+        '<td>' + escapeHtml(formatActivityNumber(L.attempts)) + '</td>' +
+        '<td>' + escapeHtml(flags.length ? flags.join(' · ') : '—') + '</td>' +
+        '<td class="muted-text">' + escapeHtml(formatDateTime(L.updatedAt) || '—') + '</td></tr>';
+    }).join('');
+    return '<div class="admin-detail-grid">' +
+      '<div><span class="muted-text">Nivel</span><strong>Nv. ' + escapeHtml(lv.level) + '</strong></div>' +
+      '<div><span class="muted-text">XP</span><strong>' + escapeHtml(formatActivityNumber(sum.xp)) +
+      '</strong><span class="muted-text"> (' + escapeHtml(lv.into) + '/' + escapeHtml(lv.per) + ')</span></div>' +
+      '<div><span class="muted-text">Ruta (aprobadas)</span><strong>' + escapeHtml(sum.passed) + '/' +
+      escapeHtml(sum.lessonCount) + '</strong></div>' +
+      '<div><span class="muted-text">Oro / Perfect</span><strong>' + escapeHtml(sum.gold) + ' / ' +
+      escapeHtml(sum.perfect) + '</strong></div>' +
+      '<div><span class="muted-text">Intentos</span><strong>' + escapeHtml(formatActivityNumber(sum.attempts)) + '</strong></div>' +
+      '<div><span class="muted-text">Actualizado</span><strong>' + escapeHtml(formatActivityTs(sum.updatedAt)) + '</strong></div>' +
+      '</div>' +
+      (rows
+        ? '<table class="admin-detail-table admin-school-table"><thead><tr><th>Lección</th><th>Mejor</th><th>Intentos</th><th>Estado</th><th>Última</th></tr></thead><tbody>' +
+          rows + '</tbody></table>'
+        : '');
+  }
+
+  function sortedCountEntries(mapObj) {
+    var map = mapObj && typeof mapObj === 'object' ? mapObj : {};
+    return Object.keys(map).map(function (k) {
+      return { key: k, count: Number(map[k]) || 0 };
+    }).filter(function (x) { return x.count > 0; })
+      .sort(function (a, b) { return b.count - a.count || a.key.localeCompare(b.key); });
+  }
+
+  function renderCountBars(entries, labelFn) {
+    if (!entries.length) return '<p class="muted-text">Sin datos.</p>';
+    var max = entries[0].count || 1;
+    return '<ul class="admin-usage-bars">' + entries.map(function (e) {
+      var pct = Math.max(4, Math.round((e.count / max) * 100));
+      var label = labelFn ? labelFn(e.key) : e.key;
+      return '<li><div class="admin-usage-bar-row">' +
+        '<span class="admin-usage-bar-label">' + escapeHtml(label) + '</span>' +
+        '<span class="admin-usage-bar-count">' + escapeHtml(formatActivityNumber(e.count)) + '</span></div>' +
+        '<div class="admin-usage-bar-track"><div class="admin-usage-bar-fill" style="width:' + pct + '%"></div></div></li>';
+    }).join('') + '</ul>';
+  }
+
+  function renderFeatureUsageSection(fu) {
+    var data = fu && typeof fu === 'object' ? fu : {};
+    var events = sortedCountEntries(data.events);
+    var tabs = sortedCountEntries(data.tabs);
+    var scopes = sortedCountEntries(data.aiScopes);
+    var modes = sortedCountEntries(data.aiModes);
+    if (!events.length && !tabs.length && !scopes.length && !modes.length) {
+      return '<p class="muted-text">Aún no hay contadores de uso sincronizados para este usuario.</p>';
+    }
+    return '<div class="admin-usage-block"><h5>Eventos</h5>' +
+      renderCountBars(events, function (k) { return FEATURE_EVENT_LABELS[k] || k; }) + '</div>' +
+      '<div class="admin-usage-block"><h5>Pestañas</h5>' +
+      renderCountBars(tabs, function (k) { return TAB_LABELS[k] || k; }) + '</div>' +
+      '<div class="admin-usage-block"><h5>IA por ámbito</h5>' +
+      renderCountBars(scopes) + '</div>' +
+      '<div class="admin-usage-block"><h5>IA por modo</h5>' +
+      renderCountBars(modes) + '</div>' +
+      '<p class="muted-text">Actualizado: ' + escapeHtml(formatActivityTs(data.updatedAt)) + '</p>';
+  }
+
   function renderUserDetail(data) {
     var host = $('#admin-user-detail');
     if (!host || !data) return;
@@ -1006,6 +1172,8 @@
     var threads = data.contact_threads || [];
     var promos = data.promotion_redemptions || [];
     var activity = data.activity || null;
+    var school = (activity && activity.school) || data.school || null;
+    var featureUsage = (activity && activity.feature_usage) || data.feature_usage || null;
 
     var quotaHtml;
     if (q.unlimited) {
@@ -1089,6 +1257,8 @@
         : 'Sin solicitud Coach.') +
       '</p></div>' +
       '<div class="admin-detail-section"><h4>Actividad de juego</h4>' + renderActivitySection(activity) + '</div>' +
+      '<div class="admin-detail-section"><h4>Escuela de Póker</h4>' + renderSchoolSection(school) + '</div>' +
+      '<div class="admin-detail-section"><h4>Uso de funciones</h4>' + renderFeatureUsageSection(featureUsage) + '</div>' +
       '<div class="admin-detail-section"><h4>Promoción de registro</h4>' + promoHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Cupo IA este mes</h4>' + quotaHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Regalar bono IA</h4>' +
@@ -1391,7 +1561,9 @@
   async function refresh() {
     if (!requireAdminAccess()) return;
     setAdminLoading(true, 'Actualizando usuarios…');
-    await Promise.all([loadStats(), loadUsers()]);
+    var usagePanel = $('#admin-usage-panel');
+    var usageOpen = usagePanel && !usagePanel.classList.contains('hidden');
+    await Promise.all([loadStats(), loadUsers()].concat(usageOpen ? [loadUsageStats()] : []));
     if (!hasAdminAccess()) return;
     loaded = true;
   }
@@ -1831,15 +2003,191 @@
     await loadAdminMessagesBadge();
   }
 
+  function addCounts(target, source) {
+    if (!source || typeof source !== 'object') return;
+    Object.keys(source).forEach(function (k) {
+      target[k] = (Number(target[k]) || 0) + (Number(source[k]) || 0);
+    });
+  }
+
+  function aggregateGlobalUsage(users) {
+    var events = {};
+    var tabs = {};
+    var aiScopes = {};
+    var aiModes = {};
+    var schoolUsers = 0;
+    var schoolXp = 0;
+    var schoolPassed = 0;
+    var schoolGold = 0;
+    var perUser = [];
+    (users || []).forEach(function (u) {
+      var fu = u.feature_usage || {};
+      addCounts(events, fu.events);
+      addCounts(tabs, fu.tabs);
+      addCounts(aiScopes, fu.aiScopes);
+      addCounts(aiModes, fu.aiModes);
+      var sum = summarizeSchool(u.school);
+      if (sum.xp > 0 || sum.lessonCount > 0) {
+        schoolUsers += 1;
+        schoolXp += sum.xp;
+        schoolPassed += sum.passed;
+        schoolGold += sum.gold;
+      }
+      var eventTotal = 0;
+      sortedCountEntries(fu.events).forEach(function (e) { eventTotal += e.count; });
+      perUser.push({
+        user_id: u.user_id,
+        email: u.email,
+        name: u.name,
+        plan: u.plan,
+        last_seen_at: u.last_seen_at,
+        eventTotal: eventTotal,
+        hands: Number(u.hands_played) || 0,
+        schoolXp: sum.xp,
+        schoolPassed: sum.passed,
+        schoolGold: sum.gold,
+        topEvent: sortedCountEntries(fu.events)[0] || null,
+        topTab: sortedCountEntries(fu.tabs)[0] || null
+      });
+    });
+    perUser.sort(function (a, b) {
+      if (b.eventTotal !== a.eventTotal) return b.eventTotal - a.eventTotal;
+      if (b.hands !== a.hands) return b.hands - a.hands;
+      return String(a.email || '').localeCompare(String(b.email || ''));
+    });
+    return {
+      events: events,
+      tabs: tabs,
+      aiScopes: aiScopes,
+      aiModes: aiModes,
+      schoolUsers: schoolUsers,
+      schoolXp: schoolXp,
+      schoolPassed: schoolPassed,
+      schoolGold: schoolGold,
+      perUser: perUser
+    };
+  }
+
+  function renderModeMap(mapObj, title) {
+    var entries = sortedCountEntries(mapObj);
+    return '<div class="admin-usage-block"><h4>' + escapeHtml(title) + '</h4>' +
+      renderCountBars(entries) + '</div>';
+  }
+
+  function renderUsagePanel(data) {
+    var host = $('#admin-usage-content');
+    if (!host) return;
+    if (!data) {
+      host.innerHTML = '<p class="muted-text">Sin datos de uso.</p>';
+      return;
+    }
+    var agg = aggregateGlobalUsage(data.users || []);
+    var userRows = agg.perUser.slice(0, 100).map(function (u) {
+      var top = u.topEvent
+        ? ((FEATURE_EVENT_LABELS[u.topEvent.key] || u.topEvent.key) + ' (' + u.topEvent.count + ')')
+        : '—';
+      return '<tr data-admin-usage-user="' + escapeHtml(u.user_id) + '">' +
+        '<td><button type="button" class="admin-thread-link" data-admin-usage-open="' + escapeHtml(u.user_id) + '">' +
+        escapeHtml(u.name || u.email || u.user_id) + '</button><br><span class="muted-text">' +
+        escapeHtml(u.email || '') + '</span></td>' +
+        '<td>' + escapeHtml(u.plan || 'free') + '</td>' +
+        '<td>' + escapeHtml(formatActivityNumber(u.eventTotal)) + '</td>' +
+        '<td>' + escapeHtml(formatActivityNumber(u.hands)) + '</td>' +
+        '<td>' + escapeHtml(formatActivityNumber(u.schoolXp)) + ' XP · ' +
+        escapeHtml(u.schoolPassed) + ' OK · ' + escapeHtml(u.schoolGold) + ' oro</td>' +
+        '<td class="muted-text">' + escapeHtml(top) + '</td>' +
+        '<td class="muted-text">' + escapeHtml(formatRelative(u.last_seen_at)) + '</td></tr>';
+    }).join('');
+
+    host.innerHTML =
+      '<div class="admin-detail-grid admin-usage-summary">' +
+      '<div><span class="muted-text">IA hoy</span><strong>' + escapeHtml(formatActivityNumber(data.ai_requests_today)) + '</strong></div>' +
+      '<div><span class="muted-text">IA 30 días</span><strong>' + escapeHtml(formatActivityNumber(data.ai_requests_30d)) + '</strong></div>' +
+      '<div><span class="muted-text">IA mes</span><strong>' + escapeHtml(formatActivityNumber(data.ai_requests_month)) + '</strong></div>' +
+      '<div><span class="muted-text">Usuarios con Escuela</span><strong>' + escapeHtml(formatActivityNumber(agg.schoolUsers)) + '</strong></div>' +
+      '<div><span class="muted-text">XP Escuela total</span><strong>' + escapeHtml(formatActivityNumber(agg.schoolXp)) + '</strong></div>' +
+      '<div><span class="muted-text">Lecciones OK / Oro</span><strong>' + escapeHtml(formatActivityNumber(agg.schoolPassed)) +
+      ' / ' + escapeHtml(formatActivityNumber(agg.schoolGold)) + '</strong></div>' +
+      '</div>' +
+      '<div class="admin-usage-grid">' +
+      '<div class="admin-usage-block"><h4>Funciones más usadas</h4>' +
+      renderCountBars(sortedCountEntries(agg.events), function (k) { return FEATURE_EVENT_LABELS[k] || k; }) +
+      '</div>' +
+      '<div class="admin-usage-block"><h4>Pestañas más visitadas</h4>' +
+      renderCountBars(sortedCountEntries(agg.tabs), function (k) { return TAB_LABELS[k] || k; }) +
+      '</div>' +
+      renderModeMap(data.ai_by_mode_today || {}, 'IA por modo (hoy)') +
+      renderModeMap(data.ai_by_mode_30d || {}, 'IA por modo (30 días)') +
+      '<div class="admin-usage-block"><h4>IA por ámbito (cliente)</h4>' +
+      renderCountBars(sortedCountEntries(agg.aiScopes)) + '</div>' +
+      '</div>' +
+      '<div class="admin-detail-section"><h4>Uso por usuario</h4>' +
+      (userRows
+        ? '<div class="admin-table-wrap"><table class="admin-detail-table"><thead><tr>' +
+          '<th>Usuario</th><th>Plan</th><th>Eventos</th><th>Manos</th><th>Escuela</th><th>Top función</th><th>Visto</th>' +
+          '</tr></thead><tbody>' + userRows + '</tbody></table></div>'
+        : '<p class="muted-text">Aún no hay usuarios con contadores de uso o progreso de Escuela sincronizados.</p>') +
+      '</div>';
+
+    host.querySelectorAll('[data-admin-usage-open]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var uid = btn.getAttribute('data-admin-usage-open');
+        showAdminUsage(false);
+        if (uid) openUserDetail(uid);
+      });
+    });
+  }
+
+  async function loadUsageStats() {
+    if (!requireAdminAccess()) return;
+    var c = client();
+    var errEl = $('#admin-usage-error');
+    var host = $('#admin-usage-content');
+    if (!c || !host) return;
+    if (errEl) errEl.textContent = '';
+    host.innerHTML = '<p class="muted-text">Cargando estadísticas de uso…</p>';
+    var res = await c.rpc('pt_admin_usage_stats');
+    if (!requireAdminAccess()) return;
+    if (res.error) {
+      if (handleAdminRpcError(res.error, errEl || host)) return;
+      host.innerHTML = '';
+      if (errEl) errEl.textContent = res.error.message || 'Error al cargar uso';
+      else host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
+      return;
+    }
+    adminUsageCache = res.data || {};
+    renderUsagePanel(adminUsageCache);
+  }
+
+  function showAdminUsage(show) {
+    if (show && !requireAdminAccess()) return;
+    var usagePanel = $('#admin-usage-panel');
+    var usersPanel = $('#admin-users-panel');
+    var promoPanel = $('#admin-promos-panel');
+    var msgPanel = $('#admin-messages-panel');
+    if (usagePanel) usagePanel.classList.toggle('hidden', !show);
+    if (show) {
+      if (usersPanel) usersPanel.classList.add('hidden');
+      if (promoPanel) promoPanel.classList.add('hidden');
+      if (msgPanel) msgPanel.classList.add('hidden');
+      loadUsageStats();
+    } else if (usagePanel) {
+      usagePanel.classList.add('hidden');
+      if (usersPanel) usersPanel.classList.remove('hidden');
+    }
+  }
+
   function showAdminMessages(show, opts) {
     if (show && !requireAdminAccess()) return;
     opts = opts || {};
     var msgPanel = $('#admin-messages-panel');
     var usersPanel = $('#admin-users-panel');
     var promoPanel = $('#admin-promos-panel');
+    var usagePanel = $('#admin-usage-panel');
     if (msgPanel) msgPanel.classList.toggle('hidden', !show);
     if (usersPanel) usersPanel.classList.toggle('hidden', show);
     if (show && promoPanel) promoPanel.classList.add('hidden');
+    if (show && usagePanel) usagePanel.classList.add('hidden');
     if (show) {
       bindAdminComposeModal();
       if (opts.userId) adminMsgSelectedUserId = opts.userId;
@@ -1888,6 +2236,17 @@
 
     bindInviteModal();
     bindAdminMessages();
+
+    var usageBtn = $('#admin-usage-btn');
+    var usageBack = $('#admin-usage-back');
+    if (usageBtn && !usageBtn.dataset.bound) {
+      usageBtn.dataset.bound = '1';
+      usageBtn.addEventListener('click', function () { showAdminUsage(true); });
+    }
+    if (usageBack && !usageBack.dataset.bound) {
+      usageBack.dataset.bound = '1';
+      usageBack.addEventListener('click', function () { showAdminUsage(false); });
+    }
 
     var syncBtn = $('#admin-sync-payments');
     if (syncBtn && !syncBtn.dataset.bound) {

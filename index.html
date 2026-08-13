@@ -1069,11 +1069,27 @@
           <p class="muted-text admin-sub">Usuarios, planes y consumo de ForgeCoach</p>
         </div>
         <div class="admin-head-actions">
+          <button type="button" id="admin-usage-btn" class="btn btn-ghost">Uso</button>
           <button type="button" id="admin-promos-btn" class="btn btn-ghost">Promociones</button>
           <button type="button" id="admin-messages-btn" class="btn btn-ghost admin-messages-btn">Mensajes <span id="admin-messages-badge" class="tab-badge hidden">0</span></button>
           <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
           <button type="button" id="admin-demo-start" class="btn btn-primary">Modo demo</button>
         </div>
+      </div>
+
+      <div id="admin-usage-panel" class="admin-usage-panel hidden">
+        <div class="admin-section-head">
+          <h3>Estadísticas de uso</h3>
+          <div class="admin-messages-head-actions">
+            <button type="button" id="admin-usage-back" class="btn btn-ghost btn-sm">Volver a usuarios</button>
+          </div>
+        </div>
+        <p class="muted-text admin-usage-intro">
+          Resumen global de qué funciones usan los jugadores (pestañas, entrenador, Escuela, IA, importaciones)
+          y ranking por usuario. Los contadores se sincronizan con el progreso en la nube.
+        </p>
+        <div id="admin-usage-content" class="admin-usage-content" aria-live="polite"></div>
+        <p id="admin-usage-error" class="admin-error" role="alert"></p>
       </div>
 
       <div id="admin-promos-panel" class="admin-promos-panel hidden">
