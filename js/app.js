@@ -5973,75 +5973,48 @@
         parsed.heroConfirmed = true;
         parsed.filterHero = true;
       }
-      const parts = (!isTournamentSummary && Importer.chunkParsedSession)
-        ? Importer.chunkParsedSession(parsed)
-        : [parsed];
-      const totalHands = isTournamentSummary ? 0 : (parsed.hands || []).length;
-      let analyzedBase = 0;
-      let lastSession = null;
-      let lastSave = null;
-      let handsImported = 0;
-      let anySaved = false;
-      let lastSaveError = null;
-      for (let p = 0; p < parts.length; p++) {
-        const part = parts[p];
-        const partLabel = parts.length > 1
-          ? (fileLabel + ' · parte ' + (p + 1) + '/' + parts.length)
-          : fileLabel;
-        const onProgress = function (done, total, phase) {
-          const overallDone = (phase === 'analyze') ? (analyzedBase + done) : done;
-          const overallTotal = (phase === 'analyze' && totalHands) ? totalHands : total;
-          setProgress(overallDone, overallTotal, phase || 'analyze', partLabel);
-        };
-        let session;
-        try {
-          session = Importer.buildSessionAsync
-            ? await Importer.buildSessionAsync(part, part.fileName || file.name, onProgress, text)
-            : Importer.buildSession(part, part.fileName || file.name, text);
-        } catch (partErr) {
-          lastSaveError = (partErr && partErr.message) || String(partErr);
-          analyzedBase += (part.hands || []).length;
-          continue;
-        }
-        analyzedBase += (part.hands || []).length;
-        const saveResult = await Store.saveSession(session);
-        lastSave = saveResult;
-        if (saveResult && saveResult.ok === false) {
-          lastSaveError = saveResult.error || lastSaveError;
-        } else {
-          anySaved = true;
-        }
-        const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
-        handsImported += (finalSession.hands || []).length;
-        lastSession = finalSession;
-      }
-      if (!lastSession) {
+      const onProgress = function (done, total, phase) {
+        setProgress(done, total, phase || 'analyze', fileLabel);
+      };
+      let session;
+      try {
+        session = Importer.buildSessionAsync
+          ? await Importer.buildSessionAsync(parsed, file.name, onProgress, text)
+          : Importer.buildSession(parsed, file.name, text);
+      } catch (analyzeErr) {
         return {
           ok: false,
-          error: lastSaveError || ('No se pudo analizar «' + file.name + '».')
+          error: (analyzeErr && analyzeErr.message) || ('No se pudo analizar «' + file.name + '».')
         };
       }
-      if (Ent && Ent.recordImportSession && anySaved) {
-        const rec = await Ent.recordImportSession(handsImported || totalHands);
+      const handsImported = (session.hands || []).length
+        || (session.stats && session.stats.nHands)
+        || 0;
+      if (Ent && Ent.recordImportSession && handsImported) {
+        const rec = await Ent.recordImportSession(handsImported);
         if (rec && rec.ok === false) {
           return { ok: false, paywall: rec.error, error: rec.error };
         }
       }
+      const saveResult = await Store.saveSession(session);
+      const saved = saveResult && saveResult.ok !== false;
+      const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
       if (window.PTAnalytics && PTAnalytics.trackImportSession) {
         PTAnalytics.trackImportSession({
-          hands: handsImported,
-          platform: lastSession.format && lastSession.format.platform
+          hands: (finalSession.hands && finalSession.hands.length) || handsImported,
+          platform: finalSession.format && finalSession.format.platform
         });
       }
       return {
-        ok: true,
-        saved: anySaved,
-        cloudOnly: !!(lastSave && lastSave.cloudOnly),
-        saveError: lastSaveError,
-        session: lastSession,
-        handsImported: handsImported,
-        sessionParts: parts.length,
-        format: lastSession.format || parsed.format || fmtMeta
+        ok: saved,
+        saved: saved,
+        cloudOnly: !!(saveResult && saveResult.cloudOnly),
+        saveError: saveResult && saveResult.error,
+        error: (!saved && saveResult && saveResult.error) || null,
+        session: finalSession,
+        handsImported: (finalSession.hands && finalSession.hands.length) || handsImported,
+        sessionParts: 1,
+        format: finalSession.format || parsed.format || fmtMeta
       };
     }
 

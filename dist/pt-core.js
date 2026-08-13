@@ -16756,6 +16756,80 @@ window.PT_VS_3BET_JSON = {
     return s;
   }
 
+  const HANDS_PER_SHARD = 200;
+
+  function isHiddenSessionStub(s) {
+    return !!(s && (s.hidden || s.shardParentId));
+  }
+
+  function visibleSessionList(list) {
+    return (list || []).filter(function (s) { return s && s.id && !isHiddenSessionStub(s); });
+  }
+
+  function shardSessionId(parentId, index) {
+    return String(parentId) + '__h' + index;
+  }
+
+  function buildHandShards(session, cap) {
+    const hands = session.hands || [];
+    const n = Math.max(1, Math.ceil(hands.length / cap));
+    const ids = [];
+    const payloads = [];
+    for (let i = 0; i < n; i++) {
+      const id = shardSessionId(session.id, i);
+      const slice = hands.slice(i * cap, (i + 1) * cap);
+      ids.push(id);
+      payloads.push({
+        id: id,
+        hidden: true,
+        shardParentId: session.id,
+        shardIndex: i,
+        shardTotal: n,
+        fileName: session.fileName,
+        hero: session.hero,
+        createdAt: session.createdAt,
+        hands: slice,
+        nTotal: slice.length,
+        stats: { nHands: slice.length },
+        analysisVersion: session.analysisVersion
+      });
+    }
+    return { ids: ids, payloads: payloads };
+  }
+
+  function parentForStorage(session, shardIds) {
+    const n = (session.hands && session.hands.length) || (session.stats && session.stats.nHands) || 0;
+    return Object.assign({}, session, {
+      hands: [],
+      sharded: true,
+      shardCount: shardIds.length,
+      shardIds: shardIds,
+      nTotal: Math.max(session.nTotal || 0, n),
+      rawText: null,
+      hasTxt: false
+    });
+  }
+
+  async function assembleShardedSession(parent) {
+    if (!parent || !parent.sharded || !parent.shardIds || !parent.shardIds.length) return parent;
+    const CS = global.PTCloudSessions;
+    let parts = [];
+    if (CS && CS.isReady() && CS.fetchSessionsByIds) {
+      parts = await CS.fetchSessionsByIds(parent.shardIds);
+    }
+    const byId = {};
+    (parts || []).forEach(function (p) { if (p && p.id) byId[p.id] = p; });
+    const hands = [];
+    parent.shardIds.forEach(function (sid) {
+      const p = byId[sid];
+      if (p && p.hands && p.hands.length) {
+        for (let i = 0; i < p.hands.length; i++) hands.push(p.hands[i]);
+      }
+    });
+    if (!hands.length) return parent;
+    return Object.assign({}, parent, { hands: hands, nTotal: hands.length });
+  }
+
   function notifySync(keys) {
     if (!global.PTCloud) return;
     const cloudKeys = (keys || []).filter(function (k) { return k !== 'sessions'; });
@@ -17495,7 +17569,7 @@ window.PT_VS_3BET_JSON = {
 
   function getSessions() {
     migrateLegacySessionsList();
-    return filterDeletedSessions(getSessionIndex());
+    return visibleSessionList(filterDeletedSessions(getSessionIndex()));
   }
 
   function getSession(id) {
@@ -17506,13 +17580,15 @@ window.PT_VS_3BET_JSON = {
 
   async function getSessionAsync(id) {
     if (!id) return null;
-    if (sessionMemoryCache[id]) return sessionMemoryCache[id];
+    const cached = sessionMemoryCache[id];
+    if (cached && (!cached.sharded || (cached.hands && cached.hands.length))) return cached;
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const res = await CS.fetchSession(id);
       if (res.ok && res.session) {
-        sessionMemoryCache[id] = res.session;
-        return res.session;
+        const full = await assembleShardedSession(res.session);
+        sessionMemoryCache[id] = full;
+        return full;
       }
     }
     return getSession(id);
@@ -17638,9 +17714,55 @@ window.PT_VS_3BET_JSON = {
     return session;
   }
 
+  async function saveShardedSession(session) {
+    const built = buildHandShards(session, HANDS_PER_SHARD);
+    const parent = parentForStorage(session, built.ids);
+    const CS = global.PTCloudSessions;
+    if (CS && CS.isReady()) {
+      const upParent = await CS.uploadSession(parent);
+      if (!upParent.ok) {
+        return {
+          ok: false,
+          error: upParent.error === 'cloud_not_ready'
+            ? 'Inicia sesión para guardar sesiones en la nube.'
+            : (upParent.error || 'No se pudo guardar en la nube.')
+        };
+      }
+      for (let i = 0; i < built.payloads.length; i++) {
+        const up = await CS.uploadSession(built.payloads[i]);
+        if (!up.ok) {
+          return {
+            ok: false,
+            error: 'No se pudieron guardar todas las manos (' + (i + 1) + '/' + built.payloads.length
+              + '). ' + (up.error || 'Inténtalo de nuevo.')
+          };
+        }
+      }
+      sessionMemoryCache[session.id] = session;
+      const list = visibleSessionList(getSessionIndex().filter(function (s) { return s.id !== session.id; }));
+      const summary = CS.sessionSummary(parent);
+      summary.nTotal = session.hands.length;
+      list.unshift(summary);
+      writeSessionIndex(list);
+      try { localStorage.removeItem(scopedKey('sessions')); } catch (e) { /* ignore */ }
+      try { localStorage.removeItem(sessionTxtKey(session.id)); } catch (e) { /* ignore */ }
+      recordSessionStats(session);
+      return { ok: true, session: session, cloudOnly: true };
+    }
+    const localParent = saveSessionLocal(parent);
+    if (!localParent.ok) return localParent;
+    sessionMemoryCache[session.id] = session;
+    recordSessionStats(session);
+    return { ok: true, session: session, cloudOnly: false };
+  }
+
   async function saveSession(session) {
     migrateLegacySessionsList();
     session = await mergeSessionIfDuplicate(session);
+    const nHands = (session.hands && session.hands.length) || 0;
+    if (nHands > HANDS_PER_SHARD) {
+      return saveShardedSession(session);
+    }
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const upload = await CS.uploadSession(session);
@@ -17652,14 +17774,14 @@ window.PT_VS_3BET_JSON = {
             : (upload.error || 'No se pudo guardar en la nube.')
         };
       }
-      sessionMemoryCache[session.id] = upload.session;
-      const list = getSessionIndex().filter(function (s) { return s.id !== session.id; });
+      sessionMemoryCache[session.id] = session;
+      const list = visibleSessionList(getSessionIndex().filter(function (s) { return s.id !== session.id; }));
       list.unshift(upload.summary);
       writeSessionIndex(list);
       try { localStorage.removeItem(scopedKey('sessions')); } catch (e) { /* ignore */ }
       try { localStorage.removeItem(sessionTxtKey(session.id)); } catch (e) { /* ignore */ }
-      recordSessionStats(upload.session);
-      return { ok: true, session: upload.session, cloudOnly: true };
+      recordSessionStats(session);
+      return { ok: true, session: session, cloudOnly: true };
     }
     const local = saveSessionLocal(session);
     if (local.ok) recordSessionStats(local.session);
@@ -17667,14 +17789,28 @@ window.PT_VS_3BET_JSON = {
   }
 
   async function removeSession(id) {
+    const stub = getSessionIndex().find(function (x) { return x && x.id === id; }) || sessionMemoryCache[id];
+    const extra = (stub && stub.shardIds) || [];
     delete sessionMemoryCache[id];
+    extra.forEach(function (sid) { delete sessionMemoryCache[sid]; });
     markSessionDeleted(id);
+    extra.forEach(markSessionDeleted);
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const res = await CS.deleteSession(id);
       if (!res.ok) console.warn('[Store] removeSession cloud', res.error);
+      if (CS.deleteSessionsByIds && extra.length) {
+        const del = await CS.deleteSessionsByIds(extra);
+        if (del && !del.ok) console.warn('[Store] removeSession shards', del.error);
+      } else {
+        for (let i = 0; i < extra.length; i++) {
+          await CS.deleteSession(extra[i]);
+        }
+      }
     }
-    writeSessionIndex(getSessionIndex().filter(function (s) { return s.id !== id; }));
+    writeSessionIndex(visibleSessionList(getSessionIndex().filter(function (s) {
+      return s && s.id !== id && extra.indexOf(s.id) < 0 && !isHiddenSessionStub(s);
+    })));
     try { localStorage.removeItem(sessionTxtKey(id)); } catch (e) { /* ignore */ }
     try {
       const legacy = read(scopedKey('sessions'), []);
@@ -17696,7 +17832,7 @@ window.PT_VS_3BET_JSON = {
     if (!CS || !CS.isReady()) return { ok: false, sessions: getSessions() };
     const res = await CS.listSessions();
     if (!res.ok) return res;
-    writeSessionIndex(filterDeletedSessions(res.sessions || []));
+    writeSessionIndex(visibleSessionList(filterDeletedSessions(res.sessions || [])));
     return res;
   }
 
@@ -18929,7 +19065,12 @@ window.PT_VS_3BET_JSON = {
       source: session.source || (session.stats && session.stats.source) || null,
       tournamentId: session.tournamentId
         || (session.stats && session.stats.tournamentId)
-        || null
+        || null,
+      sharded: !!session.sharded,
+      shardCount: session.shardCount || null,
+      shardIds: session.shardIds || null,
+      hidden: !!session.hidden,
+      shardParentId: session.shardParentId || null
     };
   }
 
@@ -18972,6 +19113,8 @@ window.PT_VS_3BET_JSON = {
       s.id = row.session_id;
       s.cloudOnly = true;
       return s;
+    }).filter(function (s) {
+      return s && !s.hidden && !s.shardParentId;
     });
     return { ok: true, sessions: sessions };
   }
@@ -18992,6 +19135,48 @@ window.PT_VS_3BET_JSON = {
     }
     if (!data || !data.payload) return { ok: false, error: 'not_found' };
     return { ok: true, session: data.payload };
+  }
+
+  async function fetchSessionsByIds(ids) {
+    if (!isReady() || !ids || !ids.length) return [];
+    const client = getClient();
+    const CHUNK = 80;
+    const byId = {};
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK);
+      const { data, error } = await client
+        .from(TABLE)
+        .select('session_id, payload')
+        .eq('user_id', userId)
+        .in('session_id', slice)
+        .is('deleted_at', null);
+      if (error) {
+        console.warn('[PTCloudSessions] fetchSessionsByIds', error);
+        continue;
+      }
+      (data || []).forEach(function (row) {
+        if (!row || !row.payload) return;
+        const s = row.payload;
+        s.id = row.session_id;
+        byId[row.session_id] = s;
+      });
+    }
+    return ids.map(function (id) { return byId[id] || null; }).filter(Boolean);
+  }
+
+  async function deleteSessionsByIds(ids) {
+    if (!isReady() || !ids || !ids.length) return { ok: true };
+    const client = getClient();
+    const { error } = await client
+      .from(TABLE)
+      .delete()
+      .eq('user_id', userId)
+      .in('session_id', ids);
+    if (error) {
+      console.warn('[PTCloudSessions] deleteSessionsByIds', error);
+      return { ok: false, error: error.message || 'delete_failed' };
+    }
+    return { ok: true };
   }
 
   async function deleteSession(sessionId) {
@@ -19034,7 +19219,9 @@ window.PT_VS_3BET_JSON = {
     uploadSession,
     listSessions,
     fetchSession,
+    fetchSessionsByIds,
     deleteSession,
+    deleteSessionsByIds,
     migrateSessionsFromPayload,
     purgeUserSessions
   };
@@ -30288,75 +30475,48 @@ window.PT_VS_3BET_JSON = {
         parsed.heroConfirmed = true;
         parsed.filterHero = true;
       }
-      const parts = (!isTournamentSummary && Importer.chunkParsedSession)
-        ? Importer.chunkParsedSession(parsed)
-        : [parsed];
-      const totalHands = isTournamentSummary ? 0 : (parsed.hands || []).length;
-      let analyzedBase = 0;
-      let lastSession = null;
-      let lastSave = null;
-      let handsImported = 0;
-      let anySaved = false;
-      let lastSaveError = null;
-      for (let p = 0; p < parts.length; p++) {
-        const part = parts[p];
-        const partLabel = parts.length > 1
-          ? (fileLabel + ' · parte ' + (p + 1) + '/' + parts.length)
-          : fileLabel;
-        const onProgress = function (done, total, phase) {
-          const overallDone = (phase === 'analyze') ? (analyzedBase + done) : done;
-          const overallTotal = (phase === 'analyze' && totalHands) ? totalHands : total;
-          setProgress(overallDone, overallTotal, phase || 'analyze', partLabel);
-        };
-        let session;
-        try {
-          session = Importer.buildSessionAsync
-            ? await Importer.buildSessionAsync(part, part.fileName || file.name, onProgress, text)
-            : Importer.buildSession(part, part.fileName || file.name, text);
-        } catch (partErr) {
-          lastSaveError = (partErr && partErr.message) || String(partErr);
-          analyzedBase += (part.hands || []).length;
-          continue;
-        }
-        analyzedBase += (part.hands || []).length;
-        const saveResult = await Store.saveSession(session);
-        lastSave = saveResult;
-        if (saveResult && saveResult.ok === false) {
-          lastSaveError = saveResult.error || lastSaveError;
-        } else {
-          anySaved = true;
-        }
-        const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
-        handsImported += (finalSession.hands || []).length;
-        lastSession = finalSession;
-      }
-      if (!lastSession) {
+      const onProgress = function (done, total, phase) {
+        setProgress(done, total, phase || 'analyze', fileLabel);
+      };
+      let session;
+      try {
+        session = Importer.buildSessionAsync
+          ? await Importer.buildSessionAsync(parsed, file.name, onProgress, text)
+          : Importer.buildSession(parsed, file.name, text);
+      } catch (analyzeErr) {
         return {
           ok: false,
-          error: lastSaveError || ('No se pudo analizar «' + file.name + '».')
+          error: (analyzeErr && analyzeErr.message) || ('No se pudo analizar «' + file.name + '».')
         };
       }
-      if (Ent && Ent.recordImportSession && anySaved) {
-        const rec = await Ent.recordImportSession(handsImported || totalHands);
+      const handsImported = (session.hands || []).length
+        || (session.stats && session.stats.nHands)
+        || 0;
+      if (Ent && Ent.recordImportSession && handsImported) {
+        const rec = await Ent.recordImportSession(handsImported);
         if (rec && rec.ok === false) {
           return { ok: false, paywall: rec.error, error: rec.error };
         }
       }
+      const saveResult = await Store.saveSession(session);
+      const saved = saveResult && saveResult.ok !== false;
+      const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
       if (window.PTAnalytics && PTAnalytics.trackImportSession) {
         PTAnalytics.trackImportSession({
-          hands: handsImported,
-          platform: lastSession.format && lastSession.format.platform
+          hands: (finalSession.hands && finalSession.hands.length) || handsImported,
+          platform: finalSession.format && finalSession.format.platform
         });
       }
       return {
-        ok: true,
-        saved: anySaved,
-        cloudOnly: !!(lastSave && lastSave.cloudOnly),
-        saveError: lastSaveError,
-        session: lastSession,
-        handsImported: handsImported,
-        sessionParts: parts.length,
-        format: lastSession.format || parsed.format || fmtMeta
+        ok: saved,
+        saved: saved,
+        cloudOnly: !!(saveResult && saveResult.cloudOnly),
+        saveError: saveResult && saveResult.error,
+        error: (!saved && saveResult && saveResult.error) || null,
+        session: finalSession,
+        handsImported: (finalSession.hands && finalSession.hands.length) || handsImported,
+        sessionParts: 1,
+        format: finalSession.format || parsed.format || fmtMeta
       };
     }
 
