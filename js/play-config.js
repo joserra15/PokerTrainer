@@ -136,7 +136,9 @@
     /** Permitir botes multiway (default on en random/cash) */
     allowMultiway: true,
     /** any | srp3way | srp4way | limpPot — solo si scenario=multiway */
-    multiwayPotType: 'any'
+    multiwayPotType: 'any',
+    /** 'quick' = salta a la decisión del héroe; 'complete' = muestra UTG→BB */
+    actionMode: 'quick'
   };
 
   const RAKE_LS_KEY = 'pt_rake_prefs';
@@ -283,6 +285,7 @@
     if (c.multiwayPotType !== 'srp3way' && c.multiwayPotType !== 'srp4way' && c.multiwayPotType !== 'limpPot') {
       c.multiwayPotType = 'any';
     }
+    c.actionMode = c.actionMode === 'complete' ? 'complete' : 'quick';
     return c;
   }
 
@@ -1000,7 +1003,8 @@
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
     const phase = c.formatHub !== 'cash' ? (' · ' + (c.resolvedPhase || c.mttPhase)) : '';
     const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
+    const am = c.actionMode === 'complete' ? 'Modo completo' : 'Modo rápido';
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {

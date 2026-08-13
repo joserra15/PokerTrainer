@@ -9571,7 +9571,9 @@ window.PT_VS_3BET_JSON = {
     /** Permitir botes multiway (default on en random/cash) */
     allowMultiway: true,
     /** any | srp3way | srp4way | limpPot — solo si scenario=multiway */
-    multiwayPotType: 'any'
+    multiwayPotType: 'any',
+    /** 'quick' = salta a la decisión del héroe; 'complete' = muestra UTG→BB */
+    actionMode: 'quick'
   };
 
   const RAKE_LS_KEY = 'pt_rake_prefs';
@@ -9718,6 +9720,7 @@ window.PT_VS_3BET_JSON = {
     if (c.multiwayPotType !== 'srp3way' && c.multiwayPotType !== 'srp4way' && c.multiwayPotType !== 'limpPot') {
       c.multiwayPotType = 'any';
     }
+    c.actionMode = c.actionMode === 'complete' ? 'complete' : 'quick';
     return c;
   }
 
@@ -10435,7 +10438,8 @@ window.PT_VS_3BET_JSON = {
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
     const phase = c.formatHub !== 'cash' ? (' · ' + (c.resolvedPhase || c.mttPhase)) : '';
     const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + block + ' · ' + rakeLabel(c);
+    const am = c.actionMode === 'complete' ? 'Modo completo' : 'Modo rápido';
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {
@@ -11907,6 +11911,7 @@ window.PT_VS_3BET_JSON = {
     if (hand.table && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
       setPreflopSeatBet(hand, pos, amount);
     }
+    recordVisibleAction(hand, pos, type, amount);
   }
 
   function markFoldedBeforeHeroRFI(hand) {
@@ -13215,6 +13220,15 @@ window.PT_VS_3BET_JSON = {
 
   // ---------- Aplicar una acción ----------
   function act(hand, actionId) {
+    beginReveal(hand);
+    try {
+      return actApply(hand, actionId);
+    } finally {
+      endReveal(hand);
+    }
+  }
+
+  function actApply(hand, actionId) {
     const node = hand.current;
     const evalResult = GTO.evaluateSpot(buildSpotInput(hand, node, actionId));
     const freqs = evalResult.strategy;
@@ -14116,11 +14130,62 @@ window.PT_VS_3BET_JSON = {
   }
 
   // ----- Acciones visibles (para la UI) -----
+  function beginReveal(hand) {
+    if (!hand) return;
+    hand._reveal = [];
+    hand._recordingReveal = true;
+  }
+  function endReveal(hand) {
+    if (!hand) return;
+    hand._recordingReveal = false;
+  }
+  function pushReveal(hand, ev) {
+    if (!hand || !hand._recordingReveal || !ev) return;
+    hand._reveal = hand._reveal || [];
+    hand._reveal.push(ev);
+  }
+  function recordVisibleAction(hand, pos, type, amount, flags) {
+    if (!hand || !hand._recordingReveal || !pos || !type) return;
+    const list = hand._reveal || [];
+    const last = list[list.length - 1];
+    if (last && last.kind === 'act' && last.pos === pos && last.type === type) {
+      if (amount != null) last.amount = amount;
+      if (hand.table && hand.table.streetBet) last.streetTo = hand.table.streetBet[pos] || last.streetTo;
+      if (hand.table && hand.table.invested) last.invested = hand.table.invested[pos];
+      last.potBB = hand.potBB;
+      if (flags && flags.isHero) last.isHero = true;
+      return;
+    }
+    const ev = {
+      kind: 'act',
+      pos: pos,
+      type: type,
+      amount: amount != null ? amount : null,
+      isHero: !!(flags && flags.isHero),
+      potBB: hand.potBB
+    };
+    if (hand.table) {
+      if (hand.table.streetBet) ev.streetTo = hand.table.streetBet[pos] != null ? hand.table.streetBet[pos] : amount;
+      if (hand.table.invested) ev.invested = hand.table.invested[pos];
+    }
+    pushReveal(hand, ev);
+  }
+  function recordStreet(hand) {
+    if (!hand) return;
+    pushReveal(hand, {
+      kind: 'street',
+      street: hand.stage,
+      board: (hand.board || []).slice(),
+      potBB: hand.potBB
+    });
+  }
+
   function setHeroAct(hand, type, amount) {
     hand.heroAction = { type, amount: amount != null ? amount : null };
     if (hand.table && hand.hero.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
       hand.table.streetBet[hand.hero.pos] = round2((hand.table.streetBet[hand.hero.pos] || 0) + amount);
     }
+    recordVisibleAction(hand, heroTableSeat(hand) || (hand.hero && hand.hero.pos), type, amount, { isHero: true });
   }
   function setVillainAct(hand, type, amount) {
     hand.villainAction = { type, amount: amount != null ? amount : null };
@@ -14128,6 +14193,7 @@ window.PT_VS_3BET_JSON = {
     if (hand.table && hand.villain.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
       hand.table.streetBet[hand.villain.pos] = round2((hand.table.streetBet[hand.villain.pos] || 0) + amount);
     }
+    recordVisibleAction(hand, villainTableSeat(hand) || (hand.villain && hand.villain.pos), type, amount);
     if (VT && hand.villainRangeTracker && type && type !== 'fold') {
       VT.recordAction(hand.villainRangeTracker, type, hand.stage, amount);
     } else if (VT && hand.villainRangeTracker && type === 'fold') {
@@ -14188,6 +14254,7 @@ window.PT_VS_3BET_JSON = {
     hand._boardIdx = 3;
     if (hand.multiway) hand.heroInPosition = heroIpMultiway(hand);
     recalcPot(hand);
+    recordStreet(hand);
     return enterStreet(hand);
   }
 
@@ -14199,6 +14266,7 @@ window.PT_VS_3BET_JSON = {
     hand.stage = ns;
     resetStreetBets(hand);
     hand.board.push(hand._predeal.board[hand._boardIdx++]);
+    recordStreet(hand);
     return enterStreet(hand);
   }
 
@@ -14784,10 +14852,242 @@ window.PT_VS_3BET_JSON = {
     };
   }
 
+  function actionOrderForHand(hand) {
+    const PC = global.PTPlayConfig;
+    if (PC && hand && hand.playConfig && PC.is3Max && PC.is3Max(hand.playConfig)) {
+      return ['BTN', 'SB', 'BB'];
+    }
+    return preflopOrderForHand(hand);
+  }
+
+  function scriptSeat(hand, engPos) {
+    if (!engPos) return engPos;
+    const hero = heroTableSeat(hand);
+    const vill = villainTableSeat(hand);
+    if (engPos === hero || (hand.hero && engPos === hand.hero.pos)) return hero;
+    if (vill && (engPos === vill || (hand.villain && engPos === hand.villain.pos))) return vill;
+    const order = actionOrderForHand(hand);
+    if (order.indexOf(engPos) >= 0) return engPos;
+    const mapped = tableSeatForEnginePos(hand, engPos);
+    if (mapped && order.indexOf(mapped) >= 0) return mapped;
+    return engPos;
+  }
+
+  function scriptEvent(pos, type, amount, extra) {
+    const ev = { kind: 'act', pos: pos, type: type, amount: amount != null ? amount : null };
+    if (extra) Object.keys(extra).forEach(function (k) { ev[k] = extra[k]; });
+    return ev;
+  }
+
+  function foldsUntil(order, endPos, except) {
+    const skip = {};
+    (except || []).forEach(function (p) { if (p) skip[p] = true; });
+    const end = order.indexOf(endPos);
+    const out = [];
+    const last = end < 0 ? order.length : end;
+    for (let i = 0; i < last; i++) {
+      if (skip[order[i]]) continue;
+      out.push(scriptEvent(order[i], 'fold', null));
+    }
+    return out;
+  }
+
+  function foldsBetween(order, fromPos, toPos, except) {
+    const skip = {};
+    (except || []).forEach(function (p) { if (p) skip[p] = true; });
+    const a = order.indexOf(fromPos);
+    const b = order.indexOf(toPos);
+    const out = [];
+    if (a < 0 || b < 0 || b <= a) return out;
+    for (let i = a + 1; i < b; i++) {
+      if (skip[order[i]]) continue;
+      out.push(scriptEvent(order[i], 'fold', null));
+    }
+    return out;
+  }
+
+  function seatActAmount(hand, pos, fallback) {
+    const a = hand.seatActions && hand.seatActions[pos];
+    if (a && a.amount != null) return a.amount;
+    return fallback;
+  }
+
+  /** Guion visual preflop: UTG→héroe, con acciones automáticas del héroe (open/3-bet). */
+  function buildOpeningActionScript(hand) {
+    if (!hand || !hand.scenario) return [];
+    const s = hand.scenario;
+    const order = actionOrderForHand(hand);
+    const hero = heroTableSeat(hand);
+    const events = [];
+    if (!hero || order.indexOf(hero) < 0) return events;
+
+    function openSize(pos) {
+      return pos === 'SB' ? SB_OPEN : OPEN;
+    }
+
+    if (s.type === 'RFI' || s.type === 'sbLimp') {
+      return foldsUntil(order, hero);
+    }
+
+    if (s.type === 'vsRFI') {
+      const opener = scriptSeat(hand, (hand.villain && hand.villain.pos) || parseVsKey(s.key).opener);
+      const amt = seatActAmount(hand, opener, openSize(opener));
+      events.push.apply(events, foldsUntil(order, opener));
+      events.push(scriptEvent(opener, 'open', amt));
+      events.push.apply(events, foldsBetween(order, opener, hero));
+      return events;
+    }
+
+    if (s.type === 'face3bet') {
+      const pk = parseFace3betKey(s.key);
+      const opener = scriptSeat(hand, pk.opener || hero);
+      const tb = scriptSeat(hand, (hand.villain && hand.villain.pos) || pk.threeBettor);
+      const oAmt = seatActAmount(hand, opener, openSize(opener)) || hand.heroInvested || OPEN;
+      const tbAmt = seatActAmount(hand, tb, hand.villainInvested);
+      events.push.apply(events, foldsUntil(order, opener));
+      events.push(scriptEvent(opener, 'open', oAmt, { autoHero: opener === hero }));
+      events.push.apply(events, foldsBetween(order, opener, tb, [hero]));
+      events.push(scriptEvent(tb, 'raise', tbAmt));
+      return events;
+    }
+
+    if (s.type === 'face4bet') {
+      const pk = parseVsKey(s.key);
+      const opener = scriptSeat(hand, (hand.villain && hand.villain.pos) || pk.opener);
+      const oAmt = openSize(opener);
+      const tbAmt = hand.heroInvested;
+      const fbAmt = hand.villainInvested;
+      events.push.apply(events, foldsUntil(order, opener));
+      events.push(scriptEvent(opener, 'open', oAmt));
+      events.push.apply(events, foldsBetween(order, opener, hero));
+      events.push(scriptEvent(hero, 'raise', tbAmt, { autoHero: true }));
+      events.push(scriptEvent(opener, 'raise', fbAmt));
+      return events;
+    }
+
+    if (s.type === 'squeeze' || s.type === 'squeezeMulti') {
+      const opener = scriptSeat(hand, s.openerPos || (hand.villain && hand.villain.pos));
+      const caller = scriptSeat(hand, s.callerPos);
+      const oAmt = seatActAmount(hand, opener, OPEN);
+      const cAmt = seatActAmount(hand, caller, oAmt);
+      events.push.apply(events, foldsUntil(order, opener));
+      events.push(scriptEvent(opener, 'open', oAmt));
+      events.push.apply(events, foldsBetween(order, opener, caller));
+      events.push(scriptEvent(caller, 'call', cAmt));
+      events.push.apply(events, foldsBetween(order, caller, hero));
+      return events;
+    }
+
+    if (s.type === 'isoLimp') {
+      const limper = scriptSeat(hand, s.limperPos || (hand.villain && hand.villain.pos));
+      events.push.apply(events, foldsUntil(order, limper));
+      events.push(scriptEvent(limper, 'call', BBET));
+      events.push.apply(events, foldsBetween(order, limper, hero));
+      return events;
+    }
+
+    if (s.type === 'bbVsSbLimp') {
+      events.push.apply(events, foldsUntil(order, 'SB'));
+      events.push(scriptEvent('SB', 'call', BBET));
+      return events;
+    }
+
+    if (s.type === 'cold4bet') {
+      const opener = scriptSeat(hand, s.openerPos);
+      const tb = scriptSeat(hand, s.threeBettorPos || (hand.villain && hand.villain.pos));
+      const oAmt = seatActAmount(hand, opener, OPEN);
+      const tbAmt = seatActAmount(hand, tb, hand.villainInvested);
+      events.push.apply(events, foldsUntil(order, opener));
+      events.push(scriptEvent(opener, 'open', oAmt));
+      events.push.apply(events, foldsBetween(order, opener, tb));
+      events.push(scriptEvent(tb, 'raise', tbAmt));
+      events.push.apply(events, foldsBetween(order, tb, hero));
+      return events;
+    }
+
+    if (s.type === 'srp3way' || s.type === 'srp4way') {
+      const opener = scriptSeat(hand, s.openerPos || (hand.villain && hand.villain.pos));
+      const callers = (s.callerPositions || (s.callerPos ? [s.callerPos] : [])).map(function (p) {
+        return scriptSeat(hand, p);
+      }).filter(function (p) { return p && p !== opener && p !== hero; });
+      const oAmt = seatActAmount(hand, opener, openSize(opener));
+      events.push.apply(events, foldsUntil(order, opener));
+      events.push(scriptEvent(opener, 'open', oAmt));
+      let prev = opener;
+      callers.forEach(function (cPos) {
+        events.push.apply(events, foldsBetween(order, prev, cPos));
+        events.push(scriptEvent(cPos, 'call', oAmt));
+        prev = cPos;
+      });
+      events.push.apply(events, foldsBetween(order, prev, hero));
+      return events;
+    }
+
+    if (s.type === 'limpPot') {
+      const limpers = (s.limperPositions || (s.limperPos ? [s.limperPos] : [])).map(function (p) {
+        return scriptSeat(hand, p);
+      }).filter(Boolean);
+      let prev = null;
+      limpers.forEach(function (lp) {
+        if (prev) events.push.apply(events, foldsBetween(order, prev, lp));
+        else events.push.apply(events, foldsUntil(order, lp));
+        events.push(scriptEvent(lp, 'call', BBET));
+        prev = lp;
+      });
+      if (prev) events.push.apply(events, foldsBetween(order, prev, hero));
+      return events;
+    }
+
+    return events;
+  }
+
+  function postflopOrderForScript(hand) {
+    if (MW() && MW().postflopOrderFor) return MW().postflopOrderFor(hand);
+    const PC = global.PTPlayConfig;
+    if (PC && hand.playConfig && PC.is3Max && PC.is3Max(hand.playConfig)) return ['SB', 'BB', 'BTN'];
+    if (is9MaxHand(hand) && PC) return ['SB', 'BB', 'UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
+    return POSTFLOP_ORDER.slice();
+  }
+
+  /** Acciones ya aplicadas en la calle actual antes de la decisión del héroe. */
+  function buildStreetIntroScript(hand) {
+    if (!hand || hand.stage === 'preflop' || hand.stage === 'complete') return [];
+    const events = [];
+    events.push({
+      kind: 'street',
+      street: hand.stage,
+      board: (hand.board || []).slice(),
+      potBB: hand.potBB
+    });
+    const order = postflopOrderForScript(hand);
+    const hero = heroTableSeat(hand);
+    const heroIdx = order.indexOf(hero);
+    const before = heroIdx >= 0 ? order.slice(0, heroIdx) : order;
+    const villSeat = villainTableSeat(hand) || (hand.villain && hand.villain.pos);
+    before.forEach(function (pos) {
+      if (hand.table && hand.table.folded && hand.table.folded[pos]) return;
+      const act = (hand.seatActions && hand.seatActions[pos])
+        || (pos === villSeat && hand.villainAction ? hand.villainAction : null);
+      if (act && act.type) {
+        events.push({
+          kind: 'act',
+          pos: pos,
+          type: act.type,
+          amount: act.amount != null ? act.amount : null,
+          streetTo: act.amount,
+          potBB: hand.potBB,
+          invested: hand.table && hand.table.invested ? hand.table.invested[pos] : 0
+        });
+      }
+    });
+    return events;
+  }
+
   global.Engine = {
     newHand, act, previewAdvice, syncTableInvested, fastForwardToStreet,
     advanceRunout, prepareAllInRunout, currentMatchesPracticeIntent,
     applyAnteToHand, buildSpotInput,
+    buildOpeningActionScript, buildStreetIntroScript,
 
     // utilidades expuestas para UI/tests/importador
     handStrength01, equityVsRange, classifyMadeHand, sampleHandFromRange,
@@ -24386,7 +24686,41 @@ window.PT_VS_3BET_JSON = {
       rakePct: rakePct,
       rakeCapBB: rakeCapBB,
       allowMultiway: true,
-      multiwayPotType: mwPotEl ? mwPotEl.dataset.val : 'any'
+      multiwayPotType: mwPotEl ? mwPotEl.dataset.val : 'any',
+      actionMode: readActionModeFromSetup()
+    });
+  }
+
+  const ACTION_MODE_KEY = 'pt_action_mode';
+  function loadActionMode() {
+    try {
+      const v = localStorage.getItem(ACTION_MODE_KEY);
+      if (v === 'complete' || v === 'quick') return v;
+    } catch (e) { /* ignore */ }
+    return 'quick';
+  }
+  function saveActionMode(mode) {
+    const v = mode === 'complete' ? 'complete' : 'quick';
+    try { localStorage.setItem(ACTION_MODE_KEY, v); } catch (e) { /* ignore */ }
+    return v;
+  }
+  function readActionModeFromSetup() {
+    const el = $('#setup-action-mode .setup-chip.active');
+    if (el && el.dataset.val) return el.dataset.val === 'complete' ? 'complete' : 'quick';
+    return loadActionMode();
+  }
+  function currentActionMode() {
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    if (cfg && cfg.actionMode === 'complete') return 'complete';
+    if (cfg && cfg.actionMode === 'quick') return 'quick';
+    return loadActionMode();
+  }
+  function restoreActionModeChip() {
+    const box = $('#setup-action-mode');
+    if (!box) return;
+    const saved = loadActionMode();
+    box.querySelectorAll('.setup-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.val === saved);
     });
   }
 
@@ -24459,6 +24793,14 @@ window.PT_VS_3BET_JSON = {
 
   function updateLiveAdvisor() {
     if (!window.PTLiveAdvisor) return;
+    if (hand && hand._present && hand._present.active) {
+      const panel = $('#live-advisor-panel');
+      if (panel) {
+        panel.classList.add('hidden');
+        panel.innerHTML = '';
+      }
+      return;
+    }
     window.PTLiveAdvisor.update($('#live-advisor-panel'), hand, isLiveAdvisorOn());
   }
 
@@ -24571,6 +24913,8 @@ window.PT_VS_3BET_JSON = {
     activate('#setup-villain-level', cfg.villainLevel);
     activate('#setup-practice-street', cfg.practiceStreet);
     if (cfg.handsTarget != null) activate('#setup-hands-target', String(cfg.handsTarget || 0));
+    activate('#setup-action-mode', cfg.actionMode === 'complete' ? 'complete' : 'quick');
+    if (cfg.actionMode) saveActionMode(cfg.actionMode);
     if (cfg.tableTheme) {
       activate('#setup-table-theme', cfg.tableTheme);
       saveTableTheme(cfg.tableTheme);
@@ -24637,6 +24981,7 @@ window.PT_VS_3BET_JSON = {
       if (PTLiveAdvisor.saveMode) PTLiveAdvisor.saveMode(playSessionConfig.advisorMode || 'always');
       if (PTLiveAdvisor.saveThreshold) PTLiveAdvisor.saveThreshold(playSessionConfig.seriousEvThreshold);
     }
+    if (playSessionConfig && playSessionConfig.actionMode) saveActionMode(playSessionConfig.actionMode);
     resetPlaySession(false);
     goToTab('play', { table: true });
     showPlayTable();
@@ -24671,6 +25016,10 @@ window.PT_VS_3BET_JSON = {
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
     bindChipGroup('#setup-practice-street');
+    bindChipGroup('#setup-action-mode', () => {
+      const el = $('#setup-action-mode .setup-chip.active');
+      saveActionMode(el ? el.dataset.val : 'quick');
+    });
     bindChipGroup('#setup-hands-target');
     bindChipGroup('#setup-table-theme', () => {
       const thEl = $('#setup-table-theme .setup-chip.active');
@@ -24679,6 +25028,7 @@ window.PT_VS_3BET_JSON = {
       applyTableTheme(theme);
     });
     restoreTableThemeChip();
+    restoreActionModeChip();
     restoreRakeChips();
     bindChipGroup('#setup-rake-mode', () => {
       syncRakeUI();
@@ -24747,6 +25097,7 @@ window.PT_VS_3BET_JSON = {
           if (PTLiveAdvisor.saveMode) PTLiveAdvisor.saveMode(playSessionConfig.advisorMode || 'always');
           if (PTLiveAdvisor.saveThreshold) PTLiveAdvisor.saveThreshold(playSessionConfig.seriousEvThreshold);
         }
+        if (playSessionConfig && playSessionConfig.actionMode) saveActionMode(playSessionConfig.actionMode);
         resetPlaySession(false);
         goToTab('play', { table: true });
         showPlayTable();
@@ -25479,6 +25830,7 @@ window.PT_VS_3BET_JSON = {
   // ---------- Nueva mano ----------
   async function startNewHand() {
     if (startingHand) return;
+    actionPlayGen += 1;
     startingHand = true;
     closeModal();
     if (window.PTLiveAdvisor && PTLiveAdvisor.clearPendingAlert) PTLiveAdvisor.clearPendingAlert();
@@ -25553,6 +25905,9 @@ window.PT_VS_3BET_JSON = {
         });
       }
       $('#hand-log').innerHTML = '';
+      setPlayTableLoading(false);
+      const played = await playHandIntro(hand);
+      if (!played) return;
       renderTable();
       renderActions();
     } catch (e) {
@@ -25786,17 +26141,23 @@ window.PT_VS_3BET_JSON = {
 
   // ---------- Render mesa ----------
   function renderTable() {
-    if (hand && Engine.syncTableInvested) Engine.syncTableInvested(hand);
+    if (hand && Engine.syncTableInvested && !handPresent(hand)) Engine.syncTableInvested(hand);
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
-    const pot = hand.current ? hand.current.potBB : hand.potBB;
+    const view = handPresent(hand);
+    const pot = view ? view.potBB : (hand.current ? hand.current.potBB : hand.potBB);
     $('#hero-pos').textContent = hand.displayHeroPos || hand.hero.pos;
     $('#pot').innerHTML = '<span class="pot-chips"><span class="chip-ico"></span></span> ' + tt('play.pot') + ': ' + (pot != null ? fmt(pot) : '-') + ' bb';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardToHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
-    $('#hero-action').innerHTML = actionBadgeHTML(hand.heroAction);
+    $('#hero-action').innerHTML = actionBadgeHTML(view ? view.heroAction : hand.heroAction);
     const heroTbl = hand.table || {};
-    const heroStreet = (heroTbl.streetBet && hand.hero.pos) ? (heroTbl.streetBet[hand.hero.pos] || 0) : 0;
-    const heroInv = hand.heroInvested || 0;
+    const heroSeatKey = hand.displayHeroPos || hand.hero.pos;
+    const heroStreet = view
+      ? ((view.streetBet && (view.streetBet[hand.hero.pos] || view.streetBet[heroSeatKey])) || 0)
+      : ((heroTbl.streetBet && hand.hero.pos) ? (heroTbl.streetBet[hand.hero.pos] || 0) : 0);
+    const heroInv = view
+      ? ((view.invested && (view.invested[hand.hero.pos] || view.invested[heroSeatKey])) || 0)
+      : (hand.heroInvested || 0);
     const heroChipsEl = $('#hero-chips');
     if (heroChipsEl) {
       let heroHtml = '';
@@ -25809,14 +26170,15 @@ window.PT_VS_3BET_JSON = {
     }
     const vBar = $('#villain-action-bar');
     const mobile = isMobileLayout();
+    const villainAct = view ? view.villainAction : hand.villainAction;
     if (vBar) {
-      const showBar = mobile && hand.villainAction;
-      vBar.innerHTML = showBar ? actionBadgeHTML(hand.villainAction) : '';
+      const showBar = mobile && villainAct;
+      vBar.innerHTML = showBar ? actionBadgeHTML(villainAct) : '';
       vBar.setAttribute('aria-hidden', showBar ? 'false' : 'true');
       vBar.classList.toggle('is-visible', !!showBar);
     }
     const boardArea = document.querySelector('.board-area');
-    if (boardArea) boardArea.classList.toggle('has-villain-bar', !!(mobile && hand.villainAction));
+    if (boardArea) boardArea.classList.toggle('has-villain-bar', !!(mobile && villainAct));
     const felt = document.querySelector('#play-active .table-felt');
     if (felt) {
       felt.classList.toggle('table-9max', is9MaxTable());
@@ -25829,7 +26191,9 @@ window.PT_VS_3BET_JSON = {
     if (heroDealerEl) heroDealerEl.classList.toggle('hidden', heroSeatPos !== 'BTN');
     renderBoard();
     renderSeats();
-    $('#spot-context').textContent = hand.current ? hand.current.context : (hand.result ? hand.result.reason : '');
+    $('#spot-context').textContent = view
+      ? tt('play.actionPlaying')
+      : (hand.current ? hand.current.context : (hand.result ? hand.result.reason : ''));
     renderBluffSpotBadge();
     updateLiveAdvisor();
     syncPlayMobileStage();
@@ -25859,17 +26223,23 @@ window.PT_VS_3BET_JSON = {
   }
 
   function handNameOnBoard() {
-    if (!hand.board.length) return '';
+    const view = handPresent(hand);
+    const board = view && view.board ? view.board : hand.board;
+    if (!board.length) return '';
     try {
-      const ev = Cards.evaluate(hand.hero.cards.concat(hand.board));
+      const ev = Cards.evaluate(hand.hero.cards.concat(board));
       return tt('play.yourHand') + ': ' + ev.name;
     } catch (e) { return ''; }
   }
 
   function renderBoard() {
-    const complete = hand.stage === 'complete';
-    let html = hand.board.map(Cards.cardToHTML).join('');
-    $('#board').innerHTML = html || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>';
+    const view = handPresent(hand);
+    const board = view && view.board ? view.board : hand.board;
+    const stage = view && view.stage ? view.stage : hand.stage;
+    let html = (board || []).map(Cards.cardToHTML).join('');
+    $('#board').innerHTML = html || (stage === 'preflop' || !stage
+      ? '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'
+      : '');
   }
 
   const SEAT_AVATAR_SVG = '<svg viewBox="0 0 24 24" class="seat-avatar-svg" aria-hidden="true"><circle cx="12" cy="8.2" r="4.2"/><path d="M3.5 20.5c0-4.4 3.8-7.6 8.5-7.6s8.5 3.2 8.5 7.6"/></svg>';
@@ -25959,11 +26329,14 @@ window.PT_VS_3BET_JSON = {
     const coords = seatCoordsForTable();
     const ring = ringFromHero(heroSeatOnTable());
     const villainPos = villainSeatOnTable();
+    const view = handPresent(hand);
     const tbl = hand.table || {};
-    const folded = tbl.folded || {};
-    const invested = tbl.invested || {};
-    const streetBet = tbl.streetBet || {};
-    const inHand = tbl.inHand instanceof Set ? tbl.inHand : new Set(tbl.inHand || []);
+    const folded = view ? (view.folded || {}) : (tbl.folded || {});
+    const invested = view ? (view.invested || {}) : (tbl.invested || {});
+    const streetBet = view ? (view.streetBet || {}) : (tbl.streetBet || {});
+    const inHandSrc = view ? view.inHand : tbl.inHand;
+    const inHand = inHandSrc instanceof Set ? inHandSrc : new Set(inHandSrc || []);
+    const actingPos = view && view.actingPos;
     // All-in heads-up: revelar hole cards del villano mientras se reparte el runout.
     const revealHoles = !!(hand.runoutPending
       || (hand.stage === 'complete' && hand.result && hand.result.showdown));
@@ -25991,15 +26364,19 @@ window.PT_VS_3BET_JSON = {
       else if (c.left > 78) cls.push('seat-edge-right');
       if (c.top < 12) cls.push('seat-edge-top');
       if (folded[pos]) cls.push('folded');
+      if (actingPos && pos === actingPos) cls.push('acting');
 
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? (hand.multiway ? 'En bote' : 'Pagador') : ''));
       if ((hand.multiway || inPot) && inPot && !isVillain && !isHero) role = role || 'En bote';
-      const seatActs = hand.seatActions || {};
+      const seatActs = view ? (view.seatActions || {}) : (hand.seatActions || {});
+      const villainAct = view ? view.villainAction : hand.villainAction;
       let actHtml = '';
       if (!folded[pos]) {
-        const skipSeatAct = mobile && isVillain && hand.villainAction;
-        if (!skipSeatAct && isVillain && hand.villainAction) actHtml = actionBadgeHTML(hand.villainAction);
+        const skipSeatAct = mobile && isVillain && villainAct;
+        if (!skipSeatAct && isVillain && villainAct) actHtml = actionBadgeHTML(villainAct);
         else if (seatActs[pos]) actHtml = actionBadgeHTML(seatActs[pos]);
+      } else if (view && seatActs[pos]) {
+        actHtml = actionBadgeHTML(seatActs[pos]);
       }
 
       const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
@@ -26083,50 +26460,273 @@ window.PT_VS_3BET_JSON = {
     return id.split('_')[0];
   }
 
-  function onAction(actionId) {
-    const res = Engine.act(hand, actionId);
-    const d = res.decision;
+  async function onAction(actionId) {
+    if (actionBusy || !hand || !hand.current) return;
+    actionBusy = true;
+    try {
+      const snap = snapshotPresent(hand);
+      const res = Engine.act(hand, actionId);
+      const d = res.decision;
 
-    session.decisions++;
-    if (d.class === 'optima' || d.class === 'aceptable') session.good++;
-    const st = session.byStreet[d.street];
-    if (st) {
-      st.n++;
-      if (d.class === 'optima' || d.class === 'aceptable') st.good++;
-    }
-    if (d.evErroneous) session.evLossBB = roundSession(session.evLossBB + (d.evLoss || 0));
-
-    appendLog(d);
-    const warn = shouldShowDecisionFeedback(d);
-    if (warn) {
-      const mode = advisorModeForFeedback();
-      if (mode === 'serious' && window.PTLiveAdvisor && PTLiveAdvisor.recordSeriousAlert) {
-        PTLiveAdvisor.recordSeriousAlert(d, advisorThresholdForFeedback());
+      session.decisions++;
+      if (d.class === 'optima' || d.class === 'aceptable') session.good++;
+      const st = session.byStreet[d.street];
+      if (st) {
+        st.n++;
+        if (d.class === 'optima' || d.class === 'aceptable') st.good++;
       }
-      showVerdictToast(d, mode === 'serious');
-    }
-    $('#feedback').classList.add('hidden');
-    renderTable();
+      if (d.evErroneous) session.evLossBB = roundSession(session.evLossBB + (d.evLoss || 0));
 
-    if (window.PTSchool && typeof window.PTSchool.afterTrainerAction === 'function') {
-      if (window.PTSchool.afterTrainerAction(hand, d)) {
+      appendLog(d);
+      const warn = shouldShowDecisionFeedback(d);
+      if (warn) {
+        const mode = advisorModeForFeedback();
+        if (mode === 'serious' && window.PTLiveAdvisor && PTLiveAdvisor.recordSeriousAlert) {
+          PTLiveAdvisor.recordSeriousAlert(d, advisorThresholdForFeedback());
+        }
+        showVerdictToast(d, mode === 'serious');
+      }
+      $('#feedback').classList.add('hidden');
+
+      if (window.PTSchool && typeof window.PTSchool.afterTrainerAction === 'function') {
+        if (window.PTSchool.afterTrainerAction(hand, d)) {
+          renderTable();
+          return;
+        }
+      }
+
+      const reveal = (hand._reveal || []).slice();
+      if (shouldPlayReveal(hand, reveal, d)) {
+        hand._present = snap;
+        renderTable();
+        const ok = await playActionScript(reveal);
+        if (!ok) return;
+        clearPresent(hand);
+      }
+
+      renderTable();
+      if (hand.runoutPending) {
+        void playAllInRunout();
         return;
       }
-    }
-
-    if (hand.runoutPending) {
-      void playAllInRunout();
-      return;
-    }
-    if (hand.stage === 'complete') {
-      finishHand();
-    } else {
-      renderActions();
+      if (hand.stage === 'complete') {
+        finishHand();
+      } else {
+        renderActions();
+      }
+    } finally {
+      actionBusy = false;
     }
   }
 
   function sleepMs(ms) {
     return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  let actionPlayGen = 0;
+  let actionBusy = false;
+
+  function handPresent(h) {
+    return (h && h._present && h._present.active) ? h._present : null;
+  }
+
+  function clearPresent(h) {
+    if (h) h._present = null;
+  }
+
+  function snapshotPresent(h) {
+    const tbl = (h && h.table) || {};
+    return {
+      active: true,
+      folded: Object.assign({}, tbl.folded || {}),
+      seatActions: JSON.parse(JSON.stringify(h.seatActions || {})),
+      streetBet: Object.assign({}, tbl.streetBet || {}),
+      invested: Object.assign({}, tbl.invested || {}),
+      inHand: tbl.inHand instanceof Set ? new Set(tbl.inHand) : new Set(tbl.inHand || []),
+      potBB: h.current ? h.current.potBB : h.potBB,
+      villainAction: h.villainAction ? Object.assign({}, h.villainAction) : null,
+      heroAction: h.heroAction ? Object.assign({}, h.heroAction) : null,
+      board: (h.board || []).slice(),
+      stage: h.stage,
+      actingPos: null
+    };
+  }
+
+  function blankPreflopPresent(h) {
+    const invested = { SB: 0.5, BB: 1 };
+    const inHand = new Set(tablePosRing());
+    return {
+      active: true,
+      folded: {},
+      seatActions: {},
+      streetBet: {},
+      invested: invested,
+      inHand: inHand,
+      potBB: 1.5 + (h.antePotBB || 0),
+      villainAction: null,
+      heroAction: null,
+      board: [],
+      stage: 'preflop',
+      actingPos: null
+    };
+  }
+
+  function applyPresentEvent(h, ev) {
+    const p = h && h._present;
+    if (!p || !p.active || !ev) return;
+    p.actingPos = ev.pos || null;
+    if (ev.kind === 'street') {
+      p.stage = ev.street;
+      p.board = (ev.board || []).slice();
+      p.seatActions = {};
+      p.streetBet = {};
+      p.heroAction = null;
+      p.villainAction = null;
+      p.actingPos = null;
+      if (ev.potBB != null) p.potBB = ev.potBB;
+      return;
+    }
+    if (ev.kind !== 'act' || !ev.pos) return;
+    p.seatActions[ev.pos] = { type: ev.type, amount: ev.amount };
+    if (ev.type === 'fold') {
+      p.folded[ev.pos] = true;
+      if (p.inHand && p.inHand.delete) p.inHand.delete(ev.pos);
+    } else if (ev.amount != null && ev.amount > 0) {
+      const prev = p.invested[ev.pos] || 0;
+      if (ev.invested != null) {
+        p.invested[ev.pos] = ev.invested;
+        if (ev.potBB != null) p.potBB = ev.potBB;
+        else p.potBB = Math.round(((p.potBB || 0) + Math.max(ev.invested - prev, 0)) * 100) / 100;
+      } else {
+        const add = Math.max(ev.amount - prev, 0);
+        p.invested[ev.pos] = prev + add;
+        p.potBB = Math.round(((p.potBB || 0) + add) * 100) / 100;
+      }
+      p.streetBet[ev.pos] = ev.streetTo != null ? ev.streetTo : ev.amount;
+    }
+    const heroSeat = h.displayHeroPos || (h.hero && h.hero.pos);
+    const villSeat = villainSeatOnTable();
+    if (ev.pos === heroSeat || ev.isHero || ev.autoHero) {
+      p.heroAction = { type: ev.type, amount: ev.amount };
+    }
+    if (villSeat && ev.pos === villSeat) {
+      p.villainAction = { type: ev.type, amount: ev.amount };
+    }
+  }
+
+  function delayForEvent(ev) {
+    if (!ev) return 400;
+    if (ev.kind === 'street') return 560;
+    const t = ev.type;
+    if (t === 'fold') return 300;
+    if (t === 'check') return 380;
+    if (t === 'call') return 420;
+    if (t === 'open' || t === 'raise' || t === 'bet' || t === 'allin') return 500;
+    return 400;
+  }
+
+  function showActionPlayStatus(onSkip) {
+    const box = $('#actions');
+    if (!box) return;
+    box.className = 'actions';
+    box.innerHTML = '<div class="action-play-status" role="status">' +
+      '<span>' + tt('play.actionPlaying') + '</span>' +
+      '<button type="button" class="btn btn-ghost action-play-skip">' + tt('play.actionSkip') + '</button>' +
+      '</div>';
+    const btn = box.querySelector('.action-play-skip');
+    if (btn && onSkip) btn.addEventListener('click', onSkip);
+  }
+
+  async function playActionScript(events) {
+    const gen = actionPlayGen;
+    if (!events || !events.length) return gen === actionPlayGen;
+    let skipped = false;
+    showActionPlayStatus(function () { skipped = true; });
+    await sleepMs(80);
+    for (let i = 0; i < events.length; i++) {
+      if (gen !== actionPlayGen) return false;
+      if (skipped) {
+        for (let j = i; j < events.length; j++) applyPresentEvent(hand, events[j]);
+        renderTable();
+        break;
+      }
+      applyPresentEvent(hand, events[i]);
+      renderTable();
+      await sleepMs(delayForEvent(events[i]));
+    }
+    return gen === actionPlayGen;
+  }
+
+  function shouldPlayOpening(h) {
+    if (!h || h.result || !h.current) return false;
+    if (h.stage !== 'preflop') return false;
+    if (h.playConfig && h.playConfig.schoolDecisionEnd) return false;
+    return currentActionMode() === 'complete';
+  }
+
+  function shouldPlayStreetIntro(h) {
+    if (!h || h.result || !h.current) return false;
+    if (h.stage === 'preflop' || h.stage === 'complete') return false;
+    if (h.playConfig && h.playConfig.schoolDecisionEnd) return false;
+    return true;
+  }
+
+  function shouldPlayReveal(h, reveal, decision) {
+    if (!h || !reveal || !reveal.length) return false;
+    if (h.playConfig && h.playConfig.schoolDecisionEnd) return false;
+    const hasStreet = reveal.some(function (e) { return e.kind === 'street'; });
+    const postflop = (decision && decision.street && decision.street !== 'preflop')
+      || (h.stage && h.stage !== 'preflop')
+      || hasStreet;
+    if (postflop) return true;
+    return currentActionMode() === 'complete';
+  }
+
+  function prepareStreetIntroPresent(h, intro) {
+    h._present = snapshotPresent(h);
+    h._present.seatActions = {};
+    h._present.villainAction = null;
+    h._present.heroAction = null;
+    h._present.streetBet = {};
+    const first = intro && intro[0];
+    if (first && first.kind === 'street') {
+      const st = first.street;
+      if (st === 'flop') {
+        h._present.board = [];
+        h._present.stage = 'preflop';
+      } else if (st === 'turn') {
+        h._present.board = (h.board || []).slice(0, 3);
+        h._present.stage = 'flop';
+      } else if (st === 'river') {
+        h._present.board = (h.board || []).slice(0, 4);
+        h._present.stage = 'turn';
+      }
+    }
+  }
+
+  async function playHandIntro(h) {
+    if (!h) return true;
+    if (shouldPlayOpening(h) && Engine.buildOpeningActionScript) {
+      const opening = Engine.buildOpeningActionScript(h) || [];
+      if (opening.length) {
+        h._present = blankPreflopPresent(h);
+        renderTable();
+        const ok = await playActionScript(opening);
+        clearPresent(h);
+        return ok;
+      }
+    }
+    if (shouldPlayStreetIntro(h) && Engine.buildStreetIntroScript) {
+      const intro = Engine.buildStreetIntroScript(h) || [];
+      if (intro.length > 1 || (intro.length === 1 && intro[0].kind === 'act')) {
+        prepareStreetIntroPresent(h, intro);
+        renderTable();
+        const ok = await playActionScript(intro);
+        clearPresent(h);
+        return ok;
+      }
+    }
+    return true;
   }
 
   /** All-in: reparte turn/river con pausa visible antes del resultado. */
