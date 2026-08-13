@@ -76,6 +76,7 @@ const STEPS = [
   ['Test Escuela de Póker M0', ['node', 'tools/test-school.js']],
   ['Test school share social', ['node', 'tools/test-school-share.js']],
   ['Test school coach per lesson', ['node', 'tools/test-school-coach-lesson.js']],
+  ['Test spin iso limp order', ['node', 'tools/test-spin-iso-limp-order.js']],
   ['Test admin usage + school', ['node', 'tools/test-admin-usage-school.js']],
   ['Test PWA manifest', ['node', 'tools/test-pwa-manifest.js']],
   ['Test analytics/sentry guards', ['node', 'tools/test-analytics-sentry.js']],
