@@ -221,6 +221,7 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   assert.ok(minSpots('spin', 'S-08') >= minSpots('spin', 'S-04'), 'Spins: examen M1 ≥ iso');
   assert.ok(minSpots('spin', 'S-03') > minSpots('spin', 'S-01'), 'Spins: examen M0 > S-01');
   assert.ok(minSpots('mtt', 'T-01') >= 10, 'T-01 ≥10');
+  assert.ok(minSpots('mtt', 'T-02') >= 10, 'T-02 antenas ≥10 spots');
   assert.ok(minSpots('mtt', 'T-09') > minSpots('mtt', 'T-01'), 'MTT: push/fold > early');
   assert.ok(minSpots('mtt', 'T-07') >= minSpots('mtt', 'T-04'), 'MTT: examen mid ≥ steal');
   assert.ok(minSpots('cash', 'C-07') >= 10, 'C-07 ≥10');
