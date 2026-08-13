@@ -67,6 +67,80 @@
     return s;
   }
 
+  const HANDS_PER_SHARD = 200;
+
+  function isHiddenSessionStub(s) {
+    return !!(s && (s.hidden || s.shardParentId));
+  }
+
+  function visibleSessionList(list) {
+    return (list || []).filter(function (s) { return s && s.id && !isHiddenSessionStub(s); });
+  }
+
+  function shardSessionId(parentId, index) {
+    return String(parentId) + '__h' + index;
+  }
+
+  function buildHandShards(session, cap) {
+    const hands = session.hands || [];
+    const n = Math.max(1, Math.ceil(hands.length / cap));
+    const ids = [];
+    const payloads = [];
+    for (let i = 0; i < n; i++) {
+      const id = shardSessionId(session.id, i);
+      const slice = hands.slice(i * cap, (i + 1) * cap);
+      ids.push(id);
+      payloads.push({
+        id: id,
+        hidden: true,
+        shardParentId: session.id,
+        shardIndex: i,
+        shardTotal: n,
+        fileName: session.fileName,
+        hero: session.hero,
+        createdAt: session.createdAt,
+        hands: slice,
+        nTotal: slice.length,
+        stats: { nHands: slice.length },
+        analysisVersion: session.analysisVersion
+      });
+    }
+    return { ids: ids, payloads: payloads };
+  }
+
+  function parentForStorage(session, shardIds) {
+    const n = (session.hands && session.hands.length) || (session.stats && session.stats.nHands) || 0;
+    return Object.assign({}, session, {
+      hands: [],
+      sharded: true,
+      shardCount: shardIds.length,
+      shardIds: shardIds,
+      nTotal: Math.max(session.nTotal || 0, n),
+      rawText: null,
+      hasTxt: false
+    });
+  }
+
+  async function assembleShardedSession(parent) {
+    if (!parent || !parent.sharded || !parent.shardIds || !parent.shardIds.length) return parent;
+    const CS = global.PTCloudSessions;
+    let parts = [];
+    if (CS && CS.isReady() && CS.fetchSessionsByIds) {
+      parts = await CS.fetchSessionsByIds(parent.shardIds);
+    }
+    const byId = {};
+    (parts || []).forEach(function (p) { if (p && p.id) byId[p.id] = p; });
+    const hands = [];
+    parent.shardIds.forEach(function (sid) {
+      const p = byId[sid];
+      if (p && p.hands && p.hands.length) {
+        for (let i = 0; i < p.hands.length; i++) hands.push(p.hands[i]);
+      }
+    });
+    if (!hands.length) return parent;
+    return Object.assign({}, parent, { hands: hands, nTotal: hands.length });
+  }
+
   function notifySync(keys) {
     if (!global.PTCloud) return;
     const cloudKeys = (keys || []).filter(function (k) { return k !== 'sessions'; });
@@ -806,7 +880,7 @@
 
   function getSessions() {
     migrateLegacySessionsList();
-    return filterDeletedSessions(getSessionIndex());
+    return visibleSessionList(filterDeletedSessions(getSessionIndex()));
   }
 
   function getSession(id) {
@@ -817,13 +891,15 @@
 
   async function getSessionAsync(id) {
     if (!id) return null;
-    if (sessionMemoryCache[id]) return sessionMemoryCache[id];
+    const cached = sessionMemoryCache[id];
+    if (cached && (!cached.sharded || (cached.hands && cached.hands.length))) return cached;
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const res = await CS.fetchSession(id);
       if (res.ok && res.session) {
-        sessionMemoryCache[id] = res.session;
-        return res.session;
+        const full = await assembleShardedSession(res.session);
+        sessionMemoryCache[id] = full;
+        return full;
       }
     }
     return getSession(id);
@@ -949,9 +1025,55 @@
     return session;
   }
 
+  async function saveShardedSession(session) {
+    const built = buildHandShards(session, HANDS_PER_SHARD);
+    const parent = parentForStorage(session, built.ids);
+    const CS = global.PTCloudSessions;
+    if (CS && CS.isReady()) {
+      const upParent = await CS.uploadSession(parent);
+      if (!upParent.ok) {
+        return {
+          ok: false,
+          error: upParent.error === 'cloud_not_ready'
+            ? 'Inicia sesión para guardar sesiones en la nube.'
+            : (upParent.error || 'No se pudo guardar en la nube.')
+        };
+      }
+      for (let i = 0; i < built.payloads.length; i++) {
+        const up = await CS.uploadSession(built.payloads[i]);
+        if (!up.ok) {
+          return {
+            ok: false,
+            error: 'No se pudieron guardar todas las manos (' + (i + 1) + '/' + built.payloads.length
+              + '). ' + (up.error || 'Inténtalo de nuevo.')
+          };
+        }
+      }
+      sessionMemoryCache[session.id] = session;
+      const list = visibleSessionList(getSessionIndex().filter(function (s) { return s.id !== session.id; }));
+      const summary = CS.sessionSummary(parent);
+      summary.nTotal = session.hands.length;
+      list.unshift(summary);
+      writeSessionIndex(list);
+      try { localStorage.removeItem(scopedKey('sessions')); } catch (e) { /* ignore */ }
+      try { localStorage.removeItem(sessionTxtKey(session.id)); } catch (e) { /* ignore */ }
+      recordSessionStats(session);
+      return { ok: true, session: session, cloudOnly: true };
+    }
+    const localParent = saveSessionLocal(parent);
+    if (!localParent.ok) return localParent;
+    sessionMemoryCache[session.id] = session;
+    recordSessionStats(session);
+    return { ok: true, session: session, cloudOnly: false };
+  }
+
   async function saveSession(session) {
     migrateLegacySessionsList();
     session = await mergeSessionIfDuplicate(session);
+    const nHands = (session.hands && session.hands.length) || 0;
+    if (nHands > HANDS_PER_SHARD) {
+      return saveShardedSession(session);
+    }
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const upload = await CS.uploadSession(session);
@@ -963,14 +1085,14 @@
             : (upload.error || 'No se pudo guardar en la nube.')
         };
       }
-      sessionMemoryCache[session.id] = upload.session;
-      const list = getSessionIndex().filter(function (s) { return s.id !== session.id; });
+      sessionMemoryCache[session.id] = session;
+      const list = visibleSessionList(getSessionIndex().filter(function (s) { return s.id !== session.id; }));
       list.unshift(upload.summary);
       writeSessionIndex(list);
       try { localStorage.removeItem(scopedKey('sessions')); } catch (e) { /* ignore */ }
       try { localStorage.removeItem(sessionTxtKey(session.id)); } catch (e) { /* ignore */ }
-      recordSessionStats(upload.session);
-      return { ok: true, session: upload.session, cloudOnly: true };
+      recordSessionStats(session);
+      return { ok: true, session: session, cloudOnly: true };
     }
     const local = saveSessionLocal(session);
     if (local.ok) recordSessionStats(local.session);
@@ -978,14 +1100,28 @@
   }
 
   async function removeSession(id) {
+    const stub = getSessionIndex().find(function (x) { return x && x.id === id; }) || sessionMemoryCache[id];
+    const extra = (stub && stub.shardIds) || [];
     delete sessionMemoryCache[id];
+    extra.forEach(function (sid) { delete sessionMemoryCache[sid]; });
     markSessionDeleted(id);
+    extra.forEach(markSessionDeleted);
     const CS = global.PTCloudSessions;
     if (CS && CS.isReady()) {
       const res = await CS.deleteSession(id);
       if (!res.ok) console.warn('[Store] removeSession cloud', res.error);
+      if (CS.deleteSessionsByIds && extra.length) {
+        const del = await CS.deleteSessionsByIds(extra);
+        if (del && !del.ok) console.warn('[Store] removeSession shards', del.error);
+      } else {
+        for (let i = 0; i < extra.length; i++) {
+          await CS.deleteSession(extra[i]);
+        }
+      }
     }
-    writeSessionIndex(getSessionIndex().filter(function (s) { return s.id !== id; }));
+    writeSessionIndex(visibleSessionList(getSessionIndex().filter(function (s) {
+      return s && s.id !== id && extra.indexOf(s.id) < 0 && !isHiddenSessionStub(s);
+    })));
     try { localStorage.removeItem(sessionTxtKey(id)); } catch (e) { /* ignore */ }
     try {
       const legacy = read(scopedKey('sessions'), []);
@@ -1007,7 +1143,7 @@
     if (!CS || !CS.isReady()) return { ok: false, sessions: getSessions() };
     const res = await CS.listSessions();
     if (!res.ok) return res;
-    writeSessionIndex(filterDeletedSessions(res.sessions || []));
+    writeSessionIndex(visibleSessionList(filterDeletedSessions(res.sessions || [])));
     return res;
   }
 

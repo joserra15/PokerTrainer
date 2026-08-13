@@ -4024,7 +4024,7 @@
         continue;
       }
       try {
-        kept.push(analyzeHand(h));
+        kept.push(stripHeavyHand(analyzeHand(h)));
       } catch (e) {
         discarded++;
         discardCounts.badParse++;
@@ -4065,7 +4065,7 @@
               continue;
             }
             try {
-              kept.push(analyzeHand(h));
+              kept.push(stripHeavyHand(analyzeHand(h)));
             } catch (e) {
               discarded++;
               discardCounts.badParse++;
@@ -4921,6 +4921,26 @@
     return tags.filter((t) => { if (seen[t]) return false; seen[t] = true; return true; });
   }
 
+  /** Cash/spins: el neto va en dinero. MTT/SNG: el neto es en fichas, no en €. */
+  function handUsesMoneyUnits(h) {
+    if (!h) return false;
+    const k = h.gameKind || '';
+    return k === 'cash' || k === 'spin';
+  }
+
+  function stripHeavyHand(h) {
+    if (!h) return h;
+    (h.decisions || []).forEach(function (d) {
+      delete d.optionBreakdown;
+      delete d.explanation;
+      delete d.context;
+      delete d.mathParams;
+    });
+    delete h.rangeContext;
+    delete h.icmLite;
+    return h;
+  }
+
   function computeStats(hands) {
     const n = hands.length;
     const formatKey = inferSessionFormatKey(hands);
@@ -4959,6 +4979,7 @@
     let netEuro = 0;
     let buyInTotal = 0;
     let buyInEvents = 0;
+    const tourneyInvested = {};
     const stakeTierCount = {};
     const phaseCount = {};
     const byStakesMap = {};
@@ -4991,10 +5012,17 @@
       netBB += h.heroNetBB;
       handNets.push(Number(h.heroNetBB) || 0);
       evLoss += h.totalEvLoss;
-      if (h.bb) netEuro += (h.heroNetBB || 0) * h.bb;
+      if (handUsesMoneyUnits(h) && h.bb) netEuro += (h.heroNetBB || 0) * h.bb;
       if (h.buyIn != null) {
-        buyInTotal += h.buyIn + (h.buyInFee || 0);
-        buyInEvents++;
+        if (h.gameKind === 'mtt' || h.gameKind === 'sng') {
+          const tk = String(h.tournamentId || ('n:' + (h.tournamentName || '')));
+          if (tourneyInvested[tk] == null) {
+            tourneyInvested[tk] = (h.buyIn || 0) + (h.buyInFee || 0);
+          }
+        } else {
+          buyInTotal += h.buyIn + (h.buyInFee || 0);
+          buyInEvents++;
+        }
       }
       if (h.stakeTier) stakeTierCount[h.stakeTier] = (stakeTierCount[h.stakeTier] || 0) + 1;
       if (h.mttPhase) phaseCount[h.mttPhase] = (phaseCount[h.mttPhase] || 0) + 1;
@@ -5142,15 +5170,16 @@
       };
     });
 
-    // ROI aproximado (spins/MTT): profit € / buy-ins invertidos
-    // Nota: sin ficheros de resultados de torneo, usamos buyIn declarado × manos/estimación débil.
+    Object.keys(tourneyInvested).forEach((k) => {
+      buyInTotal += tourneyInvested[k];
+      buyInEvents++;
+    });
     const avgBuyIn = buyInEvents ? (buyInTotal / buyInEvents) : (ctx && ctx.avgBuyIn) || null;
+    const moneyGame = gameKind === 'cash' || gameKind === 'spin';
+    let profitEuro = moneyGame ? r2(netEuro) : null;
     let roiPct = null;
-    let profitEuro = r2(netEuro);
-    if (avgBuyIn && (gameKind === 'spin' || gameKind === 'mtt' || gameKind === 'sng')) {
-      // Heurística: 1 buy-in por sesión-archivo si no hay mejor señal; si hay buyIn en manos, usamos suma
-      const invested = buyInEvents ? buyInTotal : avgBuyIn;
-      if (invested > 0) roiPct = Math.round(((profitEuro) / invested) * 1000) / 10;
+    if (moneyGame && gameKind === 'spin' && buyInEvents && buyInTotal > 0 && profitEuro != null) {
+      roiPct = Math.round((profitEuro / buyInTotal) * 1000) / 10;
     }
     let dominantStakeTier = null;
     let bestTierN = -1;

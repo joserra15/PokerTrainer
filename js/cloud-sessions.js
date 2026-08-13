@@ -66,7 +66,12 @@
       source: session.source || (session.stats && session.stats.source) || null,
       tournamentId: session.tournamentId
         || (session.stats && session.stats.tournamentId)
-        || null
+        || null,
+      sharded: !!session.sharded,
+      shardCount: session.shardCount || null,
+      shardIds: session.shardIds || null,
+      hidden: !!session.hidden,
+      shardParentId: session.shardParentId || null
     };
   }
 
@@ -109,6 +114,8 @@
       s.id = row.session_id;
       s.cloudOnly = true;
       return s;
+    }).filter(function (s) {
+      return s && !s.hidden && !s.shardParentId;
     });
     return { ok: true, sessions: sessions };
   }
@@ -129,6 +136,48 @@
     }
     if (!data || !data.payload) return { ok: false, error: 'not_found' };
     return { ok: true, session: data.payload };
+  }
+
+  async function fetchSessionsByIds(ids) {
+    if (!isReady() || !ids || !ids.length) return [];
+    const client = getClient();
+    const CHUNK = 80;
+    const byId = {};
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK);
+      const { data, error } = await client
+        .from(TABLE)
+        .select('session_id, payload')
+        .eq('user_id', userId)
+        .in('session_id', slice)
+        .is('deleted_at', null);
+      if (error) {
+        console.warn('[PTCloudSessions] fetchSessionsByIds', error);
+        continue;
+      }
+      (data || []).forEach(function (row) {
+        if (!row || !row.payload) return;
+        const s = row.payload;
+        s.id = row.session_id;
+        byId[row.session_id] = s;
+      });
+    }
+    return ids.map(function (id) { return byId[id] || null; }).filter(Boolean);
+  }
+
+  async function deleteSessionsByIds(ids) {
+    if (!isReady() || !ids || !ids.length) return { ok: true };
+    const client = getClient();
+    const { error } = await client
+      .from(TABLE)
+      .delete()
+      .eq('user_id', userId)
+      .in('session_id', ids);
+    if (error) {
+      console.warn('[PTCloudSessions] deleteSessionsByIds', error);
+      return { ok: false, error: error.message || 'delete_failed' };
+    }
+    return { ok: true };
   }
 
   async function deleteSession(sessionId) {
@@ -171,7 +220,9 @@
     uploadSession,
     listSessions,
     fetchSession,
+    fetchSessionsByIds,
     deleteSession,
+    deleteSessionsByIds,
     migrateSessionsFromPayload,
     purgeUserSessions
   };

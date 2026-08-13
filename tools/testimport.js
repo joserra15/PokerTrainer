@@ -300,6 +300,8 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   assert(session.hero === 'Hero', 'sesión héroe');
   assert(session.hands.length === 9, 'sesión 9 manos');
   assert(session.hands.some((h) => (h.decisions || []).length > 0), 'CoinPoker genera decisiones');
+  assert(session.stats.profitEuro == null, 'MTT HH no convierte fichas a € got ' + session.stats.profitEuro);
+  assert(session.stats.roiPct == null, 'MTT HH sin premios no muestra ROI got ' + session.stats.roiPct);
 
   const cashHh = [
     "CoinPoker Hand #99: NLH ($0.25/$0.50) 2026/04/28 12:00:00 UTC",
@@ -327,6 +329,8 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   assert(cashParsed.hands[0].gameKind === 'cash', 'CoinPoker cash gameKind got ' + cashParsed.hands[0].gameKind);
   assert(cashParsed.hands[0].tableMax === 6, 'CoinPoker cash 6-max');
   assert(cashParsed.hands[0].bb === 0.5, 'CoinPoker cash bb 0.50 got ' + cashParsed.hands[0].bb);
+  const cashSes = Importer.buildSession(cashParsed, 'coinpoker-cash.txt');
+  assert(cashSes.stats.profitEuro != null, 'cash sí calcula profit € got ' + cashSes.stats.profitEuro);
   console.log('CoinPoker detect/keep OK (9 MTT + 1 cash)');
 
   const champHh = [
