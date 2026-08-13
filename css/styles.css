@@ -3595,6 +3595,50 @@ body.cookie-banner-open { padding-bottom: 0; }
   text-transform: uppercase;
   letter-spacing: .4px;
 }
+.admin-usage-panel { margin-top: 8px; }
+.admin-usage-intro { margin: 0 0 14px; max-width: 720px; }
+.admin-usage-content { margin-top: 8px; }
+.admin-usage-summary { margin-bottom: 16px; }
+.admin-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.admin-usage-block h4,
+.admin-usage-block h5 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .35px;
+}
+.admin-usage-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.admin-usage-bars li { margin-bottom: 8px; }
+.admin-usage-bar-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+.admin-usage-bar-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.admin-usage-bar-track {
+  margin-top: 4px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.admin-usage-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #c9a227, #3fb950);
+}
+.admin-school-table { margin-top: 12px; }
 .admin-gift-bonus-form {
   display: flex;
   flex-wrap: wrap;

@@ -112,6 +112,11 @@
       var a = analytics();
       if (a && a.track) a.track(name, props);
       PTLog.breadcrumb('flow', name, props);
+      try {
+        if (global.Store && typeof global.Store.trackFeatureUsage === 'function') {
+          global.Store.trackFeatureUsage(name, props || {});
+        }
+      } catch (e) { /* noop */ }
     },
 
     setLevel: function (level) {

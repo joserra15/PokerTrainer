@@ -15030,7 +15030,11 @@ window.PT_VS_3BET_JSON = {
       player: player,
       solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.',
       greetingFocus: data.greetingFocus || undefined,
-      beginner: data.beginner === true ? true : undefined
+      beginner: data.beginner === true ? true : undefined,
+      school: data.school === true ? true : undefined,
+      lessonId: data.lessonId || undefined,
+      lessonTitle: data.lessonTitle || undefined,
+      concept: data.concept || undefined
     };
   }
 
@@ -15321,7 +15325,12 @@ window.PT_VS_3BET_JSON = {
       : (dataObj && dataObj.id && p.kind === 'session' ? dataObj.id : p.sessionId);
     if (p.kind === 'session' && sessionId) return { kind: 'session', sessionId: sessionId };
     if (p.kind === 'stats') return { kind: 'stats' };
-    if (p.kind === 'learn') return { kind: 'learn' };
+    if (p.kind === 'learn') {
+      const lessonId = typeof p.getLessonId === 'function'
+        ? p.getLessonId()
+        : (p.lessonId || (dataObj && dataObj.lessonId) || null);
+      return { kind: 'learn', lessonId: lessonId ? String(lessonId) : 'default' };
+    }
     if (p.kind === 'sessionHand' && sessionId) {
       const handId = typeof p.getHandId === 'function' ? p.getHandId() : (dataObj && dataObj.id);
       return handId ? { kind: 'sessionHand', sessionId: sessionId, handId: handId } : null;
@@ -15836,7 +15845,7 @@ window.PT_VS_3BET_JSON = {
   function getObjId(scope, obj) {
     if (!obj) return null;
     if (scope === 'statsGlobal') return 'stats';
-    if (scope === 'learn') return 'learn';
+    if (scope === 'learn') return obj.lessonId ? ('learn_' + obj.lessonId) : 'learn';
     if (scope === 'sessionGlobal') return obj.id || obj.fileName || 'session';
     return obj.id;
   }
@@ -16565,6 +16574,7 @@ window.PT_VS_3BET_JSON = {
     if (key === 'stats') {
       try { localStorage.removeItem(scopedKey('stats_coach')); } catch (e) { /* noop */ }
       try { localStorage.removeItem(scopedKey('learn_coach')); } catch (e) { /* noop */ }
+      try { localStorage.removeItem(scopedKey('learn_coach_lessons')); } catch (e) { /* noop */ }
     }
   }
 
@@ -16710,6 +16720,31 @@ window.PT_VS_3BET_JSON = {
     };
   }
 
+  function mergeFeatureUsage(aFu, bFu) {
+    const a = aFu && typeof aFu === 'object' ? aFu : null;
+    const b = bFu && typeof bFu === 'object' ? bFu : null;
+    if (!a && !b) return undefined;
+    if (!a) return JSON.parse(JSON.stringify(b));
+    if (!b) return JSON.parse(JSON.stringify(a));
+    function maxMap(x, y) {
+      const out = {};
+      const keys = {};
+      Object.keys(x || {}).forEach(function (k) { keys[k] = true; });
+      Object.keys(y || {}).forEach(function (k) { keys[k] = true; });
+      Object.keys(keys).forEach(function (k) {
+        out[k] = Math.max(Number(x && x[k]) || 0, Number(y && y[k]) || 0);
+      });
+      return out;
+    }
+    return {
+      events: maxMap(a.events, b.events),
+      tabs: maxMap(a.tabs, b.tabs),
+      aiScopes: maxMap(a.aiScopes, b.aiScopes),
+      aiModes: maxMap(a.aiModes, b.aiModes),
+      updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0)
+    };
+  }
+
   function mergeStats(localStats, cloudStats) {
     const a = localStats && typeof localStats === 'object' ? localStats : defaultStats();
     const b = cloudStats && typeof cloudStats === 'object' ? cloudStats : defaultStats();
@@ -16721,6 +16756,8 @@ window.PT_VS_3BET_JSON = {
     delete out.updatedAt;
     const mergedSchool = mergeSchoolProgress(a.school, b.school);
     if (mergedSchool) out.school = mergedSchool;
+    const mergedFu = mergeFeatureUsage(a.featureUsage, b.featureUsage);
+    if (mergedFu) out.featureUsage = mergedFu;
     if (global.PTStatsAggregate && global.PTStatsAggregate.mergeAggregates) {
       out.aggregates = global.PTStatsAggregate.mergeAggregates(
         pick.aggregates,
@@ -16729,6 +16766,63 @@ window.PT_VS_3BET_JSON = {
       global.PTStatsAggregate.rebuildTrainerLeaksFromHistory(out.aggregates, getHistory());
     }
     return out;
+  }
+
+  function normalizeFeatureUsage(fu) {
+    const src = fu && typeof fu === 'object' ? fu : {};
+    return {
+      events: src.events && typeof src.events === 'object' ? src.events : {},
+      tabs: src.tabs && typeof src.tabs === 'object' ? src.tabs : {},
+      aiScopes: src.aiScopes && typeof src.aiScopes === 'object' ? src.aiScopes : {},
+      aiModes: src.aiModes && typeof src.aiModes === 'object' ? src.aiModes : {},
+      updatedAt: Number(src.updatedAt) || 0
+    };
+  }
+
+  function getFeatureUsage() {
+    const st = getStats();
+    return normalizeFeatureUsage(st.featureUsage);
+  }
+
+  /** Contadores locales (se sincronizan con stats en la nube) para el panel admin de uso. */
+  function trackFeatureUsage(name, props) {
+    const eventName = String(name || '').trim();
+    if (!eventName) return getFeatureUsage();
+    const st = getStats();
+    const fu = normalizeFeatureUsage(st.featureUsage);
+    fu.events[eventName] = (Number(fu.events[eventName]) || 0) + 1;
+    if (eventName === 'tab_view' && props && props.tab) {
+      const tab = String(props.tab);
+      fu.tabs[tab] = (Number(fu.tabs[tab]) || 0) + 1;
+    }
+    if (eventName === 'ai_coach_used') {
+      if (props && props.scope) {
+        const scope = String(props.scope);
+        fu.aiScopes[scope] = (Number(fu.aiScopes[scope]) || 0) + 1;
+      }
+      if (props && props.mode) {
+        const mode = String(props.mode);
+        fu.aiModes[mode] = (Number(fu.aiModes[mode]) || 0) + 1;
+      }
+    }
+    fu.updatedAt = Date.now();
+    st.featureUsage = fu;
+    writeStats(st);
+    if (global.PTCloud) {
+      if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(['stats']);
+      if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(['stats']);
+    }
+    return fu;
+  }
+
+  function readLearnCoachMap() {
+    const map = read(scopedKey('learn_coach_lessons'), null);
+    if (map && typeof map === 'object' && !Array.isArray(map)) return map;
+    return {};
+  }
+
+  function writeLearnCoachMap(map) {
+    return write(scopedKey('learn_coach_lessons'), map || {});
   }
   function getHistory() { return read(scopedKey('history'), []); }
   function getErrors() {
@@ -17548,14 +17642,22 @@ window.PT_VS_3BET_JSON = {
     return { ok: true, count: list.length };
   }
 
-  /** target: { kind: 'history'|'session'|'sessionHand'|'stats'|'learn'|'analysis', handId?, sessionId? } */
+  /** target: { kind: 'history'|'session'|'sessionHand'|'stats'|'learn'|'analysis', handId?, sessionId?, lessonId? } */
   function getCoachThread(target) {
     if (!target || !target.kind) return [];
     if (target.kind === 'stats') {
       return read(scopedKey('stats_coach'), []);
     }
     if (target.kind === 'learn') {
-      return read(scopedKey('learn_coach'), []);
+      const lessonId = target.lessonId ? String(target.lessonId) : 'default';
+      const map = readLearnCoachMap();
+      if (map[lessonId] && Array.isArray(map[lessonId])) return map[lessonId].slice();
+      /* legacy: hilo global único (pre 2.5.12); no se reutiliza entre lecciones */
+      if (lessonId === 'default') {
+        const legacy = read(scopedKey('learn_coach'), []);
+        return Array.isArray(legacy) ? legacy.slice() : [];
+      }
+      return [];
     }
     if (target.kind === 'analysis' && target.handId) {
       const rec = getAnalysisHand(target.handId);
@@ -17594,10 +17696,17 @@ window.PT_VS_3BET_JSON = {
     }
 
     if (target.kind === 'learn') {
-      let thread = read(scopedKey('learn_coach'), []);
+      const lessonId = target.lessonId ? String(target.lessonId) : 'default';
+      const map = readLearnCoachMap();
+      let thread = Array.isArray(map[lessonId]) ? map[lessonId].slice() : [];
+      if (!thread.length && lessonId === 'default') {
+        const legacy = read(scopedKey('learn_coach'), []);
+        if (Array.isArray(legacy) && legacy.length) thread = legacy.slice();
+      }
       thread.unshift(e);
       thread = trimCoachThread(thread);
-      if (!write(scopedKey('learn_coach'), thread)) {
+      map[lessonId] = thread;
+      if (!writeLearnCoachMap(map)) {
         return Promise.resolve({ ok: false, error: 'storage_full' });
       }
       return Promise.resolve({ ok: true, entry: e, thread: thread.slice() });
@@ -17760,6 +17869,7 @@ window.PT_VS_3BET_JSON = {
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry,
+    getFeatureUsage, trackFeatureUsage,
     getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
     getFavoriteSpots, getFavoriteSpotsForStreet, isFavoriteSpot, toggleFavoriteSpot,
     removeFavoriteSpot, favoriteSpotKey, normalizeFavoriteStreet

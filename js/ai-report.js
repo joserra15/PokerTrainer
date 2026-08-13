@@ -110,7 +110,12 @@
       : (dataObj && dataObj.id && p.kind === 'session' ? dataObj.id : p.sessionId);
     if (p.kind === 'session' && sessionId) return { kind: 'session', sessionId: sessionId };
     if (p.kind === 'stats') return { kind: 'stats' };
-    if (p.kind === 'learn') return { kind: 'learn' };
+    if (p.kind === 'learn') {
+      const lessonId = typeof p.getLessonId === 'function'
+        ? p.getLessonId()
+        : (p.lessonId || (dataObj && dataObj.lessonId) || null);
+      return { kind: 'learn', lessonId: lessonId ? String(lessonId) : 'default' };
+    }
     if (p.kind === 'sessionHand' && sessionId) {
       const handId = typeof p.getHandId === 'function' ? p.getHandId() : (dataObj && dataObj.id);
       return handId ? { kind: 'sessionHand', sessionId: sessionId, handId: handId } : null;
@@ -625,7 +630,7 @@
   function getObjId(scope, obj) {
     if (!obj) return null;
     if (scope === 'statsGlobal') return 'stats';
-    if (scope === 'learn') return 'learn';
+    if (scope === 'learn') return obj.lessonId ? ('learn_' + obj.lessonId) : 'learn';
     if (scope === 'sessionGlobal') return obj.id || obj.fileName || 'session';
     return obj.id;
   }

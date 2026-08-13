@@ -1,0 +1,64 @@
+/* Admin: avance Escuela + panel de estadísticas de uso. */
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const assert = require('assert');
+
+const root = path.join(__dirname, '..');
+const adminSrc = fs.readFileSync(path.join(root, 'js/admin-panel.js'), 'utf8');
+const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
+const logSrc = fs.readFileSync(path.join(root, 'js/log.js'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const sql = fs.readFileSync(path.join(root, 'supabase/migrations/039_admin_school_usage_stats.sql'), 'utf8');
+const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
+
+assert.ok(/admin-usage-btn/.test(html) && /admin-usage-panel/.test(html), 'HTML panel uso');
+assert.ok(/pt_admin_usage_stats/.test(adminSrc), 'RPC uso en admin');
+assert.ok(/Escuela de Póker/.test(adminSrc) && /renderSchoolSection/.test(adminSrc), 'detalle Escuela');
+assert.ok(/renderFeatureUsageSection/.test(adminSrc), 'uso individual');
+assert.ok(/pt_admin_usage_stats/.test(sql) && /feature_usage/.test(sql) && /school/.test(sql), 'migración SQL');
+assert.ok(/trackFeatureUsage/.test(storageSrc), 'Store.trackFeatureUsage');
+assert.ok(/trackFeatureUsage/.test(logSrc), 'PTLog → trackFeatureUsage');
+assert.ok(/PT_BUILD\s*=\s*'2\.5\.12'/.test(version), 'versión 2.5.12');
+
+const localStore = {};
+const sandbox = {
+  window: {},
+  console,
+  localStorage: {
+    getItem: (k) => (Object.prototype.hasOwnProperty.call(localStore, k) ? localStore[k] : null),
+    setItem: (k, v) => { localStore[k] = String(v); },
+    removeItem: (k) => { delete localStore[k]; }
+  },
+  addEventListener() {},
+  dispatchEvent() { return true; },
+  CustomEvent: function (n, o) { this.type = n; this.detail = o && o.detail; }
+};
+sandbox.global = sandbox;
+sandbox.window = sandbox;
+
+vm.createContext(sandbox);
+vm.runInContext(storageSrc, sandbox, { filename: 'storage.js' });
+vm.runInContext(logSrc, sandbox, { filename: 'log.js' });
+
+const Store = sandbox.window.Store || sandbox.Store;
+const PTLog = sandbox.window.PTLog || sandbox.PTLog;
+assert.ok(Store && PTLog, 'Store + PTLog');
+Store.setUserId('u-usage');
+
+PTLog.event('tab_view', { tab: 'school' });
+PTLog.event('tab_view', { tab: 'school' });
+PTLog.event('hand_start', { street: 'preflop' });
+PTLog.event('ai_coach_used', { scope: 'learn', mode: 'question' });
+PTLog.event('lesson_complete', { lessonId: 'C-01' });
+
+const fu = Store.getFeatureUsage();
+assert.strictEqual(fu.events.tab_view, 2, 'tab_view count');
+assert.strictEqual(fu.tabs.school, 2, 'tabs.school');
+assert.strictEqual(fu.events.hand_start, 1, 'hand_start');
+assert.strictEqual(fu.aiScopes.learn, 1, 'aiScopes.learn');
+assert.strictEqual(fu.aiModes.question, 1, 'aiModes.question');
+assert.strictEqual(fu.events.lesson_complete, 1, 'lesson_complete');
+
+console.log('*** test-admin-usage-school OK ***');
