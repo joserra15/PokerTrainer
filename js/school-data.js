@@ -267,7 +267,7 @@
           teachBack: 'KTo desde UTG suele estar dominada por AK, KQ o KJ. Fold estándar a 100 bb.'
         }),
         rfiSpot('c01-04', 'CO', ['Kc', 'Ts'], 11004, {
-          teachBack: 'KTs en cutoff entra en muchos rangos de open: mismo color (suited) y buena jugabilidad.'
+          teachBack: 'KTo en cutoff entra en muchos rangos de open: broadway offsuit y buena jugabilidad.'
         }),
         rfiSpot('c01-05', 'HJ', ['Qs', 'Js'], 11005, {
           teachBack: 'QJs desde hijack es un open cómodo: conectores altos del mismo palo, con plan claro si ves flop.'
@@ -275,25 +275,25 @@
         rfiSpot('c01-06', 'UTG', ['Qd', 'Jd'], 11006, {
           teachBack: 'QJs también se abre desde UTG en charts modernos. No la trates como basura solo por ser early.'
         }),
-        rfiSpot('c01-07', 'BTN', ['8h', '7h'], 11007, {
+        rfiSpot('c01-07', 'BTN', ['7h', '6h'], 11007, {
           teachBack: 'Conectores suited en el botón son opens de posición: robas ciegas y, si hacen call (si te igualan la apuesta), tienes equity especulativa.'
         }),
-        rfiSpot('c01-08', 'UTG', ['8c', '7c'], 11008, {
+        rfiSpot('c01-08', 'UTG', ['6d', '5d'], 11008, {
           trapTag: 'position_blind',
-          teachBack: '87s desde UTG suele ser fold: poco margen para que todos plieguen y peores spots si hay multiway fuera de posición.'
+          teachBack: '65s desde UTG suele ser fold: poco margen para que todos plieguen y peores spots si hay multiway fuera de posición.'
         }),
-        rfiSpot('c01-09', 'CO', ['Ad', '5d'], 11009, {
-          teachBack: 'A5s en cutoff se abre: bloqueas ases y se juega bien. El caso de la ciega pequeña lo vemos en C-05.'
+        rfiSpot('c01-09', 'CO', ['Ah', '4h'], 11009, {
+          teachBack: 'A4s en cutoff se abre: bloqueas ases y se juega bien. El caso de la ciega pequeña lo vemos en C-05.'
         }),
-        rfiSpot('c01-10', 'HJ', ['9s', '9c'], 11010, {
+        rfiSpot('c01-10', 'HJ', ['7h', '7d'], 11010, {
           teachBack: 'Las parejas medias se abren casi desde cualquier sitio. Aquí open sin drama.'
         }),
         rfiSpot('c01-11', 'CO', ['Ah', '2c'], 11011, {
           trapTag: 'dominated',
           teachBack: 'A2o en cutoff es débil (offsuit, as bajo). Abrirla wide no está justificado; muchas veces fold.'
         }),
-        rfiSpot('c01-12', 'BTN', ['Kh', '9d'], 11012, {
-          teachBack: 'K9o en el botón es un robo frecuente. La posición justifica el open.'
+        rfiSpot('c01-12', 'BTN', ['Kh', 'Jd'], 11012, {
+          teachBack: 'KJo en el botón es un robo frecuente. La posición justifica el open.'
         })
       ]
     },
@@ -327,15 +327,15 @@
         '¿Por qué no se limpea en vez de open-raise en cash 6-max?'
       ],
       spots: [
-        rfiSpot('c02-01', 'UTG', ['As', 'Ad'], 12001, {
-          teachBack: 'Con AA siempre abres. No hay debate: es la mejor mano de partida.'
+        rfiSpot('c02-01', 'UTG', ['Ad', 'Kd'], 12001, {
+          teachBack: 'Con AKs siempre abres. No hay debate: es la mejor mano de partida.'
         }),
-        rfiSpot('c02-02', 'UTG', ['7h', '2d'], 12002, {
+        rfiSpot('c02-02', 'UTG', ['Qd', 'Tc'], 12002, {
           trapTag: 'dominated',
-          teachBack: '72o es la mano más débil del mazo. Fold desde cualquier silla cuando nadie ha entrado.'
+          teachBack: 'QTo es la mano más débil del mazo. Fold desde cualquier silla cuando nadie ha entrado.'
         }),
-        rfiSpot('c02-03', 'HJ', ['Ah', 'Ks'], 12003, {
-          teachBack: 'AKo se abre desde casi todas partes. Open.'
+        rfiSpot('c02-03', 'HJ', ['Ts', 'Tc'], 12003, {
+          teachBack: 'TT se abre desde casi todas partes. Open.'
         }),
         rfiSpot('c02-04', 'CO', ['Qs', 'Ts'], 12004, {
           teachBack: 'QTs en cutoff es open estándar en charts de 6-max.'
@@ -410,8 +410,8 @@
           trapTag: 'fancy_play',
           teachBack: 'Misma mano desde UTG: poca gente pliega detrás y la equity no compensa. Fold; no “veas flop”.'
         }),
-        rfiSpot('c03-03', 'CO', ['As', '5s'], 13003, {
-          teachBack: 'A5s en cutoff se abre: bloqueas ases, tienes fold equity y se juega bien.'
+        rfiSpot('c03-03', 'CO', ['As', '3s'], 13003, {
+          teachBack: 'A3s en cutoff se abre: bloqueas ases, tienes fold equity y se juega bien.'
         }),
         rfiSpot('c03-04', 'HJ', ['Qh', '9c'], 13004, {
           trapTag: 'fancy_play',
@@ -433,8 +433,8 @@
         rfiSpot('c03-09', 'BTN', ['7c', '6d'], 13009, {
           teachBack: '76o en el botón es frontera; muchas estrategias lo abren casi solo por fold equity. Mira qué dice el motor aquí.'
         }),
-        rfiSpot('c03-10', 'HJ', ['Ad', 'Kd'], 13010, {
-          teachBack: 'AKs se abre por valor y por fold equity. Nunca limpees con esto.'
+        rfiSpot('c03-10', 'HJ', ['Kd', 'Kh'], 13010, {
+          teachBack: 'KK se abre por valor y por fold equity. Nunca limpees con esto.'
         })
       ]
     },
@@ -468,11 +468,11 @@
       ],
       spots: [
         rfiSpot('c04-01', 'CO', ['Ah', 'Js'], 14001, {
-          teachBack: 'AJs en cutoff: open claro con sizing estándar. Ni limpees ni abras oversized.'
+          teachBack: 'AJo en cutoff: open claro con sizing estándar. Ni limpees ni abras oversized.'
         }),
-        rfiSpot('c04-02', 'UTG', ['7h', '2d'], 14002, {
+        rfiSpot('c04-02', 'UTG', ['As', '9d'], 14002, {
           trapTag: 'dominated',
-          teachBack: '72o no se arregla abriendo más grande. Fold.'
+          teachBack: 'A9o no se arregla abriendo más grande. Fold.'
         }),
         rfiSpot('c04-03', 'BTN', ['Td', '9d'], 14003, {
           teachBack: 'T9s en el botón: open de robo con tamaño normal. El fold equity viene de la posición, no de inflar el open.'
@@ -488,8 +488,8 @@
           trapTag: 'dominated',
           teachBack: 'A9o desde UTG: fold. El tamaño no compensa una mano fuera de rango.'
         }),
-        rfiSpot('c04-07', 'BTN', ['8c', '7c'], 14007, {
-          teachBack: '87s en el botón: open de robo con sizing normal.'
+        rfiSpot('c04-07', 'BTN', ['9s', '8s'], 14007, {
+          teachBack: '98s en el botón: open de robo con sizing normal.'
         }),
         rfiSpot('c04-08', 'HJ', ['5s', '5c'], 14008, {
           teachBack: '55 desde hijack: open. El tamaño típico basta; no hace falta aislar enorme si nadie ha limpeado.'
@@ -538,39 +538,39 @@
         '¿Qué manos priorizo al abrir desde SB?'
       ],
       spots: [
-        rfiSpot('c05-01', 'SB', ['As', 'Kd'], 15001, {
-          teachBack: 'AKo desde SB es fuerte frente al BB. Open claro.'
+        rfiSpot('c05-01', 'SB', ['Ac', 'Qc'], 15001, {
+          teachBack: 'AQs desde SB es fuerte frente al BB. Open claro.'
         }),
-        rfiSpot('c05-02', 'SB', ['Kh', '9c'], 15002, {
+        rfiSpot('c05-02', 'SB', ['Qd', 'Tc'], 15002, {
           trapTag: 'over_open_sb',
-          teachBack: 'K9o desde SB es la trampa del over-open: fuera de posición vs BB. Aquí no la trates como un steal de botón.'
+          teachBack: 'QTo desde SB es la trampa del over-open: fuera de posición vs BB. Aquí no la trates como un steal de botón.'
         }),
         rfiSpot('c05-03', 'SB', ['Qs', 'Js'], 15003, {
           teachBack: 'QJs desde SB es open sólido: suited y con buena jugabilidad.'
         }),
-        rfiSpot('c05-04', 'SB', ['7d', '2c'], 15004, {
+        rfiSpot('c05-04', 'SB', ['9d', '3c'], 15004, {
           trapTag: 'dominated',
-          teachBack: '72o desde SB: fold. Siempre.'
+          teachBack: '93o desde SB: fold. Siempre.'
         }),
-        rfiSpot('c05-05', 'SB', ['Ad', '5d'], 15005, {
-          teachBack: 'A5s desde SB se abre a menudo: blockers y equity decente.'
+        rfiSpot('c05-05', 'SB', ['Ad', '8d'], 15005, {
+          teachBack: 'A8s desde SB se abre a menudo: blockers y equity decente.'
         }),
         rfiSpot('c05-06', 'SB', ['Jh', 'Tc'], 15006, {
           trapTag: 'over_open_sb',
           teachBack: 'JTo desde SB es frontera o fold en muchos charts: fuera de posición duele. No es un open de botón.'
         }),
-        rfiSpot('c05-07', 'SB', ['9s', '9c'], 15007, {
-          teachBack: '99 desde SB: open claro. Pareja media, sin discusión.'
+        rfiSpot('c05-07', 'SB', ['Ts', 'Th'], 15007, {
+          teachBack: 'TT desde SB: open claro. Pareja media, sin discusión.'
         }),
-        rfiSpot('c05-08', 'SB', ['Qc', '8d'], 15008, {
+        rfiSpot('c05-08', 'SB', ['Qd', '7c'], 15008, {
           trapTag: 'over_open_sb',
-          teachBack: 'Q8o desde SB es basura offsuit fuera de posición. Fold.'
+          teachBack: 'Q7o desde SB es basura offsuit fuera de posición. Fold.'
         }),
         rfiSpot('c05-09', 'SB', ['Kh', 'Qs'], 15009, {
           teachBack: 'KQo desde SB es open habitual contra el BB.'
         }),
-        rfiSpot('c05-10', 'SB', ['8h', '7h'], 15010, {
-          teachBack: '87s desde SB es especulativa pero razonable: el mismo palo ayuda.'
+        rfiSpot('c05-10', 'SB', ['Th', '9h'], 15010, {
+          teachBack: 'T9s desde SB es especulativa pero razonable: el mismo palo ayuda.'
         }),
         rfiSpot('c05-11', 'SB', ['Ah', '2c'], 15011, {
           trapTag: 'over_open_sb',
@@ -610,22 +610,22 @@
         'Resume en una frase RFI UTG vs BTN vs SB.'
       ],
       spots: [
-        rfiSpot('c06-01', 'UTG', ['As', 'Ks'], 16001, {
-          teachBack: 'AKs desde UTG: open. Mano premium en early.'
+        rfiSpot('c06-01', 'UTG', ['Ah', 'Jh'], 16001, {
+          teachBack: 'AJs desde UTG: open. Mano premium en early.'
         }),
-        rfiSpot('c06-02', 'UTG', ['Kd', '9c'], 16002, {
+        rfiSpot('c06-02', 'UTG', ['Qd', '9c'], 16002, {
           trapTag: 'dominated',
-          teachBack: 'K9o desde UTG: fold. Demasiado frágil con gente detrás.'
+          teachBack: 'Q9o desde UTG: fold. Demasiado frágil con gente detrás.'
         }),
-        rfiSpot('c06-03', 'BTN', ['Kd', '9c'], 16003, {
-          teachBack: 'K9o en el botón: open. Misma mano, otra silla.'
+        rfiSpot('c06-03', 'BTN', ['As', '9h'], 16003, {
+          teachBack: 'A9o en el botón: open. Misma mano, otra silla.'
         }),
-        rfiSpot('c06-04', 'SB', ['Kd', '9c'], 16004, {
+        rfiSpot('c06-04', 'SB', ['Js', '9h'], 16004, {
           trapTag: 'over_open_sb',
-          teachBack: 'K9o desde SB: no es el botón. Evita el over-open; aquí fold.'
+          teachBack: 'J9o desde SB: no es el botón. Evita el over-open; aquí fold.'
         }),
-        rfiSpot('c06-05', 'CO', ['Qh', 'Qd'], 16005, {
-          teachBack: 'QQ: open siempre, con sizing estándar.'
+        rfiSpot('c06-05', 'CO', ['Ks', 'Qs'], 16005, {
+          teachBack: 'KQs: open siempre, con sizing estándar.'
         }),
         rfiSpot('c06-06', 'HJ', ['Ah', 'Td'], 16006, {
           teachBack: 'ATo desde hijack suele ser open.'
@@ -650,9 +650,9 @@
         rfiSpot('c06-12', 'UTG', ['Qc', 'Jc'], 16012, {
           teachBack: 'QJs desde UTG: open en charts modernos.'
         }),
-        rfiSpot('c06-13', 'SB', ['Qc', '8d'], 16013, {
+        rfiSpot('c06-13', 'SB', ['Jh', '8d'], 16013, {
           trapTag: 'over_open_sb',
-          teachBack: 'Q8o desde SB: fold. Over-open típico fuera de posición.'
+          teachBack: 'J8o desde SB: fold. Over-open típico fuera de posición.'
         }),
         rfiSpot('c06-14', 'CO', ['Ad', 'Jc'], 16014, {
           teachBack: 'AJo en cutoff: open de valor habitual en 6-max.'
