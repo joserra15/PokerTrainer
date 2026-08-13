@@ -11367,6 +11367,26 @@ window.PT_VS_3BET_JSON = {
     });
   }
 
+  /** Foldea (y registra) a quien queda por hablar tras un raise, hasta closerPos (wrap UTG). */
+  function foldSeatsAfterRaiseUntil(hand, fromPos, closerPos, except) {
+    if (!hand || !hand.table || !fromPos || !closerPos) return;
+    const order = actionOrderForHand(hand);
+    const skip = {};
+    (except || []).forEach(function (p) { if (p) skip[p] = true; });
+    skip[fromPos] = true;
+    skip[closerPos] = true;
+    const a = order.indexOf(fromPos);
+    if (a < 0) return;
+    for (let i = 1; i < order.length; i++) {
+      const pos = order[(a + i) % order.length];
+      if (pos === closerPos) break;
+      if (skip[pos]) continue;
+      if (hand.table.folded && hand.table.folded[pos]) continue;
+      markFolded(hand, pos);
+      setSeatAction(hand, pos, 'fold', null);
+    }
+  }
+
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 
   function tableSeatForEnginePos(hand, engPos) {
@@ -11559,6 +11579,7 @@ window.PT_VS_3BET_JSON = {
         initVillainTracker(hand);
         hand.villainInvested = threeBetSize;
         setVillainAct(hand, 'raise', threeBetSize);
+        foldSeatsAfterRaiseUntil(hand, threeBettor, hand.hero.pos, [hand.hero.pos, threeBettor]);
         return { type: 'face3bet', size: threeBetSize };
       }
       const addC = seatToCall(hand, pos, openSize);
@@ -11662,6 +11683,7 @@ window.PT_VS_3BET_JSON = {
       hand.villainInvested = threeBetSize;
       recalcPot(hand);
       setVillainAct(hand, 'raise', threeBetSize);
+      foldSeatsAfterRaiseUntil(hand, threeBettor, hand.hero.pos, [hand.hero.pos, threeBettor]);
       return { type: 'face3bet', size: threeBetSize };
     }
 
@@ -13941,6 +13963,7 @@ window.PT_VS_3BET_JSON = {
     setSeatAction(hand, opener, 'open', openSize);
     setSeatAction(hand, tb, 'raise', threeBetSize);
     markPreflopFoldsForFacingAction(hand, opener, [tb]);
+    foldSeatsAfterRaiseUntil(hand, tb, opener, [opener, tb]);
     setupFace3Bet(hand, threeBetSize);
   }
 
@@ -14057,6 +14080,7 @@ window.PT_VS_3BET_JSON = {
     setPreflopSeatBet(hand, opener, fourBetSize);
     setSeatAction(hand, hero, 'raise', threeBetSize);
     markPreflopFoldsForFacingAction(hand, opener);
+    foldSeatsAfterRaiseUntil(hand, hero, opener, [hero, opener]);
     setupFace4Bet(hand, fourBetSize);
   }
 
@@ -14906,6 +14930,23 @@ window.PT_VS_3BET_JSON = {
     return out;
   }
 
+  /** Folds from the seat after fromPos, wrapping the table, until toPos. */
+  function foldsAfterUntil(order, fromPos, toPos, except) {
+    const skip = {};
+    (except || []).forEach(function (p) { if (p) skip[p] = true; });
+    const a = order.indexOf(fromPos);
+    const b = order.indexOf(toPos);
+    const out = [];
+    if (a < 0 || b < 0 || a === b) return out;
+    for (let i = 1; i < order.length; i++) {
+      const pos = order[(a + i) % order.length];
+      if (pos === toPos) break;
+      if (skip[pos]) continue;
+      out.push(scriptEvent(pos, 'fold', null));
+    }
+    return out;
+  }
+
   function seatActAmount(hand, pos, fallback) {
     const a = hand.seatActions && hand.seatActions[pos];
     if (a && a.amount != null) return a.amount;
@@ -14948,6 +14989,8 @@ window.PT_VS_3BET_JSON = {
       events.push(scriptEvent(opener, 'open', oAmt, { autoHero: opener === hero }));
       events.push.apply(events, foldsBetween(order, opener, tb, [hero]));
       events.push(scriptEvent(tb, 'raise', tbAmt));
+      const acted = events.map(function (e) { return e.pos; }).concat([hero, tb, opener]);
+      events.push.apply(events, foldsAfterUntil(order, tb, opener, acted));
       return events;
     }
 
@@ -14961,6 +15004,8 @@ window.PT_VS_3BET_JSON = {
       events.push(scriptEvent(opener, 'open', oAmt));
       events.push.apply(events, foldsBetween(order, opener, hero));
       events.push(scriptEvent(hero, 'raise', tbAmt, { autoHero: true }));
+      const acted4 = events.map(function (e) { return e.pos; }).concat([hero, opener]);
+      events.push.apply(events, foldsAfterUntil(order, hero, opener, acted4));
       events.push(scriptEvent(opener, 'raise', fbAmt));
       return events;
     }
