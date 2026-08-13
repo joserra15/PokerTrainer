@@ -14,7 +14,7 @@ const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
 assert.ok(/lessonId:\s*lesson\.id/.test(schoolSrc), 'mountCoach persiste lessonId');
 assert.ok(/lessonId \? String\(lessonId\) : 'default'/.test(aiSrc), 'resolvePersistTarget learn+lessonId');
 assert.ok(/learn_coach_lessons/.test(storageSrc), 'mapa learn_coach_lessons');
-assert.ok(/PT_BUILD\s*=\s*'2\.5\.18'/.test(version), 'versión 2.5.12');
+assert.ok(/PT_BUILD\s*=\s*'2\.5\.19'/.test(version), 'versión 2.5.19');
 
 const localStore = {};
 const sandbox = {

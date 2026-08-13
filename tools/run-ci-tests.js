@@ -81,7 +81,8 @@ const STEPS = [
   ['Test PWA manifest', ['node', 'tools/test-pwa-manifest.js']],
   ['Test analytics/sentry guards', ['node', 'tools/test-analytics-sentry.js']],
   // v2.0 — formatos cash/spin/mtt + bluffs + ICM trainer
-  ['Test trainer formats v2', ['node', 'tools/test-trainer-formats-v2.js']]
+  ['Test trainer formats v2', ['node', 'tools/test-trainer-formats-v2.js']],
+  ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']]
 ];
 
 let failed = 0;
