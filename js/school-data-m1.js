@@ -34,12 +34,12 @@
       }],
       aiQuestions: ['¿Qué cambia al defender BB vs BTN respecto a vs UTG?', '¿Cuándo prefiero 3-betear en vez de hacer call desde BB?'],
       spots: [
-        vs('c07-01', 'BB_vs_BTN', ['Ah', 'Kd'], 17001, { teachBack: 'AKo vs BTN: 3-bet de valor claro. Quieres más dinero en el bote.' }),
+        vs('c07-01', 'BB_vs_BTN', ['Qs', 'Qh'], 17001, { teachBack: 'QQ vs BTN: 3-bet de valor claro. Quieres más dinero en el bote.' }),
         vs('c07-02', 'BB_vs_UTG', ['Kh', 'Jd'], 17002, { trapTag: 'dominated', teachBack: 'KJo vs UTG está dominada por AK, KQ, KJ. Fold típico.' }),
         vs('c07-03', 'BB_vs_BTN', ['Kh', 'Jd'], 17003, { teachBack: 'KJo vs BTN: defensa razonable (hacer call o 3-bet ligero según el mix).' }),
-        vs('c07-04', 'BB_vs_CO', ['7c', '2d'], 17004, { trapTag: 'dominated', teachBack: '72o vs CO: fold. No hagas call de más solo porque estás en BB.' }),
+        vs('c07-04', 'BB_vs_CO', ['8d', '3c'], 17004, { trapTag: 'dominated', teachBack: '83o vs CO: fold. No hagas call de más solo porque estás en BB.' }),
         vs('c07-05', 'BB_vs_BTN', ['9s', '8s'], 17005, { teachBack: '98s vs BTN: call cómodo, buena jugabilidad si ves flop.' }),
-        vs('c07-06', 'BB_vs_HJ', ['Ad', '5d'], 17006, { teachBack: 'A5s vs HJ: 3-bet frecuente en muchos charts. En C-08 verás por qué este tipo de mano encaja como farol.' }),
+        vs('c07-06', 'BB_vs_HJ', ['Ac', '9c'], 17006, { teachBack: 'A9s vs HJ: 3-bet frecuente en muchos charts. En C-08 verás por qué este tipo de mano encaja como farol.' }),
         vs('c07-07', 'BB_vs_UTG', ['Qh', '9c'], 17007, { trapTag: 'dominated', teachBack: 'Q9o vs UTG: fold. No defiendas basura vs opens tempranos.' }),
         vs('c07-08', 'BB_vs_CO', ['Jc', 'Tc'], 17008, { teachBack: 'JTs vs CO: call o 3-bet sólido; conectores altos suited se defienden bien.' })
       ]
@@ -65,8 +65,8 @@
         '¿Por qué A4s puede ser farol de 3-bet y KTo no?'
       ],
       spots: [
-        vs('c08-01', 'BB_vs_BTN', ['Qs', 'Qd'], 18001, {
-          teachBack: 'QQ vs BTN es 3-bet de value: quieres aislar y jugar un bote grande con una mano fuerte.'
+        vs('c08-01', 'BB_vs_BTN', ['As', 'Kd'], 18001, {
+          teachBack: 'AKo vs BTN es 3-bet de value: quieres aislar y jugar un bote grande con una mano fuerte.'
         }),
         vs('c08-02', 'BB_vs_BTN', ['Ad', '4d'], 18002, {
           teachBack: 'A4s vs BTN: 3-bet polar habitual. Es un farol con blockers (tienes un as) y algo de equity si hacen call.'
@@ -75,8 +75,8 @@
           trapTag: 'fancy_play',
           teachBack: 'KTo vs UTG: 3-betear aquí suele ser spew (fichas sin plan). Fold típico ante un open temprano.'
         }),
-        vs('c08-04', 'SB_vs_BTN', ['As', '5s'], 18004, {
-          teachBack: 'A5s SB vs BTN: 3-bet polar frecuente — mismo idea que A4s: farol con as como blocker.'
+        vs('c08-04', 'SB_vs_BTN', ['Ah', '2h'], 18004, {
+          teachBack: 'A2s SB vs BTN: 3-bet polar frecuente — mismo idea que A4s: farol con as como blocker.'
         }),
         vs('c08-05', 'BB_vs_CO', ['Ah', 'Kh'], 18005, {
           teachBack: 'AKs vs CO: 3-bet de value claro. Quieres presión y un bote grande con una mano premium.'
@@ -116,7 +116,7 @@
         f3('c09-01', 'BTN_vs_BB', ['As', 'Ad'], 19001, {
           teachBack: 'AA vs 3-bet: 4-bet de value. Quieres un bote grande con la mejor mano.'
         }),
-        f3('c09-02', 'BTN_vs_BB', ['Ah', 'Ts'], 19002, {
+        f3('c09-02', 'BTN_vs_BB', ['Ah', 'Th'], 19002, {
           teachBack: 'ATs en el botón vs 3-bet de BB: call frecuente. Jugabilidad y posición a favor.'
         }),
         f3('c09-03', 'UTG_vs_BB', ['Ah', 'Td'], 19003, {
@@ -124,16 +124,16 @@
           teachBack: 'ATo desde UTG vs 3-bet: fold típico. Estás OOP y la mano suele estar dominada. No hagas hero-call.'
         }),
         f3('c09-04', 'CO_vs_BTN', ['Kh', 'Qs'], 19004, {
-          teachBack: 'KQs CO vs 3-bet del botón: call o 4-bet mixto razonable — mano fuerte con jugabilidad.'
+          teachBack: 'KQo CO vs 3-bet del botón: call o 4-bet mixto razonable — mano fuerte con jugabilidad.'
         }),
-        f3('c09-05', 'BTN_vs_SB', ['7c', '2d'], 19005, {
+        f3('c09-05', 'BTN_vs_SB', ['Jh', '2d'], 19005, {
           trapTag: 'dominated',
-          teachBack: '72o vs cualquier 3-bet: fold siempre. No inventes hero-calls con basura.'
+          teachBack: 'J2o vs cualquier 3-bet: fold siempre. No inventes hero-calls con basura.'
         }),
-        f3('c09-06', 'HJ_vs_BB', ['9s', '9c'], 19006, {
-          teachBack: '99 desde HJ vs 3-bet: call frecuente. Pareja media sólida; no hace falta 4-betear siempre.'
+        f3('c09-06', 'HJ_vs_BB', ['Jh', 'Jc'], 19006, {
+          teachBack: 'JJ desde HJ vs 3-bet: call frecuente. Pareja media sólida; no hace falta 4-betear siempre.'
         }),
-        f3('c09-07', 'BTN_vs_BB', ['Ad', '5d'], 19007, {
+        f3('c09-07', 'BTN_vs_BB', ['Ah', '5h'], 19007, {
           teachBack: 'A5s BTN vs BB: call o 4-bet farol según el mix. El as funciona como blocker, como en C-08.'
         }),
         f3('c09-08', 'CO_vs_BB', ['Qd', 'Jh'], 19008, {
@@ -155,32 +155,32 @@
       ],
       examples: [{
         title: 'BB con open + call delante',
-        body: 'CO abre, el botón hace call, tú en BB con AKo: squeeze de value — quieres el bote ya gordo o aislar. Con 85o: fold. No “inventes” un squeeze solo porque el bote se ve grande.'
+        body: 'CO abre, el botón hace call, tú en BB con JJ: squeeze de value — quieres el bote ya gordo o aislar. Con 85o: fold. No “inventes” un squeeze solo porque el bote se ve grande.'
       }],
       aiQuestions: [
         '¿Por qué el squeeze gana fold equity extra?',
         '¿Qué manos uso de farol en squeeze y por qué?'
       ],
       spots: [
-        sq('c10-01', 'BB', 'CO', 'BTN', ['As', 'Kd'], 20001, {
-          teachBack: 'AKo: squeeze de value claro. Castigas open+call y pelear un bote grande con una mano fuerte.'
+        sq('c10-01', 'BB', 'CO', 'BTN', ['Td', 'Th'], 20001, {
+          teachBack: 'TT: squeeze de value claro. Castigas open+call y pelear un bote grande con una mano fuerte.'
         }),
         sq('c10-02', 'BB', 'CO', 'BTN', ['8c', '5d'], 20002, {
           trapTag: 'fancy_play',
           teachBack: '85o: no hagas squeeze spew. Fold. Si te pagan, el bote es enorme y tu mano es floja.'
         }),
-        sq('c10-03', 'BB', 'HJ', 'CO', ['Qh', 'Qd'], 20003, {
-          teachBack: 'QQ: squeeze de value. Quieres aislar o meter más fichas con una mano premium.'
+        sq('c10-03', 'BB', 'HJ', 'CO', ['Jc', 'Js'], 20003, {
+          teachBack: 'JJ: squeeze de value. Quieres aislar o meter más fichas con una mano premium.'
         }),
-        sq('c10-04', 'SB', 'CO', 'BTN', ['Ad', '5d'], 20004, {
+        sq('c10-04', 'SB', 'CO', 'BTN', ['Ah', '5h'], 20004, {
           teachBack: 'A5s: squeeze polar frecuente — farol con as como blocker, misma lógica que el 3-bet polar.'
         }),
         sq('c10-05', 'BB', 'UTG', 'BTN', ['Jh', '9c'], 20005, {
           trapTag: 'fancy_play',
           teachBack: 'J9o vs UTG + call: fold. Vs open temprano el squeeze loco es spew.'
         }),
-        sq('c10-06', 'BB', 'CO', 'BTN', ['9s', '9c'], 20006, {
-          teachBack: '99: squeeze o call mixto; value razonable. No la trates como basura ni como AA automática.'
+        sq('c10-06', 'BB', 'CO', 'BTN', ['6s', '6c'], 20006, {
+          teachBack: '66: squeeze o call mixto; value razonable. No la trates como basura ni como AA automática.'
         })
       ]
     },
@@ -197,7 +197,7 @@
       ],
       examples: [{
         title: 'BTN vs limp UTG',
-        body: 'UTG limpea y tú estás en el botón con AJs: iso claro — quieres heads-up con ventaja. Con 72o: fold. No “castigues” el limp con cualquier dos cartas.'
+        body: 'UTG limpea y tú estás en el botón con AJs: iso claro — quieres heads-up con ventaja. Con 83o: fold. No “castigues” el limp con cualquier dos cartas.'
       }],
       aiQuestions: [
         '¿Qué tamaño de iso uso, en palabras simples?',
@@ -205,21 +205,21 @@
       ],
       spots: [
         iso('c11-01', 'BTN', 'UTG', ['Ah', 'Js'], 21001, {
-          teachBack: 'AJs en el botón vs limp: iso claro. Quieres aislar y jugar con la iniciativa.'
+          teachBack: 'AJo en el botón vs limp: iso claro. Quieres aislar y jugar con la iniciativa.'
         }),
-        iso('c11-02', 'BTN', 'UTG', ['7c', '2d'], 21002, {
+        iso('c11-02', 'BTN', 'UTG', ['Td', '3s'], 21002, {
           trapTag: 'dominated',
-          teachBack: '72o: fold. No hagas overiso con basura solo porque alguien limpeó.'
+          teachBack: 'T3o: fold. No hagas overiso con basura solo porque alguien limpeó.'
         }),
         iso('c11-03', 'CO', 'HJ', ['Kd', 'Qs'], 21003, {
-          teachBack: 'KQs en cutoff: iso de value. Mano fuerte que quiere heads-up.'
+          teachBack: 'KQo en cutoff: iso de value. Mano fuerte que quiere heads-up.'
         }),
         iso('c11-04', 'SB', 'CO', ['9h', '8h'], 21004, {
           teachBack: '98s desde SB: iso razonable. Suited y jugable; no es overiso de basura.'
         }),
-        iso('c11-05', 'CO', 'UTG', ['Qd', '8c'], 21005, {
+        iso('c11-05', 'CO', 'UTG', ['Ts', '7c'], 21005, {
           trapTag: 'fancy_play',
-          teachBack: 'Q8o: fold frecuente. Aislar esto suele ser overiso — spew disfrazado de “castigo”.'
+          teachBack: 'T7o: fold frecuente. Aislar esto suele ser overiso — spew disfrazado de “castigo”.'
         }),
         iso('c11-06', 'BTN', 'HJ', ['5s', '5c'], 21006, {
           teachBack: '55 en el botón: iso común. Pareja pequeña con posición; quieres heads-up.'
@@ -233,8 +233,8 @@
       xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 6,
       concept: 'La ciega pequeña limpea: en BB puedes check (opción gratis — no pones más fichas) o iso-raise para castigar el limp.',
       theory: [
-        'Check con manos mediocres aprovecha la opción: ya estás en el bote. Iso con value (AK, QQ…) y algunas manos de presión (ases suited). No tienes que aislar cada mano.',
-        'No overfoldees el spot: la BB ya puso su ciega. Tampoco aísles 72o “porque el SB limpeó”: eso es spew.',
+        'Check con manos mediocres aprovecha la opción: ya estás en el bote. Iso con value (JJ, TT, AQs…) y algunas manos de presión (ases suited). No tienes que aislar cada mano.',
+        'No overfoldees el spot: la BB ya puso su ciega. Tampoco aísles 93o “porque el SB limpeó”: eso es spew.',
         'Trampa doble: check eterno con AA/KK (dejas valor en la mesa) o iso spew con basura. Elige con intención.'
       ],
       examples: [{
@@ -246,21 +246,21 @@
         '¿Qué manos aíslo desde BB y por qué?'
       ],
       spots: [
-        bb('c12-01', ['As', 'Kd'], 22001, {
-          teachBack: 'AKo vs SB limp: iso. Castigas el limp y metes valor con una mano fuerte.'
+        bb('c12-01', ['Jh', 'Jd'], 22001, {
+          teachBack: 'JJ vs SB limp: iso. Castigas el limp y metes valor con una mano fuerte.'
         }),
-        bb('c12-02', ['7c', '2d'], 22002, {
+        bb('c12-02', ['6h', '2c'], 22002, {
           trapTag: 'fancy_play',
-          teachBack: '72o: check (opción gratis). No hagas iso spew con basura.'
+          teachBack: '62o: check (opción gratis). No hagas iso spew con basura.'
         }),
-        bb('c12-03', ['Qh', 'Qd'], 22003, {
-          teachBack: 'QQ: iso de value. No regales un flop barato al SB limpeando.'
+        bb('c12-03', ['Ts', 'Tc'], 22003, {
+          teachBack: 'TT: iso de value. No regales un flop barato al SB limpeando.'
         }),
         bb('c12-04', ['9s', '8c'], 22004, {
           teachBack: '98o: check frecuente. Mano especulativa; aprovecha la opción.'
         }),
-        bb('c12-05', ['Ad', '5d'], 22005, {
-          teachBack: 'A5s: iso frecuente. Farol/presión con as blocker y algo de equity si pagan.'
+        bb('c12-05', ['As', '6s'], 22005, {
+          teachBack: 'A6s: iso frecuente. Farol/presión con as blocker y algo de equity si pagan.'
         }),
         bb('c12-06', ['2h', '2c'], 22006, {
           teachBack: '22: check típico — set-mine barato (buscar trío en el flop sin meter más fichas ahora).'
@@ -286,8 +286,8 @@
         'Resume 3-bet polar en una frase de profesor.'
       ],
       spots: [
-        vs('c13-01', 'BB_vs_BTN', ['As', 'Ks'], 23001, {
-          teachBack: 'AKs vs BTN: 3-bet de value. Mano premium frente a un open late.'
+        vs('c13-01', 'BB_vs_BTN', ['Ah', 'Jh'], 23001, {
+          teachBack: 'AJs vs BTN: 3-bet de value. Mano premium frente a un open late.'
         }),
         vs('c13-02', 'BB_vs_UTG', ['Qh', '9c'], 23002, {
           trapTag: 'dominated',
@@ -300,21 +300,21 @@
           trapTag: 'dominated',
           teachBack: 'KTo UTG vs 3-bet: fold. OOP y mano fácil de dominar — evita el hero-call.'
         }),
-        sq('c13-05', 'BB', 'CO', 'BTN', ['Qc', 'Qd'], 23005, {
-          teachBack: 'QQ: squeeze de value tras open+call.'
+        sq('c13-05', 'BB', 'CO', 'BTN', ['Ks', 'Qs'], 23005, {
+          teachBack: 'KQs: squeeze de value tras open+call.'
         }),
-        iso('c13-06', 'BTN', 'UTG', ['7d', '2c'], 23006, {
+        iso('c13-06', 'BTN', 'UTG', ['4s', '2d'], 23006, {
           trapTag: 'dominated',
-          teachBack: '72o vs limp: fold. No overiso.'
+          teachBack: '42o vs limp: fold. No overiso.'
         }),
-        bb('c13-07', ['Ah', 'Kd'], 23007, {
-          teachBack: 'AKo BB vs SB limp: iso para castigar.'
+        bb('c13-07', ['Qs', 'Qh'], 23007, {
+          teachBack: 'QQ BB vs SB limp: iso para castigar.'
         }),
         vs('c13-08', 'BB_vs_CO', ['9s', '8s'], 23008, {
           teachBack: '98s vs CO: defensa sólida (call o 3-bet según mix).'
         }),
         iso('c13-09', 'CO', 'HJ', ['Jd', 'Ts'], 23009, {
-          teachBack: 'JTs: iso razonable vs limp — jugabilidad e iniciativa.'
+          teachBack: 'JTo: iso razonable vs limp — jugabilidad e iniciativa.'
         }),
         sq('c13-10', 'BB', 'HJ', 'BTN', ['8c', '5d'], 23010, {
           trapTag: 'fancy_play',

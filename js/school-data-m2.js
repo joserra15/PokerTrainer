@@ -152,12 +152,12 @@
       concept: 'Contra un c-bet pequeño continúas con equity y backdoors; no overfoldeas solo porque “no pegaste top pair”.',
       theory: [
         'Si te apuestan ~33 % del bote, las pot odds (precio que te dan) son buenas: puedes continuar con gutshot (proyecto de escalera a una carta), backdoors (mejoras en dos calles) y pair+draw.',
-        'Contra overbet (apuesta enorme) o boards que te destrozan (AKQ con 72o), foldear es correcto. No “defendemos todo”.',
+        'Contra overbet (apuesta enorme) o boards que te destrozan (AKQ con 83o), foldear es correcto. No “defendemos todo”.',
         'Trampa: overfold vs 33 % — tirar demasiadas manos con outs reales solo porque no tienes pareja alta.'
       ],
       examples: [{
         title: 'Odds vs sizing',
-        body: 'BB vs c-bet a 1/3 en A72 rainbow con 86s (gutshot + backdoors): hacer call. Con 72o sin backdoors: fold. El sizing pequeño te invita a continuar cuando tienes camino.'
+        body: 'BB vs c-bet a 1/3 en A72 rainbow con 86s (gutshot + backdoors): hacer call. Con 93o sin backdoors: fold. El sizing pequeño te invita a continuar cuando tienes camino.'
       }],
       aiQuestions: [
         '¿Por qué defiendo más vs un c-bet pequeño?',
@@ -168,10 +168,10 @@
           facingBet: true,
           teachBack: 'Vs sizing pequeño, 86s con equity y backdoors: continúa (call). No overfoldees.'
         }),
-        flop('c17-02', 'BB', ['7c', '2d'], ['As', 'Kd', 'Qc'], 27002, {
+        flop('c17-02', 'BB', ['8h', '3d'], ['As', 'Kd', 'Qc'], 27002, {
           facingBet: true,
           trapTag: 'dominated',
-          teachBack: '72o en AKQ: fold. Sin equity real — aquí sí te tiras.'
+          teachBack: '83o en AKQ: fold. Sin equity real — aquí sí te tiras.'
         }),
         flop('c17-03', 'BB', ['Jh', 'Th'], ['9s', '8d', '2c'], 27003, {
           facingBet: true,
@@ -325,7 +325,7 @@
           street: 'river',
           teachBack: 'TPTK: value bet de river. No undervaluees.'
         }),
-        flop('c20-06', 'BTN', ['7c', '2d'], ['As', 'Kd', 'Qc'], 30006, {
+        flop('c20-06', 'BTN', ['Jd', '3h'], ['As', 'Kd', 'Qc'], 30006, {
           trapTag: 'dominated',
           teachBack: 'Aire en board fuerte: fold / give up. No spew.'
         }),

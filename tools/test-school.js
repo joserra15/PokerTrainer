@@ -236,6 +236,53 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   assert.ok(minSpots('mtt', 'T-13') >= 10, 'T-13 roles burbuja ≥10');
 })();
 
+/** Mix de manos del héroe: menos 72o/AK/QQ repetidos, más JJ/TT y celdas borderline. */
+(function assertHeroHandMix() {
+  function handCode(cards) {
+    if (!cards || cards.length < 2) return '?';
+    const r1 = cards[0][0];
+    const r2 = cards[1][0];
+    const s1 = cards[0][1];
+    const s2 = cards[1][1];
+    const order = 'AKQJT98765432';
+    if (r1 === r2) return r1 + r2;
+    const hi = order.indexOf(r1) <= order.indexOf(r2) ? r1 : r2;
+    const lo = hi === r1 ? r2 : r1;
+    return hi + lo + (s1 === s2 ? 's' : 'o');
+  }
+  const counts = Object.create(null);
+  let n = 0;
+  const leadMismatch = [];
+  Data.getLessons().forEach(function (lesson) {
+    const per = Object.create(null);
+    (lesson.spots || []).forEach(function (spot) {
+      const cards = spot.forceDeal && spot.forceDeal.heroCards;
+      const code = handCode(cards);
+      counts[code] = (counts[code] || 0) + 1;
+      per[code] = (per[code] || 0) + 1;
+      n += 1;
+      const tb = String(spot.teachBack || '');
+      const lead = tb.match(/^([AKQJT2-9]{2}[so]|([AKQJT2-9])\2)\b/);
+      if (lead && lead[0] !== code) leadMismatch.push(spot.id + ':' + code + '!=' + lead[0]);
+    });
+    Object.keys(per).forEach(function (h) {
+      assert.ok(per[h] <= 4, lesson.id + ' no debe repetir ' + h + ' ≥5 veces (' + per[h] + ')');
+    });
+  });
+  assert.ok(n >= 800, 'volumen spots Escuela: ' + n);
+  assert.ok((counts['72o'] || 0) <= 5, '72o no satura el mix: ' + (counts['72o'] || 0));
+  assert.ok((counts['AKo'] || 0) <= 45, 'AKo no satura el mix: ' + (counts['AKo'] || 0));
+  assert.ok((counts['QQ'] || 0) <= 40, 'QQ no satura el mix: ' + (counts['QQ'] || 0));
+  assert.ok((counts['JJ'] || 0) >= 20, 'JJ presente a lo largo del recorrido: ' + (counts['JJ'] || 0));
+  assert.ok((counts['TT'] || 0) >= 20, 'TT presente a lo largo del recorrido: ' + (counts['TT'] || 0));
+  const uniq = Object.keys(counts).length;
+  assert.ok(uniq >= 90, 'manos distintas del héroe: ' + uniq);
+  let max = 0;
+  Object.keys(counts).forEach(function (h) { if (counts[h] > max) max = counts[h]; });
+  assert.ok(max / n <= 0.06, 'ninguna mano >6 % del mix: ' + max + '/' + n);
+  assert.deepStrictEqual(leadMismatch, [], 'teachBack inicial coincide con cartas: ' + leadMismatch.join(', '));
+})();
+
 /** T-00 recorre early / mid / push para sentir las fases. */
 (function assertT00Stages() {
   const PC = sandbox.PTPlayConfig;
@@ -594,13 +641,13 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
   assert.ok(hSteal.current.options.some(function (o) { return o.id === 'raise'; }), 'S-01 steal ofrece open min');
   assert.ok(['optima', 'aceptable'].indexOf(grade(s0101, 'allin')) >= 0, 'ATo steal: shove óptimo');
   const s0106 = spotById('S-01', 's01-06');
-  assert.ok(['optima', 'aceptable'].indexOf(grade(s0106, 'raise')) >= 0, '87s steal: open min óptimo');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0106, 'raise')) >= 0, '97s steal: open min óptimo');
   const s0105 = spotById('S-01', 's01-05');
-  assert.ok(['optima', 'aceptable'].indexOf(grade(s0105, 'allin')) >= 0, '99 steal: shove óptimo');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0105, 'allin')) >= 0, 'TT steal: shove óptimo');
   const s0201 = spotById('S-02', 's02-01');
   const hDef = openHand(s0201).hand;
   assert.ok(hDef.current.options.some(function (o) { return o.id === 'allin'; }), 'S-02 defensa ofrece 3-bet shove');
-  assert.ok(['optima', 'aceptable'].indexOf(grade(s0201, 'allin')) >= 0, 'AKo vs steal: 3-bet shove óptimo');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0201, 'allin')) >= 0, 'AJs vs steal: 3-bet shove óptimo');
   const s0501 = spotById('S-05', 'sp-01');
   const hPush = openHand(s0501).hand;
   assert.ok(hPush.current.options.some(function (o) { return o.id === 'allin'; }), 'S-05 push ofrece shove');
