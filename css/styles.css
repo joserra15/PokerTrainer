@@ -3671,13 +3671,13 @@ body:not(.pt-is-admin) .tab-admin,
 body:not(.pt-is-admin) #account-admin {
   display: none !important;
 }
-body:not(.pt-is-admin) #tab-school,
-body:not(.pt-is-admin) .tab-school {
-  display: none !important;
-}
 body.demo-mode-active #tab-school,
 body.demo-mode-active .tab-school {
   display: none !important;
+}
+.school-share-hub {
+  margin-top: 14px;
+  border-color: rgba(227,179,65,.22);
 }
 .admin-usage-note { font-size: 11px; color: var(--gold); margin-left: 2px; }
 .admin-invite-content { max-width: 560px; width: min(96vw, 560px); }

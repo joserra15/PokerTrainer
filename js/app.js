@@ -13,7 +13,7 @@
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.5.10';
+  const APP_VERSION = window.PT_BUILD || '2.5.11';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -1020,13 +1020,10 @@
     if (tabId === 'school') {
       var schoolUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
       var schoolDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
-      var canSchool = !!(schoolUser && schoolUser.isAdmin && !schoolDemo);
+      /* GA: cualquier usuario autenticado (no demo). El chunk school confirma con schoolMenuVisible. */
+      var canSchool = !!(schoolUser && !schoolDemo);
       if (window.PTSchool && typeof window.PTSchool.schoolMenuVisible === 'function') {
         canSchool = window.PTSchool.schoolMenuVisible();
-      } else if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function') {
-        canSchool = window.PTSchool.hasAdminAccess();
-      } else if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
-        canSchool = window.PTAdmin.hasAccess();
       }
       if (!canSchool) {
         goToTab('home');

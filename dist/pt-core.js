@@ -16731,7 +16731,9 @@ window.PT_VS_3BET_JSON = {
     return out;
   }
   function getHistory() { return read(scopedKey('history'), []); }
-  function getErrors() { return read(scopedKey('errors'), []); }
+  function getErrors() {
+    return read(scopedKey('errors'), []).filter(function (e) { return !isSchoolError(e); });
+  }
   function getStats() {
     var st = read(scopedKey('stats'), defaultStats());
     if (global.PTStatsAggregate) {
@@ -16747,6 +16749,21 @@ window.PT_VS_3BET_JSON = {
     return st;
   }
 
+  function isSchoolHand(hand) {
+    if (!hand) return false;
+    if (hand.school || (hand.result && hand.result.school)) return true;
+    var cfg = hand.playConfig || {};
+    return !!(cfg.schoolMode || cfg.school);
+  }
+
+  function isSchoolError(err) {
+    if (!err) return false;
+    var cfg = err.playConfig || {};
+    if (cfg.schoolMode || cfg.school) return true;
+    if (err.school) return true;
+    return false;
+  }
+
   /** Guarda una mano completada y actualiza errores y estadísticas. */
   function saveHand(hand) {
     if (global.GTO && global.GTO.EvLoss) {
@@ -16758,8 +16775,9 @@ window.PT_VS_3BET_JSON = {
     if (hist.length > MAX_HISTORY) hist.length = MAX_HISTORY;
     write(scopedKey('history'), hist);
 
-    const errs = getErrors();
-    hand.decisions.forEach((d, idx) => {
+    const schoolHand = isSchoolHand(hand);
+    const errs = getErrors().filter(function (e) { return !isSchoolError(e); });
+    if (!schoolHand) hand.decisions.forEach((d, idx) => {
       if (d.class === 'error' || d.class === 'imprecisa') {
         const sc = hand.scenario || {};
         const cfg = hand.playConfig || {};
@@ -16813,21 +16831,24 @@ window.PT_VS_3BET_JSON = {
 
     const st = getStats();
     if (!st.byStreet) st.byStreet = defaultStats().byStreet;
+    /* Escuela consume cupo de manos, pero no contamina acierto/EV/leaks de stats. */
     st.handsPlayed += 1;
-    st.totalEvLoss += hand.result.totalEvLoss || 0;
-    st.totalNet += hand.result.heroNet || 0;
-    hand.decisions.forEach((d) => {
-      st.decisions += 1;
-      st[d.class] = (st[d.class] || 0) + 1;
-      const street = st.byStreet[d.street];
-      if (street) {
-        street.n += 1;
-        if (d.class === 'optima' || d.class === 'aceptable') street.good += 1;
-      }
-    });
-    st.totalEvLoss = Math.round(st.totalEvLoss * 100) / 100;
-    st.totalNet = Math.round(st.totalNet * 100) / 100;
-    if (global.PTStatsAggregate) global.PTStatsAggregate.applyTrainerHand(st, rec);
+    if (!schoolHand) {
+      st.totalEvLoss += hand.result.totalEvLoss || 0;
+      st.totalNet += hand.result.heroNet || 0;
+      hand.decisions.forEach((d) => {
+        st.decisions += 1;
+        st[d.class] = (st[d.class] || 0) + 1;
+        const street = st.byStreet[d.street];
+        if (street) {
+          street.n += 1;
+          if (d.class === 'optima' || d.class === 'aceptable') street.good += 1;
+        }
+      });
+      st.totalEvLoss = Math.round(st.totalEvLoss * 100) / 100;
+      st.totalNet = Math.round(st.totalNet * 100) / 100;
+      if (global.PTStatsAggregate) global.PTStatsAggregate.applyTrainerHand(st, rec);
+    }
     writeStats(st);
     notifySync(['history', 'errors', 'stats']);
 
@@ -23862,7 +23883,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.5.10';
+  const APP_VERSION = window.PT_BUILD || '2.5.11';
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -24869,13 +24890,10 @@ window.PT_VS_3BET_JSON = {
     if (tabId === 'school') {
       var schoolUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
       var schoolDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
-      var canSchool = !!(schoolUser && schoolUser.isAdmin && !schoolDemo);
+      /* GA: cualquier usuario autenticado (no demo). El chunk school confirma con schoolMenuVisible. */
+      var canSchool = !!(schoolUser && !schoolDemo);
       if (window.PTSchool && typeof window.PTSchool.schoolMenuVisible === 'function') {
         canSchool = window.PTSchool.schoolMenuVisible();
-      } else if (window.PTSchool && typeof window.PTSchool.hasAdminAccess === 'function') {
-        canSchool = window.PTSchool.hasAdminAccess();
-      } else if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
-        canSchool = window.PTAdmin.hasAccess();
       }
       if (!canSchool) {
         goToTab('home');

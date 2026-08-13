@@ -236,7 +236,6 @@
       '<section class="school-share card-box" aria-label="Compartir logro">' +
       '<div class="school-share-head">' +
       '<h3>' + (passed ? 'Comparte tu logro' : 'Comparte tu progreso') + '</h3>' +
-      '<p class="muted-text">Se comparte la imagen del logro con la URL de PokerForgeAI.</p>' +
       '</div>' +
       '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
       '<div class="school-share-actions">' +
@@ -245,6 +244,130 @@
       '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
       '</section>'
     );
+  }
+
+  function buildHubPanelHtml() {
+    return (
+      '<div class="school-share school-share-hub" aria-label="Compartir resumen Escuela">' +
+      '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
+      '<div class="school-share-actions">' +
+      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="hub">Compartir resumen</button>' +
+      '</div>' +
+      '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
+      '</div>'
+    );
+  }
+
+  function buildHubShareText(hub) {
+    var url = siteUrl();
+    var level = hub && hub.level != null ? hub.level : 1;
+    var xp = hub && hub.xp != null ? hub.xp : 0;
+    var route = hub ? (hub.routePassed + '/' + hub.routeTotal) : '0/0';
+    var gold = hub && hub.gold != null ? hub.gold : 0;
+    return 'Mi progreso en la Escuela de PokerForgeAI: Nv. ' + level +
+      ' · ' + xp + ' XP · ruta ' + route + ' · ' + gold + ' oro. ' + url;
+  }
+
+  function drawHubSummaryCard(canvas, hub) {
+    var ctx = canvas.getContext('2d');
+    var w = CARD_W;
+    var h = CARD_H;
+    canvas.width = w;
+    canvas.height = h;
+    hub = hub || {};
+
+    var g = ctx.createLinearGradient(0, 0, w * 0.2, h);
+    g.addColorStop(0, '#0f172a');
+    g.addColorStop(0.5, '#111827');
+    g.addColorStop(1, '#0b1220');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    var glow = ctx.createRadialGradient(w * 0.5, 80, 10, w * 0.5, 120, w * 0.55);
+    glow.addColorStop(0, 'rgba(234,179,8,0.22)');
+    glow.addColorStop(1, 'rgba(234,179,8,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 4;
+    roundRect(ctx, 36, 36, w - 72, h - 72, 36);
+    ctx.stroke();
+
+    ctx.fillStyle = '#e3b341';
+    ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    var eyebrow = String(hub.eyebrow || 'Escuela').toUpperCase();
+    ctx.fillText(eyebrow, 80, 120);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 64px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(hub.title || 'Escuela de Póker', 80, 200);
+
+    ctx.fillStyle = 'rgba(230,237,243,0.88)';
+    ctx.font = '600 32px system-ui, -apple-system, Segoe UI, sans-serif';
+    var leadLines = wrapText(ctx, hub.lead || '', w - 160);
+    var ly = 270;
+    leadLines.slice(0, 3).forEach(function (line) {
+      ctx.fillText(line, 80, ly);
+      ly += 42;
+    });
+
+    var stats = [
+      { val: 'Nv. ' + (hub.level != null ? hub.level : 1), lbl: 'Nivel Escuela' },
+      { val: String(hub.xp != null ? hub.xp : 0), lbl: 'XP' },
+      { val: String((hub.routePassed || 0) + '/' + (hub.routeTotal || 0)), lbl: 'Ruta' },
+      { val: String(hub.gold != null ? hub.gold : 0), lbl: 'Oro' }
+    ];
+    var boxW = (w - 80 * 2 - 24) / 2;
+    var boxH = 160;
+    var startY = 420;
+    stats.forEach(function (s, i) {
+      var col = i % 2;
+      var row = Math.floor(i / 2);
+      var x = 80 + col * (boxW + 24);
+      var y = startY + row * (boxH + 24);
+      roundRect(ctx, x, y, boxW, boxH, 24);
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 56px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.val, x + 28, y + 78);
+      ctx.fillStyle = 'rgba(230,237,243,0.65)';
+      ctx.font = '600 26px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillText(s.lbl, x + 28, y + 120);
+    });
+
+    var barX = 80;
+    var barY = 820;
+    var barW = w - 160;
+    var barH = 28;
+    roundRect(ctx, barX, barY, barW, barH, 14);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fill();
+    var fillW = Math.max(8, Math.round(barW * Math.min(100, hub.xpPct || 0) / 100));
+    var grad = ctx.createLinearGradient(barX, barY, barX + fillW, barY);
+    grad.addColorStop(0, '#e3b341');
+    grad.addColorStop(1, '#22c55e');
+    roundRect(ctx, barX, barY, fillW, barH, 14);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    var url = siteUrl();
+    var host = siteHostLabel(url);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 36px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(host, w / 2, 940);
+    ctx.fillStyle = 'rgba(230,237,243,0.65)';
+    ctx.font = '600 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(url.replace(/\/$/, ''), w / 2, 985);
+
+    return canvas;
   }
 
   function setStatus(root, msg, ok) {
@@ -304,7 +427,7 @@
       }
       return nav.share(data);
     }).then(function () {
-      setStatus(root, 'Listo para compartir.', true);
+      setStatus(root, 'Se ha compartido correctamente.', true);
     }).catch(function (err) {
       if (err && err.name === 'AbortError') {
         setStatus(root, '', true);
@@ -312,7 +435,7 @@
       }
       /* Fallback: algunos navegadores rechazan files-only */
       return nav.share({ title: 'PokerForgeAI · Escuela', text: text, url: url }).then(function () {
-        setStatus(root, 'Listo para compartir.', true);
+        setStatus(root, 'Se ha compartido correctamente.', true);
       }).catch(function (err2) {
         if (err2 && err2.name === 'AbortError') {
           setStatus(root, '', true);
@@ -323,12 +446,32 @@
     });
   }
 
+  function mountHubSharePanel(root, hub) {
+    if (!root || !hub) return null;
+    var canvas = root.querySelector('.school-share-canvas');
+    if (!canvas) return null;
+    drawHubSummaryCard(canvas, hub);
+    var text = buildHubShareText(hub);
+    var url = siteUrl();
+    var btn = root.querySelector('[data-school-share="hub"]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        shareNative(canvas, text, url, root);
+      });
+    }
+    return { canvas: canvas, text: text, url: url };
+  }
+
   global.PTSchoolShare = {
     siteUrl: siteUrl,
     buildShareText: buildShareText,
+    buildHubShareText: buildHubShareText,
     drawAchievementCard: drawAchievementCard,
+    drawHubSummaryCard: drawHubSummaryCard,
     buildPanelHtml: buildPanelHtml,
+    buildHubPanelHtml: buildHubPanelHtml,
     mountSharePanel: mountSharePanel,
+    mountHubSharePanel: mountHubSharePanel,
     CARD_W: CARD_W,
     CARD_H: CARD_H
   };

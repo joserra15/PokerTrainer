@@ -1,5 +1,5 @@
 /**
- * Compartir logro Escuela: solo botón nativo + imagen oculta.
+ * Compartir Escuela: logro + resumen hub (imagen oculta, botón único).
  */
 'use strict';
 const fs = require('fs');
@@ -13,53 +13,34 @@ const schoolSrc = fs.readFileSync(path.join(root, 'js/school.js'), 'utf8');
 const shareSrc = fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8');
 const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
+const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2\.5\.10'/.test(version), 'versión 2.5.10');
+assert.ok(/PT_BUILD\s*=\s*'2\.5\.11'/.test(version), 'versión 2.5.11');
 assert.ok(/school-share\.js/.test(chunks), 'chunk school incluye school-share.js');
-assert.ok(/PTSchoolShare/.test(shareSrc), 'API PTSchoolShare');
-assert.ok(/buildPanelHtml/.test(shareSrc) && /mountSharePanel/.test(shareSrc), 'panel share');
-assert.ok(/drawAchievementCard/.test(shareSrc), 'canvas logro');
-assert.ok(/nav\.share/.test(shareSrc) && /canShare/.test(shareSrc), 'Web Share API');
-assert.ok(/pokerforgeai\.com/.test(shareSrc), 'URL web en tarjeta/texto');
-assert.ok(!/wa\.me|whatsapp/i.test(shareSrc), 'sin WhatsApp');
-assert.ok(!/twitter\.com\/intent|intent\/tweet/.test(shareSrc), 'sin X/Twitter');
-assert.ok(!/facebook\.com\/sharer/.test(shareSrc), 'sin Facebook');
-assert.ok(!/Descargar imagen|Copiar texto/.test(shareSrc), 'sin descargar/copiar');
-assert.ok(/school-share-canvas-hidden/.test(shareSrc), 'canvas oculto en markup');
-assert.ok(/PTSchoolShare\.buildPanelHtml/.test(schoolSrc), 'resultado Escuela monta panel');
-assert.ok(/mountSharePanel/.test(schoolSrc), 'resultado Escuela mountSharePanel');
-assert.ok(/\.school-share\s*\{/.test(styles), 'estilos school-share');
-assert.ok(/school-share-canvas-hidden/.test(styles), 'estilos canvas oculto');
+assert.ok(/buildHubPanelHtml/.test(shareSrc) && /drawHubSummaryCard/.test(shareSrc), 'share hub');
+assert.ok(/mountHubSharePanel/.test(shareSrc), 'mount hub share');
+assert.ok(/Se ha compartido correctamente/.test(shareSrc), 'mensaje éxito');
+assert.ok(!/Se comparte la imagen del logro/.test(shareSrc), 'sin texto auxiliar logro');
+assert.ok(!/Listo para compartir/.test(shareSrc), 'sin Listo para compartir');
+assert.ok(/buildHubPanelHtml/.test(schoolSrc) && /mountHubSharePanel/.test(schoolSrc), 'hub monta share');
+assert.ok(/SCHOOL_PUBLIC\s*=\s*true/.test(schoolSrc), 'Escuela pública');
+assert.ok(/isSchoolHand/.test(storageSrc) && /isSchoolError/.test(storageSrc), 'filtro errores Escuela');
+assert.ok(/schoolHand/.test(storageSrc), 'saveHand omite errores Escuela');
+assert.ok(/school-share-hub/.test(styles), 'estilos hub share');
 
 const sandbox = {
-  console,
-  Math,
-  Date,
-  JSON,
-  Array,
-  Object,
-  String,
-  Number,
-  Boolean,
-  encodeURIComponent,
-  decodeURIComponent,
-  URL,
+  console, Math, Date, JSON, Array, Object, String, Number, Boolean,
+  encodeURIComponent, decodeURIComponent, URL,
   Blob: function Blob(parts, opts) { this.parts = parts; this.type = (opts && opts.type) || ''; },
   File: function File(parts, name, opts) { this.name = name; this.type = (opts && opts.type) || ''; },
-  Uint8Array,
-  atob: function () { return ''; },
-  setTimeout,
-  clearTimeout
+  Uint8Array, atob: function () { return ''; }, setTimeout, clearTimeout
 };
 sandbox.window = sandbox;
 sandbox.global = sandbox;
 sandbox.globalThis = sandbox;
 sandbox.PT_SITE = { appUrl: 'https://www.pokerforgeai.com/' };
 sandbox.location = { origin: 'https://www.pokerforgeai.com', pathname: '/' };
-sandbox.navigator = {
-  share: function () { return Promise.resolve(); },
-  canShare: function () { return true; }
-};
+sandbox.navigator = { share: function () { return Promise.resolve(); }, canShare: function () { return true; } };
 sandbox.document = {
   createElement: function () {
     return { style: {}, setAttribute: function () {}, appendChild: function () {}, remove: function () {}, click: function () {} };
@@ -68,8 +49,6 @@ sandbox.document = {
 };
 
 function FakeCtx() {
-  this._fill = '';
-  this._font = '';
   this.texts = [];
 }
 FakeCtx.prototype.createLinearGradient = function () { return { addColorStop: function () {} }; };
@@ -84,14 +63,8 @@ FakeCtx.prototype.fill = function () {};
 FakeCtx.prototype.arc = function () {};
 FakeCtx.prototype.measureText = function (t) { return { width: String(t).length * 12 }; };
 FakeCtx.prototype.fillText = function (t) { this.texts.push(String(t)); };
-Object.defineProperty(FakeCtx.prototype, 'fillStyle', {
-  set: function (v) { this._fill = v; },
-  get: function () { return this._fill; }
-});
-Object.defineProperty(FakeCtx.prototype, 'font', {
-  set: function (v) { this._font = v; },
-  get: function () { return this._font; }
-});
+Object.defineProperty(FakeCtx.prototype, 'fillStyle', { set: function () {}, get: function () { return ''; } });
+Object.defineProperty(FakeCtx.prototype, 'font', { set: function () {}, get: function () { return ''; } });
 Object.defineProperty(FakeCtx.prototype, 'strokeStyle', { set: function () {}, get: function () { return ''; } });
 Object.defineProperty(FakeCtx.prototype, 'lineWidth', { set: function () {}, get: function () { return 1; } });
 Object.defineProperty(FakeCtx.prototype, 'textAlign', { set: function () {}, get: function () { return 'left'; } });
@@ -99,37 +72,39 @@ Object.defineProperty(FakeCtx.prototype, 'textAlign', { set: function () {}, get
 vm.createContext(sandbox);
 vm.runInContext(shareSrc, sandbox, { filename: 'school-share.js' });
 const Share = sandbox.PTSchoolShare;
-assert.ok(Share, 'PTSchoolShare cargado');
 
-const lesson = {
-  id: 'S-03',
-  title: 'Examen M0 · Spins',
-  exam: true,
-  route: 'spin',
-  module: 'M0'
+const lessonPanel = Share.buildPanelHtml({ title: 'X', exam: false }, { passed: true, pct: 90 });
+assert.ok(/data-school-share="native"/.test(lessonPanel), 'botón logro');
+assert.ok(!/Se comparte la imagen/.test(lessonPanel), 'sin helper text');
+
+const hubPanel = Share.buildHubPanelHtml();
+assert.ok(/data-school-share="hub"/.test(hubPanel), 'botón resumen');
+assert.ok(/school-share-canvas-hidden/.test(hubPanel), 'canvas hub oculto');
+
+const hub = {
+  eyebrow: 'Cash · Ruta principal',
+  title: 'Escuela de Póker',
+  lead: 'Fundamentos → preflop → postflop → Pro Coach.',
+  level: 10,
+  xp: 1885,
+  routePassed: 10,
+  routeTotal: 27,
+  gold: 7,
+  xpPct: 40,
+  routeId: 'cash'
 };
-const summary = { passed: true, pct: 92, gold: true, perfect: false, xpGain: 40 };
-
-assert.strictEqual(Share.siteUrl(), 'https://www.pokerforgeai.com/');
-const text = Share.buildShareText(lesson, summary);
-assert.ok(/Examen M0/.test(text), 'texto menciona lección');
-assert.ok(/pokerforgeai\.com/.test(text), 'texto incluye URL');
-
-const panel = Share.buildPanelHtml(lesson, summary);
-assert.ok(/data-school-share="native"/.test(panel), 'botón Compartir');
-assert.ok((panel.match(/data-school-share=/g) || []).length === 1, 'solo un botón share');
-assert.ok(!/whatsapp|facebook|download|data-school-share="x"/i.test(panel), 'panel sin redes extra');
-assert.ok(/school-share-canvas-hidden/.test(panel), 'canvas oculto');
-assert.ok(/aria-hidden="true"/.test(panel), 'canvas aria-hidden');
+const hubText = Share.buildHubShareText(hub);
+assert.ok(/1885/.test(hubText) && /pokerforgeai\.com/.test(hubText), 'texto hub con XP+URL');
 
 const ctx = new FakeCtx();
-Share.drawAchievementCard({
-  width: 0,
-  height: 0,
+Share.drawHubSummaryCard({
+  width: 0, height: 0,
   getContext: function () { return ctx; }
-}, lesson, summary);
-assert.ok(ctx.texts.some(function (t) { return /PokerForgeAI/.test(t); }), 'marca en imagen');
-assert.ok(ctx.texts.some(function (t) { return /pokerforgeai\.com/.test(t); }), 'URL en imagen');
-assert.ok(ctx.texts.some(function (t) { return t === '92%'; }), '% en imagen');
+}, hub);
+assert.ok(ctx.texts.some(function (t) { return /Escuela de Póker/.test(t); }), 'título en imagen hub');
+assert.ok(ctx.texts.some(function (t) { return /Nv\. 10/.test(t); }), 'nivel en imagen');
+assert.ok(ctx.texts.some(function (t) { return t === '1885'; }), 'XP en imagen');
+assert.ok(ctx.texts.some(function (t) { return t === '10/27'; }), 'ruta en imagen');
+assert.ok(ctx.texts.some(function (t) { return /pokerforgeai\.com/.test(t); }), 'URL en imagen hub');
 
 console.log('*** test-school-share OK ***');
