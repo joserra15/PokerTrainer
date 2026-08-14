@@ -1,5 +1,11 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const {
+  mockAuthenticatedUser,
+  waitForAppShell,
+  clickFirstPlayAction,
+  playActionButtons,
+  playSkipButton
+} = require('./helpers');
 
 test.describe('Entrenamiento completo @smoke', () => {
   test('setup → decisión → score → histórico', async ({ page }) => {
@@ -11,22 +17,27 @@ test.describe('Entrenamiento completo @smoke', () => {
     await page.click('#play-start');
 
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 20000 });
-    await page.waitForSelector('#actions .btn', { timeout: 60000 });
-    await page.locator('#actions .btn').first().click();
+    await clickFirstPlayAction(page);
 
     const toast = page.locator('#verdict-toast.visible');
     const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
-    await expect(toast.or(handEnd)).toBeVisible({ timeout: 20000 });
+    const nextSkip = playSkipButton(page);
+    const nextBtn = playActionButtons(page);
+    await expect(toast.or(handEnd).or(nextSkip).or(nextBtn)).toBeVisible({ timeout: 20000 });
 
-    // Completar mano si sigue abierta (varias calles)
-    for (let i = 0; i < 12; i++) {
+    // Completar mano si sigue abierta (varias calles / playback)
+    for (let i = 0; i < 16; i++) {
       if (await handEnd.isVisible().catch(() => false)) break;
       const endVisible = await page.locator('#modal:not(.hidden) .hand-end-popup').isVisible().catch(() => false);
       if (endVisible) break;
-      const btns = page.locator('#play-active:not(.hidden) #actions .btn');
+      const skip = playSkipButton(page);
+      if (await skip.isVisible().catch(() => false)) {
+        await skip.click();
+        continue;
+      }
+      const btns = playActionButtons(page);
       if (await btns.count() === 0) break;
       await btns.first().click();
-      await page.waitForTimeout(400);
     }
 
     const popup = page.locator('#modal:not(.hidden) .hand-end-popup');

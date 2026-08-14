@@ -1,6 +1,12 @@
 const path = require('path');
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const {
+  mockAuthenticatedUser,
+  waitForAppShell,
+  clickFirstPlayAction,
+  playActionButtons,
+  playSkipButton
+} = require('./helpers');
 
 test.describe('Modo Jugar', () => {
   test('juega al menos una decisión preflop', async ({ page }) => {
@@ -13,15 +19,16 @@ test.describe('Modo Jugar', () => {
 
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 20000 });
     await page.waitForSelector('#play-table-loading.hidden, #play-table-loading:not(.hidden)', { timeout: 5000 }).catch(() => {});
-    await page.waitForSelector('#actions .btn', { timeout: 60000 });
-    const actionBtn = page.locator('#actions .btn').first();
-    await actionBtn.click();
+    await clickFirstPlayAction(page);
 
     // Si la acción cierra la mano (p. ej. fold), el pop-up de fin de mano
-    // oculta el toast a propósito. Aceptamos cualquiera de las dos señales.
+    // oculta el toast a propósito. En modo completo también puede seguir
+    // el playback (Saltar) o la siguiente decisión.
     const toast = page.locator('#verdict-toast.visible');
     const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
-    await expect(toast.or(handEnd)).toBeVisible({ timeout: 15000 });
+    const nextSkip = playSkipButton(page);
+    const nextBtn = playActionButtons(page);
+    await expect(toast.or(handEnd).or(nextSkip).or(nextBtn)).toBeVisible({ timeout: 15000 });
 
     if (await handEnd.isVisible()) {
       await expect(handEnd.locator('.hand-end-popup-stats .lbl', { hasText: /Puntuaci[oó]n de la mano/i })).toBeVisible();

@@ -23,6 +23,7 @@ const STEPS = [
   ['Regresión EV modo Jugar', ['node', 'tools/test-play-ev.js']],
   ['Test payload informe IA', ['node', 'tools/test-ai-payload.js']],
   ['Test river trips board doblado', ['node', 'tools/test-river-trips.js']],
+  ['Test villano no foldea las nuts', ['node', 'tools/test-villain-never-fold-nuts.js']],
   ['Test análisis de manos', ['node', 'tools/test-hand-analysis.js']],
   ['Test GTO eval UI', ['node', 'tools/test-gto-eval-ui.js']],
   ['Test range cell popup', ['node', 'tools/test-range-cell-popup.js']],

@@ -271,6 +271,11 @@
     const strict = profile.preflopStrict != null && profile.preflopStrict >= 0.99;
     const mwFace = multiwayFacingScale(opts, profile);
 
+    if (opts.neverFold) {
+      if (r < 0.18) return 'raise';
+      return 'call';
+    }
+
     if (strict && madeCat >= 2) {
       if (r < 0.14) return 'raise';
       return 'call';

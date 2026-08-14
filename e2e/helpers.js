@@ -106,6 +106,33 @@ async function waitForAppShell(page) {
   await page.waitForSelector('#app-shell:not(.hidden)', { timeout: 30000 });
 }
 
+/** Modo completo: #actions .btn puede ser «Saltar» la animación, no una decisión. */
+function playActionButtons(page) {
+  return page.locator('#play-active:not(.hidden) #actions button[data-action]');
+}
+
+function playSkipButton(page) {
+  return page.locator('#play-active:not(.hidden) .action-play-skip');
+}
+
+async function skipActionPlaybackIfNeeded(page) {
+  const skip = playSkipButton(page);
+  const actionBtn = playActionButtons(page);
+  await skip.or(actionBtn).first().waitFor({ state: 'visible', timeout: 20000 });
+  if (await actionBtn.count()) return;
+  if (await skip.isVisible().catch(() => false)) {
+    await skip.click();
+  }
+  await actionBtn.first().waitFor({ state: 'visible', timeout: 20000 });
+}
+
+async function clickFirstPlayAction(page) {
+  await skipActionPlaybackIfNeeded(page);
+  const actionBtn = playActionButtons(page);
+  await actionBtn.first().waitFor({ state: 'visible', timeout: 20000 });
+  await actionBtn.first().click();
+}
+
 async function goTab(page, tab) {
   if (tab === 'account') {
     const settings = page.locator('#account-settings');
@@ -129,5 +156,9 @@ module.exports = {
   mockFreshAuthenticatedUser,
   seedStudyData,
   waitForAppShell,
-  goTab
+  goTab,
+  playActionButtons,
+  playSkipButton,
+  skipActionPlaybackIfNeeded,
+  clickFirstPlayAction
 };
