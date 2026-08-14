@@ -23,4 +23,9 @@ assert.ok(/PT_SENTRY|enabled|dsn/.test(sentry), 'sentry.js');
 // En E2E, ausencia de DSN no debe romper: patrón de early-return
 assert.ok(/if\s*\(!|enabled|return/.test(sentry), 'sentry early exit si disabled');
 
+// Filtra ruido del IAB Android de Instagram/Facebook (Java object is gone)
+assert.ok(/Java object is gone/.test(sentry), 'filtro mensaje IAB bridge');
+assert.ok(/navigation_performance_logger_android/.test(sentry), 'filtro stack IAB logger');
+assert.ok(/beforeSend[\s\S]*return null/.test(sentry), 'beforeSend descarta ruido IAB');
+
 console.log('*** analytics-sentry OK ***');
