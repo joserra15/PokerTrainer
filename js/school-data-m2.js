@@ -177,9 +177,9 @@
           facingBet: true,
           teachBack: 'JT con straight draw (proyecto de escalera): continue claro vs c-bet pequeño.'
         }),
-        flop('c17-04', 'BB', ['Ad', '4c'], ['Kh', '7s', '2d'], 27004, {
+        flop('c17-04', 'BB', ['Ah', '8h'], ['Kd', '7c', '2s'], 27004, {
           facingBet: true,
-          teachBack: 'A-high + backdoor: call vs bet pequeño frecuente. Tienes outs y precio.'
+          teachBack: 'A-high + backdoor de color: call vs bet pequeño frecuente. Tienes outs y precio.'
         }),
         flop('c17-05', 'BB', ['Qc', '5d'], ['As', 'Ah', 'Kd'], 27005, {
           facingBet: true,
@@ -212,28 +212,28 @@
         '¿Qué es sticky second pair, en lenguaje simple?'
       ],
       spots: [
-        flop('c18-01', 'BTN', ['Kh', 'Qd'], ['As', '7d', '2c'], 28001, {
+        flop('c18-01', 'BTN', ['Kh', 'Qd'], ['As', '7d', '2c', '5s'], 28001, {
           street: 'turn',
-          teachBack: 'Con KQ en A-high: plan de barrel/value en turns buenos (cuando mejoras o el board sigue amable).'
+          teachBack: 'Con KQ en A-high seco: en turn brick, barrel selectivo o check. No barrels eternos sin mejora.'
         }),
-        flop('c18-02', 'BTN', ['Jh', '9c'], ['As', '7d', '2c'], 28002, {
+        flop('c18-02', 'BTN', ['Jh', '9c'], ['As', '9d', '2c', '5s'], 28002, {
           street: 'turn',
           trapTag: 'fancy_play',
-          teachBack: 'Segunda pareja floja sin mejora: no hagas sticky barrel eterno. Controla o cede.'
+          teachBack: 'Segunda pareja floja (9x) sin mejora en turn brick: no hagas sticky barrel eterno. Controla o cede.'
         }),
-        flop('c18-03', 'CO', ['Ad', 'Kd'], ['Ah', '8c', '3s'], 28003, {
+        flop('c18-03', 'CO', ['Ad', 'Kd'], ['Ah', '8c', '3s', '2d'], 28003, {
           street: 'turn',
-          teachBack: 'Top pair top kicker (pareja alta con el mejor kicker): barrel de value frecuente.'
+          teachBack: 'Top pair top kicker en turn brick: barrel de value frecuente.'
         }),
-        flop('c18-04', 'BTN', ['8s', '7s'], ['As', 'Kd', '2h'], 28004, {
+        flop('c18-04', 'BTN', ['8s', '7s'], ['As', 'Kd', '2h', '3c'], 28004, {
           street: 'turn',
-          teachBack: 'Fallaste: en turn, a menudo give up (cedes) si no hay scare card que justifique farol.'
+          teachBack: 'Fallaste: en turn brick, a menudo give up (cedes) si no hay scare card que justifique farol.'
         }),
-        flop('c18-05', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c'], 28005, {
+        flop('c18-05', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c', '2d'], 28005, {
           street: 'turn',
-          teachBack: 'Overpair: barrel de value en turns seguros. Cobras a peores pares y draws.'
+          teachBack: 'Overpair en turn seguro: barrel de value. Cobras a peores pares y draws.'
         }),
-        flop('c18-06', 'BTN', ['5h', '5c'], ['As', 'Kd', 'Qc'], 28006, {
+        flop('c18-06', 'BTN', ['5h', '5c'], ['As', 'Kd', 'Qc', '2h'], 28006, {
           street: 'turn',
           trapTag: 'fancy_play',
           teachBack: 'Underpair en broadway: pot control o fold a presión. No te pegues a la pareja baja.'
@@ -260,30 +260,30 @@
         '¿Cuándo uso sizing grande en river?'
       ],
       spots: [
-        flop('c19-01', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d'], 29001, {
+        flop('c19-01', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d', '3h', '5s'], 29001, {
           street: 'river',
-          teachBack: 'TPTK (top pair top kicker): value bet de river frecuente. Peores manos aún pagan.'
+          teachBack: 'TPTK en river seco: value bet frecuente. Peores manos (Ax peor, Kx, pares bajos) aún pagan.'
         }),
-        flop('c19-02', 'BTN', ['Kh', 'Kd'], ['As', '7c', '2d'], 29002, {
+        flop('c19-02', 'BTN', ['Kh', 'Kd'], ['As', '7c', '2d', '3h', '5s'], 29002, {
           street: 'river',
-          teachBack: 'KK en A-high: pot control — no overvalues (no hinches como si tuvieras la nuez).'
+          teachBack: 'KK en A-high river: pot control — no hinches como si tuvieras la nuez.'
         }),
-        flop('c19-03', 'CO', ['Qh', 'Qd'], ['Qc', '8s', '3h'], 29003, {
+        flop('c19-03', 'CO', ['Qh', 'Qd'], ['Qc', '8s', '3h', '2d', '5c'], 29003, {
           street: 'river',
-          teachBack: 'Set (trío): value fat. Sizing mayor — quieres valor máximo.'
+          teachBack: 'Set (trío) en river: value fat. Sizing mayor — quieres valor máximo.'
         }),
-        flop('c19-04', 'BTN', ['Jh', '9c'], ['As', 'Kd', 'Qc'], 29004, {
+        flop('c19-04', 'BTN', ['Jh', '9c'], ['As', 'Kd', 'Qc', '2h', '5s'], 29004, {
           street: 'river',
           trapTag: 'fancy_play',
           teachBack: 'Aire en broadway: no hagas bluff spew sin blockers ni historia. Better give up.'
         }),
-        flop('c19-05', 'BTN', ['Ad', '5d'], ['Ah', '9c', '4s'], 29005, {
+        flop('c19-05', 'BTN', ['Ad', '5d'], ['Ah', '9c', '4s', '2d', '7h'], 29005, {
           street: 'river',
-          teachBack: 'Top pair débil: thin value o check según el rival. No es nuts; tampoco es aire.'
+          teachBack: 'Top pair débil (A5) en river: thin value frecuente. No es nuts; tampoco es aire — cobra a peores que pagan.'
         }),
-        flop('c19-06', 'BTN', ['8s', '7s'], ['9h', '6d', '2c'], 29006, {
+        flop('c19-06', 'BTN', ['8s', '7s'], ['9h', '6d', '2c', '5s', '3d'], 29006, {
           street: 'river',
-          teachBack: 'Escalera: value fat. Cobras fuerte; pocas manos te ganan.'
+          teachBack: 'Escalera (5-9) en river: value fat. Cobras fuerte; pocas manos te ganan.'
         })
       ]
     },
@@ -317,11 +317,11 @@
           facingBet: true,
           teachBack: 'Draw vs c-bet pequeño: continue. Tienes equity y precio.'
         }),
-        flop('c20-04', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c'], 30004, {
+        flop('c20-04', 'BTN', ['Qc', 'Qd'], ['Jh', '9s', '4c', '2d'], 30004, {
           street: 'turn',
           teachBack: 'Overpair: barrel de value en turn seguro.'
         }),
-        flop('c20-05', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d'], 30005, {
+        flop('c20-05', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d', '3h', '5s'], 30005, {
           street: 'river',
           teachBack: 'TPTK: value bet de river. No undervaluees.'
         }),

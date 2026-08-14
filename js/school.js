@@ -470,7 +470,7 @@
       '</li>';
   }
 
-  function showSpotFeedback(decision, spot) {
+  function showSpotFeedback(decision, spot, hand) {
     var s = state.session;
     var fb = document.getElementById('feedback');
     var actions = document.getElementById('actions');
@@ -479,7 +479,10 @@
     var teach = (spot && spot.teachBack) || decision.reason || '';
     var remaining = s.spots.length - s.index - 1;
     var cards = spot && spot.forceDeal ? formatCards(spot.forceDeal.heroCards) : '';
-    var board = spot && spot.forceDeal ? formatBoard(spot.forceDeal.board) : '';
+    var boardCards = (hand && hand.board && hand.board.length)
+      ? hand.board
+      : (spot && spot.forceDeal ? spot.forceDeal.board : null);
+    var board = formatBoard(boardCards);
     var meta = [];
     if (spot && spot.heroPos) meta.push(spot.heroPos);
     if (cards) meta.push(cards);
@@ -587,9 +590,11 @@
       heroCards: spot && spot.forceDeal && spot.forceDeal.heroCards
         ? spot.forceDeal.heroCards.slice()
         : null,
-      board: spot && spot.forceDeal && spot.forceDeal.board
-        ? spot.forceDeal.board.slice()
-        : null,
+      board: (hand && hand.board && hand.board.length)
+        ? hand.board.slice()
+        : (spot && spot.forceDeal && spot.forceDeal.board
+          ? spot.forceDeal.board.slice()
+          : null),
       teachBack: (spot && spot.teachBack) || decision.reason || '',
       reason: decision.reason || '',
       trapTag: spot && spot.trapTag
@@ -608,7 +613,7 @@
       if (Store() && Store().saveHand) Store().saveHand(hand);
     } catch (e) { /* ignore */ }
 
-    showSpotFeedback(decision, spot);
+    showSpotFeedback(decision, spot, hand);
     return true;
   }
 
