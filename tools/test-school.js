@@ -645,6 +645,46 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
   assert.ok(['optima', 'aceptable'].indexOf(grade(s, 'call')) >= 0, 'c17-01 call no es imprecisa');
 })();
 
+/** Turn/river: board completo y determinista; teachBack no cobra a Xx si el board está paired con X. */
+(function assertPostflopBoardCoherence() {
+  function spotById(lessonId, sid) {
+    return Data.getLesson(lessonId).spots.filter(function (s) { return s.id === sid; })[0];
+  }
+  function gradeBet(spot) {
+    const h = openHand(spot).hand;
+    const bet = (h.current.options || []).map(function (o) { return o.id; })
+      .filter(function (id) { return id === 'bet' || id.indexOf('bet_') === 0; })[0];
+    assert.ok(bet, 'opción bet ' + spot.id);
+    const res = Engine.act(h, bet);
+    return res.decision.class;
+  }
+  Data.getLessons().forEach(function (lesson) {
+    (lesson.spots || []).forEach(function (spot) {
+      const st = (spot.playConfig && spot.playConfig.practiceStreet) || 'preflop';
+      if (st !== 'turn' && st !== 'river') return;
+      const board = (spot.forceDeal && spot.forceDeal.board) || [];
+      const need = st === 'turn' ? 4 : 5;
+      assert.ok(board.length >= need, spot.id + ' board completo (' + board.length + '<' + need + ')');
+      const h1 = openHand(spot).hand;
+      const h2 = openHand(spot).hand;
+      assert.strictEqual(h1.board.join(''), h2.board.join(''), spot.id + ' board determinista');
+      assert.strictEqual(h1.board.length, need, spot.id + ' engine street board');
+      const tb = String(spot.teachBack || '');
+      const m = tb.match(/cobra(?:s)? a ([AKQJT2-9])x/i);
+      if (m) {
+        const ranks = h1.board.map(function (c) { return c[0]; });
+        const paired = ranks.filter(function (r, i) { return ranks.indexOf(r) !== i; });
+        assert.ok(paired.indexOf(m[1]) < 0, spot.id + ' no cobra a ' + m[1] + 'x en board paired ' + h1.board.join(' '));
+      }
+    });
+  });
+  const c1913 = spotById('C-19', 'c19-13');
+  assert.ok(c1913, 'c19-13');
+  assert.strictEqual(c1913.forceDeal.board.length, 5, 'c19-13 river 5 cartas');
+  assert.ok(['optima', 'aceptable'].indexOf(gradeBet(c1913)) >= 0, 'c19-13 value bet OK');
+  assert.ok(/no paired|board no paired|no está paired/i.test(c1913.teachBack), 'c19-13 aclara board no paired');
+})();
+
 /* Spins S-01/S-02: sizing steal ~20 bb (shove vs open min vs 3-bet shove) */
 (function () {
   function spotById(lessonId, sid) {
