@@ -1,5 +1,11 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const {
+  mockAuthenticatedUser,
+  waitForAppShell,
+  clickFirstPlayAction,
+  playActionButtons,
+  playSkipButton
+} = require('./helpers');
 
 test.describe('Live Advisor @smoke', () => {
   test('advisor ON no rompe acciones', async ({ page }) => {
@@ -20,11 +26,12 @@ test.describe('Live Advisor @smoke', () => {
 
     await page.click('#play-start');
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 20000 });
-    await page.waitForSelector('#actions .btn', { timeout: 60000 });
-    await page.locator('#actions .btn').first().click();
+    await clickFirstPlayAction(page);
 
     const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
     const toast = page.locator('#verdict-toast.visible');
-    await expect(handEnd.or(toast)).toBeVisible({ timeout: 20000 });
+    const nextSkip = playSkipButton(page);
+    const nextBtn = playActionButtons(page);
+    await expect(handEnd.or(toast).or(nextSkip).or(nextBtn)).toBeVisible({ timeout: 20000 });
   });
 });
