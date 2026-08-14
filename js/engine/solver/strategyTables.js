@@ -381,6 +381,10 @@
         toCallBB: input.toCallBB
       });
     }
+    const RS = global.GTORiverShoveNode;
+    if (RS && RS.zeroFoldIfAbsoluteNuts) {
+      out = RS.zeroFoldIfAbsoluteNuts(out, input.heroCards, input.board, input.street);
+    }
     return out;
   }
 

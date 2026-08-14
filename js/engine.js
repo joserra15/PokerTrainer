@@ -1161,7 +1161,8 @@
     return GTO.Strategy.postflopStrategy({
       toCallBB: node.toCallBB, potBB: node.potBB, heroEquity: node.heroEquity,
       madeHandInfo: info, board: node.board || [], heroCards: node.heroCards || [],
-      initiative: node.initiative, inPosition: node.inPosition, spr: node.spr
+      initiative: node.initiative, inPosition: node.inPosition, spr: node.spr,
+      street: node.street, potBeforeBB: node.potBeforeBB, villainLastAction: node.villainLastAction
     });
   }
 
@@ -1312,12 +1313,16 @@
         holeStrength = handStrength01(R.handCode(hc[0], hc[1]));
       } catch (e) { /* ignore */ }
     }
+    const RSNuts = global.GTORiverShoveNode;
+    const neverFold = !!(RSNuts && RSNuts.isAbsoluteNuts && hc && hand.board
+      && RSNuts.isAbsoluteNuts(hc, hand.board));
     return {
       street: hand.stage,
       tier: info.tier,
       madeCategory: info.ev ? info.ev.category : 0,
       multiway: !!(hand.multiway || (MW() && MW().aliveCount(hand) >= 3)),
-      holeStrength: holeStrength
+      holeStrength: holeStrength,
+      neverFold: neverFold
     };
   }
 
@@ -1334,6 +1339,7 @@
     const potOdds = toCallBB > 0 ? toCallBB / (potBefore + toCallBB) : 0.33;
     const rnd = C.rng.random();
     const pfOpts = villainPostflopOpts(hand, info, cards);
+    if (pfOpts.neverFold) return rnd < 0.18 ? 'raise' : 'call';
     if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd, pfOpts);
     if (strength > potOdds + 0.08) return 'call';
     return strength > potOdds - 0.05 ? (rnd < 0.45 ? 'call' : 'fold') : 'fold';
@@ -1602,6 +1608,22 @@
     return h;
   }
 
+  /** Muestrea fold/call/raise. Nunca foldea las nuts absolutas. */
+  function sampleVillainFacingFromStrategy(strat, rnd, opts) {
+    opts = opts || {};
+    let raiseP = strat.raise || 0;
+    let callP = strat.call || 0;
+    if (opts.neverFold) {
+      const rest = raiseP + callP;
+      if (rest <= 0) return 'call';
+      raiseP /= rest;
+      callP /= rest;
+    }
+    if (opts.canRaise !== false && rnd < raiseP) return 'raise';
+    if (rnd < raiseP + callP) return 'call';
+    return opts.neverFold ? 'call' : 'fold';
+  }
+
   function villainPostflopAction(hand, node) {
     const forced = scriptForcedPostflop(hand, node);
     if (forced) return forced;
@@ -1623,20 +1645,22 @@
       const strat = GTO.Strategy.postflopStrategy({
         toCallBB: villainToCall,
         potBB: hand.potBB,
+        potBeforeBB: potBefore,
         heroEquity: eq != null ? eq : strength,
         madeHandInfo: info,
         board: hand.board.slice(),
         heroCards: hand.villain.cards,
         initiative: hand.heroIsAggressor ? 'caller' : 'aggressor',
         inPosition: !hand.heroInPosition,
-        spr: spr
+        spr: spr,
+        street: hand.stage,
+        villainLastAction: node.heroLastAction || (hand.heroAction && hand.heroAction.type) || null
       });
       if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
-        const foldP = strat.fold || 0;
-        const raiseP = strat.raise || 0;
-        if (rnd < raiseP && villainToCall > 0) return 'raise';
-        if (rnd < raiseP + (strat.call || 0)) return 'call';
-        return 'fold';
+        return sampleVillainFacingFromStrategy(strat, rnd, {
+          neverFold: !!pfOpts.neverFold,
+          canRaise: villainToCall > 0
+        });
       }
       const betKeys = ['bet_100', 'bet_66', 'bet_33', 'bet'];
       let betP = 0;
@@ -1649,6 +1673,7 @@
         ? (hand.table.streetBet[hand.hero.pos] || 0) : 0;
       const potBefore = Math.max(hand.potBB - villainToCall, 0.1);
       const potOdds = villainToCall > 0 ? villainToCall / (potBefore + villainToCall) : 0.33;
+      if (pfOpts.neverFold) return rnd < 0.18 ? 'raise' : 'call';
       if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd, pfOpts);
       if (strength > 0.72) return rnd < 0.22 ? 'raise' : 'call';
       if (strength > potOdds + 0.08) return rnd < 0.82 ? 'call' : 'fold';

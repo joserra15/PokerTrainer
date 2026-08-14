@@ -104,38 +104,50 @@
   }
 
   /**
-   * ¿Nuts absolutas en river? (full house nut, quads, straight flush).
-   * Color nut en mesa DOBLADA no califica.
+   * ¿Nadie puede tener una mano mejor con las 5 cartas del river?
+   * Empates (p. ej. otra combo de la misma escalera) siguen siendo nuts.
+   * Color nut en mesa doblada no califica: un full le gana.
    */
   function isAbsoluteNuts(heroCards, board) {
-    if (isStrongShowdownHand(heroCards, board)) {
-      const heroScore = C.evaluate(heroCards.concat(board));
-      if (heroScore.category >= 6) return true;
-    }
-    if (!heroCards || !board || board.length < 5) return false;
+    if (!heroCards || !board || board.length < 5 || !C || !C.evaluate || !C.fullDeck) return false;
     const heroScore = C.evaluate(heroCards.concat(board));
-    const pairInfo = boardPairRank(board);
-
-    if (heroScore.category >= 7) return true;
-    if (heroScore.category === 8) return true;
-
-    if (heroScore.category === 6) {
-      if (!pairInfo.paired) return true;
-      const boardTop = Math.max(...board.map((c) => C.RANK_VALUE[c[0]]));
-      return heroScore.rank[1] >= boardTop;
+    const deck = C.fullDeck();
+    const dead = new Set(heroCards.concat(board));
+    for (let i = 0; i < deck.length; i++) {
+      const c1 = deck[i];
+      if (dead.has(c1)) continue;
+      for (let j = i + 1; j < deck.length; j++) {
+        const c2 = deck[j];
+        if (dead.has(c2)) continue;
+        const vScore = C.evaluate([c1, c2].concat(board));
+        if (C.compare(vScore, heroScore) > 0) return false;
+      }
     }
+    return true;
+  }
 
-    if (heroScore.category === 5) {
-      if (pairInfo.paired || pairInfo.trips) return false;
-      return heroHasNutFlush(heroCards, board);
+  /** Fold = 0 si la mano es la nuez absoluta (mezcla solo call/raise). */
+  function zeroFoldIfAbsoluteNuts(freqs, heroCards, board, _street) {
+    if (!freqs) return freqs;
+    if (!board || board.length < 5) return freqs;
+    if (!isAbsoluteNuts(heroCards, board)) return freqs;
+    const out = Object.assign({}, freqs);
+    out.fold = 0;
+    let sum = 0;
+    for (const k in out) {
+      if (k === 'fold') continue;
+      sum += out[k] || 0;
     }
-
-    if (heroScore.category === 4) {
-      const BTS = global.GTOBoardTextureShift;
-      return BTS ? BTS.isNutStraight(heroCards, board) : false;
+    if (sum <= 0) {
+      out.call = 1;
+      if (out.raise != null) out.raise = 0;
+      return out;
     }
-
-    return false;
+    for (const k in out) {
+      if (k === 'fold') continue;
+      out[k] = (out[k] || 0) / sum;
+    }
+    return out;
   }
 
   /**
@@ -205,8 +217,20 @@
     const eqEdge = eqEffective - potOdds;
     const node = classifyFacingNode(toCall, potBefore, 'river', params.villainLastAction);
 
-    if ((nuts || strongShowdown) && eqEffective >= potOdds - 0.02) {
-      return normalize({
+    function wrap(freqs) {
+      return zeroFoldIfAbsoluteNuts(normalize(freqs), heroCards, board, 'river');
+    }
+
+    if (nuts) {
+      return wrap({
+        fold: 0,
+        call: clamp(0.82 + eqEdge * 0.15, 0.72, 0.92),
+        raise: 0.08
+      });
+    }
+
+    if (strongShowdown && eqEffective >= potOdds - 0.02) {
+      return wrap({
         fold: 0.04,
         call: clamp(0.82 + eqEdge * 0.15, 0.72, 0.92),
         raise: 0.06
@@ -215,23 +239,23 @@
 
     if (node === 'shove' || toCall >= 50) {
       if (deval.vulnerable || eqEffective < potOdds + 0.08) {
-        return normalize({
+        return wrap({
           fold: clamp(0.82 + (potOdds - eqEffective) * 0.25, 0.75, 0.96),
           call: clamp(0.12 - (potOdds - eqEffective) * 0.15, 0.03, 0.18),
           raise: 0.02
         });
       }
       if (eqEdge >= 0.12) {
-        return normalize({ fold: 0.18, call: 0.74, raise: 0.08 });
+        return wrap({ fold: 0.18, call: 0.74, raise: 0.08 });
       }
-      return normalize({ fold: 0.62, call: 0.32, raise: 0.06 });
+      return wrap({ fold: 0.62, call: 0.32, raise: 0.06 });
     }
 
     if (node === 'overbet') {
       if (deval.vulnerable && eqEffective < potOdds + 0.05) {
-        return normalize({ fold: 0.68, call: 0.26, raise: 0.06 });
+        return wrap({ fold: 0.68, call: 0.26, raise: 0.06 });
       }
-      return normalize({
+      return wrap({
         fold: clamp(0.35 + (potOdds - eqEffective) * 0.4, 0.22, 0.58),
         call: clamp(0.48 + eqEdge * 0.35, 0.28, 0.62),
         raise: 0.05
@@ -255,6 +279,7 @@
     classifyFacingNode,
     isStrongShowdownHand,
     isAbsoluteNuts,
+    zeroFoldIfAbsoluteNuts,
     pairedBoardFlushDevaluation,
     microstakesRiverShoveRange,
     isRiverShoveNode,

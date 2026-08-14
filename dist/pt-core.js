@@ -4744,38 +4744,50 @@ window.PT_VS_3BET_JSON = {
   }
 
   /**
-   * ¿Nuts absolutas en river? (full house nut, quads, straight flush).
-   * Color nut en mesa DOBLADA no califica.
+   * ¿Nadie puede tener una mano mejor con las 5 cartas del river?
+   * Empates (p. ej. otra combo de la misma escalera) siguen siendo nuts.
+   * Color nut en mesa doblada no califica: un full le gana.
    */
   function isAbsoluteNuts(heroCards, board) {
-    if (isStrongShowdownHand(heroCards, board)) {
-      const heroScore = C.evaluate(heroCards.concat(board));
-      if (heroScore.category >= 6) return true;
-    }
-    if (!heroCards || !board || board.length < 5) return false;
+    if (!heroCards || !board || board.length < 5 || !C || !C.evaluate || !C.fullDeck) return false;
     const heroScore = C.evaluate(heroCards.concat(board));
-    const pairInfo = boardPairRank(board);
-
-    if (heroScore.category >= 7) return true;
-    if (heroScore.category === 8) return true;
-
-    if (heroScore.category === 6) {
-      if (!pairInfo.paired) return true;
-      const boardTop = Math.max(...board.map((c) => C.RANK_VALUE[c[0]]));
-      return heroScore.rank[1] >= boardTop;
+    const deck = C.fullDeck();
+    const dead = new Set(heroCards.concat(board));
+    for (let i = 0; i < deck.length; i++) {
+      const c1 = deck[i];
+      if (dead.has(c1)) continue;
+      for (let j = i + 1; j < deck.length; j++) {
+        const c2 = deck[j];
+        if (dead.has(c2)) continue;
+        const vScore = C.evaluate([c1, c2].concat(board));
+        if (C.compare(vScore, heroScore) > 0) return false;
+      }
     }
+    return true;
+  }
 
-    if (heroScore.category === 5) {
-      if (pairInfo.paired || pairInfo.trips) return false;
-      return heroHasNutFlush(heroCards, board);
+  /** Fold = 0 si la mano es la nuez absoluta (mezcla solo call/raise). */
+  function zeroFoldIfAbsoluteNuts(freqs, heroCards, board, _street) {
+    if (!freqs) return freqs;
+    if (!board || board.length < 5) return freqs;
+    if (!isAbsoluteNuts(heroCards, board)) return freqs;
+    const out = Object.assign({}, freqs);
+    out.fold = 0;
+    let sum = 0;
+    for (const k in out) {
+      if (k === 'fold') continue;
+      sum += out[k] || 0;
     }
-
-    if (heroScore.category === 4) {
-      const BTS = global.GTOBoardTextureShift;
-      return BTS ? BTS.isNutStraight(heroCards, board) : false;
+    if (sum <= 0) {
+      out.call = 1;
+      if (out.raise != null) out.raise = 0;
+      return out;
     }
-
-    return false;
+    for (const k in out) {
+      if (k === 'fold') continue;
+      out[k] = (out[k] || 0) / sum;
+    }
+    return out;
   }
 
   /**
@@ -4845,8 +4857,20 @@ window.PT_VS_3BET_JSON = {
     const eqEdge = eqEffective - potOdds;
     const node = classifyFacingNode(toCall, potBefore, 'river', params.villainLastAction);
 
-    if ((nuts || strongShowdown) && eqEffective >= potOdds - 0.02) {
-      return normalize({
+    function wrap(freqs) {
+      return zeroFoldIfAbsoluteNuts(normalize(freqs), heroCards, board, 'river');
+    }
+
+    if (nuts) {
+      return wrap({
+        fold: 0,
+        call: clamp(0.82 + eqEdge * 0.15, 0.72, 0.92),
+        raise: 0.08
+      });
+    }
+
+    if (strongShowdown && eqEffective >= potOdds - 0.02) {
+      return wrap({
         fold: 0.04,
         call: clamp(0.82 + eqEdge * 0.15, 0.72, 0.92),
         raise: 0.06
@@ -4855,23 +4879,23 @@ window.PT_VS_3BET_JSON = {
 
     if (node === 'shove' || toCall >= 50) {
       if (deval.vulnerable || eqEffective < potOdds + 0.08) {
-        return normalize({
+        return wrap({
           fold: clamp(0.82 + (potOdds - eqEffective) * 0.25, 0.75, 0.96),
           call: clamp(0.12 - (potOdds - eqEffective) * 0.15, 0.03, 0.18),
           raise: 0.02
         });
       }
       if (eqEdge >= 0.12) {
-        return normalize({ fold: 0.18, call: 0.74, raise: 0.08 });
+        return wrap({ fold: 0.18, call: 0.74, raise: 0.08 });
       }
-      return normalize({ fold: 0.62, call: 0.32, raise: 0.06 });
+      return wrap({ fold: 0.62, call: 0.32, raise: 0.06 });
     }
 
     if (node === 'overbet') {
       if (deval.vulnerable && eqEffective < potOdds + 0.05) {
-        return normalize({ fold: 0.68, call: 0.26, raise: 0.06 });
+        return wrap({ fold: 0.68, call: 0.26, raise: 0.06 });
       }
-      return normalize({
+      return wrap({
         fold: clamp(0.35 + (potOdds - eqEffective) * 0.4, 0.22, 0.58),
         call: clamp(0.48 + eqEdge * 0.35, 0.28, 0.62),
         raise: 0.05
@@ -4895,6 +4919,7 @@ window.PT_VS_3BET_JSON = {
     classifyFacingNode,
     isStrongShowdownHand,
     isAbsoluteNuts,
+    zeroFoldIfAbsoluteNuts,
     pairedBoardFlushDevaluation,
     microstakesRiverShoveRange,
     isRiverShoveNode,
@@ -5704,6 +5729,10 @@ window.PT_VS_3BET_JSON = {
       freqs = normalize(freqs);
     }
 
+    if (RS && RS.zeroFoldIfAbsoluteNuts) {
+      freqs = RS.zeroFoldIfAbsoluteNuts(freqs, params.heroCards, board, street);
+    }
+
     return freqs;
   }
 
@@ -6244,6 +6273,10 @@ window.PT_VS_3BET_JSON = {
         facingBet: facing,
         toCallBB: input.toCallBB
       });
+    }
+    const RS = global.GTORiverShoveNode;
+    if (RS && RS.zeroFoldIfAbsoluteNuts) {
+      out = RS.zeroFoldIfAbsoluteNuts(out, input.heroCards, input.board, input.street);
     }
     return out;
   }
@@ -8392,6 +8425,11 @@ window.PT_VS_3BET_JSON = {
     const r = rnd != null ? rnd : Math.random();
     const strict = profile.preflopStrict != null && profile.preflopStrict >= 0.99;
     const mwFace = multiwayFacingScale(opts, profile);
+
+    if (opts.neverFold) {
+      if (r < 0.18) return 'raise';
+      return 'call';
+    }
 
     if (strict && madeCat >= 2) {
       if (r < 0.14) return 'raise';
@@ -11998,7 +12036,8 @@ window.PT_VS_3BET_JSON = {
     return GTO.Strategy.postflopStrategy({
       toCallBB: node.toCallBB, potBB: node.potBB, heroEquity: node.heroEquity,
       madeHandInfo: info, board: node.board || [], heroCards: node.heroCards || [],
-      initiative: node.initiative, inPosition: node.inPosition, spr: node.spr
+      initiative: node.initiative, inPosition: node.inPosition, spr: node.spr,
+      street: node.street, potBeforeBB: node.potBeforeBB, villainLastAction: node.villainLastAction
     });
   }
 
@@ -12149,12 +12188,16 @@ window.PT_VS_3BET_JSON = {
         holeStrength = handStrength01(R.handCode(hc[0], hc[1]));
       } catch (e) { /* ignore */ }
     }
+    const RSNuts = global.GTORiverShoveNode;
+    const neverFold = !!(RSNuts && RSNuts.isAbsoluteNuts && hc && hand.board
+      && RSNuts.isAbsoluteNuts(hc, hand.board));
     return {
       street: hand.stage,
       tier: info.tier,
       madeCategory: info.ev ? info.ev.category : 0,
       multiway: !!(hand.multiway || (MW() && MW().aliveCount(hand) >= 3)),
-      holeStrength: holeStrength
+      holeStrength: holeStrength,
+      neverFold: neverFold
     };
   }
 
@@ -12171,6 +12214,7 @@ window.PT_VS_3BET_JSON = {
     const potOdds = toCallBB > 0 ? toCallBB / (potBefore + toCallBB) : 0.33;
     const rnd = C.rng.random();
     const pfOpts = villainPostflopOpts(hand, info, cards);
+    if (pfOpts.neverFold) return rnd < 0.18 ? 'raise' : 'call';
     if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd, pfOpts);
     if (strength > potOdds + 0.08) return 'call';
     return strength > potOdds - 0.05 ? (rnd < 0.45 ? 'call' : 'fold') : 'fold';
@@ -12439,6 +12483,22 @@ window.PT_VS_3BET_JSON = {
     return h;
   }
 
+  /** Muestrea fold/call/raise. Nunca foldea las nuts absolutas. */
+  function sampleVillainFacingFromStrategy(strat, rnd, opts) {
+    opts = opts || {};
+    let raiseP = strat.raise || 0;
+    let callP = strat.call || 0;
+    if (opts.neverFold) {
+      const rest = raiseP + callP;
+      if (rest <= 0) return 'call';
+      raiseP /= rest;
+      callP /= rest;
+    }
+    if (opts.canRaise !== false && rnd < raiseP) return 'raise';
+    if (rnd < raiseP + callP) return 'call';
+    return opts.neverFold ? 'call' : 'fold';
+  }
+
   function villainPostflopAction(hand, node) {
     const forced = scriptForcedPostflop(hand, node);
     if (forced) return forced;
@@ -12460,20 +12520,22 @@ window.PT_VS_3BET_JSON = {
       const strat = GTO.Strategy.postflopStrategy({
         toCallBB: villainToCall,
         potBB: hand.potBB,
+        potBeforeBB: potBefore,
         heroEquity: eq != null ? eq : strength,
         madeHandInfo: info,
         board: hand.board.slice(),
         heroCards: hand.villain.cards,
         initiative: hand.heroIsAggressor ? 'caller' : 'aggressor',
         inPosition: !hand.heroInPosition,
-        spr: spr
+        spr: spr,
+        street: hand.stage,
+        villainLastAction: node.heroLastAction || (hand.heroAction && hand.heroAction.type) || null
       });
       if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
-        const foldP = strat.fold || 0;
-        const raiseP = strat.raise || 0;
-        if (rnd < raiseP && villainToCall > 0) return 'raise';
-        if (rnd < raiseP + (strat.call || 0)) return 'call';
-        return 'fold';
+        return sampleVillainFacingFromStrategy(strat, rnd, {
+          neverFold: !!pfOpts.neverFold,
+          canRaise: villainToCall > 0
+        });
       }
       const betKeys = ['bet_100', 'bet_66', 'bet_33', 'bet'];
       let betP = 0;
@@ -12486,6 +12548,7 @@ window.PT_VS_3BET_JSON = {
         ? (hand.table.streetBet[hand.hero.pos] || 0) : 0;
       const potBefore = Math.max(hand.potBB - villainToCall, 0.1);
       const potOdds = villainToCall > 0 ? villainToCall / (potBefore + villainToCall) : 0.33;
+      if (pfOpts.neverFold) return rnd < 0.18 ? 'raise' : 'call';
       if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd, pfOpts);
       if (strength > 0.72) return rnd < 0.22 ? 'raise' : 'call';
       if (strength > potOdds + 0.08) return rnd < 0.82 ? 'call' : 'fold';

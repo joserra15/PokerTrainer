@@ -232,6 +232,10 @@
       freqs = normalize(freqs);
     }
 
+    if (RS && RS.zeroFoldIfAbsoluteNuts) {
+      freqs = RS.zeroFoldIfAbsoluteNuts(freqs, params.heroCards, board, street);
+    }
+
     return freqs;
   }
 
