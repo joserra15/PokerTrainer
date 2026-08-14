@@ -129,14 +129,27 @@
     });
   }
 
+  function madeCategory(madeInfo) {
+    if (!madeInfo) return 0;
+    if (madeInfo.ev && madeInfo.ev.category != null) return madeInfo.ev.category;
+    if (madeInfo.category != null) return madeInfo.category;
+    return 0;
+  }
+
   function bandFromPercentile(pct, eq, madeInfo) {
-    if (madeInfo && madeInfo.isNutFlush === false && eq < 0.15) return 'air';
+    const cat = madeCategory(madeInfo);
+    // Color+ nunca es aire: una equity filtrada a 0 % no puede degradar la mano a farol.
+    if (cat >= 5) {
+      if (madeInfo.isNutFlush || eq >= 0.72 || pct >= 0.82) return 'nuts';
+      return 'value';
+    }
+    if (madeInfo && madeInfo.flush && !madeInfo.isNutFlush && eq < 0.15) return 'air';
     if (pct >= 0.82 || eq >= 0.72) return 'nuts';
     if (pct >= 0.62 || eq >= 0.58) return 'value';
     if (pct >= 0.42 || eq >= 0.42) return 'merge';
     if (pct >= 0.22 || eq >= 0.28) return 'bluffcatch';
     // Pareja+ hecha (incl. board pair) no es aire puro: al menos bluffcatch.
-    if (madeInfo && madeInfo.ev && madeInfo.ev.category >= 1) return 'bluffcatch';
+    if (cat >= 1) return 'bluffcatch';
     return 'air';
   }
 

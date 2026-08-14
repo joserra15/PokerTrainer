@@ -126,7 +126,11 @@
     return combos;
   }
 
-  /** Ante apuesta en board de color: estrechar solo si el héroe tiene color débil (no nut / <K-high). */
+  /**
+   * Ante apuesta en board de color: no inflar un color débil vs overpairs.
+   * NUNCA colapsar a un subconjunto donde el héroe tiene 0 wins: eso mostraba
+   * equity 0 % con color hecho (p. ej. Q♣J♣ vs TT+/88 boats) y marcaba fold.
+   */
   function filterCombosFacingBet(combos, board, facingBet, heroCards) {
     if (!facingBet || !isFlushBoard(board) || !combos.length) return combos;
     if (!heroCards || heroCards.length < 2) return combos;
@@ -135,7 +139,13 @@
     const ctx = heroNonNutFlushContext(heroCards, board);
     if (!ctx || ctx.isNut || ctx.heroFlushHigh >= 13) return combos;
     const made = combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 5);
-    return made.length ? made : combos;
+    if (!made.length) return combos;
+    let heroWins = 0;
+    for (let i = 0; i < made.length; i++) {
+      if (C.compare(heroScore, C.evaluate(made[i].concat(board))) >= 0) heroWins++;
+    }
+    if (heroWins === 0) return combos;
+    return made;
   }
 
   /**
@@ -159,6 +169,9 @@
     if (ctx && ctx.isNut) return combos;
 
     const heroScore = C.evaluate(heroCards.concat(board));
+    // Color hecho: no colapsar a solo fulls (equity 0 %). capEquity ya devalúa.
+    if (heroScore.category === 5) return combos;
+
     const beating = combos.filter((vh) => C.compare(C.evaluate(vh.concat(board)), heroScore) > 0);
     if (beating.length >= 1) return beating;
 

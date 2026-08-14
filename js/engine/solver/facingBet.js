@@ -81,7 +81,27 @@
     return { min: 0.02, max: 0.12, default: 0.05 };
   }
 
+  function madeCategory(madeInfo) {
+    if (!madeInfo) return 0;
+    if (madeInfo.ev && madeInfo.ev.category != null) return madeInfo.ev.category;
+    if (madeInfo.category != null) return madeInfo.category;
+    return 0;
+  }
+
   function resolveBand(params) {
+    const cat = madeCategory(params.madeHandInfo);
+    if (cat >= 5) {
+      if ((params.madeHandInfo && params.madeHandInfo.isNutFlush) || (params.heroEquity || 0) >= 0.70) {
+        return 'nuts';
+      }
+      return 'value';
+    }
+    if (params.handRank && params.handRank.band && params.handRank.band !== 'air') {
+      return params.handRank.band;
+    }
+    if (params.handRank && params.handRank.band === 'air' && cat >= 1) {
+      return 'bluffcatch';
+    }
     if (params.handRank && params.handRank.band) return params.handRank.band;
     const eq = params.heroEquity != null ? params.heroEquity : 0;
     const tier = params.tier || 'medium';
@@ -155,20 +175,20 @@
     let fold, call, raise;
 
     if (band === 'nuts' || band === 'value') {
-      if (band === 'nuts' && heroEquity >= 0.92 && street === 'river') {
-        raise = clamp(0.18 + Math.max(0, eqEdge) * 0.6, 0.12, 0.40);
-        call = clamp(0.75 - raise * 0.4, 0.48, 0.82);
-        fold = clamp(1 - call - raise, 0, 0.05);
+      if (band === 'nuts' && heroEquity >= 0.70 && street === 'river') {
+        raise = clamp(0.16 + Math.max(0, eqEdge) * 0.15, 0.15, 0.24);
+        call = clamp(0.78 - raise * 0.35, 0.58, 0.82);
+        fold = clamp(1 - call - raise, 0, 0.06);
       } else {
         raise = street === 'river'
-          ? clamp(0.05 + Math.max(0, eqEdge) * 0.4, rb.min, 0.10)
+          ? clamp(0.12 + Math.max(0, eqEdge) * 0.25, 0.10, 0.20)
           : (street === 'turn' ? clamp(0.08 + eqEdge * 0.35, rb.min, 0.18) : clamp(0.14 + eqEdge * 0.5, rb.min, rb.max));
         if (street === 'flop' && texture.hasDraws) raise += 0.05;
-        raise = clamp(raise, rb.min, rb.max);
+        if (street !== 'river') raise = clamp(raise, rb.min, rb.max);
         call = street === 'river'
-          ? clamp(0.82 - raise * 0.3, 0.68, 0.90)
+          ? clamp(0.78 - raise * 0.3, 0.62, 0.88)
           : (street === 'turn' ? clamp(0.58 + eqEdge * 0.25, 0.48, 0.72) : clamp(0.52 + eqEdge * 0.3, 0.42, 0.68));
-        fold = clamp(1 - call - raise, 0.02, 0.15);
+        fold = clamp(1 - call - raise, 0.02, street === 'river' ? 0.10 : 0.15);
       }
     } else if (band === 'merge') {
       raise = rb.default;
@@ -218,7 +238,8 @@
       raise = Math.min(raise, 0.07);
     }
 
-    if (!inPosition && (texture.paired || texture.wet || texture.scaryRiver)) {
+    if (!inPosition && (texture.paired || texture.wet || texture.scaryRiver)
+      && band !== 'nuts' && band !== 'value') {
       raise *= 0.55;
       fold = clamp(fold + 0.05, 0, 0.85);
       call = Math.max(0.04, 1 - fold - raise);
