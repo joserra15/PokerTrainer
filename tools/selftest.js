@@ -118,7 +118,7 @@ const eqRiverNonNut = GTO.Equity.equityVsRange(
   'JJ+, AQs+, AKo, TT, AJs, KQs, A2s-AKs', 800,
   { street: 'river', facingBet: true }
 );
-console.log('J9cc river vs bet (non-nut flush) eq ~', Math.round(eqRiverNonNut * 100) + '% (expect ~0-5%)');
+console.log('J9cc river vs bet (non-nut flush) eq ~', Math.round(eqRiverNonNut * 100) + '% (expect >>0 vs overpairs; no colapsar a 0%)');
 
 const eqKqTurnFacing = GTO.Equity.equityVsRange(
   ['Ks', 'Qh'], ['9c', 'Qc', 'Jc', 'Th'],

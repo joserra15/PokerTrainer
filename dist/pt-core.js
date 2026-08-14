@@ -3469,7 +3469,11 @@ window.PT_VS_3BET_JSON = {
     return combos;
   }
 
-  /** Ante apuesta en board de color: estrechar solo si el héroe tiene color débil (no nut / <K-high). */
+  /**
+   * Ante apuesta en board de color: no inflar un color débil vs overpairs.
+   * NUNCA colapsar a un subconjunto donde el héroe tiene 0 wins: eso mostraba
+   * equity 0 % con color hecho (p. ej. Q♣J♣ vs TT+/88 boats) y marcaba fold.
+   */
   function filterCombosFacingBet(combos, board, facingBet, heroCards) {
     if (!facingBet || !isFlushBoard(board) || !combos.length) return combos;
     if (!heroCards || heroCards.length < 2) return combos;
@@ -3478,7 +3482,13 @@ window.PT_VS_3BET_JSON = {
     const ctx = heroNonNutFlushContext(heroCards, board);
     if (!ctx || ctx.isNut || ctx.heroFlushHigh >= 13) return combos;
     const made = combos.filter((vh) => C.evaluate(vh.concat(board)).category >= 5);
-    return made.length ? made : combos;
+    if (!made.length) return combos;
+    let heroWins = 0;
+    for (let i = 0; i < made.length; i++) {
+      if (C.compare(heroScore, C.evaluate(made[i].concat(board))) >= 0) heroWins++;
+    }
+    if (heroWins === 0) return combos;
+    return made;
   }
 
   /**
@@ -3502,6 +3512,9 @@ window.PT_VS_3BET_JSON = {
     if (ctx && ctx.isNut) return combos;
 
     const heroScore = C.evaluate(heroCards.concat(board));
+    // Color hecho: no colapsar a solo fulls (equity 0 %). capEquity ya devalúa.
+    if (heroScore.category === 5) return combos;
+
     const beating = combos.filter((vh) => C.compare(C.evaluate(vh.concat(board)), heroScore) > 0);
     if (beating.length >= 1) return beating;
 
@@ -3861,14 +3874,27 @@ window.PT_VS_3BET_JSON = {
     });
   }
 
+  function madeCategory(madeInfo) {
+    if (!madeInfo) return 0;
+    if (madeInfo.ev && madeInfo.ev.category != null) return madeInfo.ev.category;
+    if (madeInfo.category != null) return madeInfo.category;
+    return 0;
+  }
+
   function bandFromPercentile(pct, eq, madeInfo) {
-    if (madeInfo && madeInfo.isNutFlush === false && eq < 0.15) return 'air';
+    const cat = madeCategory(madeInfo);
+    // Color+ nunca es aire: una equity filtrada a 0 % no puede degradar la mano a farol.
+    if (cat >= 5) {
+      if (madeInfo.isNutFlush || eq >= 0.72 || pct >= 0.82) return 'nuts';
+      return 'value';
+    }
+    if (madeInfo && madeInfo.flush && !madeInfo.isNutFlush && eq < 0.15) return 'air';
     if (pct >= 0.82 || eq >= 0.72) return 'nuts';
     if (pct >= 0.62 || eq >= 0.58) return 'value';
     if (pct >= 0.42 || eq >= 0.42) return 'merge';
     if (pct >= 0.22 || eq >= 0.28) return 'bluffcatch';
     // Pareja+ hecha (incl. board pair) no es aire puro: al menos bluffcatch.
-    if (madeInfo && madeInfo.ev && madeInfo.ev.category >= 1) return 'bluffcatch';
+    if (cat >= 1) return 'bluffcatch';
     return 'air';
   }
 
@@ -5578,7 +5604,27 @@ window.PT_VS_3BET_JSON = {
     return { min: 0.02, max: 0.12, default: 0.05 };
   }
 
+  function madeCategory(madeInfo) {
+    if (!madeInfo) return 0;
+    if (madeInfo.ev && madeInfo.ev.category != null) return madeInfo.ev.category;
+    if (madeInfo.category != null) return madeInfo.category;
+    return 0;
+  }
+
   function resolveBand(params) {
+    const cat = madeCategory(params.madeHandInfo);
+    if (cat >= 5) {
+      if ((params.madeHandInfo && params.madeHandInfo.isNutFlush) || (params.heroEquity || 0) >= 0.70) {
+        return 'nuts';
+      }
+      return 'value';
+    }
+    if (params.handRank && params.handRank.band && params.handRank.band !== 'air') {
+      return params.handRank.band;
+    }
+    if (params.handRank && params.handRank.band === 'air' && cat >= 1) {
+      return 'bluffcatch';
+    }
     if (params.handRank && params.handRank.band) return params.handRank.band;
     const eq = params.heroEquity != null ? params.heroEquity : 0;
     const tier = params.tier || 'medium';
@@ -5652,20 +5698,20 @@ window.PT_VS_3BET_JSON = {
     let fold, call, raise;
 
     if (band === 'nuts' || band === 'value') {
-      if (band === 'nuts' && heroEquity >= 0.92 && street === 'river') {
-        raise = clamp(0.18 + Math.max(0, eqEdge) * 0.6, 0.12, 0.40);
-        call = clamp(0.75 - raise * 0.4, 0.48, 0.82);
-        fold = clamp(1 - call - raise, 0, 0.05);
+      if (band === 'nuts' && heroEquity >= 0.70 && street === 'river') {
+        raise = clamp(0.16 + Math.max(0, eqEdge) * 0.15, 0.15, 0.24);
+        call = clamp(0.78 - raise * 0.35, 0.58, 0.82);
+        fold = clamp(1 - call - raise, 0, 0.06);
       } else {
         raise = street === 'river'
-          ? clamp(0.05 + Math.max(0, eqEdge) * 0.4, rb.min, 0.10)
+          ? clamp(0.12 + Math.max(0, eqEdge) * 0.25, 0.10, 0.20)
           : (street === 'turn' ? clamp(0.08 + eqEdge * 0.35, rb.min, 0.18) : clamp(0.14 + eqEdge * 0.5, rb.min, rb.max));
         if (street === 'flop' && texture.hasDraws) raise += 0.05;
-        raise = clamp(raise, rb.min, rb.max);
+        if (street !== 'river') raise = clamp(raise, rb.min, rb.max);
         call = street === 'river'
-          ? clamp(0.82 - raise * 0.3, 0.68, 0.90)
+          ? clamp(0.78 - raise * 0.3, 0.62, 0.88)
           : (street === 'turn' ? clamp(0.58 + eqEdge * 0.25, 0.48, 0.72) : clamp(0.52 + eqEdge * 0.3, 0.42, 0.68));
-        fold = clamp(1 - call - raise, 0.02, 0.15);
+        fold = clamp(1 - call - raise, 0.02, street === 'river' ? 0.10 : 0.15);
       }
     } else if (band === 'merge') {
       raise = rb.default;
@@ -5715,7 +5761,8 @@ window.PT_VS_3BET_JSON = {
       raise = Math.min(raise, 0.07);
     }
 
-    if (!inPosition && (texture.paired || texture.wet || texture.scaryRiver)) {
+    if (!inPosition && (texture.paired || texture.wet || texture.scaryRiver)
+      && band !== 'nuts' && band !== 'value') {
       raise *= 0.55;
       fold = clamp(fold + 0.05, 0, 0.85);
       call = Math.max(0.04, 1 - fold - raise);
@@ -6806,7 +6853,14 @@ window.PT_VS_3BET_JSON = {
     const freq = opts.freq != null ? opts.freq : 0;
     const maxFreq = opts.maxFreq != null ? opts.maxFreq : (chosen === freqBest ? freq : 0);
     const equity = opts.equity != null ? opts.equity : 0;
-    const isNuts = opts.band === 'nuts' || equity >= 0.95;
+    const madeCat = opts.madeCategory != null
+      ? opts.madeCategory
+      : (opts.madeHandInfo && ((opts.madeHandInfo.ev && opts.madeHandInfo.ev.category)
+        || opts.madeHandInfo.category)) || 0;
+    const madeFlushPlus = madeCat >= 5;
+    const isNuts = opts.band === 'nuts' || equity >= 0.95 || madeFlushPlus;
+    const valueAggro = chosen === 'raise' || chosen === 'bet'
+      || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
       return { cls: freqCls, best: freqBest };
     }
@@ -6853,7 +6907,12 @@ window.PT_VS_3BET_JSON = {
     const trustEvBest = evBestTrustedInMix(bestAct, freqBest, maxFreq, evBestFreq, callSinOdds);
     if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
       if (cls === 'optima' || cls === 'aceptable') {
-        cls = evLoss >= 1 ? 'error' : 'imprecisa';
+        // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
+        if (!(valueAggro && isNuts)) {
+          cls = evLoss >= 1 ? 'error' : 'imprecisa';
+        } else if (cls === 'optima' && freq < 0.15) {
+          cls = 'aceptable';
+        }
       }
       // Si el EV "óptimo" es residual (~11% bet), mantener el líder de mezcla (check).
       best = (trustEvBest || callSinOdds) ? bestAct : freqBest;
@@ -6861,6 +6920,10 @@ window.PT_VS_3BET_JSON = {
       if (cls === 'optima') cls = delta >= 1 ? 'imprecisa' : 'aceptable';
       if (chosen === 'call' && freqBest === 'fold') bestAct = 'fold';
       if (trustEvBest) best = bestAct;
+    }
+
+    if (valueAggro && isNuts && (cls === 'error' || cls === 'imprecisa')) {
+      cls = 'aceptable';
     }
 
     return { cls, best };
@@ -7983,7 +8046,12 @@ window.PT_VS_3BET_JSON = {
           maxFreq: cls.maxFreq,
           legalStrategy: cls.legalStrategy,
           equity: enriched.heroEquity,
-          band: enriched.handRank && enriched.handRank.band
+          band: enriched.handRank && enriched.handRank.band,
+          madeHandInfo: enriched.madeHandInfo,
+          madeCategory: enriched.madeHandInfo && (
+            (enriched.madeHandInfo.ev && enriched.madeHandInfo.ev.category)
+            || enriched.madeHandInfo.category
+          )
         }
       );
       const finalCls = reconciled.cls;

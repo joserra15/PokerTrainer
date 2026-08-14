@@ -101,7 +101,14 @@
     const freq = opts.freq != null ? opts.freq : 0;
     const maxFreq = opts.maxFreq != null ? opts.maxFreq : (chosen === freqBest ? freq : 0);
     const equity = opts.equity != null ? opts.equity : 0;
-    const isNuts = opts.band === 'nuts' || equity >= 0.95;
+    const madeCat = opts.madeCategory != null
+      ? opts.madeCategory
+      : (opts.madeHandInfo && ((opts.madeHandInfo.ev && opts.madeHandInfo.ev.category)
+        || opts.madeHandInfo.category)) || 0;
+    const madeFlushPlus = madeCat >= 5;
+    const isNuts = opts.band === 'nuts' || equity >= 0.95 || madeFlushPlus;
+    const valueAggro = chosen === 'raise' || chosen === 'bet'
+      || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
       return { cls: freqCls, best: freqBest };
     }
@@ -148,7 +155,12 @@
     const trustEvBest = evBestTrustedInMix(bestAct, freqBest, maxFreq, evBestFreq, callSinOdds);
     if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
       if (cls === 'optima' || cls === 'aceptable') {
-        cls = evLoss >= 1 ? 'error' : 'imprecisa';
+        // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
+        if (!(valueAggro && isNuts)) {
+          cls = evLoss >= 1 ? 'error' : 'imprecisa';
+        } else if (cls === 'optima' && freq < 0.15) {
+          cls = 'aceptable';
+        }
       }
       // Si el EV "óptimo" es residual (~11% bet), mantener el líder de mezcla (check).
       best = (trustEvBest || callSinOdds) ? bestAct : freqBest;
@@ -156,6 +168,10 @@
       if (cls === 'optima') cls = delta >= 1 ? 'imprecisa' : 'aceptable';
       if (chosen === 'call' && freqBest === 'fold') bestAct = 'fold';
       if (trustEvBest) best = bestAct;
+    }
+
+    if (valueAggro && isNuts && (cls === 'error' || cls === 'imprecisa')) {
+      cls = 'aceptable';
     }
 
     return { cls, best };

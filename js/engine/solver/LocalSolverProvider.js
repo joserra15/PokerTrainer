@@ -155,7 +155,12 @@
           maxFreq: cls.maxFreq,
           legalStrategy: cls.legalStrategy,
           equity: enriched.heroEquity,
-          band: enriched.handRank && enriched.handRank.band
+          band: enriched.handRank && enriched.handRank.band,
+          madeHandInfo: enriched.madeHandInfo,
+          madeCategory: enriched.madeHandInfo && (
+            (enriched.madeHandInfo.ev && enriched.madeHandInfo.ev.category)
+            || enriched.madeHandInfo.category
+          )
         }
       );
       const finalCls = reconciled.cls;

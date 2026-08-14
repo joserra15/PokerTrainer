@@ -35,6 +35,7 @@ const STEPS = [
   // Fase 1 — scripts que ya existían fuera de CI
   ['Test all-in runout', ['node', 'tools/test-allin-runout.js']],
   ['Test river nut flush', ['node', 'tools/test-river-board-ace-nut-flush.js']],
+  ['Test river flush raise equity', ['node', 'tools/test-river-flush-raise-equity.js']],
   ['Test river monotone', ['node', 'tools/test-river-monotone-bet-range.js']],
   ['Test hand score 0–10', ['node', 'tools/test-hand-score.js']],
   ['Test share-hand HTML', ['node', 'tools/test-share-hand.js']],
