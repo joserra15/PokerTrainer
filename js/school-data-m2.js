@@ -157,16 +157,16 @@
       ],
       examples: [{
         title: 'Odds vs sizing',
-        body: 'BB vs c-bet a 1/3 en A72 rainbow con 86s (gutshot + backdoors): hacer call. Con 93o sin backdoors: fold. El sizing pequeño te invita a continuar cuando tienes camino.'
+        body: 'BB vs c-bet a 1/3 en A72 rainbow con 54s (gutshot a 3 + backdoor de color): hacer call. Con 93o sin outs reales: fold. El sizing pequeño te invita a continuar cuando tienes camino.'
       }],
       aiQuestions: [
         '¿Por qué defiendo más vs un c-bet pequeño?',
         '¿Qué es un backdoor, con un ejemplo?'
       ],
       spots: [
-        flop('c17-01', 'BB', ['8h', '6h'], ['As', '7d', '2c'], 27001, {
+        flop('c17-01', 'BB', ['5h', '4h'], ['As', '7d', '2c'], 27001, {
           facingBet: true,
-          teachBack: 'Vs sizing pequeño, 86s con equity y backdoors: continúa (call). No overfoldees.'
+          teachBack: 'Vs sizing pequeño, 54s con gutshot (3) y backdoor de color: continúa (call). No overfoldees.'
         }),
         flop('c17-02', 'BB', ['8h', '3d'], ['As', 'Kd', 'Qc'], 27002, {
           facingBet: true,
