@@ -472,6 +472,8 @@ assert.ok(/polar \(/.test(Data.getLesson('C-05').examples[0].body) && /wide \(/.
 
   var c17 = blobOf('C-17');
   assert.ok(/pot odds|precio/.test(c17) && /backdoor/.test(c17), 'C-17 pot odds/backdoors');
+  assert.ok(/54s/.test(c17) && /gutshot/.test(c17), 'C-17 ejemplo 54s con gutshot real en A72');
+  assert.ok(!/86s \(gutshot/.test(c17), 'C-17 ya no enseña 86s como gutshot en A72');
 
   assert.ok(!/\b[Ll]lamar\b|\bllaman\b/.test(
     Data.m1Lessons().concat(Data.m2Lessons()).map(function (l) {
@@ -622,6 +624,25 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
     assert.strictEqual(graded.stage, 'complete', 'decisionEnd sample ' + spot.id);
     assert.ok(graded.result && graded.result.school, 'school flag ' + spot.id);
   });
+})();
+
+/* C-17: el spot de ejemplo vs c-bet 1/3 debe premiar call (teachBack = call). */
+(function () {
+  function spotById(lessonId, sid) {
+    return Data.getLesson(lessonId).spots.filter(function (s) { return s.id === sid; })[0];
+  }
+  function grade(spot, actionId) {
+    const h = openHand(spot).hand;
+    const res = Engine.act(h, actionId);
+    assert.ok(res && res.decision, 'grade ' + spot.id + ' ' + actionId);
+    return res.decision.class;
+  }
+  const s = spotById('C-17', 'c17-01');
+  assert.ok(s, 'c17-01 existe');
+  assert.strictEqual(s.forceDeal.heroCards.join(''), '5h4h', 'c17-01 es 54s (gutshot en A72)');
+  assert.strictEqual(s.forceDeal.board.join(''), 'As7d2c', 'c17-01 board A72r');
+  assert.ok(/call/i.test(s.teachBack), 'c17-01 teachBack pide call');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s, 'call')) >= 0, 'c17-01 call no es imprecisa');
 })();
 
 /* Spins S-01/S-02: sizing steal ~20 bb (shove vs open min vs 3-bet shove) */
