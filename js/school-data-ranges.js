@@ -294,39 +294,39 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Tras una línea (open, call, check, bet…), no pongas al rival en “una mano”: reduce su rango a una historia creíble de value, medias y aire.",
+      "concept": "Tras una línea completa (preflop → river), no pongas al rival en “una mano”: recorta su rango calle a calle y acaba preguntándote qué combos siguen vivos.",
       "theory": [
         {
-          "title": "Cada acción elimina manos",
-          "body": "Asignar rango es ir capeando (recortando) combinaciones imposibles. Quien hace open RFI no tiene 72o. Quien hace call a un 3-bet grande rara vez tiene aire puro. Quien check-raisea flop polariza: fuertes y faroles, menos medias sticky."
+          "title": "Cada calle elimina manos",
+          "body": "Asignar rango es ir capeando (recortando) combinaciones imposibles en cada calle. Quien hace open RFI no tiene 72o. Quien hace call a un c-bet en flop seco ya no es el RFI entero. Quien apuesta river tras tres calles de agresión densifica value y faroles creíbles; muchas medias sticky ya se quedaron atrás."
         },
         {
-          "title": "Escribe la historia en bandas",
-          "body": "Ejercicio de profesor: en el river, lista 2–3 manos tipo de value, 2–3 medias y 2–3 aires que llegan a esa línea. Si solo puedes imaginar la nuts que te gana, estás sesgado. Contrasta con el menú Rangos cuando exista chart del spot."
+          "title": "Lee la línea, luego elige un combo",
+          "body": "Ejercicio de profesor: narra preflop → flop → turn → river en voz alta. En el river lista 2–3 manos tipo de value, 2–3 medias y 2–3 aires que llegan a esa línea. Luego elige UN combo concreto que sobreviva. Si solo puedes imaginar la nuts que te gana, estás sesgado."
         },
         {
-          "title": "Trampa del “siempre me tiene”",
-          "body": "El error clásico es poner al villano siempre en la mano que te gana tras un bet grande. Oblígate a nombrar también faroles y manos medias. Sin aire en su rango, nunca puedes hacer call; sin value, nunca puedes fold — y ambos extremos son sospechosos."
+          "title": "Quiz final: ¿qué crees que tiene?",
+          "body": "Antes de ver las cartas del villano, elige entre tres manos: la que encaja con la línea y dos que la propia línea ya debería haber descartado. Si aciertas el descarte, estás asignando rango; si no, estás adivinando showdown."
         }
       ],
       "examples": [
         {
-          "title": "Línea simple IP",
-          "body": "BTN open, BB call, flop check-check, turn bet BTN, river bet. El rango del BTN en river ya no es el RFI entero: se densificó en value y algunos faroles; muchas basuras checkearon atrás en turn."
+          "title": "Triple barrel en A-high seco",
+          "body": "BTN open, BB call, flop check-call, turn check-call, river bet. El BTN en river ya no es el RFI entero: se densificó en Ax value y algunos faroles con blockers; 72o nunca abrió y muchas basuras checkearon atrás en turn."
         },
         {
           "title": "Check-raise en flop",
           "body": "BB check-raisea un c-bet en board seco. Historia típica: sets, dos pares, a veces faroles con blockers. QJ sin pareja queda fuera del value; no digas “me tiene AK” sin mirar la línea."
         },
         {
-          "title": "Drill de tres columnas",
-          "body": "Papel: Value | Medias | Aire. Rellena tras narrar la línea en voz alta. Si una columna está vacía, tu asignación es incompleta."
+          "title": "Drill de tres opciones",
+          "body": "Al final de cada mano de práctica verás tres combos. Pregunta: ¿cuál sigue vivo tras open + call flop + bet turn + bet river? Las otras dos deben tener una frase de descarte clara."
         }
       ],
       "aiQuestions": [
         "¿Qué manos elimina un check-raise de flop del rango “solo call”?",
-        "¿Cómo evitas poner al rival siempre en la nuts?",
-        "¿Qué tres columnas usas para describir un rango en river?"
+        "¿Cómo evitas poner al rival siempre en la nuts tras un river bet?",
+        "Antes de ver las cartas del villano, ¿qué pregunta te haces?"
       ],
       "spots": [],
       "exam": false,

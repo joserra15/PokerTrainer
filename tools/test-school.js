@@ -848,7 +848,48 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.PTAdmin = { hasAccess: function () { return true; } };
 })();
 
-/* Resumen spots a repasar: cartas/pos/board + teachBack, sin trapTag */
+/* R-05: manos completas (river) + quiz «¿qué crees que tiene?» antes de revelar. */
+(function assertR05LineQuiz() {
+  const lesson = Data.getLesson('R-05');
+  assert.ok(lesson, 'R-05 existe');
+  assert.ok(/calle|línea completa|qué crees que tiene/i.test(lessonBlob(lesson)), 'R-05 teoría multi-calle + quiz');
+  assert.ok(Array.isArray(lesson.spots) && lesson.spots.length >= 12, 'R-05 ≥12 spots');
+  lesson.spots.forEach(function (spot) {
+    const st = (spot.playConfig && spot.playConfig.practiceStreet) || 'preflop';
+    assert.strictEqual(st, 'river', spot.id + ' debe ser river (mano completa)');
+    const board = (spot.forceDeal && spot.forceDeal.board) || [];
+    assert.strictEqual(board.length, 5, spot.id + ' board river 5 cartas');
+    assert.ok(Array.isArray(spot.lineStory) && spot.lineStory.length >= 3, spot.id + ' lineStory');
+    const quiz = spot.villainQuiz;
+    assert.ok(quiz && Array.isArray(quiz.options) && quiz.options.length === 3, spot.id + ' quiz 3 opciones');
+    const correct = quiz.options.filter(function (o) { return o.correct; });
+    assert.strictEqual(correct.length, 1, spot.id + ' exactamente 1 correcta');
+    assert.ok(quiz.answerCards && quiz.answerCards.length === 2, spot.id + ' answerCards');
+    const dead = [].concat(spot.forceDeal.heroCards || [], board, quiz.answerCards);
+    const seen = Object.create(null);
+    dead.forEach(function (c) {
+      assert.ok(!seen[c], spot.id + ' carta duplicada ' + c);
+      seen[c] = true;
+    });
+    quiz.options.forEach(function (o) {
+      assert.ok(o.cards && o.cards.length === 2, spot.id + ' option cards');
+      if (!o.correct) assert.ok(o.eliminated && o.eliminated.length > 10, spot.id + ' eliminated text');
+    });
+    const pack = openHand(spot);
+    assert.strictEqual(pack.hand.stage, 'river', spot.id + ' stage river');
+    assert.ok(pack.hand.current && pack.hand.current.options.length, spot.id + ' opciones river');
+    const callOrFold = pack.hand.current.options.map(function (o) { return o.id; })
+      .filter(function (id) { return id === 'call' || id === 'fold' || id === 'check'; })[0];
+    assert.ok(callOrFold, spot.id + ' call/fold/check');
+    const graded = openHand(spot).hand;
+    const res = Engine.act(graded, callOrFold);
+    assert.ok(res && res.decision, spot.id + ' gradeable');
+    assert.strictEqual(graded.stage, 'complete', spot.id + ' decisionEnd');
+  });
+  assert.ok(/villainQuiz|showVillainQuiz|¿Qué crees que tiene/.test(schoolSrc), 'school.js quiz villano');
+  assert.ok(/school-quiz-option|school-line-story/.test(css), 'CSS quiz/línea');
+})();
+
 (function () {
   assert.ok(typeof School.formatFailSpotHtml === 'function', 'formatFailSpotHtml export');
   const htmlOut = School.formatFailSpotHtml({
