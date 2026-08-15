@@ -125,7 +125,6 @@ function assertPushVsRfiOptions(hub, label) {
 assertPushVsRfiOptions('spin', 'spin push vsRFI');
 assertPushVsRfiOptions('mtt', 'mtt push vsRFI');
 
-<<<<<<< HEAD
 // Stacks MTT/Spin: héroe al depth elegido; villanos mid/short/deep (no clon del héroe)
 {
   const ST = w.PTStacks;
@@ -154,7 +153,8 @@ assertPushVsRfiOptions('mtt', 'mtt push vsRFI');
   // Cash sigue cercano al héroe
   const cashHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', seed: 42 }, PC.normalize({ stackDepth: 'bb100' }));
   assert.ok(cashHand.stacks.CO >= 70 && cashHand.stacks.CO <= 130, 'cash villain cercano');
-=======
+}
+
 // Push shove: si pagan (incluso "3bet" forzado), héroe all-in → runout, nunca face3bet
 {
   const pushCfg = PC.normalize({
@@ -187,7 +187,6 @@ assertPushVsRfiOptions('mtt', 'mtt push vsRFI');
   );
   const rem = w.PTStacks ? w.PTStacks.remaining(shoveHand, 'CO') : 0;
   assert.ok(rem <= 0.01, 'héroe sin fichas tras shove');
->>>>>>> origin/cursor/allin-no-face3bet-fcda
 }
 
 // --- ICM ---
@@ -286,7 +285,7 @@ assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2.5.36'/.test(version), 'version 2.5.36');
+assert.ok(/PT_BUILD\s*=\s*'2.5.37'/.test(version), 'version 2.5.37');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');
