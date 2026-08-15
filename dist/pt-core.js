@@ -25280,7 +25280,7 @@ window.PT_VS_3BET_JSON = {
       } else if (scenario === 'steal') {
         hint.textContent = 'Steal usa stacks de ~15–25 bb; elige solo dentro de esa banda.';
       } else if (phase && phase !== 'auto') {
-        hint.textContent = 'Con fase fija el stack se ajusta a esa profundidad (no puedes mezclar p. ej. Short con 25 bb en Spins early).';
+        hint.textContent = 'Con fase fija el stack se ajusta solo a esa profundidad (no se configura a mano).';
       } else {
         hint.textContent = 'Con fase Auto eliges el stack; Early/Mid/Short/Push adaptan el stack automáticamente.';
       }
