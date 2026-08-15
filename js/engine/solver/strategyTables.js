@@ -476,11 +476,16 @@
       }
 
       // Push/fold corto: charts Nash-aprox (spins / MTT push).
-      if (PF && (input.pushFold || input.preflopMode === 'push' || PF.isPushPhase(Object.assign({}, input, ctx || {})))
+      // No pisar steal/stealDefense aunque el efectivo vs un short sea ≤12bb.
+      if (PF && input.preflopMode !== 'steal' && input.preflopMode !== 'stealDefense'
+        && (input.pushFold || input.preflopMode === 'push' || PF.isPushPhase(Object.assign({}, input, {
+          stackBB: input.stackDepth || input.effStack,
+          effStack: input.stackDepth || input.effStack
+        }, ctx || {})))
         && (spotKey.street === 'preflop' || kind === 'RFI' || kind === 'vsRFI')) {
         return PF.pushFoldStrategy(Object.assign({}, input, {
           position: input.position,
-          effStack: input.effStack || input.stackDepth || (ctx && ctx.stackBB),
+          effStack: input.stackDepth || input.effStack || (ctx && ctx.stackBB),
           openerPos: input.vsPosition || input.openerPos
         }));
       }

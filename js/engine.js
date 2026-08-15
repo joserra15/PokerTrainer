@@ -68,11 +68,27 @@
     return EFF;
   }
 
+  /** Stack del héroe (no min vs villano): guía modo steal/push y charts de apertura. */
+  function heroStackForMode(hand) {
+    const stacks = ST();
+    if (stacks && hand && hand.stacks) {
+      const heroSeat = hand.displayHeroPos || (hand.hero && hand.hero.pos);
+      if (heroSeat && hand.stacks[heroSeat] != null) {
+        return round2(hand.stacks[heroSeat]);
+      }
+      if (hand.heroStackStart != null) return round2(hand.heroStackStart);
+    }
+    const PC = global.PTPlayConfig;
+    if (hand && hand.playConfig && PC) return PC.stackBB(hand.playConfig);
+    return effStackForHand(hand);
+  }
+
   /** standard | steal | stealDefense | push — tamaños preflop según temática del spot. */
   function preflopSizingMode(hand) {
     const cfg = hand.playConfig || {};
     const s = hand.scenario || {};
-    const stack = effStackForHand(hand);
+    // Usar stack del héroe: un short random en la mesa no debe pasar steal 25bb → push.
+    const stack = heroStackForMode(hand);
     const sc = cfg.scenario || 'rfi';
     const PF = global.GTOPushFold;
     if (sc === 'push' || cfg.resolvedPhase === 'push' || s.pushFold) {
@@ -1281,8 +1297,9 @@
       input.vsPosition = s.threeBettorPos || hand.villain.pos;
     }
     const rem = heroRemainingBB(hand);
-    input.stackDepth = effStackForHand(hand);
-    input.effStack = input.stackDepth;
+    // Charts / modo: stack del héroe. Efectivo real (min vs villano) aparte para ICM/all-in.
+    input.stackDepth = heroStackForMode(hand);
+    input.effStack = effStackForHand(hand);
     input.heroRemainingBB = rem;
     input.spr = node.potBB > 0 ? rem / node.potBB : rem;
     const cfg = hand.playConfig || {};
