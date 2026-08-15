@@ -54,7 +54,8 @@
   }
 
   function isAggressiveId(id) {
-    return id === "raise" || id === "bet" || (id && id.indexOf("bet_") === 0);
+    return id === "raise" || id === "bet" || id === "allin"
+      || (id && id.indexOf("bet_") === 0);
   }
 
   function aggressiveButtons() {

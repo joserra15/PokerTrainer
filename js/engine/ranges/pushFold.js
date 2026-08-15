@@ -184,11 +184,16 @@
     const pos = input.position || input.heroPos || 'BTN';
     const stack = Number(input.effStack || input.stackDepth) || 10;
     const toCall = Number(input.toCallBB) || 0;
+    const opener = input.openerPos || input.vsPosition || 'BTN';
     if (toCall > 0) {
-      const ok = shouldCallShove(code, pos, stack, input.openerPos || 'BTN');
-      return ok
-        ? { call: 0.85, fold: 0.15, raise: 0 }
-        : { call: 0.08, fold: 0.92, raise: 0 };
+      // Facing open corto (2.5/3bb): fold / call / 3-bet shove (no es call-vs-all-in).
+      if (shouldCallShove(code, pos, stack, opener)) {
+        return { fold: 0.05, call: 0.12, allin: 0.83, raise: 0 };
+      }
+      if (shouldOpenShove(code, pos, stack)) {
+        return { fold: 0.2, call: 0.1, allin: 0.7, raise: 0 };
+      }
+      return { fold: 0.9, call: 0.07, allin: 0.03, raise: 0 };
     }
     const shove = shouldOpenShove(code, pos, stack);
     return shove
