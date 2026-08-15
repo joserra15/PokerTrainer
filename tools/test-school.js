@@ -685,6 +685,31 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
   assert.ok(/no paired|board no paired|no está paired/i.test(c1913.teachBack), 'c19-13 aclara board no paired');
 })();
 
+/* T-04 MTT mid steal: teachBack open ≠ chart de push. Raise debe ser óptima/aceptable. */
+(function assertT04StealTeachBackAligned() {
+  function grade(spot, actionId) {
+    const h = openHand(spot).hand;
+    const res = Engine.act(h, actionId);
+    assert.ok(res && res.decision, 'grade ' + spot.id + ' ' + actionId);
+    return res.decision.class;
+  }
+  const lesson = Data.getLesson('T-04');
+  assert.ok(lesson && lesson.spots && lesson.spots.length >= 12, 'T-04 spots');
+  const openIds = ['t04-04', 't04-06', 't04-10', 't04-11'];
+  openIds.forEach(function (sid) {
+    const spot = lesson.spots.filter(function (s) { return s.id === sid; })[0];
+    assert.ok(spot, sid + ' existe');
+    assert.ok(/steal|open|entra|razonable|frecuente|jugabilidad/i.test(spot.teachBack), sid + ' teachBack open');
+    assert.ok(['optima', 'aceptable'].indexOf(grade(spot, 'raise')) >= 0,
+      sid + ' raise alineado con teachBack (no chart push a 25 bb)');
+  });
+  ['t04-02', 't04-05', 't04-08', 't04-12'].forEach(function (sid) {
+    const spot = lesson.spots.filter(function (s) { return s.id === sid; })[0];
+    assert.ok(spot, sid);
+    assert.ok(['optima', 'aceptable'].indexOf(grade(spot, 'fold')) >= 0, sid + ' fold sigue OK');
+  });
+})();
+
 /* Spins S-01/S-02: sizing steal ~20 bb (shove vs open min vs 3-bet shove) */
 (function () {
   function spotById(lessonId, sid) {

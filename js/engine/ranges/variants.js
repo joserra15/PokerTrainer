@@ -19,13 +19,13 @@
     SB: { raise: '55+, A5s+, K8s+, Q9s+, J9s+, T9s, 98s, A8o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, JTo' }
   };
 
-  /** MTT ~25-40bb: push/fold más agresivo en EP. */
+  /** MTT ~25-40bb: opens mid (steal/ante), no chart de shove ultra-corto. */
   const OPEN_RAISE_MTT_SHORT = {
     UTG: { raise: '99+, AQs+, AKo', mix: '88, 77, ATs, KQs, AJo' },
     HJ: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo' },
     CO: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, 98s, 87s, K9s' },
-    BTN: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, 76s, A8o' },
-    SB: { raise: '66+, A8s+, KTs+, QJs, JTs, T9s, ATo+, KJo+', mix: '55, A5s-A7s, 98s, K9s, QTo' }
+    BTN: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, A9o+, KTo+, QTo+, Q9o', mix: '44, A4s-A2s, 76s, A8o' },
+    SB: { raise: '66+, A8s+, KTs+, Q9s+, JTs, T9s, ATo+, KJo+', mix: '55, A5s-A7s, 98s, K9s, QTo' }
   };
 
   /** Cash 9-max: progresión más tight en EP. */

@@ -171,7 +171,13 @@
     if (c.isMtt && V()) {
       if (c.stackDepth === 'short') {
         const ext = global.GTORangesExtended;
-        if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
+        // OPEN_RAISE_MTT_PUSH es para shove real (≤16 bb). Mid ~25 bb usa SHORT
+        // (steal/open), no el chart de push — si no, QTs/KJo SB y steals late fallan.
+        const pushStack = c.stackBB != null && c.stackBB <= 16;
+        const pushPhase = c.mttPhase === 'push' || c.mttPhase === 'short';
+        if (ext && ext.OPEN_RAISE_MTT_PUSH && (pushStack || (pushPhase && c.stackBB <= 20))) {
+          return ext.OPEN_RAISE_MTT_PUSH;
+        }
         return V().OPEN_RAISE_MTT_SHORT;
       }
       return V().OPEN_RAISE_MTT;
