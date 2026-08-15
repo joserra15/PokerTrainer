@@ -80,6 +80,10 @@ assert.ok(/lessonId:\s*'C-02'/.test(aiReportSrc) && /lessonFromLeak/.test(aiRepo
 assert.ok(/data-leak-school|Ver lección/.test(leaksSrc), 'CTA Ver lección en leaks');
 assert.ok(/school-coach-note|schoolCoachTip/.test(schoolSrc), 'tip coach resultado F');
 assert.ok(/school-stars|is-plan/.test(schoolSrc + css), 'maestría / muro plan UI');
+assert.ok(/routePct/.test(schoolSrc) && /width:' \+ routePct/.test(schoolSrc),
+  'barra hub = progreso de ruta (routePct)');
+assert.ok(!/school-xp-fill school-xp-fill-anim" style="width:' \+\s*Math\.min\(100, Math\.round\(\(lv\.into/.test(schoolSrc),
+  'barra hub no calcula width con XP del nivel');
 assert.ok(/Estado de implementación \(letras A–J\)/.test(
   fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
 ), 'roadmap letras A–J');
@@ -846,6 +850,39 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   };
   const gateT04 = School.canPlayLesson('T-04');
   assert.ok(!gateT04.ok && gateT04.reason === 'plan', 'T-04 M1 sigue muro Study en free');
+})();
+
+/* Barra hub = progreso de ruta (no XP del nivel; Nv.24 ≈99% XP engañaba) */
+(function () {
+  sandbox.PTAdmin = { hasAccess: function () { return true; } };
+  sandbox.PTAuth = { getUser: function () { return { email: 'admin@x.com', isAdmin: true, plan: 'free' }; } };
+  sandbox.Store._st.school.xp = 4799;
+  var mttLessons = Data.lessonsForRoute('mtt');
+  assert.ok(mttLessons.length >= 5, 'MTT tiene lecciones');
+  mttLessons.forEach(function (l, i) {
+    if (i < 5) {
+      sandbox.Store._st.school.lessons[l.id] = {
+        passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true
+      };
+    }
+  });
+  var expectPct = Math.round((5 / mttLessons.length) * 100);
+  assert.ok(expectPct < 90, 'fixture parcial (no 100%)');
+  School._state.view = 'hub';
+  School._state.route = 'mtt';
+  var root = {
+    innerHTML: '',
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; }
+  };
+  School.render(root);
+  var now = root.innerHTML.match(/aria-valuenow="(\d+)"/);
+  var width = root.innerHTML.match(/school-xp-fill[^>]*style="width:(\d+)%"/);
+  assert.ok(now, 'progressbar aria-valuenow');
+  assert.strictEqual(Number(now[1]), expectPct, 'aria-valuenow = ruta ' + expectPct + '%');
+  assert.ok(width, 'school-xp-fill width');
+  assert.strictEqual(Number(width[1]), expectPct, 'barra width = ruta, no XP nivel');
+  assert.ok(root.innerHTML.indexOf('5/' + mttLessons.length) >= 0, 'stat Ruta 5/N');
 })();
 
 /* Usuario autenticado no-admin: menú visible; sin login: oculto */
