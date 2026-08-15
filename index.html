@@ -595,7 +595,7 @@
             <button type="button" class="setup-chip" data-val="push">Push/fold</button>
             <button type="button" class="setup-chip" data-val="bubble" data-hub-mtt>Burbuja</button>
           </div>
-          <p class="muted-text setup-hint">La fase ajusta rangos, antes e ICM. En Spins, «Burbuja» equivale a presión ICM de mesa corta.</p>
+          <p class="muted-text setup-hint">La fase ajusta rangos, antes, ICM y el stack del héroe. En Spins, «Burbuja» equivale a presión ICM de mesa corta.</p>
         </div>
 
         <div class="setup-group" id="setup-group-spin-payout" hidden>
@@ -608,18 +608,19 @@
           <p class="muted-text setup-hint">Se usa para grading ICM aproximado ($EV), no solo chip-EV.</p>
         </div>
 
-        <div class="setup-group">
+        <div class="setup-group" id="setup-group-stack">
           <span class="setup-label">Stack del héroe</span>
           <div class="setup-chips" id="setup-stack-depth">
             <button type="button" class="setup-chip" data-val="bb200" data-stack-cash>200 bb</button>
             <button type="button" class="setup-chip active" data-val="bb100" data-stack-cash>100 bb</button>
             <button type="button" class="setup-chip" data-val="bb50" data-stack-cash data-stack-mtt>50 bb</button>
+            <button type="button" class="setup-chip" data-val="bb40" data-stack-mtt hidden>40 bb</button>
             <button type="button" class="setup-chip" data-val="bb25" data-stack-cash data-stack-spin data-stack-mtt>25 bb</button>
             <button type="button" class="setup-chip" data-val="bb20" data-stack-spin data-stack-mtt hidden>20 bb</button>
             <button type="button" class="setup-chip" data-val="bb15" data-stack-spin data-stack-mtt hidden>15 bb</button>
             <button type="button" class="setup-chip" data-val="bb10" data-stack-spin data-stack-mtt hidden>10 bb</button>
           </div>
-          <p class="muted-text setup-hint">Los villanos reciben un stack aleatorio cercano al tuyo. En Spins/MTT el stack define la fase si eliges Auto.</p>
+          <p class="muted-text setup-hint" id="setup-stack-hint">Los villanos reciben un stack aleatorio cercano al tuyo. En Spins/MTT, con fase Auto eliges el stack; si fijas fase o Push/Steal, el stack se ajusta solo.</p>
         </div>
 
         <div class="setup-group">

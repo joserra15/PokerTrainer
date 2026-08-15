@@ -36,6 +36,22 @@ assert.strictEqual(Tax.resolvePhase({ formatHub: 'spin', stackBB: 10 }), 'push')
 assert.ok(Tax.usesIcm({ formatHub: 'spin', gameType: 'spin3', stackBB: 25 }));
 assert.ok(!Tax.usesIcm({ formatHub: 'cash', gameType: 'cash6', stackBB: 100 }));
 
+// Fase ↔ stack: Early spin no admite 25bb como short/mid; push fija 10bb
+assert.strictEqual(Tax.stackDepthsForPhase('spin', 'early').join(','), 'bb25');
+assert.strictEqual(Tax.stackDepthsForPhase('spin', 'mid').join(','), 'bb20,bb15');
+assert.strictEqual(Tax.stackDepthsForPhase('spin', 'push').join(','), 'bb10');
+assert.strictEqual(Tax.defaultStackDepthForPhase('spin', 'short'), 'bb15');
+assert.strictEqual(Tax.clampStackDepth('spin', 'short', 'random', 'bb25'), 'bb15');
+assert.strictEqual(Tax.clampStackDepth('spin', 'auto', 'push', 'bb25'), 'bb10');
+assert.strictEqual(Tax.clampStackDepth('spin', 'auto', 'steal', 'bb10'), 'bb20');
+assert.ok(Tax.stackSelectionLocked('spin', 'short', 'random'));
+assert.ok(Tax.stackSelectionLocked('mtt', 'auto', 'steal'));
+assert.ok(!Tax.stackSelectionLocked('spin', 'auto', 'rfi'));
+assert.ok(Tax.allowedStackDepths('mtt', 'mid', 'random').indexOf('bb25') >= 0);
+assert.strictEqual(Tax.allowedStackDepths('spin', 'early', 'random').join(','), 'bb25');
+assert.strictEqual(Tax.allowedStackDepths('spin', 'mid', 'random').join(','), 'bb20');
+assert.ok(Tax.allowedStackDepths('spin', 'auto', 'steal').indexOf('bb15') >= 0);
+
 // --- Normalize hubs ---
 const cash = PC.normalize({ gameType: 'cash6' });
 assert.strictEqual(cash.formatHub, 'cash');
@@ -181,7 +197,7 @@ assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2\.5\.31'/.test(version), 'version 2.5.31');
+assert.ok(/PT_BUILD\s*=\s*'2.5.32'/.test(version), 'version 2.5.32');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');
