@@ -1470,13 +1470,13 @@ window.PT_VS_3BET_JSON = {
     SB: { raise: '55+, A5s+, K8s+, Q9s+, J9s+, T9s, 98s, A8o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, JTo' }
   };
 
-  /** MTT ~25-40bb: push/fold más agresivo en EP. */
+  /** MTT ~25-40bb: opens mid (steal/ante), no chart de shove ultra-corto. */
   const OPEN_RAISE_MTT_SHORT = {
     UTG: { raise: '99+, AQs+, AKo', mix: '88, 77, ATs, KQs, AJo' },
     HJ: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo' },
     CO: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, 98s, 87s, K9s' },
-    BTN: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, 76s, A8o' },
-    SB: { raise: '66+, A8s+, KTs+, QJs, JTs, T9s, ATo+, KJo+', mix: '55, A5s-A7s, 98s, K9s, QTo' }
+    BTN: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, A9o+, KTo+, QTo+, Q9o', mix: '44, A4s-A2s, 76s, A8o' },
+    SB: { raise: '66+, A8s+, KTs+, Q9s+, JTs, T9s, ATo+, KJo+', mix: '55, A5s-A7s, 98s, K9s, QTo' }
   };
 
   /** Cash 9-max: progresión más tight en EP. */
@@ -1759,6 +1759,25 @@ window.PT_VS_3BET_JSON = {
     return 'fold';
   }
 
+  /** Manos de steal mid que el chart short ajustado puede tirar (p. ej. 76s). */
+  const STEAL_OPEN_BTN = setFrom([
+    'Q9o', 'Q8o', 'J9o', 'T9o', 'K9o',
+    '87s', '76s', '65s', '97s', '86s', 'T8s', 'J8s'
+  ]);
+  const STEAL_OPEN_SB = setFrom([
+    'QTs', 'QJo', 'QTo', 'KTo', 'KJo', 'JTs', 'T9s', 'A9s', 'K9s', 'A8s'
+  ]);
+  const STEAL_OPEN_CO = setFrom([
+    'QTo', 'KTo', 'J9s', 'T9s', '98s', '87s', 'A9s'
+  ]);
+
+  function stealOpenExtraSet(pos) {
+    if (pos === 'BTN') return STEAL_OPEN_BTN;
+    if (pos === 'SB') return STEAL_OPEN_SB;
+    if (pos === 'CO') return STEAL_OPEN_CO;
+    return null;
+  }
+
   function stealShoveSet(pos) {
     return pos === 'SB' ? STEAL_SHOVE_SB : STEAL_SHOVE_BTN;
   }
@@ -1774,7 +1793,10 @@ window.PT_VS_3BET_JSON = {
     }
     const tier = openRangeTier(code, pos, ctx);
     if (tier === 'raise') return { fold: 0.12, raise: 0.83, allin: 0.05, call: 0 };
-    if (tier === 'mix') return { fold: 0.48, raise: 0.47, allin: 0.05, call: 0 };
+    // En steal el mix se ejecuta como open (no como coin-flip fold/raise).
+    if (tier === 'mix') return { fold: 0.28, raise: 0.67, allin: 0.05, call: 0 };
+    const extra = stealOpenExtraSet(pos);
+    if (extra && extra[code]) return { fold: 0.22, raise: 0.73, allin: 0.05, call: 0 };
     return { fold: 0.96, raise: 0.03, allin: 0.01, call: 0 };
   }
 
@@ -2046,7 +2068,13 @@ window.PT_VS_3BET_JSON = {
     if (c.isMtt && V()) {
       if (c.stackDepth === 'short') {
         const ext = global.GTORangesExtended;
-        if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
+        // OPEN_RAISE_MTT_PUSH es para shove real (≤16 bb). Mid ~25 bb usa SHORT
+        // (steal/open), no el chart de push — si no, QTs/KJo SB y steals late fallan.
+        const pushStack = c.stackBB != null && c.stackBB <= 16;
+        const pushPhase = c.mttPhase === 'push' || c.mttPhase === 'short';
+        if (ext && ext.OPEN_RAISE_MTT_PUSH && (pushStack || (pushPhase && c.stackBB <= 20))) {
+          return ext.OPEN_RAISE_MTT_PUSH;
+        }
         return V().OPEN_RAISE_MTT_SHORT;
       }
       return V().OPEN_RAISE_MTT;

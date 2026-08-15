@@ -111,6 +111,25 @@
     return 'fold';
   }
 
+  /** Manos de steal mid que el chart short ajustado puede tirar (p. ej. 76s). */
+  const STEAL_OPEN_BTN = setFrom([
+    'Q9o', 'Q8o', 'J9o', 'T9o', 'K9o',
+    '87s', '76s', '65s', '97s', '86s', 'T8s', 'J8s'
+  ]);
+  const STEAL_OPEN_SB = setFrom([
+    'QTs', 'QJo', 'QTo', 'KTo', 'KJo', 'JTs', 'T9s', 'A9s', 'K9s', 'A8s'
+  ]);
+  const STEAL_OPEN_CO = setFrom([
+    'QTo', 'KTo', 'J9s', 'T9s', '98s', '87s', 'A9s'
+  ]);
+
+  function stealOpenExtraSet(pos) {
+    if (pos === 'BTN') return STEAL_OPEN_BTN;
+    if (pos === 'SB') return STEAL_OPEN_SB;
+    if (pos === 'CO') return STEAL_OPEN_CO;
+    return null;
+  }
+
   function stealShoveSet(pos) {
     return pos === 'SB' ? STEAL_SHOVE_SB : STEAL_SHOVE_BTN;
   }
@@ -126,7 +145,10 @@
     }
     const tier = openRangeTier(code, pos, ctx);
     if (tier === 'raise') return { fold: 0.12, raise: 0.83, allin: 0.05, call: 0 };
-    if (tier === 'mix') return { fold: 0.48, raise: 0.47, allin: 0.05, call: 0 };
+    // En steal el mix se ejecuta como open (no como coin-flip fold/raise).
+    if (tier === 'mix') return { fold: 0.28, raise: 0.67, allin: 0.05, call: 0 };
+    const extra = stealOpenExtraSet(pos);
+    if (extra && extra[code]) return { fold: 0.22, raise: 0.73, allin: 0.05, call: 0 };
     return { fold: 0.96, raise: 0.03, allin: 0.01, call: 0 };
   }
 
