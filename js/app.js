@@ -247,28 +247,6 @@
     if (payoutGroup) payoutGroup.hidden = h !== 'spin';
     if (rakeGroup) rakeGroup.hidden = h !== 'cash';
 
-    $$('#setup-stack-depth .setup-chip').forEach((chip) => {
-      let show = true;
-      if (h === 'cash') show = chip.hasAttribute('data-stack-cash') || (!chip.hasAttribute('data-stack-spin') && !chip.hasAttribute('data-stack-mtt'));
-      if (h === 'spin') show = chip.hasAttribute('data-stack-spin');
-      if (h === 'mtt') {
-        show = chip.hasAttribute('data-stack-mtt')
-          || chip.dataset.val === 'bb200'
-          || chip.dataset.val === 'bb100'
-          || chip.dataset.val === 'bb50';
-      }
-      if (h === 'cash' && (chip.dataset.val === 'bb20' || chip.dataset.val === 'bb15' || chip.dataset.val === 'bb10')) show = false;
-      if (h === 'spin' && (chip.dataset.val === 'bb200' || chip.dataset.val === 'bb100' || chip.dataset.val === 'bb50')) show = false;
-      chip.hidden = !show;
-      if (!show) chip.classList.remove('active');
-    });
-    const visStack = $$('#setup-stack-depth .setup-chip').filter((c) => !c.hidden);
-    if (visStack.length && !visStack.some((c) => c.classList.contains('active'))) {
-      const prefer = h === 'spin' ? 'bb25' : (h === 'mtt' ? 'bb50' : 'bb100');
-      const prefChip = visStack.find((c) => c.dataset.val === prefer) || visStack[0];
-      prefChip.classList.add('active');
-    }
-
     $$('#setup-scenario .setup-chip').forEach((chip) => {
       const v = chip.dataset.val;
       let show = true;
@@ -290,8 +268,92 @@
     if (visSc.length && !visSc.some((c) => c.classList.contains('active'))) {
       visSc[0].classList.add('active');
     }
+    syncPhaseStackUI(h);
     syncMultiwayTypeUI();
     renderHeroPosChips();
+  }
+
+  /** Filtra/ajusta stack del héroe según hub + fase + escenario (push/steal). */
+  function syncPhaseStackUI(hub) {
+    const h = hub || activeFormatHub();
+    const Tax = window.PTFormatTaxonomy;
+    const phaseEl = $('#setup-mtt-phase .setup-chip.active');
+    const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
+    const phase = (h !== 'cash' && phaseEl) ? phaseEl.dataset.val : 'auto';
+    const scenario = scEl ? scEl.dataset.val : 'random';
+    const locked = Tax && Tax.stackSelectionLocked
+      ? Tax.stackSelectionLocked(h, phase, scenario)
+      : false;
+    const allowed = Tax && Tax.allowedStackDepths
+      ? Tax.allowedStackDepths(h, phase, scenario)
+      : null;
+
+    $$('#setup-stack-depth .setup-chip').forEach((chip) => {
+      let show = true;
+      if (h === 'cash') {
+        show = chip.hasAttribute('data-stack-cash')
+          || (!chip.hasAttribute('data-stack-spin') && !chip.hasAttribute('data-stack-mtt'));
+      } else if (h === 'spin') {
+        show = chip.hasAttribute('data-stack-spin');
+      } else if (h === 'mtt') {
+        show = chip.hasAttribute('data-stack-mtt')
+          || chip.dataset.val === 'bb200'
+          || chip.dataset.val === 'bb100'
+          || chip.dataset.val === 'bb50';
+      }
+      if (h === 'cash' && (chip.dataset.val === 'bb40' || chip.dataset.val === 'bb20'
+        || chip.dataset.val === 'bb15' || chip.dataset.val === 'bb10')) show = false;
+      if (h === 'spin' && (chip.dataset.val === 'bb200' || chip.dataset.val === 'bb100'
+        || chip.dataset.val === 'bb50' || chip.dataset.val === 'bb40')) show = false;
+      if (allowed && show) show = allowed.indexOf(chip.dataset.val) >= 0;
+      chip.hidden = !show;
+      chip.disabled = !!(locked && show && allowed && allowed.length <= 1);
+      if (!show) chip.classList.remove('active');
+    });
+
+    const visStack = $$('#setup-stack-depth .setup-chip').filter((c) => !c.hidden);
+    const activeOk = visStack.some((c) => c.classList.contains('active'));
+    if (visStack.length && !activeOk) {
+      let prefer = h === 'spin' ? 'bb25' : (h === 'mtt' ? 'bb50' : 'bb100');
+      if (Tax && Tax.clampStackDepth) {
+        const cur = $('#setup-stack-depth .setup-chip.active');
+        prefer = Tax.clampStackDepth(h, phase, scenario, cur ? cur.dataset.val : prefer);
+      } else if (allowed && allowed.length) {
+        prefer = allowed[0];
+      }
+      const prefChip = visStack.find((c) => c.dataset.val === prefer) || visStack[0];
+      $$('#setup-stack-depth .setup-chip').forEach((c) => c.classList.remove('active'));
+      prefChip.classList.add('active');
+    } else if (visStack.length && locked && Tax && Tax.clampStackDepth) {
+      const cur = visStack.find((c) => c.classList.contains('active'));
+      const clamped = Tax.clampStackDepth(h, phase, scenario, cur ? cur.dataset.val : null);
+      if (!cur || cur.dataset.val !== clamped) {
+        const prefChip = visStack.find((c) => c.dataset.val === clamped) || visStack[0];
+        $$('#setup-stack-depth .setup-chip').forEach((c) => c.classList.remove('active'));
+        prefChip.classList.add('active');
+      }
+    }
+
+    const stackGroup = $('#setup-group-stack');
+    if (stackGroup) {
+      const fullyLocked = !!(locked && h !== 'cash' && allowed && allowed.length <= 1);
+      stackGroup.classList.toggle('is-stack-locked', fullyLocked);
+      stackGroup.setAttribute('aria-disabled', fullyLocked ? 'true' : 'false');
+    }
+    const hint = $('#setup-stack-hint');
+    if (hint) {
+      if (h === 'cash') {
+        hint.textContent = 'Los villanos reciben un stack aleatorio cercano al tuyo.';
+      } else if (scenario === 'push') {
+        hint.textContent = 'Push/fold fija el stack en ~10 bb (zona shove/fold).';
+      } else if (scenario === 'steal') {
+        hint.textContent = 'Steal usa stacks de ~15–25 bb; elige solo dentro de esa banda.';
+      } else if (phase && phase !== 'auto') {
+        hint.textContent = 'Con fase fija el stack se ajusta solo a esa profundidad (no se configura a mano).';
+      } else {
+        hint.textContent = 'Con fase Auto eliges el stack; Early/Mid/Short/Push adaptan el stack automáticamente.';
+      }
+    }
   }
 
   function syncMultiwayTypeUI() {
@@ -537,7 +599,7 @@
     if (!box) return;
     box.addEventListener('click', (e) => {
       const chip = e.target.closest('.setup-chip');
-      if (!chip || !box.contains(chip)) return;
+      if (!chip || !box.contains(chip) || chip.hidden || chip.disabled) return;
       box.querySelectorAll('.setup-chip').forEach((c) => c.classList.remove('active'));
       chip.classList.add('active');
       if (onChange) onChange();
@@ -585,10 +647,11 @@
       : 'cash');
     syncFormatHubUI(hub);
     activate('#setup-game-type', cfg.gameType);
-    activate('#setup-stack-depth', cfg.stackDepth);
-    activate('#setup-scenario', cfg.scenario);
-    activate('#setup-practice-intent', 'mixed');
     activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
+    activate('#setup-scenario', cfg.scenario);
+    activate('#setup-stack-depth', cfg.stackDepth);
+    syncPhaseStackUI(hub);
+    activate('#setup-practice-intent', 'mixed');
     activate('#setup-spin-payout', cfg.spinPayout || '2x');
     if (cfg.multiwayPotType) activate('#setup-multiway-pot-type', cfg.multiwayPotType);
     syncMultiwayTypeUI();
@@ -691,12 +754,39 @@
     bindChipGroup('#setup-game-type', renderHeroPosChips);
     bindChipGroup('#setup-stack-depth');
     bindChipGroup('#setup-scenario', () => {
+      const hub = activeFormatHub();
+      const Tax = window.PTFormatTaxonomy;
+      const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
+      const phaseEl = $('#setup-mtt-phase .setup-chip.active');
+      const sc = scEl ? scEl.dataset.val : 'random';
+      const phase = phaseEl ? phaseEl.dataset.val : 'auto';
+      if (Tax && Tax.clampStackDepth && (sc === 'push' || sc === 'steal')) {
+        const next = Tax.clampStackDepth(hub, phase, sc, null);
+        $$('#setup-stack-depth .setup-chip').forEach((c) => {
+          c.classList.toggle('active', c.dataset.val === next);
+        });
+      }
+      syncPhaseStackUI(hub);
       syncMultiwayTypeUI();
       renderHeroPosChips();
     });
     bindChipGroup('#setup-multiway-pot-type');
     bindChipGroup('#setup-practice-intent');
-    bindChipGroup('#setup-mtt-phase');
+    bindChipGroup('#setup-mtt-phase', () => {
+      const hub = activeFormatHub();
+      const Tax = window.PTFormatTaxonomy;
+      const phaseEl = $('#setup-mtt-phase .setup-chip.active');
+      const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
+      const phase = phaseEl ? phaseEl.dataset.val : 'auto';
+      const sc = scEl ? scEl.dataset.val : 'random';
+      if (Tax && Tax.clampStackDepth && phase && phase !== 'auto') {
+        const next = Tax.clampStackDepth(hub, phase, sc, Tax.defaultStackDepthForPhase(hub, phase));
+        $$('#setup-stack-depth .setup-chip').forEach((c) => {
+          c.classList.toggle('active', c.dataset.val === next);
+        });
+      }
+      syncPhaseStackUI(hub);
+    });
     bindChipGroup('#setup-spin-payout');
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');

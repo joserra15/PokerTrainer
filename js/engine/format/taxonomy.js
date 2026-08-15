@@ -68,6 +68,154 @@
     return 'early';
   }
 
+  /** Stacks del chip UI por hub (orden de mayor a menor). */
+  const UI_STACK_DEPTHS = {
+    cash: ['bb200', 'bb100', 'bb50', 'bb25'],
+    spin: ['bb25', 'bb20', 'bb15', 'bb10'],
+    mtt: ['bb200', 'bb100', 'bb50', 'bb40', 'bb25', 'bb20', 'bb15', 'bb10']
+  };
+
+  /**
+   * Stacks coherentes con una fase explícita (o null = Auto → todos los del hub).
+   * Alineado con phaseFromStackBB + chips disponibles en el entrenador.
+   */
+  function stackDepthsForPhase(hub, phase) {
+    const h = normalizeHub(hub);
+    const p = normalizePhase(phase);
+    if (h === 'cash' || p === 'auto') return null;
+    if (h === 'spin') {
+      if (p === 'early') return ['bb25'];
+      if (p === 'mid') return ['bb20', 'bb15'];
+      if (p === 'short') return ['bb15'];
+      if (p === 'push') return ['bb10'];
+      if (p === 'bubble') return ['bb20', 'bb15'];
+    }
+    if (h === 'mtt') {
+      if (p === 'early') return ['bb200', 'bb100', 'bb50', 'bb40'];
+      if (p === 'mid') return ['bb40', 'bb25'];
+      if (p === 'short') return ['bb25', 'bb20', 'bb15'];
+      if (p === 'push') return ['bb10'];
+      if (p === 'bubble') return ['bb25', 'bb20', 'bb15'];
+    }
+    return null;
+  }
+
+  /** Steal ~14–25 bb (chips UI en esa banda). Preferido: 20 bb. */
+  function stackDepthsForSteal(hub) {
+    const h = normalizeHub(hub);
+    if (h === 'spin') return ['bb20', 'bb25', 'bb15'];
+    if (h === 'mtt') return ['bb20', 'bb25', 'bb15'];
+    return null;
+  }
+
+  function stackDepthsForPush() {
+    return ['bb10'];
+  }
+
+  function defaultStackDepthForPhase(hub, phase) {
+    const list = stackDepthsForPhase(hub, phase);
+    const h = normalizeHub(hub);
+    const p = normalizePhase(phase);
+    if (!list || !list.length) {
+      if (h === 'spin') return 'bb25';
+      if (h === 'mtt') return 'bb50';
+      return 'bb100';
+    }
+    function prefer(key) {
+      return list.indexOf(key) >= 0 ? key : list[0];
+    }
+    if (h === 'spin') {
+      if (p === 'mid' || p === 'bubble') return prefer('bb20');
+      if (p === 'short') return prefer('bb15');
+      if (p === 'push') return prefer('bb10');
+      return prefer('bb25');
+    }
+    if (h === 'mtt') {
+      if (p === 'early') return prefer('bb50');
+      if (p === 'mid') return prefer('bb25');
+      if (p === 'short') return prefer('bb20');
+      if (p === 'bubble') return prefer('bb25');
+      if (p === 'push') return prefer('bb10');
+      return list[0];
+    }
+    return list[0];
+  }
+
+  function stackBBFromDepthKey(stackDepth) {
+    if (stackDepth == null || stackDepth === '') return null;
+    const key = String(stackDepth);
+    const m = /^bb(\d+(?:\.\d+)?)$/.exec(key);
+    if (m) {
+      const n = Number(m[1]);
+      return n > 0 ? n : null;
+    }
+    return null;
+  }
+
+  function stackFitsPhase(hub, phase, stackDepthOrBB) {
+    const allowed = stackDepthsForPhase(hub, phase);
+    if (!allowed) return true;
+    let key = stackDepthOrBB;
+    if (typeof stackDepthOrBB === 'number' || (/^\d+(\.\d+)?$/.test(String(stackDepthOrBB)))) {
+      key = 'bb' + Math.round(Number(stackDepthOrBB));
+    }
+    return allowed.indexOf(String(key)) >= 0;
+  }
+
+  /**
+   * Stacks permitidos en el UI según hub + fase + escenario.
+   * Con fase explícita: un solo stack representativo (no se configura a mano).
+   * Push/steal con Auto: banda coherente del escenario.
+   */
+  function allowedStackDepths(hub, phase, scenario) {
+    const h = normalizeHub(hub);
+    if (h === 'cash') return (UI_STACK_DEPTHS.cash || []).slice();
+    const base = (UI_STACK_DEPTHS[h] || UI_STACK_DEPTHS.cash).slice();
+    const p = normalizePhase(phase);
+    const sc = String(scenario || '');
+
+    if (p !== 'auto') {
+      let only = defaultStackDepthForPhase(h, p);
+      if (sc === 'push') {
+        only = stackDepthsForPush()[0] || 'bb10';
+      } else if (sc === 'steal') {
+        const steal = stackDepthsForSteal(h) || [];
+        if (steal.indexOf(only) < 0) only = steal[0] || 'bb20';
+      }
+      return [only];
+    }
+
+    if (sc === 'push') return stackDepthsForPush().slice();
+    if (sc === 'steal') return (stackDepthsForSteal(h) || base).slice();
+    return base;
+  }
+
+  function clampStackDepth(hub, phase, scenario, stackDepth) {
+    const allowed = allowedStackDepths(hub, phase, scenario);
+    const key = String(stackDepth || '');
+    if (allowed.indexOf(key) >= 0) return key;
+    const sc = String(scenario || '');
+    if (sc === 'push') return (stackDepthsForPush()[0] || 'bb10');
+    if (sc === 'steal') {
+      const steal = stackDepthsForSteal(hub);
+      return (steal && steal[0]) || 'bb20';
+    }
+    const p = normalizePhase(phase);
+    if (p !== 'auto') return defaultStackDepthForPhase(hub, p);
+    return allowed[0] || defaultStackDepthForPhase(hub, 'auto');
+  }
+
+  /** true si el stack del héroe no debe elegirse libremente (fase fija o push/steal). */
+  function stackSelectionLocked(hub, phase, scenario) {
+    const h = normalizeHub(hub);
+    if (h === 'cash') return false;
+    const p = normalizePhase(phase);
+    const sc = String(scenario || '');
+    if (sc === 'push' || sc === 'steal') return true;
+    if (p !== 'auto') return true;
+    return false;
+  }
+
   function resolvePhase(config) {
     const hub = normalizeHub(config && config.formatHub || hubFromGameType(config && config.gameType));
     const phase = normalizePhase(config && config.mttPhase);
@@ -139,6 +287,16 @@
     normalizeIntent: normalizeIntent,
     normalizePhase: normalizePhase,
     phaseFromStackBB: phaseFromStackBB,
+    UI_STACK_DEPTHS: UI_STACK_DEPTHS,
+    stackDepthsForPhase: stackDepthsForPhase,
+    stackDepthsForSteal: stackDepthsForSteal,
+    stackDepthsForPush: stackDepthsForPush,
+    defaultStackDepthForPhase: defaultStackDepthForPhase,
+    stackBBFromDepthKey: stackBBFromDepthKey,
+    stackFitsPhase: stackFitsPhase,
+    allowedStackDepths: allowedStackDepths,
+    clampStackDepth: clampStackDepth,
+    stackSelectionLocked: stackSelectionLocked,
     resolvePhase: resolvePhase,
     defaultAnteBB: defaultAnteBB,
     spinPayouts: spinPayouts,
