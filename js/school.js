@@ -887,6 +887,7 @@
     var routeId = state.route || 'cash';
     var hero = ROUTE_HERO[routeId] || ROUTE_HERO.cash;
     var rp = routeProgress(routeId);
+    var routePct = rp.total > 0 ? Math.min(100, Math.round((rp.passed / rp.total) * 100)) : 0;
     var routeTabs = routes.map(function (r) {
       var active = r.id === routeId ? ' is-active' : '';
       var soon = r.status === 'soon' ? ' is-soon' : '';
@@ -962,8 +963,9 @@
       '<div class="school-stat"><span class="school-stat-val">' + rp.passed + '/' + rp.total + '</span><span class="school-stat-lbl">Ruta</span></div>' +
       '<div class="school-stat"><span class="school-stat-val">' + rp.gold + '</span><span class="school-stat-lbl">Oro</span></div>' +
       '</div>' +
-      '<div class="school-xp-bar" aria-hidden="true"><div class="school-xp-fill school-xp-fill-anim" style="width:' +
-      Math.min(100, Math.round((lv.into / lv.per) * 100)) + '%"></div></div>' +
+      '<div class="school-xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
+      routePct + '" aria-label="Progreso de la ruta">' +
+      '<div class="school-xp-fill school-xp-fill-anim" style="width:' + routePct + '%"></div></div>' +
       (global.PTSchoolShare && global.PTSchoolShare.buildHubPanelHtml
         ? global.PTSchoolShare.buildHubPanelHtml()
         : '') +
