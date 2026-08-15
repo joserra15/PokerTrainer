@@ -1968,7 +1968,11 @@
       || !!(force && force.forceDeal && force.forceDeal.facingBet);
 
     if (facingBet) {
-      if (!villainPos || villainPos === heroPos || villainPos === 'BB') villainPos = 'BTN';
+      // Remap solo si falta villano o coincide con el héroe. No pisar un BB
+      // explícito cuando el héroe está en late (p. ej. vs donk/raise de ciegas).
+      if (!villainPos || villainPos === heroPos) {
+        villainPos = (heroPos === 'BB' || heroPos === 'SB') ? 'BTN' : 'BB';
+      }
       hand.villain.pos = villainPos;
       if (hand._predeal) hand._predeal.villainPos = villainPos;
       const openSize = OPEN;

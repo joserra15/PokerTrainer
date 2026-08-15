@@ -276,13 +276,18 @@
 
   function spotToForce(spot) {
     var fd = spot.forceDeal || {};
+    var quiz = spot.villainQuiz || null;
+    // En spots con quiz: no revelar hole cards del villano hasta después de la pregunta.
+    var villainCards = quiz
+      ? null
+      : (fd.villainCards || null);
     var force = {
       type: spot.type || 'RFI',
       heroPos: spot.heroPos,
       seed: spot.seed,
       forceDeal: {
         heroCards: fd.heroCards || spot.heroCards,
-        villainCards: fd.villainCards || null,
+        villainCards: villainCards,
         board: (fd.board || []).slice(),
         villainPos: fd.villainPos || 'BB'
       }
@@ -296,7 +301,25 @@
       force.facingBet = true;
       force.forceDeal.facingBet = true;
     }
+    if (spot.forceScript) force.forceScript = spot.forceScript;
     return force;
+  }
+
+  function formatLineStoryHtml(story) {
+    if (!story || !story.length) return '';
+    var items = story.map(function (row) {
+      return '<li><span class="school-line-street">' + esc(row.street || '') + '</span> ' +
+        esc(row.text || '') + '</li>';
+    }).join('');
+    return '<ul class="school-line-story">' + items + '</ul>';
+  }
+
+  function cardsHtml(cards) {
+    if (!cards || !cards.length) return '';
+    if (global.Cards && typeof global.Cards.cardToHTML === 'function') {
+      return cards.map(function (c) { return global.Cards.cardToHTML(c); }).join('');
+    }
+    return esc(formatCards(cards));
   }
 
   function scorePoints(cls, pro) {
@@ -385,13 +408,19 @@
     var s = state.session;
     var n = s.spots.length;
     var i = Math.min(s.index + 1, n);
+    var spot = s.spots[s.index];
+    var lineHtml = spot && spot.lineStory ? formatLineStoryHtml(spot.lineStory) : '';
     el.classList.remove('hidden');
     el.innerHTML =
       '<div class="school-play-banner-inner">' +
       '<span class="school-play-banner-label">Escuela · ' + esc(s.lessonTitle) + '</span>' +
       '<span class="school-play-banner-progress">Spot ' + i + ' / ' + n + '</span>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="school-exit-session">Salir</button>' +
-      '</div>';
+      '</div>' +
+      (lineHtml
+        ? '<div class="school-line-banner"><p class="school-line-banner-label">Línea completa</p>' +
+          lineHtml + '</div>'
+        : '');
     var btn = document.getElementById('school-exit-session');
     if (btn) {
       btn.addEventListener('click', function () {
@@ -570,8 +599,167 @@
     startSpotAt(0);
   }
 
+  function closeSchoolHand(hand, decision, reason) {
+    hand.stage = 'complete';
+    hand._finishHandled = true;
+    hand.result = {
+      reason: reason || 'Escuela de Póker · spot evaluado',
+      heroNet: 0,
+      totalEvLoss: (decision && decision.evLoss) || 0,
+      school: true,
+      handScore: decision && decision.class === 'optima' ? 10
+        : (decision && decision.class === 'aceptable' ? 7 : 3)
+    };
+    try {
+      if (Store() && Store().saveHand) Store().saveHand(hand);
+    } catch (e) { /* ignore */ }
+  }
+
+  function revealQuizVillain(hand, spot) {
+    var quiz = spot && spot.villainQuiz;
+    var cards = quiz && quiz.answerCards ? quiz.answerCards.slice() : null;
+    if (!cards || cards.length < 2 || !hand) return;
+    var vPos = (hand.villain && hand.villain.pos)
+      || (spot.forceDeal && spot.forceDeal.villainPos)
+      || null;
+    if (hand.villain) hand.villain.cards = cards.slice();
+    if (hand.table && hand.table.holeCards && vPos) {
+      hand.table.holeCards[vPos] = cards.slice();
+    }
+    if (hand.forceDeal) hand.forceDeal.villainCards = cards.slice();
+    if (hand.result) hand.result.showdown = true;
+  }
+
+  function showVillainQuiz(hand, decision, spot) {
+    var s = state.session;
+    var fb = document.getElementById('feedback');
+    var actions = document.getElementById('actions');
+    if (!fb || !s || !spot || !spot.villainQuiz) return;
+    var quiz = spot.villainQuiz;
+    var prompt = quiz.prompt || '¿Qué crees que tiene el villano?';
+    var optsHtml = (quiz.options || []).map(function (opt, idx) {
+      var id = opt.id || ('opt-' + idx);
+      return '<button type="button" class="school-quiz-option" data-quiz-opt="' + esc(id) + '">' +
+        '<span class="school-quiz-option-cards">' + cardsHtml(opt.cards) + '</span>' +
+        '<span class="school-quiz-option-label">' + esc(opt.label || formatCards(opt.cards)) + '</span>' +
+        '</button>';
+    }).join('');
+    fb.classList.remove('hidden');
+    fb.innerHTML =
+      '<div class="school-spot-feedback school-villain-quiz">' +
+      '<h3>Spot ' + (s.index + 1) + ' / ' + s.spots.length + ' · ¿Qué tiene?</h3>' +
+      '<p class="school-quiz-prompt">' + esc(prompt) + '</p>' +
+      '<p class="school-quiz-hint">Elige la mano que sobrevive a la línea. Las otras dos ya deberían estar descartadas.</p>' +
+      '<div class="school-quiz-options">' + optsHtml + '</div>' +
+      '</div>';
+    if (actions) {
+      actions.className = 'actions';
+      actions.innerHTML =
+        '<button type="button" class="btn btn-ghost" id="school-abort-spot">Salir de la lección</button>';
+      var abort = document.getElementById('school-abort-spot');
+      if (abort) {
+        abort.addEventListener('click', function () {
+          abandonSession(true);
+        });
+      }
+    }
+    Array.prototype.forEach.call(fb.querySelectorAll('[data-quiz-opt]'), function (btn) {
+      btn.addEventListener('click', function () {
+        gradeVillainQuiz(hand, decision, spot, btn.getAttribute('data-quiz-opt'));
+      });
+    });
+  }
+
+  function gradeVillainQuiz(hand, decision, spot, optionId) {
+    var s = state.session;
+    if (!s || !s.active || !spot || !spot.villainQuiz) return;
+    var quiz = spot.villainQuiz;
+    var chosen = null;
+    var correct = null;
+    (quiz.options || []).forEach(function (opt) {
+      var id = opt.id || '';
+      if (opt.correct) correct = opt;
+      if (id === optionId) chosen = opt;
+    });
+    var ok = !!(chosen && chosen.correct);
+    var cls = ok ? 'optima' : 'error';
+    var elimHtml = '';
+    (quiz.options || []).forEach(function (opt) {
+      if (opt.correct) return;
+      if (!opt.eliminated) return;
+      elimHtml += '<li><strong>' + esc(opt.label || formatCards(opt.cards)) + '</strong>: ' +
+        esc(opt.eliminated) + '</li>';
+    });
+    revealQuizVillain(hand, spot);
+    s.results.push({
+      spotId: spot.id,
+      class: cls,
+      action: 'villainQuiz',
+      actionLabel: chosen ? (chosen.label || formatCards(chosen.cards)) : optionId,
+      heroPos: spot.heroPos,
+      heroCards: spot.forceDeal && spot.forceDeal.heroCards
+        ? spot.forceDeal.heroCards.slice()
+        : null,
+      board: (hand && hand.board && hand.board.length)
+        ? hand.board.slice()
+        : (spot.forceDeal && spot.forceDeal.board ? spot.forceDeal.board.slice() : null),
+      teachBack: quiz.teachBack || spot.teachBack || '',
+      reason: ok ? 'Mano coherente con la línea' : 'Esa mano no sobrevive a la línea',
+      trapTag: spot.trapTag,
+      quizCorrect: ok,
+      quizAnswer: correct ? (correct.label || formatCards(correct.cards)) : ''
+    });
+
+    var fb = document.getElementById('feedback');
+    var actions = document.getElementById('actions');
+    var remaining = s.spots.length - s.index - 1;
+    var answerCards = quiz.answerCards || (correct && correct.cards) || [];
+    if (fb) {
+      fb.classList.remove('hidden');
+      fb.innerHTML =
+        '<div class="school-spot-feedback ' + (ok ? 'is-good' : 'is-bad') + '">' +
+        '<h3>Spot ' + (s.index + 1) + ' / ' + s.spots.length + ' · ' + esc(classLabel(cls)) + '</h3>' +
+        '<p class="school-quiz-reveal">Villano tenía: <span class="school-quiz-reveal-cards">' +
+        cardsHtml(answerCards) + '</span> <strong>' +
+        esc((correct && correct.label) || formatCards(answerCards)) + '</strong></p>' +
+        '<p class="school-spot-action">Tu elección: <strong>' +
+        esc(chosen ? (chosen.label || formatCards(chosen.cards)) : '—') + '</strong></p>' +
+        (elimHtml
+          ? '<div class="school-quiz-elim"><p>Manos descartadas por la línea:</p><ul>' +
+            elimHtml + '</ul></div>'
+          : '') +
+        ((quiz.teachBack || spot.teachBack)
+          ? '<p class="school-spot-teach">' + esc(quiz.teachBack || spot.teachBack) + '</p>'
+          : '') +
+        '</div>';
+    }
+    if (actions) {
+      var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
+      actions.className = 'actions';
+      actions.innerHTML =
+        '<button type="button" class="btn btn-primary" id="school-next-spot">' + nextLabel + '</button>' +
+        '<button type="button" class="btn btn-ghost" id="school-abort-spot">Salir de la lección</button>';
+      var next = document.getElementById('school-next-spot');
+      var abort = document.getElementById('school-abort-spot');
+      if (next) {
+        next.addEventListener('click', function () {
+          startSpotAt(s.index + 1);
+        });
+      }
+      if (abort) {
+        abort.addEventListener('click', function () {
+          abandonSession(true);
+        });
+      }
+    }
+    try {
+      if (typeof global.renderTable === 'function') global.renderTable();
+    } catch (e2) { /* ignore */ }
+  }
+
   /**
    * Hook desde app.onAction: corta la mano tras la 1ª decisión evaluada.
+   * Spots con villainQuiz: tras la decisión de river, pregunta antes de revelar.
    * @returns {boolean} true si la Escuela maneja el resto del flujo
    */
   function afterTrainerAction(hand, decision) {
@@ -581,6 +769,13 @@
     if (!decision) return false;
     s.spotDecided = true;
     var spot = s.spots[s.index];
+
+    if (spot && spot.villainQuiz) {
+      closeSchoolHand(hand, decision, 'Escuela de Póker · quiz de rango');
+      showVillainQuiz(hand, decision, spot);
+      return true;
+    }
+
     s.results.push({
       spotId: spot && spot.id,
       class: decision.class,
@@ -600,19 +795,7 @@
       trapTag: spot && spot.trapTag
     });
 
-    hand.stage = 'complete';
-    hand._finishHandled = true;
-    hand.result = {
-      reason: 'Escuela de Póker · spot evaluado',
-      heroNet: 0,
-      totalEvLoss: decision.evLoss || 0,
-      school: true,
-      handScore: decision.class === 'optima' ? 10 : (decision.class === 'aceptable' ? 7 : 3)
-    };
-    try {
-      if (Store() && Store().saveHand) Store().saveHand(hand);
-    } catch (e) { /* ignore */ }
-
+    closeSchoolHand(hand, decision, 'Escuela de Póker · spot evaluado');
     showSpotFeedback(decision, spot, hand);
     return true;
   }
