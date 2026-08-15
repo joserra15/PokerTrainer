@@ -873,7 +873,14 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
     });
     quiz.options.forEach(function (o) {
       assert.ok(o.cards && o.cards.length === 2, spot.id + ' option cards');
-      if (!o.correct) assert.ok(o.eliminated && o.eliminated.length > 10, spot.id + ' eliminated text');
+      if (!o.correct) {
+        assert.ok(o.eliminated && o.eliminated.length > 10, spot.id + ' eliminated text');
+        // Alternativas difíciles: deben morir en flop/turn/river, no solo “no abre”.
+        assert.ok(/flop|turn|river|c-bet|barrel|donk|check-check|raise|pot-control/i.test(o.eliminated),
+          spot.id + ' ' + o.label + ' debe descartarse postflop, no solo preflop');
+        assert.ok(!/^(No abre|No entra en RFI|Fuera del RFI|Basura|No está en el RFI)/i.test(o.eliminated),
+          spot.id + ' ' + o.label + ' no debe ser descarte trivial de open');
+      }
     });
     const pack = openHand(spot);
     assert.strictEqual(pack.hand.stage, 'river', spot.id + ' stage river');
