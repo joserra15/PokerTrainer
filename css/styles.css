@@ -2360,7 +2360,7 @@ body.age-gate-open {
 .btn-primary { background: var(--accent); }
 .btn-fold { background: #444f5c; }
 .btn-check, .btn-call { background: #2b7d52; }
-.btn-raise, .btn-bet { background: #b5532a; }
+.btn-raise, .btn-bet, .btn-allin { background: #b5532a; }
 .btn-danger { background: var(--red); }
 .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
 .btn-block { width: 100%; }

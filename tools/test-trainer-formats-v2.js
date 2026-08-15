@@ -101,6 +101,30 @@ const pfStrat = PF.pushFoldStrategy({
 });
 assert.ok((pfStrat.raise || 0) > 0.5, 'AA shove');
 
+// vsRFI push: fold/call/shove (villano abre 2.5bb, no all-in)
+const pfVsOpen = PF.pushFoldStrategy({
+  handCode: 'AA', position: 'BB', effStack: 10, toCallBB: 1.5, openerPos: 'BTN'
+});
+assert.ok((pfVsOpen.allin || 0) > 0.5, 'AA 3-bet shove vs open corto');
+assert.ok((pfVsOpen.call || 0) < (pfVsOpen.allin || 0), 'shove > call con AA vs open');
+
+function assertPushVsRfiOptions(hub, label) {
+  const cfg = PC.normalize({
+    formatHub: hub, stackDepth: 'bb10', scenario: 'push', phase: 'push'
+  });
+  const hand = Engine.newHand(
+    { type: 'vsRFI', key: hub === 'spin' ? 'BB_vs_BTN' : 'BTN_vs_CO', pushFold: true, seed: 77 },
+    cfg
+  );
+  const ids = (hand.current.options || []).map((o) => o.id);
+  assert.ok(ids.indexOf('fold') >= 0, label + ' fold');
+  assert.ok(ids.indexOf('call') >= 0, label + ' call');
+  assert.ok(ids.indexOf('allin') >= 0, label + ' shove/allin vs open');
+  assert.ok(/shove/i.test((hand.current.options.find((o) => o.id === 'allin') || {}).label || ''), label + ' label shove');
+}
+assertPushVsRfiOptions('spin', 'spin push vsRFI');
+assertPushVsRfiOptions('mtt', 'mtt push vsRFI');
+
 // --- ICM ---
 const eq = Icm.icmEquities([25, 25, 25], [0.65, 0.35, 0]);
 assert.ok(eq && eq.length === 3);

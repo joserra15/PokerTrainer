@@ -2355,11 +2355,13 @@
     let options;
     let context;
     if (mode === 'push') {
+      // Villano abre a 2.5/3bb (no shove): fold / call / 3-bet shove — MTT y spins push.
       options = [
         { id: 'fold', label: 'Fold (retirarse)' },
-        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` }
+        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` },
+        { id: 'allin', label: `Shove (${fmt(stackBB)}bb)` }
       ];
-      context = `Eres ${hero}. ${opener} abre steal a ${openSize}bb (~${fmt(stackBB)}bb efectivos). ¿Fold o call shove?`;
+      context = `Eres ${hero}. ${opener} abre steal a ${openSize}bb (~${fmt(stackBB)}bb efectivos). ¿Fold, call o shove?`;
     } else if (mode === 'stealDefense') {
       options = [
         { id: 'fold', label: 'Fold (retirarse)' },

@@ -1854,11 +1854,16 @@ window.PT_VS_3BET_JSON = {
     const pos = input.position || input.heroPos || 'BTN';
     const stack = Number(input.effStack || input.stackDepth) || 10;
     const toCall = Number(input.toCallBB) || 0;
+    const opener = input.openerPos || input.vsPosition || 'BTN';
     if (toCall > 0) {
-      const ok = shouldCallShove(code, pos, stack, input.openerPos || 'BTN');
-      return ok
-        ? { call: 0.85, fold: 0.15, raise: 0 }
-        : { call: 0.08, fold: 0.92, raise: 0 };
+      // Facing open corto (2.5/3bb): fold / call / 3-bet shove (no es call-vs-all-in).
+      if (shouldCallShove(code, pos, stack, opener)) {
+        return { fold: 0.05, call: 0.12, allin: 0.83, raise: 0 };
+      }
+      if (shouldOpenShove(code, pos, stack)) {
+        return { fold: 0.2, call: 0.1, allin: 0.7, raise: 0 };
+      }
+      return { fold: 0.9, call: 0.07, allin: 0.03, raise: 0 };
     }
     const shove = shouldOpenShove(code, pos, stack);
     return shove
@@ -13484,11 +13489,13 @@ window.PT_VS_3BET_JSON = {
     let options;
     let context;
     if (mode === 'push') {
+      // Villano abre a 2.5/3bb (no shove): fold / call / 3-bet shove — MTT y spins push.
       options = [
         { id: 'fold', label: 'Fold (retirarse)' },
-        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` }
+        { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` },
+        { id: 'allin', label: `Shove (${fmt(stackBB)}bb)` }
       ];
-      context = `Eres ${hero}. ${opener} abre steal a ${openSize}bb (~${fmt(stackBB)}bb efectivos). ¿Fold o call shove?`;
+      context = `Eres ${hero}. ${opener} abre steal a ${openSize}bb (~${fmt(stackBB)}bb efectivos). ¿Fold, call o shove?`;
     } else if (mode === 'stealDefense') {
       options = [
         { id: 'fold', label: 'Fold (retirarse)' },
@@ -21727,7 +21734,8 @@ window.PT_VS_3BET_JSON = {
   }
 
   function isAggressiveId(id) {
-    return id === "raise" || id === "bet" || (id && id.indexOf("bet_") === 0);
+    return id === "raise" || id === "bet" || id === "allin"
+      || (id && id.indexOf("bet_") === 0);
   }
 
   function aggressiveButtons() {
