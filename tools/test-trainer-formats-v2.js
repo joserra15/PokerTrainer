@@ -125,6 +125,40 @@ function assertPushVsRfiOptions(hub, label) {
 assertPushVsRfiOptions('spin', 'spin push vsRFI');
 assertPushVsRfiOptions('mtt', 'mtt push vsRFI');
 
+// Push shove: si pagan (incluso "3bet" forzado), héroe all-in → runout, nunca face3bet
+{
+  const pushCfg = PC.normalize({
+    formatHub: 'mtt', stackDepth: 'bb10', scenario: 'push', phase: 'push'
+  });
+  const shoveHand = Engine.newHand({
+    type: 'RFI',
+    heroPos: 'CO',
+    engineHeroPos: 'CO',
+    seed: 91,
+    pushFold: true,
+    forceScript: {
+      heroPos: 'CO',
+      villainPos: 'BB',
+      actions: [
+        { pos: 'CO', action: 'allin' },
+        { pos: 'BTN', action: 'fold' },
+        { pos: 'SB', action: 'fold' },
+        { pos: 'BB', action: 'raise', amountBB: 34 }
+      ]
+    }
+  }, pushCfg);
+  assert.ok(shoveHand.current && shoveHand.current.options.some((o) => o.id === 'allin'), 'push ofrece shove');
+  Engine.act(shoveHand, 'allin');
+  assert.ok(!shoveHand.current || shoveHand.current.kind !== 'face3bet',
+    'tras shove no vuelve face3bet (héroe ya all-in)');
+  assert.ok(
+    shoveHand.runoutPending || shoveHand.result || !shoveHand.current,
+    'tras shove pagado → runout/showdown, no decisión'
+  );
+  const rem = w.PTStacks ? w.PTStacks.remaining(shoveHand, 'CO') : 0;
+  assert.ok(rem <= 0.01, 'héroe sin fichas tras shove');
+}
+
 // --- ICM ---
 const eq = Icm.icmEquities([25, 25, 25], [0.65, 0.35, 0]);
 assert.ok(eq && eq.length === 3);
@@ -221,7 +255,7 @@ assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2.5.35'/.test(version), 'version 2.5.35');
+assert.ok(/PT_BUILD\s*=\s*'2.5.36'/.test(version), 'version 2.5.36');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');
