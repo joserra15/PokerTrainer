@@ -169,9 +169,11 @@
     const PC = global.PTPlayConfig;
     if (!stacks || !hand) return;
     const heroBB = hand.playConfig && PC ? PC.stackBB(hand.playConfig) : EFF;
-    const positions = is9MaxHand(hand) && PC ? PC.POS_9 : DEAL_ORDER;
+    const positions = PC && hand.playConfig && PC.tablePositions
+      ? PC.tablePositions(hand.playConfig)
+      : (is9MaxHand(hand) && PC ? PC.POS_9 : DEAL_ORDER);
     const heroSeat = hand.displayHeroPos || hand.hero.pos;
-    stacks.initHandStacks(hand, positions, heroSeat, heroBB, function () { return C.rng.random(); });
+    stacks.initHandStacks(hand, positions, heroSeat, heroBB, function () { return C.rng.random(); }, hand.playConfig);
     hand.effStack = heroBB;
   }
 
@@ -1265,8 +1267,14 @@
     input.preflopMode = preflopSizingMode(hand);
     input.pushFold = input.preflopMode === 'push';
     input.stealMode = input.preflopMode === 'steal' || input.preflopMode === 'stealDefense';
-    input.heroStackBB = hand.stacks && hand.stacks.hero != null ? hand.stacks.hero : input.effStack;
-    input.villainStackBB = hand.stacks && hand.stacks.villain != null ? hand.stacks.villain : input.effStack;
+    const heroSeatForStack = hand.displayHeroPos || (hand.hero && hand.hero.pos);
+    const villainSeatForStack = villainTableSeat(hand) || (hand.villain && hand.villain.pos);
+    input.heroStackBB = (hand.stacks && heroSeatForStack && hand.stacks[heroSeatForStack] != null)
+      ? hand.stacks[heroSeatForStack]
+      : (hand.stacks && hand.stacks.hero != null ? hand.stacks.hero : input.effStack);
+    input.villainStackBB = (hand.stacks && villainSeatForStack && hand.stacks[villainSeatForStack] != null)
+      ? hand.stacks[villainSeatForStack]
+      : (hand.stacks && hand.stacks.villain != null ? hand.stacks.villain : input.effStack);
     const Icm = global.GTOIcmEv;
     if (Icm && Icm.contextForHand) {
       const icmCtx = Icm.contextForHand(hand, cfg);

@@ -7278,15 +7278,30 @@ window.PT_VS_3BET_JSON = {
       ? Taxo.normalizeHub(cfg.formatHub || Taxo.hubFromGameType(cfg.gameType))
       : 'cash';
     if (hub === 'cash') return null;
-    const heroBB = hand && hand.stacks && hand.stacks.hero != null
-      ? hand.stacks.hero
-      : (hand && hand.effStack) || 25;
-    const villainBB = hand && hand.stacks && hand.stacks.villain != null
-      ? hand.stacks.villain
-      : heroBB;
+    const heroSeat = hand && (hand.displayHeroPos || (hand.hero && hand.hero.pos));
+    const villainSeat = hand && hand.villain && hand.villain.pos;
+    const heroBB = hand && hand.stacks && heroSeat && hand.stacks[heroSeat] != null
+      ? hand.stacks[heroSeat]
+      : (hand && hand.stacks && hand.stacks.hero != null
+        ? hand.stacks.hero
+        : (hand && hand.effStack) || 25);
+    const villainBB = hand && hand.stacks && villainSeat && hand.stacks[villainSeat] != null
+      ? hand.stacks[villainSeat]
+      : (hand && hand.stacks && hand.stacks.villain != null
+        ? hand.stacks.villain
+        : heroBB);
     const tableMax = hub === 'spin' ? 3 : (cfg.gameType === 'cash9' || cfg.gameType === 'mtt' ? 9 : 3);
     const stacks = [heroBB, villainBB];
-    if (tableMax >= 3) stacks.push(Math.max(8, Math.round((heroBB + villainBB) / 2)));
+    if (hand && hand.stacks && tableMax >= 3) {
+      Object.keys(hand.stacks).forEach(function (k) {
+        if (k === 'hero' || k === 'villain' || k === heroSeat || k === villainSeat) return;
+        const bb = hand.stacks[k];
+        if (typeof bb === 'number' && bb > 0 && stacks.length < tableMax) stacks.push(bb);
+      });
+    }
+    while (stacks.length < Math.min(3, tableMax)) {
+      stacks.push(Math.max(8, Math.round((heroBB + villainBB) / 2)));
+    }
     const payouts = hub === 'spin'
       ? ((Taxo && Taxo.spinPayouts) ? Taxo.spinPayouts(cfg.spinPayout || '2x') : [0.65, 0.35, 0])
       : [0.5, 0.3, 0.2];
@@ -9643,7 +9658,8 @@ window.PT_VS_3BET_JSON = {
 })(window);
 
 /*
- * stacks.js — Stacks de mesa: héroe configurable, villanos cercanos, resto efectivo por asiento.
+ * stacks.js — Stacks de mesa: héroe configurable; cash ≈ héroe;
+ * torneos/spins: mayoría mid, algunos short, algunos deep.
  */
 (function (global) {
   'use strict';
@@ -9658,10 +9674,84 @@ window.PT_VS_3BET_JSON = {
     return 100;
   }
 
-  /** Stack villano aleatorio cercano al del héroe (≈82–118%). */
-  function villainStackBB(heroBB, rnd) {
+  function formatHubOf(config) {
+    const Tax = global.PTFormatTaxonomy;
+    if (!config) return 'cash';
+    if (Tax) {
+      return Tax.normalizeHub(config.formatHub || Tax.hubFromGameType(config.gameType));
+    }
+    if (config.formatHub === 'spin' || config.gameType === 'spin3') return 'spin';
+    if (config.formatHub === 'mtt' || config.gameType === 'mtt') return 'mtt';
+    return 'cash';
+  }
+
+  /**
+   * Bandas absolutas de mesa según formato y stack del héroe.
+   * Entrenar 10bb no implica mesa de 10bb: mayoría mid, algún short, algún deep.
+   */
+  function tournamentBands(hub, heroBB) {
+    const h = Number(heroBB) || 25;
+    if (hub === 'spin') {
+      if (h <= 12) {
+        return { short: [5, 12], mid: [14, 28], deep: [30, 55] };
+      }
+      if (h <= 20) {
+        return { short: [6, 14], mid: [16, 30], deep: [32, 55] };
+      }
+      return { short: [8, 16], mid: [18, 32], deep: [35, 55] };
+    }
+    // MTT
+    if (h <= 15) {
+      return { short: [5, 14], mid: [18, 40], deep: [45, 100] };
+    }
+    if (h <= 30) {
+      return { short: [8, 18], mid: [20, 42], deep: [48, 95] };
+    }
+    if (h <= 55) {
+      return { short: [12, 28], mid: [30, 55], deep: [60, 120] };
+    }
+    return { short: [20, 45], mid: [55, 110], deep: [120, 200] };
+  }
+
+  function pickBand(rnd) {
+    const r = rnd != null ? rnd : Math.random();
+    // ~55% mid, ~25% short, ~20% deep
+    if (r < 0.55) return 'mid';
+    if (r < 0.80) return 'short';
+    return 'deep';
+  }
+
+  function sampleInRange(lo, hi, rnd) {
+    const a = Number(lo);
+    const b = Number(hi);
+    const min = Math.min(a, b);
+    const max = Math.max(a, b);
+    const t = rnd != null ? rnd : Math.random();
+    return round2(min + t * (max - min));
+  }
+
+  /** Cash: stack villano cercano al héroe (≈82–118%). */
+  function cashVillainStackBB(heroBB, rnd) {
     const r = rnd != null ? rnd : Math.random();
     return round2(heroBB * (0.82 + r * 0.36));
+  }
+
+  /**
+   * Stack villano. Cash ≈ héroe; spin/mtt → bandas mid/short/deep.
+   * @param {number} heroBB
+   * @param {number} [rnd] — U(0,1) para la banda o el jitter cash
+   * @param {object} [opts] — { formatHub|config, rnd2 } rnd2 = U(0,1) dentro de la banda
+   */
+  function villainStackBB(heroBB, rnd, opts) {
+    const hub = (opts && opts.formatHub) || formatHubOf(opts && opts.config);
+    if (hub === 'cash') return cashVillainStackBB(heroBB, rnd);
+
+    const bands = tournamentBands(hub, heroBB);
+    const band = pickBand(rnd);
+    const range = bands[band] || bands.mid;
+    const rnd2 = opts && opts.rnd2 != null ? opts.rnd2 : Math.random();
+    // Mínimo jugable para opens ~2.5bb
+    return Math.max(4, sampleInRange(range[0], range[1], rnd2));
   }
 
   function invested(hand, pos) {
@@ -9697,14 +9787,26 @@ window.PT_VS_3BET_JSON = {
     return effectiveVs(hand, heroSeat, vSeat);
   }
 
-  function initHandStacks(hand, positions, heroSeat, heroBB, rngFn) {
+  function initHandStacks(hand, positions, heroSeat, heroBB, rngFn, playConfig) {
     const rnd = rngFn || function () { return Math.random(); };
+    const cfg = playConfig || (hand && hand.playConfig) || null;
+    const hub = formatHubOf(cfg);
     hand.stacks = {};
     (positions || []).forEach(function (pos) {
       if (pos === heroSeat) hand.stacks[pos] = round2(heroBB);
-      else hand.stacks[pos] = villainStackBB(heroBB, rnd());
+      else {
+        hand.stacks[pos] = villainStackBB(heroBB, rnd(), {
+          formatHub: hub,
+          config: cfg,
+          rnd2: rnd()
+        });
+      }
     });
     hand.heroStackStart = round2(heroBB);
+    // Alias para ICM / scoring (claves por asiento son la fuente de verdad)
+    if (heroSeat && hand.stacks[heroSeat] != null) hand.stacks.hero = hand.stacks[heroSeat];
+    const vSeat = hand.villain && hand.villain.pos;
+    if (vSeat && hand.stacks[vSeat] != null) hand.stacks.villain = hand.stacks[vSeat];
   }
 
   function capToRemaining(hand, pos, amount) {
@@ -9728,6 +9830,7 @@ window.PT_VS_3BET_JSON = {
 
   global.PTStacks = {
     round2, heroStackBB, villainStackBB, initHandStacks,
+    tournamentBands, pickBand, formatHubOf,
     invested, remaining, effectiveVs, effectiveForHero,
     capToRemaining, capTotalInvest, isAllIn, formatStackBB
   };
@@ -11303,9 +11406,11 @@ window.PT_VS_3BET_JSON = {
     const PC = global.PTPlayConfig;
     if (!stacks || !hand) return;
     const heroBB = hand.playConfig && PC ? PC.stackBB(hand.playConfig) : EFF;
-    const positions = is9MaxHand(hand) && PC ? PC.POS_9 : DEAL_ORDER;
+    const positions = PC && hand.playConfig && PC.tablePositions
+      ? PC.tablePositions(hand.playConfig)
+      : (is9MaxHand(hand) && PC ? PC.POS_9 : DEAL_ORDER);
     const heroSeat = hand.displayHeroPos || hand.hero.pos;
-    stacks.initHandStacks(hand, positions, heroSeat, heroBB, function () { return C.rng.random(); });
+    stacks.initHandStacks(hand, positions, heroSeat, heroBB, function () { return C.rng.random(); }, hand.playConfig);
     hand.effStack = heroBB;
   }
 
@@ -12399,8 +12504,14 @@ window.PT_VS_3BET_JSON = {
     input.preflopMode = preflopSizingMode(hand);
     input.pushFold = input.preflopMode === 'push';
     input.stealMode = input.preflopMode === 'steal' || input.preflopMode === 'stealDefense';
-    input.heroStackBB = hand.stacks && hand.stacks.hero != null ? hand.stacks.hero : input.effStack;
-    input.villainStackBB = hand.stacks && hand.stacks.villain != null ? hand.stacks.villain : input.effStack;
+    const heroSeatForStack = hand.displayHeroPos || (hand.hero && hand.hero.pos);
+    const villainSeatForStack = villainTableSeat(hand) || (hand.villain && hand.villain.pos);
+    input.heroStackBB = (hand.stacks && heroSeatForStack && hand.stacks[heroSeatForStack] != null)
+      ? hand.stacks[heroSeatForStack]
+      : (hand.stacks && hand.stacks.hero != null ? hand.stacks.hero : input.effStack);
+    input.villainStackBB = (hand.stacks && villainSeatForStack && hand.stacks[villainSeatForStack] != null)
+      ? hand.stacks[villainSeatForStack]
+      : (hand.stacks && hand.stacks.villain != null ? hand.stacks.villain : input.effStack);
     const Icm = global.GTOIcmEv;
     if (Icm && Icm.contextForHand) {
       const icmCtx = Icm.contextForHand(hand, cfg);

@@ -125,6 +125,36 @@ function assertPushVsRfiOptions(hub, label) {
 assertPushVsRfiOptions('spin', 'spin push vsRFI');
 assertPushVsRfiOptions('mtt', 'mtt push vsRFI');
 
+// Stacks MTT/Spin: héroe al depth elegido; villanos mid/short/deep (no clon del héroe)
+{
+  const ST = w.PTStacks;
+  assert.ok(ST && ST.tournamentBands, 'PTStacks.tournamentBands');
+  const bands = ST.tournamentBands('mtt', 10);
+  assert.ok(bands.mid[0] >= 15, 'mid band > hero 10bb');
+  assert.ok(bands.deep[0] > bands.mid[1], 'deep > mid');
+
+  const mttCfg = PC.normalize({ formatHub: 'mtt', stackDepth: 'bb10', scenario: 'push', phase: 'push' });
+  const mttHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', pushFold: true, seed: 11 }, mttCfg);
+  assert.strictEqual(mttHand.stacks.BB, 10, 'MTT hero 10bb');
+  const mttVals = PC.POS_9.filter((p) => p !== 'BB').map((p) => mttHand.stacks[p]);
+  assert.ok(mttVals.every((v) => typeof v === 'number' && v >= 4), 'MTT villain stacks');
+  assert.ok(mttVals.some((v) => v >= 18), 'MTT algún mid/deep vs hero 10bb');
+  assert.ok(Math.max.apply(null, mttVals) - Math.min.apply(null, mttVals) >= 5, 'MTT dispersión');
+
+  const spinCfg = PC.normalize({ formatHub: 'spin', stackDepth: 'bb10', scenario: 'push', phase: 'push' });
+  const spinHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_BTN', pushFold: true, seed: 22 }, spinCfg);
+  const spinPos = PC.tablePositions(spinCfg);
+  assert.strictEqual(spinPos.length, 3, 'spin 3 asientos');
+  spinPos.forEach((p) => assert.ok(spinHand.stacks[p] != null, 'spin stack ' + p));
+  assert.strictEqual(spinHand.stacks.BB, 10, 'spin hero 10bb');
+  const spinOthers = spinPos.filter((p) => p !== 'BB').map((p) => spinHand.stacks[p]);
+  assert.ok(!spinOthers.every((v) => v >= 8 && v <= 12), 'spin no todos ≈10bb: ' + spinOthers.join(','));
+
+  // Cash sigue cercano al héroe
+  const cashHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', seed: 42 }, PC.normalize({ stackDepth: 'bb100' }));
+  assert.ok(cashHand.stacks.CO >= 70 && cashHand.stacks.CO <= 130, 'cash villain cercano');
+}
+
 // --- ICM ---
 const eq = Icm.icmEquities([25, 25, 25], [0.65, 0.35, 0]);
 assert.ok(eq && eq.length === 3);
@@ -221,7 +251,7 @@ assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2.5.35'/.test(version), 'version 2.5.35');
+assert.ok(/PT_BUILD\s*=\s*'2.5.36'/.test(version), 'version 2.5.36');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');

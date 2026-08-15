@@ -1043,11 +1043,62 @@ if (!stackHand.stacks || stackHand.stacks.BB !== 100) {
 }
 const villainStack = stackHand.stacks.CO;
 if (villainStack < 70 || villainStack > 130) {
-  console.error('FAIL: villano stack no cercano a hero', villainStack);
+  console.error('FAIL: villano stack no cercano a hero (cash)', villainStack);
   process.exit(1);
 }
-console.log('Stacks mesa hero 100bb villano ~', Math.round(villainStack), 'bb: OK');
+console.log('Stacks mesa cash hero 100bb villano ~', Math.round(villainStack), 'bb: OK');
 
+// MTT/Spin: villanos variados (no todos ≈ hero) al entrenar short
+{
+  const mttCfg = PC.normalize({ formatHub: 'mtt', stackDepth: 'bb10', scenario: 'push', phase: 'push' });
+  const mttHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', seed: 11, pushFold: true }, mttCfg);
+  if (!mttHand.stacks || mttHand.stacks.BB !== 10) {
+    console.error('FAIL: MTT hero 10bb', mttHand.stacks);
+    process.exit(1);
+  }
+  const villainSeats = Object.keys(mttHand.stacks).filter(function (k) {
+    return k !== 'BB' && k !== 'hero' && k !== 'villain' && typeof mttHand.stacks[k] === 'number';
+  });
+  const vals = villainSeats.map(function (k) { return mttHand.stacks[k]; });
+  const nearHero = vals.filter(function (v) { return v >= 8 && v <= 12; }).length;
+  const midOrDeep = vals.filter(function (v) { return v >= 18; }).length;
+  if (nearHero === vals.length) {
+    console.error('FAIL: MTT villanos todos ≈10bb', vals);
+    process.exit(1);
+  }
+  if (midOrDeep < 1) {
+    console.error('FAIL: MTT esperaba algún mid/deep vs hero 10bb', vals);
+    process.exit(1);
+  }
+  const minV = Math.min.apply(null, vals);
+  const maxV = Math.max.apply(null, vals);
+  if (maxV - minV < 5) {
+    console.error('FAIL: MTT poca dispersión de stacks', vals);
+    process.exit(1);
+  }
+  console.log('Stacks MTT push hero 10bb villanos variados:', vals.map(function (v) { return Math.round(v); }).join(','), 'OK');
+
+  const spinCfg = PC.normalize({ formatHub: 'spin', stackDepth: 'bb10', scenario: 'push', phase: 'push' });
+  const spinHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_BTN', seed: 22, pushFold: true }, spinCfg);
+  const spinPos = PC.tablePositions(spinCfg);
+  spinPos.forEach(function (p) {
+    if (spinHand.stacks[p] == null) {
+      console.error('FAIL: spin falta stack asiento', p, spinHand.stacks);
+      process.exit(1);
+    }
+  });
+  if (spinHand.stacks.BB !== 10) {
+    console.error('FAIL: spin hero 10bb', spinHand.stacks);
+    process.exit(1);
+  }
+  const spinOthers = spinPos.filter(function (p) { return p !== 'BB'; }).map(function (p) { return spinHand.stacks[p]; });
+  const spinAllNear = spinOthers.every(function (v) { return v >= 8 && v <= 12; });
+  if (spinAllNear) {
+    console.error('FAIL: spin villanos todos ≈10bb', spinOthers);
+    process.exit(1);
+  }
+  console.log('Stacks spin push hero 10bb villanos:', spinOthers.map(function (v) { return Math.round(v); }).join(','), 'OK');
+}
 const rem0 = ST.remaining(stackHand, 'BB');
 const callOpt = (stackHand.current.options || []).find(function (o) { return o.id === 'call'; });
 if (callOpt) {

@@ -153,15 +153,30 @@
       ? Taxo.normalizeHub(cfg.formatHub || Taxo.hubFromGameType(cfg.gameType))
       : 'cash';
     if (hub === 'cash') return null;
-    const heroBB = hand && hand.stacks && hand.stacks.hero != null
-      ? hand.stacks.hero
-      : (hand && hand.effStack) || 25;
-    const villainBB = hand && hand.stacks && hand.stacks.villain != null
-      ? hand.stacks.villain
-      : heroBB;
+    const heroSeat = hand && (hand.displayHeroPos || (hand.hero && hand.hero.pos));
+    const villainSeat = hand && hand.villain && hand.villain.pos;
+    const heroBB = hand && hand.stacks && heroSeat && hand.stacks[heroSeat] != null
+      ? hand.stacks[heroSeat]
+      : (hand && hand.stacks && hand.stacks.hero != null
+        ? hand.stacks.hero
+        : (hand && hand.effStack) || 25);
+    const villainBB = hand && hand.stacks && villainSeat && hand.stacks[villainSeat] != null
+      ? hand.stacks[villainSeat]
+      : (hand && hand.stacks && hand.stacks.villain != null
+        ? hand.stacks.villain
+        : heroBB);
     const tableMax = hub === 'spin' ? 3 : (cfg.gameType === 'cash9' || cfg.gameType === 'mtt' ? 9 : 3);
     const stacks = [heroBB, villainBB];
-    if (tableMax >= 3) stacks.push(Math.max(8, Math.round((heroBB + villainBB) / 2)));
+    if (hand && hand.stacks && tableMax >= 3) {
+      Object.keys(hand.stacks).forEach(function (k) {
+        if (k === 'hero' || k === 'villain' || k === heroSeat || k === villainSeat) return;
+        const bb = hand.stacks[k];
+        if (typeof bb === 'number' && bb > 0 && stacks.length < tableMax) stacks.push(bb);
+      });
+    }
+    while (stacks.length < Math.min(3, tableMax)) {
+      stacks.push(Math.max(8, Math.round((heroBB + villainBB) / 2)));
+    }
     const payouts = hub === 'spin'
       ? ((Taxo && Taxo.spinPayouts) ? Taxo.spinPayouts(cfg.spinPayout || '2x') : [0.65, 0.35, 0])
       : [0.5, 0.3, 0.2];
