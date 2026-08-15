@@ -125,6 +125,7 @@ function assertPushVsRfiOptions(hub, label) {
 assertPushVsRfiOptions('spin', 'spin push vsRFI');
 assertPushVsRfiOptions('mtt', 'mtt push vsRFI');
 
+<<<<<<< HEAD
 // Stacks MTT/Spin: héroe al depth elegido; villanos mid/short/deep (no clon del héroe)
 {
   const ST = w.PTStacks;
@@ -153,6 +154,40 @@ assertPushVsRfiOptions('mtt', 'mtt push vsRFI');
   // Cash sigue cercano al héroe
   const cashHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', seed: 42 }, PC.normalize({ stackDepth: 'bb100' }));
   assert.ok(cashHand.stacks.CO >= 70 && cashHand.stacks.CO <= 130, 'cash villain cercano');
+=======
+// Push shove: si pagan (incluso "3bet" forzado), héroe all-in → runout, nunca face3bet
+{
+  const pushCfg = PC.normalize({
+    formatHub: 'mtt', stackDepth: 'bb10', scenario: 'push', phase: 'push'
+  });
+  const shoveHand = Engine.newHand({
+    type: 'RFI',
+    heroPos: 'CO',
+    engineHeroPos: 'CO',
+    seed: 91,
+    pushFold: true,
+    forceScript: {
+      heroPos: 'CO',
+      villainPos: 'BB',
+      actions: [
+        { pos: 'CO', action: 'allin' },
+        { pos: 'BTN', action: 'fold' },
+        { pos: 'SB', action: 'fold' },
+        { pos: 'BB', action: 'raise', amountBB: 34 }
+      ]
+    }
+  }, pushCfg);
+  assert.ok(shoveHand.current && shoveHand.current.options.some((o) => o.id === 'allin'), 'push ofrece shove');
+  Engine.act(shoveHand, 'allin');
+  assert.ok(!shoveHand.current || shoveHand.current.kind !== 'face3bet',
+    'tras shove no vuelve face3bet (héroe ya all-in)');
+  assert.ok(
+    shoveHand.runoutPending || shoveHand.result || !shoveHand.current,
+    'tras shove pagado → runout/showdown, no decisión'
+  );
+  const rem = w.PTStacks ? w.PTStacks.remaining(shoveHand, 'CO') : 0;
+  assert.ok(rem <= 0.01, 'héroe sin fichas tras shove');
+>>>>>>> origin/cursor/allin-no-face3bet-fcda
 }
 
 // --- ICM ---
