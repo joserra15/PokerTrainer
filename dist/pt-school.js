@@ -4094,7 +4094,7 @@
         },
         {
           "title": "Quiz final: ¿qué crees que tiene?",
-          "body": "Antes de ver las cartas del villano, elige entre tres manos: la que encaja con la línea y dos que la propia línea ya debería haber descartado. Si aciertas el descarte, estás asignando rango; si no, estás adivinando showdown."
+          "body": "Antes de ver las cartas del villano, elige entre tres manos creíbles de preflop: la que encaja con toda la línea y dos que abren/defienden pero mueren en flop, turn o river (check-check que elimina AA, pot-control que saca underpairs, etc.). Si solo descartas basura de open, el ejercicio es demasiado fácil."
         }
       ],
       "examples": [
@@ -5254,17 +5254,17 @@
           { street: 'Turn', text: '9h — BB check → BTN bet → BB call' },
           { street: 'River', text: '3c — BB check → BTN bet (tú decides)' }
         ],
-        teachBack: 'Triple barrel en A-high seco: el BTN densifica Ax value y faroles creíbles. 72o nunca abrió; 22 con set en flop rara vez solo apuesta river sin raise antes.',
+        teachBack: 'Triple barrel en A-high seco: densifica Ax value (y algún farol). Manos que abren pero pot-controlan turn (TT) o aire sin plan (QJs) caen en calles posteriores.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Ac', 'Qc'],
-          teachBack: 'AQo encaja: open BTN + triple barrel value en A-high. 72o no está en el RFI; 22 con set suele raisear antes o checkear river a veces, pero la historia “solo barrel” cuadra peor que top pair fuerte.',
+          teachBack: 'AQo: open + triple barrel value en A-high. TT suele pot-controlar turn; QJs sin as abandona la presión antes del river.',
           options: [
             { id: 'a', cards: ['Ac', 'Qc'], label: 'AQo', correct: true },
-            { id: 'b', cards: ['7d', '2h'], label: '72o', correct: false,
-              eliminated: 'No abre BTN. La primera acción (RFI) ya la elimina.' },
-            { id: 'c', cards: ['2s', '2h'], label: '22', correct: false,
-              eliminated: 'Set en flop A72: suele check-raise o raisear turn; triple barrel pasivo es historia rara.' }
+            { id: 'b', cards: ['Ts', 'Th'], label: 'TT', correct: false,
+              eliminated: 'Abre BTN y puede c-bet flop, pero en A-high seco suele pot-controlar turn: no triple-barrela por valor.' },
+            { id: 'c', cards: ['Qh', 'Js'], label: 'QJs', correct: false,
+              eliminated: 'Open OK y c-bet posible, pero sin as ni pareja fuerte: en turn 9h suele dejar de meter presión.' }
           ]
         }
       }),
@@ -5276,17 +5276,17 @@
           { street: 'Turn', text: '2s — BB check → BTN bet → BB call' },
           { street: 'River', text: '7d — BB check → BTN bet' }
         ],
-        teachBack: 'Tras check-check flop, el bet turn+river del BTN es delayed barrel: Kx value o farol. 95o no abre; JTs que checkeó flop suele checkear atrás otra vez o elegir otro sizing.',
+        teachBack: 'Check-check flop + delayed barrel: Kx value o farol. AA casi nunca checkea ese flop; QJo sin K rara vez barrela turn y river.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Kc', 'Jh'],
-          teachBack: 'KJo: open late + delayed value tras check-check. 95o fuera del open; 72o tampoco abre.',
+          teachBack: 'KJo cuadra el delayed value. AA betearía flop; QJo sin rey no construye turn+river bet con esta historia.',
           options: [
-            { id: 'a', cards: ['9c', '5h'], label: '95o', correct: false,
-              eliminated: 'No entra en RFI de BTN. Descartada en preflop.' },
+            { id: 'a', cards: ['As', 'Ad'], label: 'AA', correct: false,
+              eliminated: 'Abre y en K-high seco casi siempre c-betea flop: el check-check la elimina.' },
             { id: 'b', cards: ['Kc', 'Jh'], label: 'KJo', correct: true },
-            { id: 'c', cards: ['7h', '2c'], label: '72o', correct: false,
-              eliminated: 'Basura offsuit: no abre ni llega a river barrelando.' }
+            { id: 'c', cards: ['Qc', 'Jd'], label: 'QJo', correct: false,
+              eliminated: 'Open late OK, pero sin K: delayed barrel turn+river es raro; suele checkear river o fold.' }
           ]
         }
       }),
@@ -5298,16 +5298,16 @@
           { street: 'Turn', text: '9h — BB bet → BTN call' },
           { street: 'River', text: '3c — BB bet (tú decides)' }
         ],
-        teachBack: 'Check-raise flop + barrels: polar (fuertes + faroles). QTo sin pareja no check-raisea value; 72o no defiende BB así.',
+        teachBack: 'Check-raise flop + barrels: polar (sets/dos pares + faroles). AKo y TT defienden BB, pero no raisean ese flop por value.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Jh', 'Js'],
-          teachBack: 'JJ (set en J72) es la historia value clásica del check-raise. QTo no raisea flop sin equity; 84o no está en la defensa.',
+          teachBack: 'JJ (set) es value clásico del check-raise. AKo sin pareja no raisea flop; TT underpair tampoco polariza así.',
           options: [
-            { id: 'a', cards: ['Qh', 'Td'], label: 'QTo', correct: false,
-              eliminated: 'Sin pareja ni draw fuerte: no check-raisea flop por value.' },
-            { id: 'b', cards: ['8d', '4c'], label: '84o', correct: false,
-              eliminated: 'Ni defiende BB vs open ni construye esta línea polar.' },
+            { id: 'a', cards: ['As', 'Kh'], label: 'AKo', correct: false,
+              eliminated: 'Defiende BB, pero sin pareja/draw en J72: hace call o fold, no check-raise por value.' },
+            { id: 'b', cards: ['Tc', 'Td'], label: 'TT', correct: false,
+              eliminated: 'Underpair jugable en call: no check-raisea flop polar sin set ni equity clara.' },
             { id: 'c', cards: ['Jh', 'Js'], label: 'JJ', correct: true }
           ]
         }
@@ -5320,17 +5320,17 @@
           { street: 'Turn', text: '2s — check-check' },
           { street: 'River', text: '7h — BB check → CO bet' }
         ],
-        teachBack: 'Tras c-bet flop y check turn, el river bet del CO suele ser Ax thin o farol. 63o no abrió CO; KJo sin as a menudo checkea atrás también en flop o no llega así.',
+        teachBack: 'C-bet flop + check turn + bet river: típico Ax thin. KK suele seguir metiendo turn; QJo sin as no cobra river así.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Ad', 'Js'],
-          teachBack: 'AJo: open CO + c-bet A-high + river value/thin. 63o eliminada en RFI; 72o igual.',
+          teachBack: 'AJo: c-bet A-high y river thin tras check turn. KK betearía turn a menudo; QJo sin as no es cobro natural en river.',
           options: [
             { id: 'a', cards: ['Ad', 'Js'], label: 'AJo', correct: true },
-            { id: 'b', cards: ['6h', '3c'], label: '63o', correct: false,
-              eliminated: 'No abre CO. Fuera desde preflop.' },
-            { id: 'c', cards: ['7c', '2d'], label: '72o', correct: false,
-              eliminated: 'No está en el RFI de CO ni en esta línea de cobro.' }
+            { id: 'b', cards: ['Kc', 'Kh'], label: 'KK', correct: false,
+              eliminated: 'Open + c-bet OK, pero en A-high suele betear turn también (o checkear river): check-turn + bet-river encaja peor.' },
+            { id: 'c', cards: ['Qs', 'Jd'], label: 'QJo', correct: false,
+              eliminated: 'Puede abrir CO y c-bet aire, pero sin as: tras check turn el river bet no es value creíble.' }
           ]
         }
       }),
@@ -5342,17 +5342,17 @@
           { street: 'Turn', text: '5s — BB check → BTN bet → BB call' },
           { street: 'River', text: '8c — BB check → BTN bet' }
         ],
-        teachBack: 'Delayed barrel en Q-high: Qx/Jx value o farol. 54o no abre; A5o que no conectó a menudo no elige esta línea de presión.',
+        teachBack: 'Delayed barrel en Q-high: Qx value. AA betearía flop; JTs con segunda pareja suele elegir otra línea (bet flop o check river).',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Qs', 'Td'],
-          teachBack: 'QTo: open + delayed value en Q-high. 54o descartada en open; 32o igual.',
+          teachBack: 'QTo: delayed value limpio. AA no checkea flop Q-high; JTs no encaja tan bien en turn+river bet tras check-check.',
           options: [
-            { id: 'a', cards: ['5h', '4d'], label: '54o', correct: false,
-              eliminated: 'No abre BTN de forma estándar; no llega a river bet.' },
+            { id: 'a', cards: ['Ac', 'Ah'], label: 'AA', correct: false,
+              eliminated: 'Premium: en Q-high casi siempre c-betea flop. El check-check la saca del rango.' },
             { id: 'b', cards: ['Qs', 'Td'], label: 'QTo', correct: true },
-            { id: 'c', cards: ['3c', '2d'], label: '32o', correct: false,
-              eliminated: 'Basura: eliminada en el RFI, no en el river.' }
+            { id: 'c', cards: ['Jh', 'Ts'], label: 'JTs', correct: false,
+              eliminated: 'Open OK; con Jx a menudo betea flop o checkea river — delayed double barrel no es su historia limpia.' }
           ]
         }
       }),
@@ -5364,17 +5364,17 @@
           { street: 'Turn', text: '4h — BB check → BTN bet → BB call' },
           { street: 'River', text: '2d — BB bet grande (tú decides)' }
         ],
-        teachBack: 'Check-call dos calles y bet grande river: polar (fuertes o farol). 98o no defiende así; 53o eliminada ya en preflop.',
+        teachBack: 'Float dos calles + bet grande river: polar (dos pares/fuertes). QQ con overpair suele raisear antes; QJs sin showdown fuerte no mete river grande.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
-          answerCards: ['Ah', '7h'],
-          teachBack: 'A7s (dos pares) cuadra con float flop/turn y presión river. 98o no es defensa típica; 53o eliminada en preflop.',
+          answerCards: ['Ah', '7s'],
+          teachBack: 'A7s (dos pares) explica el float y la presión river. QQ raisearía más pronto; QJs no apuesta river grande sin equity.',
           options: [
-            { id: 'a', cards: ['9c', '8d'], label: '98o', correct: false,
-              eliminated: 'Defiende poco y no apuesta river grande por value en A-high.' },
-            { id: 'b', cards: ['5c', '3s'], label: '53o', correct: false,
-              eliminated: 'Fuera del call BB vs open; no sobrevive la línea.' },
-            { id: 'c', cards: ['Ah', '7h'], label: 'A7s', correct: true }
+            { id: 'a', cards: ['Qc', 'Qd'], label: 'QQ', correct: false,
+              eliminated: 'Defiende y puede call flop, pero con overpair suele raisear flop/turn: float pasivo + bet grande river es raro.' },
+            { id: 'b', cards: ['Qs', 'Js'], label: 'QJs', correct: false,
+              eliminated: 'Call BB OK; float flop posible, pero en AsKh7 sin draw fuerte no mete bet grande de river.' },
+            { id: 'c', cards: ['Ah', '7s'], label: 'A7s', correct: true }
           ]
         }
       }),
@@ -5386,17 +5386,17 @@
           { street: 'Turn', text: '3s — check-check' },
           { street: 'River', text: 'Kd — BB check → HJ bet' }
         ],
-        teachBack: 'HJ barrel flop y apuesta river tras K: Ax/Kx o farol con blockers. 85o no abre HJ; 42o tampoco.',
+        teachBack: 'C-bet flop + check turn + bet river tras K: Ax/scare card. QQ suele betear turn; 88 underpair no cobra river así.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Ad', 'Ts'],
-          teachBack: 'ATo: open HJ + c-bet + river cuando llega K (puede ser value thin/blocker). 85o y 42o fuera del RFI early-mid.',
+          teachBack: 'ATo: c-bet + river cuando llega K. QQ betearía turn a menudo; 88 no es value de river en esa línea.',
           options: [
             { id: 'a', cards: ['Ad', 'Ts'], label: 'ATo', correct: true },
-            { id: 'b', cards: ['8h', '5c'], label: '85o', correct: false,
-              eliminated: 'No abre HJ. Descartada en preflop.' },
-            { id: 'c', cards: ['4d', '2c'], label: '42o', correct: false,
-              eliminated: 'No está en el RFI ni en un river bet creíble.' }
+            { id: 'b', cards: ['Qs', 'Qh'], label: 'QQ', correct: false,
+              eliminated: 'Overpair: tras c-bet flop suele seguir en turn. Check-turn + bet-river al K encaja peor.' },
+            { id: 'c', cards: ['8h', '8s'], label: '88', correct: false,
+              eliminated: 'Abre HJ y puede c-bet, pero underpair tras check turn no apuesta river por valor en K-high.' }
           ]
         }
       }),
@@ -5408,16 +5408,16 @@
           { street: 'Turn', text: 'Jh — BB check → BTN bet → BB call' },
           { street: 'River', text: '9s — BB check → BTN bet' }
         ],
-        teachBack: 'Triple barrel en board underpair/drawy: overpairs, Jx, o faroles con equity previa. 62o no abre; 93o no construye tres calles.',
+        teachBack: 'Triple barrel en board drawy: overpairs. 66 pot-controla turn; AKo aire no barrela J y 9 por valor.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Qh', 'Qs'],
-          teachBack: 'QQ overpair: open + triple barrel value. 62o eliminada en RFI; 93o no es línea de tres calles.',
+          teachBack: 'QQ overpair: triple barrel limpio. 66 se queda atrás en turn; AKo sin pareja no es value de tres calles.',
           options: [
-            { id: 'a', cards: ['6c', '2d'], label: '62o', correct: false,
-              eliminated: 'No abre BTN. Fuera desde la primera acción.' },
-            { id: 'b', cards: ['9c', '3d'], label: '93o', correct: false,
-              eliminated: 'No llega a triple barrel; ni siquiera abre limpia.' },
+            { id: 'a', cards: ['6c', '6d'], label: '66', correct: false,
+              eliminated: 'Open + c-bet flop posible, pero underpair en board drawy: pot-control turn, no triple barrel.' },
+            { id: 'b', cards: ['Ac', 'Kd'], label: 'AKo', correct: false,
+              eliminated: 'Open OK y c-bet aire, pero barrel turn J y river 9 sin pareja no es value: suele checkear river.' },
             { id: 'c', cards: ['Qh', 'Qs'], label: 'QQ', correct: true }
           ]
         }
@@ -5430,17 +5430,17 @@
           { street: 'Turn', text: 'Ad — BB bet → BTN call' },
           { street: 'River', text: '4c — BB bet' }
         ],
-        teachBack: 'Donk flop + triple pressure: a menudo 9x/8x/straight draws que llegan. 72o no defiende; KQo sin conexión rara vez donkea flop 982.',
+        teachBack: 'Donk flop + presión: 9x/sets. KQo y ATs defienden BB, pero no donkean 982 sin conexión.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['9h', '9d'],
-          teachBack: '99 (set en 982) explica el donk y la presión. 72o fuera; KQo no donkea ese flop por value.',
+          teachBack: '99 (set) explica el donk. KQo y ATs check-callearian; no lideran ese flop.',
           options: [
             { id: 'a', cards: ['Kh', 'Qd'], label: 'KQo', correct: false,
-              eliminated: 'Sin pareja en 982: no donkea flop por value ni barrela tres calles así.' },
+              eliminated: 'Defiende BB, pero sin 9/8/draw en 982: check-call, no donk flop por value.' },
             { id: 'b', cards: ['9h', '9d'], label: '99', correct: true },
-            { id: 'c', cards: ['7c', '2s'], label: '72o', correct: false,
-              eliminated: 'No defiende BB vs open; descartada en preflop.' }
+            { id: 'c', cards: ['Ac', 'Ts'], label: 'ATs', correct: false,
+              eliminated: 'Call BB estándar; en 982 sin pareja suele checkear flop, no donkear y meter tres calles.' }
           ]
         }
       }),
@@ -5452,16 +5452,16 @@
           { street: 'Turn', text: '2h — BB check → CO bet → BB call' },
           { street: 'River', text: 'Qd — BB check → CO bet' }
         ],
-        teachBack: 'Delayed barrel tras check flop en K-high: Kx o farol. 84o no abre CO; 52o eliminada.',
+        teachBack: 'Check flop + delayed barrel: Kx. AA betearía flop; AJo sin K suele no doblar barrel tras check-check.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Kd', 'Js'],
-          teachBack: 'KJo: open CO + delayed value. 84o y 52o fuera del RFI.',
+          teachBack: 'KJo: delayed value. AA no checkea flop K-high; AJo sin rey no encaja en turn+river bet.',
           options: [
-            { id: 'a', cards: ['8h', '4c'], label: '84o', correct: false,
-              eliminated: 'No abre CO. Eliminada en preflop.' },
-            { id: 'b', cards: ['5d', '2c'], label: '52o', correct: false,
-              eliminated: 'Basura offsuit: no sobrevive ni el open.' },
+            { id: 'a', cards: ['Ah', 'Ac'], label: 'AA', correct: false,
+              eliminated: 'En K-high seco casi siempre c-betea flop: el check-check elimina el premium.' },
+            { id: 'b', cards: ['As', 'Jd'], label: 'AJo', correct: false,
+              eliminated: 'Open CO OK; sin K, tras check-check flop el delayed barrel turn+river es farol poco natural.' },
             { id: 'c', cards: ['Kd', 'Js'], label: 'KJo', correct: true }
           ]
         }
@@ -5474,17 +5474,17 @@
           { street: 'Turn', text: 'Td — BB check → BTN bet → BB call' },
           { street: 'River', text: 'Kc — BB check → BTN bet' }
         ],
-        teachBack: 'Triple barrel en board bajo que termina con K: overpairs, T9s, o faroles. 93o no abre; 42o no barrela tres calles.',
+        teachBack: 'Triple barrel en board bajo: overpairs. 55 pot-controla; KQo aire suele parar en turn.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Ah', 'Ac'],
-          teachBack: 'AA overpair: la línea de presión más limpia. 93o y 42o descartadas desde el open.',
+          teachBack: 'AA: presión limpia. 55 no barrela tres calles; KQo abandona antes del river.',
           options: [
             { id: 'a', cards: ['Ah', 'Ac'], label: 'AA', correct: true },
-            { id: 'b', cards: ['9s', '3c'], label: '93o', correct: false,
-              eliminated: 'No abre BTN; no hay historia de triple barrel.' },
-            { id: 'c', cards: ['4h', '2d'], label: '42o', correct: false,
-              eliminated: 'Fuera del RFI y del rango que apuesta tres calles.' }
+            { id: 'b', cards: ['5s', '5c'], label: '55', correct: false,
+              eliminated: 'Open + c-bet flop posible, pero underpair: pot-control turn — no triple barrel value.' },
+            { id: 'c', cards: ['Kh', 'Qh'], label: 'KQo', correct: false,
+              eliminated: 'Open late y c-bet aire OK, pero barrel turn T y seguir river es farol largo: suele checkear turn.' }
           ]
         }
       }),
@@ -5496,16 +5496,16 @@
           { street: 'Turn', text: '2s — BB bet → BTN call' },
           { street: 'River', text: '8d — BB bet' }
         ],
-        teachBack: 'Raise flop en JT3 + barrels: polar (dos pares/straight/set o farol). 85o no raisea flop; 64o no está en la defensa.',
+        teachBack: 'Raise flop JT3 + barrels: polar (dos pares/straight). AKo y 88 defienden, pero no raisean ese flop por value.',
         quiz: {
           prompt: '¿Qué crees que tiene el villano?',
           answerCards: ['Jh', 'Th'],
-          teachBack: 'JTs (dos pares / fuerte en JT3) es value polar del raise. 85o y 64o no construyen esa línea.',
+          teachBack: 'JTs (dos pares) es value del raise. AKo sin conexión raisea poco; 88 underpair tampoco polariza flop.',
           options: [
-            { id: 'a', cards: ['8c', '5h'], label: '85o', correct: false,
-              eliminated: 'No check-raisea flop JT3 por value; defensa dudosa ya en preflop.' },
-            { id: 'b', cards: ['6d', '4c'], label: '64o', correct: false,
-              eliminated: 'Eliminada en la defensa BB; no polariza flop.' },
+            { id: 'a', cards: ['Ac', 'Kd'], label: 'AKo', correct: false,
+              eliminated: 'Call BB frecuente, pero en JT3 sin pareja/draw fuerte: call o fold, no raise polar de flop.' },
+            { id: 'b', cards: ['8h', '8c'], label: '88', correct: false,
+              eliminated: 'Underpair defendible en call: rara vez raisea flop sin set ni draw claro.' },
             { id: 'c', cards: ['Jh', 'Th'], label: 'JTs', correct: true }
           ]
         }

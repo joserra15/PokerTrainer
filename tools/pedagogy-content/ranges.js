@@ -200,7 +200,7 @@ module.exports = {
         {
           title: 'Quiz final: ¿qué crees que tiene?',
           body:
-            'Antes de ver las cartas del villano, elige entre tres manos: la que encaja con la línea y dos que la propia línea ya debería haber descartado. Si aciertas el descarte, estás asignando rango; si no, estás adivinando showdown.'
+            'Antes de ver las cartas del villano, elige entre tres manos creíbles de preflop: la que encaja con toda la línea y dos que abren/defienden pero mueren en flop, turn o river (check-check que elimina AA, pot-control que saca underpairs, etc.). Si solo descartas basura de open, el ejercicio es demasiado fácil.'
         }
       ],
       examples: [
