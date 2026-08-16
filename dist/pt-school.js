@@ -11547,9 +11547,9 @@
     var prompt = quiz.prompt || '¿Qué crees que tiene el villano?';
     var optsHtml = (quiz.options || []).map(function (opt, idx) {
       var id = opt.id || ('opt-' + idx);
-      return '<button type="button" class="school-quiz-option" data-quiz-opt="' + esc(id) + '">' +
+      return '<button type="button" class="school-quiz-option" data-quiz-opt="' + esc(id) + '"' +
+        ' aria-label="' + esc(opt.label || formatCards(opt.cards)) + '">' +
         '<span class="school-quiz-option-cards">' + cardsHtml(opt.cards) + '</span>' +
-        '<span class="school-quiz-option-label">' + esc(opt.label || formatCards(opt.cards)) + '</span>' +
         '</button>';
     }).join('');
     fb.classList.remove('hidden');

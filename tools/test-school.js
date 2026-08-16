@@ -1014,6 +1014,8 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   });
   assert.ok(/villainQuiz|showVillainQuiz|¿Qué crees que tiene/.test(schoolSrc), 'school.js quiz villano');
   assert.ok(/school-quiz-option|school-line-story/.test(css), 'CSS quiz/línea');
+  assert.ok(/school-quiz-option-cards/.test(schoolSrc), 'opciones quiz muestran cartas');
+  assert.ok(!/school-quiz-option-label/.test(schoolSrc), 'opciones quiz sin etiqueta de texto debajo');
   assert.ok(/flush draw|OESD|semi-bluff|boat|overbet|merge/i.test(
     lineIds.slice(1).map(function (id) { return lessonBlob(Data.getLesson(id)); }).join(' ')
   ), 'M2–M4 cubren draws/boats/sizing');
