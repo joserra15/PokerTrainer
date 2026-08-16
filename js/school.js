@@ -731,7 +731,35 @@
         ((quiz.teachBack || spot.teachBack)
           ? '<p class="school-spot-teach">' + esc(quiz.teachBack || spot.teachBack) + '</p>'
           : '') +
+        (global.PTSchoolShare && global.PTSchoolShare.buildLineQuizShareHtml
+          ? global.PTSchoolShare.buildLineQuizShareHtml()
+          : '') +
         '</div>';
+      if (global.PTSchoolShare && global.PTSchoolShare.mountLineQuizShare) {
+        try {
+          var lesson = Data() && Data().getLesson(s.lessonId);
+          var shareRoot = fb.querySelector('.school-share-line-quiz');
+          var shareOpts = (quiz.options || []).map(function (opt) {
+            return { cards: (opt.cards || []).slice() };
+          });
+          global.PTSchoolShare.mountLineQuizShare(shareRoot, {
+            lessonId: s.lessonId,
+            lessonTitle: (lesson && lesson.title) || s.lessonId || '',
+            prompt: quiz.prompt || '¿Qué crees que tiene el villano?',
+            lineStory: spot.lineStory || [],
+            board: (hand && hand.board && hand.board.length)
+              ? hand.board.slice()
+              : (spot.forceDeal && spot.forceDeal.board ? spot.forceDeal.board.slice() : []),
+            heroPos: spot.heroPos || '',
+            heroCards: spot.forceDeal && spot.forceDeal.heroCards
+              ? spot.forceDeal.heroCards.slice()
+              : [],
+            villainPos: spot.villainPos ||
+              (spot.forceDeal && spot.forceDeal.villainPos) || '',
+            options: shareOpts
+          });
+        } catch (eShareQuiz) { /* ignore */ }
+      }
     }
     if (actions) {
       var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';

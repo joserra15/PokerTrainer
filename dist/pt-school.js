@@ -10891,16 +10891,211 @@
     return { canvas: canvas, text: text, url: url };
   }
 
+  function drawPlayingCard(ctx, code, x, y, cw, ch) {
+    var rank = String(code || '').charAt(0) || '?';
+    var suit = String(code || '').charAt(1) || '';
+    var suitSym = suit === 's' ? '♠' : suit === 'h' ? '♥' : suit === 'd' ? '♦' : suit === 'c' ? '♣' : '?';
+    var red = suit === 'h' || suit === 'd';
+    roundRect(ctx, x, y, cw, ch, Math.max(6, Math.round(cw * 0.12)));
+    ctx.fillStyle = '#f8fafc';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(15,23,42,0.2)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = red ? '#dc2626' : '#0f172a';
+    ctx.textAlign = 'left';
+    ctx.font = '800 ' + Math.round(cw * 0.42) + 'px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(rank === 'T' ? '10' : rank, x + cw * 0.12, y + ch * 0.38);
+    ctx.font = '700 ' + Math.round(cw * 0.4) + 'px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(suitSym, x + cw * 0.14, y + ch * 0.78);
+  }
+
+  function drawCardRow(ctx, cards, x, y, cw, ch, gap) {
+    (cards || []).forEach(function (c, i) {
+      drawPlayingCard(ctx, c, x + i * (cw + gap), y, cw, ch);
+    });
+  }
+
+  function buildLineQuizShareText(payload) {
+    var url = siteUrl();
+    var title = (payload && payload.lessonTitle) || 'Analizar rango rival';
+    return '¿Qué tiene el villano tras esta línea? «' + title + '» en PokerForgeAI. Sin spoiler — ¿tú qué eliges? ' + url;
+  }
+
+  function buildLineQuizShareHtml() {
+    return (
+      '<div class="school-share school-share-line-quiz" aria-label="Compartir spot sin spoiler">' +
+      '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
+      '<div class="school-share-actions">' +
+      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="line-quiz">Compartir spot</button>' +
+      '</div>' +
+      '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
+      '</div>'
+    );
+  }
+
+  /**
+   * Tarjeta social del quiz de línea: línea + board + héroe + 3 opciones.
+   * Sin solución (ni mano correcta, ni elección del usuario, ni teachBack).
+   */
+  function drawLineQuizCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    var w = CARD_W;
+    var h = CARD_H;
+    canvas.width = w;
+    canvas.height = h;
+    payload = payload || {};
+
+    var g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, '#0f172a');
+    g.addColorStop(0.5, '#111827');
+    g.addColorStop(1, '#0b1220');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    var glow = ctx.createRadialGradient(w * 0.5, 100, 10, w * 0.5, 140, w * 0.5);
+    glow.addColorStop(0, 'rgba(96,165,250,0.22)');
+    glow.addColorStop(1, 'rgba(96,165,250,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 4;
+    roundRect(ctx, 36, 36, w - 72, h - 72, 36);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = '700 36px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('PokerForgeAI', 80, 108);
+
+    ctx.fillStyle = '#93c5fd';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Escuela · Rangos · Sin spoiler', 80, 148);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 44px system-ui, -apple-system, Segoe UI, sans-serif';
+    var title = payload.prompt || '¿Qué crees que tiene el villano?';
+    var titleLines = wrapText(ctx, title, w - 160);
+    var ty = 210;
+    titleLines.slice(0, 2).forEach(function (line) {
+      ctx.fillText(line, 80, ty);
+      ty += 52;
+    });
+
+    var story = payload.lineStory || [];
+    var storyY = ty + 18;
+    ctx.font = '600 26px system-ui, -apple-system, Segoe UI, sans-serif';
+    story.slice(0, 4).forEach(function (row) {
+      var street = (row && row.street) || '';
+      var text = (row && row.text) || '';
+      ctx.fillStyle = '#93c5fd';
+      ctx.fillText(street, 80, storyY);
+      ctx.fillStyle = 'rgba(230,237,243,0.9)';
+      var lines = wrapText(ctx, text, w - 280);
+      ctx.fillText(lines[0] || '', 220, storyY);
+      if (lines[1]) {
+        storyY += 30;
+        ctx.fillText(lines[1], 220, storyY);
+      }
+      storyY += 38;
+    });
+
+    var boardY = Math.max(storyY + 16, 470);
+    ctx.fillStyle = 'rgba(230,237,243,0.7)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Board', 80, boardY);
+    var board = payload.board || [];
+    var bcw = 88;
+    var bch = 120;
+    drawCardRow(ctx, board, 80, boardY + 16, bcw, bch, 12);
+
+    var heroY = boardY + 16;
+    var heroX = 620;
+    ctx.fillStyle = 'rgba(230,237,243,0.7)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Héroe ' + (payload.heroPos || ''), heroX, boardY);
+    drawCardRow(ctx, payload.heroCards || [], heroX, heroY + 16, 78, 108, 10);
+
+    ctx.fillStyle = 'rgba(230,237,243,0.55)';
+    ctx.font = '600 22px system-ui, -apple-system, Segoe UI, sans-serif';
+    var vPos = payload.villainPos || 'Villano';
+    ctx.fillText('Villano ' + vPos + ' · cartas ocultas', heroX, heroY + 150);
+
+    var optY = boardY + 180;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Opciones (elige una)', 80, optY);
+
+    var options = payload.options || [];
+    var boxW = (w - 160 - 28) / 3;
+    var boxH = 200;
+    var boxTop = optY + 20;
+    options.slice(0, 3).forEach(function (opt, i) {
+      var bx = 80 + i * (boxW + 14);
+      roundRect(ctx, bx, boxTop, boxW, boxH, 20);
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(147,197,253,0.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      var cards = (opt && opt.cards) || [];
+      var ocw = 72;
+      var och = 100;
+      var rowW = cards.length * ocw + Math.max(0, cards.length - 1) * 10;
+      var ox = bx + (boxW - rowW) / 2;
+      var oy = boxTop + (boxH - och) / 2;
+      drawCardRow(ctx, cards, ox, oy, ocw, och, 10);
+    });
+
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sin spoiler · ¿Qué mano sobrevive a la línea?', w / 2, 930);
+
+    var url = siteUrl();
+    var host = siteHostLabel(url);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(host, w / 2, 980);
+    ctx.fillStyle = 'rgba(230,237,243,0.65)';
+    ctx.font = '600 22px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(url.replace(/\/$/, ''), w / 2, 1018);
+
+    return canvas;
+  }
+
+  function mountLineQuizShare(root, payload) {
+    if (!root || !payload) return null;
+    var canvas = root.querySelector('.school-share-canvas');
+    if (!canvas) return null;
+    drawLineQuizCard(canvas, payload);
+    var text = buildLineQuizShareText(payload);
+    var url = siteUrl();
+    var btn = root.querySelector('[data-school-share="line-quiz"]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        shareNative(canvas, text, url, root);
+      });
+    }
+    return { canvas: canvas, text: text, url: url };
+  }
+
   global.PTSchoolShare = {
     siteUrl: siteUrl,
     buildShareText: buildShareText,
     buildHubShareText: buildHubShareText,
+    buildLineQuizShareText: buildLineQuizShareText,
     drawAchievementCard: drawAchievementCard,
     drawHubSummaryCard: drawHubSummaryCard,
+    drawLineQuizCard: drawLineQuizCard,
     buildPanelHtml: buildPanelHtml,
     buildHubPanelHtml: buildHubPanelHtml,
+    buildLineQuizShareHtml: buildLineQuizShareHtml,
     mountSharePanel: mountSharePanel,
     mountHubSharePanel: mountHubSharePanel,
+    mountLineQuizShare: mountLineQuizShare,
     CARD_W: CARD_W,
     CARD_H: CARD_H
   };
@@ -11639,7 +11834,35 @@
         ((quiz.teachBack || spot.teachBack)
           ? '<p class="school-spot-teach">' + esc(quiz.teachBack || spot.teachBack) + '</p>'
           : '') +
+        (global.PTSchoolShare && global.PTSchoolShare.buildLineQuizShareHtml
+          ? global.PTSchoolShare.buildLineQuizShareHtml()
+          : '') +
         '</div>';
+      if (global.PTSchoolShare && global.PTSchoolShare.mountLineQuizShare) {
+        try {
+          var lesson = Data() && Data().getLesson(s.lessonId);
+          var shareRoot = fb.querySelector('.school-share-line-quiz');
+          var shareOpts = (quiz.options || []).map(function (opt) {
+            return { cards: (opt.cards || []).slice() };
+          });
+          global.PTSchoolShare.mountLineQuizShare(shareRoot, {
+            lessonId: s.lessonId,
+            lessonTitle: (lesson && lesson.title) || s.lessonId || '',
+            prompt: quiz.prompt || '¿Qué crees que tiene el villano?',
+            lineStory: spot.lineStory || [],
+            board: (hand && hand.board && hand.board.length)
+              ? hand.board.slice()
+              : (spot.forceDeal && spot.forceDeal.board ? spot.forceDeal.board.slice() : []),
+            heroPos: spot.heroPos || '',
+            heroCards: spot.forceDeal && spot.forceDeal.heroCards
+              ? spot.forceDeal.heroCards.slice()
+              : [],
+            villainPos: spot.villainPos ||
+              (spot.forceDeal && spot.forceDeal.villainPos) || '',
+            options: shareOpts
+          });
+        } catch (eShareQuiz) { /* ignore */ }
+      }
     }
     if (actions) {
       var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';

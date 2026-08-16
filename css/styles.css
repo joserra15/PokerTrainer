@@ -1623,6 +1623,14 @@ body.age-gate-open {
 .school-share-status { margin: 10px 0 0; font-size: 13px; }
 .school-share-status.is-ok { color: #86efac; }
 .school-share-status.is-err { color: #fca5a5; }
+.school-share-line-quiz {
+  margin: 14px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(147, 197, 253, .28);
+  background: rgba(59, 130, 246, .08);
+}
+.school-share-line-quiz .school-share-actions .school-share-btn { width: 100%; }
 .school-m0-progress { margin: 10px 0 0; font-size: 13px; }
 .school-route-teasers { margin: 0 0 8px; }
 .school-teaser-list { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }
