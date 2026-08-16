@@ -50,6 +50,7 @@
     hand_start: 'Manos entrenador',
     play_hand: 'Jugar mano',
     ai_coach_used: 'Consultas ForgeCoach',
+    ai_coach_greeting: 'Saludo ForgeCoach (sin cupo)',
     lesson_start: 'Escuela: inicio lección',
     lesson_complete: 'Escuela: lección aprobada',
     lesson_fail: 'Escuela: lección fallida',
@@ -1151,7 +1152,10 @@
     if (!events.length && !tabs.length && !scopes.length && !modes.length) {
       return '<p class="muted-text">Aún no hay contadores de uso sincronizados para este usuario.</p>';
     }
-    return '<div class="admin-usage-block"><h5>Eventos</h5>' +
+    return '<p class="muted-text admin-feature-usage-note">Estos contadores son analytics del cliente. ' +
+      '«Consultas ForgeCoach» son usos reales; el saludo de inicio no consume cupo y se lista aparte. ' +
+      'El cupo del listado y de «Cupo IA este mes» es el consumo facturable del mes.</p>' +
+      '<div class="admin-usage-block"><h5>Eventos</h5>' +
       renderCountBars(events, function (k) { return FEATURE_EVENT_LABELS[k] || k; }) + '</div>' +
       '<div class="admin-usage-block"><h5>Pestañas</h5>' +
       renderCountBars(tabs, function (k) { return TAB_LABELS[k] || k; }) + '</div>' +
