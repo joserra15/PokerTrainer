@@ -20,7 +20,7 @@ assert.ok(/renderFeatureUsageSection/.test(adminSrc), 'uso individual');
 assert.ok(/pt_admin_usage_stats/.test(sql) && /feature_usage/.test(sql) && /school/.test(sql), 'migración SQL');
 assert.ok(/trackFeatureUsage/.test(storageSrc), 'Store.trackFeatureUsage');
 assert.ok(/trackFeatureUsage/.test(logSrc), 'PTLog → trackFeatureUsage');
-assert.ok(/PT_BUILD\s*=\s*'2.5.38'/.test(version), 'versión 2.5.38');
+assert.ok(/PT_BUILD\s*=\s*'2.5.39'/.test(version), 'versión 2.5.39');
 
 const localStore = {};
 const sandbox = {
@@ -51,14 +51,23 @@ PTLog.event('tab_view', { tab: 'school' });
 PTLog.event('tab_view', { tab: 'school' });
 PTLog.event('hand_start', { street: 'preflop' });
 PTLog.event('ai_coach_used', { scope: 'learn', mode: 'question' });
+PTLog.event('ai_coach_greeting', { scope: 'statsGlobal', mode: 'question' });
 PTLog.event('lesson_complete', { lessonId: 'C-01' });
 
 const fu = Store.getFeatureUsage();
 assert.strictEqual(fu.events.tab_view, 2, 'tab_view count');
 assert.strictEqual(fu.tabs.school, 2, 'tabs.school');
 assert.strictEqual(fu.events.hand_start, 1, 'hand_start');
+assert.strictEqual(fu.events.ai_coach_used, 1, 'ai_coach_used');
+assert.strictEqual(fu.events.ai_coach_greeting, 1, 'ai_coach_greeting counted separately');
 assert.strictEqual(fu.aiScopes.learn, 1, 'aiScopes.learn');
+assert.strictEqual(fu.aiScopes.statsGlobal, undefined, 'greeting no infla aiScopes');
 assert.strictEqual(fu.aiModes.question, 1, 'aiModes.question');
 assert.strictEqual(fu.events.lesson_complete, 1, 'lesson_complete');
+
+const aiSrc = fs.readFileSync(path.join(root, 'js/ai-report.js'), 'utf8');
+assert.ok(/ai_coach_greeting/.test(aiSrc) && /options\.freePromo/.test(aiSrc), 'freePromo → greeting event');
+assert.ok(/Saludo ForgeCoach/.test(adminSrc), 'label saludo en admin');
+assert.ok(/consumo facturable/.test(adminSrc), 'nota cupo vs analytics');
 
 console.log('*** test-admin-usage-school OK ***');

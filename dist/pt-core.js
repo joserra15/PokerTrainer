@@ -16723,8 +16723,10 @@ window.PT_VS_3BET_JSON = {
       const msg = data.error || data.message || ('HTTP ' + res.status);
       throw new Error(msg);
     }
+    // freePromo (saludo de inicio) no consume cupo ni debe contar como consulta facturable.
     if (global.PTLog && global.PTLog.event) {
-      global.PTLog.event('ai_coach_used', { scope: scope || 'hand', mode: mode || 'report' });
+      const eventName = options.freePromo ? 'ai_coach_greeting' : 'ai_coach_used';
+      global.PTLog.event(eventName, { scope: scope || 'hand', mode: mode || 'report' });
     }
     return data;
   }
