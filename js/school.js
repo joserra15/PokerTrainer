@@ -877,7 +877,7 @@
     ranges: {
       eyebrow: 'Rangos · Laboratorio',
       title: 'Laboratorio de rangos',
-      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: leer el rango rival tras la línea (sets, colores, escaleras, draws fallidos).'
+      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: ¿qué tiene el villano? (spots mezclados, sin pistas de categoría).'
     }
   };
 
@@ -904,9 +904,9 @@
     ranges: {
       M0: { title: 'M0 · Bases de rangos (Gratis)', lead: 'Matriz, RFI BTN y % que conecta.' },
       M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, línea completa y node frequencies.' },
-      M2: { title: 'M2 · Manos hechas (Study)', lead: 'Sets, dos pares, colores, escaleras y value limpio.' },
-      M3: { title: 'M3 · Draws y polar (Coach)', lead: 'Flush/straight fallidos, semi-bluff y blockers.' },
-      M4: { title: 'M4 · Lectura sutil (Coach)', lead: 'Boats, overbets, thin value, líneas raras y merge.' }
+      M2: { title: 'M2 · ¿Qué tiene? Lectura (Study)', lead: 'Quiz mixto: lee la línea, no la categoría.' },
+      M3: { title: 'M3 · ¿Qué tiene? Polar (Coach)', lead: 'Faroles, draws fallidos y polar — sin spoilers.' },
+      M4: { title: 'M4 · ¿Qué tiene? Sutil (Coach)', lead: 'Sizing, boats y líneas raras mezclados.' }
     }
   };
 
