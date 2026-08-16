@@ -849,7 +849,7 @@
     ranges: {
       eyebrow: 'Rangos · Laboratorio',
       title: 'Laboratorio de rangos',
-      lead: 'Construir, defender y leer rangos. Complementa cash y torneos.'
+      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: leer el rango rival tras la línea (sets, colores, escaleras, draws fallidos).'
     }
   };
 
@@ -874,8 +874,11 @@
       M4: { title: 'M4 · Burbuja / FT (Coach)', lead: 'ICM, roles y mesa final.' }
     },
     ranges: {
-      M0: { title: 'M0 · Bases de rangos', lead: 'Construir y defender.' },
-      M1: { title: 'M1 · Lectura y frecuencias', lead: 'Asignar rango y node frequencies.' }
+      M0: { title: 'M0 · Bases de rangos (Gratis)', lead: 'Matriz, RFI BTN y % que conecta.' },
+      M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, línea completa y node frequencies.' },
+      M2: { title: 'M2 · Manos hechas (Study)', lead: 'Sets, dos pares, colores, escaleras y value limpio.' },
+      M3: { title: 'M3 · Draws y polar (Coach)', lead: 'Flush/straight fallidos, semi-bluff y blockers.' },
+      M4: { title: 'M4 · Lectura sutil (Coach)', lead: 'Boats, overbets, thin value, líneas raras y merge.' }
     }
   };
 
