@@ -1,5 +1,5 @@
 /*
- * school-data-ranges.js — Laboratorio Rangos R-01…R-21 (M0–M4)
+ * school-data-ranges.js — Laboratorio Rangos R-01…R-27 (M0–M4)
  * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
  */
 (function (global) {
@@ -630,7 +630,7 @@
     {
       "route": "ranges",
       "module": "M3",
-      "order": 11,
+      "order": 13,
       "plan": "coach",
       "xp": 100,
       "passThreshold": 1,
@@ -679,7 +679,7 @@
     {
       "route": "ranges",
       "module": "M3",
-      "order": 12,
+      "order": 14,
       "plan": "coach",
       "xp": 100,
       "passThreshold": 1,
@@ -728,7 +728,7 @@
     {
       "route": "ranges",
       "module": "M3",
-      "order": 13,
+      "order": 15,
       "plan": "coach",
       "xp": 105,
       "passThreshold": 1,
@@ -777,7 +777,7 @@
     {
       "route": "ranges",
       "module": "M3",
-      "order": 14,
+      "order": 16,
       "plan": "coach",
       "xp": 105,
       "passThreshold": 1,
@@ -826,7 +826,7 @@
     {
       "route": "ranges",
       "module": "M3",
-      "order": 15,
+      "order": 17,
       "plan": "coach",
       "xp": 110,
       "passThreshold": 1,
@@ -875,7 +875,7 @@
     {
       "route": "ranges",
       "module": "M4",
-      "order": 16,
+      "order": 20,
       "plan": "coach",
       "xp": 110,
       "passThreshold": 1,
@@ -924,7 +924,7 @@
     {
       "route": "ranges",
       "module": "M4",
-      "order": 17,
+      "order": 21,
       "plan": "coach",
       "xp": 115,
       "passThreshold": 1,
@@ -973,7 +973,7 @@
     {
       "route": "ranges",
       "module": "M4",
-      "order": 18,
+      "order": 22,
       "plan": "coach",
       "xp": 115,
       "passThreshold": 1,
@@ -1022,7 +1022,7 @@
     {
       "route": "ranges",
       "module": "M4",
-      "order": 19,
+      "order": 23,
       "plan": "coach",
       "xp": 120,
       "passThreshold": 1,
@@ -1071,7 +1071,7 @@
     {
       "route": "ranges",
       "module": "M4",
-      "order": 20,
+      "order": 24,
       "plan": "coach",
       "xp": 120,
       "passThreshold": 1,
@@ -1116,6 +1116,300 @@
       "exam": false,
       "id": "R-21",
       "title": "¿Qué tiene? · Lectura sutil V"
+    },
+    {
+      "route": "ranges",
+      "module": "M2",
+      "order": 11,
+      "plan": "study",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Cierre M2: faroles que se delatan por la línea (draws que mueren, presión sin equity). La respuesta correcta es aire — dedúcela por cómo actúa, no por el título.",
+      "theory": [
+        {
+          "title": "Equity que muere",
+          "body": "Si barrela two-tone y el river es brick, muchas manos value habrían elegido otro sizing; el draw fallido sigue necesitando fold equity."
+        },
+        {
+          "title": "Value más lineal",
+          "body": "Top pair y sets suelen sizing continuo. Saltos a overbet o check-turn + bomb en blank empujan el rango a polar — y el lado air es creíble."
+        },
+        {
+          "title": "Descarta el hecho fuerte",
+          "body": "Pregunta: “si tuviera QJ aquí, ¿jugaría exactamente así?”. Si la respuesta es no, no elijas QJ."
+        }
+      ],
+      "examples": [
+        {
+          "title": "FD + brick",
+          "body": "C-bet + barrel + overbet en blank: KdXd muerto late más que AKo value."
+        },
+        {
+          "title": "OESD float",
+          "body": "Float + overbet sin completar: 98s muerto, no KTo."
+        },
+        {
+          "title": "Donk sin llegar",
+          "body": "Donk en two-tone y presión hasta brick: combo draw fallido, no set limpio."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué sizing delata polar air?",
+        "¿Por qué el value fuerte no checkea turn y bomba river?",
+        "¿Cómo descartas un top pair creíble?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-22",
+      "title": "¿Qué tiene? · Faroles por línea I"
+    },
+    {
+      "route": "ranges",
+      "module": "M2",
+      "order": 12,
+      "plan": "study",
+      "xp": 105,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Más faroles con historia: blockers, delayed bombs, raise turn blank. Sigue siendo Study: difícil, pero la lógica de descarte es explícita.",
+      "theory": [
+        {
+          "title": "Blocker ≠ value",
+          "body": "A5o puede bombear river como blocker; ATo con showdown suele haber betead turn."
+        },
+        {
+          "title": "XR + freno",
+          "body": "Check-raise con equity y luego check turn + bet river brick: el draw murió; el set habría seguido."
+        },
+        {
+          "title": "Representar el board",
+          "body": "Cuando completa una escalera y apuesta grande sin haber mostrado antes, a menudo representa — no tiene."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Delayed overbet",
+          "body": "Check turn + overbet: aire con blocker, no top pair."
+        },
+        {
+          "title": "Raise turn blank",
+          "body": "Raise en blank tras call flop: gutshot muerto, no overpair."
+        },
+        {
+          "title": "Donk turn miss",
+          "body": "Donk de equity y bet river miss: 96o, no KK."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué es un farol de blocker?",
+        "¿Qué elimina un check-turn tras XR?",
+        "¿Cuándo “representar” es sospechoso?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-23",
+      "title": "¿Qué tiene? · Faroles por línea II"
+    },
+    {
+      "route": "ranges",
+      "module": "M3",
+      "order": 18,
+      "plan": "coach",
+      "xp": 110,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "M3 Coach: faroles con distractores value fuertes. La línea sigue siendo la prueba — si el hecho grande no encaja al 100 %, es air.",
+      "theory": [
+        {
+          "title": "Tiny → overbet",
+          "body": "Pequeño-pequeño-overbet es el print polar. El value medio casi nunca salta así; el draw fallido sí."
+        },
+        {
+          "title": "Distractores duros",
+          "body": "Las opciones incorrectas parecen “obvias”. Oblígate a una frase de descarte postflop antes de elegir."
+        },
+        {
+          "title": "Scare card",
+          "body": "As o rey que asusta + sizing extremo: ¿quién necesita fold equity? El que no tiene showdown."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Polar print",
+          "body": "Tiny bets y overbet final: K6s muerto, no AKo lineal."
+        },
+        {
+          "title": "XR sin nut",
+          "body": "XR two-tone y presión brick: A9s story, no QQ limpio."
+        },
+        {
+          "title": "Float overbet",
+          "body": "Float + overbet tras A: 54s muerto, no AA."
+        }
+      ],
+      "aiQuestions": [
+        "¿Por qué tiny-tiny-overbet es polar?",
+        "¿Cómo evitas el distractor de dos pares?",
+        "¿Qué hace un scare card al rango air?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-24",
+      "title": "¿Qué tiene? · Faroles difíciles I"
+    },
+    {
+      "route": "ranges",
+      "module": "M3",
+      "order": 19,
+      "plan": "coach",
+      "xp": 115,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Más presión: donk+raise, representan nuts, blockers en AK-high. Si aciertas sin narrar la línea, estás adivinando.",
+      "theory": [
+        {
+          "title": "Historia vs mano",
+          "body": "El villano cuenta una historia (escalera, color). Si la historia empieza tarde o con sizing raro, suele ser mentira."
+        },
+        {
+          "title": "Call ≠ raise",
+          "body": "Manos value fuertes raisean o betean turn; las que solo hacen call y luego “reviven” en river son sospechosas."
+        },
+        {
+          "title": "Autocheck",
+          "body": "Antes de marcar: “¿esta opción habría checkeado turn?”. Si no, elimínala."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Donk fallido",
+          "body": "Donk + call raise + bet brick: 87s muerto."
+        },
+        {
+          "title": "Representa escalera",
+          "body": "Bet cuando completa el board: Q9o air, no JJ."
+        },
+        {
+          "title": "AK-high air",
+          "body": "Triple barrel sin showdown: QJs blocker, no AKo."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué es “contar una historia” en river?",
+        "¿Por qué el value raisea turn?",
+        "¿Cómo usas el autocheck de turn?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-25",
+      "title": "¿Qué tiene? · Faroles difíciles II"
+    },
+    {
+      "route": "ranges",
+      "module": "M4",
+      "order": 25,
+      "plan": "coach",
+      "xp": 120,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "M4: faroles que parecen thin value. El sizing pequeño de river tras presión, o el overbet tras tiny, delatan air con disfraz.",
+      "theory": [
+        {
+          "title": "Thin falso",
+          "body": "Un tiny river tras tres calles no es thin value típico: es air que no quiere un call grande."
+        },
+        {
+          "title": "Blocker polar",
+          "body": "KQo en A-high puede overbetear como blocker; A8o con showdown no necesita ese print."
+        },
+        {
+          "title": "Línea rara = air o nuts",
+          "body": "Si no es nuts (y el board no lo permite), es air. No inventes “merge mágico”."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Tiny river",
+          "body": "Triple barrel + tiny: AQs FD muerto fingiendo thin."
+        },
+        {
+          "title": "Raise turn A",
+          "body": "Check flop + raise A: JTs air, no QQ."
+        },
+        {
+          "title": "Representa 5",
+          "body": "Overbet cuando completa 64: 96s mentira."
+        }
+      ],
+      "aiQuestions": [
+        "¿Por qué un tiny river huele a air?",
+        "¿Qué es farol de blocker en M4?",
+        "¿Cuándo descartas el merge?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-26",
+      "title": "¿Qué tiene? · Faroles sutiles I"
+    },
+    {
+      "route": "ranges",
+      "module": "M4",
+      "order": 26,
+      "plan": "coach",
+      "xp": 125,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Cierre Rangos: los faroles más difíciles. Misma mecánica de quiz; la pista está solo en la forma de actuar.",
+      "theory": [
+        {
+          "title": "Misma prueba",
+          "body": "Calle a calle: ¿qué combos sobreviven? Si el value fuerte murió en turn, el river bet es air o bluff-catcher — aquí air."
+        },
+        {
+          "title": "Sin atajo de módulo",
+          "body": "Sabes que la lección es de faroles, pero cada spot exige la frase de descarte. No marques “la más fea” a ciegas."
+        },
+        {
+          "title": "Repite fallos",
+          "body": "Si fallas, reescribe por qué la opción value no juega así. Ese músculo es el producto."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Polar print M4",
+          "body": "Tiny-tiny-overbet: KQo farol, no ATo."
+        },
+        {
+          "title": "XR + overbet",
+          "body": "XR hearts + check + overbet: QJs muerto."
+        },
+        {
+          "title": "Thin-fake",
+          "body": "Triple + tiny: A6s FD fallido, no KJo."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cuál es la prueba final de un farol?",
+        "¿Por qué no basta saber que “es lección de faroles”?",
+        "¿Cómo conviertes un fallo en método?"
+      ],
+      "spots": [],
+      "exam": false,
+      "id": "R-27",
+      "title": "¿Qué tiene? · Faroles sutiles II"
     }
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });

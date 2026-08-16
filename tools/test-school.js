@@ -74,7 +74,7 @@ assert.ok(/Textura de flop|Examen M2/.test(schoolM2Src), 'lecciones M2');
 assert.ok(/S-00|S-17/.test(schoolSpinSrc), 'lecciones Spins');
 assert.ok(/buy-in|entrada/.test(schoolSpinSrc) && /fichas no valen|fichas ≠|Entrada ≠ fichas/.test(schoolSpinSrc), 'S-00 explica entrada vs fichas');
 assert.ok(/T-00|T-22/.test(schoolMttSrc), 'lecciones MTT');
-assert.ok(/R-01|R-21/.test(schoolRangesSrc), 'lecciones Rangos');
+assert.ok(/R-01|R-27/.test(schoolRangesSrc), 'lecciones Rangos');
 assert.ok(/school-data-ranges-line\.js/.test(chunks), 'chunk Rangos línea M2–M4');
 assert.ok(/C-26|C-31/.test(schoolProSrc), 'lecciones Pro Cash');
 assert.ok(/lessonId:\s*'C-02'/.test(aiReportSrc) && /lessonFromLeak/.test(aiReportSrc), 'TRAINING_FOCUSES → lessonId');
@@ -187,7 +187,7 @@ const lessons = Data.lessonsForRoute('cash');
 assert.strictEqual(lessons.length, 27, 'Cash M0+M1+M2+Pro = 27 lecciones');
 assert.strictEqual(Data.lessonsForRoute('spin').length, 18, 'Spins 18');
 assert.strictEqual(Data.lessonsForRoute('mtt').length, 23, 'MTT 23');
-assert.strictEqual(Data.lessonsForRoute('ranges').length, 21, 'Rangos 21');
+assert.strictEqual(Data.lessonsForRoute('ranges').length, 27, 'Rangos 27');
 assert.strictEqual(Data.m0Lessons().length, 7, 'M0 7');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
 assert.strictEqual(Data.m2Lessons().length, 7, 'M2 7');
@@ -360,7 +360,7 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   }
   var mttBlob = assertRouteVoice('mtt', 23);
   assert.ok(/ante|ICM|steal|push|burbuja|bb/.test(mttBlob), 'MTT vocabulario torneo');
-  var rangesBlob = assertRouteVoice('ranges', 21);
+  var rangesBlob = assertRouteVoice('ranges', 27);
   assert.ok(/matriz|rango|frecuencia|blocker|menú Rangos/.test(rangesBlob), 'Rangos vocabulario');
   var proBlob = assertRouteVoice('cash', 27); // includes M0-M4
   assert.ok(/4-bet|farol|fish|reg/.test(proBlob), 'Pro cash vocabulario');
@@ -410,21 +410,24 @@ assert.strictEqual(Data.getLesson('T-04').plan, 'study', 'T-04 M1 sigue Study');
   assert.ok(l && l.module === 'M1', id + ' es M1');
   assert.strictEqual(l.plan, 'study', id + ' plan study');
 });
-['R-07', 'R-08', 'R-09', 'R-10', 'R-11'].forEach(function (id) {
+['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-22', 'R-23'].forEach(function (id) {
   var l = Data.getLesson(id);
   assert.ok(l && l.module === 'M2', id + ' es M2');
   assert.strictEqual(l.plan, 'study', id + ' plan study');
 });
-['R-12', 'R-13', 'R-14', 'R-15', 'R-16'].forEach(function (id) {
+['R-12', 'R-13', 'R-14', 'R-15', 'R-16', 'R-24', 'R-25'].forEach(function (id) {
   var l = Data.getLesson(id);
   assert.ok(l && l.module === 'M3', id + ' es M3');
   assert.strictEqual(l.plan, 'coach', id + ' plan coach');
 });
-['R-17', 'R-18', 'R-19', 'R-20', 'R-21'].forEach(function (id) {
+['R-17', 'R-18', 'R-19', 'R-20', 'R-21', 'R-26', 'R-27'].forEach(function (id) {
   var l = Data.getLesson(id);
   assert.ok(l && l.module === 'M4', id + ' es M4');
   assert.strictEqual(l.plan, 'coach', id + ' plan coach');
 });
+assert.ok(/Faroles por línea/.test(Data.getLesson('R-22').title), 'R-22 faroles M2');
+assert.ok(/Faroles difíciles/.test(Data.getLesson('R-24').title), 'R-24 faroles M3');
+assert.ok(/Faroles sutiles/.test(Data.getLesson('R-26').title), 'R-26 faroles M4');
 assert.ok(/M0 completo en Gratis/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Spins/MTT menciona M0 gratis');
 assert.ok(/M0 · Bases de rangos \(Gratis\)/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Rangos M0 gratis');
 
@@ -962,10 +965,12 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.PTAdmin = { hasAccess: function () { return true; } };
 })();
 
-/* R-05 y M2–M4 (R-07…R-21): manos completas (river) + quiz «¿qué crees que tiene?». */
+/* R-05 y M2–M4 (R-07…R-27): manos completas (river) + quiz «¿qué crees que tiene?». */
 (function assertRangesLineQuiz() {
   const lineIds = ['R-05'].concat(
-    ['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-12', 'R-13', 'R-14', 'R-15', 'R-16', 'R-17', 'R-18', 'R-19', 'R-20', 'R-21']
+    ['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-22', 'R-23',
+      'R-12', 'R-13', 'R-14', 'R-15', 'R-16', 'R-24', 'R-25',
+      'R-17', 'R-18', 'R-19', 'R-20', 'R-21', 'R-26', 'R-27']
   );
   lineIds.forEach(function (lessonId) {
     const lesson = Data.getLesson(lessonId);
@@ -1035,9 +1040,18 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
     'títulos M2 sin tipificar categoría');
   assert.ok(/sin atajos de categoría|sin spoiler de módulo|mezcl/i.test(lessonBlob(Data.getLesson('R-07'))),
     'teoría anti-spoiler');
-  assert.ok(/draw|boat|overbet|merge|farol|polar/i.test(
+  assert.ok(/draw|boat|overbet|merge|farol|polar|fallido/i.test(
     lineIds.slice(1).map(function (id) { return lessonBlob(Data.getLesson(id)); }).join(' ')
   ), 'M2–M4 cubren faroles/boats/sizing en teoría');
+  ['R-22', 'R-23', 'R-24', 'R-25', 'R-26', 'R-27'].forEach(function (id) {
+    const lesson = Data.getLesson(id);
+    assert.ok(/farol/i.test(lesson.title + ' ' + lesson.concept), id + ' lección de faroles');
+    lesson.spots.forEach(function (spot) {
+      assert.ok(/farol|fallid|air|blocker|represent/i.test(
+        (spot.teachBack || '') + ' ' + ((spot.villainQuiz && spot.villainQuiz.teachBack) || '')
+      ), spot.id + ' teachBack de farol');
+    });
+  });
 })();
 
 (function () {

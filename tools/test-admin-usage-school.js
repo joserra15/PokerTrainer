@@ -20,7 +20,7 @@ assert.ok(/renderFeatureUsageSection/.test(adminSrc), 'uso individual');
 assert.ok(/pt_admin_usage_stats/.test(sql) && /feature_usage/.test(sql) && /school/.test(sql), 'migración SQL');
 assert.ok(/trackFeatureUsage/.test(storageSrc), 'Store.trackFeatureUsage');
 assert.ok(/trackFeatureUsage/.test(logSrc), 'PTLog → trackFeatureUsage');
-assert.ok(/PT_BUILD\s*=\s*'2.5.43'/.test(version), 'versión 2.5.43');
+assert.ok(/PT_BUILD\s*=\s*'2.5.44'/.test(version), 'versión 2.5.44');
 
 const localStore = {};
 const sandbox = {
