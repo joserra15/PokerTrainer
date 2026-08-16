@@ -1000,6 +1000,19 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
             spot.id + ' ' + o.label + ' no debe ser descarte trivial de open');
         }
       });
+      // Línea: quien apuesta river debe ser el villano (facingBet).
+      // R-05: "BB check → BTN bet"; R-07+: "BTN bet" / "CO overbet".
+      const vill = spot.villainPos || (spot.forceDeal && spot.forceDeal.villainPos) || '';
+      const riverRow = (spot.lineStory || []).filter(function (r) {
+        return /river/i.test(r.street || '');
+      })[0];
+      assert.ok(riverRow, spot.id + ' tiene river en lineStory');
+      const riverBets = String(riverRow.text || '').match(/([A-Z0-9]{2,3})\s+(bet|overbet)/gi) || [];
+      assert.ok(riverBets.length, spot.id + ' river indica quién apuesta: ' + riverRow.text);
+      const lastBet = riverBets[riverBets.length - 1].match(/([A-Z0-9]{2,3})\s+(bet|overbet)/i);
+      assert.ok(lastBet, spot.id + ' parse river bet: ' + riverRow.text);
+      assert.strictEqual(lastBet[1], vill, spot.id + ' river aggressor debe ser villano ' + vill + ', no ' + lastBet[1]);
+      assert.notStrictEqual(lastBet[1], spot.heroPos, spot.id + ' river no debe ser apuesta del héroe');
       const pack = openHand(spot);
       assert.strictEqual(pack.hand.stage, 'river', spot.id + ' stage river');
       assert.ok(pack.hand.current && pack.hand.current.options.length, spot.id + ' opciones river');
@@ -1017,9 +1030,14 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   assert.ok(/school-quiz-option-cards/.test(schoolSrc), 'opciones quiz muestran cartas');
   assert.ok(!/school-quiz-option-label/.test(schoolSrc), 'opciones quiz sin etiqueta de texto debajo');
   assert.ok(/mountLineQuizShare|buildLineQuizShareHtml/.test(schoolSrc), 'quiz línea comparte spot');
-  assert.ok(/flush draw|OESD|semi-bluff|boat|overbet|merge/i.test(
+  assert.ok(/¿Qué tiene\?/.test(Data.getLesson('R-07').title), 'R-07 título genérico sin spoiler');
+  assert.ok(!/Sets tras agresión|Color hecho|Escalera hecha/.test(Data.getLesson('R-07').title + Data.getLesson('R-09').title + Data.getLesson('R-10').title),
+    'títulos M2 sin tipificar categoría');
+  assert.ok(/sin atajos de categoría|sin spoiler de módulo|mezcl/i.test(lessonBlob(Data.getLesson('R-07'))),
+    'teoría anti-spoiler');
+  assert.ok(/draw|boat|overbet|merge|farol|polar/i.test(
     lineIds.slice(1).map(function (id) { return lessonBlob(Data.getLesson(id)); }).join(' ')
-  ), 'M2–M4 cubren draws/boats/sizing');
+  ), 'M2–M4 cubren faroles/boats/sizing en teoría');
 })();
 
 (function () {

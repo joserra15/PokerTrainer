@@ -392,44 +392,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "El set (trío con pareja de bolsillo) es value polar clásico: check-raise, donk o triple barrel. Entrena a leer tríos y fulls claros tras la línea completa.",
+      "concept": "Tras una línea completa, no adivines “una mano”: recorta el rango calle a calle y elige el combo que todavía encaja. En la práctica verás sets, colores, escaleras y faroles mezclados — la pista está en la línea, no en el título.",
       "theory": [
         {
-          "title": "Set = trío con pocket",
-          "body": "Cuando el flop trae una carta de tu pareja de bolsillo, tienes set. Esa mano justifica raise polar: no es un call sticky de top pair."
+          "title": "Cada calle elimina combos",
+          "body": "Open, call, check-check, raise o barrel van sacando manos del rango. Narra preflop → river antes de elegir el combo."
         },
         {
-          "title": "Líneas típicas",
-          "body": "Check-raise flop, donk en paired boards y barrels largos densifican sets. AKo y underpairs defienden preflop pero mueren en flop sin conexión."
+          "title": "Tres opciones creíbles",
+          "body": "Las tres abren o defienden preflop; solo una sobrevive a toda la línea. Las otras mueren en flop, turn o river."
         },
         {
-          "title": "Quiz: ¿qué crees que tiene?",
-          "body": "Elige el combo que sobrevive a toda la línea. Las otras dos abren o defienden preflop, pero no raisean ni barrela así en flop/turn/river."
+          "title": "Sin atajos de categoría",
+          "body": "No busques “la respuesta típica de esta lección”: el villano puede tener valor hecho o aire con historia creíble."
         }
       ],
       "examples": [
         {
-          "title": "Check-raise J72",
-          "body": "JJ set explica el check-raise de flop; AKo y TT defienden BB pero no raisean J72 por value en esa calle."
+          "title": "Drill de voz alta",
+          "body": "Di: “¿qué value llega? ¿qué medias se fueron? ¿qué faroles quedan?” Luego elige un combo concreto."
         },
         {
-          "title": "Donk 982",
-          "body": "99 set cuadra el donk de flop; KQo y ATs check-callearian y no lideran tres calles sin conexión."
+          "title": "Check-check que habla",
+          "body": "Un premium que checkea flop A-high casi siempre miente: esa calle ya eliminó AA o KK en muchos spots."
         },
         {
-          "title": "Slowplay paired",
-          "body": "55 o 66 checkean flop paired y delayed barrela turn/river; AA casi nunca checkea ese flop."
+          "title": "Raise polar",
+          "body": "Un check-raise de flop no es “cualquier Ax”: densifica sets, dos pares y algunos faroles con equity."
         }
       ],
       "aiQuestions": [
-        "¿Qué líneas densifican sets?",
-        "¿Por qué AKo no check-raisea J72?",
-        "Antes de revelar, ¿qué pregunta te haces?"
+        "¿Qué elimina un check-check de flop?",
+        "¿Por qué las tres opciones deben ser creíbles preflop?",
+        "¿Qué preguntas te haces antes de elegir?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-07",
-      "title": "Sets tras agresión"
+      "title": "¿Qué tiene? · Lectura I"
     },
     {
       "route": "ranges",
@@ -441,44 +441,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Dos pares y fulls explican raises y floats que top pair no sostiene. Lee la línea hasta el river y elige el combo de dos pares o boat que sigue vivo.",
+      "concept": "Misma mecánica que Lectura I: línea completa + quiz. Sigue mezclando value y faroles. Entrena a descartar con una frase clara por calle.",
       "theory": [
         {
-          "title": "Dos pares vs top pair",
-          "body": "Raise flop o float más bet grande de river suele ser dos pares o más, no solo Kx sticky que pot-controla turn."
+          "title": "Frase de descarte",
+          "body": "Cada opción incorrecta necesita un motivo postflop (“pot-controla turn”, “no raisea sin set”). Si solo dices “no abre”, el ejercicio es demasiado fácil."
         },
         {
-          "title": "Full house",
-          "body": "En boards paired, el full (boat) justifica barrels que underpairs pot-controlan en turn y river."
+          "title": "Value vs media",
+          "body": "Tras tres calles de presión, las medias sticky suelen haberse quedado atrás; densificas value y faroles creíbles."
         },
         {
-          "title": "Descartes duros",
-          "body": "QQ y AA a menudo raisean antes; medias sin conexión no meten bet grande de river tras float."
+          "title": "Board + línea",
+          "body": "La textura importa, pero la secuencia de acciones importa más: el mismo board admite dos historias distintas según la línea."
         }
       ],
       "examples": [
         {
-          "title": "Float AK7",
-          "body": "A7s dos pares explica float y presión river; QQ raisearía antes y QJs no mete river grande sin showdown."
+          "title": "Triple barrel seco",
+          "body": "Ax value o farol con plan; underpair pot-controla turn y no mete tres calles por valor."
         },
         {
-          "title": "Raise JT3",
-          "body": "JTs dos pares raisea flop; AKo y 88 defienden BB pero no polarizan ese flop por value."
+          "title": "Delayed barrel",
+          "body": "Check flop + bet turn: a menudo Kx o Qx que no quiso c-bet; AA casi nunca checkea ese flop."
         },
         {
-          "title": "Boat lento",
-          "body": "99 en double paired: check turn y bet river; overpairs suelen betear turn, no esa línea lenta."
+          "title": "Float + bet river",
+          "body": "Pasivo dos calles y presión final: dos pares o farol polar, rara vez overpair puro que raisearía antes."
         }
       ],
       "aiQuestions": [
-        "¿Cuándo un river grande huele a dos pares?",
-        "¿Cómo se juega un boat lento?",
-        "¿Qué elimina AA del check-check flop?"
+        "¿Qué es una frase de descarte útil?",
+        "¿Qué densifica un triple barrel?",
+        "¿Qué elimina AA del check-check?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-08",
-      "title": "Dos pares y full house"
+      "title": "¿Qué tiene? · Lectura II"
     },
     {
       "route": "ranges",
@@ -490,44 +490,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Monotone y two-tone: el color hecho barrela; sin el palo, overpairs pot-controlan. Entrena flushes claros tras la línea completa.",
+      "concept": "Sube la precisión: mismas reglas, combos más finos. Sigue sin tipificar la lección — mira la línea, no el módulo.",
       "theory": [
         {
-          "title": "Monotone",
-          "body": "Tres del mismo palo en flop: quien raisea o triple-barrela suele tener el color hecho; sin el palo, el overpair pot-controla turn."
+          "title": "Combos, no etiquetas",
+          "body": "“Tiene color” es vago; “K♠J♠ en monotone” es un combo que puedes confrontar con blockers y con las acciones de cada calle."
         },
         {
-          "title": "Blocker de nuts",
-          "body": "El as del palo explica value y algunos faroles; sin ninguna del palo, el barrel largo de color en river es raro."
+          "title": "Blockers ligeros",
+          "body": "Tus cartas quitan combos del villano. Úsalos al final del razonamiento, no como primera pista del quiz."
         },
         {
-          "title": "Quiz de color",
-          "body": "En el quiz, descarta KK o QQ sin el palo y broadway rainbow: abren, pero no barrela monotone como flush hecho."
+          "title": "Historia creíble",
+          "body": "Si la línea es donk más barrel, el combo debe querer liderar ese flop; si no tiene motivo, descártalo."
         }
       ],
       "examples": [
         {
-          "title": "Triple barrel picas",
-          "body": "JTs color explica tres calles; KK sin picas pot-controla turn y no barrela como flush."
+          "title": "Donk + barrels",
+          "body": "Liderar flop y seguir: fuerte hecho o semi-bluff con plan; broadway sin conexión no donkea."
         },
         {
-          "title": "Raise hearts",
-          "body": "97s color raisea flop monotone; AKo rainbow call o fold, no raise polar de color."
+          "title": "Raise flop + presión",
+          "body": "Polar: hecho fuerte o equity clara; underpair casi nunca raisea ese flop por value."
         },
         {
-          "title": "Donk clubs",
-          "body": "KTo color donkea monotone; AKo sin club check-callearía en vez de liderar tres calles."
+          "title": "Check turn + bet river",
+          "body": "Thin value o farol delayed; overpair suele haber betado turn en vez de pot-controlar."
         }
       ],
       "aiQuestions": [
-        "¿Qué elimina un overpair sin el palo?",
-        "¿Por qué Axs barrela monotone?",
-        "¿Qué es un flush draw que sí completa?"
+        "¿Por qué hablar en combos ayuda?",
+        "¿Cuándo miras blockers?",
+        "¿Qué manos donkean un flop seco?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-09",
-      "title": "Color hecho en la línea"
+      "title": "¿Qué tiene? · Lectura III"
     },
     {
       "route": "ranges",
@@ -539,44 +539,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Boards conectados: la escalera hecha raisea y barrela; overpairs pot-controlan. Lee straights claros calle a calle hasta el river.",
+      "concept": "Sigue el drill de tres opciones. La dificultad sube porque los distractores también “casi” encajan hasta una calle concreta.",
       "theory": [
         {
-          "title": "Conectores y gapers",
-          "body": "T9s en 876 o Q8s en JT9: la escalera hecha justifica raise polar y barrels, no un call sticky de pareja media."
+          "title": "Distractores duros",
+          "body": "La mala opción abre BTN y c-betea flop, pero muere en turn: ahí está el entrenamiento de lectura de línea."
         },
         {
-          "title": "Overpair ≠ escalera",
-          "body": "AA o KK en board connected a menudo pot-controlan o raisean distinto: no triple-barrela como si tuvieran la escalera."
+          "title": "Scare cards",
+          "body": "Un as o un blank cambia qué value barrela y qué farol se rinde; incorpóralo a tu narración de la línea."
         },
         {
-          "title": "Donk en broadway",
-          "body": "En QJT, K9o con escalera puede donkear por value; AQo sin straight check-callearía y no lidera esa línea."
+          "title": "No ancles la nuts",
+          "body": "Si solo imaginas la mano que te gana, estás sesgado: lista value, medias y aires antes de elegir."
         }
       ],
       "examples": [
         {
-          "title": "Raise 876",
-          "body": "T9s escalera raisea flop; AKo sin conexión call o fold, no raise polar de escalera."
+          "title": "Blank river",
+          "body": "Pregunta quién sigue metiendo presión sin mejorar y quién se habría quedado atrás en turn."
         },
         {
-          "title": "Barrel al 8",
-          "body": "J7s completa al turn 8 y barrela; KK suele pot-controlar en vez de lineales de straight."
+          "title": "Parea el board",
+          "body": "Fulls y pot-control: la línea distingue boat de overpair que no quiere meter tres calles."
         },
         {
-          "title": "Slowplay JT9",
-          "body": "KQo escalera tras check-check flop; AA casi siempre c-betea ese board connected."
+          "title": "Connected board",
+          "body": "Escalera hecha vs draw que falla: la acción del river y si completa el board lo dicen."
         }
       ],
       "aiQuestions": [
-        "¿Qué board favorece escaleras?",
-        "¿Por qué QQ pot-controla 765?",
-        "¿Cómo descartas AKo en raise de 987?"
+        "¿Qué hace duro a un distractor?",
+        "¿Cómo usas una scare card?",
+        "¿Cómo evitas anclarte a la nuts?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-10",
-      "title": "Escalera hecha en la línea"
+      "title": "¿Qué tiene? · Lectura IV"
     },
     {
       "route": "ranges",
@@ -588,44 +588,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Antes de draws fallidos, clava value limpio: Ax, Kx y sets obvios tras triple barrel o delayed. Misma mecánica de quiz que R-05.",
+      "concept": "Cierre de M2: consolida el método. En M3 los faroles de draw fallido y el polar serán más frecuentes — el método no cambia.",
       "theory": [
         {
-          "title": "Value limpio",
-          "body": "Triple barrel en A-high suele ser Ax; delayed en K-high suele ser Kx; check-raise seco suele ser set."
-        },
-        {
-          "title": "Descartes",
-          "body": "Underpairs pot-controlan turn; aire sin as o rey abandona la presión antes del river en líneas de value."
+          "title": "Método en 20 s",
+          "body": "1) Narra la línea 2) Lista 2–3 value 3) Lista 2–3 faroles 4) Elige un combo 5) Descarta las otras dos con una frase."
         },
         {
           "title": "Puente a M3",
-          "body": "Cuando domines value limpio, M3 mete flush draws y OESD que no completan y se quedan en farol."
+          "body": "Cuando el color o la escalera no llegan, la misma línea puede ser farol: no asumas siempre value hecho."
+        },
+        {
+          "title": "Autocheck",
+          "body": "Si tu respuesta “solo encaja porque es esta lección”, está mal planteada: la pista debe salir de la línea."
         }
       ],
       "examples": [
         {
-          "title": "Triple barrel A-high",
-          "body": "AQo value limpio; TT pot-controla turn y QJs sin as deja de meter presión."
+          "title": "Repaso mixto",
+          "body": "Sets, colores, escaleras y dos pares aparecen mezclados en el mismo bloque de práctica a propósito."
         },
         {
-          "title": "Delayed K-high",
-          "body": "KJo delayed value; AA betearía flop y QJo sin rey no dobla barrel turn y river."
+          "title": "Misma línea, otra textura",
+          "body": "Cambia el board mentalmente: ¿sigue vivo tu combo con esa historia de acciones?"
         },
         {
-          "title": "Thin river tras check turn",
-          "body": "AJo thin tras check turn; KK suele betear turn y QJo sin as no cobra river."
+          "title": "Tres calles vs dos",
+          "body": "Menos agresión deja más medias en el rango; más agresión densifica polar value y faroles."
         }
       ],
       "aiQuestions": [
-        "¿Qué densifica un triple barrel seco?",
-        "¿Qué elimina el check-check flop?",
-        "¿Cómo preparas M3 (draws fallidos)?"
+        "¿Cuáles son los 5 pasos del método?",
+        "¿Qué cambia si el draw no completa?",
+        "¿Cómo detectas un atajo de lección?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-11",
-      "title": "Value limpio multi-calle"
+      "title": "¿Qué tiene? · Lectura V"
     },
     {
       "route": "ranges",
@@ -637,44 +637,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "El rival barrela two-tone y el river es blank: a menudo flush draw fallido convertido en farol. Distínguelo del color hecho de M2.",
+      "concept": "Misma pregunta, más faroles creíbles: draws que no completan, semi-bluffs y presión que se queda en aire. El título no te dice qué buscar.",
       "theory": [
         {
-          "title": "Draw → farol",
-          "body": "KsQs en Js9s2c con river seco: la línea de semi-bluff se queda en aire y aun así puede apostar river."
+          "title": "Equity que muere",
+          "body": "Quien raisea flop con draw y barrela river blank a menudo farolea: la historia era equity, no showdown value."
         },
         {
-          "title": "Quién no barrela",
-          "body": "Underpairs pot-controlan turn; broadway sin flush draw abandona la presión cuando el color no llega."
+          "title": "Value que sigue",
+          "body": "Hechos fuertes también barrela blank. Distingue por líneas previas (raise polar vs call sticky sin equity)."
         },
         {
-          "title": "No confundir con flush",
-          "body": "Si el river completa el palo, vuelve a R-09; aquí el color NO llega y el villano farolea la historia del draw."
+          "title": "Sin spoiler de módulo",
+          "body": "Mezclamos hechos y faroles a propósito: lee la línea, no el temario del módulo."
         }
       ],
       "examples": [
         {
-          "title": "Triple barrel blank",
-          "body": "KQs flush draw fallido explica el barrel; 88 pot-controla y QJo sin draw no farolea tres calles."
+          "title": "Raise + blank",
+          "body": "Semi-bluff fallido vs set: pregunta quién raisea ese flop por value o por equity."
         },
         {
-          "title": "Raise flop + blank",
-          "body": "QJs raisea con draw y sigue sin completar; AQo sin draw no raisea flop two-tone."
+          "title": "Triple barrel two-tone",
+          "body": "Flush hecho vs flush draw fallido: mira si el river completa el palo o no."
         },
         {
-          "title": "Delayed farol",
-          "body": "A8s draw fallido tras check turn; JJ betearía turn y no check-turn + bet-river farol."
+          "title": "Float + bet",
+          "body": "Aire con historia o dos pares: mira si en flop/turn había plan de equity o showdown."
         }
       ],
       "aiQuestions": [
-        "¿Qué es un flush draw fallido?",
-        "¿Por qué 88 no triple-barrela el blank?",
-        "¿Cómo lo distingues de un color hecho?"
+        "¿Qué es equity que muere?",
+        "¿Cómo distingues farol de value en blank?",
+        "¿Por qué el módulo no tipifica la mano?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-12",
-      "title": "Flush draw que no completa"
+      "title": "¿Qué tiene? · Polar y faroles I"
     },
     {
       "route": "ranges",
@@ -686,44 +686,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "OESD y gutshots que barrela y fallan: farol creíble. Overpairs pot-controlan; sin draw no hay tres calles de aire en river blank.",
+      "concept": "Más presión en river y sizing que polariza. Sigue descartando con frases postflop, no con “no abre”.",
       "theory": [
         {
-          "title": "OESD fallido",
-          "body": "Q9s en JT4 con river que no completa: farol creíble tras haber metido presión con equity de escalera."
+          "title": "Sizing como pista",
+          "body": "Overbet suele ser polar (fuerte o aire); bet pequeño suele ser thin o merge. No es regla absoluta: contrástalo con la línea previa."
         },
         {
-          "title": "Raise de draw",
-          "body": "T7s raisea 982 con OESD y sigue sin completar; AKo sin draw no raisea ese flop por value ni por semi-bluff."
+          "title": "Blockers en polar",
+          "body": "El as del palo reduce nuts de color: a veces justifica farol o call. Úsalo al final del razonamiento."
         },
         {
-          "title": "Vs value limpio",
-          "body": "Aquí el villano NO tiene la escalera hecha de R-10: la línea parece de draw y el river no llega."
+          "title": "Medias fuera",
+          "body": "Tras tres calles grandes, QJ sin pareja rara vez llega: el rango se polarizó y las medias se fueron."
         }
       ],
       "examples": [
         {
-          "title": "Barrel JT4",
-          "body": "Q9s OESD fallido barrela river blank; 88 pot-controla y A9o sin draw no farolea tres calles."
+          "title": "Overbet river",
+          "body": "Nuts o set o aire; overpair medio encaja peor en overbet que en bet medio."
         },
         {
-          "title": "Raise 982",
-          "body": "T7s OESD fallido tras raise flop; AKo y JJ no construyen raise polar sin set ni draw."
+          "title": "Check-raise + barrels",
+          "body": "Polar clásico de value fuerte o farol con equity; underpair no raisea flop así."
         },
         {
-          "title": "Float T87",
-          "body": "J9s OESD float y bet river sin completar; AA raisearía antes y 66 sin draw no mete river."
+          "title": "Delayed overbet",
+          "body": "Check flop + overbet tarde: value específico o farol raro — AA casi no checkea."
         }
       ],
       "aiQuestions": [
-        "¿Qué es un OESD fallido?",
-        "¿Por qué AKo no raisea 982 sin draw?",
-        "¿Cómo lo distingues de una escalera hecha?"
+        "¿Qué sugiere un overbet?",
+        "¿Cuándo entran los blockers?",
+        "¿Qué pasa con las medias sticky?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-13",
-      "title": "Escalera draw fallida"
+      "title": "¿Qué tiene? · Polar y faroles II"
     },
     {
       "route": "ranges",
@@ -735,44 +735,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Semi-bluff (raise o donk con equity) que no mejora: en river es farol puro. Lee la historia de equity, no solo el showdown value.",
+      "concept": "Distractores más pegados: las dos malas opciones también tienen historia hasta turn. El river decide.",
       "theory": [
         {
-          "title": "Semi-bluff",
-          "body": "Raise flop con flush draw u OESD: tienes equity ahora y presión después; si no mejoras, el river es aire."
+          "title": "Muere en river",
+          "body": "La opción mala c-betea y barrela turn, pero el river blank no justifica su bet final: ahí la descartas."
         },
         {
-          "title": "River blank",
-          "body": "Sin mejora, la mano es aire; igual puede apostar si la línea cuenta la historia del draw de flop y turn."
+          "title": "Hecho vs fallido",
+          "body": "Misma línea aparente: una completa el color o la escalera, la otra no. Lee el board final con cuidado."
         },
         {
-          "title": "Merge vs polar",
-          "body": "M4 afina sizing merge frente a polar; aquí identifica primero el draw que murió en el river."
+          "title": "No inventes",
+          "body": "Si no puedes explicar por qué ese combo apuesta river tras esa línea, no lo elijas."
         }
       ],
       "examples": [
         {
-          "title": "XR hearts fallido",
-          "body": "T9s check-raise con hearts y falla; AKo sin draw no raisea y TT flats sin set."
+          "title": "OESD fallido",
+          "body": "Raise flop connected + river blank: farol con historia de escalera que no llegó."
         },
         {
-          "title": "Float clubs fallido",
-          "body": "QJs float con clubs y bet river blank; AA betearía distinto y 77 sin draw no farolea river."
+          "title": "Flush fallido",
+          "body": "Two-tone + blank: farol o color hecho según si el river completa el palo."
         },
         {
-          "title": "Donk draw fallido",
-          "body": "T8s donk con draw y falla; AKo sin draw no donkea y TT no mete tres calles sin completar."
+          "title": "Set lento",
+          "body": "Check flop + presión tarde: ¿slowplay de set o delayed farol? La calle intermedia decide."
         }
       ],
       "aiQuestions": [
-        "¿Qué es un semi-bluff?",
-        "¿Cuándo un semi-bluff se vuelve farol puro?",
-        "¿Qué manos no fabrican esa historia?"
+        "¿Qué significa “muere en river”?",
+        "¿Cómo lees un blank final?",
+        "¿Qué te exige explicar un combo?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-14",
-      "title": "Semi-bluff que acaba en farol"
+      "title": "¿Qué tiene? · Polar y faroles III"
     },
     {
       "route": "ranges",
@@ -784,44 +784,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Overbets y check-raises densifican polar: nuts o set frente a aire. El medio del rango (overpairs sticky) suele quedarse atrás.",
+      "concept": "Consolida polar: value fuerte, faroles con historia, medias fuera. Preparación de M4 (sizing fino y líneas raras).",
       "theory": [
         {
-          "title": "Polar",
-          "body": "Pocas manos muy fuertes más faroles; pocos bluff-catchers en el medio del rango tras overbet o check-raise."
+          "title": "Lista polar",
+          "body": "Antes de elegir: anota 2 value fuertes y 2 faroles con equity previa. Si no sales, estás anclado a una sola mano."
         },
         {
-          "title": "Overbet river",
-          "body": "Sizing grande empuja a value fuerte o aire, no a thin merge de pareja media que betea pequeño."
+          "title": "Call ≠ raise",
+          "body": "Defender BB no autoriza check-raise sin set o draw: esa es la trampa clásica del distractor."
         },
         {
-          "title": "Blockers (puente R-16)",
-          "body": "Axs aparece como farol o nut flush: el blocker del palo cuenta; M3 cierra con R-16 de blockers."
+          "title": "Puente a M4",
+          "body": "En M4 el sizing y las líneas raras afinarán el mismo método de narrar y descartar calle a calle."
         }
       ],
       "examples": [
         {
-          "title": "XR K72",
-          "body": "KK set polar explica check-raise; AJo y TT no raisean K72 sin set ni equity clara."
+          "title": "XR flop seco",
+          "body": "Set o farol con equity; AKo limpio sin pareja no check-raisea ese flop por value."
         },
         {
-          "title": "Overbet A-high",
-          "body": "AKo polar value; QQ pot-controla sizing y 55 no overbetea river tras underpair."
+          "title": "Donk + presión",
+          "body": "Hecho que quiere liderar o draw con plan; broadway sin conexión no donkea flop."
         },
         {
-          "title": "Delayed overbet",
-          "body": "KJo delayed polar tras check-check; AA betearía flop y QTo sin J no overbetea turn y river."
+          "title": "Small-small-overbet",
+          "body": "Polar fino: Ax fuerte o farol; underpair no convierte c-bets pequeños en overbet."
         }
       ],
       "aiQuestions": [
-        "¿Qué es un rango polar?",
-        "¿Qué sizing sugiere polar?",
-        "¿Qué hace un overpair en esa línea?"
+        "¿Cómo armas una lista polar?",
+        "¿Por qué call no implica raise?",
+        "¿Qué añade M4 al método?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-15",
-      "title": "Polar: value fuerte vs aire"
+      "title": "¿Qué tiene? · Polar y faroles IV"
     },
     {
       "route": "ranges",
@@ -833,44 +833,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "En monotone y two-tone, el as o rey del palo bloquea nuts y justifica value o farol. Sin el palo, el barrel de color es raro.",
+      "concept": "Cierre M3: mezcla final de hechos y faroles. Si aciertas sin mirar la línea, estás usando atajos — cámbialo.",
       "theory": [
         {
-          "title": "Blocker de nuts",
-          "body": "Ah en hearts: nut flush o farol que bloquea el nut del rival; cuenta combos eliminados antes de meter fichas."
+          "title": "Autocheck anti-atajo",
+          "body": "Pregúntate: “¿lo elegí porque la línea lo dice o porque en esta lección suele ser X?” Solo vale lo primero."
         },
         {
-          "title": "Sin blocker ni flush",
-          "body": "KK sin heart no triple-barrela monotone como si tuviera color; pot-controla turn en vez de farolear el blank."
+          "title": "Resumen de descartes",
+          "body": "Practica decir en una frase por qué mueren las dos opciones incorrectas antes de revelar."
         },
         {
-          "title": "Enlace M4",
-          "body": "M4 mezcla boats, overbets y thin value; aquí clavas el blocker de color antes de afinar sizing."
+          "title": "Listo para M4",
+          "body": "Boats, thin value y líneas raras: misma pregunta del quiz, más sutileza en sizing y timing."
         }
       ],
       "examples": [
         {
-          "title": "Monotone hearts",
-          "body": "ATs nut flush barrela; KK y 88 sin heart no construyen triple barrel de color."
+          "title": "Repaso mixto M3",
+          "body": "Draws fallidos, colores, polar y algún hecho claro aparecen mezclados a propósito."
         },
         {
-          "title": "Raise spades",
-          "body": "KJs color con blocker de K; AQo rainbow y 99 sin spade no raisean monotone."
+          "title": "Una frase cada una",
+          "body": "Escribe mentalmente el descarte de las opciones b y c antes de pulsar tu respuesta."
         },
         {
-          "title": "Slowplay clubs",
-          "body": "A8o flush tras check-check; AA betearía flop y QJo sin club no delayed barrela color."
+          "title": "Tempo de spot",
+          "body": "20–30 s por spot: narra la línea, lista value y faroles, elige un combo."
         }
       ],
       "aiQuestions": [
-        "¿Qué combos quita el as del palo?",
-        "¿Por qué KK sin flush no barrela monotone?",
-        "¿Cuándo el blocker justifica farol?"
+        "¿Qué es un atajo de lección?",
+        "¿Cómo resumes un descarte?",
+        "¿Qué cambia en M4?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-16",
-      "title": "Blockers en river polar"
+      "title": "¿Qué tiene? · Polar y faroles V"
     },
     {
       "route": "ranges",
@@ -882,44 +882,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Boards double paired: boat frente a boat. La línea (raise, donk o lenta) distingue 99 de 44 y de overpairs que pot-controlan.",
+      "concept": "Boats, thin value y líneas raras mezclados con faroles. El sizing y el timing cuentan tanto como la categoría de mano.",
       "theory": [
         {
+          "title": "Sizing + timing",
+          "body": "Bet pequeño tras check turn no es lo mismo que overbet tras check-raise. Misma “presión”, distinto rango implicado."
+        },
+        {
           "title": "Double paired",
-          "body": "99 en 9944: boat que barrela tres calles; QQ sin boat pot-controla turn en vez de gritar full."
+          "body": "Boat vs overpair: quien barrela tres calles suele tener el full, no solo KK sin boat."
         },
         {
-          "title": "Boat lento",
-          "body": "Check turn y bet river: full que no grita; overpairs suelen betear turn y no eligen esa línea lenta."
-        },
-        {
-          "title": "Donk boat",
-          "body": "88 en 882: donk más presión; broadway sin 8 check-callearía y no lidera boat."
+          "title": "Líneas raras",
+          "body": "Donk + check turn + bet river sigue siendo legible si el combo quiere esa historia de timing."
         }
       ],
       "examples": [
         {
-          "title": "Triple barrel 9944",
-          "body": "99 boat sobre 44; QQ pot-controla y AJo sin 9 no barrela full."
+          "title": "Boat lento",
+          "body": "Check turn + bet river en double paired: full que no grita; overpair suele betear turn."
         },
         {
-          "title": "Raise 773",
-          "body": "77 boat raisea flop paired; AKo sin 7 no raisea y JJ flats sin full."
+          "title": "Thin pequeño",
+          "body": "Ax thin tras pot-control; no es polar de overbet ni farol sin historia."
         },
         {
-          "title": "Raise turn KK55",
-          "body": "55 boat raisea turn cuando parea el rey; AQo sin 5 no raisea turn."
+          "title": "Donk raro",
+          "body": "Lidera flop, frena en scare card y retoma river: set o hecho que mezcla timing."
         }
       ],
       "aiQuestions": [
-        "¿Cómo lees un board double paired?",
-        "¿Qué hace un overpair sin boat?",
-        "¿Boat lento vs boat gritado?"
+        "¿Qué aporta el sizing?",
+        "¿Cómo lees double paired?",
+        "¿Cuándo una línea rara es legible?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-17",
-      "title": "Full vs full (boats)"
+      "title": "¿Qué tiene? · Lectura sutil I"
     },
     {
       "route": "ranges",
@@ -931,44 +931,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Small-small-overbet y overbets sueltos: polar fino. El sizing cuenta tanto como la calle a la hora de asignar rango.",
+      "concept": "Más sutileza: merge vs polar, thin vs farol. Sigue sin tipificar — el quiz mezcla todo a propósito.",
       "theory": [
         {
-          "title": "Small-small-overbet",
-          "body": "Ax nuts o farol; medias y underpairs no convierten c-bets pequeños en overbet de river."
+          "title": "Merge",
+          "body": "Bet medio: value más algunos faroles. Ni overbet polar extremo ni thin mínimo de una sola calle."
         },
         {
-          "title": "Overbet tras float",
-          "body": "Qx fuerte o aire; AA raiseó antes y no elige float pasivo más overbet de river."
+          "title": "Thin value",
+          "body": "Cobra peores pares y no busca stacks. Si el sizing es pequeño tras pot-control, piensa thin value."
         },
         {
-          "title": "Donk grande + overbet",
-          "body": "Boat 88: el sizing grita polar; broadway sin 8 no donkea grande ni overbetea river."
+          "title": "Farol con historia",
+          "body": "Sin equity ya en river, pero la línea previa (draw o raise) hace creíble el farol."
         }
       ],
       "examples": [
         {
-          "title": "Overbet A-high",
-          "body": "AKo tras small-small; QQ sizing medio y 55 no overbetea river underpair."
+          "title": "Bet medio tres calles",
+          "body": "Merge de Ax o Kx con algunos faroles; no es overbet de nuts."
         },
         {
-          "title": "Float overbet Q",
-          "body": "QTo overbet value; AA raisearía antes y 77 sin Q no overbetea tras float."
+          "title": "Overbet vs thin",
+          "body": "Compara sizing en spots similares: el tamaño cambia el rango que asignas."
         },
         {
-          "title": "XR grande + overbet",
-          "body": "JJ set con sizing polar; AKo sin pareja no check-raisea grande ese flop."
+          "title": "Raise river",
+          "body": "Pasivo hasta el final y raise: fuerte específico, no media sticky sin motivo."
         }
       ],
       "aiQuestions": [
-        "¿Qué cuenta el sizing además de la calle?",
-        "¿Quién no hace small-small-overbet?",
-        "¿Overbet = siempre nuts?"
+        "¿Qué es merge?",
+        "¿Cómo distingues thin de polar?",
+        "¿Qué pide un raise river?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-18",
-      "title": "Overbet y sizing sutil"
+      "title": "¿Qué tiene? · Lectura sutil II"
     },
     {
       "route": "ranges",
@@ -980,44 +980,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Bet pequeño river tras pot-control: thin value (Ax o Kx), no polar. Distínguelo del overbet de R-18 por el sizing.",
+      "concept": "Distractores casi perfectos hasta river. Una sola calle o un sizing te da el descarte correcto.",
       "theory": [
         {
-          "title": "Thin value",
-          "body": "Bet pequeño cobra peores pares y folds basura; no busca stacks enteros como el overbet polar."
+          "title": "Una calle decide",
+          "body": "Las tres opciones llegan a turn; solo una justifica el river. Ahí está el descarte fino."
         },
         {
-          "title": "Check turn + bet pequeño",
-          "body": "Ax thin clásico tras pot-control turn; KK suele betear turn y no elige esa línea de thin."
+          "title": "Pot-control vs presión",
+          "body": "Overpair que pot-controla no se convierte de pronto en overbet sin scare card clara."
         },
         {
-          "title": "Vs overbet",
-          "body": "Si fuera polar, el sizing sería otro: aquí el bet pequeño señala value fino, no nuts o aire."
+          "title": "No fuerces el combo",
+          "body": "Si tu combo “podría” pero no “quiere” esa línea, descártalo: la historia debe ser natural."
         }
       ],
       "examples": [
         {
-          "title": "A8s thin",
-          "body": "Tras check turn en A-high; KK betearía turn y QJo sin as no cobra river thin."
+          "title": "Casi set",
+          "body": "Underpair que flats no es set que raisea flop: el raise polar lo distingue."
         },
         {
-          "title": "JTo delayed thin",
-          "body": "Tras check-check flop; AA betearía flop y ATo sin J no delayed thin."
+          "title": "Casi flush",
+          "body": "Draw fallido vs color hecho: el board final dice si el palo completó."
         },
         {
-          "title": "KJo thin barrels",
-          "body": "Sizing pequeño en K-high; QQ sizing distinto y 66 no barrela thin de Kx."
+          "title": "Casi thin",
+          "body": "Farol que imita thin sizing: mira si había equity previa que justifique la presión."
         }
       ],
       "aiQuestions": [
-        "¿Qué es thin value?",
-        "¿Cómo lo distingues de un overbet polar?",
-        "¿Qué hace KK en esa línea?"
+        "¿Qué significa que una calle decide?",
+        "¿Cuándo pot-control elimina un combo?",
+        "¿Qué es “quiere” la línea?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-19",
-      "title": "Thin value vs bluff-catch"
+      "title": "¿Qué tiene? · Lectura sutil III"
     },
     {
       "route": "ranges",
@@ -1029,44 +1029,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Donk más check turn, XR más check turn más bet river, raise river: historias raras pero legibles. El combo correcto encaja en la rareza.",
+      "concept": "Líneas raras y boats finos. El método de M2 sigue siendo la base aunque el sizing sea más sutil.",
       "theory": [
         {
-          "title": "Donk + check turn",
-          "body": "Set que pisa el freno en scare card de turn y retoma presión en river; broadway sin set no donkea flop."
+          "title": "Vuelve al método",
+          "body": "Narra la línea, lista value y faroles, elige un combo y descarta las otras dos con una frase clara."
         },
         {
-          "title": "XR + check + bet",
-          "body": "Set que mezcla timing: raise flop, check turn y bet river; underpairs no fabrican esa rareza."
+          "title": "Timing mixto",
+          "body": "Check-raise flop + check turn + bet river: set que mezcla timing, no AKo sin pareja."
         },
         {
-          "title": "Raise river",
-          "body": "Dos pares o Kx fuerte que eligieron línea pasiva hasta el final; premiums check-check no llegan así."
+          "title": "Boat vs boat",
+          "body": "En double paired, la agresión suele ser el boat alto o el de la pareja del flop, no un overpair limpio."
         }
       ],
       "examples": [
         {
-          "title": "Donk 982 + river",
-          "body": "99 donk raro y bet river tras check turn; AKo y JTs no donkean 982 sin conexión."
+          "title": "XR + check + bet",
+          "body": "Set con timing raro: raisea flop, frena turn y cobra river."
         },
         {
-          "title": "Delayed A-high",
-          "body": "AQo tras check-check flop; QQ betearía flop A-high y T8s sin as no delayed value."
+          "title": "Donk turn",
+          "body": "Cambia quién lidera a mitad de mano: el combo debe querer ese donk de turn."
         },
         {
-          "title": "Raise river Kx",
-          "body": "KQo raise river tras check flop; AA no checkea K-high y QJo sin K no raisea river."
+          "title": "Full house",
+          "body": "Línea lenta o gritada: ambas posibles; mira check-turn vs triple barrel."
         }
       ],
       "aiQuestions": [
-        "¿Por qué una línea rara sigue siendo legible?",
-        "¿Qué descarta un donk en 982?",
-        "¿Raise river vs bet river?"
+        "¿Cuál es el método base?",
+        "¿Qué sugiere XR más check más bet?",
+        "¿Cómo piensas boat vs boat?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-20",
-      "title": "Líneas raras (donk, delayed, XR)"
+      "title": "¿Qué tiene? · Lectura sutil IV"
     },
     {
       "route": "ranges",
@@ -1078,44 +1078,44 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Sizing medio = merge (value más algunos faroles), no solo polar extremo. Cierra el laboratorio leyendo merge frente a overbet y thin.",
+      "concept": "Cierre de la ruta Rangos: quiz mixto de máxima sutileza. Si enganchas, es porque lees la línea — no porque el título spoilera la categoría.",
       "theory": [
         {
-          "title": "Merge",
-          "body": "Bet medio: Ax o Kx value y faroles mezclados; no solo nuts frente a aire como en overbet polar."
+          "title": "Enganche real",
+          "body": "El juego es “¿qué combo sobrevive?”. La teoría solo te da el método; la práctica es el reto sin pistas de temario."
         },
         {
-          "title": "Vs polar (R-15/R-18)",
-          "body": "Overbet no es merge; thin pequeño tampoco: el sizing medio es la pista de rango merge."
+          "title": "Sin pistas de temario",
+          "body": "Aquí hay boats, thin, faroles y hechos claros mezclados a propósito para que no adivines por el módulo."
         },
         {
-          "title": "Cierre de ruta",
-          "body": "Integra sets, colores, draws fallidos y boats con el sizing para asignar rango en vivo."
+          "title": "Siguiente nivel",
+          "body": "Repite spots fallados: escribir el descarte de la opción incorrecta es el aprendizaje que queda."
         }
       ],
       "examples": [
         {
-          "title": "Merge A-high",
-          "body": "AJo bet medio tres calles; QQ pot-controla distinto y 55 no barrela merge underpair."
+          "title": "Bloque final mixto",
+          "body": "Todo tipo de manos en un solo tramo de práctica: el método unifica el bloque."
         },
         {
-          "title": "Merge float Q",
-          "body": "QJo float y bet medio; AA raisearía antes y 77 sin Q no mete river merge."
+          "title": "Revisa fallos",
+          "body": "Relee la frase de eliminación de la opción que elegiste mal y vuelve a narrar la línea."
         },
         {
-          "title": "Merge XR set",
-          "body": "JJ raise flop y bet medio; AKo sin J no raisea y 88 underpair no polariza flop."
+          "title": "Comparte sin spoiler",
+          "body": "Usa el botón de compartir: reta a un amigo con la imagen sin revelar la respuesta."
         }
       ],
       "aiQuestions": [
-        "¿Qué es un rango merge?",
-        "¿Cómo lo distingues de polar y thin?",
-        "¿Qué sizing esperas en merge?"
+        "¿Qué hace enganchar el quiz?",
+        "¿Por qué mezclamos categorías?",
+        "¿Cómo usas un fallo para aprender?"
       ],
       "spots": [],
       "exam": false,
       "id": "R-21",
-      "title": "Merge vs polar (avanzado)"
+      "title": "¿Qué tiene? · Lectura sutil V"
     }
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
