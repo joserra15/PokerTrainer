@@ -639,9 +639,9 @@
     var prompt = quiz.prompt || '¿Qué crees que tiene el villano?';
     var optsHtml = (quiz.options || []).map(function (opt, idx) {
       var id = opt.id || ('opt-' + idx);
-      return '<button type="button" class="school-quiz-option" data-quiz-opt="' + esc(id) + '">' +
+      return '<button type="button" class="school-quiz-option" data-quiz-opt="' + esc(id) + '"' +
+        ' aria-label="' + esc(opt.label || formatCards(opt.cards)) + '">' +
         '<span class="school-quiz-option-cards">' + cardsHtml(opt.cards) + '</span>' +
-        '<span class="school-quiz-option-label">' + esc(opt.label || formatCards(opt.cards)) + '</span>' +
         '</button>';
     }).join('');
     fb.classList.remove('hidden');
@@ -731,7 +731,35 @@
         ((quiz.teachBack || spot.teachBack)
           ? '<p class="school-spot-teach">' + esc(quiz.teachBack || spot.teachBack) + '</p>'
           : '') +
+        (global.PTSchoolShare && global.PTSchoolShare.buildLineQuizShareHtml
+          ? global.PTSchoolShare.buildLineQuizShareHtml()
+          : '') +
         '</div>';
+      if (global.PTSchoolShare && global.PTSchoolShare.mountLineQuizShare) {
+        try {
+          var lesson = Data() && Data().getLesson(s.lessonId);
+          var shareRoot = fb.querySelector('.school-share-line-quiz');
+          var shareOpts = (quiz.options || []).map(function (opt) {
+            return { cards: (opt.cards || []).slice() };
+          });
+          global.PTSchoolShare.mountLineQuizShare(shareRoot, {
+            lessonId: s.lessonId,
+            lessonTitle: (lesson && lesson.title) || s.lessonId || '',
+            prompt: quiz.prompt || '¿Qué crees que tiene el villano?',
+            lineStory: spot.lineStory || [],
+            board: (hand && hand.board && hand.board.length)
+              ? hand.board.slice()
+              : (spot.forceDeal && spot.forceDeal.board ? spot.forceDeal.board.slice() : []),
+            heroPos: spot.heroPos || '',
+            heroCards: spot.forceDeal && spot.forceDeal.heroCards
+              ? spot.forceDeal.heroCards.slice()
+              : [],
+            villainPos: spot.villainPos ||
+              (spot.forceDeal && spot.forceDeal.villainPos) || '',
+            options: shareOpts
+          });
+        } catch (eShareQuiz) { /* ignore */ }
+      }
     }
     if (actions) {
       var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
@@ -849,7 +877,7 @@
     ranges: {
       eyebrow: 'Rangos · Laboratorio',
       title: 'Laboratorio de rangos',
-      lead: 'Construir, defender y leer rangos. Complementa cash y torneos.'
+      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: leer el rango rival tras la línea (sets, colores, escaleras, draws fallidos).'
     }
   };
 
@@ -874,8 +902,11 @@
       M4: { title: 'M4 · Burbuja / FT (Coach)', lead: 'ICM, roles y mesa final.' }
     },
     ranges: {
-      M0: { title: 'M0 · Bases de rangos', lead: 'Construir y defender.' },
-      M1: { title: 'M1 · Lectura y frecuencias', lead: 'Asignar rango y node frequencies.' }
+      M0: { title: 'M0 · Bases de rangos (Gratis)', lead: 'Matriz, RFI BTN y % que conecta.' },
+      M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, línea completa y node frequencies.' },
+      M2: { title: 'M2 · Manos hechas (Study)', lead: 'Sets, dos pares, colores, escaleras y value limpio.' },
+      M3: { title: 'M3 · Draws y polar (Coach)', lead: 'Flush/straight fallidos, semi-bluff y blockers.' },
+      M4: { title: 'M4 · Lectura sutil (Coach)', lead: 'Boats, overbets, thin value, líneas raras y merge.' }
     }
   };
 

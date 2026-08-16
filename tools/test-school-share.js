@@ -15,18 +15,23 @@ const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.5.39'/.test(version), 'versión 2.5.39');
+assert.ok(/PT_BUILD\s*=\s*'2.5.42'/.test(version), 'versión 2.5.42');
 assert.ok(/school-share\.js/.test(chunks), 'chunk school incluye school-share.js');
 assert.ok(/buildHubPanelHtml/.test(shareSrc) && /drawHubSummaryCard/.test(shareSrc), 'share hub');
 assert.ok(/mountHubSharePanel/.test(shareSrc), 'mount hub share');
+assert.ok(/drawLineQuizCard/.test(shareSrc) && /mountLineQuizShare/.test(shareSrc), 'share quiz línea');
+assert.ok(/buildLineQuizShareHtml/.test(shareSrc), 'html share quiz línea');
+assert.ok(/Sin spoiler/.test(shareSrc), 'copy sin spoiler en imagen');
 assert.ok(/Se ha compartido correctamente/.test(shareSrc), 'mensaje éxito');
 assert.ok(!/Se comparte la imagen del logro/.test(shareSrc), 'sin texto auxiliar logro');
 assert.ok(!/Listo para compartir/.test(shareSrc), 'sin Listo para compartir');
 assert.ok(/buildHubPanelHtml/.test(schoolSrc) && /mountHubSharePanel/.test(schoolSrc), 'hub monta share');
+assert.ok(/mountLineQuizShare/.test(schoolSrc) && /buildLineQuizShareHtml/.test(schoolSrc), 'quiz monta share');
 assert.ok(/SCHOOL_PUBLIC\s*=\s*true/.test(schoolSrc), 'Escuela pública');
 assert.ok(/isSchoolHand/.test(storageSrc) && /isSchoolError/.test(storageSrc), 'filtro errores Escuela');
 assert.ok(/schoolHand/.test(storageSrc), 'saveHand omite errores Escuela');
 assert.ok(/school-share-hub/.test(styles), 'estilos hub share');
+assert.ok(/school-share-line-quiz/.test(styles), 'estilos share quiz línea');
 
 const sandbox = {
   console, Math, Date, JSON, Array, Object, String, Number, Boolean,
@@ -106,5 +111,45 @@ assert.ok(ctx.texts.some(function (t) { return /Nv\. 10/.test(t); }), 'nivel en 
 assert.ok(ctx.texts.some(function (t) { return t === '1885'; }), 'XP en imagen');
 assert.ok(ctx.texts.some(function (t) { return t === '10/27'; }), 'ruta en imagen');
 assert.ok(ctx.texts.some(function (t) { return /pokerforgeai\.com/.test(t); }), 'URL en imagen hub');
+
+const quizPayload = {
+  lessonTitle: 'Asignar rango rival tras una línea',
+  prompt: '¿Qué crees que tiene el villano?',
+  lineStory: [
+    { street: 'Preflop', text: 'BTN open → BB call' },
+    { street: 'Flop', text: 'Kd 8c 3h — check-check' },
+    { street: 'Turn', text: '2s — BB check → BTN bet → BB call' },
+    { street: 'River', text: '7d — BB check → BTN bet' }
+  ],
+  board: ['Kd', '8c', '3h', '2s', '7d'],
+  heroPos: 'BB',
+  heroCards: ['Kh', 'Qs'],
+  villainPos: 'BTN',
+  options: [
+    { cards: ['As', 'Ad'] },
+    { cards: ['Kc', 'Jh'] },
+    { cards: ['Qc', 'Jd'] }
+  ]
+};
+const quizText = Share.buildLineQuizShareText(quizPayload);
+assert.ok(/Sin spoiler|¿Qué tiene el villano/i.test(quizText), 'texto share quiz');
+assert.ok(/pokerforgeai\.com/.test(quizText), 'URL en texto quiz');
+assert.ok(!/KJo|correct|solución|tenía/i.test(quizText), 'texto quiz sin spoiler');
+
+const qctx = new FakeCtx();
+Share.drawLineQuizCard({
+  width: 0, height: 0,
+  getContext: function () { return qctx; }
+}, quizPayload);
+assert.ok(qctx.texts.some(function (t) { return /Sin spoiler/.test(t); }), 'imagen marca sin spoiler');
+assert.ok(qctx.texts.some(function (t) { return /Board/.test(t); }), 'imagen tiene board');
+assert.ok(qctx.texts.some(function (t) { return /Héroe BB/.test(t); }), 'imagen tiene héroe');
+assert.ok(qctx.texts.some(function (t) { return /Opciones/.test(t); }), 'imagen tiene opciones');
+assert.ok(qctx.texts.some(function (t) { return /check-check/.test(t); }), 'imagen tiene línea');
+assert.ok(!qctx.texts.some(function (t) { return /KJo|AQo|correcta|tenía AA/i.test(t); }), 'imagen sin solución');
+
+const quizPanel = Share.buildLineQuizShareHtml();
+assert.ok(/data-school-share="line-quiz"/.test(quizPanel), 'botón share quiz');
+assert.ok(/school-share-canvas-hidden/.test(quizPanel), 'canvas quiz oculto');
 
 console.log('*** test-school-share OK ***');

@@ -114,6 +114,7 @@
       'js/school-data-pro.js',
       'js/school-extra-spots.js',
       'js/school-data-practice.js',
+      'js/school-data-ranges-line.js',
       'js/school-share.js',
       'js/school.js'
     ],

@@ -1623,6 +1623,14 @@ body.age-gate-open {
 .school-share-status { margin: 10px 0 0; font-size: 13px; }
 .school-share-status.is-ok { color: #86efac; }
 .school-share-status.is-err { color: #fca5a5; }
+.school-share-line-quiz {
+  margin: 14px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(147, 197, 253, .28);
+  background: rgba(59, 130, 246, .08);
+}
+.school-share-line-quiz .school-share-actions .school-share-btn { width: 100%; }
 .school-m0-progress { margin: 10px 0 0; font-size: 13px; }
 .school-route-teasers { margin: 0 0 8px; }
 .school-teaser-list { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }
@@ -1688,8 +1696,9 @@ body.age-gate-open {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 12px 10px;
+  justify-content: center;
+  gap: 0;
+  padding: 14px 10px;
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, .35);
   background: rgba(15, 23, 42, .55);
@@ -1708,10 +1717,6 @@ body.age-gate-open {
   justify-content: center;
   min-height: 48px;
   align-items: center;
-}
-.school-quiz-option-label {
-  font-weight: 650;
-  font-size: 14px;
 }
 .school-quiz-reveal {
   margin: 6px 0 8px;

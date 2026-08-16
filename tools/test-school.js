@@ -74,7 +74,8 @@ assert.ok(/Textura de flop|Examen M2/.test(schoolM2Src), 'lecciones M2');
 assert.ok(/S-00|S-17/.test(schoolSpinSrc), 'lecciones Spins');
 assert.ok(/buy-in|entrada/.test(schoolSpinSrc) && /fichas no valen|fichas ≠|Entrada ≠ fichas/.test(schoolSpinSrc), 'S-00 explica entrada vs fichas');
 assert.ok(/T-00|T-22/.test(schoolMttSrc), 'lecciones MTT');
-assert.ok(/R-01|R-06/.test(schoolRangesSrc), 'lecciones Rangos');
+assert.ok(/R-01|R-21/.test(schoolRangesSrc), 'lecciones Rangos');
+assert.ok(/school-data-ranges-line\.js/.test(chunks), 'chunk Rangos línea M2–M4');
 assert.ok(/C-26|C-31/.test(schoolProSrc), 'lecciones Pro Cash');
 assert.ok(/lessonId:\s*'C-02'/.test(aiReportSrc) && /lessonFromLeak/.test(aiReportSrc), 'TRAINING_FOCUSES → lessonId');
 assert.ok(/data-leak-school|Ver lección/.test(leaksSrc), 'CTA Ver lección en leaks');
@@ -166,6 +167,7 @@ const engineScripts = [
   'js/school-data-pro.js',
   'js/school-extra-spots.js',
   'js/school-data-practice.js',
+  'js/school-data-ranges-line.js',
   'js/school-share.js',
   'js/school.js'
 ];
@@ -185,7 +187,7 @@ const lessons = Data.lessonsForRoute('cash');
 assert.strictEqual(lessons.length, 27, 'Cash M0+M1+M2+Pro = 27 lecciones');
 assert.strictEqual(Data.lessonsForRoute('spin').length, 18, 'Spins 18');
 assert.strictEqual(Data.lessonsForRoute('mtt').length, 23, 'MTT 23');
-assert.strictEqual(Data.lessonsForRoute('ranges').length, 6, 'Rangos 6');
+assert.strictEqual(Data.lessonsForRoute('ranges').length, 21, 'Rangos 21');
 assert.strictEqual(Data.m0Lessons().length, 7, 'M0 7');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
 assert.strictEqual(Data.m2Lessons().length, 7, 'M2 7');
@@ -358,7 +360,7 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   }
   var mttBlob = assertRouteVoice('mtt', 23);
   assert.ok(/ante|ICM|steal|push|burbuja|bb/.test(mttBlob), 'MTT vocabulario torneo');
-  var rangesBlob = assertRouteVoice('ranges', 6);
+  var rangesBlob = assertRouteVoice('ranges', 21);
   assert.ok(/matriz|rango|frecuencia|blocker|menú Rangos/.test(rangesBlob), 'Rangos vocabulario');
   var proBlob = assertRouteVoice('cash', 27); // includes M0-M4
   assert.ok(/4-bet|farol|fish|reg/.test(proBlob), 'Pro cash vocabulario');
@@ -397,7 +399,34 @@ Data.m1Lessons().concat(Data.m2Lessons()).forEach(function (l) {
 });
 assert.strictEqual(Data.getLesson('S-04').plan, 'study', 'S-04 M1 sigue Study');
 assert.strictEqual(Data.getLesson('T-04').plan, 'study', 'T-04 M1 sigue Study');
+/* Rangos: M0 gratis, M1 Study, M2 Study, M3–M4 Coach */
+['R-01', 'R-02', 'R-03'].forEach(function (id) {
+  var l = Data.getLesson(id);
+  assert.ok(l && l.module === 'M0', id + ' es M0');
+  assert.strictEqual(l.plan, 'free', id + ' plan free');
+});
+['R-04', 'R-05', 'R-06'].forEach(function (id) {
+  var l = Data.getLesson(id);
+  assert.ok(l && l.module === 'M1', id + ' es M1');
+  assert.strictEqual(l.plan, 'study', id + ' plan study');
+});
+['R-07', 'R-08', 'R-09', 'R-10', 'R-11'].forEach(function (id) {
+  var l = Data.getLesson(id);
+  assert.ok(l && l.module === 'M2', id + ' es M2');
+  assert.strictEqual(l.plan, 'study', id + ' plan study');
+});
+['R-12', 'R-13', 'R-14', 'R-15', 'R-16'].forEach(function (id) {
+  var l = Data.getLesson(id);
+  assert.ok(l && l.module === 'M3', id + ' es M3');
+  assert.strictEqual(l.plan, 'coach', id + ' plan coach');
+});
+['R-17', 'R-18', 'R-19', 'R-20', 'R-21'].forEach(function (id) {
+  var l = Data.getLesson(id);
+  assert.ok(l && l.module === 'M4', id + ' es M4');
+  assert.strictEqual(l.plan, 'coach', id + ' plan coach');
+});
 assert.ok(/M0 completo en Gratis/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Spins/MTT menciona M0 gratis');
+assert.ok(/M0 · Bases de rangos \(Gratis\)/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Rangos M0 gratis');
 
 /* Voz pedagógica: conceptos clave se introducen una vez en M0 */
 assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en school-data');
@@ -933,53 +962,64 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.PTAdmin = { hasAccess: function () { return true; } };
 })();
 
-/* R-05: manos completas (river) + quiz «¿qué crees que tiene?» antes de revelar. */
-(function assertR05LineQuiz() {
-  const lesson = Data.getLesson('R-05');
-  assert.ok(lesson, 'R-05 existe');
-  assert.ok(/calle|línea completa|qué crees que tiene/i.test(lessonBlob(lesson)), 'R-05 teoría multi-calle + quiz');
-  assert.ok(Array.isArray(lesson.spots) && lesson.spots.length >= 12, 'R-05 ≥12 spots');
-  lesson.spots.forEach(function (spot) {
-    const st = (spot.playConfig && spot.playConfig.practiceStreet) || 'preflop';
-    assert.strictEqual(st, 'river', spot.id + ' debe ser river (mano completa)');
-    const board = (spot.forceDeal && spot.forceDeal.board) || [];
-    assert.strictEqual(board.length, 5, spot.id + ' board river 5 cartas');
-    assert.ok(Array.isArray(spot.lineStory) && spot.lineStory.length >= 3, spot.id + ' lineStory');
-    const quiz = spot.villainQuiz;
-    assert.ok(quiz && Array.isArray(quiz.options) && quiz.options.length === 3, spot.id + ' quiz 3 opciones');
-    const correct = quiz.options.filter(function (o) { return o.correct; });
-    assert.strictEqual(correct.length, 1, spot.id + ' exactamente 1 correcta');
-    assert.ok(quiz.answerCards && quiz.answerCards.length === 2, spot.id + ' answerCards');
-    const dead = [].concat(spot.forceDeal.heroCards || [], board, quiz.answerCards);
-    const seen = Object.create(null);
-    dead.forEach(function (c) {
-      assert.ok(!seen[c], spot.id + ' carta duplicada ' + c);
-      seen[c] = true;
+/* R-05 y M2–M4 (R-07…R-21): manos completas (river) + quiz «¿qué crees que tiene?». */
+(function assertRangesLineQuiz() {
+  const lineIds = ['R-05'].concat(
+    ['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-12', 'R-13', 'R-14', 'R-15', 'R-16', 'R-17', 'R-18', 'R-19', 'R-20', 'R-21']
+  );
+  lineIds.forEach(function (lessonId) {
+    const lesson = Data.getLesson(lessonId);
+    assert.ok(lesson, lessonId + ' existe');
+    assert.ok(/línea|qué crees que tiene|set|flush|escalera|draw|barrel|color|full|boat|polar|merge/i.test(lessonBlob(lesson)),
+      lessonId + ' teoría de lectura de línea');
+    assert.ok(Array.isArray(lesson.spots) && lesson.spots.length >= 12, lessonId + ' ≥12 spots');
+    lesson.spots.forEach(function (spot) {
+      const st = (spot.playConfig && spot.playConfig.practiceStreet) || 'preflop';
+      assert.strictEqual(st, 'river', spot.id + ' debe ser river (mano completa)');
+      const board = (spot.forceDeal && spot.forceDeal.board) || [];
+      assert.strictEqual(board.length, 5, spot.id + ' board river 5 cartas');
+      assert.ok(Array.isArray(spot.lineStory) && spot.lineStory.length >= 3, spot.id + ' lineStory');
+      const quiz = spot.villainQuiz;
+      assert.ok(quiz && Array.isArray(quiz.options) && quiz.options.length === 3, spot.id + ' quiz 3 opciones');
+      const correct = quiz.options.filter(function (o) { return o.correct; });
+      assert.strictEqual(correct.length, 1, spot.id + ' exactamente 1 correcta');
+      assert.ok(quiz.answerCards && quiz.answerCards.length === 2, spot.id + ' answerCards');
+      const dead = [].concat(spot.forceDeal.heroCards || [], board, quiz.answerCards);
+      const seen = Object.create(null);
+      dead.forEach(function (c) {
+        assert.ok(!seen[c], spot.id + ' carta duplicada ' + c);
+        seen[c] = true;
+      });
+      quiz.options.forEach(function (o) {
+        assert.ok(o.cards && o.cards.length === 2, spot.id + ' option cards');
+        if (!o.correct) {
+          assert.ok(o.eliminated && o.eliminated.length > 10, spot.id + ' eliminated text');
+          assert.ok(/flop|turn|river|c-bet|barrel|donk|check-check|raise|pot-control/i.test(o.eliminated),
+            spot.id + ' ' + o.label + ' debe descartarse postflop, no solo preflop');
+          assert.ok(!/^(No abre|No entra en RFI|Fuera del RFI|Basura|No está en el RFI)/i.test(o.eliminated),
+            spot.id + ' ' + o.label + ' no debe ser descarte trivial de open');
+        }
+      });
+      const pack = openHand(spot);
+      assert.strictEqual(pack.hand.stage, 'river', spot.id + ' stage river');
+      assert.ok(pack.hand.current && pack.hand.current.options.length, spot.id + ' opciones river');
+      const callOrFold = pack.hand.current.options.map(function (o) { return o.id; })
+        .filter(function (id) { return id === 'call' || id === 'fold' || id === 'check'; })[0];
+      assert.ok(callOrFold, spot.id + ' call/fold/check');
+      const graded = openHand(spot).hand;
+      const res = Engine.act(graded, callOrFold);
+      assert.ok(res && res.decision, spot.id + ' gradeable');
+      assert.strictEqual(graded.stage, 'complete', spot.id + ' decisionEnd');
     });
-    quiz.options.forEach(function (o) {
-      assert.ok(o.cards && o.cards.length === 2, spot.id + ' option cards');
-      if (!o.correct) {
-        assert.ok(o.eliminated && o.eliminated.length > 10, spot.id + ' eliminated text');
-        // Alternativas difíciles: deben morir en flop/turn/river, no solo “no abre”.
-        assert.ok(/flop|turn|river|c-bet|barrel|donk|check-check|raise|pot-control/i.test(o.eliminated),
-          spot.id + ' ' + o.label + ' debe descartarse postflop, no solo preflop');
-        assert.ok(!/^(No abre|No entra en RFI|Fuera del RFI|Basura|No está en el RFI)/i.test(o.eliminated),
-          spot.id + ' ' + o.label + ' no debe ser descarte trivial de open');
-      }
-    });
-    const pack = openHand(spot);
-    assert.strictEqual(pack.hand.stage, 'river', spot.id + ' stage river');
-    assert.ok(pack.hand.current && pack.hand.current.options.length, spot.id + ' opciones river');
-    const callOrFold = pack.hand.current.options.map(function (o) { return o.id; })
-      .filter(function (id) { return id === 'call' || id === 'fold' || id === 'check'; })[0];
-    assert.ok(callOrFold, spot.id + ' call/fold/check');
-    const graded = openHand(spot).hand;
-    const res = Engine.act(graded, callOrFold);
-    assert.ok(res && res.decision, spot.id + ' gradeable');
-    assert.strictEqual(graded.stage, 'complete', spot.id + ' decisionEnd');
   });
   assert.ok(/villainQuiz|showVillainQuiz|¿Qué crees que tiene/.test(schoolSrc), 'school.js quiz villano');
   assert.ok(/school-quiz-option|school-line-story/.test(css), 'CSS quiz/línea');
+  assert.ok(/school-quiz-option-cards/.test(schoolSrc), 'opciones quiz muestran cartas');
+  assert.ok(!/school-quiz-option-label/.test(schoolSrc), 'opciones quiz sin etiqueta de texto debajo');
+  assert.ok(/mountLineQuizShare|buildLineQuizShareHtml/.test(schoolSrc), 'quiz línea comparte spot');
+  assert.ok(/flush draw|OESD|semi-bluff|boat|overbet|merge/i.test(
+    lineIds.slice(1).map(function (id) { return lessonBlob(Data.getLesson(id)); }).join(' ')
+  ), 'M2–M4 cubren draws/boats/sizing');
 })();
 
 (function () {
