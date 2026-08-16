@@ -153,6 +153,30 @@ assertPushVsRfiOptions('mtt', 'mtt push vsRFI');
   // Cash sigue cercano al héroe
   const cashHand = Engine.newHand({ type: 'vsRFI', key: 'BB_vs_CO', seed: 42 }, PC.normalize({ stackDepth: 'bb100' }));
   assert.ok(cashHand.stacks.CO >= 70 && cashHand.stacks.CO <= 130, 'cash villain cercano');
+
+  // stackRole cover: héroe chip lead + al menos un short (S-06)
+  const coverCfg = PC.normalize({
+    formatHub: 'spin', stackDepth: 'bb25', scenario: 'steal', stackRole: 'cover'
+  });
+  const coverHand = Engine.newHand({ type: 'RFI', heroPos: 'BTN', seed: 71601 }, coverCfg);
+  const coverPos = PC.tablePositions(coverCfg);
+  const coverHero = coverHand.stacks.BTN;
+  assert.strictEqual(coverHero, 25, 'cover hero 25bb');
+  const coverOthers = coverPos.filter((p) => p !== 'BTN').map((p) => coverHand.stacks[p]);
+  assert.ok(coverOthers.every((v) => v < coverHero - 0.5),
+    'cover: villanos < héroe: ' + coverOthers.join(','));
+  assert.ok(coverOthers.some((v) => v <= 14),
+    'cover: hay short ≤14bb: ' + coverOthers.join(','));
+
+  // stackRole short: covers detrás (S-07)
+  const shortCfg = PC.normalize({
+    formatHub: 'spin', stackDepth: 'bb10', scenario: 'push', stackRole: 'short'
+  });
+  const shortHand = Engine.newHand({ type: 'RFI', heroPos: 'BTN', seed: 71701 }, shortCfg);
+  const shortHero = shortHand.stacks.BTN;
+  const shortOthers = PC.tablePositions(shortCfg).filter((p) => p !== 'BTN').map((p) => shortHand.stacks[p]);
+  assert.ok(shortOthers.every((v) => v > shortHero + 2),
+    'short: villanos > héroe: ' + shortOthers.join(','));
 }
 
 // Push shove: si pagan (incluso "3bet" forzado), héroe all-in → runout, nunca face3bet
@@ -285,7 +309,7 @@ assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2.5.37'/.test(version), 'version 2.5.37');
+assert.ok(/PT_BUILD\s*=\s*'2.5.38'/.test(version), 'version 2.5.38');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');

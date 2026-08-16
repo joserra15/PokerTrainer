@@ -333,7 +333,7 @@
         },
         {
           "title": "Orden en Spin 3-max",
-          "body": "BTN → SB → BB. El SB no puede limpear «antes» del BTN. Spots reales: BTN limpea y tú iso desde SB; o BTN folda, SB limpea y tú en BB eliges check o iso. No inventes un limp del SB con héroe en BTN: ese spot no existe."
+          "body": "BTN → SB → BB. El SB no puede limpear «antes» del BTN. Spots reales: BTN limpea y tú iso desde SB; o BTN foldea, SB limpea y tú en BB eliges check o iso. No inventes un limp del SB con héroe en BTN: ese spot no existe."
         },
         {
           "title": "Sizing y profundidad",
@@ -351,7 +351,7 @@
       "examples": [
         {
           "title": "Iso clásico desde BB",
-          "body": "BTN folda, SB limpea, tú BB con AJs a ~20 bb: iso a ~3–4 bb. Quieres heads-up contra un rango de limp débil, con iniciativa y una mano que domina muchas de sus combinaciones."
+          "body": "BTN foldea, SB limpea, tú BB con AJs a ~20 bb: iso a ~3–4 bb. Quieres heads-up contra un rango de limp débil, con iniciativa y una mano que domina muchas de sus combinaciones."
         },
         {
           "title": "Check correcto vs limp",
@@ -445,7 +445,7 @@
         },
         {
           "title": "Objetivo con cover",
-          "body": "Acumula fichas sin regalar dobles fáciles. Presiona spots donde el short folda mucho; foldea cuando su shove representa value claro. El lead se usa para robar, no para hero-call por orgullo."
+          "body": "Acumula fichas sin regalar dobles fáciles. Presiona spots donde el short foldea mucho; foldea cuando su shove representa value claro. El lead se usa para robar, no para hero-call por orgullo."
         },
         {
           "title": "Trampa mental",
@@ -489,7 +489,7 @@
       "theory": [
         {
           "title": "Short vs cover",
-          "body": "El rival tiene más fichas y puede eliminarte. Tu shove debe ser selectivo: manos que foldan a menudo (fold equity) o que van razonablemente bien cuando te pagan. No eres un cash game a 100 bb — cada all-in decide el torneo."
+          "body": "El rival tiene más fichas y puede eliminarte. Tu shove debe ser selectivo: manos que foldean a menudo (fold equity) o que van razonablemente bien cuando te pagan. No eres un cash game a 100 bb — cada all-in decide el torneo."
         },
         {
           "title": "Sobrevive y elige spots",
@@ -953,7 +953,7 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Explotación: vs nit (folda mucho) stealeas más; vs maniac (juega muchas manos agresivo) defiendes tighter y value-shoveas más limpio. Ajusta al rival real, no solo al chart ciego.",
+      "concept": "Explotación: vs nit (foldea mucho) stealeas más; vs maniac (juega muchas manos agresivo) defiendes tighter y value-shoveas más limpio. Ajusta al rival real, no solo al chart ciego.",
       "theory": [
         {
           "title": "Vs nit",
@@ -961,11 +961,11 @@
         },
         {
           "title": "Vs maniac",
-          "body": "Maniac: paga y shovea wide. Reduce faroles, value-shove más grueso (TT+, Ax fuerte) y no hagas bluffcatch light (pagar faroles con manos medias). Contra alguien que nunca folda, el bluff pierde sentido."
+          "body": "Maniac: paga y shovea wide. Reduce faroles, value-shove más grueso (TT+, Ax fuerte) y no hagas bluffcatch light (pagar faroles con manos medias). Contra alguien que nunca foldea, el bluff pierde sentido."
         },
         {
           "title": "Ajuste > chart ciego",
-          "body": "Observa 10–20 manos del rival en lobby si puedes: ¿folda BTN steal? ¿paga light? ¿shovea cualquier Ax? El chart GTO es base; la explotación es el € extra cuando el leak es obvio."
+          "body": "Observa 10–20 manos del rival en lobby si puedes: ¿foldea BTN steal? ¿paga light? ¿shovea cualquier Ax? El chart GTO es base; la explotación es el € extra cuando el leak es obvio."
         },
         {
           "title": "Trampa de libro",
@@ -975,7 +975,7 @@
       "examples": [
         {
           "title": "Vs nit",
-          "body": "SB folda ~80 % vs steal BTN: abre wider. Cualquier fold es fichas hacia el payout sin showdown — castiga la pasividad."
+          "body": "SB foldea ~80 % vs steal BTN: abre wider. Cualquier fold es fichas hacia el payout sin showdown — castiga la pasividad."
         },
         {
           "title": "Vs maniac",
@@ -983,7 +983,7 @@
         },
         {
           "title": "Lectura rápida",
-          "body": "Tras dos steals: si ambos foldan, marca nit-leaning. Si te pagan o te shovean light, marca maniac-leaning. Ajusta la tercera mano — en Spins no hay 200 manos para confirmar."
+          "body": "Tras dos steals: si ambos foldean, marca nit-leaning. Si te pagan o te shovean light, marca maniac-leaning. Ajusta la tercera mano — en Spins no hay 200 manos para confirmar."
         }
       ],
       "aiQuestions": [

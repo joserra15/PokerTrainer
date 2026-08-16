@@ -390,7 +390,7 @@
       "examples": [
         {
           "title": "K9o BTN mid",
-          "body": "BTN ~25 bb, K9o: steal razonable. Si las ciegas foldean mucho, ganas dead money; si te 3-betean fuerte, foldas sin drama."
+          "body": "BTN ~25 bb, K9o: steal razonable. Si las ciegas foldean mucho, ganas dead money; si te 3-betean fuerte, foldeas sin drama."
         },
         {
           "title": "A5s CO",

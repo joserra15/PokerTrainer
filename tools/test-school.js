@@ -852,6 +852,29 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   assert.ok(!gateT04.ok && gateT04.reason === 'plan', 'T-04 M1 sigue muro Study en free');
 })();
 
+/* S-06 chip lead: héroe cover + short en mesa; sin «foldar». */
+(function assertS06ChipLeadStacks() {
+  const lesson = Data.getLesson('S-06');
+  assert.ok(lesson && lesson.spots && lesson.spots.length >= 12, 'S-06 spots');
+  assert.ok(!/\bfolda|\bfoldar\b/i.test(JSON.stringify(lesson.theory || []) + (lesson.concept || '')),
+    'S-06 sin foldar/folda');
+  lesson.spots.forEach(function (spot) {
+    assert.strictEqual((spot.playConfig && spot.playConfig.stackRole) || '', 'cover',
+      spot.id + ' stackRole cover');
+    const pack = openHand(spot);
+    const hand = pack.hand;
+    const hero = hand.displayHeroPos || hand.hero.pos;
+    const heroBB = hand.stacks[hero];
+    const others = Object.keys(hand.stacks).filter(function (p) {
+      return p !== hero && p !== 'hero' && p !== 'villain';
+    }).map(function (p) { return hand.stacks[p]; });
+    assert.ok(others.every(function (v) { return v < heroBB - 0.5; }),
+      spot.id + ' villanos < héroe');
+    assert.ok(others.some(function (v) { return v <= Math.min(heroBB * 0.55, 14) + 0.2; }),
+      spot.id + ' hay short');
+  });
+})();
+
 /* Barra hub = progreso de ruta (no XP del nivel; Nv.24 ≈99% XP engañaba) */
 (function () {
   sandbox.PTAdmin = { hasAccess: function () { return true; } };

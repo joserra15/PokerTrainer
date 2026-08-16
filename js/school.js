@@ -1145,7 +1145,7 @@
       return String(f.reason || '') + ' ' + String(f.teachBack || '') + ' ' + String(f.spotId || '');
     }).join(' ').toLowerCase();
     if (/fold|pasaste|pasas/.test(blob) && /call|defend|defender|overfold/.test(blob + ' ' + (lesson.id || '') + ' ' + (lesson.title || '').toLowerCase())) {
-      return 'Estás foldando de más en spots de defensa. Revisa pot odds y si tienes equity realization.';
+      return 'Estás foldeando de más en spots de defensa. Revisa pot odds y si tienes equity realization.';
     }
     if (/3-?bet|squeeze|raise/.test(blob) && /spew|fancy|value|bluff|polar/.test(blob)) {
       return 'Revisa tu mix value/bluff: el sizing debe corresponder al plan (negar equity vs value-heavy).';

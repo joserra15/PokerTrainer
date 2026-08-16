@@ -1770,7 +1770,7 @@
         },
         {
           "title": "Orden en Spin 3-max",
-          "body": "BTN → SB → BB. El SB no puede limpear «antes» del BTN. Spots reales: BTN limpea y tú iso desde SB; o BTN folda, SB limpea y tú en BB eliges check o iso. No inventes un limp del SB con héroe en BTN: ese spot no existe."
+          "body": "BTN → SB → BB. El SB no puede limpear «antes» del BTN. Spots reales: BTN limpea y tú iso desde SB; o BTN foldea, SB limpea y tú en BB eliges check o iso. No inventes un limp del SB con héroe en BTN: ese spot no existe."
         },
         {
           "title": "Sizing y profundidad",
@@ -1788,7 +1788,7 @@
       "examples": [
         {
           "title": "Iso clásico desde BB",
-          "body": "BTN folda, SB limpea, tú BB con AJs a ~20 bb: iso a ~3–4 bb. Quieres heads-up contra un rango de limp débil, con iniciativa y una mano que domina muchas de sus combinaciones."
+          "body": "BTN foldea, SB limpea, tú BB con AJs a ~20 bb: iso a ~3–4 bb. Quieres heads-up contra un rango de limp débil, con iniciativa y una mano que domina muchas de sus combinaciones."
         },
         {
           "title": "Check correcto vs limp",
@@ -1882,7 +1882,7 @@
         },
         {
           "title": "Objetivo con cover",
-          "body": "Acumula fichas sin regalar dobles fáciles. Presiona spots donde el short folda mucho; foldea cuando su shove representa value claro. El lead se usa para robar, no para hero-call por orgullo."
+          "body": "Acumula fichas sin regalar dobles fáciles. Presiona spots donde el short foldea mucho; foldea cuando su shove representa value claro. El lead se usa para robar, no para hero-call por orgullo."
         },
         {
           "title": "Trampa mental",
@@ -1926,7 +1926,7 @@
       "theory": [
         {
           "title": "Short vs cover",
-          "body": "El rival tiene más fichas y puede eliminarte. Tu shove debe ser selectivo: manos que foldan a menudo (fold equity) o que van razonablemente bien cuando te pagan. No eres un cash game a 100 bb — cada all-in decide el torneo."
+          "body": "El rival tiene más fichas y puede eliminarte. Tu shove debe ser selectivo: manos que foldean a menudo (fold equity) o que van razonablemente bien cuando te pagan. No eres un cash game a 100 bb — cada all-in decide el torneo."
         },
         {
           "title": "Sobrevive y elige spots",
@@ -2390,7 +2390,7 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Explotación: vs nit (folda mucho) stealeas más; vs maniac (juega muchas manos agresivo) defiendes tighter y value-shoveas más limpio. Ajusta al rival real, no solo al chart ciego.",
+      "concept": "Explotación: vs nit (foldea mucho) stealeas más; vs maniac (juega muchas manos agresivo) defiendes tighter y value-shoveas más limpio. Ajusta al rival real, no solo al chart ciego.",
       "theory": [
         {
           "title": "Vs nit",
@@ -2398,11 +2398,11 @@
         },
         {
           "title": "Vs maniac",
-          "body": "Maniac: paga y shovea wide. Reduce faroles, value-shove más grueso (TT+, Ax fuerte) y no hagas bluffcatch light (pagar faroles con manos medias). Contra alguien que nunca folda, el bluff pierde sentido."
+          "body": "Maniac: paga y shovea wide. Reduce faroles, value-shove más grueso (TT+, Ax fuerte) y no hagas bluffcatch light (pagar faroles con manos medias). Contra alguien que nunca foldea, el bluff pierde sentido."
         },
         {
           "title": "Ajuste > chart ciego",
-          "body": "Observa 10–20 manos del rival en lobby si puedes: ¿folda BTN steal? ¿paga light? ¿shovea cualquier Ax? El chart GTO es base; la explotación es el € extra cuando el leak es obvio."
+          "body": "Observa 10–20 manos del rival en lobby si puedes: ¿foldea BTN steal? ¿paga light? ¿shovea cualquier Ax? El chart GTO es base; la explotación es el € extra cuando el leak es obvio."
         },
         {
           "title": "Trampa de libro",
@@ -2412,7 +2412,7 @@
       "examples": [
         {
           "title": "Vs nit",
-          "body": "SB folda ~80 % vs steal BTN: abre wider. Cualquier fold es fichas hacia el payout sin showdown — castiga la pasividad."
+          "body": "SB foldea ~80 % vs steal BTN: abre wider. Cualquier fold es fichas hacia el payout sin showdown — castiga la pasividad."
         },
         {
           "title": "Vs maniac",
@@ -2420,7 +2420,7 @@
         },
         {
           "title": "Lectura rápida",
-          "body": "Tras dos steals: si ambos foldan, marca nit-leaning. Si te pagan o te shovean light, marca maniac-leaning. Ajusta la tercera mano — en Spins no hay 200 manos para confirmar."
+          "body": "Tras dos steals: si ambos foldean, marca nit-leaning. Si te pagan o te shovean light, marca maniac-leaning. Ajusta la tercera mano — en Spins no hay 200 manos para confirmar."
         }
       ],
       "aiQuestions": [
@@ -2881,7 +2881,7 @@
       "examples": [
         {
           "title": "K9o BTN mid",
-          "body": "BTN ~25 bb, K9o: steal razonable. Si las ciegas foldean mucho, ganas dead money; si te 3-betean fuerte, foldas sin drama."
+          "body": "BTN ~25 bb, K9o: steal razonable. Si las ciegas foldean mucho, ganas dead money; si te 3-betean fuerte, foldeas sin drama."
         },
         {
           "title": "A5s CO",
@@ -4766,8 +4766,12 @@
   /* —— Spins —— */
   var st20 = spin({ scenario: 'steal', stackDepth: 'bb20' });
   var st25 = spin({ scenario: 'steal', stackDepth: 'bb25' });
+  var cover25 = spin({ scenario: 'steal', stackDepth: 'bb25', stackRole: 'cover' });
+  var coverVs20 = spin({ scenario: '3bet', stackDepth: 'bb20', stackRole: 'cover' });
   var pf10 = spin({ scenario: 'push', stackDepth: 'bb10' });
   var pf12 = spin({ scenario: 'push', stackDepth: 'bb12' });
+  var short10 = spin({ scenario: 'push', stackDepth: 'bb10', stackRole: 'short' });
+  var short12 = spin({ scenario: 'push', stackDepth: 'bb12', stackRole: 'short' });
   var vs20 = spin({ scenario: '3bet', stackDepth: 'bb20' });
   var vsPush = spin({ scenario: 'push', stackDepth: 'bb10' });
 
@@ -4787,33 +4791,33 @@
   ];
 
   PACKS['S-06'] = [
-    R('s06-01', 'BTN', ['Qs', 'Jh'], 71601, 'Cover (~25 bb) BTN con QJo: steal razonable. El lead se usa para presionar ciegas, no para hero-call.', st25),
-    R('s06-02', 'BTN', ['8d', '4h'], 71602, 'Aunque seas cover, 84o es fold. Presión ≠ spew: si te pagan, la mano no aguanta.', st25, 'dominated'),
-    R('s06-03', 'SB', ['As', 'Ts'], 71603, 'Cover SB con ATs: open/steal. Pones al short en un spot feo; no necesitas ir all-in siempre.', st25),
-    V('s06-04', 'BB_vs_BTN', ['Qc', 'Th'], 71604, 'Short abre y tú eres cover con QTo: fold. No pagues light “porque tengo más fichas” — ICM suicide.', vs20, 'fancy_play'),
-    V('s06-05', 'BB_vs_BTN', ['Jh', 'Jd'], 71605, 'Cover vs steal con JJ: 3-bet shove value. Aquí sí: equity alta y eliminar acerca al 1.º.', vs20),
-    V('s06-06', 'BB_vs_SB', ['9h', '6d'], 71606, '96o vs steal: fold siempre. El lead no justifica basura.', vs20, 'dominated'),
-    R('s06-07', 'BTN', ['6d', '5d'], 71607, 'Cover BTN 65s: steal con jugabilidad. Robas a shorts que overfoldean.', st25),
-    V('s06-08', 'BB_vs_BTN', ['Ts', 'Tc'], 71608, 'TT cover vs steal: 3-bet shove. Value claro — no es call light.', vs20),
-    V('s06-09', 'BB_vs_BTN', ['8s', '6c'], 71609, '86o cover vs steal: fold. Chip EV dudoso y $EV peor. El lead se guarda.', vs20, 'fancy_play'),
-    R('s06-10', 'SB', ['Qd', 'Td'], 71610, 'Cover SB QTs: open steal frecuente. Presión con manos que foldean mucho.', st25),
-    V('s06-11', 'BB_vs_SB', ['Td', 'Tc'], 71611, 'TT cover vs steal SB: 3-bet shove value. Par medio fuerte — no flat eterno.', vs20),
-    R('s06-12', 'BTN', ['9h', '4c'], 71612, '94o cover: fold. El chip lead no convierte basura en steal.', st25, 'dominated')
+    R('s06-01', 'BTN', ['Qs', 'Jh'], 71601, 'Cover (~25 bb) BTN con QJo: steal razonable. El lead se usa para presionar ciegas, no para hero-call.', cover25),
+    R('s06-02', 'BTN', ['8d', '4h'], 71602, 'Aunque seas cover, 84o es fold. Presión ≠ spew: si te pagan, la mano no aguanta.', cover25, 'dominated'),
+    R('s06-03', 'SB', ['As', 'Ts'], 71603, 'Cover SB con ATs: open/steal. Pones al short en un spot feo; no necesitas ir all-in siempre.', cover25),
+    V('s06-04', 'BB_vs_BTN', ['Qc', 'Th'], 71604, 'Short abre y tú eres cover con QTo: fold. No pagues light “porque tengo más fichas” — ICM suicide.', coverVs20, 'fancy_play'),
+    V('s06-05', 'BB_vs_BTN', ['Jh', 'Jd'], 71605, 'Cover vs steal con JJ: 3-bet shove value. Aquí sí: equity alta y eliminar acerca al 1.º.', coverVs20),
+    V('s06-06', 'BB_vs_SB', ['9h', '6d'], 71606, '96o vs steal: fold siempre. El lead no justifica basura.', coverVs20, 'dominated'),
+    R('s06-07', 'BTN', ['6d', '5d'], 71607, 'Cover BTN 65s: steal con jugabilidad. Robas a shorts que overfoldean.', cover25),
+    V('s06-08', 'BB_vs_BTN', ['Ts', 'Tc'], 71608, 'TT cover vs steal: 3-bet shove. Value claro — no es call light.', coverVs20),
+    V('s06-09', 'BB_vs_BTN', ['8s', '6c'], 71609, '86o cover vs steal: fold. Chip EV dudoso y $EV peor. El lead se guarda.', coverVs20, 'fancy_play'),
+    R('s06-10', 'SB', ['Qd', 'Td'], 71610, 'Cover SB QTs: open steal frecuente. Presión con manos que foldean mucho.', cover25),
+    V('s06-11', 'BB_vs_SB', ['Td', 'Tc'], 71611, 'TT cover vs steal SB: 3-bet shove value. Par medio fuerte — no flat eterno.', coverVs20),
+    R('s06-12', 'BTN', ['9h', '4c'], 71612, '94o cover: fold. El chip lead no convierte basura en steal.', cover25, 'dominated')
   ];
 
   PACKS['S-07'] = [
-    R('s07-01', 'BTN', ['As', 'Ts'], 71701, 'Short (~10–12 bb) BTN ATs: shove para doblarte. Vs cover elige equity + fold equity, no panic.', pf12),
-    R('s07-02', 'BTN', ['Td', '6h'], 71702, 'Short con T6o: fold. Necesitas doblarte, sí; no con basura vs un cover que te elimina.', pf12, 'dominated'),
-    R('s07-03', 'SB', ['Kh', 'Jh'], 71703, 'Short SB KJs: shove frecuente. Broadway usable — spot para double-up, no min-raise.', pf10),
-    R('s07-04', 'SB', ['Qd', '7c'], 71704, 'Q7o SB corto: fold. Panic shove OOP vs cover es el leak del short desesperado.', pf10, 'fancy_play'),
-    R('s07-05', 'BTN', ['8s', '8c'], 71705, '88 short: shove value. Par medio — quieres que el cover foldee o ir a equity decente.', pf10),
-    R('s07-06', 'BTN', ['7s', '6s'], 71706, '76s BTN corto: shove frecuente. Conectores suited con fold equity vs cover.', pf10),
-    R('s07-07', 'SB', ['9c', '6d'], 71707, '96o SB corto: fold. Sin equity ni fold equity real.', pf10, 'dominated'),
-    R('s07-08', 'BTN', ['Kd', 'Kh'], 71708, 'KK ~12 bb: shove value. Premium vs cover — no open min.', pf12),
-    R('s07-09', 'SB', ['Kh', 'Th'], 71709, 'KTs SB corto: shove frecuente. Charts SB cortos incluyen esta broadway suited.', pf10),
-    R('s07-10', 'BTN', ['Jh', 'Td'], 71710, 'JTo BTN ~12 bb: shove candidato desde botón. Late + short = fold equity.', pf12),
-    R('s07-11', 'BTN', ['Ac', 'Qc'], 71711, 'AQs ~10 bb: shove. Ax suited premium — all-in, no “ver flop barato”.', pf10),
-    R('s07-12', 'SB', ['8d', '5c'], 71712, '85o SB corto: fold. Elige spots; no todas las manos “necesitan fichas”.', pf10, 'fancy_play')
+    R('s07-01', 'BTN', ['As', 'Ts'], 71701, 'Short (~10–12 bb) BTN ATs: shove para doblarte. Vs cover elige equity + fold equity, no panic.', short12),
+    R('s07-02', 'BTN', ['Td', '6h'], 71702, 'Short con T6o: fold. Necesitas doblarte, sí; no con basura vs un cover que te elimina.', short12, 'dominated'),
+    R('s07-03', 'SB', ['Kh', 'Jh'], 71703, 'Short SB KJs: shove frecuente. Broadway usable — spot para double-up, no min-raise.', short10),
+    R('s07-04', 'SB', ['Qd', '7c'], 71704, 'Q7o SB corto: fold. Panic shove OOP vs cover es el leak del short desesperado.', short10, 'fancy_play'),
+    R('s07-05', 'BTN', ['8s', '8c'], 71705, '88 short: shove value. Par medio — quieres que el cover foldee o ir a equity decente.', short10),
+    R('s07-06', 'BTN', ['7s', '6s'], 71706, '76s BTN corto: shove frecuente. Conectores suited con fold equity vs cover.', short10),
+    R('s07-07', 'SB', ['9c', '6d'], 71707, '96o SB corto: fold. Sin equity ni fold equity real.', short10, 'dominated'),
+    R('s07-08', 'BTN', ['Kd', 'Kh'], 71708, 'KK ~12 bb: shove value. Premium vs cover — no open min.', short12),
+    R('s07-09', 'SB', ['Kh', 'Th'], 71709, 'KTs SB corto: shove frecuente. Charts SB cortos incluyen esta broadway suited.', short10),
+    R('s07-10', 'BTN', ['Jh', 'Td'], 71710, 'JTo BTN ~12 bb: shove candidato desde botón. Late + short = fold equity.', short12),
+    R('s07-11', 'BTN', ['Ac', 'Qc'], 71711, 'AQs ~10 bb: shove. Ax suited premium — all-in, no “ver flop barato”.', short10),
+    R('s07-12', 'SB', ['8d', '5c'], 71712, '85o SB corto: fold. Elige spots; no todas las manos “necesitan fichas”.', short10, 'fancy_play')
   ];
 
   PACKS['S-10'] = [
@@ -4909,7 +4913,7 @@
   ];
 
   PACKS['S-16'] = [
-    R('s16-01', 'BTN', ['Jh', 'Td'], 72601, 'Vs nit (folda mucho): JTo BTN steal OK. Explotas el overfold — más wide que vs GTO ciego.', st20),
+    R('s16-01', 'BTN', ['Jh', 'Td'], 72601, 'Vs nit (foldea mucho): JTo BTN steal OK. Explotas el overfold — más wide que vs GTO ciego.', st20),
     R('s16-02', 'BTN', ['Qh', '3d'], 72602, 'Vs nit tampoco Q3o. Explotación no es spew: el nit paga a veces y entonces estás muerto.', st20, 'dominated'),
     V('s16-03', 'BB_vs_BTN', ['Ad', 'Kd'], 72603, 'Vs maniac que abre/shovea wide: AKs call/3-bet value. Value más limpio, menos farol.', vs20),
     V('s16-04', 'BB_vs_BTN', ['Th', '7c'], 72604, 'Vs maniac con T7o: fold. Él paga y shovea wide — no farolees ni hero-calles basura.', vs20, 'fancy_play'),
@@ -7258,7 +7262,7 @@
       return String(f.reason || '') + ' ' + String(f.teachBack || '') + ' ' + String(f.spotId || '');
     }).join(' ').toLowerCase();
     if (/fold|pasaste|pasas/.test(blob) && /call|defend|defender|overfold/.test(blob + ' ' + (lesson.id || '') + ' ' + (lesson.title || '').toLowerCase())) {
-      return 'Estás foldando de más en spots de defensa. Revisa pot odds y si tienes equity realization.';
+      return 'Estás foldeando de más en spots de defensa. Revisa pot odds y si tienes equity realization.';
     }
     if (/3-?bet|squeeze|raise/.test(blob) && /spew|fancy|value|bluff|polar/.test(blob)) {
       return 'Revisa tu mix value/bluff: el sizing debe corresponder al plan (negar equity vs value-heavy).';
