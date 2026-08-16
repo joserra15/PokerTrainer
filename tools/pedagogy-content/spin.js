@@ -156,7 +156,7 @@ module.exports = {
         {
           title: 'Objetivo con cover',
           body:
-            'Acumula fichas sin regalar dobles fáciles. Presiona spots donde el short folda mucho; foldea cuando su shove representa value claro. El lead se usa para robar, no para hero-call por orgullo.'
+            'Acumula fichas sin regalar dobles fáciles. Presiona spots donde el short foldea mucho; foldea cuando su shove representa value claro. El lead se usa para robar, no para hero-call por orgullo.'
         },
         {
           title: 'Trampa mental',
@@ -190,7 +190,7 @@ module.exports = {
         {
           title: 'Short vs cover',
           body:
-            'El rival tiene más fichas y puede eliminarte. Tu shove debe ser selectivo: manos que foldan a menudo (fold equity) o que van razonablemente bien cuando te pagan. No eres un cash game a 100 bb — cada all-in decide el torneo.'
+            'El rival tiene más fichas y puede eliminarte. Tu shove debe ser selectivo: manos que foldean a menudo (fold equity) o que van razonablemente bien cuando te pagan. No eres un cash game a 100 bb — cada all-in decide el torneo.'
         },
         {
           title: 'Sobrevive y elige spots',
@@ -581,7 +581,7 @@ module.exports = {
 
     'S-16': {
       concept:
-        'Explotación: vs nit (folda mucho) stealeas más; vs maniac (juega muchas manos agresivo) defiendes tighter y value-shoveas más limpio. Ajusta al rival real, no solo al chart ciego.',
+        'Explotación: vs nit (foldea mucho) stealeas más; vs maniac (juega muchas manos agresivo) defiendes tighter y value-shoveas más limpio. Ajusta al rival real, no solo al chart ciego.',
       theory: [
         {
           title: 'Vs nit',
@@ -591,12 +591,12 @@ module.exports = {
         {
           title: 'Vs maniac',
           body:
-            'Maniac: paga y shovea wide. Reduce faroles, value-shove más grueso (TT+, Ax fuerte) y no hagas bluffcatch light (pagar faroles con manos medias). Contra alguien que nunca folda, el bluff pierde sentido.'
+            'Maniac: paga y shovea wide. Reduce faroles, value-shove más grueso (TT+, Ax fuerte) y no hagas bluffcatch light (pagar faroles con manos medias). Contra alguien que nunca foldea, el bluff pierde sentido.'
         },
         {
           title: 'Ajuste > chart ciego',
           body:
-            'Observa 10–20 manos del rival en lobby si puedes: ¿folda BTN steal? ¿paga light? ¿shovea cualquier Ax? El chart GTO es base; la explotación es el € extra cuando el leak es obvio.'
+            'Observa 10–20 manos del rival en lobby si puedes: ¿foldea BTN steal? ¿paga light? ¿shovea cualquier Ax? El chart GTO es base; la explotación es el € extra cuando el leak es obvio.'
         },
         {
           title: 'Trampa de libro',
@@ -608,7 +608,7 @@ module.exports = {
         {
           title: 'Vs nit',
           body:
-            'SB folda ~80 % vs steal BTN: abre wider. Cualquier fold es fichas hacia el payout sin showdown — castiga la pasividad.'
+            'SB foldea ~80 % vs steal BTN: abre wider. Cualquier fold es fichas hacia el payout sin showdown — castiga la pasividad.'
         },
         {
           title: 'Vs maniac',
@@ -618,7 +618,7 @@ module.exports = {
         {
           title: 'Lectura rápida',
           body:
-            'Tras dos steals: si ambos foldan, marca nit-leaning. Si te pagan o te shovean light, marca maniac-leaning. Ajusta la tercera mano — en Spins no hay 200 manos para confirmar.'
+            'Tras dos steals: si ambos foldean, marca nit-leaning. Si te pagan o te shovean light, marca maniac-leaning. Ajusta la tercera mano — en Spins no hay 200 manos para confirmar.'
         }
       ]
     },
