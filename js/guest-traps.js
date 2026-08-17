@@ -99,7 +99,7 @@
       forceDeal: {
         heroCards: ['Ah', 'Td'],
         villainCards: ['Qs', 'Qd'],
-        board: ['9h', '8h', '2c', '3d', '7s'],
+        board: ['Th', '8h', '2c', '3d', '7s'],
         villainPos: 'UTG'
       },
       forceScript: script('BB', 'UTG', 'call', barrels),
@@ -122,7 +122,7 @@
         villainPos: 'UTG'
       },
       forceScript: script('BTN', 'UTG', 'call', barrels),
-      playConfig: { scenario: '3bet' }
+      playConfig: { scenario: '3bet', guestNeverFold: true }
     }),
     trap({
       id: 'g3-jto-utg-open',
@@ -147,19 +147,19 @@
       title: 'Broadway en SB vs UTG',
       bait: 'call',
       riverBait: 'call',
-      baitHint: 'KJo en SB vs UTG parece fuerte. Fuera de posición contra el open más tight: fold. El color no llega; el river es un call incorrecto.',
+      baitHint: 'KJo en SB vs UTG parece fuerte. Fuera de posición contra el open más tight: fold. El color no llega; el villano con AQ no se tira aunque subas.',
       type: 'vsRFI',
       key: 'SB_vs_UTG',
       heroPos: 'SB',
       seed: 11006,
       forceDeal: {
         heroCards: ['Kh', 'Jd'],
-        villainCards: ['Qs', 'Qd'],
-        board: ['9h', '8h', '2c', '3d', '7s'],
+        villainCards: ['As', 'Qc'],
+        board: ['9h', '8h', '2c', '3d', 'Js'],
         villainPos: 'UTG'
       },
       forceScript: script('SB', 'UTG', 'call', barrels),
-      playConfig: { scenario: '3bet' }
+      playConfig: { scenario: '3bet', guestNeverFold: true }
     }),
     trap({
       id: 'g5-ato-utg-open',

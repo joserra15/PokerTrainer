@@ -11848,12 +11848,14 @@ window.PT_VS_3BET_JSON = {
   function scriptForcedPostflop(hand, node) {
     const pos = (hand.villain && hand.villain.pos) || (hand._script && hand._script.villainPos);
     const peeked = scriptPeekSeatAction(hand, pos);
-    if (!peeked) return null;
-    if (peeked.action.street && hand.stage && peeked.action.street !== hand.stage) return null;
+    const facing = node && (node.heroLastAction === 'bet' || node.heroLastAction === 'raise');
+    if (!peeked || (peeked.action.street && hand.stage && peeked.action.street !== hand.stage)) {
+      if (facing && guestNeverFoldVillain(hand)) return 'call';
+      return null;
+    }
     scriptConsumeThrough(hand, peeked.index);
     hand._scriptedVillainAmountBB = peeked.action.amountBB;
     const n = scriptNormAction(peeked.action.action);
-    const facing = node && (node.heroLastAction === 'bet' || node.heroLastAction === 'raise');
     if (facing) {
       if (n === 'fold') return 'fold';
       if (n === 'raise') return 'raise';
@@ -11864,6 +11866,10 @@ window.PT_VS_3BET_JSON = {
     if (n === 'bet' || n === 'raise') return 'bet';
     if (n === 'check' || n === 'call' || n === 'fold') return 'check';
     return null;
+  }
+
+  function guestNeverFoldVillain(hand) {
+    return !!(hand && hand.playConfig && hand.playConfig.guestTrap && hand.playConfig.guestNeverFold);
   }
 
   function scriptBetAmount(hand, amountBB) {
@@ -12471,6 +12477,7 @@ window.PT_VS_3BET_JSON = {
   function openerVs3Bet(hand, opener, threeBetSize) {
     const forced = scriptForcedVs3Bet(hand, opener);
     if (forced) return forced;
+    if (guestNeverFoldVillain(hand)) return 'call';
     const profile = profileFor(hand, opener);
     const code = seatHoleCode(hand, opener);
     if (VPF && code) {
@@ -12725,7 +12732,7 @@ window.PT_VS_3BET_JSON = {
     }
     const RSNuts = global.GTORiverShoveNode;
     const neverFold = !!(RSNuts && RSNuts.isAbsoluteNuts && hc && hand.board
-      && RSNuts.isAbsoluteNuts(hc, hand.board));
+      && RSNuts.isAbsoluteNuts(hc, hand.board)) || guestNeverFoldVillain(hand);
     return {
       street: hand.stage,
       tier: info.tier,
