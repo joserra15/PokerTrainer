@@ -17585,6 +17585,10 @@ window.PT_VS_3BET_JSON = {
     if (userId) migrateLegacyOnce(userId);
   }
 
+  function getUserId() {
+    return userId;
+  }
+
   function defaultStats() {
     return {
       handsPlayed: 0, totalEvLoss: 0, totalNet: 0,
@@ -18553,13 +18557,47 @@ window.PT_VS_3BET_JSON = {
     return s;
   }
 
-  function getCloudSnapshot() {
+  function getOnboardingForCloud() {
+    if (global.PTOnboarding && typeof global.PTOnboarding.getCloudState === 'function') {
+      return global.PTOnboarding.getCloudState();
+    }
+    return null;
+  }
+
+  function mergeOnboardingStates(localOb, cloudOb) {
+    if (global.PTOnboarding && typeof global.PTOnboarding.mergeStates === 'function') {
+      return global.PTOnboarding.mergeStates(localOb, cloudOb);
+    }
+    const local = localOb || {};
+    const cloud = cloudOb || {};
+    const done = Object.assign({}, cloud.done || {}, local.done || {});
+    Object.keys(done).forEach(function (k) {
+      if ((local.done && local.done[k]) || (cloud.done && cloud.done[k])) done[k] = true;
+      else delete done[k];
+    });
     return {
+      dismissed: !!(local.dismissed || cloud.dismissed),
+      done: done,
+      updatedAt: Math.max(Number(local.updatedAt) || 0, Number(cloud.updatedAt) || 0)
+    };
+  }
+
+  function applyOnboardingFromCloud(remote) {
+    if (global.PTOnboarding && typeof global.PTOnboarding.mergeFromCloud === 'function') {
+      global.PTOnboarding.mergeFromCloud(remote || null);
+    }
+  }
+
+  function getCloudSnapshot() {
+    const snap = {
       stats: getStats(),
       history: getHistory(),
       errors: getErrors(),
       clearedAt: getClearedAt()
     };
+    const onboarding = getOnboardingForCloud();
+    if (onboarding) snap.onboarding = onboarding;
+    return snap;
   }
 
   function mergeSessionsFromCloud(cloudSessions) {
@@ -18672,6 +18710,8 @@ window.PT_VS_3BET_JSON = {
           delete out.clearedAt.stats;
           if (localCa.stats) out.clearedAt.stats = localCa.stats;
         }
+      } else if (key === 'onboarding') {
+        out.onboarding = mergeOnboardingStates(local.onboarding, cloud.onboarding);
       } else if (local[key] != null) {
         out[key] = local[key];
       }
@@ -18724,6 +18764,7 @@ window.PT_VS_3BET_JSON = {
     write(scopedKey('history'), history);
     write(scopedKey('errors'), errors);
     writeStats(stats);
+    applyOnboardingFromCloud(cloudSnapshot.onboarding);
     return { history: history.length, errors: errors.length, sessions: getSessions().length, stats: stats };
   }
 
@@ -18741,6 +18782,7 @@ window.PT_VS_3BET_JSON = {
     if (snapshot.errors) {
       write(scopedKey('errors'), filterByClearedAt(snapshot.errors, effectiveCloudClear('errors', cloudCa)));
     }
+    applyOnboardingFromCloud(snapshot.onboarding);
   }
 
   function normalizeCoachEntry(entry) {
@@ -19020,7 +19062,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   global.Store = {
-    setUserId,
+    setUserId, getUserId,
     getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,
@@ -23784,7 +23826,120 @@ window.PT_VS_3BET_JSON = {
 
   function userKey() {
     var u = global.PT_AUTH_USER;
-    return (u && (u.sub || u.id || u.email)) || 'anon';
+    var fromAuth = u && (u.sub || u.id || u.email);
+    if (fromAuth) return fromAuth;
+    try {
+      if (global.Store && typeof global.Store.getUserId === 'function') {
+        var id = global.Store.getUserId();
+        if (id) return id;
+      }
+    } catch (e) { /* ignore */ }
+    return 'anon';
+  }
+
+  function cloneDone(done) {
+    var out = {};
+    if (!done || typeof done !== 'object') return out;
+    Object.keys(done).forEach(function (k) {
+      if (done[k]) out[k] = true;
+    });
+    return out;
+  }
+
+  function mergeStates(a, b) {
+    a = a || {};
+    b = b || {};
+    var done = cloneDone(a.done);
+    var extra = cloneDone(b.done);
+    Object.keys(extra).forEach(function (k) { done[k] = true; });
+    return {
+      dismissed: !!(a.dismissed || b.dismissed),
+      done: done,
+      updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0)
+    };
+  }
+
+  function inferActivityDone() {
+    var done = {};
+    var S = global.Store;
+    if (!S) return done;
+    var stats = S.getStats ? S.getStats() : null;
+    var history = S.getHistory ? S.getHistory() : [];
+    var errors = S.getErrors ? S.getErrors() : [];
+    var school = stats && stats.school;
+    var hasSchool = false;
+    if (school && typeof school === 'object') {
+      if ((Number(school.xp) || 0) > 0) hasSchool = true;
+      else if (school.lessons && typeof school.lessons === 'object' && Object.keys(school.lessons).length) {
+        hasSchool = true;
+      }
+    }
+    var hasTraining = !!(
+      (stats && ((Number(stats.handsPlayed) || 0) > 0 || (Number(stats.decisions) || 0) > 0)) ||
+      (history && history.length) ||
+      (errors && errors.length) ||
+      hasSchool
+    );
+    if (hasTraining) {
+      done.demo = true;
+      done.warmup = true;
+      done.leaks = true;
+    }
+    return done;
+  }
+
+  function applyInferredProgress() {
+    var inferred = inferActivityDone();
+    if (!inferred.demo && !inferred.warmup && !inferred.leaks) return false;
+    var data = load();
+    var k = userKey();
+    if (!data.users[k]) data.users[k] = { dismissed: false, done: {} };
+    var st = data.users[k];
+    if (!st.done) st.done = {};
+    var changed = false;
+    Object.keys(inferred).forEach(function (id) {
+      if (inferred[id] && !st.done[id]) {
+        st.done[id] = true;
+        changed = true;
+      }
+    });
+    if (changed) {
+      st.updatedAt = Date.now();
+      save(data);
+    }
+    return changed;
+  }
+
+  function notifyCloud() {
+    if (!global.PTCloud) return;
+    if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(['onboarding']);
+    if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(['onboarding']);
+    /* No esperar 2s: Safari en móvil mata el JS al cambiar de app. */
+    if (global.PTCloud.flushPush) global.PTCloud.flushPush();
+  }
+
+  function getCloudState() {
+    applyInferredProgress();
+    var st = stateForUser();
+    return {
+      dismissed: !!st.dismissed,
+      done: cloneDone(st.done),
+      updatedAt: Number(st.updatedAt) || 0
+    };
+  }
+
+  function mergeFromCloud(remote) {
+    var data = load();
+    var k = userKey();
+    if (!data.users[k]) data.users[k] = { dismissed: false, done: {} };
+    if (remote && typeof remote === 'object') {
+      data.users[k] = mergeStates(data.users[k], remote);
+      data.users[k].updatedAt = Math.max(Number(data.users[k].updatedAt) || 0, Date.now());
+    }
+    save(data);
+    applyInferredProgress();
+    if (typeof document !== 'undefined') render();
+    return stateForUser();
   }
 
   function load() {
@@ -23820,11 +23975,15 @@ window.PT_VS_3BET_JSON = {
   }
 
   function markDone(stepId) {
+    if (!stepId) return;
     var data = load();
     var k = userKey();
     if (!data.users[k]) data.users[k] = { dismissed: false, done: {} };
+    if (!data.users[k].done) data.users[k].done = {};
     data.users[k].done[stepId] = true;
+    data.users[k].updatedAt = Date.now();
     save(data);
+    notifyCloud();
     if (typeof document !== 'undefined') render();
   }
 
@@ -23833,7 +23992,9 @@ window.PT_VS_3BET_JSON = {
     var k = userKey();
     if (!data.users[k]) data.users[k] = { dismissed: false, done: {} };
     data.users[k].dismissed = true;
+    data.users[k].updatedAt = Date.now();
     save(data);
+    notifyCloud();
     if (typeof document !== 'undefined') render();
   }
 
@@ -23842,6 +24003,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   function shouldShow() {
+    applyInferredProgress();
     var st = stateForUser();
     if (st.dismissed) return false;
     if (allDone(st)) return false;
@@ -23954,6 +24116,10 @@ window.PT_VS_3BET_JSON = {
     else if (id === 'leaks') runLeaks();
   }
 
+  if (typeof global.addEventListener === 'function') {
+    global.addEventListener('pt-cloud-synced', function () { render(); });
+  }
+
   global.PTOnboarding = {
     STEPS: STEPS,
     render: render,
@@ -23963,6 +24129,9 @@ window.PT_VS_3BET_JSON = {
     isDone: isDone,
     shouldShow: shouldShow,
     runStep: runStep,
+    getCloudState: getCloudState,
+    mergeFromCloud: mergeFromCloud,
+    mergeStates: mergeStates,
     STORAGE_KEY: STORAGE_KEY
   };
 })(window);
