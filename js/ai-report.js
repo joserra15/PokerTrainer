@@ -1120,15 +1120,14 @@
       '</div></div>' +
       '<div class="home-coach-steps">' +
       '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Si empiezas de cero</h4><p>Abre <em>Guía básica</em> en el menú: conceptos, qué es el GTO, ejemplos y un mini entrenamiento antes de meterte en spots avanzados.</p></div>' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Informe automático</h4><p>Al terminar una mano en el entrenador, o en el resumen de una sesión importada, pulsa <em>Informe de la mano</em> o <em>Informe de la sesión</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Informe automático</h4><p>En el resumen de una sesión importada, o al abrir el detalle de una mano de esa sesión, pulsa <em>Informe de la sesión</em> o <em>Informe de esta mano</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
       '<div class="home-coach-step"><span class="home-coach-step-num">3</span><h4>Pregunta concreta</h4><p>¿Dudas en un sizing o un fold? Usa <em>Pregunta concreta</em> (hasta ' + QUESTION_MAX + ' caracteres). Mantengo el hilo de la conversación en la misma mano o sesión.</p></div>' +
       '</div>' +
       '<div class="home-coach-where">' +
       '<h4>Dónde encontrarme</h4>' +
       '<ul>' +
       '<li><strong>Guía básica</strong> — conceptos para principiantes y dudas al coach.</li>' +
-      '<li><strong>Entrenador</strong> — al finalizar cada mano, debajo del resultado.</li>' +
-      '<li><strong>Sesiones</strong> — resumen de sesión, revisión de mano y paso a paso.</li>' +
+      '<li><strong>Sesiones</strong> — resumen de sesión importada y detalle de cada mano.</li>' +
       '<li><strong>Estadísticas</strong> — bloque ForgeCoach con informe global y preguntas.</li>' +
       '<li><strong>Planes</strong> — Study incluye 40 consultas/mes; Coach, 150/mes. Puedes ampliar con bonos de consultas.</li>' +
       '</ul></div>' +

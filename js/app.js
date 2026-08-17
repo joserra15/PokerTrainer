@@ -3878,8 +3878,6 @@
       html += renderSessionBlockSummary(target);
     }
 
-    html += '<div id="ai-report-trainer"></div>';
-
     if (r.villainRangeLog && r.villainRangeLog.length) {
       html += '<div class="card-box" style="margin-top:14px"><h3>Lectura del rango del villano</h3><ul class="range-log">';
       r.villainRangeLog.forEach((e) => {
@@ -3897,14 +3895,6 @@
     html += '<button type="button" class="btn btn-ghost btn-share" id="share-hand-trainer">Compartir análisis</button>';
 
     fb.innerHTML = html;
-    if (window.PTAIReport) {
-      window.PTAIReport.mount($('#ai-report-trainer'), {
-        source: 'trainer',
-        getHand: () => hand,
-        persist: { kind: 'history', getHandId: () => hand && hand.id },
-        onThreadUpdate: (thread) => { if (hand) hand.coachThread = thread; }
-      });
-    }
     bindShareButton($('#share-hand-trainer'), () => ({
       source: 'trainer',
       hand: hand,
@@ -7374,7 +7364,10 @@
 
     html += renderHandDecisionsSummary(h.decisions, 'session');
 
-    html += '<div id="ai-report-session"></div>';
+    const isAnalysisHand = !!(currentSession && currentSession.analysis);
+    if (!isAnalysisHand) {
+      html += '<div id="ai-report-session"></div>';
+    }
 
     // cartas del villano si se mostraron
     const shows = Object.keys(h.villainShows || {}).filter((n) => n !== currentSession.hero);
@@ -7408,25 +7401,16 @@
       });
     });
     scrollSessionReviewToTop();
-    if (window.PTAIReport) {
-      const isAnalysis = !!(currentSession && currentSession.analysis);
-      const persist = isAnalysis
-        ? { kind: 'analysis', getHandId: () => currentHand && currentHand.id }
-        : {
-          kind: 'sessionHand',
-          getSessionId: () => currentSession && currentSession.id,
-          getHandId: () => currentHand && currentHand.id
-        };
+    if (!isAnalysisHand && window.PTAIReport) {
       window.PTAIReport.mount($('#ai-report-session'), {
         scope: 'session',
         getHand: () => currentHand,
-        persist: persist,
-        onThreadUpdate: (thread) => {
-          if (currentHand) {
-            currentHand.coachThread = thread;
-            if (isAnalysis && window.Store && Store.updateAnalysisHand) Store.updateAnalysisHand(currentHand);
-          }
-        }
+        persist: {
+          kind: 'sessionHand',
+          getSessionId: () => currentSession && currentSession.id,
+          getHandId: () => currentHand && currentHand.id
+        },
+        onThreadUpdate: (thread) => { if (currentHand) currentHand.coachThread = thread; }
       });
     }
     $('#to-replay').addEventListener('click', () => startInteractiveReplay());
