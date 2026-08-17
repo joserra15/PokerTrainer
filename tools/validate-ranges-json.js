@@ -54,6 +54,16 @@ vsRfiMust.forEach((k) => assert.ok(vsRfi.pairs[k], 'vs-RFI falta ' + k));
 sandbox.window.PT_VS_RFI_JSON = vsRfi;
 sandbox.window.PTRangesJsonLoader.init();
 
+function continueSet(row) {
+  return new Set(
+    []
+      .concat(N.expand(row.threeBet || ''))
+      .concat(N.expand(row.threeBetMix || ''))
+      .concat(N.expand(row.call || ''))
+      .concat(N.expand(row.callMix || ''))
+  );
+}
+
 let vsRfiCombos = 0;
 vsRfiKeys.forEach((key) => {
   const row = vsRfi.pairs[key];
@@ -66,6 +76,21 @@ vsRfiKeys.forEach((key) => {
   vsRfiCombos += n;
 });
 console.log('OK vs-RFI:', vsRfiKeys.length, 'pares,', vsRfiCombos, 'combos notación');
+
+// BB vs BTN: AQo/AJo (y KJo) no pueden ser fold si el chart defiende Ax/Kx peores.
+const bbBtn = vsRfi.pairs.BB_vs_BTN;
+const bbBtnCont = continueSet(bbBtn);
+['AQo', 'AJo', 'ATo', 'A9o', 'A8o', 'KJo'].forEach((h) => {
+  assert.ok(bbBtnCont.has(h), 'BB vs BTN debe continuar ' + h + ' (no fold)');
+});
+const axOffsuit = ['AKo', 'AQo', 'AJo', 'ATo', 'A9o', 'A8o', 'A7o', 'A6o', 'A5o', 'A4o', 'A3o', 'A2o'];
+let weakerAxContinue = false;
+for (let i = axOffsuit.length - 1; i >= 0; i--) {
+  const h = axOffsuit[i];
+  if (bbBtnCont.has(h)) weakerAxContinue = true;
+  else assert.ok(!weakerAxContinue, 'BB vs BTN: ' + h + ' no puede ser fold si Ax offsuit peores continúan');
+}
+console.log('OK BB vs BTN: AQo/AJo/KJo continúan');
 
 // --- vs-3bet ---
 const vs3 = loadJson('vs-3bet-6max-100bb.json');
