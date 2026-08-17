@@ -123,9 +123,13 @@
   }
 
   function track(name, props) {
+    props = props || {};
+    if (global.PTGuestFunnel && global.PTGuestFunnel.track) {
+      global.PTGuestFunnel.track(name, props);
+    }
     var A = global.PTAnalytics;
     if (!A || !A.track) return;
-    A.track(name, props || {});
+    A.track(name, props);
   }
 
   function guestUser() {
@@ -455,7 +459,7 @@
         e.preventDefault();
         if (age && !age.checked) return;
         hideGate();
-        if (global.PTLanding && global.PTLanding.startLoginNow) global.PTLanding.startLoginNow();
+        if (global.PTLanding && global.PTLanding.startLoginNow) global.PTLanding.startLoginNow('guest');
         else if (global.PTAuth && global.PTAuth.startLogin) global.PTAuth.startLogin();
         else if (global.PT_startGoogleLogin) global.PT_startGoogleLogin();
       });

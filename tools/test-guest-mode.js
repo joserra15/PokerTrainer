@@ -123,6 +123,7 @@ assert.ok(/loadHomeGreeting/.test(appSrc) && /guestOn/.test(appSrc) && /if \(gue
 
 const landing = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
 assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/.test(landing), 'eventos landing');
+assert.ok(/PTGuestFunnel/.test(landing) && /scheduleLandingView/.test(landing), 'funnel first-party landing');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/data-landing-try/.test(html), 'CTA probar');

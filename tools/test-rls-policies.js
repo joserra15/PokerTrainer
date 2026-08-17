@@ -69,4 +69,16 @@ assert.ok(
   'schema elimina política anon de desarrollo'
 );
 
-console.log('*** rls-policies OK (pt_user_state + pt_import_sessions) ***');
+const mig040 = fs.readFileSync(
+  path.join(root, 'supabase/migrations/040_guest_funnel.sql'),
+  'utf8'
+);
+assert.ok(/enable row level security/i.test(mig040), 'embudo RLS');
+assert.ok(/revoke all on table public.pt_guest_funnel_events from anon/i.test(mig040),
+  'embudo sin privilegios anon');
+assert.ok(/revoke all on table public.pt_guest_funnel_events from authenticated/i.test(mig040),
+  'embudo sin privilegios authenticated');
+assert.ok(/is_pt_admin\(\)/.test(mig040), 'lectura embudo solo admin');
+assert.ok(!/create policy/i.test(mig040), 'embudo sin policies de INSERT/SELECT cliente');
+
+console.log('*** rls-policies OK (pt_user_state + pt_import_sessions + guest funnel) ***');

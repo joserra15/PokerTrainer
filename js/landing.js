@@ -22,7 +22,8 @@
     openLoginPanel();
   }
 
-  function startLoginNow() {
+  function startLoginNow(source) {
+    if (source === 'guest') trackFunnel('guest_login', { source: 'gate' });
     if (global.PT_startGoogleLogin) {
       global.PT_startGoogleLogin();
       return;
@@ -32,10 +33,10 @@
       btn.click();
       return;
     }
-    openLoginPanel();
+    openLoginPanel(source);
   }
 
-  function openLoginPanel() {
+  function openLoginPanel(source) {
     closeLandingNav();
     var panel = document.getElementById('landing-login');
     if (!panel) return;
@@ -44,7 +45,8 @@
     if (document.body && document.body.classList) {
       document.body.classList.add('landing-login-open');
     }
-    trackLanding('cta_login');
+    if (source === 'guest') trackFunnel('guest_login', { source: 'gate' });
+    else trackLanding('cta_login', { source: source || 'landing' });
     var btn = document.getElementById('auth-mobile-login');
     if (btn) btn.focus();
   }
@@ -191,9 +193,16 @@
     }, 80);
   }
 
+  function trackFunnel(name, props) {
+    var F = global.PTGuestFunnel;
+    if (F && F.track) F.track(name, props || {});
+  }
+
   function trackLanding(name, props) {
+    props = props || {};
+    if (name !== 'landing_view') trackFunnel(name, props);
     var A = global.PTAnalytics;
-    if (A && A.track) A.track(name, props || {});
+    if (A && A.track) A.track(name, props);
   }
 
   function renderPromo() {
@@ -506,6 +515,9 @@
     renderOAuthHints();
     bindNav();
     trackLanding('landing_view');
+    if (global.PTGuestFunnel && global.PTGuestFunnel.scheduleLandingView) {
+      global.PTGuestFunnel.scheduleLandingView();
+    }
     var promoCode = pendingPromoCode();
     if (promoCode) {
       renderPromoRegisterHint(promoCode);

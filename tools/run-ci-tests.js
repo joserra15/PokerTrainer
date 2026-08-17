@@ -85,6 +85,7 @@ const STEPS = [
   ['Test school coach per lesson', ['node', 'tools/test-school-coach-lesson.js']],
   ['Test spin iso limp order', ['node', 'tools/test-spin-iso-limp-order.js']],
   ['Test admin usage + school', ['node', 'tools/test-admin-usage-school.js']],
+  ['Test guest funnel admin', ['node', 'tools/test-guest-funnel.js']],
   ['Test PWA manifest', ['node', 'tools/test-pwa-manifest.js']],
   ['Test analytics/sentry guards', ['node', 'tools/test-analytics-sentry.js']],
   // v2.0 — formatos cash/spin/mtt + bluffs + ICM trainer

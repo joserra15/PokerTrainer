@@ -11,16 +11,19 @@ const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 const logSrc = fs.readFileSync(path.join(root, 'js/log.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const sql = fs.readFileSync(path.join(root, 'supabase/migrations/039_admin_school_usage_stats.sql'), 'utf8');
+const sqlFunnel = fs.readFileSync(path.join(root, 'supabase/migrations/040_guest_funnel.sql'), 'utf8');
 const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
 
 assert.ok(/admin-usage-btn/.test(html) && /admin-usage-panel/.test(html), 'HTML panel uso');
 assert.ok(/pt_admin_usage_stats/.test(adminSrc), 'RPC uso en admin');
+assert.ok(/pt_admin_guest_funnel/.test(adminSrc) && /renderGuestFunnelSection/.test(adminSrc), 'embudo guest en uso');
 assert.ok(/Escuela de Póker/.test(adminSrc) && /renderSchoolSection/.test(adminSrc), 'detalle Escuela');
 assert.ok(/renderFeatureUsageSection/.test(adminSrc), 'uso individual');
 assert.ok(/pt_admin_usage_stats/.test(sql) && /feature_usage/.test(sql) && /school/.test(sql), 'migración SQL');
+assert.ok(/pt_admin_guest_funnel/.test(sqlFunnel) && /pt_guest_funnel_ingest/.test(sqlFunnel), 'migración embudo');
 assert.ok(/trackFeatureUsage/.test(storageSrc), 'Store.trackFeatureUsage');
 assert.ok(/trackFeatureUsage/.test(logSrc), 'PTLog → trackFeatureUsage');
-assert.ok(/PT_BUILD\s*=\s*'2.5.55'/.test(version), 'versión 2.5.55');
+assert.ok(/PT_BUILD\s*=\s*'2.5.56'/.test(version), 'versión 2.5.56');
 
 const localStore = {};
 const sandbox = {

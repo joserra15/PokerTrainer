@@ -3988,6 +3988,35 @@ body.cookie-banner-open { padding-bottom: 0; }
   border-radius: 999px;
   background: linear-gradient(90deg, #c9a227, #3fb950);
 }
+.admin-funnel-block {
+  margin-bottom: 22px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.admin-funnel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.admin-funnel-head h4 { margin: 0; }
+.admin-funnel-period { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-funnel-period .is-active {
+  border-color: var(--gold, #c9a227);
+  color: var(--text);
+}
+.admin-funnel-note { margin: 0 0 12px; max-width: 760px; }
+.admin-funnel-block h5 {
+  margin: 8px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .35px;
+}
 .admin-school-table { margin-top: 12px; }
 .admin-gift-bonus-form {
   display: flex;

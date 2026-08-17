@@ -94,7 +94,7 @@
         </tr>
         <tr>
           <td>Técnicos</td>
-          <td>Preferencias de cookies, caché local, metadatos de sincronización, y datos técnicos de errores/rendimiento (mensaje de error, traza de pila, versión de la app, navegador) mediante monitorización con Sentry, sin datos personales ni historiales de mano</td>
+          <td>Preferencias de cookies, caché local, metadatos de sincronización, identificador anónimo de visitante para el embudo de la landing (UUID, sin correo ni nombre), y datos técnicos de errores/rendimiento (mensaje de error, traza de pila, versión de la app, navegador) mediante monitorización con Sentry, sin historiales de mano</td>
           <td>localStorage / servicios en la nube</td>
         </tr>
       </tbody>
@@ -109,7 +109,7 @@
       <li><strong>Cookies analíticas</strong> (Plausible, si las activas): consentimiento.</li>
       <li><strong>Facturación</strong>: ejecución del contrato y obligaciones legales.</li>
       <li><strong>Monitorización de errores</strong> (Sentry): interés legítimo en detectar y corregir fallos técnicos; no usa cookies ni recoge datos personales.</li>
-      <li><strong>Seguridad y mejora técnica</strong>: interés legítimo, limitado a lo necesario.</li>
+      <li><strong>Seguridad y mejora técnica</strong>: interés legítimo, limitado a lo necesario (incluye el embudo anónimo de la landing para saber si la prueba sin cuenta convierte a registro).</li>
     </ul>
 
     <h2>5. Destinatarios y encargados</h2>
@@ -119,7 +119,7 @@
       </thead>
       <tbody>
         <tr><td>Google LLC</td><td>OAuth / Gemini (ForgeCoach)</td><td>Perfil de cuenta; datos de mano si usas IA</td></tr>
-        <tr><td>Supabase Inc.</td><td>Auth, base de datos, sync, mensajes contacto</td><td>Datos de cuenta, histórico, sesiones, estadísticas, hilos de contacto</td></tr>
+        <tr><td>Supabase Inc.</td><td>Auth, base de datos, sync, mensajes contacto, embudo anónimo de landing</td><td>Datos de cuenta, histórico, sesiones, estadísticas, hilos de contacto; UUID de visitante y eventos de prueba (sin correo)</td></tr>
         <tr><td>Stripe Inc.</td><td>Pagos y suscripciones</td><td>Datos de facturación</td></tr>
         <tr><td>GitHub Pages</td><td>Alojamiento estático</td><td>Datos técnicos de conexión</td></tr>
         <tr><td>Plausible (opcional, con consentimiento)</td><td>Analítica de uso agregada</td><td>Eventos agregados sin identificadores personales</td></tr>
@@ -135,6 +135,7 @@
     <ul>
       <li><strong>Cuenta activa:</strong> mientras uses el servicio.</li>
       <li><strong>Mensajes de contacto:</strong> el tiempo necesario para gestionar la consulta y un plazo razonable de archivo (habitualmente hasta 24 meses).</li>
+      <li><strong>Embudo anónimo de la landing:</strong> habitualmente hasta 24 meses (UUID de visitante y eventos de prueba/registro, sin datos de cuenta).</li>
       <li><strong>Tras eliminar cuenta:</strong> borrado de datos en la nube vinculados a tu ID; datos locales al confirmar en la app.</li>
       <li><strong>Facturación:</strong> según obligaciones legales (normalmente 4–6 años).</li>
     </ul>

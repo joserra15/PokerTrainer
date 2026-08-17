@@ -45,6 +45,9 @@
   var adminMsgUserFilter = '';
   var adminComposeModalBound = false;
   var adminUsageCache = null;
+  var adminFunnelCache = null;
+  var adminFunnelError = null;
+  var adminUsageDays = 30;
 
   var FEATURE_EVENT_LABELS = {
     tab_view: 'Visitas a pestañas',
@@ -2073,6 +2076,120 @@
     };
   }
 
+  function formatPct(n, d) {
+    var a = Number(n) || 0;
+    var b = Number(d) || 0;
+    if (!b) return '—';
+    return Math.round((a / b) * 100) + '%';
+  }
+
+  function funnelHandLabel(hand) {
+    var h = Number(hand);
+    if (h <= 0) return 'Empezaron y no terminaron ninguna mano';
+    if (h >= 5) return 'Completaron las 5 manos';
+    return 'Se quedaron en la mano ' + h;
+  }
+
+  function bindFunnelPeriod() {
+    var host = $('#admin-usage-content');
+    if (!host) return;
+    host.querySelectorAll('[data-admin-funnel-days]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var days = Number(btn.getAttribute('data-admin-funnel-days'));
+        if (isNaN(days)) return;
+        adminUsageDays = days;
+        loadUsageStats();
+      });
+    });
+  }
+
+  function renderGuestFunnelSection() {
+    var days = adminUsageDays;
+    var periodBtns = [7, 30, 90, 0].map(function (d) {
+      var label = d === 0 ? 'Todo' : (d + ' días');
+      var active = Number(days) === d ? ' is-active' : '';
+      return '<button type="button" class="btn btn-ghost btn-sm' + active +
+        '" data-admin-funnel-days="' + d + '">' + label + '</button>';
+    }).join('');
+    var head =
+      '<div class="admin-usage-block admin-funnel-block">' +
+      '<div class="admin-funnel-head">' +
+      '<h4>Embudo landing → prueba → registro</h4>' +
+      '<div class="admin-funnel-period" role="group" aria-label="Periodo del embudo">' +
+      periodBtns + '</div></div>';
+
+    if (adminFunnelError) {
+      return head +
+        '<p class="muted-text">No se pudo cargar el embudo. Aplica en Supabase la migración ' +
+        '<code>040_guest_funnel.sql</code> si aún no está. ' +
+        escapeHtml(adminFunnelError) + '</p></div>';
+    }
+    var f = adminFunnelCache;
+    if (!f) {
+      return head + '<p class="muted-text">Sin datos de embudo todavía.</p></div>';
+    }
+    var landing = Number(f.landing) || 0;
+    var noLogin = Number(f.no_login) || 0;
+    var bounced = Number(f.bounced) || 0;
+    var ctaLogin = Number(f.cta_login) || 0;
+    var ctaTry = Number(f.cta_try) || 0;
+    var started = Number(f.guest_start) || 0;
+    var played = Number(f.played) || 0;
+    var gate = Number(f.gate_shown) || 0;
+    var guestLogin = Number(f.guest_login) || 0;
+    var converted = Number(f.converted) || 0;
+    var drop = Array.isArray(f.drop_by_hand) ? f.drop_by_hand : [];
+    var dropEntries = drop.map(function (row) {
+      return { key: String(row.hand), count: Number(row.visitors) || 0, converted: Number(row.converted) || 0 };
+    });
+    var dropList = started
+      ? '<ul class="admin-usage-bars">' + dropEntries.map(function (e) {
+          var max = dropEntries.reduce(function (m, x) { return Math.max(m, x.count); }, 1) || 1;
+          var pct = Math.max(4, Math.round((e.count / max) * 100));
+          var conv = e.converted
+            ? ' · ' + e.converted + ' se registraron'
+            : '';
+          return '<li><div class="admin-usage-bar-row">' +
+            '<span class="admin-usage-bar-label">' + escapeHtml(funnelHandLabel(e.key)) + '</span>' +
+            '<span class="admin-usage-bar-count">' + escapeHtml(formatActivityNumber(e.count)) +
+            escapeHtml(conv) + '</span></div>' +
+            '<div class="admin-usage-bar-track"><div class="admin-usage-bar-fill" style="width:' + pct +
+            '%"></div></div></li>';
+        }).join('') + '</ul>'
+      : '<p class="muted-text">Aún no hay partidas de invitado en este periodo.</p>';
+
+    return head +
+      '<p class="muted-text admin-funnel-note">Visitantes únicos de la landing pública (sin cuenta). ' +
+      '«Sin Entrar» son quienes no pulsan Entrar. «Se quedaron» es la última mano que terminaron de las 5 de la prueba. ' +
+      'El registro cuenta a quien inicia sesión con Google después de jugar.</p>' +
+      '<div class="admin-detail-grid admin-usage-summary">' +
+      '<div><span class="muted-text">Vieron la landing</span><strong>' +
+      escapeHtml(formatActivityNumber(landing)) + '</strong></div>' +
+      '<div><span class="muted-text">Sin pulsar Entrar</span><strong>' +
+      escapeHtml(formatActivityNumber(noLogin)) + '</strong>' +
+      '<span class="muted-text"> ' + escapeHtml(formatPct(noLogin, landing)) + '</span></div>' +
+      '<div><span class="muted-text">Salieron sin probar</span><strong>' +
+      escapeHtml(formatActivityNumber(bounced)) + '</strong></div>' +
+      '<div><span class="muted-text">Pulsaron Entrar</span><strong>' +
+      escapeHtml(formatActivityNumber(ctaLogin)) + '</strong></div>' +
+      '<div><span class="muted-text">Probar ahora</span><strong>' +
+      escapeHtml(formatActivityNumber(ctaTry)) + '</strong></div>' +
+      '<div><span class="muted-text">Empezaron a jugar</span><strong>' +
+      escapeHtml(formatActivityNumber(started)) + '</strong></div>' +
+      '<div><span class="muted-text">Jugaron ≥1 mano</span><strong>' +
+      escapeHtml(formatActivityNumber(played)) + '</strong></div>' +
+      '<div><span class="muted-text">Vieron el muro de registro</span><strong>' +
+      escapeHtml(formatActivityNumber(gate)) + '</strong></div>' +
+      '<div><span class="muted-text">Continuar con Google</span><strong>' +
+      escapeHtml(formatActivityNumber(guestLogin)) + '</strong></div>' +
+      '<div><span class="muted-text">Se registraron tras jugar</span><strong>' +
+      escapeHtml(formatActivityNumber(converted)) + '</strong>' +
+      '<span class="muted-text"> ' + escapeHtml(formatPct(converted, started)) + ' de quien jugó</span></div>' +
+      '</div>' +
+      '<h5>En qué mano se quedan</h5>' + dropList +
+      '</div>';
+  }
+
   function renderModeMap(mapObj, title) {
     var entries = sortedCountEntries(mapObj);
     return '<div class="admin-usage-block"><h4>' + escapeHtml(title) + '</h4>' +
@@ -2105,6 +2222,7 @@
     }).join('');
 
     host.innerHTML =
+      renderGuestFunnelSection() +
       '<div class="admin-detail-grid admin-usage-summary">' +
       '<div><span class="muted-text">IA hoy</span><strong>' + escapeHtml(formatActivityNumber(data.ai_requests_today)) + '</strong></div>' +
       '<div><span class="muted-text">IA 30 días</span><strong>' + escapeHtml(formatActivityNumber(data.ai_requests_30d)) + '</strong></div>' +
@@ -2141,6 +2259,14 @@
         if (uid) openUserDetail(uid);
       });
     });
+    bindFunnelPeriod();
+  }
+
+  function isMissingRpc(err) {
+    var code = err && err.code;
+    var m = String((err && err.message) || '');
+    return code === 'PGRST202' || /could not find the function/i.test(m) ||
+      /does not exist/i.test(m) || /schema cache/i.test(m);
   }
 
   async function loadUsageStats() {
@@ -2161,6 +2287,22 @@
       return;
     }
     adminUsageCache = res.data || {};
+    adminFunnelError = null;
+    adminFunnelCache = null;
+    try {
+      var funnelRes = await c.rpc('pt_admin_guest_funnel', { p_days: adminUsageDays });
+      if (!requireAdminAccess()) return;
+      if (funnelRes.error) {
+        if (handleAdminRpcError(funnelRes.error, errEl || host)) return;
+        adminFunnelError = isMissingRpc(funnelRes.error)
+          ? 'Falta la migración 040_guest_funnel.sql en este proyecto Supabase.'
+          : (funnelRes.error.message || 'Error al cargar el embudo');
+      } else {
+        adminFunnelCache = funnelRes.data || null;
+      }
+    } catch (e) {
+      adminFunnelError = (e && e.message) || 'Error al cargar el embudo';
+    }
     renderUsagePanel(adminUsageCache);
   }
 
