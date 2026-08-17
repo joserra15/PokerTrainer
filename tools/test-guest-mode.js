@@ -108,6 +108,14 @@ const trapsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/guest-traps.js')
 assert.ok(/g1-ato-bb-vs-utg/.test(trapsSrc) && /g4-kjo-sb-vs-utg/.test(trapsSrc), 'trampas preflop clásicas + SB');
 assert.ok(/id: 'limp'/.test(fs.readFileSync(path.join(__dirname, '..', 'js/engine.js'), 'utf8')), 'limp guest en RFI');
 
+const aiSrc = fs.readFileSync(path.join(__dirname, '..', 'js/ai-report.js'), 'utf8');
+assert.ok(/isGuestSession/.test(aiSrc) && /isGuestSession\(\)\) return Promise\.resolve\(false\)/.test(aiSrc),
+  'consentimiento IA no se pide en guest');
+assert.ok(/isGuestSession\(\)\) return null/.test(aiSrc), 'saludo IA no se pide en guest');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', 'js/app.js'), 'utf8');
+assert.ok(/loadHomeGreeting/.test(appSrc) && /guestOn/.test(appSrc) && /if \(guestOn\) return/.test(appSrc),
+  'saludo ForgeCoach no se dispara en la prueba');
+
 const landing = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
 assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/.test(landing), 'eventos landing');
 
