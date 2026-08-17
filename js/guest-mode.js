@@ -391,9 +391,35 @@
   }
 
   function clear() {
+    firstDealt = false;
+    starting = false;
     try { localStorage.removeItem(STORE_KEY); } catch (e) { /* noop */ }
     hideGate();
     applyChrome(false);
+  }
+
+  function returnToLanding() {
+    hideGate();
+    clear();
+    if (global.PTAuth && typeof global.PTAuth.signOut === 'function') {
+      global.PTAuth.signOut();
+      return;
+    }
+    if (document.body && document.body.classList) {
+      document.body.classList.remove('guest-mode', 'guest-gate-open');
+    }
+    var shell = document.getElementById('app-shell');
+    var gate = document.getElementById('auth-gate');
+    if (shell) {
+      shell.classList.add('hidden');
+      shell.setAttribute('aria-hidden', 'true');
+    }
+    if (gate) {
+      gate.classList.remove('hidden');
+      gate.setAttribute('aria-hidden', 'false');
+    }
+    document.body.classList.add('auth-locked', 'landing-scrollable');
+    try { window.scrollTo(0, 0); } catch (e) { /* noop */ }
   }
 
   function mergeIntoUser(toId) {
@@ -443,6 +469,14 @@
         showGate('save');
       });
     });
+    document.querySelectorAll('[data-guest-landing]').forEach(function (btn) {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        returnToLanding();
+      });
+    });
     document.querySelectorAll('[data-close-guest-gate]').forEach(function (btn) {
       if (btn.dataset.bound) return;
       btn.dataset.bound = '1';
@@ -483,6 +517,7 @@
     maybeGate: maybeGate,
     showGate: showGate,
     hideGate: hideGate,
+    returnToLanding: returnToLanding,
     mergeIntoUser: mergeIntoUser,
     clear: clear,
     refreshBanner: refreshBanner,

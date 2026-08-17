@@ -93,9 +93,20 @@ const skipped = G.mergeIntoUser('user-busy');
 assert.strictEqual(skipped.merged, false, 'no pisa historial de cuenta existente');
 assert.strictEqual(migrated, null);
 
+assert.strictEqual(typeof G.returnToLanding, 'function', 'returnToLanding exportado');
+G.enter();
+assert.ok(G.wantsEnter(), 'guest activo antes de volver al inicio');
+G.clear();
+assert.ok(!G.wantsEnter(), 'clear quita el flag para no reabrir invitado');
+
 const src = fs.readFileSync(path.join(__dirname, '..', 'js/guest-mode.js'), 'utf8');
 assert.ok(/guest_start/.test(src) && /guest_hand/.test(src) && /guest_gate_shown/.test(src) && /guest_convert/.test(src), 'eventos L3');
 assert.ok(/migrateLocalUserKeys/.test(src), 'merge guest→cuenta');
+assert.ok(/returnToLanding/.test(src) && /data-guest-landing/.test(src), 'Volver al inicio');
+
+const trapsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/guest-traps.js'), 'utf8');
+assert.ok(/g1-ato-bb-vs-utg/.test(trapsSrc) && /g4-kjo-sb-vs-utg/.test(trapsSrc), 'trampas preflop clásicas + SB');
+assert.ok(/id: 'limp'/.test(fs.readFileSync(path.join(__dirname, '..', 'js/engine.js'), 'utf8')), 'limp guest en RFI');
 
 const landing = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
 assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/.test(landing), 'eventos landing');
@@ -103,7 +114,9 @@ assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/data-landing-try/.test(html), 'CTA probar');
 assert.ok(!/Probar ahora — sin registro/.test(html), 'CTA sin “sin registro”');
-assert.ok(!/sin tarjeta/.test(html.split('id="landing-hero"')[1].split('id="landing-how"')[0]), 'hero sin “sin tarjeta”');
+const heroHtml = html.split('id="landing-hero"')[1].split('id="landing-how"')[0];
+assert.ok(!/sin tarjeta/.test(heroHtml), 'hero sin “sin tarjeta”');
+assert.ok(!/instinto recreativo/.test(heroHtml), 'hero sin “instinto recreativo”');
 assert.ok(!/landing-felt/.test(html), 'hero sin mock de mesa');
 assert.ok(!/landing-hero-bullets/.test(html), 'hero sin bullets de producto');
 assert.ok(/Serás capaz de jugar estas manos correctamente/.test(html), 'reto en el hero');
@@ -111,7 +124,17 @@ assert.ok(/entrenador IA 24\/7/.test(html) && /how\.s3\.body/.test(html), 'paso 
 assert.ok(!/trampas/.test(html.match(/guest-mode-banner[\s\S]{0,280}/)[0]), 'banner sin trampas');
 assert.ok(/guest-gate-streets/.test(html), 'resumen por calle');
 assert.ok(/guest-gate-modal/.test(html), 'modal gate');
+assert.ok(/id="guest-gate-login"[^>]*>Continuar con Google/.test(html), 'CTA Google en resumen');
+const gateActions = html.match(/guest-gate-actions[\s\S]*?<\/div>/)[0];
+assert.ok(/data-guest-landing/.test(gateActions) && /Volver al inicio/.test(gateActions), 'segundo botón vuelve a la landing');
+assert.ok(!/>Cerrar</.test(gateActions), 'resumen sin Cerrar');
+assert.ok(/¿Aciertas las cinco manos, del preflop al river\?/.test(html) && /how\.s1\.body/.test(html), 'paso 1: reto preflop→river');
+assert.ok(!/as débil/.test(html) && !/broadway offsuit/.test(html), 'paso 1 sin lista de spots viejos');
 assert.ok(/guest-mode-banner/.test(html), 'banner guest');
 assert.ok(/js\/guest-mode\.js/.test(html) && /js\/guest-traps\.js/.test(html), 'scripts early');
+
+const i18n = fs.readFileSync(path.join(__dirname, '..', 'js/i18n.js'), 'utf8');
+assert.ok(/¿Aciertas las cinco manos, del preflop al river\?/.test(i18n) && /from preflop to river/.test(i18n), 'i18n how.s1 reto');
+assert.ok(!/instinto recreativo/.test(i18n) && !/recreational instincts/.test(i18n), 'i18n sin instinto recreativo');
 
 console.log('*** guest-mode OK ***');
