@@ -80,6 +80,7 @@ const { mockAuthenticatedUser } = require('../e2e/helpers');
   if (!info.hasHero || !info.hasVillain) fails.push('missing hero/villain cards block');
   if (!afterDetails.modalHidden) fails.push('modal should close on Ver detalles');
   if (!afterDetails.feedbackVisible) fails.push('feedback should remain visible after Ver detalles');
+  if (afterDetails.hasCoach) fails.push('ForgeCoach should not appear in trainer hand details');
 
   if (fails.length) {
     console.error('FAIL:\n - ' + fails.join('\n - '));

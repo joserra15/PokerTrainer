@@ -23,7 +23,7 @@ const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const shareCss = fs.readFileSync(path.join(root, 'css/share.css'), 'utf8');
 
-assert(/PT_BUILD\s*=\s*'2.5.49'/.test(version), 'versión 2.5.49');
+assert(/PT_BUILD\s*=\s*'2.5.50'/.test(version), 'versión 2.5.50');
 assert(
   !/matrixSource\s*&&\s*window\.PTRangeMatrix/.test(app),
   'renderHandDecisionsSummary no exige PTRangeMatrix para mostrar botones'
@@ -85,6 +85,16 @@ assert(
 assert(
   /\.opt-pill\.chosen\.best\s*\{[^}]*box-shadow:\s*none/.test(styles),
   'fallback CSS chosen.best sin box-shadow azul'
+);
+
+assert(
+  !/id="ai-report-trainer"/.test(app),
+  'detalles de mano del entrenador (sin sesión) no montan ForgeCoach'
+);
+assert(
+  /isAnalysisHand[\s\S]{0,80}ai-report-session/.test(app) &&
+    /!isAnalysisHand && window\.PTAIReport/.test(app),
+  'ForgeCoach en revisión de mano solo si hay sesión importada'
 );
 
 if (failed) {

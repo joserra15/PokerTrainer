@@ -12,7 +12,7 @@ const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 const onboardingSrc = fs.readFileSync(path.join(root, 'js/onboarding.js'), 'utf8');
 const ciSrc = fs.readFileSync(path.join(root, 'tools/run-ci-tests.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.5.49'/.test(version), 'versión 2.5.49');
+assert.ok(/PT_BUILD\s*=\s*'2.5.50'/.test(version), 'versión 2.5.50');
 assert.ok(/onboarding/.test(cloudSrc) && /DATA_KEYS/.test(cloudSrc), 'DATA_KEYS incluye onboarding');
 assert.ok(/hasOnboardingProgress/.test(cloudSrc), 'hasOnboardingProgress');
 assert.ok(/payloadToPush/.test(cloudSrc), 'payloadToPush conserva claves extra');

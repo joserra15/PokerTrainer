@@ -17298,15 +17298,14 @@ window.PT_VS_3BET_JSON = {
       '</div></div>' +
       '<div class="home-coach-steps">' +
       '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Si empiezas de cero</h4><p>Abre <em>Guía básica</em> en el menú: conceptos, qué es el GTO, ejemplos y un mini entrenamiento antes de meterte en spots avanzados.</p></div>' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Informe automático</h4><p>Al terminar una mano en el entrenador, o en el resumen de una sesión importada, pulsa <em>Informe de la mano</em> o <em>Informe de la sesión</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Informe automático</h4><p>En el resumen de una sesión importada, o al abrir el detalle de una mano de esa sesión, pulsa <em>Informe de la sesión</em> o <em>Informe de esta mano</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
       '<div class="home-coach-step"><span class="home-coach-step-num">3</span><h4>Pregunta concreta</h4><p>¿Dudas en un sizing o un fold? Usa <em>Pregunta concreta</em> (hasta ' + QUESTION_MAX + ' caracteres). Mantengo el hilo de la conversación en la misma mano o sesión.</p></div>' +
       '</div>' +
       '<div class="home-coach-where">' +
       '<h4>Dónde encontrarme</h4>' +
       '<ul>' +
       '<li><strong>Guía básica</strong> — conceptos para principiantes y dudas al coach.</li>' +
-      '<li><strong>Entrenador</strong> — al finalizar cada mano, debajo del resultado.</li>' +
-      '<li><strong>Sesiones</strong> — resumen de sesión, revisión de mano y paso a paso.</li>' +
+      '<li><strong>Sesiones</strong> — resumen de sesión importada y detalle de cada mano.</li>' +
       '<li><strong>Estadísticas</strong> — bloque ForgeCoach con informe global y preguntas.</li>' +
       '<li><strong>Planes</strong> — Study incluye 40 consultas/mes; Coach, 150/mes. Puedes ampliar con bonos de consultas.</li>' +
       '</ul></div>' +
@@ -29325,8 +29324,6 @@ window.PT_VS_3BET_JSON = {
       html += renderSessionBlockSummary(target);
     }
 
-    html += '<div id="ai-report-trainer"></div>';
-
     if (r.villainRangeLog && r.villainRangeLog.length) {
       html += '<div class="card-box" style="margin-top:14px"><h3>Lectura del rango del villano</h3><ul class="range-log">';
       r.villainRangeLog.forEach((e) => {
@@ -29344,14 +29341,6 @@ window.PT_VS_3BET_JSON = {
     html += '<button type="button" class="btn btn-ghost btn-share" id="share-hand-trainer">Compartir análisis</button>';
 
     fb.innerHTML = html;
-    if (window.PTAIReport) {
-      window.PTAIReport.mount($('#ai-report-trainer'), {
-        source: 'trainer',
-        getHand: () => hand,
-        persist: { kind: 'history', getHandId: () => hand && hand.id },
-        onThreadUpdate: (thread) => { if (hand) hand.coachThread = thread; }
-      });
-    }
     bindShareButton($('#share-hand-trainer'), () => ({
       source: 'trainer',
       hand: hand,
@@ -32821,7 +32810,10 @@ window.PT_VS_3BET_JSON = {
 
     html += renderHandDecisionsSummary(h.decisions, 'session');
 
-    html += '<div id="ai-report-session"></div>';
+    const isAnalysisHand = !!(currentSession && currentSession.analysis);
+    if (!isAnalysisHand) {
+      html += '<div id="ai-report-session"></div>';
+    }
 
     // cartas del villano si se mostraron
     const shows = Object.keys(h.villainShows || {}).filter((n) => n !== currentSession.hero);
@@ -32855,25 +32847,16 @@ window.PT_VS_3BET_JSON = {
       });
     });
     scrollSessionReviewToTop();
-    if (window.PTAIReport) {
-      const isAnalysis = !!(currentSession && currentSession.analysis);
-      const persist = isAnalysis
-        ? { kind: 'analysis', getHandId: () => currentHand && currentHand.id }
-        : {
-          kind: 'sessionHand',
-          getSessionId: () => currentSession && currentSession.id,
-          getHandId: () => currentHand && currentHand.id
-        };
+    if (!isAnalysisHand && window.PTAIReport) {
       window.PTAIReport.mount($('#ai-report-session'), {
         scope: 'session',
         getHand: () => currentHand,
-        persist: persist,
-        onThreadUpdate: (thread) => {
-          if (currentHand) {
-            currentHand.coachThread = thread;
-            if (isAnalysis && window.Store && Store.updateAnalysisHand) Store.updateAnalysisHand(currentHand);
-          }
-        }
+        persist: {
+          kind: 'sessionHand',
+          getSessionId: () => currentSession && currentSession.id,
+          getHandId: () => currentHand && currentHand.id
+        },
+        onThreadUpdate: (thread) => { if (currentHand) currentHand.coachThread = thread; }
       });
     }
     $('#to-replay').addEventListener('click', () => startInteractiveReplay());

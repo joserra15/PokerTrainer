@@ -13,7 +13,7 @@ const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 const appSrc = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const ciSrc = fs.readFileSync(path.join(root, 'tools/run-ci-tests.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.5.49'/.test(version), 'versión 2.5.49');
+assert.ok(/PT_BUILD\s*=\s*'2.5.50'/.test(version), 'versión 2.5.50');
 assert.ok(/hasSchoolProgress/.test(cloudSrc), 'cloud hasSchoolProgress');
 assert.ok(/hasSchoolProgress\(val\)/.test(cloudSrc), 'hasLocalData cuenta Escuela');
 assert.ok(/hasSchoolProgress\(st\)/.test(storageSrc), 'isStatsEmpty cuenta Escuela');
