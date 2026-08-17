@@ -13399,11 +13399,21 @@
   }
 
   function updateSchoolBanner() {
-    var el = document.getElementById('school-play-banner');
-    if (!el) return;
+    var doc = typeof document !== 'undefined' ? document : null;
+    var el = doc && doc.getElementById ? doc.getElementById('school-play-banner') : null;
+    var play = doc && doc.getElementById ? doc.getElementById('play-active') : null;
+    if (play && play.classList) {
+      if (isSessionActive()) play.classList.add('is-school-session');
+      else play.classList.remove('is-school-session');
+    }
+    if (!el) {
+      notifyPlayLayout();
+      return;
+    }
     if (!isSessionActive()) {
       el.classList.add('hidden');
       el.innerHTML = '';
+      notifyPlayLayout();
       return;
     }
     var s = state.session;
@@ -13422,19 +13432,32 @@
         ? '<div class="school-line-banner"><p class="school-line-banner-label">Línea completa</p>' +
           lineHtml + '</div>'
         : '');
-    var btn = document.getElementById('school-exit-session');
+    var btn = doc.getElementById('school-exit-session');
     if (btn) {
       btn.addEventListener('click', function () {
         abandonSession(true);
       });
     }
+    notifyPlayLayout();
+  }
+
+  /** Recalcula layout móvil (HUD oculto → más mesa). */
+  function notifyPlayLayout() {
+    try {
+      if (typeof global.dispatchEvent === 'function' && typeof global.CustomEvent === 'function') {
+        global.dispatchEvent(new global.CustomEvent('pt:school-session-ui'));
+      } else if (typeof window !== 'undefined' && window.dispatchEvent && window.CustomEvent) {
+        window.dispatchEvent(new window.CustomEvent('pt:school-session-ui'));
+      }
+    } catch (e) { /* ignore */ }
   }
 
   function abandonSession(goHub) {
     if (state.session) state.session.active = false;
     state.session = null;
     updateSchoolBanner();
-    var fb = document.getElementById('feedback');
+    var doc = typeof document !== 'undefined' ? document : null;
+    var fb = doc && doc.getElementById ? doc.getElementById('feedback') : null;
     if (fb) {
       fb.classList.add('hidden');
       fb.innerHTML = '';

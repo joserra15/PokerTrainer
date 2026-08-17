@@ -1054,6 +1054,55 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   });
 })();
 
+/* En lección Escuela se ocultan HUD/sesión/botones del entrenador libre. */
+(function assertSchoolHidesTrainerChrome() {
+  const appSrc = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+  assert.ok(/is-school-session/.test(schoolSrc), 'school.js marca play-active en sesión');
+  assert.ok(/is-school-session/.test(css), 'CSS is-school-session');
+  assert.ok(/#play-active\.is-school-session\s+\.play-hud/.test(css), 'oculta play-hud en Escuela');
+  assert.ok(/#play-active\.is-school-session\s+\.sidebar/.test(css), 'oculta sidebar entrenador en Escuela');
+  assert.ok(/pt:school-session-ui/.test(schoolSrc), 'evento layout al entrar/salir Escuela');
+  assert.ok(/pt:school-session-ui/.test(appSrc), 'app escucha layout Escuela');
+  assert.ok(/schoolSession/.test(appSrc), 'HUD móvil a 0 en sesión Escuela');
+  assert.ok(/id="play-hud"/.test(html) && /id="new-hand"/.test(html), 'HUD y botones entrenador en markup');
+  assert.ok(/id="new-session"/.test(html) && /id="repeat-errors"/.test(html), 'Nueva sesión + repetir fallos');
+
+  function mockEl(id) {
+    var set = Object.create(null);
+    return {
+      id: id,
+      innerHTML: '',
+      classList: {
+        add: function (c) { set[c] = true; },
+        remove: function (c) { delete set[c]; },
+        contains: function (c) { return !!set[c]; }
+      },
+      addEventListener: function () {}
+    };
+  }
+  const play = mockEl('play-active');
+  const banner = mockEl('school-play-banner');
+  const prevDoc = sandbox.document;
+  sandbox.document = {
+    getElementById: function (id) {
+      if (id === 'play-active') return play;
+      if (id === 'school-play-banner') return banner;
+      return null;
+    }
+  };
+  const prevPlay = sandbox.playAnalysisHand;
+  sandbox.playAnalysisHand = function () {};
+  sandbox.PTAdmin = { hasAccess: function () { return true; } };
+  School.startLessonSession('C-01');
+  assert.ok(School.isSessionActive(), 'sesión Escuela activa');
+  assert.ok(play.classList.contains('is-school-session'), 'play-active marcado en lección');
+  School.abandonSession(false);
+  assert.ok(!School.isSessionActive(), 'sesión Escuela cerrada');
+  assert.ok(!play.classList.contains('is-school-session'), 'limpia marca al volver al entrenador');
+  sandbox.document = prevDoc;
+  sandbox.playAnalysisHand = prevPlay;
+})();
+
 (function () {
   assert.ok(typeof School.formatFailSpotHtml === 'function', 'formatFailSpotHtml export');
   const htmlOut = School.formatFailSpotHtml({

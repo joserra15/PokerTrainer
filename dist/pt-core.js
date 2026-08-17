@@ -26523,10 +26523,15 @@ window.PT_VS_3BET_JSON = {
     }
     root.style.setProperty('--play-actions-h', Math.max(72, actionsH) + 'px');
     let hudH = 48;
-    if (hud && hud.offsetHeight > 0) {
+    const playActive = document.getElementById('play-active');
+    const schoolSession = !!(playActive && playActive.classList.contains('is-school-session'));
+    if (schoolSession) {
+      hudH = 0;
+    } else if (hud && hud.offsetHeight > 0) {
       hudH = Math.round(hud.offsetHeight + 8);
+      hudH = Math.max(40, hudH);
     }
-    root.style.setProperty('--play-hud-h', Math.max(40, hudH) + 'px');
+    root.style.setProperty('--play-hud-h', hudH + 'px');
   }
 
   function portalMobileNav() {
@@ -26602,6 +26607,7 @@ window.PT_VS_3BET_JSON = {
       syncPlayMobileStage();
       if (hand) renderTable();
     });
+    window.addEventListener('pt:school-session-ui', syncPlayMobileStage);
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', syncPlayMobileStage);
     }
