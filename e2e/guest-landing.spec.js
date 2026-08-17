@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { clickFirstPlayAction, playActionButtons, playSkipButton } = require('./helpers');
+const { playActionButtons, skipActionPlaybackIfNeeded } = require('./helpers');
 
 test.describe('Landing guest L0–L2 @smoke', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
@@ -24,7 +24,10 @@ test.describe('Landing guest L0–L2 @smoke', () => {
     await expect(page.locator('#auth-gate')).toHaveClass(/hidden/);
     await expect(page.locator('#guest-mode-banner')).toBeVisible();
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 25000 });
-    await expect(playActionButtons(page).or(playSkipButton(page))).toBeVisible({ timeout: 20000 });
+    await skipActionPlaybackIfNeeded(page);
+    await expect(playActionButtons(page).first()).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('#play-active button[data-action="fold"]')).toBeVisible();
+    await expect(page.locator('#play-active button[data-action="call"]')).toBeVisible();
 
     const oauth = await page.evaluate(() => window.__ptOAuthCalls || 0);
     expect(oauth).toBe(0);
