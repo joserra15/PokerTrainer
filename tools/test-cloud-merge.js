@@ -125,4 +125,58 @@ Store.mergeFromCloud({
 });
 assert.strictEqual(Store.getHistory().length, hist.length, 're-merge no duplica');
 
-console.log('*** cloud-merge OK (union + createdAt) ***');
+const statsKey = 'pt_stats_v1_user-a';
+sandbox.localStorage.setItem(statsKey, JSON.stringify({
+  handsPlayed: 0,
+  decisions: 0,
+  optima: 0,
+  aceptable: 0,
+  imprecisa: 0,
+  error: 0,
+  totalEvLoss: 0,
+  totalNet: 0,
+  byStreet: {},
+  updatedAt: 1,
+  school: {
+    xp: 40,
+    lessons: {
+      'C-01': { passed: true, attempts: 1, bestScore: 0.8, gold: false, perfect: false, updatedAt: '2026-01-01T00:00:00.000Z' }
+    },
+    updatedAt: 1000,
+    version: 2
+  }
+}));
+
+Store.mergeFromCloud({
+  history: [cloudNewer, cloudOnly],
+  errors: [],
+  stats: {
+    handsPlayed: 0,
+    decisions: 0,
+    optima: 0,
+    aceptable: 0,
+    imprecisa: 0,
+    error: 0,
+    totalEvLoss: 0,
+    totalNet: 0,
+    byStreet: {},
+    updatedAt: 2,
+    school: {
+      xp: 180,
+      lessons: {
+        'C-02': { passed: true, attempts: 2, bestScore: 1, gold: true, perfect: true, updatedAt: '2026-08-01T00:00:00.000Z' }
+      },
+      updatedAt: 9000,
+      version: 2
+    }
+  }
+});
+
+const school = Store.getStats().school;
+assert.ok(school, 'stats.school presente tras merge');
+assert.strictEqual(school.xp, 180, 'xp Escuela = max(local, cloud)');
+assert.ok(school.lessons['C-01'] && school.lessons['C-01'].passed, 'unión: lección local');
+assert.ok(school.lessons['C-02'] && school.lessons['C-02'].passed, 'unión: lección cloud');
+assert.strictEqual(school.lessons['C-02'].attempts, 2, 'attempts = max');
+
+console.log('*** cloud-merge OK (union + createdAt + school) ***');

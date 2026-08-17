@@ -1132,6 +1132,14 @@
       homeBootCloudSettled = true;
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();
       maybeFinishHomeBoot(true);
+      if ($('#tab-school') && $('#tab-school').classList.contains('active') && window.PTSchool) {
+        if (typeof window.PTSchool.refreshFromCloud === 'function') {
+          window.PTSchool.refreshFromCloud();
+        } else if (typeof window.PTSchool.render === 'function' &&
+            !(window.PTSchool.isSessionActive && window.PTSchool.isSessionActive())) {
+          window.PTSchool.render($('#school-content'));
+        }
+      }
     });
     window.addEventListener('pt-cloud-login-sync-finished', () => {
       homeBootCloudSettled = true;

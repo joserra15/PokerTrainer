@@ -16,6 +16,8 @@
   let pushTimer = null;
   let pendingKeys = new Set();
   let syncing = false;
+  let lastVisibleSyncAt = 0;
+  const VISIBLE_SYNC_MIN_MS = 8000;
 
   function cfg() {
     return global.PT_SUPABASE || {};
@@ -104,9 +106,19 @@
     return new Date(row.updated_at).getTime();
   }
 
+  function hasSchoolProgress(st) {
+    const school = st && st.school;
+    if (!school || typeof school !== 'object') return false;
+    if ((Number(school.xp) || 0) > 0) return true;
+    const lessons = school.lessons;
+    return !!(lessons && typeof lessons === 'object' && Object.keys(lessons).length > 0);
+  }
+
   function hasLocalData(key, snapshot) {
     const val = snapshot[key];
-    if (key === 'stats') return !!(val && (val.handsPlayed || val.decisions));
+    if (key === 'stats') {
+      return !!(val && (val.handsPlayed || val.decisions || hasSchoolProgress(val)));
+    }
     return Array.isArray(val) && val.length > 0;
   }
 
@@ -227,17 +239,11 @@
     DATA_KEYS.forEach(function (k) { setSyncMeta(k, ts); });
   }
 
-  function cloudPayloadForMerge(row, cloudPayload) {
-    const meta = getSyncMeta();
-    const cloudTs = tsFromRow(row);
-    const out = Object.assign({}, cloudPayload || {});
-    DATA_KEYS.forEach(function (key) {
-      const localDirty = meta[key] || 0;
-      if (localDirty > cloudTs) {
-        delete out[key];
-      }
-    });
-    return out;
+  function cloudPayloadForMerge(_row, cloudPayload) {
+    /* Siempre fusionar nube + local. Antes, si localDirty > cloudTs se
+     * borraba la clave remota: un tab_view al abrir el PC marcaba stats
+     * dirty y pisaba el progreso de Escuela subido desde el móvil. */
+    return Object.assign({}, cloudPayload || {});
   }
 
   async function syncOnLogin() {
@@ -287,6 +293,7 @@
 
       await refreshSessionsIndex();
 
+      lastVisibleSyncAt = Date.now();
       setStatus('online', 'Datos sincronizados');
       global.dispatchEvent(new CustomEvent('pt-cloud-synced'));
       return true;
@@ -326,6 +333,7 @@
         await migrateLegacyCloudRow(row);
       }
       await refreshSessionsIndex();
+      lastVisibleSyncAt = Date.now();
       setStatus('online', 'Sincronizado');
       global.dispatchEvent(new CustomEvent('pt-cloud-synced', { detail: summary }));
       return { ok: true, summary: summary };
@@ -405,11 +413,24 @@
     setStatus('ready', 'Usuario listo');
   }
 
+  function maybeSyncOnVisible() {
+    if (!isReady() || syncing) return;
+    var now = Date.now();
+    if (now - lastVisibleSyncAt < VISIBLE_SYNC_MIN_MS) return;
+    lastVisibleSyncAt = now;
+    syncNow();
+  }
+
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') flushPush();
+      else if (document.visibilityState === 'visible') maybeSyncOnVisible();
     });
     window.addEventListener('pagehide', function () { flushPush(); });
+    window.addEventListener('focus', function () { maybeSyncOnVisible(); });
+    window.addEventListener('pageshow', function (ev) {
+      if (ev && ev.persisted) maybeSyncOnVisible();
+    });
   }
 
   async function deleteUserRow() {
