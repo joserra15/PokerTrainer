@@ -1,4 +1,4 @@
-/* Las 5 trampas guest: el cebo recreativo (call) no es óptimo. */
+/* Las 5 manos guest: empiezan preflop y llegan al river si el héroe continúa. */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -70,27 +70,53 @@ assert.ok(Engine && Traps, 'Engine + PTGuestTraps');
 assert.strictEqual(Traps.list().length, 5, '5 manos guest');
 assert.ok(!Traps.playConfig(Traps.list()[0]).schoolDecisionEnd, 'guest juega la mano entera');
 
+function pickContinue(hand) {
+  const opts = ((hand.current && hand.current.options) || []).map(function (o) { return o.id; });
+  const preview = Engine.previewAdvice ? Engine.previewAdvice(hand) : null;
+  const best = preview && preview.best;
+  if (best && best !== 'fold' && opts.indexOf(best) >= 0) return best;
+  const prefer = ['call', 'check', 'raise', 'bet_33', 'bet_66', 'bet_100', 'bet'];
+  for (let i = 0; i < prefer.length; i++) {
+    if (opts.indexOf(prefer[i]) >= 0) return prefer[i];
+  }
+  return opts.filter(function (id) { return id !== 'fold'; })[0] || opts[0];
+}
+
 Traps.list().forEach(function (spot, i) {
   const force = Traps.toForce(spot);
   const cfg = Traps.playConfig(spot);
+  assert.strictEqual(cfg.practiceStreet, 'preflop', spot.id + ' practiceStreet preflop');
+  assert.ok(!spot.facingBet, spot.id + ' no salta al flop con facingBet');
+  assert.ok((force.forceDeal.board || []).length === 5, spot.id + ' board de 5 cartas');
+
   const hand = Engine.newHand(force, cfg);
   assert.ok(hand && hand.current, spot.id + ' tiene nodo');
+  assert.strictEqual(hand.stage, 'preflop', spot.id + ' empieza preflop (era ' + hand.stage + ')');
   const ids = (hand.current.options || []).map(function (o) { return o.id; });
   assert.ok(ids.indexOf(spot.bait) >= 0, spot.id + ' ofrece cebo ' + spot.bait + ' (opts ' + ids.join(',') + ')');
+
   const baitHand = Engine.newHand(force, cfg);
   const bait = Engine.act(baitHand, spot.bait);
   const cls = bait.decision && bait.decision.class;
   assert.ok(cls === 'error' || cls === 'imprecisa',
     spot.id + ' cebo ' + spot.bait + ' debe ser error/imprecisa, fue ' + cls +
     ' (best=' + (bait.decision && bait.decision.best) + ')');
-  const foldHand = Engine.newHand(force, cfg);
-  if ((foldHand.current.options || []).some(function (o) { return o.id === 'fold'; })) {
-    const fold = Engine.act(foldHand, 'fold');
-    const fcls = fold.decision && fold.decision.class;
-    assert.ok(fcls === 'optima' || fcls === 'aceptable',
-      spot.id + ' fold debería ser óptima/aceptable, fue ' + fcls);
+
+  const play = Engine.newHand(force, cfg);
+  const streets = { preflop: false, flop: false, turn: false, river: false };
+  streets[play.stage] = true;
+  let steps = 0;
+  while (!play.result && play.current && steps < 16) {
+    const action = pickContinue(play);
+    assert.ok(action && action !== 'fold', spot.id + ' GTO/continuación no es fold en ' + play.stage);
+    Engine.act(play, action);
+    streets[play.stage] = true;
+    steps++;
   }
-  console.log('OK', (i + 1) + '/5', spot.id, 'cebo=' + cls, 'best=' + bait.decision.best);
+  assert.ok(streets.preflop && streets.flop && streets.turn && streets.river,
+    spot.id + ' debe pasar preflop/flop/turn/river, visto ' +
+    Object.keys(streets).filter(function (k) { return streets[k]; }).join(','));
+  console.log('OK', (i + 1) + '/5', spot.id, 'cebo=' + cls, 'best=' + bait.decision.best, '→ river');
 });
 
 console.log('*** guest-traps OK ***');

@@ -93,9 +93,16 @@ const skipped = G.mergeIntoUser('user-busy');
 assert.strictEqual(skipped.merged, false, 'no pisa historial de cuenta existente');
 assert.strictEqual(migrated, null);
 
+assert.strictEqual(typeof G.returnToLanding, 'function', 'returnToLanding exportado');
+G.enter();
+assert.ok(G.wantsEnter(), 'guest activo antes de volver al inicio');
+G.clear();
+assert.ok(!G.wantsEnter(), 'clear quita el flag para no reabrir invitado');
+
 const src = fs.readFileSync(path.join(__dirname, '..', 'js/guest-mode.js'), 'utf8');
 assert.ok(/guest_start/.test(src) && /guest_hand/.test(src) && /guest_gate_shown/.test(src) && /guest_convert/.test(src), 'eventos L3');
 assert.ok(/migrateLocalUserKeys/.test(src), 'merge guest→cuenta');
+assert.ok(/returnToLanding/.test(src) && /data-guest-landing/.test(src), 'Volver al inicio');
 
 const landing = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
 assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/.test(landing), 'eventos landing');
@@ -111,7 +118,15 @@ assert.ok(/entrenador IA 24\/7/.test(html) && /how\.s3\.body/.test(html), 'paso 
 assert.ok(!/trampas/.test(html.match(/guest-mode-banner[\s\S]{0,280}/)[0]), 'banner sin trampas');
 assert.ok(/guest-gate-streets/.test(html), 'resumen por calle');
 assert.ok(/guest-gate-modal/.test(html), 'modal gate');
+assert.ok(/id="guest-gate-login"[^>]*>Continuar con Google/.test(html), 'CTA Google en resumen');
+const gateActions = html.match(/guest-gate-actions[\s\S]*?<\/div>/)[0];
+assert.ok(/data-guest-landing/.test(gateActions) && /Volver al inicio/.test(gateActions), 'segundo botón vuelve a la landing');
+assert.ok(!/>Cerrar</.test(gateActions), 'resumen sin Cerrar');
+assert.ok(/preflop al river/.test(html) && /how\.s1\.body/.test(html), 'paso 1: manos preflop→river');
 assert.ok(/guest-mode-banner/.test(html), 'banner guest');
 assert.ok(/js\/guest-mode\.js/.test(html) && /js\/guest-traps\.js/.test(html), 'scripts early');
+
+const i18n = fs.readFileSync(path.join(__dirname, '..', 'js/i18n.js'), 'utf8');
+assert.ok(/preflop al river/.test(i18n) && /preflop to river/.test(i18n), 'i18n how.s1 preflop→river');
 
 console.log('*** guest-mode OK ***');
