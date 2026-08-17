@@ -11731,7 +11731,7 @@ window.PT_VS_3BET_JSON = {
     if (!scriptActive(hand)) return;
     const expected = scriptHeroExpected(hand);
     if (!expected) {
-      scriptDeactivate(hand);
+      if (!(hand.playConfig && hand.playConfig.guestTrap)) scriptDeactivate(hand);
       return;
     }
     if (scriptNormAction(expected.action.action) !== scriptNormAction(actionId)) {
@@ -13652,7 +13652,7 @@ window.PT_VS_3BET_JSON = {
     const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
     // pot inicial con ciegas
     hand.potBB = SB + BBET;
-    const freqs = strategyForNode(hand, { street: 'preflop', kind: 'RFI', potBB: hand.potBB, toCallBB: 0 });
+    const freqs = Object.assign({}, strategyForNode(hand, { street: 'preflop', kind: 'RFI', potBB: hand.potBB, toCallBB: 0 }));
     let options;
     let context;
     if (mode === 'push') {
@@ -13674,6 +13674,16 @@ window.PT_VS_3BET_JSON = {
         { id: 'raise', label: `Subir a ${openSize}bb` }
       ];
       context = `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`;
+      if (hand.playConfig && hand.playConfig.guestTrap) {
+        const heroBlind = pos === 'SB' ? SB : (pos === 'BB' ? BBET : 0);
+        const limpAdd = round2(BBET - heroBlind);
+        options.splice(1, 0, {
+          id: 'limp',
+          label: limpAdd > 0.01 ? `Limp (igualar ${fmt(limpAdd)}bb)` : 'Limp (igualar)'
+        });
+        freqs.limp = 0;
+        context = `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres, limpeas o te retiras?`;
+      }
     }
     hand.current = {
       street: 'preflop',
@@ -14216,6 +14226,24 @@ window.PT_VS_3BET_JSON = {
     if (node.kind === 'RFI') {
       if (actionId === 'fold') {
         return finish(hand, { reason: 'Te retiras antes del flop.', heroNet: -(hand.heroInvested || 0) });
+      }
+      if (actionId === 'limp') {
+        const limpTo = BBET;
+        const heroAdd = seatToCall(hand, hand.hero.pos, limpTo);
+        if (heroAdd > 0) addInvest(hand, hand.hero.pos, heroAdd);
+        hand.heroInvested = limpTo;
+        hand.heroIsAggressor = false;
+        setHeroAct(hand, 'call', limpTo);
+        setPreflopSeatBet(hand, hand.hero.pos, limpTo);
+        setSeatAction(hand, hand.hero.pos, 'call', limpTo);
+        foldSeatsExcept(hand, [hand.hero.pos, 'BB']);
+        hand.villain.pos = 'BB';
+        hand.villain.cards = villainHoleCards(hand);
+        syncVillainMeta(hand);
+        setVillainAct(hand, 'check');
+        hand.heroInPosition = inPos(hand.hero.pos, 'BB');
+        recalcPot(hand);
+        return goFlop(hand);
       }
       if (actionId === 'allin') {
         hand.heroIsAggressor = true;

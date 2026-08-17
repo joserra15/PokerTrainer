@@ -104,6 +104,10 @@ assert.ok(/guest_start/.test(src) && /guest_hand/.test(src) && /guest_gate_shown
 assert.ok(/migrateLocalUserKeys/.test(src), 'merge guest→cuenta');
 assert.ok(/returnToLanding/.test(src) && /data-guest-landing/.test(src), 'Volver al inicio');
 
+const trapsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/guest-traps.js'), 'utf8');
+assert.ok(/g1-ato-bb-vs-utg/.test(trapsSrc) && /g4-kjo-sb-vs-utg/.test(trapsSrc), 'trampas preflop clásicas + SB');
+assert.ok(/id: 'limp'/.test(fs.readFileSync(path.join(__dirname, '..', 'js/engine.js'), 'utf8')), 'limp guest en RFI');
+
 const landing = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
 assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/.test(landing), 'eventos landing');
 
