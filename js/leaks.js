@@ -13,6 +13,9 @@
     bbVsSbLimp: 'BB vs SB limp',
     sbLimp: 'SB limp',
     cold4bet: 'Cold 4-Bet',
+    isoLimp: 'Iso-limp',
+    isoL: 'Iso-limp',
+    limp: 'Limp',
     postflop: 'Postflop'
   };
 
@@ -62,11 +65,33 @@
     return tp[1] === cp[1] && tp[2] === cp[2];
   }
 
+  function parseLeakKey(key) {
+    var parts = String(key || '').split('|');
+    if (parts.length >= 4) {
+      return {
+        family: parts[0] || '',
+        type: parts[1] || 'postflop',
+        pos: parts[2] || '?',
+        street: parts[3] || 'postflop'
+      };
+    }
+    return {
+      family: '',
+      type: parts[0] || 'postflop',
+      pos: parts[1] || '?',
+      street: parts[2] || 'preflop'
+    };
+  }
+
+  function isKnownStreet(street) {
+    return !!(STREET_LABELS[street] || street === 'postflop');
+  }
+
   function labelForKey(key) {
-    var parts = String(key).split('|');
-    var type = TYPE_LABELS[parts[0]] || parts[0];
-    var pos = parts[1] || '?';
-    var street = STREET_LABELS[parts[2]] || parts[2];
+    var parsed = parseLeakKey(key);
+    var type = TYPE_LABELS[parsed.type] || parsed.type;
+    var pos = parsed.pos || '?';
+    var street = STREET_LABELS[parsed.street] || parsed.street;
     return type + ' · ' + pos + ' · ' + street;
   }
 
@@ -129,9 +154,10 @@
     var byType = {};
     Object.keys(leakMap || {}).forEach(function (k) {
       var l = leakMap[k];
-      var parts = k.split('|');
-      var type = parts[0] || 'postflop';
-      var street = parts[2] || 'postflop';
+      var parsed = parseLeakKey(k);
+      var type = parsed.type || 'postflop';
+      var street = parsed.street || 'postflop';
+      if (!isKnownStreet(street)) return;
       if (!byStreet[street]) byStreet[street] = { street: street, label: STREET_LABELS[street] || street, count: 0, evLoss: 0 };
       if (!byType[type]) byType[type] = { type: type, label: TYPE_LABELS[type] || type, count: 0, evLoss: 0 };
       byStreet[street].count += l.count || 0;
@@ -140,8 +166,8 @@
       byType[type].evLoss += l.evLoss || 0;
     });
     return {
-      byStreet: Object.keys(byStreet).map(function (s) { return byStreet[s]; }).sort(function (a, b) { return b.evLoss - a.evLoss; }),
-      byType: Object.keys(byType).map(function (t) { return byType[t]; }).sort(function (a, b) { return b.evLoss - a.evLoss; })
+      byStreet: Object.keys(byStreet).map(function (s) { return byStreet[s]; }).sort(function (a, b) { return (b.count - a.count) || (b.evLoss - a.evLoss); }),
+      byType: Object.keys(byType).map(function (t) { return byType[t]; }).sort(function (a, b) { return (b.count - a.count) || (b.evLoss - a.evLoss); })
     };
   }
 
@@ -175,20 +201,87 @@
   function renderBreakdownBars(title, rows, colorVar, clickKind) {
     if (!rows.length) return '';
     var max = 1;
-    rows.forEach(function (r) { max = Math.max(max, r.evLoss || 0, r.count || 0); });
+    rows.forEach(function (r) { max = Math.max(max, r.count || 0, r.evLoss || 0); });
     var bars = rows.map(function (r) {
-      var h = Math.max(10, Math.round(((r.evLoss || r.count || 0) / max) * 100));
+      var magnitude = r.count || 0;
+      if (!magnitude && r.evLoss) magnitude = r.evLoss;
+      var w = Math.max(8, Math.round((magnitude / max) * 100));
       var dataAttr = '';
       if (clickKind === 'street' && r.street) dataAttr = ' data-leak-filter-street="' + escapeHtml(r.street) + '"';
       if (clickKind === 'type' && r.type) dataAttr = ' data-leak-filter-type="' + escapeHtml(r.type) + '"';
-      var clickable = dataAttr ? ' leak-bar-col-click' : '';
-      return '<button type="button" class="leak-bar-col' + clickable + '"' + dataAttr +
-        ' title="' + escapeHtml(r.label) + ': ' + r.count + ' errores, EV ' + (r.evLoss || 0).toFixed(1) + ' bb — clic para filtrar/entrenar">' +
-        '<span class="leak-bar-val">' + escapeHtml(r.label) + '</span>' +
-        '<div class="leak-bar" style="height:' + h + '%;background:var(' + (colorVar || '--red') + ')"></div>' +
-        '<span class="leak-bar-meta muted-text">' + r.count + ' · ' + (r.evLoss || 0).toFixed(1) + ' bb</span></button>';
+      var clickable = dataAttr ? ' leak-bar-row-click leak-bar-col-click' : '';
+      return '<button type="button" class="leak-bar-row' + clickable + '"' + dataAttr +
+        ' title="' + escapeHtml(r.label) + ': ' + r.count + ' errores — clic para filtrar/entrenar">' +
+        '<span class="leak-bar-row-lbl">' + escapeHtml(r.label) + '</span>' +
+        '<span class="leak-bar-row-track"><span class="leak-bar-row-fill" style="width:' + w + '%;background:var(' + (colorVar || '--red') + ')"></span></span>' +
+        '<span class="leak-bar-row-val">' + r.count + '</span></button>';
     }).join('');
-    return '<div class="leak-breakdown"><h5>' + escapeHtml(title) + '</h5><div class="leak-bars">' + bars + '</div></div>';
+    return '<div class="leak-breakdown"><h5>' + escapeHtml(title) + '</h5><div class="leak-bar-rows leak-bars">' + bars + '</div></div>';
+  }
+
+  function schoolLessonCtaVisible() {
+    if (global.PTSchool && typeof global.PTSchool.schoolMenuVisible === 'function') {
+      return !!global.PTSchool.schoolMenuVisible();
+    }
+    if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) return false;
+    if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
+      return !!global.PTAdmin.hasAccess();
+    }
+    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    return !!(u && u.isAdmin);
+  }
+
+  function lessonIdForLeak(leak) {
+    if (!global.PTAIReport || typeof global.PTAIReport.lessonFromLeak !== 'function') return null;
+    return global.PTAIReport.lessonFromLeak(leak);
+  }
+
+  function openSchoolLesson(lessonId) {
+    if (!lessonId) return;
+    global.__ptPendingSchoolLesson = lessonId;
+    if (global.PTSchool && typeof global.PTSchool.openLesson === 'function') {
+      global.PTSchool.openLesson(lessonId);
+      return;
+    }
+    if (typeof global.goToTab === 'function') global.goToTab('school');
+  }
+
+  function renderLeakList(leaks, opts) {
+    opts = opts || {};
+    if (!leaks || !leaks.length) {
+      return '<div class="stats-carousel-empty muted-text">Sin fugas destacables.</div>';
+    }
+    var mode = opts.mode || 'trainer';
+    var showEv = !!opts.showEv;
+    var showSchool = mode === 'trainer' && schoolLessonCtaVisible();
+    var fmt = global.GTOPotMath ? function (x) { return global.GTOPotMath.formatBB(x); } : function (x) { return String(x); };
+    return '<div class="stats-leak-list">' + leaks.map(function (l, i) {
+      var actions = '';
+      if (mode === 'trainer') {
+        actions += '<button type="button" class="stats-leak-action" data-stats-train-leak="' +
+          escapeHtml(l.key) + '">Repetir</button>';
+        if (showSchool) {
+          var lid = lessonIdForLeak(l);
+          if (lid) {
+            actions += '<button type="button" class="stats-leak-action stats-leak-action-secondary" data-stats-school-lesson="' +
+              escapeHtml(lid) + '">Ver lección</button>';
+          }
+        }
+      } else if (l.sessionId) {
+        actions += '<button type="button" class="stats-leak-action" data-stats-open-session="' +
+          escapeHtml(l.sessionId) + '">Ir a la sesión</button>';
+      }
+      var sub = l.count + ' error' + (l.count === 1 ? '' : 'es');
+      if (showEv) sub += ' · EV perdido ' + fmt(l.evLoss) + ' bb';
+      return '<div class="stats-leak-row">' +
+        '<div class="stats-leak-rank">#' + (i + 1) + '</div>' +
+        '<div class="stats-leak-main">' +
+        '<div class="stats-leak-title">' + escapeHtml(l.label) + '</div>' +
+        '<div class="stats-leak-sub muted-text">' + sub + '</div>' +
+        '</div>' +
+        (actions ? '<div class="stats-leak-actions">' + actions + '</div>' : '') +
+        '</div>';
+    }).join('') + '</div>';
   }
 
   /** Cola de peores spots ordenada por EV perdido (adaptive drill). */
@@ -230,106 +323,38 @@
     if (global.PTStatsAggregate && st) {
       sessionLeaks = global.PTStatsAggregate.sessionTopLeaks(st, 5);
     }
-    var trainerBreak = aggregateByStreet(errors, { minClass: 'imprecisa' });
-    var trainerTypeBreak = aggregateBySpotType(errors, { minClass: 'imprecisa' });
-    var sessAgg = st && st.aggregates ? aggregateLeaksMap(st.aggregates.sessionLeaks) : { byStreet: [], byType: [] };
-    var fmt = global.GTOPotMath ? function (x) { return global.GTOPotMath.formatBB(x); } : function (x) { return String(x); };
-
-    if (!trainerLeaks.length && !sessionLeaks.length && !trainerBreak.length) {
-      host.innerHTML = '<div class="leaks-panel card-box"><h3>Leak detector</h3><p class="muted-text">Sin fugas recurrentes registradas. Entrena o importa sesiones para ver tus top spots. Los agregados se guardan aunque borres el histórico.</p></div>';
+    if (!trainerLeaks.length && !sessionLeaks.length) {
+      host.innerHTML = '<div class="leaks-panel card-box"><h3>Fugas</h3><p class="muted-text">Sin fugas recurrentes registradas. Entrena o importa sesiones para ver tus top spots.</p></div>';
       return;
     }
-
-    function schoolLessonCtaVisible() {
-      if (global.PTSchool && typeof global.PTSchool.schoolMenuVisible === 'function') {
-        return !!global.PTSchool.schoolMenuVisible();
-      }
-      if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) return false;
-      if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
-        return !!global.PTAdmin.hasAccess();
-      }
-      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-      return !!(u && u.isAdmin);
-    }
-
-    function lessonIdForLeak(leak) {
-      if (!global.PTAIReport || typeof global.PTAIReport.lessonFromLeak !== 'function') return null;
-      return global.PTAIReport.lessonFromLeak(leak);
-    }
-
-    function openSchoolLesson(lessonId) {
-      if (!lessonId) return;
-      global.__ptPendingSchoolLesson = lessonId;
-      if (global.PTSchool && typeof global.PTSchool.openLesson === 'function') {
-        global.PTSchool.openLesson(lessonId);
-        return;
-      }
-      if (typeof global.goToTab === 'function') global.goToTab('school');
-    }
-
-    function leakRows(leaks, trainPrefix) {
-      var showSchool = schoolLessonCtaVisible();
-      return leaks.map(function (l, i) {
-        var trainBtn = trainPrefix && onTrain
-          ? '<button type="button" class="btn btn-primary btn-sm" data-leak-train="' + escapeHtml(trainPrefix + ':' + l.key) + '">Repetir</button>'
-          : '';
-        var schoolBtn = '';
-        if (showSchool) {
-          var lid = lessonIdForLeak(l);
-          if (lid) {
-            schoolBtn = '<button type="button" class="btn btn-ghost btn-sm" data-leak-school="' +
-              escapeHtml(lid) + '">Ver lección</button>';
-          }
-        }
-        return '<div class="leak-row">' +
-          '<div class="leak-rank">#' + (i + 1) + '</div>' +
-          '<div class="leak-main">' +
-          '<div class="leak-title">' + escapeHtml(l.label) + '</div>' +
-          '<div class="leak-sub muted-text">' + l.count + ' error' + (l.count === 1 ? '' : 'es') + ' · EV perdido ' + fmt(l.evLoss) + ' bb</div>' +
-          '</div><div class="leak-actions">' + schoolBtn + trainBtn + '</div></div>';
-      }).join('');
-    }
-
-    var html = '<div class="leaks-panel card-box"><h3>Leak detector</h3>';
-    html += '<p class="muted-text leaks-intro">Top spots con más EV perdido.</p>';
-
-    if (trainerBreak.length) {
-      html += renderBreakdownBars('Entrenador · fugas por calle', trainerBreak, '--orange', 'street');
-    }
-    if (trainerTypeBreak.length) {
-      html += renderBreakdownBars('Entrenador · fugas por tipo de spot', trainerTypeBreak, '--red', 'type');
-    }
-    if (sessAgg.byStreet.length) {
-      html += renderBreakdownBars('Sesiones · fugas por calle', sessAgg.byStreet, '--accent', 'street');
-    }
-    if (sessAgg.byType.length) {
-      html += renderBreakdownBars('Sesiones · fugas por tipo', sessAgg.byType, '--gold', 'type');
-    }
-
+    var html = '<div class="leaks-panel card-box">';
     if (trainerLeaks.length) {
-      html += '<h4 class="leaks-section-title">Top 5 · Entrenador</h4><div class="leak-list">' + leakRows(trainerLeaks, 'trainer') + '</div>';
+      html += '<h4 class="leaks-section-title">Top 5 · Entrenador</h4>' + renderLeakList(trainerLeaks, { mode: 'trainer' });
     }
     if (sessionLeaks.length) {
-      html += '<h4 class="leaks-section-title">Top 5 · Sesiones importadas</h4><div class="leak-list">' + leakRows(sessionLeaks, null) + '</div>';
+      html += '<h4 class="leaks-section-title">Top 5 · Fugas en sesiones importadas</h4>' + renderLeakList(sessionLeaks, { mode: 'sessions' });
     }
     html += '</div>';
     host.innerHTML = html;
-
-    host.querySelectorAll('[data-leak-train]').forEach(function (btn) {
+    host.querySelectorAll('[data-stats-train-leak]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var raw = btn.getAttribute('data-leak-train') || '';
-        var parts = raw.split(':');
-        if (parts[0] !== 'trainer') return;
-        var key = parts.slice(1).join(':');
+        var key = btn.getAttribute('data-stats-train-leak');
         var leak = trainerLeaks.find(function (l) { return l.key === key; });
         if (leak && onTrain) onTrain(leak);
       });
     });
-    host.querySelectorAll('[data-leak-school]').forEach(function (btn) {
+    host.querySelectorAll('[data-stats-school-lesson]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        openSchoolLesson(btn.getAttribute('data-leak-school'));
+        openSchoolLesson(btn.getAttribute('data-stats-school-lesson'));
       });
     });
+    if (typeof opts.onOpenSession === 'function') {
+      host.querySelectorAll('[data-stats-open-session]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          opts.onOpenSession(btn.getAttribute('data-stats-open-session'));
+        });
+      });
+    }
     if (typeof opts.onFilter === 'function') {
       host.querySelectorAll('[data-leak-filter-street], [data-leak-filter-type]').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -357,6 +382,10 @@
     weeklyTopLeak: weeklyTopLeak,
     renderPanel: renderPanel,
     renderBreakdownBars: renderBreakdownBars,
+    renderLeakList: renderLeakList,
+    parseLeakKey: parseLeakKey,
+    aggregateLeaksMap: aggregateLeaksMap,
+    openSchoolLesson: openSchoolLesson,
     labelForKey: labelForKey,
     TYPE_LABELS: TYPE_LABELS,
     STREET_LABELS: STREET_LABELS

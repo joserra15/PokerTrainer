@@ -16069,6 +16069,13 @@ window.PT_VS_3BET_JSON = {
         bbPer100: sessTot.bbPer100 != null ? sessTot.bbPer100 : null
       } : undefined,
       player: player,
+      sessAccSt: data.sessionStreet ? {
+        pf: data.sessionStreet.preflop != null ? data.sessionStreet.preflop : null,
+        fl: data.sessionStreet.flop != null ? data.sessionStreet.flop : null,
+        tu: data.sessionStreet.turn != null ? data.sessionStreet.turn : null,
+        ri: data.sessionStreet.river != null ? data.sessionStreet.river : null
+      } : undefined,
+      focus: data.focus || undefined,
       solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.',
       greetingFocus: data.greetingFocus || undefined,
       beginner: data.beginner === true ? true : undefined,
@@ -20267,6 +20274,9 @@ window.PT_VS_3BET_JSON = {
     bbVsSbLimp: 'BB vs SB limp',
     sbLimp: 'SB limp',
     cold4bet: 'Cold 4-Bet',
+    isoLimp: 'Iso-limp',
+    isoL: 'Iso-limp',
+    limp: 'Limp',
     postflop: 'Postflop'
   };
 
@@ -20316,11 +20326,33 @@ window.PT_VS_3BET_JSON = {
     return tp[1] === cp[1] && tp[2] === cp[2];
   }
 
+  function parseLeakKey(key) {
+    var parts = String(key || '').split('|');
+    if (parts.length >= 4) {
+      return {
+        family: parts[0] || '',
+        type: parts[1] || 'postflop',
+        pos: parts[2] || '?',
+        street: parts[3] || 'postflop'
+      };
+    }
+    return {
+      family: '',
+      type: parts[0] || 'postflop',
+      pos: parts[1] || '?',
+      street: parts[2] || 'preflop'
+    };
+  }
+
+  function isKnownStreet(street) {
+    return !!(STREET_LABELS[street] || street === 'postflop');
+  }
+
   function labelForKey(key) {
-    var parts = String(key).split('|');
-    var type = TYPE_LABELS[parts[0]] || parts[0];
-    var pos = parts[1] || '?';
-    var street = STREET_LABELS[parts[2]] || parts[2];
+    var parsed = parseLeakKey(key);
+    var type = TYPE_LABELS[parsed.type] || parsed.type;
+    var pos = parsed.pos || '?';
+    var street = STREET_LABELS[parsed.street] || parsed.street;
     return type + ' · ' + pos + ' · ' + street;
   }
 
@@ -20383,9 +20415,10 @@ window.PT_VS_3BET_JSON = {
     var byType = {};
     Object.keys(leakMap || {}).forEach(function (k) {
       var l = leakMap[k];
-      var parts = k.split('|');
-      var type = parts[0] || 'postflop';
-      var street = parts[2] || 'postflop';
+      var parsed = parseLeakKey(k);
+      var type = parsed.type || 'postflop';
+      var street = parsed.street || 'postflop';
+      if (!isKnownStreet(street)) return;
       if (!byStreet[street]) byStreet[street] = { street: street, label: STREET_LABELS[street] || street, count: 0, evLoss: 0 };
       if (!byType[type]) byType[type] = { type: type, label: TYPE_LABELS[type] || type, count: 0, evLoss: 0 };
       byStreet[street].count += l.count || 0;
@@ -20394,8 +20427,8 @@ window.PT_VS_3BET_JSON = {
       byType[type].evLoss += l.evLoss || 0;
     });
     return {
-      byStreet: Object.keys(byStreet).map(function (s) { return byStreet[s]; }).sort(function (a, b) { return b.evLoss - a.evLoss; }),
-      byType: Object.keys(byType).map(function (t) { return byType[t]; }).sort(function (a, b) { return b.evLoss - a.evLoss; })
+      byStreet: Object.keys(byStreet).map(function (s) { return byStreet[s]; }).sort(function (a, b) { return (b.count - a.count) || (b.evLoss - a.evLoss); }),
+      byType: Object.keys(byType).map(function (t) { return byType[t]; }).sort(function (a, b) { return (b.count - a.count) || (b.evLoss - a.evLoss); })
     };
   }
 
@@ -20429,20 +20462,87 @@ window.PT_VS_3BET_JSON = {
   function renderBreakdownBars(title, rows, colorVar, clickKind) {
     if (!rows.length) return '';
     var max = 1;
-    rows.forEach(function (r) { max = Math.max(max, r.evLoss || 0, r.count || 0); });
+    rows.forEach(function (r) { max = Math.max(max, r.count || 0, r.evLoss || 0); });
     var bars = rows.map(function (r) {
-      var h = Math.max(10, Math.round(((r.evLoss || r.count || 0) / max) * 100));
+      var magnitude = r.count || 0;
+      if (!magnitude && r.evLoss) magnitude = r.evLoss;
+      var w = Math.max(8, Math.round((magnitude / max) * 100));
       var dataAttr = '';
       if (clickKind === 'street' && r.street) dataAttr = ' data-leak-filter-street="' + escapeHtml(r.street) + '"';
       if (clickKind === 'type' && r.type) dataAttr = ' data-leak-filter-type="' + escapeHtml(r.type) + '"';
-      var clickable = dataAttr ? ' leak-bar-col-click' : '';
-      return '<button type="button" class="leak-bar-col' + clickable + '"' + dataAttr +
-        ' title="' + escapeHtml(r.label) + ': ' + r.count + ' errores, EV ' + (r.evLoss || 0).toFixed(1) + ' bb — clic para filtrar/entrenar">' +
-        '<span class="leak-bar-val">' + escapeHtml(r.label) + '</span>' +
-        '<div class="leak-bar" style="height:' + h + '%;background:var(' + (colorVar || '--red') + ')"></div>' +
-        '<span class="leak-bar-meta muted-text">' + r.count + ' · ' + (r.evLoss || 0).toFixed(1) + ' bb</span></button>';
+      var clickable = dataAttr ? ' leak-bar-row-click leak-bar-col-click' : '';
+      return '<button type="button" class="leak-bar-row' + clickable + '"' + dataAttr +
+        ' title="' + escapeHtml(r.label) + ': ' + r.count + ' errores — clic para filtrar/entrenar">' +
+        '<span class="leak-bar-row-lbl">' + escapeHtml(r.label) + '</span>' +
+        '<span class="leak-bar-row-track"><span class="leak-bar-row-fill" style="width:' + w + '%;background:var(' + (colorVar || '--red') + ')"></span></span>' +
+        '<span class="leak-bar-row-val">' + r.count + '</span></button>';
     }).join('');
-    return '<div class="leak-breakdown"><h5>' + escapeHtml(title) + '</h5><div class="leak-bars">' + bars + '</div></div>';
+    return '<div class="leak-breakdown"><h5>' + escapeHtml(title) + '</h5><div class="leak-bar-rows leak-bars">' + bars + '</div></div>';
+  }
+
+  function schoolLessonCtaVisible() {
+    if (global.PTSchool && typeof global.PTSchool.schoolMenuVisible === 'function') {
+      return !!global.PTSchool.schoolMenuVisible();
+    }
+    if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) return false;
+    if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
+      return !!global.PTAdmin.hasAccess();
+    }
+    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    return !!(u && u.isAdmin);
+  }
+
+  function lessonIdForLeak(leak) {
+    if (!global.PTAIReport || typeof global.PTAIReport.lessonFromLeak !== 'function') return null;
+    return global.PTAIReport.lessonFromLeak(leak);
+  }
+
+  function openSchoolLesson(lessonId) {
+    if (!lessonId) return;
+    global.__ptPendingSchoolLesson = lessonId;
+    if (global.PTSchool && typeof global.PTSchool.openLesson === 'function') {
+      global.PTSchool.openLesson(lessonId);
+      return;
+    }
+    if (typeof global.goToTab === 'function') global.goToTab('school');
+  }
+
+  function renderLeakList(leaks, opts) {
+    opts = opts || {};
+    if (!leaks || !leaks.length) {
+      return '<div class="stats-carousel-empty muted-text">Sin fugas destacables.</div>';
+    }
+    var mode = opts.mode || 'trainer';
+    var showEv = !!opts.showEv;
+    var showSchool = mode === 'trainer' && schoolLessonCtaVisible();
+    var fmt = global.GTOPotMath ? function (x) { return global.GTOPotMath.formatBB(x); } : function (x) { return String(x); };
+    return '<div class="stats-leak-list">' + leaks.map(function (l, i) {
+      var actions = '';
+      if (mode === 'trainer') {
+        actions += '<button type="button" class="stats-leak-action" data-stats-train-leak="' +
+          escapeHtml(l.key) + '">Repetir</button>';
+        if (showSchool) {
+          var lid = lessonIdForLeak(l);
+          if (lid) {
+            actions += '<button type="button" class="stats-leak-action stats-leak-action-secondary" data-stats-school-lesson="' +
+              escapeHtml(lid) + '">Ver lección</button>';
+          }
+        }
+      } else if (l.sessionId) {
+        actions += '<button type="button" class="stats-leak-action" data-stats-open-session="' +
+          escapeHtml(l.sessionId) + '">Ir a la sesión</button>';
+      }
+      var sub = l.count + ' error' + (l.count === 1 ? '' : 'es');
+      if (showEv) sub += ' · EV perdido ' + fmt(l.evLoss) + ' bb';
+      return '<div class="stats-leak-row">' +
+        '<div class="stats-leak-rank">#' + (i + 1) + '</div>' +
+        '<div class="stats-leak-main">' +
+        '<div class="stats-leak-title">' + escapeHtml(l.label) + '</div>' +
+        '<div class="stats-leak-sub muted-text">' + sub + '</div>' +
+        '</div>' +
+        (actions ? '<div class="stats-leak-actions">' + actions + '</div>' : '') +
+        '</div>';
+    }).join('') + '</div>';
   }
 
   /** Cola de peores spots ordenada por EV perdido (adaptive drill). */
@@ -20484,106 +20584,38 @@ window.PT_VS_3BET_JSON = {
     if (global.PTStatsAggregate && st) {
       sessionLeaks = global.PTStatsAggregate.sessionTopLeaks(st, 5);
     }
-    var trainerBreak = aggregateByStreet(errors, { minClass: 'imprecisa' });
-    var trainerTypeBreak = aggregateBySpotType(errors, { minClass: 'imprecisa' });
-    var sessAgg = st && st.aggregates ? aggregateLeaksMap(st.aggregates.sessionLeaks) : { byStreet: [], byType: [] };
-    var fmt = global.GTOPotMath ? function (x) { return global.GTOPotMath.formatBB(x); } : function (x) { return String(x); };
-
-    if (!trainerLeaks.length && !sessionLeaks.length && !trainerBreak.length) {
-      host.innerHTML = '<div class="leaks-panel card-box"><h3>Leak detector</h3><p class="muted-text">Sin fugas recurrentes registradas. Entrena o importa sesiones para ver tus top spots. Los agregados se guardan aunque borres el histórico.</p></div>';
+    if (!trainerLeaks.length && !sessionLeaks.length) {
+      host.innerHTML = '<div class="leaks-panel card-box"><h3>Fugas</h3><p class="muted-text">Sin fugas recurrentes registradas. Entrena o importa sesiones para ver tus top spots.</p></div>';
       return;
     }
-
-    function schoolLessonCtaVisible() {
-      if (global.PTSchool && typeof global.PTSchool.schoolMenuVisible === 'function') {
-        return !!global.PTSchool.schoolMenuVisible();
-      }
-      if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) return false;
-      if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
-        return !!global.PTAdmin.hasAccess();
-      }
-      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-      return !!(u && u.isAdmin);
-    }
-
-    function lessonIdForLeak(leak) {
-      if (!global.PTAIReport || typeof global.PTAIReport.lessonFromLeak !== 'function') return null;
-      return global.PTAIReport.lessonFromLeak(leak);
-    }
-
-    function openSchoolLesson(lessonId) {
-      if (!lessonId) return;
-      global.__ptPendingSchoolLesson = lessonId;
-      if (global.PTSchool && typeof global.PTSchool.openLesson === 'function') {
-        global.PTSchool.openLesson(lessonId);
-        return;
-      }
-      if (typeof global.goToTab === 'function') global.goToTab('school');
-    }
-
-    function leakRows(leaks, trainPrefix) {
-      var showSchool = schoolLessonCtaVisible();
-      return leaks.map(function (l, i) {
-        var trainBtn = trainPrefix && onTrain
-          ? '<button type="button" class="btn btn-primary btn-sm" data-leak-train="' + escapeHtml(trainPrefix + ':' + l.key) + '">Repetir</button>'
-          : '';
-        var schoolBtn = '';
-        if (showSchool) {
-          var lid = lessonIdForLeak(l);
-          if (lid) {
-            schoolBtn = '<button type="button" class="btn btn-ghost btn-sm" data-leak-school="' +
-              escapeHtml(lid) + '">Ver lección</button>';
-          }
-        }
-        return '<div class="leak-row">' +
-          '<div class="leak-rank">#' + (i + 1) + '</div>' +
-          '<div class="leak-main">' +
-          '<div class="leak-title">' + escapeHtml(l.label) + '</div>' +
-          '<div class="leak-sub muted-text">' + l.count + ' error' + (l.count === 1 ? '' : 'es') + ' · EV perdido ' + fmt(l.evLoss) + ' bb</div>' +
-          '</div><div class="leak-actions">' + schoolBtn + trainBtn + '</div></div>';
-      }).join('');
-    }
-
-    var html = '<div class="leaks-panel card-box"><h3>Leak detector</h3>';
-    html += '<p class="muted-text leaks-intro">Top spots con más EV perdido.</p>';
-
-    if (trainerBreak.length) {
-      html += renderBreakdownBars('Entrenador · fugas por calle', trainerBreak, '--orange', 'street');
-    }
-    if (trainerTypeBreak.length) {
-      html += renderBreakdownBars('Entrenador · fugas por tipo de spot', trainerTypeBreak, '--red', 'type');
-    }
-    if (sessAgg.byStreet.length) {
-      html += renderBreakdownBars('Sesiones · fugas por calle', sessAgg.byStreet, '--accent', 'street');
-    }
-    if (sessAgg.byType.length) {
-      html += renderBreakdownBars('Sesiones · fugas por tipo', sessAgg.byType, '--gold', 'type');
-    }
-
+    var html = '<div class="leaks-panel card-box">';
     if (trainerLeaks.length) {
-      html += '<h4 class="leaks-section-title">Top 5 · Entrenador</h4><div class="leak-list">' + leakRows(trainerLeaks, 'trainer') + '</div>';
+      html += '<h4 class="leaks-section-title">Top 5 · Entrenador</h4>' + renderLeakList(trainerLeaks, { mode: 'trainer' });
     }
     if (sessionLeaks.length) {
-      html += '<h4 class="leaks-section-title">Top 5 · Sesiones importadas</h4><div class="leak-list">' + leakRows(sessionLeaks, null) + '</div>';
+      html += '<h4 class="leaks-section-title">Top 5 · Fugas en sesiones importadas</h4>' + renderLeakList(sessionLeaks, { mode: 'sessions' });
     }
     html += '</div>';
     host.innerHTML = html;
-
-    host.querySelectorAll('[data-leak-train]').forEach(function (btn) {
+    host.querySelectorAll('[data-stats-train-leak]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var raw = btn.getAttribute('data-leak-train') || '';
-        var parts = raw.split(':');
-        if (parts[0] !== 'trainer') return;
-        var key = parts.slice(1).join(':');
+        var key = btn.getAttribute('data-stats-train-leak');
         var leak = trainerLeaks.find(function (l) { return l.key === key; });
         if (leak && onTrain) onTrain(leak);
       });
     });
-    host.querySelectorAll('[data-leak-school]').forEach(function (btn) {
+    host.querySelectorAll('[data-stats-school-lesson]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        openSchoolLesson(btn.getAttribute('data-leak-school'));
+        openSchoolLesson(btn.getAttribute('data-stats-school-lesson'));
       });
     });
+    if (typeof opts.onOpenSession === 'function') {
+      host.querySelectorAll('[data-stats-open-session]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          opts.onOpenSession(btn.getAttribute('data-stats-open-session'));
+        });
+      });
+    }
     if (typeof opts.onFilter === 'function') {
       host.querySelectorAll('[data-leak-filter-street], [data-leak-filter-type]').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -20611,6 +20643,10 @@ window.PT_VS_3BET_JSON = {
     weeklyTopLeak: weeklyTopLeak,
     renderPanel: renderPanel,
     renderBreakdownBars: renderBreakdownBars,
+    renderLeakList: renderLeakList,
+    parseLeakKey: parseLeakKey,
+    aggregateLeaksMap: aggregateLeaksMap,
+    openSchoolLesson: openSchoolLesson,
     labelForKey: labelForKey,
     TYPE_LABELS: TYPE_LABELS,
     STREET_LABELS: STREET_LABELS
@@ -26665,17 +26701,14 @@ window.PT_VS_3BET_JSON = {
 
     const st = Store.getStats();
     const errs = Store.getErrors();
-    const hist = Store.getHistory();
     const decisions = st.decisions || 0;
     const accuracy = decisions
       ? Math.round((((st.optima || 0) + (st.aceptable || 0)) / decisions) * 100)
       : null;
 
     statsEl.innerHTML = [
-      { val: st.handsPlayed || 0, lbl: 'Manos entrenadas', cls: '' },
       { val: accuracy != null ? accuracy + '%' : '—', lbl: 'Acierto global', cls: 'accent' },
-      { val: errs.length, lbl: 'Errores a repasar', cls: errs.length ? 'warn' : '' },
-      { val: hist.length, lbl: 'En histórico', cls: '' }
+      { val: errs.length, lbl: 'Errores a repasar', cls: errs.length ? 'warn' : '' }
     ].map((s) =>
       '<div class="home-stat ' + s.cls + '"><span class="val">' + escapeHtml(String(s.val)) + '</span><span class="lbl">' + escapeHtml(s.lbl) + '</span></div>'
     ).join('');
@@ -26713,9 +26746,8 @@ window.PT_VS_3BET_JSON = {
       PTOnboarding.bind($('#home-onboarding'));
       PTOnboarding.render($('#home-onboarding'));
     }
-    if (window.PTGamification && PTGamification.renderHome) {
-      PTGamification.renderHome($('#home-gamification'));
-    }
+    const gameHost = $('#home-gamification');
+    if (gameHost) gameHost.innerHTML = '';
     if (window.PTReEngage && PTReEngage.renderBanner) PTReEngage.renderBanner();
     withLazyChunk('contact', function () {
       if (window.PTContact && PTContact.renderHomeNotice) PTContact.renderHomeNotice();
@@ -30752,20 +30784,52 @@ window.PT_VS_3BET_JSON = {
   }
 
   function renderLeakList(leaks, mode) {
+    if (window.PTLeaks && typeof PTLeaks.renderLeakList === 'function') {
+      return PTLeaks.renderLeakList(leaks, { mode: mode, showEv: false });
+    }
     if (!leaks || !leaks.length) return '<div class="stats-carousel-empty muted-text">Sin fugas destacables.</div>';
     return `<div class="stats-leak-list">` + leaks.map((l, i) => {
       const action = mode === 'trainer'
-        ? `<button type="button" class="btn btn-primary btn-sm" data-stats-train-leak="${escapeHtml(l.key)}">Repetir</button>`
-        : (l.sessionId ? `<button type="button" class="btn btn-ghost btn-sm" data-stats-open-session="${escapeHtml(l.sessionId)}">Ir a la sesión</button>` : '');
+        ? `<button type="button" class="stats-leak-action" data-stats-train-leak="${escapeHtml(l.key)}">Repetir</button>`
+        : (l.sessionId ? `<button type="button" class="stats-leak-action" data-stats-open-session="${escapeHtml(l.sessionId)}">Ir a la sesión</button>` : '');
       return `<div class="stats-leak-row">
         <div class="stats-leak-rank">#${i + 1}</div>
         <div class="stats-leak-main">
           <div class="stats-leak-title">${escapeHtml(l.label)}</div>
-          <div class="stats-leak-sub muted-text">${l.count} error${l.count === 1 ? '' : 'es'} · EV perdido -${fmtBB(l.evLoss)} bb</div>
+          <div class="stats-leak-sub muted-text">${l.count} error${l.count === 1 ? '' : 'es'}</div>
         </div>
-        ${action}
+        ${action ? `<div class="stats-leak-actions">${action}</div>` : ''}
       </div>`;
     }).join('') + `</div>`;
+  }
+
+  function getActiveStatsTab() {
+    try {
+      const stored = sessionStorage.getItem('__ptStatsTab');
+      if (stored === 'sessions' || stored === 'trainer') return stored;
+    } catch (e) { /* ignore */ }
+    return window.__ptStatsTab === 'sessions' ? 'sessions' : 'trainer';
+  }
+
+  function setActiveStatsTab(tab) {
+    const next = tab === 'sessions' ? 'sessions' : 'trainer';
+    window.__ptStatsTab = next;
+    try { sessionStorage.setItem('__ptStatsTab', next); } catch (e) { /* ignore */ }
+    return next;
+  }
+
+  function applyStatsTab(tab) {
+    const next = setActiveStatsTab(tab);
+    $$('#tab-stats [data-stats-tab]').forEach((btn) => {
+      const on = btn.getAttribute('data-stats-tab') === next;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    $$('#tab-stats [data-stats-panel]').forEach((panel) => {
+      const on = panel.getAttribute('data-stats-panel') === next;
+      panel.classList.toggle('active', on);
+      panel.hidden = !on;
+    });
   }
 
   function renderStatsCarousel(sectionId, title, subtitle, slides) {
@@ -30822,31 +30886,9 @@ window.PT_VS_3BET_JSON = {
     Object.keys(indices || {}).forEach((id) => setStatsCarousel(id, indices[id]));
   }
 
-  let statsResizeTimer = null;
-
   function bindStatsView() {
-    $$('[data-stats-prev]').forEach((btn) => {
-      btn.onclick = () => {
-        const sectionId = btn.getAttribute('data-stats-prev');
-        const root = document.querySelector(`[data-stats-carousel="${sectionId}"]`);
-        const idx = Number((root && root.dataset.index) || 0);
-        setStatsCarousel(sectionId, idx - 1);
-      };
-    });
-    $$('[data-stats-next]').forEach((btn) => {
-      btn.onclick = () => {
-        const sectionId = btn.getAttribute('data-stats-next');
-        const root = document.querySelector(`[data-stats-carousel="${sectionId}"]`);
-        const idx = Number((root && root.dataset.index) || 0);
-        setStatsCarousel(sectionId, idx + 1);
-      };
-    });
-    $$('[data-stats-dot]').forEach((btn) => {
-      btn.onclick = () => {
-        const raw = btn.getAttribute('data-stats-dot') || '';
-        const parts = raw.split(':');
-        setStatsCarousel(parts[0], Number(parts[1] || 0));
-      };
+    $$('#tab-stats [data-stats-tab]').forEach((btn) => {
+      btn.onclick = () => applyStatsTab(btn.getAttribute('data-stats-tab'));
     });
     $$('[data-stats-train-leak]').forEach((btn) => {
       btn.onclick = () => {
@@ -30861,24 +30903,20 @@ window.PT_VS_3BET_JSON = {
         goToTab('sessions', { openSessionId: sessionId });
       };
     });
+    $$('[data-stats-school-lesson]').forEach((btn) => {
+      btn.onclick = () => {
+        const lessonId = btn.getAttribute('data-stats-school-lesson');
+        if (window.PTLeaks && typeof PTLeaks.openSchoolLesson === 'function') {
+          PTLeaks.openSchoolLesson(lessonId);
+        }
+      };
+    });
+    const sw = $('#share-weekly-leak');
+    if (sw) sw.addEventListener('click', shareWeeklyTopLeak);
+    const tw = $('#train-worst-spots-stats');
+    if (tw) tw.addEventListener('click', startWorstSpotsDrill);
     bindStyleDrillButtons(document.getElementById('stats-box') || document.getElementById('tab-stats') || document);
     bindMetricExplainClicks(document.getElementById('stats-box') || document.getElementById('tab-stats') || document);
-
-    if (!window._ptStatsResizeBound) {
-      window._ptStatsResizeBound = true;
-      const onStatsLayoutChange = () => {
-        const tab = $('#tab-stats');
-        if (!tab || !tab.classList.contains('active')) return;
-        clearTimeout(statsResizeTimer);
-        statsResizeTimer = setTimeout(() => {
-          const indices = getStatsCarouselIndices();
-          renderStats();
-          restoreStatsCarouselIndices(indices);
-        }, 180);
-      };
-      window.addEventListener('resize', onStatsLayoutChange);
-      window.addEventListener('orientationchange', onStatsLayoutChange);
-    }
   }
 
   // ---------- Histórico ----------
@@ -31107,10 +31145,8 @@ window.PT_VS_3BET_JSON = {
         }
         if (changed) {
           Store.persistStats(st);
-          const indices = getStatsCarouselIndices();
           if ($('#tab-stats') && $('#tab-stats').classList.contains('active')) {
             renderStats();
-            restoreStatsCarouselIndices(indices);
           }
         }
       } catch (e) {
@@ -31124,28 +31160,11 @@ window.PT_VS_3BET_JSON = {
   // ---------- Estadísticas ----------
   function renderStats() {
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#stats-usage'));
-    if (window.PTGamification && PTGamification.renderStats) PTGamification.renderStats($('#stats-gamification'));
+    const gameHost = $('#stats-gamification');
+    if (gameHost) gameHost.innerHTML = '';
     if ($('#progress-dashboard')) $('#progress-dashboard').innerHTML = '';
     const leaksHost = $('#leaks-panel');
-    if (leaksHost && window.PTLeaks && typeof PTLeaks.renderPanel === 'function') {
-      PTLeaks.renderPanel(leaksHost, Store.getErrors(), function (leak) {
-        startLeakReplay(leak);
-      }, {
-        onFilter: function (filter) { drillFromLeakFilter(filter); }
-      });
-      const shareLeakBtn = document.createElement('div');
-      shareLeakBtn.className = 'leaks-share-row';
-      shareLeakBtn.innerHTML = '<button type="button" class="btn btn-ghost btn-sm" id="share-weekly-leak">Compartir peor leak de la semana</button>' +
-        '<button type="button" class="btn btn-primary btn-sm" id="train-worst-spots-stats" title="Repasa primero tus peores spots por EV perdido">Drill adaptativo</button>' +
-        '<p class="adaptive-drill-help-inline">El drill adaptativo agrupa tus errores por spot, ordena por EV perdido y lanza ~25 manos de tus fugas más caras (no la lista completa al azar).</p>';
-      leaksHost.appendChild(shareLeakBtn);
-      const sw = $('#share-weekly-leak');
-      if (sw) sw.addEventListener('click', shareWeeklyTopLeak);
-      const tw = $('#train-worst-spots-stats');
-      if (tw) tw.addEventListener('click', startWorstSpotsDrill);
-    } else if (leaksHost) {
-      leaksHost.innerHTML = '';
-    }
+    if (leaksHost) leaksHost.innerHTML = '';
     const st = Store.getStats();
     const sessions = Store.getSessions ? Store.getSessions() : [];
     if (window.PTStatsAggregate) {
@@ -31173,147 +31192,148 @@ window.PT_VS_3BET_JSON = {
       { v: 'mtt', l: 'MTT' },
       { v: 'shorthand', l: 'Short-handed' }
     ].map((o) => `<option value="${o.v}"${statsFormatFilter === o.v ? ' selected' : ''}>${o.l}${byFormat[o.v] ? ' (' + byFormat[o.v].hands + ')' : ''}</option>`).join('');
-    const formatFilterHtml = `<div class="stats-format-filter card-box" style="margin-bottom:12px">
-      <label class="muted-text">Perfil importado por formato
+    const formatFilterHtml = `<div class="stats-format-filter">
+      <label class="muted-text">Formato
         <select id="stats-format-filter">${formatFilterOpts}</select>
       </label>
     </div>`;
-    const total = st.decisions || 1;
-    const accuracy = st.decisions ? Math.round(((st.optima + st.aceptable) / st.decisions) * 100) : 0;
     const byStreet = st.byStreet || emptyByStreet();
-    const actualNet = roundSession(st.totalNet || 0);
-    const evLost = roundSession(st.totalEvLoss || 0);
-    const netEv = (window.GTOEvLoss && window.GTOEvLoss.computeNetEvStats)
-      ? window.GTOEvLoss.computeNetEvStats(actualNet, evLost)
-      : { expectedNet: roundSession(actualNet - evLost), varianceAdj: roundSession(evLost) };
-    const expectedNet = roundSession(netEv.expectedNet);
-    const varianceAdj = roundSession(netEv.varianceAdj);
     latestTrainerStatsLeaks = trainerLeaks.slice();
     latestSessionStatsLeaks = sessionLeaks.slice();
-
-    const trainerSlides = [
-      {
-        title: 'Resumen general',
-        body: `<div class="stats-overview-grid">
-          <div class="stat-card"><div class="big">${st.handsPlayed}</div><div class="lbl">Manos</div></div>
-          <div class="stat-card"><div class="big">${accuracy}%</div><div class="lbl">Acierto</div></div>
-          <div class="stat-card"><div class="big ${actualNet >= 0 ? 'net-pos' : 'net-neg'}">${actualNet >= 0 ? '+' : ''}${fmtBB(actualNet)}</div><div class="lbl">Resultado real</div></div>
-          <div class="stat-card"><div class="big net-neg">-${fmtBB(evLost)}</div><div class="lbl">EV perdido</div></div>
-          <div class="stat-card"><div class="big ${expectedNet >= 0 ? 'net-pos' : 'net-neg'}">${expectedNet >= 0 ? '+' : ''}${fmtBB(expectedNet)}</div><div class="lbl">EV esperado</div></div>
-          <div class="stat-card"><div class="big ${varianceAdj >= 0 ? 'net-pos' : 'net-neg'}">${varianceAdj >= 0 ? '+' : ''}${fmtBB(varianceAdj)}</div><div class="lbl">Varianza</div></div>
-        </div>
-        <p class="muted-text stats-section-note">EV esperado = resultado real sin fugas. Varianza = diferencia entre resultado real y EV esperado.</p>`
-      },
-      { title: 'Progreso semanal · Acierto', body: statsBarChart('Acierto semanal', trainerWeekly, 'accuracy', '%', '--green') },
-      { title: 'Progreso semanal · EV perdido', body: statsBarChart('EV perdido semanal', trainerWeekly, 'evLoss', ' bb', '--red') },
-      { title: 'Progreso semanal · Volumen', body: statsBarChart('Manos por semana', trainerWeekly, 'hands', '', '--gold') },
-      {
-        title: 'Acierto por calle',
-        body: `<div class="street-acc stats-street-grid">${renderStreetAccBars(byStreet)}</div>
-          <div class="stats-section-note">${renderDecisionDistribution({ optima: st.optima, aceptable: st.aceptable, imprecisa: st.imprecisa, error: st.error }, st.decisions)}</div>`
-      },
-      { title: 'Leaks del entrenador', body: renderLeakList(trainerLeaks, 'trainer') }
-    ];
+    const activeTab = getActiveStatsTab();
 
     const sessionAccuracy = sessTot && sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : null;
     const sessionStreetBars = renderStreetAccBarsFromPct(sessionDerived.accByStreet);
     const sessionGradeSeries = buildSessionGradeSeries(sessions);
     const sessionHudSeries = buildSessionHudSeries(sessions);
-    const sessionVpip = sessTot && sessTot.vpipPct != null ? sessTot.vpipPct : null;
-    const sessionPfr = sessTot && sessTot.pfrPct != null ? sessTot.pfrPct : null;
     const aggFormat = (sessions || []).map((s) => s && s.stats && resolveStatsFormat(s.stats)).filter(Boolean)[0] || '6max';
     const aggIdeal = idealForStatsFormat(aggFormat);
-    const sessionSlides = [
-      {
-        title: 'Resumen general',
-        body: `<div class="stats-overview-grid" data-style-format="${escapeHtml(aggFormat)}">
+    const sessionDistTotal = Object.values(sessionDerived.dist).reduce((sum, n) => sum + n, 0);
+    const stakesRows = window.PTStatsAggregate && PTStatsAggregate.sessionsByStakes
+      ? PTStatsAggregate.sessionsByStakes(st)
+      : [];
+    const dailySeries = window.PTStatsAggregate && PTStatsAggregate.sessionDailySeries
+      ? PTStatsAggregate.sessionDailySeries(st, 14)
+      : [];
+    const styleHtml = sessTot && (sessTot.threeBetOpps != null || sessTot.vpipPct != null)
+      ? sessionStyleProfileHtml(Object.assign({}, sessTot, {
+        format: aggFormat,
+        styleIdeal: aggIdeal,
+        styleAssess: (window.Importer && Importer.assessStyleStats)
+          ? Importer.assessStyleStats(sessTot, aggIdeal)
+          : null,
+        bbPer100Note: sessTot.hands < 20000
+          ? 'Varianza alta con menos de 20k manos; interpreta bb/100 con cautela.'
+          : null
+      }))
+      : '<p class="muted-text">Importa o reabre sesiones para ver el perfil de estilo.</p>';
+    const stakesHtml = stakesRows.length
+      ? `<table class="style-pos-table"><thead><tr><th>Stakes</th><th>Manos</th><th>Net</th><th>bb/100</th></tr></thead><tbody>${
+        stakesRows.slice(0, 12).map((r) =>
+          `<tr><td>${escapeHtml(r.stakesLabel)}</td><td>${r.hands}</td><td class="${r.netBB >= 0 ? 'net-pos' : 'net-neg'}">${r.netBB >= 0 ? '+' : ''}${fmtBB(r.netBB)}</td><td>${r.bbPer100 == null ? '—' : fmtHudAf(r.bbPer100)}</td></tr>`
+        ).join('')
+      }</tbody></table>`
+      : '<p class="muted-text">Importa sesiones con stakes detectados para ver bb/100 por nivel.</p>';
+
+    const trainerHtml = `<div class="stats-tab-panel${activeTab === 'trainer' ? ' active' : ''}" data-stats-panel="trainer"${activeTab === 'trainer' ? '' : ' hidden'}>
+      <section class="stats-block card-box stats-block-hero">
+        <h3>Acierto por calle</h3>
+        <p class="muted-text">Porcentaje de decisiones óptimas o aceptables en cada calle.</p>
+        <div class="street-acc stats-street-grid stats-street-hero">${renderStreetAccBars(byStreet)}</div>
+      </section>
+      <section class="stats-block card-box">
+        <h3>Acierto semanal</h3>
+        ${statsBarChartRows('Últimas 8 semanas', trainerWeekly, 'accuracy', '%', '--green')}
+      </section>
+      <details class="stats-block card-box stats-advanced">
+        <summary>Distribución de decisiones</summary>
+        ${renderDecisionDistribution({ optima: st.optima, aceptable: st.aceptable, imprecisa: st.imprecisa, error: st.error }, st.decisions)}
+      </details>
+      <section class="stats-block card-box">
+        <h3>Top 5 fugas</h3>
+        <p class="muted-text">Spots del entrenador con más errores. Repite el spot o abre la lección de la escuela.</p>
+        ${renderLeakList(trainerLeaks, 'trainer')}
+      </section>
+      <section class="stats-block card-box stats-actions-block">
+        <div class="stats-actions-row">
+          <button type="button" class="btn btn-primary" id="train-worst-spots-stats" title="Repasa primero tus peores spots">Drill adaptativo</button>
+          <button type="button" class="btn btn-ghost" id="share-weekly-leak">Compartir peor leak de la semana</button>
+        </div>
+        <p class="muted-text">El drill agrupa tus errores por spot y lanza ~25 manos de tus fugas más caras.</p>
+      </section>
+    </div>`;
+
+    const sessionsHtml = `<div class="stats-tab-panel${activeTab === 'sessions' ? ' active' : ''}" data-stats-panel="sessions"${activeTab === 'sessions' ? '' : ' hidden'}>
+      ${formatFilterHtml}
+      <section class="stats-block card-box stats-block-hero">
+        <h3>Acierto por calle</h3>
+        <p class="muted-text">Acierto GTO en las sesiones importadas, calle a calle.</p>
+        <div class="street-acc stats-street-grid stats-street-hero">${sessionStreetBars}</div>
+      </section>
+      <section class="stats-block card-box">
+        <h3>Acierto semanal</h3>
+        ${statsBarChartRows('Últimas 8 semanas', sessionWeekly, 'accuracy', '%', '--green')}
+      </section>
+      <section class="stats-block card-box">
+        <h3>Resumen</h3>
+        <div class="stats-overview-grid stats-overview-compact" data-style-format="${escapeHtml(aggFormat)}">
+          ${explainableStatCard('accuracy', 'Acierto', sessionAccuracy == null ? '—' : sessionAccuracy + '%', aggFormat)}
           ${explainableStatCard('sessions', 'Sesiones', String(sessTot ? sessTot.sessions : 0), aggFormat)}
           ${explainableStatCard('nHands', 'Manos', String(sessTot ? sessTot.hands : 0), aggFormat)}
-          ${explainableStatCard('accuracy', 'Acierto', sessionAccuracy == null ? '—' : sessionAccuracy + '%', aggFormat)}
-          ${explainableStatCard('vpip', 'VPIP', fmtHudPct(sessionVpip), aggFormat, '', null, aggIdeal.vpipMin != null ? `ideal ${aggIdeal.vpipMin}–${aggIdeal.vpipMax}%` : '')}
-          ${explainableStatCard('pfr', 'PFR', fmtHudPct(sessionPfr), aggFormat, '', null, aggIdeal.pfrMin != null ? `ideal ${aggIdeal.pfrMin}–${aggIdeal.pfrMax}%` : '')}
-          ${explainableStatCard('threeBet', '3-Bet', fmtHudPct(sessTot && sessTot.threeBetPct), aggFormat)}
-          ${explainableStatCard('cbetFlop', 'C-Bet flop', fmtHudPct(sessTot && sessTot.cbetFlopPct), aggFormat)}
-          ${explainableStatCard('af', 'AF', fmtHudAf(sessTot && sessTot.af), aggFormat)}
-          ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(sessTot && sessTot.wtsdPct), aggFormat)}
           ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(sessTot && sessTot.bbPer100), aggFormat)}
-          ${explainableStatCard('netBB', 'Resultado real', sessTot ? ((sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB)) : '—', aggFormat, sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg')}
-          ${explainableStatCard('evLoss', 'EV perdido', sessTot ? ('-' + fmtBB(sessTot.evLoss)) : '—', aggFormat, 'net-neg')}
         </div>
-        <p class="muted-text stats-section-note">Pulsa un cuadrito para ver la explicación. Referencias adaptadas a ${escapeHtml(formatDisplayLabel(aggFormat))} cuando se detecta el formato.</p>`
-      },
-      {
-        title: 'Perfil de estilo',
-        body: sessTot && (sessTot.threeBetOpps != null || sessTot.vpipPct != null)
-          ? sessionStyleProfileHtml(Object.assign({}, sessTot, {
-            format: aggFormat,
-            styleIdeal: aggIdeal,
-            styleAssess: (window.Importer && Importer.assessStyleStats)
-              ? Importer.assessStyleStats(sessTot, aggIdeal)
-              : null,
-            bbPer100Note: sessTot.hands < 20000
-              ? 'Varianza alta con menos de 20k manos; interpreta bb/100 con cautela.'
-              : null
-          }))
-          : '<div class="stats-carousel-empty muted-text">Importa o reabre sesiones para ver el perfil de estilo.</div>'
-      },
-      { title: 'Evolución de notas', body: statsGradeLineChart('Nota por sesión (0–10)', sessionGradeSeries) },
-      { title: 'Evolución VPIP / PFR', body: statsHudLineChart('VPIP y PFR por sesión', sessionHudSeries, aggFormat) },
-      {
-        title: 'Winrate por stakes',
-        body: (function () {
-          const rows = window.PTStatsAggregate && PTStatsAggregate.sessionsByStakes
-            ? PTStatsAggregate.sessionsByStakes(st)
-            : [];
-          if (!rows.length) {
-            return '<div class="stats-carousel-empty muted-text">Importa sesiones con stakes detectados (p. ej. NL25) para ver bb/100 por nivel.</div>';
-          }
-          return `<table class="style-pos-table"><thead><tr><th>Stakes</th><th>Manos</th><th>Net</th><th>bb/100</th></tr></thead><tbody>${
-            rows.slice(0, 12).map((r) =>
-              `<tr><td>${escapeHtml(r.stakesLabel)}</td><td>${r.hands}</td><td class="${r.netBB >= 0 ? 'net-pos' : 'net-neg'}">${r.netBB >= 0 ? '+' : ''}${fmtBB(r.netBB)}</td><td>${r.bbPer100 == null ? '—' : fmtHudAf(r.bbPer100)}</td></tr>`
-            ).join('')
-          }</tbody></table>`;
-        })()
-      },
-      {
-        title: 'Winrate diario (14d)',
-        body: (function () {
-          const series = window.PTStatsAggregate && PTStatsAggregate.sessionDailySeries
-            ? PTStatsAggregate.sessionDailySeries(st, 14)
-            : [];
-          return statsBarChart('bb/100 por día', series, 'bbPer100', '', '--accent');
-        })()
-      },
-      { title: 'Progreso semanal · VPIP', body: statsBarChart('VPIP semanal', sessionWeekly, 'vpipPct', '%', '--accent') },
-      { title: 'Progreso semanal · PFR', body: statsBarChart('PFR semanal', sessionWeekly, 'pfrPct', '%', '--gold') },
-      { title: 'Progreso semanal · 3-Bet', body: statsBarChart('3-Bet semanal', sessionWeekly, 'threeBetPct', '%', '--accent') },
-      { title: 'Progreso semanal · C-Bet flop', body: statsBarChart('C-Bet flop semanal', sessionWeekly, 'cbetFlopPct', '%', '--gold') },
-      { title: 'Progreso semanal · WTSD', body: statsBarChart('WTSD semanal', sessionWeekly, 'wtsdPct', '%', '--accent') },
-      { title: 'Progreso semanal · bb/100', body: statsBarChart('bb/100 semanal', sessionWeekly, 'bbPer100', '', '--gold') },
-      { title: 'Progreso semanal · Acierto', body: statsBarChart('Acierto semanal', sessionWeekly, 'accuracy', '%', '--green') },
-      { title: 'Progreso semanal · EV perdido', body: statsBarChart('EV perdido semanal', sessionWeekly, 'evLoss', ' bb', '--red') },
-      { title: 'Progreso semanal · Resultado real', body: statsBarChart('Resultado real semanal', sessionWeekly, 'netBB', ' bb', '--accent') },
-      { title: 'Progreso semanal · Volumen', body: statsBarChart('Manos por semana', sessionWeekly, 'hands', '', '--gold') },
-      {
-        title: 'Acierto por calle',
-        body: `<div class="street-acc stats-street-grid">${sessionStreetBars}</div>
-          <div class="stats-section-note">${renderDecisionDistribution(sessionDerived.dist, Object.values(sessionDerived.dist).reduce((sum, n) => sum + n, 0))}</div>`
-      },
-      { title: 'Leaks de sesiones', body: renderLeakList(sessionLeaks, 'sessions') }
-    ];
+      </section>
+      <section class="stats-block card-box">
+        <h3>Top 5 fugas</h3>
+        <p class="muted-text">Spots con más errores en sesiones importadas. Abre la sesión para revisar las manos.</p>
+        ${renderLeakList(sessionLeaks, 'sessions')}
+      </section>
+      <details class="stats-block card-box stats-advanced">
+        <summary>Detalle avanzado</summary>
+        <div class="stats-advanced-body">
+          <h4>HUD</h4>
+          <div class="stats-overview-grid" data-style-format="${escapeHtml(aggFormat)}">
+            ${explainableStatCard('vpip', 'VPIP', fmtHudPct(sessTot && sessTot.vpipPct), aggFormat, '', null, aggIdeal.vpipMin != null ? `ideal ${aggIdeal.vpipMin}–${aggIdeal.vpipMax}%` : '')}
+            ${explainableStatCard('pfr', 'PFR', fmtHudPct(sessTot && sessTot.pfrPct), aggFormat, '', null, aggIdeal.pfrMin != null ? `ideal ${aggIdeal.pfrMin}–${aggIdeal.pfrMax}%` : '')}
+            ${explainableStatCard('threeBet', '3-Bet', fmtHudPct(sessTot && sessTot.threeBetPct), aggFormat)}
+            ${explainableStatCard('cbetFlop', 'C-Bet flop', fmtHudPct(sessTot && sessTot.cbetFlopPct), aggFormat)}
+            ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(sessTot && sessTot.wtsdPct), aggFormat)}
+            ${explainableStatCard('netBB', 'Resultado real', sessTot ? ((sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB)) : '—', aggFormat, sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg')}
+            ${explainableStatCard('evLoss', 'EV perdido', sessTot ? ('-' + fmtBB(sessTot.evLoss)) : '—', aggFormat, 'net-neg')}
+          </div>
+          <h4>Distribución de decisiones</h4>
+          ${renderDecisionDistribution(sessionDerived.dist, sessionDistTotal)}
+          <h4>Perfil de estilo</h4>
+          ${styleHtml}
+          <h4>Evolución</h4>
+          ${statsGradeLineChart('Nota por sesión (0–10)', sessionGradeSeries)}
+          ${statsHudLineChart('VPIP y PFR por sesión', sessionHudSeries, aggFormat)}
+          ${statsBarChartRows('bb/100 diario (14d)', dailySeries, 'bbPer100', '', '--accent')}
+          ${statsBarChartRows('VPIP semanal', sessionWeekly, 'vpipPct', '%', '--accent')}
+          ${statsBarChartRows('PFR semanal', sessionWeekly, 'pfrPct', '%', '--gold')}
+          <h4>Winrate por stakes</h4>
+          ${stakesHtml}
+        </div>
+      </details>
+    </div>`;
 
     box.innerHTML = `
       <div class="stats-redesign">
-        ${renderStatsCarousel('trainer', 'Entrenador', 'Tus manos jugadas en el entrenador, separadas del análisis de sesiones importadas.', trainerSlides)}
-        ${formatFilterHtml}
-        ${renderStatsCarousel('sessions', 'Sesiones importadas', 'Resultados y fugas de manos reales importadas, con acceso a la sesión cuando siga disponible.', sessionSlides)}
+        <div class="stats-tabs" role="tablist" aria-label="Tipo de estadísticas">
+          <button type="button" class="stats-tab${activeTab === 'trainer' ? ' active' : ''}" role="tab" aria-selected="${activeTab === 'trainer' ? 'true' : 'false'}" data-stats-tab="trainer">Entrenador</button>
+          <button type="button" class="stats-tab${activeTab === 'sessions' ? ' active' : ''}" role="tab" aria-selected="${activeTab === 'sessions' ? 'true' : 'false'}" data-stats-tab="sessions">Sesiones</button>
+        </div>
+        ${trainerHtml}
+        ${sessionsHtml}
       </div>`;
     bindStatsView();
+    applyStatsTab(activeTab);
     const fmtSel = $('#stats-format-filter');
     if (fmtSel && !fmtSel.dataset.bound) {
       fmtSel.dataset.bound = '1';
       fmtSel.addEventListener('change', () => {
         window.__ptStatsFormatFilter = fmtSel.value || 'all';
+        setActiveStatsTab('sessions');
         renderStats();
       });
     }
@@ -31326,13 +31346,16 @@ window.PT_VS_3BET_JSON = {
         getData: () => {
           const stats = Store.getStats();
           const Agg = window.PTStatsAggregate;
+          const listed = Store.getSessions ? Store.getSessions() : [];
           return {
             stats: stats,
             weekly: Agg ? Agg.trainerWeeklySeries(stats, 8) : (window.PTProgress ? PTProgress.buildWeeklySeries(Store.getHistory(), 8) : []),
             weeklySessions: Agg ? Agg.sessionWeeklySeries(stats, 8) : [],
             leaks: window.PTLeaks ? PTLeaks.topLeaks(Store.getErrors(), 5) : [],
             sessionLeaks: Agg ? Agg.sessionTopLeaks(stats, 5) : [],
-            sessionsTotal: Agg ? Agg.sessionsTotal(stats) : null
+            sessionsTotal: Agg ? Agg.sessionsTotal(stats) : null,
+            sessionStreet: buildSessionDerivedStats(listed).accByStreet,
+            focus: getActiveStatsTab()
           };
         },
         persist: { kind: 'stats' }

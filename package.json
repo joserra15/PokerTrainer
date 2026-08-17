@@ -12,6 +12,7 @@
     "test:ux": "node tools/test-ux-trainer-lang.js",
     "test:card-picker": "node tools/test-card-picker-ux.js",
     "test:growth-ux": "node tools/test-growth-ux.js",
+    "test:stats": "node tools/test-stats-redesign.js",
     "test:landing-i18n": "node tools/test-landing-i18n.js",
     "test:landing-login": "node tools/test-landing-login-cta.js",
     "test:login-desktop": "node tools/test-login-desktop-regression.js",
