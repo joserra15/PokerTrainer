@@ -56,11 +56,12 @@
     }
     if (tb === 'BB' && o <= 2) {
       row.fourBet = 'KK+, AKs, AKo';
+      if (row.call && row.call.indexOf('QQ') < 0) row.call = 'QQ, ' + row.call;
       row.callMix = 'JJ, TT, 99, AQs, AJs, ATs, KQs, AQo';
     }
     if (opener === 'SB' && tb === 'BB') {
       row.fourBet = 'TT+, AQs+, AKo, A5s-A2s';
-      row.call = '99, 88, 77, AJs, ATs, KQs, KJs, QJs, AJo, KQo';
+      row.call = '99, 88, 77, AJs, ATs, KQs, KJs, QJs, AQo, AJo, KQo';
       row.callMix = '66, 55, 44, T9s, 98s, KJo, QJo';
     }
     return row;
@@ -172,7 +173,7 @@
       row.fold = '22-33, A2o-A7o, K9o-, Q9o-';
     } else if (ORD6[hero] >= 3) {
       row.raise = '77+, A7s+, A5s-A2s, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+, JTo';
-      row.callMix = '66, 55, A8s, A6o, K9o, Q9o';
+      row.callMix = '66, 55, A8s, A8o, A7o, A6o, K9o, Q9o';
     }
     return row;
   }
@@ -210,13 +211,13 @@
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, AQs, A5s, KQs',
       call: 'TT, 99, AJs, ATs, KJs, QJs, AQo',
-      callMix: '88, 77, KTs, T9s, AJo, KJo'
+      callMix: '88, 77, KTs, T9s, AJo, KJo, KQo'
     },
     CO_vs_UTG1: {
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, TT, AQs, A5s, KJs',
       call: '99, 88, AJs, ATs, KQs, QJs, JTs, AQo, AJo',
-      callMix: '77, 66, KTs, T9s, 98s, KJo'
+      callMix: '77, 66, KTs, T9s, 98s, KJo, KQo'
     },
     CO_vs_UTG2: {
       threeBet: 'QQ+, AKs, AKo',
@@ -238,20 +239,20 @@
     },
     BTN_vs_LJ: {
       threeBet: 'JJ+, AQs+, AKo',
-      threeBetMix: 'TT, 99, AJs, ATs, A5s-A2s, KQs, KJs, QJs, A5o',
-      call: '88-22, A9s, K9s+, Q9s+, J9s, T9s, 98s, 87s, 76s, AJo, KQo, QJo',
+      threeBetMix: 'TT, 99, AJs, ATs, A5s-A2s, KQs, KJs, QJs, JTs, A5o',
+      call: '88-22, A9s, K9s+, Q9s+, J9s, T9s, 98s, 87s, 76s, AQo, AJo, KQo, QJo',
       callMix: 'KJo, T9o'
     },
     SB_vs_UTG1: {
       threeBet: 'TT+, AQs+, AKo',
       threeBetMix: '99, AJs, A5s, A4s, KQs',
-      call: '88-22, ATs, KJs, QJs, JTs, T9s, 98s',
+      call: '88-22, ATs, KJs, QJs, JTs, T9s, 98s, AQo',
       callMix: 'AJo, KQo'
     },
     SB_vs_LJ: {
       threeBet: 'TT+, AQs+, AKo',
       threeBetMix: '99, 88, AJs, ATs, A5s-A3s, KJs, KQs',
-      call: '77-22, KTs, QTs, JTs, T9s, 98s, AJo, KQo',
+      call: '77-22, KTs, QJs, QTs, JTs, T9s, 98s, AQo, AJo, KQo',
       callMix: 'KJo, QJo'
     },
     BB_vs_LJ: {

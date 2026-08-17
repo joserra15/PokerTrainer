@@ -12,14 +12,36 @@
     return code.length === 2 ? 6 : (code[2] === 's' ? 4 : 12);
   }
 
-  /** Convierte raise/mix/call/threeBet sets a mapa de pesos. */
+  function addWeight(w, spec, weight) {
+    if (!spec || weight == null) return;
+    N.expand(spec).forEach((c) => {
+      w[c] = w[c] != null ? Math.max(w[c], weight) : weight;
+    });
+  }
+
+  /**
+   * Convierte campos de tabla (raise/mix/call/threeBet/fourBet/…) a mapa de pesos.
+   * callMix = 0.42 (mismo contrato que vsRfiStrategy). fold no suma peso positivo.
+   */
   function fromSets(sets) {
     const w = {};
-    if (sets.raise) N.expand(sets.raise).forEach((c) => { w[c] = 1; });
-    if (sets.mix) N.expand(sets.mix).forEach((c) => { w[c] = w[c] != null ? Math.max(w[c], 0.5) : 0.5; });
-    if (sets.call) N.expand(sets.call).forEach((c) => { w[c] = w[c] != null ? Math.max(w[c], 1) : 1; });
-    if (sets.threeBet) N.expand(sets.threeBet).forEach((c) => { w[c] = 1; });
-    if (sets.threeBetMix) N.expand(sets.threeBetMix).forEach((c) => { w[c] = w[c] != null ? Math.max(w[c], 0.5) : 0.5; });
+    if (!sets) return w;
+    addWeight(w, sets.raise, 1);
+    addWeight(w, sets.iso, 1);
+    addWeight(w, sets.squeeze, 1);
+    addWeight(w, sets.threeBet, 1);
+    addWeight(w, sets.fourBet, 1);
+    addWeight(w, sets.call, 1);
+    addWeight(w, sets.limp, 1);
+    addWeight(w, sets.check, 1);
+    addWeight(w, sets.mix, 0.5);
+    addWeight(w, sets.raiseMix, 0.5);
+    addWeight(w, sets.isoMix, 0.5);
+    addWeight(w, sets.squeezeMix, 0.5);
+    addWeight(w, sets.threeBetMix, 0.5);
+    addWeight(w, sets.fourBetMix, 0.5);
+    addWeight(w, sets.limpMix, 0.5);
+    addWeight(w, sets.callMix, 0.42);
     return w;
   }
 
@@ -37,7 +59,12 @@
     return Cache.memo('range', 'vs:' + key, () => {
       const data = D.VS_RFI[key];
       if (!data) return {};
-      return fromSets({ threeBet: data.threeBet, threeBetMix: data.threeBetMix, call: data.call });
+      return fromSets({
+        threeBet: data.threeBet,
+        threeBetMix: data.threeBetMix,
+        call: data.call,
+        callMix: data.callMix
+      });
     });
   }
 

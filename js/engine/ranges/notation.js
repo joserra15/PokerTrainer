@@ -34,6 +34,13 @@
     }
     m = tok.match(/^([2-9TJQKA])\1$/);
     if (m) return [tok];
+    m = tok.match(/^([2-9TJQKA])\1-$/);
+    if (m) {
+      const end = VAL[m[1]];
+      const res = [];
+      for (let v = 0; v <= end; v++) res.push(ORDER[v] + ORDER[v]);
+      return res;
+    }
     m = tok.match(/^([2-9TJQKA])([2-9TJQKA])([so])\+$/);
     if (m) {
       const hi = m[1], suit = m[3];
@@ -49,6 +56,14 @@
       if (a > b) [a, b] = [b, a];
       const res = [];
       for (let v = a; v <= b; v++) res.push(hi + ORDER[v] + suit);
+      return res;
+    }
+    m = tok.match(/^([2-9TJQKA])([2-9TJQKA])([so])-$/);
+    if (m) {
+      const hi = m[1], suit = m[3];
+      const end = VAL[m[2]];
+      const res = [];
+      for (let v = 0; v <= end && v < VAL[hi]; v++) res.push(hi + ORDER[v] + suit);
       return res;
     }
     m = tok.match(/^([2-9TJQKA])([2-9TJQKA])([so])$/);

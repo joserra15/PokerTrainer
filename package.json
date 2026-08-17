@@ -62,6 +62,8 @@
     "test:flop-turn-freq": "node tools/test-flop-turn-freq-duplicate.js",
     "test:gto-eval-ui": "node tools/test-gto-eval-ui.js",
     "test:ranges": "node tools/validate-ranges-json.js",
+    "test:range-tables": "node tools/test-range-tables.js",
+    "sync:ranges": "node tools/sync-ranges-solver-data.js",
     "test:formats-v2": "node tools/test-trainer-formats-v2.js",
     "test:action-mode": "node tools/test-action-mode.js",
     "test:e2e": "npm run build && playwright test",

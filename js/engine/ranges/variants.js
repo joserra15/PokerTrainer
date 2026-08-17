@@ -58,7 +58,7 @@
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, AQs, A5s, KQs',
       call: 'TT, 99, AJs, ATs, KJs, QJs, AQo',
-      callMix: '88, 77, KTs, T9s, AJo, KJo'
+      callMix: '88, 77, KTs, T9s, AJo, KJo, KQo'
     },
     LJ_vs_UTG2: {
       threeBet: 'QQ+, AKs, AKo',
@@ -76,7 +76,7 @@
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, AQs, A5s, KJs',
       call: 'TT-22, AJs+, ATs, KQs, KJs, QJs, JTs, T9s, 98s, AQo',
-      callMix: 'AJo, KJo'
+      callMix: 'AJo, KJo, KQo'
     }
   };
 

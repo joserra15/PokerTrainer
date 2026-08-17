@@ -601,6 +601,13 @@
     }
     m = tok.match(/^([2-9TJQKA])\1$/);
     if (m) return [tok];
+    m = tok.match(/^([2-9TJQKA])\1-$/);
+    if (m) {
+      const end = VAL[m[1]];
+      const res = [];
+      for (let v = 0; v <= end; v++) res.push(ORDER[v] + ORDER[v]);
+      return res;
+    }
     m = tok.match(/^([2-9TJQKA])([2-9TJQKA])([so])\+$/);
     if (m) {
       const hi = m[1], suit = m[3];
@@ -616,6 +623,14 @@
       if (a > b) [a, b] = [b, a];
       const res = [];
       for (let v = a; v <= b; v++) res.push(hi + ORDER[v] + suit);
+      return res;
+    }
+    m = tok.match(/^([2-9TJQKA])([2-9TJQKA])([so])-$/);
+    if (m) {
+      const hi = m[1], suit = m[3];
+      const end = VAL[m[2]];
+      const res = [];
+      for (let v = 0; v <= end && v < VAL[hi]; v++) res.push(hi + ORDER[v] + suit);
       return res;
     }
     m = tok.match(/^([2-9TJQKA])([2-9TJQKA])([so])$/);
@@ -694,32 +709,32 @@
       call: '22-TT, A2s-ATs, K3s+, Q5s+, J6s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, A2o+, K9o+, QTo+, J9o+, T9o, 98o'
     },
     BB_vs_SB: {
-      threeBet: '88+, ATs+, KJs+, AJo+, A5s',
-      threeBetMix: '77-22, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo, A8o-A2o',
-      call: 'K4s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, KTo, QTo, JTo, T9o, 98o'
+      threeBet: '88+, ATs+, KJs+, ATo+, A5s',
+      threeBetMix: '77-22, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo, A9o-A2o',
+      call: 'K4s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, KTo, QTo+, JTo, T9o, 98o'
     },
     SB_vs_UTG: {
       threeBet: 'TT+, AQs+, AKo',
       threeBetMix: '99, AJs, A5s, A4s, KQs',
-      call: '88-22, ATs, KJs, QJs, JTs, T9s, 98s',
+      call: '88-22, ATs, KJs, QJs, JTs, T9s, 98s, AQo',
       callMix: 'AJo, KQo'
     },
     SB_vs_HJ: {
       threeBet: 'TT+, AQs+, AKo',
       threeBetMix: '99, 88, AJs, ATs, A5s-A3s, KJs, KQs',
-      call: '77-22, KTs, QTs, JTs, T9s, 98s, AJo, KQo',
+      call: '77-22, KTs, QJs, QTs, JTs, T9s, 98s, AQo, AJo, KQo',
       callMix: 'KJo, QJo'
     },
     SB_vs_CO: {
       threeBet: '99+, AJs+, AKo, A5s',
       threeBetMix: '88, 77, ATs, A4s-A2s, KTs+, QJs, KQo, A5o',
-      call: '66-22, A9s, K9s, Q9s, J9s, T9s, 98s, AQo, AJo, KJo',
+      call: '66-22, A9s, K9s, QTs, Q9s, JTs, J9s, T9s, 98s, AQo, AJo, KJo',
       callMix: 'QJo, JTo'
     },
     SB_vs_BTN: {
       threeBet: '88+, ATs+, KTs+, QJs, AJo+, A5s, A4s',
       threeBetMix: '77-44, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o',
-      call: '33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, KTo, QTo, JTo',
+      call: '33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, ATo, KTo, QTo+, JTo',
       callMix: 'A9o, T9o'
     },
     CO_vs_UTG: {
@@ -748,15 +763,15 @@
     },
     BTN_vs_CO: {
       threeBet: 'JJ+, AQs+, AKo',
-      threeBetMix: 'TT, 99, AJs, ATs, A5s-A2s, KQs, KJs, QJs, A5o',
-      call: '88-22, A9s, K9s+, Q9s+, J9s, T9s, 98s, 87s, 76s, 65s, AJo, KQo, QJo',
+      threeBetMix: 'TT, 99, AJs, ATs, A5s-A2s, KQs, KJs, QJs, JTs, A5o',
+      call: '88-22, A9s, K9s+, Q9s+, J9s, T9s, 98s, 87s, 76s, 65s, AQo, AJo, KQo, QJo',
       callMix: 'KJo, T9o'
     },
     HJ_vs_UTG: {
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, AQs, A5s, KQs',
       call: 'TT-22, AJs+, KQs, KJs, QJs, JTs, T9s, 98s, AQo',
-      callMix: 'AJo, KJo'
+      callMix: 'AJo, KJo, KQo'
     }
   };
 
@@ -879,11 +894,12 @@
     }
     if (tb === 'BB' && o <= 2) {
       row.fourBet = 'KK+, AKs, AKo';
+      if (row.call && row.call.indexOf('QQ') < 0) row.call = 'QQ, ' + row.call;
       row.callMix = 'JJ, TT, 99, AQs, AJs, ATs, KQs, AQo';
     }
     if (opener === 'SB' && tb === 'BB') {
       row.fourBet = 'TT+, AQs+, AKo, A5s-A2s';
-      row.call = '99, 88, 77, AJs, ATs, KQs, KJs, QJs, AJo, KQo';
+      row.call = '99, 88, 77, AJs, ATs, KQs, KJs, QJs, AQo, AJo, KQo';
       row.callMix = '66, 55, 44, T9s, 98s, KJo, QJo';
     }
     return row;
@@ -995,7 +1011,7 @@
       row.fold = '22-33, A2o-A7o, K9o-, Q9o-';
     } else if (ORD6[hero] >= 3) {
       row.raise = '77+, A7s+, A5s-A2s, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+, JTo';
-      row.callMix = '66, 55, A8s, A6o, K9o, Q9o';
+      row.callMix = '66, 55, A8s, A8o, A7o, A6o, K9o, Q9o';
     }
     return row;
   }
@@ -1033,13 +1049,13 @@
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, AQs, A5s, KQs',
       call: 'TT, 99, AJs, ATs, KJs, QJs, AQo',
-      callMix: '88, 77, KTs, T9s, AJo, KJo'
+      callMix: '88, 77, KTs, T9s, AJo, KJo, KQo'
     },
     CO_vs_UTG1: {
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, TT, AQs, A5s, KJs',
       call: '99, 88, AJs, ATs, KQs, QJs, JTs, AQo, AJo',
-      callMix: '77, 66, KTs, T9s, 98s, KJo'
+      callMix: '77, 66, KTs, T9s, 98s, KJo, KQo'
     },
     CO_vs_UTG2: {
       threeBet: 'QQ+, AKs, AKo',
@@ -1061,20 +1077,20 @@
     },
     BTN_vs_LJ: {
       threeBet: 'JJ+, AQs+, AKo',
-      threeBetMix: 'TT, 99, AJs, ATs, A5s-A2s, KQs, KJs, QJs, A5o',
-      call: '88-22, A9s, K9s+, Q9s+, J9s, T9s, 98s, 87s, 76s, AJo, KQo, QJo',
+      threeBetMix: 'TT, 99, AJs, ATs, A5s-A2s, KQs, KJs, QJs, JTs, A5o',
+      call: '88-22, A9s, K9s+, Q9s+, J9s, T9s, 98s, 87s, 76s, AQo, AJo, KQo, QJo',
       callMix: 'KJo, T9o'
     },
     SB_vs_UTG1: {
       threeBet: 'TT+, AQs+, AKo',
       threeBetMix: '99, AJs, A5s, A4s, KQs',
-      call: '88-22, ATs, KJs, QJs, JTs, T9s, 98s',
+      call: '88-22, ATs, KJs, QJs, JTs, T9s, 98s, AQo',
       callMix: 'AJo, KQo'
     },
     SB_vs_LJ: {
       threeBet: 'TT+, AQs+, AKo',
       threeBetMix: '99, 88, AJs, ATs, A5s-A3s, KJs, KQs',
-      call: '77-22, KTs, QTs, JTs, T9s, 98s, AJo, KQo',
+      call: '77-22, KTs, QJs, QTs, JTs, T9s, 98s, AQo, AJo, KQo',
       callMix: 'KJo, QJo'
     },
     BB_vs_LJ: {
@@ -1219,32 +1235,32 @@ window.PT_VS_RFI_JSON = {
       "call": "22-TT, A2s-ATs, K3s+, Q5s+, J6s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, A2o+, K9o+, QTo+, J9o+, T9o, 98o"
     },
     "BB_vs_SB": {
-      "threeBet": "88+, ATs+, KJs+, AJo+, A5s",
-      "threeBetMix": "77-22, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo, A8o-A2o",
-      "call": "K4s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, KTo, QTo, JTo, T9o, 98o"
+      "threeBet": "88+, ATs+, KJs+, ATo+, A5s",
+      "threeBetMix": "77-22, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo, A9o-A2o",
+      "call": "K4s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, KTo, QTo+, JTo, T9o, 98o"
     },
     "SB_vs_UTG": {
       "threeBet": "TT+, AQs+, AKo",
       "threeBetMix": "99, AJs, A5s, A4s, KQs",
-      "call": "88-22, ATs, KJs, QJs, JTs, T9s, 98s",
+      "call": "88-22, ATs, KJs, QJs, JTs, T9s, 98s, AQo",
       "callMix": "AJo, KQo"
     },
     "SB_vs_HJ": {
       "threeBet": "TT+, AQs+, AKo",
       "threeBetMix": "99, 88, AJs, ATs, A5s-A3s, KJs, KQs",
-      "call": "77-22, KTs, QTs, JTs, T9s, 98s, AJo, KQo",
+      "call": "77-22, KTs, QJs, QTs, JTs, T9s, 98s, AQo, AJo, KQo",
       "callMix": "KJo, QJo"
     },
     "SB_vs_CO": {
       "threeBet": "99+, AJs+, AKo, A5s",
       "threeBetMix": "88, 77, ATs, A4s-A2s, KTs+, QJs, KQo, A5o",
-      "call": "66-22, A9s, K9s, Q9s, J9s, T9s, 98s, AQo, AJo, KJo",
+      "call": "66-22, A9s, K9s, QTs, Q9s, JTs, J9s, T9s, 98s, AQo, AJo, KJo",
       "callMix": "QJo, JTo"
     },
     "SB_vs_BTN": {
       "threeBet": "88+, ATs+, KTs+, QJs, AJo+, A5s, A4s",
       "threeBetMix": "77-44, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o",
-      "call": "33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, KTo, QTo, JTo",
+      "call": "33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, ATo, KTo, QTo+, JTo",
       "callMix": "A9o, T9o"
     },
     "CO_vs_UTG": {
@@ -1273,15 +1289,15 @@ window.PT_VS_RFI_JSON = {
     },
     "BTN_vs_CO": {
       "threeBet": "JJ+, AQs+, AKo",
-      "threeBetMix": "TT, 99, AJs, ATs, A5s-A2s, KQs, KJs, QJs, A5o",
-      "call": "88-22, A9s, K9s+, Q9s+, J9s, T9s, 98s, 87s, 76s, 65s, AJo, KQo, QJo",
+      "threeBetMix": "TT, 99, AJs, ATs, A5s-A2s, KQs, KJs, QJs, JTs, A5o",
+      "call": "88-22, A9s, K9s+, Q9s+, J9s, T9s, 98s, 87s, 76s, 65s, AQo, AJo, KQo, QJo",
       "callMix": "KJo, T9o"
     },
     "HJ_vs_UTG": {
       "threeBet": "QQ+, AKs, AKo",
       "threeBetMix": "JJ, AQs, A5s, KQs",
       "call": "TT-22, AJs+, KQs, KJs, QJs, JTs, T9s, 98s, AQo",
-      "callMix": "AJo, KJo"
+      "callMix": "AJo, KJo, KQo"
     }
   }
 };
@@ -1292,7 +1308,7 @@ window.PT_VS_3BET_JSON = {
     "spot": "face3bet",
     "format": "cash6",
     "stackBB": 100,
-    "updated": "2026-07-09"
+    "updated": "2026-08-17"
   },
   "pairs": {
     "UTG_vs_HJ": {
@@ -1317,7 +1333,7 @@ window.PT_VS_3BET_JSON = {
     },
     "UTG_vs_BB": {
       "fourBet": "KK+, AKs, AKo",
-      "call": "JJ, TT, AQs, AJs, KQs",
+      "call": "QQ, JJ, TT, AQs, AJs, KQs",
       "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
     },
     "HJ_vs_CO": {
@@ -1337,7 +1353,7 @@ window.PT_VS_3BET_JSON = {
     },
     "HJ_vs_BB": {
       "fourBet": "KK+, AKs, AKo",
-      "call": "JJ, TT, AQs, AJs, KQs",
+      "call": "QQ, JJ, TT, AQs, AJs, KQs",
       "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
     },
     "CO_vs_BTN": {
@@ -1352,7 +1368,7 @@ window.PT_VS_3BET_JSON = {
     },
     "CO_vs_BB": {
       "fourBet": "KK+, AKs, AKo",
-      "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+      "call": "QQ, JJ, TT, 99, AQs, AJs, KQs, AQo",
       "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
     },
     "BTN_vs_SB": {
@@ -1367,7 +1383,7 @@ window.PT_VS_3BET_JSON = {
     },
     "SB_vs_BB": {
       "fourBet": "TT+, AQs+, AKo, A5s-A2s",
-      "call": "99, 88, 77, AJs, ATs, KQs, KJs, QJs, AJo, KQo",
+      "call": "99, 88, 77, AJs, ATs, KQs, KJs, QJs, AQo, AJo, KQo",
       "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
     }
   }
@@ -1509,7 +1525,7 @@ window.PT_VS_3BET_JSON = {
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, AQs, A5s, KQs',
       call: 'TT, 99, AJs, ATs, KJs, QJs, AQo',
-      callMix: '88, 77, KTs, T9s, AJo, KJo'
+      callMix: '88, 77, KTs, T9s, AJo, KJo, KQo'
     },
     LJ_vs_UTG2: {
       threeBet: 'QQ+, AKs, AKo',
@@ -1527,7 +1543,7 @@ window.PT_VS_3BET_JSON = {
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, AQs, A5s, KJs',
       call: 'TT-22, AJs+, ATs, KQs, KJs, QJs, JTs, T9s, 98s, AQo',
-      callMix: 'AJo, KJo'
+      callMix: 'AJo, KJo, KQo'
     }
   };
 
@@ -2388,14 +2404,36 @@ window.PT_VS_3BET_JSON = {
     return code.length === 2 ? 6 : (code[2] === 's' ? 4 : 12);
   }
 
-  /** Convierte raise/mix/call/threeBet sets a mapa de pesos. */
+  function addWeight(w, spec, weight) {
+    if (!spec || weight == null) return;
+    N.expand(spec).forEach((c) => {
+      w[c] = w[c] != null ? Math.max(w[c], weight) : weight;
+    });
+  }
+
+  /**
+   * Convierte campos de tabla (raise/mix/call/threeBet/fourBet/…) a mapa de pesos.
+   * callMix = 0.42 (mismo contrato que vsRfiStrategy). fold no suma peso positivo.
+   */
   function fromSets(sets) {
     const w = {};
-    if (sets.raise) N.expand(sets.raise).forEach((c) => { w[c] = 1; });
-    if (sets.mix) N.expand(sets.mix).forEach((c) => { w[c] = w[c] != null ? Math.max(w[c], 0.5) : 0.5; });
-    if (sets.call) N.expand(sets.call).forEach((c) => { w[c] = w[c] != null ? Math.max(w[c], 1) : 1; });
-    if (sets.threeBet) N.expand(sets.threeBet).forEach((c) => { w[c] = 1; });
-    if (sets.threeBetMix) N.expand(sets.threeBetMix).forEach((c) => { w[c] = w[c] != null ? Math.max(w[c], 0.5) : 0.5; });
+    if (!sets) return w;
+    addWeight(w, sets.raise, 1);
+    addWeight(w, sets.iso, 1);
+    addWeight(w, sets.squeeze, 1);
+    addWeight(w, sets.threeBet, 1);
+    addWeight(w, sets.fourBet, 1);
+    addWeight(w, sets.call, 1);
+    addWeight(w, sets.limp, 1);
+    addWeight(w, sets.check, 1);
+    addWeight(w, sets.mix, 0.5);
+    addWeight(w, sets.raiseMix, 0.5);
+    addWeight(w, sets.isoMix, 0.5);
+    addWeight(w, sets.squeezeMix, 0.5);
+    addWeight(w, sets.threeBetMix, 0.5);
+    addWeight(w, sets.fourBetMix, 0.5);
+    addWeight(w, sets.limpMix, 0.5);
+    addWeight(w, sets.callMix, 0.42);
     return w;
   }
 
@@ -2413,7 +2451,12 @@ window.PT_VS_3BET_JSON = {
     return Cache.memo('range', 'vs:' + key, () => {
       const data = D.VS_RFI[key];
       if (!data) return {};
-      return fromSets({ threeBet: data.threeBet, threeBetMix: data.threeBetMix, call: data.call });
+      return fromSets({
+        threeBet: data.threeBet,
+        threeBetMix: data.threeBetMix,
+        call: data.call,
+        callMix: data.callMix
+      });
     });
   }
 

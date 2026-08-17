@@ -115,6 +115,22 @@ vs3Keys.forEach((key) => {
   assert.ok(n >= 5, 'vs-3bet ' + key + ' solo ' + n + ' combos');
   vs3Combos += n;
 });
+['UTG_vs_BB', 'HJ_vs_BB', 'CO_vs_BB'].forEach((k) => {
+  const row = vs3.pairs[k];
+  const cont = new Set(
+    [].concat(N.expand(row.fourBet || '')).concat(N.expand(row.call || '')).concat(N.expand(row.callMix || ''))
+  );
+  assert.ok(cont.has('QQ'), k + ' debe continuar QQ (fourBet KK+ no puede dejar QQ en fold)');
+});
+const sbBb = vs3.pairs.SB_vs_BB;
+assert.ok(continueSet({
+  threeBet: sbBb.fourBet,
+  threeBetMix: '',
+  call: sbBb.call,
+  callMix: sbBb.callMix
+}).has('AQo'), 'SB vs BB AQo no puede ser fold si AJo llama');
+console.log('OK vs-3bet QQ overlay y SB_vs_BB AQo');
+
 console.log('OK vs-3bet:', vs3Keys.length, 'pares,', vs3Combos, 'combos notación');
 
 console.log(
