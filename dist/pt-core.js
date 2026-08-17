@@ -11848,12 +11848,14 @@ window.PT_VS_3BET_JSON = {
   function scriptForcedPostflop(hand, node) {
     const pos = (hand.villain && hand.villain.pos) || (hand._script && hand._script.villainPos);
     const peeked = scriptPeekSeatAction(hand, pos);
-    if (!peeked) return null;
-    if (peeked.action.street && hand.stage && peeked.action.street !== hand.stage) return null;
+    const facing = node && (node.heroLastAction === 'bet' || node.heroLastAction === 'raise');
+    if (!peeked || (peeked.action.street && hand.stage && peeked.action.street !== hand.stage)) {
+      if (facing && guestNeverFoldVillain(hand)) return 'call';
+      return null;
+    }
     scriptConsumeThrough(hand, peeked.index);
     hand._scriptedVillainAmountBB = peeked.action.amountBB;
     const n = scriptNormAction(peeked.action.action);
-    const facing = node && (node.heroLastAction === 'bet' || node.heroLastAction === 'raise');
     if (facing) {
       if (n === 'fold') return 'fold';
       if (n === 'raise') return 'raise';
@@ -11864,6 +11866,10 @@ window.PT_VS_3BET_JSON = {
     if (n === 'bet' || n === 'raise') return 'bet';
     if (n === 'check' || n === 'call' || n === 'fold') return 'check';
     return null;
+  }
+
+  function guestNeverFoldVillain(hand) {
+    return !!(hand && hand.playConfig && hand.playConfig.guestTrap && hand.playConfig.guestNeverFold);
   }
 
   function scriptBetAmount(hand, amountBB) {
@@ -12471,6 +12477,7 @@ window.PT_VS_3BET_JSON = {
   function openerVs3Bet(hand, opener, threeBetSize) {
     const forced = scriptForcedVs3Bet(hand, opener);
     if (forced) return forced;
+    if (guestNeverFoldVillain(hand)) return 'call';
     const profile = profileFor(hand, opener);
     const code = seatHoleCode(hand, opener);
     if (VPF && code) {
@@ -12725,7 +12732,7 @@ window.PT_VS_3BET_JSON = {
     }
     const RSNuts = global.GTORiverShoveNode;
     const neverFold = !!(RSNuts && RSNuts.isAbsoluteNuts && hc && hand.board
-      && RSNuts.isAbsoluteNuts(hc, hand.board));
+      && RSNuts.isAbsoluteNuts(hc, hand.board)) || guestNeverFoldVillain(hand);
     return {
       street: hand.stage,
       tier: info.tier,
@@ -16258,6 +16265,13 @@ window.PT_VS_3BET_JSON = {
   const QUESTION_MAX = 500;
   const PRIVACY_NO_PII = 'No se envía ningún dato personal (nombre, email ni cuenta de usuario).';
 
+  function isGuestSession() {
+    if (global.PTAuth && typeof global.PTAuth.isGuest === 'function' && global.PTAuth.isGuest()) return true;
+    const u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : global.PT_AUTH_USER;
+    if (u && u.isGuest) return true;
+    return !!(global.PTGuest && global.PTGuest.isActive && global.PTGuest.isActive());
+  }
+
   const SCOPE_UI = {
     hand: {
       reportBtn: 'Informe de la mano',
@@ -16473,6 +16487,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   function ensureConsent(scope) {
+    if (isGuestSession()) return Promise.resolve(false);
     if (localStorage.getItem(CONSENT_KEY) === '1') return Promise.resolve(true);
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
     const iaUrl = (global.PTLegal && global.PTLegal.legalUrl)
@@ -17304,6 +17319,7 @@ window.PT_VS_3BET_JSON = {
 
   async function fetchHomeGreeting(getStatsBundle) {
     if (!isEnabled()) return null;
+    if (isGuestSession()) return null;
     const consent = await ensureConsent('statsGlobal');
     if (!consent) return null;
     const today = new Date().toISOString().slice(0, 10);
@@ -26525,6 +26541,9 @@ window.PT_VS_3BET_JSON = {
     if (!leadEl) return;
     leadEl.classList.remove('home-lead--loading');
     leadEl.innerHTML = DEFAULT_HOME_LEAD;
+    const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+      || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+    if (guestOn) return;
     if (!window.PTAIReport || !PTAIReport.fetchHomeGreeting) return;
     const reqId = ++homeGreetingRequest;
     const runFetch = function () {
@@ -26594,7 +26613,9 @@ window.PT_VS_3BET_JSON = {
     }
 
     const coachMount = $('#home-coach-mount');
-    if (coachMount && window.PTAIReport && PTAIReport.mountWelcome) {
+    const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+      || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+    if (coachMount && !guestOn && window.PTAIReport && PTAIReport.mountWelcome) {
       PTAIReport.mountWelcome(coachMount, {
         userName: firstNameFromUser(window.PT_AUTH_USER),
         onTrain: () => goToTab('play', { setup: true })

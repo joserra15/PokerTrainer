@@ -36,6 +36,7 @@
   }
 
   function openLoginPanel() {
+    closeLandingNav();
     var panel = document.getElementById('landing-login');
     if (!panel) return;
     panel.classList.remove('hidden');
@@ -59,8 +60,119 @@
     }
   }
 
+  var LANDING_NAV_MQ = '(max-width: 960px)';
+
+  function isLandingCompactNav() {
+    try {
+      return !!(global.matchMedia && global.matchMedia(LANDING_NAV_MQ).matches);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function syncLandingMore() {
+    var more = document.querySelector('#landing-nav .landing-more');
+    if (!more) return;
+    if (isLandingCompactNav()) more.setAttribute('open', '');
+    else more.removeAttribute('open');
+  }
+
+  function closeLandingNav() {
+    if (document.body && document.body.classList) {
+      document.body.classList.remove('landing-nav-open');
+    }
+    var toggle = document.getElementById('landing-nav-toggle');
+    var backdrop = document.getElementById('landing-nav-backdrop');
+    var nav = document.getElementById('landing-nav');
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    if (backdrop) {
+      backdrop.classList.add('hidden');
+      backdrop.setAttribute('aria-hidden', 'true');
+    }
+    if (nav) nav.setAttribute('aria-hidden', isLandingCompactNav() ? 'true' : 'false');
+  }
+
+  function portalLandingNav() {
+    var nav = document.getElementById('landing-nav');
+    var backdrop = document.getElementById('landing-nav-backdrop');
+    if (!nav || !backdrop) return;
+    if (nav.parentElement !== document.body) document.body.appendChild(nav);
+    if (backdrop.parentElement !== document.body) document.body.appendChild(backdrop);
+  }
+
+  function restoreLandingNav() {
+    var nav = document.getElementById('landing-nav');
+    var backdrop = document.getElementById('landing-nav-backdrop');
+    var top = document.querySelector('.landing-top');
+    var main = document.querySelector('.landing-main');
+    if (!nav || !top) return;
+    if (nav.parentElement !== top) {
+      top.appendChild(nav);
+    }
+    if (backdrop && main && backdrop.parentElement !== main) {
+      if (top.nextSibling) main.insertBefore(backdrop, top.nextSibling);
+      else main.appendChild(backdrop);
+    }
+    closeLandingNav();
+    syncLandingMore();
+  }
+
+  function openLandingNav() {
+    if (isLandingCompactNav()) {
+      portalLandingNav();
+      syncLandingMore();
+    }
+    if (document.body && document.body.classList) {
+      document.body.classList.add('landing-nav-open');
+    }
+    var toggle = document.getElementById('landing-nav-toggle');
+    var backdrop = document.getElementById('landing-nav-backdrop');
+    var nav = document.getElementById('landing-nav');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    if (nav) nav.setAttribute('aria-hidden', 'false');
+    if (backdrop) {
+      backdrop.classList.remove('hidden');
+      backdrop.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function bindLandingMenu() {
+    var toggle = document.getElementById('landing-nav-toggle');
+    var closeBtn = document.getElementById('landing-nav-close');
+    var backdrop = document.getElementById('landing-nav-backdrop');
+    var nav = document.getElementById('landing-nav');
+    if (!toggle || !nav) return;
+
+    if (isLandingCompactNav()) {
+      portalLandingNav();
+      syncLandingMore();
+    }
+
+    toggle.addEventListener('click', function () {
+      if (document.body && document.body.classList && document.body.classList.contains('landing-nav-open')) {
+        closeLandingNav();
+      } else {
+        openLandingNav();
+      }
+    });
+    if (closeBtn) closeBtn.addEventListener('click', closeLandingNav);
+    if (backdrop) backdrop.addEventListener('click', closeLandingNav);
+    nav.querySelectorAll('a, [data-landing-login]').forEach(function (el) {
+      el.addEventListener('click', function () { closeLandingNav(); });
+    });
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('resize', function () {
+        if (isLandingCompactNav()) {
+          portalLandingNav();
+          syncLandingMore();
+        } else restoreLandingNav();
+      });
+    }
+  }
+
   function startGuestNow() {
     trackLanding('cta_try');
+    closeLandingNav();
     closeLoginPanel();
     if (global.PTGuest && global.PTGuest.enter) {
       global.PTGuest.enter();
@@ -343,6 +455,7 @@
         if (inst) inst.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     });
+    bindLandingMenu();
     bindPromoCodeForm();
   }
 

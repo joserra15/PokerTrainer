@@ -13,6 +13,12 @@ test.describe('Landing guest L0–L2 @smoke', () => {
       }));
     });
 
+    const aiDialogs = [];
+    page.on('dialog', async (dialog) => {
+      aiDialogs.push(dialog.message());
+      await dialog.dismiss();
+    });
+
     await page.goto('/');
     await page.waitForSelector('[data-landing-try]', { timeout: 20000 });
     await expect(page.locator('#landing-hero h1')).toContainText(/5 manos|aciertas/i);
@@ -47,5 +53,6 @@ test.describe('Landing guest L0–L2 @smoke', () => {
 
     const oauth = await page.evaluate(() => window.__ptOAuthCalls || 0);
     expect(oauth).toBe(0);
+    expect(aiDialogs.filter((m) => /servicio de IA|ForgeCoach/i.test(m))).toEqual([]);
   });
 });

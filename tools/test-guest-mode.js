@@ -106,7 +106,20 @@ assert.ok(/returnToLanding/.test(src) && /data-guest-landing/.test(src), 'Volver
 
 const trapsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/guest-traps.js'), 'utf8');
 assert.ok(/g1-ato-bb-vs-utg/.test(trapsSrc) && /g4-kjo-sb-vs-utg/.test(trapsSrc), 'trampas preflop clásicas + SB');
+assert.ok(/board: \['Th', '8h'/.test(trapsSrc), 'mano 1 flop 10');
+assert.ok(/guestNeverFold: true/.test(trapsSrc) && /villainCards: \['As', 'Qc'\]/.test(trapsSrc),
+  'mano 2/4 villano no foldea; mano 4 AQ');
 assert.ok(/id: 'limp'/.test(fs.readFileSync(path.join(__dirname, '..', 'js/engine.js'), 'utf8')), 'limp guest en RFI');
+assert.ok(/guestNeverFoldVillain/.test(fs.readFileSync(path.join(__dirname, '..', 'js/engine.js'), 'utf8')),
+  'motor: guest never-fold solo con flag');
+
+const aiSrc = fs.readFileSync(path.join(__dirname, '..', 'js/ai-report.js'), 'utf8');
+assert.ok(/isGuestSession/.test(aiSrc) && /isGuestSession\(\)\) return Promise\.resolve\(false\)/.test(aiSrc),
+  'consentimiento IA no se pide en guest');
+assert.ok(/isGuestSession\(\)\) return null/.test(aiSrc), 'saludo IA no se pide en guest');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', 'js/app.js'), 'utf8');
+assert.ok(/loadHomeGreeting/.test(appSrc) && /guestOn/.test(appSrc) && /if \(guestOn\) return/.test(appSrc),
+  'saludo ForgeCoach no se dispara en la prueba');
 
 const landing = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
 assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/.test(landing), 'eventos landing');
@@ -132,6 +145,13 @@ assert.ok(/¿Aciertas las cinco manos, del preflop al river\?/.test(html) && /ho
 assert.ok(!/as débil/.test(html) && !/broadway offsuit/.test(html), 'paso 1 sin lista de spots viejos');
 assert.ok(/guest-mode-banner/.test(html), 'banner guest');
 assert.ok(/js\/guest-mode\.js/.test(html) && /js\/guest-traps\.js/.test(html), 'scripts early');
+assert.ok(/id="landing-nav-toggle"/.test(html) && /id="landing-nav-backdrop"/.test(html),
+  'landing móvil: hamburguesa + backdrop');
+assert.ok(/landing-login-btn/.test(html) && /btn btn-primary btn-sm landing-login-btn/.test(html),
+  'Entrar destaca como botón primario');
+const landingJs = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
+assert.ok(/bindLandingMenu/.test(landingJs) && /landing-nav-open/.test(landingJs),
+  'cajón de menú landing como en la app');
 
 const i18n = fs.readFileSync(path.join(__dirname, '..', 'js/i18n.js'), 'utf8');
 assert.ok(/¿Aciertas las cinco manos, del preflop al river\?/.test(i18n) && /from preflop to river/.test(i18n), 'i18n how.s1 reto');

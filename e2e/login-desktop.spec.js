@@ -48,8 +48,8 @@ test.describe('Login landing desktop @smoke', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('[data-landing-login]', { timeout: 15000 });
-    await page.locator('[data-landing-login]').first().click();
+    await page.waitForSelector('.landing-login-btn', { timeout: 15000 });
+    await page.locator('.landing-login-btn').click();
     await page.waitForSelector('#landing-login:not(.hidden) #auth-mobile-login', { timeout: 15000 });
     await expect(page.locator('#auth-mobile-login')).toBeVisible();
     await expect(page.locator('#google-signin-btn')).toBeHidden();

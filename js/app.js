@@ -1008,6 +1008,9 @@
     if (!leadEl) return;
     leadEl.classList.remove('home-lead--loading');
     leadEl.innerHTML = DEFAULT_HOME_LEAD;
+    const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+      || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+    if (guestOn) return;
     if (!window.PTAIReport || !PTAIReport.fetchHomeGreeting) return;
     const reqId = ++homeGreetingRequest;
     const runFetch = function () {
@@ -1077,7 +1080,9 @@
     }
 
     const coachMount = $('#home-coach-mount');
-    if (coachMount && window.PTAIReport && PTAIReport.mountWelcome) {
+    const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+      || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+    if (coachMount && !guestOn && window.PTAIReport && PTAIReport.mountWelcome) {
       PTAIReport.mountWelcome(coachMount, {
         userName: firstNameFromUser(window.PT_AUTH_USER),
         onTrain: () => goToTab('play', { setup: true })
