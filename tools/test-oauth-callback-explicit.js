@@ -20,7 +20,7 @@ assert(/hasOAuthCallback/.test(guard), 'build-guard no recarga durante OAuth cal
 assert(!/accounts\.google\.com\/gsi\/client/.test(indexHtml), 'GSI no se carga siempre en index');
 assert(/accounts\.google\.com/.test(indexHtml) && /style-src[^"]*accounts\.google\.com/.test(indexHtml),
   'CSP permite estilos GSI por si hay fallback');
-assert(/PT_BUILD\s*=\s*'2.5.57'/.test(version), 'PT_BUILD 2.5.57');
+assert(/PT_BUILD\s*=\s*'2.5.58'/.test(version), 'PT_BUILD 2.5.58');
 assert(!/PTSupabase\.getClient/.test(fs.readFileSync(path.join(root, 'js/guest-funnel.js'), 'utf8')),
   'funnel ingest no toca Auth client');
 

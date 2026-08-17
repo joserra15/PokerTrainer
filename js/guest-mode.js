@@ -6,6 +6,7 @@
 
   var GUEST_ID = 'pt_guest_local';
   var STORE_KEY = 'pt_guest_v1';
+  var HANDOFF_KEY = 'pt_oauth_handoff';
   var HAND_LIMIT = 5;
   var starting = false;
   var firstDealt = false;
@@ -54,7 +55,53 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(st || emptyState())); } catch (e) { /* noop */ }
   }
 
+  function hasOAuthCallback() {
+    try {
+      return /[?&#](?:code|access_token|error|error_code)=/.test(location.href || '');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function markOAuthHandoff() {
+    try {
+      if (global.sessionStorage) global.sessionStorage.setItem(HANDOFF_KEY, '1');
+    } catch (e) { /* noop */ }
+  }
+
+  function clearOAuthHandoff() {
+    try {
+      if (global.sessionStorage) global.sessionStorage.removeItem(HANDOFF_KEY);
+    } catch (e) { /* noop */ }
+  }
+
+  function oauthHandoffPending() {
+    if (hasOAuthCallback()) {
+      markOAuthHandoff();
+      return true;
+    }
+    try {
+      return !!(global.sessionStorage && global.sessionStorage.getItem(HANDOFF_KEY) === '1');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function hasRealUser() {
+    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    if (u && !u.isGuest) return true;
+    try {
+      var raw = global.localStorage && global.localStorage.getItem('pt_auth_v1');
+      if (!raw) return false;
+      var data = JSON.parse(raw);
+      return !!(data && data.sub && data.email && !data.isGuest);
+    } catch (e) {
+      return false;
+    }
+  }
+
   function isActive() {
+    if (oauthHandoffPending() || hasRealUser()) return false;
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
     if (u && u.isGuest) return true;
     var st = readState();
@@ -62,6 +109,7 @@
   }
 
   function wantsEnter() {
+    if (oauthHandoffPending() || hasRealUser()) return false;
     var st = readState();
     return !!(st && st.active);
   }
@@ -222,6 +270,7 @@
   }
 
   function showGate(reason) {
+    if (oauthHandoffPending() || hasRealUser()) return;
     var el = document.getElementById('guest-gate-modal');
     if (!el) return;
     var st = readState();
@@ -350,6 +399,7 @@
   }
 
   function startTraps() {
+    if (oauthHandoffPending() || hasRealUser()) return;
     if (firstDealt || starting) return;
     if (!global.Engine || !global.playAnalysisHand) {
       waitFor(function () { return !!(global.Engine && global.playAnalysisHand); }, 80, 80, function (ok) {
@@ -496,6 +546,11 @@
     global.addEventListener('pt-guest-ready', function () {
       global.setTimeout(startTraps, 50);
     });
+    if (oauthHandoffPending()) {
+      hideGate();
+      applyChrome(false);
+      return;
+    }
     if (wantsEnter() && !(global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser())) {
       applyChrome(true);
     }
@@ -504,6 +559,11 @@
   global.PTGuest = {
     GUEST_ID: GUEST_ID,
     HAND_LIMIT: HAND_LIMIT,
+    HANDOFF_KEY: HANDOFF_KEY,
+    hasOAuthCallback: hasOAuthCallback,
+    markOAuthHandoff: markOAuthHandoff,
+    clearOAuthHandoff: clearOAuthHandoff,
+    oauthHandoffPending: oauthHandoffPending,
     isActive: isActive,
     wantsEnter: wantsEnter,
     remaining: remaining,

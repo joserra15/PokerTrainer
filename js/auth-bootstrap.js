@@ -91,15 +91,24 @@
     } catch (e) { /* noop */ }
   }
 
+  function hideGuestChrome() {
+    try {
+      if (global.PTGuest) {
+        if (global.PTGuest.hideGate) global.PTGuest.hideGate();
+        if (global.PTGuest.applyChrome) global.PTGuest.applyChrome(false);
+      }
+      if (document.body && document.body.classList) {
+        document.body.classList.remove('guest-mode', 'guest-gate-open');
+      }
+    } catch (e) { /* noop */ }
+  }
+
   async function enterFromBootstrap(user) {
     user = normalizeUser(user);
-    if (global.PTAgeGate && global.PTAgeGate.ensureConfirmed) {
-      var ageOk = await global.PTAgeGate.ensureConfirmed(user);
-      if (!ageOk) {
-        retryLogin();
-        return;
-      }
-    }
+    hideGuestChrome();
+    // Guardar sesión YA: requireAuth no debe reabrir invitado mientras el age-gate espera.
+    global.PT_AUTH_USER = user;
+    saveLegacySession(user);
     var shell = $('app-shell');
     var gate = $('auth-gate');
     if (shell) {
@@ -111,11 +120,16 @@
       gate.setAttribute('aria-hidden', 'true');
     }
     document.body.classList.remove('auth-locked');
-    global.PT_AUTH_USER = user;
-    saveLegacySession(user);
     migrateLocalData(user);
     global.dispatchEvent(new CustomEvent('pt-auth-bootstrap', { detail: user }));
     trackAuthFlow(user);
+    // Age-gate lo aplica auth.js (enterApp). Si pt-core aún no cargó, enterApp lo hará al boot.
+    if (!(global.PTAuth && global.PTAuth.requireAuth) && global.PTAgeGate && global.PTAgeGate.ensureConfirmed) {
+      var ageOk = await global.PTAgeGate.ensureConfirmed(user);
+      if (!ageOk) {
+        retryLogin();
+      }
+    }
   }
 
   // Distingue alta real (primera vez que vemos este usuario) de login recurrente,
@@ -363,6 +377,20 @@
     return params;
   }
 
+  function markHandoff() {
+    try {
+      if (global.PTGuest && global.PTGuest.markOAuthHandoff) global.PTGuest.markOAuthHandoff();
+      else if (global.sessionStorage) global.sessionStorage.setItem('pt_oauth_handoff', '1');
+    } catch (e) { /* noop */ }
+  }
+
+  function clearHandoff() {
+    try {
+      if (global.PTGuest && global.PTGuest.clearOAuthHandoff) global.PTGuest.clearOAuthHandoff();
+      else if (global.sessionStorage) global.sessionStorage.removeItem('pt_oauth_handoff');
+    } catch (e) { /* noop */ }
+  }
+
   function hasOAuthCallback() {
     try {
       var p = oauthCallbackParams();
@@ -381,6 +409,7 @@
       try { desc = decodeURIComponent(String(desc).replace(/\+/g, ' ')); } catch (e) { /* noop */ }
       showError('Google/Supabase: ' + desc);
       cleanOAuthUrl();
+      clearHandoff();
       return true;
     } catch (e) {
       return false;
@@ -390,6 +419,7 @@
   /** Consume ?code= (PKCE) o #access_token= tras volver de Google. */
   async function consumeOAuthCallback(client) {
     if (!client || !client.auth) return null;
+    if (hasOAuthCallback()) markHandoff();
     if (showOAuthCallbackError()) return null;
     var params = oauthCallbackParams();
     var code = params.get('code');
@@ -398,6 +428,7 @@
       if (exchanged.error) {
         showError(exchanged.error.message || 'No se pudo completar el login con Google.');
         cleanOAuthUrl();
+        clearHandoff();
         return null;
       }
       cleanOAuthUrl();
@@ -413,6 +444,7 @@
       if (setRes.error) {
         showError(setRes.error.message || 'Token de sesión inválido.');
         cleanOAuthUrl();
+        clearHandoff();
         return null;
       }
       cleanOAuthUrl();
@@ -497,6 +529,10 @@
   async function boot() {
     // Siempre enlazar el CTA de login antes de cualquier await.
     setupLoginUi();
+    if (hasOAuthCallback()) {
+      markHandoff();
+      hideGuestChrome();
+    }
     if (global.PT_E2E_MODE) {
       var e2eUser = loadSavedSession();
       if (e2eUser) {

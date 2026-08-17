@@ -64,8 +64,9 @@
     var exitBtn = document.getElementById('age-gate-exit');
     var emailEl = document.getElementById('age-gate-user');
     if (emailEl) {
+      var account = user && String(user.email || '').trim();
       var legalEmail = global.PT_LEGAL && (global.PT_LEGAL.supportEmail || global.PT_LEGAL.controllerEmail);
-      emailEl.textContent = legalEmail || 'info@pokerforgeai.com';
+      emailEl.textContent = account || legalEmail || 'info@pokerforgeai.com';
     }
     return new Promise(function (resolve) {
       activeResolve = resolve;

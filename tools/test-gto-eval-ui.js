@@ -23,7 +23,7 @@ const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const shareCss = fs.readFileSync(path.join(root, 'css/share.css'), 'utf8');
 
-assert(/PT_BUILD\s*=\s*'2.5.57'/.test(version), 'versión 2.5.57');
+assert(/PT_BUILD\s*=\s*'2.5.58'/.test(version), 'versión 2.5.58');
 assert(
   !/matrixSource\s*&&\s*window\.PTRangeMatrix/.test(app),
   'renderHandDecisionsSummary no exige PTRangeMatrix para mostrar botones'
