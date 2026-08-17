@@ -1,5 +1,5 @@
 /*
- * guest-mode.js — Prueba de 5 manos-trampa sin registro (L2–L3).
+ * guest-mode.js — Prueba de 5 manos sin registro (L2–L3).
  */
 (function (global) {
   'use strict';
@@ -9,6 +9,13 @@
   var HAND_LIMIT = 5;
   var starting = false;
   var firstDealt = false;
+  var STREET_ORDER = ['preflop', 'flop', 'turn', 'river'];
+  var STREET_LABEL = {
+    preflop: 'Preflop',
+    flop: 'Flop',
+    turn: 'Turn',
+    river: 'River'
+  };
 
   function trapsApi() {
     return global.PTGuestTraps;
@@ -64,13 +71,50 @@
     return Math.max(0, handLimit() - (st.hands ? st.hands.length : 0));
   }
 
-  function score() {
-    var hands = readState().hands || [];
+  function isGoodClass(cls) {
+    return cls === 'optima' || cls === 'aceptable';
+  }
+
+  function decisionsOf(handRec) {
+    if (!handRec) return [];
+    if (Array.isArray(handRec.decisions) && handRec.decisions.length) return handRec.decisions;
+    if (handRec.class || handRec.action) {
+      return [{
+        street: handRec.street || 'preflop',
+        class: handRec.class || '',
+        action: handRec.action || '',
+        best: handRec.best || ''
+      }];
+    }
+    return [];
+  }
+
+  function streetScore() {
+    var by = {
+      preflop: { good: 0, n: 0 },
+      flop: { good: 0, n: 0 },
+      turn: { good: 0, n: 0 },
+      river: { good: 0, n: 0 }
+    };
     var good = 0;
-    hands.forEach(function (h) {
-      if (h && (h.class === 'optima' || h.class === 'aceptable')) good++;
+    var total = 0;
+    (readState().hands || []).forEach(function (h) {
+      decisionsOf(h).forEach(function (d) {
+        var key = d && STREET_LABEL[d.street] ? d.street : 'preflop';
+        by[key].n += 1;
+        total += 1;
+        if (isGoodClass(d.class)) {
+          by[key].good += 1;
+          good += 1;
+        }
+      });
     });
-    return { good: good, total: hands.length, limit: handLimit() };
+    return { by: by, good: good, total: total, hands: (readState().hands || []).length, limit: handLimit() };
+  }
+
+  function score() {
+    var sc = streetScore();
+    return { good: sc.good, total: sc.total, hands: sc.hands, limit: sc.limit, byStreet: sc.by };
   }
 
   function hasProgress() {
@@ -108,6 +152,16 @@
         count.textContent = (st.hands ? st.hands.length : 0) + ' / ' + handLimit();
       }
     }
+    var newHand = document.getElementById('new-hand');
+    if (newHand) {
+      if (on) {
+        newHand.removeAttribute('data-i18n');
+        newHand.textContent = 'Siguiente mano';
+      } else {
+        newHand.setAttribute('data-i18n', 'play.newHand');
+        newHand.textContent = (global.PTI18n && global.PTI18n.t) ? global.PTI18n.t('play.newHand') : 'Nueva mano';
+      }
+    }
     if (global.PTAuth && global.PTAuth.renderAccountMenu) {
       var u = global.PTAuth.getUser && global.PTAuth.getUser();
       if (u) global.PTAuth.renderAccountMenu(u);
@@ -139,20 +193,45 @@
     return T.playConfig(spot);
   }
 
+  function pct(good, n) {
+    if (!n) return '—';
+    return Math.round((good / n) * 100) + '%';
+  }
+
+  function renderStreetSummary() {
+    var host = document.getElementById('guest-gate-streets');
+    if (!host) return;
+    var sc = streetScore();
+    var rows = STREET_ORDER.map(function (key) {
+      var row = sc.by[key];
+      if (!row || !row.n) return '';
+      return '<div class="guest-street-row"><span>' + STREET_LABEL[key] +
+        '</span><span>' + row.good + ' / ' + row.n + ' · ' + pct(row.good, row.n) + '</span></div>';
+    }).filter(Boolean).join('');
+    if (!rows) {
+      host.innerHTML = '';
+      return;
+    }
+    host.innerHTML = rows +
+      '<div class="guest-street-row total"><span>Total</span><span>' +
+      sc.good + ' / ' + sc.total + ' · ' + pct(sc.good, sc.total) + '</span></div>';
+  }
+
   function showGate(reason) {
     var el = document.getElementById('guest-gate-modal');
     if (!el) return;
     var st = readState();
     st.gateShown = true;
     writeState(st);
-    var sc = score();
+    var sc = streetScore();
     var scoreEl = document.getElementById('guest-gate-score');
     if (scoreEl) {
-      scoreEl.textContent = sc.total
-        ? ('Has acertado ' + sc.good + ' de ' + sc.total +
-          '. Estas manos están hechas para pillar el instinto recreativo.')
+      scoreEl.textContent = sc.hands
+        ? ('Has jugado ' + sc.hands + ' de ' + sc.limit +
+          ' manos. Acierto por calle de esta prueba:')
         : 'Guarda la cuenta para seguir entrenando.';
     }
+    renderStreetSummary();
     var age = document.getElementById('guest-gate-age');
     var loginBtn = document.getElementById('guest-gate-login');
     if (age && loginBtn) {
@@ -162,7 +241,7 @@
     if (document.body && document.body.classList) {
       document.body.classList.add('guest-gate-open');
     }
-    track('guest_gate_shown', { reason: reason || 'limit', good: sc.good, total: sc.total });
+    track('guest_gate_shown', { reason: reason || 'limit', good: sc.good, total: sc.total, hands: sc.hands });
   }
 
   function hideGate() {
@@ -186,16 +265,18 @@
     return false;
   }
 
-  function recordDecision(decision) {
-    if (!isActive() || !decision) return;
+  function pushHandRecord(rec) {
+    if (!isActive() || !rec) return;
     var st = readState();
     if (st.hands.length >= handLimit()) return;
     var spot = currentSpot();
     st.hands.push({
-      id: spot ? spot.id : ('g' + (st.hands.length + 1)),
-      class: decision.class || '',
-      action: decision.action || '',
-      best: decision.best || '',
+      id: rec.id || (spot ? spot.id : ('g' + (st.hands.length + 1))),
+      class: rec.class || '',
+      action: rec.action || '',
+      best: rec.best || '',
+      street: rec.street || '',
+      decisions: Array.isArray(rec.decisions) ? rec.decisions : [],
       ts: Date.now()
     });
     st.index = st.hands.length;
@@ -203,17 +284,54 @@
     refreshBanner();
     track('guest_hand', {
       index: st.hands.length,
-      class: decision.class || '',
-      trap: spot ? spot.id : ''
+      class: rec.class || '',
+      trap: rec.id || (spot ? spot.id : ''),
+      decisions: (rec.decisions || []).length
     });
     if (st.hands.length >= handLimit()) {
       global.setTimeout(function () { showGate('limit'); }, 650);
     }
   }
 
-  function afterTrainerAction(hand, decision) {
-    if (!isActive()) return false;
-    recordDecision(decision);
+  function recordDecision(decision) {
+    if (!decision) return;
+    pushHandRecord({
+      class: decision.class || '',
+      action: decision.action || '',
+      best: decision.best || '',
+      street: decision.street || 'preflop',
+      decisions: [{
+        street: decision.street || 'preflop',
+        class: decision.class || '',
+        action: decision.action || '',
+        best: decision.best || ''
+      }]
+    });
+  }
+
+  function afterHandFinished(hand) {
+    if (!isActive() || !hand) return;
+    var spot = currentSpot();
+    var decisions = (hand.decisions || []).map(function (d) {
+      return {
+        street: d.street || '',
+        class: d.class || '',
+        action: d.action || d.id || '',
+        best: d.best || ''
+      };
+    });
+    var last = decisions.length ? decisions[decisions.length - 1] : {};
+    pushHandRecord({
+      id: spot ? spot.id : '',
+      class: last.class || '',
+      action: last.action || '',
+      best: last.best || '',
+      street: last.street || '',
+      decisions: decisions
+    });
+  }
+
+  function afterTrainerAction(/* hand, decision */) {
     return false;
   }
 
@@ -352,6 +470,7 @@
     wantsEnter: wantsEnter,
     remaining: remaining,
     score: score,
+    streetScore: streetScore,
     hasProgress: hasProgress,
     enter: enter,
     guestUser: guestUser,
@@ -359,6 +478,7 @@
     nextPlayConfig: nextPlayConfig,
     startTraps: startTraps,
     afterTrainerAction: afterTrainerAction,
+    afterHandFinished: afterHandFinished,
     recordDecision: recordDecision,
     maybeGate: maybeGate,
     showGate: showGate,

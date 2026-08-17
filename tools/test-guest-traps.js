@@ -67,7 +67,8 @@ scripts.forEach(function (f) {
 const Engine = sandbox.window.Engine;
 const Traps = sandbox.window.PTGuestTraps;
 assert.ok(Engine && Traps, 'Engine + PTGuestTraps');
-assert.strictEqual(Traps.list().length, 5, '5 trampas');
+assert.strictEqual(Traps.list().length, 5, '5 manos guest');
+assert.ok(!Traps.playConfig(Traps.list()[0]).schoolDecisionEnd, 'guest juega la mano entera');
 
 Traps.list().forEach(function (spot, i) {
   const force = Traps.toForce(spot);
