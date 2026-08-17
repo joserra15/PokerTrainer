@@ -17,6 +17,8 @@
 7. [Riesgos y apuestas estratégicas](#7-riesgos-y-apuestas-estratégicas)
 8. [Conclusiones](#8-conclusiones)
 
+Documento operativo de conversión landing → registro (agosto 2026): [`ESTUDIO_LANDING_SIN_REGISTRO.md`](./ESTUDIO_LANDING_SIN_REGISTRO.md).
+
 ---
 
 ## 1. Resumen ejecutivo
@@ -30,7 +32,7 @@
 | Paridad vs Snowie-class | **Parcial** — live advisor y PWA hechos; falta modo sesión, GG, what-if, trial claro |
 | Paridad vs GTO Wizard | **Baja (a propósito)** — no competimos en biblioteca solver |
 | Diferenciador real | Español nativo + import sesiones reales + IA narrativa + precio Study €14,99 |
-| Mayor freno a nuevos usuarios | Onboarding/trial confuso, cobertura de salas incompleta, duda de “¿es GTO de verdad?” |
+| Mayor freno a nuevos usuarios | **Hard gate Google** (260 visitas → 58 cuentas) + onboarding/trial confuso, cobertura de salas, duda de “¿es GTO de verdad?” |
 
 **Veredicto:** El producto ya es vendible. El siguiente salto de crecimiento no es “más solver”, sino **cerrar la primera hora del usuario** (claridad free/trial, import que “simplemente funciona”, bloque de entrenamiento con resultado visible) y **comunicar honestamente** por qué es mejor opción que Snowie a mitad de precio y que Wizard a ⅓–⅒ del coste.
 
@@ -256,8 +258,8 @@ Escala de reclamo: 5 = “razón principal para registrarse o pagar”; 1 = nice
 | **1** | **Trial Study 10 días + pantalla “Empieza gratis” con límites claros** | 5 | Elimina fricción tipo Snowie; el free actual (15 manos/día) se percibe “tacaño” vs trial completo | Stripe `trialing` ya soportado; falta UX y emails D+3/D+8 |
 | **2** | **Import GGPoker + multi-archivo + copy/FAQ alineados** | 5 | “¿Soporta mi sala?” es filtro binario de activación; GG es sala #1 para muchos ES jóvenes | SN-20/21; actualizar FAQ que aún dice “solo PokerStars” |
 | **3** | **Modo sesión 25/50/100 + resumen (acierto, EV perdido, tiempo) + atajo “Calentamiento 15 min”** | 5 | Los nuevos no quieren menú infinito; quieren un ritual diario medible | SN-14/51; habit loop = retención semana 1 |
-| **4** | **Landing: tabla honesta vs Snowie / Wizard + prueba social + PWA “Instálalo”** | 4.5 | Nuevos llegan comparando; sin ancla de precio/idioma pierden el “aha” | SN-54; no exagerar GTO |
-| **5** | **Onboarding guiado 3 pasos: demo sesión → 10 manos calentamiento → ver leak** | 4.5 | Time-to-value &lt; 3 min; reduce bounce post-login | Sesión demo ya existe; falta orquestación UI |
+| **4** | **Landing: tabla honesta vs Snowie / Wizard + prueba social + PWA “Instálalo”** | 4.5 | Nuevos llegan comparando; sin ancla de precio/idioma pierden el “aha” | SN-54; no exagerar GTO. **Antes:** simplificar hero y quitar el hard gate Google — ver [`ESTUDIO_LANDING_SIN_REGISTRO.md`](./ESTUDIO_LANDING_SIN_REGISTRO.md) |
+| **5** | **Onboarding guiado 3 pasos: demo sesión → 10 manos calentamiento → ver leak** | 4.5 | Time-to-value &lt; 3 min; reduce bounce post-login | Sesión demo ya existe; falta orquestación UI. Idealmente las 5 primeras manos son **sin registro** (L2 del estudio de landing) |
 
 ### P1 — Alto reclamo / retención temprana (días 2–14)
 
@@ -287,19 +289,20 @@ Escala de reclamo: 5 = “razón principal para registrarse o pagar”; 1 = nice
 ### Orden final recomendado (backlog de producto)
 
 ```
-1  Trial 10d + límites claros en landing
-2  Import GG + multi-file + FAQ/copy
-3  Modo sesión + Calentamiento 15 min
-4  Landing comparativa Snowie/Wizard + PWA CTA
-5  Onboarding 3 pasos (demo → warmup → leak)
-6  Leaks dashboard calle/spot → drill
-7  What-if en import
-8  IA: gratis/trial + hilo conversacional grounded
-9  Adaptive drill queue
-10 Sizing toggle + favoritos
-11 Share / social leak
-12 EN i18n + blog SEO ES
-13 … (P2 restante)
+1  Landing simple + prueba sin registro (ver ESTUDIO_LANDING_SIN_REGISTRO.md)
+2  Trial 10d + límites claros en landing
+3  Import GG + multi-file + FAQ/copy
+4  Modo sesión + Calentamiento 15 min
+5  Landing comparativa Snowie/Wizard + PWA CTA (tras ver el producto)
+6  Onboarding 3 pasos (demo → warmup → leak) — también en modo invitado
+7  Leaks dashboard calle/spot → drill
+8  What-if en import
+9  IA: gratis/trial + hilo conversacional grounded
+10 Adaptive drill queue
+11 Sizing toggle + favoritos
+12 Share / social leak
+13 EN i18n + blog SEO ES
+14 … (P2 restante)
 ```
 
 ---
@@ -348,7 +351,7 @@ Escala de reclamo: 5 = “razón principal para registrarse o pagar”; 1 = nice
 
 1. **PokerForgeAI ya no es un prototipo:** billing, legal, PWA, live advisor, import PS/Winamax, leaks, IA y admin están listos. El estudio de mercado de junio (v1.19) no describe el producto actual.
 2. **El competidor de forma es PokerSnowie; el de aspiración es GTO Wizard; el de precio/nicho trainers es Gecko/Lucid/DTO.** Nuestro cuadrante (sesiones reales + IA + español + €15) está poco ocupado.
-3. **Para nuevos usuarios, el orden de impacto es:** trial claro → salas de import → ritual de sesión/calentamiento → landing comparativa → onboarding → leaks accionables → what-if → IA de prueba.
+3. **Para nuevos usuarios, el orden de impacto es:** **probar la mesa sin Google** → trial claro → salas de import → ritual de sesión/calentamiento → landing comparativa → onboarding → leaks accionables → what-if → IA de prueba. El cuello actual (260 visitas / 58 cuentas) está en el hard gate, no en la tabla vs Snowie.
 4. **No ganaréis la guerra del solver.** Ganaréis si la primera hora responde: “entrené, vi mis fugas en mis manos, y me lo explicaron en español”.
 5. **Siguiente documento operativo:** convertir la lista P0–P1 en issues GitHub con criterios de aceptación (reutilizar IDs SN-* de EPIC 10 donde apliquen).
 
@@ -367,6 +370,7 @@ Escala de reclamo: 5 = “razón principal para registrarse o pagar”; 1 = nice
 | `EPIC_10_PARIDAD_SNOWIE.md` | Backlog táctico Snowie; alinear estados (advisor/PWA hechos) |
 | `BILLING.md` | Fuente de verdad de planes |
 | **Este documento** | Visión producto + mercado agosto 2026 y priorización por reclamo a nuevos usuarios |
+| `ESTUDIO_LANDING_SIN_REGISTRO.md` | Diagnóstico 260→58 y roadmap L0–L4 (hero simple + modo invitado) |
 
 ---
 
