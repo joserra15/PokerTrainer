@@ -252,6 +252,10 @@
     if (userId) migrateLegacyOnce(userId);
   }
 
+  function getUserId() {
+    return userId;
+  }
+
   function defaultStats() {
     return {
       handsPlayed: 0, totalEvLoss: 0, totalNet: 0,
@@ -1220,13 +1224,47 @@
     return s;
   }
 
-  function getCloudSnapshot() {
+  function getOnboardingForCloud() {
+    if (global.PTOnboarding && typeof global.PTOnboarding.getCloudState === 'function') {
+      return global.PTOnboarding.getCloudState();
+    }
+    return null;
+  }
+
+  function mergeOnboardingStates(localOb, cloudOb) {
+    if (global.PTOnboarding && typeof global.PTOnboarding.mergeStates === 'function') {
+      return global.PTOnboarding.mergeStates(localOb, cloudOb);
+    }
+    const local = localOb || {};
+    const cloud = cloudOb || {};
+    const done = Object.assign({}, cloud.done || {}, local.done || {});
+    Object.keys(done).forEach(function (k) {
+      if ((local.done && local.done[k]) || (cloud.done && cloud.done[k])) done[k] = true;
+      else delete done[k];
+    });
     return {
+      dismissed: !!(local.dismissed || cloud.dismissed),
+      done: done,
+      updatedAt: Math.max(Number(local.updatedAt) || 0, Number(cloud.updatedAt) || 0)
+    };
+  }
+
+  function applyOnboardingFromCloud(remote) {
+    if (global.PTOnboarding && typeof global.PTOnboarding.mergeFromCloud === 'function') {
+      global.PTOnboarding.mergeFromCloud(remote || null);
+    }
+  }
+
+  function getCloudSnapshot() {
+    const snap = {
       stats: getStats(),
       history: getHistory(),
       errors: getErrors(),
       clearedAt: getClearedAt()
     };
+    const onboarding = getOnboardingForCloud();
+    if (onboarding) snap.onboarding = onboarding;
+    return snap;
   }
 
   function mergeSessionsFromCloud(cloudSessions) {
@@ -1339,6 +1377,8 @@
           delete out.clearedAt.stats;
           if (localCa.stats) out.clearedAt.stats = localCa.stats;
         }
+      } else if (key === 'onboarding') {
+        out.onboarding = mergeOnboardingStates(local.onboarding, cloud.onboarding);
       } else if (local[key] != null) {
         out[key] = local[key];
       }
@@ -1391,6 +1431,7 @@
     write(scopedKey('history'), history);
     write(scopedKey('errors'), errors);
     writeStats(stats);
+    applyOnboardingFromCloud(cloudSnapshot.onboarding);
     return { history: history.length, errors: errors.length, sessions: getSessions().length, stats: stats };
   }
 
@@ -1408,6 +1449,7 @@
     if (snapshot.errors) {
       write(scopedKey('errors'), filterByClearedAt(snapshot.errors, effectiveCloudClear('errors', cloudCa)));
     }
+    applyOnboardingFromCloud(snapshot.onboarding);
   }
 
   function normalizeCoachEntry(entry) {
@@ -1687,7 +1729,7 @@
   }
 
   global.Store = {
-    setUserId,
+    setUserId, getUserId,
     getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,

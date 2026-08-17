@@ -1,11 +1,11 @@
 /*
- * cloud-store.js — Sincronización Supabase (stats, history, errors).
+ * cloud-store.js — Sincronización Supabase (stats, history, errors, onboarding).
  * Sesiones importadas: tabla pt_import_sessions (PTCloudSessions).
  */
 (function (global) {
   'use strict';
 
-  const DATA_KEYS = ['stats', 'history', 'errors'];
+  const DATA_KEYS = ['stats', 'history', 'errors', 'onboarding'];
   const TABLE = 'pt_user_state';
   const PUSH_DELAY_MS = 2000;
 
@@ -114,10 +114,21 @@
     return !!(lessons && typeof lessons === 'object' && Object.keys(lessons).length > 0);
   }
 
+  function hasOnboardingProgress(val) {
+    if (!val || typeof val !== 'object') return false;
+    if (val.dismissed) return true;
+    const done = val.done;
+    if (!done || typeof done !== 'object') return false;
+    return Object.keys(done).some(function (k) { return !!done[k]; });
+  }
+
   function hasLocalData(key, snapshot) {
     const val = snapshot[key];
     if (key === 'stats') {
       return !!(val && (val.handsPlayed || val.decisions || hasSchoolProgress(val)));
+    }
+    if (key === 'onboarding') {
+      return hasOnboardingProgress(val);
     }
     return Array.isArray(val) && val.length > 0;
   }
@@ -224,6 +235,13 @@
     }
   }
 
+  function payloadToPush(cloudPayload) {
+    const snap = global.Store.getCloudSnapshot();
+    const extras = Object.assign({}, cloudPayload || {});
+    delete extras.sessions;
+    return Object.assign(extras, snap);
+  }
+
   async function pushPayload(payload) {
     const client = getClient();
     const uid = await ensureAuthSession();
@@ -284,7 +302,7 @@
       }
 
       if (localHas || cloudHas) {
-        await pushPayload(global.Store.getCloudSnapshot());
+        await pushPayload(payloadToPush(cloudPayload));
       }
 
       if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
@@ -328,7 +346,7 @@
       resolveResetConflicts(cloudPayload);
       const filtered = cloudPayloadForMerge(row, cloudPayload);
       const summary = global.Store.mergeFromCloud(filtered) || {};
-      await pushPayload(global.Store.getCloudSnapshot());
+      await pushPayload(payloadToPush(filtered));
       if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
         await migrateLegacyCloudRow(row);
       }
