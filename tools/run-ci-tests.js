@@ -42,6 +42,7 @@ const STEPS = [
   ['Test share-hand HTML', ['node', 'tools/test-share-hand.js']],
   ['Test landing i18n', ['node', 'tools/test-landing-i18n.js']],
   ['Test landing login CTA', ['node', 'tools/test-landing-login-cta.js']],
+  ['Test botones Entrar PKCE', ['node', 'tools/test-entrar-buttons-pkce.js']],
   ['Test guest traps', ['node', 'tools/test-guest-traps.js']],
   ['Test guest mode', ['node', 'tools/test-guest-mode.js']],
   ['Test login desktop regression', ['node', 'tools/test-login-desktop-regression.js']],
