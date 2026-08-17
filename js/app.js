@@ -951,8 +951,14 @@
     try {
       if (!window.Engine) throw new Error('Motor no cargado');
       setPlayBoot(false);
-      showPlaySetup();
-      goToTab('home');
+      if (window.PTGuest && PTGuest.isActive && PTGuest.isActive()) {
+        finishHomeBoot();
+        showPlayTable();
+        goToTab('play', { table: true });
+      } else {
+        showPlaySetup();
+        goToTab('home');
+      }
     } catch (e) {
       console.error('[Play] init failed', e);
       setPlayBoot(true, 'Error al cargar. Recarga la página.');
@@ -1149,6 +1155,12 @@
 
   function goToTab(tabId, opts) {
     opts = opts || {};
+    if (window.PTGuest && PTGuest.isActive && PTGuest.isActive()) {
+      if (tabId !== 'play') {
+        if (PTGuest.maybeGate) PTGuest.maybeGate('tab');
+        return;
+      }
+    }
     if (window.PTLog && PTLog.event) PTLog.event('tab_view', { tab: tabId });
     $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tabId));
     $$('.tab-panel').forEach((x) => x.classList.remove('active'));
@@ -1425,7 +1437,19 @@
   }
 
   function bindControls() {
-    $('#new-hand').addEventListener('click', () => { pendingForce = null; leakReplayQueue = []; void startNewHand(); });
+    $('#new-hand').addEventListener('click', () => {
+      if (window.PTGuest && PTGuest.isActive && PTGuest.isActive()) {
+        if (PTGuest.remaining && PTGuest.remaining() <= 0) {
+          if (PTGuest.showGate) PTGuest.showGate('limit');
+          return;
+        }
+        void startNewHand();
+        return;
+      }
+      pendingForce = null;
+      leakReplayQueue = [];
+      void startNewHand();
+    });
     $('#replay-hand').addEventListener('click', () => replayCurrentHand());
     $('#new-session').addEventListener('click', () => resetPlaySession());
     $('#repeat-errors').addEventListener('change', (e) => { repeatErrorsMode = e.target.checked; });
@@ -1628,8 +1652,9 @@
     $('#feedback').classList.add('hidden');
     await yieldToPaint();
     try {
+      const guestOn = window.PTGuest && PTGuest.isActive && PTGuest.isActive();
       const Ent = window.PTEntitlements;
-      if (Ent && Ent.ensureLoaded) {
+      if (!guestOn && Ent && Ent.ensureLoaded) {
         const ent = await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
         if (!check.ok) {
@@ -1642,6 +1667,19 @@
             if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
             return;
           }
+        }
+      }
+      if (guestOn) {
+        if (PTGuest.remaining && PTGuest.remaining() <= 0) {
+          if (PTGuest.showGate) PTGuest.showGate('limit');
+          return;
+        }
+        const gForce = PTGuest.nextForce && PTGuest.nextForce();
+        const gCfg = PTGuest.nextPlayConfig && PTGuest.nextPlayConfig();
+        if (gForce) pendingForce = gForce;
+        if (gCfg) {
+          playSessionConfig = gCfg;
+          replayPlayConfig = gCfg;
         }
       }
 
@@ -2284,6 +2322,9 @@
       }
       $('#feedback').classList.add('hidden');
 
+      if (window.PTGuest && typeof window.PTGuest.afterTrainerAction === 'function') {
+        window.PTGuest.afterTrainerAction(hand, d);
+      }
       if (window.PTSchool && typeof window.PTSchool.afterTrainerAction === 'function') {
         if (window.PTSchool.afterTrainerAction(hand, d)) {
           renderTable();

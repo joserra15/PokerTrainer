@@ -276,6 +276,10 @@
   }
 
   function showPaywall(reason, customMsg) {
+    if (global.PTGuest && global.PTGuest.isActive && global.PTGuest.isActive()) {
+      if (global.PTGuest.showGate) global.PTGuest.showGate(reason === 'guest_gate' ? 'limit' : (reason || 'tab'));
+      return;
+    }
     var modal = document.getElementById('paywall-modal');
     if (!modal) {
       if (customMsg) alert(customMsg);

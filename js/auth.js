@@ -96,9 +96,15 @@
     const nameEl = $('#account-name');
     const emailEl = $('#account-email');
     const shortEl = $('#account-email-short');
-    if (nameEl) nameEl.textContent = user.name;
-    if (emailEl) emailEl.textContent = user.email;
-    if (shortEl) shortEl.textContent = user.email.length > 22 ? user.email.slice(0, 20) + '…' : user.email;
+    if (nameEl) nameEl.textContent = user.isGuest ? 'Invitado' : user.name;
+    if (emailEl) emailEl.textContent = user.isGuest ? 'Prueba sin cuenta' : user.email;
+    if (shortEl) {
+      if (user.isGuest) shortEl.textContent = 'Invitado';
+      else shortEl.textContent = user.email.length > 22 ? user.email.slice(0, 20) + '…' : user.email;
+    }
+
+    var guestSave = $('#account-guest-save');
+    if (guestSave) guestSave.classList.toggle('hidden', !user.isGuest);
 
     if (global.PTAdmin && global.PTAdmin.setAdminVisible) {
       var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
@@ -121,6 +127,7 @@
 
     const settingsBtn = $('#account-settings');
     if (settingsBtn) {
+      settingsBtn.classList.toggle('hidden', !!user.isGuest);
       settingsBtn.onclick = function () {
         closeAccountDropdown();
         if (global.goToTab) global.goToTab('account');
@@ -128,10 +135,14 @@
     }
 
     const signout = $('#account-signout');
-    if (signout) signout.onclick = function () { signOut(); };
+    if (signout) {
+      signout.textContent = user.isGuest ? 'Salir de la prueba' : 'Cerrar sesión';
+      signout.onclick = function () { signOut(); };
+    }
 
     const syncBtn = $('#account-sync');
     if (syncBtn) {
+      syncBtn.classList.toggle('hidden', !!user.isGuest);
       syncBtn.onclick = function () {
         if (typeof global.runCloudSync === 'function') global.runCloudSync(syncBtn);
         else if (global.PTCloud && global.PTCloud.syncNow) {
@@ -252,6 +263,25 @@
     }
   }
 
+  function enterGuest() {
+    var user = (global.PTGuest && global.PTGuest.guestUser)
+      ? global.PTGuest.guestUser()
+      : { sub: 'pt_guest_local', email: '', name: 'Invitado', isGuest: true, loginAt: Date.now() };
+    currentUser = user;
+    global.PT_AUTH_USER = user;
+    if (global.Store && global.Store.setUserId) global.Store.setUserId(user.sub);
+    setAppVisible(true);
+    document.body.classList.add('guest-mode');
+    renderAccountMenu(user);
+    startAppIfNeeded();
+    global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
+    global.dispatchEvent(new CustomEvent('pt-guest-ready'));
+    if (global.PTGuest && global.PTGuest.applyChrome) global.PTGuest.applyChrome(true);
+    if (global.PTGuest && global.PTGuest.startTraps) {
+      global.setTimeout(function () { global.PTGuest.startTraps(); }, 60);
+    }
+  }
+
   async function enterApp(user) {
     if (!user) return;
     user = normalizeUser(user);
@@ -267,7 +297,11 @@
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (e) { /* noop */ }
     currentUser = user;
     global.PT_AUTH_USER = user;
+    if (global.PTGuest && global.PTGuest.mergeIntoUser) {
+      global.PTGuest.mergeIntoUser(user.sub);
+    }
     if (global.Store && global.Store.setUserId) global.Store.setUserId(user.sub);
+    document.body.classList.remove('guest-mode');
 
     setAppVisible(true);
     renderAccountMenu(user);
@@ -399,6 +433,14 @@
   }
 
   function signOut() {
+    if (currentUser && currentUser.isGuest) {
+      if (global.PTGuest && global.PTGuest.clear) global.PTGuest.clear();
+      currentUser = null;
+      global.PT_AUTH_USER = null;
+      appStarted = false;
+      location.reload();
+      return;
+    }
     if (global.PTLog && global.PTLog.event) global.PTLog.event('logout');
     var done = function () {
       if (global.PTAdmin && global.PTAdmin.lockdown) {
@@ -428,6 +470,7 @@
     appReadyCallback = onReady;
     const user = loadSession();
     if (user) enterApp(user);
+    else if (global.PTGuest && global.PTGuest.wantsEnter && global.PTGuest.wantsEnter()) enterGuest();
     else {
       setAppVisible(false);
       if (global.PT_startGoogleLogin) {
@@ -485,7 +528,9 @@
 
   global.PTAuth = {
     getUser: function () { return currentUser; },
-    isAuthenticated: function () { return !!currentUser; },
+    isAuthenticated: function () { return !!currentUser && !currentUser.isGuest; },
+    isGuest: function () { return !!(currentUser && currentUser.isGuest); },
+    enterGuest: enterGuest,
     requireAuth: requireAuth,
     signOut: signOut,
     exportAccountData: exportAccountData,

@@ -48,7 +48,9 @@ test.describe('Login landing desktop @smoke', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#auth-mobile-login', { timeout: 15000 });
+    await page.waitForSelector('[data-landing-login]', { timeout: 15000 });
+    await page.locator('[data-landing-login]').first().click();
+    await page.waitForSelector('#landing-login:not(.hidden) #auth-mobile-login', { timeout: 15000 });
     await expect(page.locator('#auth-mobile-login')).toBeVisible();
     await expect(page.locator('#google-signin-btn')).toBeHidden();
 
@@ -60,7 +62,7 @@ test.describe('Login landing desktop @smoke', () => {
 
     const afterContinuar = await page.evaluate(() => window.__ptOAuthCalls);
 
-    await page.locator('[data-landing-login]').first().click();
+    await page.locator('#auth-mobile-login').click();
     await expect
       .poll(async () => page.evaluate(() => window.__ptOAuthCalls), { timeout: 5000 })
       .toBeGreaterThan(afterContinuar);

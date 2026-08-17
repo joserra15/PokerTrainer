@@ -13,8 +13,12 @@ const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 // --- Contratos estáticos (anti-regresión del bug portátil) ---
 assert(
-  /querySelectorAll\('\[data-landing-login\]'\)[\s\S]{0,280}?startLoginNow\(\)/.test(landingSrc),
-  '[data-landing-login] debe llamar startLoginNow() (no solo scroll)'
+  /querySelectorAll\('\[data-landing-login\]'\)[\s\S]{0,400}?openLoginPanel\(\)/.test(landingSrc),
+  '[data-landing-login] debe abrir el panel de login'
+);
+assert(
+  /querySelectorAll\('\[data-landing-try\]'\)[\s\S]{0,400}?startGuestNow\(\)/.test(landingSrc),
+  '[data-landing-try] inicia modo invitado'
 );
 assert(
   !/querySelectorAll\('\[data-landing-login\]'\)[\s\S]{0,280}?scrollToLogin\(\)/.test(landingSrc),
@@ -48,21 +52,28 @@ assert(
     focus: function () {}
   };
   let oauthCalls = 0;
+  const panelClass = { add: function () {}, remove: function () {} };
   const sandbox = {
     window: {},
     console,
     setTimeout: function (fn) { return setTimeout(fn, 0); },
+    setInterval: function () { return 1; },
+    clearInterval: function () {},
     document: {
       readyState: 'complete',
+      body: { classList: { add: function () {}, remove: function () {}, toggle: function () {} } },
       getElementById: function (id) {
         if (id === 'auth-gate') return { id: 'auth-gate' };
         if (id === 'landing-login') {
           return {
             id: 'landing-login',
-            classList: { add: function () {}, remove: function () {} },
+            classList: panelClass,
+            setAttribute: function () {},
             scrollIntoView: function () {},
             insertBefore: function () {},
-            firstChild: null
+            firstChild: null,
+            dataset: {},
+            addEventListener: function () {}
           };
         }
         if (id === 'auth-mobile-login') return loginBtn;
@@ -86,7 +97,8 @@ assert(
   const evt = { preventDefault: function () { this.prevented = true; }, prevented: false };
   clickHandlers[0](evt);
   assert.ok(evt.prevented);
-  assert.strictEqual(oauthCalls, 1, 'Entrar → PT_startGoogleLogin');
+  assert.ok(sandbox.PTLanding.openLoginPanel, 'Entrar abre panel');
+  assert.strictEqual(oauthCalls, 0, 'Entrar ya no dispara OAuth directo');
 }
 
 // --- Bootstrap: Continuar funciona aunque getSession cuelgue ---

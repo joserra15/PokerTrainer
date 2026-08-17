@@ -114,6 +114,8 @@
       'js/promo-redeem.js',
       'js/founder-request.js',
       'js/landing.js',
+      'js/guest-traps.js',
+      'js/guest-mode.js',
       'js/auth-bootstrap.js'
     ];
     for (var i = 0; i < early.length; i++) {
@@ -142,58 +144,79 @@
             <span>PokerForgeAI</span>
           </div>
           <nav class="landing-nav" aria-label="Secciones">
-            <a href="#landing-features" data-i18n="nav.features">Funciones</a>
+            <a href="#landing-how" data-i18n="nav.how">Cómo funciona</a>
             <a href="#landing-pricing" data-i18n="nav.pricing">Planes</a>
-            <a href="#landing-install" data-i18n="nav.install">Instalar</a>
-            <a href="legal/metodologia.html" data-i18n="nav.method">Metodología</a>
-            <a href="blog/index.html">Blog</a>
-            <a href="legal/faq.html" data-i18n="nav.faq">FAQ</a>
-            <a href="legal/soporte.html" data-i18n="nav.support">Soporte</a>
+            <details class="landing-more">
+              <summary data-i18n="nav.more">Más</summary>
+              <div class="landing-more-menu">
+                <a href="#landing-features" data-i18n="nav.features">Funciones</a>
+                <a href="#landing-install" data-i18n="nav.install">Instalar</a>
+                <a href="legal/metodologia.html" data-i18n="nav.method">Metodología</a>
+                <a href="blog/index.html">Blog</a>
+                <a href="legal/faq.html" data-i18n="nav.faq">FAQ</a>
+                <a href="legal/soporte.html" data-i18n="nav.support">Soporte</a>
+              </div>
+            </details>
             <div class="landing-lang hidden" role="group" aria-label="Language" hidden>
               <button type="button" class="btn btn-ghost btn-sm" data-set-lang="es">ES</button>
               <button type="button" class="btn btn-ghost btn-sm" data-set-lang="en">EN</button>
             </div>
-            <button type="button" class="btn btn-primary btn-sm" data-landing-login data-i18n="nav.login">Entrar</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-landing-login data-i18n="nav.login">Entrar</button>
           </nav>
         </header>
 
         <section class="landing-hero" id="landing-hero">
-          <div id="landing-promo-pill"></div>
-          <h1 data-i18n="hero.title">Entrena GTO, importa tus sesiones y mejora con ForgeCoach</h1>
-          <p class="landing-lead" data-i18n="hero.lead">Practica spots reales en la mesa, revisa manos importadas con análisis heurístico y descubre fugas de EV. También puedes instalarla en el móvil como app.</p>
+          <p class="landing-eyebrow" data-i18n="hero.eyebrow">En español · sin tarjeta · 5 manos trampa</p>
+          <h1 data-i18n="hero.title">Juega 5 manos. Mira si aciertas.</h1>
+          <p class="landing-lead" data-i18n="hero.lead">Spots diseñados para pillar el instinto recreativo. Google solo si quieres guardar el progreso.</p>
           <div class="landing-hero-actions">
-            <button type="button" class="btn btn-primary" data-landing-login data-i18n="hero.cta">Empezar gratis</button>
-            <a class="btn btn-ghost" href="#landing-pricing" data-i18n="hero.plans">Ver planes</a>
-            <button type="button" class="btn btn-ghost" data-landing-install data-i18n="hero.install">Instalar app</button>
+            <button type="button" class="btn btn-primary" data-landing-try data-i18n="hero.cta">Probar ahora — sin registro</button>
+            <a class="btn btn-ghost" href="#landing-how" data-i18n="hero.how">Cómo funciona</a>
           </div>
-          <div class="landing-promo-code-block" id="landing-promo-code">
-            <h2>¿Tienes un código de acceso?</h2>
-            <p class="landing-section-lead">En la beta, un código de acceso puede activar Study (u otro plan regalado). Las compras se abrirán próximamente con FOUNDER.</p>
-            <form class="landing-promo-code-form" id="landing-promo-code-form" action="promo.html" method="get">
-              <label class="sr-only" for="landing-promo-code-input">Código promocional</label>
-              <input
-                type="text"
-                id="landing-promo-code-input"
-                name="c"
-                class="landing-promo-code-input"
-                placeholder="Ej. AB12XY99"
-                autocomplete="off"
-                spellcheck="false"
-                maxlength="64"
-                required
-              />
-              <button type="submit" class="btn btn-primary" id="landing-promo-code-submit">Activar código</button>
-            </form>
+          <p class="landing-hero-age muted-text" data-i18n="hero.age">Mayores de 18 años. El registro pide confirmación.</p>
+          <div class="landing-felt" aria-hidden="true">
+            <div class="landing-felt-spot">BB vs UTG · A♥ T♦</div>
+            <div class="landing-felt-cards">
+              <span class="landing-mini-card red"><b>A</b><i>♥</i></span>
+              <span class="landing-mini-card red"><b>T</b><i>♦</i></span>
+            </div>
+            <div class="landing-felt-actions">
+              <span class="landing-felt-btn">Fold</span>
+              <span class="landing-felt-btn landing-felt-btn-trap">Call</span>
+              <span class="landing-felt-btn">3-bet</span>
+            </div>
+            <div class="landing-felt-verdict">Call · error · lo correcto era fold</div>
           </div>
           <ul class="landing-hero-bullets">
-            <li data-i18n="hero.bullet1">Sesión de ejemplo incluida al registrarte</li>
-            <li data-i18n="hero.bullet2">Import PokerStars, Winamax, GGPoker, 888poker y CoinPoker</li>
-            <li data-i18n="hero.bullet3">Plan gratis ahora · FOUNDER próximamente</li>
+            <li data-i18n="hero.bullet1">5 manos difíciles, sin cuenta</li>
+            <li data-i18n="hero.bullet2">Google solo para guardar</li>
+            <li data-i18n="hero.bullet3">Gratis para siempre, con límites</li>
           </ul>
         </section>
 
+        <section class="landing-section" id="landing-how">
+          <h2 data-i18n="how.title">Cómo funciona</h2>
+          <div class="landing-how-grid">
+            <article class="landing-how-step">
+              <span class="landing-how-num">1</span>
+              <h3 data-i18n="how.s1.title">Juegas el spot</h3>
+              <p data-i18n="how.s1.body">Cinco trampas: as débil, broadway basura, open UTG, flot de as alto y overcards.</p>
+            </article>
+            <article class="landing-how-step">
+              <span class="landing-how-num">2</span>
+              <h3 data-i18n="how.s2.title">Te puntúan al momento</h3>
+              <p data-i18n="how.s2.body">Óptima, imprecisa o error, con la acción GTO. Sin menús ni configuración.</p>
+            </article>
+            <article class="landing-how-step">
+              <span class="landing-how-num">3</span>
+              <h3 data-i18n="how.s3.title">Guardas si te duele</h3>
+              <p data-i18n="how.s3.body">Si fallas (y suele pasar), crea cuenta con Google y sigue el entrenador completo.</p>
+            </article>
+          </div>
+        </section>
+
         <section class="landing-section" id="landing-features">
-          <h2 data-i18n="features.title">Todo lo que necesitas para estudiar</h2>
+          <h2 data-i18n="features.title">Luego, el estudio completo</h2>
           <div class="landing-features-grid">
             <article class="landing-feature">
               <h3 data-i18n="feat.train.title">Entrenador interactivo</h3>
@@ -204,20 +227,8 @@
               <p data-i18n="feat.import.body">Sube historiales .txt (PokerStars, Winamax, GGPoker, 888poker, CoinPoker · cash/spins/torneos) y revísalos en pestañas por tipo de juego.</p>
             </article>
             <article class="landing-feature">
-              <h3 data-i18n="feat.ranges.title">Rangos preflop</h3>
-              <p data-i18n="feat.ranges.body">Matrices RFI y defensa vs open para cash. El soporte de torneo es parcial y sobre todo preflop.</p>
-            </article>
-            <article class="landing-feature">
               <h3 data-i18n="feat.ai.title">ForgeCoach</h3>
               <p data-i18n="feat.ai.body">Consultas sobre manos y sesiones en planes Study y Coach (ver planes).</p>
-            </article>
-            <article class="landing-feature">
-              <h3>Estadísticas y errores</h3>
-              <p>Histórico, acierto por calle y banco de spots fallados para repetir.</p>
-            </article>
-            <article class="landing-feature">
-              <h3>Sync en la nube</h3>
-              <p>Tus datos y sesiones en Supabase — continúa en móvil u otro PC.</p>
             </article>
           </div>
         </section>
@@ -284,9 +295,9 @@
         </section>
 
         <section class="landing-section landing-cta-band">
-          <h2>¿Listo para subir de nivel?</h2>
-          <p class="muted-text">Crea tu cuenta con Google en segundos. Incluye sesión demo sin subir ficheros.</p>
-          <button type="button" class="btn btn-primary" data-landing-login>Crear cuenta / Entrar</button>
+          <h2>¿Listo para que te pille una trampa?</h2>
+          <p class="muted-text">Cinco manos sin cuenta. Google solo para guardar el marcador.</p>
+          <button type="button" class="btn btn-primary" data-landing-try>Probar ahora — sin registro</button>
         </section>
 
         <footer class="landing-footer">
@@ -296,16 +307,36 @@
           <a href="legal/privacidad.html">Privacidad</a>
           <a href="legal/faq.html">FAQ</a>
           <a href="legal/soporte.html">Soporte</a>
+          <details class="landing-promo-foot" id="landing-promo-code">
+            <summary>¿Tienes un código de acceso?</summary>
+            <p class="landing-section-lead">Un código puede activar Study u otro plan regalado.</p>
+            <form class="landing-promo-code-form" id="landing-promo-code-form" action="promo.html" method="get">
+              <label class="sr-only" for="landing-promo-code-input">Código promocional</label>
+              <input
+                type="text"
+                id="landing-promo-code-input"
+                name="c"
+                class="landing-promo-code-input"
+                placeholder="Ej. AB12XY99"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="64"
+                required
+              />
+              <button type="submit" class="btn btn-primary" id="landing-promo-code-submit">Activar código</button>
+            </form>
+          </details>
           <span class="muted-text">© PokerForgeAI</span>
         </footer>
       </div>
 
-      <aside class="landing-login-panel" id="landing-login">
+      <aside class="landing-login-panel hidden" id="landing-login" aria-hidden="true">
         <div class="auth-card">
+          <button type="button" class="landing-login-close" data-landing-login-close aria-label="Cerrar">×</button>
           <div class="auth-brand">
             <img src="icons/logo-header.png" class="app-logo app-logo-auth" alt="PokerForgeAI" width="72" height="72" />
             <h2>Entrar a PokerForgeAI</h2>
-            <p class="auth-sub">Inicia sesión con Google para acceder al entrenador</p>
+            <p class="auth-sub">Inicia sesión con Google para guardar el progreso</p>
           </div>
           <div id="google-signin-btn" class="google-signin-host hidden"></div>
           <button type="button" id="auth-mobile-login" class="btn btn-primary auth-mobile-login">
@@ -332,6 +363,10 @@
   </div>
 
   <div id="app-shell" class="hidden" aria-hidden="true">
+  <div id="guest-mode-banner" class="guest-mode-banner hidden" role="status">
+    <span>Prueba sin cuenta · <strong id="guest-banner-count">0 / 5</strong> trampas</span>
+    <button type="button" class="btn btn-primary btn-sm" data-guest-save>Guardar con Google</button>
+  </div>
   <div class="header-bar">
     <div class="header-row">
       <div class="brand">
@@ -371,6 +406,7 @@
             <button type="button" id="account-settings" class="btn btn-primary btn-block">Configuración</button>
             <button type="button" id="account-admin" class="btn btn-admin btn-block hidden">Panel de administración</button>
             <button type="button" id="account-sync" class="btn btn-ghost btn-block">Sincronizar</button>
+            <button type="button" id="account-guest-save" class="btn btn-primary btn-block hidden" data-guest-save>Guardar con Google</button>
             <button type="button" id="account-signout" class="btn btn-ghost btn-block">Cerrar sesión</button>
           </div>
         </div>
@@ -1391,6 +1427,22 @@
         <button type="button" class="btn btn-ghost btn-sm" id="help-modal-close" aria-label="Cerrar">Cerrar</button>
       </div>
       <div class="help-modal-body" id="help-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="guest-gate-modal" class="modal guest-gate-modal hidden" role="dialog" aria-modal="true" aria-labelledby="guest-gate-title">
+    <div class="modal-content guest-gate-content">
+      <h3 id="guest-gate-title">Estas manos no perdonan</h3>
+      <p id="guest-gate-score">Has terminado las 5 trampas.</p>
+      <p class="muted-text">Guarda el marcador con Google y sigue con el entrenador, import y ForgeCoach.</p>
+      <label class="guest-gate-age">
+        <input type="checkbox" id="guest-gate-age" />
+        Confirmo que tengo más de 18 años
+      </label>
+      <div class="guest-gate-actions">
+        <button type="button" class="btn btn-primary" id="guest-gate-login" disabled>Continuar con Google</button>
+        <button type="button" class="btn btn-ghost" data-close-guest-gate>Cerrar</button>
+      </div>
     </div>
   </div>
 

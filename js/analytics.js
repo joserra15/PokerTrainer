@@ -96,6 +96,10 @@
     track('checkout_start', meta || {});
   }
 
+  function trackLandingView() {
+    track('landing_view');
+  }
+
   global.PTAnalytics = {
     load: loadScript,
     track: track,
@@ -108,7 +112,8 @@
     trackPlayHand: trackPlayHand,
     trackImportSession: trackImportSession,
     trackAiCoach: trackAiCoach,
-    trackCheckoutStart: trackCheckoutStart
+    trackCheckoutStart: trackCheckoutStart,
+    trackLandingView: trackLandingView
   };
 
   global.addEventListener('pt-cookie-consent', function () {
