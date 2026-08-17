@@ -4,7 +4,7 @@ window.PT_VS_RFI_JSON = {
     "spot": "vsRFI",
     "format": "cash6",
     "stackBB": 100,
-    "updated": "2026-07-09"
+    "updated": "2026-08-17"
   },
   "pairs": {
     "BB_vs_UTG": {
@@ -24,8 +24,8 @@ window.PT_VS_RFI_JSON = {
     },
     "BB_vs_BTN": {
       "threeBet": "99+, AJs+, AKo, A5s",
-      "threeBetMix": "88, 77, ATs, A4s-A2s, KTs+, QTs, JTs, KQo, A5o, A4o",
-      "call": "22-TT, A2s-ATs, K3s+, Q5s+, J6s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, A7o-A2o, KTo-K9o, QTo+, J9o+, T9o, 98o"
+      "threeBetMix": "88, 77, ATs, A4s-A2s, KTs+, QTs, JTs, AQo, KQo, A5o, A4o",
+      "call": "22-TT, A2s-ATs, K3s+, Q5s+, J6s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, A2o+, K9o+, QTo+, J9o+, T9o, 98o"
     },
     "BB_vs_SB": {
       "threeBet": "88+, ATs+, KJs+, AJo+, A5s",
