@@ -7,7 +7,7 @@ const assert = require('assert');
 
 const root = path.join(__dirname, '..');
 const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2.5.56'/.test(version), 'versión 2.5.56');
+assert.ok(/PT_BUILD\s*=\s*'2.5.57'/.test(version), 'versión 2.5.57');
 
 const sql = fs.readFileSync(path.join(root, 'supabase/migrations/040_guest_funnel.sql'), 'utf8');
 assert.ok(/pt_guest_funnel_events/.test(sql), 'tabla embudo');
@@ -18,6 +18,11 @@ assert.ok(/pt_admin_guest_funnel/.test(sql) && /is_pt_admin/.test(sql), 'RPC adm
 assert.ok(/drop_by_hand/.test(sql) && /no_login/.test(sql) && /converted/.test(sql), 'métricas admin');
 assert.ok(/guest_hand/.test(sql) && /guest_convert/.test(sql) && /landing_view/.test(sql), 'eventos');
 assert.ok(/unique_key/.test(sql) && /landing_view:/.test(sql), 'dedupe diario landing');
+
+const funnelSrc = fs.readFileSync(path.join(root, 'js/guest-funnel.js'), 'utf8');
+assert.ok(!/getClient\s*\(/.test(funnelSrc), 'embudo no usa getClient Auth');
+assert.ok(/rest\/v1\/rpc\/pt_guest_funnel_ingest/.test(funnelSrc), 'ingest fetch anon');
+assert.ok(/isOAuthReturn/.test(funnelSrc), 'omite callback OAuth');
 
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 assert.ok(/js\/guest-funnel\.js/.test(html), 'guest-funnel en early scripts');
@@ -34,6 +39,9 @@ const landing = fs.readFileSync(path.join(root, 'js/landing.js'), 'utf8');
 assert.ok(/PTGuestFunnel/.test(landing) && /scheduleLandingView/.test(landing), 'landing → funnel');
 assert.ok(/startLoginNow\(source\)/.test(landing), 'source login');
 assert.ok(/guest_login/.test(landing), 'login desde gate ≠ Entrar');
+assert.ok(/PT_startGoogleLogin\(\);\s*if \(source === 'guest'\) trackFunnel/.test(
+  landing.replace(/\s+/g, ' ')
+), 'OAuth se dispara antes de telemetría guest_login');
 
 const guest = fs.readFileSync(path.join(root, 'js/guest-mode.js'), 'utf8');
 assert.ok(/PTGuestFunnel/.test(guest), 'guest track funnel');
@@ -60,6 +68,7 @@ const sandbox = {
     body: { classList: { contains: function () { return false; } } }
   },
   addEventListener: function () {},
+  location: { href: 'https://www.pokerforgeai.com/' },
   fetch: function () { return { catch: function () {} }; },
   PT_SUPABASE: { url: 'https://example.supabase.co', anonKey: 'anon' }
 };
@@ -91,6 +100,11 @@ assert.strictEqual(F.track('cta_try'), false, 'dedupe cta_try');
 assert.strictEqual(F.track('guest_hand', { index: 1 }), true);
 assert.strictEqual(F.track('guest_hand', { index: 2 }), true, 'manos distintas no dedupean');
 assert.strictEqual(F.track('guest_hand', { index: 1 }), false, 'misma mano dedupe');
+
+sandbox.location.href = 'https://www.pokerforgeai.com/?code=oauth-test';
+assert.strictEqual(F.isOAuthReturn(), true, 'detecta retorno Google');
+assert.strictEqual(F.track('guest_start'), false, 'no ingest durante ?code=');
+sandbox.location.href = 'https://www.pokerforgeai.com/';
 
 const rls = fs.readFileSync(path.join(root, 'tools/test-rls-policies.js'), 'utf8');
 assert.ok(/040_guest_funnel/.test(rls), 'RLS test cubre 040');

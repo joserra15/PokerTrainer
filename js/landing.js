@@ -23,9 +23,9 @@
   }
 
   function startLoginNow(source) {
-    if (source === 'guest') trackFunnel('guest_login', { source: 'gate' });
     if (global.PT_startGoogleLogin) {
       global.PT_startGoogleLogin();
+      if (source === 'guest') trackFunnel('guest_login', { source: 'gate' });
       return;
     }
     var btn = document.getElementById('auth-mobile-login');
