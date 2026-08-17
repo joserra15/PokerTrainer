@@ -145,6 +145,13 @@ assert.ok(/¿Aciertas las cinco manos, del preflop al river\?/.test(html) && /ho
 assert.ok(!/as débil/.test(html) && !/broadway offsuit/.test(html), 'paso 1 sin lista de spots viejos');
 assert.ok(/guest-mode-banner/.test(html), 'banner guest');
 assert.ok(/js\/guest-mode\.js/.test(html) && /js\/guest-traps\.js/.test(html), 'scripts early');
+assert.ok(/id="landing-nav-toggle"/.test(html) && /id="landing-nav-backdrop"/.test(html),
+  'landing móvil: hamburguesa + backdrop');
+assert.ok(/landing-login-btn/.test(html) && /btn btn-primary btn-sm landing-login-btn/.test(html),
+  'Entrar destaca como botón primario');
+const landingJs = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
+assert.ok(/bindLandingMenu/.test(landingJs) && /landing-nav-open/.test(landingJs),
+  'cajón de menú landing como en la app');
 
 const i18n = fs.readFileSync(path.join(__dirname, '..', 'js/i18n.js'), 'utf8');
 assert.ok(/¿Aciertas las cinco manos, del preflop al river\?/.test(i18n) && /from preflop to river/.test(i18n), 'i18n how.s1 reto');
