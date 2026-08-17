@@ -22007,8 +22007,9 @@ window.PT_VS_3BET_JSON = {
     var exitBtn = document.getElementById('age-gate-exit');
     var emailEl = document.getElementById('age-gate-user');
     if (emailEl) {
+      var account = user && String(user.email || '').trim();
       var legalEmail = global.PT_LEGAL && (global.PT_LEGAL.supportEmail || global.PT_LEGAL.controllerEmail);
-      emailEl.textContent = legalEmail || 'info@pokerforgeai.com';
+      emailEl.textContent = account || legalEmail || 'info@pokerforgeai.com';
     }
     return new Promise(function (resolve) {
       activeResolve = resolve;
@@ -24998,24 +24999,52 @@ window.PT_VS_3BET_JSON = {
   let currentUser = global.PT_AUTH_USER || null;
   let appReadyCallback = null;
   let appStarted = false;
+  let enterAppLock = null;
 
   function $(sel) { return document.querySelector(sel); }
 
+  function isRealUser(user) {
+    return !!(user && user.sub && user.email && !user.isGuest);
+  }
+
+  function oauthHandoffPending() {
+    if (global.PTGuest && global.PTGuest.oauthHandoffPending) {
+      return !!global.PTGuest.oauthHandoffPending();
+    }
+    try {
+      if (global.sessionStorage && global.sessionStorage.getItem('pt_oauth_handoff') === '1') return true;
+    } catch (e) { /* noop */ }
+    try {
+      return /[?&#](?:code|access_token|error|error_code)=/.test(location.href || '');
+    } catch (e2) {
+      return false;
+    }
+  }
+
+  function hideGuestChrome() {
+    try {
+      if (global.PTGuest && global.PTGuest.hideGate) global.PTGuest.hideGate();
+      if (global.PTGuest && global.PTGuest.applyChrome) global.PTGuest.applyChrome(false);
+      document.body.classList.remove('guest-mode', 'guest-gate-open');
+    } catch (e) { /* noop */ }
+  }
+
   function loadSession() {
-    if (currentUser) return normalizeUser(currentUser);
     try {
       const raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (!data || !data.sub || !data.email) return null;
-      if (Date.now() - (data.loginAt || 0) > SESSION_MAX_MS) {
-        localStorage.removeItem(SESSION_KEY);
-        return null;
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data && data.sub && data.email && !data.isGuest) {
+          if (Date.now() - (data.loginAt || 0) > SESSION_MAX_MS) {
+            localStorage.removeItem(SESSION_KEY);
+          } else {
+            return normalizeUser(data);
+          }
+        }
       }
-      return normalizeUser(data);
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { /* noop */ }
+    if (currentUser) return normalizeUser(currentUser);
+    return null;
   }
 
   function escapeHtml(s) {
@@ -25252,6 +25281,12 @@ window.PT_VS_3BET_JSON = {
   }
 
   function enterGuest() {
+    if (oauthHandoffPending()) return;
+    if (isRealUser(currentUser) || isRealUser(loadSession())) {
+      var real = isRealUser(currentUser) ? currentUser : loadSession();
+      enterApp(real);
+      return;
+    }
     var user = (global.PTGuest && global.PTGuest.guestUser)
       ? global.PTGuest.guestUser()
       : { sub: 'pt_guest_local', email: '', name: 'Invitado', isGuest: true, loginAt: Date.now() };
@@ -25271,8 +25306,20 @@ window.PT_VS_3BET_JSON = {
   }
 
   async function enterApp(user) {
-    if (!user) return;
+    if (!user || user.isGuest) return;
     user = normalizeUser(user);
+    if (enterAppLock && enterAppLock.sub === user.sub) return enterAppLock.promise;
+    var run = runEnterApp(user);
+    enterAppLock = { sub: user.sub, promise: run };
+    try {
+      await run;
+    } finally {
+      if (enterAppLock && enterAppLock.promise === run) enterAppLock = null;
+    }
+  }
+
+  async function runEnterApp(user) {
+    hideGuestChrome();
     if (global.PTAgeGate && global.PTAgeGate.ensureConfirmed) {
       var ageOk = await global.PTAgeGate.ensureConfirmed(user);
       if (!ageOk) {
@@ -25282,6 +25329,7 @@ window.PT_VS_3BET_JSON = {
         return;
       }
     }
+    if (global.PTGuest && global.PTGuest.clearOAuthHandoff) global.PTGuest.clearOAuthHandoff();
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (e) { /* noop */ }
     currentUser = user;
     global.PT_AUTH_USER = user;
@@ -25454,18 +25502,50 @@ window.PT_VS_3BET_JSON = {
     done();
   }
 
+  function showLanding() {
+    setAppVisible(false);
+    if (global.PT_startGoogleLogin) {
+      const mobileBtn = $('#auth-mobile-login');
+      if (mobileBtn) mobileBtn.classList.remove('hidden');
+    }
+  }
+
+  function waitForOAuthHandoff() {
+    if (waitForOAuthHandoff.armed) return;
+    waitForOAuthHandoff.armed = true;
+    hideGuestChrome();
+    var tries = 0;
+    function tick() {
+      var u = loadSession();
+      if (isRealUser(u) || isRealUser(currentUser)) {
+        enterApp(isRealUser(u) ? u : currentUser);
+        return;
+      }
+      if (++tries > 100) {
+        waitForOAuthHandoff.armed = false;
+        if (global.PTGuest && global.PTGuest.clearOAuthHandoff) global.PTGuest.clearOAuthHandoff();
+        if (global.PTGuest && global.PTGuest.wantsEnter && global.PTGuest.wantsEnter()) enterGuest();
+        else showLanding();
+        return;
+      }
+      global.setTimeout(tick, 100);
+    }
+    tick();
+  }
+
   function requireAuth(onReady) {
     appReadyCallback = onReady;
     const user = loadSession();
-    if (user) enterApp(user);
-    else if (global.PTGuest && global.PTGuest.wantsEnter && global.PTGuest.wantsEnter()) enterGuest();
-    else {
-      setAppVisible(false);
-      if (global.PT_startGoogleLogin) {
-        const mobileBtn = $('#auth-mobile-login');
-        if (mobileBtn) mobileBtn.classList.remove('hidden');
-      }
+    if (isRealUser(user)) {
+      enterApp(user);
+      return;
     }
+    if (oauthHandoffPending()) {
+      waitForOAuthHandoff();
+      return;
+    }
+    if (global.PTGuest && global.PTGuest.wantsEnter && global.PTGuest.wantsEnter()) enterGuest();
+    else showLanding();
   }
 
   function bindUi() {
