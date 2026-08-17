@@ -176,6 +176,45 @@ Traps.list().forEach(function (spot, i) {
   console.log('OK', (i + 1) + '/5', spot.id, 'cebo=' + cls, 'best=' + bait.decision.best, '→ river');
 });
 
+const g1 = Traps.list()[0];
+assert.strictEqual(g1.forceDeal.board[0], 'Th', 'mano 1: flop 10 en vez de 9');
+assert.ok(g1.forceDeal.heroCards.indexOf('Td') >= 0, 'mano 1 héroe ATo');
+
+const g2 = Traps.list()[1];
+assert.strictEqual(g2.forceDeal.villainCards.map(function (c) { return c[0]; }).sort().join(''), 'AK',
+  'mano 2 villano AK');
+assert.ok(g2.playConfig.guestNeverFold, 'mano 2 villano no foldea');
+
+const g4 = Traps.list()[3];
+assert.strictEqual(g4.forceDeal.villainCards[0][0] + g4.forceDeal.villainCards[1][0], 'AQ', 'mano 4 villano AQ');
+assert.strictEqual(g4.forceDeal.board[4][0], 'J', 'mano 4 river J');
+assert.ok(g4.playConfig.guestNeverFold, 'mano 4 villano no foldea');
+
+function raiseDoesNotFold(spot) {
+  const force = Traps.toForce(spot);
+  const cfg = Traps.playConfig(spot);
+  const play = Engine.newHand(force, cfg);
+  let steps = 0;
+  while (!play.result && play.current && play.stage === 'preflop' && steps < 8) {
+    Engine.act(play, pickContinue(play, spot));
+    steps++;
+  }
+  assert.ok(play.current && play.stage === 'flop', spot.id + ' llega al flop para raise');
+  if (idsOf(play).indexOf('check') >= 0 && idsOf(play).indexOf('fold') < 0) {
+    Engine.act(play, 'check');
+  }
+  const ids = idsOf(play);
+  assert.ok(ids.indexOf('raise') >= 0, spot.id + ' flop ofrece raise (opts ' + ids.join(',') + ')');
+  Engine.act(play, 'raise');
+  assert.ok(!play.result, spot.id + ' villano no foldea el raise de flop (result=' +
+    (play.result && play.result.reason) + ')');
+  assert.ok(play.stage === 'turn' || play.stage === 'river' || play.current,
+    spot.id + ' la mano sigue tras el raise');
+}
+
+raiseDoesNotFold(g2);
+raiseDoesNotFold(g4);
+
 console.log('*** guest-traps OK ***');
 
 const noGuest = Engine.newHand({

@@ -106,7 +106,12 @@ assert.ok(/returnToLanding/.test(src) && /data-guest-landing/.test(src), 'Volver
 
 const trapsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/guest-traps.js'), 'utf8');
 assert.ok(/g1-ato-bb-vs-utg/.test(trapsSrc) && /g4-kjo-sb-vs-utg/.test(trapsSrc), 'trampas preflop clásicas + SB');
+assert.ok(/board: \['Th', '8h'/.test(trapsSrc), 'mano 1 flop 10');
+assert.ok(/guestNeverFold: true/.test(trapsSrc) && /villainCards: \['As', 'Qc'\]/.test(trapsSrc),
+  'mano 2/4 villano no foldea; mano 4 AQ');
 assert.ok(/id: 'limp'/.test(fs.readFileSync(path.join(__dirname, '..', 'js/engine.js'), 'utf8')), 'limp guest en RFI');
+assert.ok(/guestNeverFoldVillain/.test(fs.readFileSync(path.join(__dirname, '..', 'js/engine.js'), 'utf8')),
+  'motor: guest never-fold solo con flag');
 
 const landing = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
 assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/.test(landing), 'eventos landing');
