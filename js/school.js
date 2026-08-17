@@ -101,6 +101,8 @@
     if (global.PTCloud) {
       if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(['stats']);
       if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(['stats']);
+      /* No esperar 2s: Safari en móvil mata el JS al cambiar de app. */
+      if (global.PTCloud.flushPush) global.PTCloud.flushPush();
     }
   }
 
@@ -1319,6 +1321,14 @@
     state.lessonId = lesson.id;
   }
 
+  /** Tras sync nube: refresca el hub sin pisar una lección o spot en curso. */
+  function refreshFromCloud() {
+    if (isSessionActive()) return;
+    if (state.view !== VIEW.hub) return;
+    var root = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+    if (root) render(root);
+  }
+
   function render(container) {
     var root = container || document.getElementById('school-content');
     if (!root) return;
@@ -1347,8 +1357,15 @@
     else play.insertBefore(banner, play.firstChild);
   }
 
+  if (typeof global.addEventListener === 'function') {
+    global.addEventListener('pt-cloud-synced', function () {
+      refreshFromCloud();
+    });
+  }
+
   global.PTSchool = {
     render: render,
+    refreshFromCloud: refreshFromCloud,
     openLesson: openLesson,
     afterTrainerAction: afterTrainerAction,
     isSessionActive: isSessionActive,

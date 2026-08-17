@@ -17635,8 +17635,16 @@ window.PT_VS_3BET_JSON = {
     });
   }
 
+  function hasSchoolProgress(st) {
+    const school = st && st.school;
+    if (!school || typeof school !== 'object') return false;
+    if ((Number(school.xp) || 0) > 0) return true;
+    const lessons = school.lessons;
+    return !!(lessons && typeof lessons === 'object' && Object.keys(lessons).length > 0);
+  }
+
   function isStatsEmpty(st) {
-    return !(st && ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0));
+    return !(st && ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0 || hasSchoolProgress(st)));
   }
 
   function hasRejectRemote(key) {
@@ -26341,6 +26349,14 @@ window.PT_VS_3BET_JSON = {
       homeBootCloudSettled = true;
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();
       maybeFinishHomeBoot(true);
+      if ($('#tab-school') && $('#tab-school').classList.contains('active') && window.PTSchool) {
+        if (typeof window.PTSchool.refreshFromCloud === 'function') {
+          window.PTSchool.refreshFromCloud();
+        } else if (typeof window.PTSchool.render === 'function' &&
+            !(window.PTSchool.isSessionActive && window.PTSchool.isSessionActive())) {
+          window.PTSchool.render($('#school-content'));
+        }
+      }
     });
     window.addEventListener('pt-cloud-login-sync-finished', () => {
       homeBootCloudSettled = true;

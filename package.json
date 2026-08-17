@@ -51,6 +51,7 @@
     "test:variants": "node tools/test-product-variants.js",
     "test:beginner": "node tools/test-beginner-guide.js",
     "test:school": "node tools/test-school.js",
+    "test:school-sync": "node tools/test-school-progress-sync.js",
     "test:pwa": "node tools/test-pwa-manifest.js",
     "test:analytics-sentry": "node tools/test-analytics-sentry.js",
     "test:vpip": "node tools/test-vpip-pfr.js",

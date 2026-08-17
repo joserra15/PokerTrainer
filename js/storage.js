@@ -302,8 +302,16 @@
     });
   }
 
+  function hasSchoolProgress(st) {
+    const school = st && st.school;
+    if (!school || typeof school !== 'object') return false;
+    if ((Number(school.xp) || 0) > 0) return true;
+    const lessons = school.lessons;
+    return !!(lessons && typeof lessons === 'object' && Object.keys(lessons).length > 0);
+  }
+
   function isStatsEmpty(st) {
-    return !(st && ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0));
+    return !(st && ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0 || hasSchoolProgress(st)));
   }
 
   function hasRejectRemote(key) {

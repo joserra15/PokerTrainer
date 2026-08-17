@@ -76,6 +76,7 @@ const STEPS = [
   ['Test product variants 6-max', ['node', 'tools/test-product-variants.js']],
   ['Test beginner guide', ['node', 'tools/test-beginner-guide.js']],
   ['Test Escuela de Póker M0', ['node', 'tools/test-school.js']],
+  ['Test school progress sync', ['node', 'tools/test-school-progress-sync.js']],
   ['Test school share social', ['node', 'tools/test-school-share.js']],
   ['Test school coach per lesson', ['node', 'tools/test-school-coach-lesson.js']],
   ['Test spin iso limp order', ['node', 'tools/test-spin-iso-limp-order.js']],
