@@ -1641,6 +1641,13 @@ body.age-gate-open {
 }
 .school-play-banner-label { font-weight: 650; color: #fff; }
 .school-play-banner-progress { color: rgba(230,237,243,.85); font-size: 13px; }
+
+/* En lección Escuela: ocultar HUD/sesión/historial/botones del entrenador libre */
+#play-active.is-school-session .play-hud,
+#play-active.is-school-session .sidebar {
+  display: none !important;
+}
+
 .school-spot-feedback { padding: 4px 2px 8px; }
 .school-spot-feedback.is-good h3 { color: #86efac; }
 .school-spot-feedback.is-bad h3 { color: #fca5a5; }
