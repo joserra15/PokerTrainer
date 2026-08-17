@@ -16258,6 +16258,13 @@ window.PT_VS_3BET_JSON = {
   const QUESTION_MAX = 500;
   const PRIVACY_NO_PII = 'No se envía ningún dato personal (nombre, email ni cuenta de usuario).';
 
+  function isGuestSession() {
+    if (global.PTAuth && typeof global.PTAuth.isGuest === 'function' && global.PTAuth.isGuest()) return true;
+    const u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : global.PT_AUTH_USER;
+    if (u && u.isGuest) return true;
+    return !!(global.PTGuest && global.PTGuest.isActive && global.PTGuest.isActive());
+  }
+
   const SCOPE_UI = {
     hand: {
       reportBtn: 'Informe de la mano',
@@ -16473,6 +16480,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   function ensureConsent(scope) {
+    if (isGuestSession()) return Promise.resolve(false);
     if (localStorage.getItem(CONSENT_KEY) === '1') return Promise.resolve(true);
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
     const iaUrl = (global.PTLegal && global.PTLegal.legalUrl)
@@ -17304,6 +17312,7 @@ window.PT_VS_3BET_JSON = {
 
   async function fetchHomeGreeting(getStatsBundle) {
     if (!isEnabled()) return null;
+    if (isGuestSession()) return null;
     const consent = await ensureConsent('statsGlobal');
     if (!consent) return null;
     const today = new Date().toISOString().slice(0, 10);
@@ -26525,6 +26534,9 @@ window.PT_VS_3BET_JSON = {
     if (!leadEl) return;
     leadEl.classList.remove('home-lead--loading');
     leadEl.innerHTML = DEFAULT_HOME_LEAD;
+    const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+      || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+    if (guestOn) return;
     if (!window.PTAIReport || !PTAIReport.fetchHomeGreeting) return;
     const reqId = ++homeGreetingRequest;
     const runFetch = function () {
@@ -26594,7 +26606,9 @@ window.PT_VS_3BET_JSON = {
     }
 
     const coachMount = $('#home-coach-mount');
-    if (coachMount && window.PTAIReport && PTAIReport.mountWelcome) {
+    const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+      || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+    if (coachMount && !guestOn && window.PTAIReport && PTAIReport.mountWelcome) {
       PTAIReport.mountWelcome(coachMount, {
         userName: firstNameFromUser(window.PT_AUTH_USER),
         onTrain: () => goToTab('play', { setup: true })
