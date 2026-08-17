@@ -16,6 +16,8 @@ assert(
   /querySelectorAll\('\[data-landing-try\]'\)[\s\S]{0,400}?startGuestNow\(\)/.test(landingSrc),
   '[data-landing-try] debe llamar startGuestNow()'
 );
+assert(/bindLandingMenu/.test(landingSrc) && /landing-nav-open/.test(landingSrc),
+  'landing.js abre el cajón móvil');
 
 const clickHandlers = [];
 const loginBtn = {

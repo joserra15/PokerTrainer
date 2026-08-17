@@ -143,7 +143,11 @@
             <img src="icons/logo-header.png" class="app-logo" alt="PokerForgeAI" width="40" height="40" />
             <span>PokerForgeAI</span>
           </div>
-          <nav class="landing-nav" aria-label="Secciones">
+          <nav class="landing-nav" id="landing-nav" aria-label="Secciones">
+            <div class="drawer-head landing-nav-head">
+              <span class="drawer-title" data-i18n="nav.menu">Menú</span>
+              <button type="button" class="nav-close" id="landing-nav-close" aria-label="Cerrar menú">&times;</button>
+            </div>
             <a href="#landing-how" data-i18n="nav.how">Cómo funciona</a>
             <a href="#landing-pricing" data-i18n="nav.pricing">Planes</a>
             <details class="landing-more">
@@ -161,9 +165,18 @@
               <button type="button" class="btn btn-ghost btn-sm" data-set-lang="es">ES</button>
               <button type="button" class="btn btn-ghost btn-sm" data-set-lang="en">EN</button>
             </div>
-            <button type="button" class="btn btn-ghost btn-sm" data-landing-login data-i18n="nav.login">Entrar</button>
+            <button type="button" class="btn btn-primary landing-nav-login" data-landing-login data-i18n="nav.login">Entrar</button>
           </nav>
+          <div class="landing-top-actions">
+            <button type="button" class="btn btn-primary btn-sm landing-login-btn" data-landing-login data-i18n="nav.login">Entrar</button>
+            <button type="button" class="nav-toggle landing-nav-toggle" id="landing-nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="landing-nav">
+              <span class="nav-toggle-bar"></span>
+              <span class="nav-toggle-bar"></span>
+              <span class="nav-toggle-bar"></span>
+            </button>
+          </div>
         </header>
+        <div class="nav-backdrop hidden" id="landing-nav-backdrop" aria-hidden="true"></div>
 
         <section class="landing-hero" id="landing-hero">
           <p class="landing-eyebrow" data-i18n="hero.eyebrow">En español · 5 manos de prueba</p>
