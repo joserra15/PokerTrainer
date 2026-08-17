@@ -134,6 +134,10 @@ assert.ok(!/instinto recreativo/.test(heroHtml), 'hero sin “instinto recreativ
 assert.ok(!/landing-felt/.test(html), 'hero sin mock de mesa');
 assert.ok(!/landing-hero-bullets/.test(html), 'hero sin bullets de producto');
 assert.ok(/Serás capaz de jugar estas manos correctamente/.test(html), 'reto en el hero');
+assert.ok(/¿Crees que no necesitas entrenar al Póker\? Juega estas 5 manos y compruébalo/.test(heroHtml), 'titular hero reto');
+assert.ok(!/Juega 5 manos\. Mira si aciertas/.test(html), 'hero sin titular corto viejo');
+assert.ok(/Entrena cualquier spot de cash, spins o torneos/.test(html), 'entrenador: cash/spins/torneos');
+assert.ok(!/Mesa 6-max con evaluación GTO calle a calle/.test(html), 'entrenador sin copy 6-max viejo');
 assert.ok(/entrenador IA 24\/7/.test(html) && /how\.s3\.body/.test(html), 'paso 3: registro y estudio completo');
 assert.ok(!/trampas/.test(html.match(/guest-mode-banner[\s\S]{0,280}/)[0]), 'banner sin trampas');
 assert.ok(/guest-gate-streets/.test(html), 'resumen por calle');
@@ -156,6 +160,8 @@ assert.ok(/bindLandingMenu/.test(landingJs) && /landing-nav-open/.test(landingJs
 
 const i18n = fs.readFileSync(path.join(__dirname, '..', 'js/i18n.js'), 'utf8');
 assert.ok(/¿Aciertas las cinco manos, del preflop al river\?/.test(i18n) && /from preflop to river/.test(i18n), 'i18n how.s1 reto');
+assert.ok(/¿Crees que no necesitas entrenar al Póker\?/.test(i18n) && /need poker training/.test(i18n), 'i18n hero.title');
+assert.ok(/Entrena cualquier spot de cash, spins o torneos/.test(i18n) && /Train any cash, spins or tournament spot/.test(i18n), 'i18n feat.train.body');
 assert.ok(!/instinto recreativo/.test(i18n) && !/recreational instincts/.test(i18n), 'i18n sin instinto recreativo');
 
 console.log('*** guest-mode OK ***');
