@@ -1,6 +1,8 @@
 const { test, expect } = require('@playwright/test');
 
 test.describe('Landing nav móvil @mobile', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
   test('hamburguesa abre el cajón y Entrar destaca', async ({ page }) => {
     await page.addInitScript(() => {
       window.PT_E2E_MODE = true;
@@ -10,7 +12,7 @@ test.describe('Landing nav móvil @mobile', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('[data-landing-login]', { timeout: 20000 });
+    await page.waitForSelector('.landing-login-btn', { timeout: 20000 });
 
     const headerLogin = page.locator('.landing-login-btn').first();
     await expect(headerLogin).toBeVisible();

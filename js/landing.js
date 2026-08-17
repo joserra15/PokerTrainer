@@ -70,6 +70,13 @@
     }
   }
 
+  function syncLandingMore() {
+    var more = document.querySelector('#landing-nav .landing-more');
+    if (!more) return;
+    if (isLandingCompactNav()) more.setAttribute('open', '');
+    else more.removeAttribute('open');
+  }
+
   function closeLandingNav() {
     if (document.body && document.body.classList) {
       document.body.classList.remove('landing-nav-open');
@@ -100,19 +107,21 @@
     var main = document.querySelector('.landing-main');
     if (!nav || !top) return;
     if (nav.parentElement !== top) {
-      var actions = top.querySelector('.landing-top-actions');
-      if (actions) top.insertBefore(nav, actions);
-      else top.appendChild(nav);
+      top.appendChild(nav);
     }
     if (backdrop && main && backdrop.parentElement !== main) {
       if (top.nextSibling) main.insertBefore(backdrop, top.nextSibling);
       else main.appendChild(backdrop);
     }
     closeLandingNav();
+    syncLandingMore();
   }
 
   function openLandingNav() {
-    if (isLandingCompactNav()) portalLandingNav();
+    if (isLandingCompactNav()) {
+      portalLandingNav();
+      syncLandingMore();
+    }
     if (document.body && document.body.classList) {
       document.body.classList.add('landing-nav-open');
     }
@@ -134,7 +143,10 @@
     var nav = document.getElementById('landing-nav');
     if (!toggle || !nav) return;
 
-    if (isLandingCompactNav()) portalLandingNav();
+    if (isLandingCompactNav()) {
+      portalLandingNav();
+      syncLandingMore();
+    }
 
     toggle.addEventListener('click', function () {
       if (document.body && document.body.classList && document.body.classList.contains('landing-nav-open')) {
@@ -150,8 +162,10 @@
     });
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('resize', function () {
-        if (isLandingCompactNav()) portalLandingNav();
-        else restoreLandingNav();
+        if (isLandingCompactNav()) {
+          portalLandingNav();
+          syncLandingMore();
+        } else restoreLandingNav();
       });
     }
   }

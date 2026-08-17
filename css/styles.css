@@ -273,6 +273,7 @@ body.guest-gate-open { overflow: hidden; }
   gap: 10px;
   font-weight: 700;
   font-size: 16px;
+  order: 1;
 }
 .landing-nav {
   display: flex;
@@ -283,6 +284,7 @@ body.guest-gate-open { overflow: hidden; }
   gap: 10px 14px;
   font-size: 14px;
   min-width: 0;
+  order: 2;
 }
 .landing-nav a {
   color: var(--muted);
@@ -294,6 +296,7 @@ body.guest-gate-open { overflow: hidden; }
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  order: 3;
 }
 .landing-login-btn {
   white-space: nowrap;
