@@ -11,7 +11,7 @@ const aiSrc = fs.readFileSync(path.join(root, 'js/ai-report.js'), 'utf8');
 const schoolSrc = fs.readFileSync(path.join(root, 'js/school.js'), 'utf8');
 const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.5.47'/.test(version), 'versión 2.5.47');
+assert.ok(/PT_BUILD\s*=\s*'2.5.48'/.test(version), 'versión 2.5.48');
 assert.ok(/lessonId:\s*lesson\.id/.test(schoolSrc), 'mountCoach persiste lessonId');
 assert.ok(/lessonId \? String\(lessonId\) : 'default'/.test(aiSrc), 'resolvePersistTarget learn+lessonId');
 assert.ok(/learn_coach_lessons/.test(storageSrc), 'mapa learn_coach_lessons');
