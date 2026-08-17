@@ -80,18 +80,23 @@
     };
   }
 
+  function isOAuthReturn() {
+    try {
+      return /[?&#](code|access_token|error|error_code)=/.test(
+        (global.location && global.location.href) || ''
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
   function sendRpc(payload) {
+    // Nunca el cliente Auth: un rpc autenticado llama getSession y puede
+    // borrar el code verifier PKCE; el retorno de Google vuelve a la landing.
     try {
-      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
-      if (c && typeof c.rpc === 'function') {
-        var p = c.rpc('pt_guest_funnel_ingest', payload);
-        if (p && typeof p.then === 'function') p.then(function () {}, function () {});
-        return;
-      }
-    } catch (e) { /* noop */ }
-    try {
+      if (isOAuthReturn()) return;
       var cfg = global.PT_SUPABASE || {};
-      if (!cfg.url || !cfg.anonKey) return;
+      if (!cfg.url || !cfg.anonKey || typeof global.fetch !== 'function') return;
       global.fetch(String(cfg.url).replace(/\/$/, '') + '/rest/v1/rpc/pt_guest_funnel_ingest', {
         method: 'POST',
         headers: {
@@ -102,13 +107,14 @@
         body: JSON.stringify(payload),
         keepalive: true
       }).catch(function () {});
-    } catch (e2) { /* noop */ }
+    } catch (e) { /* noop */ }
   }
 
   function track(event, extra) {
     extra = extra || {};
     event = String(event || '');
     if (!ALLOWED[event]) return false;
+    if (isOAuthReturn()) return false;
     var mapped = extra;
     if (event === 'guest_hand') {
       mapped = {
@@ -155,7 +161,14 @@
   function scheduleLandingView() {
     if (landingScheduled) return;
     landingScheduled = true;
+    var oauthWait = 0;
     function onReady() {
+      if (isOAuthReturn()) {
+        if (oauthWait++ < 25 && typeof global.setTimeout === 'function') {
+          global.setTimeout(onReady, 400);
+        }
+        return;
+      }
       maybeLandingView();
     }
     if (typeof global.addEventListener === 'function') {
@@ -169,6 +182,7 @@
 
   global.PTGuestFunnel = {
     STORE_KEY: STORE_KEY,
+    isOAuthReturn: isOAuthReturn,
     visitorId: visitorId,
     track: track,
     rpcPayload: rpcPayload,
