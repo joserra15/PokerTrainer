@@ -124,12 +124,13 @@ assert.ok(/id="guest-gate-login"[^>]*>Continuar con Google/.test(html), 'CTA Goo
 const gateActions = html.match(/guest-gate-actions[\s\S]*?<\/div>/)[0];
 assert.ok(/data-guest-landing/.test(gateActions) && /Volver al inicio/.test(gateActions), 'segundo botón vuelve a la landing');
 assert.ok(!/>Cerrar</.test(gateActions), 'resumen sin Cerrar');
-assert.ok(/preflop al river/.test(html) && /how\.s1\.body/.test(html), 'paso 1: manos preflop→river');
+assert.ok(/¿Aciertas las cinco manos, del preflop al river\?/.test(html) && /how\.s1\.body/.test(html), 'paso 1: reto preflop→river');
+assert.ok(!/as débil/.test(html) && !/broadway offsuit/.test(html), 'paso 1 sin lista de spots viejos');
 assert.ok(/guest-mode-banner/.test(html), 'banner guest');
 assert.ok(/js\/guest-mode\.js/.test(html) && /js\/guest-traps\.js/.test(html), 'scripts early');
 
 const i18n = fs.readFileSync(path.join(__dirname, '..', 'js/i18n.js'), 'utf8');
-assert.ok(/preflop al river/.test(i18n) && /preflop to river/.test(i18n), 'i18n how.s1 preflop→river');
+assert.ok(/¿Aciertas las cinco manos, del preflop al river\?/.test(i18n) && /from preflop to river/.test(i18n), 'i18n how.s1 reto');
 assert.ok(!/instinto recreativo/.test(i18n) && !/recreational instincts/.test(i18n), 'i18n sin instinto recreativo');
 
 console.log('*** guest-mode OK ***');

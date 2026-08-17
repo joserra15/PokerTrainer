@@ -25,7 +25,7 @@ test.describe('Landing guest L0–L2 @smoke', () => {
     await expect(page.locator('.landing-hero-challenge')).toHaveText(/Serás capaz de jugar estas manos correctamente/i);
     await expect(page.locator('.landing-felt')).toHaveCount(0);
     await expect(page.locator('#landing-how')).toContainText(/entrenador IA 24\/7/i);
-    await expect(page.locator('#landing-how')).toContainText(/preflop al river/i);
+    await expect(page.locator('#landing-how')).toContainText(/Aciertas las cinco manos, del preflop al river/i);
     await expect(page.locator('#guest-gate-login')).toHaveText(/Continuar con Google/);
     await expect(page.locator('#guest-gate-modal [data-guest-landing]')).toHaveText(/Volver al inicio/);
 
