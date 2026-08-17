@@ -29228,16 +29228,35 @@ window.PT_VS_3BET_JSON = {
       session.handScoreSum = roundSession((session.handScoreSum || 0) + Number(r.handScore));
     }
     Store.saveHand(hand);
+    if (window.PTGuest && typeof window.PTGuest.afterHandFinished === 'function' &&
+        window.PTGuest.isActive && window.PTGuest.isActive()) {
+      window.PTGuest.afterHandFinished(hand);
+    }
     if (window.PTReEngage && PTReEngage.touchTrain) PTReEngage.touchTrain();
     if (window.PTAnalytics && PTAnalytics.trackPlayHand) {
       PTAnalytics.trackPlayHand({ decisions: (hand.decisions || []).length, evLoss: r.totalEvLoss || 0 });
     }
     refreshSessionUI();
 
+    const guestOn = window.PTGuest && PTGuest.isActive && PTGuest.isActive();
     const target = playSessionConfig && Number(playSessionConfig.handsTarget);
-    const blockDone = target > 0 && session.hands >= target && !leakReplayQueue.length;
+    const blockDone = !guestOn && target > 0 && session.hands >= target && !leakReplayQueue.length;
 
-    if (blockDone) {
+    if (guestOn) {
+      const left = PTGuest.remaining ? PTGuest.remaining() : 0;
+      if (left <= 0) {
+        $('#actions').innerHTML =
+          '<button class="btn btn-primary" id="guest-see-score">Ver resumen</button>';
+        const see = $('#guest-see-score');
+        if (see) see.addEventListener('click', () => {
+          if (PTGuest.showGate) PTGuest.showGate('limit');
+        });
+      } else {
+        $('#actions').innerHTML =
+          '<button class="btn btn-primary" id="next-after">Siguiente mano &raquo;</button>';
+        $('#next-after').addEventListener('click', () => { continueLeakReplayOrNext(); });
+      }
+    } else if (blockDone) {
       $('#actions').innerHTML =
         '<button class="btn btn-primary" id="session-summary-new">Nueva sesión</button>' +
         '<button class="btn btn-ghost" id="session-summary-continue">Seguir entrenando</button>';
@@ -29468,6 +29487,14 @@ window.PT_VS_3BET_JSON = {
     if (nextBtn) {
       nextBtn.onclick = () => {
         closeModal();
+        if (window.PTGuest && PTGuest.isActive && PTGuest.isActive()) {
+          if (PTGuest.remaining && PTGuest.remaining() <= 0) {
+            if (PTGuest.showGate) PTGuest.showGate('limit');
+            return;
+          }
+          continueLeakReplayOrNext();
+          return;
+        }
         if (options.blockDone) {
           try { openSessionBlockPopup(options.handsTarget); } catch (e) { console.warn('[session-block]', e); }
           return;

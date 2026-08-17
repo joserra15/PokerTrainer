@@ -166,11 +166,11 @@
         </header>
 
         <section class="landing-hero" id="landing-hero">
-          <p class="landing-eyebrow" data-i18n="hero.eyebrow">En español · sin tarjeta · 5 manos trampa</p>
+          <p class="landing-eyebrow" data-i18n="hero.eyebrow">En español · 5 manos de prueba</p>
           <h1 data-i18n="hero.title">Juega 5 manos. Mira si aciertas.</h1>
           <p class="landing-lead" data-i18n="hero.lead">Spots diseñados para pillar el instinto recreativo. Google solo si quieres guardar el progreso.</p>
           <div class="landing-hero-actions">
-            <button type="button" class="btn btn-primary" data-landing-try data-i18n="hero.cta">Probar ahora — sin registro</button>
+            <button type="button" class="btn btn-primary" data-landing-try data-i18n="hero.cta">Probar ahora</button>
             <a class="btn btn-ghost" href="#landing-how" data-i18n="hero.how">Cómo funciona</a>
           </div>
           <p class="landing-hero-age muted-text" data-i18n="hero.age">Mayores de 18 años. El registro pide confirmación.</p>
@@ -200,7 +200,7 @@
             <article class="landing-how-step">
               <span class="landing-how-num">1</span>
               <h3 data-i18n="how.s1.title">Juegas el spot</h3>
-              <p data-i18n="how.s1.body">Cinco trampas: as débil, broadway basura, open UTG, flot de as alto y overcards.</p>
+              <p data-i18n="how.s1.body">Cinco spots: as débil, broadway offsuit, open UTG, as alto en flop y overcards.</p>
             </article>
             <article class="landing-how-step">
               <span class="landing-how-num">2</span>
@@ -295,9 +295,9 @@
         </section>
 
         <section class="landing-section landing-cta-band">
-          <h2>¿Listo para que te pille una trampa?</h2>
+          <h2>¿Listo para jugar 5 manos?</h2>
           <p class="muted-text">Cinco manos sin cuenta. Google solo para guardar el marcador.</p>
-          <button type="button" class="btn btn-primary" data-landing-try>Probar ahora — sin registro</button>
+          <button type="button" class="btn btn-primary" data-landing-try>Probar ahora</button>
         </section>
 
         <footer class="landing-footer">
@@ -364,7 +364,7 @@
 
   <div id="app-shell" class="hidden" aria-hidden="true">
   <div id="guest-mode-banner" class="guest-mode-banner hidden" role="status">
-    <span>Prueba sin cuenta · <strong id="guest-banner-count">0 / 5</strong> trampas</span>
+    <span>Prueba sin cuenta · <strong id="guest-banner-count">0 / 5</strong></span>
     <button type="button" class="btn btn-primary btn-sm" data-guest-save>Guardar con Google</button>
   </div>
   <div class="header-bar">
@@ -1432,8 +1432,9 @@
 
   <div id="guest-gate-modal" class="modal guest-gate-modal hidden" role="dialog" aria-modal="true" aria-labelledby="guest-gate-title">
     <div class="modal-content guest-gate-content">
-      <h3 id="guest-gate-title">Estas manos no perdonan</h3>
-      <p id="guest-gate-score">Has terminado las 5 trampas.</p>
+      <h3 id="guest-gate-title">Resumen de tu prueba</h3>
+      <p id="guest-gate-score">Has terminado las 5 manos.</p>
+      <div id="guest-gate-streets" class="guest-gate-streets"></div>
       <p class="muted-text">Guarda el marcador con Google y sigue con el entrenador, import y ForgeCoach.</p>
       <label class="guest-gate-age">
         <input type="checkbox" id="guest-gate-age" />

@@ -425,12 +425,41 @@ body.guest-gate-open { overflow: hidden; }
   font-size: 14px;
 }
 .guest-gate-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.guest-gate-streets {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel-2, rgba(255,255,255,.04));
+  border: 1px solid var(--border);
+  font-size: 14px;
+}
+.guest-gate-streets .guest-street-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.guest-gate-streets .guest-street-row.total {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-weight: 700;
+}
 body.guest-mode .tab:not([data-tab="play"]) { display: none; }
 body.guest-mode .tab-link { display: none; }
 body.guest-mode #play-setup,
 body.guest-mode #new-session,
+body.guest-mode #replay-hand,
+body.guest-mode #btn-help,
 body.guest-mode #repeat-errors,
 body.guest-mode #play-usage,
+body.guest-mode #replay-after,
+body.guest-mode #new-session-after,
+body.guest-mode #hand-end-replay,
+body.guest-mode #hand-end-new-session,
+body.guest-mode #session-summary-new,
+body.guest-mode #session-summary-continue,
 body.guest-mode .play-setup-extras { display: none !important; }
 .landing-promo-pill {
   display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px;

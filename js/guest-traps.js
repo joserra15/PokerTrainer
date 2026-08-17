@@ -14,9 +14,9 @@
     liveAdvisor: false,
     actionMode: 'quick',
     schoolMode: true,
-    schoolDecisionEnd: true,
+    schoolDecisionEnd: false,
     guestTrap: true,
-    handsTarget: 5,
+    handsTarget: 0,
     allowMultiway: false
   };
 

@@ -19,15 +19,24 @@ test.describe('Landing guest L0–L2 @smoke', () => {
     await expect(page.locator('#landing-promo-code-form')).toBeHidden();
     await expect(page.locator('#landing-how')).toBeVisible();
 
+    await expect(page.locator('#landing-hero [data-landing-try]')).toHaveText(/^Probar ahora$/);
+    await expect(page.locator('#landing-eyebrow, .landing-eyebrow')).not.toContainText(/sin tarjeta|trampa/i);
+
     await page.locator('[data-landing-try]').first().click();
     await page.waitForSelector('#app-shell:not(.hidden)', { timeout: 30000 });
     await expect(page.locator('#auth-gate')).toHaveClass(/hidden/);
     await expect(page.locator('#guest-mode-banner')).toBeVisible();
+    await expect(page.locator('#guest-mode-banner')).not.toContainText(/trampa/i);
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 25000 });
     await skipActionPlaybackIfNeeded(page);
     await expect(playActionButtons(page).first()).toBeVisible({ timeout: 20000 });
     await expect(page.locator('#play-active button[data-action="fold"]')).toBeVisible();
     await expect(page.locator('#play-active button[data-action="call"]')).toBeVisible();
+    await expect(page.locator('#new-hand')).toBeVisible();
+    await expect(page.locator('#new-hand')).toHaveText(/Siguiente mano/i);
+    await expect(page.locator('#replay-hand')).toBeHidden();
+    await expect(page.locator('#new-session')).toBeHidden();
+    await expect(page.locator('#btn-help')).toBeHidden();
 
     const oauth = await page.evaluate(() => window.__ptOAuthCalls || 0);
     expect(oauth).toBe(0);

@@ -61,8 +61,19 @@ assert.strictEqual(G.score().total, 1);
 assert.strictEqual(G.score().good, 0);
 assert.ok(G.hasProgress());
 
-G.recordDecision({ class: 'optima', action: 'fold', best: 'fold' });
+G.recordDecision({ class: 'optima', action: 'fold', best: 'fold', street: 'preflop' });
 assert.strictEqual(G.score().good, 1);
+assert.strictEqual(G.streetScore().by.preflop.n, 2);
+
+G.afterHandFinished({
+  decisions: [
+    { street: 'preflop', class: 'optima', action: 'raise', best: 'raise' },
+    { street: 'flop', class: 'error', action: 'call', best: 'fold' }
+  ]
+});
+assert.strictEqual(G.remaining(), 2);
+assert.strictEqual(G.streetScore().by.flop.n, 1);
+assert.strictEqual(G.streetScore().by.flop.good, 0);
 
 let migrated = null;
 sandbox.window.Store = {
@@ -91,6 +102,10 @@ assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/data-landing-try/.test(html), 'CTA probar');
+assert.ok(!/Probar ahora — sin registro/.test(html), 'CTA sin “sin registro”');
+assert.ok(!/sin tarjeta/.test(html.split('id="landing-hero"')[1].split('id="landing-how"')[0]), 'hero sin “sin tarjeta”');
+assert.ok(!/trampas/.test(html.match(/guest-mode-banner[\s\S]{0,280}/)[0]), 'banner sin trampas');
+assert.ok(/guest-gate-streets/.test(html), 'resumen por calle');
 assert.ok(/guest-gate-modal/.test(html), 'modal gate');
 assert.ok(/guest-mode-banner/.test(html), 'banner guest');
 assert.ok(/js\/guest-mode\.js/.test(html) && /js\/guest-traps\.js/.test(html), 'scripts early');
