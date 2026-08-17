@@ -1,5 +1,4 @@
-/* Regresión: CTAs [data-landing-login] deben iniciar OAuth (no solo scroll).
- * En desktop el panel ya está sticky/visible; scrollToLogin parece un no-op. */
+/* Regresión: [data-landing-login] abre el panel de Google (no solo scroll). */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -10,8 +9,12 @@ const root = path.join(__dirname, '..');
 const landingSrc = fs.readFileSync(path.join(root, 'js', 'landing.js'), 'utf8');
 
 assert(
-  /querySelectorAll\('\[data-landing-login\]'\)[\s\S]{0,280}?startLoginNow\(\)/.test(landingSrc),
-  '[data-landing-login] debe llamar startLoginNow()'
+  /querySelectorAll\('\[data-landing-login\]'\)[\s\S]{0,400}?openLoginPanel\(\)/.test(landingSrc),
+  '[data-landing-login] debe llamar openLoginPanel()'
+);
+assert(
+  /querySelectorAll\('\[data-landing-try\]'\)[\s\S]{0,400}?startGuestNow\(\)/.test(landingSrc),
+  '[data-landing-try] debe llamar startGuestNow()'
 );
 
 const clickHandlers = [];
@@ -26,22 +29,29 @@ const loginBtn = {
 
 const listeners = {};
 let oauthCalls = 0;
+const panelClass = { add: function () {}, remove: function () {} };
 
 const sandbox = {
   window: {},
   console,
   setTimeout: function (fn) { return setTimeout(fn, 0); },
+  setInterval: function () { return 1; },
+  clearInterval: function () {},
   document: {
     readyState: 'complete',
+    body: { classList: { add: function () {}, remove: function () {}, toggle: function () {} } },
     getElementById: function (id) {
       if (id === 'auth-gate') return { id: 'auth-gate' };
       if (id === 'landing-login') {
         return {
           id: 'landing-login',
-          classList: { add: function () {}, remove: function () {} },
+          classList: panelClass,
+          setAttribute: function () {},
           scrollIntoView: function () {},
           insertBefore: function () {},
-          firstChild: null
+          firstChild: null,
+          dataset: {},
+          addEventListener: function () {}
         };
       }
       if (id === 'auth-mobile-login') return loginBtn;
@@ -72,6 +82,7 @@ assert.strictEqual(clickHandlers.length, 1, 'handler click en Entrar');
 const fakeEvent = { preventDefault: function () { this.prevented = true; }, prevented: false };
 clickHandlers[0](fakeEvent);
 assert.ok(fakeEvent.prevented, 'preventDefault en click Entrar');
-assert.strictEqual(oauthCalls, 1, 'Entrar debe llamar PT_startGoogleLogin');
+assert.ok(sandbox.PTLanding.openLoginPanel, 'openLoginPanel exportado');
+assert.ok(sandbox.PTLanding.startGuestNow, 'startGuestNow exportado');
 
 console.log('*** landing-login-cta OK ***');

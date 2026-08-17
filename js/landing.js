@@ -19,15 +19,7 @@
   }
 
   function scrollToLogin() {
-    var panel = document.getElementById('landing-login');
-    if (panel) {
-      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      panel.classList.remove('landing-login-focus');
-      global.setTimeout(function () { panel.classList.add('landing-login-focus'); }, 20);
-      global.setTimeout(function () { panel.classList.remove('landing-login-focus'); }, 2200);
-      var btn = document.getElementById('auth-mobile-login');
-      if (btn) btn.focus();
-    }
+    openLoginPanel();
   }
 
   function startLoginNow() {
@@ -40,14 +32,63 @@
       btn.click();
       return;
     }
-    scrollToLogin();
+    openLoginPanel();
+  }
+
+  function openLoginPanel() {
+    var panel = document.getElementById('landing-login');
+    if (!panel) return;
+    panel.classList.remove('hidden');
+    panel.setAttribute('aria-hidden', 'false');
+    if (document.body && document.body.classList) {
+      document.body.classList.add('landing-login-open');
+    }
+    trackLanding('cta_login');
+    var btn = document.getElementById('auth-mobile-login');
+    if (btn) btn.focus();
+  }
+
+  function closeLoginPanel() {
+    var panel = document.getElementById('landing-login');
+    if (panel) {
+      panel.classList.add('hidden');
+      panel.setAttribute('aria-hidden', 'true');
+    }
+    if (document.body && document.body.classList) {
+      document.body.classList.remove('landing-login-open');
+    }
+  }
+
+  function startGuestNow() {
+    trackLanding('cta_try');
+    closeLoginPanel();
+    if (global.PTGuest && global.PTGuest.enter) {
+      global.PTGuest.enter();
+      return;
+    }
+    try { sessionStorage.setItem('pt_guest_pending', '1'); } catch (e) { /* noop */ }
+    var n = 0;
+    var t = global.setInterval(function () {
+      n += 1;
+      if (global.PTGuest && global.PTGuest.enter) {
+        global.clearInterval(t);
+        global.PTGuest.enter();
+      } else if (n > 80) {
+        global.clearInterval(t);
+      }
+    }, 80);
+  }
+
+  function trackLanding(name, props) {
+    var A = global.PTAnalytics;
+    if (A && A.track) A.track(name, props || {});
   }
 
   function renderPromo() {
     var Promo = global.PTBillingPromo;
     if (!Promo) return;
     var pillHost = document.getElementById('landing-promo-pill');
-    if (pillHost) pillHost.innerHTML = Promo.pillHtml ? Promo.pillHtml() : '';
+    if (pillHost) pillHost.innerHTML = '';
     var bannerHost = document.getElementById('landing-promo-banner');
     if (bannerHost) bannerHost.innerHTML = Promo.bannerHtml ? Promo.bannerHtml() : '';
   }
@@ -89,8 +130,9 @@
         id: 'free',
         title: t('plan.free'), price: '0 €', period: '/mes', featured: false,
         features: [t('plan.free.f1'), t('plan.free.f2'), t('plan.free.f3'), t('plan.free.f4')],
-        ctaLabel: t('plan.cta'),
-        ctaLogin: true,
+        ctaLabel: t('hero.cta'),
+        ctaLogin: false,
+        ctaGuest: true,
         disabled: false
       },
       {
@@ -148,7 +190,7 @@
     ];
     grid.innerHTML = cards.map(function (c) {
       var btnClass = 'btn ' + (c.featured && !c.disabled ? 'btn-primary' : 'btn-ghost') +
-        ' btn-block' + (c.ctaLogin ? ' landing-price-cta' : '');
+        ' btn-block' + (c.ctaGuest ? ' landing-guest-cta' : (c.ctaLogin ? ' landing-price-cta' : ''));
       var disabledAttr = c.disabled ? ' disabled aria-disabled="true"' : '';
       var note = '';
       var founderBtn = '';
@@ -179,7 +221,14 @@
     grid.querySelectorAll('.landing-price-cta').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.preventDefault();
+        openLoginPanel();
         startLoginNow();
+      });
+    });
+    grid.querySelectorAll('.landing-guest-cta').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        startGuestNow();
       });
     });
     grid.querySelectorAll('[data-founder-request]').forEach(function (btn) {
@@ -244,11 +293,28 @@
     document.querySelectorAll('[data-landing-login]').forEach(function (el) {
       el.addEventListener('click', function (e) {
         e.preventDefault();
-        // Desktop: el panel de login ya está sticky/visible, así que solo
-        // hacer scroll parece un no-op. Arrancar OAuth igual que los CTA de planes.
-        startLoginNow();
+        openLoginPanel();
       });
     });
+    document.querySelectorAll('[data-landing-try]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.preventDefault();
+        startGuestNow();
+      });
+    });
+    document.querySelectorAll('[data-landing-login-close]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.preventDefault();
+        closeLoginPanel();
+      });
+    });
+    var loginPanel = document.getElementById('landing-login');
+    if (loginPanel && !loginPanel.dataset.backdropBound) {
+      loginPanel.dataset.backdropBound = '1';
+      loginPanel.addEventListener('click', function (e) {
+        if (e.target === loginPanel) closeLoginPanel();
+      });
+    }
     document.querySelectorAll('[data-set-lang]').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.preventDefault();
@@ -273,7 +339,8 @@
           global.PTPwa.installApp();
           return;
         }
-        scrollToLogin();
+        var inst = document.getElementById('landing-install');
+        if (inst) inst.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     });
     bindPromoCodeForm();
@@ -325,10 +392,11 @@
     renderPricing();
     renderOAuthHints();
     bindNav();
+    trackLanding('landing_view');
     var promoCode = pendingPromoCode();
     if (promoCode) {
       renderPromoRegisterHint(promoCode);
-      scrollToLogin();
+      openLoginPanel();
       var autoLogin = false;
       try { autoLogin = sessionStorage.getItem('pt_promo_autologin') === '1'; } catch (e) { /* noop */ }
       if (autoLogin || /[?&]promo=/i.test(location.search || '')) {
@@ -338,7 +406,15 @@
     }
   }
 
-  global.PTLanding = { init: init, scrollToLogin: scrollToLogin, refreshI18n: refreshI18n };
+  global.PTLanding = {
+    init: init,
+    scrollToLogin: scrollToLogin,
+    refreshI18n: refreshI18n,
+    startLoginNow: startLoginNow,
+    openLoginPanel: openLoginPanel,
+    closeLoginPanel: closeLoginPanel,
+    startGuestNow: startGuestNow
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

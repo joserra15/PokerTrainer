@@ -418,6 +418,12 @@
   }
 
   function setUser(user) {
+    if (user && user.isGuest) {
+      userId = null;
+      legacyGoogleSub = null;
+      setStatus('auth_required', 'Modo invitado · sin sync');
+      return;
+    }
     userId = user && user.sub ? user.sub : null;
     legacyGoogleSub = user && user.googleSub ? user.googleSub : null;
     if (!userId) {

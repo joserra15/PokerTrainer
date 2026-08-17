@@ -151,11 +151,11 @@ REQUIRED_KEYS.forEach(function (key) {
 });
 
 assert.ok(limitsHtml.indexOf('limits.title') < 0, 'limits no muestra limits.title');
-assert.ok(limitsHtml.indexOf('Empieza sin fricción') >= 0, 'limits muestra título traducido');
+assert.ok(limitsHtml.indexOf('Plan gratis y FOUNDER') >= 0, 'limits muestra título traducido');
 assert.ok(pricingHtml.indexOf('plan.free') < 0, 'pricing no muestra plan.free');
 assert.ok(pricingHtml.indexOf('plan.cta') < 0, 'pricing no muestra plan.cta');
 assert.ok(pricingHtml.indexOf('Gratis') >= 0, 'pricing muestra Gratis');
-assert.ok(pricingHtml.indexOf('Empezar gratis') >= 0, 'pricing muestra CTA free traducido');
+assert.ok(pricingHtml.indexOf('Probar ahora') >= 0, 'pricing muestra CTA free traducido');
 assert.ok(pricingHtml.indexOf('Compra próximamente') >= 0, 'Study/Coach muestran CTA pausado');
 assert.ok(pricingHtml.indexOf('data-founder-request="study"') >= 0 || pricingHtml.indexOf('FOUNDER Study') >= 0,
   'Study muestra CTA solicitud FOUNDER');

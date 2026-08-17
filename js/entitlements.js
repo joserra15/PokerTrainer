@@ -66,6 +66,10 @@
     return !!(u && u.isAdmin);
   }
 
+  function isGuestUser() {
+    return global.PTGuest && global.PTGuest.isActive && global.PTGuest.isActive();
+  }
+
   function localFallback() {
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
     var plan = demoActive() ? 'free' : ((u && u.plan) || 'free');
@@ -230,6 +234,7 @@
   }
 
   function canUseAI(ent) {
+    if (isGuestUser()) return { ok: false, reason: 'guest_gate' };
     ent = ent || state || localFallback();
     if (ent.is_admin || ent.unlimited || isAdmin()) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
@@ -307,6 +312,11 @@
   }
 
   function canStartTrainerHand(ent) {
+    if (isGuestUser()) {
+      var left = global.PTGuest.remaining ? global.PTGuest.remaining() : 0;
+      if (left <= 0) return { ok: false, reason: 'guest_gate', used: 5, limit: 5 };
+      return { ok: true, used: 0, limit: 5 };
+    }
     ent = ent || state || localFallback();
     if (unlimited(ent)) return { ok: true };
     var lim = ent.limits || {};
@@ -318,6 +328,7 @@
   }
 
   function canImportSession(handCount, ent) {
+    if (isGuestUser()) return { ok: false, reason: 'guest_gate' };
     ent = ent || state || localFallback();
     if (unlimited(ent)) return { ok: true };
     var lim = ent.limits || {};
@@ -334,7 +345,7 @@
   }
 
   async function recordTrainerHand() {
-    if (!useAuth() || e2eBypass()) return { ok: true };
+    if (isGuestUser() || !useAuth() || e2eBypass()) return { ok: true };
     var c = client();
     if (!c) return { ok: true };
     var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
@@ -369,6 +380,7 @@
   }
 
   function canSaveAnalysisHand(currentCount, ent) {
+    if (isGuestUser()) return { ok: false, reason: 'guest_gate', used: 0, limit: 0, plan: 'guest' };
     ent = ent || state || localFallback();
     var max = analysisHandsMax(ent);
     var count = Number(currentCount) || 0;

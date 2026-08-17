@@ -41,6 +41,8 @@ const STEPS = [
   ['Test share-hand HTML', ['node', 'tools/test-share-hand.js']],
   ['Test landing i18n', ['node', 'tools/test-landing-i18n.js']],
   ['Test landing login CTA', ['node', 'tools/test-landing-login-cta.js']],
+  ['Test guest traps', ['node', 'tools/test-guest-traps.js']],
+  ['Test guest mode', ['node', 'tools/test-guest-mode.js']],
   ['Test login desktop regression', ['node', 'tools/test-login-desktop-regression.js']],
   ['Test build-guard no deploy-info', ['node', 'tools/test-build-guard-no-deploy-info.js']],
   ['Test JS asset versioning', ['node', 'tools/test-js-asset-versioning.js']],

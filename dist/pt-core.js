@@ -22715,6 +22715,10 @@ window.PT_VS_3BET_JSON = {
     return !!(u && u.isAdmin);
   }
 
+  function isGuestUser() {
+    return global.PTGuest && global.PTGuest.isActive && global.PTGuest.isActive();
+  }
+
   function localFallback() {
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
     var plan = demoActive() ? 'free' : ((u && u.plan) || 'free');
@@ -22879,6 +22883,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   function canUseAI(ent) {
+    if (isGuestUser()) return { ok: false, reason: 'guest_gate' };
     ent = ent || state || localFallback();
     if (ent.is_admin || ent.unlimited || isAdmin()) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
@@ -22956,6 +22961,11 @@ window.PT_VS_3BET_JSON = {
   }
 
   function canStartTrainerHand(ent) {
+    if (isGuestUser()) {
+      var left = global.PTGuest.remaining ? global.PTGuest.remaining() : 0;
+      if (left <= 0) return { ok: false, reason: 'guest_gate', used: 5, limit: 5 };
+      return { ok: true, used: 0, limit: 5 };
+    }
     ent = ent || state || localFallback();
     if (unlimited(ent)) return { ok: true };
     var lim = ent.limits || {};
@@ -22967,6 +22977,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   function canImportSession(handCount, ent) {
+    if (isGuestUser()) return { ok: false, reason: 'guest_gate' };
     ent = ent || state || localFallback();
     if (unlimited(ent)) return { ok: true };
     var lim = ent.limits || {};
@@ -22983,7 +22994,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   async function recordTrainerHand() {
-    if (!useAuth() || e2eBypass()) return { ok: true };
+    if (isGuestUser() || !useAuth() || e2eBypass()) return { ok: true };
     var c = client();
     if (!c) return { ok: true };
     var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
@@ -23018,6 +23029,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   function canSaveAnalysisHand(currentCount, ent) {
+    if (isGuestUser()) return { ok: false, reason: 'guest_gate', used: 0, limit: 0, plan: 'guest' };
     ent = ent || state || localFallback();
     var max = analysisHandsMax(ent);
     var count = Number(currentCount) || 0;
@@ -23336,6 +23348,10 @@ window.PT_VS_3BET_JSON = {
   }
 
   function showPaywall(reason, customMsg) {
+    if (global.PTGuest && global.PTGuest.isActive && global.PTGuest.isActive()) {
+      if (global.PTGuest.showGate) global.PTGuest.showGate(reason === 'guest_gate' ? 'limit' : (reason || 'tab'));
+      return;
+    }
     var modal = document.getElementById('paywall-modal');
     if (!modal) {
       if (customMsg) alert(customMsg);
@@ -24982,9 +24998,15 @@ window.PT_VS_3BET_JSON = {
     const nameEl = $('#account-name');
     const emailEl = $('#account-email');
     const shortEl = $('#account-email-short');
-    if (nameEl) nameEl.textContent = user.name;
-    if (emailEl) emailEl.textContent = user.email;
-    if (shortEl) shortEl.textContent = user.email.length > 22 ? user.email.slice(0, 20) + '…' : user.email;
+    if (nameEl) nameEl.textContent = user.isGuest ? 'Invitado' : user.name;
+    if (emailEl) emailEl.textContent = user.isGuest ? 'Prueba sin cuenta' : user.email;
+    if (shortEl) {
+      if (user.isGuest) shortEl.textContent = 'Invitado';
+      else shortEl.textContent = user.email.length > 22 ? user.email.slice(0, 20) + '…' : user.email;
+    }
+
+    var guestSave = $('#account-guest-save');
+    if (guestSave) guestSave.classList.toggle('hidden', !user.isGuest);
 
     if (global.PTAdmin && global.PTAdmin.setAdminVisible) {
       var demoOn = global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive();
@@ -25007,6 +25029,7 @@ window.PT_VS_3BET_JSON = {
 
     const settingsBtn = $('#account-settings');
     if (settingsBtn) {
+      settingsBtn.classList.toggle('hidden', !!user.isGuest);
       settingsBtn.onclick = function () {
         closeAccountDropdown();
         if (global.goToTab) global.goToTab('account');
@@ -25014,10 +25037,14 @@ window.PT_VS_3BET_JSON = {
     }
 
     const signout = $('#account-signout');
-    if (signout) signout.onclick = function () { signOut(); };
+    if (signout) {
+      signout.textContent = user.isGuest ? 'Salir de la prueba' : 'Cerrar sesión';
+      signout.onclick = function () { signOut(); };
+    }
 
     const syncBtn = $('#account-sync');
     if (syncBtn) {
+      syncBtn.classList.toggle('hidden', !!user.isGuest);
       syncBtn.onclick = function () {
         if (typeof global.runCloudSync === 'function') global.runCloudSync(syncBtn);
         else if (global.PTCloud && global.PTCloud.syncNow) {
@@ -25138,6 +25165,25 @@ window.PT_VS_3BET_JSON = {
     }
   }
 
+  function enterGuest() {
+    var user = (global.PTGuest && global.PTGuest.guestUser)
+      ? global.PTGuest.guestUser()
+      : { sub: 'pt_guest_local', email: '', name: 'Invitado', isGuest: true, loginAt: Date.now() };
+    currentUser = user;
+    global.PT_AUTH_USER = user;
+    if (global.Store && global.Store.setUserId) global.Store.setUserId(user.sub);
+    setAppVisible(true);
+    document.body.classList.add('guest-mode');
+    renderAccountMenu(user);
+    startAppIfNeeded();
+    global.dispatchEvent(new CustomEvent('pt-auth-ready', { detail: user }));
+    global.dispatchEvent(new CustomEvent('pt-guest-ready'));
+    if (global.PTGuest && global.PTGuest.applyChrome) global.PTGuest.applyChrome(true);
+    if (global.PTGuest && global.PTGuest.startTraps) {
+      global.setTimeout(function () { global.PTGuest.startTraps(); }, 60);
+    }
+  }
+
   async function enterApp(user) {
     if (!user) return;
     user = normalizeUser(user);
@@ -25153,7 +25199,11 @@ window.PT_VS_3BET_JSON = {
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (e) { /* noop */ }
     currentUser = user;
     global.PT_AUTH_USER = user;
+    if (global.PTGuest && global.PTGuest.mergeIntoUser) {
+      global.PTGuest.mergeIntoUser(user.sub);
+    }
     if (global.Store && global.Store.setUserId) global.Store.setUserId(user.sub);
+    document.body.classList.remove('guest-mode');
 
     setAppVisible(true);
     renderAccountMenu(user);
@@ -25285,6 +25335,14 @@ window.PT_VS_3BET_JSON = {
   }
 
   function signOut() {
+    if (currentUser && currentUser.isGuest) {
+      if (global.PTGuest && global.PTGuest.clear) global.PTGuest.clear();
+      currentUser = null;
+      global.PT_AUTH_USER = null;
+      appStarted = false;
+      location.reload();
+      return;
+    }
     if (global.PTLog && global.PTLog.event) global.PTLog.event('logout');
     var done = function () {
       if (global.PTAdmin && global.PTAdmin.lockdown) {
@@ -25314,6 +25372,7 @@ window.PT_VS_3BET_JSON = {
     appReadyCallback = onReady;
     const user = loadSession();
     if (user) enterApp(user);
+    else if (global.PTGuest && global.PTGuest.wantsEnter && global.PTGuest.wantsEnter()) enterGuest();
     else {
       setAppVisible(false);
       if (global.PT_startGoogleLogin) {
@@ -25371,7 +25430,9 @@ window.PT_VS_3BET_JSON = {
 
   global.PTAuth = {
     getUser: function () { return currentUser; },
-    isAuthenticated: function () { return !!currentUser; },
+    isAuthenticated: function () { return !!currentUser && !currentUser.isGuest; },
+    isGuest: function () { return !!(currentUser && currentUser.isGuest); },
+    enterGuest: enterGuest,
     requireAuth: requireAuth,
     signOut: signOut,
     exportAccountData: exportAccountData,
@@ -26337,8 +26398,14 @@ window.PT_VS_3BET_JSON = {
     try {
       if (!window.Engine) throw new Error('Motor no cargado');
       setPlayBoot(false);
-      showPlaySetup();
-      goToTab('home');
+      if (window.PTGuest && PTGuest.isActive && PTGuest.isActive()) {
+        finishHomeBoot();
+        showPlayTable();
+        goToTab('play', { table: true });
+      } else {
+        showPlaySetup();
+        goToTab('home');
+      }
     } catch (e) {
       console.error('[Play] init failed', e);
       setPlayBoot(true, 'Error al cargar. Recarga la página.');
@@ -26535,6 +26602,12 @@ window.PT_VS_3BET_JSON = {
 
   function goToTab(tabId, opts) {
     opts = opts || {};
+    if (window.PTGuest && PTGuest.isActive && PTGuest.isActive()) {
+      if (tabId !== 'play') {
+        if (PTGuest.maybeGate) PTGuest.maybeGate('tab');
+        return;
+      }
+    }
     if (window.PTLog && PTLog.event) PTLog.event('tab_view', { tab: tabId });
     $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tabId));
     $$('.tab-panel').forEach((x) => x.classList.remove('active'));
@@ -26811,7 +26884,19 @@ window.PT_VS_3BET_JSON = {
   }
 
   function bindControls() {
-    $('#new-hand').addEventListener('click', () => { pendingForce = null; leakReplayQueue = []; void startNewHand(); });
+    $('#new-hand').addEventListener('click', () => {
+      if (window.PTGuest && PTGuest.isActive && PTGuest.isActive()) {
+        if (PTGuest.remaining && PTGuest.remaining() <= 0) {
+          if (PTGuest.showGate) PTGuest.showGate('limit');
+          return;
+        }
+        void startNewHand();
+        return;
+      }
+      pendingForce = null;
+      leakReplayQueue = [];
+      void startNewHand();
+    });
     $('#replay-hand').addEventListener('click', () => replayCurrentHand());
     $('#new-session').addEventListener('click', () => resetPlaySession());
     $('#repeat-errors').addEventListener('change', (e) => { repeatErrorsMode = e.target.checked; });
@@ -27014,8 +27099,9 @@ window.PT_VS_3BET_JSON = {
     $('#feedback').classList.add('hidden');
     await yieldToPaint();
     try {
+      const guestOn = window.PTGuest && PTGuest.isActive && PTGuest.isActive();
       const Ent = window.PTEntitlements;
-      if (Ent && Ent.ensureLoaded) {
+      if (!guestOn && Ent && Ent.ensureLoaded) {
         const ent = await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
         if (!check.ok) {
@@ -27028,6 +27114,19 @@ window.PT_VS_3BET_JSON = {
             if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
             return;
           }
+        }
+      }
+      if (guestOn) {
+        if (PTGuest.remaining && PTGuest.remaining() <= 0) {
+          if (PTGuest.showGate) PTGuest.showGate('limit');
+          return;
+        }
+        const gForce = PTGuest.nextForce && PTGuest.nextForce();
+        const gCfg = PTGuest.nextPlayConfig && PTGuest.nextPlayConfig();
+        if (gForce) pendingForce = gForce;
+        if (gCfg) {
+          playSessionConfig = gCfg;
+          replayPlayConfig = gCfg;
         }
       }
 
@@ -27670,6 +27769,9 @@ window.PT_VS_3BET_JSON = {
       }
       $('#feedback').classList.add('hidden');
 
+      if (window.PTGuest && typeof window.PTGuest.afterTrainerAction === 'function') {
+        window.PTGuest.afterTrainerAction(hand, d);
+      }
       if (window.PTSchool && typeof window.PTSchool.afterTrainerAction === 'function') {
         if (window.PTSchool.afterTrainerAction(hand, d)) {
           renderTable();

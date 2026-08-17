@@ -1,0 +1,98 @@
+/* Guest mode: persistencia, límite 5, merge. */
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const assert = require('assert');
+
+const localStore = {};
+const sandbox = {
+  window: {},
+  console,
+  setTimeout: function (fn) { if (typeof fn === 'function') fn(); return 1; },
+  setInterval: function () { return 1; },
+  clearInterval: function () {},
+  localStorage: {
+    getItem: (k) => (Object.prototype.hasOwnProperty.call(localStore, k) ? localStore[k] : null),
+    setItem: (k, v) => { localStore[k] = String(v); },
+    removeItem: (k) => { delete localStore[k]; }
+  },
+  document: {
+    readyState: 'complete',
+    getElementById: function () { return null; },
+    querySelectorAll: function () { return []; },
+    addEventListener: function () {}
+  },
+  addEventListener: function () {},
+  dispatchEvent: function () { return true; },
+  CustomEvent: function (name, opts) { this.type = name; this.detail = opts && opts.detail; }
+};
+sandbox.global = sandbox;
+sandbox.window = sandbox;
+sandbox.document.body = { classList: { toggle: function () {}, add: function () {}, remove: function () {} } };
+vm.createContext(sandbox);
+
+vm.runInContext(
+  fs.readFileSync(path.join(__dirname, '..', 'js/guest-traps.js'), 'utf8'),
+  sandbox,
+  { filename: 'guest-traps.js' }
+);
+vm.runInContext(
+  fs.readFileSync(path.join(__dirname, '..', 'js/guest-mode.js'), 'utf8'),
+  sandbox,
+  { filename: 'guest-mode.js' }
+);
+
+const G = sandbox.window.PTGuest;
+const T = sandbox.window.PTGuestTraps;
+assert.ok(G && T, 'PTGuest + traps');
+assert.strictEqual(T.list().length, 5);
+sandbox.window.PTAuth = {
+  enterGuest: function () {},
+  getUser: function () { return { isGuest: true, sub: 'pt_guest_local' }; }
+};
+G.enter();
+assert.ok(G.isActive(), 'guest activo');
+assert.strictEqual(G.remaining(), 5);
+
+G.recordDecision({ class: 'error', action: 'call', best: 'fold' });
+assert.strictEqual(G.remaining(), 4);
+assert.strictEqual(G.score().total, 1);
+assert.strictEqual(G.score().good, 0);
+assert.ok(G.hasProgress());
+
+G.recordDecision({ class: 'optima', action: 'fold', best: 'fold' });
+assert.strictEqual(G.score().good, 1);
+
+let migrated = null;
+sandbox.window.Store = {
+  migrateLocalUserKeys: function (from, to) { migrated = [from, to]; return { moved: 1 }; }
+};
+const merged = G.mergeIntoUser('user-abc');
+assert.ok(merged.merged, 'merge guest→cuenta si el destino está vacío');
+assert.deepStrictEqual(migrated, ['pt_guest_local', 'user-abc']);
+assert.ok(!G.hasProgress(), 'estado guest se limpia al convertir');
+assert.ok(!G.wantsEnter(), 'tras merge no se reabre invitado');
+
+G.enter();
+G.recordDecision({ class: 'error', action: 'call', best: 'fold' });
+localStore['pt_history_v1_user-busy'] = '[{"id":"old"}]';
+migrated = null;
+const skipped = G.mergeIntoUser('user-busy');
+assert.strictEqual(skipped.merged, false, 'no pisa historial de cuenta existente');
+assert.strictEqual(migrated, null);
+
+const src = fs.readFileSync(path.join(__dirname, '..', 'js/guest-mode.js'), 'utf8');
+assert.ok(/guest_start/.test(src) && /guest_hand/.test(src) && /guest_gate_shown/.test(src) && /guest_convert/.test(src), 'eventos L3');
+assert.ok(/migrateLocalUserKeys/.test(src), 'merge guest→cuenta');
+
+const landing = fs.readFileSync(path.join(__dirname, '..', 'js/landing.js'), 'utf8');
+assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/.test(landing), 'eventos landing');
+
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+assert.ok(/data-landing-try/.test(html), 'CTA probar');
+assert.ok(/guest-gate-modal/.test(html), 'modal gate');
+assert.ok(/guest-mode-banner/.test(html), 'banner guest');
+assert.ok(/js\/guest-mode\.js/.test(html) && /js\/guest-traps\.js/.test(html), 'scripts early');
+
+console.log('*** guest-mode OK ***');
