@@ -110,7 +110,9 @@ assert.ok(/landing_view/.test(landing) && /cta_try/.test(landing) && /cta_login/
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/data-landing-try/.test(html), 'CTA probar');
 assert.ok(!/Probar ahora — sin registro/.test(html), 'CTA sin “sin registro”');
-assert.ok(!/sin tarjeta/.test(html.split('id="landing-hero"')[1].split('id="landing-how"')[0]), 'hero sin “sin tarjeta”');
+const heroHtml = html.split('id="landing-hero"')[1].split('id="landing-how"')[0];
+assert.ok(!/sin tarjeta/.test(heroHtml), 'hero sin “sin tarjeta”');
+assert.ok(!/instinto recreativo/.test(heroHtml), 'hero sin “instinto recreativo”');
 assert.ok(!/landing-felt/.test(html), 'hero sin mock de mesa');
 assert.ok(!/landing-hero-bullets/.test(html), 'hero sin bullets de producto');
 assert.ok(/Serás capaz de jugar estas manos correctamente/.test(html), 'reto en el hero');
@@ -128,5 +130,6 @@ assert.ok(/js\/guest-mode\.js/.test(html) && /js\/guest-traps\.js/.test(html), '
 
 const i18n = fs.readFileSync(path.join(__dirname, '..', 'js/i18n.js'), 'utf8');
 assert.ok(/preflop al river/.test(i18n) && /preflop to river/.test(i18n), 'i18n how.s1 preflop→river');
+assert.ok(!/instinto recreativo/.test(i18n) && !/recreational instincts/.test(i18n), 'i18n sin instinto recreativo');
 
 console.log('*** guest-mode OK ***');
