@@ -31259,7 +31259,7 @@ window.PT_VS_3BET_JSON = {
           <button type="button" class="btn btn-primary" id="train-worst-spots-stats" title="Repasa primero tus peores spots">Drill adaptativo</button>
           <button type="button" class="btn btn-ghost" id="share-weekly-leak">Compartir peor leak de la semana</button>
         </div>
-        <p class="muted-text">El drill agrupa tus errores por spot y lanza ~25 manos de tus fugas más caras.</p>
+        <p class="muted-text adaptive-drill-help-inline">El drill agrupa tus errores por spot y lanza ~25 manos de tus fugas más caras.</p>
       </section>
     </div>`;
 
