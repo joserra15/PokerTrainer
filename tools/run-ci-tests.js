@@ -32,6 +32,7 @@ const STEPS = [
   ['Regresión frecuencias flop/turn (Colorado 98s)', ['node', 'tools/test-flop-turn-freq-duplicate.js']],
   ['Test card picker UX', ['node', 'tools/test-card-picker-ux.js']],
   ['Test growth UX', ['node', 'tools/test-growth-ux.js']],
+  ['Test stats redesign', ['node', 'tools/test-stats-redesign.js']],
   ['Test hotkeys, rake y ayuda', ['node', 'tools/test-hotkeys-rake-help.js']],
   // Fase 1 — scripts que ya existían fuera de CI
   ['Test all-in runout', ['node', 'tools/test-allin-runout.js']],

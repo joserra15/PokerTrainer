@@ -20,7 +20,11 @@ test.describe('Pestañas de estudio @smoke', () => {
 
   test('Estadísticas renderizan contenido', async ({ page }) => {
     await goTab(page, 'stats');
-    await expect(page.locator('#tab-stats')).toContainText(/mano|acierto|EV|decisi|estadíst/i, { timeout: 15000 });
+    await expect(page.locator('#tab-stats')).toContainText(/Acierto por calle|Entrenador|Sesiones/i, { timeout: 15000 });
+    await expect(page.locator('#tab-stats [data-stats-tab="trainer"]')).toBeVisible();
+    await expect(page.locator('#tab-stats [data-stats-panel="trainer"]')).toBeVisible();
+    await expect(page.locator('#home-gamification')).toBeHidden();
+    await expect(page.locator('#stats-gamification')).toBeHidden();
   });
 
 

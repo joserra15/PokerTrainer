@@ -246,6 +246,13 @@
         bbPer100: sessTot.bbPer100 != null ? sessTot.bbPer100 : null
       } : undefined,
       player: player,
+      sessAccSt: data.sessionStreet ? {
+        pf: data.sessionStreet.preflop != null ? data.sessionStreet.preflop : null,
+        fl: data.sessionStreet.flop != null ? data.sessionStreet.flop : null,
+        tu: data.sessionStreet.turn != null ? data.sessionStreet.turn : null,
+        ri: data.sessionStreet.river != null ? data.sessionStreet.river : null
+      } : undefined,
+      focus: data.focus || undefined,
       solverNote: 'Estadísticas del entrenador local. eq/gto/ev son estimaciones; verifica lo crítico.',
       greetingFocus: data.greetingFocus || undefined,
       beginner: data.beginner === true ? true : undefined,

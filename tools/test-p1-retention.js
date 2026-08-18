@@ -83,6 +83,8 @@ assert.ok(String(top.label).length > 0, 'leak has label');
 const bars = PTLeaks.renderBreakdownBars('Test', [{ street: 'flop', label: 'Flop', count: 2, evLoss: 3.7 }], '--red', 'street');
 assert.ok(bars.indexOf('data-leak-filter-street="flop"') >= 0, 'clickable street bars');
 assert.ok(bars.indexOf('leak-bar-col-click') >= 0, 'click class');
+assert.ok(bars.indexOf('leak-bar-row') >= 0, 'horizontal leak bars');
+assert.ok(!/\d+\.\d+ bb/.test(bars), 'leak bars hide EV bb');
 
 const RM = sandbox.window.PTRangeMatrix;
 assert.ok(RM && RM.applyOpenSizing, 'applyOpenSizing');
