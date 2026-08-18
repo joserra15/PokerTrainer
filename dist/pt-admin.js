@@ -376,6 +376,13 @@
     return false;
   }
 
+  function canAdminMessageUser(userId) {
+    if (!userId || userId === DEMO_USER_ID) return false;
+    var me = currentUser();
+    if (me && me.sub && me.sub === userId) return false;
+    return true;
+  }
+
   function recipientUsers() {
     var me = currentUser();
     return adminUsersCache.filter(function (u) {
@@ -1276,6 +1283,26 @@
       ? '<p class="admin-detail-promo-note">Registro con promo <strong>' + escapeHtml(promos[0].code || '—') + '</strong></p>'
       : '';
 
+    var canMessage = canAdminMessageUser(p.user_id);
+    var sendBlockedNote = !canMessage
+      ? (p.user_id === DEMO_USER_ID
+        ? 'El usuario demo no recibe mensajes de Contacto.'
+        : 'No puedes enviarte un mensaje a ti mismo.')
+      : '';
+    var sendFormHtml = canMessage
+      ? '<form id="admin-detail-send-form" class="admin-detail-send-form">' +
+        '<label for="admin-detail-send-subject">Asunto</label>' +
+        '<input type="text" id="admin-detail-send-subject" name="subject" maxlength="200" required placeholder="Ej.: Aviso sobre tu cuenta" />' +
+        '<label for="admin-detail-send-body">Mensaje</label>' +
+        '<textarea id="admin-detail-send-body" name="body" rows="4" maxlength="3000" required placeholder="Escribe el mensaje para este usuario…"></textarea>' +
+        '<div class="admin-detail-send-actions">' +
+        '<button type="submit" class="btn btn-primary btn-sm">Enviar mensaje</button>' +
+        '<span id="admin-detail-send-status" class="admin-detail-send-status"></span>' +
+        '</div>' +
+        '<p class="muted-text admin-gift-note">El usuario lo verá en Contacto y recibirá un aviso si tiene push activo.</p>' +
+        '</form>'
+      : '<p class="muted-text">' + escapeHtml(sendBlockedNote) + '</p>';
+
     host.innerHTML =
       '<div class="admin-detail-head">' +
       '<div><h3>' + escapeHtml(p.name || p.email || p.user_id) + '</h3>' +
@@ -1285,7 +1312,12 @@
       (p.is_founder_coach ? ' · FOUNDER Coach' : '') + '</p>' +
       promoHeadNote +
       '</div>' +
+      '<div class="admin-detail-head-actions">' +
+      (canMessage
+        ? '<button type="button" class="btn btn-primary btn-sm" id="admin-detail-send-msg">Enviar mensaje</button>'
+        : '') +
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-detail-close">Cerrar</button>' +
+      '</div>' +
       '</div>' +
       '<div class="admin-detail-section"><h4>FOUNDER</h4>' +
       '<label class="admin-toggle admin-detail-founder">' +
@@ -1302,6 +1334,8 @@
         ? ('Solicitud Coach: ' + escapeHtml(formatDateTime(p.founder_coach_requested_at)) + '.')
         : 'Sin solicitud Coach.') +
       '</p></div>' +
+      '<div class="admin-detail-section" id="admin-detail-send">' +
+      '<h4>Enviar mensaje</h4>' + sendFormHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Actividad de juego</h4>' + renderActivitySection(activity) + '</div>' +
       '<div class="admin-detail-section"><h4>Escuela de Póker</h4>' + renderSchoolSection(school) + '</div>' +
       '<div class="admin-detail-section"><h4>Uso de funciones</h4>' + renderFeatureUsageSection(featureUsage) + '</div>' +
@@ -1329,6 +1363,51 @@
     host.classList.remove('hidden');
     var closeBtn = $('#admin-detail-close');
     if (closeBtn) closeBtn.addEventListener('click', closeUserDetail);
+    var sendHeadBtn = $('#admin-detail-send-msg');
+    if (sendHeadBtn) {
+      sendHeadBtn.addEventListener('click', function () {
+        var section = $('#admin-detail-send');
+        var subjectEl = $('#admin-detail-send-subject');
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (subjectEl) subjectEl.focus();
+      });
+    }
+    var sendForm = $('#admin-detail-send-form');
+    if (sendForm) {
+      sendForm.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        if (!requireAdminAccess()) return;
+        var subject = (sendForm.subject.value || '').trim();
+        var body = (sendForm.body.value || '').trim();
+        if (subject.length < 3 || body.length < 5) {
+          alert('Completa un asunto y un mensaje válidos.');
+          return;
+        }
+        var btn = sendForm.querySelector('button[type="submit"]');
+        var status = $('#admin-detail-send-status');
+        if (btn) btn.disabled = true;
+        if (status) status.textContent = 'Enviando…';
+        var res = await sendAdminMessage(subject, body, {
+          targetMode: 'single',
+          userIds: [p.user_id]
+        });
+        if (btn) btn.disabled = false;
+        if (!requireAdminAccess()) return;
+        if (res.error) {
+          if (handleAdminRpcError(res.error)) return;
+          if (status) status.textContent = '';
+          alert('Error: ' + (res.error.message || 'no enviado'));
+          return;
+        }
+        notifyAdminMessagePush({
+          userIds: [p.user_id],
+          subject: subject,
+          body: body
+        });
+        await openUserDetail(p.user_id);
+        loadAdminMessagesBadge();
+      });
+    }
     var founderStudyChk = $('#admin-detail-is-founder-study');
     if (founderStudyChk) {
       founderStudyChk.addEventListener('change', function () {
@@ -1896,15 +1975,18 @@
     if (status) status.textContent = adminMessageStatus;
   }
 
-  async function sendAdminMessage(subject, body) {
+  async function sendAdminMessage(subject, body, opts) {
     if (!requireAdminAccess()) return { error: { message: 'forbidden' } };
     var c = client();
     if (!c) return { error: { message: 'unavailable' } };
+    opts = opts || {};
+    var mode = opts.targetMode || adminMessageMode;
+    var userIds = opts.userIds !== undefined ? opts.userIds : adminMessageRecipients;
     var payload = {
       p_subject: subject,
       p_body: body,
-      p_target_mode: adminMessageMode,
-      p_user_ids: adminMessageMode === 'all' ? null : adminMessageRecipients
+      p_target_mode: mode,
+      p_user_ids: mode === 'all' ? null : userIds
     };
     return c.rpc('pt_admin_contact_send', payload);
   }
