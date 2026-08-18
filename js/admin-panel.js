@@ -17,6 +17,7 @@
   var adminTabBtn = null;
   var inviteModalBound = false;
   var syncRunning = false;
+  var autoStripeSyncTimer = null;
   var adminUsersCache = [];
   var adminUsersSort = { key: 'seen', dir: 'desc' };
   var adminUsersFilters = {
@@ -47,6 +48,8 @@
   var adminFunnelCache = null;
   var adminFunnelError = null;
   var adminUsageDays = 30;
+  var AUTO_STRIPE_SYNC_KEY = 'pt-admin-last-stripe-sync-at';
+  var AUTO_STRIPE_SYNC_COOLDOWN_MS = 10 * 60 * 1000;
 
   var FEATURE_EVENT_LABELS = {
     tab_view: 'Visitas a pestañas',
@@ -1575,16 +1578,48 @@
     loaded = true;
   }
 
+  function getAutoStripeSyncTs() {
+    try {
+      if (!global.localStorage || !global.localStorage.getItem) return 0;
+      var raw = global.localStorage.getItem(AUTO_STRIPE_SYNC_KEY);
+      var n = Number(raw);
+      return isNaN(n) || n <= 0 ? 0 : n;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function markAutoStripeSyncTs() {
+    try {
+      if (!global.localStorage || !global.localStorage.setItem) return;
+      global.localStorage.setItem(AUTO_STRIPE_SYNC_KEY, String(Date.now()));
+    } catch (_) {
+      /* localStorage can be blocked in private contexts */
+    }
+  }
+
+  function shouldAutoSyncStripePayments() {
+    var last = getAutoStripeSyncTs();
+    return !last || (Date.now() - last) >= AUTO_STRIPE_SYNC_COOLDOWN_MS;
+  }
+
+  function scheduleAutoStripeSync() {
+    if (!hasAdminAccess() || syncRunning || autoStripeSyncTimer) return;
+    if (!shouldAutoSyncStripePayments()) return;
+    autoStripeSyncTimer = global.setTimeout(function () {
+      autoStripeSyncTimer = null;
+      if (!hasAdminAccess() || syncRunning || !shouldAutoSyncStripePayments()) return;
+      syncStripePayments({ auto: true });
+    }, 0);
+  }
+
   function render() {
     if (!requireAdminAccess()) return;
-    setAdminLoading(true, 'Sincronizando con Stripe…');
     loadAdminMessagesBadge();
-    loadStats().then(function () {
-      if (!hasAdminAccess()) return;
-      return syncStripePayments({ auto: true });
-    }).then(function () {
-      if (!hasAdminAccess()) return;
-      loaded = true;
+    refresh().then(function () {
+      if (hasAdminAccess()) scheduleAutoStripeSync();
+    }).catch(function () {
+      setAdminLoading(false);
     });
   }
 
@@ -1646,8 +1681,8 @@
     syncRunning = true;
     if (btn) btn.disabled = true;
     if (status) status.textContent = auto ? 'Sincronizando pagos…' : 'Consultando Stripe…';
-    if (auto) setAdminLoading(true, 'Sincronizando con Stripe…');
     try {
+      if (auto) markAutoStripeSyncTs();
       var data = await billing.syncPayments();
       if (!requireAdminAccess()) return;
       if (status) {
@@ -1657,12 +1692,13 @@
       }
       if (auto) await loadUsers();
       else {
+        markAutoStripeSyncTs();
         setAdminLoading(true, 'Actualizando usuarios…');
         await refresh();
       }
     } catch (e) {
       if (status) status.textContent = auto ? 'Pagos: sin sincronizar' : '';
-      setAdminLoading(false);
+      if (!loaded) setAdminLoading(false);
       if (!auto) alert(e.message || 'No se pudo sincronizar con Stripe.');
     } finally {
       syncRunning = false;
