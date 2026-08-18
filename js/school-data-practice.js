@@ -843,19 +843,78 @@
     F3('c26-12', 'BTN_vs_BB', ['Kc', 'Ks'], 77012, 'KK vs 3-bet: 4-bet value frecuente. Par fuerte — bote grande.', cash({ scenario: 'face3bet' }))
   ];
 
+  /* C-27: SRP OOP deep. Se juega flop→river; la decisión clave es check-call vs check-raise. */
+  function xcCfg() {
+    return cash({ scenario: 'rfi', practiceStreet: 'flop', schoolDecisionEnd: false, stackDepth: 'bb100' });
+  }
+  function xcScript(heroPos, villainPos) {
+    return {
+      heroPos: heroPos,
+      villainPos: villainPos,
+      actions: [
+        { pos: heroPos, street: 'flop', action: 'call' },
+        { pos: heroPos, street: 'turn', action: 'check' },
+        { pos: villainPos, street: 'turn', action: 'bet' },
+        { pos: heroPos, street: 'turn', action: 'call' },
+        { pos: heroPos, street: 'river', action: 'check' },
+        { pos: villainPos, street: 'river', action: 'bet' }
+      ]
+    };
+  }
+  function XC(id, cards, board, seed, tb, extra) {
+    extra = extra || {};
+    var heroPos = extra.heroPos || 'BB';
+    var villainPos = extra.villainPos || 'BTN';
+    var spot = flop(id, heroPos, cards, board, seed, {
+      street: 'flop',
+      facingBet: true,
+      villainPos: villainPos,
+      villainCards: extra.villainCards || null,
+      teachBack: tb,
+      trapTag: extra.trapTag || 'none',
+      playConfig: Object.assign({}, xcCfg(), extra.playConfig || {})
+    });
+    spot.forceScript = extra.forceScript !== undefined ? extra.forceScript : xcScript(heroPos, villainPos);
+    return spot;
+  }
+
   PACKS['C-27'] = [
-    Fl('c27-01', 'SB', ['Ah', 'Kd'], ['As', '2d', '2c'], 77101, 'SRP OOP deep A-high paired: c-bet razonable. Board te favorece; aún así sizing pequeño — quedan calles.'),
-    Fl('c27-02', 'SB', ['Ah', 'Kd'], ['8s', '7s', '6h'], 77102, 'Wet OOP deep: check/ceder. Pot control: un error a 100 bb+ cuesta el stack.', { trapTag: 'fancy_play' }),
-    Fl('c27-03', 'BB', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 77103, 'QQ OOP en K-high: mix check-call. No hinches deep sin plan.'),
-    Fl('c27-04', 'SB', ['Jc', 'Tc'], ['Ah', '7h', '2h'], 77104, 'Monotone OOP: check frecuente sin flush. SRP deep ≠ autocbet.', { trapTag: 'fancy_play' }),
-    Fl('c27-05', 'BB', ['Ad', '5d'], ['Kc', '4s', '4d'], 77105, 'A-high paired OOP: c-bet mixto posible. Plan: bet pequeño o check-call.'),
-    Fl('c27-06', 'SB', ['9h', '8h'], ['Qd', 'Jc', '2s'], 77106, 'Air OOP en QJ: check. Check-call se construye con showdown, no con c-bet air deep.'),
-    Fl('c27-07', 'UTG', ['Ah', 'Kd'], ['Ks', '7d', '2c'], 77107, 'Top pair OOP seco: c-bet pequeño o check-call. Deep: no overbet sin necesidad.'),
-    Fl('c27-08', 'SB', ['7s', '6s'], ['Kh', '9d', '2c'], 77108, 'Air OOP K-high: check frecuente. Ceder la calle es el plan.', { trapTag: 'fancy_play' }),
-    Fl('c27-09', 'BB', ['Ah', 'Qd'], ['As', '8h', '3c'], 77109, 'Top pair A-high OOP: bet pequeño/check-call. Value con pot control.'),
-    Fl('c27-10', 'SB', ['Kc', 'Qc'], ['Jh', 'Ts', '9d'], 77110, 'Conectado OOP deep: check. El caller conecta demasiado.', { trapTag: 'fancy_play' }),
-    Fl('c27-11', 'BB', ['9s', '9c'], ['Ah', '7d', '2c'], 77111, 'Underpair OOP A-high: check-call/check. No bluff-raise deep.'),
-    Fl('c27-12', 'SB', ['As', 'Kd'], ['2c', '2s', '7d'], 77112, 'Paired bajo OOP: c-bet frecuente posible. Rango de agresor > caller; sizing contenido.')
+    XC('c27-01', ['9s', '9c'], ['Kh', '7d', '2c', '3s', '5h'], 77101,
+      '99 OOP en K-high: check-call, no check-raise. Controlas el bote deep y reevalúas turn y river.',
+      { villainCards: ['As', 'Kd'] }),
+    XC('c27-02', ['Qs', 'Qd'], ['Kh', '9c', '3d', '2s', '6h'], 77102,
+      'QQ OOP en K-high: check-call. No hinches deep sin plan; el raise pide value polar o farol con historia.',
+      { villainCards: ['Ac', 'Ks'] }),
+    XC('c27-03', ['7h', '7s'], ['Kd', '7c', '2d', '3h', '8c'], 77103,
+      'Set de sietes: check-raise polar de value. Quieres stack o que el agresor se defienda mal.',
+      { villainCards: ['Ah', 'Kc'] }),
+    XC('c27-04', ['Qh', 'Jd'], ['Ks', '7d', '2h', '3c', '5s'], 77104,
+      'QJo sin pareja: no es check-raise. Fold o check-call mixto; raise sin historia es spew.',
+      { trapTag: 'fancy_play', villainCards: ['Ad', 'Kh'] }),
+    XC('c27-05', ['Ah', 'Qd'], ['As', '8h', '3c', '2d', '6s'], 77105,
+      'Top pair A-high: check-call / pot control. Value sin hinchar; reevalúa barrels en turn y river.',
+      { villainCards: ['Kd', 'Td'] }),
+    XC('c27-06', ['2s', '2c'], ['Ah', '7d', '2h', '3c', '5d'], 77106,
+      'Set de doses: check-raise de value. Polariza: fuerte vs faroles elegidos, no medias.',
+      { villainCards: ['Ac', 'Ks'] }),
+    XC('c27-07', ['9s', '9c'], ['Ad', '7h', '2c', '3s', '5h'], 77107,
+      'Underpair OOP A-high: check-call o check-fold. No bluff-raise deep.',
+      { villainCards: ['As', 'Kh'] }),
+    XC('c27-08', ['As', '5s'], ['9s', '8s', '2h', '3c', '7d'], 77108,
+      'Draw de color nuez: check-call frecuente; check-raise solo como semi-farol selectivo. Si continúan, tienes plan de turn y river.',
+      { villainCards: ['Kd', 'Qd'] }),
+    XC('c27-09', ['Jc', 'Tc'], ['Ah', '7h', '2h', '3d', '5s'], 77109,
+      'Monotone sin color: check-call/fold frecuente. No check-raiseas sin flush ni historia.',
+      { trapTag: 'fancy_play', villainCards: ['As', 'Kd'] }),
+    XC('c27-10', ['8h', '7h'], ['Qd', 'Jc', '2s', '3d', '5c'], 77110,
+      'Air OOP en QJ: check-fold, no check-raise. Check-call se construye con showdown, no con aire.',
+      { trapTag: 'fancy_play', villainCards: ['Ah', 'Kd'] }),
+    XC('c27-11', ['Ad', '5d'], ['Ks', '4c', '4h', '2s', '8c'], 77111,
+      'A-high en paired: check-call mixto. Plan: pot control; no conviertas medias en raise polar.',
+      { villainCards: ['Kh', 'Qh'] }),
+    XC('c27-12', ['7s', '7c'], ['7d', '2h', '2s', '9c', '5h'], 77112,
+      'Trío en paired bajo: check-raise value. Rango polar — quieres que paguen o se equivoquen.',
+      { villainCards: ['Ah', 'Kd'] })
   ];
 
   PACKS['C-28'] = [

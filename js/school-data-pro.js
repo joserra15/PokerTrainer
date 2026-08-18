@@ -142,7 +142,7 @@
       "xp": 110,
       "passThreshold": 1,
       "goldThreshold": 1,
-      "decisionEnd": true,
+      "decisionEnd": false,
       "hands": 0,
       "concept": "En un single-raised pot fuera de posición a stacks deep construyes check-call y check-raise con plan: pot control importa porque quedan muchas calles por delante.",
       "theory": [
@@ -152,11 +152,11 @@
         },
         {
           "title": "Líneas: check-call y check-raise",
-          "body": "Check-call (pasar y luego hacer call) protege medias y algunas fuertes que no quieren bote hinchado aún. Check-raise (pasar y resubir) polariza: value fuerte y faroles elegidos. No autocbetees OOP en boards wet solo por ser el agresor (recuerda C-16): a menudo el plan es ceder la iniciativa y decidir en turn."
+          "body": "Check-call (pasar y luego hacer call) protege medias y algunas fuertes que no quieren bote hinchado aún. Check-raise (pasar y resubir) polariza: value fuerte y faroles elegidos. No autocbetees OOP en boards wet solo por ser el agresor (recuerda C-16): a menudo el plan es ceder la iniciativa y decidir en turn. En la práctica juegas flop, turn y river: cada calle evalúa si tu check-call o check-raise era correcto."
         },
         {
           "title": "Pot control y trampa donk",
-          "body": "Pot control es mantener el bote manejable cuando tu mano es media o el board es peligroso. Trampa: donk bet (apostar de primero OOP sin plan) o hinchar con segunda pareja sticky. Deep, un donk spew te mete en ríos imposibles; prefiere líneas de check que cuenten una historia."
+          "body": "Pot control es mantener el bote manejable cuando tu mano es media o el board es peligroso. Trampa: donk bet (apostar de primero OOP sin plan) o hinchar con segunda pareja sticky. Deep, un donk spew te mete en rivers imposibles; prefiere líneas de check que cuenten una historia."
         }
       ],
       "examples": [
