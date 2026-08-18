@@ -1297,6 +1297,14 @@
               <option value="none">Ninguno</option>
             </select>
           </label>
+          <label class="admin-filter-field">
+            <span>Push</span>
+            <select id="admin-filter-push">
+              <option value="">Todos</option>
+              <option value="on">Activado</option>
+              <option value="off">No activado</option>
+            </select>
+          </label>
           <div class="admin-filter-field admin-filter-dates">
             <span>Fin plan</span>
             <div class="admin-filter-date-row">
@@ -1340,6 +1348,7 @@
               <col class="admin-col-ai">
               <col class="admin-col-payment">
               <col class="admin-col-seen">
+              <col class="admin-col-push">
               <col class="admin-col-founder">
               <col class="admin-col-founder">
               <col class="admin-col-admin">
@@ -1353,6 +1362,7 @@
                 <th data-col="ai"><button type="button" class="admin-th-sort" data-sort="ai">IA mes (+bono)</button></th>
                 <th data-col="payment"><button type="button" class="admin-th-sort" data-sort="payment">Último pago</button></th>
                 <th data-col="seen"><button type="button" class="admin-th-sort" data-sort="seen">Última conexión</button></th>
+                <th data-col="push"><button type="button" class="admin-th-sort" data-sort="push">Push</button></th>
                 <th data-col="founder_study"><button type="button" class="admin-th-sort" data-sort="founder_study">F·Study</button></th>
                 <th data-col="founder_coach"><button type="button" class="admin-th-sort" data-sort="founder_coach">F·Coach</button></th>
                 <th data-col="admin"><button type="button" class="admin-th-sort" data-sort="admin">Admin</button></th>
