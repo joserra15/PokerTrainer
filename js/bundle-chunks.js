@@ -84,6 +84,7 @@
       'js/founder-request.js',
       'js/onboarding.js',
       'js/pwa.js',
+      'js/push.js',
       'js/account-settings.js',
       'js/auth.js',
       'js/app.js'

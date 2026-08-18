@@ -100,6 +100,10 @@
     track('landing_view');
   }
 
+  function trackPushOpen(meta) {
+    track('push_open', meta || {});
+  }
+
   global.PTAnalytics = {
     load: loadScript,
     track: track,
@@ -113,7 +117,8 @@
     trackImportSession: trackImportSession,
     trackAiCoach: trackAiCoach,
     trackCheckoutStart: trackCheckoutStart,
-    trackLandingView: trackLandingView
+    trackLandingView: trackLandingView,
+    trackPushOpen: trackPushOpen
   };
 
   global.addEventListener('pt-cookie-consent', function () {

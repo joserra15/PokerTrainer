@@ -55,6 +55,7 @@
     "test:school-sync": "node tools/test-school-progress-sync.js",
     "test:onboarding-sync": "node tools/test-onboarding-sync.js",
     "test:pwa": "node tools/test-pwa-manifest.js",
+    "test:push": "node tools/test-push-config.js && node tools/test-push-client.js && node tools/test-push-edge-contract.js",
     "test:analytics-sentry": "node tools/test-analytics-sentry.js",
     "test:vpip": "node tools/test-vpip-pfr.js",
     "test:unit": "node tools/selftest.js",

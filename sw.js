@@ -1,7 +1,7 @@
 /* Service worker — PWA instalable. Assets con ?v=PT_BUILD; version.js siempre fresco. */
 'use strict';
 
-var CACHE = 'pt-shell-v18';
+var CACHE = 'pt-shell-v19';
 var PRECACHE = [
   './offline.html',
   './apple-touch-icon.png',
@@ -152,4 +152,70 @@ self.addEventListener('fetch', function (event) {
   }
 
   event.respondWith(cacheFirstGeneric(req));
+});
+
+function pushAbsoluteUrl(path) {
+  path = path || './?source=push';
+  try {
+    return new URL(path, self.registration.scope).href;
+  } catch (e) {
+    return path;
+  }
+}
+
+self.addEventListener('push', function (event) {
+  var title = 'PokerForgeAI';
+  var options = {
+    body: 'Tienes un aviso de PokerForgeAI.',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    tag: 'pt-push',
+    data: { url: './?source=push&tab=play', type: 'push' }
+  };
+  if (event.data) {
+    try {
+      var payload = event.data.json();
+      if (payload && typeof payload === 'object') {
+        if (payload.title) title = String(payload.title);
+        if (payload.body) options.body = String(payload.body);
+        if (payload.icon) options.icon = payload.icon;
+        if (payload.badge) options.badge = payload.badge;
+        if (payload.tag) options.tag = String(payload.tag);
+        options.renotify = !!payload.renotify;
+        if (payload.data && typeof payload.data === 'object') {
+          options.data = payload.data;
+        }
+      }
+    } catch (e) {
+      try {
+        var text = event.data.text();
+        if (text) options.body = text;
+      } catch (e2) { /* noop */ }
+    }
+  }
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  var data = event.notification.data || {};
+  var target = pushAbsoluteUrl(data.url || './?source=push&tab=play');
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+      var i;
+      var client;
+      for (i = 0; i < clientList.length; i++) {
+        client = clientList[i];
+        if (client && 'focus' in client) {
+          return client.focus().then(function (focused) {
+            if (focused) {
+              try { focused.postMessage({ type: 'pt-push-open', url: target }); } catch (e) { /* noop */ }
+            }
+            return focused;
+          });
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
+  );
 });

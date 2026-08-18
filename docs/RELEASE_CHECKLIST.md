@@ -17,6 +17,7 @@ Antes de un deploy o cambio de secrets en producción:
 6. [ ] Supabase RLS — workflow opcional `supabase-smoke` o `node tools/test-supabase.js` con anon key.
 7. [ ] Age-gate / cookies / legal visibles para usuario nuevo.
 8. [ ] Sentry/Analytics: configs de prod cargan; no rompen la app si fallan.
+8b. [ ] Push (si se activó): secrets VAPID + `PUSH_CRON_SECRET`; migración `041`; Edge Functions desplegadas; prueba desde Configuración. Ver [`docs/PUSH.md`](./PUSH.md).
 
 ## Tras el deploy
 
