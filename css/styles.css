@@ -3927,6 +3927,14 @@ body.cookie-banner-open { padding-bottom: 0; }
   gap: 12px;
   margin-bottom: 12px;
 }
+.admin-detail-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
 .admin-detail-head h3 { margin: 0 0 4px; }
 .admin-detail-promo-note {
   margin: 6px 0 0;
@@ -4034,6 +4042,38 @@ body.cookie-banner-open { padding-bottom: 0; }
   color: var(--text);
 }
 .admin-gift-note { margin: 8px 0 0; font-size: 12px; }
+.admin-detail-send-form {
+  max-width: 560px;
+}
+.admin-detail-send-form label {
+  display: block;
+  margin: 10px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-detail-send-form label:first-child { margin-top: 0; }
+.admin-detail-send-form input,
+.admin-detail-send-form textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  box-sizing: border-box;
+}
+.admin-detail-send-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.admin-detail-send-status {
+  font-size: 12px;
+  color: var(--muted);
+}
 .admin-detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

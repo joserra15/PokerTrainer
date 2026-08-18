@@ -16,6 +16,9 @@ assert.ok(/function scheduleAutoStripeSync\(\)/.test(src), 'auto sync desacoplad
 assert.ok(/AUTO_STRIPE_SYNC_COOLDOWN_MS = 10 \* 60 \* 1000/.test(src), 'cooldown auto sync');
 assert.ok(/refresh\(\)\.then\(function \(\) \{\s*if \(hasAdminAccess\(\)\) scheduleAutoStripeSync\(\);/m.test(src), 'render carga antes de sync');
 assert.ok(/admin-push-test/.test(src) && /adminSendPush/.test(src), 'admin envía push de prueba');
+assert.ok(/id="admin-detail-send-form"/.test(src) && /id="admin-detail-send-msg"/.test(src), 'enviar mensaje en detalle de usuario');
+assert.ok(/function canAdminMessageUser/.test(src) && /DEMO_USER_ID/.test(src), 'no mensaje a demo ni a uno mismo');
+assert.ok(/targetMode: 'single'/.test(src) && /userIds: \[p\.user_id\]/.test(src), 'envío single al usuario del detalle');
 assert.ok(/function notifyAdminMessagePush/.test(src), 'push al enviar mensaje de admin');
 assert.ok(/notifyAdminMessagePush\(\{[\s\S]*userIds: pushIds/.test(src), 'push conserva destinatarios antes del reset');
 assert.ok(/notifyAdminMessagePush\(\{[\s\S]*allUsers: pushAll/.test(src), 'push a todos si el mensaje es broadcast');
