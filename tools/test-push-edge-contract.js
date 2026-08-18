@@ -34,6 +34,8 @@ assert.ok(/enabled:\s*false/.test(unsub), 'disable on unsubscribe');
 const send = read('supabase/functions/push-send/index.ts');
 assert.ok(/invalid_type/.test(send), 'tipos');
 assert.ok(/forbidden_user/.test(send), 'no envía a user ajeno');
+assert.ok(/user_ids/.test(send) && /all_users/.test(send), 'admin puede enviar a varios o a todos');
+assert.ok(/slice\(0,\s*200\)/.test(send), 'cap 200 user_ids');
 assert.ok(/type === 'test'/.test(send), 'self-test');
 assert.ok(/endpoint/.test(send), 'filtro endpoint test');
 assert.ok(/enabled:\s*false/.test(send) && /410/.test(send), 'desactiva 410');

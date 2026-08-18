@@ -6402,6 +6402,20 @@ body.pwa-banner-open {
   flex-shrink: 0;
 }
 .pwa-ios-modal { z-index: 220; }
+.pt-push-prompt { z-index: 230; }
+.pt-push-prompt-content { max-width: min(96vw, 420px); text-align: center; }
+.pt-push-prompt-content p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 10px 0 16px;
+}
+.pt-push-prompt-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+body.push-prompt-open { overflow: hidden; }
 .pwa-ios-content { max-width: min(96vw, 420px); }
 .pwa-ios-steps {
   margin: 12px 0 14px 20px;

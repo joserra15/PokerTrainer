@@ -33,8 +33,9 @@ Secrets del workflow: `SUPABASE_FUNCTIONS_URL` (p. ej. `https://PROJECT.supabase
 ## Probar
 
 1. HTTPS (o localhost servido).
-2. Login → Configuración → **Avisarme en este dispositivo**.
-3. **Enviar notificación de prueba**.
-4. Clic debe abrir el entrenador (`?tab=play`).
+2. Login: aparece **una sola vez** el aviso para activar notificaciones (Aceptar / Cancelar). Se puede cambiar después en Configuración.
+3. Configuración → **Avisarme en este dispositivo**.
+4. **Enviar notificación de prueba**.
+5. Un mensaje de admin a un usuario también dispara push (`?tab=contact`).
 
 En iPhone: primero **Añadir a pantalla de inicio**.

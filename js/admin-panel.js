@@ -1335,6 +1335,23 @@
     }
   }
 
+  function notifyAdminMessagePush(opts) {
+    if (!global.PTPush || typeof global.PTPush.notifyUsers !== 'function') return;
+    opts = opts || {};
+    var title = String(opts.subject || 'PokerForgeAI').slice(0, 80);
+    var preview = String(opts.body || '').replace(/\s+/g, ' ').trim().slice(0, 140);
+    if (!preview) preview = 'Tienes un mensaje nuevo.';
+    global.PTPush.notifyUsers({
+      allUsers: !!opts.allUsers,
+      userIds: opts.userIds || [],
+      title: title,
+      body: preview,
+      url: './?source=push&tab=contact',
+      tag: 'admin-msg',
+      campaign: 'admin_message'
+    }).catch(function () { /* el mensaje ya se envió; el push no debe bloquear */ });
+  }
+
   async function adminSendPush(userId) {
     if (!requireAdminAccess()) return;
     if (!userId) return;
@@ -1380,6 +1397,11 @@
       alert(res.error.message || 'No se pudo regalar el bono.');
       return;
     }
+    notifyAdminMessagePush({
+      userIds: [userId],
+      subject: 'Bono de consultas IA',
+      body: 'Te hemos regalado consultas IA. Ábrelo en Contacto.'
+    });
     alert('Bono regalado. Saldo de bono: ' + (res.data && res.data.balance != null ? res.data.balance : '—'));
     await loadUsers();
     await openUserDetail(userId);
@@ -1907,6 +1929,8 @@
       var btn = form.querySelector('button[type="submit"]');
       if (btn) btn.disabled = true;
       setAdminComposeStatus('Enviando…');
+      var pushAll = adminMessageMode === 'all';
+      var pushIds = adminMessageRecipients.slice();
       var res = await sendAdminMessage(subject, body);
       if (btn) btn.disabled = false;
       if (res.error) {
@@ -1914,6 +1938,12 @@
         alert('Error: ' + (res.error.message || 'no enviado'));
         return;
       }
+      notifyAdminMessagePush({
+        allUsers: pushAll,
+        userIds: pushIds,
+        subject: subject,
+        body: body
+      });
       form.reset();
       adminMessageSubject = '';
       adminMessageBody = '';
@@ -2045,6 +2075,11 @@
           alert('Error: ' + (reply.error.message || 'no enviado'));
           return;
         }
+        notifyAdminMessagePush({
+          userIds: th.user_id ? [th.user_id] : [],
+          subject: th.subject || 'Nuevo mensaje',
+          body: body
+        });
         await openAdminThread(threadId, { skipInboxReload: true });
         await loadAdminInbox(threadId);
       });
