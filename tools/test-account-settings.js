@@ -58,6 +58,12 @@ assert.ok(/settings-push-enable/.test(settingsSrc), 'toggle push');
 assert.ok(/settings-push-test/.test(settingsSrc), 'botón prueba push');
 assert.ok(/PTPush/.test(settingsSrc), 'bind PTPush');
 
+const i18nSrc = fs.readFileSync(path.join(__dirname, '..', 'js/i18n.js'), 'utf8');
+assert.ok(/settings\.pushPromptTitle/.test(i18nSrc) && /settings\.pushPromptLead/.test(i18nSrc),
+  'i18n prompt de notificaciones');
+assert.ok(/settings\.pushPromptAccept/.test(i18nSrc) && /settings\.pushPromptCancel/.test(i18nSrc),
+  'i18n Aceptar/Cancelar');
+
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/id="account-settings-content"|id="tab-account"/.test(html), 'account panel');
 

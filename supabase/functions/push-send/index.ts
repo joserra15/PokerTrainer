@@ -110,6 +110,16 @@ serve(async (req) => {
       targetUserId = callerId;
     }
 
+    const userIdsRaw = Array.isArray(body.user_ids) ? body.user_ids : [];
+    const userIds = [...new Set(
+      userIdsRaw.map((x) => String(x || '').trim()).filter(Boolean)
+    )].slice(0, 200);
+    const allUsers = body.all_users === true;
+
+    if ((userIds.length > 0 || allUsers) && type !== 'test' && !cron && !adminCaller) {
+      return json({ error: 'forbidden_user' }, 403);
+    }
+
     const payload = payloadOf({ ...body, type });
     const raw = JSON.stringify(payload);
     if (new TextEncoder().encode(raw).length > MAX_JSON) {
@@ -119,11 +129,19 @@ serve(async (req) => {
     let q = admin
       .from('pt_push_subscriptions')
       .select('id, user_id, endpoint, p256dh, auth, enabled')
-      .eq('user_id', targetUserId)
       .eq('enabled', true);
 
     const endpoint = String(body.endpoint || '').trim();
-    if (type === 'test' && endpoint) q = q.eq('endpoint', endpoint);
+    if (type === 'test') {
+      q = q.eq('user_id', callerId);
+      if (endpoint) q = q.eq('endpoint', endpoint);
+    } else if (allUsers && (cron || adminCaller)) {
+      if (callerId) q = q.neq('user_id', callerId);
+    } else if (userIds.length && (cron || adminCaller)) {
+      q = q.in('user_id', userIds);
+    } else {
+      q = q.eq('user_id', targetUserId);
+    }
 
     const { data: subs, error } = await q;
     if (error) {

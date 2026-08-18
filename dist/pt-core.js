@@ -24819,15 +24819,35 @@ window.PT_VS_3BET_JSON = {
 
   async function adminSend(userId, opts) {
     opts = opts || {};
-    return postFunction('/push-send', {
-      type: 'admin',
-      user_id: userId,
-      title: opts.title || 'PokerForgeAI',
-      body: opts.body || 'Tienes un aviso de PokerForgeAI.',
+    return notifyUsers({
+      userIds: userId ? [userId] : [],
+      title: opts.title,
+      body: opts.body,
       url: opts.url || './?source=push&tab=play',
-      tag: 'admin',
-      campaign: 'admin'
+      tag: opts.tag || 'admin',
+      campaign: opts.campaign || 'admin'
     });
+  }
+
+  async function notifyUsers(opts) {
+    opts = opts || {};
+    var payload = {
+      type: 'admin',
+      title: opts.title || 'PokerForgeAI',
+      body: String(opts.body || 'Tienes un aviso de PokerForgeAI.').slice(0, 180),
+      url: opts.url || './?source=push&tab=contact',
+      tag: opts.tag || 'admin-msg',
+      campaign: opts.campaign || 'admin_message'
+    };
+    if (opts.allUsers) payload.all_users = true;
+    else {
+      payload.user_ids = (opts.userIds || []).map(function (id) {
+        return String(id || '').trim();
+      }).filter(Boolean);
+      if (opts.userId) payload.user_ids.push(String(opts.userId));
+      if (!payload.user_ids.length) return { ok: true, sent: 0 };
+    }
+    return postFunction('/push-send', payload);
   }
 
   function statusCode() {
@@ -24930,10 +24950,124 @@ window.PT_VS_3BET_JSON = {
     paint();
   }
 
+  function currentUser() {
+    if (global.PTAuth && global.PTAuth.getUser) return global.PTAuth.getUser();
+    return global.PT_AUTH_USER || null;
+  }
+
+  function uid() {
+    var u = currentUser();
+    return (u && (u.sub || u.id)) || '';
+  }
+
+  function promptStorageKey() {
+    return 'pt_push_prompt_v1_' + uid();
+  }
+
+  function wasPrompted() {
+    if (!uid()) return true;
+    try { return localStorage.getItem(promptStorageKey()) === '1'; } catch (e) { return false; }
+  }
+
+  function markPrompted() {
+    if (!uid()) return;
+    try { localStorage.setItem(promptStorageKey(), '1'); } catch (e) { /* noop */ }
+  }
+
+  function iosNeedsInstall() {
+    return isIOS() && !isStandalone();
+  }
+
+  function shouldPrompt() {
+    if (global.PT_E2E_MODE) return false;
+    var u = currentUser();
+    if (!u || u.isGuest) return false;
+    if (u.sub === 'pt_demo_user') return false;
+    if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) return false;
+    if (!uid()) return false;
+    if (wasPrompted()) return false;
+    if (permission() === 'granted') return false;
+    if (permission() === 'denied' && !iosNeedsInstall()) return false;
+    if (!hasApi() && !iosNeedsInstall()) return false;
+    return true;
+  }
+
+  function hidePrompt() {
+    var el = global.document && global.document.getElementById('pt-push-prompt');
+    if (el) el.classList.add('hidden');
+    if (global.document && global.document.body) {
+      global.document.body.classList.remove('push-prompt-open');
+    }
+  }
+
+  function showPrompt() {
+    if (!global.document || !global.document.body) return;
+    var existing = global.document.getElementById('pt-push-prompt');
+    if (existing) {
+      existing.classList.remove('hidden');
+      global.document.body.classList.add('push-prompt-open');
+      return;
+    }
+    var modal = global.document.createElement('div');
+    modal.id = 'pt-push-prompt';
+    modal.className = 'modal pt-push-prompt';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'pt-push-prompt-title');
+    modal.innerHTML =
+      '<div class="modal-content pt-push-prompt-content">' +
+      '<h3 id="pt-push-prompt-title">' +
+      t('settings.pushPromptTitle', 'Activa las notificaciones') + '</h3>' +
+      '<p>' + t('settings.pushPromptLead',
+        'Recibe avisos en este dispositivo (mensajes y recordatorios). Puedes cambiarlo cuando quieras en Configuración.') +
+      '</p>' +
+      '<div class="pt-push-prompt-actions">' +
+      '<button type="button" class="btn btn-primary" id="pt-push-prompt-accept">' +
+      t('settings.pushPromptAccept', 'Aceptar') + '</button>' +
+      '<button type="button" class="btn btn-ghost" id="pt-push-prompt-cancel">' +
+      t('settings.pushPromptCancel', 'Cancelar') + '</button>' +
+      '</div></div>';
+    global.document.body.appendChild(modal);
+    global.document.body.classList.add('push-prompt-open');
+
+    function finish(enable) {
+      markPrompted();
+      hidePrompt();
+      if (enable) {
+        subscribe().catch(function () { /* el usuario ya respondió; el error se ve en Configuración */ });
+      }
+    }
+
+    var accept = global.document.getElementById('pt-push-prompt-accept');
+    var cancel = global.document.getElementById('pt-push-prompt-cancel');
+    if (accept) accept.addEventListener('click', function () { finish(true); });
+    if (cancel) cancel.addEventListener('click', function () { finish(false); });
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) finish(false);
+    });
+  }
+
+  function maybePrompt() {
+    if (!shouldPrompt()) {
+      if (uid() && !wasPrompted() && permission() === 'granted') markPrompted();
+      if (uid() && !wasPrompted() && permission() === 'denied' && !iosNeedsInstall()) markPrompted();
+      return;
+    }
+    if (global.document && global.document.body &&
+        global.document.body.classList.contains('age-gate-open')) {
+      global.setTimeout(maybePrompt, 400);
+      return;
+    }
+    showPrompt();
+  }
+
   function init() {
     if (!global.addEventListener) return;
-    global.addEventListener('pt-auth-ready', function () {
+    global.addEventListener('pt-auth-ready', function (e) {
+      var user = (e && e.detail) || currentUser();
+      if (!user || user.isGuest) return;
       sync();
+      global.setTimeout(maybePrompt, 700);
     });
   }
 
@@ -24951,7 +25085,12 @@ window.PT_VS_3BET_JSON = {
     sync: sync,
     sendTest: sendTest,
     adminSend: adminSend,
+    notifyUsers: notifyUsers,
     bindSettings: bindSettings,
+    maybePrompt: maybePrompt,
+    shouldPrompt: shouldPrompt,
+    wasPrompted: wasPrompted,
+    markPrompted: markPrompted,
     detectPlatform: detectPlatform,
     iosBlockReason: iosBlockReason,
     buildOpenUrl: buildOpenUrl,

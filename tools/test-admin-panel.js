@@ -16,6 +16,11 @@ assert.ok(/function scheduleAutoStripeSync\(\)/.test(src), 'auto sync desacoplad
 assert.ok(/AUTO_STRIPE_SYNC_COOLDOWN_MS = 10 \* 60 \* 1000/.test(src), 'cooldown auto sync');
 assert.ok(/refresh\(\)\.then\(function \(\) \{\s*if \(hasAdminAccess\(\)\) scheduleAutoStripeSync\(\);/m.test(src), 'render carga antes de sync');
 assert.ok(/admin-push-test/.test(src) && /adminSendPush/.test(src), 'admin envía push de prueba');
+assert.ok(/function notifyAdminMessagePush/.test(src), 'push al enviar mensaje de admin');
+assert.ok(/notifyAdminMessagePush\(\{[\s\S]*userIds: pushIds/.test(src), 'push conserva destinatarios antes del reset');
+assert.ok(/notifyAdminMessagePush\(\{[\s\S]*allUsers: pushAll/.test(src), 'push a todos si el mensaje es broadcast');
+assert.ok(/pt_admin_contact_reply[\s\S]*notifyAdminMessagePush/.test(src), 'push al responder hilo');
+assert.ok(/source=push&tab=contact/.test(src), 'deep link a Contacto');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/id="tab-admin"|data-tab="admin"|account-admin/.test(html), 'admin en HTML');
