@@ -61,4 +61,9 @@ assert.ok(/auth\.uid\(\)::text/.test(sql), 'RLS uid');
 assert.ok(/push_subscriptions_select_own/.test(sql), 'policy select');
 assert.ok(/on delete cascade/.test(sql), 'cascade al borrar cuenta');
 
+const sqlList = read('supabase/migrations/042_admin_user_list_push.sql');
+assert.ok(/push_enabled/.test(sqlList) && /push_devices/.test(sqlList), 'lista admin incluye push');
+assert.ok(/pt_push_subscriptions/.test(sqlList) && /enabled = true/.test(sqlList), 'push activo = subscription enabled');
+assert.ok(/is_pt_admin/.test(sqlList), 'lista push solo admin');
+
 console.log('*** push-edge-contract OK ***');

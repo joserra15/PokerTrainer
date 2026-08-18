@@ -24,6 +24,7 @@
     user: '',
     plan: '',
     founder: '',
+    push: '',
     periodFrom: '',
     periodTo: '',
     renewalFrom: '',
@@ -700,13 +701,34 @@
       if (u.founder_coach_requested_at) return 1;
       return 0;
     }
+    if (key === 'push') return userHasPush(u) ? (Number(u.push_devices) || 1) : 0;
     return 0;
+  }
+
+  function userHasPush(u) {
+    if (!u) return false;
+    if (u.push_enabled === true || u.push_enabled === 't' || u.push_enabled === 'true') return true;
+    return (Number(u.push_devices) || 0) > 0;
+  }
+
+  function pushStatusLabel(u) {
+    if (!userHasPush(u)) return 'No';
+    var n = Number(u.push_devices) || 0;
+    if (n > 1) return 'Sí · ' + n;
+    return 'Sí';
+  }
+
+  function pushStatusCell(u) {
+    var on = userHasPush(u);
+    return '<span class="admin-push-badge ' + (on ? 'is-on' : 'is-off') + '">' +
+      escapeHtml(pushStatusLabel(u)) + '</span>';
   }
 
   function filteredSortedUsers() {
     var q = String(adminUsersFilters.user || '').trim().toLowerCase();
     var plan = adminUsersFilters.plan || '';
     var founder = adminUsersFilters.founder || '';
+    var push = adminUsersFilters.push || '';
     var rows = adminUsersCache.filter(function (u) {
       if (!u) return false;
       if (q) {
@@ -714,6 +736,8 @@
         if (text.indexOf(q) < 0) return false;
       }
       if (plan && (u.plan || 'free') !== plan) return false;
+      if (push === 'on' && !userHasPush(u)) return false;
+      if (push === 'off' && userHasPush(u)) return false;
       if (founder === 'study' && !u.is_founder_study) return false;
       if (founder === 'coach' && !u.is_founder_coach) return false;
       if (founder === 'any' && !(u.is_founder_study || u.is_founder_coach || u.is_founder)) return false;
@@ -775,9 +799,11 @@
     var userEl = $('#admin-filter-user');
     var planEl = $('#admin-filter-plan');
     var founderEl = $('#admin-filter-founder');
+    var pushEl = $('#admin-filter-push');
     adminUsersFilters.user = userEl ? String(userEl.value || '') : '';
     adminUsersFilters.plan = planEl ? String(planEl.value || '') : '';
     adminUsersFilters.founder = founderEl ? String(founderEl.value || '') : '';
+    adminUsersFilters.push = pushEl ? String(pushEl.value || '') : '';
     adminUsersFilters.periodFrom = ($('#admin-filter-period-from') || {}).value || '';
     adminUsersFilters.periodTo = ($('#admin-filter-period-to') || {}).value || '';
     adminUsersFilters.renewalFrom = ($('#admin-filter-renewal-from') || {}).value || '';
@@ -788,12 +814,12 @@
 
   function clearUsersFilters() {
     adminUsersFilters = {
-      user: '', plan: '', founder: '',
+      user: '', plan: '', founder: '', push: '',
       periodFrom: '', periodTo: '',
       renewalFrom: '', renewalTo: '',
       seenFrom: '', seenTo: ''
     };
-    ['admin-filter-user', 'admin-filter-plan', 'admin-filter-founder',
+    ['admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push',
       'admin-filter-period-from', 'admin-filter-period-to',
       'admin-filter-renewal-from', 'admin-filter-renewal-to',
       'admin-filter-seen-from', 'admin-filter-seen-to'
@@ -808,7 +834,7 @@
     if (adminUsersFiltersBound) return;
     adminUsersFiltersBound = true;
     var filterIds = [
-      'admin-filter-user', 'admin-filter-plan', 'admin-filter-founder',
+      'admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push',
       'admin-filter-period-from', 'admin-filter-period-to',
       'admin-filter-renewal-from', 'admin-filter-renewal-to',
       'admin-filter-seen-from', 'admin-filter-seen-to'
@@ -850,13 +876,15 @@
     var me = currentUser();
     var rows = filteredSortedUsers();
     var total = adminUsersCache.length;
+    var pushOnCount = adminUsersCache.filter(userHasPush).length;
     if (status) {
-      status.textContent = rows.length === total
+      var base = rows.length === total
         ? (total + ' usuario' + (total === 1 ? '' : 's'))
         : (rows.length + ' de ' + total + ' usuarios');
+      status.textContent = base + ' · ' + pushOnCount + ' con push';
     }
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="muted-text admin-users-empty">' +
+      tbody.innerHTML = '<tr><td colspan="11" class="muted-text admin-users-empty">' +
         (total ? 'Ningún usuario coincide con los filtros.' : 'Sin usuarios.') +
         '</td></tr>';
       return;
@@ -886,6 +914,7 @@
         '<td class="admin-payment" data-col="payment">' + escapeHtml(formatPayment(u.stripe_last_payment_at)) + '</td>' +
         '<td data-col="seen"><span class="admin-status' + (online ? ' admin-status-online' : '') + '">' +
         (online ? '● ' : '') + escapeHtml(formatRelative(u.last_seen_at)) + '</span></td>' +
+        '<td class="admin-center" data-col="push">' + pushStatusCell(u) + '</td>' +
         '<td class="admin-center" data-col="founder_study">' +
         '<label class="admin-toggle" title="FOUNDER Study">' +
         '<input type="checkbox" class="admin-check" data-field="is_founder_study"' +
@@ -1184,6 +1213,12 @@
     var activity = data.activity || null;
     var school = (activity && activity.school) || data.school || null;
     var featureUsage = (activity && activity.feature_usage) || data.feature_usage || null;
+    var cached = adminUsersCache.filter(function (x) { return x && x.user_id === p.user_id; })[0];
+    var pushOn = userHasPush(cached);
+    var pushDevices = cached ? (Number(cached.push_devices) || 0) : 0;
+    var pushSummary = pushOn
+      ? ('Activado' + (pushDevices > 1 ? (' · ' + pushDevices + ' dispositivos') : (pushDevices === 1 ? ' · 1 dispositivo' : '')))
+      : 'No activado';
 
     var quotaHtml;
     if (q.unlimited) {
@@ -1280,6 +1315,7 @@
       '<p class="muted-text admin-gift-note">Se acredita como <strong>Bono de regalo</strong> y se notifica al usuario en Contacto.</p>' +
       '</div>' +
       '<div class="admin-detail-section"><h4>Notificaciones push</h4>' +
+      '<p><strong>' + escapeHtml(pushSummary) + '</strong></p>' +
       '<p class="muted-text">Envía un aviso de prueba a los dispositivos con push activo de este usuario.</p>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-push-test" data-user-id="' +
       escapeHtml(p.user_id) + '">Enviar push de prueba</button>' +

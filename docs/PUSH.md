@@ -37,5 +37,6 @@ Secrets del workflow: `SUPABASE_FUNCTIONS_URL` (p. ej. `https://PROJECT.supabase
 3. Configuración → **Avisarme en este dispositivo**.
 4. **Enviar notificación de prueba**.
 5. Un mensaje de admin a un usuario también dispara push (`?tab=contact`).
+6. En Admin → Usuarios, la columna **Push** muestra quién lo tiene activado (y se puede filtrar).
 
 En iPhone: primero **Añadir a pantalla de inicio**.

@@ -21,10 +21,14 @@ assert.ok(/notifyAdminMessagePush\(\{[\s\S]*userIds: pushIds/.test(src), 'push c
 assert.ok(/notifyAdminMessagePush\(\{[\s\S]*allUsers: pushAll/.test(src), 'push a todos si el mensaje es broadcast');
 assert.ok(/pt_admin_contact_reply[\s\S]*notifyAdminMessagePush/.test(src), 'push al responder hilo');
 assert.ok(/source=push&tab=contact/.test(src), 'deep link a Contacto');
+assert.ok(/function userHasPush/.test(src) && /pushStatusCell/.test(src), 'lista muestra estado push');
+assert.ok(/admin-filter-push/.test(src) && /push === 'on'/.test(src), 'filtro push activado/no');
+assert.ok(/data-col="push"/.test(src) && /colspan="11"/.test(src), 'columna Push en tabla');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/id="tab-admin"|data-tab="admin"|account-admin/.test(html), 'admin en HTML');
 assert.ok(/admin-usage-panel/.test(html), 'panel uso en HTML');
+assert.ok(/id="admin-filter-push"/.test(html) && /data-sort="push"/.test(html), 'columna y filtro Push');
 
 const localStore = {};
 const sandbox = {
