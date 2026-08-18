@@ -81,4 +81,17 @@ assert.ok(/revoke all on table public.pt_guest_funnel_events from authenticated/
 assert.ok(/is_pt_admin\(\)/.test(mig040), 'lectura embudo solo admin');
 assert.ok(!/create policy/i.test(mig040), 'embudo sin policies de INSERT/SELECT cliente');
 
-console.log('*** rls-policies OK (pt_user_state + pt_import_sessions + guest funnel) ***');
+const mig041 = fs.readFileSync(
+  path.join(root, 'supabase/migrations/041_push_subscriptions.sql'),
+  'utf8'
+);
+assert.ok(/enable row level security/i.test(mig041), 'push RLS');
+assertOwnPolicies(mig041, 'pt_push_subscriptions', [
+  'push_subscriptions_select_own',
+  'push_subscriptions_insert_own',
+  'push_subscriptions_update_own',
+  'push_subscriptions_delete_own'
+]);
+assert.ok(/user_id\s*=\s*auth\.uid\(\)::text/.test(mig041), 'push user_id = auth.uid()');
+
+console.log('*** rls-policies OK (pt_user_state + pt_import_sessions + guest funnel + push) ***');

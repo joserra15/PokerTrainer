@@ -28,4 +28,9 @@ assert.ok(/Java object is gone/.test(sentry), 'filtro mensaje IAB bridge');
 assert.ok(/navigation_performance_logger_android/.test(sentry), 'filtro stack IAB logger');
 assert.ok(/beforeSend[\s\S]*return null/.test(sentry), 'beforeSend descarta ruido IAB');
 
+assert.ok(/trackPushOpen|push_open/.test(anal), 'analytics push_open');
+assert.ok(/push_permission_granted|push_subscribed/.test(
+  fs.readFileSync(path.join(root, 'js/push.js'), 'utf8')
+), 'cliente emite eventos push');
+
 console.log('*** analytics-sentry OK ***');

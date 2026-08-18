@@ -15,6 +15,7 @@ assert.ok(/pt_admin_guest_funnel/.test(src) && /renderGuestFunnelSection/.test(s
 assert.ok(/function scheduleAutoStripeSync\(\)/.test(src), 'auto sync desacoplado');
 assert.ok(/AUTO_STRIPE_SYNC_COOLDOWN_MS = 10 \* 60 \* 1000/.test(src), 'cooldown auto sync');
 assert.ok(/refresh\(\)\.then\(function \(\) \{\s*if \(hasAdminAccess\(\)\) scheduleAutoStripeSync\(\);/m.test(src), 'render carga antes de sync');
+assert.ok(/admin-push-test/.test(src) && /adminSendPush/.test(src), 'admin envía push de prueba');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/id="tab-admin"|data-tab="admin"|account-admin/.test(html), 'admin en HTML');

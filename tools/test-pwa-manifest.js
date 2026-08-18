@@ -22,6 +22,11 @@ const pwa = fs.readFileSync(path.join(root, 'js/pwa.js'), 'utf8');
 assert.ok(/serviceWorker|sw\.js/.test(pwa), 'pwa registra SW');
 assert.ok(/PTBusy/.test(pwa), 'PTBusy evita reload a mitad de import');
 assert.ok(/importInProgress/.test(pwa), 'controllerchange respeta import en curso');
+assert.ok(/pt-push-open/.test(pwa), 'PWA maneja clic de push');
+
+assert.ok(/addEventListener\('push'/.test(sw), 'SW push');
+assert.ok(/notificationclick/.test(sw), 'SW notificationclick');
+assert.ok(/showNotification/.test(sw), 'SW showNotification');
 
 const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 assert.ok(/import-progress-clock/.test(indexHtml), 'reloj de importación en UI');

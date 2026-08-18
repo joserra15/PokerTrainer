@@ -54,6 +54,9 @@ const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/account-setti
 assert.ok(/data-settings-lang|pt_lang_v1|settings-lang/.test(settingsSrc), 'settings lang UI');
 assert.ok(/advisor|PTLiveAdvisor|settings-advisor/.test(settingsSrc), 'settings advisor');
 assert.ok(/settings-help|data-open-help|hotkey|ayuda/i.test(settingsSrc), 'settings help/hotkeys link');
+assert.ok(/settings-push-enable/.test(settingsSrc), 'toggle push');
+assert.ok(/settings-push-test/.test(settingsSrc), 'botón prueba push');
+assert.ok(/PTPush/.test(settingsSrc), 'bind PTPush');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/id="account-settings-content"|id="tab-account"/.test(html), 'account panel');

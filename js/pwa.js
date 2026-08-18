@@ -230,6 +230,12 @@
     if (isStandalone()) {
       document.documentElement.classList.add('pwa-standalone');
     }
+    if (global.navigator.serviceWorker) {
+      global.navigator.serviceWorker.addEventListener('message', function (e) {
+        var d = (e && e.data) || {};
+        if (d.type === 'pt-push-open') handlePushNavigation(d.url);
+      });
+    }
     global.addEventListener('pt-auth-ready', function () {
       handleLaunchParams();
       updateInstallUI();
@@ -237,16 +243,32 @@
     });
   }
 
+  function handlePushNavigation(href) {
+    try {
+      var parsed = new URL(href, global.location.href);
+      var tab = parsed.searchParams.get('tab');
+      var source = parsed.searchParams.get('source');
+      if (source === 'push' && global.PTAnalytics && global.PTAnalytics.trackPushOpen) {
+        global.PTAnalytics.trackPushOpen({ type: parsed.searchParams.get('type') || '' });
+      }
+      if (tab && global.goToTab) global.goToTab(tab);
+    } catch (e) { /* noop */ }
+  }
+
   function handleLaunchParams() {
-    if (!global.goToTab) return;
     var params = new URLSearchParams(global.location.search);
     var tab = params.get('tab');
-    if (!tab) return;
-    global.goToTab(tab);
+    var source = params.get('source');
+    if (source === 'push' && global.PTAnalytics && global.PTAnalytics.trackPushOpen) {
+      global.PTAnalytics.trackPushOpen({ type: params.get('type') || '' });
+    }
+    if (tab && global.goToTab) global.goToTab(tab);
+    if (!tab && source !== 'push' && source !== 'pwa-shortcut') return;
     if (global.history && global.history.replaceState) {
       var url = new URL(global.location.href);
       url.searchParams.delete('tab');
-      if (url.searchParams.get('source') === 'pwa-shortcut') url.searchParams.delete('source');
+      if (source === 'pwa-shortcut' || source === 'push') url.searchParams.delete('source');
+      url.searchParams.delete('type');
       global.history.replaceState({}, '', url.pathname + url.search + url.hash);
     }
   }
