@@ -5591,15 +5591,12 @@
         <h3>Acierto por calle</h3>
         <p class="muted-text">Porcentaje de decisiones óptimas o aceptables en cada calle.</p>
         <div class="street-acc stats-street-grid stats-street-hero">${renderStreetAccBars(byStreet)}</div>
+        <div class="stats-dist-inline">${renderDecisionDistribution({ optima: st.optima, aceptable: st.aceptable, imprecisa: st.imprecisa, error: st.error }, st.decisions)}</div>
       </section>
       <section class="stats-block card-box">
         <h3>Acierto semanal</h3>
         ${statsBarChartRows('Últimas 8 semanas', trainerWeekly, 'accuracy', '%', '--green')}
       </section>
-      <details class="stats-block card-box stats-advanced">
-        <summary>Distribución de decisiones</summary>
-        ${renderDecisionDistribution({ optima: st.optima, aceptable: st.aceptable, imprecisa: st.imprecisa, error: st.error }, st.decisions)}
-      </details>
       <section class="stats-block card-box">
         <h3>Top 5 fugas</h3>
         <p class="muted-text">Spots del entrenador con más errores. Repite el spot o abre la lección de la escuela.</p>
@@ -5620,6 +5617,7 @@
         <h3>Acierto por calle</h3>
         <p class="muted-text">Acierto GTO en las sesiones importadas, calle a calle.</p>
         <div class="street-acc stats-street-grid stats-street-hero">${sessionStreetBars}</div>
+        <div class="stats-dist-inline">${renderDecisionDistribution(sessionDerived.dist, sessionDistTotal)}</div>
       </section>
       <section class="stats-block card-box">
         <h3>Acierto semanal</h3>
@@ -5653,6 +5651,7 @@
             ${explainableStatCard('evLoss', 'EV perdido', sessTot ? ('-' + fmtBB(sessTot.evLoss)) : '—', aggFormat, 'net-neg')}
           </div>
           <h4>Distribución de decisiones</h4>
+          <p class="muted-text" style="margin:0 0 8px;font-size:12px">Mismo desglose que aparece bajo el acierto por calle de arriba.</p>
           ${renderDecisionDistribution(sessionDerived.dist, sessionDistTotal)}
           <h4>Perfil de estilo</h4>
           ${styleHtml}
