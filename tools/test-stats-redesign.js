@@ -60,10 +60,14 @@ const trainerSlice = renderStatsSrc.slice(
 const sessionsSlice = renderStatsSrc.slice(renderStatsSrc.indexOf('data-stats-panel="sessions"'));
 assert(trainerSlice.indexOf('Acierto por calle') < trainerSlice.indexOf('Acierto semanal'),
   'entrenador: calle antes que semanal');
+assert(trainerSlice.indexOf('stats-dist-inline') < trainerSlice.indexOf('Acierto semanal'),
+  'entrenador: distribución inline dentro del bloque de calle, antes que semanal');
 assert(trainerSlice.indexOf('Acierto semanal') < trainerSlice.indexOf('Top 5 fugas'),
   'entrenador: semanal antes que top 5');
 assert(sessionsSlice.indexOf('Acierto por calle') < sessionsSlice.indexOf('Acierto semanal'),
   'sesiones: calle antes que semanal');
+assert(sessionsSlice.indexOf('stats-dist-inline') < sessionsSlice.indexOf('Acierto semanal'),
+  'sesiones: distribución inline dentro del bloque de calle, antes que semanal');
 assert(/stats-format-filter/.test(sessionsSlice), 'filtro de formato solo en sesiones');
 assert(!/stats-format-filter/.test(trainerSlice), 'entrenador sin filtro de formato');
 assert(/Drill adaptativo/.test(trainerSlice), 'drill en pestaña entrenador');
