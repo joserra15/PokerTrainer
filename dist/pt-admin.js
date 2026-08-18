@@ -1277,6 +1277,12 @@
       '</div>' +
       '<p class="muted-text admin-gift-note">Se acredita como <strong>Bono de regalo</strong> y se notifica al usuario en Contacto.</p>' +
       '</div>' +
+      '<div class="admin-detail-section"><h4>Notificaciones push</h4>' +
+      '<p class="muted-text">Envía un aviso de prueba a los dispositivos con push activo de este usuario.</p>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="admin-push-test" data-user-id="' +
+      escapeHtml(p.user_id) + '">Enviar push de prueba</button>' +
+      '<p class="muted-text" id="admin-push-status"></p>' +
+      '</div>' +
       '<div class="admin-detail-section"><h4>Transacciones de bono</h4>' + ledgerHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Consultas IA (mes actual)</h4>' + usageHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Mensajes con el usuario</h4>' + threadsHtml + '</div>';
@@ -1318,6 +1324,35 @@
         var credits = input ? parseInt(input.value, 10) : 0;
         giftAiBonus(uid, credits);
       });
+    }
+    var pushBtn = host.querySelector('#admin-push-test');
+    if (pushBtn) {
+      pushBtn.addEventListener('click', function () {
+        adminSendPush(pushBtn.getAttribute('data-user-id'));
+      });
+    }
+  }
+
+  async function adminSendPush(userId) {
+    if (!requireAdminAccess()) return;
+    if (!userId) return;
+    var status = $('#admin-push-status');
+    if (!global.PTPush || !global.PTPush.adminSend) {
+      alert('Push no disponible en este entorno.');
+      return;
+    }
+    if (!window.confirm('¿Enviar una notificación de prueba a este usuario?')) return;
+    if (status) status.textContent = 'Enviando…';
+    try {
+      var res = await global.PTPush.adminSend(userId, {
+        title: 'PokerForgeAI',
+        body: 'Aviso de prueba del administrador.'
+      });
+      var msg = 'Enviadas: ' + (res && res.sent != null ? res.sent : 0);
+      if (res && res.gone) msg += ' · endpoints muertos: ' + res.gone;
+      if (status) status.textContent = msg;
+    } catch (e) {
+      if (status) status.textContent = (e && e.message) || 'No se pudo enviar.';
     }
   }
 

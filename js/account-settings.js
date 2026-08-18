@@ -240,6 +240,19 @@
       '</div>' +
       '</section>' +
 
+      '<section class="account-settings-card card-box" id="settings-push-card">' +
+      '<h3 data-i18n="settings.pushTitle">Notificaciones</h3>' +
+      '<p class="muted-text" data-i18n="settings.pushLead">Avisos en el teléfono y en el PC, aunque la app esté cerrada. Independiente del email.</p>' +
+      '<p class="muted-text" id="settings-push-status"></p>' +
+      '<div class="account-settings-actions account-settings-actions-stack">' +
+      '<label class="account-marketing" id="account-push-consent">' +
+      '<input type="checkbox" id="settings-push-enable" /> <span data-i18n="settings.pushEnable">Avisarme en este dispositivo</span>' +
+      '</label>' +
+      '<button type="button" class="btn btn-ghost btn-block hidden" id="settings-push-test" data-i18n="settings.pushTest">Enviar notificación de prueba</button>' +
+      '<button type="button" class="btn btn-primary btn-block hidden" id="settings-push-install" data-i18n="settings.pushInstallIos">Instalar en iPhone/iPad</button>' +
+      '</div>' +
+      '</section>' +
+
       '<section class="account-settings-card card-box">' +
       '<h3>Más opciones</h3>' +
       '<div class="account-settings-actions account-settings-actions-stack">' +
@@ -259,6 +272,9 @@
     }
     if (global.PTPwa && global.PTPwa.updateInstallUI) {
       global.PTPwa.updateInstallUI();
+    }
+    if (global.PTPush && global.PTPush.bindSettings) {
+      global.PTPush.bindSettings(host);
     }
     var mode = 'always';
     var thr = 0.5;

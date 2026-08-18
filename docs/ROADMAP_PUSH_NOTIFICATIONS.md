@@ -1,6 +1,7 @@
 # Roadmap técnico — Notificaciones push (PWA · móvil + PC)
 
-> **Estado:** plan de implementación. Fases 0–6 **pendientes**.  
+> **Estado:** fases 0–6 **implementadas** (agosto 2026). Operación: [`docs/PUSH.md`](./PUSH.md).  
+> Pendiente de activación en prod: claves VAPID en secrets + migración `041` + deploy de Edge Functions.  
 > **Alcance:** Web Push estándar (VAPID) en PokerForgeAI para **Android, iPhone/iPad (PWA instalada) y PC**.  
 > **No usar** FCM ni apps nativas en esta entrega.  
 > Complementa: `js/pwa.js`, `sw.js`, `js/re-engagement.js`, `js/account-settings.js`.  

@@ -15,3 +15,15 @@ verify_jwt = false
 
 [functions.share-hand]
 verify_jwt = false
+
+[functions.push-subscribe]
+verify_jwt = false
+
+[functions.push-unsubscribe]
+verify_jwt = false
+
+[functions.push-send]
+verify_jwt = false
+
+[functions.push-dispatch-reengage]
+verify_jwt = false

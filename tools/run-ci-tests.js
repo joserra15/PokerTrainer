@@ -91,6 +91,9 @@ const STEPS = [
   ['Test guest funnel admin', ['node', 'tools/test-guest-funnel.js']],
   ['Test PWA manifest', ['node', 'tools/test-pwa-manifest.js']],
   ['Test analytics/sentry guards', ['node', 'tools/test-analytics-sentry.js']],
+  ['Test push config', ['node', 'tools/test-push-config.js']],
+  ['Test push client', ['node', 'tools/test-push-client.js']],
+  ['Test push Edge contract', ['node', 'tools/test-push-edge-contract.js']],
   // v2.0 — formatos cash/spin/mtt + bluffs + ICM trainer
   ['Test trainer formats v2', ['node', 'tools/test-trainer-formats-v2.js']],
   ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']]
