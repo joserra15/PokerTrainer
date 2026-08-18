@@ -5,5 +5,5 @@
  */
 window.PT_PUSH = {
   enabled: true,
-  vapidPublicKey: ''
+  vapidPublicKey: 'BDTcwOe6fhIx9b-ocw1EudanEb5UwTIxeR8DINjK0znkS0qz8f0g5qdxoKSpVCgR8uY6evVpSgfyTh9JkgzvFKk'
 };
