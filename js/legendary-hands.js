@@ -1,6 +1,6 @@
 /*
  * legendary-hands.js — Manos legendarias: hub, juego ciego, historia, timeline, otro rol.
- * Pestaña propia en el menú principal (usuarios autenticados, no demo).
+ * Pestaña propia en el menú principal (solo administradores, no demo).
  */
 (function (global) {
   'use strict';
@@ -30,10 +30,17 @@
     return !!(global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive());
   }
 
-  function legendaryMenuVisible() {
+  function hasAdminAccess() {
     if (isDemoActive()) return false;
+    if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
+      return !!global.PTAdmin.hasAccess();
+    }
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-    return !!u;
+    return !!(u && u.isAdmin);
+  }
+
+  function legendaryMenuVisible() {
+    return hasAdminAccess();
   }
 
   function refreshTabVisibility() {
@@ -438,7 +445,7 @@
     var root = container || document.getElementById('legendary-content');
     if (!root) return;
     if (!legendaryMenuVisible()) {
-      root.innerHTML = '<div class="legendary-panel"><p class="muted-text">Inicia sesión para jugar manos legendarias de profesionales.</p></div>';
+      root.innerHTML = '<div class="legendary-panel"><p class="muted-text">Manos legendarias — solo administración.</p></div>';
       return;
     }
     if (state.view === VIEW.story) renderStory(root);
