@@ -132,6 +132,8 @@
   </script>
   <link rel="stylesheet" href="css/styles.css" id="pt-css" />
   <script>document.getElementById('pt-css').href = 'css/styles.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
+  <link rel="stylesheet" href="css/legendary.css" id="pt-css-legendary" />
+  <script>document.getElementById('pt-css-legendary').href = 'css/legendary.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- GSI se carga bajo demanda solo en auth legacy (sin Supabase Auth). -->
 </head>
@@ -416,6 +418,7 @@
       <nav class="tabs">
         <button class="tab" data-tab="play" data-i18n="tab.play">Entrenar</button>
         <button class="tab tab-school" data-tab="school" data-i18n="tab.school">Escuela de Póker</button>
+        <button class="tab tab-legendary hidden" data-tab="legendary">Manos legendarias</button>
         <button class="tab" data-tab="learn" data-i18n="tab.learn">Guía básica</button>
         <button class="tab" data-tab="analysis" data-i18n="tab.analysis">Análisis</button>
         <button class="tab" data-tab="ranges" data-i18n="tab.ranges">Rangos</button>
@@ -586,6 +589,11 @@
     <!-- ===== ESCUELA DE PÓKER (admin-only A–C) ===== -->
     <section id="tab-school" class="tab-panel">
       <div id="school-content" class="school-content"></div>
+    </section>
+
+    <!-- ===== MANOS LEGENDARIAS (solo admin) ===== -->
+    <section id="tab-legendary" class="tab-panel">
+      <div id="legendary-content" class="legendary-content"></div>
     </section>
 
     <!-- ===== GUÍA BÁSICA ===== -->

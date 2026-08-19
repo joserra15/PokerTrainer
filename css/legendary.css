@@ -1,0 +1,213 @@
+/* Manos legendarias — mesa broadcast profesional */
+
+.legendary-panel { max-width: 960px; margin: 0 auto; padding: 16px 18px 32px; }
+
+.legendary-hub-head { margin-bottom: 20px; }
+.legendary-hub-head h2 { font-size: 1.45rem; margin-bottom: 6px; }
+.legendary-hub-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 18px; }
+
+.legendary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.legendary-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.legendary-card:hover {
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--border));
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+.legendary-card-featured { border-color: color-mix(in srgb, var(--gold) 35%, var(--border)); }
+.legendary-card-year { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.legendary-card-title { font-size: 15px; font-weight: 700; margin: 6px 0 8px; line-height: 1.35; }
+.legendary-card-meta { font-size: 12px; color: var(--muted); }
+.legendary-card-flags { margin-top: 8px; font-size: 12px; }
+.legendary-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.legendary-tag {
+  font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+  background: rgba(255,255,255,.06); color: var(--muted);
+}
+
+.legendary-progress { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+
+/* Historia / post-historia */
+.legendary-story {
+  max-width: 720px; margin: 0 auto; padding: 8px 0 24px;
+}
+.legendary-story-head {
+  padding: 20px 22px; border-radius: var(--radius); margin-bottom: 18px;
+  background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(0,0,0,.2));
+  border: 1px solid var(--border);
+}
+.legendary-story-head[data-theme="wsop"] { border-color: color-mix(in srgb, #f5c451 35%, var(--border)); }
+.legendary-story-head[data-theme="ept"] { border-color: color-mix(in srgb, #00d4ff 35%, var(--border)); }
+.legendary-story-head[data-theme="scoopp"] { border-color: color-mix(in srgb, #00ff88 35%, var(--border)); }
+.legendary-story-head[data-theme="triton"] { border-color: color-mix(in srgb, #c9a227 35%, var(--border)); }
+.legendary-story-head[data-theme="lapt"] { border-color: color-mix(in srgb, #2ecc71 35%, var(--border)); }
+
+.legendary-story-kicker { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.legendary-story-title { font-size: 1.35rem; font-weight: 800; margin: 6px 0 10px; line-height: 1.3; }
+.legendary-story-event { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.legendary-story-body { font-size: 15px; line-height: 1.55; margin-bottom: 14px; }
+.legendary-story-highlights { margin: 0 0 16px 1.1rem; font-size: 14px; line-height: 1.5; }
+.legendary-story-highlights li { margin-bottom: 4px; }
+
+.legendary-cast-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
+  margin: 16px 0;
+}
+.legendary-cast-card {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px;
+}
+.legendary-cast-card.is-you { border-color: color-mix(in srgb, var(--gold) 50%, var(--border)); }
+.legendary-cast-name { font-weight: 700; font-size: 14px; }
+.legendary-cast-country { font-size: 12px; color: var(--muted); }
+.legendary-cast-pos { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.legendary-cast-cards { margin-top: 8px; }
+
+.legendary-video-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin: 12px 0 18px; padding: 10px 18px;
+  border-radius: 10px; font-weight: 700; font-size: 14px;
+  background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(0,0,0,.15));
+  border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--border));
+  color: var(--text); cursor: pointer;
+}
+.legendary-video-btn:hover { border-color: var(--gold); }
+
+.legendary-after-actions { display: flex; flex-direction: column; gap: 10px; max-width: 420px; margin: 20px auto; }
+.legendary-after-actions .btn { justify-content: center; text-align: center; }
+
+.legendary-timeline { max-width: 640px; margin: 0 auto; }
+.legendary-tl-street {
+  font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .05em;
+  margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+.legendary-tl-board { margin-left: 8px; }
+.legendary-tl-action {
+  padding: 8px 12px; margin-bottom: 4px; border-radius: 8px;
+  background: rgba(255,255,255,.03); font-size: 14px;
+}
+.legendary-tl-action.is-hero { background: rgba(47,129,247,.12); border-left: 3px solid var(--accent); }
+.legendary-tl-player { font-weight: 600; }
+.legendary-tl-move { color: var(--muted); margin-left: 6px; }
+.legendary-tl-show { margin-top: 4px; }
+
+.legendary-role-list { display: flex; flex-direction: column; gap: 8px; max-width: 400px; margin: 12px auto; }
+.legendary-role-btn {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--border);
+  cursor: pointer; color: var(--text); font-size: 14px;
+}
+.legendary-role-btn:hover { border-color: var(--accent); }
+.legendary-role-btn played { opacity: .85; }
+
+/* ---- Mesa broadcast (dentro de #play-active) ---- */
+body.legendary-play-active #play-active .play-stage {
+  position: relative;
+}
+body.legendary-play-active .legendary-scene-wrap {
+  position: relative;
+  border-radius: 20px;
+  padding: 12px 8px 16px;
+  background: var(--legendary-backdrop, radial-gradient(ellipse 80% 60% at 50% 20%, rgba(245,196,81,.08), transparent 70%), #0a0e14);
+  overflow: hidden;
+}
+body.legendary-play-active .legendary-scene-wrap::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(ellipse 70% 50% at 50% 45%, transparent 40%, rgba(0,0,0,.55) 100%);
+}
+body.legendary-play-active .legendary-scene-wrap::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: .04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.legendary-event-badge {
+  position: absolute; top: 8px; left: 12px; z-index: 5;
+  padding: 5px 11px; border-radius: 8px;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--led-a, #f5c451) 45%, transparent);
+  font-size: 10px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--led-a, #f5c451);
+  pointer-events: none;
+}
+
+.legendary-scene-wrap .poker-table { position: relative; z-index: 1; }
+
+/* Temas LED en mesa */
+.legendary-scene-wrap .table-felt {
+  --led-a: #f5c451;
+  --led-b: #ff6b35;
+  border: 14px solid transparent !important;
+  background:
+    radial-gradient(ellipse 62% 70% at 50% 42%, var(--felt-a), var(--felt-b) 62%, var(--felt-c) 100%) padding-box,
+    linear-gradient(135deg, var(--led-a), var(--led-b), var(--led-a)) border-box !important;
+  box-shadow:
+    0 0 36px color-mix(in srgb, var(--led-a) 30%, transparent),
+    0 0 72px color-mix(in srgb, var(--led-b) 15%, transparent),
+    inset 0 0 60px rgba(0,0,0,.45) !important;
+  animation: legendary-led-pulse 4s ease-in-out infinite;
+}
+.legendary-scene-wrap[data-legendary-theme="wsop"] {
+  --legendary-backdrop: radial-gradient(ellipse 80% 55% at 50% 15%, rgba(245,196,81,.12), transparent 65%), #0c0a08;
+}
+.legendary-scene-wrap[data-legendary-theme="wsop"] .table-felt {
+  --felt-a: #1a5c42; --felt-b: #0e3d2a; --felt-c: #082818;
+  --led-a: #f5c451; --led-b: #ff6b35;
+}
+.legendary-scene-wrap[data-legendary-theme="ept"] {
+  --legendary-backdrop: radial-gradient(ellipse 75% 50% at 50% 10%, rgba(0,212,255,.1), transparent 60%), #060a12;
+}
+.legendary-scene-wrap[data-legendary-theme="ept"] .table-felt {
+  --felt-a: #1a4a6e; --felt-b: #0e3050; --felt-c: #061828;
+  --led-a: #00d4ff; --led-b: #7c5cff;
+}
+.legendary-scene-wrap[data-legendary-theme="scoopp"] {
+  --legendary-backdrop: radial-gradient(ellipse 70% 45% at 50% 0%, rgba(0,255,136,.08), transparent 55%), #040608;
+}
+.legendary-scene-wrap[data-legendary-theme="scoopp"] .table-felt {
+  --felt-a: #123828; --felt-b: #0a2418; --felt-c: #051008;
+  --led-a: #00ff88; --led-b: #0099ff;
+}
+.legendary-scene-wrap[data-legendary-theme="triton"] .table-felt,
+.legendary-scene-wrap[data-legendary-theme="lapt"] .table-felt,
+.legendary-scene-wrap[data-legendary-theme="default"] .table-felt {
+  --felt-a: #1a4a5c; --felt-b: #0e3038; --felt-c: #061820;
+  --led-a: #e8e8e8; --led-b: #c9a227;
+}
+
+.legendary-scene-wrap .seat-hero .card {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--led-a) 55%, transparent);
+}
+
+.legendary-scene-wrap .seat .seat-role.legendary-anon {
+  font-weight: 700; color: var(--text); font-size: 11px;
+}
+
+@keyframes legendary-led-pulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .legendary-scene-wrap .table-felt { animation: none !important; }
+}
+
+.tab.tab-legendary.hidden { display: none !important; }
+
+@media (max-width: 600px) {
+  .legendary-grid { grid-template-columns: 1fr; }
+  .legendary-scene-wrap .table-felt { animation: none; }
+}

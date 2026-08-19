@@ -119,6 +119,11 @@
       'js/school-share.js',
       'js/school.js'
     ],
+    legendary: [
+      'js/legendary-hands-catalog.js',
+      'js/legendary-force.js',
+      'js/legendary-hands.js'
+    ],
     contact: ['js/contact.js'],
     admin: ['js/admin-panel.js', 'js/admin-promotions.js']
   };
@@ -129,6 +134,7 @@
     CHUNKS.ranges,
     CHUNKS.learn,
     CHUNKS.school,
+    CHUNKS.legendary,
     CHUNKS.contact,
     CHUNKS.admin
   );
