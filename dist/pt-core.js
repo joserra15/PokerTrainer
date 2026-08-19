@@ -26420,7 +26420,10 @@ window.PT_VS_3BET_JSON = {
     const setup = $('#play-setup');
     const active = $('#play-active');
     if (setup) setup.classList.remove('hidden');
-    if (active) active.classList.add('hidden');
+    if (active) {
+      active.classList.add('hidden');
+      active.classList.remove('is-legendary-session');
+    }
     setPlayTableActiveClass(false);
   }
 
@@ -26431,6 +26434,9 @@ window.PT_VS_3BET_JSON = {
     if (active) active.classList.remove('hidden');
     setPlayTableActiveClass(true);
     const cfg = (hand && hand.playConfig) || playSessionConfig;
+    if (active) {
+      active.classList.toggle('is-legendary-session', !!(cfg && cfg.legendaryMode));
+    }
     if (!(cfg && cfg.legendaryMode)) {
       applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
     }
@@ -27594,7 +27600,8 @@ window.PT_VS_3BET_JSON = {
     let hudH = 48;
     const playActive = document.getElementById('play-active');
     const schoolSession = !!(playActive && playActive.classList.contains('is-school-session'));
-    if (schoolSession) {
+    const legendarySession = !!(playActive && playActive.classList.contains('is-legendary-session'));
+    if (schoolSession || legendarySession) {
       hudH = 0;
     } else if (hud && hud.offsetHeight > 0) {
       hudH = Math.round(hud.offsetHeight + 8);
@@ -27912,7 +27919,9 @@ window.PT_VS_3BET_JSON = {
     try {
       const guestOn = window.PTGuest && PTGuest.isActive && PTGuest.isActive();
       const Ent = window.PTEntitlements;
-      if (!guestOn && Ent && Ent.ensureLoaded) {
+      const cfgEarly = pendingForce ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
+      const isLegendaryHand = !!(cfgEarly && cfgEarly.legendaryMode);
+      if (!guestOn && !isLegendaryHand && Ent && Ent.ensureLoaded) {
         const ent = await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
         if (!check.ok) {
