@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  var VIEW = { hub: 'hub', story: 'story', after: 'after', timeline: 'timeline', roles: 'roles' };
+  var VIEW = { hub: 'hub', briefing: 'briefing', story: 'story', after: 'after', timeline: 'timeline', roles: 'roles' };
 
   var state = {
     view: VIEW.hub,
@@ -155,6 +155,8 @@
   function applyLegendaryChrome(handDef) {
     var theme = (handDef.visual && handDef.visual.theme) || 'default';
     document.body.classList.add('legendary-play-active');
+    var playActive = $('#play-active');
+    if (playActive) playActive.classList.add('is-legendary-session');
     var wrap = ensureLegendaryScene();
     if (wrap) {
       wrap.setAttribute('data-legendary-theme', theme);
@@ -164,8 +166,16 @@
         badge.className = 'legendary-event-badge';
         wrap.appendChild(badge);
       }
-      badge.textContent = (handDef.event && handDef.event.series) || 'Legendary';
+      var ev = handDef.event || {};
+      badge.textContent = [ev.series, ev.stage].filter(Boolean).join(' · ') || 'Legendary';
     }
+  }
+
+  function ensureLegendaryChromeFromHand(hand) {
+    var pc = hand && hand.playConfig;
+    if (!pc || !pc.legendaryMode || !pc.legendaryHandId) return;
+    var handDef = Catalog() && Catalog().get(pc.legendaryHandId);
+    if (handDef) applyLegendaryChrome(handDef);
   }
 
   function clearLegendaryChrome() {
@@ -182,17 +192,45 @@
     return cands[Math.floor(Math.random() * cands.length)];
   }
 
-  function playHand(handId, opts) {
+  function showBriefing(handId, opts) {
     opts = opts || {};
     var handDef = Catalog() && Catalog().get(handId);
     var ForceMod = Force();
     if (!handDef || !ForceMod) return false;
     var heroId = opts.heroId || pickRandomHero(handDef);
     if (!heroId || !handDef.play.roles[heroId]) return false;
+    state.handId = handId;
+    state.heroId = heroId;
+    state.view = VIEW.briefing;
+    state._briefingOpts = opts;
+    render($('#legendary-content'));
+    return true;
+  }
+
+  function launchBriefedHand() {
+    var opts = state._briefingOpts || {};
+    return playHand(state.handId, {
+      heroId: state.heroId,
+      blind: opts.blind !== false,
+      skipBriefing: true
+    });
+  }
+
+  function playHand(handId, opts) {
+    opts = opts || {};
+    if (!opts.skipBriefing) {
+      return showBriefing(handId, opts);
+    }
+    var handDef = Catalog() && Catalog().get(handId);
+    var ForceMod = Force();
+    if (!handDef || !ForceMod) return false;
+    var heroId = opts.heroId || state.heroId || pickRandomHero(handDef);
+    if (!heroId || !handDef.play.roles[heroId]) return false;
 
     state.handId = handId;
     state.heroId = heroId;
     state.lastResult = null;
+    state._briefingOpts = null;
 
     var force = ForceMod.toForce(handDef, heroId);
     var pc = ForceMod.playConfig(handDef, heroId, { blind: opts.blind !== false });
@@ -247,13 +285,6 @@
       html += '<div class="legendary-card-title">' + esc(h.titleBlind) + '</div>';
       html += '<div class="legendary-card-meta">' + esc(formatEvent(h)) + '</div>';
       html += '<div class="legendary-card-flags">' + esc(castFlags(h)) + '</div>';
-      if (h.tags && h.tags.length) {
-        html += '<div class="legendary-card-tags">';
-        h.tags.slice(0, 3).forEach(function (t) {
-          html += '<span class="legendary-tag">' + esc(t) + '</span>';
-        });
-        html += '</div>';
-      }
       html += '</button>';
     });
     html += '</div></div>';
@@ -270,6 +301,41 @@
       btn.addEventListener('click', function () {
         playHand(btn.getAttribute('data-hand-id'), { blind: true });
       });
+    });
+  }
+
+  function renderBriefing(root) {
+    var handDef = Catalog() && Catalog().get(state.handId);
+    var ForceMod = Force();
+    if (!handDef || !ForceMod) {
+      state.view = VIEW.hub;
+      renderHub(root);
+      return;
+    }
+    var briefing = ForceMod.buildBriefing(handDef, state.heroId);
+    var theme = (handDef.visual && handDef.visual.theme) || 'default';
+    var html = '<div class="legendary-panel legendary-briefing">';
+    html += '<button type="button" class="btn btn-ghost btn-small" id="legendary-brief-back">&laquo; Biblioteca</button>';
+    html += '<div class="legendary-briefing-stage" data-theme="' + esc(theme) + '">';
+    html += '<p class="legendary-briefing-kicker">' + esc(briefing.kicker) + '</p>';
+    html += '<h2 class="legendary-briefing-title">' + esc(briefing.title) + '</h2>';
+    html += '<p class="legendary-briefing-body">' + esc(briefing.body) + '</p>';
+    html += '<div class="legendary-briefing-meta">';
+    if (briefing.heroPos) {
+      html += '<span class="legendary-brief-chip">Asiento · ' + esc(briefing.heroPos) + '</span>';
+    }
+    html += '<span class="legendary-brief-chip">Stack · ~' + esc(String(briefing.stackBB)) + 'bb</span>';
+    html += '</div>';
+    html += '<button type="button" class="btn btn-primary btn-lg legendary-brief-play" id="legendary-brief-play">Repartir cartas</button>';
+    html += '</div></div>';
+    root.innerHTML = html;
+
+    $('#legendary-brief-back').addEventListener('click', function () {
+      state.view = VIEW.hub;
+      render(root);
+    });
+    $('#legendary-brief-play').addEventListener('click', function () {
+      launchBriefedHand();
     });
   }
 
@@ -455,6 +521,7 @@
       return;
     }
     if (state.view === VIEW.story) renderStory(root);
+    else if (state.view === VIEW.briefing) renderBriefing(root);
     else if (state.view === VIEW.after) renderAfter(root);
     else if (state.view === VIEW.timeline) renderTimeline(root);
     else if (state.view === VIEW.roles) renderRolePicker(root);
@@ -474,6 +541,7 @@
     legendaryMenuVisible: legendaryMenuVisible,
     refreshTabVisibility: refreshTabVisibility,
     applyLegendaryChrome: applyLegendaryChrome,
+    ensureLegendaryChromeFromHand: ensureLegendaryChromeFromHand,
     clearLegendaryChrome: clearLegendaryChrome,
     getAnonymizeLabel: function (playConfig, pos) {
       var map = playConfig && playConfig.legendaryAnonymize;

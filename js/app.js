@@ -2091,6 +2091,9 @@
     renderBluffSpotBadge();
     updateLiveAdvisor();
     syncPlayMobileStage();
+    if (window.PTLegendary && typeof window.PTLegendary.ensureLegendaryChromeFromHand === 'function') {
+      window.PTLegendary.ensureLegendaryChromeFromHand(hand);
+    }
   }
 
   function renderBluffSpotBadge() {

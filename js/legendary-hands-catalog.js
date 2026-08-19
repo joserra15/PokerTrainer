@@ -4,20 +4,56 @@
 (function (global) {
   'use strict';
 
-  function scriptHU(heroPos, villainPos, heroPreflop, villainBarrels) {
-    var actions = [{ pos: heroPos, street: 'preflop', action: heroPreflop }];
+  var POS_ORDER_6 = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  var POS_ORDER_HU = ['BTN', 'BB'];
+
+  function foldPos(pos) {
+    return { pos: pos, street: 'preflop', action: 'fold' };
+  }
+
+  function posOrder(hu) {
+    return hu ? POS_ORDER_HU.slice() : POS_ORDER_6.slice();
+  }
+
+  /** Inserta folds implícitos desde UTG/BTN según orden de mesa. */
+  function expandPreflop(heroPos, villainPos, actions, hu) {
+    var order = posOrder(hu);
+    var result = [];
+    var lastIdx = -1;
+    (actions || []).forEach(function (a) {
+      if (a.street !== 'preflop') {
+        result.push(a);
+        return;
+      }
+      var idx = order.indexOf(a.pos);
+      if (idx >= 0) {
+        for (var i = lastIdx + 1; i < idx; i++) {
+          result.push(foldPos(order[i]));
+        }
+        lastIdx = Math.max(lastIdx, idx);
+      }
+      result.push(a);
+    });
+    return { heroPos: heroPos, villainPos: villainPos, actions: result };
+  }
+
+  function scriptHU(heroPos, villainPos, heroPreflop, villainBarrels, hu) {
+    hu = hu != null ? hu : false;
+    var actions = [];
     if (heroPreflop === 'raise') {
-      ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'].forEach(function (pos) {
+      actions.push({ pos: heroPos, street: 'preflop', action: 'raise' });
+      posOrder(hu).forEach(function (pos) {
         if (pos === heroPos) return;
         if (pos === villainPos) actions.push({ pos: pos, street: 'preflop', action: 'call' });
-        else actions.push({ pos: pos, street: 'preflop', action: 'fold' });
+        else actions.push(foldPos(pos));
       });
     } else if (heroPreflop === 'call') {
-      actions.unshift({ pos: villainPos, street: 'preflop', action: 'raise' });
-      ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'].forEach(function (pos) {
+      actions.push({ pos: villainPos, street: 'preflop', action: 'raise' });
+      posOrder(hu).forEach(function (pos) {
         if (pos === heroPos || pos === villainPos) return;
-        actions.push({ pos: pos, street: 'preflop', action: 'fold' });
+        actions.push(foldPos(pos));
       });
+      actions.push({ pos: heroPos, street: 'preflop', action: 'call' });
     }
     (villainBarrels || []).forEach(function (row) {
       actions.push({
@@ -27,13 +63,14 @@
         amountBB: row.amountBB != null ? row.amountBB : null
       });
     });
-    return { heroPos: heroPos, villainPos: villainPos, actions: actions };
+    return expandPreflop(heroPos, villainPos, actions, hu);
   }
 
-  function fourBetScript(heroPos, villainPos, heroRole) {
-    var v = villainPos;
+  function fourBetScript(heroPos, villainPos, heroRole, hu) {
     var h = heroPos;
+    var v = villainPos;
     var actions = [
+      { pos: h, street: 'preflop', action: 'raise' },
       { pos: v, street: 'preflop', action: 'raise' },
       { pos: h, street: 'preflop', action: 'raise' },
       { pos: v, street: 'preflop', action: 'raise' },
@@ -47,32 +84,31 @@
     } else {
       actions.push({ pos: h, street: 'turn', action: 'fold' });
     }
-    return { heroPos: h, villainPos: v, actions: actions };
+    return expandPreflop(h, v, actions, hu);
   }
 
-  function fourBetScriptAggressor(heroPos, villainPos) {
+  function fourBetScriptAggressor(heroPos, villainPos, hu) {
     var h = heroPos;
     var v = villainPos;
-    return {
-      heroPos: h,
-      villainPos: v,
-      actions: [
-        { pos: h, street: 'preflop', action: 'raise' },
-        { pos: v, street: 'preflop', action: 'raise' },
-        { pos: h, street: 'preflop', action: 'raise' },
-        { pos: v, street: 'preflop', action: 'call' },
-        { pos: h, street: 'flop', action: 'bet', amountBB: 2.5 },
-        { pos: v, street: 'flop', action: 'call' },
-        { pos: h, street: 'turn', action: 'bet', amountBB: 6 },
-        { pos: v, street: 'turn', action: 'fold' }
-      ]
-    };
+    return expandPreflop(h, v, [
+      { pos: v, street: 'preflop', action: 'raise' },
+      { pos: h, street: 'preflop', action: 'raise' },
+      { pos: v, street: 'preflop', action: 'raise' },
+      { pos: h, street: 'preflop', action: 'raise' },
+      { pos: v, street: 'preflop', action: 'call' },
+      { pos: h, street: 'flop', action: 'bet', amountBB: 2.5 },
+      { pos: v, street: 'flop', action: 'call' },
+      { pos: h, street: 'turn', action: 'bet', amountBB: 6 },
+      { pos: v, street: 'turn', action: 'fold' }
+    ], hu);
   }
+
+  var STACKS_ME_DAY5 = { UTG: 44, HJ: 54, CO: 61, BTN: 52, SB: 43, BB: 48 };
 
   var HANDS = [
     {
       id: 'LH-2024-WSOP-ME-MATEOS-FOLD-KK',
-      titleBlind: 'Fold imposible en bote 4-bet',
+      titleBlind: 'WSOP Main Event · Día 5',
       title: 'Mateos foldea KK vs AA en 4-bet pot',
       year: 2024,
       date: '2024-07-14',
@@ -97,17 +133,19 @@
       ],
       heroCandidates: ['adrian-mateos', 'will-berry'],
       play: {
-        type: 'face3bet',
+        type: 'RFI',
         seed: 88001,
+        blindsLabel: '100.000/200.000',
+        stacks: STACKS_ME_DAY5,
         board: ['Qd', '4d', '2c', 'Ts'],
         roles: {
           'adrian-mateos': {
-            heroPos: 'HJ', villainPos: 'CO',
+            heroPos: 'HJ', villainPos: 'CO', stackBB: 54,
             heroCards: ['Ks', 'Kh'], villainCards: ['As', 'Ac'],
             forceScript: fourBetScript('HJ', 'CO', 'folder')
           },
           'will-berry': {
-            heroPos: 'CO', villainPos: 'HJ',
+            heroPos: 'CO', villainPos: 'HJ', stackBB: 61,
             heroCards: ['As', 'Ac'], villainCards: ['Ks', 'Kh'],
             forceScript: fourBetScriptAggressor('CO', 'HJ')
           }
@@ -129,7 +167,7 @@
     },
     {
       id: 'LH-2024-WSOP-ME-MATEOS-AA-CRACKED',
-      titleBlind: 'Aces cracked con runner-runner',
+      titleBlind: 'WSOP Main Event · Día 5 · Mano 2',
       title: 'Mateos pierde con AA vs AK de García',
       year: 2024,
       date: '2024-07-14',
@@ -152,37 +190,33 @@
       ],
       heroCandidates: ['adrian-mateos', 'adrian-garcia'],
       play: {
-        type: 'face3bet',
+        type: 'RFI',
         seed: 88002,
+        blindsLabel: '100.000/200.000',
+        stacks: { UTG: 40, HJ: 42, CO: 55, BTN: 50, SB: 38, BB: 38 },
         board: ['Ts', '9h', '8d', '9s', '3s'],
         roles: {
           'adrian-mateos': {
-            heroPos: 'HJ', villainPos: 'BB',
+            heroPos: 'HJ', villainPos: 'BB', stackBB: 42,
             heroCards: ['Ah', 'Ac'], villainCards: ['As', 'Ks'],
-            forceScript: {
-              heroPos: 'HJ', villainPos: 'BB',
-              actions: [
-                { pos: 'HJ', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'raise' },
-                { pos: 'HJ', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'raise' },
-                { pos: 'HJ', street: 'preflop', action: 'call' }
-              ]
-            }
+            forceScript: expandPreflop('HJ', 'BB', [
+              { pos: 'HJ', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'raise' },
+              { pos: 'HJ', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'raise' },
+              { pos: 'HJ', street: 'preflop', action: 'call' }
+            ])
           },
           'adrian-garcia': {
-            heroPos: 'BB', villainPos: 'HJ',
+            heroPos: 'BB', villainPos: 'HJ', stackBB: 38,
             heroCards: ['As', 'Ks'], villainCards: ['Ah', 'Ac'],
-            forceScript: {
-              heroPos: 'BB', villainPos: 'HJ',
-              actions: [
-                { pos: 'HJ', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'raise' },
-                { pos: 'HJ', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'raise' },
-                { pos: 'HJ', street: 'preflop', action: 'call' }
-              ]
-            }
+            forceScript: expandPreflop('BB', 'HJ', [
+              { pos: 'HJ', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'raise' },
+              { pos: 'HJ', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'raise' },
+              { pos: 'HJ', street: 'preflop', action: 'call' }
+            ])
           }
         }
       },
@@ -202,7 +236,7 @@
     },
     {
       id: 'LH-2024-WSOP-GALIANA-7HIGH-BLUFF',
-      titleBlind: '5-bet bluff con 7-high en river',
+      titleBlind: 'WSOP Event #34 · Mesa final',
       title: 'Galiana gana el brazalete con bluff épico',
       year: 2024,
       date: '2024-06-15',
@@ -227,33 +261,32 @@
       play: {
         type: 'RFI',
         seed: 88003,
+        blindsLabel: '25.000/50.000',
+        stacks: { BTN: 28, BB: 32 },
         board: ['Ac', 'Kc', '5c', 'Jc', '2c'],
         roles: {
           'antonio-galiana': {
-            heroPos: 'BTN', villainPos: 'BB',
+            heroPos: 'BTN', villainPos: 'BB', stackBB: 28,
             heroCards: ['7h', '2d'], villainCards: ['Qc', '4s'],
             forceScript: scriptHU('BTN', 'BB', 'raise', [
               { street: 'flop', action: 'check' },
               { street: 'turn', action: 'check' },
               { street: 'river', action: 'bet', amountBB: 8 }
-            ])
+            ], true)
           },
           'johan-guilbert': {
-            heroPos: 'BB', villainPos: 'BTN',
+            heroPos: 'BB', villainPos: 'BTN', stackBB: 32,
             heroCards: ['Qc', '4s'], villainCards: ['7h', '2d'],
-            forceScript: {
-              heroPos: 'BB', villainPos: 'BTN',
-              actions: [
-                { pos: 'BTN', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'call' },
-                { pos: 'BB', street: 'flop', action: 'check' },
-                { pos: 'BTN', street: 'flop', action: 'check' },
-                { pos: 'BB', street: 'turn', action: 'check' },
-                { pos: 'BTN', street: 'turn', action: 'check' },
-                { pos: 'BB', street: 'river', action: 'check' },
-                { pos: 'BTN', street: 'river', action: 'bet', amountBB: 8 }
-              ]
-            }
+            forceScript: expandPreflop('BB', 'BTN', [
+              { pos: 'BTN', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'call' },
+              { pos: 'BB', street: 'flop', action: 'check' },
+              { pos: 'BTN', street: 'flop', action: 'check' },
+              { pos: 'BB', street: 'turn', action: 'check' },
+              { pos: 'BTN', street: 'turn', action: 'check' },
+              { pos: 'BB', street: 'river', action: 'check' },
+              { pos: 'BTN', street: 'river', action: 'bet', amountBB: 8 }
+            ], true)
           }
         }
       },
@@ -275,7 +308,7 @@
     },
     {
       id: 'LH-2021-WSOP-CLOSER-HU-COMEBACK',
-      titleBlind: 'Remontada heads-up para el brazalete',
+      titleBlind: 'WSOP The Closer · Heads-up',
       title: 'Leo Margets remonta contra Alex Kulev',
       year: 2021,
       date: '2021-11-21',
@@ -299,33 +332,32 @@
       play: {
         type: 'RFI',
         seed: 88004,
+        blindsLabel: '15.000/30.000',
+        stacks: { BTN: 8, BB: 52 },
         board: ['Qs', '8h', '4h', 'Qc', '2d'],
         roles: {
           'leo-margets': {
-            heroPos: 'BTN', villainPos: 'BB',
+            heroPos: 'BTN', villainPos: 'BB', stackBB: 8,
             heroCards: ['Qh', 'Jd'], villainCards: ['Ah', 'Qd'],
             forceScript: scriptHU('BTN', 'BB', 'raise', [
               { street: 'flop', action: 'bet', amountBB: 2.5 },
               { street: 'turn', action: 'check' },
               { street: 'river', action: 'check' }
-            ])
+            ], true)
           },
           'alex-kulev': {
-            heroPos: 'BB', villainPos: 'BTN',
+            heroPos: 'BB', villainPos: 'BTN', stackBB: 52,
             heroCards: ['Ah', 'Qd'], villainCards: ['Qh', 'Jd'],
-            forceScript: {
-              heroPos: 'BB', villainPos: 'BTN',
-              actions: [
-                { pos: 'BTN', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'call' },
-                { pos: 'BTN', street: 'flop', action: 'bet', amountBB: 2.5 },
-                { pos: 'BB', street: 'flop', action: 'call' },
-                { pos: 'BB', street: 'turn', action: 'check' },
-                { pos: 'BTN', street: 'turn', action: 'check' },
-                { pos: 'BB', street: 'river', action: 'check' },
-                { pos: 'BTN', street: 'river', action: 'check' }
-              ]
-            }
+            forceScript: expandPreflop('BB', 'BTN', [
+              { pos: 'BTN', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'call' },
+              { pos: 'BTN', street: 'flop', action: 'bet', amountBB: 2.5 },
+              { pos: 'BB', street: 'flop', action: 'call' },
+              { pos: 'BB', street: 'turn', action: 'check' },
+              { pos: 'BTN', street: 'turn', action: 'check' },
+              { pos: 'BB', street: 'river', action: 'check' },
+              { pos: 'BTN', street: 'river', action: 'check' }
+            ], true)
           }
         }
       },
@@ -345,7 +377,7 @@
     },
     {
       id: 'LH-2024-EPT-BCN-NADAL-FH',
-      titleBlind: 'Full house vs bluff con K-high',
+      titleBlind: 'EPT Barcelona Estrellas · Día 3',
       title: 'Nadal elimina con full house',
       year: 2024,
       date: '2024-09-01',
@@ -369,10 +401,12 @@
       play: {
         type: 'RFI',
         seed: 88005,
+        blindsLabel: '50.000/100.000',
+        stacks: { UTG: 72, HJ: 80, CO: 88, BTN: 76, SB: 65, BB: 70 },
         board: ['Ks', 'Kc', '5h', '5d', '2s'],
         roles: {
           'santiago-nadal': {
-            heroPos: 'CO', villainPos: 'BTN',
+            heroPos: 'CO', villainPos: 'BTN', stackBB: 88,
             heroCards: ['Kh', 'Kd'], villainCards: ['Kc', '5s'],
             forceScript: scriptHU('CO', 'BTN', 'raise', [
               { street: 'flop', action: 'check' },
@@ -381,21 +415,18 @@
             ])
           },
           'luis-rayon': {
-            heroPos: 'BTN', villainPos: 'CO',
+            heroPos: 'BTN', villainPos: 'CO', stackBB: 76,
             heroCards: ['Kc', '5s'], villainCards: ['Kh', 'Kd'],
-            forceScript: {
-              heroPos: 'BTN', villainPos: 'CO',
-              actions: [
-                { pos: 'CO', street: 'preflop', action: 'raise' },
-                { pos: 'BTN', street: 'preflop', action: 'call' },
-                { pos: 'CO', street: 'flop', action: 'check' },
-                { pos: 'BTN', street: 'flop', action: 'check' },
-                { pos: 'CO', street: 'turn', action: 'bet', amountBB: 4 },
-                { pos: 'BTN', street: 'turn', action: 'call' },
-                { pos: 'CO', street: 'river', action: 'bet', amountBB: 10 },
-                { pos: 'BTN', street: 'river', action: 'raise' }
-              ]
-            }
+            forceScript: expandPreflop('BTN', 'CO', [
+              { pos: 'CO', street: 'preflop', action: 'raise' },
+              { pos: 'BTN', street: 'preflop', action: 'call' },
+              { pos: 'CO', street: 'flop', action: 'check' },
+              { pos: 'BTN', street: 'flop', action: 'check' },
+              { pos: 'CO', street: 'turn', action: 'bet', amountBB: 4 },
+              { pos: 'BTN', street: 'turn', action: 'call' },
+              { pos: 'CO', street: 'river', action: 'bet', amountBB: 10 },
+              { pos: 'BTN', street: 'river', action: 'raise' }
+            ])
           }
         }
       },
@@ -417,7 +448,7 @@
     },
     {
       id: 'LH-2022-WSOP-ME-SALAS-A8',
-      titleBlind: 'Eliminación del campeón 2020',
+      titleBlind: 'WSOP Main Event · Día 6',
       title: 'Salas cae con A8 vs AK',
       year: 2022,
       date: '2022-07-13',
@@ -441,31 +472,27 @@
       play: {
         type: 'RFI',
         seed: 88006,
+        blindsLabel: '125.000/250.000',
+        stacks: { UTG: 32, HJ: 38, CO: 35, BTN: 42, SB: 30, BB: 41 },
         board: ['2c', '7h', 'Qs', '4d', '9s'],
         roles: {
           'damian-salas': {
-            heroPos: 'CO', villainPos: 'BB',
+            heroPos: 'CO', villainPos: 'BB', stackBB: 35,
             heroCards: ['Ad', '8d'], villainCards: ['Ah', 'Kd'],
-            forceScript: {
-              heroPos: 'CO', villainPos: 'BB',
-              actions: [
-                { pos: 'CO', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'raise' },
-                { pos: 'CO', street: 'preflop', action: 'call' }
-              ]
-            }
+            forceScript: expandPreflop('CO', 'BB', [
+              { pos: 'CO', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'raise' },
+              { pos: 'CO', street: 'preflop', action: 'call' }
+            ])
           },
           'aaron-mermelstein': {
-            heroPos: 'BB', villainPos: 'CO',
+            heroPos: 'BB', villainPos: 'CO', stackBB: 41,
             heroCards: ['Ah', 'Kd'], villainCards: ['Ad', '8d'],
-            forceScript: {
-              heroPos: 'BB', villainPos: 'CO',
-              actions: [
-                { pos: 'CO', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'raise' },
-                { pos: 'CO', street: 'preflop', action: 'call' }
-              ]
-            }
+            forceScript: expandPreflop('BB', 'CO', [
+              { pos: 'CO', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'raise' },
+              { pos: 'CO', street: 'preflop', action: 'call' }
+            ])
           }
         }
       },
@@ -483,7 +510,7 @@
     },
     {
       id: 'LH-2020-WSOP-ME-SALAS-HU-BOTTEON',
-      titleBlind: 'Two pair en river para el título',
+      titleBlind: 'WSOP ME Internacional · Heads-up',
       title: 'Salas gana la mesa final internacional',
       year: 2020,
       date: '2020-12-30',
@@ -508,33 +535,32 @@
       play: {
         type: 'RFI',
         seed: 88007,
+        blindsLabel: '200.000/400.000',
+        stacks: { BTN: 45, BB: 38 },
         board: ['Kh', '3s', '8c', '2d', 'Jh'],
         roles: {
           'damian-salas': {
-            heroPos: 'BTN', villainPos: 'BB',
+            heroPos: 'BTN', villainPos: 'BB', stackBB: 45,
             heroCards: ['Kd', '8h'], villainCards: ['Ah', 'Jc'],
             forceScript: scriptHU('BTN', 'BB', 'raise', [
               { street: 'flop', action: 'bet', amountBB: 2.5 },
               { street: 'turn', action: 'check' },
               { street: 'river', action: 'check' }
-            ])
+            ], true)
           },
           'brunno-botteon': {
-            heroPos: 'BB', villainPos: 'BTN',
+            heroPos: 'BB', villainPos: 'BTN', stackBB: 38,
             heroCards: ['Ah', 'Jc'], villainCards: ['Kd', '8h'],
-            forceScript: {
-              heroPos: 'BB', villainPos: 'BTN',
-              actions: [
-                { pos: 'BTN', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'call' },
-                { pos: 'BTN', street: 'flop', action: 'bet', amountBB: 2.5 },
-                { pos: 'BB', street: 'flop', action: 'call' },
-                { pos: 'BB', street: 'turn', action: 'check' },
-                { pos: 'BTN', street: 'turn', action: 'check' },
-                { pos: 'BB', street: 'river', action: 'check' },
-                { pos: 'BTN', street: 'river', action: 'check' }
-              ]
-            }
+            forceScript: expandPreflop('BB', 'BTN', [
+              { pos: 'BTN', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'call' },
+              { pos: 'BTN', street: 'flop', action: 'bet', amountBB: 2.5 },
+              { pos: 'BB', street: 'flop', action: 'call' },
+              { pos: 'BB', street: 'turn', action: 'check' },
+              { pos: 'BTN', street: 'turn', action: 'check' },
+              { pos: 'BB', street: 'river', action: 'check' },
+              { pos: 'BTN', street: 'river', action: 'check' }
+            ], true)
           }
         }
       },
@@ -554,7 +580,7 @@
     },
     {
       id: 'LH-2024-SCOOP-TITANS-BLUFF-River',
-      titleBlind: 'Shove river en board de tréboles',
+      titleBlind: 'SCOOP Titans PKO · Heads-up',
       title: 'Mateos bluffea en SCOOP Titans PKO',
       year: 2024,
       date: '2024-04-22',
@@ -578,33 +604,32 @@
       play: {
         type: 'RFI',
         seed: 88008,
+        blindsLabel: '12.500/25.000',
+        stacks: { BTN: 22, BB: 31 },
         board: ['Jc', '6c', '2c', '4d', '8c'],
         roles: {
           'adrian-mateos': {
-            heroPos: 'BTN', villainPos: 'BB',
+            heroPos: 'BTN', villainPos: 'BB', stackBB: 22,
             heroCards: ['Td', '9d'], villainCards: ['Ah', '7h'],
-            forceScript: scriptHU('BTN', 'BB', 'call', [
-              { street: 'flop', action: 'bet', amountBB: 2 },
+            forceScript: scriptHU('BTN', 'BB', 'raise', [
+              { street: 'flop', action: 'check' },
               { street: 'turn', action: 'check' },
               { street: 'river', action: 'bet', amountBB: 15 }
-            ])
+            ], true)
           },
           'heyalisson': {
-            heroPos: 'BB', villainPos: 'BTN',
+            heroPos: 'BB', villainPos: 'BTN', stackBB: 31,
             heroCards: ['Ah', '7h'], villainCards: ['Td', '9d'],
-            forceScript: {
-              heroPos: 'BB', villainPos: 'BTN',
-              actions: [
-                { pos: 'BTN', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'call' },
-                { pos: 'BB', street: 'flop', action: 'bet', amountBB: 2 },
-                { pos: 'BTN', street: 'flop', action: 'call' },
-                { pos: 'BB', street: 'turn', action: 'check' },
-                { pos: 'BTN', street: 'turn', action: 'check' },
-                { pos: 'BB', street: 'river', action: 'check' },
-                { pos: 'BTN', street: 'river', action: 'bet', amountBB: 15 }
-              ]
-            }
+            forceScript: expandPreflop('BB', 'BTN', [
+              { pos: 'BTN', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'call' },
+              { pos: 'BB', street: 'flop', action: 'bet', amountBB: 2 },
+              { pos: 'BTN', street: 'flop', action: 'call' },
+              { pos: 'BB', street: 'turn', action: 'check' },
+              { pos: 'BTN', street: 'turn', action: 'check' },
+              { pos: 'BB', street: 'river', action: 'check' },
+              { pos: 'BTN', street: 'river', action: 'bet', amountBB: 15 }
+            ], true)
           }
         }
       },
@@ -626,7 +651,7 @@
     },
     {
       id: 'LH-2022-EPT-MC-100K-CALL-J8',
-      titleBlind: 'Call-down triple barrel con J-high',
+      titleBlind: 'EPT Monte Carlo · €100K HR',
       title: 'Mateos paga tres barrels con J8',
       year: 2022,
       date: '2022-03-27',
@@ -651,10 +676,12 @@
         type: 'vsRFI',
         seed: 88009,
         key: 'BB_vs_BTN',
+        blindsLabel: '50.000/100.000',
+        stacks: { UTG: 58, HJ: 62, CO: 70, BTN: 58, SB: 52, BB: 64 },
         board: ['Jh', 'Ts', '7d', 'Qc', '4h'],
         roles: {
           'adrian-mateos': {
-            heroPos: 'BB', villainPos: 'BTN',
+            heroPos: 'BB', villainPos: 'BTN', stackBB: 64,
             heroCards: ['Jd', '8h'], villainCards: ['Ad', '6s'],
             forceScript: scriptHU('BB', 'BTN', 'call', [
               { street: 'flop', action: 'bet', amountBB: 2.5 },
@@ -663,21 +690,18 @@
             ])
           },
           'mikita-badziakouski': {
-            heroPos: 'BTN', villainPos: 'BB',
+            heroPos: 'BTN', villainPos: 'BB', stackBB: 58,
             heroCards: ['Ad', '6s'], villainCards: ['Jd', '8h'],
-            forceScript: {
-              heroPos: 'BTN', villainPos: 'BB',
-              actions: [
-                { pos: 'BTN', street: 'preflop', action: 'raise' },
-                { pos: 'BB', street: 'preflop', action: 'call' },
-                { pos: 'BTN', street: 'flop', action: 'bet', amountBB: 2.5 },
-                { pos: 'BB', street: 'flop', action: 'call' },
-                { pos: 'BTN', street: 'turn', action: 'bet', amountBB: 6 },
-                { pos: 'BB', street: 'turn', action: 'call' },
-                { pos: 'BTN', street: 'river', action: 'bet', amountBB: 12 },
-                { pos: 'BB', street: 'river', action: 'call' }
-              ]
-            }
+            forceScript: expandPreflop('BTN', 'BB', [
+              { pos: 'BTN', street: 'preflop', action: 'raise' },
+              { pos: 'BB', street: 'preflop', action: 'call' },
+              { pos: 'BTN', street: 'flop', action: 'bet', amountBB: 2.5 },
+              { pos: 'BB', street: 'flop', action: 'call' },
+              { pos: 'BTN', street: 'turn', action: 'bet', amountBB: 6 },
+              { pos: 'BB', street: 'turn', action: 'call' },
+              { pos: 'BTN', street: 'river', action: 'bet', amountBB: 12 },
+              { pos: 'BB', street: 'river', action: 'call' }
+            ])
           }
         }
       },
@@ -700,7 +724,7 @@
     },
     {
       id: 'LH-2024-WSOP-BERRY-AA',
-      titleBlind: 'Perspectiva del villano con AA',
+      titleBlind: 'WSOP Main Event · Día 5 · Otro asiento',
       title: 'Will Berry value-betea contra KK',
       year: 2024,
       date: '2024-07-14',
@@ -722,17 +746,19 @@
       ],
       heroCandidates: ['will-berry', 'adrian-mateos'],
       play: {
-        type: 'face3bet',
+        type: 'vsRFI',
         seed: 88010,
+        blindsLabel: '100.000/200.000',
+        stacks: STACKS_ME_DAY5,
         board: ['Qd', '4d', '2c', 'Ts'],
         roles: {
           'will-berry': {
-            heroPos: 'CO', villainPos: 'HJ',
+            heroPos: 'CO', villainPos: 'HJ', stackBB: 61,
             heroCards: ['As', 'Ac'], villainCards: ['Ks', 'Kh'],
             forceScript: fourBetScriptAggressor('CO', 'HJ')
           },
           'adrian-mateos': {
-            heroPos: 'HJ', villainPos: 'CO',
+            heroPos: 'HJ', villainPos: 'CO', stackBB: 54,
             heroCards: ['Ks', 'Kh'], villainCards: ['As', 'Ac'],
             forceScript: fourBetScript('HJ', 'CO', 'folder')
           }

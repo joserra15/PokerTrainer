@@ -6,6 +6,48 @@
 .legendary-hub-head h2 { font-size: 1.45rem; margin-bottom: 6px; }
 .legendary-hub-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 18px; }
 
+/* Briefing pre-mano */
+.legendary-briefing { max-width: 720px; }
+.legendary-briefing-stage {
+  margin-top: 16px;
+  padding: 28px 26px 32px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(255,255,255,.07), transparent 55%),
+    linear-gradient(165deg, rgba(12,16,24,.95), rgba(4,6,10,.98));
+  box-shadow: 0 24px 64px rgba(0,0,0,.45);
+}
+.legendary-briefing-stage[data-theme="wsop"] {
+  border-color: color-mix(in srgb, #f5c451 40%, var(--border));
+  box-shadow: 0 0 48px rgba(245,196,81,.08), 0 24px 64px rgba(0,0,0,.5);
+}
+.legendary-briefing-stage[data-theme="ept"] {
+  border-color: color-mix(in srgb, #00d4ff 35%, var(--border));
+}
+.legendary-briefing-stage[data-theme="scoopp"] {
+  border-color: color-mix(in srgb, #00ff88 35%, var(--border));
+}
+.legendary-briefing-kicker {
+  font-size: 11px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+}
+.legendary-briefing-title {
+  font-size: 1.55rem; font-weight: 800; line-height: 1.25; margin: 0 0 16px;
+}
+.legendary-briefing-body {
+  font-size: 16px; line-height: 1.65; color: rgba(230,237,243,.92);
+  margin-bottom: 20px;
+}
+.legendary-briefing-meta {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px;
+}
+.legendary-brief-chip {
+  font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+}
+.legendary-brief-play { width: 100%; max-width: 320px; }
+
 .legendary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -113,8 +155,40 @@
 .legendary-role-btn played { opacity: .85; }
 
 /* ---- Mesa broadcast (dentro de #play-active) ---- */
+body.legendary-play-active {
+  --legendary-backdrop: #06080c;
+}
+body.legendary-play-active #tab-play,
+body.legendary-play-active #play-active {
+  background: var(--legendary-backdrop, #06080c) !important;
+}
 body.legendary-play-active #play-active .play-stage {
   position: relative;
+  background: transparent !important;
+}
+body.legendary-play-active #play-active .table-wrap,
+body.legendary-play-active #play-active .poker-table {
+  background: transparent !important;
+}
+body.legendary-play-active #play-active .table-watermark,
+body.legendary-play-active #play-active .session-bar,
+body.legendary-play-active #play-active .play-config-strip,
+body.legendary-play-active #play-active .bluff-spot-badge {
+  display: none !important;
+}
+body.legendary-play-active.is-legendary-session #play-active,
+#play-active.is-legendary-session {
+  --play-sidebar-w: 0px !important;
+}
+#play-active.is-legendary-session .play-main {
+  max-width: none !important;
+  width: 100% !important;
+}
+#play-active.is-legendary-session .play-stage {
+  min-height: 62vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 body.legendary-play-active .legendary-scene-wrap {
   position: relative;
