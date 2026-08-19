@@ -58,6 +58,7 @@ hands.forEach(function (h) {
     const pc = force.playConfig(h, hid);
     assert.ok(pc.legendaryMode && pc.legendaryHandId === h.id, 'playConfig legendary');
     assert.strictEqual(pc.actionMode, 'complete', 'complete action mode');
+    assert.strictEqual(pc.legendaryTableMax, 6, '6-max table');
     assert.ok(pc.legendaryStacks, 'legendaryStacks');
     assert.ok(pc.legendaryBriefing && pc.legendaryBriefing.body, 'briefing text');
     const briefing = force.buildBriefing(h, hid);

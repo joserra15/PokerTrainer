@@ -229,7 +229,8 @@
       legendaryEventLabel: (handDef.event && handDef.event.name) || '',
       legendaryAnonymize: buildAnonymizeMap(handDef, heroId),
       legendaryStacks: legStacks,
-      legendaryBriefing: briefing
+      legendaryBriefing: briefing,
+      legendaryTableMax: (handDef.play && handDef.play.tableMax) || 6
     };
     if (global.PTPlayConfig && global.PTPlayConfig.normalize) {
       pc = global.PTPlayConfig.normalize(pc);
@@ -242,6 +243,7 @@
       pc.legendaryAnonymize = buildAnonymizeMap(handDef, heroId);
       pc.legendaryStacks = legStacks;
       pc.legendaryBriefing = briefing;
+      pc.legendaryTableMax = (handDef.play && handDef.play.tableMax) || 6;
       pc.stackDepth = 'bb' + Math.round(heroStack);
       pc.stackBB = heroStack;
       pc.liveAdvisor = false;

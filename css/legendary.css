@@ -220,11 +220,14 @@ body.legendary-play-active .legendary-scene-wrap::after {
 
 .legendary-scene-wrap .poker-table { position: relative; z-index: 1; }
 
-/* Temas LED en mesa */
-.legendary-scene-wrap .table-felt {
+/* Temas LED en mesa — wrap o felt directo (fallback si el wrap llega tarde) */
+.legendary-scene-wrap .table-felt,
+#play-active.is-legendary-session .legendary-broadcast-felt,
+body.legendary-play-active #play-active.is-legendary-session .table-felt {
   --led-a: #f5c451;
   --led-b: #ff6b35;
   border: 14px solid transparent !important;
+  border-radius: 180px !important;
   background:
     radial-gradient(ellipse 62% 70% at 50% 42%, var(--felt-a), var(--felt-b) 62%, var(--felt-c) 100%) padding-box,
     linear-gradient(135deg, var(--led-a), var(--led-b), var(--led-a)) border-box !important;
@@ -234,35 +237,42 @@ body.legendary-play-active .legendary-scene-wrap::after {
     inset 0 0 60px rgba(0,0,0,.45) !important;
   animation: legendary-led-pulse 4s ease-in-out infinite;
 }
-.legendary-scene-wrap[data-legendary-theme="wsop"] {
-  --legendary-backdrop: radial-gradient(ellipse 80% 55% at 50% 15%, rgba(245,196,81,.12), transparent 65%), #0c0a08;
-}
-.legendary-scene-wrap[data-legendary-theme="wsop"] .table-felt {
+.legendary-scene-wrap[data-legendary-theme="wsop"] .table-felt,
+#play-active.is-legendary-session .table-felt[data-legendary-theme="wsop"],
+body.legendary-play-active #play-active .table-felt[data-legendary-theme="wsop"] {
   --felt-a: #1a5c42; --felt-b: #0e3d2a; --felt-c: #082818;
   --led-a: #f5c451; --led-b: #ff6b35;
+}
+.legendary-scene-wrap[data-legendary-theme="wsop"],
+body.legendary-play-active #play-active.is-legendary-session .play-stage {
+  --legendary-backdrop: radial-gradient(ellipse 80% 55% at 50% 15%, rgba(245,196,81,.12), transparent 65%), #0c0a08;
+}
+.legendary-scene-wrap[data-legendary-theme="ept"] .table-felt,
+#play-active.is-legendary-session .table-felt[data-legendary-theme="ept"] {
+  --felt-a: #1a4a6e; --felt-b: #0e3050; --felt-c: #061828;
+  --led-a: #00d4ff; --led-b: #7c5cff;
 }
 .legendary-scene-wrap[data-legendary-theme="ept"] {
   --legendary-backdrop: radial-gradient(ellipse 75% 50% at 50% 10%, rgba(0,212,255,.1), transparent 60%), #060a12;
 }
-.legendary-scene-wrap[data-legendary-theme="ept"] .table-felt {
-  --felt-a: #1a4a6e; --felt-b: #0e3050; --felt-c: #061828;
-  --led-a: #00d4ff; --led-b: #7c5cff;
+.legendary-scene-wrap[data-legendary-theme="scoopp"] .table-felt,
+#play-active.is-legendary-session .table-felt[data-legendary-theme="scoopp"] {
+  --felt-a: #123828; --felt-b: #0a2418; --felt-c: #051008;
+  --led-a: #00ff88; --led-b: #0099ff;
 }
 .legendary-scene-wrap[data-legendary-theme="scoopp"] {
   --legendary-backdrop: radial-gradient(ellipse 70% 45% at 50% 0%, rgba(0,255,136,.08), transparent 55%), #040608;
 }
-.legendary-scene-wrap[data-legendary-theme="scoopp"] .table-felt {
-  --felt-a: #123828; --felt-b: #0a2418; --felt-c: #051008;
-  --led-a: #00ff88; --led-b: #0099ff;
-}
 .legendary-scene-wrap[data-legendary-theme="triton"] .table-felt,
 .legendary-scene-wrap[data-legendary-theme="lapt"] .table-felt,
-.legendary-scene-wrap[data-legendary-theme="default"] .table-felt {
+.legendary-scene-wrap[data-legendary-theme="default"] .table-felt,
+#play-active.is-legendary-session .table-felt[data-legendary-theme="default"] {
   --felt-a: #1a4a5c; --felt-b: #0e3038; --felt-c: #061820;
   --led-a: #e8e8e8; --led-b: #c9a227;
 }
 
-.legendary-scene-wrap .seat-hero .card {
+.legendary-scene-wrap .seat-hero .card,
+#play-active.is-legendary-session .seat-hero .card {
   box-shadow: 0 0 14px color-mix(in srgb, var(--led-a) 55%, transparent);
 }
 
