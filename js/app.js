@@ -3786,6 +3786,13 @@
         window.PTGuest.isActive && window.PTGuest.isActive()) {
       window.PTGuest.afterHandFinished(hand);
     }
+    if (window.PTSchool && typeof window.PTSchool.afterHandFinished === 'function') {
+      if (window.PTSchool.afterHandFinished(hand)) {
+        renderTable();
+        refreshSessionUI();
+        return;
+      }
+    }
     if (window.PTReEngage && PTReEngage.touchTrain) PTReEngage.touchTrain();
     if (window.PTAnalytics && PTAnalytics.trackPlayHand) {
       PTAnalytics.trackPlayHand({ decisions: (hand.decisions || []).length, evLoss: r.totalEvLoss || 0 });

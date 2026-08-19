@@ -266,7 +266,7 @@
       liveAdvisor: false,
       handsTarget: 0,
       schoolMode: true,
-      schoolDecisionEnd: true
+      schoolDecisionEnd: !(lesson && lesson.decisionEnd === false)
     };
     var extra = (spot && spot.playConfig) || {};
     var out = {};
@@ -524,10 +524,65 @@
       '</li>';
   }
 
+  function classRank(cls) {
+    if (cls === 'optima') return 3;
+    if (cls === 'aceptable') return 2;
+    if (cls === 'imprecisa') return 1;
+    return 0;
+  }
+
+  function worstDecisionClass(decisions) {
+    var worst = 'optima';
+    if (!(decisions && decisions.length)) return 'error';
+    (decisions || []).forEach(function (d) {
+      var cls = (d && d.class) || 'error';
+      if (classRank(cls) < classRank(worst)) worst = cls;
+    });
+    return worst;
+  }
+
+  function formatLineActions(decisions) {
+    if (!decisions || !decisions.length) return '—';
+    return decisions.map(function (d) {
+      var st = d.street ? String(d.street) : '';
+      var lab = d.label || d.action || d.id || '—';
+      return (st ? st + ': ' : '') + lab;
+    }).join(' · ');
+  }
+
+  function lineKindFromDecisions(decisions) {
+    var i;
+    var d;
+    var a;
+    for (i = 0; i < (decisions || []).length; i++) {
+      d = decisions[i];
+      if (d.street && d.street !== 'flop') continue;
+      a = String(d.action || d.id || '');
+      if (a === 'call') return 'check-call';
+      if (a === 'raise' || a.indexOf('raise') === 0) return 'check-raise';
+      if (a === 'fold') return 'check-fold';
+      if (a === 'check') return 'check';
+      if (a.indexOf('bet') === 0) return 'bet';
+    }
+    return '';
+  }
+
+  function lineDecisionsHtml(decisions) {
+    if (!decisions || decisions.length < 2) return '';
+    var items = decisions.map(function (d) {
+      var st = d.street ? String(d.street) : 'acción';
+      var lab = d.label || d.action || d.id || '—';
+      return '<li><span class="school-line-street">' + esc(st) + '</span> ' +
+        esc(lab) + ' · ' + esc(classLabel(d.class)) + '</li>';
+    }).join('');
+    return '<ul class="school-line-story school-spot-line">' + items + '</ul>';
+  }
+
   function showSpotFeedback(decision, spot, hand) {
     var s = state.session;
-    var fb = document.getElementById('feedback');
-    var actions = document.getElementById('actions');
+    var doc = typeof document !== 'undefined' ? document : null;
+    var fb = doc && doc.getElementById ? doc.getElementById('feedback') : null;
+    var actions = doc && doc.getElementById ? doc.getElementById('actions') : null;
     if (!fb || !s) return;
     var good = decision.class === 'optima' || decision.class === 'aceptable';
     var teach = (spot && spot.teachBack) || decision.reason || '';
@@ -541,12 +596,17 @@
     if (spot && spot.heroPos) meta.push(spot.heroPos);
     if (cards) meta.push(cards);
     if (board) meta.push('board ' + board);
+    var kind = decision.lineKind || '';
+    var actionLabel = kind
+      ? (kind + (decision.label ? ' · ' + decision.label : ''))
+      : (decision.label || decision.action || decision.id || '—');
     fb.classList.remove('hidden');
     fb.innerHTML =
       '<div class="school-spot-feedback ' + (good ? 'is-good' : 'is-bad') + '">' +
       '<h3>Spot ' + (s.index + 1) + ' / ' + s.spots.length + ' · ' + esc(classLabel(decision.class)) + '</h3>' +
       (meta.length ? '<p class="school-spot-meta">' + esc(meta.join(' · ')) + '</p>' : '') +
-      '<p class="school-spot-action">Tu acción: <strong>' + esc(decision.label || decision.action || decision.id || '—') + '</strong></p>' +
+      '<p class="school-spot-action">Tu línea: <strong>' + esc(actionLabel) + '</strong></p>' +
+      lineDecisionsHtml(decision.decisions) +
       (teach ? '<p class="school-spot-teach">' + esc(teach) + '</p>' : '') +
       '</div>';
     if (actions) {
@@ -850,6 +910,59 @@
 
     closeSchoolHand(hand, decision, 'Escuela de Póker · spot evaluado');
     showSpotFeedback(decision, spot, hand);
+    return true;
+  }
+
+  /**
+   * Lección con decisionEnd=false: se juega la mano entera y se evalúa la línea
+   * (p. ej. check-call vs check-raise en flop, turn y river).
+   * @returns {boolean} true si la Escuela maneja el feedback
+   */
+  function afterHandFinished(hand) {
+    var s = state.session;
+    if (!s || !s.active) return false;
+    if (s.decisionEnd) return false;
+    if (s.spotDecided) return false;
+    s.spotDecided = true;
+    var spot = s.spots[s.index];
+    var decisions = (hand && hand.decisions) || [];
+    var cls = worstDecisionClass(decisions);
+    var kind = lineKindFromDecisions(decisions);
+    var label = formatLineActions(decisions);
+    s.results.push({
+      spotId: spot && spot.id,
+      class: cls,
+      action: kind || (decisions.length ? (decisions[0].action || decisions[0].id) : ''),
+      actionLabel: kind ? (kind + ' · ' + label) : label,
+      heroPos: spot && spot.heroPos,
+      heroCards: spot && spot.forceDeal && spot.forceDeal.heroCards
+        ? spot.forceDeal.heroCards.slice()
+        : null,
+      board: (hand && hand.board && hand.board.length)
+        ? hand.board.slice()
+        : (spot && spot.forceDeal && spot.forceDeal.board
+          ? spot.forceDeal.board.slice()
+          : null),
+      teachBack: (spot && spot.teachBack) || '',
+      reason: (hand && hand.result && hand.result.reason) || '',
+      trapTag: spot && spot.trapTag,
+      lineKind: kind,
+      decisions: decisions.map(function (d) {
+        return {
+          street: d.street,
+          class: d.class,
+          action: d.action || d.id,
+          label: d.label
+        };
+      })
+    });
+    showSpotFeedback({
+      class: cls,
+      label: label,
+      lineKind: kind,
+      decisions: decisions,
+      reason: (spot && spot.teachBack) || ''
+    }, spot, hand);
     return true;
   }
 
@@ -1368,6 +1481,7 @@
     refreshFromCloud: refreshFromCloud,
     openLesson: openLesson,
     afterTrainerAction: afterTrainerAction,
+    afterHandFinished: afterHandFinished,
     isSessionActive: isSessionActive,
     activeSession: activeSession,
     hasAdminAccess: hasAdminAccess,

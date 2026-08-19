@@ -62,6 +62,7 @@ assert.ok(/tabId === 'school'/.test(app), 'goToTab school');
 assert.ok(/schoolMenuVisible/.test(app), 'goToTab usa schoolMenuVisible');
 assert.ok(/schoolUser && !schoolDemo/.test(app), 'goToTab school para usuarios autenticados');
 assert.ok(/PTSchool\.afterTrainerAction/.test(app), 'hook afterTrainerAction');
+assert.ok(/PTSchool\.afterHandFinished/.test(app), 'hook afterHandFinished');
 assert.ok(/SCHOOL_PUBLIC\s*=\s*true/.test(schoolSrc), 'SCHOOL_PUBLIC true (abierta a usuarios)');
 assert.ok(/schoolMenuVisible/.test(schoolSrc), 'schoolMenuVisible');
 assert.ok(/canPlayLesson/.test(schoolSrc), 'canPlayLesson Fase D');
@@ -567,6 +568,7 @@ function forceFromSpot(spot) {
     force.facingBet = true;
     force.forceDeal.facingBet = true;
   }
+  if (spot.forceScript) force.forceScript = spot.forceScript;
   return force;
 }
 
@@ -774,6 +776,88 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
   const hPush = openHand(s0501).hand;
   assert.ok(hPush.current.options.some(function (o) { return o.id === 'allin'; }), 'S-05 push ofrece shove');
   assert.ok(!hPush.current.options.some(function (o) { return o.id === 'raise'; }), 'S-05 push sin min-raise');
+})();
+
+/* C-27: rivers (no ríos); mano completa; evalúa check-call vs check-raise. */
+(function assertC27FullHandCheckCallRaise() {
+  const lesson = Data.getLesson('C-27');
+  assert.ok(lesson, 'C-27 existe');
+  assert.strictEqual(lesson.decisionEnd, false, 'C-27 juega la mano entera');
+  const blob = lessonBlob(lesson);
+  assert.ok(/rivers/i.test(blob), 'C-27 usa rivers');
+  assert.ok(!/\br[ií]os\b/i.test(blob), 'C-27 no usa ríos');
+  assert.ok(/check-call/i.test(blob) && /check-raise/i.test(blob), 'C-27 habla de check-call y check-raise');
+  assert.ok(Array.isArray(lesson.spots) && lesson.spots.length >= 12, 'C-27 ≥12 spots');
+  lesson.spots.forEach(function (spot) {
+    const st = (spot.playConfig && spot.playConfig.practiceStreet) || 'preflop';
+    assert.strictEqual(st, 'flop', spot.id + ' empieza en flop');
+    assert.strictEqual(spot.playConfig.schoolDecisionEnd, false, spot.id + ' schoolDecisionEnd false');
+    assert.ok(spot.facingBet || (spot.forceDeal && spot.forceDeal.facingBet), spot.id + ' facingBet (check ya hecho)');
+    const board = (spot.forceDeal && spot.forceDeal.board) || [];
+    assert.strictEqual(board.length, 5, spot.id + ' board 5 cartas (flop-turn-river)');
+    const dead = [].concat(spot.forceDeal.heroCards || [], board, spot.forceDeal.villainCards || []);
+    const seen = Object.create(null);
+    dead.forEach(function (c) {
+      assert.ok(!seen[c], spot.id + ' carta duplicada ' + c);
+      seen[c] = true;
+    });
+    const pack = openHand(spot);
+    assert.strictEqual(pack.hand.stage, 'flop', spot.id + ' stage flop');
+    assert.ok(pack.hand.current && pack.hand.current.toCallBB > 0, spot.id + ' enfrenta c-bet');
+    const ids = pack.hand.current.options.map(function (o) { return o.id; });
+    assert.ok(ids.indexOf('call') >= 0, spot.id + ' ofrece call (check-call)');
+    assert.ok(ids.indexOf('raise') >= 0, spot.id + ' ofrece raise (check-raise)');
+    const called = openHand(spot).hand;
+    Engine.act(called, 'call');
+    assert.notStrictEqual(called.stage, 'complete', spot.id + ' call no corta la mano: ' + called.stage);
+    assert.ok(called.stage === 'turn' || called.stage === 'flop', spot.id + ' tras call sigue postflop: ' + called.stage);
+  });
+  function grade(spot, actionId) {
+    const h = openHand(spot).hand;
+    const res = Engine.act(h, actionId);
+    return res && res.decision && res.decision.class;
+  }
+  const byId = {};
+  lesson.spots.forEach(function (s) { byId[s.id] = s; });
+  assert.ok(['optima', 'aceptable'].indexOf(grade(byId['c27-01'], 'call')) >= 0, '99 K-high: check-call bueno');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(byId['c27-03'], 'raise')) >= 0, 'set 77: check-raise en el mix');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(byId['c27-04'], 'fold')) >= 0, 'QJo: fold, no check-raise');
+  assert.notStrictEqual(grade(byId['c27-04'], 'raise'), 'optima', 'QJo: check-raise no es óptimo');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(byId['c27-11'], 'call')) >= 0, 'A-high paired: check-call bueno');
+  assert.ok(['imprecisa', 'error'].indexOf(grade(byId['c27-11'], 'raise')) >= 0, 'A-high paired: check-raise hincha de más');
+
+  /* Línea check-call hasta river: el villano barre turn y river. */
+  (function playFullLine() {
+    const h = openHand(byId['c27-01']).hand;
+    Engine.act(h, 'call');
+    assert.strictEqual(h.stage, 'turn', 'tras check-call flop → turn');
+    Engine.act(h, 'check');
+    assert.ok(h.current && h.current.toCallBB > 0, 'villano barre turn');
+    Engine.act(h, 'call');
+    assert.strictEqual(h.stage, 'river', 'tras check-call turn → river');
+    Engine.act(h, 'check');
+    assert.ok(h.stage === 'complete' || (h.current && h.current.toCallBB > 0), 'river: villano barre o cierra');
+    if (h.stage !== 'complete' && h.current && h.current.toCallBB > 0) {
+      Engine.act(h, 'call');
+    }
+    assert.strictEqual(h.stage, 'complete', 'mano completa tras la línea');
+    assert.ok(h.decisions.length >= 3, 'varias decisiones evaluadas: ' + h.decisions.length);
+    const streets = h.decisions.map(function (d) { return d.street; });
+    assert.ok(streets.indexOf('flop') >= 0 && streets.indexOf('turn') >= 0, 'evalúa flop y turn');
+    School._state.session = {
+      active: true,
+      decisionEnd: false,
+      spotDecided: false,
+      spots: [byId['c27-01']],
+      index: 0,
+      results: []
+    };
+    assert.strictEqual(School.afterHandFinished(h), true, 'afterHandFinished maneja C-27');
+    assert.strictEqual(School._state.session.results.length, 1, 'registra el spot');
+    assert.strictEqual(School._state.session.results[0].lineKind, 'check-call', 'línea check-call');
+    School._state.session = null;
+  })();
+  assert.ok(/afterHandFinished/.test(schoolSrc), 'school.js afterHandFinished');
 })();
 
 /* Control: sin schoolDecisionEnd puede avanzar */
