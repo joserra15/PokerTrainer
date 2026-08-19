@@ -897,8 +897,8 @@
     XC('c27-06', ['2s', '2c'], ['Ah', '7d', '2h', '3c', '5d'], 77106,
       'Set de doses: check-raise de value. Polariza: fuerte vs faroles elegidos, no medias.',
       { villainCards: ['Ac', 'Ks'] }),
-    XC('c27-07', ['9s', '9c'], ['Ad', '7h', '2c', '3s', '5h'], 77107,
-      'Underpair OOP A-high: check-call o check-fold. No bluff-raise deep.',
+    XC('c27-07', ['Td', 'Tc'], ['Ad', '7h', '2c', '3s', '5h'], 77107,
+      'TT underpair OOP A-high: check-call o check-fold. No bluff-raise deep.',
       { villainCards: ['As', 'Kh'] }),
     XC('c27-08', ['As', '5s'], ['9s', '8s', '2h', '3c', '7d'], 77108,
       'Draw de color nuez: check-call frecuente; check-raise solo como semi-farol selectivo. Si continúan, tienes plan de turn y river.',
@@ -912,8 +912,8 @@
     XC('c27-11', ['Ad', '5d'], ['Ks', '4c', '4h', '2s', '8c'], 77111,
       'A-high en paired: check-call mixto. Plan: pot control; no conviertas medias en raise polar.',
       { villainCards: ['Kh', 'Qh'] }),
-    XC('c27-12', ['7s', '7c'], ['7d', '2h', '2s', '9c', '5h'], 77112,
-      'Trío en paired bajo: check-raise value. Rango polar — quieres que paguen o se equivoquen.',
+    XC('c27-12', ['5s', '5c'], ['5d', '2h', '2s', '9c', '7h'], 77112,
+      'Full house en paired bajo: check-raise value. Rango polar — quieres que paguen o se equivoquen.',
       { villainCards: ['Ah', 'Kd'] })
   ];
 

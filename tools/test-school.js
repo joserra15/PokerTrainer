@@ -788,6 +788,16 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
   assert.ok(!/\br[ií]os\b/i.test(blob), 'C-27 no usa ríos');
   assert.ok(/check-call/i.test(blob) && /check-raise/i.test(blob), 'C-27 habla de check-call y check-raise');
   assert.ok(Array.isArray(lesson.spots) && lesson.spots.length >= 12, 'C-27 ≥12 spots');
+  (function assertUniqueHeroHands() {
+    const seen = Object.create(null);
+    lesson.spots.forEach(function (spot) {
+      const cards = (spot.forceDeal && spot.forceDeal.heroCards) || [];
+      assert.strictEqual(cards.length, 2, spot.id + ' hero 2 cartas');
+      const code = cards.slice().sort().join('');
+      assert.ok(!seen[code], spot.id + ' repite mano hero ' + cards.join(' '));
+      seen[code] = true;
+    });
+  })();
   lesson.spots.forEach(function (spot) {
     const st = (spot.playConfig && spot.playConfig.practiceStreet) || 'preflop';
     assert.strictEqual(st, 'flop', spot.id + ' empieza en flop');
