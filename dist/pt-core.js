@@ -26233,8 +26233,11 @@ window.PT_VS_3BET_JSON = {
 
   function legendaryMenuVisible() {
     if (window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive()) return false;
+    if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
+      return !!window.PTAdmin.hasAccess();
+    }
     const u = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
-    return !!u;
+    return !!(u && u.isAdmin);
   }
 
   function refreshLegendaryTabVisibility() {
