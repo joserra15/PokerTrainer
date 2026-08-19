@@ -15,13 +15,17 @@
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
   const APP_VERSION = window.PT_BUILD || '2.6.0';
 
-  function legendaryMenuVisible() {
+  function isLegendaryAdminUser() {
     if (window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive()) return false;
-    if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
-      return !!window.PTAdmin.hasAccess();
-    }
     const u = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
-    return !!(u && u.isAdmin);
+    if (u && u.isAdmin) return true;
+    const ent = window.PTEntitlements && window.PTEntitlements.get ? window.PTEntitlements.get() : null;
+    if (ent && ent.is_admin) return true;
+    return false;
+  }
+
+  function legendaryMenuVisible() {
+    return isLegendaryAdminUser();
   }
 
   function refreshLegendaryTabVisibility() {
@@ -963,15 +967,23 @@
       window.PTBilling.handleCheckoutReturn();
     }
     if (window.PTEntitlements && window.PTEntitlements.ensureLoaded) {
-      window.PTEntitlements.ensureLoaded();
+      window.PTEntitlements.ensureLoaded().finally(function () {
+        refreshLegendaryTabVisibility();
+      });
     }
     window.addEventListener('pt-auth-ready', function () {
-      if (window.PTEntitlements && window.PTEntitlements.refresh) window.PTEntitlements.refresh();
-      refreshLegendaryTabVisibility();
+      const afterRefresh = function () { refreshLegendaryTabVisibility(); };
+      if (window.PTEntitlements && window.PTEntitlements.refresh) {
+        window.PTEntitlements.refresh().finally(afterRefresh);
+      } else {
+        afterRefresh();
+      }
     });
     window.addEventListener('pt-guest-ready', refreshLegendaryTabVisibility);
+    window.addEventListener('pt-entitlements-updated', refreshLegendaryTabVisibility);
     window.addEventListener('pt-plan-changed', function () {
       renderPricing();
+      refreshLegendaryTabVisibility();
     });
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
@@ -1344,6 +1356,8 @@
   }
 
   window.goToTab = goToTab;
+  window.refreshLegendaryTabVisibility = refreshLegendaryTabVisibility;
+  window.isLegendaryAdminUser = isLegendaryAdminUser;
   window.openSession = openSession;
   window.syncAdvisorSettingsToSession = syncAdvisorSettingsToSession;
 

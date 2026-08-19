@@ -192,6 +192,9 @@
     if (global.PTAuth && global.PTAuth.renderAccountMenu) {
       global.PTAuth.renderAccountMenu(u);
     }
+    if (typeof global.refreshLegendaryTabVisibility === 'function') {
+      global.refreshLegendaryTabVisibility();
+    }
     if (u.isAdmin && global.PTLoader) {
       global.PTLoader.ensure('admin').then(function () {
         if (global.PTAdmin && global.PTAdmin.initForUser) global.PTAdmin.initForUser(u);

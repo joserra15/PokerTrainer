@@ -31,12 +31,14 @@
   }
 
   function hasAdminAccess() {
-    if (isDemoActive()) return false;
-    if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
-      return !!global.PTAdmin.hasAccess();
+    if (typeof global.isLegendaryAdminUser === 'function') {
+      return !!global.isLegendaryAdminUser();
     }
+    if (isDemoActive()) return false;
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-    return !!(u && u.isAdmin);
+    if (u && u.isAdmin) return true;
+    var ent = global.PTEntitlements && global.PTEntitlements.get ? global.PTEntitlements.get() : null;
+    return !!(ent && ent.is_admin);
   }
 
   function legendaryMenuVisible() {
@@ -44,6 +46,10 @@
   }
 
   function refreshTabVisibility() {
+    if (typeof global.refreshLegendaryTabVisibility === 'function') {
+      global.refreshLegendaryTabVisibility();
+      return;
+    }
     var tab = document.querySelector('.tab[data-tab="legendary"]');
     if (tab) tab.classList.toggle('hidden', !legendaryMenuVisible());
   }
