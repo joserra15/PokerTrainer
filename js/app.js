@@ -202,7 +202,9 @@
     if (active) active.classList.remove('hidden');
     setPlayTableActiveClass(true);
     const cfg = (hand && hand.playConfig) || playSessionConfig;
-    applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+    if (!(cfg && cfg.legendaryMode)) {
+      applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+    }
     requestAnimationFrame(syncPlayMobileStage);
   }
 
@@ -483,6 +485,8 @@
     try { localStorage.setItem(TABLE_THEME_KEY, theme); } catch (e) { /* ignore */ }
   }
   function applyTableTheme(theme) {
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    if (cfg && cfg.legendaryMode) return;
     const t = (theme === 'midnight' || theme === 'crimson') ? theme : 'emerald';
     document.querySelectorAll('#play-active .table-felt, .session-replay-table .table-felt').forEach((felt) => {
       felt.setAttribute('data-theme', t);
@@ -1203,6 +1207,30 @@
         }
         if (window.PTSchool && window.PTSchool.ensureBannerEl) window.PTSchool.ensureBannerEl();
         if (window.PTSchool && window.PTSchool.render) window.PTSchool.render($('#school-content'));
+      });
+    }
+    if (tabId === 'legendary') {
+      var legUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
+      var legDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
+      var canLegendary = !!(legUser && legUser.isAdmin && !legDemo);
+      if (window.PTLegendary && typeof window.PTLegendary.legendaryMenuVisible === 'function') {
+        canLegendary = window.PTLegendary.legendaryMenuVisible();
+      } else if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
+        canLegendary = window.PTAdmin.hasAccess();
+      }
+      if (!canLegendary) {
+        goToTab('home');
+        return;
+      }
+      withLazyChunk('legendary', function () {
+        if (window.PTLegendary && window.PTLegendary.legendaryMenuVisible &&
+            !window.PTLegendary.legendaryMenuVisible()) {
+          goToTab('home');
+          return;
+        }
+        if (window.PTLegendary && window.PTLegendary.render) {
+          window.PTLegendary.render($('#legendary-content'));
+        }
       });
     }
     if (tabId === 'learn') {
@@ -2010,7 +2038,9 @@
       felt.classList.toggle('table-3max', is3MaxTable());
     }
     const cfg = (hand && hand.playConfig) || playSessionConfig;
-    applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+    if (!(cfg && cfg.legendaryMode)) {
+      applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+    }
     const heroSeatPos = hand.displayHeroPos || hand.hero.pos;
     const heroDealerEl = $('#hero-dealer');
     if (heroDealerEl) heroDealerEl.classList.toggle('hidden', heroSeatPos !== 'BTN');
@@ -2198,6 +2228,11 @@
 
       let role = isHero ? 'Héroe' : (isVillain ? 'Villano' : (isCaller ? (hand.multiway ? 'En bote' : 'Pagador') : ''));
       if ((hand.multiway || inPot) && inPot && !isVillain && !isHero) role = role || 'En bote';
+      const legCfg = (hand && hand.playConfig) || playSessionConfig;
+      const legMap = legCfg && legCfg.legendaryMode && legCfg.legendaryAnonymize && legCfg.legendaryAnonymize.byPos;
+      if (legMap && legMap[pos]) {
+        role = legMap[pos];
+      }
       const seatActs = view ? (view.seatActions || {}) : (hand.seatActions || {});
       const villainAct = view ? view.villainAction : hand.villainAction;
       const isActing = !!(actingPos && pos === actingPos && !isHero);
@@ -2239,7 +2274,7 @@
           <span class="seat-avatar">${SEAT_AVATAR_SVG}</span>
           ${holeHtml}
           <div class="seat-pos">${pos}</div>
-          <div class="seat-role">${role}</div>
+          <div class="seat-role${legMap && legMap[pos] ? ' legendary-anon' : ''}">${role}</div>
           ${stackHtml}
         </div>
         ${betHtml}
@@ -3788,6 +3823,13 @@
     }
     if (window.PTSchool && typeof window.PTSchool.afterHandFinished === 'function') {
       if (window.PTSchool.afterHandFinished(hand)) {
+        renderTable();
+        refreshSessionUI();
+        return;
+      }
+    }
+    if (window.PTLegendary && typeof window.PTLegendary.afterHandFinished === 'function') {
+      if (window.PTLegendary.afterHandFinished(hand)) {
         renderTable();
         refreshSessionUI();
         return;
