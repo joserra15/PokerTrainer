@@ -4891,7 +4891,7 @@
           "body": "Relee la frase de eliminación de la opción que elegiste mal y vuelve a narrar la línea."
         },
         {
-          "title": "Comparte sin spoiler",
+          "title": "Comparte",
           "body": "Usa el botón de compartir: reta a un amigo con la imagen sin revelar la respuesta."
         }
       ],
