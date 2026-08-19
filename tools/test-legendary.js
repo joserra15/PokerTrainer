@@ -43,6 +43,18 @@ assert.ok(hands.length >= 10, 'at least 10 hands');
 
 const spoilerPattern = /fold|bluff|cracked|full house|elimina|two pair|call-down|shove|perspectiva|imposible|runner/i;
 
+// Hand 1: Mateos 3-bet vs UTG open, Berry cold 4-bet
+(function () {
+  var h = cat.get('LH-2024-WSOP-ME-MATEOS-FOLD-KK');
+  var fMateos = force.toForce(h, 'adrian-mateos');
+  var fBerry = force.toForce(h, 'will-berry');
+  assert.strictEqual(fMateos.type, 'vsRFI', 'Mateos vs UTG open');
+  assert.strictEqual(fMateos.key, 'HJ_vs_UTG', 'Mateos 3-bet spot');
+  assert.strictEqual(fBerry.type, 'cold4bet', 'Berry cold 4-bet');
+  assert.strictEqual(fBerry.openerPos, 'UTG', 'UTG opens');
+  assert.strictEqual(fBerry.threeBettorPos, 'HJ', 'Mateos 3-bets');
+})();
+
 hands.forEach(function (h) {
   assert.ok(h.id && h.titleBlind && h.cast && h.play, 'hand shape: ' + h.id);
   assert.ok(!spoilerPattern.test(h.titleBlind), 'neutral titleBlind: ' + h.titleBlind);
@@ -50,10 +62,14 @@ hands.forEach(function (h) {
   (h.heroCandidates || []).forEach(function (hid) {
     const f = force.toForce(h, hid);
     assert.ok(f && f.forceDeal && f.forceScript, 'force for ' + h.id + ' / ' + hid);
-    assert.ok(f.type === 'RFI' || f.type === 'vsRFI', 'start scenario RFI/vsRFI for ' + h.id + ' / ' + hid + ' got ' + f.type);
+    assert.ok(f.type === 'RFI' || f.type === 'vsRFI' || f.type === 'cold4bet',
+      'start scenario for ' + h.id + ' / ' + hid + ' got ' + f.type);
     if (f.type === 'vsRFI') {
       assert.ok(f.key, 'scenario key for ' + h.id + ' / ' + hid + ' (' + f.type + ')');
       assert.ok(/^[A-Z0-9]+_vs_[A-Z0-9]+$/.test(f.key), 'key format ' + f.key);
+    }
+    if (f.type === 'cold4bet') {
+      assert.ok(f.openerPos && f.threeBettorPos, 'cold4bet positions for ' + h.id);
     }
     const pc = force.playConfig(h, hid);
     assert.ok(pc.legendaryMode && pc.legendaryHandId === h.id, 'playConfig legendary');

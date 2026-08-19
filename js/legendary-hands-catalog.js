@@ -66,14 +66,16 @@
     return expandPreflop(heroPos, villainPos, actions, hu);
   }
 
-  function mateosFoldScript(heroPos, villainPos, heroFoldsTurn) {
+  function wsop4betPotScript(openerPos, heroPos, villainPos, heroFoldsTurn) {
+    var o = openerPos || 'UTG';
     var h = heroPos;
     var v = villainPos;
     var actions = [
+      { pos: o, street: 'preflop', action: 'raise' },
       { pos: h, street: 'preflop', action: 'raise' },
       { pos: v, street: 'preflop', action: 'raise' },
-      { pos: h, street: 'preflop', action: 'raise' },
-      { pos: v, street: 'preflop', action: 'call' },
+      { pos: o, street: 'preflop', action: 'fold' },
+      { pos: h, street: 'preflop', action: 'call' },
       { pos: h, street: 'flop', action: 'check' },
       { pos: v, street: 'flop', action: 'bet', amountBB: 2.5 },
       { pos: h, street: 'flop', action: 'call' },
@@ -84,14 +86,16 @@
     return expandPreflop(h, v, actions, false);
   }
 
-  function berryFoldScript(heroPos, villainPos) {
+  function wsop4betPotScriptBerry(openerPos, heroPos, villainPos) {
+    var o = openerPos || 'UTG';
     var h = heroPos;
     var v = villainPos;
     return expandPreflop(h, v, [
+      { pos: o, street: 'preflop', action: 'raise' },
       { pos: v, street: 'preflop', action: 'raise' },
       { pos: h, street: 'preflop', action: 'raise' },
-      { pos: v, street: 'preflop', action: 'raise' },
-      { pos: h, street: 'preflop', action: 'call' },
+      { pos: o, street: 'preflop', action: 'fold' },
+      { pos: v, street: 'preflop', action: 'call' },
       { pos: v, street: 'flop', action: 'check' },
       { pos: h, street: 'flop', action: 'bet', amountBB: 2.5 },
       { pos: v, street: 'flop', action: 'call' },
@@ -99,6 +103,14 @@
       { pos: h, street: 'turn', action: 'bet', amountBB: 6 },
       { pos: v, street: 'turn', action: 'fold' }
     ], false);
+  }
+
+  function mateosFoldScript(heroPos, villainPos, heroFoldsTurn) {
+    return wsop4betPotScript('UTG', heroPos, villainPos, heroFoldsTurn);
+  }
+
+  function berryFoldScript(heroPos, villainPos) {
+    return wsop4betPotScriptBerry('UTG', heroPos, villainPos);
   }
 
   function fourBetScript(heroPos, villainPos, heroRole, hu) {
@@ -168,10 +180,11 @@
       ],
       heroCandidates: ['adrian-mateos', 'will-berry'],
       play: {
-        type: 'RFI',
+        type: 'vsRFI',
         seed: 88001,
         blindsLabel: '100.000/200.000',
         stacks: STACKS_ME_DAY5,
+        openerPos: 'UTG',
         tableMax: 6,
         board: ['Qd', '4d', '2c', 'Ts'],
         roles: {
@@ -189,10 +202,11 @@
       },
       timeline: [
         { kind: 'street', street: 'preflop', board: [] },
+        { kind: 'action', street: 'preflop', player: 'UTG', pos: 'UTG', type: 'raise' },
         { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'raise' },
         { kind: 'action', street: 'preflop', player: 'Will Berry', pos: 'CO', type: 'raise' },
-        { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'raise' },
-        { kind: 'action', street: 'preflop', player: 'Will Berry', pos: 'CO', type: 'call' },
+        { kind: 'action', street: 'preflop', player: 'UTG', pos: 'UTG', type: 'fold' },
+        { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'call' },
         { kind: 'street', street: 'flop', board: ['Qd', '4d', '2c'] },
         { kind: 'action', street: 'flop', player: 'Will Berry', pos: 'CO', type: 'bet' },
         { kind: 'action', street: 'flop', player: 'Adrián Mateos', pos: 'HJ', type: 'call' },
@@ -786,6 +800,7 @@
         seed: 88010,
         blindsLabel: '100.000/200.000',
         stacks: STACKS_ME_DAY5,
+        openerPos: 'UTG',
         tableMax: 6,
         board: ['Qd', '4d', '2c', 'Ts'],
         roles: {
@@ -803,10 +818,11 @@
       },
       timeline: [
         { kind: 'street', street: 'preflop', board: [] },
+        { kind: 'action', street: 'preflop', player: 'UTG', pos: 'UTG', type: 'raise' },
         { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'raise' },
         { kind: 'action', street: 'preflop', player: 'Will Berry', pos: 'CO', type: 'raise' },
-        { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'raise' },
-        { kind: 'action', street: 'preflop', player: 'Will Berry', pos: 'CO', type: 'call' },
+        { kind: 'action', street: 'preflop', player: 'UTG', pos: 'UTG', type: 'fold' },
+        { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'call' },
         { kind: 'street', street: 'flop', board: ['Qd', '4d', '2c'] },
         { kind: 'action', street: 'flop', player: 'Will Berry', pos: 'CO', type: 'bet' },
         { kind: 'action', street: 'flop', player: 'Adrián Mateos', pos: 'HJ', type: 'call' },

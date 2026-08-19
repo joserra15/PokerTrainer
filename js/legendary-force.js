@@ -79,11 +79,31 @@
     return null;
   }
 
-  /** Solo RFI o vsRFI — nunca face3bet/face4bet (el usuario juega desde UTG). */
+  /** Solo RFI, vsRFI o cold4bet — acción desde UTG en modo completo. */
   function inferLegendaryStartScenario(role, handDef) {
     var heroPos = role.heroPos;
     var villainPos = role.villainPos;
     var order = posOrderForHand(handDef);
+    var pre = preflopActions(role.forceScript);
+    var raises = pre.filter(function (a) { return a.action === 'raise'; });
+
+    if (raises.length >= 3 && raises[1].pos === heroPos && raises[2].pos === villainPos) {
+      return {
+        type: 'vsRFI',
+        heroPos: heroPos,
+        key: heroPos + '_vs_' + raises[0].pos
+      };
+    }
+
+    if (raises.length >= 3 && raises[1].pos === villainPos && raises[2].pos === heroPos) {
+      return {
+        type: 'cold4bet',
+        heroPos: heroPos,
+        openerPos: raises[0].pos,
+        threeBettorPos: raises[1].pos
+      };
+    }
+
     var first = firstMeaningfulPreflop(role.forceScript, order);
 
     if (!first) {
@@ -201,6 +221,8 @@
     };
     if (scenario.key) force.key = scenario.key;
     else if (handDef.play.key) force.key = handDef.play.key;
+    if (scenario.openerPos) force.openerPos = scenario.openerPos;
+    if (scenario.threeBettorPos) force.threeBettorPos = scenario.threeBettorPos;
     return force;
   }
 

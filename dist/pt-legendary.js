@@ -67,14 +67,16 @@
     return expandPreflop(heroPos, villainPos, actions, hu);
   }
 
-  function mateosFoldScript(heroPos, villainPos, heroFoldsTurn) {
+  function wsop4betPotScript(openerPos, heroPos, villainPos, heroFoldsTurn) {
+    var o = openerPos || 'UTG';
     var h = heroPos;
     var v = villainPos;
     var actions = [
+      { pos: o, street: 'preflop', action: 'raise' },
       { pos: h, street: 'preflop', action: 'raise' },
       { pos: v, street: 'preflop', action: 'raise' },
-      { pos: h, street: 'preflop', action: 'raise' },
-      { pos: v, street: 'preflop', action: 'call' },
+      { pos: o, street: 'preflop', action: 'fold' },
+      { pos: h, street: 'preflop', action: 'call' },
       { pos: h, street: 'flop', action: 'check' },
       { pos: v, street: 'flop', action: 'bet', amountBB: 2.5 },
       { pos: h, street: 'flop', action: 'call' },
@@ -85,14 +87,16 @@
     return expandPreflop(h, v, actions, false);
   }
 
-  function berryFoldScript(heroPos, villainPos) {
+  function wsop4betPotScriptBerry(openerPos, heroPos, villainPos) {
+    var o = openerPos || 'UTG';
     var h = heroPos;
     var v = villainPos;
     return expandPreflop(h, v, [
+      { pos: o, street: 'preflop', action: 'raise' },
       { pos: v, street: 'preflop', action: 'raise' },
       { pos: h, street: 'preflop', action: 'raise' },
-      { pos: v, street: 'preflop', action: 'raise' },
-      { pos: h, street: 'preflop', action: 'call' },
+      { pos: o, street: 'preflop', action: 'fold' },
+      { pos: v, street: 'preflop', action: 'call' },
       { pos: v, street: 'flop', action: 'check' },
       { pos: h, street: 'flop', action: 'bet', amountBB: 2.5 },
       { pos: v, street: 'flop', action: 'call' },
@@ -100,6 +104,14 @@
       { pos: h, street: 'turn', action: 'bet', amountBB: 6 },
       { pos: v, street: 'turn', action: 'fold' }
     ], false);
+  }
+
+  function mateosFoldScript(heroPos, villainPos, heroFoldsTurn) {
+    return wsop4betPotScript('UTG', heroPos, villainPos, heroFoldsTurn);
+  }
+
+  function berryFoldScript(heroPos, villainPos) {
+    return wsop4betPotScriptBerry('UTG', heroPos, villainPos);
   }
 
   function fourBetScript(heroPos, villainPos, heroRole, hu) {
@@ -169,10 +181,11 @@
       ],
       heroCandidates: ['adrian-mateos', 'will-berry'],
       play: {
-        type: 'RFI',
+        type: 'vsRFI',
         seed: 88001,
         blindsLabel: '100.000/200.000',
         stacks: STACKS_ME_DAY5,
+        openerPos: 'UTG',
         tableMax: 6,
         board: ['Qd', '4d', '2c', 'Ts'],
         roles: {
@@ -190,10 +203,11 @@
       },
       timeline: [
         { kind: 'street', street: 'preflop', board: [] },
+        { kind: 'action', street: 'preflop', player: 'UTG', pos: 'UTG', type: 'raise' },
         { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'raise' },
         { kind: 'action', street: 'preflop', player: 'Will Berry', pos: 'CO', type: 'raise' },
-        { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'raise' },
-        { kind: 'action', street: 'preflop', player: 'Will Berry', pos: 'CO', type: 'call' },
+        { kind: 'action', street: 'preflop', player: 'UTG', pos: 'UTG', type: 'fold' },
+        { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'call' },
         { kind: 'street', street: 'flop', board: ['Qd', '4d', '2c'] },
         { kind: 'action', street: 'flop', player: 'Will Berry', pos: 'CO', type: 'bet' },
         { kind: 'action', street: 'flop', player: 'Adrián Mateos', pos: 'HJ', type: 'call' },
@@ -787,6 +801,7 @@
         seed: 88010,
         blindsLabel: '100.000/200.000',
         stacks: STACKS_ME_DAY5,
+        openerPos: 'UTG',
         tableMax: 6,
         board: ['Qd', '4d', '2c', 'Ts'],
         roles: {
@@ -804,10 +819,11 @@
       },
       timeline: [
         { kind: 'street', street: 'preflop', board: [] },
+        { kind: 'action', street: 'preflop', player: 'UTG', pos: 'UTG', type: 'raise' },
         { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'raise' },
         { kind: 'action', street: 'preflop', player: 'Will Berry', pos: 'CO', type: 'raise' },
-        { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'raise' },
-        { kind: 'action', street: 'preflop', player: 'Will Berry', pos: 'CO', type: 'call' },
+        { kind: 'action', street: 'preflop', player: 'UTG', pos: 'UTG', type: 'fold' },
+        { kind: 'action', street: 'preflop', player: 'Adrián Mateos', pos: 'HJ', type: 'call' },
         { kind: 'street', street: 'flop', board: ['Qd', '4d', '2c'] },
         { kind: 'action', street: 'flop', player: 'Will Berry', pos: 'CO', type: 'bet' },
         { kind: 'action', street: 'flop', player: 'Adrián Mateos', pos: 'HJ', type: 'call' },
@@ -913,11 +929,31 @@
     return null;
   }
 
-  /** Solo RFI o vsRFI — nunca face3bet/face4bet (el usuario juega desde UTG). */
+  /** Solo RFI, vsRFI o cold4bet — acción desde UTG en modo completo. */
   function inferLegendaryStartScenario(role, handDef) {
     var heroPos = role.heroPos;
     var villainPos = role.villainPos;
     var order = posOrderForHand(handDef);
+    var pre = preflopActions(role.forceScript);
+    var raises = pre.filter(function (a) { return a.action === 'raise'; });
+
+    if (raises.length >= 3 && raises[1].pos === heroPos && raises[2].pos === villainPos) {
+      return {
+        type: 'vsRFI',
+        heroPos: heroPos,
+        key: heroPos + '_vs_' + raises[0].pos
+      };
+    }
+
+    if (raises.length >= 3 && raises[1].pos === villainPos && raises[2].pos === heroPos) {
+      return {
+        type: 'cold4bet',
+        heroPos: heroPos,
+        openerPos: raises[0].pos,
+        threeBettorPos: raises[1].pos
+      };
+    }
+
     var first = firstMeaningfulPreflop(role.forceScript, order);
 
     if (!first) {
@@ -1035,6 +1071,8 @@
     };
     if (scenario.key) force.key = scenario.key;
     else if (handDef.play.key) force.key = handDef.play.key;
+    if (scenario.openerPos) force.openerPos = scenario.openerPos;
+    if (scenario.threeBettorPos) force.threeBettorPos = scenario.threeBettorPos;
     return force;
   }
 
