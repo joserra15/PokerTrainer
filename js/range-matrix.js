@@ -112,7 +112,7 @@
     bbvsb: {
       label: 'BB vs SB limp',
       heroPositions: ['BB'],
-      villainPositions: [],
+      villainPositions: ['SB'],
       build: function (heroPos) {
         return {
           spotKind: 'bbVsSbLimp',
