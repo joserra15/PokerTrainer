@@ -291,6 +291,7 @@
 
   function is9Max(config) {
     const c = config || {};
+    if (c.legendaryMode && c.legendaryTableMax === 6) return false;
     return c.gameType === 'cash9' || c.gameType === 'mtt';
   }
 
@@ -360,6 +361,9 @@
 
   function villainTableSeat(hand) {
     if (!hand || !hand.villain || !hand.villain.pos) return null;
+    if (hand.playConfig && hand.playConfig.legendaryMode) {
+      return (hand.forceDeal && hand.forceDeal.villainPos) || hand.villain.pos;
+    }
     if (!hand.playConfig || !is9Max(hand.playConfig)) return hand.villain.pos;
     const s = hand.scenario || {};
     const heroSeat = hand.displayHeroPos || s.heroPos || hand.hero.pos;

@@ -157,6 +157,12 @@
     document.body.classList.add('legendary-play-active');
     var playActive = $('#play-active');
     if (playActive) playActive.classList.add('is-legendary-session');
+    var felt = document.querySelector('#play-active .table-felt');
+    if (felt) {
+      felt.classList.add('legendary-broadcast-felt');
+      felt.removeAttribute('data-theme');
+      felt.setAttribute('data-legendary-theme', theme);
+    }
     var wrap = ensureLegendaryScene();
     if (wrap) {
       wrap.setAttribute('data-legendary-theme', theme);
@@ -182,6 +188,10 @@
     document.body.classList.remove('legendary-play-active');
     var badge = document.querySelector('.legendary-event-badge');
     if (badge) badge.remove();
+    document.querySelectorAll('.legendary-broadcast-felt').forEach(function (felt) {
+      felt.classList.remove('legendary-broadcast-felt');
+      felt.removeAttribute('data-legendary-theme');
+    });
     var playActive = $('#play-active');
     if (playActive) playActive.classList.remove('is-legendary-session');
   }
