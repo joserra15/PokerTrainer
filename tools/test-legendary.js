@@ -8,6 +8,7 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const cssLegendary = fs.readFileSync(path.join(root, 'css/legendary.css'), 'utf8');
 const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
+const loader = fs.readFileSync(path.join(root, 'js/pt-loader.js'), 'utf8');
 const catalogSrc = fs.readFileSync(path.join(root, 'js/legendary-hands-catalog.js'), 'utf8');
 const forceSrc = fs.readFileSync(path.join(root, 'js/legendary-force.js'), 'utf8');
 const legendarySrc = fs.readFileSync(path.join(root, 'js/legendary-hands.js'), 'utf8');
@@ -18,6 +19,7 @@ assert.ok(/tab-legendary hidden/.test(html), 'tab hidden by default');
 assert.ok(/legendary\.css/.test(html), 'legendary css linked');
 assert.ok(/legendary-scene-wrap/.test(cssLegendary), 'broadcast scene css');
 assert.ok(/CHUNKS\.legendary/.test(chunks), 'legendary chunk in bundle-chunks');
+assert.ok(/legendary:\s*'dist\/pt-legendary\.js'/.test(loader), 'legendary chunk in pt-loader');
 
 const ctx = { window: {}, global: null, console: console };
 ctx.global = ctx.window;
