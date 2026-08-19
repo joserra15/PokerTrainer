@@ -63,6 +63,14 @@ vm.runInContext(rmSrc, sandbox, { filename: 'range-matrix.js' });
 
 const RM = sandbox.PTRangeMatrix;
 assert.ok(RM, 'PTRangeMatrix cargado');
+const bbvsbHeroes = RM.heroPositionsForSpot('bbvsb');
+const bbvsbVillains = RM.villainPositionsForSpot('bbvsb');
+assert.ok(Array.isArray(bbvsbHeroes) && bbvsbHeroes.length === 1 && bbvsbHeroes[0] === 'BB', 'bbvsb solo permite hero BB');
+assert.ok(Array.isArray(bbvsbVillains) && bbvsbVillains.length === 1 && bbvsbVillains[0] === 'SB', 'bbvsb expone villano SB en el explorador');
+const bbVsSbInput = RM.buildExplorerInput('bbvsb', 'BB', 'SB');
+assert.ok(bbVsSbInput, 'bbvsb construye input del explorador');
+assert.strictEqual(bbVsSbInput.position, 'BB', 'bbvsb fija hero BB');
+assert.strictEqual(bbVsSbInput.vsPosition, 'SB', 'bbvsb fija villano SB');
 
 const collapsed = RM.collapseStrategy({ raise: 0.5, allin: 0.2, call: 0.1, fold: 0.2 });
 assert.ok(Math.abs(collapsed.raise - 0.7) < 0.02, 'allin suma a raise: ' + collapsed.raise);
