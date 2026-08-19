@@ -1,6 +1,6 @@
 /*
  * legendary-hands.js — Manos legendarias: hub, juego ciego, historia, timeline, otro rol.
- * Acceso: solo administradores (isAdmin).
+ * Pestaña propia en el menú principal (usuarios autenticados, no demo).
  */
 (function (global) {
   'use strict';
@@ -26,17 +26,14 @@
 
   function Cards() { return global.Cards; }
 
-  function hasAdminAccess() {
-    if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) return false;
-    if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
-      return !!global.PTAdmin.hasAccess();
-    }
-    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-    return !!(u && u.isAdmin);
+  function isDemoActive() {
+    return !!(global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive());
   }
 
   function legendaryMenuVisible() {
-    return hasAdminAccess();
+    if (isDemoActive()) return false;
+    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    return !!u;
   }
 
   function refreshTabVisibility() {
@@ -439,7 +436,7 @@
     var root = container || document.getElementById('legendary-content');
     if (!root) return;
     if (!legendaryMenuVisible()) {
-      root.innerHTML = '<div class="legendary-panel"><p class="muted-text">Manos legendarias — solo administración.</p></div>';
+      root.innerHTML = '<div class="legendary-panel"><p class="muted-text">Inicia sesión para jugar manos legendarias de profesionales.</p></div>';
       return;
     }
     if (state.view === VIEW.story) renderStory(root);
@@ -459,7 +456,6 @@
     render: render,
     playHand: playHand,
     afterHandFinished: afterHandFinished,
-    hasAdminAccess: hasAdminAccess,
     legendaryMenuVisible: legendaryMenuVisible,
     refreshTabVisibility: refreshTabVisibility,
     applyLegendaryChrome: applyLegendaryChrome,

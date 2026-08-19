@@ -418,7 +418,7 @@
       <nav class="tabs">
         <button class="tab" data-tab="play" data-i18n="tab.play">Entrenar</button>
         <button class="tab tab-school" data-tab="school" data-i18n="tab.school">Escuela de Póker</button>
-        <button class="tab tab-legendary hidden" data-tab="legendary">Manos legendarias</button>
+        <button class="tab tab-legendary hidden" data-tab="legendary" data-i18n="tab.legendary">Manos legendarias</button>
         <button class="tab" data-tab="learn" data-i18n="tab.learn">Guía básica</button>
         <button class="tab" data-tab="analysis" data-i18n="tab.analysis">Análisis</button>
         <button class="tab" data-tab="ranges" data-i18n="tab.ranges">Rangos</button>
@@ -477,6 +477,13 @@
             </span>
             <span class="home-card-title">Entrenar</span>
             <span class="home-card-desc">Mesa interactiva con evaluación GTO calle a calle</span>
+          </button>
+          <button type="button" class="home-card home-card-legendary hidden" data-go-tab="legendary">
+            <span class="home-card-icon home-card-icon-legendary" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.3L12 14.8 7.2 16.8l.9-5.3L4.2 7.7l5.4-.8z"/><path d="M8 18h8"/><path d="M9 21h6"/></svg>
+            </span>
+            <span class="home-card-title">Manos legendarias</span>
+            <span class="home-card-desc">Revive manos reales de pros en mesa broadcast</span>
           </button>
           <button type="button" class="home-card" data-go-tab="learn">
             <span class="home-card-icon home-card-icon-learn" aria-hidden="true">
@@ -591,7 +598,7 @@
       <div id="school-content" class="school-content"></div>
     </section>
 
-    <!-- ===== MANOS LEGENDARIAS (solo admin) ===== -->
+    <!-- ===== MANOS LEGENDARIAS ===== -->
     <section id="tab-legendary" class="tab-panel">
       <div id="legendary-content" class="legendary-content"></div>
     </section>
