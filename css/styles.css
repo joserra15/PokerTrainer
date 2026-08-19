@@ -1438,6 +1438,7 @@ body.age-gate-open {
   fill: none;
 }
 .home-card-icon-train { color: #6ee7a3; background: linear-gradient(180deg, rgba(63,185,80,.22), rgba(63,185,80,.08)); }
+.home-card-icon-legendary { color: #f5c451; background: linear-gradient(180deg, rgba(245,196,81,.24), rgba(255,107,53,.1)); }
 .home-card-icon-learn { color: #fcd34d; background: linear-gradient(180deg, rgba(234,179,8,.2), rgba(234,179,8,.07)); }
 .home-card-icon-ranges { color: #9ecbff; background: linear-gradient(180deg, rgba(47,129,247,.2), rgba(47,129,247,.07)); }
 .home-card-icon-analysis { color: #6ee7b7; background: linear-gradient(180deg, rgba(16,185,129,.2), rgba(16,185,129,.07)); }

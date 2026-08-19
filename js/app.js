@@ -13,7 +13,20 @@
   }
 
   /** Incrementar en cada despliegue para comprobar recarga del navegador. */
-  const APP_VERSION = window.PT_BUILD || '2.5.11';
+  const APP_VERSION = window.PT_BUILD || '2.6.0';
+
+  function legendaryMenuVisible() {
+    if (window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive()) return false;
+    const u = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
+    return !!u;
+  }
+
+  function refreshLegendaryTabVisibility() {
+    const show = legendaryMenuVisible();
+    const tab = document.querySelector('.tab[data-tab="legendary"]');
+    if (tab) tab.classList.toggle('hidden', !show);
+    $$('.home-card-legendary').forEach((el) => el.classList.toggle('hidden', !show));
+  }
 
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
@@ -945,7 +958,9 @@
     }
     window.addEventListener('pt-auth-ready', function () {
       if (window.PTEntitlements && window.PTEntitlements.refresh) window.PTEntitlements.refresh();
+      refreshLegendaryTabVisibility();
     });
+    window.addEventListener('pt-guest-ready', refreshLegendaryTabVisibility);
     window.addEventListener('pt-plan-changed', function () {
       renderPricing();
     });
@@ -969,6 +984,7 @@
       finishHomeBoot();
     }
     refreshSessionUI();
+    refreshLegendaryTabVisibility();
   }
 
   function firstNameFromUser(user) {
@@ -1210,15 +1226,12 @@
       });
     }
     if (tabId === 'legendary') {
-      var legUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
-      var legDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
-      var canLegendary = !!(legUser && legUser.isAdmin && !legDemo);
+      const legDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
+      let canLegendary = legendaryMenuVisible();
       if (window.PTLegendary && typeof window.PTLegendary.legendaryMenuVisible === 'function') {
         canLegendary = window.PTLegendary.legendaryMenuVisible();
-      } else if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
-        canLegendary = window.PTAdmin.hasAccess();
       }
-      if (!canLegendary) {
+      if (!canLegendary || legDemo) {
         goToTab('home');
         return;
       }
