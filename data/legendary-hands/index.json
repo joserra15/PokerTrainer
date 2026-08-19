@@ -42,6 +42,8 @@
       "featured": true,
       "editorial": { "status": "needs-hh", "locale": "es" },
       "sources": [{ "type": "pokernews", "url": "https://www.pokernews.com/news/2024/07/mateos-kings-fold-wsop-main-event-46510.htm", "license": "editorial" }],
+      "media": { "videoLabel": "Ver recap (PokerNews / PokerGO)", "clipStartSec": null },
+      "visual": { "theme": "wsop", "tableVariant": "feature", "spotlight": true },
       "storyEs": "Mateos foldea KK en turn tras call en flop en un 4-bet pot contra Will Berry (AA). Joey Ingram lo llamó «en modo dios»."
     },
     {
@@ -58,6 +60,8 @@
       "featured": true,
       "editorial": { "status": "needs-hh", "locale": "es" },
       "sources": [{ "type": "pokernews", "url": "https://codigopoker.com/wsop/video-adrian-mateos-lectura-perfecta-y-bad-beat-devastador-en-el-main-event", "license": "editorial" }],
+      "media": { "videoUrl": "https://codigopoker.com/wsop/video-adrian-mateos-lectura-perfecta-y-bad-beat-devastador-en-el-main-event", "videoLabel": "Ver vídeo (CodigoPoker)" },
+      "visual": { "theme": "wsop", "tableVariant": "feature", "spotlight": true },
       "storyEs": "Mateos va all-in con AA contra el 5-bet de Adrián García (AK). Runner-runner flush elimina a Mateos del Main Event."
     },
     {
@@ -74,6 +78,7 @@
       "featured": true,
       "editorial": { "status": "needs-hh", "locale": "es" },
       "sources": [{ "type": "poker.org", "url": "https://www.poker.org/latest-news/adrian-mateos-wins-5200-scoop-titans-pko-after-huge-bluff-heads-up-aILYM7u7r97C/", "license": "editorial" }],
+      "visual": { "theme": "scoopp", "tableVariant": "heads-up", "spotlight": true },
       "storyEs": "En heads-up del SCOOP Titans PKO, Mateos shovea el river en un board que completa flush draws; Alisson Piekazewic foldea."
     },
     {
@@ -152,6 +157,8 @@
       "featured": true,
       "editorial": { "status": "needs-hh", "locale": "es" },
       "sources": [{ "type": "pokernews", "url": "https://www.pokernews.com/news/2024/06/antonio-galiana-big-bluff-propels-him-to-first-bracelet-46284.htm", "license": "editorial" }],
+      "media": { "videoLabel": "Buscar clip en YouTube / X" },
+      "visual": { "theme": "wsop", "tableVariant": "heads-up", "spotlight": true },
       "storyEs": "Antonio Galiana gana su primer brazalete con un 5-bet bluff con 7-high en board monotone de tréboles contra Johan Guilbert."
     },
     {
@@ -168,6 +175,7 @@
       "featured": true,
       "editorial": { "status": "needs-hh", "locale": "es" },
       "sources": [{ "type": "pokernews", "url": "https://www.pokernews.com/tours/ept/2024-pokerstars-ept-barcelona/1-100-estrellas-poker-tour-main-event/chips.683751.htm", "license": "editorial" }],
+      "visual": { "theme": "ept", "tableVariant": "feature", "spotlight": true },
       "storyEs": "Santiago Nadal elimina a Luis Rayón Pérez cuando este bluffea con solo king-high y Nadal tiene full house."
     },
     {

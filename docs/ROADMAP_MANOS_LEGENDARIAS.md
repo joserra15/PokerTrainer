@@ -10,20 +10,21 @@
 ## Tabla de contenidos
 
 1. [Resumen ejecutivo](#1-resumen-ejecutivo)
-2. [Experiencia de usuario](#2-experiencia-de-usuario)
-3. [Estado actual y piezas reutilizables](#3-estado-actual-y-piezas-reutilizables)
-4. [Modelo de datos](#4-modelo-de-datos)
-5. [Ubicación en la app: menú y naming](#5-ubicación-en-la-app-menú-y-naming)
-6. [Modos de juego](#6-modos-de-juego)
-7. [Catálogo objetivo: ≥100 manos](#7-catálogo-objetivo-100-manos)
-8. [Pipeline de autoría e ingesta](#8-pipeline-de-autoría-e-ingesta)
-9. [Multiway y limitaciones del motor](#9-multiway-y-limitaciones-del-motor)
-10. [ForgeCoach y narrativa](#10-forgecoach-y-narrativa)
-11. [Monetización y progresión](#11-monetización-y-progresión)
-12. [Legal, licencias y atribución](#12-legal-licencias-y-atribución)
-13. [RoadMap de entrega por fases](#13-roadmap-de-entrega-por-fases)
-14. [Métricas de éxito](#14-métricas-de-éxito)
-15. [Decisiones abiertas](#15-decisiones-abiertas)
+2. [Experiencia de usuario y flujo post-mano](#2-experiencia-de-usuario-y-flujo-post-mano)
+3. [Diseño visual: mesa profesional broadcast](#3-diseño-visual-mesa-profesional-broadcast)
+4. [Estado actual y piezas reutilizables](#4-estado-actual-y-piezas-reutilizables)
+5. [Modelo de datos](#5-modelo-de-datos)
+6. [Ubicación en la app: menú y naming](#6-ubicación-en-la-app-menú-y-naming)
+7. [Modos de juego](#7-modos-de-juego)
+8. [Catálogo objetivo: ≥100 manos](#8-catálogo-objetivo-100-manos)
+9. [Pipeline de autoría e ingesta](#9-pipeline-de-autoría-e-ingesta)
+10. [Multiway y limitaciones del motor](#10-multiway-y-limitaciones-del-motor)
+11. [ForgeCoach y narrativa](#11-forgecoach-y-narrativa)
+12. [Monetización y progresión](#12-monetización-y-progresión)
+13. [Legal, licencias y atribución](#13-legal-licencias-y-atribución)
+14. [Plan de implementación por fases](#14-plan-de-implementación-por-fases)
+15. [Métricas de éxito](#15-métricas-de-éxito)
+16. [Decisiones abiertas](#16-decisiones-abiertas)
 
 ---
 
@@ -33,16 +34,14 @@
 
 **Loop principal:**
 
-1. El usuario elige filtro (región, jugador, evento, concepto) o pulsa **«Manos al azar»**.
-2. Se le asigna un **rol aleatorio** entre los actores relevantes de la mesa (p. ej. Adrián Mateos, Will Berry, Lingkun Lu, Adrián García).
-3. **Modo ciego:** no ve nombres ni título de la mano; solo posición, stacks y acción.
-4. Juega con sus cartas reales; los demás siguen la **línea histórica** (`forceScript`) hasta que el héroe se desvíe.
-5. Al terminar: **reveal** — quién era quién, cartas de todos, historia, clip/referencia, reacción en redes.
-6. Opciones post-mano:
-   - **Ver línea original** (timeline paso a paso)
-   - **Repetir como otro jugador** (misma mano, otro rol)
-   - **Repetir libre** (entrenador GTO sobre las mismas cartas)
-   - **ForgeCoach:** «¿Qué haría GTO vs lo que hizo X?»
+1. El usuario elige filtro o pulsa **«Manos al azar»**.
+2. Se le asigna un **rol aleatorio** entre los actores de la mesa.
+3. **Modo ciego** en **mesa broadcast** (neón/LED, fondo según evento): nombres anonimizados, cartas reales.
+4. Juega la mano; el resto sigue la **línea histórica** (`forceScript`).
+5. **Pantalla historia** (obligatoria, primer paso post-mano): narrativa, quién jugó, cuándo, enlace a vídeo (`target="_blank"`).
+6. **Acciones secundarias:** línea original paso a paso (nombres reales) · jugar otro rol · ForgeCoach.
+
+**Diferenciador visual:** la mesa no usa el skin estándar del entrenador; activa un **modo broadcast legendario** con luces, rail iluminado y fondo temático (WSOP, EPT, SCOOP…).
 
 **Por qué encaja en PokerForgeAI:**
 
@@ -62,44 +61,222 @@
 
 ---
 
-## 2. Experiencia de usuario
+## 2. Experiencia de usuario y flujo post-mano
 
-### 2.1 Journey ideal
+### 2.1 Journey completo (4 pantallas)
 
 ```
-Hub Manos legendarias
-  → Filtros / destacados / «Al azar»
-  → Ficha de mano (spoiler oculto)
-  → «Jugar en modo ciego»
-  → Mesa (anonimizada: Jugador A, B, C…)
-  → Decisiones del héroe
-  → Pantalla reveal (nombres, cartas, story, viralidad)
-  → Acciones: Línea original | Otro rol | Repetir | ForgeCoach
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│  HUB            │ ──► │  MESA CIEGA      │ ──► │  HISTORIA       │ ──► │  POST-HISTORIA   │
+│  Biblioteca     │     │  Broadcast       │     │  (reveal)       │     │  (acciones)      │
+└─────────────────┘     └──────────────────┘     └─────────────────┘     └──────────────────┘
+  Filtros / al azar       Rol aleatorio          Story + cast +         Timeline real
+  Spoiler oculto          Jugador A, B…          fecha + vídeo ▶        Otro rol / Coach
+                          Mesa neón + fondo      (nueva pestaña)
 ```
 
-### 2.2 Principios UX
+### 2.2 Pantalla 1 — Hub
+
+- Grid/lista de manos con **título ciego** (`titleBlind`), año, evento, banderas de jugadores (sin spoiler de cartas).
+- CTA principal: **«Jugar al azar»** · secundario: **«Elegir mano»**.
+- Progreso: «23/100 manos · 41 perspectivas jugadas».
+
+### 2.3 Pantalla 2 — Mesa ciega (juego)
+
+| Elemento | Comportamiento |
+|----------|----------------|
+| Nombres | `Jugador A`, `Jugador B`… (mapa estable por mano) |
+| Posición / stacks | Visibles |
+| Cartas propias | Visibles |
+| Cartas rivales | Ocultas hasta showdown o fin de mano |
+| Título de mano | Oculto |
+| Visual | **Modo broadcast** (§3): neón, LED rail, fondo según `event.series` |
+| HUD estándar GTO | Minimizado u oculto (no romper inmersión) |
+
+Al terminar la mano (fold/showdown/all-in): transición animada → **Pantalla Historia** (no se salta).
+
+### 2.4 Pantalla 3 — Historia (reveal obligatorio)
+
+Contenido en orden fijo:
+
+1. **Título real** de la mano (spoiler permitido aquí).
+2. **Historia** (`story.es`): 2–4 frases + bullets de momentos clave.
+3. **Ficha del evento:**
+   - Torneo · Etapa (Día 5, FT, HU…) · Fecha · Buy-in · Venue.
+4. **Reparto (`cast`):** foto/avatar placeholder + **nombre real** + país + posición + cartas finales (si se vieron).
+5. **Tu rol:** «Jugaste como **Adrián Mateos** (España · HJ)».
+6. **Vídeo** (si `media.videoUrl` existe):
+   - Botón **«Ver la mano original ▶»** → `window.open(url, '_blank', 'noopener,noreferrer')`.
+   - Subtexto con fuente (PokerGO, YouTube, PokerNews…).
+   - Si hay `clipStartSec`, mostrar hint «Empieza en 2:34» (no deep-link obligatorio en MVP).
+7. CTA principal: **«Continuar »** (lleva a Post-historia).
+
+**Regla:** el usuario **no puede** ir directo a timeline u otro rol sin pasar por Historia al menos una vez por sesión de mano.
+
+### 2.5 Pantalla 4 — Post-historia (acciones)
+
+Tras «Continuar», panel con tres acciones claras:
+
+| Acción | Descripción | Implementación |
+|--------|-------------|----------------|
+| **Ver qué pasó en realidad** | Timeline paso a paso con **nombres reales**, cartas reveladas, tamaños | `openLegendaryTimeline(handId)` → reutiliza `renderTimelineReview` + `cast` |
+| **Jugar con otro rol** | Selector de `heroCandidates` (Mateos / Berry / …) | `playLegendaryHand(handId, { heroId, blind: true })` |
+| **Preguntar al ForgeCoach** | Debrief contextual (plan Coach) | scope `legendaryHand` |
+
+Opcional secundario: **«Volver al hub»** · **«Compartir esta mano»**.
+
+### 2.6 Principios UX
 
 | Principio | Implementación |
 |-----------|----------------|
-| **Spoiler-free** | En juego: `Jugador A (BTN)`, sin foto ni apodo real |
-| **Rol aleatorio** | Por defecto; opción «Elegir rol» tras 1ª completada |
-| **Perspectiva múltiple** | Cada `cast[]` con `playerId` + `cards` + `pos` puede ser héroe |
-| **Historia primero** | Reveal con 2–3 frases + enlace a clip/noticia |
-| **No es lección GTO** | El grading GTO es secundario; la comparación es «tú vs pro» |
-| **Rejugabilidad** | Contador de intentos por mano/rol en `stats.legendaryHands` |
+| **Spoiler-free en juego** | Anonimización hasta Pantalla Historia |
+| **Historia antes que datos** | Narrativa emocional → luego timeline técnico |
+| **Vídeo externo** | Siempre nueva pestaña; nunca iframe embebido (licencias, rendimiento) |
+| **Perspectiva múltiple** | Cada miembro de `cast` con cartas puede ser héroe |
+| **Rejugabilidad** | Contador por mano/rol en `stats.legendaryHands` |
 
-### 2.3 Wire conceptual (hub)
+### 2.7 Wire — Post-historia
 
-- **Hero:** «¿Cómo habrías jugado la mano de Mateos contra Berry?»
-- **Destacados:** 3–5 manos virales de la semana
-- **Filtros:** País del héroe · Jugador · Evento (WSOP/EPT/SCOOP) · Año · Concepto (bluff, fold heroico, bad beat, ICM)
-- **Progreso:** «34/100 manos jugadas · 8 perspectivas distintas»
+```
+┌────────────────────────────────────────────────────────────┐
+│  ¿Qué quieres hacer ahora?                                  │
+├────────────────────────────────────────────────────────────┤
+│  [ Ver qué pasó en realidad ]   ← timeline, nombres reales │
+│  [ Jugar como Will Berry     ]   ← otro rol, modo ciego    │
+│  [ Jugar como Lingkun Lu     ]                              │
+│  [ Preguntar al ForgeCoach   ]   ← plan Coach              │
+└────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 3. Estado actual y piezas reutilizables
+## 3. Diseño visual: mesa profesional broadcast
 
-### 3.1 Motor de replay
+Las manos legendarias **no comparten el look del entrenador estándar**. Al entrar en juego se activa `body.legendary-play` (o contenedor `#legendary-play-active`) con skin dedicado.
+
+### 3.1 Concepto visual
+
+Inspiración: mesa de **TV / feature table** — rail con **tira LED**, felt premium, vignette de estudio, cartas con borde luminoso sutil, fondo atmosférico según el evento.
+
+### 3.2 Temas de escenario (`visual.theme`)
+
+Cada mano declara un tema derivado del evento (fallback automático por `event.series`):
+
+| `visual.theme` | Evento | Fondo (backdrop) | Acento LED / neón |
+|----------------|--------|------------------|-------------------|
+| `wsop` | WSOP ME / bracelet Las Vegas | Oscuro cálido, bokeh dorado, silueta Horseshoe/Paris | `#f5c451` gold + `#ff6b35` amber |
+| `ept` | EPT Barcelona / Monte Carlo | Azul profundo, luces ciudad, estrellas discretas | `#00d4ff` cyan + `#7c5cff` violet |
+| `scoopp` | SCOOP / WCOOP online | Negro puro, grid digital, scanlines muy suaves | `#00ff88` green + `#0099ff` blue |
+| `triton` | Triton / SHR | Negro, reflejos plateados, minimal luxury | `#e8e8e8` white + `#c9a227` gold |
+| `lapt` | LAPT / BSOP / LATAM live | Verde/azul LATAM, crowd blur | `#2ecc71` + `#3498db` |
+| `default` | Otros | Gradiente oscuro neutro | `#f5c451` |
+
+Campo en datos:
+
+```javascript
+visual: {
+  theme: "wsop",           // wsop | ept | scoopp | triton | lapt | default
+  tableVariant: "feature", // feature | final-table | heads-up
+  spotlight: true          // foco central en mesa
+}
+```
+
+### 3.3 Componentes CSS (nuevos)
+
+Archivo: **`css/legendary.css`** (lazy con bundle `pt-legendary`).
+
+```css
+/* Contenedor escena */
+.legendary-scene {
+  position: relative;
+  min-height: 100%;
+  background: var(--legendary-backdrop); /* por tema */
+  overflow: hidden;
+}
+
+/* Fondo atmosférico (pseudo-capas) */
+.legendary-scene::before { /* bokeh / gradiente */ }
+.legendary-scene::after  { /* viñeta + grain sutil */ }
+
+/* Mesa broadcast */
+.legendary-scene .table-felt {
+  /* Rail LED animado */
+  border: 14px solid transparent;
+  background:
+    linear-gradient(var(--felt-a), var(--felt-b)) padding-box,
+    linear-gradient(90deg, var(--led-a), var(--led-b), var(--led-a)) border-box;
+  box-shadow:
+    0 0 40px color-mix(in srgb, var(--led-a) 35%, transparent),
+    0 0 80px color-mix(in srgb, var(--led-b) 20%, transparent),
+    inset 0 0 60px rgba(0,0,0,.45);
+  animation: legendary-led-pulse 4s ease-in-out infinite;
+}
+
+/* Tira LED perimetral (::after en .table-felt) */
+.legendary-scene .table-felt::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 12px var(--led-a),
+    0 0 24px var(--led-b);
+}
+
+/* Cartas del héroe — borde sutil luminoso */
+.legendary-scene .seat-hero .card {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--led-a) 50%, transparent);
+}
+
+/* Badge evento (esquina) */
+.legendary-event-badge {
+  position: absolute; top: 12px; left: 12px;
+  padding: 6px 12px; border-radius: 8px;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--led-a) 40%, transparent);
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--led-a);
+}
+```
+
+Variables por tema en `[data-legendary-theme="wsop"]` etc., análogas a los temas existentes `data-theme="emerald|midnight|crimson"` en `css/styles.css` (líneas 2264–2280).
+
+### 3.4 Integración con motor existente
+
+| Hook | Cambio |
+|------|--------|
+| `playAnalysisHand` | Si `playConfig.legendaryMode: true`, no aplicar `loadTableTheme()` estándar |
+| `renderTable()` | Detectar `hand.playConfig.legendaryMode` → añadir clases `legendary-scene`, `data-legendary-theme` |
+| `#play-active` | Wrapper extra `.legendary-play-wrap` con backdrop |
+| Cartas | Reutilizar componente `.card` actual; solo override de sombra/borde |
+| Transición fin mano | Clase `.legendary-hand-end` → fade out mesa → navigate a `#legendary-story` |
+
+### 3.5 Pantalla Historia — diseño
+
+- Layout tipo **artículo + ficha deportiva**, no mesa.
+- Cabecera con gradiente del tema (`wsop` gold, `ept` cyan…).
+- Grid de jugadores: avatar circular, bandera, nombre, cartas en miniatura.
+- Botón vídeo destacado (icono play + borde neón del tema).
+- Animación entrada: stagger suave en cast (CSS `@keyframes legendary-reveal-in`).
+
+### 3.6 Accesibilidad y rendimiento
+
+- **`prefers-reduced-motion`:** desactivar `legendary-led-pulse` y animaciones de fondo.
+- **Móvil:** LED glow reducido (menos box-shadow), fondo estático (sin animación).
+- **Contraste:** texto sobre backdrop siempre ≥ WCAG AA.
+
+### 3.7 Assets opcionales (Fase 3+)
+
+- Logos de serie en SVG monocromo (`assets/legendary/wsop-mark.svg`).
+- Thumbnails de evento para hub (generados o estáticos por tema).
+- No depender de fotos de jugadores en MVP (avatar genérico + bandera).
+
+---
+
+## 4. Estado actual y piezas reutilizables
+
+### 4.1 Motor de replay
 
 El entrenador ya soporta manos con línea fija:
 
@@ -121,23 +298,26 @@ Formato de spot escolar (referencia mínima):
 
 Para manos legendarias multi-jugador hace falta extender a **`cast[]`** + **`multiScript`** (ver §4 y §9).
 
-### 3.2 Formato sesión importada
+### 4.2 Formato sesión importada
 
 `data/demo-session.json` define el shape rico: `positions`, `streets`, `summary`, `villainShows`. Es el **formato canónico de almacenamiento** del catálogo.
 
-### 3.3 Lo que NO existe
+### 4.3 Lo que NO existe
 
 - Tabla o bundle `pt_legendary_hands` / `data/famous-hands/`
 - UI de biblioteca
 - Modo «rol aleatorio + anonimización»
 - Multiway `forceScript` completo (solo parcial en motor)
+- Skin broadcast legendario (`css/legendary.css`)
+- Pantallas Historia y Post-historia
+
 - Scope ForgeCoach `legendaryHand`
 
 ---
 
-## 4. Modelo de datos
+## 5. Modelo de datos
 
-### 4.1 Registro de catálogo (`LegendaryHand`)
+### 5.1 Registro de catálogo (`LegendaryHand`)
 
 ```typescript
 interface LegendaryHand {
@@ -184,6 +364,21 @@ interface LegendaryHand {
     potTimeline?: object[];
   };
 
+  // Medios
+  media?: {
+    videoUrl?: string;           // YouTube, PokerGO, etc. — abre en nueva pestaña
+    videoLabel?: string;         // "Ver en PokerGO"
+    clipStartSec?: number;
+    thumbnailUrl?: string;
+  };
+
+  // Visual broadcast (§3)
+  visual: {
+    theme: "wsop" | "ept" | "scoopp" | "triton" | "lapt" | "default";
+    tableVariant?: "feature" | "final-table" | "heads-up";
+    spotlight?: boolean;
+  };
+
   // Fuentes
   sources: {
     type: "pokernews" | "pokergo" | "youtube" | "hand-history" | "manual";
@@ -220,7 +415,7 @@ interface CastMember {
 }
 ```
 
-### 4.2 Progreso usuario (`stats.legendaryHands`)
+### 5.2 Progreso usuario (`stats.legendaryHands`)
 
 ```javascript
 {
@@ -232,7 +427,7 @@ interface CastMember {
 }
 ```
 
-### 4.3 Almacenamiento
+### 5.3 Almacenamiento
 
 | Fase | Dónde |
 |------|--------|
@@ -242,9 +437,9 @@ interface CastMember {
 
 ---
 
-## 5. Ubicación en la app: menú y naming
+## 6. Ubicación en la app: menú y naming
 
-### 5.1 Recomendación: **pestaña propia**
+### 6.1 Recomendación: **pestaña propia**
 
 | Opción | Pros | Contras | Veredicto |
 |--------|------|---------|-----------|
@@ -260,7 +455,7 @@ interface CastMember {
 - ForgeCoach: widget contextual en reveal, no sustituye la pestaña.
 - Escuela: enlace cruzado opcional («Lección relacionada: folds imposibles») sin alojar el catálogo.
 
-### 5.2 Naming interno
+### 6.2 Naming interno
 
 - Código: `js/legendary-hands.js`, `js/legendary-data.js`, bundle `pt-legendary`
 - IDs: prefijo `LH-`
@@ -268,24 +463,36 @@ interface CastMember {
 
 ---
 
-## 6. Modos de juego
+## 7. Modos de juego
 
 | Modo | Descripción | Motor |
 |------|-------------|-------|
-| **Ciego (default)** | Rol aleatorio, nombres anonimizados | `playAnalysisHand` + `legendaryBlind: true` |
-| **Elegir rol** | Tras completar una vez | Mismo, `heroPlayerId` fijo |
-| **Línea original** | Timeline sin input | `renderTimelineReview` |
-| **Observador** | Auto-play acciones históricas | Nuevo: `playLegendaryObserver()` |
-| **GTO libre** | Mismas cartas, villanos GTO | `playAnalysisHand` sin script |
-| **Otro rol** | Re-lanzar con otro `heroPlayerId` | Rotación en `cast` |
+| **Ciego (default)** | Rol aleatorio, nombres anonimizados, mesa broadcast | `playAnalysisHand` + `legendaryMode: true` |
+| **Historia (reveal)** | Pantalla obligatoria post-mano | `showLegendaryStory(handId, heroId)` |
+| **Línea original** | Timeline con nombres reales | `openLegendaryTimeline(handId)` → `renderTimelineReview` |
+| **Otro rol** | Mismo HH, otro `heroPlayerId`, vuelve a modo ciego | `playLegendaryHand(handId, { heroId })` |
+| **GTO libre** | Mismas cartas, villanos GTO (secundario) | `playAnalysisHand` sin script |
+| **ForgeCoach** | Debrief tras Historia | scope `legendaryHand` |
+
+**Orden fijo post-mano:** Juego → **Historia** → (Continuar) → Post-historia { Timeline | Otro rol | Coach }.
+
+**Vídeo:** botón en Historia llama a `openLegendaryVideo(hand)`:
+
+```javascript
+function openLegendaryVideo(hand) {
+  var url = hand.media && hand.media.videoUrl;
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+```
 
 **Anonimización en UI:** mapa `playerId → "Jugador A"` generado por seed de sesión (consistente dentro de la mano, distinto entre manos).
 
 ---
 
-## 7. Catálogo objetivo: ≥100 manos
+## 8. Catálogo objetivo: ≥100 manos
 
-### 7.1 Criterios de selección
+### 8.1 Criterios de selección
 
 1. **Ventana temporal:** 2020–2026; **≥70 manos de 2022–2026**.
 2. **Repercusión online:** cobertura PokerNews, PokerGO, CodigoPoker, Twitter/X, YouTube >50 K views, o momento FT WSOP/EPT.
@@ -293,7 +500,7 @@ interface CastMember {
 4. **Datos jugables:** cartas conocidas de héroe y ≥1 villano; acción calle a calle documentada.
 5. **Variedad:** preflop, 3-bet/4-bet/5-bet, bluffs river, hero folds, bad beats, ICM FT, PKO.
 
-### 7.2 Distribución objetivo (100 manos)
+### 8.2 Distribución objetivo (100 manos)
 
 | Bucket | # | Ejemplos de fuente |
 |--------|---|-------------------|
@@ -305,7 +512,7 @@ interface CastMember {
 | Online viral (SCOOP/GG/PokerStars) | 15 | Clips 2022–25 |
 | **Total** | **100** | |
 
-### 7.3 Seed catalog — manos documentadas (Fase 0)
+### 8.3 Seed catalog — manos documentadas (Fase 0)
 
 Archivo vivo: `data/legendary-hands/index.json`. Estado editorial inicial: muchas en `needs-hh` (falta HH completo; hay recap público).
 
@@ -383,7 +590,7 @@ Archivo vivo: `data/legendary-hands/index.json`. Estado editorial inicial: mucha
 | LH-2023-WPT-WOC | 2023 | Salas 3º WPT Online | vs US field |
 | LH-2025-WSOP-FARAZ-72 | 2025 | Faraz Jaka (US) | 72o 3-bet bluff Day 1 ME viral |
 
-### 7.4 Manos a completar para llegar a 100
+### 8.4 Manos a completar para llegar a 100
 
 Pipeline editorial por **plantillas repetibles**:
 
@@ -401,7 +608,7 @@ Pipeline editorial por **plantillas repetibles**:
 
 **Total seed nombradas arriba:** ~44 únicas + ~20 perspectivas villano = **64**. Resto **36** vía plantillas WSOP/EPT/SCOOP con scraping manual asistido.
 
-### 7.5 Ficha mínima por mano (checklist editorial)
+### 8.5 Ficha mínima por mano (checklist editorial)
 
 - [ ] `id`, `year`, `event`, `cast[]` con países
 - [ ] Cartas de todos los jugadores que vieron flop (o razón de muck)
@@ -411,13 +618,16 @@ Pipeline editorial por **plantillas repetibles**:
 - [ ] `sources[].url` verificable
 - [ ] `replay.scripts` probado en motor
 - [ ] ≥1 `heroCandidate` LATAM si aplica
+- [ ] `media.videoUrl` si existe clip público
+- [ ] `visual.theme` coherente con evento
+
 - [ ] Revisión legal `editorial.status = ready`
 
 ---
 
-## 8. Pipeline de autoría e ingesta
+## 9. Pipeline de autoría e ingesta
 
-### 8.1 Fuentes de datos (prioridad)
+### 9.1 Fuentes de datos (prioridad)
 
 1. **Hand histories oficiales** (PokerStars, GG) cuando están publicados
 2. **Recaps PokerNews / CardPlayer** — texto con acción y cartas
@@ -425,7 +635,7 @@ Pipeline editorial por **plantillas repetibles**:
 4. **Hendon Mob / WSOP.com** — metadatos y resultados
 5. **CodigoPoker / PokerRed / Pokerlogia** — narrativa ES
 
-### 8.2 Herramienta interna (CLI)
+### 9.2 Herramienta interna (CLI)
 
 ```
 tools/legendary-ingest.js
@@ -442,7 +652,7 @@ Pasos:
 4. **Validar** con replay automático (golden test por mano)
 5. **Publicar** en índice
 
-### 8.3 Sidecar de autoría (ejemplo)
+### 9.3 Sidecar de autoría (ejemplo)
 
 ```yaml
 # hands/LH-2024-WSOP-ME-MATEOS-FOLD-KK.meta.yaml
@@ -459,13 +669,20 @@ story_es: |
   en el turn T, Mateos foldea en menos de 90 segundos. Joey Ingram: «en modo dios».
 sources:
   - url: https://www.pokernews.com/news/2024/07/mateos-kings-fold-wsop-main-event-46510.htm
+media:
+  videoUrl: https://www.youtube.com/watch?v=…   # si localizado
+  videoLabel: Ver en YouTube
+  clipStartSec: 154
+visual:
+  theme: wsop
+  tableVariant: feature
 viralScore: 5
 heroCandidates: [adrian-mateos, will-berry]
 ```
 
 ---
 
-## 9. Multiway y limitaciones del motor
+## 10. Multiway y limitaciones del motor
 
 Hoy el trainer es **6-max** con foco **heads-up postflop**. Muchas manos legendarias son **3–4 way**.
 
@@ -480,7 +697,7 @@ Hoy el trainer es **6-max** con foco **heads-up postflop**. Muchas manos legenda
 
 ---
 
-## 10. ForgeCoach y narrativa
+## 11. ForgeCoach y narrativa
 
 Nuevo scope **`legendaryHand`** en `analyze-hand`:
 
@@ -498,7 +715,7 @@ Prompt incluye: nombres, evento, cita viral, stacks — **no solo GTO abstracto*
 
 ---
 
-## 11. Monetización y progresión
+## 12. Monetización y progresión
 
 | Plan | Acceso |
 |------|--------|
@@ -514,7 +731,7 @@ Prompt incluye: nombres, evento, cita viral, stacks — **no solo GTO abstracto*
 
 ---
 
-## 12. Legal, licencias y atribución
+## 13. Legal, licencias y atribución
 
 - Manos de eventos públicos: **recap editorial** + enlace fuente; no republicar video completo
 - Atribución visible: PokerNews, PokerStars, WSOP, PokerGO
@@ -522,52 +739,169 @@ Prompt incluye: nombres, evento, cita viral, stacks — **no solo GTO abstracto*
 - `sources[].license = needs-review` hasta revisión manual
 - Disclaimer: «Reconstrucción educativa; tamaños aproximados cuando la fuente no da HH exacto»
 
----
-
-## 13. RoadMap de entrega por fases
-
-### Fase 0 — Estudio y seed (actual)
-
-- [x] Roadmap y schema
-- [x] `data/legendary-hands/index.json` con ≥40 entradas seed
-- [ ] Priorizar 10 manos «listas para HH» con ingest manual
-
-### Fase 1 — MVP técnico (2–3 sprints)
-
-- [ ] `js/legendary-hands.js` — hub + ficha + launch ciego
-- [ ] `legendaryToForce(hand, heroPlayerId)` → `playAnalysisHand`
-- [ ] Anonimización UI
-- [ ] Pantalla reveal
-- [ ] 10 manos `editorial.status = ready` jugables end-to-end
-- [ ] Pestaña en `index.html` + bundle `pt-legendary`
-- [ ] Progreso en `stats.legendaryHands`
-- [ ] E2E: `e2e/legendary.spec.js`
-
-### Fase 2 — Catálogo 50 manos
-
-- [ ] CLI ingest + validador replay
-- [ ] Filtros por jugador/paño/año
-- [ ] Modo «Otro rol» + timeline original
-- [ ] 50 manos publicadas
-- [ ] ForgeCoach scope `legendaryHand`
-
-### Fase 3 — 100 manos + polish
-
-- [ ] Completar catálogo 100
-- [ ] Multiway parcial (B)
-- [ ] Supabase sync catálogo (CMS ligero)
-- [ ] Plan gating + share reveal
-- [ ] SEO landings por jugador («Manos de Adrián Mateos»)
-
-### Fase 4 — Comunidad
-
-- [ ] Votación mano de la semana
-- [ ] Solicitudes de usuarios
-- [ ] Integración Escuela: «Practica el concepto de esta mano» (spot GTO derivado)
+- Vídeo: enlace externo en nueva pestaña; no rehosting de contenido
 
 ---
 
-## 14. Métricas de éxito
+## 14. Plan de implementación por fases
+
+> Fases listas para ejecutar. Cada tarea incluye **archivos**, **criterio de aceptación (DoD)** y **dependencias**.
+
+### Vista general
+
+```
+Fase 1 ──► Shell + mesa broadcast + 1 mano jugable + Historia
+Fase 2 ──► Post-historia (timeline + otro rol) + 10 manos + hub
+Fase 3 ──► 50 manos + vídeos + filtros + ingest CLI
+Fase 4 ──► 100 manos + ForgeCoach + plan gating + polish
+```
+
+---
+
+### Fase 1 — Fundamentos jugables (empezar aquí)
+
+**Objetivo:** una mano completa end-to-end con mesa broadcast y pantalla Historia.
+
+| # | Tarea | Archivos | DoD |
+|---|-------|----------|-----|
+| 1.1 | Pestaña y shell HTML | `index.html`, `css/legendary.css` | Tab «Manos legendarias» visible; contenedor `#legendary-panel` con vistas `hub`, `play`, `story`, `after` |
+| 1.2 | Módulo datos | `js/legendary-data.js` | Carga `data/legendary-hands/index.json` + fetch lazy de `hands/{id}.json` |
+| 1.3 | Orquestador UI | `js/legendary-hands.js` | State machine: `hub → play → story → after` |
+| 1.4 | CSS mesa broadcast | `css/legendary.css` | Temas `wsop`, `ept`, `scoopp` con LED rail + backdrop; `prefers-reduced-motion` |
+| 1.5 | Hook mesa en motor | `js/app.js` (`renderTable`, `applyTableTheme`) | Si `playConfig.legendaryMode`, aplica `legendary-scene` + `data-legendary-theme`; no pisa tema trainer |
+| 1.6 | Conversor a force | `js/legendary-force.js` | `legendaryToForce(hand, heroPlayerId)` → `{ forceDeal, forceScript, seed }` |
+| 1.7 | Anonimización | `js/legendary-hands.js` | `anonymizeCast(cast, seed)` → labels Jugador A/B; restaurar nombres en Historia |
+| 1.8 | Lanzar juego ciego | `js/legendary-hands.js` | `playLegendaryHand(id, { blind: true })` → `playAnalysisHand(force, playConfig)` |
+| 1.9 | Intercept fin de mano | `js/app.js` o callback en legendary | Si `legendaryMode`, redirect a `#legendary-story` en lugar de pantalla trainer estándar |
+| 1.10 | Pantalla Historia | `js/legendary-hands.js`, `css/legendary.css` | Muestra story, cast real, fecha, evento, tu rol; botón vídeo si `media.videoUrl` |
+| 1.11 | Abrir vídeo | `js/legendary-hands.js` | `openLegendaryVideo` → nueva pestaña con `noopener,noreferrer` |
+| 1.12 | 1 mano completa | `data/legendary-hands/hands/LH-2024-WSOP-ME-MATEOS-FOLD-KK.json` | `editorial.status: ready`; replay smoke test pasa |
+| 1.13 | Bundle | `js/bundle-chunks.js`, `dist/` | Chunk lazy `pt-legendary` |
+| 1.14 | Progreso básico | `js/storage.js` | `stats.legendaryHands.played[id]` actualizado al ver Historia |
+| 1.15 | E2E mínimo | `e2e/legendary.spec.js` | Hub → jugar → Historia visible → vídeo link presente (mock) |
+
+**Entregable Fase 1:** usuario juega Mateos fold KK en mesa neón WSOP → ve Historia con nombres reales → puede abrir vídeo.
+
+**Dependencias externas:** HH completo de Mateos/Berry (autoría manual desde recap PokerNews).
+
+---
+
+### Fase 2 — Post-historia y catálogo inicial
+
+**Objetivo:** flujo completo con timeline, cambio de rol, hub con 10 manos.
+
+| # | Tarea | Archivos | DoD |
+|---|-------|----------|-----|
+| 2.1 | Pantalla Post-historia | `js/legendary-hands.js` | Tres CTAs: Timeline · Otro rol · Volver al hub |
+| 2.2 | Timeline nombres reales | `js/legendary-hands.js` | `openLegendaryTimeline(hand)` adapta `hand` a shape sesión + `openAnalysisHandReview(h, 'timeline')` con nombres de `cast` |
+| 2.3 | Selector otro rol | `js/legendary-hands.js` | Lista `heroCandidates` con bandera; relanza en modo ciego |
+| 2.4 | Hub biblioteca | `js/legendary-hands.js` | Grid manos: titleBlind, año, flags, featured; botón «Al azar» |
+| 2.5 | Badge evento en mesa | `css/legendary.css` | `.legendary-event-badge` con nombre evento (sin spoiler) |
+| 2.6 | Transición animada | `css/legendary.css` | Fade mesa → Historia |
+| 2.7 | 10 manos ready | `data/legendary-hands/hands/*.json` | Lista abajo; todas pasan `tools/test-legendary-replay.js` |
+| 2.8 | Temas visuales restantes | `css/legendary.css` | `triton`, `lapt`, `default` |
+| 2.9 | E2E flujo completo | `e2e/legendary.spec.js` | Jugar → Historia → Timeline → Otro rol |
+
+**10 manos prioritarias Fase 2:**
+
+1. `LH-2024-WSOP-ME-MATEOS-FOLD-KK`
+2. `LH-2024-WSOP-ME-MATEOS-AA-CRACKED`
+3. `LH-2024-WSOP-GALIANA-7HIGH-BLUFF`
+4. `LH-2021-WSOP-CLOSER-HU-COMEBACK`
+5. `LH-2024-EPT-BCN-NADAL-FH`
+6. `LH-2022-WSOP-ME-SALAS-A8`
+7. `LH-2020-WSOP-ME-SALAS-HU-BOTTEON`
+8. `LH-2024-SCOOP-TITANS-BLUFF-River`
+9. `LH-2022-EPT-MC-100K-CALL-J8`
+10. `LH-2024-WSOP-BERRY-AA` (perspectiva villano)
+
+**Entregable Fase 2:** producto usable con 10 manos virales y rejugabilidad por rol.
+
+---
+
+### Fase 3 — Escala a 50 manos + tooling
+
+**Objetivo:** pipeline editorial, filtros, vídeos enlazados en mayoría de manos.
+
+| # | Tarea | Archivos | DoD |
+|---|-------|----------|-----|
+| 3.1 | CLI ingest | `tools/legendary-ingest.js` | Parse recap/HH → JSON mano + validación |
+| 3.2 | Smoke replay | `tools/test-legendary-replay.js` | CI falla si mano ready no replayable |
+| 3.3 | Filtros hub | `js/legendary-hands.js` | Por país, jugador, año, tag, `event.series` |
+| 3.4 | Campo media en índice | `data/legendary-hands/index.json` | `videoUrl` poblado donde exista clip |
+| 3.5 | 50 manos ready | `data/legendary-hands/hands/` | 50 JSON con `editorial.status: ready` |
+| 3.6 | Progreso ampliado | `js/storage.js` | Roles jugados, favoritos, contador global |
+| 3.7 | Share reveal | `supabase/functions/share-hand` | Tipo `legendary` con story + cast (sin spoiler pre-juego) |
+| 3.8 | Multiway HU-collapse | `js/legendary-force.js` | Documentar y soportar manos 3-way colapsadas |
+
+**Entregable Fase 3:** biblioteca de 50 manos filtrable; ≥30 con enlace vídeo.
+
+---
+
+### Fase 4 — 100 manos + Coach + monetización
+
+| # | Tarea | Archivos | DoD |
+|---|-------|----------|-----|
+| 4.1 | ForgeCoach scope | `supabase/functions/analyze-hand`, `js/ai-report.js` | scope `legendaryHand` con contexto evento |
+| 4.2 | Plan gating | `js/legendary-hands.js`, billing | Free: 5 manos/mes; Study: catálogo; Coach: HR/FT + IA |
+| 4.3 | 100 manos | catálogo completo | Distribución §8.2 cumplida |
+| 4.4 | Supabase CMS | `supabase/migrations/xxx_legendary_hands.sql` | Tabla opcional para update sin deploy |
+| 4.5 | SEO / landings | rutas estáticas o query | «Manos de Adrián Mateos» indexable |
+| 4.6 | Polish visual | `css/legendary.css` | Logos serie SVG; spotlight FT; HU variant |
+| 4.7 | Integración Escuela | `js/school.js` | Enlace opcional «Concepto relacionado» desde Historia |
+
+**Entregable Fase 4:** producto completo lanzable.
+
+---
+
+### Estructura de archivos (target)
+
+```
+css/legendary.css
+js/legendary-data.js       # carga catálogo
+js/legendary-force.js      # legendaryToForce, anonymizeCast
+js/legendary-hands.js      # UI hub, story, after, orchestration
+data/legendary-hands/
+  index.json
+  hands/LH-….json
+tools/legendary-ingest.js
+tools/test-legendary-replay.js
+e2e/legendary.spec.js
+```
+
+### Contrato `playConfig` legendario
+
+```javascript
+{
+  legendaryMode: true,
+  legendaryHandId: 'LH-2024-WSOP-ME-MATEOS-FOLD-KK',
+  legendaryHeroId: 'adrian-mateos',
+  legendaryBlind: true,
+  legendaryTheme: 'wsop',      // → data-legendary-theme
+  schoolMode: false,
+  liveAdvisor: false,
+  villainLevel: 'pro',
+  formatHub: 'mtt'
+}
+```
+
+### Callback fin de mano (integración app.js)
+
+```javascript
+// Al finalizar mano en trainer:
+if (playConfig.legendaryMode && window.PTLegendary) {
+  PTLegendary.onHandComplete(hand, {
+    handId: playConfig.legendaryHandId,
+    heroId: playConfig.legendaryHeroId,
+    userDecisions: hand.decisions
+  });
+  return; // no mostrar pantalla resultado trainer estándar
+}
+```
+
+---
+
+## 15. Métricas de éxito
 
 | Métrica | Objetivo 90 días post-launch |
 |---------|------------------------------|
@@ -580,7 +914,7 @@ Prompt incluye: nombres, evento, cita viral, stacks — **no solo GTO abstracto*
 
 ---
 
-## 15. Decisiones abiertas
+## 16. Decisiones abiertas
 
 1. **Nombre final:** «Manos legendarias» vs «Manos de pros» vs «Replay legendario»
 2. **Grading GTO en reveal:** ¿mostrar EV loss vs línea original del pro?
@@ -593,22 +927,39 @@ Prompt incluye: nombres, evento, cita viral, stacks — **no solo GTO abstracto*
 ## Anexo A — Referencia de implementación mínima
 
 ```javascript
-// legendary-hands.js (pseudo)
+// js/legendary-hands.js
 function playLegendaryHand(handId, opts) {
-  var hand = LegendaryData.get(handId);
-  var heroId = opts.heroId || randomHero(hand.heroCandidates);
-  var force = legendaryToForce(hand, heroId);
-  var pc = legendaryPlayConfig(hand, { blind: true, heroId: heroId });
+  var meta = LegendaryData.get(handId);
+  var heroId = opts.heroId || randomPick(meta.heroCandidates);
+  var force = LegendaryForce.toForce(meta, heroId);
+  var pc = {
+    legendaryMode: true,
+    legendaryHandId: handId,
+    legendaryHeroId: heroId,
+    legendaryBlind: opts.blind !== false,
+    legendaryTheme: (meta.visual && meta.visual.theme) || 'default',
+    liveAdvisor: false,
+    schoolMode: false
+  };
   playAnalysisHand(force, pc);
 }
 
-function onHandEnd() {
-  showLegendaryReveal(hand, heroId, userDecisions);
+function onHandComplete(ctx) {
+  renderLegendaryStory(ctx.handId, ctx.heroId, ctx.userDecisions);
+}
+
+function onStoryContinue(handId) {
+  renderLegendaryAfter(handId); // timeline | otro rol | coach
+}
+
+function openLegendaryVideo(hand) {
+  var url = hand.media && hand.media.videoUrl;
+  if (url) window.open(url, '_blank', 'noopener,noreferrer');
 }
 ```
 
-Reutiliza **100%** el loop de `playAnalysisHand` existente; el trabajo nuevo es **datos + hub + reveal + anonimización**.
+Reutiliza el loop de `playAnalysisHand`; trabajo nuevo = **skin broadcast + pantallas Historia/Post-historia + datos**.
 
 ---
 
-*Documento vivo. Catálogo numérico en `data/legendary-hands/index.json`.*
+*Documento vivo. Catálogo en `data/legendary-hands/index.json`. **Siguiente paso: Fase 1, tarea 1.1.***
