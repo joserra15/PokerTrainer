@@ -1,5 +1,5 @@
 {
-  "build": "2.6.3",
+  "build": "2.6.4",
   "chunks": {
     "core": "dist/pt-core.js",
     "sessions": "dist/pt-sessions.js",

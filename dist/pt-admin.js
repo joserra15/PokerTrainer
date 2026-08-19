@@ -605,6 +605,9 @@
     }
     var accountBtn = $('#account-admin');
     if (accountBtn) accountBtn.classList.toggle('hidden', !show);
+    if (typeof global.refreshLegendaryTabVisibility === 'function') {
+      global.refreshLegendaryTabVisibility();
+    }
   }
 
   async function loadStats() {
