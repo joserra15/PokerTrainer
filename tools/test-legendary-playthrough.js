@@ -156,4 +156,22 @@ hands.forEach(function (h) {
   assert.ok(!hand._script || !hand._script.active, 'guion off tras fold vs barrels');
 })();
 
+// Mano 1 Mateos: apertura UTG→HJ (no CO open) y cold 4-bet CO tras 3-bet
+(function () {
+  var h = cat.get('LH-2024-WSOP-ME-MATEOS-FOLD-KK');
+  var force = Force.toForce(h, 'adrian-mateos');
+  var pc = Force.playConfig(h, 'adrian-mateos');
+  assert.strictEqual(force.key, 'HJ_vs_UTG', 'Mateos vs UTG open');
+  var hand = Engine.newHand(force, pc);
+  assert.strictEqual(hand.villain.pos, 'UTG', 'villano preflop = abridor UTG, no CO');
+  var opening = Engine.buildOpeningActionScript(hand) || [];
+  var openEv = opening.filter(function (e) { return e.type === 'open' || e.type === 'raise'; });
+  assert.ok(openEv.length === 1 && openEv[0].pos === 'UTG', 'solo UTG abre: ' + openEv.map(function (e) { return e.pos; }).join(','));
+  assert.ok(opening.every(function (e) { return e.pos !== 'CO' || e.type === 'fold'; }), 'CO no abre en intro');
+  Engine.act(hand, 'raise');
+  assert.strictEqual(hand.current.kind, 'face4bet', 'face 4-bet CO tras 3-bet HJ');
+  assert.strictEqual(hand.villain.pos, 'CO', '4-bettor = Berry CO');
+  assert.ok(hand._script && hand._script.active, 'guion activo tras cold 4-bet');
+})();
+
 console.log('test-legendary-playthrough: OK (' + hands.length + ' hands × roles)');
