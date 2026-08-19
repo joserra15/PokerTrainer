@@ -9905,8 +9905,13 @@ window.PT_VS_3BET_JSON = {
     const cfg = playConfig || (hand && hand.playConfig) || null;
     const hub = formatHubOf(cfg);
     const role = (cfg && cfg.stackRole) || null;
+    const fixed = cfg && cfg.legendaryStacks;
     hand.stacks = {};
     (positions || []).forEach(function (pos) {
+      if (fixed && fixed[pos] != null) {
+        hand.stacks[pos] = round2(Number(fixed[pos]));
+        return;
+      }
       if (pos === heroSeat) hand.stacks[pos] = round2(heroBB);
       else {
         hand.stacks[pos] = villainStackBB(heroBB, rnd(), {
@@ -27202,6 +27207,7 @@ window.PT_VS_3BET_JSON = {
     window.addEventListener('pt-entitlements-updated', refreshLegendaryTabVisibility);
     window.addEventListener('pt-plan-changed', function () {
       renderPricing();
+      refreshLegendaryTabVisibility();
     });
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
@@ -28309,6 +28315,9 @@ window.PT_VS_3BET_JSON = {
     renderBluffSpotBadge();
     updateLiveAdvisor();
     syncPlayMobileStage();
+    if (window.PTLegendary && typeof window.PTLegendary.ensureLegendaryChromeFromHand === 'function') {
+      window.PTLegendary.ensureLegendaryChromeFromHand(hand);
+    }
   }
 
   function renderBluffSpotBadge() {
