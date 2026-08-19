@@ -8,6 +8,7 @@
     ranges: 'dist/pt-ranges.js',
     learn: 'dist/pt-learn.js',
     school: 'dist/pt-school.js',
+    legendary: 'dist/pt-legendary.js',
     contact: 'dist/pt-contact.js',
     admin: 'dist/pt-admin.js'
   };
