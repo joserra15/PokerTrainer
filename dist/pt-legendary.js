@@ -1136,6 +1136,7 @@
     };
     if (scenario.key) force.key = scenario.key;
     else if (handDef.play.key) force.key = handDef.play.key;
+    if (handDef.play.openerPos) force.openerPos = handDef.play.openerPos;
     if (scenario.openerPos) force.openerPos = scenario.openerPos;
     if (scenario.threeBettorPos) force.threeBettorPos = scenario.threeBettorPos;
     return force;

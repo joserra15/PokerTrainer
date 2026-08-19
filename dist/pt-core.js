@@ -11674,8 +11674,16 @@ window.PT_VS_3BET_JSON = {
       || villainTableSeat(hand)
       || (hand._predeal && hand._predeal.villainPos)
       || (hand.villain && hand.villain.pos);
-    if (vSeat && hand.villain) hand.villain.pos = vSeat;
-    if (vSeat && hand._predeal) hand._predeal.villainPos = vSeat;
+    const legendary = !!(hand.playConfig && hand.playConfig.legendaryMode);
+    if (vSeat && hand.villain) {
+      if (legendary) {
+        hand._legendaryStoryVillainPos = vSeat;
+      } else {
+        hand.villain.pos = vSeat;
+      }
+    }
+    if (vSeat && hand._predeal && !legendary) hand._predeal.villainPos = vSeat;
+    else if (vSeat && hand._predeal && legendary) hand._predeal.villainPos = vSeat;
     const hc = hand.table.holeCards;
     const forcedDead = [].concat(heroCards || [], villainCards || [], board);
     const kept = [];
@@ -11932,6 +11940,65 @@ window.PT_VS_3BET_JSON = {
     return null;
   }
 
+  function restoreLegendaryScenarioVillain(hand) {
+    if (!hand || !hand.playConfig || !hand.playConfig.legendaryMode) return;
+    const s = hand.scenario;
+    if (!s || !hand.villain) return;
+    if (s.type === 'vsRFI' && s.key) {
+      hand.villain.pos = parseVsKey(s.key).opener;
+    } else if (s.type === 'cold4bet') {
+      hand.villain.pos = s.threeBettorPos || hand.villain.pos;
+    } else if (s.type === 'face4bet' && s.key) {
+      hand.villain.pos = parseVsKey(s.key).opener;
+    } else if (s.openerPos) {
+      hand.villain.pos = s.openerPos;
+    }
+    hand.villain.cards = villainHoleCards(hand);
+    syncVillainMeta(hand);
+  }
+
+  /**
+   * Tras 3-bet del héroe con guion activo: CO/BTN/SB/BB actúan antes que el abridor.
+   * Devuelve face4bet si alguien hace cold 4-bet según el guion.
+   */
+  function resolveScriptedRespondersAfterHero3Bet(hand, hero, threeBetSize) {
+    if (!scriptActive(hand)) return null;
+    const behind = respondersAfterHero(hand);
+    for (let bi = 0; bi < behind.length; bi++) {
+      const bPos = behind[bi];
+      const act = scriptForcedDefend(hand, bPos);
+      if (!act || act === 'fold') {
+        markFolded(hand, bPos);
+        setSeatAction(hand, bPos, 'fold', null);
+        continue;
+      }
+      if (act === '3bet') {
+        const fourBetSize = round2(threeBetSize * 2.3);
+        const add = capBetForSeat(hand, bPos, fourBetSize - (hand.table.invested[bPos] || 0));
+        if (add > 0) addInvest(hand, bPos, add);
+        setPreflopSeatBet(hand, bPos, fourBetSize);
+        setSeatAction(hand, bPos, 'raise', fourBetSize);
+        markForcedSeat(hand, bPos, hand.table.holeCards[bPos]);
+        hand.villain.pos = bPos;
+        hand.villain.cards = villainHoleCards(hand);
+        syncVillainMeta(hand);
+        hand.villainInvested = fourBetSize;
+        setVillainAct(hand, 'raise', fourBetSize);
+        for (let j = bi + 1; j < behind.length; j++) {
+          markFolded(hand, behind[j]);
+          setSeatAction(hand, behind[j], 'fold', null);
+        }
+        recalcPot(hand);
+        return { type: 'face4bet', pos: bPos, size: fourBetSize };
+      }
+      const bAdd = seatToCall(hand, bPos, threeBetSize);
+      if (bAdd > 0) addInvest(hand, bPos, bAdd);
+      setPreflopSeatBet(hand, bPos, threeBetSize);
+      setSeatAction(hand, bPos, 'call', threeBetSize);
+    }
+    return null;
+  }
+
   function markFolded(hand, pos) {
     if (!hand.table || !pos) return;
     hand.table.folded[pos] = true;
@@ -11952,7 +12019,10 @@ window.PT_VS_3BET_JSON = {
   function markPreflopFoldsForFacingAction(hand, primaryVillainPos, extraInPot) {
     if (!hand.table || !primaryVillainPos || !hand.hero.pos) return;
     const order = preflopOrderForHand(hand);
-    const villainSeat = villainTableSeat(hand) || primaryVillainPos;
+    // Legendary: forceDeal.villainPos es el rival de la historia (p.ej. CO), no el abridor (UTG).
+    const villainSeat = (hand.playConfig && hand.playConfig.legendaryMode)
+      ? (tableSeatForEnginePos(hand, primaryVillainPos) || primaryVillainPos)
+      : (villainTableSeat(hand) || primaryVillainPos);
     const heroSeat = heroTableSeat(hand);
     const extraSeats = (extraInPot || []).map(function (p) {
       if (!is9MaxHand(hand)) return p;
@@ -12073,7 +12143,12 @@ window.PT_VS_3BET_JSON = {
     }
     const order = preflopOrderForHand(hand);
     const heroSeat = heroTableSeat(hand);
-    const vSeat = villainTableSeat(hand);
+    let vSeat = villainTableSeat(hand);
+    if (hand.playConfig && hand.playConfig.legendaryMode && hand.scenario) {
+      const s = hand.scenario;
+      if (s.type === 'vsRFI' && s.key) vSeat = parseVsKey(s.key).opener;
+      else if (s.openerPos) vSeat = s.openerPos;
+    }
     const heroIdx = order.indexOf(heroSeat);
     if (heroIdx < 0 || !hand.table) return;
     order.forEach(function (pos, i) {
@@ -13380,6 +13455,7 @@ window.PT_VS_3BET_JSON = {
     if (force && force.forceDeal) {
       hand.forceDeal = cloneForceDeal(force.forceDeal);
       applyForcedHand(hand, hand.forceDeal);
+      restoreLegendaryScenarioVillain(hand);
       assignHeroFromTable(hand);
       if (hand.villain && hand.villain.pos) hand.villain.cards = villainHoleCards(hand);
     }
@@ -14459,6 +14535,19 @@ window.PT_VS_3BET_JSON = {
       addInvest(hand, hero, round2(threeBetSize - (hand.table.invested[hero] || 0)));
       setHeroAct(hand, 'raise', threeBetSize);
       setPreflopSeatBet(hand, hero, threeBetSize);
+      if (scriptActive(hand)) {
+        const cold = resolveScriptedRespondersAfterHero3Bet(hand, hero, threeBetSize);
+        if (cold && cold.type === 'face4bet') {
+          const openerAct = scriptForcedVs3Bet(hand, opener);
+          if (openerAct === 'fold') {
+            markFolded(hand, opener);
+            setSeatAction(hand, opener, 'fold', null);
+          }
+          recalcPot(hand);
+          return setupFace4Bet(hand, cold.size);
+        }
+      }
+      resolvePendingAfterHero(hand);
       // Seats tras el héroe (BB) enfrentan el 3-bet antes que el opener
       if (hand._multiwayPendingCallers && MW() && MW().allowMultiway(hand)) {
         seatsYetToActPreflop(hand, hero).forEach(function (p) {
@@ -15681,7 +15770,8 @@ window.PT_VS_3BET_JSON = {
     }
 
     if (s.type === 'vsRFI') {
-      const opener = scriptSeat(hand, (hand.villain && hand.villain.pos) || parseVsKey(s.key).opener);
+      const pk = s.key ? parseVsKey(s.key) : {};
+      const opener = scriptSeat(hand, pk.opener || s.openerPos || (hand.scenario && hand.scenario.openerPos));
       const amt = seatActAmount(hand, opener, openSize(opener));
       events.push.apply(events, foldsUntil(order, opener));
       events.push(scriptEvent(opener, 'open', amt));
