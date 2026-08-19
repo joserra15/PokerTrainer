@@ -7,7 +7,7 @@ const assert = require('assert');
 
 const root = path.join(__dirname, '..');
 const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2.7.1'/.test(version), 'versión 2.7.1');
+assert.ok(/PT_BUILD\s*=\s*'2.7.2'/.test(version), 'versión 2.7.2');
 
 const sql = fs.readFileSync(path.join(root, 'supabase/migrations/040_guest_funnel.sql'), 'utf8');
 assert.ok(/pt_guest_funnel_events/.test(sql), 'tabla embudo');
