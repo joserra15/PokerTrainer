@@ -44,6 +44,10 @@ hands.forEach(function (h) {
   (h.heroCandidates || []).forEach(function (hid) {
     const f = force.toForce(h, hid);
     assert.ok(f && f.forceDeal && f.forceScript, 'force for ' + h.id + ' / ' + hid);
+    if (f.type === 'face3bet' || f.type === 'face4bet' || f.type === 'vsRFI') {
+      assert.ok(f.key, 'scenario key for ' + h.id + ' / ' + hid + ' (' + f.type + ')');
+      assert.ok(/^[A-Z0-9]+_vs_[A-Z0-9]+$/.test(f.key), 'key format ' + f.key);
+    }
     const pc = force.playConfig(h, hid);
     assert.ok(pc.legendaryMode && pc.legendaryHandId === h.id, 'playConfig legendary');
   });

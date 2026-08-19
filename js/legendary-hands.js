@@ -159,6 +159,8 @@
     document.body.classList.remove('legendary-play-active');
     var badge = document.querySelector('.legendary-event-badge');
     if (badge) badge.remove();
+    var playActive = $('#play-active');
+    if (playActive) playActive.classList.remove('is-legendary-session');
   }
 
   function pickRandomHero(handDef) {

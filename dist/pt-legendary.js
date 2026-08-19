@@ -818,14 +818,75 @@
     return null;
   }
 
+  function preflopActions(script) {
+    return (script && script.actions || []).filter(function (a) { return a.street === 'preflop'; });
+  }
+
+  function countPreflopRaises(actions, pos) {
+    return actions.filter(function (a) {
+      return a.pos === pos && a.action === 'raise';
+    }).length;
+  }
+
+  /** Infiere type/key del motor a partir del guion preflop (face3bet/face4bet/vsRFI/RFI). */
+  function inferLegendaryScenario(role, playType) {
+    var heroPos = role.heroPos;
+    var villainPos = role.villainPos;
+    var pre = preflopActions(role.forceScript);
+
+    if (!pre.length) {
+      return { type: playType || 'RFI', heroPos: heroPos };
+    }
+
+    var first = pre[0];
+    var heroRaises = countPreflopRaises(pre, heroPos);
+    var villainRaises = countPreflopRaises(pre, villainPos);
+
+    if (first.pos === heroPos && first.action === 'raise') {
+      if (villainRaises === 0) {
+        return { type: 'RFI', heroPos: heroPos };
+      }
+      if (heroRaises >= 2 && villainRaises >= 2) {
+        return { type: 'face4bet', heroPos: heroPos, key: heroPos + '_vs_' + villainPos };
+      }
+      if (villainRaises >= 1) {
+        return { type: 'face3bet', heroPos: heroPos, key: heroPos + '_vs_' + villainPos };
+      }
+    }
+
+    if (first.pos === villainPos && first.action === 'raise') {
+      if (heroRaises >= 2 && villainRaises >= 1) {
+        return { type: 'face4bet', heroPos: heroPos, key: heroPos + '_vs_' + villainPos };
+      }
+      if (heroRaises >= 1 && villainRaises === 1) {
+        return { type: 'vsRFI', heroPos: heroPos, key: heroPos + '_vs_' + villainPos };
+      }
+      if (heroRaises === 0 && pre.some(function (a) {
+        return a.pos === heroPos && a.action === 'call';
+      })) {
+        return { type: 'vsRFI', heroPos: heroPos, key: heroPos + '_vs_' + villainPos };
+      }
+    }
+
+    if ((playType === 'face3bet' || playType === 'face4bet') && heroPos && villainPos) {
+      return {
+        type: playType,
+        heroPos: heroPos,
+        key: heroPos + '_vs_' + villainPos
+      };
+    }
+    return { type: playType || 'RFI', heroPos: heroPos };
+  }
+
   function toForce(handDef, heroId) {
     if (!handDef || !handDef.play || !handDef.play.roles) return null;
     var role = handDef.play.roles[heroId];
     if (!role) return null;
     var play = handDef.play;
+    var scenario = inferLegendaryScenario(role, play.type);
     var force = {
-      type: play.type || 'RFI',
-      heroPos: role.heroPos,
+      type: scenario.type,
+      heroPos: scenario.heroPos || role.heroPos,
       seed: play.seed || 88000,
       forceDeal: {
         heroCards: (role.heroCards || []).slice(),
@@ -835,7 +896,8 @@
       },
       forceScript: cloneScript(role.forceScript)
     };
-    if (play.key) force.key = play.key;
+    if (scenario.key) force.key = scenario.key;
+    else if (play.key) force.key = play.key;
     return force;
   }
 
@@ -890,6 +952,7 @@
   global.PTLegendaryForce = {
     toForce: toForce,
     playConfig: playConfig,
+    inferLegendaryScenario: inferLegendaryScenario,
     buildAnonymizeMap: buildAnonymizeMap,
     castMember: castMember,
     actionWord: actionWord
@@ -1057,6 +1120,8 @@
     document.body.classList.remove('legendary-play-active');
     var badge = document.querySelector('.legendary-event-badge');
     if (badge) badge.remove();
+    var playActive = $('#play-active');
+    if (playActive) playActive.classList.remove('is-legendary-session');
   }
 
   function pickRandomHero(handDef) {

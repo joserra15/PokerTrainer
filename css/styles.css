@@ -1848,6 +1848,12 @@ body.age-gate-open {
   display: none !important;
 }
 
+/* Manos legendarias: mesa broadcast sin panel de sesión del entrenador */
+#play-active.is-legendary-session .play-hud,
+#play-active.is-legendary-session .sidebar {
+  display: none !important;
+}
+
 .school-spot-feedback { padding: 4px 2px 8px; }
 .school-spot-feedback.is-good h3 { color: #86efac; }
 .school-spot-feedback.is-bad h3 { color: #fca5a5; }
