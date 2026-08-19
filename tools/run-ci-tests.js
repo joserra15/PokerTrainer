@@ -98,6 +98,7 @@ const STEPS = [
   ['Test trainer formats v2', ['node', 'tools/test-trainer-formats-v2.js']],
   ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']],
   ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
+  ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],
   ['Test manos legendarias (playthrough)', ['node', 'tools/test-legendary-playthrough.js']]
 ];
 

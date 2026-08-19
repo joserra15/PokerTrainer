@@ -11,6 +11,8 @@ const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 const loader = fs.readFileSync(path.join(root, 'js/pt-loader.js'), 'utf8');
 const catalogSrc = fs.readFileSync(path.join(root, 'js/legendary-hands-catalog.js'), 'utf8');
 const forceSrc = fs.readFileSync(path.join(root, 'js/legendary-force.js'), 'utf8');
+const resultSrc = fs.readFileSync(path.join(root, 'js/legendary-result.js'), 'utf8');
+const shareSrc = fs.readFileSync(path.join(root, 'js/legendary-share.js'), 'utf8');
 const legendarySrc = fs.readFileSync(path.join(root, 'js/legendary-hands.js'), 'utf8');
 
 assert.ok(/data-tab="legendary"/.test(html), 'tab legendary in index');
@@ -19,6 +21,7 @@ assert.ok(/tab-legendary hidden/.test(html), 'tab hidden by default');
 assert.ok(/legendary\.css/.test(html), 'legendary css linked');
 assert.ok(/legendary-scene-wrap/.test(cssLegendary), 'broadcast scene css');
 assert.ok(/legendary-briefing/.test(cssLegendary), 'briefing css');
+assert.ok(/legendary-result-popup/.test(cssLegendary), 'result popup css');
 assert.ok(/CHUNKS\.legendary/.test(chunks), 'legendary chunk in bundle-chunks');
 assert.ok(/legendary:\s*'dist\/pt-legendary\.js'/.test(loader), 'legendary chunk in pt-loader');
 
@@ -27,6 +30,8 @@ ctx.global = ctx.window;
 vm.runInNewContext(chunks, ctx);
 vm.runInNewContext(catalogSrc, ctx);
 vm.runInNewContext(forceSrc, ctx);
+vm.runInNewContext(resultSrc, ctx);
+vm.runInNewContext(shareSrc, ctx);
 vm.runInNewContext(legendarySrc, ctx);
 
 const cat = ctx.window.PTLegendaryCatalog;
@@ -36,7 +41,11 @@ const leg = ctx.window.PTLegendary;
 assert.ok(cat, 'PTLegendaryCatalog');
 assert.ok(force, 'PTLegendaryForce');
 assert.ok(leg, 'PTLegendary');
+assert.ok(ctx.window.PTLegendaryResult, 'PTLegendaryResult');
+assert.ok(ctx.window.PTLegendaryShare, 'PTLegendaryShare');
 assert.ok(typeof force.buildBriefing === 'function', 'buildBriefing');
+assert.ok(/VIEW\.result/.test(legendarySrc), 'result view');
+assert.ok(/renderResult/.test(legendarySrc), 'renderResult');
 
 const hands = cat.list();
 assert.ok(hands.length >= 10, 'at least 10 hands');
