@@ -37,31 +37,79 @@
     return { heroPos: heroPos, villainPos: villainPos, actions: result };
   }
 
-  function scriptHU(heroPos, villainPos, heroPreflop, villainBarrels, hu) {
+  /** Héroe abre IP (BTN/late): villano OOP check → acción héroe → call si apuesta. */
+  function scriptOpenPotIP(heroPos, villainPos, streets, hu) {
     hu = hu != null ? hu : false;
     var actions = [];
-    if (heroPreflop === 'raise') {
-      actions.push({ pos: heroPos, street: 'preflop', action: 'raise' });
-      posOrder(hu).forEach(function (pos) {
-        if (pos === heroPos) return;
-        if (pos === villainPos) actions.push({ pos: pos, street: 'preflop', action: 'call' });
-        else actions.push(foldPos(pos));
-      });
-    } else if (heroPreflop === 'call') {
-      actions.push({ pos: villainPos, street: 'preflop', action: 'raise' });
-      posOrder(hu).forEach(function (pos) {
-        if (pos === heroPos || pos === villainPos) return;
-        actions.push(foldPos(pos));
-      });
-      actions.push({ pos: heroPos, street: 'preflop', action: 'call' });
-    }
-    (villainBarrels || []).forEach(function (row) {
+    actions.push({ pos: heroPos, street: 'preflop', action: 'raise' });
+    posOrder(hu).forEach(function (pos) {
+      if (pos === heroPos) return;
+      if (pos === villainPos) actions.push({ pos: pos, street: 'preflop', action: 'call' });
+      else actions.push(foldPos(pos));
+    });
+    (streets || []).forEach(function (row) {
+      actions.push({ pos: villainPos, street: row.street, action: 'check' });
+      if (row.action === 'bet' || row.action === 'raise') {
+        actions.push({
+          pos: heroPos,
+          street: row.street,
+          action: row.action,
+          amountBB: row.amountBB != null ? row.amountBB : null
+        });
+        actions.push({ pos: villainPos, street: row.street, action: 'call' });
+      } else {
+        actions.push({ pos: heroPos, street: row.street, action: 'check' });
+      }
+    });
+    return expandPreflop(heroPos, villainPos, actions, hu);
+  }
+
+  /** Héroe abre OOP: actúa primero postflop. */
+  function scriptOpenPotOOP(heroPos, villainPos, streets, hu) {
+    hu = hu != null ? hu : false;
+    var actions = [];
+    actions.push({ pos: heroPos, street: 'preflop', action: 'raise' });
+    posOrder(hu).forEach(function (pos) {
+      if (pos === heroPos) return;
+      if (pos === villainPos) actions.push({ pos: pos, street: 'preflop', action: 'call' });
+      else actions.push(foldPos(pos));
+    });
+    (streets || []).forEach(function (row) {
+      if (row.action === 'bet' || row.action === 'raise') {
+        actions.push({
+          pos: heroPos,
+          street: row.street,
+          action: row.action,
+          amountBB: row.amountBB != null ? row.amountBB : null
+        });
+        actions.push({ pos: villainPos, street: row.street, action: 'call' });
+      } else {
+        actions.push({ pos: heroPos, street: row.street, action: 'check' });
+        actions.push({ pos: villainPos, street: row.street, action: 'check' });
+      }
+    });
+    return expandPreflop(heroPos, villainPos, actions, hu);
+  }
+
+  /** Héroe defiende OOP pagando barrels del agresor IP. */
+  function scriptDefendBarrels(heroPos, villainPos, barrels, hu) {
+    hu = hu != null ? hu : false;
+    var actions = [];
+    actions.push({ pos: villainPos, street: 'preflop', action: 'raise' });
+    posOrder(hu).forEach(function (pos) {
+      if (pos === heroPos || pos === villainPos) return;
+      actions.push(foldPos(pos));
+    });
+    actions.push({ pos: heroPos, street: 'preflop', action: 'call' });
+    (barrels || []).forEach(function (row) {
+      actions.push({ pos: heroPos, street: row.street, action: 'check' });
       actions.push({
         pos: villainPos,
         street: row.street,
-        action: row.action,
+        action: row.action || 'bet',
         amountBB: row.amountBB != null ? row.amountBB : null
       });
+      actions.push({ pos: heroPos, street: row.street, action: 'call' });
     });
     return expandPreflop(heroPos, villainPos, actions, hu);
   }
@@ -318,7 +366,7 @@
           'antonio-galiana': {
             heroPos: 'BTN', villainPos: 'BB', stackBB: 28,
             heroCards: ['7h', '2d'], villainCards: ['Qc', '4s'],
-            forceScript: scriptHU('BTN', 'BB', 'raise', [
+            forceScript: scriptOpenPotIP('BTN', 'BB', [
               { street: 'flop', action: 'check' },
               { street: 'turn', action: 'check' },
               { street: 'river', action: 'bet', amountBB: 8 }
@@ -389,7 +437,7 @@
           'leo-margets': {
             heroPos: 'BTN', villainPos: 'BB', stackBB: 8,
             heroCards: ['Qh', 'Jd'], villainCards: ['Ah', 'Qd'],
-            forceScript: scriptHU('BTN', 'BB', 'raise', [
+            forceScript: scriptOpenPotIP('BTN', 'BB', [
               { street: 'flop', action: 'bet', amountBB: 2.5 },
               { street: 'turn', action: 'check' },
               { street: 'river', action: 'check' }
@@ -401,6 +449,7 @@
             forceScript: expandPreflop('BB', 'BTN', [
               { pos: 'BTN', street: 'preflop', action: 'raise' },
               { pos: 'BB', street: 'preflop', action: 'call' },
+              { pos: 'BB', street: 'flop', action: 'check' },
               { pos: 'BTN', street: 'flop', action: 'bet', amountBB: 2.5 },
               { pos: 'BB', street: 'flop', action: 'call' },
               { pos: 'BB', street: 'turn', action: 'check' },
@@ -458,10 +507,16 @@
           'santiago-nadal': {
             heroPos: 'CO', villainPos: 'BTN', stackBB: 88,
             heroCards: ['Kh', 'Kd'], villainCards: ['Kc', '5s'],
-            forceScript: scriptHU('CO', 'BTN', 'raise', [
-              { street: 'flop', action: 'check' },
-              { street: 'turn', action: 'bet', amountBB: 4 },
-              { street: 'river', action: 'bet', amountBB: 10 }
+            forceScript: expandPreflop('CO', 'BTN', [
+              { pos: 'CO', street: 'preflop', action: 'raise' },
+              { pos: 'BTN', street: 'preflop', action: 'call' },
+              { pos: 'CO', street: 'flop', action: 'check' },
+              { pos: 'BTN', street: 'flop', action: 'check' },
+              { pos: 'CO', street: 'turn', action: 'bet', amountBB: 4 },
+              { pos: 'BTN', street: 'turn', action: 'call' },
+              { pos: 'CO', street: 'river', action: 'bet', amountBB: 10 },
+              { pos: 'BTN', street: 'river', action: 'raise' },
+              { pos: 'CO', street: 'river', action: 'call' }
             ])
           },
           'luis-rayon': {
@@ -592,7 +647,7 @@
           'damian-salas': {
             heroPos: 'BTN', villainPos: 'BB', stackBB: 45,
             heroCards: ['Kd', '8h'], villainCards: ['Ah', 'Jc'],
-            forceScript: scriptHU('BTN', 'BB', 'raise', [
+            forceScript: scriptOpenPotIP('BTN', 'BB', [
               { street: 'flop', action: 'bet', amountBB: 2.5 },
               { street: 'turn', action: 'check' },
               { street: 'river', action: 'check' }
@@ -604,6 +659,7 @@
             forceScript: expandPreflop('BB', 'BTN', [
               { pos: 'BTN', street: 'preflop', action: 'raise' },
               { pos: 'BB', street: 'preflop', action: 'call' },
+              { pos: 'BB', street: 'flop', action: 'check' },
               { pos: 'BTN', street: 'flop', action: 'bet', amountBB: 2.5 },
               { pos: 'BB', street: 'flop', action: 'call' },
               { pos: 'BB', street: 'turn', action: 'check' },
@@ -661,24 +717,30 @@
           'adrian-mateos': {
             heroPos: 'BTN', villainPos: 'BB', stackBB: 22,
             heroCards: ['Td', '9d'], villainCards: ['Ah', '7h'],
-            forceScript: scriptHU('BTN', 'BB', 'raise', [
-              { street: 'flop', action: 'check' },
-              { street: 'turn', action: 'check' },
-              { street: 'river', action: 'bet', amountBB: 15 }
-            ], true)
-          },
-          'heyalisson': {
-            heroPos: 'BB', villainPos: 'BTN', stackBB: 31,
-            heroCards: ['Ah', '7h'], villainCards: ['Td', '9d'],
-            forceScript: expandPreflop('BB', 'BTN', [
-              { pos: 'BTN', street: 'preflop', action: 'raise' },
-              { pos: 'BB', street: 'preflop', action: 'call' },
+            forceScript: expandPreflop('BTN', 'BB', [
+              { pos: 'BB', street: 'preflop', action: 'raise' },
+              { pos: 'BTN', street: 'preflop', action: 'call' },
               { pos: 'BB', street: 'flop', action: 'bet', amountBB: 2 },
               { pos: 'BTN', street: 'flop', action: 'call' },
               { pos: 'BB', street: 'turn', action: 'check' },
               { pos: 'BTN', street: 'turn', action: 'check' },
               { pos: 'BB', street: 'river', action: 'check' },
               { pos: 'BTN', street: 'river', action: 'bet', amountBB: 15 }
+            ], true)
+          },
+          'heyalisson': {
+            heroPos: 'BB', villainPos: 'BTN', stackBB: 31,
+            heroCards: ['Ah', '7h'], villainCards: ['Td', '9d'],
+            forceScript: expandPreflop('BB', 'BTN', [
+              { pos: 'BB', street: 'preflop', action: 'raise' },
+              { pos: 'BTN', street: 'preflop', action: 'call' },
+              { pos: 'BB', street: 'flop', action: 'bet', amountBB: 2 },
+              { pos: 'BTN', street: 'flop', action: 'call' },
+              { pos: 'BB', street: 'turn', action: 'check' },
+              { pos: 'BTN', street: 'turn', action: 'check' },
+              { pos: 'BB', street: 'river', action: 'check' },
+              { pos: 'BTN', street: 'river', action: 'bet', amountBB: 15 },
+              { pos: 'BB', street: 'river', action: 'fold' }
             ], true)
           }
         }
@@ -733,7 +795,7 @@
           'adrian-mateos': {
             heroPos: 'BB', villainPos: 'BTN', stackBB: 64,
             heroCards: ['Jd', '8h'], villainCards: ['Ad', '6s'],
-            forceScript: scriptHU('BB', 'BTN', 'call', [
+            forceScript: scriptDefendBarrels('BB', 'BTN', [
               { street: 'flop', action: 'bet', amountBB: 2.5 },
               { street: 'turn', action: 'bet', amountBB: 6 },
               { street: 'river', action: 'bet', amountBB: 12 }
@@ -745,10 +807,13 @@
             forceScript: expandPreflop('BTN', 'BB', [
               { pos: 'BTN', street: 'preflop', action: 'raise' },
               { pos: 'BB', street: 'preflop', action: 'call' },
+              { pos: 'BB', street: 'flop', action: 'check' },
               { pos: 'BTN', street: 'flop', action: 'bet', amountBB: 2.5 },
               { pos: 'BB', street: 'flop', action: 'call' },
+              { pos: 'BB', street: 'turn', action: 'check' },
               { pos: 'BTN', street: 'turn', action: 'bet', amountBB: 6 },
               { pos: 'BB', street: 'turn', action: 'call' },
+              { pos: 'BB', street: 'river', action: 'check' },
               { pos: 'BTN', street: 'river', action: 'bet', amountBB: 12 },
               { pos: 'BB', street: 'river', action: 'call' }
             ])

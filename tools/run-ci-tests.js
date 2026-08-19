@@ -96,7 +96,9 @@ const STEPS = [
   ['Test push Edge contract', ['node', 'tools/test-push-edge-contract.js']],
   // v2.0 — formatos cash/spin/mtt + bluffs + ICM trainer
   ['Test trainer formats v2', ['node', 'tools/test-trainer-formats-v2.js']],
-  ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']]
+  ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']],
+  ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
+  ['Test manos legendarias (playthrough)', ['node', 'tools/test-legendary-playthrough.js']]
 ];
 
 let failed = 0;

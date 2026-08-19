@@ -412,14 +412,40 @@
     return scriptFindNext(hand, hand._script.heroPos, hand._script.idx);
   }
 
+  function scriptActionFamily(action) {
+    const n = scriptNormAction(action);
+    if (n === 'check' || n === 'call') return 'passive';
+    if (n === 'fold') return 'fold';
+    if (n === 'bet' || n === 'raise') return 'aggressive';
+    return n;
+  }
+
   function scriptConsumeHero(hand, actionId) {
     if (!scriptActive(hand)) return;
+    const legendary = !!(hand.playConfig && hand.playConfig.legendaryMode);
     const expected = scriptHeroExpected(hand);
     if (!expected) {
+      // Legendary: check implícito OOP cuando el guion espera acción del villano
+      if (legendary && scriptNormAction(actionId) === 'check') {
+        const vPos = (hand._script && hand._script.villainPos)
+          || (hand.villain && hand.villain.pos);
+        const peek = scriptPeekSeatAction(hand, vPos);
+        if (peek && peek.action.street === hand.stage) return;
+      }
       if (!(hand.playConfig && hand.playConfig.guestTrap)) scriptDeactivate(hand);
       return;
     }
-    if (scriptNormAction(expected.action.action) !== scriptNormAction(actionId)) {
+    const expNorm = scriptNormAction(expected.action.action);
+    const actNorm = scriptNormAction(actionId);
+    if (expNorm !== actNorm) {
+      if (legendary) {
+        const expFam = scriptActionFamily(expected.action.action);
+        const actFam = scriptActionFamily(actionId);
+        if (expFam === actFam && expFam !== 'fold') {
+          scriptConsumeThrough(hand, expected.index);
+          return;
+        }
+      }
       scriptDeactivate(hand);
       return;
     }
