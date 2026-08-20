@@ -122,6 +122,8 @@
     legendary: [
       'js/legendary-hands-catalog.js',
       'js/legendary-force.js',
+      'js/legendary-result.js',
+      'js/legendary-share.js',
       'js/legendary-hands.js'
     ],
     contact: ['js/contact.js'],

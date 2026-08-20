@@ -5,13 +5,18 @@
 (function (global) {
   'use strict';
 
-  var VIEW = { hub: 'hub', briefing: 'briefing', story: 'story', after: 'after', timeline: 'timeline', roles: 'roles' };
+  var VIEW = { hub: 'hub', briefing: 'briefing', result: 'result', story: 'story', after: 'after', timeline: 'timeline', roles: 'roles' };
 
   var state = {
     view: VIEW.hub,
     handId: null,
     heroId: null,
-    lastResult: null
+    lastResult: null,
+    lastEngineHand: null,
+    resultAnalysis: null,
+    quizOptions: null,
+    quizAnswered: false,
+    quizPickedId: null
   };
 
   function $(sel) { return document.querySelector(sel); }
@@ -56,6 +61,8 @@
 
   function Catalog() { return global.PTLegendaryCatalog; }
   function Force() { return global.PTLegendaryForce; }
+  function ResultMod() { return global.PTLegendaryResult; }
+  function ShareMod() { return global.PTLegendaryShare; }
   function Store() { return global.Store; }
 
   function defaultLegendaryStats() {
@@ -251,6 +258,14 @@
     return true;
   }
 
+  function resetResultState() {
+    state.lastEngineHand = null;
+    state.resultAnalysis = null;
+    state.quizOptions = null;
+    state.quizAnswered = false;
+    state.quizPickedId = null;
+  }
+
   function afterHandFinished(engineHand) {
     var pc = (engineHand && engineHand.playConfig) || {};
     if (!pc.legendaryMode || !pc.legendaryHandId) return false;
@@ -261,7 +276,19 @@
     state.handId = pc.legendaryHandId;
     state.heroId = pc.legendaryHeroId;
     state.lastResult = engineHand && engineHand.result ? engineHand.result : null;
-    state.view = VIEW.story;
+    state.lastEngineHand = engineHand;
+    state.quizAnswered = false;
+    state.quizPickedId = null;
+
+    var Result = ResultMod();
+    state.resultAnalysis = Result && Result.comparePlay
+      ? Result.comparePlay(engineHand, handDef, pc.legendaryHeroId)
+      : null;
+    state.quizOptions = Result && Result.buildQuizOptions
+      ? Result.buildQuizOptions(handDef, pc.legendaryHeroId, Catalog().list())
+      : null;
+
+    state.view = VIEW.result;
 
     clearLegendaryChrome();
     saveLegendaryProgress(pc.legendaryHandId, pc.legendaryHeroId);
@@ -347,6 +374,97 @@
     $('#legendary-brief-play').addEventListener('click', function () {
       launchBriefedHand();
     });
+  }
+
+  function renderResult(root) {
+    var handDef = Catalog() && Catalog().get(state.handId);
+    var Result = ResultMod();
+    var Share = ShareMod();
+    if (!handDef || !Result) {
+      state.view = VIEW.hub;
+      renderHub(root);
+      return;
+    }
+
+    var analysis = state.resultAnalysis || { matchLevel: 'different', canShare: false };
+    var msg = Result.buildResultMessage(analysis, handDef, state.heroId);
+    var heroMember = Force() && Force().castMember(handDef, state.heroId);
+    var theme = (handDef.visual && handDef.visual.theme) || 'default';
+    var story = handDef.story || {};
+    var quizOpts = state.quizOptions || [];
+
+    var html = '<div class="legendary-panel legendary-result">';
+    html += '<div class="legendary-result-popup" data-theme="' + esc(theme) + '">';
+    html += '<p class="legendary-result-kicker">Mano terminada</p>';
+    html += '<h2 class="legendary-result-title">' + esc(msg.title) + '</h2>';
+    html += '<p class="legendary-result-body">' + esc(msg.body) + '</p>';
+
+    if (!state.quizAnswered) {
+      html += '<div class="legendary-result-quiz">';
+      html += '<h3>¿A quién le repartieron esta mano?</h3>';
+      html += '<p class="muted-text">Elige quién eras en la mesa.</p>';
+      html += '<div class="legendary-quiz-options">';
+      quizOpts.forEach(function (opt) {
+        html += '<button type="button" class="btn btn-ghost legendary-quiz-opt" data-player-id="' +
+          esc(opt.playerId) + '">' + esc(opt.label) + '</button>';
+      });
+      html += '</div></div>';
+    } else {
+      var correct = state.quizPickedId === state.heroId;
+      html += '<div class="legendary-result-quiz-feedback ' + (correct ? 'is-correct' : 'is-wrong') + '">';
+      html += '<p class="legendary-quiz-verdict">' +
+        (correct ? '¡Correcto!' : 'No era esa persona.') + '</p>';
+      if (heroMember) {
+        html += '<p class="muted-text">Eras <strong>' + esc(heroMember.displayName) + '</strong> (' +
+          esc(heroMember.countryLabel) + ' · ' + esc(heroMember.pos) + ').</p>';
+      }
+      html += '</div>';
+      html += '<div class="legendary-result-story-snippet">';
+      html += '<h3>La historia real</h3>';
+      html += '<p>' + esc(story.es || '') + '</p>';
+      if (story.highlights && story.highlights.length) {
+        html += '<ul class="legendary-story-highlights">';
+        story.highlights.slice(0, 3).forEach(function (b) {
+          html += '<li>' + esc(b) + '</li>';
+        });
+        html += '</ul>';
+      }
+      html += '</div>';
+    }
+
+    if (analysis.canShare) {
+      html += '<div class="legendary-result-share">';
+      html += '<canvas class="legendary-share-canvas legendary-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>';
+      html += '<button type="button" class="btn btn-primary" data-legendary-share>Comparte que has jugado igual</button>';
+      html += '<p class="legendary-share-status muted-text" data-legendary-share-status hidden></p>';
+      html += '</div>';
+    }
+
+    if (state.quizAnswered) {
+      html += '<button type="button" class="btn btn-primary legendary-result-continue" id="legendary-result-continue">Ver mano completa &raquo;</button>';
+    }
+    html += '</div></div>';
+    root.innerHTML = html;
+
+    root.querySelectorAll('.legendary-quiz-opt').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        state.quizPickedId = btn.getAttribute('data-player-id');
+        state.quizAnswered = true;
+        render(root);
+      });
+    });
+
+    if (analysis.canShare && Share && Share.mountShareButton) {
+      Share.mountShareButton(root, handDef, state.heroId, analysis);
+    }
+
+    var cont = $('#legendary-result-continue');
+    if (cont) {
+      cont.addEventListener('click', function () {
+        state.view = VIEW.story;
+        render(root);
+      });
+    }
   }
 
   function renderStory(root) {
@@ -530,7 +648,8 @@
       root.innerHTML = '<div class="legendary-panel"><p class="muted-text">Manos legendarias — solo administración.</p></div>';
       return;
     }
-    if (state.view === VIEW.story) renderStory(root);
+    if (state.view === VIEW.result) renderResult(root);
+    else if (state.view === VIEW.story) renderStory(root);
     else if (state.view === VIEW.briefing) renderBriefing(root);
     else if (state.view === VIEW.after) renderAfter(root);
     else if (state.view === VIEW.timeline) renderTimeline(root);
