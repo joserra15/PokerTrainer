@@ -1317,8 +1317,7 @@
     var start = document.getElementById('school-start-lesson');
     if (start) {
       start.addEventListener('click', function () {
-        var gate = startLessonSession(lesson.id);
-        if (gate && !gate.ok) showSchoolGateMessage(root, gate);
+        startLessonSession(lesson.id);
       });
     }
     mountCoach(root, lesson);
@@ -1441,8 +1440,7 @@
       '</div></div>';
 
     document.getElementById('school-retry').addEventListener('click', function () {
-      var gate = startLessonSession(lesson.id);
-      if (gate && !gate.ok) showSchoolGateMessage(root, gate);
+      startLessonSession(lesson.id);
     });
     var nextBtn = document.getElementById('school-next-lesson');
     if (nextBtn && next) {
