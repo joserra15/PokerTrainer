@@ -710,7 +710,7 @@
     },
     BB_vs_SB: {
       threeBet: '88+, ATs+, KJs+, ATo+, A5s',
-      threeBetMix: '77-22, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo, A9o-A2o',
+      threeBetMix: '77-55, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo',
       call: 'K4s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, KTo, QTo+, JTo, T9o, 98o'
     },
     SB_vs_UTG: {
@@ -733,7 +733,7 @@
     },
     SB_vs_BTN: {
       threeBet: '88+, ATs+, KTs+, QJs, AJo+, A5s, A4s',
-      threeBetMix: '77-44, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o',
+      threeBetMix: '77-55, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o',
       call: '33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, ATo, KTo, QTo+, JTo',
       callMix: 'A9o, T9o'
     },
@@ -1112,6 +1112,9 @@
 
   var OPEN_RAISE_MTT_PUSH = {
     UTG: { raise: 'TT+, AQs+, AKo', mix: '99, 88, ATs, KQs, AJo' },
+    UTG1: { raise: 'TT+, AQs+, AKo', mix: '99, 88, ATs, KQs, AJo' },
+    UTG2: { raise: '99+, AJs+, KQs, AJo+, KQo', mix: '88, 77, ATs, KJs, QJs, ATo' },
+    LJ: { raise: '99+, AJs+, KQs, AJo+, KQo', mix: '88, 77, ATs, KJs, QJs, ATo' },
     HJ: { raise: '99+, AJs+, KQs, AJo+, KQo', mix: '88, 77, ATs, KJs, QJs, ATo' },
     CO: { raise: '77+, A9s+, A5s-A2s, KTs+, QJs, JTs, ATo+, KJo+', mix: '66, 55, 98s, 87s, K9s' },
     BTN: { raise: '66+, A8s+, A5s-A2s, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+', mix: '55, 44, 87s, 76s, A8o' },
@@ -1236,7 +1239,7 @@ window.PT_VS_RFI_JSON = {
     },
     "BB_vs_SB": {
       "threeBet": "88+, ATs+, KJs+, ATo+, A5s",
-      "threeBetMix": "77-22, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo, A9o-A2o",
+      "threeBetMix": "77-55, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo",
       "call": "K4s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, KTo, QTo+, JTo, T9o, 98o"
     },
     "SB_vs_UTG": {
@@ -1259,7 +1262,7 @@ window.PT_VS_RFI_JSON = {
     },
     "SB_vs_BTN": {
       "threeBet": "88+, ATs+, KTs+, QJs, AJo+, A5s, A4s",
-      "threeBetMix": "77-44, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o",
+      "threeBetMix": "77-55, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o",
       "call": "33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, ATo, KTo, QTo+, JTo",
       "callMix": "A9o, T9o"
     },
@@ -1477,19 +1480,25 @@ window.PT_VS_3BET_JSON = {
   };
   const ORD6 = { UTG: 0, HJ: 1, CO: 2, BTN: 3, SB: 4, BB: 5 };
 
-  /** MTT ~60-100bb: opens más tight que cash. */
+  /** MTT ~60-100bb: opens más tight que cash. Posiciones 9-max explícitas (no mapear LJ→HJ en silencio). */
   const OPEN_RAISE_MTT = {
     UTG: { raise: '77+, ATs+, KQs, AJo+, KQo', mix: '66, A5s-A2s, KJs, QJs' },
+    UTG1: { raise: '77+, ATs+, KQs, AJo+, KQo', mix: '66, A5s-A2s, KJs, QJs, JTs' },
+    UTG2: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KQo', mix: '55, K9s, Q9s, 98s, KJo' },
+    LJ: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, K9s, Q9s, 98s' },
     HJ: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, K9s, Q9s, 98s' },
     CO: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, K9o' },
     BTN: { raise: '44+, A2s+, K7s+, Q8s+, J8s+, T8s+, 97s+, 87s, 76s, A7o+, K9o+, Q9o+, J9o+', mix: '33, 65s, A5o-A2o' },
     SB: { raise: '55+, A5s+, K8s+, Q9s+, J9s+, T9s, 98s, A8o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, JTo' }
   };
 
-  /** MTT ~25-40bb: opens mid (steal/ante), no chart de shove ultra-corto. */
+  /** MTT ~25-40bb: opens mid (steal/ante). LJ nativo: KJo en mix (no open-fold duro). */
   const OPEN_RAISE_MTT_SHORT = {
     UTG: { raise: '99+, AQs+, AKo', mix: '88, 77, ATs, KQs, AJo' },
-    HJ: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo' },
+    UTG1: { raise: '99+, AQs+, AKo', mix: '88, 77, ATs, KQs, AJo, KQo' },
+    UTG2: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo' },
+    LJ: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo, KJo' },
+    HJ: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo, KJo' },
     CO: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, 98s, 87s, K9s' },
     BTN: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, A9o+, KTo+, QTo+, Q9o', mix: '44, A4s-A2s, 76s, A8o' },
     SB: { raise: '66+, A8s+, KTs+, Q9s+, JTs, T9s, ATo+, KJo+', mix: '55, A5s-A7s, 98s, K9s, QTo' }
@@ -2063,9 +2072,12 @@ window.PT_VS_3BET_JSON = {
       if (val >= 0.99) {
         if (row.threeBet && N().expand(row.threeBet).indexOf(code) >= 0) threeBet.push(code);
         else if (row.call && N().expand(row.call).indexOf(code) >= 0) call.push(code);
-        else threeBet.push(code);
+        else if (row.threeBetMix && N().expand(row.threeBetMix).indexOf(code) >= 0) threeBetMix.push(code);
+        else if (row.callMix && N().expand(row.callMix).indexOf(code) >= 0) callMix.push(code);
+        else call.push(code);
       } else if (val >= 0.45) {
         if (row.threeBetMix && N().expand(row.threeBetMix).indexOf(code) >= 0) threeBetMix.push(code);
+        else if (row.threeBet && N().expand(row.threeBet).indexOf(code) >= 0) threeBetMix.push(code);
         else callMix.push(code);
       } else {
         callMix.push(code);
@@ -2084,11 +2096,11 @@ window.PT_VS_3BET_JSON = {
     if (c.isMtt && V()) {
       if (c.stackDepth === 'short') {
         const ext = global.GTORangesExtended;
-        // OPEN_RAISE_MTT_PUSH es para shove real (≤16 bb). Mid ~25 bb usa SHORT
-        // (steal/open), no el chart de push — si no, QTs/KJo SB y steals late fallan.
+        // OPEN_RAISE_MTT_PUSH solo para shove real (≤16 bb) o fase push explícita.
+        // Short ~20–25 bb usa SHORT (steal/open), no el chart de push.
         const pushStack = c.stackBB != null && c.stackBB <= 16;
-        const pushPhase = c.mttPhase === 'push' || c.mttPhase === 'short';
-        if (ext && ext.OPEN_RAISE_MTT_PUSH && (pushStack || (pushPhase && c.stackBB <= 20))) {
+        const pushPhase = c.mttPhase === 'push';
+        if (ext && ext.OPEN_RAISE_MTT_PUSH && (pushStack || pushPhase)) {
           return ext.OPEN_RAISE_MTT_PUSH;
         }
         return V().OPEN_RAISE_MTT_SHORT;
@@ -2140,12 +2152,29 @@ window.PT_VS_3BET_JSON = {
   function getVsRfiRow(heroPos, openerPos, ctx) {
     const c = normalize(ctx);
     const table = getVsRfiTable(c);
+    let row = null;
     if (c.is9Max || c.isMtt) {
       const pairKey = vsRfiPairKey(heroPos, openerPos);
-      if (table[pairKey]) return table[pairKey];
+      if (table[pairKey]) row = table[pairKey];
     }
-    const key = vsRfiKey(heroPos, openerPos, ctx);
-    return table[key] || null;
+    if (!row) {
+      const key = vsRfiKey(heroPos, openerPos, ctx);
+      row = table[key] || null;
+    }
+    if (!row) return null;
+    return applyVillainLevelToVsRfi(cloneRow(row), ctx && ctx.villainLevel);
+  }
+
+  /** Rivales fish: reintroduce bluffs Axo extremos en BB vs SB / steals. Pro: charts acotados. */
+  function applyVillainLevelToVsRfi(row, villainLevel) {
+    if (!row) return row;
+    const level = villainLevel || 'pro';
+    if (level === 'fish') {
+      row.threeBetMix = widenField(row.threeBetMix || '', 'A9o-A2o, 44-22, K9o, Q9o');
+    } else if (level === 'intermediate') {
+      row.threeBetMix = widenField(row.threeBetMix || '', 'A8o-A5o, 44');
+    }
+    return row;
   }
 
   function getVs3betRow(openerPos, threeBettorPos, ctx) {
@@ -2366,6 +2395,7 @@ window.PT_VS_3BET_JSON = {
     openRangeStr,
     getVsRfiTable,
     getVsRfiRow,
+    adjustVsRfiRow,
     getVs3bet,
     getVs3betRow,
     getVs4bet,
@@ -10124,7 +10154,9 @@ window.PT_VS_3BET_JSON = {
     /** any | srp3way | srp4way | limpPot — solo si scenario=multiway */
     multiwayPotType: 'any',
     /** 'quick' = salta a la decisión del héroe; 'complete' = muestra UTG→BB */
-    actionMode: 'complete'
+    actionMode: 'complete',
+    /** sizing open preflop en bb (2.2 | 2.5 | 3) */
+    preflopOpenSize: 2.5
   };
 
   const RAKE_LS_KEY = 'pt_rake_prefs';
@@ -10239,6 +10271,12 @@ window.PT_VS_3BET_JSON = {
     if (ante > 2) ante = 2;
     if (c.formatHub === 'cash') ante = 0;
     c.anteBB = ante;
+
+    if (c.actionMode !== 'quick' && c.actionMode !== 'complete') c.actionMode = 'complete';
+
+    var openSz = Number(c.preflopOpenSize);
+    if (openSz !== 2.2 && openSz !== 2.5 && openSz !== 3) openSz = 2.5;
+    c.preflopOpenSize = openSz;
 
     // Rake solo cash; torneos/spins sin rake de bote cash.
     if (c.formatHub !== 'cash') c.rakeMode = 'none';
@@ -10981,7 +11019,7 @@ window.PT_VS_3BET_JSON = {
       standard: '100bb', short: '50bb', deep: '200bb'
     }[c.stackDepth] || (stackDepthToBB(c.stackDepth) != null ? c.stackBB + 'bb' : c.stackDepth);
     const sc = {
-      random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
+      random: 'Escenario aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
       '4bet': '4-Bet', squeeze: 'Squeeze', iso: 'Iso limp',
       bbvsb: 'BB vs SB limp', sbLimp: 'SB limp', cold4bet: 'Cold 4-Bet',
       multiway: 'Multiway', push: 'Push/fold', steal: 'Steal'
@@ -10991,10 +11029,22 @@ window.PT_VS_3BET_JSON = {
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
     const st = { random: 'Todas las calles', preflop: 'Solo preflop', flop: 'Desde flop', turn: 'Desde turn', river: 'Desde river' }[c.practiceStreet] || c.practiceStreet;
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
-    const phase = c.formatHub !== 'cash' ? (' · ' + (c.resolvedPhase || c.mttPhase)) : '';
+    let phase = '';
+    if (c.formatHub !== 'cash') {
+      const resolved = c.resolvedPhase || c.mttPhase;
+      if (!c.mttPhase || c.mttPhase === 'auto') {
+        phase = ' · Fase ' + resolved + ' (auto)';
+      } else {
+        const TaxP = global.PTFormatTaxonomy;
+        const phaseName = (TaxP && TaxP.PHASE_LABELS && TaxP.PHASE_LABELS[c.mttPhase]) || c.mttPhase;
+        phase = ' · Fase ' + phaseName;
+      }
+    }
     const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
+    const open = c.preflopOpenSize ? (' · open ' + c.preflopOpenSize + '×') : '';
+    const spinPay = (c.formatHub === 'spin' && c.spinPayout) ? (' · payout ' + c.spinPayout) : '';
     const am = c.actionMode === 'complete' ? 'Modo completo' : 'Modo rápido';
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + spinPay + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {
@@ -11385,10 +11435,30 @@ window.PT_VS_3BET_JSON = {
 
   // --- Parámetros de juego (en ciegas grandes) ---
   const SB = 0.5, BBET = 1, EFF = 100;
-  const OPEN = 2.5, SB_OPEN = 3.0;        // tamaño de apertura
+  const OPEN_DEFAULT = 2.5, SB_OPEN_DEFAULT = 3.0;        // tamaño de apertura por defecto
   const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
   const DEAL_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
   const PREFLOP_ACTION = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+
+  function configuredOpenSize(hand) {
+    const cfg = hand && hand.playConfig;
+    let base = OPEN_DEFAULT;
+    if (cfg && cfg.preflopOpenSize != null) {
+      const n = Number(cfg.preflopOpenSize);
+      if (n === 2.2 || n === 2.5 || n === 3) base = n;
+    }
+    return base;
+  }
+
+  function openSizeForPos(hand, pos) {
+    const base = configuredOpenSize(hand);
+    if (pos === 'SB') return Math.round((base + 0.5) * 100) / 100;
+    return base;
+  }
+
+  /** Compat: constantes usadas como fallback cuando no hay mano. */
+  const OPEN = OPEN_DEFAULT;
+  const SB_OPEN = SB_OPEN_DEFAULT;
 
   function dealFullTable() {
     const deck = C.shuffledDeckExcluding([]);
@@ -13503,7 +13573,7 @@ window.PT_VS_3BET_JSON = {
       }
       hand.villain.pos = villainPos;
       if (hand._predeal) hand._predeal.villainPos = villainPos;
-      const openSize = OPEN;
+      const openSize = configuredOpenSize(hand);
       foldSeatsExcept(hand, [heroPos, villainPos]);
       hand.table.folded[heroPos] = false;
       hand.table.folded[villainPos] = false;
@@ -13520,7 +13590,7 @@ window.PT_VS_3BET_JSON = {
       if (!villainPos || villainPos === heroPos) villainPos = (heroPos === 'BB' ? 'BTN' : 'BB');
       hand.villain.pos = villainPos;
       if (hand._predeal) hand._predeal.villainPos = villainPos;
-      const openSize = heroPos === 'SB' ? SB_OPEN : OPEN;
+      const openSize = openSizeForPos(hand, heroPos);
       foldSeatsExcept(hand, [heroPos, villainPos]);
       hand.table.folded[heroPos] = false;
       hand.table.folded[villainPos] = false;
@@ -13616,7 +13686,7 @@ window.PT_VS_3BET_JSON = {
     const opener = s.openerPos || 'CO';
     const callers = (s.callerPositions || (s.callerPos ? [s.callerPos] : ['BTN'])).slice();
     const heroPos = s.heroPos || s.engineHeroPos || 'BB';
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
     hand.hero.pos = heroPos;
     hand.villain.pos = opener;
     ensureOpenerOpenHand(hand, opener);
@@ -13807,7 +13877,7 @@ window.PT_VS_3BET_JSON = {
     const pos = scenarioHeroPos(hand);
     hand.hero.pos = pos;
     const displayPos = hand.displayHeroPos || hand.scenario.heroPos || pos;
-    const openSize = pos === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, pos);
     const mode = preflopSizingMode(hand);
     const stackBB = round2(effStackForHand(hand));
     const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
@@ -13866,7 +13936,7 @@ window.PT_VS_3BET_JSON = {
     ensureOpenerOpenHand(hand, opener);
     hand.villain.rangeStr = openRangeStr(opener, hand);
     initVillainTracker(hand);
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
 
     // contribuciones: villano abrió a openSize; ciegas puestas
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
@@ -13941,7 +14011,7 @@ window.PT_VS_3BET_JSON = {
     ensureOpenerOpenHand(hand, openerPos);
     hand.villain.rangeStr = openRangeStr(openerPos, hand);
     initVillainTracker(hand);
-    const openSize = OPEN;
+    const openSize = configuredOpenSize(hand);
     // bote: ciegas + open + call del pagador (dinero muerto)
     hand.potBB = round2(SB + BBET + openSize + openSize);
     const heroBlind = heroPos === 'SB' ? SB : (heroPos === 'BB' ? BBET : 0);
@@ -14104,7 +14174,7 @@ window.PT_VS_3BET_JSON = {
 
     if (node.kind === 'multiwayReady') {
       setHeroAct(hand, actionId === 'check' ? 'check' : 'call', 0);
-      const openSize = hand._multiwayOpenSize || OPEN;
+      const openSize = hand._multiwayOpenSize || configuredOpenSize(hand);
       if (hand._multiwayPendingCallers && hand._multiwayPendingCallers.length) {
         ensureCallersPaidOpen(hand, hand._multiwayPendingCallers, openSize);
       }
@@ -14489,7 +14559,7 @@ window.PT_VS_3BET_JSON = {
         setPreflopSeatBet(hand, hero, node.openSize);
         hand.heroInPosition = inPos(hero, opener);
         if (hand._multiwayPendingCallers && hand._multiwayPendingCallers.length && MW() && MW().allowMultiway(hand)) {
-          const openSize = hand._multiwayOpenSize || node.openSize || OPEN;
+          const openSize = hand._multiwayOpenSize || node.openSize || configuredOpenSize(hand);
           const extras = hand._multiwayPendingCallers.filter(function (c) { return c !== opener && c !== hero; });
           ensureCallersPaidOpen(hand, extras.concat([opener]), openSize);
           // Asegurar inversión del opener
@@ -14530,7 +14600,7 @@ window.PT_VS_3BET_JSON = {
       }
       // 3-bet
       hand.heroIsAggressor = true;
-      const threeBetSize = node.threeBetSize || round2((node.openSize || OPEN) * 3.5);
+      const threeBetSize = node.threeBetSize || round2((node.openSize || configuredOpenSize(hand)) * 3.5);
       hand.heroInvested = threeBetSize;
       addInvest(hand, hero, round2(threeBetSize - (hand.table.invested[hero] || 0)));
       setHeroAct(hand, 'raise', threeBetSize);
@@ -14746,7 +14816,7 @@ window.PT_VS_3BET_JSON = {
     ensureOpenerOpenHand(hand, opener);
     hand.villain.rangeStr = hand._predeal.villainRange || bb3betRange(opener, hand);
     initVillainTracker(hand);
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
     const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
     hand.heroInvested = openSize;
     hand.villainInvested = threeBetSize;
@@ -14798,7 +14868,7 @@ window.PT_VS_3BET_JSON = {
     hand.potBB = round2(SB + BBET);
     hand.heroInvested = SB;
     hand.toCallBB = round2(BBET - SB);
-    const openSize = SB_OPEN;
+    const openSize = openSizeForPos(hand, 'SB');
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'sbLimp', potBB: hand.potBB, toCallBB: hand.toCallBB });
     hand.current = {
       street: 'preflop', kind: 'sbLimp', potBB: hand.potBB, toCallBB: hand.toCallBB,
@@ -14825,7 +14895,7 @@ window.PT_VS_3BET_JSON = {
     ensureThreeBetHand(hand, tb, opener);
     hand.villain.rangeStr = threeBetRangeStr(tb, opener, hand);
     initVillainTracker(hand);
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
     const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
     const cold4Size = round2(threeBetSize * 2.3);
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
@@ -14864,7 +14934,7 @@ window.PT_VS_3BET_JSON = {
       ? global.PTPlayConfig.face4betVillainRangeStr(hand.playConfig)
       : R.VS_3BET.fourBet;
     initVillainTracker(hand);
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
     const threeBetSize = inPos(hero, opener) ? round2(openSize * 3) : round2(openSize * 4);
     const fourBetSize = round2(threeBetSize * 2.3);
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
@@ -15762,7 +15832,7 @@ window.PT_VS_3BET_JSON = {
     if (!hero || order.indexOf(hero) < 0) return events;
 
     function openSize(pos) {
-      return pos === 'SB' ? SB_OPEN : OPEN;
+      return openSizeForPos(hand, pos);
     }
 
     if (s.type === 'RFI' || s.type === 'sbLimp') {
@@ -15783,7 +15853,7 @@ window.PT_VS_3BET_JSON = {
       const pk = parseFace3betKey(s.key);
       const opener = scriptSeat(hand, pk.opener || hero);
       const tb = scriptSeat(hand, (hand.villain && hand.villain.pos) || pk.threeBettor);
-      const oAmt = seatActAmount(hand, opener, openSize(opener)) || hand.heroInvested || OPEN;
+      const oAmt = seatActAmount(hand, opener, openSize(opener)) || hand.heroInvested || configuredOpenSize(hand);
       const tbAmt = seatActAmount(hand, tb, hand.villainInvested);
       events.push.apply(events, foldsUntil(order, opener));
       events.push(scriptEvent(opener, 'open', oAmt, { autoHero: opener === hero }));
@@ -15813,7 +15883,7 @@ window.PT_VS_3BET_JSON = {
     if (s.type === 'squeeze' || s.type === 'squeezeMulti') {
       const opener = scriptSeat(hand, s.openerPos || (hand.villain && hand.villain.pos));
       const caller = scriptSeat(hand, s.callerPos);
-      const oAmt = seatActAmount(hand, opener, OPEN);
+      const oAmt = seatActAmount(hand, opener, openSize(opener));
       const cAmt = seatActAmount(hand, caller, oAmt);
       events.push.apply(events, foldsUntil(order, opener));
       events.push(scriptEvent(opener, 'open', oAmt));
@@ -15840,7 +15910,7 @@ window.PT_VS_3BET_JSON = {
     if (s.type === 'cold4bet') {
       const opener = scriptSeat(hand, s.openerPos);
       const tb = scriptSeat(hand, s.threeBettorPos || (hand.villain && hand.villain.pos));
-      const oAmt = seatActAmount(hand, opener, OPEN);
+      const oAmt = seatActAmount(hand, opener, openSize(opener));
       const tbAmt = seatActAmount(hand, tb, hand.villainInvested);
       events.push.apply(events, foldsUntil(order, opener));
       events.push(scriptEvent(opener, 'open', oAmt));
@@ -26752,6 +26822,7 @@ window.PT_VS_3BET_JSON = {
     const thEl = $('#setup-table-theme .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
     const mwPotEl = $('#setup-multiway-pot-type .setup-chip.active');
+    const openSizeEl = $('#setup-open-size .setup-chip.active');
     const laEl = $('#setup-live-advisor');
     const modeEl = $('#setup-advisor-mode .setup-chip.active');
     const thrEl = $('#setup-serious-threshold');
@@ -26806,7 +26877,8 @@ window.PT_VS_3BET_JSON = {
       rakeCapBB: rakeCapBB,
       allowMultiway: true,
       multiwayPotType: mwPotEl ? mwPotEl.dataset.val : 'any',
-      actionMode: readActionModeFromSetup()
+      actionMode: readActionModeFromSetup(),
+      preflopOpenSize: openSizeEl ? Number(openSizeEl.dataset.val) : 2.5
     });
   }
 
@@ -26860,13 +26932,113 @@ window.PT_VS_3BET_JSON = {
     const t = (theme === 'midnight' || theme === 'crimson') ? theme : 'emerald';
     document.querySelectorAll('#play-active .table-felt, .session-replay-table .table-felt').forEach((felt) => {
       felt.setAttribute('data-theme', t);
+      applyTableFormatAttrs(felt, cfg);
     });
+  }
+
+  function formatHubOfConfig(cfg) {
+    if (!cfg) return 'cash';
+    if (cfg.formatHub === 'spin' || cfg.formatHub === 'mtt' || cfg.formatHub === 'cash') return cfg.formatHub;
+    const PC = window.PTPlayConfig;
+    if (PC) {
+      if (PC.isSpin(cfg)) return 'spin';
+      if (PC.isMtt(cfg)) return 'mtt';
+    }
+    const Tax = window.PTFormatTaxonomy;
+    if (Tax && Tax.hubFromGameType) return Tax.hubFromGameType(cfg.gameType);
+    return 'cash';
+  }
+
+  function applyTableFormatAttrs(felt, cfg) {
+    if (!felt) return;
+    const hub = formatHubOfConfig(cfg);
+    felt.setAttribute('data-format', hub);
+    let badge = felt.querySelector('.table-format-badge');
+    if (!badge && felt.id !== 'play-active') {
+      /* replay tables inject badge via HTML */
+    }
+    if (!badge) badge = felt.querySelector('.table-format-badge');
+    const labels = { cash: 'CASH', spin: 'SPIN', mtt: 'MTT' };
+    if (badge) {
+      badge.textContent = labels[hub] || 'CASH';
+      badge.setAttribute('aria-hidden', 'false');
+    }
   }
 
   function tableWatermarkHTML() {
     return '<div class="table-watermark" aria-hidden="true">' +
       '<span class="table-watermark-mark"></span>' +
-      '<span class="table-watermark-text">PokerForgeAI</span></div>';
+      '<span class="table-watermark-text">PokerForgeAI</span>' +
+      '<span class="table-watermark-sub">Modo entrenamiento</span></div>';
+  }
+
+  function tableFormatBadgeHTML(cfg) {
+    const hub = formatHubOfConfig(cfg);
+    const labels = { cash: 'CASH', spin: 'SPIN', mtt: 'MTT' };
+    return '<div class="table-format-badge">' + (labels[hub] || 'CASH') + '</div>';
+  }
+
+  function phaseLabelForHud(phase) {
+    const Tax = window.PTFormatTaxonomy;
+    if (Tax && Tax.PHASE_LABELS && Tax.PHASE_LABELS[phase]) {
+      const raw = Tax.PHASE_LABELS[phase];
+      if (phase === 'auto') return 'Auto';
+      return raw;
+    }
+    const map = { early: 'Early', mid: 'Mid', short: 'Short', push: 'Push/fold', bubble: 'Burbuja', auto: 'Auto' };
+    return map[phase] || phase || '';
+  }
+
+  function buildTrainHudChips(cfg) {
+    if (!cfg) return [];
+    const hub = formatHubOfConfig(cfg);
+    const chips = [];
+    const stackBB = cfg.stackBB != null ? cfg.stackBB : (window.PTPlayConfig && PTPlayConfig.stackBB ? PTPlayConfig.stackBB(cfg) : null);
+    if (stackBB != null) chips.push({ text: stackBB + 'bb', cls: '' });
+    if (hub !== 'cash') {
+      const resolved = cfg.resolvedPhase || cfg.mttPhase || 'auto';
+      const phaseTxt = phaseLabelForHud(resolved);
+      const autoNote = (cfg.mttPhase === 'auto' || !cfg.mttPhase) ? ' (auto)' : '';
+      chips.push({
+        text: phaseTxt + autoNote,
+        cls: 'is-phase',
+        title: cfg.mttPhase === 'auto' ? 'Fase Auto según stack' : 'Fase fija en setup'
+      });
+      if (cfg.anteBB > 0) chips.push({ text: 'Ante ' + cfg.anteBB + 'bb', cls: '' });
+      const Tax = window.PTFormatTaxonomy;
+      const icmOn = Tax && Tax.usesIcm ? Tax.usesIcm(cfg) : (hub === 'spin');
+      if (icmOn) chips.push({ text: 'ICM', cls: 'is-icm' });
+      if (hub === 'spin' && cfg.spinPayout) {
+        chips.push({ text: 'Payout ' + String(cfg.spinPayout).toUpperCase(), cls: 'is-icm' });
+      }
+    }
+    if (cfg.preflopOpenSize) chips.push({ text: 'Open ' + cfg.preflopOpenSize + '×', cls: '' });
+    return chips;
+  }
+
+  function renderTrainHud(cfg) {
+    const hud = $('#table-train-hud');
+    if (!hud) return;
+    if (cfg && cfg.legendaryMode) {
+      hud.innerHTML = '';
+      return;
+    }
+    const chips = buildTrainHudChips(cfg);
+    hud.innerHTML = chips.map((c) =>
+      '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '"' +
+      (c.title ? ' title="' + escapeHtml(c.title) + '"' : '') + '>' +
+      escapeHtml(c.text) + '</span>'
+    ).join('');
+  }
+
+  function tableChromeHTML(cfg) {
+    return tableFormatBadgeHTML(cfg) +
+      '<div class="table-train-hud">' +
+      buildTrainHudChips(cfg).map((c) =>
+        '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '">' + escapeHtml(c.text) + '</span>'
+      ).join('') +
+      '</div>' +
+      tableWatermarkHTML();
   }
 
   const REPLAY_TABLE_THEMES = [
@@ -27001,6 +27173,68 @@ window.PT_VS_3BET_JSON = {
     });
   }
 
+  const PLAY_PRESETS = {
+    custom: null,
+    cash6: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      stackDepth: 'bb100',
+      scenario: 'random',
+      mttPhase: 'auto',
+      villainLevel: 'pro',
+      practiceStreet: 'random',
+      preflopOpenSize: 2.5,
+      heroPos: 'random',
+      handRange: 'playable'
+    },
+    spin_grind: {
+      formatHub: 'spin',
+      gameType: 'spin3',
+      stackDepth: 'bb15',
+      scenario: 'random',
+      mttPhase: 'auto',
+      spinPayout: '3x',
+      villainLevel: 'pro',
+      practiceStreet: 'preflop',
+      preflopOpenSize: 2.5,
+      heroPos: 'random',
+      handRange: 'playable'
+    },
+    mtt_low: {
+      formatHub: 'mtt',
+      gameType: 'mtt',
+      stackDepth: 'bb25',
+      scenario: 'random',
+      mttPhase: 'mid',
+      villainLevel: 'pro',
+      practiceStreet: 'preflop',
+      preflopOpenSize: 2.2,
+      heroPos: 'random',
+      handRange: 'playable'
+    }
+  };
+
+  function applyPlayPreset(presetKey) {
+    const key = presetKey || 'custom';
+    const box = $('#setup-play-preset');
+    if (box) {
+      box.querySelectorAll('.setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === key);
+      });
+    }
+    const partial = PLAY_PRESETS[key];
+    if (!partial) return;
+    applyPlaySetupConfig(partial);
+  }
+
+  function markPresetCustom() {
+    const box = $('#setup-play-preset');
+    if (!box) return;
+    box.querySelectorAll('.setup-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.val === 'custom');
+    });
+  }
+
   function applyPlaySetupConfig(partial) {
     const PC = window.PTPlayConfig;
     if (!PC) return null;
@@ -27024,6 +27258,7 @@ window.PT_VS_3BET_JSON = {
     activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
     activate('#setup-scenario', cfg.scenario);
     activate('#setup-stack-depth', cfg.stackDepth);
+    activate('#setup-open-size', String(cfg.preflopOpenSize != null ? cfg.preflopOpenSize : 2.5));
     syncPhaseStackUI(hub);
     activate('#setup-practice-intent', 'mixed');
     activate('#setup-spin-payout', cfg.spinPayout || '2x');
@@ -27128,6 +27363,7 @@ window.PT_VS_3BET_JSON = {
     bindChipGroup('#setup-game-type', renderHeroPosChips);
     bindChipGroup('#setup-stack-depth');
     bindChipGroup('#setup-scenario', () => {
+      markPresetCustom();
       const hub = activeFormatHub();
       const Tax = window.PTFormatTaxonomy;
       const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
@@ -27147,6 +27383,7 @@ window.PT_VS_3BET_JSON = {
     bindChipGroup('#setup-multiway-pot-type');
     bindChipGroup('#setup-practice-intent');
     bindChipGroup('#setup-mtt-phase', () => {
+      markPresetCustom();
       const hub = activeFormatHub();
       const Tax = window.PTFormatTaxonomy;
       const phaseEl = $('#setup-mtt-phase .setup-chip.active');
@@ -27161,6 +27398,15 @@ window.PT_VS_3BET_JSON = {
       }
       syncPhaseStackUI(hub);
     });
+    bindChipGroup('#setup-open-size', markPresetCustom);
+    bindChipGroup('#setup-play-preset', () => {
+      const el = $('#setup-play-preset .setup-chip.active');
+      if (el) applyPlayPreset(el.dataset.val);
+    });
+    const hubBoxForPreset = $('#setup-format-hub');
+    if (hubBoxForPreset) {
+      hubBoxForPreset.addEventListener('click', () => markPresetCustom());
+    }
     bindChipGroup('#setup-spin-payout');
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
@@ -28423,6 +28669,9 @@ window.PT_VS_3BET_JSON = {
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     if (!(cfg && cfg.legendaryMode)) {
       applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+      renderTrainHud(cfg);
+    } else {
+      renderTrainHud(null);
     }
     const heroSeatPos = hand.displayHeroPos || hand.hero.pos;
     const heroDealerEl = $('#hero-dealer');
@@ -30172,12 +30421,49 @@ window.PT_VS_3BET_JSON = {
     else html += `La jugada de mayor frecuencia GTO era <strong>${bestLabel}</strong> (${Math.round((d.gto[d.best] || 0) * 100)}%).`;
     html += `</div>`;
     if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}%</div>`;
+    html += renderDecisionContextLine(d);
     html += renderDecisionMath(d);
     html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
+    if (d.icmNote || d.icmPressure != null || d.bubbleFactor != null) {
+      html += '<div class="result-line" style="border:none;padding-top:4px;color:#8ab4ff">';
+      html += '<strong>ICM:</strong> ';
+      if (d.icmNote) html += escapeHtml(d.icmNote);
+      const bits = [];
+      if (d.icmPressure != null) bits.push('presión ' + Math.round(Number(d.icmPressure) * 100) + '%');
+      if (d.bubbleFactor != null) bits.push('BF ' + Number(d.bubbleFactor).toFixed(2));
+      if (d.icmMultiplier != null && Number(d.icmMultiplier) !== 1) bits.push('×' + Number(d.icmMultiplier).toFixed(2) + ' $EV');
+      if (bits.length) html += (d.icmNote ? ' · ' : '') + bits.join(' · ');
+      html += '</div>';
+    }
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
     if (d.errors && d.errors.length) html += `<div class="result-line" style="border-color:var(--red)">${d.errors.map((e) => escapeHtml(e.msg)).join(' · ')}</div>`;
     html += renderOptionGrid(d.optionBreakdown, d.action, d.best);
     fb.innerHTML = html;
+  }
+
+  function renderDecisionContextLine(d) {
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    if (!cfg && !d) return '';
+    const parts = [];
+    const hub = formatHubOfConfig(cfg || {});
+    if (hub === 'spin') parts.push('Spin (estudio por charts + ICM lite)');
+    else if (hub === 'mtt') parts.push('MTT (estudio heurístico por fase)');
+    else parts.push('Cash');
+    if (cfg) {
+      if (cfg.resolvedPhase && hub !== 'cash') parts.push('fase ' + phaseLabelForHud(cfg.resolvedPhase));
+      if (cfg.stackBB != null) parts.push(cfg.stackBB + 'bb');
+      if (cfg.anteBB > 0) parts.push('ante ' + cfg.anteBB);
+      if (hub === 'spin' && cfg.spinPayout) parts.push('payout ' + cfg.spinPayout);
+      if (cfg.preflopOpenSize) parts.push('open ' + cfg.preflopOpenSize + '×');
+      if (cfg.villainLevel && cfg.villainLevel !== 'pro') {
+        parts.push('rivales ' + cfg.villainLevel + ' (no es GTO puro del villano)');
+      }
+    }
+    if (hand && hand.displayHeroPos && hand.hero && hand.hero.pos && hand.displayHeroPos !== hand.hero.pos) {
+      parts.push(hand.displayHeroPos + ' evaluado como ' + hand.hero.pos + ' (mapa 6-max)');
+    }
+    if (!parts.length) return '';
+    return '<div class="muted-text" style="margin-top:6px;font-size:12px">' + escapeHtml(parts.join(' · ')) + '</div>';
   }
 
   function renderGtoBars(gto) {
@@ -34027,6 +34313,23 @@ window.PT_VS_3BET_JSON = {
     return '<div class="seat-cards">' + Cards.cardBackHTML() + Cards.cardBackHTML() + '</div>';
   }
 
+  function replayFeltConfigFromHand(h) {
+    const kind = (h && (h.gameKind || h.formatHub)) || 'cash';
+    let formatHub = 'cash';
+    if (kind === 'spin' || kind === 'spin3') formatHub = 'spin';
+    else if (kind === 'mtt' || kind === 'sng' || kind === 'tournament') formatHub = 'mtt';
+    return {
+      formatHub: formatHub,
+      gameType: formatHub === 'spin' ? 'spin3' : (formatHub === 'mtt' ? 'mtt' : 'cash6'),
+      stackBB: h && h.heroStackBB != null ? h.heroStackBB : null,
+      mttPhase: h && h.mttPhase,
+      resolvedPhase: h && (h.resolvedPhase || h.mttPhase),
+      anteBB: h && h.anteBB,
+      spinPayout: h && h.spinPayout,
+      preflopOpenSize: h && h.preflopOpenSize
+    };
+  }
+
   function renderShowdownTableHTML(h) {
     const layout = sessionTableLayout(h);
     const mobile = isMobileLayout();
@@ -34076,9 +34379,10 @@ window.PT_VS_3BET_JSON = {
       ? '<div class="hero-cards">' + heroCards.map(Cards.cardToHTML).join('') + '</div>'
       : '';
 
+    const feltCfg = replayFeltConfigFromHand(h);
     const feltClass = layout === '9' ? ' table-9max' : (layout === '3' ? ' table-3max' : '');
-    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}">
-      ${tableWatermarkHTML()}
+    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
+      ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${potBB != null ? fmtBB(potBB) : '—'} bb</div>
       <div class="board">${board.map(Cards.cardToHTML).join('')}</div></div>
@@ -34390,10 +34694,11 @@ window.PT_VS_3BET_JSON = {
       '</div>';
 
     const potDisplay = d.potBB;
+    const feltCfg = replayFeltConfigFromHand(h);
     const feltClass = layout === '9' ? ' table-9max' : (layout === '3' ? ' table-3max' : '');
 
-    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}">
-      ${tableWatermarkHTML()}
+    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
+      ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${fmtBB(potDisplay)} bb</div>
       <div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>

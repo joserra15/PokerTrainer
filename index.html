@@ -617,7 +617,7 @@
     <section id="tab-play" class="tab-panel">
       <div id="play-setup" class="play-setup card-box">
         <h2 class="play-setup-title"><span class="panel-icon home-card-icon home-card-icon-train" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M6 4h8l4 4v12H6z"/><path d="M14 4v4h4"/><path d="M9 14l2 2 4-5"/></svg></span>Configurar sesión</h2>
-        <p class="muted-text play-setup-sub">Entrena por formato (Cash, Spins o Torneos) con escenarios, ICM y drills de faroles. <button type="button" class="btn-link" id="btn-help-setup" data-open-help>Atajos y ayuda</button></p>
+        <p class="muted-text play-setup-sub">Entrena por formato (Cash, Spins o Torneos). Cash usa charts GTO de estudio; Spins/Torneos son estudio heurístico por fase/stack + ICM lite (no árbol solver). En el tapete verás siempre que estás en modo entrenamiento. <button type="button" class="btn-link" id="btn-help-setup" data-open-help>Atajos y ayuda</button></p>
 
         <div class="setup-group">
           <span class="setup-label">Formato</span>
@@ -638,17 +638,28 @@
           </div>
         </div>
 
+        <div class="setup-group" id="setup-group-preset">
+          <span class="setup-label">Mi juego (preset)</span>
+          <div class="setup-chips" id="setup-play-preset">
+            <button type="button" class="setup-chip active" data-val="custom">Personalizado</button>
+            <button type="button" class="setup-chip" data-val="cash6">Cash 6-max</button>
+            <button type="button" class="setup-chip" data-val="spin_grind">Spin grind</button>
+            <button type="button" class="setup-chip" data-val="mtt_low">Reg MTT low</button>
+          </div>
+          <p class="muted-text setup-hint">Atajos de configuración. No cambian el motor: fijan hub, fase, escenarios y nivel de rivales típicos de ese juego.</p>
+        </div>
+
         <div class="setup-group" id="setup-group-phase" hidden>
-          <span class="setup-label">Fase</span>
+          <span class="setup-label">Fase del torneo</span>
           <div class="setup-chips" id="setup-mtt-phase">
-            <button type="button" class="setup-chip active" data-val="auto">Auto</button>
+            <button type="button" class="setup-chip active" data-val="auto">Auto (por stack)</button>
             <button type="button" class="setup-chip" data-val="early">Early</button>
             <button type="button" class="setup-chip" data-val="mid">Mid</button>
             <button type="button" class="setup-chip" data-val="short">Short</button>
             <button type="button" class="setup-chip" data-val="push">Push/fold</button>
             <button type="button" class="setup-chip" data-val="bubble" data-hub-mtt>Burbuja</button>
           </div>
-          <p class="muted-text setup-hint">La fase ajusta rangos, antes, ICM y el stack del héroe. En Spins, «Burbuja» equivale a presión ICM de mesa corta.</p>
+          <p class="muted-text setup-hint">La fase ajusta rangos, antes, ICM y el stack. «Auto (por stack)» elige Early/Mid/Short/Push según tus bb — no es lo mismo que escenario Aleatorio. En cada mano verás la fase resuelta en el tapete.</p>
         </div>
 
         <div class="setup-group" id="setup-group-spin-payout" hidden>
@@ -676,10 +687,20 @@
           <p class="muted-text setup-hint" id="setup-stack-hint">Los villanos reciben un stack aleatorio cercano al tuyo. En Spins/MTT, con fase Auto eliges el stack; si fijas fase o Push/Steal, el stack se ajusta solo.</p>
         </div>
 
+        <div class="setup-group" id="setup-group-open-size">
+          <span class="setup-label">Sizing open</span>
+          <div class="setup-chips" id="setup-open-size">
+            <button type="button" class="setup-chip" data-val="2.2">2.2×</button>
+            <button type="button" class="setup-chip active" data-val="2.5">2.5×</button>
+            <button type="button" class="setup-chip" data-val="3">3×</button>
+          </div>
+          <p class="muted-text setup-hint">Tamaño de apertura preflop usado en el spot (SB suma +0.5 bb).</p>
+        </div>
+
         <div class="setup-group">
           <span class="setup-label">Escenario</span>
           <div class="setup-chips" id="setup-scenario">
-            <button type="button" class="setup-chip active" data-val="random">Random</button>
+            <button type="button" class="setup-chip active" data-val="random">Aleatorio</button>
             <button type="button" class="setup-chip" data-val="rfi">RFI</button>
             <button type="button" class="setup-chip" data-val="3bet">3-Bet</button>
             <button type="button" class="setup-chip" data-val="face3bet">Vs 3-Bet</button>
@@ -846,13 +867,16 @@
               </div>
             </div>
             <div class="poker-table">
-              <div class="table-felt">
+              <div class="table-felt" data-format="cash">
                 <div id="play-table-loading" class="play-table-loading hidden" aria-live="polite" aria-busy="false">
                   <div class="play-table-spinner" aria-hidden="true"></div>
                 </div>
+                <div class="table-format-badge" id="table-format-badge" aria-hidden="true">CASH</div>
+                <div class="table-train-hud" id="table-train-hud" aria-live="polite"></div>
                 <div class="table-watermark" aria-hidden="true">
                   <span class="table-watermark-mark"></span>
                   <span class="table-watermark-text">PokerForgeAI</span>
+                  <span class="table-watermark-sub">Modo entrenamiento</span>
                 </div>
                 <div id="seats" class="seats"></div>
                 <div class="board-area">

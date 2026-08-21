@@ -150,9 +150,12 @@
       if (val >= 0.99) {
         if (row.threeBet && N().expand(row.threeBet).indexOf(code) >= 0) threeBet.push(code);
         else if (row.call && N().expand(row.call).indexOf(code) >= 0) call.push(code);
-        else threeBet.push(code);
+        else if (row.threeBetMix && N().expand(row.threeBetMix).indexOf(code) >= 0) threeBetMix.push(code);
+        else if (row.callMix && N().expand(row.callMix).indexOf(code) >= 0) callMix.push(code);
+        else call.push(code);
       } else if (val >= 0.45) {
         if (row.threeBetMix && N().expand(row.threeBetMix).indexOf(code) >= 0) threeBetMix.push(code);
+        else if (row.threeBet && N().expand(row.threeBet).indexOf(code) >= 0) threeBetMix.push(code);
         else callMix.push(code);
       } else {
         callMix.push(code);
@@ -171,11 +174,11 @@
     if (c.isMtt && V()) {
       if (c.stackDepth === 'short') {
         const ext = global.GTORangesExtended;
-        // OPEN_RAISE_MTT_PUSH es para shove real (≤16 bb). Mid ~25 bb usa SHORT
-        // (steal/open), no el chart de push — si no, QTs/KJo SB y steals late fallan.
+        // OPEN_RAISE_MTT_PUSH solo para shove real (≤16 bb) o fase push explícita.
+        // Short ~20–25 bb usa SHORT (steal/open), no el chart de push.
         const pushStack = c.stackBB != null && c.stackBB <= 16;
-        const pushPhase = c.mttPhase === 'push' || c.mttPhase === 'short';
-        if (ext && ext.OPEN_RAISE_MTT_PUSH && (pushStack || (pushPhase && c.stackBB <= 20))) {
+        const pushPhase = c.mttPhase === 'push';
+        if (ext && ext.OPEN_RAISE_MTT_PUSH && (pushStack || pushPhase)) {
           return ext.OPEN_RAISE_MTT_PUSH;
         }
         return V().OPEN_RAISE_MTT_SHORT;
@@ -227,12 +230,29 @@
   function getVsRfiRow(heroPos, openerPos, ctx) {
     const c = normalize(ctx);
     const table = getVsRfiTable(c);
+    let row = null;
     if (c.is9Max || c.isMtt) {
       const pairKey = vsRfiPairKey(heroPos, openerPos);
-      if (table[pairKey]) return table[pairKey];
+      if (table[pairKey]) row = table[pairKey];
     }
-    const key = vsRfiKey(heroPos, openerPos, ctx);
-    return table[key] || null;
+    if (!row) {
+      const key = vsRfiKey(heroPos, openerPos, ctx);
+      row = table[key] || null;
+    }
+    if (!row) return null;
+    return applyVillainLevelToVsRfi(cloneRow(row), ctx && ctx.villainLevel);
+  }
+
+  /** Rivales fish: reintroduce bluffs Axo extremos en BB vs SB / steals. Pro: charts acotados. */
+  function applyVillainLevelToVsRfi(row, villainLevel) {
+    if (!row) return row;
+    const level = villainLevel || 'pro';
+    if (level === 'fish') {
+      row.threeBetMix = widenField(row.threeBetMix || '', 'A9o-A2o, 44-22, K9o, Q9o');
+    } else if (level === 'intermediate') {
+      row.threeBetMix = widenField(row.threeBetMix || '', 'A8o-A5o, 44');
+    }
+    return row;
   }
 
   function getVs3betRow(openerPos, threeBettorPos, ctx) {
@@ -453,6 +473,7 @@
     openRangeStr,
     getVsRfiTable,
     getVsRfiRow,
+    adjustVsRfiRow,
     getVs3bet,
     getVs3betRow,
     getVs4bet,

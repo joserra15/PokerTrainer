@@ -10,19 +10,25 @@
   };
   const ORD6 = { UTG: 0, HJ: 1, CO: 2, BTN: 3, SB: 4, BB: 5 };
 
-  /** MTT ~60-100bb: opens más tight que cash. */
+  /** MTT ~60-100bb: opens más tight que cash. Posiciones 9-max explícitas (no mapear LJ→HJ en silencio). */
   const OPEN_RAISE_MTT = {
     UTG: { raise: '77+, ATs+, KQs, AJo+, KQo', mix: '66, A5s-A2s, KJs, QJs' },
+    UTG1: { raise: '77+, ATs+, KQs, AJo+, KQo', mix: '66, A5s-A2s, KJs, QJs, JTs' },
+    UTG2: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KQo', mix: '55, K9s, Q9s, 98s, KJo' },
+    LJ: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, K9s, Q9s, 98s' },
     HJ: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, K9s, Q9s, 98s' },
     CO: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, K9o' },
     BTN: { raise: '44+, A2s+, K7s+, Q8s+, J8s+, T8s+, 97s+, 87s, 76s, A7o+, K9o+, Q9o+, J9o+', mix: '33, 65s, A5o-A2o' },
     SB: { raise: '55+, A5s+, K8s+, Q9s+, J9s+, T9s, 98s, A8o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, JTo' }
   };
 
-  /** MTT ~25-40bb: opens mid (steal/ante), no chart de shove ultra-corto. */
+  /** MTT ~25-40bb: opens mid (steal/ante). LJ nativo: KJo en mix (no open-fold duro). */
   const OPEN_RAISE_MTT_SHORT = {
     UTG: { raise: '99+, AQs+, AKo', mix: '88, 77, ATs, KQs, AJo' },
-    HJ: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo' },
+    UTG1: { raise: '99+, AQs+, AKo', mix: '88, 77, ATs, KQs, AJo, KQo' },
+    UTG2: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo' },
+    LJ: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo, KJo' },
+    HJ: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, 66, A9s, KJs, QJs, ATo, KJo' },
     CO: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, 98s, 87s, K9s' },
     BTN: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, A9o+, KTo+, QTo+, Q9o', mix: '44, A4s-A2s, 76s, A8o' },
     SB: { raise: '66+, A8s+, KTs+, Q9s+, JTs, T9s, ATo+, KJo+', mix: '55, A5s-A7s, 98s, K9s, QTo' }
