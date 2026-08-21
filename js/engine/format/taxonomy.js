@@ -187,7 +187,8 @@
 
     if (sc === 'push') return stackDepthsForPush().slice();
     if (sc === 'steal') return (stackDepthsForSteal(h) || base).slice();
-    return base;
+    // Fase Auto: stacks del hub + opción Aleatorio (muestrea por mano).
+    return base.concat(['random']);
   }
 
   function clampStackDepth(hub, phase, scenario, stackDepth) {
@@ -203,6 +204,26 @@
     const p = normalizePhase(phase);
     if (p !== 'auto') return defaultStackDepthForPhase(hub, p);
     return allowed[0] || defaultStackDepthForPhase(hub, 'auto');
+  }
+
+  /** Pool de stacks concretos para muestrear cuando stackDepth=random. */
+  function randomStackPool(hub, phase, scenario) {
+    const h = normalizeHub(hub);
+    const p = normalizePhase(phase);
+    const sc = String(scenario || '');
+    if (h === 'cash') return (UI_STACK_DEPTHS.cash || []).slice();
+    if (sc === 'push') return stackDepthsForPush().slice();
+    if (sc === 'steal') return (stackDepthsForSteal(h) || UI_STACK_DEPTHS[h] || []).slice();
+    if (p !== 'auto') return [defaultStackDepthForPhase(h, p)];
+    return (UI_STACK_DEPTHS[h] || UI_STACK_DEPTHS.cash).slice();
+  }
+
+  function pickRandomStackDepth(hub, phase, scenario, rnd) {
+    const pool = randomStackPool(hub, phase, scenario);
+    if (!pool.length) return defaultStackDepthForPhase(hub, 'auto');
+    const r = typeof rnd === 'function' ? rnd() : Math.random();
+    const idx = Math.min(pool.length - 1, Math.floor(r * pool.length));
+    return pool[idx];
   }
 
   /** true si el stack del héroe no debe elegirse libremente (fase fija o push/steal). */
@@ -296,6 +317,8 @@
     stackFitsPhase: stackFitsPhase,
     allowedStackDepths: allowedStackDepths,
     clampStackDepth: clampStackDepth,
+    randomStackPool: randomStackPool,
+    pickRandomStackDepth: pickRandomStackDepth,
     stackSelectionLocked: stackSelectionLocked,
     resolvePhase: resolvePhase,
     defaultAnteBB: defaultAnteBB,

@@ -1944,7 +1944,7 @@
     order.forEach(function (pos) { holeCards[pos] = null; });
     let dead = [];
 
-    const heroMode = (playConfig && (playConfig.handRange === 'all' ? 'random' : playConfig.handRange)) || 'playable';
+    const heroMode = (playConfig && (playConfig.handRange === 'all' ? 'random' : playConfig.handRange)) || 'borderline';
     const fullRandom = heroMode === 'random';
 
     const heroSeat = PC ? PC.heroDealSeat(scenario, playConfig) : scenario.heroPos;

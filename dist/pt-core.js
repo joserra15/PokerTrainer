@@ -445,7 +445,8 @@
 
     if (sc === 'push') return stackDepthsForPush().slice();
     if (sc === 'steal') return (stackDepthsForSteal(h) || base).slice();
-    return base;
+    // Fase Auto: stacks del hub + opción Aleatorio (muestrea por mano).
+    return base.concat(['random']);
   }
 
   function clampStackDepth(hub, phase, scenario, stackDepth) {
@@ -461,6 +462,26 @@
     const p = normalizePhase(phase);
     if (p !== 'auto') return defaultStackDepthForPhase(hub, p);
     return allowed[0] || defaultStackDepthForPhase(hub, 'auto');
+  }
+
+  /** Pool de stacks concretos para muestrear cuando stackDepth=random. */
+  function randomStackPool(hub, phase, scenario) {
+    const h = normalizeHub(hub);
+    const p = normalizePhase(phase);
+    const sc = String(scenario || '');
+    if (h === 'cash') return (UI_STACK_DEPTHS.cash || []).slice();
+    if (sc === 'push') return stackDepthsForPush().slice();
+    if (sc === 'steal') return (stackDepthsForSteal(h) || UI_STACK_DEPTHS[h] || []).slice();
+    if (p !== 'auto') return [defaultStackDepthForPhase(h, p)];
+    return (UI_STACK_DEPTHS[h] || UI_STACK_DEPTHS.cash).slice();
+  }
+
+  function pickRandomStackDepth(hub, phase, scenario, rnd) {
+    const pool = randomStackPool(hub, phase, scenario);
+    if (!pool.length) return defaultStackDepthForPhase(hub, 'auto');
+    const r = typeof rnd === 'function' ? rnd() : Math.random();
+    const idx = Math.min(pool.length - 1, Math.floor(r * pool.length));
+    return pool[idx];
   }
 
   /** true si el stack del héroe no debe elegirse libremente (fase fija o push/steal). */
@@ -554,6 +575,8 @@
     stackFitsPhase: stackFitsPhase,
     allowedStackDepths: allowedStackDepths,
     clampStackDepth: clampStackDepth,
+    randomStackPool: randomStackPool,
+    pickRandomStackDepth: pickRandomStackDepth,
     stackSelectionLocked: stackSelectionLocked,
     resolvePhase: resolvePhase,
     defaultAnteBB: defaultAnteBB,
@@ -1967,16 +1990,30 @@ window.PT_VS_3BET_JSON = {
     const stackDepth = rangeStackCategory(stackDepthKey, stackBB);
     const Tax = global.PTFormatTaxonomy;
     const formatHub = c.formatHub || (Tax ? Tax.hubFromGameType(gameType) : (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash')));
+    const isSpin = gameType === 'spin3' || formatHub === 'spin';
+    const isMtt = gameType === 'mtt' || formatHub === 'mtt';
+    const isTournament = isSpin || isMtt;
+    let effectivePhase = c.resolvedPhase || null;
+    if (!effectivePhase || effectivePhase === 'auto') {
+      if (c.mttPhase && c.mttPhase !== 'auto') effectivePhase = c.mttPhase;
+      else if (Tax && Tax.phaseFromStackBB) effectivePhase = Tax.phaseFromStackBB(stackBB, formatHub);
+      else effectivePhase = stackBB <= 12 ? 'push' : (stackBB <= 25 ? 'short' : (stackBB <= 45 ? 'mid' : 'early'));
+    }
     return {
       gameType: gameType,
       formatHub: formatHub,
       stackDepth: stackDepth,
       stackDepthKey: stackDepthKey,
       is9Max: gameType === 'cash9' || gameType === 'mtt',
-      isMtt: gameType === 'mtt',
-      isSpin: gameType === 'spin3' || formatHub === 'spin',
+      isMtt: isMtt,
+      isSpin: isSpin,
+      isTournament: isTournament,
       stackBB: stackBB,
-      mttPhase: c.mttPhase || c.resolvedPhase || null,
+      mttPhase: c.mttPhase || null,
+      resolvedPhase: c.resolvedPhase || null,
+      effectivePhase: effectivePhase,
+      villainLevel: c.villainLevel || 'pro',
+      scenario: c.scenario || null,
       practiceIntent: c.practiceIntent || 'mixed'
     };
   }
@@ -1995,7 +2032,7 @@ window.PT_VS_3BET_JSON = {
 
   function vsRfiKey(heroPos, openerPos, ctx) {
     const c = normalize(ctx);
-    if (c.is9Max || c.isMtt) {
+    if (c.is9Max || c.isMtt || c.isSpin) {
       return toEnginePos(heroPos) + '_vs_' + toEnginePos(openerPos);
     }
     return heroPos + '_vs_' + openerPos;
@@ -2091,22 +2128,26 @@ window.PT_VS_3BET_JSON = {
     };
   }
 
+  function tournamentOpenTable(c) {
+    if (!V()) return D().OPEN_RAISE;
+    const phase = c.effectivePhase || 'early';
+    const ext = global.GTORangesExtended;
+    const pushStack = c.stackBB != null && c.stackBB <= 16;
+    if (phase === 'push' || pushStack) {
+      if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
+    }
+    if (phase === 'short' || phase === 'bubble' || (c.stackDepth === 'short' && phase !== 'early')) {
+      return V().OPEN_RAISE_MTT_SHORT || V().OPEN_RAISE_MTT;
+    }
+    if (phase === 'mid' && V().OPEN_RAISE_MTT_SHORT && c.stackBB != null && c.stackBB <= 30) {
+      return V().OPEN_RAISE_MTT_SHORT;
+    }
+    return V().OPEN_RAISE_MTT || D().OPEN_RAISE;
+  }
+
   function baseOpenTable(ctx) {
     const c = normalize(ctx);
-    if (c.isMtt && V()) {
-      if (c.stackDepth === 'short') {
-        const ext = global.GTORangesExtended;
-        // OPEN_RAISE_MTT_PUSH solo para shove real (≤16 bb) o fase push explícita.
-        // Short ~20–25 bb usa SHORT (steal/open), no el chart de push.
-        const pushStack = c.stackBB != null && c.stackBB <= 16;
-        const pushPhase = c.mttPhase === 'push';
-        if (ext && ext.OPEN_RAISE_MTT_PUSH && (pushStack || pushPhase)) {
-          return ext.OPEN_RAISE_MTT_PUSH;
-        }
-        return V().OPEN_RAISE_MTT_SHORT;
-      }
-      return V().OPEN_RAISE_MTT;
-    }
+    if (c.isTournament) return tournamentOpenTable(c);
     if (c.is9Max && V()) return V().OPEN_RAISE_9MAX;
     return D().OPEN_RAISE;
   }
@@ -2134,7 +2175,7 @@ window.PT_VS_3BET_JSON = {
 
   function baseVsRfiTable(ctx) {
     const c = normalize(ctx);
-    if (c.isMtt && V() && V().getVsRfiMtt) return V().getVsRfiMtt();
+    if (c.isTournament && V() && V().getVsRfiMtt) return V().getVsRfiMtt();
     if (c.is9Max && V() && V().getVsRfi9Max) return V().getVsRfi9Max();
     return D().VS_RFI;
   }
@@ -2144,8 +2185,24 @@ window.PT_VS_3BET_JSON = {
     const base = baseVsRfiTable(c);
     const out = {};
     Object.keys(base).forEach(function (key) {
-      out[key] = adjustVsRfiRow(cloneRow(base[key]), c.stackDepth);
+      let row = adjustVsRfiRow(cloneRow(base[key]), c.stackDepth);
+      row = applyPhaseToVsRfi(row, c);
+      out[key] = row;
     });
+    return out;
+  }
+
+  /** Ajusta defensa vs RFI según fase (bubble/push más tight; early más amplia). */
+  function applyPhaseToVsRfi(row, c) {
+    if (!row || !c || !c.isTournament) return row;
+    const phase = c.effectivePhase || 'early';
+    const out = cloneRow(row);
+    if (phase === 'push' || phase === 'bubble') {
+      out.threeBetMix = trimField(out.threeBetMix || '', 'A9o-A2o, KJo, QJo, T9o, 98o, 22, 33, 44');
+      out.callMix = trimField(out.callMix || '', 'KJo, QJo, JTo, T9o, 98o');
+    } else if (phase === 'short') {
+      out.threeBetMix = trimField(out.threeBetMix || '', 'A5o-A2o, QJo, T9o');
+    }
     return out;
   }
 
@@ -2153,7 +2210,7 @@ window.PT_VS_3BET_JSON = {
     const c = normalize(ctx);
     const table = getVsRfiTable(c);
     let row = null;
-    if (c.is9Max || c.isMtt) {
+    if (c.is9Max || c.isMtt || c.isSpin) {
       const pairKey = vsRfiPairKey(heroPos, openerPos);
       if (table[pairKey]) row = table[pairKey];
     }
@@ -2162,7 +2219,7 @@ window.PT_VS_3BET_JSON = {
       row = table[key] || null;
     }
     if (!row) return null;
-    return applyVillainLevelToVsRfi(cloneRow(row), ctx && ctx.villainLevel);
+    return applyVillainLevelToVsRfi(cloneRow(row), c.villainLevel || (ctx && ctx.villainLevel));
   }
 
   /** Rivales fish: reintroduce bluffs Axo extremos en BB vs SB / steals. Pro: charts acotados. */
@@ -9099,6 +9156,17 @@ window.PT_VS_3BET_JSON = {
     return handWeight(buckets.threeBet, code) > 0 || handWeight(buckets.call, code) > 0;
   }
 
+  function tournamentFoldBias(ctx) {
+    if (!ctx || !ctx.isTournament) return 0;
+    const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
+    if (phase === 'bubble') return 0.18;
+    if (phase === 'push') return 0.14;
+    if (phase === 'short') return 0.08;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) return 0.1;
+    return 0;
+  }
+
   /** Defensa BB/SB frente a open del héroe (fold / call / 3bet). */
   function defendVsOpen(code, profile, rnd, defenderPos, openerPos, ctx) {
     const r = rnd != null ? rnd : Math.random();
@@ -9108,15 +9176,16 @@ window.PT_VS_3BET_JSON = {
     const w3 = handWeight(buckets.threeBet, code);
     const wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
+    const icmBias = tournamentFoldBias(ctx);
 
     if (w3 <= 0 && wc <= 0) {
       if (allowsLeak(profile, '3bet', r)) return '3bet';
-      if (allowsLeak(profile, 'call', r)) return 'call';
+      if (!icmBias && allowsLeak(profile, 'call', r)) return 'call';
       return 'fold';
     }
 
     if (strict >= 0.99) {
-      const act = gtoMixAction(r, w3, wc, 'call');
+      const act = gtoMixAction(r, w3, wc * Math.max(0, 1 - icmBias), 'call');
       if (act === 'aggress') return '3bet';
       if (act === 'pass') return 'call';
       return 'fold';
@@ -9124,22 +9193,22 @@ window.PT_VS_3BET_JSON = {
 
     if (w3 >= 1) {
       if (r < VP.adjustThreeBetProb(strict >= 0.75 ? 0.72 : 0.68, profile)) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.82, profile)) return 'call';
+      if (wc > 0 && r < VP.adjustCallProb(0.82 - icmBias, profile)) return 'call';
       return 'fold';
     }
     if (w3 >= 0.5) {
       const freq = strict >= 0.75 ? w3 : VP.adjustThreeBetProb(0.32, profile);
       if (r < freq) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.58, profile)) return 'call';
+      if (wc > 0 && r < VP.adjustCallProb(0.58 - icmBias, profile)) return 'call';
       return 'fold';
     }
     if (w3 > 0) {
       if (r < (strict >= 0.75 ? w3 : VP.adjustThreeBetProb(w3 * 0.55, profile))) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.42, profile)) return 'call';
+      if (wc > 0 && r < VP.adjustCallProb(0.42 - icmBias, profile)) return 'call';
       return 'fold';
     }
-    if (wc >= 1) return r < VP.adjustFoldProb(0.14, profile) ? 'fold' : 'call';
-    if (wc >= 0.42) return r < VP.adjustCallProb(0.36, profile) ? 'call' : 'fold';
+    if (wc >= 1) return r < VP.adjustFoldProb(0.14 + icmBias, profile) ? 'fold' : 'call';
+    if (wc >= 0.42) return r < VP.adjustCallProb(0.36 - icmBias * 0.5, profile) ? 'call' : 'fold';
     return 'fold';
   }
 
@@ -10126,7 +10195,7 @@ window.PT_VS_3BET_JSON = {
     stackDepth: 'bb100',
     scenario: 'random',
     heroPos: 'random',
-    handRange: 'playable',
+    handRange: 'borderline',
     villainLevel: 'pro',
     practiceStreet: 'random',
     /** mixed | bluff_make | bluff_catch */
@@ -10250,7 +10319,7 @@ window.PT_VS_3BET_JSON = {
     }
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
-    if (!c.handRange) c.handRange = 'random';
+    if (!c.handRange) c.handRange = 'borderline';
     if (!c.villainLevel) c.villainLevel = 'pro';
     if (!c.practiceStreet) c.practiceStreet = 'random';
     // Faroles (hacer/cazar) ocultos en el entrenador: forzar mixed.
@@ -10259,9 +10328,23 @@ window.PT_VS_3BET_JSON = {
     else if (!c.mttPhase) c.mttPhase = 'auto';
     if (c.spinPayout !== '3x' && c.spinPayout !== '5x') c.spinPayout = '2x';
 
-    const parsedStack = stackDepthToBB(c.stackDepth);
-    c.stackBB = parsedStack != null ? parsedStack : 100;
-    if (Tax) c.resolvedPhase = Tax.resolvePhase(c);
+    if (c.stackDepth === 'random') {
+      c.stackDepthRandom = true;
+      c.stackDepthPreference = 'random';
+      // stackBB provisional (label/sesión); cada mano usa resolveHandConfig.
+      var pool = Tax && Tax.randomStackPool
+        ? Tax.randomStackPool(c.formatHub, c.mttPhase, c.scenario)
+        : (c.formatHub === 'spin' ? ['bb25', 'bb20', 'bb15', 'bb10'] : ['bb50', 'bb40', 'bb25', 'bb20']);
+      var midKey = pool[Math.floor(pool.length / 2)] || (c.formatHub === 'spin' ? 'bb15' : 'bb25');
+      c.stackBB = stackDepthToBB(midKey) || 25;
+      if (Tax) c.resolvedPhase = Tax.resolvePhase(Object.assign({}, c, { stackDepth: midKey, stackBB: c.stackBB }));
+    } else {
+      c.stackDepthRandom = false;
+      c.stackDepthPreference = null;
+      const parsedStack = stackDepthToBB(c.stackDepth);
+      c.stackBB = parsedStack != null ? parsedStack : 100;
+      if (Tax) c.resolvedPhase = Tax.resolvePhase(c);
+    }
 
     if (c.anteBB == null || c.anteBB === '') {
       c.anteBB = (Tax && c.formatHub !== 'cash') ? Tax.defaultAnteBB(c) : 0;
@@ -11013,11 +11096,13 @@ window.PT_VS_3BET_JSON = {
     const gt = {
       cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT', spin3: 'Spin 3-max'
     }[c.gameType] || c.gameType;
-    const sd = {
-      bb200: '200bb', bb100: '100bb', bb50: '50bb', bb45: '45bb', bb40: '40bb', bb25: '25bb',
-      bb22: '22bb', bb20: '20bb', bb15: '15bb', bb12: '12bb', bb11: '11bb', bb10: '10bb',
-      standard: '100bb', short: '50bb', deep: '200bb'
-    }[c.stackDepth] || (stackDepthToBB(c.stackDepth) != null ? c.stackBB + 'bb' : c.stackDepth);
+    const sd = c.stackDepth === 'random' || c.stackDepthRandom
+      ? 'Stack aleatorio'
+      : ({
+        bb200: '200bb', bb100: '100bb', bb50: '50bb', bb45: '45bb', bb40: '40bb', bb25: '25bb',
+        bb22: '22bb', bb20: '20bb', bb15: '15bb', bb12: '12bb', bb11: '11bb', bb10: '10bb',
+        standard: '100bb', short: '50bb', deep: '200bb'
+      }[c.stackDepth] || (stackDepthToBB(c.stackDepth) != null ? c.stackBB + 'bb' : c.stackDepth));
     const sc = {
       random: 'Escenario aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
       '4bet': '4-Bet', squeeze: 'Squeeze', iso: 'Iso limp',
@@ -11052,8 +11137,37 @@ window.PT_VS_3BET_JSON = {
     return c.stackBB;
   }
 
+  /**
+   * Resuelve stackDepth=random a un bb concreto por mano y recalcula fase/ante.
+   * Mantiene stackDepthPreference='random' para el HUD de sesión.
+   */
+  function resolveHandConfig(config, rnd) {
+    const base = normalize(config || {});
+    const wantsRandom = !!(base.stackDepthRandom || base.stackDepth === 'random'
+      || (config && config.stackDepthPreference === 'random'));
+    if (!wantsRandom) return base;
+    const Tax = global.PTFormatTaxonomy;
+    const phase = base.mttPhase || 'auto';
+    const picked = Tax && Tax.pickRandomStackDepth
+      ? Tax.pickRandomStackDepth(base.formatHub, phase, base.scenario, rnd)
+      : (base.formatHub === 'spin' ? 'bb15' : 'bb25');
+    const bb = stackDepthToBB(picked);
+    const out = Object.assign({}, base, {
+      stackDepth: picked,
+      stackBB: bb != null ? bb : base.stackBB,
+      stackDepthRandom: true,
+      stackDepthPreference: 'random'
+    });
+    if (Tax) {
+      out.resolvedPhase = Tax.resolvePhase(out);
+      if (out.formatHub === 'mtt') out.anteBB = Tax.defaultAnteBB(out);
+    }
+    return out;
+  }
+
   global.PTPlayConfig = {
     DEFAULT, normalize, pickScenario, labelFor, rakeLabel,
+    resolveHandConfig,
     STANDARD_RAKE, estimateRakeBB, potAfterRakeBB, loadRakePrefs, saveRakePrefs,
     PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB, stackDepthToBB,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9, POS_SPIN, DEAL_ORDER_SPIN, RFI_POS_SPIN,
@@ -13361,7 +13475,7 @@ window.PT_VS_3BET_JSON = {
     order.forEach(function (pos) { holeCards[pos] = null; });
     let dead = [];
 
-    const heroMode = (playConfig && (playConfig.handRange === 'all' ? 'random' : playConfig.handRange)) || 'playable';
+    const heroMode = (playConfig && (playConfig.handRange === 'all' ? 'random' : playConfig.handRange)) || 'borderline';
     const fullRandom = heroMode === 'random';
 
     const heroSeat = PC ? PC.heroDealSeat(scenario, playConfig) : scenario.heroPos;
@@ -26744,10 +26858,16 @@ window.PT_VS_3BET_JSON = {
           || chip.dataset.val === 'bb50';
       }
       if (h === 'cash' && (chip.dataset.val === 'bb40' || chip.dataset.val === 'bb20'
-        || chip.dataset.val === 'bb15' || chip.dataset.val === 'bb10')) show = false;
+        || chip.dataset.val === 'bb15' || chip.dataset.val === 'bb10' || chip.dataset.val === 'random')) show = false;
       if (h === 'spin' && (chip.dataset.val === 'bb200' || chip.dataset.val === 'bb100'
         || chip.dataset.val === 'bb50' || chip.dataset.val === 'bb40')) show = false;
-      if (allowed && show) show = allowed.indexOf(chip.dataset.val) >= 0;
+      if (allowed && show) {
+        if (chip.dataset.val === 'random') {
+          show = allowed.indexOf('random') >= 0;
+        } else {
+          show = allowed.indexOf(chip.dataset.val) >= 0;
+        }
+      }
       chip.hidden = !show;
       chip.disabled = !!(locked && show && allowed && allowed.length <= 1);
       if (!show) chip.classList.remove('active');
@@ -26793,7 +26913,7 @@ window.PT_VS_3BET_JSON = {
       } else if (phase && phase !== 'auto') {
         hint.textContent = 'Con fase fija el stack se ajusta solo a esa profundidad (no se configura a mano).';
       } else {
-        hint.textContent = 'Con fase Auto eliges el stack; Early/Mid/Short/Push adaptan el stack automáticamente.';
+        hint.textContent = 'Con fase Auto eliges el stack o «Aleatorio» (cambia por mano). Early/Mid/Short/Push fijan el stack automáticamente.';
       }
     }
   }
@@ -26859,7 +26979,7 @@ window.PT_VS_3BET_JSON = {
       stackDepth: sdEl ? sdEl.dataset.val : (hub === 'spin' ? 'bb25' : 'bb100'),
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
-      handRange: hrEl ? hrEl.dataset.val : 'playable',
+      handRange: hrEl ? hrEl.dataset.val : 'borderline',
       villainLevel: vlEl ? vlEl.dataset.val : 'pro',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
       // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
@@ -27185,12 +27305,12 @@ window.PT_VS_3BET_JSON = {
       practiceStreet: 'random',
       preflopOpenSize: 2.5,
       heroPos: 'random',
-      handRange: 'playable'
+      handRange: 'borderline'
     },
     spin_grind: {
       formatHub: 'spin',
       gameType: 'spin3',
-      stackDepth: 'bb15',
+      stackDepth: 'random',
       scenario: 'random',
       mttPhase: 'auto',
       spinPayout: '3x',
@@ -27198,7 +27318,7 @@ window.PT_VS_3BET_JSON = {
       practiceStreet: 'preflop',
       preflopOpenSize: 2.5,
       heroPos: 'random',
-      handRange: 'playable'
+      handRange: 'borderline'
     },
     mtt_low: {
       formatHub: 'mtt',
@@ -27210,7 +27330,7 @@ window.PT_VS_3BET_JSON = {
       practiceStreet: 'preflop',
       preflopOpenSize: 2.2,
       heroPos: 'random',
-      handRange: 'playable'
+      handRange: 'borderline'
     }
   };
 
@@ -28342,7 +28462,12 @@ window.PT_VS_3BET_JSON = {
       }
 
       let force = pendingForce;
-      const cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
+      let cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
+      if (!force && cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
+        cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
+          return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
+        });
+      }
       if (!force && repeatErrorsMode) {
         let errs = Store.getErrors();
         const streetFilter = cfg && cfg.practiceStreet;
