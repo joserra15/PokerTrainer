@@ -53,12 +53,14 @@ check(/\.table-watermark-sub/.test(shareCss) && /data-format="spin"/.test(shareC
 
 check(/function renderTrainHud/.test(app) && /function tableChromeHTML/.test(app),
   'app.js renderTrainHud + tableChromeHTML');
-check(/d\.icmNote/.test(app) && /ICM:/.test(app),
+check(/d\.icmNote/.test(app) && /ICM \(valor del premio\)/.test(app),
   'showFeedback renderiza bloque ICM');
+check(/ICM activo:/.test(app) && /title:/.test(app),
+  'chip ICM del HUD tiene tooltip explicativo');
 check(/PLAY_PRESETS/.test(app) && /spin_grind/.test(app) && /mtt_low/.test(app),
   'PLAY_PRESETS cash/spin/mtt');
 check(/preflopOpenSize/.test(app), 'preflopOpenSize cableado en readPlayConfig/apply');
-check(/PT_BUILD\s*=\s*'2\.7\.9'/.test(version), 'PT_BUILD 2.7.9');
+check(/PT_BUILD\s*=\s*'2.7.10'/.test(version), 'PT_BUILD 2.7.10');
 
 const decisionDoc = read('docs/DECISION_ENTRENADOR_MTT_SPIN.md');
 check(/Profundizar/.test(decisionDoc) && /ICM lite/.test(decisionDoc),

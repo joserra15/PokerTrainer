@@ -599,9 +599,21 @@
       if (cfg.anteBB > 0) chips.push({ text: 'Ante ' + cfg.anteBB + 'bb', cls: '' });
       const Tax = window.PTFormatTaxonomy;
       const icmOn = Tax && Tax.usesIcm ? Tax.usesIcm(cfg) : (hub === 'spin');
-      if (icmOn) chips.push({ text: 'ICM', cls: 'is-icm' });
+      if (icmOn) {
+        chips.push({
+          text: 'ICM',
+          cls: 'is-icm',
+          title: hub === 'spin'
+            ? 'ICM activo: en Spins el premio no es proporcional a las fichas. Las decisiones se juzgan también en valor de premio ($EV), no solo en fichas.'
+            : 'ICM activo: en esta fase (short / push / burbuja) el premio importa más que las fichas. Spews y calls ligeros se penalizan más.'
+        });
+      }
       if (hub === 'spin' && cfg.spinPayout) {
-        chips.push({ text: 'Payout ' + String(cfg.spinPayout).toUpperCase(), cls: 'is-icm' });
+        chips.push({
+          text: 'Payout ' + String(cfg.spinPayout).toUpperCase(),
+          cls: 'is-icm',
+          title: 'Estructura de premios del Spin (reparto del buy-in). Afecta al ICM.'
+        });
       }
     }
     if (cfg.preflopOpenSize) chips.push({ text: 'Open ' + cfg.preflopOpenSize + '×', cls: '' });
@@ -627,7 +639,9 @@
     return tableFormatBadgeHTML(cfg) +
       '<div class="table-train-hud">' +
       buildTrainHudChips(cfg).map((c) =>
-        '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '">' + escapeHtml(c.text) + '</span>'
+        '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '"' +
+        (c.title ? ' title="' + escapeHtml(c.title) + '"' : '') + '>' +
+        escapeHtml(c.text) + '</span>'
       ).join('') +
       '</div>' +
       tableWatermarkHTML();
@@ -4023,12 +4037,23 @@
     html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
     if (d.icmNote || d.icmPressure != null || d.bubbleFactor != null) {
       html += '<div class="result-line" style="border:none;padding-top:4px;color:#8ab4ff">';
-      html += '<strong>ICM:</strong> ';
+      html += '<strong>ICM (valor del premio):</strong> ';
       if (d.icmNote) html += escapeHtml(d.icmNote);
       const bits = [];
-      if (d.icmPressure != null) bits.push('presión ' + Math.round(Number(d.icmPressure) * 100) + '%');
-      if (d.bubbleFactor != null) bits.push('BF ' + Number(d.bubbleFactor).toFixed(2));
-      if (d.icmMultiplier != null && Number(d.icmMultiplier) !== 1) bits.push('×' + Number(d.icmMultiplier).toFixed(2) + ' $EV');
+      if (d.icmPressure != null) {
+        const pct = Math.round(Number(d.icmPressure) * 100);
+        bits.push(pct > 0
+          ? 'tu stack «vale menos» en premio que en fichas (+' + pct + '%)'
+          : (pct < 0
+            ? 'puedes arriesgar más (−' + Math.abs(pct) + '%)'
+            : 'equilibrio fichas ≈ premio'));
+      }
+      if (d.bubbleFactor != null && Number(d.bubbleFactor) !== 1) {
+        bits.push('coste de arriesgar ×' + Number(d.bubbleFactor).toFixed(2));
+      }
+      if (d.icmMultiplier != null && Number(d.icmMultiplier) !== 1) {
+        bits.push('EV ajustado ×' + Number(d.icmMultiplier).toFixed(2));
+      }
       if (bits.length) html += (d.icmNote ? ' · ' : '') + bits.join(' · ');
       html += '</div>';
     }
@@ -7664,7 +7689,7 @@
           }
           if (heroDec.renderAlert) html += `<div class="tl-expl" style="color:var(--orange)">${escapeHtml(heroDec.renderAlert)}</div>`;
           if (heroDec.icmNote) {
-            html += `<div class="tl-expl" style="color:#8ab4ff"><strong>ICM lite:</strong> ${escapeHtml(heroDec.icmNote)}</div>`;
+            html += `<div class="tl-expl" style="color:#8ab4ff"><strong>ICM (valor del premio):</strong> ${escapeHtml(heroDec.icmNote)}</div>`;
           }
           if (heroDec.populationCompare && heroDec.populationCompare.note) {
             const ok = heroDec.populationCompare.inGtoRange;

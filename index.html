@@ -617,7 +617,7 @@
     <section id="tab-play" class="tab-panel">
       <div id="play-setup" class="play-setup card-box">
         <h2 class="play-setup-title"><span class="panel-icon home-card-icon home-card-icon-train" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M6 4h8l4 4v12H6z"/><path d="M14 4v4h4"/><path d="M9 14l2 2 4-5"/></svg></span>Configurar sesión</h2>
-        <p class="muted-text play-setup-sub">Entrena por formato (Cash, Spins o Torneos). Cash usa charts GTO de estudio; Spins/Torneos son estudio heurístico por fase/stack + ICM lite (no árbol solver). En el tapete verás siempre que estás en modo entrenamiento. <button type="button" class="btn-link" id="btn-help-setup" data-open-help>Atajos y ayuda</button></p>
+        <p class="muted-text play-setup-sub">Entrena por formato (Cash, Spins o Torneos). Cash usa charts GTO de estudio; Spins/Torneos son estudio por fase/stack. Cuando veas la etiqueta <strong>ICM</strong> en el tapete, el premio importa más que las fichas (Spins siempre; MTT en short/push/burbuja). <button type="button" class="btn-link" id="btn-help-setup" data-open-help>Atajos y ayuda</button></p>
 
         <div class="setup-group">
           <span class="setup-label">Formato</span>
@@ -669,7 +669,7 @@
             <button type="button" class="setup-chip" data-val="3x">3×</button>
             <button type="button" class="setup-chip" data-val="5x">5×</button>
           </div>
-          <p class="muted-text setup-hint">Se usa para grading ICM aproximado ($EV), no solo chip-EV.</p>
+          <p class="muted-text setup-hint">ICM = el premio no es proporcional a las fichas. El payout se usa para juzgar jugadas en valor de premio, no solo en bb ganadas/perdidas.</p>
         </div>
 
         <div class="setup-group" id="setup-group-stack">
