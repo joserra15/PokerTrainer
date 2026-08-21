@@ -187,6 +187,7 @@
       // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).
       const Icm = global.GTOIcmEv;
       let icmMult = 1;
+      const chipEvLoss = evLoss;
       if (Icm && Icm.shouldApply(enriched) && evLoss > 0) {
         icmMult = Icm.riskMultiplier(Object.assign({}, enriched, { chosenAction: input.chosenAction }));
         evLoss = Icm.adjustEvLoss(evLoss, Object.assign({}, enriched, { chosenAction: input.chosenAction }));
@@ -228,6 +229,7 @@
         bestEV: evResult.bestEV,
         bestAction: evResult.bestAction,
         evLoss: evLoss,
+        chipEvLoss: chipEvLoss,
         evLossEuro: bbEuro > 0 ? EvLoss.round2(evLoss * bbEuro) : 0,
         evErroneous: evErroneous,
         evErrorReasons: evErrorReasons,
@@ -242,6 +244,32 @@
       };
       if (Icm && Icm.shouldApply(enriched)) {
         Icm.annotateDecision(result.evaluation, enriched);
+      }
+      const Tax = global.PTFormatTaxonomy;
+      const hub = enriched.formatHub
+        || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(enriched.gameType) : null);
+      if (hub === 'spin' || hub === 'mtt') {
+        const phase = enriched.mttPhase || enriched.resolvedPhase || null;
+        result.evaluation.formatHub = hub;
+        result.evaluation.mttPhase = phase;
+        result.evaluation.phaseNote = phase
+          ? ('Rango/evaluación según fase «' + phase + '»'
+            + (enriched.stackDepth || enriched.heroStackBB
+              ? (' · ' + (enriched.heroStackBB != null ? enriched.heroStackBB + 'bb' : String(enriched.stackDepth)))
+              : '')
+            + '.')
+          : (hub === 'spin'
+            ? 'Rango/evaluación de Spin (stack-aware).'
+            : 'Rango/evaluación de torneo.');
+        if (result.evaluation.icmLite && chipEvLoss > 0
+          && Math.abs((result.evaluation.evLoss || 0) - chipEvLoss) >= 0.01) {
+          result.evaluation.icmChangedEv = true;
+          result.evaluation.icmNote = (result.evaluation.icmNote ? result.evaluation.icmNote + ' ' : '')
+            + 'EV en fichas −' + chipEvLoss + ' bb → con ICM −'
+            + (result.evaluation.evLoss || 0) + ' bb (×'
+            + (result.evaluation.icmMultiplier != null ? result.evaluation.icmMultiplier : icmMult)
+            + ').';
+        }
       }
       result.explanation = Explanations.generate(enriched, spotKey, strategy, result.evaluation);
     } else {
