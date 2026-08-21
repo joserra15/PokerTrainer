@@ -13,7 +13,7 @@ const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 const appSrc = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const ciSrc = fs.readFileSync(path.join(root, 'tools/run-ci-tests.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.7.22'/.test(version), 'versión 2.7.22');
+assert.ok(/PT_BUILD\s*=\s*'2.7.23'/.test(version), 'versión 2.7.23');
 assert.ok(/hasSchoolProgress/.test(cloudSrc), 'cloud hasSchoolProgress');
 assert.ok(/hasSchoolProgress\(val\)/.test(cloudSrc), 'hasLocalData cuenta Escuela');
 assert.ok(/hasSchoolProgress\(st\)/.test(storageSrc), 'isStatsEmpty cuenta Escuela');
@@ -150,7 +150,86 @@ Store.mergeFromCloud({
 });
 const schoolOnly = Store.getStats().school;
 assert.ok(schoolOnly && schoolOnly.lessons['S-00'], 'progreso solo-Escuela no se borra si cloud no trae school');
-assert.strictEqual(schoolOnly.xp, 80, 'xp local se conserva');
+assert.ok(schoolOnly.lessons['C-01'] && schoolOnly.lessons['C-03'],
+  'clave propia repone lecciones aunque se reescriba stats');
+assert.strictEqual(schoolOnly.xp, 220, 'xp nunca retrocede (clave propia)');
+
+/* Clave propia: el progreso sobrevive a que stats se pise o se quede sin espacio. */
+(function assertDedicatedSchoolKey() {
+  assert.ok(typeof Store.getSchoolProgress === 'function', 'Store.getSchoolProgress');
+  assert.ok(typeof Store.saveSchoolProgress === 'function', 'Store.saveSchoolProgress');
+  const saved = Store.saveSchoolProgress({
+    xp: 300,
+    lessons: {
+      'R-08': { passed: true, attempts: 1, bestScore: 0.75, bestPct: 75, updatedAt: '2026-08-21T00:00:00.000Z' }
+    },
+    updatedAt: Date.now(),
+    version: 2
+  });
+  assert.ok(saved, 'saveSchoolProgress OK');
+  assert.ok(localStore['pt_school_progress_v1_user-school-sync'], 'escribe clave dedicada');
+
+  /* Simula stats borrado por otra ruta (cuota, clear, snapshot antiguo). */
+  sandbox.localStorage.setItem(statsKey, JSON.stringify({
+    handsPlayed: 0, decisions: 0, byStreet: {}, updatedAt: 2
+  }));
+  const rehydrated = Store.getStats().school;
+  assert.ok(rehydrated && rehydrated.lessons['R-08'] && rehydrated.lessons['R-08'].passed,
+    'R-08 se repone desde clave dedicada tras perder stats');
+  assert.strictEqual(rehydrated.lessons['R-08'].bestPct, 75, 'conserva 75%');
+
+  /* Snapshot para la nube incluye Escuela → sincroniza con el PC. */
+  const snap = Store.getCloudSnapshot();
+  assert.ok(snap.stats && snap.stats.school && snap.stats.school.lessons['R-08'],
+    'getCloudSnapshot sube Escuela');
+
+  /* replaceFromCloud (nube gana) no puede borrar Escuela local. */
+  Store.replaceFromCloud({
+    stats: { handsPlayed: 5, decisions: 5, byStreet: {}, updatedAt: 999 },
+    history: [],
+    errors: []
+  });
+  const afterReplace = Store.getStats().school;
+  assert.ok(afterReplace && afterReplace.lessons['R-08'],
+    'replaceFromCloud conserva Escuela local');
+})();
+
+/* Cuota llena: stats no cabe pero Escuela sí (clave pequeña). */
+(function assertSurvivesQuotaFull() {
+  const realSet = sandbox.localStorage.setItem;
+  sandbox.localStorage.setItem = function (k, v) {
+    if (k === statsKey) {
+      const err = new Error('QuotaExceededError');
+      err.name = 'QuotaExceededError';
+      throw err;
+    }
+    return realSet.call(this, k, v);
+  };
+  let saved = false;
+  try {
+    saved = Store.saveSchoolProgress({
+      xp: 400,
+      lessons: {
+        'R-09': { passed: true, attempts: 1, bestScore: 1, bestPct: 100, updatedAt: '2026-08-21T01:00:00.000Z' }
+      },
+      updatedAt: Date.now(),
+      version: 2
+    });
+  } finally {
+    sandbox.localStorage.setItem = realSet;
+  }
+  assert.ok(saved, 'saveSchoolProgress OK aunque stats no quepa');
+  const prog = Store.getSchoolProgress();
+  assert.ok(prog && prog.lessons['R-09'] && prog.lessons['R-09'].passed,
+    'R-09 persiste con stats sin espacio');
+  assert.ok(prog.lessons['R-08'], 'no pierde R-08 previa');
+  assert.ok(Store.getStats().school.lessons['R-09'],
+    'getStats repone R-09 desde clave dedicada');
+})();
+
+assert.ok(/saveSchoolProgress/.test(schoolSrc), 'writeSchool usa clave dedicada de Store');
+assert.ok(/getSchoolProgress/.test(schoolSrc), 'readDurableSchool lee clave dedicada');
+assert.ok(/writeResilient/.test(storageSrc), 'escrituras con reintento tras liberar espacio');
 
 vm.runInContext(schoolSrc, sandbox, { filename: 'school.js' });
 assert.ok(sandbox.window.PTSchool && typeof sandbox.window.PTSchool.refreshFromCloud === 'function',

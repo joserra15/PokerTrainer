@@ -35,7 +35,7 @@ ok(/\.table-train-chrome/.test(css) && /\.table-train-chrome/.test(shareCss),
   'CSS chrome en styles + share');
 ok(/table-train-chrome[\s\S]{0,220}flex-wrap:\s*nowrap/.test(css),
   'chrome en una sola línea (nowrap)');
-ok(/PT_BUILD\s*=\s*'2\.7\.22'/.test(version), 'PT_BUILD 2.7.22');
+ok(/PT_BUILD\s*=\s*'2\.7\.23'/.test(version), 'PT_BUILD 2.7.23');
 
 const sandbox = { window: {}, console, Math, Date, Object, Array, Number, String, JSON, parseInt, isFinite };
 vm.createContext(sandbox);

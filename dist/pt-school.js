@@ -13402,7 +13402,19 @@
     return out;
   }
 
-  /** Stats + backup sin overlay (fuente durable para no pisar scores). */
+  /** Clave dedicada de Store (pequeña, sobrevive a cuota llena). */
+  function readSchoolStore() {
+    try {
+      var S = Store();
+      if (!S || typeof S.getSchoolProgress !== 'function') return null;
+      var val = S.getSchoolProgress();
+      return val && typeof val === 'object' ? val : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /** Stats + clave propia + backup sin overlay (fuente durable para no pisar scores). */
   function readDurableSchool() {
     var st = Store() && Store().getStats ? Store().getStats() : null;
     var school = (st && st.school) ? st.school : null;
@@ -13420,8 +13432,8 @@
         fromStats._needsPersistMigration = true;
       }
     }
-    var fromBackup = readSchoolBackup();
-    return mergeSchoolObjects(fromStats, fromBackup);
+    var merged = mergeSchoolObjects(fromStats, readSchoolStore());
+    return mergeSchoolObjects(merged, readSchoolBackup());
   }
 
   function readSchool() {
@@ -13451,12 +13463,15 @@
       updatedAt: Date.now(),
       version: Number(mergedIn.version) || 2
     };
-    if (!S || !S.getStats || !S.persistStats) {
-      writeSchoolBackup(payload);
-      return false;
+    /* Clave propia primero: es pequeña y sobrevive aunque stats no quepa. */
+    var savedOwn = false;
+    if (S && typeof S.saveSchoolProgress === 'function') {
+      try { savedOwn = !!S.saveSchoolProgress(payload); } catch (eOwn) { savedOwn = false; }
     }
+    writeSchoolBackup(payload);
+    if (!S || !S.getStats || !S.persistStats) return savedOwn;
     var st = S.getStats();
-    /* Merge también con st.school crudo por si readDurable falló en tests. */
+    /* Merge también con st.school crudo por si readDurable falló. */
     if (st && st.school) {
       payload = {
         xp: Math.max(Number(payload.xp) || 0, Number(st.school.xp) || 0),
@@ -13467,7 +13482,6 @@
     }
     st.school = payload;
     S.persistStats(st);
-    writeSchoolBackup(payload);
     var verified = false;
     try {
       var again = S.getStats();
