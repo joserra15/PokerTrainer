@@ -1738,6 +1738,62 @@
     });
   }
 
+  const MAX_PLAY_PRESETS = 12;
+
+  function getPlayPresets() {
+    const list = read(scopedKey('playPresets'), []);
+    return Array.isArray(list) ? list : [];
+  }
+
+  function serializePlayPreset(name, config, existingId) {
+    const label = String(name || '').trim().slice(0, 40);
+    const cfg = config && typeof config === 'object' ? Object.assign({}, config) : {};
+    delete cfg.schoolMode;
+    delete cfg.school;
+    return {
+      id: existingId || ('u_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8)),
+      name: label,
+      config: cfg,
+      savedAt: new Date().toISOString()
+    };
+  }
+
+  /** Guarda o actualiza un preset de Entrenador (mismo nombre → overwrite). */
+  function savePlayPreset(name, config) {
+    const label = String(name || '').trim().slice(0, 40);
+    if (!label) return { ok: false, reason: 'empty_name', presets: getPlayPresets() };
+    if (!config || typeof config !== 'object') {
+      return { ok: false, reason: 'invalid_config', presets: getPlayPresets() };
+    }
+    let list = getPlayPresets().slice();
+    const lower = label.toLowerCase();
+    const idx = list.findIndex(function (p) {
+      return p && String(p.name || '').toLowerCase() === lower;
+    });
+    const entry = serializePlayPreset(label, config, idx >= 0 ? list[idx].id : null);
+    if (idx >= 0) list[idx] = entry;
+    else list.unshift(entry);
+    if (list.length > MAX_PLAY_PRESETS) list = list.slice(0, MAX_PLAY_PRESETS);
+    write(scopedKey('playPresets'), list);
+    return { ok: true, preset: entry, presets: list };
+  }
+
+  function removePlayPreset(id) {
+    const pid = String(id || '');
+    if (!pid) return { ok: false, presets: getPlayPresets() };
+    const list = getPlayPresets();
+    const next = list.filter(function (p) { return p && p.id !== pid; });
+    if (next.length === list.length) return { ok: false, presets: list };
+    write(scopedKey('playPresets'), next);
+    return { ok: true, presets: next };
+  }
+
+  function getPlayPreset(id) {
+    const pid = String(id || '');
+    if (!pid) return null;
+    return getPlayPresets().find(function (p) { return p && p.id === pid; }) || null;
+  }
+
   global.Store = {
     setUserId, getUserId,
     getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
@@ -1752,6 +1808,7 @@
     getFeatureUsage, trackFeatureUsage,
     getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
     getFavoriteSpots, getFavoriteSpotsForStreet, isFavoriteSpot, toggleFavoriteSpot,
-    removeFavoriteSpot, favoriteSpotKey, normalizeFavoriteStreet
+    removeFavoriteSpot, favoriteSpotKey, normalizeFavoriteStreet,
+    getPlayPresets, getPlayPreset, savePlayPreset, removePlayPreset
   };
 })(window);

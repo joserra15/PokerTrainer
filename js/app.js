@@ -846,17 +846,104 @@
         c.classList.toggle('active', c.dataset.val === key);
       });
     }
-    const partial = PLAY_PRESETS[key];
-    if (!partial) return;
-    applyPlaySetupConfig(partial);
+    clearActiveUserPreset();
+    const builtin = PLAY_PRESETS[key];
+    if (builtin) {
+      applyPlaySetupConfig(builtin);
+      return;
+    }
+    if (key === 'custom') return;
+    const user = window.Store && Store.getPlayPreset ? Store.getPlayPreset(key) : null;
+    if (user && user.config) {
+      applyPlaySetupConfig(user.config);
+      markActiveUserPreset(user.id);
+    }
+  }
+
+  function clearActiveUserPreset() {
+    const host = $('#setup-user-presets');
+    if (!host) return;
+    host.querySelectorAll('.ranges-fav-chip').forEach((c) => c.classList.remove('active'));
+  }
+
+  function markActiveUserPreset(id) {
+    const host = $('#setup-user-presets');
+    if (!host) return;
+    host.querySelectorAll('.ranges-fav-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.presetId === id);
+    });
+    const box = $('#setup-play-preset');
+    if (box) {
+      box.querySelectorAll('.setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === 'custom');
+      });
+    }
   }
 
   function markPresetCustom() {
     const box = $('#setup-play-preset');
-    if (!box) return;
-    box.querySelectorAll('.setup-chip').forEach((c) => {
-      c.classList.toggle('active', c.dataset.val === 'custom');
+    if (box) {
+      box.querySelectorAll('.setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === 'custom');
+      });
+    }
+    clearActiveUserPreset();
+  }
+
+  function renderUserPlayPresets() {
+    const host = $('#setup-user-presets');
+    if (!host || !window.Store || !Store.getPlayPresets) return;
+    const list = Store.getPlayPresets();
+    if (!list.length) {
+      host.innerHTML = '<p class="muted-text ranges-fav-empty">Sin presets guardados. Configura la sesión y pulsa Guardar.</p>';
+      return;
+    }
+    host.innerHTML = '<div class="ranges-fav-list">' + list.map(function (p) {
+      const name = escapeHtml(p.name || 'Preset');
+      const id = escapeHtml(p.id || '');
+      return '<div class="ranges-fav-chip" data-preset-id="' + id + '">'
+        + '<button type="button" class="btn btn-ghost btn-sm ranges-fav-item" data-user-preset="' + id + '">' + name + '</button>'
+        + '<button type="button" class="ranges-fav-remove" data-user-preset-remove="' + id + '" title="Borrar preset" aria-label="Borrar preset">×</button>'
+        + '</div>';
+    }).join('') + '</div>';
+    host.querySelectorAll('[data-user-preset]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        applyPlayPreset(btn.dataset.userPreset);
+      });
     });
+    host.querySelectorAll('[data-user-preset-remove]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.dataset.userPresetRemove;
+        const preset = Store.getPlayPreset ? Store.getPlayPreset(id) : null;
+        const label = preset && preset.name ? preset.name : 'este preset';
+        if (!confirm('¿Borrar el preset «' + label + '»?')) return;
+        Store.removePlayPreset(id);
+        renderUserPlayPresets();
+        markPresetCustom();
+      });
+    });
+  }
+
+  function saveCurrentPlayPreset() {
+    if (!window.Store || !Store.savePlayPreset) return;
+    const input = $('#setup-preset-name');
+    const raw = input ? String(input.value || '').trim() : '';
+    const name = raw || window.prompt('Nombre del preset', '');
+    if (name == null) return;
+    const label = String(name).trim();
+    if (!label) {
+      if (input) input.focus();
+      return;
+    }
+    const cfg = readPlayConfig();
+    if (!cfg) return;
+    const res = Store.savePlayPreset(label, cfg);
+    if (!res || !res.ok) return;
+    if (input) input.value = '';
+    renderUserPlayPresets();
+    if (res.preset && res.preset.id) markActiveUserPreset(res.preset.id);
   }
 
   function applyPlaySetupConfig(partial) {
@@ -1027,6 +1114,20 @@
       const el = $('#setup-play-preset .setup-chip.active');
       if (el) applyPlayPreset(el.dataset.val);
     });
+    renderUserPlayPresets();
+    const savePresetBtn = $('#setup-preset-save');
+    if (savePresetBtn) {
+      savePresetBtn.addEventListener('click', () => saveCurrentPlayPreset());
+    }
+    const presetNameInput = $('#setup-preset-name');
+    if (presetNameInput) {
+      presetNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          saveCurrentPlayPreset();
+        }
+      });
+    }
     const hubBoxForPreset = $('#setup-format-hub');
     if (hubBoxForPreset) {
       hubBoxForPreset.addEventListener('click', () => markPresetCustom());
