@@ -212,7 +212,7 @@
         'El módulo M0 —Fundamentos de cash— está completo en plan Gratis: siete lecciones que van de la posición a cómo abrir el bote, cuánto subir y el caso especial de la ciega pequeña.',
         'En cada mano solo te evalúo en el momento que importa para esa lección (por ejemplo, subir o tirar). Si el resto de la mano no aporta al concepto, no te obligo a jugarlo entero.',
         'Apruebas al llegar al umbral de aciertos y se abre la siguiente. Puedes repetir para subir tu mejor marca hacia el 100 %.',
-        'En Gratis, cada mano de lección gasta el mismo cupo diario del entrenador (15 al día). Study y Coach abren el resto del árbol más adelante.'
+        'En Gratis puedes completar el módulo introductorio sin gastar el cupo diario del entrenador. Study y Coach abren el resto del árbol más adelante.'
       ],
       examples: [
         {
@@ -13095,7 +13095,7 @@
 /*
  * school.js — Escuela de Póker: hub multi-ruta (Cash/Spins/MTT/Rangos), runner de spots.
  * Escuela abierta a usuarios autenticados (SCHOOL_PUBLIC=true). Fases G–J: Spins, MTT, rangos/pro, leaks→lección.
- * Las manos consumen cupo Free del trainer.
+ * Las manos de lección no consumen el cupo diario del entrenador.
  */
 (function (global) {
   'use strict';
@@ -14274,7 +14274,7 @@
     cash: {
       eyebrow: 'Cash · Ruta principal',
       title: 'Escuela de Póker',
-      lead: 'Fundamentos → preflop → postflop → Pro Coach. Gates de plan activos. Las manos consumen el cupo Free del entrenador.'
+      lead: 'Fundamentos → preflop → postflop → Pro Coach. Gates de plan activos. Las lecciones no gastan el cupo diario del entrenador.'
     },
     spin: {
       eyebrow: 'Spins · Ruta torneo corto',

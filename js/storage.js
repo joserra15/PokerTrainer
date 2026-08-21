@@ -652,7 +652,7 @@
 
     const st = getStats();
     if (!st.byStreet) st.byStreet = defaultStats().byStreet;
-    /* Escuela consume cupo de manos, pero no contamina acierto/EV/leaks de stats. */
+    /* Escuela no contamina acierto/EV/leaks de stats (ni consume cupo de entitlements). */
     st.handsPlayed += 1;
     if (!schoolHand) {
       st.totalEvLoss += hand.result.totalEvLoss || 0;

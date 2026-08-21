@@ -1,7 +1,7 @@
 /*
  * school.js — Escuela de Póker: hub multi-ruta (Cash/Spins/MTT/Rangos), runner de spots.
  * Escuela abierta a usuarios autenticados (SCHOOL_PUBLIC=true). Fases G–J: Spins, MTT, rangos/pro, leaks→lección.
- * Las manos consumen cupo Free del trainer.
+ * Las manos de lección no consumen el cupo diario del entrenador.
  */
 (function (global) {
   'use strict';
@@ -1180,7 +1180,7 @@
     cash: {
       eyebrow: 'Cash · Ruta principal',
       title: 'Escuela de Póker',
-      lead: 'Fundamentos → preflop → postflop → Pro Coach. Gates de plan activos. Las manos consumen el cupo Free del entrenador.'
+      lead: 'Fundamentos → preflop → postflop → Pro Coach. Gates de plan activos. Las lecciones no gastan el cupo diario del entrenador.'
     },
     spin: {
       eyebrow: 'Spins · Ruta torneo corto',
