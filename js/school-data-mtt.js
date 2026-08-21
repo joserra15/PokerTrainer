@@ -166,7 +166,7 @@
       rfi('t09-14', 'BTN', ['Ad', '9c'], 50914, { teachBack: 'A9o BTN ~12 bb: shove frecuente. Ax offsuit en botón corto entra en charts.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) })
     ];
     if (kind === 'MTT_BUBBLE') return [
-      vs('t13-01', 'BB_vs_BTN', ['Ah', 'Jo'], 51301, { teachBack: 'AJo mid vs shove big en burbuja: a menudo fold $EV. Chip EV no basta.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
+      vs('t13-01', 'BB_vs_BTN', ['Ah', 'Jd'], 51301, { teachBack: 'AJo mid vs shove big en burbuja: a menudo fold $EV. Chip EV no basta.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
       vs('t13-02', 'BB_vs_BTN', ['Kh', 'Kd'], 51302, { teachBack: 'KK vs shove: call. Premium — chip EV y $EV suelen coincidir.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
       rfi('t13-03', 'BTN', ['Qh', '9s'], 51303, { teachBack: 'Q9o BTN mid en burbuja: open selectivo. No spew vs covers.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'bubble', stackDepth: 'bb22' }) }),
       rfi('t13-04', 'CO', ['7c', '2d'], 51304, { trapTag: 'fancy_play', teachBack: '72o: fold. Burbuja castiga opens basura vs stacks grandes.', playConfig: mttCfg({ scenario: 'rfi', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
@@ -174,7 +174,7 @@
       vs('t13-06', 'BB_vs_BTN', ['Th', '8d'], 51306, { trapTag: 'fancy_play', teachBack: 'T8o vs shove cover: fold $EV típico. Mid no hero-call basura.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
       rfi('t13-07', 'SB', ['As', '5s'], 51307, { teachBack: 'A5s SB short en burbuja: shove/pressure vs mids. Arma del short.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb12' }) }),
       vs('t13-08', 'BB_vs_CO', ['Ah', 'Kd'], 51308, { teachBack: 'AKo vs shove: call. Aquí coinciden fichas y premio.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb22' }) }),
-      rfi('t13-09', 'BTN', ['Jh', 'Ts'], 51309, { teachBack: 'JTs BTN mid: steal ok si blinds/antes pagan; evita opens vs cover agresivo.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
+      rfi('t13-09', 'BTN', ['Jh', 'Th'], 51309, { teachBack: 'JTs BTN mid: steal ok si blinds/antes pagan; evita opens vs cover agresivo.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
       vs('t13-10', 'BB_vs_BTN', ['Kc', '7h'], 51310, { trapTag: 'dominated', teachBack: 'K7o vs shove: fold. Dominada y −$EV en burbuja.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb18' }) })
     ];
     return [];
