@@ -88,6 +88,7 @@ assert.ok(/school-coach-note|schoolCoachTip/.test(schoolSrc), 'tip coach resulta
 assert.ok(/school-stars|is-plan/.test(schoolSrc + css), 'maestría / muro plan UI');
 assert.ok(/school-gate-msg|ensureLessonMarkedPassed|showSchoolGateMessage/.test(schoolSrc),
   'feedback gate + re-persist al aprobar');
+assert.ok(/resolveBestPct/.test(schoolSrc), 'resolveBestPct evita undefined%');
 assert.ok(/\.school-gate-msg/.test(css), 'CSS mensaje gate Escuela');
 assert.ok(/routePct/.test(schoolSrc) && /width:' \+ routePct/.test(schoolSrc),
   'barra hub = progreso de ruta (routePct)');
@@ -1281,6 +1282,29 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
     fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
   ), 'roadmap §5.2bis resumen spots');
   assert.ok(/postflop|Textura/.test(School.schoolCoachTip(Data.getLesson('C-14'), false, [])), 'coach tip M2');
+})();
+
+/* Hub: passed sin bestPct no pinta «undefined%»; deriva de bestScore. */
+(function () {
+  assert.ok(typeof School.resolveBestPct === 'function', 'resolveBestPct export');
+  assert.strictEqual(School.resolveBestPct({ bestScore: 0.833 }), 83.3, 'bestScore→pct');
+  assert.strictEqual(School.resolveBestPct({ passed: true }), null, 'sin score → null');
+  sandbox.Store._st.school.lessons['R-08'] = {
+    passed: true, bestScore: 0.833, attempts: 1
+  };
+  sandbox.Store._st.school.lessons['R-09'] = {
+    passed: true, attempts: 1
+  };
+  School._state.view = 'hub';
+  School._state.route = 'ranges';
+  var root = {
+    innerHTML: '',
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; }
+  };
+  School.render(root);
+  assert.ok(root.innerHTML.indexOf('undefined%') < 0, 'hub sin undefined%');
+  assert.ok(root.innerHTML.indexOf('83.3%') >= 0, 'hub deriva 83.3% de bestScore');
 })();
 
 /* Fase J: lessonFromLeak vía TRAINING_FOCUSES (cargamos ai-report en sandbox ligero) */

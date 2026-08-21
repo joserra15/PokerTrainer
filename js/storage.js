@@ -427,9 +427,18 @@
       if (!la) { lessons[id] = lb; return; }
       if (!lb) { lessons[id] = la; return; }
       const bestScore = Math.max(Number(la.bestScore) || 0, Number(lb.bestScore) || 0);
+      let bestPct = Math.round(bestScore * 1000) / 10;
+      if (!(Number(la.bestScore) > 0) && !(Number(lb.bestScore) > 0)) {
+        const fa = la.bestPct != null ? Number(la.bestPct)
+          : (la.lastPct != null ? Number(la.lastPct) : null);
+        const fb = lb.bestPct != null ? Number(lb.bestPct)
+          : (lb.lastPct != null ? Number(lb.lastPct) : null);
+        const fallback = (fa != null && isFinite(fa)) ? fa : ((fb != null && isFinite(fb)) ? fb : null);
+        if (fallback != null) bestPct = fallback;
+      }
       lessons[id] = {
-        bestScore: bestScore,
-        bestPct: Math.round(bestScore * 1000) / 10,
+        bestScore: bestScore > 0 ? bestScore : (bestPct > 0 ? bestPct / 100 : bestScore),
+        bestPct: bestPct,
         attempts: Math.max(Number(la.attempts) || 0, Number(lb.attempts) || 0),
         passed: !!(la.passed || lb.passed),
         gold: !!(la.gold || lb.gold),
