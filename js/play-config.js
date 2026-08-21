@@ -507,7 +507,7 @@
    */
   function sampleHeroHand(scenario, config, dead, rnd) {
     const r = rnd || Math.random;
-    const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'playable');
+    const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'borderline');
     if (mode === 'random') return null;
 
     const rangeCodes = heroRangeCodesByStrength(scenario, config);
@@ -536,7 +536,7 @@
   }
 
   function sampleHeroWeights(scenario, config, modeOverride) {
-    const mode = modeOverride || (config.handRange === 'all' ? 'random' : (config.handRange || 'playable'));
+    const mode = modeOverride || (config.handRange === 'all' ? 'random' : (config.handRange || 'borderline'));
     const engHero = scenario.engineHeroPos || scenario.heroPos || parseVsKey(scenario.key).hero;
 
     if (scenario.type === 'RFI') {
