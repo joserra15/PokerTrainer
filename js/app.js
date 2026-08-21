@@ -4212,6 +4212,7 @@
     }
 
     html += '<button type="button" class="btn btn-ghost btn-share" id="share-hand-trainer">Compartir análisis</button>';
+    html += '<div id="ai-report-trainer"></div>';
 
     fb.innerHTML = html;
     bindShareButton($('#share-hand-trainer'), () => ({
@@ -4219,6 +4220,17 @@
       hand: hand,
       title: shareHandTitle(hand)
     }));
+    if (window.PTAIReport) {
+      window.PTAIReport.mount($('#ai-report-trainer'), {
+        scope: 'hand',
+        getHand: () => hand,
+        persist: {
+          kind: 'history',
+          getHandId: () => hand && hand.id
+        },
+        onThreadUpdate: (thread) => { if (hand) hand.coachThread = thread; }
+      });
+    }
     renderTable();
     $('#hero-handname').textContent = r.heroHandName ? tt('play.yourHand') + ': ' + r.heroHandName : handNameOnBoard();
 

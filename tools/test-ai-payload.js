@@ -77,6 +77,58 @@ if (trainer.dec[0].context || trainer.dec[0].explanation) {
   process.exit(1);
 }
 
+const mttTrainer = P.build('hand', {
+  id: 'h-mtt',
+  scenario: { type: 'RFI', heroPos: 'HJ' },
+  hero: { pos: 'HJ', code: 'KJo', cards: ['Kh', 'Jd'] },
+  displayHeroPos: 'LJ',
+  villain: { pos: 'BB' },
+  effStack: 22,
+  playConfig: {
+    formatHub: 'mtt',
+    gameType: 'mtt',
+    stackBB: 22,
+    resolvedPhase: 'short',
+    anteBB: 0.125,
+    villainLevel: 'pro',
+    preflopOpenSize: 2.2,
+    useIcm: true
+  },
+  board: [],
+  decisions: [],
+  result: { heroNet: -2.2, totalEvLoss: 0.5 }
+});
+if (!mttTrainer || mttTrainer.formatHub !== 'mtt' || mttTrainer.phase !== 'short') {
+  console.error('FAIL mtt trainer format/phase', mttTrainer && { formatHub: mttTrainer.formatHub, phase: mttTrainer.phase });
+  process.exit(1);
+}
+if (!mttTrainer.coachingNote || !/torneo|MTT/i.test(mttTrainer.coachingNote)) {
+  console.error('FAIL mtt coachingNote');
+  process.exit(1);
+}
+if (mttTrainer.stack !== 22 || mttTrainer.hero.pos !== 'LJ') {
+  console.error('FAIL mtt stack/display pos');
+  process.exit(1);
+}
+
+const spinTrainer = P.build('trainer', {
+  id: 'h-spin',
+  scenario: { type: 'push', heroPos: 'BTN' },
+  hero: { pos: 'BTN', code: 'ATo', cards: ['Ah', 'Td'] },
+  villain: { pos: 'BB' },
+  playConfig: { formatHub: 'spin', gameType: 'spin3', stackBB: 12, spinPayout: '3x', resolvedPhase: 'push' },
+  decisions: [],
+  result: { heroNet: 0, totalEvLoss: 0 }
+});
+if (!spinTrainer || spinTrainer.formatHub !== 'spin' || spinTrainer.spinPayout !== '3x') {
+  console.error('FAIL spin trainer payload');
+  process.exit(1);
+}
+if (!spinTrainer.coachingNote || !/Spin/i.test(spinTrainer.coachingNote)) {
+  console.error('FAIL spin coachingNote');
+  process.exit(1);
+}
+
 const sessGlobal = P.build('sessionGlobal', {
   id: 'ses1',
   fileName: 'Poker56.txt',
