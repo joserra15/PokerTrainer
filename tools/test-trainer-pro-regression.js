@@ -67,7 +67,7 @@ check(/icmChangedEv/.test(app) && /chipEvLoss/.test(read('js/engine.js'))
 check(/PLAY_PRESETS/.test(app) && /spin_grind/.test(app) && /mtt_low/.test(app),
   'PLAY_PRESETS cash/spin/mtt');
 check(/preflopOpenSize/.test(app), 'preflopOpenSize cableado en readPlayConfig/apply');
-check(/PT_BUILD\s*=\s*'2.7.11'/.test(version), 'PT_BUILD 2.7.11');
+check(/PT_BUILD\s*=\s*'2.7.12'/.test(version), 'PT_BUILD 2.7.12');
 
 const decisionDoc = read('docs/DECISION_ENTRENADOR_MTT_SPIN.md');
 check(/Profundizar/.test(decisionDoc) && /ICM lite/.test(decisionDoc),

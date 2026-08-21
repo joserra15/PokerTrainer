@@ -3331,8 +3331,22 @@ body.paywall-open { overflow: hidden; }
   .hero-cards .card { width: 40px; height: 54px; font-size: 15px; }
   .spot-context { font-size: 10px; max-width: 100%; line-height: 1.3; margin-top: 4px; }
   .table-format-badge { top: 8px; left: 10px; font-size: 9px; padding: 2px 6px; }
-  .table-train-hud { top: 8px; right: 8px; max-width: 70%; gap: 3px; }
+  /* HUD a la izquierda bajo el badge: no solapar acción del asiento top-right (BTN) */
+  .table-train-hud {
+    top: 30px; left: 8px; right: auto;
+    max-width: min(64%, calc(100% - 92px));
+    gap: 3px; justify-content: flex-start;
+    z-index: 4;
+  }
   .table-train-chip { font-size: 9px; padding: 2px 6px; }
+  /* Acción del villano bajo el asiento en móvil (evita choque con HUD) */
+  .seat.seat-top .seat-act-wrap,
+  .seat.seat-edge-top .seat-act-wrap,
+  .seat.seat-edge-right .seat-act-wrap {
+    bottom: auto;
+    top: calc(100% + 2px);
+    z-index: 6;
+  }
   .table-watermark-text { font-size: 18px; }
   .table-watermark-sub { font-size: 9px; letter-spacing: 1.6px; }
   .table-watermark-mark { width: 56px; height: 60px; }

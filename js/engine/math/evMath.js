@@ -99,7 +99,12 @@
     const breakEven = breakEvenEquity(potBefore, toCall);
     const impliedBonus = input.impliedBonusBB || 0;
     const realization = input.realizationFactor != null ? input.realizationFactor : 0.9;
-    const betSize = input.betSizeBB || committedBB(input.chosenAction, input);
+    const betSize = input.betSizeBB > 0
+      ? input.betSizeBB
+      : ((input.chosenAction && input.chosenAction !== 'fold' && input.chosenAction !== 'check'
+        && input.chosenAction !== 'call')
+        ? committedBB(input.chosenAction, input)
+        : 0);
     const foldEquity = input.foldEquity != null ? input.foldEquity : estimateFoldEquity(input, freqs);
     return {
       equity, potBeforeBB: potBefore, potBB: input.potBB || potBefore,
@@ -116,12 +121,37 @@
     return 0.2;
   }
 
+  /**
+   * Tamaño de apuesta/subida propio de la acción evaluada.
+   * No reutilizar ctx.betSizeBB del chosenAction: si el héroe fold/check,
+   * betSize queda 0 y raise/bet parecerían +EV «gratis» (bug ΔEV).
+   */
+  function actionSizeFor(action, ctx) {
+    if (!action || action === 'fold' || action === 'check' || action === 'call') return 0;
+    const input = {
+      potBB: ctx.potBB != null ? ctx.potBB : ctx.potBeforeBB,
+      toCallBB: ctx.toCallBB || 0,
+      betSizeBB: ctx.betSizeBB > 0 ? ctx.betSizeBB : undefined
+    };
+    let size = committedBB(action, input);
+    if (size > 0) return size;
+    if (action === 'raise' && (ctx.toCallBB || 0) > 0) {
+      return round2(ctx.toCallBB * 2.5);
+    }
+    if (action === 'bet' || (action && action.indexOf('bet_') === 0)) {
+      const pot = Math.max(ctx.potBeforeBB || ctx.potBB || 1, 0.1);
+      const frac = action === 'bet_33' ? 0.33 : (action === 'bet_66' ? 0.66 : 0.66);
+      return round2(pot * frac);
+    }
+    return 0;
+  }
+
   function actionEVMath(action, ctx) {
     if (action === 'fold') return evFold();
     if (action === 'call') return evCall(ctx.equity, ctx.potBeforeBB, ctx.toCallBB, ctx.impliedBonusBB);
     if (action === 'check') return evCheck(ctx.equity, ctx.potBeforeBB, ctx.realizationFactor);
     if (action === 'raise' || action === 'bet' || (action && action.startsWith('bet_'))) {
-      const size = action.startsWith('bet_') ? committedBB(action, { potBB: ctx.potBB, betSizeBB: ctx.betSizeBB }) : ctx.betSizeBB;
+      const size = actionSizeFor(action, ctx);
       return evBetRaise(ctx.equity, ctx.potBeforeBB, size, ctx.foldEquity, ctx.realizationFactor);
     }
     return 0;
@@ -161,7 +191,7 @@
 
   global.GTOEvMath = {
     round2, potAfterCall, breakEvenEquity, evFold, evCall, evCallLeak, evCheck,
-    evBetRaise, evAggression, deltaEvLoss, committedBB, buildActionContext,
+    evBetRaise, evAggression, deltaEvLoss, committedBB, actionSizeFor, buildActionContext,
     actionEVMath, bestEvAction, mathParams
   };
 })(window);
