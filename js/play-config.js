@@ -138,7 +138,9 @@
     /** any | srp3way | srp4way | limpPot — solo si scenario=multiway */
     multiwayPotType: 'any',
     /** 'quick' = salta a la decisión del héroe; 'complete' = muestra UTG→BB */
-    actionMode: 'complete'
+    actionMode: 'complete',
+    /** sizing open preflop en bb (2.2 | 2.5 | 3) */
+    preflopOpenSize: 2.5
   };
 
   const RAKE_LS_KEY = 'pt_rake_prefs';
@@ -253,6 +255,12 @@
     if (ante > 2) ante = 2;
     if (c.formatHub === 'cash') ante = 0;
     c.anteBB = ante;
+
+    if (c.actionMode !== 'quick' && c.actionMode !== 'complete') c.actionMode = 'complete';
+
+    var openSz = Number(c.preflopOpenSize);
+    if (openSz !== 2.2 && openSz !== 2.5 && openSz !== 3) openSz = 2.5;
+    c.preflopOpenSize = openSz;
 
     // Rake solo cash; torneos/spins sin rake de bote cash.
     if (c.formatHub !== 'cash') c.rakeMode = 'none';
@@ -995,7 +1003,7 @@
       standard: '100bb', short: '50bb', deep: '200bb'
     }[c.stackDepth] || (stackDepthToBB(c.stackDepth) != null ? c.stackBB + 'bb' : c.stackDepth);
     const sc = {
-      random: 'Aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
+      random: 'Escenario aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
       '4bet': '4-Bet', squeeze: 'Squeeze', iso: 'Iso limp',
       bbvsb: 'BB vs SB limp', sbLimp: 'SB limp', cold4bet: 'Cold 4-Bet',
       multiway: 'Multiway', push: 'Push/fold', steal: 'Steal'
@@ -1005,10 +1013,22 @@
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
     const st = { random: 'Todas las calles', preflop: 'Solo preflop', flop: 'Desde flop', turn: 'Desde turn', river: 'Desde river' }[c.practiceStreet] || c.practiceStreet;
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
-    const phase = c.formatHub !== 'cash' ? (' · ' + (c.resolvedPhase || c.mttPhase)) : '';
+    let phase = '';
+    if (c.formatHub !== 'cash') {
+      const resolved = c.resolvedPhase || c.mttPhase;
+      if (!c.mttPhase || c.mttPhase === 'auto') {
+        phase = ' · Fase ' + resolved + ' (auto)';
+      } else {
+        const TaxP = global.PTFormatTaxonomy;
+        const phaseName = (TaxP && TaxP.PHASE_LABELS && TaxP.PHASE_LABELS[c.mttPhase]) || c.mttPhase;
+        phase = ' · Fase ' + phaseName;
+      }
+    }
     const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
+    const open = c.preflopOpenSize ? (' · open ' + c.preflopOpenSize + '×') : '';
+    const spinPay = (c.formatHub === 'spin' && c.spinPayout) ? (' · payout ' + c.spinPayout) : '';
     const am = c.actionMode === 'complete' ? 'Modo completo' : 'Modo rápido';
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + spinPay + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {

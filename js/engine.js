@@ -18,10 +18,30 @@
 
   // --- Parámetros de juego (en ciegas grandes) ---
   const SB = 0.5, BBET = 1, EFF = 100;
-  const OPEN = 2.5, SB_OPEN = 3.0;        // tamaño de apertura
+  const OPEN_DEFAULT = 2.5, SB_OPEN_DEFAULT = 3.0;        // tamaño de apertura por defecto
   const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
   const DEAL_ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
   const PREFLOP_ACTION = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+
+  function configuredOpenSize(hand) {
+    const cfg = hand && hand.playConfig;
+    let base = OPEN_DEFAULT;
+    if (cfg && cfg.preflopOpenSize != null) {
+      const n = Number(cfg.preflopOpenSize);
+      if (n === 2.2 || n === 2.5 || n === 3) base = n;
+    }
+    return base;
+  }
+
+  function openSizeForPos(hand, pos) {
+    const base = configuredOpenSize(hand);
+    if (pos === 'SB') return Math.round((base + 0.5) * 100) / 100;
+    return base;
+  }
+
+  /** Compat: constantes usadas como fallback cuando no hay mano. */
+  const OPEN = OPEN_DEFAULT;
+  const SB_OPEN = SB_OPEN_DEFAULT;
 
   function dealFullTable() {
     const deck = C.shuffledDeckExcluding([]);
@@ -2136,7 +2156,7 @@
       }
       hand.villain.pos = villainPos;
       if (hand._predeal) hand._predeal.villainPos = villainPos;
-      const openSize = OPEN;
+      const openSize = configuredOpenSize(hand);
       foldSeatsExcept(hand, [heroPos, villainPos]);
       hand.table.folded[heroPos] = false;
       hand.table.folded[villainPos] = false;
@@ -2153,7 +2173,7 @@
       if (!villainPos || villainPos === heroPos) villainPos = (heroPos === 'BB' ? 'BTN' : 'BB');
       hand.villain.pos = villainPos;
       if (hand._predeal) hand._predeal.villainPos = villainPos;
-      const openSize = heroPos === 'SB' ? SB_OPEN : OPEN;
+      const openSize = openSizeForPos(hand, heroPos);
       foldSeatsExcept(hand, [heroPos, villainPos]);
       hand.table.folded[heroPos] = false;
       hand.table.folded[villainPos] = false;
@@ -2249,7 +2269,7 @@
     const opener = s.openerPos || 'CO';
     const callers = (s.callerPositions || (s.callerPos ? [s.callerPos] : ['BTN'])).slice();
     const heroPos = s.heroPos || s.engineHeroPos || 'BB';
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
     hand.hero.pos = heroPos;
     hand.villain.pos = opener;
     ensureOpenerOpenHand(hand, opener);
@@ -2440,7 +2460,7 @@
     const pos = scenarioHeroPos(hand);
     hand.hero.pos = pos;
     const displayPos = hand.displayHeroPos || hand.scenario.heroPos || pos;
-    const openSize = pos === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, pos);
     const mode = preflopSizingMode(hand);
     const stackBB = round2(effStackForHand(hand));
     const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
@@ -2499,7 +2519,7 @@
     ensureOpenerOpenHand(hand, opener);
     hand.villain.rangeStr = openRangeStr(opener, hand);
     initVillainTracker(hand);
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
 
     // contribuciones: villano abrió a openSize; ciegas puestas
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
@@ -2574,7 +2594,7 @@
     ensureOpenerOpenHand(hand, openerPos);
     hand.villain.rangeStr = openRangeStr(openerPos, hand);
     initVillainTracker(hand);
-    const openSize = OPEN;
+    const openSize = configuredOpenSize(hand);
     // bote: ciegas + open + call del pagador (dinero muerto)
     hand.potBB = round2(SB + BBET + openSize + openSize);
     const heroBlind = heroPos === 'SB' ? SB : (heroPos === 'BB' ? BBET : 0);
@@ -2737,7 +2757,7 @@
 
     if (node.kind === 'multiwayReady') {
       setHeroAct(hand, actionId === 'check' ? 'check' : 'call', 0);
-      const openSize = hand._multiwayOpenSize || OPEN;
+      const openSize = hand._multiwayOpenSize || configuredOpenSize(hand);
       if (hand._multiwayPendingCallers && hand._multiwayPendingCallers.length) {
         ensureCallersPaidOpen(hand, hand._multiwayPendingCallers, openSize);
       }
@@ -3122,7 +3142,7 @@
         setPreflopSeatBet(hand, hero, node.openSize);
         hand.heroInPosition = inPos(hero, opener);
         if (hand._multiwayPendingCallers && hand._multiwayPendingCallers.length && MW() && MW().allowMultiway(hand)) {
-          const openSize = hand._multiwayOpenSize || node.openSize || OPEN;
+          const openSize = hand._multiwayOpenSize || node.openSize || configuredOpenSize(hand);
           const extras = hand._multiwayPendingCallers.filter(function (c) { return c !== opener && c !== hero; });
           ensureCallersPaidOpen(hand, extras.concat([opener]), openSize);
           // Asegurar inversión del opener
@@ -3163,7 +3183,7 @@
       }
       // 3-bet
       hand.heroIsAggressor = true;
-      const threeBetSize = node.threeBetSize || round2((node.openSize || OPEN) * 3.5);
+      const threeBetSize = node.threeBetSize || round2((node.openSize || configuredOpenSize(hand)) * 3.5);
       hand.heroInvested = threeBetSize;
       addInvest(hand, hero, round2(threeBetSize - (hand.table.invested[hero] || 0)));
       setHeroAct(hand, 'raise', threeBetSize);
@@ -3379,7 +3399,7 @@
     ensureOpenerOpenHand(hand, opener);
     hand.villain.rangeStr = hand._predeal.villainRange || bb3betRange(opener, hand);
     initVillainTracker(hand);
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
     const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
     hand.heroInvested = openSize;
     hand.villainInvested = threeBetSize;
@@ -3431,7 +3451,7 @@
     hand.potBB = round2(SB + BBET);
     hand.heroInvested = SB;
     hand.toCallBB = round2(BBET - SB);
-    const openSize = SB_OPEN;
+    const openSize = openSizeForPos(hand, 'SB');
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'sbLimp', potBB: hand.potBB, toCallBB: hand.toCallBB });
     hand.current = {
       street: 'preflop', kind: 'sbLimp', potBB: hand.potBB, toCallBB: hand.toCallBB,
@@ -3458,7 +3478,7 @@
     ensureThreeBetHand(hand, tb, opener);
     hand.villain.rangeStr = threeBetRangeStr(tb, opener, hand);
     initVillainTracker(hand);
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
     const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
     const cold4Size = round2(threeBetSize * 2.3);
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
@@ -3497,7 +3517,7 @@
       ? global.PTPlayConfig.face4betVillainRangeStr(hand.playConfig)
       : R.VS_3BET.fourBet;
     initVillainTracker(hand);
-    const openSize = opener === 'SB' ? SB_OPEN : OPEN;
+    const openSize = openSizeForPos(hand, opener);
     const threeBetSize = inPos(hero, opener) ? round2(openSize * 3) : round2(openSize * 4);
     const fourBetSize = round2(threeBetSize * 2.3);
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
@@ -4395,7 +4415,7 @@
     if (!hero || order.indexOf(hero) < 0) return events;
 
     function openSize(pos) {
-      return pos === 'SB' ? SB_OPEN : OPEN;
+      return openSizeForPos(hand, pos);
     }
 
     if (s.type === 'RFI' || s.type === 'sbLimp') {
@@ -4416,7 +4436,7 @@
       const pk = parseFace3betKey(s.key);
       const opener = scriptSeat(hand, pk.opener || hero);
       const tb = scriptSeat(hand, (hand.villain && hand.villain.pos) || pk.threeBettor);
-      const oAmt = seatActAmount(hand, opener, openSize(opener)) || hand.heroInvested || OPEN;
+      const oAmt = seatActAmount(hand, opener, openSize(opener)) || hand.heroInvested || configuredOpenSize(hand);
       const tbAmt = seatActAmount(hand, tb, hand.villainInvested);
       events.push.apply(events, foldsUntil(order, opener));
       events.push(scriptEvent(opener, 'open', oAmt, { autoHero: opener === hero }));
@@ -4446,7 +4466,7 @@
     if (s.type === 'squeeze' || s.type === 'squeezeMulti') {
       const opener = scriptSeat(hand, s.openerPos || (hand.villain && hand.villain.pos));
       const caller = scriptSeat(hand, s.callerPos);
-      const oAmt = seatActAmount(hand, opener, OPEN);
+      const oAmt = seatActAmount(hand, opener, openSize(opener));
       const cAmt = seatActAmount(hand, caller, oAmt);
       events.push.apply(events, foldsUntil(order, opener));
       events.push(scriptEvent(opener, 'open', oAmt));
@@ -4473,7 +4493,7 @@
     if (s.type === 'cold4bet') {
       const opener = scriptSeat(hand, s.openerPos);
       const tb = scriptSeat(hand, s.threeBettorPos || (hand.villain && hand.villain.pos));
-      const oAmt = seatActAmount(hand, opener, OPEN);
+      const oAmt = seatActAmount(hand, opener, openSize(opener));
       const tbAmt = seatActAmount(hand, tb, hand.villainInvested);
       events.push.apply(events, foldsUntil(order, opener));
       events.push(scriptEvent(opener, 'open', oAmt));

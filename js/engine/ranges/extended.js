@@ -274,6 +274,9 @@
 
   var OPEN_RAISE_MTT_PUSH = {
     UTG: { raise: 'TT+, AQs+, AKo', mix: '99, 88, ATs, KQs, AJo' },
+    UTG1: { raise: 'TT+, AQs+, AKo', mix: '99, 88, ATs, KQs, AJo' },
+    UTG2: { raise: '99+, AJs+, KQs, AJo+, KQo', mix: '88, 77, ATs, KJs, QJs, ATo' },
+    LJ: { raise: '99+, AJs+, KQs, AJo+, KQo', mix: '88, 77, ATs, KJs, QJs, ATo' },
     HJ: { raise: '99+, AJs+, KQs, AJo+, KQo', mix: '88, 77, ATs, KJs, QJs, ATo' },
     CO: { raise: '77+, A9s+, A5s-A2s, KTs+, QJs, JTs, ATo+, KJo+', mix: '66, 55, 98s, 87s, K9s' },
     BTN: { raise: '66+, A8s+, A5s-A2s, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+', mix: '55, 44, 87s, 76s, A8o' },

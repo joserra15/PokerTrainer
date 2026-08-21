@@ -408,6 +408,7 @@
     const thEl = $('#setup-table-theme .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
     const mwPotEl = $('#setup-multiway-pot-type .setup-chip.active');
+    const openSizeEl = $('#setup-open-size .setup-chip.active');
     const laEl = $('#setup-live-advisor');
     const modeEl = $('#setup-advisor-mode .setup-chip.active');
     const thrEl = $('#setup-serious-threshold');
@@ -462,7 +463,8 @@
       rakeCapBB: rakeCapBB,
       allowMultiway: true,
       multiwayPotType: mwPotEl ? mwPotEl.dataset.val : 'any',
-      actionMode: readActionModeFromSetup()
+      actionMode: readActionModeFromSetup(),
+      preflopOpenSize: openSizeEl ? Number(openSizeEl.dataset.val) : 2.5
     });
   }
 
@@ -516,13 +518,113 @@
     const t = (theme === 'midnight' || theme === 'crimson') ? theme : 'emerald';
     document.querySelectorAll('#play-active .table-felt, .session-replay-table .table-felt').forEach((felt) => {
       felt.setAttribute('data-theme', t);
+      applyTableFormatAttrs(felt, cfg);
     });
+  }
+
+  function formatHubOfConfig(cfg) {
+    if (!cfg) return 'cash';
+    if (cfg.formatHub === 'spin' || cfg.formatHub === 'mtt' || cfg.formatHub === 'cash') return cfg.formatHub;
+    const PC = window.PTPlayConfig;
+    if (PC) {
+      if (PC.isSpin(cfg)) return 'spin';
+      if (PC.isMtt(cfg)) return 'mtt';
+    }
+    const Tax = window.PTFormatTaxonomy;
+    if (Tax && Tax.hubFromGameType) return Tax.hubFromGameType(cfg.gameType);
+    return 'cash';
+  }
+
+  function applyTableFormatAttrs(felt, cfg) {
+    if (!felt) return;
+    const hub = formatHubOfConfig(cfg);
+    felt.setAttribute('data-format', hub);
+    let badge = felt.querySelector('.table-format-badge');
+    if (!badge && felt.id !== 'play-active') {
+      /* replay tables inject badge via HTML */
+    }
+    if (!badge) badge = felt.querySelector('.table-format-badge');
+    const labels = { cash: 'CASH', spin: 'SPIN', mtt: 'MTT' };
+    if (badge) {
+      badge.textContent = labels[hub] || 'CASH';
+      badge.setAttribute('aria-hidden', 'false');
+    }
   }
 
   function tableWatermarkHTML() {
     return '<div class="table-watermark" aria-hidden="true">' +
       '<span class="table-watermark-mark"></span>' +
-      '<span class="table-watermark-text">PokerForgeAI</span></div>';
+      '<span class="table-watermark-text">PokerForgeAI</span>' +
+      '<span class="table-watermark-sub">Modo entrenamiento</span></div>';
+  }
+
+  function tableFormatBadgeHTML(cfg) {
+    const hub = formatHubOfConfig(cfg);
+    const labels = { cash: 'CASH', spin: 'SPIN', mtt: 'MTT' };
+    return '<div class="table-format-badge">' + (labels[hub] || 'CASH') + '</div>';
+  }
+
+  function phaseLabelForHud(phase) {
+    const Tax = window.PTFormatTaxonomy;
+    if (Tax && Tax.PHASE_LABELS && Tax.PHASE_LABELS[phase]) {
+      const raw = Tax.PHASE_LABELS[phase];
+      if (phase === 'auto') return 'Auto';
+      return raw;
+    }
+    const map = { early: 'Early', mid: 'Mid', short: 'Short', push: 'Push/fold', bubble: 'Burbuja', auto: 'Auto' };
+    return map[phase] || phase || '';
+  }
+
+  function buildTrainHudChips(cfg) {
+    if (!cfg) return [];
+    const hub = formatHubOfConfig(cfg);
+    const chips = [];
+    const stackBB = cfg.stackBB != null ? cfg.stackBB : (window.PTPlayConfig && PTPlayConfig.stackBB ? PTPlayConfig.stackBB(cfg) : null);
+    if (stackBB != null) chips.push({ text: stackBB + 'bb', cls: '' });
+    if (hub !== 'cash') {
+      const resolved = cfg.resolvedPhase || cfg.mttPhase || 'auto';
+      const phaseTxt = phaseLabelForHud(resolved);
+      const autoNote = (cfg.mttPhase === 'auto' || !cfg.mttPhase) ? ' (auto)' : '';
+      chips.push({
+        text: phaseTxt + autoNote,
+        cls: 'is-phase',
+        title: cfg.mttPhase === 'auto' ? 'Fase Auto según stack' : 'Fase fija en setup'
+      });
+      if (cfg.anteBB > 0) chips.push({ text: 'Ante ' + cfg.anteBB + 'bb', cls: '' });
+      const Tax = window.PTFormatTaxonomy;
+      const icmOn = Tax && Tax.usesIcm ? Tax.usesIcm(cfg) : (hub === 'spin');
+      if (icmOn) chips.push({ text: 'ICM', cls: 'is-icm' });
+      if (hub === 'spin' && cfg.spinPayout) {
+        chips.push({ text: 'Payout ' + String(cfg.spinPayout).toUpperCase(), cls: 'is-icm' });
+      }
+    }
+    if (cfg.preflopOpenSize) chips.push({ text: 'Open ' + cfg.preflopOpenSize + '×', cls: '' });
+    return chips;
+  }
+
+  function renderTrainHud(cfg) {
+    const hud = $('#table-train-hud');
+    if (!hud) return;
+    if (cfg && cfg.legendaryMode) {
+      hud.innerHTML = '';
+      return;
+    }
+    const chips = buildTrainHudChips(cfg);
+    hud.innerHTML = chips.map((c) =>
+      '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '"' +
+      (c.title ? ' title="' + escapeHtml(c.title) + '"' : '') + '>' +
+      escapeHtml(c.text) + '</span>'
+    ).join('');
+  }
+
+  function tableChromeHTML(cfg) {
+    return tableFormatBadgeHTML(cfg) +
+      '<div class="table-train-hud">' +
+      buildTrainHudChips(cfg).map((c) =>
+        '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '">' + escapeHtml(c.text) + '</span>'
+      ).join('') +
+      '</div>' +
+      tableWatermarkHTML();
   }
 
   const REPLAY_TABLE_THEMES = [
@@ -657,6 +759,68 @@
     });
   }
 
+  const PLAY_PRESETS = {
+    custom: null,
+    cash6: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      stackDepth: 'bb100',
+      scenario: 'random',
+      mttPhase: 'auto',
+      villainLevel: 'pro',
+      practiceStreet: 'random',
+      preflopOpenSize: 2.5,
+      heroPos: 'random',
+      handRange: 'playable'
+    },
+    spin_grind: {
+      formatHub: 'spin',
+      gameType: 'spin3',
+      stackDepth: 'bb15',
+      scenario: 'random',
+      mttPhase: 'auto',
+      spinPayout: '3x',
+      villainLevel: 'pro',
+      practiceStreet: 'preflop',
+      preflopOpenSize: 2.5,
+      heroPos: 'random',
+      handRange: 'playable'
+    },
+    mtt_low: {
+      formatHub: 'mtt',
+      gameType: 'mtt',
+      stackDepth: 'bb25',
+      scenario: 'random',
+      mttPhase: 'mid',
+      villainLevel: 'pro',
+      practiceStreet: 'preflop',
+      preflopOpenSize: 2.2,
+      heroPos: 'random',
+      handRange: 'playable'
+    }
+  };
+
+  function applyPlayPreset(presetKey) {
+    const key = presetKey || 'custom';
+    const box = $('#setup-play-preset');
+    if (box) {
+      box.querySelectorAll('.setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === key);
+      });
+    }
+    const partial = PLAY_PRESETS[key];
+    if (!partial) return;
+    applyPlaySetupConfig(partial);
+  }
+
+  function markPresetCustom() {
+    const box = $('#setup-play-preset');
+    if (!box) return;
+    box.querySelectorAll('.setup-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.val === 'custom');
+    });
+  }
+
   function applyPlaySetupConfig(partial) {
     const PC = window.PTPlayConfig;
     if (!PC) return null;
@@ -680,6 +844,7 @@
     activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
     activate('#setup-scenario', cfg.scenario);
     activate('#setup-stack-depth', cfg.stackDepth);
+    activate('#setup-open-size', String(cfg.preflopOpenSize != null ? cfg.preflopOpenSize : 2.5));
     syncPhaseStackUI(hub);
     activate('#setup-practice-intent', 'mixed');
     activate('#setup-spin-payout', cfg.spinPayout || '2x');
@@ -784,6 +949,7 @@
     bindChipGroup('#setup-game-type', renderHeroPosChips);
     bindChipGroup('#setup-stack-depth');
     bindChipGroup('#setup-scenario', () => {
+      markPresetCustom();
       const hub = activeFormatHub();
       const Tax = window.PTFormatTaxonomy;
       const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
@@ -803,6 +969,7 @@
     bindChipGroup('#setup-multiway-pot-type');
     bindChipGroup('#setup-practice-intent');
     bindChipGroup('#setup-mtt-phase', () => {
+      markPresetCustom();
       const hub = activeFormatHub();
       const Tax = window.PTFormatTaxonomy;
       const phaseEl = $('#setup-mtt-phase .setup-chip.active');
@@ -817,6 +984,15 @@
       }
       syncPhaseStackUI(hub);
     });
+    bindChipGroup('#setup-open-size', markPresetCustom);
+    bindChipGroup('#setup-play-preset', () => {
+      const el = $('#setup-play-preset .setup-chip.active');
+      if (el) applyPlayPreset(el.dataset.val);
+    });
+    const hubBoxForPreset = $('#setup-format-hub');
+    if (hubBoxForPreset) {
+      hubBoxForPreset.addEventListener('click', () => markPresetCustom());
+    }
     bindChipGroup('#setup-spin-payout');
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
@@ -2079,6 +2255,9 @@
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     if (!(cfg && cfg.legendaryMode)) {
       applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+      renderTrainHud(cfg);
+    } else {
+      renderTrainHud(null);
     }
     const heroSeatPos = hand.displayHeroPos || hand.hero.pos;
     const heroDealerEl = $('#hero-dealer');
@@ -3828,12 +4007,49 @@
     else html += `La jugada de mayor frecuencia GTO era <strong>${bestLabel}</strong> (${Math.round((d.gto[d.best] || 0) * 100)}%).`;
     html += `</div>`;
     if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}%</div>`;
+    html += renderDecisionContextLine(d);
     html += renderDecisionMath(d);
     html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
+    if (d.icmNote || d.icmPressure != null || d.bubbleFactor != null) {
+      html += '<div class="result-line" style="border:none;padding-top:4px;color:#8ab4ff">';
+      html += '<strong>ICM:</strong> ';
+      if (d.icmNote) html += escapeHtml(d.icmNote);
+      const bits = [];
+      if (d.icmPressure != null) bits.push('presión ' + Math.round(Number(d.icmPressure) * 100) + '%');
+      if (d.bubbleFactor != null) bits.push('BF ' + Number(d.bubbleFactor).toFixed(2));
+      if (d.icmMultiplier != null && Number(d.icmMultiplier) !== 1) bits.push('×' + Number(d.icmMultiplier).toFixed(2) + ' $EV');
+      if (bits.length) html += (d.icmNote ? ' · ' : '') + bits.join(' · ');
+      html += '</div>';
+    }
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
     if (d.errors && d.errors.length) html += `<div class="result-line" style="border-color:var(--red)">${d.errors.map((e) => escapeHtml(e.msg)).join(' · ')}</div>`;
     html += renderOptionGrid(d.optionBreakdown, d.action, d.best);
     fb.innerHTML = html;
+  }
+
+  function renderDecisionContextLine(d) {
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    if (!cfg && !d) return '';
+    const parts = [];
+    const hub = formatHubOfConfig(cfg || {});
+    if (hub === 'spin') parts.push('Spin (estudio por charts + ICM lite)');
+    else if (hub === 'mtt') parts.push('MTT (estudio heurístico por fase)');
+    else parts.push('Cash');
+    if (cfg) {
+      if (cfg.resolvedPhase && hub !== 'cash') parts.push('fase ' + phaseLabelForHud(cfg.resolvedPhase));
+      if (cfg.stackBB != null) parts.push(cfg.stackBB + 'bb');
+      if (cfg.anteBB > 0) parts.push('ante ' + cfg.anteBB);
+      if (hub === 'spin' && cfg.spinPayout) parts.push('payout ' + cfg.spinPayout);
+      if (cfg.preflopOpenSize) parts.push('open ' + cfg.preflopOpenSize + '×');
+      if (cfg.villainLevel && cfg.villainLevel !== 'pro') {
+        parts.push('rivales ' + cfg.villainLevel + ' (no es GTO puro del villano)');
+      }
+    }
+    if (hand && hand.displayHeroPos && hand.hero && hand.hero.pos && hand.displayHeroPos !== hand.hero.pos) {
+      parts.push(hand.displayHeroPos + ' evaluado como ' + hand.hero.pos + ' (mapa 6-max)');
+    }
+    if (!parts.length) return '';
+    return '<div class="muted-text" style="margin-top:6px;font-size:12px">' + escapeHtml(parts.join(' · ')) + '</div>';
   }
 
   function renderGtoBars(gto) {
@@ -7683,6 +7899,23 @@
     return '<div class="seat-cards">' + Cards.cardBackHTML() + Cards.cardBackHTML() + '</div>';
   }
 
+  function replayFeltConfigFromHand(h) {
+    const kind = (h && (h.gameKind || h.formatHub)) || 'cash';
+    let formatHub = 'cash';
+    if (kind === 'spin' || kind === 'spin3') formatHub = 'spin';
+    else if (kind === 'mtt' || kind === 'sng' || kind === 'tournament') formatHub = 'mtt';
+    return {
+      formatHub: formatHub,
+      gameType: formatHub === 'spin' ? 'spin3' : (formatHub === 'mtt' ? 'mtt' : 'cash6'),
+      stackBB: h && h.heroStackBB != null ? h.heroStackBB : null,
+      mttPhase: h && h.mttPhase,
+      resolvedPhase: h && (h.resolvedPhase || h.mttPhase),
+      anteBB: h && h.anteBB,
+      spinPayout: h && h.spinPayout,
+      preflopOpenSize: h && h.preflopOpenSize
+    };
+  }
+
   function renderShowdownTableHTML(h) {
     const layout = sessionTableLayout(h);
     const mobile = isMobileLayout();
@@ -7732,9 +7965,10 @@
       ? '<div class="hero-cards">' + heroCards.map(Cards.cardToHTML).join('') + '</div>'
       : '';
 
+    const feltCfg = replayFeltConfigFromHand(h);
     const feltClass = layout === '9' ? ' table-9max' : (layout === '3' ? ' table-3max' : '');
-    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}">
-      ${tableWatermarkHTML()}
+    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
+      ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${potBB != null ? fmtBB(potBB) : '—'} bb</div>
       <div class="board">${board.map(Cards.cardToHTML).join('')}</div></div>
@@ -8046,10 +8280,11 @@
       '</div>';
 
     const potDisplay = d.potBB;
+    const feltCfg = replayFeltConfigFromHand(h);
     const feltClass = layout === '9' ? ' table-9max' : (layout === '3' ? ' table-3max' : '');
 
-    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}">
-      ${tableWatermarkHTML()}
+    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
+      ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${fmtBB(potDisplay)} bb</div>
       <div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>

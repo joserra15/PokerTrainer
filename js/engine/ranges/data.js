@@ -56,7 +56,7 @@
     },
     BB_vs_SB: {
       threeBet: '88+, ATs+, KJs+, ATo+, A5s',
-      threeBetMix: '77-22, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo, A9o-A2o',
+      threeBetMix: '77-55, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo',
       call: 'K4s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, KTo, QTo+, JTo, T9o, 98o'
     },
     SB_vs_UTG: {

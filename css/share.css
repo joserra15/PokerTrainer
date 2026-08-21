@@ -174,8 +174,8 @@ body {
 .table-watermark {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   z-index: 0; pointer-events: none; user-select: none;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  opacity: .07;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  opacity: .09;
 }
 .table-watermark-mark {
   width: 96px; height: 104px; background: #fff;
@@ -183,8 +183,46 @@ body {
           mask: var(--pt-spade) center / contain no-repeat;
 }
 .table-watermark-text {
-  font-size: 30px; font-weight: 800; letter-spacing: 2px; color: #fff;
+  font-size: 28px; font-weight: 800; letter-spacing: 2px; color: #fff;
   text-transform: uppercase;
+}
+.table-watermark-sub {
+  font-size: 12px; font-weight: 700; letter-spacing: 2.4px; color: #fff;
+  text-transform: uppercase; opacity: .85;
+}
+
+.table-felt[data-format="spin"] {
+  --felt-a: #2d7a4e; --felt-b: #1a5a38; --felt-c: #123d28;
+  --table-accent: #f0d078; --card-accent: #f0d078;
+  border-width: 11px;
+}
+.table-felt[data-format="mtt"] {
+  --felt-a: #1a5f6a; --felt-b: #0e3f4c; --felt-c: #082830;
+  --table-accent: #7ec8ff; --card-accent: #7ec8ff;
+  border-width: 15px;
+}
+.table-format-badge {
+  position: absolute; top: 14px; left: 18px; z-index: 4;
+  font-size: 11px; font-weight: 800; letter-spacing: 1.4px;
+  text-transform: uppercase; color: rgba(255,255,255,.88);
+  background: rgba(0,0,0,.38); border: 1px solid rgba(255,255,255,.18);
+  padding: 3px 9px; border-radius: 6px; pointer-events: none;
+}
+.table-felt[data-format="spin"] .table-format-badge {
+  color: #1a1406; background: rgba(240,208,120,.92);
+}
+.table-felt[data-format="mtt"] .table-format-badge {
+  color: #071018; background: rgba(126,200,255,.9);
+}
+.table-train-hud {
+  position: absolute; top: 14px; right: 18px; z-index: 4;
+  display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end;
+  max-width: 58%; pointer-events: none;
+}
+.table-train-chip {
+  font-size: 11px; font-weight: 700; color: #f2f6fa;
+  background: rgba(0,0,0,.42); border: 1px solid rgba(255,255,255,.16);
+  padding: 3px 8px; border-radius: 999px;
 }
 
 .table-9max .seat { min-width: 52px; padding: 3px 6px; }
