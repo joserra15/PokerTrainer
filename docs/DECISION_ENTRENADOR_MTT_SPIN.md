@@ -41,6 +41,11 @@
 - **P3d** HUD con nivel de blinds simbólico + ante %.
 - **P3e** Escuela: `MTT_SHORT` ≠ `MTT_PUSH`; drills `MTT_BUBBLE` en T-13; Spin con `formatHub: spin` + fase por stack.
 
+### Extensión vs 3-bet (post Fase 3)
+
+- Capas `spinVs3bet` / `mttVs3bet` por stack y fase: flats tipo **99 OOP vs 3-bet** se aprietan en short/push/bubble (prioridad fold o jam), no se copian charts cash deep.
+- El selector de **fase** en Spin/MTT adapta opens, vs-RFI **y** vs 3-bet; la mezcla GTO de `vs3betStrategy` también se endurece con ICM/fase corta.
+
 ## Estado de Fases 0–2
 
 - Tapete con watermark “Modo entrenamiento”, badge CASH/SPIN/MTT y HUD de fase/stack/ante/ICM/payout.

@@ -3,7 +3,7 @@ window.PT_PHASE3_LAYERS_JSON = {
   "meta": {
     "source": "generate-phase3-layers.js",
     "updated": "2026-08-21",
-    "note": "Capas Spin/MTT Fase 3 — charts de estudio (no solver tree)"
+    "note": "Capas Spin/MTT Fase 3 — charts de estudio (no solver tree); incluye vs3bet por fase/stack"
   },
   "spinOpen": {
     "10": {
@@ -1213,6 +1213,517 @@ window.PT_PHASE3_LAYERS_JSON = {
           "threeBetMix": "77-55, A9s-A2s, KTs, QTs, JTs, T9s, KQo",
           "call": "K4s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, KTo, QTo+, JTo, T9o, 98o, A9s, K9s, Q9s, J9s, T9s, A9o, KTo",
           "callMix": ""
+        }
+      }
+    }
+  },
+  "spinVs3bet": {
+    "10": {
+      "meta": {
+        "format": "spin3",
+        "stackBB": 10
+      },
+      "pairs": {
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, TT, AQs, AQo",
+          "call": "77, KJs, QJs",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "15": {
+      "meta": {
+        "format": "spin3",
+        "stackBB": 15
+      },
+      "pairs": {
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, TT, AQs, AQo",
+          "call": "77, KJs, QJs",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "20": {
+      "meta": {
+        "format": "spin3",
+        "stackBB": 20
+      },
+      "pairs": {
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, AQs",
+          "call": "77, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "25": {
+      "meta": {
+        "format": "spin3",
+        "stackBB": 25
+      },
+      "pairs": {
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, AQs",
+          "call": "77, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    }
+  },
+  "mttVs3bet": {
+    "early": {
+      "meta": {
+        "format": "mtt",
+        "phase": "early"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, AQs, AJs, KQs",
+          "callMix": "99, 88, ATs, AQo"
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, AQs, AJs, KQs",
+          "callMix": "99, 88, ATs, AQo"
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, 77, ATs, KJs, QJs, AJo, KQo"
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, 77, ATs, KJs, QJs, AJo, KQo"
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo",
+          "call": "QQ, JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s",
+          "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo, AJo",
+          "callMix": "88, 77, 66, KQo, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s",
+          "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo, AJo",
+          "callMix": "88, 77, 66, KQo, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s",
+          "call": "99, 88, 77, AJs, ATs, KQs, KJs, QJs, AQo, AJo, KQo",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "mid": {
+      "meta": {
+        "format": "mtt",
+        "phase": "mid"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, AQs, AJs, KQs",
+          "callMix": "99, 88, ATs, AQo"
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, AQs, AJs, KQs",
+          "callMix": "99, 88, ATs, AQo"
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, QJs, AJo, KQo"
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, QJs, AJo, KQo"
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ",
+          "call": "QQ, JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ",
+          "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo",
+          "callMix": "88, KQo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ",
+          "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo",
+          "callMix": "88, KQo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ",
+          "call": "99, 77, AJs, ATs, KQs, KJs, QJs, AQo",
+          "callMix": "55, 44, T9s, 98s, QJo"
+        }
+      }
+    },
+    "short": {
+      "meta": {
+        "format": "mtt",
+        "phase": "short"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs, JJ, AQs",
+          "call": "JJ, KQs",
+          "callMix": ""
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, AQs, JJ, AQs",
+          "call": "QQ, JJ, KQs",
+          "callMix": "JJ, AQs, AJs"
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs, JJ, AQs",
+          "call": "JJ, KQs",
+          "callMix": ""
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, AQs, JJ, AQs",
+          "call": "QQ, JJ, KQs",
+          "callMix": "JJ, AQs, AJs"
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, AQs",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": "JJ, TT, AQs, AJs, KQs, AQo"
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, AQs",
+          "call": "77, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "push": {
+      "meta": {
+        "format": "mtt",
+        "phase": "push"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "QQ",
+          "callMix": ""
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "QQ",
+          "callMix": ""
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": "77"
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": "77"
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "QQ",
+          "callMix": ""
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, TT, AQs, AQo",
+          "call": "77, KJs, QJs",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "bubble": {
+      "meta": {
+        "format": "mtt",
+        "phase": "bubble"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, KQs",
+          "callMix": ""
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs",
+          "call": "QQ, JJ, KQs",
+          "callMix": "JJ, AQs, AJs"
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, KQs",
+          "callMix": ""
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs",
+          "call": "QQ, JJ, KQs",
+          "callMix": "JJ, AQs, AJs"
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": "QJs"
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": "QJs"
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs",
+          "call": "QQ, JJ, TT, AQs, KQs, AQo",
+          "callMix": "JJ, TT, AQs, AJs, KQs, AQo"
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs",
+          "call": "TT, AQs, KQs, KJs, QJs, AQo",
+          "callMix": "66, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs",
+          "call": "TT, AQs, KQs, KJs, QJs, AQo",
+          "callMix": "66, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, TT, AQs",
+          "call": "77, KQs, KJs, QJs, AQo",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
         }
       }
     }

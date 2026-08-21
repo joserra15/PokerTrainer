@@ -146,14 +146,37 @@
     const data = RR && ctx && openerPos && threeBettorPos
       ? RR.getVs3betRow(openerPos, threeBettorPos, ctx)
       : (RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET);
+    const Tax = global.PTFormatTaxonomy;
+    const c = RR && RR.normalize ? RR.normalize(ctx) : (ctx || {});
+    const phase = c.effectivePhase || c.resolvedPhase || c.mttPhase || '';
+    const tourneyTight = !!(c.isTournament || c.formatHub === 'spin' || c.formatHub === 'mtt'
+      || (Tax && Tax.usesIcm && Tax.usesIcm(ctx)));
+    const shortish = tourneyTight && (
+      phase === 'short' || phase === 'push' || phase === 'bubble'
+      || (c.stackBB != null && c.stackBB <= 28)
+    );
     if (data) {
       const jam = N.toSet(data.fourBet);
       const call = N.toSet(data.call);
       const callMix = N.toSet(data.callMix || '');
-      if (jam.has(code)) return { fold: 0, call: 0.25, raise: 0.75 };
-      if (call.has(code)) return { fold: 0.15, call: 0.8, raise: 0.05 };
-      if (callMix.has(code)) return { fold: 0.42, call: 0.53, raise: 0.05 };
-      return { fold: 0.82, call: 0.15, raise: 0.03 };
+      if (jam.has(code)) {
+        return shortish
+          ? { fold: 0, call: 0.12, raise: 0.88 }
+          : { fold: 0, call: 0.25, raise: 0.75 };
+      }
+      if (call.has(code)) {
+        return shortish
+          ? { fold: 0.28, call: 0.65, raise: 0.07 }
+          : { fold: 0.15, call: 0.8, raise: 0.05 };
+      }
+      if (callMix.has(code)) {
+        return shortish
+          ? { fold: 0.58, call: 0.37, raise: 0.05 }
+          : { fold: 0.42, call: 0.53, raise: 0.05 };
+      }
+      return shortish
+        ? { fold: 0.92, call: 0.06, raise: 0.02 }
+        : { fold: 0.82, call: 0.15, raise: 0.03 };
     }
     const cont = N.toSet('QQ+, AKs, AKo');
     const callMix = N.toSet('JJ, TT, AQs, AJs, KQs, AQo, 99');
