@@ -14,7 +14,7 @@ const css = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const help = fs.readFileSync(path.join(root, 'js/help.js'), 'utf8');
 const ci = fs.readFileSync(path.join(root, 'tools/run-ci-tests.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.7.20'/.test(version), 'versión 2.7.20');
+assert.ok(/PT_BUILD\s*=\s*'2.7.21'/.test(version), 'versión 2.7.21');
 assert.ok(/id="setup-user-presets"/.test(html), 'host Mis presets');
 assert.ok(/id="setup-preset-save"/.test(html) && /id="setup-preset-name"/.test(html), 'UI guardar preset');
 assert.ok(/function saveCurrentPlayPreset/.test(app) && /function renderUserPlayPresets/.test(app), 'app save/render');

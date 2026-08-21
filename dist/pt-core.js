@@ -21063,9 +21063,18 @@ window.PT_NASH_PUSH_JSON = {
       if (!la) { lessons[id] = lb; return; }
       if (!lb) { lessons[id] = la; return; }
       const bestScore = Math.max(Number(la.bestScore) || 0, Number(lb.bestScore) || 0);
+      let bestPct = Math.round(bestScore * 1000) / 10;
+      if (!(Number(la.bestScore) > 0) && !(Number(lb.bestScore) > 0)) {
+        const fa = la.bestPct != null ? Number(la.bestPct)
+          : (la.lastPct != null ? Number(la.lastPct) : null);
+        const fb = lb.bestPct != null ? Number(lb.bestPct)
+          : (lb.lastPct != null ? Number(lb.lastPct) : null);
+        const fallback = (fa != null && isFinite(fa)) ? fa : ((fb != null && isFinite(fb)) ? fb : null);
+        if (fallback != null) bestPct = fallback;
+      }
       lessons[id] = {
-        bestScore: bestScore,
-        bestPct: Math.round(bestScore * 1000) / 10,
+        bestScore: bestScore > 0 ? bestScore : (bestPct > 0 ? bestPct / 100 : bestScore),
+        bestPct: bestPct,
         attempts: Math.max(Number(la.attempts) || 0, Number(lb.attempts) || 0),
         passed: !!(la.passed || lb.passed),
         gold: !!(la.gold || lb.gold),
@@ -21288,7 +21297,7 @@ window.PT_NASH_PUSH_JSON = {
 
     const st = getStats();
     if (!st.byStreet) st.byStreet = defaultStats().byStreet;
-    /* Escuela consume cupo de manos, pero no contamina acierto/EV/leaks de stats. */
+    /* Escuela no contamina acierto/EV/leaks de stats (ni consume cupo de entitlements). */
     st.handsPlayed += 1;
     if (!schoolHand) {
       st.totalEvLoss += hand.result.totalEvLoss || 0;
@@ -31546,7 +31555,8 @@ window.PT_NASH_PUSH_JSON = {
       const cfgEarly = pendingForce ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
       const isLegendaryHand = !!(cfgEarly && cfgEarly.legendaryMode);
       const isSchoolHand = !!(cfgEarly && (cfgEarly.schoolMode || cfgEarly.school));
-      if (!guestOn && !isLegendaryHand && Ent && Ent.ensureLoaded) {
+      /* Escuela y Legendary no consumen cupo diario del entrenador. */
+      if (!guestOn && !isLegendaryHand && !isSchoolHand && Ent && Ent.ensureLoaded) {
         const ent = await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
         if (!check.ok) {
@@ -31554,21 +31564,10 @@ window.PT_NASH_PUSH_JSON = {
           return;
         }
         if (Ent.recordTrainerHand) {
-          /* Escuela: no bloquear «Siguiente spot» esperando el RPC de cupo (~segundos en móvil). */
-          if (isSchoolHand) {
-            void Ent.recordTrainerHand().then(function (rec) {
-              if (rec && rec.ok === false && window.PTBilling) {
-                window.PTBilling.showPaywall(rec.error || 'trainer_limit');
-              }
-            }).catch(function (eRec) {
-              console.warn('[Play] school recordTrainerHand', eRec);
-            });
-          } else {
-            const rec = await Ent.recordTrainerHand();
-            if (rec && rec.ok === false) {
-              if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
-              return;
-            }
+          const rec = await Ent.recordTrainerHand();
+          if (rec && rec.ok === false) {
+            if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
+            return;
           }
         }
       }

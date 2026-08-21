@@ -2038,7 +2038,8 @@
       const cfgEarly = pendingForce ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
       const isLegendaryHand = !!(cfgEarly && cfgEarly.legendaryMode);
       const isSchoolHand = !!(cfgEarly && (cfgEarly.schoolMode || cfgEarly.school));
-      if (!guestOn && !isLegendaryHand && Ent && Ent.ensureLoaded) {
+      /* Escuela y Legendary no consumen cupo diario del entrenador. */
+      if (!guestOn && !isLegendaryHand && !isSchoolHand && Ent && Ent.ensureLoaded) {
         const ent = await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
         if (!check.ok) {
@@ -2046,21 +2047,10 @@
           return;
         }
         if (Ent.recordTrainerHand) {
-          /* Escuela: no bloquear «Siguiente spot» esperando el RPC de cupo (~segundos en móvil). */
-          if (isSchoolHand) {
-            void Ent.recordTrainerHand().then(function (rec) {
-              if (rec && rec.ok === false && window.PTBilling) {
-                window.PTBilling.showPaywall(rec.error || 'trainer_limit');
-              }
-            }).catch(function (eRec) {
-              console.warn('[Play] school recordTrainerHand', eRec);
-            });
-          } else {
-            const rec = await Ent.recordTrainerHand();
-            if (rec && rec.ok === false) {
-              if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
-              return;
-            }
+          const rec = await Ent.recordTrainerHand();
+          if (rec && rec.ok === false) {
+            if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
+            return;
           }
         }
       }

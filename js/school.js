@@ -1,7 +1,7 @@
 /*
  * school.js — Escuela de Póker: hub multi-ruta (Cash/Spins/MTT/Rangos), runner de spots.
  * Escuela abierta a usuarios autenticados (SCHOOL_PUBLIC=true). Fases G–J: Spins, MTT, rangos/pro, leaks→lección.
- * Las manos consumen cupo Free del trainer.
+ * Las manos de lección no consumen el cupo diario del entrenador.
  */
 (function (global) {
   'use strict';
@@ -103,32 +103,61 @@
     }
   }
 
+  /** % de acierto a mostrar; null si no hay dato usable (evita «undefined%»). */
+  function resolveBestPct(row) {
+    if (!row || typeof row !== 'object') return null;
+    var pct = row.bestPct;
+    if (pct != null && isFinite(Number(pct))) return Number(pct);
+    if (row.bestScore != null && isFinite(Number(row.bestScore))) {
+      return Math.round(Number(row.bestScore) * 1000) / 10;
+    }
+    if (row.lastPct != null && isFinite(Number(row.lastPct))) return Number(row.lastPct);
+    if (row.lastScore != null && isFinite(Number(row.lastScore))) {
+      return Math.round(Number(row.lastScore) * 1000) / 10;
+    }
+    return null;
+  }
+
+  function normalizeLessonRow(row) {
+    if (!row || typeof row !== 'object') return null;
+    var out = {
+      bestScore: row.bestScore,
+      bestPct: row.bestPct,
+      attempts: row.attempts,
+      passed: !!row.passed,
+      gold: !!row.gold,
+      perfect: !!row.perfect,
+      lastScore: row.lastScore,
+      lastPct: row.lastPct,
+      updatedAt: row.updatedAt
+    };
+    var pct = resolveBestPct(out);
+    if (pct != null) {
+      out.bestPct = pct;
+      if (out.bestScore == null || !isFinite(Number(out.bestScore))) {
+        out.bestScore = pct / 100;
+      }
+    } else {
+      delete out.bestPct;
+    }
+    return out;
+  }
+
   function cloneLessonsMap(lessons) {
     var src = lessons && typeof lessons === 'object' ? lessons : {};
     var out = {};
     Object.keys(src).forEach(function (id) {
-      var row = src[id];
-      if (!row || typeof row !== 'object') return;
-      out[id] = {
-        bestScore: row.bestScore,
-        bestPct: row.bestPct,
-        attempts: row.attempts,
-        passed: !!row.passed,
-        gold: !!row.gold,
-        perfect: !!row.perfect,
-        lastScore: row.lastScore,
-        lastPct: row.lastPct,
-        updatedAt: row.updatedAt
-      };
+      var row = normalizeLessonRow(src[id]);
+      if (row) out[id] = row;
     });
     return out;
   }
 
   function mergeLessonProgressRows(a, b) {
-    if (!a) return b ? Object.assign({}, b) : null;
-    if (!b) return Object.assign({}, a);
+    if (!a) return b ? normalizeLessonRow(b) : null;
+    if (!b) return normalizeLessonRow(a);
     var bestScore = Math.max(Number(a.bestScore) || 0, Number(b.bestScore) || 0);
-    return {
+    var merged = {
       bestScore: bestScore,
       bestPct: Math.round(bestScore * 1000) / 10,
       attempts: Math.max(Number(a.attempts) || 0, Number(b.attempts) || 0),
@@ -139,6 +168,15 @@
       lastPct: (a.updatedAt || '') >= (b.updatedAt || '') ? a.lastPct : b.lastPct,
       updatedAt: (a.updatedAt || '') >= (b.updatedAt || '') ? a.updatedAt : b.updatedAt
     };
+    /* Si no hay score real pero sí un % en alguno de los lados, no dejar 0%. */
+    if (!(Number(a.bestScore) > 0) && !(Number(b.bestScore) > 0)) {
+      var fallback = resolveBestPct(a) != null ? resolveBestPct(a) : resolveBestPct(b);
+      if (fallback != null) {
+        merged.bestPct = fallback;
+        merged.bestScore = fallback / 100;
+      }
+    }
+    return normalizeLessonRow(merged);
   }
 
   function mergeSchoolObjects(a, b) {
@@ -193,11 +231,11 @@
     Object.keys(passedOverlay).forEach(function (id) {
       if (!passedOverlay[id]) return;
       var prev = merged.lessons[id] || {};
-      merged.lessons[id] = Object.assign({}, prev, { passed: true });
+      merged.lessons[id] = normalizeLessonRow(Object.assign({}, prev, { passed: true }));
     });
     return {
       xp: Number(merged.xp) || 0,
-      lessons: merged.lessons || {},
+      lessons: cloneLessonsMap(merged.lessons || {}),
       updatedAt: Number(merged.updatedAt) || 0,
       version: Number(merged.version) || 2
     };
@@ -246,17 +284,29 @@
     if (!summary || !summary.passed) return isLessonPassed(lessonId);
     var school = readSchool();
     var prev = school.lessons[lessonId] || {};
-    school.lessons[lessonId] = {
-      bestScore: prev.bestScore != null ? prev.bestScore : summary.score,
-      bestPct: prev.bestPct != null ? prev.bestPct : summary.pct,
+    var score = summary.score != null ? Number(summary.score) : null;
+    var bestScore = prev.bestScore != null ? Number(prev.bestScore) : null;
+    if (score != null && isFinite(score)) {
+      bestScore = bestScore != null && isFinite(bestScore) ? Math.max(bestScore, score) : score;
+    }
+    var pct = summary.pct != null ? Number(summary.pct) : null;
+    var bestPct = resolveBestPct({
+      bestPct: prev.bestPct != null ? prev.bestPct : pct,
+      bestScore: bestScore,
+      lastPct: pct != null ? pct : prev.lastPct,
+      lastScore: score != null ? score : prev.lastScore
+    });
+    school.lessons[lessonId] = normalizeLessonRow({
+      bestScore: bestScore != null ? bestScore : (bestPct != null ? bestPct / 100 : prev.bestScore),
+      bestPct: bestPct,
       attempts: Math.max(Number(prev.attempts) || 0, 1),
       passed: true,
       gold: !!(prev.gold || summary.gold),
       perfect: !!(prev.perfect || summary.perfect),
-      lastScore: summary.score != null ? summary.score : prev.lastScore,
-      lastPct: summary.pct != null ? summary.pct : prev.lastPct,
+      lastScore: score != null ? score : prev.lastScore,
+      lastPct: pct != null ? pct : prev.lastPct,
       updatedAt: new Date().toISOString()
-    };
+    });
     if (summary.xpGain && !(prev.passed)) {
       /* xp already applied in recordLessonAttempt; don't double-count here */
     }
@@ -1180,7 +1230,7 @@
     cash: {
       eyebrow: 'Cash · Ruta principal',
       title: 'Escuela de Póker',
-      lead: 'Fundamentos → preflop → postflop → Pro Coach. Gates de plan activos. Las manos consumen el cupo Free del entrenador.'
+      lead: 'Fundamentos → preflop → postflop → Pro Coach. Gates de plan activos. Las lecciones no gastan el cupo diario del entrenador.'
     },
     spin: {
       eyebrow: 'Spins · Ruta torneo corto',
@@ -1255,8 +1305,9 @@
       return modLessons.map(function (l, i) {
         var st = nodeState(l);
         var p = lessonProgress(l.id);
-        var pctHtml = p && p.passed
-          ? '<span class="school-node-pct">' + esc(String(p.bestPct)) + '%</span>'
+        var pctVal = resolveBestPct(p);
+        var pctHtml = p && p.passed && pctVal != null
+          ? '<span class="school-node-pct">' + esc(String(pctVal)) + '%</span>'
           : '';
         var stars = '';
         if (p && p.passed) {
@@ -1404,7 +1455,7 @@
       '<h2 class="school-title">' + esc(lesson.title) + '</h2>' +
       '<p class="school-lead">' + esc(lesson.concept) + '</p>' +
       (p && p.passed
-        ? '<p class="school-best">Mejor marca: <strong>' + esc(String(p.bestPct)) + '%</strong> · ' +
+        ? '<p class="school-best">Mejor marca: <strong>' + esc(String(resolveBestPct(p) != null ? resolveBestPct(p) : '—')) + '%</strong> · ' +
           (p.perfect ? '100 %' : (p.gold ? 'Oro' : 'Aprobada')) +
           ' · ' + (p.attempts || 1) + ' intento(s)</p>'
         : '<p class="muted-text">Umbral aprobar: ' + Math.round((lesson.passThreshold || 0.7) * 100) +
@@ -1522,6 +1573,8 @@
       return r.class === 'error' || r.class === 'imprecisa';
     });
     var tip = schoolCoachTip(lesson, sum.passed, fails);
+    var bestHist = resolveBestPct(sum);
+    if (bestHist == null && sum.pct != null && isFinite(Number(sum.pct))) bestHist = Number(sum.pct);
 
     root.innerHTML =
       '<div class="school-page school-result-page">' +
@@ -1529,10 +1582,10 @@
       '<p class="school-eyebrow">' + esc(lesson.id) + '</p>' +
       '<h2 class="school-title">' + (sum.passed ? 'Lección superada' : 'Casi — sigue practicando') + '</h2>' +
       '<div class="school-ring" aria-label="porcentaje">' +
-      '<span class="school-ring-pct">' + esc(String(sum.pct)) + '%</span>' +
+      '<span class="school-ring-pct">' + esc(String(sum.pct != null ? sum.pct : '—')) + '%</span>' +
       '<span class="school-ring-lbl">acierto</span></div>' +
       '<p class="school-result-meta">Umbral ' + Math.round(sum.threshold * 100) +
-      '% · Mejor histórica ' + esc(String(sum.bestPct)) + '%' +
+      '% · Mejor histórica ' + esc(String(bestHist != null ? bestHist : '—')) + '%' +
       (sum.xpGain ? ' · <strong>+' + sum.xpGain + ' XP</strong>' : '') + '</p>' +
       (sum.gold ? '<p class="school-gold-tag">Marca oro</p>' : '') +
       (sum.perfect ? '<p class="school-gold-tag">¡100 %!</p>' : '') +
@@ -1702,6 +1755,7 @@
     entitlementsPlan: entitlementsPlan,
     trackSchool: trackSchool,
     ensureLessonMarkedPassed: ensureLessonMarkedPassed,
+    resolveBestPct: resolveBestPct,
     _clearPassedOverlay: function () {
       Object.keys(passedOverlay).forEach(function (k) { delete passedOverlay[k]; });
     },
