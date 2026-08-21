@@ -599,9 +599,21 @@
       if (cfg.anteBB > 0) chips.push({ text: 'Ante ' + cfg.anteBB + 'bb', cls: '' });
       const Tax = window.PTFormatTaxonomy;
       const icmOn = Tax && Tax.usesIcm ? Tax.usesIcm(cfg) : (hub === 'spin');
-      if (icmOn) chips.push({ text: 'ICM', cls: 'is-icm' });
+      if (icmOn) {
+        chips.push({
+          text: 'ICM',
+          cls: 'is-icm',
+          title: hub === 'spin'
+            ? 'ICM activo: en Spins el premio no es proporcional a las fichas. Las decisiones se juzgan también en valor de premio ($EV), no solo en fichas.'
+            : 'ICM activo: en esta fase (short / push / burbuja) el premio importa más que las fichas. Spews y calls ligeros se penalizan más.'
+        });
+      }
       if (hub === 'spin' && cfg.spinPayout) {
-        chips.push({ text: 'Payout ' + String(cfg.spinPayout).toUpperCase(), cls: 'is-icm' });
+        chips.push({
+          text: 'Payout ' + String(cfg.spinPayout).toUpperCase(),
+          cls: 'is-icm',
+          title: 'Estructura de premios del Spin (reparto del buy-in). Afecta al ICM.'
+        });
       }
     }
     if (cfg.preflopOpenSize) chips.push({ text: 'Open ' + cfg.preflopOpenSize + '×', cls: '' });
@@ -627,7 +639,9 @@
     return tableFormatBadgeHTML(cfg) +
       '<div class="table-train-hud">' +
       buildTrainHudChips(cfg).map((c) =>
-        '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '">' + escapeHtml(c.text) + '</span>'
+        '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '"' +
+        (c.title ? ' title="' + escapeHtml(c.title) + '"' : '') + '>' +
+        escapeHtml(c.text) + '</span>'
       ).join('') +
       '</div>' +
       tableWatermarkHTML();
@@ -2929,6 +2943,48 @@
     return `<div class="dec-math muted-text">${parts.join(' · ')}</div>`;
   }
 
+  function renderTournamentDecisionImpact(d) {
+    if (!d) return '';
+    const hub = d.formatHub;
+    const isTourney = hub === 'spin' || hub === 'mtt'
+      || d.icmLite || d.icmNote || d.phaseNote || d.mttPhase;
+    if (!isTourney) return '';
+    const lines = [];
+    if (d.phaseNote) {
+      lines.push('<div><strong>Fase:</strong> ' + escapeHtml(d.phaseNote) + '</div>');
+    } else if (d.mttPhase && d.mttPhase !== 'auto') {
+      lines.push('<div><strong>Fase:</strong> evaluación con charts de «'
+        + escapeHtml(phaseLabelForHud(d.mttPhase)) + '».</div>');
+    }
+    if (d.icmLite || d.icmNote || d.icmChangedEv) {
+      let icm = '<div><strong>ICM (valor del premio):</strong> ';
+      if (d.icmNote) {
+        icm += escapeHtml(d.icmNote);
+      } else if (d.icmChangedEv && d.chipEvLoss != null && d.evLoss != null) {
+        icm += 'El coste en fichas (−' + fmtBB(d.chipEvLoss)
+          + ' bb) se ajustó a −' + fmtBB(d.evLoss) + ' bb por presión de premio.';
+      } else {
+        icm += 'Activo: el premio no es proporcional a las fichas.';
+      }
+      const bits = [];
+      if (d.icmPressure != null) {
+        const pct = Math.round(Number(d.icmPressure) * 100);
+        if (pct > 0) bits.push('stack «vale menos» en premio (+' + pct + '%)');
+        else if (pct < 0) bits.push('puedes arriesgar más (−' + Math.abs(pct) + '%)');
+      }
+      if (d.icmChangedEv) bits.push('EV afectado por ICM');
+      if (d.icmMultiplier != null && Number(d.icmMultiplier) !== 1) {
+        bits.push('ajuste ×' + Number(d.icmMultiplier).toFixed(2));
+      }
+      if (bits.length) icm += ' · ' + escapeHtml(bits.join(' · '));
+      icm += '</div>';
+      lines.push(icm);
+    }
+    if (!lines.length) return '';
+    return '<div class="dec-tourney-impact" style="margin-top:6px;font-size:12px;color:#8ab4ff">'
+      + lines.join('') + '</div>';
+  }
+
   function renderHandDecisionsSummary(decisions, matrixSource) {
     if (!decisions || !decisions.length) return '';
     let html = '<div class="card-box" style="margin-top:14px"><h3>Evaluación GTO de la mano</h3>';
@@ -2940,6 +2996,7 @@
           ${decisionEvLossHtml(d)}
         </div>`;
       html += renderDecisionMath(d);
+      html += renderTournamentDecisionImpact(d);
       if (d.context) html += `<div class="dec-expl muted-text">${escapeHtml(d.context)}</div>`;
       if (d.explanation) html += `<div class="dec-expl">${escapeHtml(d.explanation)}</div>`;
       if (d.renderAlert) html += `<div class="dec-expl" style="color:var(--orange)">${escapeHtml(d.renderAlert)}</div>`;
@@ -4021,17 +4078,7 @@
     html += renderDecisionContextLine(d);
     html += renderDecisionMath(d);
     html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
-    if (d.icmNote || d.icmPressure != null || d.bubbleFactor != null) {
-      html += '<div class="result-line" style="border:none;padding-top:4px;color:#8ab4ff">';
-      html += '<strong>ICM:</strong> ';
-      if (d.icmNote) html += escapeHtml(d.icmNote);
-      const bits = [];
-      if (d.icmPressure != null) bits.push('presión ' + Math.round(Number(d.icmPressure) * 100) + '%');
-      if (d.bubbleFactor != null) bits.push('BF ' + Number(d.bubbleFactor).toFixed(2));
-      if (d.icmMultiplier != null && Number(d.icmMultiplier) !== 1) bits.push('×' + Number(d.icmMultiplier).toFixed(2) + ' $EV');
-      if (bits.length) html += (d.icmNote ? ' · ' : '') + bits.join(' · ');
-      html += '</div>';
-    }
+    html += renderTournamentDecisionImpact(d);
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
     if (d.errors && d.errors.length) html += `<div class="result-line" style="border-color:var(--red)">${d.errors.map((e) => escapeHtml(e.msg)).join(' · ')}</div>`;
     html += renderOptionGrid(d.optionBreakdown, d.action, d.best);
@@ -7663,8 +7710,8 @@
             html += `<div class="tl-expl">${escapeHtml(heroDec.explanation)}</div>`;
           }
           if (heroDec.renderAlert) html += `<div class="tl-expl" style="color:var(--orange)">${escapeHtml(heroDec.renderAlert)}</div>`;
-          if (heroDec.icmNote) {
-            html += `<div class="tl-expl" style="color:#8ab4ff"><strong>ICM lite:</strong> ${escapeHtml(heroDec.icmNote)}</div>`;
+          if (heroDec.icmNote || heroDec.phaseNote || heroDec.icmLite || heroDec.mttPhase) {
+            html += renderTournamentDecisionImpact(heroDec);
           }
           if (heroDec.populationCompare && heroDec.populationCompare.note) {
             const ok = heroDec.populationCompare.inGtoRange;

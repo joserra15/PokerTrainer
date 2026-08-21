@@ -41,8 +41,8 @@ check(/id="setup-play-preset"/.test(html) && /Spin grind/.test(html) && /Reg MTT
   'presets Mi juego en setup');
 check(/id="setup-open-size"/.test(html) && /data-val="2\.2"/.test(html) && /data-val="2\.5"/.test(html) && /data-val="3"/.test(html),
   'chips sizing open 2.2/2.5/3');
-check(/estudio heurístico por fase/.test(html) || /ICM lite/.test(html),
-  'copy honesto Spins/Torneos en setup');
+check(/etiqueta <strong>ICM<\/strong>/.test(html) || /ICM<\/strong> en el tapete/.test(html) || /premio importa más que las fichas/.test(html),
+  'copy honesto Spins/Torneos en setup (ICM explicado)');
 
 check(/data-format="spin"/.test(css) && /data-format="mtt"/.test(css),
   'CSS tapetes spin/mtt');
@@ -53,12 +53,21 @@ check(/\.table-watermark-sub/.test(shareCss) && /data-format="spin"/.test(shareC
 
 check(/function renderTrainHud/.test(app) && /function tableChromeHTML/.test(app),
   'app.js renderTrainHud + tableChromeHTML');
-check(/d\.icmNote/.test(app) && /ICM:/.test(app),
+check(/d\.icmNote/.test(app) && /ICM \(valor del premio\)/.test(app),
   'showFeedback renderiza bloque ICM');
+check(/ICM activo:/.test(app) && /title:/.test(app),
+  'chip ICM del HUD tiene tooltip explicativo');
+check(/function renderTournamentDecisionImpact/.test(app)
+  && /renderTournamentDecisionImpact\(d\)/.test(app)
+  && /phaseNote/.test(app),
+  'detalle de mano muestra impacto de fase/ICM');
+check(/icmChangedEv/.test(app) && /chipEvLoss/.test(read('js/engine.js'))
+  && /chipEvLoss/.test(read('js/engine/solver/LocalSolverProvider.js')),
+  'EV pre/post ICM cableado en solver y decisiones');
 check(/PLAY_PRESETS/.test(app) && /spin_grind/.test(app) && /mtt_low/.test(app),
   'PLAY_PRESETS cash/spin/mtt');
 check(/preflopOpenSize/.test(app), 'preflopOpenSize cableado en readPlayConfig/apply');
-check(/PT_BUILD\s*=\s*'2\.7\.9'/.test(version), 'PT_BUILD 2.7.9');
+check(/PT_BUILD\s*=\s*'2.7.10'/.test(version), 'PT_BUILD 2.7.10');
 
 const decisionDoc = read('docs/DECISION_ENTRENADOR_MTT_SPIN.md');
 check(/Profundizar/.test(decisionDoc) && /ICM lite/.test(decisionDoc),
@@ -160,6 +169,51 @@ check(Tax.usesIcm(PC.normalize({ formatHub: 'spin', stackDepth: 'bb25' })), 'spi
 check(Tax.usesIcm(PC.normalize({ formatHub: 'mtt', stackDepth: 'bb20', mttPhase: 'short' })), 'mtt short ICM');
 check(!Tax.usesIcm(PC.normalize({ formatHub: 'cash', gameType: 'cash6' })), 'cash sin ICM');
 check(!!Icm, 'GTOIcmEv disponible');
+
+// evaluateSpot spin/mtt anota fase + ICM en la evaluación
+const GTO = w.GTO;
+if (GTO && GTO.evaluateSpot) {
+  const spinEv = GTO.evaluateSpot({
+    street: 'preflop',
+    heroCards: ['Ah', 'Kd'],
+    position: 'BTN',
+    potBB: 1.5,
+    toCallBB: 1,
+    chosenAction: 'fold',
+    formatHub: 'spin',
+    gameType: 'spin3',
+    mttPhase: 'push',
+    stackDepth: 12,
+    heroStackBB: 12,
+    villainStackBB: 12,
+    spinPayout: '3x',
+    scenarioType: 'RFI'
+  });
+  const sev = spinEv && spinEv.evaluation;
+  check(!!sev && (sev.phaseNote || sev.mttPhase === 'push' || sev.formatHub === 'spin'),
+    'spin evaluateSpot anota fase/formato');
+  check(!!sev && (sev.icmLite || sev.icmNote || sev.icmMultiplier != null),
+    'spin evaluateSpot anota ICM');
+
+  const mttEv = GTO.evaluateSpot({
+    street: 'preflop',
+    heroCards: ['Kh', 'Jd'],
+    position: 'HJ',
+    potBB: 1.5,
+    toCallBB: 0,
+    chosenAction: 'raise',
+    formatHub: 'mtt',
+    gameType: 'mtt',
+    mttPhase: 'short',
+    stackDepth: 20,
+    heroStackBB: 20,
+    villainStackBB: 22,
+    scenarioType: 'RFI'
+  });
+  const mev = mttEv && mttEv.evaluation;
+  check(!!mev && (mev.phaseNote || mev.mttPhase === 'short'),
+    'mtt short evaluateSpot anota fase');
+}
 
 // Engine: open size configurable en mano
 if (Engine && Engine.newHand) {

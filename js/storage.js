@@ -732,7 +732,17 @@
         class: d.class, best: d.best, evLoss: d.evLoss, evErroneous: d.evErroneous,
         mathParams: d.mathParams, heroEquity: d.heroEquity, toCallBB: d.toCallBB,
         gto: d.gto, context: d.context, explanation: d.explanation,
-        optionBreakdown: d.optionBreakdown, evErrorReasons: d.evErrorReasons
+        optionBreakdown: d.optionBreakdown, evErrorReasons: d.evErrorReasons,
+        icmMultiplier: d.icmMultiplier != null ? d.icmMultiplier : null,
+        icmPressure: d.icmPressure != null ? d.icmPressure : null,
+        bubbleFactor: d.bubbleFactor != null ? d.bubbleFactor : null,
+        icmNote: d.icmNote || null,
+        icmLite: !!d.icmLite,
+        icmChangedEv: !!d.icmChangedEv,
+        chipEvLoss: d.chipEvLoss != null ? d.chipEvLoss : null,
+        formatHub: d.formatHub || null,
+        mttPhase: d.mttPhase || null,
+        phaseNote: d.phaseNote || null
       }))
     };
   }

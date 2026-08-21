@@ -2713,7 +2713,12 @@
       icmPressure: ev.icmPressure != null ? ev.icmPressure : null,
       bubbleFactor: ev.bubbleFactor != null ? ev.bubbleFactor : null,
       icmNote: ev.icmNote || null,
-      formatHub: (hand.playConfig && hand.playConfig.formatHub) || null
+      icmLite: !!ev.icmLite,
+      icmChangedEv: !!ev.icmChangedEv,
+      chipEvLoss: ev.chipEvLoss != null ? ev.chipEvLoss : null,
+      formatHub: ev.formatHub || (hand.playConfig && hand.playConfig.formatHub) || null,
+      mttPhase: ev.mttPhase || (hand.playConfig && (hand.playConfig.resolvedPhase || hand.playConfig.mttPhase)) || null,
+      phaseNote: ev.phaseNote || null
     };
     hand.decisions.push(decision);
     hand.log.push(describeDecision(hand, decision));

@@ -139,10 +139,10 @@
     decision.icmPressure = pHero;
     decision.bubbleFactor = bf;
     decision.icmNote = pHero > 0.05
-      ? 'ICM: stack sobrevalorado en chips → prioriza $EV (menos spew / calls ligeros).'
+      ? 'Tienes mucho que perder: prioriza el valor del premio (juega más tight; menos spew y calls ligeros).'
       : (pHero < -0.05
-        ? 'ICM: puedes aplicar presión; chipEV puro te infravalora.'
-        : 'ICM: presión moderada; chipEV ≈ $EV.');
+        ? 'Puedes aplicar presión: en fichas «pareces» peor de lo que vales en premio.'
+        : 'Presión moderada: fichas y premio van más o menos alineados.');
     return decision;
   }
 
