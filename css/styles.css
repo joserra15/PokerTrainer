@@ -1731,7 +1731,19 @@ body.age-gate-open {
   font: inherit;
 }
 .school-ask-chip:hover { border-color: rgba(47,129,247,.45); }
-.school-lesson-cta { display: flex; gap: 10px; }
+.school-lesson-cta { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.school-lesson-cta .btn { align-self: flex-start; }
+.school-gate-msg {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.school-result-actions .school-gate-msg { flex: 1 1 100%; }
 .school-back { align-self: flex-start; }
 .school-best { color: #86efac; }
 .school-result-hero { text-align: center; }

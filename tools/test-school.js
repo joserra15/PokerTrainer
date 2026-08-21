@@ -82,6 +82,9 @@ assert.ok(/lessonId:\s*'C-02'/.test(aiReportSrc) && /lessonFromLeak/.test(aiRepo
 assert.ok(/data-leak-school|Ver lección/.test(leaksSrc), 'CTA Ver lección en leaks');
 assert.ok(/school-coach-note|schoolCoachTip/.test(schoolSrc), 'tip coach resultado F');
 assert.ok(/school-stars|is-plan/.test(schoolSrc + css), 'maestría / muro plan UI');
+assert.ok(/school-gate-msg|ensureLessonMarkedPassed|showSchoolGateMessage/.test(schoolSrc),
+  'feedback gate + re-persist al aprobar');
+assert.ok(/\.school-gate-msg/.test(css), 'CSS mensaje gate Escuela');
 assert.ok(/routePct/.test(schoolSrc) && /width:' \+ routePct/.test(schoolSrc),
   'barra hub = progreso de ruta (routePct)');
 assert.ok(!/school-xp-fill school-xp-fill-anim" style="width:' \+\s*Math\.min\(100, Math\.round\(\(lv\.into/.test(schoolSrc),
@@ -931,6 +934,45 @@ sandbox.Store._st.school.lessons['C-00'] = {
 assert.ok(School.isLessonPassed('C-00'), 'C-00 passed');
 assert.ok(School.isLessonUnlocked('C-01'), 'C-01 desbloqueada tras C-00');
 assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
+
+/* Rangos R-08→R-09: aprobar desbloquea; Start bloqueado no es silencioso. */
+(function assertRangesUnlockR08R09() {
+  sandbox.PTEntitlements.get = function () { return { plan: 'study' }; };
+  ['R-01', 'R-02', 'R-03', 'R-04', 'R-05', 'R-06', 'R-07'].forEach(function (id) {
+    sandbox.Store._st.school.lessons[id] = {
+      passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
+    };
+  });
+  assert.ok(School.isLessonUnlocked('R-08'), 'R-08 desbloqueada tras R-07');
+  assert.ok(!School.isLessonUnlocked('R-09'), 'R-09 bloqueada sin R-08');
+  var blocked = School.canPlayLesson('R-09');
+  assert.ok(!blocked.ok && blocked.reason === 'locked', 'canPlay R-09 locked');
+  assert.ok(/anterior/i.test(blocked.message || ''), 'mensaje Completa la lección anterior');
+
+  sandbox.Store._st.school.lessons['R-08'] = {
+    passed: true, bestScore: 0.75, bestPct: 75, attempts: 1
+  };
+  assert.ok(School.isLessonUnlocked('R-09'), 'R-09 desbloqueada tras R-08 passed');
+  assert.ok(School.canPlayLesson('R-09').ok, 'canPlay R-09 OK');
+
+  /* Simula progreso perdido tras aprobar: ensureLessonMarkedPassed lo repara. */
+  delete sandbox.Store._st.school.lessons['R-08'];
+  assert.ok(!School.isLessonUnlocked('R-09'), 'R-09 otra vez bloqueada si se pierde R-08');
+  assert.ok(School.ensureLessonMarkedPassed('R-08', {
+    passed: true, score: 0.75, pct: 75, gold: false, perfect: false
+  }), 'ensure reescribe passed');
+  assert.ok(School.isLessonPassed('R-08'), 'R-08 passed tras ensure');
+  assert.ok(School.isLessonUnlocked('R-09'), 'R-09 desbloqueada tras ensure');
+  assert.ok(School.canPlayLesson('R-09').ok, 'canPlay R-09 tras ensure');
+
+  /* Start con lección bloqueada: retorna gate (no no-op silencioso). */
+  delete sandbox.Store._st.school.lessons['R-08'];
+  var started = School.startLessonSession('R-09');
+  assert.ok(started && !started.ok && started.reason === 'locked',
+    'startLessonSession R-09 locked retorna gate');
+  assert.ok(!School.isSessionActive(), 'no arranca sesión si locked');
+  sandbox.PTEntitlements.get = function () { return { plan: 'free' }; };
+})();
 
 /* Desbloquear hasta C-07 y comprobar muro Study en free */
 (function () {
