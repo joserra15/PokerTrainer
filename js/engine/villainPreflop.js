@@ -162,6 +162,17 @@
     return handWeight(buckets.threeBet, code) > 0 || handWeight(buckets.call, code) > 0;
   }
 
+  function tournamentFoldBias(ctx) {
+    if (!ctx || !ctx.isTournament) return 0;
+    const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
+    if (phase === 'bubble') return 0.18;
+    if (phase === 'push') return 0.14;
+    if (phase === 'short') return 0.08;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) return 0.1;
+    return 0;
+  }
+
   /** Defensa BB/SB frente a open del héroe (fold / call / 3bet). */
   function defendVsOpen(code, profile, rnd, defenderPos, openerPos, ctx) {
     const r = rnd != null ? rnd : Math.random();
@@ -171,15 +182,16 @@
     const w3 = handWeight(buckets.threeBet, code);
     const wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
+    const icmBias = tournamentFoldBias(ctx);
 
     if (w3 <= 0 && wc <= 0) {
       if (allowsLeak(profile, '3bet', r)) return '3bet';
-      if (allowsLeak(profile, 'call', r)) return 'call';
+      if (!icmBias && allowsLeak(profile, 'call', r)) return 'call';
       return 'fold';
     }
 
     if (strict >= 0.99) {
-      const act = gtoMixAction(r, w3, wc, 'call');
+      const act = gtoMixAction(r, w3, wc * Math.max(0, 1 - icmBias), 'call');
       if (act === 'aggress') return '3bet';
       if (act === 'pass') return 'call';
       return 'fold';
@@ -187,22 +199,22 @@
 
     if (w3 >= 1) {
       if (r < VP.adjustThreeBetProb(strict >= 0.75 ? 0.72 : 0.68, profile)) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.82, profile)) return 'call';
+      if (wc > 0 && r < VP.adjustCallProb(0.82 - icmBias, profile)) return 'call';
       return 'fold';
     }
     if (w3 >= 0.5) {
       const freq = strict >= 0.75 ? w3 : VP.adjustThreeBetProb(0.32, profile);
       if (r < freq) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.58, profile)) return 'call';
+      if (wc > 0 && r < VP.adjustCallProb(0.58 - icmBias, profile)) return 'call';
       return 'fold';
     }
     if (w3 > 0) {
       if (r < (strict >= 0.75 ? w3 : VP.adjustThreeBetProb(w3 * 0.55, profile))) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.42, profile)) return 'call';
+      if (wc > 0 && r < VP.adjustCallProb(0.42 - icmBias, profile)) return 'call';
       return 'fold';
     }
-    if (wc >= 1) return r < VP.adjustFoldProb(0.14, profile) ? 'fold' : 'call';
-    if (wc >= 0.42) return r < VP.adjustCallProb(0.36, profile) ? 'call' : 'fold';
+    if (wc >= 1) return r < VP.adjustFoldProb(0.14 + icmBias, profile) ? 'fold' : 'call';
+    if (wc >= 0.42) return r < VP.adjustCallProb(0.36 - icmBias * 0.5, profile) ? 'call' : 'fold';
     return 'fold';
   }
 

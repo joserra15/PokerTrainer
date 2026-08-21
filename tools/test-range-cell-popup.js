@@ -15,7 +15,7 @@ const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const rmSrc = fs.readFileSync(path.join(root, 'js/range-matrix.js'), 'utf8');
 const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.7.6'/.test(version), 'versión 2.7.6');
+assert.ok(/PT_BUILD\s*=\s*'2.7.7'/.test(version), 'versión 2.7.7');
 assert.ok(/id="range-cell-modal"/.test(html), 'modal de celda en index.html');
 assert.ok(/id="range-cell-body"/.test(html), 'body del modal de celda');
 assert.ok(/data-rm-detail/.test(rmSrc), 'celdas con data-rm-detail');

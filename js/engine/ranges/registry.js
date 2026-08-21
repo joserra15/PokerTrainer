@@ -45,16 +45,30 @@
     const stackDepth = rangeStackCategory(stackDepthKey, stackBB);
     const Tax = global.PTFormatTaxonomy;
     const formatHub = c.formatHub || (Tax ? Tax.hubFromGameType(gameType) : (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash')));
+    const isSpin = gameType === 'spin3' || formatHub === 'spin';
+    const isMtt = gameType === 'mtt' || formatHub === 'mtt';
+    const isTournament = isSpin || isMtt;
+    let effectivePhase = c.resolvedPhase || null;
+    if (!effectivePhase || effectivePhase === 'auto') {
+      if (c.mttPhase && c.mttPhase !== 'auto') effectivePhase = c.mttPhase;
+      else if (Tax && Tax.phaseFromStackBB) effectivePhase = Tax.phaseFromStackBB(stackBB, formatHub);
+      else effectivePhase = stackBB <= 12 ? 'push' : (stackBB <= 25 ? 'short' : (stackBB <= 45 ? 'mid' : 'early'));
+    }
     return {
       gameType: gameType,
       formatHub: formatHub,
       stackDepth: stackDepth,
       stackDepthKey: stackDepthKey,
       is9Max: gameType === 'cash9' || gameType === 'mtt',
-      isMtt: gameType === 'mtt',
-      isSpin: gameType === 'spin3' || formatHub === 'spin',
+      isMtt: isMtt,
+      isSpin: isSpin,
+      isTournament: isTournament,
       stackBB: stackBB,
-      mttPhase: c.mttPhase || c.resolvedPhase || null,
+      mttPhase: c.mttPhase || null,
+      resolvedPhase: c.resolvedPhase || null,
+      effectivePhase: effectivePhase,
+      villainLevel: c.villainLevel || 'pro',
+      scenario: c.scenario || null,
       practiceIntent: c.practiceIntent || 'mixed'
     };
   }
@@ -73,7 +87,7 @@
 
   function vsRfiKey(heroPos, openerPos, ctx) {
     const c = normalize(ctx);
-    if (c.is9Max || c.isMtt) {
+    if (c.is9Max || c.isMtt || c.isSpin) {
       return toEnginePos(heroPos) + '_vs_' + toEnginePos(openerPos);
     }
     return heroPos + '_vs_' + openerPos;
@@ -169,22 +183,26 @@
     };
   }
 
+  function tournamentOpenTable(c) {
+    if (!V()) return D().OPEN_RAISE;
+    const phase = c.effectivePhase || 'early';
+    const ext = global.GTORangesExtended;
+    const pushStack = c.stackBB != null && c.stackBB <= 16;
+    if (phase === 'push' || pushStack) {
+      if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
+    }
+    if (phase === 'short' || phase === 'bubble' || (c.stackDepth === 'short' && phase !== 'early')) {
+      return V().OPEN_RAISE_MTT_SHORT || V().OPEN_RAISE_MTT;
+    }
+    if (phase === 'mid' && V().OPEN_RAISE_MTT_SHORT && c.stackBB != null && c.stackBB <= 30) {
+      return V().OPEN_RAISE_MTT_SHORT;
+    }
+    return V().OPEN_RAISE_MTT || D().OPEN_RAISE;
+  }
+
   function baseOpenTable(ctx) {
     const c = normalize(ctx);
-    if (c.isMtt && V()) {
-      if (c.stackDepth === 'short') {
-        const ext = global.GTORangesExtended;
-        // OPEN_RAISE_MTT_PUSH solo para shove real (≤16 bb) o fase push explícita.
-        // Short ~20–25 bb usa SHORT (steal/open), no el chart de push.
-        const pushStack = c.stackBB != null && c.stackBB <= 16;
-        const pushPhase = c.mttPhase === 'push';
-        if (ext && ext.OPEN_RAISE_MTT_PUSH && (pushStack || pushPhase)) {
-          return ext.OPEN_RAISE_MTT_PUSH;
-        }
-        return V().OPEN_RAISE_MTT_SHORT;
-      }
-      return V().OPEN_RAISE_MTT;
-    }
+    if (c.isTournament) return tournamentOpenTable(c);
     if (c.is9Max && V()) return V().OPEN_RAISE_9MAX;
     return D().OPEN_RAISE;
   }
@@ -212,7 +230,7 @@
 
   function baseVsRfiTable(ctx) {
     const c = normalize(ctx);
-    if (c.isMtt && V() && V().getVsRfiMtt) return V().getVsRfiMtt();
+    if (c.isTournament && V() && V().getVsRfiMtt) return V().getVsRfiMtt();
     if (c.is9Max && V() && V().getVsRfi9Max) return V().getVsRfi9Max();
     return D().VS_RFI;
   }
@@ -222,8 +240,24 @@
     const base = baseVsRfiTable(c);
     const out = {};
     Object.keys(base).forEach(function (key) {
-      out[key] = adjustVsRfiRow(cloneRow(base[key]), c.stackDepth);
+      let row = adjustVsRfiRow(cloneRow(base[key]), c.stackDepth);
+      row = applyPhaseToVsRfi(row, c);
+      out[key] = row;
     });
+    return out;
+  }
+
+  /** Ajusta defensa vs RFI según fase (bubble/push más tight; early más amplia). */
+  function applyPhaseToVsRfi(row, c) {
+    if (!row || !c || !c.isTournament) return row;
+    const phase = c.effectivePhase || 'early';
+    const out = cloneRow(row);
+    if (phase === 'push' || phase === 'bubble') {
+      out.threeBetMix = trimField(out.threeBetMix || '', 'A9o-A2o, KJo, QJo, T9o, 98o, 22, 33, 44');
+      out.callMix = trimField(out.callMix || '', 'KJo, QJo, JTo, T9o, 98o');
+    } else if (phase === 'short') {
+      out.threeBetMix = trimField(out.threeBetMix || '', 'A5o-A2o, QJo, T9o');
+    }
     return out;
   }
 
@@ -231,7 +265,7 @@
     const c = normalize(ctx);
     const table = getVsRfiTable(c);
     let row = null;
-    if (c.is9Max || c.isMtt) {
+    if (c.is9Max || c.isMtt || c.isSpin) {
       const pairKey = vsRfiPairKey(heroPos, openerPos);
       if (table[pairKey]) row = table[pairKey];
     }
@@ -240,7 +274,7 @@
       row = table[key] || null;
     }
     if (!row) return null;
-    return applyVillainLevelToVsRfi(cloneRow(row), ctx && ctx.villainLevel);
+    return applyVillainLevelToVsRfi(cloneRow(row), c.villainLevel || (ctx && ctx.villainLevel));
   }
 
   /** Rivales fish: reintroduce bluffs Axo extremos en BB vs SB / steals. Pro: charts acotados. */

@@ -110,7 +110,7 @@
     stackDepth: 'bb100',
     scenario: 'random',
     heroPos: 'random',
-    handRange: 'playable',
+    handRange: 'borderline',
     villainLevel: 'pro',
     practiceStreet: 'random',
     /** mixed | bluff_make | bluff_catch */
@@ -234,7 +234,7 @@
     }
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
-    if (!c.handRange) c.handRange = 'random';
+    if (!c.handRange) c.handRange = 'borderline';
     if (!c.villainLevel) c.villainLevel = 'pro';
     if (!c.practiceStreet) c.practiceStreet = 'random';
     // Faroles (hacer/cazar) ocultos en el entrenador: forzar mixed.
@@ -243,9 +243,23 @@
     else if (!c.mttPhase) c.mttPhase = 'auto';
     if (c.spinPayout !== '3x' && c.spinPayout !== '5x') c.spinPayout = '2x';
 
-    const parsedStack = stackDepthToBB(c.stackDepth);
-    c.stackBB = parsedStack != null ? parsedStack : 100;
-    if (Tax) c.resolvedPhase = Tax.resolvePhase(c);
+    if (c.stackDepth === 'random') {
+      c.stackDepthRandom = true;
+      c.stackDepthPreference = 'random';
+      // stackBB provisional (label/sesión); cada mano usa resolveHandConfig.
+      var pool = Tax && Tax.randomStackPool
+        ? Tax.randomStackPool(c.formatHub, c.mttPhase, c.scenario)
+        : (c.formatHub === 'spin' ? ['bb25', 'bb20', 'bb15', 'bb10'] : ['bb50', 'bb40', 'bb25', 'bb20']);
+      var midKey = pool[Math.floor(pool.length / 2)] || (c.formatHub === 'spin' ? 'bb15' : 'bb25');
+      c.stackBB = stackDepthToBB(midKey) || 25;
+      if (Tax) c.resolvedPhase = Tax.resolvePhase(Object.assign({}, c, { stackDepth: midKey, stackBB: c.stackBB }));
+    } else {
+      c.stackDepthRandom = false;
+      c.stackDepthPreference = null;
+      const parsedStack = stackDepthToBB(c.stackDepth);
+      c.stackBB = parsedStack != null ? parsedStack : 100;
+      if (Tax) c.resolvedPhase = Tax.resolvePhase(c);
+    }
 
     if (c.anteBB == null || c.anteBB === '') {
       c.anteBB = (Tax && c.formatHub !== 'cash') ? Tax.defaultAnteBB(c) : 0;
@@ -997,11 +1011,13 @@
     const gt = {
       cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT', spin3: 'Spin 3-max'
     }[c.gameType] || c.gameType;
-    const sd = {
-      bb200: '200bb', bb100: '100bb', bb50: '50bb', bb45: '45bb', bb40: '40bb', bb25: '25bb',
-      bb22: '22bb', bb20: '20bb', bb15: '15bb', bb12: '12bb', bb11: '11bb', bb10: '10bb',
-      standard: '100bb', short: '50bb', deep: '200bb'
-    }[c.stackDepth] || (stackDepthToBB(c.stackDepth) != null ? c.stackBB + 'bb' : c.stackDepth);
+    const sd = c.stackDepth === 'random' || c.stackDepthRandom
+      ? 'Stack aleatorio'
+      : ({
+        bb200: '200bb', bb100: '100bb', bb50: '50bb', bb45: '45bb', bb40: '40bb', bb25: '25bb',
+        bb22: '22bb', bb20: '20bb', bb15: '15bb', bb12: '12bb', bb11: '11bb', bb10: '10bb',
+        standard: '100bb', short: '50bb', deep: '200bb'
+      }[c.stackDepth] || (stackDepthToBB(c.stackDepth) != null ? c.stackBB + 'bb' : c.stackDepth));
     const sc = {
       random: 'Escenario aleatorio', rfi: 'RFI', '3bet': '3-Bet', face3bet: 'Vs 3-Bet',
       '4bet': '4-Bet', squeeze: 'Squeeze', iso: 'Iso limp',
@@ -1036,8 +1052,37 @@
     return c.stackBB;
   }
 
+  /**
+   * Resuelve stackDepth=random a un bb concreto por mano y recalcula fase/ante.
+   * Mantiene stackDepthPreference='random' para el HUD de sesión.
+   */
+  function resolveHandConfig(config, rnd) {
+    const base = normalize(config || {});
+    const wantsRandom = !!(base.stackDepthRandom || base.stackDepth === 'random'
+      || (config && config.stackDepthPreference === 'random'));
+    if (!wantsRandom) return base;
+    const Tax = global.PTFormatTaxonomy;
+    const phase = base.mttPhase || 'auto';
+    const picked = Tax && Tax.pickRandomStackDepth
+      ? Tax.pickRandomStackDepth(base.formatHub, phase, base.scenario, rnd)
+      : (base.formatHub === 'spin' ? 'bb15' : 'bb25');
+    const bb = stackDepthToBB(picked);
+    const out = Object.assign({}, base, {
+      stackDepth: picked,
+      stackBB: bb != null ? bb : base.stackBB,
+      stackDepthRandom: true,
+      stackDepthPreference: 'random'
+    });
+    if (Tax) {
+      out.resolvedPhase = Tax.resolvePhase(out);
+      if (out.formatHub === 'mtt') out.anteBB = Tax.defaultAnteBB(out);
+    }
+    return out;
+  }
+
   global.PTPlayConfig = {
     DEFAULT, normalize, pickScenario, labelFor, rakeLabel,
+    resolveHandConfig,
     STANDARD_RAKE, estimateRakeBB, potAfterRakeBB, loadRakePrefs, saveRakePrefs,
     PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB, stackDepthToBB,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9, POS_SPIN, DEAL_ORDER_SPIN, RFI_POS_SPIN,

@@ -330,10 +330,16 @@
           || chip.dataset.val === 'bb50';
       }
       if (h === 'cash' && (chip.dataset.val === 'bb40' || chip.dataset.val === 'bb20'
-        || chip.dataset.val === 'bb15' || chip.dataset.val === 'bb10')) show = false;
+        || chip.dataset.val === 'bb15' || chip.dataset.val === 'bb10' || chip.dataset.val === 'random')) show = false;
       if (h === 'spin' && (chip.dataset.val === 'bb200' || chip.dataset.val === 'bb100'
         || chip.dataset.val === 'bb50' || chip.dataset.val === 'bb40')) show = false;
-      if (allowed && show) show = allowed.indexOf(chip.dataset.val) >= 0;
+      if (allowed && show) {
+        if (chip.dataset.val === 'random') {
+          show = allowed.indexOf('random') >= 0;
+        } else {
+          show = allowed.indexOf(chip.dataset.val) >= 0;
+        }
+      }
       chip.hidden = !show;
       chip.disabled = !!(locked && show && allowed && allowed.length <= 1);
       if (!show) chip.classList.remove('active');
@@ -379,7 +385,7 @@
       } else if (phase && phase !== 'auto') {
         hint.textContent = 'Con fase fija el stack se ajusta solo a esa profundidad (no se configura a mano).';
       } else {
-        hint.textContent = 'Con fase Auto eliges el stack; Early/Mid/Short/Push adaptan el stack automáticamente.';
+        hint.textContent = 'Con fase Auto eliges el stack o «Aleatorio» (cambia por mano). Early/Mid/Short/Push fijan el stack automáticamente.';
       }
     }
   }
@@ -445,7 +451,7 @@
       stackDepth: sdEl ? sdEl.dataset.val : (hub === 'spin' ? 'bb25' : 'bb100'),
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
-      handRange: hrEl ? hrEl.dataset.val : 'playable',
+      handRange: hrEl ? hrEl.dataset.val : 'borderline',
       villainLevel: vlEl ? vlEl.dataset.val : 'pro',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
       // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
@@ -771,12 +777,12 @@
       practiceStreet: 'random',
       preflopOpenSize: 2.5,
       heroPos: 'random',
-      handRange: 'playable'
+      handRange: 'borderline'
     },
     spin_grind: {
       formatHub: 'spin',
       gameType: 'spin3',
-      stackDepth: 'bb15',
+      stackDepth: 'random',
       scenario: 'random',
       mttPhase: 'auto',
       spinPayout: '3x',
@@ -784,7 +790,7 @@
       practiceStreet: 'preflop',
       preflopOpenSize: 2.5,
       heroPos: 'random',
-      handRange: 'playable'
+      handRange: 'borderline'
     },
     mtt_low: {
       formatHub: 'mtt',
@@ -796,7 +802,7 @@
       practiceStreet: 'preflop',
       preflopOpenSize: 2.2,
       heroPos: 'random',
-      handRange: 'playable'
+      handRange: 'borderline'
     }
   };
 
@@ -1928,7 +1934,12 @@
       }
 
       let force = pendingForce;
-      const cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
+      let cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
+      if (!force && cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
+        cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
+          return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
+        });
+      }
       if (!force && repeatErrorsMode) {
         let errs = Store.getErrors();
         const streetFilter = cfg && cfg.practiceStreet;
