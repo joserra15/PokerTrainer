@@ -39,16 +39,18 @@
     if (!EvLoss || !EvMath) return strategy;
 
     const ctx = EvMath.buildActionContext(Object.assign({}, input, { chosenAction: 'call' }), strategy);
-    if (!EvLoss.callFailsPotOdds(ctx, input) || EvLoss.impliedOddsAllowed(input, ctx)) {
-      return strategy;
-    }
+    if (!EvLoss.callFailsPotOdds(ctx, input)) return strategy;
+    // Implied odds solo salvan si la equity está cerca del break-even.
+    // Con Eq muy por debajo de BE (p.ej. 5% vs 28%) hay que rebalancear a fold.
+    const clearlyShort = ctx.equity + 0.10 < ctx.breakEven;
+    if (!clearlyShort && EvLoss.impliedOddsAllowed(input, ctx)) return strategy;
 
     const out = Object.assign({}, strategy);
     const callF = out.call || 0;
     const foldF = out.fold || 0;
     if (callF <= foldF + 0.02) return strategy;
 
-    const shift = callF * 0.92;
+    const shift = callF * (clearlyShort ? 0.92 : 0.75);
     out.fold = foldF + shift;
     out.call = Math.max(0.02, callF - shift);
     return normalizeStrategy(out);
@@ -148,15 +150,20 @@
     });
     if (callSinOdds && chosen === 'call') bestAct = 'fold';
     const evBestFreq = mixFreqOf(bestAct, opts, chosen, freq, freqBest, maxFreq);
-    // Mezcla GTO casi empatada (p.ej. check 28.9% vs bet_100 29.2%): no degradar
-    // a imprecisa por un ΔEV heurístico; la frecuencia ya marca indiferencia.
+    // Mezcla GTO casi empatada o con peso material: no degradar a imprecisa
+    // por un ΔEV heurístico (p.ej. fold 42% vs call 53%).
     const withinMixBand = freq >= 0.15 && maxFreq > 0 && freq >= maxFreq - 0.08;
-    const freqDominant = withinMixBand || (chosen === freqBest && freq >= 0.15);
+    const materialMix = freq >= 0.40
+      || (freq >= 0.25 && maxFreq > 0 && freq >= maxFreq * 0.70);
+    const freqDominant = withinMixBand || materialMix || (chosen === freqBest && freq >= 0.15);
     const trustEvBest = evBestTrustedInMix(bestAct, freqBest, maxFreq, evBestFreq, callSinOdds);
     if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
       if (cls === 'optima' || cls === 'aceptable') {
-        // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
-        if (!(valueAggro && isNuts)) {
+        if (materialMix || withinMixBand) {
+          // Frecuencia alta en la mezcla: como máximo bajar a aceptable.
+          if (freq < 0.40 && cls === 'optima') cls = 'aceptable';
+        } else if (!(valueAggro && isNuts)) {
+          // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
           cls = evLoss >= 1 ? 'error' : 'imprecisa';
         } else if (cls === 'optima' && freq < 0.15) {
           cls = 'aceptable';
@@ -165,7 +172,10 @@
       // Si el EV "óptimo" es residual (~11% bet), mantener el líder de mezcla (check).
       best = (trustEvBest || callSinOdds) ? bestAct : freqBest;
     } else if (delta >= EV_TIE_BB && chosen !== bestAct && !freqDominant) {
-      if (cls === 'optima') cls = delta >= 1 ? 'imprecisa' : 'aceptable';
+      // Sin peso de mezcla: óptima → aceptable si aún tiene ≥15%; si no, imprecisa.
+      if (cls === 'optima') {
+        cls = freq >= 0.15 ? 'aceptable' : (delta >= 1 ? 'imprecisa' : 'aceptable');
+      }
       if (chosen === 'call' && freqBest === 'fold') bestAct = 'fold';
       if (trustEvBest) best = bestAct;
     }

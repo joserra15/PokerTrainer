@@ -5698,7 +5698,12 @@ window.PT_NASH_PUSH_JSON = {
     const breakEven = breakEvenEquity(potBefore, toCall);
     const impliedBonus = input.impliedBonusBB || 0;
     const realization = input.realizationFactor != null ? input.realizationFactor : 0.9;
-    const betSize = input.betSizeBB || committedBB(input.chosenAction, input);
+    const betSize = input.betSizeBB > 0
+      ? input.betSizeBB
+      : ((input.chosenAction && input.chosenAction !== 'fold' && input.chosenAction !== 'check'
+        && input.chosenAction !== 'call')
+        ? committedBB(input.chosenAction, input)
+        : 0);
     const foldEquity = input.foldEquity != null ? input.foldEquity : estimateFoldEquity(input, freqs);
     return {
       equity, potBeforeBB: potBefore, potBB: input.potBB || potBefore,
@@ -5715,12 +5720,37 @@ window.PT_NASH_PUSH_JSON = {
     return 0.2;
   }
 
+  /**
+   * Tamaño de apuesta/subida propio de la acción evaluada.
+   * No reutilizar ctx.betSizeBB del chosenAction: si el héroe fold/check,
+   * betSize queda 0 y raise/bet parecerían +EV «gratis» (bug ΔEV).
+   */
+  function actionSizeFor(action, ctx) {
+    if (!action || action === 'fold' || action === 'check' || action === 'call') return 0;
+    const input = {
+      potBB: ctx.potBB != null ? ctx.potBB : ctx.potBeforeBB,
+      toCallBB: ctx.toCallBB || 0,
+      betSizeBB: ctx.betSizeBB > 0 ? ctx.betSizeBB : undefined
+    };
+    let size = committedBB(action, input);
+    if (size > 0) return size;
+    if (action === 'raise' && (ctx.toCallBB || 0) > 0) {
+      return round2(ctx.toCallBB * 2.5);
+    }
+    if (action === 'bet' || (action && action.indexOf('bet_') === 0)) {
+      const pot = Math.max(ctx.potBeforeBB || ctx.potBB || 1, 0.1);
+      const frac = action === 'bet_33' ? 0.33 : (action === 'bet_66' ? 0.66 : 0.66);
+      return round2(pot * frac);
+    }
+    return 0;
+  }
+
   function actionEVMath(action, ctx) {
     if (action === 'fold') return evFold();
     if (action === 'call') return evCall(ctx.equity, ctx.potBeforeBB, ctx.toCallBB, ctx.impliedBonusBB);
     if (action === 'check') return evCheck(ctx.equity, ctx.potBeforeBB, ctx.realizationFactor);
     if (action === 'raise' || action === 'bet' || (action && action.startsWith('bet_'))) {
-      const size = action.startsWith('bet_') ? committedBB(action, { potBB: ctx.potBB, betSizeBB: ctx.betSizeBB }) : ctx.betSizeBB;
+      const size = actionSizeFor(action, ctx);
       return evBetRaise(ctx.equity, ctx.potBeforeBB, size, ctx.foldEquity, ctx.realizationFactor);
     }
     return 0;
@@ -5760,7 +5790,7 @@ window.PT_NASH_PUSH_JSON = {
 
   global.GTOEvMath = {
     round2, potAfterCall, breakEvenEquity, evFold, evCall, evCallLeak, evCheck,
-    evBetRaise, evAggression, deltaEvLoss, committedBB, buildActionContext,
+    evBetRaise, evAggression, deltaEvLoss, committedBB, actionSizeFor, buildActionContext,
     actionEVMath, bestEvAction, mathParams
   };
 })(window);
@@ -9220,16 +9250,18 @@ window.PT_NASH_PUSH_JSON = {
     if (!EvLoss || !EvMath) return strategy;
 
     const ctx = EvMath.buildActionContext(Object.assign({}, input, { chosenAction: 'call' }), strategy);
-    if (!EvLoss.callFailsPotOdds(ctx, input) || EvLoss.impliedOddsAllowed(input, ctx)) {
-      return strategy;
-    }
+    if (!EvLoss.callFailsPotOdds(ctx, input)) return strategy;
+    // Implied odds solo salvan si la equity está cerca del break-even.
+    // Con Eq muy por debajo de BE (p.ej. 5% vs 28%) hay que rebalancear a fold.
+    const clearlyShort = ctx.equity + 0.10 < ctx.breakEven;
+    if (!clearlyShort && EvLoss.impliedOddsAllowed(input, ctx)) return strategy;
 
     const out = Object.assign({}, strategy);
     const callF = out.call || 0;
     const foldF = out.fold || 0;
     if (callF <= foldF + 0.02) return strategy;
 
-    const shift = callF * 0.92;
+    const shift = callF * (clearlyShort ? 0.92 : 0.75);
     out.fold = foldF + shift;
     out.call = Math.max(0.02, callF - shift);
     return normalizeStrategy(out);
@@ -9329,15 +9361,20 @@ window.PT_NASH_PUSH_JSON = {
     });
     if (callSinOdds && chosen === 'call') bestAct = 'fold';
     const evBestFreq = mixFreqOf(bestAct, opts, chosen, freq, freqBest, maxFreq);
-    // Mezcla GTO casi empatada (p.ej. check 28.9% vs bet_100 29.2%): no degradar
-    // a imprecisa por un ΔEV heurístico; la frecuencia ya marca indiferencia.
+    // Mezcla GTO casi empatada o con peso material: no degradar a imprecisa
+    // por un ΔEV heurístico (p.ej. fold 42% vs call 53%).
     const withinMixBand = freq >= 0.15 && maxFreq > 0 && freq >= maxFreq - 0.08;
-    const freqDominant = withinMixBand || (chosen === freqBest && freq >= 0.15);
+    const materialMix = freq >= 0.40
+      || (freq >= 0.25 && maxFreq > 0 && freq >= maxFreq * 0.70);
+    const freqDominant = withinMixBand || materialMix || (chosen === freqBest && freq >= 0.15);
     const trustEvBest = evBestTrustedInMix(bestAct, freqBest, maxFreq, evBestFreq, callSinOdds);
     if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
       if (cls === 'optima' || cls === 'aceptable') {
-        // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
-        if (!(valueAggro && isNuts)) {
+        if (materialMix || withinMixBand) {
+          // Frecuencia alta en la mezcla: como máximo bajar a aceptable.
+          if (freq < 0.40 && cls === 'optima') cls = 'aceptable';
+        } else if (!(valueAggro && isNuts)) {
+          // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
           cls = evLoss >= 1 ? 'error' : 'imprecisa';
         } else if (cls === 'optima' && freq < 0.15) {
           cls = 'aceptable';
@@ -9346,7 +9383,10 @@ window.PT_NASH_PUSH_JSON = {
       // Si el EV "óptimo" es residual (~11% bet), mantener el líder de mezcla (check).
       best = (trustEvBest || callSinOdds) ? bestAct : freqBest;
     } else if (delta >= EV_TIE_BB && chosen !== bestAct && !freqDominant) {
-      if (cls === 'optima') cls = delta >= 1 ? 'imprecisa' : 'aceptable';
+      // Sin peso de mezcla: óptima → aceptable si aún tiene ≥15%; si no, imprecisa.
+      if (cls === 'optima') {
+        cls = freq >= 0.15 ? 'aceptable' : (delta >= 1 ? 'imprecisa' : 'aceptable');
+      }
       if (chosen === 'call' && freqBest === 'fold') bestAct = 'fold';
       if (trustEvBest) best = bestAct;
     }
