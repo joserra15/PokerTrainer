@@ -41,6 +41,16 @@
 
   var state = null;
   var loading = null;
+  var refreshTimer = null;
+  var REFRESH_DEBOUNCE_MS = 8000;
+
+  function scheduleRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function () {
+      refreshTimer = null;
+      refresh().catch(function (e) { console.warn('[PTEntitlements]', e); });
+    }, REFRESH_DEBOUNCE_MS);
+  }
 
   function client() {
     return global.PTSupabase && global.PTSupabase.getClient
@@ -357,7 +367,8 @@
     if (state && state.usage) {
       state.usage.trainer_hands_today = (Number(state.usage.trainer_hands_today) || 0) + 1;
     }
-    refresh().catch(function (e) { console.warn('[PTEntitlements]', e); });
+    /* No refrescar entitlements en cada mano (bloqueaba Escuela en móvil); debounce. */
+    scheduleRefresh();
     return res.data || { ok: true };
   }
 

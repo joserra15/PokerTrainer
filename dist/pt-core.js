@@ -26091,6 +26091,16 @@ window.PT_NASH_PUSH_JSON = {
 
   var state = null;
   var loading = null;
+  var refreshTimer = null;
+  var REFRESH_DEBOUNCE_MS = 8000;
+
+  function scheduleRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function () {
+      refreshTimer = null;
+      refresh().catch(function (e) { console.warn('[PTEntitlements]', e); });
+    }, REFRESH_DEBOUNCE_MS);
+  }
 
   function client() {
     return global.PTSupabase && global.PTSupabase.getClient
@@ -26407,7 +26417,8 @@ window.PT_NASH_PUSH_JSON = {
     if (state && state.usage) {
       state.usage.trainer_hands_today = (Number(state.usage.trainer_hands_today) || 0) + 1;
     }
-    refresh().catch(function (e) { console.warn('[PTEntitlements]', e); });
+    /* No refrescar entitlements en cada mano (bloqueaba Escuela en móvil); debounce. */
+    scheduleRefresh();
     return res.data || { ok: true };
   }
 
@@ -31534,6 +31545,7 @@ window.PT_NASH_PUSH_JSON = {
       const Ent = window.PTEntitlements;
       const cfgEarly = pendingForce ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
       const isLegendaryHand = !!(cfgEarly && cfgEarly.legendaryMode);
+      const isSchoolHand = !!(cfgEarly && (cfgEarly.schoolMode || cfgEarly.school));
       if (!guestOn && !isLegendaryHand && Ent && Ent.ensureLoaded) {
         const ent = await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
@@ -31542,10 +31554,21 @@ window.PT_NASH_PUSH_JSON = {
           return;
         }
         if (Ent.recordTrainerHand) {
-          const rec = await Ent.recordTrainerHand();
-          if (rec && rec.ok === false) {
-            if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
-            return;
+          /* Escuela: no bloquear «Siguiente spot» esperando el RPC de cupo (~segundos en móvil). */
+          if (isSchoolHand) {
+            void Ent.recordTrainerHand().then(function (rec) {
+              if (rec && rec.ok === false && window.PTBilling) {
+                window.PTBilling.showPaywall(rec.error || 'trainer_limit');
+              }
+            }).catch(function (eRec) {
+              console.warn('[Play] school recordTrainerHand', eRec);
+            });
+          } else {
+            const rec = await Ent.recordTrainerHand();
+            if (rec && rec.ok === false) {
+              if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
+              return;
+            }
           }
         }
       }

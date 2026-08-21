@@ -63,6 +63,11 @@ assert.ok(/schoolMenuVisible/.test(app), 'goToTab usa schoolMenuVisible');
 assert.ok(/schoolUser && !schoolDemo/.test(app), 'goToTab school para usuarios autenticados');
 assert.ok(/PTSchool\.afterTrainerAction/.test(app), 'hook afterTrainerAction');
 assert.ok(/PTSchool\.afterHandFinished/.test(app), 'hook afterHandFinished');
+assert.ok(/isSchoolHand/.test(app) && /void Ent\.recordTrainerHand/.test(app),
+  'Escuela no await recordTrainerHand (Siguiente spot sin lag de RPC)');
+assert.ok(/scheduleRefresh|REFRESH_DEBOUNCE/.test(
+  fs.readFileSync(path.join(root, 'js/entitlements.js'), 'utf8')
+), 'refresh entitlements con debounce tras recordTrainerHand');
 assert.ok(/SCHOOL_PUBLIC\s*=\s*true/.test(schoolSrc), 'SCHOOL_PUBLIC true (abierta a usuarios)');
 assert.ok(/schoolMenuVisible/.test(schoolSrc), 'schoolMenuVisible');
 assert.ok(/canPlayLesson/.test(schoolSrc), 'canPlayLesson Fase D');
