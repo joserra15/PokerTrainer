@@ -4310,13 +4310,17 @@
 
   function handEndOutcome(r) {
     const net = Number(r && r.heroNet) || 0;
+    const tied = !!(r && (r.tied || /empate/i.test(String(r.reason || ''))));
     if (r && r.showdown) {
-      if (net > 0) return { title: 'Ganas el showdown', cls: 'hand-end-win', kind: 'win' };
-      if (net < 0) return { title: 'Pierdes el showdown', cls: 'hand-end-lose', kind: 'lose' };
+      // Título según el board (cmp), no según el signo del net: un chop con pot
+      // desincronizado no debe decir «Pierdes» si reason/tied dicen empate.
+      if (tied) return { title: 'Empate en el showdown', cls: 'hand-end-tie', kind: 'tie' };
+      if (net > 0.02) return { title: 'Ganas el showdown', cls: 'hand-end-win', kind: 'win' };
+      if (net < -0.02) return { title: 'Pierdes el showdown', cls: 'hand-end-lose', kind: 'lose' };
       return { title: 'Empate en el showdown', cls: 'hand-end-tie', kind: 'tie' };
     }
-    if (net > 0) return { title: 'Ganas la mano', cls: 'hand-end-win', kind: 'win' };
-    if (net < 0) return { title: 'Pierdes la mano', cls: 'hand-end-lose', kind: 'lose' };
+    if (net > 0.02) return { title: 'Ganas la mano', cls: 'hand-end-win', kind: 'win' };
+    if (net < -0.02) return { title: 'Pierdes la mano', cls: 'hand-end-lose', kind: 'lose' };
     return { title: 'Mano terminada', cls: 'hand-end-tie', kind: 'tie' };
   }
 

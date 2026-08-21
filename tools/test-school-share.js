@@ -15,7 +15,7 @@ const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.7.13'/.test(version), 'versión 2.7.13');
+assert.ok(/PT_BUILD\s*=\s*'2.7.14'/.test(version), 'versión 2.7.14');
 assert.ok(/school-share\.js/.test(chunks), 'chunk school incluye school-share.js');
 assert.ok(/buildHubPanelHtml/.test(shareSrc) && /drawHubSummaryCard/.test(shareSrc), 'share hub');
 assert.ok(/mountHubSharePanel/.test(shareSrc), 'mount hub share');
