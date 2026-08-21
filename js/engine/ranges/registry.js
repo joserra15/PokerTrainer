@@ -186,18 +186,52 @@
   function tournamentOpenTable(c) {
     if (!V()) return D().OPEN_RAISE;
     const phase = c.effectivePhase || 'early';
+    const layers = V().PHASE_LAYERS;
+    const stackBB = c.stackBB != null ? Number(c.stackBB) : null;
     const ext = global.GTORangesExtended;
-    const pushStack = c.stackBB != null && c.stackBB <= 16;
+
+    // P3a: Spin — capa exacta por stack (25/20/15/10)
+    if (c.isSpin && layers && layers.spinOpen) {
+      const key = spinStackLayerKey(stackBB);
+      if (key && layers.spinOpen[key] && Object.keys(layers.spinOpen[key]).length) {
+        return layers.spinOpen[key];
+      }
+    }
+
+    // P3b: MTT — capa por fase (early/mid/short/push)
+    if (c.isMtt && layers && layers.mttOpen) {
+      let phaseKey = phase;
+      if (phase === 'bubble') phaseKey = 'short';
+      if (phaseKey === 'push' || (stackBB != null && stackBB <= 16)) {
+        if (layers.mttOpen.push) return layers.mttOpen.push;
+        if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
+      }
+      if (layers.mttOpen[phaseKey] && Object.keys(layers.mttOpen[phaseKey]).length) {
+        return layers.mttOpen[phaseKey];
+      }
+    }
+
+    // Fallback legacy
+    const pushStack = stackBB != null && stackBB <= 16;
     if (phase === 'push' || pushStack) {
       if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
     }
     if (phase === 'short' || phase === 'bubble' || (c.stackDepth === 'short' && phase !== 'early')) {
       return V().OPEN_RAISE_MTT_SHORT || V().OPEN_RAISE_MTT;
     }
-    if (phase === 'mid' && V().OPEN_RAISE_MTT_SHORT && c.stackBB != null && c.stackBB <= 30) {
+    if (phase === 'mid' && V().OPEN_RAISE_MTT_SHORT && stackBB != null && stackBB <= 30) {
       return V().OPEN_RAISE_MTT_SHORT;
     }
     return V().OPEN_RAISE_MTT || D().OPEN_RAISE;
+  }
+
+  function spinStackLayerKey(stackBB) {
+    const bb = Number(stackBB);
+    if (!bb || isNaN(bb)) return null;
+    if (bb <= 12) return '10';
+    if (bb <= 17) return '15';
+    if (bb <= 22) return '20';
+    return '25';
   }
 
   function baseOpenTable(ctx) {
@@ -228,9 +262,30 @@
     return [row.raise, row.mix].filter(Boolean).join(', ');
   }
 
+  function tournamentVsRfiTable(c) {
+    const layers = V() && V().PHASE_LAYERS;
+    const stackBB = c.stackBB != null ? Number(c.stackBB) : null;
+    const phase = c.effectivePhase || 'early';
+    if (c.isSpin && layers && layers.spinVsRfi) {
+      const key = spinStackLayerKey(stackBB);
+      if (key && layers.spinVsRfi[key] && Object.keys(layers.spinVsRfi[key]).length) {
+        return layers.spinVsRfi[key];
+      }
+    }
+    if (c.isMtt && layers && layers.mttVsRfi) {
+      let phaseKey = phase;
+      if (phase === 'push') phaseKey = 'short';
+      if (layers.mttVsRfi[phaseKey] && Object.keys(layers.mttVsRfi[phaseKey]).length) {
+        return layers.mttVsRfi[phaseKey];
+      }
+    }
+    if (V() && V().getVsRfiMtt) return V().getVsRfiMtt();
+    return D().VS_RFI;
+  }
+
   function baseVsRfiTable(ctx) {
     const c = normalize(ctx);
-    if (c.isTournament && V() && V().getVsRfiMtt) return V().getVsRfiMtt();
+    if (c.isTournament) return tournamentVsRfiTable(c);
     if (c.is9Max && V() && V().getVsRfi9Max) return V().getVsRfi9Max();
     return D().VS_RFI;
   }

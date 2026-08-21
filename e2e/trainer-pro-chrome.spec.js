@@ -54,9 +54,12 @@ test.describe('Entrenador pro chrome @smoke', () => {
     await expect(page.locator('#play-active .table-felt')).toHaveAttribute('data-format', 'mtt');
     await expect(page.locator('#table-format-badge')).toContainText(/MTT/i);
     const hud = page.locator('#table-train-hud');
-    await expect(hud.locator('.table-train-chip')).toHaveCount(4, { timeout: 5000 });
+    // Fase 3: stack + fase + blinds (Nv.) + ante% + open
+    await expect(hud.locator('.table-train-chip')).toHaveCount(5, { timeout: 5000 });
     await expect(hud).toContainText('25bb');
     await expect(hud).toContainText('Mid');
+    await expect(hud).toContainText(/Nv\./);
+    await expect(hud).toContainText(/Ante/);
     await expect(hud).toContainText(/Open 2\.2/);
   });
 });

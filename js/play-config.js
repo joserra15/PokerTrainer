@@ -270,6 +270,18 @@
     if (c.formatHub === 'cash') ante = 0;
     c.anteBB = ante;
 
+    if (Tax && Tax.blindStructureFor && c.formatHub !== 'cash') {
+      c.blindStructure = Tax.blindStructureFor(c);
+      if (c.blindStructure) {
+        c.blindLevel = c.blindStructure.level;
+        c.antePct = c.blindStructure.antePct;
+      }
+    } else {
+      c.blindStructure = null;
+      c.blindLevel = null;
+      c.antePct = null;
+    }
+
     if (c.actionMode !== 'quick' && c.actionMode !== 'complete') c.actionMode = 'complete';
 
     var openSz = Number(c.preflopOpenSize);

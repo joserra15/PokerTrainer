@@ -596,8 +596,25 @@
         cls: 'is-phase',
         title: cfg.mttPhase === 'auto' ? 'Fase Auto según stack' : 'Fase fija en setup'
       });
-      if (cfg.anteBB > 0) chips.push({ text: 'Ante ' + cfg.anteBB + 'bb', cls: '' });
       const Tax = window.PTFormatTaxonomy;
+      const blinds = cfg.blindStructure || (Tax && Tax.blindStructureFor ? Tax.blindStructureFor(cfg) : null);
+      if (cfg.anteBB > 0 && !(blinds && blinds.anteLabel)) {
+        chips.push({ text: 'Ante ' + cfg.anteBB + 'bb', cls: '' });
+      }
+      if (blinds && blinds.label) {
+        chips.push({
+          text: blinds.label,
+          cls: 'is-blinds',
+          title: 'Estructura simbólica de blinds (estudio). No es un torneo real de sala.'
+        });
+      }
+      if (blinds && blinds.anteLabel) {
+        chips.push({
+          text: blinds.anteLabel,
+          cls: '',
+          title: 'Ante como % de la ciega grande del entrenador (1 bb)'
+        });
+      }
       const icmOn = Tax && Tax.usesIcm ? Tax.usesIcm(cfg) : (hub === 'spin');
       if (icmOn) {
         chips.push({

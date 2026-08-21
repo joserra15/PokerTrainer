@@ -8,7 +8,15 @@
   if (!D || !D.registerLessons) return;
   
   function spinCfg(extra) {
-    return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'spin', gameType: 'spin3', stackDepth: 'bb20' }, extra || {});
+    const base = { scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'spin', gameType: 'spin3', stackDepth: 'bb20', mttPhase: 'mid' };
+    const out = Object.assign(base, extra || {});
+    const bb = parseInt(String(out.stackDepth || '').replace('bb', ''), 10);
+    if (!out.mttPhase || out.mttPhase === 'auto') {
+      if (bb <= 12) out.mttPhase = 'push';
+      else if (bb <= 20) out.mttPhase = 'mid';
+      else out.mttPhase = 'early';
+    }
+    return out;
   }
   function mttCfg(extra) {
     return Object.assign({ scenario: 'rfi', practiceStreet: 'preflop', formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'early' }, extra || {});
