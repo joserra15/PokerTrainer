@@ -247,15 +247,24 @@
     const heroWon = round2(wonByPos[heroPos] || 0);
     const heroNet = round2(heroWon - heroInvested);
 
+    const chopped = winnersByPot.some(function (p) {
+      return p.winners && p.winners.length > 1 && p.winners.indexOf(heroPos) >= 0;
+    });
+    const soloWin = winnersByPot.some(function (p) {
+      return p.winners && p.winners.length === 1 && p.winners[0] === heroPos;
+    });
+
     let reason;
     if (heroWon <= 0.001) reason = 'Pierdes el showdown multiway.';
-    else if (heroNet > 0) reason = alive.length >= 4 ? 'Ganas el showdown (4-way+).' : 'Ganas el showdown multiway.';
-    else if (heroNet < 0) reason = 'Pierdes el showdown multiway.';
+    else if (chopped && !soloWin) reason = 'Empate en el showdown multiway.';
+    else if (heroNet > 0.02) reason = alive.length >= 4 ? 'Ganas el showdown (4-way+).' : 'Ganas el showdown multiway.';
+    else if (heroNet < -0.02 && !chopped) reason = 'Pierdes el showdown multiway.';
     else reason = 'Empate en el showdown multiway.';
 
     return {
       heroNet: heroNet,
       showdown: true,
+      tied: !!(chopped && !soloWin),
       reason: reason,
       heroHandName: names[heroPos] || null,
       villainHandName: hand.villain && names[hand.villain.pos] ? names[hand.villain.pos] : null,

@@ -102,6 +102,7 @@ const STEPS = [
   ['Test trainer Fase 3 (capas/Nash/blinds/escuela)', ['node', 'tools/test-trainer-fase3.js']],
   ['Test feedback EV/mix (fold alto + pot odds)', ['node', 'tools/test-feedback-ev-mix.js']],
   ['Test vs3bet MTT/Spin por fase+stack', ['node', 'tools/test-vs3bet-tournament-phase.js']],
+  ['Test showdown empate (net/popup)', ['node', 'tools/test-showdown-tie.js']],
   ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']],
   ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
   ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],

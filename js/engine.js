@@ -3779,6 +3779,7 @@
           return h;
         }
         hand.villainInvested += vBet; hand.potBB = round2(hand.potBB + vBet);
+        if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vBet);
         setVillainAct(hand, 'bet', vBet);
         // Si el héroe ya no tiene stack, no pedir Call(0.00): runout.
         if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
@@ -3994,6 +3995,7 @@
         return nextStreet(hand);
       }
       hand.villainInvested += vBet; hand.potBB = round2(hand.potBB + vBet);
+      if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vBet);
       setVillainAct(hand, 'bet', vBet);
       if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
       return buildPostflopNode(hand, node.street, { bet: vBet, potBefore: round2(hand.potBB - vBet) });
@@ -4057,6 +4059,28 @@
   }
 
   // ----- Showdown -----
+  /**
+   * Net HU en showdown con side-pot implícito (uncalled) y dinero muerto (antes/folds).
+   * No usar solo potBB/2: si table.invested no sincronizó la apuesta del villano,
+   * potBB puede quedar corto y un empate real aparece como −EV (bug −3.25bb).
+   */
+  function resolveHuShowdownNet(hand, cmp) {
+    const heroInv = round2(hand.heroInvested || 0);
+    const villInv = round2(hand.villainInvested || 0);
+    let pot = round2(hand.potBB || 0);
+    const known = round2(heroInv + villInv);
+    if (pot + 0.02 < known) pot = known;
+    const dead = round2(Math.max(0, pot - known));
+    const matched = round2(Math.min(heroInv, villInv));
+    const contested = round2(2 * matched + dead);
+    const uncalled = round2(Math.max(0, heroInv - villInv));
+    let heroWon;
+    if (cmp > 0) heroWon = round2(contested + uncalled);
+    else if (cmp < 0) heroWon = uncalled;
+    else heroWon = round2(contested / 2 + uncalled);
+    return round2(heroWon - heroInv);
+  }
+
   function showdown(hand) {
     if (hand.multiway && MW() && MW().aliveCount(hand) >= 3) {
       const res = MW().resolveShowdown(hand, C);
@@ -4072,13 +4096,11 @@
     const hScore = C.evaluate(hand.hero.cards.concat(hand.board));
     const vScore = C.evaluate(hand.villain.cards.concat(hand.board));
     const cmp = C.compare(hScore, vScore);
-    let net;
-    if (cmp > 0) net = round2(hand.potBB - hand.heroInvested);
-    else if (cmp < 0) net = -round2(hand.heroInvested);
-    else net = round2((hand.potBB / 2) - hand.heroInvested);
+    const net = resolveHuShowdownNet(hand, cmp);
+    const tied = cmp === 0;
     return finish(hand, {
       reason: cmp > 0 ? 'Ganas el showdown.' : (cmp < 0 ? 'Pierdes el showdown.' : 'Empate en el showdown.'),
-      heroNet: net, showdown: true,
+      heroNet: net, showdown: true, tied: tied,
       heroHandName: hScore.name, villainHandName: vScore.name
     });
   }
