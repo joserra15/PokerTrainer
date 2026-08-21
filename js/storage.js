@@ -36,6 +36,29 @@
     try { localStorage.setItem(key, JSON.stringify(val)); return true; }
     catch (e) { return false; }
   }
+
+  /** Libera espacio recortando histórico/errores (Safari móvil se llena rápido). */
+  function freeStorageSpace() {
+    let freed = false;
+    try {
+      const hist = read(scopedKey('history'), []);
+      if (Array.isArray(hist) && hist.length > 100) {
+        if (write(scopedKey('history'), hist.slice(0, 100))) freed = true;
+      }
+      const errs = read(scopedKey('errors'), []);
+      if (Array.isArray(errs) && errs.length > 100) {
+        if (write(scopedKey('errors'), errs.slice(0, 100))) freed = true;
+      }
+    } catch (e) { /* ignore */ }
+    return freed;
+  }
+
+  /** Escribe reintentando tras liberar espacio. */
+  function writeResilient(key, val) {
+    if (write(key, val)) return true;
+    if (freeStorageSpace() && write(key, val)) return true;
+    return false;
+  }
   function writeRaw(key, val) {
     try { localStorage.setItem(key, val); return true; }
     catch (e) { return false; }
@@ -258,6 +281,11 @@
           if (legacy) localStorage.setItem(keyed, legacy);
         }
       } catch (eBak) { /* ignore */ }
+      try {
+        /* Progreso hecho antes de resolver el login no debe quedar huérfano. */
+        const merged = getSchoolProgress();
+        if (merged) saveSchoolProgress(merged);
+      } catch (eSch) { /* ignore */ }
       try { hydrateSchoolFromBackupIntoStats(); } catch (eHyd) { /* ignore */ }
     }
   }
@@ -281,7 +309,18 @@
 
   function writeStats(st) {
     st.updatedAt = Date.now();
-    write(scopedKey('stats'), st);
+    /* No degradar Escuela con un snapshot antiguo de stats. */
+    try {
+      var own = readSchoolProgressStore();
+      if (own || st.school) {
+        var mergedSchool = mergeSchoolProgress(st.school, own);
+        if (mergedSchool) {
+          st.school = mergedSchool;
+          writeResilient(schoolProgressKey(), mergedSchool);
+        }
+      }
+    } catch (eSch) { /* ignore */ }
+    writeResilient(scopedKey('stats'), st);
   }
 
   function clearedAtStorageKey() {
@@ -314,6 +353,55 @@
       const ts = item.createdAt ? new Date(item.createdAt).getTime() : 0;
       return !ts || ts > clearedTs;
     });
+  }
+
+  /**
+   * Progreso de Escuela en clave propia y pequeña: no depende del tamaño de
+   * stats/histórico, así que sobrevive a cuotas llenas y a recargas.
+   */
+  function schoolProgressKey() {
+    return scopedKey('school_progress');
+  }
+
+  function readSchoolProgressStore() {
+    let val = read(schoolProgressKey(), null);
+    if (!val && userId) val = read('pt_school_progress_v1', null);
+    return val && typeof val === 'object' ? val : null;
+  }
+
+  /** Progreso durable: clave propia + stats.school + backup de Escuela. */
+  function getSchoolProgress() {
+    const own = readSchoolProgressStore();
+    const st = read(scopedKey('stats'), null);
+    const fromStats = (st && st.school) || null;
+    const bak = readSchoolBackupRaw();
+    let merged = mergeSchoolProgress(own, fromStats);
+    merged = mergeSchoolProgress(merged, bak);
+    return merged || null;
+  }
+
+  /**
+   * Guarda progreso de Escuela sin perder lo ya guardado.
+   * Escribe primero la clave pequeña; stats es best-effort (puede fallar por cuota).
+   */
+  function saveSchoolProgress(school) {
+    if (!school || typeof school !== 'object') return false;
+    const merged = mergeSchoolProgress(getSchoolProgress(), school);
+    if (!merged) return false;
+    merged.updatedAt = Date.now();
+    const okOwn = writeResilient(schoolProgressKey(), merged);
+    if (okOwn && userId) writeResilient('pt_school_progress_v1', merged);
+    let st = read(scopedKey('stats'), null);
+    if (!st || typeof st !== 'object') st = defaultStats();
+    st.school = merged;
+    st.updatedAt = Date.now();
+    const okStats = writeResilient(scopedKey('stats'), st);
+    if (global.PTCloud) {
+      if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(['stats']);
+      if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(['stats']);
+      if (global.PTCloud.flushPush) global.PTCloud.flushPush();
+    }
+    return okOwn || okStats;
   }
 
   function readSchoolBackupRaw() {
@@ -624,6 +712,14 @@
   }
   function getStats() {
     var st = read(scopedKey('stats'), defaultStats());
+    /* Escuela vive en clave propia: reponerla si stats se quedó atrás o vacío. */
+    try {
+      var own = readSchoolProgressStore();
+      if (own) {
+        var mergedSchool = mergeSchoolProgress(st.school, own);
+        if (mergedSchool) st.school = mergedSchool;
+      }
+    } catch (eSch) { /* ignore */ }
     if (global.PTStatsAggregate) {
       global.PTStatsAggregate.ensureAggregates(st);
       var aggVer = global.PTStatsAggregate.AGG_VERSION || 2;
@@ -1883,6 +1979,7 @@
   global.Store = {
     setUserId, getUserId,
     getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
+    getSchoolProgress, saveSchoolProgress,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,
     purgeLocalUserData, scenarioLabel,
