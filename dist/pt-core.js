@@ -22374,6 +22374,62 @@ window.PT_NASH_PUSH_JSON = {
     });
   }
 
+  const MAX_PLAY_PRESETS = 12;
+
+  function getPlayPresets() {
+    const list = read(scopedKey('playPresets'), []);
+    return Array.isArray(list) ? list : [];
+  }
+
+  function serializePlayPreset(name, config, existingId) {
+    const label = String(name || '').trim().slice(0, 40);
+    const cfg = config && typeof config === 'object' ? Object.assign({}, config) : {};
+    delete cfg.schoolMode;
+    delete cfg.school;
+    return {
+      id: existingId || ('u_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8)),
+      name: label,
+      config: cfg,
+      savedAt: new Date().toISOString()
+    };
+  }
+
+  /** Guarda o actualiza un preset de Entrenador (mismo nombre → overwrite). */
+  function savePlayPreset(name, config) {
+    const label = String(name || '').trim().slice(0, 40);
+    if (!label) return { ok: false, reason: 'empty_name', presets: getPlayPresets() };
+    if (!config || typeof config !== 'object') {
+      return { ok: false, reason: 'invalid_config', presets: getPlayPresets() };
+    }
+    let list = getPlayPresets().slice();
+    const lower = label.toLowerCase();
+    const idx = list.findIndex(function (p) {
+      return p && String(p.name || '').toLowerCase() === lower;
+    });
+    const entry = serializePlayPreset(label, config, idx >= 0 ? list[idx].id : null);
+    if (idx >= 0) list[idx] = entry;
+    else list.unshift(entry);
+    if (list.length > MAX_PLAY_PRESETS) list = list.slice(0, MAX_PLAY_PRESETS);
+    write(scopedKey('playPresets'), list);
+    return { ok: true, preset: entry, presets: list };
+  }
+
+  function removePlayPreset(id) {
+    const pid = String(id || '');
+    if (!pid) return { ok: false, presets: getPlayPresets() };
+    const list = getPlayPresets();
+    const next = list.filter(function (p) { return p && p.id !== pid; });
+    if (next.length === list.length) return { ok: false, presets: list };
+    write(scopedKey('playPresets'), next);
+    return { ok: true, presets: next };
+  }
+
+  function getPlayPreset(id) {
+    const pid = String(id || '');
+    if (!pid) return null;
+    return getPlayPresets().find(function (p) { return p && p.id === pid; }) || null;
+  }
+
   global.Store = {
     setUserId, getUserId,
     getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
@@ -22388,7 +22444,8 @@ window.PT_NASH_PUSH_JSON = {
     getFeatureUsage, trackFeatureUsage,
     getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
     getFavoriteSpots, getFavoriteSpotsForStreet, isFavoriteSpot, toggleFavoriteSpot,
-    removeFavoriteSpot, favoriteSpotKey, normalizeFavoriteStreet
+    removeFavoriteSpot, favoriteSpotKey, normalizeFavoriteStreet,
+    getPlayPresets, getPlayPreset, savePlayPreset, removePlayPreset
   };
 })(window);
 
@@ -25629,6 +25686,7 @@ window.PT_NASH_PUSH_JSON = {
       "<h3>Configurar sesión</h3>" +
       "<ul>" +
       "<li><strong>Tipo de mesa</strong> — Cash 6-max, Cash 9-max o MTT (rangos/stacks orientativos; no es un solver de torneo completo).</li>" +
+      "<li><strong>Presets</strong> — atajos de fábrica (Cash / Spin grind / MTT) o guarda los tuyos con nombre y bórralos con ×.</li>" +
       "<li><strong>Stack, escenario, posición, rivales, calle y rango</strong> — definen el pool de spots.</li>" +
       "<li><strong>Duración</strong> — Continua o bloque de 25 / 50 / 100 manos con resumen al final.</li>" +
       "<li><strong>Avisador en vivo</strong> — consejo previo, o solo toast si el EV perdido ≥ umbral («Solo error grave»).</li>" +
@@ -30285,17 +30343,104 @@ window.PT_NASH_PUSH_JSON = {
         c.classList.toggle('active', c.dataset.val === key);
       });
     }
-    const partial = PLAY_PRESETS[key];
-    if (!partial) return;
-    applyPlaySetupConfig(partial);
+    clearActiveUserPreset();
+    const builtin = PLAY_PRESETS[key];
+    if (builtin) {
+      applyPlaySetupConfig(builtin);
+      return;
+    }
+    if (key === 'custom') return;
+    const user = window.Store && Store.getPlayPreset ? Store.getPlayPreset(key) : null;
+    if (user && user.config) {
+      applyPlaySetupConfig(user.config);
+      markActiveUserPreset(user.id);
+    }
+  }
+
+  function clearActiveUserPreset() {
+    const host = $('#setup-user-presets');
+    if (!host) return;
+    host.querySelectorAll('.ranges-fav-chip').forEach((c) => c.classList.remove('active'));
+  }
+
+  function markActiveUserPreset(id) {
+    const host = $('#setup-user-presets');
+    if (!host) return;
+    host.querySelectorAll('.ranges-fav-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.presetId === id);
+    });
+    const box = $('#setup-play-preset');
+    if (box) {
+      box.querySelectorAll('.setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === 'custom');
+      });
+    }
   }
 
   function markPresetCustom() {
     const box = $('#setup-play-preset');
-    if (!box) return;
-    box.querySelectorAll('.setup-chip').forEach((c) => {
-      c.classList.toggle('active', c.dataset.val === 'custom');
+    if (box) {
+      box.querySelectorAll('.setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === 'custom');
+      });
+    }
+    clearActiveUserPreset();
+  }
+
+  function renderUserPlayPresets() {
+    const host = $('#setup-user-presets');
+    if (!host || !window.Store || !Store.getPlayPresets) return;
+    const list = Store.getPlayPresets();
+    if (!list.length) {
+      host.innerHTML = '<p class="muted-text ranges-fav-empty">Sin presets guardados. Configura la sesión y pulsa Guardar.</p>';
+      return;
+    }
+    host.innerHTML = '<div class="ranges-fav-list">' + list.map(function (p) {
+      const name = escapeHtml(p.name || 'Preset');
+      const id = escapeHtml(p.id || '');
+      return '<div class="ranges-fav-chip" data-preset-id="' + id + '">'
+        + '<button type="button" class="btn btn-ghost btn-sm ranges-fav-item" data-user-preset="' + id + '">' + name + '</button>'
+        + '<button type="button" class="ranges-fav-remove" data-user-preset-remove="' + id + '" title="Borrar preset" aria-label="Borrar preset">×</button>'
+        + '</div>';
+    }).join('') + '</div>';
+    host.querySelectorAll('[data-user-preset]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        applyPlayPreset(btn.dataset.userPreset);
+      });
     });
+    host.querySelectorAll('[data-user-preset-remove]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.dataset.userPresetRemove;
+        const preset = Store.getPlayPreset ? Store.getPlayPreset(id) : null;
+        const label = preset && preset.name ? preset.name : 'este preset';
+        if (!confirm('¿Borrar el preset «' + label + '»?')) return;
+        Store.removePlayPreset(id);
+        renderUserPlayPresets();
+        markPresetCustom();
+      });
+    });
+  }
+
+  function saveCurrentPlayPreset() {
+    if (!window.Store || !Store.savePlayPreset) return;
+    const input = $('#setup-preset-name');
+    const raw = input ? String(input.value || '').trim() : '';
+    const name = raw || window.prompt('Nombre del preset', '');
+    if (name == null) return;
+    const label = String(name).trim();
+    if (!label) {
+      if (input) input.focus();
+      return;
+    }
+    const cfg = readPlayConfig();
+    if (!cfg) return;
+    const res = Store.savePlayPreset(label, cfg);
+    if (!res || !res.ok) return;
+    if (input) input.value = '';
+    renderUserPlayPresets();
+    if (res.preset && res.preset.id) markActiveUserPreset(res.preset.id);
   }
 
   function applyPlaySetupConfig(partial) {
@@ -30466,6 +30611,20 @@ window.PT_NASH_PUSH_JSON = {
       const el = $('#setup-play-preset .setup-chip.active');
       if (el) applyPlayPreset(el.dataset.val);
     });
+    renderUserPlayPresets();
+    const savePresetBtn = $('#setup-preset-save');
+    if (savePresetBtn) {
+      savePresetBtn.addEventListener('click', () => saveCurrentPlayPreset());
+    }
+    const presetNameInput = $('#setup-preset-name');
+    if (presetNameInput) {
+      presetNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          saveCurrentPlayPreset();
+        }
+      });
+    }
     const hubBoxForPreset = $('#setup-format-hub');
     if (hubBoxForPreset) {
       hubBoxForPreset.addEventListener('click', () => markPresetCustom());

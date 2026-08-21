@@ -646,7 +646,13 @@
             <button type="button" class="setup-chip" data-val="spin_grind">Spin grind</button>
             <button type="button" class="setup-chip" data-val="mtt_low">Reg MTT low</button>
           </div>
-          <p class="muted-text setup-hint">Atajos de configuración. No cambian el motor: fijan hub, fase, escenarios y nivel de rivales típicos de ese juego.</p>
+          <div class="setup-user-presets" id="setup-user-presets" aria-live="polite"></div>
+          <div class="setup-preset-save-row">
+            <label class="sr-only" for="setup-preset-name">Nombre del preset</label>
+            <input type="text" id="setup-preset-name" class="setup-preset-name-input" maxlength="40" placeholder="Nombre del preset" autocomplete="off" />
+            <button type="button" class="btn btn-ghost btn-sm" id="setup-preset-save">Guardar</button>
+          </div>
+          <p class="muted-text setup-hint">Atajos de fábrica o los tuyos. Guardar memoriza la config actual (formato, stack, escenario, rivales…). Pulsa × para borrar un preset guardado.</p>
         </div>
 
         <div class="setup-group" id="setup-group-phase" hidden>

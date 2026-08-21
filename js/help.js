@@ -75,6 +75,7 @@
       "<h3>Configurar sesión</h3>" +
       "<ul>" +
       "<li><strong>Tipo de mesa</strong> — Cash 6-max, Cash 9-max o MTT (rangos/stacks orientativos; no es un solver de torneo completo).</li>" +
+      "<li><strong>Presets</strong> — atajos de fábrica (Cash / Spin grind / MTT) o guarda los tuyos con nombre y bórralos con ×.</li>" +
       "<li><strong>Stack, escenario, posición, rivales, calle y rango</strong> — definen el pool de spots.</li>" +
       "<li><strong>Duración</strong> — Continua o bloque de 25 / 50 / 100 manos con resumen al final.</li>" +
       "<li><strong>Avisador en vivo</strong> — consejo previo, o solo toast si el EV perdido ≥ umbral («Solo error grave»).</li>" +
