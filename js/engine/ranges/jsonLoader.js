@@ -59,7 +59,9 @@
       spinOpen: {},
       mttOpen: {},
       spinVsRfi: {},
-      mttVsRfi: {}
+      mttVsRfi: {},
+      spinVs3bet: {},
+      mttVs3bet: {}
     };
     let n = 0;
     Object.keys(json.spinOpen || {}).forEach(function (k) {
@@ -83,6 +85,14 @@
     });
     Object.keys(json.mttVsRfi || {}).forEach(function (k) {
       layers.mttVsRfi[k] = (json.mttVsRfi[k] && json.mttVsRfi[k].pairs) || {};
+      n++;
+    });
+    Object.keys(json.spinVs3bet || {}).forEach(function (k) {
+      layers.spinVs3bet[k] = (json.spinVs3bet[k] && json.spinVs3bet[k].pairs) || {};
+      n++;
+    });
+    Object.keys(json.mttVs3bet || {}).forEach(function (k) {
+      layers.mttVs3bet[k] = (json.mttVs3bet[k] && json.mttVs3bet[k].pairs) || {};
       n++;
     });
     V.PHASE_LAYERS = layers;

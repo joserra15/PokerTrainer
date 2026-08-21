@@ -1660,7 +1660,7 @@ window.PT_PHASE3_LAYERS_JSON = {
   "meta": {
     "source": "generate-phase3-layers.js",
     "updated": "2026-08-21",
-    "note": "Capas Spin/MTT Fase 3 — charts de estudio (no solver tree)"
+    "note": "Capas Spin/MTT Fase 3 — charts de estudio (no solver tree); incluye vs3bet por fase/stack"
   },
   "spinOpen": {
     "10": {
@@ -2873,6 +2873,517 @@ window.PT_PHASE3_LAYERS_JSON = {
         }
       }
     }
+  },
+  "spinVs3bet": {
+    "10": {
+      "meta": {
+        "format": "spin3",
+        "stackBB": 10
+      },
+      "pairs": {
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, TT, AQs, AQo",
+          "call": "77, KJs, QJs",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "15": {
+      "meta": {
+        "format": "spin3",
+        "stackBB": 15
+      },
+      "pairs": {
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, TT, AQs, AQo",
+          "call": "77, KJs, QJs",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "20": {
+      "meta": {
+        "format": "spin3",
+        "stackBB": 20
+      },
+      "pairs": {
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, AQs",
+          "call": "77, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "25": {
+      "meta": {
+        "format": "spin3",
+        "stackBB": 25
+      },
+      "pairs": {
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, AQs",
+          "call": "77, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    }
+  },
+  "mttVs3bet": {
+    "early": {
+      "meta": {
+        "format": "mtt",
+        "phase": "early"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, AQs, AJs, KQs",
+          "callMix": "99, 88, ATs, AQo"
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, AQs, AJs, KQs",
+          "callMix": "99, 88, ATs, AQo"
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, 77, ATs, KJs, QJs, AJo, KQo"
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, 77, ATs, KJs, QJs, AJo, KQo"
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo",
+          "call": "QQ, JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s",
+          "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo, AJo",
+          "callMix": "88, 77, 66, KQo, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s",
+          "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo, AJo",
+          "callMix": "88, 77, 66, KQo, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s",
+          "call": "99, 88, 77, AJs, ATs, KQs, KJs, QJs, AQo, AJo, KQo",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "mid": {
+      "meta": {
+        "format": "mtt",
+        "phase": "mid"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, AQs, AJs, KQs",
+          "callMix": "99, 88, ATs, AQo"
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, AJo"
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, AQs, AJs, KQs",
+          "callMix": "99, 88, ATs, AQo"
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, QJs, AJo, KQo"
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s, JJ",
+          "call": "JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "88, ATs, KJs, QJs, AJo, KQo"
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ",
+          "call": "QQ, JJ, TT, 99, AQs, AJs, KQs, AQo",
+          "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ",
+          "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo",
+          "callMix": "88, KQo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ",
+          "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo",
+          "callMix": "88, KQo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ",
+          "call": "99, 77, AJs, ATs, KQs, KJs, QJs, AQo",
+          "callMix": "55, 44, T9s, 98s, QJo"
+        }
+      }
+    },
+    "short": {
+      "meta": {
+        "format": "mtt",
+        "phase": "short"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs, JJ, AQs",
+          "call": "JJ, KQs",
+          "callMix": ""
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, AQs, JJ, AQs",
+          "call": "QQ, JJ, KQs",
+          "callMix": "JJ, AQs, AJs"
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs, JJ, AQs",
+          "call": "JJ, KQs",
+          "callMix": ""
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, AQs, JJ, AQs",
+          "call": "QQ, JJ, KQs",
+          "callMix": "JJ, AQs, AJs"
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": ""
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, AQs",
+          "call": "QQ, JJ, TT, AQs, AJs, KQs, AQo",
+          "callMix": "JJ, TT, AQs, AJs, KQs, AQo"
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, AQs",
+          "call": "TT, AQs, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, AQs",
+          "call": "77, AJs, KQs, KJs, QJs, AQo",
+          "callMix": "55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "push": {
+      "meta": {
+        "format": "mtt",
+        "phase": "push"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "QQ",
+          "callMix": ""
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": ""
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "QQ",
+          "callMix": ""
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": "77"
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "",
+          "callMix": "77"
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs, AQo",
+          "call": "QQ",
+          "callMix": ""
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs, AQo",
+          "call": "KJs, QJs",
+          "callMix": "77, 66, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, TT, AQs, AQo",
+          "call": "77, KJs, QJs",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    },
+    "bubble": {
+      "meta": {
+        "format": "mtt",
+        "phase": "bubble"
+      },
+      "pairs": {
+        "UTG_vs_HJ": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "UTG_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, KQs",
+          "callMix": ""
+        },
+        "UTG_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs",
+          "call": "QQ, JJ, KQs",
+          "callMix": "JJ, AQs, AJs"
+        },
+        "HJ_vs_CO": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "HJ_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": ""
+        },
+        "HJ_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, KQs",
+          "callMix": ""
+        },
+        "HJ_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs",
+          "call": "QQ, JJ, KQs",
+          "callMix": "JJ, AQs, AJs"
+        },
+        "CO_vs_BTN": {
+          "fourBet": "QQ+, AKs, AKo, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": "QJs"
+        },
+        "CO_vs_SB": {
+          "fourBet": "QQ+, AKs, AKo, A5s, JJ, TT, AQs",
+          "call": "JJ, TT, AQs, KQs, AQo",
+          "callMix": "QJs"
+        },
+        "CO_vs_BB": {
+          "fourBet": "KK+, AKs, AKo, JJ, TT, AQs",
+          "call": "QQ, JJ, TT, AQs, KQs, AQo",
+          "callMix": "JJ, TT, AQs, AJs, KQs, AQo"
+        },
+        "BTN_vs_SB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs",
+          "call": "TT, AQs, KQs, KJs, QJs, AQo",
+          "callMix": "66, KJo, QJo"
+        },
+        "BTN_vs_BB": {
+          "fourBet": "JJ+, AKs, AKo, A5s, JJ, TT, AQs",
+          "call": "TT, AQs, KQs, KJs, QJs, AQo",
+          "callMix": "66, KJo, QJo"
+        },
+        "SB_vs_BB": {
+          "fourBet": "TT+, AQs+, AKo, A5s-A2s, JJ, TT, AQs",
+          "call": "77, KQs, KJs, QJs, AQo",
+          "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
+        }
+      }
+    }
   }
 };
 
@@ -3606,7 +4117,9 @@ window.PT_NASH_PUSH_JSON = {
       spinOpen: {},
       mttOpen: {},
       spinVsRfi: {},
-      mttVsRfi: {}
+      mttVsRfi: {},
+      spinVs3bet: {},
+      mttVs3bet: {}
     };
     let n = 0;
     Object.keys(json.spinOpen || {}).forEach(function (k) {
@@ -3630,6 +4143,14 @@ window.PT_NASH_PUSH_JSON = {
     });
     Object.keys(json.mttVsRfi || {}).forEach(function (k) {
       layers.mttVsRfi[k] = (json.mttVsRfi[k] && json.mttVsRfi[k].pairs) || {};
+      n++;
+    });
+    Object.keys(json.spinVs3bet || {}).forEach(function (k) {
+      layers.spinVs3bet[k] = (json.spinVs3bet[k] && json.spinVs3bet[k].pairs) || {};
+      n++;
+    });
+    Object.keys(json.mttVs3bet || {}).forEach(function (k) {
+      layers.mttVs3bet[k] = (json.mttVs3bet[k] && json.mttVs3bet[k].pairs) || {};
       n++;
     });
     V.PHASE_LAYERS = layers;
@@ -4340,25 +4861,113 @@ window.PT_NASH_PUSH_JSON = {
   function getVs3betRow(openerPos, threeBettorPos, ctx) {
     const c = normalize(ctx);
     const key = openerPos + '_vs_' + threeBettorPos;
+    const layered = tournamentVs3betRow(key, c);
     const ext = global.GTORangesExtended;
     const pairs = D().VS_3BET_PAIRS || (ext && ext.VS_3BET_PAIRS);
-    let row = pairs && pairs[key] ? cloneRow(pairs[key]) : null;
+    let row = layered || (pairs && pairs[key] ? cloneRow(pairs[key]) : null);
     if (!row) row = cloneRow(D().VS_3BET);
-    return adjustVs3betRow(row, c.stackDepth);
+    row = adjustVs3betRow(row, c.stackDepth, c.stackBB);
+    return applyPhaseToVs3bet(row, c, openerPos, threeBettorPos);
   }
 
-  function adjustVs3betRow(row, stackDepth) {
-    if (!row || stackDepth === 'standard') return row;
+  /** Capas fase/stack para vs 3-bet (Spin/MTT). Fallback: charts cash + adjust. */
+  function tournamentVs3betRow(pairKey, c) {
+    if (!c || !c.isTournament || !pairKey) return null;
+    const layers = V() && V().PHASE_LAYERS;
+    if (!layers) return null;
+    if (c.isSpin && layers.spinVs3bet) {
+      const sk = spinStackLayerKey(c.stackBB);
+      const table = layers.spinVs3bet[sk] || layers.spinVs3bet['25'] || layers.spinVs3bet['20'];
+      if (table && table[pairKey]) return cloneRow(table[pairKey]);
+    }
+    if (c.isMtt && layers.mttVs3bet) {
+      let pk = c.effectivePhase || 'mid';
+      if (pk === 'auto') pk = 'mid';
+      const table = layers.mttVs3bet[pk]
+        || (pk === 'bubble' ? layers.mttVs3bet.short : null)
+        || layers.mttVs3bet.mid
+        || layers.mttVs3bet.early;
+      if (table && table[pairKey]) return cloneRow(table[pairKey]);
+    }
+    return null;
+  }
+
+  function adjustVs3betRow(row, stackDepth, stackBB) {
+    if (!row) return row;
+    const bb = stackBB != null ? Number(stackBB) : (stackDepth === 'short' ? 40 : (stackDepth === 'deep' ? 150 : 100));
+    if (stackDepth === 'standard' && bb > 55) return row;
     const data = cloneRow(row);
-    if (stackDepth === 'short') {
-      data.fourBet = widenField(data.fourBet, 'JJ');
-      data.call = trimField(data.call, '99, 88, AJo, KQo');
-      data.callMix = trimField(data.callMix || '', '77, 66, ATs, KJs');
-    } else if (stackDepth === 'deep') {
+    if (stackDepth === 'deep' || bb >= 120) {
       data.call = widenField(data.call, '88, 77, KQo');
       data.callMix = widenField(data.callMix || '', '66, 55, AJo, QJs');
+      return data;
+    }
+    // Short / mid-short (≤55bb): quitar flats marginales también del callMix
+    data.fourBet = widenField(data.fourBet, 'JJ');
+    data.call = trimField(data.call, '99, 88, AJo, KQo');
+    data.callMix = trimField(data.callMix || '', '99, 88, 77, 66, ATs, KJs, AJo, KQo');
+    if (bb <= 20) {
+      data.call = trimField(data.call, 'TT, AQs, AJs, AQo');
+      data.callMix = trimField(data.callMix || '', 'TT, AQo, ATs, KQs');
+      data.fourBet = widenField(data.fourBet, 'TT, AQs, AQo');
     }
     return data;
+  }
+
+  /**
+   * Ajuste torneo por fase + OOP: en short/push/bubble no flatteas 99 OOP vs 3-bet
+   * como en cash deep; priorizas fold o 4-bet jam.
+   */
+  function applyPhaseToVs3bet(row, c, openerPos, threeBettorPos) {
+    if (!row || !c || !c.isTournament) return row;
+    const phase = c.effectivePhase || 'early';
+    const bb = c.stackBB || 100;
+    if (phase === 'early' && bb >= 40) return row;
+
+    const out = cloneRow(row);
+    const opener = toEnginePos(openerPos);
+    const threeBettor = toEnginePos(threeBettorPos);
+    const earlyOpen = opener === 'UTG' || opener === 'HJ' || opener === 'CO';
+    // CO incluido como «no BTN»: flat 99 vs SB 3-bet a 25bb sigue siendo feo OOP
+    const epOpen = opener === 'UTG' || opener === 'HJ';
+    const vsBlinds = threeBettor === 'SB' || threeBettor === 'BB';
+
+    if (phase === 'mid' && bb > 28) {
+      out.call = trimField(out.call, '88, AJo, KQo');
+      out.callMix = trimField(out.callMix || '', '77, 66, ATo, KJo');
+      return out;
+    }
+
+    // short / auto-short ≤28bb / bubble / push
+    out.call = trimField(out.call, '99, 88, AJo, KQo, ATs');
+    out.callMix = trimField(out.callMix || '', '99, 88, 77, 66, ATs, KJs, AJo, KQo, QJs');
+    out.fourBet = widenField(out.fourBet, 'JJ, AQs');
+
+    if ((phase === 'short' || phase === 'bubble' || bb <= 28) && earlyOpen && vsBlinds) {
+      out.call = trimField(out.call, 'TT, 99, AQs, AJs, AQo');
+      out.callMix = trimField(out.callMix || '', 'TT, 99, 88, AQo, ATs, KQs');
+    }
+    if (epOpen && vsBlinds && (phase === 'short' || phase === 'bubble' || bb <= 28)) {
+      // 99 no debe quedar en call ni callMix (bug previo: solo se trimeaba `call`)
+      out.call = trimField(out.call, '99, 88');
+      out.callMix = trimField(out.callMix || '', '99, 88');
+    }
+
+    if (phase === 'push' || phase === 'bubble' || bb <= 15) {
+      out.call = trimField(out.call, 'JJ, TT, 99, 88, AQs, AJs, ATs, KQs, AQo, AJo, KQo');
+      out.callMix = trimField(out.callMix || '', 'JJ, TT, 99, 88, AQs, AJs, ATs, KQs, AQo, AJo, KQo, KJs, QJs');
+      out.fourBet = widenField(out.fourBet, 'JJ, TT, AQs, AQo');
+    }
+    return out;
+  }
+
+  function getVs3bet(ctx, openerPos, threeBettorPos) {
+    if (openerPos && threeBettorPos) {
+      return getVs3betRow(openerPos, threeBettorPos, ctx);
+    }
+    const c = normalize(ctx);
+    const data = cloneRow(D().VS_3BET);
+    return applyPhaseToVs3bet(adjustVs3betRow(data, c.stackDepth, c.stackBB), c, null, null);
   }
 
   function widenField(str, addCsv) {
@@ -4374,15 +4983,6 @@ window.PT_NASH_PUSH_JSON = {
     const keep = N.toSet(str);
     N.expand(removeCsv).forEach(function (c) { keep.delete(c); });
     return Array.from(keep).join(', ');
-  }
-
-  function getVs3bet(ctx, openerPos, threeBettorPos) {
-    if (openerPos && threeBettorPos) {
-      return getVs3betRow(openerPos, threeBettorPos, ctx);
-    }
-    const c = normalize(ctx);
-    const data = cloneRow(D().VS_3BET);
-    return adjustVs3betRow(data, c.stackDepth);
   }
 
   function getVs4betRow(openerPos, fourBettorPos, ctx) {
@@ -8540,14 +9140,37 @@ window.PT_NASH_PUSH_JSON = {
     const data = RR && ctx && openerPos && threeBettorPos
       ? RR.getVs3betRow(openerPos, threeBettorPos, ctx)
       : (RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET);
+    const Tax = global.PTFormatTaxonomy;
+    const c = RR && RR.normalize ? RR.normalize(ctx) : (ctx || {});
+    const phase = c.effectivePhase || c.resolvedPhase || c.mttPhase || '';
+    const tourneyTight = !!(c.isTournament || c.formatHub === 'spin' || c.formatHub === 'mtt'
+      || (Tax && Tax.usesIcm && Tax.usesIcm(ctx)));
+    const shortish = tourneyTight && (
+      phase === 'short' || phase === 'push' || phase === 'bubble'
+      || (c.stackBB != null && c.stackBB <= 28)
+    );
     if (data) {
       const jam = N.toSet(data.fourBet);
       const call = N.toSet(data.call);
       const callMix = N.toSet(data.callMix || '');
-      if (jam.has(code)) return { fold: 0, call: 0.25, raise: 0.75 };
-      if (call.has(code)) return { fold: 0.15, call: 0.8, raise: 0.05 };
-      if (callMix.has(code)) return { fold: 0.42, call: 0.53, raise: 0.05 };
-      return { fold: 0.82, call: 0.15, raise: 0.03 };
+      if (jam.has(code)) {
+        return shortish
+          ? { fold: 0, call: 0.12, raise: 0.88 }
+          : { fold: 0, call: 0.25, raise: 0.75 };
+      }
+      if (call.has(code)) {
+        return shortish
+          ? { fold: 0.28, call: 0.65, raise: 0.07 }
+          : { fold: 0.15, call: 0.8, raise: 0.05 };
+      }
+      if (callMix.has(code)) {
+        return shortish
+          ? { fold: 0.58, call: 0.37, raise: 0.05 }
+          : { fold: 0.42, call: 0.53, raise: 0.05 };
+      }
+      return shortish
+        ? { fold: 0.92, call: 0.06, raise: 0.02 }
+        : { fold: 0.82, call: 0.15, raise: 0.03 };
     }
     const cont = N.toSet('QQ+, AKs, AKo');
     const callMix = N.toSet('JJ, TT, AQs, AJs, KQs, AQo, 99');

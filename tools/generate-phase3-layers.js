@@ -122,11 +122,78 @@ function spinVsFrom(table) {
   return out;
 }
 
+/** Capas vs 3-bet: parten de charts cash y aprietan flats por fase/stack. */
+const vs3betCash = Ext.VS_3BET_PAIRS || D.VS_3BET_PAIRS || {};
+const N = sandbox.window.GTORangesNotation;
+
+function trimCsv(str, removeCsv) {
+  if (!str) return '';
+  if (!removeCsv || !N) return str;
+  const keep = N.toSet(str);
+  N.expand(removeCsv).forEach((c) => keep.delete(c));
+  return Array.from(keep).join(', ');
+}
+
+function widenCsv(str, add) {
+  if (!add) return str || '';
+  if (!str) return add;
+  return str + ', ' + add;
+}
+
+function mapVs3bet(fn) {
+  const out = {};
+  Object.keys(vs3betCash).forEach((k) => { out[k] = fn(Object.assign({}, vs3betCash[k]), k); });
+  return out;
+}
+
+function trimVs3bet(row, dropCall, dropMix, addFour) {
+  const out = Object.assign({}, row);
+  if (dropCall) out.call = trimCsv(out.call, dropCall);
+  if (dropMix) out.callMix = trimCsv(out.callMix || '', dropMix);
+  if (addFour) out.fourBet = widenCsv(out.fourBet, addFour);
+  return out;
+}
+
+function epVsBlinds(key) {
+  return /^(UTG|HJ)_vs_(SB|BB)$/.test(key);
+}
+
+const vs3Early = mapVs3bet((r) => Object.assign({}, r));
+const vs3Mid = mapVs3bet((r) => trimVs3bet(r, '88, AJo, KQo', '77, 66, ATo, KJo', 'JJ'));
+const vs3Short = mapVs3bet((r, key) => {
+  let out = trimVs3bet(r, '99, 88, AJo, KQo, ATs', '99, 88, 77, 66, ATs, KJs, AJo, KQo, QJs', 'JJ, AQs');
+  if (epVsBlinds(key)) {
+    out = trimVs3bet(out, 'TT, 99, AQs, AJs, AQo', 'TT, 99, 88, AQo, ATs, KQs', 'JJ, AQs');
+  }
+  return out;
+});
+const vs3Push = mapVs3bet((r) => trimVs3bet(
+  r,
+  'JJ, TT, 99, 88, AQs, AJs, ATs, KQs, AQo, AJo, KQo',
+  'JJ, TT, 99, 88, AQs, AJs, ATs, KQs, AQo, AJo, KQo, KJs, QJs',
+  'JJ, TT, AQs, AQo'
+));
+const vs3Bubble = mapVs3bet((r, key) => {
+  let out = trimVs3bet(r, '99, 88, AJo, KQo, ATs, AJs', '99, 88, 77, ATs, KJs, AJo, KQo', 'JJ, TT, AQs');
+  if (epVsBlinds(key)) {
+    out = trimVs3bet(out, 'TT, 99, AQs, AJs, AQo', 'TT, 99, 88, AQo, ATs, KQs', null);
+  }
+  return out;
+});
+
+function spinVs3From(table) {
+  const out = {};
+  Object.keys(table).forEach((k) => {
+    if (/^(BTN|SB)_vs_(BTN|SB|BB)$/.test(k) || /^SB_vs_BB$/.test(k)) out[k] = Object.assign({}, table[k]);
+  });
+  return out;
+}
+
 const layers = {
   meta: {
     source: 'generate-phase3-layers.js',
     updated: new Date().toISOString().slice(0, 10),
-    note: 'Capas Spin/MTT Fase 3 — charts de estudio (no solver tree)'
+    note: 'Capas Spin/MTT Fase 3 — charts de estudio (no solver tree); incluye vs3bet por fase/stack'
   },
   spinOpen: {
     '25': { meta: { format: 'spin3', stackBB: 25 }, positions: spin25 },
@@ -151,6 +218,19 @@ const layers = {
     mid: { meta: { format: 'mtt', phase: 'mid' }, pairs: vsMid },
     short: { meta: { format: 'mtt', phase: 'short' }, pairs: vsShort },
     bubble: { meta: { format: 'mtt', phase: 'bubble' }, pairs: vsBubble }
+  },
+  spinVs3bet: {
+    '25': { meta: { format: 'spin3', stackBB: 25 }, pairs: spinVs3From(vs3Short) },
+    '20': { meta: { format: 'spin3', stackBB: 20 }, pairs: spinVs3From(vs3Short) },
+    '15': { meta: { format: 'spin3', stackBB: 15 }, pairs: spinVs3From(vs3Push) },
+    '10': { meta: { format: 'spin3', stackBB: 10 }, pairs: spinVs3From(vs3Push) }
+  },
+  mttVs3bet: {
+    early: { meta: { format: 'mtt', phase: 'early' }, pairs: vs3Early },
+    mid: { meta: { format: 'mtt', phase: 'mid' }, pairs: vs3Mid },
+    short: { meta: { format: 'mtt', phase: 'short' }, pairs: vs3Short },
+    push: { meta: { format: 'mtt', phase: 'push' }, pairs: vs3Push },
+    bubble: { meta: { format: 'mtt', phase: 'bubble' }, pairs: vs3Bubble }
   }
 };
 
@@ -234,3 +314,5 @@ fs.writeFileSync(path.join(outDir, 'nash-push-fold.json'), JSON.stringify(nash, 
 console.log('Wrote phase3-layers.json and nash-push-fold.json');
 console.log('spinOpen keys', Object.keys(layers.spinOpen));
 console.log('mttOpen keys', Object.keys(layers.mttOpen));
+console.log('mttVs3bet keys', Object.keys(layers.mttVs3bet));
+console.log('spinVs3bet keys', Object.keys(layers.spinVs3bet));
