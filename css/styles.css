@@ -3223,7 +3223,18 @@ body.paywall-open { overflow: hidden; }
   outline: none;
   border-color: rgba(245, 196, 81, 0.55);
 }
+.setup-preset-name-input.is-invalid {
+  border-color: rgba(229, 83, 75, 0.85);
+}
 .setup-preset-save-row .btn { flex: 0 0 auto; }
+.setup-preset-status {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.setup-preset-status[data-kind="error"] { color: #e5534b; }
+.setup-preset-status[data-kind="ok"] { color: var(--gold, #f5c451); }
 .setup-group.is-stack-locked .setup-chips {
   opacity: 0.72;
   pointer-events: none;
