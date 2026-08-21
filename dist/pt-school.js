@@ -13159,13 +13159,34 @@
     return out;
   }
 
+  function cloneLessonsMap(lessons) {
+    var src = lessons && typeof lessons === 'object' ? lessons : {};
+    var out = {};
+    Object.keys(src).forEach(function (id) {
+      var row = src[id];
+      if (!row || typeof row !== 'object') return;
+      out[id] = {
+        bestScore: row.bestScore,
+        bestPct: row.bestPct,
+        attempts: row.attempts,
+        passed: !!row.passed,
+        gold: !!row.gold,
+        perfect: !!row.perfect,
+        lastScore: row.lastScore,
+        lastPct: row.lastPct,
+        updatedAt: row.updatedAt
+      };
+    });
+    return out;
+  }
+
   function readSchool() {
     var st = Store() && Store().getStats ? Store().getStats() : null;
     var school = (st && st.school) ? st.school : null;
     if (!school || typeof school !== 'object') return defaultSchool();
     var migrated = migrateSchoolProgress({
       xp: Number(school.xp) || 0,
-      lessons: school.lessons && typeof school.lessons === 'object' ? school.lessons : {},
+      lessons: cloneLessonsMap(school.lessons),
       updatedAt: Number(school.updatedAt) || 0,
       version: Number(school.version) || 1
     });
@@ -13183,11 +13204,11 @@
 
   function writeSchool(school) {
     var S = Store();
-    if (!S || !S.getStats || !S.persistStats) return;
+    if (!S || !S.getStats || !S.persistStats) return false;
     var st = S.getStats();
     st.school = {
       xp: Number(school.xp) || 0,
-      lessons: school.lessons || {},
+      lessons: cloneLessonsMap(school.lessons),
       updatedAt: Date.now(),
       version: Number(school.version) || 2
     };
@@ -13198,6 +13219,43 @@
       /* No esperar 2s: Safari en móvil mata el JS al cambiar de app. */
       if (global.PTCloud.flushPush) global.PTCloud.flushPush();
     }
+    return true;
+  }
+
+  /** Si el intento aprobó pero el flag no quedó en stats, reescribe el progreso. */
+  function ensureLessonMarkedPassed(lessonId, summary) {
+    if (!lessonId || !summary || !summary.passed) return isLessonPassed(lessonId);
+    if (isLessonPassed(lessonId)) return true;
+    var school = readSchool();
+    var prev = school.lessons[lessonId] || {};
+    school.lessons[lessonId] = {
+      bestScore: prev.bestScore != null ? prev.bestScore : summary.score,
+      bestPct: prev.bestPct != null ? prev.bestPct : summary.pct,
+      attempts: Math.max(Number(prev.attempts) || 0, 1),
+      passed: true,
+      gold: !!(prev.gold || summary.gold),
+      perfect: !!(prev.perfect || summary.perfect),
+      lastScore: summary.score != null ? summary.score : prev.lastScore,
+      lastPct: summary.pct != null ? summary.pct : prev.lastPct,
+      updatedAt: new Date().toISOString()
+    };
+    writeSchool(school);
+    return isLessonPassed(lessonId);
+  }
+
+  function showSchoolGateMessage(host, gate) {
+    if (!host || !gate || gate.ok) return;
+    var msg = gate.message || 'No puedes empezar esta lección ahora.';
+    var existing = host.querySelector('.school-gate-msg');
+    if (existing) existing.parentNode.removeChild(existing);
+    var el = document.createElement('p');
+    el.className = 'school-gate-msg';
+    el.setAttribute('role', 'status');
+    el.textContent = msg;
+    var cta = host.querySelector('.school-lesson-cta') ||
+      host.querySelector('.school-result-actions') ||
+      host;
+    cta.insertBefore(el, cta.firstChild);
   }
 
   function lessonProgress(lessonId) {
@@ -13466,7 +13524,7 @@
     };
     writeSchool(school);
 
-    return {
+    var out = {
       score: score,
       pct: pct,
       passed: passed,
@@ -13477,6 +13535,8 @@
       threshold: threshold,
       goldThreshold: goldTh
     };
+    if (passed) ensureLessonMarkedPassed(lesson.id, out);
+    return out;
   }
 
   function completeTheoryLesson(lesson) {
@@ -13729,6 +13789,7 @@
     if (!s) return;
     var lesson = Data().getLesson(s.lessonId);
     var summary = recordLessonAttempt(lesson, s.results);
+    if (summary.passed) ensureLessonMarkedPassed(lesson.id, summary);
     trackSchool(summary.passed ? 'lesson_complete' : 'lesson_fail', {
       lessonId: lesson.id,
       pct: summary.pct,
@@ -13747,12 +13808,14 @@
   function startLessonSession(lessonId) {
     var data = Data();
     var lesson = data && data.getLesson(lessonId);
-    if (!lesson) return;
+    if (!lesson) return { ok: false, reason: 'missing' };
     var gate = canPlayLesson(lessonId);
     if (!gate.ok) {
       trackSchool('lesson_blocked_plan', { lessonId: lessonId, reason: gate.reason });
+      var host = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+      if (host) showSchoolGateMessage(host, gate);
       if (gate.upgrade) openUpgrade(gate.reason);
-      return;
+      return gate;
     }
     trackSchool('lesson_start', { lessonId: lesson.id, module: lesson.module, plan: lesson.plan });
     if (!lesson.spots || !lesson.spots.length) {
@@ -13761,9 +13824,9 @@
       state.view = VIEW.result;
       state.lessonId = lesson.id;
       state.lastResult = { lesson: lesson, summary: summary, results: [] };
-      var host = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
-      if (host) render(host);
-      return;
+      var hostTheory = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+      if (hostTheory) render(hostTheory);
+      return { ok: true, lesson: lesson, theory: true };
     }
     state.session = {
       active: true,
@@ -13776,6 +13839,7 @@
       results: []
     };
     startSpotAt(0);
+    return { ok: true, lesson: lesson };
   }
 
   function closeSchoolHand(hand, decision, reason) {
@@ -14182,7 +14246,7 @@
         if (st === 'plan') lock = '<span class="school-node-lock school-node-plan" aria-hidden="true">' +
           planLabelFor(l.plan) + '</span>';
         return '<button type="button" class="school-node is-' + st + '" data-school-lesson="' + esc(l.id) + '"' +
-          (st === 'locked' ? ' disabled' : '') + '>' +
+          (st === 'locked' ? ' disabled title="Completa la lección anterior."' : '') + '>' +
           '<span class="school-node-idx">' + (startIdx + i + 1) + '</span>' +
           '<span class="school-node-body">' +
           '<span class="school-node-title">' + esc(l.title) + '</span>' +
@@ -14347,7 +14411,8 @@
     var start = document.getElementById('school-start-lesson');
     if (start) {
       start.addEventListener('click', function () {
-        startLessonSession(lesson.id);
+        var gate = startLessonSession(lesson.id);
+        if (gate && !gate.ok) showSchoolGateMessage(root, gate);
       });
     }
     mountCoach(root, lesson);
@@ -14470,17 +14535,26 @@
       '</div></div>';
 
     document.getElementById('school-retry').addEventListener('click', function () {
-      startLessonSession(lesson.id);
+      var gate = startLessonSession(lesson.id);
+      if (gate && !gate.ok) showSchoolGateMessage(root, gate);
     });
     var nextBtn = document.getElementById('school-next-lesson');
     if (nextBtn && next) {
       nextBtn.addEventListener('click', function () {
+        if (sum.passed) ensureLessonMarkedPassed(lesson.id, sum);
+        var gate = canPlayLesson(next.id);
+        if (!gate.ok) {
+          showSchoolGateMessage(root, gate);
+          if (gate.upgrade) openUpgrade(gate.reason);
+          return;
+        }
         state.view = VIEW.lesson;
         state.lessonId = next.id;
         render(root);
       });
     }
     document.getElementById('school-to-map').addEventListener('click', function () {
+      if (sum.passed) ensureLessonMarkedPassed(lesson.id, sum);
       state.view = VIEW.hub;
       render(root);
     });
@@ -14595,6 +14669,7 @@
     planRank: planRank,
     entitlementsPlan: entitlementsPlan,
     trackSchool: trackSchool,
+    ensureLessonMarkedPassed: ensureLessonMarkedPassed,
     _state: state
   };
 })(typeof window !== 'undefined' ? window : globalThis);
