@@ -1,5 +1,10 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const {
+  mockAuthenticatedUser,
+  waitForAppShell,
+  skipActionPlaybackIfNeeded,
+  playActionButtons
+} = require('./helpers');
 
 test.describe('Mobile play layout @mobile @smoke', () => {
   test('play en viewport móvil: acciones visibles', async ({ page }) => {
@@ -14,13 +19,12 @@ test.describe('Mobile play layout @mobile @smoke', () => {
     await page.waitForSelector('#play-setup:not(.hidden), #play-start', { timeout: 15000 });
     await page.locator('#play-start').click({ force: true });
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 20000 });
-    await page.waitForSelector('#actions .btn', { timeout: 60000 });
 
-    const actions = page.locator('#actions .btn').first();
-    await actions.scrollIntoViewIfNeeded();
-    await expect(actions).toBeVisible();
-    expect(await page.locator('#actions .btn').count()).toBeGreaterThan(0);
+    // Esperar botones estables (evitar scrollIntoView sobre nodos que se re-renderizan)
+    await skipActionPlaybackIfNeeded(page);
+    const actions = playActionButtons(page);
+    await expect(actions.first()).toBeVisible({ timeout: 20000 });
+    expect(await actions.count()).toBeGreaterThan(0);
     await expect(page.locator('#play-active')).toBeVisible();
   });
 });
-

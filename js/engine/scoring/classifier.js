@@ -117,21 +117,29 @@
     const delta = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
     let cls = freqCls;
     let best = freqBest;
-    // Solo promover chosen a "best" de UI si es competitiva en la mezcla GTO.
+    // Solo promover chosen a "best"/óptima si es competitiva en la mezcla GTO.
     // Sin maxFreq conocido, no promover residuales (~5–12%) por empate EV.
+    // Call ~16% vs fold ~70% con ΔEV≈0 (heurística FE) no debe ser óptima.
     const chosenTrusted = isNuts || chosen === freqBest || (maxFreq > 0
       ? evBestTrustedInMix(chosen, freqBest, maxFreq, freq, false)
       : freq >= 0.40);
     if (delta <= EV_OPTIMA_BB) {
-      if (freq >= 0.15 || freqCls === 'optima' || freqCls === 'aceptable') {
-        cls = 'optima';
-        if (chosenTrusted) best = chosen;
-      } else if (freq >= 0.05) {
-        cls = 'aceptable';
-        if (chosenTrusted) best = chosen;
-      } else if (isNuts) {
+      if (isNuts && freq < 0.05) {
         cls = 'optima';
         best = chosen;
+      } else if (chosenTrusted) {
+        if (freq >= 0.15 || freqCls === 'optima' || freqCls === 'aceptable') {
+          cls = 'optima';
+          best = chosen;
+        } else if (freq >= 0.05) {
+          cls = 'aceptable';
+          best = chosen;
+        }
+      } else if (freq >= 0.15) {
+        // Empate EV sin peso de mezcla: conservar tipificación por frecuencia.
+        cls = freqCls === 'optima' ? 'aceptable' : freqCls;
+      } else if (freq >= 0.05) {
+        cls = 'aceptable';
       }
     } else if (delta <= EV_TIE_BB) {
       if (cls === 'error' || cls === 'imprecisa') {
