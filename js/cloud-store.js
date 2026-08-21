@@ -108,10 +108,24 @@
 
   function hasSchoolProgress(st) {
     const school = st && st.school;
-    if (!school || typeof school !== 'object') return false;
-    if ((Number(school.xp) || 0) > 0) return true;
-    const lessons = school.lessons;
-    return !!(lessons && typeof lessons === 'object' && Object.keys(lessons).length > 0);
+    if (school && typeof school === 'object') {
+      if ((Number(school.xp) || 0) > 0) return true;
+      const lessons = school.lessons;
+      if (lessons && typeof lessons === 'object' && Object.keys(lessons).length > 0) return true;
+    }
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      const uid = (global.Store && global.Store.getUserId && global.Store.getUserId()) || '';
+      const keyed = 'pt_school_backup_v1' + (uid ? '_' + uid : '');
+      let raw = localStorage.getItem(keyed) || localStorage.getItem('pt_school_backup_v1');
+      if (!raw) return false;
+      const bak = JSON.parse(raw);
+      if (!bak || typeof bak !== 'object') return false;
+      if ((Number(bak.xp) || 0) > 0) return true;
+      return !!(bak.lessons && typeof bak.lessons === 'object' && Object.keys(bak.lessons).length > 0);
+    } catch (e) {
+      return false;
+    }
   }
 
   function hasOnboardingProgress(val) {

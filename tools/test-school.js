@@ -977,11 +977,29 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   delete sandbox.Store._st.school.lessons['R-08'];
   assert.ok(School.isLessonPassed('R-08'), 'overlay mantiene passed sin fila en stats');
   assert.ok(School.canPlayLesson('R-09').ok, 'canPlay R-09 con overlay');
+  assert.ok(School._passedOverlay['R-08'] && School._passedOverlay['R-08'].pct === 75,
+    'overlay guarda pct 75');
+  /* Tras ensure, backup+overlay guardan 75%; el hub debe mostrar porcentaje. */
+  var progRoot = {
+    innerHTML: '',
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; }
+  };
+  School._state.view = 'hub';
+  School._state.route = 'ranges';
+  School.render(progRoot);
+  assert.ok(progRoot.innerHTML.indexOf('undefined%') < 0, 'hub sin undefined% tras wipe stats');
+  assert.ok(progRoot.innerHTML.indexOf('75%') >= 0, 'hub muestra 75% desde overlay/backup');
 
   /* Start bloqueado si no hay overlay ni stats (gate explícito). */
   if (School._clearPassedOverlay) School._clearPassedOverlay();
   delete sandbox.Store._st.school.lessons['R-08'];
-  try { sandbox.localStorage.removeItem('pt_school_backup_v1'); } catch (e1) { /* ignore */ }
+  try {
+    sandbox.localStorage.removeItem('pt_school_backup_v1');
+    Object.keys(sandbox.localStorage._d || {}).forEach(function (k) {
+      if (/^pt_school_backup_v1/.test(k)) sandbox.localStorage.removeItem(k);
+    });
+  } catch (e1) { /* ignore */ }
   var started = School.startLessonSession('R-09');
   assert.ok(started && !started.ok && started.reason === 'locked',
     'startLessonSession R-09 locked retorna gate');
@@ -1282,6 +1300,42 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
     fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
   ), 'roadmap §5.2bis resumen spots');
   assert.ok(/postflop|Textura/.test(School.schoolCoachTip(Data.getLesson('C-14'), false, [])), 'coach tip M2');
+})();
+
+/* Quiz rangos: datos sesgados a 3ª opción; runtime debe barajar. */
+(function assertQuizOptionShuffle() {
+  assert.ok(typeof School.shuffleQuizOptions === 'function', 'shuffleQuizOptions export');
+  assert.ok(/shuffleQuizOptions\(quiz\.options/.test(schoolSrc), 'showVillainQuiz baraja opciones');
+  var fixed = [
+    { id: 'a' }, { id: 'b' }, { id: 'c', correct: true }
+  ];
+  var out = School.shuffleQuizOptions(fixed);
+  assert.strictEqual(out.length, 3, 'shuffle conserva 3');
+  assert.strictEqual(out.filter(function (o) { return o.correct; }).length, 1, 'una sola correcta');
+  assert.deepStrictEqual(
+    out.map(function (o) { return o.id; }).sort(),
+    ['a', 'b', 'c'],
+    'shuffle es permutación de ids'
+  );
+  assert.strictEqual(fixed[2].correct, true, 'no muta el array authored');
+
+  var pos = [0, 0, 0];
+  var totalQ = 0;
+  ['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-12', 'R-13', 'R-14', 'R-15', 'R-16',
+    'R-17', 'R-18', 'R-19', 'R-20', 'R-21', 'R-22', 'R-23', 'R-24', 'R-25', 'R-26', 'R-27'
+  ].forEach(function (id) {
+    var lesson = Data.getLesson(id);
+    (lesson.spots || []).forEach(function (sp) {
+      var opts = sp.villainQuiz && sp.villainQuiz.options;
+      if (!opts || !opts.length) return;
+      totalQ += 1;
+      for (var k = 0; k < opts.length; k++) {
+        if (opts[k].correct) { pos[Math.min(k, 2)] += 1; break; }
+      }
+    });
+  });
+  assert.ok(totalQ >= 200, '≥200 quizzes rangos');
+  assert.ok(pos[2] > pos[0] + pos[1], 'datos authored sesgados a 3ª (shuffle los corrige)');
 })();
 
 /* Hub: passed sin bestPct no pinta «undefined%»; deriva de bestScore. */

@@ -20885,7 +20885,17 @@ window.PT_NASH_PUSH_JSON = {
 
   function setUserId(uid) {
     userId = uid || null;
-    if (userId) migrateLegacyOnce(userId);
+    if (userId) {
+      migrateLegacyOnce(userId);
+      try {
+        const keyed = 'pt_school_backup_v1_' + userId;
+        if (!localStorage.getItem(keyed)) {
+          const legacy = localStorage.getItem('pt_school_backup_v1');
+          if (legacy) localStorage.setItem(keyed, legacy);
+        }
+      } catch (eBak) { /* ignore */ }
+      try { hydrateSchoolFromBackupIntoStats(); } catch (eHyd) { /* ignore */ }
+    }
   }
 
   function getUserId() {
@@ -20942,12 +20952,47 @@ window.PT_NASH_PUSH_JSON = {
     });
   }
 
+  function readSchoolBackupRaw() {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      const keyed = 'pt_school_backup_v1' + (userId ? '_' + userId : '');
+      let raw = localStorage.getItem(keyed);
+      if (!raw) raw = localStorage.getItem('pt_school_backup_v1');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   function hasSchoolProgress(st) {
     const school = st && st.school;
-    if (!school || typeof school !== 'object') return false;
-    if ((Number(school.xp) || 0) > 0) return true;
-    const lessons = school.lessons;
-    return !!(lessons && typeof lessons === 'object' && Object.keys(lessons).length > 0);
+    if (school && typeof school === 'object') {
+      if ((Number(school.xp) || 0) > 0) return true;
+      const lessons = school.lessons;
+      if (lessons && typeof lessons === 'object' && Object.keys(lessons).length > 0) return true;
+    }
+    /* Backup de Escuela cuenta como progreso local (login/sync no debe tratarlo vacío). */
+    if (st && st.__skipSchoolBackup) return false;
+    const bak = readSchoolBackupRaw();
+    if (!bak || typeof bak !== 'object') return false;
+    if ((Number(bak.xp) || 0) > 0) return true;
+    return !!(bak.lessons && typeof bak.lessons === 'object' && Object.keys(bak.lessons).length > 0);
+  }
+
+  function hydrateSchoolFromBackupIntoStats() {
+    const bak = readSchoolBackupRaw();
+    if (!bak) return false;
+    const st = getStats();
+    const merged = mergeSchoolProgress(st && st.school, bak);
+    if (!merged) return false;
+    const before = st && st.school ? JSON.stringify(st.school) : '';
+    const after = JSON.stringify(merged);
+    if (before === after) return false;
+    st.school = merged;
+    writeStats(st);
+    return true;
   }
 
   function isStatsEmpty(st) {
@@ -21071,18 +21116,31 @@ window.PT_NASH_PUSH_JSON = {
           : (lb.lastPct != null ? Number(lb.lastPct) : null);
         const fallback = (fa != null && isFinite(fa)) ? fa : ((fb != null && isFinite(fb)) ? fb : null);
         if (fallback != null) bestPct = fallback;
+        else bestPct = undefined;
       }
-      lessons[id] = {
+      function pickScored(field) {
+        const aHas = la[field] != null && isFinite(Number(la[field]));
+        const bHas = lb[field] != null && isFinite(Number(lb[field]));
+        if (aHas && bHas) {
+          return (la.updatedAt || '') >= (lb.updatedAt || '') ? la[field] : lb[field];
+        }
+        if (aHas) return la[field];
+        if (bHas) return lb[field];
+        return undefined;
+      }
+      const row = {
         bestScore: bestScore > 0 ? bestScore : (bestPct > 0 ? bestPct / 100 : bestScore),
-        bestPct: bestPct,
         attempts: Math.max(Number(la.attempts) || 0, Number(lb.attempts) || 0),
         passed: !!(la.passed || lb.passed),
         gold: !!(la.gold || lb.gold),
         perfect: !!(la.perfect || lb.perfect),
-        lastScore: (la.updatedAt || '') >= (lb.updatedAt || '') ? la.lastScore : lb.lastScore,
-        lastPct: (la.updatedAt || '') >= (lb.updatedAt || '') ? la.lastPct : lb.lastPct,
+        lastScore: pickScored('lastScore'),
+        lastPct: pickScored('lastPct'),
         updatedAt: (la.updatedAt || '') >= (lb.updatedAt || '') ? la.updatedAt : lb.updatedAt
       };
+      if (bestPct != null && isFinite(bestPct)) row.bestPct = bestPct;
+      if (!(Number(row.bestScore) > 0) && row.bestPct == null) delete row.bestScore;
+      lessons[id] = row;
     });
     return {
       xp: Math.max(Number(a.xp) || 0, Number(b.xp) || 0),
@@ -22096,7 +22154,26 @@ window.PT_NASH_PUSH_JSON = {
     const localCa = getClearedAt();
     writeClearedAt(mergeClearedAtMeta(localCa, cloudCa));
     if (snapshot.stats) {
-      writeStats(JSON.parse(JSON.stringify(snapshot.stats)));
+      const localSchool = (getStats() && getStats().school) || null;
+      const bak = readSchoolBackupRaw();
+      let stats = JSON.parse(JSON.stringify(snapshot.stats));
+      const keep = mergeSchoolProgress(localSchool, bak);
+      if (keep) {
+        stats.school = mergeSchoolProgress(keep, stats.school) || keep;
+      }
+      writeStats(stats);
+      try {
+        if (stats.school) {
+          const payload = JSON.stringify({
+            xp: Number(stats.school.xp) || 0,
+            lessons: stats.school.lessons || {},
+            updatedAt: Date.now(),
+            version: Number(stats.school.version) || 2
+          });
+          localStorage.setItem('pt_school_backup_v1' + (userId ? '_' + userId : ''), payload);
+          localStorage.setItem('pt_school_backup_v1', payload);
+        }
+      } catch (eBak) { /* ignore */ }
     }
     if (snapshot.history) {
       write(scopedKey('history'), filterByClearedAt(snapshot.history, effectiveCloudClear('history', cloudCa)));

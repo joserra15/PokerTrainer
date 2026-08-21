@@ -42,7 +42,10 @@
 
   /* ---------- Progreso (stats.school → cloud via stats) ---------- */
 
-  /** Aprobados en esta sesión de página (sobrevive si localStorage/sync pierden el write). */
+  /**
+   * Aprobados en esta sesión de página (sobrevive si localStorage/sync pierden el write).
+   * Valor: true | { passed, score, pct, gold, perfect }.
+   */
   var passedOverlay = Object.create(null);
 
   function defaultSchool() {
@@ -76,10 +79,27 @@
     return 'pt_school_backup_v1' + (uid ? '_' + uid : '');
   }
 
+  /** Copia backup legacy sin uid → clave con uid (login no debe perder Escuela). */
+  function migrateSchoolBackupToUser() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      var key = schoolBackupKey();
+      if (key === 'pt_school_backup_v1') return;
+      if (localStorage.getItem(key)) return;
+      var legacy = localStorage.getItem('pt_school_backup_v1');
+      if (!legacy) return;
+      localStorage.setItem(key, legacy);
+    } catch (e) { /* ignore */ }
+  }
+
   function readSchoolBackup() {
     try {
       if (typeof localStorage === 'undefined') return null;
+      migrateSchoolBackupToUser();
       var raw = localStorage.getItem(schoolBackupKey());
+      if (!raw) {
+        raw = localStorage.getItem('pt_school_backup_v1');
+      }
       if (!raw) return null;
       var parsed = JSON.parse(raw);
       return parsed && typeof parsed === 'object' ? parsed : null;
@@ -91,12 +111,19 @@
   function writeSchoolBackup(school) {
     try {
       if (typeof localStorage === 'undefined') return false;
-      localStorage.setItem(schoolBackupKey(), JSON.stringify({
+      var payload = JSON.stringify({
         xp: Number(school.xp) || 0,
         lessons: cloneLessonsMap(school.lessons),
         updatedAt: Date.now(),
         version: Number(school.version) || 2
-      }));
+      });
+      localStorage.setItem(schoolBackupKey(), payload);
+      /* También en clave legacy: si el uid aún no está listo, no se pierde. */
+      try {
+        if (schoolBackupKey() !== 'pt_school_backup_v1') {
+          localStorage.setItem('pt_school_backup_v1', payload);
+        }
+      } catch (e2) { /* ignore */ }
       return true;
     } catch (e) {
       return false;
@@ -115,6 +142,10 @@
     if (row.lastScore != null && isFinite(Number(row.lastScore))) {
       return Math.round(Number(row.lastScore) * 1000) / 10;
     }
+    if (row.score != null && isFinite(Number(row.score))) {
+      return Math.round(Number(row.score) * 1000) / 10;
+    }
+    if (row.pct != null && isFinite(Number(row.pct))) return Number(row.pct);
     return null;
   }
 
@@ -139,6 +170,7 @@
       }
     } else {
       delete out.bestPct;
+      if (!(Number(out.bestScore) > 0)) delete out.bestScore;
     }
     return out;
   }
@@ -153,6 +185,17 @@
     return out;
   }
 
+  function pickScoredField(a, b, field) {
+    var aHas = a[field] != null && isFinite(Number(a[field]));
+    var bHas = b[field] != null && isFinite(Number(b[field]));
+    if (aHas && bHas) {
+      return (a.updatedAt || '') >= (b.updatedAt || '') ? a[field] : b[field];
+    }
+    if (aHas) return a[field];
+    if (bHas) return b[field];
+    return undefined;
+  }
+
   function mergeLessonProgressRows(a, b) {
     if (!a) return b ? normalizeLessonRow(b) : null;
     if (!b) return normalizeLessonRow(a);
@@ -164,8 +207,8 @@
       passed: !!(a.passed || b.passed),
       gold: !!(a.gold || b.gold),
       perfect: !!(a.perfect || b.perfect),
-      lastScore: (a.updatedAt || '') >= (b.updatedAt || '') ? a.lastScore : b.lastScore,
-      lastPct: (a.updatedAt || '') >= (b.updatedAt || '') ? a.lastPct : b.lastPct,
+      lastScore: pickScoredField(a, b, 'lastScore'),
+      lastPct: pickScoredField(a, b, 'lastPct'),
       updatedAt: (a.updatedAt || '') >= (b.updatedAt || '') ? a.updatedAt : b.updatedAt
     };
     /* Si no hay score real pero sí un % en alguno de los lados, no dejar 0%. */
@@ -174,6 +217,9 @@
       if (fallback != null) {
         merged.bestPct = fallback;
         merged.bestScore = fallback / 100;
+      } else {
+        delete merged.bestScore;
+        delete merged.bestPct;
       }
     }
     return normalizeLessonRow(merged);
@@ -210,7 +256,60 @@
     };
   }
 
-  function readSchool() {
+  function rememberPassed(lessonId, summary) {
+    if (!lessonId) return;
+    var prev = passedOverlay[lessonId];
+    var next = (prev && typeof prev === 'object') ? Object.assign({}, prev) : { passed: true };
+    next.passed = true;
+    if (summary && typeof summary === 'object') {
+      if (summary.score != null && isFinite(Number(summary.score))) next.score = Number(summary.score);
+      if (summary.pct != null && isFinite(Number(summary.pct))) next.pct = Number(summary.pct);
+      if (summary.bestPct != null && isFinite(Number(summary.bestPct))) {
+        next.pct = Math.max(Number(next.pct) || 0, Number(summary.bestPct));
+      }
+      if (summary.bestScore != null && isFinite(Number(summary.bestScore))) {
+        next.score = Math.max(Number(next.score) || 0, Number(summary.bestScore));
+      }
+      if (summary.gold) next.gold = true;
+      if (summary.perfect) next.perfect = true;
+    }
+    passedOverlay[lessonId] = next;
+  }
+
+  function applyOverlayToLessons(lessons) {
+    var out = lessons && typeof lessons === 'object' ? lessons : {};
+    Object.keys(passedOverlay).forEach(function (id) {
+      var ov = passedOverlay[id];
+      if (!ov) return;
+      var prev = out[id] || {};
+      var patch = { passed: true };
+      if (typeof ov === 'object') {
+        if (ov.gold) patch.gold = true;
+        if (ov.perfect) patch.perfect = true;
+        if (ov.score != null && isFinite(Number(ov.score))) {
+          patch.bestScore = prev.bestScore != null
+            ? Math.max(Number(prev.bestScore) || 0, Number(ov.score))
+            : Number(ov.score);
+        }
+        if (ov.pct != null && isFinite(Number(ov.pct))) {
+          patch.bestPct = prev.bestPct != null
+            ? Math.max(Number(prev.bestPct) || 0, Number(ov.pct))
+            : Number(ov.pct);
+          patch.lastPct = ov.pct;
+        }
+        if (ov.score != null) patch.lastScore = ov.score;
+      }
+      /* No inventar fila solo-passed sin scores si ya no hay progreso durable. */
+      if (!out[id] && resolveBestPct(patch) == null && resolveBestPct(prev) == null) {
+        return;
+      }
+      out[id] = normalizeLessonRow(Object.assign({}, prev, patch));
+    });
+    return out;
+  }
+
+  /** Stats + backup sin overlay (fuente durable para no pisar scores). */
+  function readDurableSchool() {
     var st = Store() && Store().getStats ? Store().getStats() : null;
     var school = (st && st.school) ? st.school : null;
     var fromStats = null;
@@ -223,16 +322,21 @@
       });
       if (fromStats._migrated) {
         delete fromStats._migrated;
-        writeSchool(fromStats);
+        /* Evitar recursión: persistir migración vía writeSchool más abajo solo desde readSchool. */
+        fromStats._needsPersistMigration = true;
       }
     }
     var fromBackup = readSchoolBackup();
-    var merged = mergeSchoolObjects(fromStats, fromBackup);
-    Object.keys(passedOverlay).forEach(function (id) {
-      if (!passedOverlay[id]) return;
-      var prev = merged.lessons[id] || {};
-      merged.lessons[id] = normalizeLessonRow(Object.assign({}, prev, { passed: true }));
-    });
+    return mergeSchoolObjects(fromStats, fromBackup);
+  }
+
+  function readSchool() {
+    var merged = readDurableSchool();
+    if (merged && merged._needsPersistMigration) {
+      delete merged._needsPersistMigration;
+      writeSchool(merged);
+    }
+    merged.lessons = applyOverlayToLessons(merged.lessons || {});
     return {
       xp: Number(merged.xp) || 0,
       lessons: cloneLessonsMap(merged.lessons || {}),
@@ -243,17 +347,30 @@
 
   function writeSchool(school) {
     var S = Store();
+    /* Nunca escribir un snapshot más pobre que lo durable (stats+backup). */
+    var durable = readDurableSchool();
+    if (durable && durable._needsPersistMigration) delete durable._needsPersistMigration;
+    var mergedIn = mergeSchoolObjects(durable, school);
+    var payload = {
+      xp: Number(mergedIn.xp) || 0,
+      lessons: cloneLessonsMap(mergedIn.lessons),
+      updatedAt: Date.now(),
+      version: Number(mergedIn.version) || 2
+    };
     if (!S || !S.getStats || !S.persistStats) {
-      writeSchoolBackup(school);
+      writeSchoolBackup(payload);
       return false;
     }
-    var payload = {
-      xp: Number(school.xp) || 0,
-      lessons: cloneLessonsMap(school.lessons),
-      updatedAt: Date.now(),
-      version: Number(school.version) || 2
-    };
     var st = S.getStats();
+    /* Merge también con st.school crudo por si readDurable falló en tests. */
+    if (st && st.school) {
+      payload = {
+        xp: Math.max(Number(payload.xp) || 0, Number(st.school.xp) || 0),
+        lessons: cloneLessonsMap(mergeSchoolObjects(st.school, payload).lessons),
+        updatedAt: Date.now(),
+        version: Math.max(Number(payload.version) || 2, Number(st.school.version) || 2)
+      };
+    }
     st.school = payload;
     S.persistStats(st);
     writeSchoolBackup(payload);
@@ -280,7 +397,7 @@
   /** Marca aprobada en memoria + stats (+ backup). */
   function ensureLessonMarkedPassed(lessonId, summary) {
     if (!lessonId) return false;
-    if (summary && summary.passed) passedOverlay[lessonId] = true;
+    if (summary && summary.passed) rememberPassed(lessonId, summary);
     if (!summary || !summary.passed) return isLessonPassed(lessonId);
     var school = readSchool();
     var prev = school.lessons[lessonId] || {};
@@ -945,6 +1062,18 @@
     if (hand.result) hand.result.showdown = true;
   }
 
+  /** Mezcla opciones del quiz para que la correcta no quede siempre en 3ª. */
+  function shuffleQuizOptions(options) {
+    var arr = (options || []).slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
   function showVillainQuiz(hand, decision, spot) {
     var s = state.session;
     var fb = document.getElementById('feedback');
@@ -952,7 +1081,8 @@
     if (!fb || !s || !spot || !spot.villainQuiz) return;
     var quiz = spot.villainQuiz;
     var prompt = quiz.prompt || '¿Qué crees que tiene el villano?';
-    var optsHtml = (quiz.options || []).map(function (opt, idx) {
+    var options = shuffleQuizOptions(quiz.options || []);
+    var optsHtml = options.map(function (opt, idx) {
       var id = opt.id || ('opt-' + idx);
       return '<button type="button" class="school-quiz-option" data-quiz-opt="' + esc(id) + '"' +
         ' aria-label="' + esc(opt.label || formatCards(opt.cards)) + '">' +
@@ -1619,7 +1749,7 @@
         /* Si acabamos de aprobar, no bloquear por «locked»: el overlay + backup
          * ya marcan la lección actual; el muro de plan sí se respeta. */
         if (!gate.ok && gate.reason === 'locked' && sum.passed) {
-          passedOverlay[lesson.id] = true;
+          rememberPassed(lesson.id, sum);
           gate = canPlayLesson(next.id);
         }
         if (!gate.ok && gate.reason === 'locked' && sum.passed) {
@@ -1756,6 +1886,8 @@
     trackSchool: trackSchool,
     ensureLessonMarkedPassed: ensureLessonMarkedPassed,
     resolveBestPct: resolveBestPct,
+    shuffleQuizOptions: shuffleQuizOptions,
+    rememberPassed: rememberPassed,
     _clearPassedOverlay: function () {
       Object.keys(passedOverlay).forEach(function (k) { delete passedOverlay[k]; });
     },
