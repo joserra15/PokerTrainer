@@ -16228,20 +16228,41 @@ window.PT_VS_3BET_JSON = {
 
   function fromTrainer(hand) {
     const r = hand.result || {};
+    const cfg = hand.playConfig || {};
+    const Tax = global.PTFormatTaxonomy;
+    const formatHub = cfg.formatHub
+      || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(cfg.gameType) : null)
+      || (cfg.gameType === 'spin3' ? 'spin' : (cfg.gameType === 'mtt' ? 'mtt' : 'cash'));
+    const phase = cfg.resolvedPhase || (cfg.mttPhase && cfg.mttPhase !== 'auto' ? cfg.mttPhase : null);
+    const stackBB = cfg.stackBB != null ? cfg.stackBB : (hand.effStack || 100);
     const decisions = (hand.decisions || []).map(slimDecision);
     const villain = {
-      pos: hand.villain.pos,
+      pos: hand.villain && hand.villain.pos,
       prof: r.villainProfileShort || r.villainProfile || null,
       line: compactRangeLog(r.villainRangeLog),
       rng: r.villainRangeSummary || null
     };
     if (r.villainCards) villain.show = r.villainCards;
-    return {
+    const payload = {
       src: 'trainer',
       spot: scenarioLabel(hand.scenario),
-      hero: { pos: hand.hero.pos, code: hand.hero.code, cards: hand.hero.cards },
+      hero: {
+        pos: hand.displayHeroPos || (hand.hero && hand.hero.pos),
+        code: hand.hero && hand.hero.code,
+        cards: hand.hero && hand.hero.cards
+      },
       board: r.board || hand.board || [],
-      stack: hand.effStack || 100,
+      stack: stackBB,
+      format: formatHub,
+      formatHub: formatHub,
+      gameType: cfg.gameType || null,
+      phase: phase,
+      mttPhase: phase,
+      anteBB: cfg.anteBB != null ? cfg.anteBB : null,
+      spinPayout: formatHub === 'spin' ? (cfg.spinPayout || null) : null,
+      icm: !!(cfg.useIcm || formatHub === 'spin' || formatHub === 'mtt'),
+      villainLevel: cfg.villainLevel || null,
+      openSize: cfg.preflopOpenSize || null,
       dec: decisions,
       vil: villain,
       res: {
@@ -16253,6 +16274,14 @@ window.PT_VS_3BET_JSON = {
       gto: buildGtoSummary(decisions),
       solverNote: 'eq/gto/ev son estimaciones heurísticas de la app; la IA debe verificar cartas, acciones y cálculos de poker por su cuenta.'
     };
+    if (formatHub === 'spin') {
+      payload.coachingNote = 'Mano de Spin & Go del entrenador: usa bandas stack-aware e ICM lite; no aconsejes como cash 100bb.';
+    } else if (formatHub === 'mtt') {
+      payload.coachingNote = 'Mano de torneo MTT del entrenador'
+        + (phase ? (' (fase ' + phase + ')') : '')
+        + ': prioriza stack depth / fase / ICM; no trates como cash 6-max 100bb.';
+    }
+    return payload;
   }
 
   function fromSession(h) {
@@ -30740,6 +30769,7 @@ window.PT_VS_3BET_JSON = {
     }
 
     html += '<button type="button" class="btn btn-ghost btn-share" id="share-hand-trainer">Compartir análisis</button>';
+    html += '<div id="ai-report-trainer"></div>';
 
     fb.innerHTML = html;
     bindShareButton($('#share-hand-trainer'), () => ({
@@ -30747,6 +30777,17 @@ window.PT_VS_3BET_JSON = {
       hand: hand,
       title: shareHandTitle(hand)
     }));
+    if (window.PTAIReport) {
+      window.PTAIReport.mount($('#ai-report-trainer'), {
+        scope: 'hand',
+        getHand: () => hand,
+        persist: {
+          kind: 'history',
+          getHandId: () => hand && hand.id
+        },
+        onThreadUpdate: (thread) => { if (hand) hand.coachThread = thread; }
+      });
+    }
     renderTable();
     $('#hero-handname').textContent = r.heroHandName ? tt('play.yourHand') + ': ' + r.heroHandName : handNameOnBoard();
 

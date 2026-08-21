@@ -23,7 +23,7 @@ const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const shareCss = fs.readFileSync(path.join(root, 'css/share.css'), 'utf8');
 
-assert(/PT_BUILD\s*=\s*'2.7.8'/.test(version), 'versión 2.7.8');
+assert(/PT_BUILD\s*=\s*'2.7.9'/.test(version), 'versión 2.7.9');
 assert(
   !/matrixSource\s*&&\s*window\.PTRangeMatrix/.test(app),
   'renderHandDecisionsSummary no exige PTRangeMatrix para mostrar botones'
@@ -88,13 +88,19 @@ assert(
 );
 
 assert(
-  !/id="ai-report-trainer"/.test(app),
-  'detalles de mano del entrenador (sin sesión) no montan ForgeCoach'
+  /id="ai-report-trainer"/.test(app),
+  'detalles de mano del entrenador montan ForgeCoach (#ai-report-trainer)'
+);
+assert(
+  /PTAIReport\.mount\(\$\('#ai-report-trainer'\)/.test(app) ||
+    /PTAIReport\.mount\(\$\("#ai-report-trainer"\)/.test(app) ||
+    /mount\(\$\('#ai-report-trainer'\)/.test(app),
+  'ForgeCoach se monta en el detalle de mano del entrenador'
 );
 assert(
   /isAnalysisHand[\s\S]{0,80}ai-report-session/.test(app) &&
     /!isAnalysisHand && window\.PTAIReport/.test(app),
-  'ForgeCoach en revisión de mano solo si hay sesión importada'
+  'ForgeCoach en revisión de sesión importada (no analysis-only)'
 );
 
 if (failed) {
