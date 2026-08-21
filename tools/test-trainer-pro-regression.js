@@ -39,6 +39,8 @@ check(/Auto \(por stack\)/.test(html), 'chip fase Auto (por stack)');
 check(/>Aleatorio</.test(html) && /Escenario/.test(html), 'escenario etiquetado Aleatorio');
 check(/id="setup-play-preset"/.test(html) && /Spin grind/.test(html) && /Reg MTT low/.test(html),
   'presets Mi juego en setup');
+check(/id="setup-user-presets"/.test(html) && /id="setup-preset-save"/.test(html),
+  'UI guardar/borrar presets de usuario');
 check(/id="setup-open-size"/.test(html) && /data-val="2\.2"/.test(html) && /data-val="2\.5"/.test(html) && /data-val="3"/.test(html),
   'chips sizing open 2.2/2.5/3');
 check(/etiqueta <strong>ICM<\/strong>/.test(html) || /ICM<\/strong> en el tapete/.test(html) || /premio importa más que las fichas/.test(html),
@@ -67,7 +69,7 @@ check(/icmChangedEv/.test(app) && /chipEvLoss/.test(read('js/engine.js'))
 check(/PLAY_PRESETS/.test(app) && /spin_grind/.test(app) && /mtt_low/.test(app),
   'PLAY_PRESETS cash/spin/mtt');
 check(/preflopOpenSize/.test(app), 'preflopOpenSize cableado en readPlayConfig/apply');
-check(/PT_BUILD\s*=\s*'2.7.16'/.test(version), 'PT_BUILD 2.7.16');
+check(/PT_BUILD\s*=\s*'2.7.17'/.test(version), 'PT_BUILD 2.7.17');
 
 const decisionDoc = read('docs/DECISION_ENTRENADOR_MTT_SPIN.md');
 check(/Profundizar/.test(decisionDoc) && /ICM lite/.test(decisionDoc),
