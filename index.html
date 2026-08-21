@@ -647,12 +647,12 @@
             <button type="button" class="setup-chip" data-val="mtt_low">Reg MTT low</button>
           </div>
           <div class="setup-user-presets" id="setup-user-presets" aria-live="polite"></div>
-          <div class="setup-preset-save-row">
+          <div class="setup-preset-save-row" id="setup-preset-save-row">
             <label class="sr-only" for="setup-preset-name">Nombre del preset</label>
-            <input type="text" id="setup-preset-name" class="setup-preset-name-input" maxlength="40" placeholder="Nombre del preset" autocomplete="off" />
+            <input type="text" id="setup-preset-name" class="setup-preset-name-input" maxlength="40" placeholder="Nombre del preset" autocomplete="off" enterkeyhint="done" />
             <button type="button" class="btn btn-ghost btn-sm" id="setup-preset-save">Guardar</button>
           </div>
-          <p class="muted-text setup-hint">Atajos de fábrica o los tuyos. Guardar memoriza la config actual (formato, stack, escenario, rivales…). Pulsa × para borrar un preset guardado.</p>
+          <p class="muted-text setup-hint">Escribe un nombre y pulsa Guardar (memoriza formato, stack, escenario, rivales…). Los atajos de fábrica siguen arriba; × borra un preset tuyo.</p>
         </div>
 
         <div class="setup-group" id="setup-group-phase" hidden>

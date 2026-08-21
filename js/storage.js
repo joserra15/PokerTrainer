@@ -1774,7 +1774,9 @@
     if (idx >= 0) list[idx] = entry;
     else list.unshift(entry);
     if (list.length > MAX_PLAY_PRESETS) list = list.slice(0, MAX_PLAY_PRESETS);
-    write(scopedKey('playPresets'), list);
+    if (!write(scopedKey('playPresets'), list)) {
+      return { ok: false, reason: 'quota', presets: getPlayPresets() };
+    }
     return { ok: true, preset: entry, presets: list };
   }
 

@@ -14,14 +14,17 @@ const css = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const help = fs.readFileSync(path.join(root, 'js/help.js'), 'utf8');
 const ci = fs.readFileSync(path.join(root, 'tools/run-ci-tests.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.7.18'/.test(version), 'versión 2.7.18');
+assert.ok(/PT_BUILD\s*=\s*'2.7.19'/.test(version), 'versión 2.7.19');
 assert.ok(/id="setup-user-presets"/.test(html), 'host Mis presets');
 assert.ok(/id="setup-preset-save"/.test(html) && /id="setup-preset-name"/.test(html), 'UI guardar preset');
 assert.ok(/function saveCurrentPlayPreset/.test(app) && /function renderUserPlayPresets/.test(app), 'app save/render');
+assert.ok(/function setPlayPresetStatus/.test(app), 'status visible al guardar');
+assert.ok(!/window\.prompt\(\s*['"]Nombre del preset/.test(app), 'sin prompt (roto en móvil)');
 assert.ok(/Store\.savePlayPreset/.test(app) && /Store\.removePlayPreset/.test(app), 'app usa Store presets');
 assert.ok(/getPlayPresets/.test(storageSrc) && /savePlayPreset/.test(storageSrc) && /removePlayPreset/.test(storageSrc),
   'Store API play presets');
-assert.ok(/setup-preset-save-row/.test(css), 'CSS fila guardar');
+assert.ok(/reason:\s*'quota'/.test(storageSrc) || /reason: 'quota'/.test(storageSrc), 'save reporta fallo de write');
+assert.ok(/setup-preset-save-row/.test(css) && /setup-preset-status/.test(css), 'CSS fila + status');
 assert.ok(/Presets/.test(help), 'help menciona presets');
 assert.ok(/test-trainer-presets\.js/.test(ci), 'registrado en test:ci');
 

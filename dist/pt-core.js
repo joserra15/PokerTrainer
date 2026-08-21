@@ -22410,7 +22410,9 @@ window.PT_NASH_PUSH_JSON = {
     if (idx >= 0) list[idx] = entry;
     else list.unshift(entry);
     if (list.length > MAX_PLAY_PRESETS) list = list.slice(0, MAX_PLAY_PRESETS);
-    write(scopedKey('playPresets'), list);
+    if (!write(scopedKey('playPresets'), list)) {
+      return { ok: false, reason: 'quota', presets: getPlayPresets() };
+    }
     return { ok: true, preset: entry, presets: list };
   }
 
@@ -30423,24 +30425,54 @@ window.PT_NASH_PUSH_JSON = {
     });
   }
 
+  function setPlayPresetStatus(msg, kind) {
+    const row = $('#setup-preset-save-row') || $('.setup-preset-save-row');
+    if (!row) return;
+    let el = row.querySelector('.setup-preset-status');
+    if (!el) {
+      el = document.createElement('p');
+      el.className = 'setup-preset-status';
+      el.setAttribute('role', 'status');
+      row.appendChild(el);
+    }
+    el.textContent = msg || '';
+    el.dataset.kind = kind || '';
+    el.hidden = !msg;
+  }
+
   function saveCurrentPlayPreset() {
     if (!window.Store || !Store.savePlayPreset) return;
     const input = $('#setup-preset-name');
-    const raw = input ? String(input.value || '').trim() : '';
-    const name = raw || window.prompt('Nombre del preset', '');
-    if (name == null) return;
-    const label = String(name).trim();
+    // No window.prompt: en móvil (Safari/Chrome) suele estar bloqueado y
+    // devolver null → el botón «Guardar» parecía no hacer nada.
+    const label = input ? String(input.value || '').trim() : '';
     if (!label) {
-      if (input) input.focus();
+      setPlayPresetStatus('Escribe un nombre para el preset.', 'error');
+      if (input) {
+        input.classList.add('is-invalid');
+        input.focus();
+      }
       return;
     }
+    if (input) input.classList.remove('is-invalid');
     const cfg = readPlayConfig();
-    if (!cfg) return;
+    if (!cfg) {
+      setPlayPresetStatus('No se pudo leer la config de la sesión.', 'error');
+      return;
+    }
     const res = Store.savePlayPreset(label, cfg);
-    if (!res || !res.ok) return;
+    if (!res || !res.ok) {
+      const why = res && res.reason === 'quota' ? 'Almacenamiento lleno; borra datos o un preset.'
+        : res && res.reason === 'empty_name' ? 'Escribe un nombre para el preset.'
+        : 'No se pudo guardar el preset.';
+      setPlayPresetStatus(why, 'error');
+      if (input && res && res.reason === 'empty_name') input.focus();
+      return;
+    }
     if (input) input.value = '';
     renderUserPlayPresets();
     if (res.preset && res.preset.id) markActiveUserPreset(res.preset.id);
+    setPlayPresetStatus('Preset «' + (res.preset.name || label) + '» guardado.', 'ok');
   }
 
   function applyPlaySetupConfig(partial) {
@@ -30623,6 +30655,10 @@ window.PT_NASH_PUSH_JSON = {
           e.preventDefault();
           saveCurrentPlayPreset();
         }
+      });
+      presetNameInput.addEventListener('input', () => {
+        presetNameInput.classList.remove('is-invalid');
+        setPlayPresetStatus('', '');
       });
     }
     const hubBoxForPreset = $('#setup-format-hub');
