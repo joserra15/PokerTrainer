@@ -733,7 +733,7 @@
     },
     SB_vs_BTN: {
       threeBet: '88+, ATs+, KTs+, QJs, AJo+, A5s, A4s',
-      threeBetMix: '77-55, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o',
+      threeBetMix: '77-44, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o',
       call: '33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, ATo, KTo, QTo+, JTo',
       callMix: 'A9o, T9o'
     },
@@ -1262,7 +1262,7 @@ window.PT_VS_RFI_JSON = {
     },
     "SB_vs_BTN": {
       "threeBet": "88+, ATs+, KTs+, QJs, AJo+, A5s, A4s",
-      "threeBetMix": "77-55, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o",
+      "threeBetMix": "77-44, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o",
       "call": "33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, ATo, KTo, QTo+, JTo",
       "callMix": "A9o, T9o"
     },
