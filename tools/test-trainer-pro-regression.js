@@ -32,8 +32,8 @@ const version = read('js/version.js');
 
 check(/table-watermark-sub/.test(html) && /Modo entrenamiento/.test(html),
   'watermark «Modo entrenamiento» en index.html');
-check(/id="table-format-badge"/.test(html) && /id="table-train-hud"/.test(html),
-  'badge de formato + HUD de entrenamiento en mesa');
+check(/id="table-train-chrome"/.test(html) && /id="table-format-badge"/.test(html) && /id="table-train-hud"/.test(html),
+  'chrome + badge de formato + HUD de entrenamiento en mesa');
 check(/data-format="cash"/.test(html), 'felt inicial data-format=cash');
 check(/Auto \(por stack\)/.test(html), 'chip fase Auto (por stack)');
 check(/>Aleatorio</.test(html) && /Escenario/.test(html), 'escenario etiquetado Aleatorio');
@@ -46,10 +46,10 @@ check(/etiqueta <strong>ICM<\/strong>/.test(html) || /ICM<\/strong> en el tapete
 
 check(/data-format="spin"/.test(css) && /data-format="mtt"/.test(css),
   'CSS tapetes spin/mtt');
-check(/\.table-watermark-sub/.test(css) && /\.table-format-badge/.test(css) && /\.table-train-hud/.test(css),
-  'CSS watermark/badge/train-hud');
-check(/\.table-watermark-sub/.test(shareCss) && /data-format="spin"/.test(shareCss),
-  'share.css alineado (watermark + format)');
+check(/\.table-watermark-sub/.test(css) && /\.table-format-badge/.test(css) && /\.table-train-hud/.test(css) && /\.table-train-chrome/.test(css),
+  'CSS watermark/badge/train-hud/chrome');
+check(/\.table-watermark-sub/.test(shareCss) && /data-format="spin"/.test(shareCss) && /\.table-train-chrome/.test(shareCss),
+  'share.css alineado (watermark + format + chrome)');
 
 check(/function renderTrainHud/.test(app) && /function tableChromeHTML/.test(app),
   'app.js renderTrainHud + tableChromeHTML');
@@ -67,7 +67,7 @@ check(/icmChangedEv/.test(app) && /chipEvLoss/.test(read('js/engine.js'))
 check(/PLAY_PRESETS/.test(app) && /spin_grind/.test(app) && /mtt_low/.test(app),
   'PLAY_PRESETS cash/spin/mtt');
 check(/preflopOpenSize/.test(app), 'preflopOpenSize cableado en readPlayConfig/apply');
-check(/PT_BUILD\s*=\s*'2.7.15'/.test(version), 'PT_BUILD 2.7.15');
+check(/PT_BUILD\s*=\s*'2.7.16'/.test(version), 'PT_BUILD 2.7.16');
 
 const decisionDoc = read('docs/DECISION_ENTRENADOR_MTT_SPIN.md');
 check(/Profundizar/.test(decisionDoc) && /ICM lite/.test(decisionDoc),

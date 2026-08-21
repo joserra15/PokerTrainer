@@ -2328,8 +2328,17 @@ body.age-gate-open {
   --table-accent: #a8c4ff; --card-accent: #a8c4ff;
 }
 
+.table-train-chrome {
+  position: absolute; top: 12px; left: 14px; right: 14px; z-index: 4;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  max-width: calc(100% - 28px); pointer-events: none;
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.table-train-chrome::-webkit-scrollbar { display: none; }
 .table-format-badge {
-  position: absolute; top: 14px; left: 18px; z-index: 4;
+  position: static; flex-shrink: 0;
   font-size: 11px; font-weight: 800; letter-spacing: 1.4px;
   text-transform: uppercase; color: rgba(255,255,255,.88);
   background: rgba(0,0,0,.38); border: 1px solid rgba(255,255,255,.18);
@@ -2343,9 +2352,9 @@ body.age-gate-open {
   color: #071018; background: rgba(126,200,255,.9); border-color: rgba(180,230,255,.45);
 }
 .table-train-hud {
-  position: absolute; top: 14px; right: 18px; z-index: 4;
-  display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end;
-  max-width: 58%; pointer-events: none;
+  position: static; display: flex; flex-wrap: nowrap; gap: 5px;
+  align-items: center; flex: 1 1 auto; min-width: 0;
+  justify-content: flex-start; max-width: none; pointer-events: none;
 }
 .table-train-chip {
   font-size: 11px; font-weight: 700; letter-spacing: .2px;
@@ -2981,8 +2990,10 @@ button.rm-cell-btn:focus-visible {
   border-color: var(--accent);
   color: #fff;
 }
-.ranges-filter-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.ranges-filter-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; align-items: center; }
 .ranges-filter-row .setup-chips { flex-wrap: wrap; }
+.ranges-phase-row { margin-top: -4px; }
+.ranges-phase-row .ranges-pos-label { margin-right: 4px; }
 .ranges-spot-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .ranges-spot-row.hidden { display: none; }
 .ranges-spot-btn {
@@ -3330,16 +3341,14 @@ body.paywall-open { overflow: hidden; }
   .card { width: 30px; height: 42px; font-size: 12px; border-radius: 5px; }
   .hero-cards .card { width: 40px; height: 54px; font-size: 15px; }
   .spot-context { font-size: 10px; max-width: 100%; line-height: 1.3; margin-top: 4px; }
-  .table-format-badge { top: 8px; left: 10px; font-size: 9px; padding: 2px 6px; }
-  /* HUD a la izquierda bajo el badge: no solapar acción del asiento top-right (BTN) */
-  .table-train-hud {
-    top: 30px; left: 8px; right: auto;
-    max-width: min(64%, calc(100% - 92px));
-    gap: 3px; justify-content: flex-start;
-    z-index: 4;
+  .table-train-chrome {
+    top: 8px; left: 8px; right: 8px; gap: 4px;
+    max-width: calc(100% - 16px);
   }
+  .table-format-badge { font-size: 9px; padding: 2px 6px; }
+  .table-train-hud { gap: 3px; }
   .table-train-chip { font-size: 9px; padding: 2px 6px; }
-  /* Acción del villano bajo el asiento en móvil (evita choque con HUD) */
+  /* Acción del villano bajo el asiento en móvil (evita choque con chrome) */
   .seat.seat-top .seat-act-wrap,
   .seat.seat-edge-top .seat-act-wrap,
   .seat.seat-edge-right .seat-act-wrap {

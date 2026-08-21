@@ -653,14 +653,15 @@
   }
 
   function tableChromeHTML(cfg) {
-    return tableFormatBadgeHTML(cfg) +
+    return '<div class="table-train-chrome">' +
+      tableFormatBadgeHTML(cfg) +
       '<div class="table-train-hud">' +
       buildTrainHudChips(cfg).map((c) =>
         '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '"' +
         (c.title ? ' title="' + escapeHtml(c.title) + '"' : '') + '>' +
         escapeHtml(c.text) + '</span>'
       ).join('') +
-      '</div>' +
+      '</div></div>' +
       tableWatermarkHTML();
   }
 
@@ -3095,7 +3096,7 @@
   let rangesState = {
     street: 'preflop',
     spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', callerPos: 'HJ',
-    gameType: 'cash6', stackDepth: 'standard', openSize: 2.5,
+    gameType: 'cash6', stackDepth: 'standard', mttPhase: 'auto', openSize: 2.5,
     boards: {
       flop: 'As Kd 7c',
       turn: 'As Kd 7c 2h',
@@ -3114,24 +3115,94 @@
     rangesState.boards[rangesState.street] = text || '';
   }
 
+  function rangesHubFromGameType(gameType) {
+    const Tax = window.PTFormatTaxonomy;
+    if (Tax && Tax.hubFromGameType) return Tax.hubFromGameType(gameType);
+    if (gameType === 'spin3' || gameType === 'spin') return 'spin';
+    if (gameType === 'mtt') return 'mtt';
+    return 'cash';
+  }
+
+  /** Muestra stacks 25/20/15/10bb (y 100/50 en MTT) + fase al elegir Spin/MTT. */
+  function syncRangesStackPhaseUI(gameType) {
+    const hub = rangesHubFromGameType(gameType || rangesState.gameType);
+    const phaseGroup = $('#ranges-phase-group');
+    if (phaseGroup) phaseGroup.hidden = hub === 'cash';
+
+    $$('#ranges-mtt-phase .setup-chip').forEach((chip) => {
+      const hubAttr = chip.getAttribute('data-ranges-hub') || '';
+      if (!hubAttr) {
+        chip.hidden = false;
+        return;
+      }
+      const show = hubAttr.split(/\s+/).indexOf(hub) >= 0;
+      chip.hidden = !show;
+      if (!show) chip.classList.remove('active');
+    });
+    if (hub !== 'cash') {
+      const phaseVis = $$('#ranges-mtt-phase .setup-chip').filter((c) => !c.hidden);
+      if (phaseVis.length && !phaseVis.some((c) => c.classList.contains('active'))) {
+        const autoChip = phaseVis.find((c) => c.dataset.val === 'auto') || phaseVis[0];
+        $$('#ranges-mtt-phase .setup-chip').forEach((c) => c.classList.remove('active'));
+        autoChip.classList.add('active');
+      }
+    }
+
+    $$('#ranges-stack-depth .setup-chip').forEach((chip) => {
+      const hubs = (chip.getAttribute('data-ranges-hub') || 'cash').split(/\s+/);
+      const show = hubs.indexOf(hub) >= 0;
+      chip.hidden = !show;
+      if (!show) chip.classList.remove('active');
+    });
+    const vis = $$('#ranges-stack-depth .setup-chip').filter((c) => !c.hidden);
+    if (vis.length && !vis.some((c) => c.classList.contains('active'))) {
+      let prefer = 'standard';
+      if (hub === 'spin') prefer = 'bb25';
+      else if (hub === 'mtt') prefer = 'bb50';
+      const pref = vis.find((c) => c.dataset.val === prefer) || vis[0];
+      $$('#ranges-stack-depth .setup-chip').forEach((c) => c.classList.remove('active'));
+      pref.classList.add('active');
+    }
+  }
+
   function readRangesContext() {
     const gtEl = $('#ranges-game-type .setup-chip.active');
-    const sdEl = $('#ranges-stack-depth .setup-chip.active');
-    return {
-      gameType: gtEl ? gtEl.dataset.val : rangesState.gameType,
+    const sdEl = $('#ranges-stack-depth .setup-chip.active:not([hidden])')
+      || $('#ranges-stack-depth .setup-chip.active');
+    const phaseEl = $('#ranges-mtt-phase .setup-chip.active:not([hidden])')
+      || $('#ranges-mtt-phase .setup-chip.active');
+    const gameType = gtEl ? gtEl.dataset.val : rangesState.gameType;
+    const hub = rangesHubFromGameType(gameType);
+    const out = {
+      gameType: gameType,
       stackDepth: sdEl ? sdEl.dataset.val : rangesState.stackDepth
     };
+    if (hub !== 'cash') {
+      out.mttPhase = phaseEl ? phaseEl.dataset.val : (rangesState.mttPhase || 'auto');
+    }
+    return out;
   }
 
   function bindRangesFilters() {
     bindChipGroup('#ranges-game-type', function () {
-      rangesState.gameType = readRangesContext().gameType;
+      const gt = readRangesContext().gameType;
+      rangesState.gameType = gt;
+      syncRangesStackPhaseUI(gt);
+      const ctx = readRangesContext();
+      rangesState.stackDepth = ctx.stackDepth;
+      rangesState.mttPhase = ctx.mttPhase || 'auto';
       renderRangesExplorer();
     });
     bindChipGroup('#ranges-stack-depth', function () {
       rangesState.stackDepth = readRangesContext().stackDepth;
       renderRangesExplorer();
     });
+    bindChipGroup('#ranges-mtt-phase', function () {
+      const ctx = readRangesContext();
+      rangesState.mttPhase = ctx.mttPhase || 'auto';
+      renderRangesExplorer();
+    });
+    syncRangesStackPhaseUI(rangesState.gameType);
     const streetTabs = $('#ranges-street-tabs');
     if (streetTabs && !streetTabs.dataset.bound) {
       streetTabs.dataset.bound = '1';
@@ -3366,9 +3437,13 @@
     const host = $('#ranges-matrix-host');
     if (!spotRow || !heroRow || !host) return;
 
+    const gtEl = $('#ranges-game-type .setup-chip.active');
+    const gameTypeHint = gtEl ? gtEl.dataset.val : rangesState.gameType;
+    syncRangesStackPhaseUI(gameTypeHint);
     const ctx = readRangesContext();
     rangesState.gameType = ctx.gameType;
     rangesState.stackDepth = ctx.stackDepth;
+    rangesState.mttPhase = ctx.mttPhase || 'auto';
     if (contextLabel && RR) contextLabel.textContent = RR.contextLabel(ctx);
 
     const street = rangesState.street || 'preflop';
@@ -3588,6 +3663,7 @@
       street: street,
       gameType: rangesState.gameType,
       stackDepth: rangesState.stackDepth,
+      mttPhase: rangesState.mttPhase || 'auto',
       spot: isPostflop ? 'postflop' : rangesState.spot,
       heroPos: rangesState.heroPos,
       villainPos: needsVillain ? rangesState.villainPos : '',
@@ -3646,9 +3722,17 @@
             }
             if (f.gameType) {
               $$('#ranges-game-type .setup-chip').forEach((c) => c.classList.toggle('active', c.dataset.val === f.gameType));
+              syncRangesStackPhaseUI(f.gameType);
             }
             if (f.stackDepth) {
-              $$('#ranges-stack-depth .setup-chip').forEach((c) => c.classList.toggle('active', c.dataset.val === f.stackDepth));
+              $$('#ranges-stack-depth .setup-chip').forEach((c) => {
+                if (!c.hidden) c.classList.toggle('active', c.dataset.val === f.stackDepth);
+              });
+            }
+            if (f.mttPhase) {
+              $$('#ranges-mtt-phase .setup-chip').forEach((c) => {
+                if (!c.hidden) c.classList.toggle('active', c.dataset.val === f.mttPhase);
+              });
             }
             renderRangesExplorer();
           };

@@ -23,7 +23,11 @@
     cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT',
     cash2: 'Heads-up', cash3: 'Cash 3-max', spin3: 'Spin & Go'
   };
-  const STACK_LABELS = { bb200: '200bb', bb100: '100bb', bb50: '50bb', bb25: '25bb', standard: '100bb', short: '40bb', deep: '150bb' };
+  const STACK_LABELS = {
+    bb200: '200bb', bb100: '100bb', bb50: '50bb', bb40: '40bb', bb25: '25bb',
+    bb20: '20bb', bb15: '15bb', bb10: '10bb',
+    standard: '100bb', short: '40bb', deep: '150bb'
+  };
 
   function rangeStackCategory(stackDepth, stackBB) {
     const bb = stackBB || STACK_BB[stackDepth] || 100;
@@ -583,7 +587,23 @@
 
   function contextLabel(ctx) {
     const c = normalize(ctx);
-    return (GAME_LABELS[c.gameType] || c.gameType) + ' · ' + (STACK_LABELS[c.stackDepth] || c.stackDepth);
+    const stackKey = c.stackDepthKey || c.stackDepth;
+    const stackTxt = STACK_LABELS[stackKey]
+      || (c.stackBB != null ? (Math.round(c.stackBB) + 'bb') : (STACK_LABELS[c.stackDepth] || c.stackDepth));
+    let label = (GAME_LABELS[c.gameType] || c.gameType) + ' · ' + stackTxt;
+    if (c.isTournament) {
+      const Tax = global.PTFormatTaxonomy;
+      const phase = (c.mttPhase && c.mttPhase !== 'auto')
+        ? c.mttPhase
+        : (c.effectivePhase || null);
+      if (phase && phase !== 'auto') {
+        const phaseLbl = (Tax && Tax.PHASE_LABELS && Tax.PHASE_LABELS[phase]) || phase;
+        label += ' · ' + phaseLbl;
+      } else {
+        label += ' · Auto';
+      }
+    }
+    return label;
   }
 
   function inferFromHand(hand) {
@@ -625,6 +645,8 @@
     input.gameType = c.gameType;
     input.stackDepthLabel = c.stackDepth;
     input.stackDepth = c.stackBB;
+    input.mttPhase = c.mttPhase;
+    input.resolvedPhase = c.effectivePhase;
     input.rangeContext = c;
     return input;
   }

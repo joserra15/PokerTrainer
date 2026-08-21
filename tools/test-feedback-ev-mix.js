@@ -145,12 +145,12 @@ const assertOk = (cond, msg) => { assert.ok(cond, msg); };
   });
 })();
 
-// --- CSS móvil: HUD no solapa asiento top-right ---
+// --- CSS móvil: chrome en línea + acción villano bajo asiento ---
 (function mobileHudCss() {
   const css = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
-  assertOk(/table-train-hud[\s\S]{0,200}left:\s*8px/.test(css)
-    || /\.table-train-hud\s*\{[^}]*left:\s*8px/.test(css),
-    'HUD móvil anclado a la izquierda');
+  assertOk(/\.table-train-chrome/.test(css)
+    && /table-train-chrome[\s\S]{0,260}flex-wrap:\s*nowrap/.test(css),
+    'HUD/badge en franja table-train-chrome (nowrap)');
   assertOk(/seat-edge-right\s+\.seat-act-wrap/.test(css)
     && /top:\s*calc\(100%\s*\+\s*2px\)/.test(css),
     'acción villano bajo el asiento en móvil');
