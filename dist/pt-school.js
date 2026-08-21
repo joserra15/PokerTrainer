@@ -13136,6 +13136,9 @@
 
   /* ---------- Progreso (stats.school → cloud via stats) ---------- */
 
+  /** Aprobados en esta sesión de página (sobrevive si localStorage/sync pierden el write). */
+  var passedOverlay = Object.create(null);
+
   function defaultSchool() {
     return { xp: 0, lessons: {}, updatedAt: 0, version: 2 };
   }
@@ -13159,6 +13162,41 @@
     return out;
   }
 
+  function schoolBackupKey() {
+    var uid = '';
+    try {
+      if (Store() && typeof Store().getUserId === 'function') uid = Store().getUserId() || '';
+    } catch (e) { /* ignore */ }
+    return 'pt_school_backup_v1' + (uid ? '_' + uid : '');
+  }
+
+  function readSchoolBackup() {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      var raw = localStorage.getItem(schoolBackupKey());
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeSchoolBackup(school) {
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      localStorage.setItem(schoolBackupKey(), JSON.stringify({
+        xp: Number(school.xp) || 0,
+        lessons: cloneLessonsMap(school.lessons),
+        updatedAt: Date.now(),
+        version: Number(school.version) || 2
+      }));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function cloneLessonsMap(lessons) {
     var src = lessons && typeof lessons === 'object' ? lessons : {};
     var out = {};
@@ -13180,39 +13218,112 @@
     return out;
   }
 
+  function mergeLessonProgressRows(a, b) {
+    if (!a) return b ? Object.assign({}, b) : null;
+    if (!b) return Object.assign({}, a);
+    var bestScore = Math.max(Number(a.bestScore) || 0, Number(b.bestScore) || 0);
+    return {
+      bestScore: bestScore,
+      bestPct: Math.round(bestScore * 1000) / 10,
+      attempts: Math.max(Number(a.attempts) || 0, Number(b.attempts) || 0),
+      passed: !!(a.passed || b.passed),
+      gold: !!(a.gold || b.gold),
+      perfect: !!(a.perfect || b.perfect),
+      lastScore: (a.updatedAt || '') >= (b.updatedAt || '') ? a.lastScore : b.lastScore,
+      lastPct: (a.updatedAt || '') >= (b.updatedAt || '') ? a.lastPct : b.lastPct,
+      updatedAt: (a.updatedAt || '') >= (b.updatedAt || '') ? a.updatedAt : b.updatedAt
+    };
+  }
+
+  function mergeSchoolObjects(a, b) {
+    if (!a) return b ? {
+      xp: Number(b.xp) || 0,
+      lessons: cloneLessonsMap(b.lessons),
+      updatedAt: Number(b.updatedAt) || 0,
+      version: Number(b.version) || 2
+    } : defaultSchool();
+    if (!b) return {
+      xp: Number(a.xp) || 0,
+      lessons: cloneLessonsMap(a.lessons),
+      updatedAt: Number(a.updatedAt) || 0,
+      version: Number(a.version) || 2
+    };
+    var lessons = {};
+    var ids = {};
+    Object.keys(a.lessons || {}).forEach(function (id) { ids[id] = true; });
+    Object.keys(b.lessons || {}).forEach(function (id) { ids[id] = true; });
+    Object.keys(ids).forEach(function (id) {
+      lessons[id] = mergeLessonProgressRows(
+        (a.lessons && a.lessons[id]) || null,
+        (b.lessons && b.lessons[id]) || null
+      );
+    });
+    return {
+      xp: Math.max(Number(a.xp) || 0, Number(b.xp) || 0),
+      lessons: lessons,
+      updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0),
+      version: Math.max(Number(a.version) || 1, Number(b.version) || 1)
+    };
+  }
+
   function readSchool() {
     var st = Store() && Store().getStats ? Store().getStats() : null;
     var school = (st && st.school) ? st.school : null;
-    if (!school || typeof school !== 'object') return defaultSchool();
-    var migrated = migrateSchoolProgress({
-      xp: Number(school.xp) || 0,
-      lessons: cloneLessonsMap(school.lessons),
-      updatedAt: Number(school.updatedAt) || 0,
-      version: Number(school.version) || 1
-    });
-    if (migrated._migrated) {
-      delete migrated._migrated;
-      writeSchool(migrated);
+    var fromStats = null;
+    if (school && typeof school === 'object') {
+      fromStats = migrateSchoolProgress({
+        xp: Number(school.xp) || 0,
+        lessons: cloneLessonsMap(school.lessons),
+        updatedAt: Number(school.updatedAt) || 0,
+        version: Number(school.version) || 1
+      });
+      if (fromStats._migrated) {
+        delete fromStats._migrated;
+        writeSchool(fromStats);
+      }
     }
+    var fromBackup = readSchoolBackup();
+    var merged = mergeSchoolObjects(fromStats, fromBackup);
+    Object.keys(passedOverlay).forEach(function (id) {
+      if (!passedOverlay[id]) return;
+      var prev = merged.lessons[id] || {};
+      merged.lessons[id] = Object.assign({}, prev, { passed: true });
+    });
     return {
-      xp: Number(migrated.xp) || 0,
-      lessons: migrated.lessons || {},
-      updatedAt: Number(migrated.updatedAt) || 0,
-      version: Number(migrated.version) || 2
+      xp: Number(merged.xp) || 0,
+      lessons: merged.lessons || {},
+      updatedAt: Number(merged.updatedAt) || 0,
+      version: Number(merged.version) || 2
     };
   }
 
   function writeSchool(school) {
     var S = Store();
-    if (!S || !S.getStats || !S.persistStats) return false;
-    var st = S.getStats();
-    st.school = {
+    if (!S || !S.getStats || !S.persistStats) {
+      writeSchoolBackup(school);
+      return false;
+    }
+    var payload = {
       xp: Number(school.xp) || 0,
       lessons: cloneLessonsMap(school.lessons),
       updatedAt: Date.now(),
       version: Number(school.version) || 2
     };
+    var st = S.getStats();
+    st.school = payload;
     S.persistStats(st);
+    writeSchoolBackup(payload);
+    var verified = false;
+    try {
+      var again = S.getStats();
+      verified = !!(again && again.school && again.school.lessons);
+    } catch (eVer) { /* ignore */ }
+    if (!verified) {
+      try {
+        st.school = payload;
+        S.persistStats(st);
+      } catch (eRetry) { /* ignore */ }
+    }
     if (global.PTCloud) {
       if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(['stats']);
       if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(['stats']);
@@ -13222,10 +13333,11 @@
     return true;
   }
 
-  /** Si el intento aprobó pero el flag no quedó en stats, reescribe el progreso. */
+  /** Marca aprobada en memoria + stats (+ backup). */
   function ensureLessonMarkedPassed(lessonId, summary) {
-    if (!lessonId || !summary || !summary.passed) return isLessonPassed(lessonId);
-    if (isLessonPassed(lessonId)) return true;
+    if (!lessonId) return false;
+    if (summary && summary.passed) passedOverlay[lessonId] = true;
+    if (!summary || !summary.passed) return isLessonPassed(lessonId);
     var school = readSchool();
     var prev = school.lessons[lessonId] || {};
     school.lessons[lessonId] = {
@@ -13239,6 +13351,9 @@
       lastPct: summary.pct != null ? summary.pct : prev.lastPct,
       updatedAt: new Date().toISOString()
     };
+    if (summary.xpGain && !(prev.passed)) {
+      /* xp already applied in recordLessonAttempt; don't double-count here */
+    }
     writeSchool(school);
     return isLessonPassed(lessonId);
   }
@@ -13273,6 +13388,7 @@
   }
 
   function isLessonPassed(lessonId) {
+    if (lessonId && passedOverlay[lessonId]) return true;
     var p = lessonProgress(lessonId);
     return !!(p && p.passed);
   }
@@ -14541,6 +14657,18 @@
       nextBtn.addEventListener('click', function () {
         if (sum.passed) ensureLessonMarkedPassed(lesson.id, sum);
         var gate = canPlayLesson(next.id);
+        /* Si acabamos de aprobar, no bloquear por «locked»: el overlay + backup
+         * ya marcan la lección actual; el muro de plan sí se respeta. */
+        if (!gate.ok && gate.reason === 'locked' && sum.passed) {
+          passedOverlay[lesson.id] = true;
+          gate = canPlayLesson(next.id);
+        }
+        if (!gate.ok && gate.reason === 'locked' && sum.passed) {
+          state.view = VIEW.lesson;
+          state.lessonId = next.id;
+          render(root);
+          return;
+        }
         if (!gate.ok) {
           showSchoolGateMessage(root, gate);
           if (gate.upgrade) openUpgrade(gate.reason);
@@ -14668,6 +14796,10 @@
     entitlementsPlan: entitlementsPlan,
     trackSchool: trackSchool,
     ensureLessonMarkedPassed: ensureLessonMarkedPassed,
+    _clearPassedOverlay: function () {
+      Object.keys(passedOverlay).forEach(function (k) { delete passedOverlay[k]; });
+    },
+    _passedOverlay: passedOverlay,
     _state: state
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -938,6 +938,7 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
 /* Rangos R-08→R-09: aprobar desbloquea; Start bloqueado no es silencioso. */
 (function assertRangesUnlockR08R09() {
   sandbox.PTEntitlements.get = function () { return { plan: 'study' }; };
+  if (School._clearPassedOverlay) School._clearPassedOverlay();
   ['R-01', 'R-02', 'R-03', 'R-04', 'R-05', 'R-06', 'R-07'].forEach(function (id) {
     sandbox.Store._st.school.lessons[id] = {
       passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
@@ -955,9 +956,11 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   assert.ok(School.isLessonUnlocked('R-09'), 'R-09 desbloqueada tras R-08 passed');
   assert.ok(School.canPlayLesson('R-09').ok, 'canPlay R-09 OK');
 
-  /* Simula progreso perdido tras aprobar: ensureLessonMarkedPassed lo repara. */
+  /* Simula progreso perdido en stats: ensure + overlay reparan el desbloqueo. */
+  if (School._clearPassedOverlay) School._clearPassedOverlay();
   delete sandbox.Store._st.school.lessons['R-08'];
-  assert.ok(!School.isLessonUnlocked('R-09'), 'R-09 otra vez bloqueada si se pierde R-08');
+  try { sandbox.localStorage.removeItem('pt_school_backup_v1'); } catch (e0) { /* ignore */ }
+  assert.ok(!School.isLessonUnlocked('R-09'), 'R-09 bloqueada si se pierde R-08');
   assert.ok(School.ensureLessonMarkedPassed('R-08', {
     passed: true, score: 0.75, pct: 75, gold: false, perfect: false
   }), 'ensure reescribe passed');
@@ -965,8 +968,15 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   assert.ok(School.isLessonUnlocked('R-09'), 'R-09 desbloqueada tras ensure');
   assert.ok(School.canPlayLesson('R-09').ok, 'canPlay R-09 tras ensure');
 
-  /* Start con lección bloqueada: retorna gate (no no-op silencioso). */
+  /* Overlay mantiene unlock aunque stats se borre otra vez. */
   delete sandbox.Store._st.school.lessons['R-08'];
+  assert.ok(School.isLessonPassed('R-08'), 'overlay mantiene passed sin fila en stats');
+  assert.ok(School.canPlayLesson('R-09').ok, 'canPlay R-09 con overlay');
+
+  /* Start bloqueado si no hay overlay ni stats (gate explícito). */
+  if (School._clearPassedOverlay) School._clearPassedOverlay();
+  delete sandbox.Store._st.school.lessons['R-08'];
+  try { sandbox.localStorage.removeItem('pt_school_backup_v1'); } catch (e1) { /* ignore */ }
   var started = School.startLessonSession('R-09');
   assert.ok(started && !started.ok && started.reason === 'locked',
     'startLessonSession R-09 locked retorna gate');
