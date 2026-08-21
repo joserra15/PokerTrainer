@@ -33,9 +33,18 @@
 
 > Spins y Torneos: estudio heurístico por fase y stack con ICM lite. El núcleo de charts solver es Cash 6-max.
 
-## Estado de Fases 0–2 (este PR)
+## Estado Fase 3 (implementado)
+
+- **P3a** Capas JSON Spin 25/20/15/10bb (`data/ranges/phase3-layers.json` → registry).
+- **P3b** Capas MTT early/mid/short/push (opens + vs-RFI).
+- **P3c** Nash push/fold por profundidad (`nash-push-fold.json`) con ajuste ante/ICM lite.
+- **P3d** HUD con nivel de blinds simbólico + ante %.
+- **P3e** Escuela: `MTT_SHORT` ≠ `MTT_PUSH`; drills `MTT_BUBBLE` en T-13; Spin con `formatHub: spin` + fase por stack.
+
+## Estado de Fases 0–2
 
 - Tapete con watermark “Modo entrenamiento”, badge CASH/SPIN/MTT y HUD de fase/stack/ante/ICM/payout.
 - Fase Auto vs escenario Aleatorio clarificados; fase resuelta visible por mano.
 - Auditoría KJo LJ + 3bets pro acotados; mapa LJ nativo en charts MTT.
 - Feedback live con ICM; presets “Mi juego”; sizing open 2.2 / 2.5 / 3×.
+- ForgeCoach en detalle de entrenador; impacto fase/ICM por decisión.

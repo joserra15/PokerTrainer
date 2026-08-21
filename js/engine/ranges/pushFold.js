@@ -57,7 +57,60 @@
     'AKs', 'AKo', 'AQs', 'AQo', 'AJs', 'ATs', 'KQs'
   ]);
 
-  function openShoveWeights(pos, stackBB) {
+  function nearestDepthKey(map, stackBB) {
+    const bb = Number(stackBB) || 10;
+    const keys = Object.keys(map || {}).map(Number).filter(function (n) { return !isNaN(n); }).sort(function (a, b) { return a - b; });
+    if (!keys.length) return null;
+    let best = keys[0];
+    let bestDist = Math.abs(bb - best);
+    keys.forEach(function (k) {
+      const d = Math.abs(bb - k);
+      if (d < bestDist) { best = k; bestDist = d; }
+    });
+    return String(best);
+  }
+
+  function nashShoveTable(pos, stackBB) {
+    const nash = global.PT_NASH_PUSH;
+    if (!nash || !nash.shoveByDepth) return null;
+    const dk = nearestDepthKey(nash.shoveByDepth, stackBB);
+    if (!dk) return null;
+    const byPos = nash.shoveByDepth[dk];
+    return byPos && (byPos[pos] || byPos[pos === 'LJ' ? 'HJ' : pos] || byPos.BTN) || null;
+  }
+
+  function nashCallTable(pos, stackBB, openerPos) {
+    const nash = global.PT_NASH_PUSH;
+    if (!nash || !nash.callByDepth) return null;
+    const dk = nearestDepthKey(nash.callByDepth, stackBB);
+    if (!dk) return null;
+    const byHero = nash.callByDepth[dk];
+    if (!byHero) return null;
+    const openers = byHero[pos] || byHero.BB;
+    if (!openers) return null;
+    return openers[openerPos] || openers.BTN || openers.SB || null;
+  }
+
+  /** Ante/ICM: ensancha shove del short y aprieta calls del mid/cover. */
+  function pressureAdjust(freq, input, kind) {
+    let f = Number(freq) || 0;
+    const ante = Number(input && input.anteBB) || 0;
+    const icm = !!(input && (input.icmEnabled || input.formatHub === 'spin' || input.formatHub === 'mtt'));
+    if (kind === 'shove' && ante > 0) f = Math.min(1, f + Math.min(0.08, ante * 0.25));
+    if (kind === 'call' && icm) f = Math.max(0, f - 0.06);
+    return f;
+  }
+
+  function openShoveWeights(pos, stackBB, input) {
+    const nash = nashShoveTable(pos, stackBB);
+    if (nash) {
+      const out = {};
+      Object.keys(nash).forEach(function (code) {
+        out[code] = pressureAdjust(nash[code], input, 'shove');
+      });
+      return out;
+    }
+    // Fallback heurístico legacy
     const bb = Number(stackBB) || 10;
     let base = SET_ALWAYS;
     if (pos === 'BTN' || pos === 'CO' || pos === 'HJ') base = bb <= 12 ? SET_BTN : SET_ALWAYS;
@@ -69,14 +122,21 @@
     Object.keys(base).forEach(function (code) {
       out[code] = 1;
     });
-    // En stacks ultra-cortos, ensanchar un poco más BTN/SB
     if (bb <= 8 && (pos === 'BTN' || pos === 'SB')) {
       ['54s', '64s', 'K7s', 'Q8s', 'J7s', 'T7s'].forEach(function (c) { out[c] = 0.7; });
     }
     return out;
   }
 
-  function callShoveWeights(pos, stackBB, openerPos) {
+  function callShoveWeights(pos, stackBB, openerPos, input) {
+    const nash = nashCallTable(pos, stackBB, openerPos);
+    if (nash) {
+      const out = {};
+      Object.keys(nash).forEach(function (code) {
+        out[code] = pressureAdjust(nash[code], input, 'call');
+      });
+      return out;
+    }
     const bb = Number(stackBB) || 10;
     const wide = bb <= 12 || openerPos === 'BTN' || openerPos === 'SB';
     const base = wide ? SET_CALL_W : SET_CALL_T;
@@ -88,13 +148,13 @@
     return out;
   }
 
-  function shouldOpenShove(handCode, pos, stackBB) {
-    const w = openShoveWeights(pos, stackBB);
+  function shouldOpenShove(handCode, pos, stackBB, input) {
+    const w = openShoveWeights(pos, stackBB, input);
     return (w[handCode] || 0) >= 0.5;
   }
 
-  function shouldCallShove(handCode, pos, stackBB, openerPos) {
-    const w = callShoveWeights(pos, stackBB, openerPos);
+  function shouldCallShove(handCode, pos, stackBB, openerPos, input) {
+    const w = callShoveWeights(pos, stackBB, openerPos, input);
     return (w[handCode] || 0) >= 0.5;
   }
 
@@ -200,27 +260,39 @@
     return false;
   }
 
-  /** Frecuencias preflop simplificadas para nodos push. */
+  /** Frecuencias preflop: Nash-approx por profundidad (+ ante/ICM lite). */
   function pushFoldStrategy(input) {
     const code = input.handCode;
     const pos = input.position || input.heroPos || 'BTN';
-    const stack = Number(input.effStack || input.stackDepth) || 10;
+    const stack = Number(input.effStack || input.stackDepth || input.heroStackBB) || 10;
     const toCall = Number(input.toCallBB) || 0;
     const opener = input.openerPos || input.vsPosition || 'BTN';
     if (toCall > 0) {
-      // Facing open corto (2.5/3bb): fold / call / 3-bet shove (no es call-vs-all-in).
-      if (shouldCallShove(code, pos, stack, opener)) {
-        return { fold: 0.05, call: 0.12, allin: 0.83, raise: 0 };
+      const callW = callShoveWeights(pos, stack, opener, input);
+      const cw = callW[code] || 0;
+      if (cw >= 0.5) {
+        const allin = Math.min(0.92, 0.55 + cw * 0.35);
+        const call = Math.max(0.05, (1 - allin) * 0.55);
+        const fold = Math.max(0.03, 1 - allin - call);
+        return { fold: fold, call: call, allin: allin, raise: 0 };
       }
-      if (shouldOpenShove(code, pos, stack)) {
-        return { fold: 0.2, call: 0.1, allin: 0.7, raise: 0 };
+      const shoveW = openShoveWeights(pos, stack, input);
+      const sw = shoveW[code] || 0;
+      if (sw >= 0.55) {
+        return { fold: 0.18, call: 0.1, allin: 0.72, raise: 0 };
       }
       return { fold: 0.9, call: 0.07, allin: 0.03, raise: 0 };
     }
-    const shove = shouldOpenShove(code, pos, stack);
-    return shove
-      ? { raise: 0.9, fold: 0.1, call: 0, allin: 0.9 }
-      : { raise: 0.05, fold: 0.95, call: 0 };
+    const shoveW = openShoveWeights(pos, stack, input);
+    const sw = shoveW[code] || 0;
+    if (sw >= 0.85) return { raise: 0.87, fold: 0.05, call: 0, allin: 0.87 };
+    if (sw >= 0.55) {
+      const allin = 0.55 + (sw - 0.55) * 0.9;
+      const fold = Math.max(0.08, 1 - allin - 0.05);
+      return { raise: allin, fold: fold, call: 0, allin: allin };
+    }
+    if (sw >= 0.35) return { raise: 0.12, fold: 0.78, call: 0, allin: 0.1 };
+    return { raise: 0.04, fold: 0.95, call: 0, allin: 0.01 };
   }
 
   function isPushPhase(config) {

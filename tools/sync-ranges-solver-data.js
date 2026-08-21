@@ -9,7 +9,9 @@ const dataDir = path.join(root, 'data', 'ranges');
 const files = [
   { json: 'rfi-6max-100bb.json', global: 'PT_RFI_JSON', out: 'rfi-solver-data.js' },
   { json: 'vs-rfi-6max-100bb.json', global: 'PT_VS_RFI_JSON', out: 'vs-rfi-solver-data.js' },
-  { json: 'vs-3bet-6max-100bb.json', global: 'PT_VS_3BET_JSON', out: 'vs-3bet-solver-data.js' }
+  { json: 'vs-3bet-6max-100bb.json', global: 'PT_VS_3BET_JSON', out: 'vs-3bet-solver-data.js' },
+  { json: 'phase3-layers.json', global: 'PT_PHASE3_LAYERS_JSON', out: 'phase3-layers-data.js' },
+  { json: 'nash-push-fold.json', global: 'PT_NASH_PUSH_JSON', out: 'nash-push-data.js' }
 ];
 
 files.forEach(function (f) {

@@ -135,21 +135,47 @@
       vs('t05-12', 'BB_vs_CO', ['Ks', '7d'], 50512, { trapTag: 'fancy_play', teachBack: 'K7o vs CO: fold típico. No 3-bet spew mid con offsuit frágil.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) })
     ];
     if (kind === 'MTT_EXAM_M1') return packSpots('MTT_STEAL', D).slice(0, 7).concat(packSpots('MTT_3BET', D).slice(0, 7));
-    if (kind === 'MTT_SHORT' || kind === 'MTT_PUSH') return [
+    if (kind === 'MTT_SHORT') return [
+      rfi('t08-01', 'BTN', ['Ah', '9s'], 50801, { teachBack: 'A9o BTN a ~20 bb: open o shove mixto. Zona short — no juegues como early 50 bb.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'short', stackDepth: 'bb20' }) }),
+      rfi('t08-02', 'CO', ['Kh', 'Js'], 50802, { teachBack: 'KJo CO ~20 bb: open frecuente. Short mid — robos más anchos que early.', playConfig: mttCfg({ scenario: 'rfi', mttPhase: 'short', stackDepth: 'bb20' }) }),
+      rfi('t08-03', 'BTN', ['7c', '2d'], 50803, { trapTag: 'dominated', teachBack: '72o: fold. Short no justifica basura sin fold equity.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'short', stackDepth: 'bb20' }) }),
+      rfi('t08-04', 'SB', ['Qs', 'Ts'], 50804, { teachBack: 'QTs SB ~18 bb: open/shove candidato. Presión short.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'short', stackDepth: 'bb15' }) }),
+      rfi('t08-05', 'HJ', ['Ah', 'Kd'], 50805, { teachBack: 'AKo HJ ~20 bb: open value. Sigue siendo premium en short.', playConfig: mttCfg({ scenario: 'rfi', mttPhase: 'short', stackDepth: 'bb20' }) }),
+      rfi('t08-06', 'BTN', ['9s', '8s'], 50806, { teachBack: '98s BTN ~15–20 bb: open steal. Conectores suited en short.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'short', stackDepth: 'bb15' }) }),
+      rfi('t08-07', 'CO', ['2h', '2d'], 50807, { teachBack: '22 CO ~20 bb: open o fold según chart; pares bajas entran más en short que early EP.', playConfig: mttCfg({ scenario: 'rfi', mttPhase: 'short', stackDepth: 'bb20' }) }),
+      rfi('t08-08', 'BTN', ['Jc', 'Tc'], 50808, { teachBack: 'JTs BTN ~20 bb: open steal estándar short.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'short', stackDepth: 'bb20' }) }),
+      rfi('t08-09', 'SB', ['Ah', '5h'], 50809, { teachBack: 'A5s SB ~15 bb: open/shove. Ax suited en short tiene FE + equity.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'short', stackDepth: 'bb15' }) }),
+      rfi('t08-10', 'CO', ['Qh', '7d'], 50810, { trapTag: 'fancy_play', teachBack: 'Q7o CO: fold típico. Short no es licencia para spew offsuit.', playConfig: mttCfg({ scenario: 'rfi', mttPhase: 'short', stackDepth: 'bb20' }) }),
+      rfi('t08-11', 'BTN', ['Kh', '9s'], 50811, { teachBack: 'K9o BTN ~20 bb: open frecuente short/steal.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'short', stackDepth: 'bb20' }) }),
+      rfi('t08-12', 'HJ', ['Ts', '9s'], 50812, { teachBack: 'T9s HJ ~20 bb: open mixto. Conector suited en short.', playConfig: mttCfg({ scenario: 'rfi', mttPhase: 'short', stackDepth: 'bb20' }) })
+    ];
+    if (kind === 'MTT_PUSH') return [
       rfi('t09-01', 'BTN', ['Ah', '2h'], 50901, { teachBack: 'A2s BTN a ~10–12 bb: shove candidato. Zona push/fold — no open min.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
       rfi('t09-02', 'BTN', ['Jc', '8d'], 50902, { trapTag: 'dominated', teachBack: 'J8o: fold. No panic shove sin equity ni fold equity.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
       rfi('t09-03', 'SB', ['Ks', 'Ts'], 50903, { teachBack: 'KTs SB corto: shove frecuente. Push/fold limpio.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
-      rfi('t09-04', 'CO', ['Jh', 'Jc'], 50904, { teachBack: 'JJ: shove value. Par medio fuerte en short/push.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) }),
+      rfi('t09-04', 'CO', ['Jh', 'Jc'], 50904, { teachBack: 'JJ: shove value. Par medio fuerte en short/push.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
       rfi('t09-05', 'BTN', ['Ah', 'Jh'], 50905, { teachBack: 'AJs ~12 bb: shove value. Premium — all-in, no min-raise.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
       rfi('t09-06', 'SB', ['Qh', '6s'], 50906, { trapTag: 'fancy_play', teachBack: 'Q6o SB corto: fold. No shove basura OOP.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
       rfi('t09-07', 'BTN', ['Jh', 'Td'], 50907, { teachBack: 'JTo BTN ~10–12 bb: shove frecuente desde botón.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
-      rfi('t09-08', 'CO', ['Th', '5c'], 50908, { trapTag: 'dominated', teachBack: 'T5o CO: fold. Early-ish short tampoco justifica basura.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) }),
+      rfi('t09-08', 'CO', ['Th', '5c'], 50908, { trapTag: 'dominated', teachBack: 'T5o CO: fold. Early-ish short tampoco justifica basura.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
       rfi('t09-09', 'SB', ['7s', '6s'], 50909, { teachBack: '76s SB ~10 bb: shove frecuente. Conectores suited en push/fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
       rfi('t09-10', 'BTN', ['Ks', 'Qs'], 50910, { teachBack: 'KQs ~10 bb: shove value. Par fuerte — stack-off limpio.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
-      rfi('t09-11', 'CO', ['Kh', 'Js'], 50911, { teachBack: 'KJo CO ~12 bb: shove candidato. Broadway offsuit short.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) }),
+      rfi('t09-11', 'CO', ['Kh', 'Js'], 50911, { teachBack: 'KJo CO ~12 bb: shove candidato. Broadway offsuit short.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
       rfi('t09-12', 'BTN', ['9s', '8s'], 50912, { teachBack: '98s BTN ~10 bb: shove wide desde botón. Fold equity + jugabilidad.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
       rfi('t09-13', 'SB', ['2c', '2d'], 50913, { teachBack: '22 SB ~10 bb: shove o fold según chart; muchas líneas shovean pares bajas SB.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
       rfi('t09-14', 'BTN', ['Ad', '9c'], 50914, { teachBack: 'A9o BTN ~12 bb: shove frecuente. Ax offsuit en botón corto entra en charts.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) })
+    ];
+    if (kind === 'MTT_BUBBLE') return [
+      vs('t13-01', 'BB_vs_BTN', ['Ah', 'Jo'], 51301, { teachBack: 'AJo mid vs shove big en burbuja: a menudo fold $EV. Chip EV no basta.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
+      vs('t13-02', 'BB_vs_BTN', ['Kh', 'Kd'], 51302, { teachBack: 'KK vs shove: call. Premium — chip EV y $EV suelen coincidir.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
+      rfi('t13-03', 'BTN', ['Qh', '9s'], 51303, { teachBack: 'Q9o BTN mid en burbuja: open selectivo. No spew vs covers.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'bubble', stackDepth: 'bb22' }) }),
+      rfi('t13-04', 'CO', ['7c', '2d'], 51304, { trapTag: 'fancy_play', teachBack: '72o: fold. Burbuja castiga opens basura vs stacks grandes.', playConfig: mttCfg({ scenario: 'rfi', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
+      vs('t13-05', 'BB_vs_SB', ['9s', '9c'], 51305, { teachBack: '99 vs shove SB corto: call frecuente. Short desperado — $EV suele aguantar.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb18' }) }),
+      vs('t13-06', 'BB_vs_BTN', ['Th', '8d'], 51306, { trapTag: 'fancy_play', teachBack: 'T8o vs shove cover: fold $EV típico. Mid no hero-call basura.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
+      rfi('t13-07', 'SB', ['As', '5s'], 51307, { teachBack: 'A5s SB short en burbuja: shove/pressure vs mids. Arma del short.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb12' }) }),
+      vs('t13-08', 'BB_vs_CO', ['Ah', 'Kd'], 51308, { teachBack: 'AKo vs shove: call. Aquí coinciden fichas y premio.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb22' }) }),
+      rfi('t13-09', 'BTN', ['Jh', 'Ts'], 51309, { teachBack: 'JTs BTN mid: steal ok si blinds/antes pagan; evita opens vs cover agresivo.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
+      vs('t13-10', 'BB_vs_BTN', ['Kc', '7h'], 51310, { trapTag: 'dominated', teachBack: 'K7o vs shove: fold. Dominada y −$EV en burbuja.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb18' }) })
     ];
     return [];
   }
@@ -845,7 +871,7 @@
         "¿Qué debe hacer cada rol?",
         "¿Por qué el mid overfoldea vs el big?"
       ],
-      "spots": [],
+      "spots": "MTT_BUBBLE",
       "exam": false,
       "id": "T-13",
       "title": "Roles en burbuja (short/mid/big)"

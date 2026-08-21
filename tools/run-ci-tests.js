@@ -99,6 +99,7 @@ const STEPS = [
   ['Test trainer pro ranges (KJo/3bet/fase)', ['node', 'tools/test-trainer-pro-ranges.js']],
   ['Test trainer pro regression (UX/ICM/presets)', ['node', 'tools/test-trainer-pro-regression.js']],
   ['Test trainer stack/phase/villains', ['node', 'tools/test-trainer-stack-phase-villains.js']],
+  ['Test trainer Fase 3 (capas/Nash/blinds/escuela)', ['node', 'tools/test-trainer-fase3.js']],
   ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']],
   ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
   ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],

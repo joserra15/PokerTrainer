@@ -257,6 +257,42 @@
     return 0.125;
   }
 
+  /**
+   * Estructura de blinds simbólica para HUD (estudio).
+   * bb del entrenador = 1 unidad; antePct = anteBB / bb.
+   */
+  function blindStructureFor(config) {
+    const hub = normalizeHub(config && config.formatHub || hubFromGameType(config && config.gameType));
+    if (hub === 'cash') return null;
+    const phase = resolvePhase(config);
+    const stackBB = Number(config && config.stackBB) || 25;
+    const anteBB = config && config.anteBB != null ? Number(config.anteBB) : defaultAnteBB(config);
+    let level = 1;
+    let sb = 0.5;
+    let bb = 1;
+    if (hub === 'spin') {
+      if (stackBB <= 12) { level = 8; sb = 150; bb = 300; }
+      else if (stackBB <= 15) { level = 6; sb = 100; bb = 200; }
+      else if (stackBB <= 20) { level = 4; sb = 50; bb = 100; }
+      else { level = 2; sb = 25; bb = 50; }
+    } else {
+      if (phase === 'push' || stackBB <= 12) { level = 18; sb = 2000; bb = 4000; }
+      else if (phase === 'bubble' || phase === 'short' || stackBB <= 25) { level = 14; sb = 1000; bb = 2000; }
+      else if (phase === 'mid' || stackBB <= 45) { level = 10; sb = 400; bb = 800; }
+      else { level = 5; sb = 100; bb = 200; }
+    }
+    const antePct = bb > 0 ? Math.round((anteBB / 1) * 1000) / 10 : 0; // ante en % de 1bb trainer
+    return {
+      level: level,
+      sb: sb,
+      bb: bb,
+      anteBB: anteBB || 0,
+      antePct: antePct,
+      label: 'Nv.' + level + ' · ' + sb + '/' + bb,
+      anteLabel: anteBB > 0 ? ('Ante ' + antePct + '%') : null
+    };
+  }
+
   function spinPayouts(preset) {
     const key = preset && SPIN_PAYOUT_PRESETS[preset] ? preset : '2x';
     return SPIN_PAYOUT_PRESETS[key].slice();
@@ -322,6 +358,7 @@
     stackSelectionLocked: stackSelectionLocked,
     resolvePhase: resolvePhase,
     defaultAnteBB: defaultAnteBB,
+    blindStructureFor: blindStructureFor,
     spinPayouts: spinPayouts,
     isTournamentHub: isTournamentHub,
     usesIcm: usesIcm,
