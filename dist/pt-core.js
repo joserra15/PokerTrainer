@@ -10592,7 +10592,7 @@ window.PT_VS_3BET_JSON = {
    */
   function sampleHeroHand(scenario, config, dead, rnd) {
     const r = rnd || Math.random;
-    const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'playable');
+    const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'borderline');
     if (mode === 'random') return null;
 
     const rangeCodes = heroRangeCodesByStrength(scenario, config);
@@ -10621,7 +10621,7 @@ window.PT_VS_3BET_JSON = {
   }
 
   function sampleHeroWeights(scenario, config, modeOverride) {
-    const mode = modeOverride || (config.handRange === 'all' ? 'random' : (config.handRange || 'playable'));
+    const mode = modeOverride || (config.handRange === 'all' ? 'random' : (config.handRange || 'borderline'));
     const engHero = scenario.engineHeroPos || scenario.heroPos || parseVsKey(scenario.key).hero;
 
     if (scenario.type === 'RFI') {
@@ -28509,7 +28509,7 @@ window.PT_VS_3BET_JSON = {
       if (window.PTLog && PTLog.event && hand) {
         PTLog.event('hand_start', {
           scenario: (hand.scenario && hand.scenario.type) || 'unknown',
-          range: (cfg && cfg.handRange) || 'playable',
+          range: (cfg && cfg.handRange) || 'borderline',
           villain: (cfg && cfg.villainLevel) || 'pro',
           replay: !!force
         });
@@ -31722,7 +31722,7 @@ window.PT_VS_3BET_JSON = {
           scenario: d.scenario,
           practiceStreet: d.practiceStreet || 'preflop',
           practiceIntent: d.practiceIntent || 'mixed',
-          handRange: d.handRange || 'playable',
+          handRange: d.handRange || 'borderline',
           villainLevel: d.villainLevel || 'pro',
           liveAdvisor: d.liveAdvisor !== false,
           formatHub: d.formatHub || (Tax ? Tax.hubFromGameType(gtFinal) : undefined),

@@ -1981,7 +1981,7 @@
       if (window.PTLog && PTLog.event && hand) {
         PTLog.event('hand_start', {
           scenario: (hand.scenario && hand.scenario.type) || 'unknown',
-          range: (cfg && cfg.handRange) || 'playable',
+          range: (cfg && cfg.handRange) || 'borderline',
           villain: (cfg && cfg.villainLevel) || 'pro',
           replay: !!force
         });
@@ -5194,7 +5194,7 @@
           scenario: d.scenario,
           practiceStreet: d.practiceStreet || 'preflop',
           practiceIntent: d.practiceIntent || 'mixed',
-          handRange: d.handRange || 'playable',
+          handRange: d.handRange || 'borderline',
           villainLevel: d.villainLevel || 'pro',
           liveAdvisor: d.liveAdvisor !== false,
           formatHub: d.formatHub || (Tax ? Tax.hubFromGameType(gtFinal) : undefined),
