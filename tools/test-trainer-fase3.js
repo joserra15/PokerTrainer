@@ -14,7 +14,7 @@ function check(cond, msg) {
 }
 
 const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
-check(/PT_BUILD\s*=\s*'2.7.14'/.test(version), 'PT_BUILD 2.7.14');
+check(/PT_BUILD\s*=\s*'2.7.15'/.test(version), 'PT_BUILD 2.7.15');
 
 check(fs.existsSync(path.join(root, 'data/ranges/phase3-layers.json')), 'phase3-layers.json existe');
 check(fs.existsSync(path.join(root, 'data/ranges/nash-push-fold.json')), 'nash-push-fold.json existe');

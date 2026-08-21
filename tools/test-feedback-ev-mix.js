@@ -107,6 +107,27 @@ const assertOk = (cond, msg) => { assert.ok(cond, msg); };
   console.log('OK fold 42% →', rec.cls);
 })();
 
+// --- Call residual (~16%) vs fold dominante: ΔEV≈0 no → óptima ---
+(function residualCallNotOptimaOnEvTie() {
+  const strat = { fold: 0.70, call: 0.16, raise: 0.14 };
+  const acts = ['fold', 'call', 'raise'];
+  const cls = Cls.classify(strat, 'call', acts);
+  assertOk(cls.best === 'fold', 'fold lidera mezcla');
+  assertOk(cls.cls === 'aceptable', 'call 16% → aceptable por freq, got ' + cls.cls);
+  const rec = Cls.reconcileWithEv(cls.cls, 'call', cls.best, {
+    actionEV: 0.19, bestEV: 0.19, bestAction: 'call',
+    evLoss: 0, evErroneous: false, evErrorReasons: []
+  }, {
+    freq: cls.freq,
+    maxFreq: cls.maxFreq,
+    legalStrategy: cls.legalStrategy,
+    equity: 0.2075
+  });
+  assertOk(rec.best === 'fold', 'best UI sigue fold, got ' + rec.best);
+  assertOk(rec.cls !== 'optima', 'call residual no óptima por empate EV, got ' + rec.cls);
+  console.log('OK call residual vs fold →', rec.cls, 'best', rec.best);
+})();
+
 // --- adjustStrategyForHand: Eq muy bajo vs BE → fold dominante ---
 (function adjustShortEquity() {
   const raw = { fold: 0.42, call: 0.53, raise: 0.05 };
