@@ -28,6 +28,7 @@ test.describe('Entrenador pro chrome @smoke', () => {
     const felt = page.locator('#play-active .table-felt');
     await expect(felt).toHaveAttribute('data-format', 'spin');
     await expect(page.locator('#play-active .table-watermark-sub')).toContainText(/entrenamiento/i);
+    await expect(page.locator('#table-train-chrome')).toBeVisible();
     await expect(page.locator('#table-format-badge')).toContainText(/SPIN/i);
 
     const hud = page.locator('#table-train-hud');
@@ -52,6 +53,7 @@ test.describe('Entrenador pro chrome @smoke', () => {
     await page.click('#play-start');
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 20000 });
     await expect(page.locator('#play-active .table-felt')).toHaveAttribute('data-format', 'mtt');
+    await expect(page.locator('#table-train-chrome')).toBeVisible();
     await expect(page.locator('#table-format-badge')).toContainText(/MTT/i);
     const hud = page.locator('#table-train-hud');
     // Fase 3: stack + fase + blinds (Nv.) + ante% + open

@@ -872,8 +872,10 @@
                 <div id="play-table-loading" class="play-table-loading hidden" aria-live="polite" aria-busy="false">
                   <div class="play-table-spinner" aria-hidden="true"></div>
                 </div>
-                <div class="table-format-badge" id="table-format-badge" aria-hidden="true">CASH</div>
-                <div class="table-train-hud" id="table-train-hud" aria-live="polite"></div>
+                <div class="table-train-chrome" id="table-train-chrome">
+                  <div class="table-format-badge" id="table-format-badge" aria-hidden="true">CASH</div>
+                  <div class="table-train-hud" id="table-train-hud" aria-live="polite"></div>
+                </div>
                 <div class="table-watermark" aria-hidden="true">
                   <span class="table-watermark-mark"></span>
                   <span class="table-watermark-text">PokerForgeAI</span>
@@ -956,10 +958,27 @@
             <button type="button" class="setup-chip" data-val="spin3">Spin 3-max</button>
             <button type="button" class="setup-chip" data-val="mtt">MTT</button>
           </div>
-          <div class="setup-chips" id="ranges-stack-depth">
-            <button type="button" class="setup-chip active" data-val="standard">100bb</button>
-            <button type="button" class="setup-chip" data-val="short">40bb</button>
-            <button type="button" class="setup-chip" data-val="deep">150bb</button>
+          <div class="setup-chips" id="ranges-stack-depth" aria-label="Profundidad de stack">
+            <button type="button" class="setup-chip active" data-val="standard" data-ranges-hub="cash">100bb</button>
+            <button type="button" class="setup-chip" data-val="short" data-ranges-hub="cash">40bb</button>
+            <button type="button" class="setup-chip" data-val="deep" data-ranges-hub="cash">150bb</button>
+            <button type="button" class="setup-chip" data-val="bb100" data-ranges-hub="mtt" hidden>100bb</button>
+            <button type="button" class="setup-chip" data-val="bb50" data-ranges-hub="mtt" hidden>50bb</button>
+            <button type="button" class="setup-chip" data-val="bb25" data-ranges-hub="spin mtt" hidden>25bb</button>
+            <button type="button" class="setup-chip" data-val="bb20" data-ranges-hub="spin mtt" hidden>20bb</button>
+            <button type="button" class="setup-chip" data-val="bb15" data-ranges-hub="spin mtt" hidden>15bb</button>
+            <button type="button" class="setup-chip" data-val="bb10" data-ranges-hub="spin mtt" hidden>10bb</button>
+          </div>
+        </div>
+        <div class="ranges-filter-row ranges-phase-row" id="ranges-phase-group" hidden>
+          <span class="ranges-pos-label">Fase:</span>
+          <div class="setup-chips" id="ranges-mtt-phase" aria-label="Fase del torneo">
+            <button type="button" class="setup-chip active" data-val="auto">Auto</button>
+            <button type="button" class="setup-chip" data-val="early">Early</button>
+            <button type="button" class="setup-chip" data-val="mid">Mid</button>
+            <button type="button" class="setup-chip" data-val="short">Short</button>
+            <button type="button" class="setup-chip" data-val="push">Push/fold</button>
+            <button type="button" class="setup-chip" data-val="bubble" data-ranges-hub="mtt">Burbuja</button>
           </div>
         </div>
         <div class="ranges-spot-row" id="ranges-spot-row"></div>
