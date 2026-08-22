@@ -57,7 +57,7 @@
 
   function registerServiceWorker() {
     if (!('serviceWorker' in global.navigator)) return;
-    var build = global.PT_BUILD || '1';
+    var build = global.PT_REV ? global.PT_REV() : (global.PT_BUILD || '1');
     var base = appBasePath();
     var swUrl = base + 'sw.js?v=' + encodeURIComponent(build);
     global.addEventListener('load', function () {

@@ -75,11 +75,19 @@
   <meta http-equiv="Expires" content="0" />
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://browser.sentry-cdn.com https://plausible.io https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://accounts.google.com https://plausible.io https://browser.sentry-cdn.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.de.sentry.io; frame-src https://accounts.google.com; font-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self';" />
   <title>PokerForgeAI · Entrenador GTO de poker NL Hold'em con ForgeCoach</title>
-  <!-- version.js con ?t= evita caché CDN; el resto de assets usan ?v=PT_BUILD -->
+  <!-- version.js con ?t= evita caché CDN; el resto de assets usan ?v=PT_REV()
+       (huella del contenido de js/css/dist, no la versión escrita a mano). -->
   <script>document.write('<script src="js/version.js?t=' + Date.now() + '"><\/script>');</script>
   <script>
   (function () {
-    var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    // Sin version.js no hay token: romper caché siempre es mejor que arrastrar
+    // los assets viejos que el service worker tenga guardados.
+    window.PT_REV = window.PT_REV || function () { return 't' + Date.now(); };
+  })();
+  </script>
+  <script>
+  (function () {
+    var v = '?v=' + encodeURIComponent(window.PT_REV());
     document.write('<script src="js/bundle-chunks.js' + v + '"><\/script>');
     document.write('<script src="js/pt-loader.js' + v + '"><\/script>');
   })();
@@ -87,13 +95,13 @@
   <script>
   (function () {
     var s = document.createElement('script');
-    s.src = 'js/build-guard.js?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    s.src = 'js/build-guard.js?v=' + encodeURIComponent(window.PT_REV());
     document.head.appendChild(s);
   })();
   </script>
   <script>
   (function () {
-    var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    var v = '?v=' + encodeURIComponent(window.PT_REV());
     var early = [
       'js/google-config.js',
       'js/supabase-config.js',
@@ -130,10 +138,94 @@
     }
   })();
   </script>
-  <link rel="stylesheet" href="css/styles.css" id="pt-css" />
-  <script>document.getElementById('pt-css').href = 'css/styles.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
-  <link rel="stylesheet" href="css/legendary.css" id="pt-css-legendary" />
-  <script>document.getElementById('pt-css-legendary').href = 'css/legendary.css?v=' + encodeURIComponent(window.PT_BUILD || '1');</script>
+  <!-- Sin href: lo pone el script de abajo ya versionado. Así la hoja se pide
+       una sola vez (antes se pedía también sin ?v=) y los reintentos quedan en
+       manos del watchdog, que es quien puede detectar que no se aplicó. -->
+  <link rel="stylesheet" id="pt-css" />
+  <link rel="stylesheet" id="pt-css-legendary" />
+  <noscript>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/legendary.css" />
+  </noscript>
+  <script>
+  (function () {
+    /* Red de seguridad de estilos: si una hoja no llega a aplicarse (respuesta
+       vacía o 404 servida por el service worker durante un deploy) la app se ve
+       en crudo y el usuario no tiene forma de recuperarla sin borrar datos del
+       navegador. Aquí se detecta y se reintenta saltando caché y SW. */
+    var SHEETS = [
+      { id: 'pt-css', href: 'css/styles.css' },
+      { id: 'pt-css-legendary', href: 'css/legendary.css' }
+    ];
+    var MAX_TRIES = 2;
+    var tries = {};
+
+    function applied(href) {
+      var list = document.styleSheets;
+      for (var i = 0; i < list.length; i++) {
+        var sheet = list[i];
+        if (!sheet.href || sheet.href.indexOf(href) < 0) continue;
+        try {
+          if (sheet.cssRules && sheet.cssRules.length) return true;
+        } catch (e) {
+          return true; // opaca: no se puede inspeccionar, se asume válida
+        }
+      }
+      return false;
+    }
+
+    function purgeCaches() {
+      try {
+        if (sessionStorage.getItem('pt_css_purge') === '1') return;
+        sessionStorage.setItem('pt_css_purge', '1');
+      } catch (e) { return; }
+      var jobs = [];
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        jobs.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }));
+      }
+      if (window.caches) {
+        jobs.push(caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }));
+      }
+      Promise.all(jobs).catch(function () { /* noop */ }).then(function () {
+        window.location.reload();
+      });
+    }
+
+    function retry(entry) {
+      var n = tries[entry.id] || 0;
+      if (n >= MAX_TRIES) return;
+      tries[entry.id] = n + 1;
+      var el = document.getElementById(entry.id);
+      if (!el) return;
+      // ptsw=bypass obliga al service worker a ir a red sin tocar su caché.
+      el.href = entry.href + '?v=' + encodeURIComponent(window.PT_REV()) +
+        '&ptsw=bypass&r=' + Date.now();
+      // Si ni así aplica, la caché está corrupta: desregistrar SW y recargar.
+      if (tries[entry.id] >= MAX_TRIES) purgeCaches();
+    }
+
+    SHEETS.forEach(function (entry) {
+      var el = document.getElementById(entry.id);
+      if (!el) return;
+      el.href = entry.href + '?v=' + encodeURIComponent(window.PT_REV());
+      el.addEventListener('error', function () { retry(entry); });
+    });
+
+    function verify() {
+      SHEETS.forEach(function (entry) {
+        if (!applied(entry.href)) retry(entry);
+      });
+    }
+    if (document.readyState === 'complete') verify();
+    else window.addEventListener('load', verify);
+    // Algunos navegadores no emiten 'error' con respuestas vacías: doble check.
+    setTimeout(verify, 4000);
+  })();
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- GSI se carga bajo demanda solo en auth legacy (sin Supabase Auth). -->
 </head>

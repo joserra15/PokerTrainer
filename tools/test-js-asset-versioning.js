@@ -54,13 +54,15 @@ assert(/version\.js\?t=/.test(index), 'index carga version.js con ?t=');
 
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 assert(/isVersionJs/.test(sw), 'SW trata version.js aparte');
-assert(/pt-shell-v19/.test(sw), 'SW cache v19');
+assert(/pt-shell-v20/.test(sw), 'SW cache v20');
 assert(/networkFirst\(req,\s*false,\s*false\)/.test(sw), 'version.js network-first no-store');
 
 const pwa = fs.readFileSync(path.join(root, 'js/pwa.js'), 'utf8');
 assert(/updateViaCache:\s*'none'/.test(pwa), 'SW register updateViaCache none');
 
 const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
-assert(/PT_BUILD\s*=\s*'2.7.23'/.test(version), 'PT_BUILD 2.7.23');
+assert(/PT_BUILD\s*=\s*'2.7.24'/.test(version), 'PT_BUILD 2.7.24');
+assert(/PT_ASSET_REV\s*=\s*'[^']+'/.test(version), 'version.js expone PT_ASSET_REV');
+assert(/PT_REV\s*=\s*function/.test(version), 'version.js expone PT_REV()');
 
 console.log('*** js-asset-versioning OK (' + htmlFiles.length + ' html) ***');

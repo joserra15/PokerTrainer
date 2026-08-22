@@ -23,7 +23,8 @@
   var preferFallback = false;
 
   function versionQuery() {
-    return '?v=' + encodeURIComponent(global.PT_BUILD || '1');
+    var rev = global.PT_REV ? global.PT_REV() : (global.PT_ASSET_REV || global.PT_BUILD || '1');
+    return '?v=' + encodeURIComponent(rev);
   }
 
   function loadScript(src) {

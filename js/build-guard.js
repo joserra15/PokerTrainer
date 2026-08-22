@@ -1,7 +1,10 @@
-/* Invalida caché del service worker cuando cambia PT_BUILD. */
+/* Invalida caché del service worker cuando cambia la revisión de assets.
+   Se usa PT_ASSET_REV (huella del contenido) y no PT_BUILD: un deploy que
+   reconstruye bundles sin subir la versión a mano dejaba al SW sirviendo los
+   ficheros viejos de su caché, mezclando HTML nuevo con CSS/JS antiguo. */
 (function (global) {
   'use strict';
-  var build = global.PT_BUILD || '1';
+  var build = global.PT_REV ? global.PT_REV() : (global.PT_ASSET_REV || global.PT_BUILD || '1');
   var key = 'pt_build_seen';
   var reloadKey = 'pt_build_reload';
   var seen = null;
@@ -53,7 +56,9 @@
     fetch(url, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.text() : ''; })
       .then(function (txt) {
-        var m = String(txt || '').match(/PT_BUILD\s*=\s*['"]([^'"]+)['"]/);
+        var body = String(txt || '');
+        var m = body.match(/PT_ASSET_REV\s*=\s*['"]([^'"]+)['"]/) ||
+          body.match(/PT_BUILD\s*=\s*['"]([^'"]+)['"]/);
         if (!m || !m[1]) return;
         if (String(m[1]) !== String(currentBuild)) clearCachesAndReload(m[1]);
       })
