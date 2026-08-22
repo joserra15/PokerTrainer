@@ -23820,7 +23820,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   async function loadPayload() {
-    const v = encodeURIComponent(global.PT_BUILD || '1');
+    const v = encodeURIComponent(global.PT_REV ? global.PT_REV() : (global.PT_BUILD || '1'));
     const res = await fetch('data/demo-session.json?v=' + v);
     if (!res.ok) throw new Error('demo_load_failed');
     return res.json();
@@ -28088,7 +28088,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function registerServiceWorker() {
     if (!('serviceWorker' in global.navigator)) return;
-    var build = global.PT_BUILD || '1';
+    var build = global.PT_REV ? global.PT_REV() : (global.PT_BUILD || '1');
     var base = appBasePath();
     var swUrl = base + 'sw.js?v=' + encodeURIComponent(build);
     global.addEventListener('load', function () {
