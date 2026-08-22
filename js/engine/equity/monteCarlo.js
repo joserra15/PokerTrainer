@@ -325,7 +325,7 @@
         out.push({ hand: vh, weight: hadDrawBeforeRiver(vh, board) ? MISSED_DRAW_WEIGHT : 1 });
       });
       return out;
-    });
+    }, 200);
   }
 
   /** Cuota de faroles de un rango de apuesta equilibrado: bet / (pot + 2×bet). */
@@ -372,11 +372,13 @@
     }
     const bet = opts.betBB || 0;
     const pot = opts.potBeforeBB || 0;
-    const sizing = (bet > 0 && pot > 0)
-      ? gtoBluffShare(bet, pot) * poolBluffFactor(bet, pot, opts)
-      : UNKNOWN_SIZING_BLUFF_SHARE;
+    const gto = (bet > 0 && pot > 0) ? gtoBluffShare(bet, pot) : UNKNOWN_SIZING_BLUFF_SHARE;
+    const sizing = (bet > 0 && pot > 0) ? gto * poolBluffFactor(bet, pot, opts) : gto;
     const raw = sizing * textureBluffFactor(board, heroCards);
-    return Math.max(MIN_BLUFF_SHARE, Math.min(MAX_BLUFF_SHARE, raw));
+    // El suelo evita rangos degenerados sin faroles, pero nunca supera la cuota
+    // teórica del sizing: una apuesta mínima no puede farolear más que GTO.
+    const floor = Math.min(MIN_BLUFF_SHARE, gto);
+    return Math.max(floor, Math.min(MAX_BLUFF_SHARE, raw));
   }
 
   /**
@@ -467,6 +469,13 @@
     return Math.min(eq, 0.995);
   }
 
+  /** Equity contra una mano cualquiera: mejor recurso que un 50 % arbitrario. */
+  function equityVsRandomHand(heroCards, board) {
+    if (!board || board.length < 5) return 0.5;
+    const spread = riverSpread(heroCards, board);
+    return spread.total ? (spread.beat + spread.tie / 2) / spread.total : 0.5;
+  }
+
   function equityExact(heroCards, boardArr, rangeStr, opts) {
     opts = opts || {};
     const dead = heroCards.concat(boardArr);
@@ -475,7 +484,9 @@
     combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
     combos = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove, heroCards);
     combos = filterCombosMissedFlushRiver(combos, boardArr, heroCards, opts);
-    if (!combos.length) return 0.5;
+    // Rango vacío (todos los combos bloqueados o notación sin manos jugables):
+    // caer a «vs mano cualquiera» en lugar de inventar un 50 %.
+    if (!combos.length) return equityVsRandomHand(heroCards, boardArr);
 
     const weighted = polarizedCombos(heroCards, boardArr, combos, opts);
     return clampRiverEquity(equityFromWeighted(heroScore, boardArr, weighted), heroCards, boardArr);
@@ -600,12 +611,14 @@
   /** Equity vs N oponentes (delega a GTOMultiway si está cargado). */
   function equityVsN(heroCards, board, opponents, iters, opts) {
     const MW = global.GTOMultiway;
-    if (MW && MW.equityVsN) return MW.equityVsN(heroCards, board, opponents, iters, opts);
+    if (MW && MW.equityVsN) {
+      return clampRiverEquity(MW.equityVsN(heroCards, board, opponents, iters, opts), heroCards, board);
+    }
     if (opponents && opponents.length === 1) {
       const o = opponents[0];
       return equityVsRange(heroCards, board, (o && o.rangeStr) || '22+,A2s+,K9s+,AJo+', iters, opts);
     }
-    return 0.5;
+    return equityVsRandomHand(heroCards, board);
   }
 
   global.GTOEquity = {
@@ -615,6 +628,6 @@
     streetFromBoard, cardsToRun, equityOneCardByOuts,
     hasShowdownValue, hadDrawBeforeRiver, bluffPool, gtoBluffShare, poolBluffFactor,
     textureBluffFactor, targetBluffShare, polarizedCombos, equityFromWeighted,
-    riverSpread, clampRiverEquity
+    riverSpread, clampRiverEquity, equityVsRandomHand
   };
 })(window);
