@@ -498,7 +498,10 @@
 
     return Object.assign(attachRangeContext(base, hand), {
       villainRange,
-      heroEquity: d.heroEquity != null ? d.heroEquity / 100 : null,
+      // Solo se reutiliza la equity guardada si viene con precisión completa:
+      // los porcentajes enteros de sesiones antiguas se recalculan (un 0 %
+      // redondeado convertía el call en un error de −toCall bb).
+      heroEquity: d.heroEquityExact != null ? d.heroEquityExact : null,
       villainLastAction,
       villainBetRatio,
       potBeforeBB,
@@ -537,7 +540,10 @@
     d.villainRange = inputSnap.villainRange;
     d.villainLastAction = inputSnap.villainLastAction;
     d.villainBetRatio = inputSnap.villainBetRatio;
-    if (evalResult.heroEquity != null) d.heroEquity = Math.round(evalResult.heroEquity * 100);
+    if (evalResult.heroEquity != null) {
+      d.heroEquityExact = evalResult.heroEquity;
+      d.heroEquity = Math.round(evalResult.heroEquity * 100);
+    }
     return d;
   }
 
@@ -1145,7 +1151,10 @@
           street: st,
           facingBet: toCallBB > 0 && !isRiverShove,
           riverShove: isRiverShove,
-          shoveNode: isRiverShove
+          shoveNode: isRiverShove,
+          betBB: toCallBB,
+          potBeforeBB: potBeforeBB,
+          villainLastAction: villainLastAction
         });
         let heroEquityAdj = heroEquityNow;
         if (RS && isRiverShove) {
@@ -1206,6 +1215,7 @@
           madeHandTier: (evalResult.handRank && evalResult.handRank.tier) || info.tier || null,
           options: opts,
           heroEquity: Math.round(heroEquityAdj * 100),
+          heroEquityExact: heroEquityAdj,
           villainAudit: pendingVillainAudit,
           context: (function () {
             let ctx = `${cap(st)} [${boardSoFar.join(' ')}]: tienes ${handName}. Bote ${potForDisplay}bb${toCallBB > 0 ? `, pagar ${toCallBB}bb` : ''}.`;
