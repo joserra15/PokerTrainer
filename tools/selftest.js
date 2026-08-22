@@ -649,7 +649,17 @@ console.log('Error bluff bet loss', errBet.evLoss, 'erroneous', errBet.evErroneo
 const badCall = EvLoss.computeEvLoss('flop', 'optima', 'call', null,
   { fold: 0.5, call: 0.4, raise: 0.1 },
   11, { potBB: 11, toCallBB: 3, potBeforeBB: 8, heroEquity: 0.08, street: 'flop', bbSizeEuro: 0.05 });
-console.log('Call sin odds loss', badCall.evLoss, 'bb (expect >=2)', 'eq', badCall.mathParams.equityPct, 'be', badCall.mathParams.breakEvenPct);
+// En river no hay calles futuras: ΔEV = Inversión − Eq×Pozo_final = 3 − 0.08×14 = 1.88bb.
+const badCallRiver = EvLoss.computeEvLoss('river', 'optima', 'call', null,
+  { fold: 0.5, call: 0.4, raise: 0.1 },
+  11, { potBB: 11, toCallBB: 3, potBeforeBB: 8, heroEquity: 0.08, street: 'river', bbSizeEuro: 0.05 });
+const riverLeakExact = Math.round((3 - 0.08 * 14) * 100) / 100;
+console.log('Call sin odds loss', badCall.evLoss, 'bb (expect >=2, flop: no realiza equity)',
+  '| river', badCallRiver.evLoss, 'bb (expect', riverLeakExact + ' exacto)',
+  'eq', badCall.mathParams.equityPct, 'be', badCall.mathParams.breakEvenPct);
+// Ninguna fuga de call puede superar la inversión.
+const badCallEvCoherent = badCall.evLoss >= 2 && badCall.evLoss <= 3
+  && Math.abs(badCallRiver.evLoss - riverLeakExact) < 0.02;
 
 const VP = sandbox.window.GTOVillainProfiles;
 const profHand = Engine.newHand({ type: 'RFI', heroPos: 'BTN', seed: 7777 });
@@ -786,7 +796,7 @@ for (let i = 0; i < 300; i++) {
   }
 }
 console.log(`Simulación: ${played} manos, ${complete} completadas, ${errors} errores.`);
-const evOk = badCall.evLoss >= 2 && badCall.evErroneous
+const evOk = badCallEvCoherent && badCall.evErroneous
   && sessStats.expectedNet === -62 && sessStats.varianceAdj === 82
   && handEv.expectedNet === 8.96 && handEv.varianceAdj === 90.62
   && profCount === 5 && maniacAgg === 'check' && maniacGoodMiss === 'bet' && fishTrash === 'check' && nitAgg === 'check'

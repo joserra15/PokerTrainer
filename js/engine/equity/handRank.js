@@ -90,10 +90,23 @@
     const villainRange = input.villainRange || D.BROAD_CONTINUE;
     const heroRange = inferHeroRange(input);
     const facingBet = (input.toCallBB || 0) > 0;
-    const eqOpts = { street: input.street, facingBet: facingBet };
+    // Mismo contexto de equity que evaluateSpot: el percentil se compara contra
+    // el mismo rango polarizado, no contra uno solo de valor.
+    const eqOpts = input.equityOpts || {
+      street: input.street,
+      facingBet: facingBet && !input.riverShove,
+      riverShove: !!input.riverShove,
+      shoveNode: !!input.riverShove,
+      betBB: input.toCallBB || 0,
+      potBeforeBB: input.potBeforeBB,
+      villainLastAction: input.villainLastAction || null
+    };
     const cacheKey = [
       heroCards.join(''), board.join(''), input.street,
-      facingBet ? 'fb' : '', heroRange.slice(0, 40), villainRange.slice(0, 80)
+      facingBet ? 'fb' : '',
+      input.toCallBB != null ? 'c' + Math.round(input.toCallBB * 100) : '',
+      input.potBeforeBB != null ? 'p' + Math.round(input.potBeforeBB * 100) : '',
+      heroRange.slice(0, 40), villainRange.slice(0, 80)
     ].join('|');
 
     return Cache.memo('handRank', cacheKey, () => {

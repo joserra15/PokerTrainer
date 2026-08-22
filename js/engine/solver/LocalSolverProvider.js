@@ -54,7 +54,11 @@
         street: out.street,
         facingBet: facingBet && !out.riverShove,
         riverShove: !!out.riverShove,
-        shoveNode: !!out.riverShove
+        shoveNode: !!out.riverShove,
+        // Sizing afrontado: fija la cuota de faroles del rango de apuesta villano.
+        betBB: out.toCallBB || 0,
+        potBeforeBB: out.potBeforeBB,
+        villainLastAction: out.villainLastAction || null
       };
 
       const eqIters = out._equityIters || (out.riverShove ? 500 : 400);
@@ -68,6 +72,8 @@
           out.heroEquity = Math.min(out.heroEquity, deval.capEquity);
         }
       }
+
+      out.equityOpts = eqOpts;
 
       if (HandRank) {
         out.handRank = HandRank.computeHandRank(out);

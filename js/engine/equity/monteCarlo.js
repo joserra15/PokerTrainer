@@ -4,6 +4,12 @@
  * En turn solo se reparte 1 carta (46 desconocidas); en flop 2 cartas.
  * En river (board completo) usa enumeración exacta de combos.
  * Amplía el rango del villano en boards de color cuando el héroe no tiene las nuts.
+ *
+ * Rango de apuesta polarizado: las tablas RANGE_FACING_* son rangos de VALOR
+ * («con qué continúa/apuesta fuerte»), no rangos de apuesta completos. Usarlas
+ * tal cual dejaba bluff-catchers legítimos con 0 % de equity (imposible: un
+ * rango de apuesta equilibrado siempre contiene faroles). Antes de calcular la
+ * equity se completa el rango con la cuota de faroles que exige el sizing.
  */
 (function (global) {
   'use strict';
@@ -12,6 +18,14 @@
   const N = global.GTORangesNotation;
   const Cache = global.GTOCache;
   const W = global.GTORangesWeights;
+
+  const DEFAULT_BLUFF_BASE = '22+, A2s+, K7s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 76s, 65s, 54s, A8o+, KTo+, QTo+, JTo';
+  /** Sizing desconocido: se asume ~2/3 de bote (cuota GTO de faroles ≈ 0.29). */
+  const UNKNOWN_SIZING_BLUFF_SHARE = 0.22;
+  const MIN_BLUFF_SHARE = 0.05;
+  const MAX_BLUFF_SHARE = 0.40;
+  /** Peso relativo de un proyecto fallado frente a aire sin historia de proyecto. */
+  const MISSED_DRAW_WEIGHT = 3;
 
   function streetFromBoard(board) {
     const n = (board || []).length;
@@ -249,6 +263,219 @@
     return weighted[0].combos[0];
   }
 
+  /* -------------------------------------------------------------------------
+   * Rango de apuesta polarizado: valor (tablas) + faroles (calculados)
+   * ---------------------------------------------------------------------- */
+
+  /** Fuerza de las cartas comunitarias por sí solas (la «mano del board»). */
+  function boardOnlyScore(board) {
+    if (!board || board.length < 5) return null;
+    return Cache.memo('board', 'bscore:' + board.join(''), function () {
+      return C.evaluate(board);
+    });
+  }
+
+  /**
+   * ¿El combo tiene valor de showdown, o solo juega el board?
+   * Board seco → pareja+; board pareado → trío/full+; board con 4 del mismo palo → color.
+   * Un kicker mejor no es valor de showdown: esos combos son los candidatos a farol.
+   */
+  function hasShowdownValue(vh, board) {
+    const base = boardOnlyScore(board);
+    if (!base) return true;
+    const score = C.evaluate(vh.concat(board));
+    if (score.category > base.category) return true;
+    // Si el propio board hace escalera o color, mejorarla sí es valor real.
+    if (base.category >= 4) return C.compare(score, base) > 0;
+    return false;
+  }
+
+  /** ¿Llegaba al river con proyecto (color u escalera) que se falló? Es el farol natural. */
+  function hadDrawBeforeRiver(vh, board) {
+    const turnBoard = board.slice(0, 4);
+    const all = vh.concat(turnBoard);
+    const suits = {};
+    all.forEach(function (c) { suits[c[1]] = (suits[c[1]] || 0) + 1; });
+    for (const s in suits) {
+      if (suits[s] === 4) return true;
+    }
+    const MH = global.GTOEquityMadeHand;
+    if (MH && MH.straightDraws) {
+      const d = MH.straightDraws(all);
+      if (d.oesd || d.gutshot) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Combos sin valor de showdown que un rango de apuesta usaría como farol,
+   * ponderando los proyectos fallados por encima del aire puro.
+   */
+  function bluffPool(board, dead, opts) {
+    if (!board || board.length < 5) return [];
+    const D = global.GTORangesData;
+    const base = (opts && opts.bluffBaseRange)
+      || (D && D.BROAD_CONTINUE)
+      || DEFAULT_BLUFF_BASE;
+    const key = 'bluffpool:' + board.join('') + '|' + dead.slice().sort().join('') + '|' + base.slice(0, 60);
+    return Cache.memo('range', key, function () {
+      const out = [];
+      allVillainCombos(base, dead).forEach(function (vh) {
+        if (hasShowdownValue(vh, board)) return;
+        out.push({ hand: vh, weight: hadDrawBeforeRiver(vh, board) ? MISSED_DRAW_WEIGHT : 1 });
+      });
+      return out;
+    }, 200);
+  }
+
+  /** Cuota de faroles de un rango de apuesta equilibrado: bet / (pot + 2×bet). */
+  function gtoBluffShare(betBB, potBeforeBB) {
+    const pot = Math.max(potBeforeBB || 0, 0.01);
+    const bet = Math.max(betBB || 0, 0);
+    if (bet <= 0) return 0;
+    return bet / (pot + 2 * bet);
+  }
+
+  /**
+   * Los pools de microlímites farolean por debajo de GTO, y tanto menos cuanto
+   * mayor es el sizing (overbets y resubidas son casi puro valor).
+   */
+  function poolBluffFactor(betBB, potBeforeBB, opts) {
+    const ratio = Math.max(betBB || 0, 0) / Math.max(potBeforeBB || 0.01, 0.01);
+    let f = ratio <= 0.5 ? 0.9 : (ratio <= 0.85 ? 0.8 : (ratio <= 1.25 ? 0.7 : 0.6));
+    if (opts && opts.villainLastAction === 'raise') f *= 0.75;
+    return f;
+  }
+
+  /**
+   * Texturas donde el rango de apuesta es casi puro valor: con 4 cartas del
+   * mismo palo en mesa, la mayoría del rango del villano liga color y el héroe
+   * sin ese palo no bloquea nada, así que apenas hay faroles que batir.
+   */
+  function textureBluffFactor(board, heroCards) {
+    if (!board || board.length < 5 || !heroCards || heroCards.length < 2) return 1;
+    const counts = boardSuitCounts(board);
+    for (const s of C.SUITS) {
+      if ((counts[s] || 0) < 4) continue;
+      if (heroCards.some(function (c) { return c[1] === s; })) continue;
+      return 0.25;
+    }
+    return 1;
+  }
+
+  /** Cuota de faroles objetivo del rango de apuesta del villano. */
+  function targetBluffShare(opts, board, heroCards) {
+    if (!opts) return 0;
+    if (!opts.facingBet && !opts.riverShove && !opts.shoveNode) return 0;
+    if (opts.bluffShare != null) {
+      return Math.max(0, Math.min(MAX_BLUFF_SHARE, opts.bluffShare));
+    }
+    const bet = opts.betBB || 0;
+    const pot = opts.potBeforeBB || 0;
+    const gto = (bet > 0 && pot > 0) ? gtoBluffShare(bet, pot) : UNKNOWN_SIZING_BLUFF_SHARE;
+    const sizing = (bet > 0 && pot > 0) ? gto * poolBluffFactor(bet, pot, opts) : gto;
+    const raw = sizing * textureBluffFactor(board, heroCards);
+    // El suelo evita rangos degenerados sin faroles, pero nunca supera la cuota
+    // teórica del sizing: una apuesta mínima no puede farolear más que GTO.
+    const floor = Math.min(MIN_BLUFF_SHARE, gto);
+    return Math.max(floor, Math.min(MAX_BLUFF_SHARE, raw));
+  }
+
+  /**
+   * Completa un rango de valor con faroles hasta la cuota que exige el sizing.
+   * Devuelve combos ponderados: [{ hand, weight }]. Idempotente: si el rango ya
+   * contiene suficientes faroles no añade nada.
+   */
+  function polarizedCombos(heroCards, board, combos, opts) {
+    const weighted = combos.map(function (vh) { return { hand: vh, weight: 1 }; });
+    if (!board || board.length < 5 || !combos.length) return weighted;
+    const target = targetBluffShare(opts, board, heroCards);
+    if (target <= 0) return weighted;
+
+    let air = 0;
+    combos.forEach(function (vh) { if (!hasShowdownValue(vh, board)) air++; });
+    const total = combos.length;
+    if (air / total >= target) return weighted;
+
+    const extra = (target * total - air) / (1 - target);
+    if (!(extra > 0)) return weighted;
+
+    const inRange = new Set(combos.map(function (vh) { return vh.join(''); }));
+    const pool = bluffPool(board, heroCards.concat(board), opts)
+      .filter(function (e) { return !inRange.has(e.hand.join('')); });
+    if (!pool.length) return weighted;
+
+    let poolWeight = 0;
+    pool.forEach(function (e) { poolWeight += e.weight; });
+    if (poolWeight <= 0) return weighted;
+    const k = extra / poolWeight;
+    pool.forEach(function (e) { weighted.push({ hand: e.hand, weight: e.weight * k }); });
+    return weighted;
+  }
+
+  function equityFromWeighted(heroScore, board, weighted) {
+    let win = 0, tie = 0, total = 0;
+    for (let i = 0; i < weighted.length; i++) {
+      const w = weighted[i].weight;
+      if (!(w > 0)) continue;
+      const cmp = C.compare(heroScore, C.evaluate(weighted[i].hand.concat(board)));
+      if (cmp > 0) win += w;
+      else if (cmp === 0) tie += w;
+      total += w;
+    }
+    return total > 0 ? (win + tie / 2) / total : 0.5;
+  }
+
+  /* -------------------------------------------------------------------------
+   * Cotas de cordura: reparto del héroe frente a TODAS las manos posibles
+   * ---------------------------------------------------------------------- */
+
+  /** Cuántas de las manos posibles del rival gana / empata / pierde el héroe. */
+  function riverSpread(heroCards, board) {
+    const key = 'spread:' + heroCards.slice().sort().join('') + '|' + board.join('');
+    return Cache.memo('equity', key, function () {
+      const heroScore = C.evaluate(heroCards.concat(board));
+      const dead = new Set(heroCards.concat(board));
+      const deck = C.fullDeck().filter(function (c) { return !dead.has(c); });
+      let beat = 0, tie = 0, lose = 0;
+      for (let i = 0; i < deck.length; i++) {
+        for (let j = i + 1; j < deck.length; j++) {
+          const cmp = C.compare(heroScore, C.evaluate([deck[i], deck[j]].concat(board)));
+          if (cmp > 0) beat++;
+          else if (cmp === 0) tie++;
+          else lose++;
+        }
+      }
+      return { beat: beat, tie: tie, lose: lose, total: beat + tie + lose };
+    });
+  }
+
+  /**
+   * Ninguna equity de river puede ser 0 % si el héroe gana a alguna mano posible,
+   * ni 100 % si alguna mano posible le gana. Red de seguridad para cualquier
+   * ruta (filtros, rangos degenerados, multiway) además del rango polarizado.
+   */
+  function clampRiverEquity(eq, heroCards, board) {
+    if (!board || board.length < 5 || !heroCards || heroCards.length < 2) return eq;
+    if (eq > 0 && eq < 1) return eq;
+    const spread = riverSpread(heroCards, board);
+    if (!spread.total) return eq;
+    if (eq <= 0) {
+      if (spread.beat + spread.tie === 0) return 0;
+      const residual = (spread.beat + spread.tie / 2) / spread.total;
+      return Math.min(0.05, residual);
+    }
+    if (spread.lose === 0) return 1;
+    return Math.min(eq, 0.995);
+  }
+
+  /** Equity contra una mano cualquiera: mejor recurso que un 50 % arbitrario. */
+  function equityVsRandomHand(heroCards, board) {
+    if (!board || board.length < 5) return 0.5;
+    const spread = riverSpread(heroCards, board);
+    return spread.total ? (spread.beat + spread.tie / 2) / spread.total : 0.5;
+  }
+
   function equityExact(heroCards, boardArr, rangeStr, opts) {
     opts = opts || {};
     const dead = heroCards.concat(boardArr);
@@ -257,16 +484,12 @@
     combos = filterCombosFacingShove(combos, heroCards, boardArr, opts);
     combos = filterCombosFacingBet(combos, boardArr, opts.facingBet && !opts.riverShove, heroCards);
     combos = filterCombosMissedFlushRiver(combos, boardArr, heroCards, opts);
-    if (!combos.length) return 0.5;
+    // Rango vacío (todos los combos bloqueados o notación sin manos jugables):
+    // caer a «vs mano cualquiera» en lugar de inventar un 50 %.
+    if (!combos.length) return equityVsRandomHand(heroCards, boardArr);
 
-    let win = 0, tie = 0;
-    for (const vh of combos) {
-      const vScore = C.evaluate(vh.concat(boardArr));
-      const cmp = C.compare(heroScore, vScore);
-      if (cmp > 0) win++;
-      else if (cmp === 0) tie++;
-    }
-    return (win + tie / 2) / combos.length;
+    const weighted = polarizedCombos(heroCards, boardArr, combos, opts);
+    return clampRiverEquity(equityFromWeighted(heroScore, boardArr, weighted), heroCards, boardArr);
   }
 
   /** Enumeración exacta con runout restante (turn/flop) para rangos filtrados pequeños. */
@@ -321,6 +544,10 @@
       opts.facingBet ? 'fb' : '',
       opts.riverShove ? 'sh' : '',
       opts.shoveNode ? 'sn' : '',
+      // El sizing cambia la cuota de faroles del rango: no puede compartir caché.
+      opts.betBB != null ? 'b' + Math.round(opts.betBB * 100) : '',
+      opts.potBeforeBB != null ? 'p' + Math.round(opts.potBeforeBB * 100) : '',
+      opts.villainLastAction || '',
       (rangeStr || '').slice(0, 120), iters
     ].join('|');
     const cached = Cache.get('equity', key);
@@ -384,18 +611,23 @@
   /** Equity vs N oponentes (delega a GTOMultiway si está cargado). */
   function equityVsN(heroCards, board, opponents, iters, opts) {
     const MW = global.GTOMultiway;
-    if (MW && MW.equityVsN) return MW.equityVsN(heroCards, board, opponents, iters, opts);
+    if (MW && MW.equityVsN) {
+      return clampRiverEquity(MW.equityVsN(heroCards, board, opponents, iters, opts), heroCards, board);
+    }
     if (opponents && opponents.length === 1) {
       const o = opponents[0];
       return equityVsRange(heroCards, board, (o && o.rangeStr) || '22+,A2s+,K9s+,AJo+', iters, opts);
     }
-    return 0.5;
+    return equityVsRandomHand(heroCards, board);
   }
 
   global.GTOEquity = {
     equityVsRange, equityVsN, equityExact, equityExactRunout, sampleHandFromRange, concreteCombos, allVillainCombos,
     augmentVillainRange, heroNonNutFlushContext, isFlushBoard, filterCombosFacingBet,
     combosOf: W ? W.combosOf : function () { return 1; },
-    streetFromBoard, cardsToRun, equityOneCardByOuts
+    streetFromBoard, cardsToRun, equityOneCardByOuts,
+    hasShowdownValue, hadDrawBeforeRiver, bluffPool, gtoBluffShare, poolBluffFactor,
+    textureBluffFactor, targetBluffShare, polarizedCombos, equityFromWeighted,
+    riverSpread, clampRiverEquity, equityVsRandomHand
   };
 })(window);

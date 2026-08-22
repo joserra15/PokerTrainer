@@ -1,0 +1,45 @@
+
+Transcripción de prueba solicitada por KazeDj (info@pokerforgeai.com)
+
+*********** n. 1 **************
+Mano n.º 261900000001 de Zoom de PokerStars:  Hold'em No Limit (0.02 €/0.05 €) - 22-08-2026 21:10:38 CEST [22-08-2026 15:10:38 ET]
+Mesa "Bluffcatch" 6-max El asiento n.º 1 es el botón
+Asiento 1: btn_villano (5 € en fichas)
+Asiento 2: sb_villano (5 € en fichas)
+Asiento 3: sanje35 (5 € en fichas)
+Asiento 4: utg_villano (5 € en fichas)
+Asiento 5: KazeDj (5 € en fichas)
+Asiento 6: co_villano (5 € en fichas)
+sb_villano: pone la ciega pequeña 0.02 €
+sanje35: pone la ciega grande 0.05 €
+*** CARTAS DE MANO ***
+Repartidas a KazeDj [Ts Qd]
+utg_villano: se retira
+KazeDj: sube 0.06 € a 0.11 €
+co_villano: se retira
+btn_villano: se retira
+sb_villano: se retira
+sanje35: iguala 0.06 €
+*** FLOP *** [Kd Ac 2s]
+sanje35: pasa
+KazeDj: apuesta 0.10 €
+sanje35: iguala 0.10 €
+*** TURN *** [Kd Ac 2s] [6s]
+sanje35: pasa
+KazeDj: pasa
+*** RIVER *** [Kd Ac 2s 6s] [Td]
+sanje35: apuesta 0.37 €
+KazeDj: iguala 0.37 €
+*** SHOW DOWN ***
+sanje35: muestra [8s 5s] (carta alta as)
+KazeDj: muestra [Ts Qd] (pareja, dieces)
+KazeDj se lleva 1.13 € del bote
+*** RESUMEN ***
+Bote total 1.18 € | Comisión 0.05 €
+Comunitarias [Kd Ac 2s 6s Td]
+Asiento 1: btn_villano (botón) se retiró antes del Flop (no apostó)
+Asiento 2: sb_villano (ciega pequeña) se retiró antes del Flop
+Asiento 3: sanje35 (ciega grande) muestra [8s 5s] y perdió con carta alta as
+Asiento 4: utg_villano se retiró antes del Flop (no apostó)
+Asiento 5: KazeDj muestra [Ts Qd] y ganó (1.13 €) con pareja, dieces
+Asiento 6: co_villano se retiró antes del Flop (no apostó)

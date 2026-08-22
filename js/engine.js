@@ -3834,7 +3834,10 @@
           return o.cards ? { cards: o.cards } : { rangeStr: o.rangeStr || baseRange };
         }),
         220,
-        { street: street, facingBet: !!toCallBB }
+        {
+          street: street, facingBet: !!toCallBB,
+          betBB: toCallBB, potBeforeBB: potBeforeBB, villainLastAction: villainLastAction
+        }
       )
       : (GTO.computeHeroEquity
       ? GTO.computeHeroEquity({

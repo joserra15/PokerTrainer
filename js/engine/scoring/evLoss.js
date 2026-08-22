@@ -78,22 +78,43 @@
     return { best, bestEV, actionEV, formulaDelta };
   }
 
-  function callSinOddsLoss(ctx, input, bestAction) {
+  /**
+   * ΔEV exacta de un call frente a fold: Inversión − Eq×Pozo_final.
+   * Es la única fuga posible en river: la mano se abre, no hay calles futuras
+   * donde dejar de realizar la equity.
+   */
+  function callLeakExact(ctx) {
     const pa = EvMath.potAfterCall(ctx.potBeforeBB, ctx.toCallBB);
-    let raw = round2(ctx.toCallBB - ctx.equity * pa);
-    if ((!bestAction || bestAction === 'fold') && raw > 0) {
-      raw = EvMath.evCallLeak(ctx.equity, ctx.potBeforeBB, ctx.toCallBB);
+    return round2(Math.max(0, ctx.toCallBB - ctx.equity * pa));
+  }
+
+  /**
+   * Fuga de un call sin pot odds.
+   * River: exactamente Inversión − Eq×Pozo_final (ΔEV real vs fold). Escalarla
+   * contradecía la propia ficha de EV (EV acción −1.5bb, óptimo 0bb → ΔEV 6.7bb)
+   * y castigaba bluff-catchers marginales como calls a ciegas.
+   * Flop/turn: con la equity muy por debajo del precio casi no se realiza —se
+   * paga y se abandona ante el siguiente barril—, así que la fuga se acerca a la
+   * inversión completa (odds implícitas inversas). Nunca la supera.
+   */
+  function callSinOddsLoss(ctx, input, bestAction) {
+    let loss = callLeakExact(ctx);
+    if ((!bestAction || bestAction === 'fold') && loss > 0) {
+      loss = EvMath.evCallLeak(ctx.equity, ctx.potBeforeBB, ctx.toCallBB);
     }
-    let loss;
-    if (ctx.equity < ctx.breakEven * 0.85) loss = round2(Math.max(raw, ctx.toCallBB * 0.9));
-    else if (ctx.equity < ctx.breakEven) {
-      loss = round2(Math.max(raw, ctx.toCallBB * (1 - ctx.equity / Math.max(ctx.breakEven, 0.01))));
-    } else loss = round2(Math.max(raw, 0));
-    if (input && microStakesBB(input) && input.villainLastAction === 'raise'
-      && ctx.toCallBB <= ctx.potBeforeBB * 0.35) {
-      loss = round2(Math.max(loss, 1));
+    const street = (input && input.street) || 'flop';
+    if (street !== 'river') {
+      if (ctx.equity < ctx.breakEven * 0.85) {
+        loss = round2(Math.max(loss, ctx.toCallBB * 0.9));
+      } else if (ctx.equity < ctx.breakEven) {
+        loss = round2(Math.max(loss, ctx.toCallBB * (1 - ctx.equity / Math.max(ctx.breakEven, 0.01))));
+      }
+      if (input && microStakesBB(input) && input.villainLastAction === 'raise'
+        && ctx.toCallBB <= ctx.potBeforeBB * 0.35) {
+        loss = round2(Math.max(loss, 1));
+      }
     }
-    return loss;
+    return round2(Math.min(loss, Math.max(ctx.toCallBB, 0)));
   }
 
   function foldConEquidadLoss(ctx) {
@@ -113,10 +134,14 @@
       if (!impliedOddsAllowed(input, ctx)) {
         const loss = callSinOddsLoss(ctx, input, formula.best);
         if (loss >= EV_ERR_THRESHOLD_BB) {
+          const exact = callLeakExact(ctx);
           evLoss = loss;
           reasons.push({
             type: 'call_sin_odds',
-            msg: `Call sin pot odds: Eq ${eqPct}% < BE ${bePct}%. ΔEV = Inversión − Eq×Pozo = ${ctx.toCallBB} − ${eqPct}%×${pa} ≈ ${loss} bb.`
+            msg: loss > exact + 0.01
+              // Escalada por no realización (flop/turn): el detalle explica el salto.
+              ? `Call sin pot odds: Eq ${eqPct}% < BE ${bePct}%. ΔEV directa = ${ctx.toCallBB} − ${eqPct}%×${pa} ≈ ${exact} bb, y con la equity tan por debajo del precio casi no se realiza (quedan calles por pagar): fuga ≈ ${loss} bb.`
+              : `Call sin pot odds: Eq ${eqPct}% < BE ${bePct}%. ΔEV = Inversión − Eq×Pozo = ${ctx.toCallBB} − ${eqPct}%×${pa} ≈ ${loss} bb.`
           });
         }
       }
@@ -263,7 +288,7 @@
 
   global.GTOEvLoss = {
     round2, evLossTier, preflopEvLoss, postflopEvLoss, computeEvLoss, FREQ_EPS,
-    impliedOddsAllowed, callFailsPotOdds, callSinOddsLoss, foldConEquidadLoss,
+    impliedOddsAllowed, callFailsPotOdds, callSinOddsLoss, callLeakExact, foldConEquidadLoss,
     totalEvLossFromDecisions, computeNetEvStats, computeLeakVariancePct, formulaEv, availableActions
   };
 })(window);
