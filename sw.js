@@ -1,7 +1,7 @@
-/* Service worker — PWA instalable. Assets con ?v=PT_BUILD; version.js siempre fresco. */
+/* Service worker — PWA instalable. Assets con ?v=PT_REV(); version.js siempre fresco. */
 'use strict';
 
-var CACHE = 'pt-shell-v19';
+var CACHE = 'pt-shell-v20';
 var PRECACHE = [
   './offline.html',
   './apple-touch-icon.png',
@@ -28,6 +28,11 @@ function isVersionedRequest(url) {
   return url.searchParams.has('v') || url.searchParams.has('t');
 }
 
+/* La página pide así una hoja/script que no llegó a aplicarse: red directa. */
+function isBypassRequest(url) {
+  return url.searchParams.get('ptsw') === 'bypass';
+}
+
 function isNavigateRequest(req) {
   return req.mode === 'navigate';
 }
@@ -44,8 +49,19 @@ function offlineFallback() {
   });
 }
 
+/* Nunca con status 200: una hoja de estilos o un script vacíos con 200 se
+   aplican como "cargados y sin contenido" y dejan la app en crudo sin error. */
 function emptyFallback(status) {
   return new Response('', { status: status || 503, statusText: 'Offline' });
+}
+
+/* Cualquier copia servible del mismo fichero, aunque sea de otra versión:
+   CSS/JS viejo es infinitamente mejor que una respuesta vacía. */
+function anyCachedCopy(req) {
+  return caches.match(req).then(function (exact) {
+    if (exact) return exact;
+    return caches.match(req, { ignoreSearch: true });
+  }).catch(function () { return null; });
 }
 
 function networkFirst(req, htmlFallback, cacheOk) {
@@ -56,7 +72,7 @@ function networkFirst(req, htmlFallback, cacheOk) {
     }
     return res;
   }).catch(function () {
-    return caches.match(req).then(function (cached) {
+    return anyCachedCopy(req).then(function (cached) {
       if (cached) return cached;
       return htmlFallback ? offlineFallback() : emptyFallback(503);
     });
@@ -79,8 +95,13 @@ function cacheFirstVersioned(req) {
       return cached;
     }
     return network.then(function (res) {
-      if (res) return res;
-      return emptyFallback(503);
+      if (res && res.ok) return res;
+      // Un 404/500 (típico durante un deploy de Pages) o un fallo de red no
+      // pueden llegar al documento: dejarían la app sin CSS ni JS.
+      return anyCachedCopy(req).then(function (fallback) {
+        if (fallback) return fallback;
+        return res || emptyFallback(503);
+      });
     });
   });
 }
@@ -95,7 +116,9 @@ function cacheFirstGeneric(req) {
       }
       return res;
     }).catch(function () {
-      return emptyFallback(503);
+      return anyCachedCopy(req).then(function (fallback) {
+        return fallback || emptyFallback(503);
+      });
     });
   });
 }
@@ -128,6 +151,16 @@ self.addEventListener('fetch', function (event) {
     return;
   }
   if (url.origin !== self.location.origin) return;
+
+  // Reintento explícito del documento tras un asset roto: red y nada más.
+  if (isBypassRequest(url)) {
+    event.respondWith(fetch(req, { cache: 'no-store' }).catch(function () {
+      return anyCachedCopy(req).then(function (cached) {
+        return cached || emptyFallback(503);
+      });
+    }));
+    return;
+  }
 
   if (isNavigateRequest(req)) {
     event.respondWith(networkFirst(req, true, false));
