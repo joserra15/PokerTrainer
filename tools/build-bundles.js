@@ -5,15 +5,10 @@
 const fs = require('fs');
 const path = require('path');
 const { CHUNKS } = require('./bundle-manifest');
+const AssetRev = require('./asset-rev');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'dist');
-
-function readBuild() {
-  const raw = fs.readFileSync(path.join(ROOT, 'js/version.js'), 'utf8');
-  const m = raw.match(/PT_BUILD\s*=\s*['"]([^'"]+)['"]/);
-  return m ? m[1] : '1';
-}
 
 function concatFiles(files) {
   return files.map(function (rel) {
@@ -32,7 +27,7 @@ function writeBundle(name, files) {
 }
 
 function main() {
-  const build = readBuild();
+  const build = AssetRev.readBuild();
   console.log('Building bundles for PT_BUILD=' + build);
   fs.mkdirSync(OUT, { recursive: true });
 
@@ -40,14 +35,20 @@ function main() {
     writeBundle(name, CHUNKS[name]);
   });
 
+  // La huella se calcula con los bundles ya escritos: es el token de ?v=.
+  const rev = AssetRev.computeAssetRev(build);
+  AssetRev.writeAssetRev(rev);
+
   const manifest = {
     build: build,
+    rev: rev,
     chunks: Object.keys(CHUNKS).reduce(function (acc, name) {
       acc[name] = 'dist/pt-' + name + '.js';
       return acc;
     }, {})
   };
   fs.writeFileSync(path.join(OUT, 'bundles.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  console.log('Asset rev → ' + rev);
   console.log('Done → dist/');
 }
 

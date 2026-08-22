@@ -15,7 +15,7 @@
   <script>document.write('<script src="js/version.js?t=' + Date.now() + '"><\/script>');</script>
   <script>
   (function () {
-    var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+    var v = '?v=' + encodeURIComponent(window.PT_REV ? window.PT_REV() : (window.PT_BUILD || '1'));
     var css = document.getElementById('pt-share-css');
     if (css) css.href = 'css/share.css' + v;
     function w(src) { document.write('<script src="' + src + v + '"><\/script>'); }

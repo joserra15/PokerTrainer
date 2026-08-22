@@ -19,7 +19,7 @@
   }
 
   async function loadPayload() {
-    const v = encodeURIComponent(global.PT_BUILD || '1');
+    const v = encodeURIComponent(global.PT_REV ? global.PT_REV() : (global.PT_BUILD || '1'));
     const res = await fetch('data/demo-session.json?v=' + v);
     if (!res.ok) throw new Error('demo_load_failed');
     return res.json();
