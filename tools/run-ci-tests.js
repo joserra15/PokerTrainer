@@ -23,6 +23,7 @@ const STEPS = [
   ['Regresión EV Poker76', ['node', 'tools/regression-poker76.js']],
   ['Regresión EV modo Jugar', ['node', 'tools/test-play-ev.js']],
   ['Test payload informe IA', ['node', 'tools/test-ai-payload.js']],
+  ['Test saludo ForgeCoach caché 8h', ['node', 'tools/test-home-greeting-cache.js']],
   ['Test river trips board doblado', ['node', 'tools/test-river-trips.js']],
   ['Test villano no foldea las nuts', ['node', 'tools/test-villain-never-fold-nuts.js']],
   ['Test análisis de manos', ['node', 'tools/test-hand-analysis.js']],

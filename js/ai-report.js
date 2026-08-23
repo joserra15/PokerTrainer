@@ -65,6 +65,9 @@
   };
 
   const GREETING_FOCUS_KEY = 'pt_home_greeting_focus_v1';
+  const GREETING_CACHE_KEY = 'pt_home_greeting_v2';
+  /** El saludo ForgeCoach se regenera como máximo una vez cada 8 horas (persiste entre recargas). */
+  const GREETING_TTL_MS = 8 * 60 * 60 * 1000;
   const GREETING_HISTORY_MAX = 8;
 
   /** Catálogo rotativo de focos de entrenamiento para el saludo de bienvenida. */
@@ -938,10 +941,18 @@
     return panel;
   }
 
-  function greetingFocusStorageKey() {
+  function greetingUserSuffix() {
     const u = (global.PTAuth && global.PTAuth.getUser) ? global.PTAuth.getUser() : global.PT_AUTH_USER;
     const uid = u && (u.id || u.sub || u.userId);
-    return GREETING_FOCUS_KEY + (uid ? ('_' + uid) : '');
+    return uid ? ('_' + uid) : '';
+  }
+
+  function greetingFocusStorageKey() {
+    return GREETING_FOCUS_KEY + greetingUserSuffix();
+  }
+
+  function greetingCacheStorageKey() {
+    return GREETING_CACHE_KEY + greetingUserSuffix();
   }
 
   function loadGreetingFocusHistory() {
@@ -964,6 +975,31 @@
     });
     try {
       localStorage.setItem(greetingFocusStorageKey(), JSON.stringify(list.slice(0, GREETING_HISTORY_MAX)));
+    } catch (e) { /* noop */ }
+  }
+
+  function readGreetingCache() {
+    try {
+      const raw = localStorage.getItem(greetingCacheStorageKey());
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed.text !== 'string' || !parsed.text.trim()) return null;
+      const at = Number(parsed.at);
+      if (!Number.isFinite(at) || at <= 0) return null;
+      if (Date.now() - at >= GREETING_TTL_MS) return null;
+      return parsed.text.trim();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeGreetingCache(text) {
+    if (!text || !String(text).trim()) return;
+    try {
+      localStorage.setItem(greetingCacheStorageKey(), JSON.stringify({
+        text: String(text).trim(),
+        at: Date.now()
+      }));
     } catch (e) { /* noop */ }
   }
 
@@ -1061,47 +1097,58 @@
       .trim();
   }
 
+  let homeGreetingInFlight = null;
+
   async function fetchHomeGreeting(getStatsBundle) {
     if (!isEnabled()) return null;
     if (isGuestSession()) return null;
-    const consent = await ensureConsent('statsGlobal');
-    if (!consent) return null;
-    const today = new Date().toISOString().slice(0, 10);
-    const cacheKey = 'pt_home_greeting_' + today;
+    const cached = readGreetingCache();
+    if (cached) return cached;
+    if (homeGreetingInFlight) return homeGreetingInFlight;
+
+    homeGreetingInFlight = (async function () {
+      const consent = await ensureConsent('statsGlobal');
+      if (!consent) return null;
+      // Releer tras el consentimiento por si otra pestaña ya guardó el saludo.
+      const cachedAfterConsent = readGreetingCache();
+      if (cachedAfterConsent) return cachedAfterConsent;
+      const Payload = global.PTAIHandPayload;
+      if (!Payload || !Payload.build) return null;
+      const bundle = typeof getStatsBundle === 'function' ? getStatsBundle() : getStatsBundle;
+      const focusInfo = pickGreetingFocus(bundle || {});
+      const greetingFocus = {
+        id: focusInfo.focus.id,
+        label: focusInfo.focus.label,
+        spot: focusInfo.focus.spot || focusInfo.focus.label,
+        scenario: focusInfo.focus.scenario || null,
+        street: focusInfo.focus.street || null,
+        avoidRecent: focusInfo.avoidRecent || [],
+        reason: focusInfo.reason
+      };
+      const enrich = Object.assign({}, bundle || {}, { greetingFocus: greetingFocus });
+      const payload = Payload.build('statsGlobal', enrich);
+      if (!payload) return null;
+      payload.greetingFocus = greetingFocus;
+      const question = buildHomeGreetingQuestion(focusInfo);
+      const data = await fetchCoach(payload, 'statsGlobal', 'question', question, [], { freePromo: true });
+      const text = stripPlainCoachText(data.reportMarkdown || '');
+      if (text) {
+        writeGreetingCache(text);
+        saveGreetingFocus({
+          id: greetingFocus.id,
+          label: greetingFocus.label,
+          spot: greetingFocus.spot,
+          date: new Date().toISOString().slice(0, 10)
+        });
+      }
+      return text || null;
+    })();
+
     try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) return cached;
-    } catch (e) { /* noop */ }
-    const Payload = global.PTAIHandPayload;
-    if (!Payload || !Payload.build) return null;
-    const bundle = typeof getStatsBundle === 'function' ? getStatsBundle() : getStatsBundle;
-    const focusInfo = pickGreetingFocus(bundle || {});
-    const greetingFocus = {
-      id: focusInfo.focus.id,
-      label: focusInfo.focus.label,
-      spot: focusInfo.focus.spot || focusInfo.focus.label,
-      scenario: focusInfo.focus.scenario || null,
-      street: focusInfo.focus.street || null,
-      avoidRecent: focusInfo.avoidRecent || [],
-      reason: focusInfo.reason
-    };
-    const enrich = Object.assign({}, bundle || {}, { greetingFocus: greetingFocus });
-    const payload = Payload.build('statsGlobal', enrich);
-    if (!payload) return null;
-    payload.greetingFocus = greetingFocus;
-    const question = buildHomeGreetingQuestion(focusInfo);
-    const data = await fetchCoach(payload, 'statsGlobal', 'question', question, [], { freePromo: true });
-    const text = stripPlainCoachText(data.reportMarkdown || '');
-    if (text) {
-      try { sessionStorage.setItem(cacheKey, text); } catch (e) { /* noop */ }
-      saveGreetingFocus({
-        id: greetingFocus.id,
-        label: greetingFocus.label,
-        spot: greetingFocus.spot,
-        date: today
-      });
+      return await homeGreetingInFlight;
+    } finally {
+      homeGreetingInFlight = null;
     }
-    return text || null;
   }
 
   function mountWelcome(container, options) {
