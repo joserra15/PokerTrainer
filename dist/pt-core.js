@@ -10183,6 +10183,19 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   /**
+   * La UI pinta "mejor" (píldora verde y texto «mejor: X») junto a los % de la
+   * mezcla, así que marcar como mejor una acción con menos % que la líder se lee
+   * como una contradicción. Se compara con el % redondeado que ve el usuario.
+   */
+  function bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds) {
+    if (best === freqBest) return best;
+    if (callSinOdds && best === 'fold') return best;
+    if (!(maxFreq > 0)) return best;
+    const bestFreq = mixFreqOf(best, opts, chosen, freq, freqBest, maxFreq);
+    return Math.round(bestFreq * 100) < Math.round(maxFreq * 100) ? freqBest : best;
+  }
+
+  /**
    * "Mejor" en UI = líder de la mezcla GTO, salvo que el EV apunte a una acción
    * también competitiva en frecuencia (o a fold por call sin odds).
    * Evita marcar raise ~7% como óptimo cuando call tiene ~70%+ por un EV heurístico inflado.
@@ -10293,10 +10306,15 @@ window.PT_NASH_PUSH_JSON = {
       cls = 'aceptable';
     }
 
+    best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
+
     return { cls, best };
   }
 
-  global.GTOClassifier = { classify, filterStrategy, reconcileWithEv, adjustStrategyForHand, normalizeStrategy };
+  global.GTOClassifier = {
+    classify, filterStrategy, reconcileWithEv, adjustStrategyForHand, normalizeStrategy,
+    bestCoherentWithMix
+  };
 })(window);
 
 /*
@@ -33179,17 +33197,35 @@ window.PT_NASH_PUSH_JSON = {
     showVerdictToast._t = setTimeout(() => { toast.classList.remove('visible'); }, ms);
   }
 
+  /**
+   * Acción que la UI marca como "mejor". Debe coincidir siempre con el mayor %
+   * del grid: marcar en verde (o citar en «mejor: X») una opción con menos
+   * frecuencia que la líder se lee como una contradicción.
+   * También corrige decisiones guardadas por motores antiguos.
+   */
+  function resolveBestId(breakdown, bestId) {
+    if (!breakdown || !breakdown.length) return bestId;
+    let top = breakdown[0];
+    let current = null;
+    breakdown.forEach((o) => {
+      if ((o.pct || 0) > (top.pct || 0)) top = o;
+      if (o.id === bestId) current = o;
+    });
+    if (current && (current.pct || 0) >= (top.pct || 0)) return current.id;
+    return top ? top.id : bestId;
+  }
+
+  /** «mejor: X» solo aporta si X no es la acción que ya jugó el héroe. */
+  function betterActionHtml(d) {
+    if (!d) return '';
+    const best = resolveBestId(d.optionBreakdown, d.best);
+    if (!best || best === (d.chosen || d.action)) return '';
+    return ` <span class="tl-eval muted-text">mejor: ${actionName(best)}</span>`;
+  }
+
   function renderOptionGrid(breakdown, chosenId, bestId) {
     if (!breakdown || !breakdown.length) return '';
-    // Preferir bestId si existe en el grid; si no, el de mayor % GTO.
-    let best = bestId;
-    const ids = {};
-    let top = breakdown[0];
-    breakdown.forEach((o) => {
-      ids[o.id] = true;
-      if ((o.pct || 0) > (top.pct || 0)) top = o;
-    });
-    if (!best || !ids[best]) best = top && top.id;
+    const best = resolveBestId(breakdown, bestId);
     let html = '<div class="opt-grid">';
     breakdown.forEach((o) => {
       const isChosen = o.id === chosenId;
@@ -34287,13 +34323,19 @@ window.PT_NASH_PUSH_JSON = {
     const fb = $('#feedback');
     fb.classList.remove('hidden');
     const verdict = verdictWord(d.class);
-    const bestLabel = actionName(d.best);
+    const bestId = resolveBestId(d.optionBreakdown, d.best);
+    const bestLabel = actionName(bestId);
+    const bestPct = Math.round((d.gto[bestId] || 0) * 100);
     let html = `<h3>Decisión en ${d.street}: <span class="verdict ${d.class}">${verdict}</span>`;
     if (d.score != null) html += ` <span class="muted-text">· Puntuación ${d.score}/100</span>`;
     html += `</h3>`;
     html += `<div>Elegiste <strong>${escapeHtml(d.label)}</strong>. `;
-    if (d.class === 'optima') html += `Es la jugada GTO principal.`;
-    else html += `La jugada de mayor frecuencia GTO era <strong>${bestLabel}</strong> (${Math.round((d.gto[d.best] || 0) * 100)}%).`;
+    if (d.class === 'optima') {
+      html += bestId === d.action
+        ? `Es la jugada GTO principal.`
+        : `Está dentro de la mezcla GTO principal (la más frecuente es <strong>${bestLabel}</strong>, ${bestPct}%).`;
+    } else if (bestId === d.action) html += `Es la jugada de mayor frecuencia GTO (${bestPct}%), pero el EV del spot penaliza esta línea.`;
+    else html += `La jugada de mayor frecuencia GTO era <strong>${bestLabel}</strong> (${bestPct}%).`;
     html += `</div>`;
     if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}%</div>`;
     html += renderDecisionContextLine(d);
@@ -35925,7 +35967,7 @@ window.PT_NASH_PUSH_JSON = {
       <div class="rec-cards">${(e.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div class="rec-main">
         <div class="rec-scenario">${escapeHtml(typeof e.scenario === 'string' ? e.scenario : '')} <span class="badge ${e.class}">${verdictWord(e.class)}</span></div>
-        <div class="rec-sub">${e.heroCode} · ${e.street} · elegiste <strong>${escapeHtml(e.chosen)}</strong>, mejor: <strong>${actionName(e.best)}</strong> · -${e.evLoss}bb</div>
+        <div class="rec-sub">${e.heroCode} · ${e.street} · elegiste <strong>${escapeHtml(e.chosen)}</strong>${e.best && e.best !== e.chosenAction ? `, mejor: <strong>${actionName(e.best)}</strong>` : ''} · -${e.evLoss}bb</div>
         <div class="rec-sub">${escapeHtml(e.context || '')}</div>
       </div>
       <div class="rec-right">
@@ -37812,7 +37854,7 @@ window.PT_NASH_PUSH_JSON = {
             if (heroDec) {
               line += ` <span class="badge ${heroDec.class}">${verdictWord(heroDec.class)}</span>`;
               if (heroDec.evLoss > 0) line += ` <span class="tl-eval">${decisionEvLossHtml(heroDec)}</span>`;
-              else if (heroDec.class !== 'optima') line += ` <span class="tl-eval muted-text">mejor: ${actionName(heroDec.best)}</span>`;
+              else if (heroDec.class !== 'optima') line += betterActionHtml(heroDec);
             }
           }
           line += '</div>';
@@ -37922,7 +37964,7 @@ window.PT_NASH_PUSH_JSON = {
           if (heroDec) {
             line += ` <span class="badge ${heroDec.class}">${verdictWord(heroDec.class)}</span>`;
             if (heroDec.evLoss > 0) line += ` <span class="tl-eval">${decisionEvLossHtml(heroDec)}</span>`;
-            else if (heroDec.class !== 'optima') line += ` <span class="tl-eval muted-text">mejor: ${actionName(heroDec.best)}</span>`;
+            else if (heroDec.class !== 'optima') line += betterActionHtml(heroDec);
           }
         }
         line += '</div>';
@@ -38036,7 +38078,7 @@ window.PT_NASH_PUSH_JSON = {
       html += '<div class="card-box"><h3>Ejemplos</h3><ul class="leak-share-samples">';
       samples.forEach((e) => {
         html += `<li>${escapeHtml(e.heroCode || e.heroPos || 'mano')} · ${escapeHtml(e.street || '')} · elegiste <strong>${escapeHtml(e.chosen || '')}</strong>` +
-          (e.best ? `, mejor <strong>${escapeHtml(actionName(e.best))}</strong>` : '') +
+          (e.best && e.best !== e.chosenAction ? `, mejor <strong>${escapeHtml(actionName(e.best))}</strong>` : '') +
           ` · -${fmt(e.evLoss || 0)} bb</li>`;
       });
       html += '</ul></div>';

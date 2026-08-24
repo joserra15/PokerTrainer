@@ -1,0 +1,42 @@
+PokerStars Zoom Hand #261999000001:  Hold'em No Limit (€0.02/€0.05) - 2026/08/20 21:10:00 CET [2026/08/20 15:10:00 ET]
+Table 'Coherence' 6-max Seat #1 is the button
+Seat 1: HomeLesS_DF (€5.20 in chips)
+Seat 2: KazeDj (€5.53 in chips)
+Seat 3: ORTIS78 (€4.80 in chips)
+Seat 4: MikuS85 (€5.30 in chips)
+Seat 5: pandemon (€6.02 in chips)
+Seat 6: pucelazo (€5 in chips)
+KazeDj: posts small blind €0.02
+ORTIS78: posts big blind €0.05
+*** HOLE CARDS ***
+Dealt to KazeDj [9c 9d]
+MikuS85: folds
+pandemon: folds
+pucelazo: folds
+HomeLesS_DF: raises €0.20 to €0.25
+KazeDj: raises €0.70 to €0.95
+ORTIS78: folds
+HomeLesS_DF: raises €0.70 to €1.65
+KazeDj: calls €0.70
+*** FLOP *** [5h Qc 5d]
+KazeDj: checks
+HomeLesS_DF: checks
+*** TURN *** [5h Qc 5d] [4c]
+KazeDj: checks
+HomeLesS_DF: checks
+*** RIVER *** [5h Qc 5d 4c] [8c]
+KazeDj: bets €0.85
+HomeLesS_DF: calls €0.85
+*** SHOW DOWN ***
+KazeDj: shows [9c 9d] (two pair, Nines and Fives)
+HomeLesS_DF: shows [Ah Kd] (a pair of Fives)
+KazeDj collected €4.90 from pot
+*** SUMMARY ***
+Total pot €5.05 | Rake €0.15
+Board [5h Qc 5d 4c 8c]
+Seat 1: HomeLesS_DF (button) showed [Ah Kd] and lost with a pair of Fives
+Seat 2: KazeDj (small blind) showed [9c 9d] and won (€4.90) with two pair, Nines and Fives
+Seat 3: ORTIS78 (big blind) folded before Flop
+Seat 4: MikuS85 folded before Flop (didn't bet)
+Seat 5: pandemon folded before Flop (didn't bet)
+Seat 6: pucelazo folded before Flop (didn't bet)

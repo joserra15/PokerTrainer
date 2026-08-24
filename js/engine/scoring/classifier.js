@@ -82,6 +82,19 @@
   }
 
   /**
+   * La UI pinta "mejor" (píldora verde y texto «mejor: X») junto a los % de la
+   * mezcla, así que marcar como mejor una acción con menos % que la líder se lee
+   * como una contradicción. Se compara con el % redondeado que ve el usuario.
+   */
+  function bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds) {
+    if (best === freqBest) return best;
+    if (callSinOdds && best === 'fold') return best;
+    if (!(maxFreq > 0)) return best;
+    const bestFreq = mixFreqOf(best, opts, chosen, freq, freqBest, maxFreq);
+    return Math.round(bestFreq * 100) < Math.round(maxFreq * 100) ? freqBest : best;
+  }
+
+  /**
    * "Mejor" en UI = líder de la mezcla GTO, salvo que el EV apunte a una acción
    * también competitiva en frecuencia (o a fold por call sin odds).
    * Evita marcar raise ~7% como óptimo cuando call tiene ~70%+ por un EV heurístico inflado.
@@ -192,8 +205,13 @@
       cls = 'aceptable';
     }
 
+    best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
+
     return { cls, best };
   }
 
-  global.GTOClassifier = { classify, filterStrategy, reconcileWithEv, adjustStrategyForHand, normalizeStrategy };
+  global.GTOClassifier = {
+    classify, filterStrategy, reconcileWithEv, adjustStrategyForHand, normalizeStrategy,
+    bestCoherentWithMix
+  };
 })(window);
