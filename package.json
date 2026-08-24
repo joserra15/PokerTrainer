@@ -41,6 +41,7 @@
     "test:home-greeting": "node tools/test-home-greeting-cache.js",
     "test:billing-ui": "node tools/test-billing-ui.js",
     "test:founder": "node tools/test-founder-request.js",
+    "test:founder-pricing": "node tools/test-founder-pricing.js",
     "test:golden-hands": "node tools/test-golden-hands.js",
     "test:promo": "node tools/test-promo-redeem.js",
     "test:share-edge": "node tools/test-share-hand-edge-contract.js",

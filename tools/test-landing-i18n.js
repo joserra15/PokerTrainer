@@ -8,6 +8,8 @@ const root = path.join(__dirname, '..');
 const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const i18nSrc = fs.readFileSync(path.join(root, 'js', 'i18n.js'), 'utf8');
 const landingSrc = fs.readFileSync(path.join(root, 'js', 'landing.js'), 'utf8');
+const billingCfgSrc = fs.readFileSync(path.join(root, 'js', 'billing-config.js'), 'utf8');
+const pricingViewSrc = fs.readFileSync(path.join(root, 'js', 'pricing-view.js'), 'utf8');
 
 assert(/el\.async\s*=\s*false/.test(indexHtml), 'early scripts deben ser async=false (orden i18n → landing)');
 assert(/applyAndRefreshLanding/.test(i18nSrc), 'i18n debe refrescar la landing al cargar');
@@ -120,21 +122,14 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 sandbox.global = sandbox;
-sandbox.window.PT_BILLING = {
-  purchasesPaused: true,
-  plans: {
-    pro: { label: 'Study', monthly: '14,99' },
-    premium: { label: 'Coach', monthly: '34,99' }
-  },
-  trial: { days: 10, label: 'Prueba Study 10 días' },
-  founder: {
-    launchLabel: 'próximamente',
-    discount: '40%',
-    seatsNote: 'plazas limitadas por petición'
-  }
-};
 
 vm.createContext(sandbox);
+
+// Config y renderer de precios reales: la landing debe pintar la tabla vigente.
+vm.runInContext(billingCfgSrc, sandbox, { filename: 'billing-config.js' });
+vm.runInContext(pricingViewSrc, sandbox, { filename: 'pricing-view.js' });
+assert.ok(sandbox.PTPricing, 'PTPricing expuesto');
+assert.ok(sandbox.PT_BILLING.purchasesPaused, 'compras pausadas (oferta FOUNDER activa)');
 
 // Simula la carrera real: landing se ejecuta antes que i18n.
 vm.runInContext(landingSrc, sandbox, { filename: 'landing.js' });
@@ -164,5 +159,17 @@ assert.ok(pricingHtml.indexOf('data-founder-request="coach"') >= 0 || pricingHtm
 assert.ok(pricingHtml.indexOf('disabled') >= 0, 'botones de compra deshabilitados');
 assert.ok(pricingHtml.indexOf('plan.free.f1') < 0, 'features free traducidas');
 assert.ok(pricingHtml.indexOf('15 manos entrenador') >= 0, 'feature free f1 visible');
+assert.ok(pricingHtml.indexOf('price.') < 0, 'pricing no muestra claves price.*');
+
+// La landing sin registro muestra la tabla completa: habitual tachado + FOUNDER.
+['14,99', '9,92', '119', '8,99', '5,95', '71,40',
+  '34,99', '23,25', '279', '20,99', '13,95', '167,40'].forEach(function (n) {
+  assert.ok(pricingHtml.indexOf(n) >= 0, 'landing muestra el precio ' + n);
+});
+assert.ok(/<s class="price-strike">14,99/.test(pricingHtml), 'tarifa habitual Study tachada');
+assert.ok(/<s class="price-strike">34,99/.test(pricingHtml), 'tarifa habitual Coach tachada');
+assert.ok(pricingHtml.indexOf('Hazte <strong>FOUNDER</strong> y lo tendrás por') >= 0, 'reclamo Hazte FOUNDER');
+assert.ok(pricingHtml.indexOf('Para siempre') >= 0, 'aviso de precio para siempre');
+assert.ok(pricingHtml.indexOf('Pagando anual') >= 0, 'equivalencia mensual del pago anual');
 
 console.log('OK test-landing-i18n');
