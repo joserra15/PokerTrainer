@@ -1,6 +1,7 @@
 /*
  * school-data-ranges.js — Laboratorio Rangos R-01…R-27 (M0–M4)
- * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ * Escuela: pública para usuarios autenticados (SCHOOL_PUBLIC=true en school.js).
+ * Plan de gaps (R-01/R-02 matriz, deep-links): docs/ROADMAP_ESCUELA_RANGOS.md
  */
 (function (global) {
   'use strict';
