@@ -10195,6 +10195,20 @@ window.PT_NASH_PUSH_JSON = {
     return Math.round(bestFreq * 100) < Math.round(maxFreq * 100) ? freqBest : best;
   }
 
+  /** Peso mínimo en la mezcla para que la UI la presente como una opción real. */
+  const MIX_MATERIAL_FREQ = 0.15;
+
+  /**
+   * El veredicto no puede ser peor de lo que admite la frecuencia mostrada:
+   * "Error" está reservado a acciones casi ausentes de la mezcla, así que un
+   * call que el grid pinta al 20 % baja como mucho a "Imprecisa" aunque el EV
+   * del spot lo penalice.
+   */
+  function clampClassToMix(cls, freq) {
+    if (cls === 'error' && freq >= MIX_MATERIAL_FREQ) return 'imprecisa';
+    return cls;
+  }
+
   /**
    * "Mejor" en UI = líder de la mezcla GTO, salvo que el EV apunte a una acción
    * también competitiva en frecuencia (o a fold por call sin odds).
@@ -10282,8 +10296,10 @@ window.PT_NASH_PUSH_JSON = {
     if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
       if (cls === 'optima' || cls === 'aceptable') {
         if (materialMix || withinMixBand) {
-          // Frecuencia alta en la mezcla: como máximo bajar a aceptable.
-          if (freq < 0.40 && cls === 'optima') cls = 'aceptable';
+          // Frecuencia alta en la mezcla: como máximo bajar a aceptable. Con una
+          // fuga de 1bb o más nunca puede seguir siendo "Óptima": la ficha ya
+          // enseña el EV perdido al lado del veredicto.
+          if ((freq < 0.40 || evLoss >= 1) && cls === 'optima') cls = 'aceptable';
         } else if (!(valueAggro && isNuts)) {
           // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
           cls = evLoss >= 1 ? 'error' : 'imprecisa';
@@ -10307,13 +10323,14 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
+    cls = clampClassToMix(cls, freq);
 
     return { cls, best };
   }
 
   global.GTOClassifier = {
     classify, filterStrategy, reconcileWithEv, adjustStrategyForHand, normalizeStrategy,
-    bestCoherentWithMix
+    bestCoherentWithMix, clampClassToMix, MIX_MATERIAL_FREQ
   };
 })(window);
 
@@ -10627,7 +10644,25 @@ window.PT_NASH_PUSH_JSON = {
    * Flop/turn: con la equity muy por debajo del precio casi no se realiza —se
    * paga y se abandona ante el siguiente barril—, así que la fuga se acerca a la
    * inversión completa (odds implícitas inversas). Nunca la supera.
+   *
+   * La escalada entra por rampa según cuánta equity falta para el break-even, no
+   * por un umbral duro: con el corte anterior un call a 20.3 % contra un BE de
+   * 24.5 % saltaba de ~1.2bb a 7bb de fuga y la ficha se contradecía sola
+   * («EV acción −1.3 · óptimo +0 · ΔEV 7»). Hasta 5pp por debajo del precio la
+   * fuga es la aritmética; a partir de 10pp se paga prácticamente la apuesta.
    */
+  const NO_REALIZATION_CAP = 0.9;
+  const NO_REALIZATION_FROM = 0.05;
+  const NO_REALIZATION_FULL = 0.10;
+
+  function noRealizationShare(ctx) {
+    const shortfall = 1 - ctx.equity / Math.max(ctx.breakEven, 0.01);
+    const deficit = ctx.breakEven - ctx.equity;
+    const ramp = (deficit - NO_REALIZATION_FROM) / (NO_REALIZATION_FULL - NO_REALIZATION_FROM);
+    const scaled = NO_REALIZATION_CAP * Math.min(1, Math.max(0, ramp));
+    return Math.min(NO_REALIZATION_CAP, Math.max(shortfall, scaled));
+  }
+
   function callSinOddsLoss(ctx, input, bestAction) {
     let loss = callLeakExact(ctx);
     if ((!bestAction || bestAction === 'fold') && loss > 0) {
@@ -10635,10 +10670,8 @@ window.PT_NASH_PUSH_JSON = {
     }
     const street = (input && input.street) || 'flop';
     if (street !== 'river') {
-      if (ctx.equity < ctx.breakEven * 0.85) {
-        loss = round2(Math.max(loss, ctx.toCallBB * 0.9));
-      } else if (ctx.equity < ctx.breakEven) {
-        loss = round2(Math.max(loss, ctx.toCallBB * (1 - ctx.equity / Math.max(ctx.breakEven, 0.01))));
+      if (ctx.equity < ctx.breakEven) {
+        loss = round2(Math.max(loss, ctx.toCallBB * noRealizationShare(ctx)));
       }
       if (input && microStakesBB(input) && input.villainLastAction === 'raise'
         && ctx.toCallBB <= ctx.potBeforeBB * 0.35) {

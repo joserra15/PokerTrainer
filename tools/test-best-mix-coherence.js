@@ -1,12 +1,14 @@
 /**
- * Regresión: la acción marcada como "mejor" debe ser coherente con los % que ve
- * el usuario en el grid de opciones.
+ * Regresión: el veredicto y la acción marcada como "mejor" deben ser coherentes
+ * con los % y con los EV que ve el usuario en la ficha de la decisión.
  *
  * Bugs reportados:
  *  1. River con 99: se marcaba «mejor: Check» (28 %) cuando la líder de la
  *     mezcla era Bet pot (35 %).
  *  2. Flop con AKs: veredicto «Aceptable» y «mejor: Bet 33%», que era justo la
  *     acción jugada por el héroe (y tampoco la de mayor frecuencia).
+ *  3. Flop con A3: call al 20 % de la mezcla etiquetado «Error», con
+ *     «EV acción −1.44bb · óptimo +0bb» pero «ΔEV 7.02bb».
  */
 'use strict';
 const fs = require('fs');
@@ -173,8 +175,91 @@ function leaderOf(strategy) {
   assert(rec.best === 'fold', 'call sin odds mantiene fold como mejor; got ' + rec.best);
 }
 
-// --- 4. Manos completas: best === opción con mayor % del grid ---------------
-['bug-best-vs-mix-99.txt', 'bug-best-vs-mix-akhh.txt'].forEach((file) => {
+// --- 4. Veredicto acorde al peso en la mezcla -------------------------------
+{
+  // Call al 20 % con la equity algo por debajo del break-even: es una fuga,
+  // pero no un "Error" (esa etiqueta es para acciones casi ausentes del grid).
+  const strat = { fold: 0.68, call: 0.20, raise: 0.12 };
+  const acts = ['fold', 'call', 'raise'];
+  const cls = Cls.classify(strat, 'call', acts);
+  assert(cls.cls === 'aceptable', 'call 20% es aceptable por frecuencia; got ' + cls.cls);
+  const rec = Cls.reconcileWithEv(cls.cls, 'call', cls.best, {
+    actionEV: -1.44, bestEV: 0, bestAction: 'fold',
+    evLoss: 1.44, evErroneous: true, evErrorReasons: [{ type: 'call_sin_odds' }]
+  }, {
+    freq: cls.freq, maxFreq: cls.maxFreq, legalStrategy: cls.legalStrategy, equity: 0.20
+  });
+  assert(rec.cls === 'imprecisa', 'call 20% con fuga baja a imprecisa, no a error; got ' + rec.cls);
+
+  // Un residual del 4 % con la misma fuga sí es un error.
+  const residual = { fold: 0.93, call: 0.04, raise: 0.03 };
+  const rcls = Cls.classify(residual, 'call', acts);
+  const rrec = Cls.reconcileWithEv(rcls.cls, 'call', rcls.best, {
+    actionEV: -2.57, bestEV: 0, bestAction: 'fold',
+    evLoss: 6.3, evErroneous: true, evErrorReasons: [{ type: 'call_sin_odds' }]
+  }, {
+    freq: rcls.freq, maxFreq: rcls.maxFreq, legalStrategy: rcls.legalStrategy, equity: 0.18
+  });
+  assert(rrec.cls === 'error', 'call residual 4% con fuga grande sigue siendo error; got ' + rrec.cls);
+
+  // Con 1bb o más de fuga no puede seguir siendo "Óptima": la ficha enseña el
+  // EV perdido justo al lado del veredicto.
+  const wide = { fold: 0.51, call: 0.44, raise: 0.05 };
+  const wcls = Cls.classify(wide, 'call', acts);
+  const wrec = Cls.reconcileWithEv(wcls.cls, 'call', wcls.best, {
+    actionEV: -3.15, bestEV: 0, bestAction: 'fold',
+    evLoss: 9.18, evErroneous: true, evErrorReasons: [{ type: 'call_sin_odds' }]
+  }, {
+    freq: wcls.freq, maxFreq: wcls.maxFreq, legalStrategy: wcls.legalStrategy, equity: 0.2258
+  });
+  assert(wrec.cls === 'aceptable',
+    'call 44% con fuga de 9bb no puede ser óptima ni error; got ' + wrec.cls);
+}
+
+// --- 5. ΔEV del call sin odds: rampa continua, sin saltos --------------------
+{
+  const EvLoss = sandbox.window.GTOEvLoss;
+  function ctxFor(equity, potBeforeBB, toCallBB) {
+    return {
+      equity,
+      breakEven: toCallBB / (potBeforeBB + toCallBB * 2),
+      potBeforeBB,
+      toCallBB
+    };
+  }
+  const flop = { street: 'flop', bbSizeEuro: 0.05, villainLastAction: 'bet' };
+
+  // Caso del reporte: 20.3 % frente a un BE de 24.5 % → fuga aritmética (~1.4bb).
+  const marginal = ctxFor(0.2033, 16.2, 7.8);
+  assert(Math.abs(marginal.breakEven - 0.2453) < 0.002, 'BE del spot reportado ≈ 24.5%');
+  const marginalLoss = EvLoss.callSinOddsLoss(marginal, flop, 'fold');
+  const marginalExact = EvLoss.callLeakExact(marginal);
+  assert(Math.abs(marginalLoss - marginalExact) <= 0.2,
+    'déficit pequeño: la fuga es la aritmética (' + marginalLoss + ' vs ' + marginalExact + ' bb)');
+  assert(marginalLoss < 2, 'déficit pequeño no dispara la escalada de 7bb; got ' + marginalLoss);
+
+  // Equity claramente por debajo (>10pp): se sigue cobrando casi la apuesta,
+  // que es lo auditado en la referencia Excel de Poker76.
+  const far = ctxFor(0.1817, 10.4, 7);
+  const farLoss = EvLoss.callSinOddsLoss(far, { street: 'turn', bbSizeEuro: 0.05 }, 'fold');
+  assert(farLoss >= 7 * 0.85, 'déficit grande sigue cobrando ~90% del call; got ' + farLoss);
+
+  // Sin escalones: la fuga crece de forma continua al bajar la equity.
+  let maxJump = 0;
+  let prev = null;
+  for (let eq = 0.30; eq >= 0; eq -= 0.002) {
+    const ctx = ctxFor(Math.max(eq, 0), 16.2, 7.8);
+    if (ctx.equity >= ctx.breakEven) { prev = null; continue; }
+    const loss = EvLoss.callSinOddsLoss(ctx, flop, 'fold');
+    if (prev != null) maxJump = Math.max(maxJump, Math.abs(loss - prev));
+    prev = loss;
+  }
+  assert(maxJump <= 0.3,
+    'la fuga no salta de golpe al cruzar un umbral (salto máx ' + maxJump.toFixed(2) + 'bb)');
+}
+
+// --- 6. Manos completas: best === opción con mayor % del grid ---------------
+['bug-best-vs-mix-99.txt', 'bug-best-vs-mix-akhh.txt', 'bug-call-mix-20-a3.txt'].forEach((file) => {
   const hh = fs.readFileSync(path.join(__dirname, 'fixtures', file), 'utf8');
   const parsed = Importer.parseSession(hh, file);
   const analyzed = Importer.analyzeHand(parsed.hands[0]);
@@ -183,13 +268,22 @@ function leaderOf(strategy) {
     if (!grid.length) return;
     const topPct = grid.reduce((m, o) => Math.max(m, o.pct || 0), 0);
     const bestOpt = grid.find((o) => o.id === d.best);
+    const chosenPct = (grid.find((o) => o.id === d.chosen) || {}).pct || 0;
     assert(!!bestOpt, file + ' ' + d.street + ': "mejor" (' + d.best + ') está en el grid');
     assert(bestOpt && (bestOpt.pct || 0) >= topPct,
       file + ' ' + d.street + ': mejor=' + d.best + ' (' + (bestOpt && bestOpt.pct) + '%) es la de mayor % (' + topPct + '%)');
+    if (chosenPct >= 15) {
+      assert(d.class !== 'error',
+        file + ' ' + d.street + ': ' + d.chosen + ' al ' + chosenPct + '% no se etiqueta Error (es ' + d.class + ')');
+    }
+    if ((d.evLoss || 0) >= 1) {
+      assert(d.class !== 'optima',
+        file + ' ' + d.street + ': con fuga de ' + d.evLoss + 'bb el veredicto no es Óptima (es ' + d.class + ')');
+    }
   });
 });
 
-// --- 5. UI: «mejor: X» no se imprime si X es la acción jugada ---------------
+// --- 7. UI: «mejor: X» no se imprime si X es la acción jugada ---------------
 {
   const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
   assert(/function resolveBestId\(/.test(app), 'app.js expone resolveBestId para el grid y el texto');

@@ -94,6 +94,20 @@
     return Math.round(bestFreq * 100) < Math.round(maxFreq * 100) ? freqBest : best;
   }
 
+  /** Peso mínimo en la mezcla para que la UI la presente como una opción real. */
+  const MIX_MATERIAL_FREQ = 0.15;
+
+  /**
+   * El veredicto no puede ser peor de lo que admite la frecuencia mostrada:
+   * "Error" está reservado a acciones casi ausentes de la mezcla, así que un
+   * call que el grid pinta al 20 % baja como mucho a "Imprecisa" aunque el EV
+   * del spot lo penalice.
+   */
+  function clampClassToMix(cls, freq) {
+    if (cls === 'error' && freq >= MIX_MATERIAL_FREQ) return 'imprecisa';
+    return cls;
+  }
+
   /**
    * "Mejor" en UI = líder de la mezcla GTO, salvo que el EV apunte a una acción
    * también competitiva en frecuencia (o a fold por call sin odds).
@@ -181,8 +195,10 @@
     if (evResult.evErroneous && evLoss >= EV_TIE_BB) {
       if (cls === 'optima' || cls === 'aceptable') {
         if (materialMix || withinMixBand) {
-          // Frecuencia alta en la mezcla: como máximo bajar a aceptable.
-          if (freq < 0.40 && cls === 'optima') cls = 'aceptable';
+          // Frecuencia alta en la mezcla: como máximo bajar a aceptable. Con una
+          // fuga de 1bb o más nunca puede seguir siendo "Óptima": la ficha ya
+          // enseña el EV perdido al lado del veredicto.
+          if ((freq < 0.40 || evLoss >= 1) && cls === 'optima') cls = 'aceptable';
         } else if (!(valueAggro && isNuts)) {
           // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
           cls = evLoss >= 1 ? 'error' : 'imprecisa';
@@ -206,12 +222,13 @@
     }
 
     best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
+    cls = clampClassToMix(cls, freq);
 
     return { cls, best };
   }
 
   global.GTOClassifier = {
     classify, filterStrategy, reconcileWithEv, adjustStrategyForHand, normalizeStrategy,
-    bestCoherentWithMix
+    bestCoherentWithMix, clampClassToMix, MIX_MATERIAL_FREQ
   };
 })(window);

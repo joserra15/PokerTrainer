@@ -1,0 +1,42 @@
+PokerStars Zoom Hand #261999000003:  Hold'em No Limit (€0.02/€0.05) - 2026/08/21 19:40:00 CET [2026/08/21 13:40:00 ET]
+Table 'Coherence' 6-max Seat #1 is the button
+Seat 1: DavSnook (€5.40 in chips)
+Seat 2: ibic22 (€4.90 in chips)
+Seat 3: Zusiak (€5.05 in chips)
+Seat 4: KazeDj (€5.53 in chips)
+Seat 5: pandemon (€6.02 in chips)
+Seat 6: pucelazo (€5 in chips)
+ibic22: posts small blind €0.02
+Zusiak: posts big blind €0.05
+*** HOLE CARDS ***
+Dealt to KazeDj [As 3s]
+KazeDj: raises €0.05 to €0.10
+pandemon: folds
+pucelazo: folds
+DavSnook: raises €0.27 to €0.37
+ibic22: folds
+Zusiak: folds
+KazeDj: calls €0.27
+*** FLOP *** [3c Kd Qd]
+KazeDj: checks
+DavSnook: bets €0.39
+KazeDj: calls €0.39
+*** TURN *** [3c Kd Qd] [4c]
+KazeDj: checks
+DavSnook: checks
+*** RIVER *** [3c Kd Qd 4c] [7h]
+KazeDj: checks
+DavSnook: checks
+*** SHOW DOWN ***
+KazeDj: shows [As 3s] (a pair of Treys)
+DavSnook: shows [Ah Kc] (a pair of Kings)
+DavSnook collected €1.55 from pot
+*** SUMMARY ***
+Total pot €1.59 | Rake €0.04
+Board [3c Kd Qd 4c 7h]
+Seat 1: DavSnook (button) showed [Ah Kc] and won (€1.55) with a pair of Kings
+Seat 2: ibic22 (small blind) folded before Flop
+Seat 3: Zusiak (big blind) folded before Flop
+Seat 4: KazeDj showed [As 3s] and lost with a pair of Treys
+Seat 5: pandemon folded before Flop (didn't bet)
+Seat 6: pucelazo folded before Flop (didn't bet)
