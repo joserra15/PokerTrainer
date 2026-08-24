@@ -96,7 +96,25 @@
    * Flop/turn: con la equity muy por debajo del precio casi no se realiza —se
    * paga y se abandona ante el siguiente barril—, así que la fuga se acerca a la
    * inversión completa (odds implícitas inversas). Nunca la supera.
+   *
+   * La escalada entra por rampa según cuánta equity falta para el break-even, no
+   * por un umbral duro: con el corte anterior un call a 20.3 % contra un BE de
+   * 24.5 % saltaba de ~1.2bb a 7bb de fuga y la ficha se contradecía sola
+   * («EV acción −1.3 · óptimo +0 · ΔEV 7»). Hasta 5pp por debajo del precio la
+   * fuga es la aritmética; a partir de 10pp se paga prácticamente la apuesta.
    */
+  const NO_REALIZATION_CAP = 0.9;
+  const NO_REALIZATION_FROM = 0.05;
+  const NO_REALIZATION_FULL = 0.10;
+
+  function noRealizationShare(ctx) {
+    const shortfall = 1 - ctx.equity / Math.max(ctx.breakEven, 0.01);
+    const deficit = ctx.breakEven - ctx.equity;
+    const ramp = (deficit - NO_REALIZATION_FROM) / (NO_REALIZATION_FULL - NO_REALIZATION_FROM);
+    const scaled = NO_REALIZATION_CAP * Math.min(1, Math.max(0, ramp));
+    return Math.min(NO_REALIZATION_CAP, Math.max(shortfall, scaled));
+  }
+
   function callSinOddsLoss(ctx, input, bestAction) {
     let loss = callLeakExact(ctx);
     if ((!bestAction || bestAction === 'fold') && loss > 0) {
@@ -104,10 +122,8 @@
     }
     const street = (input && input.street) || 'flop';
     if (street !== 'river') {
-      if (ctx.equity < ctx.breakEven * 0.85) {
-        loss = round2(Math.max(loss, ctx.toCallBB * 0.9));
-      } else if (ctx.equity < ctx.breakEven) {
-        loss = round2(Math.max(loss, ctx.toCallBB * (1 - ctx.equity / Math.max(ctx.breakEven, 0.01))));
+      if (ctx.equity < ctx.breakEven) {
+        loss = round2(Math.max(loss, ctx.toCallBB * noRealizationShare(ctx)));
       }
       if (input && microStakesBB(input) && input.villainLastAction === 'raise'
         && ctx.toCallBB <= ctx.potBeforeBB * 0.35) {
