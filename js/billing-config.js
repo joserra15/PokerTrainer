@@ -13,8 +13,16 @@ window.PT_BILLING = {
     note: 'Study con trial de 10 días (sin tarjeta si Stripe lo permite). Una vez por cuenta.'
   },
   plans: {
-    pro: { label: 'Study', monthly: '14,99', yearly: '119', yearlyPerMonth: '9,92' },
-    premium: { label: 'Coach', monthly: '34,99', yearly: '279', yearlyPerMonth: '23,25' }
+    pro: {
+      label: 'Study',
+      monthly: '14,99', yearly: '119', yearlyPerMonth: '9,92',
+      founderMonthly: '8,99', founderYearly: '71,40', founderYearlyPerMonth: '5,95'
+    },
+    premium: {
+      label: 'Coach',
+      monthly: '34,99', yearly: '279', yearlyPerMonth: '23,25',
+      founderMonthly: '20,99', founderYearly: '167,40', founderYearlyPerMonth: '13,95'
+    }
   },
   bonus: {
     validityMonths: 12,
@@ -38,7 +46,8 @@ window.PT_BILLING = {
     priorityNote: 'Solicita plaza FOUNDER Study o FOUNDER Coach: plazas limitadas por petición; revisamos cada solicitud en soporte.',
     kicker: 'FOUNDER próximamente',
     title: 'FOUNDER Study y FOUNDER Coach · 40% de descuento · plazas limitadas por petición',
-    note: 'Compras cerradas hasta el lanzamiento. Solicita tu plaza en Study o Coach; el administrador confirmará según disponibilidad.'
+    note: 'Compras cerradas hasta el lanzamiento. Solicita tu plaza en Study o Coach; el administrador confirmará según disponibilidad.',
+    priceLock: 'Si entras como FOUNDER conservas ese precio para siempre mientras mantengas la suscripción activa.'
   },
   promo: {
     // Cupón Stripe de verano desactivado mientras las compras estén pausadas.

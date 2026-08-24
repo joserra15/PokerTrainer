@@ -24,7 +24,7 @@ window.PT_SEO = {
         { q: '¿Qué formatos de historial admite?', a: 'PokerStars (ES/EN+Zoom), Winamax, GGPoker/Natural8, 888poker y CoinPoker. NLHE cash/spins/MTT con análisis GTO; PLO y Short Deck se importan sin análisis GTO.' },
         { q: '¿Cómo organizo Cash, Spins y Torneos?', a: 'Tras importar, cada sesión se lista en la pestaña Cash, Spins o Torneos según el tipo detectado, con badges de formato y Max-N.' },
         { q: '¿Hay prueba de Study?', a: 'Sí. Puedes activar una prueba de Study de 10 días (una vez por cuenta) desde Planes.' },
-        { q: '¿Cuáles son los planes?', a: 'Gratis (límites diarios), Study (14,99 €/mes) e Coach (34,99 €/mes) con más consultas IA y sin límites de entrenamiento.' },
+        { q: '¿Cuáles son los planes?', a: 'Gratis (límites diarios), Study (14,99 €/mes o 9,92 €/mes pagando 119 €/año) y Coach (34,99 €/mes o 23,25 €/mes pagando 279 €/año) con más consultas IA y sin límites de entrenamiento. Con una plaza FOUNDER, Study cuesta 8,99 €/mes o 5,95 €/mes pagando 71,40 €/año y Coach 20,99 €/mes o 13,95 €/mes pagando 167,40 €/año, y ese precio se mantiene para siempre.' },
         { q: '¿Hay atajos de teclado?', a: 'Sí: F fold, C call, K/Espacio check-call, R raise/bet, 1–3 tamaños, N nueva mano, G solo errores graves en sesión, flechas/Enter en repaso, H/? ayuda.' },
         { q: '¿Puedo entrenar con rake?', a: 'Sí. En Configurar sesión eliges sin rake, estándar (~5%/3bb) o personalizado; afecta pot odds y EV del consejo.' },
         { q: '¿Las stats de spins usan las mismas bandas que cash?', a: 'No. Ideales y KPIs se adaptan al formato. En spins/MTT hay ICM lite orientativo; no es un modelo ICM completo de torneo.' }

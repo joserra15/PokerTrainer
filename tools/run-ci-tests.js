@@ -69,6 +69,7 @@ const STEPS = [
   ['Test analyze-hand contract', ['node', 'tools/test-analyze-hand-contract.js']],
   ['Test billing UI markers', ['node', 'tools/test-billing-ui.js']],
   ['Test founder request', ['node', 'tools/test-founder-request.js']],
+  ['Test precios FOUNDER', ['node', 'tools/test-founder-pricing.js']],
   ['Test golden hands EV', ['node', 'tools/test-golden-hands.js']],
   // Fase 3
   ['Test stripe-sync contracts', ['node', 'tools/test-stripe-sync-contracts.js']],

@@ -689,9 +689,9 @@ body.guest-mode .play-setup-extras { display: none !important; }
 }
 .landing-pricing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
-  max-width: 920px;
+  max-width: 980px;
 }
 .landing-price-card {
   background: var(--panel);
@@ -717,6 +717,125 @@ body.guest-mode .play-setup-extras { display: none !important; }
   flex: 1;
 }
 .landing-pricing-note { font-size: 12px; margin-top: 12px; }
+
+/* ---- Bloque de precios FOUNDER (landing + pestaña Planes) ----
+   Vive dentro de .landing-price / .pricing-price, que fijan 28px/800 para el
+   importe suelto antiguo: el bloque reinicia tipografía para que solo el
+   importe FOUNDER quede grande. */
+.price-block {
+  display: grid;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+}
+.price-block .price-amount {
+  display: inline-block;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+}
+.price-block .price-amount small {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.price-block .price-strike {
+  color: var(--muted);
+  text-decoration-thickness: 2px;
+  text-decoration-color: rgba(240,83,59,.85);
+  white-space: nowrap;
+}
+.price-usual {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.price-usual-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.price-usual-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.price-usual-term { color: var(--muted); min-width: 100px; }
+.price-usual-values { color: var(--muted); white-space: nowrap; }
+.price-founder-lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.price-founder-lead strong { color: var(--gold); letter-spacing: .04em; }
+.price-founder-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(245,196,81,.18);
+  border: 1px solid rgba(245,196,81,.5);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+}
+.price-founder-grid { display: grid; gap: 8px; }
+.price-founder-option {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(245,196,81,.07);
+  border: 1px solid rgba(245,196,81,.28);
+}
+.price-founder-option.is-best {
+  background: linear-gradient(135deg, rgba(245,196,81,.16), rgba(47,129,247,.10));
+  border-color: rgba(245,196,81,.55);
+}
+.price-founder-option .price-amount { color: var(--gold); }
+.price-option-term {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.price-best-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(63,185,80,.16);
+  border: 1px solid rgba(63,185,80,.45);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.price-option-sub { font-size: 12px; color: var(--muted); }
+.price-forever {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.price-forever strong { color: var(--gold); }
+.price-block-plain { gap: 4px; }
+.price-block-plain .price-amount { font-size: 26px; }
+.price-annual-note { margin: 0; font-size: 12px; color: var(--muted); }
 .landing-install-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -1067,6 +1186,9 @@ body.guest-mode .play-setup-extras { display: none !important; }
     padding-left: 16px;
   }
   .landing-price { font-size: 24px; }
+  .price-block .price-amount { font-size: 26px; }
+  .price-block-plain .price-amount { font-size: 23px; }
+  .price-usual-term { min-width: 0; }
   .landing-price-card .btn {
     min-height: 44px;
     justify-content: center;
