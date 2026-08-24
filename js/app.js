@@ -3932,6 +3932,15 @@
     }
   }
 
+  function pricingPriceHtml(planId, fallbackPrice, owned) {
+    const P = window.PTPricing;
+    if (P) {
+      const html = planId === 'free' ? P.freePriceHtml() : P.planPriceHtml(planId, { owned: !!owned });
+      if (html) return html;
+    }
+    return '<span class="price-amount">' + escapeHtml(fallbackPrice) + '&nbsp;€<small>/mes</small></span>';
+  }
+
   function renderPricing() {
     const grid = $('#pricing-grid');
     const current = $('#pricing-current');
@@ -3987,7 +3996,7 @@
 
     const cards = [
       {
-        id: 'free', title: 'Gratis', price: '0 €', period: '/mes', featured: false,
+        id: 'free', title: 'Gratis', priceHtml: pricingPriceHtml('free', '0'), featured: false,
         features: [
           '15 manos entrenador/día',
           '1 sesión import/mes (máx. 200 manos)',
@@ -3999,7 +4008,8 @@
       },
       {
         id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
-        price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: false,
+        priceHtml: pricingPriceHtml('pro', plans.pro ? plans.pro.monthly : '14,99', ent.is_founder_study),
+        featured: false,
         features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
           ? [
             'FOUNDER Study · plazas limitadas por petición',
@@ -4019,7 +4029,8 @@
       },
       {
         id: 'premium', title: plans.premium ? plans.premium.label : 'Coach',
-        price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
+        priceHtml: pricingPriceHtml('premium', plans.premium ? plans.premium.monthly : '34,99', ent.is_founder_coach),
+        featured: false,
         features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
           ? [
             'FOUNDER Coach · plazas limitadas por petición',
@@ -4126,7 +4137,7 @@
       var featured = paused ? (c.id === 'pro') : isCurrent;
       return '<div class="pricing-card' + (featured ? ' featured' : '') + '">' +
         '<h3>' + escapeHtml(c.title) + '</h3>' +
-        '<div class="pricing-price">' + escapeHtml(c.price) + '<small>' + escapeHtml(c.period) + '</small></div>' +
+        '<div class="pricing-price">' + c.priceHtml + '</div>' +
         '<ul class="pricing-features">' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +
         btns + '</div>';
     }).join('');

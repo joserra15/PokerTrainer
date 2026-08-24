@@ -237,6 +237,15 @@
       '</ul>';
   }
 
+  function priceHtml(planId, fallbackPrice) {
+    var P = global.PTPricing;
+    if (P) {
+      var html = planId === 'free' ? P.freePriceHtml() : P.planPriceHtml(planId);
+      if (html) return html;
+    }
+    return '<span class="price-amount">' + escapeHtml(fallbackPrice) + '&nbsp;€<small>/mes</small></span>';
+  }
+
   function renderPricing() {
     var grid = document.getElementById('landing-pricing-grid');
     if (!grid) return;
@@ -249,7 +258,7 @@
     var cards = [
       {
         id: 'free',
-        title: t('plan.free'), price: '0 €', period: '/mes', featured: false,
+        title: t('plan.free'), priceHtml: priceHtml('free', '0'), featured: false,
         features: [t('plan.free.f1'), t('plan.free.f2'), t('plan.free.f3'), t('plan.free.f4')],
         ctaLabel: t('hero.cta'),
         ctaLogin: false,
@@ -259,7 +268,7 @@
       {
         id: 'pro',
         title: plans.pro ? plans.pro.label : 'Study',
-        price: (plans.pro ? plans.pro.monthly : '14,99') + ' €', period: '/mes', featured: true,
+        priceHtml: priceHtml('pro', plans.pro ? plans.pro.monthly : '14,99'), featured: true,
         features: paused
           ? [
             t('plan.study.beta'),
@@ -285,7 +294,7 @@
       {
         id: 'premium',
         title: plans.premium ? plans.premium.label : 'Coach',
-        price: (plans.premium ? plans.premium.monthly : '34,99') + ' €', period: '/mes', featured: false,
+        priceHtml: priceHtml('premium', plans.premium ? plans.premium.monthly : '34,99'), featured: false,
         features: paused
           ? [
             t('plan.coach.invite'),
@@ -331,7 +340,7 @@
       }
       return '<div class="landing-price-card' + (c.featured ? ' featured' : '') + '">' +
         '<h3>' + escapeHtml(c.title) + '</h3>' +
-        '<div class="landing-price">' + escapeHtml(c.price) + '<small>' + escapeHtml(c.period) + '</small></div>' +
+        '<div class="landing-price">' + c.priceHtml + '</div>' +
         '<ul>' + c.features.map(function (f) { return '<li>' + escapeHtml(f) + '</li>'; }).join('') + '</ul>' +
         '<button type="button" class="' + btnClass + '"' + disabledAttr + '>' +
         escapeHtml(c.ctaLabel) + '</button>' +
