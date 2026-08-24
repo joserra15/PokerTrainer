@@ -10,17 +10,18 @@
 ## Tabla de contenidos
 
 1. [Resumen ejecutivo](#1-resumen-ejecutivo)
-2. [Qué es y dónde vive](#2-qué-es-y-dónde-vive)
-3. [Estado real (inventario)](#3-estado-real-inventario)
-4. [Promesa original vs realidad](#4-promesa-original-vs-realidad)
-5. [Diagnóstico: fortalezas y debilidades](#5-diagnóstico-fortalezas-y-debilidades)
-6. [Lo que aún falta (backlog priorizado)](#6-lo-que-aún-falta-backlog-priorizado)
-7. [Plan de entrega por fases](#7-plan-de-entrega-por-fases)
-8. [Monetización y gates (fuente de verdad)](#8-monetización-y-gates-fuente-de-verdad)
-9. [Arquitectura y deuda técnica](#9-arquitectura-y-deuda-técnica)
-10. [Métricas de éxito](#10-métricas-de-éxito)
-11. [Decisiones cerradas en este RoadMap](#11-decisiones-cerradas-en-este-roadmap)
-12. [Glosario y archivos clave](#12-glosario-y-archivos-clave)
+2. [Vista rápida: qué habrá de nuevo tras implantar](#2-vista-rápida-qué-habrá-de-nuevo-tras-implantar)
+3. [Qué es y dónde vive](#3-qué-es-y-dónde-vive)
+4. [Estado real (inventario)](#4-estado-real-inventario)
+5. [Promesa original vs realidad](#5-promesa-original-vs-realidad)
+6. [Diagnóstico: fortalezas y debilidades](#6-diagnóstico-fortalezas-y-debilidades)
+7. [Lo que aún falta (backlog priorizado)](#7-lo-que-aún-falta-backlog-priorizado)
+8. [Plan de entrega por fases](#8-plan-de-entrega-por-fases)
+9. [Monetización y gates (fuente de verdad)](#9-monetización-y-gates-fuente-de-verdad)
+10. [Arquitectura y deuda técnica](#10-arquitectura-y-deuda-técnica)
+11. [Métricas de éxito](#11-métricas-de-éxito)
+12. [Decisiones cerradas en este RoadMap](#12-decisiones-cerradas-en-este-roadmap)
+13. [Glosario y archivos clave](#13-glosario-y-archivos-clave)
 
 ---
 
@@ -42,9 +43,82 @@ El gap pedagógico principal no es «falta contenido», sino **desalineación en
 
 ---
 
-## 2. Qué es y dónde vive
+## 2. Vista rápida: qué habrá de nuevo tras implantar
 
-### 2.1 Naming
+Resumen orientado a **funcionalidad de producto** (lo que el usuario verá o podrá hacer). Lo que ya existe hoy (27 lecciones, quizzes de línea, gates Free/Study/Coach) no se repite aquí.
+
+### 2.1 De un vistazo — hoy vs después
+
+| Capacidad | Hoy | Tras implantar (A–D) |
+|-----------|-----|----------------------|
+| Aprender a **leer** la matriz 13×13 | Solo texto + “ve al menú Rangos” | **Quiz interactivo** dentro de R-01 (señalar celdas, comparar anchos, leer %) |
+| **Construir** un RFI de memoria | Drill mental en copy + open/fold | **Pintar el rango** en la matriz (R-02, ~60 s) con nota de solapamiento |
+| Ir del Laboratorio al chart real | Cambio manual de pestaña | Botón **«Abrir chart»** con posición/contexto ya puestos |
+| Ver el chart **sin salir** de la lección | No | **Mini-matriz** en la ficha (R-01…R-04) |
+| De un **leak** a una lección de rangos | Solo lecciones Cash (`C-*`) | CTA también a **R-02 / R-04 / R-05…** según el leak |
+| De Cash/Spins/MTT al Laboratorio | Mención en texto | Botón **«Ir a lección R-0x»** |
+| Examen de módulo Rangos | No | Packs **examen** M1/M2 (opcional, Fase D) |
+| Escuela en inglés | No (ES-only de facto) | Label explícito ES-only **o** títulos/conceptos i18n |
+| Calidad interna (no UI) | Packs monolíticos, seeds dup, sin E2E Escuela | Generador/split de packs, seeds únicos, **E2E** del hub Rangos |
+
+### 2.2 Funcionalidades nuevas (detalle por pieza)
+
+#### A. Puentes Escuela ↔ Rangos (Fase A)
+
+| Funcionalidad nueva | Qué hace el usuario | Dónde aparece |
+|---------------------|---------------------|---------------|
+| **Abrir chart con contexto** | Pulsar un CTA y aterrizar en la pestaña Rangos ya en RFI BTN (u otra posición), sin reconfigurar a mano | Ficha R-01 / R-02 (teoría y ejemplos) |
+| **Salto a lección del Laboratorio** | Desde una lección Cash/Spins/MTT que hable de charts, ir directo a R-01 o R-02 | Teoría de p. ej. C-02 (RFI) y equivalentes |
+
+*No es un feature “grande” de UI, pero elimina la fricción que hoy rompe el loop de estudio.*
+
+#### B. Drills de matriz — el salto de producto (Fase B)
+
+| Funcionalidad nueva | Qué hace el usuario | Cómo se aprueba |
+|---------------------|---------------------|-----------------|
+| **Quiz de matriz (R-01)** | Sobre un grid 13×13: localizar manos (99, ATs, KJo), decir si BTN es más wide que UTG, interpretar un % en una celda | Acierto en las preguntas del drill (ya no basta open/fold a ciegas) |
+| **Construir RFI (R-02)** | Cronómetro ~60 s: marcar/desmarcar celdas hasta acercarse al RFI BTN de referencia de la app | Score por solapamiento (y penalización de manos de más / de menos) |
+| **Preview de matriz en ficha** | Ver el chart relevante mientras lee la teoría, sin cambiar de pestaña | Apoyo visual; no sustituye al drill |
+
+*Estas dos lecciones dejan de parecer “otra sesión de open/fold” y pasan a ser el onboarding real del producto Rangos.*
+
+#### C. Remediation y retención (Fase C)
+
+| Funcionalidad nueva | Qué hace el usuario | Efecto de producto |
+|---------------------|---------------------|--------------------|
+| **CTA leak → lección Rangos** | En Errores/leaks: «Ver lección» también puede abrir R-02 (RFI), R-04 (blockers), R-05/R-07 (línea) | El Laboratorio deja de ser una isla; el estudio reactivo alimenta la ruta Rangos |
+| **Dual CTA Cash + Rangos** (si aplica) | Elegir “práctica de spot” (C-*) o “entender el chart/línea” (R-*) | Misma fuga, dos remedios |
+| **E2E Laboratorio** | (interno) CI cubre hub → ruta Rangos → R-01 | Menos regresiones al tocar Escuela |
+
+#### D. Escala y cierre de currículum (Fase D)
+
+| Funcionalidad nueva | Qué hace el usuario / el equipo | Notas |
+|---------------------|----------------------------------|-------|
+| **Exámenes de módulo** | Sesión mezcla de trampas M0/M1 o M2 para certificar el bloque | Opcional; mismo patrón que exams Cash |
+| **i18n o sello ES-only** | Usuario EN ve Escuela traducida **o** aviso claro de que Escuela es ES | Decisión de producto, no ambas a la vez en v1 |
+| **Pipeline de packs de línea** | (interno) editar M2/M3/M4 sin un archivo de 5,6k líneas | Habilita más contenido «¿Qué tiene?» más barato |
+
+### 2.3 Qué *no* cambia con este plan
+
+- Siguen existiendo las **27 lecciones** y los quizzes «¿Qué tiene?» de M2–M4.
+- **No** se sustituye el motor por un solver completo.
+- **No** se fusionan la pestaña Rangos (explorer) y la ruta Escuela; se **conectan**.
+- Free sigue pudiendo hacer **R-01…R-03** (no se recorta a solo R-01).
+
+### 2.4 Orden de aparición para el usuario
+
+```text
+Fase A  →  “Desde la lección abro el chart / salto a R-02”
+Fase B  →  “En R-01 señalo celdas; en R-02 pinto el RFI”
+Fase C  →  “Mi leak de RFI me manda al Laboratorio”
+Fase D  →  “Hago el examen del módulo” (+ Escuela EN o sello ES)
+```
+
+---
+
+## 3. Qué es y dónde vive
+
+### 3.1 Naming
 
 | Nombre en UI / docs | Significado |
 |---------------------|-------------|
@@ -54,7 +128,7 @@ El gap pedagógico principal no es «falta contenido», sino **desalineación en
 
 Este documento trata la **ruta Escuela → Rangos**. La pestaña explorer es dependencia de UX, no el Laboratorio en sí.
 
-### 2.2 Loop de una lección
+### 3.2 Loop de una lección
 
 ```
 Hub Escuela → pestaña Rangos → mapa M0–M4 → ficha lección
@@ -64,7 +138,7 @@ Hub Escuela → pestaña Rangos → mapa M0–M4 → ficha lección
   → % vs pass/gold → XP / estrellas / desbloqueo
 ```
 
-### 2.3 Piezas de código
+### 3.3 Piezas de código
 
 | Archivo | Rol |
 |---------|-----|
@@ -78,9 +152,9 @@ Hub Escuela → pestaña Rangos → mapa M0–M4 → ficha lección
 
 ---
 
-## 3. Estado real (inventario)
+## 4. Estado real (inventario)
 
-### 3.1 Currículum R-01…R-27
+### 4.1 Currículum R-01…R-27
 
 Todas las lecciones: `route: ranges`, 12 manos, umbrales de práctica reescritos a pass ≈ 0,7 / gold ≈ 0,9 donde aplica.
 
@@ -101,7 +175,7 @@ Todas las lecciones: `route: ranges`, 12 manos, umbrales de práctica reescritos
 
 Orden de desbloqueo lineal por `order` (los packs de farol R-22…R-27 van intercalados tras el bloque de lectura del mismo módulo).
 
-### 3.2 Ya entregado (no reabrir sin motivo)
+### 4.2 Ya entregado (no reabrir sin motivo)
 
 - Ruta activa en hub Escuela + mapa M0–M4.
 - Teoría / ejemplos / `aiQuestions` para las 27 lecciones (voz ES-ES validada en tests).
@@ -112,7 +186,7 @@ Orden de desbloqueo lineal por `order` (los packs de farol R-22…R-27 van inter
 
 ---
 
-## 4. Promesa original vs realidad
+## 5. Promesa original vs realidad
 
 Fuente: [`ROADMAP_LECCIONES_DIRIGIDAS.md`](ROADMAP_LECCIONES_DIRIGIDAS.md) §12.1, §13, §14 (parcialmente **obsoleto** respecto al código).
 
@@ -133,16 +207,16 @@ Fuente: [`ROADMAP_LECCIONES_DIRIGIDAS.md`](ROADMAP_LECCIONES_DIRIGIDAS.md) §12.
 
 ---
 
-## 5. Diagnóstico: fortalezas y debilidades
+## 6. Diagnóstico: fortalezas y debilidades
 
-### 5.1 Fortalezas
+### 6.1 Fortalezas
 
 1. **Diferenciador claro en M2–M4:** quizzes «¿Qué tiene?» sin spoiler de categoría en el título; encaja con el moat ES + narrativa.
 2. **Progresión Free → Study → Coach** visible en el mapa (upsell natural sin inventar otro paywall).
 3. **Reutiliza el entrenador** (grading, seeds, ForgeCoach) en lugar de un segundo player.
 4. **Cobertura de tests de contenido** por encima de la media del repo para packs autorados.
 
-### 5.2 Debilidades
+### 6.2 Debilidades
 
 1. **Onboarding de matriz roto pedagógicamente:** R-01/R-02 evalúan open/fold; se puede aprobar sin localizar una celda en el chart.
 2. **Fricción de contexto:** la teoría manda al menú Rangos, pero no hay CTA ni deep-link; el alumno sale del loop Escuela.
@@ -152,13 +226,13 @@ Fuente: [`ROADMAP_LECCIONES_DIRIGIDAS.md`](ROADMAP_LECCIONES_DIRIGIDAS.md) §12.
 6. **Sin E2E** del hub Rangos ni del flujo quiz de línea.
 7. **School copy solo ES** (aceptable a corto plazo; documentar como decisión de producto).
 
-### 5.3 Principio rector (igual que Escuela general)
+### 6.3 Principio rector (igual que Escuela general)
 
 > Una lección = **un trabajo mental**. Si R-01 se aprueba sin leer la matriz, el pack está mal diseñado.
 
 ---
 
-## 6. Lo que aún falta (backlog priorizado)
+## 7. Lo que aún falta (backlog priorizado)
 
 Prioridad: **P0** bloquea calidad del Laboratorio · **P1** multiplica retención/upsell · **P2** higiene / escala.
 
@@ -197,7 +271,7 @@ Prioridad: **P0** bloquea calidad del Laboratorio · **P1** multiplica retenció
 
 ---
 
-## 7. Plan de entrega por fases
+## 8. Plan de entrega por fases
 
 Complejidad relativa: **S** (acotado) · **M** · **L** (UI nueva o regeneración masiva). Sin estimaciones de calendario.
 
@@ -265,7 +339,7 @@ flowchart LR
 
 ---
 
-## 8. Monetización y gates (fuente de verdad)
+## 9. Monetización y gates (fuente de verdad)
 
 Implementado en `canPlayLesson` / planes de lección (`js/school.js`, metadatos en `school-data-ranges.js`):
 
@@ -283,7 +357,7 @@ Además: desbloqueo **lineal** por orden en la ruta (hay que aprobar la anterior
 
 ---
 
-## 9. Arquitectura y deuda técnica
+## 10. Arquitectura y deuda técnica
 
 ```
 index.html #tab-school
@@ -320,7 +394,7 @@ El runner en `school.js` debe ramificar sin romper spots clásicos ni `villainQu
 
 ---
 
-## 10. Métricas de éxito
+## 11. Métricas de éxito
 
 | Métrica | Antes (hipótesis) | Objetivo tras Fase B |
 |---------|-------------------|----------------------|
@@ -334,7 +408,7 @@ Instrumentación ya existente: `lesson_start` / `complete` / `fail` / `blocked_p
 
 ---
 
-## 11. Decisiones cerradas en este RoadMap
+## 12. Decisiones cerradas en este RoadMap
 
 1. **Código > docs** para `SCHOOL_PUBLIC` y mapa Free/Study/Coach de Rangos.
 2. **R-01/R-02 deben evaluar matriz**, no solo open/fold; los packs actuales no bastan.
@@ -345,7 +419,7 @@ Instrumentación ya existente: `lesson_start` / `complete` / `fail` / `blocked_p
 
 ---
 
-## 12. Glosario y archivos clave
+## 13. Glosario y archivos clave
 
 | Término | Definición breve |
 |---------|------------------|
