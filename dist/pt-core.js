@@ -19874,18 +19874,18 @@ window.PT_NASH_PUSH_JSON = {
   const GREETING_HISTORY_MAX = 8;
 
   /** Catálogo rotativo de focos de entrenamiento para el saludo de bienvenida. */
-  /* Fase J: cada foco apunta a una lección Escuela (CTA en Leaks, solo admin). */
+  /* Fase J: cada foco apunta a lección(es) Escuela (CTA en Leaks). */
   const TRAINING_FOCUSES = [
-    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'], lessonId: 'C-02' },
-    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'], lessonId: 'C-08' },
-    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'], lessonId: 'C-09' },
+    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'], lessonId: 'C-02', lessonIds: ['C-02', 'R-02'] },
+    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'], lessonId: 'C-08', lessonIds: ['C-08', 'R-04'] },
+    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'], lessonId: 'C-09', lessonIds: ['C-09', 'R-04'] },
     { id: 'squeeze', label: 'squeeze (subir tras open + call)', scenario: 'squeeze', street: 'preflop', leakTypes: ['squeeze'], lessonId: 'C-10' },
     { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'], lessonId: 'C-26' },
     { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['sbLimp'], lessonId: 'C-11' },
     { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'], lessonId: 'C-12' },
-    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15' },
-    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18' },
-    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19' }
+    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15', lessonIds: ['C-15', 'R-05'] },
+    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18', lessonIds: ['C-18', 'R-07'] },
+    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19', lessonIds: ['C-19', 'R-07'] }
   ];
 
   function cfg() {
@@ -20837,6 +20837,14 @@ window.PT_NASH_PUSH_JSON = {
     return (f && f.lessonId) ? f.lessonId : null;
   }
 
+  /** Todas las lecciones asociadas a un leak (Cash + Laboratorio Rangos). */
+  function lessonsFromLeak(leak) {
+    const f = focusFromLeak(leak);
+    if (!f) return [];
+    if (f.lessonIds && f.lessonIds.length) return f.lessonIds.slice();
+    return f.lessonId ? [f.lessonId] : [];
+  }
+
   function pickGreetingFocus(bundle) {
     const history = loadGreetingFocusHistory();
     const recentIds = {};
@@ -21007,7 +21015,7 @@ window.PT_NASH_PUSH_JSON = {
 
   global.PTAIReport = {
     mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX,
-    TRAINING_FOCUSES, focusFromLeak, lessonFromLeak
+    TRAINING_FOCUSES, focusFromLeak, lessonFromLeak, lessonsFromLeak
   };
 })(window);
 
@@ -24334,6 +24342,14 @@ window.PT_NASH_PUSH_JSON = {
     return global.PTAIReport.lessonFromLeak(leak);
   }
 
+  function lessonIdsForLeak(leak) {
+    if (global.PTAIReport && typeof global.PTAIReport.lessonsFromLeak === 'function') {
+      return global.PTAIReport.lessonsFromLeak(leak) || [];
+    }
+    var one = lessonIdForLeak(leak);
+    return one ? [one] : [];
+  }
+
   function openSchoolLesson(lessonId) {
     if (!lessonId) return;
     global.__ptPendingSchoolLesson = lessonId;
@@ -24342,6 +24358,12 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
     if (typeof global.goToTab === 'function') global.goToTab('school');
+  }
+
+  function lessonCtaLabel(lessonId) {
+    if (!lessonId) return 'Ver lección';
+    if (String(lessonId).charAt(0) === 'R') return 'Rangos ' + lessonId;
+    return 'Lección ' + lessonId;
   }
 
   function renderLeakList(leaks, opts) {
@@ -24359,11 +24381,11 @@ window.PT_NASH_PUSH_JSON = {
         actions += '<button type="button" class="stats-leak-action" data-stats-train-leak="' +
           escapeHtml(l.key) + '">Repetir</button>';
         if (showSchool) {
-          var lid = lessonIdForLeak(l);
-          if (lid) {
+          var lids = lessonIdsForLeak(l);
+          lids.forEach(function (lid) {
             actions += '<button type="button" class="stats-leak-action stats-leak-action-secondary" data-stats-school-lesson="' +
-              escapeHtml(lid) + '">Ver lección</button>';
-          }
+              escapeHtml(lid) + '">' + escapeHtml(lessonCtaLabel(lid)) + '</button>';
+          });
         }
       } else if (l.sessionId) {
         actions += '<button type="button" class="stats-leak-action" data-stats-open-session="' +
@@ -31679,7 +31701,14 @@ window.PT_NASH_PUSH_JSON = {
       PTUsageUI.refreshHost($('#play-usage'));
     }
     if (tabId === 'ranges') {
-      withLazyChunk('ranges', function () { renderRangesExplorer(); });
+      withLazyChunk('ranges', function () {
+        var pending = global.__ptPendingRanges || null;
+        if (pending && typeof applyRangesExplorerState === 'function') {
+          try { applyRangesExplorerState(pending); } catch (ePend) { /* ignore */ }
+          global.__ptPendingRanges = null;
+        }
+        renderRangesExplorer();
+      });
     }
     if (tabId === 'pricing') renderPricing();
     if (tabId === 'sessions') {
@@ -33293,6 +33322,41 @@ window.PT_NASH_PUSH_JSON = {
     },
     potBB: 6, toCallBB: 0
   };
+
+  /** Aplica preset del explorer (deep-link desde Escuela, etc.). */
+  function applyRangesExplorerState(opts) {
+    if (!opts || typeof opts !== 'object') return;
+    if (opts.street) rangesState.street = opts.street;
+    if (opts.spot) rangesState.spot = opts.spot;
+    if (opts.heroPos) rangesState.heroPos = opts.heroPos;
+    if (opts.villainPos) rangesState.villainPos = opts.villainPos;
+    if (opts.callerPos) rangesState.callerPos = opts.callerPos;
+    if (opts.gameType) rangesState.gameType = opts.gameType;
+    if (opts.stackDepth) rangesState.stackDepth = opts.stackDepth;
+    if (opts.mttPhase) rangesState.mttPhase = opts.mttPhase;
+    if (opts.openSize != null) rangesState.openSize = opts.openSize;
+    if (opts.gameType) {
+      $$('#ranges-game-type .setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === opts.gameType);
+      });
+    }
+    if (opts.stackDepth) {
+      $$('#ranges-stack-depth .setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === opts.stackDepth);
+      });
+    }
+  }
+
+  /**
+   * Abre la pestaña Rangos con contexto opcional.
+   * Uso Escuela: openRangesExplorer({ spot:'RFI', heroPos:'BTN' })
+   */
+  function openRangesExplorer(opts) {
+    if (opts) global.__ptPendingRanges = opts;
+    if (typeof goToTab === 'function') goToTab('ranges');
+  }
+  window.openRangesExplorer = openRangesExplorer;
+  window.applyRangesExplorerState = applyRangesExplorerState;
 
   function rangesBoardText() {
     if (rangesState.street === 'preflop') return '';
