@@ -26,11 +26,18 @@ Para un producto SaaS con suscripciones mensuales/anuales y portal de cliente, *
 
 ## Planes (IDs internos en `pt_user_profiles.plan`)
 
-| ID DB | Nombre comercial | Precio orientativo |
-|-------|------------------|-------------------|
-| `free` | Gratis | €0 |
-| `pro` | Study | €14,99/mes · €119/año |
-| `premium` | Coach | €34,99/mes · €279/año |
+| ID DB | Nombre comercial | Pagando mensual | Pagando anual |
+|-------|------------------|-----------------|---------------|
+| `free` | Gratis | €0 | €0 |
+| `pro` | Study | €14,99/mes | €9,92/mes (€119/año) |
+| `premium` | Coach | €34,99/mes | €23,25/mes (€279/año) |
+| `pro` | Study **FOUNDER** (−40 %) | €8,99/mes | €5,95/mes (€71,40/año) |
+| `premium` | Coach **FOUNDER** (−40 %) | €20,99/mes | €13,95/mes (€167,40/año) |
+
+Los seis importes de cada plan viven en `PT_BILLING.plans` (`js/billing-config.js`, espejo en
+`js/billing-config.example.js`) y los pinta `js/pricing-view.js`, compartido por la landing sin
+registro y la pestaña Planes: tarifa habitual tachada, precio FOUNDER en grande y la promesa de
+precio bloqueado para siempre. La regresión `tools/test-founder-pricing.js` fija esa tabla.
 
 ## Límites por plan
 
