@@ -770,8 +770,8 @@ body.guest-mode .play-setup-extras { display: none !important; }
   align-items: baseline;
   gap: 6px;
 }
-.price-usual-term { color: var(--muted); min-width: 104px; }
-.price-usual-year { color: var(--muted); }
+.price-usual-term { color: var(--muted); min-width: 100px; }
+.price-usual-values { color: var(--muted); white-space: nowrap; }
 .price-founder-lead {
   display: flex;
   flex-wrap: wrap;

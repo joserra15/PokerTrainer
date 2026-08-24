@@ -79,8 +79,9 @@
     if (p.yearlyPerMonth && p.yearly) {
       rows += '<span class="price-usual-row">' +
         '<span class="price-usual-term">' + esc(tr('price.annual', 'Pagando anual')) + '</span>' +
+        '<span class="price-usual-values">' +
         strike(p.yearlyPerMonth, perMonth()) +
-        '<span class="price-usual-year">(' + strike(p.yearly, perYear()) + ')</span>' +
+        ' (' + strike(p.yearly, perYear()) + ')</span>' +
         '</span>';
     }
     return '<div class="price-usual">' +
