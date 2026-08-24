@@ -81,6 +81,7 @@ assert.ok(/buy-in|entrada/.test(schoolSpinSrc) && /fichas no valen|fichas ≠|En
 assert.ok(/T-00|T-22/.test(schoolMttSrc), 'lecciones MTT');
 assert.ok(/R-01|R-27|R-28|R-29/.test(schoolRangesSrc), 'lecciones Rangos + exámenes');
 assert.ok(/school-data-ranges-line\.js/.test(chunks), 'chunk Rangos línea M2–M4');
+assert.ok(/school-data-ranges-line-sizing\.js/.test(chunks), 'chunk sizing-key línea');
 assert.ok(/school-matrix-drills\.js/.test(chunks), 'chunk matrix drills R-01/R-02');
 assert.ok(/openRangesExplorer|__ptPendingRanges/.test(app), 'deep-link Escuela → Rangos');
 assert.ok(/school-lang-badge|Contenido pedagógico en español/.test(
@@ -188,6 +189,7 @@ const engineScripts = [
   'js/school-extra-spots.js',
   'js/school-data-practice.js',
   'js/school-data-ranges-line.js',
+  'js/school-data-ranges-line-sizing.js',
   'js/school-matrix-drills.js',
   'js/school-share.js',
   'js/school.js'
@@ -1198,6 +1200,12 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
       const board = (spot.forceDeal && spot.forceDeal.board) || [];
       assert.strictEqual(board.length, 5, spot.id + ' board river 5 cartas');
       assert.ok(Array.isArray(spot.lineStory) && spot.lineStory.length >= 3, spot.id + ' lineStory');
+      spot.lineStory.forEach(function (row) {
+        var text = row.text || '';
+        if (!/bet|raise|donk|c-bet|open|overbet|% pot|\d,\d bb|\d bb|3×/.test(text)) return;
+        assert.ok(/% pot|\d,\d bb|\d bb|3×|overbet \d+% pot/.test(text),
+          spot.id + ' ' + (row.street || '') + ' incluye sizing: ' + text);
+      });
       const quiz = spot.villainQuiz;
       assert.ok(quiz && Array.isArray(quiz.options) && quiz.options.length === 3, spot.id + ' quiz 3 opciones');
       const correct = quiz.options.filter(function (o) { return o.correct; });
@@ -1213,8 +1221,8 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
         assert.ok(o.cards && o.cards.length === 2, spot.id + ' option cards');
         if (!o.correct) {
           assert.ok(o.eliminated && o.eliminated.length > 10, spot.id + ' eliminated text');
-          assert.ok(/flop|turn|river|c-bet|barrel|donk|check-check|raise|pot-control/i.test(o.eliminated),
-            spot.id + ' ' + o.label + ' debe descartarse postflop, no solo preflop');
+          assert.ok(/flop|turn|river|c-bet|barrel|donk|check-check|raise|pot-control|% pot|overbet|33%|66%|125%|sizing|2,5 bb|3×/i.test(o.eliminated),
+            spot.id + ' ' + o.label + ' debe descartarse postflop con sizing, no solo preflop');
           assert.ok(!/^(No abre|No entra en RFI|Fuera del RFI|Basura|No está en el RFI)/i.test(o.eliminated),
             spot.id + ' ' + o.label + ' no debe ser descarte trivial de open');
         }
@@ -1226,9 +1234,9 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
         return /river/i.test(r.street || '');
       })[0];
       assert.ok(riverRow, spot.id + ' tiene river en lineStory');
-      const riverBets = String(riverRow.text || '').match(/([A-Z0-9]{2,3})\s+(bet|overbet)/gi) || [];
+      const riverBets = String(riverRow.text || '').match(/([A-Z0-9]{2,3})\s+(bet|overbet)(?:\s+\d+% pot|\s+\d,\d bb)?/gi) || [];
       assert.ok(riverBets.length, spot.id + ' river indica quién apuesta: ' + riverRow.text);
-      const lastBet = riverBets[riverBets.length - 1].match(/([A-Z0-9]{2,3})\s+(bet|overbet)/i);
+      const lastBet = riverBets[riverBets.length - 1].match(/([A-Z0-9]{2,3})\s+(bet|overbet)(?:\s+\d+% pot|\s+\d,\d bb)?/i);
       assert.ok(lastBet, spot.id + ' parse river bet: ' + riverRow.text);
       assert.strictEqual(lastBet[1], vill, spot.id + ' river aggressor debe ser villano ' + vill + ', no ' + lastBet[1]);
       assert.notStrictEqual(lastBet[1], spot.heroPos, spot.id + ' river no debe ser apuesta del héroe');

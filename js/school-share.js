@@ -509,6 +509,24 @@
    * Tarjeta social del quiz de línea: línea + board + héroe + 3 opciones.
    * Sin solución (ni mano correcta, ni elección del usuario, ni teachBack).
    */
+  function drawSizedLineText(ctx, text, x, y, maxWidth) {
+    var re = /(\d,\d bb|\d+% pot|overbet \d+% pot|overbet 125% pot|\d×|check-raise 3×|raise 3×|donk \d+% pot|c-bet \d+% pot)/;
+    if (!re.test(text) || ctx.measureText(text).width > maxWidth) {
+      ctx.fillStyle = 'rgba(230,237,243,0.9)';
+      ctx.fillText(text, x, y);
+      return;
+    }
+    var parts = text.split(/(\d,\d bb|\d+% pot|overbet \d+% pot|overbet 125% pot|\d×|check-raise 3×|raise 3×|donk \d+% pot|c-bet \d+% pot)/);
+    var cx = x;
+    parts.forEach(function (part) {
+      if (!part) return;
+      var isSize = /% pot|bb|×|overbet|c-bet \d/.test(part);
+      ctx.fillStyle = isSize ? '#fbbf24' : 'rgba(230,237,243,0.9)';
+      ctx.fillText(part, cx, y);
+      cx += ctx.measureText(part).width;
+    });
+  }
+
   function drawLineQuizCard(canvas, payload) {
     var ctx = canvas.getContext('2d');
     var w = CARD_W;
@@ -562,12 +580,11 @@
       var text = (row && row.text) || '';
       ctx.fillStyle = '#93c5fd';
       ctx.fillText(street, 80, storyY);
-      ctx.fillStyle = 'rgba(230,237,243,0.9)';
       var lines = wrapText(ctx, text, w - 280);
-      ctx.fillText(lines[0] || '', 220, storyY);
+      drawSizedLineText(ctx, lines[0] || '', 220, storyY, w - 280);
       if (lines[1]) {
         storyY += 30;
-        ctx.fillText(lines[1], 220, storyY);
+        drawSizedLineText(ctx, lines[1], 220, storyY, w - 280);
       }
       storyY += 38;
     });

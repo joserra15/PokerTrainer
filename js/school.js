@@ -662,11 +662,20 @@
     return force;
   }
 
+  function highlightLineSizing(text) {
+    if (!text) return '';
+    var escaped = esc(text);
+    return escaped.replace(
+      /(\d,\d bb|\d+% pot|overbet \d+% pot|overbet 125% pot|\d×|check-raise 3×|raise 3×|donk \d+% pot|c-bet \d+% pot)/g,
+      '<span class="school-line-size">$1</span>'
+    );
+  }
+
   function formatLineStoryHtml(story) {
     if (!story || !story.length) return '';
     var items = story.map(function (row) {
       return '<li><span class="school-line-street">' + esc(row.street || '') + '</span> ' +
-        esc(row.text || '') + '</li>';
+        highlightLineSizing(row.text || '') + '</li>';
     }).join('');
     return '<ul class="school-line-story">' + items + '</ul>';
   }
@@ -1171,7 +1180,7 @@
       '<div class="school-spot-feedback school-villain-quiz">' +
       '<h3>Spot ' + (s.index + 1) + ' / ' + s.spots.length + ' · ¿Qué tiene?</h3>' +
       '<p class="school-quiz-prompt">' + esc(prompt) + '</p>' +
-      '<p class="school-quiz-hint">Elige la mano que sobrevive a la línea. Las otras dos ya deberían estar descartadas.</p>' +
+      '<p class="school-quiz-hint">Lee los tamaños de apuesta en la línea: confirman o descartan cada mano.</p>' +
       '<div class="school-quiz-options">' + optsHtml + '</div>' +
       '</div>';
     if (actions) {
