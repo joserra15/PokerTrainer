@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="El silencio impuesto por el miedo">
+  <rect width="64" height="64" rx="12" fill="#0a0a0c"/>
+  <circle cx="32" cy="32" r="17" fill="none" stroke="#d4a24c" stroke-width="2.5" opacity="0.55"/>
+  <path d="M20 32h24" stroke="#d4a24c" stroke-width="4" stroke-linecap="round"/>
+</svg>

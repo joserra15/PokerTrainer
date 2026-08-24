@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="El silencio impuesto por el miedo">
+  <defs>
+    <radialGradient id="brillo" cx="18%" cy="22%" r="70%">
+      <stop offset="0%" stop-color="#d4a24c" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#0a0a0c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0a0a0c"/>
+  <rect width="1200" height="630" fill="url(#brillo)"/>
+  <circle cx="96" cy="96" r="9" fill="#d4a24c"/>
+  <text x="96" y="300" fill="#ece8e1" font-family="Georgia, 'Times New Roman', serif" font-size="86">El silencio</text>
+  <text x="96" y="392" fill="#ece8e1" font-family="Georgia, 'Times New Roman', serif" font-size="86">impuesto por el miedo</text>
+  <path d="M96 444h180" stroke="#d4a24c" stroke-width="4" stroke-linecap="round"/>
+  <text x="96" y="512" fill="#a2a0a8" font-family="Helvetica, Arial, sans-serif" font-size="30">Testimonios, contexto y recursos</text>
+</svg>
