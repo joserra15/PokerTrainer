@@ -6,7 +6,7 @@
 (function (global) {
   'use strict';
 
-  var VIEW = { hub: 'hub', lesson: 'lesson', result: 'result' };
+  var VIEW = { hub: 'hub', lesson: 'lesson', result: 'result', matrix: 'matrix' };
   var state = {
     view: VIEW.hub,
     route: 'cash',
@@ -686,6 +686,20 @@
     return 0;
   }
 
+  function openRangesFromLesson(lesson) {
+    var opts = (lesson && lesson.openRanges) || { spot: 'RFI', heroPos: 'BTN', street: 'preflop', gameType: 'cash6' };
+    if (typeof global.openRangesExplorer === 'function') {
+      global.openRangesExplorer(opts);
+      return;
+    }
+    global.__ptPendingRanges = opts;
+    if (typeof global.goToTab === 'function') global.goToTab('ranges');
+  }
+
+  function schoolLangBadgeHtml() {
+    return '<span class="school-lang-badge" title="Contenido de la Escuela en español">ES</span>';
+  }
+
   function recordLessonAttempt(lesson, spotResults) {
     var threshold = lesson.passThreshold != null ? lesson.passThreshold : 0.7;
     var goldTh = lesson.goldThreshold != null ? lesson.goldThreshold : 0.9;
@@ -813,6 +827,8 @@
   function abandonSession(goHub) {
     if (state.session) state.session.active = false;
     state.session = null;
+    state.pendingMatrixSpot = null;
+    if (state.view === VIEW.matrix) state.view = VIEW.hub;
     updateSchoolBanner();
     var doc = typeof document !== 'undefined' ? document : null;
     var fb = doc && doc.getElementById ? doc.getElementById('feedback') : null;
@@ -836,11 +852,58 @@
     s.index = index;
     s.spotDecided = false;
     updateSchoolBanner();
-    var force = spotToForce(s.spots[index]);
+    var spot = s.spots[index];
+    var MX = global.PTSchoolMatrixDrills;
+    if (MX && MX.isMatrixSpot && MX.isMatrixSpot(spot)) {
+      startMatrixSpot(spot);
+      return;
+    }
+    var force = spotToForce(spot);
     if (typeof global.playAnalysisHand === 'function') {
       var lesson = Data() && Data().getLesson(s.lessonId);
-      global.playAnalysisHand(force, schoolPlayConfig(s.spots[index], lesson));
+      global.playAnalysisHand(force, schoolPlayConfig(spot, lesson));
     }
+  }
+
+  function startMatrixSpot(spot) {
+    var s = state.session;
+    var MX = global.PTSchoolMatrixDrills;
+    if (!s || !MX || !MX.mountDrill) return;
+    state.view = VIEW.matrix;
+    state.pendingMatrixSpot = spot;
+    if (typeof global.goToTab === 'function') global.goToTab('school');
+    else mountPendingMatrixDrill();
+  }
+
+  function mountPendingMatrixDrill() {
+    var s = state.session;
+    var spot = state.pendingMatrixSpot;
+    var MX = global.PTSchoolMatrixDrills;
+    var root = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+    if (!s || !spot || !MX || !root) return;
+    state.pendingMatrixSpot = null;
+    MX.mountDrill(root, spot, {
+      index: s.index,
+      total: s.spots.length,
+      onAbort: function () { abandonSession(true); },
+      onResult: function (result) {
+        if (!state.session || !state.session.active) return;
+        state.session.results.push({
+          spotId: result.spotId || (spot && spot.id),
+          class: result.class || 'error',
+          action: result.action || spot.kind,
+          actionLabel: result.actionLabel || '',
+          heroPos: spot.heroPos || '',
+          heroCards: null,
+          board: null,
+          teachBack: result.teachBack || spot.teachBack || '',
+          quizCorrect: !!result.quizCorrect,
+          overlap: result.overlap
+        });
+        state.session.spotDecided = true;
+        startSpotAt(state.session.index + 1);
+      }
+    });
   }
 
   function classLabel(cls) {
@@ -1498,9 +1561,10 @@
     root.innerHTML =
       '<div class="school-page">' +
       '<header class="school-hero">' +
-      '<p class="school-eyebrow">' + esc(hero.eyebrow) + '</p>' +
+      '<p class="school-eyebrow">' + esc(hero.eyebrow) + ' ' + schoolLangBadgeHtml() + '</p>' +
       '<h2 class="school-title">' + esc(hero.title) + '</h2>' +
       '<p class="school-lead">' + esc(hero.lead) + '</p>' +
+      '<p class="school-lang-note muted-text">Contenido pedagógico en español.</p>' +
       '<div class="school-hero-stats">' +
       '<div class="school-stat"><span class="school-stat-val">Nv. ' + lv.level + '</span><span class="school-stat-lbl">Nivel Escuela</span></div>' +
       '<div class="school-stat"><span class="school-stat-val">' + lv.xp + '</span><span class="school-stat-lbl">XP</span></div>' +
@@ -1589,13 +1653,35 @@
       ? 'Completar lección'
       : (p && p.passed ? 'Repetir sesión (' + lesson.hands + ' manos)' : 'Empezar sesión (' + lesson.hands + ' manos)');
 
+    var openRangesBtn = '';
+    if (lesson.openRanges || lesson.route === 'ranges') {
+      openRangesBtn = '<button type="button" class="btn btn-ghost" id="school-open-ranges">Abrir chart</button>';
+    }
+    var related = '';
+    if (lesson.relatedLessons && lesson.relatedLessons.length) {
+      related = '<section class="card-box school-section school-related">' +
+        '<h3>Relacionado</h3><div class="school-related-links">' +
+        lesson.relatedLessons.map(function (rl) {
+          return '<button type="button" class="btn btn-ghost school-related-btn" data-school-goto-lesson="' +
+            esc(rl.id) + '">' + esc(rl.label || rl.id) + '</button>';
+        }).join('') +
+        '</div></section>';
+    }
+    var previewHost = '';
+    if (lesson.matrixPreview) {
+      previewHost = '<section class="card-box school-section" id="school-matrix-preview-host">' +
+        '<h3>Vista previa de matriz</h3>' +
+        '<p class="muted-text">Chart de referencia (cash 6-max). Usa «Abrir chart» para el explorer completo.</p>' +
+        '<div class="school-matrix-preview-mount"></div></section>';
+    }
+
     root.innerHTML =
       '<div class="school-page school-lesson-page">' +
       '<button type="button" class="btn btn-ghost school-back" id="school-back-hub">« Volver al mapa</button>' +
       '<header class="school-lesson-header">' +
       '<p class="school-eyebrow">' + esc(lesson.id) + ' · ' + esc(lesson.module || 'M0') + ' · ' +
       esc((Data().ROUTES.find(function (r) { return r.id === lesson.route; }) || { label: lesson.route || 'Cash' }).label) +
-      ' ' + planBadge(lesson.plan) + '</p>' +
+      ' ' + planBadge(lesson.plan) + ' ' + schoolLangBadgeHtml() + '</p>' +
       '<h2 class="school-title">' + esc(lesson.title) + '</h2>' +
       '<p class="school-lead">' + esc(lesson.concept) + '</p>' +
       (p && p.passed
@@ -1608,6 +1694,8 @@
       '<section class="card-box school-section">' +
       '<h3>Concepto</h3><ul class="school-theory">' + theory + '</ul></section>' +
       '<section class="card-box school-section"><h3>Ejemplos</h3>' + examples + '</section>' +
+      previewHost +
+      related +
       '<section class="card-box school-section">' +
       '<h3>ForgeCoach</h3>' +
       '<p class="muted-text">Preguntas sugeridas (consumen cuota de IA del plan).</p>' +
@@ -1616,6 +1704,7 @@
       '</section>' +
       '<div class="school-lesson-cta">' +
       '<button type="button" class="btn btn-primary" id="school-start-lesson">' + esc(cta) + '</button>' +
+      openRangesBtn +
       '</div></div>';
 
     var back = document.getElementById('school-back-hub');
@@ -1630,6 +1719,25 @@
       start.addEventListener('click', function () {
         startLessonSession(lesson.id);
       });
+    }
+    var openBtn = document.getElementById('school-open-ranges');
+    if (openBtn) {
+      openBtn.addEventListener('click', function () {
+        openRangesFromLesson(lesson);
+      });
+    }
+    root.querySelectorAll('[data-school-goto-lesson]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var lid = btn.getAttribute('data-school-goto-lesson');
+        if (lid) openLesson(lid);
+      });
+    });
+    if (lesson.matrixPreview) {
+      var mount = root.querySelector('.school-matrix-preview-mount');
+      var MX = global.PTSchoolMatrixDrills;
+      if (mount && MX && MX.previewHtml) {
+        mount.innerHTML = MX.previewHtml(lesson.matrixPreview.position || 'BTN');
+      }
     }
     mountCoach(root, lesson);
     bindAskChips(root);
@@ -1853,7 +1961,9 @@
     consumePendingLesson();
     if (state.view === VIEW.lesson) renderLesson(root);
     else if (state.view === VIEW.result) renderResult(root);
-    else renderHub(root);
+    else if (state.view === VIEW.matrix && state.session && state.session.active) {
+      mountPendingMatrixDrill();
+    } else renderHub(root);
   }
 
   function ensureBannerEl() {

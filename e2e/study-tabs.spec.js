@@ -35,4 +35,18 @@ test.describe('Pestañas de estudio @smoke', () => {
     expect(text.length).toBeGreaterThan(20);
     await expect(page.locator('#tab-ranges')).not.toContainText(/pt\.|i18n\./);
   });
+
+  test('Escuela Laboratorio Rangos muestra R-01', async ({ page }) => {
+    await goTab(page, 'school');
+    await page.waitForSelector('#school-content .school-page', { timeout: 20000 });
+    await expect(page.locator('#school-content')).toContainText(/ES|español/i);
+    const rangesTab = page.locator('[data-school-route="ranges"]');
+    await expect(rangesTab).toBeVisible({ timeout: 15000 });
+    await rangesTab.click();
+    await expect(page.locator('#school-content')).toContainText(/R-01|Leer un range chart|matriz/i, { timeout: 15000 });
+    const lessonBtn = page.locator('[data-school-lesson="R-01"]');
+    await expect(lessonBtn).toBeVisible({ timeout: 10000 });
+    await lessonBtn.click();
+    await expect(page.locator('#school-content')).toContainText(/Abrir chart|Vista previa|matriz/i, { timeout: 15000 });
+  });
 });

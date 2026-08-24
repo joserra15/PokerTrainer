@@ -460,35 +460,129 @@
     R('t22-12', 'SB', ['Kh', 'Jh'], 75212, 'Short KJs SB shove. Certificación: fase → rol → acción.', pushM)
   ];
 
-  /* —— Rangos —— */
+  /* —— Rangos: R-01 quiz matriz · R-02 pintar RFI —— */
+  function mxLocate(id, seed, cell, prompt, teach, trap) {
+    return {
+      id: id,
+      kind: 'matrixQuiz',
+      seed: seed,
+      heroPos: 'BTN',
+      teachBack: teach || '',
+      trapTag: trap || undefined,
+      quiz: { mode: 'locate', targetCell: cell, prompt: prompt }
+    };
+  }
+  function mxChoice(id, seed, prompt, options, correctId, teach, previewSelected) {
+    return {
+      id: id,
+      kind: 'matrixQuiz',
+      seed: seed,
+      heroPos: 'BTN',
+      teachBack: teach || '',
+      quiz: {
+        mode: 'choice',
+        prompt: prompt,
+        options: options,
+        correctId: correctId,
+        previewSelected: previewSelected || {}
+      }
+    };
+  }
+  function mxInRange(id, seed, hand, position, teach, trap) {
+    return {
+      id: id,
+      kind: 'matrixQuiz',
+      seed: seed,
+      heroPos: position || 'BTN',
+      teachBack: teach || '',
+      trapTag: trap || undefined,
+      quiz: {
+        mode: 'inRange',
+        hand: hand,
+        position: position || 'BTN',
+        prompt: '¿' + hand + ' entra en el RFI ' + (position || 'BTN') + ' del chart cash 6-max?'
+      }
+    };
+  }
+  function mxPaint(id, seed, band, prompt, teach, seconds, passOverlap) {
+    return {
+      id: id,
+      kind: 'matrixPaint',
+      seed: seed,
+      heroPos: 'BTN',
+      teachBack: teach || '',
+      paint: {
+        position: 'BTN',
+        band: band || 'all',
+        prompt: prompt,
+        seconds: seconds || 0,
+        passOverlap: passOverlap != null ? passOverlap : 0.7
+      }
+    };
+  }
+
   PACKS['R-01'] = [
-    R('r01-01', 'UTG', ['As', 'Ah'], 76001, 'AA está en la esquina de la matriz 13×13 (par, celda diagonal). Open UTG: el chart lo pinta casi 100 %.', cash()),
-    R('r01-02', 'UTG', ['7c', '2d'], 76002, '72o está abajo a la derecha, offsuit. UTG: 0 % — fold. Lee palo (suited arriba) vs offsuit (abajo).', cash(), 'dominated'),
-    R('r01-03', 'BTN', ['9c', '7c'], 76003, '97s: conectores suited (encima de la diagonal). BTN RFI suele pintarla. Open.', cash()),
-    R('r01-04', 'UTG', ['8h', '7d'], 76004, '87o: misma celda familia, debajo de la diagonal. UTG casi 0 %. Fold. Suited ≠ offsuit.', cash(), 'fancy_play'),
-    R('r01-05', 'CO', ['Kd', 'Qd'], 76005, 'KQs: broadway suited. CO/BTN la pintan fuerte. Open.', cash()),
-    R('r01-06', 'UTG', ['Qd', '9c'], 76006, 'Q9o UTG: celda offsuit baja frecuencia. Fold. El color de la celda te lo dice.', cash(), 'fancy_play'),
-    R('r01-07', 'BTN', ['Ah', '5h'], 76007, 'A5s: Ax suited. BTN RFI típico. Open. Busca la fila A, columna 5, lado suited.', cash()),
-    R('r01-08', 'HJ', ['Ah', '5d'], 76008, 'A5o HJ: offsuit, menos % que A5s. A menudo fold desde middle. Lee el % de la celda.', cash(), 'fancy_play'),
-    R('r01-09', 'CO', ['Ts', 'Th'], 76009, 'TT: diagonal de pares. Casi siempre pintada en RFI late. Open.', cash()),
-    R('r01-10', 'UTG', ['Qd', 'Jd'], 76010, 'QJs UTG: muchas matrices modernas la pintan. Open — no la trates como 72o.', cash()),
-    R('r01-11', 'BTN', ['Th', '2c'], 76011, 'T2o BTN: celda casi vacía. Fold. Wide de botón no es 169/169.', cash(), 'dominated'),
-    R('r01-12', 'SB', ['Jc', 'Js'], 76012, 'JJ SB: celda premium, alta frecuencia. Open. Practica leer posición + celda.', cash())
+    mxLocate('r01-01', 76001, 'AA', 'Localiza AA en la matriz.', 'AA está en la esquina superior izquierda: par en la diagonal.'),
+    mxLocate('r01-02', 76002, '72o', 'Localiza 72o (offsuit).', '72o está abajo a la derecha, debajo de la diagonal. Offsuit = debajo.', 'dominated'),
+    mxLocate('r01-03', 76003, 'AKs', 'Localiza AKs (suited).', 'AKs: fila A, columna K, lado suited (encima de la diagonal).'),
+    mxLocate('r01-04', 76004, 'AKo', 'Localiza AKo (offsuit).', 'AKo es la misma familia que AKs pero debajo de la diagonal.'),
+    mxLocate('r01-05', 76005, '99', 'Localiza el par 99.', 'Los pares viven en la diagonal. 99 está en el centro-alto.'),
+    mxLocate('r01-06', 76006, 'T9s', 'Localiza T9s.', 'Conectores suited: encima de la diagonal, cerca uno del otro.'),
+    mxChoice('r01-07', 76007, 'A simple vista, ¿qué rango de RFI es más wide?', [
+      { id: 'btn', label: 'BTN (botón)' },
+      { id: 'utg', label: 'UTG' },
+      { id: 'same', label: 'Los dos iguales' }
+    ], 'btn', 'BTN pinta muchas más celdas que UTG. Posición late = rango más ancho.'),
+    mxChoice('r01-08', 76008, 'Si una celda marca 40 %, ¿qué significa?', [
+      { id: 'always', label: 'Siempre se juega' },
+      { id: 'mix', label: 'Se mezcla: a veces sí, a veces no' },
+      { id: 'never', label: 'Nunca se juega' }
+    ], 'mix', 'El % es frecuencia, no un sí/no absoluto.'),
+    mxLocate('r01-09', 76009, 'KJo', 'Localiza KJo.', 'KJo: offsuit broadway, debajo de la diagonal.'),
+    mxLocate('r01-10', 76010, 'A5s', 'Localiza A5s.', 'Ax suited: fila A, columna 5, lado suited.'),
+    mxLocate('r01-11', 76011, '22', 'Localiza el par más bajo: 22.', '22 cierra la diagonal abajo a la derecha.'),
+    mxChoice('r01-12', 76012, '¿Dónde están los pares en la matriz 13×13?', [
+      { id: 'diag', label: 'En la diagonal' },
+      { id: 'top', label: 'Solo en la primera fila' },
+      { id: 'bottom', label: 'Solo offsuit abajo' }
+    ], 'diag', 'AA…22 forman la diagonal. Sin eso, aún no lees el chart.')
   ];
 
   PACKS['R-02'] = [
-    R('r02-01', 'BTN', ['As', 'Ah'], 76101, 'RFI BTN en 60 s: pares altos siempre. AA open. Banda 1: pares.', cash()),
-    R('r02-02', 'BTN', ['6d', '4c'], 76102, '64o no entra en la banda BTN. Contrasta con el menú Rangos: 0 %.', cash(), 'dominated'),
-    R('r02-03', 'BTN', ['Ah', 'Td'], 76103, 'ATo: broadway offsuit — banda 2. Open desde botón.', cash()),
-    R('r02-04', 'BTN', ['Td', '8d'], 76104, 'T8s: suited connectors — banda 3. Open BTN.', cash()),
-    R('r02-05', 'BTN', ['Qd', 'Tc'], 76105, 'QTo: late offsuit. BTN a menudo open; no es UTG. Aquí open razonable.', cash()),
-    R('r02-06', 'BTN', ['5h', '2d'], 76106, '52o: fuera de bandas. Fold. 60 s: si no es par / broadway / sc / Ax decente → fuera.', cash(), 'dominated'),
-    R('r02-07', 'BTN', ['As', '6s'], 76107, 'A6s: Ax suited. Open BTN. Banda Ax.', cash()),
-    R('r02-08', 'BTN', ['Jh', '8d'], 76108, 'J8o: borde. Muchas líneas fold o mix bajo. Fold frecuente — no fuerces el borde.', cash(), 'fancy_play'),
-    R('r02-09', 'BTN', ['Ts', 'Th'], 76109, 'TT: pares medios. Open claro.', cash()),
-    R('r02-10', 'BTN', ['Jc', 'Td'], 76110, 'JTo: broadway offsuit BTN. Open frecuente.', cash()),
-    R('r02-11', 'BTN', ['4h', '3h'], 76111, '43s: sc bajos — mix/fold según chart. A menudo fold vs 65s+. Aquí fold frecuente.', cash(), 'fancy_play'),
-    R('r02-12', 'BTN', ['Kh', 'Qs'], 76112, 'KQo: broadway offsuit. Open. Tras 60 s contrastas con Rangos, no memorizas píxeles.', cash())
+    mxPaint('r02-01', 76101, 'pairs', 'Marca todos los pares (22+) que abrirías RFI BTN.', 'Banda 1: pares. En BTN casi todos los pares entran.', 0, 0.85),
+    mxPaint('r02-02', 76102, 'ax_suited', 'Marca los Ax suited del RFI BTN.', 'Banda Ax suited: A2s+ en el chart BTN.', 0, 0.75),
+    mxInRange('r02-03', 76103, 'ATo', 'BTN', 'ATo: broadway offsuit — entra en RFI BTN.'),
+    mxInRange('r02-04', 76104, '64o', 'BTN', '64o no entra. Wide no es cualquier dos.', 'dominated'),
+    mxPaint('r02-05', 76105, 'broadway_o', 'Marca broadway offsuit típicos del RFI BTN.', 'Banda broadway offsuit: ATo+, KQo, etc.', 0, 0.7),
+    mxInRange('r02-06', 76106, 'T8s', 'BTN', 'T8s: suited connector — entra en BTN.'),
+    mxInRange('r02-07', 76107, '52o', 'BTN', '52o: fuera de bandas. Fold en el chart.', 'dominated'),
+    mxPaint('r02-08', 76108, 'sc', 'Marca conectores / gapers suited del RFI BTN (sin Ax ni Kx).', 'Banda sc: 76s, 65s, 54s…', 0, 0.65),
+    mxInRange('r02-09', 76109, 'T2o', 'BTN', 'T2o: basura total. Fuera del chart BTN.', 'fancy_play'),
+    mxInRange('r02-10', 76110, 'KQo', 'BTN', 'KQo: broadway offsuit claro. Entra.'),
+    mxPaint('r02-11', 76111, 'all', '60 s: pinta el RFI BTN completo (raise + mix del chart).', 'Contrasta tu mapa mental con el chart. Wide ≠ spew.', 60, 0.65),
+    mxPaint('r02-12', 76112, 'all', 'Otra pasada: RFI BTN completo sin cronómetro estricto (90 s).', 'Si BTN y CO te salen iguales, aún no discriminas posición.', 90, 0.7)
+  ];
+
+  /* Examen M1: mezcla matriz + blockers (open/fold 3-bet) */
+  PACKS['R-28'] = [
+    mxLocate('r28-01', 78001, 'AA', 'Examen: localiza AA.', 'Diagonal: AA.'),
+    mxLocate('r28-02', 78002, '72o', 'Examen: localiza 72o.', 'Offsuit abajo.'),
+    mxChoice('r28-03', 78003, '¿BTN es más wide que UTG en RFI?', [
+      { id: 'yes', label: 'Sí' },
+      { id: 'no', label: 'No' }
+    ], 'yes', 'BTN pinta más celdas.'),
+    mxInRange('r28-04', 78004, 'A5s', 'BTN', 'A5s entra en BTN.'),
+    mxInRange('r28-05', 78005, '93o', 'BTN', '93o fuera.', 'dominated'),
+    mxPaint('r28-06', 78006, 'pairs', 'Marca los pares del RFI BTN.', 'Pares casi todos.', 0, 0.8),
+    V('r28-07', 'BB_vs_BTN', ['Ah', '4h'], 78007, 'A4s vs BTN: 3-bet polar con blocker de as.', cash({ scenario: '3bet' })),
+    V('r28-08', 'BB_vs_BTN', ['Kd', 'Tc'], 78008, 'KTo: fold. Mal blocker y dominada.', cash({ scenario: '3bet' }), 'fancy_play'),
+    V('r28-09', 'BB_vs_BTN', ['Qs', 'Qd'], 78009, 'QQ: 3-bet value.', cash({ scenario: '3bet' })),
+    mxLocate('r28-10', 78010, 'T9s', 'Localiza T9s.', 'Suited encima de la diagonal.'),
+    mxChoice('r28-11', 78011, 'Un 35 % en una celda significa…', [
+      { id: 'mix', label: 'Frecuencia / mezcla' },
+      { id: 'always', label: 'Siempre open' }
+    ], 'mix', 'Frecuencia, no absoluto.'),
+    mxInRange('r28-12', 78012, 'KQo', 'BTN', 'KQo entra.')
   ];
 
   PACKS['R-03'] = [

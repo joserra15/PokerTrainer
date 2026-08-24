@@ -439,16 +439,19 @@ Instrumentación ya existente: `lesson_start` / `complete` / `fail` / `blocked_p
 
 ## Checklist rápido «¿está el Laboratorio terminado?»
 
-- [x] 27 lecciones con teoría y spots
+- [x] 27 lecciones con teoría y spots (+ R-28/R-29 exámenes)
 - [x] Quizzes de línea M2–M4
 - [x] Gates Free/Study/Coach
 - [x] Escuela pública con auth
-- [ ] R-01 Quiz UI de matriz (ER-02)
-- [ ] R-02 matriz interactiva (ER-03)
-- [ ] Deep-link a explorer (ER-01)
-- [ ] Leaks → R-* (ER-04)
-- [ ] E2E Laboratorio (ER-07)
-- [ ] Docs sync (ER-08)
-- [ ] Packs de línea mantenibles (ER-10)
+- [x] R-01 Quiz UI de matriz (ER-02)
+- [x] R-02 matriz interactiva (ER-03)
+- [x] Deep-link a explorer (ER-01)
+- [x] Leaks → R-* (ER-04)
+- [x] E2E Laboratorio (ER-07)
+- [x] Docs sync (ER-08)
+- [x] Seeds únicos R-07…R-21 (ER-09)
+- [ ] Packs de línea mantenibles / split generador (ER-10 — pendiente de refactor de archivo)
+- [x] Sello ES-only Escuela (ER-11 — sin i18n; contenido en español)
+- [x] Exámenes módulo M1/M2 (ER-12)
 
-**Respuesta corta:** el Laboratorio está **completo como currículum de lectura de rangos** y **incompleto como escuela de charts**. Este RoadMap prioriza cerrar esa segunda mitad.
+**Respuesta corta:** el Laboratorio ahora enseña charts (R-01/R-02), conecta con explorer/leaks y mantiene todo el copy en español. Queda deuda de mantener `school-data-ranges-line.js` partido/generado (ER-10).
