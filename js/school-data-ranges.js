@@ -1,6 +1,7 @@
 /*
  * school-data-ranges.js — Laboratorio Rangos R-01…R-27 (M0–M4)
- * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ * Escuela: pública para usuarios autenticados (SCHOOL_PUBLIC=true en school.js).
+ * Plan de gaps (R-01/R-02 matriz, deep-links): docs/ROADMAP_ESCUELA_RANGOS.md
  */
 (function (global) {
   'use strict';
@@ -135,7 +136,9 @@
       "spots": [],
       "exam": false,
       "id": "R-01",
-      "title": "Leer un range chart 13×13"
+      "title": "Leer un range chart 13×13",
+      "openRanges": { "spot": "RFI", "heroPos": "BTN", "street": "preflop", "gameType": "cash6" },
+      "matrixPreview": { "position": "BTN" }
     },
     {
       "route": "ranges",
@@ -184,7 +187,9 @@
       "spots": [],
       "exam": false,
       "id": "R-02",
-      "title": "Construir RFI BTN en 60 s"
+      "title": "Construir RFI BTN en 60 s",
+      "openRanges": { "spot": "RFI", "heroPos": "BTN", "street": "preflop", "gameType": "cash6" },
+      "matrixPreview": { "position": "BTN" }
     },
     {
       "route": "ranges",
@@ -233,7 +238,8 @@
       "spots": [],
       "exam": false,
       "id": "R-03",
-      "title": "Qué % del rango conecta un board"
+      "title": "Qué % del rango conecta un board",
+      "matrixPreview": { "position": "BTN" }
     },
     {
       "route": "ranges",
@@ -282,7 +288,9 @@
       "spots": [],
       "exam": false,
       "id": "R-04",
-      "title": "Eliminación de combos (blockers)"
+      "title": "Eliminación de combos (blockers)",
+      "matrixPreview": { "position": "BTN" },
+      "openRanges": { "spot": "3bet", "heroPos": "BB", "villainPos": "BTN", "street": "preflop", "gameType": "cash6" }
     },
     {
       "route": "ranges",
@@ -1410,6 +1418,78 @@
       "exam": false,
       "id": "R-27",
       "title": "¿Qué tiene? · Faroles sutiles II"
+    },
+    {
+      "route": "ranges",
+      "module": "M1",
+      "order": 5.5,
+      "plan": "study",
+      "xp": 100,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 0,
+      "exam": true,
+      "concept": "Examen M1: mezcla localizar celdas, ¿entra en el rango? y blockers — sin pistas de módulo.",
+      "theory": [
+        {
+          "title": "Qué evalúa este examen",
+          "body": "Repasas matriz, RFI BTN y eliminación de combos. Si apruebas, demuestras que lees el chart y no solo memorizas spots de open/fold."
+        },
+        {
+          "title": "Cómo prepararte",
+          "body": "Antes de empezar: localiza AA, 72o y AKs sin dudar; nombra bandas del botón en sesenta segundos; recuerda que un as en la mano bloquea combos de AA/AK del rival."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Sin spoilers",
+          "body": "Cada spot es independiente. Usa el mismo método: diagonal / suited / offsuit → banda → blockers. Si fallas, vuelve a R-01, R-02 o R-04."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué repasarías si fallas el examen M1 de rangos?"
+      ],
+      "spots": [],
+      "id": "R-28",
+      "title": "Examen M1 · Matriz y blockers",
+      "openRanges": { "spot": "RFI", "heroPos": "BTN", "street": "preflop", "gameType": "cash6" },
+      "matrixPreview": { "position": "BTN" }
+    },
+    {
+      "route": "ranges",
+      "module": "M2",
+      "order": 12.5,
+      "plan": "study",
+      "xp": 120,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
+      "decisionEnd": true,
+      "hands": 0,
+      "exam": true,
+      "concept": "Examen M2: lectura de línea + ¿qué tiene? mezclado con trampas del bloque Study.",
+      "theory": [
+        {
+          "title": "Qué evalúa este examen",
+          "body": "Tras Lectura I–V y faroles por línea, demuestras que descartas combos con la historia completa, no con el river aislado ni con el título de la lección."
+        },
+        {
+          "title": "Método en el examen",
+          "body": "Lee preflop → flop → turn → river. Elimina lo imposible en cada calle. Entre las tres opciones, solo una sobrevive a toda la línea. Sin atajos de categoría."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Método",
+          "body": "Si el villano check-raisea flop y overbetea river brick, prioriza draws fallidos y polar, no medias manos que habrían betado turn."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cómo usas la línea completa para eliminar combos?"
+      ],
+      "spots": [],
+      "id": "R-29",
+      "title": "Examen M2 · Lectura de línea"
     }
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });

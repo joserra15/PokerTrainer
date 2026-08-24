@@ -3,6 +3,7 @@
 > Estudio de producto y diseño pedagógico para un sistema de **entrenamiento dirigido por lecciones** en PokerForgeAI.  
 > **Alcance de este documento:** análisis, currículum, monetización, UX de progresión y fases de entrega. **Sin implementación de código.**  
 > Complementa: `ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`, Guía básica actual (`js/beginner-guide.js`), taxonomía de formatos (`js/engine/format/taxonomy.js`), ForgeCoach y planes Gratis / Study / Coach.  
+> **Laboratorio de Rangos (estado + gaps):** ver [`ROADMAP_ESCUELA_RANGOS.md`](ROADMAP_ESCUELA_RANGOS.md) — este §12/§13/§14 quedó parcialmente obsoleto respecto al código (R-01…R-27, `SCHOOL_PUBLIC=true`).  
 > Fecha: agosto 2026 · Producto: PokerForgeAI (PokerTrainer)
 
 ---
@@ -607,14 +608,17 @@ Insertables en las tres rutas o como **ruta 4 opcional: Laboratorio de Rangos** 
 
 ### 12.1 Laboratorio de rangos
 
+> **Estado 2026:** en código hay **R-01…R-27** (M0–M4), no solo R-01…R-06. R-01/R-02 aún **no** son Quiz UI / Interactive matrix (siguen open/fold + copy). Plan de cierre: [`ROADMAP_ESCUELA_RANGOS.md`](ROADMAP_ESCUELA_RANGOS.md).
+
 | ID | Lección | Formato | Objetivo |
 |----|---------|---------|----------|
-| R-01 | Matriz 13×13: leer un range chart | Quiz UI | Familiaridad con la matriz de la app |
-| R-02 | Construir RFI BTN en 60 s | Interactive matrix | Memoria muscular |
+| R-01 | Matriz 13×13: leer un range chart | Quiz UI *(pendiente)* | Familiaridad con la matriz de la app |
+| R-02 | Construir RFI BTN en 60 s | Interactive matrix *(pendiente)* | Memoria muscular |
 | R-03 | Dado un board, % de rango que conecta | C | Flop texture × range |
 | R-04 | Eliminación de combos (blockers) | C | Contar combos |
-| R-05 | Asignar rango rival tras línea | C | “Villain bet-bet-shove: ¿polar o merge?” |
+| R-05 | Asignar rango rival tras línea | C → línea + villainQuiz | “Villain bet-bet-shove: ¿polar o merge?” |
 | R-06 | Pro: node frequencies | C | Elegir mix correcto |
+| R-07…R-27 | Lectura de línea / faroles (M2–M4) | Línea + villainQuiz | Amplíación post–Fase I — ver RoadMap Rangos |
 
 ### 12.2 Conceptos pro (catálogo Coach)
 
@@ -642,7 +646,7 @@ Definición operativa por ruta:
 | Cash | 32 | C-00–C-02 | C-00–C-18 + C-19/C-22 | Todas |
 | Spins | 18 | S-00–S-01 | S-00–S-10 | Todas |
 | MTT | 23 | T-00–T-01 | T-00–T-10 + teaser T-13 | Todas |
-| Rangos | 6 | R-01 | R-01–R-03 | Todas |
+| Rangos | 27 (código) / 6 (tabla original) | R-01–R-03 | M0–M2 (R-04…R-11, R-22/23) | M3–M4 (R-12…R-27) — ver `ROADMAP_ESCUELA_RANGOS.md` |
 
 Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concepto.
 
@@ -665,15 +669,15 @@ Los nodos Coach se muestran en el mapa con badge **Coach** y preview del concept
 | **A** | Esqueleto tab Escuela | ✅ | Solo admin |
 | **B** | Vertical slice C-02 + runner | ✅ | Solo admin |
 | **C** | M0 Cash gratis C-00…C-06 | ✅ | Solo admin |
-| **D** | Gates Free/Study/Coach + analytics + flag beta | ✅ | **Sigue solo admin** (`SCHOOL_PUBLIC=false`; allowlist lista) |
-| **E** | M1 Preflop Study C-07…C-13 | ✅ contenido | **Menú no se abre a usuarios** (aplazado a petición) |
-| **F** | M2 Postflop C-14…C-20 + estrellas/maestría + tip coach | ✅ | Solo admin |
-| **G** | Ruta Spins S-00…S-17 + hub activo | ✅ | Solo admin |
-| **H** | Ruta MTT T-00…T-22 (burbuja/FT Coach) | ✅ | Solo admin |
-| **I** | Laboratorio rangos R-01…R-06 + Pro Cash C-26…C-31 | ✅ | Solo admin |
-| **J** | Leaks → lección Escuela (`TRAINING_FOCUSES.lessonId` + CTA «Ver lección») | ✅ | CTA solo si menú Escuela visible (admin) |
+| **D** | Gates Free/Study/Coach + analytics + flag beta | ✅ | **Público con auth** (`SCHOOL_PUBLIC=true` en código) |
+| **E** | M1 Preflop Study C-07…C-13 | ✅ contenido | Público con auth |
+| **F** | M2 Postflop C-14…C-20 + estrellas/maestría + tip coach | ✅ | Público con auth |
+| **G** | Ruta Spins S-00…S-17 + hub activo | ✅ | Público con auth |
+| **H** | Ruta MTT T-00…T-22 (burbuja/FT Coach) | ✅ | Público con auth |
+| **I** | Laboratorio rangos R-01…R-06 + Pro Cash C-26…C-31 | ✅ + **R-07…R-27** | Público con auth; gaps R-01/R-02 → `ROADMAP_ESCUELA_RANGOS.md` |
+| **J** | Leaks → lección Escuela (`TRAINING_FOCUSES.lessonId` + CTA «Ver lección») | ✅ parcial | CTA a `C-*`; **falta** mapear leaks → `R-*` |
 
-**Decisión de producto:** aunque el plan original abría el menú en E, el menú permanece **admin-only** hasta nuevo aviso (`SCHOOL_PUBLIC=false`). Gates de plan y rutas G–I están activos dentro del tab admin.
+**Decisión de producto (actualizada):** el menú Escuela está **abierto a usuarios autenticados** (`SCHOOL_PUBLIC=true`). El plan de mejora del Laboratorio de Rangos vive en [`ROADMAP_ESCUELA_RANGOS.md`](ROADMAP_ESCUELA_RANGOS.md).
 
 ### Fase 0 — Diseño cerrado (doc + prototipos)
 

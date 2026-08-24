@@ -1611,7 +1611,14 @@
       PTUsageUI.refreshHost($('#play-usage'));
     }
     if (tabId === 'ranges') {
-      withLazyChunk('ranges', function () { renderRangesExplorer(); });
+      withLazyChunk('ranges', function () {
+        var pending = global.__ptPendingRanges || null;
+        if (pending && typeof applyRangesExplorerState === 'function') {
+          try { applyRangesExplorerState(pending); } catch (ePend) { /* ignore */ }
+          global.__ptPendingRanges = null;
+        }
+        renderRangesExplorer();
+      });
     }
     if (tabId === 'pricing') renderPricing();
     if (tabId === 'sessions') {
@@ -3225,6 +3232,41 @@
     },
     potBB: 6, toCallBB: 0
   };
+
+  /** Aplica preset del explorer (deep-link desde Escuela, etc.). */
+  function applyRangesExplorerState(opts) {
+    if (!opts || typeof opts !== 'object') return;
+    if (opts.street) rangesState.street = opts.street;
+    if (opts.spot) rangesState.spot = opts.spot;
+    if (opts.heroPos) rangesState.heroPos = opts.heroPos;
+    if (opts.villainPos) rangesState.villainPos = opts.villainPos;
+    if (opts.callerPos) rangesState.callerPos = opts.callerPos;
+    if (opts.gameType) rangesState.gameType = opts.gameType;
+    if (opts.stackDepth) rangesState.stackDepth = opts.stackDepth;
+    if (opts.mttPhase) rangesState.mttPhase = opts.mttPhase;
+    if (opts.openSize != null) rangesState.openSize = opts.openSize;
+    if (opts.gameType) {
+      $$('#ranges-game-type .setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === opts.gameType);
+      });
+    }
+    if (opts.stackDepth) {
+      $$('#ranges-stack-depth .setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === opts.stackDepth);
+      });
+    }
+  }
+
+  /**
+   * Abre la pestaña Rangos con contexto opcional.
+   * Uso Escuela: openRangesExplorer({ spot:'RFI', heroPos:'BTN' })
+   */
+  function openRangesExplorer(opts) {
+    if (opts) global.__ptPendingRanges = opts;
+    if (typeof goToTab === 'function') goToTab('ranges');
+  }
+  window.openRangesExplorer = openRangesExplorer;
+  window.applyRangesExplorerState = applyRangesExplorerState;
 
   function rangesBoardText() {
     if (rangesState.street === 'preflop') return '';

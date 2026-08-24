@@ -1,7 +1,8 @@
 /*
- * school-data-ranges-line.js — Rangos M2–M4: lectura de línea + quiz villano (R-07…R-27).
+ * school-data-ranges-line.js — Rangos M2–M4: lectura de línea + quiz villano (R-07…R-27) + examen R-29.
  * Spots mezclados por módulo (sets/colores/escaleras/draws/boats…) sin tipificar la lección.
  * Cargar tras school-data-practice.js. Mismo patrón que R-05.
+ * Deuda ER-10: archivo monolítico (~5,6k líneas); futuro split M2/M3/M4 o generador.
  */
 (function (global) {
   'use strict';
@@ -38,7 +39,7 @@
   var PACKS = {};
 
   PACKS["R-07"] = [
-      LQ("r07-01", "BB", ["Kh","7d"], ["Jh","Jc","4s","2d","9c"], 77000, {
+      LQ("r07-01", "BB", ["Kh","7d"], ["Jh","Jc","4s","2d","9c"], 70701, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -60,7 +61,7 @@
           ]
         }
       }),
-      LQ("r07-02", "BB", ["Tc","9c"], ["Kd","Jd","4d","2s","8h"], 77000, {
+      LQ("r07-02", "BB", ["Tc","9c"], ["Kd","Jd","4d","2s","8h"], 70702, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -82,7 +83,7 @@
           ]
         }
       }),
-      LQ("r07-03", "BTN", ["Qh","Js"], ["Ah","Td","4c","8s","2d"], 77000, {
+      LQ("r07-03", "BTN", ["Qh","Js"], ["Ah","Td","4c","8s","2d"], 70703, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -104,7 +105,7 @@
           ]
         }
       }),
-      LQ("r07-04", "BB", ["Ad","9d"], ["7h","5c","2s","Td","Qc"], 77000, {
+      LQ("r07-04", "BB", ["Ad","9d"], ["7h","5c","2s","Td","Qc"], 70704, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -126,7 +127,7 @@
           ]
         }
       }),
-      LQ("r07-05", "BB", ["Qd","8d"], ["As","Jh","3c","9s","2h"], 77000, {
+      LQ("r07-05", "BB", ["Qd","8d"], ["As","Jh","3c","9s","2h"], 70705, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -148,7 +149,7 @@
           ]
         }
       }),
-      LQ("r07-06", "BB", ["Kd","8d"], ["7h","6c","5s","2d","Ac"], 77000, {
+      LQ("r07-06", "BB", ["Kd","8d"], ["7h","6c","5s","2d","Ac"], 70706, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -170,7 +171,7 @@
           ]
         }
       }),
-      LQ("r07-07", "BTN", ["Th","8h"], ["Ad","Tc","8s","5h","2c"], 77000, {
+      LQ("r07-07", "BTN", ["Th","8h"], ["Ad","Tc","8s","5h","2c"], 70707, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -192,7 +193,7 @@
           ]
         }
       }),
-      LQ("r07-08", "BTN", ["Qh","Js"], ["8d","8c","4h","2s","Kd"], 77000, {
+      LQ("r07-08", "BTN", ["Qh","Js"], ["8d","8c","4h","2s","Kd"], 70708, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -214,7 +215,7 @@
           ]
         }
       }),
-      LQ("r07-09", "BB", ["Kh","Qd"], ["As","9s","2s","7c","3d"], 77000, {
+      LQ("r07-09", "BB", ["Kh","Qd"], ["As","9s","2s","7c","3d"], 70709, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -236,7 +237,7 @@
           ]
         }
       }),
-      LQ("r07-10", "BTN", ["Th","8h"], ["Qc","7d","2s","5c","Kh"], 77000, {
+      LQ("r07-10", "BTN", ["Th","8h"], ["Qc","7d","2s","5c","Kh"], 70710, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -258,7 +259,7 @@
           ]
         }
       }),
-      LQ("r07-11", "BTN", ["Kd","Qs"], ["8h","7c","6d","2s","Ah"], 77000, {
+      LQ("r07-11", "BTN", ["Kd","Qs"], ["8h","7c","6d","2s","Ah"], 70711, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -280,7 +281,7 @@
           ]
         }
       }),
-      LQ("r07-12", "BTN", ["Qh","Qs"], ["Jd","Tc","3h","2s","8d"], 77000, {
+      LQ("r07-12", "BTN", ["Qh","Qs"], ["Jd","Tc","3h","2s","8d"], 70712, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -305,7 +306,7 @@
   ];
 
   PACKS["R-08"] = [
-      LQ("r08-01", "BTN", ["Th","9h"], ["8c","3d","3s","Ah","7c"], 77000, {
+      LQ("r08-01", "BTN", ["Th","9h"], ["8c","3d","3s","Ah","7c"], 70801, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -327,7 +328,7 @@
           ]
         }
       }),
-      LQ("r08-02", "BTN", ["Kd","9d"], ["Th","8h","4h","Ac","2s"], 77000, {
+      LQ("r08-02", "BTN", ["Kd","9d"], ["Th","8h","4h","Ac","2s"], 70802, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -349,7 +350,7 @@
           ]
         }
       }),
-      LQ("r08-03", "BB", ["8h","8c"], ["Kc","6s","3d","2h","Qd"], 77000, {
+      LQ("r08-03", "BB", ["8h","8c"], ["Kc","6s","3d","2h","Qd"], 70803, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -371,7 +372,7 @@
           ]
         }
       }),
-      LQ("r08-04", "CO", ["Ah","Jd"], ["Tc","6s","3h","2d","Kd"], 77000, {
+      LQ("r08-04", "CO", ["Ah","Jd"], ["Tc","6s","3h","2d","Kd"], 70804, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -393,7 +394,7 @@
           ]
         }
       }),
-      LQ("r08-05", "BB", ["Td","Th"], ["Ah","9c","4d","2s","7h"], 77000, {
+      LQ("r08-05", "BB", ["Td","Th"], ["Ah","9c","4d","2s","7h"], 70805, {
         villainPos: "CO", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -415,7 +416,7 @@
           ]
         }
       }),
-      LQ("r08-06", "BB", ["Qc","Jd"], ["Th","9s","2c","8d","Kd"], 77000, {
+      LQ("r08-06", "BB", ["Qc","Jd"], ["Th","9s","2c","8d","Kd"], 70806, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -437,7 +438,7 @@
           ]
         }
       }),
-      LQ("r08-07", "BB", ["9h","9c"], ["Qd","Jc","2h","5s","Qc"], 77000, {
+      LQ("r08-07", "BB", ["9h","9c"], ["Qd","Jc","2h","5s","Qc"], 70807, {
         villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -459,7 +460,7 @@
           ]
         }
       }),
-      LQ("r08-08", "BTN", ["Ad","5d"], ["Ts","Th","5c","Kd","2h"], 77000, {
+      LQ("r08-08", "BTN", ["Ad","5d"], ["Ts","Th","5c","Kd","2h"], 70808, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -481,7 +482,7 @@
           ]
         }
       }),
-      LQ("r08-09", "BB", ["Ad","7c"], ["Ts","8s","4s","Qc","2d"], 77000, {
+      LQ("r08-09", "BB", ["Ad","7c"], ["Ts","8s","4s","Qc","2d"], 70809, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -503,7 +504,7 @@
           ]
         }
       }),
-      LQ("r08-10", "BB", ["Kh","Td"], ["8s","7c","2d","Ah","3c"], 77000, {
+      LQ("r08-10", "BB", ["Kh","Td"], ["8s","7c","2d","Ah","3c"], 70810, {
         villainPos: "HJ", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -525,7 +526,7 @@
           ]
         }
       }),
-      LQ("r08-11", "BB", ["Qh","Ts"], ["Jc","Td","9s","2c","4d"], 77000, {
+      LQ("r08-11", "BB", ["Qh","Ts"], ["Jc","Td","9s","2c","4d"], 70811, {
         villainPos: "HJ", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -547,7 +548,7 @@
           ]
         }
       }),
-      LQ("r08-12", "BTN", ["Ad","Kd"], ["8h","6h","2h","Qc","5s"], 77000, {
+      LQ("r08-12", "BTN", ["Ad","Kd"], ["8h","6h","2h","Qc","5s"], 70812, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -572,7 +573,7 @@
   ];
 
   PACKS["R-09"] = [
-      LQ("r09-01", "BB", ["Ad","2d"], ["9h","6c","6d","9s","Kc"], 77000, {
+      LQ("r09-01", "BB", ["Ad","2d"], ["9h","6c","6d","9s","Kc"], 70901, {
         villainPos: "CO", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -594,7 +595,7 @@
           ]
         }
       }),
-      LQ("r09-02", "BTN", ["Qh","Js"], ["Ac","7c","3c","9d","2h"], 77000, {
+      LQ("r09-02", "BTN", ["Qh","Js"], ["Ac","7c","3c","9d","2h"], 70902, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -616,7 +617,7 @@
           ]
         }
       }),
-      LQ("r09-03", "BTN", ["Kd","Jh"], ["Qs","7c","2d","5h","9c"], 77000, {
+      LQ("r09-03", "BTN", ["Kd","Jh"], ["Qs","7c","2d","5h","9c"], 70903, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -638,7 +639,7 @@
           ]
         }
       }),
-      LQ("r09-04", "BTN", ["Ah","Qd"], ["Jc","7d","2s","9h","3c"], 77000, {
+      LQ("r09-04", "BTN", ["Ah","Qd"], ["Jc","7d","2s","9h","3c"], 70904, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -660,7 +661,7 @@
           ]
         }
       }),
-      LQ("r09-05", "BTN", ["Kh","Td"], ["Qs","6c","3d","2h","9c"], 77000, {
+      LQ("r09-05", "BTN", ["Kh","Td"], ["Qs","6c","3d","2h","9c"], 70905, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -682,7 +683,7 @@
           ]
         }
       }),
-      LQ("r09-06", "BTN", ["Ah","9h"], ["Qd","Jc","Td","4s","2h"], 77000, {
+      LQ("r09-06", "BTN", ["Ah","9h"], ["Qd","Jc","Td","4s","2h"], 70906, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -704,7 +705,7 @@
           ]
         }
       }),
-      LQ("r09-07", "BTN", ["Qc","Jd"], ["Kh","Qd","Jc","4s","9h"], 77000, {
+      LQ("r09-07", "BTN", ["Qc","Jd"], ["Kh","Qd","Jc","4s","9h"], 70907, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -726,7 +727,7 @@
           ]
         }
       }),
-      LQ("r09-08", "BB", ["Qd","9c"], ["6s","6h","Tc","Ad","3c"], 77000, {
+      LQ("r09-08", "BB", ["Qd","9c"], ["6s","6h","Tc","Ad","3c"], 70908, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -748,7 +749,7 @@
           ]
         }
       }),
-      LQ("r09-09", "CO", ["Kh","9s"], ["Qd","Jd","8d","2h","4c"], 77000, {
+      LQ("r09-09", "CO", ["Kh","9s"], ["Qd","Jd","8d","2h","4c"], 70909, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -770,7 +771,7 @@
           ]
         }
       }),
-      LQ("r09-10", "BTN", ["Ad","8d"], ["Jh","6c","2s","9d","4h"], 77000, {
+      LQ("r09-10", "BTN", ["Ad","8d"], ["Jh","6c","2s","9d","4h"], 70910, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -792,7 +793,7 @@
           ]
         }
       }),
-      LQ("r09-11", "CO", ["Ah","7c"], ["5d","4s","3h","Kc","9c"], 77000, {
+      LQ("r09-11", "CO", ["Ah","7c"], ["5d","4s","3h","Kc","9c"], 70911, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -814,7 +815,7 @@
           ]
         }
       }),
-      LQ("r09-12", "BTN", ["Jh","Th"], ["9c","6c","3c","Ad","2s"], 77000, {
+      LQ("r09-12", "BTN", ["Jh","Th"], ["9c","6c","3c","Ad","2s"], 70912, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -839,7 +840,7 @@
   ];
 
   PACKS["R-10"] = [
-      LQ("r10-01", "BB", ["Jh","Td"], ["Qc","Js","4d","4h","2s"], 77000, {
+      LQ("r10-01", "BB", ["Jh","Td"], ["Qc","Js","4d","4h","2s"], 71001, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -861,7 +862,7 @@
           ]
         }
       }),
-      LQ("r10-02", "BB", ["As","Qs"], ["7c","5c","3c","Kd","9h"], 77000, {
+      LQ("r10-02", "BB", ["As","Qs"], ["7c","5c","3c","Kd","9h"], 71002, {
         villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -883,7 +884,7 @@
           ]
         }
       }),
-      LQ("r10-03", "BTN", ["9s","9c"], ["Kd","Tc","4h","2s","7c"], 77000, {
+      LQ("r10-03", "BTN", ["9s","9c"], ["Kd","Tc","4h","2s","7c"], 71003, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -905,7 +906,7 @@
           ]
         }
       }),
-      LQ("r10-04", "BTN", ["Kd","Qs"], ["9h","8c","2d","Ad","4c"], 77000, {
+      LQ("r10-04", "BTN", ["Kd","Qs"], ["9h","8c","2d","Ad","4c"], 71004, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -927,7 +928,7 @@
           ]
         }
       }),
-      LQ("r10-05", "BTN", ["Kd","Jd"], ["Th","8c","7s","6d","2h"], 77000, {
+      LQ("r10-05", "BTN", ["Kd","Jd"], ["Th","8c","7s","6d","2h"], 71005, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -949,7 +950,7 @@
           ]
         }
       }),
-      LQ("r10-06", "BTN", ["9d","8d"], ["Kh","9c","8s","2h","Ad"], 77000, {
+      LQ("r10-06", "BTN", ["9d","8d"], ["Kh","9c","8s","2h","Ad"], 71006, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -971,7 +972,7 @@
           ]
         }
       }),
-      LQ("r10-07", "BB", ["Kc","7c"], ["Ah","Kd","6s","6h","2c"], 77000, {
+      LQ("r10-07", "BB", ["Kc","7c"], ["Ah","Kd","6s","6h","2c"], 71007, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -993,7 +994,7 @@
           ]
         }
       }),
-      LQ("r10-08", "BB", ["Jc","Td"], ["9d","6d","2d","Kh","3c"], 77000, {
+      LQ("r10-08", "BB", ["Jc","Td"], ["9d","6d","2d","Kh","3c"], 71008, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -1015,7 +1016,7 @@
           ]
         }
       }),
-      LQ("r10-09", "BB", ["9h","9c"], ["As","7d","2c","Kh","3s"], 77000, {
+      LQ("r10-09", "BB", ["9h","9c"], ["As","7d","2c","Kh","3s"], 71009, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1037,7 +1038,7 @@
           ]
         }
       }),
-      LQ("r10-10", "BTN", ["As","Js"], ["9c","8d","7h","3s","Kd"], 77000, {
+      LQ("r10-10", "BTN", ["As","Js"], ["9c","8d","7h","3s","Kd"], 71010, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1059,7 +1060,7 @@
           ]
         }
       }),
-      LQ("r10-11", "BTN", ["Kd","Jh"], ["As","Kh","7c","4h","2d"], 77000, {
+      LQ("r10-11", "BTN", ["Kd","Jh"], ["As","Kh","7c","4h","2d"], 71011, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1081,7 +1082,7 @@
           ]
         }
       }),
-      LQ("r10-12", "BB", ["Ah","Kd"], ["Jc","Ts","9d","2h","3c"], 77000, {
+      LQ("r10-12", "BB", ["Ah","Kd"], ["Jc","Ts","9d","2h","3c"], 71012, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1106,7 +1107,7 @@
   ];
 
   PACKS["R-11"] = [
-      LQ("r11-01", "BB", ["Jc","Ts"], ["4h","4d","9s","Kc","2c"], 77000, {
+      LQ("r11-01", "BB", ["Jc","Ts"], ["4h","4d","9s","Kc","2c"], 71101, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -1128,7 +1129,7 @@
           ]
         }
       }),
-      LQ("r11-02", "BB", ["Ah","8d"], ["Qs","Js","5s","2c","9d"], 77000, {
+      LQ("r11-02", "BB", ["Ah","8d"], ["Qs","Js","5s","2c","9d"], 71102, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1150,7 +1151,7 @@
           ]
         }
       }),
-      LQ("r11-03", "BB", ["Jc","9d"], ["Qd","7h","2s","5c","Kd"], 77000, {
+      LQ("r11-03", "BB", ["Jc","9d"], ["Qd","7h","2s","5c","Kd"], 71103, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1172,7 +1173,7 @@
           ]
         }
       }),
-      LQ("r11-04", "BTN", ["As","8s"], ["Kd","Jh","5c","3h","2d"], 77000, {
+      LQ("r11-04", "BTN", ["As","8s"], ["Kd","Jh","5c","3h","2d"], 71104, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1194,7 +1195,7 @@
           ]
         }
       }),
-      LQ("r11-05", "BTN", ["Qc","9c"], ["Jh","Td","8s","2d","Ad"], 77000, {
+      LQ("r11-05", "BTN", ["Qc","9c"], ["Jh","Td","8s","2d","Ad"], 71105, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1216,7 +1217,7 @@
           ]
         }
       }),
-      LQ("r11-06", "BTN", ["8h","7h"], ["As","8c","7d","3s","2c"], 77000, {
+      LQ("r11-06", "BTN", ["8h","7h"], ["As","8c","7d","3s","2c"], 71106, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1238,7 +1239,7 @@
           ]
         }
       }),
-      LQ("r11-07", "BTN", ["Ad","Td"], ["5h","5c","Kd","Qs","2h"], 77000, {
+      LQ("r11-07", "BTN", ["Ad","Td"], ["5h","5c","Kd","Qs","2h"], 71107, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1260,7 +1261,7 @@
           ]
         }
       }),
-      LQ("r11-08", "BTN", ["Tc","9c"], ["Ah","6h","2h","5s","Kd"], 77000, {
+      LQ("r11-08", "BTN", ["Tc","9c"], ["Ah","6h","2h","5s","Kd"], 71108, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1282,7 +1283,7 @@
           ]
         }
       }),
-      LQ("r11-09", "BB", ["Ah","Qd"], ["Kd","8c","3h","2s","7d"], 77000, {
+      LQ("r11-09", "BB", ["Ah","Qd"], ["Kd","8c","3h","2s","7d"], 71109, {
         villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1304,7 +1305,7 @@
           ]
         }
       }),
-      LQ("r11-10", "BTN", ["As","8s"], ["Qc","Jd","Th","4h","2c"], 77000, {
+      LQ("r11-10", "BTN", ["As","8s"], ["Qc","Jd","Th","4h","2c"], 71110, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1326,7 +1327,7 @@
           ]
         }
       }),
-      LQ("r11-11", "BB", ["Ah","Kd"], ["Ts","9c","2d","Th","3s"], 77000, {
+      LQ("r11-11", "BB", ["Ah","Kd"], ["Ts","9c","2d","Th","3s"], 71111, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -1348,7 +1349,7 @@
           ]
         }
       }),
-      LQ("r11-12", "BB", ["Kd","Td"], ["9h","8c","2s","7d","Ac"], 77000, {
+      LQ("r11-12", "BB", ["Kd","Td"], ["9h","8c","2s","7d","Ac"], 71112, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1373,7 +1374,7 @@
   ];
 
   PACKS["R-12"] = [
-      LQ("r12-01", "BTN", ["Qd","Jd"], ["7s","5s","2h","Ac","9c"], 77000, {
+      LQ("r12-01", "BTN", ["Qd","Jd"], ["7s","5s","2h","Ac","9c"], 71201, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1395,7 +1396,7 @@
           ]
         }
       }),
-      LQ("r12-02", "BB", ["Jh","Tc"], ["9d","8d","2d","Kc","4h"], 77000, {
+      LQ("r12-02", "BB", ["Jh","Tc"], ["9d","8d","2d","Kc","4h"], 71202, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -1417,7 +1418,7 @@
           ]
         }
       }),
-      LQ("r12-03", "BB", ["Jd","9d"], ["As","8c","3h","2d","7s"], 77000, {
+      LQ("r12-03", "BB", ["Jd","9d"], ["As","8c","3h","2d","7s"], 71203, {
         villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1439,7 +1440,7 @@
           ]
         }
       }),
-      LQ("r12-04", "BTN", ["Kh","Td"], ["Qd","Jc","4s","2h","9c"], 77000, {
+      LQ("r12-04", "BTN", ["Kh","Td"], ["Qd","Jc","4s","2h","9c"], 71204, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1461,7 +1462,7 @@
           ]
         }
       }),
-      LQ("r12-05", "BTN", ["As","Ts"], ["8c","7h","4d","Kd","2s"], 77000, {
+      LQ("r12-05", "BTN", ["As","Ts"], ["8c","7h","4d","Kd","2s"], 71205, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1483,7 +1484,7 @@
           ]
         }
       }),
-      LQ("r12-06", "BB", ["Qh","9c"], ["Kd","Jd","4d","2s","8h"], 77000, {
+      LQ("r12-06", "BB", ["Qh","9c"], ["Kd","Jd","4d","2s","8h"], 71206, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -1505,7 +1506,7 @@
           ]
         }
       }),
-      LQ("r12-07", "BB", ["Td","8d"], ["Kh","9c","3s","2h","7d"], 77000, {
+      LQ("r12-07", "BB", ["Td","8d"], ["Kh","9c","3s","2h","7d"], 71207, {
         villainPos: "CO", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -1527,7 +1528,7 @@
           ]
         }
       }),
-      LQ("r12-08", "BTN", ["Kc","Qc"], ["Jh","9h","3d","5s","2c"], 77000, {
+      LQ("r12-08", "BTN", ["Kc","Qc"], ["Jh","9h","3d","5s","2c"], 71208, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1549,7 +1550,7 @@
           ]
         }
       }),
-      LQ("r12-09", "BTN", ["Qc","Jd"], ["Ah","8h","3d","2s","Kc"], 77000, {
+      LQ("r12-09", "BTN", ["Qc","Jd"], ["Ah","8h","3d","2s","Kc"], 71209, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1571,7 +1572,7 @@
           ]
         }
       }),
-      LQ("r12-10", "BTN", ["As","9s"], ["Th","8d","7c","2s","Kc"], 77000, {
+      LQ("r12-10", "BTN", ["As","9s"], ["Th","8d","7c","2s","Kc"], 71210, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1593,7 +1594,7 @@
           ]
         }
       }),
-      LQ("r12-11", "BTN", ["As","Js"], ["Tc","9d","5h","2s","Kd"], 77000, {
+      LQ("r12-11", "BTN", ["As","Js"], ["Tc","9d","5h","2s","Kd"], 71211, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1615,7 +1616,7 @@
           ]
         }
       }),
-      LQ("r12-12", "BB", ["As","9c"], ["Jh","6h","4d","Tc","2s"], 77000, {
+      LQ("r12-12", "BB", ["As","9c"], ["Jh","6h","4d","Tc","2s"], 71212, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -1640,7 +1641,7 @@
   ];
 
   PACKS["R-13"] = [
-      LQ("r13-01", "BTN", ["Ah","Th"], ["8s","6s","3d","Qc","2h"], 77000, {
+      LQ("r13-01", "BTN", ["Ah","Th"], ["8s","6s","3d","Qc","2h"], 71301, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1662,7 +1663,7 @@
           ]
         }
       }),
-      LQ("r13-02", "BTN", ["Ad","Td"], ["8c","7c","3h","Kd","2s"], 77000, {
+      LQ("r13-02", "BTN", ["Ad","Td"], ["8c","7c","3h","Kd","2s"], 71302, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1684,7 +1685,7 @@
           ]
         }
       }),
-      LQ("r13-03", "BTN", ["Qd","Jd"], ["9s","8c","2h","5d","Kc"], 77000, {
+      LQ("r13-03", "BTN", ["Qd","Jd"], ["9s","8c","2h","5d","Kc"], 71303, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1706,7 +1707,7 @@
           ]
         }
       }),
-      LQ("r13-04", "BTN", ["Qh","Jh"], ["6s","5s","2d","Ac","9h"], 77000, {
+      LQ("r13-04", "BTN", ["Qh","Jh"], ["6s","5s","2d","Ac","9h"], 71304, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1728,7 +1729,7 @@
           ]
         }
       }),
-      LQ("r13-05", "BTN", ["Ah","9s"], ["Kd","7d","3d","2c","Ts"], 77000, {
+      LQ("r13-05", "BTN", ["Ah","9s"], ["Kd","7d","3d","2c","Ts"], 71305, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1750,7 +1751,7 @@
           ]
         }
       }),
-      LQ("r13-06", "BTN", ["Ah","Qd"], ["Kc","7d","2s","9h","3c"], 77000, {
+      LQ("r13-06", "BTN", ["Ah","Qd"], ["Kc","7d","2s","9h","3c"], 71306, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1772,7 +1773,7 @@
           ]
         }
       }),
-      LQ("r13-07", "BTN", ["Ad","Kd"], ["8h","7c","3s","Qs","2d"], 77000, {
+      LQ("r13-07", "BTN", ["Ad","Kd"], ["8h","7c","3s","Qs","2d"], 71307, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1794,7 +1795,7 @@
           ]
         }
       }),
-      LQ("r13-08", "BB", ["Kd","Jd"], ["Tc","6c","4c","As","2h"], 77000, {
+      LQ("r13-08", "BB", ["Kd","Jd"], ["Tc","6c","4c","As","2h"], 71308, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1816,7 +1817,7 @@
           ]
         }
       }),
-      LQ("r13-09", "BB", ["Qh","8h"], ["Ad","7d","2c","9s","3h"], 77000, {
+      LQ("r13-09", "BB", ["Qh","8h"], ["Ad","7d","2c","9s","3h"], 71309, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1838,7 +1839,7 @@
           ]
         }
       }),
-      LQ("r13-10", "BB", ["Kh","Td"], ["9c","8h","2s","Ad","4c"], 77000, {
+      LQ("r13-10", "BB", ["Kh","Td"], ["9c","8h","2s","Ad","4c"], 71310, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -1860,7 +1861,7 @@
           ]
         }
       }),
-      LQ("r13-11", "BTN", ["Qh","9h"], ["Kd","7d","2c","5s","Ah"], 77000, {
+      LQ("r13-11", "BTN", ["Qh","9h"], ["Kd","7d","2c","5s","Ah"], 71311, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1882,7 +1883,7 @@
           ]
         }
       }),
-      LQ("r13-12", "BTN", ["As","Kd"], ["9c","7c","2h","Ad","3s"], 77000, {
+      LQ("r13-12", "BTN", ["As","Kd"], ["9c","7c","2h","Ad","3s"], 71312, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1907,7 +1908,7 @@
   ];
 
   PACKS["R-14"] = [
-      LQ("r14-01", "BB", ["Qc","Jd"], ["7s","6h","2c","Kd","9d"], 77000, {
+      LQ("r14-01", "BB", ["Qc","Jd"], ["7s","6h","2c","Kd","9d"], 71401, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -1929,7 +1930,7 @@
           ]
         }
       }),
-      LQ("r14-02", "BTN", ["Ah","Jh"], ["9c","7c","2c","Kd","4s"], 77000, {
+      LQ("r14-02", "BTN", ["Ah","Jh"], ["9c","7c","2c","Kd","4s"], 71402, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1951,7 +1952,7 @@
           ]
         }
       }),
-      LQ("r14-03", "BB", ["Kc","7c"], ["Ts","9d","2h","5c","Qh"], 77000, {
+      LQ("r14-03", "BB", ["Kc","7c"], ["Ts","9d","2h","5c","Qh"], 71403, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -1973,7 +1974,7 @@
           ]
         }
       }),
-      LQ("r14-04", "BB", ["Kd","Td"], ["Qs","Js","4h","8c","2d"], 77000, {
+      LQ("r14-04", "BB", ["Kd","Td"], ["Qs","Js","4h","8c","2d"], 71404, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -1995,7 +1996,7 @@
           ]
         }
       }),
-      LQ("r14-05", "BTN", ["Kd","Qd"], ["As","Ts","5s","8c","2h"], 77000, {
+      LQ("r14-05", "BTN", ["Kd","Qd"], ["As","Ts","5s","8c","2h"], 71405, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2017,7 +2018,7 @@
           ]
         }
       }),
-      LQ("r14-06", "BTN", ["Kh","Jh"], ["Qc","6d","2s","9h","4c"], 77000, {
+      LQ("r14-06", "BTN", ["Kh","Jh"], ["Qc","6d","2s","9h","4c"], 71406, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2039,7 +2040,7 @@
           ]
         }
       }),
-      LQ("r14-07", "BB", ["Ah","Qd"], ["Ks","9s","4c","2d","7h"], 77000, {
+      LQ("r14-07", "BB", ["Ah","Qd"], ["Ks","9s","4c","2d","7h"], 71407, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2061,7 +2062,7 @@
           ]
         }
       }),
-      LQ("r14-08", "BTN", ["Qc","Jc"], ["8s","5s","2s","Kh","9d"], 77000, {
+      LQ("r14-08", "BTN", ["Qc","Jc"], ["8s","5s","2s","Kh","9d"], 71408, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2083,7 +2084,7 @@
           ]
         }
       }),
-      LQ("r14-09", "BTN", ["Qh","Th"], ["6c","5d","2h","As","9s"], 77000, {
+      LQ("r14-09", "BTN", ["Qh","Th"], ["6c","5d","2h","As","9s"], 71409, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2105,7 +2106,7 @@
           ]
         }
       }),
-      LQ("r14-10", "BB", ["Kh","9c"], ["Td","6d","2s","Ac","4h"], 77000, {
+      LQ("r14-10", "BB", ["Kh","9c"], ["Td","6d","2s","Ac","4h"], 71410, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -2127,7 +2128,7 @@
           ]
         }
       }),
-      LQ("r14-11", "BTN", ["Kd","Jd"], ["8h","7h","2c","Qs","3d"], 77000, {
+      LQ("r14-11", "BTN", ["Kd","Jd"], ["8h","7h","2c","Qs","3d"], 71411, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2149,7 +2150,7 @@
           ]
         }
       }),
-      LQ("r14-12", "BTN", ["Ah","8h"], ["9c","6c","3d","Kh","2s"], 77000, {
+      LQ("r14-12", "BTN", ["Ah","8h"], ["9c","6c","3d","Kh","2s"], 71412, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2174,7 +2175,7 @@
   ];
 
   PACKS["R-15"] = [
-      LQ("r15-01", "BB", ["Qd","Td"], ["Kh","5h","3c","9s","2d"], 77000, {
+      LQ("r15-01", "BB", ["Qd","Td"], ["Kh","5h","3c","9s","2d"], 71501, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2196,7 +2197,7 @@
           ]
         }
       }),
-      LQ("r15-02", "BB", ["Kd","8c"], ["Qh","Th","4h","2d","9c"], 77000, {
+      LQ("r15-02", "BB", ["Kd","8c"], ["Qh","Th","4h","2d","9c"], 71502, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -2218,7 +2219,7 @@
           ]
         }
       }),
-      LQ("r15-03", "BTN", ["9h","8h"], ["Ad","Kd","4c","2s","7d"], 77000, {
+      LQ("r15-03", "BTN", ["9h","8h"], ["Ad","Kd","4c","2s","7d"], 71503, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2240,7 +2241,7 @@
           ]
         }
       }),
-      LQ("r15-04", "BB", ["Kd","9d"], ["Jc","Tc","5h","2d","Ah"], 77000, {
+      LQ("r15-04", "BB", ["Kd","9d"], ["Jc","Tc","5h","2d","Ah"], 71504, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -2262,7 +2263,7 @@
           ]
         }
       }),
-      LQ("r15-05", "BB", ["Kc","8d"], ["Qs","Js","5s","3h","2d"], 77000, {
+      LQ("r15-05", "BB", ["Kc","8d"], ["Qs","Js","5s","3h","2d"], 71505, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2284,7 +2285,7 @@
           ]
         }
       }),
-      LQ("r15-06", "BB", ["Tc","9c"], ["Kh","6d","2c","8s","Ad"], 77000, {
+      LQ("r15-06", "BB", ["Tc","9c"], ["Kh","6d","2c","8s","Ad"], 71506, {
         villainPos: "CO", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -2306,7 +2307,7 @@
           ]
         }
       }),
-      LQ("r15-07", "BTN", ["Kc","Qc"], ["9s","5s","2d","7h","Ad"], 77000, {
+      LQ("r15-07", "BTN", ["Kc","Qc"], ["9s","5s","2d","7h","Ad"], 71507, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2328,7 +2329,7 @@
           ]
         }
       }),
-      LQ("r15-08", "BTN", ["As","9s"], ["Jc","7c","3c","2d","Kh"], 77000, {
+      LQ("r15-08", "BTN", ["As","9s"], ["Jc","7c","3c","2d","Kh"], 71508, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2350,7 +2351,7 @@
           ]
         }
       }),
-      LQ("r15-09", "BB", ["Jc","9c"], ["Td","9s","5h","2c","Kd"], 77000, {
+      LQ("r15-09", "BB", ["Jc","9c"], ["Td","9s","5h","2c","Kd"], 71509, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -2372,7 +2373,7 @@
           ]
         }
       }),
-      LQ("r15-10", "BB", ["Ah","Kd"], ["Js","9s","2c","7h","3d"], 77000, {
+      LQ("r15-10", "BB", ["Ah","Kd"], ["Js","9s","2c","7h","3d"], 71510, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2394,7 +2395,7 @@
           ]
         }
       }),
-      LQ("r15-11", "BB", ["Kh","8d"], ["Qc","Jd","4s","2h","9c"], 77000, {
+      LQ("r15-11", "BB", ["Kh","8d"], ["Qc","Jd","4s","2h","9c"], 71511, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2416,7 +2417,7 @@
           ]
         }
       }),
-      LQ("r15-12", "BTN", ["Kd","Qs"], ["9h","8c","2d","Ad","3s"], 77000, {
+      LQ("r15-12", "BTN", ["Kd","Qs"], ["9h","8c","2d","Ad","3s"], 71512, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2441,7 +2442,7 @@
   ];
 
   PACKS["R-16"] = [
-      LQ("r16-01", "BB", ["Kd","Td"], ["Qc","Tc","4h","9s","2d"], 77000, {
+      LQ("r16-01", "BB", ["Kd","Td"], ["Qc","Tc","4h","9s","2d"], 71601, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2463,7 +2464,7 @@
           ]
         }
       }),
-      LQ("r16-02", "BTN", ["Td","9d"], ["Ah","6h","3h","Qc","2s"], 77000, {
+      LQ("r16-02", "BTN", ["Td","9d"], ["Ah","6h","3h","Qc","2s"], 71602, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2485,7 +2486,7 @@
           ]
         }
       }),
-      LQ("r16-03", "BB", ["Qh","9s"], ["As","Jd","5c","3h","2d"], 77000, {
+      LQ("r16-03", "BB", ["Qh","9s"], ["As","Jd","5c","3h","2d"], 71603, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2507,7 +2508,7 @@
           ]
         }
       }),
-      LQ("r16-04", "BTN", ["Kc","9c"], ["7h","6s","4d","Qd","2c"], 77000, {
+      LQ("r16-04", "BTN", ["Kc","9c"], ["7h","6s","4d","Qd","2c"], 71604, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2529,7 +2530,7 @@
           ]
         }
       }),
-      LQ("r16-05", "BB", ["As","Kd"], ["Qh","Jh","9h","2c","4d"], 77000, {
+      LQ("r16-05", "BB", ["As","Kd"], ["Qh","Jh","9h","2c","4d"], 71605, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2551,7 +2552,7 @@
           ]
         }
       }),
-      LQ("r16-06", "BB", ["Ah","8d"], ["Jc","7h","3s","2d","9c"], 77000, {
+      LQ("r16-06", "BB", ["Ah","8d"], ["Jc","7h","3s","2d","9c"], 71606, {
         villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2573,7 +2574,7 @@
           ]
         }
       }),
-      LQ("r16-07", "BB", ["Ah","Kd"], ["Jc","Ts","4d","2h","8c"], 77000, {
+      LQ("r16-07", "BB", ["Ah","Kd"], ["Jc","Ts","4d","2h","8c"], 71607, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2595,7 +2596,7 @@
           ]
         }
       }),
-      LQ("r16-08", "BTN", ["Kd","9d"], ["Qs","Js","4c","8h","2d"], 77000, {
+      LQ("r16-08", "BTN", ["Kd","9d"], ["Qs","Js","4c","8h","2d"], 71608, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2617,7 +2618,7 @@
           ]
         }
       }),
-      LQ("r16-09", "BB", ["Ah","9d"], ["Tc","8d","6h","2s","Kd"], 77000, {
+      LQ("r16-09", "BB", ["Ah","9d"], ["Tc","8d","6h","2s","Kd"], 71609, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -2639,7 +2640,7 @@
           ]
         }
       }),
-      LQ("r16-10", "BB", ["Jc","8c"], ["Ad","9d","5s","2h","Kc"], 77000, {
+      LQ("r16-10", "BB", ["Jc","8c"], ["Ad","9d","5s","2h","Kc"], 71610, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -2661,7 +2662,7 @@
           ]
         }
       }),
-      LQ("r16-11", "BB", ["Qc","9c"], ["Jd","Td","5s","2h","Ac"], 77000, {
+      LQ("r16-11", "BB", ["Qc","9c"], ["Jd","Td","5s","2h","Ac"], 71611, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -2683,7 +2684,7 @@
           ]
         }
       }),
-      LQ("r16-12", "BB", ["Ad","7d"], ["Jh","Tc","3s","8d","2c"], 77000, {
+      LQ("r16-12", "BB", ["Ad","7d"], ["Jh","Tc","3s","8d","2c"], 71612, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2708,7 +2709,7 @@
   ];
 
   PACKS["R-17"] = [
-      LQ("r17-01", "BTN", ["Ad","Td"], ["8s","8c","4h","Kd","2d"], 77000, {
+      LQ("r17-01", "BTN", ["Ad","Td"], ["8s","8c","4h","Kd","2d"], 71701, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2730,7 +2731,7 @@
           ]
         }
       }),
-      LQ("r17-02", "BTN", ["Ah","Th"], ["8s","7c","3d","Kd","2h"], 77000, {
+      LQ("r17-02", "BTN", ["Ah","Th"], ["8s","7c","3d","Kd","2h"], 71702, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2752,7 +2753,7 @@
           ]
         }
       }),
-      LQ("r17-03", "BTN", ["Qd","Jd"], ["Ts","9h","4c","2d","Kd"], 77000, {
+      LQ("r17-03", "BTN", ["Qd","Jd"], ["Ts","9h","4c","2d","Kd"], 71703, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2774,7 +2775,7 @@
           ]
         }
       }),
-      LQ("r17-04", "BB", ["9h","9c"], ["As","Td","4c","2h","7d"], 77000, {
+      LQ("r17-04", "BB", ["9h","9c"], ["As","Td","4c","2h","7d"], 71704, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2796,7 +2797,7 @@
           ]
         }
       }),
-      LQ("r17-05", "CO", ["Ah","5h"], ["Qd","Jc","7s","2h","9c"], 77000, {
+      LQ("r17-05", "CO", ["Ah","5h"], ["Qd","Jc","7s","2h","9c"], 71705, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -2818,7 +2819,7 @@
           ]
         }
       }),
-      LQ("r17-06", "BB", ["Qd","Jd"], ["Ts","Th","6c","6h","2d"], 77000, {
+      LQ("r17-06", "BB", ["Qd","Jd"], ["Ts","Th","6c","6h","2d"], 71706, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -2840,7 +2841,7 @@
           ]
         }
       }),
-      LQ("r17-07", "BTN", ["Qc","Tc"], ["Kd","9h","4c","2s","8d"], 77000, {
+      LQ("r17-07", "BTN", ["Qc","Tc"], ["Kd","9h","4c","2s","8d"], 71707, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2862,7 +2863,7 @@
           ]
         }
       }),
-      LQ("r17-08", "BTN", ["Th","8h"], ["Jc","Jd","5d","5s","2h"], 77000, {
+      LQ("r17-08", "BTN", ["Th","8h"], ["Jc","Jd","5d","5s","2h"], 71708, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2884,7 +2885,7 @@
           ]
         }
       }),
-      LQ("r17-09", "BB", ["Qh","9h"], ["Kd","7c","3s","5h","Tc"], 77000, {
+      LQ("r17-09", "BB", ["Qh","9h"], ["Kd","7c","3s","5h","Tc"], 71709, {
         villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2906,7 +2907,7 @@
           ]
         }
       }),
-      LQ("r17-10", "BTN", ["As","9s"], ["Jh","Tc","4d","2c","7s"], 77000, {
+      LQ("r17-10", "BTN", ["As","9s"], ["Jh","Tc","4d","2c","7s"], 71710, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -2928,7 +2929,7 @@
           ]
         }
       }),
-      LQ("r17-11", "BB", ["Jh","Th"], ["Kd","8c","2s","5h","9d"], 77000, {
+      LQ("r17-11", "BB", ["Jh","Th"], ["Kd","8c","2s","5h","9d"], 71711, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -2950,7 +2951,7 @@
           ]
         }
       }),
-      LQ("r17-12", "BB", ["Jh","8h"], ["Qs","Tc","5d","2c","9h"], 77000, {
+      LQ("r17-12", "BB", ["Jh","8h"], ["Qs","Tc","5d","2c","9h"], 71712, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -2975,7 +2976,7 @@
   ];
 
   PACKS["R-18"] = [
-      LQ("r18-01", "BB", ["Ah","Tc"], ["6d","6c","Qs","Qh","3s"], 77000, {
+      LQ("r18-01", "BB", ["Ah","Tc"], ["6d","6c","Qs","Qh","3s"], 71801, {
         villainPos: "HJ", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -2997,7 +2998,7 @@
           ]
         }
       }),
-      LQ("r18-02", "BB", ["Kc","7c"], ["As","Jd","4h","2s","9c"], 77000, {
+      LQ("r18-02", "BB", ["Kc","7c"], ["As","Jd","4h","2s","9c"], 71802, {
         villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3019,7 +3020,7 @@
           ]
         }
       }),
-      LQ("r18-03", "BTN", ["Ad","Kd"], ["Jh","9c","4s","2c","7h"], 77000, {
+      LQ("r18-03", "BTN", ["Ad","Kd"], ["Jh","9c","4s","2c","7h"], 71803, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3041,7 +3042,7 @@
           ]
         }
       }),
-      LQ("r18-04", "BB", ["Qc","8c"], ["Ah","9d","5s","3h","2d"], 77000, {
+      LQ("r18-04", "BB", ["Qc","8c"], ["Ah","9d","5s","3h","2d"], 71804, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3063,7 +3064,7 @@
           ]
         }
       }),
-      LQ("r18-05", "BTN", ["Kh","9h"], ["Ad","7c","2s","5h","Jc"], 77000, {
+      LQ("r18-05", "BTN", ["Kh","9h"], ["Ad","7c","2s","5h","Jc"], 71805, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3085,7 +3086,7 @@
           ]
         }
       }),
-      LQ("r18-06", "BTN", ["Kd","9d"], ["8s","8h","2c","2d","Ah"], 77000, {
+      LQ("r18-06", "BTN", ["Kd","9d"], ["8s","8h","2c","2d","Ah"], 71806, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3107,7 +3108,7 @@
           ]
         }
       }),
-      LQ("r18-07", "BB", ["Jc","Tc"], ["Kh","6d","2s","9h","3c"], 77000, {
+      LQ("r18-07", "BB", ["Jc","Tc"], ["Kh","6d","2s","9h","3c"], 71807, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -3129,7 +3130,7 @@
           ]
         }
       }),
-      LQ("r18-08", "BB", ["Jd","8d"], ["Qh","Ts","4c","2d","6s"], 77000, {
+      LQ("r18-08", "BB", ["Jd","8d"], ["Qh","Ts","4c","2d","6s"], 71808, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -3151,7 +3152,7 @@
           ]
         }
       }),
-      LQ("r18-09", "BTN", ["Kd","Td"], ["Qc","9h","3s","6d","2h"], 77000, {
+      LQ("r18-09", "BTN", ["Kd","Td"], ["Qc","9h","3s","6d","2h"], 71809, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3173,7 +3174,7 @@
           ]
         }
       }),
-      LQ("r18-10", "BTN", ["Kc","9c"], ["Th","8d","2c","6h","As"], 77000, {
+      LQ("r18-10", "BTN", ["Kc","9c"], ["Th","8d","2c","6h","As"], 71810, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3195,7 +3196,7 @@
           ]
         }
       }),
-      LQ("r18-11", "BB", ["Qd","8d"], ["As","7h","3c","5s","Kd"], 77000, {
+      LQ("r18-11", "BB", ["Qd","8d"], ["As","7h","3c","5s","Kd"], 71811, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3217,7 +3218,7 @@
           ]
         }
       }),
-      LQ("r18-12", "BB", ["Kc","7c"], ["Ad","Td","3s","8h","2c"], 77000, {
+      LQ("r18-12", "BB", ["Kc","7c"], ["Ad","Td","3s","8h","2c"], 71812, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3242,7 +3243,7 @@
   ];
 
   PACKS["R-19"] = [
-      LQ("r19-01", "BB", ["8h","7h"], ["Jd","Jc","4s","4h","9c"], 77000, {
+      LQ("r19-01", "BB", ["8h","7h"], ["Jd","Jc","4s","4h","9c"], 71901, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3264,7 +3265,7 @@
           ]
         }
       }),
-      LQ("r19-02", "BTN", ["8d","7d"], ["Kc","Td","5h","As","2s"], 77000, {
+      LQ("r19-02", "BTN", ["8d","7d"], ["Kc","Td","5h","As","2s"], 71902, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3286,7 +3287,7 @@
           ]
         }
       }),
-      LQ("r19-03", "CO", ["9h","8h"], ["Kh","7d","2c","As","3h"], 77000, {
+      LQ("r19-03", "CO", ["9h","8h"], ["Kh","7d","2c","As","3h"], 71903, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -3308,7 +3309,7 @@
           ]
         }
       }),
-      LQ("r19-04", "BB", ["Jh","9s"], ["Qc","7d","2h","5c","Td"], 77000, {
+      LQ("r19-04", "BB", ["Jh","9s"], ["Qc","7d","2h","5c","Td"], 71904, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -3330,7 +3331,7 @@
           ]
         }
       }),
-      LQ("r19-05", "BTN", ["Kd","Jd"], ["Qc","Tc","5s","2h","8d"], 77000, {
+      LQ("r19-05", "BTN", ["Kd","Jd"], ["Qc","Tc","5s","2h","8d"], 71905, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3352,7 +3353,7 @@
           ]
         }
       }),
-      LQ("r19-06", "BTN", ["As","Js"], ["5d","5c","Kh","Kc","2s"], 77000, {
+      LQ("r19-06", "BTN", ["As","Js"], ["5d","5c","Kh","Kc","2s"], 71906, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3374,7 +3375,7 @@
           ]
         }
       }),
-      LQ("r19-07", "BB", ["Kh","6h"], ["As","Td","7c","2h","9s"], 77000, {
+      LQ("r19-07", "BB", ["Kh","6h"], ["As","Td","7c","2h","9s"], 71907, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3396,7 +3397,7 @@
           ]
         }
       }),
-      LQ("r19-08", "BB", ["Td","8c"], ["Ah","Jh","5c","2d","9s"], 77000, {
+      LQ("r19-08", "BB", ["Td","8c"], ["Ah","Jh","5c","2d","9s"], 71908, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -3418,7 +3419,7 @@
           ]
         }
       }),
-      LQ("r19-09", "BTN", ["Kd","Jd"], ["Qc","8h","3s","2d","9c"], 77000, {
+      LQ("r19-09", "BTN", ["Kd","Jd"], ["Qc","8h","3s","2d","9c"], 71909, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3440,7 +3441,7 @@
           ]
         }
       }),
-      LQ("r19-10", "BB", ["Jh","Td"], ["As","9c","4d","2h","7s"], 77000, {
+      LQ("r19-10", "BB", ["Jh","Td"], ["As","9c","4d","2h","7s"], 71910, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3462,7 +3463,7 @@
           ]
         }
       }),
-      LQ("r19-11", "BTN", ["Ad","8d"], ["Jh","6c","2s","9d","4h"], 77000, {
+      LQ("r19-11", "BTN", ["Ad","8d"], ["Jh","6c","2s","9d","4h"], 71911, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3484,7 +3485,7 @@
           ]
         }
       }),
-      LQ("r19-12", "BTN", ["9s","8s"], ["Qh","Tc","4d","2c","Kd"], 77000, {
+      LQ("r19-12", "BTN", ["9s","8s"], ["Qh","Tc","4d","2c","Kd"], 71912, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3509,7 +3510,7 @@
   ];
 
   PACKS["R-20"] = [
-      LQ("r20-01", "BTN", ["Kc","Qc"], ["7h","7d","3s","3c","Ad"], 77000, {
+      LQ("r20-01", "BTN", ["Kc","Qc"], ["7h","7d","3s","3c","Ad"], 72001, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3531,7 +3532,7 @@
           ]
         }
       }),
-      LQ("r20-02", "BTN", ["Qc","Jc"], ["9s","8h","3d","Kd","2c"], 77000, {
+      LQ("r20-02", "BTN", ["Qc","Jc"], ["9s","8h","3d","Kd","2c"], 72002, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3553,7 +3554,7 @@
           ]
         }
       }),
-      LQ("r20-03", "BTN", ["Ah","Qd"], ["9h","8c","2d","Kd","3s"], 77000, {
+      LQ("r20-03", "BTN", ["Ah","Qd"], ["9h","8c","2d","Kd","3s"], 72003, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3575,7 +3576,7 @@
           ]
         }
       }),
-      LQ("r20-04", "BB", ["Kd","9d"], ["Ah","7c","3h","2s","6d"], 77000, {
+      LQ("r20-04", "BB", ["Kd","9d"], ["Ah","7c","3h","2s","6d"], 72004, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3597,7 +3598,7 @@
           ]
         }
       }),
-      LQ("r20-05", "BTN", ["Ad","9d"], ["2h","2c","Qs","Qd","8h"], 77000, {
+      LQ("r20-05", "BTN", ["Ad","9d"], ["2h","2c","Qs","Qd","8h"], 72005, {
         villainPos: "BB", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3619,7 +3620,7 @@
           ]
         }
       }),
-      LQ("r20-06", "BB", ["Kh","Jh"], ["Qs","7d","2c","8h","4s"], 77000, {
+      LQ("r20-06", "BB", ["Kh","Jh"], ["Qs","7d","2c","8h","4s"], 72006, {
         villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3641,7 +3642,7 @@
           ]
         }
       }),
-      LQ("r20-07", "BB", ["Ah","Kd"], ["9s","9c","4h","4d","2c"], 77000, {
+      LQ("r20-07", "BB", ["Ah","Kd"], ["9s","9c","4h","4d","2c"], 72007, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3663,7 +3664,7 @@
           ]
         }
       }),
-      LQ("r20-08", "BB", ["Td","9d"], ["Kc","Jc","3h","2s","8d"], 77000, {
+      LQ("r20-08", "BB", ["Td","9d"], ["Kc","Jc","3h","2s","8d"], 72008, {
         villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -3685,7 +3686,7 @@
           ]
         }
       }),
-      LQ("r20-09", "BTN", ["Ad","8d"], ["9c","8h","4s","2d","Kh"], 77000, {
+      LQ("r20-09", "BTN", ["Ad","8d"], ["9c","8h","4s","2d","Kh"], 72009, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3707,7 +3708,7 @@
           ]
         }
       }),
-      LQ("r20-10", "BTN", ["Qc","Jc"], ["Kd","5h","2s","9c","7h"], 77000, {
+      LQ("r20-10", "BTN", ["Qc","Jc"], ["Kd","5h","2s","9c","7h"], 72010, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3729,7 +3730,7 @@
           ]
         }
       }),
-      LQ("r20-11", "BB", ["8h","8c"], ["Kh","Td","5s","2d","9c"], 77000, {
+      LQ("r20-11", "BB", ["8h","8c"], ["Kh","Td","5s","2d","9c"], 72011, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -3751,7 +3752,7 @@
           ]
         }
       }),
-      LQ("r20-12", "BB", ["Td","9d"], ["Ah","6c","2s","8h","4d"], 77000, {
+      LQ("r20-12", "BB", ["Td","9d"], ["Ah","6c","2s","8h","4d"], 72012, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -3776,7 +3777,7 @@
   ];
 
   PACKS["R-21"] = [
-      LQ("r21-01", "BB", ["Kd","Td"], ["3c","3h","As","Ad","8s"], 77000, {
+      LQ("r21-01", "BB", ["Kd","Td"], ["3c","3h","As","Ad","8s"], 72101, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3798,7 +3799,7 @@
           ]
         }
       }),
-      LQ("r21-02", "BB", ["As","Ts"], ["8d","6c","3h","Qh","2s"], 77000, {
+      LQ("r21-02", "BB", ["As","Ts"], ["8d","6c","3h","Qh","2s"], 72102, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3820,7 +3821,7 @@
           ]
         }
       }),
-      LQ("r21-03", "BTN", ["Ah","8h"], ["Jd","9c","4h","2s","7d"], 77000, {
+      LQ("r21-03", "BTN", ["Ah","8h"], ["Jd","9c","4h","2s","7d"], 72103, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3842,7 +3843,7 @@
           ]
         }
       }),
-      LQ("r21-04", "HJ", ["Tc","9c"], ["Qs","6d","3h","8c","2d"], 77000, {
+      LQ("r21-04", "HJ", ["Tc","9c"], ["Qs","6d","3h","8c","2d"], 72104, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open → BB call" },
@@ -3864,7 +3865,7 @@
           ]
         }
       }),
-      LQ("r21-05", "BB", ["9c","8c"], ["Kh","Kc","7s","7d","2c"], 77000, {
+      LQ("r21-05", "BB", ["9c","8c"], ["Kh","Kc","7s","7d","2c"], 72105, {
         villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open → BB call" },
@@ -3886,7 +3887,7 @@
           ]
         }
       }),
-      LQ("r21-06", "BTN", ["9h","8h"], ["Kc","Qs","4d","2h","7c"], 77000, {
+      LQ("r21-06", "BTN", ["9h","8h"], ["Kc","Qs","4d","2h","7c"], 72106, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3908,7 +3909,7 @@
           ]
         }
       }),
-      LQ("r21-07", "BTN", ["Qc","Jd"], ["4h","4d","9s","9c","Kd"], 77000, {
+      LQ("r21-07", "BTN", ["Qc","Jd"], ["4h","4d","9s","9c","Kd"], 72107, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3930,7 +3931,7 @@
           ]
         }
       }),
-      LQ("r21-08", "BB", ["9c","8c"], ["As","Kh","7d","2c","4s"], 77000, {
+      LQ("r21-08", "BB", ["9c","8c"], ["As","Kh","7d","2c","4s"], 72108, {
         villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3952,7 +3953,7 @@
           ]
         }
       }),
-      LQ("r21-09", "BB", ["Kd","Qs"], ["Jc","7h","3d","9s","2c"], 77000, {
+      LQ("r21-09", "BB", ["Kd","Qs"], ["Jc","7h","3d","9s","2c"], 72109, {
         villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3974,7 +3975,7 @@
           ]
         }
       }),
-      LQ("r21-10", "BTN", ["Ah","9h"], ["Qd","8c","2s","5h","Tc"], 77000, {
+      LQ("r21-10", "BTN", ["Ah","9h"], ["Qd","8c","2s","5h","Tc"], 72110, {
         villainPos: "BB", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -3996,7 +3997,7 @@
           ]
         }
       }),
-      LQ("r21-11", "BB", ["Kh","7d"], ["Js","9c","3d","2h","Qc"], 77000, {
+      LQ("r21-11", "BB", ["Kh","7d"], ["Js","9c","3d","2h","Qc"], 72111, {
         villainPos: "BTN", facingBet: true, trapTag: "dominated",
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -4018,7 +4019,7 @@
           ]
         }
       }),
-      LQ("r21-12", "BTN", ["Qc","Tc"], ["Kd","Jh","5s","3c","8h"], 77000, {
+      LQ("r21-12", "BTN", ["Qc","Tc"], ["Kd","Jh","5s","3c","8h"], 72112, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open → BB call" },
@@ -5644,6 +5645,14 @@
         }
       })
   ];
+
+  /* Examen M2: mezcla lectura + faroles (spots de R-07 y R-22) */
+  PACKS['R-29'] = (PACKS['R-07'] || []).slice(0, 6).concat((PACKS['R-22'] || []).slice(0, 6)).map(function (sp, i) {
+    var copy = Object.assign({}, sp);
+    copy.id = 'r29-' + String(i + 1).padStart(2, '0');
+    if (copy.seed) copy.seed = 79000 + i + 1;
+    return copy;
+  });
 
   D.LESSONS.forEach(function (lesson) {
     var spots = PACKS[lesson.id];

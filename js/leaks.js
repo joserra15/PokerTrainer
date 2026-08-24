@@ -236,6 +236,14 @@
     return global.PTAIReport.lessonFromLeak(leak);
   }
 
+  function lessonIdsForLeak(leak) {
+    if (global.PTAIReport && typeof global.PTAIReport.lessonsFromLeak === 'function') {
+      return global.PTAIReport.lessonsFromLeak(leak) || [];
+    }
+    var one = lessonIdForLeak(leak);
+    return one ? [one] : [];
+  }
+
   function openSchoolLesson(lessonId) {
     if (!lessonId) return;
     global.__ptPendingSchoolLesson = lessonId;
@@ -244,6 +252,12 @@
       return;
     }
     if (typeof global.goToTab === 'function') global.goToTab('school');
+  }
+
+  function lessonCtaLabel(lessonId) {
+    if (!lessonId) return 'Ver lección';
+    if (String(lessonId).charAt(0) === 'R') return 'Rangos ' + lessonId;
+    return 'Lección ' + lessonId;
   }
 
   function renderLeakList(leaks, opts) {
@@ -261,11 +275,11 @@
         actions += '<button type="button" class="stats-leak-action" data-stats-train-leak="' +
           escapeHtml(l.key) + '">Repetir</button>';
         if (showSchool) {
-          var lid = lessonIdForLeak(l);
-          if (lid) {
+          var lids = lessonIdsForLeak(l);
+          lids.forEach(function (lid) {
             actions += '<button type="button" class="stats-leak-action stats-leak-action-secondary" data-stats-school-lesson="' +
-              escapeHtml(lid) + '">Ver lección</button>';
-          }
+              escapeHtml(lid) + '">' + escapeHtml(lessonCtaLabel(lid)) + '</button>';
+          });
         }
       } else if (l.sessionId) {
         actions += '<button type="button" class="stats-leak-action" data-stats-open-session="' +

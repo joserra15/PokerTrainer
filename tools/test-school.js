@@ -79,11 +79,19 @@ assert.ok(/Textura de flop|Examen M2/.test(schoolM2Src), 'lecciones M2');
 assert.ok(/S-00|S-17/.test(schoolSpinSrc), 'lecciones Spins');
 assert.ok(/buy-in|entrada/.test(schoolSpinSrc) && /fichas no valen|fichas ≠|Entrada ≠ fichas/.test(schoolSpinSrc), 'S-00 explica entrada vs fichas');
 assert.ok(/T-00|T-22/.test(schoolMttSrc), 'lecciones MTT');
-assert.ok(/R-01|R-27/.test(schoolRangesSrc), 'lecciones Rangos');
+assert.ok(/R-01|R-27|R-28|R-29/.test(schoolRangesSrc), 'lecciones Rangos + exámenes');
 assert.ok(/school-data-ranges-line\.js/.test(chunks), 'chunk Rangos línea M2–M4');
+assert.ok(/school-matrix-drills\.js/.test(chunks), 'chunk matrix drills R-01/R-02');
+assert.ok(/openRangesExplorer|__ptPendingRanges/.test(app), 'deep-link Escuela → Rangos');
+assert.ok(/school-lang-badge|Contenido pedagógico en español/.test(
+  fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')
+), 'sello ES Escuela');
 assert.ok(/C-26|C-31/.test(schoolProSrc), 'lecciones Pro Cash');
 assert.ok(/lessonId:\s*'C-02'/.test(aiReportSrc) && /lessonFromLeak/.test(aiReportSrc), 'TRAINING_FOCUSES → lessonId');
-assert.ok(/data-leak-school|Ver lección/.test(leaksSrc), 'CTA Ver lección en leaks');
+assert.ok(/lessonIds:\s*\[\s*'C-02',\s*'R-02'/.test(aiReportSrc), 'leaks RFI → C-02 + R-02');
+assert.ok(/lessonsFromLeak/.test(aiReportSrc), 'lessonsFromLeak export');
+assert.ok(/data-stats-school-lesson/.test(leaksSrc), 'CTA lección Escuela en leaks');
+assert.ok(/\.school-lang-badge|\.school-matrix-drill/.test(css), 'CSS matriz Escuela');
 assert.ok(/school-coach-note|schoolCoachTip/.test(schoolSrc), 'tip coach resultado F');
 assert.ok(/school-stars|is-plan/.test(schoolSrc + css), 'maestría / muro plan UI');
 assert.ok(/school-gate-msg|ensureLessonMarkedPassed|showSchoolGateMessage/.test(schoolSrc),
@@ -97,6 +105,9 @@ assert.ok(!/school-xp-fill school-xp-fill-anim" style="width:' \+\s*Math\.min\(1
 assert.ok(/Estado de implementación \(letras A–J\)/.test(
   fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
 ), 'roadmap letras A–J');
+assert.ok(/ROADMAP_ESCUELA_RANGOS/.test(
+  fs.readFileSync(path.join(root, 'docs/ROADMAP_LECCIONES_DIRIGIDAS.md'), 'utf8')
+), 'roadmap madre enlaza Escuela Rangos');
 
 const sandbox = {
   window: {},
@@ -177,6 +188,7 @@ const engineScripts = [
   'js/school-extra-spots.js',
   'js/school-data-practice.js',
   'js/school-data-ranges-line.js',
+  'js/school-matrix-drills.js',
   'js/school-share.js',
   'js/school.js'
 ];
@@ -196,7 +208,7 @@ const lessons = Data.lessonsForRoute('cash');
 assert.strictEqual(lessons.length, 27, 'Cash M0+M1+M2+Pro = 27 lecciones');
 assert.strictEqual(Data.lessonsForRoute('spin').length, 18, 'Spins 18');
 assert.strictEqual(Data.lessonsForRoute('mtt').length, 23, 'MTT 23');
-assert.strictEqual(Data.lessonsForRoute('ranges').length, 27, 'Rangos 27');
+assert.strictEqual(Data.lessonsForRoute('ranges').length, 29, 'Rangos 29');
 assert.strictEqual(Data.m0Lessons().length, 7, 'M0 7');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
 assert.strictEqual(Data.m2Lessons().length, 7, 'M2 7');
@@ -271,7 +283,9 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   Data.getLessons().forEach(function (lesson) {
     const per = Object.create(null);
     (lesson.spots || []).forEach(function (spot) {
+      if (spot.kind === 'matrixQuiz' || spot.kind === 'matrixPaint') return;
       const cards = spot.forceDeal && spot.forceDeal.heroCards;
+      if (!cards || cards.length < 2) return;
       const code = handCode(cards);
       counts[code] = (counts[code] || 0) + 1;
       per[code] = (per[code] || 0) + 1;
@@ -369,7 +383,7 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   }
   var mttBlob = assertRouteVoice('mtt', 23);
   assert.ok(/ante|ICM|steal|push|burbuja|bb/.test(mttBlob), 'MTT vocabulario torneo');
-  var rangesBlob = assertRouteVoice('ranges', 27);
+  var rangesBlob = assertRouteVoice('ranges', 29);
   assert.ok(/matriz|rango|frecuencia|blocker|menú Rangos/.test(rangesBlob), 'Rangos vocabulario');
   var proBlob = assertRouteVoice('cash', 27); // includes M0-M4
   assert.ok(/4-bet|farol|fish|reg/.test(proBlob), 'Pro cash vocabulario');
@@ -414,12 +428,12 @@ assert.strictEqual(Data.getLesson('T-04').plan, 'study', 'T-04 M1 sigue Study');
   assert.ok(l && l.module === 'M0', id + ' es M0');
   assert.strictEqual(l.plan, 'free', id + ' plan free');
 });
-['R-04', 'R-05', 'R-06'].forEach(function (id) {
+['R-04', 'R-05', 'R-06', 'R-28'].forEach(function (id) {
   var l = Data.getLesson(id);
   assert.ok(l && l.module === 'M1', id + ' es M1');
   assert.strictEqual(l.plan, 'study', id + ' plan study');
 });
-['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-22', 'R-23'].forEach(function (id) {
+['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-22', 'R-23', 'R-29'].forEach(function (id) {
   var l = Data.getLesson(id);
   assert.ok(l && l.module === 'M2', id + ' es M2');
   assert.strictEqual(l.plan, 'study', id + ' plan study');
@@ -1134,6 +1148,37 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.PTAdmin = { hasAccess: function () { return true; } };
 })();
 
+/* R-01 / R-02: drills de matriz (no open/fold ciego). */
+(function assertMatrixDrills() {
+  const MX = sandbox.PTSchoolMatrixDrills;
+  assert.ok(MX && MX.isMatrixSpot, 'PTSchoolMatrixDrills');
+  const r01 = Data.getLesson('R-01');
+  const r02 = Data.getLesson('R-02');
+  assert.ok(r01.openRanges && r01.matrixPreview, 'R-01 openRanges + preview');
+  assert.ok(r02.openRanges && r02.matrixPreview, 'R-02 openRanges + preview');
+  assert.ok(r01.spots.every(function (s) { return s.kind === 'matrixQuiz'; }), 'R-01 matrixQuiz');
+  assert.ok(r02.spots.some(function (s) { return s.kind === 'matrixPaint'; }), 'R-02 matrixPaint');
+  assert.ok(r02.spots.some(function (s) { return s.quiz && s.quiz.mode === 'inRange'; }), 'R-02 inRange');
+  assert.ok(MX.targetSetForPosition('BTN').AA, 'BTN target incluye AA');
+  assert.ok(!MX.targetSetForPosition('BTN')['72o'], 'BTN no incluye 72o');
+  assert.ok(/school-matrix|matrixQuiz|mountDrill/.test(schoolSrc), 'runner matrix en school.js');
+  const r28 = Data.getLesson('R-28');
+  const r29 = Data.getLesson('R-29');
+  assert.ok(r28 && r28.exam && r28.spots.length >= 12, 'R-28 examen M1');
+  assert.ok(r29 && r29.exam && r29.spots.length >= 12, 'R-29 examen M2');
+  assert.ok(Data.getLesson('C-02').relatedLessons && Data.getLesson('C-02').relatedLessons.length >= 2,
+    'C-02 relatedLessons → Rangos');
+})();
+
+/* Seeds únicos en packs de línea R-07…R-21. */
+(function assertUniqueLineSeeds() {
+  ['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-12', 'R-13', 'R-14', 'R-15', 'R-16',
+    'R-17', 'R-18', 'R-19', 'R-20', 'R-21'].forEach(function (id) {
+    const seeds = Data.getLesson(id).spots.map(function (s) { return s.seed; });
+    assert.strictEqual(new Set(seeds).size, seeds.length, id + ' seeds únicos');
+  });
+})();
+
 /* R-05 y M2–M4 (R-07…R-27): manos completas (river) + quiz «¿qué crees que tiene?». */
 (function assertRangesLineQuiz() {
   const lineIds = ['R-05'].concat(
@@ -1384,6 +1429,9 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   const AI = aiSandbox.PTAIReport;
   assert.ok(AI && typeof AI.lessonFromLeak === 'function', 'lessonFromLeak export');
   assert.strictEqual(AI.lessonFromLeak({ key: 'RFI|BTN|preflop' }), 'C-02', 'RFI→C-02');
+  assert.strictEqual(JSON.stringify(AI.lessonsFromLeak({ key: 'RFI|BTN|preflop' })), JSON.stringify(['C-02', 'R-02']), 'RFI→C-02+R-02');
+  assert.strictEqual(JSON.stringify(AI.lessonsFromLeak({ key: 'vsRFI|BB|preflop' })), JSON.stringify(['C-08', 'R-04']), 'vsRFI→C-08+R-04');
+  assert.strictEqual(JSON.stringify(AI.lessonsFromLeak({ key: 'postflop|BTN|flop' })), JSON.stringify(['C-15', 'R-05']), 'flop→C-15+R-05');
   assert.strictEqual(AI.lessonFromLeak({ key: 'vsRFI|BB|preflop' }), 'C-08', 'vsRFI→C-08');
   assert.strictEqual(AI.lessonFromLeak({ key: 'face3bet|BTN|preflop' }), 'C-09', 'face3bet→C-09');
   assert.strictEqual(AI.lessonFromLeak({ key: 'squeeze|BB|preflop' }), 'C-10', 'squeeze→C-10');
