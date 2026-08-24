@@ -2081,6 +2081,10 @@ body.age-gate-open {
   font-weight: 650;
   color: #93c5fd;
 }
+.school-line-size {
+  font-weight: 700;
+  color: #fbbf24;
+}
 .school-villain-quiz .school-quiz-prompt {
   font-size: 1.05em;
   font-weight: 650;

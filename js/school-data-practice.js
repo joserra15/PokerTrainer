@@ -643,9 +643,9 @@
         villainPos: 'BTN', facingBet: true,
         lineStory: [
           { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
-          { street: 'Flop', text: 'As 7c 2d — BB check → BTN c-bet → BB call' },
-          { street: 'Turn', text: '9h — BB check → BTN bet → BB call' },
-          { street: 'River', text: '3c — BB check → BTN bet (tú decides)' }
+          { street: 'Flop', text: 'As 7c 2d — BB check → BTN c-bet 33% pot → BB call' },
+          { street: 'Turn', text: '9h — BB check → BTN bet 66% pot → BB call' },
+          { street: 'River', text: '3c — BB check → BTN bet 66% pot (tú decides)' }
         ],
         teachBack: 'Triple barrel en A-high seco: densifica Ax value (y algún farol). Manos que abren pero pot-controlan turn (TT) o aire sin plan (QJs) caen en calles posteriores.',
         quiz: {
@@ -655,19 +655,19 @@
           options: [
             { id: 'a', cards: ['Ac', 'Qc'], label: 'AQo', correct: true },
             { id: 'b', cards: ['Ts', 'Th'], label: 'TT', correct: false,
-              eliminated: 'Abre BTN y puede c-bet flop, pero en A-high seco suele pot-controlar turn: no triple-barrela por valor.' },
+              eliminated: 'Abre BTN y puede c-bet flop, pero en A-high seco suele pot-controlar turn: no triple-barrela por valor. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' },
             { id: 'c', cards: ['Qh', 'Js'], label: 'QJs', correct: false,
-              eliminated: 'Open OK y c-bet posible, pero sin as ni pareja fuerte: en turn 9h suele dejar de meter presión.' }
+              eliminated: 'Open OK y c-bet posible, pero sin as ni pareja fuerte: en turn 9h suele dejar de meter presión. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' }
           ]
         }
       }),
       LQ('r05-02', 'BB', ['Kh', 'Qs'], ['Kd', '8c', '3h', '2s', '7d'], 76402, {
         villainPos: 'BTN', facingBet: true, trapTag: 'fancy_play',
         lineStory: [
-          { street: 'Preflop', text: 'BTN open → BB call' },
+          { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
           { street: 'Flop', text: 'Kd 8c 3h — check-check' },
-          { street: 'Turn', text: '2s — BB check → BTN bet → BB call' },
-          { street: 'River', text: '7d — BB check → BTN bet' }
+          { street: 'Turn', text: '2s — BB check → BTN bet 66% pot → BB call' },
+          { street: 'River', text: '7d — BB check → BTN bet 66% pot' }
         ],
         teachBack: 'Check-check flop + delayed barrel: Kx value o farol. AA casi nunca checkea ese flop; QJo sin K rara vez barrela turn y river.',
         quiz: {
@@ -676,20 +676,20 @@
           teachBack: 'KJo cuadra el delayed value. AA betearía flop; QJo sin rey no construye turn+river bet con esta historia.',
           options: [
             { id: 'a', cards: ['As', 'Ad'], label: 'AA', correct: false,
-              eliminated: 'Abre y en K-high seco casi siempre c-betea flop: el check-check la elimina.' },
+              eliminated: 'Abre y en K-high seco casi siempre c-betea flop: el check-check la elimina. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' },
             { id: 'b', cards: ['Kc', 'Jh'], label: 'KJo', correct: true },
             { id: 'c', cards: ['Qc', 'Jd'], label: 'QJo', correct: false,
-              eliminated: 'Open late OK, pero sin K: delayed barrel turn+river es raro; suele checkear river o fold.' }
+              eliminated: 'Open late OK, pero sin K: delayed barrel turn+river es raro; suele checkear river o fold. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' }
           ]
         }
       }),
       LQ('r05-03', 'BTN', ['Ah', 'Qd'], ['Jc', '7d', '2s', '9h', '3c'], 76403, {
         villainPos: 'BB', facingBet: true,
         lineStory: [
-          { street: 'Preflop', text: 'BTN open → BB call' },
-          { street: 'Flop', text: 'Jc 7d 2s — BB check → BTN c-bet → BB check-raise → BTN call' },
-          { street: 'Turn', text: '9h — BB bet → BTN call' },
-          { street: 'River', text: '3c — BB bet (tú decides)' }
+          { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+          { street: 'Flop', text: 'Jc 7d 2s — BB check → BTN c-bet 33% pot → BB check-raise 3× → BTN call' },
+          { street: 'Turn', text: '9h — BB bet 66% pot → BTN call' },
+          { street: 'River', text: '3c — BB bet 66% pot (tú decides)' }
         ],
         teachBack: 'Check-raise flop + barrels: polar (sets/dos pares + faroles). AKo y TT defienden BB, pero no raisean ese flop por value.',
         quiz: {
@@ -698,9 +698,9 @@
           teachBack: 'JJ (set) es value clásico del check-raise. AKo sin pareja no raisea flop; TT underpair tampoco polariza así.',
           options: [
             { id: 'a', cards: ['As', 'Kh'], label: 'AKo', correct: false,
-              eliminated: 'Defiende BB, pero sin pareja/draw en J72: hace call o fold, no check-raise por value.' },
+              eliminated: 'Defiende BB, pero sin pareja/draw en J72: hace call o fold, no check-raise por value. El raise 3× exige equity fuerte; este combo no justifica ese sizing.' },
             { id: 'b', cards: ['Tc', 'Td'], label: 'TT', correct: false,
-              eliminated: 'Underpair jugable en call: no check-raisea flop polar sin set ni equity clara.' },
+              eliminated: 'Underpair jugable en call: no check-raisea flop polar sin set ni equity clara. El raise 3× exige equity fuerte; este combo no justifica ese sizing.' },
             { id: 'c', cards: ['Jh', 'Js'], label: 'JJ', correct: true }
           ]
         }
@@ -708,10 +708,10 @@
       LQ('r05-04', 'BB', ['Td', 'Th'], ['Ah', '9c', '4d', '2s', '7h'], 76404, {
         villainPos: 'CO', facingBet: true, trapTag: 'dominated',
         lineStory: [
-          { street: 'Preflop', text: 'CO open → BB call' },
-          { street: 'Flop', text: 'Ah 9c 4d — BB check → CO c-bet → BB call' },
+          { street: 'Preflop', text: 'CO open 2,5 bb → BB call' },
+          { street: 'Flop', text: 'Ah 9c 4d — BB check → CO c-bet 33% pot → BB call' },
           { street: 'Turn', text: '2s — check-check' },
-          { street: 'River', text: '7h — BB check → CO bet' }
+          { street: 'River', text: '7h — BB check → CO bet 66% pot' }
         ],
         teachBack: 'C-bet flop + check turn + bet river: típico Ax thin. KK suele seguir metiendo turn; QJo sin as no cobra river así.',
         quiz: {
@@ -721,19 +721,19 @@
           options: [
             { id: 'a', cards: ['Ad', 'Js'], label: 'AJo', correct: true },
             { id: 'b', cards: ['Kc', 'Kh'], label: 'KK', correct: false,
-              eliminated: 'Open + c-bet OK, pero en A-high suele betear turn también (o checkear river): check-turn + bet-river encaja peor.' },
+              eliminated: 'Open + c-bet OK, pero en A-high suele betear turn también (o checkear river): check-turn + bet-river encaja peor. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' },
             { id: 'c', cards: ['Qs', 'Jd'], label: 'QJo', correct: false,
-              eliminated: 'Puede abrir CO y c-bet aire, pero sin as: tras check turn el river bet no es value creíble.' }
+              eliminated: 'Puede abrir CO y c-bet aire, pero sin as: tras check turn el river bet no es value creíble. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' }
           ]
         }
       }),
       LQ('r05-05', 'BB', ['9h', '9c'], ['Qd', 'Jc', '2h', '5s', '8c'], 76405, {
         villainPos: 'BTN', facingBet: true,
         lineStory: [
-          { street: 'Preflop', text: 'BTN open → BB call' },
+          { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
           { street: 'Flop', text: 'Qd Jc 2h — check-check' },
-          { street: 'Turn', text: '5s — BB check → BTN bet → BB call' },
-          { street: 'River', text: '8c — BB check → BTN bet' }
+          { street: 'Turn', text: '5s — BB check → BTN bet 66% pot → BB call' },
+          { street: 'River', text: '8c — BB check → BTN bet 66% pot' }
         ],
         teachBack: 'Delayed barrel en Q-high: Qx value. AA betearía flop; JTs con segunda pareja suele elegir otra línea (bet flop o check river).',
         quiz: {
@@ -742,20 +742,20 @@
           teachBack: 'QTo: delayed value limpio. AA no checkea flop Q-high; JTs no encaja tan bien en turn+river bet tras check-check.',
           options: [
             { id: 'a', cards: ['Ac', 'Ah'], label: 'AA', correct: false,
-              eliminated: 'Premium: en Q-high casi siempre c-betea flop. El check-check la saca del rango.' },
+              eliminated: 'Premium: en Q-high casi siempre c-betea flop. El check-check la saca del rango. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' },
             { id: 'b', cards: ['Qs', 'Td'], label: 'QTo', correct: true },
             { id: 'c', cards: ['Jh', 'Ts'], label: 'JTs', correct: false,
-              eliminated: 'Open OK; con Jx a menudo betea flop o checkea river — delayed double barrel no es su historia limpia.' }
+              eliminated: 'Open OK; con Jx a menudo betea flop o checkea river — delayed double barrel no es su historia limpia. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' }
           ]
         }
       }),
       LQ('r05-06', 'BTN', ['Kd', 'Jh'], ['As', 'Kh', '7c', '4h', '2d'], 76406, {
         villainPos: 'BB', facingBet: true, trapTag: 'fancy_play',
         lineStory: [
-          { street: 'Preflop', text: 'BTN open → BB call' },
-          { street: 'Flop', text: 'As Kh 7c — BB check → BTN c-bet → BB call' },
-          { street: 'Turn', text: '4h — BB check → BTN bet → BB call' },
-          { street: 'River', text: '2d — BB bet grande (tú decides)' }
+          { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+          { street: 'Flop', text: 'As Kh 7c — BB check → BTN c-bet 33% pot → BB call' },
+          { street: 'Turn', text: '4h — BB check → BTN bet 66% pot → BB call' },
+          { street: 'River', text: '2d — BB overbet 125% pot (tú decides)' }
         ],
         teachBack: 'Float dos calles + bet grande river: polar (dos pares/fuertes). QQ con overpair suele raisear antes; QJs sin showdown fuerte no mete river grande.',
         quiz: {
@@ -764,9 +764,9 @@
           teachBack: 'A7s (dos pares) explica el float y la presión river. QQ raisearía más pronto; QJs no apuesta river grande sin equity.',
           options: [
             { id: 'a', cards: ['Qc', 'Qd'], label: 'QQ', correct: false,
-              eliminated: 'Defiende y puede call flop, pero con overpair suele raisear flop/turn: float pasivo + bet grande river es raro.' },
+              eliminated: 'Defiende y puede call flop, pero con overpair suele raisear flop/turn: float pasivo + bet grande river es raro. El overbet river (125% pot) pide polarización: nuts o farol, no value medio.' },
             { id: 'b', cards: ['Qs', 'Js'], label: 'QJs', correct: false,
-              eliminated: 'Call BB OK; float flop posible, pero en AsKh7 sin draw fuerte no mete bet grande de river.' },
+              eliminated: 'Call BB OK; float flop posible, pero en AsKh7 sin draw fuerte no mete bet grande de river. El overbet river (125% pot) pide polarización: nuts o farol, no value medio.' },
             { id: 'c', cards: ['Ah', '7s'], label: 'A7s', correct: true }
           ]
         }
@@ -774,10 +774,10 @@
       LQ('r05-07', 'BB', ['Qc', 'Jd'], ['Th', '9c', '2d', '3s', 'Kd'], 76407, {
         villainPos: 'HJ', facingBet: true,
         lineStory: [
-          { street: 'Preflop', text: 'HJ open → BB call' },
-          { street: 'Flop', text: 'Th 9c 2d — BB check → HJ c-bet → BB call' },
+          { street: 'Preflop', text: 'HJ open 2,2 bb → BB call' },
+          { street: 'Flop', text: 'Th 9c 2d — BB check → HJ c-bet 33% pot → BB call' },
           { street: 'Turn', text: '3s — check-check' },
-          { street: 'River', text: 'Kd — BB check → HJ bet' }
+          { street: 'River', text: 'Kd — BB check → HJ bet 66% pot' }
         ],
         teachBack: 'C-bet flop + check turn + bet river tras K: Ax/scare card. QQ suele betear turn; 88 underpair no cobra river así.',
         quiz: {
@@ -787,19 +787,19 @@
           options: [
             { id: 'a', cards: ['Ad', 'Ts'], label: 'ATo', correct: true },
             { id: 'b', cards: ['Qs', 'Qh'], label: 'QQ', correct: false,
-              eliminated: 'Overpair: tras c-bet flop suele seguir en turn. Check-turn + bet-river al K encaja peor.' },
+              eliminated: 'Overpair: tras c-bet flop suele seguir en turn. Check-turn + bet-river al K encaja peor. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' },
             { id: 'c', cards: ['8h', '8s'], label: '88', correct: false,
-              eliminated: 'Abre HJ y puede c-bet, pero underpair tras check turn no apuesta river por valor en K-high.' }
+              eliminated: 'Abre HJ y puede c-bet, pero underpair tras check turn no apuesta river por valor en K-high. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' }
           ]
         }
       }),
       LQ('r05-08', 'BB', ['As', 'Js'], ['8h', '7d', '2c', 'Jh', '9s'], 76408, {
         villainPos: 'BTN', facingBet: true, trapTag: 'dominated',
         lineStory: [
-          { street: 'Preflop', text: 'BTN open → BB call' },
-          { street: 'Flop', text: '8h 7d 2c — BB check → BTN c-bet → BB call' },
-          { street: 'Turn', text: 'Jh — BB check → BTN bet → BB call' },
-          { street: 'River', text: '9s — BB check → BTN bet' }
+          { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+          { street: 'Flop', text: '8h 7d 2c — BB check → BTN c-bet 33% pot → BB call' },
+          { street: 'Turn', text: 'Jh — BB check → BTN bet 66% pot → BB call' },
+          { street: 'River', text: '9s — BB check → BTN bet 66% pot' }
         ],
         teachBack: 'Triple barrel en board drawy: overpairs. 66 pot-controla turn; AKo aire no barrela J y 9 por valor.',
         quiz: {
@@ -810,7 +810,7 @@
             { id: 'a', cards: ['6c', '6d'], label: '66', correct: false,
               eliminated: 'Open + c-bet flop posible, pero underpair en board drawy: pot-control turn, no triple barrel.' },
             { id: 'b', cards: ['Ac', 'Kd'], label: 'AKo', correct: false,
-              eliminated: 'Open OK y c-bet aire, pero barrel turn J y river 9 sin pareja no es value: suele checkear river.' },
+              eliminated: 'Open OK y c-bet aire, pero barrel turn J y river 9 sin pareja no es value: suele checkear river. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' },
             { id: 'c', cards: ['Qh', 'Qs'], label: 'QQ', correct: true }
           ]
         }
@@ -818,10 +818,10 @@
       LQ('r05-09', 'BTN', ['Th', 'Td'], ['9s', '8c', '2h', 'Ad', '4c'], 76409, {
         villainPos: 'BB', facingBet: true,
         lineStory: [
-          { street: 'Preflop', text: 'BTN open → BB call' },
-          { street: 'Flop', text: '9s 8c 2h — BB donk bet → BTN call' },
-          { street: 'Turn', text: 'Ad — BB bet → BTN call' },
-          { street: 'River', text: '4c — BB bet' }
+          { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+          { street: 'Flop', text: '9s 8c 2h — BB donk 50% pot → BTN call' },
+          { street: 'Turn', text: 'Ad — BB bet 66% pot → BTN call' },
+          { street: 'River', text: '4c — BB bet 66% pot' }
         ],
         teachBack: 'Donk flop + presión: 9x/sets. KQo y ATs defienden BB, pero no donkean 982 sin conexión.',
         quiz: {
@@ -830,20 +830,20 @@
           teachBack: '99 (set) explica el donk. KQo y ATs check-callearian; no lideran ese flop.',
           options: [
             { id: 'a', cards: ['Kh', 'Qd'], label: 'KQo', correct: false,
-              eliminated: 'Defiende BB, pero sin 9/8/draw en 982: check-call, no donk flop por value.' },
+              eliminated: 'Defiende BB, pero sin 9/8/draw en 982: check-call, no donk flop por value. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' },
             { id: 'b', cards: ['9h', '9d'], label: '99', correct: true },
             { id: 'c', cards: ['Ac', 'Ts'], label: 'ATs', correct: false,
-              eliminated: 'Call BB estándar; en 982 sin pareja suele checkear flop, no donkear y meter tres calles.' }
+              eliminated: 'Call BB estándar; en 982 sin pareja suele checkear flop, no donkear y meter tres calles. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' }
           ]
         }
       }),
       LQ('r05-10', 'BB', ['Kh', 'Td'], ['Kc', '6s', '3d', '2h', 'Qd'], 76410, {
         villainPos: 'CO', facingBet: true,
         lineStory: [
-          { street: 'Preflop', text: 'CO open → BB call' },
+          { street: 'Preflop', text: 'CO open 2,5 bb → BB call' },
           { street: 'Flop', text: 'Kc 6s 3d — check-check' },
-          { street: 'Turn', text: '2h — BB check → CO bet → BB call' },
-          { street: 'River', text: 'Qd — BB check → CO bet' }
+          { street: 'Turn', text: '2h — BB check → CO bet 66% pot → BB call' },
+          { street: 'River', text: 'Qd — BB check → CO bet 66% pot' }
         ],
         teachBack: 'Check flop + delayed barrel: Kx. AA betearía flop; AJo sin K suele no doblar barrel tras check-check.',
         quiz: {
@@ -852,9 +852,9 @@
           teachBack: 'KJo: delayed value. AA no checkea flop K-high; AJo sin rey no encaja en turn+river bet.',
           options: [
             { id: 'a', cards: ['Ah', 'Ac'], label: 'AA', correct: false,
-              eliminated: 'En K-high seco casi siempre c-betea flop: el check-check elimina el premium.' },
+              eliminated: 'En K-high seco casi siempre c-betea flop: el check-check elimina el premium. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' },
             { id: 'b', cards: ['As', 'Jd'], label: 'AJo', correct: false,
-              eliminated: 'Open CO OK; sin K, tras check-check flop el delayed barrel turn+river es farol poco natural.' },
+              eliminated: 'Open CO OK; sin K, tras check-check flop el delayed barrel turn+river es farol poco natural. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' },
             { id: 'c', cards: ['Kd', 'Js'], label: 'KJo', correct: true }
           ]
         }
@@ -862,10 +862,10 @@
       LQ('r05-11', 'BB', ['Ad', '8d'], ['7h', '6c', '2s', 'Td', 'Kc'], 76411, {
         villainPos: 'BTN', facingBet: true, trapTag: 'fancy_play',
         lineStory: [
-          { street: 'Preflop', text: 'BTN open → BB call' },
-          { street: 'Flop', text: '7h 6c 2s — BB check → BTN c-bet → BB call' },
-          { street: 'Turn', text: 'Td — BB check → BTN bet → BB call' },
-          { street: 'River', text: 'Kc — BB check → BTN bet' }
+          { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+          { street: 'Flop', text: '7h 6c 2s — BB check → BTN c-bet 33% pot → BB call' },
+          { street: 'Turn', text: 'Td — BB check → BTN bet 66% pot → BB call' },
+          { street: 'River', text: 'Kc — BB check → BTN bet 66% pot' }
         ],
         teachBack: 'Triple barrel en board bajo: overpairs. 55 pot-controla; KQo aire suele parar en turn.',
         quiz: {
@@ -877,17 +877,17 @@
             { id: 'b', cards: ['5s', '5c'], label: '55', correct: false,
               eliminated: 'Open + c-bet flop posible, pero underpair: pot-control turn — no triple barrel value.' },
             { id: 'c', cards: ['Kh', 'Qh'], label: 'KQo', correct: false,
-              eliminated: 'Open late y c-bet aire OK, pero barrel turn T y seguir river es farol largo: suele checkear turn.' }
+              eliminated: 'Open late y c-bet aire OK, pero barrel turn T y seguir river es farol largo: suele checkear turn. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' }
           ]
         }
       }),
       LQ('r05-12', 'BTN', ['Qh', 'Qs'], ['Jd', 'Tc', '3h', '2s', '8d'], 76412, {
         villainPos: 'BB', facingBet: true,
         lineStory: [
-          { street: 'Preflop', text: 'BTN open → BB call' },
-          { street: 'Flop', text: 'Jd Tc 3h — BB check → BTN c-bet → BB raise → BTN call' },
-          { street: 'Turn', text: '2s — BB bet → BTN call' },
-          { street: 'River', text: '8d — BB bet' }
+          { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+          { street: 'Flop', text: 'Jd Tc 3h — BB check → BTN c-bet 33% pot → BB raise 3× → BTN call' },
+          { street: 'Turn', text: '2s — BB bet 66% pot → BTN call' },
+          { street: 'River', text: '8d — BB bet 66% pot' }
         ],
         teachBack: 'Raise flop JT3 + barrels: polar (dos pares/straight). AKo y 88 defienden, pero no raisean ese flop por value.',
         quiz: {
@@ -896,9 +896,9 @@
           teachBack: 'JTs (dos pares) es value del raise. AKo sin conexión raisea poco; 88 underpair tampoco polariza flop.',
           options: [
             { id: 'a', cards: ['Ac', 'Kd'], label: 'AKo', correct: false,
-              eliminated: 'Call BB frecuente, pero en JT3 sin pareja/draw fuerte: call o fold, no raise polar de flop.' },
+              eliminated: 'Call BB frecuente, pero en JT3 sin pareja/draw fuerte: call o fold, no raise polar de flop. El raise 3× exige equity fuerte; este combo no justifica ese sizing.' },
             { id: 'b', cards: ['8h', '8c'], label: '88', correct: false,
-              eliminated: 'Underpair defendible en call: rara vez raisea flop sin set ni draw claro.' },
+              eliminated: 'Underpair defendible en call: rara vez raisea flop sin set ni draw claro. El raise 3× exige equity fuerte; este combo no justifica ese sizing.' },
             { id: 'c', cards: ['Jh', 'Th'], label: 'JTs', correct: true }
           ]
         }

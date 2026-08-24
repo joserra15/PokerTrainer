@@ -61,7 +61,7 @@ const pwa = fs.readFileSync(path.join(root, 'js/pwa.js'), 'utf8');
 assert(/updateViaCache:\s*'none'/.test(pwa), 'SW register updateViaCache none');
 
 const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
-assert(/PT_BUILD\s*=\s*'2.7.27'/.test(version), 'PT_BUILD 2.7.27');
+assert(/PT_BUILD\s*=\s*'2.7.28'/.test(version), 'PT_BUILD 2.7.28');
 assert(/PT_ASSET_REV\s*=\s*'[^']+'/.test(version), 'version.js expone PT_ASSET_REV');
 assert(/PT_REV\s*=\s*function/.test(version), 'version.js expone PT_REV()');
 
