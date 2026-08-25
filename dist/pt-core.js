@@ -31847,7 +31847,11 @@ window.PT_NASH_PUSH_JSON = {
       }
       const icmOn = Tax && Tax.usesIcm ? Tax.usesIcm(cfg) : (hub === 'spin');
       if (icmOn) {
-        chips.push({ text: 'ICM lite', cls: 'is-icm' });
+        chips.push({
+          text: 'ICM lite',
+          cls: 'is-icm',
+          title: 'ICM activo: el premio importa más que las fichas (estudio lite, no solver de field). Detalle en Info.'
+        });
       }
       if (hub === 'spin' && cfg.spinPayout) {
         chips.push({ text: 'Payout ' + String(cfg.spinPayout).toUpperCase(), cls: 'is-icm' });
