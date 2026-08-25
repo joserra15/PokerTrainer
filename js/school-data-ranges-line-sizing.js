@@ -75,25 +75,25 @@
         ]
       }
     }),
-    'R-09': LQ('r09-sz01', 'BB', ['Ah', '4h'], ['Qh', 'Jd', '4c', '8s', '2h'], 88009, {
+    'R-09': LQ('r09-sz01', 'BB', ['5h','4h'], ['Kd','Ts','8c','3d','8h'], 88009, {
       villainPos: 'BTN', facingBet: true,
       lineStory: [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
-        { street: 'Flop', text: 'Qh Jd 4c — BB check → BTN c-bet 55% pot → BB call' },
-        { street: 'Turn', text: '8s — BB check → BTN bet 75% pot → BB call' },
-        { street: 'River', text: '2h — BB check → BTN bet 33% pot' }
+        { street: 'Flop', text: 'Kd Ts 8c — check-check' },
+        { street: 'Turn', text: '3d — BB check → BTN bet 66% pot → BB call' },
+        { street: 'River', text: '8h — BB check → BTN bet 33% pot' }
       ],
-      teachBack: 'Flop/turn grandes + river pequeño: block/thin con straight o top pair fuerte.',
+      teachBack: 'Check flop + turn value + block river en board emparejado: Kx/trips. QQ betea flop; A5s no block-betea.',
       quiz: {
         prompt: '¿Qué crees que tiene el villano?',
-        answerCards: ['Tc', '9c'],
-        teachBack: 'T9s straight: presión grande en drawy, river 33% block. AKo no baja a block; 88 no apuesta 75% turn.',
+        answerCards: ['Kh', 'Qd'],
+        teachBack: 'KQo: delayed turn 66%, block 33% river al 8. QQ y A5s no.',
         options: [
-          { id: 'a', cards: ['As', 'Kc'], label: 'AKo', correct: false,
-            eliminated: 'Sin straight: puede c-bet, pero turn 75% + river 33% block es línea de mano hecha — no AK alto.' },
-          { id: 'b', cards: ['8d', '8c'], label: '88', correct: false,
-            eliminated: 'Underpair: no apuesta 75% pot en turn conectado — el sizing turn elimina sets débiles.' },
-          { id: 'c', cards: ['Tc', '9c'], label: 'T9s', correct: true }
+          { id: 'a', cards: ['Qs', 'Qh'], label: 'QQ', correct: false,
+            eliminated: 'Overpair al T: casi siempre c-betea flop K-high — check-check elimina QQ de esa línea de block river.' },
+          { id: 'b', cards: ['As', '5s'], label: 'A5s', correct: false,
+            eliminated: 'Puede float turn, pero sin K: no baja a block 33% river tras bet 66% turn en KT8.' },
+          { id: 'c', cards: ['Kh', 'Qd'], label: 'KQo', correct: true }
         ]
       }
     }),

@@ -581,43 +581,43 @@
           { street: "Turn", text: "9s — check-check" },
           { street: "River", text: "Kc — BB check → CO bet 66% pot" }
         ],
-        teachBack: "C-bet + check turn double paired + bet river: full de nueves. QQ suele betear turn; JTo no.",
+        teachBack: "C-bet + check turn en board doble pareja: full de nueves lentas. QQ suele betear turn; JTo no cobra river.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
           answerCards: ["9c","9d"],
-          teachBack: "99 full boat: línea lenta. QQ betea turn; JTo no cobra river.",
+          teachBack: "99 full boat: pot-control turn, value river. QQ betea turn; JTo no.",
           options: [
             { id: "a", cards: ["Qh","Qs"], label: "QQ", correct: false,
-              eliminated: "Overpair: tras c-bet suele seguir en turn aunque parea. Check-turn + bet-river encaja peor que el boat. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
+              eliminated: "Overpair: tras c-bet 33% suele seguir en turn cuando parea el nueve. Check turn + bet river 66% encaja peor que el boat." },
             { id: "b", cards: ["Jh","Td"], label: "JTo", correct: false,
-              eliminated: "Puede c-bet aire, pero sin 9/6: tras check turn el river bet no es value. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
+              eliminated: "Puede c-bet flop aire, pero sin 9/6: tras check turn el bet river 66% no es value creíble." },
             { id: "c", cards: ["9c","9d"], label: "99", correct: true }
           ]
         }
       }),
-      LQ("r09-02", "BTN", ["Qh","Js"], ["Ac","7c","3c","9d","2h"], 70902, {
-        villainPos: "BB", facingBet: true,
+      LQ("r09-02", "BB", ["Kh","9d"], ["As","7d","3h","2c","8s"], 70902, {
+        villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "Ac 7c 3c — BB donk 50% pot → BTN call" },
-          { street: "Turn", text: "9d — BB bet 66% pot → BTN call" },
-          { street: "River", text: "2h — BB bet 66% pot" }
+          { street: "Flop", text: "As 7d 3h — BB check → BTN c-bet 33% pot → BB call" },
+          { street: "Turn", text: "2c — BB check → BTN bet 66% pot → BB call" },
+          { street: "River", text: "8s — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Donk en monotone clubs: color KcXc. AKo sin club no donkea; JTs sin club tampoco.",
+        teachBack: "Triple barrel A-high seco: Ax value denso. K9o defiende flop pero no triple-barrelea; TT pot-controla turn.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Kc","Tc"],
-          teachBack: "KTo color: donk value. AKo y JTs sin club no.",
+          answerCards: ["Ac","Qh"],
+          teachBack: "AQo: open + tres calles de value en A-high. K9o y TT no.",
           options: [
-            { id: "a", cards: ["Ah","Kd"], label: "AKo", correct: false,
-              eliminated: "Defiende BB; en A73 clubs sin club: check-call, no donk flop por value de color. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "b", cards: ["Kc","Tc"], label: "KTo", correct: true },
-            { id: "c", cards: ["Jd","Td"], label: "JTo", correct: false,
-              eliminated: "En flop: Call BB OK; sin club en monotone suele checkear, no liderar tres calles. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." }
+            { id: "a", cards: ["Kc","Jh"], label: "KJo", correct: false,
+              eliminated: "Puede flotar flop, pero sin as: no mete turn 66% + river 66% por valor de Ax." },
+            { id: "b", cards: ["Ts","Th"], label: "TT", correct: false,
+              eliminated: "Underpair al A: suele pot-controlar turn (check) — no triple barrel de value." },
+            { id: "c", cards: ["Ac","Qh"], label: "AQo", correct: true }
           ]
         }
       }),
-      LQ("r09-03", "BTN", ["Kd","Jh"], ["Qs","7c","2d","5h","9c"], 70903, {
+      LQ("r09-03", "BTN", ["Qh","Js"], ["Qs","7c","2d","5h","9c"], 70903, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
@@ -625,105 +625,105 @@
           { street: "Turn", text: "5h — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "9c — BB bet 66% pot" }
         ],
-        teachBack: "Float + bet river Q-high: Qx value. AA betearía distinto; JTs sin Q no mete river.",
+        teachBack: "Float IP dos calles + bet river scare card: Qx. AA betearía turn; JTs sin dama no cobra river.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qh","Td"],
-          teachBack: "QTo float value. AA y JTs no.",
+          answerCards: ["Qd","Tc"],
+          teachBack: "QTo float value al 9. AA y JTs no.",
           options: [
             { id: "a", cards: ["Ac","Ah"], label: "AA", correct: false,
-              eliminated: "En Q-high casi siempre c-betea o raisea antes: float pasivo + bet river es raro para AA. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "b", cards: ["Js","Ts"], label: "JTs", correct: false,
-              eliminated: "Call flop posible, pero sin Q: no apuesta river por value tras float. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Qh","Td"], label: "QTo", correct: true }
+              eliminated: "Overpair: en Q-high casi siempre betea turn — float pasivo + bet river al 9 es raro para AA." },
+            { id: "b", cards: ["Jd","Ts"], label: "JTs", correct: false,
+              eliminated: "Call flop posible, pero sin Q: no apuesta river 66% por value tras float." },
+            { id: "c", cards: ["Qd","Tc"], label: "QTo", correct: true }
           ]
         }
       }),
-      LQ("r09-04", "BTN", ["Ah","Qd"], ["Jc","7d","2s","9h","3c"], 70904, {
-        villainPos: "BB", facingBet: true,
+      LQ("r09-04", "BB", ["Ac","Kd"], ["7h","5c","2s","Td","Qc"], 70904, {
+        villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "Jc 7d 2s — BB check → BTN c-bet 33% pot → BB check-raise 3× → BTN call" },
-          { street: "Turn", text: "9h — BB bet 66% pot → BTN call" },
-          { street: "River", text: "3c — BB bet 66% pot" }
+          { street: "Flop", text: "7h 5c 2s — check-check" },
+          { street: "Turn", text: "Td — BB check → BTN bet 66% pot → BB call" },
+          { street: "River", text: "Qc — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Check-raise flop + barrels: set de jotas. AKo y TT defienden BB pero no raisean J72 por value.",
+        teachBack: "Check flop + delayed double barrel: set de cincos. AKo betearía flop; KQo no dobla barrel en board bajo.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Jh","Js"],
-          teachBack: "JJ (set) explica el check-raise. AKo sin pareja no raisea; TT underpair tampoco.",
+          answerCards: ["5h","5d"],
+          teachBack: "55 set: slowplay flop, turn+river value. AKo y KQo no.",
           options: [
-            { id: "a", cards: ["As","Kh"], label: "AKo", correct: false,
-              eliminated: "Defiende BB, pero sin pareja/draw en J72: call o fold, no check-raise por value en flop. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "b", cards: ["Tc","Td"], label: "TT", correct: false,
-              eliminated: "Underpair jugable en call: no check-raisea flop polar sin set ni equity clara. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "c", cards: ["Jh","Js"], label: "JJ", correct: true }
+            { id: "a", cards: ["Ah","Kc"], label: "AKo", correct: false,
+              eliminated: "Premium: en 752 rainbow casi siempre c-betea flop. El check-check lo elimina." },
+            { id: "b", cards: ["Kh","Qs"], label: "KQo", correct: false,
+              eliminated: "Open late OK; sin 7/5, tras check-check el delayed barrel turn+river no es value natural." },
+            { id: "c", cards: ["5h","5d"], label: "55", correct: true }
           ]
         }
       }),
-      LQ("r09-05", "BTN", ["Kh","Td"], ["Qs","6c","3d","2h","9c"], 70905, {
+      LQ("r09-05", "BTN", ["Jh","Ts"], ["Qc","8d","3h","8s","Kd"], 70905, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "Qs 6c 3d — BB check-raise 3× → BTN call" },
-          { street: "Turn", text: "2h — BB bet 66% pot → BTN call" },
-          { street: "River", text: "9c — BB bet 66% pot" }
+          { street: "Flop", text: "Qc 8d 3h — BB check → BTN c-bet 33% pot → BB call" },
+          { street: "Turn", text: "8s — BB check → BTN bet 66% pot → BB raise 3× → BTN call" },
+          { street: "River", text: "Kd — BB bet 66% pot" }
         ],
-        teachBack: "Check-raise Q63: set de damas. AJs sin Q no raisea; 77 underpair tampoco.",
+        teachBack: "Call flop + raise turn en pareja: full de ochos. JTs no raisea turn; AJo sin 8 no construye esa línea.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qh","Qd"],
-          teachBack: "QQ set: check-raise value. AJs y 77 no polarizan ese flop.",
+          answerCards: ["8h","8c"],
+          teachBack: "88 full: call flop lento y raise turn. JTs y AJo no.",
           options: [
-            { id: "a", cards: ["As","Js"], label: "AJs", correct: false,
-              eliminated: "Defiende BB, pero sin Q/6 en Q63: call o fold, no check-raise por value. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "b", cards: ["7h","7d"], label: "77", correct: false,
-              eliminated: "Underpair: call posible, raise flop polar sin set ni draw claro es raro. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "c", cards: ["Qh","Qd"], label: "QQ", correct: true }
+            { id: "a", cards: ["As","Jd"], label: "AJo", correct: false,
+              eliminated: "Top pair Q sin 8: puede call flop, pero raise turn 3× en Q83 cuando cae 8 es línea de full, no AJo." },
+            { id: "b", cards: ["9d","9c"], label: "99", correct: false,
+              eliminated: "Underpair al Q: call flop posible, pero raise turn 3× pide el 8 emparejado — no 99." },
+            { id: "c", cards: ["8h","8c"], label: "88", correct: true }
           ]
         }
       }),
-      LQ("r09-06", "BTN", ["Ah","9h"], ["Qd","Jc","Td","4s","2h"], 70906, {
-        villainPos: "BB", facingBet: true,
+      LQ("r09-06", "BB", ["Qd","8c"], ["Kh","9d","4c","2s","7h"], 70906, {
+        villainPos: "CO", facingBet: true,
         lineStory: [
-          { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "Qd Jc Td — BB donk 50% pot → BTN call" },
-          { street: "Turn", text: "4s — BB bet 66% pot → BTN call" },
-          { street: "River", text: "2h — BB bet 66% pot" }
+          { street: "Preflop", text: "CO open 2,5 bb → BB call" },
+          { street: "Flop", text: "Kh 9d 4c — BB check → CO c-bet 33% pot → BB call" },
+          { street: "Turn", text: "2s — check-check" },
+          { street: "River", text: "7h — BB check → CO bet 33% pot" }
         ],
-        teachBack: "Donk en QJT: escalera K9 o AKs. AQo sin straight no donkea; 99 underpair tampoco.",
+        teachBack: "C-bet + check turn + river fino: K9/K7 second pair. QQ betea turn; A5s aire no block-betea river.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Kh","9c"],
-          teachBack: "K9o escalera. AQo y 99 no donkean QJT por straight.",
+          answerCards: ["Kd","Ts"],
+          teachBack: "KTo: c-bet, pot-control turn, river 33% thin. QQ y A5s no.",
           options: [
-            { id: "a", cards: ["As","Qc"], label: "AQo", correct: false,
-              eliminated: "Defiende BB; en QJT sin K/9 straight: check-call, no donk flop por value de escalera. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "b", cards: ["Kh","9c"], label: "K9o", correct: true },
-            { id: "c", cards: ["9s","9d"], label: "99", correct: false,
-              eliminated: "Underpair: no lidera QJT con donk de escalera. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." }
+            { id: "a", cards: ["Qs","Qh"], label: "QQ", correct: false,
+              eliminated: "Overpair al 9: tras c-bet suele betear turn 55–66% — check turn + block 33% river es second pair, no QQ." },
+            { id: "b", cards: ["Ah","5s"], label: "A5s", correct: false,
+              eliminated: "Puede c-bet aire, pero sin K: tras check turn el block 33% river no es value creíble." },
+            { id: "c", cards: ["Kd","Ts"], label: "KTo", correct: true }
           ]
         }
       }),
-      LQ("r09-07", "BTN", ["Qc","Jd"], ["Kh","Qd","Jc","4s","9h"], 70907, {
+      LQ("r09-07", "BTN", ["Ah","4h"], ["Td","8c","3d","Jh","2s"], 70907, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "Kh Qd Jc — BB check → BTN c-bet 33% pot → BB call" },
-          { street: "Turn", text: "4s — BB check → BTN bet 66% pot → BB call" },
-          { street: "River", text: "9h — BB bet 66% pot" }
+          { street: "Flop", text: "Td 8c 3d — BB check → BTN c-bet 33% pot → BB call" },
+          { street: "Turn", text: "Jh — BB check → BTN bet 66% pot → BB call" },
+          { street: "River", text: "2s — BB bet 66% pot" }
         ],
-        teachBack: "Float + bet river en KQJ: dos pares QJ. AA betearía distinto; T9s sin dos pares no.",
+        teachBack: "Float + bet river tras J scare: Tx value. 99 raisearía turn; KQo sin T no mete river.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qs","Jh"],
-          teachBack: "QJs dos pares: float y river. AA y T9s no.",
+          answerCards: ["Ts","9s"],
+          teachBack: "T9s float value al J. 99 y KQo no.",
           options: [
-            { id: "a", cards: ["Ah","Ac"], label: "AA", correct: false,
-              eliminated: "En KQJ connected casi siempre betea o raisea antes: float pasivo + bet river es raro para AA. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "b", cards: ["Ts","9s"], label: "T9s", correct: false,
-              eliminated: "Call flop con gutshot posible, pero sin dos pares en river: no apuesta river por value tras float. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Qs","Jh"], label: "QJs", correct: true }
+            { id: "a", cards: ["9h","9c"], label: "99", correct: false,
+              eliminated: "Overpair al 8: suele raisear turn o betear más grande — float pasivo + bet river es raro." },
+            { id: "b", cards: ["Kh","Qd"], label: "KQo", correct: false,
+              eliminated: "Call flop posible, pero sin T fuerte: no apuesta river 66% por value." },
+            { id: "c", cards: ["Ts","9s"], label: "T9s", correct: true }
           ]
         }
       }),
@@ -735,105 +735,105 @@
           { street: "Turn", text: "Ad — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "3c — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Check flop paired + delayed: full de seises. KK betearía flop; QJs sin 6 no.",
+        teachBack: "Check flop paired + delayed: full de seises. KK betearía flop; QJs sin 6 no barrela As+river.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
           answerCards: ["6d","6c"],
-          teachBack: "66 full tras slowplay. KK no checkea; QJs no barrela Ad+river.",
+          teachBack: "66 full tras slowplay. KK no checkea; QJs no.",
           options: [
             { id: "a", cards: ["Kh","Kd"], label: "KK", correct: false,
-              eliminated: "En board paired medio casi siempre c-betea flop. Check-check lo saca. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair." },
+              eliminated: "En board paired medio casi siempre c-betea flop. Check-check lo saca." },
             { id: "b", cards: ["Qs","Jh"], label: "QJs", correct: false,
-              eliminated: "Open late OK; sin 6, tras check-check el barrel turn as + river no es value creíble. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair." },
+              eliminated: "Open late OK; sin 6, tras check-check el barrel turn As + river no es value creíble." },
             { id: "c", cards: ["6d","6c"], label: "66", correct: true }
           ]
         }
       }),
-      LQ("r09-09", "CO", ["Kh","9s"], ["Qd","Jd","8d","2h","4c"], 70909, {
-        villainPos: "BB", facingBet: true,
-        lineStory: [
-          { street: "Preflop", text: "CO open 2,5 bb → BB call" },
-          { street: "Flop", text: "Qd Jd 8d — BB check → CO c-bet 33% pot → BB raise 3× → CO call" },
-          { street: "Turn", text: "2h — BB bet 66% pot → CO call" },
-          { street: "River", text: "4c — BB bet 66% pot" }
-        ],
-        teachBack: "Raise flop diamonds connected: color Td9d o AdXd. AKo sin diamond no; 99 sin flush tampoco.",
-        quiz: {
-          prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Td","9d"],
-          teachBack: "T9s color. AKo y 99 sin diamond no raisean.",
-          options: [
-            { id: "a", cards: ["As","Kc"], label: "AKo", correct: false,
-              eliminated: "Defiende BB; en QJ8 diamonds sin diamond: call/fold, no raise polar. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "b", cards: ["9c","9h"], label: "99", correct: false,
-              eliminated: "Underpair/overcard sin flush: no raisea flop monotone. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "c", cards: ["Td","9d"], label: "T9s", correct: true }
-          ]
-        }
-      }),
-      LQ("r09-10", "BTN", ["Ad","8d"], ["Jh","6c","2s","9d","4h"], 70910, {
-        villainPos: "BB", facingBet: true,
+      LQ("r09-09", "BB", ["Qh","Qs"], ["9c","8d","2h","Th","4s"], 70909, {
+        villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "Jh 6c 2s — BB check → BTN c-bet 33% pot → BB raise 3× → BTN call" },
-          { street: "Turn", text: "9d — BB bet 66% pot → BTN call" },
-          { street: "River", text: "4h — BB bet 66% pot" }
+          { street: "Flop", text: "9c 8d 2h — BB check → BTN c-bet 33% pot → BB call" },
+          { street: "Turn", text: "Th — BB check → BTN bet 66% pot → BB call" },
+          { street: "River", text: "4s — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Raise flop J62: set JJ o dos pares. AKo no raisea; TT underpair tampoco.",
+        teachBack: "Escalera hecha en turn (no flop): 76 barrela turn+river. QQ overpair no juega así; AJo sin straight no.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Js","Jd"],
-          teachBack: "JJ set value limpio. AKo y TT no.",
+          answerCards: ["7d","6c"],
+          teachBack: "76o: call flop, value turn+river cuando llega T. QQ y AJo no.",
           options: [
-            { id: "a", cards: ["As","Kc"], label: "AKo", correct: false,
-              eliminated: "Call BB; en J62 sin pareja: call/fold, no raise polar. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "b", cards: ["Tc","Td"], label: "TT", correct: false,
-              eliminated: "Underpair: no raisea flop sin set. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "c", cards: ["Js","Jd"], label: "JJ", correct: true }
+            { id: "a", cards: ["Ac","Jd"], label: "AJo", correct: false,
+              eliminated: "Puede c-bet flop, pero sin straight: no betea turn 66% + river 66% como nuts en 982T." },
+            { id: "b", cards: ["Jc","Jd"], label: "JJ", correct: false,
+              eliminated: "Overpair al 9: pot-controla turn o apuesta sizing menor — no triple barrel de escalera." },
+            { id: "c", cards: ["7d","6c"], label: "76o", correct: true }
           ]
         }
       }),
-      LQ("r09-11", "CO", ["Ah","7c"], ["5d","4s","3h","Kc","9c"], 70911, {
-        villainPos: "BB", facingBet: true,
-        lineStory: [
-          { street: "Preflop", text: "CO open 2,5 bb → BB call" },
-          { street: "Flop", text: "5d 4s 3h — BB check → CO c-bet 33% pot → BB raise 3× → CO call" },
-          { street: "Turn", text: "Kc — BB bet 66% pot → CO call" },
-          { street: "River", text: "9c — BB bet 66% pot" }
-        ],
-        teachBack: "Raise flop 543: escalera 62 o A2. KK flats distinto; QJo sin straight no raisea.",
-        quiz: {
-          prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["6h","2h"],
-          teachBack: "62s escalera. KK y QJo no.",
-          options: [
-            { id: "a", cards: ["Kh","Kd"], label: "KK", correct: false,
-              eliminated: "Overpair: flats o raisea distinto — raise flop de wheel/straight es más de 62s. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "b", cards: ["Qs","Jd"], label: "QJo", correct: false,
-              eliminated: "Call BB; en 543 sin straight: no raisea flop por value. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "c", cards: ["6h","2h"], label: "62s", correct: true }
-          ]
-        }
-      }),
-      LQ("r09-12", "BTN", ["Jh","Th"], ["9c","6c","3c","Ad","2s"], 70912, {
-        villainPos: "BB", facingBet: true,
+      LQ("r09-10", "BB", ["7h","6h"], ["Ah","8c","3d","2s","5c"], 70910, {
+        villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "9c 6c 3c — BB check-raise 3× → BTN call" },
-          { street: "Turn", text: "Ad — BB bet 66% pot → BTN call" },
-          { street: "River", text: "2s — BB bet 66% pot" }
+          { street: "Flop", text: "Ah 8c 3d — check-check" },
+          { street: "Turn", text: "2s — BB check → BTN bet 55% pot → BB call" },
+          { street: "River", text: "5c — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Check-raise clubs: color KcXc. AQo sin club no; 88 sin flush tampoco.",
+        teachBack: "Slowplay AA en A-high: check flop, turn+river value. KQo betearía flop; 88 no delayed barrel.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Kc","7c"],
-          teachBack: "K7s color: check-raise. AQo y 88 sin club no.",
+          answerCards: ["As","Ad"],
+          teachBack: "AA: trap flop seco, doble barrel después. KQo y 88 no.",
           options: [
-            { id: "a", cards: ["Ah","Qd"], label: "AQo", correct: false,
-              eliminated: "Call BB; en 963 clubs sin club: call/fold, no check-raise de color. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "b", cards: ["8h","8d"], label: "88", correct: false,
-              eliminated: "Underpair sin flush: no raisea flop monotone. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
-            { id: "c", cards: ["Kc","7c"], label: "K7s", correct: true }
+            { id: "a", cards: ["Kh","Qd"], label: "KQo", correct: false,
+              eliminated: "En A83 casi siempre c-betea flop desde BTN — check-check elimina KQo de value." },
+            { id: "b", cards: ["8s","8h"], label: "88", correct: false,
+              eliminated: "Middle pair: no check-trapea flop A-high para luego betear turn+river como premium." },
+            { id: "c", cards: ["As","Ad"], label: "AA", correct: true }
+          ]
+        }
+      }),
+      LQ("r09-11", "BB", ["Td","9d"], ["Jc","7s","4h","3d","2c"], 70911, {
+        villainPos: "CO", facingBet: true,
+        lineStory: [
+          { street: "Preflop", text: "CO open 2,5 bb → BB call" },
+          { street: "Flop", text: "Jc 7s 4h — BB check → CO c-bet 33% pot → BB call" },
+          { street: "Turn", text: "3d — BB check → CO bet 66% pot → BB call" },
+          { street: "River", text: "2c — BB check → CO bet 33% pot" }
+        ],
+        teachBack: "Overcards + backdoors: doble barrel y block river con Jx. 55 set betea turn más grande; AQo sin J no block-betea.",
+        quiz: {
+          prompt: "¿Qué crees que tiene el villano?",
+          answerCards: ["Js","Tc"],
+          teachBack: "JTs: presión turn, block 33% river. 55 y AQo no.",
+          options: [
+            { id: "a", cards: ["5h","5d"], label: "55", correct: false,
+              eliminated: "Set de cincos: turn 66%+ por value — no baja a block 33% river tras bet 66% turn." },
+            { id: "b", cards: ["Ah","Qc"], label: "AQo", correct: false,
+              eliminated: "Puede c-bet flop, pero sin J: no encadena turn 66% + block river 33% como top pair J." },
+            { id: "c", cards: ["Js","Tc"], label: "JTs", correct: true }
+          ]
+        }
+      }),
+      LQ("r09-12", "BB", ["Qh","Js"], ["Kh","7d","4c","7s","2h"], 70912, {
+        villainPos: "BTN", facingBet: true,
+        lineStory: [
+          { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
+          { street: "Flop", text: "Kh 7d 4c — BB check → BTN c-bet 33% pot → BB call" },
+          { street: "Turn", text: "7s — BB check → BTN bet 66% pot → BB call" },
+          { street: "River", text: "2h — BB check → BTN bet 66% pot" }
+        ],
+        teachBack: "Trips en turn (no flop): Kx barrela tras emparejar. QJs defiende flop pero no triple-barrel; A5s aire no.",
+        quiz: {
+          prompt: "¿Qué crees que tiene el villano?",
+          answerCards: ["Kd","Tc"],
+          teachBack: "KTo: top pair flop, trips turn, triple value. QJs y A5s no.",
+          options: [
+            { id: "a", cards: ["Ah","5s"], label: "A5s", correct: false,
+              eliminated: "Puede c-bet flop, pero sin K: no betea turn 66% + river 66% cuando cae el 7." },
+            { id: "b", cards: ["9c","8c"], label: "98s", correct: false,
+              eliminated: "Call flop con backdoors, pero sin K/7: no triple-barrelea por value tras emparejar el 7." },
+            { id: "c", cards: ["Kd","Tc"], label: "KTo", correct: true }
           ]
         }
       })
@@ -4067,25 +4067,25 @@
           ]
         }
       }),
-      LQ("r22-02", "BB", ["Qc","8d"], ["Jh","Td","3c","7c","2s"], 22102, {
-        villainPos: "CO", facingBet: true, trapTag: "fancy_play",
+      LQ("r22-02", "BB", ["Qc","8d"], ["Jh","Td","3c","7d","2s"], 22102, {
+        villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open 2,5 bb → BB call" },
           { street: "Flop", text: "Jh Td 3c — BB check → CO c-bet 33% pot → BB call" },
-          { street: "Turn", text: "7c — BB check → CO bet 66% pot → BB call" },
+          { street: "Turn", text: "7d — BB check → CO bet 66% pot → BB call" },
           { street: "River", text: "2s — BB check → CO bet 66% pot" }
         ],
-        teachBack: "OESD en JT que falla en brick: farol. KJo value; 88 pot-controla.",
+        teachBack: "Value: KJo triple barrel en J-high. No confundir con farol de OESD fallido — aquí hay top pair fuerte en las tres calles.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["9s","8s"],
-          teachBack: "98s OESD fallido. KJo y 88 no.",
+          answerCards: ["Kh","Js"],
+          teachBack: "KJo value lineal. 98s farol y 88 pot-control no.",
           options: [
-            { id: "a", cards: ["Kh","Js"], label: "KJo", correct: false,
-              eliminated: "Top pair: cobra sizing value; no necesita tres calles como equity muerta en esa línea de turn/river." },
+            { id: "a", cards: ["9s","8s"], label: "98s", correct: false,
+              eliminated: "OESD que falla: puede c-bet, pero sin J/K no triple-barrelea 66% turn+river por value." },
             { id: "b", cards: ["8h","8c"], label: "88", correct: false,
               eliminated: "Underpair: pot-control turn, no barrel river brick por valor." },
-            { id: "c", cards: ["9s","8s"], label: "98s", correct: true }
+            { id: "c", cards: ["Kh","Js"], label: "KJo", correct: true }
           ]
         }
       }),
@@ -4134,24 +4134,24 @@
         }
       }),
       LQ("r22-05", "BB", ["Td","6c"], ["8h","7h","3s","Kd","2c"], 22105, {
-        villainPos: "HJ", facingBet: true, trapTag: "fancy_play",
+        villainPos: "HJ", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "HJ open 2,2 bb → BB call" },
           { street: "Flop", text: "8h 7h 3s — BB check → HJ c-bet 33% pot → BB call" },
           { street: "Turn", text: "Kd — BB check → HJ bet 66% pot → BB call" },
-          { street: "River", text: "2c — BB check → HJ overbet 125% pot" }
+          { street: "River", text: "2c — BB check → HJ bet 66% pot" }
         ],
-        teachBack: "Combo draw hearts que falla + overbet: farol. AA pot-controla K; 99 no overbetea.",
+        teachBack: "Value: KQo cobra scare K tras c-bet. Contrasta con overbet farol de combo draw fallido en la misma textura.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["9h","6h"],
-          teachBack: "96s combo draw fallido. AA y 99 no.",
+          answerCards: ["Kh","Qd"],
+          teachBack: "KQo value en K turn. 96s farol y 99 pot-control no.",
           options: [
-            { id: "a", cards: ["As","Ah"], label: "AA", correct: false,
-              eliminated: "Overpair: con K en turn suele pot-controlar o bet medio — overbet brick no es value típico." },
+            { id: "a", cards: ["9h","6h"], label: "96s", correct: false,
+              eliminated: "Combo draw fallido: puede c-bet, pero sin K/Q no betea turn 66% + river 66% de value cuando cae el K." },
             { id: "b", cards: ["9c","9d"], label: "99", correct: false,
-              eliminated: "Overpair sin draw hecho: no overbetea river tras scare K." },
-            { id: "c", cards: ["9h","6h"], label: "96s", correct: true }
+              eliminated: "Overpair al 8: pot-controla turn — no dobla barrel grande en K scare." },
+            { id: "c", cards: ["Kh","Qd"], label: "KQo", correct: true }
           ]
         }
       }),
@@ -4159,7 +4159,7 @@
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "As Jd 5c — BB check-raise 3× → BTN call" },
+          { street: "Flop", text: "As Jd 5c — BB check → BTN c-bet 33% pot → BB raise 3× → BTN call" },
           { street: "Turn", text: "4h — BB bet 66% pot → BTN call" },
           { street: "River", text: "2d — BB bet 66% pot" }
         ],
@@ -4200,24 +4200,24 @@
         }
       }),
       LQ("r22-08", "BB", ["9h","5c"], ["Jh","8h","4s","2c","Kd"], 22108, {
-        villainPos: "CO", facingBet: true, trapTag: "fancy_play",
+        villainPos: "CO", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "CO open 2,5 bb → BB call" },
           { street: "Flop", text: "Jh 8h 4s — BB check → CO c-bet 33% pot → BB call" },
           { street: "Turn", text: "2c — BB check → CO bet 66% pot → BB call" },
           { street: "River", text: "Kd — BB check → CO bet 66% pot" }
         ],
-        teachBack: "Scare K + bet tras hearts: QhXh fallido. KJo value; 77 no.",
+        teachBack: "Value: KJo doble barrel + river al K. No es farol de FD fallido — top pair fuerte en scare card.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qh","5h"],
-          teachBack: "Q5s FD fallido + scare. KJo y 77 no.",
+          answerCards: ["Kc","Js"],
+          teachBack: "KJo value al K. Q5s farol y 77 no.",
           options: [
-            { id: "a", cards: ["Kc","Js"], label: "KJo", correct: false,
-              eliminated: "Dos pares/top: cobra value; presión “de miedo” en K es más hearts muertos en esa línea de turn/river. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
+            { id: "a", cards: ["Qh","5h"], label: "Q5s", correct: false,
+              eliminated: "FD fallido: puede c-bet, pero sin K/J no triple-barrelea por value cuando llega el K." },
             { id: "b", cards: ["7s","7d"], label: "77", correct: false,
-              eliminated: "Underpair: no barrela K-scare por valor. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Qh","5h"], label: "Q5s", correct: true }
+              eliminated: "Underpair: no barrela K-scare por valor en J84." },
+            { id: "c", cards: ["Kc","Js"], label: "KJo", correct: true }
           ]
         }
       }),
@@ -4251,17 +4251,17 @@
           { street: "Turn", text: "7c — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "Ah — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "OESD que falla + A scare: farol. AKo value; TT pot-controla.",
+        teachBack: "Value: AKo mejora al A river tras presión. Contrasta con farol de OESD fallido en la misma runout.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["6h","5h"],
-          teachBack: "65s OESD fallido. AKo y TT no.",
+          answerCards: ["As","Kd"],
+          teachBack: "AKo value cuando llega A. 65s farol y TT no.",
           options: [
-            { id: "a", cards: ["As","Kd"], label: "AKo", correct: false,
-              eliminated: "Al llegar A: value más claro o check; barrel de “necesito fold” encaja peor. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
+            { id: "a", cards: ["6h","5h"], label: "65s", correct: false,
+              eliminated: "OESD fallido: puede barrel turn, pero sin as no value-betea 66% river cuando cae el A." },
             { id: "b", cards: ["Th","Tc"], label: "TT", correct: false,
-              eliminated: "Overpair: pot-control en board conectado, no tres calles + A. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["6h","5h"], label: "65s", correct: true }
+              eliminated: "Overpair al 9: pot-controla en board conectado — no triple barrel cuando empeora al A." },
+            { id: "c", cards: ["As","Kd"], label: "AKo", correct: true }
           ]
         }
       }),
@@ -4340,19 +4340,19 @@
           { street: "Preflop", text: "CO open 2,5 bb → BB call" },
           { street: "Flop", text: "Qc Jd 4h — BB check → CO c-bet 33% pot → BB call" },
           { street: "Turn", text: "9s — BB check → CO bet 66% pot → BB call" },
-          { street: "River", text: "3c — BB check → CO overbet 125% pot" }
+          { street: "River", text: "3c — BB check → CO bet 66% pot" }
         ],
-        teachBack: "Overbet brick en QJ: T8s gutshot fallido. QJo value; TT pot-controla.",
+        teachBack: "Value: QJo dos pares cobra lineal. Contrasta con farol de gutshot T8s + overbet en el mismo board.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Th","8h"],
-          teachBack: "T8s gutshot fallido. QJo y TT no.",
+          answerCards: ["Qh","Js"],
+          teachBack: "QJo value. T8s farol y TT pot-control no.",
           options: [
-            { id: "a", cards: ["Qh","Js"], label: "QJo", correct: false,
-              eliminated: "Dos pares: cobra value sizing, no overbet polar air en esa línea de turn/river." },
+            { id: "a", cards: ["Th","8h"], label: "T8s", correct: false,
+              eliminated: "Gutshot fallido: puede c-bet, pero sin Q/J no betea turn 66% + river 66% por value — el farol suele overbetear." },
             { id: "b", cards: ["Tc","Td"], label: "TT", correct: false,
-              eliminated: "Underpair: pot-control, no overbet." },
-            { id: "c", cards: ["Th","8h"], label: "T8s", correct: true }
+              eliminated: "Underpair: pot-control turn, no barrel river brick por valor." },
+            { id: "c", cards: ["Qh","Js"], label: "QJo", correct: true }
           ]
         }
       }),
@@ -4386,17 +4386,17 @@
           { street: "Turn", text: "As — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "6s — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Barrel A scare sin value: QTo air. AJ value; 99 no.",
+        teachBack: "Value: AJo dos pares al A. Contrasta con farol QTo que barrela scare sin equity.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qs","Tc"],
-          teachBack: "QTo air con blocker. AJo y 99 no.",
+          answerCards: ["Ad","Jc"],
+          teachBack: "AJo value al A. QTo air y 99 no.",
           options: [
-            { id: "a", cards: ["Ad","Jc"], label: "AJo", correct: false,
-              eliminated: "Dos pares: value claro en A — no necesita presión de farol en esa línea de turn/river. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
+            { id: "a", cards: ["Qs","Tc"], label: "QTo", correct: false,
+              eliminated: "Sin as/J: puede c-bet flop, pero barrel turn A + river 66% es farol — no value de AJo." },
             { id: "b", cards: ["9h","9c"], label: "99", correct: false,
-              eliminated: "Underpair: pot-control al A, no barrel river. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Qs","Tc"], label: "QTo", correct: true }
+              eliminated: "Underpair: pot-control al A, no barrel river por valor." },
+            { id: "c", cards: ["Ad","Jc"], label: "AJo", correct: true }
           ]
         }
       }),
@@ -4452,17 +4452,17 @@
           { street: "Turn", text: "Kh — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "3s — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Barrel K scare diamonds miss: AdXd fallido. K9 value; 77 no.",
+        teachBack: "Value: K9o dos pares al K. Contrasta con farol AdXd fallido en la misma textura.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Ad","5d"],
-          teachBack: "A5s FD fallido. K9o y 77 no.",
+          answerCards: ["Kc","9c"],
+          teachBack: "K9o value. A5s farol FD y 77 no.",
           options: [
-            { id: "a", cards: ["Kc","9c"], label: "K9o", correct: false,
-              eliminated: "Dos pares: value; la presión “necesito fold” encaja más con diamond muerto en esa línea de turn/river. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "b", cards: ["7h","7d"], label: "77", correct: false,
-              eliminated: "Underpair: no barrela K-scare por valor. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Ad","5d"], label: "A5s", correct: true }
+            { id: "a", cards: ["Ad","5d"], label: "A5s", correct: false,
+              eliminated: "FD diamantes fallido: puede c-bet, pero sin K/9 no betea turn 66% + river 66% por value al K." },
+            { id: "b", cards: ["7h","7s"], label: "77", correct: false,
+              eliminated: "Underpair: no barrela K-scare por valor." },
+            { id: "c", cards: ["Kc","9c"], label: "K9o", correct: true }
           ]
         }
       }),
@@ -4518,17 +4518,17 @@
           { street: "Turn", text: "Ac — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "4h — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "OESD + A scare sin equity: 96s farol. AKo value; TT pot-controla.",
+        teachBack: "Value: AKo mejora al A. Contrasta con farol OESD 96s sin equity en scare card.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["9d","6d"],
-          teachBack: "96s OESD fallido. AKo y TT no.",
+          answerCards: ["As","Kd"],
+          teachBack: "AKo value al A. 96s farol y TT pot-control no.",
           options: [
-            { id: "a", cards: ["As","Kd"], label: "AKo", correct: false,
-              eliminated: "Top pair A: value sizing; barrel de robo encaja peor." },
+            { id: "a", cards: ["9d","6d"], label: "96s", correct: false,
+              eliminated: "OESD fallido: puede barrel turn, pero sin as no value-betea 66% river cuando cae el A — eso es farol." },
             { id: "b", cards: ["Th","Tc"], label: "TT", correct: false,
-              eliminated: "Overpair: pot-control al A en board conectado. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["9d","6d"], label: "96s", correct: true }
+              eliminated: "Overpair al 8: pot-controla al A en board conectado, no triple barrel value." },
+            { id: "c", cards: ["As","Kd"], label: "AKo", correct: true }
           ]
         }
       }),
@@ -4646,24 +4646,24 @@
         }
       }),
       LQ("r24-04", "BB", ["Qc","3d"], ["Jh","Ts","4c","2h","8d"], 24104, {
-        villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
+        villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
           { street: "Flop", text: "Jh Ts 4c — BB check → BTN c-bet 33% pot → BB call" },
           { street: "Turn", text: "2h — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "8d — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Triple barrel JT sin mejorar: 9x OESD/Q9 air. JT value; 99 pot-controla.",
+        teachBack: "Value: JTo dos pares. Contrasta con farol OESD 97s que barrela sin mejorar.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["9c","7c"],
-          teachBack: "97s OESD fallido. JTo y 99 no.",
+          answerCards: ["Js","Td"],
+          teachBack: "JTo value. 97s farol y 99 pot-control no.",
           options: [
-            { id: "a", cards: ["Js","Td"], label: "JTo", correct: false,
-              eliminated: "Dos pares: value sizing; barrel “sin miedo a showdown” encaja peor." },
+            { id: "a", cards: ["9c","7c"], label: "97s", correct: false,
+              eliminated: "OESD fallido: puede c-bet, pero sin J/T no triple-barrela 66% por value — eso es farol." },
             { id: "b", cards: ["9h","9s"], label: "99", correct: false,
               eliminated: "Underpair: pot-control turn, no triple barrel." },
-            { id: "c", cards: ["9c","7c"], label: "97s", correct: true }
+            { id: "c", cards: ["Js","Td"], label: "JTo", correct: true }
           ]
         }
       }),
@@ -4693,7 +4693,7 @@
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "8c 7c 2d — BB check-raise 3× → BTN call" },
+          { street: "Flop", text: "8c 7c 2d — BB check → BTN c-bet 33% pot → BB raise 3× → BTN call" },
           { street: "Turn", text: "Kh — BB bet 66% pot → BTN call" },
           { street: "River", text: "4s — BB bet 66% pot" }
         ],
@@ -4719,39 +4719,17 @@
           { street: "Turn", text: "9c — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "2d — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Barrel A-high hearts miss: KhXh farol. A9 value; 77 no.",
+        teachBack: "Value: A9o dos pares. Contrasta con farol KhXh fallido en A-high.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Kh","7h"],
-          teachBack: "K7s FD fallido. A9o y 77 no.",
+          answerCards: ["As","9d"],
+          teachBack: "A9o value. K7s farol FD y 77 no.",
           options: [
-            { id: "a", cards: ["As","9d"], label: "A9o", correct: false,
-              eliminated: "Dos pares: value; barrel de miedo sin hearts hechos es air. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
+            { id: "a", cards: ["Kh","7h"], label: "K7s", correct: false,
+              eliminated: "FD hearts fallido: puede c-bet, pero sin A/9 no triple-barrela por value — farol con scare." },
             { id: "b", cards: ["7s","7d"], label: "77", correct: false,
-              eliminated: "Underpair: pot-control, no triple barrel. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Kh","7h"], label: "K7s", correct: true }
-          ]
-        }
-      }),
-      LQ("r24-08", "BB", ["Jc","4h"], ["Td","9d","6s","2c","Kh"], 24108, {
-        villainPos: "CO", facingBet: true, trapTag: "fancy_play",
-        lineStory: [
-          { street: "Preflop", text: "CO open 2,5 bb → BB call" },
-          { street: "Flop", text: "Td 9d 6s — BB check → CO c-bet 33% pot → BB call" },
-          { street: "Turn", text: "2c — BB check → CO bet 66% pot → BB call" },
-          { street: "River", text: "Kh — BB check → CO overbet 125% pot" }
-        ],
-        teachBack: "Overbet K scare diamonds miss: QdXd/87d fallido. KT value; 88 no.",
-        quiz: {
-          prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qd","5d"],
-          teachBack: "Q5s FD fallido overbet. KTo y 88 no.",
-          options: [
-            { id: "a", cards: ["Kc","Ts"], label: "KTo", correct: false,
-              eliminated: "Dos pares: value sizing; overbet de scare es polar — air side en esa línea de turn/river." },
-            { id: "b", cards: ["8h","8c"], label: "88", correct: false,
-              eliminated: "Underpair: no overbetea K-scare en esa línea de turn/river." },
-            { id: "c", cards: ["Qd","5d"], label: "Q5s", correct: true }
+              eliminated: "Underpair: pot-control, no triple barrel value." },
+            { id: "c", cards: ["As","9d"], label: "A9o", correct: true }
           ]
         }
       }),
@@ -4777,25 +4755,25 @@
           ]
         }
       }),
-      LQ("r24-10", "BB", ["9d","3h"], ["Qc","8c","5d","Jh","2s"], 24110, {
-        villainPos: "BTN", facingBet: true,
+      LQ("r24-08", "BB", ["Jc","4h"], ["Td","9d","6s","2c","Kh"], 24108, {
+        villainPos: "CO", facingBet: true,
         lineStory: [
-          { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "Qc 8c 5d — BB check → BTN c-bet 33% pot → BB call" },
-          { street: "Turn", text: "Jh — BB check → BTN bet 66% pot → BB call" },
-          { street: "River", text: "2s — BB check → BTN bet 66% pot" }
+          { street: "Preflop", text: "CO open 2,5 bb → BB call" },
+          { street: "Flop", text: "Td 9d 6s — BB check → CO c-bet 33% pot → BB call" },
+          { street: "Turn", text: "2c — BB check → CO bet 66% pot → BB call" },
+          { street: "River", text: "Kh — BB check → CO bet 66% pot" }
         ],
-        teachBack: "Barrel clubs miss + J: AcXc fallido. QJ value; 77 no.",
+        teachBack: "Value: KTo dos pares al K. Contrasta con farol QdXd + overbet scare.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Ac","4c"],
-          teachBack: "A4s FD fallido. QJo y 77 no.",
+          answerCards: ["Kc","Ts"],
+          teachBack: "KTo value. Q5s farol FD y 88 no.",
           options: [
-            { id: "a", cards: ["Qd","Js"], label: "QJo", correct: false,
-              eliminated: "Dos pares: value; presión sin club hecho es más air en esa línea de turn/river. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "b", cards: ["7h","7c"], label: "77", correct: false,
-              eliminated: "Underpair: pot-control, no triple barrel. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Ac","4c"], label: "A4s", correct: true }
+            { id: "a", cards: ["Qd","5d"], label: "Q5s", correct: false,
+              eliminated: "FD diamantes fallido: puede barrel, pero sin K/T no value-betea 66% al K — el farol suele overbetear." },
+            { id: "b", cards: ["8h","8c"], label: "88", correct: false,
+              eliminated: "Underpair: no barrela K-scare por valor." },
+            { id: "c", cards: ["Kc","Ts"], label: "KTo", correct: true }
           ]
         }
       }),
@@ -4818,6 +4796,28 @@
             { id: "b", cards: ["8c","8d"], label: "88", correct: false,
               eliminated: "Underpair: no overbetea en esa línea de turn/river." },
             { id: "c", cards: ["Ah","7h"], label: "A7s", correct: true }
+          ]
+        }
+      }),
+      LQ("r24-10", "BB", ["9d","3h"], ["Qc","8c","5d","Jh","2s"], 24110, {
+        villainPos: "BTN", facingBet: true,
+        lineStory: [
+          { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
+          { street: "Flop", text: "Qc 8c 5d — BB check → BTN c-bet 33% pot → BB call" },
+          { street: "Turn", text: "Jh — BB check → BTN bet 66% pot → BB call" },
+          { street: "River", text: "2s — BB check → BTN bet 66% pot" }
+        ],
+        teachBack: "Value: QJo dos pares al J. Contrasta con farol AcXc fallido.",
+        quiz: {
+          prompt: "¿Qué crees que tiene el villano?",
+          answerCards: ["Qd","Js"],
+          teachBack: "QJo value. A4s farol FD y 77 no.",
+          options: [
+            { id: "a", cards: ["Ac","4c"], label: "A4s", correct: false,
+              eliminated: "FD clubs fallido: puede c-bet, pero sin Q/J no triple-barrela por value al J." },
+            { id: "b", cards: ["7h","7c"], label: "77", correct: false,
+              eliminated: "Underpair: pot-control, no triple barrel value." },
+            { id: "c", cards: ["Qd","Js"], label: "QJo", correct: true }
           ]
         }
       }),
@@ -4847,24 +4847,24 @@
 
   PACKS["R-25"] = [
       LQ("r25-01", "BB", ["9h","4c"], ["Qd","Jd","5s","2c","8h"], 25101, {
-        villainPos: "BTN", facingBet: true, trapTag: "fancy_play",
+        villainPos: "BTN", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
           { street: "Flop", text: "Qd Jd 5s — BB check → BTN c-bet 33% pot → BB call" },
           { street: "Turn", text: "2c — BB check → BTN bet 66% pot → BB call" },
-          { street: "River", text: "8h — BB check → BTN overbet 125% pot" }
+          { street: "River", text: "8h — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Overbet brick diamonds: TdXd/KT fallido. QJ value; TT pot-controla.",
+        teachBack: "Value: QJo dos pares. Contrasta con farol TdXd + overbet brick.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Td","6d"],
-          teachBack: "T6s FD fallido. QJo y TT no.",
+          answerCards: ["Qh","Js"],
+          teachBack: "QJo value. T6s farol FD y TT pot-control no.",
           options: [
-            { id: "a", cards: ["Qh","Js"], label: "QJo", correct: false,
-              eliminated: "Dos pares: value; overbet polar en blank es el lado air del espectro en esa línea de turn/river." },
+            { id: "a", cards: ["Td","6d"], label: "T6s", correct: false,
+              eliminated: "FD diamantes fallido: puede barrel, pero sin Q/J no value-betea 66% river — el farol suele overbetear." },
             { id: "b", cards: ["Th","Tc"], label: "TT", correct: false,
-              eliminated: "Underpair: pot-control, no overbet." },
-            { id: "c", cards: ["Td","6d"], label: "T6s", correct: true }
+              eliminated: "Underpair: pot-control, no barrel river brick por valor." },
+            { id: "c", cards: ["Qh","Js"], label: "QJo", correct: true }
           ]
         }
       }),
@@ -4920,17 +4920,17 @@
           { street: "Turn", text: "9h — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "3s — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Barrel diamonds miss: AdXd farol. K9 value; 88 no.",
+        teachBack: "Value: K9o dos pares. Contrasta con farol AdXd fallido.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Ad","4d"],
-          teachBack: "A4s FD fallido. K9o y 88 no.",
+          answerCards: ["Kc","9c"],
+          teachBack: "K9o value. A4s farol FD y 88 no.",
           options: [
-            { id: "a", cards: ["Kc","9c"], label: "K9o", correct: false,
-              eliminated: "Dos pares: value; barrel sin diamond es más air. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
+            { id: "a", cards: ["Ad","4d"], label: "A4s", correct: false,
+              eliminated: "FD diamantes fallido: puede c-bet, pero sin K/9 no triple-barrela por value." },
             { id: "b", cards: ["8c","8h"], label: "88", correct: false,
-              eliminated: "Underpair: pot-control, no triple barrel. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Ad","4d"], label: "A4s", correct: true }
+              eliminated: "Underpair: pot-control, no triple barrel value." },
+            { id: "c", cards: ["Kc","9c"], label: "K9o", correct: true }
           ]
         }
       }),
@@ -4986,17 +4986,17 @@
           { street: "Turn", text: "2c — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "9d — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Triple barrel AK-high sin showdown: QJ air. AK value; 77 no.",
+        teachBack: "Value: AKo top two. Contrasta con farol QJs blocker air en AK-high.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qh","Jh"],
-          teachBack: "QJs air blocker. AKo y 77 no.",
+          answerCards: ["Ah","Kc"],
+          teachBack: "AKo value. QJs farol blocker y 77 no.",
           options: [
-            { id: "a", cards: ["Ah","Kc"], label: "AKo", correct: false,
-              eliminated: "Nuts top: value sizing; barrel de “solo quiero fold” encaja peor que QJ air." },
+            { id: "a", cards: ["Qh","Jh"], label: "QJs", correct: false,
+              eliminated: "Sin as/rey: puede c-bet, pero triple barrel AK-high sin showdown es farol blocker, no value." },
             { id: "b", cards: ["7s","7d"], label: "77", correct: false,
-              eliminated: "Underpair: pot-control, no triple barrel AK-high. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Qh","Jh"], label: "QJs", correct: true }
+              eliminated: "Underpair: pot-control, no triple barrel AK-high." },
+            { id: "c", cards: ["Ah","Kc"], label: "AKo", correct: true }
           ]
         }
       }),
@@ -5074,17 +5074,17 @@
           { street: "Turn", text: "2h — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "Ad — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Straight board + A: 6x air o JT. TT set distinto; A9 value sizing.",
+        teachBack: "Value: A9o top pair al A. Contrasta con farol 65s OESD muerto en straight board.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["6h","5h"],
-          teachBack: "65s OESD/wrap fallido. TTo y A9o no.",
+          answerCards: ["As","9c"],
+          teachBack: "A9o value. 65s farol y TT pot-control no.",
           options: [
-            { id: "a", cards: ["Th","Tc"], label: "TT", correct: false,
-              eliminated: "Overpair/set: value distinto; barrel A en straight board “de miedo” es air. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "b", cards: ["As","9c"], label: "A9o", correct: false,
-              eliminated: "Top pair A: value; la línea de presión sin nuts de escalera encaja peor que 65s muerto en esa línea de turn/river. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["6h","5h"], label: "65s", correct: true }
+            { id: "a", cards: ["6h","5h"], label: "65s", correct: false,
+              eliminated: "OESD/wrap fallido: puede barrel turn, pero sin as no value-betea 66% river al A — eso es farol." },
+            { id: "b", cards: ["Th","Tc"], label: "TT", correct: false,
+              eliminated: "Overpair al 9: pot-controla al A en board conectado, no triple barrel value." },
+            { id: "c", cards: ["As","9c"], label: "A9o", correct: true }
           ]
         }
       }),
@@ -5092,7 +5092,7 @@
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "Qc Jc 5d — BB check-raise 3× → BTN call" },
+          { street: "Flop", text: "Qc Jc 5d — BB check → BTN c-bet 33% pot → BB raise 3× → BTN call" },
           { street: "Turn", text: "3s — BB bet 66% pot → BTN call" },
           { street: "River", text: "9h — BB overbet 125% pot" }
         ],
@@ -5185,41 +5185,19 @@
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
           { street: "Flop", text: "Js Ts 4d — BB check → BTN c-bet 33% pot → BB call" },
           { street: "Turn", text: "6h — BB check → BTN bet 66% pot → BB call" },
-          { street: "River", text: "2c — BB check → BTN overbet 125% pot" }
+          { street: "River", text: "2c — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Overbet en JT spades miss: QsXs/98s fallido. JT value; 99 no.",
+        teachBack: "Value: JTo dos pares. Contrasta con farol QsXs + overbet en JT.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qs","5s"],
-          teachBack: "Q5s FD fallido overbet. JTo y 99 no.",
+          answerCards: ["Jh","Td"],
+          teachBack: "JTo value. Q5s farol FD y 99 no.",
           options: [
-            { id: "a", cards: ["Jh","Td"], label: "JTo", correct: false,
-              eliminated: "Dos pares: value; overbet polar en blank es air en esa línea de turn/river." },
+            { id: "a", cards: ["Jh","Td"], label: "JTo", correct: true },
             { id: "b", cards: ["9h","9c"], label: "99", correct: false,
               eliminated: "Underpair: no overbetea en esa línea de turn/river." },
-            { id: "c", cards: ["Qs","5s"], label: "Q5s", correct: true }
-          ]
-        }
-      }),
-      LQ("r26-05", "BB", ["Kh","5d"], ["Ac","6c","2h","9s","4d"], 26105, {
-        villainPos: "HJ", facingBet: true,
-        lineStory: [
-          { street: "Preflop", text: "HJ open 2,2 bb → BB call" },
-          { street: "Flop", text: "Ac 6c 2h — BB check → HJ c-bet 33% pot → BB call" },
-          { street: "Turn", text: "9s — check-check" },
-          { street: "River", text: "4d — BB check → HJ bet 66% pot" }
-        ],
-        teachBack: "C-bet + check + bet: QcXc fallido. A9 value betearía turn; 77 no.",
-        quiz: {
-          prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qc","7c"],
-          teachBack: "Q7s FD fallido delayed. A9o y 77 no.",
-          options: [
-            { id: "a", cards: ["Ah","9c"], label: "A9o", correct: false,
-              eliminated: "Dos pares: betea turn — check-turn + bet-river es polar air. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair." },
-            { id: "b", cards: ["7h","7d"], label: "77", correct: false,
-              eliminated: "Underpair: no retoma river. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair." },
-            { id: "c", cards: ["Qc","7c"], label: "Q7s", correct: true }
+            { id: "c", cards: ["Qs","5s"], label: "Q5s", correct: false,
+              eliminated: "Ese combo es el farol típico de la textura: sin showdown fuerte no cobra con sizing value lineal." }
           ]
         }
       }),
@@ -5242,6 +5220,28 @@
             { id: "b", cards: ["As","Td"], label: "ATo", correct: false,
               eliminated: "Sin K/8/heart: no raisea turn K. El raise 3× exige equity fuerte; este combo no justifica ese sizing." },
             { id: "c", cards: ["9h","6h"], label: "96s", correct: true }
+          ]
+        }
+      }),
+      LQ("r26-05", "BB", ["Kh","5d"], ["Ac","6c","2h","9s","4d"], 26105, {
+        villainPos: "HJ", facingBet: true,
+        lineStory: [
+          { street: "Preflop", text: "HJ open 2,2 bb → BB call" },
+          { street: "Flop", text: "Ac 6c 2h — BB check → HJ c-bet 33% pot → BB call" },
+          { street: "Turn", text: "9s — BB check → HJ bet 66% pot → BB call" },
+          { street: "River", text: "4d — BB check → HJ bet 66% pot" }
+        ],
+        teachBack: "Value: A9o top pair al 9. Contrasta con farol QcXc fallido.",
+        quiz: {
+          prompt: "¿Qué crees que tiene el villano?",
+          answerCards: ["Ah","9c"],
+          teachBack: "A9o value. Q7s farol FD y 77 no.",
+          options: [
+            { id: "a", cards: ["Ah","9c"], label: "A9o", correct: true },
+            { id: "b", cards: ["7h","7d"], label: "77", correct: false,
+              eliminated: "Underpair: pot-control turn, no barrel river por valor." },
+            { id: "c", cards: ["Qc","7c"], label: "Q7s", correct: false,
+              eliminated: "FD clubs fallido: puede c-bet, pero sin A/9 no betea turn 66% + river 66% por value — eso es farol." }
           ]
         }
       }),
@@ -5273,19 +5273,19 @@
           { street: "Preflop", text: "CO open 2,5 bb → BB call" },
           { street: "Flop", text: "Ah Jh 4s — BB check → CO c-bet 33% pot → BB call" },
           { street: "Turn", text: "7c — BB check → CO bet 66% pot → BB call" },
-          { street: "River", text: "2d — BB check → CO overbet 125% pot" }
+          { street: "River", text: "2d — BB check → CO bet 66% pot" }
         ],
-        teachBack: "Overbet hearts miss: KhXh fallido. AJ value; 88 no.",
+        teachBack: "Value: AJo top pair. Contrasta con farol KhXh + overbet.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Kh","6h"],
-          teachBack: "K6s FD fallido. AJo y 88 no.",
+          answerCards: ["As","Jd"],
+          teachBack: "AJo value. K6s farol FD y 88 no.",
           options: [
-            { id: "a", cards: ["As","Jd"], label: "AJo", correct: false,
-              eliminated: "Dos pares: value; overbet sin heart es polar air en esa línea de turn/river." },
+            { id: "a", cards: ["As","Jd"], label: "AJo", correct: true },
             { id: "b", cards: ["8h","8s"], label: "88", correct: false,
               eliminated: "Underpair: no overbetea en esa línea de turn/river." },
-            { id: "c", cards: ["Kh","6h"], label: "K6s", correct: true }
+            { id: "c", cards: ["Kh","6h"], label: "K6s", correct: false,
+              eliminated: "Ese combo es el farol típico de la textura: sin showdown fuerte no cobra con sizing value lineal." }
           ]
         }
       }),
@@ -5319,17 +5319,17 @@
           { street: "Turn", text: "6d — BB check → BTN bet 66% pot → BB call" },
           { street: "River", text: "4s — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Barrel clubs miss: AcXc farol. Q6 value; 77 no.",
+        teachBack: "Value: Q6s top pair + 6. Contrasta con farol AcXc fallido.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Ac","5c"],
-          teachBack: "A5s FD fallido. Q6o y 77 no.",
+          answerCards: ["Qh","6h"],
+          teachBack: "Q6s value. A5s farol FD y 77 no.",
           options: [
-            { id: "a", cards: ["Qh","6h"], label: "Q6o", correct: false,
-              eliminated: "Dos pares: value; barrel sin club es air. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
+            { id: "a", cards: ["Qh","6h"], label: "Q6s", correct: true },
             { id: "b", cards: ["7h","7d"], label: "77", correct: false,
               eliminated: "Underpair: pot-control, no triple barrel. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["Ac","5c"], label: "A5s", correct: true }
+            { id: "c", cards: ["Ac","5c"], label: "A5s", correct: false,
+              eliminated: "Ese combo es el farol típico de la textura: sin showdown fuerte no cobra con sizing value lineal." }
           ]
         }
       }),
@@ -5452,19 +5452,19 @@
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
           { street: "Flop", text: "Jd 8d 4h — BB check → BTN c-bet 33% pot → BB call" },
           { street: "Turn", text: "2c — BB check → BTN bet 66% pot → BB call" },
-          { street: "River", text: "9s — BB check → BTN overbet 125% pot" }
+          { street: "River", text: "9s — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Overbet 9 (straight complete): QTs/T7s representa o FD muerto. J9 value; 77 no.",
+        teachBack: "Value: J9o dos pares/straight. Contrasta con farol que representa escalera con overbet.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qd","5d"],
-          teachBack: "Q5s FD fallido + representa. J9o y 77 no.",
+          answerCards: ["Jh","9h"],
+          teachBack: "J9o value. Q5s farol representacional y 77 no.",
           options: [
-            { id: "a", cards: ["Jh","9h"], label: "J9o", correct: false,
-              eliminated: "Dos pares: value; overbet de “tengo la escalera” es air/FD muerto en esa línea de turn/river." },
+            { id: "a", cards: ["Jh","9h"], label: "J9o", correct: true },
             { id: "b", cards: ["7h","7s"], label: "77", correct: false,
               eliminated: "Underpair: no overbetea en esa línea de turn/river." },
-            { id: "c", cards: ["Qd","5d"], label: "Q5s", correct: true }
+            { id: "c", cards: ["Qd","5d"], label: "Q5s", correct: false,
+              eliminated: "Ese combo es el farol típico de la textura: sin showdown fuerte no cobra con sizing value lineal." }
           ]
         }
       }),
@@ -5518,41 +5518,19 @@
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
           { street: "Flop", text: "Qh Jh 6s — BB check → BTN c-bet 33% pot → BB call" },
           { street: "Turn", text: "2c — BB check → BTN bet 66% pot → BB call" },
-          { street: "River", text: "4d — BB check → BTN overbet 125% pot" }
+          { street: "River", text: "4d — BB check → BTN bet 66% pot" }
         ],
-        teachBack: "Overbet hearts miss: AhXh/T9s fallido. QJ value; 88 no.",
+        teachBack: "Value: QJo top pair. Contrasta con farol AhXh + overbet.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Ah","5h"],
-          teachBack: "A5s FD fallido. QJo y 88 no.",
+          answerCards: ["Qs","Jd"],
+          teachBack: "QJo value. A5s farol FD y 88 no.",
           options: [
-            { id: "a", cards: ["Qs","Jd"], label: "QJo", correct: false,
-              eliminated: "Dos pares: value; overbet sin heart es polar air en esa línea de turn/river." },
+            { id: "a", cards: ["Qs","Jd"], label: "QJo", correct: true },
             { id: "b", cards: ["8h","8s"], label: "88", correct: false,
               eliminated: "Underpair: no overbetea en esa línea de turn/river." },
-            { id: "c", cards: ["Ah","5h"], label: "A5s", correct: true }
-          ]
-        }
-      }),
-      LQ("r27-08", "BB", ["Td","5h"], ["8d","7s","3c","Ac","2h"], 27108, {
-        villainPos: "CO", facingBet: true,
-        lineStory: [
-          { street: "Preflop", text: "CO open 2,5 bb → BB call" },
-          { street: "Flop", text: "8d 7s 3c — BB check → CO c-bet 33% pot → BB call" },
-          { street: "Turn", text: "Ac — BB check → CO bet 66% pot → BB call" },
-          { street: "River", text: "2h — BB check → CO bet 66% pot" }
-        ],
-        teachBack: "OESD + A: 65s/9T farol. A8 value; 99 pot-controla.",
-        quiz: {
-          prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["6h","5c"],
-          teachBack: "65o OESD fallido. A8o y 99 no.",
-          options: [
-            { id: "a", cards: ["As","8h"], label: "A8o", correct: false,
-              eliminated: "Dos pares: value sizing; barrel de robo encaja peor." },
-            { id: "b", cards: ["9h","9c"], label: "99", correct: false,
-              eliminated: "Overpair: pot-control al A. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
-            { id: "c", cards: ["6h","5c"], label: "65o", correct: true }
+            { id: "c", cards: ["Ah","5h"], label: "A5s", correct: false,
+              eliminated: "Ese combo es el farol típico de la textura: sin showdown fuerte no cobra con sizing value lineal." }
           ]
         }
       }),
@@ -5578,25 +5556,25 @@
           ]
         }
       }),
-      LQ("r27-10", "BB", ["8h","3s"], ["As","Kd","9c","5h","2c"], 27110, {
-        villainPos: "BTN", facingBet: true,
+      LQ("r27-08", "BB", ["Td","5h"], ["8d","7s","3c","Ac","2h"], 27108, {
+        villainPos: "CO", facingBet: true,
         lineStory: [
-          { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "As Kd 9c — BB check → BTN c-bet 33% pot → BB call" },
-          { street: "Turn", text: "5h — check-check" },
-          { street: "River", text: "2c — BB check → BTN overbet 125% pot" }
+          { street: "Preflop", text: "CO open 2,5 bb → BB call" },
+          { street: "Flop", text: "8d 7s 3c — BB check → CO c-bet 33% pot → BB call" },
+          { street: "Turn", text: "Ac — BB check → CO bet 66% pot → BB call" },
+          { street: "River", text: "2h — BB check → CO bet 66% pot" }
         ],
-        teachBack: "C-bet + check + overbet AK9: QJ blocker farol. AK value betearía turn; 77 no.",
+        teachBack: "Value: A8o top pair al A. Contrasta con farol OESD 65 muerto.",
         quiz: {
           prompt: "¿Qué crees que tiene el villano?",
-          answerCards: ["Qh","Jh"],
-          teachBack: "QJs blocker polar farol. AKo y 77 no.",
+          answerCards: ["As","8h"],
+          teachBack: "A8o value. 65o farol y 99 pot-control no.",
           options: [
-            { id: "a", cards: ["Ah","Kc"], label: "AKo", correct: false,
-              eliminated: "Nuts: betea turn value — check-turn + overbet es polar air." },
-            { id: "b", cards: ["7d","7c"], label: "77", correct: false,
-              eliminated: "Underpair: no overbetea en esa línea de turn/river." },
-            { id: "c", cards: ["Qh","Jh"], label: "QJs", correct: true }
+            { id: "a", cards: ["As","8h"], label: "A8o", correct: true },
+            { id: "b", cards: ["9h","9c"], label: "99", correct: false,
+              eliminated: "Overpair: pot-control al A. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor." },
+            { id: "c", cards: ["6h","5c"], label: "65o", correct: false,
+              eliminated: "Ese combo es el farol típico de la textura: sin showdown fuerte no cobra con sizing value lineal." }
           ]
         }
       }),
@@ -5622,11 +5600,33 @@
           ]
         }
       }),
+      LQ("r27-10", "BB", ["8h","3s"], ["As","Kd","9c","5h","2c"], 27110, {
+        villainPos: "BTN", facingBet: true,
+        lineStory: [
+          { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
+          { street: "Flop", text: "As Kd 9c — BB check → BTN c-bet 33% pot → BB call" },
+          { street: "Turn", text: "5h — check-check" },
+          { street: "River", text: "2c — BB check → BTN bet 66% pot" }
+        ],
+        teachBack: "Value: AKo top two. Contrasta con farol QJ blocker + overbet tras check turn.",
+        quiz: {
+          prompt: "¿Qué crees que tiene el villano?",
+          answerCards: ["Ah","Kc"],
+          teachBack: "AKo value. QJs farol blocker y 77 no.",
+          options: [
+            { id: "a", cards: ["Ah","Kc"], label: "AKo", correct: true },
+            { id: "b", cards: ["7d","7c"], label: "77", correct: false,
+              eliminated: "Underpair: no overbetea en esa línea de turn/river." },
+            { id: "c", cards: ["Qh","Jh"], label: "QJs", correct: false,
+              eliminated: "Ese combo es el farol típico de la textura: sin showdown fuerte no cobra con sizing value lineal." }
+          ]
+        }
+      }),
       LQ("r27-12", "BTN", ["Ah","6d"], ["Kh","9h","3c","7s","2d"], 27112, {
         villainPos: "BB", facingBet: true,
         lineStory: [
           { street: "Preflop", text: "BTN open 2,5 bb → BB call" },
-          { street: "Flop", text: "Kh 9h 3c — BB check-raise 3× → BTN call" },
+          { street: "Flop", text: "Kh 9h 3c — BB check → BTN c-bet 33% pot → BB raise 3× → BTN call" },
           { street: "Turn", text: "7s — check-check" },
           { street: "River", text: "2d — BB overbet 125% pot" }
         ],
