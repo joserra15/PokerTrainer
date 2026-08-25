@@ -23,10 +23,10 @@
   const MTT_PLAYERS_LEFT_MAX = 50;
 
   const MTT_STRUCTURE_DEFAULTS = {
-    bubble: { playersLeft: 13, placesPaid: 12, mttPayoutPreset: 'standard', buyIn: 11 },
-    mincash: { playersLeft: 12, placesPaid: 12, mttPayoutPreset: 'flat', buyIn: 11 },
-    ft9: { playersLeft: 9, placesPaid: 9, mttPayoutPreset: 'topheavy', buyIn: 11 },
-    custom: { playersLeft: 13, placesPaid: 12, mttPayoutPreset: 'standard', buyIn: 11 }
+    bubble: { playersLeft: 13, placesPaid: 12, entries: 100, mttPayoutPreset: 'standard', buyIn: 11 },
+    mincash: { playersLeft: 12, placesPaid: 12, entries: 100, mttPayoutPreset: 'flat', buyIn: 11 },
+    ft9: { playersLeft: 9, placesPaid: 9, entries: 100, mttPayoutPreset: 'topheavy', buyIn: 11 },
+    custom: { playersLeft: 13, placesPaid: 12, entries: 100, mttPayoutPreset: 'standard', buyIn: 11 }
   };
 
   const HUB_LABELS = { cash: 'Cash', spin: 'Spins', mtt: 'Torneos' };
@@ -422,6 +422,41 @@
     return left <= paid + 3;
   }
 
+  /** Prize pool orientativo: buyIn × entries (o × placesPaid si no hay entries). */
+  function estimatePrizePool(config) {
+    const bi = Number(config && config.buyIn);
+    if (!(bi > 0)) return null;
+    const entries = Number(config && config.entries);
+    const paid = Number(config && config.placesPaid);
+    const n = (entries > 0) ? entries : (paid > 0 ? paid : 0);
+    if (!(n > 0)) return null;
+    return Math.round(bi * n * 100) / 100;
+  }
+
+  /** Premios € por puesto según ladder de fracciones × prize pool. */
+  function estimatePlacePrizes(config) {
+    const pool = estimatePrizePool(config);
+    if (pool == null || !hasMttStructure(config)) return null;
+    const fracs = mttPayoutsForStructure(config).filter(function (p) { return p > 0; });
+    return fracs.map(function (f, i) {
+      return { place: i + 1, amount: Math.round(pool * f * 100) / 100, frac: f };
+    });
+  }
+
+  /** Rango del héroe por stack (1 = chip leader). stacks[heroIdx] vs resto. */
+  function heroStackRank(stacks, heroIdx) {
+    const idx = heroIdx != null ? heroIdx : 0;
+    const list = stacks || [];
+    if (!list.length) return null;
+    const hero = Math.max(0, Number(list[idx]) || 0);
+    let better = 0;
+    for (let i = 0; i < list.length; i++) {
+      if (i === idx) continue;
+      if (Math.max(0, Number(list[i]) || 0) > hero) better++;
+    }
+    return better + 1;
+  }
+
   function isTournamentHub(hub) {
     return hub === 'spin' || hub === 'mtt';
   }
@@ -500,6 +535,9 @@
     structureFromSituation: structureFromSituation,
     hasMttStructure: hasMttStructure,
     mttStructureNearMoney: mttStructureNearMoney,
+    estimatePrizePool: estimatePrizePool,
+    estimatePlacePrizes: estimatePlacePrizes,
+    heroStackRank: heroStackRank,
     isTournamentHub: isTournamentHub,
     usesIcm: usesIcm,
     spotTags: spotTags,

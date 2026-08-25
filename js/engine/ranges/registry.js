@@ -73,7 +73,13 @@
       effectivePhase: effectivePhase,
       villainLevel: c.villainLevel || 'pro',
       scenario: c.scenario || null,
-      practiceIntent: c.practiceIntent || 'mixed'
+      practiceIntent: c.practiceIntent || 'mixed',
+      icmEnabled: !!c.icmEnabled,
+      playersLeft: c.playersLeft != null ? Number(c.playersLeft) : null,
+      placesPaid: c.placesPaid != null ? Number(c.placesPaid) : null,
+      entries: c.entries != null ? Number(c.entries) : null,
+      buyIn: c.buyIn != null ? Number(c.buyIn) : null,
+      mttStructureSituation: c.mttStructureSituation || null
     };
   }
 
@@ -309,7 +315,13 @@
   /** Ajusta defensa vs RFI según fase (bubble/push más tight; early más amplia). */
   function applyPhaseToVsRfi(row, c) {
     if (!row || !c || !c.isTournament) return row;
-    const phase = c.effectivePhase || 'early';
+    let phase = c.effectivePhase || 'early';
+    // ICM de estructura en explorador: tratar como burbuja si hay presión near-money.
+    if (c.icmEnabled && c.isMtt) {
+      const Tax = global.PTFormatTaxonomy;
+      if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney(c)) phase = 'bubble';
+      else if (phase === 'early' || phase === 'mid') phase = 'short';
+    }
     const out = cloneRow(row);
     if (phase === 'push' || phase === 'bubble') {
       out.threeBetMix = trimField(out.threeBetMix || '', 'A9o-A2o, KJo, QJo, T9o, 98o, 22, 33, 44');
@@ -410,7 +422,12 @@
    */
   function applyPhaseToVs3bet(row, c, openerPos, threeBettorPos) {
     if (!row || !c || !c.isTournament) return row;
-    const phase = c.effectivePhase || 'early';
+    let phase = c.effectivePhase || 'early';
+    if (c.icmEnabled && c.isMtt) {
+      const Tax = global.PTFormatTaxonomy;
+      if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney(c)) phase = 'bubble';
+      else if (phase === 'early' || phase === 'mid') phase = 'short';
+    }
     const bb = c.stackBB || 100;
     if (phase === 'early' && bb >= 40) return row;
 
@@ -602,6 +619,15 @@
       } else {
         label += ' · Auto';
       }
+      if (c.icmEnabled && c.isMtt) {
+        const left = Number(c.playersLeft);
+        const paid = Number(c.placesPaid);
+        if (Number.isFinite(left) && left > 0 && Number.isFinite(paid) && paid > 0) {
+          label += ' · ICM ' + Math.round(left) + '/' + Math.round(paid);
+        } else {
+          label += ' · ICM';
+        }
+      }
     }
     return label;
   }
@@ -647,6 +673,12 @@
     input.stackDepth = c.stackBB;
     input.mttPhase = c.mttPhase;
     input.resolvedPhase = c.effectivePhase;
+    input.icmEnabled = !!c.icmEnabled;
+    if (c.playersLeft != null) input.playersLeft = c.playersLeft;
+    if (c.placesPaid != null) input.placesPaid = c.placesPaid;
+    if (c.entries != null) input.entries = c.entries;
+    if (c.buyIn != null) input.buyIn = c.buyIn;
+    if (c.mttStructureSituation) input.mttStructureSituation = c.mttStructureSituation;
     input.rangeContext = c;
     return input;
   }

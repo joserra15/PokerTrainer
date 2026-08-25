@@ -1,6 +1,6 @@
 {
-  "build": "2.7.31",
-  "rev": "2.7.31-bb5f5fe837",
+  "build": "2.7.32",
+  "rev": "2.7.32-pending",
   "chunks": {
     "core": "dist/pt-core.js",
     "sessions": "dist/pt-sessions.js",
