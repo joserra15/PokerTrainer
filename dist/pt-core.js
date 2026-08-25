@@ -31787,7 +31787,7 @@ window.PT_NASH_PUSH_JSON = {
         rows.push({ label: 'Top premios', value: top });
       }
       const rank = resolveHeroFieldRank(cfg, hand);
-      if (rank != null) {
+      if (rank != null && cfg.playersLeft != null) {
         rows.push({ label: 'Tu puesto (por stack)', value: '#' + rank + ' / ' + (cfg.playersLeft || '?') });
       }
     }
@@ -31859,7 +31859,8 @@ window.PT_NASH_PUSH_JSON = {
         });
       }
       const rank = resolveHeroFieldRank(cfg, hand);
-      if (hub === 'mtt' && rank != null) {
+      // Puesto por stack: solo con estructura de field (left/paid); evita Pos. #N de mesa 9-max en early/mid.
+      if (hub === 'mtt' && rank != null && cfg.playersLeft != null && cfg.placesPaid != null) {
         chips.push({ text: 'Pos. #' + rank, cls: 'is-phase', title: 'Puesto por stack en el field ICM lite' });
       }
       if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0
@@ -31894,14 +31895,17 @@ window.PT_NASH_PUSH_JSON = {
       if (stack) out.push(stack);
       if (pay) out.push(pay);
     } else {
+      const hasStructure = cfg && cfg.playersLeft != null && cfg.placesPaid != null;
       const pos = byText(/^Pos\. #/);
       const field = byText(/left \//);
       const stack = byText(/\dbb/);
       const phase = all.find(function (c) { return c.cls === 'is-phase' && !/^Pos\. #/.test(c.text); });
-      if (pos) out.push(pos);
+      // Con estructura: puesto + left/paid. Sin ella: stack + fase (no sustituir stack por Pos. de mesa).
+      if (hasStructure && pos) out.push(pos);
       else if (stack) out.push(stack);
       if (field) out.push(field);
       else if (phase) out.push(phase);
+      else if (hasStructure && stack && out.indexOf(stack) < 0) out.push(stack);
     }
     // Rellenar hasta 2 con el resto si falta
     for (let i = 0; i < all.length && out.length < 2; i++) {
