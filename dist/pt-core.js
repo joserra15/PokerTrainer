@@ -14784,6 +14784,10 @@ window.PT_NASH_PUSH_JSON = {
         if (group.potStart == null) group.potStart = e.potBB;
         return;
       }
+      // Los folds preflop son ruido: el motor solo registra los posteriores al
+      // héroe, así que mostrarlos daría una lista a medias. Postflop sí importan
+      // porque cambian quién sigue en el bote.
+      if (street === 'preflop' && e.type === 'fold') return;
       group.acts.push(e);
     });
     return out;

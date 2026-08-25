@@ -157,9 +157,34 @@ console.log('6) Nunca adelanta la calle en curso');
 {
   handsAtStreet('turn', 20, 8800).forEach(function (hand) {
     const rows = PTActionLine.build(hand, { throughStreet: 'flop' });
-    assert.ok(!rows.some(function (r) { return r.street === 'turn' || r.street === 'river'; }),
+        assert.ok(!rows.some(function (r) { return r.street === 'turn' || r.street === 'river'; }),
       'sin filas de la calle en curso ni posteriores');
   });
+}
+
+console.log('6b) El preflop no lista folds (el motor solo conoce los del héroe en adelante)');
+{
+  handsAtStreet('flop', 30, 51000).forEach(function (hand) {
+    const preflop = PTActionLine.build(hand, { throughStreet: 'preflop' })[0];
+    assert.ok(preflop, 'fila de preflop');
+    assert.ok(!preflop.actions.some(function (a) { return a.text === 'fold'; }),
+      'sin folds preflop: ' + PTActionLine.text([preflop]));
+  });
+  // Postflop sí importan: cambian quién sigue en el bote.
+  const multiway = {
+    actionLine: [
+      { kind: 'act', street: 'preflop', pos: 'CO', type: 'open', amount: 2.5 },
+      { kind: 'act', street: 'preflop', pos: 'BTN', type: 'fold' },
+      { kind: 'act', street: 'preflop', pos: 'BB', type: 'call', amount: 2.5 },
+      { kind: 'street', street: 'flop', board: ['As', '7c', '2d'], potBB: 6 },
+      { kind: 'act', street: 'flop', pos: 'BB', type: 'bet', amount: 2 },
+      { kind: 'act', street: 'flop', pos: 'CO', type: 'fold' }
+    ]
+  };
+  const rows = PTActionLine.build(multiway);
+  assert.strictEqual(rows[0].actions.length, 2, 'el fold preflop desaparece');
+  assert.ok(rows[1].actions.some(function (a) { return a.text === 'fold'; }), 'el fold del flop se mantiene');
+  assert.strictEqual(rows[1].actions[0].text, 'bet 2 bb (33% bote)', '% de bote sobre el bote inicial de la calle');
 }
 
 console.log('7) Escenarios resubidos describen la escalada completa');
