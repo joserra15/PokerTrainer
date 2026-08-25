@@ -75,6 +75,7 @@
     "test:formats-v2": "node tools/test-trainer-formats-v2.js",
     "test:trainer-pro": "node tools/test-trainer-pro-ranges.js && node tools/test-trainer-pro-regression.js && node tools/test-trainer-stack-phase-villains.js && node tools/test-trainer-fase3.js && node tools/test-feedback-ev-mix.js && node tools/test-ranges-stack-phase.js && node tools/test-vs3bet-tournament-phase.js",
     "test:action-mode": "node tools/test-action-mode.js",
+    "test:action-line": "node tools/test-trainer-action-line.js",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:smoke": "npm run build && SMOKE=1 playwright test",
     "sync:rfi": "node tools/sync-rfi-solver-data.js"

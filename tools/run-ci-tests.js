@@ -111,6 +111,7 @@ const STEPS = [
   ['Test vs3bet MTT/Spin por fase+stack', ['node', 'tools/test-vs3bet-tournament-phase.js']],
   ['Test showdown empate (net/popup)', ['node', 'tools/test-showdown-tie.js']],
   ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']],
+  ['Test línea de acción previa (entrenador)', ['node', 'tools/test-trainer-action-line.js']],
   ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
   ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],
   ['Test manos legendarias (playthrough)', ['node', 'tools/test-legendary-playthrough.js']]

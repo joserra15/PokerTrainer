@@ -53,7 +53,7 @@ function loadEngine(sandbox) {
 /** ENGINE + play-config + engine.js (trainer). */
 function loadTrainer(sandbox) {
   loadEngine(sandbox);
-  runFiles(sandbox, ['js/ranges.js', 'js/play-config.js', 'js/engine.js']);
+  runFiles(sandbox, ['js/ranges.js', 'js/play-config.js', 'js/action-line.js', 'js/engine.js']);
   return sandbox;
 }
 
