@@ -121,6 +121,19 @@
     anteBB: null,
     /** 2x | 3x | 5x — payouts spin */
     spinPayout: '2x',
+    /** MTT estructura lite: buy-in € (display / €EV), null = sin BI */
+    buyIn: null,
+    buyInFee: null,
+    /** Jugadores restantes en el torneo (ICM field); null = no estructura */
+    playersLeft: null,
+    /** Puestos que pagan */
+    placesPaid: null,
+    /** standard | flat | topheavy | custom */
+    mttPayoutPreset: 'standard',
+    /** Fracciones custom (si mttPayoutPreset=custom); también se materializa icmPayouts */
+    mttPayouts: null,
+    /** bubble | mincash | ft9 | custom | null */
+    mttStructureSituation: null,
     liveAdvisor: false,
     /** 'always' | 'serious' — solo relevante si liveAdvisor */
     advisorMode: 'always',
@@ -249,6 +262,18 @@
     else if (!c.mttPhase) c.mttPhase = 'auto';
     if (c.spinPayout !== '3x' && c.spinPayout !== '5x') c.spinPayout = '2x';
 
+    // MTT estructura: limpiar fuera de hub mtt (coerción completa tras resolvedPhase).
+    if (c.formatHub !== 'mtt') {
+      c.buyIn = null;
+      c.buyInFee = null;
+      c.playersLeft = null;
+      c.placesPaid = null;
+      c.mttPayouts = null;
+      c.mttPayoutPreset = 'standard';
+      c.mttStructureSituation = null;
+      c.icmPayouts = null;
+    }
+
     if (c.stackDepth === 'random') {
       c.stackDepthRandom = true;
       c.stackDepthPreference = 'random';
@@ -265,6 +290,89 @@
       const parsedStack = stackDepthToBB(c.stackDepth);
       c.stackBB = parsedStack != null ? parsedStack : 100;
       if (Tax) c.resolvedPhase = Tax.resolvePhase(c);
+    }
+
+    // MTT estructura lite (buy-in + puestos) tras conocer fase resuelta.
+    if (c.formatHub === 'mtt' && Tax) {
+      const sitExplicit = Object.prototype.hasOwnProperty.call(raw, 'mttStructureSituation')
+        && raw.mttStructureSituation;
+      const leftExplicit = Object.prototype.hasOwnProperty.call(raw, 'playersLeft')
+        && raw.playersLeft != null && raw.playersLeft !== '';
+      const paidExplicit = Object.prototype.hasOwnProperty.call(raw, 'placesPaid')
+        && raw.placesPaid != null && raw.placesPaid !== '';
+      const biExplicit = Object.prototype.hasOwnProperty.call(raw, 'buyIn')
+        && raw.buyIn != null && raw.buyIn !== '';
+
+      if (sitExplicit && Tax.structureFromSituation && !leftExplicit && !paidExplicit) {
+        const fromSit = Tax.structureFromSituation(raw.mttStructureSituation, biExplicit ? raw.buyIn : undefined);
+        if (fromSit) {
+          Object.keys(fromSit).forEach(function (k) {
+            if (k === 'buyIn' && biExplicit) return;
+            c[k] = fromSit[k];
+          });
+        } else if (raw.mttStructureSituation === 'auto') {
+          c.mttStructureSituation = 'auto';
+          const phaseKey = (c.mttPhase && c.mttPhase !== 'auto') ? c.mttPhase : c.resolvedPhase;
+          const def = Tax.defaultMttStructureForPhase
+            ? Tax.defaultMttStructureForPhase(phaseKey)
+            : null;
+          if (def) {
+            Object.keys(def).forEach(function (k) { c[k] = def[k]; });
+            if (biExplicit) c.buyIn = Number(raw.buyIn);
+          } else {
+            c.playersLeft = null;
+            c.placesPaid = null;
+            c.mttPayouts = null;
+            // Sin estructura de fase: no arrastrar buy-in del input por defecto.
+            c.buyIn = null;
+          }
+        }
+      } else if (!leftExplicit && !paidExplicit && !sitExplicit) {
+        const phaseKey = (c.mttPhase && c.mttPhase !== 'auto') ? c.mttPhase : c.resolvedPhase;
+        const def = Tax.defaultMttStructureForPhase
+          ? Tax.defaultMttStructureForPhase(phaseKey)
+          : null;
+        if (def) {
+          Object.keys(def).forEach(function (k) { c[k] = def[k]; });
+        }
+      }
+
+      if (Tax.normalizeMttStructureSituation) {
+        c.mttStructureSituation = Tax.normalizeMttStructureSituation(c.mttStructureSituation);
+      }
+      if (Tax.normalizeMttPayoutPreset) {
+        c.mttPayoutPreset = Tax.normalizeMttPayoutPreset(c.mttPayoutPreset || 'standard');
+      }
+
+      var maxLeft = Tax.MTT_PLAYERS_LEFT_MAX || 50;
+      var left = c.playersLeft != null && c.playersLeft !== '' ? Math.round(Number(c.playersLeft)) : null;
+      var paid = c.placesPaid != null && c.placesPaid !== '' ? Math.round(Number(c.placesPaid)) : null;
+      if (left != null && (!isFinite(left) || left < 2)) left = 2;
+      if (left != null && left > maxLeft) left = maxLeft;
+      if (paid != null && (!isFinite(paid) || paid < 1)) paid = 1;
+      if (left != null && paid != null && paid > left) paid = left;
+      c.playersLeft = left;
+      c.placesPaid = paid;
+
+      var bi = c.buyIn != null && c.buyIn !== '' ? Number(c.buyIn) : null;
+      if (bi != null && (!isFinite(bi) || bi < 0)) bi = null;
+      if (bi != null) bi = Math.round(bi * 100) / 100;
+      c.buyIn = bi;
+      var fee = c.buyInFee != null && c.buyInFee !== '' ? Number(c.buyInFee) : null;
+      if (fee != null && (!isFinite(fee) || fee < 0)) fee = null;
+      c.buyInFee = fee;
+
+      if (c.mttPayoutPreset === 'custom' && Array.isArray(c.mttPayouts) && c.mttPayouts.length) {
+        c.mttPayouts = c.mttPayouts.map(function (x) { return Math.max(0, Number(x) || 0); });
+      } else if (c.mttPayoutPreset !== 'custom') {
+        c.mttPayouts = null;
+      }
+
+      if (left != null && paid != null && Tax.mttPayoutsForStructure) {
+        c.icmPayouts = Tax.mttPayoutsForStructure(c);
+      } else {
+        c.icmPayouts = null;
+      }
     }
 
     if (c.anteBB == null || c.anteBB === '') {
@@ -1066,8 +1174,13 @@
     const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
     const open = c.preflopOpenSize ? (' · open ' + c.preflopOpenSize + '×') : '';
     const spinPay = (c.formatHub === 'spin' && c.spinPayout) ? (' · payout ' + c.spinPayout) : '';
+    let mttStruct = '';
+    if (c.formatHub === 'mtt' && c.playersLeft != null && c.placesPaid != null) {
+      mttStruct = ' · ' + c.playersLeft + ' left / ' + c.placesPaid + ' paid';
+      if (c.buyIn != null) mttStruct += ' · BI €' + c.buyIn;
+    }
     const am = c.actionMode === 'complete' ? 'Modo completo' : 'Modo rápido';
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + spinPay + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + spinPay + mttStruct + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {

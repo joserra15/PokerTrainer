@@ -758,7 +758,7 @@
             <button type="button" class="setup-chip" data-val="push">Push/fold</button>
             <button type="button" class="setup-chip" data-val="bubble" data-hub-mtt>Burbuja</button>
           </div>
-          <p class="muted-text setup-hint">La fase adapta opens, defensa vs open, <strong>vs 3-bet</strong>, antes e ICM (y el stack permitido). En short/push no se flattean las mismas manos que en cash deep. «Auto (por stack)» elige Early/Mid/Short/Push según tus bb. En cada mano verás la fase resuelta en el tapete.</p>
+          <p class="muted-text setup-hint">La fase adapta opens, defensa vs open, <strong>vs 3-bet</strong>, antes e ICM (y el stack permitido). En short/push no se flattean las mismas manos que en cash deep. «Auto (por stack)» elige Early/Mid/Short/Push según tus bb. La estructura MTT (buy-in / puestos) afina el ICM lite en burbuja o ITM. En cada mano verás la fase resuelta en el tapete.</p>
         </div>
 
         <div class="setup-group" id="setup-group-spin-payout" hidden>
@@ -769,6 +769,37 @@
             <button type="button" class="setup-chip" data-val="5x">5×</button>
           </div>
           <p class="muted-text setup-hint">ICM = el premio no es proporcional a las fichas. El payout se usa para juzgar jugadas en valor de premio, no solo en bb ganadas/perdidas.</p>
+        </div>
+
+        <div class="setup-group" id="setup-group-mtt-structure" hidden>
+          <span class="setup-label">Estructura MTT (ICM lite)</span>
+          <div class="setup-chips" id="setup-mtt-structure">
+            <button type="button" class="setup-chip active" data-val="auto">Según fase</button>
+            <button type="button" class="setup-chip" data-val="bubble">Burbuja</button>
+            <button type="button" class="setup-chip" data-val="mincash">Min-cash ITM</button>
+            <button type="button" class="setup-chip" data-val="ft9">FT 9</button>
+            <button type="button" class="setup-chip" data-val="custom">Personalizado</button>
+          </div>
+          <div class="setup-mtt-structure-fields" id="setup-mtt-structure-fields">
+            <label class="setup-inline-field" for="setup-mtt-buyin">
+              <span>Buy-in €</span>
+              <input type="number" id="setup-mtt-buyin" min="0" step="1" value="11" inputmode="decimal" />
+            </label>
+            <label class="setup-inline-field" for="setup-mtt-players-left" id="setup-mtt-players-left-wrap" hidden>
+              <span>Jugadores left</span>
+              <input type="number" id="setup-mtt-players-left" min="2" max="50" step="1" value="13" inputmode="numeric" />
+            </label>
+            <label class="setup-inline-field" for="setup-mtt-places-paid" id="setup-mtt-places-paid-wrap" hidden>
+              <span>Puestos paid</span>
+              <input type="number" id="setup-mtt-places-paid" min="1" max="50" step="1" value="12" inputmode="numeric" />
+            </label>
+            <div class="setup-chips" id="setup-mtt-payout-preset" hidden>
+              <button type="button" class="setup-chip active" data-val="standard">Standard</button>
+              <button type="button" class="setup-chip" data-val="flat">Flat</button>
+              <button type="button" class="setup-chip" data-val="topheavy">Top-heavy</button>
+            </div>
+          </div>
+          <p class="muted-text setup-hint" id="setup-mtt-structure-hint">El buy-in sirve para ver €; el ICM lite usa puestos premiados y stacks restantes (mesa + field agregado). No es un solver de torneo completo.</p>
         </div>
 
         <div class="setup-group" id="setup-group-stack">

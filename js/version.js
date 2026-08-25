@@ -1,10 +1,10 @@
 /* Incrementar en cada despliegue para invalidar caché del navegador. */
-window.PT_BUILD = '2.7.29';
+window.PT_BUILD = '2.7.30';
 
 /* Huella del contenido de js, css, dist y data. La genera tools/build-bundles.js:
    no editar a mano. Es el token de ?v=, así que cambia siempre que cambia un
    asset aunque nadie suba PT_BUILD, y la caché vieja no sobrevive al deploy. */
-window.PT_ASSET_REV = '2.7.29-cdecea2e94';
+window.PT_ASSET_REV = '2.7.30-4f86e05908';
 
 /* Token de invalidación para URLs de assets (?v=) y para el build guard. */
 window.PT_REV = function () {

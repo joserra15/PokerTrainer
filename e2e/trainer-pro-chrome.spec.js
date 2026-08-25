@@ -56,12 +56,15 @@ test.describe('Entrenador pro chrome @smoke', () => {
     await expect(page.locator('#table-train-chrome')).toBeVisible();
     await expect(page.locator('#table-format-badge')).toContainText(/MTT/i);
     const hud = page.locator('#table-train-hud');
-    // Fase 3: stack + fase + blinds (Nv.) + ante% + open
+    // Fase 3 mid sin estructura ICM: stack + fase + blinds (Nv.) + ante% + open
+    // (BI / left-paid solo aparecen con estructura burbuja/ITM/FT)
     await expect(hud.locator('.table-train-chip')).toHaveCount(5, { timeout: 5000 });
     await expect(hud).toContainText('25bb');
     await expect(hud).toContainText('Mid');
     await expect(hud).toContainText(/Nv\./);
     await expect(hud).toContainText(/Ante/);
     await expect(hud).toContainText(/Open 2\.2/);
+    await expect(hud).not.toContainText(/BI €/);
+    await expect(hud).not.toContainText(/left \//);
   });
 });

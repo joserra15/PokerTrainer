@@ -298,6 +298,100 @@ const spot = GTO.evaluateSpot({
 });
 assert.ok(spot.evaluation && spot.evaluation.class, 'spin evaluateSpot');
 
+// --- MTT estructura lite (buy-in / puestos) ---
+{
+  const ladder12 = Tax.mttPayoutLadder(12, 'standard');
+  assert.ok(ladder12 && ladder12.length === 12, 'ladder 12 places');
+  const sum12 = ladder12.reduce((s, x) => s + x, 0);
+  assert.ok(Math.abs(sum12 - 1) < 0.02, 'ladder suma ~1, got ' + sum12);
+
+  const bubblePays = Tax.mttPayoutsForStructure({
+    playersLeft: 13, placesPaid: 12, mttPayoutPreset: 'standard'
+  });
+  assert.strictEqual(bubblePays.length, 13, 'bubble payouts length');
+  assert.strictEqual(bubblePays[12], 0, 'último puesto sin premio en burbuja');
+  assert.ok(bubblePays[0] > bubblePays[11], '1º > min-cash');
+
+  const flatPays = Tax.mttPayoutsForStructure({
+    playersLeft: 12, placesPaid: 12, mttPayoutPreset: 'flat'
+  });
+  const topheavyPays = Tax.mttPayoutsForStructure({
+    playersLeft: 9, placesPaid: 9, mttPayoutPreset: 'topheavy'
+  });
+  assert.ok(topheavyPays[0] > flatPays[0], 'topheavy más top-heavy que flat');
+
+  const bubbleCfg = PC.normalize({
+    formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb20',
+    mttPhase: 'bubble', mttStructureSituation: 'bubble', buyIn: 22
+  });
+  assert.strictEqual(bubbleCfg.playersLeft, 13);
+  assert.strictEqual(bubbleCfg.placesPaid, 12);
+  assert.strictEqual(bubbleCfg.buyIn, 22);
+  assert.ok(bubbleCfg.icmPayouts && bubbleCfg.icmPayouts.length === 13);
+  assert.ok(Tax.usesIcm(bubbleCfg), 'bubble structure → ICM');
+
+  const earlyCfg = PC.normalize({
+    formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb50',
+    mttPhase: 'early', mttStructureSituation: 'auto'
+  });
+  assert.ok(earlyCfg.playersLeft == null, 'early auto sin estructura field');
+  assert.ok(!Tax.usesIcm(earlyCfg), 'early sin near-money → no ICM');
+
+  const midAutoBi = PC.normalize({
+    formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb25',
+    mttPhase: 'mid', mttStructureSituation: 'auto', buyIn: 11, preflopOpenSize: 2.2
+  });
+  assert.ok(midAutoBi.playersLeft == null, 'mid auto no arrastra field');
+  assert.ok(midAutoBi.buyIn == null, 'mid auto no arrastra buy-in del input default');
+  assert.ok(!Tax.usesIcm(midAutoBi), 'mid auto sin estructura → no ICM');
+
+  const midNear = PC.normalize({
+    formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb40',
+    mttPhase: 'mid', mttStructureSituation: 'bubble'
+  });
+  assert.ok(Tax.usesIcm(midNear), 'estructura burbuja manda sobre fase mid');
+
+  const seeds = [25, 20, 18];
+  const field = Icm.synthesizeFieldStacks(seeds, 13, () => 0.5);
+  assert.ok(field.length <= 9 && field.length >= 3, 'field sintetizado cap 9');
+
+  const aligned = Icm.alignPayoutsToStacks(bubblePays, field.length);
+  assert.strictEqual(aligned.length, field.length);
+  assert.ok(aligned[aligned.length - 1] === 0, 'cero de burbuja preservado al alinear');
+
+  const bubbleMult = Icm.riskMultiplier({
+    formatHub: 'mtt', gameType: 'mtt', icmEnabled: true,
+    heroStackBB: 30, villainStackBB: 15, tableMax: 9,
+    icmStacksBB: field,
+    icmPayouts: aligned,
+    playersLeft: 13, placesPaid: 12, buyIn: 11,
+    chosenAction: 'call', mttPhase: 'bubble'
+  });
+  const itmMult = Icm.riskMultiplier({
+    formatHub: 'mtt', gameType: 'mtt', icmEnabled: true,
+    heroStackBB: 30, villainStackBB: 15, tableMax: 9,
+    icmStacksBB: field.slice(0, 9),
+    icmPayouts: Icm.alignPayoutsToStacks(flatPays, 9),
+    playersLeft: 12, placesPaid: 12, buyIn: 11,
+    chosenAction: 'call', mttPhase: 'short'
+  });
+  assert.ok(bubbleMult >= 1, 'bubble risk mult >= 1');
+  assert.ok(itmMult >= 0.75, 'itm risk mult ok');
+  // Misma acción/stack: burbuja (con unpaid) no debe ser más laxa que ITM flat
+  assert.ok(bubbleMult + 0.001 >= itmMult * 0.85, 'bubble no mucho más laxo que ITM');
+
+  const ctx = Icm.contextForHand({
+    stacks: { BTN: 25, BB: 20, SB: 18 },
+    displayHeroPos: 'BTN',
+    villain: { pos: 'BB' },
+    effStack: 20
+  }, bubbleCfg);
+  assert.ok(ctx && ctx.icmStacksBB && ctx.icmStacksBB.length >= 3);
+  assert.ok(ctx.icmPayouts && ctx.icmPayouts.length === ctx.icmStacksBB.length);
+  assert.strictEqual(ctx.buyIn, 22);
+  assert.strictEqual(ctx.playersLeft, 13);
+}
+
 // UI markers
 const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(indexHtml.includes('setup-format-hub'), 'hub tabs UI');
@@ -307,12 +401,17 @@ assert.ok(indexHtml.includes('data-val="bluff_make" hidden'), 'chip hacer farole
 assert.ok(indexHtml.includes('data-val="bluff_catch" hidden'), 'chip cazar faroles oculto');
 assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
+assert.ok(indexHtml.includes('setup-group-mtt-structure'), 'MTT structure UI');
+assert.ok(indexHtml.includes('setup-mtt-buyin'), 'buy-in input');
+assert.ok(indexHtml.includes('data-val="bubble">Burbuja'), 'bubble structure chip');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2.7.29'/.test(version), 'version 2.7.29');
+assert.ok(/PT_BUILD\s*=\s*'2.7.30'/.test(version), 'version 2.7.30');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');
+assert.ok(appJs.includes('syncMttStructureUI'), 'sync MTT structure');
+assert.ok(appJs.includes('ICM lite'), 'HUD ICM lite label');
 
 // 9-max: asientos equiespaciados (sin cluster CO/BTN arriba-derecha)
 {

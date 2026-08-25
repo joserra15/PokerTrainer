@@ -3494,6 +3494,38 @@ body.paywall-open { overflow: hidden; }
   border-color: rgba(245, 196, 81, 0.55);
 }
 .setup-preset-save-row .btn { flex: 0 0 auto; }
+.setup-mtt-structure-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+  margin-top: 10px;
+}
+.setup-inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 6.5rem;
+}
+.setup-inline-field[hidden],
+.setup-chips[hidden] {
+  display: none !important;
+}
+.setup-inline-field input {
+  width: 6.5rem;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 14px;
+}
+.setup-inline-field input:focus {
+  outline: none;
+  border-color: rgba(245, 196, 81, 0.55);
+}
 .setup-group.is-stack-locked .setup-chips {
   opacity: 0.72;
   pointer-events: none;
