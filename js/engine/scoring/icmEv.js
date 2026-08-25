@@ -1,6 +1,7 @@
 /*
  * icmEv.js — ICM aproximado para grading del entrenador (spins / MTT late).
- * Harville simplificado; no sustituye un solver ICM completo.
+ * Harville simplificado + estructura MTT lite (buy-in / puestos / field).
+ * No sustituye un solver ICM completo.
  */
 (function (global) {
   'use strict';
@@ -26,11 +27,14 @@
       }
     }
     const eq = new Array(n).fill(0);
+    // Lite: Harville 1º/2º; el 3º absorbe el resto del ladder (puestos 3+).
+    let payThirdPlus = 0;
+    for (let k = 2; k < pays.length; k++) payThirdPlus += pays[k] || 0;
     for (let i = 0; i < n; i++) {
       eq[i] = (pFirst[i] || 0) * (pays[0] || 0) + (pSecond[i] || 0) * (pays[1] || 0);
-      if (pays[2]) {
+      if (payThirdPlus > 0) {
         const pThird = Math.max(0, 1 - (pFirst[i] || 0) - (pSecond[i] || 0));
-        eq[i] += pThird * pays[2];
+        eq[i] += pThird * payThirdPlus;
       }
       eq[i] = Math.round(eq[i] * 1000) / 1000;
     }
@@ -76,6 +80,58 @@
     return stacks;
   }
 
+  /**
+   * Sintetiza stacks del field para ICM lite.
+   * Cap MTT_ICM_STACK_CAP (9): mesa real + fillers; si playersLeft > cap,
+   * 1–2 buckets agregados con el stack medio del field lejano.
+   */
+  function synthesizeFieldStacks(seedStacks, playersLeft, rnd) {
+    const Taxo = Tax();
+    const cap = (Taxo && Taxo.MTT_ICM_STACK_CAP) || 9;
+    const left = Math.max(2, Math.min((Taxo && Taxo.MTT_PLAYERS_LEFT_MAX) || 50, Math.round(Number(playersLeft) || seedStacks.length)));
+    const seeds = (seedStacks || []).filter(function (s) { return typeof s === 'number' && s > 0; });
+    if (!seeds.length) seeds.push(25);
+    const avg = seeds.reduce(function (a, b) { return a + b; }, 0) / seeds.length;
+    const rand = typeof rnd === 'function' ? rnd : Math.random;
+    const stacks = seeds.slice();
+
+    const targetExplicit = Math.min(left, cap);
+    let i = 0;
+    while (stacks.length < targetExplicit) {
+      // Perfiles rotativos: short / mid / cover alrededor de la media.
+      const profile = i % 3;
+      let bb;
+      if (profile === 0) bb = Math.max(6, Math.round(avg * 0.55));
+      else if (profile === 1) bb = Math.max(8, Math.round(avg));
+      else bb = Math.max(10, Math.round(avg * 1.35));
+      // jitter ±8 %
+      const jitter = 1 + (rand() - 0.5) * 0.16;
+      stacks.push(Math.max(5, Math.round(bb * jitter)));
+      i++;
+    }
+
+    if (left > cap) {
+      // Agregar field lejano en 1–2 buckets (masa de fichas restante).
+      const remote = left - stacks.length;
+      if (remote > 0) {
+        const bucketAvg = Math.max(8, Math.round(avg * 0.9));
+        if (remote === 1) {
+          stacks[stacks.length - 1] = Math.max(5, stacks[stacks.length - 1] + bucketAvg);
+        } else {
+          const half = Math.floor(remote / 2);
+          const other = remote - half;
+          // Sustituir los dos últimos fillers por buckets ponderados (masa ≈ remote * avg).
+          if (stacks.length >= 2) {
+            stacks[stacks.length - 2] = Math.max(5, Math.round(bucketAvg * half));
+            stacks[stacks.length - 1] = Math.max(5, Math.round(bucketAvg * other * 1.05));
+          }
+        }
+      }
+    }
+
+    return stacks.slice(0, cap);
+  }
+
   function resolvePayouts(input) {
     const Taxo = Tax();
     if (input.icmPayouts && input.icmPayouts.length) return input.icmPayouts.slice();
@@ -83,8 +139,76 @@
     if (input.gameType === 'spin3' || (input.formatHub === 'spin')) {
       return (Taxo && Taxo.spinPayouts) ? Taxo.spinPayouts('2x') : [0.65, 0.35, 0];
     }
-    // MTT bubble simplificada: top-heavy 3 pays
+    // MTT con estructura lite
+    if (Taxo && Taxo.mttPayoutsForStructure && Taxo.hasMttStructure && Taxo.hasMttStructure(input)) {
+      return Taxo.mttPayoutsForStructure(input);
+    }
+    if (Taxo && Taxo.mttPayoutsForStructure && input.placesPaid) {
+      return Taxo.mttPayoutsForStructure({
+        playersLeft: input.playersLeft || input.placesPaid,
+        placesPaid: input.placesPaid,
+        mttPayoutPreset: input.mttPayoutPreset || 'standard',
+        mttPayouts: input.mttPayouts
+      });
+    }
+    // Fallback legacy: top-heavy 3 pays
     return [0.5, 0.3, 0.2];
+  }
+
+  /**
+   * Ajusta el vector de premios a nStacks.
+   * Conserva ceros de burbuja (unpaid) al final; comprime el ladder pagado en el resto.
+   */
+  function alignPayoutsToStacks(payouts, nStacks) {
+    const n = Math.max(2, Math.round(Number(nStacks) || 2));
+    const raw = (payouts || []).map(function (x) { return Math.max(0, Number(x) || 0); });
+    if (!raw.length) {
+      const fallback = [0.5, 0.3, 0.2];
+      while (fallback.length < n) fallback.push(0);
+      return fallback.slice(0, n);
+    }
+    if (raw.length === n) return raw.slice();
+
+    const unpaid = raw.filter(function (p) { return !(p > 0); }).length;
+    const paid = raw.filter(function (p) { return p > 0; });
+    const keepUnpaid = Math.min(unpaid, Math.max(0, n - 2));
+    const paidSlots = n - keepUnpaid;
+
+    let compressed = [];
+    if (paid.length <= paidSlots) {
+      compressed = paid.slice();
+      while (compressed.length < paidSlots) {
+        // repartir masa ya normalizada: no inventar premios; pad 0 solo si hace falta
+        compressed.push(0);
+      }
+    } else {
+      // Conservar 1º y 2º; fusionar el resto del ladder pagado en los slots medios + último pagado.
+      compressed.push(paid[0] || 0);
+      if (paidSlots >= 2) compressed.push(paid[1] || 0);
+      const rest = paid.slice(2);
+      const restSum = rest.reduce(function (s, x) { return s + x; }, 0);
+      const midSlots = paidSlots - 2;
+      if (midSlots <= 0) {
+        // Solo 1–2 slots pagados: volcar resto en el último pagado disponible
+        if (compressed.length) compressed[compressed.length - 1] += restSum;
+      } else if (midSlots === 1) {
+        compressed.push(restSum);
+      } else {
+        // Distribuir resto en midSlots con pesos decrecientes
+        const weights = [];
+        for (let i = 0; i < midSlots; i++) weights.push(1 / Math.pow(i + 1, 0.9));
+        const wSum = weights.reduce(function (s, x) { return s + x; }, 0) || 1;
+        for (let i = 0; i < midSlots; i++) {
+          compressed.push(Math.round((restSum * weights[i] / wSum) * 1000) / 1000);
+        }
+      }
+    }
+
+    while (compressed.length < paidSlots) compressed.push(0);
+    compressed = compressed.slice(0, paidSlots);
+    for (let u = 0; u < keepUnpaid; u++) compressed.push(0);
+    while (compressed.length < n) compressed.push(0);
+    return compressed.slice(0, n);
   }
 
   function shouldApply(input) {
@@ -105,7 +229,7 @@
   function riskMultiplier(input) {
     if (!shouldApply(input)) return 1;
     const stacks = input.icmStacksBB || defaultStacks(input);
-    const payouts = resolvePayouts(input);
+    const payouts = alignPayoutsToStacks(resolvePayouts(input), stacks.length);
     const heroIdx = input.icmHeroIdx != null ? input.icmHeroIdx : 0;
     const villainIdx = input.icmVillainIdx != null ? input.icmVillainIdx : 1;
     const bf = bubbleFactor(stacks, heroIdx, villainIdx, payouts);
@@ -127,23 +251,60 @@
     return Math.round(base * riskMultiplier(input) * 100) / 100;
   }
 
+  function prizePoolEstimate(input) {
+    const bi = Number(input && input.buyIn);
+    const left = Number(input && input.playersLeft);
+    const paid = Number(input && input.placesPaid);
+    if (!(bi > 0)) return null;
+    // Aprox: pool ≈ buyIn × max(playersLeft, placesPaid) — lite pedagógico.
+    const n = Math.max(left || 0, paid || 0, 2);
+    return Math.round(bi * n * 100) / 100;
+  }
+
   function annotateDecision(decision, input) {
     if (!decision || !shouldApply(input)) return decision;
     const stacks = input.icmStacksBB || defaultStacks(input);
-    const payouts = resolvePayouts(input);
+    const payouts = alignPayoutsToStacks(resolvePayouts(input), stacks.length);
     const pressure = icmPressure(stacks, payouts);
     const heroIdx = input.icmHeroIdx != null ? input.icmHeroIdx : 0;
     const pHero = pressure ? (pressure[heroIdx] || 0) : 0;
     const bf = bubbleFactor(stacks, heroIdx, input.icmVillainIdx != null ? input.icmVillainIdx : 1, payouts);
+    const unpaid = payouts.filter(function (p) { return !(p > 0); }).length;
     decision.icmLite = true;
     decision.icmPressure = pHero;
     decision.bubbleFactor = bf;
-    decision.icmNote = pHero > 0.05
-      ? 'Tienes mucho que perder: prioriza el valor del premio (juega más tight; menos spew y calls ligeros).'
-      : (pHero < -0.05
-        ? 'Puedes aplicar presión: en fichas «pareces» peor de lo que vales en premio.'
-        : 'Presión moderada: fichas y premio van más o menos alineados.');
+    if (unpaid > 0 && pHero > 0.02) {
+      decision.icmNote = 'Burbuja / pay jump: hay puestos sin premio. Prioriza el valor del min-cash; menos spew y calls ligeros.';
+    } else if (pHero > 0.05) {
+      decision.icmNote = 'Tienes mucho que perder: prioriza el valor del premio (juega más tight; menos spew y calls ligeros).';
+    } else if (pHero < -0.05) {
+      decision.icmNote = 'Puedes aplicar presión: en fichas «pareces» peor de lo que vales en premio.';
+    } else {
+      decision.icmNote = 'Presión moderada: fichas y premio van más o menos alineados.';
+    }
+    const pool = prizePoolEstimate(input);
+    if (pool != null && input.buyIn != null) {
+      decision.icmBuyIn = Number(input.buyIn);
+      decision.icmPrizePoolEst = pool;
+    }
+    if (input.playersLeft != null) decision.icmPlayersLeft = Number(input.playersLeft);
+    if (input.placesPaid != null) decision.icmPlacesPaid = Number(input.placesPaid);
     return decision;
+  }
+
+  function collectSeedStacks(hand, heroBB, villainBB, heroSeat, villainSeat, tableMax) {
+    const stacks = [heroBB, villainBB];
+    if (hand && hand.stacks && tableMax >= 3) {
+      Object.keys(hand.stacks).forEach(function (k) {
+        if (k === 'hero' || k === 'villain' || k === heroSeat || k === villainSeat) return;
+        const bb = hand.stacks[k];
+        if (typeof bb === 'number' && bb > 0 && stacks.length < tableMax) stacks.push(bb);
+      });
+    }
+    while (stacks.length < Math.min(3, tableMax)) {
+      stacks.push(Math.max(8, Math.round((heroBB + villainBB) / 2)));
+    }
+    return stacks;
   }
 
   function contextForHand(hand, playConfig) {
@@ -166,25 +327,43 @@
         ? hand.stacks.villain
         : heroBB);
     const tableMax = hub === 'spin' ? 3 : (cfg.gameType === 'cash9' || cfg.gameType === 'mtt' ? 9 : 3);
-    const stacks = [heroBB, villainBB];
-    if (hand && hand.stacks && tableMax >= 3) {
-      Object.keys(hand.stacks).forEach(function (k) {
-        if (k === 'hero' || k === 'villain' || k === heroSeat || k === villainSeat) return;
-        const bb = hand.stacks[k];
-        if (typeof bb === 'number' && bb > 0 && stacks.length < tableMax) stacks.push(bb);
-      });
+    let seedStacks = collectSeedStacks(hand, heroBB, villainBB, heroSeat, villainSeat, tableMax);
+    let stacks = seedStacks;
+    let payouts;
+
+    if (hub === 'spin') {
+      payouts = (Taxo && Taxo.spinPayouts) ? Taxo.spinPayouts(cfg.spinPayout || '2x') : [0.65, 0.35, 0];
+    } else {
+      // MTT: síntesis de field si hay estructura
+      const playersLeft = cfg.playersLeft != null ? Number(cfg.playersLeft) : null;
+      if (playersLeft && playersLeft >= 2) {
+        stacks = synthesizeFieldStacks(seedStacks, playersLeft);
+      } else {
+        while (stacks.length < Math.min(3, tableMax)) {
+          stacks.push(Math.max(8, Math.round((heroBB + villainBB) / 2)));
+        }
+      }
+      if (Taxo && Taxo.hasMttStructure && Taxo.hasMttStructure(cfg) && Taxo.mttPayoutsForStructure) {
+        payouts = Taxo.mttPayoutsForStructure(cfg);
+      } else if (cfg.icmPayouts && cfg.icmPayouts.length) {
+        payouts = cfg.icmPayouts.slice();
+      } else {
+        payouts = [0.5, 0.3, 0.2];
+      }
+      payouts = alignPayoutsToStacks(payouts, stacks.length);
     }
-    while (stacks.length < Math.min(3, tableMax)) {
-      stacks.push(Math.max(8, Math.round((heroBB + villainBB) / 2)));
-    }
-    const payouts = hub === 'spin'
-      ? ((Taxo && Taxo.spinPayouts) ? Taxo.spinPayouts(cfg.spinPayout || '2x') : [0.65, 0.35, 0])
-      : [0.5, 0.3, 0.2];
+
     return {
       formatHub: hub,
       gameType: cfg.gameType,
       mttPhase: cfg.mttPhase,
       spinPayout: cfg.spinPayout || '2x',
+      buyIn: cfg.buyIn != null ? cfg.buyIn : null,
+      buyInFee: cfg.buyInFee != null ? cfg.buyInFee : null,
+      playersLeft: cfg.playersLeft != null ? cfg.playersLeft : null,
+      placesPaid: cfg.placesPaid != null ? cfg.placesPaid : null,
+      mttPayoutPreset: cfg.mttPayoutPreset || null,
+      mttStructureSituation: cfg.mttStructureSituation || null,
       icmEnabled: true,
       icmStacksBB: stacks,
       icmPayouts: payouts,
@@ -206,6 +385,9 @@
     annotateDecision: annotateDecision,
     shouldApply: shouldApply,
     contextForHand: contextForHand,
-    resolvePayouts: resolvePayouts
+    resolvePayouts: resolvePayouts,
+    synthesizeFieldStacks: synthesizeFieldStacks,
+    alignPayoutsToStacks: alignPayoutsToStacks,
+    prizePoolEstimate: prizePoolEstimate
   };
 })(typeof window !== 'undefined' ? window : globalThis);

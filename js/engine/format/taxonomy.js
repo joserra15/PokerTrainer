@@ -15,6 +15,20 @@
     '5x': [0.80, 0.20, 0]
   };
 
+  /** Situaciones de estructura MTT lite (buy-in + puestos / field). */
+  const MTT_STRUCTURE_SITUATIONS = ['auto', 'bubble', 'mincash', 'ft9', 'custom'];
+  const MTT_PAYOUT_PRESETS = ['standard', 'flat', 'topheavy', 'custom'];
+  /** Cap Harville lite: stacks explícitos; el resto del field se agrega en buckets. */
+  const MTT_ICM_STACK_CAP = 9;
+  const MTT_PLAYERS_LEFT_MAX = 50;
+
+  const MTT_STRUCTURE_DEFAULTS = {
+    bubble: { playersLeft: 13, placesPaid: 12, mttPayoutPreset: 'standard', buyIn: 11 },
+    mincash: { playersLeft: 12, placesPaid: 12, mttPayoutPreset: 'flat', buyIn: 11 },
+    ft9: { playersLeft: 9, placesPaid: 9, mttPayoutPreset: 'topheavy', buyIn: 11 },
+    custom: { playersLeft: 13, placesPaid: 12, mttPayoutPreset: 'standard', buyIn: 11 }
+  };
+
   const HUB_LABELS = { cash: 'Cash', spin: 'Spins', mtt: 'Torneos' };
   const INTENT_LABELS = {
     mixed: 'Value y mixed',
@@ -298,6 +312,116 @@
     return SPIN_PAYOUT_PRESETS[key].slice();
   }
 
+  function normalizeMttPayoutPreset(preset) {
+    return MTT_PAYOUT_PRESETS.indexOf(preset) >= 0 ? preset : 'standard';
+  }
+
+  function normalizeMttStructureSituation(situation) {
+    return MTT_STRUCTURE_SITUATIONS.indexOf(situation) >= 0 ? situation : null;
+  }
+
+  /**
+   * Ladder de fracciones (suma ~1) para placesPaid puestos.
+   * standard: min-cash bajo, top ~45%; flat: más igualitario; topheavy: FT.
+   */
+  function mttPayoutLadder(placesPaid, preset) {
+    const n = Math.max(1, Math.min(MTT_PLAYERS_LEFT_MAX, Math.round(Number(placesPaid) || 1)));
+    const kind = normalizeMttPayoutPreset(preset);
+    if (kind === 'custom') return null;
+    const weights = [];
+    for (let i = 0; i < n; i++) {
+      const rank = i + 1;
+      let w;
+      if (kind === 'flat') {
+        w = 1 / Math.pow(rank, 0.55);
+      } else if (kind === 'topheavy') {
+        w = 1 / Math.pow(rank, 1.45);
+      } else {
+        // standard
+        w = 1 / Math.pow(rank, 0.95);
+      }
+      weights.push(w);
+    }
+    const sum = weights.reduce(function (s, x) { return s + x; }, 0) || 1;
+    return weights.map(function (w) {
+      return Math.round((w / sum) * 1000) / 1000;
+    });
+  }
+
+  /**
+   * Vector de premios longitud playersLeft: placesPaid fracciones + ceros (burbuja).
+   * Si custom y hay mttPayouts, se usan (normalizados) y se rellenan ceros.
+   */
+  function mttPayoutsForStructure(config) {
+    const cfg = config || {};
+    let playersLeft = Math.round(Number(cfg.playersLeft) || 0);
+    let placesPaid = Math.round(Number(cfg.placesPaid) || 0);
+    if (playersLeft < 2) playersLeft = 2;
+    if (playersLeft > MTT_PLAYERS_LEFT_MAX) playersLeft = MTT_PLAYERS_LEFT_MAX;
+    if (placesPaid < 1) placesPaid = 1;
+    if (placesPaid > playersLeft) placesPaid = playersLeft;
+
+    const preset = normalizeMttPayoutPreset(cfg.mttPayoutPreset);
+    let paid;
+    if (preset === 'custom' && cfg.mttPayouts && cfg.mttPayouts.length) {
+      paid = cfg.mttPayouts.slice(0, placesPaid).map(function (x) {
+        return Math.max(0, Number(x) || 0);
+      });
+      while (paid.length < placesPaid) paid.push(0);
+      const sum = paid.reduce(function (s, x) { return s + x; }, 0);
+      if (sum > 0) {
+        paid = paid.map(function (x) { return Math.round((x / sum) * 1000) / 1000; });
+      } else {
+        paid = mttPayoutLadder(placesPaid, 'standard');
+      }
+    } else {
+      paid = mttPayoutLadder(placesPaid, preset === 'custom' ? 'standard' : preset);
+    }
+
+    const out = paid.slice();
+    while (out.length < playersLeft) out.push(0);
+    return out.slice(0, playersLeft);
+  }
+
+  function defaultMttStructureForPhase(phase) {
+    const p = normalizePhase(phase);
+    if (p === 'bubble') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.bubble, { mttStructureSituation: 'bubble' });
+    if (p === 'push' || p === 'short') {
+      return Object.assign({}, MTT_STRUCTURE_DEFAULTS.mincash, { mttStructureSituation: 'mincash' });
+    }
+    return null;
+  }
+
+  function structureFromSituation(situation, buyIn) {
+    const key = normalizeMttStructureSituation(situation);
+    if (!key || key === 'auto') return null;
+    const base = MTT_STRUCTURE_DEFAULTS[key] || MTT_STRUCTURE_DEFAULTS.bubble;
+    const out = Object.assign({ mttStructureSituation: key }, base);
+    if (buyIn != null && buyIn !== '' && !isNaN(Number(buyIn))) {
+      out.buyIn = Math.max(0, Number(buyIn));
+    }
+    return out;
+  }
+
+  /** true si la config MTT tiene estructura usable para ICM. */
+  function hasMttStructure(config) {
+    const cfg = config || {};
+    const left = Number(cfg.playersLeft);
+    const paid = Number(cfg.placesPaid);
+    return left >= 2 && paid >= 1;
+  }
+
+  /**
+   * Cerca de la burbuja: playersLeft <= placesPaid + 3 (o ya ITM con estructura).
+   * Permite ICM aunque la fase no sea bubble/short/push.
+   */
+  function mttStructureNearMoney(config) {
+    if (!hasMttStructure(config)) return false;
+    const left = Math.round(Number(config.playersLeft));
+    const paid = Math.round(Number(config.placesPaid));
+    return left <= paid + 3;
+  }
+
   function isTournamentHub(hub) {
     return hub === 'spin' || hub === 'mtt';
   }
@@ -307,7 +431,10 @@
     if (!isTournamentHub(hub)) return false;
     const phase = resolvePhase(Object.assign({}, config || {}, { formatHub: hub }));
     if (hub === 'spin') return true;
-    return phase === 'bubble' || phase === 'push' || phase === 'short';
+    if (phase === 'bubble' || phase === 'push' || phase === 'short') return true;
+    // Estructura MTT manda: burbuja/ITM numérica aunque la fase sea mid/early.
+    if (hub === 'mtt' && mttStructureNearMoney(config)) return true;
+    return false;
   }
 
   function spotTags(meta) {
@@ -335,6 +462,11 @@
     PRACTICE_INTENTS: PRACTICE_INTENTS,
     MTT_PHASES: MTT_PHASES,
     SPIN_PAYOUT_PRESETS: SPIN_PAYOUT_PRESETS,
+    MTT_STRUCTURE_SITUATIONS: MTT_STRUCTURE_SITUATIONS,
+    MTT_PAYOUT_PRESETS: MTT_PAYOUT_PRESETS,
+    MTT_ICM_STACK_CAP: MTT_ICM_STACK_CAP,
+    MTT_PLAYERS_LEFT_MAX: MTT_PLAYERS_LEFT_MAX,
+    MTT_STRUCTURE_DEFAULTS: MTT_STRUCTURE_DEFAULTS,
     HUB_LABELS: HUB_LABELS,
     INTENT_LABELS: INTENT_LABELS,
     PHASE_LABELS: PHASE_LABELS,
@@ -360,6 +492,14 @@
     defaultAnteBB: defaultAnteBB,
     blindStructureFor: blindStructureFor,
     spinPayouts: spinPayouts,
+    normalizeMttPayoutPreset: normalizeMttPayoutPreset,
+    normalizeMttStructureSituation: normalizeMttStructureSituation,
+    mttPayoutLadder: mttPayoutLadder,
+    mttPayoutsForStructure: mttPayoutsForStructure,
+    defaultMttStructureForPhase: defaultMttStructureForPhase,
+    structureFromSituation: structureFromSituation,
+    hasMttStructure: hasMttStructure,
+    mttStructureNearMoney: mttStructureNearMoney,
     isTournamentHub: isTournamentHub,
     usesIcm: usesIcm,
     spotTags: spotTags,

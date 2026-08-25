@@ -46,6 +46,13 @@
 - Capas `spinVs3bet` / `mttVs3bet` por stack y fase: flats tipo **99 OOP vs 3-bet** se aprietan en short/push/bubble (prioridad fold o jam), no se copian charts cash deep.
 - El selector de **fase** en Spin/MTT adapta opens, vs-RFI **y** vs 3-bet; la mezcla GTO de `vs3betStrategy` también se endurece con ICM/fase corta.
 
+### Extensión estructura MTT lite (buy-in / puestos)
+
+- Setup Torneos: situación **Según fase / Burbuja / Min-cash ITM / FT 9 / Personalizado** + buy-in €.
+- `playersLeft` / `placesPaid` + presets de ladder (`standard` / `flat` / `topheavy`) alimentan `icmPayouts`.
+- ICM lite sintetiza field (cap 9 + buckets); **no** es solver de FT multi-mesa / 100+.
+- HUD: chips `N left / K paid` · `BI €X` · `ICM lite`.
+
 ## Estado de Fases 0–2
 
 - Tapete con watermark “Modo entrenamiento”, badge CASH/SPIN/MTT y HUD de fase/stack/ante/ICM/payout.

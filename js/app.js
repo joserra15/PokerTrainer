@@ -270,10 +270,13 @@
     }
     const phaseGroup = $('#setup-group-phase');
     const payoutGroup = $('#setup-group-spin-payout');
+    const mttStructGroup = $('#setup-group-mtt-structure');
     const rakeGroup = $('#setup-rake-mode') && $('#setup-rake-mode').closest('.setup-group');
     if (phaseGroup) phaseGroup.hidden = h === 'cash';
     if (payoutGroup) payoutGroup.hidden = h !== 'spin';
+    if (mttStructGroup) mttStructGroup.hidden = h !== 'mtt';
     if (rakeGroup) rakeGroup.hidden = h !== 'cash';
+    if (h === 'mtt') syncMttStructureUI();
 
     $$('#setup-scenario .setup-chip').forEach((chip) => {
       const v = chip.dataset.val;
@@ -398,6 +401,102 @@
     wrap.hidden = !isMw;
   }
 
+  /** Muestra/oculta campos custom de estructura MTT y rellena defaults del preset. */
+  function syncMttStructureUI(opts) {
+    const group = $('#setup-group-mtt-structure');
+    if (!group || group.hidden) return;
+    const Tax = window.PTFormatTaxonomy;
+    const sitEl = $('#setup-mtt-structure .setup-chip.active');
+    const sit = sitEl ? sitEl.dataset.val : 'auto';
+    const isCustom = sit === 'custom';
+    const leftWrap = $('#setup-mtt-players-left-wrap');
+    const paidWrap = $('#setup-mtt-places-paid-wrap');
+    const presetBox = $('#setup-mtt-payout-preset');
+    if (leftWrap) leftWrap.hidden = !isCustom;
+    if (paidWrap) paidWrap.hidden = !isCustom;
+    if (presetBox) presetBox.hidden = !isCustom;
+
+    const fillDefaults = !(opts && opts.skipDefaults);
+    if (fillDefaults && Tax && Tax.structureFromSituation && sit !== 'auto' && sit !== 'custom') {
+      const biEl = $('#setup-mtt-buyin');
+      const biKeep = biEl && biEl.value !== '' ? Number(biEl.value) : undefined;
+      const def = Tax.structureFromSituation(sit, biKeep);
+      if (def) {
+        const leftEl = $('#setup-mtt-players-left');
+        const paidEl = $('#setup-mtt-places-paid');
+        if (leftEl && def.playersLeft != null) leftEl.value = String(def.playersLeft);
+        if (paidEl && def.placesPaid != null) paidEl.value = String(def.placesPaid);
+        if (biEl && def.buyIn != null && (biEl.value === '' || (opts && opts.forceBuyIn))) {
+          biEl.value = String(def.buyIn);
+        }
+        const preset = def.mttPayoutPreset || 'standard';
+        $$('#setup-mtt-payout-preset .setup-chip').forEach((c) => {
+          c.classList.toggle('active', c.dataset.val === preset);
+        });
+      }
+    }
+
+    const hint = $('#setup-mtt-structure-hint');
+    if (hint) {
+      if (sit === 'auto') {
+        hint.textContent = 'Según fase: en Burbuja/Short/Push se aplica estructura ICM lite automática. En Early/Mid no hay field de premios salvo que elijas un preset.';
+      } else if (sit === 'bubble') {
+        hint.textContent = 'Burbuja: más jugadores que puestos pagados (p. ej. 13 left / 12 paid). ICM lite de estructura — no solver de field completo.';
+      } else if (sit === 'mincash') {
+        hint.textContent = 'Ya ITM (min-cash): todos los restantes pagan; la presión viene de los pay jumps. Buy-in solo para contexto en €.';
+      } else if (sit === 'ft9') {
+        hint.textContent = 'Final table lite (9 left / 9 paid, ladder top-heavy). Mesa alineada al field ICM.';
+      } else {
+        hint.textContent = 'Personalizado: define jugadores left, puestos paid y curva de premios. El buy-in sirve para ver €; el ICM usa el ladder y los stacks.';
+      }
+    }
+  }
+
+  function readMttStructureFromSetup() {
+    const group = $('#setup-group-mtt-structure');
+    if (!group || group.hidden) {
+      return {
+        buyIn: null,
+        playersLeft: null,
+        placesPaid: null,
+        mttPayoutPreset: 'standard',
+        mttStructureSituation: null
+      };
+    }
+    const sitEl = $('#setup-mtt-structure .setup-chip.active');
+    const sit = sitEl ? sitEl.dataset.val : 'auto';
+    const biEl = $('#setup-mtt-buyin');
+    const leftEl = $('#setup-mtt-players-left');
+    const paidEl = $('#setup-mtt-places-paid');
+    const presetEl = $('#setup-mtt-payout-preset .setup-chip.active');
+    const buyIn = biEl && biEl.value !== '' ? Number(biEl.value) : null;
+    if (sit === 'auto') {
+      return {
+        mttStructureSituation: 'auto',
+        buyIn: buyIn,
+        playersLeft: null,
+        placesPaid: null,
+        mttPayoutPreset: null
+      };
+    }
+    if (sit !== 'custom') {
+      return {
+        mttStructureSituation: sit,
+        buyIn: buyIn,
+        playersLeft: null,
+        placesPaid: null,
+        mttPayoutPreset: null
+      };
+    }
+    return {
+      mttStructureSituation: 'custom',
+      buyIn: buyIn,
+      playersLeft: leftEl && leftEl.value !== '' ? Number(leftEl.value) : null,
+      placesPaid: paidEl && paidEl.value !== '' ? Number(paidEl.value) : null,
+      mttPayoutPreset: presetEl ? presetEl.dataset.val : 'standard'
+    };
+  }
+
   function readPlayConfig() {
     const PC = window.PTPlayConfig;
     if (!PC) return null;
@@ -445,6 +544,10 @@
     if (hub === 'spin') gameType = 'spin3';
     if (hub === 'mtt') gameType = 'mtt';
     if (hub === 'cash' && gameType !== 'cash6' && gameType !== 'cash9') gameType = 'cash6';
+    const mttStruct = hub === 'mtt' ? readMttStructureFromSetup() : {
+      buyIn: null, playersLeft: null, placesPaid: null,
+      mttPayoutPreset: 'standard', mttStructureSituation: null
+    };
     return PC.normalize({
       formatHub: hub,
       gameType: gameType,
@@ -458,6 +561,11 @@
       practiceIntent: 'mixed',
       mttPhase: phaseEl ? phaseEl.dataset.val : 'auto',
       spinPayout: payoutEl ? payoutEl.dataset.val : '2x',
+      buyIn: mttStruct.buyIn,
+      playersLeft: mttStruct.playersLeft,
+      placesPaid: mttStruct.placesPaid,
+      mttPayoutPreset: mttStruct.mttPayoutPreset,
+      mttStructureSituation: mttStruct.mttStructureSituation,
       anteBB: Tax && hub !== 'cash' ? null : 0,
       tableTheme: thEl ? thEl.dataset.val : loadTableTheme(),
       handsTarget: htEl ? Number(htEl.dataset.val) || 0 : 0,
@@ -618,11 +726,11 @@
       const icmOn = Tax && Tax.usesIcm ? Tax.usesIcm(cfg) : (hub === 'spin');
       if (icmOn) {
         chips.push({
-          text: 'ICM',
+          text: 'ICM lite',
           cls: 'is-icm',
           title: hub === 'spin'
             ? 'ICM activo: en Spins el premio no es proporcional a las fichas. Las decisiones se juzgan también en valor de premio ($EV), no solo en fichas.'
-            : 'ICM activo: en esta fase (short / push / burbuja) el premio importa más que las fichas. Spews y calls ligeros se penalizan más.'
+            : 'ICM lite de estructura: mesa + field agregado. No es un solver ICM de torneo completo. Spews y calls ligeros se penalizan más cerca del dinero.'
         });
       }
       if (hub === 'spin' && cfg.spinPayout) {
@@ -630,6 +738,20 @@
           text: 'Payout ' + String(cfg.spinPayout).toUpperCase(),
           cls: 'is-icm',
           title: 'Estructura de premios del Spin (reparto del buy-in). Afecta al ICM.'
+        });
+      }
+      if (hub === 'mtt' && cfg.playersLeft != null && cfg.placesPaid != null) {
+        chips.push({
+          text: cfg.playersLeft + ' left / ' + cfg.placesPaid + ' paid',
+          cls: 'is-icm',
+          title: 'Jugadores restantes / puestos premiados (estructura MTT lite para ICM).'
+        });
+      }
+      if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0) {
+        chips.push({
+          text: 'BI €' + cfg.buyIn,
+          cls: '',
+          title: 'Buy-in orientativo (contexto en €). El ICM usa fracciones del prize ladder, no el importe en sí.'
         });
       }
     }
@@ -973,6 +1095,16 @@
     syncPhaseStackUI(hub);
     activate('#setup-practice-intent', 'mixed');
     activate('#setup-spin-payout', cfg.spinPayout || '2x');
+    const sit = cfg.mttStructureSituation || 'auto';
+    activate('#setup-mtt-structure', sit);
+    if (cfg.mttPayoutPreset) activate('#setup-mtt-payout-preset', cfg.mttPayoutPreset);
+    const biEl = $('#setup-mtt-buyin');
+    if (biEl) biEl.value = cfg.buyIn != null ? String(cfg.buyIn) : '11';
+    const leftEl = $('#setup-mtt-players-left');
+    if (leftEl && cfg.playersLeft != null) leftEl.value = String(cfg.playersLeft);
+    const paidEl = $('#setup-mtt-places-paid');
+    if (paidEl && cfg.placesPaid != null) paidEl.value = String(cfg.placesPaid);
+    syncMttStructureUI({ skipDefaults: sit === 'custom' || sit === 'auto' });
     if (cfg.multiwayPotType) activate('#setup-multiway-pot-type', cfg.multiwayPotType);
     syncMultiwayTypeUI();
     renderHeroPosChips();
@@ -1108,6 +1240,7 @@
         });
       }
       syncPhaseStackUI(hub);
+      syncMttStructureUI({ skipDefaults: true });
     });
     bindChipGroup('#setup-open-size', markPresetCustom);
     bindChipGroup('#setup-play-preset', () => {
@@ -1133,6 +1266,18 @@
       hubBoxForPreset.addEventListener('click', () => markPresetCustom());
     }
     bindChipGroup('#setup-spin-payout');
+    bindChipGroup('#setup-mtt-structure', () => {
+      syncMttStructureUI();
+      markPresetCustom();
+    });
+    bindChipGroup('#setup-mtt-payout-preset', markPresetCustom);
+    ['setup-mtt-buyin', 'setup-mtt-players-left', 'setup-mtt-places-paid'].forEach((id) => {
+      const el = $('#' + id);
+      if (el) {
+        el.addEventListener('change', () => markPresetCustom());
+        el.addEventListener('input', () => markPresetCustom());
+      }
+    });
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
     bindChipGroup('#setup-practice-street');
@@ -4409,6 +4554,10 @@
       if (cfg.stackBB != null) parts.push(cfg.stackBB + 'bb');
       if (cfg.anteBB > 0) parts.push('ante ' + cfg.anteBB);
       if (hub === 'spin' && cfg.spinPayout) parts.push('payout ' + cfg.spinPayout);
+      if (hub === 'mtt' && cfg.playersLeft != null && cfg.placesPaid != null) {
+        parts.push(cfg.playersLeft + ' left / ' + cfg.placesPaid + ' paid');
+      }
+      if (hub === 'mtt' && cfg.buyIn != null) parts.push('BI €' + cfg.buyIn);
       if (cfg.preflopOpenSize) parts.push('open ' + cfg.preflopOpenSize + '×');
       if (cfg.villainLevel && cfg.villainLevel !== 'pro') {
         parts.push('rivales ' + cfg.villainLevel + ' (no es GTO puro del villano)');

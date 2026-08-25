@@ -215,7 +215,7 @@
         },
         {
           "title": "Honestidad del curso",
-          "body": "Aquí entrenamos principios de fases e ICM, no un solver de field de cientos de jugadores. Si entiendes el mapa mental, luego afinamos números; si no, las charts no te salvan."
+          "body": "Aquí entrenamos principios de fases e ICM lite de estructura (buy-in / puestos), no un solver de field de cientos de jugadores. Si entiendes el mapa mental, luego afinamos números; si no, las charts no te salvan."
         }
       ],
       "examples": [
@@ -752,7 +752,7 @@
         },
         {
           "title": "Honestidad",
-          "body": "Usamos principios ICM, no un cálculo exacto de field completo. Si internalizas \"cerca de premios, paga menos light\", ya evitas el leak más caro del módulo."
+          "body": "Usamos ICM lite de estructura (puestos premiados + stacks de mesa/field agregado), no un cálculo exacto de field completo. En el entrenador puedes fijar buy-in y left/paid. Si internalizas \"cerca de premios, paga menos light\", ya evitas el leak más caro del módulo."
         }
       ],
       "examples": [
@@ -845,7 +845,7 @@
         },
         {
           "title": "ICM en burbuja",
-          "body": "El ICM (valor en dinero real según payout) está en máximo dramático: un call malo te saca sin cobrar mientras otros entran ITM (in the money). Por eso los mids overfoldean vs bigs más que en chip EV."
+          "body": "El ICM (valor en dinero real según payout) está en máximo dramático: un call malo te saca sin cobrar mientras otros entran ITM (in the money). Por eso los mids overfoldean vs bigs más que en chip EV. En el entrenador, elige estructura «Burbuja» (p. ej. 13 left / 12 paid) para que el ICM lite use ese pay jump."
         },
         {
           "title": "Trampa de rol confuso",
