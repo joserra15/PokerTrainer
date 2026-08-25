@@ -390,6 +390,36 @@ assert.ok(spot.evaluation && spot.evaluation.class, 'spin evaluateSpot');
   assert.ok(ctx.icmPayouts && ctx.icmPayouts.length === ctx.icmStacksBB.length);
   assert.strictEqual(ctx.buyIn, 22);
   assert.strictEqual(ctx.playersLeft, 13);
+
+  const withEntries = PC.normalize({
+    formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb20',
+    mttPhase: 'bubble', mttStructureSituation: 'bubble',
+    buyIn: 10, entries: 200, playersLeft: 13, placesPaid: 12
+  });
+  assert.strictEqual(withEntries.entries, 200);
+  assert.strictEqual(Tax.estimatePrizePool(withEntries), 2000);
+  const prizes = Tax.estimatePlacePrizes(withEntries);
+  assert.ok(prizes && prizes.length >= 1 && prizes[0].amount > 0, 'premios estimados');
+  assert.ok(prizes[0].amount > prizes[prizes.length - 1].amount, '1º > min-cash');
+
+  const rank = Tax.heroStackRank([40, 55, 22, 30], 0);
+  assert.strictEqual(rank, 2, 'hero 40bb es #2 si hay un stack mayor');
+  assert.strictEqual(Tax.heroStackRank([90, 40, 30], 0), 1, 'chip leader = #1');
+
+  const RR = global.GTORangesRegistry;
+  if (RR) {
+    const base = RR.getVsRfiRow('BTN', 'UTG', { gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'mid' });
+    const icmRow = RR.getVsRfiRow('BTN', 'UTG', {
+      gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'mid',
+      icmEnabled: true, playersLeft: 13, placesPaid: 12
+    });
+    assert.ok(base && icmRow, 'vsRfi rows');
+    const lbl = RR.contextLabel({
+      gameType: 'mtt', stackDepth: 'bb25', mttPhase: 'bubble',
+      icmEnabled: true, playersLeft: 13, placesPaid: 12
+    });
+    assert.ok(/ICM/.test(lbl), 'contextLabel ICM: ' + lbl);
+  }
 }
 
 // UI markers
@@ -403,15 +433,20 @@ assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 assert.ok(indexHtml.includes('setup-group-mtt-structure'), 'MTT structure UI');
 assert.ok(indexHtml.includes('setup-mtt-buyin'), 'buy-in input');
-assert.ok(indexHtml.includes('data-val="bubble">Burbuja'), 'bubble structure chip');
+assert.ok(indexHtml.includes('setup-mtt-entries'), 'entries input');
+assert.ok(indexHtml.includes('session-config-modal'), 'session config modal');
+assert.ok(indexHtml.includes('ranges-icm-enabled'), 'ranges ICM toggle');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2.7.30'/.test(version), 'version 2.7.30');
+assert.ok(/PT_BUILD\s*=\s*'2.7.31'/.test(version), 'version 2.7.31');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');
 assert.ok(appJs.includes('syncMttStructureUI'), 'sync MTT structure');
 assert.ok(appJs.includes('ICM lite'), 'HUD ICM lite label');
+assert.ok(appJs.includes('pickPrimaryHudChips'), 'HUD compacto 2 chips');
+assert.ok(appJs.includes('openSessionConfigModal'), 'modal info sesión');
+assert.ok(appJs.includes('syncRangesIcmFieldsUI'), 'ranges ICM UI');
 
 // 9-max: asientos equiespaciados (sin cluster CO/BTN arriba-derecha)
 {

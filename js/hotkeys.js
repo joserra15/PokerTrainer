@@ -17,7 +17,7 @@
 
   function anyModalOpen() {
     return !!document.querySelector(
-      ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #range-cell-modal:not(.hidden), #modal:not(.hidden), #age-gate-modal:not(.hidden), #contact-pending-modal:not(.hidden)"
+      ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #range-cell-modal:not(.hidden), #modal:not(.hidden), #session-config-modal:not(.hidden), #age-gate-modal:not(.hidden), #contact-pending-modal:not(.hidden)"
     );
   }
 
@@ -207,11 +207,19 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (isTypingTarget(e.target)) return;
     if (anyModalOpen()) {
-      if (e.key === "Escape" && typeof g.PTHelp === "object" && typeof g.PTHelp.close === "function") {
-        const hm = document.getElementById("help-modal");
-        if (hm && !hm.classList.contains("hidden")) {
+      if (e.key === "Escape") {
+        const scm = document.getElementById("session-config-modal");
+        if (scm && !scm.classList.contains("hidden")) {
           e.preventDefault();
-          g.PTHelp.close();
+          scm.classList.add("hidden");
+          return;
+        }
+        if (typeof g.PTHelp === "object" && typeof g.PTHelp.close === "function") {
+          const hm = document.getElementById("help-modal");
+          if (hm && !hm.classList.contains("hidden")) {
+            e.preventDefault();
+            g.PTHelp.close();
+          }
         }
       }
       return;

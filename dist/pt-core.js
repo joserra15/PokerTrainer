@@ -281,10 +281,10 @@
   const MTT_PLAYERS_LEFT_MAX = 50;
 
   const MTT_STRUCTURE_DEFAULTS = {
-    bubble: { playersLeft: 13, placesPaid: 12, mttPayoutPreset: 'standard', buyIn: 11 },
-    mincash: { playersLeft: 12, placesPaid: 12, mttPayoutPreset: 'flat', buyIn: 11 },
-    ft9: { playersLeft: 9, placesPaid: 9, mttPayoutPreset: 'topheavy', buyIn: 11 },
-    custom: { playersLeft: 13, placesPaid: 12, mttPayoutPreset: 'standard', buyIn: 11 }
+    bubble: { playersLeft: 13, placesPaid: 12, entries: 100, mttPayoutPreset: 'standard', buyIn: 11 },
+    mincash: { playersLeft: 12, placesPaid: 12, entries: 100, mttPayoutPreset: 'flat', buyIn: 11 },
+    ft9: { playersLeft: 9, placesPaid: 9, entries: 100, mttPayoutPreset: 'topheavy', buyIn: 11 },
+    custom: { playersLeft: 13, placesPaid: 12, entries: 100, mttPayoutPreset: 'standard', buyIn: 11 }
   };
 
   const HUB_LABELS = { cash: 'Cash', spin: 'Spins', mtt: 'Torneos' };
@@ -680,6 +680,41 @@
     return left <= paid + 3;
   }
 
+  /** Prize pool orientativo: buyIn × entries (o × placesPaid si no hay entries). */
+  function estimatePrizePool(config) {
+    const bi = Number(config && config.buyIn);
+    if (!(bi > 0)) return null;
+    const entries = Number(config && config.entries);
+    const paid = Number(config && config.placesPaid);
+    const n = (entries > 0) ? entries : (paid > 0 ? paid : 0);
+    if (!(n > 0)) return null;
+    return Math.round(bi * n * 100) / 100;
+  }
+
+  /** Premios € por puesto según ladder de fracciones × prize pool. */
+  function estimatePlacePrizes(config) {
+    const pool = estimatePrizePool(config);
+    if (pool == null || !hasMttStructure(config)) return null;
+    const fracs = mttPayoutsForStructure(config).filter(function (p) { return p > 0; });
+    return fracs.map(function (f, i) {
+      return { place: i + 1, amount: Math.round(pool * f * 100) / 100, frac: f };
+    });
+  }
+
+  /** Rango del héroe por stack (1 = chip leader). stacks[heroIdx] vs resto. */
+  function heroStackRank(stacks, heroIdx) {
+    const idx = heroIdx != null ? heroIdx : 0;
+    const list = stacks || [];
+    if (!list.length) return null;
+    const hero = Math.max(0, Number(list[idx]) || 0);
+    let better = 0;
+    for (let i = 0; i < list.length; i++) {
+      if (i === idx) continue;
+      if (Math.max(0, Number(list[i]) || 0) > hero) better++;
+    }
+    return better + 1;
+  }
+
   function isTournamentHub(hub) {
     return hub === 'spin' || hub === 'mtt';
   }
@@ -758,6 +793,9 @@
     structureFromSituation: structureFromSituation,
     hasMttStructure: hasMttStructure,
     mttStructureNearMoney: mttStructureNearMoney,
+    estimatePrizePool: estimatePrizePool,
+    estimatePlacePrizes: estimatePlacePrizes,
+    heroStackRank: heroStackRank,
     isTournamentHub: isTournamentHub,
     usesIcm: usesIcm,
     spotTags: spotTags,
@@ -4727,7 +4765,13 @@ window.PT_NASH_PUSH_JSON = {
       effectivePhase: effectivePhase,
       villainLevel: c.villainLevel || 'pro',
       scenario: c.scenario || null,
-      practiceIntent: c.practiceIntent || 'mixed'
+      practiceIntent: c.practiceIntent || 'mixed',
+      icmEnabled: !!c.icmEnabled,
+      playersLeft: c.playersLeft != null ? Number(c.playersLeft) : null,
+      placesPaid: c.placesPaid != null ? Number(c.placesPaid) : null,
+      entries: c.entries != null ? Number(c.entries) : null,
+      buyIn: c.buyIn != null ? Number(c.buyIn) : null,
+      mttStructureSituation: c.mttStructureSituation || null
     };
   }
 
@@ -4963,7 +5007,13 @@ window.PT_NASH_PUSH_JSON = {
   /** Ajusta defensa vs RFI según fase (bubble/push más tight; early más amplia). */
   function applyPhaseToVsRfi(row, c) {
     if (!row || !c || !c.isTournament) return row;
-    const phase = c.effectivePhase || 'early';
+    let phase = c.effectivePhase || 'early';
+    // ICM de estructura en explorador: tratar como burbuja si hay presión near-money.
+    if (c.icmEnabled && c.isMtt) {
+      const Tax = global.PTFormatTaxonomy;
+      if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney(c)) phase = 'bubble';
+      else if (phase === 'early' || phase === 'mid') phase = 'short';
+    }
     const out = cloneRow(row);
     if (phase === 'push' || phase === 'bubble') {
       out.threeBetMix = trimField(out.threeBetMix || '', 'A9o-A2o, KJo, QJo, T9o, 98o, 22, 33, 44');
@@ -5064,7 +5114,12 @@ window.PT_NASH_PUSH_JSON = {
    */
   function applyPhaseToVs3bet(row, c, openerPos, threeBettorPos) {
     if (!row || !c || !c.isTournament) return row;
-    const phase = c.effectivePhase || 'early';
+    let phase = c.effectivePhase || 'early';
+    if (c.icmEnabled && c.isMtt) {
+      const Tax = global.PTFormatTaxonomy;
+      if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney(c)) phase = 'bubble';
+      else if (phase === 'early' || phase === 'mid') phase = 'short';
+    }
     const bb = c.stackBB || 100;
     if (phase === 'early' && bb >= 40) return row;
 
@@ -5256,6 +5311,15 @@ window.PT_NASH_PUSH_JSON = {
       } else {
         label += ' · Auto';
       }
+      if (c.icmEnabled && c.isMtt) {
+        const left = Number(c.playersLeft);
+        const paid = Number(c.placesPaid);
+        if (Number.isFinite(left) && left > 0 && Number.isFinite(paid) && paid > 0) {
+          label += ' · ICM ' + Math.round(left) + '/' + Math.round(paid);
+        } else {
+          label += ' · ICM';
+        }
+      }
     }
     return label;
   }
@@ -5301,6 +5365,12 @@ window.PT_NASH_PUSH_JSON = {
     input.stackDepth = c.stackBB;
     input.mttPhase = c.mttPhase;
     input.resolvedPhase = c.effectivePhase;
+    input.icmEnabled = !!c.icmEnabled;
+    if (c.playersLeft != null) input.playersLeft = c.playersLeft;
+    if (c.placesPaid != null) input.placesPaid = c.placesPaid;
+    if (c.entries != null) input.entries = c.entries;
+    if (c.buyIn != null) input.buyIn = c.buyIn;
+    if (c.mttStructureSituation) input.mttStructureSituation = c.mttStructureSituation;
     input.rangeContext = c;
     return input;
   }
@@ -10728,12 +10798,17 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function prizePoolEstimate(input) {
+    const Taxo = Tax();
+    if (Taxo && Taxo.estimatePrizePool) {
+      const pool = Taxo.estimatePrizePool(input);
+      if (pool != null) return pool;
+    }
     const bi = Number(input && input.buyIn);
     const left = Number(input && input.playersLeft);
     const paid = Number(input && input.placesPaid);
+    const entries = Number(input && input.entries);
     if (!(bi > 0)) return null;
-    // Aprox: pool ≈ buyIn × max(playersLeft, placesPaid) — lite pedagógico.
-    const n = Math.max(left || 0, paid || 0, 2);
+    const n = Math.max(entries || 0, left || 0, paid || 0, 2);
     return Math.round(bi * n * 100) / 100;
   }
 
@@ -13695,6 +13770,8 @@ window.PT_NASH_PUSH_JSON = {
     playersLeft: null,
     /** Puestos que pagan */
     placesPaid: null,
+    /** Entradas / field total (prize pool ≈ buyIn × entries) */
+    entries: null,
     /** standard | flat | topheavy | custom */
     mttPayoutPreset: 'standard',
     /** Fracciones custom (si mttPayoutPreset=custom); también se materializa icmPayouts */
@@ -13835,6 +13912,7 @@ window.PT_NASH_PUSH_JSON = {
       c.buyInFee = null;
       c.playersLeft = null;
       c.placesPaid = null;
+      c.entries = null;
       c.mttPayouts = null;
       c.mttPayoutPreset = 'standard';
       c.mttStructureSituation = null;
@@ -13889,6 +13967,7 @@ window.PT_NASH_PUSH_JSON = {
           } else {
             c.playersLeft = null;
             c.placesPaid = null;
+            c.entries = null;
             c.mttPayouts = null;
             // Sin estructura de fase: no arrastrar buy-in del input por defecto.
             c.buyIn = null;
@@ -13914,12 +13993,20 @@ window.PT_NASH_PUSH_JSON = {
       var maxLeft = Tax.MTT_PLAYERS_LEFT_MAX || 50;
       var left = c.playersLeft != null && c.playersLeft !== '' ? Math.round(Number(c.playersLeft)) : null;
       var paid = c.placesPaid != null && c.placesPaid !== '' ? Math.round(Number(c.placesPaid)) : null;
+      var entries = c.entries != null && c.entries !== '' ? Math.round(Number(c.entries)) : null;
       if (left != null && (!isFinite(left) || left < 2)) left = 2;
       if (left != null && left > maxLeft) left = maxLeft;
       if (paid != null && (!isFinite(paid) || paid < 1)) paid = 1;
-      if (left != null && paid != null && paid > left) paid = left;
+      if (paid != null && paid > 500) paid = 500;
+      // ICM field: no más pagados que remaining; el ladder de premio puede usar paid crudo vía entries.
+      var paidForIcm = paid;
+      if (left != null && paidForIcm != null && paidForIcm > left) paidForIcm = left;
+      if (entries != null && (!isFinite(entries) || entries < 2)) entries = 2;
+      if (entries != null && entries > 5000) entries = 5000;
+      if (entries == null && paid != null) entries = Math.max(paid, left || paid);
       c.playersLeft = left;
       c.placesPaid = paid;
+      c.entries = entries;
 
       var bi = c.buyIn != null && c.buyIn !== '' ? Number(c.buyIn) : null;
       if (bi != null && (!isFinite(bi) || bi < 0)) bi = null;
@@ -13935,11 +14022,18 @@ window.PT_NASH_PUSH_JSON = {
         c.mttPayouts = null;
       }
 
-      if (left != null && paid != null && Tax.mttPayoutsForStructure) {
-        c.icmPayouts = Tax.mttPayoutsForStructure(c);
+      if (left != null && paidForIcm != null && Tax.mttPayoutsForStructure) {
+        c.icmPayouts = Tax.mttPayoutsForStructure({
+          playersLeft: left,
+          placesPaid: paidForIcm,
+          mttPayoutPreset: c.mttPayoutPreset,
+          mttPayouts: c.mttPayouts
+        });
       } else {
         c.icmPayouts = null;
       }
+      if (Tax.estimatePrizePool) c.prizePoolEst = Tax.estimatePrizePool(c);
+      else c.prizePoolEst = null;
     }
 
     if (c.anteBB == null || c.anteBB === '') {
@@ -26787,7 +26881,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function anyModalOpen() {
     return !!document.querySelector(
-      ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #range-cell-modal:not(.hidden), #modal:not(.hidden), #age-gate-modal:not(.hidden), #contact-pending-modal:not(.hidden)"
+      ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #range-cell-modal:not(.hidden), #modal:not(.hidden), #session-config-modal:not(.hidden), #age-gate-modal:not(.hidden), #contact-pending-modal:not(.hidden)"
     );
   }
 
@@ -26977,11 +27071,19 @@ window.PT_NASH_PUSH_JSON = {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (isTypingTarget(e.target)) return;
     if (anyModalOpen()) {
-      if (e.key === "Escape" && typeof g.PTHelp === "object" && typeof g.PTHelp.close === "function") {
-        const hm = document.getElementById("help-modal");
-        if (hm && !hm.classList.contains("hidden")) {
+      if (e.key === "Escape") {
+        const scm = document.getElementById("session-config-modal");
+        if (scm && !scm.classList.contains("hidden")) {
           e.preventDefault();
-          g.PTHelp.close();
+          scm.classList.add("hidden");
+          return;
+        }
+        if (typeof g.PTHelp === "object" && typeof g.PTHelp.close === "function") {
+          const hm = document.getElementById("help-modal");
+          if (hm && !hm.classList.contains("hidden")) {
+            e.preventDefault();
+            g.PTHelp.close();
+          }
         }
       }
       return;
@@ -31311,19 +31413,24 @@ window.PT_NASH_PUSH_JSON = {
     wrap.hidden = !isMw;
   }
 
-  /** Muestra/oculta campos custom de estructura MTT y rellena defaults del preset. */
+  /** Muestra/oculta campos de estructura MTT y rellena defaults del preset. */
   function syncMttStructureUI(opts) {
     const group = $('#setup-group-mtt-structure');
     if (!group || group.hidden) return;
     const Tax = window.PTFormatTaxonomy;
     const sitEl = $('#setup-mtt-structure .setup-chip.active');
     const sit = sitEl ? sitEl.dataset.val : 'auto';
+    const isAuto = sit === 'auto';
     const isCustom = sit === 'custom';
+    // Quedan/pagan: al elegir burbuja/ITM/FT/custom. Entradas: siempre (premio ≈ BI × entradas).
+    const showIcmFields = !isAuto;
+    const entriesWrap = $('#setup-mtt-entries-wrap');
     const leftWrap = $('#setup-mtt-players-left-wrap');
     const paidWrap = $('#setup-mtt-places-paid-wrap');
     const presetBox = $('#setup-mtt-payout-preset');
-    if (leftWrap) leftWrap.hidden = !isCustom;
-    if (paidWrap) paidWrap.hidden = !isCustom;
+    if (entriesWrap) entriesWrap.hidden = false;
+    if (leftWrap) leftWrap.hidden = !showIcmFields;
+    if (paidWrap) paidWrap.hidden = !showIcmFields;
     if (presetBox) presetBox.hidden = !isCustom;
 
     const fillDefaults = !(opts && opts.skipDefaults);
@@ -31334,8 +31441,10 @@ window.PT_NASH_PUSH_JSON = {
       if (def) {
         const leftEl = $('#setup-mtt-players-left');
         const paidEl = $('#setup-mtt-places-paid');
+        const entriesEl = $('#setup-mtt-entries');
         if (leftEl && def.playersLeft != null) leftEl.value = String(def.playersLeft);
         if (paidEl && def.placesPaid != null) paidEl.value = String(def.placesPaid);
+        if (entriesEl && def.entries != null) entriesEl.value = String(def.entries);
         if (biEl && def.buyIn != null && (biEl.value === '' || (opts && opts.forceBuyIn))) {
           biEl.value = String(def.buyIn);
         }
@@ -31349,17 +31458,46 @@ window.PT_NASH_PUSH_JSON = {
     const hint = $('#setup-mtt-structure-hint');
     if (hint) {
       if (sit === 'auto') {
-        hint.textContent = 'Según fase: en Burbuja/Short/Push se aplica estructura ICM lite automática. En Early/Mid no hay field de premios salvo que elijas un preset.';
+        hint.textContent = 'Según fase: en Burbuja/Short/Push se aplica ICM lite. Puedes fijar entradas/pagan para estimar el prize pool (buy-in × entradas) sin forzar burbuja.';
       } else if (sit === 'bubble') {
-        hint.textContent = 'Burbuja: más jugadores que puestos pagados (p. ej. 13 left / 12 paid). ICM lite de estructura — no solver de field completo.';
+        hint.textContent = 'Burbuja: ajusta quedan/pagan y entradas. Prize pool ≈ buy-in × entradas.';
       } else if (sit === 'mincash') {
-        hint.textContent = 'Ya ITM (min-cash): todos los restantes pagan; la presión viene de los pay jumps. Buy-in solo para contexto en €.';
+        hint.textContent = 'ITM: todos los remaining pagan; edita «pagan» y entradas para simular el prize pool.';
       } else if (sit === 'ft9') {
-        hint.textContent = 'Final table lite (9 left / 9 paid, ladder top-heavy). Mesa alineada al field ICM.';
+        hint.textContent = 'Final table lite: 9 left. Edita buy-in/entradas/pagan para estimar premios.';
       } else {
-        hint.textContent = 'Personalizado: define jugadores left, puestos paid y curva de premios. El buy-in sirve para ver €; el ICM usa el ladder y los stacks.';
+        hint.textContent = 'Personalizado: entradas, quedan, pagan y curva. Buy-in × entradas ≈ prize pool.';
       }
     }
+    updateMttPrizeHint();
+  }
+
+  function updateMttPrizeHint() {
+    const el = $('#setup-mtt-prize-hint');
+    if (!el) return;
+    const Tax = window.PTFormatTaxonomy;
+    const bi = Number(($('#setup-mtt-buyin') || {}).value);
+    const entries = Number(($('#setup-mtt-entries') || {}).value);
+    const paid = Number(($('#setup-mtt-places-paid') || {}).value);
+    const left = Number(($('#setup-mtt-players-left') || {}).value);
+    const cfg = {
+      buyIn: bi > 0 ? bi : null,
+      entries: entries > 0 ? entries : null,
+      placesPaid: paid > 0 ? paid : null,
+      playersLeft: left > 0 ? left : null,
+      mttPayoutPreset: (($('#setup-mtt-payout-preset .setup-chip.active') || {}).dataset || {}).val || 'standard'
+    };
+    const pool = Tax && Tax.estimatePrizePool ? Tax.estimatePrizePool(cfg) : null;
+    const prizes = Tax && Tax.estimatePlacePrizes ? Tax.estimatePlacePrizes(cfg) : null;
+    if (pool == null) {
+      el.hidden = true;
+      return;
+    }
+    let txt = 'Prize pool est. €' + pool;
+    if (prizes && prizes[0]) txt += ' · 1º ≈ €' + prizes[0].amount;
+    if (prizes && prizes.length > 1) txt += ' · min-cash ≈ €' + prizes[prizes.length - 1].amount;
+    el.textContent = txt;
+    el.hidden = false;
   }
 
   function readMttStructureFromSetup() {
@@ -31369,6 +31507,7 @@ window.PT_NASH_PUSH_JSON = {
         buyIn: null,
         playersLeft: null,
         placesPaid: null,
+        entries: null,
         mttPayoutPreset: 'standard',
         mttStructureSituation: null
       };
@@ -31378,32 +31517,36 @@ window.PT_NASH_PUSH_JSON = {
     const biEl = $('#setup-mtt-buyin');
     const leftEl = $('#setup-mtt-players-left');
     const paidEl = $('#setup-mtt-places-paid');
+    const entriesEl = $('#setup-mtt-entries');
     const presetEl = $('#setup-mtt-payout-preset .setup-chip.active');
     const buyIn = biEl && biEl.value !== '' ? Number(biEl.value) : null;
+    const left = leftEl && leftEl.value !== '' ? Number(leftEl.value) : null;
+    const paid = paidEl && paidEl.value !== '' ? Number(paidEl.value) : null;
+    const entries = entriesEl && entriesEl.value !== '' ? Number(entriesEl.value) : null;
     if (sit === 'auto') {
+      // Auto: no forzar ICM con defaults del form (left/paid). Entradas sí para prize hint;
+      // BI lo resuelve play-config según fase (mid/early sin estructura → sin BI en HUD).
       return {
         mttStructureSituation: 'auto',
-        buyIn: buyIn,
+        buyIn: null,
         playersLeft: null,
         placesPaid: null,
+        entries: entries,
         mttPayoutPreset: null
       };
     }
-    if (sit !== 'custom') {
-      return {
-        mttStructureSituation: sit,
-        buyIn: buyIn,
-        playersLeft: null,
-        placesPaid: null,
-        mttPayoutPreset: null
-      };
-    }
+    // Presets y custom: leer campos editables (pagan/quedan/entradas).
     return {
-      mttStructureSituation: 'custom',
+      mttStructureSituation: sit,
       buyIn: buyIn,
-      playersLeft: leftEl && leftEl.value !== '' ? Number(leftEl.value) : null,
-      placesPaid: paidEl && paidEl.value !== '' ? Number(paidEl.value) : null,
-      mttPayoutPreset: presetEl ? presetEl.dataset.val : 'standard'
+      playersLeft: left,
+      placesPaid: paid,
+      entries: entries,
+      mttPayoutPreset: sit === 'custom'
+        ? (presetEl ? presetEl.dataset.val : 'standard')
+        : ((window.PTFormatTaxonomy && window.PTFormatTaxonomy.MTT_STRUCTURE_DEFAULTS
+          && window.PTFormatTaxonomy.MTT_STRUCTURE_DEFAULTS[sit]
+          && window.PTFormatTaxonomy.MTT_STRUCTURE_DEFAULTS[sit].mttPayoutPreset) || 'standard')
     };
   }
 
@@ -31463,7 +31606,7 @@ window.PT_NASH_PUSH_JSON = {
     if (hub === 'mtt') gameType = 'mtt';
     if (hub === 'cash' && gameType !== 'cash6' && gameType !== 'cash9') gameType = 'cash6';
     const mttStruct = hub === 'mtt' ? readMttStructureFromSetup() : {
-      buyIn: null, playersLeft: null, placesPaid: null,
+      buyIn: null, playersLeft: null, placesPaid: null, entries: null,
       mttPayoutPreset: 'standard', mttStructureSituation: null
     };
     return PC.normalize({
@@ -31482,6 +31625,7 @@ window.PT_NASH_PUSH_JSON = {
       buyIn: mttStruct.buyIn,
       playersLeft: mttStruct.playersLeft,
       placesPaid: mttStruct.placesPaid,
+      entries: mttStruct.entries,
       mttPayoutPreset: mttStruct.mttPayoutPreset,
       mttStructureSituation: mttStruct.mttStructureSituation,
       anteBB: Tax && hub !== 'cash' ? null : 0,
@@ -31608,7 +31752,78 @@ window.PT_NASH_PUSH_JSON = {
     return map[phase] || phase || '';
   }
 
-  function buildTrainHudChips(cfg) {
+  /** Lista completa de filas de config (modal info). */
+  function buildSessionConfigRows(cfg, hand) {
+    if (!cfg) return [];
+    const hub = formatHubOfConfig(cfg);
+    const Tax = window.PTFormatTaxonomy;
+    const rows = [];
+    const hubLabels = { cash: 'Cash', spin: 'Spins', mtt: 'Torneos' };
+    rows.push({ label: 'Formato', value: hubLabels[hub] || hub });
+    const stackBB = cfg.stackBB != null ? cfg.stackBB : (window.PTPlayConfig && PTPlayConfig.stackBB ? PTPlayConfig.stackBB(cfg) : null);
+    if (stackBB != null) rows.push({ label: 'Stack', value: stackBB + ' bb' });
+    if (hub !== 'cash') {
+      const resolved = cfg.resolvedPhase || cfg.mttPhase || 'auto';
+      const phaseTxt = phaseLabelForHud(resolved);
+      const autoNote = (cfg.mttPhase === 'auto' || !cfg.mttPhase) ? ' (auto)' : '';
+      rows.push({ label: 'Fase', value: phaseTxt + autoNote });
+      const blinds = cfg.blindStructure || (Tax && Tax.blindStructureFor ? Tax.blindStructureFor(cfg) : null);
+      if (blinds && blinds.label) rows.push({ label: 'Blinds', value: blinds.label });
+      if (blinds && blinds.anteLabel) rows.push({ label: 'Ante', value: blinds.anteLabel });
+      else if (cfg.anteBB > 0) rows.push({ label: 'Ante', value: cfg.anteBB + ' bb' });
+      const icmOn = Tax && Tax.usesIcm ? Tax.usesIcm(cfg) : (hub === 'spin');
+      if (icmOn) rows.push({ label: 'ICM', value: 'Lite (estructura)' });
+      if (hub === 'spin' && cfg.spinPayout) {
+        rows.push({ label: 'Payout', value: String(cfg.spinPayout).toUpperCase() });
+      }
+      if (hub === 'mtt' && cfg.playersLeft != null && cfg.placesPaid != null) {
+        rows.push({ label: 'Quedan / pagan', value: cfg.playersLeft + ' left / ' + cfg.placesPaid + ' paid' });
+      }
+      if (hub === 'mtt' && cfg.entries != null) {
+        rows.push({ label: 'Entradas', value: String(cfg.entries) });
+      }
+      if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0) {
+        rows.push({ label: 'Buy-in', value: '€' + cfg.buyIn });
+      }
+      const pool = (Tax && Tax.estimatePrizePool) ? Tax.estimatePrizePool(cfg) : cfg.prizePoolEst;
+      if (pool != null) rows.push({ label: 'Prize pool (est.)', value: '€' + pool });
+      const prizes = Tax && Tax.estimatePlacePrizes ? Tax.estimatePlacePrizes(cfg) : null;
+      if (prizes && prizes.length) {
+        const top = prizes.slice(0, 3).map(function (p) {
+          return p.place + 'º €' + p.amount;
+        }).join(' · ');
+        rows.push({ label: 'Top premios', value: top });
+      }
+      const rank = resolveHeroFieldRank(cfg, hand);
+      if (rank != null) {
+        rows.push({ label: 'Tu puesto (por stack)', value: '#' + rank + ' / ' + (cfg.playersLeft || '?') });
+      }
+    }
+    if (cfg.preflopOpenSize) rows.push({ label: 'Open', value: cfg.preflopOpenSize + '×' });
+    if (hub === 'cash' && cfg.rakeMode && cfg.rakeMode !== 'none') {
+      rows.push({ label: 'Rake', value: cfg.rakeMode === 'standard' ? 'Standard' : (cfg.rakePct + '% / ' + cfg.rakeCapBB + 'bb') });
+    }
+    return rows;
+  }
+
+  function resolveHeroFieldRank(cfg, hand) {
+    const Tax = window.PTFormatTaxonomy;
+    if (!Tax || !Tax.heroStackRank) return cfg && cfg.heroFieldRank != null ? cfg.heroFieldRank : null;
+    const Icm = window.GTOIcmEv;
+    if (hand && Icm && Icm.contextForHand) {
+      const ctx = Icm.contextForHand(hand, cfg || hand.playConfig);
+      if (ctx && ctx.icmStacksBB && ctx.icmStacksBB.length) {
+        return Tax.heroStackRank(ctx.icmStacksBB, ctx.icmHeroIdx != null ? ctx.icmHeroIdx : 0);
+      }
+    }
+    if (cfg && cfg.icmStacksBB && cfg.icmStacksBB.length) {
+      return Tax.heroStackRank(cfg.icmStacksBB, 0);
+    }
+    return null;
+  }
+
+  /** Todos los chips (legado / detalle). */
+  function buildTrainHudChips(cfg, hand) {
     if (!cfg) return [];
     const hub = formatHubOfConfig(cfg);
     const chips = [];
@@ -31636,75 +31851,164 @@ window.PT_NASH_PUSH_JSON = {
         });
       }
       if (blinds && blinds.anteLabel) {
-        chips.push({
-          text: blinds.anteLabel,
-          cls: '',
-          title: 'Ante como % de la ciega grande del entrenador (1 bb)'
-        });
+        chips.push({ text: blinds.anteLabel, cls: '' });
       }
       const icmOn = Tax && Tax.usesIcm ? Tax.usesIcm(cfg) : (hub === 'spin');
       if (icmOn) {
-        chips.push({
-          text: 'ICM lite',
-          cls: 'is-icm',
-          title: hub === 'spin'
-            ? 'ICM activo: en Spins el premio no es proporcional a las fichas. Las decisiones se juzgan también en valor de premio ($EV), no solo en fichas.'
-            : 'ICM lite de estructura: mesa + field agregado. No es un solver ICM de torneo completo. Spews y calls ligeros se penalizan más cerca del dinero.'
-        });
+        chips.push({ text: 'ICM lite', cls: 'is-icm' });
       }
       if (hub === 'spin' && cfg.spinPayout) {
-        chips.push({
-          text: 'Payout ' + String(cfg.spinPayout).toUpperCase(),
-          cls: 'is-icm',
-          title: 'Estructura de premios del Spin (reparto del buy-in). Afecta al ICM.'
-        });
+        chips.push({ text: 'Payout ' + String(cfg.spinPayout).toUpperCase(), cls: 'is-icm' });
       }
       if (hub === 'mtt' && cfg.playersLeft != null && cfg.placesPaid != null) {
         chips.push({
           text: cfg.playersLeft + ' left / ' + cfg.placesPaid + ' paid',
-          cls: 'is-icm',
-          title: 'Jugadores restantes / puestos premiados (estructura MTT lite para ICM).'
+          cls: 'is-icm'
         });
+      }
+      const rank = resolveHeroFieldRank(cfg, hand);
+      if (hub === 'mtt' && rank != null) {
+        chips.push({ text: 'Pos. #' + rank, cls: 'is-phase', title: 'Puesto por stack en el field ICM lite' });
       }
       if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0
         && cfg.playersLeft != null && cfg.placesPaid != null) {
-        chips.push({
-          text: 'BI €' + cfg.buyIn,
-          cls: '',
-          title: 'Buy-in orientativo (contexto en €). El ICM usa fracciones del prize ladder, no el importe en sí.'
-        });
+        chips.push({ text: 'BI €' + cfg.buyIn, cls: '' });
       }
     }
     if (cfg.preflopOpenSize) chips.push({ text: 'Open ' + cfg.preflopOpenSize + '×', cls: '' });
     return chips;
   }
 
-  function renderTrainHud(cfg) {
+  /**
+   * Dos indicadores prioritarios para el chrome compacto.
+   * cash: stack + open · spin: stack + payout · mtt: pos/stack + left/paid o fase.
+   */
+  function pickPrimaryHudChips(cfg, hand) {
+    const all = buildTrainHudChips(cfg, hand);
+    if (!all.length) return [];
+    const hub = formatHubOfConfig(cfg);
+    const byText = function (re) {
+      return all.find(function (c) { return re.test(c.text); });
+    };
+    const out = [];
+    if (hub === 'cash') {
+      const stack = byText(/\dbb/);
+      const open = byText(/^Open /);
+      if (stack) out.push(stack);
+      if (open) out.push(open);
+    } else if (hub === 'spin') {
+      const stack = byText(/\dbb/);
+      const pay = byText(/^Payout /) || byText(/^ICM/);
+      if (stack) out.push(stack);
+      if (pay) out.push(pay);
+    } else {
+      const pos = byText(/^Pos\. #/);
+      const field = byText(/left \//);
+      const stack = byText(/\dbb/);
+      const phase = all.find(function (c) { return c.cls === 'is-phase' && !/^Pos\. #/.test(c.text); });
+      if (pos) out.push(pos);
+      else if (stack) out.push(stack);
+      if (field) out.push(field);
+      else if (phase) out.push(phase);
+    }
+    // Rellenar hasta 2 con el resto si falta
+    for (let i = 0; i < all.length && out.length < 2; i++) {
+      if (out.indexOf(all[i]) < 0) out.push(all[i]);
+    }
+    return out.slice(0, 2);
+  }
+
+  function openSessionConfigModal(cfg, hand) {
+    const modal = $('#session-config-modal');
+    const body = $('#session-config-body');
+    if (!modal || !body) return;
+    const rows = buildSessionConfigRows(cfg, hand);
+    if (!rows.length) {
+      body.innerHTML = '<p class="muted-text">Sin datos de configuración.</p>';
+    } else {
+      body.innerHTML = '<dl class="session-config-dl">' + rows.map(function (r) {
+        return '<div class="session-config-row"><dt>' + escapeHtml(r.label) + '</dt><dd>' +
+          escapeHtml(r.value) + '</dd></div>';
+      }).join('') + '</dl>';
+    }
+    modal.classList.remove('hidden');
+  }
+
+  function closeSessionConfigModal() {
+    const modal = $('#session-config-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function bindSessionConfigModal() {
+    const modal = $('#session-config-modal');
+    if (!modal || modal._ptBound) return;
+    modal._ptBound = true;
+    const closeBtn = $('#session-config-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeSessionConfigModal);
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) closeSessionConfigModal();
+    });
+    if (!document._ptSessionInfoBound) {
+      document._ptSessionInfoBound = true;
+      document.addEventListener('click', function (e) {
+        const btn = e.target && e.target.closest ? e.target.closest('.table-train-info') : null;
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const host = btn.closest('#table-train-hud, .table-train-hud, .table-train-chrome');
+        const pack = (host && host._ptSessionInfo) || (btn._ptSessionInfo) || null;
+        const cfg = pack && pack.cfg;
+        const handArg = pack && pack.hand;
+        openSessionConfigModal(cfg || null, handArg || null);
+      });
+    }
+  }
+
+  function attachSessionInfoTarget(el, cfg, handArg) {
+    if (!el) return;
+    el._ptSessionInfo = { cfg: cfg || null, hand: handArg || null };
+  }
+
+  function renderTrainHud(cfg, handArg) {
     const hud = $('#table-train-hud');
     if (!hud) return;
     if (cfg && cfg.legendaryMode) {
       hud.innerHTML = '';
+      hud._ptSessionInfo = null;
       return;
     }
-    const chips = buildTrainHudChips(cfg);
-    hud.innerHTML = chips.map((c) =>
-      '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '"' +
-      (c.title ? ' title="' + escapeHtml(c.title) + '"' : '') + '>' +
-      escapeHtml(c.text) + '</span>'
-    ).join('');
+    const liveHand = handArg != null ? handArg : (typeof hand !== 'undefined' ? hand : null);
+    const chips = pickPrimaryHudChips(cfg, liveHand);
+    hud.innerHTML = chips.map(function (c) {
+      return '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '"' +
+        (c.title ? ' title="' + escapeHtml(c.title) + '"' : '') + '>' +
+        escapeHtml(c.text) + '</span>';
+    }).join('') +
+      '<button type="button" class="table-train-info" id="table-train-info-btn" aria-label="Detalle de configuración">Info</button>';
+    attachSessionInfoTarget(hud, cfg, liveHand);
   }
 
   function tableChromeHTML(cfg) {
+    const chips = pickPrimaryHudChips(cfg, null);
     return '<div class="table-train-chrome">' +
       tableFormatBadgeHTML(cfg) +
-      '<div class="table-train-hud">' +
-      buildTrainHudChips(cfg).map((c) =>
-        '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '"' +
-        (c.title ? ' title="' + escapeHtml(c.title) + '"' : '') + '>' +
-        escapeHtml(c.text) + '</span>'
-      ).join('') +
+      '<div class="table-train-hud" data-session-info="1">' +
+      chips.map(function (c) {
+        return '<span class="table-train-chip' + (c.cls ? ' ' + c.cls : '') + '"' +
+          (c.title ? ' title="' + escapeHtml(c.title) + '"' : '') + '>' +
+          escapeHtml(c.text) + '</span>';
+      }).join('') +
+      '<button type="button" class="table-train-info" aria-label="Detalle de configuración">Info</button>' +
       '</div></div>' +
       tableWatermarkHTML();
+  }
+
+  /** Tras insertar HTML de chrome (replay), enlaza el popup Info. */
+  function bindTableChromeSessionInfo(root, cfg, handArg) {
+    if (!root) return;
+    root.querySelectorAll('.table-train-hud[data-session-info], .table-train-chrome').forEach(function (el) {
+      attachSessionInfoTarget(el, cfg, handArg);
+    });
   }
 
   const REPLAY_TABLE_THEMES = [
@@ -32061,6 +32365,8 @@ window.PT_NASH_PUSH_JSON = {
     if (leftEl && cfg.playersLeft != null) leftEl.value = String(cfg.playersLeft);
     const paidEl = $('#setup-mtt-places-paid');
     if (paidEl && cfg.placesPaid != null) paidEl.value = String(cfg.placesPaid);
+    const entriesEl = $('#setup-mtt-entries');
+    if (entriesEl && cfg.entries != null) entriesEl.value = String(cfg.entries);
     syncMttStructureUI({ skipDefaults: sit === 'custom' || sit === 'auto' });
     if (cfg.multiwayPotType) activate('#setup-multiway-pot-type', cfg.multiwayPotType);
     syncMultiwayTypeUI();
@@ -32237,14 +32543,18 @@ window.PT_NASH_PUSH_JSON = {
       syncMttStructureUI();
       markPresetCustom();
     });
-    bindChipGroup('#setup-mtt-payout-preset', markPresetCustom);
-    ['setup-mtt-buyin', 'setup-mtt-players-left', 'setup-mtt-places-paid'].forEach((id) => {
+    bindChipGroup('#setup-mtt-payout-preset', () => {
+      markPresetCustom();
+      updateMttPrizeHint();
+    });
+    ['setup-mtt-buyin', 'setup-mtt-players-left', 'setup-mtt-places-paid', 'setup-mtt-entries'].forEach((id) => {
       const el = $('#' + id);
       if (el) {
-        el.addEventListener('change', () => markPresetCustom());
-        el.addEventListener('input', () => markPresetCustom());
+        el.addEventListener('change', () => { markPresetCustom(); updateMttPrizeHint(); });
+        el.addEventListener('input', () => { markPresetCustom(); updateMttPrizeHint(); });
       }
     });
+    bindSessionConfigModal();
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
     bindChipGroup('#setup-practice-street', syncHideActionLineUI);
@@ -33540,7 +33850,7 @@ window.PT_NASH_PUSH_JSON = {
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     if (!(cfg && cfg.legendaryMode)) {
       applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
-      renderTrainHud(cfg);
+      renderTrainHud(cfg, hand);
     } else {
       renderTrainHud(null);
     }
@@ -34406,6 +34716,9 @@ window.PT_NASH_PUSH_JSON = {
     street: 'preflop',
     spot: 'RFI', heroPos: 'UTG', villainPos: 'UTG', callerPos: 'HJ',
     gameType: 'cash6', stackDepth: 'standard', mttPhase: 'auto', openSize: 2.5,
+    icmEnabled: false,
+    mttStructureSituation: 'bubble',
+    buyIn: 11, entries: 100, playersLeft: 13, placesPaid: 12,
     boards: {
       flop: 'As Kd 7c',
       turn: 'As Kd 7c 2h',
@@ -34426,6 +34739,12 @@ window.PT_NASH_PUSH_JSON = {
     if (opts.stackDepth) rangesState.stackDepth = opts.stackDepth;
     if (opts.mttPhase) rangesState.mttPhase = opts.mttPhase;
     if (opts.openSize != null) rangesState.openSize = opts.openSize;
+    if (opts.icmEnabled != null) rangesState.icmEnabled = !!opts.icmEnabled;
+    if (opts.mttStructureSituation) rangesState.mttStructureSituation = opts.mttStructureSituation;
+    if (opts.buyIn != null) rangesState.buyIn = opts.buyIn;
+    if (opts.entries != null) rangesState.entries = opts.entries;
+    if (opts.playersLeft != null) rangesState.playersLeft = opts.playersLeft;
+    if (opts.placesPaid != null) rangesState.placesPaid = opts.placesPaid;
     if (opts.gameType) {
       $$('#ranges-game-type .setup-chip').forEach((c) => {
         c.classList.toggle('active', c.dataset.val === opts.gameType);
@@ -34436,6 +34755,29 @@ window.PT_NASH_PUSH_JSON = {
         c.classList.toggle('active', c.dataset.val === opts.stackDepth);
       });
     }
+    if (opts.mttPhase) {
+      $$('#ranges-mtt-phase .setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === opts.mttPhase);
+      });
+    }
+    const icmToggle = $('#ranges-icm-enabled');
+    if (icmToggle && opts.icmEnabled != null) icmToggle.checked = !!opts.icmEnabled;
+    if (opts.mttStructureSituation) {
+      $$('#ranges-mtt-structure .setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === opts.mttStructureSituation);
+      });
+    }
+    const mapNum = [
+      ['ranges-mtt-buyin', 'buyIn'],
+      ['ranges-mtt-entries', 'entries'],
+      ['ranges-mtt-players-left', 'playersLeft'],
+      ['ranges-mtt-places-paid', 'placesPaid']
+    ];
+    mapNum.forEach(function (pair) {
+      const el = $('#' + pair[0]);
+      if (el && opts[pair[1]] != null) el.value = String(opts[pair[1]]);
+    });
+    syncRangesStackPhaseUI(rangesState.gameType);
   }
 
   /**
@@ -34472,6 +34814,8 @@ window.PT_NASH_PUSH_JSON = {
     const hub = rangesHubFromGameType(gameType || rangesState.gameType);
     const phaseGroup = $('#ranges-phase-group');
     if (phaseGroup) phaseGroup.hidden = hub === 'cash';
+    const icmGroup = $('#ranges-icm-group');
+    if (icmGroup) icmGroup.hidden = hub !== 'mtt';
 
     $$('#ranges-mtt-phase .setup-chip').forEach((chip) => {
       const hubAttr = chip.getAttribute('data-ranges-hub') || '';
@@ -34507,6 +34851,18 @@ window.PT_NASH_PUSH_JSON = {
       $$('#ranges-stack-depth .setup-chip').forEach((c) => c.classList.remove('active'));
       pref.classList.add('active');
     }
+    syncRangesIcmFieldsUI();
+  }
+
+  function syncRangesIcmFieldsUI() {
+    const hub = rangesHubFromGameType(rangesState.gameType);
+    const toggle = $('#ranges-icm-enabled');
+    const fields = $('#ranges-icm-fields');
+    const hint = $('#ranges-icm-hint');
+    const on = hub === 'mtt' && toggle && toggle.checked;
+    if (fields) fields.hidden = !on;
+    if (hint) hint.hidden = !on;
+    rangesState.icmEnabled = !!on;
   }
 
   function readRangesContext() {
@@ -34523,6 +34879,29 @@ window.PT_NASH_PUSH_JSON = {
     };
     if (hub !== 'cash') {
       out.mttPhase = phaseEl ? phaseEl.dataset.val : (rangesState.mttPhase || 'auto');
+    }
+    if (hub === 'mtt') {
+      const icmOn = !!( $('#ranges-icm-enabled') && $('#ranges-icm-enabled').checked );
+      out.icmEnabled = icmOn;
+      if (icmOn) {
+        const sitEl = $('#ranges-mtt-structure .setup-chip.active');
+        out.mttStructureSituation = sitEl ? sitEl.dataset.val : (rangesState.mttStructureSituation || 'bubble');
+        const bi = Number(($('#ranges-mtt-buyin') || {}).value);
+        const entries = Number(($('#ranges-mtt-entries') || {}).value);
+        const left = Number(($('#ranges-mtt-players-left') || {}).value);
+        const paid = Number(($('#ranges-mtt-places-paid') || {}).value);
+        if (bi > 0) out.buyIn = bi;
+        if (entries > 0) out.entries = entries;
+        if (left >= 2) out.playersLeft = left;
+        if (paid >= 1) out.placesPaid = paid;
+        const Tax = window.PTFormatTaxonomy;
+        if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney(out)) {
+          // Forzar fase bubble en capas cuando hay presión de dinero
+          if (!out.mttPhase || out.mttPhase === 'auto' || out.mttPhase === 'early' || out.mttPhase === 'mid') {
+            out.resolvedPhase = 'bubble';
+          }
+        }
+      }
     }
     return out;
   }
@@ -34545,6 +34924,41 @@ window.PT_NASH_PUSH_JSON = {
       const ctx = readRangesContext();
       rangesState.mttPhase = ctx.mttPhase || 'auto';
       renderRangesExplorer();
+    });
+    bindChipGroup('#ranges-mtt-structure', function () {
+      const sitEl = $('#ranges-mtt-structure .setup-chip.active');
+      rangesState.mttStructureSituation = sitEl ? sitEl.dataset.val : 'bubble';
+      const Tax = window.PTFormatTaxonomy;
+      if (Tax && Tax.structureFromSituation && rangesState.mttStructureSituation !== 'custom') {
+        const def = Tax.structureFromSituation(rangesState.mttStructureSituation);
+        if (def) {
+          const leftEl = $('#ranges-mtt-players-left');
+          const paidEl = $('#ranges-mtt-places-paid');
+          const entriesEl = $('#ranges-mtt-entries');
+          const biEl = $('#ranges-mtt-buyin');
+          if (leftEl && def.playersLeft != null) leftEl.value = String(def.playersLeft);
+          if (paidEl && def.placesPaid != null) paidEl.value = String(def.placesPaid);
+          if (entriesEl && def.entries != null) entriesEl.value = String(def.entries);
+          if (biEl && def.buyIn != null && biEl.value === '') biEl.value = String(def.buyIn);
+        }
+      }
+      renderRangesExplorer();
+    });
+    const icmToggle = $('#ranges-icm-enabled');
+    if (icmToggle && !icmToggle.dataset.bound) {
+      icmToggle.dataset.bound = '1';
+      icmToggle.addEventListener('change', function () {
+        syncRangesIcmFieldsUI();
+        renderRangesExplorer();
+      });
+    }
+    ['ranges-mtt-buyin', 'ranges-mtt-entries', 'ranges-mtt-players-left', 'ranges-mtt-places-paid'].forEach(function (id) {
+      const el = $('#' + id);
+      if (!el || el.dataset.bound) return;
+      el.dataset.bound = '1';
+      const rerender = function () { renderRangesExplorer(); };
+      el.addEventListener('change', rerender);
+      el.addEventListener('input', rerender);
     });
     syncRangesStackPhaseUI(rangesState.gameType);
     const streetTabs = $('#ranges-street-tabs');
@@ -39444,15 +39858,24 @@ window.PT_NASH_PUSH_JSON = {
     let formatHub = 'cash';
     if (kind === 'spin' || kind === 'spin3') formatHub = 'spin';
     else if (kind === 'mtt' || kind === 'sng' || kind === 'tournament') formatHub = 'mtt';
+    const pc = (h && h.playConfig) || {};
     return {
       formatHub: formatHub,
       gameType: formatHub === 'spin' ? 'spin3' : (formatHub === 'mtt' ? 'mtt' : 'cash6'),
-      stackBB: h && h.heroStackBB != null ? h.heroStackBB : null,
-      mttPhase: h && h.mttPhase,
-      resolvedPhase: h && (h.resolvedPhase || h.mttPhase),
-      anteBB: h && h.anteBB,
-      spinPayout: h && h.spinPayout,
-      preflopOpenSize: h && h.preflopOpenSize
+      stackBB: h && h.heroStackBB != null ? h.heroStackBB : (pc.stackBB != null ? pc.stackBB : null),
+      mttPhase: (h && h.mttPhase) || pc.mttPhase,
+      resolvedPhase: (h && (h.resolvedPhase || h.mttPhase)) || pc.resolvedPhase,
+      anteBB: (h && h.anteBB) || pc.anteBB,
+      spinPayout: (h && h.spinPayout) || pc.spinPayout,
+      preflopOpenSize: (h && h.preflopOpenSize) || pc.preflopOpenSize,
+      buyIn: pc.buyIn,
+      entries: pc.entries,
+      playersLeft: pc.playersLeft,
+      placesPaid: pc.placesPaid,
+      mttStructureSituation: pc.mttStructureSituation,
+      prizePoolEst: pc.prizePoolEst,
+      blindStructure: pc.blindStructure,
+      icmStacksBB: pc.icmStacksBB || (h && h.icmStacksBB)
     };
   }
 
@@ -39543,6 +39966,7 @@ window.PT_NASH_PUSH_JSON = {
     box.innerHTML = html;
     bindSessionReplayTheme();
     applyTableTheme(loadTableTheme());
+    bindTableChromeSessionInfo(box, replayFeltConfigFromHand(h), h);
     $('#replay-to-summary').addEventListener('click', () => renderReplaySummary());
   }
 
@@ -39864,6 +40288,7 @@ window.PT_NASH_PUSH_JSON = {
     box.innerHTML = html;
     bindSessionReplayTheme();
     applyTableTheme(loadTableTheme());
+    bindTableChromeSessionInfo(box, replayFeltConfigFromHand(h), h);
     scrollSessionReviewToTop();
     $$('#replay-actions [data-act]').forEach((b) => b.addEventListener('click', () => submitReplay(b.dataset.act)));
   }

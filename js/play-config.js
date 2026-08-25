@@ -128,6 +128,8 @@
     playersLeft: null,
     /** Puestos que pagan */
     placesPaid: null,
+    /** Entradas / field total (prize pool ≈ buyIn × entries) */
+    entries: null,
     /** standard | flat | topheavy | custom */
     mttPayoutPreset: 'standard',
     /** Fracciones custom (si mttPayoutPreset=custom); también se materializa icmPayouts */
@@ -268,6 +270,7 @@
       c.buyInFee = null;
       c.playersLeft = null;
       c.placesPaid = null;
+      c.entries = null;
       c.mttPayouts = null;
       c.mttPayoutPreset = 'standard';
       c.mttStructureSituation = null;
@@ -322,6 +325,7 @@
           } else {
             c.playersLeft = null;
             c.placesPaid = null;
+            c.entries = null;
             c.mttPayouts = null;
             // Sin estructura de fase: no arrastrar buy-in del input por defecto.
             c.buyIn = null;
@@ -347,12 +351,20 @@
       var maxLeft = Tax.MTT_PLAYERS_LEFT_MAX || 50;
       var left = c.playersLeft != null && c.playersLeft !== '' ? Math.round(Number(c.playersLeft)) : null;
       var paid = c.placesPaid != null && c.placesPaid !== '' ? Math.round(Number(c.placesPaid)) : null;
+      var entries = c.entries != null && c.entries !== '' ? Math.round(Number(c.entries)) : null;
       if (left != null && (!isFinite(left) || left < 2)) left = 2;
       if (left != null && left > maxLeft) left = maxLeft;
       if (paid != null && (!isFinite(paid) || paid < 1)) paid = 1;
-      if (left != null && paid != null && paid > left) paid = left;
+      if (paid != null && paid > 500) paid = 500;
+      // ICM field: no más pagados que remaining; el ladder de premio puede usar paid crudo vía entries.
+      var paidForIcm = paid;
+      if (left != null && paidForIcm != null && paidForIcm > left) paidForIcm = left;
+      if (entries != null && (!isFinite(entries) || entries < 2)) entries = 2;
+      if (entries != null && entries > 5000) entries = 5000;
+      if (entries == null && paid != null) entries = Math.max(paid, left || paid);
       c.playersLeft = left;
       c.placesPaid = paid;
+      c.entries = entries;
 
       var bi = c.buyIn != null && c.buyIn !== '' ? Number(c.buyIn) : null;
       if (bi != null && (!isFinite(bi) || bi < 0)) bi = null;
@@ -368,11 +380,18 @@
         c.mttPayouts = null;
       }
 
-      if (left != null && paid != null && Tax.mttPayoutsForStructure) {
-        c.icmPayouts = Tax.mttPayoutsForStructure(c);
+      if (left != null && paidForIcm != null && Tax.mttPayoutsForStructure) {
+        c.icmPayouts = Tax.mttPayoutsForStructure({
+          playersLeft: left,
+          placesPaid: paidForIcm,
+          mttPayoutPreset: c.mttPayoutPreset,
+          mttPayouts: c.mttPayouts
+        });
       } else {
         c.icmPayouts = null;
       }
+      if (Tax.estimatePrizePool) c.prizePoolEst = Tax.estimatePrizePool(c);
+      else c.prizePoolEst = null;
     }
 
     if (c.anteBB == null || c.anteBB === '') {

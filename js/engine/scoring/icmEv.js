@@ -252,12 +252,17 @@
   }
 
   function prizePoolEstimate(input) {
+    const Taxo = Tax();
+    if (Taxo && Taxo.estimatePrizePool) {
+      const pool = Taxo.estimatePrizePool(input);
+      if (pool != null) return pool;
+    }
     const bi = Number(input && input.buyIn);
     const left = Number(input && input.playersLeft);
     const paid = Number(input && input.placesPaid);
+    const entries = Number(input && input.entries);
     if (!(bi > 0)) return null;
-    // Aprox: pool ≈ buyIn × max(playersLeft, placesPaid) — lite pedagógico.
-    const n = Math.max(left || 0, paid || 0, 2);
+    const n = Math.max(entries || 0, left || 0, paid || 0, 2);
     return Math.round(bi * n * 100) / 100;
   }
 
