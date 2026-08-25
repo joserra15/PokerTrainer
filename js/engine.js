@@ -1295,6 +1295,7 @@
       setPreflopSeatBet(hand, pos, amount);
     }
     recordVisibleAction(hand, pos, type, amount);
+    logLineAction(hand, pos, type, amount, { isHero: pos === heroTableSeat(hand) });
   }
 
   function markFoldedBeforeHeroRFI(hand) {
@@ -1636,6 +1637,7 @@
     hand.villainInvested = round2((hand.villainInvested || 0) + need);
     focusVillainSeat(hand, pos);
     hand.villainAction = { type: 'bet', amount: amount };
+    logLineAction(hand, pos, 'bet', amount);
   }
 
   function resolveSeatFacingBet(hand, pos, betSize) {
@@ -2086,9 +2088,13 @@
       heroIsAggressor: false,
       heroInPosition: false,
       heroAction: null,
-      villainAction: null
+      villainAction: null,
+      actionLine: []
     };
 
+    // Los setups siembran la línea a mano (`seedLineAction`) porque escriben las
+    // acciones previas en el orden que les conviene, no en el orden de turno.
+    hand._lineSuspended = true;
     if (scenario.type === 'RFI') setupRFI(hand);
     else if (scenario.type === 'squeeze') setupSqueeze(hand);
     else if (scenario.type === 'isoLimp') setupIsoLimp(hand);
@@ -2101,15 +2107,18 @@
     else if (scenario.type === 'limpPot') setupLimpMultiway(hand);
     else if (scenario.type === 'squeezeMulti') setupSqueeze(hand);
     else setupVsRFI(hand);
+    delete hand._lineSuspended;
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
     initHandStacks(hand);
     syncVillainMeta(hand);
     if (force && force.forceDeal) {
+      const villainSeatBefore = hand.villain && hand.villain.pos;
       hand.forceDeal = cloneForceDeal(force.forceDeal);
       applyForcedHand(hand, hand.forceDeal);
       restoreLegendaryScenarioVillain(hand);
       assignHeroFromTable(hand);
+      remapLineSeat(hand, villainSeatBefore, hand.villain && hand.villain.pos);
       if (hand.villain && hand.villain.pos) hand.villain.cards = villainHoleCards(hand);
     }
     if (force && force.forceScript) initForceScript(hand, force.forceScript);
@@ -2194,6 +2203,14 @@
     syncVillainMeta(hand);
     resetStreetBets(hand);
 
+    // El salto sintetiza un SRP: reescribimos la línea con open + call.
+    hand.actionLine = [];
+    const jumpOpen = round2(hand.table.invested[heroPos] || 0);
+    const jumpAggressor = hand.heroIsAggressor ? heroPos : villainPos;
+    const jumpCaller = hand.heroIsAggressor ? villainPos : heroPos;
+    seedLineAction(hand, jumpAggressor, 'open', jumpOpen, jumpAggressor === heroPos);
+    seedLineAction(hand, jumpCaller, 'call', jumpOpen, jumpCaller === heroPos);
+
     const full = (hand._predeal && hand._predeal.board) || [];
     if (target === 'turn') {
       hand.stage = 'turn';
@@ -2209,6 +2226,7 @@
       hand._boardIdx = 3;
     }
     recalcPot(hand);
+    logLineStreet(hand);
 
     if (facingBet) {
       const vBet = round2(Math.max(0.5, hand.potBB * 0.33));
@@ -2295,6 +2313,7 @@
     hand.table.invested[opener] = openerBlind;
     addInvest(hand, opener, openSize - openerBlind);
     setSeatAction(hand, opener, 'raise', openSize);
+    seedLineAction(hand, opener, 'open', openSize);
 
     callers.forEach(function (cPos) {
       if (cPos === heroPos || cPos === opener) return;
@@ -2306,6 +2325,7 @@
       if (add > 0) addInvest(hand, cPos, add);
       setPreflopSeatBet(hand, cPos, openSize);
       setSeatAction(hand, cPos, 'call', openSize);
+      seedLineAction(hand, cPos, 'call', openSize);
     });
 
     const heroBlind = heroPos === 'SB' ? SB : (heroPos === 'BB' ? BBET : 0);
@@ -2352,6 +2372,7 @@
     const heroAdd = seatToCall(hand, heroPos, openSize);
     if (heroAdd > 0) addInvest(hand, heroPos, heroAdd);
     setSeatAction(hand, heroPos, 'call', openSize);
+    seedLineAction(hand, heroTableSeat(hand) || heroPos, 'call', openSize, true);
     setPreflopSeatBet(hand, heroPos, openSize);
     recalcPot(hand);
     hand.heroIsAggressor = false;
@@ -2398,6 +2419,7 @@
       if (add > 0) addInvest(hand, lp, add);
       setPreflopSeatBet(hand, lp, BBET);
       setSeatAction(hand, lp, 'call', BBET);
+      seedLineAction(hand, lp, 'call', BBET);
     });
 
     hand.heroInvested = heroPos === 'SB' ? SB : BBET;
@@ -2580,6 +2602,7 @@
       context
     };
     setVillainAct(hand, 'open', openSize);
+    seedLineAction(hand, villainTableSeat(hand) || opener, 'open', openSize);
     addInvest(hand, opener, openSize);
     setPreflopSeatBet(hand, opener, openSize);
     markPreflopFoldsForFacingAction(hand, opener);
@@ -2624,6 +2647,8 @@
     addInvest(hand, callerPos, openSize);
     setPreflopSeatBet(hand, callerPos, openSize);
     setSeatAction(hand, callerPos, 'call', openSize);
+    seedLineAction(hand, openerPos, 'open', openSize);
+    seedLineAction(hand, callerPos, 'call', openSize);
     markPreflopFoldsForFacingAction(hand, openerPos, [callerPos]);
   }
 
@@ -2654,6 +2679,7 @@
       context: `Eres ${heroPos}. ${limperPos} limpea. ¿Fold, over-limp o aislar con una subida?`
     };
     setVillainAct(hand, 'check', null);
+    seedLineAction(hand, villainTableSeat(hand) || limperPos, 'call', BBET);
     addInvest(hand, limperPos, BBET);
     markPreflopFoldsForFacingAction(hand, limperPos);
   }
@@ -3417,6 +3443,8 @@
     setPreflopSeatBet(hand, tb, threeBetSize);
     setSeatAction(hand, opener, 'open', openSize);
     setSeatAction(hand, tb, 'raise', threeBetSize);
+    seedLineAction(hand, heroTableSeat(hand) || opener, 'open', openSize, true);
+    seedLineAction(hand, villainTableSeat(hand) || tb, 'raise', threeBetSize);
     markPreflopFoldsForFacingAction(hand, opener, [tb]);
     foldSeatsAfterRaiseUntil(hand, tb, opener, [opener, tb]);
     setupFace3Bet(hand, threeBetSize);
@@ -3446,6 +3474,7 @@
       context: 'Eres BB. SB limpea. ¿Check o iso-raise?'
     };
     setVillainAct(hand, 'check', null);
+    seedLineAction(hand, 'SB', 'call', BBET);
     addInvest(hand, 'SB', BBET);
     markPreflopFoldsForFacingAction(hand, 'SB');
   }
@@ -3498,6 +3527,8 @@
     setPreflopSeatBet(hand, opener, openSize);
     setPreflopSeatBet(hand, tb, threeBetSize);
     setVillainAct(hand, 'raise', threeBetSize);
+    seedLineAction(hand, opener, 'open', openSize);
+    seedLineAction(hand, villainTableSeat(hand) || tb, 'raise', threeBetSize);
     markPreflopFoldsForFacingAction(hand, opener, [tb]);
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'cold4bet', potBB: hand.potBB, toCallBB: hand.toCallBB });
     hand.current = {
@@ -3534,6 +3565,10 @@
     addInvest(hand, opener, fourBetSize);
     setPreflopSeatBet(hand, opener, fourBetSize);
     setSeatAction(hand, hero, 'raise', threeBetSize);
+    const openerSeat = villainTableSeat(hand) || opener;
+    seedLineAction(hand, openerSeat, 'open', openSize);
+    seedLineAction(hand, heroTableSeat(hand) || hero, 'raise', threeBetSize, true);
+    seedLineAction(hand, openerSeat, 'raise', fourBetSize);
     markPreflopFoldsForFacingAction(hand, opener);
     foldSeatsAfterRaiseUntil(hand, hero, opener, [hero, opener]);
     setupFace4Bet(hand, fourBetSize);
@@ -3661,12 +3696,92 @@
     });
   }
 
+  // ----- Línea de acción (historial legible calle a calle para la UI) -----
+  /**
+   * Registra una acción en `hand.actionLine`. Durante el montaje inicial de la
+   * mano queda suspendida: los setups siembran la línea con `seedLineAction`
+   * para que el orden refleje el turno real y no el orden del código.
+   */
+  function logLineAction(hand, pos, type, amount, opts) {
+    if (!hand || !pos || !type) return;
+    if (hand._lineSuspended && !(opts && opts.seed)) return;
+    const list = hand.actionLine = hand.actionLine || [];
+    const street = hand.stage || 'preflop';
+    const last = list[list.length - 1];
+    if (last && last.kind === 'act' && last.street === street && last.pos === pos && last.type === type) {
+      if (amount != null) last.amount = round2(amount);
+      return;
+    }
+    list.push({
+      kind: 'act',
+      street: street,
+      pos: pos,
+      type: type,
+      amount: amount != null ? round2(amount) : null,
+      isHero: !!(opts && opts.isHero)
+    });
+  }
+
+  /** Siembra una acción previa al primer nodo del héroe (montaje del escenario). */
+  function seedLineAction(hand, pos, type, amount, isHero) {
+    logLineAction(hand, pos, type, amount, { seed: true, isHero: !!isHero });
+  }
+
+  /** Marca de calle: guarda el board revelado y el bote antes de actuar. */
+  function logLineStreet(hand) {
+    if (!hand) return;
+    const list = hand.actionLine = hand.actionLine || [];
+    list.push({
+      kind: 'street',
+      street: hand.stage,
+      board: (hand.board || []).slice(),
+      potBB: round2(hand.potBB || 0)
+    });
+  }
+
+  /**
+   * Completa la línea preflop con los asientos que llegan al flop sin acción
+   * registrada (típicamente la ciega grande que pasa su opción).
+   */
+  function fillMissingPreflopLine(hand) {
+    if (!hand || !hand.table) return;
+    const line = hand.actionLine = hand.actionLine || [];
+    const seen = {};
+    line.forEach(function (e) {
+      if (e.kind === 'act' && e.street === 'preflop') seen[e.pos] = true;
+    });
+    const heroSeat = heroTableSeat(hand);
+    preflopOrderForHand(hand).forEach(function (pos) {
+      if (seen[pos]) return;
+      if (hand.table.folded[pos] || !hand.table.inHand.has(pos)) return;
+      const invested = round2(hand.table.invested[pos] || 0);
+      if (invested <= 0) return;
+      line.push({
+        kind: 'act',
+        street: 'preflop',
+        pos: pos,
+        type: invested <= BBET + 0.01 ? 'check' : 'call',
+        amount: invested,
+        isHero: pos === heroSeat
+      });
+    });
+  }
+
+  /** Reasigna asiento en la línea cuando un forceDeal mueve al villano. */
+  function remapLineSeat(hand, fromPos, toPos) {
+    if (!hand || !fromPos || !toPos || fromPos === toPos) return;
+    (hand.actionLine || []).forEach(function (e) {
+      if (e.kind === 'act' && e.pos === fromPos) e.pos = toPos;
+    });
+  }
+
   function setHeroAct(hand, type, amount) {
     hand.heroAction = { type, amount: amount != null ? amount : null };
     if (hand.table && hand.hero.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
       hand.table.streetBet[hand.hero.pos] = round2((hand.table.streetBet[hand.hero.pos] || 0) + amount);
     }
     recordVisibleAction(hand, heroTableSeat(hand) || (hand.hero && hand.hero.pos), type, amount, { isHero: true });
+    logLineAction(hand, heroTableSeat(hand) || (hand.hero && hand.hero.pos), type, amount, { isHero: true });
   }
   function setVillainAct(hand, type, amount) {
     hand.villainAction = { type, amount: amount != null ? amount : null };
@@ -3675,6 +3790,7 @@
       hand.table.streetBet[hand.villain.pos] = round2((hand.table.streetBet[hand.villain.pos] || 0) + amount);
     }
     recordVisibleAction(hand, villainTableSeat(hand) || (hand.villain && hand.villain.pos), type, amount);
+    logLineAction(hand, villainTableSeat(hand) || (hand.villain && hand.villain.pos), type, amount);
     if (VT && hand.villainRangeTracker && type && type !== 'fold') {
       VT.recordAction(hand.villainRangeTracker, type, hand.stage, amount);
     } else if (VT && hand.villainRangeTracker && type === 'fold') {
@@ -3736,6 +3852,8 @@
     if (hand.multiway) hand.heroInPosition = heroIpMultiway(hand);
     recalcPot(hand);
     recordStreet(hand);
+    fillMissingPreflopLine(hand);
+    logLineStreet(hand);
     return enterStreet(hand);
   }
 
@@ -3748,6 +3866,7 @@
     resetStreetBets(hand);
     hand.board.push(hand._predeal.board[hand._boardIdx++]);
     recordStreet(hand);
+    logLineStreet(hand);
     return enterStreet(hand);
   }
 

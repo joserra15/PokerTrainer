@@ -14702,6 +14702,238 @@ window.PT_NASH_PUSH_JSON = {
 })(window);
 
 /*
+ * action-line.js — Línea de acción previa del entrenador.
+ *
+ * El motor graba en `hand.actionLine` cada acción visible de la mesa (marcas de
+ * calle incluidas). Aquí se convierte ese historial en filas legibles por calle
+ * —con posiciones, verbos y tamaños de apuesta— para pintarlas junto a la mesa,
+ * igual que la "línea completa" de la Escuela de Póker.
+ */
+(function (global) {
+  'use strict';
+
+  var STREETS = ['preflop', 'flop', 'turn', 'river'];
+  var SUIT_SYMBOL = { s: '\u2660', h: '\u2665', d: '\u2666', c: '\u2663' };
+  var SIZE_RE = /(\d+(?:[.,]\d+)?\s*bb|\d+\s*%\s*(?:bote|pot))/g;
+
+  var LABELS = {
+    es: {
+      preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River',
+      open: 'open', limp: 'limp', call: 'call', check: 'check', fold: 'fold',
+      bet: 'bet', cbet: 'c-bet', raise: 'raise a', allin: 'all-in',
+      raises: ['open', '3-bet', '4-bet', '5-bet'],
+      pot: 'bote', hero: 'Tú'
+    },
+    en: {
+      preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River',
+      open: 'open', limp: 'limp', call: 'call', check: 'check', fold: 'fold',
+      bet: 'bet', cbet: 'c-bet', raise: 'raise to', allin: 'all-in',
+      raises: ['open', '3-bet', '4-bet', '5-bet'],
+      pot: 'pot', hero: 'You'
+    }
+  };
+
+  function labels(lang) {
+    return LABELS[lang] || LABELS.es;
+  }
+
+  /** Tamaño compacto: 2.5 / 12.99 / 23 (sin ceros de relleno). */
+  function fmtBB(x) {
+    if (x == null) return '';
+    return String(Math.round(x * 100) / 100);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function cardText(code) {
+    if (!code || code.length < 2) return '';
+    var rank = code[0] === 'T' ? '10' : code[0];
+    return rank + (SUIT_SYMBOL[code[code.length - 1]] || '');
+  }
+
+  function cardHtml(code) {
+    if (!code || code.length < 2) return '';
+    var suit = code[code.length - 1];
+    var red = suit === 'h' || suit === 'd';
+    return '<span class="action-line-card' + (red ? ' is-red' : '') + '">' +
+      esc(cardText(code)) + '</span>';
+  }
+
+  /** Agrupa el historial por calle, con el board revelado y el bote inicial. */
+  function groupByStreet(hand) {
+    var entries = (hand && hand.actionLine) || [];
+    var out = [];
+    var byStreet = {};
+    var seenBoard = 0;
+    entries.forEach(function (e) {
+      if (!e) return;
+      var street = e.street || 'preflop';
+      var group = byStreet[street];
+      if (!group) {
+        group = byStreet[street] = { street: street, cards: [], potStart: null, acts: [] };
+        out.push(group);
+      }
+      if (e.kind === 'street') {
+        var board = e.board || [];
+        group.cards = board.slice(seenBoard);
+        seenBoard = board.length;
+        if (group.potStart == null) group.potStart = e.potBB;
+        return;
+      }
+      group.acts.push(e);
+    });
+    return out;
+  }
+
+  /** Última posición agresiva del preflop: quien lleva la iniciativa al flop. */
+  function preflopAggressor(hand) {
+    var pos = null;
+    ((hand && hand.actionLine) || []).forEach(function (e) {
+      if (!e || e.kind === 'street' || e.street !== 'preflop') return;
+      if (e.type === 'open' || e.type === 'raise' || e.type === 'bet' || e.type === 'allin') pos = e.pos;
+    });
+    return pos;
+  }
+
+  function preflopText(act, ctx, L) {
+    var amt = act.amount;
+    if (act.type === 'fold') return L.fold;
+    if (act.type === 'check') return L.check;
+    if (act.type === 'call') {
+      // Igualar la ciega grande es un limp, no un call a una subida.
+      return (amt != null && amt <= 1.01) ? L.limp : L.call;
+    }
+    if (act.type === 'allin') return L.allin + (amt != null ? ' ' + fmtBB(amt) + ' bb' : '');
+    var verb = L.raises[Math.min(ctx.raises, L.raises.length - 1)];
+    ctx.raises += 1;
+    return verb + (amt != null ? ' ' + fmtBB(amt) + ' bb' : '');
+  }
+
+  function postflopText(act, ctx, L) {
+    var amt = act.amount;
+    if (act.type === 'fold') return L.fold;
+    if (act.type === 'check') return L.check;
+    if (act.type === 'call') return L.call;
+    if (act.type === 'raise' || act.type === 'allin') {
+      ctx.aggressive += 1;
+      var verb = act.type === 'allin' ? L.allin : L.raise;
+      return verb + (amt != null ? ' ' + fmtBB(amt) + ' bb' : '');
+    }
+    var first = ctx.aggressive === 0;
+    ctx.aggressive += 1;
+    // El % de bote solo es exacto para la primera apuesta de la calle.
+    var pct = (first && ctx.potStart > 0 && amt != null)
+      ? Math.round((amt / ctx.potStart) * 100)
+      : null;
+    var lead = (first && ctx.street === 'flop' && act.pos === ctx.aggressor) ? L.cbet : L.bet;
+    return lead + (amt != null ? ' ' + fmtBB(amt) + ' bb' : '') +
+      (pct != null ? ' (' + pct + '% ' + L.pot + ')' : '');
+  }
+
+  /**
+   * Filas de la línea. `opts.throughStreet` limita hasta qué calle (incluida)
+   * se describe, para no adelantar la acción que el héroe aún está viendo.
+   */
+  function build(hand, opts) {
+    opts = opts || {};
+    var L = labels(opts.lang);
+    var limit = opts.throughStreet ? STREETS.indexOf(opts.throughStreet) : STREETS.length - 1;
+    if (limit < 0) limit = STREETS.length - 1;
+    var aggressor = preflopAggressor(hand);
+    var preflopCtx = { raises: 0 };
+    var rows = [];
+    groupByStreet(hand).forEach(function (group) {
+      var idx = STREETS.indexOf(group.street);
+      if (idx < 0 || idx > limit) return;
+      var ctx = {
+        street: group.street,
+        potStart: group.potStart,
+        aggressor: aggressor,
+        aggressive: 0
+      };
+      var actions = group.acts.map(function (act) {
+        return {
+          pos: act.pos,
+          isHero: !!act.isHero,
+          text: group.street === 'preflop'
+            ? preflopText(act, preflopCtx, L)
+            : postflopText(act, ctx, L)
+        };
+      });
+      if (!actions.length) return;
+      rows.push({
+        street: group.street,
+        label: L[group.street] || group.street,
+        cards: group.cards.slice(),
+        actions: actions
+      });
+    });
+    return rows;
+  }
+
+  function rowText(row) {
+    var acts = row.actions.map(function (a) { return a.pos + ' ' + a.text; }).join(' \u2192 ');
+    var cards = row.cards.map(cardText).join(' ');
+    return row.label + ': ' + (cards ? cards + ' \u2014 ' : '') + acts;
+  }
+
+  /** Versión en texto plano (tests, compartir, depuración). */
+  function text(handOrRows, opts) {
+    var rows = Array.isArray(handOrRows) ? handOrRows : build(handOrRows, opts);
+    return rows.map(rowText).join(' | ');
+  }
+
+  function highlightSizes(str) {
+    return esc(str).replace(SIZE_RE, '<span class="action-line-size">$1</span>');
+  }
+
+  function actionHtml(act, L) {
+    var pos = '<span class="action-line-pos' + (act.isHero ? ' is-hero' : '') + '"' +
+      (act.isHero ? ' title="' + esc(L.hero) + '"' : '') + '>' + esc(act.pos) + '</span>';
+    return '<span class="action-line-act">' + pos + ' ' + highlightSizes(act.text) + '</span>';
+  }
+
+  function html(handOrRows, opts) {
+    var L = labels(opts && opts.lang);
+    var rows = Array.isArray(handOrRows) ? handOrRows : build(handOrRows, opts);
+    if (!rows.length) return '';
+    var items = rows.map(function (row) {
+      var cards = row.cards.length
+        ? '<span class="action-line-cards">' + row.cards.map(cardHtml).join('') + '</span>'
+        : '';
+      var acts = row.actions.map(function (a) { return actionHtml(a, L); })
+        .join('<span class="action-line-arrow" aria-hidden="true">\u2192</span>');
+      return '<li class="action-line-row">' +
+        '<span class="action-line-street">' + esc(row.label) + '</span>' +
+        cards +
+        '<span class="action-line-acts">' + acts + '</span>' +
+        '</li>';
+    }).join('');
+    return '<ul class="action-line-rows">' + items + '</ul>';
+  }
+
+  /** Calle inmediatamente anterior a `street` (null si no hay acción previa). */
+  function previousStreet(street) {
+    var idx = STREETS.indexOf(street);
+    if (idx <= 0) return null;
+    return STREETS[idx - 1];
+  }
+
+  global.PTActionLine = {
+    STREETS: STREETS,
+    build: build,
+    html: html,
+    text: text,
+    previousStreet: previousStreet,
+    preflopAggressor: preflopAggressor
+  };
+})(window);
+
+/*
  * engine.js
  * Motor del entrenador: genera spots, evalúa decisiones contra GTO (aprox.),
  * estima EV perdido, modela al villano y juega la mano calle a calle.
@@ -15998,6 +16230,7 @@ window.PT_NASH_PUSH_JSON = {
       setPreflopSeatBet(hand, pos, amount);
     }
     recordVisibleAction(hand, pos, type, amount);
+    logLineAction(hand, pos, type, amount, { isHero: pos === heroTableSeat(hand) });
   }
 
   function markFoldedBeforeHeroRFI(hand) {
@@ -16339,6 +16572,7 @@ window.PT_NASH_PUSH_JSON = {
     hand.villainInvested = round2((hand.villainInvested || 0) + need);
     focusVillainSeat(hand, pos);
     hand.villainAction = { type: 'bet', amount: amount };
+    logLineAction(hand, pos, 'bet', amount);
   }
 
   function resolveSeatFacingBet(hand, pos, betSize) {
@@ -16789,9 +17023,13 @@ window.PT_NASH_PUSH_JSON = {
       heroIsAggressor: false,
       heroInPosition: false,
       heroAction: null,
-      villainAction: null
+      villainAction: null,
+      actionLine: []
     };
 
+    // Los setups siembran la línea a mano (`seedLineAction`) porque escriben las
+    // acciones previas en el orden que les conviene, no en el orden de turno.
+    hand._lineSuspended = true;
     if (scenario.type === 'RFI') setupRFI(hand);
     else if (scenario.type === 'squeeze') setupSqueeze(hand);
     else if (scenario.type === 'isoLimp') setupIsoLimp(hand);
@@ -16804,15 +17042,18 @@ window.PT_NASH_PUSH_JSON = {
     else if (scenario.type === 'limpPot') setupLimpMultiway(hand);
     else if (scenario.type === 'squeezeMulti') setupSqueeze(hand);
     else setupVsRFI(hand);
+    delete hand._lineSuspended;
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
     initHandStacks(hand);
     syncVillainMeta(hand);
     if (force && force.forceDeal) {
+      const villainSeatBefore = hand.villain && hand.villain.pos;
       hand.forceDeal = cloneForceDeal(force.forceDeal);
       applyForcedHand(hand, hand.forceDeal);
       restoreLegendaryScenarioVillain(hand);
       assignHeroFromTable(hand);
+      remapLineSeat(hand, villainSeatBefore, hand.villain && hand.villain.pos);
       if (hand.villain && hand.villain.pos) hand.villain.cards = villainHoleCards(hand);
     }
     if (force && force.forceScript) initForceScript(hand, force.forceScript);
@@ -16897,6 +17138,14 @@ window.PT_NASH_PUSH_JSON = {
     syncVillainMeta(hand);
     resetStreetBets(hand);
 
+    // El salto sintetiza un SRP: reescribimos la línea con open + call.
+    hand.actionLine = [];
+    const jumpOpen = round2(hand.table.invested[heroPos] || 0);
+    const jumpAggressor = hand.heroIsAggressor ? heroPos : villainPos;
+    const jumpCaller = hand.heroIsAggressor ? villainPos : heroPos;
+    seedLineAction(hand, jumpAggressor, 'open', jumpOpen, jumpAggressor === heroPos);
+    seedLineAction(hand, jumpCaller, 'call', jumpOpen, jumpCaller === heroPos);
+
     const full = (hand._predeal && hand._predeal.board) || [];
     if (target === 'turn') {
       hand.stage = 'turn';
@@ -16912,6 +17161,7 @@ window.PT_NASH_PUSH_JSON = {
       hand._boardIdx = 3;
     }
     recalcPot(hand);
+    logLineStreet(hand);
 
     if (facingBet) {
       const vBet = round2(Math.max(0.5, hand.potBB * 0.33));
@@ -16998,6 +17248,7 @@ window.PT_NASH_PUSH_JSON = {
     hand.table.invested[opener] = openerBlind;
     addInvest(hand, opener, openSize - openerBlind);
     setSeatAction(hand, opener, 'raise', openSize);
+    seedLineAction(hand, opener, 'open', openSize);
 
     callers.forEach(function (cPos) {
       if (cPos === heroPos || cPos === opener) return;
@@ -17009,6 +17260,7 @@ window.PT_NASH_PUSH_JSON = {
       if (add > 0) addInvest(hand, cPos, add);
       setPreflopSeatBet(hand, cPos, openSize);
       setSeatAction(hand, cPos, 'call', openSize);
+      seedLineAction(hand, cPos, 'call', openSize);
     });
 
     const heroBlind = heroPos === 'SB' ? SB : (heroPos === 'BB' ? BBET : 0);
@@ -17055,6 +17307,7 @@ window.PT_NASH_PUSH_JSON = {
     const heroAdd = seatToCall(hand, heroPos, openSize);
     if (heroAdd > 0) addInvest(hand, heroPos, heroAdd);
     setSeatAction(hand, heroPos, 'call', openSize);
+    seedLineAction(hand, heroTableSeat(hand) || heroPos, 'call', openSize, true);
     setPreflopSeatBet(hand, heroPos, openSize);
     recalcPot(hand);
     hand.heroIsAggressor = false;
@@ -17101,6 +17354,7 @@ window.PT_NASH_PUSH_JSON = {
       if (add > 0) addInvest(hand, lp, add);
       setPreflopSeatBet(hand, lp, BBET);
       setSeatAction(hand, lp, 'call', BBET);
+      seedLineAction(hand, lp, 'call', BBET);
     });
 
     hand.heroInvested = heroPos === 'SB' ? SB : BBET;
@@ -17283,6 +17537,7 @@ window.PT_NASH_PUSH_JSON = {
       context
     };
     setVillainAct(hand, 'open', openSize);
+    seedLineAction(hand, villainTableSeat(hand) || opener, 'open', openSize);
     addInvest(hand, opener, openSize);
     setPreflopSeatBet(hand, opener, openSize);
     markPreflopFoldsForFacingAction(hand, opener);
@@ -17327,6 +17582,8 @@ window.PT_NASH_PUSH_JSON = {
     addInvest(hand, callerPos, openSize);
     setPreflopSeatBet(hand, callerPos, openSize);
     setSeatAction(hand, callerPos, 'call', openSize);
+    seedLineAction(hand, openerPos, 'open', openSize);
+    seedLineAction(hand, callerPos, 'call', openSize);
     markPreflopFoldsForFacingAction(hand, openerPos, [callerPos]);
   }
 
@@ -17357,6 +17614,7 @@ window.PT_NASH_PUSH_JSON = {
       context: `Eres ${heroPos}. ${limperPos} limpea. ¿Fold, over-limp o aislar con una subida?`
     };
     setVillainAct(hand, 'check', null);
+    seedLineAction(hand, villainTableSeat(hand) || limperPos, 'call', BBET);
     addInvest(hand, limperPos, BBET);
     markPreflopFoldsForFacingAction(hand, limperPos);
   }
@@ -18120,6 +18378,8 @@ window.PT_NASH_PUSH_JSON = {
     setPreflopSeatBet(hand, tb, threeBetSize);
     setSeatAction(hand, opener, 'open', openSize);
     setSeatAction(hand, tb, 'raise', threeBetSize);
+    seedLineAction(hand, heroTableSeat(hand) || opener, 'open', openSize, true);
+    seedLineAction(hand, villainTableSeat(hand) || tb, 'raise', threeBetSize);
     markPreflopFoldsForFacingAction(hand, opener, [tb]);
     foldSeatsAfterRaiseUntil(hand, tb, opener, [opener, tb]);
     setupFace3Bet(hand, threeBetSize);
@@ -18149,6 +18409,7 @@ window.PT_NASH_PUSH_JSON = {
       context: 'Eres BB. SB limpea. ¿Check o iso-raise?'
     };
     setVillainAct(hand, 'check', null);
+    seedLineAction(hand, 'SB', 'call', BBET);
     addInvest(hand, 'SB', BBET);
     markPreflopFoldsForFacingAction(hand, 'SB');
   }
@@ -18201,6 +18462,8 @@ window.PT_NASH_PUSH_JSON = {
     setPreflopSeatBet(hand, opener, openSize);
     setPreflopSeatBet(hand, tb, threeBetSize);
     setVillainAct(hand, 'raise', threeBetSize);
+    seedLineAction(hand, opener, 'open', openSize);
+    seedLineAction(hand, villainTableSeat(hand) || tb, 'raise', threeBetSize);
     markPreflopFoldsForFacingAction(hand, opener, [tb]);
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'cold4bet', potBB: hand.potBB, toCallBB: hand.toCallBB });
     hand.current = {
@@ -18237,6 +18500,10 @@ window.PT_NASH_PUSH_JSON = {
     addInvest(hand, opener, fourBetSize);
     setPreflopSeatBet(hand, opener, fourBetSize);
     setSeatAction(hand, hero, 'raise', threeBetSize);
+    const openerSeat = villainTableSeat(hand) || opener;
+    seedLineAction(hand, openerSeat, 'open', openSize);
+    seedLineAction(hand, heroTableSeat(hand) || hero, 'raise', threeBetSize, true);
+    seedLineAction(hand, openerSeat, 'raise', fourBetSize);
     markPreflopFoldsForFacingAction(hand, opener);
     foldSeatsAfterRaiseUntil(hand, hero, opener, [hero, opener]);
     setupFace4Bet(hand, fourBetSize);
@@ -18364,12 +18631,92 @@ window.PT_NASH_PUSH_JSON = {
     });
   }
 
+  // ----- Línea de acción (historial legible calle a calle para la UI) -----
+  /**
+   * Registra una acción en `hand.actionLine`. Durante el montaje inicial de la
+   * mano queda suspendida: los setups siembran la línea con `seedLineAction`
+   * para que el orden refleje el turno real y no el orden del código.
+   */
+  function logLineAction(hand, pos, type, amount, opts) {
+    if (!hand || !pos || !type) return;
+    if (hand._lineSuspended && !(opts && opts.seed)) return;
+    const list = hand.actionLine = hand.actionLine || [];
+    const street = hand.stage || 'preflop';
+    const last = list[list.length - 1];
+    if (last && last.kind === 'act' && last.street === street && last.pos === pos && last.type === type) {
+      if (amount != null) last.amount = round2(amount);
+      return;
+    }
+    list.push({
+      kind: 'act',
+      street: street,
+      pos: pos,
+      type: type,
+      amount: amount != null ? round2(amount) : null,
+      isHero: !!(opts && opts.isHero)
+    });
+  }
+
+  /** Siembra una acción previa al primer nodo del héroe (montaje del escenario). */
+  function seedLineAction(hand, pos, type, amount, isHero) {
+    logLineAction(hand, pos, type, amount, { seed: true, isHero: !!isHero });
+  }
+
+  /** Marca de calle: guarda el board revelado y el bote antes de actuar. */
+  function logLineStreet(hand) {
+    if (!hand) return;
+    const list = hand.actionLine = hand.actionLine || [];
+    list.push({
+      kind: 'street',
+      street: hand.stage,
+      board: (hand.board || []).slice(),
+      potBB: round2(hand.potBB || 0)
+    });
+  }
+
+  /**
+   * Completa la línea preflop con los asientos que llegan al flop sin acción
+   * registrada (típicamente la ciega grande que pasa su opción).
+   */
+  function fillMissingPreflopLine(hand) {
+    if (!hand || !hand.table) return;
+    const line = hand.actionLine = hand.actionLine || [];
+    const seen = {};
+    line.forEach(function (e) {
+      if (e.kind === 'act' && e.street === 'preflop') seen[e.pos] = true;
+    });
+    const heroSeat = heroTableSeat(hand);
+    preflopOrderForHand(hand).forEach(function (pos) {
+      if (seen[pos]) return;
+      if (hand.table.folded[pos] || !hand.table.inHand.has(pos)) return;
+      const invested = round2(hand.table.invested[pos] || 0);
+      if (invested <= 0) return;
+      line.push({
+        kind: 'act',
+        street: 'preflop',
+        pos: pos,
+        type: invested <= BBET + 0.01 ? 'check' : 'call',
+        amount: invested,
+        isHero: pos === heroSeat
+      });
+    });
+  }
+
+  /** Reasigna asiento en la línea cuando un forceDeal mueve al villano. */
+  function remapLineSeat(hand, fromPos, toPos) {
+    if (!hand || !fromPos || !toPos || fromPos === toPos) return;
+    (hand.actionLine || []).forEach(function (e) {
+      if (e.kind === 'act' && e.pos === fromPos) e.pos = toPos;
+    });
+  }
+
   function setHeroAct(hand, type, amount) {
     hand.heroAction = { type, amount: amount != null ? amount : null };
     if (hand.table && hand.hero.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
       hand.table.streetBet[hand.hero.pos] = round2((hand.table.streetBet[hand.hero.pos] || 0) + amount);
     }
     recordVisibleAction(hand, heroTableSeat(hand) || (hand.hero && hand.hero.pos), type, amount, { isHero: true });
+    logLineAction(hand, heroTableSeat(hand) || (hand.hero && hand.hero.pos), type, amount, { isHero: true });
   }
   function setVillainAct(hand, type, amount) {
     hand.villainAction = { type, amount: amount != null ? amount : null };
@@ -18378,6 +18725,7 @@ window.PT_NASH_PUSH_JSON = {
       hand.table.streetBet[hand.villain.pos] = round2((hand.table.streetBet[hand.villain.pos] || 0) + amount);
     }
     recordVisibleAction(hand, villainTableSeat(hand) || (hand.villain && hand.villain.pos), type, amount);
+    logLineAction(hand, villainTableSeat(hand) || (hand.villain && hand.villain.pos), type, amount);
     if (VT && hand.villainRangeTracker && type && type !== 'fold') {
       VT.recordAction(hand.villainRangeTracker, type, hand.stage, amount);
     } else if (VT && hand.villainRangeTracker && type === 'fold') {
@@ -18439,6 +18787,8 @@ window.PT_NASH_PUSH_JSON = {
     if (hand.multiway) hand.heroInPosition = heroIpMultiway(hand);
     recalcPot(hand);
     recordStreet(hand);
+    fillMissingPreflopLine(hand);
+    logLineStreet(hand);
     return enterStreet(hand);
   }
 
@@ -18451,6 +18801,7 @@ window.PT_NASH_PUSH_JSON = {
     resetStreetBets(hand);
     hand.board.push(hand._predeal.board[hand._boardIdx++]);
     recordStreet(hand);
+    logLineStreet(hand);
     return enterStreet(hand);
   }
 
@@ -32510,12 +32861,42 @@ window.PT_NASH_PUSH_JSON = {
     $('#spot-context').textContent = view
       ? tt('play.actionPlaying')
       : (hand.current ? hand.current.context : (hand.result ? hand.result.reason : ''));
+    renderActionLine();
     renderBluffSpotBadge();
     updateLiveAdvisor();
     syncPlayMobileStage();
     if (window.PTLegendary && typeof window.PTLegendary.ensureLegendaryChromeFromHand === 'function') {
       window.PTLegendary.ensureLegendaryChromeFromHand(hand);
     }
+  }
+
+  /**
+   * Línea de acción previa: cómo se ha llegado al board que se está viendo.
+   * Solo calles ya cerradas, para no adelantar la acción en curso ni pisar la
+   * animación de entrada. En la Escuela ya existe su propio banner de línea.
+   */
+  function renderActionLine() {
+    const el = $('#action-line');
+    if (!el) return;
+    const AL = window.PTActionLine;
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    let html = '';
+    if (AL && hand && !(cfg && cfg.schoolMode)) {
+      const view = handPresent(hand);
+      const stage = (view && view.stage) || hand.stage;
+      const through = stage === 'complete' ? 'river' : AL.previousStreet(stage);
+      if (through) {
+        const lang = window.PTI18n && window.PTI18n.getLang ? window.PTI18n.getLang() : 'es';
+        html = AL.html(hand, { throughStreet: through, lang: lang });
+      }
+    }
+    if (!html) {
+      el.classList.add('hidden');
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = '<p class="action-line-title">' + tt('play.actionLine') + '</p>' + html;
+    el.classList.remove('hidden');
   }
 
   function renderBluffSpotBadge() {

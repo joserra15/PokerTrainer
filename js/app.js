@@ -2420,12 +2420,42 @@
     $('#spot-context').textContent = view
       ? tt('play.actionPlaying')
       : (hand.current ? hand.current.context : (hand.result ? hand.result.reason : ''));
+    renderActionLine();
     renderBluffSpotBadge();
     updateLiveAdvisor();
     syncPlayMobileStage();
     if (window.PTLegendary && typeof window.PTLegendary.ensureLegendaryChromeFromHand === 'function') {
       window.PTLegendary.ensureLegendaryChromeFromHand(hand);
     }
+  }
+
+  /**
+   * Línea de acción previa: cómo se ha llegado al board que se está viendo.
+   * Solo calles ya cerradas, para no adelantar la acción en curso ni pisar la
+   * animación de entrada. En la Escuela ya existe su propio banner de línea.
+   */
+  function renderActionLine() {
+    const el = $('#action-line');
+    if (!el) return;
+    const AL = window.PTActionLine;
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    let html = '';
+    if (AL && hand && !(cfg && cfg.schoolMode)) {
+      const view = handPresent(hand);
+      const stage = (view && view.stage) || hand.stage;
+      const through = stage === 'complete' ? 'river' : AL.previousStreet(stage);
+      if (through) {
+        const lang = window.PTI18n && window.PTI18n.getLang ? window.PTI18n.getLang() : 'es';
+        html = AL.html(hand, { throughStreet: through, lang: lang });
+      }
+    }
+    if (!html) {
+      el.classList.add('hidden');
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = '<p class="action-line-title">' + tt('play.actionLine') + '</p>' + html;
+    el.classList.remove('hidden');
   }
 
   function renderBluffSpotBadge() {

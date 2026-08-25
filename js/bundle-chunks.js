@@ -60,6 +60,7 @@
       'js/ranges.js',
       'js/play-config.js',
       'js/live-advisor.js',
+      'js/action-line.js',
       'js/engine.js',
       'js/ai-hand-payload.js',
       'js/ai-report.js',
