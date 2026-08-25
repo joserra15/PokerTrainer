@@ -59,6 +59,11 @@ check(/d\.icmNote/.test(app) && /ICM \(valor del premio\)/.test(app),
   'showFeedback renderiza bloque ICM');
 check(/ICM activo:/.test(app) && /title:/.test(app),
   'chip ICM del HUD tiene tooltip explicativo');
+check(/function pickPrimaryHudChips/.test(app) && /function openSessionConfigModal/.test(app)
+  && /table-train-info/.test(app) && /id="session-config-modal"/.test(html),
+  'HUD compacto (2 chips + Info) y modal de config de sesión');
+check(/id="ranges-icm-enabled"/.test(html) && /syncRangesIcmFieldsUI/.test(app),
+  'toggle ICM en explorador de rangos MTT');
 check(/function renderTournamentDecisionImpact/.test(app)
   && /renderTournamentDecisionImpact\(d\)/.test(app)
   && /phaseNote/.test(app),
@@ -69,7 +74,7 @@ check(/icmChangedEv/.test(app) && /chipEvLoss/.test(read('js/engine.js'))
 check(/PLAY_PRESETS/.test(app) && /spin_grind/.test(app) && /mtt_low/.test(app),
   'PLAY_PRESETS cash/spin/mtt');
 check(/preflopOpenSize/.test(app), 'preflopOpenSize cableado en readPlayConfig/apply');
-check(/PT_BUILD\s*=\s*'2.7.31'/.test(version), 'PT_BUILD 2.7.31');
+check(/PT_BUILD\s*=\s*'2.7.32'/.test(version), 'PT_BUILD 2.7.32');
 
 const decisionDoc = read('docs/DECISION_ENTRENADOR_MTT_SPIN.md');
 check(/Profundizar/.test(decisionDoc) && /ICM lite/.test(decisionDoc),

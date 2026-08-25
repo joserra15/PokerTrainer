@@ -56,15 +56,18 @@ test.describe('Entrenador pro chrome @smoke', () => {
     await expect(page.locator('#table-train-chrome')).toBeVisible();
     await expect(page.locator('#table-format-badge')).toContainText(/MTT/i);
     const hud = page.locator('#table-train-hud');
-    // Fase 3 mid sin estructura ICM: stack + fase + blinds (Nv.) + ante% + open
-    // (BI / left-paid solo aparecen con estructura burbuja/ITM/FT)
-    await expect(hud.locator('.table-train-chip')).toHaveCount(5, { timeout: 5000 });
+    // Chrome compacto: 2 chips prioritarios + enlace Info (detalle en modal)
+    await expect(hud.locator('.table-train-chip')).toHaveCount(2, { timeout: 5000 });
+    await expect(hud.locator('.table-train-info')).toHaveCount(1);
     await expect(hud).toContainText('25bb');
     await expect(hud).toContainText('Mid');
-    await expect(hud).toContainText(/Nv\./);
-    await expect(hud).toContainText(/Ante/);
-    await expect(hud).toContainText(/Open 2\.2/);
     await expect(hud).not.toContainText(/BI €/);
     await expect(hud).not.toContainText(/left \//);
+    await hud.locator('.table-train-info').click();
+    const modal = page.locator('#session-config-modal');
+    await expect(modal).not.toHaveClass(/hidden/);
+    await expect(modal).toContainText(/Torneos|MTT|Fase|Stack/i);
+    await page.locator('#session-config-close').click();
+    await expect(modal).toHaveClass(/hidden/);
   });
 });
