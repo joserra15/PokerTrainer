@@ -31277,7 +31277,7 @@ window.PT_NASH_PUSH_JSON = {
     const phaseGroup = $('#setup-group-phase');
     const payoutGroup = $('#setup-group-spin-payout');
     const mttStructGroup = $('#setup-group-mtt-structure');
-    const rakeGroup = $('#setup-rake-mode') && $('#setup-rake-mode').closest('.setup-group');
+    const rakeGroup = $('#setup-group-rake');
     if (phaseGroup) phaseGroup.hidden = h === 'cash';
     if (payoutGroup) payoutGroup.hidden = h !== 'spin';
     if (mttStructGroup) mttStructGroup.hidden = h !== 'mtt';

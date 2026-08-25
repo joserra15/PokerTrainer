@@ -162,12 +162,26 @@ async function goTab(page, tab) {
   });
 }
 
+async function openPlaySetupAdvanced(page) {
+  const details = page.locator('#setup-advanced');
+  if ((await details.count()) === 0) return;
+  const isOpen = await details.evaluate((el) => el.open);
+  if (!isOpen) {
+    await details.locator('summary').click();
+    await page.waitForFunction(() => {
+      const el = document.getElementById('setup-advanced');
+      return el && el.open;
+    }, { timeout: 5000 });
+  }
+}
+
 module.exports = {
   mockAuthenticatedUser,
   mockFreshAuthenticatedUser,
   seedStudyData,
   waitForAppShell,
   goTab,
+  openPlaySetupAdvanced,
   playActionButtons,
   playSkipButton,
   skipActionPlaybackIfNeeded,

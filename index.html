@@ -721,6 +721,66 @@
           </div>
         </div>
 
+        <div class="setup-main" id="setup-main">
+          <div class="setup-group" id="setup-group-phase" hidden>
+            <span class="setup-label">Fase del torneo</span>
+            <div class="setup-chips" id="setup-mtt-phase">
+              <button type="button" class="setup-chip active" data-val="auto">Auto (por stack)</button>
+              <button type="button" class="setup-chip" data-val="early">Early</button>
+              <button type="button" class="setup-chip" data-val="mid">Mid</button>
+              <button type="button" class="setup-chip" data-val="short">Short</button>
+              <button type="button" class="setup-chip" data-val="push">Push/fold</button>
+              <button type="button" class="setup-chip" data-val="bubble" data-hub-mtt>Burbuja</button>
+            </div>
+            <p class="muted-text setup-hint">La fase adapta opens, defensa vs open, <strong>vs 3-bet</strong>, antes e ICM (y el stack permitido). En short/push no se flattean las mismas manos que en cash deep. «Auto (por stack)» elige Early/Mid/Short/Push según tus bb. La estructura MTT (buy-in / puestos) afina el ICM lite en burbuja o ITM. En cada mano verás la fase resuelta en el tapete.</p>
+          </div>
+
+          <div class="setup-group" id="setup-group-villain-level">
+            <span class="setup-label">Nivel de rivales</span>
+            <div class="setup-chips" id="setup-villain-level">
+              <button type="button" class="setup-chip" data-val="fish">Fish</button>
+              <button type="button" class="setup-chip" data-val="intermediate">Intermedio</button>
+              <button type="button" class="setup-chip active" data-val="pro">Pro</button>
+            </div>
+            <p class="muted-text setup-hint">Fish: mezcla actual de perfiles. Intermedio: rivales cercanos a GTO. Pro: rivales fuertes, agresivos y con control de rangos.</p>
+          </div>
+
+          <div class="setup-group" id="setup-group-hand-range">
+            <span class="setup-label">Rango de manos</span>
+            <div class="setup-chips" id="setup-hand-range">
+              <button type="button" class="setup-chip" data-val="playable">Jugables</button>
+              <button type="button" class="setup-chip active" data-val="borderline">Borderline</button>
+              <button type="button" class="setup-chip" data-val="random">Random</button>
+            </div>
+            <p class="muted-text setup-hint">Por defecto Borderline (límites del rango). Jugables: manos que suelen ver flop. Random: cualquier mano del spot.</p>
+          </div>
+
+          <div class="setup-group" id="setup-group-hands-target">
+            <span class="setup-label">Duración del bloque</span>
+            <div class="setup-chips" id="setup-hands-target">
+              <button type="button" class="setup-chip active" data-val="0">Continua</button>
+              <button type="button" class="setup-chip" data-val="25">25 manos</button>
+              <button type="button" class="setup-chip" data-val="50">50 manos</button>
+              <button type="button" class="setup-chip" data-val="100">100 manos</button>
+            </div>
+            <p class="muted-text setup-hint">Al terminar el bloque verás acierto, EV perdido y tiempo. «Continua» no tiene límite.</p>
+          </div>
+
+          <div class="setup-group" id="setup-group-table-theme">
+            <span class="setup-label">Tema de la mesa</span>
+            <div class="setup-chips" id="setup-table-theme">
+              <button type="button" class="setup-chip theme-chip active" data-val="emerald"><span class="theme-swatch theme-swatch-emerald" aria-hidden="true"></span>Esmeralda</button>
+              <button type="button" class="setup-chip theme-chip" data-val="midnight"><span class="theme-swatch theme-swatch-midnight" aria-hidden="true"></span>Medianoche</button>
+              <button type="button" class="setup-chip theme-chip" data-val="crimson"><span class="theme-swatch theme-swatch-crimson" aria-hidden="true"></span>Burdeos</button>
+            </div>
+            <p class="muted-text setup-hint">Cambia el tapete, el borde de la mesa y el reverso de las cartas.</p>
+          </div>
+        </div>
+
+        <details class="setup-advanced" id="setup-advanced">
+          <summary>Avanzadas</summary>
+          <div class="setup-advanced-body">
+
         <div class="setup-group" id="setup-group-game-type">
           <span class="setup-label">Tipo de mesa</span>
           <div class="setup-chips" id="setup-game-type">
@@ -746,19 +806,6 @@
             <button type="button" class="btn btn-ghost btn-sm" id="setup-preset-save">Guardar</button>
           </div>
           <p class="muted-text setup-hint">Atajos de fábrica o los tuyos. Guardar memoriza la config actual (formato, stack, escenario, rivales…). Pulsa × para borrar un preset guardado.</p>
-        </div>
-
-        <div class="setup-group" id="setup-group-phase" hidden>
-          <span class="setup-label">Fase del torneo</span>
-          <div class="setup-chips" id="setup-mtt-phase">
-            <button type="button" class="setup-chip active" data-val="auto">Auto (por stack)</button>
-            <button type="button" class="setup-chip" data-val="early">Early</button>
-            <button type="button" class="setup-chip" data-val="mid">Mid</button>
-            <button type="button" class="setup-chip" data-val="short">Short</button>
-            <button type="button" class="setup-chip" data-val="push">Push/fold</button>
-            <button type="button" class="setup-chip" data-val="bubble" data-hub-mtt>Burbuja</button>
-          </div>
-          <p class="muted-text setup-hint">La fase adapta opens, defensa vs open, <strong>vs 3-bet</strong>, antes e ICM (y el stack permitido). En short/push no se flattean las mismas manos que en cash deep. «Auto (por stack)» elige Early/Mid/Short/Push según tus bb. La estructura MTT (buy-in / puestos) afina el ICM lite en burbuja o ITM. En cada mano verás la fase resuelta en el tapete.</p>
         </div>
 
         <div class="setup-group" id="setup-group-spin-payout" hidden>
@@ -872,22 +919,12 @@
           <p class="muted-text setup-hint">El entrenador prioriza spots con buena fold equity/blockers (hacer) o líneas polarizadas (cazar). En Spins/MTT los faroles se penalizan con ICM.</p>
         </div>
 
-        <div class="setup-group">
+        <div class="setup-group" id="setup-group-hero-pos">
           <span class="setup-label">Posición del héroe</span>
           <div class="setup-chips setup-chips-wrap" id="setup-hero-pos"></div>
         </div>
 
-        <div class="setup-group">
-          <span class="setup-label">Nivel de rivales</span>
-          <div class="setup-chips" id="setup-villain-level">
-            <button type="button" class="setup-chip" data-val="fish">Fish</button>
-            <button type="button" class="setup-chip" data-val="intermediate">Intermedio</button>
-            <button type="button" class="setup-chip active" data-val="pro">Pro</button>
-          </div>
-          <p class="muted-text setup-hint">Fish: mezcla actual de perfiles. Intermedio: rivales cercanos a GTO. Pro: rivales fuertes, agresivos y con control de rangos.</p>
-        </div>
-
-        <div class="setup-group">
+        <div class="setup-group" id="setup-group-practice-street">
           <span class="setup-label">Calle de práctica</span>
           <div class="setup-chips" id="setup-practice-street">
             <button type="button" class="setup-chip active" data-val="random">Todas</button>
@@ -903,7 +940,7 @@
           </label>
         </div>
 
-        <div class="setup-group">
+        <div class="setup-group" id="setup-group-action-mode">
           <span class="setup-label" data-i18n="play.actionMode">Modo de la mesa</span>
           <div class="setup-chips" id="setup-action-mode">
             <button type="button" class="setup-chip" data-val="quick" data-i18n="play.actionQuick">Rápido</button>
@@ -912,27 +949,7 @@
           <p class="muted-text setup-hint" data-i18n="play.actionModeHint">Rápido: te llega el turno al instante. Completo: ves cómo actúa cada asiento desde UTG. Postflop siempre es completo.</p>
         </div>
 
-        <div class="setup-group">
-          <span class="setup-label">Rango de manos</span>
-          <div class="setup-chips" id="setup-hand-range">
-            <button type="button" class="setup-chip" data-val="playable">Jugables</button>
-            <button type="button" class="setup-chip active" data-val="borderline">Borderline</button>
-            <button type="button" class="setup-chip" data-val="random">Random</button>
-          </div>
-          <p class="muted-text setup-hint">Por defecto Borderline (límites del rango). Jugables: manos que suelen ver flop. Random: cualquier mano del spot.</p>
-        </div>
-
-        <div class="setup-group">
-          <span class="setup-label">Tema de la mesa</span>
-          <div class="setup-chips" id="setup-table-theme">
-            <button type="button" class="setup-chip theme-chip active" data-val="emerald"><span class="theme-swatch theme-swatch-emerald" aria-hidden="true"></span>Esmeralda</button>
-            <button type="button" class="setup-chip theme-chip" data-val="midnight"><span class="theme-swatch theme-swatch-midnight" aria-hidden="true"></span>Medianoche</button>
-            <button type="button" class="setup-chip theme-chip" data-val="crimson"><span class="theme-swatch theme-swatch-crimson" aria-hidden="true"></span>Burdeos</button>
-          </div>
-          <p class="muted-text setup-hint">Cambia el tapete, el borde de la mesa y el reverso de las cartas.</p>
-        </div>
-
-        <div class="setup-group">
+        <div class="setup-group" id="setup-group-rake">
           <span class="setup-label">Rake</span>
           <div class="setup-chips" id="setup-rake-mode">
             <button type="button" class="setup-chip active" data-val="none">Sin rake</button>
@@ -948,18 +965,7 @@
           <p class="muted-text setup-hint">Ajusta el bote usado en pot odds y EV del consejo. Estándar ≈ 5 % con tope 3 bb. No replica el rake exacto de cada sala.</p>
         </div>
 
-        <div class="setup-group">
-          <span class="setup-label">Duración del bloque</span>
-          <div class="setup-chips" id="setup-hands-target">
-            <button type="button" class="setup-chip active" data-val="0">Continua</button>
-            <button type="button" class="setup-chip" data-val="25">25 manos</button>
-            <button type="button" class="setup-chip" data-val="50">50 manos</button>
-            <button type="button" class="setup-chip" data-val="100">100 manos</button>
-          </div>
-          <p class="muted-text setup-hint">Al terminar el bloque verás acierto, EV perdido y tiempo. «Continua» no tiene límite.</p>
-        </div>
-
-        <div class="setup-group">
+        <div class="setup-group" id="setup-group-advisor">
           <label class="setup-toggle toggle-row">
             <input type="checkbox" id="setup-live-advisor" />
             <span><strong>Avisador en vivo</strong> — muestra qué ocurre en la mesa, la acción recomendada y la explicación antes de decidir</span>
@@ -977,6 +983,9 @@
             <p class="muted-text setup-hint">En «Solo error grave» no hay consejo previo; solo toast/feedback si pierdes ≥ umbral de EV.</p>
           </div>
         </div>
+
+          </div>
+        </details>
 
         <button type="button" id="play-start" class="btn btn-primary btn-block play-start-btn">Empezar sesión</button>
       </div>
@@ -1122,7 +1131,7 @@
             <button type="button" class="setup-chip" data-val="bubble" data-ranges-hub="mtt">Burbuja</button>
           </div>
         </div>
-        <div class="ranges-filter-row ranges-icm-row" id="ranges-icm-group" hidden>
+        <div class="ranges-filter-row ranges-icm-row" id="ranges-icm-group" data-ranges-hub="mtt" hidden>
           <label class="ranges-icm-toggle">
             <input type="checkbox" id="ranges-icm-enabled" />
             <span>ICM</span>
@@ -1150,7 +1159,7 @@
               <button type="button" class="setup-chip" data-val="ft9">FT 9</button>
             </div>
           </div>
-          <p class="muted-text setup-hint" id="ranges-icm-hint" hidden>Con ICM activo la matriz 13×13 se aprieta según burbuja/ITM (lite). No es un solver de field completo.</p>
+          <p class="muted-text setup-hint" id="ranges-icm-hint" hidden>Con ICM activo la matriz 13×13 se aprieta según burbuja/ITM (lite).</p>
         </div>
         <div class="ranges-spot-row" id="ranges-spot-row"></div>
         <div class="ranges-pos-block hidden" id="ranges-sizing-row">

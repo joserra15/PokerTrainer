@@ -36,6 +36,33 @@ test.describe('Pestañas de estudio @smoke', () => {
     await expect(page.locator('#tab-ranges')).not.toContainText(/pt\.|i18n\./);
   });
 
+  test('Rangos ICM solo en MTT y despliega campos al activar', async ({ page }) => {
+    await goTab(page, 'ranges');
+    await page.locator('#ranges-icm-group').waitFor({ state: 'attached', timeout: 15000 });
+
+    const icmGroup = page.locator('#ranges-icm-group');
+    const icmFields = page.locator('#ranges-icm-fields');
+    const icmHint = page.locator('#ranges-icm-hint');
+
+    await expect(icmGroup).toBeHidden();
+
+    await page.locator('#ranges-game-type .setup-chip[data-val="spin3"]').click();
+    await expect(icmGroup).toBeHidden();
+
+    await page.locator('#ranges-game-type .setup-chip[data-val="mtt"]').click();
+    await expect(icmGroup).toBeVisible();
+    await expect(icmFields).toBeHidden();
+    await expect(icmHint).toBeHidden();
+
+    await page.locator('#ranges-icm-enabled').check();
+    await expect(icmFields).toBeVisible();
+    await expect(icmHint).toBeVisible();
+    await expect(icmHint).toContainText(/matriz 13×13 se aprieta/i);
+    await expect(icmHint).not.toContainText(/solver de field completo/i);
+    await expect(page.locator('#ranges-mtt-buyin')).toBeVisible();
+    await expect(page.locator('#ranges-mtt-structure .setup-chip[data-val="bubble"]')).toBeVisible();
+  });
+
   test('Escuela Laboratorio Rangos muestra R-01', async ({ page }) => {
     await goTab(page, 'school');
     await page.waitForSelector('#school-content .school-page', { timeout: 20000 });
