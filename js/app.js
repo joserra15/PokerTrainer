@@ -517,6 +517,7 @@
     const laEl = $('#setup-live-advisor');
     const modeEl = $('#setup-advisor-mode .setup-chip.active');
     const thrEl = $('#setup-serious-threshold');
+    const hideAlEl = $('#setup-hide-action-line');
     const rakeEl = $('#setup-rake-mode .setup-chip.active');
     const rakePctEl = $('#setup-rake-pct');
     const rakeCapEl = $('#setup-rake-cap');
@@ -528,6 +529,13 @@
     }
     if (modeEl && modeEl.dataset.val) advisorMode = modeEl.dataset.val === 'serious' ? 'serious' : 'always';
     if (thrEl && thrEl.value !== '') seriousEvThreshold = Number(thrEl.value);
+    const practiceStreetVal = stEl ? stEl.dataset.val : 'random';
+    let hideActionLine = false;
+    if (hideAlEl && !hideAlEl.disabled) hideActionLine = !!hideAlEl.checked;
+    else if (window.PTActionLine && PTActionLine.practiceStreetAllowsHide &&
+        PTActionLine.practiceStreetAllowsHide(practiceStreetVal)) {
+      hideActionLine = PTActionLine.loadHidePreference ? !!PTActionLine.loadHidePreference() : false;
+    }
     let rakeMode = rakeEl ? rakeEl.dataset.val : 'none';
     let rakePct = rakePctEl && rakePctEl.value !== '' ? Number(rakePctEl.value) : 5;
     let rakeCapBB = rakeCapEl && rakeCapEl.value !== '' ? Number(rakeCapEl.value) : 3;
@@ -572,6 +580,7 @@
       liveAdvisor: laEl ? laEl.checked : false,
       advisorMode: advisorMode,
       seriousEvThreshold: seriousEvThreshold,
+      hideActionLine: hideActionLine,
       rakeMode: hub === 'cash' ? (rakeMode || 'none') : 'none',
       rakePct: rakePct,
       rakeCapBB: rakeCapBB,
@@ -886,6 +895,41 @@
     updateLiveAdvisor();
   }
 
+  /** Oculta la línea de acción previa a mitad de sesión (× del panel), igual que el avisador. */
+  function disableActionLineFromPanel() {
+    if (playSessionConfig) playSessionConfig.hideActionLine = true;
+    if (hand && hand.playConfig) hand.playConfig.hideActionLine = true;
+    if (window.PTActionLine && PTActionLine.saveHidePreference) {
+      PTActionLine.saveHidePreference(true);
+    }
+    const el = $('#setup-hide-action-line');
+    if (el && !el.disabled) el.checked = true;
+    renderActionLine();
+  }
+
+  /**
+   * La opción «Ocultar línea de acción previa» solo está activa con calle de
+   * práctica flop / turn / river. En «Todas» o preflop queda desactivada.
+   */
+  function syncHideActionLineUI() {
+    const wrap = $('#setup-hide-action-line-wrap');
+    const el = $('#setup-hide-action-line');
+    if (!el) return;
+    const streetEl = $('#setup-practice-street .setup-chip.active');
+    const street = streetEl ? streetEl.dataset.val : 'random';
+    const AL = window.PTActionLine;
+    const allowed = AL && AL.practiceStreetAllowsHide
+      ? AL.practiceStreetAllowsHide(street)
+      : (street === 'flop' || street === 'turn' || street === 'river');
+    el.disabled = !allowed;
+    if (wrap) wrap.classList.toggle('is-disabled', !allowed);
+    if (!allowed) {
+      el.checked = false;
+      return;
+    }
+    if (AL && AL.loadHidePreference) el.checked = !!AL.loadHidePreference();
+  }
+
   function bindChipGroup(sel, onChange) {
     const box = $(sel);
     if (!box) return;
@@ -1128,6 +1172,13 @@
     const thrEl = $('#setup-serious-threshold');
     if (thrEl && cfg.seriousEvThreshold != null) thrEl.value = String(cfg.seriousEvThreshold);
     syncAdvisorModeUI();
+    if (typeof cfg.hideActionLine === 'boolean' && window.PTActionLine && PTActionLine.saveHidePreference) {
+      const streetOk = PTActionLine.practiceStreetAllowsHide
+        ? PTActionLine.practiceStreetAllowsHide(cfg.practiceStreet)
+        : false;
+      PTActionLine.saveHidePreference(streetOk && !!cfg.hideActionLine);
+    }
+    syncHideActionLineUI();
     if (cfg.rakeMode) {
       activate('#setup-rake-mode', cfg.rakeMode);
       const pctEl = $('#setup-rake-pct');
@@ -1180,6 +1231,9 @@
       PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
       if (PTLiveAdvisor.saveMode) PTLiveAdvisor.saveMode(playSessionConfig.advisorMode || 'always');
       if (PTLiveAdvisor.saveThreshold) PTLiveAdvisor.saveThreshold(playSessionConfig.seriousEvThreshold);
+    }
+    if (window.PTActionLine && PTActionLine.saveHidePreference && playSessionConfig) {
+      PTActionLine.saveHidePreference(!!playSessionConfig.hideActionLine);
     }
     if (playSessionConfig && playSessionConfig.actionMode) saveActionMode(playSessionConfig.actionMode);
     resetPlaySession(false);
@@ -1280,7 +1334,7 @@
     });
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
-    bindChipGroup('#setup-practice-street');
+    bindChipGroup('#setup-practice-street', syncHideActionLineUI);
     bindChipGroup('#setup-action-mode', () => {
       const el = $('#setup-action-mode .setup-chip.active');
       saveActionMode(el ? el.dataset.val : 'complete');
@@ -1346,6 +1400,15 @@
         thrEl.addEventListener('input', persistThr);
       }
     }
+    const hideAlEl = $('#setup-hide-action-line');
+    if (hideAlEl) {
+      syncHideActionLineUI();
+      hideAlEl.addEventListener('change', function () {
+        if (window.PTActionLine && PTActionLine.saveHidePreference) {
+          PTActionLine.saveHidePreference(!!hideAlEl.checked && !hideAlEl.disabled);
+        }
+      });
+    }
     const startBtn = $('#play-start');
     if (startBtn) {
       startBtn.addEventListener('click', async () => {
@@ -1361,6 +1424,9 @@
           PTLiveAdvisor.savePreference(!!playSessionConfig.liveAdvisor);
           if (PTLiveAdvisor.saveMode) PTLiveAdvisor.saveMode(playSessionConfig.advisorMode || 'always');
           if (PTLiveAdvisor.saveThreshold) PTLiveAdvisor.saveThreshold(playSessionConfig.seriousEvThreshold);
+        }
+        if (window.PTActionLine && PTActionLine.saveHidePreference && playSessionConfig) {
+          PTActionLine.saveHidePreference(!!playSessionConfig.hideActionLine);
         }
         if (playSessionConfig && playSessionConfig.actionMode) saveActionMode(playSessionConfig.actionMode);
         resetPlaySession(false);
@@ -2043,6 +2109,14 @@
         disableLiveAdvisorFromPanel();
       });
     }
+    const actionLineEl = $('#action-line');
+    if (actionLineEl && !actionLineEl._ptDisableBound) {
+      actionLineEl._ptDisableBound = true;
+      actionLineEl.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-disable-action-line]')) return;
+        disableActionLineFromPanel();
+      });
+    }
     if (!window._ptLangBound) {
       window._ptLangBound = true;
       window.addEventListener('pt-lang-change', function () {
@@ -2578,12 +2652,18 @@
    * Línea de acción previa: cómo se ha llegado al board que se está viendo.
    * Solo calles ya cerradas, para no adelantar la acción en curso ni pisar la
    * animación de entrada. En la Escuela ya existe su propio banner de línea.
+   * Se puede ocultar con la opción de entrenador (o × del panel), igual que el avisador.
    */
   function renderActionLine() {
     const el = $('#action-line');
     if (!el) return;
     const AL = window.PTActionLine;
     const cfg = (hand && hand.playConfig) || playSessionConfig;
+    if (cfg && cfg.hideActionLine) {
+      el.classList.add('hidden');
+      el.innerHTML = '';
+      return;
+    }
     let html = '';
     if (AL && hand && !(cfg && cfg.schoolMode)) {
       const view = handPresent(hand);
@@ -2599,7 +2679,20 @@
       el.innerHTML = '';
       return;
     }
-    el.innerHTML = '<p class="action-line-title">' + tt('play.actionLine') + '</p>' + html;
+    const canHide = AL && AL.practiceStreetAllowsHide
+      ? AL.practiceStreetAllowsHide(cfg && cfg.practiceStreet)
+      : false;
+    const hideTitle = tt('play.hideActionLine');
+    let head = '<p class="action-line-title">' + tt('play.actionLine') + '</p>';
+    if (canHide) {
+      head =
+        '<div class="action-line-head">' +
+        '<p class="action-line-title">' + tt('play.actionLine') + '</p>' +
+        '<button type="button" class="action-line-disable" data-disable-action-line title="' +
+        escapeHtml(hideTitle) + '" aria-label="' + escapeHtml(hideTitle) + '">×</button>' +
+        '</div>';
+    }
+    el.innerHTML = head + html;
     el.classList.remove('hidden');
   }
 
