@@ -32,6 +32,12 @@ ok(/\.ranges-filter-row\[hidden\][\s\S]*display:\s*none/.test(css),
   'CSS respeta hidden en filas de filtros Rangos');
 ok(/\.setup-mtt-structure-fields\[hidden\][\s\S]*display:\s*none/.test(css),
   'CSS respeta hidden en campos ICM');
+ok(!/No es un solver de field completo/.test(html),
+  'Rangos ICM hint sin copy «solver de field completo»');
+ok(/id="ranges-icm-hint"[^>]*>Con ICM activo la matriz/.test(html),
+  'Rangos ICM hint presente');
+ok(/hint\) hint\.hidden = !on/.test(app),
+  'Rangos: hint ICM visible solo con checkbox en MTT');
 ok(/id="table-train-chrome"/.test(html)
   && /table-train-chrome[\s\S]{0,120}table-format-badge[\s\S]{0,120}table-train-hud/.test(html),
   'mesa: badge + HUD dentro de table-train-chrome');
