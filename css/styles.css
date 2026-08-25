@@ -3469,6 +3469,10 @@ body.paywall-open { overflow: hidden; }
   color: var(--muted);
   min-width: 6.5rem;
 }
+.setup-inline-field[hidden],
+.setup-chips[hidden] {
+  display: none !important;
+}
 .setup-inline-field input {
   width: 6.5rem;
   padding: 8px 10px;
