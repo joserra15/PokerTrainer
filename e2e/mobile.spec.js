@@ -17,6 +17,11 @@ test.describe('Mobile play layout @mobile @smoke', () => {
       else document.querySelector('button.tab[data-tab="play"]')?.click();
     });
     await page.waitForSelector('#play-setup:not(.hidden), #play-start', { timeout: 15000 });
+    // Modo rápido evita la animación «Saltar» (flaky en viewport móvil por re-render).
+    const quick = page.locator('#setup-action-mode [data-val="quick"]');
+    if (await quick.isVisible().catch(() => false)) {
+      await quick.click({ force: true });
+    }
     await page.locator('#play-start').click({ force: true });
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 20000 });
 

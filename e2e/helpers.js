@@ -119,9 +119,20 @@ async function skipActionPlaybackIfNeeded(page) {
   const skip = playSkipButton(page);
   const actionBtn = playActionButtons(page);
   await skip.or(actionBtn).first().waitFor({ state: 'visible', timeout: 20000 });
-  if (await actionBtn.count()) return;
-  if (await skip.isVisible().catch(() => false)) {
-    await skip.click();
+  // La línea de acción se re-renderiza en móvil; force + reintentos si el nodo se detach.
+  for (let i = 0; i < 8; i++) {
+    if (await actionBtn.count()) return;
+    if (!(await skip.isVisible().catch(() => false))) break;
+    try {
+      await skip.click({ force: true, timeout: 2500 });
+    } catch (_) {
+      /* detached / not stable — reintento */
+    }
+    const ready = await actionBtn.first()
+      .waitFor({ state: 'visible', timeout: 500 })
+      .then(() => true)
+      .catch(() => false);
+    if (ready) return;
   }
   await actionBtn.first().waitFor({ state: 'visible', timeout: 20000 });
 }
