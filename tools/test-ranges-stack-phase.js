@@ -24,8 +24,14 @@ ok(/id="ranges-stack-depth"/.test(html) && /data-val="bb20"/.test(html) && /data
   'Rangos: chips 20bb y 10bb');
 ok(/id="ranges-mtt-phase"/.test(html) && /id="ranges-phase-group"/.test(html),
   'Rangos: selector de fase');
-ok(/data-ranges-hub="spin mtt"/.test(html) && /data-ranges-hub="cash"/.test(html),
-  'Rangos: stacks filtrados por hub');
+ok(/id="ranges-icm-group"/.test(html) && /data-ranges-hub="mtt"/.test(html),
+  'Rangos: bloque ICM marcado solo MTT');
+ok(/icmGroup\) icmGroup\.hidden = hub !== 'mtt'/.test(app),
+  'Rangos: sync oculta ICM fuera de MTT');
+ok(/\.ranges-filter-row\[hidden\][\s\S]*display:\s*none/.test(css),
+  'CSS respeta hidden en filas de filtros Rangos');
+ok(/\.setup-mtt-structure-fields\[hidden\][\s\S]*display:\s*none/.test(css),
+  'CSS respeta hidden en campos ICM');
 ok(/id="table-train-chrome"/.test(html)
   && /table-train-chrome[\s\S]{0,120}table-format-badge[\s\S]{0,120}table-train-hud/.test(html),
   'mesa: badge + HUD dentro de table-train-chrome');

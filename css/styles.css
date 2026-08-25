@@ -3313,6 +3313,7 @@ button.rm-cell-btn:focus-visible {
   color: #fff;
 }
 .ranges-filter-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; align-items: center; }
+.ranges-filter-row[hidden] { display: none !important; }
 .ranges-filter-row .setup-chips { flex-wrap: wrap; }
 .ranges-phase-row { margin-top: -4px; }
 .ranges-phase-row .ranges-pos-label { margin-right: 4px; }
@@ -3572,6 +3573,9 @@ body.paywall-open { overflow: hidden; }
   gap: 10px 14px;
   align-items: flex-end;
   margin-top: 10px;
+}
+.setup-mtt-structure-fields[hidden] {
+  display: none !important;
 }
 .setup-inline-field {
   display: flex;
