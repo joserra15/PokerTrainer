@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const { mockAuthenticatedUser, waitForAppShell, openPlaySetupAdvanced } = require('./helpers');
 
 test.describe('Modo completo de mesa @smoke', () => {
   test('completo: reproduce acción y permite saltar a la decisión', async ({ page }) => {
@@ -8,6 +8,7 @@ test.describe('Modo completo de mesa @smoke', () => {
 
     await page.click('button.tab[data-tab="play"]');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
+    await openPlaySetupAdvanced(page);
     await page.click('#setup-action-mode [data-val="complete"]');
     await page.click('#setup-scenario [data-val="rfi"]');
     await page.waitForSelector('#setup-hero-pos [data-val="CO"]', { timeout: 10000 });
@@ -40,6 +41,7 @@ test.describe('Modo completo de mesa @smoke', () => {
 
     await page.click('button.tab[data-tab="play"]');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
+    await openPlaySetupAdvanced(page);
     await page.click('#setup-action-mode [data-val="quick"]');
     await page.click('#play-start');
 

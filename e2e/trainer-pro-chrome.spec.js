@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const { mockAuthenticatedUser, waitForAppShell, openPlaySetupAdvanced } = require('./helpers');
 
 /**
  * Regresión visual/UX del RoadMap entrenador pro:
@@ -18,6 +18,7 @@ test.describe('Entrenador pro chrome @smoke', () => {
     await expect(page.locator('#setup-mtt-phase [data-val="auto"]')).toContainText(/Auto/);
 
     const openChip = page.locator('#setup-open-size [data-val="2.2"]');
+    await openPlaySetupAdvanced(page);
     if (await openChip.isVisible().catch(() => false)) {
       await openChip.click();
     }
@@ -45,6 +46,7 @@ test.describe('Entrenador pro chrome @smoke', () => {
     await page.click('button.tab[data-tab="play"]');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
 
+    await openPlaySetupAdvanced(page);
     await page.click('#setup-play-preset [data-val="mtt_low"]');
     await expect(page.locator('#setup-format-hub [data-val="mtt"]')).toHaveClass(/active/);
     await expect(page.locator('#setup-mtt-phase [data-val="mid"]')).toHaveClass(/active/);

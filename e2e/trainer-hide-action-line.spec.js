@@ -1,7 +1,8 @@
 const { test, expect } = require('@playwright/test');
 const {
   mockAuthenticatedUser,
-  waitForAppShell
+  waitForAppShell,
+  openPlaySetupAdvanced
 } = require('./helpers');
 
 test.describe('Ocultar línea de acción previa @smoke', () => {
@@ -11,6 +12,7 @@ test.describe('Ocultar línea de acción previa @smoke', () => {
 
     await page.click('button.tab[data-tab="play"]');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
+    await openPlaySetupAdvanced(page);
 
     const wrap = page.locator('#setup-hide-action-line-wrap');
     const checkbox = page.locator('#setup-hide-action-line');
@@ -45,6 +47,7 @@ test.describe('Ocultar línea de acción previa @smoke', () => {
     // La preferencia se conserva aunque la siguiente sesión sea de preflop.
     await page.click('#new-session');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
+    await openPlaySetupAdvanced(page);
     await expect(checkbox).toBeChecked();
     await page.click('#setup-practice-street .setup-chip[data-val="preflop"]');
     await expect(checkbox).toBeEnabled();
