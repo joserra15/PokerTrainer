@@ -337,6 +337,14 @@ assert.ok(spot.evaluation && spot.evaluation.class, 'spin evaluateSpot');
   assert.ok(earlyCfg.playersLeft == null, 'early auto sin estructura field');
   assert.ok(!Tax.usesIcm(earlyCfg), 'early sin near-money → no ICM');
 
+  const midAutoBi = PC.normalize({
+    formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb25',
+    mttPhase: 'mid', mttStructureSituation: 'auto', buyIn: 11, preflopOpenSize: 2.2
+  });
+  assert.ok(midAutoBi.playersLeft == null, 'mid auto no arrastra field');
+  assert.ok(midAutoBi.buyIn == null, 'mid auto no arrastra buy-in del input default');
+  assert.ok(!Tax.usesIcm(midAutoBi), 'mid auto sin estructura → no ICM');
+
   const midNear = PC.normalize({
     formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb40',
     mttPhase: 'mid', mttStructureSituation: 'bubble'

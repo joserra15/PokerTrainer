@@ -13885,11 +13885,13 @@ window.PT_NASH_PUSH_JSON = {
             : null;
           if (def) {
             Object.keys(def).forEach(function (k) { c[k] = def[k]; });
+            if (biExplicit) c.buyIn = Number(raw.buyIn);
           } else {
             c.playersLeft = null;
             c.placesPaid = null;
             c.mttPayouts = null;
-            if (!biExplicit) c.buyIn = null;
+            // Sin estructura de fase: no arrastrar buy-in del input por defecto.
+            c.buyIn = null;
           }
         }
       } else if (!leftExplicit && !paidExplicit && !sitExplicit) {
@@ -31664,7 +31666,8 @@ window.PT_NASH_PUSH_JSON = {
           title: 'Jugadores restantes / puestos premiados (estructura MTT lite para ICM).'
         });
       }
-      if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0) {
+      if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0
+        && cfg.playersLeft != null && cfg.placesPaid != null) {
         chips.push({
           text: 'BI €' + cfg.buyIn,
           cls: '',
@@ -32051,7 +32054,9 @@ window.PT_NASH_PUSH_JSON = {
     activate('#setup-mtt-structure', sit);
     if (cfg.mttPayoutPreset) activate('#setup-mtt-payout-preset', cfg.mttPayoutPreset);
     const biEl = $('#setup-mtt-buyin');
-    if (biEl) biEl.value = cfg.buyIn != null ? String(cfg.buyIn) : '11';
+    if (biEl) {
+      biEl.value = cfg.buyIn != null ? String(cfg.buyIn) : (sit === 'auto' ? '' : '11');
+    }
     const leftEl = $('#setup-mtt-players-left');
     if (leftEl && cfg.playersLeft != null) leftEl.value = String(cfg.playersLeft);
     const paidEl = $('#setup-mtt-places-paid');

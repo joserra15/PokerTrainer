@@ -318,11 +318,13 @@
             : null;
           if (def) {
             Object.keys(def).forEach(function (k) { c[k] = def[k]; });
+            if (biExplicit) c.buyIn = Number(raw.buyIn);
           } else {
             c.playersLeft = null;
             c.placesPaid = null;
             c.mttPayouts = null;
-            if (!biExplicit) c.buyIn = null;
+            // Sin estructura de fase: no arrastrar buy-in del input por defecto.
+            c.buyIn = null;
           }
         }
       } else if (!leftExplicit && !paidExplicit && !sitExplicit) {

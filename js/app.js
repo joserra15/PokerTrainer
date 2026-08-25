@@ -756,7 +756,8 @@
           title: 'Jugadores restantes / puestos premiados (estructura MTT lite para ICM).'
         });
       }
-      if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0) {
+      if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0
+        && cfg.playersLeft != null && cfg.placesPaid != null) {
         chips.push({
           text: 'BI €' + cfg.buyIn,
           cls: '',
@@ -1143,7 +1144,9 @@
     activate('#setup-mtt-structure', sit);
     if (cfg.mttPayoutPreset) activate('#setup-mtt-payout-preset', cfg.mttPayoutPreset);
     const biEl = $('#setup-mtt-buyin');
-    if (biEl) biEl.value = cfg.buyIn != null ? String(cfg.buyIn) : '11';
+    if (biEl) {
+      biEl.value = cfg.buyIn != null ? String(cfg.buyIn) : (sit === 'auto' ? '' : '11');
+    }
     const leftEl = $('#setup-mtt-players-left');
     if (leftEl && cfg.playersLeft != null) leftEl.value = String(cfg.playersLeft);
     const paidEl = $('#setup-mtt-places-paid');
