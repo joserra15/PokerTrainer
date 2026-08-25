@@ -224,12 +224,31 @@
     return STREETS[idx - 1];
   }
 
+  var HIDE_KEY = 'pt_hide_action_line_v1';
+
+  function practiceStreetAllowsHide(street) {
+    return street === 'flop' || street === 'turn' || street === 'river';
+  }
+
+  function loadHidePreference() {
+    try {
+      return localStorage.getItem(HIDE_KEY) === '1';
+    } catch (e) { return false; }
+  }
+
+  function saveHidePreference(on) {
+    try { localStorage.setItem(HIDE_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
+  }
+
   global.PTActionLine = {
     STREETS: STREETS,
     build: build,
     html: html,
     text: text,
     previousStreet: previousStreet,
-    preflopAggressor: preflopAggressor
+    preflopAggressor: preflopAggressor,
+    practiceStreetAllowsHide: practiceStreetAllowsHide,
+    loadHidePreference: loadHidePreference,
+    saveHidePreference: saveHidePreference
   };
 })(window);

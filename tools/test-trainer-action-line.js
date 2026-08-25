@@ -233,24 +233,60 @@ console.log('9) Cableado en UI y bundles');
 {
   const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   assert.ok(indexHtml.includes('id="action-line"'), 'contenedor en index.html');
+  assert.ok(indexHtml.includes('id="setup-hide-action-line"'), 'opción ocultar en setup');
+  assert.ok(indexHtml.includes('setup-hide-action-line-wrap'), 'wrap de la opción');
 
   const app = fs.readFileSync(path.join(ROOT, 'js', 'app.js'), 'utf8');
   assert.ok(/function renderActionLine\(/.test(app), 'renderActionLine en app.js');
   assert.ok(/renderActionLine\(\);/.test(app), 'renderTable pinta la línea');
-  assert.ok(/schoolMode/.test(app.slice(app.indexOf('function renderActionLine('), app.indexOf('function renderActionLine(') + 1200)),
+  assert.ok(/schoolMode/.test(app.slice(app.indexOf('function renderActionLine('), app.indexOf('function renderActionLine(') + 1600)),
     'la Escuela conserva su propio banner');
+  assert.ok(/function syncHideActionLineUI\(/.test(app), 'syncHideActionLineUI');
+  assert.ok(/function disableActionLineFromPanel\(/.test(app), 'disableActionLineFromPanel');
+  assert.ok(/data-disable-action-line/.test(app), 'botón × en panel');
+  assert.ok(/cfg\.hideActionLine/.test(app), 'respeta hideActionLine al pintar');
 
   const chunks = fs.readFileSync(path.join(ROOT, 'js', 'bundle-chunks.js'), 'utf8');
   assert.ok(chunks.includes('js/action-line.js'), 'action-line.js en el bundle core');
 
   const css = fs.readFileSync(path.join(ROOT, 'css', 'styles.css'), 'utf8');
-  ['.action-line', '.action-line-street', '.action-line-size', '.action-line-pos'].forEach(function (sel) {
+  ['.action-line', '.action-line-street', '.action-line-size', '.action-line-pos',
+    '.action-line-disable', '.setup-action-line-toggle'].forEach(function (sel) {
     assert.ok(css.includes(sel), 'CSS ' + sel);
   });
 
   const i18n = fs.readFileSync(path.join(ROOT, 'js', 'i18n.js'), 'utf8');
   assert.ok(i18n.includes("'play.actionLine': 'Línea de acción previa'"), 'i18n ES');
   assert.ok(i18n.includes("'play.actionLine': 'Previous action line'"), 'i18n EN');
+  assert.ok(i18n.includes("'play.hideActionLine':"), 'i18n hideActionLine');
+}
+
+console.log('10) Opción hideActionLine: default off; solo flop/turn/river');
+{
+  const def = PTPlayConfig.normalize({});
+  assert.strictEqual(def.hideActionLine, false, 'default desactivada');
+
+  const randomCfg = PTPlayConfig.normalize({ practiceStreet: 'random', hideActionLine: true });
+  assert.strictEqual(randomCfg.hideActionLine, false, 'en «Todas» no aplica hide');
+
+  const preCfg = PTPlayConfig.normalize({ practiceStreet: 'preflop', hideActionLine: true });
+  assert.strictEqual(preCfg.hideActionLine, false, 'en preflop no aplica hide');
+
+  ['flop', 'turn', 'river'].forEach(function (street) {
+    const on = PTPlayConfig.normalize({ practiceStreet: street, hideActionLine: true });
+    assert.strictEqual(on.hideActionLine, true, street + ': hide permitido');
+    const off = PTPlayConfig.normalize({ practiceStreet: street, hideActionLine: false });
+    assert.strictEqual(off.hideActionLine, false, street + ': hide off por defecto');
+  });
+
+  assert.strictEqual(typeof PTActionLine.practiceStreetAllowsHide, 'function');
+  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('flop'), true);
+  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('turn'), true);
+  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('river'), true);
+  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('preflop'), false);
+  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('random'), false);
+  assert.strictEqual(typeof PTActionLine.loadHidePreference, 'function');
+  assert.strictEqual(typeof PTActionLine.saveHidePreference, 'function');
 }
 
 console.log('\n*** test-trainer-action-line OK ***');
