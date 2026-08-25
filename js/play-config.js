@@ -126,6 +126,12 @@
     advisorMode: 'always',
     /** Umbral de EV perdido (bb) para avisar en modo serious */
     seriousEvThreshold: 0.5,
+    /**
+     * Ocultar la línea de acción previa en mesa.
+     * Solo aplica (y el control de setup se activa) con calle de práctica
+     * flop / turn / river. Por defecto desactivada: la línea se muestra.
+     */
+    hideActionLine: false,
     tableTheme: 'emerald',
     /** null/0 = sesión continua; 25/50/100 = bloque con resumen al final */
     handsTarget: 0,
@@ -297,6 +303,11 @@
     if (isNaN(thr) || thr < 0) thr = 0.5;
     if (thr > 20) thr = 20;
     c.seriousEvThreshold = thr;
+    c.hideActionLine = !!c.hideActionLine;
+    // Solo tiene sentido en spots que arrancan ya en flop/turn/river.
+    if (c.practiceStreet !== 'flop' && c.practiceStreet !== 'turn' && c.practiceStreet !== 'river') {
+      c.hideActionLine = false;
+    }
     if (!TABLE_THEMES[c.tableTheme]) c.tableTheme = 'emerald';
     var ht = Number(c.handsTarget);
     if (!HANDS_TARGETS[ht]) ht = 0;
