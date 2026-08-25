@@ -412,10 +412,6 @@
     if (thr > 20) thr = 20;
     c.seriousEvThreshold = thr;
     c.hideActionLine = !!c.hideActionLine;
-    // Solo tiene sentido en spots que arrancan ya en flop/turn/river.
-    if (c.practiceStreet !== 'flop' && c.practiceStreet !== 'turn' && c.practiceStreet !== 'river') {
-      c.hideActionLine = false;
-    }
     if (!TABLE_THEMES[c.tableTheme]) c.tableTheme = 'emerald';
     var ht = Number(c.handsTarget);
     if (!HANDS_TARGETS[ht]) ht = 0;

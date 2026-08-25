@@ -246,6 +246,13 @@ console.log('9) Cableado en UI y bundles');
   assert.ok(/data-disable-action-line/.test(app), 'botón × en panel');
   assert.ok(/cfg\.hideActionLine/.test(app), 'respeta hideActionLine al pintar');
 
+  // El × va sin condiciones: si se ve el panel, se puede quitar.
+  const render = app.slice(app.indexOf('function renderActionLine('));
+  const renderBody = render.slice(0, render.indexOf('\n  function ', 10));
+  assert.ok(/data-disable-action-line/.test(renderBody), '× dentro de renderActionLine');
+  assert.ok(!/practiceStreet/.test(renderBody), 'el × no depende de la calle de práctica');
+  assert.ok(!indexHtml.includes('id="setup-hide-action-line" disabled'), 'opción no nace desactivada');
+
   const chunks = fs.readFileSync(path.join(ROOT, 'js', 'bundle-chunks.js'), 'utf8');
   assert.ok(chunks.includes('js/action-line.js'), 'action-line.js en el bundle core');
 
@@ -261,32 +268,58 @@ console.log('9) Cableado en UI y bundles');
   assert.ok(i18n.includes("'play.hideActionLine':"), 'i18n hideActionLine');
 }
 
-console.log('10) Opción hideActionLine: default off; solo flop/turn/river');
+console.log('10) Ocultar la línea: opción global, no atada a la calle ni al formato');
 {
   const def = PTPlayConfig.normalize({});
   assert.strictEqual(def.hideActionLine, false, 'default desactivada');
 
-  const randomCfg = PTPlayConfig.normalize({ practiceStreet: 'random', hideActionLine: true });
-  assert.strictEqual(randomCfg.hideActionLine, false, 'en «Todas» no aplica hide');
-
-  const preCfg = PTPlayConfig.normalize({ practiceStreet: 'preflop', hideActionLine: true });
-  assert.strictEqual(preCfg.hideActionLine, false, 'en preflop no aplica hide');
-
-  ['flop', 'turn', 'river'].forEach(function (street) {
-    const on = PTPlayConfig.normalize({ practiceStreet: street, hideActionLine: true });
-    assert.strictEqual(on.hideActionLine, true, street + ': hide permitido');
-    const off = PTPlayConfig.normalize({ practiceStreet: street, hideActionLine: false });
-    assert.strictEqual(off.hideActionLine, false, street + ': hide off por defecto');
+  // En torneos y spins se entrena desde preflop y la línea aparece igual en
+  // cuanto la mano llega al flop: la opción no puede quedar bloqueada ahí.
+  const setups = [
+    { practiceStreet: 'random', formatHub: 'cash', gameType: 'cash6' },
+    { practiceStreet: 'preflop', formatHub: 'cash', gameType: 'cash6' },
+    { practiceStreet: 'preflop', formatHub: 'spin', gameType: 'spin3' },
+    { practiceStreet: 'random', formatHub: 'spin', gameType: 'spin3' },
+    { practiceStreet: 'preflop', formatHub: 'mtt', gameType: 'mtt' },
+    { practiceStreet: 'random', formatHub: 'mtt', gameType: 'mtt' },
+    { practiceStreet: 'flop' }, { practiceStreet: 'turn' }, { practiceStreet: 'river' }
+  ];
+  setups.forEach(function (base) {
+    const tag = (base.formatHub || 'cash') + '/' + base.practiceStreet;
+    const on = PTPlayConfig.normalize(Object.assign({ hideActionLine: true }, base));
+    assert.strictEqual(on.hideActionLine, true, tag + ': se puede ocultar');
+    const off = PTPlayConfig.normalize(Object.assign({ hideActionLine: false }, base));
+    assert.strictEqual(off.hideActionLine, false, tag + ': visible por defecto');
   });
 
-  assert.strictEqual(typeof PTActionLine.practiceStreetAllowsHide, 'function');
-  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('flop'), true);
-  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('turn'), true);
-  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('river'), true);
-  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('preflop'), false);
-  assert.strictEqual(PTActionLine.practiceStreetAllowsHide('random'), false);
+  assert.strictEqual(PTActionLine.practiceStreetAllowsHide, undefined,
+    'sin puerta por calle de práctica');
   assert.strictEqual(typeof PTActionLine.loadHidePreference, 'function');
   assert.strictEqual(typeof PTActionLine.saveHidePreference, 'function');
+}
+
+console.log('11) Torneos y spins: hay línea aunque la sesión empiece en preflop');
+{
+  [
+    { formatHub: 'spin', gameType: 'spin3', stackDepth: 'bb25' },
+    { formatHub: 'mtt', gameType: 'mtt', stackDepth: 'bb40', mttPhase: 'early' }
+  ].forEach(function (base) {
+    const conf = PTPlayConfig.normalize(Object.assign({
+      scenario: 'random', handRange: 'playable', villainLevel: 'intermediate',
+      practiceStreet: 'preflop'
+    }, base));
+    let withLine = 0;
+    for (let i = 0; i < 120 && withLine < 3; i++) {
+      const hand = Engine.newHand({ seed: 9100 + i }, conf);
+      Engine.fastForwardToStreet(hand, 'flop');
+      if (hand.result || !hand.current || hand.stage !== 'flop') continue;
+      const rows = PTActionLine.build(hand, { throughStreet: 'preflop' });
+      assert.ok(rows.length >= 1, base.formatHub + ': el flop llega con línea previa');
+      assert.ok(rows[0].actions.length >= 1, base.formatHub + ': la línea tiene acciones');
+      withLine++;
+    }
+    assert.ok(withLine >= 3, base.formatHub + ': manos de flop con línea previa');
+  });
 }
 
 console.log('\n*** test-trainer-action-line OK ***');

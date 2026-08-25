@@ -406,7 +406,7 @@ assert.ok(indexHtml.includes('setup-mtt-buyin'), 'buy-in input');
 assert.ok(indexHtml.includes('data-val="bubble">Burbuja'), 'bubble structure chip');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'2.7.30'/.test(version), 'version 2.7.30');
+assert.ok(/PT_BUILD\s*=\s*'2.7.31'/.test(version), 'version 2.7.31');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');

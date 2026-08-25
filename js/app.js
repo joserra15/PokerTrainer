@@ -529,12 +529,10 @@
     }
     if (modeEl && modeEl.dataset.val) advisorMode = modeEl.dataset.val === 'serious' ? 'serious' : 'always';
     if (thrEl && thrEl.value !== '') seriousEvThreshold = Number(thrEl.value);
-    const practiceStreetVal = stEl ? stEl.dataset.val : 'random';
     let hideActionLine = false;
-    if (hideAlEl && !hideAlEl.disabled) hideActionLine = !!hideAlEl.checked;
-    else if (window.PTActionLine && PTActionLine.practiceStreetAllowsHide &&
-        PTActionLine.practiceStreetAllowsHide(practiceStreetVal)) {
-      hideActionLine = PTActionLine.loadHidePreference ? !!PTActionLine.loadHidePreference() : false;
+    if (hideAlEl) hideActionLine = !!hideAlEl.checked;
+    else if (window.PTActionLine && PTActionLine.loadHidePreference) {
+      hideActionLine = !!PTActionLine.loadHidePreference();
     }
     let rakeMode = rakeEl ? rakeEl.dataset.val : 'none';
     let rakePct = rakePctEl && rakePctEl.value !== '' ? Number(rakePctEl.value) : 5;
@@ -904,30 +902,19 @@
       PTActionLine.saveHidePreference(true);
     }
     const el = $('#setup-hide-action-line');
-    if (el && !el.disabled) el.checked = true;
+    if (el) el.checked = true;
     renderActionLine();
   }
 
   /**
-   * La opción «Ocultar línea de acción previa» solo está activa con calle de
-   * práctica flop / turn / river. En «Todas» o preflop queda desactivada.
+   * La opción «Ocultar línea de acción previa» vale para cualquier calle de
+   * práctica y formato: aunque la sesión arranque en preflop (lo habitual en
+   * torneos y spins), la línea sale en cuanto la mano llega al flop.
    */
   function syncHideActionLineUI() {
-    const wrap = $('#setup-hide-action-line-wrap');
     const el = $('#setup-hide-action-line');
     if (!el) return;
-    const streetEl = $('#setup-practice-street .setup-chip.active');
-    const street = streetEl ? streetEl.dataset.val : 'random';
     const AL = window.PTActionLine;
-    const allowed = AL && AL.practiceStreetAllowsHide
-      ? AL.practiceStreetAllowsHide(street)
-      : (street === 'flop' || street === 'turn' || street === 'river');
-    el.disabled = !allowed;
-    if (wrap) wrap.classList.toggle('is-disabled', !allowed);
-    if (!allowed) {
-      el.checked = false;
-      return;
-    }
     if (AL && AL.loadHidePreference) el.checked = !!AL.loadHidePreference();
   }
 
@@ -1175,11 +1162,11 @@
     const thrEl = $('#setup-serious-threshold');
     if (thrEl && cfg.seriousEvThreshold != null) thrEl.value = String(cfg.seriousEvThreshold);
     syncAdvisorModeUI();
-    if (typeof cfg.hideActionLine === 'boolean' && window.PTActionLine && PTActionLine.saveHidePreference) {
-      const streetOk = PTActionLine.practiceStreetAllowsHide
-        ? PTActionLine.practiceStreetAllowsHide(cfg.practiceStreet)
-        : false;
-      PTActionLine.saveHidePreference(streetOk && !!cfg.hideActionLine);
+    // Solo los presets que llevan la opción la tocan: un preset de formato no
+    // debe reactivar la línea a quien la tenga escondida.
+    if (partial && typeof partial.hideActionLine === 'boolean' &&
+        window.PTActionLine && PTActionLine.saveHidePreference) {
+      PTActionLine.saveHidePreference(!!partial.hideActionLine);
     }
     syncHideActionLineUI();
     if (cfg.rakeMode) {
@@ -1337,7 +1324,7 @@
     });
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
-    bindChipGroup('#setup-practice-street', syncHideActionLineUI);
+    bindChipGroup('#setup-practice-street');
     bindChipGroup('#setup-action-mode', () => {
       const el = $('#setup-action-mode .setup-chip.active');
       saveActionMode(el ? el.dataset.val : 'complete');
@@ -1408,7 +1395,7 @@
       syncHideActionLineUI();
       hideAlEl.addEventListener('change', function () {
         if (window.PTActionLine && PTActionLine.saveHidePreference) {
-          PTActionLine.saveHidePreference(!!hideAlEl.checked && !hideAlEl.disabled);
+          PTActionLine.saveHidePreference(!!hideAlEl.checked);
         }
       });
     }
@@ -2682,19 +2669,13 @@
       el.innerHTML = '';
       return;
     }
-    const canHide = AL && AL.practiceStreetAllowsHide
-      ? AL.practiceStreetAllowsHide(cfg && cfg.practiceStreet)
-      : false;
     const hideTitle = tt('play.hideActionLine');
-    let head = '<p class="action-line-title">' + tt('play.actionLine') + '</p>';
-    if (canHide) {
-      head =
-        '<div class="action-line-head">' +
-        '<p class="action-line-title">' + tt('play.actionLine') + '</p>' +
-        '<button type="button" class="action-line-disable" data-disable-action-line title="' +
-        escapeHtml(hideTitle) + '" aria-label="' + escapeHtml(hideTitle) + '">×</button>' +
-        '</div>';
-    }
+    const head =
+      '<div class="action-line-head">' +
+      '<p class="action-line-title">' + tt('play.actionLine') + '</p>' +
+      '<button type="button" class="action-line-disable" data-disable-action-line title="' +
+      escapeHtml(hideTitle) + '" aria-label="' + escapeHtml(hideTitle) + '">×</button>' +
+      '</div>';
     el.innerHTML = head + html;
     el.classList.remove('hidden');
   }
