@@ -683,7 +683,7 @@ module.exports = {
         {
           title: "Listo para M4",
           body:
-            "Boats, thin value y líneas raras: misma pregunta del quiz, más sutileza en sizing y timing."
+            "Boats, thin value y líneas raras: misma pregunta del quiz, más exigencia en sizing y timing."
         },
       ],
       examples: [
@@ -756,7 +756,7 @@ module.exports = {
 
     "R-18": {
       concept:
-        "Más sutileza: merge vs polar, thin vs farol. Sigue sin tipificar — el quiz mezcla todo a propósito.",
+        "Nivel avanzado: merge vs polar, thin vs farol. Sigue sin tipificar — el quiz mezcla todo a propósito.",
       theory: [
         {
           title: "Merge",
@@ -844,7 +844,7 @@ module.exports = {
 
     "R-20": {
       concept:
-        "Líneas raras y boats finos. El método de M2 sigue siendo la base aunque el sizing sea más sutil.",
+        "Líneas raras y boats finos. El método de M2 sigue siendo la base aunque el sizing sea más avanzado.",
       theory: [
         {
           title: "Vuelve al método",
@@ -888,7 +888,7 @@ module.exports = {
 
     "R-21": {
       concept:
-        "Cierre de la ruta Rangos: quiz mixto de máxima sutileza. Si enganchas, es porque lees la línea — no porque el título spoilera la categoría.",
+        "Cierre de la ruta Rangos: quiz mixto de nivel avanzado. Si enganchas, es porque lees la línea — no porque el título spoilera la categoría.",
       theory: [
         {
           title: "Enganche real",

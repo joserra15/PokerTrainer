@@ -452,7 +452,7 @@ assert.strictEqual(Data.getLesson('T-04').plan, 'study', 'T-04 M1 sigue Study');
 });
 assert.ok(/Faroles por línea/.test(Data.getLesson('R-22').title), 'R-22 faroles M2');
 assert.ok(/Faroles difíciles/.test(Data.getLesson('R-24').title), 'R-24 faroles M3');
-assert.ok(/Faroles sutiles/.test(Data.getLesson('R-26').title), 'R-26 faroles M4');
+assert.ok(/Faroles avanzados/.test(Data.getLesson('R-26').title), 'R-26 faroles M4');
 assert.ok(/M0 completo en Gratis/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Spins/MTT menciona M0 gratis');
 assert.ok(/M0 · Bases de rangos \(Gratis\)/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Rangos M0 gratis');
 

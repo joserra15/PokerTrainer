@@ -853,7 +853,7 @@
         },
         {
           "title": "Listo para M4",
-          "body": "Boats, thin value y líneas raras: misma pregunta del quiz, más sutileza en sizing y timing."
+          "body": "Boats, thin value y líneas raras: misma pregunta del quiz, más exigencia en sizing y timing."
         }
       ],
       "examples": [
@@ -927,7 +927,7 @@
       "spots": [],
       "exam": false,
       "id": "R-17",
-      "title": "¿Qué tiene? · Lectura sutil I"
+      "title": "¿Qué tiene? · Lectura avanzada I"
     },
     {
       "route": "ranges",
@@ -939,7 +939,7 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Más sutileza: merge vs polar, thin vs farol. Sigue sin tipificar — el quiz mezcla todo a propósito.",
+      "concept": "Nivel avanzado: merge vs polar, thin vs farol. Sigue sin tipificar — el quiz mezcla todo a propósito.",
       "theory": [
         {
           "title": "Merge",
@@ -976,7 +976,7 @@
       "spots": [],
       "exam": false,
       "id": "R-18",
-      "title": "¿Qué tiene? · Lectura sutil II"
+      "title": "¿Qué tiene? · Lectura avanzada II"
     },
     {
       "route": "ranges",
@@ -1025,7 +1025,7 @@
       "spots": [],
       "exam": false,
       "id": "R-19",
-      "title": "¿Qué tiene? · Lectura sutil III"
+      "title": "¿Qué tiene? · Lectura avanzada III"
     },
     {
       "route": "ranges",
@@ -1037,7 +1037,7 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Líneas raras y boats finos. El método de M2 sigue siendo la base aunque el sizing sea más sutil.",
+      "concept": "Líneas raras y boats finos. El método de M2 sigue siendo la base aunque el sizing sea más avanzado.",
       "theory": [
         {
           "title": "Vuelve al método",
@@ -1074,7 +1074,7 @@
       "spots": [],
       "exam": false,
       "id": "R-20",
-      "title": "¿Qué tiene? · Lectura sutil IV"
+      "title": "¿Qué tiene? · Lectura avanzada IV"
     },
     {
       "route": "ranges",
@@ -1086,7 +1086,7 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Cierre de la ruta Rangos: quiz mixto de máxima sutileza. Si enganchas, es porque lees la línea — no porque el título spoilera la categoría.",
+      "concept": "Cierre de la ruta Rangos: quiz mixto de nivel avanzado. Si enganchas, es porque lees la línea — no porque el título spoilera la categoría.",
       "theory": [
         {
           "title": "Enganche real",
@@ -1123,7 +1123,7 @@
       "spots": [],
       "exam": false,
       "id": "R-21",
-      "title": "¿Qué tiene? · Lectura sutil V"
+      "title": "¿Qué tiene? · Lectura avanzada V"
     },
     {
       "route": "ranges",
@@ -1368,7 +1368,7 @@
       "spots": [],
       "exam": false,
       "id": "R-26",
-      "title": "¿Qué tiene? · Faroles sutiles I"
+      "title": "¿Qué tiene? · Faroles avanzados I"
     },
     {
       "route": "ranges",
@@ -1417,7 +1417,7 @@
       "spots": [],
       "exam": false,
       "id": "R-27",
-      "title": "¿Qué tiene? · Faroles sutiles II"
+      "title": "¿Qué tiene? · Faroles avanzados II"
     },
     {
       "route": "ranges",
