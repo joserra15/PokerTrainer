@@ -1490,7 +1490,7 @@
       M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, línea completa y node frequencies.' },
       M2: { title: 'M2 · ¿Qué tiene? Lectura (Study)', lead: 'Quiz mixto + faroles por línea al cierre del bloque.' },
       M3: { title: 'M3 · ¿Qué tiene? Polar (Coach)', lead: 'Polar, draws fallidos y faroles difíciles.' },
-      M4: { title: 'M4 · ¿Qué tiene? Sutil (Coach)', lead: 'Sutileza, boats y faroles disfrazados de thin.' }
+      M4: { title: 'M4 · ¿Qué tiene? Avanzada (Coach)', lead: 'Nivel avanzado: boats y faroles disfrazados de thin.' }
     }
   };
 

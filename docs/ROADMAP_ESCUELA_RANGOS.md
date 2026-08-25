@@ -170,8 +170,8 @@ Todas las lecciones: `route: ranges`, 12 manos, umbrales de práctica reescritos
 | R-22, R-23 | ¿Qué tiene? · Faroles por línea I–II | M2 | study | Línea + quiz |
 | R-12…R-16 | ¿Qué tiene? · Polar y faroles I–V | M3 | coach | Línea + quiz |
 | R-24, R-25 | ¿Qué tiene? · Faroles difíciles I–II | M3 | coach | Línea + quiz |
-| R-17…R-21 | ¿Qué tiene? · Lectura sutil I–V | M4 | coach | Línea + quiz |
-| R-26, R-27 | ¿Qué tiene? · Faroles sutiles I–II | M4 | coach | Línea + quiz |
+| R-17…R-21 | ¿Qué tiene? · Lectura avanzada I–V | M4 | coach | Línea + quiz |
+| R-26, R-27 | ¿Qué tiene? · Faroles avanzados I–II | M4 | coach | Línea + quiz |
 
 Orden de desbloqueo lineal por `order` (los packs de farol R-22…R-27 van intercalados tras el bloque de lectura del mismo módulo).
 
@@ -351,7 +351,7 @@ Implementado en `canPlayLesson` / planes de lección (`js/school.js`, metadatos 
 
 Además: desbloqueo **lineal** por orden en la ruta (hay que aprobar la anterior).
 
-**Implicación de producto:** Free ya prueba el Laboratorio de verdad (3 lecciones). Study vende lectura de línea básica; Coach vende polar/faroles sutiles. No hace falta restringir Free a solo R-01 salvo experimento de conversión.
+**Implicación de producto:** Free ya prueba el Laboratorio de verdad (3 lecciones). Study vende lectura de línea básica; Coach vende polar/faroles avanzados. No hace falta restringir Free a solo R-01 salvo experimento de conversión.
 
 **Upsell copy sugerido (sin implementar aquí):** en el mapa, nodos Coach con preview del concepto «¿Qué tiene el rival tras bet-bet-shove?» — ya parcialmente cubierto por badges de plan.
 
