@@ -2890,13 +2890,6 @@ body.age-gate-open {
 .setup-action-line-toggle {
   margin-top: 12px;
 }
-.setup-action-line-toggle.is-disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.setup-action-line-toggle.is-disabled input {
-  cursor: not-allowed;
-}
 .action-line-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .action-line-row {
   display: flex;

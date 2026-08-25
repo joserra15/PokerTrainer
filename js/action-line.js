@@ -224,11 +224,10 @@
     return STREETS[idx - 1];
   }
 
+  /* Preferencia de ocultar: vale para cualquier calle de práctica y formato.
+     La línea sale en cuanto la mano llega al flop, aunque la sesión arranque en
+     preflop (lo normal en torneos y spins), así que siempre se puede quitar. */
   var HIDE_KEY = 'pt_hide_action_line_v1';
-
-  function practiceStreetAllowsHide(street) {
-    return street === 'flop' || street === 'turn' || street === 'river';
-  }
 
   function loadHidePreference() {
     try {
@@ -247,7 +246,6 @@
     text: text,
     previousStreet: previousStreet,
     preflopAggressor: preflopAggressor,
-    practiceStreetAllowsHide: practiceStreetAllowsHide,
     loadHidePreference: loadHidePreference,
     saveHidePreference: saveHidePreference
   };
