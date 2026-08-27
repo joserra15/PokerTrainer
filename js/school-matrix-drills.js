@@ -127,8 +127,151 @@
   function mountDrill(host, spot, ctx) {
     if (!host || !spot) return;
     var kind = spot.kind || 'matrixQuiz';
+    if (kind === 'rangeAdvQuiz') return mountRangeAdv(host, spot, ctx);
     if (kind === 'matrixPaint') return mountPaint(host, spot, ctx);
     return mountQuiz(host, spot, ctx);
+  }
+
+  function formatCardHtml(code) {
+    var rank = String(code || '').charAt(0) || '?';
+    var suit = String(code || '').charAt(1) || '';
+    var sym = suit === 's' ? '♠' : suit === 'h' ? '♥' : suit === 'd' ? '♦' : suit === 'c' ? '♣' : '?';
+    var red = suit === 'h' || suit === 'd';
+    var label = (rank === 'T' ? '10' : rank) + sym;
+    return '<span class="school-ra-card' + (red ? ' is-red' : '') + '" aria-label="' +
+      esc(label) + '">' + esc(label) + '</span>';
+  }
+
+  function formatBoardHtml(board) {
+    return '<div class="school-ra-board" role="img" aria-label="Flop">' +
+      (board || []).map(formatCardHtml).join('') +
+      '</div>';
+  }
+
+  /**
+   * Quiz «¿quién tiene range advantage?» — flop concreto + posiciones.
+   * spot.quiz: { prompt, line, board, options[{id,label}], correctId }
+   */
+  function mountRangeAdv(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var prompt = quiz.prompt || '¿Quién tiene range advantage en este flop?';
+    var line = quiz.line || '';
+    var board = quiz.board || spot.board || [];
+    var opts = quiz.options || [];
+    if (ctx) ctx.host = host;
+    var html =
+      '<div class="school-matrix-drill school-ra-drill school-page">' +
+      '<header class="school-matrix-drill-head">' +
+      '<p class="school-eyebrow">Spot ' + (ctx.index + 1) + ' / ' + ctx.total +
+      ' · Range Advantage</p>' +
+      '<h2 class="school-title">Ventaja de rango</h2>' +
+      '<p class="school-lead">' + esc(prompt) + '</p>' +
+      '</header>';
+    if (line) {
+      html += '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(line) + '</p>';
+    }
+    html += formatBoardHtml(board);
+    html += '<div class="school-matrix-choices">' +
+      opts.map(function (o) {
+        return '<button type="button" class="btn school-mx-choice" data-ra-choice="' +
+          esc(o.id) + '">' + esc(o.label) + '</button>';
+      }).join('') +
+      '</div>';
+    html += '<div class="school-lesson-cta">' +
+      '<button type="button" class="btn btn-ghost" id="school-mx-abort">Salir de la lección</button>' +
+      '</div></div>';
+    host.innerHTML = html;
+
+    var abort = host.querySelector('#school-mx-abort');
+    if (abort) abort.addEventListener('click', function () { if (ctx.onAbort) ctx.onAbort(); });
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-ra-choice]'), function (btn) {
+      btn.addEventListener('click', function () {
+        gradeRangeAdv(spot, btn.getAttribute('data-ra-choice'), ctx);
+      });
+    });
+  }
+
+  function gradeRangeAdv(spot, choiceId, ctx) {
+    var quiz = spot.quiz || {};
+    var ok = choiceId === quiz.correctId;
+    var label = choiceId;
+    (quiz.options || []).forEach(function (o) {
+      if (o.id === choiceId) label = o.label;
+    });
+    var teach = spot.teachBack || (ok
+      ? 'Bien: identificaste quién tiene más manos fuertes en esa textura.'
+      : 'Repasa quién conecta más value en este board según los rangos preflop.');
+    var result = {
+      spotId: spot.id,
+      class: ok ? 'optima' : 'error',
+      action: 'rangeAdvQuiz',
+      actionLabel: label,
+      teachBack: teach,
+      quizCorrect: ok
+    };
+
+    var host = ctx && ctx.host;
+    if (!host) {
+      finishDrill(ctx, result);
+      return;
+    }
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-ra-choice]'), function (btn) {
+      btn.disabled = true;
+      if (btn.getAttribute('data-ra-choice') === choiceId) {
+        btn.classList.add(ok ? 'is-correct' : 'is-wrong');
+      }
+    });
+
+    var remaining = Math.max(0, (ctx.total || 1) - (ctx.index || 0) - 1);
+    var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
+    var Share = global.PTSchoolShare;
+    var feedback = document.createElement('div');
+    feedback.className = 'school-spot-feedback school-ra-feedback ' + (ok ? 'is-good' : 'is-bad');
+    feedback.innerHTML =
+      '<h3>Spot ' + ((ctx.index || 0) + 1) + ' / ' + (ctx.total || 1) + ' · ' +
+      (ok ? 'Óptima' : 'Error') + '</h3>' +
+      '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
+      '<p class="school-spot-teach">' + esc(teach) + '</p>' +
+      (Share && Share.buildRangeAdvShareHtml ? Share.buildRangeAdvShareHtml() : '') +
+      '<div class="school-lesson-cta school-ra-next-cta">' +
+      '<button type="button" class="btn btn-primary" id="school-ra-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-ghost" id="school-ra-abort">Salir de la lección</button>' +
+      '</div>';
+
+    var oldCta = host.querySelector('.school-lesson-cta');
+    if (oldCta) oldCta.remove();
+    host.appendChild(feedback);
+
+    if (Share && Share.mountRangeAdvShare) {
+      try {
+        var shareRoot = feedback.querySelector('.school-share-range-adv');
+        Share.mountRangeAdvShare(shareRoot, {
+          lessonId: ctx.lessonId || '',
+          lessonTitle: ctx.lessonTitle || 'Range Advantage',
+          prompt: quiz.prompt || '¿Quién tiene range advantage en este flop?',
+          line: quiz.line || '',
+          board: (quiz.board || spot.board || []).slice(),
+          options: (quiz.options || []).map(function (o) {
+            return { id: o.id, label: o.label };
+          })
+        });
+      } catch (eShareRa) { /* ignore */ }
+    }
+
+    var next = feedback.querySelector('#school-ra-next');
+    var abort = feedback.querySelector('#school-ra-abort');
+    if (next) {
+      next.addEventListener('click', function () {
+        finishDrill(ctx, result);
+      });
+    }
+    if (abort) {
+      abort.addEventListener('click', function () {
+        if (ctx.onAbort) ctx.onAbort();
+      });
+    }
   }
 
   function mountQuiz(host, spot, ctx) {
@@ -358,7 +501,11 @@
   }
 
   function isMatrixSpot(spot) {
-    return !!(spot && (spot.kind === 'matrixQuiz' || spot.kind === 'matrixPaint'));
+    return !!(spot && (
+      spot.kind === 'matrixQuiz' ||
+      spot.kind === 'matrixPaint' ||
+      spot.kind === 'rangeAdvQuiz'
+    ));
   }
 
   global.PTSchoolMatrixDrills = {
@@ -370,6 +517,7 @@
     staticGridHtml: staticGridHtml,
     previewHtml: previewHtml,
     mountDrill: mountDrill,
+    mountRangeAdv: mountRangeAdv,
     isMatrixSpot: isMatrixSpot
   };
 })(typeof window !== 'undefined' ? window : global);

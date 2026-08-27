@@ -3825,9 +3825,10 @@
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /*
- * school-data-ranges.js — Laboratorio Rangos R-01…R-27 (M0–M4)
+ * school-data-ranges.js — Laboratorio Rangos R-01…R-33 (M0–M4)
  * Escuela: pública para usuarios autenticados (SCHOOL_PUBLIC=true en school.js).
  * Plan de gaps (R-01/R-02 matriz, deep-links): docs/ROADMAP_ESCUELA_RANGOS.md
+ * R-30…R-33: Range Advantage (M2 Study + M3/M4 Coach).
  */
 (function (global) {
   'use strict';
@@ -5316,6 +5317,186 @@
       "spots": [],
       "id": "R-29",
       "title": "Examen M2 · Lectura de línea"
+    },
+    {
+      "route": "ranges",
+      "module": "M2",
+      "order": 5.6,
+      "plan": "study",
+      "xp": 90,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "exam": false,
+      "concept": "Range advantage (ventaja de rango) es tener más manos fuertes que el rival en una textura concreta. Esa ventaja se traduce en más frecuencia de apuesta y poder apostar más pequeño con más consistencia.",
+      "theory": [
+        {
+          "title": "Qué es range advantage",
+          "body": "El jugador que tiene range advantage en un board tiene más manos fuertes que su oponente en esa textura. No hablamos de tu mano concreta (AQ o 72): hablamos de la distribución completa del rango. Esa ventaja se traduce en más betting frequency y poder apostar más pequeño con más consistencia."
+        },
+        {
+          "title": "Quién llega con qué rango",
+          "body": "Tras un open UTG y call BB, UTG llega con un rango tight (muchos Ax altos, broadway, overpairs). El BB llega wide (suited connectors, basura relativa, pocos nuts). En flops altos y secos, UTG “encaja” mucho mejor."
+        },
+        {
+          "title": "Pregunta de cada flop",
+          "body": "Antes de decidir bet o check: “¿Quién tiene más value fuerte aquí?” Si la respuesta es clara, ya tienes el plan de frecuencia. Enlace con Cash M2 (C-14…C-16) y con R-03 (textura)."
+        }
+      ],
+      "examples": [
+        {
+          "title": "UTG vs BB en A-K-Q rainbow",
+          "body": "UTG open → BB call. Flop A♠K♦Q♣ rainbow. UTG tiene muchísimo range advantage: AA/KK/QQ/AK/AQ/KQ abundan en su rango y escasean en el del BB. C-bet frecuente a sizing pequeño."
+        },
+        {
+          "title": "BTN vs BB en K72 rainbow",
+          "body": "Open late wide vs BB. Flop K♠7♦2♣: el BB falla mucho; el agresor sigue teniendo Ax, Kx y overpairs. Ventaja clara del opener, aunque menos brutal que en AKQ desde UTG."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué es range advantage en una frase?",
+        "¿Por qué UTG tiene ventaja enorme en AKQ rainbow vs BB?",
+        "¿Cómo se traduce la ventaja en sizing y frecuencia?"
+      ],
+      "spots": [],
+      "id": "R-30",
+      "title": "Range Advantage I · Boards claros"
+    },
+    {
+      "route": "ranges",
+      "module": "M2",
+      "order": 5.8,
+      "plan": "study",
+      "xp": 90,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "exam": false,
+      "concept": "No todo flop favorece al agresor: en texturas bajas y conectadas el caller recupera equity y a veces la ventaja se iguala o se invierte. Aprende a detectar cuándo ceder frecuencia.",
+      "theory": [
+        {
+          "title": "Cuando el caller recupera",
+          "body": "Un rango de defensa BB está lleno de suited connectors, pares medios-bajos y broadway media. En flops tipo 9♠8♠7♥ o 6♦5♣4♥ esas manos conectan pares, dos pares, escaleras y draws. El opener wide (BTN) ya no domina la distribución de value."
+        },
+        {
+          "title": "Ventaja ≠ siempre bet",
+          "body": "Si la ventaja es pequeña o nula, reduces c-bet automático. Puedes seguir apostando algunas manos, pero la frecuencia baja y el sizing deja de ser “pequeño siempre”. Primero nombra quién gana el board; luego eliges el plan."
+        },
+        {
+          "title": "Trampa típica",
+          "body": "Autocbet “porque abrí” en un board que favorece al BB. La iniciativa preflop no congela la ventaja postflop: la textura la mueve."
+        }
+      ],
+      "examples": [
+        {
+          "title": "BTN vs BB en 987 two-tone",
+          "body": "Flop 9♠8♠7♥: el BB conecta mucho más que en K72. La ventaja del BTN se reduce o desaparece → menos autocbet, más checks."
+        },
+        {
+          "title": "Contraste con A-high seco",
+          "body": "Mismo spot BTN vs BB en A♣8♦3♥: el BB falla a menudo; el agresor recupera ventaja. Mismo roles, textura distinta → respuesta distinta."
+        }
+      ],
+      "aiQuestions": [
+        "¿En qué texturas el BB caller recupera ventaja?",
+        "¿Por qué “abrí preflop” no basta para c-betear siempre?",
+        "¿Qué cambia entre K72r y 987 two-tone con los mismos roles?"
+      ],
+      "spots": [],
+      "id": "R-31",
+      "title": "Range Advantage II · Cuando se invierte"
+    },
+    {
+      "route": "ranges",
+      "module": "M3",
+      "order": 12.7,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "exam": false,
+      "concept": "En potes de 3-bet y en boards monotone la ventaja cambia de dueño: el 3-bettor llega polarizado (más nuts, menos medias) y el caller a menudo captura mejor los medios. Distingue range advantage de nut advantage.",
+      "theory": [
+        {
+          "title": "3-bet pot: rangos distintos",
+          "body": "Quien 3-betea (p. ej. BB vs BTN) comprime value premium y faroles; el caller defiende con un rango capped (sin AA/KK a menudo). En A-high seco el 3-bettor suele tener range y nut advantage. En bajos conectados el caller recupera más equity relativa."
+        },
+        {
+          "title": "Range vs nut advantage",
+          "body": "Range advantage = más manos fuertes en general (más betting frequency, sizings pequeños). Nut advantage = más combos de la nuts (justifica overbets y polarización). Puedes tener una sin la otra: en monotone el caller a veces captura más flushes medios mientras el agresor guarda los nuts de color."
+        },
+        {
+          "title": "Lectura práctica",
+          "body": "Nombra el pot (SRP vs 3BP), los roles y la textura. Luego responde: ¿quién tiene más value? ¿quién tiene más nuts? Si solo respondes “yo abrí”, aún no leíste el nodo."
+        }
+      ],
+      "examples": [
+        {
+          "title": "BB 3-bet vs BTN en A72r",
+          "body": "BB tiene AA/AK/AQ densos; BTN está capped. Ventaja clara del 3-bettor → c-bet frecuente pequeño."
+        },
+        {
+          "title": "Mismo 3BP en 876 two-tone",
+          "body": "El caller (BTN) conecta más sets, dos pares y draws. La ventaja del 3-bettor se reduce: más checks OOP, menos autocbet."
+        }
+      ],
+      "aiQuestions": [
+        "¿En qué se diferencia range advantage de nut advantage?",
+        "¿Por qué un 3-bettor gana en A-high seco?",
+        "¿Cuándo el caller de un 3-bet recupera el board?"
+      ],
+      "spots": [],
+      "id": "R-32",
+      "title": "Range Advantage III · 3-bet y nuts"
+    },
+    {
+      "route": "ranges",
+      "module": "M4",
+      "order": 19.5,
+      "plan": "coach",
+      "xp": 110,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "exam": false,
+      "concept": "Casos límite: boards paired, monotone conflictivos y spots casi empatados. A veces la respuesta correcta es “ninguno claro”: entonces reduces polarización automática y piensas en pot control.",
+      "theory": [
+        {
+          "title": "Cuando nadie domina",
+          "body": "Algunos flops reparten value de forma parecida a ambos rangos (p. ej. JTs9 rainbow en BTN vs BB, o paired medios en rangos simétricos). Forzar “siempre el agresor” es un sesgo. Si está empatado, baja frecuencia y evita overbet sin nuts."
+        },
+        {
+          "title": "Paired y monotone finos",
+          "body": "Un board A♠A♦7♣ favorece al rango con más ases (opener/3-bettor). Un 7♠7♥2♦ es más ambiguo: ambos tienen trips posibles vía 7x, pero el tight early aún gana con overpairs. Monotone Q♠8♠3♠: nut advantage al que tiene más Axs/Kxs del palo; el caller wide tiene más flushes medios."
+        },
+        {
+          "title": "Nivel pro",
+          "body": "La pregunta ya no es solo “quién gana”: es “¿cuánto gana y qué sizing justifica?” Ventaja enorme → bet pequeño muy a menudo. Ventaja leve → mix. Empate o desventaja → check/ceder más. Eso conecta con lectura de línea (R-07+) y polarización (M3–M4)."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Empate útil",
+          "body": "CO vs BB en T♦9♣8♥: ambos conectan strong made y draws. Respuesta honesta: ventaja poco clara → no autocbet al 80 %."
+        },
+        {
+          "title": "Paired A-high",
+          "body": "UTG vs BB en A♥A♣4♦: UTG sigue con ventaja fuerte (más Ax y premiums). No lo trates como empate solo porque hay pareja en mesa."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cuándo es correcto responder “ninguno claro”?",
+        "¿Cómo lees ventaja en un flop paired?",
+        "¿Qué sizing encaja con ventaja enorme vs ventaja leve?"
+      ],
+      "spots": [],
+      "id": "R-33",
+      "title": "Range Advantage IV · Casos límite"
     }
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
@@ -6921,6 +7102,210 @@
     V('c31-10', 'BB_vs_BTN', ['Jh', 'Jd'], 77510, 'JJ vs BTN: 3-bet value. Bandas de rango.', cash({ scenario: '3bet' })),
     Fl('c31-11', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 77511, 'Wet: no autocbet. Frecuencias.', { trapTag: 'fancy_play' }),
     F3('c31-12', 'BTN_vs_BB', ['Ah', 'Kd'], 77512, 'AKo 4-bet value. Checklist Pro cerrado.', cash({ scenario: 'face3bet' }))
+  ];
+
+  /* —— Rangos: Range Advantage (R-30…R-33) —— */
+  function raSpot(id, seed, line, board, options, correctId, teach, trap) {
+    return {
+      id: id,
+      kind: 'rangeAdvQuiz',
+      seed: seed,
+      heroPos: (line.split(/\s+/)[0]) || 'BTN',
+      teachBack: teach || '',
+      trapTag: trap || undefined,
+      quiz: {
+        prompt: '¿Quién tiene range advantage en este flop?',
+        line: line,
+        board: board,
+        options: options,
+        correctId: correctId
+      }
+    };
+  }
+  function raOpts(a, b, c) {
+    var opts = [
+      { id: 'a', label: a },
+      { id: 'b', label: b }
+    ];
+    if (c) opts.push({ id: 'c', label: c });
+    return opts;
+  }
+
+  PACKS['R-30'] = [
+    raSpot('r30-01', 83001, 'UTG open → BB call', ['As', 'Kd', 'Qc'],
+      raOpts('UTG', 'BB', 'Ninguno claro'), 'a',
+      'UTG vs BB en AKQ rainbow: UTG tiene muchísimo range advantage (AA/KK/QQ/AK/AQ/KQ). Más c-bet, sizing pequeño.'),
+    raSpot('r30-02', 83002, 'UTG open → BB call', ['Ah', '8d', '3c'],
+      raOpts('UTG', 'BB', 'Ninguno claro'), 'a',
+      'A-high seco: el rango UTG concentra Ax y premiums; el BB falla a menudo. Ventaja clara del agresor.'),
+    raSpot('r30-03', 83003, 'BTN open → BB call', ['Ks', '7d', '2c'],
+      raOpts('BTN', 'BB', 'Ninguno claro'), 'a',
+      'K72 rainbow: el BB wide conecta poco Kx; el BTN mantiene Ax/Kx/overpairs. Ventaja del opener.'),
+    raSpot('r30-04', 83004, 'CO open → BB call', ['As', 'Kh', '2d'],
+      raOpts('CO', 'BB', 'Ninguno claro'), 'a',
+      'AK seco: el open CO/UTG-like tiene muchos Ax/Kx fuertes. BB defiende wide y falla mucho.'),
+    raSpot('r30-05', 83005, 'HJ open → BB call', ['Qs', 'Qd', '3c'],
+      raOpts('HJ', 'BB', 'Ninguno claro'), 'a',
+      'Q paired seco: el agresor early-ish tiene más QQ+/AQ. Ventaja del opener.'),
+    raSpot('r30-06', 83006, 'UTG open → BB call', ['Kd', 'Jh', '2s'],
+      raOpts('UTG', 'BB', 'Ninguno claro'), 'a',
+      'KJ seco: UTG llega con KQ/KJ/AJ+/overpairs; BB wide no. Ventaja UTG.'),
+    raSpot('r30-07', 83007, 'BTN open → BB call', ['Ad', '6c', '2s'],
+      raOpts('BTN', 'BB', 'Ninguno claro'), 'a',
+      'A-high seco IP: patrón clásico de ventaja del agresor → c-bet pequeño frecuente.'),
+    raSpot('r30-08', 83008, 'UTG open → BB call', ['As', 'Kc', 'Td'],
+      raOpts('UTG', 'BB', 'Ninguno claro'), 'a',
+      'AKT rainbow: casi tan favorable a UTG como AKQ. Premiums y broadway densos en el open early.'),
+    raSpot('r30-09', 83009, 'CO open → BB call', ['Kh', '9c', '3d'],
+      raOpts('CO', 'BB', 'Ninguno claro'), 'a',
+      'K-high seco: el caller falla; el CO mantiene ventaja de rango.'),
+    raSpot('r30-10', 83010, 'UTG open → BB call', ['Ah', 'Qd', '4c'],
+      raOpts('UTG', 'BB', 'Ninguno claro'), 'a',
+      'AQ seco: misma lógica que AKQ a menor escala. UTG gana el board.'),
+    raSpot('r30-11', 83011, 'BTN open → BB call', ['Kc', '4h', '4d'],
+      raOpts('BTN', 'BB', 'Ninguno claro'), 'a',
+      'K-high paired seco: sigue favoreciendo al opener (Kx/overpairs) vs BB wide.'),
+    raSpot('r30-12', 83012, 'HJ open → BB call', ['As', 'Jd', '3h'],
+      raOpts('HJ', 'BB', 'Ninguno claro'), 'a',
+      'AJ seco: el open HJ/UTG-like concentra Ax fuertes. Ventaja del agresor.')
+  ];
+
+  PACKS['R-31'] = [
+    raSpot('r31-01', 83101, 'BTN open → BB call', ['9s', '8s', '7h'],
+      raOpts('BTN', 'BB', 'Ninguno claro / BB recupera'), 'c',
+      '987 two-tone: el BB conecta pares, draws y dos pares. La ventaja del BTN se reduce o se invierte — no autocbet.',
+      'fancy_play'),
+    raSpot('r31-02', 83102, 'BTN open → BB call', ['6d', '5c', '4h'],
+      raOpts('BTN', 'BB', 'Ninguno claro / BB recupera'), 'c',
+      'Bajos conectados: el rango de defensa (SC, pares bajos) encaja mucho mejor que el open wide.',
+      'fancy_play'),
+    raSpot('r31-03', 83103, 'BTN open → BB call', ['As', '8d', '3c'],
+      raOpts('BTN', 'BB', 'Ninguno claro / BB recupera'), 'a',
+      'Contraste: A-high seco en el mismo spot — el agresor recupera ventaja clara.'),
+    raSpot('r31-04', 83104, 'CO open → BB call', ['Jh', 'Ts', '9d'],
+      raOpts('CO', 'BB', 'Ninguno claro / BB recupera'), 'c',
+      'JT9: broadway media y connectors del BB conectan fuerte. Ventaja del opener se diluye.',
+      'fancy_play'),
+    raSpot('r31-05', 83105, 'BTN open → BB call', ['8s', '7s', '6h'],
+      raOpts('BTN', 'BB', 'Ninguno claro / BB recupera'), 'b',
+      '876 two-tone: el BB wide suele tener más equity hecha/draws que el BTN. Caller favorece.',
+      'fancy_play'),
+    raSpot('r31-06', 83106, 'HJ open → BB call', ['Kd', '7c', '2s'],
+      raOpts('HJ', 'BB', 'Ninguno claro / BB recupera'), 'a',
+      'K72 seco: aunque el HJ no es UTG, el board seco alto sigue favoreciendo al agresor.'),
+    raSpot('r31-07', 83107, 'BTN open → BB call', ['5h', '4h', '3d'],
+      raOpts('BTN', 'BB', 'Ninguno claro / BB recupera'), 'b',
+      '543 two-tone bajo: típico board de defensa. El BB recupera — reduce c-bet.',
+      'fancy_play'),
+    raSpot('r31-08', 83108, 'CO open → BB call', ['Qc', 'Jd', 'Ts'],
+      raOpts('CO', 'BB', 'Ninguno claro / BB recupera'), 'c',
+      'QJT: ambos conectan, pero el BB wide gana mucho con connectors/broadway. Ventaja poco clara o del caller.',
+      'fancy_play'),
+    raSpot('r31-09', 83109, 'BTN open → BB call', ['Ah', 'Kd', '2c'],
+      raOpts('BTN', 'BB', 'Ninguno claro / BB recupera'), 'a',
+      'AK seco: vuelve la ventaja del opener. Misma línea, textura distinta → respuesta distinta.'),
+    raSpot('r31-10', 83110, 'UTG open → BB call', ['9c', '8h', '7d'],
+      raOpts('UTG', 'BB', 'Ninguno claro / BB recupera'), 'c',
+      'Incluso UTG pierde brillo en 987: el BB aún conecta más relative. No es AKQ.',
+      'fancy_play'),
+    raSpot('r31-11', 83111, 'BTN open → BB call', ['Th', '7s', '2d'],
+      raOpts('BTN', 'BB', 'Ninguno claro / BB recupera'), 'a',
+      'T-high seco: el BB falla bastante; el BTN mantiene ventaja moderada.'),
+    raSpot('r31-12', 83112, 'CO open → BB call', ['7s', '6s', '5h'],
+      raOpts('CO', 'BB', 'Ninguno claro / BB recupera'), 'b',
+      '765 two-tone: board de caller. Cede frecuencia; no “abrí → bet”.',
+      'fancy_play')
+  ];
+
+  PACKS['R-32'] = [
+    raSpot('r32-01', 83201, 'BTN open → BB 3-bet → BTN call', ['As', '7d', '2c'],
+      raOpts('BB (3-bettor)', 'BTN (caller)', 'Ninguno claro'), 'a',
+      '3BP A-high seco: el 3-bettor tiene AA/AK/AQ densos; el caller está capped. Range + nut advantage del BB.'),
+    raSpot('r32-02', 83202, 'BTN open → BB 3-bet → BTN call', ['8s', '7s', '6h'],
+      raOpts('BB (3-bettor)', 'BTN (caller)', 'Ninguno claro'), 'b',
+      '3BP 876: el caller conecta más sets/two-pair/draws. La ventaja del 3-bettor se invierte o se esfuma.',
+      'fancy_play'),
+    raSpot('r32-03', 83203, 'CO open → BTN 3-bet → CO call', ['Ah', 'Kd', '3c'],
+      raOpts('BTN (3-bettor)', 'CO (caller)', 'Ninguno claro'), 'a',
+      'AK seco en 3BP: el 3-bettor IP concentra premiums. Ventaja clara del agresor postflop.'),
+    raSpot('r32-04', 83204, 'BTN open → BB call (SRP)', ['Qs', '8s', '3s'],
+      raOpts('BTN (más nuts de color)', 'BB (más flushes medios)', 'Empate total'), 'a',
+      'Monotone: nut advantage suele ir al opener (más Axs/Kxs del palo). El BB tiene más flushes medios — no es lo mismo.',
+      'fancy_play'),
+    raSpot('r32-05', 83205, 'UTG open → BB call', ['As', 'Kh', 'Qc'],
+      raOpts('UTG', 'BB', 'Ninguno claro'), 'a',
+      'SRP AKQ: repaso — UTG sigue con ventaja enorme aunque ya sepas 3BP. Roles importan.'),
+    raSpot('r32-06', 83206, 'SB open → BB call', ['9h', '8d', '7c'],
+      raOpts('SB (opener)', 'BB (caller)', 'Ninguno claro'), 'b',
+      'SRP OOP en conectados: el BB caller favorece el board; el SB no autocbetea solo por iniciativa.',
+      'fancy_play'),
+    raSpot('r32-07', 83207, 'BTN open → BB 3-bet → BTN call', ['Kd', '7c', '2s'],
+      raOpts('BB (3-bettor)', 'BTN (caller)', 'Ninguno claro'), 'a',
+      '3BP K-high seco: el 3-bettor gana (más KQ+/KK/AA). Caller capped.'),
+    raSpot('r32-08', 83208, 'HJ open → BB 3-bet → HJ call', ['6c', '5h', '4d'],
+      raOpts('BB (3-bettor)', 'HJ (caller)', 'Ninguno claro'), 'b',
+      '3BP bajos: el caller relativa captura mejor. Check más del 3-bettor OOP.',
+      'fancy_play'),
+    raSpot('r32-09', 83209, 'BTN open → BB 3-bet → BTN call', ['Ah', 'Ad', '6c'],
+      raOpts('BB (3-bettor)', 'BTN (caller)', 'Ninguno claro'), 'a',
+      'A paired en 3BP: nut/range advantage fuerte del 3-bettor (más Ax/AA).'),
+    raSpot('r32-10', 83210, 'CO open → BTN call (SRP)', ['Jh', 'Ts', '9d'],
+      raOpts('CO', 'BTN', 'Ninguno claro / BTN recupera'), 'c',
+      'JT9 SRP: el caller BTN (más wide que CO) recupera mucho. Ventaja poco clara.',
+      'fancy_play'),
+    raSpot('r32-11', 83211, 'BB 3-bet vs BTN → flop', ['Qs', 'Jd', '2h'],
+      raOpts('BB (3-bettor)', 'BTN (caller)', 'Ninguno claro'), 'a',
+      'QJ seco 3BP: el 3-bettor sigue adelante (AQ+/QQ+/KJ+ densos vs rango capped).'),
+    raSpot('r32-12', 83212, 'BTN open → BB 3-bet → BTN call', ['7s', '6s', '2s'],
+      raOpts('BB (más nuts posibles)', 'BTN (más flushes/medios)', 'Solo el caller'), 'a',
+      'Monotone bajo en 3BP: el 3-bettor guarda más nuts (Axs); el caller tiene densidad de flushes medios. Nut ≠ range medio.',
+      'fancy_play')
+  ];
+
+  PACKS['R-33'] = [
+    raSpot('r33-01', 83301, 'CO open → BB call', ['Td', '9c', '8h'],
+      raOpts('CO', 'BB', 'Ninguno claro'), 'c',
+      'T98: value repartido. Forzar “siempre el agresor” es sesgo — respuesta honesta: ninguno claro.',
+      'fancy_play'),
+    raSpot('r33-02', 83302, 'UTG open → BB call', ['Ah', 'Ac', '4d'],
+      raOpts('UTG', 'BB', 'Ninguno claro'), 'a',
+      'A paired: no es empate. UTG concentra más Ax/premiums — sigue con ventaja fuerte.'),
+    raSpot('r33-03', 83303, 'BTN open → BB call', ['7s', '7h', '2d'],
+      raOpts('BTN', 'BB', 'Ninguno claro'), 'c',
+      '77xx bajo paired: ambos pueden tener trips vía 7x; overpairs del BTN ayudan pero el spot es ambiguo.',
+      'fancy_play'),
+    raSpot('r33-04', 83304, 'BTN open → BB 3-bet → BTN call', ['Qc', '8c', '3c'],
+      raOpts('BB (nut advantage de color)', 'BTN (más flushes medios)', 'Empate exacto'), 'a',
+      'Monotone en 3BP: nut advantage al 3-bettor (Axs/Kxs). No confundas con “el caller tiene más colores”.'),
+    raSpot('r33-05', 83305, 'HJ open → BB call', ['Js', 'Tc', '9h'],
+      raOpts('HJ', 'BB', 'Ninguno claro'), 'c',
+      'JT9 rainbow: casi empatado. Baja frecuencia de c-bet automático.',
+      'fancy_play'),
+    raSpot('r33-06', 83306, 'UTG open → BB call', ['Ks', 'Kd', 'Qh'],
+      raOpts('UTG', 'BB', 'Ninguno claro'), 'a',
+      'KKQ: UTG destroza (KK/AA/AK/KQ). Paired alto ≠ empate.'),
+    raSpot('r33-07', 83307, 'SB open → BB call', ['Jh', '8d', '8c'],
+      raOpts('SB', 'BB', 'Ninguno claro'), 'c',
+      'J88 OOP: trips posibles en ambos; ventaja leve o nula del opener. Pot control frecuente.',
+      'fancy_play'),
+    raSpot('r33-08', 83308, 'CO open → BTN 3-bet → CO call', ['9s', '8h', '7d'],
+      raOpts('BTN (3-bettor)', 'CO (caller)', 'Ninguno claro'), 'b',
+      '3BP conectados: el caller relativo gana el board. El 3-bettor IP aún puede betear selectivo, pero no “ventaja clara”.',
+      'fancy_play'),
+    raSpot('r33-09', 83309, 'BTN open → BB call', ['As', '5h', '2d'],
+      raOpts('BTN', 'BB', 'Ninguno claro'), 'a',
+      'A-high seco clásico: ventaja del agresor — contraste con los empates de esta lección.'),
+    raSpot('r33-10', 83310, 'HJ open → CO call (SRP)', ['Qd', 'Jc', 'Th'],
+      raOpts('HJ', 'CO', 'Ninguno claro'), 'c',
+      'QJT entre dos rangos relativamente tight: value repartido. Ninguno claro.',
+      'fancy_play'),
+    raSpot('r33-11', 83311, 'BB 3-bet vs BTN', ['2s', '2h', '2d'],
+      raOpts('BB (3-bettor)', 'BTN (caller)', 'Ninguno claro'), 'a',
+      'Trips en mesa (quads board): rangos enteros empatan en la mesa; el 3-bettor aún gana con más Ax kickers/premiums en showdown paths — ventaja leve al polar.'),
+    raSpot('r33-12', 83312, 'BTN open → BB call', ['6h', '6d', '5s'],
+      raOpts('BTN', 'BB', 'Ninguno claro'), 'c',
+      '66xx bajo: el BB wide tiene más 5x/6x/SC. Spot ambiguo — no autocbet al 90 %.',
+      'fancy_play')
   ];
 
   D.LESSONS.forEach(function (lesson) {
@@ -13242,8 +13627,151 @@
   function mountDrill(host, spot, ctx) {
     if (!host || !spot) return;
     var kind = spot.kind || 'matrixQuiz';
+    if (kind === 'rangeAdvQuiz') return mountRangeAdv(host, spot, ctx);
     if (kind === 'matrixPaint') return mountPaint(host, spot, ctx);
     return mountQuiz(host, spot, ctx);
+  }
+
+  function formatCardHtml(code) {
+    var rank = String(code || '').charAt(0) || '?';
+    var suit = String(code || '').charAt(1) || '';
+    var sym = suit === 's' ? '♠' : suit === 'h' ? '♥' : suit === 'd' ? '♦' : suit === 'c' ? '♣' : '?';
+    var red = suit === 'h' || suit === 'd';
+    var label = (rank === 'T' ? '10' : rank) + sym;
+    return '<span class="school-ra-card' + (red ? ' is-red' : '') + '" aria-label="' +
+      esc(label) + '">' + esc(label) + '</span>';
+  }
+
+  function formatBoardHtml(board) {
+    return '<div class="school-ra-board" role="img" aria-label="Flop">' +
+      (board || []).map(formatCardHtml).join('') +
+      '</div>';
+  }
+
+  /**
+   * Quiz «¿quién tiene range advantage?» — flop concreto + posiciones.
+   * spot.quiz: { prompt, line, board, options[{id,label}], correctId }
+   */
+  function mountRangeAdv(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var prompt = quiz.prompt || '¿Quién tiene range advantage en este flop?';
+    var line = quiz.line || '';
+    var board = quiz.board || spot.board || [];
+    var opts = quiz.options || [];
+    if (ctx) ctx.host = host;
+    var html =
+      '<div class="school-matrix-drill school-ra-drill school-page">' +
+      '<header class="school-matrix-drill-head">' +
+      '<p class="school-eyebrow">Spot ' + (ctx.index + 1) + ' / ' + ctx.total +
+      ' · Range Advantage</p>' +
+      '<h2 class="school-title">Ventaja de rango</h2>' +
+      '<p class="school-lead">' + esc(prompt) + '</p>' +
+      '</header>';
+    if (line) {
+      html += '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(line) + '</p>';
+    }
+    html += formatBoardHtml(board);
+    html += '<div class="school-matrix-choices">' +
+      opts.map(function (o) {
+        return '<button type="button" class="btn school-mx-choice" data-ra-choice="' +
+          esc(o.id) + '">' + esc(o.label) + '</button>';
+      }).join('') +
+      '</div>';
+    html += '<div class="school-lesson-cta">' +
+      '<button type="button" class="btn btn-ghost" id="school-mx-abort">Salir de la lección</button>' +
+      '</div></div>';
+    host.innerHTML = html;
+
+    var abort = host.querySelector('#school-mx-abort');
+    if (abort) abort.addEventListener('click', function () { if (ctx.onAbort) ctx.onAbort(); });
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-ra-choice]'), function (btn) {
+      btn.addEventListener('click', function () {
+        gradeRangeAdv(spot, btn.getAttribute('data-ra-choice'), ctx);
+      });
+    });
+  }
+
+  function gradeRangeAdv(spot, choiceId, ctx) {
+    var quiz = spot.quiz || {};
+    var ok = choiceId === quiz.correctId;
+    var label = choiceId;
+    (quiz.options || []).forEach(function (o) {
+      if (o.id === choiceId) label = o.label;
+    });
+    var teach = spot.teachBack || (ok
+      ? 'Bien: identificaste quién tiene más manos fuertes en esa textura.'
+      : 'Repasa quién conecta más value en este board según los rangos preflop.');
+    var result = {
+      spotId: spot.id,
+      class: ok ? 'optima' : 'error',
+      action: 'rangeAdvQuiz',
+      actionLabel: label,
+      teachBack: teach,
+      quizCorrect: ok
+    };
+
+    var host = ctx && ctx.host;
+    if (!host) {
+      finishDrill(ctx, result);
+      return;
+    }
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-ra-choice]'), function (btn) {
+      btn.disabled = true;
+      if (btn.getAttribute('data-ra-choice') === choiceId) {
+        btn.classList.add(ok ? 'is-correct' : 'is-wrong');
+      }
+    });
+
+    var remaining = Math.max(0, (ctx.total || 1) - (ctx.index || 0) - 1);
+    var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
+    var Share = global.PTSchoolShare;
+    var feedback = document.createElement('div');
+    feedback.className = 'school-spot-feedback school-ra-feedback ' + (ok ? 'is-good' : 'is-bad');
+    feedback.innerHTML =
+      '<h3>Spot ' + ((ctx.index || 0) + 1) + ' / ' + (ctx.total || 1) + ' · ' +
+      (ok ? 'Óptima' : 'Error') + '</h3>' +
+      '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
+      '<p class="school-spot-teach">' + esc(teach) + '</p>' +
+      (Share && Share.buildRangeAdvShareHtml ? Share.buildRangeAdvShareHtml() : '') +
+      '<div class="school-lesson-cta school-ra-next-cta">' +
+      '<button type="button" class="btn btn-primary" id="school-ra-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-ghost" id="school-ra-abort">Salir de la lección</button>' +
+      '</div>';
+
+    var oldCta = host.querySelector('.school-lesson-cta');
+    if (oldCta) oldCta.remove();
+    host.appendChild(feedback);
+
+    if (Share && Share.mountRangeAdvShare) {
+      try {
+        var shareRoot = feedback.querySelector('.school-share-range-adv');
+        Share.mountRangeAdvShare(shareRoot, {
+          lessonId: ctx.lessonId || '',
+          lessonTitle: ctx.lessonTitle || 'Range Advantage',
+          prompt: quiz.prompt || '¿Quién tiene range advantage en este flop?',
+          line: quiz.line || '',
+          board: (quiz.board || spot.board || []).slice(),
+          options: (quiz.options || []).map(function (o) {
+            return { id: o.id, label: o.label };
+          })
+        });
+      } catch (eShareRa) { /* ignore */ }
+    }
+
+    var next = feedback.querySelector('#school-ra-next');
+    var abort = feedback.querySelector('#school-ra-abort');
+    if (next) {
+      next.addEventListener('click', function () {
+        finishDrill(ctx, result);
+      });
+    }
+    if (abort) {
+      abort.addEventListener('click', function () {
+        if (ctx.onAbort) ctx.onAbort();
+      });
+    }
   }
 
   function mountQuiz(host, spot, ctx) {
@@ -13473,7 +14001,11 @@
   }
 
   function isMatrixSpot(spot) {
-    return !!(spot && (spot.kind === 'matrixQuiz' || spot.kind === 'matrixPaint'));
+    return !!(spot && (
+      spot.kind === 'matrixQuiz' ||
+      spot.kind === 'matrixPaint' ||
+      spot.kind === 'rangeAdvQuiz'
+    ));
   }
 
   global.PTSchoolMatrixDrills = {
@@ -13485,6 +14017,7 @@
     staticGridHtml: staticGridHtml,
     previewHtml: previewHtml,
     mountDrill: mountDrill,
+    mountRangeAdv: mountRangeAdv,
     isMatrixSpot: isMatrixSpot
   };
 })(typeof window !== 'undefined' ? window : global);
@@ -14161,20 +14694,182 @@
     return { canvas: canvas, text: text, url: url };
   }
 
+  function buildRangeAdvShareText(payload) {
+    var url = siteUrl();
+    var title = (payload && payload.lessonTitle) || 'Range Advantage';
+    return '¿Quién tiene range advantage en este flop? «' + title +
+      '» en PokerForgeAI. Sin spoiler — ¿tú quién eliges? ' + url;
+  }
+
+  function buildRangeAdvShareHtml() {
+    return (
+      '<div class="school-share school-share-line-quiz school-share-range-adv" aria-label="Compartir spot sin spoiler">' +
+      '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
+      '<div class="school-share-actions">' +
+      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="range-adv">Compartir spot</button>' +
+      '</div>' +
+      '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
+      '</div>'
+    );
+  }
+
+  /**
+   * Tarjeta social Range Advantage: línea + flop + opciones de posición.
+   * Sin solución (ni respuesta correcta, ni elección del usuario, ni teachBack).
+   */
+  function drawRangeAdvCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    var w = CARD_W;
+    var h = CARD_H;
+    canvas.width = w;
+    canvas.height = h;
+    payload = payload || {};
+
+    var g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, '#0f172a');
+    g.addColorStop(0.5, '#111827');
+    g.addColorStop(1, '#0b1220');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    var glow = ctx.createRadialGradient(w * 0.5, 100, 10, w * 0.5, 140, w * 0.5);
+    glow.addColorStop(0, 'rgba(96,165,250,0.22)');
+    glow.addColorStop(1, 'rgba(96,165,250,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 4;
+    roundRect(ctx, 36, 36, w - 72, h - 72, 36);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = '700 36px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('PokerForgeAI', 80, 108);
+
+    ctx.fillStyle = '#93c5fd';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Escuela · Rangos · Sin spoiler', 80, 148);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 42px system-ui, -apple-system, Segoe UI, sans-serif';
+    var title = payload.prompt || '¿Quién tiene range advantage en este flop?';
+    var titleLines = wrapText(ctx, title, w - 160);
+    var ty = 210;
+    titleLines.slice(0, 3).forEach(function (line) {
+      ctx.fillText(line, 80, ty);
+      ty += 50;
+    });
+
+    var line = payload.line || '';
+    if (line) {
+      ctx.fillStyle = 'rgba(230,237,243,0.7)';
+      ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillText('Línea', 80, ty + 18);
+      ctx.fillStyle = 'rgba(230,237,243,0.95)';
+      ctx.font = '600 28px system-ui, -apple-system, Segoe UI, sans-serif';
+      var lineLines = wrapText(ctx, line, w - 160);
+      var ly = ty + 56;
+      lineLines.slice(0, 2).forEach(function (row) {
+        ctx.fillText(row, 80, ly);
+        ly += 36;
+      });
+      ty = ly + 8;
+    }
+
+    ctx.fillStyle = 'rgba(230,237,243,0.7)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Flop', 80, ty + 20);
+    var board = payload.board || [];
+    var bcw = 110;
+    var bch = 150;
+    var boardRowW = board.length * bcw + Math.max(0, board.length - 1) * 14;
+    var boardX = Math.max(80, (w - boardRowW) / 2);
+    drawCardRow(ctx, board, boardX, ty + 36, bcw, bch, 14);
+
+    var optY = ty + 36 + bch + 48;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Opciones (elige una)', 80, optY);
+
+    var options = payload.options || [];
+    var n = Math.min(3, options.length || 0);
+    var gap = 14;
+    var boxW = n > 0 ? (w - 160 - gap * (n - 1)) / n : w - 160;
+    var boxH = 120;
+    var boxTop = optY + 24;
+    options.slice(0, 3).forEach(function (opt, i) {
+      var bx = 80 + i * (boxW + gap);
+      roundRect(ctx, bx, boxTop, boxW, boxH, 20);
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(147,197,253,0.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      var label = (opt && opt.label) || '';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 30px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      var labelLines = wrapText(ctx, label, boxW - 28);
+      var labelStart = boxTop + boxH / 2 - ((Math.min(2, labelLines.length) - 1) * 18);
+      labelLines.slice(0, 2).forEach(function (row, ri) {
+        ctx.fillText(row, bx + boxW / 2, labelStart + ri * 36);
+      });
+    });
+
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sin spoiler · ¿Quién tiene ventaja de rango?', w / 2, 930);
+
+    var url = siteUrl();
+    var host = siteHostLabel(url);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(host, w / 2, 980);
+    ctx.fillStyle = 'rgba(230,237,243,0.65)';
+    ctx.font = '600 22px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(url.replace(/\/$/, ''), w / 2, 1018);
+
+    return canvas;
+  }
+
+  function mountRangeAdvShare(root, payload) {
+    if (!root || !payload) return null;
+    var canvas = root.querySelector('.school-share-canvas');
+    if (!canvas) return null;
+    drawRangeAdvCard(canvas, payload);
+    var text = buildRangeAdvShareText(payload);
+    var url = siteUrl();
+    var btn = root.querySelector('[data-school-share="range-adv"]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        shareNative(canvas, text, url, root);
+      });
+    }
+    return { canvas: canvas, text: text, url: url };
+  }
+
   global.PTSchoolShare = {
     siteUrl: siteUrl,
     buildShareText: buildShareText,
     buildHubShareText: buildHubShareText,
     buildLineQuizShareText: buildLineQuizShareText,
+    buildRangeAdvShareText: buildRangeAdvShareText,
     drawAchievementCard: drawAchievementCard,
     drawHubSummaryCard: drawHubSummaryCard,
     drawLineQuizCard: drawLineQuizCard,
+    drawRangeAdvCard: drawRangeAdvCard,
     buildPanelHtml: buildPanelHtml,
     buildHubPanelHtml: buildHubPanelHtml,
     buildLineQuizShareHtml: buildLineQuizShareHtml,
+    buildRangeAdvShareHtml: buildRangeAdvShareHtml,
     mountSharePanel: mountSharePanel,
     mountHubSharePanel: mountHubSharePanel,
     mountLineQuizShare: mountLineQuizShare,
+    mountRangeAdvShare: mountRangeAdvShare,
     CARD_W: CARD_W,
     CARD_H: CARD_H
   };
@@ -15076,6 +15771,11 @@
     MX.mountDrill(root, spot, {
       index: s.index,
       total: s.spots.length,
+      lessonId: s.lessonId,
+      lessonTitle: (function () {
+        var lesson = Data() && Data().getLesson(s.lessonId);
+        return (lesson && lesson.title) || s.lessonId || '';
+      })(),
       onAbort: function () { abandonSession(true); },
       onResult: function (result) {
         if (!state.session || !state.session.active) return;
@@ -15086,7 +15786,7 @@
           actionLabel: result.actionLabel || '',
           heroPos: spot.heroPos || '',
           heroCards: null,
-          board: null,
+          board: (spot.quiz && spot.quiz.board) || spot.board || null,
           teachBack: result.teachBack || spot.teachBack || '',
           quizCorrect: !!result.quizCorrect,
           overlap: result.overlap
@@ -15643,7 +16343,7 @@
     ranges: {
       eyebrow: 'Rangos · Laboratorio',
       title: 'Laboratorio de rangos',
-      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: ¿qué tiene? (mixto + lecciones de faroles por actuación).'
+      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: range advantage + ¿qué tiene? (mixto + faroles).'
     }
   };
 
@@ -15670,9 +16370,9 @@
     ranges: {
       M0: { title: 'M0 · Bases de rangos (Gratis)', lead: 'Matriz, RFI BTN y % que conecta.' },
       M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, línea completa y node frequencies.' },
-      M2: { title: 'M2 · ¿Qué tiene? Lectura (Study)', lead: 'Quiz mixto + faroles por línea al cierre del bloque.' },
-      M3: { title: 'M3 · ¿Qué tiene? Polar (Coach)', lead: 'Polar, draws fallidos y faroles difíciles.' },
-      M4: { title: 'M4 · ¿Qué tiene? Avanzada (Coach)', lead: 'Nivel avanzado: boats y faroles disfrazados de thin.' }
+      M2: { title: 'M2 · ¿Qué tiene? Lectura (Study)', lead: 'Range advantage, quiz mixto y faroles por línea.' },
+      M3: { title: 'M3 · ¿Qué tiene? Polar (Coach)', lead: 'Range advantage en 3BP, polar, draws fallidos y faroles difíciles.' },
+      M4: { title: 'M4 · ¿Qué tiene? Avanzada (Coach)', lead: 'Range advantage límite, boats y faroles disfrazados de thin.' }
     }
   };
 

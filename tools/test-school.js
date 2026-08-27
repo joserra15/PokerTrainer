@@ -79,7 +79,7 @@ assert.ok(/Textura de flop|Examen M2/.test(schoolM2Src), 'lecciones M2');
 assert.ok(/S-00|S-17/.test(schoolSpinSrc), 'lecciones Spins');
 assert.ok(/buy-in|entrada/.test(schoolSpinSrc) && /fichas no valen|fichas ≠|Entrada ≠ fichas/.test(schoolSpinSrc), 'S-00 explica entrada vs fichas');
 assert.ok(/T-00|T-22/.test(schoolMttSrc), 'lecciones MTT');
-assert.ok(/R-01|R-27|R-28|R-29/.test(schoolRangesSrc), 'lecciones Rangos + exámenes');
+assert.ok(/R-01|R-27|R-28|R-29|R-30|R-33/.test(schoolRangesSrc), 'lecciones Rangos + exámenes + RA');
 assert.ok(/school-data-ranges-line\.js/.test(chunks), 'chunk Rangos línea M2–M4');
 assert.ok(/school-data-ranges-line-sizing\.js/.test(chunks), 'chunk sizing-key línea');
 assert.ok(/school-matrix-drills\.js/.test(chunks), 'chunk matrix drills R-01/R-02');
@@ -210,7 +210,7 @@ const lessons = Data.lessonsForRoute('cash');
 assert.strictEqual(lessons.length, 27, 'Cash M0+M1+M2+Pro = 27 lecciones');
 assert.strictEqual(Data.lessonsForRoute('spin').length, 18, 'Spins 18');
 assert.strictEqual(Data.lessonsForRoute('mtt').length, 23, 'MTT 23');
-assert.strictEqual(Data.lessonsForRoute('ranges').length, 29, 'Rangos 29');
+assert.strictEqual(Data.lessonsForRoute('ranges').length, 33, 'Rangos 33');
 assert.strictEqual(Data.m0Lessons().length, 7, 'M0 7');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
 assert.strictEqual(Data.m2Lessons().length, 7, 'M2 7');
@@ -435,26 +435,37 @@ assert.strictEqual(Data.getLesson('T-04').plan, 'study', 'T-04 M1 sigue Study');
   assert.ok(l && l.module === 'M1', id + ' es M1');
   assert.strictEqual(l.plan, 'study', id + ' plan study');
 });
-['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-22', 'R-23', 'R-29'].forEach(function (id) {
+['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-22', 'R-23', 'R-29', 'R-30', 'R-31'].forEach(function (id) {
   var l = Data.getLesson(id);
   assert.ok(l && l.module === 'M2', id + ' es M2');
   assert.strictEqual(l.plan, 'study', id + ' plan study');
 });
-['R-12', 'R-13', 'R-14', 'R-15', 'R-16', 'R-24', 'R-25'].forEach(function (id) {
+['R-12', 'R-13', 'R-14', 'R-15', 'R-16', 'R-24', 'R-25', 'R-32'].forEach(function (id) {
   var l = Data.getLesson(id);
   assert.ok(l && l.module === 'M3', id + ' es M3');
   assert.strictEqual(l.plan, 'coach', id + ' plan coach');
 });
-['R-17', 'R-18', 'R-19', 'R-20', 'R-21', 'R-26', 'R-27'].forEach(function (id) {
+['R-17', 'R-18', 'R-19', 'R-20', 'R-21', 'R-26', 'R-27', 'R-33'].forEach(function (id) {
   var l = Data.getLesson(id);
   assert.ok(l && l.module === 'M4', id + ' es M4');
   assert.strictEqual(l.plan, 'coach', id + ' plan coach');
 });
+assert.ok(/Range Advantage/.test(Data.getLesson('R-30').title), 'R-30 range advantage');
+assert.ok(/Range Advantage/.test(Data.getLesson('R-32').title), 'R-32 range advantage coach');
+assert.ok(/range advantage|ventaja de rango/i.test(Data.getLesson('R-30').concept), 'R-30 define RA');
+assert.ok(Data.getLesson('R-30').spots.length >= 12, 'R-30 ≥12 spots');
+assert.ok(Data.getLesson('R-30').spots.every(function (s) { return s.kind === 'rangeAdvQuiz'; }), 'R-30 rangeAdvQuiz');
+assert.ok(Data.getLesson('R-31').spots.every(function (s) { return s.kind === 'rangeAdvQuiz' && s.quiz && s.quiz.board && s.quiz.board.length === 3; }), 'R-31 flop + quiz');
+assert.ok(Data.getLesson('R-33').spots.some(function (s) { return s.quiz && s.quiz.correctId === 'c'; }), 'R-33 incluye empates');
+assert.ok(/rangeAdvQuiz/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill rangeAdvQuiz');
+assert.ok(/mountRangeAdvShare|buildRangeAdvShareHtml/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'R-30 share tras respuesta');
+assert.ok(/drawRangeAdvCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share card RA');
 assert.ok(/Faroles por línea/.test(Data.getLesson('R-22').title), 'R-22 faroles M2');
 assert.ok(/Faroles difíciles/.test(Data.getLesson('R-24').title), 'R-24 faroles M3');
 assert.ok(/Faroles avanzados/.test(Data.getLesson('R-26').title), 'R-26 faroles M4');
 assert.ok(/M0 completo en Gratis/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Spins/MTT menciona M0 gratis');
 assert.ok(/M0 · Bases de rangos \(Gratis\)/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Rangos M0 gratis');
+assert.ok(/range advantage/i.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'hub Rangos menciona range advantage');
 
 /* Voz pedagógica: conceptos clave se introducen una vez en M0 */
 assert.ok(/Estilo de texto|profesor/.test(schoolDataSrc), 'guía de estilo en school-data');
