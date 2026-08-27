@@ -21,17 +21,23 @@ assert.ok(/buildHubPanelHtml/.test(shareSrc) && /drawHubSummaryCard/.test(shareS
 assert.ok(/mountHubSharePanel/.test(shareSrc), 'mount hub share');
 assert.ok(/drawLineQuizCard/.test(shareSrc) && /mountLineQuizShare/.test(shareSrc), 'share quiz línea');
 assert.ok(/buildLineQuizShareHtml/.test(shareSrc), 'html share quiz línea');
+assert.ok(/drawRangeAdvCard/.test(shareSrc) && /mountRangeAdvShare/.test(shareSrc), 'share range advantage');
+assert.ok(/buildRangeAdvShareHtml/.test(shareSrc), 'html share range advantage');
 assert.ok(/Sin spoiler/.test(shareSrc), 'copy sin spoiler en imagen');
 assert.ok(/Se ha compartido correctamente/.test(shareSrc), 'mensaje éxito');
 assert.ok(!/Se comparte la imagen del logro/.test(shareSrc), 'sin texto auxiliar logro');
 assert.ok(!/Listo para compartir/.test(shareSrc), 'sin Listo para compartir');
 assert.ok(/buildHubPanelHtml/.test(schoolSrc) && /mountHubSharePanel/.test(schoolSrc), 'hub monta share');
 assert.ok(/mountLineQuizShare/.test(schoolSrc) && /buildLineQuizShareHtml/.test(schoolSrc), 'quiz monta share');
+assert.ok(/mountRangeAdvShare|buildRangeAdvShareHtml/.test(
+  fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')
+), 'range adv monta share tras respuesta');
 assert.ok(/SCHOOL_PUBLIC\s*=\s*true/.test(schoolSrc), 'Escuela pública');
 assert.ok(/isSchoolHand/.test(storageSrc) && /isSchoolError/.test(storageSrc), 'filtro errores Escuela');
 assert.ok(/schoolHand/.test(storageSrc), 'saveHand omite errores Escuela');
 assert.ok(/school-share-hub/.test(styles), 'estilos hub share');
 assert.ok(/school-share-line-quiz/.test(styles), 'estilos share quiz línea');
+assert.ok(/school-share-range-adv/.test(styles), 'estilos share range advantage');
 
 const sandbox = {
   console, Math, Date, JSON, Array, Object, String, Number, Boolean,
@@ -151,5 +157,39 @@ assert.ok(!qctx.texts.some(function (t) { return /KJo|AQo|correcta|tenía AA/i.t
 const quizPanel = Share.buildLineQuizShareHtml();
 assert.ok(/data-school-share="line-quiz"/.test(quizPanel), 'botón share quiz');
 assert.ok(/school-share-canvas-hidden/.test(quizPanel), 'canvas quiz oculto');
+
+const raPayload = {
+  lessonTitle: 'Range Advantage I · Boards claros',
+  prompt: '¿Quién tiene range advantage en este flop?',
+  line: 'UTG open → BB call',
+  board: ['As', 'Kd', 'Qc'],
+  options: [
+    { id: 'a', label: 'UTG' },
+    { id: 'b', label: 'BB' },
+    { id: 'c', label: 'Ninguno claro' }
+  ]
+};
+const raText = Share.buildRangeAdvShareText(raPayload);
+assert.ok(/range advantage|Sin spoiler/i.test(raText), 'texto share RA');
+assert.ok(/pokerforgeai\.com/.test(raText), 'URL en texto RA');
+assert.ok(!/correct|solución|Óptima|teachBack|AA\/KK/i.test(raText), 'texto RA sin spoiler');
+
+const ractx = new FakeCtx();
+Share.drawRangeAdvCard({
+  width: 0, height: 0,
+  getContext: function () { return ractx; }
+}, raPayload);
+assert.ok(ractx.texts.some(function (t) { return t === 'PokerForgeAI'; }), 'imagen RA logo');
+assert.ok(ractx.texts.some(function (t) { return /Sin spoiler/.test(t); }), 'imagen RA sin spoiler');
+assert.ok(ractx.texts.some(function (t) { return /Flop/.test(t); }), 'imagen RA flop label');
+assert.ok(ractx.texts.some(function (t) { return /UTG open/.test(t); }), 'imagen RA línea');
+assert.ok(ractx.texts.some(function (t) { return t === 'UTG'; }), 'imagen RA opción UTG');
+assert.ok(ractx.texts.some(function (t) { return t === 'BB'; }), 'imagen RA opción BB');
+assert.ok(ractx.texts.some(function (t) { return /pokerforgeai\.com/.test(t); }), 'imagen RA URL');
+assert.ok(!ractx.texts.some(function (t) { return /AA\/KK|Óptima|Correcto|teachBack/i.test(t); }), 'imagen RA sin solución');
+
+const raPanel = Share.buildRangeAdvShareHtml();
+assert.ok(/data-school-share="range-adv"/.test(raPanel), 'botón share RA');
+assert.ok(/school-share-canvas-hidden/.test(raPanel), 'canvas RA oculto');
 
 console.log('*** test-school-share OK ***');

@@ -458,6 +458,8 @@ assert.ok(Data.getLesson('R-30').spots.every(function (s) { return s.kind === 'r
 assert.ok(Data.getLesson('R-31').spots.every(function (s) { return s.kind === 'rangeAdvQuiz' && s.quiz && s.quiz.board && s.quiz.board.length === 3; }), 'R-31 flop + quiz');
 assert.ok(Data.getLesson('R-33').spots.some(function (s) { return s.quiz && s.quiz.correctId === 'c'; }), 'R-33 incluye empates');
 assert.ok(/rangeAdvQuiz/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill rangeAdvQuiz');
+assert.ok(/mountRangeAdvShare|buildRangeAdvShareHtml/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'R-30 share tras respuesta');
+assert.ok(/drawRangeAdvCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share card RA');
 assert.ok(/Faroles por línea/.test(Data.getLesson('R-22').title), 'R-22 faroles M2');
 assert.ok(/Faroles difíciles/.test(Data.getLesson('R-24').title), 'R-24 faroles M3');
 assert.ok(/Faroles avanzados/.test(Data.getLesson('R-26').title), 'R-26 faroles M4');

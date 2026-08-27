@@ -894,6 +894,11 @@
     MX.mountDrill(root, spot, {
       index: s.index,
       total: s.spots.length,
+      lessonId: s.lessonId,
+      lessonTitle: (function () {
+        var lesson = Data() && Data().getLesson(s.lessonId);
+        return (lesson && lesson.title) || s.lessonId || '';
+      })(),
       onAbort: function () { abandonSession(true); },
       onResult: function (result) {
         if (!state.session || !state.session.active) return;
