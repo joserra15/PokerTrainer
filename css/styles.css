@@ -1849,6 +1849,29 @@ body.age-gate-open {
   margin: 8px 0 12px;
 }
 .school-mx-choice { min-width: 140px; }
+.school-ra-line { margin: 0 0 10px; font-size: 0.95rem; }
+.school-ra-board {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.school-ra-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 72px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 1.15rem;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.12);
+  letter-spacing: 0.02em;
+}
+.school-ra-card.is-red { color: #dc2626; }
 .school-matrix-grid .school-mx-cell {
   cursor: pointer;
   border: 1px solid rgba(255,255,255,.08);

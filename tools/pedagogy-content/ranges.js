@@ -1152,5 +1152,161 @@ module.exports = {
           ]
     },
 
+    "R-30": {
+      concept:
+        "Range advantage (ventaja de rango) es tener más manos fuertes que el rival en una textura concreta. Esa ventaja se traduce en más frecuencia de apuesta y poder apostar más pequeño con más consistencia.",
+      theory: [
+        {
+          title: "Qué es range advantage",
+          body:
+            "El jugador que tiene range advantage en un board tiene más manos fuertes que su oponente en esa textura. No hablamos de tu mano concreta (AQ o 72): hablamos de la distribución completa del rango. Esa ventaja se traduce en más betting frequency y poder apostar más pequeño con más consistencia."
+        },
+        {
+          title: "Quién llega con qué rango",
+          body:
+            "Tras un open UTG y call BB, UTG llega con un rango tight (muchos Ax altos, broadway, overpairs). El BB llega wide (suited connectors, basura relativa, pocos nuts). En flops altos y secos, UTG “encaja” mucho mejor."
+        },
+        {
+          title: "Pregunta de cada flop",
+          body:
+            "Antes de decidir bet o check: “¿Quién tiene más value fuerte aquí?” Si la respuesta es clara, ya tienes el plan de frecuencia. Enlace con Cash M2 (C-14…C-16) y con R-03 (textura)."
+        }
+      ],
+      examples: [
+        {
+          title: "UTG vs BB en A-K-Q rainbow",
+          body:
+            "UTG open → BB call. Flop A♠K♦Q♣ rainbow. UTG tiene muchísimo range advantage: AA/KK/QQ/AK/AQ/KQ abundan en su rango y escasean en el del BB. C-bet frecuente a sizing pequeño."
+        },
+        {
+          title: "BTN vs BB en K72 rainbow",
+          body:
+            "Open late wide vs BB. Flop K♠7♦2♣: el BB falla mucho; el agresor sigue teniendo Ax, Kx y overpairs. Ventaja clara del opener, aunque menos brutal que en AKQ desde UTG."
+        }
+      ],
+      aiQuestions: [
+        "¿Qué es range advantage en una frase?",
+        "¿Por qué UTG tiene ventaja enorme en AKQ rainbow vs BB?",
+        "¿Cómo se traduce la ventaja en sizing y frecuencia?"
+      ]
+    },
+
+    "R-31": {
+      concept:
+        "No todo flop favorece al agresor: en texturas bajas y conectadas el caller recupera equity y a veces la ventaja se iguala o se invierte. Aprende a detectar cuándo ceder frecuencia.",
+      theory: [
+        {
+          title: "Cuando el caller recupera",
+          body:
+            "Un rango de defensa BB está lleno de suited connectors, pares medios-bajos y broadway media. En flops tipo 9♠8♠7♥ o 6♦5♣4♥ esas manos conectan pares, dos pares, escaleras y draws. El opener wide (BTN) ya no domina la distribución de value."
+        },
+        {
+          title: "Ventaja ≠ siempre bet",
+          body:
+            "Si la ventaja es pequeña o nula, reduces c-bet automático. Puedes seguir apostando algunas manos, pero la frecuencia baja y el sizing deja de ser “pequeño siempre”. Primero nombra quién gana el board; luego eliges el plan."
+        },
+        {
+          title: "Trampa típica",
+          body:
+            "Autocbet “porque abrí” en un board que favorece al BB. La iniciativa preflop no congela la ventaja postflop: la textura la mueve."
+        }
+      ],
+      examples: [
+        {
+          title: "BTN vs BB en 987 two-tone",
+          body:
+            "Flop 9♠8♠7♥: el BB conecta mucho más que en K72. La ventaja del BTN se reduce o desaparece → menos autocbet, más checks."
+        },
+        {
+          title: "Contraste con A-high seco",
+          body:
+            "Mismo spot BTN vs BB en A♣8♦3♥: el BB falla a menudo; el agresor recupera ventaja. Mismo roles, textura distinta → respuesta distinta."
+        }
+      ],
+      aiQuestions: [
+        "¿En qué texturas el BB caller recupera ventaja?",
+        "¿Por qué “abrí preflop” no basta para c-betear siempre?",
+        "¿Qué cambia entre K72r y 987 two-tone con los mismos roles?"
+      ]
+    },
+
+    "R-32": {
+      concept:
+        "En potes de 3-bet y en boards monotone la ventaja cambia de dueño: el 3-bettor llega polarizado (más nuts, menos medias) y el caller a menudo captura mejor los medios. Distingue range advantage de nut advantage.",
+      theory: [
+        {
+          title: "3-bet pot: rangos distintos",
+          body:
+            "Quien 3-betea (p. ej. BB vs BTN) comprime value premium y faroles; el caller defiende con un rango capped (sin AA/KK a menudo). En A-high seco el 3-bettor suele tener range y nut advantage. En bajos conectados el caller recupera más equity relativa."
+        },
+        {
+          title: "Range vs nut advantage",
+          body:
+            "Range advantage = más manos fuertes en general (más betting frequency, sizings pequeños). Nut advantage = más combos de la nuts (justifica overbets y polarización). Puedes tener una sin la otra: en monotone el caller a veces captura más flushes medios mientras el agresor guarda los nuts de color."
+        },
+        {
+          title: "Lectura práctica",
+          body:
+            "Nombra el pot (SRP vs 3BP), los roles y la textura. Luego responde: ¿quién tiene más value? ¿quién tiene más nuts? Si solo respondes “yo abrí”, aún no leíste el nodo."
+        }
+      ],
+      examples: [
+        {
+          title: "BB 3-bet vs BTN en A72r",
+          body:
+            "BB tiene AA/AK/AQ densos; BTN está capped. Ventaja clara del 3-bettor → c-bet frecuente pequeño."
+        },
+        {
+          title: "Mismo 3BP en 876 two-tone",
+          body:
+            "El caller (BTN) conecta más sets, dos pares y draws. La ventaja del 3-bettor se reduce: más checks OOP, menos autocbet."
+        }
+      ],
+      aiQuestions: [
+        "¿En qué se diferencia range advantage de nut advantage?",
+        "¿Por qué un 3-bettor gana en A-high seco?",
+        "¿Cuándo el caller de un 3-bet recupera el board?"
+      ]
+    },
+
+    "R-33": {
+      concept:
+        "Casos límite: boards paired, monotone conflictivos y spots casi empatados. A veces la respuesta correcta es “ninguno claro”: entonces reduces polarización automática y piensas en pot control.",
+      theory: [
+        {
+          title: "Cuando nadie domina",
+          body:
+            "Algunos flops reparten value de forma parecida a ambos rangos (p. ej. JTs9 rainbow en BTN vs BB, o paired medios en rangos simétricos). Forzar “siempre el agresor” es un sesgo. Si está empatado, baja frecuencia y evita overbet sin nuts."
+        },
+        {
+          title: "Paired y monotone finos",
+          body:
+            "Un board A♠A♦7♣ favorece al rango con más ases (opener/3-bettor). Un 7♠7♥2♦ es más ambiguo: ambos tienen trips posibles vía 7x, pero el tight early aún gana con overpairs. Monotone Q♠8♠3♠: nut advantage al que tiene más Axs/Kxs del palo; el caller wide tiene más flushes medios."
+        },
+        {
+          title: "Nivel pro",
+          body:
+            "La pregunta ya no es solo “quién gana”: es “¿cuánto gana y qué sizing justifica?” Ventaja enorme → bet pequeño muy a menudo. Ventaja leve → mix. Empate o desventaja → check/ceder más. Eso conecta con lectura de línea (R-07+) y polarización (M3–M4)."
+        }
+      ],
+      examples: [
+        {
+          title: "Empate útil",
+          body:
+            "CO vs BB en T♦9♣8♥: ambos conectan strong made y draws. Respuesta honesta: ventaja poco clara → no autocbet al 80 %."
+        },
+        {
+          title: "Paired A-high",
+          body:
+            "UTG vs BB en A♥A♣4♦: UTG sigue con ventaja fuerte (más Ax y premiums). No lo trates como empate solo porque hay pareja en mesa."
+        }
+      ],
+      aiQuestions: [
+        "¿Cuándo es correcto responder “ninguno claro”?",
+        "¿Cómo lees ventaja en un flop paired?",
+        "¿Qué sizing encaja con ventaja enorme vs ventaja leve?"
+      ]
+    },
+
   }
 };

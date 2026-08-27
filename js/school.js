@@ -904,7 +904,7 @@
           actionLabel: result.actionLabel || '',
           heroPos: spot.heroPos || '',
           heroCards: null,
-          board: null,
+          board: (spot.quiz && spot.quiz.board) || spot.board || null,
           teachBack: result.teachBack || spot.teachBack || '',
           quizCorrect: !!result.quizCorrect,
           overlap: result.overlap
@@ -1461,7 +1461,7 @@
     ranges: {
       eyebrow: 'Rangos · Laboratorio',
       title: 'Laboratorio de rangos',
-      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: ¿qué tiene? (mixto + lecciones de faroles por actuación).'
+      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: range advantage + ¿qué tiene? (mixto + faroles).'
     }
   };
 
@@ -1488,9 +1488,9 @@
     ranges: {
       M0: { title: 'M0 · Bases de rangos (Gratis)', lead: 'Matriz, RFI BTN y % que conecta.' },
       M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, línea completa y node frequencies.' },
-      M2: { title: 'M2 · ¿Qué tiene? Lectura (Study)', lead: 'Quiz mixto + faroles por línea al cierre del bloque.' },
-      M3: { title: 'M3 · ¿Qué tiene? Polar (Coach)', lead: 'Polar, draws fallidos y faroles difíciles.' },
-      M4: { title: 'M4 · ¿Qué tiene? Avanzada (Coach)', lead: 'Nivel avanzado: boats y faroles disfrazados de thin.' }
+      M2: { title: 'M2 · ¿Qué tiene? Lectura (Study)', lead: 'Range advantage, quiz mixto y faroles por línea.' },
+      M3: { title: 'M3 · ¿Qué tiene? Polar (Coach)', lead: 'Range advantage en 3BP, polar, draws fallidos y faroles difíciles.' },
+      M4: { title: 'M4 · ¿Qué tiene? Avanzada (Coach)', lead: 'Range advantage límite, boats y faroles disfrazados de thin.' }
     }
   };
 
