@@ -14,7 +14,7 @@ assert(!/\/deploy-info/.test(guard), 'build-guard no debe pedir /deploy-info');
 assert(!/checkDeployInfo/.test(guard), 'checkDeployInfo eliminado');
 assert(/checkFreshVersionJs/.test(guard), 'build-guard sigue contrastando version.js');
 assert.ok(/PTBusy/.test(guard), 'no recarga PWA durante import');
-assert(/PT_BUILD\s*=\s*'2.7.32'/.test(version), 'PT_BUILD 2.7.32 para invalidar caché');
+assert(/PT_BUILD\s*=\s*'2.7.33'/.test(version), 'PT_BUILD 2.7.33 para invalidar caché');
 assert(/pt-shell-v20/.test(sw), 'SW cache bump v20');
 assert(!/deploy-info\.json/.test(sw), 'SW no trata deploy-info como asset de app');
 

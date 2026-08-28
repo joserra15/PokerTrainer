@@ -1050,11 +1050,15 @@
     html += '<div class="ha-card-board">' + boardStr + '</div>';
     html += '<div class="ha-card-actions">';
     html += '<button class="btn btn-small btn-secondary" data-ha-review="' + esc(h.id) + '">Ver paso a paso</button>';
+    if (global.PTSchoolCoachQuiz && global.PTSchoolCoachQuiz.canBuildQuiz(h)) {
+      html += '<button class="btn btn-small btn-secondary" data-ha-quiz="' + esc(h.id) + '">Quiz Escuela</button>';
+    }
     html += '<button class="btn btn-small btn-secondary" data-ha-edit="' + esc(h.id) + '">Editar</button>';
     html += '<button class="btn btn-small btn-primary" data-ha-play="' + esc(h.id) + '">Jugar en entrenador</button>';
     html += '<button class="btn btn-small btn-ghost" data-ha-del="' + esc(h.id) + '">Borrar</button>';
     html += '</div>';
     html += '<div class="ha-play-panel hidden" data-ha-play-panel="' + esc(h.id) + '"></div>';
+    html += '<div class="ha-quiz-panel hidden" data-ha-quiz-panel="' + esc(h.id) + '"></div>';
     html += '</div>';
     return html;
   }
@@ -1100,6 +1104,27 @@
     });
     root.querySelectorAll('[data-ha-play]').forEach(function (btn) {
       btn.addEventListener('click', function () { togglePlayPanel(btn.dataset.haPlay); });
+    });
+    root.querySelectorAll('[data-ha-quiz]').forEach(function (btn) {
+      btn.addEventListener('click', function () { toggleQuizPanel(btn.dataset.haQuiz); });
+    });
+  }
+
+  function toggleQuizPanel(id) {
+    var panel = S.container.querySelector('[data-ha-quiz-panel="' + CSS.escape(id) + '"]');
+    if (!panel) return;
+    if (!panel.classList.contains('hidden')) {
+      panel.classList.add('hidden');
+      panel.innerHTML = '';
+      return;
+    }
+    var hand = global.Store.getAnalysisHand(id);
+    var CQ = global.PTSchoolCoachQuiz;
+    if (!hand || !CQ || !CQ.renderPanelHtml) return;
+    panel.innerHTML = CQ.renderPanelHtml(hand);
+    panel.classList.remove('hidden');
+    CQ.mountPanel(panel, hand, function () {
+      panel.classList.add('hidden');
     });
   }
 

@@ -13499,6 +13499,1148 @@
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /*
+ * school-data-viral-quizzes.js — Quizzes virales: decisionQuiz, oddsQuiz, blockerQuiz.
+ * Lecciones D-01, D-02, O-01, B-01 + pool Daily Spot.
+ * Cargar tras school-data-practice.js.
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+
+  function decisionSpot(id, seed, heroPos, heroCards, board, line, lineStory, correctId, teach, extra) {
+    extra = extra || {};
+    return {
+      id: id,
+      kind: 'decisionQuiz',
+      seed: seed,
+      heroPos: heroPos,
+      teachBack: teach,
+      trapTag: extra.trap || undefined,
+      quiz: {
+        prompt: extra.prompt || '¿Qué haces?',
+        line: line,
+        lineStory: lineStory || [],
+        board: board,
+        heroCards: heroCards,
+        villainPos: extra.villainPos || 'BB',
+        options: [
+          { id: 'fold', label: 'Fold' },
+          { id: 'call', label: 'Call' },
+          { id: 'raise', label: 'Raise' }
+        ],
+        correctId: correctId,
+        teachBack: teach
+      }
+    };
+  }
+
+  function oddsSpot(id, seed, potBB, betBB, draw, heroCards, board, correctId, teach, extra) {
+    extra = extra || {};
+    return {
+      id: id,
+      kind: 'oddsQuiz',
+      seed: seed,
+      teachBack: teach,
+      quiz: {
+        prompt: extra.prompt || '¿Tienes pot odds para call?',
+        potBB: potBB,
+        betBB: betBB,
+        draw: draw,
+        heroCards: heroCards,
+        board: board,
+        options: [
+          { id: 'yes', label: 'Sí · call correcto' },
+          { id: 'no', label: 'No · fold' },
+          { id: 'depends', label: 'Depende · implied odds' }
+        ],
+        correctId: correctId,
+        requiredPct: extra.requiredPct,
+        equityPct: extra.equityPct
+      }
+    };
+  }
+
+  function blockerSpot(id, seed, board, villainAction, options, correctId, teach) {
+    return {
+      id: id,
+      kind: 'blockerQuiz',
+      seed: seed,
+      teachBack: teach,
+      quiz: {
+        prompt: 'Villano apuesta river. ¿Con cuál faroleas mejor?',
+        board: board,
+        villainAction: villainAction,
+        options: options,
+        correctId: correctId,
+        teachBack: teach
+      }
+    };
+  }
+
+  function handOpt(id, label, cards) {
+    return { id: id, label: label, cards: cards };
+  }
+
+  var PACKS = {};
+
+  PACKS['D-01'] = [
+    decisionSpot('d01-01', 84001, 'BTN', ['Ah', 'Qd'], ['As', 'Kd', '7c', '2h', '5d'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn bet 75% pot → call · River bet 75% pot',
+      [
+        { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+        { street: 'Flop', text: 'BTN c-bet 33% pot · BB call' },
+        { street: 'Turn', text: 'BTN bet 75% pot · BB call' },
+        { street: 'River', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'fold',
+      'AQ en river tras triple barrel en AK7-2-5: estás detrás de mucho Ax/Kx y value. Fold es la línea GTO típica.',
+      { prompt: 'River: villano apuesta tras check. ¿Qué haces con AQ?' }),
+    decisionSpot('d01-02', 84002, 'BTN', ['Ts', 'Tc'], ['Kd', '7h', '2c'],
+      'BTN open → BB call · Flop check-check',
+      [
+        { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+        { street: 'Flop', text: 'BB check · BTN ?' }
+      ],
+      'raise',
+      'TT en K72 rainbow IP tras check del BB: c-bet (raise el bote) es estándar. El BB falla mucho; tu overpair necesita protección.',
+      { prompt: 'Flop: BB check. ¿Qué haces con TT?' }),
+    decisionSpot('d01-03', 84003, 'BB', ['9h', '8h'], ['Ts', '7d', '2c', 'Jc'],
+      'BTN open → BB call · Flop check · BTN bet 50% → call · Turn check-check · River BTN bet 66% pot',
+      [
+        { street: 'Turn', text: 'BB check · BTN check' },
+        { street: 'River', text: 'BB check · BTN bet 66% pot' }
+      ],
+      'call',
+      '98s hace middle pair en T72-J con flush draw bloqueado. Vs sizing medio en river delay, call es defendible: bloqueas muchos bluffs.',
+      { prompt: 'River: facing bet. ¿Call con 98s?', villainPos: 'BTN' }),
+    decisionSpot('d01-04', 84004, 'BTN', ['Kh', 'Qh'], ['9s', '8s', '7h'],
+      'BTN open → BB call · Flop check-check',
+      [
+        { street: 'Preflop', text: 'BTN open → BB call' },
+        { street: 'Flop', text: 'BB check · BTN ?' }
+      ],
+      'fold',
+      '987 two-tone: el BB conecta fuerte. KQ sin draw claro → check behind (no bet). Apostar aquí es spew.',
+      { prompt: 'Flop wet: BB check. ¿Qué haces con KQo?' }),
+    decisionSpot('d01-05', 84005, 'CO', ['Ad', 'Jc'], ['As', '4d', '2c', '9h', '3s'],
+      'CO open → BB call · Flop c-bet 33% → call · Turn check · BB bet 75% pot',
+      [
+        { street: 'Turn', text: 'CO check · BB bet 75% pot' }
+      ],
+      'call',
+      'AJ top pair en A-high seco: vs turn probe del BB, call. Estás ahead de muchos floats y draws que no llegaron.',
+      { prompt: 'Turn: facing donk. ¿Qué haces con AJ?', villainPos: 'BB' }),
+    decisionSpot('d01-06', 84006, 'BTN', ['7s', '6s'], ['Kh', '9d', '2c', '5h'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn check · BB bet 75% pot',
+      [
+        { street: 'Turn', text: 'BTN check · BB bet 75% pot' }
+      ],
+      'fold',
+      '76s sin par ni draw claro en K92-5: fold vs turn barrel. No tienes equity ni showdown value suficiente.',
+      { prompt: 'Turn: facing bet. ¿Qué haces con 76s?', villainPos: 'BB' }),
+    decisionSpot('d01-07', 84007, 'BB', ['Ah', '5h'], ['Qh', '8h', '3c', '2h', 'Jd'],
+      'BTN open → BB call · Flop check · BTN bet 50% → call · Turn check · BTN bet 75% → call · River BTN bet overbet',
+      [
+        { street: 'River', text: 'BB check · BTN overbet 125% pot' }
+      ],
+      'fold',
+      'A5hh solo tiene A-high en river tras línea agresiva. Fold vs overbet: estás casi siempre behind.',
+      { prompt: 'River: facing overbet. ¿Qué haces?', villainPos: 'BTN' }),
+    decisionSpot('d01-08', 84008, 'BTN', ['Jd', 'Jc'], ['Ts', '9c', '2d', '4h', '8s'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn bet 75% → call · River check · BB bet 75% pot',
+      [
+        { street: 'River', text: 'BTN check · BB bet 75% pot' }
+      ],
+      'call',
+      'JJ sigue siendo overpair en T92-4-8. Vs river bet del BB (bluff-heavy), call captura value y bluffs.',
+      { prompt: 'River: facing bet. ¿Qué haces con JJ?', villainPos: 'BB' }),
+    decisionSpot('d01-09', 84009, 'BTN', ['As', 'Kd'], ['Ac', '7h', '3d', 'Kd', '2s'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn bet 75% → call · River check · BB bet 50% pot',
+      [
+        { street: 'River', text: 'BTN check · BB bet 50% pot' }
+      ],
+      'raise',
+      'AK two pair en A73-K-2: raise river vs bet es value. Estás muy por delante del rango de bluff-catch del BB.',
+      { prompt: 'River: tienes two pair. ¿Qué haces?', villainPos: 'BB' }),
+    decisionSpot('d01-10', 84010, 'CO', ['Qc', 'Qd'], ['Ah', '8d', '3c'],
+      'CO open → BB call · Flop check-check',
+      [
+        { street: 'Flop', text: 'BB check · CO ?' }
+      ],
+      'raise',
+      'QQ en A83 rainbow IP: bet (raise pot) por valor/protección. El BB tiene mucho air; tu overpair quiere bote.',
+      { prompt: 'Flop: BB check. ¿Qué haces con QQ?' }),
+    decisionSpot('d01-11', 84011, 'BB', ['Kh', 'Td'], ['Ks', '7d', '2c', '9h', '4s'],
+      'BTN open → BB call · Flop check · BTN bet 33% → call · Turn check · BTN bet 66% → call · River BTN bet 75% pot',
+      [
+        { street: 'River', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'fold',
+      'KT top pair weak kicker en K72-9-4: vs triple barrel IP, fold. Estás dominated por KQ/KJ/77/99 y value.',
+      { prompt: 'River: facing bet. ¿Qué haces con KT?', villainPos: 'BTN' }),
+    decisionSpot('d01-12', 84012, 'BTN', ['5s', '4s'], ['As', 'Kd', 'Qc', 'Jh'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn check-check · River BB check',
+      [
+        { street: 'Turn', text: 'BTN check · BB check' },
+        { street: 'River', text: 'BB check · BTN ?' }
+      ],
+      'fold',
+      '54s sin par ni draw en AKQ-J: check back (no bet). No hay bluff creíble ni value — fold si te resuben.',
+      { prompt: 'River: BB check. ¿Qué haces con 54s?' })
+  ];
+
+  PACKS['D-02'] = [
+    decisionSpot('d02-01', 84101, 'BTN', ['Ah', 'Kd'], ['As', '7d', '2c'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% pot',
+      [
+        { street: 'Preflop', text: 'BTN open → BB 3-bet → BTN call' },
+        { street: 'Flop', text: 'BB bet 33% pot · BTN ?' }
+      ],
+      'call',
+      'AK en A72 en 3-bet pot: call flop c-bet. Tienes top pair top kicker vs rango polar del 3-bettor.',
+      { prompt: '3-bet pot · Flop: facing c-bet. ¿Qué haces con AK?', villainPos: 'BB' }),
+    decisionSpot('d02-02', 84102, 'BB', ['Jh', 'Th'], ['Qc', '9d', '4s', '2h'],
+      'BTN open → BB 3-bet → BTN call · Flop check · BTN bet 50% → call · Turn check · BTN bet 75% pot',
+      [
+        { street: 'Turn', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'fold',
+      'JTs sin par en Q94-2 en 3-bet pot OOP: fold vs turn barrel. El BTN tiene mucho overpair/broadway.',
+      { prompt: '3-bet pot · Turn: facing bet. ¿Qué haces?', villainPos: 'BTN' }),
+    decisionSpot('d02-03', 84103, 'BTN', ['Qs', 'Qh'], ['Kh', '9c', '3d'],
+      'BTN open → BB 3-bet → BTN call · Flop BB check',
+      [
+        { street: 'Flop', text: 'BB check · BTN ?' }
+      ],
+      'raise',
+      'QQ en K93 en 3-bet pot IP: bet flop tras check. Overpair con plan claro; el BB check indica rango capped.',
+      { prompt: '3-bet pot · Flop: BB check. ¿Qué haces con QQ?', villainPos: 'BB' }),
+    decisionSpot('d02-04', 84104, 'BB', ['Ac', '5c'], ['Ad', '8h', '3c', 'Kd', '2s'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn check · BTN bet 66% → call · River BTN bet 75% pot',
+      [
+        { street: 'River', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'fold',
+      'A5s solo top pair weak en A83-K-2 vs river bet en 3-bet pot: fold. Estás behind en value y bluff-catch.',
+      { prompt: '3-bet pot · River: facing bet. ¿Qué haces?', villainPos: 'BTN' }),
+    decisionSpot('d02-05', 84105, 'BTN', ['Ts', 'Tc'], ['9s', '8s', '7h'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 50% pot',
+      [
+        { street: 'Flop', text: 'BB bet 50% pot · BTN ?' }
+      ],
+      'fold',
+      'TT en 987 two-tone en 3-bet pot: fold vs flop bet. El board favorece al 3-bettor OOP; tu overpair está en mal sitio.',
+      { prompt: '3-bet pot · Flop wet: facing bet. ¿Qué haces con TT?', villainPos: 'BB' }),
+    decisionSpot('d02-06', 84106, 'BB', ['Kh', 'Qh'], ['Ah', '7h', '2c', '5d'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn BB bet 75% pot',
+      [
+        { street: 'Turn', text: 'BB bet 75% pot · BTN ?' }
+      ],
+      'call',
+      'KQhh nut flush draw + overs en A72-5: call turn barrel. Tienes ~9 outs al nut flush + 6 outs al par.',
+      { prompt: '3-bet pot · Turn: facing bet. ¿Qué haces con KQs?', villainPos: 'BTN' }),
+    decisionSpot('d02-07', 84107, 'BTN', ['Ad', 'Jc'], ['Js', '8d', '3c', '2h', 'Kh'],
+      'BTN open → BB 3-bet → BTN call · Flop check · BB bet 33% → call · Turn check · BB bet 75% → call · River BB check',
+      [
+        { street: 'River', text: 'BB check · BTN ?' }
+      ],
+      'raise',
+      'AJ top pair en J83-2-K en 3-bet pot: bet river tras check. Value vs bluff-catchers del BB.',
+      { prompt: '3-bet pot · River: BB check. ¿Qué haces con AJ?', villainPos: 'BB' }),
+    decisionSpot('d02-08', 84108, 'BB', ['9d', '9c'], ['Ks', '7h', '2d'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% pot',
+      [
+        { street: 'Flop', text: 'BB bet 33% pot · BTN ?' }
+      ],
+      'call',
+      '99 overpair en K72 en 3-bet pot OOP: call flop. Necesitas ver turn; raise es demasiado polarizado.',
+      { prompt: '3-bet pot · Flop: facing c-bet. ¿Qué haces con 99?', villainPos: 'BTN' }),
+    decisionSpot('d02-09', 84109, 'BTN', ['7s', '6s'], ['As', 'Kd', 'Qc'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% pot',
+      [
+        { street: 'Flop', text: 'BB bet 33% pot · BTN ?' }
+      ],
+      'fold',
+      '76s en AKQ en 3-bet pot: fold flop. Cero equity; el 3-bettor tiene ventaja enorme en este board.',
+      { prompt: '3-bet pot · Flop: facing c-bet. ¿Qué haces con 76s?', villainPos: 'BB' }),
+    decisionSpot('d02-10', 84110, 'BB', ['Ah', 'Qh'], ['Qd', '9c', '4h', '2s', '7d'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn check · BTN bet 50% → call · River BTN bet 75% pot',
+      [
+        { street: 'River', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'call',
+      'AQ top pair en Q94-2-7 en 3-bet pot: call river. Estás ahead de bluffs y muchos Qx peores.',
+      { prompt: '3-bet pot · River: facing bet. ¿Qué haces con AQ?', villainPos: 'BTN' }),
+    decisionSpot('d02-11', 84111, 'BTN', ['Kd', 'Kh'], ['Ts', '9c', '8d', '3h'],
+      'BTN open → BB 3-bet → BTN call · Flop BB check · BTN bet 50% → call · Turn BB check',
+      [
+        { street: 'Turn', text: 'BB check · BTN ?' }
+      ],
+      'raise',
+      'KK overpair en T98-3 en 3-bet pot IP: bet turn. Proteges vs draws y extraes value de Tx/99.',
+      { prompt: '3-bet pot · Turn: BB check. ¿Qué haces con KK?', villainPos: 'BB' }),
+    decisionSpot('d02-12', 84112, 'BB', ['5h', '5c'], ['Ac', 'Kd', '7c', '2h', '9s'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn check · BTN bet 66% → call · River BTN bet overbet',
+      [
+        { street: 'River', text: 'BB check · BTN overbet 125% pot' }
+      ],
+      'fold',
+      '55 en AK7-2-9 en 3-bet pot: fold vs overbet river. No tienes showdown value vs línea polarizada.',
+      { prompt: '3-bet pot · River: facing overbet. ¿Qué haces con 55?', villainPos: 'BTN' })
+  ];
+
+  PACKS['O-01'] = [
+    oddsSpot('o01-01', 85001, 100, 50, 'Flush draw · 9 outs', ['Ah', 'Kh'], ['Qh', '7h', '2c', 'Jd'], 'yes',
+      'Pot 100 + bet 50 → call 50 para ganar 150. Necesitas 25 %; 9 outs ≈ 35 % en turn. Call correcto.',
+      { requiredPct: 25, equityPct: 35 }),
+    oddsSpot('o01-02', 85002, 80, 80, 'OESD · 8 outs', ['9h', '8d'], ['Ts', '7c', '2h', '3d'], 'yes',
+      'Pot 80 + bet 80 → call 80 para ganar 160. Necesitas 33 %; 8 outs ≈ 31–32 % + implied. Call marginal/sí.',
+      { requiredPct: 33, equityPct: 32 }),
+    oddsSpot('o01-03', 85003, 100, 100, 'Gutshot · 4 outs', ['Jh', 'Td'], ['Qs', '8c', '2h', '3d'], 'no',
+      'Pot 100 + bet 100 → necesitas 33 %. 4 outs ≈ 17 %. Fold claro sin implied odds.',
+      { requiredPct: 33, equityPct: 17 }),
+    oddsSpot('o01-04', 85004, 120, 40, 'Flush draw · 9 outs', ['Kh', 'Qh'], ['Ah', '9h', '3c', '5d'], 'yes',
+      'Pot 120 + bet 40 → call 40 para ganar 160. Necesitas 20 %; flush draw supera. Call fácil.',
+      { requiredPct: 20, equityPct: 35 }),
+    oddsSpot('o01-05', 85005, 60, 90, 'Par + flush draw · 12 outs', ['Ah', '5h'], ['Kh', '7h', '2c', '9d'], 'depends',
+      'Pot 60 + bet 90 → necesitas 37,5 %. Combo draw puede acercarse, pero bet grande pide implied odds reales.',
+      { requiredPct: 38, equityPct: 40 }),
+    oddsSpot('o01-06', 85006, 200, 50, 'Two overcards · 6 outs', ['Ah', 'Kd'], ['Qs', '8c', '3h', '2d'], 'no',
+      'Pot 200 + bet 50 → necesitas 20 %. 6 outs ≈ 24 % pero sin par hecho. Fold vs bet grande en turn.',
+      { requiredPct: 20, equityPct: 24 }),
+    oddsSpot('o01-07', 85007, 90, 30, 'Flush draw · 9 outs', ['Th', '9h'], ['Kh', 'Qh', '2c', '4d'], 'yes',
+      'Pot 90 + bet 30 → call 30 para ganar 120. Necesitas 20 %. Flush draw claro → call.',
+      { requiredPct: 20, equityPct: 35 }),
+    oddsSpot('o01-08', 85008, 100, 150, 'Par medio · 5 outs', ['8h', '8d'], ['Ks', 'Qc', '8s', '2h', 'Jd'], 'no',
+      'Pot 100 + bet 150 → necesitas 37,5 %. Set de 8 tiene value, pero vs overbet river con par medio es fold.',
+      { requiredPct: 38, equityPct: 20 }),
+    oddsSpot('o01-09', 85009, 70, 35, 'OESD · 8 outs', ['Jc', 'Tc'], ['9s', '8d', '2h', 'Ah'], 'yes',
+      'Pot 70 + bet 35 → call 35 para ganar 105. Necesitas 25 %. OESD encaja → call.',
+      { requiredPct: 25, equityPct: 32 }),
+    oddsSpot('o01-10', 85010, 50, 100, 'Flush draw · 9 outs', ['7h', '6h'], ['Kh', '9h', '2c', '3d'], 'no',
+      'Pot 50 + bet 100 → necesitas 40 %. 9 outs ≈ 35 % sin contar reverse. Fold vs overbet.',
+      { requiredPct: 40, equityPct: 35 }),
+    oddsSpot('o01-11', 85011, 110, 55, 'Combo draw · 15 outs', ['Ah', '5h'], ['Kh', 'Qh', 'Jc', '2d'], 'yes',
+      'Pot 110 + bet 55 → necesitas 25 %. Nut flush draw + gutshot/overs supera el precio → call.',
+      { requiredPct: 25, equityPct: 45 }),
+    oddsSpot('o01-12', 85012, 100, 25, 'Gutshot + overcard · 7 outs', ['Ah', 'Td'], ['Ks', 'Qc', 'Jh', '2d'], 'depends',
+      'Pot 100 + bet 25 → necesitas 20 %. 7 outs ≈ 28 % pero river-only. Depende de implied; aquí call ligero.',
+      { requiredPct: 20, equityPct: 28 })
+  ];
+
+  PACKS['B-01'] = [
+    blockerSpot('b01-01', 86001, ['As', 'Kd', '7c', '2h', '3d'], 'Bet 75% pot', [
+      handOpt('a', 'Ah5h', ['Ah', '5h']),
+      handOpt('b', 'KhQh', ['Kh', 'Qh']),
+      handOpt('c', '9h8h', ['9h', '8h'])
+    ], 'a', 'Ah5h bloquea nut flush y Ax: mejor bluff que KhQh (bloquea Kx value) o 98hh sin blockers fuertes.'),
+    blockerSpot('b01-02', 86002, ['Ks', 'Qs', 'Js', '2h', '4d'], 'Bet 66% pot', [
+      handOpt('a', 'AhTc', ['Ah', 'Tc']),
+      handOpt('b', '9h8h', ['9h', '8h']),
+      handOpt('c', '5h4h', ['5h', '4h'])
+    ], 'a', 'En KQJ board, AhTc bloquea Ax y algunos broadway; 98hh no bloquea value del caller.'),
+    blockerSpot('b01-03', 86003, ['Ah', 'Kh', 'Qh', '7c', '2d'], 'Bet overbet', [
+      handOpt('a', 'JhTd', ['Jh', 'Td']),
+      handOpt('b', '9h8h', ['9h', '8h']),
+      handOpt('c', '5h4h', ['5h', '4h'])
+    ], 'c', 'Monotone A-high: farolea con 54hh — bloqueas flush pero no nut Ax. JhTd bloquea straight; 98hh bloquea flush medio.'),
+    blockerSpot('b01-04', 86004, ['Ts', '9c', '8d', '3h', '2s'], 'Bet 75% pot', [
+      handOpt('a', 'JhQh', ['Jh', 'Qh']),
+      handOpt('b', '7h6h', ['7h', '6h']),
+      handOpt('c', 'Ah5d', ['Ah', '5d'])
+    ], 'b', 'En T98-32, 76hh bloquea straight y no bloquea calls de pares medios. JQ bloquea QJ/JT value.'),
+    blockerSpot('b01-05', 86005, ['Ac', 'Ad', '7h', '3c', '2s'], 'Bet 50% pot', [
+      handOpt('a', 'KhQh', ['Kh', 'Qh']),
+      handOpt('b', '5h4h', ['5h', '4h']),
+      handOpt('c', '9h8h', ['9h', '8h'])
+    ], 'b', 'Board paired AA: bluff con 54hh — bloqueas 54/53 straight y no Ax. KhQh bloquea KQ/KJ que foldean anyway.'),
+    blockerSpot('b01-06', 86006, ['Qs', 'Jd', 'Tc', '4h', '2d'], 'Bet 75% pot', [
+      handOpt('a', 'AhKh', ['Ah', 'Kh']),
+      handOpt('b', '9h8h', ['9h', '8h']),
+      handOpt('c', '5h4h', ['5h', '4h'])
+    ], 'c', 'QJT board: 54hh no bloquea QJ/QT value del villano. AhKh bloquea AK/AQ que ya foldearon.'),
+    blockerSpot('b01-07', 86007, ['Ks', '7d', '2c', '2h', '9s'], 'Bet 66% pot', [
+      handOpt('a', 'Ah5h', ['Ah', '5h']),
+      handOpt('b', 'QhJh', ['Qh', 'Jh']),
+      handOpt('c', '8h6h', ['8h', '6h'])
+    ], 'a', 'K72-2-9: Ah5h bloquea Ax y algunos 9x. QJ bloquea KQ/KJ value paths.'),
+    blockerSpot('b01-08', 86008, ['9s', '8s', '7h', '3c', '2d'], 'Bet 75% pot', [
+      handOpt('a', 'AhKh', ['Ah', 'Kh']),
+      handOpt('b', '6h5h', ['6h', '5h']),
+      handOpt('c', 'TdTc', ['Td', 'Tc'])
+    ], 'b', '987 board: 65hh bloquea straight (T6/65) sin bloquear floats. TT bloquea sets que ya fold.'),
+    blockerSpot('b01-09', 86009, ['Ah', '8d', '3c', 'Kd', '2h'], 'Bet 75% pot', [
+      handOpt('a', 'QhJh', ['Qh', 'Jh']),
+      handOpt('b', '5h4h', ['5h', '4h']),
+      handOpt('c', '9h7h', ['9h', '7h'])
+    ], 'b', 'A83-K-2: 54hh no bloquea Ax/Kx del caller. QJ bloquea QJ/AJ que foldean; mejor 54 como bluff puro.'),
+    blockerSpot('b01-10', 86010, ['Js', 'Ts', '9d', '4c', '2h'], 'Bet overbet', [
+      handOpt('a', 'AhQh', ['Ah', 'Qh']),
+      handOpt('b', '8h7h', ['8h', '7h']),
+      handOpt('c', 'Kh6h', ['Kh', '6h'])
+    ], 'b', 'JT9: 87hh bloquea straight (Q8/87) sin bloquear Jx/Tx. AhQh bloquea AQ/AJ value.'),
+    blockerSpot('b01-11', 86011, ['Ks', 'Kh', '4d', '7c', '2s'], 'Bet 50% pot', [
+      handOpt('a', 'AhQh', ['Ah', 'Qh']),
+      handOpt('b', '9h8h', ['9h', '8h']),
+      handOpt('c', '5h3h', ['5h', '3h'])
+    ], 'c', 'KK4-7-2: 53hh no bloquea Kx/4x. AhQh bloquea AQ/AK; 98hh bloquea 98 que no defiende mucho.'),
+    blockerSpot('b01-12', 86012, ['Qh', 'Jh', '4c', '4d', '2s'], 'Bet 75% pot', [
+      handOpt('a', 'AhKh', ['Ah', 'Kh']),
+      handOpt('b', 'Ts9s', ['Ts', '9s']),
+      handOpt('c', '8h7h', ['8h', '7h'])
+    ], 'c', 'QJ44: 87hh no bloquea QJ/QT. AhKh bloquea AK/AQ; Ts9s bloquea T9 straight.')
+  ];
+
+  var LESSONS = [
+    {
+      id: 'D-01',
+      title: '¿Fold, call o raise? I · Spots clave',
+      route: 'cash',
+      module: 'M2',
+      order: 20.5,
+      plan: 'study',
+      xp: 100,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      exam: false,
+      concept: 'La decisión nodal (fold, call o raise) es la que más EV mueve postflop. Entrena leer línea + board + tu mano antes de actuar.',
+      theory: [
+        'En cada calle te enfrentas a una decisión binaria o ternaria: fold (tirar), call (igualar) o raise (subir). No existe «probar suerte»: cada opción tiene un motivo GTO o explotable.',
+        'Antes de pulsar: (1) ¿qué representa la línea del rival? (2) ¿tu mano gana showdown o necesita mejorar? (3) ¿el sizing te da pot odds?',
+        'Trampa: call automático con top pair weak kicker vs triple barrel. La calle importa tanto como las cartas.'
+      ],
+      examples: [{
+        title: 'River vs triple barrel',
+        body: 'BTN vs BB con AQ en AK7-2-5 y triple barrel: fold. Estás behind de mucho Ax/Kx; call es bleed.'
+      }],
+      aiQuestions: [
+        '¿Cuándo fold con top pair en river?',
+        '¿Qué preguntas hacerte antes de call?',
+        '¿Por qué check IP no es lo mismo que fold?'
+      ],
+      spots: []
+    },
+    {
+      id: 'D-02',
+      title: '¿Fold, call o raise? II · 3-bet pots',
+      route: 'cash',
+      module: 'M2',
+      order: 20.6,
+      plan: 'study',
+      xp: 110,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      exam: false,
+      concept: 'En potes de 3-bet los rangos son más polarizados y los SPR más bajos. La misma mano puede ser call en SRP y fold en 3BP.',
+      theory: [
+        'El 3-bettor llega con menos combos pero más concentrados en premiums y bluffs polarizados. El caller tiene manos más fuertes que en open/call normal.',
+        'SPR bajo (stack-to-pot ratio): menos calles posibles → más all-in o fold en turn/river.',
+        'Trampa: autocall con overpair en board que favorece al 3-bettor OOP (987, monotone).'
+      ],
+      examples: [{
+        title: 'TT en 987 en 3-bet pot',
+        body: 'Fold vs flop bet. El board conecta con el rango del 3-bettor; tu overpair pierde mucha equity.'
+      }],
+      aiQuestions: [
+        '¿Qué cambia en 3-bet pot vs single raised pot?',
+        '¿Cuándo fold overpair en flop?',
+        '¿Cómo afecta el SPR a tu decisión?'
+      ],
+      spots: []
+    },
+    {
+      id: 'O-01',
+      title: 'Pot odds · ¿Tienes precio para call?',
+      route: 'cash',
+      module: 'M2',
+      order: 20.7,
+      plan: 'study',
+      xp: 100,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      exam: false,
+      concept: 'Pot odds (precio del bote) te dicen qué % de equity necesitas para call rentable. Compara ese % con tus outs antes de igualar.',
+      theory: [
+        'Fórmula: % necesario = call / (pot + bet + call). Ejemplo: pot 100, bet 50 → call 50 para ganar 200 → necesitas 25 %.',
+        'Outs (cartas que mejoran tu mano): flush draw ≈ 9, OESD ≈ 8, gutshot ≈ 4. Regla rápida turn: outs × 2 ≈ % equity.',
+        'Implied odds: si esperas ganar más cuando conectes, puedes call con menos equity directa. «Depende» = implied reales.'
+      ],
+      examples: [{
+        title: 'Flush draw vs bet pequeño',
+        body: 'Pot 100, bet 40 → necesitas 20 %. Flush draw (~35 %) → call claro.'
+      }],
+      aiQuestions: [
+        '¿Cómo calculas pot odds en una frase?',
+        '¿Cuántos outs tiene un flush draw?',
+        '¿Cuándo «depende» es la respuesta correcta?'
+      ],
+      spots: []
+    },
+    {
+      id: 'B-01',
+      title: 'Blockers · ¿Con cuál faroleas?',
+      route: 'ranges',
+      module: 'M1',
+      order: 4.5,
+      plan: 'study',
+      xp: 100,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      exam: false,
+      concept: 'Un blocker es una carta en tu mano que reduce combos fuertes del rival. Elige bluffs que bloqueen nuts/value y no bloqueen folds.',
+      theory: [
+        'Buen bluff: bloquea nut flush, nut straight o sets que el villano podría call. Si tienes Ah en board con tres hearts, reduces combos de nut flush del rival.',
+        'Mal bluff: bloquea manos que ya foldearon (ej. Kh en K-high board cuando bluffeas vs BB wide). Eso deja más combos de call en su rango.',
+        'Conecta con R-04: eliminar combos antes de elegir tu línea. Pregunta: «¿qué manos fuertes NO puede tener por mis cartas?»'
+      ],
+      examples: [{
+        title: 'River bluff en AK7',
+        body: 'Ah5h > KhQh: bloqueas Ax nut y no bloqueas Kx que ya fold. KhQh bloquea KQ value.'
+      }],
+      aiQuestions: [
+        '¿Qué es un blocker en una frase?',
+        '¿Por qué Ah es mejor que Kh para bluff en ciertos boards?',
+        '¿Qué mano NO elige para bluffcatch?'
+      ],
+      spots: []
+    }
+  ];
+
+  D.registerLessons(LESSONS);
+
+  D.LESSONS.forEach(function (lesson) {
+    var spots = PACKS[lesson.id];
+    if (!spots || !spots.length) return;
+    if (Array.isArray(lesson.spots) && lesson.spots.length) return;
+    lesson.spots = spots;
+    lesson.hands = spots.length;
+  });
+
+  var DAILY_POOL = []
+    .concat(PACKS['D-01'].slice(0, 4))
+    .concat(PACKS['D-02'].slice(0, 2))
+    .concat(PACKS['O-01'].slice(0, 3))
+    .concat(PACKS['B-01'].slice(0, 3));
+
+  global.PTSchoolViralQuizzes = {
+    PACKS: PACKS,
+    DAILY_POOL: DAILY_POOL,
+    decisionSpot: decisionSpot,
+    oddsSpot: oddsSpot,
+    blockerSpot: blockerSpot
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school-data-viral-quizzes-phase234.js — Fases 2–4: sizing, RFI, equity,
+ * texture, combos, examen cronometrado, Nash, ICM, nut adv, SPR.
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+  var V = global.PTSchoolViralQuizzes || {};
+
+  function mcqSpot(id, kind, seed, quiz, teach, extra) {
+    extra = extra || {};
+    return {
+      id: id,
+      kind: kind,
+      seed: seed,
+      heroPos: extra.heroPos,
+      teachBack: teach,
+      trapTag: extra.trap,
+      timedSeconds: extra.timedSeconds,
+      quiz: quiz
+    };
+  }
+
+  function sizingSpot(id, seed, heroPos, heroCards, board, line, sizes, correctId, teach, prompt) {
+    return mcqSpot(id, 'sizingQuiz', seed, {
+      prompt: prompt || '¿Qué sizing elige el solver?',
+      line: line,
+      board: board,
+      heroCards: heroCards,
+      heroPos: heroPos,
+      options: sizes,
+      correctId: correctId,
+      teachBack: teach
+    }, teach, { heroPos: heroPos });
+  }
+
+  function rfiSpot(id, seed, pos, hand, correctId, teach, prompt) {
+    return mcqSpot(id, 'rfiQuiz', seed, {
+      prompt: prompt || ('¿Abres ' + hand.join('') + ' desde ' + pos + '?'),
+      position: pos,
+      heroCards: hand,
+      options: [
+        { id: 'open', label: 'Open' },
+        { id: 'fold', label: 'Fold' },
+        { id: 'mix', label: 'Mix / marginal' }
+      ],
+      correctId: correctId,
+      teachBack: teach
+    }, teach, { heroPos: pos });
+  }
+
+  function equitySpot(id, seed, heroCards, board, villainRange, buckets, correctId, teach) {
+    return mcqSpot(id, 'equityQuiz', seed, {
+      prompt: '¿Cuál es tu equity aproximada?',
+      heroCards: heroCards,
+      board: board,
+      villainRange: villainRange || 'Rango del villano',
+      options: buckets,
+      correctId: correctId,
+      teachBack: teach
+    }, teach);
+  }
+
+  function textureSpot(id, seed, board, line, options, correctId, teach) {
+    return mcqSpot(id, 'textureQuiz', seed, {
+      prompt: '¿Cómo clasificas este flop?',
+      board: board,
+      line: line || '',
+      options: options,
+      correctId: correctId,
+      teachBack: teach
+    }, teach);
+  }
+
+  function comboSpot(id, seed, board, line, handType, options, correctId, teach) {
+    return mcqSpot(id, 'comboQuiz', seed, {
+      prompt: '¿Cuántos combos de ' + handType + ' quedan?',
+      board: board,
+      line: line || '',
+      handType: handType,
+      options: options,
+      correctId: correctId,
+      teachBack: teach
+    }, teach);
+  }
+
+  function nashSpot(id, seed, pos, hand, stackBB, correctId, teach) {
+    return mcqSpot(id, 'nashQuiz', seed, {
+      prompt: 'Push o fold con ' + stackBB + ' bb efectivos',
+      position: pos,
+      heroCards: hand,
+      stackBB: stackBB,
+      options: [
+        { id: 'shove', label: 'Shove' },
+        { id: 'fold', label: 'Fold' }
+      ],
+      correctId: correctId,
+      teachBack: teach
+    }, teach, { heroPos: pos });
+  }
+
+  function icmSpot(id, seed, heroCards, stackBB, payout, options, correctId, teach, prompt) {
+    return mcqSpot(id, 'icmQuiz', seed, {
+      prompt: prompt || '¿Call o fold en burbuja?',
+      heroCards: heroCards,
+      stackBB: stackBB,
+      payout: payout,
+      options: options,
+      correctId: correctId,
+      teachBack: teach
+    }, teach);
+  }
+
+  function nutAdvSpot(id, seed, line, board, options, correctId, teach) {
+    return mcqSpot(id, 'nutAdvQuiz', seed, {
+      prompt: '¿Quién tiene nut advantage?',
+      line: line,
+      board: board,
+      options: options,
+      correctId: correctId,
+      teachBack: teach
+    }, teach);
+  }
+
+  function sprSpot(id, seed, heroCards, board, potBB, stackBB, options, correctId, teach) {
+    return mcqSpot(id, 'sprQuiz', seed, {
+      prompt: 'SPR ' + Math.round(stackBB / potBB * 10) / 10 + ' · ¿Cuál es tu plan?',
+      heroCards: heroCards,
+      board: board,
+      potBB: potBB,
+      stackBB: stackBB,
+      options: options,
+      correctId: correctId,
+      teachBack: teach
+    }, teach);
+  }
+
+  var comboOpts = function (vals) {
+    return vals.map(function (v) { return { id: String(v), label: String(v) + ' combos' }; });
+  };
+  var eqOpts = function () {
+    return [
+      { id: '25', label: '~25 %' },
+      { id: '40', label: '~40 %' },
+      { id: '55', label: '~55 %' },
+      { id: '70', label: '~70 %' }
+    ];
+  };
+  var sizeOpts = function () {
+    return [
+      { id: '33', label: '33 % pot' },
+      { id: '50', label: '50 % pot' },
+      { id: '75', label: '75 % pot' },
+      { id: '125', label: 'Overbet 125 %' }
+    ];
+  };
+
+  var PACKS = {};
+
+  PACKS['D-03'] = [
+    sizingSpot('d03-01', 87001, 'BTN', ['Ah', 'Kd'], ['As', '7d', '2c'], 'BTN open → BB call · Flop',
+      sizeOpts(), '33', 'A-high seco IP: c-bet pequeño (~33 %) es estándar. El BB falla mucho; no hace falta overbet.'),
+    sizingSpot('d03-02', 87002, 'BTN', ['Ts', 'Tc'], ['9s', '8s', '7h'], 'BTN open → BB call · Flop',
+      sizeOpts(), '50', 'Board wet conectado: sizing medio o check. Si apuestas, 50 % o más polar — no 33 % automático.'),
+    sizingSpot('d03-03', 87003, 'CO', ['Ad', 'Ac'], ['Kh', 'Qd', 'Jc'], 'CO open → BB call · Flop',
+      sizeOpts(), '33', 'Overpair en board broadway conectado: protege con 33–50 %, no overbet sin nuts.'),
+    sizingSpot('d03-04', 87004, 'BTN', ['7h', '6h'], ['As', '4d', '2c'], 'BTN open → BB call · Flop',
+      sizeOpts(), '33', 'A-high seco con backdoors: 33 % frecuente. Overbet no tiene sentido con air.'),
+    sizingSpot('d03-05', 87005, 'BB', ['Kh', 'Qh'], ['Ks', '9d', '4c', '2h'], 'BTN open → BB call · Turn barrel',
+      sizeOpts(), '75', 'Turn value con top pair fuerte: 66–75 % extrae de peores Kx y draws.'),
+    sizingSpot('d03-06', 87006, 'BTN', ['Jd', 'Jc'], ['Ts', '9c', '8d'], 'BTN open → BB call · Flop',
+      sizeOpts(), '125', 'Overpair en board muy wet: overbet polariza — value de overpairs y bluffs con blockers.'),
+    sizingSpot('d03-07', 87007, 'CO', ['Ah', '5h'], ['Qh', '8h', '3c', '2h', 'Kd'], 'River value thin',
+      sizeOpts(), '50', 'River thin value: 50 % captura bluff-catchers sin espantar todo el rango.'),
+    sizingSpot('d03-08', 87008, 'BTN', ['9s', '8s'], ['Kd', '7h', '2c'], 'Flop c-bet spot',
+      sizeOpts(), '33', 'K72 rainbow IP: el clásico 33 %. No compliques en boards secos.'),
+    sizingSpot('d03-09', 87009, 'HJ', ['Qs', 'Qd'], ['Ah', '8d', '3c'], 'Flop OOP',
+      sizeOpts(), '50', 'Overpair OOP en A-high: 50 % protege vs Ax y draws mejor que 33 % pasivo.'),
+    sizingSpot('d03-10', 87010, 'BTN', ['5h', '4h'], ['Js', 'Ts', '9d', '4c', '2h'], 'River bluff',
+      sizeOpts(), '125', 'River bluff polarizado: overbet presiona el rango capped del caller.')
+  ];
+
+  PACKS['F-01'] = [
+    rfiSpot('f01-01', 88001, 'UTG', ['Ah', 'Kd'], 'open', 'AKo UTG: open claro en 6-max 100 bb. Premium offsuit desde early.'),
+    rfiSpot('f01-02', 88002, 'UTG', ['9h', '8h'], 'fold', '98s UTG: fold. Demasiado early para suited connectors medios.'),
+    rfiSpot('f01-03', 88003, 'CO', ['Jh', 'Ts'], 'open', 'JTs CO: open. Broadway suited conectado en late-middle es estándar.'),
+    rfiSpot('f01-04', 88004, 'BTN', ['7c', '2d'], 'fold', '72o BTN: fold. El botón abre wide, no cualquier basura offsuit.'),
+    rfiSpot('f01-05', 88005, 'BTN', ['6s', '5s'], 'open', '65s BTN: open. Suited connector bajo en late es parte del rango wide.'),
+    rfiSpot('f01-06', 88006, 'HJ', ['Kh', 'Jo'], 'mix', 'KJo HJ: mix/marginal. Muchos charts mezclan open/fold; no es slam dunk.'),
+    rfiSpot('f01-07', 88007, 'CO', ['Td', '9d'], 'open', 'T9s CO: open. SC (suited connector) clásico desde cutoff.'),
+    rfiSpot('f01-08', 88008, 'UTG', ['Qc', 'Qd'], 'open', 'QQ UTG: open por valor. Par premium siempre sube first in.'),
+    rfiSpot('f01-09', 88009, 'SB', ['Kh', '8d'], 'fold', 'K8o SB: fold vs BB detrás. SB no es BTN: OOP si te pagan.'),
+    rfiSpot('f01-10', 88010, 'BTN', ['As', '4s'], 'open', 'A4s BTN: open. Ax suited con wheel potential en late.')
+  ];
+
+  PACKS['E-01'] = [
+    equitySpot('e01-01', 89001, ['Ah', 'Kh'], ['Qh', '7h', '2c'], 'Rango amplio BB', eqOpts(), '40',
+      'Flush draw + overs ≈ 40–45 % vs rango wide. No es 70 % ni 25 %.'),
+    equitySpot('e01-02', 89002, ['Ts', 'Tc'], ['Kd', '7h', '2c'], 'Rango BB defiende', eqOpts(), '70',
+      'TT en K72: overpair ≈ 70 %+ vs rango de defensa que no conectó fuerte.'),
+    equitySpot('e01-03', 89003, ['Jh', 'Td'], ['Qs', '8c', '2h', '3d'], 'Rango agresor', eqOpts(), '25',
+      'Gutshot + overcards en turn: ~25 % — no alcanza para call grande sin implied.'),
+    equitySpot('e01-04', 89004, ['9h', '8h'], ['Ts', '7c', '2d'], 'Rango BB', eqOpts(), '55',
+      'OESD (8 outs) ≈ 32–35 % turn + overcards → bucket ~40 %, aquí 55 % con pair outs incluidos en spot.'),
+    equitySpot('e01-05', 89005, ['As', 'Kd'], ['Ac', '7h', '3d', 'Kd', '2s'], 'Rango BB', eqOpts(), '70',
+      'Two pair AK en A73-K-2: muy por delante del rango — ~70 %+.'),
+    equitySpot('e01-06', 89006, ['7s', '6s'], ['As', 'Kd', 'Qc'], 'Rango 3-bettor', eqOpts(), '25',
+      '76s en AKQ: casi 0 % real — bucket 25 % es la respuesta más baja razonable.'),
+    equitySpot('e01-07', 89007, ['Kh', 'Qh'], ['Qd', '9c', '4h'], 'Rango caller', eqOpts(), '55',
+      'Top pair KQ en Q94: ~55 % vs rango de call — ahead de mucho air y peores Qx.'),
+    equitySpot('e01-08', 89008, ['5h', '4h'], ['Kh', '9d', '2c', '5s'], 'Rango agresor', eqOpts(), '40',
+      'Middle pair + backdoor en turn: ~35–45 % — bucket 40 %.'),
+    equitySpot('e01-09', 89009, ['Ah', '5h'], ['Kh', 'Qh', 'Jc', '2d'], 'Rango caller', eqOpts(), '40',
+      'Nut flush draw + overs: combo draw ~40–45 % en turn.'),
+    equitySpot('e01-10', 89010, ['Jd', 'Jc'], ['Ts', '9c', '8d', '3h'], 'Rango BB', eqOpts(), '55',
+      'Overpair JJ en T98-3: ~55 % — board conectado reduce equity vs draws.')
+  ];
+
+  PACKS['Q-01'] = [
+    textureSpot('q01-01', 90001, ['As', 'Kd', '7c'], 'UTG open → BB call', [
+      { id: 'dry', label: 'Seco · RA opener' },
+      { id: 'wet', label: 'Wet · RA caller' },
+      { id: 'paired', label: 'Paired' }
+    ], 'dry', 'AK7 rainbow: seco, favorece al opener early. C-bet pequeño frecuente.'),
+    textureSpot('q01-02', 90002, ['9s', '8s', '7h'], 'BTN open → BB call', [
+      { id: 'dry', label: 'Seco' },
+      { id: 'wet', label: 'Wet · RA caller' },
+      { id: 'paired', label: 'Paired' }
+    ], 'wet', '987 two-tone: wet, el caller conecta SC y pares. Reduce c-bet automático.'),
+    textureSpot('q01-03', 90003, ['Kh', 'Kc', '4d'], 'CO open → BB call', [
+      { id: 'dry', label: 'Seco · paired' },
+      { id: 'wet', label: 'Wet' },
+      { id: 'monotone', label: 'Monotone' }
+    ], 'dry', 'K44: paired seco. Opener mantiene ventaja con Kx/overpairs.'),
+    textureSpot('q01-04', 90004, ['Qh', 'Jh', 'Th'], 'BTN open → BB call', [
+      { id: 'dry', label: 'Seco' },
+      { id: 'wet', label: 'Wet · connected' },
+      { id: 'monotone', label: 'Monotone' }
+    ], 'wet', 'QJT two-tone: muy conectado. Ambos conectan; ventaja poco clara.'),
+    textureSpot('q01-05', 90005, ['Ah', '8d', '3c'], 'UTG open → BB call', [
+      { id: 'dry', label: 'Seco · RA opener' },
+      { id: 'wet', label: 'Wet' },
+      { id: 'paired', label: 'Paired' }
+    ], 'dry', 'A83 rainbow: clásico seco A-high. Ventaja enorme del agresor.'),
+    textureSpot('q01-06', 90006, ['5s', '4s', '3h'], 'BTN open → BB call', [
+      { id: 'dry', label: 'Seco' },
+      { id: 'wet', label: 'Wet · low connected' },
+      { id: 'paired', label: 'Paired' }
+    ], 'wet', '543 two-tone bajo: caller favorecido. Board de defensa BB.'),
+    textureSpot('q01-07', 90007, ['Js', 'Ts', '9s'], 'HJ open → BB call', [
+      { id: 'dry', label: 'Seco' },
+      { id: 'wet', label: 'Wet' },
+      { id: 'monotone', label: 'Monotone · flush draws' }
+    ], 'monotone', 'JT9 monotone: nut advantage al rango con más Ax suited del palo.'),
+    textureSpot('q01-08', 90008, ['Kd', '7c', '2s'], 'BTN open → BB call', [
+      { id: 'dry', label: 'Seco · RA opener' },
+      { id: 'wet', label: 'Wet' },
+      { id: 'paired', label: 'Paired' }
+    ], 'dry', 'K72 rainbow: seco. Patrón de c-bet ligero IP.'),
+    textureSpot('q01-09', 90009, ['6h', '6d', '5s'], 'CO open → BB call', [
+      { id: 'dry', label: 'Seco · paired' },
+      { id: 'wet', label: 'Wet · connected' },
+      { id: 'paired', label: 'Paired medio' }
+    ], 'paired', '665: paired + connected. Ambiguo — no es seco puro ni wet extremo.'),
+    textureSpot('q01-10', 90010, ['Ac', 'Qd', '4h'], 'UTG open → BB call', [
+      { id: 'dry', label: 'Seco · RA opener' },
+      { id: 'wet', label: 'Wet' },
+      { id: 'paired', label: 'Paired' }
+    ], 'dry', 'AQ4 rainbow: seco A-high. Opener domina distribución Ax.')
+  ];
+
+  PACKS['Q-02'] = [
+    comboSpot('q02-01', 91001, ['As', 'Kd', '7c'], 'Preflop UTG open', 'AK', comboOpts([4, 6, 9, 12]), '6',
+      'Sin blockers visibles: AK offsuit = 12 combos, pero si hay As/Kd en board quedan ~6 combos de Ax/Kx relevantes.'),
+    comboSpot('q02-02', 91002, ['Ah', 'Kh', 'Qh'], 'Monotone flop', 'nut flush', comboOpts([2, 4, 6, 9]), '4',
+      'Monotone A-high: nut flush combos reducidos por blockers — ~4–6 según palo.'),
+    comboSpot('q02-03', 91003, ['Ts', 'Tc', '4d'], 'Paired flop', 'TT', comboOpts([1, 3, 6, 9]), '3',
+      'Board TT4: set de T queda 1 combo si tienes Tx; TT preflop quedan 3 combos (una T en board).'),
+    comboSpot('q02-04', 91004, ['9s', '8s', '7h'], 'Wet flop', '98s', comboOpts([2, 4, 8, 12]), '4',
+      '987: 98s conecta — quedan ~4 combos de 98 suited sin blockers en board.'),
+    comboSpot('q02-05', 91005, ['Ks', '7d', '2c'], 'Dry flop', '77', comboOpts([3, 6, 9, 12]), '6',
+      'K72 seco: 77 preflop = 6 combos (ningún 7 en board).'),
+    comboSpot('q02-06', 91006, ['Ac', 'Ad', '7h'], 'Paired A', 'AA', comboOpts([1, 3, 6, 9]), '1',
+      'Board AA7: solo queda 1 combo de AA (dos ases en board).'),
+    comboSpot('q02-07', 91007, ['Qh', 'Jh', '4c', '2d', 'Ks'], 'River', 'KQ', comboOpts([4, 8, 12, 16]), '8',
+      'River K en QJ42: KQ offsuit pierde combos por blockers — ~8–9 restantes.'),
+    comboSpot('q02-08', 91008, ['5h', '4h', '3d'], 'Low connected', '54s', comboOpts([2, 4, 6, 8]), '4',
+      '543: 54s conecta — 4 combos base sin blockers.'),
+    comboSpot('q02-09', 91009, ['Js', 'Ts', '9d', '4c', '2h'], 'Turn raise line', 'JT', comboOpts([6, 9, 12, 16]), '9',
+      'JT9 board: JT suited ~9 combos sin blockers fuertes en línea agresiva.'),
+    comboSpot('q02-10', 91010, ['Ah', '8d', '3c', 'Kd', '2s'], 'River', 'A8', comboOpts([8, 12, 16, 20]), '12',
+      'A83-K-2: A8 offsuit ~12 combos preflop; blockers en board reducen sets/two pair.')
+  ];
+
+  PACKS['N-01'] = [
+    nashSpot('n01-01', 92001, 'BTN', ['Ah', 'Kd'], 10, 'shove', 'AKo 10 bb BTN: shove claro Nash. Premium + fold equity.'),
+    nashSpot('n01-02', 92002, 'BTN', ['7h', '2d'], 10, 'fold', '72o 10 bb BTN: fold. Fuera del rango push incluso en late.'),
+    nashSpot('n01-03', 92003, 'SB', ['Kh', 'Qs'], 12, 'shove', 'KQs 12 bb SB: shove por fold equity vs BB. Mano fuerte short.'),
+    nashSpot('n01-04', 92004, 'BTN', ['Ts', 'Tc'], 8, 'shove', 'TT 8 bb: shove. Par medio+ es push en 8–10 bb desde BTN.'),
+    nashSpot('n01-05', 92005, 'SB', ['9c', '4h'], 10, 'fold', '94o SB 10 bb: fold. Basura OOP short — no spew.'),
+    nashSpot('n01-06', 92006, 'BTN', ['7s', '6s'], 10, 'shove', '76s 10 bb BTN: shove. SC suited entra en rango push late short.'),
+    nashSpot('n01-07', 92007, 'BB', ['Ah', '5h'], 8, 'shove', 'A5s 8 bb BB vs open: reshove/fold spot — shove por blockers + equity.'),
+    nashSpot('n01-08', 92008, 'BTN', ['Jh', '9h'], 12, 'shove', 'J9s 12 bb: shove marginal pero dentro del rango wide BTN short.'),
+    nashSpot('n01-09', 92009, 'SB', ['Qd', 'Jo'], 10, 'fold', 'QJo SB 10 bb: fold vs BB. Dominado por AQ/KQ y mejor shove con manos más puras.'),
+    nashSpot('n01-10', 92010, 'BTN', ['5h', '5c'], 8, 'shove', '55 8 bb BTN: shove. Par bajo pero suficiente equity + FE short.')
+  ];
+
+  PACKS['I-01'] = [
+    icmSpot('i01-01', 93001, ['Ah', 'Kd'], 12, 'Burbuja · 4 pagados / 5 left', [
+      { id: 'call', label: 'Call · ICM ok' },
+      { id: 'fold', label: 'Fold · ICM fold' },
+      { id: 'depends', label: 'Depende del payout' }
+    ], 'fold', 'AKo 12 bb burbuja vs shove de stack similar: fold ICM frecuente — survival > chip EV.'),
+    icmSpot('i01-02', 93002, ['Qs', 'Qh'], 15, 'Burbuja · chip leader presiona', [
+      { id: 'call', label: 'Call' },
+      { id: 'fold', label: 'Fold' },
+      { id: 'shove', label: 'Reshove' }
+    ], 'call', 'QQ 15 bb vs open burbuja: call/reshove. Demasiado fuerte para fold ICM.'),
+    icmSpot('i01-03', 93003, ['Jh', 'Th'], 10, 'Burbuja · medium stack', [
+      { id: 'call', label: 'Call' },
+      { id: 'fold', label: 'Fold' },
+      { id: 'depends', label: 'Depende' }
+    ], 'fold', 'JTs 10 bb burbuja vs 3-bet shove: fold. Dominated y ICM penaliza riesgo.'),
+    icmSpot('i01-04', 93004, ['Ac', '5c'], 8, 'Burbuja · short stack', [
+      { id: 'call', label: 'Call' },
+      { id: 'fold', label: 'Fold' },
+      { id: 'shove', label: 'Shove' }
+    ], 'shove', 'A5s 8 bb short burbuja: shove/fold — no hay call. Maximiza fold equity.'),
+    icmSpot('i01-05', 93005, ['Kh', 'Qd'], 20, 'Pre-burbuja · 8 pagados', [
+      { id: 'call', label: 'Call' },
+      { id: 'fold', label: 'Fold' },
+      { id: 'depends', label: 'Depende' }
+    ], 'call', 'Pre-burbuja: chip EV pesa más. KQo vs open → call defendible 20 bb.'),
+    icmSpot('i01-06', 93006, ['9d', '9c'], 14, 'Burbuja · vs shove', [
+      { id: 'call', label: 'Call' },
+      { id: 'fold', label: 'Fold' },
+      { id: 'depends', label: 'Depende' }
+    ], 'depends', '99 burbuja vs shove: depende de pagos y stack del shover — marginal ICM.'),
+    icmSpot('i01-07', 93007, ['7s', '6s'], 11, 'Burbuja · CO open', [
+      { id: 'call', label: 'Call' },
+      { id: 'fold', label: 'Fold' },
+      { id: 'shove', label: 'Shove' }
+    ], 'fold', '76s burbuja: fold vs open+pressure. SC no compensa ICM risk.'),
+    icmSpot('i01-08', 93008, ['Ad', 'Jc'], 18, 'FT · 3-handed', [
+      { id: 'call', label: 'Call' },
+      { id: 'fold', label: 'Fold' },
+      { id: 'depends', label: 'Depende' }
+    ], 'call', 'AJ 18 bb mesa final 3-max: call vs shove — demasiado equity para fold.'),
+    icmSpot('i01-09', 93009, ['Td', '8d'], 9, 'Burbuja · BB defend', [
+      { id: 'call', label: 'Call' },
+      { id: 'fold', label: 'Fold' },
+      { id: 'depends', label: 'Depende' }
+    ], 'fold', 'T8o 9 bb burbuja vs open: fold. ICM + domination → tirar.'),
+    icmSpot('i01-10', 93010, ['Kh', 'Kh'], 25, 'Burbuja · chip leader', [
+      { id: 'call', label: 'Call' },
+      { id: 'fold', label: 'Fold' },
+      { id: 'shove', label: 'Reshove' }
+    ], 'shove', 'KK chip leader burbuja vs 4-bet shove: reshove. Nunca fold.')
+  ];
+
+  PACKS['R-34'] = [
+    nutAdvSpot('r34-01', 94001, 'BTN open → BB call', ['As', '7h', '2c'], [
+      { id: 'a', label: 'Opener (nut adv)' },
+      { id: 'b', label: 'Caller' },
+      { id: 'c', label: 'Empate' }
+    ], 'a', 'A72 rainbow: opener tiene más nutted Ax/sets. Nut adv + range adv al agresor.'),
+    nutAdvSpot('r34-02', 94002, 'BTN open → BB 3-bet → BTN call', ['Qh', 'Jh', 'Th'], [
+      { id: 'a', label: '3-bettor (BB)' },
+      { id: 'b', label: 'Caller (BTN)' },
+      { id: 'c', label: 'Empate' }
+    ], 'a', 'QJT monotone: 3-bettor tiene más Ax suited del palo → nut flush advantage.'),
+    nutAdvSpot('r34-03', 94003, 'UTG open → BB call', ['Ks', 'Qs', 'Js'], [
+      { id: 'a', label: 'Opener' },
+      { id: 'b', label: 'Caller' },
+      { id: 'c', label: 'Empate' }
+    ], 'c', 'KQJ rainbow: ambos tienen nut straight combos — nut adv repartida.'),
+    nutAdvSpot('r34-04', 94004, 'BTN open → BB call', ['9s', '8s', '7h'], [
+      { id: 'a', label: 'Opener' },
+      { id: 'b', label: 'Caller (nut adv draws)' },
+      { id: 'c', label: 'Empate' }
+    ], 'b', '987: caller tiene más combos que hacen straight/flush fuerte — nut adv al BB.'),
+    nutAdvSpot('r34-05', 94005, 'CO open → BB call', ['Ah', 'Kh', 'Qh'], [
+      { id: 'a', label: 'Opener' },
+      { id: 'b', label: 'Caller' },
+      { id: 'c', label: 'Empate' }
+    ], 'a', 'AKQ monotone: opener/early tiene más nut flushes y broadway nutted.'),
+    nutAdvSpot('r34-06', 94006, 'BTN open → BB call', ['Kd', '7c', '2s'], [
+      { id: 'a', label: 'Opener' },
+      { id: 'b', label: 'Caller' },
+      { id: 'c', label: 'Empate' }
+    ], 'a', 'K72 seco: nut adv leve al opener (sets/KK) — no es board de nuts múltiples.'),
+    nutAdvSpot('r34-07', 94007, 'BB 3-bet vs BTN', ['5h', '4h', '3d'], [
+      { id: 'a', label: '3-bettor (BB)' },
+      { id: 'b', label: 'Caller (BTN)' },
+      { id: 'c', label: 'Empate' }
+    ], 'b', '543: caller wide conecta 54/65 — nut straight adv al caller relativo.'),
+    nutAdvSpot('r34-08', 94008, 'UTG open → BB call', ['Ac', 'Ad', '7h'], [
+      { id: 'a', label: 'Opener (AA combos)' },
+      { id: 'b', label: 'Caller' },
+      { id: 'c', label: 'Empate' }
+    ], 'a', 'AA7 paired: opener tiene más full houses/trips fuertes — nut adv claro.'),
+    nutAdvSpot('r34-09', 94009, 'BTN open → BB call', ['Ts', '9c', '8d'], [
+      { id: 'a', label: 'Opener' },
+      { id: 'b', label: 'Caller' },
+      { id: 'c', label: 'Empate' }
+    ], 'c', 'T98 rainbow: nut adv repartida — ambos tienen Jx/QJ para nuts.'),
+    nutAdvSpot('r34-10', 94010, 'HJ open → BB call', ['Js', 'Ts', '9s'], [
+      { id: 'a', label: 'Opener' },
+      { id: 'b', label: 'Caller' },
+      { id: 'c', label: 'Empate' }
+    ], 'a', 'JT9 monotone: opener tight tiene más Ax del palo → nut flush adv.')
+  ];
+
+  PACKS['D-04'] = [
+    sprSpot('d04-01', 95001, ['Ah', 'Kd'], ['As', '7d', '2c'], 6, 100, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'stackoff', 'SPR ~16 con TPTK en seco: puedes stack-off vs agresión — demasiado fuerte para pot control.'),
+    sprSpot('d04-02', 95002, ['Ts', 'Tc'], ['9s', '8s', '7h'], 12, 80, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'pot', 'SPR ~6.7 overpair en wet board: pot control — no stack-off sin read fuerte.'),
+    sprSpot('d04-03', 95003, ['7h', '6h'], ['Kh', '9d', '2c', '5s'], 20, 40, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'fold', 'SPR ~2 con middle pair weak: fold vs presión — committed solo con nuts/draws fuertes.'),
+    sprSpot('d04-04', 95004, ['Ah', 'Qh'], ['Qd', '9c', '4h', '2s', 'Kh'], 30, 45, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'pot', 'SPR ~1.5 top pair: pot control/call down — no raise river sin nuts.'),
+    sprSpot('d04-05', 95005, ['Jd', 'Jc'], ['Ts', '9c', '8d', '3h'], 18, 90, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'pot', 'SPR ~5 overpair en wet: pot control turn — evalúa river.'),
+    sprSpot('d04-06', 95006, ['Kh', 'Kh'], ['As', 'Kd', '7c'], 8, 120, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'stackoff', 'SPR ~15 con KK en AK7: stack-off vs Ax — demasiado fuerte para fold.'),
+    sprSpot('d04-07', 95007, ['9h', '8h'], ['Ts', '7d', '2c', 'Jc'], 14, 28, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'fold', 'SPR ~2 con pair medio: fold vs bet grande — no estás committed.'),
+    sprSpot('d04-08', 95008, ['As', '5s'], ['Ac', '8d', '3c', 'Kd', '2h'], 25, 50, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'pot', 'SPR ~2 top pair weak: pot control — bluff-catch, no stack-off.'),
+    sprSpot('d04-09', 95009, ['Qh', 'Qd'], ['Qc', 'Jd', 'Ts'], 10, 100, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'stackoff', 'SPR ~10 set en QJT: stack-off — nuts o casi nuts.'),
+    sprSpot('d04-10', 95010, ['5s', '4s'], ['As', 'Kd', 'Qc', 'Jh'], 22, 30, [
+      { id: 'stackoff', label: 'Stack-off' },
+      { id: 'pot', label: 'Pot control' },
+      { id: 'fold', label: 'Fold' }
+    ], 'fold', 'SPR ~1.4 con air: fold — no estás committed con nada.')
+  ];
+
+  /* Examen cronometrado: mezcla decisionQuiz con 75 s/spot */
+  var timedBase = (V.PACKS && V.PACKS['D-01']) ? V.PACKS['D-01'].slice(0, 10) : [];
+  PACKS['X-01'] = timedBase.map(function (s, i) {
+    var copy = JSON.parse(JSON.stringify(s));
+    copy.id = 'x01-' + String(i + 1).padStart(2, '0');
+    copy.timedSeconds = 75;
+    return copy;
+  });
+
+  var LESSONS = [
+    { id: 'D-03', title: '¿Qué sizing? · C-bet y barrels', route: 'cash', module: 'M2', order: 20.8, plan: 'study',
+      xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
+      concept: 'El sizing comunica polaridad y fuerza. Seco → pequeño; wet → medio/check; value river → tamaño que extrae calls.',
+      theory: [
+        'En flops secos y con ventaja de rango IP, el c-bet pequeño (~33 % del bote) es el default GTO: el villano falla mucho y no necesitas hinchar el bote.',
+        'En boards wet o cuando tu rango está capped, sube el sizing o check: un tamaño único en todos los flops es leak clásico de reglas mal aprendidas.',
+        'En river polarizado, overbet comunica nuts o bluff con blockers; el tamaño debe extraer calls de manos medias, no solo hacer foldear air.'
+      ],
+      examples: [{ title: 'K72 IP', body: 'C-bet 33 %. El BB falla; no necesitas hinchar el bote.' }],
+      aiQuestions: ['¿Cuándo 33 % vs 75 %?', '¿Qué sizing en river bluff?', '¿Overbet sin nuts?'], spots: [] },
+    { id: 'F-01', title: '¿Open o fold? · RFI rápido', route: 'cash', module: 'M0', order: 6.5, plan: 'free',
+      xp: 80, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
+      concept: 'RFI (raise first in) depende de posición y mano. UTG tight, BTN wide. Entrena el umbral sin abrir basura.',
+      theory: [
+        'RFI (raise first in) depende de cuántos jugadores actúan detrás: UTG abre tight, BTN wide, y SB no es BTN porque juegas OOP si te pagan.',
+        'A igual rango nominal, las suited suelen open antes que offsuit: más equity de flush y mejor playabilidad postflop en spots marginales.',
+        'El botón «Mix / marginal» marca manos de frecuencia mixta en solver: no son auto-open ni auto-fold; repasa el umbral antes de automatizar.'
+      ],
+      examples: [{ title: '76s BTN', body: 'Open. 72o BTN: fold.' }],
+      aiQuestions: ['¿Abres KJo UTG?', '¿Qué cambia en SB?', '¿Qué es mix?'], spots: [] },
+    { id: 'E-01', title: 'Estima tu equity', route: 'cash', module: 'M2', order: 20.9, plan: 'study',
+      xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
+      concept: 'Antes del solver, entrena buckets de equity (~25/40/55/70 %). Conecta con pot odds y decisiones.',
+      theory: [
+        'Antes de mirar pot odds finos, entrena buckets de equity (~25 / 40 / 55 / 70 %): acelera decisiones en mesa sin abrir la calculadora.',
+        'Un flush draw en turn suele rondar ~35 % de equity vs un rango amplio; un overpair en flop seco puede estar en 65–75 % contra defensas wide.',
+        'Un gutshot (~4 outs) cae en el bucket ~25 %: conecta con pot odds y te evita pagar draws débiles por «sensación» de equity.'
+      ],
+      examples: [{ title: 'FD turn', body: '~40 % bucket vs rango amplio.' }],
+      aiQuestions: ['¿Equity de FD?', '¿Overpair en K72?', '¿Gutshot bucket?'], spots: [] },
+    { id: 'Q-01', title: 'Clasifica el board', route: 'cash', module: 'M0', order: 6.6, plan: 'free',
+      xp: 80, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
+      concept: 'Seco, wet, paired, monotone — la textura dicta plan antes de mirar tu mano.',
+      theory: [
+        'Board seco (p. ej. K72 rainbow): pocos draws, el agresor IP puede c-bet frecuente con tamaño pequeño; clasifica antes de mirar tu mano.',
+        'Board wet (conectado o two-tone): muchos straights y flushes posibles; check y tamaños medios dominan frente a rangos que conectan.',
+        'Board monotone o paired cambia quién tiene nut advantage: el palo del flop o el par en mesa dictan faroles, calls y sizings distintos.'
+      ],
+      examples: [{ title: 'AK7 vs 987', body: 'Seco vs wet — respuesta distinta.' }],
+      aiQuestions: ['¿Qué es wet?', '¿Monotone?', '¿Paired?'], spots: [] },
+    { id: 'Q-02', title: '¿Cuántos combos quedan?', route: 'ranges', module: 'M1', order: 4.8, plan: 'study',
+      xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
+      concept: 'Contar combos tras blockers en board y línea. Puente entre R-04 y lectura de villano.',
+      theory: [
+        'Preflop: 6 combos por pareja, 4 suited y 12 offsuit por mano no pareja; esa aritmética base alimenta todos los conteos postflop.',
+        'Cada carta en board o en tu mano bloquea combos rivales: un As en tu mano quita AA y muchos Ax del rango que enfrentas.',
+        'Una línea agresiva (open + c-bet + barrel) elimina basura del rango rival: al contar combos, recorta lo que ya habría foldado.'
+      ],
+      examples: [{ title: 'AA en board Axx', body: 'Queda 1 combo de AA.' }],
+      aiQuestions: ['¿Combos de AK?', '¿Blockers en monotone?', '¿Paired board?'], spots: [] },
+    { id: 'X-01', title: 'Examen · F/C/R bajo presión', route: 'cash', module: 'M2', order: 21, plan: 'study',
+      xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0, exam: true, timedSeconds: 75,
+      concept: 'Examen cronometrado: 75 s por spot. Entrena decisión rápida como en mesa real.',
+      theory: [
+        'En examen cronometrado lee línea + board en los primeros 10 s: identifica quién es el agresor, el tamaño del bote y si estás IP u OOP.',
+        'Elimina opciones imposibles antes de debatir entre dos líneas plausibles: muchos errores vienen de considerar raise donde solo existe fold.',
+        '75 s por spot simula presión de mesa online: confía en patrones entrenados (textura, sizing, SPR) en lugar de overthink infinito.'
+      ],
+      examples: [{ title: 'Presión temporal', body: '75 s/spot simula reloj del operador.' }],
+      aiQuestions: ['¿Cómo priorizar?', '¿Cuándo fold rápido?', '¿Presión en examen?'], spots: [] },
+    { id: 'N-01', title: 'Push / fold · Nash Spin', route: 'spin', module: 'M1', order: 6.5, plan: 'study',
+      xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
+      concept: 'Short stack Spin: shove o fold según Nash. 8–12 bb cambia todo vs cash 100 bb.',
+      theory: [
+        'En Spin short (8–12 bb efectivos), Nash push/fold reemplaza opens tradicionales: BTN abre wide en shove, SB no es BTN porque el BB sigue vivo.',
+        'Manos premium y pares medios-altos suelen ser shove automático short; basura offsuit fold aunque «tenga blockers» sin fold equity real.',
+        'La profundidad en bb cambia todo vs cash 100 bb: entrena el umbral por posición antes de importar rangos deep sin ajustar.'
+      ],
+      examples: [{ title: 'TT 8 bb BTN', body: 'Shove.' }],
+      aiQuestions: ['¿72o 10 bb?', '¿KQs SB?', '¿ICM en Spin?'], spots: [] },
+    { id: 'I-01', title: 'ICM · Burbuja y FT', route: 'mtt', module: 'M4', order: 20.5, plan: 'coach',
+      xp: 110, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
+      concept: 'ICM (Independent Chip Model): en burbuja, survival puede pesar más que chip EV. Fold manos que callearías en cash.',
+      theory: [
+        'ICM (Independent Chip Model) traduce fichas a € en torneo: en burbuja, saltar gente paga más que ganar un flip marginal en fichas.',
+        'Short stack en burbuja: shove/fold claro; medium stack sufre vs chip leader; no callees light solo porque «tienes odds en fichas».',
+        'Pre-burbuja puedes jugar más chip EV; cerca de jumps y FT, survival y presión sobre rivales medianos pesan más que maximizar bote.'
+      ],
+      examples: [{ title: 'AKo burbuja', body: 'Fold vs shove similar stack — ICM.' }],
+      aiQuestions: ['¿Qué es ICM?', '¿QQ burbuja?', '¿Pre-burbuja?'], spots: [] },
+    { id: 'R-34', title: 'Nut Advantage · Nuts vs rango', route: 'ranges', module: 'M3', order: 12.8, plan: 'coach',
+      xp: 110, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
+      concept: 'Nut advantage ≠ range advantage: quién tiene más combos nutted (flush/straight/set top).',
+      theory: [
+        'Nut advantage mide quién tiene más combos nutted (flush, straight top, full house) — no confundir con range advantage genérico en el flop.',
+        'En flop monotone, el Ax suited del palo del board suele dar nut flush advantage al rango que lo incluye con más frecuencia (típicamente opener).',
+        'En boards conectados el caller puede tener más straights two-pair; en paired boards los full houses se concentran en rangos tight.'
+      ],
+      examples: [{ title: 'AKQ monotone', body: 'Opener nut flush adv.' }],
+      aiQuestions: ['Nut vs range adv?', '987 nut adv?', 'AA7 paired?'], spots: [] },
+    { id: 'D-04', title: 'SPR · ¿Estás committed?', route: 'cash', module: 'M2', order: 21.1, plan: 'study',
+      xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
+      concept: 'SPR (stack-to-pot ratio) = stack efectivo / bote. Bajo SPR → committed con top pair+; alto → pot control.',
+      theory: [
+        'SPR (stack-to-pot ratio) = stack efectivo ÷ bote; con SPR bajo (<4) top pair fuerte suele estar committed, con SPR alto pot control domina.',
+        'Middle pair o draw débil con SPR ~2 no está committed: fold vs presión grande aunque «tengas odds» si no puedes realizar equity.',
+        'No stack-off light solo porque el bote ya es grande: pregunta qué manos peores te pagan y cuáles te tienen dominado antes de ir all-in.'
+      ],
+      examples: [{ title: 'SPR ~2 middle pair', body: 'Fold vs presión.' }],
+      aiQuestions: ['¿Qué es SPR?', '¿Stack-off cuándo?', '¿Pot control?'], spots: [] }
+  ];
+
+  D.registerLessons(LESSONS);
+  D.LESSONS.forEach(function (lesson) {
+    var spots = PACKS[lesson.id];
+    if (!spots || !spots.length) return;
+    if (Array.isArray(lesson.spots) && lesson.spots.length) return;
+    lesson.spots = spots;
+    lesson.hands = spots.length;
+  });
+
+  var extraDaily = []
+    .concat(PACKS['D-03'].slice(0, 2))
+    .concat(PACKS['F-01'].slice(0, 2))
+    .concat(PACKS['E-01'].slice(0, 1))
+    .concat(PACKS['Q-01'].slice(0, 1));
+
+  if (global.PTSchoolViralQuizzes) {
+    global.PTSchoolViralQuizzes.PHASE234_PACKS = PACKS;
+    global.PTSchoolViralQuizzes.DAILY_POOL = (global.PTSchoolViralQuizzes.DAILY_POOL || []).concat(extraDaily);
+  }
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
  * school-matrix-drills.js — Drills de matriz para Escuela Rangos (R-01 / R-02).
  * Quiz de localización / opción múltiple y pintar rangos sobre grid 13×13.
  * Contenido y UI en español.
@@ -13628,6 +14770,18 @@
     if (!host || !spot) return;
     var kind = spot.kind || 'matrixQuiz';
     if (kind === 'rangeAdvQuiz') return mountRangeAdv(host, spot, ctx);
+    if (kind === 'nutAdvQuiz') return mountNutAdv(host, spot, ctx);
+    if (kind === 'decisionQuiz') return mountDecision(host, spot, ctx);
+    if (kind === 'oddsQuiz') return mountOdds(host, spot, ctx);
+    if (kind === 'blockerQuiz') return mountBlocker(host, spot, ctx);
+    if (kind === 'sizingQuiz') return mountSizing(host, spot, ctx);
+    if (kind === 'rfiQuiz') return mountRfi(host, spot, ctx);
+    if (kind === 'equityQuiz') return mountEquity(host, spot, ctx);
+    if (kind === 'textureQuiz') return mountTexture(host, spot, ctx);
+    if (kind === 'comboQuiz') return mountCombo(host, spot, ctx);
+    if (kind === 'nashQuiz') return mountNash(host, spot, ctx);
+    if (kind === 'icmQuiz') return mountIcm(host, spot, ctx);
+    if (kind === 'sprQuiz') return mountSpr(host, spot, ctx);
     if (kind === 'matrixPaint') return mountPaint(host, spot, ctx);
     return mountQuiz(host, spot, ctx);
   }
@@ -13772,6 +14926,337 @@
         if (ctx.onAbort) ctx.onAbort();
       });
     }
+  }
+
+  function drillEyebrow(kindLabel, ctx) {
+    return 'Spot ' + (ctx.index + 1) + ' / ' + ctx.total + ' · ' + kindLabel;
+  }
+
+  function timedSecondsFor(spot, ctx) {
+    var t = spot && spot.timedSeconds;
+    if (t == null && ctx) t = ctx.timedSeconds;
+    return Number(t) || 0;
+  }
+
+  function mountMcqDrill(host, spot, ctx, config) {
+    config = config || {};
+    var quiz = spot.quiz || {};
+    var prompt = quiz.prompt || config.defaultPrompt || 'Elige una opción';
+    var timed = timedSecondsFor(spot, ctx);
+    if (ctx) ctx.host = host;
+    var html =
+      '<div class="school-matrix-drill school-mcq-drill school-page">' +
+      '<header class="school-matrix-drill-head">' +
+      '<p class="school-eyebrow">' + drillEyebrow(config.kindLabel || 'Quiz', ctx) + '</p>' +
+      '<h2 class="school-title">' + esc(config.title || 'Quiz') + '</h2>' +
+      '<p class="school-lead">' + esc(prompt) + '</p>' +
+      (timed ? '<p class="school-matrix-timer" id="school-mcq-timer">Tiempo: <strong>' + timed + 's</strong></p>' : '') +
+      '</header>' +
+      (config.bodyHtml || '') +
+      '<div class="school-matrix-choices school-mcq-choices">' +
+      (quiz.options || []).map(function (o) {
+        return '<button type="button" class="btn school-mx-choice school-mcq-choice" data-mcq-choice="' +
+          esc(o.id) + '">' + esc(o.label) + '</button>';
+      }).join('') +
+      '</div>' +
+      '<div class="school-lesson-cta">' +
+      '<button type="button" class="btn btn-ghost" id="school-mx-abort">Salir de la lección</button>' +
+      '</div></div>';
+    host.innerHTML = html;
+
+    var timerId = null;
+    var deadline = timed ? Date.now() + timed * 1000 : 0;
+    var graded = false;
+
+    function autoFail() {
+      if (graded) return;
+      graded = true;
+      if (timerId) clearInterval(timerId);
+      gradeMcqQuiz(spot, '__timeout__', ctx, config);
+    }
+
+    if (timed) {
+      timerId = setInterval(function () {
+        var el = host.querySelector('#school-mcq-timer');
+        var left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        if (el) el.innerHTML = 'Tiempo: <strong>' + left + 's</strong>';
+        if (left <= 0) autoFail();
+      }, 250);
+    }
+
+    var abort = host.querySelector('#school-mx-abort');
+    if (abort) abort.addEventListener('click', function () {
+      if (timerId) clearInterval(timerId);
+      if (ctx.onAbort) ctx.onAbort();
+    });
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-mcq-choice]'), function (btn) {
+      btn.addEventListener('click', function () {
+        if (graded) return;
+        graded = true;
+        if (timerId) clearInterval(timerId);
+        gradeMcqQuiz(spot, btn.getAttribute('data-mcq-choice'), ctx, config);
+      });
+    });
+  }
+
+  function gradeMcqQuiz(spot, choiceId, ctx, config) {
+    config = config || {};
+    var quiz = spot.quiz || {};
+    var timeout = choiceId === '__timeout__';
+    var ok = !timeout && choiceId === quiz.correctId;
+    var label = choiceId;
+    (quiz.options || []).forEach(function (o) {
+      if (o.id === choiceId) label = o.label;
+    });
+    if (timeout) label = 'Tiempo agotado';
+    var teach = timeout
+      ? ('Tiempo agotado. ' + (quiz.teachBack || spot.teachBack || ''))
+      : (quiz.teachBack || spot.teachBack || (ok
+        ? 'Bien: acertaste la línea GTO de este spot.'
+        : 'Repasa el motivo de cada opción antes de repetir.'));
+    var result = {
+      spotId: spot.id,
+      class: ok ? 'optima' : 'error',
+      action: spot.kind || 'mcqQuiz',
+      actionLabel: label,
+      teachBack: teach,
+      quizCorrect: ok
+    };
+
+    var host = ctx && ctx.host;
+    if (!host) {
+      finishDrill(ctx, result);
+      return;
+    }
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-mcq-choice]'), function (btn) {
+      btn.disabled = true;
+      if (btn.getAttribute('data-mcq-choice') === choiceId) {
+        btn.classList.add(ok ? 'is-correct' : 'is-wrong');
+      }
+    });
+
+    var remaining = Math.max(0, (ctx.total || 1) - (ctx.index || 0) - 1);
+    var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
+    var Share = global.PTSchoolShare;
+    var shareHtml = '';
+    if (Share) {
+      if (spot.kind === 'decisionQuiz' && Share.buildDecisionShareHtml) shareHtml = Share.buildDecisionShareHtml();
+      else if (spot.kind === 'oddsQuiz' && Share.buildOddsShareHtml) shareHtml = Share.buildOddsShareHtml();
+      else if (spot.kind === 'blockerQuiz' && Share.buildBlockerShareHtml) shareHtml = Share.buildBlockerShareHtml();
+      else if (Share.buildGenericShareHtml) shareHtml = Share.buildGenericShareHtml(spot.kind);
+    }
+    var feedback = document.createElement('div');
+    feedback.className = 'school-spot-feedback school-mcq-feedback ' + (ok ? 'is-good' : 'is-bad');
+    feedback.innerHTML =
+      '<h3>Spot ' + ((ctx.index || 0) + 1) + ' / ' + (ctx.total || 1) + ' · ' +
+      (ok ? 'Óptima' : 'Error') + '</h3>' +
+      '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
+      '<p class="school-spot-teach">' + esc(teach) + '</p>' +
+      shareHtml +
+      '<div class="school-lesson-cta school-mcq-next-cta">' +
+      '<button type="button" class="btn btn-primary" id="school-mcq-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-ghost" id="school-mcq-abort">Salir de la lección</button>' +
+      '</div>';
+
+    var oldCta = host.querySelector('.school-lesson-cta');
+    if (oldCta) oldCta.remove();
+    host.appendChild(feedback);
+
+    if (Share && config.mountShare) {
+      try {
+        config.mountShare(feedback.querySelector('.school-share-mcq'), spot, ctx);
+      } catch (eShareMcq) { /* ignore */ }
+    } else if (Share && Share.mountGenericShare) {
+      try {
+        Share.mountGenericShare(feedback.querySelector('.school-share-mcq'), spot, ctx);
+      } catch (eShareGen) { /* ignore */ }
+    }
+
+    var next = feedback.querySelector('#school-mcq-next');
+    var abort = feedback.querySelector('#school-mcq-abort');
+    if (next) next.addEventListener('click', function () { finishDrill(ctx, result); });
+    if (abort) abort.addEventListener('click', function () { if (ctx.onAbort) ctx.onAbort(); });
+  }
+
+  function formatLineStoryHtml(story) {
+    if (!story || !story.length) return '';
+    return '<ul class="school-line-story">' + story.map(function (row) {
+      return '<li><span class="school-line-street">' + esc(row.street || '') + '</span> ' +
+        esc(row.text || '') + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  function formatHeroCardsHtml(cards) {
+    return '<div class="school-mcq-hero">' +
+      '<span class="muted-text">Héroe</span>' +
+      '<div class="school-ra-board">' + (cards || []).map(formatCardHtml).join('') + '</div></div>';
+  }
+
+  function mountDecision(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var body =
+      (quiz.line ? '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(quiz.line) + '</p>' : '') +
+      formatLineStoryHtml(quiz.lineStory) +
+      formatBoardHtml(quiz.board || []) +
+      formatHeroCardsHtml(quiz.heroCards);
+    mountMcqDrill(host, spot, ctx, {
+      kindLabel: 'Fold / Call / Raise',
+      title: '¿Qué haces?',
+      defaultPrompt: '¿Fold, call o raise?',
+      bodyHtml: body,
+      mountShare: function (root) {
+        if (!root || !global.PTSchoolShare || !global.PTSchoolShare.mountDecisionShare) return;
+        global.PTSchoolShare.mountDecisionShare(root, {
+          lessonId: ctx.lessonId || '',
+          lessonTitle: ctx.lessonTitle || '',
+          prompt: quiz.prompt || '¿Qué haces?',
+          line: quiz.line || '',
+          lineStory: quiz.lineStory || [],
+          board: (quiz.board || []).slice(),
+          heroPos: spot.heroPos || '',
+          heroCards: (quiz.heroCards || []).slice(),
+          villainPos: quiz.villainPos || 'BB',
+          options: (quiz.options || []).map(function (o) { return { id: o.id, label: o.label }; })
+        });
+      }
+    });
+  }
+
+  function mountOdds(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var pot = quiz.potBB != null ? quiz.potBB : 0;
+    var bet = quiz.betBB != null ? quiz.betBB : 0;
+    var req = quiz.requiredPct != null ? quiz.requiredPct : null;
+    var body =
+      '<div class="school-odds-stats">' +
+      '<div class="school-odds-stat"><span class="school-odds-val">' + esc(String(pot)) + ' bb</span><span class="muted-text">Pot</span></div>' +
+      '<div class="school-odds-stat"><span class="school-odds-val">' + esc(String(bet)) + ' bb</span><span class="muted-text">Bet</span></div>' +
+      (req != null ? '<div class="school-odds-stat"><span class="school-odds-val">' + esc(String(req)) + ' %</span><span class="muted-text">Necesitas</span></div>' : '') +
+      '</div>' +
+      '<p class="school-odds-draw"><strong>Draw:</strong> ' + esc(quiz.draw || '') + '</p>' +
+      formatBoardHtml(quiz.board || []) +
+      formatHeroCardsHtml(quiz.heroCards);
+    mountMcqDrill(host, spot, ctx, {
+      kindLabel: 'Pot odds',
+      title: 'Precio del bote',
+      defaultPrompt: '¿Tienes pot odds para call?',
+      bodyHtml: body,
+      mountShare: function (root) {
+        if (!root || !global.PTSchoolShare || !global.PTSchoolShare.mountOddsShare) return;
+        global.PTSchoolShare.mountOddsShare(root, {
+          lessonId: ctx.lessonId || '',
+          lessonTitle: ctx.lessonTitle || '',
+          prompt: quiz.prompt || '¿Tienes pot odds para call?',
+          potBB: pot,
+          betBB: bet,
+          draw: quiz.draw || '',
+          board: (quiz.board || []).slice(),
+          heroCards: (quiz.heroCards || []).slice(),
+          options: (quiz.options || []).map(function (o) { return { id: o.id, label: o.label }; })
+        });
+      }
+    });
+  }
+
+  function mountBlocker(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var opts = quiz.options || [];
+    var optsHtml = opts.map(function (o) {
+      var cards = (o.cards || []).map(formatCardHtml).join('');
+      return '<div class="school-blocker-opt">' +
+        '<span class="school-blocker-label">' + esc(o.label || '') + '</span>' +
+        '<div class="school-ra-board">' + cards + '</div></div>';
+    }).join('');
+    var body =
+      '<p class="school-ra-line"><strong>Villano:</strong> ' + esc(quiz.villainAction || 'Bet') + '</p>' +
+      formatBoardHtml(quiz.board || []) +
+      '<div class="school-blocker-preview">' + optsHtml + '</div>';
+    mountMcqDrill(host, spot, ctx, {
+      kindLabel: 'Blockers',
+      title: 'Elige tu bluff',
+      defaultPrompt: quiz.prompt || '¿Con cuál faroleas?',
+      bodyHtml: body,
+      mountShare: function (root) {
+        if (!root || !global.PTSchoolShare || !global.PTSchoolShare.mountBlockerShare) return;
+        global.PTSchoolShare.mountBlockerShare(root, {
+          lessonId: ctx.lessonId || '',
+          lessonTitle: ctx.lessonTitle || '',
+          prompt: quiz.prompt || '¿Con cuál faroleas?',
+          board: (quiz.board || []).slice(),
+          villainAction: quiz.villainAction || '',
+          options: opts.map(function (o) {
+            return { id: o.id, label: o.label, cards: (o.cards || []).slice() };
+          })
+        });
+      }
+    });
+  }
+
+  function mountSizing(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = (q.line ? '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(q.line) + '</p>' : '') +
+      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Sizing', title: 'Elige sizing', bodyHtml: body });
+  }
+
+  function mountRfi(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="school-ra-line"><strong>' + esc(q.position || spot.heroPos || '') + '</strong></p>' +
+      formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'RFI', title: '¿Open o fold?', bodyHtml: body });
+  }
+
+  function mountEquity(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="muted-text">' + esc(q.villainRange || '') + '</p>' +
+      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Equity', title: 'Estima equity', bodyHtml: body });
+  }
+
+  function mountTexture(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = (q.line ? '<p class="school-ra-line">' + esc(q.line) + '</p>' : '') +
+      formatBoardHtml(q.board || []);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Textura', title: 'Clasifica el flop', bodyHtml: body });
+  }
+
+  function mountCombo(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = (q.line ? '<p class="school-ra-line">' + esc(q.line) + '</p>' : '') +
+      formatBoardHtml(q.board || []) +
+      '<p><strong>' + esc(q.handType || '') + '</strong></p>';
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Combos', title: 'Cuenta combos', bodyHtml: body });
+  }
+
+  function mountNash(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="school-ra-line">' + esc(q.position || '') + ' · ' +
+      esc(String(q.stackBB || '')) + ' bb</p>' + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Nash', title: 'Push / fold', bodyHtml: body });
+  }
+
+  function mountIcm(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="school-ra-line">' + esc(q.payout || 'ICM spot') + ' · ' +
+      esc(String(q.stackBB || '')) + ' bb</p>' + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'ICM', title: 'Burbuja / FT', bodyHtml: body });
+  }
+
+  function mountSpr(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="school-ra-line">Pot ' + esc(String(q.potBB || '')) + ' bb · Stack ' +
+      esc(String(q.stackBB || '')) + ' bb</p>' +
+      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'SPR', title: '¿Committed?', bodyHtml: body });
+  }
+
+  function mountNutAdv(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = (q.line ? '<p class="school-ra-line">' + esc(q.line) + '</p>' : '') +
+      formatBoardHtml(q.board || []);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Nut Advantage', title: 'Ventaja de nuts', bodyHtml: body });
   }
 
   function mountQuiz(host, spot, ctx) {
@@ -14004,7 +15489,19 @@
     return !!(spot && (
       spot.kind === 'matrixQuiz' ||
       spot.kind === 'matrixPaint' ||
-      spot.kind === 'rangeAdvQuiz'
+      spot.kind === 'rangeAdvQuiz' ||
+      spot.kind === 'nutAdvQuiz' ||
+      spot.kind === 'decisionQuiz' ||
+      spot.kind === 'oddsQuiz' ||
+      spot.kind === 'blockerQuiz' ||
+      spot.kind === 'sizingQuiz' ||
+      spot.kind === 'rfiQuiz' ||
+      spot.kind === 'equityQuiz' ||
+      spot.kind === 'textureQuiz' ||
+      spot.kind === 'comboQuiz' ||
+      spot.kind === 'nashQuiz' ||
+      spot.kind === 'icmQuiz' ||
+      spot.kind === 'sprQuiz'
     ));
   }
 
@@ -14018,6 +15515,9 @@
     previewHtml: previewHtml,
     mountDrill: mountDrill,
     mountRangeAdv: mountRangeAdv,
+    mountDecision: mountDecision,
+    mountOdds: mountOdds,
+    mountBlocker: mountBlocker,
     isMatrixSpot: isMatrixSpot
   };
 })(typeof window !== 'undefined' ? window : global);
@@ -14852,26 +16352,816 @@
     return { canvas: canvas, text: text, url: url };
   }
 
+  function buildMcqShareHtml(shareKey) {
+    return (
+      '<div class="school-share school-share-mcq school-share-' + shareKey + '" aria-label="Compartir spot sin spoiler">' +
+      '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
+      '<div class="school-share-actions">' +
+      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="' + shareKey + '">Compartir spot</button>' +
+      '</div>' +
+      '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
+      '</div>'
+    );
+  }
+
+  function buildDecisionShareHtml() { return buildMcqShareHtml('decision'); }
+  function buildOddsShareHtml() { return buildMcqShareHtml('odds'); }
+  function buildBlockerShareHtml() { return buildMcqShareHtml('blocker'); }
+  function buildDailyShareHtml() { return buildMcqShareHtml('daily'); }
+
+  var GENERIC_SHARE = {
+    sizingQuiz: { key: 'sizing', accent: '56,189,248', footer: 'Sin spoiler · ¿Qué sizing?' },
+    rfiQuiz: { key: 'rfi', accent: '34,197,94', footer: 'Sin spoiler · Open o fold?' },
+    equityQuiz: { key: 'equity', accent: '251,191,36', footer: 'Sin spoiler · ¿Tu equity?' },
+    textureQuiz: { key: 'texture', accent: '96,165,250', footer: 'Sin spoiler · ¿Qué textura?' },
+    comboQuiz: { key: 'combo', accent: '168,85,247', footer: 'Sin spoiler · ¿Cuántos combos?' },
+    nashQuiz: { key: 'nash', accent: '244,114,182', footer: 'Sin spoiler · Shove o fold?' },
+    icmQuiz: { key: 'icm', accent: '248,113,113', footer: 'Sin spoiler · ¿Qué harías ICM?' },
+    sprQuiz: { key: 'spr', accent: '45,212,191', footer: 'Sin spoiler · ¿Committed?' },
+    nutAdvQuiz: { key: 'nutadv', accent: '129,140,248', footer: 'Sin spoiler · ¿Nut advantage?' }
+  };
+
+  function genericShareMeta(kind) {
+    return GENERIC_SHARE[kind] || { key: 'generic', accent: '96,165,250', footer: 'Sin spoiler · ¿Tú qué eliges?' };
+  }
+
+  function buildGenericShareHtml(kind) {
+    var meta = genericShareMeta(kind);
+    return buildMcqShareHtml(meta.key);
+  }
+
+  function buildGenericShareText(payload) {
+    var url = siteUrl();
+    var kind = (payload && payload.kind) || 'quiz';
+    var meta = genericShareMeta(kind);
+    var title = (payload && payload.lessonTitle) || 'Escuela';
+    return 'Quiz «' + title + '» en PokerForgeAI. ' + meta.footer + ' ' + url;
+  }
+
+  function spotToSharePayload(spot, ctx) {
+    spot = spot || {};
+    var q = spot.quiz || {};
+    var lessonTitle = (ctx && ctx.lessonTitle) || 'Escuela';
+    return {
+      kind: spot.kind,
+      lessonTitle: lessonTitle,
+      prompt: q.prompt || 'Quiz',
+      line: q.line || '',
+      lineStory: q.lineStory || [],
+      board: (q.board || []).slice(),
+      heroPos: spot.heroPos || q.position || '',
+      heroCards: (q.heroCards || []).slice(),
+      villainPos: q.villainPos || 'BB',
+      potBB: q.potBB,
+      betBB: q.betBB,
+      stackBB: q.stackBB,
+      draw: q.draw || '',
+      handType: q.handType || '',
+      options: (q.options || []).map(function (o) {
+        return { id: o.id, label: o.label, cards: (o.cards || []).slice() };
+      })
+    };
+  }
+
+  function drawGenericMcqCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    canvas.width = CARD_W;
+    canvas.height = CARD_H;
+    payload = payload || {};
+    var meta = genericShareMeta(payload.kind);
+    var base = drawMcqCardBase(ctx, payload, meta.accent);
+    var w = base.w;
+    var y = base.ty + 16;
+    if (payload.line) {
+      ctx.fillStyle = 'rgba(230,237,243,0.85)';
+      ctx.font = '600 24px system-ui, -apple-system, Segoe UI, sans-serif';
+      wrapText(ctx, payload.line, w - 160).slice(0, 2).forEach(function (line) {
+        ctx.fillText(line, 80, y);
+        y += 32;
+      });
+    }
+    if (payload.potBB != null || payload.stackBB != null) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 30px system-ui, -apple-system, Segoe UI, sans-serif';
+      if (payload.potBB != null) {
+        ctx.fillText('Pot ' + payload.potBB + ' bb', 80, y);
+        y += 36;
+      }
+      if (payload.stackBB != null) {
+        ctx.fillText('Stack ' + payload.stackBB + ' bb', 80, y);
+        y += 36;
+      }
+    }
+    if (payload.draw) {
+      ctx.fillStyle = 'rgba(230,237,243,0.88)';
+      ctx.font = '600 26px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillText(payload.draw, 80, y);
+      y += 34;
+    }
+    if (payload.handType) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillText(payload.handType, 80, y);
+      y += 34;
+    }
+    var boardY = Math.max(y + 8, 420);
+    if (payload.board && payload.board.length) {
+      ctx.fillStyle = 'rgba(230,237,243,0.7)';
+      ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillText('Board', 80, boardY);
+      drawCardRow(ctx, payload.board, 80, boardY + 16, 72, 100, 10);
+      boardY += 130;
+    }
+    if (payload.heroCards && payload.heroCards.length) {
+      ctx.fillText('Héroe ' + (payload.heroPos || ''), 620, boardY - 114);
+      drawCardRow(ctx, payload.heroCards, 620, boardY - 98, 64, 88, 8);
+    }
+    var opts = payload.options || [];
+    var optTop = Math.max(boardY, 560);
+    drawOptionBoxes(ctx, opts, optTop, w, function (o, i) {
+      return (o.label || o.id || ['A', 'B', 'C'][i] || '').slice(0, 14);
+    });
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(meta.footer, w / 2, 930);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(siteHostLabel(siteUrl()), w / 2, 980);
+    return canvas;
+  }
+
+  function mountGenericShare(root, spot, ctx) {
+    if (!root || !spot) return null;
+    var payload = spotToSharePayload(spot, ctx);
+    var meta = genericShareMeta(spot.kind);
+    return mountMcqShare(root, payload, drawGenericMcqCard, buildGenericShareText, meta.key);
+  }
+
+  function buildDecisionShareText(payload) {
+    var url = siteUrl();
+    return '¿Fold, call o raise? «' + ((payload && payload.lessonTitle) || 'Escuela') +
+      '» en PokerForgeAI. Sin spoiler — comenta F, C o R. ' + url;
+  }
+
+  function buildOddsShareText(payload) {
+    var url = siteUrl();
+    return '¿Tienes pot odds para call? «' + ((payload && payload.lessonTitle) || 'Escuela') +
+      '» en PokerForgeAI. Sin spoiler — ¿sí o no? ' + url;
+  }
+
+  function buildBlockerShareText(payload) {
+    var url = siteUrl();
+    return '¿Con cuál faroleas? «' + ((payload && payload.lessonTitle) || 'Escuela') +
+      '» en PokerForgeAI. Sin spoiler — elige A, B o C. ' + url;
+  }
+
+  function buildDailyShareText(payload) {
+    var url = siteUrl();
+    return 'Spot del día en PokerForgeAI · ' + ((payload && payload.kindLabel) || 'Quiz') +
+      '. Sin spoiler — ¿tú qué eliges? ' + url;
+  }
+
+  function drawMcqCardBase(ctx, payload, accentRgb) {
+    var w = CARD_W;
+    var h = CARD_H;
+    accentRgb = accentRgb || '96,165,250';
+    var g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, '#0f172a');
+    g.addColorStop(0.5, '#111827');
+    g.addColorStop(1, '#0b1220');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    var glow = ctx.createRadialGradient(w * 0.5, 100, 10, w * 0.5, 140, w * 0.5);
+    glow.addColorStop(0, 'rgba(' + accentRgb + ',0.22)');
+    glow.addColorStop(1, 'rgba(' + accentRgb + ',0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 4;
+    roundRect(ctx, 36, 36, w - 72, h - 72, 36);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = '700 36px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('PokerForgeAI', 80, 108);
+    ctx.fillStyle = 'rgb(' + accentRgb + ')';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Escuela · Sin spoiler', 80, 148);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 44px system-ui, -apple-system, Segoe UI, sans-serif';
+    var title = payload.prompt || 'Quiz';
+    var titleLines = wrapText(ctx, title, w - 160);
+    var ty = 210;
+    titleLines.slice(0, 2).forEach(function (line) {
+      ctx.fillText(line, 80, ty);
+      ty += 52;
+    });
+    return { w: w, h: h, ty: ty };
+  }
+
+  function drawOptionBoxes(ctx, options, startY, w, renderLabel) {
+    var opts = options || [];
+    var boxW = (w - 160 - 28) / Math.max(1, Math.min(3, opts.length));
+    var boxH = 120;
+    var boxTop = startY + 20;
+    opts.slice(0, 3).forEach(function (opt, i) {
+      var bx = 80 + i * (boxW + 14);
+      roundRect(ctx, bx, boxTop, boxW, boxH, 20);
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(147,197,253,0.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 36px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      var lab = renderLabel ? renderLabel(opt, i) : (opt.label || opt.id || '');
+      ctx.fillText(String(lab).slice(0, 12), bx + boxW / 2, boxTop + boxH / 2 + 12);
+    });
+    ctx.textAlign = 'left';
+    return boxTop + boxH;
+  }
+
+  function drawDecisionCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    canvas.width = CARD_W;
+    canvas.height = CARD_H;
+    payload = payload || {};
+    var base = drawMcqCardBase(ctx, payload, '34,197,94');
+    var w = base.w;
+    var storyY = base.ty + 18;
+    (payload.lineStory || []).slice(0, 3).forEach(function (row) {
+      ctx.font = '600 24px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillStyle = '#93c5fd';
+      ctx.fillText((row && row.street) || '', 80, storyY);
+      ctx.fillStyle = 'rgba(230,237,243,0.9)';
+      var lines = wrapText(ctx, (row && row.text) || '', w - 280);
+      ctx.fillText(lines[0] || '', 220, storyY);
+      storyY += 36;
+    });
+    if (payload.line && !(payload.lineStory && payload.lineStory.length)) {
+      ctx.fillStyle = 'rgba(230,237,243,0.85)';
+      ctx.font = '600 24px system-ui, -apple-system, Segoe UI, sans-serif';
+      wrapText(ctx, payload.line, w - 160).slice(0, 2).forEach(function (line) {
+        ctx.fillText(line, 80, storyY);
+        storyY += 32;
+      });
+    }
+    var boardY = Math.max(storyY + 10, 420);
+    ctx.fillStyle = 'rgba(230,237,243,0.7)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Board', 80, boardY);
+    drawCardRow(ctx, payload.board || [], 80, boardY + 16, 80, 110, 10);
+    var heroY = boardY + 16;
+    ctx.fillText('Héroe ' + (payload.heroPos || ''), 620, boardY);
+    drawCardRow(ctx, payload.heroCards || [], 620, heroY + 16, 72, 100, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('¿F, C o R?', 80, boardY + 160);
+    drawOptionBoxes(ctx, payload.options || [
+      { id: 'fold', label: 'Fold' },
+      { id: 'call', label: 'Call' },
+      { id: 'raise', label: 'Raise' }
+    ], boardY + 170, w, function (o) { return o.label; });
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sin spoiler · Comenta F, C o R', w / 2, 930);
+    var url = siteUrl();
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(siteHostLabel(url), w / 2, 980);
+    return canvas;
+  }
+
+  function drawOddsCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    canvas.width = CARD_W;
+    canvas.height = CARD_H;
+    payload = payload || {};
+    var base = drawMcqCardBase(ctx, payload, '251,191,36');
+    var w = base.w;
+    var y = base.ty + 24;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 52px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Pot ' + (payload.potBB != null ? payload.potBB : '?') + ' bb', 80, y);
+    ctx.fillText('Bet ' + (payload.betBB != null ? payload.betBB : '?') + ' bb', 80, y + 64);
+    ctx.fillStyle = 'rgba(230,237,243,0.88)';
+    ctx.font = '600 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(payload.draw || '', 80, y + 130);
+    var boardY = y + 170;
+    drawCardRow(ctx, payload.board || [], 80, boardY, 80, 110, 10);
+    drawCardRow(ctx, payload.heroCards || [], 620, boardY, 72, 100, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('¿Call correcto?', 80, boardY + 150);
+    drawOptionBoxes(ctx, payload.options || [], boardY + 160, w, function (o, i) {
+      return ['A', 'B', 'C'][i] || o.label;
+    });
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sin spoiler · ¿Sí o no?', w / 2, 930);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(siteHostLabel(siteUrl()), w / 2, 980);
+    return canvas;
+  }
+
+  function drawBlockerCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    canvas.width = CARD_W;
+    canvas.height = CARD_H;
+    payload = payload || {};
+    var base = drawMcqCardBase(ctx, payload, '168,85,247');
+    var w = base.w;
+    var y = base.ty + 10;
+    ctx.fillStyle = 'rgba(230,237,243,0.85)';
+    ctx.font = '600 26px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(payload.villainAction || 'Bet river', 80, y);
+    var boardY = y + 30;
+    drawCardRow(ctx, payload.board || [], 80, boardY, 72, 100, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Elige mano (A / B / C)', 80, boardY + 130);
+    var opts = payload.options || [];
+    var boxW = (w - 160 - 28) / 3;
+    var boxH = 200;
+    var boxTop = boardY + 150;
+    opts.slice(0, 3).forEach(function (opt, i) {
+      var bx = 80 + i * (boxW + 14);
+      roundRect(ctx, bx, boxTop, boxW, boxH, 20);
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(196,181,253,0.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#e9d5ff';
+      ctx.font = '800 28px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(['A', 'B', 'C'][i] || opt.id, bx + boxW / 2, boxTop + 36);
+      var cards = (opt && opt.cards) || [];
+      var ocw = 64;
+      var och = 88;
+      var rowW = cards.length * ocw + Math.max(0, cards.length - 1) * 8;
+      drawCardRow(ctx, cards, bx + (boxW - rowW) / 2, boxTop + 70, ocw, och, 8);
+    });
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Sin spoiler · ¿Con cuál faroleas?', w / 2, 930);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(siteHostLabel(siteUrl()), w / 2, 980);
+    return canvas;
+  }
+
+  function mountMcqShare(root, payload, drawFn, buildTextFn, shareKey) {
+    if (!root || !payload) return null;
+    var canvas = root.querySelector('.school-share-canvas');
+    if (!canvas) return null;
+    drawFn(canvas, payload);
+    var text = buildTextFn(payload);
+    var url = siteUrl();
+    var btn = root.querySelector('[data-school-share="' + shareKey + '"]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        shareNative(canvas, text, url, root);
+      });
+    }
+    return { canvas: canvas, text: text, url: url };
+  }
+
+  function mountDecisionShare(root, payload) {
+    return mountMcqShare(root, payload, drawDecisionCard, buildDecisionShareText, 'decision');
+  }
+
+  function mountOddsShare(root, payload) {
+    return mountMcqShare(root, payload, drawOddsCard, buildOddsShareText, 'odds');
+  }
+
+  function mountBlockerShare(root, payload) {
+    return mountMcqShare(root, payload, drawBlockerCard, buildBlockerShareText, 'blocker');
+  }
+
+  function mountDailyShare(root, payload) {
+    var kind = payload && payload.kind;
+    if (kind === 'oddsQuiz') return mountOddsShare(root, payload);
+    if (kind === 'blockerQuiz') return mountBlockerShare(root, payload);
+    if (kind === 'rangeAdvQuiz') return mountRangeAdvShare(root, payload);
+    if (kind && GENERIC_SHARE[kind]) {
+      return mountMcqShare(root, payload, drawGenericMcqCard, buildGenericShareText, genericShareMeta(kind).key);
+    }
+    return mountDecisionShare(root, payload);
+  }
+
   global.PTSchoolShare = {
     siteUrl: siteUrl,
     buildShareText: buildShareText,
     buildHubShareText: buildHubShareText,
     buildLineQuizShareText: buildLineQuizShareText,
     buildRangeAdvShareText: buildRangeAdvShareText,
+    buildDecisionShareText: buildDecisionShareText,
+    buildOddsShareText: buildOddsShareText,
+    buildBlockerShareText: buildBlockerShareText,
+    buildDailyShareText: buildDailyShareText,
     drawAchievementCard: drawAchievementCard,
     drawHubSummaryCard: drawHubSummaryCard,
     drawLineQuizCard: drawLineQuizCard,
     drawRangeAdvCard: drawRangeAdvCard,
+    drawDecisionCard: drawDecisionCard,
+    drawOddsCard: drawOddsCard,
+    drawBlockerCard: drawBlockerCard,
     buildPanelHtml: buildPanelHtml,
     buildHubPanelHtml: buildHubPanelHtml,
     buildLineQuizShareHtml: buildLineQuizShareHtml,
     buildRangeAdvShareHtml: buildRangeAdvShareHtml,
+    buildDecisionShareHtml: buildDecisionShareHtml,
+    buildOddsShareHtml: buildOddsShareHtml,
+    buildBlockerShareHtml: buildBlockerShareHtml,
+    buildDailyShareHtml: buildDailyShareHtml,
+    buildGenericShareHtml: buildGenericShareHtml,
+    buildGenericShareText: buildGenericShareText,
+    drawGenericMcqCard: drawGenericMcqCard,
+    spotToSharePayload: spotToSharePayload,
     mountSharePanel: mountSharePanel,
     mountHubSharePanel: mountHubSharePanel,
     mountLineQuizShare: mountLineQuizShare,
     mountRangeAdvShare: mountRangeAdvShare,
+    mountDecisionShare: mountDecisionShare,
+    mountOddsShare: mountOddsShare,
+    mountBlockerShare: mountBlockerShare,
+    mountDailyShare: mountDailyShare,
+    mountGenericShare: mountGenericShare,
     CARD_W: CARD_W,
     CARD_H: CARD_H
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school-daily-spot.js — Spot del día + racha Escuela (vehículo viral IG).
+ * Cargar tras school-data-viral-quizzes.js y school.js.
+ */
+(function (global) {
+  'use strict';
+
+  var DAILY_XP = 15;
+  var STORAGE_KEY = 'dailySpot';
+  var IG_UTM = '?utm_source=instagram&utm_medium=social&utm_campaign=escuela_daily';
+
+  var IG_WEEK = [
+    { day: 1, kind: 'decisionQuiz', caption: 'Comenta F, C o R 👇' },
+    { day: 2, kind: 'rfiQuiz', caption: '¿Open o fold? Comenta 👇' },
+    { day: 3, kind: 'oddsQuiz', caption: '¿Call o fold? Pot vs bet 👇' },
+    { day: 4, kind: 'sizingQuiz', caption: '¿Qué sizing elige el solver? 👇' },
+    { day: 5, kind: 'blockerQuiz', caption: '¿Con cuál faroleas? A / B / C 👇' },
+    { day: 6, kind: 'equityQuiz', caption: 'Estima tu equity · ¿A, B o C? 👇' },
+    { day: 0, kind: 'textureQuiz', caption: '¿Seco, wet o monotone? 👇' }
+  ];
+
+  function esc(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function dayKey(input) {
+    var d = input ? new Date(input) : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0, 10);
+  }
+
+  function addDays(iso, delta) {
+    var d = new Date(iso + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    return dayKey(d);
+  }
+
+  function hashDay(iso) {
+    var h = 0;
+    var s = String(iso || '');
+    for (var i = 0; i < s.length; i++) {
+      h = ((h << 5) - h) + s.charCodeAt(i);
+      h |= 0;
+    }
+    return Math.abs(h);
+  }
+
+  function getPool() {
+    var V = global.PTSchoolViralQuizzes;
+    if (V && V.DAILY_POOL && V.DAILY_POOL.length) return V.DAILY_POOL;
+    return [];
+  }
+
+  function kindLabel(kind) {
+    if (kind === 'oddsQuiz') return 'Pot odds';
+    if (kind === 'blockerQuiz') return 'Blockers';
+    if (kind === 'rangeAdvQuiz') return 'Range Advantage';
+    if (kind === 'decisionQuiz') return 'Fold / Call / Raise';
+    if (kind === 'sizingQuiz') return 'Sizing';
+    if (kind === 'rfiQuiz') return 'RFI';
+    if (kind === 'equityQuiz') return 'Equity';
+    if (kind === 'textureQuiz') return 'Textura';
+    if (kind === 'comboQuiz') return 'Combos';
+    if (kind === 'nashQuiz') return 'Push / fold';
+    if (kind === 'icmQuiz') return 'ICM';
+    if (kind === 'sprQuiz') return 'SPR';
+    if (kind === 'nutAdvQuiz') return 'Nut Advantage';
+    return 'Quiz';
+  }
+
+  function shareUrl() {
+    var base = (global.PTSchoolShare && global.PTSchoolShare.siteUrl)
+      ? global.PTSchoolShare.siteUrl()
+      : 'https://www.pokerforgeai.com/';
+    return String(base).replace(/\/?$/, '/') + IG_UTM;
+  }
+
+  function igPlanForDay(forDay) {
+    var d = forDay ? new Date(forDay + 'T12:00:00') : new Date();
+    var dow = d.getDay();
+    for (var i = 0; i < IG_WEEK.length; i++) {
+      if (IG_WEEK[i].day === dow) return IG_WEEK[i];
+    }
+    return IG_WEEK[0];
+  }
+
+  function buildIgCaption(spot, forDay) {
+    spot = spot || pickDailySpot(forDay);
+    var plan = igPlanForDay(forDay);
+    var kind = (spot && spot.kind) || plan.kind;
+    var preview = spotPreview(spot);
+    var caption = (kind === (spot && spot.kind) && plan.caption)
+      ? plan.caption
+      : (kindLabel(kind) + ' · sin spoiler');
+    return caption + '\n' + preview + '\n' + shareUrl();
+  }
+
+  function weekCalendar(fromDay) {
+    var start = fromDay || dayKey();
+    var out = [];
+    for (var i = 0; i < 7; i++) {
+      var iso = addDays(start, i);
+      var plan = igPlanForDay(iso);
+      var spot = pickDailySpot(iso);
+      out.push({
+        day: iso,
+        weekday: new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short' }),
+        kind: (spot && spot.kind) || plan.kind,
+        kindLabel: kindLabel((spot && spot.kind) || plan.kind),
+        caption: plan.caption,
+        preview: spotPreview(spot)
+      });
+    }
+    return out;
+  }
+
+  function spotPreview(spot) {
+    if (!spot) return 'Entrena un spot viral sin spoiler.';
+    var q = spot.quiz || {};
+    if (spot.kind === 'oddsQuiz') {
+      return 'Pot ' + (q.potBB != null ? q.potBB : '?') + ' bb · Bet ' +
+        (q.betBB != null ? q.betBB : '?') + ' bb · ' + (q.draw || '');
+    }
+    if (spot.kind === 'blockerQuiz') {
+      return (q.board || []).join(' ') + ' · ' + (q.villainAction || 'River');
+    }
+    if (spot.kind === 'sizingQuiz') {
+      return (q.line || '') + ' · ' + (q.board || []).join(' ');
+    }
+    if (spot.kind === 'rfiQuiz') {
+      return (q.position || spot.heroPos || '') + ' · ' + (q.heroCards || []).join('');
+    }
+    if (spot.kind === 'equityQuiz') {
+      return (q.villainRange || 'Equity') + ' · ' + (q.board || []).join(' ');
+    }
+    if (spot.kind === 'textureQuiz' || spot.kind === 'comboQuiz') {
+      return (q.board || []).join(' ') + (q.handType ? ' · ' + q.handType : '');
+    }
+    if (spot.kind === 'nashQuiz') {
+      return (q.position || '') + ' · ' + (q.stackBB || '?') + ' bb · ' + (q.heroCards || []).join('');
+    }
+    if (q.prompt) return q.prompt;
+    if (q.line) return q.line;
+    return kindLabel(spot.kind);
+  }
+
+  function readDailyState() {
+    var school = global.PTSchool && global.PTSchool.readSchool
+      ? global.PTSchool.readSchool()
+      : {};
+    var ds = school[STORAGE_KEY] || {};
+    return {
+      lastDay: ds.lastDay || null,
+      lastSpotId: ds.lastSpotId || null,
+      completed: !!ds.completed,
+      correct: !!ds.correct,
+      streak: Number(ds.streak) || 0,
+      best: Number(ds.best) || 0,
+      total: Number(ds.total) || 0
+    };
+  }
+
+  function writeDailyState(patch) {
+    if (!global.PTSchool || !global.PTSchool.readSchool) return null;
+    var school = global.PTSchool.readSchool();
+    var prev = school[STORAGE_KEY] || {};
+    school[STORAGE_KEY] = Object.assign({}, prev, patch || {});
+    if (global.PTSchool._writeSchool) {
+      global.PTSchool._writeSchool(school);
+    } else if (global.Store && global.Store.saveStats) {
+      var stats = global.Store.getStats ? global.Store.getStats() : {};
+      stats.school = school;
+      global.Store.saveStats(stats);
+    }
+    return school[STORAGE_KEY];
+  }
+
+  function pickDailySpot(forDay) {
+    var pool = getPool();
+    if (!pool.length) return null;
+    var day = forDay || dayKey();
+    var idx = hashDay(day) % pool.length;
+    return pool[idx];
+  }
+
+  function buildSharePayload(spot, day) {
+    spot = spot || pickDailySpot(day);
+    if (!spot) return null;
+    var q = spot.quiz || {};
+    var base = {
+      lessonTitle: 'Spot del día',
+      kind: spot.kind,
+      kindLabel: kindLabel(spot.kind),
+      prompt: q.prompt || spotPreview(spot)
+    };
+    if (spot.kind === 'decisionQuiz') {
+      return Object.assign(base, {
+        line: q.line || '',
+        lineStory: q.lineStory || [],
+        board: (q.board || []).slice(),
+        heroPos: spot.heroPos || '',
+        heroCards: (q.heroCards || []).slice(),
+        villainPos: q.villainPos || 'BB',
+        options: (q.options || []).map(function (o) { return { id: o.id, label: o.label }; })
+      });
+    }
+    if (spot.kind === 'oddsQuiz') {
+      return Object.assign(base, {
+        potBB: q.potBB,
+        betBB: q.betBB,
+        draw: q.draw || '',
+        board: (q.board || []).slice(),
+        heroCards: (q.heroCards || []).slice(),
+        options: (q.options || []).map(function (o) { return { id: o.id, label: o.label }; })
+      });
+    }
+    if (spot.kind === 'blockerQuiz') {
+      return Object.assign(base, {
+        board: (q.board || []).slice(),
+        villainAction: q.villainAction || '',
+        options: (q.options || []).map(function (o) {
+          return { id: o.id, label: o.label, cards: (o.cards || []).slice() };
+        })
+      });
+    }
+    if (global.PTSchoolShare && global.PTSchoolShare.spotToSharePayload) {
+      return Object.assign(base, global.PTSchoolShare.spotToSharePayload(spot, { lessonTitle: 'Spot del día' }));
+    }
+    return base;
+  }
+
+  function buildHubCardHtml() {
+    var pool = getPool();
+    if (!pool.length) return '';
+    var today = dayKey();
+    var ds = readDailyState();
+    var spot = pickDailySpot(today);
+    var doneToday = ds.lastDay === today && ds.completed;
+    var streak = ds.streak || 0;
+    var preview = spotPreview(spot);
+    var kind = kindLabel(spot && spot.kind);
+    var igHint = buildIgCaption(spot, today).split('\n')[0];
+    return (
+      '<section class="school-daily card-box" aria-label="Spot del día">' +
+      '<div class="school-daily-head">' +
+      '<div><p class="school-eyebrow">Spot del día · ' + esc(kind) + '</p>' +
+      '<h3 class="school-daily-title">' + (doneToday ? 'Completado hoy' : '¿Listo para el reto?') + '</h3>' +
+      '<p class="school-daily-lead muted-text">' + esc(preview) + '</p>' +
+      '<p class="school-daily-ig muted-text">IG: ' + esc(igHint) + '</p></div>' +
+      '<div class="school-daily-streak" aria-label="Racha">' +
+      '<span class="school-daily-streak-val">' + esc(String(streak)) + '</span>' +
+      '<span class="school-daily-streak-lbl">días</span></div>' +
+      '</div>' +
+      '<div class="school-daily-actions">' +
+      '<button type="button" class="btn btn-primary" data-school-daily-play"' +
+      (doneToday ? ' disabled' : '') + '>' +
+      (doneToday ? 'Vuelve mañana' : 'Jugar spot') + '</button>' +
+      (global.PTSchoolShare && global.PTSchoolShare.buildDailyShareHtml
+        ? global.PTSchoolShare.buildDailyShareHtml()
+        : '') +
+      '</div>' +
+      '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · comparte sin spoiler en IG</p>' +
+      '</section>'
+    );
+  }
+
+  function updateStreak(ds, today, correct) {
+    var streak = Number(ds.streak) || 0;
+    var best = Number(ds.best) || 0;
+    if (ds.lastDay === today && ds.completed) {
+      return { streak: streak, best: best };
+    }
+    if (correct) {
+      if (ds.lastDay && addDays(ds.lastDay, 1) === today) streak += 1;
+      else streak = 1;
+    } else {
+      streak = 0;
+    }
+    if (streak > best) best = streak;
+    return { streak: streak, best: best };
+  }
+
+  function completeDaily(summary, results) {
+    var today = dayKey();
+    var ds = readDailyState();
+    if (ds.lastDay === today && ds.completed) return ds;
+    var ok = !!(results && results.length && results[0].quizCorrect);
+    var streakInfo = updateStreak(ds, today, ok);
+    var xpGain = ok ? DAILY_XP : 0;
+    if (xpGain && global.PTSchool && global.PTSchool.readSchool) {
+      var school = global.PTSchool.readSchool();
+      school.xp = (Number(school.xp) || 0) + xpGain;
+      school[STORAGE_KEY] = {
+        lastDay: today,
+        lastSpotId: results[0] && results[0].spotId,
+        completed: true,
+        correct: ok,
+        streak: streakInfo.streak,
+        best: streakInfo.best,
+        total: (Number(ds.total) || 0) + 1
+      };
+      if (global.PTSchool._writeSchool) global.PTSchool._writeSchool(school);
+    } else {
+      writeDailyState({
+        lastDay: today,
+        lastSpotId: results[0] && results[0].spotId,
+        completed: true,
+        correct: ok,
+        streak: streakInfo.streak,
+        best: streakInfo.best,
+        total: (Number(ds.total) || 0) + 1
+      });
+    }
+    if (global.PTSchool && global.PTSchool.trackSchool) {
+      global.PTSchool.trackSchool('daily_spot_complete', {
+        correct: ok,
+        streak: streakInfo.streak,
+        xp: xpGain
+      });
+    }
+    return readDailyState();
+  }
+
+  function mountHub(root) {
+    if (!root) return;
+    var card = root.querySelector('.school-daily');
+    if (!card) return;
+    var play = card.querySelector('[data-school-daily-play]');
+    if (play) {
+      play.addEventListener('click', function () {
+        if (play.disabled) return;
+        if (global.PTSchool && global.PTSchool.startDailySession) {
+          global.PTSchool.startDailySession();
+        }
+      });
+    }
+    var shareRoot = card.querySelector('.school-share-daily');
+    if (shareRoot && global.PTSchoolShare && global.PTSchoolShare.mountDailyShare) {
+      try {
+        global.PTSchoolShare.mountDailyShare(shareRoot, buildSharePayload());
+      } catch (eDailyShare) { /* ignore */ }
+    }
+  }
+
+  global.PTSchoolDailySpot = {
+    dayKey: dayKey,
+    getPool: getPool,
+    pickDailySpot: pickDailySpot,
+    readDailyState: readDailyState,
+    writeDailyState: writeDailyState,
+    buildHubCardHtml: buildHubCardHtml,
+    buildSharePayload: buildSharePayload,
+    buildIgCaption: buildIgCaption,
+    weekCalendar: weekCalendar,
+    shareUrl: shareUrl,
+    completeDaily: completeDaily,
+    mountHub: mountHub,
+    DAILY_XP: DAILY_XP,
+    IG_UTM: IG_UTM
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -15768,14 +18058,13 @@
     var root = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
     if (!s || !spot || !MX || !root) return;
     state.pendingMatrixSpot = null;
+    var lesson = Data() && Data().getLesson(s.lessonId);
     MX.mountDrill(root, spot, {
       index: s.index,
       total: s.spots.length,
       lessonId: s.lessonId,
-      lessonTitle: (function () {
-        var lesson = Data() && Data().getLesson(s.lessonId);
-        return (lesson && lesson.title) || s.lessonId || '';
-      })(),
+      lessonTitle: (lesson && lesson.title) || s.lessonId || '',
+      timedSeconds: (lesson && lesson.timedSeconds) || s.timedSeconds || null,
       onAbort: function () { abandonSession(true); },
       onResult: function (result) {
         if (!state.session || !state.session.active) return;
@@ -15944,6 +18233,10 @@
   function finishSession() {
     var s = state.session;
     if (!s) return;
+    if (s.daily) {
+      finishDailySession(s);
+      return;
+    }
     var lesson = Data().getLesson(s.lessonId);
     var summary = recordLessonAttempt(lesson, s.results);
     if (summary.passed) ensureLessonMarkedPassed(lesson.id, summary);
@@ -15960,6 +18253,56 @@
     state.lessonId = lesson.id;
     state.lastResult = { lesson: lesson, summary: summary, results: s.results.slice() };
     if (typeof global.goToTab === 'function') global.goToTab('school');
+  }
+
+  function finishDailySession(s) {
+    var ok = !!(s.results && s.results.length && s.results[0].quizCorrect);
+    var ds = global.PTSchoolDailySpot && global.PTSchoolDailySpot.completeDaily
+      ? global.PTSchoolDailySpot.completeDaily(null, s.results)
+      : null;
+    trackSchool('daily_spot_finish', {
+      correct: ok,
+      streak: ds && ds.streak,
+      spotId: s.results[0] && s.results[0].spotId
+    });
+    s.active = false;
+    state.session = null;
+    updateSchoolBanner();
+    state.view = VIEW.hub;
+    state.lastDailyResult = {
+      correct: ok,
+      streak: ds && ds.streak,
+      xpGain: ok ? (global.PTSchoolDailySpot && global.PTSchoolDailySpot.DAILY_XP) || 15 : 0,
+      teachBack: s.results[0] && s.results[0].teachBack
+    };
+    if (typeof global.goToTab === 'function') global.goToTab('school');
+  }
+
+  function startDailySession() {
+    var DS = global.PTSchoolDailySpot;
+    if (!DS || !DS.pickDailySpot) return { ok: false, reason: 'missing' };
+    var today = DS.dayKey();
+    var ds = DS.readDailyState();
+    if (ds.lastDay === today && ds.completed) return { ok: false, reason: 'done' };
+    var spot = DS.pickDailySpot(today);
+    if (!spot) return { ok: false, reason: 'empty' };
+    trackSchool('daily_spot_start', { spotId: spot.id, kind: spot.kind });
+    state.session = {
+      active: true,
+      daily: true,
+      lessonId: '__daily__',
+      lessonTitle: 'Spot del día',
+      decisionEnd: true,
+      spots: [spot],
+      index: 0,
+      spotDecided: false,
+      results: []
+    };
+    state.view = VIEW.matrix;
+    startSpotAt(0);
+    var host = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+    if (host) render(host);
+    return { ok: true, spot: spot };
   }
 
   function startLessonSession(lessonId) {
@@ -15990,6 +18333,7 @@
       lessonId: lesson.id,
       lessonTitle: lesson.title,
       decisionEnd: lesson.decisionEnd !== false,
+      timedSeconds: lesson.timedSeconds || null,
       spots: lesson.spots.slice(),
       index: 0,
       spotDecided: false,
@@ -16343,7 +18687,7 @@
     ranges: {
       eyebrow: 'Rangos · Laboratorio',
       title: 'Laboratorio de rangos',
-      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: range advantage + ¿qué tiene? (mixto + faroles).'
+      lead: 'M0 gratis: bases. M1 Study: blockers, pot odds y línea. M2–M4: range advantage + ¿qué tiene? (mixto + faroles).'
     }
   };
 
@@ -16351,7 +18695,7 @@
     cash: {
       M0: { title: 'M0 · Fundamentos Cash (Gratis)', lead: 'Desbloqueo lineal.' },
       M1: { title: 'M1 · Preflop core (Study)', lead: 'Defensa BB, 3-bet, squeeze, iso.' },
-      M2: { title: 'M2 · Postflop core (Study)', lead: 'Textura, c-bet, defensa, barrels.' },
+      M2: { title: 'M2 · Postflop core (Study)', lead: 'Textura, c-bet, F/C/R, pot odds y defensa.' },
       M4: { title: 'M4 · Pro Cash (Coach)', lead: '4-bet, SRP OOP, explotación y examen Pro.' }
     },
     spin: {
@@ -16369,7 +18713,7 @@
     },
     ranges: {
       M0: { title: 'M0 · Bases de rangos (Gratis)', lead: 'Matriz, RFI BTN y % que conecta.' },
-      M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, línea completa y node frequencies.' },
+      M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, pot odds, línea completa y node frequencies.' },
       M2: { title: 'M2 · ¿Qué tiene? Lectura (Study)', lead: 'Range advantage, quiz mixto y faroles por línea.' },
       M3: { title: 'M3 · ¿Qué tiene? Polar (Coach)', lead: 'Range advantage en 3BP, polar, draws fallidos y faroles difíciles.' },
       M4: { title: 'M4 · ¿Qué tiene? Avanzada (Coach)', lead: 'Range advantage límite, boats y faroles disfrazados de thin.' }
@@ -16465,6 +18809,9 @@
       '<div class="school-xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
       routePct + '" aria-label="Progreso de la ruta">' +
       '<div class="school-xp-fill school-xp-fill-anim" style="width:' + routePct + '%"></div></div>' +
+      (global.PTSchoolDailySpot && global.PTSchoolDailySpot.buildHubCardHtml
+        ? global.PTSchoolDailySpot.buildHubCardHtml()
+        : '') +
       (global.PTSchoolShare && global.PTSchoolShare.buildHubPanelHtml
         ? global.PTSchoolShare.buildHubPanelHtml()
         : '') +
@@ -16492,6 +18839,25 @@
           routeId: routeId
         });
       } catch (eHub) { /* ignore */ }
+    }
+    if (global.PTSchoolDailySpot && global.PTSchoolDailySpot.mountHub) {
+      try {
+        global.PTSchoolDailySpot.mountHub(root);
+      } catch (eDailyHub) { /* ignore */ }
+    }
+    if (state.lastDailyResult) {
+      var dr = state.lastDailyResult;
+      var flash = document.createElement('div');
+      flash.className = 'school-daily-flash card-box ' + (dr.correct ? 'is-good' : 'is-bad');
+      flash.innerHTML =
+        '<p><strong>' + (dr.correct
+          ? ('¡Spot del día acertado! +' + (dr.xpGain || 0) + ' XP · Racha ' + (dr.streak || 0))
+          : 'Spot del día fallado. Sigue entrenando mañana.') + '</strong></p>' +
+        (dr.teachBack ? '<p class="muted-text">' + esc(dr.teachBack) + '</p>' : '');
+      var page = root.querySelector('.school-page');
+      var routesEl = root.querySelector('.school-routes');
+      if (page && routesEl) page.insertBefore(flash, routesEl);
+      state.lastDailyResult = null;
     }
     root.querySelectorAll('[data-school-route]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -16889,7 +19255,9 @@
     canPlayLesson: canPlayLesson,
     migrateSchoolProgress: migrateSchoolProgress,
     startLessonSession: startLessonSession,
+    startDailySession: startDailySession,
     abandonSession: abandonSession,
+    _writeSchool: writeSchool,
     ensureBannerEl: ensureBannerEl,
     formatFailSpotHtml: formatFailSpotHtml,
     formatCards: formatCards,

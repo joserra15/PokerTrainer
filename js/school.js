@@ -891,14 +891,13 @@
     var root = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
     if (!s || !spot || !MX || !root) return;
     state.pendingMatrixSpot = null;
+    var lesson = Data() && Data().getLesson(s.lessonId);
     MX.mountDrill(root, spot, {
       index: s.index,
       total: s.spots.length,
       lessonId: s.lessonId,
-      lessonTitle: (function () {
-        var lesson = Data() && Data().getLesson(s.lessonId);
-        return (lesson && lesson.title) || s.lessonId || '';
-      })(),
+      lessonTitle: (lesson && lesson.title) || s.lessonId || '',
+      timedSeconds: (lesson && lesson.timedSeconds) || s.timedSeconds || null,
       onAbort: function () { abandonSession(true); },
       onResult: function (result) {
         if (!state.session || !state.session.active) return;
@@ -1167,6 +1166,7 @@
       lessonId: lesson.id,
       lessonTitle: lesson.title,
       decisionEnd: lesson.decisionEnd !== false,
+      timedSeconds: lesson.timedSeconds || null,
       spots: lesson.spots.slice(),
       index: 0,
       spotDecided: false,

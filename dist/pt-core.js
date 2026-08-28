@@ -20784,16 +20784,16 @@ window.PT_NASH_PUSH_JSON = {
   /** Catálogo rotativo de focos de entrenamiento para el saludo de bienvenida. */
   /* Fase J: cada foco apunta a lección(es) Escuela (CTA en Leaks). */
   const TRAINING_FOCUSES = [
-    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'], lessonId: 'C-02', lessonIds: ['C-02', 'R-02'] },
-    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'], lessonId: 'C-08', lessonIds: ['C-08', 'R-04'] },
-    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'], lessonId: 'C-09', lessonIds: ['C-09', 'R-04'] },
+    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'], lessonId: 'C-02', lessonIds: ['C-02', 'R-02', 'F-01'] },
+    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'], lessonId: 'C-08', lessonIds: ['C-08', 'R-04', 'B-01'] },
+    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'], lessonId: 'C-09', lessonIds: ['C-09', 'R-04', 'D-02'] },
     { id: 'squeeze', label: 'squeeze (subir tras open + call)', scenario: 'squeeze', street: 'preflop', leakTypes: ['squeeze'], lessonId: 'C-10' },
     { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'], lessonId: 'C-26' },
     { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['sbLimp'], lessonId: 'C-11' },
     { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'], lessonId: 'C-12' },
-    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15', lessonIds: ['C-15', 'R-05'] },
-    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18', lessonIds: ['C-18', 'R-07'] },
-    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19', lessonIds: ['C-19', 'R-07'] }
+    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15', lessonIds: ['C-15', 'R-05', 'D-01', 'Q-01', 'D-03'] },
+    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18', lessonIds: ['C-18', 'R-07', 'O-01', 'E-01'] },
+    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19', lessonIds: ['C-19', 'R-07', 'D-02', 'D-04'] }
   ];
 
   function cfg() {
@@ -21926,6 +21926,165 @@ window.PT_NASH_PUSH_JSON = {
     TRAINING_FOCUSES, focusFromLeak, lessonFromLeak, lessonsFromLeak
   };
 })(window);
+
+/*
+ * trainer-leak-presets.js — Presets de entrenador por tipo de leak (Fase 4).
+ * Mapea fugas agregadas → escenario + calle + manos objetivo 25/50/100.
+ */
+(function (global) {
+  'use strict';
+
+  var HANDS_TARGETS = [25, 50, 100];
+
+  var TYPE_PRESETS = {
+    RFI: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: 'rfi',
+      practiceStreet: 'preflop',
+      handRange: 'borderline',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 50
+    },
+    vsRFI: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: '3bet',
+      practiceStreet: 'preflop',
+      handRange: 'borderline',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 50
+    },
+    face3bet: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: 'face3bet',
+      practiceStreet: 'preflop',
+      handRange: 'borderline',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 50
+    },
+    squeeze: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: 'squeeze',
+      practiceStreet: 'preflop',
+      handRange: 'borderline',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 50
+    },
+    face4bet: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: '4bet',
+      practiceStreet: 'preflop',
+      handRange: 'borderline',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 25
+    },
+    cold4bet: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: '4bet',
+      practiceStreet: 'preflop',
+      handRange: 'borderline',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 25
+    },
+    sbLimp: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: 'iso',
+      practiceStreet: 'preflop',
+      handRange: 'borderline',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 50
+    },
+    bbVsSbLimp: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: 'bbvsb',
+      practiceStreet: 'preflop',
+      handRange: 'borderline',
+      heroPos: 'BB',
+      villainLevel: 'pro',
+      handsTarget: 50
+    },
+    postflop: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: 'random',
+      practiceStreet: 'flop',
+      handRange: 'all',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 50
+    }
+  };
+
+  var STREET_PRACTICE = {
+    flop: 'flop',
+    turn: 'turn',
+    river: 'river',
+    preflop: 'preflop'
+  };
+
+  function parseLeakKey(key) {
+    if (global.PTLeaks && global.PTLeaks.parseLeakKey) {
+      return global.PTLeaks.parseLeakKey(key);
+    }
+    var parts = String(key || '').split('|');
+    return { type: parts[0] || '', street: parts[2] || 'preflop' };
+  }
+
+  function presetForLeak(leak, handsTarget) {
+    leak = leak || {};
+    var parsed = parseLeakKey(leak.key);
+    var type = parsed.type || 'postflop';
+    var street = parsed.street || 'preflop';
+    var base = TYPE_PRESETS[type] || TYPE_PRESETS.postflop;
+    var cfg = {};
+    var k;
+    for (k in base) if (Object.prototype.hasOwnProperty.call(base, k)) cfg[k] = base[k];
+    if (STREET_PRACTICE[street]) cfg.practiceStreet = STREET_PRACTICE[street];
+    if (handsTarget != null && HANDS_TARGETS.indexOf(Number(handsTarget)) >= 0) {
+      cfg.handsTarget = Number(handsTarget);
+    }
+    if (global.PTAIReport && typeof global.PTAIReport.focusFromLeak === 'function') {
+      var focus = global.PTAIReport.focusFromLeak(leak);
+      if (focus && focus.scenario) cfg.scenario = focus.scenario;
+      if (focus && focus.street && STREET_PRACTICE[focus.street]) {
+        cfg.practiceStreet = STREET_PRACTICE[focus.street];
+      }
+    }
+    return cfg;
+  }
+
+  function applyPreset(leak, handsTarget) {
+    var cfg = presetForLeak(leak, handsTarget);
+    if (global.applyPlaySetupConfig) {
+      global.applyPlaySetupConfig(cfg);
+    }
+    if (typeof global.goToTab === 'function') {
+      global.goToTab('play', { setup: true });
+    }
+    return cfg;
+  }
+
+  global.PTTrainerLeakPresets = {
+    HANDS_TARGETS: HANDS_TARGETS,
+    TYPE_PRESETS: TYPE_PRESETS,
+    presetForLeak: presetForLeak,
+    applyPreset: applyPreset
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
 
 /*
  * storage.js
@@ -25288,6 +25447,12 @@ window.PT_NASH_PUSH_JSON = {
       if (mode === 'trainer') {
         actions += '<button type="button" class="stats-leak-action" data-stats-train-leak="' +
           escapeHtml(l.key) + '">Repetir</button>';
+        if (global.PTTrainerLeakPresets && global.PTTrainerLeakPresets.HANDS_TARGETS) {
+          global.PTTrainerLeakPresets.HANDS_TARGETS.forEach(function (n) {
+            actions += '<button type="button" class="stats-leak-action stats-leak-action-secondary" data-stats-train-preset="' +
+              escapeHtml(l.key) + '" data-stats-train-hands="' + n + '">Entrenar ' + n + '</button>';
+          });
+        }
         if (showSchool) {
           var lids = lessonIdsForLeak(l);
           lids.forEach(function (lid) {
@@ -25369,6 +25534,15 @@ window.PT_NASH_PUSH_JSON = {
         var key = btn.getAttribute('data-stats-train-leak');
         var leak = trainerLeaks.find(function (l) { return l.key === key; });
         if (leak && onTrain) onTrain(leak);
+      });
+    });
+    host.querySelectorAll('[data-stats-train-preset]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-stats-train-preset');
+        var hands = Number(btn.getAttribute('data-stats-train-hands')) || 50;
+        var leak = trainerLeaks.find(function (l) { return l.key === key; });
+        if (!leak || !global.PTTrainerLeakPresets || !global.PTTrainerLeakPresets.applyPreset) return;
+        global.PTTrainerLeakPresets.applyPreset(leak, hands);
       });
     });
     host.querySelectorAll('[data-stats-school-lesson]').forEach(function (btn) {
