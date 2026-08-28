@@ -36,7 +36,7 @@
     if (global.PTAdmin && typeof global.PTAdmin.hasAccess === 'function') {
       return !!global.PTAdmin.hasAccess();
     }
-    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    var u = authUser();
     return !!(u && u.isAdmin);
   }
 
@@ -503,8 +503,12 @@
   ];
   var SCHOOL_PUBLIC = true;
 
+  function authUser() {
+    return (global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser()) || global.PT_AUTH_USER || null;
+  }
+
   function userEmail() {
-    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    var u = authUser();
     return (u && u.email) ? String(u.email).toLowerCase() : '';
   }
 
@@ -527,7 +531,7 @@
   /** ¿Puede ver el tab Escuela? Usuarios autenticados (GA). */
   function schoolMenuVisible() {
     if (isDemoActive()) return false;
-    if (SCHOOL_PUBLIC) return !!(global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser());
+    if (SCHOOL_PUBLIC) return !!authUser();
     return hasAdminAccess() || isSchoolBetaUser();
   }
 
@@ -1144,11 +1148,25 @@
       state.lastDailyResult = null;
     }
     host.innerHTML = html;
+    wireDailyPlayButton(host);
     if (DS.mountHome) {
       try {
         DS.mountHome(host);
       } catch (eDailyHome) { /* ignore */ }
     }
+  }
+
+  function mountDailyDrillNow() {
+    var root = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+    if (!root) return false;
+    if (state.view === VIEW.matrix && state.session && state.session.active) {
+      if (state.pendingMatrixSpot || (state.session.spots && state.session.spots.length)) {
+        mountPendingMatrixDrill();
+        return true;
+      }
+    }
+    render(root);
+    return true;
   }
 
   function startDailySession() {
@@ -1171,16 +1189,26 @@
       spotDecided: false,
       results: []
     };
+    state.view = VIEW.matrix;
+    state.pendingMatrixSpot = spot;
     updateSchoolBanner();
-    startMatrixSpot(spot);
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(function () {
-        var tab = typeof document !== 'undefined' ? document.getElementById('tab-school') : null;
-        var root = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
-        if (tab && tab.classList.contains('active') && root) render(root);
-      });
+    if (typeof global.goToTab === 'function') global.goToTab('school');
+    mountDailyDrillNow();
+    if (typeof setTimeout === 'function') {
+      setTimeout(mountDailyDrillNow, 0);
+      setTimeout(mountDailyDrillNow, 120);
     }
     return { ok: true, spot: spot };
+  }
+
+  function wireDailyPlayButton(host) {
+    if (!host) return;
+    var btn = host.querySelector('[data-school-daily-play]');
+    if (!btn) return;
+    btn.onclick = function (e) {
+      if (e && e.preventDefault) e.preventDefault();
+      if (typeof global.ptPlayDailySpot === 'function') global.ptPlayDailySpot(btn);
+    };
   }
 
   function showDailyPlayFlash(root, reason) {

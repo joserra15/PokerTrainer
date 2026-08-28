@@ -1895,37 +1895,44 @@
     });
   }
 
-  function bindHomeDailyPlay() {
-    const page = $('#home-page');
-    if (!page || page._ptDailyPlayBound) return;
-    page._ptDailyPlayBound = true;
-    page.addEventListener('click', function (e) {
-      const btn = e.target && e.target.closest ? e.target.closest('[data-school-daily-play]') : null;
-      if (!btn || !page.contains(btn)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const host = $('#home-daily-spot');
-      if (btn.disabled) {
-        withLazyChunk('school', function () {
-          if (window.PTSchool && PTSchool.showDailyPlayFlash && host) {
-            PTSchool.showDailyPlayFlash(host, 'done');
-          }
-        });
-        return;
-      }
+  function playDailySpotFromHome(btn) {
+    const host = $('#home-daily-spot');
+    if (btn && btn.disabled) {
       withLazyChunk('school', function () {
-        if (!window.PTSchool || !PTSchool.startDailySession) {
-          if (window.PTSchool && PTSchool.showDailyPlayFlash && host) {
-            PTSchool.showDailyPlayFlash(host, 'missing');
-          }
-          return;
-        }
-        const res = PTSchool.startDailySession();
-        if (res && !res.ok && PTSchool.showDailyPlayFlash && host) {
-          PTSchool.showDailyPlayFlash(host, res.reason);
+        if (window.PTSchool && PTSchool.showDailyPlayFlash && host) {
+          PTSchool.showDailyPlayFlash(host, 'done');
         }
       });
+      return;
+    }
+    withLazyChunk('school', function () {
+      if (!window.PTSchool || !PTSchool.startDailySession) {
+        if (window.PTSchool && PTSchool.showDailyPlayFlash && host) {
+          PTSchool.showDailyPlayFlash(host, 'missing');
+        }
+        return;
+      }
+      const res = PTSchool.startDailySession();
+      if (res && !res.ok && PTSchool.showDailyPlayFlash && host) {
+        PTSchool.showDailyPlayFlash(host, res.reason);
+      }
     });
+  }
+
+  window.ptPlayDailySpot = playDailySpotFromHome;
+
+  function bindHomeDailyPlay() {
+    if (document._ptDailyPlayDocBound) return;
+    document._ptDailyPlayDocBound = true;
+    document.addEventListener('click', function (e) {
+      const btn = e.target && e.target.closest ? e.target.closest('[data-school-daily-play]') : null;
+      if (!btn) return;
+      const host = $('#home-daily-spot');
+      if (!host || !host.contains(btn)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      playDailySpotFromHome(btn);
+    }, true);
   }
 
   function bindHome() {

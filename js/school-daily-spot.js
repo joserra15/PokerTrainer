@@ -259,7 +259,7 @@
       '<span class="school-daily-streak-lbl">días</span></div>' +
       '</div>' +
       '<div class="school-daily-actions">' +
-      '<button type="button" class="btn btn-primary" data-school-daily-play"' +
+      '<button type="button" class="btn btn-primary" data-school-daily-play="1"' +
       (doneToday ? ' disabled' : '') + '>' +
       (doneToday ? 'Vuelve mañana' : 'Jugar spot') + '</button>' +
       (global.PTSchoolShare && global.PTSchoolShare.buildDailyShareHtml

@@ -494,9 +494,9 @@ assert.ok(sandbox.PTSchoolDailySpot.weekCalendar().length === 7, 'calendario sem
   var localLate = new Date(2026, 7, 28, 23, 45, 0);
   assert.strictEqual(DS.dayKey(localLate), '2026-08-28', 'dayKey fecha local (no UTC)');
 })();
-assert.ok(/bindHomeDailyPlay/.test(app), 'daily play en core app.js');
-assert.ok(/showDailyPlayFlash/.test(schoolSrc), 'flash daily spot exportado');
-assert.ok(/startMatrixSpot\(spot\)/.test(schoolSrc), 'daily spot usa startMatrixSpot');
+assert.ok(/ptPlayDailySpot/.test(app), 'handler global daily spot');
+assert.ok(/wireDailyPlayButton/.test(schoolSrc), 'binding directo botón daily');
+assert.ok(/mountDailyDrillNow/.test(schoolSrc), 'montaje explícito daily drill');
 assert.ok(/pendingMatrixSpot = spot/.test(schoolSrc), 'daily spot monta matrix directo');
 assert.ok(/sizingQuiz|mountSizing/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill sizingQuiz');
 assert.ok(/rfiQuiz|mountRfi/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill rfiQuiz');
