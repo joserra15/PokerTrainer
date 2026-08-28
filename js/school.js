@@ -880,6 +880,12 @@
     if (!s || !MX || !MX.mountDrill) return;
     state.view = VIEW.matrix;
     state.pendingMatrixSpot = spot;
+    var schoolTab = typeof document !== 'undefined' ? document.getElementById('tab-school') : null;
+    var onSchool = !!(schoolTab && schoolTab.classList.contains('active'));
+    if (onSchool) {
+      mountPendingMatrixDrill();
+      return;
+    }
     if (typeof global.goToTab === 'function') global.goToTab('school');
     else mountPendingMatrixDrill();
   }
@@ -887,6 +893,9 @@
   function mountPendingMatrixDrill() {
     var s = state.session;
     var spot = state.pendingMatrixSpot;
+    if (!spot && s && s.spots && s.spots.length) {
+      spot = s.spots[s.index || 0];
+    }
     var MX = global.PTSchoolMatrixDrills;
     var root = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
     if (!s || !spot || !MX || !root) return;
@@ -896,7 +905,7 @@
       index: s.index,
       total: s.spots.length,
       lessonId: s.lessonId,
-      lessonTitle: (lesson && lesson.title) || s.lessonId || '',
+      lessonTitle: s.lessonTitle || (lesson && lesson.title) || s.lessonId || '',
       timedSeconds: (lesson && lesson.timedSeconds) || s.timedSeconds || null,
       onAbort: function () { abandonSession(true); },
       onResult: function (result) {
@@ -1132,10 +1141,50 @@
       results: []
     };
     state.view = VIEW.matrix;
-    startSpotAt(0);
+    state.pendingMatrixSpot = spot;
+    updateSchoolBanner();
     var host = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
-    if (host) render(host);
+    if (host) {
+      render(host);
+    } else if (typeof global.goToTab === 'function') {
+      global.goToTab('school');
+    }
     return { ok: true, spot: spot };
+  }
+
+  function showDailyPlayFlash(root, reason) {
+    if (!root) return;
+    var DS = global.PTSchoolDailySpot;
+    var msg = DS && DS.dailyPlayFeedback
+      ? DS.dailyPlayFeedback(reason)
+      : 'No se pudo iniciar el spot del día.';
+    var card = root.querySelector('.school-daily');
+    if (!card) return;
+    var el = card.querySelector('.school-daily-msg');
+    if (!el) {
+      el = document.createElement('p');
+      el.className = 'school-daily-msg muted-text';
+      el.setAttribute('role', 'status');
+      var actions = card.querySelector('.school-daily-actions');
+      if (actions) actions.appendChild(el);
+      else card.appendChild(el);
+    }
+    el.textContent = msg;
+  }
+
+  function ensureDailyPlayBinding(root) {
+    if (!root || root._ptDailyPlayBound || typeof root.addEventListener !== 'function') return;
+    root._ptDailyPlayBound = true;
+    root.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('[data-school-daily-play]') : null;
+      if (!btn || !root.contains(btn)) return;
+      if (btn.disabled) {
+        showDailyPlayFlash(root, 'done');
+        return;
+      }
+      var res = startDailySession();
+      if (res && !res.ok) showDailyPlayFlash(root, res.reason);
+    });
   }
 
   function startLessonSession(lessonId) {
@@ -2040,6 +2089,7 @@
   function render(container) {
     var root = container || document.getElementById('school-content');
     if (!root) return;
+    ensureDailyPlayBinding(root);
     if (!schoolMenuVisible()) {
       root.innerHTML = '<div class="school-page"><p class="muted-text">Escuela de Póker está en pruebas (solo administración).</p></div>';
       return;

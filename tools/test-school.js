@@ -486,6 +486,14 @@ assert.ok(sandbox.PTSchoolViralQuizzes && sandbox.PTSchoolViralQuizzes.DAILY_POO
 assert.ok(sandbox.PTSchoolDailySpot && sandbox.PTSchoolDailySpot.pickDailySpot(), 'daily spot picker');
 assert.ok(sandbox.PTSchoolDailySpot.buildIgCaption && /utm_source=instagram/.test(sandbox.PTSchoolDailySpot.buildIgCaption()), 'caption IG con UTM');
 assert.ok(sandbox.PTSchoolDailySpot.weekCalendar().length === 7, 'calendario semanal IG');
+(function () {
+  var DS = sandbox.PTSchoolDailySpot;
+  assert.ok(DS && DS.dayKey, 'daily dayKey export');
+  var localLate = new Date(2026, 7, 28, 23, 45, 0);
+  assert.strictEqual(DS.dayKey(localLate), '2026-08-28', 'dayKey fecha local (no UTC)');
+})();
+assert.ok(/ensureDailyPlayBinding|showDailyPlayFlash/.test(schoolSrc), 'daily play delegado en school.js');
+assert.ok(/pendingMatrixSpot = spot/.test(schoolSrc), 'daily spot monta matrix directo');
 assert.ok(/sizingQuiz|mountSizing/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill sizingQuiz');
 assert.ok(/rfiQuiz|mountRfi/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill rfiQuiz');
 assert.ok(/equityQuiz|mountEquity/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill equityQuiz');

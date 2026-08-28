@@ -30,7 +30,10 @@
   function dayKey(input) {
     var d = input ? new Date(input) : new Date();
     if (isNaN(d.getTime())) d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0, 10);
+    var y = d.getFullYear();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
   }
 
   function addDays(iso, delta) {
@@ -329,21 +332,19 @@
     if (!root) return;
     var card = root.querySelector('.school-daily');
     if (!card) return;
-    var play = card.querySelector('[data-school-daily-play]');
-    if (play) {
-      play.addEventListener('click', function () {
-        if (play.disabled) return;
-        if (global.PTSchool && global.PTSchool.startDailySession) {
-          global.PTSchool.startDailySession();
-        }
-      });
-    }
     var shareRoot = card.querySelector('.school-share-daily');
     if (shareRoot && global.PTSchoolShare && global.PTSchoolShare.mountDailyShare) {
       try {
         global.PTSchoolShare.mountDailyShare(shareRoot, buildSharePayload());
       } catch (eDailyShare) { /* ignore */ }
     }
+  }
+
+  function dailyPlayFeedback(reason) {
+    if (reason === 'done') return 'Ya completaste el spot de hoy. Vuelve mañana.';
+    if (reason === 'empty') return 'No hay spots disponibles ahora mismo.';
+    if (reason === 'missing') return 'El spot del día no está disponible. Recarga la página.';
+    return 'No se pudo iniciar el spot del día.';
   }
 
   global.PTSchoolDailySpot = {
@@ -359,6 +360,7 @@
     shareUrl: shareUrl,
     completeDaily: completeDaily,
     mountHub: mountHub,
+    dailyPlayFeedback: dailyPlayFeedback,
     DAILY_XP: DAILY_XP,
     IG_UTM: IG_UTM
   };
