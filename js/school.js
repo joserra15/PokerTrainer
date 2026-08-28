@@ -1199,6 +1199,10 @@
       teachBack: s.results[0] && s.results[0].teachBack
     };
     if (typeof global.goToTab === 'function') global.goToTab('home');
+    var homeHost = typeof document !== 'undefined' ? document.getElementById('home-daily-spot') : null;
+    if (homeHost) {
+      setTimeout(function () { renderHomeDailySpot(homeHost); }, 0);
+    }
   }
 
   function renderHomeDailySpot(host) {
@@ -1219,13 +1223,14 @@
         '<div class="school-daily-flash card-box ' + (dr.correct ? 'is-good' : 'is-bad') + '">' +
         '<p><strong>' + (dr.correct
           ? ('¡Spot del día acertado! +' + (dr.xpGain || 0) + ' XP · Racha ' + (dr.streak || 0))
-          : 'Spot del día fallado. Sigue entrenando mañana.') + '</strong></p>' +
+          : ('Spot del día fallado. Racha ' + (dr.streak || 0) + '. Vuelve mañana.')) + '</strong></p>' +
         (dr.teachBack ? '<p class="muted-text">' + esc(dr.teachBack) + '</p>' : '') +
         '</div>' + html;
       state.lastDailyResult = null;
     }
     host.innerHTML = html;
     wireDailyPlayButton(host);
+    ensureDailyPlayBinding(host);
     if (DS.mountHome) {
       try {
         DS.mountHome(host);

@@ -1213,9 +1213,9 @@
     var url = siteUrl();
     var btn = root.querySelector('[data-school-share="' + shareKey + '"]');
     if (btn) {
-      btn.addEventListener('click', function () {
+      btn.onclick = function () {
         shareNative(canvas, text, url, root);
-      });
+      };
     }
     return { canvas: canvas, text: text, url: url };
   }
@@ -1233,14 +1233,15 @@
   }
 
   function mountDailyShare(root, payload) {
-    var kind = payload && payload.kind;
-    if (kind === 'oddsQuiz') return mountOddsShare(root, payload);
-    if (kind === 'blockerQuiz') return mountBlockerShare(root, payload);
-    if (kind === 'rangeAdvQuiz') return mountRangeAdvShare(root, payload);
-    if (kind && GENERIC_SHARE[kind]) {
-      return mountMcqShare(root, payload, drawGenericMcqCard, buildGenericShareText, genericShareMeta(kind).key);
-    }
-    return mountDecisionShare(root, payload);
+    if (!root || !payload) return null;
+    var kind = payload.kind;
+    var drawFn = drawDecisionCard;
+    if (kind === 'oddsQuiz') drawFn = drawOddsCard;
+    else if (kind === 'blockerQuiz') drawFn = drawBlockerCard;
+    else if (kind === 'rangeAdvQuiz') drawFn = drawRangeAdvCard;
+    else if (kind && GENERIC_SHARE[kind]) drawFn = drawGenericMcqCard;
+    /* Siempre data-school-share="daily" (buildDailyShareHtml). */
+    return mountMcqShare(root, payload, drawFn, buildDailyShareText, 'daily');
   }
 
   global.PTSchoolShare = {

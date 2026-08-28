@@ -16745,9 +16745,9 @@
     var url = siteUrl();
     var btn = root.querySelector('[data-school-share="' + shareKey + '"]');
     if (btn) {
-      btn.addEventListener('click', function () {
+      btn.onclick = function () {
         shareNative(canvas, text, url, root);
-      });
+      };
     }
     return { canvas: canvas, text: text, url: url };
   }
@@ -16765,14 +16765,15 @@
   }
 
   function mountDailyShare(root, payload) {
-    var kind = payload && payload.kind;
-    if (kind === 'oddsQuiz') return mountOddsShare(root, payload);
-    if (kind === 'blockerQuiz') return mountBlockerShare(root, payload);
-    if (kind === 'rangeAdvQuiz') return mountRangeAdvShare(root, payload);
-    if (kind && GENERIC_SHARE[kind]) {
-      return mountMcqShare(root, payload, drawGenericMcqCard, buildGenericShareText, genericShareMeta(kind).key);
-    }
-    return mountDecisionShare(root, payload);
+    if (!root || !payload) return null;
+    var kind = payload.kind;
+    var drawFn = drawDecisionCard;
+    if (kind === 'oddsQuiz') drawFn = drawOddsCard;
+    else if (kind === 'blockerQuiz') drawFn = drawBlockerCard;
+    else if (kind === 'rangeAdvQuiz') drawFn = drawRangeAdvCard;
+    else if (kind && GENERIC_SHARE[kind]) drawFn = drawGenericMcqCard;
+    /* Siempre data-school-share="daily" (buildDailyShareHtml). */
+    return mountMcqShare(root, payload, drawFn, buildDailyShareText, 'daily');
   }
 
   global.PTSchoolShare = {
@@ -17007,7 +17008,23 @@
     if (!pool.length) return null;
     var day = forDay || dayKey();
     var idx = hashDay(day) % pool.length;
+    if (pool.length > 1) {
+      var prevIdx = hashDay(addDays(day, -1)) % pool.length;
+      if (prevIdx === idx) idx = (idx + 1) % pool.length;
+    }
     return pool[idx];
+  }
+
+  function buildDailyShareHtmlInline() {
+    return (
+      '<div class="school-share school-share-mcq school-share-daily" aria-label="Compartir spot del día">' +
+      '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
+      '<div class="school-share-actions">' +
+      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="daily">Compartir</button>' +
+      '</div>' +
+      '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
+      '</div>'
+    );
   }
 
   function buildSharePayload(spot, day) {
@@ -17082,29 +17099,35 @@
       '<button type="button" class="btn btn-primary" data-school-daily-play="1"' +
       (doneToday ? ' disabled' : '') + '>' +
       (doneToday ? 'Vuelve mañana' : 'Jugar spot') + '</button>' +
-      (global.PTSchoolShare && global.PTSchoolShare.buildDailyShareHtml
-        ? global.PTSchoolShare.buildDailyShareHtml()
-        : '') +
+      buildDailyShareHtmlInline() +
       '</div>' +
       '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · comparte en IG</p>' +
       '</section>'
     );
   }
 
-  function updateStreak(ds, today, correct) {
+  function updateStreak(ds, today) {
     var streak = Number(ds.streak) || 0;
     var best = Number(ds.best) || 0;
     if (ds.lastDay === today && ds.completed) {
       return { streak: streak, best: best };
     }
-    if (correct) {
-      if (ds.lastDay && addDays(ds.lastDay, 1) === today) streak += 1;
-      else streak = 1;
-    } else {
-      streak = 0;
-    }
+    if (ds.lastDay && addDays(ds.lastDay, 1) === today) streak += 1;
+    else streak = 1;
     if (streak > best) best = streak;
     return { streak: streak, best: best };
+  }
+
+  function persistDailyState(nextState, xpGain) {
+    if (!global.PTSchool || !global.PTSchool.readSchool) {
+      return writeDailyState(nextState);
+    }
+    var school = global.PTSchool.readSchool();
+    if (xpGain) school.xp = (Number(school.xp) || 0) + xpGain;
+    school[STORAGE_KEY] = Object.assign({}, nextState);
+    school.dailySpot = school[STORAGE_KEY];
+    if (global.PTSchool._writeSchool) global.PTSchool._writeSchool(school);
+    return school[STORAGE_KEY];
   }
 
   function completeDaily(summary, results) {
@@ -17112,32 +17135,18 @@
     var ds = readDailyState();
     if (ds.lastDay === today && ds.completed) return ds;
     var ok = !!(results && results.length && results[0].quizCorrect);
-    var streakInfo = updateStreak(ds, today, ok);
+    var streakInfo = updateStreak(ds, today);
     var xpGain = ok ? DAILY_XP : 0;
-    if (xpGain && global.PTSchool && global.PTSchool.readSchool) {
-      var school = global.PTSchool.readSchool();
-      school.xp = (Number(school.xp) || 0) + xpGain;
-      school[STORAGE_KEY] = {
-        lastDay: today,
-        lastSpotId: results[0] && results[0].spotId,
-        completed: true,
-        correct: ok,
-        streak: streakInfo.streak,
-        best: streakInfo.best,
-        total: (Number(ds.total) || 0) + 1
-      };
-      if (global.PTSchool._writeSchool) global.PTSchool._writeSchool(school);
-    } else {
-      writeDailyState({
-        lastDay: today,
-        lastSpotId: results[0] && results[0].spotId,
-        completed: true,
-        correct: ok,
-        streak: streakInfo.streak,
-        best: streakInfo.best,
-        total: (Number(ds.total) || 0) + 1
-      });
-    }
+    var spotId = results[0] && (results[0].spotId || results[0].id);
+    persistDailyState({
+      lastDay: today,
+      lastSpotId: spotId || null,
+      completed: true,
+      correct: ok,
+      streak: streakInfo.streak,
+      best: streakInfo.best,
+      total: (Number(ds.total) || 0) + 1
+    }, xpGain);
     if (global.PTSchool && global.PTSchool.trackSchool) {
       global.PTSchool.trackSchool('daily_spot_complete', {
         correct: ok,
@@ -17153,11 +17162,12 @@
     var card = root.querySelector('.school-daily');
     if (!card) return;
     var shareRoot = card.querySelector('.school-share-daily');
-    if (shareRoot && global.PTSchoolShare && global.PTSchoolShare.mountDailyShare) {
-      try {
-        global.PTSchoolShare.mountDailyShare(shareRoot, buildSharePayload());
-      } catch (eDailyShare) { /* ignore */ }
-    }
+    if (!shareRoot) return;
+    if (!global.PTSchoolShare || !global.PTSchoolShare.mountDailyShare) return;
+    try {
+      var payload = buildSharePayload(pickDailySpot(dayKey()), dayKey());
+      if (payload) global.PTSchoolShare.mountDailyShare(shareRoot, payload);
+    } catch (eDailyShare) { /* ignore */ }
   }
 
   function dailyPlayFeedback(reason) {
@@ -18389,6 +18399,10 @@
       teachBack: s.results[0] && s.results[0].teachBack
     };
     if (typeof global.goToTab === 'function') global.goToTab('home');
+    var homeHost = typeof document !== 'undefined' ? document.getElementById('home-daily-spot') : null;
+    if (homeHost) {
+      setTimeout(function () { renderHomeDailySpot(homeHost); }, 0);
+    }
   }
 
   function renderHomeDailySpot(host) {
@@ -18409,13 +18423,14 @@
         '<div class="school-daily-flash card-box ' + (dr.correct ? 'is-good' : 'is-bad') + '">' +
         '<p><strong>' + (dr.correct
           ? ('¡Spot del día acertado! +' + (dr.xpGain || 0) + ' XP · Racha ' + (dr.streak || 0))
-          : 'Spot del día fallado. Sigue entrenando mañana.') + '</strong></p>' +
+          : ('Spot del día fallado. Racha ' + (dr.streak || 0) + '. Vuelve mañana.')) + '</strong></p>' +
         (dr.teachBack ? '<p class="muted-text">' + esc(dr.teachBack) + '</p>' : '') +
         '</div>' + html;
       state.lastDailyResult = null;
     }
     host.innerHTML = html;
     wireDailyPlayButton(host);
+    ensureDailyPlayBinding(host);
     if (DS.mountHome) {
       try {
         DS.mountHome(host);

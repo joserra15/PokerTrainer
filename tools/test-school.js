@@ -497,7 +497,15 @@ assert.ok(sandbox.PTSchoolDailySpot.weekCalendar().length === 7, 'calendario sem
   assert.ok(DS && DS.dayKey, 'daily dayKey export');
   var localLate = new Date(2026, 7, 28, 23, 45, 0);
   assert.strictEqual(DS.dayKey(localLate), '2026-08-28', 'dayKey fecha local (no UTC)');
+  var s1 = DS.pickDailySpot('2026-08-28');
+  var s2 = DS.pickDailySpot('2026-08-29');
+  assert.ok(s1 && s2 && s1.id && s2.id, 'picker devuelve spots');
+  assert.notStrictEqual(s1.id, s2.id, 'spot cambia cada día');
 })();
+assert.ok(/buildDailyShareHtmlInline/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
+  'share inline en tarjeta home');
+assert.ok(/persistDailyState/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
+  'persistencia unificada al completar daily');
 assert.ok(/ptPlayDailySpot/.test(app), 'handler global daily spot');
 assert.ok(/wireDailyPlayButton/.test(schoolSrc), 'binding directo botón daily');
 assert.ok(/mountDailyDrillNow/.test(schoolSrc), 'montaje explícito daily drill');

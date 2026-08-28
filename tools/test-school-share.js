@@ -15,7 +15,7 @@ const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.7.40'/.test(version), 'versión 2.7.40');
+assert.ok(/PT_BUILD\s*=\s*'2.7.41'/.test(version), 'versión 2.7.41');
 assert.ok(/school-share\.js/.test(chunks), 'chunk school incluye school-share.js');
 assert.ok(/buildHubPanelHtml/.test(shareSrc) && /drawHubSummaryCard/.test(shareSrc), 'share hub');
 assert.ok(/mountHubSharePanel/.test(shareSrc), 'mount hub share');
@@ -26,6 +26,10 @@ assert.ok(/drawDecisionCard/.test(shareSrc) && /mountDecisionShare/.test(shareSr
 assert.ok(/drawOddsCard/.test(shareSrc) && /mountOddsShare/.test(shareSrc), 'share odds quiz');
 assert.ok(/drawBlockerCard/.test(shareSrc) && /mountBlockerShare/.test(shareSrc), 'share blocker quiz');
 assert.ok(/buildDailyShareHtml/.test(shareSrc), 'share daily spot');
+assert.ok(/mountDailyShare[\s\S]*buildDailyShareText[\s\S]*'daily'/.test(shareSrc),
+  'mountDailyShare enlaza botón daily');
+assert.ok(/data-school-share="daily"/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
+  'HTML home share usa data-school-share=daily');
 assert.ok(/buildGenericShareHtml|drawGenericMcqCard|mountGenericShare/.test(shareSrc), 'share genérico viral');
 assert.ok(/buildRangeAdvShareHtml/.test(shareSrc), 'html share range advantage');
 assert.ok(!/Sin spoiler|sin spoiler/.test(shareSrc), 'copy sin mención «sin spoiler»');
