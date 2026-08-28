@@ -236,7 +236,7 @@
     return base;
   }
 
-  function buildHubCardHtml() {
+  function buildHomeCardHtml() {
     var pool = getPool();
     if (!pool.length) return '';
     var today = dayKey();
@@ -328,7 +328,7 @@
     return readDailyState();
   }
 
-  function mountHub(root) {
+  function mountHome(root) {
     if (!root) return;
     var card = root.querySelector('.school-daily');
     if (!card) return;
@@ -353,13 +353,15 @@
     pickDailySpot: pickDailySpot,
     readDailyState: readDailyState,
     writeDailyState: writeDailyState,
-    buildHubCardHtml: buildHubCardHtml,
+    buildHomeCardHtml: buildHomeCardHtml,
+    buildHubCardHtml: buildHomeCardHtml,
     buildSharePayload: buildSharePayload,
     buildIgCaption: buildIgCaption,
     weekCalendar: weekCalendar,
     shareUrl: shareUrl,
     completeDaily: completeDaily,
-    mountHub: mountHub,
+    mountHome: mountHome,
+    mountHub: mountHome,
     dailyPlayFeedback: dailyPlayFeedback,
     DAILY_XP: DAILY_XP,
     IG_UTM: IG_UTM

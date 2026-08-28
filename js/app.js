@@ -1837,6 +1837,23 @@
       '<div class="home-stat ' + s.cls + '"><span class="val">' + escapeHtml(String(s.val)) + '</span><span class="lbl">' + escapeHtml(s.lbl) + '</span></div>'
     ).join('');
 
+    const dailyHost = $('#home-daily-spot');
+    if (dailyHost) {
+      const guestDaily = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+        || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+      if (user && !guestDaily) {
+        withLazyChunk('school', function () {
+          if (window.PTSchool && PTSchool.renderHomeDailySpot) {
+            PTSchool.renderHomeDailySpot(dailyHost);
+          } else {
+            dailyHost.innerHTML = '';
+          }
+        });
+      } else {
+        dailyHost.innerHTML = '';
+      }
+    }
+
     const errBadge = document.querySelector('[data-home-badge="errors"]');
     if (errBadge) {
       const existing = errBadge.parentElement.querySelector('.home-card-badge');

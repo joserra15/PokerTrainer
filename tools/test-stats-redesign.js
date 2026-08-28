@@ -43,6 +43,8 @@ assert(!/Manos entrenadas/.test(renderHomeSrc), 'home ya no muestra volumen de m
 assert(!/En histórico/.test(renderHomeSrc), 'home ya no muestra histórico');
 assert(/Acierto global/.test(renderHomeSrc), 'home muestra acierto global');
 assert(/Errores a repasar/.test(renderHomeSrc), 'home muestra errores a repasar');
+assert(/id="home-daily-spot"/.test(indexHtml), 'host spot del día en home');
+assert(/renderHomeDailySpot/.test(renderHomeSrc), 'home monta spot del día');
 
 assert(/data-stats-tab="trainer"/.test(renderStatsSrc), 'pestaña Entrenador');
 assert(/data-stats-tab="sessions"/.test(renderStatsSrc), 'pestaña Sesiones');

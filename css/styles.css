@@ -1316,6 +1316,8 @@ main { padding: 22px; max-width: 1280px; margin: 0 auto; }
 .home-stats-strip {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
 }
+.home-daily-spot:empty { display: none; }
+.home-daily-spot { margin: 12px 0 0; }
 .home-contact-notice {
   margin: 12px 0 0;
 }

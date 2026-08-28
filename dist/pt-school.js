@@ -17037,7 +17037,7 @@
     return base;
   }
 
-  function buildHubCardHtml() {
+  function buildHomeCardHtml() {
     var pool = getPool();
     if (!pool.length) return '';
     var today = dayKey();
@@ -17129,7 +17129,7 @@
     return readDailyState();
   }
 
-  function mountHub(root) {
+  function mountHome(root) {
     if (!root) return;
     var card = root.querySelector('.school-daily');
     if (!card) return;
@@ -17154,13 +17154,15 @@
     pickDailySpot: pickDailySpot,
     readDailyState: readDailyState,
     writeDailyState: writeDailyState,
-    buildHubCardHtml: buildHubCardHtml,
+    buildHomeCardHtml: buildHomeCardHtml,
+    buildHubCardHtml: buildHomeCardHtml,
     buildSharePayload: buildSharePayload,
     buildIgCaption: buildIgCaption,
     weekCalendar: weekCalendar,
     shareUrl: shareUrl,
     completeDaily: completeDaily,
-    mountHub: mountHub,
+    mountHome: mountHome,
+    mountHub: mountHome,
     dailyPlayFeedback: dailyPlayFeedback,
     DAILY_XP: DAILY_XP,
     IG_UTM: IG_UTM
@@ -18286,7 +18288,39 @@
       xpGain: ok ? (global.PTSchoolDailySpot && global.PTSchoolDailySpot.DAILY_XP) || 15 : 0,
       teachBack: s.results[0] && s.results[0].teachBack
     };
-    if (typeof global.goToTab === 'function') global.goToTab('school');
+    if (typeof global.goToTab === 'function') global.goToTab('home');
+  }
+
+  function renderHomeDailySpot(host) {
+    if (!host) return;
+    ensureDailyPlayBinding(host);
+    var DS = global.PTSchoolDailySpot;
+    if (!DS || !DS.buildHomeCardHtml || !schoolMenuVisible()) {
+      host.innerHTML = '';
+      return;
+    }
+    var html = DS.buildHomeCardHtml();
+    if (!html) {
+      host.innerHTML = '';
+      return;
+    }
+    if (state.lastDailyResult) {
+      var dr = state.lastDailyResult;
+      html =
+        '<div class="school-daily-flash card-box ' + (dr.correct ? 'is-good' : 'is-bad') + '">' +
+        '<p><strong>' + (dr.correct
+          ? ('¡Spot del día acertado! +' + (dr.xpGain || 0) + ' XP · Racha ' + (dr.streak || 0))
+          : 'Spot del día fallado. Sigue entrenando mañana.') + '</strong></p>' +
+        (dr.teachBack ? '<p class="muted-text">' + esc(dr.teachBack) + '</p>' : '') +
+        '</div>' + html;
+      state.lastDailyResult = null;
+    }
+    host.innerHTML = html;
+    if (DS.mountHome) {
+      try {
+        DS.mountHome(host);
+      } catch (eDailyHome) { /* ignore */ }
+    }
   }
 
   function startDailySession() {
@@ -18860,9 +18894,6 @@
       '<div class="school-xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
       routePct + '" aria-label="Progreso de la ruta">' +
       '<div class="school-xp-fill school-xp-fill-anim" style="width:' + routePct + '%"></div></div>' +
-      (global.PTSchoolDailySpot && global.PTSchoolDailySpot.buildHubCardHtml
-        ? global.PTSchoolDailySpot.buildHubCardHtml()
-        : '') +
       (global.PTSchoolShare && global.PTSchoolShare.buildHubPanelHtml
         ? global.PTSchoolShare.buildHubPanelHtml()
         : '') +
@@ -18890,25 +18921,6 @@
           routeId: routeId
         });
       } catch (eHub) { /* ignore */ }
-    }
-    if (global.PTSchoolDailySpot && global.PTSchoolDailySpot.mountHub) {
-      try {
-        global.PTSchoolDailySpot.mountHub(root);
-      } catch (eDailyHub) { /* ignore */ }
-    }
-    if (state.lastDailyResult) {
-      var dr = state.lastDailyResult;
-      var flash = document.createElement('div');
-      flash.className = 'school-daily-flash card-box ' + (dr.correct ? 'is-good' : 'is-bad');
-      flash.innerHTML =
-        '<p><strong>' + (dr.correct
-          ? ('¡Spot del día acertado! +' + (dr.xpGain || 0) + ' XP · Racha ' + (dr.streak || 0))
-          : 'Spot del día fallado. Sigue entrenando mañana.') + '</strong></p>' +
-        (dr.teachBack ? '<p class="muted-text">' + esc(dr.teachBack) + '</p>' : '');
-      var page = root.querySelector('.school-page');
-      var routesEl = root.querySelector('.school-routes');
-      if (page && routesEl) page.insertBefore(flash, routesEl);
-      state.lastDailyResult = null;
     }
     root.querySelectorAll('[data-school-route]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -19258,7 +19270,6 @@
   function render(container) {
     var root = container || document.getElementById('school-content');
     if (!root) return;
-    ensureDailyPlayBinding(root);
     if (!schoolMenuVisible()) {
       root.innerHTML = '<div class="school-page"><p class="muted-text">Escuela de Póker está en pruebas (solo administración).</p></div>';
       return;
@@ -19308,6 +19319,7 @@
     migrateSchoolProgress: migrateSchoolProgress,
     startLessonSession: startLessonSession,
     startDailySession: startDailySession,
+    renderHomeDailySpot: renderHomeDailySpot,
     abandonSession: abandonSession,
     _writeSchool: writeSchool,
     ensureBannerEl: ensureBannerEl,
