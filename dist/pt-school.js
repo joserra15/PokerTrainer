@@ -18293,7 +18293,6 @@
 
   function renderHomeDailySpot(host) {
     if (!host) return;
-    ensureDailyPlayBinding(host);
     var DS = global.PTSchoolDailySpot;
     if (!DS || !DS.buildHomeCardHtml || !schoolMenuVisible()) {
       host.innerHTML = '';
@@ -18343,14 +18342,14 @@
       spotDecided: false,
       results: []
     };
-    state.view = VIEW.matrix;
-    state.pendingMatrixSpot = spot;
     updateSchoolBanner();
-    if (typeof global.goToTab === 'function') {
-      global.goToTab('school');
-    } else {
-      var host = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
-      if (host) render(host);
+    startMatrixSpot(spot);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        var tab = typeof document !== 'undefined' ? document.getElementById('tab-school') : null;
+        var root = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+        if (tab && tab.classList.contains('active') && root) render(root);
+      });
     }
     return { ok: true, spot: spot };
   }
@@ -19321,6 +19320,7 @@
     startLessonSession: startLessonSession,
     startDailySession: startDailySession,
     renderHomeDailySpot: renderHomeDailySpot,
+    showDailyPlayFlash: showDailyPlayFlash,
     abandonSession: abandonSession,
     _writeSchool: writeSchool,
     ensureBannerEl: ensureBannerEl,

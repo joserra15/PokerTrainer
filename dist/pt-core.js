@@ -32993,7 +32993,7 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
 
-    const user = window.PT_AUTH_USER;
+    const user = (window.PTAuth && PTAuth.getUser && PTAuth.getUser()) || window.PT_AUTH_USER;
     const first = firstNameFromUser(user);
     greetEl.textContent = first ? ('¡Hola, ' + first + '!') : 'Bienvenido al felt';
 
@@ -33075,6 +33075,39 @@ window.PT_NASH_PUSH_JSON = {
     });
   }
 
+  function bindHomeDailyPlay() {
+    const page = $('#home-page');
+    if (!page || page._ptDailyPlayBound) return;
+    page._ptDailyPlayBound = true;
+    page.addEventListener('click', function (e) {
+      const btn = e.target && e.target.closest ? e.target.closest('[data-school-daily-play]') : null;
+      if (!btn || !page.contains(btn)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const host = $('#home-daily-spot');
+      if (btn.disabled) {
+        withLazyChunk('school', function () {
+          if (window.PTSchool && PTSchool.showDailyPlayFlash && host) {
+            PTSchool.showDailyPlayFlash(host, 'done');
+          }
+        });
+        return;
+      }
+      withLazyChunk('school', function () {
+        if (!window.PTSchool || !PTSchool.startDailySession) {
+          if (window.PTSchool && PTSchool.showDailyPlayFlash && host) {
+            PTSchool.showDailyPlayFlash(host, 'missing');
+          }
+          return;
+        }
+        const res = PTSchool.startDailySession();
+        if (res && !res.ok && PTSchool.showDailyPlayFlash && host) {
+          PTSchool.showDailyPlayFlash(host, res.reason);
+        }
+      });
+    });
+  }
+
   function bindHome() {
     const brand = $('#brand-home');
     if (brand) brand.addEventListener('click', () => goToTab('home'));
@@ -33122,6 +33155,7 @@ window.PT_NASH_PUSH_JSON = {
       homeBootCloudSettled = true;
       maybeFinishHomeBoot(true);
     });
+    bindHomeDailyPlay();
   }
 
   function goToTab(tabId, opts) {
@@ -33150,7 +33184,8 @@ window.PT_NASH_PUSH_JSON = {
       else showPlaySetup();
     }
     if (tabId === 'school') {
-      var schoolUser = window.PTAuth && window.PTAuth.getUser ? window.PTAuth.getUser() : null;
+      var schoolUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
+        || window.PT_AUTH_USER || null;
       var schoolDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
       /* GA: cualquier usuario autenticado (no demo). El chunk school confirma con schoolMenuVisible. */
       var canSchool = !!(schoolUser && !schoolDemo);
