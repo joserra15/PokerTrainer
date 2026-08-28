@@ -446,10 +446,18 @@
     }).join('') + '</ul>';
   }
 
-  function formatHeroCardsHtml(cards) {
+  function formatHeroCardsHtml(cards, heroPos) {
+    var posHtml = heroPos
+      ? (' · <span class="school-mcq-hero-pos">' + esc(heroPos) + '</span>')
+      : '';
     return '<div class="school-mcq-hero">' +
-      '<span class="muted-text">Héroe</span>' +
+      '<span class="school-mcq-hero-label">HÉROE' + posHtml + '</span>' +
       '<div class="school-ra-board">' + (cards || []).map(formatCardHtml).join('') + '</div></div>';
+  }
+
+  function heroPosForSpot(spot, quiz) {
+    var q = quiz || (spot && spot.quiz) || {};
+    return (spot && spot.heroPos) || q.position || '';
   }
 
   function mountDecision(host, spot, ctx) {
@@ -458,7 +466,7 @@
       (quiz.line ? '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(quiz.line) + '</p>' : '') +
       formatLineStoryHtml(quiz.lineStory) +
       formatBoardHtml(quiz.board || []) +
-      formatHeroCardsHtml(quiz.heroCards);
+      formatHeroCardsHtml(quiz.heroCards, heroPosForSpot(spot, quiz));
     mountMcqDrill(host, spot, ctx, {
       kindLabel: 'Fold / Call / Raise',
       title: '¿Qué haces?',
@@ -495,7 +503,7 @@
       '</div>' +
       '<p class="school-odds-draw"><strong>Draw:</strong> ' + esc(quiz.draw || '') + '</p>' +
       formatBoardHtml(quiz.board || []) +
-      formatHeroCardsHtml(quiz.heroCards);
+      formatHeroCardsHtml(quiz.heroCards, heroPosForSpot(spot, quiz));
     mountMcqDrill(host, spot, ctx, {
       kindLabel: 'Pot odds',
       title: 'Precio del bote',
@@ -555,21 +563,21 @@
   function mountSizing(host, spot, ctx) {
     var q = spot.quiz || {};
     var body = (q.line ? '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(q.line) + '</p>' : '') +
-      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards);
+      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards, heroPosForSpot(spot, q));
     mountMcqDrill(host, spot, ctx, { kindLabel: 'Sizing', title: 'Elige sizing', bodyHtml: body });
   }
 
   function mountRfi(host, spot, ctx) {
     var q = spot.quiz || {};
     var body = '<p class="school-ra-line"><strong>' + esc(q.position || spot.heroPos || '') + '</strong></p>' +
-      formatHeroCardsHtml(q.heroCards);
+      formatHeroCardsHtml(q.heroCards, heroPosForSpot(spot, q));
     mountMcqDrill(host, spot, ctx, { kindLabel: 'RFI', title: '¿Open o fold?', bodyHtml: body });
   }
 
   function mountEquity(host, spot, ctx) {
     var q = spot.quiz || {};
     var body = '<p class="muted-text">' + esc(q.villainRange || '') + '</p>' +
-      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards);
+      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards, heroPosForSpot(spot, q));
     mountMcqDrill(host, spot, ctx, { kindLabel: 'Equity', title: 'Estima equity', bodyHtml: body });
   }
 
@@ -591,14 +599,14 @@
   function mountNash(host, spot, ctx) {
     var q = spot.quiz || {};
     var body = '<p class="school-ra-line">' + esc(q.position || '') + ' · ' +
-      esc(String(q.stackBB || '')) + ' bb</p>' + formatHeroCardsHtml(q.heroCards);
+      esc(String(q.stackBB || '')) + ' bb</p>' + formatHeroCardsHtml(q.heroCards, heroPosForSpot(spot, q));
     mountMcqDrill(host, spot, ctx, { kindLabel: 'Nash', title: 'Push / fold', bodyHtml: body });
   }
 
   function mountIcm(host, spot, ctx) {
     var q = spot.quiz || {};
     var body = '<p class="school-ra-line">' + esc(q.payout || 'ICM spot') + ' · ' +
-      esc(String(q.stackBB || '')) + ' bb</p>' + formatHeroCardsHtml(q.heroCards);
+      esc(String(q.stackBB || '')) + ' bb</p>' + formatHeroCardsHtml(q.heroCards, heroPosForSpot(spot, q));
     mountMcqDrill(host, spot, ctx, { kindLabel: 'ICM', title: 'Burbuja / FT', bodyHtml: body });
   }
 
@@ -606,7 +614,7 @@
     var q = spot.quiz || {};
     var body = '<p class="school-ra-line">Pot ' + esc(String(q.potBB || '')) + ' bb · Stack ' +
       esc(String(q.stackBB || '')) + ' bb</p>' +
-      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards);
+      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards, heroPosForSpot(spot, q));
     mountMcqDrill(host, spot, ctx, { kindLabel: 'SPR', title: '¿Committed?', bodyHtml: body });
   }
 

@@ -22682,11 +22682,70 @@ window.PT_NASH_PUSH_JSON = {
       if (!(Number(row.bestScore) > 0) && row.bestPct == null) delete row.bestScore;
       lessons[id] = row;
     });
-    return {
+    const out = {
       xp: Math.max(Number(a.xp) || 0, Number(b.xp) || 0),
       lessons: lessons,
       updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0),
       version: Math.max(Number(a.version) || 1, Number(b.version) || 1)
+    };
+    const mergedDaily = mergeDailySpotProgress(a.dailySpot, b.dailySpot);
+    if (mergedDaily) out.dailySpot = mergedDaily;
+    return out;
+  }
+
+  function normalizeDailySpotProgress(ds) {
+    if (!ds || typeof ds !== 'object') return null;
+    return {
+      lastDay: ds.lastDay || null,
+      lastSpotId: ds.lastSpotId || null,
+      completed: !!ds.completed,
+      correct: !!ds.correct,
+      streak: Number(ds.streak) || 0,
+      best: Number(ds.best) || 0,
+      total: Number(ds.total) || 0
+    };
+  }
+
+  function dayAfterDailyProgress(iso) {
+    if (!iso) return null;
+    const d = new Date(iso + 'T12:00:00');
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+
+  function mergeDailySpotProgress(aRaw, bRaw) {
+    const a = normalizeDailySpotProgress(aRaw);
+    const b = normalizeDailySpotProgress(bRaw);
+    if (!a && !b) return undefined;
+    if (!a) return JSON.parse(JSON.stringify(b));
+    if (!b) return JSON.parse(JSON.stringify(a));
+    let pick = (!a.lastDay || (b.lastDay && b.lastDay > a.lastDay)) ? b
+      : (!b.lastDay || a.lastDay > b.lastDay) ? a
+      : (a.completed && !b.completed) ? a
+      : (b.completed && !a.completed) ? b
+      : ((Number(a.streak) || 0) >= (Number(b.streak) || 0)) ? a : b;
+    const other = pick === a ? b : a;
+    let streak = Math.max(Number(pick.streak) || 0, Number(other.streak) || 0);
+    if (pick.lastDay && other.lastDay) {
+      if (pick.lastDay === dayAfterDailyProgress(other.lastDay) && pick.completed && pick.correct) {
+        streak = Math.max(streak, (Number(other.streak) || 0) + 1);
+      } else if (other.lastDay === dayAfterDailyProgress(pick.lastDay) && other.completed && other.correct) {
+        streak = Math.max(streak, (Number(pick.streak) || 0) + 1);
+      }
+    }
+    const best = Math.max(Number(a.best) || 0, Number(b.best) || 0, streak);
+    return {
+      lastDay: pick.lastDay || other.lastDay || null,
+      lastSpotId: pick.lastSpotId || other.lastSpotId || null,
+      completed: !!(pick.completed || (pick.lastDay === other.lastDay && other.completed)),
+      correct: !!(pick.correct || (pick.lastDay === other.lastDay && other.correct)),
+      streak: streak,
+      best: best,
+      total: Math.max(Number(a.total) || 0, Number(b.total) || 0)
     };
   }
 
@@ -23712,12 +23771,14 @@ window.PT_NASH_PUSH_JSON = {
       writeStats(stats);
       try {
         if (stats.school) {
-          const payload = JSON.stringify({
+          const backupPayload = {
             xp: Number(stats.school.xp) || 0,
             lessons: stats.school.lessons || {},
             updatedAt: Date.now(),
             version: Number(stats.school.version) || 2
-          });
+          };
+          if (stats.school.dailySpot) backupPayload.dailySpot = stats.school.dailySpot;
+          const payload = JSON.stringify(backupPayload);
           localStorage.setItem('pt_school_backup_v1' + (userId ? '_' + userId : ''), payload);
           localStorage.setItem('pt_school_backup_v1', payload);
         }

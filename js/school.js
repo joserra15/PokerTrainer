@@ -52,6 +52,67 @@
     return { xp: 0, lessons: {}, updatedAt: 0, version: 2 };
   }
 
+  function normalizeDailySpot(ds) {
+    if (!ds || typeof ds !== 'object') return null;
+    return {
+      lastDay: ds.lastDay || null,
+      lastSpotId: ds.lastSpotId || null,
+      completed: !!ds.completed,
+      correct: !!ds.correct,
+      streak: Number(ds.streak) || 0,
+      best: Number(ds.best) || 0,
+      total: Number(ds.total) || 0
+    };
+  }
+
+  function cloneDailySpot(ds) {
+    var n = normalizeDailySpot(ds);
+    return n ? Object.assign({}, n) : undefined;
+  }
+
+  function dayAfterDaily(iso) {
+    if (!iso) return null;
+    var d = new Date(iso + 'T12:00:00');
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + 1);
+    var y = d.getFullYear();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+
+  function mergeDailySpot(aRaw, bRaw) {
+    var a = normalizeDailySpot(aRaw);
+    var b = normalizeDailySpot(bRaw);
+    if (!a && !b) return undefined;
+    if (!a) return cloneDailySpot(b);
+    if (!b) return cloneDailySpot(a);
+    var pick = (!a.lastDay || (b.lastDay && b.lastDay > a.lastDay)) ? b
+      : (!b.lastDay || a.lastDay > b.lastDay) ? a
+      : (a.completed && !b.completed) ? a
+      : (b.completed && !a.completed) ? b
+      : ((Number(a.streak) || 0) >= (Number(b.streak) || 0)) ? a : b;
+    var other = pick === a ? b : a;
+    var streak = Math.max(Number(pick.streak) || 0, Number(other.streak) || 0);
+    if (pick.lastDay && other.lastDay) {
+      if (pick.lastDay === dayAfterDaily(other.lastDay) && pick.completed && pick.correct) {
+        streak = Math.max(streak, (Number(other.streak) || 0) + 1);
+      } else if (other.lastDay === dayAfterDaily(pick.lastDay) && other.completed && other.correct) {
+        streak = Math.max(streak, (Number(pick.streak) || 0) + 1);
+      }
+    }
+    var best = Math.max(Number(a.best) || 0, Number(b.best) || 0, streak);
+    return {
+      lastDay: pick.lastDay || other.lastDay || null,
+      lastSpotId: pick.lastSpotId || other.lastSpotId || null,
+      completed: !!(pick.completed || (pick.lastDay === other.lastDay && other.completed)),
+      correct: !!(pick.correct || (pick.lastDay === other.lastDay && other.correct)),
+      streak: streak,
+      best: best,
+      total: Math.max(Number(a.total) || 0, Number(b.total) || 0)
+    };
+  }
+
   /**
    * v1→v2: el examen M0 pasó de C-04 a C-06; C-04 es ahora "Sizing del open".
    * Migra progreso del examen antiguo a C-06 y deja C-04 limpio.
@@ -111,12 +172,15 @@
   function writeSchoolBackup(school) {
     try {
       if (typeof localStorage === 'undefined') return false;
-      var payload = JSON.stringify({
+      var backup = {
         xp: Number(school.xp) || 0,
         lessons: cloneLessonsMap(school.lessons),
         updatedAt: Date.now(),
         version: Number(school.version) || 2
-      });
+      };
+      var ds = cloneDailySpot(school.dailySpot);
+      if (ds) backup.dailySpot = ds;
+      var payload = JSON.stringify(backup);
       localStorage.setItem(schoolBackupKey(), payload);
       /* También en clave legacy: si el uid aún no está listo, no se pierde. */
       try {
@@ -229,12 +293,14 @@
     if (!a) return b ? {
       xp: Number(b.xp) || 0,
       lessons: cloneLessonsMap(b.lessons),
+      dailySpot: cloneDailySpot(b.dailySpot),
       updatedAt: Number(b.updatedAt) || 0,
       version: Number(b.version) || 2
     } : defaultSchool();
     if (!b) return {
       xp: Number(a.xp) || 0,
       lessons: cloneLessonsMap(a.lessons),
+      dailySpot: cloneDailySpot(a.dailySpot),
       updatedAt: Number(a.updatedAt) || 0,
       version: Number(a.version) || 2
     };
@@ -248,12 +314,15 @@
         (b.lessons && b.lessons[id]) || null
       );
     });
-    return {
+    var out = {
       xp: Math.max(Number(a.xp) || 0, Number(b.xp) || 0),
       lessons: lessons,
       updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0),
       version: Math.max(Number(a.version) || 1, Number(b.version) || 1)
     };
+    var mergedDaily = mergeDailySpot(a.dailySpot, b.dailySpot);
+    if (mergedDaily) out.dailySpot = mergedDaily;
+    return out;
   }
 
   function rememberPassed(lessonId, summary) {
@@ -329,6 +398,7 @@
       fromStats = migrateSchoolProgress({
         xp: Number(school.xp) || 0,
         lessons: cloneLessonsMap(school.lessons),
+        dailySpot: cloneDailySpot(school.dailySpot),
         updatedAt: Number(school.updatedAt) || 0,
         version: Number(school.version) || 1
       });
@@ -349,12 +419,15 @@
       writeSchool(merged);
     }
     merged.lessons = applyOverlayToLessons(merged.lessons || {});
-    return {
+    var out = {
       xp: Number(merged.xp) || 0,
       lessons: cloneLessonsMap(merged.lessons || {}),
       updatedAt: Number(merged.updatedAt) || 0,
       version: Number(merged.version) || 2
     };
+    var daily = cloneDailySpot(merged.dailySpot);
+    if (daily) out.dailySpot = daily;
+    return out;
   }
 
   function writeSchool(school) {
@@ -369,6 +442,8 @@
       updatedAt: Date.now(),
       version: Number(mergedIn.version) || 2
     };
+    var dailyOut = cloneDailySpot(mergedIn.dailySpot);
+    if (dailyOut) payload.dailySpot = dailyOut;
     /* Clave propia primero: es pequeña y sobrevive aunque stats no quepa. */
     var savedOwn = false;
     if (S && typeof S.saveSchoolProgress === 'function') {
@@ -379,12 +454,14 @@
     var st = S.getStats();
     /* Merge también con st.school crudo por si readDurable falló. */
     if (st && st.school) {
+      var stMerged = mergeSchoolObjects(st.school, payload);
       payload = {
         xp: Math.max(Number(payload.xp) || 0, Number(st.school.xp) || 0),
-        lessons: cloneLessonsMap(mergeSchoolObjects(st.school, payload).lessons),
+        lessons: cloneLessonsMap(stMerged.lessons),
         updatedAt: Date.now(),
         version: Math.max(Number(payload.version) || 2, Number(st.school.version) || 2)
       };
+      if (stMerged.dailySpot) payload.dailySpot = cloneDailySpot(stMerged.dailySpot);
     }
     st.school = payload;
     S.persistStats(st);

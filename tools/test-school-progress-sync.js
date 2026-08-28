@@ -13,7 +13,8 @@ const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 const appSrc = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const ciSrc = fs.readFileSync(path.join(root, 'tools/run-ci-tests.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.7.38'/.test(version), 'versión 2.7.38');
+assert.ok(/PT_BUILD\s*=\s*'2.7.39'/.test(version), 'versión 2.7.39');
+assert.ok(/mergeDailySpotProgress/.test(storageSrc), 'merge dailySpot en storage');
 assert.ok(/hasSchoolProgress/.test(cloudSrc), 'cloud hasSchoolProgress');
 assert.ok(/hasSchoolProgress\(val\)/.test(cloudSrc), 'hasLocalData cuenta Escuela');
 assert.ok(/hasSchoolProgress\(st\)/.test(storageSrc), 'isStatsEmpty cuenta Escuela');
@@ -236,5 +237,63 @@ assert.ok(sandbox.window.PTSchool && typeof sandbox.window.PTSchool.refreshFromC
   'PTSchool.refreshFromCloud');
 sandbox.window.PTSchool._state.view = 'lesson';
 sandbox.window.PTSchool.refreshFromCloud();
+
+/* Racha spot del día: merge nube/local entre dispositivos. */
+(function assertDailySpotMerge() {
+  Store.saveSchoolProgress({
+    xp: 10,
+    lessons: {},
+    dailySpot: {
+      lastDay: '2026-08-27',
+      completed: true,
+      correct: true,
+      streak: 3,
+      best: 3,
+      total: 3
+    },
+    updatedAt: 100,
+    version: 2
+  });
+  Store.mergeFromCloud({
+    history: [],
+    errors: [],
+    stats: {
+      handsPlayed: 0,
+      decisions: 0,
+      optima: 0,
+      aceptable: 0,
+      imprecisa: 0,
+      error: 0,
+      totalEvLoss: 0,
+      totalNet: 0,
+      byStreet: {},
+      updatedAt: 200,
+      school: {
+        xp: 10,
+        lessons: {},
+        dailySpot: {
+          lastDay: '2026-08-28',
+          completed: true,
+          correct: true,
+          streak: 1,
+          best: 5,
+          total: 4
+        },
+        updatedAt: 200,
+        version: 2
+      }
+    }
+  });
+  const ds = Store.getStats().school && Store.getStats().school.dailySpot;
+  assert.ok(ds, 'dailySpot tras merge cloud');
+  assert.strictEqual(ds.lastDay, '2026-08-28', 'conserva día más reciente');
+  assert.ok(ds.streak >= 4, 'racha consecutiva tras merge (3+1)');
+  assert.strictEqual(ds.best, 5, 'best = max local/cloud');
+  assert.strictEqual(ds.total, 4, 'total = max intentos');
+
+  const snap = Store.getCloudSnapshot();
+  assert.ok(snap.stats && snap.stats.school && snap.stats.school.dailySpot,
+    'snapshot nube incluye dailySpot');
+})();
 
 console.log('*** school-progress-sync OK ***');

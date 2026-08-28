@@ -2073,6 +2073,15 @@ body.age-gate-open {
 .school-mcq-drill .school-mcq-choices { margin-top: 8px; }
 .school-mcq-choice { min-width: 120px; font-weight: 700; }
 .school-mcq-hero { margin: 8px 0 12px; }
+.school-mcq-hero-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.school-mcq-hero-pos { color: var(--table-accent, var(--gold)); font-weight: 700; }
 .school-mcq-feedback { margin-top: 14px; }
 .school-mcq-next-cta { margin-top: 12px; }
 .school-odds-stats {

@@ -472,6 +472,10 @@ assert.ok(/blockerQuiz|mountBlocker/.test(fs.readFileSync(path.join(root, 'js/sc
 assert.ok(/drawDecisionCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share decisionQuiz');
 assert.ok(/drawOddsCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share oddsQuiz');
 assert.ok(/drawBlockerCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share blockerQuiz');
+assert.ok(/mergeDailySpot/.test(schoolSrc), 'merge dailySpot racha');
+assert.ok(/dailySpot/.test(schoolSrc), 'persistencia dailySpot en Escuela');
+assert.ok(/school-mcq-hero-pos/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')),
+  'posición héroe visible en drills');
 assert.ok(/startDailySession/.test(schoolSrc), 'daily spot session');
 assert.ok(/renderHomeDailySpot/.test(schoolSrc), 'daily spot en home');
 assert.ok(/goToTab\('school'\)/.test(schoolSrc), 'daily spot abre pestaña Escuela');
