@@ -128,6 +128,9 @@
     if (!host || !spot) return;
     var kind = spot.kind || 'matrixQuiz';
     if (kind === 'rangeAdvQuiz') return mountRangeAdv(host, spot, ctx);
+    if (kind === 'decisionQuiz') return mountDecision(host, spot, ctx);
+    if (kind === 'oddsQuiz') return mountOdds(host, spot, ctx);
+    if (kind === 'blockerQuiz') return mountBlocker(host, spot, ctx);
     if (kind === 'matrixPaint') return mountPaint(host, spot, ctx);
     return mountQuiz(host, spot, ctx);
   }
@@ -272,6 +275,229 @@
         if (ctx.onAbort) ctx.onAbort();
       });
     }
+  }
+
+  function drillEyebrow(kindLabel, ctx) {
+    return 'Spot ' + (ctx.index + 1) + ' / ' + ctx.total + ' · ' + kindLabel;
+  }
+
+  function mountMcqDrill(host, spot, ctx, config) {
+    config = config || {};
+    var quiz = spot.quiz || {};
+    var prompt = quiz.prompt || config.defaultPrompt || 'Elige una opción';
+    if (ctx) ctx.host = host;
+    var html =
+      '<div class="school-matrix-drill school-mcq-drill school-page">' +
+      '<header class="school-matrix-drill-head">' +
+      '<p class="school-eyebrow">' + drillEyebrow(config.kindLabel || 'Quiz', ctx) + '</p>' +
+      '<h2 class="school-title">' + esc(config.title || 'Quiz') + '</h2>' +
+      '<p class="school-lead">' + esc(prompt) + '</p>' +
+      '</header>' +
+      (config.bodyHtml || '') +
+      '<div class="school-matrix-choices school-mcq-choices">' +
+      (quiz.options || []).map(function (o) {
+        return '<button type="button" class="btn school-mx-choice school-mcq-choice" data-mcq-choice="' +
+          esc(o.id) + '">' + esc(o.label) + '</button>';
+      }).join('') +
+      '</div>' +
+      '<div class="school-lesson-cta">' +
+      '<button type="button" class="btn btn-ghost" id="school-mx-abort">Salir de la lección</button>' +
+      '</div></div>';
+    host.innerHTML = html;
+
+    var abort = host.querySelector('#school-mx-abort');
+    if (abort) abort.addEventListener('click', function () { if (ctx.onAbort) ctx.onAbort(); });
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-mcq-choice]'), function (btn) {
+      btn.addEventListener('click', function () {
+        gradeMcqQuiz(spot, btn.getAttribute('data-mcq-choice'), ctx, config);
+      });
+    });
+  }
+
+  function gradeMcqQuiz(spot, choiceId, ctx, config) {
+    config = config || {};
+    var quiz = spot.quiz || {};
+    var ok = choiceId === quiz.correctId;
+    var label = choiceId;
+    (quiz.options || []).forEach(function (o) {
+      if (o.id === choiceId) label = o.label;
+    });
+    var teach = quiz.teachBack || spot.teachBack || (ok
+      ? 'Bien: acertaste la línea GTO de este spot.'
+      : 'Repasa el motivo de cada opción antes de repetir.');
+    var result = {
+      spotId: spot.id,
+      class: ok ? 'optima' : 'error',
+      action: spot.kind || 'mcqQuiz',
+      actionLabel: label,
+      teachBack: teach,
+      quizCorrect: ok
+    };
+
+    var host = ctx && ctx.host;
+    if (!host) {
+      finishDrill(ctx, result);
+      return;
+    }
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-mcq-choice]'), function (btn) {
+      btn.disabled = true;
+      if (btn.getAttribute('data-mcq-choice') === choiceId) {
+        btn.classList.add(ok ? 'is-correct' : 'is-wrong');
+      }
+    });
+
+    var remaining = Math.max(0, (ctx.total || 1) - (ctx.index || 0) - 1);
+    var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
+    var Share = global.PTSchoolShare;
+    var shareHtml = '';
+    if (Share) {
+      if (spot.kind === 'decisionQuiz' && Share.buildDecisionShareHtml) shareHtml = Share.buildDecisionShareHtml();
+      else if (spot.kind === 'oddsQuiz' && Share.buildOddsShareHtml) shareHtml = Share.buildOddsShareHtml();
+      else if (spot.kind === 'blockerQuiz' && Share.buildBlockerShareHtml) shareHtml = Share.buildBlockerShareHtml();
+    }
+    var feedback = document.createElement('div');
+    feedback.className = 'school-spot-feedback school-mcq-feedback ' + (ok ? 'is-good' : 'is-bad');
+    feedback.innerHTML =
+      '<h3>Spot ' + ((ctx.index || 0) + 1) + ' / ' + (ctx.total || 1) + ' · ' +
+      (ok ? 'Óptima' : 'Error') + '</h3>' +
+      '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
+      '<p class="school-spot-teach">' + esc(teach) + '</p>' +
+      shareHtml +
+      '<div class="school-lesson-cta school-mcq-next-cta">' +
+      '<button type="button" class="btn btn-primary" id="school-mcq-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-ghost" id="school-mcq-abort">Salir de la lección</button>' +
+      '</div>';
+
+    var oldCta = host.querySelector('.school-lesson-cta');
+    if (oldCta) oldCta.remove();
+    host.appendChild(feedback);
+
+    if (Share && config.mountShare) {
+      try {
+        config.mountShare(feedback.querySelector('.school-share-mcq'), spot, ctx);
+      } catch (eShareMcq) { /* ignore */ }
+    }
+
+    var next = feedback.querySelector('#school-mcq-next');
+    var abort = feedback.querySelector('#school-mcq-abort');
+    if (next) next.addEventListener('click', function () { finishDrill(ctx, result); });
+    if (abort) abort.addEventListener('click', function () { if (ctx.onAbort) ctx.onAbort(); });
+  }
+
+  function formatLineStoryHtml(story) {
+    if (!story || !story.length) return '';
+    return '<ul class="school-line-story">' + story.map(function (row) {
+      return '<li><span class="school-line-street">' + esc(row.street || '') + '</span> ' +
+        esc(row.text || '') + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  function formatHeroCardsHtml(cards) {
+    return '<div class="school-mcq-hero">' +
+      '<span class="muted-text">Héroe</span>' +
+      '<div class="school-ra-board">' + (cards || []).map(formatCardHtml).join('') + '</div></div>';
+  }
+
+  function mountDecision(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var body =
+      (quiz.line ? '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(quiz.line) + '</p>' : '') +
+      formatLineStoryHtml(quiz.lineStory) +
+      formatBoardHtml(quiz.board || []) +
+      formatHeroCardsHtml(quiz.heroCards);
+    mountMcqDrill(host, spot, ctx, {
+      kindLabel: 'Fold / Call / Raise',
+      title: '¿Qué haces?',
+      defaultPrompt: '¿Fold, call o raise?',
+      bodyHtml: body,
+      mountShare: function (root) {
+        if (!root || !global.PTSchoolShare || !global.PTSchoolShare.mountDecisionShare) return;
+        global.PTSchoolShare.mountDecisionShare(root, {
+          lessonId: ctx.lessonId || '',
+          lessonTitle: ctx.lessonTitle || '',
+          prompt: quiz.prompt || '¿Qué haces?',
+          line: quiz.line || '',
+          lineStory: quiz.lineStory || [],
+          board: (quiz.board || []).slice(),
+          heroPos: spot.heroPos || '',
+          heroCards: (quiz.heroCards || []).slice(),
+          villainPos: quiz.villainPos || 'BB',
+          options: (quiz.options || []).map(function (o) { return { id: o.id, label: o.label }; })
+        });
+      }
+    });
+  }
+
+  function mountOdds(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var pot = quiz.potBB != null ? quiz.potBB : 0;
+    var bet = quiz.betBB != null ? quiz.betBB : 0;
+    var req = quiz.requiredPct != null ? quiz.requiredPct : null;
+    var body =
+      '<div class="school-odds-stats">' +
+      '<div class="school-odds-stat"><span class="school-odds-val">' + esc(String(pot)) + ' bb</span><span class="muted-text">Pot</span></div>' +
+      '<div class="school-odds-stat"><span class="school-odds-val">' + esc(String(bet)) + ' bb</span><span class="muted-text">Bet</span></div>' +
+      (req != null ? '<div class="school-odds-stat"><span class="school-odds-val">' + esc(String(req)) + ' %</span><span class="muted-text">Necesitas</span></div>' : '') +
+      '</div>' +
+      '<p class="school-odds-draw"><strong>Draw:</strong> ' + esc(quiz.draw || '') + '</p>' +
+      formatBoardHtml(quiz.board || []) +
+      formatHeroCardsHtml(quiz.heroCards);
+    mountMcqDrill(host, spot, ctx, {
+      kindLabel: 'Pot odds',
+      title: 'Precio del bote',
+      defaultPrompt: '¿Tienes pot odds para call?',
+      bodyHtml: body,
+      mountShare: function (root) {
+        if (!root || !global.PTSchoolShare || !global.PTSchoolShare.mountOddsShare) return;
+        global.PTSchoolShare.mountOddsShare(root, {
+          lessonId: ctx.lessonId || '',
+          lessonTitle: ctx.lessonTitle || '',
+          prompt: quiz.prompt || '¿Tienes pot odds para call?',
+          potBB: pot,
+          betBB: bet,
+          draw: quiz.draw || '',
+          board: (quiz.board || []).slice(),
+          heroCards: (quiz.heroCards || []).slice(),
+          options: (quiz.options || []).map(function (o) { return { id: o.id, label: o.label }; })
+        });
+      }
+    });
+  }
+
+  function mountBlocker(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var opts = quiz.options || [];
+    var optsHtml = opts.map(function (o) {
+      var cards = (o.cards || []).map(formatCardHtml).join('');
+      return '<div class="school-blocker-opt">' +
+        '<span class="school-blocker-label">' + esc(o.label || '') + '</span>' +
+        '<div class="school-ra-board">' + cards + '</div></div>';
+    }).join('');
+    var body =
+      '<p class="school-ra-line"><strong>Villano:</strong> ' + esc(quiz.villainAction || 'Bet') + '</p>' +
+      formatBoardHtml(quiz.board || []) +
+      '<div class="school-blocker-preview">' + optsHtml + '</div>';
+    mountMcqDrill(host, spot, ctx, {
+      kindLabel: 'Blockers',
+      title: 'Elige tu bluff',
+      defaultPrompt: quiz.prompt || '¿Con cuál faroleas?',
+      bodyHtml: body,
+      mountShare: function (root) {
+        if (!root || !global.PTSchoolShare || !global.PTSchoolShare.mountBlockerShare) return;
+        global.PTSchoolShare.mountBlockerShare(root, {
+          lessonId: ctx.lessonId || '',
+          lessonTitle: ctx.lessonTitle || '',
+          prompt: quiz.prompt || '¿Con cuál faroleas?',
+          board: (quiz.board || []).slice(),
+          villainAction: quiz.villainAction || '',
+          options: opts.map(function (o) {
+            return { id: o.id, label: o.label, cards: (o.cards || []).slice() };
+          })
+        });
+      }
+    });
   }
 
   function mountQuiz(host, spot, ctx) {
@@ -504,7 +730,10 @@
     return !!(spot && (
       spot.kind === 'matrixQuiz' ||
       spot.kind === 'matrixPaint' ||
-      spot.kind === 'rangeAdvQuiz'
+      spot.kind === 'rangeAdvQuiz' ||
+      spot.kind === 'decisionQuiz' ||
+      spot.kind === 'oddsQuiz' ||
+      spot.kind === 'blockerQuiz'
     ));
   }
 
@@ -518,6 +747,9 @@
     previewHtml: previewHtml,
     mountDrill: mountDrill,
     mountRangeAdv: mountRangeAdv,
+    mountDecision: mountDecision,
+    mountOdds: mountOdds,
+    mountBlocker: mountBlocker,
     isMatrixSpot: isMatrixSpot
   };
 })(typeof window !== 'undefined' ? window : global);

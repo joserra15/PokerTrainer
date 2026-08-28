@@ -1067,6 +1067,10 @@
   function finishSession() {
     var s = state.session;
     if (!s) return;
+    if (s.daily) {
+      finishDailySession(s);
+      return;
+    }
     var lesson = Data().getLesson(s.lessonId);
     var summary = recordLessonAttempt(lesson, s.results);
     if (summary.passed) ensureLessonMarkedPassed(lesson.id, summary);
@@ -1083,6 +1087,56 @@
     state.lessonId = lesson.id;
     state.lastResult = { lesson: lesson, summary: summary, results: s.results.slice() };
     if (typeof global.goToTab === 'function') global.goToTab('school');
+  }
+
+  function finishDailySession(s) {
+    var ok = !!(s.results && s.results.length && s.results[0].quizCorrect);
+    var ds = global.PTSchoolDailySpot && global.PTSchoolDailySpot.completeDaily
+      ? global.PTSchoolDailySpot.completeDaily(null, s.results)
+      : null;
+    trackSchool('daily_spot_finish', {
+      correct: ok,
+      streak: ds && ds.streak,
+      spotId: s.results[0] && s.results[0].spotId
+    });
+    s.active = false;
+    state.session = null;
+    updateSchoolBanner();
+    state.view = VIEW.hub;
+    state.lastDailyResult = {
+      correct: ok,
+      streak: ds && ds.streak,
+      xpGain: ok ? (global.PTSchoolDailySpot && global.PTSchoolDailySpot.DAILY_XP) || 15 : 0,
+      teachBack: s.results[0] && s.results[0].teachBack
+    };
+    if (typeof global.goToTab === 'function') global.goToTab('school');
+  }
+
+  function startDailySession() {
+    var DS = global.PTSchoolDailySpot;
+    if (!DS || !DS.pickDailySpot) return { ok: false, reason: 'missing' };
+    var today = DS.dayKey();
+    var ds = DS.readDailyState();
+    if (ds.lastDay === today && ds.completed) return { ok: false, reason: 'done' };
+    var spot = DS.pickDailySpot(today);
+    if (!spot) return { ok: false, reason: 'empty' };
+    trackSchool('daily_spot_start', { spotId: spot.id, kind: spot.kind });
+    state.session = {
+      active: true,
+      daily: true,
+      lessonId: '__daily__',
+      lessonTitle: 'Spot del día',
+      decisionEnd: true,
+      spots: [spot],
+      index: 0,
+      spotDecided: false,
+      results: []
+    };
+    state.view = VIEW.matrix;
+    startSpotAt(0);
+    var host = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+    if (host) render(host);
+    return { ok: true, spot: spot };
   }
 
   function startLessonSession(lessonId) {
@@ -1466,7 +1520,7 @@
     ranges: {
       eyebrow: 'Rangos · Laboratorio',
       title: 'Laboratorio de rangos',
-      lead: 'M0 gratis: bases. M1 Study: blockers y línea. M2–M4: range advantage + ¿qué tiene? (mixto + faroles).'
+      lead: 'M0 gratis: bases. M1 Study: blockers, pot odds y línea. M2–M4: range advantage + ¿qué tiene? (mixto + faroles).'
     }
   };
 
@@ -1474,7 +1528,7 @@
     cash: {
       M0: { title: 'M0 · Fundamentos Cash (Gratis)', lead: 'Desbloqueo lineal.' },
       M1: { title: 'M1 · Preflop core (Study)', lead: 'Defensa BB, 3-bet, squeeze, iso.' },
-      M2: { title: 'M2 · Postflop core (Study)', lead: 'Textura, c-bet, defensa, barrels.' },
+      M2: { title: 'M2 · Postflop core (Study)', lead: 'Textura, c-bet, F/C/R, pot odds y defensa.' },
       M4: { title: 'M4 · Pro Cash (Coach)', lead: '4-bet, SRP OOP, explotación y examen Pro.' }
     },
     spin: {
@@ -1492,7 +1546,7 @@
     },
     ranges: {
       M0: { title: 'M0 · Bases de rangos (Gratis)', lead: 'Matriz, RFI BTN y % que conecta.' },
-      M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, línea completa y node frequencies.' },
+      M1: { title: 'M1 · Lectura y frecuencias (Study)', lead: 'Blockers, pot odds, línea completa y node frequencies.' },
       M2: { title: 'M2 · ¿Qué tiene? Lectura (Study)', lead: 'Range advantage, quiz mixto y faroles por línea.' },
       M3: { title: 'M3 · ¿Qué tiene? Polar (Coach)', lead: 'Range advantage en 3BP, polar, draws fallidos y faroles difíciles.' },
       M4: { title: 'M4 · ¿Qué tiene? Avanzada (Coach)', lead: 'Range advantage límite, boats y faroles disfrazados de thin.' }
@@ -1588,6 +1642,9 @@
       '<div class="school-xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
       routePct + '" aria-label="Progreso de la ruta">' +
       '<div class="school-xp-fill school-xp-fill-anim" style="width:' + routePct + '%"></div></div>' +
+      (global.PTSchoolDailySpot && global.PTSchoolDailySpot.buildHubCardHtml
+        ? global.PTSchoolDailySpot.buildHubCardHtml()
+        : '') +
       (global.PTSchoolShare && global.PTSchoolShare.buildHubPanelHtml
         ? global.PTSchoolShare.buildHubPanelHtml()
         : '') +
@@ -1615,6 +1672,25 @@
           routeId: routeId
         });
       } catch (eHub) { /* ignore */ }
+    }
+    if (global.PTSchoolDailySpot && global.PTSchoolDailySpot.mountHub) {
+      try {
+        global.PTSchoolDailySpot.mountHub(root);
+      } catch (eDailyHub) { /* ignore */ }
+    }
+    if (state.lastDailyResult) {
+      var dr = state.lastDailyResult;
+      var flash = document.createElement('div');
+      flash.className = 'school-daily-flash card-box ' + (dr.correct ? 'is-good' : 'is-bad');
+      flash.innerHTML =
+        '<p><strong>' + (dr.correct
+          ? ('¡Spot del día acertado! +' + (dr.xpGain || 0) + ' XP · Racha ' + (dr.streak || 0))
+          : 'Spot del día fallado. Sigue entrenando mañana.') + '</strong></p>' +
+        (dr.teachBack ? '<p class="muted-text">' + esc(dr.teachBack) + '</p>' : '');
+      var page = root.querySelector('.school-page');
+      var routesEl = root.querySelector('.school-routes');
+      if (page && routesEl) page.insertBefore(flash, routesEl);
+      state.lastDailyResult = null;
     }
     root.querySelectorAll('[data-school-route]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -2012,7 +2088,9 @@
     canPlayLesson: canPlayLesson,
     migrateSchoolProgress: migrateSchoolProgress,
     startLessonSession: startLessonSession,
+    startDailySession: startDailySession,
     abandonSession: abandonSession,
+    _writeSchool: writeSchool,
     ensureBannerEl: ensureBannerEl,
     formatFailSpotHtml: formatFailSpotHtml,
     formatCards: formatCards,

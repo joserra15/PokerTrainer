@@ -120,8 +120,10 @@
       'js/school-data-practice.js',
       'js/school-data-ranges-line.js',
       'js/school-data-ranges-line-sizing.js',
+      'js/school-data-viral-quizzes.js',
       'js/school-matrix-drills.js',
       'js/school-share.js',
+      'js/school-daily-spot.js',
       'js/school.js'
     ],
     legendary: [

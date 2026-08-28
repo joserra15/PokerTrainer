@@ -22,6 +22,10 @@ assert.ok(/mountHubSharePanel/.test(shareSrc), 'mount hub share');
 assert.ok(/drawLineQuizCard/.test(shareSrc) && /mountLineQuizShare/.test(shareSrc), 'share quiz línea');
 assert.ok(/buildLineQuizShareHtml/.test(shareSrc), 'html share quiz línea');
 assert.ok(/drawRangeAdvCard/.test(shareSrc) && /mountRangeAdvShare/.test(shareSrc), 'share range advantage');
+assert.ok(/drawDecisionCard/.test(shareSrc) && /mountDecisionShare/.test(shareSrc), 'share decision quiz');
+assert.ok(/drawOddsCard/.test(shareSrc) && /mountOddsShare/.test(shareSrc), 'share odds quiz');
+assert.ok(/drawBlockerCard/.test(shareSrc) && /mountBlockerShare/.test(shareSrc), 'share blocker quiz');
+assert.ok(/buildDailyShareHtml/.test(shareSrc), 'share daily spot');
 assert.ok(/buildRangeAdvShareHtml/.test(shareSrc), 'html share range advantage');
 assert.ok(/Sin spoiler/.test(shareSrc), 'copy sin spoiler en imagen');
 assert.ok(/Se ha compartido correctamente/.test(shareSrc), 'mensaje éxito');
@@ -38,6 +42,8 @@ assert.ok(/schoolHand/.test(storageSrc), 'saveHand omite errores Escuela');
 assert.ok(/school-share-hub/.test(styles), 'estilos hub share');
 assert.ok(/school-share-line-quiz/.test(styles), 'estilos share quiz línea');
 assert.ok(/school-share-range-adv/.test(styles), 'estilos share range advantage');
+assert.ok(/school-share-mcq/.test(styles), 'estilos share mcq viral');
+assert.ok(/school-daily/.test(styles), 'estilos daily spot');
 
 const sandbox = {
   console, Math, Date, JSON, Array, Object, String, Number, Boolean,
