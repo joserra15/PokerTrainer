@@ -1175,11 +1175,11 @@
     state.view = VIEW.matrix;
     state.pendingMatrixSpot = spot;
     updateSchoolBanner();
-    var host = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
-    if (host) {
-      render(host);
-    } else if (typeof global.goToTab === 'function') {
+    if (typeof global.goToTab === 'function') {
       global.goToTab('school');
+    } else {
+      var host = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+      if (host) render(host);
     }
     return { ok: true, spot: spot };
   }
@@ -1210,6 +1210,7 @@
     root.addEventListener('click', function (e) {
       var btn = e.target && e.target.closest ? e.target.closest('[data-school-daily-play]') : null;
       if (!btn || !root.contains(btn)) return;
+      e.preventDefault();
       if (btn.disabled) {
         showDailyPlayFlash(root, 'done');
         return;

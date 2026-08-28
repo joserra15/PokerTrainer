@@ -474,6 +474,7 @@ assert.ok(/drawOddsCard/.test(fs.readFileSync(path.join(root, 'js/school-share.j
 assert.ok(/drawBlockerCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share blockerQuiz');
 assert.ok(/startDailySession/.test(schoolSrc), 'daily spot session');
 assert.ok(/renderHomeDailySpot/.test(schoolSrc), 'daily spot en home');
+assert.ok(/goToTab\('school'\)/.test(schoolSrc), 'daily spot abre pestaña Escuela');
 assert.ok(/goToTab\('home'\)/.test(schoolSrc), 'daily spot vuelve al home al terminar');
 assert.ok(/Fold, call o raise/i.test(Data.getLesson('D-01').title), 'D-01 decision quiz');
 assert.ok(Data.getLesson('D-01').spots.length >= 12, 'D-01 ≥12 spots');

@@ -15,7 +15,7 @@ const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.7.35'/.test(version), 'versión 2.7.35');
+assert.ok(/PT_BUILD\s*=\s*'2.7.36'/.test(version), 'versión 2.7.36');
 assert.ok(/school-share\.js/.test(chunks), 'chunk school incluye school-share.js');
 assert.ok(/buildHubPanelHtml/.test(shareSrc) && /drawHubSummaryCard/.test(shareSrc), 'share hub');
 assert.ok(/mountHubSharePanel/.test(shareSrc), 'mount hub share');
@@ -28,7 +28,8 @@ assert.ok(/drawBlockerCard/.test(shareSrc) && /mountBlockerShare/.test(shareSrc)
 assert.ok(/buildDailyShareHtml/.test(shareSrc), 'share daily spot');
 assert.ok(/buildGenericShareHtml|drawGenericMcqCard|mountGenericShare/.test(shareSrc), 'share genérico viral');
 assert.ok(/buildRangeAdvShareHtml/.test(shareSrc), 'html share range advantage');
-assert.ok(/Sin spoiler/.test(shareSrc), 'copy sin spoiler en imagen');
+assert.ok(!/Sin spoiler|sin spoiler/.test(shareSrc), 'copy sin mención «sin spoiler»');
+assert.ok(/Compartir<\/button>/.test(shareSrc), 'botones share dicen Compartir');
 assert.ok(/Se ha compartido correctamente/.test(shareSrc), 'mensaje éxito');
 assert.ok(!/Se comparte la imagen del logro/.test(shareSrc), 'sin texto auxiliar logro');
 assert.ok(!/Listo para compartir/.test(shareSrc), 'sin Listo para compartir');
@@ -145,7 +146,7 @@ const quizPayload = {
   ]
 };
 const quizText = Share.buildLineQuizShareText(quizPayload);
-assert.ok(/Sin spoiler|¿Qué tiene el villano/i.test(quizText), 'texto share quiz');
+assert.ok(/¿Qué tiene el villano|¿Tú qué eliges/i.test(quizText), 'texto share quiz');
 assert.ok(/pokerforgeai\.com/.test(quizText), 'URL en texto quiz');
 assert.ok(!/KJo|correct|solución|tenía/i.test(quizText), 'texto quiz sin spoiler');
 
@@ -154,7 +155,7 @@ Share.drawLineQuizCard({
   width: 0, height: 0,
   getContext: function () { return qctx; }
 }, quizPayload);
-assert.ok(qctx.texts.some(function (t) { return /Sin spoiler/.test(t); }), 'imagen marca sin spoiler');
+assert.ok(qctx.texts.some(function (t) { return /Escuela · Rangos|¿Qué mano sobrevive/i.test(t); }), 'imagen quiz con copy');
 assert.ok(qctx.texts.some(function (t) { return /Board/.test(t); }), 'imagen tiene board');
 assert.ok(qctx.texts.some(function (t) { return /Héroe BB/.test(t); }), 'imagen tiene héroe');
 assert.ok(qctx.texts.some(function (t) { return /Opciones/.test(t); }), 'imagen tiene opciones');
@@ -177,7 +178,7 @@ const raPayload = {
   ]
 };
 const raText = Share.buildRangeAdvShareText(raPayload);
-assert.ok(/range advantage|Sin spoiler/i.test(raText), 'texto share RA');
+assert.ok(/range advantage|¿Tú quién eliges/i.test(raText), 'texto share RA');
 assert.ok(/pokerforgeai\.com/.test(raText), 'URL en texto RA');
 assert.ok(!/correct|solución|Óptima|teachBack|AA\/KK/i.test(raText), 'texto RA sin spoiler');
 
@@ -187,7 +188,7 @@ Share.drawRangeAdvCard({
   getContext: function () { return ractx; }
 }, raPayload);
 assert.ok(ractx.texts.some(function (t) { return t === 'PokerForgeAI'; }), 'imagen RA logo');
-assert.ok(ractx.texts.some(function (t) { return /Sin spoiler/.test(t); }), 'imagen RA sin spoiler');
+assert.ok(ractx.texts.some(function (t) { return /¿Quién tiene ventaja de rango/i.test(t); }), 'imagen RA con pregunta');
 assert.ok(ractx.texts.some(function (t) { return /Flop/.test(t); }), 'imagen RA flop label');
 assert.ok(ractx.texts.some(function (t) { return /UTG open/.test(t); }), 'imagen RA línea');
 assert.ok(ractx.texts.some(function (t) { return t === 'UTG'; }), 'imagen RA opción UTG');

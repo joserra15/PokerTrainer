@@ -490,15 +490,15 @@
   function buildLineQuizShareText(payload) {
     var url = siteUrl();
     var title = (payload && payload.lessonTitle) || 'Analizar rango rival';
-    return '¿Qué tiene el villano tras esta línea? «' + title + '» en PokerForgeAI. Sin spoiler — ¿tú qué eliges? ' + url;
+    return '¿Qué tiene el villano tras esta línea? «' + title + '» en PokerForgeAI. ¿Tú qué eliges? ' + url;
   }
 
   function buildLineQuizShareHtml() {
     return (
-      '<div class="school-share school-share-line-quiz" aria-label="Compartir spot sin spoiler">' +
+      '<div class="school-share school-share-line-quiz" aria-label="Compartir spot">' +
       '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
       '<div class="school-share-actions">' +
-      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="line-quiz">Compartir spot</button>' +
+      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="line-quiz">Compartir</button>' +
       '</div>' +
       '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
       '</div>'
@@ -560,7 +560,7 @@
 
     ctx.fillStyle = '#93c5fd';
     ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
-    ctx.fillText('Escuela · Rangos · Sin spoiler', 80, 148);
+    ctx.fillText('Escuela · Rangos', 80, 148);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 44px system-ui, -apple-system, Segoe UI, sans-serif';
@@ -640,7 +640,7 @@
     ctx.fillStyle = 'rgba(234,179,8,0.95)';
     ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Sin spoiler · ¿Qué mano sobrevive a la línea?', w / 2, 930);
+    ctx.fillText('¿Qué mano sobrevive a la línea?', w / 2, 930);
 
     var url = siteUrl();
     var host = siteHostLabel(url);
@@ -674,15 +674,15 @@
     var url = siteUrl();
     var title = (payload && payload.lessonTitle) || 'Range Advantage';
     return '¿Quién tiene range advantage en este flop? «' + title +
-      '» en PokerForgeAI. Sin spoiler — ¿tú quién eliges? ' + url;
+      '» en PokerForgeAI. ¿Tú quién eliges? ' + url;
   }
 
   function buildRangeAdvShareHtml() {
     return (
-      '<div class="school-share school-share-line-quiz school-share-range-adv" aria-label="Compartir spot sin spoiler">' +
+      '<div class="school-share school-share-line-quiz school-share-range-adv" aria-label="Compartir spot">' +
       '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
       '<div class="school-share-actions">' +
-      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="range-adv">Compartir spot</button>' +
+      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="range-adv">Compartir</button>' +
       '</div>' +
       '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
       '</div>'
@@ -726,7 +726,7 @@
 
     ctx.fillStyle = '#93c5fd';
     ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
-    ctx.fillText('Escuela · Rangos · Sin spoiler', 80, 148);
+    ctx.fillText('Escuela · Rangos', 80, 148);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 42px system-ui, -apple-system, Segoe UI, sans-serif';
@@ -798,7 +798,7 @@
     ctx.fillStyle = 'rgba(234,179,8,0.95)';
     ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Sin spoiler · ¿Quién tiene ventaja de rango?', w / 2, 930);
+    ctx.fillText('¿Quién tiene ventaja de rango?', w / 2, 930);
 
     var url = siteUrl();
     var host = siteHostLabel(url);
@@ -830,10 +830,10 @@
 
   function buildMcqShareHtml(shareKey) {
     return (
-      '<div class="school-share school-share-mcq school-share-' + shareKey + '" aria-label="Compartir spot sin spoiler">' +
+      '<div class="school-share school-share-mcq school-share-' + shareKey + '" aria-label="Compartir spot">' +
       '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
       '<div class="school-share-actions">' +
-      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="' + shareKey + '">Compartir spot</button>' +
+      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="' + shareKey + '">Compartir</button>' +
       '</div>' +
       '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
       '</div>'
@@ -846,19 +846,19 @@
   function buildDailyShareHtml() { return buildMcqShareHtml('daily'); }
 
   var GENERIC_SHARE = {
-    sizingQuiz: { key: 'sizing', accent: '56,189,248', footer: 'Sin spoiler · ¿Qué sizing?' },
-    rfiQuiz: { key: 'rfi', accent: '34,197,94', footer: 'Sin spoiler · Open o fold?' },
-    equityQuiz: { key: 'equity', accent: '251,191,36', footer: 'Sin spoiler · ¿Tu equity?' },
-    textureQuiz: { key: 'texture', accent: '96,165,250', footer: 'Sin spoiler · ¿Qué textura?' },
-    comboQuiz: { key: 'combo', accent: '168,85,247', footer: 'Sin spoiler · ¿Cuántos combos?' },
-    nashQuiz: { key: 'nash', accent: '244,114,182', footer: 'Sin spoiler · Shove o fold?' },
-    icmQuiz: { key: 'icm', accent: '248,113,113', footer: 'Sin spoiler · ¿Qué harías ICM?' },
-    sprQuiz: { key: 'spr', accent: '45,212,191', footer: 'Sin spoiler · ¿Committed?' },
-    nutAdvQuiz: { key: 'nutadv', accent: '129,140,248', footer: 'Sin spoiler · ¿Nut advantage?' }
+    sizingQuiz: { key: 'sizing', accent: '56,189,248', footer: '¿Qué sizing?' },
+    rfiQuiz: { key: 'rfi', accent: '34,197,94', footer: 'Open o fold?' },
+    equityQuiz: { key: 'equity', accent: '251,191,36', footer: '¿Tu equity?' },
+    textureQuiz: { key: 'texture', accent: '96,165,250', footer: '¿Qué textura?' },
+    comboQuiz: { key: 'combo', accent: '168,85,247', footer: '¿Cuántos combos?' },
+    nashQuiz: { key: 'nash', accent: '244,114,182', footer: 'Shove o fold?' },
+    icmQuiz: { key: 'icm', accent: '248,113,113', footer: '¿Qué harías ICM?' },
+    sprQuiz: { key: 'spr', accent: '45,212,191', footer: '¿Committed?' },
+    nutAdvQuiz: { key: 'nutadv', accent: '129,140,248', footer: '¿Nut advantage?' }
   };
 
   function genericShareMeta(kind) {
-    return GENERIC_SHARE[kind] || { key: 'generic', accent: '96,165,250', footer: 'Sin spoiler · ¿Tú qué eliges?' };
+    return GENERIC_SHARE[kind] || { key: 'generic', accent: '96,165,250', footer: '¿Tú qué eliges?' };
   }
 
   function buildGenericShareHtml(kind) {
@@ -977,25 +977,25 @@
   function buildDecisionShareText(payload) {
     var url = siteUrl();
     return '¿Fold, call o raise? «' + ((payload && payload.lessonTitle) || 'Escuela') +
-      '» en PokerForgeAI. Sin spoiler — comenta F, C o R. ' + url;
+      '» en PokerForgeAI. Comenta F, C o R. ' + url;
   }
 
   function buildOddsShareText(payload) {
     var url = siteUrl();
     return '¿Tienes pot odds para call? «' + ((payload && payload.lessonTitle) || 'Escuela') +
-      '» en PokerForgeAI. Sin spoiler — ¿sí o no? ' + url;
+      '» en PokerForgeAI. ¿Sí o no? ' + url;
   }
 
   function buildBlockerShareText(payload) {
     var url = siteUrl();
     return '¿Con cuál faroleas? «' + ((payload && payload.lessonTitle) || 'Escuela') +
-      '» en PokerForgeAI. Sin spoiler — elige A, B o C. ' + url;
+      '» en PokerForgeAI. Elige A, B o C. ' + url;
   }
 
   function buildDailyShareText(payload) {
     var url = siteUrl();
     return 'Spot del día en PokerForgeAI · ' + ((payload && payload.kindLabel) || 'Quiz') +
-      '. Sin spoiler — ¿tú qué eliges? ' + url;
+      '. ¿Tú qué eliges? ' + url;
   }
 
   function drawMcqCardBase(ctx, payload, accentRgb) {
@@ -1023,7 +1023,7 @@
     ctx.fillText('PokerForgeAI', 80, 108);
     ctx.fillStyle = 'rgb(' + accentRgb + ')';
     ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
-    ctx.fillText('Escuela · Sin spoiler', 80, 148);
+    ctx.fillText('Escuela de Póker', 80, 148);
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 44px system-ui, -apple-system, Segoe UI, sans-serif';
     var title = payload.prompt || 'Quiz';
@@ -1103,7 +1103,7 @@
     ctx.fillStyle = 'rgba(234,179,8,0.95)';
     ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Sin spoiler · Comenta F, C o R', w / 2, 930);
+    ctx.fillText('Comenta F, C o R', w / 2, 930);
     var url = siteUrl();
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
@@ -1138,7 +1138,7 @@
     ctx.fillStyle = 'rgba(234,179,8,0.95)';
     ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Sin spoiler · ¿Sí o no?', w / 2, 930);
+    ctx.fillText('¿Sí o no?', w / 2, 930);
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
     ctx.fillText(siteHostLabel(siteUrl()), w / 2, 980);
@@ -1186,7 +1186,7 @@
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(234,179,8,0.95)';
     ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
-    ctx.fillText('Sin spoiler · ¿Con cuál faroleas?', w / 2, 930);
+    ctx.fillText('¿Con cuál faroleas?', w / 2, 930);
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
     ctx.fillText(siteHostLabel(siteUrl()), w / 2, 980);

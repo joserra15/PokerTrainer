@@ -2137,7 +2137,18 @@ body.age-gate-open {
   -webkit-tap-highlight-color: transparent;
 }
 .school-daily-msg { margin: 8px 0 0; width: 100%; color: #fcd34d; font-size: 13px; }
-.school-daily-actions .school-share-daily { flex: 1 1 220px; margin-top: 0; }
+.school-daily-actions .school-share-daily {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+.school-daily-actions .school-share-daily .school-share-actions .school-share-btn {
+  width: auto;
+  min-width: 132px;
+  min-height: 44px;
+}
 .school-daily-meta { margin: 10px 0 0; font-size: 13px; }
 .school-daily-flash.is-good { border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.1); }
 .school-daily-flash.is-bad { border-color: rgba(248,113,113,.35); background: rgba(248,113,113,.08); }

@@ -98,7 +98,7 @@
     var preview = spotPreview(spot);
     var caption = (kind === (spot && spot.kind) && plan.caption)
       ? plan.caption
-      : (kindLabel(kind) + ' · sin spoiler');
+      : kindLabel(kind);
     return caption + '\n' + preview + '\n' + shareUrl();
   }
 
@@ -122,7 +122,7 @@
   }
 
   function spotPreview(spot) {
-    if (!spot) return 'Entrena un spot viral sin spoiler.';
+    if (!spot) return 'Entrena un spot viral del día.';
     var q = spot.quiz || {};
     if (spot.kind === 'oddsQuiz') {
       return 'Pot ' + (q.potBB != null ? q.potBB : '?') + ' bb · Bet ' +
@@ -266,7 +266,7 @@
         ? global.PTSchoolShare.buildDailyShareHtml()
         : '') +
       '</div>' +
-      '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · comparte sin spoiler en IG</p>' +
+      '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · comparte en IG</p>' +
       '</section>'
     );
   }
