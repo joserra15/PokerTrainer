@@ -15,7 +15,7 @@ const chunks = fs.readFileSync(path.join(root, 'js/bundle-chunks.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
 const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'2.7.39'/.test(version), 'versión 2.7.39');
+assert.ok(/PT_BUILD\s*=\s*'2.7.40'/.test(version), 'versión 2.7.40');
 assert.ok(/school-share\.js/.test(chunks), 'chunk school incluye school-share.js');
 assert.ok(/buildHubPanelHtml/.test(shareSrc) && /drawHubSummaryCard/.test(shareSrc), 'share hub');
 assert.ok(/mountHubSharePanel/.test(shareSrc), 'mount hub share');
@@ -157,7 +157,9 @@ Share.drawLineQuizCard({
 }, quizPayload);
 assert.ok(qctx.texts.some(function (t) { return /Escuela · Rangos|¿Qué mano sobrevive/i.test(t); }), 'imagen quiz con copy');
 assert.ok(qctx.texts.some(function (t) { return /Board/.test(t); }), 'imagen tiene board');
-assert.ok(qctx.texts.some(function (t) { return /Héroe BB/.test(t); }), 'imagen tiene héroe');
+assert.ok(qctx.texts.some(function (t) { return t === 'Héroe'; }), 'imagen tiene héroe');
+assert.ok(qctx.texts.some(function (t) { return t === 'BB'; }), 'imagen tiene posición héroe');
+assert.ok(/drawHeroPosLabel/.test(shareSrc), 'export usa etiqueta héroe legible');
 assert.ok(qctx.texts.some(function (t) { return /Opciones/.test(t); }), 'imagen tiene opciones');
 assert.ok(qctx.texts.some(function (t) { return /check-check/.test(t); }), 'imagen tiene línea');
 assert.ok(!qctx.texts.some(function (t) { return /KJo|AQo|correcta|tenía AA/i.test(t); }), 'imagen sin solución');

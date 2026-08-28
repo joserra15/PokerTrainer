@@ -487,6 +487,20 @@
     });
   }
 
+  /** Etiqueta héroe legible en export (blanco + posición en acento). */
+  function drawHeroPosLabel(ctx, x, y, heroPos, accentRgb) {
+    accentRgb = accentRgb || '34,197,94';
+    ctx.textAlign = 'left';
+    ctx.font = '700 26px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    var base = 'Héroe';
+    ctx.fillText(base, x, y);
+    if (!heroPos) return;
+    var posX = x + ctx.measureText(base + ' ').width;
+    ctx.fillStyle = 'rgb(' + accentRgb + ')';
+    ctx.fillText(String(heroPos), posX, y);
+  }
+
   function buildLineQuizShareText(payload) {
     var url = siteUrl();
     var title = (payload && payload.lessonTitle) || 'Analizar rango rival';
@@ -600,10 +614,7 @@
 
     var heroY = boardY + 16;
     var heroX = 620;
-    ctx.fillStyle = 'rgba(230,237,243,0.7)';
-    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('Héroe ' + (payload.heroPos || ''), heroX, boardY);
+    drawHeroPosLabel(ctx, heroX, boardY, payload.heroPos || '', '147,197,253');
     drawCardRow(ctx, payload.heroCards || [], heroX, heroY + 16, 78, 108, 10);
 
     ctx.fillStyle = 'rgba(230,237,243,0.55)';
@@ -949,7 +960,7 @@
       boardY += 130;
     }
     if (payload.heroCards && payload.heroCards.length) {
-      ctx.fillText('Héroe ' + (payload.heroPos || ''), 620, boardY - 114);
+      drawHeroPosLabel(ctx, 620, boardY - 114, payload.heroPos || '', meta.accent);
       drawCardRow(ctx, payload.heroCards, 620, boardY - 98, 64, 88, 8);
     }
     var opts = payload.options || [];
@@ -1090,7 +1101,7 @@
     ctx.fillText('Board', 80, boardY);
     drawCardRow(ctx, payload.board || [], 80, boardY + 16, 80, 110, 10);
     var heroY = boardY + 16;
-    ctx.fillText('Héroe ' + (payload.heroPos || ''), 620, boardY);
+    drawHeroPosLabel(ctx, 620, boardY, payload.heroPos || '', '34,197,94');
     drawCardRow(ctx, payload.heroCards || [], 620, heroY + 16, 72, 100, 10);
     ctx.fillStyle = '#ffffff';
     ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
