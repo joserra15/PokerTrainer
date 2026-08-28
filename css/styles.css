@@ -2056,6 +2056,83 @@ body.age-gate-open {
   background: rgba(59, 130, 246, .08);
 }
 .school-share-line-quiz .school-share-actions .school-share-btn { width: 100%; }
+.school-share-mcq,
+.school-share-decision,
+.school-share-odds,
+.school-share-blocker,
+.school-share-daily {
+  margin: 14px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(147, 197, 253, .28);
+  background: rgba(59, 130, 246, .08);
+}
+.school-share-mcq .school-share-actions .school-share-btn { width: 100%; }
+.school-mcq-drill .school-mcq-choices { margin-top: 8px; }
+.school-mcq-choice { min-width: 120px; font-weight: 700; }
+.school-mcq-hero { margin: 8px 0 12px; }
+.school-mcq-feedback { margin-top: 14px; }
+.school-mcq-next-cta { margin-top: 12px; }
+.school-odds-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+.school-odds-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.school-odds-val { font-size: 1.35rem; font-weight: 800; color: #fcd34d; }
+.school-odds-draw { margin: 0 0 10px; }
+.school-blocker-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+.school-blocker-opt {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.school-blocker-label { display: block; font-weight: 700; margin-bottom: 8px; }
+.school-daily {
+  margin: 0 0 16px;
+  border: 1px solid rgba(34, 197, 94, .25);
+  background: linear-gradient(135deg, rgba(34,197,94,.08), rgba(59,130,246,.06));
+}
+.school-daily-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.school-daily-title { margin: 4px 0; font-size: 1.15rem; }
+.school-daily-lead { margin: 0; max-width: 42rem; }
+.school-daily-streak {
+  text-align: center;
+  min-width: 72px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(234, 179, 8, .12);
+  border: 1px solid rgba(234, 179, 8, .25);
+}
+.school-daily-streak-val { display: block; font-size: 1.6rem; font-weight: 800; color: #fcd34d; line-height: 1; }
+.school-daily-streak-lbl { font-size: 12px; color: rgba(230,237,243,.7); }
+.school-daily-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.school-daily-actions .school-share-daily { flex: 1 1 220px; margin-top: 0; }
+.school-daily-meta { margin: 10px 0 0; font-size: 13px; }
+.school-daily-flash.is-good { border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.1); }
+.school-daily-flash.is-bad { border-color: rgba(248,113,113,.35); background: rgba(248,113,113,.08); }
+.school-daily-flash { margin: 0 0 12px; }
 .school-m0-progress { margin: 10px 0 0; font-size: 13px; }
 .school-route-teasers { margin: 0 0 8px; }
 .school-teaser-list { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }

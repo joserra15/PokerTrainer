@@ -828,24 +828,311 @@
     return { canvas: canvas, text: text, url: url };
   }
 
+  function buildMcqShareHtml(shareKey) {
+    return (
+      '<div class="school-share school-share-mcq school-share-' + shareKey + '" aria-label="Compartir spot sin spoiler">' +
+      '<canvas class="school-share-canvas school-share-canvas-hidden" width="1080" height="1080" aria-hidden="true"></canvas>' +
+      '<div class="school-share-actions">' +
+      '<button type="button" class="btn btn-ghost school-share-btn" data-school-share="' + shareKey + '">Compartir spot</button>' +
+      '</div>' +
+      '<p class="school-share-status muted-text" data-school-share-status hidden></p>' +
+      '</div>'
+    );
+  }
+
+  function buildDecisionShareHtml() { return buildMcqShareHtml('decision'); }
+  function buildOddsShareHtml() { return buildMcqShareHtml('odds'); }
+  function buildBlockerShareHtml() { return buildMcqShareHtml('blocker'); }
+  function buildDailyShareHtml() { return buildMcqShareHtml('daily'); }
+
+  function buildDecisionShareText(payload) {
+    var url = siteUrl();
+    return '¿Fold, call o raise? «' + ((payload && payload.lessonTitle) || 'Escuela') +
+      '» en PokerForgeAI. Sin spoiler — comenta F, C o R. ' + url;
+  }
+
+  function buildOddsShareText(payload) {
+    var url = siteUrl();
+    return '¿Tienes pot odds para call? «' + ((payload && payload.lessonTitle) || 'Escuela') +
+      '» en PokerForgeAI. Sin spoiler — ¿sí o no? ' + url;
+  }
+
+  function buildBlockerShareText(payload) {
+    var url = siteUrl();
+    return '¿Con cuál faroleas? «' + ((payload && payload.lessonTitle) || 'Escuela') +
+      '» en PokerForgeAI. Sin spoiler — elige A, B o C. ' + url;
+  }
+
+  function buildDailyShareText(payload) {
+    var url = siteUrl();
+    return 'Spot del día en PokerForgeAI · ' + ((payload && payload.kindLabel) || 'Quiz') +
+      '. Sin spoiler — ¿tú qué eliges? ' + url;
+  }
+
+  function drawMcqCardBase(ctx, payload, accentRgb) {
+    var w = CARD_W;
+    var h = CARD_H;
+    accentRgb = accentRgb || '96,165,250';
+    var g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, '#0f172a');
+    g.addColorStop(0.5, '#111827');
+    g.addColorStop(1, '#0b1220');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    var glow = ctx.createRadialGradient(w * 0.5, 100, 10, w * 0.5, 140, w * 0.5);
+    glow.addColorStop(0, 'rgba(' + accentRgb + ',0.22)');
+    glow.addColorStop(1, 'rgba(' + accentRgb + ',0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 4;
+    roundRect(ctx, 36, 36, w - 72, h - 72, 36);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = '700 36px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('PokerForgeAI', 80, 108);
+    ctx.fillStyle = 'rgb(' + accentRgb + ')';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Escuela · Sin spoiler', 80, 148);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 44px system-ui, -apple-system, Segoe UI, sans-serif';
+    var title = payload.prompt || 'Quiz';
+    var titleLines = wrapText(ctx, title, w - 160);
+    var ty = 210;
+    titleLines.slice(0, 2).forEach(function (line) {
+      ctx.fillText(line, 80, ty);
+      ty += 52;
+    });
+    return { w: w, h: h, ty: ty };
+  }
+
+  function drawOptionBoxes(ctx, options, startY, w, renderLabel) {
+    var opts = options || [];
+    var boxW = (w - 160 - 28) / Math.max(1, Math.min(3, opts.length));
+    var boxH = 120;
+    var boxTop = startY + 20;
+    opts.slice(0, 3).forEach(function (opt, i) {
+      var bx = 80 + i * (boxW + 14);
+      roundRect(ctx, bx, boxTop, boxW, boxH, 20);
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(147,197,253,0.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 36px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      var lab = renderLabel ? renderLabel(opt, i) : (opt.label || opt.id || '');
+      ctx.fillText(String(lab).slice(0, 12), bx + boxW / 2, boxTop + boxH / 2 + 12);
+    });
+    ctx.textAlign = 'left';
+    return boxTop + boxH;
+  }
+
+  function drawDecisionCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    canvas.width = CARD_W;
+    canvas.height = CARD_H;
+    payload = payload || {};
+    var base = drawMcqCardBase(ctx, payload, '34,197,94');
+    var w = base.w;
+    var storyY = base.ty + 18;
+    (payload.lineStory || []).slice(0, 3).forEach(function (row) {
+      ctx.font = '600 24px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillStyle = '#93c5fd';
+      ctx.fillText((row && row.street) || '', 80, storyY);
+      ctx.fillStyle = 'rgba(230,237,243,0.9)';
+      var lines = wrapText(ctx, (row && row.text) || '', w - 280);
+      ctx.fillText(lines[0] || '', 220, storyY);
+      storyY += 36;
+    });
+    if (payload.line && !(payload.lineStory && payload.lineStory.length)) {
+      ctx.fillStyle = 'rgba(230,237,243,0.85)';
+      ctx.font = '600 24px system-ui, -apple-system, Segoe UI, sans-serif';
+      wrapText(ctx, payload.line, w - 160).slice(0, 2).forEach(function (line) {
+        ctx.fillText(line, 80, storyY);
+        storyY += 32;
+      });
+    }
+    var boardY = Math.max(storyY + 10, 420);
+    ctx.fillStyle = 'rgba(230,237,243,0.7)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Board', 80, boardY);
+    drawCardRow(ctx, payload.board || [], 80, boardY + 16, 80, 110, 10);
+    var heroY = boardY + 16;
+    ctx.fillText('Héroe ' + (payload.heroPos || ''), 620, boardY);
+    drawCardRow(ctx, payload.heroCards || [], 620, heroY + 16, 72, 100, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('¿F, C o R?', 80, boardY + 160);
+    drawOptionBoxes(ctx, payload.options || [
+      { id: 'fold', label: 'Fold' },
+      { id: 'call', label: 'Call' },
+      { id: 'raise', label: 'Raise' }
+    ], boardY + 170, w, function (o) { return o.label; });
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sin spoiler · Comenta F, C o R', w / 2, 930);
+    var url = siteUrl();
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(siteHostLabel(url), w / 2, 980);
+    return canvas;
+  }
+
+  function drawOddsCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    canvas.width = CARD_W;
+    canvas.height = CARD_H;
+    payload = payload || {};
+    var base = drawMcqCardBase(ctx, payload, '251,191,36');
+    var w = base.w;
+    var y = base.ty + 24;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 52px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Pot ' + (payload.potBB != null ? payload.potBB : '?') + ' bb', 80, y);
+    ctx.fillText('Bet ' + (payload.betBB != null ? payload.betBB : '?') + ' bb', 80, y + 64);
+    ctx.fillStyle = 'rgba(230,237,243,0.88)';
+    ctx.font = '600 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(payload.draw || '', 80, y + 130);
+    var boardY = y + 170;
+    drawCardRow(ctx, payload.board || [], 80, boardY, 80, 110, 10);
+    drawCardRow(ctx, payload.heroCards || [], 620, boardY, 72, 100, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('¿Call correcto?', 80, boardY + 150);
+    drawOptionBoxes(ctx, payload.options || [], boardY + 160, w, function (o, i) {
+      return ['A', 'B', 'C'][i] || o.label;
+    });
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sin spoiler · ¿Sí o no?', w / 2, 930);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(siteHostLabel(siteUrl()), w / 2, 980);
+    return canvas;
+  }
+
+  function drawBlockerCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    canvas.width = CARD_W;
+    canvas.height = CARD_H;
+    payload = payload || {};
+    var base = drawMcqCardBase(ctx, payload, '168,85,247');
+    var w = base.w;
+    var y = base.ty + 10;
+    ctx.fillStyle = 'rgba(230,237,243,0.85)';
+    ctx.font = '600 26px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(payload.villainAction || 'Bet river', 80, y);
+    var boardY = y + 30;
+    drawCardRow(ctx, payload.board || [], 80, boardY, 72, 100, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Elige mano (A / B / C)', 80, boardY + 130);
+    var opts = payload.options || [];
+    var boxW = (w - 160 - 28) / 3;
+    var boxH = 200;
+    var boxTop = boardY + 150;
+    opts.slice(0, 3).forEach(function (opt, i) {
+      var bx = 80 + i * (boxW + 14);
+      roundRect(ctx, bx, boxTop, boxW, boxH, 20);
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(196,181,253,0.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#e9d5ff';
+      ctx.font = '800 28px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(['A', 'B', 'C'][i] || opt.id, bx + boxW / 2, boxTop + 36);
+      var cards = (opt && opt.cards) || [];
+      var ocw = 64;
+      var och = 88;
+      var rowW = cards.length * ocw + Math.max(0, cards.length - 1) * 8;
+      drawCardRow(ctx, cards, bx + (boxW - rowW) / 2, boxTop + 70, ocw, och, 8);
+    });
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText('Sin spoiler · ¿Con cuál faroleas?', w / 2, 930);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(siteHostLabel(siteUrl()), w / 2, 980);
+    return canvas;
+  }
+
+  function mountMcqShare(root, payload, drawFn, buildTextFn, shareKey) {
+    if (!root || !payload) return null;
+    var canvas = root.querySelector('.school-share-canvas');
+    if (!canvas) return null;
+    drawFn(canvas, payload);
+    var text = buildTextFn(payload);
+    var url = siteUrl();
+    var btn = root.querySelector('[data-school-share="' + shareKey + '"]');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        shareNative(canvas, text, url, root);
+      });
+    }
+    return { canvas: canvas, text: text, url: url };
+  }
+
+  function mountDecisionShare(root, payload) {
+    return mountMcqShare(root, payload, drawDecisionCard, buildDecisionShareText, 'decision');
+  }
+
+  function mountOddsShare(root, payload) {
+    return mountMcqShare(root, payload, drawOddsCard, buildOddsShareText, 'odds');
+  }
+
+  function mountBlockerShare(root, payload) {
+    return mountMcqShare(root, payload, drawBlockerCard, buildBlockerShareText, 'blocker');
+  }
+
+  function mountDailyShare(root, payload) {
+    var kind = payload && payload.kind;
+    if (kind === 'oddsQuiz') return mountOddsShare(root, payload);
+    if (kind === 'blockerQuiz') return mountBlockerShare(root, payload);
+    if (kind === 'rangeAdvQuiz') return mountRangeAdvShare(root, payload);
+    return mountDecisionShare(root, payload);
+  }
+
   global.PTSchoolShare = {
     siteUrl: siteUrl,
     buildShareText: buildShareText,
     buildHubShareText: buildHubShareText,
     buildLineQuizShareText: buildLineQuizShareText,
     buildRangeAdvShareText: buildRangeAdvShareText,
+    buildDecisionShareText: buildDecisionShareText,
+    buildOddsShareText: buildOddsShareText,
+    buildBlockerShareText: buildBlockerShareText,
+    buildDailyShareText: buildDailyShareText,
     drawAchievementCard: drawAchievementCard,
     drawHubSummaryCard: drawHubSummaryCard,
     drawLineQuizCard: drawLineQuizCard,
     drawRangeAdvCard: drawRangeAdvCard,
+    drawDecisionCard: drawDecisionCard,
+    drawOddsCard: drawOddsCard,
+    drawBlockerCard: drawBlockerCard,
     buildPanelHtml: buildPanelHtml,
     buildHubPanelHtml: buildHubPanelHtml,
     buildLineQuizShareHtml: buildLineQuizShareHtml,
     buildRangeAdvShareHtml: buildRangeAdvShareHtml,
+    buildDecisionShareHtml: buildDecisionShareHtml,
+    buildOddsShareHtml: buildOddsShareHtml,
+    buildBlockerShareHtml: buildBlockerShareHtml,
+    buildDailyShareHtml: buildDailyShareHtml,
     mountSharePanel: mountSharePanel,
     mountHubSharePanel: mountHubSharePanel,
     mountLineQuizShare: mountLineQuizShare,
     mountRangeAdvShare: mountRangeAdvShare,
+    mountDecisionShare: mountDecisionShare,
+    mountOddsShare: mountOddsShare,
+    mountBlockerShare: mountBlockerShare,
+    mountDailyShare: mountDailyShare,
     CARD_W: CARD_W,
     CARD_H: CARD_H
   };

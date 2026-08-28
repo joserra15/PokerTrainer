@@ -56,6 +56,8 @@ assert.ok(/school-data-spin\.js/.test(chunks) && /school-data-mtt\.js/.test(chun
 assert.ok(/school-data-ranges\.js/.test(chunks) && /school-data-pro\.js/.test(chunks), 'chunk Rangos/Pro');
 assert.ok(/school-extra-spots\.js/.test(chunks), 'chunk extra spots (≥10 manos)');
 assert.ok(/school-data-practice\.js/.test(chunks), 'chunk práctica teoría-only (≥10 manos)');
+assert.ok(/school-data-viral-quizzes\.js/.test(chunks), 'chunk quizzes virales');
+assert.ok(/school-daily-spot\.js/.test(chunks), 'chunk daily spot');
 assert.ok(/school-share\.js/.test(chunks), 'chunk school-share (redes / logro)');
 assert.ok(/school:\s*'dist\/pt-school\.js'/.test(loader), 'loader school');
 assert.ok(/tabId === 'school'/.test(app), 'goToTab school');
@@ -190,8 +192,10 @@ const engineScripts = [
   'js/school-data-practice.js',
   'js/school-data-ranges-line.js',
   'js/school-data-ranges-line-sizing.js',
+  'js/school-data-viral-quizzes.js',
   'js/school-matrix-drills.js',
   'js/school-share.js',
+  'js/school-daily-spot.js',
   'js/school.js'
 ];
 
@@ -207,13 +211,13 @@ assert.ok(Data && School && Engine, 'APIs cargadas');
 assert.strictEqual(Data.SCHOOL_DATA_VERSION, 4, 'data version 4');
 
 const lessons = Data.lessonsForRoute('cash');
-assert.strictEqual(lessons.length, 27, 'Cash M0+M1+M2+Pro = 27 lecciones');
+assert.strictEqual(lessons.length, 30, 'Cash M0+M1+M2+Pro = 30 lecciones');
 assert.strictEqual(Data.lessonsForRoute('spin').length, 18, 'Spins 18');
 assert.strictEqual(Data.lessonsForRoute('mtt').length, 23, 'MTT 23');
-assert.strictEqual(Data.lessonsForRoute('ranges').length, 33, 'Rangos 33');
+assert.strictEqual(Data.lessonsForRoute('ranges').length, 34, 'Rangos 34');
 assert.strictEqual(Data.m0Lessons().length, 7, 'M0 7');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
-assert.strictEqual(Data.m2Lessons().length, 7, 'M2 7');
+assert.strictEqual(Data.m2Lessons().length, 10, 'M2 10');
 assert.strictEqual(
   Data.m0Lessons().map(function (l) { return l.id; }).join(','),
   'C-00,C-01,C-02,C-03,C-04,C-05,C-06',
@@ -385,9 +389,9 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   }
   var mttBlob = assertRouteVoice('mtt', 23);
   assert.ok(/ante|ICM|steal|push|burbuja|bb/.test(mttBlob), 'MTT vocabulario torneo');
-  var rangesBlob = assertRouteVoice('ranges', 29);
+  var rangesBlob = assertRouteVoice('ranges', 34);
   assert.ok(/matriz|rango|frecuencia|blocker|menú Rangos/.test(rangesBlob), 'Rangos vocabulario');
-  var proBlob = assertRouteVoice('cash', 27); // includes M0-M4
+  var proBlob = assertRouteVoice('cash', 30); // includes M0-M4
   assert.ok(/4-bet|farol|fish|reg/.test(proBlob), 'Pro cash vocabulario');
   assert.ok(/school-theory-title/.test(schoolSrc), 'UI títulos de teoría');
 })();
@@ -458,8 +462,28 @@ assert.ok(Data.getLesson('R-30').spots.every(function (s) { return s.kind === 'r
 assert.ok(Data.getLesson('R-31').spots.every(function (s) { return s.kind === 'rangeAdvQuiz' && s.quiz && s.quiz.board && s.quiz.board.length === 3; }), 'R-31 flop + quiz');
 assert.ok(Data.getLesson('R-33').spots.some(function (s) { return s.quiz && s.quiz.correctId === 'c'; }), 'R-33 incluye empates');
 assert.ok(/rangeAdvQuiz/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill rangeAdvQuiz');
+assert.ok(/decisionQuiz|mountDecision/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill decisionQuiz');
+assert.ok(/oddsQuiz|mountOdds/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill oddsQuiz');
+assert.ok(/blockerQuiz|mountBlocker/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill blockerQuiz');
+assert.ok(/drawDecisionCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share decisionQuiz');
+assert.ok(/drawOddsCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share oddsQuiz');
+assert.ok(/drawBlockerCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share blockerQuiz');
+assert.ok(/startDailySession/.test(schoolSrc), 'daily spot session');
+assert.ok(/PTSchoolDailySpot/.test(schoolSrc), 'hub daily spot');
+assert.ok(/Fold, call o raise/i.test(Data.getLesson('D-01').title), 'D-01 decision quiz');
+assert.ok(Data.getLesson('D-01').spots.length >= 12, 'D-01 ≥12 spots');
+assert.ok(Data.getLesson('D-01').spots.every(function (s) { return s.kind === 'decisionQuiz'; }), 'D-01 decisionQuiz');
+assert.ok(Data.getLesson('D-02').spots.every(function (s) { return s.kind === 'decisionQuiz'; }), 'D-02 decisionQuiz');
+assert.ok(/Pot odds/i.test(Data.getLesson('O-01').title), 'O-01 pot odds');
+assert.ok(Data.getLesson('O-01').spots.every(function (s) { return s.kind === 'oddsQuiz'; }), 'O-01 oddsQuiz');
+assert.ok(/Blockers/i.test(Data.getLesson('B-01').title), 'B-01 blockers');
+assert.ok(Data.getLesson('B-01').spots.every(function (s) { return s.kind === 'blockerQuiz'; }), 'B-01 blockerQuiz');
+assert.ok(sandbox.PTSchoolViralQuizzes && sandbox.PTSchoolViralQuizzes.DAILY_POOL.length >= 8, 'daily pool');
+assert.ok(sandbox.PTSchoolDailySpot && sandbox.PTSchoolDailySpot.pickDailySpot(), 'daily spot picker');
 assert.ok(/mountRangeAdvShare|buildRangeAdvShareHtml/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'R-30 share tras respuesta');
 assert.ok(/drawRangeAdvCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share card RA');
+assert.ok(/school-daily/.test(css), 'estilos daily spot');
+assert.ok(/school-share-mcq/.test(css), 'estilos share mcq');
 assert.ok(/Faroles por línea/.test(Data.getLesson('R-22').title), 'R-22 faroles M2');
 assert.ok(/Faroles difíciles/.test(Data.getLesson('R-24').title), 'R-24 faroles M3');
 assert.ok(/Faroles avanzados/.test(Data.getLesson('R-26').title), 'R-26 faroles M4');

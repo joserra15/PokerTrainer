@@ -1,0 +1,541 @@
+/*
+ * school-data-viral-quizzes.js — Quizzes virales: decisionQuiz, oddsQuiz, blockerQuiz.
+ * Lecciones D-01, D-02, O-01, B-01 + pool Daily Spot.
+ * Cargar tras school-data-practice.js.
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+
+  function decisionSpot(id, seed, heroPos, heroCards, board, line, lineStory, correctId, teach, extra) {
+    extra = extra || {};
+    return {
+      id: id,
+      kind: 'decisionQuiz',
+      seed: seed,
+      heroPos: heroPos,
+      teachBack: teach,
+      trapTag: extra.trap || undefined,
+      quiz: {
+        prompt: extra.prompt || '¿Qué haces?',
+        line: line,
+        lineStory: lineStory || [],
+        board: board,
+        heroCards: heroCards,
+        villainPos: extra.villainPos || 'BB',
+        options: [
+          { id: 'fold', label: 'Fold' },
+          { id: 'call', label: 'Call' },
+          { id: 'raise', label: 'Raise' }
+        ],
+        correctId: correctId,
+        teachBack: teach
+      }
+    };
+  }
+
+  function oddsSpot(id, seed, potBB, betBB, draw, heroCards, board, correctId, teach, extra) {
+    extra = extra || {};
+    return {
+      id: id,
+      kind: 'oddsQuiz',
+      seed: seed,
+      teachBack: teach,
+      quiz: {
+        prompt: extra.prompt || '¿Tienes pot odds para call?',
+        potBB: potBB,
+        betBB: betBB,
+        draw: draw,
+        heroCards: heroCards,
+        board: board,
+        options: [
+          { id: 'yes', label: 'Sí · call correcto' },
+          { id: 'no', label: 'No · fold' },
+          { id: 'depends', label: 'Depende · implied odds' }
+        ],
+        correctId: correctId,
+        requiredPct: extra.requiredPct,
+        equityPct: extra.equityPct
+      }
+    };
+  }
+
+  function blockerSpot(id, seed, board, villainAction, options, correctId, teach) {
+    return {
+      id: id,
+      kind: 'blockerQuiz',
+      seed: seed,
+      teachBack: teach,
+      quiz: {
+        prompt: 'Villano apuesta river. ¿Con cuál faroleas mejor?',
+        board: board,
+        villainAction: villainAction,
+        options: options,
+        correctId: correctId,
+        teachBack: teach
+      }
+    };
+  }
+
+  function handOpt(id, label, cards) {
+    return { id: id, label: label, cards: cards };
+  }
+
+  var PACKS = {};
+
+  PACKS['D-01'] = [
+    decisionSpot('d01-01', 84001, 'BTN', ['Ah', 'Qd'], ['As', 'Kd', '7c', '2h', '5d'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn bet 75% pot → call · River bet 75% pot',
+      [
+        { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+        { street: 'Flop', text: 'BTN c-bet 33% pot · BB call' },
+        { street: 'Turn', text: 'BTN bet 75% pot · BB call' },
+        { street: 'River', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'fold',
+      'AQ en river tras triple barrel en AK7-2-5: estás detrás de mucho Ax/Kx y value. Fold es la línea GTO típica.',
+      { prompt: 'River: villano apuesta tras check. ¿Qué haces con AQ?' }),
+    decisionSpot('d01-02', 84002, 'BTN', ['Ts', 'Tc'], ['Kd', '7h', '2c'],
+      'BTN open → BB call · Flop check-check',
+      [
+        { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
+        { street: 'Flop', text: 'BB check · BTN ?' }
+      ],
+      'raise',
+      'TT en K72 rainbow IP tras check del BB: c-bet (raise el bote) es estándar. El BB falla mucho; tu overpair necesita protección.',
+      { prompt: 'Flop: BB check. ¿Qué haces con TT?' }),
+    decisionSpot('d01-03', 84003, 'BB', ['9h', '8h'], ['Ts', '7d', '2c', 'Jc'],
+      'BTN open → BB call · Flop check · BTN bet 50% → call · Turn check-check · River BTN bet 66% pot',
+      [
+        { street: 'Turn', text: 'BB check · BTN check' },
+        { street: 'River', text: 'BB check · BTN bet 66% pot' }
+      ],
+      'call',
+      '98s hace middle pair en T72-J con flush draw bloqueado. Vs sizing medio en river delay, call es defendible: bloqueas muchos bluffs.',
+      { prompt: 'River: facing bet. ¿Call con 98s?', villainPos: 'BTN' }),
+    decisionSpot('d01-04', 84004, 'BTN', ['Kh', 'Qh'], ['9s', '8s', '7h'],
+      'BTN open → BB call · Flop check-check',
+      [
+        { street: 'Preflop', text: 'BTN open → BB call' },
+        { street: 'Flop', text: 'BB check · BTN ?' }
+      ],
+      'fold',
+      '987 two-tone: el BB conecta fuerte. KQ sin draw claro → check behind (no bet). Apostar aquí es spew.',
+      { prompt: 'Flop wet: BB check. ¿Qué haces con KQo?' }),
+    decisionSpot('d01-05', 84005, 'CO', ['Ad', 'Jc'], ['As', '4d', '2c', '9h', '3s'],
+      'CO open → BB call · Flop c-bet 33% → call · Turn check · BB bet 75% pot',
+      [
+        { street: 'Turn', text: 'CO check · BB bet 75% pot' }
+      ],
+      'call',
+      'AJ top pair en A-high seco: vs turn probe del BB, call. Estás ahead de muchos floats y draws que no llegaron.',
+      { prompt: 'Turn: facing donk. ¿Qué haces con AJ?', villainPos: 'BB' }),
+    decisionSpot('d01-06', 84006, 'BTN', ['7s', '6s'], ['Kh', '9d', '2c', '5h'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn check · BB bet 75% pot',
+      [
+        { street: 'Turn', text: 'BTN check · BB bet 75% pot' }
+      ],
+      'fold',
+      '76s sin par ni draw claro en K92-5: fold vs turn barrel. No tienes equity ni showdown value suficiente.',
+      { prompt: 'Turn: facing bet. ¿Qué haces con 76s?', villainPos: 'BB' }),
+    decisionSpot('d01-07', 84007, 'BB', ['Ah', '5h'], ['Qh', '8h', '3c', '2h', 'Jd'],
+      'BTN open → BB call · Flop check · BTN bet 50% → call · Turn check · BTN bet 75% → call · River BTN bet overbet',
+      [
+        { street: 'River', text: 'BB check · BTN overbet 125% pot' }
+      ],
+      'fold',
+      'A5hh solo tiene A-high en river tras línea agresiva. Fold vs overbet: estás casi siempre behind.',
+      { prompt: 'River: facing overbet. ¿Qué haces?', villainPos: 'BTN' }),
+    decisionSpot('d01-08', 84008, 'BTN', ['Jd', 'Jc'], ['Ts', '9c', '2d', '4h', '8s'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn bet 75% → call · River check · BB bet 75% pot',
+      [
+        { street: 'River', text: 'BTN check · BB bet 75% pot' }
+      ],
+      'call',
+      'JJ sigue siendo overpair en T92-4-8. Vs river bet del BB (bluff-heavy), call captura value y bluffs.',
+      { prompt: 'River: facing bet. ¿Qué haces con JJ?', villainPos: 'BB' }),
+    decisionSpot('d01-09', 84009, 'BTN', ['As', 'Kd'], ['Ac', '7h', '3d', 'Kd', '2s'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn bet 75% → call · River check · BB bet 50% pot',
+      [
+        { street: 'River', text: 'BTN check · BB bet 50% pot' }
+      ],
+      'raise',
+      'AK two pair en A73-K-2: raise river vs bet es value. Estás muy por delante del rango de bluff-catch del BB.',
+      { prompt: 'River: tienes two pair. ¿Qué haces?', villainPos: 'BB' }),
+    decisionSpot('d01-10', 84010, 'CO', ['Qc', 'Qd'], ['Ah', '8d', '3c'],
+      'CO open → BB call · Flop check-check',
+      [
+        { street: 'Flop', text: 'BB check · CO ?' }
+      ],
+      'raise',
+      'QQ en A83 rainbow IP: bet (raise pot) por valor/protección. El BB tiene mucho air; tu overpair quiere bote.',
+      { prompt: 'Flop: BB check. ¿Qué haces con QQ?' }),
+    decisionSpot('d01-11', 84011, 'BB', ['Kh', 'Td'], ['Ks', '7d', '2c', '9h', '4s'],
+      'BTN open → BB call · Flop check · BTN bet 33% → call · Turn check · BTN bet 66% → call · River BTN bet 75% pot',
+      [
+        { street: 'River', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'fold',
+      'KT top pair weak kicker en K72-9-4: vs triple barrel IP, fold. Estás dominated por KQ/KJ/77/99 y value.',
+      { prompt: 'River: facing bet. ¿Qué haces con KT?', villainPos: 'BTN' }),
+    decisionSpot('d01-12', 84012, 'BTN', ['5s', '4s'], ['As', 'Kd', 'Qc', 'Jh'],
+      'BTN open → BB call · Flop c-bet 33% → call · Turn check-check · River BB check',
+      [
+        { street: 'Turn', text: 'BTN check · BB check' },
+        { street: 'River', text: 'BB check · BTN ?' }
+      ],
+      'fold',
+      '54s sin par ni draw en AKQ-J: check back (no bet). No hay bluff creíble ni value — fold si te resuben.',
+      { prompt: 'River: BB check. ¿Qué haces con 54s?' })
+  ];
+
+  PACKS['D-02'] = [
+    decisionSpot('d02-01', 84101, 'BTN', ['Ah', 'Kd'], ['As', '7d', '2c'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% pot',
+      [
+        { street: 'Preflop', text: 'BTN open → BB 3-bet → BTN call' },
+        { street: 'Flop', text: 'BB bet 33% pot · BTN ?' }
+      ],
+      'call',
+      'AK en A72 en 3-bet pot: call flop c-bet. Tienes top pair top kicker vs rango polar del 3-bettor.',
+      { prompt: '3-bet pot · Flop: facing c-bet. ¿Qué haces con AK?', villainPos: 'BB' }),
+    decisionSpot('d02-02', 84102, 'BB', ['Jh', 'Th'], ['Qc', '9d', '4s', '2h'],
+      'BTN open → BB 3-bet → BTN call · Flop check · BTN bet 50% → call · Turn check · BTN bet 75% pot',
+      [
+        { street: 'Turn', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'fold',
+      'JTs sin par en Q94-2 en 3-bet pot OOP: fold vs turn barrel. El BTN tiene mucho overpair/broadway.',
+      { prompt: '3-bet pot · Turn: facing bet. ¿Qué haces?', villainPos: 'BTN' }),
+    decisionSpot('d02-03', 84103, 'BTN', ['Qs', 'Qh'], ['Kh', '9c', '3d'],
+      'BTN open → BB 3-bet → BTN call · Flop BB check',
+      [
+        { street: 'Flop', text: 'BB check · BTN ?' }
+      ],
+      'raise',
+      'QQ en K93 en 3-bet pot IP: bet flop tras check. Overpair con plan claro; el BB check indica rango capped.',
+      { prompt: '3-bet pot · Flop: BB check. ¿Qué haces con QQ?', villainPos: 'BB' }),
+    decisionSpot('d02-04', 84104, 'BB', ['Ac', '5c'], ['Ad', '8h', '3c', 'Kd', '2s'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn check · BTN bet 66% → call · River BTN bet 75% pot',
+      [
+        { street: 'River', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'fold',
+      'A5s solo top pair weak en A83-K-2 vs river bet en 3-bet pot: fold. Estás behind en value y bluff-catch.',
+      { prompt: '3-bet pot · River: facing bet. ¿Qué haces?', villainPos: 'BTN' }),
+    decisionSpot('d02-05', 84105, 'BTN', ['Ts', 'Tc'], ['9s', '8s', '7h'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 50% pot',
+      [
+        { street: 'Flop', text: 'BB bet 50% pot · BTN ?' }
+      ],
+      'fold',
+      'TT en 987 two-tone en 3-bet pot: fold vs flop bet. El board favorece al 3-bettor OOP; tu overpair está en mal sitio.',
+      { prompt: '3-bet pot · Flop wet: facing bet. ¿Qué haces con TT?', villainPos: 'BB' }),
+    decisionSpot('d02-06', 84106, 'BB', ['Kh', 'Qh'], ['Ah', '7h', '2c', '5d'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn BB bet 75% pot',
+      [
+        { street: 'Turn', text: 'BB bet 75% pot · BTN ?' }
+      ],
+      'call',
+      'KQhh nut flush draw + overs en A72-5: call turn barrel. Tienes ~9 outs al nut flush + 6 outs al par.',
+      { prompt: '3-bet pot · Turn: facing bet. ¿Qué haces con KQs?', villainPos: 'BTN' }),
+    decisionSpot('d02-07', 84107, 'BTN', ['Ad', 'Jc'], ['Js', '8d', '3c', '2h', 'Kh'],
+      'BTN open → BB 3-bet → BTN call · Flop check · BB bet 33% → call · Turn check · BB bet 75% → call · River BB check',
+      [
+        { street: 'River', text: 'BB check · BTN ?' }
+      ],
+      'raise',
+      'AJ top pair en J83-2-K en 3-bet pot: bet river tras check. Value vs bluff-catchers del BB.',
+      { prompt: '3-bet pot · River: BB check. ¿Qué haces con AJ?', villainPos: 'BB' }),
+    decisionSpot('d02-08', 84108, 'BB', ['9d', '9c'], ['Ks', '7h', '2d'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% pot',
+      [
+        { street: 'Flop', text: 'BB bet 33% pot · BTN ?' }
+      ],
+      'call',
+      '99 overpair en K72 en 3-bet pot OOP: call flop. Necesitas ver turn; raise es demasiado polarizado.',
+      { prompt: '3-bet pot · Flop: facing c-bet. ¿Qué haces con 99?', villainPos: 'BTN' }),
+    decisionSpot('d02-09', 84109, 'BTN', ['7s', '6s'], ['As', 'Kd', 'Qc'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% pot',
+      [
+        { street: 'Flop', text: 'BB bet 33% pot · BTN ?' }
+      ],
+      'fold',
+      '76s en AKQ en 3-bet pot: fold flop. Cero equity; el 3-bettor tiene ventaja enorme en este board.',
+      { prompt: '3-bet pot · Flop: facing c-bet. ¿Qué haces con 76s?', villainPos: 'BB' }),
+    decisionSpot('d02-10', 84110, 'BB', ['Ah', 'Qh'], ['Qd', '9c', '4h', '2s', '7d'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn check · BTN bet 50% → call · River BTN bet 75% pot',
+      [
+        { street: 'River', text: 'BB check · BTN bet 75% pot' }
+      ],
+      'call',
+      'AQ top pair en Q94-2-7 en 3-bet pot: call river. Estás ahead de bluffs y muchos Qx peores.',
+      { prompt: '3-bet pot · River: facing bet. ¿Qué haces con AQ?', villainPos: 'BTN' }),
+    decisionSpot('d02-11', 84111, 'BTN', ['Kd', 'Kh'], ['Ts', '9c', '8d', '3h'],
+      'BTN open → BB 3-bet → BTN call · Flop BB check · BTN bet 50% → call · Turn BB check',
+      [
+        { street: 'Turn', text: 'BB check · BTN ?' }
+      ],
+      'raise',
+      'KK overpair en T98-3 en 3-bet pot IP: bet turn. Proteges vs draws y extraes value de Tx/99.',
+      { prompt: '3-bet pot · Turn: BB check. ¿Qué haces con KK?', villainPos: 'BB' }),
+    decisionSpot('d02-12', 84112, 'BB', ['5h', '5c'], ['Ac', 'Kd', '7c', '2h', '9s'],
+      'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn check · BTN bet 66% → call · River BTN bet overbet',
+      [
+        { street: 'River', text: 'BB check · BTN overbet 125% pot' }
+      ],
+      'fold',
+      '55 en AK7-2-9 en 3-bet pot: fold vs overbet river. No tienes showdown value vs línea polarizada.',
+      { prompt: '3-bet pot · River: facing overbet. ¿Qué haces con 55?', villainPos: 'BTN' })
+  ];
+
+  PACKS['O-01'] = [
+    oddsSpot('o01-01', 85001, 100, 50, 'Flush draw · 9 outs', ['Ah', 'Kh'], ['Qh', '7h', '2c', 'Jd'], 'yes',
+      'Pot 100 + bet 50 → call 50 para ganar 150. Necesitas 25 %; 9 outs ≈ 35 % en turn. Call correcto.',
+      { requiredPct: 25, equityPct: 35 }),
+    oddsSpot('o01-02', 85002, 80, 80, 'OESD · 8 outs', ['9h', '8d'], ['Ts', '7c', '2h', '3d'], 'yes',
+      'Pot 80 + bet 80 → call 80 para ganar 160. Necesitas 33 %; 8 outs ≈ 31–32 % + implied. Call marginal/sí.',
+      { requiredPct: 33, equityPct: 32 }),
+    oddsSpot('o01-03', 85003, 100, 100, 'Gutshot · 4 outs', ['Jh', 'Td'], ['Qs', '8c', '2h', '3d'], 'no',
+      'Pot 100 + bet 100 → necesitas 33 %. 4 outs ≈ 17 %. Fold claro sin implied odds.',
+      { requiredPct: 33, equityPct: 17 }),
+    oddsSpot('o01-04', 85004, 120, 40, 'Flush draw · 9 outs', ['Kh', 'Qh'], ['Ah', '9h', '3c', '5d'], 'yes',
+      'Pot 120 + bet 40 → call 40 para ganar 160. Necesitas 20 %; flush draw supera. Call fácil.',
+      { requiredPct: 20, equityPct: 35 }),
+    oddsSpot('o01-05', 85005, 60, 90, 'Par + flush draw · 12 outs', ['Ah', '5h'], ['Kh', '7h', '2c', '9d'], 'depends',
+      'Pot 60 + bet 90 → necesitas 37,5 %. Combo draw puede acercarse, pero bet grande pide implied odds reales.',
+      { requiredPct: 38, equityPct: 40 }),
+    oddsSpot('o01-06', 85006, 200, 50, 'Two overcards · 6 outs', ['Ah', 'Kd'], ['Qs', '8c', '3h', '2d'], 'no',
+      'Pot 200 + bet 50 → necesitas 20 %. 6 outs ≈ 24 % pero sin par hecho. Fold vs bet grande en turn.',
+      { requiredPct: 20, equityPct: 24 }),
+    oddsSpot('o01-07', 85007, 90, 30, 'Flush draw · 9 outs', ['Th', '9h'], ['Kh', 'Qh', '2c', '4d'], 'yes',
+      'Pot 90 + bet 30 → call 30 para ganar 120. Necesitas 20 %. Flush draw claro → call.',
+      { requiredPct: 20, equityPct: 35 }),
+    oddsSpot('o01-08', 85008, 100, 150, 'Par medio · 5 outs', ['8h', '8d'], ['Ks', 'Qc', '8s', '2h', 'Jd'], 'no',
+      'Pot 100 + bet 150 → necesitas 37,5 %. Set de 8 tiene value, pero vs overbet river con par medio es fold.',
+      { requiredPct: 38, equityPct: 20 }),
+    oddsSpot('o01-09', 85009, 70, 35, 'OESD · 8 outs', ['Jc', 'Tc'], ['9s', '8d', '2h', 'Ah'], 'yes',
+      'Pot 70 + bet 35 → call 35 para ganar 105. Necesitas 25 %. OESD encaja → call.',
+      { requiredPct: 25, equityPct: 32 }),
+    oddsSpot('o01-10', 85010, 50, 100, 'Flush draw · 9 outs', ['7h', '6h'], ['Kh', '9h', '2c', '3d'], 'no',
+      'Pot 50 + bet 100 → necesitas 40 %. 9 outs ≈ 35 % sin contar reverse. Fold vs overbet.',
+      { requiredPct: 40, equityPct: 35 }),
+    oddsSpot('o01-11', 85011, 110, 55, 'Combo draw · 15 outs', ['Ah', '5h'], ['Kh', 'Qh', 'Jc', '2d'], 'yes',
+      'Pot 110 + bet 55 → necesitas 25 %. Nut flush draw + gutshot/overs supera el precio → call.',
+      { requiredPct: 25, equityPct: 45 }),
+    oddsSpot('o01-12', 85012, 100, 25, 'Gutshot + overcard · 7 outs', ['Ah', 'Td'], ['Ks', 'Qc', 'Jh', '2d'], 'depends',
+      'Pot 100 + bet 25 → necesitas 20 %. 7 outs ≈ 28 % pero river-only. Depende de implied; aquí call ligero.',
+      { requiredPct: 20, equityPct: 28 })
+  ];
+
+  PACKS['B-01'] = [
+    blockerSpot('b01-01', 86001, ['As', 'Kd', '7c', '2h', '3d'], 'Bet 75% pot', [
+      handOpt('a', 'Ah5h', ['Ah', '5h']),
+      handOpt('b', 'KhQh', ['Kh', 'Qh']),
+      handOpt('c', '9h8h', ['9h', '8h'])
+    ], 'a', 'Ah5h bloquea nut flush y Ax: mejor bluff que KhQh (bloquea Kx value) o 98hh sin blockers fuertes.'),
+    blockerSpot('b01-02', 86002, ['Ks', 'Qs', 'Js', '2h', '4d'], 'Bet 66% pot', [
+      handOpt('a', 'AhTc', ['Ah', 'Tc']),
+      handOpt('b', '9h8h', ['9h', '8h']),
+      handOpt('c', '5h4h', ['5h', '4h'])
+    ], 'a', 'En KQJ board, AhTc bloquea Ax y algunos broadway; 98hh no bloquea value del caller.'),
+    blockerSpot('b01-03', 86003, ['Ah', 'Kh', 'Qh', '7c', '2d'], 'Bet overbet', [
+      handOpt('a', 'JhTd', ['Jh', 'Td']),
+      handOpt('b', '9h8h', ['9h', '8h']),
+      handOpt('c', '5h4h', ['5h', '4h'])
+    ], 'c', 'Monotone A-high: farolea con 54hh — bloqueas flush pero no nut Ax. JhTd bloquea straight; 98hh bloquea flush medio.'),
+    blockerSpot('b01-04', 86004, ['Ts', '9c', '8d', '3h', '2s'], 'Bet 75% pot', [
+      handOpt('a', 'JhQh', ['Jh', 'Qh']),
+      handOpt('b', '7h6h', ['7h', '6h']),
+      handOpt('c', 'Ah5d', ['Ah', '5d'])
+    ], 'b', 'En T98-32, 76hh bloquea straight y no bloquea calls de pares medios. JQ bloquea QJ/JT value.'),
+    blockerSpot('b01-05', 86005, ['Ac', 'Ad', '7h', '3c', '2s'], 'Bet 50% pot', [
+      handOpt('a', 'KhQh', ['Kh', 'Qh']),
+      handOpt('b', '5h4h', ['5h', '4h']),
+      handOpt('c', '9h8h', ['9h', '8h'])
+    ], 'b', 'Board paired AA: bluff con 54hh — bloqueas 54/53 straight y no Ax. KhQh bloquea KQ/KJ que foldean anyway.'),
+    blockerSpot('b01-06', 86006, ['Qs', 'Jd', 'Tc', '4h', '2d'], 'Bet 75% pot', [
+      handOpt('a', 'AhKh', ['Ah', 'Kh']),
+      handOpt('b', '9h8h', ['9h', '8h']),
+      handOpt('c', '5h4h', ['5h', '4h'])
+    ], 'c', 'QJT board: 54hh no bloquea QJ/QT value del villano. AhKh bloquea AK/AQ que ya foldearon.'),
+    blockerSpot('b01-07', 86007, ['Ks', '7d', '2c', '2h', '9s'], 'Bet 66% pot', [
+      handOpt('a', 'Ah5h', ['Ah', '5h']),
+      handOpt('b', 'QhJh', ['Qh', 'Jh']),
+      handOpt('c', '8h6h', ['8h', '6h'])
+    ], 'a', 'K72-2-9: Ah5h bloquea Ax y algunos 9x. QJ bloquea KQ/KJ value paths.'),
+    blockerSpot('b01-08', 86008, ['9s', '8s', '7h', '3c', '2d'], 'Bet 75% pot', [
+      handOpt('a', 'AhKh', ['Ah', 'Kh']),
+      handOpt('b', '6h5h', ['6h', '5h']),
+      handOpt('c', 'TdTc', ['Td', 'Tc'])
+    ], 'b', '987 board: 65hh bloquea straight (T6/65) sin bloquear floats. TT bloquea sets que ya fold.'),
+    blockerSpot('b01-09', 86009, ['Ah', '8d', '3c', 'Kd', '2h'], 'Bet 75% pot', [
+      handOpt('a', 'QhJh', ['Qh', 'Jh']),
+      handOpt('b', '5h4h', ['5h', '4h']),
+      handOpt('c', '9h7h', ['9h', '7h'])
+    ], 'b', 'A83-K-2: 54hh no bloquea Ax/Kx del caller. QJ bloquea QJ/AJ que foldean; mejor 54 como bluff puro.'),
+    blockerSpot('b01-10', 86010, ['Js', 'Ts', '9d', '4c', '2h'], 'Bet overbet', [
+      handOpt('a', 'AhQh', ['Ah', 'Qh']),
+      handOpt('b', '8h7h', ['8h', '7h']),
+      handOpt('c', 'Kh6h', ['Kh', '6h'])
+    ], 'b', 'JT9: 87hh bloquea straight (Q8/87) sin bloquear Jx/Tx. AhQh bloquea AQ/AJ value.'),
+    blockerSpot('b01-11', 86011, ['Ks', 'Kh', '4d', '7c', '2s'], 'Bet 50% pot', [
+      handOpt('a', 'AhQh', ['Ah', 'Qh']),
+      handOpt('b', '9h8h', ['9h', '8h']),
+      handOpt('c', '5h3h', ['5h', '3h'])
+    ], 'c', 'KK4-7-2: 53hh no bloquea Kx/4x. AhQh bloquea AQ/AK; 98hh bloquea 98 que no defiende mucho.'),
+    blockerSpot('b01-12', 86012, ['Qh', 'Jh', '4c', '4d', '2s'], 'Bet 75% pot', [
+      handOpt('a', 'AhKh', ['Ah', 'Kh']),
+      handOpt('b', 'Ts9s', ['Ts', '9s']),
+      handOpt('c', '8h7h', ['8h', '7h'])
+    ], 'c', 'QJ44: 87hh no bloquea QJ/QT. AhKh bloquea AK/AQ; Ts9s bloquea T9 straight.')
+  ];
+
+  var LESSONS = [
+    {
+      id: 'D-01',
+      title: '¿Fold, call o raise? I · Spots clave',
+      route: 'cash',
+      module: 'M2',
+      order: 20.5,
+      plan: 'study',
+      xp: 100,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      exam: false,
+      concept: 'La decisión nodal (fold, call o raise) es la que más EV mueve postflop. Entrena leer línea + board + tu mano antes de actuar.',
+      theory: [
+        'En cada calle te enfrentas a una decisión binaria o ternaria: fold (tirar), call (igualar) o raise (subir). No existe «probar suerte»: cada opción tiene un motivo GTO o explotable.',
+        'Antes de pulsar: (1) ¿qué representa la línea del rival? (2) ¿tu mano gana showdown o necesita mejorar? (3) ¿el sizing te da pot odds?',
+        'Trampa: call automático con top pair weak kicker vs triple barrel. La calle importa tanto como las cartas.'
+      ],
+      examples: [{
+        title: 'River vs triple barrel',
+        body: 'BTN vs BB con AQ en AK7-2-5 y triple barrel: fold. Estás behind de mucho Ax/Kx; call es bleed.'
+      }],
+      aiQuestions: [
+        '¿Cuándo fold con top pair en river?',
+        '¿Qué preguntas hacerte antes de call?',
+        '¿Por qué check IP no es lo mismo que fold?'
+      ],
+      spots: []
+    },
+    {
+      id: 'D-02',
+      title: '¿Fold, call o raise? II · 3-bet pots',
+      route: 'cash',
+      module: 'M2',
+      order: 20.6,
+      plan: 'study',
+      xp: 110,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      exam: false,
+      concept: 'En potes de 3-bet los rangos son más polarizados y los SPR más bajos. La misma mano puede ser call en SRP y fold en 3BP.',
+      theory: [
+        'El 3-bettor llega con menos combos pero más concentrados en premiums y bluffs polarizados. El caller tiene manos más fuertes que en open/call normal.',
+        'SPR bajo (stack-to-pot ratio): menos calles posibles → más all-in o fold en turn/river.',
+        'Trampa: autocall con overpair en board que favorece al 3-bettor OOP (987, monotone).'
+      ],
+      examples: [{
+        title: 'TT en 987 en 3-bet pot',
+        body: 'Fold vs flop bet. El board conecta con el rango del 3-bettor; tu overpair pierde mucha equity.'
+      }],
+      aiQuestions: [
+        '¿Qué cambia en 3-bet pot vs single raised pot?',
+        '¿Cuándo fold overpair en flop?',
+        '¿Cómo afecta el SPR a tu decisión?'
+      ],
+      spots: []
+    },
+    {
+      id: 'O-01',
+      title: 'Pot odds · ¿Tienes precio para call?',
+      route: 'cash',
+      module: 'M2',
+      order: 20.7,
+      plan: 'study',
+      xp: 100,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      exam: false,
+      concept: 'Pot odds (precio del bote) te dicen qué % de equity necesitas para call rentable. Compara ese % con tus outs antes de igualar.',
+      theory: [
+        'Fórmula: % necesario = call / (pot + bet + call). Ejemplo: pot 100, bet 50 → call 50 para ganar 200 → necesitas 25 %.',
+        'Outs (cartas que mejoran tu mano): flush draw ≈ 9, OESD ≈ 8, gutshot ≈ 4. Regla rápida turn: outs × 2 ≈ % equity.',
+        'Implied odds: si esperas ganar más cuando conectes, puedes call con menos equity directa. «Depende» = implied reales.'
+      ],
+      examples: [{
+        title: 'Flush draw vs bet pequeño',
+        body: 'Pot 100, bet 40 → necesitas 20 %. Flush draw (~35 %) → call claro.'
+      }],
+      aiQuestions: [
+        '¿Cómo calculas pot odds en una frase?',
+        '¿Cuántos outs tiene un flush draw?',
+        '¿Cuándo «depende» es la respuesta correcta?'
+      ],
+      spots: []
+    },
+    {
+      id: 'B-01',
+      title: 'Blockers · ¿Con cuál faroleas?',
+      route: 'ranges',
+      module: 'M1',
+      order: 4.5,
+      plan: 'study',
+      xp: 100,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      exam: false,
+      concept: 'Un blocker es una carta en tu mano que reduce combos fuertes del rival. Elige bluffs que bloqueen nuts/value y no bloqueen folds.',
+      theory: [
+        'Buen bluff: bloquea nut flush, nut straight o sets que el villano podría call. Si tienes Ah en board con tres hearts, reduces combos de nut flush del rival.',
+        'Mal bluff: bloquea manos que ya foldearon (ej. Kh en K-high board cuando bluffeas vs BB wide). Eso deja más combos de call en su rango.',
+        'Conecta con R-04: eliminar combos antes de elegir tu línea. Pregunta: «¿qué manos fuertes NO puede tener por mis cartas?»'
+      ],
+      examples: [{
+        title: 'River bluff en AK7',
+        body: 'Ah5h > KhQh: bloqueas Ax nut y no bloqueas Kx que ya fold. KhQh bloquea KQ value.'
+      }],
+      aiQuestions: [
+        '¿Qué es un blocker en una frase?',
+        '¿Por qué Ah es mejor que Kh para bluff en ciertos boards?',
+        '¿Qué mano NO elige para bluffcatch?'
+      ],
+      spots: []
+    }
+  ];
+
+  D.registerLessons(LESSONS);
+
+  D.LESSONS.forEach(function (lesson) {
+    var spots = PACKS[lesson.id];
+    if (!spots || !spots.length) return;
+    if (Array.isArray(lesson.spots) && lesson.spots.length) return;
+    lesson.spots = spots;
+    lesson.hands = spots.length;
+  });
+
+  var DAILY_POOL = []
+    .concat(PACKS['D-01'].slice(0, 4))
+    .concat(PACKS['D-02'].slice(0, 2))
+    .concat(PACKS['O-01'].slice(0, 3))
+    .concat(PACKS['B-01'].slice(0, 3));
+
+  global.PTSchoolViralQuizzes = {
+    PACKS: PACKS,
+    DAILY_POOL: DAILY_POOL,
+    decisionSpot: decisionSpot,
+    oddsSpot: oddsSpot,
+    blockerSpot: blockerSpot
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
