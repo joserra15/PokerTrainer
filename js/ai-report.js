@@ -73,16 +73,16 @@
   /** Catálogo rotativo de focos de entrenamiento para el saludo de bienvenida. */
   /* Fase J: cada foco apunta a lección(es) Escuela (CTA en Leaks). */
   const TRAINING_FOCUSES = [
-    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'], lessonId: 'C-02', lessonIds: ['C-02', 'R-02'] },
-    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'], lessonId: 'C-08', lessonIds: ['C-08', 'R-04'] },
-    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'], lessonId: 'C-09', lessonIds: ['C-09', 'R-04'] },
+    { id: 'rfi', label: 'RFI (abrir el bote desde tu posición)', scenario: 'rfi', street: 'preflop', leakTypes: ['RFI'], lessonId: 'C-02', lessonIds: ['C-02', 'R-02', 'F-01'] },
+    { id: '3bet', label: '3-bet y defensa contra opens', scenario: '3bet', street: 'preflop', leakTypes: ['vsRFI'], lessonId: 'C-08', lessonIds: ['C-08', 'R-04', 'B-01'] },
+    { id: 'face3bet', label: 'jugar enfrentando un 3-bet', scenario: 'face3bet', street: 'preflop', leakTypes: ['face3bet'], lessonId: 'C-09', lessonIds: ['C-09', 'R-04', 'D-02'] },
     { id: 'squeeze', label: 'squeeze (subir tras open + call)', scenario: 'squeeze', street: 'preflop', leakTypes: ['squeeze'], lessonId: 'C-10' },
     { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'], lessonId: 'C-26' },
     { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['sbLimp'], lessonId: 'C-11' },
     { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'], lessonId: 'C-12' },
-    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15', lessonIds: ['C-15', 'R-05'] },
-    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18', lessonIds: ['C-18', 'R-07'] },
-    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19', lessonIds: ['C-19', 'R-07'] }
+    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15', lessonIds: ['C-15', 'R-05', 'D-01', 'Q-01', 'D-03'] },
+    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18', lessonIds: ['C-18', 'R-07', 'O-01', 'E-01'] },
+    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19', lessonIds: ['C-19', 'R-07', 'D-02', 'D-04'] }
   ];
 
   function cfg() {

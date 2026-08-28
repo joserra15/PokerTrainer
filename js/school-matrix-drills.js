@@ -128,9 +128,18 @@
     if (!host || !spot) return;
     var kind = spot.kind || 'matrixQuiz';
     if (kind === 'rangeAdvQuiz') return mountRangeAdv(host, spot, ctx);
+    if (kind === 'nutAdvQuiz') return mountNutAdv(host, spot, ctx);
     if (kind === 'decisionQuiz') return mountDecision(host, spot, ctx);
     if (kind === 'oddsQuiz') return mountOdds(host, spot, ctx);
     if (kind === 'blockerQuiz') return mountBlocker(host, spot, ctx);
+    if (kind === 'sizingQuiz') return mountSizing(host, spot, ctx);
+    if (kind === 'rfiQuiz') return mountRfi(host, spot, ctx);
+    if (kind === 'equityQuiz') return mountEquity(host, spot, ctx);
+    if (kind === 'textureQuiz') return mountTexture(host, spot, ctx);
+    if (kind === 'comboQuiz') return mountCombo(host, spot, ctx);
+    if (kind === 'nashQuiz') return mountNash(host, spot, ctx);
+    if (kind === 'icmQuiz') return mountIcm(host, spot, ctx);
+    if (kind === 'sprQuiz') return mountSpr(host, spot, ctx);
     if (kind === 'matrixPaint') return mountPaint(host, spot, ctx);
     return mountQuiz(host, spot, ctx);
   }
@@ -281,10 +290,17 @@
     return 'Spot ' + (ctx.index + 1) + ' / ' + ctx.total + ' · ' + kindLabel;
   }
 
+  function timedSecondsFor(spot, ctx) {
+    var t = spot && spot.timedSeconds;
+    if (t == null && ctx) t = ctx.timedSeconds;
+    return Number(t) || 0;
+  }
+
   function mountMcqDrill(host, spot, ctx, config) {
     config = config || {};
     var quiz = spot.quiz || {};
     var prompt = quiz.prompt || config.defaultPrompt || 'Elige una opción';
+    var timed = timedSecondsFor(spot, ctx);
     if (ctx) ctx.host = host;
     var html =
       '<div class="school-matrix-drill school-mcq-drill school-page">' +
@@ -292,6 +308,7 @@
       '<p class="school-eyebrow">' + drillEyebrow(config.kindLabel || 'Quiz', ctx) + '</p>' +
       '<h2 class="school-title">' + esc(config.title || 'Quiz') + '</h2>' +
       '<p class="school-lead">' + esc(prompt) + '</p>' +
+      (timed ? '<p class="school-matrix-timer" id="school-mcq-timer">Tiempo: <strong>' + timed + 's</strong></p>' : '') +
       '</header>' +
       (config.bodyHtml || '') +
       '<div class="school-matrix-choices school-mcq-choices">' +
@@ -305,11 +322,37 @@
       '</div></div>';
     host.innerHTML = html;
 
+    var timerId = null;
+    var deadline = timed ? Date.now() + timed * 1000 : 0;
+    var graded = false;
+
+    function autoFail() {
+      if (graded) return;
+      graded = true;
+      if (timerId) clearInterval(timerId);
+      gradeMcqQuiz(spot, '__timeout__', ctx, config);
+    }
+
+    if (timed) {
+      timerId = setInterval(function () {
+        var el = host.querySelector('#school-mcq-timer');
+        var left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        if (el) el.innerHTML = 'Tiempo: <strong>' + left + 's</strong>';
+        if (left <= 0) autoFail();
+      }, 250);
+    }
+
     var abort = host.querySelector('#school-mx-abort');
-    if (abort) abort.addEventListener('click', function () { if (ctx.onAbort) ctx.onAbort(); });
+    if (abort) abort.addEventListener('click', function () {
+      if (timerId) clearInterval(timerId);
+      if (ctx.onAbort) ctx.onAbort();
+    });
 
     Array.prototype.forEach.call(host.querySelectorAll('[data-mcq-choice]'), function (btn) {
       btn.addEventListener('click', function () {
+        if (graded) return;
+        graded = true;
+        if (timerId) clearInterval(timerId);
         gradeMcqQuiz(spot, btn.getAttribute('data-mcq-choice'), ctx, config);
       });
     });
@@ -318,14 +361,18 @@
   function gradeMcqQuiz(spot, choiceId, ctx, config) {
     config = config || {};
     var quiz = spot.quiz || {};
-    var ok = choiceId === quiz.correctId;
+    var timeout = choiceId === '__timeout__';
+    var ok = !timeout && choiceId === quiz.correctId;
     var label = choiceId;
     (quiz.options || []).forEach(function (o) {
       if (o.id === choiceId) label = o.label;
     });
-    var teach = quiz.teachBack || spot.teachBack || (ok
-      ? 'Bien: acertaste la línea GTO de este spot.'
-      : 'Repasa el motivo de cada opción antes de repetir.');
+    if (timeout) label = 'Tiempo agotado';
+    var teach = timeout
+      ? ('Tiempo agotado. ' + (quiz.teachBack || spot.teachBack || ''))
+      : (quiz.teachBack || spot.teachBack || (ok
+        ? 'Bien: acertaste la línea GTO de este spot.'
+        : 'Repasa el motivo de cada opción antes de repetir.'));
     var result = {
       spotId: spot.id,
       class: ok ? 'optima' : 'error',
@@ -356,6 +403,7 @@
       if (spot.kind === 'decisionQuiz' && Share.buildDecisionShareHtml) shareHtml = Share.buildDecisionShareHtml();
       else if (spot.kind === 'oddsQuiz' && Share.buildOddsShareHtml) shareHtml = Share.buildOddsShareHtml();
       else if (spot.kind === 'blockerQuiz' && Share.buildBlockerShareHtml) shareHtml = Share.buildBlockerShareHtml();
+      else if (Share.buildGenericShareHtml) shareHtml = Share.buildGenericShareHtml(spot.kind);
     }
     var feedback = document.createElement('div');
     feedback.className = 'school-spot-feedback school-mcq-feedback ' + (ok ? 'is-good' : 'is-bad');
@@ -378,6 +426,10 @@
       try {
         config.mountShare(feedback.querySelector('.school-share-mcq'), spot, ctx);
       } catch (eShareMcq) { /* ignore */ }
+    } else if (Share && Share.mountGenericShare) {
+      try {
+        Share.mountGenericShare(feedback.querySelector('.school-share-mcq'), spot, ctx);
+      } catch (eShareGen) { /* ignore */ }
     }
 
     var next = feedback.querySelector('#school-mcq-next');
@@ -498,6 +550,71 @@
         });
       }
     });
+  }
+
+  function mountSizing(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = (q.line ? '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(q.line) + '</p>' : '') +
+      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Sizing', title: 'Elige sizing', bodyHtml: body });
+  }
+
+  function mountRfi(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="school-ra-line"><strong>' + esc(q.position || spot.heroPos || '') + '</strong></p>' +
+      formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'RFI', title: '¿Open o fold?', bodyHtml: body });
+  }
+
+  function mountEquity(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="muted-text">' + esc(q.villainRange || '') + '</p>' +
+      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Equity', title: 'Estima equity', bodyHtml: body });
+  }
+
+  function mountTexture(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = (q.line ? '<p class="school-ra-line">' + esc(q.line) + '</p>' : '') +
+      formatBoardHtml(q.board || []);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Textura', title: 'Clasifica el flop', bodyHtml: body });
+  }
+
+  function mountCombo(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = (q.line ? '<p class="school-ra-line">' + esc(q.line) + '</p>' : '') +
+      formatBoardHtml(q.board || []) +
+      '<p><strong>' + esc(q.handType || '') + '</strong></p>';
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Combos', title: 'Cuenta combos', bodyHtml: body });
+  }
+
+  function mountNash(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="school-ra-line">' + esc(q.position || '') + ' · ' +
+      esc(String(q.stackBB || '')) + ' bb</p>' + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Nash', title: 'Push / fold', bodyHtml: body });
+  }
+
+  function mountIcm(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="school-ra-line">' + esc(q.payout || 'ICM spot') + ' · ' +
+      esc(String(q.stackBB || '')) + ' bb</p>' + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'ICM', title: 'Burbuja / FT', bodyHtml: body });
+  }
+
+  function mountSpr(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = '<p class="school-ra-line">Pot ' + esc(String(q.potBB || '')) + ' bb · Stack ' +
+      esc(String(q.stackBB || '')) + ' bb</p>' +
+      formatBoardHtml(q.board || []) + formatHeroCardsHtml(q.heroCards);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'SPR', title: '¿Committed?', bodyHtml: body });
+  }
+
+  function mountNutAdv(host, spot, ctx) {
+    var q = spot.quiz || {};
+    var body = (q.line ? '<p class="school-ra-line">' + esc(q.line) + '</p>' : '') +
+      formatBoardHtml(q.board || []);
+    mountMcqDrill(host, spot, ctx, { kindLabel: 'Nut Advantage', title: 'Ventaja de nuts', bodyHtml: body });
   }
 
   function mountQuiz(host, spot, ctx) {
@@ -731,9 +848,18 @@
       spot.kind === 'matrixQuiz' ||
       spot.kind === 'matrixPaint' ||
       spot.kind === 'rangeAdvQuiz' ||
+      spot.kind === 'nutAdvQuiz' ||
       spot.kind === 'decisionQuiz' ||
       spot.kind === 'oddsQuiz' ||
-      spot.kind === 'blockerQuiz'
+      spot.kind === 'blockerQuiz' ||
+      spot.kind === 'sizingQuiz' ||
+      spot.kind === 'rfiQuiz' ||
+      spot.kind === 'equityQuiz' ||
+      spot.kind === 'textureQuiz' ||
+      spot.kind === 'comboQuiz' ||
+      spot.kind === 'nashQuiz' ||
+      spot.kind === 'icmQuiz' ||
+      spot.kind === 'sprQuiz'
     ));
   }
 

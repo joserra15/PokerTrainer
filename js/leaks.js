@@ -274,6 +274,12 @@
       if (mode === 'trainer') {
         actions += '<button type="button" class="stats-leak-action" data-stats-train-leak="' +
           escapeHtml(l.key) + '">Repetir</button>';
+        if (global.PTTrainerLeakPresets && global.PTTrainerLeakPresets.HANDS_TARGETS) {
+          global.PTTrainerLeakPresets.HANDS_TARGETS.forEach(function (n) {
+            actions += '<button type="button" class="stats-leak-action stats-leak-action-secondary" data-stats-train-preset="' +
+              escapeHtml(l.key) + '" data-stats-train-hands="' + n + '">Entrenar ' + n + '</button>';
+          });
+        }
         if (showSchool) {
           var lids = lessonIdsForLeak(l);
           lids.forEach(function (lid) {
@@ -355,6 +361,15 @@
         var key = btn.getAttribute('data-stats-train-leak');
         var leak = trainerLeaks.find(function (l) { return l.key === key; });
         if (leak && onTrain) onTrain(leak);
+      });
+    });
+    host.querySelectorAll('[data-stats-train-preset]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-stats-train-preset');
+        var hands = Number(btn.getAttribute('data-stats-train-hands')) || 50;
+        var leak = trainerLeaks.find(function (l) { return l.key === key; });
+        if (!leak || !global.PTTrainerLeakPresets || !global.PTTrainerLeakPresets.applyPreset) return;
+        global.PTTrainerLeakPresets.applyPreset(leak, hands);
       });
     });
     host.querySelectorAll('[data-stats-school-lesson]').forEach(function (btn) {

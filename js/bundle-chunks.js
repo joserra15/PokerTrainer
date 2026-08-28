@@ -64,6 +64,7 @@
       'js/engine.js',
       'js/ai-hand-payload.js',
       'js/ai-report.js',
+      'js/trainer-leak-presets.js',
       'js/storage.js',
       'js/stats-aggregate.js',
       'js/cloud-sessions.js',
@@ -105,7 +106,7 @@
       'js/import/parsers/coinpoker.js',
       'js/import.js'
     ],
-    analysis: ['js/hand-analysis.js'],
+    analysis: ['js/school-coach-quiz.js', 'js/hand-analysis.js'],
     ranges: ['js/range-matrix.js'],
     learn: ['js/beginner-guide.js'],
     school: [
@@ -121,6 +122,7 @@
       'js/school-data-ranges-line.js',
       'js/school-data-ranges-line-sizing.js',
       'js/school-data-viral-quizzes.js',
+      'js/school-data-viral-quizzes-phase234.js',
       'js/school-matrix-drills.js',
       'js/school-share.js',
       'js/school-daily-spot.js',

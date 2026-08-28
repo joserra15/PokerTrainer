@@ -7,6 +7,17 @@
 
   var DAILY_XP = 15;
   var STORAGE_KEY = 'dailySpot';
+  var IG_UTM = '?utm_source=instagram&utm_medium=social&utm_campaign=escuela_daily';
+
+  var IG_WEEK = [
+    { day: 1, kind: 'decisionQuiz', caption: 'Comenta F, C o R 👇' },
+    { day: 2, kind: 'rfiQuiz', caption: '¿Open o fold? Comenta 👇' },
+    { day: 3, kind: 'oddsQuiz', caption: '¿Call o fold? Pot vs bet 👇' },
+    { day: 4, kind: 'sizingQuiz', caption: '¿Qué sizing elige el solver? 👇' },
+    { day: 5, kind: 'blockerQuiz', caption: '¿Con cuál faroleas? A / B / C 👇' },
+    { day: 6, kind: 'equityQuiz', caption: 'Estima tu equity · ¿A, B o C? 👇' },
+    { day: 0, kind: 'textureQuiz', caption: '¿Seco, wet o monotone? 👇' }
+  ];
 
   function esc(s) {
     return String(s || '')
@@ -49,7 +60,62 @@
     if (kind === 'blockerQuiz') return 'Blockers';
     if (kind === 'rangeAdvQuiz') return 'Range Advantage';
     if (kind === 'decisionQuiz') return 'Fold / Call / Raise';
+    if (kind === 'sizingQuiz') return 'Sizing';
+    if (kind === 'rfiQuiz') return 'RFI';
+    if (kind === 'equityQuiz') return 'Equity';
+    if (kind === 'textureQuiz') return 'Textura';
+    if (kind === 'comboQuiz') return 'Combos';
+    if (kind === 'nashQuiz') return 'Push / fold';
+    if (kind === 'icmQuiz') return 'ICM';
+    if (kind === 'sprQuiz') return 'SPR';
+    if (kind === 'nutAdvQuiz') return 'Nut Advantage';
     return 'Quiz';
+  }
+
+  function shareUrl() {
+    var base = (global.PTSchoolShare && global.PTSchoolShare.siteUrl)
+      ? global.PTSchoolShare.siteUrl()
+      : 'https://www.pokerforgeai.com/';
+    return String(base).replace(/\/?$/, '/') + IG_UTM;
+  }
+
+  function igPlanForDay(forDay) {
+    var d = forDay ? new Date(forDay + 'T12:00:00') : new Date();
+    var dow = d.getDay();
+    for (var i = 0; i < IG_WEEK.length; i++) {
+      if (IG_WEEK[i].day === dow) return IG_WEEK[i];
+    }
+    return IG_WEEK[0];
+  }
+
+  function buildIgCaption(spot, forDay) {
+    spot = spot || pickDailySpot(forDay);
+    var plan = igPlanForDay(forDay);
+    var kind = (spot && spot.kind) || plan.kind;
+    var preview = spotPreview(spot);
+    var caption = (kind === (spot && spot.kind) && plan.caption)
+      ? plan.caption
+      : (kindLabel(kind) + ' · sin spoiler');
+    return caption + '\n' + preview + '\n' + shareUrl();
+  }
+
+  function weekCalendar(fromDay) {
+    var start = fromDay || dayKey();
+    var out = [];
+    for (var i = 0; i < 7; i++) {
+      var iso = addDays(start, i);
+      var plan = igPlanForDay(iso);
+      var spot = pickDailySpot(iso);
+      out.push({
+        day: iso,
+        weekday: new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short' }),
+        kind: (spot && spot.kind) || plan.kind,
+        kindLabel: kindLabel((spot && spot.kind) || plan.kind),
+        caption: plan.caption,
+        preview: spotPreview(spot)
+      });
+    }
+    return out;
   }
 
   function spotPreview(spot) {
@@ -61,6 +127,21 @@
     }
     if (spot.kind === 'blockerQuiz') {
       return (q.board || []).join(' ') + ' · ' + (q.villainAction || 'River');
+    }
+    if (spot.kind === 'sizingQuiz') {
+      return (q.line || '') + ' · ' + (q.board || []).join(' ');
+    }
+    if (spot.kind === 'rfiQuiz') {
+      return (q.position || spot.heroPos || '') + ' · ' + (q.heroCards || []).join('');
+    }
+    if (spot.kind === 'equityQuiz') {
+      return (q.villainRange || 'Equity') + ' · ' + (q.board || []).join(' ');
+    }
+    if (spot.kind === 'textureQuiz' || spot.kind === 'comboQuiz') {
+      return (q.board || []).join(' ') + (q.handType ? ' · ' + q.handType : '');
+    }
+    if (spot.kind === 'nashQuiz') {
+      return (q.position || '') + ' · ' + (q.stackBB || '?') + ' bb · ' + (q.heroCards || []).join('');
     }
     if (q.prompt) return q.prompt;
     if (q.line) return q.line;
@@ -146,6 +227,9 @@
         })
       });
     }
+    if (global.PTSchoolShare && global.PTSchoolShare.spotToSharePayload) {
+      return Object.assign(base, global.PTSchoolShare.spotToSharePayload(spot, { lessonTitle: 'Spot del día' }));
+    }
     return base;
   }
 
@@ -159,12 +243,14 @@
     var streak = ds.streak || 0;
     var preview = spotPreview(spot);
     var kind = kindLabel(spot && spot.kind);
+    var igHint = buildIgCaption(spot, today).split('\n')[0];
     return (
       '<section class="school-daily card-box" aria-label="Spot del día">' +
       '<div class="school-daily-head">' +
       '<div><p class="school-eyebrow">Spot del día · ' + esc(kind) + '</p>' +
       '<h3 class="school-daily-title">' + (doneToday ? 'Completado hoy' : '¿Listo para el reto?') + '</h3>' +
-      '<p class="school-daily-lead muted-text">' + esc(preview) + '</p></div>' +
+      '<p class="school-daily-lead muted-text">' + esc(preview) + '</p>' +
+      '<p class="school-daily-ig muted-text">IG: ' + esc(igHint) + '</p></div>' +
       '<div class="school-daily-streak" aria-label="Racha">' +
       '<span class="school-daily-streak-val">' + esc(String(streak)) + '</span>' +
       '<span class="school-daily-streak-lbl">días</span></div>' +
@@ -268,8 +354,12 @@
     writeDailyState: writeDailyState,
     buildHubCardHtml: buildHubCardHtml,
     buildSharePayload: buildSharePayload,
+    buildIgCaption: buildIgCaption,
+    weekCalendar: weekCalendar,
+    shareUrl: shareUrl,
     completeDaily: completeDaily,
     mountHub: mountHub,
-    DAILY_XP: DAILY_XP
+    DAILY_XP: DAILY_XP,
+    IG_UTM: IG_UTM
   };
 })(typeof window !== 'undefined' ? window : globalThis);

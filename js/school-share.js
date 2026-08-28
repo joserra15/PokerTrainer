@@ -845,6 +845,135 @@
   function buildBlockerShareHtml() { return buildMcqShareHtml('blocker'); }
   function buildDailyShareHtml() { return buildMcqShareHtml('daily'); }
 
+  var GENERIC_SHARE = {
+    sizingQuiz: { key: 'sizing', accent: '56,189,248', footer: 'Sin spoiler · ¿Qué sizing?' },
+    rfiQuiz: { key: 'rfi', accent: '34,197,94', footer: 'Sin spoiler · Open o fold?' },
+    equityQuiz: { key: 'equity', accent: '251,191,36', footer: 'Sin spoiler · ¿Tu equity?' },
+    textureQuiz: { key: 'texture', accent: '96,165,250', footer: 'Sin spoiler · ¿Qué textura?' },
+    comboQuiz: { key: 'combo', accent: '168,85,247', footer: 'Sin spoiler · ¿Cuántos combos?' },
+    nashQuiz: { key: 'nash', accent: '244,114,182', footer: 'Sin spoiler · Shove o fold?' },
+    icmQuiz: { key: 'icm', accent: '248,113,113', footer: 'Sin spoiler · ¿Qué harías ICM?' },
+    sprQuiz: { key: 'spr', accent: '45,212,191', footer: 'Sin spoiler · ¿Committed?' },
+    nutAdvQuiz: { key: 'nutadv', accent: '129,140,248', footer: 'Sin spoiler · ¿Nut advantage?' }
+  };
+
+  function genericShareMeta(kind) {
+    return GENERIC_SHARE[kind] || { key: 'generic', accent: '96,165,250', footer: 'Sin spoiler · ¿Tú qué eliges?' };
+  }
+
+  function buildGenericShareHtml(kind) {
+    var meta = genericShareMeta(kind);
+    return buildMcqShareHtml(meta.key);
+  }
+
+  function buildGenericShareText(payload) {
+    var url = siteUrl();
+    var kind = (payload && payload.kind) || 'quiz';
+    var meta = genericShareMeta(kind);
+    var title = (payload && payload.lessonTitle) || 'Escuela';
+    return 'Quiz «' + title + '» en PokerForgeAI. ' + meta.footer + ' ' + url;
+  }
+
+  function spotToSharePayload(spot, ctx) {
+    spot = spot || {};
+    var q = spot.quiz || {};
+    var lessonTitle = (ctx && ctx.lessonTitle) || 'Escuela';
+    return {
+      kind: spot.kind,
+      lessonTitle: lessonTitle,
+      prompt: q.prompt || 'Quiz',
+      line: q.line || '',
+      lineStory: q.lineStory || [],
+      board: (q.board || []).slice(),
+      heroPos: spot.heroPos || q.position || '',
+      heroCards: (q.heroCards || []).slice(),
+      villainPos: q.villainPos || 'BB',
+      potBB: q.potBB,
+      betBB: q.betBB,
+      stackBB: q.stackBB,
+      draw: q.draw || '',
+      handType: q.handType || '',
+      options: (q.options || []).map(function (o) {
+        return { id: o.id, label: o.label, cards: (o.cards || []).slice() };
+      })
+    };
+  }
+
+  function drawGenericMcqCard(canvas, payload) {
+    var ctx = canvas.getContext('2d');
+    canvas.width = CARD_W;
+    canvas.height = CARD_H;
+    payload = payload || {};
+    var meta = genericShareMeta(payload.kind);
+    var base = drawMcqCardBase(ctx, payload, meta.accent);
+    var w = base.w;
+    var y = base.ty + 16;
+    if (payload.line) {
+      ctx.fillStyle = 'rgba(230,237,243,0.85)';
+      ctx.font = '600 24px system-ui, -apple-system, Segoe UI, sans-serif';
+      wrapText(ctx, payload.line, w - 160).slice(0, 2).forEach(function (line) {
+        ctx.fillText(line, 80, y);
+        y += 32;
+      });
+    }
+    if (payload.potBB != null || payload.stackBB != null) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 30px system-ui, -apple-system, Segoe UI, sans-serif';
+      if (payload.potBB != null) {
+        ctx.fillText('Pot ' + payload.potBB + ' bb', 80, y);
+        y += 36;
+      }
+      if (payload.stackBB != null) {
+        ctx.fillText('Stack ' + payload.stackBB + ' bb', 80, y);
+        y += 36;
+      }
+    }
+    if (payload.draw) {
+      ctx.fillStyle = 'rgba(230,237,243,0.88)';
+      ctx.font = '600 26px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillText(payload.draw, 80, y);
+      y += 34;
+    }
+    if (payload.handType) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillText(payload.handType, 80, y);
+      y += 34;
+    }
+    var boardY = Math.max(y + 8, 420);
+    if (payload.board && payload.board.length) {
+      ctx.fillStyle = 'rgba(230,237,243,0.7)';
+      ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.fillText('Board', 80, boardY);
+      drawCardRow(ctx, payload.board, 80, boardY + 16, 72, 100, 10);
+      boardY += 130;
+    }
+    if (payload.heroCards && payload.heroCards.length) {
+      ctx.fillText('Héroe ' + (payload.heroPos || ''), 620, boardY - 114);
+      drawCardRow(ctx, payload.heroCards, 620, boardY - 98, 64, 88, 8);
+    }
+    var opts = payload.options || [];
+    var optTop = Math.max(boardY, 560);
+    drawOptionBoxes(ctx, opts, optTop, w, function (o, i) {
+      return (o.label || o.id || ['A', 'B', 'C'][i] || '').slice(0, 14);
+    });
+    ctx.fillStyle = 'rgba(234,179,8,0.95)';
+    ctx.font = '700 24px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(meta.footer, w / 2, 930);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 34px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.fillText(siteHostLabel(siteUrl()), w / 2, 980);
+    return canvas;
+  }
+
+  function mountGenericShare(root, spot, ctx) {
+    if (!root || !spot) return null;
+    var payload = spotToSharePayload(spot, ctx);
+    var meta = genericShareMeta(spot.kind);
+    return mountMcqShare(root, payload, drawGenericMcqCard, buildGenericShareText, meta.key);
+  }
+
   function buildDecisionShareText(payload) {
     var url = siteUrl();
     return '¿Fold, call o raise? «' + ((payload && payload.lessonTitle) || 'Escuela') +
@@ -1097,6 +1226,9 @@
     if (kind === 'oddsQuiz') return mountOddsShare(root, payload);
     if (kind === 'blockerQuiz') return mountBlockerShare(root, payload);
     if (kind === 'rangeAdvQuiz') return mountRangeAdvShare(root, payload);
+    if (kind && GENERIC_SHARE[kind]) {
+      return mountMcqShare(root, payload, drawGenericMcqCard, buildGenericShareText, genericShareMeta(kind).key);
+    }
     return mountDecisionShare(root, payload);
   }
 
@@ -1125,6 +1257,10 @@
     buildOddsShareHtml: buildOddsShareHtml,
     buildBlockerShareHtml: buildBlockerShareHtml,
     buildDailyShareHtml: buildDailyShareHtml,
+    buildGenericShareHtml: buildGenericShareHtml,
+    buildGenericShareText: buildGenericShareText,
+    drawGenericMcqCard: drawGenericMcqCard,
+    spotToSharePayload: spotToSharePayload,
     mountSharePanel: mountSharePanel,
     mountHubSharePanel: mountHubSharePanel,
     mountLineQuizShare: mountLineQuizShare,
@@ -1133,6 +1269,7 @@
     mountOddsShare: mountOddsShare,
     mountBlockerShare: mountBlockerShare,
     mountDailyShare: mountDailyShare,
+    mountGenericShare: mountGenericShare,
     CARD_W: CARD_W,
     CARD_H: CARD_H
   };

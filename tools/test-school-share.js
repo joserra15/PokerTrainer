@@ -26,6 +26,7 @@ assert.ok(/drawDecisionCard/.test(shareSrc) && /mountDecisionShare/.test(shareSr
 assert.ok(/drawOddsCard/.test(shareSrc) && /mountOddsShare/.test(shareSrc), 'share odds quiz');
 assert.ok(/drawBlockerCard/.test(shareSrc) && /mountBlockerShare/.test(shareSrc), 'share blocker quiz');
 assert.ok(/buildDailyShareHtml/.test(shareSrc), 'share daily spot');
+assert.ok(/buildGenericShareHtml|drawGenericMcqCard|mountGenericShare/.test(shareSrc), 'share genérico viral');
 assert.ok(/buildRangeAdvShareHtml/.test(shareSrc), 'html share range advantage');
 assert.ok(/Sin spoiler/.test(shareSrc), 'copy sin spoiler en imagen');
 assert.ok(/Se ha compartido correctamente/.test(shareSrc), 'mensaje éxito');
