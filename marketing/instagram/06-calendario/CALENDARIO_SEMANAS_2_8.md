@@ -422,3 +422,25 @@ Reto 5 manos · pot odds · import de sesión.
 | `edu-b4-*` | 4 |
 | `clip-01..08` | 1–8 según tabla |
 | `kit-*` | todas |
+
+---
+
+## Carruseles educativos ampliados (lote +10)
+
+Ver índices, captions y orden de publicación en  
+[`../03-carruseles-edu/README.md`](../03-carruseles-edu/README.md).
+
+Sustituye cualquier “carrusel educativo” del calendario por estos assets:
+
+| ID | Tema | Nivel | Prefijo archivos |
+|----|------|-------|------------------|
+| B11 | Posición | Básico | `edu-b11-*` |
+| B2 | Defensa BB | Básico | `edu-b2-*` |
+| B6 | Sizing preflop | Básico | `edu-b6-*` |
+| B7 | Fold equity | Básico/Inter | `edu-b7-*` |
+| B12 | Valor vs bluff | Básico | `edu-b12-*` |
+| B5 | 3-bet blinds | Intermedio | `edu-b5-*` |
+| B13 | Vs 3-bet | Intermedio | `edu-b13-*` |
+| B14 | Check-raise | Intermedio | `edu-b14-*` |
+| B8 | ICM burbuja | Intermedio | `edu-b8-*` |
+| B10 | Spins 3-max | Intermedio | `edu-b10-*` |
