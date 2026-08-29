@@ -21244,6 +21244,10 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) body.demo = true;
     if (options.freePromo) body.freePromo = true;
+    if (!options.freePromo && global.PTCommunity && global.PTCommunity.aiCommunityId) {
+      var cid = global.PTCommunity.aiCommunityId();
+      if (cid) body.communityId = cid;
+    }
 
     let token = null;
     if (global.PTSupabase && global.PTSupabase.getAccessToken) {
@@ -21362,6 +21366,10 @@ window.PT_NASH_PUSH_JSON = {
   async function assertAiAccess(opts) {
     opts = opts || {};
     const show = opts.showPaywall !== false;
+    if (global.PTCommunity && global.PTCommunity.refreshAiQuota && global.PTCommunity.aiCommunityId &&
+        global.PTCommunity.aiCommunityId()) {
+      try { await global.PTCommunity.refreshAiQuota(); } catch (e) { /* noop */ }
+    }
     if (!global.PTEntitlements || !global.PTEntitlements.canUseAI) {
       if (show) {
         if (global.PTBilling) global.PTBilling.showPaywall('ai_plan');
@@ -21377,7 +21385,9 @@ window.PT_NASH_PUSH_JSON = {
     if (!aiCheck.ok) {
       const reason = aiCheck.reason || 'ai_plan';
       if (show) {
-        if (global.PTBilling) global.PTBilling.showPaywall(reason);
+        if (aiCheck.source === 'community') {
+          alert('Has agotado las ' + (aiCheck.limit || 40) + ' consultas IA de la comunidad este mes.');
+        } else if (global.PTBilling) global.PTBilling.showPaywall(reason);
         else alert('Los informes y preguntas IA requieren un plan con consultas o un bono.');
       }
       return { ok: false, reason: reason };
@@ -25159,6 +25169,16 @@ window.PT_NASH_PUSH_JSON = {
       host.classList.remove('hidden');
       return;
     }
+    var C = global.PTCommunity;
+    if (C && C.aiCommunityId && C.aiCommunityId() && Ent && Ent.aiQuotaSummary) {
+      var cSum = Ent.aiQuotaSummary(ent);
+      host.innerHTML = '<div class="usage-widget"><p class="muted-text" style="margin:0 0 6px;font-size:12px">' +
+        escapeHtml(cSum.label || 'ForgeCoach comunidad') + '</p>' +
+        barRow('ForgeCoach (comunidad)', cSum.used || 0, cSum.limit || 40) +
+        '</div>';
+      host.classList.remove('hidden');
+      return;
+    }
     var lim = ent.limits || {};
     var use = ent.usage || {};
     var rows = '';
@@ -27959,6 +27979,9 @@ window.PT_NASH_PUSH_JSON = {
       state = localFallback();
     }
     applyToUser(state);
+    if (global.PTCommunity && global.PTCommunity.refreshAiQuota) {
+      try { await global.PTCommunity.refreshAiQuota(); } catch (e2) { /* noop */ }
+    }
     if (global.dispatchEvent) {
       global.dispatchEvent(new CustomEvent('pt-entitlements-updated', { detail: state }));
     }
@@ -28037,6 +28060,20 @@ window.PT_NASH_PUSH_JSON = {
 
   function canUseAI(ent) {
     if (isGuestUser()) return { ok: false, reason: 'guest_gate' };
+    var C = global.PTCommunity;
+    if (C && C.aiCommunityId && C.aiCommunityId()) {
+      var q = C.getAiQuota && C.getAiQuota();
+      if (q && q.ok) {
+        var usedC = Number(q.used) || 0;
+        var limC = Number(q.limit) || 40;
+        if (usedC < limC) {
+          return { ok: true, used: usedC, limit: limC, source: 'community' };
+        }
+        return { ok: false, reason: 'ai_limit', used: usedC, limit: limC, source: 'community' };
+      }
+      // Sin cache aún: permitir y dejar que el edge valide
+      return { ok: true, source: 'community', pending: true };
+    }
     ent = ent || state || localFallback();
     if (ent.is_admin || ent.unlimited || isAdmin()) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
@@ -28086,29 +28123,56 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function aiQuotaSummary(ent) {
+    var C = global.PTCommunity;
+    if (C && C.aiCommunityId && C.aiCommunityId()) {
+      var q = C.getAiQuota && C.getAiQuota();
+      if (q && q.ok) {
+        var used = Number(q.used) || 0;
+        var lim = Number(q.limit) || 40;
+        var left = Math.max(0, lim - used);
+        return {
+          unlimited: false,
+          used: used,
+          limit: lim,
+          totalLimit: lim,
+          totalLeft: left,
+          source: 'community',
+          label: 'ForgeCoach (comunidad): ' + used + '/' + lim + ' · ' + left + ' disponibles.'
+        };
+      }
+      return {
+        unlimited: false,
+        used: 0,
+        limit: 40,
+        totalLimit: 40,
+        totalLeft: 40,
+        source: 'community',
+        label: 'ForgeCoach (comunidad): 40 consultas/mes independientes.'
+      };
+    }
     ent = ent || state || localFallback();
     if (ent.is_admin || isAdmin()) {
       var adminUsed = (ent.usage && ent.usage.ai_reports_month) || 0;
       return { unlimited: true, label: 'Consultas IA: ilimitadas (admin) · ' + adminUsed + ' usadas este mes' };
     }
-    var q = aiCombinedQuota(ent);
-    if (q.unlimited) {
+    var q2 = aiCombinedQuota(ent);
+    if (q2.unlimited) {
       return { unlimited: true, label: 'Consultas IA: ilimitadas' };
     }
-    if (!q.totalLimit) {
+    if (!q2.totalLimit) {
       return { unlimited: false, label: 'Tu plan no incluye consultas IA. Compra un bono en Planes.', totalLeft: 0, bonus: 0 };
     }
-    var line = 'ForgeCoach: ' + q.used + '/' + q.totalLimit;
-    if (q.bonus > 0) line += ' (incl. ' + q.bonus + ' bono)';
-    line += ' · ' + q.totalLeft + ' disponibles';
+    var line = 'ForgeCoach: ' + q2.used + '/' + q2.totalLimit;
+    if (q2.bonus > 0) line += ' (incl. ' + q2.bonus + ' bono)';
+    line += ' · ' + q2.totalLeft + ' disponibles';
     return {
       unlimited: false,
-      used: q.used,
-      limit: q.planMax,
-      planLeft: q.planLeft != null ? q.planLeft : Math.max(0, q.planMax - (q.planUsed || 0)),
-      bonus: q.bonus,
-      totalLimit: q.totalLimit,
-      totalLeft: q.totalLeft,
+      used: q2.used,
+      limit: q2.planMax,
+      planLeft: q2.planLeft != null ? q2.planLeft : Math.max(0, q2.planMax - (q2.planUsed || 0)),
+      bonus: q2.bonus,
+      totalLimit: q2.totalLimit,
+      totalLeft: q2.totalLeft,
       label: line + '.'
     };
   }
@@ -33096,6 +33160,16 @@ window.PT_NASH_PUSH_JSON = {
   function loadHomeGreeting(leadEl) {
     if (!leadEl) return;
     leadEl.classList.remove('home-lead--loading');
+    var homeOpts = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+    if (homeOpts.welcomeFromManager && window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
+      leadEl.textContent = 'Bienvenido a la comunidad.';
+      if (PTCommunity.fetchWelcomeMessage) {
+        PTCommunity.fetchWelcomeMessage().then(function (msg) {
+          if (msg && String(msg).trim()) leadEl.textContent = String(msg).trim();
+        }).catch(function () { /* default */ });
+      }
+      return;
+    }
     leadEl.innerHTML = DEFAULT_HOME_LEAD;
     const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
       || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
@@ -33154,20 +33228,38 @@ window.PT_NASH_PUSH_JSON = {
     ).join('');
 
     const dailyHost = $('#home-daily-spot');
+    const homeOpts = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+    const communityShell = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
     if (dailyHost) {
-      const guestDaily = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
-        || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
-      if (user && !guestDaily) {
-        withLazyChunk('school', function () {
-          if (window.PTSchool && PTSchool.renderHomeDailySpot) {
-            PTSchool.renderHomeDailySpot(dailyHost);
-          } else {
-            dailyHost.innerHTML = '';
-          }
-        });
-      } else {
+      if (communityShell && homeOpts.hideDailySpot) {
         dailyHost.innerHTML = '';
+        dailyHost.classList.add('hidden');
+      } else {
+        dailyHost.classList.remove('hidden');
+        const guestDaily = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+          || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+        if (user && !guestDaily) {
+          withLazyChunk('school', function () {
+            if (window.PTSchool && PTSchool.renderHomeDailySpot) {
+              PTSchool.renderHomeDailySpot(dailyHost);
+            } else {
+              dailyHost.innerHTML = '';
+            }
+          });
+        } else {
+          dailyHost.innerHTML = '';
+        }
       }
+    }
+
+    const quickHead = document.querySelector('#tab-home .home-section-head');
+    const homeGrid = $('#home-grid');
+    if (communityShell && homeOpts.hideQuickAccess) {
+      if (quickHead) quickHead.classList.add('hidden');
+      if (homeGrid) homeGrid.classList.add('hidden');
+    } else {
+      if (quickHead) quickHead.classList.remove('hidden');
+      if (homeGrid) homeGrid.classList.remove('hidden');
     }
 
     const errBadge = document.querySelector('[data-home-badge="errors"]');
@@ -33185,7 +33277,13 @@ window.PT_NASH_PUSH_JSON = {
     const coachMount = $('#home-coach-mount');
     const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
       || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
-    if (coachMount && !guestOn && window.PTAIReport && PTAIReport.mountWelcome) {
+    const homeOptsCoach = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+    const communityShellCoach = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
+    if (coachMount && (communityShellCoach && homeOptsCoach.hideCoachMount)) {
+      coachMount.innerHTML = '';
+      coachMount.classList.add('hidden');
+    } else if (coachMount && !guestOn && window.PTAIReport && PTAIReport.mountWelcome) {
+      coachMount.classList.remove('hidden');
       PTAIReport.mountWelcome(coachMount, {
         userName: firstNameFromUser(window.PT_AUTH_USER),
         onTrain: () => goToTab('play', { setup: true })
@@ -33196,8 +33294,16 @@ window.PT_NASH_PUSH_JSON = {
     maybeFinishHomeBoot(false);
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#home-usage'));
     if (window.PTBilling && PTBilling.mountAnnualUpsell) {
-      var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
-      PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
+      if (communityShellCoach && homeOptsCoach.hideAnnualUpsell) {
+        var upsell = $('#home-annual-upsell');
+        if (upsell) {
+          upsell.innerHTML = '';
+          upsell.classList.add('hidden');
+        }
+      } else {
+        var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
+        PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
+      }
     }
     if (window.PTOnboarding) {
       PTOnboarding.bind($('#home-onboarding'));

@@ -569,6 +569,72 @@
     return null;
   }
 
+  /** Comunidad activa para cupo IA independiente (null = PokerForge / plan). */
+  function aiCommunityId() {
+    var cfg = config();
+    if (ACTIVE && ACTIVE !== 'pokerforge' && cfg && cfg.ai && cfg.ai.independent && hasAccess()) {
+      return ACTIVE;
+    }
+    return null;
+  }
+
+  var AI_QUOTA_CACHE = null;
+  var WELCOME_CACHE = null;
+
+  async function refreshAiQuota() {
+    var cid = aiCommunityId();
+    if (!cid || !client()) {
+      AI_QUOTA_CACHE = null;
+      return null;
+    }
+    try {
+      var res = await client().rpc('pt_my_community_ai_status', { p_community_id: cid });
+      if (res.error || !(res.data && res.data.ok)) {
+        AI_QUOTA_CACHE = null;
+        return null;
+      }
+      AI_QUOTA_CACHE = res.data;
+      return AI_QUOTA_CACHE;
+    } catch (e) {
+      AI_QUOTA_CACHE = null;
+      return null;
+    }
+  }
+
+  function getAiQuota() {
+    return AI_QUOTA_CACHE;
+  }
+
+  async function fetchWelcomeMessage() {
+    var cfg = config();
+    if (!(cfg && cfg.home && cfg.home.welcomeFromManager)) return null;
+    var cid = ACTIVE;
+    if (!cid || cid === 'pokerforge' || !client()) return null;
+    if (WELCOME_CACHE && WELCOME_CACHE.community_id === cid) {
+      return WELCOME_CACHE.welcome_message || '';
+    }
+    try {
+      var res = await client().rpc('pt_get_community_welcome', { p_community_id: cid });
+      if (res.error || !(res.data && res.data.ok)) return null;
+      WELCOME_CACHE = {
+        community_id: cid,
+        welcome_message: res.data.welcome_message || ''
+      };
+      return WELCOME_CACHE.welcome_message;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function invalidateWelcomeCache() {
+    WELCOME_CACHE = null;
+  }
+
+  function homeOptions() {
+    var cfg = config();
+    return (cfg && cfg.home) || {};
+  }
+
   function progressKey() {
     if (ACTIVE === 'pokerforge') return 'school_progress';
     return 'school_progress_' + ACTIVE;
@@ -615,6 +681,12 @@
     unlockMode: unlockMode,
     bypassPaywalls: bypassPaywalls,
     contactCommunityId: contactCommunityId,
+    aiCommunityId: aiCommunityId,
+    refreshAiQuota: refreshAiQuota,
+    getAiQuota: getAiQuota,
+    fetchWelcomeMessage: fetchWelcomeMessage,
+    invalidateWelcomeCache: invalidateWelcomeCache,
+    homeOptions: homeOptions,
     progressKey: progressKey,
     showAccessDenied: showAccessDenied,
     joinWithCode: joinWithCode

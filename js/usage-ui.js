@@ -46,6 +46,16 @@
       host.classList.remove('hidden');
       return;
     }
+    var C = global.PTCommunity;
+    if (C && C.aiCommunityId && C.aiCommunityId() && Ent && Ent.aiQuotaSummary) {
+      var cSum = Ent.aiQuotaSummary(ent);
+      host.innerHTML = '<div class="usage-widget"><p class="muted-text" style="margin:0 0 6px;font-size:12px">' +
+        escapeHtml(cSum.label || 'ForgeCoach comunidad') + '</p>' +
+        barRow('ForgeCoach (comunidad)', cSum.used || 0, cSum.limit || 40) +
+        '</div>';
+      host.classList.remove('hidden');
+      return;
+    }
     var lim = ent.limits || {};
     var use = ent.usage || {};
     var rows = '';

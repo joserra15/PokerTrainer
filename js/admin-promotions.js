@@ -82,11 +82,13 @@
     var usersPanel = $('#admin-users-panel');
     var msgPanel = $('#admin-messages-panel');
     var usagePanel = $('#admin-usage-panel');
+    var communitiesPanel = $('#admin-communities-panel');
     if (promoPanel) promoPanel.classList.toggle('hidden', !show);
     if (show) {
       if (usersPanel) usersPanel.classList.add('hidden');
       if (msgPanel) msgPanel.classList.add('hidden');
       if (usagePanel) usagePanel.classList.add('hidden');
+      if (communitiesPanel) communitiesPanel.classList.add('hidden');
       loadPromotions();
     } else if (promoPanel && !promoPanel.classList.contains('hidden')) {
       promoPanel.classList.add('hidden');

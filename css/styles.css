@@ -7566,3 +7566,20 @@ body[data-community="mttlab"] .app-logo {
 }
 .school-external-links a { color: var(--accent); }
 body.community-gated #app-shell { display: none !important; }
+.admin-online-dot {
+  color: #3ecf8e;
+  font-size: 0.85em;
+}
+.admin-community-edit-form .admin-invite-label,
+.manager-settings-card label {
+  display: block;
+  margin: 12px 0 4px;
+  font-size: 0.9rem;
+}
+.admin-community-edit-form textarea,
+.manager-settings-card textarea {
+  width: 100%;
+  max-width: 560px;
+}
+.admin-communities-list { margin-top: 12px; }
+.admin-community-detail { margin-top: 16px; }

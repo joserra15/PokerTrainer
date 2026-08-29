@@ -533,6 +533,10 @@
     }
     if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) body.demo = true;
     if (options.freePromo) body.freePromo = true;
+    if (!options.freePromo && global.PTCommunity && global.PTCommunity.aiCommunityId) {
+      var cid = global.PTCommunity.aiCommunityId();
+      if (cid) body.communityId = cid;
+    }
 
     let token = null;
     if (global.PTSupabase && global.PTSupabase.getAccessToken) {
@@ -651,6 +655,10 @@
   async function assertAiAccess(opts) {
     opts = opts || {};
     const show = opts.showPaywall !== false;
+    if (global.PTCommunity && global.PTCommunity.refreshAiQuota && global.PTCommunity.aiCommunityId &&
+        global.PTCommunity.aiCommunityId()) {
+      try { await global.PTCommunity.refreshAiQuota(); } catch (e) { /* noop */ }
+    }
     if (!global.PTEntitlements || !global.PTEntitlements.canUseAI) {
       if (show) {
         if (global.PTBilling) global.PTBilling.showPaywall('ai_plan');
@@ -666,7 +674,9 @@
     if (!aiCheck.ok) {
       const reason = aiCheck.reason || 'ai_plan';
       if (show) {
-        if (global.PTBilling) global.PTBilling.showPaywall(reason);
+        if (aiCheck.source === 'community') {
+          alert('Has agotado las ' + (aiCheck.limit || 40) + ' consultas IA de la comunidad este mes.');
+        } else if (global.PTBilling) global.PTBilling.showPaywall(reason);
         else alert('Los informes y preguntas IA requieren un plan con consultas o un bono.');
       }
       return { ok: false, reason: reason };

@@ -537,7 +537,7 @@ async function callerIsAdmin(admin: ReturnType<typeof createClient>, userId: str
   return !!data.is_admin || email === 'info@pokerforgeai.com';
 }
 
-async function checkAiAccess(userId: string) {
+async function checkAiAccess(userId: string, communityId?: string | null) {
   const admin = adminClient();
   if (!admin) return { ok: true as const, source: 'plan' as const, unlimited: false };
 
@@ -545,7 +545,9 @@ async function checkAiAccess(userId: string) {
     return { ok: true as const, source: 'admin' as const, unlimited: true };
   }
 
-  const { data, error } = await admin.rpc('pt_check_ai_access', { p_user_id: userId });
+  const args: Record<string, unknown> = { p_user_id: userId };
+  if (communityId) args.p_community_id = communityId;
+  const { data, error } = await admin.rpc('pt_check_ai_access', args);
   if (error) {
     console.error('[analyze-hand] pt_check_ai_access', error);
     return { ok: false as const, error: 'access_check_failed', limit: 0, used: 0 };
@@ -571,15 +573,17 @@ async function checkAiAccess(userId: string) {
   };
 }
 
-async function recordAiUsage(userId: string, mode: AiMode, source: string) {
+async function recordAiUsage(userId: string, mode: AiMode, source: string, communityId?: string | null) {
   const admin = adminClient();
   if (!admin) return;
   try {
-    const { error } = await admin.rpc('pt_record_ai_usage', {
+    const args: Record<string, unknown> = {
       p_user_id: userId,
       p_mode: mode,
       p_source: source
-    });
+    };
+    if (communityId) args.p_community_id = communityId;
+    const { error } = await admin.rpc('pt_record_ai_usage', args);
     if (error) console.error('[analyze-hand] pt_record_ai_usage', error);
   } catch (e) {
     console.error('[analyze-hand] pt_record_ai_usage', e);
@@ -735,6 +739,7 @@ serve(async (req) => {
     thread?: unknown;
     demo?: unknown;
     freePromo?: unknown;
+    communityId?: unknown;
   };
   try {
     body = await req.json();
@@ -753,6 +758,11 @@ serve(async (req) => {
     if (!okAdmin) return json({ error: 'forbidden' }, 403);
     billingUserId = DEMO_USER_ID;
   }
+
+  const communityId = typeof body.communityId === 'string' && body.communityId.trim()
+    && body.communityId.trim() !== 'pokerforge'
+    ? body.communityId.trim()
+    : null;
 
   const mode = normalizeMode(body.mode);
   const freePromo = body.freePromo === true && mode === 'stats_question';
@@ -785,7 +795,7 @@ serve(async (req) => {
   if (freePromo) {
     access = { ok: true as const, source: 'promo', unlimited: true };
   } else {
-    access = await checkAiAccess(billingUserId);
+    access = await checkAiAccess(billingUserId, communityId);
     if (!access.ok) {
       return json({
         error: access.error || 'rate_limit',
@@ -823,7 +833,7 @@ serve(async (req) => {
       return json({ error: 'parse_failed' }, 502);
     }
     if (!freePromo) {
-      await recordAiUsage(billingUserId, mode, access.source || 'plan');
+      await recordAiUsage(billingUserId, mode, access.source || 'plan', communityId);
     }
     const parsedObj = parsed as Record<string, unknown>;
     const analysisMarkdown = typeof parsedObj.analysis === 'string' ? parsedObj.analysis : '';
@@ -839,7 +849,7 @@ serve(async (req) => {
   const truncated = !coachResponseComplete(mode, result.text, result.finishReason || '');
 
   if (!freePromo) {
-    await recordAiUsage(billingUserId, mode, access.source || 'plan');
+    await recordAiUsage(billingUserId, mode, access.source || 'plan', communityId);
   }
 
   if (admin) {

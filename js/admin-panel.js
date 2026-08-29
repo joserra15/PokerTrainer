@@ -353,14 +353,25 @@
     var promoPanel = $('#admin-promos-panel');
     var usersPanel = $('#admin-users-panel');
     var usagePanel = $('#admin-usage-panel');
+    var communitiesPanel = $('#admin-communities-panel');
     if (msgPanel) msgPanel.classList.add('hidden');
     if (promoPanel) promoPanel.classList.add('hidden');
     if (usagePanel) usagePanel.classList.add('hidden');
+    if (communitiesPanel) communitiesPanel.classList.add('hidden');
     if (usersPanel) usersPanel.classList.remove('hidden');
     var usageContent = $('#admin-usage-content');
     if (usageContent) usageContent.innerHTML = '';
     var usageErr = $('#admin-usage-error');
     if (usageErr) usageErr.textContent = '';
+    var communitiesList = $('#admin-communities-list');
+    if (communitiesList) communitiesList.innerHTML = '';
+    var communityDetail = $('#admin-community-detail');
+    if (communityDetail) {
+      communityDetail.classList.add('hidden');
+      communityDetail.innerHTML = '';
+    }
+    var communitiesErr = $('#admin-communities-error');
+    if (communitiesErr) communitiesErr.textContent = '';
     adminUsageCache = null;
     if (global.PTAdminPromos && global.PTAdminPromos.clear) {
       global.PTAdminPromos.clear();
@@ -2616,17 +2627,203 @@
     renderUsagePanel(adminUsageCache);
   }
 
+  function communityLoginUrl(c) {
+    if (!c) return '';
+    if (c.login_url) return c.login_url;
+    var path = c.entry_path || ('/?app=' + (c.id || ''));
+    return 'https://www.pokerforgeai.com' + path;
+  }
+
+  async function loadAdminCommunities() {
+    var host = $('#admin-communities-list');
+    var err = $('#admin-communities-error');
+    var detail = $('#admin-community-detail');
+    if (err) err.textContent = '';
+    if (detail) {
+      detail.classList.add('hidden');
+      detail.innerHTML = '';
+    }
+    if (!host) return;
+    host.innerHTML = '<p class="muted-text">Cargando comunidades…</p>';
+    var c = client();
+    if (!c) {
+      host.innerHTML = '<p class="admin-error">Sin cliente Supabase.</p>';
+      return;
+    }
+    var res = await c.rpc('pt_admin_list_communities');
+    if (res.error) {
+      handleAdminRpcError(res.error, err);
+      host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message || 'Error') + '</p>';
+      return;
+    }
+    var list = (res.data && res.data.communities) || res.data || [];
+    if (!Array.isArray(list)) list = [];
+    if (!list.length) {
+      host.innerHTML = '<p class="muted-text">No hay comunidades registradas.</p>';
+      return;
+    }
+    host.innerHTML =
+      '<div class="admin-table-wrap"><table class="admin-table"><thead><tr>' +
+      '<th>Comunidad</th><th>URL login</th><th>Código</th><th>Miembros</th><th>Estado</th><th></th>' +
+      '</tr></thead><tbody>' +
+      list.map(function (row) {
+        var url = communityLoginUrl(row);
+        return '<tr>' +
+          '<td><strong>' + escapeHtml(row.name || row.id) + '</strong><br><span class="muted-text">' +
+          escapeHtml(row.id || '') + '</span></td>' +
+          '<td><a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' + escapeHtml(url) + '</a></td>' +
+          '<td><code>' + escapeHtml(row.join_code || '—') + '</code></td>' +
+          '<td>' + escapeHtml(String(row.member_count != null ? row.member_count : 0)) +
+          (row.manager_count ? ' <span class="muted-text">(' + escapeHtml(String(row.manager_count)) + ' mgr)</span>' : '') +
+          '</td>' +
+          '<td>' + (row.active ? 'Activa' : 'Inactiva') + '</td>' +
+          '<td><button type="button" class="btn btn-ghost btn-sm" data-admin-community="' +
+          escapeHtml(row.id) + '">Gestionar</button></td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table></div>';
+    host.querySelectorAll('[data-admin-community]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openAdminCommunityDetail(btn.getAttribute('data-admin-community'));
+      });
+    });
+  }
+
+  async function openAdminCommunityDetail(communityId) {
+    var detail = $('#admin-community-detail');
+    var err = $('#admin-communities-error');
+    if (!detail) return;
+    if (err) err.textContent = '';
+    detail.classList.remove('hidden');
+    detail.innerHTML = '<p class="muted-text">Cargando detalle…</p>';
+    var c = client();
+    if (!c) return;
+    var res = await c.rpc('pt_admin_community_detail', { p_community_id: communityId });
+    if (res.error) {
+      handleAdminRpcError(res.error, err);
+      detail.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message || 'Error') + '</p>';
+      return;
+    }
+    var data = res.data || {};
+    var com = data.community || {};
+    var members = data.members || [];
+    var url = communityLoginUrl(com);
+    detail.innerHTML =
+      '<div class="admin-section card-box">' +
+      '<div class="admin-section-head"><h3>' + escapeHtml(com.name || communityId) + '</h3>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="admin-community-detail-close">Cerrar</button></div>' +
+      '<p class="muted-text">URL de login: <a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' +
+      escapeHtml(url) + '</a></p>' +
+      '<p class="muted-text">Activos ahora: <strong>' + escapeHtml(String(data.online_count || 0)) +
+      '</strong> · Cupo IA comunidad: <strong>' + escapeHtml(String(data.ai_limit || 40)) + '</strong>/mes</p>' +
+      '<form id="admin-community-edit-form" class="admin-community-edit-form">' +
+      '<label class="admin-invite-label" for="admin-community-join-code">Código de acceso</label>' +
+      '<input type="text" id="admin-community-join-code" class="admin-promo-input" value="' +
+      escapeHtml(com.join_code || '') + '" maxlength="64" autocomplete="off" />' +
+      '<label class="admin-invite-label" for="admin-community-welcome">Mensaje de bienvenida (home)</label>' +
+      '<textarea id="admin-community-welcome" class="admin-promo-textarea" rows="3" maxlength="800">' +
+      escapeHtml(com.welcome_message || '') + '</textarea>' +
+      '<label class="admin-invite-label" for="admin-community-name">Nombre</label>' +
+      '<input type="text" id="admin-community-name" class="admin-promo-input" value="' +
+      escapeHtml(com.name || '') + '" maxlength="120" />' +
+      '<label class="admin-invite-label"><input type="checkbox" id="admin-community-active"' +
+      (com.active ? ' checked' : '') + ' /> Comunidad activa</label>' +
+      '<div class="admin-messages-head-actions" style="margin-top:12px">' +
+      '<button type="submit" class="btn btn-primary btn-sm">Guardar cambios</button>' +
+      '<span id="admin-community-save-status" class="muted-text"></span></div></form>' +
+      '<h4 style="margin-top:1.5rem">Miembros (' + members.length + ')</h4>' +
+      (members.length
+        ? '<div class="admin-table-wrap"><table class="admin-table"><thead><tr>' +
+          '<th>Usuario</th><th>Rol</th><th>IA mes</th><th>Escuela</th><th>Última conexión</th><th></th>' +
+          '</tr></thead><tbody>' +
+          members.map(function (m) {
+            return '<tr>' +
+              '<td><strong>' + escapeHtml(m.name || '—') + '</strong><br><span class="muted-text">' +
+              escapeHtml(m.email || '') + '</span>' +
+              (m.is_online ? ' <span class="admin-online-dot" title="En línea">●</span>' : '') +
+              '</td>' +
+              '<td>' + escapeHtml(m.role || 'member') + '</td>' +
+              '<td>' + escapeHtml(String(m.ai_used_month != null ? m.ai_used_month : 0)) + '/' +
+              escapeHtml(String(m.ai_limit || 40)) + '</td>' +
+              '<td>' + escapeHtml(String(m.school_passed != null ? m.school_passed : 0)) +
+              ' lecc. · XP ' + escapeHtml(String(m.school_xp != null ? m.school_xp : 0)) + '</td>' +
+              '<td>' + escapeHtml(formatDateTime(m.last_seen_at)) + '</td>' +
+              '<td><button type="button" class="btn btn-ghost btn-sm" data-admin-open-user="' +
+              escapeHtml(m.user_id) + '">Ver usuario</button></td></tr>';
+          }).join('') + '</tbody></table></div>'
+        : '<p class="muted-text">Sin miembros activos.</p>') +
+      '</div>';
+
+    var close = $('#admin-community-detail-close');
+    if (close) close.addEventListener('click', function () {
+      detail.classList.add('hidden');
+      detail.innerHTML = '';
+    });
+    var form = $('#admin-community-edit-form');
+    if (form) {
+      form.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var status = $('#admin-community-save-status');
+        if (status) status.textContent = 'Guardando…';
+        var upd = await c.rpc('pt_admin_update_community', {
+          p_community_id: communityId,
+          p_join_code: ($('#admin-community-join-code') || {}).value || '',
+          p_welcome_message: ($('#admin-community-welcome') || {}).value || '',
+          p_name: ($('#admin-community-name') || {}).value || '',
+          p_active: !!($('#admin-community-active') && $('#admin-community-active').checked)
+        });
+        if (upd.error) {
+          if (status) status.textContent = '';
+          if (err) err.textContent = upd.error.message || 'Error al guardar';
+          return;
+        }
+        if (status) status.textContent = 'Guardado';
+        loadAdminCommunities();
+        openAdminCommunityDetail(communityId);
+      });
+    }
+    detail.querySelectorAll('[data-admin-open-user]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var uid = btn.getAttribute('data-admin-open-user');
+        showAdminCommunities(false);
+        openUserDetail(uid);
+      });
+    });
+  }
+
+  function showAdminCommunities(show) {
+    if (show && !requireAdminAccess()) return;
+    var communitiesPanel = $('#admin-communities-panel');
+    var usersPanel = $('#admin-users-panel');
+    var promoPanel = $('#admin-promos-panel');
+    var msgPanel = $('#admin-messages-panel');
+    var usagePanel = $('#admin-usage-panel');
+    if (communitiesPanel) communitiesPanel.classList.toggle('hidden', !show);
+    if (show) {
+      if (usersPanel) usersPanel.classList.add('hidden');
+      if (promoPanel) promoPanel.classList.add('hidden');
+      if (msgPanel) msgPanel.classList.add('hidden');
+      if (usagePanel) usagePanel.classList.add('hidden');
+      loadAdminCommunities();
+    } else if (communitiesPanel) {
+      communitiesPanel.classList.add('hidden');
+      if (usersPanel) usersPanel.classList.remove('hidden');
+    }
+  }
+
   function showAdminUsage(show) {
     if (show && !requireAdminAccess()) return;
     var usagePanel = $('#admin-usage-panel');
     var usersPanel = $('#admin-users-panel');
     var promoPanel = $('#admin-promos-panel');
     var msgPanel = $('#admin-messages-panel');
+    var communitiesPanel = $('#admin-communities-panel');
     if (usagePanel) usagePanel.classList.toggle('hidden', !show);
     if (show) {
       if (usersPanel) usersPanel.classList.add('hidden');
       if (promoPanel) promoPanel.classList.add('hidden');
       if (msgPanel) msgPanel.classList.add('hidden');
+      if (communitiesPanel) communitiesPanel.classList.add('hidden');
       loadUsageStats();
     } else if (usagePanel) {
       usagePanel.classList.add('hidden');
@@ -2641,10 +2838,12 @@
     var usersPanel = $('#admin-users-panel');
     var promoPanel = $('#admin-promos-panel');
     var usagePanel = $('#admin-usage-panel');
+    var communitiesPanel = $('#admin-communities-panel');
     if (msgPanel) msgPanel.classList.toggle('hidden', !show);
     if (usersPanel) usersPanel.classList.toggle('hidden', show);
     if (show && promoPanel) promoPanel.classList.add('hidden');
     if (show && usagePanel) usagePanel.classList.add('hidden');
+    if (show && communitiesPanel) communitiesPanel.classList.add('hidden');
     if (show) {
       bindAdminComposeModal();
       if (opts.userId) adminMsgSelectedUserId = opts.userId;
@@ -2703,6 +2902,17 @@
     if (usageBack && !usageBack.dataset.bound) {
       usageBack.dataset.bound = '1';
       usageBack.addEventListener('click', function () { showAdminUsage(false); });
+    }
+
+    var communitiesBtn = $('#admin-communities-btn');
+    var communitiesBack = $('#admin-communities-back');
+    if (communitiesBtn && !communitiesBtn.dataset.bound) {
+      communitiesBtn.dataset.bound = '1';
+      communitiesBtn.addEventListener('click', function () { showAdminCommunities(true); });
+    }
+    if (communitiesBack && !communitiesBack.dataset.bound) {
+      communitiesBack.dataset.bound = '1';
+      communitiesBack.addEventListener('click', function () { showAdminCommunities(false); });
     }
 
     var syncBtn = $('#admin-sync-payments');
