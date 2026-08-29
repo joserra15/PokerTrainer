@@ -68,12 +68,14 @@ assert.ok(!/mttlab/.test(site), 'OAuth solo a / (sin redirect por comunidad)');
 assert.ok(site.includes("appUrl: 'https://www.pokerforgeai.com/'"), 'appUrl raíz');
 
 const app = read('js/app.js');
-assert.ok(/PTCommunity\.assertTab/.test(app), 'goToTab usa assertTab');
+const commSrc = read('js/community.js');
+assert.ok(/PTCommunity\.canOpenTab/.test(app), 'goToTab usa canOpenTab sync');
 assert.ok(/goToTabUnlocked/.test(app), 'goToTabUnlocked');
+assert.ok(/function canOpenTab/.test(commSrc), 'canOpenTab sync');
+assert.ok(/PT_E2E_MODE/.test(commSrc), 'bypass E2E comunidad');
 assert.ok(/tabId === 'manager'/.test(app), 'tab manager en app');
 
 const auth = read('js/auth.js');
-const commSrc = read('js/community.js');
 assert.ok(/gateAfterLogin/.test(auth), 'auth gate comunidad');
 assert.ok(/resolveActiveFromMemberships/.test(commSrc), 'resolve post-login');
 assert.ok(/ids\.length === 1/.test(commSrc), 'un solo acceso → ese shell');

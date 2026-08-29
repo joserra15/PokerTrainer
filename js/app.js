@@ -1993,23 +1993,19 @@
         return;
       }
     }
-    if (window.PTCommunity && typeof window.PTCommunity.assertTab === 'function' &&
+    // Gate síncrono: menús + ACCESS_CACHE. Las RPCs autorizan al cargar datos.
+    if (window.PTCommunity && typeof window.PTCommunity.canOpenTab === 'function' &&
         tabId !== 'home' && tabId !== 'account') {
-      window.PTCommunity.assertTab(tabId).then(function (access) {
-        if (access && access.allowed === false) {
-          if (window.PTCommunity.requireMembership && window.PTCommunity.requireMembership() &&
-              window.PTCommunity.hasAccess && !window.PTCommunity.hasAccess()) {
-            window.PTCommunity.showAccessDenied();
-            return;
-          }
-          goToTabUnlocked('home', {});
+      var access = window.PTCommunity.canOpenTab(tabId);
+      if (access && access.allowed === false) {
+        if (window.PTCommunity.requireMembership && window.PTCommunity.requireMembership() &&
+            window.PTCommunity.hasAccess && !window.PTCommunity.hasAccess()) {
+          window.PTCommunity.showAccessDenied();
           return;
         }
-        goToTabUnlocked(tabId, opts);
-      }).catch(function () {
-        goToTabUnlocked(tabId, opts);
-      });
-      return;
+        goToTabUnlocked('home', {});
+        return;
+      }
     }
     goToTabUnlocked(tabId, opts);
   }

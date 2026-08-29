@@ -266,6 +266,13 @@
     DEFAULT_APP = 'pokerforge';
     ACCESS_CACHE = { allowed: !requireMembership(), is_manager: false, community_id: ACTIVE };
 
+    if (global.PT_E2E_MODE) {
+      ACCESS_CACHE = { allowed: true, is_manager: true, community_id: ACTIVE };
+      applyDocument();
+      applyMenus();
+      return ACCESS_CACHE;
+    }
+
     if (!useAuth() || !client()) {
       applyDocument();
       applyMenus();
@@ -311,6 +318,9 @@
 
   async function assertFeature(feature) {
     var feat = feature || 'shell';
+    if (global.PT_E2E_MODE) {
+      return { ok: true, allowed: true, community_id: ACTIVE, feature: feat, is_manager: true };
+    }
     if (!requireMembership() && feat !== 'manager') {
       return { ok: true, allowed: true };
     }
@@ -325,7 +335,12 @@
     return res.data || { ok: false, allowed: false };
   }
 
-  async function assertTab(tabId) {
+  /**
+   * Gate síncrono de navegación (menús + ACCESS_CACHE).
+   * No hace RPC: el backend autoriza al cargar datos; aquí solo UX.
+   */
+  function canOpenTab(tabId) {
+    if (global.PT_E2E_MODE) return { ok: true, allowed: true };
     var cfg = config();
     if (cfg && cfg.menus) {
       if (cfg.menus.hide && cfg.menus.hide.indexOf(tabId) >= 0) {
@@ -336,10 +351,26 @@
         return { ok: false, allowed: false, error: 'tab_hidden' };
       }
     }
-    if (tabId === 'manager') return assertFeature('manager');
     if (tabId === 'admin' && ACTIVE !== 'pokerforge') {
       return { ok: false, allowed: false, error: 'forbidden' };
     }
+    if (tabId === 'manager') {
+      var user = (global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser()) || global.PT_AUTH_USER;
+      var admin = !!(user && user.isAdmin);
+      if (!(isManager() || admin)) {
+        return { ok: false, allowed: false, error: 'forbidden' };
+      }
+    }
+    if (requireMembership() && !hasAccess()) {
+      return { ok: false, allowed: false, error: 'forbidden' };
+    }
+    return { ok: true, allowed: true };
+  }
+
+  async function assertTab(tabId) {
+    var sync = canOpenTab(tabId);
+    if (!sync.allowed) return sync;
+    if (tabId === 'manager') return assertFeature('manager');
     if (requireMembership()) return assertFeature(tabId === 'school' ? 'school' : 'shell');
     return { ok: true, allowed: true };
   }
@@ -388,6 +419,14 @@
   }
 
   async function gateAfterLogin() {
+    if (global.PT_E2E_MODE) {
+      setActive('pokerforge', { skipMenus: true, skipBrand: true });
+      ACCESS_CACHE = { allowed: true, is_manager: true, community_id: 'pokerforge' };
+      hideAccessDenied();
+      applyBranding();
+      applyMenus();
+      return true;
+    }
     await refreshMembership();
     var next = resolveActiveFromMemberships();
     setActive(next, { skipMenus: true, skipBrand: true });
@@ -559,6 +598,7 @@
     resolveActiveFromMemberships: resolveActiveFromMemberships,
     assertFeature: assertFeature,
     assertTab: assertTab,
+    canOpenTab: canOpenTab,
     switchTo: switchTo,
     setDefaultApp: setDefaultApp,
     openSwitcherModal: openSwitcherModal,
