@@ -1,5 +1,7 @@
 /*
  * site-config.js — URLs públicas y orígenes OAuth (Epic 4 / G-03).
+ * OAuth siempre vuelve a appUrl (/). La comunidad se elige tras el login
+ * según memberships + default_app (PTCommunity.gateAfterLogin).
  */
 window.PT_SITE = {
   appUrl: 'https://www.pokerforgeai.com/',
@@ -11,18 +13,12 @@ window.PT_SITE = {
   ],
   oauthRedirectUris: [
     'https://www.pokerforgeai.com/',
-    'https://www.pokerforgeai.com/mttlab/',
     'http://localhost:5500/',
-    'http://localhost:5500/mttlab/',
-    'http://127.0.0.1:5500/',
-    'http://127.0.0.1:5500/mttlab/'
+    'http://127.0.0.1:5500/'
   ],
   supabaseRedirectUrls: [
     'https://www.pokerforgeai.com/',
-    'https://www.pokerforgeai.com/mttlab/',
     'http://localhost/',
-    'http://localhost/mttlab/',
-    'http://127.0.0.1/',
-    'http://127.0.0.1/mttlab/'
+    'http://127.0.0.1/'
   ]
 };

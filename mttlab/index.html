@@ -7,10 +7,8 @@
   <meta name="robots" content="noindex" />
   <script>
   (function () {
-    try {
-      sessionStorage.setItem('pt_app_variant', 'mttlab');
-      localStorage.setItem('pt_app_variant', 'mttlab');
-    } catch (e) {}
+    // Solo branding de landing pre-login. El OAuth vuelve a / y tras el login
+    // PTCommunity elige shell por memberships + default_app (no por esta URL).
     var hash = location.hash || '';
     location.replace('/?app=mttlab' + hash);
   })();

@@ -64,7 +64,8 @@ assert.ok(!/create or replace function public\.pt_manager_list_members[\s\S]*?\$
 assert.ok(/pt_manager_member_usage[\s\S]{0,1200}school/.test(sql), 'manager usage escuela');
 
 const site = read('js/site-config.js');
-assert.ok(site.includes('/mttlab/'), 'oauth redirect mttlab');
+assert.ok(!/mttlab/.test(site), 'OAuth solo a / (sin redirect por comunidad)');
+assert.ok(site.includes("appUrl: 'https://www.pokerforgeai.com/'"), 'appUrl raíz');
 
 const app = read('js/app.js');
 assert.ok(/PTCommunity\.assertTab/.test(app), 'goToTab usa assertTab');
@@ -72,7 +73,12 @@ assert.ok(/goToTabUnlocked/.test(app), 'goToTabUnlocked');
 assert.ok(/tabId === 'manager'/.test(app), 'tab manager en app');
 
 const auth = read('js/auth.js');
+const commSrc = read('js/community.js');
 assert.ok(/gateAfterLogin/.test(auth), 'auth gate comunidad');
+assert.ok(/resolveActiveFromMemberships/.test(commSrc), 'resolve post-login');
+assert.ok(/ids\.length === 1/.test(commSrc), 'un solo acceso → ese shell');
+assert.ok(/cleanEntryUrl/.test(commSrc), 'limpia ?app= tras login');
+assert.ok(!/forced = /.test(commSrc), 'ya no fuerza shell por URL tras login');
 
 const school = read('js/school.js');
 assert.ok(/unlockMode\(\) === 'allOpen'/.test(school), 'allOpen unlock');
@@ -130,6 +136,9 @@ assert.ok(C.getConfig('mttlab').menus.hide.indexOf('pricing') >= 0, 'mttlab ocul
 assert.ok(C.getConfig('mttlab').menus.show.indexOf('school') >= 0, 'mttlab muestra school');
 assert.ok(C.getConfig('mttlab').school.unlockMode === 'allOpen');
 assert.ok(C.getConfig('mttlab').billing.hidePricing);
+
+// Resolución post-login: 1 acceso → ese; varios → default_app
+assert.ok(typeof C.resolveActiveFromMemberships === 'function', 'resolveActiveFromMemberships');
 
 // PF default no oculta manager en hide de pokerforge config
 assert.ok(C.getConfig('pokerforge').menus.hide.indexOf('manager') >= 0);

@@ -53,8 +53,39 @@
     return null;
   }
 
+  /** Solo para landing pre-login (branding). Tras OAuth no manda. */
   function resolveInitial() {
-    return pathCommunity() || readStored() || 'pokerforge';
+    return pathCommunity() || 'pokerforge';
+  }
+
+  function accessibleIds() {
+    return (MY_COMMUNITIES || [])
+      .filter(function (c) { return c && c.id; })
+      .map(function (c) { return c.id; });
+  }
+
+  /**
+   * Tras login: 1 acceso → ese; varios → default_app si es válido; si no, pokerforge.
+   * OAuth siempre vuelve a /; aquí se elige el shell.
+   */
+  function resolveActiveFromMemberships() {
+    var ids = accessibleIds();
+    if (!ids.length) return 'pokerforge';
+    if (ids.length === 1) return ids[0];
+    var def = normalizeId(DEFAULT_APP);
+    if (ids.indexOf(def) >= 0) return def;
+    if (ids.indexOf('pokerforge') >= 0) return 'pokerforge';
+    return ids[0];
+  }
+
+  function cleanEntryUrl() {
+    try {
+      var dirty = /\/mttlab\/?/i.test(location.pathname || '') ||
+        /[?&](?:app|community)=/i.test(location.search || '');
+      if (dirty) {
+        history.replaceState({}, '', '/' + (location.hash || ''));
+      }
+    } catch (e) { /* noop */ }
   }
 
   function client() {
@@ -332,6 +363,9 @@
       if (errEl) errEl.textContent = msg === 'invalid_code' ? 'Código no válido.' : String(msg);
       return;
     }
+    if (res.data.community_id) {
+      setActive(res.data.community_id, { skipMenus: true, skipBrand: true });
+    }
     await refreshMembership();
     if (hasAccess()) {
       hideAccessDenied();
@@ -355,22 +389,11 @@
 
   async function gateAfterLogin() {
     await refreshMembership();
-    // Preferencia de entrada (solo si no hay deep-link de comunidad forzado)
-    try {
-      var forced = false;
-      try {
-        forced = /\/mttlab/i.test(location.pathname) ||
-          /[?&]app=/.test(location.search || '') ||
-          /[?&]community=/.test(location.search || '');
-      } catch (eF) { /* noop */ }
-      if (!forced && DEFAULT_APP && DEFAULT_APP !== ACTIVE) {
-        var allowed = MY_COMMUNITIES.some(function (c) { return c && c.id === DEFAULT_APP; });
-        if (allowed) {
-          setActive(DEFAULT_APP, { skipMenus: true, skipBrand: true });
-          await refreshMembership();
-        }
-      }
-    } catch (eDef) { /* noop */ }
+    var next = resolveActiveFromMemberships();
+    setActive(next, { skipMenus: true, skipBrand: true });
+    // Recalcular ACCESS_CACHE del shell elegido
+    await refreshMembership();
+    cleanEntryUrl();
 
     if (requireMembership() && !hasAccess()) {
       showAccessDenied();
@@ -384,28 +407,21 @@
 
   async function switchTo(communityId) {
     var next = normalizeId(communityId);
-    if (next === ACTIVE && hasAccess()) {
-      applyBranding();
-      applyMenus();
-      return true;
+    var ids = accessibleIds();
+    if (ids.indexOf(next) < 0 && next !== 'pokerforge') {
+      showAccessDenied('No tienes acceso a esa comunidad.');
+      return false;
     }
     setActive(next, { skipMenus: true, skipBrand: true });
-    var ok = await gateAfterLogin();
-    if (!ok) return false;
-    writeStored(next);
-    if (next !== 'pokerforge' && getConfig(next) && getConfig(next).entryPath) {
-      try {
-        var path = getConfig(next).entryPath;
-        if (location.pathname.indexOf(path.replace(/\/$/, '')) < 0 && path !== '/') {
-          // Keep SPA on same document; update URL without full reload when possible
-          history.replaceState({}, '', path);
-        }
-      } catch (e) { /* noop */ }
-    } else if (next === 'pokerforge') {
-      try {
-        if (/\/mttlab/i.test(location.pathname)) history.replaceState({}, '', '/');
-      } catch (e2) { /* noop */ }
+    await refreshMembership();
+    if (requireMembership() && !hasAccess()) {
+      showAccessDenied();
+      return false;
     }
+    hideAccessDenied();
+    applyBranding();
+    applyMenus();
+    cleanEntryUrl();
     global.dispatchEvent(new CustomEvent('pt-community-switch', { detail: { id: next } }));
     if (global.goToTab) global.goToTab('home');
     return true;
@@ -515,15 +531,15 @@
   function boot() {
     if (BOOTSTRAPPED) return;
     BOOTSTRAPPED = true;
+    // Pre-login: URL solo afecta branding de landing. Tras login manda membership/default.
     setActive(resolveInitial(), { skipMenus: true });
     applyBranding();
     bindLogoSwitcher();
   }
 
-  // Early resolve so body attribute is available ASAP
+  // Early resolve so body attribute is available ASAP (landing only)
   try {
     ACTIVE = resolveInitial();
-    writeStored(ACTIVE);
   } catch (e) { /* noop */ }
 
   global.PTCommunity = {
@@ -540,6 +556,7 @@
     defaultApp: defaultApp,
     refreshMembership: refreshMembership,
     gateAfterLogin: gateAfterLogin,
+    resolveActiveFromMemberships: resolveActiveFromMemberships,
     assertFeature: assertFeature,
     assertTab: assertTab,
     switchTo: switchTo,
