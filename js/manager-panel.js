@@ -1,5 +1,5 @@
 /*
- * manager-panel.js — Panel Manager de comunidad (usuarios, uso, mensajes).
+ * manager-panel.js — Panel Manager de comunidad (usuarios, IA, escuela, mensajes, bienvenida).
  * Sin pagos ni datos de PokerForgeAI / otras comunidades.
  */
 (function (global) {
@@ -39,6 +39,8 @@
   var selectedUserId = null;
   var membersCache = [];
   var threadsCache = [];
+  var settingsCache = null;
+  var listMeta = { online_count: 0, ai_limit: 40 };
 
   async function ensureAccess() {
     if (!global.PTCommunity) return false;
@@ -46,10 +48,60 @@
     return !!(res && res.allowed);
   }
 
+  async function loadSettings() {
+    var c = client();
+    var host = $('#manager-settings');
+    if (!c || !host) return;
+    host.innerHTML = '<p class="muted-text">Cargando ajustes…</p>';
+    var res = await c.rpc('pt_manager_get_settings', { p_community_id: communityId() });
+    if (res.error) {
+      host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
+      return;
+    }
+    settingsCache = res.data || {};
+    var url = settingsCache.login_url || '';
+    host.innerHTML =
+      '<div class="manager-settings-card">' +
+      '<p class="muted-text">URL de login: <a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' +
+      escapeHtml(url) + '</a></p>' +
+      '<p class="muted-text">Código de acceso (solo lectura; lo cambia Admin): <code>' +
+      escapeHtml(settingsCache.join_code || '—') + '</code></p>' +
+      '<p class="muted-text">Cupo IA por miembro: <strong>' +
+      escapeHtml(String(settingsCache.ai_limit || 40)) + '</strong> consultas/mes (independiente de PokerForgeAI).</p>' +
+      '<form id="manager-welcome-form">' +
+      '<label for="manager-welcome-input">Mensaje de bienvenida en Inicio</label>' +
+      '<textarea id="manager-welcome-input" rows="3" maxlength="800" placeholder="Texto que verán los miembros en lugar del saludo de la IA">' +
+      escapeHtml(settingsCache.welcome_message || '') + '</textarea>' +
+      '<div class="admin-messages-head-actions" style="margin-top:8px">' +
+      '<button type="submit" class="btn btn-primary btn-sm">Guardar bienvenida</button>' +
+      '<span id="manager-welcome-status" class="muted-text"></span></div></form></div>';
+    var form = $('#manager-welcome-form');
+    if (form) {
+      form.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var status = $('#manager-welcome-status');
+        if (status) status.textContent = 'Guardando…';
+        var body = ($('#manager-welcome-input') || {}).value || '';
+        var save = await c.rpc('pt_manager_set_welcome', {
+          p_community_id: communityId(),
+          p_welcome_message: body
+        });
+        if (save.error) {
+          if (status) status.textContent = '';
+          alert(save.error.message || 'Error');
+          return;
+        }
+        if (status) status.textContent = 'Guardado';
+        settingsCache.welcome_message = (save.data && save.data.welcome_message) || body;
+      });
+    }
+  }
+
   async function loadMembers() {
     var c = client();
     var cid = communityId();
     var host = $('#manager-members');
+    var summary = $('#manager-members-summary');
     if (!c || !host) return;
     host.innerHTML = '<p class="muted-text">Cargando miembros…</p>';
     var res = await c.rpc('pt_manager_list_members', { p_community_id: cid });
@@ -58,20 +110,31 @@
       return;
     }
     membersCache = (res.data && res.data.members) || [];
+    listMeta.online_count = (res.data && res.data.online_count) || 0;
+    listMeta.ai_limit = (res.data && res.data.ai_limit) || 40;
+    if (summary) {
+      summary.innerHTML = 'Miembros: <strong>' + membersCache.length + '</strong> · Activos ahora: <strong>' +
+        escapeHtml(String(listMeta.online_count)) + '</strong>';
+    }
     if (!membersCache.length) {
       host.innerHTML = '<p class="muted-text">No hay miembros en esta comunidad.</p>';
       return;
     }
     host.innerHTML =
       '<table class="admin-table manager-table"><thead><tr>' +
-      '<th>Usuario</th><th>Rol</th><th>Alta</th><th>Última conexión</th><th></th>' +
+      '<th>Usuario</th><th>Rol</th><th>IA mes</th><th>Escuela</th><th>Última conexión</th><th></th>' +
       '</tr></thead><tbody>' +
       membersCache.map(function (m) {
         return '<tr>' +
           '<td><strong>' + escapeHtml(m.name || '—') + '</strong><br><span class="muted-text">' +
-          escapeHtml(m.email || '') + '</span></td>' +
+          escapeHtml(m.email || '') + '</span>' +
+          (m.is_online ? ' <span class="admin-online-dot" title="En línea">●</span>' : '') +
+          '</td>' +
           '<td>' + escapeHtml(m.role || 'member') + '</td>' +
-          '<td>' + escapeHtml(formatDate(m.granted_at)) + '</td>' +
+          '<td>' + escapeHtml(String(m.ai_used_month != null ? m.ai_used_month : 0)) + '/' +
+          escapeHtml(String(m.ai_limit || listMeta.ai_limit || 40)) + '</td>' +
+          '<td>' + escapeHtml(String(m.school_passed != null ? m.school_passed : 0)) +
+          ' lecc. · XP ' + escapeHtml(String(m.school_xp != null ? m.school_xp : 0)) + '</td>' +
           '<td>' + escapeHtml(formatDate(m.last_seen_at)) + '</td>' +
           '<td><button type="button" class="btn btn-ghost btn-sm" data-manager-user="' +
           escapeHtml(m.user_id) + '">Detalle</button></td>' +
@@ -102,6 +165,7 @@
     }
     var mem = (res.data && res.data.member) || {};
     var school = (res.data && res.data.school) || {};
+    var ai = (res.data && res.data.ai) || {};
     var lessons = (school && school.lessons) || {};
     var lessonIds = Object.keys(lessons);
     var passed = lessonIds.filter(function (id) { return lessons[id] && lessons[id].passed; }).length;
@@ -109,7 +173,11 @@
       '<div class="manager-detail-card">' +
       '<div class="admin-section-head"><h3>' + escapeHtml(mem.name || mem.email || 'Miembro') + '</h3>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="manager-detail-close">Cerrar</button></div>' +
-      '<p class="muted-text">' + escapeHtml(mem.email || '') + ' · Rol: ' + escapeHtml(mem.role || '') + '</p>' +
+      '<p class="muted-text">' + escapeHtml(mem.email || '') + ' · Rol: ' + escapeHtml(mem.role || '') +
+      (mem.is_online ? ' · <span class="admin-online-dot">●</span> en línea' : '') + '</p>' +
+      '<p>Última conexión: <strong>' + escapeHtml(formatDate(mem.last_seen_at)) + '</strong></p>' +
+      '<p>Consultas IA (comunidad): <strong>' + escapeHtml(String(ai.used != null ? ai.used : 0)) +
+      '/' + escapeHtml(String(ai.limit || 40)) + '</strong></p>' +
       '<p>XP escuela: <strong>' + escapeHtml(school.xp != null ? school.xp : 0) + '</strong></p>' +
       '<p>Lecciones con progreso: <strong>' + lessonIds.length + '</strong> · Aprobadas: <strong>' +
       passed + '</strong></p>' +
@@ -227,10 +295,13 @@
     var cfg = global.PTCommunity && global.PTCommunity.config ? global.PTCommunity.config() : {};
     panel.innerHTML =
       '<div class="panel-head"><div><h2>Manager · ' + escapeHtml(cfg.siteName || communityId()) + '</h2>' +
-      '<p class="muted-text">Miembros, avance y mensajes de esta comunidad. Sin datos de pago ni de otras apps.</p></div></div>' +
+      '<p class="muted-text">Miembros, IA, avance de escuela y mensajes. Sin datos de pago ni de otras apps.</p></div></div>' +
       '<div class="manager-sections">' +
+      '<section class="admin-section"><div class="admin-section-head"><h3>Ajustes de comunidad</h3></div>' +
+      '<div id="manager-settings"></div></section>' +
       '<section class="admin-section"><div class="admin-section-head"><h3>Miembros</h3>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="manager-refresh-members">Actualizar</button></div>' +
+      '<p id="manager-members-summary" class="muted-text"></p>' +
       '<div id="manager-members"></div><div id="manager-member-detail" class="hidden"></div></section>' +
       '<section class="admin-section"><div class="admin-section-head"><h3>Mensajes</h3>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="manager-refresh-messages">Actualizar</button></div>' +
@@ -239,6 +310,7 @@
     var rmsg = $('#manager-refresh-messages');
     if (rm) rm.addEventListener('click', loadMembers);
     if (rmsg) rmsg.addEventListener('click', loadThreads);
+    await loadSettings();
     await loadMembers();
     await loadThreads();
   }
@@ -246,6 +318,7 @@
   global.PTManagerPanel = {
     render: render,
     loadMembers: loadMembers,
-    loadThreads: loadThreads
+    loadThreads: loadThreads,
+    loadSettings: loadSettings
   };
 })(typeof window !== 'undefined' ? window : this);

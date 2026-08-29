@@ -1780,6 +1780,16 @@
   function loadHomeGreeting(leadEl) {
     if (!leadEl) return;
     leadEl.classList.remove('home-lead--loading');
+    var homeOpts = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+    if (homeOpts.welcomeFromManager && window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
+      leadEl.textContent = 'Bienvenido a la comunidad.';
+      if (PTCommunity.fetchWelcomeMessage) {
+        PTCommunity.fetchWelcomeMessage().then(function (msg) {
+          if (msg && String(msg).trim()) leadEl.textContent = String(msg).trim();
+        }).catch(function () { /* default */ });
+      }
+      return;
+    }
     leadEl.innerHTML = DEFAULT_HOME_LEAD;
     const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
       || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
@@ -1838,20 +1848,38 @@
     ).join('');
 
     const dailyHost = $('#home-daily-spot');
+    const homeOpts = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+    const communityShell = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
     if (dailyHost) {
-      const guestDaily = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
-        || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
-      if (user && !guestDaily) {
-        withLazyChunk('school', function () {
-          if (window.PTSchool && PTSchool.renderHomeDailySpot) {
-            PTSchool.renderHomeDailySpot(dailyHost);
-          } else {
-            dailyHost.innerHTML = '';
-          }
-        });
-      } else {
+      if (communityShell && homeOpts.hideDailySpot) {
         dailyHost.innerHTML = '';
+        dailyHost.classList.add('hidden');
+      } else {
+        dailyHost.classList.remove('hidden');
+        const guestDaily = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+          || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+        if (user && !guestDaily) {
+          withLazyChunk('school', function () {
+            if (window.PTSchool && PTSchool.renderHomeDailySpot) {
+              PTSchool.renderHomeDailySpot(dailyHost);
+            } else {
+              dailyHost.innerHTML = '';
+            }
+          });
+        } else {
+          dailyHost.innerHTML = '';
+        }
       }
+    }
+
+    const quickHead = document.querySelector('#tab-home .home-section-head');
+    const homeGrid = $('#home-grid');
+    if (communityShell && homeOpts.hideQuickAccess) {
+      if (quickHead) quickHead.classList.add('hidden');
+      if (homeGrid) homeGrid.classList.add('hidden');
+    } else {
+      if (quickHead) quickHead.classList.remove('hidden');
+      if (homeGrid) homeGrid.classList.remove('hidden');
     }
 
     const errBadge = document.querySelector('[data-home-badge="errors"]');
@@ -1869,7 +1897,13 @@
     const coachMount = $('#home-coach-mount');
     const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
       || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
-    if (coachMount && !guestOn && window.PTAIReport && PTAIReport.mountWelcome) {
+    const homeOptsCoach = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+    const communityShellCoach = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
+    if (coachMount && (communityShellCoach && homeOptsCoach.hideCoachMount)) {
+      coachMount.innerHTML = '';
+      coachMount.classList.add('hidden');
+    } else if (coachMount && !guestOn && window.PTAIReport && PTAIReport.mountWelcome) {
+      coachMount.classList.remove('hidden');
       PTAIReport.mountWelcome(coachMount, {
         userName: firstNameFromUser(window.PT_AUTH_USER),
         onTrain: () => goToTab('play', { setup: true })
@@ -1880,8 +1914,16 @@
     maybeFinishHomeBoot(false);
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#home-usage'));
     if (window.PTBilling && PTBilling.mountAnnualUpsell) {
-      var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
-      PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
+      if (communityShellCoach && homeOptsCoach.hideAnnualUpsell) {
+        var upsell = $('#home-annual-upsell');
+        if (upsell) {
+          upsell.innerHTML = '';
+          upsell.classList.add('hidden');
+        }
+      } else {
+        var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
+        PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
+      }
     }
     if (window.PTOnboarding) {
       PTOnboarding.bind($('#home-onboarding'));
@@ -1965,6 +2007,21 @@
 
     window.addEventListener('pt-auth-bootstrap', () => renderHome());
     window.addEventListener('pt-auth-ready', () => renderHome());
+    window.addEventListener('pt-community-switch', () => {
+      if (window.PTCommunity && PTCommunity.invalidateWelcomeCache) PTCommunity.invalidateWelcomeCache();
+      renderHome();
+      if (window.PTEntitlements && PTEntitlements.refresh) PTEntitlements.refresh();
+      if (window.PTCloud && PTCloud.syncNow) {
+        try { PTCloud.syncNow(); } catch (e) { /* noop */ }
+      }
+      /* Forzar refresco de pestañas que leen Store (stats/errores/escuela) */
+      try {
+        document.dispatchEvent(new CustomEvent('pt-store-community-changed'));
+      } catch (e2) { /* noop */ }
+    });
+    window.addEventListener('pt-community-ready', () => {
+      if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();
+    });
     window.addEventListener('pt-cloud-synced', () => {
       homeBootCloudSettled = true;
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();

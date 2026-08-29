@@ -19,6 +19,24 @@
   let lastVisibleSyncAt = 0;
   const VISIBLE_SYNC_MIN_MS = 8000;
 
+  function logicalDataKeys() {
+    return ['stats', 'history', 'errors', 'onboarding'];
+  }
+
+  function activeDataKeys() {
+    if (global.Store && typeof global.Store.cloudDataKeys === 'function') {
+      return global.Store.cloudDataKeys();
+    }
+    return DATA_KEYS;
+  }
+
+  function viewForActive(fullPayload) {
+    if (global.Store && typeof global.Store.sliceCloudForActive === 'function') {
+      return global.Store.sliceCloudForActive(fullPayload || {});
+    }
+    return fullPayload || {};
+  }
+
   function cfg() {
     return global.PT_SUPABASE || {};
   }
@@ -149,7 +167,8 @@
 
   function resolveResetConflicts(cloudPayload) {
     if (!global.Store || !global.Store.detectResetConflicts) return;
-    const conflicts = global.Store.detectResetConflicts(cloudPayload);
+    const view = viewForActive(cloudPayload);
+    const conflicts = global.Store.detectResetConflicts(view);
     if (!conflicts.length) return;
     const names = conflicts.map(function (c) { return c.label; }).join(', ');
     const apply = confirm(
@@ -160,7 +179,7 @@
     );
     const keys = conflicts.map(function (c) { return c.key; });
     if (apply && global.Store.applyRemoteClears) {
-      global.Store.applyRemoteClears(cloudPayload.clearedAt, keys);
+      global.Store.applyRemoteClears(view.clearedAt, keys);
     } else if (!apply && global.Store.rejectRemoteClears) {
       global.Store.rejectRemoteClears(keys);
     }
@@ -168,8 +187,9 @@
 
   function localMaxTs(meta) {
     let max = 0;
-    for (let i = 0; i < DATA_KEYS.length; i++) {
-      const t = meta[DATA_KEYS[i]] || 0;
+    const keys = logicalDataKeys();
+    for (let i = 0; i < keys.length; i++) {
+      const t = meta[keys[i]] || 0;
       if (t > max) max = t;
     }
     return max;
@@ -250,6 +270,9 @@
   }
 
   function payloadToPush(cloudPayload) {
+    if (global.Store && typeof global.Store.mergeActiveIntoCloudPayload === 'function') {
+      return global.Store.mergeActiveIntoCloudPayload(cloudPayload);
+    }
     const snap = global.Store.getCloudSnapshot();
     const extras = Object.assign({}, cloudPayload || {});
     delete extras.sessions;
@@ -268,7 +291,7 @@
     }, { onConflict: 'user_id' });
     if (error) throw error;
     const ts = new Date(now).getTime();
-    DATA_KEYS.forEach(function (k) { setSyncMeta(k, ts); });
+    logicalDataKeys().forEach(function (k) { setSyncMeta(k, ts); });
   }
 
   function cloudPayloadForMerge(_row, cloudPayload) {
@@ -287,11 +310,13 @@
 
     try {
       const local = global.Store.getCloudSnapshot();
-      const localHas = DATA_KEYS.some(function (k) { return hasLocalData(k, local); });
+      const keys = logicalDataKeys();
+      const localHas = keys.some(function (k) { return hasLocalData(k, local); });
       const row = await pullRow();
       const cloudPayload = row && row.payload ? row.payload : null;
-      const cloudHas = cloudPayload && DATA_KEYS.some(function (k) {
-        return hasLocalData(k, cloudPayload);
+      const cloudLogical = viewForActive(cloudPayload);
+      const cloudHas = cloudLogical && keys.some(function (k) {
+        return hasLocalData(k, cloudLogical);
       });
 
       if (cloudPayload && cloudPayload.sessions) {
@@ -304,15 +329,10 @@
       if (cloudPayload) resolveResetConflicts(cloudPayload);
 
       if (cloudHas && localHas && global.Store.mergeFromCloud) {
-        global.Store.mergeFromCloud(cloudPayloadForMerge(row, cloudPayload));
+        global.Store.mergeFromCloud(cloudLogical);
       } else if (cloudHas) {
-        const merged = {};
-        const filtered = cloudPayloadForMerge(row, cloudPayload);
-        DATA_KEYS.forEach(function (k) {
-          if (filtered[k] != null) merged[k] = filtered[k];
-        });
-        global.Store.replaceFromCloud(merged);
-        DATA_KEYS.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
+        global.Store.replaceFromCloud(cloudLogical);
+        keys.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
       }
 
       if (localHas || cloudHas) {
@@ -358,9 +378,9 @@
         await migrateLegacyCloudSessions(cloudPayload);
       }
       resolveResetConflicts(cloudPayload);
-      const filtered = cloudPayloadForMerge(row, cloudPayload);
-      const summary = global.Store.mergeFromCloud(filtered) || {};
-      await pushPayload(payloadToPush(filtered));
+      const cloudLogical = viewForActive(cloudPayload);
+      const summary = global.Store.mergeFromCloud(cloudLogical) || {};
+      await pushPayload(payloadToPush(cloudPayload));
       if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
         await migrateLegacyCloudRow(row);
       }
@@ -380,7 +400,7 @@
 
   function schedulePush(keys) {
     if (!isReady()) return;
-    (keys || DATA_KEYS).forEach(function (k) { pendingKeys.add(k); });
+    (keys || logicalDataKeys()).forEach(function (k) { pendingKeys.add(k); });
     if (syncing) return;
     if (pushTimer) clearTimeout(pushTimer);
     pushTimer = setTimeout(flushPush, PUSH_DELAY_MS);

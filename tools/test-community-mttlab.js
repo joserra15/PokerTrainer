@@ -20,6 +20,7 @@ assert.ok(fs.existsSync(path.join(root, 'mttlab/index.html')), 'entry /mttlab/')
 assert.ok(fs.existsSync(path.join(root, 'icons/mttlab-logo.jpg')) ||
   fs.existsSync(path.join(root, 'icons/mttlab-logo.png')), 'logo mttlab');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/043_communities.sql')), 'migration 043');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/044_community_admin_ai_welcome.sql')), 'migration 044');
 
 const html = read('index.html');
 assert.ok(html.includes('community-config-mttlab.js'), 'index carga config mttlab');
@@ -27,6 +28,8 @@ assert.ok(html.includes('js/community.js'), 'index carga community.js');
 assert.ok(/data-tab="manager"/.test(html), 'tab manager en HTML');
 assert.ok(/id="tab-manager"/.test(html), 'panel tab-manager');
 assert.ok(/admin-filter-community/.test(html), 'filtro comunidad admin');
+assert.ok(/admin-communities-btn/.test(html), 'botón Admin Comunidades');
+assert.ok(/id="admin-communities-panel"/.test(html), 'panel Admin Comunidades');
 
 const chunks = read('js/bundle-chunks.js');
 assert.ok(chunks.includes('school-data-mttlab.js'), 'chunk school incluye mttlab');
@@ -57,6 +60,24 @@ const sql = read('supabase/migrations/043_communities.sql');
 assert.ok(/raise exception 'forbidden'/.test(sql), 'SQL usa forbidden');
 assert.ok(/pt_admin_user_list/.test(sql) && /communities json/.test(sql), 'lista admin con communities');
 
+const sql44 = read('supabase/migrations/044_community_admin_ai_welcome.sql');
+[
+  'welcome_message',
+  'pt_admin_update_community',
+  'pt_admin_community_detail',
+  'pt_manager_set_welcome',
+  'pt_manager_get_settings',
+  'pt_community_ai_limit',
+  'pt_community_ai_usage_month_count',
+  'pt_my_community_ai_status',
+  'pt_get_community_welcome',
+  'p_community_id'
+].forEach(function (needle) {
+  assert.ok(sql44.includes(needle), 'SQL 044 tiene ' + needle);
+});
+assert.ok(/select 40/.test(sql44), 'cupo comunidad 40');
+assert.ok(/community_id is null/.test(sql44), 'uso PF independiente (community_id null)');
+
 // Manager RPCs no exponen stripe/plan en su cuerpo de retorno
 assert.ok(!/create or replace function public\.pt_manager_list_members[\s\S]*?\$\$;[\s\S]*?stripe/i.test(
   sql.match(/create or replace function public\.pt_manager_list_members[\s\S]*?\$\$;/)[0]
@@ -74,6 +95,12 @@ assert.ok(/goToTabUnlocked/.test(app), 'goToTabUnlocked');
 assert.ok(/function canOpenTab/.test(commSrc), 'canOpenTab sync');
 assert.ok(/PT_E2E_MODE/.test(commSrc), 'bypass E2E comunidad');
 assert.ok(/tabId === 'manager'/.test(app), 'tab manager en app');
+assert.ok(/welcomeFromManager/.test(app), 'home usa bienvenida manager');
+assert.ok(/hideDailySpot/.test(app), 'home oculta spot del día en comunidad');
+assert.ok(/hideQuickAccess/.test(app), 'home oculta accesos rápidos');
+assert.ok(/aiCommunityId/.test(commSrc), 'cupo IA comunidad');
+assert.ok(/communityDataSuffix|scopedDataKey/.test(read('js/storage.js')), 'storage namespaced por comunidad');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/045_community_school_no_pf_fallback.sql')), 'migration 045');
 
 const auth = read('js/auth.js');
 assert.ok(/gateAfterLogin/.test(auth), 'auth gate comunidad');
@@ -99,11 +126,23 @@ const admin = read('js/admin-panel.js');
 assert.ok(/admin-filter-community|adminUsersFilters\.community/.test(admin), 'admin filtro comunidad');
 assert.ok(/pt_admin_set_community_member/.test(admin), 'admin grant comunidad');
 assert.ok(/Hacer manager|Quitar manager/.test(admin), 'admin marca manager');
+assert.ok(/showAdminCommunities|pt_admin_list_communities/.test(admin), 'admin panel comunidades');
+assert.ok(/pt_admin_update_community/.test(admin), 'admin edita join code / welcome');
 
 const mgr = read('js/manager-panel.js');
 assert.ok(/pt_manager_list_members/.test(mgr), 'manager lista');
 assert.ok(/pt_manager_contact_/.test(mgr), 'manager mensajes');
 assert.ok(/Sin datos de pago/.test(mgr) || /sin datos de pago/i.test(mgr), 'copy sin pagos');
+assert.ok(/pt_manager_set_welcome/.test(mgr), 'manager edita bienvenida');
+assert.ok(/ai_used_month/.test(mgr), 'manager muestra IA');
+assert.ok(/school_passed|Escuela/.test(mgr), 'manager muestra escuela');
+assert.ok(/online_count|Activos ahora/.test(mgr), 'manager activos');
+
+const aiReport = read('js/ai-report.js');
+assert.ok(/communityId/.test(aiReport), 'ai-report envía communityId');
+
+const entitlements = read('js/entitlements.js');
+assert.ok(/aiCommunityId|source: 'community'/.test(entitlements), 'entitlements cupo comunidad');
 
 // —— Runtime configs ——
 const sandbox = {
@@ -138,6 +177,10 @@ assert.ok(C.getConfig('mttlab').menus.hide.indexOf('pricing') >= 0, 'mttlab ocul
 assert.ok(C.getConfig('mttlab').menus.show.indexOf('school') >= 0, 'mttlab muestra school');
 assert.ok(C.getConfig('mttlab').school.unlockMode === 'allOpen');
 assert.ok(C.getConfig('mttlab').billing.hidePricing);
+assert.ok(C.getConfig('mttlab').home.hideDailySpot, 'mttlab hide daily spot');
+assert.ok(C.getConfig('mttlab').home.hideQuickAccess, 'mttlab hide quick access');
+assert.ok(C.getConfig('mttlab').home.welcomeFromManager, 'mttlab welcome from manager');
+assert.strictEqual(C.getConfig('mttlab').ai.monthlyLimit, 40);
 
 // Resolución post-login: 1 acceso → ese; varios → default_app
 assert.ok(typeof C.resolveActiveFromMemberships === 'function', 'resolveActiveFromMemberships');

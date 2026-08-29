@@ -31,6 +31,17 @@
       hidePricing: true,
       bypassPaywalls: true
     },
+    ai: {
+      monthlyLimit: 40,
+      independent: true
+    },
+    home: {
+      welcomeFromManager: true,
+      hideDailySpot: true,
+      hideQuickAccess: true,
+      hideAnnualUpsell: true,
+      hideCoachMount: true
+    },
     contact: {
       communityScoped: true
     }

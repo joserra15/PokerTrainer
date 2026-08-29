@@ -170,6 +170,9 @@
       state = localFallback();
     }
     applyToUser(state);
+    if (global.PTCommunity && global.PTCommunity.refreshAiQuota) {
+      try { await global.PTCommunity.refreshAiQuota(); } catch (e2) { /* noop */ }
+    }
     if (global.dispatchEvent) {
       global.dispatchEvent(new CustomEvent('pt-entitlements-updated', { detail: state }));
     }
@@ -248,6 +251,20 @@
 
   function canUseAI(ent) {
     if (isGuestUser()) return { ok: false, reason: 'guest_gate' };
+    var C = global.PTCommunity;
+    if (C && C.aiCommunityId && C.aiCommunityId()) {
+      var q = C.getAiQuota && C.getAiQuota();
+      if (q && q.ok) {
+        var usedC = Number(q.used) || 0;
+        var limC = Number(q.limit) || 40;
+        if (usedC < limC) {
+          return { ok: true, used: usedC, limit: limC, source: 'community' };
+        }
+        return { ok: false, reason: 'ai_limit', used: usedC, limit: limC, source: 'community' };
+      }
+      // Sin cache aún: permitir y dejar que el edge valide
+      return { ok: true, source: 'community', pending: true };
+    }
     ent = ent || state || localFallback();
     if (ent.is_admin || ent.unlimited || isAdmin()) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
@@ -297,29 +314,56 @@
   }
 
   function aiQuotaSummary(ent) {
+    var C = global.PTCommunity;
+    if (C && C.aiCommunityId && C.aiCommunityId()) {
+      var q = C.getAiQuota && C.getAiQuota();
+      if (q && q.ok) {
+        var used = Number(q.used) || 0;
+        var lim = Number(q.limit) || 40;
+        var left = Math.max(0, lim - used);
+        return {
+          unlimited: false,
+          used: used,
+          limit: lim,
+          totalLimit: lim,
+          totalLeft: left,
+          source: 'community',
+          label: 'ForgeCoach (comunidad): ' + used + '/' + lim + ' · ' + left + ' disponibles.'
+        };
+      }
+      return {
+        unlimited: false,
+        used: 0,
+        limit: 40,
+        totalLimit: 40,
+        totalLeft: 40,
+        source: 'community',
+        label: 'ForgeCoach (comunidad): 40 consultas/mes independientes.'
+      };
+    }
     ent = ent || state || localFallback();
     if (ent.is_admin || isAdmin()) {
       var adminUsed = (ent.usage && ent.usage.ai_reports_month) || 0;
       return { unlimited: true, label: 'Consultas IA: ilimitadas (admin) · ' + adminUsed + ' usadas este mes' };
     }
-    var q = aiCombinedQuota(ent);
-    if (q.unlimited) {
+    var q2 = aiCombinedQuota(ent);
+    if (q2.unlimited) {
       return { unlimited: true, label: 'Consultas IA: ilimitadas' };
     }
-    if (!q.totalLimit) {
+    if (!q2.totalLimit) {
       return { unlimited: false, label: 'Tu plan no incluye consultas IA. Compra un bono en Planes.', totalLeft: 0, bonus: 0 };
     }
-    var line = 'ForgeCoach: ' + q.used + '/' + q.totalLimit;
-    if (q.bonus > 0) line += ' (incl. ' + q.bonus + ' bono)';
-    line += ' · ' + q.totalLeft + ' disponibles';
+    var line = 'ForgeCoach: ' + q2.used + '/' + q2.totalLimit;
+    if (q2.bonus > 0) line += ' (incl. ' + q2.bonus + ' bono)';
+    line += ' · ' + q2.totalLeft + ' disponibles';
     return {
       unlimited: false,
-      used: q.used,
-      limit: q.planMax,
-      planLeft: q.planLeft != null ? q.planLeft : Math.max(0, q.planMax - (q.planUsed || 0)),
-      bonus: q.bonus,
-      totalLimit: q.totalLimit,
-      totalLeft: q.totalLeft,
+      used: q2.used,
+      limit: q2.planMax,
+      planLeft: q2.planLeft != null ? q2.planLeft : Math.max(0, q2.planMax - (q2.planUsed || 0)),
+      bonus: q2.bonus,
+      totalLimit: q2.totalLimit,
+      totalLeft: q2.totalLeft,
       label: line + '.'
     };
   }

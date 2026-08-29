@@ -17,6 +17,8 @@ assert.ok(/missing_question/.test(src), '400 missing_question');
 assert.ok(/429/.test(src), '429 cuota IA');
 assert.ok(/pt_check_ai_access/.test(src), 'RPC check AI access');
 assert.ok(/pt_record_ai_usage/.test(src), 'RPC record AI usage');
+assert.ok(/communityId/.test(src), 'acepta communityId para cupo comunidad');
+assert.ok(/p_community_id/.test(src), 'pasa p_community_id a RPCs');
 assert.ok(/GEMINI_API_KEY/.test(src), 'requiere Gemini configurado');
 
 const modes = [

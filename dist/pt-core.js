@@ -21244,6 +21244,10 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) body.demo = true;
     if (options.freePromo) body.freePromo = true;
+    if (!options.freePromo && global.PTCommunity && global.PTCommunity.aiCommunityId) {
+      var cid = global.PTCommunity.aiCommunityId();
+      if (cid) body.communityId = cid;
+    }
 
     let token = null;
     if (global.PTSupabase && global.PTSupabase.getAccessToken) {
@@ -21362,6 +21366,10 @@ window.PT_NASH_PUSH_JSON = {
   async function assertAiAccess(opts) {
     opts = opts || {};
     const show = opts.showPaywall !== false;
+    if (global.PTCommunity && global.PTCommunity.refreshAiQuota && global.PTCommunity.aiCommunityId &&
+        global.PTCommunity.aiCommunityId()) {
+      try { await global.PTCommunity.refreshAiQuota(); } catch (e) { /* noop */ }
+    }
     if (!global.PTEntitlements || !global.PTEntitlements.canUseAI) {
       if (show) {
         if (global.PTBilling) global.PTBilling.showPaywall('ai_plan');
@@ -21377,7 +21385,9 @@ window.PT_NASH_PUSH_JSON = {
     if (!aiCheck.ok) {
       const reason = aiCheck.reason || 'ai_plan';
       if (show) {
-        if (global.PTBilling) global.PTBilling.showPaywall(reason);
+        if (aiCheck.source === 'community') {
+          alert('Has agotado las ' + (aiCheck.limit || 40) + ' consultas IA de la comunidad este mes.');
+        } else if (global.PTBilling) global.PTBilling.showPaywall(reason);
         else alert('Los informes y preguntas IA requieren un plan con consultas o un bono.');
       }
       return { ok: false, reason: reason };
@@ -22108,9 +22118,83 @@ window.PT_NASH_PUSH_JSON = {
 
   let userId = null;
 
+  /** Sufijo de datos por comunidad: '' (PokerForge) o '_mttlab'. */
+  function communityDataSuffix() {
+    try {
+      var id = null;
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        id = global.PTCommunity.id();
+      }
+      if (!id || id === 'pokerforge') return '';
+      return '_' + String(id);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function dataBase(base) {
+    return String(base || '') + communityDataSuffix();
+  }
+
   function scopedKey(base) {
     if (userId) return KEY_PREFIX + base + KEY_SUFFIX + '_' + userId;
     return KEY_PREFIX + base + KEY_SUFFIX;
+  }
+
+  /** Clave local de stats/history/errors/cleared_at scoped por usuario + comunidad. */
+  function scopedDataKey(base) {
+    return scopedKey(dataBase(base));
+  }
+
+  function cloudDataKeys() {
+    var s = communityDataSuffix();
+    if (!s) return ['stats', 'history', 'errors', 'onboarding'];
+    return ['stats' + s, 'history' + s, 'errors' + s, 'school' + s];
+  }
+
+  /** Extrae el snapshot lógico de la comunidad activa desde el payload nube completo. */
+  function sliceCloudForActive(fullPayload) {
+    var p = fullPayload || {};
+    var s = communityDataSuffix();
+    if (!s) {
+      return {
+        stats: p.stats || null,
+        history: Array.isArray(p.history) ? p.history : [],
+        errors: Array.isArray(p.errors) ? p.errors : [],
+        clearedAt: p.clearedAt || {},
+        onboarding: p.onboarding || null
+      };
+    }
+    return {
+      stats: p['stats' + s] || null,
+      history: Array.isArray(p['history' + s]) ? p['history' + s] : [],
+      errors: Array.isArray(p['errors' + s]) ? p['errors' + s] : [],
+      clearedAt: p['clearedAt' + s] || {},
+      school: p['school' + s] || null,
+      onboarding: null
+    };
+  }
+
+  /** Escribe el snapshot de la comunidad activa en claves namespaced sin tocar otras. */
+  function mergeActiveIntoCloudPayload(cloudPayload) {
+    var out = Object.assign({}, cloudPayload || {});
+    delete out.sessions;
+    var snap = getCloudSnapshot();
+    var s = communityDataSuffix();
+    if (!s) {
+      out.stats = snap.stats;
+      out.history = snap.history;
+      out.errors = snap.errors;
+      out.clearedAt = snap.clearedAt || {};
+      if (snap.onboarding) out.onboarding = snap.onboarding;
+    } else {
+      out['stats' + s] = snap.stats;
+      out['history' + s] = snap.history;
+      out['errors' + s] = snap.errors;
+      out['school' + s] = getSchoolProgress();
+      out['clearedAt' + s] = snap.clearedAt || {};
+    }
+    return out;
   }
 
   function read(key, fallback) {
@@ -22129,13 +22213,13 @@ window.PT_NASH_PUSH_JSON = {
   function freeStorageSpace() {
     let freed = false;
     try {
-      const hist = read(scopedKey('history'), []);
+      const hist = read(scopedDataKey('history'), []);
       if (Array.isArray(hist) && hist.length > 100) {
-        if (write(scopedKey('history'), hist.slice(0, 100))) freed = true;
+        if (write(scopedDataKey('history'), hist.slice(0, 100))) freed = true;
       }
-      const errs = read(scopedKey('errors'), []);
+      const errs = read(scopedDataKey('errors'), []);
       if (Array.isArray(errs) && errs.length > 100) {
-        if (write(scopedKey('errors'), errs.slice(0, 100))) freed = true;
+        if (write(scopedDataKey('errors'), errs.slice(0, 100))) freed = true;
       }
     } catch (e) { /* ignore */ }
     return freed;
@@ -22408,11 +22492,11 @@ window.PT_NASH_PUSH_JSON = {
         }
       }
     } catch (eSch) { /* ignore */ }
-    writeResilient(scopedKey('stats'), st);
+    writeResilient(scopedDataKey('stats'), st);
   }
 
   function clearedAtStorageKey() {
-    return scopedKey('cleared_at');
+    return scopedDataKey('cleared_at');
   }
 
   function getClearedAt() {
@@ -22459,14 +22543,15 @@ window.PT_NASH_PUSH_JSON = {
 
   function readSchoolProgressStore() {
     let val = read(schoolProgressKey(), null);
-    if (!val && userId) val = read('pt_school_progress_v1', null);
+    /* Fallback legacy solo en PokerForge (no contaminar comunidades). */
+    if (!val && userId && !communityDataSuffix()) val = read('pt_school_progress_v1', null);
     return val && typeof val === 'object' ? val : null;
   }
 
-  /** Progreso durable: clave propia + stats.school + backup de Escuela. */
+  /** Progreso durable: clave propia + stats.school + backup de Escuela (todos por comunidad). */
   function getSchoolProgress() {
     const own = readSchoolProgressStore();
-    const st = read(scopedKey('stats'), null);
+    const st = read(scopedDataKey('stats'), null);
     const fromStats = (st && st.school) || null;
     const bak = readSchoolBackupRaw();
     let merged = mergeSchoolProgress(own, fromStats);
@@ -22484,26 +22569,38 @@ window.PT_NASH_PUSH_JSON = {
     if (!merged) return false;
     merged.updatedAt = Date.now();
     const okOwn = writeResilient(schoolProgressKey(), merged);
-    if (okOwn && userId) writeResilient('pt_school_progress_v1', merged);
-    let st = read(scopedKey('stats'), null);
+    /* Espejo legacy solo PokerForge */
+    if (okOwn && userId && !communityDataSuffix()) writeResilient('pt_school_progress_v1', merged);
+    let st = read(scopedDataKey('stats'), null);
     if (!st || typeof st !== 'object') st = defaultStats();
     st.school = merged;
     st.updatedAt = Date.now();
-    const okStats = writeResilient(scopedKey('stats'), st);
+    const okStats = writeResilient(scopedDataKey('stats'), st);
     if (global.PTCloud) {
-      if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(['stats']);
-      if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(['stats']);
+      var dirty = ['stats'];
+      if (global.PTCloud.markLocalDirty) global.PTCloud.markLocalDirty(dirty);
+      if (global.PTCloud.schedulePush) global.PTCloud.schedulePush(dirty);
       if (global.PTCloud.flushPush) global.PTCloud.flushPush();
     }
     return okOwn || okStats;
   }
 
+  function schoolBackupStorageKey() {
+    var s = communityDataSuffix();
+    var base = s ? ('pt_school_backup' + s + '_v1') : 'pt_school_backup_v1';
+    return base + (userId ? '_' + userId : '');
+  }
+
   function readSchoolBackupRaw() {
     try {
       if (typeof localStorage === 'undefined') return null;
-      const keyed = 'pt_school_backup_v1' + (userId ? '_' + userId : '');
+      const keyed = schoolBackupStorageKey();
       let raw = localStorage.getItem(keyed);
-      if (!raw) raw = localStorage.getItem('pt_school_backup_v1');
+      /* Fallback legacy solo PokerForge */
+      if (!raw && !communityDataSuffix()) {
+        if (userId) raw = localStorage.getItem('pt_school_backup_v1_' + userId);
+        if (!raw) raw = localStorage.getItem('pt_school_backup_v1');
+      }
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       return parsed && typeof parsed === 'object' ? parsed : null;
@@ -22628,8 +22725,8 @@ window.PT_NASH_PUSH_JSON = {
       delete ca[k + '_reject'];
     });
     writeClearedAt(ca);
-    if (ca.history) write(scopedKey('history'), filterByClearedAt(getHistory(), ca.history));
-    if (ca.errors) write(scopedKey('errors'), filterByClearedAt(getErrors(), ca.errors));
+    if (ca.history) write(scopedDataKey('history'), filterByClearedAt(getHistory(), ca.history));
+    if (ca.errors) write(scopedDataKey('errors'), filterByClearedAt(getErrors(), ca.errors));
     if (ca.stats) {
       const st = getStats();
       if (isStatsEmpty(st) || (st.updatedAt || 0) <= ca.stats) {
@@ -22859,12 +22956,12 @@ window.PT_NASH_PUSH_JSON = {
   function writeLearnCoachMap(map) {
     return write(scopedKey('learn_coach_lessons'), map || {});
   }
-  function getHistory() { return read(scopedKey('history'), []); }
+  function getHistory() { return read(scopedDataKey('history'), []); }
   function getErrors() {
-    return read(scopedKey('errors'), []).filter(function (e) { return !isSchoolError(e); });
+    return read(scopedDataKey('errors'), []).filter(function (e) { return !isSchoolError(e); });
   }
   function getStats() {
-    var st = read(scopedKey('stats'), defaultStats());
+    var st = read(scopedDataKey('stats'), defaultStats());
     /* Escuela vive en clave propia: reponerla si stats se quedó atrás o vacío. */
     try {
       var own = readSchoolProgressStore();
@@ -22910,7 +23007,7 @@ window.PT_NASH_PUSH_JSON = {
     const hist = getHistory();
     hist.unshift(rec);
     if (hist.length > MAX_HISTORY) hist.length = MAX_HISTORY;
-    write(scopedKey('history'), hist);
+    write(scopedDataKey('history'), hist);
 
     const schoolHand = isSchoolHand(hand);
     const errs = getErrors().filter(function (e) { return !isSchoolError(e); });
@@ -22964,7 +23061,7 @@ window.PT_NASH_PUSH_JSON = {
       }
     });
     if (errs.length > MAX_HISTORY) errs.length = MAX_HISTORY;
-    write(scopedKey('errors'), errs);
+    write(scopedDataKey('errors'), errs);
 
     const st = getStats();
     if (!st.byStreet) st.byStreet = defaultStats().byStreet;
@@ -23080,7 +23177,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function clearHistory() {
-    localStorage.removeItem(scopedKey('history'));
+    localStorage.removeItem(scopedDataKey('history'));
     markCleared('history');
     notifySync(['history']);
     if (global.PTCloud && global.PTCloud.flushPush) {
@@ -23089,7 +23186,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function clearErrors() {
-    localStorage.removeItem(scopedKey('errors'));
+    localStorage.removeItem(scopedDataKey('errors'));
     markCleared('errors');
     notifySync(['errors']);
     if (global.PTCloud && global.PTCloud.flushPush) {
@@ -23113,7 +23210,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function removeError(id) {
     const errs = getErrors().filter((e) => e.id !== id);
-    write(scopedKey('errors'), errs);
+    write(scopedDataKey('errors'), errs);
     notifySync(['errors']);
   }
 
@@ -23659,54 +23756,92 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
-  /** Fusiona solo las claves tocadas antes de subir a la nube (evita pisar datos de otros dispositivos). */
+  /** Fusiona solo las claves tocadas antes de subir a la nube (evita pisar datos de otros dispositivos / comunidades). */
   function mergeDirtyKeysIntoCloud(cloudPayload, dirtyKeys) {
     const cloud = cloudPayload || {};
+    const out = Object.assign({}, cloud);
+    delete out.sessions;
+    const s = communityDataSuffix();
     const local = getCloudSnapshot();
     const localCa = getClearedAt();
-    const cloudCa = cloud.clearedAt || {};
-    const keys = (dirtyKeys || []).filter(function (k) { return k !== 'sessions'; });
-    if (!keys.length) return Object.assign({}, cloud);
-    const out = Object.assign({}, cloud);
-    out.clearedAt = Object.assign({}, cloudCa, localCa);
+    const cloudCaBucket = s ? (cloud['clearedAt' + s] || {}) : (cloud.clearedAt || {});
+    const keys = (dirtyKeys || []).filter(function (k) {
+      return k && k !== 'sessions';
+    }).map(function (k) {
+      /* Acepta claves ya namespaced o lógicas */
+      if (s && k.length > s.length && k.slice(-s.length) === s) return k.slice(0, -s.length);
+      return k;
+    });
+
+    if (!keys.length) return out;
+
+    const outCa = Object.assign({}, cloudCaBucket, localCa);
+    if (s) out['clearedAt' + s] = outCa;
+    else out.clearedAt = outCa;
+
+    const cloudView = {
+      history: s ? (cloud['history' + s] || []) : (cloud.history || []),
+      errors: s ? (cloud['errors' + s] || []) : (cloud.errors || []),
+      stats: s ? (cloud['stats' + s] || null) : (cloud.stats || null)
+    };
+
     keys.forEach(function (key) {
+      if (key === 'onboarding' && s) return;
+      const cloudDataKey = key + s;
       if (key === 'history') {
-        const merged = mergeArrayKeyForCloud('history', local, cloud, cloudCa, localCa, MAX_HISTORY);
-        out.history = merged.data;
-        if (merged.clearedTs) out.clearedAt.history = merged.clearedTs;
-        else delete out.clearedAt.history;
-        if (hasRejectRemote('history')) {
-          delete out.clearedAt.history;
-          if (localCa.history) out.clearedAt.history = localCa.history;
+        const merged = mergeArrayKeyForCloud('history', local, cloudView, cloudCaBucket, localCa, MAX_HISTORY);
+        out[cloudDataKey || 'history'] = merged.data;
+        if (!s) {
+          if (merged.clearedTs) out.clearedAt.history = merged.clearedTs;
+          else delete out.clearedAt.history;
+          if (hasRejectRemote('history')) {
+            delete out.clearedAt.history;
+            if (localCa.history) out.clearedAt.history = localCa.history;
+          }
+        } else {
+          if (merged.clearedTs) out['clearedAt' + s].history = merged.clearedTs;
+          else delete out['clearedAt' + s].history;
         }
       } else if (key === 'errors') {
-        const merged = mergeArrayKeyForCloud('errors', local, cloud, cloudCa, localCa, MAX_HISTORY);
-        out.errors = merged.data;
-        if (merged.clearedTs) out.clearedAt.errors = merged.clearedTs;
-        else delete out.clearedAt.errors;
-        if (hasRejectRemote('errors')) {
-          delete out.clearedAt.errors;
-          if (localCa.errors) out.clearedAt.errors = localCa.errors;
+        const merged = mergeArrayKeyForCloud('errors', local, cloudView, cloudCaBucket, localCa, MAX_HISTORY);
+        out[cloudDataKey || 'errors'] = merged.data;
+        if (!s) {
+          if (merged.clearedTs) out.clearedAt.errors = merged.clearedTs;
+          else delete out.clearedAt.errors;
+          if (hasRejectRemote('errors')) {
+            delete out.clearedAt.errors;
+            if (localCa.errors) out.clearedAt.errors = localCa.errors;
+          }
+        } else {
+          if (merged.clearedTs) out['clearedAt' + s].errors = merged.clearedTs;
+          else delete out['clearedAt' + s].errors;
         }
       } else if (key === 'stats') {
-        const localCleared = !!(localCa.stats && localCa.stats >= effectiveCloudClear('stats', cloudCa));
+        const localCleared = !!(localCa.stats && localCa.stats >= effectiveCloudClear('stats', cloudCaBucket));
+        var nextStats;
         if (isStatsEmpty(local.stats) && localCleared) {
-          out.stats = JSON.parse(JSON.stringify(local.stats));
-          out.clearedAt.stats = localCa.stats;
+          nextStats = JSON.parse(JSON.stringify(local.stats));
+          if (s) out['clearedAt' + s].stats = localCa.stats;
+          else out.clearedAt.stats = localCa.stats;
         } else {
-          out.stats = mergeStatsWithClear(local.stats, cloud.stats, localCa, cloudCa);
-          const maxClear = Math.max(localCa.stats || 0, effectiveCloudClear('stats', cloudCa));
-          if (maxClear) out.clearedAt.stats = maxClear;
+          nextStats = mergeStatsWithClear(local.stats, cloudView.stats, localCa, cloudCaBucket);
+          const maxClear = Math.max(localCa.stats || 0, effectiveCloudClear('stats', cloudCaBucket));
+          if (maxClear) {
+            if (s) out['clearedAt' + s].stats = maxClear;
+            else out.clearedAt.stats = maxClear;
+          } else if (s) delete out['clearedAt' + s].stats;
           else delete out.clearedAt.stats;
         }
-        if (hasRejectRemote('stats')) {
+        if (!s && hasRejectRemote('stats')) {
           delete out.clearedAt.stats;
           if (localCa.stats) out.clearedAt.stats = localCa.stats;
         }
-      } else if (key === 'onboarding') {
+        out[cloudDataKey || 'stats'] = nextStats;
+        if (s) out['school' + s] = getSchoolProgress();
+      } else if (key === 'onboarding' && !s) {
         out.onboarding = mergeOnboardingStates(local.onboarding, cloud.onboarding);
       } else if (local[key] != null) {
-        out[key] = local[key];
+        out[cloudDataKey || key] = local[key];
       }
     });
     delete out.sessions;
@@ -23734,42 +23869,69 @@ window.PT_NASH_PUSH_JSON = {
     return st;
   }
 
-  /** Fusiona datos locales con snapshot de la nube (union por id). */
+  /** Fusiona datos locales con snapshot de la nube (union por id). Acepta payload completo o lógico. */
   function mergeFromCloud(cloudSnapshot) {
     if (!cloudSnapshot) return null;
+    var logical = cloudSnapshot;
+    var s = communityDataSuffix();
+    if (s && (cloudSnapshot['stats' + s] != null || cloudSnapshot['history' + s] != null ||
+        cloudSnapshot['errors' + s] != null || cloudSnapshot['school' + s] != null ||
+        cloudSnapshot['clearedAt' + s] != null)) {
+      logical = sliceCloudForActive(cloudSnapshot);
+    }
     const local = getCloudSnapshot();
-    const cloudCa = cloudSnapshot.clearedAt || {};
+    const cloudCa = logical.clearedAt || {};
     const localCa = getClearedAt();
     const mergedCa = mergeClearedAtMeta(localCa, cloudCa);
     writeClearedAt(mergedCa);
 
     const history = mergeRecordsById(
       filterByClearedAt(local.history, localCa.history),
-      filterByClearedAt(cloudSnapshot.history, effectiveCloudClear('history', cloudCa)),
+      filterByClearedAt(logical.history, effectiveCloudClear('history', cloudCa)),
       MAX_HISTORY
     );
     const errors = mergeRecordsById(
       filterByClearedAt(local.errors, localCa.errors),
-      filterByClearedAt(cloudSnapshot.errors, effectiveCloudClear('errors', cloudCa)),
+      filterByClearedAt(logical.errors, effectiveCloudClear('errors', cloudCa)),
       MAX_HISTORY
     );
-    const stats = mergeStatsWithClear(local.stats, cloudSnapshot.stats, mergedCa, cloudCa);
-    write(scopedKey('history'), history);
-    write(scopedKey('errors'), errors);
+    var cloudStats = logical.stats;
+    if (logical.school && cloudStats) {
+      cloudStats = Object.assign({}, cloudStats, {
+        school: mergeSchoolProgress(cloudStats.school, logical.school) || logical.school
+      });
+    } else if (logical.school && !cloudStats) {
+      cloudStats = Object.assign(defaultStats(), { school: logical.school });
+    }
+    const stats = mergeStatsWithClear(local.stats, cloudStats, mergedCa, cloudCa);
+    write(scopedDataKey('history'), history);
+    write(scopedDataKey('errors'), errors);
     writeStats(stats);
-    applyOnboardingFromCloud(cloudSnapshot.onboarding);
+    if (!s) applyOnboardingFromCloud(logical.onboarding);
     return { history: history.length, errors: errors.length, sessions: getSessions().length, stats: stats };
   }
 
   function replaceFromCloud(snapshot) {
     if (!snapshot) return;
-    const cloudCa = snapshot.clearedAt || {};
+    var logical = snapshot;
+    var s = communityDataSuffix();
+    if (s && (snapshot['stats' + s] != null || snapshot['history' + s] != null ||
+        snapshot['errors' + s] != null || snapshot['school' + s] != null ||
+        snapshot['clearedAt' + s] != null)) {
+      logical = sliceCloudForActive(snapshot);
+    }
+    const cloudCa = logical.clearedAt || {};
     const localCa = getClearedAt();
     writeClearedAt(mergeClearedAtMeta(localCa, cloudCa));
-    if (snapshot.stats) {
+    if (logical.stats || logical.school) {
       const localSchool = (getStats() && getStats().school) || null;
       const bak = readSchoolBackupRaw();
-      let stats = JSON.parse(JSON.stringify(snapshot.stats));
+      let stats = logical.stats
+        ? JSON.parse(JSON.stringify(logical.stats))
+        : defaultStats();
+      if (logical.school) {
+        stats.school = mergeSchoolProgress(stats.school, logical.school) || logical.school;
+      }
       const keep = mergeSchoolProgress(localSchool, bak);
       if (keep) {
         stats.school = mergeSchoolProgress(keep, stats.school) || keep;
@@ -23785,18 +23947,21 @@ window.PT_NASH_PUSH_JSON = {
           };
           if (stats.school.dailySpot) backupPayload.dailySpot = stats.school.dailySpot;
           const payload = JSON.stringify(backupPayload);
-          localStorage.setItem('pt_school_backup_v1' + (userId ? '_' + userId : ''), payload);
-          localStorage.setItem('pt_school_backup_v1', payload);
+          localStorage.setItem(schoolBackupStorageKey(), payload);
+          if (!s) {
+            localStorage.setItem('pt_school_backup_v1' + (userId ? '_' + userId : ''), payload);
+            localStorage.setItem('pt_school_backup_v1', payload);
+          }
         }
       } catch (eBak) { /* ignore */ }
     }
-    if (snapshot.history) {
-      write(scopedKey('history'), filterByClearedAt(snapshot.history, effectiveCloudClear('history', cloudCa)));
+    if (logical.history) {
+      write(scopedDataKey('history'), filterByClearedAt(logical.history, effectiveCloudClear('history', cloudCa)));
     }
-    if (snapshot.errors) {
-      write(scopedKey('errors'), filterByClearedAt(snapshot.errors, effectiveCloudClear('errors', cloudCa)));
+    if (logical.errors) {
+      write(scopedDataKey('errors'), filterByClearedAt(logical.errors, effectiveCloudClear('errors', cloudCa)));
     }
-    applyOnboardingFromCloud(snapshot.onboarding);
+    if (!s) applyOnboardingFromCloud(logical.onboarding);
   }
 
   function normalizeCoachEntry(entry) {
@@ -23947,7 +24112,7 @@ window.PT_NASH_PUSH_JSON = {
       if (!hist[idx].coachThread) hist[idx].coachThread = [];
       hist[idx].coachThread.unshift(e);
       hist[idx].coachThread = trimCoachThread(hist[idx].coachThread);
-      if (!write(scopedKey('history'), hist)) {
+      if (!write(scopedDataKey('history'), hist)) {
         return Promise.resolve({ ok: false, error: 'storage_full' });
       }
       notifySync(['history']);
@@ -24141,6 +24306,7 @@ window.PT_NASH_PUSH_JSON = {
     getSessions, getSession, getSessionAsync, saveSession, removeSession, deleteSessionTxt,
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
+    mergeActiveIntoCloudPayload, sliceCloudForActive, communityDataSuffix, cloudDataKeys,
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry,
     getFeatureUsage, trackFeatureUsage,
@@ -25156,6 +25322,16 @@ window.PT_NASH_PUSH_JSON = {
     }
     if ((ent.is_admin || (Ent.isAdmin && Ent.isAdmin())) && Ent.aiQuotaSummary) {
       host.innerHTML = '<div class="usage-widget usage-unlimited muted-text">' + escapeHtml(Ent.aiQuotaSummary(ent).label) + '</div>';
+      host.classList.remove('hidden');
+      return;
+    }
+    var C = global.PTCommunity;
+    if (C && C.aiCommunityId && C.aiCommunityId() && Ent && Ent.aiQuotaSummary) {
+      var cSum = Ent.aiQuotaSummary(ent);
+      host.innerHTML = '<div class="usage-widget"><p class="muted-text" style="margin:0 0 6px;font-size:12px">' +
+        escapeHtml(cSum.label || 'ForgeCoach comunidad') + '</p>' +
+        barRow('ForgeCoach (comunidad)', cSum.used || 0, cSum.limit || 40) +
+        '</div>';
       host.classList.remove('hidden');
       return;
     }
@@ -27959,6 +28135,9 @@ window.PT_NASH_PUSH_JSON = {
       state = localFallback();
     }
     applyToUser(state);
+    if (global.PTCommunity && global.PTCommunity.refreshAiQuota) {
+      try { await global.PTCommunity.refreshAiQuota(); } catch (e2) { /* noop */ }
+    }
     if (global.dispatchEvent) {
       global.dispatchEvent(new CustomEvent('pt-entitlements-updated', { detail: state }));
     }
@@ -28037,6 +28216,20 @@ window.PT_NASH_PUSH_JSON = {
 
   function canUseAI(ent) {
     if (isGuestUser()) return { ok: false, reason: 'guest_gate' };
+    var C = global.PTCommunity;
+    if (C && C.aiCommunityId && C.aiCommunityId()) {
+      var q = C.getAiQuota && C.getAiQuota();
+      if (q && q.ok) {
+        var usedC = Number(q.used) || 0;
+        var limC = Number(q.limit) || 40;
+        if (usedC < limC) {
+          return { ok: true, used: usedC, limit: limC, source: 'community' };
+        }
+        return { ok: false, reason: 'ai_limit', used: usedC, limit: limC, source: 'community' };
+      }
+      // Sin cache aún: permitir y dejar que el edge valide
+      return { ok: true, source: 'community', pending: true };
+    }
     ent = ent || state || localFallback();
     if (ent.is_admin || ent.unlimited || isAdmin()) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
@@ -28086,29 +28279,56 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function aiQuotaSummary(ent) {
+    var C = global.PTCommunity;
+    if (C && C.aiCommunityId && C.aiCommunityId()) {
+      var q = C.getAiQuota && C.getAiQuota();
+      if (q && q.ok) {
+        var used = Number(q.used) || 0;
+        var lim = Number(q.limit) || 40;
+        var left = Math.max(0, lim - used);
+        return {
+          unlimited: false,
+          used: used,
+          limit: lim,
+          totalLimit: lim,
+          totalLeft: left,
+          source: 'community',
+          label: 'ForgeCoach (comunidad): ' + used + '/' + lim + ' · ' + left + ' disponibles.'
+        };
+      }
+      return {
+        unlimited: false,
+        used: 0,
+        limit: 40,
+        totalLimit: 40,
+        totalLeft: 40,
+        source: 'community',
+        label: 'ForgeCoach (comunidad): 40 consultas/mes independientes.'
+      };
+    }
     ent = ent || state || localFallback();
     if (ent.is_admin || isAdmin()) {
       var adminUsed = (ent.usage && ent.usage.ai_reports_month) || 0;
       return { unlimited: true, label: 'Consultas IA: ilimitadas (admin) · ' + adminUsed + ' usadas este mes' };
     }
-    var q = aiCombinedQuota(ent);
-    if (q.unlimited) {
+    var q2 = aiCombinedQuota(ent);
+    if (q2.unlimited) {
       return { unlimited: true, label: 'Consultas IA: ilimitadas' };
     }
-    if (!q.totalLimit) {
+    if (!q2.totalLimit) {
       return { unlimited: false, label: 'Tu plan no incluye consultas IA. Compra un bono en Planes.', totalLeft: 0, bonus: 0 };
     }
-    var line = 'ForgeCoach: ' + q.used + '/' + q.totalLimit;
-    if (q.bonus > 0) line += ' (incl. ' + q.bonus + ' bono)';
-    line += ' · ' + q.totalLeft + ' disponibles';
+    var line = 'ForgeCoach: ' + q2.used + '/' + q2.totalLimit;
+    if (q2.bonus > 0) line += ' (incl. ' + q2.bonus + ' bono)';
+    line += ' · ' + q2.totalLeft + ' disponibles';
     return {
       unlimited: false,
-      used: q.used,
-      limit: q.planMax,
-      planLeft: q.planLeft != null ? q.planLeft : Math.max(0, q.planMax - (q.planUsed || 0)),
-      bonus: q.bonus,
-      totalLimit: q.totalLimit,
-      totalLeft: q.totalLeft,
+      used: q2.used,
+      limit: q2.planMax,
+      planLeft: q2.planLeft != null ? q2.planLeft : Math.max(0, q2.planMax - (q2.planUsed || 0)),
+      bonus: q2.bonus,
+      totalLimit: q2.totalLimit,
+      totalLeft: q2.totalLeft,
       label: line + '.'
     };
   }
@@ -33096,6 +33316,16 @@ window.PT_NASH_PUSH_JSON = {
   function loadHomeGreeting(leadEl) {
     if (!leadEl) return;
     leadEl.classList.remove('home-lead--loading');
+    var homeOpts = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+    if (homeOpts.welcomeFromManager && window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
+      leadEl.textContent = 'Bienvenido a la comunidad.';
+      if (PTCommunity.fetchWelcomeMessage) {
+        PTCommunity.fetchWelcomeMessage().then(function (msg) {
+          if (msg && String(msg).trim()) leadEl.textContent = String(msg).trim();
+        }).catch(function () { /* default */ });
+      }
+      return;
+    }
     leadEl.innerHTML = DEFAULT_HOME_LEAD;
     const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
       || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
@@ -33154,20 +33384,38 @@ window.PT_NASH_PUSH_JSON = {
     ).join('');
 
     const dailyHost = $('#home-daily-spot');
+    const homeOpts = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+    const communityShell = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
     if (dailyHost) {
-      const guestDaily = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
-        || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
-      if (user && !guestDaily) {
-        withLazyChunk('school', function () {
-          if (window.PTSchool && PTSchool.renderHomeDailySpot) {
-            PTSchool.renderHomeDailySpot(dailyHost);
-          } else {
-            dailyHost.innerHTML = '';
-          }
-        });
-      } else {
+      if (communityShell && homeOpts.hideDailySpot) {
         dailyHost.innerHTML = '';
+        dailyHost.classList.add('hidden');
+      } else {
+        dailyHost.classList.remove('hidden');
+        const guestDaily = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+          || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+        if (user && !guestDaily) {
+          withLazyChunk('school', function () {
+            if (window.PTSchool && PTSchool.renderHomeDailySpot) {
+              PTSchool.renderHomeDailySpot(dailyHost);
+            } else {
+              dailyHost.innerHTML = '';
+            }
+          });
+        } else {
+          dailyHost.innerHTML = '';
+        }
       }
+    }
+
+    const quickHead = document.querySelector('#tab-home .home-section-head');
+    const homeGrid = $('#home-grid');
+    if (communityShell && homeOpts.hideQuickAccess) {
+      if (quickHead) quickHead.classList.add('hidden');
+      if (homeGrid) homeGrid.classList.add('hidden');
+    } else {
+      if (quickHead) quickHead.classList.remove('hidden');
+      if (homeGrid) homeGrid.classList.remove('hidden');
     }
 
     const errBadge = document.querySelector('[data-home-badge="errors"]');
@@ -33185,7 +33433,13 @@ window.PT_NASH_PUSH_JSON = {
     const coachMount = $('#home-coach-mount');
     const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
       || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
-    if (coachMount && !guestOn && window.PTAIReport && PTAIReport.mountWelcome) {
+    const homeOptsCoach = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+    const communityShellCoach = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
+    if (coachMount && (communityShellCoach && homeOptsCoach.hideCoachMount)) {
+      coachMount.innerHTML = '';
+      coachMount.classList.add('hidden');
+    } else if (coachMount && !guestOn && window.PTAIReport && PTAIReport.mountWelcome) {
+      coachMount.classList.remove('hidden');
       PTAIReport.mountWelcome(coachMount, {
         userName: firstNameFromUser(window.PT_AUTH_USER),
         onTrain: () => goToTab('play', { setup: true })
@@ -33196,8 +33450,16 @@ window.PT_NASH_PUSH_JSON = {
     maybeFinishHomeBoot(false);
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#home-usage'));
     if (window.PTBilling && PTBilling.mountAnnualUpsell) {
-      var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
-      PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
+      if (communityShellCoach && homeOptsCoach.hideAnnualUpsell) {
+        var upsell = $('#home-annual-upsell');
+        if (upsell) {
+          upsell.innerHTML = '';
+          upsell.classList.add('hidden');
+        }
+      } else {
+        var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
+        PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
+      }
     }
     if (window.PTOnboarding) {
       PTOnboarding.bind($('#home-onboarding'));
@@ -33281,6 +33543,21 @@ window.PT_NASH_PUSH_JSON = {
 
     window.addEventListener('pt-auth-bootstrap', () => renderHome());
     window.addEventListener('pt-auth-ready', () => renderHome());
+    window.addEventListener('pt-community-switch', () => {
+      if (window.PTCommunity && PTCommunity.invalidateWelcomeCache) PTCommunity.invalidateWelcomeCache();
+      renderHome();
+      if (window.PTEntitlements && PTEntitlements.refresh) PTEntitlements.refresh();
+      if (window.PTCloud && PTCloud.syncNow) {
+        try { PTCloud.syncNow(); } catch (e) { /* noop */ }
+      }
+      /* Forzar refresco de pestañas que leen Store (stats/errores/escuela) */
+      try {
+        document.dispatchEvent(new CustomEvent('pt-store-community-changed'));
+      } catch (e2) { /* noop */ }
+    });
+    window.addEventListener('pt-community-ready', () => {
+      if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();
+    });
     window.addEventListener('pt-cloud-synced', () => {
       homeBootCloudSettled = true;
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();

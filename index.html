@@ -1370,11 +1370,28 @@
         </div>
         <div class="admin-head-actions">
           <button type="button" id="admin-usage-btn" class="btn btn-ghost">Uso</button>
+          <button type="button" id="admin-communities-btn" class="btn btn-ghost">Comunidades</button>
           <button type="button" id="admin-promos-btn" class="btn btn-ghost">Promociones</button>
           <button type="button" id="admin-messages-btn" class="btn btn-ghost admin-messages-btn">Mensajes <span id="admin-messages-badge" class="tab-badge hidden">0</span></button>
           <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
           <button type="button" id="admin-demo-start" class="btn btn-primary">Modo demo</button>
         </div>
+      </div>
+
+      <div id="admin-communities-panel" class="admin-communities-panel hidden">
+        <div class="admin-section-head">
+          <h3>Comunidades</h3>
+          <div class="admin-messages-head-actions">
+            <button type="button" id="admin-communities-back" class="btn btn-ghost btn-sm">Volver a usuarios</button>
+          </div>
+        </div>
+        <p class="muted-text admin-communities-intro">
+          URL de login, código de acceso, mensaje de bienvenida y miembros de cada comunidad.
+          El cupo IA de comunidad es independiente (40 consultas/mes por miembro).
+        </p>
+        <div id="admin-communities-list" class="admin-communities-list" aria-live="polite"></div>
+        <div id="admin-community-detail" class="admin-community-detail hidden"></div>
+        <p id="admin-communities-error" class="admin-error" role="alert"></p>
       </div>
 
       <div id="admin-usage-panel" class="admin-usage-panel hidden">
