@@ -192,7 +192,14 @@
         shouldHide = true;
       }
       if (tab === 'manager') {
-        shouldHide = !(hasAccess() && (isManager() || (global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser() && global.PTAuth.getUser().isAdmin)));
+        // Solo visible en comunidades que lo permiten (no en hide) y con rol manager/admin.
+        if (hide.indexOf('manager') >= 0) {
+          shouldHide = true;
+        } else {
+          var user = (global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser()) || global.PT_AUTH_USER;
+          var admin = !!(user && user.isAdmin);
+          shouldHide = !(hasAccess() && (isManager() || admin));
+        }
         if (show && show.indexOf('manager') < 0) shouldHide = true;
       }
       if (tab === 'pricing' && cfg.billing && cfg.billing.hidePricing) shouldHide = true;
@@ -267,7 +274,7 @@
     ACCESS_CACHE = { allowed: !requireMembership(), is_manager: false, community_id: ACTIVE };
 
     if (global.PT_E2E_MODE) {
-      ACCESS_CACHE = { allowed: true, is_manager: true, community_id: ACTIVE };
+      ACCESS_CACHE = { allowed: true, is_manager: false, community_id: ACTIVE };
       applyDocument();
       applyMenus();
       return ACCESS_CACHE;
@@ -319,7 +326,7 @@
   async function assertFeature(feature) {
     var feat = feature || 'shell';
     if (global.PT_E2E_MODE) {
-      return { ok: true, allowed: true, community_id: ACTIVE, feature: feat, is_manager: true };
+      return { ok: true, allowed: true, community_id: ACTIVE, feature: feat, is_manager: false };
     }
     if (!requireMembership() && feat !== 'manager') {
       return { ok: true, allowed: true };
@@ -421,7 +428,7 @@
   async function gateAfterLogin() {
     if (global.PT_E2E_MODE) {
       setActive('pokerforge', { skipMenus: true, skipBrand: true });
-      ACCESS_CACHE = { allowed: true, is_manager: true, community_id: 'pokerforge' };
+      ACCESS_CACHE = { allowed: true, is_manager: false, community_id: 'pokerforge' };
       hideAccessDenied();
       applyBranding();
       applyMenus();
