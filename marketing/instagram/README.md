@@ -8,7 +8,7 @@ Plan de promoción integral: plantillas, spots, carruseles, b-roll de la app y g
 |---------|-----------|
 | [`01-kit-marca/`](01-kit-marca/) | 8 plantillas (reels, carrusel, stories, end card) |
 | [`02-spots-virales/`](02-spots-virales/) | 12 gráficos (A1–A5, A10, fugas NL25, thumbs) |
-| [`03-carruseles-edu/`](03-carruseles-edu/) | 15 slides (RFI BTN, pot odds, c-bet) |
+| [`03-carruseles-edu/`](03-carruseles-edu/) | **13 carruseles / 65 slides** (básicos + intermedios) + captions |
 | [`04-broll/`](04-broll/) | Clips WebM + stills de la app real |
 | [`05-semana-1/`](05-semana-1/) | Paquete publicación semana 1 + captions |
 | [`06-calendario/`](06-calendario/) | Calendario detallado semanas 2–8 |
