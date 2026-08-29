@@ -1,5 +1,7 @@
 /*
  * site-config.js — URLs públicas y orígenes OAuth (Epic 4 / G-03).
+ * OAuth siempre vuelve a appUrl (/). La comunidad se elige tras el login
+ * según memberships + default_app (PTCommunity.gateAfterLogin).
  */
 window.PT_SITE = {
   appUrl: 'https://www.pokerforgeai.com/',

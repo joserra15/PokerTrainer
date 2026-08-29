@@ -22448,7 +22448,13 @@ window.PT_NASH_PUSH_JSON = {
    * stats/histórico, así que sobrevive a cuotas llenas y a recargas.
    */
   function schoolProgressKey() {
-    return scopedKey('school_progress');
+    var base = 'school_progress';
+    if (typeof global !== 'undefined' && global.PTCommunity && typeof global.PTCommunity.progressKey === 'function') {
+      base = global.PTCommunity.progressKey() || base;
+    } else if (typeof window !== 'undefined' && window.PTCommunity && typeof window.PTCommunity.progressKey === 'function') {
+      base = window.PTCommunity.progressKey() || base;
+    }
+    return scopedKey(base);
   }
 
   function readSchoolProgressStore() {
@@ -30167,6 +30173,47 @@ window.PT_NASH_PUSH_JSON = {
     return labels[plan] || plan || '—';
   }
 
+  function communitySettingsSection() {
+    if (!global.PTCommunity || !global.PTCommunity.myCommunities) return '';
+    var list = global.PTCommunity.myCommunities() || [];
+    if (!list.length) return '';
+    var def = global.PTCommunity.defaultApp ? global.PTCommunity.defaultApp() : 'pokerforge';
+    var active = global.PTCommunity.id ? global.PTCommunity.id() : 'pokerforge';
+    var items = list.map(function (c) {
+      var cfg = global.PTCommunity.getConfig ? global.PTCommunity.getConfig(c.id) : {};
+      var name = c.name || (cfg && cfg.siteName) || c.id;
+      return '<li class="community-settings-item">' +
+        '<label><input type="radio" name="settings-default-app" value="' + escapeHtml(c.id) + '"' +
+        (c.id === def ? ' checked' : '') + ' /> Entrada por defecto</label> ' +
+        '<strong>' + escapeHtml(name) + '</strong>' +
+        (c.role === 'manager' ? ' <span class="muted-text">Manager</span>' : '') +
+        (c.id === active ? ' <span class="muted-text">(actual)</span>' : '') +
+        ' <button type="button" class="btn btn-ghost btn-sm" data-switch-community="' +
+        escapeHtml(c.id) + '">Entrar</button></li>';
+    }).join('');
+    return '<section class="account-settings-card card-box" id="settings-communities-card">' +
+      '<h3>Apps y comunidades</h3>' +
+      '<p class="muted-text">Elige la entrada por defecto al iniciar sesión o cambia ahora.</p>' +
+      '<ul class="community-settings-list">' + items + '</ul></section>';
+  }
+
+  function bindCommunitySettings(host) {
+    if (!host || !global.PTCommunity) return;
+    host.querySelectorAll('[data-switch-community]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-switch-community');
+        if (global.PTCommunity.switchTo) global.PTCommunity.switchTo(id);
+      });
+    });
+    host.querySelectorAll('input[name="settings-default-app"]').forEach(function (input) {
+      input.addEventListener('change', function () {
+        if (input.checked && global.PTCommunity.setDefaultApp) {
+          global.PTCommunity.setDefaultApp(input.value);
+        }
+      });
+    });
+  }
+
   function paymentKindLabel(kind) {
     if (kind === 'subscription') return 'Suscripción';
     if (kind === 'renewal') return 'Renovación';
@@ -30262,6 +30309,9 @@ window.PT_NASH_PUSH_JSON = {
     var bonus = (data && data.bonus_ledger) || [];
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
     var showBilling = billingOn && (prof.plan !== 'free' || prof.subscription_status === 'active');
+    var hideCommunityBilling = !!(global.PTCommunity && global.PTCommunity.config &&
+      global.PTCommunity.config() && global.PTCommunity.config().billing &&
+      global.PTCommunity.config().billing.hidePricing);
     var cloudLabels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error' };
     var cloudStatus = global.PTCloud && global.PTCloud.getStatus ? global.PTCloud.getStatus() : { status: 'disabled' };
 
@@ -30278,6 +30328,8 @@ window.PT_NASH_PUSH_JSON = {
       row('Registro', escapeHtml(formatDate(prof.created_at))) +
       row('Última conexión', escapeHtml(formatDate(prof.last_seen_at))) +
       '</section>' +
+
+      communitySettingsSection() +
 
       '<section class="account-settings-card card-box">' +
       '<h3>Plan y suscripción</h3>' +
@@ -30400,6 +30452,15 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (global.PTPush && global.PTPush.bindSettings) {
       global.PTPush.bindSettings(host);
+    }
+    bindCommunitySettings(host);
+    if (hideCommunityBilling) {
+      host.querySelectorAll('.account-settings-card').forEach(function (card) {
+        var h = card.querySelector('h3');
+        if (!h) return;
+        var t = h.textContent || '';
+        if (/Plan y suscripción|Pagos realizados|Bonos IA/.test(t)) card.classList.add('hidden');
+      });
     }
     var mode = 'always';
     var thr = 0.5;
@@ -30969,6 +31030,20 @@ window.PT_NASH_PUSH_JSON = {
 
     setAppVisible(true);
     renderAccountMenu(user);
+
+    if (global.PTCommunity && global.PTCommunity.gateAfterLogin) {
+      try {
+        var communityOk = await global.PTCommunity.gateAfterLogin();
+        if (!communityOk) {
+          setAppVisible(false);
+          return;
+        }
+        if (global.PTCommunity.applyBranding) global.PTCommunity.applyBranding();
+        if (global.PTCommunity.applyMenus) global.PTCommunity.applyMenus();
+      } catch (eComm) {
+        console.warn('[PTCommunity]', eComm);
+      }
+    }
 
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) {
       global.PTCloudSessions.setUser(user);
@@ -33234,6 +33309,25 @@ window.PT_NASH_PUSH_JSON = {
         return;
       }
     }
+    // Gate síncrono: menús + ACCESS_CACHE. Las RPCs autorizan al cargar datos.
+    if (window.PTCommunity && typeof window.PTCommunity.canOpenTab === 'function' &&
+        tabId !== 'home' && tabId !== 'account') {
+      var access = window.PTCommunity.canOpenTab(tabId);
+      if (access && access.allowed === false) {
+        if (window.PTCommunity.requireMembership && window.PTCommunity.requireMembership() &&
+            window.PTCommunity.hasAccess && !window.PTCommunity.hasAccess()) {
+          window.PTCommunity.showAccessDenied();
+          return;
+        }
+        goToTabUnlocked('home', {});
+        return;
+      }
+    }
+    goToTabUnlocked(tabId, opts);
+  }
+
+  function goToTabUnlocked(tabId, opts) {
+    opts = opts || {};
     if (window.PTLog && PTLog.event) PTLog.event('tab_view', { tab: tabId });
     $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tabId));
     $$('.tab-panel').forEach((x) => x.classList.remove('active'));
@@ -33337,7 +33431,23 @@ window.PT_NASH_PUSH_JSON = {
         renderRangesExplorer();
       });
     }
-    if (tabId === 'pricing') renderPricing();
+    if (tabId === 'manager') {
+      withLazyChunk('manager', function () {
+        if (window.PTManagerPanel && window.PTManagerPanel.render) {
+          window.PTManagerPanel.render();
+        }
+      });
+    }
+    if (tabId === 'pricing') {
+      if (window.PTCommunity && window.PTCommunity.config) {
+        var cfgPrice = window.PTCommunity.config();
+        if (cfgPrice && cfgPrice.billing && cfgPrice.billing.hidePricing) {
+          goToTabUnlocked('home', {});
+          return;
+        }
+      }
+      renderPricing();
+    }
     if (tabId === 'sessions') {
       if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#sessions-usage'));
       withLazyChunk('sessions', function () {
@@ -33395,6 +33505,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   window.goToTab = goToTab;
+  window.goToTabUnlocked = goToTabUnlocked;
   window.refreshLegendaryTabVisibility = refreshLegendaryTabVisibility;
   window.isLegendaryAdminUser = isLegendaryAdminUser;
   window.openSession = openSession;

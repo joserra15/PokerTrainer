@@ -1,6 +1,8 @@
 /*
  * site-config.example.js — URLs y orígenes OAuth (G-03).
  * Copia a js/site-config.js y ajusta si cambias dominio o entornos locales.
+ * OAuth redirige siempre a appUrl (/). Tras el login, PTCommunity elige
+ * PokerForgeAI o una comunidad según memberships + default_app.
  */
 window.PT_SITE = {
   appUrl: 'https://www.pokerforgeai.com/',

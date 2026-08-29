@@ -353,6 +353,20 @@
     setAppVisible(true);
     renderAccountMenu(user);
 
+    if (global.PTCommunity && global.PTCommunity.gateAfterLogin) {
+      try {
+        var communityOk = await global.PTCommunity.gateAfterLogin();
+        if (!communityOk) {
+          setAppVisible(false);
+          return;
+        }
+        if (global.PTCommunity.applyBranding) global.PTCommunity.applyBranding();
+        if (global.PTCommunity.applyMenus) global.PTCommunity.applyMenus();
+      } catch (eComm) {
+        console.warn('[PTCommunity]', eComm);
+      }
+    }
+
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) {
       global.PTCloudSessions.setUser(user);
     }

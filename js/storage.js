@@ -360,7 +360,13 @@
    * stats/histórico, así que sobrevive a cuotas llenas y a recargas.
    */
   function schoolProgressKey() {
-    return scopedKey('school_progress');
+    var base = 'school_progress';
+    if (typeof global !== 'undefined' && global.PTCommunity && typeof global.PTCommunity.progressKey === 'function') {
+      base = global.PTCommunity.progressKey() || base;
+    } else if (typeof window !== 'undefined' && window.PTCommunity && typeof window.PTCommunity.progressKey === 'function') {
+      base = window.PTCommunity.progressKey() || base;
+    }
+    return scopedKey(base);
   }
 
   function readSchoolProgressStore() {

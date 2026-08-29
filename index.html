@@ -120,6 +120,9 @@
       'js/sentry.js',
       'js/log.js',
       'js/supabase-client.js',
+      'js/community-config-pokerforge.js',
+      'js/community-config-mttlab.js',
+      'js/community.js',
       'js/guest-funnel.js',
       'js/cloud-store.js',
       'js/promo-redeem.js',
@@ -520,6 +523,7 @@
         <button class="tab" data-tab="errors" data-i18n="tab.errors">Errores</button>
         <button class="tab" data-tab="stats" data-i18n="tab.stats">Estadísticas</button>
         <button class="tab" data-tab="contact" data-i18n="tab.contact">Contacto</button>
+        <button class="tab tab-manager hidden" data-tab="manager">Manager</button>
         <button class="tab" data-tab="pricing" data-i18n="tab.pricing">Planes</button>
         <a class="tab tab-link" href="legal/faq.html" target="_blank" rel="noopener" data-i18n="tab.faq">FAQ</a>
       </nav>
@@ -1324,6 +1328,11 @@
       <div id="contact-content"></div>
     </section>
 
+    <!-- ===== MANAGER COMUNIDAD ===== -->
+    <section id="tab-manager" class="tab-panel">
+      <div id="manager-panel-root"></div>
+    </section>
+
     <!-- ===== PLANES / PRICING ===== -->
     <section id="tab-pricing" class="tab-panel">
       <div class="pricing-panel card-box">
@@ -1543,6 +1552,15 @@
               <option value="">Todos</option>
               <option value="on">Activado</option>
               <option value="off">No activado</option>
+            </select>
+          </label>
+          <label class="admin-filter-field">
+            <span>Comunidad</span>
+            <select id="admin-filter-community">
+              <option value="">Todas</option>
+              <option value="mttlab">MTT LAB</option>
+              <option value="mttlab_manager">MTT LAB · Manager</option>
+              <option value="none">Sin comunidad</option>
             </select>
           </label>
           <div class="admin-filter-field admin-filter-dates">

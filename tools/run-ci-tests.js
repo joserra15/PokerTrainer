@@ -81,6 +81,7 @@ const STEPS = [
   ['Test fuzz evaluateSpot', ['node', 'tools/test-fuzz-evaluate.js']],
   ['Test admin panel', ['node', 'tools/test-admin-panel.js']],
   ['Test account settings', ['node', 'tools/test-account-settings.js']],
+  ['Test multi-comunidad MTT Lab', ['node', 'tools/test-community-mttlab.js']],
   ['Test demo / sample session', ['node', 'tools/test-demo-sample.js']],
   // Fase 4
   ['Test solver sanity JS', ['node', 'tools/test-solver-sanity-js.js']],

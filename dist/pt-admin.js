@@ -14,6 +14,25 @@
   var PLAN_AI_LIMITS = { free: 0, pro: 5, premium: 35 };
   var DEMO_USER_ID = 'pt_demo_user';
 
+
+  function userCommunities(u) {
+    var raw = u && u.communities;
+    if (!raw) return [];
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch (e) { return []; }
+    }
+    return Array.isArray(raw) ? raw : [];
+  }
+
+  function communityBadges(u) {
+    return userCommunities(u).map(function (c) {
+      var label = c.community_id || c.id || '';
+      var role = c.role === 'manager' ? 'Mgr' : 'Mem';
+      return ' <span class="admin-community-badge" title="' + escapeHtml(label) + '">' +
+        escapeHtml(label) + '·' + role + '</span>';
+    }).join('');
+  }
+
   var loaded = false;
   var adminTabBtn = null;
   var inviteModalBound = false;
@@ -26,6 +45,7 @@
     plan: '',
     founder: '',
     push: '',
+    community: '',
     periodFrom: '',
     periodTo: '',
     renewalFrom: '',
@@ -749,6 +769,21 @@
       if (plan && (u.plan || 'free') !== plan) return false;
       if (push === 'on' && !userHasPush(u)) return false;
       if (push === 'off' && userHasPush(u)) return false;
+      var community = adminUsersFilters.community || '';
+      if (community) {
+        var cms = userCommunities(u);
+        if (community === 'none') {
+          if (cms.length) return false;
+        } else if (community === 'mttlab_manager') {
+          if (!cms.some(function (c) {
+            return (c.community_id || c.id) === 'mttlab' && c.role === 'manager';
+          })) return false;
+        } else {
+          if (!cms.some(function (c) {
+            return (c.community_id || c.id) === community;
+          })) return false;
+        }
+      }
       if (founder === 'study' && !u.is_founder_study) return false;
       if (founder === 'coach' && !u.is_founder_coach) return false;
       if (founder === 'any' && !(u.is_founder_study || u.is_founder_coach || u.is_founder)) return false;
@@ -815,6 +850,8 @@
     adminUsersFilters.plan = planEl ? String(planEl.value || '') : '';
     adminUsersFilters.founder = founderEl ? String(founderEl.value || '') : '';
     adminUsersFilters.push = pushEl ? String(pushEl.value || '') : '';
+    var communityEl = $('#admin-filter-community');
+    adminUsersFilters.community = communityEl ? String(communityEl.value || '') : '';
     adminUsersFilters.periodFrom = ($('#admin-filter-period-from') || {}).value || '';
     adminUsersFilters.periodTo = ($('#admin-filter-period-to') || {}).value || '';
     adminUsersFilters.renewalFrom = ($('#admin-filter-renewal-from') || {}).value || '';
@@ -825,12 +862,12 @@
 
   function clearUsersFilters() {
     adminUsersFilters = {
-      user: '', plan: '', founder: '', push: '',
+      user: '', plan: '', founder: '', push: '', community: '',
       periodFrom: '', periodTo: '',
       renewalFrom: '', renewalTo: '',
       seenFrom: '', seenTo: ''
     };
-    ['admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push',
+    ['admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push', 'admin-filter-community',
       'admin-filter-period-from', 'admin-filter-period-to',
       'admin-filter-renewal-from', 'admin-filter-renewal-to',
       'admin-filter-seen-from', 'admin-filter-seen-to'
@@ -845,7 +882,7 @@
     if (adminUsersFiltersBound) return;
     adminUsersFiltersBound = true;
     var filterIds = [
-      'admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push',
+      'admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push', 'admin-filter-community',
       'admin-filter-period-from', 'admin-filter-period-to',
       'admin-filter-renewal-from', 'admin-filter-renewal-to',
       'admin-filter-seen-from', 'admin-filter-seen-to'
@@ -914,7 +951,7 @@
         '<tr data-user-id="' + escapeHtml(u.user_id) + '" class="admin-user-row' + (isDemo ? ' admin-row-demo' : '') + activeDetail + '">' +
         '<td class="admin-user-cell" data-col="user">' +
         '<span class="admin-user-name">' + escapeHtml(u.name || '—') + (isDemo ? ' <span class="admin-demo-badge">DEMO</span>' : '') +
-        badges +
+        badges + communityBadges(u) +
         '</span>' +
         '<span class="admin-user-email">' + escapeHtml(u.email) + '</span>' +
         '</td>' +
@@ -1292,6 +1329,21 @@
         ? 'El usuario demo no recibe mensajes de Contacto.'
         : 'No puedes enviarte un mensaje a ti mismo.')
       : '';
+
+    var cms = userCommunities(cached || { communities: data.communities });
+    if (!cms.length && data.communities) cms = userCommunities({ communities: data.communities });
+    var hasMtt = cms.some(function (c) { return (c.community_id || c.id) === 'mttlab' && c.status !== 'revoked'; });
+    var isMttMgr = cms.some(function (c) { return (c.community_id || c.id) === 'mttlab' && c.role === 'manager' && c.status !== 'revoked'; });
+    var communityControlsHtml =
+      '<section class="admin-detail-block"><h4>Comunidades</h4>' +
+      '<p class="muted-text">MTT LAB: ' + (hasMtt ? (isMttMgr ? 'Manager' : 'Miembro') : 'Sin acceso') + '</p>' +
+      '<div class="admin-detail-actions admin-community-actions">' +
+      '<button type="button" class="btn btn-primary btn-sm" data-admin-community-action="grant" data-community="mttlab">Dar acceso MTT LAB</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-admin-community-action="manager" data-community="mttlab">' +
+      (isMttMgr ? 'Quitar manager' : 'Hacer manager') + '</button>' +
+      '<button type="button" class="btn btn-danger btn-sm" data-admin-community-action="revoke" data-community="mttlab">Revocar acceso</button>' +
+      '</div></section>';
+
     var sendFormHtml = canMessage
       ? '<form id="admin-detail-send-form" class="admin-detail-send-form">' +
         '<label for="admin-detail-send-subject">Asunto</label>' +
@@ -1314,6 +1366,7 @@
       (p.is_founder_study ? ' · FOUNDER Study' : '') +
       (p.is_founder_coach ? ' · FOUNDER Coach' : '') + '</p>' +
       promoHeadNote +
+      communityControlsHtml +
       '</div>' +
       '<div class="admin-detail-head-actions">' +
       (canMessage
@@ -1375,6 +1428,19 @@
         if (subjectEl) subjectEl.focus();
       });
     }
+        host.querySelectorAll('[data-admin-community-action]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var action = btn.getAttribute('data-admin-community-action');
+        var cid = btn.getAttribute('data-community') || 'mttlab';
+        var uid = p.user_id;
+        if (action === 'grant') setCommunityMember(uid, cid, 'member', 'active');
+        else if (action === 'revoke') setCommunityMember(uid, cid, 'member', 'revoked');
+        else if (action === 'manager') {
+          var makeMgr = (btn.textContent || '').toLowerCase().indexOf('quitar') < 0;
+          setCommunityMember(uid, cid, makeMgr ? 'manager' : 'member', 'active');
+        }
+      });
+    });
     var sendForm = $('#admin-detail-send-form');
     if (sendForm) {
       sendForm.addEventListener('submit', async function (ev) {
@@ -1540,6 +1606,24 @@
         r.classList.remove('admin-row-active');
       });
     }
+  }
+
+
+  async function setCommunityMember(userId, communityId, role, status) {
+    var c = client();
+    if (!c) return;
+    var res = await c.rpc('pt_admin_set_community_member', {
+      p_user_id: userId,
+      p_community_id: communityId,
+      p_role: role,
+      p_status: status
+    });
+    if (res.error) {
+      alert(res.error.message || 'Error comunidad');
+      return;
+    }
+    await loadUsers();
+    await openUserDetail(userId);
   }
 
   async function openUserDetail(userId) {

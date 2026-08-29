@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MTT LAB · Comunidad</title>
+  <meta name="robots" content="noindex" />
+  <script>
+  (function () {
+    // Solo branding de landing pre-login. El OAuth vuelve a / y tras el login
+    // PTCommunity elige shell por memberships + default_app (no por esta URL).
+    var hash = location.hash || '';
+    location.replace('/?app=mttlab' + hash);
+  })();
+  </script>
+</head>
+<body>
+  <p>Redirigiendo a MTT LAB…</p>
+  <p><a href="/?app=mttlab">Continuar</a></p>
+</body>
+</html>

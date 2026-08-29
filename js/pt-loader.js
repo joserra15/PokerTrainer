@@ -10,6 +10,7 @@
     school: 'dist/pt-school.js',
     legendary: 'dist/pt-legendary.js',
     contact: 'dist/pt-contact.js',
+    manager: 'dist/pt-manager.js',
     admin: 'dist/pt-admin.js'
   };
 

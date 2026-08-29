@@ -23,7 +23,7 @@ assert.ok(/pt_admin_usage_stats/.test(sql) && /feature_usage/.test(sql) && /scho
 assert.ok(/pt_admin_guest_funnel/.test(sqlFunnel) && /pt_guest_funnel_ingest/.test(sqlFunnel), 'migración embudo');
 assert.ok(/trackFeatureUsage/.test(storageSrc), 'Store.trackFeatureUsage');
 assert.ok(/trackFeatureUsage/.test(logSrc), 'PTLog → trackFeatureUsage');
-assert.ok(/PT_BUILD\s*=\s*'2.7.41'/.test(version), 'versión 2.7.41');
+assert.ok(/PT_BUILD\s*=\s*'3.0.0'/.test(version), 'versión 3.0.0');
 
 const localStore = {};
 const sandbox = {

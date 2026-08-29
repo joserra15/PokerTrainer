@@ -1993,6 +1993,25 @@
         return;
       }
     }
+    // Gate síncrono: menús + ACCESS_CACHE. Las RPCs autorizan al cargar datos.
+    if (window.PTCommunity && typeof window.PTCommunity.canOpenTab === 'function' &&
+        tabId !== 'home' && tabId !== 'account') {
+      var access = window.PTCommunity.canOpenTab(tabId);
+      if (access && access.allowed === false) {
+        if (window.PTCommunity.requireMembership && window.PTCommunity.requireMembership() &&
+            window.PTCommunity.hasAccess && !window.PTCommunity.hasAccess()) {
+          window.PTCommunity.showAccessDenied();
+          return;
+        }
+        goToTabUnlocked('home', {});
+        return;
+      }
+    }
+    goToTabUnlocked(tabId, opts);
+  }
+
+  function goToTabUnlocked(tabId, opts) {
+    opts = opts || {};
     if (window.PTLog && PTLog.event) PTLog.event('tab_view', { tab: tabId });
     $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tabId));
     $$('.tab-panel').forEach((x) => x.classList.remove('active'));
@@ -2096,7 +2115,23 @@
         renderRangesExplorer();
       });
     }
-    if (tabId === 'pricing') renderPricing();
+    if (tabId === 'manager') {
+      withLazyChunk('manager', function () {
+        if (window.PTManagerPanel && window.PTManagerPanel.render) {
+          window.PTManagerPanel.render();
+        }
+      });
+    }
+    if (tabId === 'pricing') {
+      if (window.PTCommunity && window.PTCommunity.config) {
+        var cfgPrice = window.PTCommunity.config();
+        if (cfgPrice && cfgPrice.billing && cfgPrice.billing.hidePricing) {
+          goToTabUnlocked('home', {});
+          return;
+        }
+      }
+      renderPricing();
+    }
     if (tabId === 'sessions') {
       if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#sessions-usage'));
       withLazyChunk('sessions', function () {
@@ -2154,6 +2189,7 @@
   }
 
   window.goToTab = goToTab;
+  window.goToTabUnlocked = goToTabUnlocked;
   window.refreshLegendaryTabVisibility = refreshLegendaryTabVisibility;
   window.isLegendaryAdminUser = isLegendaryAdminUser;
   window.openSession = openSession;

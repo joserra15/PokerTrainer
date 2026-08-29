@@ -51,6 +51,7 @@
     "test:fuzz": "node tools/test-fuzz-evaluate.js",
     "test:admin": "node tools/test-admin-panel.js",
     "test:account-settings": "node tools/test-account-settings.js",
+    "test:community": "node tools/test-community-mttlab.js",
     "test:demo": "node tools/test-demo-sample.js",
     "test:solver-sanity": "node tools/test-solver-sanity-js.js",
     "test:variants": "node tools/test-product-variants.js",
