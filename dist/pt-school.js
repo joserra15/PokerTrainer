@@ -17517,14 +17517,26 @@
     try {
       if (Store() && typeof Store().getUserId === 'function') uid = Store().getUserId() || '';
     } catch (e) { /* ignore */ }
-    return 'pt_school_backup_v1' + (uid ? '_' + uid : '');
+    var suffix = '';
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        var cid = global.PTCommunity.id();
+        if (cid && cid !== 'pokerforge') suffix = '_' + cid;
+      }
+    } catch (e2) { /* ignore */ }
+    return 'pt_school_backup' + suffix + '_v1' + (uid ? '_' + uid : '');
   }
 
-  /** Copia backup legacy sin uid → clave con uid (login no debe perder Escuela). */
+  /** Copia backup legacy sin uid → clave con uid (login no debe perder Escuela). Solo PokerForge. */
   function migrateSchoolBackupToUser() {
     try {
       if (typeof localStorage === 'undefined') return;
       var key = schoolBackupKey();
+      if (key.indexOf('pt_school_backup_mttlab') === 0 || key.indexOf('pt_school_backup_') === 0 && key !== 'pt_school_backup_v1' && key.indexOf('pt_school_backup_v1_') !== 0) {
+        /* Comunidad: no migrar backup PF */
+        if (key.indexOf('pt_school_backup_v1') !== 0) return;
+      }
+      if (global.PTCommunity && PTCommunity.id && PTCommunity.id() !== 'pokerforge') return;
       if (key === 'pt_school_backup_v1') return;
       if (localStorage.getItem(key)) return;
       var legacy = localStorage.getItem('pt_school_backup_v1');
@@ -17538,7 +17550,7 @@
       if (typeof localStorage === 'undefined') return null;
       migrateSchoolBackupToUser();
       var raw = localStorage.getItem(schoolBackupKey());
-      if (!raw) {
+      if (!raw && !(global.PTCommunity && PTCommunity.id && PTCommunity.id() !== 'pokerforge')) {
         raw = localStorage.getItem('pt_school_backup_v1');
       }
       if (!raw) return null;
@@ -17562,9 +17574,10 @@
       if (ds) backup.dailySpot = ds;
       var payload = JSON.stringify(backup);
       localStorage.setItem(schoolBackupKey(), payload);
-      /* También en clave legacy: si el uid aún no está listo, no se pierde. */
+      /* También en clave legacy solo en PokerForge. */
       try {
-        if (schoolBackupKey() !== 'pt_school_backup_v1') {
+        var isCommunity = global.PTCommunity && PTCommunity.id && PTCommunity.id() !== 'pokerforge';
+        if (!isCommunity && schoolBackupKey() !== 'pt_school_backup_v1') {
           localStorage.setItem('pt_school_backup_v1', payload);
         }
       } catch (e2) { /* ignore */ }

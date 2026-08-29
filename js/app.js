@@ -2011,6 +2011,13 @@
       if (window.PTCommunity && PTCommunity.invalidateWelcomeCache) PTCommunity.invalidateWelcomeCache();
       renderHome();
       if (window.PTEntitlements && PTEntitlements.refresh) PTEntitlements.refresh();
+      if (window.PTCloud && PTCloud.syncNow) {
+        try { PTCloud.syncNow(); } catch (e) { /* noop */ }
+      }
+      /* Forzar refresco de pestañas que leen Store (stats/errores/escuela) */
+      try {
+        document.dispatchEvent(new CustomEvent('pt-store-community-changed'));
+      } catch (e2) { /* noop */ }
     });
     window.addEventListener('pt-community-ready', () => {
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();

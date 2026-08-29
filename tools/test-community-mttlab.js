@@ -99,6 +99,8 @@ assert.ok(/welcomeFromManager/.test(app), 'home usa bienvenida manager');
 assert.ok(/hideDailySpot/.test(app), 'home oculta spot del día en comunidad');
 assert.ok(/hideQuickAccess/.test(app), 'home oculta accesos rápidos');
 assert.ok(/aiCommunityId/.test(commSrc), 'cupo IA comunidad');
+assert.ok(/communityDataSuffix|scopedDataKey/.test(read('js/storage.js')), 'storage namespaced por comunidad');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/045_community_school_no_pf_fallback.sql')), 'migration 045');
 
 const auth = read('js/auth.js');
 assert.ok(/gateAfterLogin/.test(auth), 'auth gate comunidad');
