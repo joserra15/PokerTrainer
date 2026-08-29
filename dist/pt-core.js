@@ -33387,6 +33387,14 @@ window.PT_NASH_PUSH_JSON = {
 
     window.addEventListener('pt-auth-bootstrap', () => renderHome());
     window.addEventListener('pt-auth-ready', () => renderHome());
+    window.addEventListener('pt-community-switch', () => {
+      if (window.PTCommunity && PTCommunity.invalidateWelcomeCache) PTCommunity.invalidateWelcomeCache();
+      renderHome();
+      if (window.PTEntitlements && PTEntitlements.refresh) PTEntitlements.refresh();
+    });
+    window.addEventListener('pt-community-ready', () => {
+      if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();
+    });
     window.addEventListener('pt-cloud-synced', () => {
       homeBootCloudSettled = true;
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();
