@@ -509,6 +509,30 @@
     panel.insertBefore(hint, panel.firstChild);
   }
 
+  function applyCommunityLanding() {
+    var C = global.PTCommunity;
+    if (!C || !C.config) return;
+    var cfg = C.config();
+    if (!cfg || cfg.id === 'pokerforge') return;
+    var brand = document.querySelector('.landing-brand span');
+    if (brand) brand.textContent = cfg.siteName || brand.textContent;
+    if (C.applyBranding) C.applyBranding();
+    if (cfg.landing && cfg.landing.showPricing === false) {
+      document.querySelectorAll('a[href="#landing-pricing"], #landing-pricing, .landing-pricing-wrap').forEach(function (el) {
+        el.classList.add('hidden');
+        el.setAttribute('aria-hidden', 'true');
+      });
+    }
+    var heroTitle = document.querySelector('.landing-hero h1, .landing-hero-title');
+    if (heroTitle && cfg.landing && cfg.landing.title) {
+      heroTitle.textContent = cfg.landing.title;
+    }
+    var heroLead = document.querySelector('.landing-hero .landing-lead, .landing-hero p');
+    if (heroLead && cfg.landing && cfg.landing.subtitle) {
+      heroLead.textContent = cfg.landing.subtitle;
+    }
+  }
+
   function refreshI18n() {
     if (global.PTI18n && global.PTI18n.apply) global.PTI18n.apply(document.getElementById('auth-gate') || document);
     renderLimitsBox();
@@ -518,6 +542,7 @@
   function init() {
     if (!document.getElementById('auth-gate')) return;
     if (global.PTI18n && global.PTI18n.apply) global.PTI18n.apply(document);
+    applyCommunityLanding();
     renderPromo();
     renderLimitsBox();
     renderPricing();

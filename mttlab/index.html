@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MTT LAB · Comunidad</title>
+  <meta name="robots" content="noindex" />
+  <script>
+  (function () {
+    try {
+      sessionStorage.setItem('pt_app_variant', 'mttlab');
+      localStorage.setItem('pt_app_variant', 'mttlab');
+    } catch (e) {}
+    var hash = location.hash || '';
+    location.replace('/?app=mttlab' + hash);
+  })();
+  </script>
+</head>
+<body>
+  <p>Redirigiendo a MTT LAB…</p>
+  <p><a href="/?app=mttlab">Continuar</a></p>
+</body>
+</html>

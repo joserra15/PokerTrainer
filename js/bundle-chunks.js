@@ -126,6 +126,7 @@
       'js/school-matrix-drills.js',
       'js/school-share.js',
       'js/school-daily-spot.js',
+      'js/school-data-mttlab.js',
       'js/school.js'
     ],
     legendary: [
@@ -136,6 +137,7 @@
       'js/legendary-hands.js'
     ],
     contact: ['js/contact.js'],
+    manager: ['js/manager-panel.js'],
     admin: ['js/admin-panel.js', 'js/admin-promotions.js']
   };
 
@@ -147,6 +149,7 @@
     CHUNKS.school,
     CHUNKS.legendary,
     CHUNKS.contact,
+    CHUNKS.manager,
     CHUNKS.admin
   );
 

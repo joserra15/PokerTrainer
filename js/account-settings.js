@@ -42,6 +42,47 @@
     return labels[plan] || plan || '—';
   }
 
+  function communitySettingsSection() {
+    if (!global.PTCommunity || !global.PTCommunity.myCommunities) return '';
+    var list = global.PTCommunity.myCommunities() || [];
+    if (!list.length) return '';
+    var def = global.PTCommunity.defaultApp ? global.PTCommunity.defaultApp() : 'pokerforge';
+    var active = global.PTCommunity.id ? global.PTCommunity.id() : 'pokerforge';
+    var items = list.map(function (c) {
+      var cfg = global.PTCommunity.getConfig ? global.PTCommunity.getConfig(c.id) : {};
+      var name = c.name || (cfg && cfg.siteName) || c.id;
+      return '<li class="community-settings-item">' +
+        '<label><input type="radio" name="settings-default-app" value="' + escapeHtml(c.id) + '"' +
+        (c.id === def ? ' checked' : '') + ' /> Entrada por defecto</label> ' +
+        '<strong>' + escapeHtml(name) + '</strong>' +
+        (c.role === 'manager' ? ' <span class="muted-text">Manager</span>' : '') +
+        (c.id === active ? ' <span class="muted-text">(actual)</span>' : '') +
+        ' <button type="button" class="btn btn-ghost btn-sm" data-switch-community="' +
+        escapeHtml(c.id) + '">Entrar</button></li>';
+    }).join('');
+    return '<section class="account-settings-card card-box" id="settings-communities-card">' +
+      '<h3>Apps y comunidades</h3>' +
+      '<p class="muted-text">Elige la entrada por defecto al iniciar sesión o cambia ahora.</p>' +
+      '<ul class="community-settings-list">' + items + '</ul></section>';
+  }
+
+  function bindCommunitySettings(host) {
+    if (!host || !global.PTCommunity) return;
+    host.querySelectorAll('[data-switch-community]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-switch-community');
+        if (global.PTCommunity.switchTo) global.PTCommunity.switchTo(id);
+      });
+    });
+    host.querySelectorAll('input[name="settings-default-app"]').forEach(function (input) {
+      input.addEventListener('change', function () {
+        if (input.checked && global.PTCommunity.setDefaultApp) {
+          global.PTCommunity.setDefaultApp(input.value);
+        }
+      });
+    });
+  }
+
   function paymentKindLabel(kind) {
     if (kind === 'subscription') return 'Suscripción';
     if (kind === 'renewal') return 'Renovación';
@@ -137,6 +178,9 @@
     var bonus = (data && data.bonus_ledger) || [];
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
     var showBilling = billingOn && (prof.plan !== 'free' || prof.subscription_status === 'active');
+    var hideCommunityBilling = !!(global.PTCommunity && global.PTCommunity.config &&
+      global.PTCommunity.config() && global.PTCommunity.config().billing &&
+      global.PTCommunity.config().billing.hidePricing);
     var cloudLabels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error' };
     var cloudStatus = global.PTCloud && global.PTCloud.getStatus ? global.PTCloud.getStatus() : { status: 'disabled' };
 
@@ -153,6 +197,8 @@
       row('Registro', escapeHtml(formatDate(prof.created_at))) +
       row('Última conexión', escapeHtml(formatDate(prof.last_seen_at))) +
       '</section>' +
+
+      communitySettingsSection() +
 
       '<section class="account-settings-card card-box">' +
       '<h3>Plan y suscripción</h3>' +
@@ -275,6 +321,15 @@
     }
     if (global.PTPush && global.PTPush.bindSettings) {
       global.PTPush.bindSettings(host);
+    }
+    bindCommunitySettings(host);
+    if (hideCommunityBilling) {
+      host.querySelectorAll('.account-settings-card').forEach(function (card) {
+        var h = card.querySelector('h3');
+        if (!h) return;
+        var t = h.textContent || '';
+        if (/Plan y suscripción|Pagos realizados|Bonos IA/.test(t)) card.classList.add('hidden');
+      });
     }
     var mode = 'always';
     var thr = 0.5;
