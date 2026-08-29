@@ -427,7 +427,13 @@
         }
         var btn = newForm.querySelector('button[type="submit"]');
         if (btn) btn.disabled = true;
-        var res = await c.rpc('pt_contact_create_thread', { p_subject: subj, p_body: body });
+        var res = await c.rpc('pt_contact_create_thread', {
+          p_subject: subj,
+          p_body: body,
+          p_community_id: (global.PTCommunity && global.PTCommunity.contactCommunityId)
+            ? global.PTCommunity.contactCommunityId()
+            : null
+        });
         if (btn) btn.disabled = false;
         if (res.error) {
           alert('No se pudo enviar: ' + (res.error.message || 'error'));

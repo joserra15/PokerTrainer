@@ -1,6 +1,6 @@
 {
-  "build": "2.7.41",
-  "rev": "2.7.41-e3585a2e24",
+  "build": "3.0.0",
+  "rev": "3.0.0-8010042983",
   "chunks": {
     "core": "dist/pt-core.js",
     "sessions": "dist/pt-sessions.js",
@@ -10,6 +10,7 @@
     "school": "dist/pt-school.js",
     "legendary": "dist/pt-legendary.js",
     "contact": "dist/pt-contact.js",
+    "manager": "dist/pt-manager.js",
     "admin": "dist/pt-admin.js"
   }
 }
