@@ -79,13 +79,25 @@
     badge.textContent = n > 99 ? '99+' : String(n);
   }
 
+  function contactCommunityParam() {
+    if (global.PTCommunity && typeof global.PTCommunity.contactCommunityId === 'function') {
+      return global.PTCommunity.contactCommunityId();
+    }
+    return null;
+  }
+
+  function contactThreadsRpcArgs() {
+    var cid = contactCommunityParam();
+    return cid ? { p_community_id: cid } : {};
+  }
+
   async function fetchUnreadCount() {
     var c = client();
     if (!c || !isLoggedIn()) {
       updateTabBadge(0);
       return 0;
     }
-    var res = await c.rpc('pt_contact_unread_count');
+    var res = await c.rpc('pt_contact_unread_count', contactThreadsRpcArgs());
     if (res.error) return 0;
     var n = Number(res.data) || 0;
     updateTabBadge(n);
@@ -244,7 +256,7 @@
       return;
     }
 
-    var listRes = await c.rpc('pt_contact_my_threads');
+    var listRes = await c.rpc('pt_contact_my_threads', contactThreadsRpcArgs());
     if (listRes.error) {
       clearHomeNotice();
       return;
@@ -273,6 +285,13 @@
     var countLabel = totalUnread === 1
       ? '1 mensaje nuevo'
       : totalUnread + ' mensajes nuevos';
+    var noticeFrom = 'PokerForgeAI te ha escrito';
+    try {
+      if (contactCommunityParam() && global.PTCommunity && global.PTCommunity.config) {
+        var cfgN = global.PTCommunity.config();
+        if (cfgN && cfgN.siteName) noticeFrom = cfgN.siteName + ' te ha escrito';
+      }
+    } catch (eN) { /* noop */ }
 
     host.innerHTML =
       '<button type="button" class="home-contact-notice-btn" data-home-contact-thread="' +
@@ -281,7 +300,7 @@
       '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">' +
       '<path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg></span>' +
       '<span class="home-contact-notice-copy">' +
-      '<strong>PokerForgeAI te ha escrito</strong>' +
+      '<strong>' + escapeHtml(noticeFrom) + '</strong>' +
       '<span class="home-contact-notice-meta">' + escapeHtml(countLabel) +
       ' · ' + escapeHtml(subject) + escapeHtml(meta) + '</span>' +
       '</span>' +
@@ -352,7 +371,7 @@
       return;
     }
 
-    var listRes = await c.rpc('pt_contact_my_threads');
+    var listRes = await c.rpc('pt_contact_my_threads', contactThreadsRpcArgs());
     if (listRes.error) {
       host.innerHTML = '<p class="admin-error">' + escapeHtml(listRes.error.message) + '</p>';
       return;

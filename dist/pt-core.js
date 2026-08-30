@@ -28609,6 +28609,11 @@ window.PT_NASH_PUSH_JSON = {
 
   function mountAnnualUpsell(host, ent) {
     if (!host) return;
+    if (global.PTCommunity && global.PTCommunity.requireMembership && global.PTCommunity.requireMembership()) {
+      host.innerHTML = '';
+      host.classList.add('hidden');
+      return;
+    }
     var html = annualUpsellHtml(ent);
     if (!html) {
       host.innerHTML = '';
@@ -31565,7 +31570,18 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function refreshLegendaryTabVisibility() {
-    const show = legendaryMenuVisible();
+    var communityHide = false;
+    try {
+      if (window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
+        communityHide = true;
+      } else if (window.PTCommunity && PTCommunity.config) {
+        var cfg = PTCommunity.config();
+        if (cfg && cfg.menus && cfg.menus.hide && cfg.menus.hide.indexOf('legendary') >= 0) {
+          communityHide = true;
+        }
+      }
+    } catch (e) { /* noop */ }
+    const show = !communityHide && legendaryMenuVisible();
     const tab = document.querySelector('.tab[data-tab="legendary"]');
     if (tab) tab.classList.toggle('hidden', !show);
     $$('.home-card-legendary').forEach((el) => el.classList.toggle('hidden', !show));

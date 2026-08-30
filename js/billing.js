@@ -163,6 +163,11 @@
 
   function mountAnnualUpsell(host, ent) {
     if (!host) return;
+    if (global.PTCommunity && global.PTCommunity.requireMembership && global.PTCommunity.requireMembership()) {
+      host.innerHTML = '';
+      host.classList.add('hidden');
+      return;
+    }
     var html = annualUpsellHtml(ent);
     if (!html) {
       host.innerHTML = '';
