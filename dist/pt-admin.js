@@ -2792,14 +2792,14 @@
   }
 
   function communityLessonIdsForDetail(school, cid) {
-    var lessons = (school && school.lessons) || {};
-    var ids = Object.keys(lessons);
-    if (cid === 'mttlab') {
-      var scoped = ids.filter(function (id) { return /^ML-/i.test(id); });
-      if (scoped.length) return scoped;
+    if (global.PTManagerPanel && typeof PTManagerPanel.sanitizeCommunitySchool === 'function') {
+      return Object.keys(PTManagerPanel.sanitizeCommunitySchool(school, cid).lessons || {});
     }
-    return ids.filter(function (id) {
-      return !/^(T-\d|M0-|cash-|spin-|learn-)/i.test(id);
+    var lessons = (school && school.lessons) || {};
+    return Object.keys(lessons).filter(function (id) {
+      if (/^(C-|R-|T-|M0-|D-|O-|B-|F-|E-|Q-|X-|N-|I-|learn-|cash-|spin-)/i.test(id)) return false;
+      if (cid === 'mttlab') return /^ML-/i.test(id);
+      return true;
     });
   }
 
@@ -2808,12 +2808,14 @@
       return PTManagerPanel.renderMemberDetailHtml(data, communityId);
     }
     var mem = (data && data.member) || {};
-    var school = (data && data.school) || {};
+    var schoolRaw = (data && data.school) || {};
+    var school = (global.PTManagerPanel && PTManagerPanel.sanitizeCommunitySchool)
+      ? PTManagerPanel.sanitizeCommunitySchool(schoolRaw, communityId)
+      : { xp: 0, lessons: {}, passed: 0 };
     var ai = (data && data.ai) || {};
     var training = (data && data.training) || {};
-    var lessonIds = communityLessonIdsForDetail(school, communityId);
-    var lessons = (school && school.lessons) || {};
-    var passed = lessonIds.filter(function (id) { return lessons[id] && lessons[id].passed; }).length;
+    var lessonIds = communityLessonIdsForDetail(schoolRaw, communityId);
+    var passed = school.passed != null ? school.passed : 0;
     var acc = training.accuracy != null ? (String(training.accuracy) + '%') : '—';
     return '<div class="manager-detail-card">' +
       '<p class="manager-detail-scope muted-text">Solo datos de esta comunidad · sin plan, pagos ni progreso de PokerForgeAI.</p>' +

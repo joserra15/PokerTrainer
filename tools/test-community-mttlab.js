@@ -102,6 +102,12 @@ assert.ok(/aiCommunityId/.test(commSrc), 'cupo IA comunidad');
 assert.ok(/communityDataSuffix|scopedDataKey/.test(read('js/storage.js')), 'storage namespaced por comunidad');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/045_community_school_no_pf_fallback.sql')), 'migration 045');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/046_community_contact_manager_fixes.sql')), 'migration 046');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/047_community_school_pack_filter.sql')), 'migration 047');
+const sql47 = read('supabase/migrations/047_community_school_pack_filter.sql');
+assert.ok(/pt_community_school_from_payload/.test(sql47), '047 school filter helper');
+assert.ok(/pt_is_pokerforge_lesson_id/.test(sql47), '047 detecta lecciones PF');
+assert.ok(/ML-/.test(sql47), '047 prefijo MTT LAB');
+
 
 const sql46 = read('supabase/migrations/046_community_contact_manager_fixes.sql');
 assert.ok(/pt_contact_my_threads\(p_community_id/.test(sql46), 'contacto threads por comunidad');
@@ -154,6 +160,8 @@ assert.ok(/manager-member-cards/.test(mgr), 'manager cards móvil');
 assert.ok(/data-manager-idx/.test(mgr), 'detalle por índice cache');
 assert.ok(/formatMemberError|not_a_member/.test(mgr), 'error detalle amigable');
 assert.ok(/community_only|Solo datos de|sin plan, pagos/.test(mgr), 'detalle solo comunidad');
+assert.ok(/sanitizeCommunitySchool|isPokerForgeLessonId|rejected_pf/.test(mgr), 'filtra C-* PokerForge');
+assert.ok(/\\^C-\|/.test(mgr) || /C-\|R-\|T-/.test(mgr), 'rechaza ids C-00');
 assert.ok(/training/.test(mgr) && /handsPlayed/.test(sql46), 'detalle training comunidad');
 assert.ok(/scope', 'community_only'|scope., .community_only/.test(sql46) || /'scope', 'community_only'/.test(sql46), 'RPC scope community_only');
 

@@ -251,31 +251,67 @@
     });
   }
 
-  /** Solo datos de la comunidad activa (sin plan/pagos/escuela PokerForgeAI). */
-  function communityLessonIds(school, cid) {
-    var lessons = (school && school.lessons) || {};
+  /** Solo lecciones del pack de la comunidad. Rechaza C-00… (PokerForgeAI). */
+  function communityLessonPrefix(cid) {
+    if (cid === 'mttlab') return 'ML-';
+    return null;
+  }
+
+  function isPokerForgeLessonId(id) {
+    return /^(C-|R-|T-|M0-|D-|O-|B-|F-|E-|Q-|X-|N-|I-|S-|P-|W-|learn-|cash-|spin-)/i.test(String(id || ''));
+  }
+
+  function sanitizeCommunitySchool(school, cid) {
+    var raw = school && typeof school === 'object' ? school : {};
+    var lessons = (raw.lessons && typeof raw.lessons === 'object') ? raw.lessons : {};
     var ids = Object.keys(lessons);
-    if (cid === 'mttlab') {
-      var scoped = ids.filter(function (id) { return /^ML-/i.test(id); });
-      if (scoped.length) return scoped;
-    }
-    /* Si no hay prefijo conocido, no mezclar ids típicos de Escuela PokerForge */
-    return ids.filter(function (id) {
-      return !/^(T-\d|M0-|cash-|spin-|learn-)/i.test(id);
+    var prefix = communityLessonPrefix(cid);
+    var prefixRe = prefix ? new RegExp('^' + prefix.replace(/-/g, '\\-'), 'i') : null;
+    var pfCount = 0;
+    var kept = {};
+    ids.forEach(function (id) {
+      if (isPokerForgeLessonId(id)) {
+        pfCount += 1;
+        return;
+      }
+      if (prefixRe && !prefixRe.test(id)) return;
+      kept[id] = lessons[id];
     });
+    var keptIds = Object.keys(kept);
+    var passed = keptIds.filter(function (id) { return kept[id] && kept[id].passed; }).length;
+    var xp = (keptIds.length && pfCount === 0) ? (Number(raw.xp) || 0) : 0;
+    return {
+      xp: xp,
+      lessons: kept,
+      passed: passed,
+      lesson_count: keptIds.length,
+      filtered: true,
+      rejected_pf: pfCount > 0
+    };
+  }
+
+  function communityLessonIds(school, cid) {
+    return Object.keys(sanitizeCommunitySchool(school, cid).lessons);
   }
 
   function renderCommunityMemberDetailHtml(data, cid) {
     var mem = (data && data.member) || {};
-    var school = (data && data.school) || {};
+    var school = sanitizeCommunitySchool((data && data.school) || {}, cid);
     var ai = (data && data.ai) || {};
     var training = (data && data.training) || {};
     var cfg = global.PTCommunity && global.PTCommunity.config ? global.PTCommunity.config() : {};
     var communityName = (cfg && cfg.siteName) || cid || 'comunidad';
-    var lessonIds = communityLessonIds(school, cid);
-    var lessons = (school && school.lessons) || {};
-    var passed = lessonIds.filter(function (id) { return lessons[id] && lessons[id].passed; }).length;
+    var lessonIds = Object.keys(school.lessons || {});
+    var lessons = school.lessons || {};
+    var passed = school.passed != null ? school.passed : lessonIds.filter(function (id) {
+      return lessons[id] && lessons[id].passed;
+    }).length;
     var acc = training.accuracy != null ? (String(training.accuracy) + '%') : '—';
+    var emptySchoolNote = lessonIds.length
+      ? ''
+      : (school.rejected_pf
+        ? '<p class="muted-text">Sin progreso de escuela de esta comunidad (se ignoró progreso de PokerForgeAI).</p>'
+        : '<p class="muted-text">Sin progreso de escuela de esta comunidad sincronizado aún.</p>');
     return '<div class="manager-detail-card">' +
       '<div class="admin-section-head"><h3>' + escapeHtml(mem.name || mem.email || 'Miembro') + '</h3>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="manager-detail-close">Cerrar</button></div>' +
@@ -299,7 +335,7 @@
             (L.bestPct != null ? ' (' + escapeHtml(L.bestPct) + '%)' : '') +
             '</li>';
         }).join('') + '</ul>'
-        : '<p class="muted-text">Sin progreso de escuela de esta comunidad sincronizado aún.</p>') +
+        : emptySchoolNote) +
       '</div>';
   }
 
@@ -427,6 +463,7 @@
     loadSettings: loadSettings,
     showMemberUsage: showMemberUsage,
     renderMemberDetailHtml: renderCommunityMemberDetailHtml,
+    sanitizeCommunitySchool: sanitizeCommunitySchool,
     formatMemberError: formatMemberError
   };
 })(typeof window !== 'undefined' ? window : this);
