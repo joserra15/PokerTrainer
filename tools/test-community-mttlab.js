@@ -215,6 +215,13 @@ assert.ok(C.getConfig('mttlab').home.hideDailySpot, 'mttlab hide daily spot');
 assert.ok(C.getConfig('mttlab').home.hideQuickAccess, 'mttlab hide quick access');
 assert.ok(C.getConfig('mttlab').home.welcomeFromManager, 'mttlab welcome from manager');
 assert.strictEqual(C.getConfig('mttlab').ai.monthlyLimit, 40);
+assert.ok(C.getConfig('mttlab').trainer && C.getConfig('mttlab').trainer.formatHubs
+  && C.getConfig('mttlab').trainer.formatHubs.length === 1
+  && C.getConfig('mttlab').trainer.formatHubs[0] === 'mtt', 'mttlab solo torneos');
+assert.ok(C.getConfig('mttlab').ranges.hideGameTypes.indexOf('spin3') >= 0, 'mttlab oculta spin en rangos');
+assert.ok(/function applyFormats/.test(commSrc), 'applyFormats');
+assert.ok(/syncFormatHubUI/.test(app), 'app expone syncFormatHubUI');
+assert.ok(/ranges-game-type \[data-val="spin3"\]/.test(read('css/styles.css')), 'CSS oculta spin rangos');
 
 // Resolución post-login: 1 acceso → ese; varios → default_app
 assert.ok(typeof C.resolveActiveFromMemberships === 'function', 'resolveActiveFromMemberships');

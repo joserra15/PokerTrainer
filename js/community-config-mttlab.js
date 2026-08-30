@@ -44,6 +44,16 @@
     },
     contact: {
       communityScoped: true
+    },
+    trainer: {
+      /* Solo Torneos: oculta pestañas Cash y Spins del setup */
+      formatHubs: ['mtt'],
+      defaultFormatHub: 'mtt',
+      hidePresets: ['cash6', 'spin_grind']
+    },
+    ranges: {
+      /* Oculta Spin 3-max; mantiene 6-max, 9-max y MTT */
+      hideGameTypes: ['spin3']
     }
   };
 })(typeof window !== 'undefined' ? window : this);
