@@ -173,7 +173,7 @@ begin
 end;
 $$;
 
--- Manager detalle: lookup robusto + escuela solo comunidad + error json amigable
+-- Manager detalle: lookup robusto + SOLO datos de la comunidad (sin PF)
 create or replace function public.pt_manager_member_usage(
   p_community_id text,
   p_user_id text
@@ -188,9 +188,15 @@ declare
   mem public.pt_community_members;
   state json;
   school json;
+  cstats json;
   ai_used int;
   uid text := nullif(trim(coalesce(p_user_id, '')), '');
   cid text := nullif(trim(coalesce(p_community_id, '')), '');
+  hands int := 0;
+  decisions int := 0;
+  optima int := 0;
+  aceptable int := 0;
+  err_n int := 0;
 begin
   if cid is null or cid = 'pokerforge' then
     return json_build_object('ok', false, 'error', 'invalid_community');
@@ -240,12 +246,22 @@ begin
   limit 1;
 
   school := null;
+  cstats := null;
   if state is not null then
     school := state -> ('school_' || cid);
     if school is null then
       school := state -> ('stats_' || cid) -> 'school';
     end if;
-    /* Sin fallback a PokerForge */
+    cstats := state -> ('stats_' || cid);
+    /* Sin fallback a PokerForge (stats / school / plan) */
+  end if;
+
+  if cstats is not null then
+    hands := coalesce((cstats ->> 'handsPlayed')::int, 0);
+    decisions := coalesce((cstats ->> 'decisions')::int, 0);
+    optima := coalesce((cstats ->> 'optima')::int, 0);
+    aceptable := coalesce((cstats ->> 'aceptable')::int, 0);
+    err_n := coalesce((cstats ->> 'error')::int, 0);
   end if;
 
   begin
@@ -257,6 +273,7 @@ begin
   return json_build_object(
     'ok', true,
     'community_id', cid,
+    'scope', 'community_only',
     'member', json_build_object(
       'user_id', prof.user_id,
       'email', prof.email,
@@ -268,10 +285,21 @@ begin
       'is_online', (prof.last_seen_at is not null and prof.last_seen_at > now() - interval '15 minutes')
     ),
     'school', school,
+    'training', json_build_object(
+      'handsPlayed', hands,
+      'decisions', decisions,
+      'optima', optima,
+      'aceptable', aceptable,
+      'error', err_n,
+      'accuracy', case when decisions > 0
+        then round(((optima + aceptable)::numeric / decisions::numeric) * 100)
+        else null end
+    ),
     'ai', json_build_object(
       'used', ai_used,
       'limit', public.pt_community_ai_limit(),
-      'left', greatest(0, public.pt_community_ai_limit() - ai_used)
+      'left', greatest(0, public.pt_community_ai_limit() - ai_used),
+      'source', 'community'
     )
   );
 end;

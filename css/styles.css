@@ -7626,6 +7626,12 @@ body[data-community="mttlab"] .app-logo {
   border: 1px solid var(--border, rgba(255,255,255,0.12));
   border-radius: 12px;
 }
+.manager-detail-scope {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent, #3ecf8e);
+  background: rgba(62, 207, 142, 0.08);
+}
 .manager-lesson-list {
   max-height: 240px;
   overflow: auto;

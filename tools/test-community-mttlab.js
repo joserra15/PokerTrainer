@@ -140,6 +140,7 @@ assert.ok(/pt_admin_set_community_member/.test(admin), 'admin grant comunidad');
 assert.ok(/Hacer manager|Quitar manager/.test(admin), 'admin marca manager');
 assert.ok(/showAdminCommunities|pt_admin_list_communities/.test(admin), 'admin panel comunidades');
 assert.ok(/pt_admin_update_community/.test(admin), 'admin edita join code / welcome');
+assert.ok(/openCommunityScopedUserDetail|Vista limitada/.test(admin), 'admin detalle comunidad scoped');
 
 const mgr = read('js/manager-panel.js');
 assert.ok(/pt_manager_list_members/.test(mgr), 'manager lista');
@@ -152,6 +153,9 @@ assert.ok(/online_count|Activos ahora/.test(mgr), 'manager activos');
 assert.ok(/manager-member-cards/.test(mgr), 'manager cards móvil');
 assert.ok(/data-manager-idx/.test(mgr), 'detalle por índice cache');
 assert.ok(/formatMemberError|not_a_member/.test(mgr), 'error detalle amigable');
+assert.ok(/community_only|Solo datos de|sin plan, pagos/.test(mgr), 'detalle solo comunidad');
+assert.ok(/training/.test(mgr) && /handsPlayed/.test(sql46), 'detalle training comunidad');
+assert.ok(/scope', 'community_only'|scope., .community_only/.test(sql46) || /'scope', 'community_only'/.test(sql46), 'RPC scope community_only');
 
 const billing = read('js/billing.js');
 assert.ok(/requireMembership\(\)/.test(billing) && /mountAnnualUpsell/.test(billing), 'upsell oculto en comunidad');

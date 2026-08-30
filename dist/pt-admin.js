@@ -2786,9 +2786,88 @@
     detail.querySelectorAll('[data-admin-open-user]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var uid = btn.getAttribute('data-admin-open-user');
-        showAdminCommunities(false);
-        openUserDetail(uid);
+        openCommunityScopedUserDetail(communityId, uid);
       });
+    });
+  }
+
+  function communityLessonIdsForDetail(school, cid) {
+    var lessons = (school && school.lessons) || {};
+    var ids = Object.keys(lessons);
+    if (cid === 'mttlab') {
+      var scoped = ids.filter(function (id) { return /^ML-/i.test(id); });
+      if (scoped.length) return scoped;
+    }
+    return ids.filter(function (id) {
+      return !/^(T-\d|M0-|cash-|spin-|learn-)/i.test(id);
+    });
+  }
+
+  function renderCommunityOnlyMemberHtml(data, communityId) {
+    if (global.PTManagerPanel && typeof PTManagerPanel.renderMemberDetailHtml === 'function') {
+      return PTManagerPanel.renderMemberDetailHtml(data, communityId);
+    }
+    var mem = (data && data.member) || {};
+    var school = (data && data.school) || {};
+    var ai = (data && data.ai) || {};
+    var training = (data && data.training) || {};
+    var lessonIds = communityLessonIdsForDetail(school, communityId);
+    var lessons = (school && school.lessons) || {};
+    var passed = lessonIds.filter(function (id) { return lessons[id] && lessons[id].passed; }).length;
+    var acc = training.accuracy != null ? (String(training.accuracy) + '%') : '—';
+    return '<div class="manager-detail-card">' +
+      '<p class="manager-detail-scope muted-text">Solo datos de esta comunidad · sin plan, pagos ni progreso de PokerForgeAI.</p>' +
+      '<p><strong>' + escapeHtml(mem.name || mem.email || 'Miembro') + '</strong></p>' +
+      '<p class="muted-text">' + escapeHtml(mem.email || '') + ' · Rol: ' + escapeHtml(mem.role || '') + '</p>' +
+      '<p>Consultas IA (comunidad): <strong>' + escapeHtml(String(ai.used != null ? ai.used : 0)) +
+      '/' + escapeHtml(String(ai.limit || 40)) + '</strong></p>' +
+      '<p>Entrenamiento (comunidad): <strong>' + escapeHtml(String(training.handsPlayed != null ? training.handsPlayed : 0)) +
+      '</strong> manos · acierto <strong>' + escapeHtml(acc) + '</strong></p>' +
+      '<p>XP escuela (esta comunidad): <strong>' + escapeHtml(school.xp != null ? school.xp : 0) + '</strong></p>' +
+      '<p>Lecciones: <strong>' + lessonIds.length + '</strong> · Aprobadas: <strong>' + passed + '</strong></p>' +
+      '</div>';
+  }
+
+  /** Desde Comunidades: solo IA/escuela/stats de esa comunidad (sin ficha PokerForgeAI). */
+  async function openCommunityScopedUserDetail(communityId, userId) {
+    var detail = $('#admin-community-detail');
+    var err = $('#admin-communities-error');
+    if (!detail || !userId) return;
+    if (err) err.textContent = '';
+    detail.classList.remove('hidden');
+    detail.innerHTML = '<p class="muted-text">Cargando detalle de comunidad…</p>';
+    var c = client();
+    if (!c) return;
+    var res = await c.rpc('pt_manager_member_usage', {
+      p_community_id: communityId,
+      p_user_id: userId
+    });
+    if (res.error) {
+      handleAdminRpcError(res.error, err);
+      detail.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message || 'Error') + '</p>';
+      return;
+    }
+    if (res.data && res.data.ok === false) {
+      var errMsg = res.data.error || 'error';
+      if (global.PTManagerPanel && PTManagerPanel.formatMemberError) {
+        errMsg = PTManagerPanel.formatMemberError(errMsg);
+      }
+      detail.innerHTML = '<p class="admin-error">' + escapeHtml(errMsg) + '</p>';
+      return;
+    }
+    detail.innerHTML =
+      '<div class="admin-section card-box">' +
+      '<div class="admin-section-head"><h3>Detalle · comunidad</h3>' +
+      '<div class="admin-messages-head-actions">' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="admin-community-member-back">Volver a comunidad</button>' +
+      '</div></div>' +
+      '<p class="muted-text">Vista limitada a <strong>' + escapeHtml(communityId) +
+      '</strong>. Plan, pagos y escuela PokerForgeAI no se muestran aquí.</p>' +
+      renderCommunityOnlyMemberHtml(res.data, communityId) +
+      '</div>';
+    var back = $('#admin-community-member-back');
+    if (back) back.addEventListener('click', function () {
+      openAdminCommunityDetail(communityId);
     });
   }
 

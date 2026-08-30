@@ -243,21 +243,51 @@
       detail.innerHTML = '<p class="admin-error">' + escapeHtml(formatMemberError(res.data.error)) + '</p>';
       return;
     }
-    var mem = (res.data && res.data.member) || {};
-    var school = (res.data && res.data.school) || {};
-    var ai = (res.data && res.data.ai) || {};
+    detail.innerHTML = renderCommunityMemberDetailHtml(res.data, cid);
+    var close = $('#manager-detail-close');
+    if (close) close.addEventListener('click', function () {
+      detail.classList.add('hidden');
+      detail.innerHTML = '';
+    });
+  }
+
+  /** Solo datos de la comunidad activa (sin plan/pagos/escuela PokerForgeAI). */
+  function communityLessonIds(school, cid) {
     var lessons = (school && school.lessons) || {};
-    var lessonIds = Object.keys(lessons);
+    var ids = Object.keys(lessons);
+    if (cid === 'mttlab') {
+      var scoped = ids.filter(function (id) { return /^ML-/i.test(id); });
+      if (scoped.length) return scoped;
+    }
+    /* Si no hay prefijo conocido, no mezclar ids típicos de Escuela PokerForge */
+    return ids.filter(function (id) {
+      return !/^(T-\d|M0-|cash-|spin-|learn-)/i.test(id);
+    });
+  }
+
+  function renderCommunityMemberDetailHtml(data, cid) {
+    var mem = (data && data.member) || {};
+    var school = (data && data.school) || {};
+    var ai = (data && data.ai) || {};
+    var training = (data && data.training) || {};
+    var cfg = global.PTCommunity && global.PTCommunity.config ? global.PTCommunity.config() : {};
+    var communityName = (cfg && cfg.siteName) || cid || 'comunidad';
+    var lessonIds = communityLessonIds(school, cid);
+    var lessons = (school && school.lessons) || {};
     var passed = lessonIds.filter(function (id) { return lessons[id] && lessons[id].passed; }).length;
-    detail.innerHTML =
-      '<div class="manager-detail-card">' +
+    var acc = training.accuracy != null ? (String(training.accuracy) + '%') : '—';
+    return '<div class="manager-detail-card">' +
       '<div class="admin-section-head"><h3>' + escapeHtml(mem.name || mem.email || 'Miembro') + '</h3>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="manager-detail-close">Cerrar</button></div>' +
+      '<p class="manager-detail-scope muted-text">Solo datos de <strong>' + escapeHtml(communityName) +
+      '</strong> · sin plan, pagos ni progreso de PokerForgeAI.</p>' +
       '<p class="muted-text">' + escapeHtml(mem.email || '') + ' · Rol: ' + escapeHtml(mem.role || '') +
       (mem.is_online ? ' · <span class="admin-online-dot">●</span> en línea' : '') + '</p>' +
       '<p>Última conexión: <strong>' + escapeHtml(formatDate(mem.last_seen_at)) + '</strong></p>' +
       '<p>Consultas IA (comunidad): <strong>' + escapeHtml(String(ai.used != null ? ai.used : 0)) +
       '/' + escapeHtml(String(ai.limit || 40)) + '</strong></p>' +
+      '<p>Entrenamiento (comunidad): <strong>' + escapeHtml(String(training.handsPlayed != null ? training.handsPlayed : 0)) +
+      '</strong> manos · acierto <strong>' + escapeHtml(acc) + '</strong></p>' +
       '<p>XP escuela (esta comunidad): <strong>' + escapeHtml(school.xp != null ? school.xp : 0) + '</strong></p>' +
       '<p>Lecciones con progreso: <strong>' + lessonIds.length + '</strong> · Aprobadas: <strong>' +
       passed + '</strong></p>' +
@@ -271,11 +301,6 @@
         }).join('') + '</ul>'
         : '<p class="muted-text">Sin progreso de escuela de esta comunidad sincronizado aún.</p>') +
       '</div>';
-    var close = $('#manager-detail-close');
-    if (close) close.addEventListener('click', function () {
-      detail.classList.add('hidden');
-      detail.innerHTML = '';
-    });
   }
 
   function renderMessageList(messages) {
@@ -399,6 +424,9 @@
     render: render,
     loadMembers: loadMembers,
     loadThreads: loadThreads,
-    loadSettings: loadSettings
+    loadSettings: loadSettings,
+    showMemberUsage: showMemberUsage,
+    renderMemberDetailHtml: renderCommunityMemberDetailHtml,
+    formatMemberError: formatMemberError
   };
 })(typeof window !== 'undefined' ? window : this);
