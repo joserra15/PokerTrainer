@@ -176,7 +176,7 @@
     sizingSpot('d03-08', 87008, 'BTN', ['9s', '8s'], ['Kd', '7h', '2c'], 'Flop c-bet spot',
       sizeOpts(), '33', 'K72 rainbow IP: el clásico 33 %. No compliques en boards secos.'),
     sizingSpot('d03-09', 87009, 'HJ', ['Qs', 'Qd'], ['Ah', '8d', '3c'], 'Flop OOP',
-      sizeOpts(), '50', 'Overpair OOP en A-high: 50 % protege vs Ax y draws mejor que 33 % pasivo.'),
+      sizeOpts(), '50', 'Underpair a A OOP en A-high: 50 % protege vs floats y draws mejor que 33 % pasivo.'),
     sizingSpot('d03-10', 87010, 'BTN', ['5h', '4h'], ['Js', 'Ts', '9d', '4c', '2h'], 'River bluff',
       sizeOpts(), '125', 'River bluff polarizado: overbet presiona el rango capped del caller.')
   ];
@@ -197,8 +197,8 @@
   PACKS['E-01'] = [
     equitySpot('e01-01', 89001, ['Ah', 'Kh'], ['Qh', '7h', '2c'], 'Rango amplio BB', eqOpts(), '40',
       'Flush draw + overs ≈ 40–45 % vs rango wide. No es 70 % ni 25 %.'),
-    equitySpot('e01-02', 89002, ['Ts', 'Tc'], ['Kd', '7h', '2c'], 'Rango BB defiende', eqOpts(), '70',
-      'TT en K72: overpair ≈ 70 %+ vs rango de defensa que no conectó fuerte.'),
+    equitySpot('e01-02', 89002, ['Ts', 'Tc'], ['9d', '7h', '2c'], 'Rango BB defiende', eqOpts(), '70',
+      'TT en 972: overpair ≈ 70 %+ vs rango de defensa que no conectó fuerte.'),
     equitySpot('e01-03', 89003, ['Jh', 'Td'], ['Qs', '8c', '2h', '3d'], 'Rango agresor', eqOpts(), '25',
       'Gutshot + overcards en turn: ~25 % — no alcanza para call grande sin implied.'),
     equitySpot('e01-04', 89004, ['9h', '8h'], ['Ts', '7c', '2d'], 'Rango BB', eqOpts(), '55',
@@ -210,7 +210,7 @@
     equitySpot('e01-07', 89007, ['Kh', 'Qh'], ['Qd', '9c', '4h'], 'Rango caller', eqOpts(), '55',
       'Top pair KQ en Q94: ~55 % vs rango de call — ahead de mucho air y peores Qx.'),
     equitySpot('e01-08', 89008, ['5h', '4h'], ['Kh', '9d', '2c', '5s'], 'Rango agresor', eqOpts(), '40',
-      'Middle pair + backdoor en turn: ~35–45 % — bucket 40 %.'),
+      'Bottom pair + backdoor en turn: ~35–45 % — bucket 40 %.'),
     equitySpot('e01-09', 89009, ['Ah', '5h'], ['Kh', 'Qh', 'Jc', '2d'], 'Rango caller', eqOpts(), '40',
       'Nut flush draw + overs: combo draw ~40–45 % en turn.'),
     equitySpot('e01-10', 89010, ['Jd', 'Jc'], ['Ts', '9c', '8d', '3h'], 'Rango BB', eqOpts(), '55',
@@ -423,12 +423,12 @@
       { id: 'pot', label: 'Pot control' },
       { id: 'fold', label: 'Fold' }
     ], 'pot', 'SPR ~6.7 overpair en wet board: pot control — no stack-off sin read fuerte.'),
-    sprSpot('d04-03', 95003, ['7h', '6h'], ['Kh', '9d', '2c', '5s'], 20, 40, [
+    sprSpot('d04-03', 95003, ['9h', '8h'], ['Kh', '9d', '2c', '5s'], 20, 40, [
       { id: 'stackoff', label: 'Stack-off' },
       { id: 'pot', label: 'Pot control' },
       { id: 'fold', label: 'Fold' }
     ], 'fold', 'SPR ~2 con middle pair weak: fold vs presión — committed solo con nuts/draws fuertes.'),
-    sprSpot('d04-04', 95004, ['Ah', 'Qh'], ['Qd', '9c', '4h', '2s', 'Kh'], 30, 45, [
+    sprSpot('d04-04', 95004, ['Ah', 'Qh'], ['Qd', '9c', '4h', '2s', '3d'], 30, 45, [
       { id: 'stackoff', label: 'Stack-off' },
       { id: 'pot', label: 'Pot control' },
       { id: 'fold', label: 'Fold' }
@@ -443,7 +443,7 @@
       { id: 'pot', label: 'Pot control' },
       { id: 'fold', label: 'Fold' }
     ], 'stackoff', 'SPR ~15 con KK en AK7: stack-off vs Ax — demasiado fuerte para fold.'),
-    sprSpot('d04-07', 95007, ['9h', '8h'], ['Ts', '7d', '2c', 'Jc'], 14, 28, [
+    sprSpot('d04-07', 95007, ['9h', '8h'], ['Ts', '9d', '2c', 'Jc'], 14, 28, [
       { id: 'stackoff', label: 'Stack-off' },
       { id: 'pot', label: 'Pot control' },
       { id: 'fold', label: 'Fold' }
@@ -504,7 +504,7 @@
         'Un gutshot (~4 outs) cae en el bucket ~25 %: conecta con pot odds y te evita pagar draws débiles por «sensación» de equity.'
       ],
       examples: [{ title: 'FD turn', body: '~40 % bucket vs rango amplio.' }],
-      aiQuestions: ['¿Equity de FD?', '¿Overpair en K72?', '¿Gutshot bucket?'], spots: [] },
+      aiQuestions: ['¿Equity de FD?', '¿Overpair en 972?', '¿Gutshot bucket?'], spots: [] },
     { id: 'Q-01', title: 'Clasifica el board', route: 'cash', module: 'M0', order: 6.6, plan: 'free',
       xp: 80, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
       concept: 'Seco, wet, paired, monotone — la textura dicta plan antes de mirar tu mano.',

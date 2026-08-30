@@ -85,7 +85,7 @@
   var PACKS = {};
 
   PACKS['D-01'] = [
-    decisionSpot('d01-01', 84001, 'BTN', ['Ah', 'Qd'], ['As', 'Kd', '7c', '2h', '5d'],
+    decisionSpot('d01-01', 84001, 'BB', ['Ah', 'Qd'], ['As', 'Kd', '7c', '2h', '5d'],
       'BTN open → BB call · Flop c-bet 33% → call · Turn bet 75% pot → call · River bet 75% pot',
       [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
@@ -95,24 +95,24 @@
       ],
       'fold',
       'AQ en river tras triple barrel en AK7-2-5: estás detrás de mucho Ax/Kx y value. Fold es la línea GTO típica.',
-      { prompt: 'River: villano apuesta tras check. ¿Qué haces con AQ?' }),
-    decisionSpot('d01-02', 84002, 'BTN', ['Ts', 'Tc'], ['Kd', '7h', '2c'],
+      { prompt: 'River: villano apuesta tras check. ¿Qué haces con AQ?', villainPos: 'BTN' }),
+    decisionSpot('d01-02', 84002, 'BTN', ['Ts', 'Tc'], ['9d', '7h', '2c'],
       'BTN open → BB call · Flop check-check',
       [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
         { street: 'Flop', text: 'BB check · BTN ?' }
       ],
       'raise',
-      'TT en K72 rainbow IP tras check del BB: c-bet (raise el bote) es estándar. El BB falla mucho; tu overpair necesita protección.',
+      'TT en 972 rainbow IP tras check del BB: c-bet (raise el bote) es estándar. El BB falla mucho; tu overpair necesita protección.',
       { prompt: 'Flop: BB check. ¿Qué haces con TT?' }),
-    decisionSpot('d01-03', 84003, 'BB', ['9h', '8h'], ['Ts', '7d', '2c', 'Jc'],
+    decisionSpot('d01-03', 84003, 'BB', ['9h', '8h'], ['Ts', '9d', '2c', 'Jc', '3h'],
       'BTN open → BB call · Flop check · BTN bet 50% → call · Turn check-check · River BTN bet 66% pot',
       [
         { street: 'Turn', text: 'BB check · BTN check' },
         { street: 'River', text: 'BB check · BTN bet 66% pot' }
       ],
       'call',
-      '98s hace middle pair en T72-J con flush draw bloqueado. Vs sizing medio en river delay, call es defendible: bloqueas muchos bluffs.',
+      '98s hace middle pair en T92-J-3. Vs sizing medio en river delay, call es defendible: bloqueas muchos bluffs y tienes showdown value.',
       { prompt: 'River: facing bet. ¿Call con 98s?', villainPos: 'BTN' }),
     decisionSpot('d01-04', 84004, 'BTN', ['Kh', 'Qh'], ['9s', '8s', '7h'],
       'BTN open → BB call · Flop check-check',
@@ -121,9 +121,9 @@
         { street: 'Flop', text: 'BB check · BTN ?' }
       ],
       'fold',
-      '987 two-tone: el BB conecta fuerte. KQ sin draw claro → check behind (no bet). Apostar aquí es spew.',
-      { prompt: 'Flop wet: BB check. ¿Qué haces con KQo?' }),
-    decisionSpot('d01-05', 84005, 'CO', ['Ad', 'Jc'], ['As', '4d', '2c', '9h', '3s'],
+      '987 two-tone: el BB conecta fuerte. KQs sin draw claro → check behind (no bet). Apostar aquí es spew.',
+      { prompt: 'Flop wet: BB check. ¿Qué haces con KQs?' }),
+    decisionSpot('d01-05', 84005, 'CO', ['Ad', 'Jc'], ['As', '4d', '2c', '9h'],
       'CO open → BB call · Flop c-bet 33% → call · Turn check · BB bet 75% pot',
       [
         { street: 'Turn', text: 'CO check · BB bet 75% pot' }
@@ -139,13 +139,13 @@
       'fold',
       '76s sin par ni draw claro en K92-5: fold vs turn barrel. No tienes equity ni showdown value suficiente.',
       { prompt: 'Turn: facing bet. ¿Qué haces con 76s?', villainPos: 'BB' }),
-    decisionSpot('d01-07', 84007, 'BB', ['Ah', '5h'], ['Qh', '8h', '3c', '2h', 'Jd'],
+    decisionSpot('d01-07', 84007, 'BB', ['Ah', '5h'], ['Qs', '8d', '3c', '2h', 'Jd'],
       'BTN open → BB call · Flop check · BTN bet 50% → call · Turn check · BTN bet 75% → call · River BTN bet overbet',
       [
         { street: 'River', text: 'BB check · BTN overbet 125% pot' }
       ],
       'fold',
-      'A5hh solo tiene A-high en river tras línea agresiva. Fold vs overbet: estás casi siempre behind.',
+      'A5s solo tiene A-high en river tras línea agresiva. Fold vs overbet: estás casi siempre behind.',
       { prompt: 'River: facing overbet. ¿Qué haces?', villainPos: 'BTN' }),
     decisionSpot('d01-08', 84008, 'BTN', ['Jd', 'Jc'], ['Ts', '9c', '2d', '4h', '8s'],
       'BTN open → BB call · Flop c-bet 33% → call · Turn bet 75% → call · River check · BB bet 75% pot',
@@ -169,7 +169,7 @@
         { street: 'Flop', text: 'BB check · CO ?' }
       ],
       'raise',
-      'QQ en A83 rainbow IP: bet (raise pot) por valor/protección. El BB tiene mucho air; tu overpair quiere bote.',
+      'QQ en A83 rainbow IP: bet (raise pot) por valor/protección. El BB tiene mucho air; tu underpair a A sigue queriendo bote vs floats.',
       { prompt: 'Flop: BB check. ¿Qué haces con QQ?' }),
     decisionSpot('d01-11', 84011, 'BB', ['Kh', 'Td'], ['Ks', '7d', '2c', '9h', '4s'],
       'BTN open → BB call · Flop check · BTN bet 33% → call · Turn check · BTN bet 66% → call · River BTN bet 75% pot',
@@ -179,14 +179,14 @@
       'fold',
       'KT top pair weak kicker en K72-9-4: vs triple barrel IP, fold. Estás dominated por KQ/KJ/77/99 y value.',
       { prompt: 'River: facing bet. ¿Qué haces con KT?', villainPos: 'BTN' }),
-    decisionSpot('d01-12', 84012, 'BTN', ['5s', '4s'], ['As', 'Kd', 'Qc', 'Jh'],
+    decisionSpot('d01-12', 84012, 'BTN', ['5s', '4s'], ['As', 'Kd', 'Qc', 'Jh', '3d'],
       'BTN open → BB call · Flop c-bet 33% → call · Turn check-check · River BB check',
       [
         { street: 'Turn', text: 'BTN check · BB check' },
         { street: 'River', text: 'BB check · BTN ?' }
       ],
       'fold',
-      '54s sin par ni draw en AKQ-J: check back (no bet). No hay bluff creíble ni value — fold si te resuben.',
+      '54s sin par ni draw en AKQ-J-3: check back (no bet). No hay bluff creíble ni value — fold si te resuben.',
       { prompt: 'River: BB check. ¿Qué haces con 54s?' })
   ];
 
@@ -214,7 +214,7 @@
         { street: 'Flop', text: 'BB check · BTN ?' }
       ],
       'raise',
-      'QQ en K93 en 3-bet pot IP: bet flop tras check. Overpair con plan claro; el BB check indica rango capped.',
+      'QQ en K93 en 3-bet pot IP: bet flop tras check. Underpair a K con plan claro; el BB check indica rango capped.',
       { prompt: '3-bet pot · Flop: BB check. ¿Qué haces con QQ?', villainPos: 'BB' }),
     decisionSpot('d02-04', 84104, 'BB', ['Ac', '5c'], ['Ad', '8h', '3c', 'Kd', '2s'],
       'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn check · BTN bet 66% → call · River BTN bet 75% pot',
@@ -232,30 +232,30 @@
       'fold',
       'TT en 987 two-tone en 3-bet pot: fold vs flop bet. El board favorece al 3-bettor OOP; tu overpair está en mal sitio.',
       { prompt: '3-bet pot · Flop wet: facing bet. ¿Qué haces con TT?', villainPos: 'BB' }),
-    decisionSpot('d02-06', 84106, 'BB', ['Kh', 'Qh'], ['Ah', '7h', '2c', '5d'],
+    decisionSpot('d02-06', 84106, 'BTN', ['Kh', 'Qh'], ['Ah', '7h', '2c', '5d'],
       'BTN open → BB 3-bet → BTN call · Flop BB bet 33% → call · Turn BB bet 75% pot',
       [
         { street: 'Turn', text: 'BB bet 75% pot · BTN ?' }
       ],
       'call',
       'KQhh nut flush draw + overs en A72-5: call turn barrel. Tienes ~9 outs al nut flush + 6 outs al par.',
-      { prompt: '3-bet pot · Turn: facing bet. ¿Qué haces con KQs?', villainPos: 'BTN' }),
+      { prompt: '3-bet pot · Turn: facing bet. ¿Qué haces con KQs?', villainPos: 'BB' }),
     decisionSpot('d02-07', 84107, 'BTN', ['Ad', 'Jc'], ['Js', '8d', '3c', '2h', 'Kh'],
       'BTN open → BB 3-bet → BTN call · Flop check · BB bet 33% → call · Turn check · BB bet 75% → call · River BB check',
       [
         { street: 'River', text: 'BB check · BTN ?' }
       ],
       'raise',
-      'AJ top pair en J83-2-K en 3-bet pot: bet river tras check. Value vs bluff-catchers del BB.',
+      'AJ second pair (Jacks) en J83-2-K en 3-bet pot: bet river tras check. Value vs bluff-catchers del BB.',
       { prompt: '3-bet pot · River: BB check. ¿Qué haces con AJ?', villainPos: 'BB' }),
-    decisionSpot('d02-08', 84108, 'BB', ['9d', '9c'], ['Ks', '7h', '2d'],
+    decisionSpot('d02-08', 84108, 'BTN', ['9d', '9c'], ['Ks', '7h', '2d'],
       'BTN open → BB 3-bet → BTN call · Flop BB bet 33% pot',
       [
         { street: 'Flop', text: 'BB bet 33% pot · BTN ?' }
       ],
       'call',
-      '99 overpair en K72 en 3-bet pot OOP: call flop. Necesitas ver turn; raise es demasiado polarizado.',
-      { prompt: '3-bet pot · Flop: facing c-bet. ¿Qué haces con 99?', villainPos: 'BTN' }),
+      '99 underpair a K en K72 en 3-bet pot IP: call flop vs c-bet. Necesitas ver turn; raise es demasiado polarizado.',
+      { prompt: '3-bet pot · Flop: facing c-bet. ¿Qué haces con 99?', villainPos: 'BB' }),
     decisionSpot('d02-09', 84109, 'BTN', ['7s', '6s'], ['As', 'Kd', 'Qc'],
       'BTN open → BB 3-bet → BTN call · Flop BB bet 33% pot',
       [
@@ -312,8 +312,8 @@
     oddsSpot('o01-07', 85007, 90, 30, 'Flush draw · 9 outs', ['Th', '9h'], ['Kh', 'Qh', '2c', '4d'], 'yes',
       'Pot 90 + bet 30 → call 30 para ganar 120. Necesitas 20 %. Flush draw claro → call.',
       { requiredPct: 20, equityPct: 35 }),
-    oddsSpot('o01-08', 85008, 100, 150, 'Par medio · 5 outs', ['8h', '8d'], ['Ks', 'Qc', '8s', '2h', 'Jd'], 'no',
-      'Pot 100 + bet 150 → necesitas 37,5 %. Set de 8 tiene value, pero vs overbet river con par medio es fold.',
+    oddsSpot('o01-08', 85008, 100, 150, 'Par medio · 5 outs', ['8h', '7d'], ['Ks', 'Qc', '8s', '2h', 'Jd'], 'no',
+      'Pot 100 + bet 150 → necesitas 37,5 %. Par medio de 8 en KQ8-2-J vs overbet river: fold — no tienes precio ni outs reales.',
       { requiredPct: 38, equityPct: 20 }),
     oddsSpot('o01-09', 85009, 70, 35, 'OESD · 8 outs', ['Jc', 'Tc'], ['9s', '8d', '2h', 'Ah'], 'yes',
       'Pot 70 + bet 35 → call 35 para ganar 105. Necesitas 25 %. OESD encaja → call.',
@@ -414,7 +414,7 @@
       ],
       examples: [{
         title: 'River vs triple barrel',
-        body: 'BTN vs BB con AQ en AK7-2-5 y triple barrel: fold. Estás behind de mucho Ax/Kx; call es bleed.'
+        body: 'BB vs BTN con AQ en AK7-2-5 y triple barrel: fold. Estás behind de mucho Ax/Kx; call es bleed.'
       }],
       aiQuestions: [
         '¿Cuándo fold con top pair en river?',

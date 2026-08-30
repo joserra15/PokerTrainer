@@ -483,6 +483,42 @@ assert.ok(/goToTab\('home'\)/.test(schoolSrc), 'daily spot vuelve al home al ter
 assert.ok(/Fold, call o raise/i.test(Data.getLesson('D-01').title), 'D-01 decision quiz');
 assert.ok(Data.getLesson('D-01').spots.length >= 12, 'D-01 ≥12 spots');
 assert.ok(Data.getLesson('D-01').spots.every(function (s) { return s.kind === 'decisionQuiz'; }), 'D-01 decisionQuiz');
+(function () {
+  /* Coherencia mano/posición en D-01 (bugs reportados: middle pair≠escalera, héroe≠bettor). */
+  function rankOf(c) {
+    var r = c.slice(0, -1);
+    return ({ A: 14, K: 13, Q: 12, J: 11, T: 10 })[r] || parseInt(r, 10);
+  }
+  function isStraight(hero, board) {
+    var ranks = hero.concat(board).map(rankOf);
+    var uniq = [];
+    ranks.forEach(function (r) { if (uniq.indexOf(r) < 0) uniq.push(r); });
+    if (uniq.indexOf(14) >= 0) uniq.push(1);
+    uniq.sort(function (a, b) { return b - a; });
+    for (var i = 0; i <= uniq.length - 5; i++) {
+      var ok = true;
+      for (var j = 0; j < 4; j++) if (uniq[i + j] - uniq[i + j + 1] !== 1) { ok = false; break; }
+      if (ok) return true;
+    }
+    return false;
+  }
+  var d01 = Data.getLesson('D-01').spots;
+  var aq = d01.find(function (s) { return s.id === 'd01-01'; });
+  assert.ok(aq, 'd01-01 existe');
+  assert.strictEqual(aq.heroPos, 'BB', 'd01-01 hero es BB (facing bet del BTN)');
+  assert.strictEqual(aq.quiz.villainPos, 'BTN', 'd01-01 villano BTN');
+  var mp = d01.find(function (s) { return s.id === 'd01-03'; });
+  assert.ok(mp && mp.quiz.board.length === 5, 'd01-03 river con 5 cartas');
+  assert.ok(!isStraight(mp.quiz.heroCards, mp.quiz.board), 'd01-03 98s no es escalera');
+  assert.ok(/middle pair/i.test(mp.teachBack || mp.quiz.teachBack), 'd01-03 teach middle pair');
+  var a5 = d01.find(function (s) { return s.id === 'd01-07'; });
+  assert.ok(a5 && !/flush|escalera/i.test(a5.teachBack || ''), 'd01-07 teach A-high');
+  var hearts = a5.quiz.board.filter(function (c) { return c.slice(-1) === 'h'; }).length +
+    a5.quiz.heroCards.filter(function (c) { return c.slice(-1) === 'h'; }).length;
+  assert.ok(hearts < 5, 'd01-07 no hace flush de hearts');
+  var d04 = Data.getLesson('D-04').spots.find(function (s) { return s.id === 'd04-07'; });
+  assert.ok(d04 && !isStraight(d04.quiz.heroCards, d04.quiz.board), 'd04-07 98s no es escalera');
+})();
 assert.ok(Data.getLesson('D-02').spots.every(function (s) { return s.kind === 'decisionQuiz'; }), 'D-02 decisionQuiz');
 assert.ok(/Pot odds/i.test(Data.getLesson('O-01').title), 'O-01 pot odds');
 assert.ok(Data.getLesson('O-01').spots.every(function (s) { return s.kind === 'oddsQuiz'; }), 'O-01 oddsQuiz');
