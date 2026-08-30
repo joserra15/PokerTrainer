@@ -7560,6 +7560,97 @@ body[data-community="mttlab"] .app-logo {
   max-height: 420px;
   overflow: auto;
 }
+.manager-login-url {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.manager-settings-line {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.manager-member-cards {
+  display: grid;
+  gap: 12px;
+}
+.manager-member-card {
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--surface-2, rgba(255,255,255,0.03));
+}
+.manager-member-card-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.manager-role-pill {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+  padding: 2px 8px;
+  border: 1px solid var(--border, rgba(255,255,255,0.15));
+  border-radius: 999px;
+}
+.manager-member-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 0 0 12px;
+}
+.manager-member-meta dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+  margin: 0;
+}
+.manager-member-meta dd {
+  margin: 2px 0 0;
+  font-size: 0.92rem;
+}
+.manager-table-wrap {
+  display: none;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.manager-detail-card {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: 12px;
+}
+.manager-lesson-list {
+  max-height: 240px;
+  overflow: auto;
+  padding-left: 18px;
+  margin: 8px 0 0;
+}
+@media (min-width: 860px) {
+  .manager-member-cards { display: none; }
+  .manager-table-wrap { display: block; }
+  .manager-settings-line {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+  }
+}
+/* Comunidades: no mostrar menús PF (Guía / Legendarias / Planes) aunque JS falle */
+body.community-shell .tab[data-tab="learn"],
+body.community-shell .tab[data-tab="legendary"],
+body.community-shell .tab[data-tab="pricing"],
+body.community-shell .home-card[data-go-tab="learn"],
+body.community-shell .home-card-legendary,
+body.community-shell #home-annual-upsell {
+  display: none !important;
+}
 .school-external-links {
   margin: 0;
   padding-left: 18px;

@@ -101,6 +101,14 @@ assert.ok(/hideQuickAccess/.test(app), 'home oculta accesos rápidos');
 assert.ok(/aiCommunityId/.test(commSrc), 'cupo IA comunidad');
 assert.ok(/communityDataSuffix|scopedDataKey/.test(read('js/storage.js')), 'storage namespaced por comunidad');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/045_community_school_no_pf_fallback.sql')), 'migration 045');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/046_community_contact_manager_fixes.sql')), 'migration 046');
+
+const sql46 = read('supabase/migrations/046_community_contact_manager_fixes.sql');
+assert.ok(/pt_contact_my_threads\(p_community_id/.test(sql46), 'contacto threads por comunidad');
+assert.ok(/pt_contact_unread_count\(p_community_id/.test(sql46), 'unread por comunidad');
+assert.ok(/Sin fallback a PokerForge|\/\* Sin fallback a PokerForge \*\//.test(sql46), '046 sin fallback PF escuela');
+assert.ok(/return json_build_object\('ok', false, 'error', 'not_a_member'/.test(sql46), 'detalle not_a_member amigable');
+assert.ok(/lower\(p\.email\) = lower\(uid\)/.test(sql46), 'detalle fallback email');
 
 const auth = read('js/auth.js');
 assert.ok(/gateAfterLogin/.test(auth), 'auth gate comunidad');
@@ -108,6 +116,8 @@ assert.ok(/resolveActiveFromMemberships/.test(commSrc), 'resolve post-login');
 assert.ok(/ids\.length === 1/.test(commSrc), 'un solo acceso → ese shell');
 assert.ok(/cleanEntryUrl/.test(commSrc), 'limpia ?app= tras login');
 assert.ok(!/forced = /.test(commSrc), 'ya no fuerza shell por URL tras login');
+assert.ok(/community-shell/.test(commSrc), 'clase community-shell');
+assert.ok(/home-card\[data-go-tab="learn"\]/.test(commSrc), 'oculta card Guía básica');
 
 const school = read('js/school.js');
 assert.ok(/unlockMode\(\) === 'allOpen'/.test(school), 'allOpen unlock');
@@ -117,6 +127,8 @@ assert.ok(/mttlab/.test(school), 'ruta mttlab en school');
 
 const contact = read('js/contact.js');
 assert.ok(/p_community_id/.test(contact), 'contacto envía community_id');
+assert.ok(/contactThreadsRpcArgs|pt_contact_my_threads',\s*contactThreadsRpcArgs/.test(contact), 'lista hilos scoped');
+assert.ok(/pt_contact_unread_count',\s*contactThreadsRpcArgs/.test(contact), 'unread scoped');
 
 const account = read('js/account-settings.js');
 assert.ok(/communitySettingsSection/.test(account), 'settings comunidades');
@@ -137,6 +149,16 @@ assert.ok(/pt_manager_set_welcome/.test(mgr), 'manager edita bienvenida');
 assert.ok(/ai_used_month/.test(mgr), 'manager muestra IA');
 assert.ok(/school_passed|Escuela/.test(mgr), 'manager muestra escuela');
 assert.ok(/online_count|Activos ahora/.test(mgr), 'manager activos');
+assert.ok(/manager-member-cards/.test(mgr), 'manager cards móvil');
+assert.ok(/data-manager-idx/.test(mgr), 'detalle por índice cache');
+assert.ok(/formatMemberError|not_a_member/.test(mgr), 'error detalle amigable');
+
+const billing = read('js/billing.js');
+assert.ok(/requireMembership\(\)/.test(billing) && /mountAnnualUpsell/.test(billing), 'upsell oculto en comunidad');
+
+assert.ok(/communityHide/.test(app), 'legendary respeta hide comunidad');
+assert.ok(/manager-member-cards/.test(read('css/styles.css')), 'CSS manager responsive');
+assert.ok(/body\.community-shell/.test(read('css/styles.css')), 'CSS oculta learn/legendary en comunidad');
 
 const aiReport = read('js/ai-report.js');
 assert.ok(/communityId/.test(aiReport), 'ai-report envía communityId');

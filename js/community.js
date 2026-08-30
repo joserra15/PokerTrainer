@@ -147,6 +147,7 @@
       if (document.body) {
         document.body.setAttribute('data-community', ACTIVE);
         document.body.classList.toggle('community-gated', requireMembership() && !hasAccess());
+        document.body.classList.toggle('community-shell', !!(ACTIVE && ACTIVE !== 'pokerforge' && requireMembership()));
       }
     } catch (e) { /* noop */ }
   }
@@ -208,6 +209,16 @@
       if (shouldHide) btn.setAttribute('aria-hidden', 'true');
       else btn.removeAttribute('aria-hidden');
     });
+    /* Home cards / accesos que no son tabs */
+    document.querySelectorAll('[data-go-tab="learn"], .home-card[data-go-tab="learn"]').forEach(function (el) {
+      el.classList.toggle('hidden', hide.indexOf('learn') >= 0 || (show && show.indexOf('learn') < 0));
+    });
+    document.querySelectorAll('[data-go-tab="legendary"], .home-card-legendary').forEach(function (el) {
+      el.classList.toggle('hidden', hide.indexOf('legendary') >= 0 || (show && show.indexOf('legendary') < 0));
+    });
+    if (typeof global.refreshLegendaryTabVisibility === 'function') {
+      try { global.refreshLegendaryTabVisibility(); } catch (e) { /* noop */ }
+    }
   }
 
   function showAccessDenied(message) {

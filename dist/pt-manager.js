@@ -1,7 +1,7 @@
 /* PokerForgeAI bundle: pt-manager.js — do not edit */
 /*
  * manager-panel.js — Panel Manager de comunidad (usuarios, IA, escuela, mensajes, bienvenida).
- * Sin pagos ni datos de PokerForgeAI / otras comunidades.
+ * Sin pagos ni datos de PokerForgeAI / otras comunidades. Responsive PC + móvil.
  */
 (function (global) {
   'use strict';
@@ -37,6 +37,14 @@
     }
   }
 
+  function normalizeMembers(raw) {
+    if (!raw) return [];
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch (e) { return []; }
+    }
+    return Array.isArray(raw) ? raw : [];
+  }
+
   var selectedUserId = null;
   var membersCache = [];
   var threadsCache = [];
@@ -63,7 +71,8 @@
     var url = settingsCache.login_url || '';
     host.innerHTML =
       '<div class="manager-settings-card">' +
-      '<p class="muted-text">URL de login: <a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' +
+      '<p class="muted-text manager-settings-line"><span>URL de login</span> ' +
+      '<a class="manager-login-url" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' +
       escapeHtml(url) + '</a></p>' +
       '<p class="muted-text">Código de acceso (solo lectura; lo cambia Admin): <code>' +
       escapeHtml(settingsCache.join_code || '—') + '</code></p>' +
@@ -94,8 +103,29 @@
         }
         if (status) status.textContent = 'Guardado';
         settingsCache.welcome_message = (save.data && save.data.welcome_message) || body;
+        if (global.PTCommunity && global.PTCommunity.invalidateWelcomeCache) {
+          global.PTCommunity.invalidateWelcomeCache();
+        }
       });
     }
+  }
+
+  function memberCardHtml(m, idx) {
+    return '<article class="manager-member-card">' +
+      '<div class="manager-member-card-main">' +
+      '<div><strong>' + escapeHtml(m.name || '—') + '</strong>' +
+      (m.is_online ? ' <span class="admin-online-dot" title="En línea">●</span>' : '') +
+      '<br><span class="muted-text">' + escapeHtml(m.email || '') + '</span></div>' +
+      '<span class="manager-role-pill">' + escapeHtml(m.role || 'member') + '</span></div>' +
+      '<dl class="manager-member-meta">' +
+      '<div><dt>IA mes</dt><dd>' + escapeHtml(String(m.ai_used_month != null ? m.ai_used_month : 0)) +
+      '/' + escapeHtml(String(m.ai_limit || listMeta.ai_limit || 40)) + '</dd></div>' +
+      '<div><dt>Escuela</dt><dd>' + escapeHtml(String(m.school_passed != null ? m.school_passed : 0)) +
+      ' lecc. · XP ' + escapeHtml(String(m.school_xp != null ? m.school_xp : 0)) + '</dd></div>' +
+      '<div><dt>Última conexión</dt><dd>' + escapeHtml(formatDate(m.last_seen_at)) + '</dd></div>' +
+      '</dl>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-manager-idx="' + idx + '">Detalle</button>' +
+      '</article>';
   }
 
   async function loadMembers() {
@@ -110,7 +140,7 @@
       host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }
-    membersCache = (res.data && res.data.members) || [];
+    membersCache = normalizeMembers(res.data && res.data.members);
     listMeta.online_count = (res.data && res.data.online_count) || 0;
     listMeta.ai_limit = (res.data && res.data.ai_limit) || 40;
     if (summary) {
@@ -122,10 +152,14 @@
       return;
     }
     host.innerHTML =
+      '<div class="manager-member-cards">' +
+      membersCache.map(memberCardHtml).join('') +
+      '</div>' +
+      '<div class="admin-table-wrap manager-table-wrap">' +
       '<table class="admin-table manager-table"><thead><tr>' +
       '<th>Usuario</th><th>Rol</th><th>IA mes</th><th>Escuela</th><th>Última conexión</th><th></th>' +
       '</tr></thead><tbody>' +
-      membersCache.map(function (m) {
+      membersCache.map(function (m, idx) {
         return '<tr>' +
           '<td><strong>' + escapeHtml(m.name || '—') + '</strong><br><span class="muted-text">' +
           escapeHtml(m.email || '') + '</span>' +
@@ -137,31 +171,77 @@
           '<td>' + escapeHtml(String(m.school_passed != null ? m.school_passed : 0)) +
           ' lecc. · XP ' + escapeHtml(String(m.school_xp != null ? m.school_xp : 0)) + '</td>' +
           '<td>' + escapeHtml(formatDate(m.last_seen_at)) + '</td>' +
-          '<td><button type="button" class="btn btn-ghost btn-sm" data-manager-user="' +
-          escapeHtml(m.user_id) + '">Detalle</button></td>' +
+          '<td><button type="button" class="btn btn-ghost btn-sm" data-manager-idx="' +
+          idx + '">Detalle</button></td>' +
           '</tr>';
       }).join('') +
-      '</tbody></table>';
-    host.querySelectorAll('[data-manager-user]').forEach(function (btn) {
+      '</tbody></table></div>';
+    host.querySelectorAll('[data-manager-idx]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        showMemberUsage(btn.getAttribute('data-manager-user'));
+        var idx = Number(btn.getAttribute('data-manager-idx'));
+        var mem = membersCache[idx];
+        if (mem) showMemberUsage(mem);
       });
     });
   }
 
-  async function showMemberUsage(userId) {
+  function memberLookupId(mem) {
+    if (!mem) return '';
+    if (mem.user_id) return String(mem.user_id);
+    if (mem.id) return String(mem.id);
+    if (mem.email) return String(mem.email);
+    return '';
+  }
+
+  function formatMemberError(err) {
+    var code = String(err || 'error');
+    if (/not_a_member/i.test(code)) {
+      return 'No se pudo cargar el detalle de este miembro en la comunidad. Prueba Actualizar; si sigue fallando, revisa que el usuario siga activo.';
+    }
+    if (/forbidden/i.test(code)) return 'No tienes permiso de manager en esta comunidad.';
+    if (/missing_user|invalid_community/i.test(code)) return 'Faltan datos del miembro o de la comunidad.';
+    return code;
+  }
+
+  async function showMemberUsage(memOrId) {
+    var memIn = (memOrId && typeof memOrId === 'object') ? memOrId : null;
+    var userId = memIn ? memberLookupId(memIn) : String(memOrId || '');
     selectedUserId = userId;
     var c = client();
     var detail = $('#manager-member-detail');
     if (!c || !detail) return;
     detail.classList.remove('hidden');
     detail.innerHTML = '<p class="muted-text">Cargando avance…</p>';
+    detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    var cid = communityId();
+    if (!userId) {
+      detail.innerHTML = '<p class="admin-error">No se encontró el identificador del miembro.</p>';
+      return;
+    }
     var res = await c.rpc('pt_manager_member_usage', {
-      p_community_id: communityId(),
+      p_community_id: cid,
       p_user_id: userId
     });
+    /* Reintento por email si el id falla (compat. datos legacy / attrs HTML) */
+    if (
+      memIn && memIn.email &&
+      (
+        (res.error && /not_a_member/i.test(res.error.message || '')) ||
+        (res.data && res.data.ok === false && res.data.error === 'not_a_member')
+      ) &&
+      String(memIn.email).toLowerCase() !== String(userId).toLowerCase()
+    ) {
+      res = await c.rpc('pt_manager_member_usage', {
+        p_community_id: cid,
+        p_user_id: String(memIn.email)
+      });
+    }
     if (res.error) {
-      detail.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
+      detail.innerHTML = '<p class="admin-error">' + escapeHtml(formatMemberError(res.error.message)) + '</p>';
+      return;
+    }
+    if (res.data && res.data.ok === false) {
+      detail.innerHTML = '<p class="admin-error">' + escapeHtml(formatMemberError(res.data.error)) + '</p>';
       return;
     }
     var mem = (res.data && res.data.member) || {};
@@ -179,7 +259,7 @@
       '<p>Última conexión: <strong>' + escapeHtml(formatDate(mem.last_seen_at)) + '</strong></p>' +
       '<p>Consultas IA (comunidad): <strong>' + escapeHtml(String(ai.used != null ? ai.used : 0)) +
       '/' + escapeHtml(String(ai.limit || 40)) + '</strong></p>' +
-      '<p>XP escuela: <strong>' + escapeHtml(school.xp != null ? school.xp : 0) + '</strong></p>' +
+      '<p>XP escuela (esta comunidad): <strong>' + escapeHtml(school.xp != null ? school.xp : 0) + '</strong></p>' +
       '<p>Lecciones con progreso: <strong>' + lessonIds.length + '</strong> · Aprobadas: <strong>' +
       passed + '</strong></p>' +
       (lessonIds.length
@@ -190,7 +270,7 @@
             (L.bestPct != null ? ' (' + escapeHtml(L.bestPct) + '%)' : '') +
             '</li>';
         }).join('') + '</ul>'
-        : '<p class="muted-text">Sin progreso de escuela sincronizado aún.</p>') +
+        : '<p class="muted-text">Sin progreso de escuela de esta comunidad sincronizado aún.</p>') +
       '</div>';
     var close = $('#manager-detail-close');
     if (close) close.addEventListener('click', function () {
