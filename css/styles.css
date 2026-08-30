@@ -7657,6 +7657,14 @@ body.community-shell .home-card-legendary,
 body.community-shell #home-annual-upsell {
   display: none !important;
 }
+/* MTT Lab: solo Torneos en entrenador; sin Spin en rangos (refuerzo CSS) */
+body[data-community="mttlab"] #setup-format-hub [data-val="cash"],
+body[data-community="mttlab"] #setup-format-hub [data-val="spin"],
+body[data-community="mttlab"] #setup-play-preset [data-val="cash6"],
+body[data-community="mttlab"] #setup-play-preset [data-val="spin_grind"],
+body[data-community="mttlab"] #ranges-game-type [data-val="spin3"] {
+  display: none !important;
+}
 .school-external-links {
   margin: 0;
   padding-left: 18px;

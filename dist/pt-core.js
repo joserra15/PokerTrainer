@@ -33561,6 +33561,7 @@ window.PT_NASH_PUSH_JSON = {
     window.addEventListener('pt-auth-ready', () => renderHome());
     window.addEventListener('pt-community-switch', () => {
       if (window.PTCommunity && PTCommunity.invalidateWelcomeCache) PTCommunity.invalidateWelcomeCache();
+      if (window.PTCommunity && PTCommunity.applyFormats) PTCommunity.applyFormats();
       renderHome();
       if (window.PTEntitlements && PTEntitlements.refresh) PTEntitlements.refresh();
       if (window.PTCloud && PTCloud.syncNow) {
@@ -33572,6 +33573,7 @@ window.PT_NASH_PUSH_JSON = {
       } catch (e2) { /* noop */ }
     });
     window.addEventListener('pt-community-ready', () => {
+      if (window.PTCommunity && PTCommunity.applyFormats) PTCommunity.applyFormats();
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) renderHome();
     });
     window.addEventListener('pt-cloud-synced', () => {
@@ -33803,6 +33805,7 @@ window.PT_NASH_PUSH_JSON = {
   window.isLegendaryAdminUser = isLegendaryAdminUser;
   window.openSession = openSession;
   window.syncAdvisorSettingsToSession = syncAdvisorSettingsToSession;
+  window.syncFormatHubUI = syncFormatHubUI;
 
   function isMobileLayout() {
     return window.matchMedia('(max-width: 680px)').matches;

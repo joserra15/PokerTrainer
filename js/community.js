@@ -219,6 +219,112 @@
     if (typeof global.refreshLegendaryTabVisibility === 'function') {
       try { global.refreshLegendaryTabVisibility(); } catch (e) { /* noop */ }
     }
+    applyFormats();
+  }
+
+  /**
+   * Restringe formatos del entrenador / rangos según config de comunidad.
+   * MTT Lab: solo Torneos en Entrenar; sin Spin en Rangos.
+   */
+  function applyFormats() {
+    var cfg = config() || {};
+    var trainer = cfg.trainer || {};
+    var rangesCfg = cfg.ranges || {};
+    var hubs = Array.isArray(trainer.formatHubs) ? trainer.formatHubs : null;
+    var hidePresets = trainer.hidePresets || [];
+    var hideRangeGt = rangesCfg.hideGameTypes || [];
+    var defaultHub = trainer.defaultFormatHub || (hubs && hubs.length ? hubs[0] : null);
+
+    document.querySelectorAll('#setup-format-hub [data-val]').forEach(function (btn) {
+      var val = btn.getAttribute('data-val');
+      var hide = !!(hubs && hubs.indexOf(val) < 0);
+      btn.classList.toggle('hidden', hide);
+      btn.hidden = hide;
+      if (hide) {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+        btn.setAttribute('aria-hidden', 'true');
+      } else {
+        btn.removeAttribute('aria-hidden');
+      }
+    });
+
+    document.querySelectorAll('#setup-play-preset [data-val]').forEach(function (btn) {
+      var val = btn.getAttribute('data-val');
+      if (val === 'custom') {
+        btn.classList.remove('hidden');
+        btn.hidden = false;
+        return;
+      }
+      var hide = hidePresets.indexOf(val) >= 0;
+      if (!hide && hubs) {
+        if (val === 'cash6' && hubs.indexOf('cash') < 0) hide = true;
+        if (val === 'spin_grind' && hubs.indexOf('spin') < 0) hide = true;
+        if (val === 'mtt_low' && hubs.indexOf('mtt') < 0) hide = true;
+      }
+      btn.classList.toggle('hidden', hide);
+      btn.hidden = hide;
+      if (hide) btn.classList.remove('active');
+    });
+
+    var sub = document.querySelector('.play-setup-sub');
+    if (sub) {
+      if (!sub.getAttribute('data-pf-sub')) {
+        sub.setAttribute('data-pf-sub', sub.innerHTML);
+      }
+      if (hubs && hubs.length === 1 && hubs[0] === 'mtt') {
+        sub.innerHTML = 'Entrenamiento MTT de la comunidad. Charts por fase/stack; cuando veas <strong>ICM</strong> en el tapete, el premio importa más que las fichas. <button type="button" class="btn-link" id="btn-help-setup" data-open-help>Atajos y ayuda</button>';
+      } else {
+        sub.innerHTML = sub.getAttribute('data-pf-sub') || sub.innerHTML;
+      }
+    }
+
+    if (defaultHub) {
+      if (typeof global.syncFormatHubUI === 'function') {
+        try { global.syncFormatHubUI(defaultHub); } catch (e1) { /* noop */ }
+      } else {
+        document.querySelectorAll('#setup-format-hub [data-val]').forEach(function (btn) {
+          var on = btn.getAttribute('data-val') === defaultHub && !btn.hidden;
+          btn.classList.toggle('active', on);
+          btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+      }
+    }
+
+    var rangeSwitched = false;
+    document.querySelectorAll('#ranges-game-type [data-val]').forEach(function (btn) {
+      var val = btn.getAttribute('data-val');
+      var hide = hideRangeGt.indexOf(val) >= 0;
+      btn.classList.toggle('hidden', hide);
+      btn.hidden = hide;
+      if (hide && btn.classList.contains('active')) {
+        btn.classList.remove('active');
+        rangeSwitched = true;
+      }
+    });
+    if (rangeSwitched || hideRangeGt.length) {
+      var active = document.querySelector('#ranges-game-type .setup-chip.active:not([hidden])');
+      if (!active) {
+        var prefer = document.querySelector('#ranges-game-type [data-val="mtt"]')
+          || document.querySelector('#ranges-game-type .setup-chip:not([hidden])');
+        if (prefer) {
+          prefer.classList.add('active');
+          prefer.hidden = false;
+          prefer.classList.remove('hidden');
+          rangeSwitched = true;
+        }
+      }
+      if (rangeSwitched && typeof global.openRangesExplorer === 'function') {
+        try {
+          var gtEl = document.querySelector('#ranges-game-type .setup-chip.active');
+          var gt = gtEl ? gtEl.getAttribute('data-val') : 'mtt';
+          global.openRangesExplorer({ gameType: gt });
+        } catch (e2) { /* noop */ }
+      }
+    }
+    if (global.PTHelp && typeof global.PTHelp.bind === 'function') {
+      try { global.PTHelp.bind(); } catch (e3) { /* noop */ }
+    }
   }
 
   function showAccessDenied(message) {
@@ -687,6 +793,7 @@
     setDefaultApp: setDefaultApp,
     openSwitcherModal: openSwitcherModal,
     applyMenus: applyMenus,
+    applyFormats: applyFormats,
     applyBranding: applyBranding,
     schoolPack: schoolPack,
     unlockMode: unlockMode,
