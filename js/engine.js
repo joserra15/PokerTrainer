@@ -868,8 +868,10 @@
     }
     const heroSeat = heroTableSeat(hand);
     const vSeat = villainTableSeat(hand);
+    const villainPos = hand.villain && hand.villain.pos;
     const alive = new Set([heroSeat]);
     if (vSeat && !hand.table.folded[vSeat]) alive.add(vSeat);
+    if (villainPos && villainPos !== vSeat && !hand.table.folded[villainPos]) alive.add(villainPos);
     tablePositionsForHand(hand).forEach(function (pos) {
       if (!alive.has(pos)) markFolded(hand, pos);
     });
@@ -4082,7 +4084,11 @@
 
   // ----- Transición a flop / showdown (usa el board pre-repartido) -----
   function goFlop(hand) {
-    const vSeat = villainTableSeat(hand) || hand.villain.pos;
+    let vSeat = villainTableSeat(hand) || hand.villain.pos;
+    if (hand.villain && hand.villain.pos && hand.table && hand.table.folded
+      && hand.table.folded[vSeat] && !hand.table.folded[hand.villain.pos]) {
+      vSeat = hand.villain.pos;
+    }
     const keepMulti = !!(hand.multiway && MW() && MW().allowMultiway(hand));
     if (hand._callersAtFlop && hand._callersAtFlop.length) {
       if (keepMulti) {
