@@ -50,6 +50,10 @@
     'js/engine/solver/LocalSolverProvider.js',
     'js/engine/evaluateSpot.js',
     'js/engine/villainProfiles.js',
+    'js/engine/villainFormatAdjust.js',
+    'js/engine/villainProExploit.js',
+    'js/engine/villainLinePolicy.js',
+    'js/engine/villainSizing.js',
     'js/engine/villainPreflop.js',
     'js/engine/multiway.js',
     'js/engine/stacks.js'

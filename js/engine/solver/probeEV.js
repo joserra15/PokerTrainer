@@ -13,7 +13,7 @@
   function normalize(freqs) {
     let sum = 0;
     for (const k in freqs) sum += freqs[k] || 0;
-    if (sum <= 0) return { check: 1, bet_33: 0, bet_66: 0, bet_100: 0 };
+    if (sum <= 0) return { check: 1, bet_33: 0, bet_66: 0, bet_100: 0, overbet: 0 };
     const out = {};
     for (const k in freqs) out[k] = (freqs[k] || 0) / sum;
     return out;
@@ -53,33 +53,51 @@
     return foldEquity * pot + (1 - foldEquity) * whenCalled;
   }
 
-  /** Reparto dinámico de sizings según polarización y textura (Fase 2). */
+  /** Reparto dinámico de sizings según polarización y textura (Fase 2). Incluye sOver en river polar. */
   function dynamicSizeSplit(input, band, polarization) {
     const street = input.street || 'flop';
     const texture = Board ? Board.boardTexture(input.board || []) : { wet: false, paired: false };
+    const spr = input.spr != null ? Number(input.spr) : null;
 
+    function withOver(split, overW) {
+      if (!overW || overW <= 0) return Object.assign({ sOver: 0 }, split);
+      const take = Math.min(overW, (split.s100 || 0) * 0.55 + (split.s66 || 0) * 0.2);
+      const s100 = Math.max(0, (split.s100 || 0) - Math.min((split.s100 || 0) * 0.55, take));
+      let rem = take - Math.min((split.s100 || 0) * 0.55, take);
+      const s66 = Math.max(0, (split.s66 || 0) - rem);
+      return { s33: split.s33 || 0, s66: s66, s100: s100, sOver: take };
+    }
+
+    let base;
     if (band === 'nuts' || (band === 'value' && street === 'river')) {
-      return street === 'river'
-        ? { s33: 0.10, s66: 0.42, s100: 0.48 }
+      base = street === 'river'
+        ? { s33: 0.10, s66: 0.38, s100: 0.42 }
         : { s33: 0.18, s66: 0.40, s100: 0.42 };
+      if (street === 'river') return withOver(base, 0.18);
+      return Object.assign({ sOver: 0 }, base);
     }
 
     if (band === 'air' || band === 'bluffcatch') {
       if (street === 'river' && polarization > 0.45) {
-        return { s33: 0.35, s66: 0.38, s100: 0.27 };
+        return withOver({ s33: 0.32, s66: 0.34, s100: 0.22 }, 0.14);
       }
-      return { s33: 0.52, s66: 0.32, s100: 0.16 };
+      base = { s33: 0.52, s66: 0.32, s100: 0.16 };
+      return Object.assign({ sOver: 0 }, base);
     }
 
     if (polarization > 0.55 || (texture.wet && street !== 'river')) {
-      return { s33: 0.28, s66: 0.42, s100: 0.30 };
+      base = { s33: 0.28, s66: 0.42, s100: 0.30 };
+      if (street === 'river') return withOver(base, 0.12);
+      return Object.assign({ sOver: 0 }, base);
     }
 
     if (texture.paired || street === 'river') {
-      return { s33: 0.48, s66: 0.34, s100: 0.18 };
+      base = { s33: 0.48, s66: 0.34, s100: 0.18 };
+      if (street === 'river' && spr != null && spr <= 5) return withOver(base, 0.1);
+      return Object.assign({ sOver: 0 }, base);
     }
 
-    return { s33: 0.42, s66: 0.36, s100: 0.22 };
+    return { s33: 0.42, s66: 0.36, s100: 0.22, sOver: 0 };
   }
 
   function bandFromTier(tier) {
@@ -315,11 +333,13 @@
     }
 
     const split = dynamicSizeSplit(input, band, polarization);
+    const sOver = split.sOver || 0;
     let strategy = normalize({
       check: 1 - betTotal,
-      bet_33: betTotal * split.s33,
-      bet_66: betTotal * split.s66,
-      bet_100: betTotal * split.s100
+      bet_33: betTotal * (split.s33 || 0),
+      bet_66: betTotal * (split.s66 || 0),
+      bet_100: betTotal * (split.s100 || 0),
+      overbet: betTotal * sOver
     });
 
     if (Block && input.heroCards) {

@@ -763,12 +763,98 @@
     hand.villain.profileShort = prof.shortLabel;
   }
 
+  /** Contexto de spot para line policy / format adjust / sizing del villano. */
+  function buildVillainSpotCtx(hand, extra) {
+    extra = extra || {};
+    const cfg = hand.playConfig || {};
+    const Tax = global.PTFormatTaxonomy;
+    const hub = Tax && Tax.normalizeHub
+      ? Tax.normalizeHub(cfg.formatHub || Tax.hubFromGameType(cfg.gameType))
+      : (cfg.formatHub || 'cash');
+    const remV = ST() && hand.stacks
+      ? ST().remaining(hand, villainTableSeat(hand) || hand.villain.pos)
+      : effStackForHand(hand);
+    const pot = Math.max(hand.potBB || 1, 0.1);
+    const spr = pot > 0 ? remV / pot : remV;
+    const info = extra.info || (hand.villain.cards ? classifyMadeHand(hand.villain.cards, hand.board) : null);
+    const strength = extra.strength != null ? extra.strength : villainPostflopStrength(info, villainEquity01(hand));
+    let band = 'merge';
+    if (info) {
+      if (info.tier === 'strong') band = 'value';
+      else if (info.tier === 'medium') band = 'merge';
+      else if (info.tier === 'weak') band = 'bluffcatch';
+      else band = 'air';
+      if (info.ev && info.ev.category >= 4) band = 'nuts';
+    }
+    const Board = global.GTOBoardCluster;
+    const texture = Board && Board.boardTexture ? Board.boardTexture(hand.board || []) : {};
+    const RSNuts = global.GTORiverShoveNode;
+    const isNuts = !!(RSNuts && RSNuts.isAbsoluteNuts && hand.villain.cards
+      && RSNuts.isAbsoluteNuts(hand.villain.cards, hand.board));
+    return Object.assign({
+      formatHub: hub,
+      gameType: cfg.gameType,
+      stackBB: cfg.stackBB != null ? cfg.stackBB : effStackForHand(hand),
+      effectivePhase: cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase,
+      resolvedPhase: cfg.resolvedPhase,
+      mttPhase: cfg.mttPhase,
+      mttStructureSituation: cfg.mttStructureSituation,
+      street: hand.stage,
+      potBB: pot,
+      spr: spr,
+      remainingBB: remV,
+      strength: strength,
+      band: band,
+      madeCategory: info && info.ev ? info.ev.category : 0,
+      initiative: hand.heroIsAggressor ? 'caller' : 'aggressor',
+      inPosition: !hand.heroInPosition,
+      board: hand.board ? hand.board.slice() : [],
+      texture: texture,
+      isNuts: isNuts,
+      polarization: isNuts || band === 'nuts' || band === 'air' ? 0.62 : 0.38,
+      priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
+      lineIntent: hand._villainLineIntent || null,
+      proStyle: (profileFor(hand, hand.villain.pos) || {}).proStyle || 'exploit_pool',
+      hub: hub
+    }, extra);
+  }
+
+  function villainRaiseAmount(hand, facingBetBB) {
+    const VS = global.GTOVillainSizing;
+    const ctx = buildVillainSpotCtx(hand, {
+      preferOverbetRaise: !!(hand._villainPreferOverbetRaise),
+      lineIntent: hand._villainLineIntent || null
+    });
+    const potBefore = Math.max((hand.potBB || 1) - Math.max(facingBetBB || 0, 0), 0.1);
+    let size;
+    if (VS && VS.raiseSizeBB) {
+      size = VS.raiseSizeBB(potBefore, facingBetBB, ctx, C.rng.random());
+    } else {
+      size = round2((facingBetBB || 0) * 3);
+    }
+    const vSeat = villainTableSeat(hand) || hand.villain.pos;
+    return capBetForSeat(hand, vSeat, size);
+  }
+
   function villainBetAmount(hand) {
     const prof = profileFor(hand, hand.villain.pos);
     const info = hand.villain.cards ? classifyMadeHand(hand.villain.cards, hand.board) : null;
     const eq = villainEquity01(hand);
     const strength = eq != null ? eq : (info ? ({ strong: 0.78, medium: 0.52, weak: 0.34, air: 0.14 }[info.tier] || 0.3) : 0.3);
-    let size = VP ? VP.betSizeBB(hand.potBB, prof, C.rng.random(), { street: hand.stage, strength }) : round2(hand.potBB * 0.5);
+    const ctx = buildVillainSpotCtx(hand, { info: info, strength: strength });
+    const sizeOpts = {
+      street: hand.stage,
+      strength: strength,
+      sizeKey: hand._villainBetSizeKey || null,
+      frac: hand._villainBetFrac != null ? hand._villainBetFrac : null,
+      spr: ctx.spr,
+      stackBB: ctx.stackBB,
+      formatHub: ctx.formatHub,
+      gameType: ctx.gameType
+    };
+    let size = VP ? VP.betSizeBB(hand.potBB, prof, C.rng.random(), sizeOpts) : round2(hand.potBB * 0.5);
+    hand._villainBetSizeKey = null;
+    hand._villainBetFrac = null;
     const vSeat = villainTableSeat(hand) || hand.villain.pos;
     return capBetForSeat(hand, vSeat, size);
   }
@@ -1549,7 +1635,13 @@
         continue;
       }
       if (act === 'raise') {
-        raiseSize = capBetForSeat(hand, pos, round2(betSize * 3));
+        const VS = global.GTOVillainSizing;
+        const mwCtx = buildVillainSpotCtx(hand, {});
+        raiseSize = VS && VS.raiseSizeBB
+          ? capBetForSeat(hand, pos, VS.raiseSizeBB(
+            Math.max(hand.potBB - betSize, 0.1), betSize, mwCtx, C.rng.random()
+          ))
+          : capBetForSeat(hand, pos, round2(betSize * 2.7));
         if (raiseSize <= betSize) raiseSize = capBetForSeat(hand, pos, betSize);
         const add = seatToCall(hand, pos, raiseSize);
         if (add > 0) addInvest(hand, pos, add);
@@ -1648,7 +1740,7 @@
       return { type: 'fold' };
     }
     if (act === 'raise') {
-      let raiseSize = capBetForSeat(hand, pos, round2(betSize * 3));
+      let raiseSize = villainRaiseAmount(hand, betSize);
       if (raiseSize <= betSize) raiseSize = capBetForSeat(hand, pos, betSize);
       const already = (hand.table.streetBet && hand.table.streetBet[pos]) || 0;
       const need = round2(Math.max(raiseSize - already, 0));
@@ -1806,6 +1898,31 @@
     return opts.neverFold ? 'call' : 'fold';
   }
 
+  function refineVillainLeadStrategy(strat, ctx) {
+    let out = Object.assign({}, strat || {});
+    const FA = global.GTOVillainFormatAdjust;
+    const Ex = global.GTOVillainProExploit;
+    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, 'lead');
+    if (Ex && Ex.applyToLeadFreqs) out = Ex.applyToLeadFreqs(out, ctx);
+    return out;
+  }
+
+  function refineVillainFacingStrategy(strat, ctx) {
+    let out = Object.assign({}, strat || {});
+    const FA = global.GTOVillainFormatAdjust;
+    const Ex = global.GTOVillainProExploit;
+    const LP = global.GTOVillainLinePolicy;
+    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, ctx.lineIntent === 'checkRaise' ? 'xr' : 'facing');
+    if (Ex && Ex.applyToFacingFreqs) out = Ex.applyToFacingFreqs(out, ctx);
+    if (LP && LP.adjustFacing) out = LP.adjustFacing(out, ctx);
+    if (out._preferOverbetRaise) {
+      // flag for raise sizing; strip before sampling
+      delete out._preferOverbetRaise;
+      return { freqs: out, preferOverbetRaise: true };
+    }
+    return { freqs: out, preferOverbetRaise: false };
+  }
+
   function villainPostflopAction(hand, node) {
     const forced = scriptForcedPostflop(hand, node);
     if (forced) return forced;
@@ -1824,6 +1941,7 @@
         ? ST().remaining(hand, villainTableSeat(hand) || hand.villain.pos)
         : EFF;
       const spr = hand.potBB > 0 ? remV / hand.potBB : remV;
+      const spotCtx = buildVillainSpotCtx(hand, { info: info, strength: strength, spr: spr, remainingBB: remV });
       const strat = GTO.Strategy.postflopStrategy({
         toCallBB: villainToCall,
         potBB: hand.potBB,
@@ -1839,14 +1957,31 @@
         villainLastAction: node.heroLastAction || (hand.heroAction && hand.heroAction.type) || null
       });
       if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
-        return sampleVillainFacingFromStrategy(strat, rnd, {
+        const refined = refineVillainFacingStrategy(strat, spotCtx);
+        hand._villainPreferOverbetRaise = !!refined.preferOverbetRaise
+          || (spotCtx.lineIntent === 'checkRaise' && hand.stage === 'river');
+        const act = sampleVillainFacingFromStrategy(refined.freqs, rnd, {
           neverFold: !!pfOpts.neverFold,
           canRaise: villainToCall > 0
         });
+        if (act !== 'raise') hand._villainLineIntent = null;
+        return act;
       }
-      const betKeys = ['bet_100', 'bet_66', 'bet_33', 'bet'];
+      // Checked to villain (probe / delayed): sample bet + size
+      let leadStrat = refineVillainLeadStrategy(strat, spotCtx);
+      const VS = global.GTOVillainSizing;
+      if (VS && VS.sampleLeadFromStrategy) {
+        const sampled = VS.sampleLeadFromStrategy(leadStrat, hand.potBB, spotCtx, rnd);
+        if (sampled.action === 'bet') {
+          hand._villainBetSizeKey = sampled.sizeKey;
+          hand._villainBetFrac = sampled.frac;
+          return 'bet';
+        }
+        return 'check';
+      }
+      const betKeys = ['bet_100', 'bet_66', 'bet_33', 'overbet', 'bet'];
       let betP = 0;
-      betKeys.forEach(function (k) { betP += strat[k] || 0; });
+      betKeys.forEach(function (k) { betP += leadStrat[k] || 0; });
       return rnd < betP ? 'bet' : 'check';
     }
 
@@ -3801,9 +3936,20 @@
     if (VT) hand.villainRangeTracker = VT.initTracker(hand.villain.rangeStr, hand.villain.pos);
   }
   function clearStreetActions(hand) {
+    // Si ambos checkearon la calle previa, marca delayed-cbet eligibility
+    if (hand.heroAction && hand.villainAction
+      && hand.heroAction.type === 'check' && hand.villainAction.type === 'check') {
+      hand._priorStreetCheckCheck = true;
+    } else if (hand.stage === 'flop') {
+      hand._priorStreetCheckCheck = false;
+    }
     hand.heroAction = null;
     hand.villainAction = null;
     hand.seatActions = {};
+    hand._villainLineIntent = null;
+    hand._villainBetSizeKey = null;
+    hand._villainBetFrac = null;
+    hand._villainPreferOverbetRaise = false;
   }
 
   /** Decisión del villano cuando es el primero en actuar en una calle (lead o check). */
@@ -3814,7 +3960,61 @@
     const strength = villainPostflopStrength(info, eq);
     const villainIsAgg = !hand.heroIsAggressor;
     const pfOpts = villainPostflopOpts(hand, info, hand.villain.cards);
-    if (VP) return VP.postflopLead(strength, profile, villainIsAgg, C.rng.random(), pfOpts);
+    const rnd = C.rng.random();
+
+    if (profile.preflopStrict >= 0.99 && hand.villain.cards && GTO && GTO.Strategy) {
+      const remV = ST() && hand.stacks
+        ? ST().remaining(hand, villainTableSeat(hand) || hand.villain.pos)
+        : EFF;
+      const spr = hand.potBB > 0 ? remV / hand.potBB : remV;
+      const spotCtx = buildVillainSpotCtx(hand, { info: info, strength: strength, spr: spr, remainingBB: remV });
+      const LP = global.GTOVillainLinePolicy;
+      let line = { actionHint: 'auto', intent: null, forceCheck: false, preferSizeKey: null };
+      if (LP && LP.decideLead) {
+        line = LP.decideLead(spotCtx, rnd);
+      }
+      if (line.forceCheck) {
+        hand._villainLineIntent = line.intent || 'checkRaise';
+        return 'check';
+      }
+      if (line.intent) hand._villainLineIntent = line.intent;
+
+      const strat = GTO.Strategy.postflopStrategy({
+        toCallBB: 0,
+        potBB: hand.potBB,
+        potBeforeBB: hand.potBB,
+        heroEquity: eq != null ? eq : strength,
+        madeHandInfo: info,
+        board: hand.board.slice(),
+        heroCards: hand.villain.cards,
+        initiative: spotCtx.initiative,
+        inPosition: spotCtx.inPosition,
+        spr: spr,
+        street: hand.stage,
+        villainLastAction: null
+      });
+      let leadStrat = refineVillainLeadStrategy(strat, spotCtx);
+      const sampleCtx = Object.assign({}, spotCtx, {
+        preferSizeKey: line.preferSizeKey || null,
+        actionHint: line.actionHint
+      });
+      const VS = global.GTOVillainSizing;
+      if (VS && VS.sampleLeadFromStrategy) {
+        const sampled = VS.sampleLeadFromStrategy(leadStrat, hand.potBB, sampleCtx, C.rng.random());
+        if (sampled.action === 'bet') {
+          hand._villainBetSizeKey = sampled.sizeKey;
+          hand._villainBetFrac = sampled.frac;
+          return 'bet';
+        }
+        return 'check';
+      }
+      const betKeys = ['bet_100', 'bet_66', 'bet_33', 'overbet', 'bet'];
+      let betP = 0;
+      betKeys.forEach(function (k) { betP += leadStrat[k] || 0; });
+      return C.rng.random() < betP ? 'bet' : 'check';
+    }
+
+    if (VP) return VP.postflopLead(strength, profile, villainIsAgg, rnd, pfOpts);
     const betFreq = villainIsAgg
       ? clamp(0.12 + strength * 0.55, 0.08, 0.68)
       : clamp(0.04 + strength * 0.28, 0.03, 0.38);
@@ -4077,16 +4277,18 @@
       const vAct = villainPostflopAction(hand, node);
       if (vAct === 'fold') { setVillainAct(hand, 'fold'); return finish(hand, { reason: `El villano foldea ante tu apuesta en ${node.street}.`, heroNet: round2(hand.potBB - betSize) }); }
       if (vAct === 'raise') {
-        let vRaise = takeScriptedOrDefaultBet(hand, capBetForSeat(hand, hand.villain.pos, round2(betSize * 3)));
+        let vRaise = takeScriptedOrDefaultBet(hand, villainRaiseAmount(hand, betSize));
         if (vRaise <= betSize) vRaise = capBetForSeat(hand, hand.villain.pos, heroRemainingBB(hand));
         hand.villainInvested += vRaise; hand.potBB = round2(hand.potBB + vRaise);
         if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, vRaise);
         setVillainAct(hand, 'raise', vRaise);
+        hand._villainLineIntent = null;
         if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
         return buildPostflopNode(hand, node.street, { bet: round2(vRaise), potBefore: hand.potBB });
       }
       hand._scriptedVillainAmountBB = null;
       setVillainAct(hand, 'call', betSize);
+      hand._villainLineIntent = null;
       hand.villainInvested += betSize; hand.potBB = round2(hand.potBB + betSize);
       if (hand.table && hand.villain.pos) addInvest(hand, hand.villain.pos, betSize);
       if (heroShoved || noMoreBetting(hand)) return prepareAllInRunout(hand);

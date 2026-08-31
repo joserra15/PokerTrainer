@@ -23,6 +23,7 @@
     "test:allin-runout": "node tools/test-allin-runout.js",
     "test:river-nut-flush": "node tools/test-river-board-ace-nut-flush.js",
     "test:villain-nuts": "node tools/test-villain-never-fold-nuts.js",
+    "test:villain-pro-lines": "node tools/test-villain-pro-lines.js",
     "test:river-monotone": "node tools/test-river-monotone-bet-range.js",
     "test:river-equity-polar": "node tools/test-river-equity-polar.js",
     "test:hand-score": "node tools/test-hand-score.js",
