@@ -91,69 +91,74 @@ console.log('4) vsRFI: folds + open + folds hasta héroe');
   });
 }
 
-console.log('5) face3bet: open automático del héroe + 3-bet villano');
+console.log('5) face3bet: héroe decide el open (sin autoHero); 3-bet forzado tras abrir');
 {
   const play = cfg({ scenario: 'face3bet', heroPos: 'CO' });
   const hand = Engine.newHand({ type: 'face3bet', key: 'CO_vs_BB', seed: 33 }, play);
+  assert.strictEqual(hand.current.kind, 'RFI', 'empieza en decisión de open');
+  assert.ok(hand._forceThreeBettor === 'BB', '3-bettor forzado');
   const script = Engine.buildOpeningActionScript(hand);
-  const auto = script.filter((e) => e.autoHero);
-  assert.strictEqual(auto.length, 1, 'una acción automática del héroe');
-  assert.strictEqual(auto[0].type, 'open');
-  assert.strictEqual(auto[0].pos, 'CO');
-  const last = script[script.length - 1];
-  assert.strictEqual(last.type, 'raise');
-  assert.strictEqual(last.pos, 'BB');
-  const autoIdx = script.indexOf(auto[0]);
-  assert.ok(autoIdx < script.length - 1, 'el 3-bet va después del open del héroe');
+  assert.ok(!script.some((e) => e.autoHero), 'sin acción automática del héroe');
+  script.forEach((e) => {
+    assert.strictEqual(e.type, 'fold');
+    assert.notStrictEqual(e.pos, 'CO');
+  });
+  Engine.act(hand, 'raise');
+  assert.strictEqual(hand.current.kind, 'face3bet', 'tras abrir llega el vs 3-bet');
+  assert.strictEqual(hand.villain.pos, 'BB');
 }
 
-console.log('5b) face3bet CO vs BTN: SB y BB foldean tras el 3-bet');
+console.log('5b) face3bet CO vs BTN: tras open, BTN 3-betea y SB/BB foldean');
 {
   const play = cfg({ scenario: 'face3bet', heroPos: 'CO' });
   const hand = Engine.newHand({ type: 'face3bet', key: 'CO_vs_BTN', seed: 34 }, play);
-  const script = Engine.buildOpeningActionScript(hand);
-  const keys = script.map(scriptKey);
-  assert.ok(keys.indexOf('CO:open') >= 0, 'héroe abre');
-  assert.ok(keys.indexOf('BTN:raise') >= 0, 'BTN 3-betea');
-  assert.ok(keys.indexOf('SB:fold') >= 0, 'SB foldea al 3-bet');
-  assert.ok(keys.indexOf('BB:fold') >= 0, 'BB foldea al 3-bet');
-  assert.ok(keys.indexOf('BTN:raise') < keys.indexOf('SB:fold'), 'SB actúa después del 3-bet');
-  assert.ok(keys.indexOf('SB:fold') < keys.indexOf('BB:fold'), 'BB actúa después de SB');
-  assert.strictEqual(keys[keys.length - 1], 'BB:fold', 'la acción vuelve al héroe tras las ciegas');
+  assert.strictEqual(hand.current.kind, 'RFI');
+  Engine.act(hand, 'raise');
+  assert.strictEqual(hand.current.kind, 'face3bet');
+  assert.strictEqual(hand.villain.pos, 'BTN');
   assert.ok(hand.table.folded.SB, 'SB folded en el motor');
   assert.ok(hand.table.folded.BB, 'BB folded en el motor');
   assert.ok(!hand.table.folded.CO && !hand.table.folded.BTN, 'CO y BTN siguen vivos');
 }
 
-console.log('6) face4bet: 3-bet automático del héroe + 4-bet villano');
+console.log('5c) face3bet escuela/forceDeal: sigue saltando al vs 3-bet (auto)');
+{
+  const play = cfg({ scenario: 'face3bet', heroPos: 'CO', schoolMode: true });
+  const hand = Engine.newHand({
+    type: 'face3bet', key: 'CO_vs_BB', seed: 35,
+    forceDeal: { heroCards: ['As', 'Kd'], villainCards: ['Qc', 'Qd'], villainPos: 'BB' }
+  }, play);
+  assert.strictEqual(hand.current.kind, 'face3bet', 'school salta al spot');
+  const auto = Engine.buildOpeningActionScript(hand).filter((e) => e.autoHero);
+  assert.strictEqual(auto.length, 1, 'una acción automática del héroe en school');
+  assert.strictEqual(auto[0].type, 'open');
+}
+
+console.log('6) face4bet: héroe decide el 3-bet (sin autoHero); 4-bet forzado después');
 {
   const play = cfg({ scenario: '4bet', heroPos: 'BB' });
   const hand = Engine.newHand({ type: 'face4bet', key: 'BB_vs_UTG', seed: 44 }, play);
+  assert.strictEqual(hand.current.kind, 'vsRFI', 'empieza enfrentando el open');
+  assert.ok(hand._forceOpenerFourBet, '4-bet del opener forzado');
   const script = Engine.buildOpeningActionScript(hand);
-  const keys = script.map(scriptKey);
-  assert.ok(keys.indexOf('UTG:open') >= 0, 'UTG abre');
-  const auto = script.filter((e) => e.autoHero);
-  assert.strictEqual(auto.length, 1, '3-bet automático');
-  assert.strictEqual(auto[0].type, 'raise');
-  assert.strictEqual(auto[0].pos, 'BB');
-  const last = script[script.length - 1];
-  assert.strictEqual(last.type, 'raise');
-  assert.strictEqual(last.pos, 'UTG');
-  assert.ok(keys.indexOf('BB:raise') < keys.lastIndexOf('UTG:raise'), '4-bet después del 3-bet');
+  assert.ok(!script.some((e) => e.autoHero), 'sin 3-bet automático');
+  assert.ok(script.some((e) => e.pos === 'UTG' && e.type === 'open'), 'UTG abre');
+  assert.ok(!script.some((e) => e.pos === 'BB'), 'héroe aún no actúa en el guion');
+  Engine.act(hand, 'raise');
+  assert.strictEqual(hand.current.kind, 'face4bet', 'tras 3-bet llega el vs 4-bet');
+  assert.strictEqual(hand.villain.pos, 'UTG');
 }
 
-console.log('6b) face4bet CO vs UTG: BTN/SB/BB foldean tras el 3-bet del héroe');
+console.log('6b) face4bet CO vs UTG: tras 3-bet, BTN/SB/BB foldean y UTG 4-betea');
 {
   const play = cfg({ scenario: '4bet', heroPos: 'CO' });
   const hand = Engine.newHand({ type: 'face4bet', key: 'CO_vs_UTG', seed: 45 }, play);
-  const keys = Engine.buildOpeningActionScript(hand).map(scriptKey);
-  const hero3 = keys.indexOf('CO:raise');
-  const vill4 = keys.lastIndexOf('UTG:raise');
-  assert.ok(hero3 >= 0 && vill4 > hero3, '4-bet del opener después del 3-bet');
-  ['BTN', 'SB', 'BB'].forEach(function (pos) {
-    const idx = keys.indexOf(pos + ':fold');
-    assert.ok(idx > hero3 && idx < vill4, pos + ' foldea al 3-bet antes del 4-bet');
-  });
+  assert.strictEqual(hand.current.kind, 'vsRFI');
+  Engine.act(hand, 'raise');
+  assert.strictEqual(hand.current.kind, 'face4bet');
+  assert.ok(hand.table.folded.BTN, 'BTN folded');
+  assert.ok(hand.table.folded.SB, 'SB folded');
+  assert.ok(hand.table.folded.BB, 'BB folded');
 }
 
 console.log('7) squeeze: open + call + folds');

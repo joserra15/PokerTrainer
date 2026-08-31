@@ -1070,13 +1070,17 @@
     const callers = [];
     // Si el héroe ya metió all-in (push/fold shove), no existe 3-bet: solo fold/call.
     const heroAllIn = heroRemainingBB(hand) <= 0.01;
+    const forceTb = hand._forceThreeBettor;
 
     for (let ri = 0; ri < responders.length; ri++) {
       const pos = responders[ri];
       if (sessionStrict(hand)) ensureDefenderHand(hand, pos, hand.hero.pos);
       let act = scriptForcedDefend(hand, pos);
       if (!act) {
-        if (heroAllIn) {
+        if (forceTb && !heroAllIn) {
+          // Spot vs 3-bet: solo el 3-bettor designado resube; el resto foldea.
+          act = (pos === forceTb) ? '3bet' : 'fold';
+        } else if (heroAllIn) {
           const profile = profileFor(hand, pos);
           const code = seatHoleCode(hand, pos);
           if (VPF && code) {
@@ -1120,10 +1124,11 @@
     }
 
     if (threeBettor && !heroAllIn) {
+      delete hand._forceThreeBettor;
       ensureThreeBetHand(hand, threeBettor, hand.hero.pos);
       hand.villain.pos = threeBettor;
       hand.villain.cards = villainHoleCards(hand);
-      hand.villain.rangeStr = bb3betRange(hand.hero.pos, hand);
+      hand.villain.rangeStr = threeBetRangeStr(threeBettor, hand.hero.pos, hand) || bb3betRange(hand.hero.pos, hand);
       syncVillainMeta(hand);
       initVillainTracker(hand);
       hand.villainInvested = threeBetSize;
@@ -1132,6 +1137,8 @@
       foldSeatsAfterRaiseUntil(hand, threeBettor, hand.hero.pos, [hand.hero.pos, threeBettor]);
       return { type: 'face3bet', size: threeBetSize };
     }
+
+    if (forceTb) delete hand._forceThreeBettor;
 
     if (!callers.length) return { type: 'allFold' };
 
@@ -1448,11 +1455,14 @@
     if (node.street === 'preflop') {
       if (node.kind === 'face3bet') spotKind = 'face3bet';
       else if (node.kind === 'face4bet') spotKind = 'face4bet';
+      else if (node.kind === 'RFI') spotKind = 'RFI';
+      else if (node.kind === 'vsRFI') spotKind = 'vsRFI';
       else if (s.type === 'RFI') spotKind = 'RFI';
       else if (s.type === 'vsRFI') spotKind = 'vsRFI';
       else if (s.type === 'squeeze') spotKind = 'squeeze';
       else if (s.type === 'isoLimp') spotKind = 'isoLimp';
       else if (s.type === 'face3bet') spotKind = 'face3bet';
+      else if (s.type === 'face4bet') spotKind = 'face4bet';
       else if (s.type === 'bbVsSbLimp') spotKind = 'bbVsSbLimp';
       else if (s.type === 'sbLimp') spotKind = 'sbLimp';
       else if (s.type === 'cold4bet') spotKind = 'cold4bet';
@@ -2229,13 +2239,21 @@
 
     // Los setups siembran la línea a mano (`seedLineAction`) porque escriben las
     // acciones previas en el orden que les conviene, no en el orden de turno.
+    // Escuela / forceDeal / forceScript: saltan a la decisión vs 3bet/4bet.
+    // Entrenador libre: héroe actúa el open/3-bet; el reparto fuerza el spot.
+    const skipHeroPreAction = !!(playConfig && playConfig.schoolMode)
+      || !!(force && (force.forceDeal || force.forceScript));
     hand._lineSuspended = true;
     if (scenario.type === 'RFI') setupRFI(hand);
     else if (scenario.type === 'squeeze') setupSqueeze(hand);
     else if (scenario.type === 'isoLimp') setupIsoLimp(hand);
-    else if (scenario.type === 'face4bet') setupFace4betInitial(hand);
-    else if (scenario.type === 'face3bet') setupFace3betInitial(hand);
-    else if (scenario.type === 'bbVsSbLimp') setupBbVsSbLimp(hand);
+    else if (scenario.type === 'face4bet') {
+      if (skipHeroPreAction) setupFace4betInitial(hand);
+      else setupFace4betInteractive(hand);
+    } else if (scenario.type === 'face3bet') {
+      if (skipHeroPreAction) setupFace3betInitial(hand);
+      else setupFace3betInteractive(hand);
+    } else if (scenario.type === 'bbVsSbLimp') setupBbVsSbLimp(hand);
     else if (scenario.type === 'sbLimp') setupSbLimp(hand);
     else if (scenario.type === 'cold4bet') setupCold4betInitial(hand);
     else if (scenario.type === 'srp3way' || scenario.type === 'srp4way') setupSrpMultiway(hand);
@@ -3205,9 +3223,11 @@
 
     if (node.kind === 'RFI') {
       if (actionId === 'fold') {
+        delete hand._forceThreeBettor;
         return finish(hand, { reason: 'Te retiras antes del flop.', heroNet: -(hand.heroInvested || 0) });
       }
       if (actionId === 'limp') {
+        delete hand._forceThreeBettor;
         const limpTo = BBET;
         const heroAdd = seatToCall(hand, hand.hero.pos, limpTo);
         if (heroAdd > 0) addInvest(hand, hand.hero.pos, heroAdd);
@@ -3276,6 +3296,7 @@
         opener = hand.scenario.openerPos || opener;
       }
       if (actionId === 'fold') {
+        delete hand._forceOpenerFourBet;
         return finish(hand, { reason: 'Te retiras ante la subida.', heroNet: -(hand.heroInvested || 0) });
       }
       hand.villain.cards = villainHoleCards(hand);
@@ -3300,6 +3321,7 @@
         return allInShowdown(hand);
       }
       if (actionId === 'call') {
+        delete hand._forceOpenerFourBet;
         setHeroAct(hand, 'call', node.toCallBB);
         hand.heroIsAggressor = false; // el villano (abridor) es el agresor
         hand.heroInvested = node.openSize;
@@ -3394,7 +3416,9 @@
         }
       }
       resolvePendingAfterHero(hand);
-      let cont = openerVs3Bet(hand, opener, threeBetSize);
+      const force4 = !!hand._forceOpenerFourBet;
+      if (force4) delete hand._forceOpenerFourBet;
+      let cont = force4 ? '4bet' : openerVs3Bet(hand, opener, threeBetSize);
       if (cont === 'fold') {
         setVillainAct(hand, 'fold');
         return finish(hand, { reason: `${opener} foldea ante tu 3-bet.`, heroNet: round2(hand.potBB) });
@@ -3403,7 +3427,7 @@
         forceValidOpenerFourBetHand(hand, opener);
         const openerCode = seatHoleCode(hand, opener);
         if (!openerCode || !VPF || !VPF.isInFourBetRange(openerCode, rangeCtx(hand))) {
-          cont = 'call';
+          if (!force4) cont = 'call';
         }
       }
       if (cont === '4bet') {
@@ -3585,6 +3609,26 @@
     setupFace3Bet(hand, threeBetSize);
   }
 
+  /**
+   * Entrenador vs 3-bet: héroe decide el open; el 3-bettor del key está forzado
+   * (cartas GTO/mix ya repartidas). Escuela/forceDeal siguen en setupFace3betInitial.
+   */
+  function setupFace3betInteractive(hand) {
+    const pk = parseFace3betKey(hand.scenario.key);
+    const opener = pk.opener;
+    const tb = pk.threeBettor;
+    hand.hero.pos = opener;
+    hand.villain.pos = tb;
+    ensureOpenerOpenHand(hand, opener);
+    ensureThreeBetHand(hand, tb, opener);
+    hand.villain.rangeStr = hand._predeal.villainRange
+      || threeBetRangeStr(tb, opener, hand)
+      || bb3betRange(opener, hand);
+    initVillainTracker(hand);
+    hand._forceThreeBettor = tb;
+    setupRFI(hand);
+  }
+
   function setupBbVsSbLimp(hand) {
     hand.hero.pos = 'BB';
     hand.villain.pos = 'SB';
@@ -3707,6 +3751,21 @@
     markPreflopFoldsForFacingAction(hand, opener);
     foldSeatsAfterRaiseUntil(hand, hero, opener, [hero, opener]);
     setupFace4Bet(hand, fourBetSize);
+  }
+
+  /**
+   * Entrenador 4-bet: héroe decide el 3-bet vs open; el abridor está forzado a 4-bet.
+   * Escuela/forceDeal siguen en setupFace4betInitial.
+   */
+  function setupFace4betInteractive(hand) {
+    const { hero, opener } = parseVsKey(hand.scenario.key);
+    hand.hero.pos = hero;
+    hand.villain.pos = opener;
+    ensureOpenerOpenHand(hand, opener);
+    hand.villain.rangeStr = openRangeStr(opener, hand);
+    initVillainTracker(hand);
+    hand._forceOpenerFourBet = true;
+    setupVsRFI(hand);
   }
 
   function setupFace3Bet(hand, tbSize) {
@@ -4583,7 +4642,18 @@
 
   function autoAdvancePreflop(hand) {
     while (hand.stage === 'preflop' && !hand.result && hand.current) {
-      const action = bestContinuePreflopAction(hand.current);
+      let action = bestContinuePreflopAction(hand.current);
+      // Spots dedicados: forzar la línea que lleva al 3-bet / 4-bet.
+      if (hand._forceThreeBettor && hand.current.kind === 'RFI') {
+        const opts = hand.current.options || [];
+        if (opts.some(function (o) { return o.id === 'raise'; })) action = 'raise';
+        else if (opts.some(function (o) { return o.id === 'allin'; })) action = 'allin';
+      }
+      if (hand._forceOpenerFourBet && hand.current.kind === 'vsRFI') {
+        const opts = hand.current.options || [];
+        if (opts.some(function (o) { return o.id === 'raise'; })) action = 'raise';
+        else if (opts.some(function (o) { return o.id === 'allin'; })) action = 'allin';
+      }
       if (!action) return false;
       advance(hand, action, passiveDecision(hand.current, action));
     }
@@ -4784,6 +4854,10 @@
     }
 
     if (s.type === 'face3bet') {
+      // Interactivo: héroe aún no ha abierto → solo folds hasta el héroe (como RFI).
+      if (hand.current && hand.current.kind === 'RFI') {
+        return foldsUntil(order, hero);
+      }
       const pk = parseFace3betKey(s.key);
       const opener = scriptSeat(hand, pk.opener || hero);
       const tb = scriptSeat(hand, (hand.villain && hand.villain.pos) || pk.threeBettor);
@@ -4799,6 +4873,16 @@
     }
 
     if (s.type === 'face4bet') {
+      // Interactivo: héroe decide el 3-bet → open del villano + folds (como vsRFI).
+      if (hand.current && hand.current.kind === 'vsRFI') {
+        const pk = parseVsKey(s.key);
+        const opener = scriptSeat(hand, (hand.villain && hand.villain.pos) || pk.opener);
+        const amt = seatActAmount(hand, opener, openSize(opener));
+        events.push.apply(events, foldsUntil(order, opener));
+        events.push(scriptEvent(opener, 'open', amt));
+        events.push.apply(events, foldsBetween(order, opener, hero));
+        return events;
+      }
       const pk = parseVsKey(s.key);
       const opener = scriptSeat(hand, (hand.villain && hand.villain.pos) || pk.opener);
       const oAmt = openSize(opener);
