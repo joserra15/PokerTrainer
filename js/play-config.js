@@ -691,7 +691,7 @@
       if (!data) return {};
       return filterWeights(W.fromSets({ raise: data.raise, mix: data.mix }), mode);
     }
-    if (scenario.type === 'vsRFI' || scenario.type === 'face4bet') {
+    if (scenario.type === 'vsRFI') {
       const data = vsRfiTable(config)[scenario.key];
       if (!data) return {};
       return filterWeights(W.fromSets({
@@ -701,16 +701,22 @@
         callMix: data.callMix
       }), mode);
     }
-    if (scenario.type === 'face3bet') {
-      const pk = parseFace3betKey(scenario.key);
-      const reg = RR();
-      const data = reg ? reg.getVs3betRow(pk.opener, pk.threeBettor, config) : D.VS_3BET;
+    // face4bet: héroe debe 3-betear primero → repartir rango de 3-bet (GTO + mix).
+    if (scenario.type === 'face4bet') {
+      const data = vsRfiTable(config)[scenario.key];
       if (!data) return {};
       return filterWeights(W.fromSets({
-        fourBet: data.fourBet,
-        call: data.call,
-        callMix: data.callMix
+        threeBet: data.threeBet,
+        threeBetMix: data.threeBetMix
       }), mode);
+    }
+    // face3bet: héroe abre primero → repartir rango de open-raise (no continue vs 3-bet).
+    if (scenario.type === 'face3bet') {
+      const pk = parseFace3betKey(scenario.key);
+      const opener = pk.opener || engHero;
+      const data = openRaiseTable(config)[opener] || openRaiseTable(config)[enginePos(opener)];
+      if (!data) return {};
+      return filterWeights(W.fromSets({ raise: data.raise, mix: data.mix }), mode);
     }
     if (scenario.type === 'isoLimp') {
       const reg = RR();
@@ -912,13 +918,19 @@
       const pk = parseFace3betKey(scenario.key);
       const tbSeat = pk.threeBettor;
       const reg = RR();
-      const vsKey = 'BB_vs_' + pk.opener;
+      const vsKey = tbSeat + '_vs_' + pk.opener;
       const d = vsRfiTable(config)[vsKey] || (reg ? reg.getVsRfiRow(pk.threeBettor, pk.opener, config) : null);
       if (d) {
-        deals.push({ pos: tbSeat, weights: W.fromSets({ threeBet: d.threeBet, threeBetMix: d.threeBetMix }), role: 'threeBettor' });
+        // 3-bet GTO value + mix (borderline); el modo de rango del héroe no estrecha al villano.
+        deals.push({
+          pos: tbSeat,
+          weights: W.fromSets({ threeBet: d.threeBet, threeBetMix: d.threeBetMix }),
+          role: 'threeBettor'
+        });
       }
     } else if (scenario.type === 'face4bet') {
       const opener = openerDealSeat(scenario, config);
+      // Cartas con las que el abridor puede abrir y luego 4-betear GTO.
       deals.push({ pos: opener, weights: sampleFace4betVillainWeights(config), role: 'fourBettor' });
     } else if (scenario.type === 'squeeze') {
       deals.push({ pos: scenario.openerPos, weights: sampleVillainWeights(scenario, config), role: 'opener' });
