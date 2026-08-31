@@ -34949,6 +34949,7 @@ window.PT_NASH_PUSH_JSON = {
     const header = document.querySelector('.header-bar');
     const main = document.querySelector('main');
     const actions = document.querySelector('#play-active .play-stage .actions');
+    const actionLine = document.querySelector('#play-active .play-stage #action-line');
     const hud = document.querySelector('#play-active .play-hud');
     const headerH = header ? Math.round(header.getBoundingClientRect().height) : 56;
     let padTop = 10;
@@ -34964,6 +34965,11 @@ window.PT_NASH_PUSH_JSON = {
     let actionsH = 108;
     if (actions && actions.offsetHeight > 0) {
       actionsH = Math.round(actions.offsetHeight + 10);
+    }
+    // La línea de acción previa vive entre mesa y botones: reservar su altura
+    // para que el grid compacto de 2 filas no quede fuera del viewport.
+    if (actionLine && !actionLine.classList.contains('hidden') && actionLine.offsetHeight > 0) {
+      actionsH += Math.round(actionLine.offsetHeight + 8);
     }
     root.style.setProperty('--play-actions-h', Math.max(72, actionsH) + 'px');
     let hudH = 48;
