@@ -35065,7 +35065,7 @@ window.PT_NASH_PUSH_JSON = {
   function bindTabs() {
     $$('.tab').forEach((t) => t.addEventListener('click', () => {
       const tabId = t.dataset.tab;
-      if (tabId === 'play') goToTab('play', { table: $('#play-active') && !$('#play-active').classList.contains('hidden') });
+      if (tabId === 'play') resetPlaySession();
       else goToTab(tabId);
     }));
   }
