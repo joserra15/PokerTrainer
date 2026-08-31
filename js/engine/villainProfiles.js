@@ -47,9 +47,19 @@
     {
       id: 'pro',
       label: 'Pro',
-      shortLabel: 'Pro GTO',
+      shortLabel: 'Pro (GTO+)',
       preflop: { foldBias: 0.02, threeBetBias: 0.05, fourBetBias: 0.03, callBias: -0.02 },
-      postflop: { betFreqMult: 1.12, bluffFreqMult: 0.85, raiseFreqMult: 1.15, callMult: 0.98, foldMult: 1.08, betSizeMult: 1.02 }
+      postflop: {
+        betFreqMult: 1.14,
+        bluffFreqMult: 0.92,
+        raiseFreqMult: 1.28,
+        callMult: 0.98,
+        foldMult: 1.06,
+        betSizeMult: 1.06,
+        overbetWeight: 1.2,
+        xrFlopMult: 1.35,
+        riverPolarMult: 1.25
+      }
     }
   ];
 
@@ -142,10 +152,11 @@
       return Object.assign({}, proBase, {
         id: 'pro',
         label: 'Pro',
-        shortLabel: 'Pro GTO',
+        shortLabel: 'Pro (GTO+)',
         difficultyLevel: 'pro',
         preflopStrict: 1,
-        leakRate: 0
+        leakRate: 0,
+        proStyle: 'exploit_pool'
       });
     }
     const base = getProfile(profile);
@@ -377,16 +388,51 @@
 
   function betSizeBB(potBB, profile, rnd, opts) {
     opts = opts || {};
+    const pot = Math.max(potBB || 1, 0.1);
+
+    // Override desde strategy size key / fracción muestreada
+    if (opts.frac != null && opts.frac > 0) {
+      return Math.round(pot * opts.frac * 100) / 100;
+    }
+    if (opts.sizeKey) {
+      const VS = global.GTOVillainSizing;
+      if (VS && VS.amountFromKey) {
+        return VS.amountFromKey(pot, opts.sizeKey, null, profile, rnd, opts);
+      }
+      const map = { bet_33: 0.33, bet_66: 0.66, bet_100: 1, bet_125: 1.25, overbet: 1.5, bet: 0.5 };
+      if (map[opts.sizeKey] != null) return Math.round(pot * map[opts.sizeKey] * 100) / 100;
+    }
+
     const mult = (profile.postflop && profile.postflop.betSizeMult) || 1;
     const r = rnd != null ? rnd : Math.random();
     let frac = 0.5 * mult;
     if (mult >= 1.2 && r < 0.28) frac = clamp(0.72 * mult, 0.55, 1.05);
     else if (mult <= 0.85) frac = clamp(0.38 * mult, 0.28, 0.55);
     else if (r < 0.22) frac = clamp(0.66 * mult, 0.45, 0.9);
-    if (opts.street === 'river' && (opts.strength || 0) < 0.55) {
+
+    // Pros: ocasionalmente sizing polar / overbet en river
+    const isPro = profile.preflopStrict >= 0.99 || profile.id === 'pro';
+    if (isPro && opts.street === 'river') {
+      const LP = global.GTOVillainLinePolicy;
+      const strength = opts.strength || 0;
+      if (LP && LP.overbetEligible && LP.overbetEligible({
+        street: 'river',
+        strength: strength,
+        band: strength > 0.78 ? 'value' : (strength < 0.3 ? 'air' : 'merge'),
+        spr: opts.spr,
+        stackBB: opts.stackBB,
+        formatHub: opts.formatHub,
+        gameType: opts.gameType,
+        polarization: strength > 0.75 || strength < 0.3 ? 0.6 : 0.35
+      }) && r < 0.18 * ((profile.postflop && profile.postflop.overbetWeight) || 1)) {
+        frac = clamp(1.35 + r * 0.35, 1.25, 1.7);
+      }
+    }
+
+    if (opts.street === 'river' && (opts.strength || 0) < 0.55 && frac <= 1.05) {
       frac = clamp(frac * 0.55, 0.25, 0.5);
     }
-    return Math.round(potBB * frac * 100) / 100;
+    return Math.round(pot * frac * 100) / 100;
   }
 
   function adjustFoldProb(base, profile) {

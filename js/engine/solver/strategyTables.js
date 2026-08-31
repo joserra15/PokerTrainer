@@ -360,11 +360,13 @@
     f.bet = Math.min(Math.max(f.bet, 0), 0.85);
     const split = betSizeSplit(street, tier);
     const betTotal = f.bet;
+    const sOver = split.sOver || 0;
     return normalize({
       check: 1 - betTotal,
-      bet_33: betTotal * split.s33,
-      bet_66: betTotal * split.s66,
-      bet_100: betTotal * split.s100
+      bet_33: betTotal * (split.s33 || 0),
+      bet_66: betTotal * (split.s66 || 0),
+      bet_100: betTotal * Math.max(0, (split.s100 || 0) - sOver * 0.5),
+      overbet: betTotal * sOver
     });
   }
 
@@ -455,10 +457,12 @@
     const s33 = Math.round(pot * 0.33 * 100) / 100;
     const s66 = Math.round(pot * (wet ? 0.66 : 0.55) * 100) / 100;
     const s100 = Math.round(pot * 100) / 100;
+    const sOver = Math.round(pot * 1.5 * 100) / 100;
     return [
       { id: 'bet_33', label: `Bet ${s33}bb (33%)`, size: s33 },
       { id: 'bet_66', label: `Bet ${s66}bb (${wet ? '66' : '55'}%)`, size: s66 },
-      { id: 'bet_100', label: `Bet ${s100}bb (pot)`, size: s100 }
+      { id: 'bet_100', label: `Bet ${s100}bb (pot)`, size: s100 },
+      { id: 'overbet', label: `Overbet ${sOver}bb (150%)`, size: sOver }
     ];
   }
 
