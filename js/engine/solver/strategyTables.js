@@ -459,10 +459,10 @@
     const s100 = Math.round(pot * 100) / 100;
     const sOver = Math.round(pot * 1.5 * 100) / 100;
     return [
-      { id: 'bet_33', label: `Bet ${s33}bb (33%)`, size: s33 },
-      { id: 'bet_66', label: `Bet ${s66}bb (${wet ? '66' : '55'}%)`, size: s66 },
-      { id: 'bet_100', label: `Bet ${s100}bb (pot)`, size: s100 },
-      { id: 'overbet', label: `Overbet ${sOver}bb (150%)`, size: sOver }
+      { id: 'bet_33', label: `${s33}bb (33%)`, size: s33 },
+      { id: 'bet_66', label: `${s66}bb (${wet ? '66' : '55'}%)`, size: s66 },
+      { id: 'bet_100', label: `${s100}bb (pot)`, size: s100 },
+      { id: 'overbet', label: `${sOver}bb (150%)`, size: sOver }
     ];
   }
 

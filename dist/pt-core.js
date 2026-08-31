@@ -9950,10 +9950,10 @@ window.PT_NASH_PUSH_JSON = {
     const s100 = Math.round(pot * 100) / 100;
     const sOver = Math.round(pot * 1.5 * 100) / 100;
     return [
-      { id: 'bet_33', label: `Bet ${s33}bb (33%)`, size: s33 },
-      { id: 'bet_66', label: `Bet ${s66}bb (${wet ? '66' : '55'}%)`, size: s66 },
-      { id: 'bet_100', label: `Bet ${s100}bb (pot)`, size: s100 },
-      { id: 'overbet', label: `Overbet ${sOver}bb (150%)`, size: sOver }
+      { id: 'bet_33', label: `${s33}bb (33%)`, size: s33 },
+      { id: 'bet_66', label: `${s66}bb (${wet ? '66' : '55'}%)`, size: s66 },
+      { id: 'bet_100', label: `${s100}bb (pot)`, size: s100 },
+      { id: 'overbet', label: `${sOver}bb (150%)`, size: sOver }
     ];
   }
 
@@ -35964,18 +35964,35 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   // ---------- Acciones ----------
+  function formatActionButtonLabel(o) {
+    const label = String((o && o.label) || '');
+    const id = (o && o.id) || '';
+    const isBetSize = id === 'bet' || id === 'overbet' || id.indexOf('bet_') === 0;
+    if (!isBetSize) return label;
+    const m = label.match(/^([\d.,]+\s*bb)(\s*\([^)]*\))?$/i);
+    if (!m) return label;
+    return '<span class="action-size">' + m[1] + '</span>'
+      + (m[2] ? '<span class="action-size-pct">' + m[2] + '</span>' : '');
+  }
+
   function renderActions() {
     const node = hand.current;
     const box = $('#actions');
     if (!node) { box.innerHTML = ''; box.className = 'actions'; return; }
     const n = node.options.length;
-    box.className = 'actions' + (n >= 2 && n <= 4 ? ' actions-grid' : '');
+    // Máx. 2 filas: columnas = ceil(n/2). Con 5 opciones → 3+2.
+    let gridClass = '';
+    if (n >= 2) {
+      const cols = Math.min(3, Math.ceil(n / 2));
+      gridClass = ' actions-grid actions-grid-' + cols;
+    }
+    box.className = 'actions' + gridClass;
     const hintFn = window.PTHotkeys && PTHotkeys.hintForAction ? PTHotkeys.hintForAction : null;
     let aggIdx = 0;
     box.innerHTML = node.options.map((o) => {
       let hint = '';
       if (hintFn) {
-        if (o.id === 'raise' || o.id === 'bet' || (o.id && o.id.indexOf('bet_') === 0)) {
+        if (o.id === 'raise' || o.id === 'bet' || o.id === 'overbet' || (o.id && o.id.indexOf('bet_') === 0)) {
           aggIdx += 1;
           hint = aggIdx <= 3 ? String(aggIdx) : (aggIdx === 1 ? 'R' : '');
           if (aggIdx === 1) hint = 'R/' + aggIdx;
@@ -35986,7 +36003,7 @@ window.PT_NASH_PUSH_JSON = {
       const hintHtml = hint
         ? ' <kbd class="action-hotkey" title="Atajo">' + hint + '</kbd>'
         : '';
-      return `<button class="btn btn-${btnClassForAction(o.id)}" data-action="${o.id}">${o.label}${hintHtml}</button>`;
+      return `<button class="btn btn-${btnClassForAction(o.id)}" data-action="${o.id}">${formatActionButtonLabel(o)}${hintHtml}</button>`;
     }).join('');
     $$('#actions button').forEach((b) =>
       b.addEventListener('click', () => onAction(b.dataset.action)));
@@ -42189,7 +42206,7 @@ window.PT_NASH_PUSH_JSON = {
       const mult = a === 'bet_33' ? 0.33 : (a === 'bet_66' ? 0.66 : 1);
       const pct = a === 'bet_33' ? '33%' : (a === 'bet_66' ? '66%' : 'pot');
       const size = round2(Math.max(1, (potBB || 1) * mult));
-      return `Bet ${fmtBB(size)}bb (${pct})`;
+      return `${fmtBB(size)}bb (${pct})`;
     }
     return actionName(a);
   }

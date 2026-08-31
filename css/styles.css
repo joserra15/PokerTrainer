@@ -3086,6 +3086,10 @@ body.age-gate-open {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
   max-width: 420px; margin-left: auto; margin-right: auto;
 }
+.actions.actions-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.actions.actions-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.actions .action-size { white-space: nowrap; }
+.actions .action-size-pct { font-weight: 600; opacity: 0.92; }
 .btn {
   border: none; border-radius: 9px; padding: 12px 20px; font-size: 15px; font-weight: 700;
   cursor: pointer; transition: .15s; color: #fff; background: var(--panel-2);
@@ -3917,13 +3921,17 @@ body.paywall-open { overflow: hidden; }
 
   .actions { margin-top: 10px; gap: 6px; }
   .actions.actions-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    display: grid; gap: 6px;
     max-width: none; width: 100%;
   }
+  .actions.actions-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .actions.actions-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .actions .btn {
-    width: 100%; padding: 10px 8px; font-size: 13px;
-    min-height: 42px; border-radius: 10px;
+    width: 100%; padding: 8px 6px; font-size: 13px;
+    min-height: 38px; border-radius: 10px;
   }
+  /* Con 3 columnas (p. ej. Check + 4 sizings) solo caben las bb */
+  .actions.actions-grid-3 .action-size-pct { display: none; }
   .actions:not(.actions-grid) .btn { padding: 12px; font-size: 14px; }
 
   .sidebar { flex-direction: column; }
@@ -6993,7 +7001,9 @@ body.card-picker-open {
   .hero-handname { font-size: 9px; margin-top: 1px; }
   .spot-context { font-size: 9px; margin-top: 2px; max-width: 72%; }
   .actions { margin-top: 6px; gap: 5px; }
-  .actions .btn { min-height: 34px; padding: 6px; font-size: 12px; }
+  .actions .btn { min-height: 32px; padding: 5px 4px; font-size: 12px; }
+  .actions.actions-grid-2 .action-size-pct,
+  .actions.actions-grid-3 .action-size-pct { display: none; }
 }
 
 @media (max-height: 520px) and (orientation: landscape) {
