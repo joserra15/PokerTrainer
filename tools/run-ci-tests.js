@@ -115,6 +115,7 @@ const STEPS = [
   ['Test showdown empate (net/popup)', ['node', 'tools/test-showdown-tie.js']],
   ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']],
   ['Test vs3bet/4bet interactivos (sin autoHero)', ['node', 'tools/test-face3bet-interactive.js']],
+  ['Test squeeze MTT villano activo (sin fold fantasma)', ['node', 'tools/test-trainer-villain-fold-seat.js']],
   ['Test línea de acción previa (entrenador)', ['node', 'tools/test-trainer-action-line.js']],
   ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
   ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],
