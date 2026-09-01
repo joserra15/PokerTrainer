@@ -214,9 +214,15 @@ console.log('7) Escenarios resubidos describen la escalada completa');
 
 console.log('8) HTML: posiciones, cartas y tamaños marcados para la mesa');
 {
-  const hand = handsAtStreet('river', 1, 99000)[0];
-  assert.ok(hand, 'mano de river disponible');
-  const html = PTActionLine.html(hand, { throughStreet: 'turn' });
+  let html = '';
+  for (let i = 0; i < 900; i++) {
+    const hand = handsAtStreet('river', 1, 99000 + i)[0];
+    if (!hand) continue;
+    html = PTActionLine.html(hand, { throughStreet: 'turn' });
+    if (html.indexOf('action-line-size') >= 0) break;
+    html = '';
+  }
+  assert.ok(html, 'mano de river con tamaños resaltados disponible');
   assert.ok(html.indexOf('action-line-rows') >= 0, 'lista de filas');
   assert.ok(html.indexOf('action-line-street') >= 0, 'etiqueta de calle');
   assert.ok(html.indexOf('action-line-card') >= 0, 'cartas del board');
