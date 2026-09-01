@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { bootstrapPublicLanding, gotoLanding } = require('./helpers');
 
 /**
  * Regresión login desktop/portátil @smoke:
@@ -12,6 +13,7 @@ test.describe('Login landing desktop @smoke', () => {
   });
 
   test('Continuar y Entrar disparan OAuth con getSession colgado', async ({ page }) => {
+    await bootstrapPublicLanding(page);
     await page.addInitScript(() => {
       window.__ptOAuthCalls = 0;
 
@@ -47,8 +49,7 @@ test.describe('Login landing desktop @smoke', () => {
       });
     });
 
-    await page.goto('/');
-    await page.waitForSelector('.landing-login-btn', { timeout: 15000 });
+    await gotoLanding(page);
     await page.locator('.landing-login-btn').click();
     await page.waitForSelector('#landing-login:not(.hidden) #auth-mobile-login', { timeout: 15000 });
     await expect(page.locator('#auth-mobile-login')).toBeVisible();

@@ -13,6 +13,7 @@ async function mockAuthenticatedUser(page, opts) {
   const plan = options.plan || 'pro';
   await page.addInitScript(({ isAdmin, plan }) => {
     window.PT_E2E_MODE = true;
+    try { sessionStorage.setItem('pt_css_purge', '1'); } catch (e) { /* noop */ }
     localStorage.setItem('pt_auth_v1', JSON.stringify({
       sub: 'e2e-test-user',
       email: 'e2e@test.pokerforgeai.local',
@@ -33,6 +34,31 @@ async function mockAuthenticatedUser(page, opts) {
       }
     }));
   }, { isAdmin, plan });
+}
+
+/** Evita bucles de recarga mientras version.js aún no fijó PT_ASSET_REV. */
+function seedStableAssetRev(page) {
+  return page.addInitScript(() => {
+    try { sessionStorage.setItem('pt_css_purge', '1'); } catch (e) { /* noop */ }
+  });
+}
+
+/** Landing estable en E2E: consentimiento, sin recarga por build-guard ni bucle CSS. */
+async function bootstrapPublicLanding(page) {
+  await seedStableAssetRev(page);
+  await page.addInitScript(() => {
+    window.PT_E2E_MODE = true;
+    localStorage.setItem('pt_cookie_consent_v1', JSON.stringify({
+      necessary: true,
+      analytics: false,
+      ts: Date.now()
+    }));
+  });
+}
+
+async function gotoLanding(page) {
+  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.waitForSelector('[data-landing-try]', { timeout: 20000 });
 }
 
 /** Perfil fresco: sin consent ni age-gate (RG-G06). */
@@ -102,7 +128,7 @@ async function seedStudyData(page) {
 }
 
 async function waitForAppShell(page) {
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForSelector('#app-shell:not(.hidden)', { timeout: 30000 });
 }
 
@@ -179,6 +205,9 @@ module.exports = {
   mockAuthenticatedUser,
   mockFreshAuthenticatedUser,
   seedStudyData,
+  seedStableAssetRev,
+  bootstrapPublicLanding,
+  gotoLanding,
   waitForAppShell,
   goTab,
   openPlaySetupAdvanced,

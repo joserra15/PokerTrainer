@@ -15,7 +15,7 @@ test.describe('i18n ES/EN @smoke', () => {
         if (window.PTI18n && window.PTI18n.setLang) window.PTI18n.setLang('en');
         else localStorage.setItem('pt_lang_v1', 'en');
       });
-      await page.reload();
+      await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForSelector('#app-shell:not(.hidden)', { timeout: 30000 });
     }
 

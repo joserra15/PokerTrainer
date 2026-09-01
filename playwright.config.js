@@ -12,6 +12,7 @@ module.exports = defineConfig({
   // Convención anti-flaky (RG-H04): retries solo en CI; evitar waitForTimeout nuevos.
   use: {
     baseURL: 'http://127.0.0.1:4173',
+    navigationTimeout: 45000,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure'
   },

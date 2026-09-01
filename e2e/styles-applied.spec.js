@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { bootstrapPublicLanding, gotoLanding, seedStableAssetRev } = require('./helpers');
 
 /**
  * Regresión de la landing "en crudo": tras un deploy, el service worker podía
@@ -23,8 +24,20 @@ test.describe('Estilos de la landing @smoke', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test('el CSS se aplica y va versionado con la huella de assets', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('[data-landing-try]', { timeout: 20000 });
+    await seedStableAssetRev(page);
+    await page.addInitScript(() => {
+      localStorage.setItem('pt_cookie_consent_v1', JSON.stringify({
+        necessary: true,
+        analytics: false,
+        ts: Date.now()
+      }));
+    });
+    await gotoLanding(page);
+
+    await page.waitForFunction(() => {
+      const rev = window.PT_ASSET_REV || (window.PT_REV && window.PT_REV());
+      return rev && /^\d+\.\d+\.\d+-[0-9a-f]{10}$/.test(String(rev));
+    }, { timeout: 20000 });
 
     const main = await sheetApplied(page, 'css/styles.css');
     expect(main.found).toBe(true);
@@ -53,6 +66,15 @@ test.describe('Estilos de la landing @smoke', () => {
 
   test('si la hoja no carga, la página se recupera sola', async ({ page }) => {
     let attempts = 0;
+    await page.addInitScript(() => {
+      window.PT_E2E_MODE = true;
+      try { sessionStorage.setItem('pt_css_purge', '1'); } catch (e) { /* noop */ }
+      localStorage.setItem('pt_cookie_consent_v1', JSON.stringify({
+        necessary: true,
+        analytics: false,
+        ts: Date.now()
+      }));
+    });
     // Primer intento roto (lo que hacía el SW durante un deploy); el resto pasa.
     await page.route('**/css/styles.css*', async (route) => {
       attempts += 1;
@@ -63,7 +85,7 @@ test.describe('Estilos de la landing @smoke', () => {
       await route.continue();
     });
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForSelector('[data-landing-try]', { timeout: 20000 });
 
     await expect.poll(async () => (await sheetApplied(page, 'css/styles.css')).rules, {

@@ -18,6 +18,10 @@
     }
   }
 
+  function isStableBuild(id) {
+    return /^\d+\.\d+\.\d+-[0-9a-f]{10}$/.test(String(id || ''));
+  }
+
   function clearCachesAndReload(targetBuild) {
     // Nunca recargar a mitad del retorno de Google OAuth (perdería ?code=).
     if (hasOAuthCallback()) return;
@@ -60,12 +64,14 @@
         var m = body.match(/PT_ASSET_REV\s*=\s*['"]([^'"]+)['"]/) ||
           body.match(/PT_BUILD\s*=\s*['"]([^'"]+)['"]/);
         if (!m || !m[1]) return;
-        if (String(m[1]) !== String(currentBuild)) clearCachesAndReload(m[1]);
+        if (String(m[1]) !== String(currentBuild) && isStableBuild(m[1]) && isStableBuild(currentBuild)) {
+          clearCachesAndReload(m[1]);
+        }
       })
       .catch(function () { /* noop */ });
   }
 
-  if (seen && seen !== build) {
+  if (seen && seen !== build && isStableBuild(build) && isStableBuild(seen)) {
     clearCachesAndReload(build);
     // Si hay callback OAuth no recargamos; seguimos para no bloquear el login.
     if (hasOAuthCallback()) {
