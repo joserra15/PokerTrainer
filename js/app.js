@@ -3185,10 +3185,15 @@
 
   function villainSeatOnTable() {
     if (!hand || !hand.villain || !hand.villain.pos) return null;
+    const tbl = hand.table || {};
+    const folded = tbl.folded || {};
+    const activePos = hand.villain.pos;
     if (window.PTPlayConfig && hand.playConfig && PTPlayConfig.is9Max(hand.playConfig)) {
-      return PTPlayConfig.villainTableSeat(hand) || hand.villain.pos;
+      const mapped = PTPlayConfig.villainTableSeat(hand) || activePos;
+      if (mapped && folded[mapped] && !folded[activePos]) return activePos;
+      return mapped;
     }
-    return hand.villain.pos;
+    return activePos;
   }
 
   function renderSeatStack(hand, pos) {

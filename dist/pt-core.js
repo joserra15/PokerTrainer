@@ -15001,7 +15001,8 @@ window.PT_NASH_PUSH_JSON = {
     if (!hand.playConfig || !is9Max(hand.playConfig)) return hand.villain.pos;
     const s = hand.scenario || {};
     const heroSeat = hand.displayHeroPos || s.heroPos || hand.hero.pos;
-    if (s.type === 'squeeze' && s.openerPos) return s.openerPos;
+    // Squeeze: hand.villain.pos sigue al oponente activo (abridor o pagador si el abridor foldea).
+    if (s.type === 'squeeze') return hand.villain.pos;
     if (s.type === 'RFI') return 'BB';
     return openerDealSeat(s, hand.playConfig) || displaySeatForEngine(hand.villain.pos, [heroSeat, s.callerPos]);
   }
@@ -17196,8 +17197,10 @@ window.PT_NASH_PUSH_JSON = {
     }
     const heroSeat = heroTableSeat(hand);
     const vSeat = villainTableSeat(hand);
+    const villainPos = hand.villain && hand.villain.pos;
     const alive = new Set([heroSeat]);
     if (vSeat && !hand.table.folded[vSeat]) alive.add(vSeat);
+    if (villainPos && villainPos !== vSeat && !hand.table.folded[villainPos]) alive.add(villainPos);
     tablePositionsForHand(hand).forEach(function (pos) {
       if (!alive.has(pos)) markFolded(hand, pos);
     });
@@ -20410,7 +20413,11 @@ window.PT_NASH_PUSH_JSON = {
 
   // ----- Transición a flop / showdown (usa el board pre-repartido) -----
   function goFlop(hand) {
-    const vSeat = villainTableSeat(hand) || hand.villain.pos;
+    let vSeat = villainTableSeat(hand) || hand.villain.pos;
+    if (hand.villain && hand.villain.pos && hand.table && hand.table.folded
+      && hand.table.folded[vSeat] && !hand.table.folded[hand.villain.pos]) {
+      vSeat = hand.villain.pos;
+    }
     const keepMulti = !!(hand.multiway && MW() && MW().allowMultiway(hand));
     if (hand._callersAtFlop && hand._callersAtFlop.length) {
       if (keepMulti) {
@@ -33788,6 +33795,8 @@ window.PT_NASH_PUSH_JSON = {
     const el = $('#setup-hide-action-line');
     if (el) el.checked = true;
     renderActionLine();
+    syncPlayMobileStage();
+    requestAnimationFrame(syncPlayMobileStage);
   }
 
   /**
@@ -35846,10 +35855,15 @@ window.PT_NASH_PUSH_JSON = {
 
   function villainSeatOnTable() {
     if (!hand || !hand.villain || !hand.villain.pos) return null;
+    const tbl = hand.table || {};
+    const folded = tbl.folded || {};
+    const activePos = hand.villain.pos;
     if (window.PTPlayConfig && hand.playConfig && PTPlayConfig.is9Max(hand.playConfig)) {
-      return PTPlayConfig.villainTableSeat(hand) || hand.villain.pos;
+      const mapped = PTPlayConfig.villainTableSeat(hand) || activePos;
+      if (mapped && folded[mapped] && !folded[activePos]) return activePos;
+      return mapped;
     }
-    return hand.villain.pos;
+    return activePos;
   }
 
   function renderSeatStack(hand, pos) {
