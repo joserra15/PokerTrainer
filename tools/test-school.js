@@ -570,6 +570,17 @@ assert.ok(/ICM/i.test(Data.getLesson('I-01').title), 'I-01 ICM');
 assert.ok(/Nut Advantage/i.test(Data.getLesson('R-34').title), 'R-34 nut adv');
 assert.ok(/SPR/i.test(Data.getLesson('D-04').title), 'D-04 SPR');
 assert.ok(Data.getLesson('Q-02').spots.every(function (s) { return s.kind === 'comboQuiz'; }), 'Q-02 comboQuiz');
+(function () {
+  Data.getLesson('Q-01').spots.forEach(function (spot) {
+    var opts = (spot.quiz && spot.quiz.options) || [];
+    assert.ok(opts.length >= 3, 'Q-01 spot con 3 opciones: ' + spot.id);
+    opts.forEach(function (o) {
+      assert.ok(/ · /.test(o.label), 'Q-01 etiqueta con detalle (sin pista por formato): ' + spot.id + ' → ' + o.label);
+    });
+    var withDetail = opts.filter(function (o) { return / · /.test(o.label); }).length;
+    assert.strictEqual(withDetail, opts.length, 'Q-01 todas las opciones mismo formato: ' + spot.id);
+  });
+})();
 assert.ok(/timedSeconds/.test(fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')), 'school pasa timedSeconds');
 assert.ok(/trainer-leak-presets/.test(chunks), 'presets leak en bundle');
 assert.ok(/F-01|D-03|O-01|B-01/.test(fs.readFileSync(path.join(root, 'js/ai-report.js'), 'utf8')), 'leaks → lecciones virales');
