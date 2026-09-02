@@ -524,6 +524,67 @@ assert.ok(/Pot odds/i.test(Data.getLesson('O-01').title), 'O-01 pot odds');
 assert.ok(Data.getLesson('O-01').spots.every(function (s) { return s.kind === 'oddsQuiz'; }), 'O-01 oddsQuiz');
 assert.ok(/Blockers/i.test(Data.getLesson('B-01').title), 'B-01 blockers');
 assert.ok(Data.getLesson('B-01').spots.every(function (s) { return s.kind === 'blockerQuiz'; }), 'B-01 blockerQuiz');
+(function () {
+  /* B-01: opciones = aire puro + why por opción + respuestas coherentes. */
+  function rankOf(c) {
+    var r = c.slice(0, -1);
+    return ({ A: 14, K: 13, Q: 12, J: 11, T: 10 })[r] || parseInt(r, 10);
+  }
+  function isStraight(hero, board) {
+    var ranks = hero.concat(board).map(rankOf);
+    var uniq = [];
+    ranks.forEach(function (r) { if (uniq.indexOf(r) < 0) uniq.push(r); });
+    if (uniq.indexOf(14) >= 0) uniq.push(1);
+    uniq.sort(function (a, b) { return b - a; });
+    for (var i = 0; i <= uniq.length - 5; i++) {
+      var ok = true;
+      for (var j = 0; j < 4; j++) if (uniq[i + j] - uniq[i + j + 1] !== 1) { ok = false; break; }
+      if (ok) return true;
+    }
+    return false;
+  }
+  function isFlush(hero, board) {
+    var suits = {};
+    hero.concat(board).forEach(function (c) {
+      var s = c.slice(-1);
+      suits[s] = (suits[s] || 0) + 1;
+    });
+    return Object.keys(suits).some(function (s) { return suits[s] >= 5; });
+  }
+  function makesPair(hero, board) {
+    var boardRanks = board.map(rankOf);
+    return hero.some(function (c) { return boardRanks.indexOf(rankOf(c)) >= 0; }) ||
+      rankOf(hero[0]) === rankOf(hero[1]);
+  }
+  function noDupCards(hero, board) {
+    var all = hero.concat(board);
+    return all.length === new Set(all).size;
+  }
+  var b01 = Data.getLesson('B-01');
+  assert.ok(b01.spots.length >= 12, 'B-01 ≥12 spots');
+  assert.ok(/menos calls|más folds|bloquea.*pagan|no bloquea.*tir/i.test(b01.concept + ' ' + b01.theory.join(' ')),
+    'B-01 teoría explica calls vs folds');
+  assert.ok(/buildOptionWhyHtml/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')),
+    'feedback compara por qué de cada opción');
+  var expected = {
+    'b01-01': 'a', 'b01-02': 'a', 'b01-03': 'a', 'b01-04': 'a',
+    'b01-05': 'a', 'b01-06': 'a', 'b01-07': 'a', 'b01-08': 'a',
+    'b01-09': 'a', 'b01-10': 'a', 'b01-11': 'a', 'b01-12': 'a'
+  };
+  b01.spots.forEach(function (spot) {
+    var q = spot.quiz;
+    assert.ok(q && q.options && q.options.length === 3, spot.id + ' 3 opciones');
+    assert.strictEqual(q.correctId, expected[spot.id], spot.id + ' correctId');
+    assert.ok(/aire/i.test(q.prompt || ''), spot.id + ' prompt aclara aire');
+    q.options.forEach(function (o) {
+      assert.ok(o.why && o.why.length > 12, spot.id + ' ' + o.id + ' tiene why');
+      assert.ok(noDupCards(o.cards, q.board), spot.id + ' ' + o.id + ' sin cartas duplicadas');
+      assert.ok(!makesPair(o.cards, q.board), spot.id + ' ' + o.id + ' es aire (sin pareja)');
+      assert.ok(!isStraight(o.cards, q.board), spot.id + ' ' + o.id + ' no es escalera');
+      assert.ok(!isFlush(o.cards, q.board), spot.id + ' ' + o.id + ' no es color');
+    });
+  });
+})();
 assert.ok(sandbox.PTSchoolViralQuizzes && sandbox.PTSchoolViralQuizzes.DAILY_POOL.length >= 12, 'daily pool ampliado');
 assert.ok(sandbox.PTSchoolDailySpot && sandbox.PTSchoolDailySpot.pickDailySpot(), 'daily spot picker');
 assert.ok(sandbox.PTSchoolDailySpot.buildIgCaption && /utm_source=instagram/.test(sandbox.PTSchoolDailySpot.buildIgCaption()), 'caption IG con UTM');

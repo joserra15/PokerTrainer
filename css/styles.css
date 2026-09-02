@@ -2114,6 +2114,31 @@ body.age-gate-open {
   border: 1px solid rgba(255,255,255,.08);
 }
 .school-blocker-label { display: block; font-weight: 700; margin-bottom: 8px; }
+.school-mcq-why {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.school-mcq-why li {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  line-height: 1.45;
+  font-size: 0.95rem;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.04);
+}
+.school-mcq-why li.is-best {
+  border-color: rgba(34, 197, 94, .35);
+  background: rgba(34, 197, 94, .1);
+}
+.school-mcq-why li.is-worse {
+  border-color: rgba(248, 113, 113, .25);
+  background: rgba(248, 113, 113, .06);
+}
 .school-daily {
   margin: 0 0 16px;
   border: 1px solid rgba(34, 197, 94, .25);

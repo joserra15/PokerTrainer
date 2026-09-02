@@ -358,6 +358,19 @@
     });
   }
 
+  function buildOptionWhyHtml(quiz) {
+    var opts = quiz && quiz.options || [];
+    var correctId = quiz && quiz.correctId;
+    var hasWhy = opts.some(function (o) { return o && o.why; });
+    if (!hasWhy) return '';
+    return '<ul class="school-mcq-why">' + opts.map(function (o) {
+      var good = o.id === correctId;
+      return '<li class="' + (good ? 'is-best' : 'is-worse') + '">' +
+        '<strong>' + (good ? '✓ Mejor · ' : '✗ ') + esc(o.label || o.id) + ':</strong> ' +
+        esc(o.why || '') + '</li>';
+    }).join('') + '</ul>';
+  }
+
   function gradeMcqQuiz(spot, choiceId, ctx, config) {
     config = config || {};
     var quiz = spot.quiz || {};
@@ -373,6 +386,7 @@
       : (quiz.teachBack || spot.teachBack || (ok
         ? 'Bien: acertaste la línea GTO de este spot.'
         : 'Repasa el motivo de cada opción antes de repetir.'));
+    var whyHtml = buildOptionWhyHtml(quiz);
     var result = {
       spotId: spot.id,
       class: ok ? 'optima' : 'error',
@@ -412,6 +426,7 @@
       (ok ? 'Óptima' : 'Error') + '</h3>' +
       '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
       '<p class="school-spot-teach">' + esc(teach) + '</p>' +
+      whyHtml +
       shareHtml +
       '<div class="school-lesson-cta school-mcq-next-cta">' +
       '<button type="button" class="btn btn-primary" id="school-mcq-next">' + esc(nextLabel) + '</button>' +
