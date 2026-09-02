@@ -2079,6 +2079,16 @@
         return;
       }
     }
+    // Sin JWT vivo no abrir Entrenador / Escuela / cuenta (evita estado a medias).
+    var needsLiveAuth = tabId === 'play' || tabId === 'school' || tabId === 'account' ||
+      tabId === 'admin' || tabId === 'manager';
+    if (needsLiveAuth && window.PTAuth && typeof window.PTAuth.ensureLiveSession === 'function' &&
+        !(window.PTGuest && PTGuest.isActive && PTGuest.isActive())) {
+      window.PTAuth.ensureLiveSession().then(function (ok) {
+        if (ok) goToTabUnlocked(tabId, opts);
+      });
+      return;
+    }
     goToTabUnlocked(tabId, opts);
   }
 
@@ -7162,6 +7172,11 @@
     try {
       const res = await cloud.syncNow();
       if (!res.ok) {
+        if (window.PTAuth && PTAuth.isAuthFailureError && PTAuth.isAuthFailureError(res.reason) &&
+            PTAuth.handleAuthFailure) {
+          PTAuth.handleAuthFailure(res.reason || 'auth_required');
+          return;
+        }
         alert(res.reason === 'not_ready'
           ? 'Inicia sesión con Google para sincronizar.'
           : ('No se pudo sincronizar: ' + (res.reason || 'error')));

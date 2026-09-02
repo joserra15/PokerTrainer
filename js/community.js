@@ -455,7 +455,14 @@
       p_community_id: ACTIVE,
       p_feature: feat
     });
-    if (res.error) return { ok: false, allowed: false, error: res.error.message };
+    if (res.error) {
+      if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+          global.PTAuth.isAuthFailureError(res.error) &&
+          global.PTAuth.handleAuthFailure) {
+        global.PTAuth.handleAuthFailure(res.error.message || 'not_authenticated');
+      }
+      return { ok: false, allowed: false, error: res.error.message };
+    }
     return res.data || { ok: false, allowed: false };
   }
 

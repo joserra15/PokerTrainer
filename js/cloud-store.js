@@ -214,6 +214,19 @@
     return uid;
   }
 
+  function notifyAuthFailure(err) {
+    if (!global.PTAuth) return false;
+    var msg = (err && err.message) || err || 'auth_required';
+    if (global.PTAuth.isAuthFailureError && !global.PTAuth.isAuthFailureError(err) &&
+        !global.PTAuth.isAuthFailureError(msg)) {
+      return false;
+    }
+    if (global.PTAuth.handleAuthFailure) {
+      return !!global.PTAuth.handleAuthFailure(msg);
+    }
+    return false;
+  }
+
   async function pullRowById(id) {
     const client = getClient();
     const { data, error } = await client
@@ -352,6 +365,7 @@
     } catch (e) {
       console.warn('[PTCloud] syncOnLogin', e);
       setStatus('error', e.message || 'Error al sincronizar');
+      notifyAuthFailure(e);
       return false;
     } finally {
       syncing = false;
@@ -392,6 +406,7 @@
     } catch (e) {
       console.warn('[PTCloud] syncNow', e);
       setStatus('error', e.message || 'Error al sincronizar');
+      notifyAuthFailure(e);
       return { ok: false, reason: e.message || 'error' };
     } finally {
       syncing = false;
@@ -433,6 +448,7 @@
     } catch (e) {
       console.warn('[PTCloud] push', e);
       setStatus('error', e.message || 'Error al guardar');
+      notifyAuthFailure(e);
       keys.forEach(function (k) { pendingKeys.add(k); });
     }
   }

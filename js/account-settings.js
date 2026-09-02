@@ -533,6 +533,12 @@
     }
     var res = await c.rpc('pt_get_account_settings');
     if (res.error) {
+      if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+          global.PTAuth.isAuthFailureError(res.error) &&
+          global.PTAuth.handleAuthFailure) {
+        global.PTAuth.handleAuthFailure(res.error.message || 'not_authenticated');
+        return;
+      }
       host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }

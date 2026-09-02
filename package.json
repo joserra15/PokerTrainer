@@ -36,6 +36,7 @@
     "test:rls": "node tools/test-rls-policies.js",
     "test:auth-contract": "node tools/test-auth-contract.js",
     "test:auth-bootstrap-login": "node tools/test-auth-bootstrap-login-ui.js",
+    "test:stale-auth": "node tools/test-stale-auth-landing.js",
     "test:stripe-contracts": "node tools/test-stripe-edge-contracts.js",
     "test:stripe-sync": "node tools/test-stripe-sync-contracts.js",
     "test:analyze-hand-contract": "node tools/test-analyze-hand-contract.js",

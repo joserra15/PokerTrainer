@@ -59,11 +59,21 @@
       });
       if (res.error) {
         console.warn('[PTProfile]', res.error.message);
+        if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+            global.PTAuth.isAuthFailureError(res.error) &&
+            global.PTAuth.handleAuthFailure) {
+          global.PTAuth.handleAuthFailure(res.error.message || 'not_authenticated');
+        }
         return null;
       }
       return res.data;
     } catch (e) {
       console.warn('[PTProfile]', e);
+      if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+          global.PTAuth.isAuthFailureError(e) &&
+          global.PTAuth.handleAuthFailure) {
+        global.PTAuth.handleAuthFailure((e && e.message) || 'not_authenticated');
+      }
       return null;
     }
   }
