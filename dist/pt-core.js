@@ -28865,11 +28865,21 @@ window.PT_NASH_PUSH_JSON = {
       });
       if (res.error) {
         console.warn('[PTProfile]', res.error.message);
+        if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+            global.PTAuth.isAuthFailureError(res.error) &&
+            global.PTAuth.handleAuthFailure) {
+          global.PTAuth.handleAuthFailure(res.error.message || 'not_authenticated');
+        }
         return null;
       }
       return res.data;
     } catch (e) {
       console.warn('[PTProfile]', e);
+      if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+          global.PTAuth.isAuthFailureError(e) &&
+          global.PTAuth.handleAuthFailure) {
+        global.PTAuth.handleAuthFailure((e && e.message) || 'not_authenticated');
+      }
       return null;
     }
   }
@@ -29255,12 +29265,24 @@ window.PT_NASH_PUSH_JSON = {
       var res = await c.rpc(rpc);
       if (res.error) {
         console.warn('[PTEntitlements]', res.error.message);
+        if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+            global.PTAuth.isAuthFailureError(res.error) &&
+            global.PTAuth.handleAuthFailure) {
+          global.PTAuth.handleAuthFailure(res.error.message || 'not_authenticated');
+          return state;
+        }
         state = localFallback();
       } else {
         state = normalizeEnt(res.data);
       }
     } catch (e) {
       console.warn('[PTEntitlements]', e);
+      if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+          global.PTAuth.isAuthFailureError(e) &&
+          global.PTAuth.handleAuthFailure) {
+        global.PTAuth.handleAuthFailure((e && e.message) || 'not_authenticated');
+        return state;
+      }
       state = localFallback();
     }
     applyToUser(state);
@@ -32018,6 +32040,12 @@ window.PT_NASH_PUSH_JSON = {
     }
     var res = await c.rpc('pt_get_account_settings');
     if (res.error) {
+      if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+          global.PTAuth.isAuthFailureError(res.error) &&
+          global.PTAuth.handleAuthFailure) {
+        global.PTAuth.handleAuthFailure(res.error.message || 'not_authenticated');
+        return;
+      }
       host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }
@@ -32535,21 +32563,23 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
     if (global.PTLog && global.PTLog.event) global.PTLog.event('logout');
+    // Limpiar identidad local ANTES de supabase.signOut para que el evento
+    // SIGNED_OUT no dispare handleAuthFailure + reload duplicado.
+    if (global.PTAdmin && global.PTAdmin.lockdown) {
+      try { global.PTAdmin.lockdown(); } catch (e) { /* noop */ }
+    }
+    try { localStorage.removeItem(SESSION_KEY); } catch (e0) { /* noop */ }
+    try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e1) { /* noop */ }
+    currentUser = null;
+    global.PT_AUTH_USER = null;
+    if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
+    if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
+    appStarted = false;
     var done = function () {
-      if (global.PTAdmin && global.PTAdmin.lockdown) {
-        try { global.PTAdmin.lockdown(); } catch (e) { /* noop */ }
-      }
-      localStorage.removeItem(SESSION_KEY);
-      try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e) { /* noop */ }
-      currentUser = null;
-      global.PT_AUTH_USER = null;
-      if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
-      if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
-      appStarted = false;
       if (global.PT_retryLogin) global.PT_retryLogin();
       else location.reload();
     };
-    if (global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth()) {
+    if (useSupabaseAuth()) {
       var client = global.PTSupabase.getClient();
       if (client) {
         client.auth.signOut().finally(done);
@@ -32564,6 +32594,108 @@ window.PT_NASH_PUSH_JSON = {
     if (global.PT_startGoogleLogin) {
       const mobileBtn = $('#auth-mobile-login');
       if (mobileBtn) mobileBtn.classList.remove('hidden');
+    }
+  }
+
+  function useSupabaseAuth() {
+    return !!(global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth());
+  }
+
+  /** Errores de JWT / sesión caducada o ausente (sync, RPC, etc.). */
+  function isAuthFailureError(err) {
+    if (err == null || err === '') return false;
+    if (typeof err === 'string') {
+      return isAuthFailureMessage(err);
+    }
+    var code = err.code != null ? err.code : (err.error_code || err.status || err.name || '');
+    var msg = err.message || err.reason || err.error || err.msg || '';
+    if (code === 401 || code === '401' || String(code).toUpperCase() === 'PGRST301') return true;
+    return isAuthFailureMessage(String(code) + ' ' + String(msg));
+  }
+
+  function isAuthFailureMessage(msg) {
+    var s = String(msg || '').toLowerCase();
+    if (!s) return false;
+    return /auth_required|not_authenticated|not authenticated|auth session missing|jwt expired|invalid jwt|invalid.?claim|session.?expired|pgrst301|\b401\b|unauthorized|refresh.?token|jwt_disabled|signed_out/.test(s);
+  }
+
+  var authFailureHandling = false;
+
+  /**
+   * Sesión local huérfana o JWT inválido: limpiar y volver a la landing
+   * (sin dejar Escuela/Entrenador usables “a medias”).
+   */
+  function handleAuthFailure(reason) {
+    if (authFailureHandling) return false;
+    if (global.PT_E2E_MODE) return false;
+    if (currentUser && currentUser.isGuest) return false;
+    var hadSession = !!(currentUser || global.PT_AUTH_USER);
+    if (!hadSession) {
+      try { hadSession = !!localStorage.getItem(SESSION_KEY); } catch (e) { /* noop */ }
+    }
+    if (!hadSession) return false;
+    authFailureHandling = true;
+    try {
+      if (global.PTLog && global.PTLog.event) {
+        global.PTLog.event('auth_failure', { reason: String(reason || 'auth_required') });
+      }
+    } catch (e2) { /* noop */ }
+    if (global.PTAdmin && global.PTAdmin.lockdown) {
+      try { global.PTAdmin.lockdown(); } catch (e3) { /* noop */ }
+    }
+    try { localStorage.removeItem(SESSION_KEY); } catch (e4) { /* noop */ }
+    try { sessionStorage.removeItem('pt_oauth_nonce'); } catch (e5) { /* noop */ }
+    currentUser = null;
+    global.PT_AUTH_USER = null;
+    appStarted = false;
+    if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
+    if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
+    var finish = function () {
+      if (global.PT_retryLogin) global.PT_retryLogin();
+      else {
+        setAppVisible(false);
+        try { location.reload(); } catch (e6) { /* noop */ }
+      }
+    };
+    if (useSupabaseAuth()) {
+      var client = global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (client && client.auth && client.auth.signOut) {
+        try {
+          client.auth.signOut().finally(finish);
+          return true;
+        } catch (e7) { /* fall through */ }
+      }
+    }
+    finish();
+    return true;
+  }
+
+  /** Comprueba JWT vivo; si falta, fuerza landing. */
+  async function ensureLiveSession() {
+    if (global.PT_E2E_MODE) return true;
+    if (currentUser && currentUser.isGuest) return true;
+    if (!useSupabaseAuth()) return !!(currentUser && !currentUser.isGuest);
+    if (!isRealUser(currentUser) && !isRealUser(global.PT_AUTH_USER)) return false;
+    var client = global.PTSupabase.getClient && global.PTSupabase.getClient();
+    if (!client || !client.auth) {
+      handleAuthFailure('cloud_unavailable');
+      return false;
+    }
+    try {
+      var sessionRes = await client.auth.getSession();
+      var session = sessionRes && sessionRes.data && sessionRes.data.session;
+      if (!session || !session.user) {
+        handleAuthFailure('auth_required');
+        return false;
+      }
+      return true;
+    } catch (e) {
+      if (isAuthFailureError(e)) {
+        handleAuthFailure((e && e.message) || 'auth_required');
+        return false;
+      }
+      // Fallo de red puntual: no expulsar
+      return true;
     }
   }
 
@@ -32590,15 +32722,59 @@ window.PT_NASH_PUSH_JSON = {
     tick();
   }
 
+  /**
+   * Con Supabase Auth la fuente de verdad es el JWT (auth-bootstrap).
+   * No entrar solo con pt_auth_v1 en localStorage: provoca UI logueada
+   * sin sincronizar / sin admin / Escuela usable a medias.
+   */
+  function waitForSupabaseBootstrap() {
+    if (waitForSupabaseBootstrap.armed) return;
+    waitForSupabaseBootstrap.armed = true;
+    var tries = 0;
+    function finishWithoutSession() {
+      waitForSupabaseBootstrap.armed = false;
+      try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* noop */ }
+      currentUser = null;
+      global.PT_AUTH_USER = null;
+      if (global.PTGuest && global.PTGuest.wantsEnter && global.PTGuest.wantsEnter()) enterGuest();
+      else showLanding();
+    }
+    function tick() {
+      if (isRealUser(currentUser) || isRealUser(global.PT_AUTH_USER)) {
+        waitForSupabaseBootstrap.armed = false;
+        enterApp(isRealUser(currentUser) ? currentUser : global.PT_AUTH_USER);
+        return;
+      }
+      if (global.PT_AUTH_BOOT_DONE) {
+        finishWithoutSession();
+        return;
+      }
+      if (++tries > 100) {
+        finishWithoutSession();
+        return;
+      }
+      global.setTimeout(tick, 100);
+    }
+    tick();
+  }
+
   function requireAuth(onReady) {
     appReadyCallback = onReady;
+    if (oauthHandoffPending()) {
+      waitForOAuthHandoff();
+      return;
+    }
+    if (useSupabaseAuth() && !global.PT_E2E_MODE) {
+      if (isRealUser(currentUser) || isRealUser(global.PT_AUTH_USER)) {
+        enterApp(isRealUser(currentUser) ? currentUser : global.PT_AUTH_USER);
+        return;
+      }
+      waitForSupabaseBootstrap();
+      return;
+    }
     const user = loadSession();
     if (isRealUser(user)) {
       enterApp(user);
-      return;
-    }
-    if (oauthHandoffPending()) {
-      waitForOAuthHandoff();
       return;
     }
     if (global.PTGuest && global.PTGuest.wantsEnter && global.PTGuest.wantsEnter()) enterGuest();
@@ -32618,6 +32794,16 @@ window.PT_NASH_PUSH_JSON = {
 
     global.addEventListener('pt-auth-bootstrap', function (e) {
       enterApp(e.detail);
+    });
+
+    global.addEventListener('pt-auth-boot-done', function (e) {
+      var detail = e && e.detail;
+      if (detail && detail.session) return;
+      if (authFailureHandling) return;
+      if (isRealUser(currentUser) || isRealUser(global.PT_AUTH_USER)) return;
+      try {
+        if (localStorage.getItem(SESSION_KEY)) localStorage.removeItem(SESSION_KEY);
+      } catch (err) { /* noop */ }
     });
 
     global.addEventListener('pt-cloud-status', function () {
@@ -32658,6 +32844,9 @@ window.PT_NASH_PUSH_JSON = {
     enterGuest: enterGuest,
     requireAuth: requireAuth,
     signOut: signOut,
+    handleAuthFailure: handleAuthFailure,
+    isAuthFailureError: isAuthFailureError,
+    ensureLiveSession: ensureLiveSession,
     exportAccountData: exportAccountData,
     deleteAccount: deleteAccount,
     renderAccountMenu: renderAccountMenu,
@@ -34748,6 +34937,16 @@ window.PT_NASH_PUSH_JSON = {
         goToTabUnlocked('home', {});
         return;
       }
+    }
+    // Sin JWT vivo no abrir Entrenador / Escuela / cuenta (evita estado a medias).
+    var needsLiveAuth = tabId === 'play' || tabId === 'school' || tabId === 'account' ||
+      tabId === 'admin' || tabId === 'manager';
+    if (needsLiveAuth && window.PTAuth && typeof window.PTAuth.ensureLiveSession === 'function' &&
+        !(window.PTGuest && PTGuest.isActive && PTGuest.isActive())) {
+      window.PTAuth.ensureLiveSession().then(function (ok) {
+        if (ok) goToTabUnlocked(tabId, opts);
+      });
+      return;
     }
     goToTabUnlocked(tabId, opts);
   }
@@ -39832,6 +40031,11 @@ window.PT_NASH_PUSH_JSON = {
     try {
       const res = await cloud.syncNow();
       if (!res.ok) {
+        if (window.PTAuth && PTAuth.isAuthFailureError && PTAuth.isAuthFailureError(res.reason) &&
+            PTAuth.handleAuthFailure) {
+          PTAuth.handleAuthFailure(res.reason || 'auth_required');
+          return;
+        }
         alert(res.reason === 'not_ready'
           ? 'Inicia sesión con Google para sincronizar.'
           : ('No se pudo sincronizar: ' + (res.reason || 'error')));

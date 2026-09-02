@@ -455,6 +455,20 @@
     return null;
   }
 
+  function clearStaleLegacySession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* noop */ }
+    global.PT_AUTH_USER = null;
+  }
+
+  function markAuthBootDone(hasSession) {
+    global.PT_AUTH_BOOT_DONE = true;
+    try {
+      global.dispatchEvent(new CustomEvent('pt-auth-boot-done', {
+        detail: { session: !!hasSession }
+      }));
+    } catch (e) { /* noop */ }
+  }
+
   async function bootSupabase() {
     // Enlazar Continuar YA: no esperar a getSession (puede colgarse o tardar).
     setupLoginUi();
@@ -462,12 +476,21 @@
       return global.supabase && global.PTSupabase && global.PTSupabase.getClient();
     }, 120, 50);
     if (!ok) {
+      clearStaleLegacySession();
+      markAuthBootDone(false);
       legacyBoot();
       return;
     }
     var client = global.PTSupabase.getClient();
     try {
       client.auth.onAuthStateChange(function (event, sess) {
+        if (event === 'SIGNED_OUT') {
+          clearStaleLegacySession();
+          if (global.PTAuth && global.PTAuth.handleAuthFailure) {
+            global.PTAuth.handleAuthFailure('signed_out');
+          }
+          return;
+        }
         if (sess && sess.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION')) {
           var u = global.PTSupabase.userFromSession(sess);
           if (u) enterFromBootstrap(u);
@@ -482,6 +505,7 @@
         var userFromUrl = global.PTSupabase.userFromSession(fromUrl);
         if (userFromUrl) {
           enterFromBootstrap(userFromUrl);
+          markAuthBootDone(true);
           return;
         }
       }
@@ -497,6 +521,7 @@
         var user = global.PTSupabase.userFromSession(session);
         if (user) {
           enterFromBootstrap(user);
+          markAuthBootDone(true);
           return;
         }
       }
@@ -508,27 +533,37 @@
           var u2 = global.PTSupabase.userFromSession(sess2);
           if (u2) {
             enterFromBootstrap(u2);
+            markAuthBootDone(true);
             return;
           }
         }
       } catch (e3) { /* noop */ }
     }
+    // Sin JWT: no dejar pt_auth_v1 huérfano (UI “logueada” sin sync).
+    clearStaleLegacySession();
+    markAuthBootDone(false);
     setupLoginUi();
   }
 
   function legacyBoot() {
     setupLoginUi();
-    if (processHashLogin()) return;
+    if (processHashLogin()) {
+      markAuthBootDone(true);
+      return;
+    }
     var saved = loadSavedSession();
     if (saved && saved.authProvider !== 'supabase') {
       enterFromBootstrap(saved);
+      markAuthBootDone(true);
       return;
     }
+    markAuthBootDone(false);
   }
 
   async function boot() {
     // Siempre enlazar el CTA de login antes de cualquier await.
     setupLoginUi();
+    global.PT_AUTH_BOOT_DONE = false;
     if (hasOAuthCallback()) {
       markHandoff();
       hideGuestChrome();
@@ -537,8 +572,10 @@
       var e2eUser = loadSavedSession();
       if (e2eUser) {
         enterFromBootstrap(e2eUser);
+        markAuthBootDone(true);
         return;
       }
+      markAuthBootDone(false);
       return;
     }
     if (useSupabaseAuth()) {
