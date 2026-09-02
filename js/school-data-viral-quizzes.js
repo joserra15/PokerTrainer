@@ -68,7 +68,7 @@
       seed: seed,
       teachBack: teach,
       quiz: {
-        prompt: 'Villano apuesta river. ¿Con cuál faroleas mejor?',
+        prompt: 'River: las tres manos son aire (sin pareja hecha). ¿Con cuál faroleas mejor?',
         board: board,
         villainAction: villainAction,
         options: options,
@@ -78,8 +78,8 @@
     };
   }
 
-  function handOpt(id, label, cards) {
-    return { id: id, label: label, cards: cards };
+  function handOpt(id, label, cards, why) {
+    return { id: id, label: label, cards: cards, why: why || '' };
   }
 
   var PACKS = {};
@@ -329,67 +329,130 @@
       { requiredPct: 20, equityPct: 28 })
   ];
 
+  /*
+   * B-01 blockers: las 3 opciones deben ser aire puro (sin pareja/escalera/color hecho).
+   * Regla: buen farol bloquea value/nuts que pagan y no bloquea basura que tira.
+   */
   PACKS['B-01'] = [
-    blockerSpot('b01-01', 86001, ['As', 'Kd', '7c', '2h', '3d'], 'Bet 75% pot', [
-      handOpt('a', 'Ah5h', ['Ah', '5h']),
-      handOpt('b', 'KhQh', ['Kh', 'Qh']),
-      handOpt('c', '9h8h', ['9h', '8h'])
-    ], 'a', 'Ah5h bloquea nut flush y Ax: mejor bluff que KhQh (bloquea Kx value) o 98hh sin blockers fuertes.'),
-    blockerSpot('b01-02', 86002, ['Ks', 'Qs', 'Js', '2h', '4d'], 'Bet 66% pot', [
-      handOpt('a', 'AhTc', ['Ah', 'Tc']),
-      handOpt('b', '9h8h', ['9h', '8h']),
-      handOpt('c', '5h4h', ['5h', '4h'])
-    ], 'a', 'En KQJ board, AhTc bloquea Ax y algunos broadway; 98hh no bloquea value del caller.'),
-    blockerSpot('b01-03', 86003, ['Ah', 'Kh', 'Qh', '7c', '2d'], 'Bet overbet', [
-      handOpt('a', 'JhTd', ['Jh', 'Td']),
-      handOpt('b', '9h8h', ['9h', '8h']),
-      handOpt('c', '5h4h', ['5h', '4h'])
-    ], 'c', 'Monotone A-high: farolea con 54hh — bloqueas flush pero no nut Ax. JhTd bloquea straight; 98hh bloquea flush medio.'),
-    blockerSpot('b01-04', 86004, ['Ts', '9c', '8d', '3h', '2s'], 'Bet 75% pot', [
-      handOpt('a', 'JhQh', ['Jh', 'Qh']),
-      handOpt('b', '7h6h', ['7h', '6h']),
-      handOpt('c', 'Ah5d', ['Ah', '5d'])
-    ], 'b', 'En T98-32, 76hh bloquea straight y no bloquea calls de pares medios. JQ bloquea QJ/JT value.'),
-    blockerSpot('b01-05', 86005, ['Ac', 'Ad', '7h', '3c', '2s'], 'Bet 50% pot', [
-      handOpt('a', 'KhQh', ['Kh', 'Qh']),
-      handOpt('b', '5h4h', ['5h', '4h']),
-      handOpt('c', '9h8h', ['9h', '8h'])
-    ], 'b', 'Board paired AA: bluff con 54hh — bloqueas 54/53 straight y no Ax. KhQh bloquea KQ/KJ que foldean anyway.'),
+    blockerSpot('b01-01', 86001, ['Kh', '8h', '3h', 'Jd', '2c'], 'Bet 75% pot', [
+      handOpt('a', 'Ah5d', ['Ah', '5d'],
+        'Bloquea el color nuts (A♥). El rival tiene menos flushes fuertes para pagarte.'),
+      handOpt('b', 'As5s', ['As', '5s'],
+        'Tienes as, pero no el corazón: no bloqueas color. Peor que A♥.'),
+      handOpt('c', '6d5d', ['6d', '5d'],
+        'Aire total sin blocker de color: dejas intactos todos los flushes que pagan.')
+    ], 'a',
+      'Regla en boards con color posible: farolea con el as del palo (blocker de nuts). A♥5♦ > A♠5♠ > 65.'),
+
+    blockerSpot('b01-02', 86002, ['Kd', '7c', '2s', '9h', '3c'], 'Bet 66% pot', [
+      handOpt('a', 'Ah5h', ['Ah', '5h'],
+        'Bloquea AA/AK/AQ — value que suele pagar en K-high. Mejor farol.'),
+      handOpt('b', 'QhJh', ['Qh', 'Jh'],
+        'QJ suele tirar aquí: al tenerlo tú, quitas folds del rival y dejas su rango más fuerte.'),
+      handOpt('c', '8h6h', ['8h', '6h'],
+        'Aire sin blocker de value fuerte (Ax). Peor que A-high.')
+    ], 'a',
+      'En K-high seco, A-high es el farol estrella: bloquea value (Ax) y no bloquea basura que foldea (QJ).'),
+
+    blockerSpot('b01-03', 86003, ['Kh', '9h', '4h', '2c', '7d'], 'Bet overbet', [
+      handOpt('a', 'Ah3d', ['Ah', '3d'],
+        'Overbet representa color nuts: A♥ bloquea exactamente esa mano. Mejor farol.'),
+      handOpt('b', '5h3d', ['5h', '3d'],
+        'Corazón bajo: bloqueas flushes débiles (que tiraban) y dejas vivos los nuts. Farol malo.'),
+      handOpt('c', 'QdJd', ['Qd', 'Jd'],
+        'Sin corazón: no bloqueas color. No encaja con la historia de overbet polar.')
+    ], 'a',
+      'Overbet en monotone: farolea con blocker de nuts (A♥), no con corazón bajo (quita folds, deja nuts).'),
+
+    blockerSpot('b01-04', 86004, ['Ts', '9c', '8d', '3h', '2c'], 'Bet 75% pot', [
+      handOpt('a', 'Qd5h', ['Qd', '5h'],
+        'Bloquea QJ (escalera nuts) sin hacerla tú. Mejor farol.'),
+      handOpt('b', 'Ah5d', ['Ah', '5d'],
+        'A-high sin interacción con la escalera: no reduce QJ/J7/76 que pagan.'),
+      handOpt('c', 'Kd7d', ['Kd', '7d'],
+        'K-high tampoco bloquea la escalera nuts. Peor que Qx.')
+    ], 'a',
+      'En T98, la nuts es QJ. Farolea con Qx/Jx (bloqueas nuts) sin completar escalera.'),
+
+    blockerSpot('b01-05', 86005, ['Ac', 'Ad', '9h', '6c', '2s'], 'Bet 50% pot', [
+      handOpt('a', '5h4h', ['5h', '4h'],
+        'No bloqueas broadway que tiraba (KQ/JT): más folds vivos. Mejor farol en AA pareado.'),
+      handOpt('b', 'KhQh', ['Kh', 'Qh'],
+        'KQ suele tirar vs bet en AA: al tenerlo tú, quitas folds y densificas el calling range.'),
+      handOpt('c', 'JhTh', ['Jh', 'Th'],
+        'Igual que KQ: bloqueas basura que foldea. Farol peor que 54.')
+    ], 'a',
+      'En board pareado AA, evita faroles con broadway (bloquean folds). Prefiere aire bajo tipo 54.'),
+
     blockerSpot('b01-06', 86006, ['Qs', 'Jd', 'Tc', '4h', '2d'], 'Bet 75% pot', [
-      handOpt('a', 'AhKh', ['Ah', 'Kh']),
-      handOpt('b', '9h8h', ['9h', '8h']),
-      handOpt('c', '5h4h', ['5h', '4h'])
-    ], 'c', 'QJT board: 54hh no bloquea QJ/QT value del villano. AhKh bloquea AK/AQ que ya foldearon.'),
+      handOpt('a', 'Ah5h', ['Ah', '5h'],
+        'Bloquea AK (escalera nuts) sin hacerla. Mejor farol.'),
+      handOpt('b', 'Kh5d', ['Kh', '5d'],
+        'También bloquea AK, pero el as es blocker más fuerte (también AA/AQ en otras líneas).'),
+      handOpt('c', '6h3h', ['6h', '3h'],
+        'Aire sin blocker de escalera: dejas todos los AK vivos para pagarte.')
+    ], 'a',
+      'En QJT, AK es la nuts. Farolea con A-high (sin K) para bloquear esa escalera.'),
+
     blockerSpot('b01-07', 86007, ['Ks', '7d', '2c', '2h', '9s'], 'Bet 66% pot', [
-      handOpt('a', 'Ah5h', ['Ah', '5h']),
-      handOpt('b', 'QhJh', ['Qh', 'Jh']),
-      handOpt('c', '8h6h', ['8h', '6h'])
-    ], 'a', 'K72-2-9: Ah5h bloquea Ax y algunos 9x. QJ bloquea KQ/KJ value paths.'),
+      handOpt('a', 'Ah5h', ['Ah', '5h'],
+        'Bloquea AK/AQ/A9 — mucho value y bluff-catchers fuertes. Mejor farol.'),
+      handOpt('b', 'QhJh', ['Qh', 'Jh'],
+        'QJ foldea mucho aquí: lo quitas del rango rival → menos folds. Peor.'),
+      handOpt('c', '8h6h', ['8h', '6h'],
+        'Sin blocker de Ax: no reduces las manos que más te pagan.')
+    ], 'a',
+      'K72 pareado: otra vez A-high gana. Bloquea value; QJ solo bloquea folds.'),
+
     blockerSpot('b01-08', 86008, ['9s', '8s', '7h', '3c', '2d'], 'Bet 75% pot', [
-      handOpt('a', 'AhKh', ['Ah', 'Kh']),
-      handOpt('b', '6h5h', ['6h', '5h']),
-      handOpt('c', 'TdTc', ['Td', 'Tc'])
-    ], 'b', '987 board: 65hh bloquea straight (T6/65) sin bloquear floats. TT bloquea sets que ya fold.'),
-    blockerSpot('b01-09', 86009, ['Ah', '8d', '3c', 'Kd', '2h'], 'Bet 75% pot', [
-      handOpt('a', 'QhJh', ['Qh', 'Jh']),
-      handOpt('b', '5h4h', ['5h', '4h']),
-      handOpt('c', '9h7h', ['9h', '7h'])
-    ], 'b', 'A83-K-2: 54hh no bloquea Ax/Kx del caller. QJ bloquea QJ/AJ que foldean; mejor 54 como bluff puro.'),
+      handOpt('a', 'Th5c', ['Th', '5c'],
+        'Bloquea JT (escalera nuts) y T6 sin hacer escalera. Mejor farol.'),
+      handOpt('b', 'AhKh', ['Ah', 'Kh'],
+        'AK no interactúa con 987: no bloqueas JT/65. Farol flojo aquí.'),
+      handOpt('c', '6c4h', ['6c', '4h'],
+        'Bloquea la escalera baja (65), útil pero peor que bloquear la nuts (JT).')
+    ], 'a',
+      'En 987, JT es nuts. Farolea con Tx/Jx (blocker de nuts), no con AK “bonito”.'),
+
+    blockerSpot('b01-09', 86009, ['Ah', '9d', '6c', 'Kd', '2h'], 'Bet 75% pot', [
+      handOpt('a', '5h4h', ['5h', '4h'],
+        'No bloqueas basura que tiraba (QJ/JT): dejas más folds en el rival. Mejor farol.'),
+      handOpt('b', 'QhJh', ['Qh', 'Jh'],
+        'QJ/AJ suelen tirar vs bet en A-high: al tenerlos, el rango rival se vuelve más Ax/Kx.'),
+      handOpt('c', 'Jh7h', ['Jh', '7h'],
+        'Mismo problema: bloqueas floats/basura que foldeaba.')
+    ], 'a',
+      'Con as en board, no puedes farolear con el otro as (harías pareja). Elige aire bajo que no quite folds.'),
+
     blockerSpot('b01-10', 86010, ['Js', 'Ts', '9d', '4c', '2h'], 'Bet overbet', [
-      handOpt('a', 'AhQh', ['Ah', 'Qh']),
-      handOpt('b', '8h7h', ['8h', '7h']),
-      handOpt('c', 'Kh6h', ['Kh', '6h'])
-    ], 'b', 'JT9: 87hh bloquea straight (Q8/87) sin bloquear Jx/Tx. AhQh bloquea AQ/AJ value.'),
+      handOpt('a', 'Qh5d', ['Qh', '5d'],
+        'Bloquea AQ (nuts) y Q8 sin completar escalera. Mejor farol.'),
+      handOpt('b', '8h5d', ['8h', '5d'],
+        'Bloquea la escalera baja (87): útil, pero peor que bloquear la nuts.'),
+      handOpt('c', 'Kh6h', ['Kh', '6h'],
+        'K-high apenas toca las escaleras de este board. Peor blocker.')
+    ], 'a',
+      'En JT9, AQ es nuts. Farolea con Qx (sin A) para bloquearla; no con K-high.'),
+
     blockerSpot('b01-11', 86011, ['Ks', 'Kh', '4d', '7c', '2s'], 'Bet 50% pot', [
-      handOpt('a', 'AhQh', ['Ah', 'Qh']),
-      handOpt('b', '9h8h', ['9h', '8h']),
-      handOpt('c', '5h3h', ['5h', '3h'])
-    ], 'c', 'KK4-7-2: 53hh no bloquea Kx/4x. AhQh bloquea AQ/AK; 98hh bloquea 98 que no defiende mucho.'),
-    blockerSpot('b01-12', 86012, ['Qh', 'Jh', '4c', '4d', '2s'], 'Bet 75% pot', [
-      handOpt('a', 'AhKh', ['Ah', 'Kh']),
-      handOpt('b', 'Ts9s', ['Ts', '9s']),
-      handOpt('c', '8h7h', ['8h', '7h'])
-    ], 'c', 'QJ44: 87hh no bloquea QJ/QT. AhKh bloquea AK/AQ; Ts9s bloquea T9 straight.')
+      handOpt('a', 'AhQh', ['Ah', 'Qh'],
+        'Bloquea AA y AK (fulles/dos pares fuertes que pagan). Mejor farol.'),
+      handOpt('b', '9h8h', ['9h', '8h'],
+        'No bloqueas AA/AK: dejas intacto el value más caro.'),
+      handOpt('c', '5h3h', ['5h', '3h'],
+        'Igual: aire sin blocker de value premium en KK pareado.')
+    ], 'a',
+      'En KK pareado, A-high brilla otra vez: bloquea AA/AK. 98/53 no tocan ese value.'),
+
+    blockerSpot('b01-12', 86012, ['Qs', 'Jd', '4c', '4h', '2d'], 'Bet 75% pot', [
+      handOpt('a', 'AhKh', ['Ah', 'Kh'],
+        'Bloquea AQ/AJ/KQ/KJ — muchas manos con pareja de Q/J que pagan. Mejor farol.'),
+      handOpt('b', 'Ts9s', ['Ts', '9s'],
+        'Aire sin blocker de Qx/Jx value. Peor.'),
+      handOpt('c', '8h7h', ['8h', '7h'],
+        'Tampoco reduce pares de dama/jota. Peor que AK.')
+    ], 'a',
+      'En QJ pareado, AK es farol fuerte: bloquea las parejas (AQ/AJ/KQ/KJ) que más pagan.')
   ];
 
   var LESSONS = [
@@ -496,20 +559,25 @@
       decisionEnd: true,
       hands: 0,
       exam: false,
-      concept: 'Un blocker es una carta en tu mano que reduce combos fuertes del rival. Elige bluffs que bloqueen nuts/value y no bloqueen folds.',
+      concept: 'Un blocker es una carta tuya que quita combinaciones del rival. El buen farol bloquea manos que pagan (nuts/value) y no bloquea manos que tiran (basura).',
       theory: [
-        'Buen bluff: bloquea nut flush, nut straight o sets que el villano podría call. Si tienes Ah en board con tres hearts, reduces combos de nut flush del rival.',
-        'Mal bluff: bloquea manos que ya foldearon (ej. Kh en K-high board cuando bluffeas vs BB wide). Eso deja más combos de call en su rango.',
-        'Conecta con R-04: eliminar combos antes de elegir tu línea. Pregunta: «¿qué manos fuertes NO puede tener por mis cartas?»'
+        'Regla de oro (memoriza esto): al farolear quieres (1) menos calls y (2) más folds. Por eso eliges cartas que eliminan value/nuts del rival, y evitas cartas que eliminan la basura que ya iba a tirar.',
+        'Ejemplo color: board con tres corazones. A♥ es el mejor farol porque bloquea el color nuts. Un corazón bajo (5♥) es peor: quita flushes débiles que tiraban y deja vivos los nuts que te pagan.',
+        'Ejemplo seco K-high: A-high bloquea AA/AK/AQ (pagan). QJ bloquea sobre todo basura que foldea → el rango rival se vuelve más fuerte. Mismo aire, peor blocker.',
+        'Trampa de esta lección (antes): a veces las «opciones de farol» eran manos hechas (pareja, escalera, color). Aquí las tres opciones son siempre aire. Si una mano hace pareja o nuts, no es candidata a farol.',
+        'Conecta con R-04: antes de meter fichas di en voz alta «quito X (value), no quito Y (folds)».'
       ],
       examples: [{
-        title: 'River bluff en AK7',
-        body: 'Ah5h > KhQh: bloqueas Ax nut y no bloqueas Kx que ya fold. KhQh bloquea KQ value.'
+        title: 'Color en river',
+        body: 'Board K♥8♥3♥Jd2c. Farolea con A♥5♦ (bloqueas color nuts). No con 5♥3♦ (bloqueas flushes flojos que tiraban).'
+      }, {
+        title: 'Escalera en T98',
+        body: 'La nuts es QJ. Farolea con Qx (bloqueas nuts) sin completar escalera. No elijas JQ ni 76: esas manos YA son escalera, no faroles.'
       }],
       aiQuestions: [
-        '¿Qué es un blocker en una frase?',
-        '¿Por qué Ah es mejor que Kh para bluff en ciertos boards?',
-        '¿Qué mano NO elige para bluffcatch?'
+        '¿Qué dos cosas quieres al elegir un farol (calls y folds)?',
+        '¿Por qué A♥ es mejor que 5♥ para farolear en un board de corazones?',
+        '¿Por qué QJ suele ser peor farol que A-high en un K-high seco?'
       ],
       spots: []
     }
