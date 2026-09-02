@@ -14263,52 +14263,52 @@
     textureSpot('q01-01', 90001, ['As', 'Kd', '7c'], 'UTG open → BB call', [
       { id: 'dry', label: 'Seco · RA opener' },
       { id: 'wet', label: 'Wet · RA caller' },
-      { id: 'paired', label: 'Paired' }
+      { id: 'paired', label: 'Paired · static' }
     ], 'dry', 'AK7 rainbow: seco, favorece al opener early. C-bet pequeño frecuente.'),
     textureSpot('q01-02', 90002, ['9s', '8s', '7h'], 'BTN open → BB call', [
-      { id: 'dry', label: 'Seco' },
+      { id: 'dry', label: 'Seco · RA opener' },
       { id: 'wet', label: 'Wet · RA caller' },
-      { id: 'paired', label: 'Paired' }
+      { id: 'paired', label: 'Paired · static' }
     ], 'wet', '987 two-tone: wet, el caller conecta SC y pares. Reduce c-bet automático.'),
     textureSpot('q01-03', 90003, ['Kh', 'Kc', '4d'], 'CO open → BB call', [
       { id: 'dry', label: 'Seco · paired' },
-      { id: 'wet', label: 'Wet' },
-      { id: 'monotone', label: 'Monotone' }
+      { id: 'wet', label: 'Wet · connected' },
+      { id: 'monotone', label: 'Monotone · flush draws' }
     ], 'dry', 'K44: paired seco. Opener mantiene ventaja con Kx/overpairs.'),
     textureSpot('q01-04', 90004, ['Qh', 'Jh', 'Th'], 'BTN open → BB call', [
-      { id: 'dry', label: 'Seco' },
+      { id: 'dry', label: 'Seco · RA opener' },
       { id: 'wet', label: 'Wet · connected' },
-      { id: 'monotone', label: 'Monotone' }
+      { id: 'monotone', label: 'Monotone · flush draws' }
     ], 'wet', 'QJT two-tone: muy conectado. Ambos conectan; ventaja poco clara.'),
     textureSpot('q01-05', 90005, ['Ah', '8d', '3c'], 'UTG open → BB call', [
       { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet' },
-      { id: 'paired', label: 'Paired' }
+      { id: 'wet', label: 'Wet · RA caller' },
+      { id: 'paired', label: 'Paired · static' }
     ], 'dry', 'A83 rainbow: clásico seco A-high. Ventaja enorme del agresor.'),
     textureSpot('q01-06', 90006, ['5s', '4s', '3h'], 'BTN open → BB call', [
-      { id: 'dry', label: 'Seco' },
+      { id: 'dry', label: 'Seco · RA opener' },
       { id: 'wet', label: 'Wet · low connected' },
-      { id: 'paired', label: 'Paired' }
+      { id: 'paired', label: 'Paired · static' }
     ], 'wet', '543 two-tone bajo: caller favorecido. Board de defensa BB.'),
     textureSpot('q01-07', 90007, ['Js', 'Ts', '9s'], 'HJ open → BB call', [
-      { id: 'dry', label: 'Seco' },
-      { id: 'wet', label: 'Wet' },
+      { id: 'dry', label: 'Seco · RA opener' },
+      { id: 'wet', label: 'Wet · connected' },
       { id: 'monotone', label: 'Monotone · flush draws' }
     ], 'monotone', 'JT9 monotone: nut advantage al rango con más Ax suited del palo.'),
     textureSpot('q01-08', 90008, ['Kd', '7c', '2s'], 'BTN open → BB call', [
       { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet' },
-      { id: 'paired', label: 'Paired' }
+      { id: 'wet', label: 'Wet · RA caller' },
+      { id: 'paired', label: 'Paired · static' }
     ], 'dry', 'K72 rainbow: seco. Patrón de c-bet ligero IP.'),
     textureSpot('q01-09', 90009, ['6h', '6d', '5s'], 'CO open → BB call', [
       { id: 'dry', label: 'Seco · paired' },
       { id: 'wet', label: 'Wet · connected' },
-      { id: 'paired', label: 'Paired medio' }
+      { id: 'paired', label: 'Paired · medio' }
     ], 'paired', '665: paired + connected. Ambiguo — no es seco puro ni wet extremo.'),
     textureSpot('q01-10', 90010, ['Ac', 'Qd', '4h'], 'UTG open → BB call', [
       { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet' },
-      { id: 'paired', label: 'Paired' }
+      { id: 'wet', label: 'Wet · RA caller' },
+      { id: 'paired', label: 'Paired · static' }
     ], 'dry', 'AQ4 rainbow: seco A-high. Opener domina distribución Ax.')
   ];
 
