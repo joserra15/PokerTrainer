@@ -5737,7 +5737,8 @@
       "spots": [],
       "exam": false,
       "id": "C-28",
-      "title": "Explotación fish vs reg"
+      "title": "Explotación fish vs reg",
+      "relatedLessons": ["C-32", "C-33"]
     },
     {
       "route": "cash",
