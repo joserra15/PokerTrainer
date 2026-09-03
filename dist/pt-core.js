@@ -198,6 +198,21 @@
     return 0;
   }
 
+  /**
+   * Carta para la mesa: rango y palo en dos líneas. A igual ancho de carta
+   * cada glifo dispone de más alto que en `cardToHTML`, que mete "10♦" en una
+   * sola línea y obliga a encoger la fuente.
+   */
+  function cardFaceHTML(code) {
+    const suit = code[1];
+    const red = suit === 'h' || suit === 'd';
+    const rank = code[0] === 'T' ? '10' : code[0];
+    return `<span class="card card-face ${red ? 'red' : 'black'}">`
+      + `<span class="card-rank">${rank}</span>`
+      + `<span class="card-suit">${SUIT_SYMBOL[suit]}</span>`
+      + '</span>';
+  }
+
   /** Carta boca abajo (asiento villano / mesa). */
   function cardBackHTML() {
     return '<span class="card card-back" title="Boca abajo"></span>';
@@ -205,7 +220,7 @@
 
   global.Cards = {
     RANKS, SUITS, RANK_VALUE, SUIT_SYMBOL, HAND_CATEGORIES,
-    makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML, cardBackHTML,
+    makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML, cardFaceHTML, cardBackHTML,
     evaluate, compare, rng
   };
 })(window);
@@ -36253,8 +36268,9 @@ window.PT_NASH_PUSH_JSON = {
     const view = handPresent(hand);
     const pot = view ? view.potBB : (hand.current ? hand.current.potBB : hand.potBB);
     $('#hero-pos').textContent = hand.displayHeroPos || hand.hero.pos;
-    $('#pot').innerHTML = '<span class="pot-chips"><span class="chip-ico"></span></span> ' + tt('play.pot') + ': ' + (pot != null ? fmt(pot) : '-') + ' bb';
-    $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardToHTML).join('');
+    $('#pot').innerHTML = '<span class="pot-chips">' + chipStackHTML(pot || 0) + '</span> '
+      + tt('play.pot') + ': <strong class="pot-amt">' + (pot != null ? fmt(pot) : '-') + ' bb</strong>';
+    $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardFaceHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
     $('#hero-action').innerHTML = actionBadgeHTML(view ? view.heroAction : hand.heroAction);
     const heroTbl = hand.table || {};
@@ -36363,18 +36379,22 @@ window.PT_NASH_PUSH_JSON = {
     }
   }
 
-  // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb)
-  function actionBadgeHTML(action) {
+  // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb).
+  // `acting` marca la acción que se acaba de producir para destacarla sobre las
+  // del resto de asientos, que se mantienen visibles toda la calle.
+  function actionBadgeHTML(action, acting) {
     if (!action) return '';
     const t = action.type;
-    if (t === 'check') return '<span class="seat-act check">Check</span>';
-    if (t === 'fold') return '<span class="seat-act fold">Fold</span>';
+    const live = acting ? ' is-acting' : '';
+    if (t === 'check') return `<span class="seat-act check${live}">Check</span>`;
+    if (t === 'fold') return `<span class="seat-act fold${live}">Fold</span>`;
     const labels = window.PTI18n && window.PTI18n.getLang && window.PTI18n.getLang() === 'en'
       ? { open: 'Open', bet: 'Bet', call: 'Call', raise: 'Raise', allin: 'All-in' }
       : { open: 'Abre', bet: 'Apuesta', call: 'Iguala', raise: 'Sube', allin: 'All-in' };
     const lbl = labels[t] || t;
     const amt = action.amount != null ? `${action.amount} bb` : '';
-    return `<span class="seat-act bet"><span class="chip-ico"></span>${lbl}${amt ? ' · ' + amt : ''}</span>`;
+    const kind = t === 'call' ? ' act-call' : (t === 'allin' ? ' act-allin' : ' act-raise');
+    return `<span class="seat-act bet${kind}${live}"><span class="chip-ico"></span>${lbl}${amt ? ' · ' + amt : ''}</span>`;
   }
 
   function seatFoldMarkHTML() {
@@ -36395,7 +36415,7 @@ window.PT_NASH_PUSH_JSON = {
     const view = handPresent(hand);
     const board = view && view.board ? view.board : hand.board;
     const stage = view && view.stage ? view.stage : hand.stage;
-    let html = (board || []).map(Cards.cardToHTML).join('');
+    let html = (board || []).map(Cards.cardFaceHTML).join('');
     $('#board').innerHTML = html || (stage === 'preflop' || !stage
       ? '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'
       : '');
@@ -36403,10 +36423,30 @@ window.PT_NASH_PUSH_JSON = {
 
   const SEAT_AVATAR_SVG = '<svg viewBox="0 0 24 24" class="seat-avatar-svg" aria-hidden="true"><circle cx="12" cy="8.2" r="4.2"/><path d="M3.5 20.5c0-4.4 3.8-7.6 8.5-7.6s8.5 3.2 8.5 7.6"/></svg>';
 
+  // El color de la ficha codifica la magnitud de la apuesta (blanca < roja <
+  // verde < azul < negra < morada), como en las mesas reales: el tamaño se lee
+  // antes de fijarse en el número.
+  function chipTier(bb) {
+    if (bb < 1) return 'w';
+    if (bb < 3) return 'r';
+    if (bb < 8) return 'g';
+    if (bb < 20) return 'b';
+    if (bb < 50) return 'k';
+    return 'p';
+  }
+
+  function chipStackHTML(bb) {
+    const tier = chipTier(bb);
+    const n = bb < 1 ? 1 : (bb < 3 ? 2 : (bb < 10 ? 3 : 4));
+    let discs = '';
+    for (let i = 0; i < n; i++) discs += `<span class="chip chip-${tier}"></span>`;
+    return `<span class="chip-stack" aria-hidden="true">${discs}</span>`;
+  }
+
   function renderSeatChips(totalBB, streetBB) {
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
     if (streetBB > 0) {
-      return `<div class="seat-chips"><span class="seat-chips-street" title="Apuesta en la calle"><span class="chip-ico"></span>${fmt(streetBB)} bb</span></div>`;
+      return `<div class="seat-chips"><span class="seat-chips-street" title="Apuesta en la calle">${chipStackHTML(streetBB)}${fmt(streetBB)} bb</span></div>`;
     }
     if (totalBB > 0) {
       return `<div class="seat-chips"><span class="seat-chips-total" title="Ciega / invertido">${fmt(totalBB)} bb</span></div>`;
@@ -36427,7 +36467,10 @@ window.PT_NASH_PUSH_JSON = {
   function renderSeatBet(inFrontBB, placement) {
     if (!(inFrontBB > 0)) return '';
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
-    return `<div class="seat-bet ${placement || 'bet-below'}" title="Fichas en juego"><span class="chip-ico"></span><span class="seat-bet-amt">${fmt(inFrontBB)} bb</span></div>`;
+    return `<div class="seat-bet ${placement || 'bet-below'}" title="Fichas en juego">`
+      + chipStackHTML(inFrontBB)
+      + `<span class="seat-bet-amt">${fmt(inFrontBB)} bb</span>`
+      + '</div>';
   }
 
   function playTableConfig() {
@@ -36541,12 +36584,13 @@ window.PT_NASH_PUSH_JSON = {
       const seatActs = view ? (view.seatActions || {}) : (hand.seatActions || {});
       const villainAct = view ? view.villainAction : hand.villainAction;
       const isActing = !!(actingPos && pos === actingPos && !isHero);
+      // La acción de cada rival se mantiene en su asiento durante toda la calle:
+      // antes solo se veía la del villano (o la del asiento que actuaba en la
+      // animación) y había que buscar quién había hecho qué.
       let actHtml = '';
-      if (isActing) {
+      if (!isHero) {
         const act = seatActs[pos] || (isVillain ? villainAct : null);
-        if (act) actHtml = actionBadgeHTML(act);
-      } else if (!view && isVillain && villainAct && !isFolded) {
-        actHtml = actionBadgeHTML(villainAct);
+        if (act && (!isFolded || isActing)) actHtml = actionBadgeHTML(act, isActing);
       }
 
       const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
@@ -36555,7 +36599,7 @@ window.PT_NASH_PUSH_JSON = {
         cardsHtml = seatFoldMarkHTML();
       } else if (showCards) {
         if (revealHoles) {
-          cardsHtml = '<div class="seat-cards showdown">' + holeCards[pos].map(Cards.cardToHTML).join('') + '</div>';
+          cardsHtml = '<div class="seat-cards showdown">' + holeCards[pos].map(Cards.cardFaceHTML).join('') + '</div>';
         } else {
           cardsHtml = '<div class="seat-cards">' + Cards.cardBackHTML() + Cards.cardBackHTML() + '</div>';
         }
@@ -36565,7 +36609,7 @@ window.PT_NASH_PUSH_JSON = {
       const stBet = streetBet[pos] || 0;
       const inFront = isFolded ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
       const showFullSeat = !mobile || isVillain || isCaller || inPot || isFolded || isActing
-        || stBet > 0 || inFront > 0 || showCards;
+        || !!actHtml || stBet > 0 || inFront > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
       const betHtml = renderSeatBet(inFront, seatBetPlacement(c));
@@ -42337,7 +42381,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function seatCardsHTML(cards, faceUp) {
     if (faceUp && cards && cards.length >= 2) {
-      return '<div class="seat-cards showdown">' + cards.map(Cards.cardToHTML).join('') + '</div>';
+      return '<div class="seat-cards showdown">' + cards.map(Cards.cardFaceHTML).join('') + '</div>';
     }
     return '<div class="seat-cards">' + Cards.cardBackHTML() + Cards.cardBackHTML() + '</div>';
   }
@@ -42414,7 +42458,7 @@ window.PT_NASH_PUSH_JSON = {
 
     const heroCards = h.heroCards || [];
     const heroCardsHtml = heroCards.length >= 2
-      ? '<div class="hero-cards">' + heroCards.map(Cards.cardToHTML).join('') + '</div>'
+      ? '<div class="hero-cards">' + heroCards.map(Cards.cardFaceHTML).join('') + '</div>'
       : '';
 
     const feltCfg = replayFeltConfigFromHand(h);
@@ -42422,8 +42466,8 @@ window.PT_NASH_PUSH_JSON = {
     return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
       ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
-      <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${potBB != null ? fmtBB(potBB) : '—'} bb</div>
-      <div class="board">${board.map(Cards.cardToHTML).join('')}</div></div>
+      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potBB || 0)}</span> Bote: <strong class="pot-amt">${potBB != null ? fmtBB(potBB) : '—'} bb</strong></div>
+      <div class="board">${board.map(Cards.cardFaceHTML).join('')}</div></div>
       <div class="hero-area">
         <div class="hero-label">HÉROE · <span>${escapeHtml(h.heroPos || '')}</span></div>
         ${heroCardsHtml}
@@ -42723,7 +42767,7 @@ window.PT_NASH_PUSH_JSON = {
     const heroInv = state.totalInvBB[heroPos] || 0;
     const heroChipsHtml = (heroInv > 0 || heroStreet > 0) ? renderSeatChips(heroInv, heroStreet) : '';
     const heroCardsHtml = heroCards.length >= 2
-      ? '<div class="hero-cards">' + heroCards.map(Cards.cardToHTML).join('') + '</div>'
+      ? '<div class="hero-cards">' + heroCards.map(Cards.cardFaceHTML).join('') + '</div>'
       : '';
     const heroAreaHtml =
       '<div class="hero-area">' +
@@ -42739,8 +42783,8 @@ window.PT_NASH_PUSH_JSON = {
     return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
       ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
-      <div class="board-area"><div class="pot"><span class="pot-chips"><span class="chip-ico"></span></span> Bote: ${fmtBB(potDisplay)} bb</div>
-      <div class="board">${board.map(Cards.cardToHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
+      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potDisplay || 0)}</span> Bote: <strong class="pot-amt">${fmtBB(potDisplay)} bb</strong></div>
+      <div class="board">${board.map(Cards.cardFaceHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
       ${heroAreaHtml}
     </div></div>`;
   }
