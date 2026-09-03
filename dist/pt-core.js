@@ -36612,7 +36612,11 @@ window.PT_NASH_PUSH_JSON = {
         || !!actHtml || stBet > 0 || inFront > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
-      const betHtml = renderSeatBet(inFront, seatBetPlacement(c));
+      // En el arco superior la burbuja de acción cuelga bajo el pod, justo donde
+      // caerían las fichas: se bajan un escalón para que se vean las dos.
+      let placement = seatBetPlacement(c);
+      if (actHtml && placement === 'bet-below') placement += ' bet-under-act';
+      const betHtml = renderSeatBet(inFront, placement);
       const holeHtml = '<div class="seat-hole">'
         + (actHtml ? '<div class="seat-act-wrap">' + actHtml + '</div>' : '')
         + (cardsHtml || (actHtml ? '<div class="seat-cards seat-cards-placeholder"></div>' : ''))

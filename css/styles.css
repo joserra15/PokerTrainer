@@ -2855,6 +2855,7 @@ body.age-gate-open {
   text-shadow: 0 1px 2px rgba(0,0,0,.55);
 }
 .seat-bet.bet-below { left: 50%; right: auto; top: calc(100% + 9px); bottom: auto; transform: translateX(-50%); }
+.seat-bet.bet-under-act { top: calc(100% + 38px); }
 .seat-bet.bet-above { left: 50%; right: auto; top: auto; bottom: calc(100% + 9px); transform: translateX(-50%); }
 .seat-bet.bet-right { left: calc(100% + 8px); right: auto; top: 50%; bottom: auto; transform: translateY(-50%); }
 .seat-bet.bet-left { left: auto; right: calc(100% + 8px); top: 50%; bottom: auto; transform: translateY(-50%); }
@@ -3987,7 +3988,9 @@ body.paywall-open { overflow: hidden; }
   .seat-edge-top { transform: translate(-50%, 2%); }
   .seat .seat-role { display: none; }
   .seat .seat-pos { font-size: 11px; }
-  .seat-act { font-size: 11px; padding: 3px 8px; max-width: 88px; white-space: normal; text-align: center; line-height: 1.2; }
+  /* Una sola línea: "Abre / · 2.5 / bb" partido en tres cuesta más de leer que
+     la píldora entera, y con alto fijo las fichas caben justo debajo. */
+  .seat-act { font-size: 11px; padding: 3px 8px; white-space: nowrap; line-height: 1.2; }
   .seat-act .chip-ico { width: 12px; height: 12px; }
   .seat-cards { margin-bottom: 2px; }
   .seat-cards .card { width: 20px; height: 28px; }
@@ -4003,6 +4006,7 @@ body.paywall-open { overflow: hidden; }
   .chip { width: 12px; height: 12px; border-width: 1.5px; }
   .chip-stack .chip + .chip { margin-left: -6px; }
   .seat-bet.bet-below { top: calc(100% + 5px); }
+  .seat-bet.bet-under-act { top: calc(100% + 26px); }
   .seat-bet.bet-above { bottom: calc(100% + 5px); }
   .seat-bet.bet-right { left: calc(100% + 4px); }
   .seat-bet.bet-left { right: calc(100% + 4px); }
