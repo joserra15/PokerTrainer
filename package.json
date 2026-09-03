@@ -59,6 +59,8 @@
     "test:variants": "node tools/test-product-variants.js",
     "test:beginner": "node tools/test-beginner-guide.js",
     "test:school": "node tools/test-school.js",
+    "test:school-exploit": "node tools/test-school-exploit-line.js",
+    "test:villain-type": "node tools/test-villain-type-trainer.js",
     "test:school-sync": "node tools/test-school-progress-sync.js",
     "test:onboarding-sync": "node tools/test-onboarding-sync.js",
     "test:pwa": "node tools/test-pwa-manifest.js",

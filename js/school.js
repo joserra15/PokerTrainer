@@ -2334,6 +2334,7 @@
     openLesson: openLesson,
     afterTrainerAction: afterTrainerAction,
     afterHandFinished: afterHandFinished,
+    schoolPlayConfig: schoolPlayConfig,
     isSessionActive: isSessionActive,
     activeSession: activeSession,
     hasAdminAccess: hasAdminAccess,
