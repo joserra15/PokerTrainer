@@ -112,6 +112,13 @@
     heroPos: 'random',
     handRange: 'borderline',
     villainLevel: 'pro',
+    /**
+     * Arquetipo fijo del rival: 'random' | tag | lag | nit | fish | maniac | pro.
+     * Con tipo concreto el entrenador puede puntuar en modo explotativo.
+     */
+    villainType: 'random',
+    /** 'gto' | 'exploit' — criterio de acierto del héroe */
+    scoreMode: 'gto',
     practiceStreet: 'random',
     /** mixed | bluff_make | bluff_catch */
     practiceIntent: 'mixed',
@@ -213,6 +220,15 @@
 
   const TABLE_THEMES = { emerald: true, midnight: true, crimson: true };
 
+  const VILLAIN_TYPES = {
+    random: true, tag: true, lag: true, nit: true, fish: true, maniac: true, pro: true
+  };
+
+  function normalizeVillainType(v) {
+    const id = v == null || v === '' ? 'random' : String(v).toLowerCase();
+    return VILLAIN_TYPES[id] ? id : 'random';
+  }
+
   const RR = function () { return global.GTORangesRegistry; };
 
   function normalize(config) {
@@ -257,6 +273,10 @@
     if (!c.heroPos) c.heroPos = 'random';
     if (!c.handRange) c.handRange = 'borderline';
     if (!c.villainLevel) c.villainLevel = 'pro';
+    c.villainType = normalizeVillainType(c.villainType);
+    c.scoreMode = c.scoreMode === 'exploit' ? 'exploit' : 'gto';
+    // Sin tipo fijo no inventamos explotación a ciegas.
+    if (c.villainType === 'random' && c.scoreMode === 'exploit') c.scoreMode = 'gto';
     if (!c.practiceStreet) c.practiceStreet = 'random';
     // Faroles (hacer/cazar) ocultos en el entrenador: forzar mixed.
     c.practiceIntent = 'mixed';
@@ -1186,6 +1206,11 @@
     const hr = { random: 'Todas', playable: 'Jugables', borderline: 'Borderline', all: 'Todas' }[c.handRange] || c.handRange;
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
+    const vtLabels = {
+      random: null, tag: 'TAG', lag: 'LAG', nit: 'Nit', fish: 'Fish', maniac: 'Maniac', pro: 'Pro'
+    };
+    const vt = c.villainType && c.villainType !== 'random' ? ('Tipo ' + (vtLabels[c.villainType] || c.villainType)) : null;
+    const sm = c.scoreMode === 'exploit' && vt ? 'Acierto explotativo' : null;
     const st = { random: 'Todas las calles', preflop: 'Solo preflop', flop: 'Desde flop', turn: 'Desde turn', river: 'Desde river' }[c.practiceStreet] || c.practiceStreet;
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
     let phase = '';
@@ -1208,7 +1233,8 @@
       if (c.buyIn != null) mttStruct += ' · BI €' + c.buyIn;
     }
     const am = c.actionMode === 'complete' ? 'Modo completo' : 'Modo rápido';
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + spinPay + mttStruct + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
+    const extra = [vt, sm].filter(Boolean).map(function (x) { return ' · ' + x; }).join('');
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + spinPay + mttStruct + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + extra + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {
@@ -1247,6 +1273,7 @@
   global.PTPlayConfig = {
     DEFAULT, normalize, pickScenario, labelFor, rakeLabel,
     resolveHandConfig,
+    VILLAIN_TYPES, normalizeVillainType,
     STANDARD_RAKE, estimateRakeBB, potAfterRakeBB, loadRakePrefs, saveRakePrefs,
     PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB, stackDepthToBB,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9, POS_SPIN, DEAL_ORDER_SPIN, RFI_POS_SPIN,

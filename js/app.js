@@ -559,6 +559,8 @@
     const posEl = $('#setup-hero-pos .setup-chip.active');
     const hrEl = $('#setup-hand-range .setup-chip.active');
     const vlEl = $('#setup-villain-level .setup-chip.active');
+    const vtEl = $('#setup-villain-type .setup-chip.active');
+    const smEl = $('#setup-score-mode .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
     const phaseEl = $('#setup-mtt-phase .setup-chip.active');
     const payoutEl = $('#setup-spin-payout .setup-chip.active');
@@ -614,6 +616,8 @@
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'borderline',
       villainLevel: vlEl ? vlEl.dataset.val : 'pro',
+      villainType: vtEl ? vtEl.dataset.val : 'random',
+      scoreMode: smEl ? smEl.dataset.val : 'gto',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
       // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
       practiceIntent: 'mixed',
@@ -1370,6 +1374,9 @@
     activate('#setup-hero-pos', cfg.heroPos);
     activate('#setup-hand-range', cfg.handRange);
     activate('#setup-villain-level', cfg.villainLevel);
+    activate('#setup-villain-type', cfg.villainType || 'random');
+    activate('#setup-score-mode', cfg.scoreMode === 'exploit' ? 'exploit' : 'gto');
+    syncVillainTypeScoreModeUI();
     activate('#setup-practice-street', cfg.practiceStreet);
     if (cfg.handsTarget != null) activate('#setup-hands-target', String(cfg.handsTarget || 0));
     activate('#setup-action-mode', cfg.actionMode === 'complete' ? 'complete' : 'quick');
@@ -1410,6 +1417,17 @@
       }
     }
     return readPlayConfig();
+  }
+
+  function syncVillainTypeScoreModeUI() {
+    const typeChip = $('#setup-villain-type .setup-chip.active');
+    const type = typeChip ? typeChip.dataset.val : 'random';
+    const scoreWrap = $('#setup-group-score-mode');
+    const fixed = type && type !== 'random';
+    if (scoreWrap) scoreWrap.hidden = !fixed;
+    if (!fixed) {
+      activate('#setup-score-mode', 'gto');
+    }
   }
 
   function syncRakeUI() {
@@ -1553,6 +1571,9 @@
     bindSessionConfigModal();
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
+    bindChipGroup('#setup-villain-type', () => { syncVillainTypeScoreModeUI(); });
+    bindChipGroup('#setup-score-mode');
+    syncVillainTypeScoreModeUI();
     bindChipGroup('#setup-practice-street');
     bindChipGroup('#setup-action-mode', () => {
       const el = $('#setup-action-mode .setup-chip.active');
@@ -3789,7 +3810,9 @@
 
   function renderHandDecisionsSummary(decisions, matrixSource) {
     if (!decisions || !decisions.length) return '';
-    let html = '<div class="card-box" style="margin-top:14px"><h3>Evaluación GTO de la mano</h3>';
+    let html = '<div class="card-box" style="margin-top:14px"><h3>' +
+      (decisions.some((x) => x && x.exploitApplied) ? 'Evaluación de la mano (explotativa)' : 'Evaluación GTO de la mano') +
+      '</h3>';
     decisions.forEach((d, i) => {
       html += `<div class="dec-review">
         <div class="dec-head"><strong>${cap(d.street)}</strong> · ${escapeHtml(d.label || d.chosen || d.action || '')}
@@ -3805,8 +3828,9 @@
       if (d.optionBreakdown && d.optionBreakdown.length) {
         html += renderOptionGrid(d.optionBreakdown, d.action || d.chosen, d.best);
       } else if (d.gto) {
-        html += renderGtoBars(d.gto);
+        html += renderGtoBars(d.gto, { exploit: !!d.exploitApplied });
       }
+      html += renderExploitDeltaNote(d);
       // Mostrar siempre con matrixSource: el click carga el chunk ranges bajo demanda.
       if (matrixSource) {
         html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, i, matrixSource)}</div>`;
@@ -5165,6 +5189,12 @@
       if (cfg.villainLevel && cfg.villainLevel !== 'pro') {
         parts.push('rivales ' + cfg.villainLevel + ' (no es GTO puro del villano)');
       }
+      if (cfg.villainType && cfg.villainType !== 'random') {
+        parts.push('tipo ' + cfg.villainType);
+      }
+      if (cfg.scoreMode === 'exploit' && cfg.villainType && cfg.villainType !== 'random') {
+        parts.push('acierto explotativo vs ' + cfg.villainType);
+      }
     }
     if (hand && hand.displayHeroPos && hand.hero && hand.hero.pos && hand.displayHeroPos !== hand.hero.pos) {
       parts.push(hand.displayHeroPos + ' evaluado como ' + hand.hero.pos + ' (mapa 6-max)');
@@ -5173,15 +5203,33 @@
     return '<div class="muted-text" style="margin-top:6px;font-size:12px">' + escapeHtml(parts.join(' · ')) + '</div>';
   }
 
-  function renderGtoBars(gto) {
+  function renderGtoBars(gto, opts) {
+    opts = opts || {};
     if (!gto) return '';
-    let html = '<div class="gto-bars"><div style="color:var(--muted);font-size:12px;margin-bottom:4px">Estrategia GTO (frecuencias):</div>';
+    const title = opts.title || (opts.exploit
+      ? 'Estrategia explotativa (frecuencias):'
+      : 'Estrategia GTO (frecuencias):');
+    let html = '<div class="gto-bars"><div style="color:var(--muted);font-size:12px;margin-bottom:4px">' +
+      escapeHtml(title) + '</div>';
     Object.keys(gto).forEach((a) => {
       const pct = Math.round(gto[a] * 100);
       html += `<div class="gto-bar"><span class="lbl">${actionName(a)}</span>
         <span class="track"><span class="fill" style="width:${pct}%"></span></span>
         <span class="pct">${pct}%</span></div>`;
     });
+    return html + '</div>';
+  }
+
+  function renderExploitDeltaNote(d) {
+    if (!d || !d.exploitApplied) return '';
+    let html = '<div class="exploit-delta-note muted-text" style="margin-top:6px;font-size:12px">';
+    html += '<strong>Vs ' + escapeHtml(d.villainType || 'rival') + ':</strong> ';
+    const reasons = (d.exploitReasons || []).slice(0, 2);
+    if (reasons.length) html += escapeHtml(reasons.join(' '));
+    else html += 'Mix desviado del GTO según leaks típicos del arquetipo.';
+    if (d.gtoBaseline) {
+      html += renderGtoBars(d.gtoBaseline, { title: 'Referencia GTO (sin explotación):' });
+    }
     return html + '</div>';
   }
 

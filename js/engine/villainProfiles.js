@@ -145,9 +145,14 @@
     return towardGto * boost;
   }
 
-  function applyDifficulty(profile, level) {
+  function applyDifficulty(profile, level, opts) {
+    opts = opts || {};
     const lvl = normalizeDifficulty(level);
-    if (lvl === 'pro') {
+    const base = getProfile(profile);
+    const forcedKeep = !!(opts.forced || opts.keepArchetype);
+
+    // Nivel pro sin arquetipo forzado → perfil Pro (GTO+).
+    if (lvl === 'pro' && !forcedKeep) {
       const proBase = byId.pro || DEFAULT;
       return Object.assign({}, proBase, {
         id: 'pro',
@@ -159,12 +164,13 @@
         proStyle: 'exploit_pool'
       });
     }
-    const base = getProfile(profile);
+
     const diff = DIFFICULTY[lvl] || DIFFICULTY.fish;
+    // Con tipo forzado + level pro: leak muy sutil (biasScale de pro).
+    const s = (lvl === 'pro' && forcedKeep) ? (DIFFICULTY.pro.biasScale || 0.06) : diff.biasScale;
+    const b = (lvl === 'pro' && forcedKeep) ? 1 : diff.aggroBoost;
     const pf = base.preflop || {};
     const po = base.postflop || {};
-    const s = diff.biasScale;
-    const b = diff.aggroBoost;
     const scaled = (s >= 0.99 && b <= 1.01) ? base : {
       id: base.id,
       label: base.label,
@@ -184,10 +190,12 @@
         betSizeMult: scaleMult(po.betSizeMult, s, Math.sqrt(b))
       }
     };
+    const strict = (lvl === 'pro' && forcedKeep) ? 0.92 : diff.preflopStrict;
+    const leak = (lvl === 'pro' && forcedKeep) ? 0.01 : diff.leakRate;
     return Object.assign({}, scaled, {
       difficultyLevel: lvl,
-      preflopStrict: diff.preflopStrict,
-      leakRate: diff.leakRate
+      preflopStrict: strict,
+      leakRate: leak
     });
   }
 
@@ -203,7 +211,17 @@
     const level = (hand.playConfig && hand.playConfig.villainLevel)
       || (hand.table && hand.table.villainLevel)
       || 'fish';
-    return applyDifficulty(getProfile(prof), level);
+    const forced = !!(hand.table && hand.table.forcedVillainType);
+    return applyDifficulty(getProfile(prof), level, { forced: forced, keepArchetype: forced });
+  }
+
+  function resolveForcedType(hand) {
+    const cfg = hand && hand.playConfig;
+    if (!cfg) return null;
+    const raw = cfg.villainType;
+    if (!raw || raw === 'random') return null;
+    const id = String(raw).toLowerCase();
+    return byId[id] ? id : null;
   }
 
   function assignTableProfiles(hand, positions, heroPos, difficulty) {
@@ -215,26 +233,33 @@
 
     const villains = (positions || []).filter(function (pos) { return pos !== heroPos; });
     const assigned = {};
+    const forced = resolveForcedType(hand);
 
-    if (level === 'pro') {
+    if (forced) {
+      // Tipo fijado desde config/Escuela: todos los villanos comparten el arquetipo.
+      villains.forEach(function (pos) { assigned[pos] = forced; });
+      hand.table.forcedVillainType = forced;
+    } else if (level === 'pro') {
       villains.forEach(function (pos) { assigned[pos] = 'pro'; });
+      hand.table.forcedVillainType = null;
     } else {
+      hand.table.forcedVillainType = null;
       villains.forEach(function (pos) {
         assigned[pos] = pickForDifficulty(level).id;
       });
-    }
 
-    let strongCount = villains.filter(function (pos) {
-      return STRONG_IDS.indexOf(assigned[pos]) >= 0;
-    }).length;
+      let strongCount = villains.filter(function (pos) {
+        return STRONG_IDS.indexOf(assigned[pos]) >= 0;
+      }).length;
 
-    while (level !== 'pro' && strongCount < diff.minStrong && villains.length) {
-      const weakPos = villains.find(function (pos) {
-        return STRONG_IDS.indexOf(assigned[pos]) < 0;
-      });
-      if (!weakPos) break;
-      assigned[weakPos] = pickForDifficulty('pro').id;
-      strongCount++;
+      while (strongCount < diff.minStrong && villains.length) {
+        const weakPos = villains.find(function (pos) {
+          return STRONG_IDS.indexOf(assigned[pos]) < 0;
+        });
+        if (!weakPos) break;
+        assigned[weakPos] = pickForDifficulty('pro').id;
+        strongCount++;
+      }
     }
 
     villains.forEach(function (pos) {

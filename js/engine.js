@@ -1538,6 +1538,15 @@
     input.preflopMode = preflopSizingMode(hand);
     input.pushFold = input.preflopMode === 'push';
     input.stealMode = input.preflopMode === 'steal' || input.preflopMode === 'stealDefense';
+    // Tipo de rival + criterio de acierto (GTO vs explotativo).
+    const forcedType = (hand.table && hand.table.forcedVillainType)
+      || (cfg.villainType && cfg.villainType !== 'random' ? cfg.villainType : null);
+    const seatProf = hand.villain && hand.villain.pos ? profileFor(hand, hand.villain.pos) : null;
+    input.villainType = forcedType || (seatProf && seatProf.id) || null;
+    input.scoreMode = cfg.scoreMode === 'exploit' ? 'exploit' : 'gto';
+    if (seatProf) {
+      input.villainProfile = { id: seatProf.id, label: seatProf.label, shortLabel: seatProf.shortLabel };
+    }
     const heroSeatForStack = hand.displayHeroPos || (hand.hero && hand.hero.pos);
     const villainSeatForStack = villainTableSeat(hand) || (hand.villain && hand.villain.pos);
     input.heroStackBB = (hand.stacks && heroSeatForStack && hand.stacks[heroSeatForStack] != null)
@@ -2863,6 +2872,12 @@
       class: ev.class,
       best: ev.best,
       gto: evalResult.strategy,
+      gtoBaseline: evalResult.gtoStrategy || null,
+      scoreMode: evalResult.scoreMode || 'gto',
+      villainType: evalResult.villainType || null,
+      exploitApplied: !!evalResult.exploitApplied,
+      exploitReasons: evalResult.exploitReasons || [],
+      explainDelta: evalResult.explainDelta || [],
       optionBreakdown: evalResult.optionBreakdown,
       evLoss: ev.evLoss,
       evErroneous: ev.evErroneous,

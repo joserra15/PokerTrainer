@@ -20,7 +20,7 @@
   'use strict';
 
   var XP_PER_LEVEL = 200;
-  var SCHOOL_DATA_VERSION = 4;
+  var SCHOOL_DATA_VERSION = 5;
 
   var ROUTES = [
     { id: 'cash', label: 'Cash', status: 'active' },
@@ -189,6 +189,8 @@
       spot.facingBet = true;
       spot.forceDeal.facingBet = true;
     }
+    if (meta.lineStory) spot.lineStory = meta.lineStory;
+    if (meta.schoolObserveOnly) spot.schoolObserveOnly = true;
     return spot;
   }
 

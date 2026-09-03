@@ -21,7 +21,7 @@
   'use strict';
 
   var XP_PER_LEVEL = 200;
-  var SCHOOL_DATA_VERSION = 4;
+  var SCHOOL_DATA_VERSION = 5;
 
   var ROUTES = [
     { id: 'cash', label: 'Cash', status: 'active' },
@@ -190,6 +190,8 @@
       spot.facingBet = true;
       spot.forceDeal.facingBet = true;
     }
+    if (meta.lineStory) spot.lineStory = meta.lineStory;
+    if (meta.schoolObserveOnly) spot.schoolObserveOnly = true;
     return spot;
   }
 
@@ -5845,15 +5847,15 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Examen Pro Cash: certifica que aplicas 4-bet, SRP OOP, explotación fish/reg y lectura de rangos con el checklist de esta ruta — sin introducir teoría nueva.",
+      "concept": "Examen Pro Cash: certifica 4-bet, SRP OOP, explotación fish/reg, lectura de rivales (C-32+) y rangos — sin teoría nueva fuera del checklist.",
       "theory": [
         {
           "title": "Qué se evalúa",
-          "body": "Repasas lo ya visto en C-26…C-30 y el músculo de rangos (R-05/R-06): value vs farol en 4-bet, pot control OOP deep, fish vs reg en river, bandas de rango y frecuencias mentales. No hay glosario nuevo: solo aplicación."
+          "body": "Repasas C-26…C-30 y C-32…C-38: value vs farol en 4-bet, pot control OOP, fish vs reg, arquetipos (TAG/LAG/Nit/Fish/Maniac/Pro) y bandas de rango. Solo aplicación."
         },
         {
           "title": "Checklist de profesor",
-          "body": "Antes de cada decisión del examen: (1) ¿qué capa preflop es — open, 3-bet, 4-bet o cold? (2) ¿SRP u OOP deep — cuál es mi línea de check? (3) ¿rival fish o reg — value thin o farol selectivo? (4) ¿puedo describir el rango rival en bandas? (5) ¿estoy pensando en frecuencia o en “siempre”?"
+          "body": "Antes de cada decisión: (1) capa preflop (2) SRP/OOP (3) tipo de rival y delta vs GTO (4) bandas de rango (5) ¿frecuencia o “siempre”?"
         }
       ],
       "examples": [
@@ -5863,25 +5865,346 @@
         },
         {
           "title": "Mini checklist river",
-          "body": "¿Me pagan de más (fish) o defienden bien (reg)? ¿Mi mano es value thin, bluff-catcher o aire con blocker? Una pregunta de población evita el spew."
+          "body": "¿Fish (value thin) / nit (presión) / LAG-maniac (call-down) / TAG-Pro (GTO)? Una pregunta de población evita el spew."
         },
         {
           "title": "Antes de pulsar",
-          "body": "Di en voz alta la banda del rival (value / medias / aire) y tu plan en una frase. Si la frase es solo “voy”, aún no estás listo para el examen."
+          "body": "Di el tipo de rival y el delta vs GTO en una frase. Si solo dices “voy”, aún no estás listo."
         }
       ],
       "aiQuestions": [
         "Resume 4-bet value vs farol en una frase de profesor.",
-        "¿Qué cambia en river value entre fish y reg?",
-        "¿Cuáles son las cinco preguntas del checklist Pro Cash?"
+        "¿Qué cambia en river value entre fish y nit?",
+        "¿Cuáles son las preguntas del checklist Pro Cash con lectura de rivales?"
       ],
       "spots": [],
       "exam": true,
       "id": "C-31",
-      "title": "Examen Pro · Cash"
+      "title": "Examen Pro · Cash",
+      "relatedLessons": ["C-28", "C-32", "C-39"]
     }
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
+  D.registerLessons(lessons);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school-data-exploit.js — Cash Pro C-32…C-39: lectura y explotación por tipo de villano.
+ * Cargar tras school-data-pro.js. Spots vacíos; packs en school-data-exploit-practice.js.
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+
+  var lessons = [
+    {
+      id: 'C-32',
+      title: 'Señales de población',
+      route: 'cash',
+      module: 'M4',
+      order: 32,
+      plan: 'coach',
+      xp: 100,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      relatedLessons: ['C-28', 'C-33'],
+      concept: 'Antes de explotar: formula una hipótesis de tipo (TAG/LAG/Nit/Fish/Maniac/Pro) con señales de línea. GTO es el ancla; la población decide cuánto te desvías.',
+      theory: [
+        {
+          title: 'GTO vs explotación',
+          body: 'GTO equilibra vs un rival sin leaks. Explotación es desviarte del mix hacia donde el error típico de esa población genera más EV. Sin lectura clara, GTO es la base — inventar exploits a ciegas es spew.'
+        },
+        {
+          title: 'Señales que importan',
+          body: 'VPIP/PFR mental (abre wide o tight), fold-to-cbet, stickiness en river, sizing (min-bet vs overbet), 3-bet light u overfold a 3-bets. Dos o tres manos coherentes > una sola rareza.'
+        },
+        {
+          title: 'Arquetipos del motor',
+          body: 'Fish (loose-pasivo), Nit (tight-pasivo), LAG (loose-agresivo), TAG (tight-agresivo), Maniac (hiper-agresivo), Pro (cerca de equilibrio). C-28 ya contrastó fish vs reg; aquí generalizas el marco.'
+        }
+      ],
+      examples: [
+        {
+          title: 'Misma mano, distinta hipótesis',
+          body: 'River air: vs fish check (no se tira); vs nit bet (overfold); vs LAG/maniac check o call-down si eres el que afronta. El GTO mezcla; tú eliges el sesgo según el tipo.'
+        },
+        {
+          title: 'Trampa del label único',
+          body: 'Un overbet no hace maniac. Busca patrón: open wide + barrel continuo + call down sticky = LAG/maniac; open tight + check-fold flop = nit.'
+        }
+      ],
+      aiQuestions: [
+        '¿Qué diferencia GTO de explotación?',
+        '¿Qué señales usas para hipotetizar Fish vs Nit?',
+        '¿Cuándo NO debes desviarte del mix?'
+      ],
+      spots: [],
+      exam: false
+    },
+    {
+      id: 'C-33',
+      title: 'Identificar y explotar Fish',
+      route: 'cash',
+      module: 'M4',
+      order: 33,
+      plan: 'coach',
+      xp: 120,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      relatedLessons: ['C-28', 'C-32', 'C-34'],
+      concept: 'Observa un fish (paga de más, foldea poco a faroles), identifícalo y practica: más value thin, menos bluffs river. GTO mezclaría faroles; vs station eso es −EV.',
+      theory: [
+        {
+          title: 'Señales de fish',
+          body: 'Llama opens/3-bets de más, check-call sticky, rara vez raise polar, sizing raro. En river te pagan segunda pareja y no tiran draws fallidos.'
+        },
+        {
+          title: 'Delta vs GTO',
+          body: 'GTO: mix value/bluff. Vs fish: sube value thin (bet con medias-fuertes), corta pure bluffs river, 3-bet más lineal (value), sizing de value medio (no overbet vacío).'
+        },
+        {
+          title: 'Trampa GTO ciega',
+          body: 'Farolear river “porque el solver tiene X% de bluff” vs calling station regala fichas. La explotación correcta es aburrida: cobras.'
+        }
+      ],
+      examples: [
+        {
+          title: 'Top pair medio vs fish',
+          body: 'GTO a menudo check-back o bet mixto. Vs fish: bet value casi siempre en river seco.'
+        }
+      ],
+      aiQuestions: [
+        '¿Qué cambia en river value thin vs fish respecto a GTO?',
+        '¿Por qué bajan los faroles vs calling station?'
+      ],
+      spots: [],
+      exam: false
+    },
+    {
+      id: 'C-34',
+      title: 'Identificar y explotar Nit',
+      route: 'cash',
+      module: 'M4',
+      order: 34,
+      plan: 'coach',
+      xp: 120,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      relatedLessons: ['C-32', 'C-33', 'C-35'],
+      concept: 'El nit overfoldea a opens y c-bets, solo paga fuertes. Explotación: más steal/c-bet/barrel; menos thin value y menos hero-calls.',
+      theory: [
+        {
+          title: 'Señales de nit',
+          body: 'Pocos opens early, fold-to-steal alto, check-fold flop frecuente, casi nunca bluff-raise. Cuando apuesta grande, su rango es value-heavy.'
+        },
+        {
+          title: 'Delta vs GTO',
+          body: 'GTO limita steals y barrels por defensa teórica. Vs nit: steal más wide, c-bet alta freq, barrel selectivo con air; corta thin value (no te pagan medias); foldea catchers a su presión (él no farolea).'
+        }
+      ],
+      examples: [
+        {
+          title: 'Air en flop seco vs nit',
+          body: 'GTO c-bet mixto. Vs nit: c-bet casi siempre — fold equity real > equilibrio.'
+        }
+      ],
+      aiQuestions: [
+        '¿Por qué sube el steal vs nit?',
+        '¿Por qué baja el thin value vs nit?'
+      ],
+      spots: [],
+      exam: false
+    },
+    {
+      id: 'C-35',
+      title: 'Identificar y explotar LAG',
+      route: 'cash',
+      module: 'M4',
+      order: 35,
+      plan: 'coach',
+      xp: 120,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      relatedLessons: ['C-32', 'C-34', 'C-36'],
+      concept: 'El LAG apuesta/raise/bluff de más. Explotación: más call-down con catchers, menos fold a barrels medios, menos farol spew propio; castiga 3-bet light con 4-bet value.',
+      theory: [
+        {
+          title: 'Señales de LAG',
+          body: 'Open wide, 3-bet light, barrels frecuentes, sizing grande. Su rango de bet está diluido: muchas manos medias y air.'
+        },
+        {
+          title: 'Delta vs GTO',
+          body: 'GTO foldea X% a cierto size. Vs LAG: call más bluff-catchers; no auto-fold a overbet; reduce tus bluffs (él aporta la agresividad); 4-bet value más limpio.'
+        }
+      ],
+      examples: [
+        {
+          title: 'Segundo barrel vs LAG con catcher',
+          body: 'GTO a menudo fold. Vs LAG: call — su bluff rate justifica defender.'
+        }
+      ],
+      aiQuestions: [
+        '¿Por qué call-down más vs LAG?',
+        '¿Qué error es overfold “porque GTO foldea X%”?'
+      ],
+      spots: [],
+      exam: false
+    },
+    {
+      id: 'C-36',
+      title: 'Identificar y explotar Maniac',
+      route: 'cash',
+      module: 'M4',
+      order: 36,
+      plan: 'coach',
+      xp: 120,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      relatedLessons: ['C-32', 'C-35', 'C-37'],
+      concept: 'Maniac: bluff rate extremo, no foldea. No entres en guerra de faroles. Call/raise con fuertes y catchers; value up; pot control con medias.',
+      theory: [
+        {
+          title: 'Señales de maniac',
+          body: '3-bet/4-bet loco, barrels con cualquier equity, call downs absurdos. Fold equity para tus bluffs ≈ 0.'
+        },
+        {
+          title: 'Delta vs GTO',
+          body: 'GTO mezcla bluffs. Vs maniac: casi cero pure bluffs; call/raise up con strong+catchers; flat/4-bet value vs su 3-bet light; evita coin flips innecesarios con medias.'
+        },
+        {
+          title: 'Trampa fancy play',
+          body: '“Nivelar” faroleando de vuelta es el error clásico. Él no se tira — cobras o te retiras con air.'
+        }
+      ],
+      examples: [
+        {
+          title: '3-bet light vs maniac',
+          body: 'GTO tiene parte del mix. Vs maniac: suelta el 3-bet bluff; espera value o induce.'
+        }
+      ],
+      aiQuestions: [
+        '¿Por qué fallan los faroles vs maniac?',
+        '¿Cómo castigas su 3-bet light?'
+      ],
+      spots: [],
+      exam: false
+    },
+    {
+      id: 'C-37',
+      title: 'TAG y Pro: cuándo no desviarte',
+      route: 'cash',
+      module: 'M4',
+      order: 37,
+      plan: 'coach',
+      xp: 100,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      relatedLessons: ['C-32', 'C-36', 'C-38'],
+      concept: 'TAG y Pro tienen poco leak estable. Explotación fuerte sin evidencia es spew. Aquí practicas quedarte cerca del mix GTO.',
+      theory: [
+        {
+          title: 'TAG ≈ GTO con sesgo',
+          body: 'Tight-agresivo: rangos sanos, poca basura. Ajuste mínimo: respeta 3-bets, no steals suicidas. Solo tras evidencia (overfold river) un pequeño bump de bluff.'
+        },
+        {
+          title: 'Pro como ancla',
+          body: 'Vs Pro el motor puntúa en GTO. Úsalo de benchmark: “esto es lo correcto vs alguien bueno”; vs fish/nit/LAG/maniac te desvías con motivo.'
+        }
+      ],
+      examples: [
+        {
+          title: 'Inventar exploit vs TAG',
+          body: 'Farolear river “porque TAG overfoldea” sin muestra es spew. Sin datos, mix GTO.'
+        }
+      ],
+      aiQuestions: [
+        '¿Cuándo explotas a un TAG?',
+        '¿Para qué sirve practicar vs Pro?'
+      ],
+      spots: [],
+      exam: false
+    },
+    {
+      id: 'C-38',
+      title: 'Mismo spot, cinco rivales',
+      route: 'cash',
+      module: 'M4',
+      order: 38,
+      plan: 'coach',
+      xp: 140,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      relatedLessons: ['C-33', 'C-34', 'C-35', 'C-36', 'C-37'],
+      concept: 'Misma mano y board contra fish, nit, LAG, maniac y pro: la acción correcta cambia. Interioriza el contraste GTO vs explotativo.',
+      theory: [
+        {
+          title: 'Un nodo, cinco respuestas',
+          body: 'Fijas cartas y textura; solo cambia el tipo. El teachBack siempre dice qué haría GTO y qué haces vs ese rival — y por qué el EV cambia.'
+        }
+      ],
+      examples: [
+        {
+          title: 'River air',
+          body: 'Vs fish check; vs nit bet; vs LAG/maniac check; vs pro mix/GTO.'
+        }
+      ],
+      aiQuestions: [
+        '¿Por qué el mismo spot pide acciones distintas?',
+        '¿Qué justifica el delta de EV en cada tipo?'
+      ],
+      spots: [],
+      exam: false
+    },
+    {
+      id: 'C-39',
+      title: 'Examen lectura de rivales',
+      route: 'cash',
+      module: 'M4',
+      order: 39,
+      plan: 'coach',
+      xp: 160,
+      passThreshold: 0.7,
+      goldThreshold: 0.9,
+      decisionEnd: true,
+      hands: 0,
+      relatedLessons: ['C-32', 'C-38', 'C-31'],
+      exam: true,
+      concept: 'Certifica identificación de arquetipos y decisión explotativa. Checklist: señales → tipo → delta vs GTO → acción.',
+      theory: [
+        {
+          title: 'Checklist',
+          body: '(1) ¿Qué señales vi? (2) ¿Qué tipo encaja? (3) ¿Value up o bluff up o call-down? (4) ¿Estoy inventando sin evidencia? (5) Vs Pro/TAG ≈ GTO.'
+        }
+      ],
+      examples: [
+        {
+          title: 'Antes de pulsar',
+          body: 'Di en una frase: “Vs fish corto faroles y cobro thin; vs nit presiono; vs LAG defiendo barrels.”'
+        }
+      ],
+      aiQuestions: [
+        'Resume el checklist de lectura de rivales.',
+        '¿Cuándo vuelves a GTO puro?'
+      ],
+      spots: []
+    }
+  ];
+
   D.registerLessons(lessons);
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -7045,18 +7368,18 @@
   ];
 
   PACKS['C-28'] = [
-    Fl('c28-01', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77201, 'Vs fish: top pair A-high — c-bet value. Cobra más fino; el fish paga de más.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
-    Fl('c28-02', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 77202, 'Vs reg en K-high air: no farol loco. Check más; el reg defiende. Población > GTO ciego.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', practiceStreet: 'flop' }) }),
-    Fl('c28-03', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 77203, 'Vs fish K72: c-bet. El recreacional foldea mal y paga peor — value/continuación.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
-    Fl('c28-04', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 77204, 'Vs reg en wet: no autocbet grande. El reg castiga líneas flojas.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', practiceStreet: 'flop' }) }),
-    V('c28-05', 'BB_vs_BTN', ['Ks', 'Qs'], 77205, 'Vs fish steal: 3-bet value KQs. Cobra; el fish paga 3-bets de más.', cash({ scenario: '3bet', villainLevel: 'fish' })),
-    V('c28-06', 'BB_vs_BTN', ['Td', '6s'], 77206, 'Vs reg T6o: fold. No hero-defend vs quien defiende bien.', cash({ scenario: '3bet', villainLevel: 'pro' }), 'fancy_play'),
-    Fl('c28-07', 'BTN', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 77207, 'QQ vs fish en K-high: bet/value. Thin vs recreacional OK; vs reg más check-call.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
-    V('c28-08', 'BB_vs_BTN', ['7d', '5c'], 77208, '75o vs cualquiera: fold. Explotar no es spew.', cash({ scenario: '3bet', villainLevel: 'fish' }), 'dominated'),
-    Fl('c28-09', 'BTN', ['9h', '8h'], ['Ad', '6c', '2s'], 77209, 'Vs fish A-high: c-bet ligero. El fish se tira de más a c-bets pequeños.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
-    F3('c28-10', 'BTN_vs_BB', ['Ah', 'Td'], 77210, 'ATo vs 3-bet de reg: fold OOP/borde. Vs fish a veces call; vs reg suelta el thin.', cash({ scenario: 'face3bet', villainLevel: 'pro' }), 'dominated'),
-    Fl('c28-11', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 77211, 'KK vs reg en board wet: pot control. No thin loco vs quien defiende.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', practiceStreet: 'flop' }) }),
-    V('c28-12', 'BB_vs_BTN', ['As', 'Kd'], 77212, 'AKo vs fish steal: 3-bet value. Cobra al que paga de más.', cash({ scenario: '3bet', villainLevel: 'fish' }))
+    Fl('c28-01', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77201, 'Vs fish: top pair A-high — c-bet value. Cobra más fino; el fish paga de más. GTO mezclaría check; exploit bet.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    Fl('c28-02', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 77202, 'Vs reg en K-high air: no farol loco. Check más; el reg defiende. Población > GTO ciego.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto', practiceStreet: 'flop' }) }),
+    Fl('c28-03', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 77203, 'Vs fish K72: c-bet. El recreacional foldea mal y paga peor — value/continuación.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    Fl('c28-04', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 77204, 'Vs reg en wet: no autocbet grande. El reg castiga líneas flojas.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto', practiceStreet: 'flop' }) }),
+    V('c28-05', 'BB_vs_BTN', ['Ks', 'Qs'], 77205, 'Vs fish steal: 3-bet value KQs. Cobra; el fish paga 3-bets de más.', cash({ scenario: '3bet', villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit' })),
+    V('c28-06', 'BB_vs_BTN', ['Td', '6s'], 77206, 'Vs reg T6o: fold. No hero-defend vs quien defiende bien.', cash({ scenario: '3bet', villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto' }), 'fancy_play'),
+    Fl('c28-07', 'BTN', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 77207, 'QQ vs fish en K-high: bet/value. Thin vs recreacional OK; vs reg más check-call.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    V('c28-08', 'BB_vs_BTN', ['7d', '5c'], 77208, '75o vs cualquiera: fold. Explotar no es spew.', cash({ scenario: '3bet', villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit' }), 'dominated'),
+    Fl('c28-09', 'BTN', ['9h', '8h'], ['Ad', '6c', '2s'], 77209, 'Vs fish A-high: c-bet ligero. El fish se tira de más a c-bets pequeños.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    F3('c28-10', 'BTN_vs_BB', ['Ah', 'Td'], 77210, 'ATo vs 3-bet de reg: fold OOP/borde. Vs fish a veces call; vs reg suelta el thin.', cash({ scenario: 'face3bet', villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto' }), 'dominated'),
+    Fl('c28-11', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 77211, 'KK vs reg en board wet: pot control. No thin loco vs quien defiende.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto', practiceStreet: 'flop' }) }),
+    V('c28-12', 'BB_vs_BTN', ['As', 'Kd'], 77212, 'AKo vs fish steal: 3-bet value. Cobra al que paga de más.', cash({ scenario: '3bet', villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit' }))
   ];
 
   PACKS['C-29'] = [
@@ -7093,15 +7416,17 @@
     F3('c31-01', 'BTN_vs_BB', ['Qs', 'Qd'], 77501, 'Examen Pro: QQ vs 3-bet — 4-bet value.', cash({ scenario: 'face3bet' })),
     F3('c31-02', 'BTN_vs_BB', ['Tc', '4d'], 77502, 'T4o vs 3-bet: fold.', cash({ scenario: 'face3bet' }), 'dominated'),
     Fl('c31-03', 'SB', ['Ah', 'Kd'], ['8s', '7s', '6h'], 77503, 'SRP OOP wet: check. Pot control deep.', { trapTag: 'fancy_play' }),
-    Fl('c31-04', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77504, 'Vs fish: c-bet value top pair.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
+    Fl('c31-04', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77504, 'Vs fish: c-bet value top pair. Exploit: value thin up.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
     V('c31-05', 'BB_vs_UTG', ['Kh', 'Jd'], 77505, 'Range quiz: KJo vs UTG fold.', cash({ scenario: '3bet' }), 'fancy_play'),
     Fl('c31-06', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 77506, 'Node lock: seco IP c-bet frecuente.'),
     F3('c31-07', 'BTN_vs_BB', ['Ad', '5d'], 77507, 'A5s 4-bet polar mixto.', cash({ scenario: 'face3bet' })),
     Fl('c31-08', 'SB', ['Ah', 'Kd'], ['As', '2d', '2c'], 77508, 'OOP A-paired: c-bet razonable.'),
-    V('c31-09', 'BB_vs_BTN', ['8h', '5d'], 77509, 'Vs reg 85o: fold. Explotación.', cash({ scenario: '3bet', villainLevel: 'pro' }), 'fancy_play'),
+    V('c31-09', 'BB_vs_BTN', ['8h', '5d'], 77509, 'Vs reg 85o: fold. Explotación.', cash({ scenario: '3bet', villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto' }), 'fancy_play'),
     V('c31-10', 'BB_vs_BTN', ['Jh', 'Jd'], 77510, 'JJ vs BTN: 3-bet value. Bandas de rango.', cash({ scenario: '3bet' })),
-    Fl('c31-11', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 77511, 'Wet: no autocbet. Frecuencias.', { trapTag: 'fancy_play' }),
-    F3('c31-12', 'BTN_vs_BB', ['Ah', 'Kd'], 77512, 'AKo 4-bet value. Checklist Pro cerrado.', cash({ scenario: 'face3bet' }))
+    Fl('c31-11', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 77511, 'Vs nit air: c-bet (lectura de rivales). GTO check mix; vs nit presión.', { playConfig: cash({ villainLevel: 'fish', villainType: 'nit', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    Fl('c31-12', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 77512, 'Vs maniac air: check. No farol war.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'fish', villainType: 'maniac', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    V('c31-13', 'BB_vs_BTN', ['Kh', 'Js'], 77513, 'Vs LAG KJo: defiende. Call-down mindset.', cash({ scenario: '3bet', villainType: 'lag', scoreMode: 'exploit', villainLevel: 'fish' })),
+    F3('c31-14', 'BTN_vs_BB', ['Ah', 'Kd'], 77514, 'AKo 4-bet value. Checklist Pro + lectura rivales cerrado.', cash({ scenario: 'face3bet' }))
   ];
 
   /* —— Rangos: Range Advantage (R-30…R-33) —— */
@@ -7306,6 +7631,482 @@
       raOpts('BTN', 'BB', 'Ninguno claro'), 'c',
       '66xx bajo: el BB wide tiene más 5x/6x/SC. Spot ambiguo — no autocbet al 90 %.',
       'fancy_play')
+  ];
+
+  D.LESSONS.forEach(function (lesson) {
+    var spots = PACKS[lesson.id];
+    if (!spots || !spots.length) return;
+    if (Array.isArray(lesson.spots) && lesson.spots.length) return;
+    lesson.spots = spots;
+    lesson.hands = spots.length;
+    if (lesson.passThreshold == null || lesson.passThreshold >= 0.999) {
+      lesson.passThreshold = 0.7;
+      lesson.goldThreshold = 0.9;
+    }
+  });
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
+ * school-data-exploit-practice.js — Packs C-32…C-39 (observación → quiz tipo → práctica explotativa).
+ * Cargar tras school-data-exploit.js.
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.LESSONS) return;
+
+  var rfi = D.rfiSpot, vs = D.vsRfiSpot, flop = D.flopSpot;
+
+  function cash(extra) {
+    return Object.assign({
+      scenario: 'rfi',
+      practiceStreet: 'preflop',
+      formatHub: 'cash',
+      gameType: 'cash6',
+      stackDepth: 'bb100',
+      villainLevel: 'fish'
+    }, extra || {});
+  }
+
+  function exploitCfg(type, street, extra) {
+    return cash(Object.assign({
+      villainType: type,
+      scoreMode: 'exploit',
+      practiceStreet: street || 'flop',
+      scenario: street === 'preflop' ? 'rfi' : 'rfi'
+    }, extra || {}));
+  }
+
+  function observeCfg(type, street) {
+    return cash({
+      villainType: type,
+      scoreMode: 'gto',
+      practiceStreet: street || 'flop',
+      schoolObserveOnly: true
+    });
+  }
+
+  function R(id, pos, cards, seed, tb, cfg, trap) {
+    return rfi(id, pos, cards, seed, { teachBack: tb, playConfig: cfg, trapTag: trap || 'none' });
+  }
+  function V(id, key, cards, seed, tb, cfg, trap) {
+    return vs(id, key, cards, seed, { teachBack: tb, playConfig: cfg, trapTag: trap || 'none' });
+  }
+  function Fl(id, pos, cards, board, seed, tb, extra) {
+    extra = extra || {};
+    extra.teachBack = tb;
+    extra.trapTag = extra.trapTag || 'none';
+    return flop(id, pos, cards, board, seed, extra);
+  }
+
+  function observeFlop(id, pos, cards, board, seed, type, tb) {
+    var sp = Fl(id, pos, cards, board, seed, tb, {
+      playConfig: observeCfg(type, 'flop'),
+      lineStory: [
+        { street: 'Preflop', text: 'Villano (' + type + ') llega a flop con línea típica de su arquetipo.' },
+        { street: 'Flop', text: 'Observa sizing y frecuencia — no te puntúa la explotación aún.' }
+      ]
+    });
+    sp.schoolObserveOnly = true;
+    return sp;
+  }
+
+  function typeQuiz(id, seed, correctId, signals, line, teach, distractors) {
+    var labels = {
+      fish: 'Fish (loose-pasivo)',
+      nit: 'Nit (tight-pasivo)',
+      lag: 'LAG (loose-agresivo)',
+      maniac: 'Maniac (hiper-agresivo)',
+      tag: 'TAG (tight-agresivo)',
+      pro: 'Pro (cerca de GTO)'
+    };
+    var opts = [{ id: correctId, label: labels[correctId] || correctId }];
+    (distractors || []).forEach(function (d) {
+      opts.push({ id: d.id, label: labels[d.id] || d.id, why: d.why || '' });
+    });
+    // Mezcla estable por seed
+    opts.sort(function (a, b) {
+      return ((a.id.charCodeAt(0) * seed) % 7) - ((b.id.charCodeAt(0) * seed) % 7);
+    });
+    return {
+      id: id,
+      kind: 'villainTypeQuiz',
+      seed: seed,
+      heroPos: 'BTN',
+      teachBack: teach,
+      quiz: {
+        prompt: 'Según las señales, ¿qué tipo de jugador es el villano?',
+        line: line || '',
+        signals: signals,
+        correctId: correctId,
+        teachBack: teach,
+        options: opts
+      }
+    };
+  }
+
+  function practiceFlop(id, pos, cards, board, seed, type, tb, trap) {
+    return Fl(id, pos, cards, board, seed, tb, {
+      trapTag: trap || 'none',
+      playConfig: exploitCfg(type, 'flop')
+    });
+  }
+
+  var PACKS = {};
+
+  /* —— C-32 marco —— */
+  PACKS['C-32'] = [
+    typeQuiz('c32-q1', 83201, 'fish',
+      ['Llama 3-bets con KJo', 'Check-call flop y turn sticky', 'Nunca raise polar en river'],
+      'BTN open → BB call → flop check-call → turn check-call',
+      'Fish: paga de más y rara vez farolea raise. GTO mezclaría bluffs; vs él cobras thin.',
+      [
+        { id: 'nit', why: 'Un nit no llama 3-bets con KJo sticky.' },
+        { id: 'lag', why: 'LAG raisearía más; no solo check-call eterno.' },
+        { id: 'maniac', why: 'Maniac barrelaría/3-betearía loco, no solo paga.' }
+      ]),
+    typeQuiz('c32-q2', 83202, 'nit',
+      ['Fold a steal BTN con A9o', 'Check-fold flop seco vs c-bet 33%', 'Solo apuesta river con top pair+'],
+      'BTN steal → BB fold frecuente; SRP flop check-fold',
+      'Nit: overfold. GTO defiende más; vs nit robas y c-beteas más.',
+      [
+        { id: 'fish', why: 'Fish defiende de más, no overfoldea steals.' },
+        { id: 'lag', why: 'LAG 3-betearía light, no fold A9o vs steal.' },
+        { id: 'tag', why: 'TAG defiende mejor vs c-bet pequeño.' }
+      ]),
+    typeQuiz('c32-q3', 83203, 'lag',
+      ['Open UTG con 76s', '3-bet light BTN', 'Triple barrel con air frecuente'],
+      'UTG open wide → barrels continuos',
+      'LAG: agresión diluida. GTO foldea más a barrels; vs LAG call-down catchers.',
+      [
+        { id: 'nit', why: 'Nit no open UTG 76s ni triple barrel air.' },
+        { id: 'fish', why: 'Fish es pasivo; no 3-bet light continuo.' },
+        { id: 'pro', why: 'Pro barrels con plan; no open basura UTG siempre.' }
+      ]),
+    typeQuiz('c32-q4', 83204, 'maniac',
+      ['4-bet light vs 3-bet', 'Overbet river sin línea', 'Call shove con second pair'],
+      '3-bet → 4-bet loco → river overbet',
+      'Maniac: bluff extremo y no foldea. Corta tus faroles; cobra value.',
+      [
+        { id: 'tag', why: 'TAG no 4-bet light ni call shove second pair.' },
+        { id: 'nit', why: 'Nit es pasivo-tight, opuesto al maniac.' },
+        { id: 'pro', why: 'Pro polariza con historia; no spew sin línea.' }
+      ]),
+    typeQuiz('c32-q5', 83205, 'tag',
+      ['Open UTG sólido', 'C-bet selectivo', '3-bet value-heavy'],
+      'UTG open → flop c-bet mixto → turn pot control',
+      'TAG: cerca de GTO. Sin leak claro, no inventes explotación fuerte.',
+      [
+        { id: 'fish', why: 'Fish no es value-heavy en 3-bets.' },
+        { id: 'maniac', why: 'Maniac no pot-controla selectivo.' },
+        { id: 'nit', why: 'Nit c-betea menos y overfoldea más.' }
+      ]),
+    typeQuiz('c32-q6', 83206, 'pro',
+      ['Mix de faroles con blockers', 'Sizing coherente con polarización', 'Defiende vs c-bet pequeño'],
+      'BTN open → BB defend → river bet mix value/bluff',
+      'Pro: ancla GTO. Úsalo de benchmark frente a poblaciones leaky.',
+      [
+        { id: 'fish', why: 'Fish no farolea river con blockers de forma equilibrada.' },
+        { id: 'nit', why: 'Nit overfoldea, no defiende pequeño size bien.' },
+        { id: 'lag', why: 'LAG overbetea/barrel de más sin equilibrio.' }
+      ]),
+    practiceFlop('c32-p1', 'BTN', ['Ad', '9d'], ['As', '7h', '2c'], 83207, 'fish',
+      'Marco: vs fish top pair — bet value. GTO mezclaría check; vs station cobras.', 'none'),
+    practiceFlop('c32-p2', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83208, 'nit',
+      'Marco: vs nit air en K-high — c-bet OK. GTO a menudo check; vs nit fold equity real.', 'none'),
+    V('c32-p3', 'BB_vs_BTN', ['Kh', 'Js'], 83209,
+      'Marco: vs LAG KJo — call/3-bet defend. GTO a veces fold; vs LAG el open está wide.',
+      cash({ scenario: '3bet', villainType: 'lag', scoreMode: 'exploit' })),
+    practiceFlop('c32-p4', 'BTN', ['Qh', 'Td'], ['As', '8d', '3c'], 83210, 'maniac',
+      'Marco: vs maniac air — check. GTO tiene bluff mix; vs maniac el farol muere.', 'fancy_play'),
+    practiceFlop('c32-p5', 'BTN', ['Ah', 'Kd'], ['Qs', '7d', '2c'], 83211, 'tag',
+      'Marco: vs TAG AK flop Q-high — cerca de GTO (c-bet/selectivo). No inventes.', 'none'),
+    practiceFlop('c32-p6', 'BTN', ['Jh', 'Jd'], ['Tc', '8h', '3d'], 83212, 'pro',
+      'Marco: vs Pro JJ — juega el mix GTO. Benchmark del ancla.', 'none')
+  ];
+
+  /* —— C-33 Fish —— */
+  PACKS['C-33'] = [
+    observeFlop('c33-o1', 'BTN', ['Kh', 'Qd'], ['Kd', '8h', '3c'], 83301, 'fish',
+      'Observa: el fish check-call sticky. Señales de calling station — luego identificarás.'),
+    observeFlop('c33-o2', 'CO', ['As', 'Js'], ['Ah', '9d', '4c'], 83302, 'fish',
+      'Observa: paga c-bets con medias. Value thin cobrará; faroles river no.'),
+    observeFlop('c33-o3', 'BTN', ['9h', '8h'], ['Qs', '7d', '2c'], 83303, 'fish',
+      'Observa: se tira poco a bets pequeños tempranos pero sticky late.'),
+    typeQuiz('c33-q1', 83304, 'fish',
+      ['Call flop+turn con second pair', 'Casi nunca raise', 'Paga river thin'],
+      'SRP BTN vs BB · check-call ×2 · river call thin',
+      'Es fish. Delta vs GTO: ↑ value thin, ↓ bluffs river.',
+      [
+        { id: 'nit', why: 'Nit foldearía second pair a presión.' },
+        { id: 'lag', why: 'LAG raisearía a veces, no solo call.' },
+        { id: 'tag', why: 'TAG es más selectivo en calls river.' }
+      ]),
+    practiceFlop('c33-p1', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 83305, 'fish',
+      'Vs fish: top pair A-high — c-bet value. GTO mezcla check; vs station cobras más fino.', 'none'),
+    practiceFlop('c33-p2', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83306, 'fish',
+      'Vs fish air K-high: no farol loco river-plan. GTO bluff mix; vs fish corta faroles. Check más.', 'fancy_play'),
+    practiceFlop('c33-p3', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 83307, 'fish',
+      'Vs fish K72: c-bet. El recreacional foldea mal temprano y paga peor value.', 'none'),
+    practiceFlop('c33-p4', 'BTN', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 83308, 'fish',
+      'QQ vs fish en K-high: bet/value. Thin vs recreacional OK.', 'none'),
+    practiceFlop('c33-p5', 'BTN', ['9h', '8h'], ['Ad', '6c', '2s'], 83309, 'fish',
+      'Vs fish A-high: c-bet ligero value/continuación. Evita overbet polar vacío.', 'none'),
+    V('c33-p6', 'BB_vs_BTN', ['Ks', 'Qs'], 83310,
+      'Vs fish steal: 3-bet value KQs. GTO a veces flat; vs fish cobra — pagan 3-bets de más.',
+      cash({ scenario: '3bet', villainType: 'fish', scoreMode: 'exploit' })),
+    V('c33-p7', 'BB_vs_BTN', ['7d', '5c'], 83311,
+      '75o vs fish: fold. Explotar no es spew. GTO y exploit coinciden: basura out.',
+      cash({ scenario: '3bet', villainType: 'fish', scoreMode: 'exploit' }), 'dominated'),
+    practiceFlop('c33-p8', 'CO', ['Kd', 'Jh'], ['Kc', 'Td', '4s'], 83312, 'fish',
+      'KJ top pair vs fish: value. GTO check-back a veces; vs fish bet thin.', 'none'),
+    practiceFlop('c33-p9', 'BTN', ['Th', '9h'], ['As', '7c', '2d'], 83313, 'fish',
+      'Air vs fish A-high river-path: no inventes farol. Check. GTO tendría bluff%; vs fish 0.', 'fancy_play'),
+    practiceFlop('c33-p10', 'BTN', ['Ah', 'Td'], ['Ac', '9s', '5h'], 83314, 'fish',
+      'AT top pair vs fish: bet value. Cierra el bloque cobrando, no faroleando.', 'none')
+  ];
+
+  /* —— C-34 Nit —— */
+  PACKS['C-34'] = [
+    observeFlop('c34-o1', 'BTN', ['Qh', 'Td'], ['Kd', '8h', '3c'], 83401, 'nit',
+      'Observa: nit check-fold a c-bet pequeño. Fold equity real.'),
+    observeFlop('c34-o2', 'BTN', ['As', '5s'], ['Jh', '9d', '2c'], 83402, 'nit',
+      'Observa: rara vez bluff-raise. Cuando apuesta grande = value.'),
+    observeFlop('c34-o3', 'CO', ['8h', '7h'], ['Qc', '6d', '2s'], 83403, 'nit',
+      'Observa: overfold turn barrels.'),
+    typeQuiz('c34-q1', 83404, 'nit',
+      ['Fold ATo vs BTN steal', 'Check-fold flop vs 33% pot', 'Solo value-bet river'],
+      'Steal BTN → BB fold; SRP check-fold flop',
+      'Nit. Delta: ↑ steal/c-bet/barrel; ↓ thin value; ↓ hero-call.',
+      [
+        { id: 'fish', why: 'Fish no overfoldea steals con ATo.' },
+        { id: 'lag', why: 'LAG 3-betearía, no fold ATo.' },
+        { id: 'maniac', why: 'Maniac no check-fold continuo.' }
+      ]),
+    R('c34-p1', 'BTN', ['Jh', '9h'], 83405,
+      'Vs nit: J9s BTN steal OK. GTO borde; vs nit fold-to-open alto → steal up.',
+      exploitCfg('nit', 'preflop', { scenario: 'rfi' })),
+    R('c34-p2', 'BTN', ['Qc', '2h'], 83406,
+      'Vs nit tampoco Q2o. Explotación ≠ spew. GTO y exploit: fold.',
+      exploitCfg('nit', 'preflop'), 'dominated'),
+    practiceFlop('c34-p3', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83407, 'nit',
+      'Air vs nit K-high: c-bet. GTO check frecuente; vs nit presión — overfold.', 'none'),
+    practiceFlop('c34-p4', 'BTN', ['Ad', '9d'], ['As', '8h', '3c'], 83408, 'nit',
+      'Top pair vs nit: sizing más polar / menos thin crazy. Nit solo paga fuertes — no value loco pequeño eterno.', 'none'),
+    practiceFlop('c34-p5', 'BTN', ['Th', '9h'], ['Ad', '6c', '2s'], 83409, 'nit',
+      'Air A-high vs nit: c-bet ligero. Fold equity > GTO.', 'none'),
+    V('c34-p6', 'BB_vs_BTN', ['Kh', '8d'], 83410,
+      'Vs nit open (tight): K8o fold. Su RFI es fuerte — respeta. Explotas su fold-to-3bet, no llamas basura.',
+      cash({ scenario: '3bet', villainType: 'nit', scoreMode: 'exploit' }), 'fancy_play'),
+    V('c34-p7', 'BB_vs_BTN', ['Ad', '4d'], 83411,
+      'Vs nit: A4s 3-bet light OK. GTO mix; vs nit fold-to-3bet alto → 3-bet light up.',
+      cash({ scenario: '3bet', villainType: 'nit', scoreMode: 'exploit' })),
+    practiceFlop('c34-p8', 'CO', ['Qs', 'Jd'], ['Qh', '7c', '2d'], 83412, 'nit',
+      'Top pair vs nit: no thin river crazy si muestra solo-pay-strong. Pot control OK.', 'none'),
+    practiceFlop('c34-p9', 'BTN', ['8h', '7h'], ['Kc', 'Td', '4s'], 83413, 'nit',
+      'Air vs nit: barrel candidato. GTO baja freq; vs nit overfold turn.', 'none'),
+    practiceFlop('c34-p10', 'BTN', ['2h', '2d'], ['As', 'Kd', 'Qc'], 83414, 'nit',
+      'Underpair vs nit A-high: a menudo check/fold a presión — él no farolea. Menos hero-call que GTO.', 'fancy_play')
+  ];
+
+  /* —— C-35 LAG —— */
+  PACKS['C-35'] = [
+    observeFlop('c35-o1', 'BB', ['Kh', 'Ts'], ['Kd', '8h', '3c'], 83501, 'lag',
+      'Observa: LAG c-bet/barrel wide. Rango de bet diluido.'),
+    observeFlop('c35-o2', 'BB', ['Ah', '9d'], ['Qs', '7c', '2d'], 83502, 'lag',
+      'Observa: sizing grande sin nuts siempre.'),
+    observeFlop('c35-o3', 'BTN', ['Jh', 'Td'], ['9h', '8d', '2c'], 83503, 'lag',
+      'Observa: 3-bet light previo — agresión preflop loose.'),
+    typeQuiz('c35-q1', 83504, 'lag',
+      ['Open wide CO/BTN', '3-bet light', 'Barrels con air frecuentes'],
+      'Open wide → c-bet → turn barrel → river pressure',
+      'LAG. Delta: ↑ call-down; ↓ fold a barrels; ↓ bluff spew propio.',
+      [
+        { id: 'nit', why: 'Nit no barrel air frecuente.' },
+        { id: 'fish', why: 'Fish es pasivo, no 3-bet light.' },
+        { id: 'pro', why: 'Pro equilibra; no open basura + barrel eterno.' }
+      ]),
+    V('c35-p1', 'BB_vs_BTN', ['Kh', 'Js'], 83505,
+      'Vs LAG steal: KJo defend/3-bet. GTO borde fold; vs LAG open wide → defiende.',
+      cash({ scenario: '3bet', villainType: 'lag', scoreMode: 'exploit' })),
+    V('c35-p2', 'BB_vs_BTN', ['Td', '6s'], 83506,
+      'T6o vs LAG: fold. Call-down ≠ llamar basura preflop.',
+      cash({ scenario: '3bet', villainType: 'lag', scoreMode: 'exploit' }), 'dominated'),
+    practiceFlop('c35-p3', 'BB', ['Ah', 'Td'], ['As', '8h', '3c'], 83507, 'lag',
+      'Top pair vs LAG pressure: call down. GTO a veces fold a sizing; vs LAG bluff-heavy → call.', 'none'),
+    practiceFlop('c35-p4', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83508, 'lag',
+      'Air vs LAG: no spew bluff war. Él aporta agresividad — check más que GTO bluff.', 'fancy_play'),
+    practiceFlop('c35-p5', 'BB', ['Qs', 'Jd'], ['Qh', '7c', '2d'], 83509, 'lag',
+      'Top pair vs LAG barrel: call. Catcher válido vs rango diluido.', 'none'),
+    practiceFlop('c35-p6', 'BB', ['Kh', '9c'], ['Kd', 'Ts', '4h'], 83510, 'lag',
+      'K9 vs LAG: call down razonable. No auto-fold a size grande.', 'none'),
+    V('c35-p7', 'BB_vs_BTN', ['Ah', 'Kd'], 83511,
+      'AKo vs LAG: 3-bet/4-bet value path. Castiga ligereza.',
+      cash({ scenario: '3bet', villainType: 'lag', scoreMode: 'exploit' })),
+    practiceFlop('c35-p8', 'BTN', ['9h', '8h'], ['Ad', '6c', '2s'], 83512, 'lag',
+      'Air A-high vs LAG: check. No farol spew.', 'fancy_play'),
+    practiceFlop('c35-p9', 'BB', ['Jh', 'Ts'], ['Jc', '8d', '3h'], 83513, 'lag',
+      'Top pair vs LAG: call/raise value. Él paga y también farolea — value sólido.', 'none'),
+    practiceFlop('c35-p10', 'BB', ['8h', '8d'], ['As', 'Kd', 'Qc'], 83514, 'lag',
+      '88 vs LAG A-high barrel: call más que GTO si stack/odds OK — bluff rate alto.', 'none')
+  ];
+
+  /* —— C-36 Maniac —— */
+  PACKS['C-36'] = [
+    observeFlop('c36-o1', 'BB', ['Ah', 'Qs'], ['Kd', '8h', '3c'], 83601, 'maniac',
+      'Observa: maniac overbet/pressure sin freírse. Bluff rate extremo.'),
+    observeFlop('c36-o2', 'BTN', ['Jh', 'Td'], ['Qs', '7c', '2d'], 83602, 'maniac',
+      'Observa: no se tira a raises — tus faroles mueren.'),
+    observeFlop('c36-o3', 'BB', ['Kh', 'Js'], ['Ah', '9d', '4c'], 83603, 'maniac',
+      'Observa: 3-bet/4-bet loco preflop en la historia.'),
+    typeQuiz('c36-q1', 83604, 'maniac',
+      ['4-bet light', 'Overbet river sin línea', 'Call con second pair shove'],
+      '3-bet → 4-bet → flop bet → river overbet',
+      'Maniac. Delta: ↑↑ call catchers; ↓↓ bluffs; value/4-bet; no war de faroles.',
+      [
+        { id: 'lag', why: 'LAG es agresivo pero no tan spewy en 4-bet/call shove.' },
+        { id: 'fish', why: 'Fish es pasivo.' },
+        { id: 'tag', why: 'TAG no 4-bet light ni call shove second pair.' }
+      ]),
+    V('c36-p1', 'BB_vs_BTN', ['Ad', 'Kd'], 83605,
+      'Vs maniac: AKs value. GTO 3-bet; vs maniac cobra limpio — él paga/shovea wide.',
+      cash({ scenario: '3bet', villainType: 'maniac', scoreMode: 'exploit' })),
+    V('c36-p2', 'BB_vs_BTN', ['Th', '7c'], 83606,
+      'T7o vs maniac: fold. Él no tira — no farolees ni hero-call basura.',
+      cash({ scenario: '3bet', villainType: 'maniac', scoreMode: 'exploit' }), 'fancy_play'),
+    practiceFlop('c36-p3', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83607, 'maniac',
+      'Air vs maniac: check. GTO bluff mix; vs maniac farol ≈ 0 EV.', 'fancy_play'),
+    practiceFlop('c36-p4', 'BB', ['Ah', 'Td'], ['As', '8h', '3c'], 83608, 'maniac',
+      'Top pair vs maniac pressure: call/raise. Bluff rate justifica defender.', 'none'),
+    practiceFlop('c36-p5', 'BB', ['Qs', 'Qd'], ['Jh', '9c', '2d'], 83609, 'maniac',
+      'QQ vs maniac: value up / stack-off selectivo. No pot-control eterno con fuertes.', 'none'),
+    practiceFlop('c36-p6', 'BTN', ['9h', '8h'], ['Ad', '6c', '2s'], 83610, 'maniac',
+      'Air: no “nivelar” faroleando. Check. Fancy play syndrome.', 'fancy_play'),
+    V('c36-p7', 'BB_vs_BTN', ['Td', 'Th'], 83611,
+      'TT vs maniac: 3-bet value. Castiga opens loco.',
+      cash({ scenario: '3bet', villainType: 'maniac', scoreMode: 'exploit' })),
+    practiceFlop('c36-p8', 'BB', ['Kh', '9c'], ['Kd', 'Ts', '4h'], 83612, 'maniac',
+      'K9 vs maniac barrel: call. Catcher vs hiper-agresión.', 'none'),
+    practiceFlop('c36-p9', 'BTN', ['Jh', 'Td'], ['Qc', '8d', '3h'], 83613, 'maniac',
+      'Medias: pot control. Evita coin flip spew vs maniac stack-off loco.', 'none'),
+    practiceFlop('c36-p10', 'BB', ['Ah', 'Kd'], ['Ac', '7s', '2d'], 83614, 'maniac',
+      'AK top pair vs maniac: value/raise. Cierra cobrando, no faroleando.', 'none')
+  ];
+
+  /* —— C-37 TAG/Pro —— */
+  PACKS['C-37'] = [
+    observeFlop('c37-o1', 'BTN', ['Ah', 'Qd'], ['Kd', '8h', '3c'], 83701, 'tag',
+      'Observa: TAG c-bet selectivo, sizing sano. Poco leak claro.'),
+    observeFlop('c37-o2', 'BTN', ['Jh', 'Td'], ['Qs', '7c', '2d'], 83702, 'pro',
+      'Observa: Pro mezcla value/bluff. Ancla GTO.'),
+    typeQuiz('c37-q1', 83703, 'tag',
+      ['Open UTG sólido', '3-bet value-heavy', 'C-bet mixto sin spew'],
+      'UTG open → flop c-bet 33–66% · turn pot control',
+      'TAG. Sin evidencia de leak, quédate cerca de GTO.',
+      [
+        { id: 'fish', why: 'Fish no es value-heavy selectivo.' },
+        { id: 'maniac', why: 'Maniac spew, no pot control.' },
+        { id: 'nit', why: 'Nit overfoldea más que un TAG sano.' }
+      ]),
+    typeQuiz('c37-q2', 83704, 'pro',
+      ['Bluffs con blockers', 'Defiende small bets', 'Sizing coherente'],
+      'BTN vs BB river bet mix',
+      'Pro = benchmark GTO. No inventes explotación fuerte.',
+      [
+        { id: 'lag', why: 'LAG over-agrede sin equilibrio de blockers.' },
+        { id: 'fish', why: 'Fish no farolea equilibrado.' },
+        { id: 'nit', why: 'Nit overfoldea small bets.' }
+      ]),
+    practiceFlop('c37-p1', 'BTN', ['Ad', 'Kd'], ['Qs', '7d', '2c'], 83705, 'tag',
+      'Vs TAG AK: cerca de GTO (c-bet/selectivo). No inventes thin loco ni bluff spew.', 'none'),
+    practiceFlop('c37-p2', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83706, 'tag',
+      'Air vs TAG: no farol “creativo”. Mix GTO / check. Inventar exploit = spew.', 'fancy_play'),
+    practiceFlop('c37-p3', 'BTN', ['Ah', 'Qd'], ['As', '8h', '3c'], 83707, 'pro',
+      'Vs Pro top pair: juega GTO. scoreMode explotativo vs Pro ≈ identidad.', 'none'),
+    practiceFlop('c37-p4', 'BTN', ['9h', '8h'], ['Ad', '6c', '2s'], 83708, 'pro',
+      'Air vs Pro: respeta el mix (bluff selectivo con blockers). No spew.', 'none'),
+    V('c37-p5', 'BB_vs_BTN', ['Kh', 'Js'], 83709,
+      'Vs TAG/Pro: KJo según chart GTO. No overdefend “porque explotación”.',
+      cash({ scenario: '3bet', villainType: 'tag', scoreMode: 'exploit' })),
+    V('c37-p6', 'BB_vs_BTN', ['Td', '6s'], 83710,
+      'T6o: fold vs TAG/Pro. GTO y exploit coinciden.',
+      cash({ scenario: '3bet', villainType: 'pro', scoreMode: 'gto' }), 'dominated'),
+    practiceFlop('c37-p7', 'CO', ['Qs', 'Qd'], ['Jh', '9c', '2d'], 83711, 'tag',
+      'QQ vs TAG: línea GTO (c-bet/pot control según textura). Sin leak, no overbet crazy.', 'none'),
+    practiceFlop('c37-p8', 'BTN', ['Jh', 'Jd'], ['Tc', '8h', '3d'], 83712, 'pro',
+      'JJ vs Pro: mix GTO. Cierra el bloque sin inventar.', 'none')
+  ];
+
+  /* —— C-38 mismo spot cinco rivales —— */
+  var board38 = ['As', '8h', '3c'];
+  var hand38 = ['Ad', '2d'];
+  PACKS['C-38'] = [
+    practiceFlop('c38-01', 'BTN', hand38, board38, 83801, 'fish',
+      'Mismo spot vs FISH: top pair — bet value. GTO mezclaría check; vs fish cobras thin.', 'none'),
+    practiceFlop('c38-02', 'BTN', hand38, board38, 83802, 'nit',
+      'Mismo spot vs NIT: value más polar / respeta que solo paga fuertes. Menos thin eterno que vs fish.', 'none'),
+    practiceFlop('c38-03', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83803, 'fish',
+      'Air vs FISH: check (no farol). GTO bluff%; vs fish corta.', 'fancy_play'),
+    practiceFlop('c38-04', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83804, 'nit',
+      'Air vs NIT: c-bet. GTO check mix; vs nit fold equity → bet.', 'none'),
+    practiceFlop('c38-05', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83805, 'lag',
+      'Air vs LAG: check. No war. GTO algo de bluff; vs LAG él ya agrede.', 'fancy_play'),
+    practiceFlop('c38-06', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83806, 'maniac',
+      'Air vs MANIAC: check absoluto. Farol muerto.', 'fancy_play'),
+    practiceFlop('c38-07', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83807, 'pro',
+      'Air vs PRO: mix GTO (bluff selectivo o check). Ancla.', 'none'),
+    V('c38-08', 'BB_vs_BTN', ['Kh', 'Js'], 83808,
+      'KJo vs FISH steal: 3-bet value más lineal.',
+      cash({ scenario: '3bet', villainType: 'fish', scoreMode: 'exploit' })),
+    V('c38-09', 'BB_vs_BTN', ['Kh', 'Js'], 83809,
+      'KJo vs NIT steal: 3-bet light/pressure OK (fold-to-3bet).',
+      cash({ scenario: '3bet', villainType: 'nit', scoreMode: 'exploit' })),
+    V('c38-10', 'BB_vs_BTN', ['Kh', 'Js'], 83810,
+      'KJo vs LAG: defend/call-down path — open wide.',
+      cash({ scenario: '3bet', villainType: 'lag', scoreMode: 'exploit' })),
+    V('c38-11', 'BB_vs_BTN', ['Kh', 'Js'], 83811,
+      'KJo vs MANIAC: value/defend; no 3-bet bluff war.',
+      cash({ scenario: '3bet', villainType: 'maniac', scoreMode: 'exploit' })),
+    V('c38-12', 'BB_vs_BTN', ['Kh', 'Js'], 83812,
+      'KJo vs PRO: decisión GTO del chart. Sin exploit inventado.',
+      cash({ scenario: '3bet', villainType: 'pro', scoreMode: 'gto' }))
+  ];
+
+  /* —— C-39 examen —— */
+  PACKS['C-39'] = [
+    typeQuiz('c39-q1', 83901, 'fish',
+      ['Sticky call downs', 'Paga thin river', 'Casi nunca raise polar'],
+      'Check-call × calles · river call second pair',
+      'Fish → value thin up, bluffs down.',
+      [{ id: 'nit', why: 'Nit no paga thin river sticky.' }, { id: 'lag', why: 'LAG raisearía más.' }, { id: 'pro', why: 'Pro equilibra raises.' }]),
+    typeQuiz('c39-q2', 83902, 'maniac',
+      ['4-bet light', 'Overbets', 'No foldea'],
+      '4-bet → flop bet → river overbet',
+      'Maniac → call catchers, cero faroles propios.',
+      [{ id: 'tag', why: 'TAG no spew 4-bet light.' }, { id: 'nit', why: 'Opuesto.' }, { id: 'fish', why: 'Fish pasivo.' }]),
+    practiceFlop('c39-p1', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 83903, 'fish',
+      'Examen: vs fish top pair — value. GTO check mix; exploit bet.', 'none'),
+    practiceFlop('c39-p2', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83904, 'nit',
+      'Examen: vs nit air — c-bet. Fold equity.', 'none'),
+    practiceFlop('c39-p3', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 83905, 'fish',
+      'Examen: vs fish air — NO farol. Check.', 'fancy_play'),
+    V('c39-p4', 'BB_vs_BTN', ['Kh', 'Js'], 83906,
+      'Examen: vs LAG KJo — defiende.',
+      cash({ scenario: '3bet', villainType: 'lag', scoreMode: 'exploit' })),
+    V('c39-p5', 'BB_vs_BTN', ['Th', '7c'], 83907,
+      'Examen: vs maniac T7o — fold. No fancy.',
+      cash({ scenario: '3bet', villainType: 'maniac', scoreMode: 'exploit' }), 'fancy_play'),
+    practiceFlop('c39-p6', 'BTN', ['Ah', 'Qd'], ['Qs', '7d', '2c'], 83908, 'tag',
+      'Examen: vs TAG ≈ GTO. No inventes.', 'none'),
+    practiceFlop('c39-p7', 'BB', ['Ah', 'Td'], ['As', '8h', '3c'], 83909, 'maniac',
+      'Examen: top pair vs maniac — call down.', 'none'),
+    practiceFlop('c39-p8', 'BTN', ['9h', '8h'], ['Ad', '6c', '2s'], 83910, 'nit',
+      'Examen: air vs nit — presión c-bet.', 'none'),
+    V('c39-p9', 'BB_vs_BTN', ['Ad', '4d'], 83911,
+      'Examen: vs nit A4s 3-bet light OK.',
+      cash({ scenario: '3bet', villainType: 'nit', scoreMode: 'exploit' })),
+    practiceFlop('c39-p10', 'BTN', ['Jh', 'Jd'], ['Tc', '8h', '3d'], 83912, 'pro',
+      'Examen: vs Pro — mix GTO. Checklist cerrado.', 'none')
   ];
 
   D.LESSONS.forEach(function (lesson) {
@@ -14850,6 +15651,7 @@
     if (kind === 'nashQuiz') return mountNash(host, spot, ctx);
     if (kind === 'icmQuiz') return mountIcm(host, spot, ctx);
     if (kind === 'sprQuiz') return mountSpr(host, spot, ctx);
+    if (kind === 'villainTypeQuiz') return mountVillainType(host, spot, ctx);
     if (kind === 'matrixPaint') return mountPaint(host, spot, ctx);
     return mountQuiz(host, spot, ctx);
   }
@@ -15211,6 +16013,31 @@
           villainPos: quiz.villainPos || 'BB',
           options: (quiz.options || []).map(function (o) { return { id: o.id, label: o.label }; })
         });
+      }
+    });
+  }
+
+  /**
+   * Quiz «¿qué tipo de jugador es el villano?» — señales de línea → arquetipo.
+   * spot.quiz: { prompt, line, lineStory, board, options[{id,label,why?}], correctId, teachBack }
+   */
+  function mountVillainType(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var body =
+      (quiz.line ? '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(quiz.line) + '</p>' : '') +
+      formatLineStoryHtml(quiz.lineStory) +
+      (quiz.signals ? '<ul class="school-vt-signals">' + (quiz.signals || []).map(function (s) {
+        return '<li>' + esc(s) + '</li>';
+      }).join('') + '</ul>' : '') +
+      formatBoardHtml(quiz.board || []);
+    mountMcqDrill(host, spot, ctx, {
+      kindLabel: 'Tipo de rival',
+      title: '¿Qué tipo de jugador es?',
+      defaultPrompt: 'Según las señales, ¿qué arquetipo encaja mejor?',
+      bodyHtml: body,
+      mountShare: function (root) {
+        if (!root || !global.PTSchoolShare || !global.PTSchoolShare.buildGenericShareHtml) return;
+        /* share opcional vía HTML genérico en gradeMcqQuiz */
       }
     });
   }
@@ -15592,7 +16419,8 @@
       spot.kind === 'comboQuiz' ||
       spot.kind === 'nashQuiz' ||
       spot.kind === 'icmQuiz' ||
-      spot.kind === 'sprQuiz'
+      spot.kind === 'sprQuiz' ||
+      spot.kind === 'villainTypeQuiz'
     ));
   }
 
@@ -15607,6 +16435,7 @@
     mountDrill: mountDrill,
     mountRangeAdv: mountRangeAdv,
     mountDecision: mountDecision,
+    mountVillainType: mountVillainType,
     mountOdds: mountOdds,
     mountBlocker: mountBlocker,
     isMatrixSpot: isMatrixSpot
@@ -18180,6 +19009,8 @@
       practiceStreet: 'preflop',
       handRange: 'all',
       villainLevel: 'fish',
+      villainType: 'random',
+      scoreMode: 'gto',
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : (hub === 'mtt' ? 'mtt' : 'cash6'),
       liveAdvisor: false,
@@ -18192,6 +19023,11 @@
     var k;
     for (k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
     for (k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) out[k] = extra[k];
+    // Observación: el villano juega el arquetipo; el héroe no se puntúa explotativo.
+    if (spot && spot.schoolObserveOnly) {
+      out.scoreMode = 'gto';
+      out.schoolObserveOnly = true;
+    }
     return out;
   }
 
@@ -18602,10 +19438,18 @@
     if (spot && spot.heroPos) meta.push(spot.heroPos);
     if (cards) meta.push(cards);
     if (board) meta.push('board ' + board);
+    if (decision.villainType) meta.push('rival ' + decision.villainType);
+    if (decision.exploitApplied) meta.push('modo explotativo');
+    if (spot && spot.schoolObserveOnly) meta.push('observación');
     var kind = decision.lineKind || '';
     var actionLabel = kind
       ? (kind + (decision.label ? ' · ' + decision.label : ''))
       : (decision.label || decision.action || decision.id || '—');
+    var exploitNote = '';
+    if (decision.exploitApplied && decision.exploitReasons && decision.exploitReasons.length) {
+      exploitNote = '<p class="school-spot-exploit muted-text">' +
+        esc(decision.exploitReasons.slice(0, 2).join(' ')) + '</p>';
+    }
     fb.classList.remove('hidden');
     fb.innerHTML =
       '<div class="school-spot-feedback ' + (good ? 'is-good' : 'is-bad') + '">' +
@@ -18614,6 +19458,7 @@
       '<p class="school-spot-action">Tu línea: <strong>' + esc(actionLabel) + '</strong></p>' +
       lineDecisionsHtml(decision.decisions) +
       (teach ? '<p class="school-spot-teach">' + esc(teach) + '</p>' : '') +
+      exploitNote +
       '</div>';
     if (actions) {
       var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
@@ -19068,11 +19913,20 @@
       return true;
     }
 
+    // Bloque observación: no castiga la nota; enseña señales del arquetipo.
+    var graded = decision;
+    if (spot && spot.schoolObserveOnly) {
+      graded = Object.assign({}, decision, {
+        class: 'optima',
+        reason: (spot.teachBack || '') + ' (observación: no cuenta como error de explotación).'
+      });
+    }
+
     s.results.push({
       spotId: spot && spot.id,
-      class: decision.class,
-      action: decision.action || decision.id,
-      actionLabel: decision.label || decision.action || decision.id,
+      class: graded.class,
+      action: graded.action || graded.id,
+      actionLabel: graded.label || graded.action || graded.id,
       heroPos: spot && spot.heroPos,
       heroCards: spot && spot.forceDeal && spot.forceDeal.heroCards
         ? spot.forceDeal.heroCards.slice()
@@ -19082,13 +19936,17 @@
         : (spot && spot.forceDeal && spot.forceDeal.board
           ? spot.forceDeal.board.slice()
           : null),
-      teachBack: (spot && spot.teachBack) || decision.reason || '',
-      reason: decision.reason || '',
-      trapTag: spot && spot.trapTag
+      teachBack: (spot && spot.teachBack) || graded.reason || '',
+      reason: graded.reason || '',
+      trapTag: spot && spot.trapTag,
+      observeOnly: !!(spot && spot.schoolObserveOnly),
+      exploitApplied: !!(graded.exploitApplied),
+      exploitReasons: graded.exploitReasons || [],
+      villainType: graded.villainType || (spot && spot.playConfig && spot.playConfig.villainType) || null
     });
 
-    closeSchoolHand(hand, decision, 'Escuela de Póker · spot evaluado');
-    showSpotFeedback(decision, spot, hand);
+    closeSchoolHand(hand, graded, 'Escuela de Póker · spot evaluado');
+    showSpotFeedback(graded, spot, hand);
     return true;
   }
 

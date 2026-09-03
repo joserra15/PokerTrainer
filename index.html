@@ -954,6 +954,29 @@
           <p class="muted-text setup-hint" data-i18n="play.actionModeHint">Rápido: te llega el turno al instante. Completo: ves cómo actúa cada asiento desde UTG. Postflop siempre es completo.</p>
         </div>
 
+        <div class="setup-group" id="setup-group-villain-type">
+          <span class="setup-label">Tipo de rival</span>
+          <div class="setup-chips setup-chips-wrap" id="setup-villain-type">
+            <button type="button" class="setup-chip active" data-val="random">Aleatorio</button>
+            <button type="button" class="setup-chip" data-val="tag">TAG</button>
+            <button type="button" class="setup-chip" data-val="lag">LAG</button>
+            <button type="button" class="setup-chip" data-val="nit">Nit</button>
+            <button type="button" class="setup-chip" data-val="fish">Fish</button>
+            <button type="button" class="setup-chip" data-val="maniac">Maniac</button>
+            <button type="button" class="setup-chip" data-val="pro">Pro</button>
+          </div>
+          <p class="muted-text setup-hint">Fija un arquetipo reconocible. El nivel Fish/Intermedio/Pro de arriba marca la intensidad del leak. Con tipo fijado puedes puntuar en modo explotativo.</p>
+        </div>
+
+        <div class="setup-group" id="setup-group-score-mode" hidden>
+          <span class="setup-label">Criterio de acierto</span>
+          <div class="setup-chips" id="setup-score-mode">
+            <button type="button" class="setup-chip active" data-val="gto">GTO</button>
+            <button type="button" class="setup-chip" data-val="exploit">Explotativo vs este rival</button>
+          </div>
+          <p class="muted-text setup-hint">Explotativo desvía el mix GTO según leaks típicos del arquetipo (más value vs fish, más presión vs nit, más call-down vs LAG/maniac…). Vs Pro se mantiene GTO.</p>
+        </div>
+
         <div class="setup-group" id="setup-group-rake">
           <span class="setup-label">Rake</span>
           <div class="setup-chips" id="setup-rake-mode">

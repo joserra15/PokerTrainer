@@ -234,7 +234,9 @@ Cada spot del pack declara:
 | `formatHub` | `cash` / `spin` / `mtt` |
 | `heroPos`, `stackBB`, `effective` | BTN, 100 bb |
 | `heroCards` | `AJo` |
-| `villainProfile` | fish / reg / nit / maniac (etiqueta pedagógica) |
+| `villainProfile` | fish / reg / nit / maniac (etiqueta pedagógica legacy) |
+| `villainType` | `random` \| `tag` \| `lag` \| `nit` \| `fish` \| `maniac` \| `pro` (runtime + UI avanzadas) |
+| `scoreMode` | `gto` \| `exploit` (criterio de acierto del héroe) |
 | `line` | acción previa fija (blinds posted, CO folds…) |
 | `board` | opcional según street |
 | `decisionNode` | `preflop_rfi` · `flop_cbet` · `bubble_call` … |
@@ -496,9 +498,19 @@ Evitar dumps enormes; el teach-back autorado es la ancla (la IA narra, no invent
 | C-28 | Explotación fish vs reg | A | 16 | Mismo spot, dos rivales |
 | C-29 | Range vs range (quiz) | C | 14 | Adivinar composición del rango rival |
 | C-30 | Node locking mental (frecuencias) | B/C | 12 | Elegir frecuencia correcta 0/25/50/75/100 |
-| C-31 | Examen Pro Cash | F | 24 | Certificación interna |
+| C-31 | Examen Pro Cash | F | 24 | Certificación interna (+ lectura rivales) |
+| C-32 | Señales de población | C | 12 | Hipótesis de tipo; GTO como ancla |
+| C-33 | Identificar y explotar Fish | A/C | 14 | Observe → quiz → value thin / −bluffs |
+| C-34 | Identificar y explotar Nit | A/C | 14 | Steal/c-bet up; thin value down |
+| C-35 | Identificar y explotar LAG | A/C | 14 | Call-down; castigar 3-bet light |
+| C-36 | Identificar y explotar Maniac | A/C | 14 | Sin war de bluffs; stack-off selectivo |
+| C-37 | TAG y Pro: cuándo no desviarte | A/C | 12 | Explotación mínima ≈ GTO |
+| C-38 | Mismo spot, cinco rivales | A | 12 | Un board × tipos; acciones distintas |
+| C-39 | Examen lectura de rivales | F | 12 | Identificación + decisión explotativa |
 
-**Totales Cash orientativos:** ~32 nodos · Study juega ~C-00–C-19/C-22 · Coach completo.
+**Contrato runtime (entrenador + escuela):** `playConfig.villainType` (`random`\|`tag`\|`lag`\|`nit`\|`fish`\|`maniac`\|`pro`) fija el arquetipo; `scoreMode` (`gto`\|`exploit`) puntúa al héroe con GTO o con `GTOHeroExploitAdjust` (desvío del mix según leaks típicos). Sin tipo fijo, `scoreMode` vuelve a `gto`.
+
+**Totales Cash orientativos:** ~40 nodos · Study juega ~C-00–C-19/C-22 · Coach completo.
 
 ---
 

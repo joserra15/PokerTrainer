@@ -230,7 +230,8 @@
       "spots": [],
       "exam": false,
       "id": "C-28",
-      "title": "Explotación fish vs reg"
+      "title": "Explotación fish vs reg",
+      "relatedLessons": ["C-32", "C-33"]
     },
     {
       "route": "cash",
@@ -340,15 +341,15 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Examen Pro Cash: certifica que aplicas 4-bet, SRP OOP, explotación fish/reg y lectura de rangos con el checklist de esta ruta — sin introducir teoría nueva.",
+      "concept": "Examen Pro Cash: certifica 4-bet, SRP OOP, explotación fish/reg, lectura de rivales (C-32+) y rangos — sin teoría nueva fuera del checklist.",
       "theory": [
         {
           "title": "Qué se evalúa",
-          "body": "Repasas lo ya visto en C-26…C-30 y el músculo de rangos (R-05/R-06): value vs farol en 4-bet, pot control OOP deep, fish vs reg en river, bandas de rango y frecuencias mentales. No hay glosario nuevo: solo aplicación."
+          "body": "Repasas C-26…C-30 y C-32…C-38: value vs farol en 4-bet, pot control OOP, fish vs reg, arquetipos (TAG/LAG/Nit/Fish/Maniac/Pro) y bandas de rango. Solo aplicación."
         },
         {
           "title": "Checklist de profesor",
-          "body": "Antes de cada decisión del examen: (1) ¿qué capa preflop es — open, 3-bet, 4-bet o cold? (2) ¿SRP u OOP deep — cuál es mi línea de check? (3) ¿rival fish o reg — value thin o farol selectivo? (4) ¿puedo describir el rango rival en bandas? (5) ¿estoy pensando en frecuencia o en “siempre”?"
+          "body": "Antes de cada decisión: (1) capa preflop (2) SRP/OOP (3) tipo de rival y delta vs GTO (4) bandas de rango (5) ¿frecuencia o “siempre”?"
         }
       ],
       "examples": [
@@ -358,22 +359,23 @@
         },
         {
           "title": "Mini checklist river",
-          "body": "¿Me pagan de más (fish) o defienden bien (reg)? ¿Mi mano es value thin, bluff-catcher o aire con blocker? Una pregunta de población evita el spew."
+          "body": "¿Fish (value thin) / nit (presión) / LAG-maniac (call-down) / TAG-Pro (GTO)? Una pregunta de población evita el spew."
         },
         {
           "title": "Antes de pulsar",
-          "body": "Di en voz alta la banda del rival (value / medias / aire) y tu plan en una frase. Si la frase es solo “voy”, aún no estás listo para el examen."
+          "body": "Di el tipo de rival y el delta vs GTO en una frase. Si solo dices “voy”, aún no estás listo."
         }
       ],
       "aiQuestions": [
         "Resume 4-bet value vs farol en una frase de profesor.",
-        "¿Qué cambia en river value entre fish y reg?",
-        "¿Cuáles son las cinco preguntas del checklist Pro Cash?"
+        "¿Qué cambia en river value entre fish y nit?",
+        "¿Cuáles son las preguntas del checklist Pro Cash con lectura de rivales?"
       ],
       "spots": [],
       "exam": true,
       "id": "C-31",
-      "title": "Examen Pro · Cash"
+      "title": "Examen Pro · Cash",
+      "relatedLessons": ["C-28", "C-32", "C-39"]
     }
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });

@@ -113,7 +113,13 @@
     enriched.spotKind = resolveSpotKind(enriched);
     const spotKey = SpotKey.buildSpotKey(enriched);
     const raw = Strat.getStrategy(enriched, spotKey);
-    return Classifier.filterStrategy(raw, enriched.availableActions);
+    let strategy = Classifier.filterStrategy(raw, enriched.availableActions);
+    const Exploit = global.GTOHeroExploitAdjust;
+    if (Exploit && Exploit.shouldApply(enriched)) {
+      const adj = Exploit.adjustStrategy(strategy, enriched);
+      strategy = adj.strategy;
+    }
+    return strategy;
   }
 
   function getEV(input, action) {
@@ -128,16 +134,26 @@
     enriched.spotKind = resolveSpotKind(enriched);
     const spotKey = SpotKey.buildSpotKey(enriched);
     const rawStrategy = Strat.getStrategy(enriched, spotKey);
-    const strategy = Classifier.adjustStrategyForHand
+    let strategy = Classifier.adjustStrategyForHand
       ? Classifier.adjustStrategyForHand(
         Classifier.filterStrategy(rawStrategy, enriched.availableActions),
         enriched
       )
       : Classifier.filterStrategy(rawStrategy, enriched.availableActions);
+
+    const gtoStrategy = strategy;
+    let exploitMeta = null;
+    const Exploit = global.GTOHeroExploitAdjust;
+    if (Exploit && enriched.scoreMode === 'exploit') {
+      exploitMeta = Exploit.adjustStrategy(strategy, enriched);
+      strategy = exploitMeta.strategy;
+    }
+
     const boardType = spotKey.boardType;
 
     const result = {
       strategy,
+      gtoStrategy: gtoStrategy,
       rawStrategy,
       spotKey,
       boardType,
@@ -145,7 +161,12 @@
       heroEquity: enriched.heroEquity,
       explanation: null,
       evaluation: null,
-      optionBreakdown: buildOptionBreakdown(strategy, enriched.availableActions)
+      optionBreakdown: buildOptionBreakdown(strategy, enriched.availableActions),
+      scoreMode: enriched.scoreMode || 'gto',
+      villainType: enriched.villainType || null,
+      exploitApplied: !!(exploitMeta && exploitMeta.applied),
+      exploitReasons: (exploitMeta && exploitMeta.reasons) || [],
+      explainDelta: (exploitMeta && exploitMeta.explainDelta) || []
     };
 
     if (input.chosenAction != null) {

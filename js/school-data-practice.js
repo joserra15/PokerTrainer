@@ -1012,18 +1012,18 @@
   ];
 
   PACKS['C-28'] = [
-    Fl('c28-01', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77201, 'Vs fish: top pair A-high — c-bet value. Cobra más fino; el fish paga de más.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
-    Fl('c28-02', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 77202, 'Vs reg en K-high air: no farol loco. Check más; el reg defiende. Población > GTO ciego.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', practiceStreet: 'flop' }) }),
-    Fl('c28-03', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 77203, 'Vs fish K72: c-bet. El recreacional foldea mal y paga peor — value/continuación.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
-    Fl('c28-04', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 77204, 'Vs reg en wet: no autocbet grande. El reg castiga líneas flojas.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', practiceStreet: 'flop' }) }),
-    V('c28-05', 'BB_vs_BTN', ['Ks', 'Qs'], 77205, 'Vs fish steal: 3-bet value KQs. Cobra; el fish paga 3-bets de más.', cash({ scenario: '3bet', villainLevel: 'fish' })),
-    V('c28-06', 'BB_vs_BTN', ['Td', '6s'], 77206, 'Vs reg T6o: fold. No hero-defend vs quien defiende bien.', cash({ scenario: '3bet', villainLevel: 'pro' }), 'fancy_play'),
-    Fl('c28-07', 'BTN', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 77207, 'QQ vs fish en K-high: bet/value. Thin vs recreacional OK; vs reg más check-call.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
-    V('c28-08', 'BB_vs_BTN', ['7d', '5c'], 77208, '75o vs cualquiera: fold. Explotar no es spew.', cash({ scenario: '3bet', villainLevel: 'fish' }), 'dominated'),
-    Fl('c28-09', 'BTN', ['9h', '8h'], ['Ad', '6c', '2s'], 77209, 'Vs fish A-high: c-bet ligero. El fish se tira de más a c-bets pequeños.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
-    F3('c28-10', 'BTN_vs_BB', ['Ah', 'Td'], 77210, 'ATo vs 3-bet de reg: fold OOP/borde. Vs fish a veces call; vs reg suelta el thin.', cash({ scenario: 'face3bet', villainLevel: 'pro' }), 'dominated'),
-    Fl('c28-11', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 77211, 'KK vs reg en board wet: pot control. No thin loco vs quien defiende.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', practiceStreet: 'flop' }) }),
-    V('c28-12', 'BB_vs_BTN', ['As', 'Kd'], 77212, 'AKo vs fish steal: 3-bet value. Cobra al que paga de más.', cash({ scenario: '3bet', villainLevel: 'fish' }))
+    Fl('c28-01', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77201, 'Vs fish: top pair A-high — c-bet value. Cobra más fino; el fish paga de más. GTO mezclaría check; exploit bet.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    Fl('c28-02', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 77202, 'Vs reg en K-high air: no farol loco. Check más; el reg defiende. Población > GTO ciego.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto', practiceStreet: 'flop' }) }),
+    Fl('c28-03', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 77203, 'Vs fish K72: c-bet. El recreacional foldea mal y paga peor — value/continuación.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    Fl('c28-04', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 77204, 'Vs reg en wet: no autocbet grande. El reg castiga líneas flojas.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto', practiceStreet: 'flop' }) }),
+    V('c28-05', 'BB_vs_BTN', ['Ks', 'Qs'], 77205, 'Vs fish steal: 3-bet value KQs. Cobra; el fish paga 3-bets de más.', cash({ scenario: '3bet', villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit' })),
+    V('c28-06', 'BB_vs_BTN', ['Td', '6s'], 77206, 'Vs reg T6o: fold. No hero-defend vs quien defiende bien.', cash({ scenario: '3bet', villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto' }), 'fancy_play'),
+    Fl('c28-07', 'BTN', ['Qs', 'Qd'], ['Kh', '9c', '3d'], 77207, 'QQ vs fish en K-high: bet/value. Thin vs recreacional OK; vs reg más check-call.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    V('c28-08', 'BB_vs_BTN', ['7d', '5c'], 77208, '75o vs cualquiera: fold. Explotar no es spew.', cash({ scenario: '3bet', villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit' }), 'dominated'),
+    Fl('c28-09', 'BTN', ['9h', '8h'], ['Ad', '6c', '2s'], 77209, 'Vs fish A-high: c-bet ligero. El fish se tira de más a c-bets pequeños.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    F3('c28-10', 'BTN_vs_BB', ['Ah', 'Td'], 77210, 'ATo vs 3-bet de reg: fold OOP/borde. Vs fish a veces call; vs reg suelta el thin.', cash({ scenario: 'face3bet', villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto' }), 'dominated'),
+    Fl('c28-11', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 77211, 'KK vs reg en board wet: pot control. No thin loco vs quien defiende.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto', practiceStreet: 'flop' }) }),
+    V('c28-12', 'BB_vs_BTN', ['As', 'Kd'], 77212, 'AKo vs fish steal: 3-bet value. Cobra al que paga de más.', cash({ scenario: '3bet', villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit' }))
   ];
 
   PACKS['C-29'] = [
@@ -1060,15 +1060,17 @@
     F3('c31-01', 'BTN_vs_BB', ['Qs', 'Qd'], 77501, 'Examen Pro: QQ vs 3-bet — 4-bet value.', cash({ scenario: 'face3bet' })),
     F3('c31-02', 'BTN_vs_BB', ['Tc', '4d'], 77502, 'T4o vs 3-bet: fold.', cash({ scenario: 'face3bet' }), 'dominated'),
     Fl('c31-03', 'SB', ['Ah', 'Kd'], ['8s', '7s', '6h'], 77503, 'SRP OOP wet: check. Pot control deep.', { trapTag: 'fancy_play' }),
-    Fl('c31-04', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77504, 'Vs fish: c-bet value top pair.', { playConfig: cash({ villainLevel: 'fish', practiceStreet: 'flop' }) }),
+    Fl('c31-04', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77504, 'Vs fish: c-bet value top pair. Exploit: value thin up.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
     V('c31-05', 'BB_vs_UTG', ['Kh', 'Jd'], 77505, 'Range quiz: KJo vs UTG fold.', cash({ scenario: '3bet' }), 'fancy_play'),
     Fl('c31-06', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 77506, 'Node lock: seco IP c-bet frecuente.'),
     F3('c31-07', 'BTN_vs_BB', ['Ad', '5d'], 77507, 'A5s 4-bet polar mixto.', cash({ scenario: 'face3bet' })),
     Fl('c31-08', 'SB', ['Ah', 'Kd'], ['As', '2d', '2c'], 77508, 'OOP A-paired: c-bet razonable.'),
-    V('c31-09', 'BB_vs_BTN', ['8h', '5d'], 77509, 'Vs reg 85o: fold. Explotación.', cash({ scenario: '3bet', villainLevel: 'pro' }), 'fancy_play'),
+    V('c31-09', 'BB_vs_BTN', ['8h', '5d'], 77509, 'Vs reg 85o: fold. Explotación.', cash({ scenario: '3bet', villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto' }), 'fancy_play'),
     V('c31-10', 'BB_vs_BTN', ['Jh', 'Jd'], 77510, 'JJ vs BTN: 3-bet value. Bandas de rango.', cash({ scenario: '3bet' })),
-    Fl('c31-11', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 77511, 'Wet: no autocbet. Frecuencias.', { trapTag: 'fancy_play' }),
-    F3('c31-12', 'BTN_vs_BB', ['Ah', 'Kd'], 77512, 'AKo 4-bet value. Checklist Pro cerrado.', cash({ scenario: 'face3bet' }))
+    Fl('c31-11', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 77511, 'Vs nit air: c-bet (lectura de rivales). GTO check mix; vs nit presión.', { playConfig: cash({ villainLevel: 'fish', villainType: 'nit', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    Fl('c31-12', 'BTN', ['7s', '6s'], ['Kh', '9d', '2c'], 77512, 'Vs maniac air: check. No farol war.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'fish', villainType: 'maniac', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
+    V('c31-13', 'BB_vs_BTN', ['Kh', 'Js'], 77513, 'Vs LAG KJo: defiende. Call-down mindset.', cash({ scenario: '3bet', villainType: 'lag', scoreMode: 'exploit', villainLevel: 'fish' })),
+    F3('c31-14', 'BTN_vs_BB', ['Ah', 'Kd'], 77514, 'AKo 4-bet value. Checklist Pro + lectura rivales cerrado.', cash({ scenario: 'face3bet' }))
   ];
 
   /* —— Rangos: Range Advantage (R-30…R-33) —— */

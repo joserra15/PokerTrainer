@@ -717,6 +717,8 @@
       practiceStreet: 'preflop',
       handRange: 'all',
       villainLevel: 'fish',
+      villainType: 'random',
+      scoreMode: 'gto',
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : (hub === 'mtt' ? 'mtt' : 'cash6'),
       liveAdvisor: false,
@@ -729,6 +731,11 @@
     var k;
     for (k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
     for (k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) out[k] = extra[k];
+    // Observación: el villano juega el arquetipo; el héroe no se puntúa explotativo.
+    if (spot && spot.schoolObserveOnly) {
+      out.scoreMode = 'gto';
+      out.schoolObserveOnly = true;
+    }
     return out;
   }
 
@@ -1139,10 +1146,18 @@
     if (spot && spot.heroPos) meta.push(spot.heroPos);
     if (cards) meta.push(cards);
     if (board) meta.push('board ' + board);
+    if (decision.villainType) meta.push('rival ' + decision.villainType);
+    if (decision.exploitApplied) meta.push('modo explotativo');
+    if (spot && spot.schoolObserveOnly) meta.push('observación');
     var kind = decision.lineKind || '';
     var actionLabel = kind
       ? (kind + (decision.label ? ' · ' + decision.label : ''))
       : (decision.label || decision.action || decision.id || '—');
+    var exploitNote = '';
+    if (decision.exploitApplied && decision.exploitReasons && decision.exploitReasons.length) {
+      exploitNote = '<p class="school-spot-exploit muted-text">' +
+        esc(decision.exploitReasons.slice(0, 2).join(' ')) + '</p>';
+    }
     fb.classList.remove('hidden');
     fb.innerHTML =
       '<div class="school-spot-feedback ' + (good ? 'is-good' : 'is-bad') + '">' +
@@ -1151,6 +1166,7 @@
       '<p class="school-spot-action">Tu línea: <strong>' + esc(actionLabel) + '</strong></p>' +
       lineDecisionsHtml(decision.decisions) +
       (teach ? '<p class="school-spot-teach">' + esc(teach) + '</p>' : '') +
+      exploitNote +
       '</div>';
     if (actions) {
       var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
@@ -1605,11 +1621,20 @@
       return true;
     }
 
+    // Bloque observación: no castiga la nota; enseña señales del arquetipo.
+    var graded = decision;
+    if (spot && spot.schoolObserveOnly) {
+      graded = Object.assign({}, decision, {
+        class: 'optima',
+        reason: (spot.teachBack || '') + ' (observación: no cuenta como error de explotación).'
+      });
+    }
+
     s.results.push({
       spotId: spot && spot.id,
-      class: decision.class,
-      action: decision.action || decision.id,
-      actionLabel: decision.label || decision.action || decision.id,
+      class: graded.class,
+      action: graded.action || graded.id,
+      actionLabel: graded.label || graded.action || graded.id,
       heroPos: spot && spot.heroPos,
       heroCards: spot && spot.forceDeal && spot.forceDeal.heroCards
         ? spot.forceDeal.heroCards.slice()
@@ -1619,13 +1644,17 @@
         : (spot && spot.forceDeal && spot.forceDeal.board
           ? spot.forceDeal.board.slice()
           : null),
-      teachBack: (spot && spot.teachBack) || decision.reason || '',
-      reason: decision.reason || '',
-      trapTag: spot && spot.trapTag
+      teachBack: (spot && spot.teachBack) || graded.reason || '',
+      reason: graded.reason || '',
+      trapTag: spot && spot.trapTag,
+      observeOnly: !!(spot && spot.schoolObserveOnly),
+      exploitApplied: !!(graded.exploitApplied),
+      exploitReasons: graded.exploitReasons || [],
+      villainType: graded.villainType || (spot && spot.playConfig && spot.playConfig.villainType) || null
     });
 
-    closeSchoolHand(hand, decision, 'Escuela de Póker · spot evaluado');
-    showSpotFeedback(decision, spot, hand);
+    closeSchoolHand(hand, graded, 'Escuela de Póker · spot evaluado');
+    showSpotFeedback(graded, spot, hand);
     return true;
   }
 

@@ -140,6 +140,7 @@
     if (kind === 'nashQuiz') return mountNash(host, spot, ctx);
     if (kind === 'icmQuiz') return mountIcm(host, spot, ctx);
     if (kind === 'sprQuiz') return mountSpr(host, spot, ctx);
+    if (kind === 'villainTypeQuiz') return mountVillainType(host, spot, ctx);
     if (kind === 'matrixPaint') return mountPaint(host, spot, ctx);
     return mountQuiz(host, spot, ctx);
   }
@@ -501,6 +502,31 @@
           villainPos: quiz.villainPos || 'BB',
           options: (quiz.options || []).map(function (o) { return { id: o.id, label: o.label }; })
         });
+      }
+    });
+  }
+
+  /**
+   * Quiz «¿qué tipo de jugador es el villano?» — señales de línea → arquetipo.
+   * spot.quiz: { prompt, line, lineStory, board, options[{id,label,why?}], correctId, teachBack }
+   */
+  function mountVillainType(host, spot, ctx) {
+    var quiz = spot.quiz || {};
+    var body =
+      (quiz.line ? '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(quiz.line) + '</p>' : '') +
+      formatLineStoryHtml(quiz.lineStory) +
+      (quiz.signals ? '<ul class="school-vt-signals">' + (quiz.signals || []).map(function (s) {
+        return '<li>' + esc(s) + '</li>';
+      }).join('') + '</ul>' : '') +
+      formatBoardHtml(quiz.board || []);
+    mountMcqDrill(host, spot, ctx, {
+      kindLabel: 'Tipo de rival',
+      title: '¿Qué tipo de jugador es?',
+      defaultPrompt: 'Según las señales, ¿qué arquetipo encaja mejor?',
+      bodyHtml: body,
+      mountShare: function (root) {
+        if (!root || !global.PTSchoolShare || !global.PTSchoolShare.buildGenericShareHtml) return;
+        /* share opcional vía HTML genérico en gradeMcqQuiz */
       }
     });
   }
@@ -882,7 +908,8 @@
       spot.kind === 'comboQuiz' ||
       spot.kind === 'nashQuiz' ||
       spot.kind === 'icmQuiz' ||
-      spot.kind === 'sprQuiz'
+      spot.kind === 'sprQuiz' ||
+      spot.kind === 'villainTypeQuiz'
     ));
   }
 
@@ -897,6 +924,7 @@
     mountDrill: mountDrill,
     mountRangeAdv: mountRangeAdv,
     mountDecision: mountDecision,
+    mountVillainType: mountVillainType,
     mountOdds: mountOdds,
     mountBlocker: mountBlocker,
     isMatrixSpot: isMatrixSpot

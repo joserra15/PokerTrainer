@@ -11883,7 +11883,13 @@ window.PT_NASH_PUSH_JSON = {
     enriched.spotKind = resolveSpotKind(enriched);
     const spotKey = SpotKey.buildSpotKey(enriched);
     const raw = Strat.getStrategy(enriched, spotKey);
-    return Classifier.filterStrategy(raw, enriched.availableActions);
+    let strategy = Classifier.filterStrategy(raw, enriched.availableActions);
+    const Exploit = global.GTOHeroExploitAdjust;
+    if (Exploit && Exploit.shouldApply(enriched)) {
+      const adj = Exploit.adjustStrategy(strategy, enriched);
+      strategy = adj.strategy;
+    }
+    return strategy;
   }
 
   function getEV(input, action) {
@@ -11898,16 +11904,26 @@ window.PT_NASH_PUSH_JSON = {
     enriched.spotKind = resolveSpotKind(enriched);
     const spotKey = SpotKey.buildSpotKey(enriched);
     const rawStrategy = Strat.getStrategy(enriched, spotKey);
-    const strategy = Classifier.adjustStrategyForHand
+    let strategy = Classifier.adjustStrategyForHand
       ? Classifier.adjustStrategyForHand(
         Classifier.filterStrategy(rawStrategy, enriched.availableActions),
         enriched
       )
       : Classifier.filterStrategy(rawStrategy, enriched.availableActions);
+
+    const gtoStrategy = strategy;
+    let exploitMeta = null;
+    const Exploit = global.GTOHeroExploitAdjust;
+    if (Exploit && enriched.scoreMode === 'exploit') {
+      exploitMeta = Exploit.adjustStrategy(strategy, enriched);
+      strategy = exploitMeta.strategy;
+    }
+
     const boardType = spotKey.boardType;
 
     const result = {
       strategy,
+      gtoStrategy: gtoStrategy,
       rawStrategy,
       spotKey,
       boardType,
@@ -11915,7 +11931,12 @@ window.PT_NASH_PUSH_JSON = {
       heroEquity: enriched.heroEquity,
       explanation: null,
       evaluation: null,
-      optionBreakdown: buildOptionBreakdown(strategy, enriched.availableActions)
+      optionBreakdown: buildOptionBreakdown(strategy, enriched.availableActions),
+      scoreMode: enriched.scoreMode || 'gto',
+      villainType: enriched.villainType || null,
+      exploitApplied: !!(exploitMeta && exploitMeta.applied),
+      exploitReasons: (exploitMeta && exploitMeta.reasons) || [],
+      explainDelta: (exploitMeta && exploitMeta.explainDelta) || []
     };
 
     if (input.chosenAction != null) {
@@ -12281,9 +12302,14 @@ window.PT_NASH_PUSH_JSON = {
     return towardGto * boost;
   }
 
-  function applyDifficulty(profile, level) {
+  function applyDifficulty(profile, level, opts) {
+    opts = opts || {};
     const lvl = normalizeDifficulty(level);
-    if (lvl === 'pro') {
+    const base = getProfile(profile);
+    const forcedKeep = !!(opts.forced || opts.keepArchetype);
+
+    // Nivel pro sin arquetipo forzado → perfil Pro (GTO+).
+    if (lvl === 'pro' && !forcedKeep) {
       const proBase = byId.pro || DEFAULT;
       return Object.assign({}, proBase, {
         id: 'pro',
@@ -12295,12 +12321,13 @@ window.PT_NASH_PUSH_JSON = {
         proStyle: 'exploit_pool'
       });
     }
-    const base = getProfile(profile);
+
     const diff = DIFFICULTY[lvl] || DIFFICULTY.fish;
+    // Con tipo forzado + level pro: leak muy sutil (biasScale de pro).
+    const s = (lvl === 'pro' && forcedKeep) ? (DIFFICULTY.pro.biasScale || 0.06) : diff.biasScale;
+    const b = (lvl === 'pro' && forcedKeep) ? 1 : diff.aggroBoost;
     const pf = base.preflop || {};
     const po = base.postflop || {};
-    const s = diff.biasScale;
-    const b = diff.aggroBoost;
     const scaled = (s >= 0.99 && b <= 1.01) ? base : {
       id: base.id,
       label: base.label,
@@ -12320,10 +12347,12 @@ window.PT_NASH_PUSH_JSON = {
         betSizeMult: scaleMult(po.betSizeMult, s, Math.sqrt(b))
       }
     };
+    const strict = (lvl === 'pro' && forcedKeep) ? 0.92 : diff.preflopStrict;
+    const leak = (lvl === 'pro' && forcedKeep) ? 0.01 : diff.leakRate;
     return Object.assign({}, scaled, {
       difficultyLevel: lvl,
-      preflopStrict: diff.preflopStrict,
-      leakRate: diff.leakRate
+      preflopStrict: strict,
+      leakRate: leak
     });
   }
 
@@ -12339,7 +12368,17 @@ window.PT_NASH_PUSH_JSON = {
     const level = (hand.playConfig && hand.playConfig.villainLevel)
       || (hand.table && hand.table.villainLevel)
       || 'fish';
-    return applyDifficulty(getProfile(prof), level);
+    const forced = !!(hand.table && hand.table.forcedVillainType);
+    return applyDifficulty(getProfile(prof), level, { forced: forced, keepArchetype: forced });
+  }
+
+  function resolveForcedType(hand) {
+    const cfg = hand && hand.playConfig;
+    if (!cfg) return null;
+    const raw = cfg.villainType;
+    if (!raw || raw === 'random') return null;
+    const id = String(raw).toLowerCase();
+    return byId[id] ? id : null;
   }
 
   function assignTableProfiles(hand, positions, heroPos, difficulty) {
@@ -12351,26 +12390,33 @@ window.PT_NASH_PUSH_JSON = {
 
     const villains = (positions || []).filter(function (pos) { return pos !== heroPos; });
     const assigned = {};
+    const forced = resolveForcedType(hand);
 
-    if (level === 'pro') {
+    if (forced) {
+      // Tipo fijado desde config/Escuela: todos los villanos comparten el arquetipo.
+      villains.forEach(function (pos) { assigned[pos] = forced; });
+      hand.table.forcedVillainType = forced;
+    } else if (level === 'pro') {
       villains.forEach(function (pos) { assigned[pos] = 'pro'; });
+      hand.table.forcedVillainType = null;
     } else {
+      hand.table.forcedVillainType = null;
       villains.forEach(function (pos) {
         assigned[pos] = pickForDifficulty(level).id;
       });
-    }
 
-    let strongCount = villains.filter(function (pos) {
-      return STRONG_IDS.indexOf(assigned[pos]) >= 0;
-    }).length;
+      let strongCount = villains.filter(function (pos) {
+        return STRONG_IDS.indexOf(assigned[pos]) >= 0;
+      }).length;
 
-    while (level !== 'pro' && strongCount < diff.minStrong && villains.length) {
-      const weakPos = villains.find(function (pos) {
-        return STRONG_IDS.indexOf(assigned[pos]) < 0;
-      });
-      if (!weakPos) break;
-      assigned[weakPos] = pickForDifficulty('pro').id;
-      strongCount++;
+      while (strongCount < diff.minStrong && villains.length) {
+        const weakPos = villains.find(function (pos) {
+          return STRONG_IDS.indexOf(assigned[pos]) < 0;
+        });
+        if (!weakPos) break;
+        assigned[weakPos] = pickForDifficulty('pro').id;
+        strongCount++;
+      }
     }
 
     villains.forEach(function (pos) {
@@ -12609,6 +12655,310 @@ window.PT_NASH_PUSH_JSON = {
     adjustFoldProb, adjustThreeBetProb, adjustFourBetProb, adjustCallProb
   };
 })(window);
+
+/*
+ * heroExploitAdjust.js — Desvía la estrategia GTO del héroe vs un arquetipo conocido.
+ * No es un segundo solver: repondera frecuencias según leaks típicos de población.
+ */
+(function (global) {
+  'use strict';
+
+  const REASONS = {
+    fish_value: 'Vs fish: más value thin — pagan de más.',
+    fish_bluff: 'Vs fish: menos faroles — no se tiran lo suficiente.',
+    nit_pressure: 'Vs nit: más presión / steal — overfoldean.',
+    nit_thin: 'Vs nit: menos value thin — solo pagan fuertes.',
+    nit_call: 'Vs nit: menos hero-call — se rinden a presión.',
+    lag_call: 'Vs LAG: más call-down — su rango de bet está diluido.',
+    lag_bluff: 'Vs LAG: menos farol propio — él ya aporta agresividad.',
+    maniac_call: 'Vs maniac: call/raise con catchers — bluff rate altísimo.',
+    maniac_bluff: 'Vs maniac: casi cero faroles — no foldea.',
+    tag_respect: 'Vs TAG: ajuste mínimo — cerca de GTO.',
+    pro_gto: 'Vs Pro: juega el mix GTO.'
+  };
+
+  /** Multiplicadores por acción/categoría según arquetipo. */
+  const ADJUST = {
+    fish: {
+      // Value up, bluffs down
+      valueBet: 1.55,
+      thinBet: 1.7,
+      bluffBet: 0.35,
+      airRaise: 0.4,
+      callMedium: 1.05,
+      foldToBarrel: 0.95,
+      threeBetBluff: 0.45,
+      threeBetValue: 1.25,
+      reasonValue: 'fish_value',
+      reasonBluff: 'fish_bluff'
+    },
+    nit: {
+      valueBet: 0.75,
+      thinBet: 0.55,
+      bluffBet: 1.45,
+      airRaise: 1.35,
+      callMedium: 0.7,
+      foldToBarrel: 0.65,
+      threeBetBluff: 1.4,
+      threeBetValue: 1.05,
+      reasonValue: 'nit_thin',
+      reasonBluff: 'nit_pressure',
+      reasonCall: 'nit_call'
+    },
+    lag: {
+      valueBet: 1.1,
+      thinBet: 1.05,
+      bluffBet: 0.55,
+      airRaise: 0.5,
+      callMedium: 1.55,
+      foldToBarrel: 0.55,
+      threeBetBluff: 0.7,
+      threeBetValue: 1.2,
+      reasonValue: 'lag_bluff',
+      reasonBluff: 'lag_bluff',
+      reasonCall: 'lag_call'
+    },
+    tag: {
+      valueBet: 1.05,
+      thinBet: 0.95,
+      bluffBet: 0.95,
+      airRaise: 0.9,
+      callMedium: 1.0,
+      foldToBarrel: 1.05,
+      threeBetBluff: 0.9,
+      threeBetValue: 1.05,
+      reasonValue: 'tag_respect',
+      reasonBluff: 'tag_respect'
+    },
+    maniac: {
+      valueBet: 1.25,
+      thinBet: 1.15,
+      bluffBet: 0.2,
+      airRaise: 0.25,
+      callMedium: 1.85,
+      foldToBarrel: 0.35,
+      threeBetBluff: 0.35,
+      threeBetValue: 1.35,
+      reasonValue: 'maniac_bluff',
+      reasonBluff: 'maniac_bluff',
+      reasonCall: 'maniac_call'
+    },
+    pro: {
+      valueBet: 1,
+      thinBet: 1,
+      bluffBet: 1,
+      airRaise: 1,
+      callMedium: 1,
+      foldToBarrel: 1,
+      threeBetBluff: 1,
+      threeBetValue: 1,
+      reasonValue: 'pro_gto',
+      reasonBluff: 'pro_gto'
+    }
+  };
+
+  function clamp(x, lo, hi) {
+    return Math.max(lo, Math.min(hi, x));
+  }
+
+  function normalize(freqs) {
+    let sum = 0;
+    const out = {};
+    Object.keys(freqs || {}).forEach(function (k) {
+      const v = Math.max(0, freqs[k] || 0);
+      out[k] = v;
+      sum += v;
+    });
+    if (sum <= 0) return freqs || {};
+    Object.keys(out).forEach(function (k) { out[k] = out[k] / sum; });
+    return out;
+  }
+
+  function resolveType(input) {
+    if (!input) return null;
+    const t = input.villainType || (input.villainProfile && input.villainProfile.id);
+    if (!t || t === 'random') return null;
+    const id = String(t).toLowerCase();
+    return ADJUST[id] ? id : null;
+  }
+
+  function heroTier(input) {
+    const info = input && (input.madeHandInfo || input.handRank);
+    const tier = info && info.tier;
+    if (tier === 'strong' || tier === 'medium' || tier === 'weak' || tier === 'air') return tier;
+    const eq = input && input.heroEquity;
+    if (eq == null) return 'medium';
+    if (eq >= 0.72) return 'strong';
+    if (eq >= 0.52) return 'medium';
+    if (eq >= 0.35) return 'weak';
+    return 'air';
+  }
+
+  function isBetAction(a) {
+    return a === 'bet' || a === 'raise' || /^bet_/.test(a) || a === 'allin';
+  }
+
+  function isPassiveContinue(a) {
+    return a === 'call' || a === 'check';
+  }
+
+  function facingAggression(input) {
+    return !!(input && (input.toCallBB || 0) > 0);
+  }
+
+  function applyMults(strategy, input, typeId) {
+    const adj = ADJUST[typeId] || ADJUST.pro;
+    const tier = heroTier(input);
+    const facing = facingAggression(input);
+    const street = (input && input.street) || 'preflop';
+    const out = Object.assign({}, strategy);
+    const explain = [];
+
+    Object.keys(out).forEach(function (action) {
+      let m = 1;
+      let reasonKey = null;
+
+      if (street === 'preflop') {
+        if (action === 'raise' || action === 'bet' || action === 'allin') {
+          if (tier === 'strong' || tier === 'medium') {
+            m = adj.threeBetValue;
+            reasonKey = adj.reasonValue;
+          } else {
+            m = adj.threeBetBluff;
+            reasonKey = adj.reasonBluff;
+          }
+        } else if (action === 'call') {
+          m = adj.callMedium;
+          reasonKey = adj.reasonCall || adj.reasonValue;
+        } else if (action === 'fold') {
+          m = facing ? (2 - Math.min(adj.callMedium, 1.8)) : 1;
+        }
+      } else if (facing) {
+        if (action === 'fold') {
+          m = adj.foldToBarrel;
+          reasonKey = adj.reasonCall || adj.reasonBluff;
+        } else if (action === 'call') {
+          m = (tier === 'air') ? Math.min(adj.callMedium, 1.15) : adj.callMedium;
+          reasonKey = adj.reasonCall || adj.reasonValue;
+        } else if (isBetAction(action)) {
+          if (tier === 'strong') m = adj.valueBet;
+          else if (tier === 'medium') m = adj.thinBet;
+          else m = adj.airRaise;
+          reasonKey = tier === 'air' ? adj.reasonBluff : adj.reasonValue;
+        }
+      } else {
+        // Lead / check-or-bet
+        if (isBetAction(action)) {
+          if (tier === 'strong') {
+            m = adj.valueBet;
+            reasonKey = adj.reasonValue;
+          } else if (tier === 'medium') {
+            m = adj.thinBet;
+            reasonKey = adj.reasonValue;
+          } else {
+            m = adj.bluffBet;
+            reasonKey = adj.reasonBluff;
+          }
+        } else if (action === 'check') {
+          // Complementary: if we cut bluffs, check rises; if we boost value, check falls.
+          if (tier === 'strong' || tier === 'medium') m = 2 - Math.min(adj.thinBet, 1.8);
+          else m = 2 - Math.min(adj.bluffBet, 1.6);
+          reasonKey = tier === 'air' ? adj.reasonBluff : adj.reasonValue;
+        }
+      }
+
+      // Prefer mid value sizes vs fish (boost bet_66 over overbet-ish)
+      if (typeId === 'fish' && (action === 'bet_100' || action === 'bet_150' || action === 'allin') &&
+          (tier === 'medium' || tier === 'strong') && street !== 'preflop') {
+        m *= 0.85;
+      }
+      if (typeId === 'fish' && (action === 'bet_33' || action === 'bet_50' || action === 'bet_66') &&
+          (tier === 'medium' || tier === 'strong') && street !== 'preflop') {
+        m *= 1.15;
+      }
+
+      const before = out[action] || 0;
+      out[action] = before * m;
+      if (reasonKey && Math.abs(m - 1) > 0.08 && before > 0.02) {
+        explain.push({
+          action: action,
+          gtoFreq: before,
+          mult: m,
+          reason: REASONS[reasonKey] || reasonKey
+        });
+      }
+    });
+
+    const normalized = normalize(out);
+    explain.forEach(function (row) {
+      row.exploitFreq = normalized[row.action] || 0;
+    });
+    // Deduplicate reasons for UI
+    const seen = {};
+    const uniqueReasons = [];
+    explain.forEach(function (row) {
+      if (!seen[row.reason]) {
+        seen[row.reason] = true;
+        uniqueReasons.push(row.reason);
+      }
+    });
+
+    return {
+      strategy: normalized,
+      explainDelta: explain,
+      reasons: uniqueReasons,
+      villainType: typeId,
+      tier: tier
+    };
+  }
+
+  /**
+   * @param {object} gtoStrategy freqs
+   * @param {object} input spot input (needs scoreMode, villainType)
+   * @returns {{ strategy, gtoStrategy, explainDelta, reasons, villainType, applied }}
+   */
+  function adjustStrategy(gtoStrategy, input) {
+    const gto = normalize(gtoStrategy || {});
+    const typeId = resolveType(input);
+    const mode = input && input.scoreMode === 'exploit' ? 'exploit' : 'gto';
+
+    if (mode !== 'exploit' || !typeId || typeId === 'pro') {
+      return {
+        strategy: gto,
+        gtoStrategy: gto,
+        explainDelta: [],
+        reasons: typeId === 'pro' ? [REASONS.pro_gto] : [],
+        villainType: typeId,
+        applied: false
+      };
+    }
+
+    const adj = applyMults(gto, input, typeId);
+    return {
+      strategy: adj.strategy,
+      gtoStrategy: gto,
+      explainDelta: adj.explainDelta,
+      reasons: adj.reasons,
+      villainType: typeId,
+      applied: true,
+      tier: adj.tier
+    };
+  }
+
+  function shouldApply(input) {
+    return !!(input && input.scoreMode === 'exploit' && resolveType(input) && resolveType(input) !== 'pro');
+  }
+
+  global.GTOHeroExploitAdjust = {
+    ADJUST: ADJUST,
+    REASONS: REASONS,
+    adjustStrategy: adjustStrategy,
+    shouldApply: shouldApply,
+    resolveType: resolveType,
+    heroTier: heroTier,
+    normalize: normalize
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
 
 /*
  * villainFormatAdjust.js — Multiplicadores de freqs/sizings del villano pro
@@ -14578,6 +14928,13 @@ window.PT_NASH_PUSH_JSON = {
     heroPos: 'random',
     handRange: 'borderline',
     villainLevel: 'pro',
+    /**
+     * Arquetipo fijo del rival: 'random' | tag | lag | nit | fish | maniac | pro.
+     * Con tipo concreto el entrenador puede puntuar en modo explotativo.
+     */
+    villainType: 'random',
+    /** 'gto' | 'exploit' — criterio de acierto del héroe */
+    scoreMode: 'gto',
     practiceStreet: 'random',
     /** mixed | bluff_make | bluff_catch */
     practiceIntent: 'mixed',
@@ -14679,6 +15036,15 @@ window.PT_NASH_PUSH_JSON = {
 
   const TABLE_THEMES = { emerald: true, midnight: true, crimson: true };
 
+  const VILLAIN_TYPES = {
+    random: true, tag: true, lag: true, nit: true, fish: true, maniac: true, pro: true
+  };
+
+  function normalizeVillainType(v) {
+    const id = v == null || v === '' ? 'random' : String(v).toLowerCase();
+    return VILLAIN_TYPES[id] ? id : 'random';
+  }
+
   const RR = function () { return global.GTORangesRegistry; };
 
   function normalize(config) {
@@ -14723,6 +15089,10 @@ window.PT_NASH_PUSH_JSON = {
     if (!c.heroPos) c.heroPos = 'random';
     if (!c.handRange) c.handRange = 'borderline';
     if (!c.villainLevel) c.villainLevel = 'pro';
+    c.villainType = normalizeVillainType(c.villainType);
+    c.scoreMode = c.scoreMode === 'exploit' ? 'exploit' : 'gto';
+    // Sin tipo fijo no inventamos explotación a ciegas.
+    if (c.villainType === 'random' && c.scoreMode === 'exploit') c.scoreMode = 'gto';
     if (!c.practiceStreet) c.practiceStreet = 'random';
     // Faroles (hacer/cazar) ocultos en el entrenador: forzar mixed.
     c.practiceIntent = 'mixed';
@@ -15652,6 +16022,11 @@ window.PT_NASH_PUSH_JSON = {
     const hr = { random: 'Todas', playable: 'Jugables', borderline: 'Borderline', all: 'Todas' }[c.handRange] || c.handRange;
     const pos = c.heroPos === 'random' ? 'Pos. aleatoria' : c.heroPos;
     const vl = { fish: 'Rivales fish', intermediate: 'Rivales intermedio', pro: 'Rivales pro' }[c.villainLevel] || c.villainLevel;
+    const vtLabels = {
+      random: null, tag: 'TAG', lag: 'LAG', nit: 'Nit', fish: 'Fish', maniac: 'Maniac', pro: 'Pro'
+    };
+    const vt = c.villainType && c.villainType !== 'random' ? ('Tipo ' + (vtLabels[c.villainType] || c.villainType)) : null;
+    const sm = c.scoreMode === 'exploit' && vt ? 'Acierto explotativo' : null;
     const st = { random: 'Todas las calles', preflop: 'Solo preflop', flop: 'Desde flop', turn: 'Desde turn', river: 'Desde river' }[c.practiceStreet] || c.practiceStreet;
     const block = c.handsTarget ? (c.handsTarget + ' manos') : 'Continua';
     let phase = '';
@@ -15674,7 +16049,8 @@ window.PT_NASH_PUSH_JSON = {
       if (c.buyIn != null) mttStruct += ' · BI €' + c.buyIn;
     }
     const am = c.actionMode === 'complete' ? 'Modo completo' : 'Modo rápido';
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + spinPay + mttStruct + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
+    const extra = [vt, sm].filter(Boolean).map(function (x) { return ' · ' + x; }).join('');
+    return hub + ' · ' + gt + ' · ' + sd + phase + ante + spinPay + mttStruct + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + extra + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {
@@ -15713,6 +16089,7 @@ window.PT_NASH_PUSH_JSON = {
   global.PTPlayConfig = {
     DEFAULT, normalize, pickScenario, labelFor, rakeLabel,
     resolveHandConfig,
+    VILLAIN_TYPES, normalizeVillainType,
     STANDARD_RAKE, estimateRakeBB, potAfterRakeBB, loadRakePrefs, saveRakePrefs,
     PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB, stackDepthToBB,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9, POS_SPIN, DEAL_ORDER_SPIN, RFI_POS_SPIN,
@@ -17867,6 +18244,15 @@ window.PT_NASH_PUSH_JSON = {
     input.preflopMode = preflopSizingMode(hand);
     input.pushFold = input.preflopMode === 'push';
     input.stealMode = input.preflopMode === 'steal' || input.preflopMode === 'stealDefense';
+    // Tipo de rival + criterio de acierto (GTO vs explotativo).
+    const forcedType = (hand.table && hand.table.forcedVillainType)
+      || (cfg.villainType && cfg.villainType !== 'random' ? cfg.villainType : null);
+    const seatProf = hand.villain && hand.villain.pos ? profileFor(hand, hand.villain.pos) : null;
+    input.villainType = forcedType || (seatProf && seatProf.id) || null;
+    input.scoreMode = cfg.scoreMode === 'exploit' ? 'exploit' : 'gto';
+    if (seatProf) {
+      input.villainProfile = { id: seatProf.id, label: seatProf.label, shortLabel: seatProf.shortLabel };
+    }
     const heroSeatForStack = hand.displayHeroPos || (hand.hero && hand.hero.pos);
     const villainSeatForStack = villainTableSeat(hand) || (hand.villain && hand.villain.pos);
     input.heroStackBB = (hand.stacks && heroSeatForStack && hand.stacks[heroSeatForStack] != null)
@@ -19192,6 +19578,12 @@ window.PT_NASH_PUSH_JSON = {
       class: ev.class,
       best: ev.best,
       gto: evalResult.strategy,
+      gtoBaseline: evalResult.gtoStrategy || null,
+      scoreMode: evalResult.scoreMode || 'gto',
+      villainType: evalResult.villainType || null,
+      exploitApplied: !!evalResult.exploitApplied,
+      exploitReasons: evalResult.exploitReasons || [],
+      explainDelta: evalResult.explainDelta || [],
       optionBreakdown: evalResult.optionBreakdown,
       evLoss: ev.evLoss,
       evErroneous: ev.evErroneous,
@@ -33418,6 +33810,8 @@ window.PT_NASH_PUSH_JSON = {
     const posEl = $('#setup-hero-pos .setup-chip.active');
     const hrEl = $('#setup-hand-range .setup-chip.active');
     const vlEl = $('#setup-villain-level .setup-chip.active');
+    const vtEl = $('#setup-villain-type .setup-chip.active');
+    const smEl = $('#setup-score-mode .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
     const phaseEl = $('#setup-mtt-phase .setup-chip.active');
     const payoutEl = $('#setup-spin-payout .setup-chip.active');
@@ -33473,6 +33867,8 @@ window.PT_NASH_PUSH_JSON = {
       heroPos: posEl ? posEl.dataset.val : 'random',
       handRange: hrEl ? hrEl.dataset.val : 'borderline',
       villainLevel: vlEl ? vlEl.dataset.val : 'pro',
+      villainType: vtEl ? vtEl.dataset.val : 'random',
+      scoreMode: smEl ? smEl.dataset.val : 'gto',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
       // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
       practiceIntent: 'mixed',
@@ -34229,6 +34625,9 @@ window.PT_NASH_PUSH_JSON = {
     activate('#setup-hero-pos', cfg.heroPos);
     activate('#setup-hand-range', cfg.handRange);
     activate('#setup-villain-level', cfg.villainLevel);
+    activate('#setup-villain-type', cfg.villainType || 'random');
+    activate('#setup-score-mode', cfg.scoreMode === 'exploit' ? 'exploit' : 'gto');
+    syncVillainTypeScoreModeUI();
     activate('#setup-practice-street', cfg.practiceStreet);
     if (cfg.handsTarget != null) activate('#setup-hands-target', String(cfg.handsTarget || 0));
     activate('#setup-action-mode', cfg.actionMode === 'complete' ? 'complete' : 'quick');
@@ -34269,6 +34668,17 @@ window.PT_NASH_PUSH_JSON = {
       }
     }
     return readPlayConfig();
+  }
+
+  function syncVillainTypeScoreModeUI() {
+    const typeChip = $('#setup-villain-type .setup-chip.active');
+    const type = typeChip ? typeChip.dataset.val : 'random';
+    const scoreWrap = $('#setup-group-score-mode');
+    const fixed = type && type !== 'random';
+    if (scoreWrap) scoreWrap.hidden = !fixed;
+    if (!fixed) {
+      activate('#setup-score-mode', 'gto');
+    }
   }
 
   function syncRakeUI() {
@@ -34412,6 +34822,9 @@ window.PT_NASH_PUSH_JSON = {
     bindSessionConfigModal();
     bindChipGroup('#setup-hand-range');
     bindChipGroup('#setup-villain-level');
+    bindChipGroup('#setup-villain-type', () => { syncVillainTypeScoreModeUI(); });
+    bindChipGroup('#setup-score-mode');
+    syncVillainTypeScoreModeUI();
     bindChipGroup('#setup-practice-street');
     bindChipGroup('#setup-action-mode', () => {
       const el = $('#setup-action-mode .setup-chip.active');
@@ -36648,7 +37061,9 @@ window.PT_NASH_PUSH_JSON = {
 
   function renderHandDecisionsSummary(decisions, matrixSource) {
     if (!decisions || !decisions.length) return '';
-    let html = '<div class="card-box" style="margin-top:14px"><h3>Evaluación GTO de la mano</h3>';
+    let html = '<div class="card-box" style="margin-top:14px"><h3>' +
+      (decisions.some((x) => x && x.exploitApplied) ? 'Evaluación de la mano (explotativa)' : 'Evaluación GTO de la mano') +
+      '</h3>';
     decisions.forEach((d, i) => {
       html += `<div class="dec-review">
         <div class="dec-head"><strong>${cap(d.street)}</strong> · ${escapeHtml(d.label || d.chosen || d.action || '')}
@@ -36664,8 +37079,9 @@ window.PT_NASH_PUSH_JSON = {
       if (d.optionBreakdown && d.optionBreakdown.length) {
         html += renderOptionGrid(d.optionBreakdown, d.action || d.chosen, d.best);
       } else if (d.gto) {
-        html += renderGtoBars(d.gto);
+        html += renderGtoBars(d.gto, { exploit: !!d.exploitApplied });
       }
+      html += renderExploitDeltaNote(d);
       // Mostrar siempre con matrixSource: el click carga el chunk ranges bajo demanda.
       if (matrixSource) {
         html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, i, matrixSource)}</div>`;
@@ -38024,6 +38440,12 @@ window.PT_NASH_PUSH_JSON = {
       if (cfg.villainLevel && cfg.villainLevel !== 'pro') {
         parts.push('rivales ' + cfg.villainLevel + ' (no es GTO puro del villano)');
       }
+      if (cfg.villainType && cfg.villainType !== 'random') {
+        parts.push('tipo ' + cfg.villainType);
+      }
+      if (cfg.scoreMode === 'exploit' && cfg.villainType && cfg.villainType !== 'random') {
+        parts.push('acierto explotativo vs ' + cfg.villainType);
+      }
     }
     if (hand && hand.displayHeroPos && hand.hero && hand.hero.pos && hand.displayHeroPos !== hand.hero.pos) {
       parts.push(hand.displayHeroPos + ' evaluado como ' + hand.hero.pos + ' (mapa 6-max)');
@@ -38032,15 +38454,33 @@ window.PT_NASH_PUSH_JSON = {
     return '<div class="muted-text" style="margin-top:6px;font-size:12px">' + escapeHtml(parts.join(' · ')) + '</div>';
   }
 
-  function renderGtoBars(gto) {
+  function renderGtoBars(gto, opts) {
+    opts = opts || {};
     if (!gto) return '';
-    let html = '<div class="gto-bars"><div style="color:var(--muted);font-size:12px;margin-bottom:4px">Estrategia GTO (frecuencias):</div>';
+    const title = opts.title || (opts.exploit
+      ? 'Estrategia explotativa (frecuencias):'
+      : 'Estrategia GTO (frecuencias):');
+    let html = '<div class="gto-bars"><div style="color:var(--muted);font-size:12px;margin-bottom:4px">' +
+      escapeHtml(title) + '</div>';
     Object.keys(gto).forEach((a) => {
       const pct = Math.round(gto[a] * 100);
       html += `<div class="gto-bar"><span class="lbl">${actionName(a)}</span>
         <span class="track"><span class="fill" style="width:${pct}%"></span></span>
         <span class="pct">${pct}%</span></div>`;
     });
+    return html + '</div>';
+  }
+
+  function renderExploitDeltaNote(d) {
+    if (!d || !d.exploitApplied) return '';
+    let html = '<div class="exploit-delta-note muted-text" style="margin-top:6px;font-size:12px">';
+    html += '<strong>Vs ' + escapeHtml(d.villainType || 'rival') + ':</strong> ';
+    const reasons = (d.exploitReasons || []).slice(0, 2);
+    if (reasons.length) html += escapeHtml(reasons.join(' '));
+    else html += 'Mix desviado del GTO según leaks típicos del arquetipo.';
+    if (d.gtoBaseline) {
+      html += renderGtoBars(d.gtoBaseline, { title: 'Referencia GTO (sin explotación):' });
+    }
     return html + '</div>';
   }
 
