@@ -34578,20 +34578,33 @@ window.PT_NASH_PUSH_JSON = {
     if (res.preset && res.preset.id) markActiveUserPreset(res.preset.id);
   }
 
+  function activateSetupChip(sel, val) {
+    const box = $(sel);
+    if (!box || val == null) return false;
+    let found = false;
+    box.querySelectorAll('.setup-chip').forEach((c) => {
+      const on = c.dataset.val === String(val);
+      c.classList.toggle('active', on);
+      if (on) found = true;
+    });
+    return found;
+  }
+
+  function syncVillainTypeScoreModeUI() {
+    const typeChip = $('#setup-villain-type .setup-chip.active');
+    const type = typeChip ? typeChip.dataset.val : 'random';
+    const scoreWrap = $('#setup-group-score-mode');
+    const fixed = type && type !== 'random';
+    if (scoreWrap) scoreWrap.hidden = !fixed;
+    if (!fixed) activateSetupChip('#setup-score-mode', 'gto');
+  }
+
   function applyPlaySetupConfig(partial) {
     const PC = window.PTPlayConfig;
     if (!PC) return null;
     const cfg = PC.normalize(Object.assign({}, PC.DEFAULT, partial || {}));
     function activate(sel, val) {
-      const box = $(sel);
-      if (!box || val == null) return;
-      let found = false;
-      box.querySelectorAll('.setup-chip').forEach((c) => {
-        const on = c.dataset.val === String(val);
-        c.classList.toggle('active', on);
-        if (on) found = true;
-      });
-      return found;
+      return activateSetupChip(sel, val);
     }
     const hub = cfg.formatHub || (window.PTFormatTaxonomy
       ? PTFormatTaxonomy.hubFromGameType(cfg.gameType)
@@ -34668,17 +34681,6 @@ window.PT_NASH_PUSH_JSON = {
       }
     }
     return readPlayConfig();
-  }
-
-  function syncVillainTypeScoreModeUI() {
-    const typeChip = $('#setup-villain-type .setup-chip.active');
-    const type = typeChip ? typeChip.dataset.val : 'random';
-    const scoreWrap = $('#setup-group-score-mode');
-    const fixed = type && type !== 'random';
-    if (scoreWrap) scoreWrap.hidden = !fixed;
-    if (!fixed) {
-      activate('#setup-score-mode', 'gto');
-    }
   }
 
   function syncRakeUI() {

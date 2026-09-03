@@ -93,6 +93,11 @@ assert.ok(/school-lang-badge|Contenido pedagógico en español/.test(
   fs.readFileSync(path.join(root, 'js/school.js'), 'utf8')
 ), 'sello ES Escuela');
 assert.ok(/C-26|C-31/.test(schoolProSrc), 'lecciones Pro Cash');
+assert.ok(/school-data-exploit\.js/.test(chunks), 'chunk explotación C-32+');
+assert.ok(/school-data-exploit-practice\.js/.test(chunks), 'chunk practice explotación');
+assert.ok(/heroExploitAdjust\.js/.test(chunks), 'chunk heroExploitAdjust');
+assert.ok(/setup-villain-type|setup-score-mode/.test(html), 'UI tipo de rival + scoreMode');
+assert.ok(/villainTypeQuiz/.test(fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')), 'drill villainTypeQuiz');
 assert.ok(/lessonId:\s*'C-02'/.test(aiReportSrc) && /lessonFromLeak/.test(aiReportSrc), 'TRAINING_FOCUSES → lessonId');
 assert.ok(/lessonIds:\s*\[\s*'C-02',\s*'R-02'/.test(aiReportSrc), 'leaks RFI → C-02 + R-02');
 assert.ok(/lessonsFromLeak/.test(aiReportSrc), 'lessonsFromLeak export');
@@ -178,6 +183,7 @@ const engineScripts = [
   'js/engine/solver/LocalSolverProvider.js',
   'js/engine/evaluateSpot.js',
   'js/engine/villainProfiles.js',
+  'js/engine/heroExploitAdjust.js',
   'js/engine/villainPreflop.js',
   'js/engine/multiway.js',
   'js/engine/stacks.js',
@@ -191,8 +197,10 @@ const engineScripts = [
   'js/school-data-mtt.js',
   'js/school-data-ranges.js',
   'js/school-data-pro.js',
+  'js/school-data-exploit.js',
   'js/school-extra-spots.js',
   'js/school-data-practice.js',
+  'js/school-data-exploit-practice.js',
   'js/school-data-ranges-line.js',
   'js/school-data-ranges-line-sizing.js',
   'js/school-data-viral-quizzes.js',
@@ -212,10 +220,10 @@ const Data = sandbox.PTSchoolData;
 const School = sandbox.PTSchool;
 const Engine = sandbox.Engine || sandbox.window.Engine;
 assert.ok(Data && School && Engine, 'APIs cargadas');
-assert.strictEqual(Data.SCHOOL_DATA_VERSION, 4, 'data version 4');
+assert.strictEqual(Data.SCHOOL_DATA_VERSION, 5, 'data version 5');
 
 const lessons = Data.lessonsForRoute('cash');
-assert.strictEqual(lessons.length, 36, 'Cash M0+M1+M2+Pro = 36 lecciones');
+assert.strictEqual(lessons.length, 44, 'Cash M0+M1+M2+Pro+Exploit = 44 lecciones');
 assert.strictEqual(Data.lessonsForRoute('spin').length, 19, 'Spins 19');
 assert.strictEqual(Data.lessonsForRoute('mtt').length, 24, 'MTT 24');
 assert.strictEqual(Data.lessonsForRoute('ranges').length, 36, 'Rangos 36');
@@ -395,14 +403,21 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   assert.ok(/ante|ICM|steal|push|burbuja|bb/.test(mttBlob), 'MTT vocabulario torneo');
   var rangesBlob = assertRouteVoice('ranges', 36);
   assert.ok(/matriz|rango|frecuencia|blocker|menú Rangos/.test(rangesBlob), 'Rangos vocabulario');
-  var proBlob = assertRouteVoice('cash', 36); // includes M0-M4
-  assert.ok(/4-bet|farol|fish|reg/.test(proBlob), 'Pro cash vocabulario');
+  var proBlob = assertRouteVoice('cash', 44); // includes M0-M4 + lectura rivales
+  assert.ok(/4-bet|farol|fish|reg|nit|maniac|TAG|LAG/.test(proBlob), 'Pro cash vocabulario');
   assert.ok(/school-theory-title/.test(schoolSrc), 'UI títulos de teoría');
 })();
 assert.strictEqual(Data.getLesson('T-00').route, 'mtt', 'T-00 mtt');
 assert.strictEqual(Data.getLesson('R-01').route, 'ranges', 'R-01 ranges');
 assert.strictEqual(Data.getLesson('C-26').module, 'M4', 'C-26 Pro M4');
 assert.strictEqual(Data.getLesson('C-26').plan, 'coach', 'C-26 coach');
+assert.strictEqual(Data.getLesson('C-32').module, 'M4', 'C-32 lectura rivales M4');
+assert.strictEqual(Data.getLesson('C-39').exam, true, 'C-39 examen');
+assert.ok((Data.getLesson('C-33').spots || []).length >= 10, 'C-33 spots explotativos');
+assert.ok((Data.getLesson('C-33').spots || []).some(function (s) { return s.kind === 'villainTypeQuiz'; }), 'C-33 tiene quiz de tipo');
+assert.ok((Data.getLesson('C-33').spots || []).some(function (s) {
+  return s.schoolObserveOnly || (s.playConfig && s.playConfig.scoreMode === 'exploit');
+}), 'C-33 observe o exploit');
 assert.ok((Data.getLesson('S-01').spots || []).length >= 4, 'S-01 spots resueltos');
 assert.ok((Data.getLesson('T-01').spots || []).length >= 4, 'T-01 spots resueltos');
 assert.strictEqual(Data.getLesson('C-07').module, 'M1', 'C-07 M1');
