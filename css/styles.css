@@ -2614,7 +2614,7 @@ body.age-gate-open {
     inset 0 6px 26px rgba(255,255,255,.04),
     0 0 0 1px rgba(0,0,0,.55),
     0 14px 40px rgba(0,0,0,.5);
-  min-height: 420px; padding: 26px;
+  min-height: 560px; padding: 26px;
   display: flex; flex-direction: column; justify-content: space-between; align-items: center;
 }
 /* Anillo interior de acento (rail) con brillo sutil */
@@ -2689,7 +2689,7 @@ body.age-gate-open {
 }
 
 .table-train-chrome {
-  position: absolute; top: 12px; left: 14px; right: 14px; z-index: 4;
+  position: absolute; top: 12px; left: 14px; right: 14px; z-index: 7;
   display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
   max-width: calc(100% - 28px); pointer-events: none;
   overflow-x: auto; overflow-y: hidden;
@@ -2774,7 +2774,12 @@ body.age-gate-open {
 .table-9max .seat.seat-bottom.seat-edge-right { transform: translate(-88%, -55%); }
 .table-9max .seat.seat-bottom.seat-edge-left { transform: translate(-12%, -55%); }
 
-.seats { position: absolute; inset: 0; z-index: 3; }
+/* El `transform` de centrado de `.seat` crea contexto de apilado, así que las
+   fichas y las burbujas no pueden salir del pod: la capa de asientos entera va
+   por encima del bote. Los pods nunca llegan a solaparse con board ni bote
+   (geometría verificada en 6-max y 9-max), así que solo cambia quién gana
+   cuando las fichas caen sobre el bote, que es lo que hay que poder leer. */
+.seats { position: absolute; inset: 0; z-index: 6; }
 .seat {
   position: absolute; transform: translate(-50%, -50%);
   background: linear-gradient(180deg, rgba(16,24,32,.92), rgba(2,6,10,.86));
@@ -2782,7 +2787,6 @@ body.age-gate-open {
   border-radius: 12px; padding: 6px 10px 7px; text-align: center; min-width: 78px;
   font-size: 12px; color: var(--muted);
   box-shadow: 0 6px 16px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
-  backdrop-filter: blur(2px);
 }
 .seat-body { display: flex; flex-direction: column; align-items: center; }
 .seat-avatar {
@@ -2844,8 +2848,7 @@ body.age-gate-open {
   font-size: 13px; font-weight: 800; line-height: 1.2;
   border: 1px solid color-mix(in srgb, var(--seat-bet-bg) 60%, transparent);
   box-shadow: 0 4px 12px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
-  z-index: 6;
-  animation: bet-in .22s ease both;
+  z-index: 7;
 }
 .seat-bet .seat-bet-amt {
   color: var(--seat-bet-bg); font-variant-numeric: tabular-nums;
@@ -2855,7 +2858,6 @@ body.age-gate-open {
 .seat-bet.bet-above { left: 50%; right: auto; top: auto; bottom: calc(100% + 9px); transform: translateX(-50%); }
 .seat-bet.bet-right { left: calc(100% + 8px); right: auto; top: 50%; bottom: auto; transform: translateY(-50%); }
 .seat-bet.bet-left { left: auto; right: calc(100% + 8px); top: 50%; bottom: auto; transform: translateY(-50%); }
-@keyframes bet-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- Burbujas de acción (Check / Fold / fichas + bb) encima de las cartas ---- */
 .seat-hole { position: relative; display: flex; justify-content: center; min-height: 8px; }
@@ -2872,6 +2874,13 @@ body.age-gate-open {
   pointer-events: none;
   white-space: nowrap;
 }
+/* En el arco superior la burbuja va bajo el pod: encima se sale del felt y
+   queda cortada justo cuando hay que leerla. El ancla pasa a ser el pod entero
+   (no el hueco de cartas) para no caer sobre el nombre y el stack. */
+.seat.seat-top .seat-hole,
+.seat.seat-edge-top .seat-hole { position: static; }
+.seat.seat-top .seat-act-wrap,
+.seat.seat-edge-top .seat-act-wrap { bottom: auto; top: calc(100% + 4px); }
 .action-badge-wrap { min-height: 28px; display: flex; justify-content: center; margin-bottom: 4px; }
 .seat-act {
   display: inline-flex; align-items: center; gap: 6px;
@@ -2880,7 +2889,6 @@ body.age-gate-open {
   white-space: nowrap;
   border: 1px solid rgba(0,0,0,.45);
   box-shadow: 0 3px 9px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.22);
-  animation: pop .18s ease;
 }
 /* Cada tipo de acción tiene su color para localizarla de un vistazo. */
 .seat-act.check { background: linear-gradient(180deg, #4a6d90, #2f4964); color: #eaf3ff; }
@@ -2888,9 +2896,12 @@ body.age-gate-open {
 .seat-act.bet { background: linear-gradient(180deg, #f7dc9c, #e8bf62); color: #33240a; }
 .seat-act.act-call { background: linear-gradient(180deg, #56c98a, #2c9159); color: #06301b; }
 .seat-act.act-allin { background: linear-gradient(180deg, #ff7a63, #d93a26); color: #2c0703; }
-/* El asiento que acaba de actuar destaca sobre las acciones ya mostradas. */
+/* El asiento que acaba de actuar destaca sobre las acciones ya mostradas.
+   Solo se anima esta: las demás se repintan en cada render y volver a
+   animarlas las dejaría medio transparentes justo cuando hay que leerlas. */
 .seat-act.is-acting {
   box-shadow: 0 0 0 2px rgba(255,255,255,.55), 0 4px 14px rgba(0,0,0,.55);
+  animation: pop .18s ease;
 }
 .seat-act:not(.is-acting) { opacity: .92; }
 .seat-act .chip-ico { width: 15px; height: 15px; }
@@ -2898,10 +2909,15 @@ body.age-gate-open {
 
 .board-area { text-align: center; z-index: 2; position: relative; }
 .board .card { box-shadow: 0 4px 10px rgba(0,0,0,.5); }
-/* En escritorio/tablet separa el board de los asientos de arriba para evitar solapes */
+/* En escritorio/tablet el bloque bote+board se centra en el hueco libre: pegado
+   arriba se solapaba con los pods del arco superior. */
 @media (min-width: 681px) {
-  .table-felt > .board-area { margin-top: 22px; }
-  .session-replay-table .table-felt > .board-area { margin-top: 14px; }
+  .table-felt > .board-area {
+    flex: 1; display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    margin-top: 96px;
+  }
+  .session-replay-table .table-felt > .board-area { margin-top: 40px; }
 }
 .villain-action-bar { display: none; min-height: 0; margin-bottom: 6px; justify-content: center; }
 .villain-action-bar.is-visible { display: flex; }
@@ -3029,18 +3045,26 @@ body.age-gate-open {
   box-shadow: 0 3px 9px rgba(0,0,0,.5);
   font-variant-numeric: tabular-nums;
 }
-.seat-chips-total { color: var(--gold); font-size: 10px; }
+.seat-chips-total {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  background: rgba(0,0,0,.5); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+  color: var(--gold); font-size: 11px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 /* El stack va en su propia píldora bajo el nombre, como en las mesas de las
    salas: separa "quién es" de "cuánto lleva". */
 .seat-stack {
   display: inline-block; margin: 4px 0 0; padding: 2px 9px;
-  border-radius: 999px;
+  border-radius: 999px; white-space: nowrap;
   background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.12);
   font-size: 11px; font-weight: 800; color: #fff;
   letter-spacing: 0.02em; font-variant-numeric: tabular-nums;
 }
-.hero-chips .seat-stack { font-size: 12px; margin: 0 0 3px; }
-.hero-chips { min-height: 22px; display: flex; justify-content: center; margin-bottom: 4px; }
+.hero-chips .seat-stack { font-size: 12px; margin: 0; }
+.hero-chips {
+  min-height: 22px; display: flex; justify-content: center; align-items: center;
+  gap: 8px; margin-bottom: 4px;
+}
 .hero-chips .seat-chips { margin: 0; }
 .seat.folded { opacity: 0.88; }
 .seat.folded .seat-cards .card { display: none; }
@@ -3067,7 +3091,6 @@ body.age-gate-open {
 .seat.acting {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(244, 213, 141, .5), 0 4px 16px rgba(0, 0, 0, .45);
-  z-index: 8;
   animation: seat-acting-pulse 1.1s ease-in-out infinite;
 }
 @keyframes seat-acting-pulse {
@@ -3075,8 +3098,7 @@ body.age-gate-open {
   50% { box-shadow: 0 0 0 4px rgba(244,213,141,.34), 0 4px 20px rgba(0,0,0,.5); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .seat.acting { animation: none; }
-  .seat-bet, .seat-act { animation: none; }
+  .seat.acting, .seat-act.is-acting { animation: none; }
 }
 .action-play-status {
   display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
@@ -3703,7 +3725,7 @@ body.paywall-open { overflow: hidden; }
   .play-grid { grid-template-columns: 1fr; }
   .sidebar { flex-direction: row; flex-wrap: wrap; }
   .sidebar .card-box { flex: 1 1 220px; }
-  .table-felt { min-height: 380px; border-radius: 120px; }
+  .table-felt { min-height: 520px; border-radius: 120px; }
 }
 
 /* Móvil grande / tablet pequeña */
@@ -3939,7 +3961,6 @@ body.paywall-open { overflow: hidden; }
   }
   .seats { pointer-events: none; }
   .seat.hero { display: none; }
-  .seat.acting { z-index: 8; }
   .villain-action-bar.is-visible {
     display: flex !important;
     margin-bottom: 4px;
@@ -3947,7 +3968,8 @@ body.paywall-open { overflow: hidden; }
     flex-shrink: 0;
   }
   .board-area {
-    margin-top: 0; padding-top: 0; flex: 1;
+    /* Reserva para el arco superior de asientos, que cuelga sobre el felt. */
+    margin-top: 0; padding-top: 44px; flex: 1;
     display: flex; flex-direction: column; justify-content: center;
     align-items: center;
     max-width: 78%; margin-left: auto; margin-right: auto;
@@ -3956,8 +3978,7 @@ body.paywall-open { overflow: hidden; }
   .board-area.has-villain-bar { padding-top: 2px; }
   .board { position: relative; z-index: 6; }
   .seat {
-    min-width: 0; max-width: 80px; padding: 3px 5px 4px; font-size: 10px;
-    z-index: 3;
+    min-width: 0; max-width: 76px; padding: 3px 5px 4px; font-size: 10px;
   }
   .seat.seat-mini { max-width: 52px; padding: 2px 5px; border-radius: 8px; }
   .seat.seat-mini .seat-pos { font-size: 9px; font-weight: 800; }
@@ -3973,10 +3994,10 @@ body.paywall-open { overflow: hidden; }
   .seat-cards.showdown .card { width: 24px; height: 33px; font-size: 11px; }
   .seat-chips { margin: 1px 0; font-size: 10px; }
   .seat-chips-street { padding: 2px 7px 2px 5px; font-size: 10px; gap: 4px; }
-  .seat-stack { font-size: 10px; padding: 1px 7px; margin-top: 3px; }
-  .seat-avatar { width: 18px; height: 18px; margin-bottom: 1px; }
-  .seat-avatar-svg { width: 11px; height: 11px; }
-  .seat.seat-mini .seat-avatar { display: none; }
+  .seat-stack { font-size: 10px; padding: 0 7px; margin-top: 2px; }
+  /* El avatar es decorativo y en un felt de móvil su altura sale de las cartas
+     y las fichas, que sí hay que poder leer. */
+  .seat-avatar { display: none; }
   .seat-bet { font-size: 11px; padding: 2px 8px 2px 5px; gap: 4px; }
   .seat-bet .chip-ico { width: 11px; height: 11px; }
   .chip { width: 12px; height: 12px; border-width: 1.5px; }
@@ -3992,7 +4013,7 @@ body.paywall-open { overflow: hidden; }
   .hero-avatar { width: 18px; height: 18px; }
   .hero-dealer { width: 15px; height: 15px; font-size: 9px; }
 
-  .pot { font-size: 13px; padding: 4px 12px 4px 7px; margin-bottom: 6px; gap: 7px; }
+  .pot { font-size: 13px; padding: 4px 10px 4px 6px; margin-bottom: 6px; gap: 6px; }
   .pot-chips .chip { width: 15px; height: 15px; }
   .pot-chips .chip + .chip { margin-left: -8px; }
   .hero-area { margin-top: 4px; padding-top: 0; flex-shrink: 0; }
@@ -4009,13 +4030,18 @@ body.paywall-open { overflow: hidden; }
   .table-format-badge { font-size: 9px; padding: 2px 6px; }
   .table-train-hud { gap: 3px; }
   .table-train-chip { font-size: 9px; padding: 2px 6px; }
-  /* Acción del villano bajo el asiento en móvil (evita choque con chrome) */
+  /* Acción del villano bajo el asiento en móvil (evita choque con chrome).
+     El hueco de cartas deja de ser el ancla para que la burbuja caiga bajo el
+     pod entero y no encima del nombre y el stack. */
+  .seat.seat-top .seat-hole,
+  .seat.seat-edge-top .seat-hole,
+  .seat.seat-edge-right .seat-hole { position: static; }
   .seat.seat-top .seat-act-wrap,
   .seat.seat-edge-top .seat-act-wrap,
   .seat.seat-edge-right .seat-act-wrap {
     bottom: auto;
     top: calc(100% + 2px);
-    z-index: 6;
+    z-index: 8;
   }
   .table-watermark-text { font-size: 18px; }
   .table-watermark-sub { font-size: 9px; letter-spacing: 1.6px; }
