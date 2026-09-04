@@ -3003,8 +3003,7 @@
     const pot = view ? view.potBB : (hand.current ? hand.current.potBB : hand.potBB);
     $('#hero-pos').textContent = hand.displayHeroPos || hand.hero.pos;
     $('#pot').innerHTML = '<span class="pot-chips">' + chipStackHTML(pot || 0) + '</span> '
-      + '<span class="pot-label">' + tt('play.pot') + ':</span> '
-      + '<strong class="pot-amt">' + (pot != null ? fmt(pot) : '-') + ' bb</strong>';
+      + tt('play.pot') + ': <strong class="pot-amt">' + (pot != null ? fmt(pot) : '-') + ' bb</strong>';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardFaceHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
     $('#hero-action').innerHTML = actionBadgeHTML(view ? view.heroAction : hand.heroAction);
@@ -9215,7 +9214,7 @@
     return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
       ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
-      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potBB || 0)}</span> <span class="pot-label">Bote:</span> <strong class="pot-amt">${potBB != null ? fmtBB(potBB) : '—'} bb</strong></div>
+      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potBB || 0)}</span> Bote: <strong class="pot-amt">${potBB != null ? fmtBB(potBB) : '—'} bb</strong></div>
       <div class="board">${board.map(Cards.cardFaceHTML).join('')}</div></div>
       <div class="hero-area">
         <div class="hero-label">HÉROE · <span>${escapeHtml(h.heroPos || '')}</span></div>
@@ -9532,7 +9531,7 @@
     return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
       ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
-      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potDisplay || 0)}</span> <span class="pot-label">Bote:</span> <strong class="pot-amt">${fmtBB(potDisplay)} bb</strong></div>
+      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potDisplay || 0)}</span> Bote: <strong class="pot-amt">${fmtBB(potDisplay)} bb</strong></div>
       <div class="board">${board.map(Cards.cardFaceHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
       ${heroAreaHtml}
     </div></div>`;
