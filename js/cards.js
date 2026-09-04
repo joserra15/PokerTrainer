@@ -197,6 +197,21 @@
     return 0;
   }
 
+  /**
+   * Carta para la mesa: rango y palo en dos líneas. A igual ancho de carta
+   * cada glifo dispone de más alto que en `cardToHTML`, que mete "10♦" en una
+   * sola línea y obliga a encoger la fuente.
+   */
+  function cardFaceHTML(code) {
+    const suit = code[1];
+    const red = suit === 'h' || suit === 'd';
+    const rank = code[0] === 'T' ? '10' : code[0];
+    return `<span class="card card-face ${red ? 'red' : 'black'}">`
+      + `<span class="card-rank">${rank}</span>`
+      + `<span class="card-suit">${SUIT_SYMBOL[suit]}</span>`
+      + '</span>';
+  }
+
   /** Carta boca abajo (asiento villano / mesa). */
   function cardBackHTML() {
     return '<span class="card card-back" title="Boca abajo"></span>';
@@ -204,7 +219,7 @@
 
   global.Cards = {
     RANKS, SUITS, RANK_VALUE, SUIT_SYMBOL, HAND_CATEGORIES,
-    makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML, cardBackHTML,
+    makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML, cardFaceHTML, cardBackHTML,
     evaluate, compare, rng
   };
 })(window);
