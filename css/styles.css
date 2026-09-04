@@ -2861,35 +2861,38 @@ body.age-gate-open {
 .seat-bet.bet-right { left: calc(100% + 8px); right: auto; top: 50%; bottom: auto; transform: translateY(-50%); }
 .seat-bet.bet-left { left: auto; right: calc(100% + 8px); top: 50%; bottom: auto; transform: translateY(-50%); }
 
-/* ---- Burbujas de acción (Check / Fold / fichas + bb) encima de las cartas ---- */
-.seat-hole { position: relative; display: flex; justify-content: center; min-height: 8px; }
+/* ---- Burbujas de acción (Check / Fold / Abre…) encima de las cartas ----
+   Van en el flujo del hueco de cartas (no absolute sobre el pod): así no
+   pueden tapar el stack. En el arco superior pasan bajo las cartas para no
+   salirse del felt, pero siguen encima del nombre y del stack. */
+.seat-hole {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 8px;
+}
 .seat-cards-placeholder { min-height: 30px; }
 .seat-act-wrap {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 2px);
-  transform: translateX(-50%);
-  margin: 0;
+  position: relative;
+  order: -1;
+  margin: 0 0 2px;
   display: flex;
   justify-content: center;
   z-index: 8;
   pointer-events: none;
   white-space: nowrap;
 }
-/* En el arco superior la burbuja va bajo el pod: encima se sale del felt y
-   queda cortada justo cuando hay que leerla. El ancla pasa a ser el pod entero
-   (no el hueco de cartas) para no caer sobre el nombre y el stack. */
-.seat.seat-top .seat-hole,
-.seat.seat-edge-top .seat-hole { position: static; }
 .seat.seat-top .seat-act-wrap,
-.seat.seat-edge-top .seat-act-wrap { bottom: auto; top: calc(100% + 4px); }
-/* Con importe la burbuja es más ancha que el pod, y centrada sobre uno ya
-   pegado al canto se salía de la mesa: se ancla al lado exterior y crece hacia
-   dentro. En móvil la burbuja va sin importe y cabe centrada, que además la
-   aleja del asiento vecino del arco superior. */
+.seat.seat-edge-top .seat-act-wrap {
+  order: 1;
+  margin: 2px 0 0;
+}
+/* Con importe la burbuja es más ancha que el pod: en bordes se alinea al lado
+   exterior y crece hacia dentro para no salirse de la mesa. */
 @media (min-width: 681px) {
-  .seat.seat-edge-left .seat-act-wrap { left: 0; right: auto; transform: none; }
-  .seat.seat-edge-right .seat-act-wrap { left: auto; right: 0; transform: none; }
+  .seat.seat-edge-left .seat-act-wrap { align-self: flex-start; }
+  .seat.seat-edge-right .seat-act-wrap { align-self: flex-end; }
 }
 .action-badge-wrap { min-height: 28px; display: flex; justify-content: center; margin-bottom: 4px; }
 .seat-act {
@@ -4046,20 +4049,11 @@ body.paywall-open { overflow: hidden; }
   .table-format-badge { font-size: 9px; padding: 2px 6px; }
   .table-train-hud { gap: 3px; }
   .table-train-chip { font-size: 9px; padding: 2px 6px; }
-  /* Acción del villano bajo el asiento en móvil (evita choque con chrome).
-     El hueco de cartas deja de ser el ancla para que la burbuja caiga bajo el
-     pod entero y no encima del nombre y el stack. */
-  .seat.seat-top .seat-hole,
-  .seat.seat-edge-top .seat-hole,
-  .seat.seat-edge-right .seat-hole { position: static; }
-  /* Los laterales cuelgan la burbuja bajo el pod: arriba se cruzaba con lo que
-     baja del asiento del arco superior, que en móvil queda muy cerca. */
+  /* Acción del villano: en flujo con las cartas (encima), nunca absolute sobre
+     el stack. El arco superior ya la pone bajo las cartas vía order en el CSS
+     base; los laterales mantienen order -1 (encima de las cartas). */
   .seat.seat-top .seat-act-wrap,
-  .seat.seat-edge-top .seat-act-wrap,
-  .seat.seat-edge-left .seat-act-wrap,
-  .seat.seat-edge-right .seat-act-wrap {
-    bottom: auto;
-    top: calc(100% + 2px);
+  .seat.seat-edge-top .seat-act-wrap {
     z-index: 8;
   }
   /* Con importes de dos cifras la píldora es más ancha que el pod: en los

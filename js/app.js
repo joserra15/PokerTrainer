@@ -3330,9 +3330,13 @@
       const inFront = isFolded ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
 
       let actHtml = '';
-      if (!isHero) {
+      if (!isHero && !isFolded) {
+        // Nunca pintar actividad sobre un FOLD: un reveal mal anclado al opener
+        // dejaba Check/Apuesta encima de asientos ya retirados.
         const act = seatActs[pos] || (isVillain ? villainAct : null);
-        if (act && (!isFolded || isActing)) actHtml = actionBadgeHTML(act, isActing, mobile && inFront > 0);
+        if (act && act.type !== 'fold') {
+          actHtml = actionBadgeHTML(act, isActing, mobile && inFront > 0);
+        }
       }
 
       const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
@@ -3358,12 +3362,13 @@
       if (mobile && (placement === 'bet-left' || placement === 'bet-right')) {
         placement = c.top > 50 ? 'bet-above' : 'bet-below';
       }
-      // La burbuja de acción ocupa uno de los dos lados del pod; las fichas
-      // bajan (o suben) un escalón para no quedar debajo de ella.
-      const actBelowPod = c.top < 20 || (mobile && (c.left < 22 || c.left > 78));
+      // Solo el arco superior cuelga la burbuja bajo las cartas (sigue encima
+      // del stack). En laterales va encima de las cartas: las fichas suben un
+      // escalón si compartían ese lado para no taparse.
+      const actBelowCards = c.top < 20;
       if (actHtml) {
-        if (placement === 'bet-below' && actBelowPod) placement += ' bet-under-act';
-        else if (placement === 'bet-above' && !actBelowPod) placement += ' bet-over-act';
+        if (placement === 'bet-below' && actBelowCards) placement += ' bet-under-act';
+        else if (placement === 'bet-above' && !actBelowCards) placement += ' bet-over-act';
       }
       const betHtml = renderSeatBet(inFront, placement);
       const holeHtml = '<div class="seat-hole">'
@@ -3566,7 +3571,6 @@
   function applyPresentEvent(h, ev) {
     const p = h && h._present;
     if (!p || !p.active || !ev) return;
-    p.actingPos = ev.pos || null;
     if (ev.kind === 'street') {
       p.stage = ev.street;
       p.board = (ev.board || []).slice();
@@ -3579,6 +3583,9 @@
       return;
     }
     if (ev.kind !== 'act' || !ev.pos) return;
+    // No animar Check/Apuesta sobre un asiento ya en FOLD (reveal mal anclado).
+    if (ev.type !== 'fold' && p.folded && p.folded[ev.pos]) return;
+    p.actingPos = ev.pos;
     p.seatActions[ev.pos] = { type: ev.type, amount: ev.amount };
     if (ev.type === 'fold') {
       p.folded[ev.pos] = true;

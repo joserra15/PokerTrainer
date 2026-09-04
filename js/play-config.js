@@ -553,12 +553,21 @@
       return (hand.forceDeal && hand.forceDeal.villainPos) || hand.villain.pos;
     }
     if (!hand.playConfig || !is9Max(hand.playConfig)) return hand.villain.pos;
+    const active = hand.villain.pos;
+    const tbl = hand.table;
+    // Si el villano vivo ya está en un asiento de mesa (p. ej. tras un lead
+    // multiway o un squeeze donde el abridor foldeó), ese asiento gana: el mapa
+    // del escenario seguiría apuntando al opener y pintaría la acción sobre un
+    // FOLD.
+    if (active && tbl && tbl.inHand && typeof tbl.inHand.has === 'function'
+        && tbl.inHand.has(active) && !(tbl.folded && tbl.folded[active])) {
+      return active;
+    }
     const s = hand.scenario || {};
     const heroSeat = hand.displayHeroPos || s.heroPos || hand.hero.pos;
-    // Squeeze: hand.villain.pos sigue al oponente activo (abridor o pagador si el abridor foldea).
-    if (s.type === 'squeeze') return hand.villain.pos;
+    if (s.type === 'squeeze') return active;
     if (s.type === 'RFI') return 'BB';
-    return openerDealSeat(s, hand.playConfig) || displaySeatForEngine(hand.villain.pos, [heroSeat, s.callerPos]);
+    return openerDealSeat(s, hand.playConfig) || displaySeatForEngine(active, [heroSeat, s.callerPos]);
   }
 
   function enginePos(displayPos) {
