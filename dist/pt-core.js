@@ -19563,9 +19563,11 @@ window.PT_NASH_PUSH_JSON = {
       gto: freqs,
       context: `Eres ${heroPos}. ${limperPos} limpea. ¿Fold, over-limp o aislar con una subida?`
     };
-    setVillainAct(hand, 'check', null);
-    seedLineAction(hand, villainTableSeat(hand) || limperPos, 'call', BBET);
+    // Limpear es igualar la ciega grande, no pasar: el limper pone 1bb y así
+    // debe verse tanto en su asiento como en la línea de la mano.
     addInvest(hand, limperPos, BBET);
+    setVillainAct(hand, 'call', BBET);
+    seedLineAction(hand, villainTableSeat(hand) || limperPos, 'call', BBET);
     markPreflopFoldsForFacingAction(hand, limperPos);
   }
 
@@ -20373,7 +20375,8 @@ window.PT_NASH_PUSH_JSON = {
     ensureLimperHand(hand, 'SB');
     hand.villain.rangeStr = LIMP_RANGE;
     initVillainTracker(hand);
-    hand.potBB = round2(SB + BBET + BBET);
+    // Solo hay dos jugadores con dinero: SB completa a 1bb y BB ya tiene 1bb.
+    hand.potBB = round2(BBET + BBET);
     hand.heroInvested = BBET;
     hand.villainInvested = BBET;
     hand.toCallBB = 0;
@@ -20390,9 +20393,12 @@ window.PT_NASH_PUSH_JSON = {
       gto: freqs,
       context: 'Eres BB. SB limpea. ¿Check o iso-raise?'
     };
-    setVillainAct(hand, 'check', null);
+    // SB limpea: completa desde la ciega pequeña hasta 1bb. Es un call, no un
+    // check, y solo pone la diferencia sobre lo que ya tenía posteado.
+    const sbAdd = seatToCall(hand, 'SB', BBET);
+    if (sbAdd > 0) addInvest(hand, 'SB', sbAdd);
+    setVillainAct(hand, 'call', BBET);
     seedLineAction(hand, 'SB', 'call', BBET);
-    addInvest(hand, 'SB', BBET);
     markPreflopFoldsForFacingAction(hand, 'SB');
   }
 
@@ -36382,7 +36388,11 @@ window.PT_NASH_PUSH_JSON = {
   // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb).
   // `acting` marca la acción que se acaba de producir para destacarla sobre las
   // del resto de asientos, que se mantienen visibles toda la calle.
-  function actionBadgeHTML(action, acting) {
+  /**
+   * `compact` omite el importe: se usa cuando el montón de fichas del propio
+   * asiento ya lo está mostrando y repetirlo solo ensancha la burbuja.
+   */
+  function actionBadgeHTML(action, acting, compact) {
     if (!action) return '';
     const t = action.type;
     const live = acting ? ' is-acting' : '';
@@ -36392,7 +36402,7 @@ window.PT_NASH_PUSH_JSON = {
       ? { open: 'Open', bet: 'Bet', call: 'Call', raise: 'Raise', allin: 'All-in' }
       : { open: 'Abre', bet: 'Apuesta', call: 'Iguala', raise: 'Sube', allin: 'All-in' };
     const lbl = labels[t] || t;
-    const amt = action.amount != null ? `${action.amount} bb` : '';
+    const amt = (!compact && action.amount != null) ? `${action.amount} bb` : '';
     const kind = t === 'call' ? ' act-call' : (t === 'allin' ? ' act-allin' : ' act-raise');
     return `<span class="seat-act bet${kind}${live}"><span class="chip-ico"></span>${lbl}${amt ? ' · ' + amt : ''}</span>`;
   }
@@ -36587,10 +36597,14 @@ window.PT_NASH_PUSH_JSON = {
       // La acción de cada rival se mantiene en su asiento durante toda la calle:
       // antes solo se veía la del villano (o la del asiento que actuaba en la
       // animación) y había que buscar quién había hecho qué.
+      const totalInv = invested[pos] || 0;
+      const stBet = streetBet[pos] || 0;
+      const inFront = isFolded ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
+
       let actHtml = '';
       if (!isHero) {
         const act = seatActs[pos] || (isVillain ? villainAct : null);
-        if (act && (!isFolded || isActing)) actHtml = actionBadgeHTML(act, isActing);
+        if (act && (!isFolded || isActing)) actHtml = actionBadgeHTML(act, isActing, mobile && inFront > 0);
       }
 
       const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
@@ -36605,17 +36619,24 @@ window.PT_NASH_PUSH_JSON = {
         }
       }
 
-      const totalInv = invested[pos] || 0;
-      const stBet = streetBet[pos] || 0;
-      const inFront = isFolded ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
       const showFullSeat = !mobile || isVillain || isCaller || inPot || isFolded || isActing
         || !!actHtml || stBet > 0 || inFront > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
-      // En el arco superior la burbuja de acción cuelga bajo el pod, justo donde
-      // caerían las fichas: se bajan un escalón para que se vean las dos.
       let placement = seatBetPlacement(c);
-      if (actHtml && placement === 'bet-below') placement += ' bet-under-act';
+      // En pantallas estrechas los asientos laterales apuntarían sus fichas al
+      // centro, que es justo donde está el bote y no hay ancho para los dos.
+      // Colocadas en vertical se quedan en la columna del propio asiento.
+      if (mobile && (placement === 'bet-left' || placement === 'bet-right')) {
+        placement = c.top > 50 ? 'bet-above' : 'bet-below';
+      }
+      // La burbuja de acción ocupa uno de los dos lados del pod; las fichas
+      // bajan (o suben) un escalón para no quedar debajo de ella.
+      const actBelowPod = c.top < 20 || (mobile && (c.left < 22 || c.left > 78));
+      if (actHtml) {
+        if (placement === 'bet-below' && actBelowPod) placement += ' bet-under-act';
+        else if (placement === 'bet-above' && !actBelowPod) placement += ' bet-over-act';
+      }
       const betHtml = renderSeatBet(inFront, placement);
       const holeHtml = '<div class="seat-hole">'
         + (actHtml ? '<div class="seat-act-wrap">' + actHtml + '</div>' : '')

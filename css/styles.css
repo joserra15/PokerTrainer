@@ -2855,8 +2855,9 @@ body.age-gate-open {
   text-shadow: 0 1px 2px rgba(0,0,0,.55);
 }
 .seat-bet.bet-below { left: 50%; right: auto; top: calc(100% + 9px); bottom: auto; transform: translateX(-50%); }
-.seat-bet.bet-under-act { top: calc(100% + 38px); }
+.seat-bet.bet-under-act { top: calc(100% + 34px); }
 .seat-bet.bet-above { left: 50%; right: auto; top: auto; bottom: calc(100% + 9px); transform: translateX(-50%); }
+.seat-bet.bet-over-act { bottom: calc(100% + 34px); }
 .seat-bet.bet-right { left: calc(100% + 8px); right: auto; top: 50%; bottom: auto; transform: translateY(-50%); }
 .seat-bet.bet-left { left: auto; right: calc(100% + 8px); top: 50%; bottom: auto; transform: translateY(-50%); }
 
@@ -2882,6 +2883,14 @@ body.age-gate-open {
 .seat.seat-edge-top .seat-hole { position: static; }
 .seat.seat-top .seat-act-wrap,
 .seat.seat-edge-top .seat-act-wrap { bottom: auto; top: calc(100% + 4px); }
+/* Con importe la burbuja es más ancha que el pod, y centrada sobre uno ya
+   pegado al canto se salía de la mesa: se ancla al lado exterior y crece hacia
+   dentro. En móvil la burbuja va sin importe y cabe centrada, que además la
+   aleja del asiento vecino del arco superior. */
+@media (min-width: 681px) {
+  .seat.seat-edge-left .seat-act-wrap { left: 0; right: auto; transform: none; }
+  .seat.seat-edge-right .seat-act-wrap { left: auto; right: 0; transform: none; }
+}
 .action-badge-wrap { min-height: 28px; display: flex; justify-content: center; margin-bottom: 4px; }
 .seat-act {
   display: inline-flex; align-items: center; gap: 6px;
@@ -2915,7 +2924,7 @@ body.age-gate-open {
 @media (min-width: 681px) {
   .table-felt > .board-area {
     flex: 1; display: flex; flex-direction: column;
-    justify-content: center; align-items: center;
+    justify-content: flex-end; align-items: center;
     margin-top: 96px;
   }
   .session-replay-table .table-felt > .board-area { margin-top: 40px; }
@@ -3726,7 +3735,9 @@ body.paywall-open { overflow: hidden; }
   .play-grid { grid-template-columns: 1fr; }
   .sidebar { flex-direction: row; flex-wrap: wrap; }
   .sidebar .card-box { flex: 1 1 220px; }
-  .table-felt { min-height: 520px; border-radius: 120px; }
+  /* Alto suficiente para que el bote quede por debajo del pod del arco
+     superior con su burbuja de acción y sus fichas colgando. */
+  .table-felt { min-height: 560px; border-radius: 120px; }
 }
 
 /* Móvil grande / tablet pequeña */
@@ -4006,8 +4017,9 @@ body.paywall-open { overflow: hidden; }
   .chip { width: 12px; height: 12px; border-width: 1.5px; }
   .chip-stack .chip + .chip { margin-left: -6px; }
   .seat-bet.bet-below { top: calc(100% + 5px); }
-  .seat-bet.bet-under-act { top: calc(100% + 26px); }
+  .seat-bet.bet-under-act { top: calc(100% + 22px); }
   .seat-bet.bet-above { bottom: calc(100% + 5px); }
+  .seat-bet.bet-over-act { bottom: calc(100% + 22px); }
   .seat-bet.bet-right { left: calc(100% + 4px); }
   .seat-bet.bet-left { right: calc(100% + 4px); }
   .seat.seat-mini .seat-bet { display: none; }
@@ -4040,13 +4052,22 @@ body.paywall-open { overflow: hidden; }
   .seat.seat-top .seat-hole,
   .seat.seat-edge-top .seat-hole,
   .seat.seat-edge-right .seat-hole { position: static; }
+  /* Los laterales cuelgan la burbuja bajo el pod: arriba se cruzaba con lo que
+     baja del asiento del arco superior, que en móvil queda muy cerca. */
   .seat.seat-top .seat-act-wrap,
   .seat.seat-edge-top .seat-act-wrap,
+  .seat.seat-edge-left .seat-act-wrap,
   .seat.seat-edge-right .seat-act-wrap {
     bottom: auto;
     top: calc(100% + 2px);
     z-index: 8;
   }
+  /* Con importes de dos cifras la píldora es más ancha que el pod: en los
+     bordes se ancla al lado exterior para crecer hacia dentro de la mesa. */
+  .seat.seat-edge-left .seat-bet.bet-below,
+  .seat.seat-edge-left .seat-bet.bet-above { left: 0; right: auto; transform: none; }
+  .seat.seat-edge-right .seat-bet.bet-below,
+  .seat.seat-edge-right .seat-bet.bet-above { left: auto; right: 0; transform: none; }
   .table-watermark-text { font-size: 18px; }
   .table-watermark-sub { font-size: 9px; letter-spacing: 1.6px; }
   .table-watermark-mark { width: 56px; height: 60px; }
