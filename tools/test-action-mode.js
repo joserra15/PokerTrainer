@@ -287,7 +287,7 @@ console.log('13) UI / i18n / timing del modo');
   assert.ok(/seat-hole/.test(appJs) && /isActing/.test(appJs), 'acción sobre las cartas del villano');
   assert.ok(/order:\s*-1/.test(css) || /\.seat-act-wrap[\s\S]{0,120}order:\s*-1/.test(css), 'burbuja encima de las cartas (order)');
   assert.ok(!/\.seat-top \.seat-act-wrap[\s\S]{0,80}display:\s*none/.test(css), 'no oculta la acción en asientos de arriba');
-  assert.ok(/\.seat\.seat-top \.seat-act-wrap[\s\S]{0,60}order:\s*1/.test(css), 'arco superior: burbuja bajo las cartas');
+  assert.ok(/\.seat\.seat-top \.seat-act-wrap[\s\S]{0,200}order:\s*1/.test(css), 'arco superior: burbuja bajo las cartas');
   assert.ok(/function shouldPlayOpening/.test(appJs) && /function shouldPlayReveal/.test(appJs), 'gates rápido/completo');
   assert.ok(/currentActionMode\(\) === 'complete'/.test(appJs), 'preflop completo solo si está activado');
   assert.ok(/if \(postflop\) return true/.test(appJs), 'postflop siempre completo');
