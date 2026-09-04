@@ -15384,12 +15384,21 @@ window.PT_NASH_PUSH_JSON = {
       return (hand.forceDeal && hand.forceDeal.villainPos) || hand.villain.pos;
     }
     if (!hand.playConfig || !is9Max(hand.playConfig)) return hand.villain.pos;
+    const active = hand.villain.pos;
+    const tbl = hand.table;
+    // Si el villano vivo ya está en un asiento de mesa (p. ej. tras un lead
+    // multiway o un squeeze donde el abridor foldeó), ese asiento gana: el mapa
+    // del escenario seguiría apuntando al opener y pintaría la acción sobre un
+    // FOLD.
+    if (active && tbl && tbl.inHand && typeof tbl.inHand.has === 'function'
+        && tbl.inHand.has(active) && !(tbl.folded && tbl.folded[active])) {
+      return active;
+    }
     const s = hand.scenario || {};
     const heroSeat = hand.displayHeroPos || s.heroPos || hand.hero.pos;
-    // Squeeze: hand.villain.pos sigue al oponente activo (abridor o pagador si el abridor foldea).
-    if (s.type === 'squeeze') return hand.villain.pos;
+    if (s.type === 'squeeze') return active;
     if (s.type === 'RFI') return 'BB';
-    return openerDealSeat(s, hand.playConfig) || displaySeatForEngine(hand.villain.pos, [heroSeat, s.callerPos]);
+    return openerDealSeat(s, hand.playConfig) || displaySeatForEngine(active, [heroSeat, s.callerPos]);
   }
 
   function enginePos(displayPos) {
@@ -18471,6 +18480,9 @@ window.PT_NASH_PUSH_JSON = {
     hand.villainInvested = round2((hand.villainInvested || 0) + need);
     focusVillainSeat(hand, pos);
     hand.villainAction = { type: 'bet', amount: amount };
+    // Registrar en el asiento que apuesta (no via villainTableSeat del opener):
+    // si no, el reveal anima la apuesta sobre un FOLD y luego “salta” al vivo.
+    recordVisibleAction(hand, pos, 'bet', amount);
     logLineAction(hand, pos, 'bet', amount);
   }
 
@@ -21104,7 +21116,7 @@ window.PT_NASH_PUSH_JSON = {
 
     if (actionId === 'check') {
       setHeroAct(hand, 'check');
-      setSeatAction(hand, hand.hero.pos, 'check', null);
+      setSeatAction(hand, heroTableSeat(hand) || hand.hero.pos, 'check', null);
       // Héroe ya all-in: no hay acción del villano, reparte el resto.
       if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
       // si el villano ya había pasado (héroe en posición cerrando), la calle termina
@@ -36602,9 +36614,13 @@ window.PT_NASH_PUSH_JSON = {
       const inFront = isFolded ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
 
       let actHtml = '';
-      if (!isHero) {
+      if (!isHero && !isFolded) {
+        // Nunca pintar actividad sobre un FOLD: un reveal mal anclado al opener
+        // dejaba Check/Apuesta encima de asientos ya retirados.
         const act = seatActs[pos] || (isVillain ? villainAct : null);
-        if (act && (!isFolded || isActing)) actHtml = actionBadgeHTML(act, isActing, mobile && inFront > 0);
+        if (act && act.type !== 'fold') {
+          actHtml = actionBadgeHTML(act, isActing, mobile && inFront > 0);
+        }
       }
 
       const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
@@ -36630,12 +36646,13 @@ window.PT_NASH_PUSH_JSON = {
       if (mobile && (placement === 'bet-left' || placement === 'bet-right')) {
         placement = c.top > 50 ? 'bet-above' : 'bet-below';
       }
-      // La burbuja de acción ocupa uno de los dos lados del pod; las fichas
-      // bajan (o suben) un escalón para no quedar debajo de ella.
-      const actBelowPod = c.top < 20 || (mobile && (c.left < 22 || c.left > 78));
+      // Solo el arco superior cuelga la burbuja bajo las cartas (sigue encima
+      // del stack). En laterales va encima de las cartas: las fichas suben un
+      // escalón si compartían ese lado para no taparse.
+      const actBelowCards = c.top < 20;
       if (actHtml) {
-        if (placement === 'bet-below' && actBelowPod) placement += ' bet-under-act';
-        else if (placement === 'bet-above' && !actBelowPod) placement += ' bet-over-act';
+        if (placement === 'bet-below' && actBelowCards) placement += ' bet-under-act';
+        else if (placement === 'bet-above' && !actBelowCards) placement += ' bet-over-act';
       }
       const betHtml = renderSeatBet(inFront, placement);
       const holeHtml = '<div class="seat-hole">'
@@ -36838,7 +36855,6 @@ window.PT_NASH_PUSH_JSON = {
   function applyPresentEvent(h, ev) {
     const p = h && h._present;
     if (!p || !p.active || !ev) return;
-    p.actingPos = ev.pos || null;
     if (ev.kind === 'street') {
       p.stage = ev.street;
       p.board = (ev.board || []).slice();
@@ -36851,6 +36867,9 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
     if (ev.kind !== 'act' || !ev.pos) return;
+    // No animar Check/Apuesta sobre un asiento ya en FOLD (reveal mal anclado).
+    if (ev.type !== 'fold' && p.folded && p.folded[ev.pos]) return;
+    p.actingPos = ev.pos;
     p.seatActions[ev.pos] = { type: ev.type, amount: ev.amount };
     if (ev.type === 'fold') {
       p.folded[ev.pos] = true;

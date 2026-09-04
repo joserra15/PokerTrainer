@@ -151,9 +151,9 @@ const assertOk = (cond, msg) => { assert.ok(cond, msg); };
   assertOk(/\.table-train-chrome/.test(css)
     && /table-train-chrome[\s\S]{0,260}flex-wrap:\s*nowrap/.test(css),
     'HUD/badge en franja table-train-chrome (nowrap)');
-  assertOk(/seat-edge-right\s+\.seat-act-wrap/.test(css)
-    && /top:\s*calc\(100%\s*\+\s*2px\)/.test(css),
-    'acción villano bajo el asiento en móvil');
+  assertOk(/\.seat-act-wrap[\s\S]{0,200}order:\s*-1/.test(css)
+    && /\.seat\.seat-top \.seat-act-wrap[\s\S]{0,80}order:\s*1/.test(css),
+    'acción encima de las cartas (laterales) y bajo cartas en arco superior');
   console.log('OK CSS HUD/acción móvil');
 })();
 

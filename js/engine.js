@@ -1750,6 +1750,9 @@
     hand.villainInvested = round2((hand.villainInvested || 0) + need);
     focusVillainSeat(hand, pos);
     hand.villainAction = { type: 'bet', amount: amount };
+    // Registrar en el asiento que apuesta (no via villainTableSeat del opener):
+    // si no, el reveal anima la apuesta sobre un FOLD y luego “salta” al vivo.
+    recordVisibleAction(hand, pos, 'bet', amount);
     logLineAction(hand, pos, 'bet', amount);
   }
 
@@ -4383,7 +4386,7 @@
 
     if (actionId === 'check') {
       setHeroAct(hand, 'check');
-      setSeatAction(hand, hand.hero.pos, 'check', null);
+      setSeatAction(hand, heroTableSeat(hand) || hand.hero.pos, 'check', null);
       // Héroe ya all-in: no hay acción del villano, reparte el resto.
       if (heroRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
       // si el villano ya había pasado (héroe en posición cerrando), la calle termina

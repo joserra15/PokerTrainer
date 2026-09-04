@@ -120,6 +120,7 @@ const STEPS = [
   ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']],
   ['Test vs3bet/4bet interactivos (sin autoHero)', ['node', 'tools/test-face3bet-interactive.js']],
   ['Test squeeze MTT villano activo (sin fold fantasma)', ['node', 'tools/test-trainer-villain-fold-seat.js']],
+  ['Test acciones fantasma sobre FOLD + burbuja stack', ['node', 'tools/test-ghost-fold-actions.js']],
   ['Test línea de acción previa (entrenador)', ['node', 'tools/test-trainer-action-line.js']],
   ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
   ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],
