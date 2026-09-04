@@ -2884,15 +2884,28 @@ body.age-gate-open {
   white-space: nowrap;
 }
 .seat.seat-top .seat-act-wrap,
-.seat.seat-edge-top .seat-act-wrap {
+.seat.seat-edge-top .seat-act-wrap,
+.seat.seat-act-below .seat-act-wrap {
   order: 1;
   margin: 2px 0 0;
 }
 /* Con importe la burbuja es más ancha que el pod: en bordes se alinea al lado
    exterior y crece hacia dentro para no salirse de la mesa. */
 @media (min-width: 681px) {
-  .seat.seat-edge-left .seat-act-wrap { align-self: flex-start; }
-  .seat.seat-edge-right .seat-act-wrap { align-self: flex-end; }
+  .seat.seat-edge-left .seat-act-wrap {
+    align-self: flex-start;
+    max-width: 100%;
+  }
+  .seat.seat-edge-right .seat-act-wrap {
+    align-self: flex-end;
+    max-width: 100%;
+  }
+  .seat.seat-edge-left .seat-act,
+  .seat.seat-edge-right .seat-act {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 .action-badge-wrap { min-height: 28px; display: flex; justify-content: center; margin-bottom: 4px; }
 .seat-act {

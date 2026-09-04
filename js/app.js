@@ -3335,7 +3335,10 @@
         // dejaba Check/Apuesta encima de asientos ya retirados.
         const act = seatActs[pos] || (isVillain ? villainAct : null);
         if (act && act.type !== 'fold') {
-          actHtml = actionBadgeHTML(act, isActing, mobile && inFront > 0);
+          // Si ya hay fichas delante, el importe en la burbuja solo la ensancha
+          // (y en laterales se sale del felt). Compacta también en tablet/desktop.
+          const nearEdge = c.left < 22 || c.left > 78;
+          actHtml = actionBadgeHTML(act, isActing, (inFront > 0) || nearEdge);
         }
       }
 
@@ -3362,14 +3365,11 @@
       if (mobile && (placement === 'bet-left' || placement === 'bet-right')) {
         placement = c.top > 50 ? 'bet-above' : 'bet-below';
       }
-      // Solo el arco superior cuelga la burbuja bajo las cartas (sigue encima
-      // del stack). En laterales va encima de las cartas: las fichas suben un
-      // escalón si compartían ese lado para no taparse.
-      const actBelowCards = c.top < 20;
-      if (actHtml) {
-        if (placement === 'bet-below' && actBelowCards) placement += ' bet-under-act';
-        else if (placement === 'bet-above' && !actBelowCards) placement += ' bet-over-act';
-      }
+      // Arco superior: burbuja bajo las cartas. En móvil, si las fichas van
+      // arriba del pod, la burbuja también baja (si no, fichas y burbuja se
+      // pelean el mismo hueco hacia el bote).
+      const actBelowCards = c.top < 20 || (mobile && !!actHtml && placement === 'bet-above');
+      if (actBelowCards && actHtml) cls.push('seat-act-below');
       const betHtml = renderSeatBet(inFront, placement);
       const holeHtml = '<div class="seat-hole">'
         + (actHtml ? '<div class="seat-act-wrap">' + actHtml + '</div>' : '')

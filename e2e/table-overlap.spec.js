@@ -49,9 +49,24 @@ function inspectTable(page) {
       const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
       return w > 0 && h > 0 ? Math.round(w * h) : 0;
     };
+    const feltEl = document.querySelector('#play-active .table-felt');
+    if (!feltEl) return ['sin mesa'];
+    const felt = feltEl.getBoundingClientRect();
+    // Solo cuenta lo que el jugador puede ver sobre el felt. Durante un
+    // repaint/scroll puntual los pods pueden medir fuera de pantalla y
+    // "solaparse" sin tapar nada legible.
+    const onFelt = (r) => {
+      const top = Math.max(felt.top, 0);
+      const bottom = Math.min(felt.bottom, window.innerHeight);
+      const left = Math.max(felt.left, 0);
+      const right = Math.min(felt.right, window.innerWidth);
+      if (bottom - top < 2 || right - left < 2) return false;
+      return r.bottom > top + 1 && r.top < bottom - 1
+        && r.right > left + 1 && r.left < right - 1;
+    };
     const grab = (sel, label) => Array.from(document.querySelectorAll('#play-active ' + sel))
       .map((el) => ({ el, label, r: el.getBoundingClientRect() }))
-      .filter((o) => o.r.width > 1 && o.r.height > 1);
+      .filter((o) => o.r.width > 1 && o.r.height > 1 && onFelt(o.r));
 
     const items = [
       ...grab('#seats .seat-bet', 'fichas'),
@@ -74,7 +89,6 @@ function inspectTable(page) {
     }
 
     // Nada que el jugador deba leer puede quedar fuera de la mesa.
-    const felt = document.querySelector('#play-active .table-felt').getBoundingClientRect();
     grab('#seats .seat-bet', 'fichas').concat(grab('#seats .seat-act', 'accion')).forEach((o) => {
       if (o.r.right > felt.right + 1 || o.r.left < felt.left - 1) {
         problems.push(`${o.label} se sale de la mesa`);
