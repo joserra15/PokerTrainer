@@ -36269,7 +36269,8 @@ window.PT_NASH_PUSH_JSON = {
     const pot = view ? view.potBB : (hand.current ? hand.current.potBB : hand.potBB);
     $('#hero-pos').textContent = hand.displayHeroPos || hand.hero.pos;
     $('#pot').innerHTML = '<span class="pot-chips">' + chipStackHTML(pot || 0) + '</span> '
-      + tt('play.pot') + ': <strong class="pot-amt">' + (pot != null ? fmt(pot) : '-') + ' bb</strong>';
+      + '<span class="pot-label">' + tt('play.pot') + ':</span> '
+      + '<strong class="pot-amt">' + (pot != null ? fmt(pot) : '-') + ' bb</strong>';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardFaceHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
     $('#hero-action').innerHTML = actionBadgeHTML(view ? view.heroAction : hand.heroAction);
@@ -36612,10 +36613,20 @@ window.PT_NASH_PUSH_JSON = {
         || !!actHtml || stBet > 0 || inFront > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
-      // En el arco superior la burbuja de acción cuelga bajo el pod, justo donde
-      // caerían las fichas: se bajan un escalón para que se vean las dos.
       let placement = seatBetPlacement(c);
-      if (actHtml && placement === 'bet-below') placement += ' bet-under-act';
+      // En pantallas estrechas los asientos laterales apuntarían sus fichas al
+      // centro, que es justo donde está el bote y no hay ancho para los dos.
+      // Colocadas en vertical se quedan en la columna del propio asiento.
+      if (mobile && (placement === 'bet-left' || placement === 'bet-right')) {
+        placement = c.top > 50 ? 'bet-above' : 'bet-below';
+      }
+      // La burbuja de acción ocupa uno de los dos lados del pod; las fichas
+      // bajan (o suben) un escalón para no quedar debajo de ella.
+      const actBelowPod = c.top < 20 || (mobile && c.left > 78);
+      if (actHtml) {
+        if (placement === 'bet-below' && actBelowPod) placement += ' bet-under-act';
+        else if (placement === 'bet-above' && !actBelowPod) placement += ' bet-over-act';
+      }
       const betHtml = renderSeatBet(inFront, placement);
       const holeHtml = '<div class="seat-hole">'
         + (actHtml ? '<div class="seat-act-wrap">' + actHtml + '</div>' : '')
@@ -42470,7 +42481,7 @@ window.PT_NASH_PUSH_JSON = {
     return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
       ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
-      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potBB || 0)}</span> Bote: <strong class="pot-amt">${potBB != null ? fmtBB(potBB) : '—'} bb</strong></div>
+      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potBB || 0)}</span> <span class="pot-label">Bote:</span> <strong class="pot-amt">${potBB != null ? fmtBB(potBB) : '—'} bb</strong></div>
       <div class="board">${board.map(Cards.cardFaceHTML).join('')}</div></div>
       <div class="hero-area">
         <div class="hero-label">HÉROE · <span>${escapeHtml(h.heroPos || '')}</span></div>
@@ -42787,7 +42798,7 @@ window.PT_NASH_PUSH_JSON = {
     return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
       ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
-      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potDisplay || 0)}</span> Bote: <strong class="pot-amt">${fmtBB(potDisplay)} bb</strong></div>
+      <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potDisplay || 0)}</span> <span class="pot-label">Bote:</span> <strong class="pot-amt">${fmtBB(potDisplay)} bb</strong></div>
       <div class="board">${board.map(Cards.cardFaceHTML).join('') || '<span style="color:rgba(255,255,255,.3)">— preflop —</span>'}</div></div>
       ${heroAreaHtml}
     </div></div>`;
