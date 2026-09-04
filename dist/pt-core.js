@@ -36388,7 +36388,11 @@ window.PT_NASH_PUSH_JSON = {
   // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb).
   // `acting` marca la acción que se acaba de producir para destacarla sobre las
   // del resto de asientos, que se mantienen visibles toda la calle.
-  function actionBadgeHTML(action, acting) {
+  /**
+   * `compact` omite el importe: se usa cuando el montón de fichas del propio
+   * asiento ya lo está mostrando y repetirlo solo ensancha la burbuja.
+   */
+  function actionBadgeHTML(action, acting, compact) {
     if (!action) return '';
     const t = action.type;
     const live = acting ? ' is-acting' : '';
@@ -36398,7 +36402,7 @@ window.PT_NASH_PUSH_JSON = {
       ? { open: 'Open', bet: 'Bet', call: 'Call', raise: 'Raise', allin: 'All-in' }
       : { open: 'Abre', bet: 'Apuesta', call: 'Iguala', raise: 'Sube', allin: 'All-in' };
     const lbl = labels[t] || t;
-    const amt = action.amount != null ? `${action.amount} bb` : '';
+    const amt = (!compact && action.amount != null) ? `${action.amount} bb` : '';
     const kind = t === 'call' ? ' act-call' : (t === 'allin' ? ' act-allin' : ' act-raise');
     return `<span class="seat-act bet${kind}${live}"><span class="chip-ico"></span>${lbl}${amt ? ' · ' + amt : ''}</span>`;
   }
@@ -36593,10 +36597,14 @@ window.PT_NASH_PUSH_JSON = {
       // La acción de cada rival se mantiene en su asiento durante toda la calle:
       // antes solo se veía la del villano (o la del asiento que actuaba en la
       // animación) y había que buscar quién había hecho qué.
+      const totalInv = invested[pos] || 0;
+      const stBet = streetBet[pos] || 0;
+      const inFront = isFolded ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
+
       let actHtml = '';
       if (!isHero) {
         const act = seatActs[pos] || (isVillain ? villainAct : null);
-        if (act && (!isFolded || isActing)) actHtml = actionBadgeHTML(act, isActing);
+        if (act && (!isFolded || isActing)) actHtml = actionBadgeHTML(act, isActing, mobile && inFront > 0);
       }
 
       const showCards = inPot && holeCards[pos] && holeCards[pos].length >= 2;
@@ -36611,9 +36619,6 @@ window.PT_NASH_PUSH_JSON = {
         }
       }
 
-      const totalInv = invested[pos] || 0;
-      const stBet = streetBet[pos] || 0;
-      const inFront = isFolded ? 0 : (stBet > 0 ? stBet : (hand.stage === 'preflop' ? totalInv : 0));
       const showFullSeat = !mobile || isVillain || isCaller || inPot || isFolded || isActing
         || !!actHtml || stBet > 0 || inFront > 0 || showCards;
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
@@ -36627,7 +36632,7 @@ window.PT_NASH_PUSH_JSON = {
       }
       // La burbuja de acción ocupa uno de los dos lados del pod; las fichas
       // bajan (o suben) un escalón para no quedar debajo de ella.
-      const actBelowPod = c.top < 20 || (mobile && c.left > 78);
+      const actBelowPod = c.top < 20 || (mobile && (c.left < 22 || c.left > 78));
       if (actHtml) {
         if (placement === 'bet-below' && actBelowPod) placement += ' bet-under-act';
         else if (placement === 'bet-above' && !actBelowPod) placement += ' bet-over-act';

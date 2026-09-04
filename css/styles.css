@@ -2883,11 +2883,14 @@ body.age-gate-open {
 .seat.seat-edge-top .seat-hole { position: static; }
 .seat.seat-top .seat-act-wrap,
 .seat.seat-edge-top .seat-act-wrap { bottom: auto; top: calc(100% + 4px); }
-/* En los asientos de borde la burbuja es más ancha que el pod, y centrada sobre
-   un pod ya pegado al canto se salía de la mesa: se ancla al lado exterior y
-   crece hacia dentro, donde sí hay sitio. */
-.seat.seat-edge-left .seat-act-wrap { left: 0; right: auto; transform: none; }
-.seat.seat-edge-right .seat-act-wrap { left: auto; right: 0; transform: none; }
+/* Con importe la burbuja es más ancha que el pod, y centrada sobre uno ya
+   pegado al canto se salía de la mesa: se ancla al lado exterior y crece hacia
+   dentro. En móvil la burbuja va sin importe y cabe centrada, que además la
+   aleja del asiento vecino del arco superior. */
+@media (min-width: 681px) {
+  .seat.seat-edge-left .seat-act-wrap { left: 0; right: auto; transform: none; }
+  .seat.seat-edge-right .seat-act-wrap { left: auto; right: 0; transform: none; }
+}
 .action-badge-wrap { min-height: 28px; display: flex; justify-content: center; margin-bottom: 4px; }
 .seat-act {
   display: inline-flex; align-items: center; gap: 6px;
@@ -4049,13 +4052,22 @@ body.paywall-open { overflow: hidden; }
   .seat.seat-top .seat-hole,
   .seat.seat-edge-top .seat-hole,
   .seat.seat-edge-right .seat-hole { position: static; }
+  /* Los laterales cuelgan la burbuja bajo el pod: arriba se cruzaba con lo que
+     baja del asiento del arco superior, que en móvil queda muy cerca. */
   .seat.seat-top .seat-act-wrap,
   .seat.seat-edge-top .seat-act-wrap,
+  .seat.seat-edge-left .seat-act-wrap,
   .seat.seat-edge-right .seat-act-wrap {
     bottom: auto;
     top: calc(100% + 2px);
     z-index: 8;
   }
+  /* Con importes de dos cifras la píldora es más ancha que el pod: en los
+     bordes se ancla al lado exterior para crecer hacia dentro de la mesa. */
+  .seat.seat-edge-left .seat-bet.bet-below,
+  .seat.seat-edge-left .seat-bet.bet-above { left: 0; right: auto; transform: none; }
+  .seat.seat-edge-right .seat-bet.bet-below,
+  .seat.seat-edge-right .seat-bet.bet-above { left: auto; right: 0; transform: none; }
   .table-watermark-text { font-size: 18px; }
   .table-watermark-sub { font-size: 9px; letter-spacing: 1.6px; }
   .table-watermark-mark { width: 56px; height: 60px; }

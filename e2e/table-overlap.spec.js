@@ -7,6 +7,19 @@ const { mockAuthenticatedUser, waitForAppShell, openPlaySetupAdvanced } = requir
  * tapaba justo lo que hay que leer, así que aquí se comprueba a varios anchos.
  */
 
+/** Reparto reproducible: si no, el test tapa o destapa solapes según la suerte. */
+async function seedRandom(page, seed) {
+  await page.addInitScript((s0) => {
+    let s = s0;
+    Math.random = () => {
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }, seed);
+}
+
 async function settle(page) {
   await page.locator('#play-active:not(.hidden) #actions button[data-action]')
     .first().waitFor({ state: 'visible', timeout: 20000 });
@@ -83,13 +96,14 @@ const VIEWPORTS = [
 
 for (const vp of VIEWPORTS) {
   test(`mesa sin solapes en ${vp.name}`, async ({ page }) => {
+    await seedRandom(page, 0x9e3779b9 + vp.width);
     await mockAuthenticatedUser(page);
     await page.setViewportSize({ width: vp.width, height: vp.height });
     await waitForAppShell(page);
     await startSession(page, 6);
 
     const problems = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 12; i++) {
       if (i > 0) {
         await page.locator('#new-hand').click();
         await settle(page);
