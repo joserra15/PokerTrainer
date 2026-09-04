@@ -19563,9 +19563,11 @@ window.PT_NASH_PUSH_JSON = {
       gto: freqs,
       context: `Eres ${heroPos}. ${limperPos} limpea. ¿Fold, over-limp o aislar con una subida?`
     };
-    setVillainAct(hand, 'check', null);
-    seedLineAction(hand, villainTableSeat(hand) || limperPos, 'call', BBET);
+    // Limpear es igualar la ciega grande, no pasar: el limper pone 1bb y así
+    // debe verse tanto en su asiento como en la línea de la mano.
     addInvest(hand, limperPos, BBET);
+    setVillainAct(hand, 'call', BBET);
+    seedLineAction(hand, villainTableSeat(hand) || limperPos, 'call', BBET);
     markPreflopFoldsForFacingAction(hand, limperPos);
   }
 
@@ -20373,7 +20375,8 @@ window.PT_NASH_PUSH_JSON = {
     ensureLimperHand(hand, 'SB');
     hand.villain.rangeStr = LIMP_RANGE;
     initVillainTracker(hand);
-    hand.potBB = round2(SB + BBET + BBET);
+    // Solo hay dos jugadores con dinero: SB completa a 1bb y BB ya tiene 1bb.
+    hand.potBB = round2(BBET + BBET);
     hand.heroInvested = BBET;
     hand.villainInvested = BBET;
     hand.toCallBB = 0;
@@ -20390,9 +20393,12 @@ window.PT_NASH_PUSH_JSON = {
       gto: freqs,
       context: 'Eres BB. SB limpea. ¿Check o iso-raise?'
     };
-    setVillainAct(hand, 'check', null);
+    // SB limpea: completa desde la ciega pequeña hasta 1bb. Es un call, no un
+    // check, y solo pone la diferencia sobre lo que ya tenía posteado.
+    const sbAdd = seatToCall(hand, 'SB', BBET);
+    if (sbAdd > 0) addInvest(hand, 'SB', sbAdd);
+    setVillainAct(hand, 'call', BBET);
     seedLineAction(hand, 'SB', 'call', BBET);
-    addInvest(hand, 'SB', BBET);
     markPreflopFoldsForFacingAction(hand, 'SB');
   }
 
