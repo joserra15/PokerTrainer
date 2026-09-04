@@ -2883,6 +2883,11 @@ body.age-gate-open {
 .seat.seat-edge-top .seat-hole { position: static; }
 .seat.seat-top .seat-act-wrap,
 .seat.seat-edge-top .seat-act-wrap { bottom: auto; top: calc(100% + 4px); }
+/* En los asientos de borde la burbuja es más ancha que el pod, y centrada sobre
+   un pod ya pegado al canto se salía de la mesa: se ancla al lado exterior y
+   crece hacia dentro, donde sí hay sitio. */
+.seat.seat-edge-left .seat-act-wrap { left: 0; right: auto; transform: none; }
+.seat.seat-edge-right .seat-act-wrap { left: auto; right: 0; transform: none; }
 .action-badge-wrap { min-height: 28px; display: flex; justify-content: center; margin-bottom: 4px; }
 .seat-act {
   display: inline-flex; align-items: center; gap: 6px;
@@ -4009,9 +4014,9 @@ body.paywall-open { overflow: hidden; }
   .chip { width: 12px; height: 12px; border-width: 1.5px; }
   .chip-stack .chip + .chip { margin-left: -6px; }
   .seat-bet.bet-below { top: calc(100% + 5px); }
-  .seat-bet.bet-under-act { top: calc(100% + 26px); }
+  .seat-bet.bet-under-act { top: calc(100% + 22px); }
   .seat-bet.bet-above { bottom: calc(100% + 5px); }
-  .seat-bet.bet-over-act { bottom: calc(100% + 26px); }
+  .seat-bet.bet-over-act { bottom: calc(100% + 22px); }
   .seat-bet.bet-right { left: calc(100% + 4px); }
   .seat-bet.bet-left { right: calc(100% + 4px); }
   .seat.seat-mini .seat-bet { display: none; }
@@ -4051,10 +4056,6 @@ body.paywall-open { overflow: hidden; }
     top: calc(100% + 2px);
     z-index: 8;
   }
-  /* En los asientos de borde la burbuja es más ancha que el pod y centrada se
-     salía de la mesa: se alinea con el lado exterior y crece hacia dentro. */
-  .seat.seat-edge-left .seat-act-wrap { left: 0; right: auto; transform: none; }
-  .seat.seat-edge-right .seat-act-wrap { left: auto; right: 0; transform: none; }
   .table-watermark-text { font-size: 18px; }
   .table-watermark-sub { font-size: 9px; letter-spacing: 1.6px; }
   .table-watermark-mark { width: 56px; height: 60px; }
@@ -4339,9 +4340,6 @@ body.paywall-open { overflow: hidden; }
     padding: 8px 12px 6px;
   }
   #play-active .play-hud-item span { font-size: 15px; }
-  /* Sin ancho para la palabra y las fichas de los laterales a la vez: el montón
-     de fichas ya identifica el bote, así que se queda solo el importe. */
-  .pot .pot-label { display: none; }
   .card { width: 30px; height: 42px; font-size: 13px; }
   .hero-cards .card { width: 42px; height: 58px; font-size: 17px; }
   .seat { min-width: 44px; max-width: 74px; }
