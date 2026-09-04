@@ -112,6 +112,7 @@ const STEPS = [
   ['Test trainer pro regression (UX/ICM/presets)', ['node', 'tools/test-trainer-pro-regression.js']],
   ['Test trainer user presets save/delete', ['node', 'tools/test-trainer-presets.js']],
   ['Test trainer stack/phase/villains', ['node', 'tools/test-trainer-stack-phase-villains.js']],
+  ['Test mazo único / reparto entrenador', ['node', 'tools/test-single-deck-deal.js']],
   ['Test trainer Fase 3 (capas/Nash/blinds/escuela)', ['node', 'tools/test-trainer-fase3.js']],
   ['Test feedback EV/mix (fold alto + pot odds)', ['node', 'tools/test-feedback-ev-mix.js']],
   ['Test rangos stack/fase Spin-MTT + chrome mesa', ['node', 'tools/test-ranges-stack-phase.js']],

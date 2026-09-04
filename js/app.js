@@ -614,7 +614,7 @@
       stackDepth: sdEl ? sdEl.dataset.val : (hub === 'spin' ? 'bb25' : 'bb100'),
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
-      handRange: hrEl ? hrEl.dataset.val : 'borderline',
+      handRange: hrEl ? hrEl.dataset.val : 'random',
       villainLevel: vlEl ? vlEl.dataset.val : 'pro',
       villainType: vtEl ? vtEl.dataset.val : 'random',
       scoreMode: smEl ? smEl.dataset.val : 'gto',
@@ -1190,7 +1190,7 @@
       practiceStreet: 'random',
       preflopOpenSize: 2.5,
       heroPos: 'random',
-      handRange: 'borderline'
+      handRange: 'random'
     },
     spin_grind: {
       formatHub: 'spin',
@@ -1203,7 +1203,7 @@
       practiceStreet: 'preflop',
       preflopOpenSize: 2.5,
       heroPos: 'random',
-      handRange: 'borderline'
+      handRange: 'random'
     },
     mtt_low: {
       formatHub: 'mtt',
@@ -1215,7 +1215,7 @@
       practiceStreet: 'preflop',
       preflopOpenSize: 2.2,
       heroPos: 'random',
-      handRange: 'borderline'
+      handRange: 'random'
     }
   };
 
@@ -2755,7 +2755,7 @@
       if (window.PTLog && PTLog.event && hand) {
         PTLog.event('hand_start', {
           scenario: (hand.scenario && hand.scenario.type) || 'unknown',
-          range: (cfg && cfg.handRange) || 'borderline',
+          range: (cfg && cfg.handRange) || 'random',
           villain: (cfg && cfg.villainLevel) || 'pro',
           replay: !!force
         });
@@ -6425,7 +6425,7 @@
           scenario: d.scenario,
           practiceStreet: d.practiceStreet || 'preflop',
           practiceIntent: d.practiceIntent || 'mixed',
-          handRange: d.handRange || 'borderline',
+          handRange: d.handRange || 'random',
           villainLevel: d.villainLevel || 'pro',
           liveAdvisor: d.liveAdvisor !== false,
           formatHub: d.formatHub || (Tax ? Tax.hubFromGameType(gtFinal) : undefined),

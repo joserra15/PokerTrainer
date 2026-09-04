@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Regresión: stack aleatorio spin/mtt, default borderline, villanos por fase.
+ * Regresión: stack aleatorio spin/mtt, default random, villanos por fase.
  */
 'use strict';
 const assert = require('assert');
@@ -19,13 +19,13 @@ const Reg = w.GTORangesRegistry;
 
 assert.ok(Tax && PC && Reg, 'deps');
 
-// --- UI: chip Aleatorio + default Borderline ---
-assert.ok(/class="setup-chip active" data-val="borderline"/.test(html)
-  || /data-val="borderline"[^>]*\bactive\b/.test(html),
-  'Borderline activo por defecto en HTML');
+// --- UI: chip Aleatorio + default Random ---
+assert.ok(/id="setup-hand-range"[\s\S]*?class="setup-chip active" data-val="random"/.test(html)
+  || /id="setup-hand-range"[\s\S]*?data-val="random"[^>]*\bactive\b/.test(html),
+  'Random activo por defecto en HTML (rango de manos)');
 assert.ok(/data-val="random" data-stack-spin data-stack-mtt/.test(html),
   'chip stack Aleatorio en setup');
-assert.strictEqual(PC.DEFAULT.handRange, 'borderline', 'DEFAULT.handRange borderline');
+assert.strictEqual(PC.DEFAULT.handRange, 'random', 'DEFAULT.handRange random');
 
 // --- Random stack pool / resolve ---
 const spinAllowed = Tax.allowedStackDepths('spin', 'auto', 'random');
@@ -51,9 +51,9 @@ assert.ok(resolved.stackDepthPreference === 'random', 'preferencia random preser
 const lbl = PC.labelFor(rndCfg);
 assert.ok(/Stack aleatorio/i.test(lbl), 'label sesión: Stack aleatorio');
 
-// --- Borderline default normalize ---
+// --- Random default normalize ---
 const bare = PC.normalize({ gameType: 'cash6' });
-assert.strictEqual(bare.handRange, 'borderline');
+assert.strictEqual(bare.handRange, 'random');
 
 // --- Villanos: spin/mtt usan charts torneo + fase efectiva ---
 const spinPush = PC.normalize({ formatHub: 'spin', stackDepth: 'bb10', mttPhase: 'auto' });

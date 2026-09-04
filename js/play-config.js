@@ -110,7 +110,7 @@
     stackDepth: 'bb100',
     scenario: 'random',
     heroPos: 'random',
-    handRange: 'borderline',
+    handRange: 'random',
     villainLevel: 'pro',
     /**
      * Arquetipo fijo del rival: 'random' | tag | lag | nit | fish | maniac | pro.
@@ -271,7 +271,7 @@
     }
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
-    if (!c.handRange) c.handRange = 'borderline';
+    if (!c.handRange) c.handRange = 'random';
     if (!c.villainLevel) c.villainLevel = 'pro';
     c.villainType = normalizeVillainType(c.villainType);
     c.scoreMode = c.scoreMode === 'exploit' ? 'exploit' : 'gto';
@@ -683,7 +683,7 @@
    */
   function sampleHeroHand(scenario, config, dead, rnd) {
     const r = rnd || Math.random;
-    const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'borderline');
+    const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'random');
     if (mode === 'random') return null;
 
     const rangeCodes = heroRangeCodesByStrength(scenario, config);
@@ -712,7 +712,7 @@
   }
 
   function sampleHeroWeights(scenario, config, modeOverride) {
-    const mode = modeOverride || (config.handRange === 'all' ? 'random' : (config.handRange || 'borderline'));
+    const mode = modeOverride || (config.handRange === 'all' ? 'random' : (config.handRange || 'random'));
     const engHero = scenario.engineHeroPos || scenario.heroPos || parseVsKey(scenario.key).hero;
 
     if (scenario.type === 'RFI') {

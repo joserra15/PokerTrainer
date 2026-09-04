@@ -14941,7 +14941,7 @@ window.PT_NASH_PUSH_JSON = {
     stackDepth: 'bb100',
     scenario: 'random',
     heroPos: 'random',
-    handRange: 'borderline',
+    handRange: 'random',
     villainLevel: 'pro',
     /**
      * Arquetipo fijo del rival: 'random' | tag | lag | nit | fish | maniac | pro.
@@ -15102,7 +15102,7 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (!c.scenario) c.scenario = 'random';
     if (!c.heroPos) c.heroPos = 'random';
-    if (!c.handRange) c.handRange = 'borderline';
+    if (!c.handRange) c.handRange = 'random';
     if (!c.villainLevel) c.villainLevel = 'pro';
     c.villainType = normalizeVillainType(c.villainType);
     c.scoreMode = c.scoreMode === 'exploit' ? 'exploit' : 'gto';
@@ -15514,7 +15514,7 @@ window.PT_NASH_PUSH_JSON = {
    */
   function sampleHeroHand(scenario, config, dead, rnd) {
     const r = rnd || Math.random;
-    const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'borderline');
+    const mode = config.handRange === 'all' ? 'random' : (config.handRange || 'random');
     if (mode === 'random') return null;
 
     const rangeCodes = heroRangeCodesByStrength(scenario, config);
@@ -15543,7 +15543,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function sampleHeroWeights(scenario, config, modeOverride) {
-    const mode = modeOverride || (config.handRange === 'all' ? 'random' : (config.handRange || 'borderline'));
+    const mode = modeOverride || (config.handRange === 'all' ? 'random' : (config.handRange || 'random'));
     const engHero = scenario.engineHeroPos || scenario.heroPos || parseVsKey(scenario.key).hero;
 
     if (scenario.type === 'RFI') {
@@ -18005,23 +18005,99 @@ window.PT_NASH_PUSH_JSON = {
     });
   }
 
+  /**
+   * Cartas ya repartidas (otros asientos + board predeal) para remuestrear un
+   * asiento sin romper el mazo único de 52.
+   */
+  function deadCardsExcludingSeat(hand, excludePos) {
+    const dead = [];
+    const seen = new Set();
+    function pushCard(c) {
+      if (!c || seen.has(c)) return;
+      seen.add(c);
+      dead.push(c);
+    }
+    const seat = tableSeatForEnginePos(hand, excludePos);
+    const hc = (hand.table && hand.table.holeCards) || {};
+    Object.keys(hc).forEach(function (p) {
+      if (p === seat || p === excludePos) return;
+      const cards = hc[p];
+      if (cards && cards.length) cards.forEach(pushCard);
+    });
+    const board = (hand._predeal && hand._predeal.board) || hand.board || [];
+    board.forEach(pushCard);
+    return dead;
+  }
+
+  /** Todas las cartas vivas de la mano (hoyos + board). Útil para asserts de mazo único. */
+  function allDealtCards(hand) {
+    const out = [];
+    const seen = new Set();
+    function pushCard(c) {
+      if (!c || seen.has(c)) return;
+      seen.add(c);
+      out.push(c);
+    }
+    const hc = (hand && hand.table && hand.table.holeCards) || {};
+    Object.keys(hc).forEach(function (p) {
+      const cards = hc[p];
+      if (cards && cards.length) cards.forEach(pushCard);
+    });
+    const board = (hand && hand._predeal && hand._predeal.board) || (hand && hand.board) || [];
+    board.forEach(pushCard);
+    return out;
+  }
+
+  function hasDuplicateCards(hand) {
+    const hc = (hand && hand.table && hand.table.holeCards) || {};
+    const seen = new Set();
+    let count = 0;
+    function add(c) {
+      if (!c) return true;
+      count++;
+      if (seen.has(c)) return false;
+      seen.add(c);
+      return true;
+    }
+    const seats = Object.keys(hc);
+    for (let i = 0; i < seats.length; i++) {
+      const cards = hc[seats[i]];
+      if (!cards) continue;
+      for (let j = 0; j < cards.length; j++) {
+        if (!add(cards[j])) return true;
+      }
+    }
+    const board = (hand._predeal && hand._predeal.board) || hand.board || [];
+    for (let k = 0; k < board.length; k++) {
+      if (!add(board[k])) return true;
+    }
+    return false;
+  }
+
+  function applyResampledSeatCards(hand, pos, seat, cards) {
+    if (!cards || cards.length < 2) return;
+    hand.table.holeCards[seat] = cards;
+    if (seat !== pos) hand.table.holeCards[pos] = cards;
+    const vSeat = villainTableSeat(hand);
+    if (seat === vSeat || pos === vSeat || (hand.villain && pos === hand.villain.pos)) {
+      hand.villain.cards = cards;
+    }
+    const hSeat = heroTableSeat(hand);
+    if (hand.hero && (seat === hSeat || pos === hand.hero.pos)) {
+      hand.hero.cards = cards.slice();
+      if (R && R.handCode) hand.hero.code = R.handCode(cards[0], cards[1]);
+    }
+  }
+
   function resampleSeatFromWeights(hand, pos, weightsFn) {
     if (isForcedSeat(hand, pos)) return;
     const PC = global.PTPlayConfig;
     if (!PC || !hand.playConfig || !hand.table) return;
     const seat = tableSeatForEnginePos(hand, pos);
-    const dead = [];
-    Object.keys(hand.table.holeCards || {}).forEach(function (p) {
-      if (p !== seat && p !== pos && hand.table.holeCards[p]) dead.push.apply(dead, hand.table.holeCards[p]);
-    });
+    const dead = deadCardsExcludingSeat(hand, pos);
     const weights = weightsFn(hand.playConfig);
     const cards = PC.sampleFromWeights(weights, dead, C.rng.random);
-    if (cards) {
-      hand.table.holeCards[seat] = cards;
-      if (seat !== pos) hand.table.holeCards[pos] = cards;
-      const vSeat = villainTableSeat(hand);
-      if (seat === vSeat || pos === vSeat || pos === hand.villain.pos) hand.villain.cards = cards;
-    }
+    if (cards) applyResampledSeatCards(hand, pos, seat, cards);
   }
 
   function forceValidOpenerFourBetHand(hand, opener) {
@@ -18042,21 +18118,13 @@ window.PT_NASH_PUSH_JSON = {
     const rangeStr = PC ? PC.face4betVillainRangeStr(hand.playConfig) : R.VS_3BET.fourBet;
     const sample = GTO && GTO.Equity;
     for (let i = 0; i < 40; i++) {
-      const dead = [];
-      Object.keys(hand.table.holeCards || {}).forEach(function (p) {
-        if (p !== seat && p !== opener && hand.table.holeCards[p]) {
-          dead.push.apply(dead, hand.table.holeCards[p]);
-        }
-      });
+      const dead = deadCardsExcludingSeat(hand, opener);
       let cards = PC ? PC.sampleFromWeights(PC.sampleFace4betVillainWeights(hand.playConfig), dead, C.rng.random) : null;
       if (!cards && sample && sample.sampleHandFromRange) {
         cards = sample.sampleHandFromRange(rangeStr, dead, C.rng.random);
       }
       if (!cards) continue;
-      hand.table.holeCards[seat] = cards;
-      if (seat !== opener) hand.table.holeCards[opener] = cards;
-      const vSeat = villainTableSeat(hand);
-      if (seat === vSeat || opener === hand.villain.pos) hand.villain.cards = cards;
+      applyResampledSeatCards(hand, opener, seat, cards);
       code = R.handCode(cards[0], cards[1]);
       if (VPF.isInFourBetRange(code, ctx)) return;
     }
@@ -18835,38 +18903,68 @@ window.PT_NASH_PUSH_JSON = {
     order.forEach(function (pos) { holeCards[pos] = null; });
     let dead = [];
 
-    const heroMode = (playConfig && (playConfig.handRange === 'all' ? 'random' : playConfig.handRange)) || 'borderline';
-    const fullRandom = heroMode === 'random';
+    const heroMode = (playConfig && (playConfig.handRange === 'all' ? 'random' : playConfig.handRange)) || 'random';
+    const userScenario = (playConfig && playConfig.scenario) || 'random';
+    const scenarioIsSpecific = userScenario !== 'random';
+    // Solo aleatorio total si el usuario no fijó escenario y el rango del héroe es random.
+    const fullRandom = heroMode === 'random' && !scenarioIsSpecific;
 
     const heroSeat = PC ? PC.heroDealSeat(scenario, playConfig) : scenario.heroPos;
     const heroEng = scenario.engineHeroPos
       || (scenario.type === 'RFI' ? (PC ? PC.enginePos(scenario.heroPos) : scenario.heroPos) : null)
       || ((scenario.type === 'vsRFI' || scenario.type === 'face4bet') ? parseVsKey(scenario.key).hero : scenario.heroPos);
 
-    if (!fullRandom) {
-      // Villanos reparten desde su rango del spot; el héroe se reparte según el modo.
+    function takeDead(cards) {
+      if (!cards || cards.length < 2) return;
+      dead = dead.concat(cards);
+    }
+
+    function dealHeroFromRange() {
+      if (!heroSeat || (holeCards[heroSeat] && holeCards[heroSeat].length >= 2)) return;
+      let heroCards = PC && PC.sampleHeroHand ? PC.sampleHeroHand(scenario, playConfig, dead, C.rng.random) : null;
+      if (!heroCards) {
+        const heroWeights = PC ? PC.sampleHeroWeights(scenario, playConfig) : {};
+        heroCards = PC ? PC.sampleFromWeights(heroWeights, dead, C.rng.random) : null;
+      }
+      if (!heroCards) heroCards = sampleHandFromRange('22+, A2s+, K9s+, AJo+', dead, C.rng.random);
+      if (heroCards && heroCards.length >= 2) {
+        holeCards[heroSeat] = heroCards;
+        takeDead(heroCards);
+      }
+    }
+
+    function dealScenarioVillains() {
       const deals = PC ? PC.getScenarioDeals(scenario, playConfig) : [];
       deals.forEach(function (d) {
         if (!d.pos || d.role === 'hero') return;
+        if (holeCards[d.pos] && holeCards[d.pos].length >= 2) return;
         const cards = PC.sampleFromWeights(d.weights, dead, C.rng.random);
         if (cards) {
           holeCards[d.pos] = cards;
-          dead = dead.concat(cards);
+          takeDead(cards);
         }
       });
+    }
 
-      if (!holeCards[heroSeat] || holeCards[heroSeat].length < 2) {
-        let heroCards = PC && PC.sampleHeroHand ? PC.sampleHeroHand(scenario, playConfig, dead, C.rng.random) : null;
-        if (!heroCards) {
-          const heroWeights = PC ? PC.sampleHeroWeights(scenario, playConfig) : {};
-          heroCards = PC ? PC.sampleFromWeights(heroWeights, dead, C.rng.random) : null;
+    if (!fullRandom) {
+      if (scenarioIsSpecific) {
+        // Escenario concreto: cartas que lo garantizan (héroe según rango a
+        // entrenar + villanos del spot), luego el resto del mazo.
+        if (heroMode === 'random') {
+          dealScenarioVillains();
+          // Héroe random: se rellena del mazo restante junto al resto de seats.
+        } else {
+          dealHeroFromRange();
+          dealScenarioVillains();
         }
-        if (!heroCards) heroCards = sampleHandFromRange('22+, A2s+, K9s+, AJo+', dead, C.rng.random);
-        holeCards[heroSeat] = heroCards;
-        dead = dead.concat(heroCards);
+      } else {
+        // Sin escenario fijo + borderline/jugables: primero 2 al héroe, resto
+        // de las 50 restantes (villanos del spot del escenario sorteado + seats).
+        dealHeroFromRange();
+        dealScenarioVillains();
       }
     }
-    // fullRandom: todos los asientos quedan null y se rellenan del mazo (aleatorio total).
+    // fullRandom: todos los asientos quedan null → mazo barajado único.
 
     const deck = C.shuffledDeckExcluding(dead);
     order.forEach(function (pos) {
@@ -21787,6 +21885,8 @@ window.PT_NASH_PUSH_JSON = {
     rfiStrategy, vsRfiStrategy, classify,
     postflopStrategy, boardTexture, preflopEvLoss, postflopEvLoss, round2,
     buildMatrixInput,
+    // mazo único
+    hasDuplicateCards, allDealtCards, deadCardsExcludingSeat,
     // multiway
     goFlopForTest: goFlop,
     multiwayAliveCount: function (hand) { return MW() ? MW().aliveCount(hand) : 0; },
@@ -33898,7 +33998,7 @@ window.PT_NASH_PUSH_JSON = {
       stackDepth: sdEl ? sdEl.dataset.val : (hub === 'spin' ? 'bb25' : 'bb100'),
       scenario: scEl ? scEl.dataset.val : 'random',
       heroPos: posEl ? posEl.dataset.val : 'random',
-      handRange: hrEl ? hrEl.dataset.val : 'borderline',
+      handRange: hrEl ? hrEl.dataset.val : 'random',
       villainLevel: vlEl ? vlEl.dataset.val : 'pro',
       villainType: vtEl ? vtEl.dataset.val : 'random',
       scoreMode: smEl ? smEl.dataset.val : 'gto',
@@ -34474,7 +34574,7 @@ window.PT_NASH_PUSH_JSON = {
       practiceStreet: 'random',
       preflopOpenSize: 2.5,
       heroPos: 'random',
-      handRange: 'borderline'
+      handRange: 'random'
     },
     spin_grind: {
       formatHub: 'spin',
@@ -34487,7 +34587,7 @@ window.PT_NASH_PUSH_JSON = {
       practiceStreet: 'preflop',
       preflopOpenSize: 2.5,
       heroPos: 'random',
-      handRange: 'borderline'
+      handRange: 'random'
     },
     mtt_low: {
       formatHub: 'mtt',
@@ -34499,7 +34599,7 @@ window.PT_NASH_PUSH_JSON = {
       practiceStreet: 'preflop',
       preflopOpenSize: 2.2,
       heroPos: 'random',
-      handRange: 'borderline'
+      handRange: 'random'
     }
   };
 
@@ -36039,7 +36139,7 @@ window.PT_NASH_PUSH_JSON = {
       if (window.PTLog && PTLog.event && hand) {
         PTLog.event('hand_start', {
           scenario: (hand.scenario && hand.scenario.type) || 'unknown',
-          range: (cfg && cfg.handRange) || 'borderline',
+          range: (cfg && cfg.handRange) || 'random',
           villain: (cfg && cfg.villainLevel) || 'pro',
           replay: !!force
         });
@@ -39709,7 +39809,7 @@ window.PT_NASH_PUSH_JSON = {
           scenario: d.scenario,
           practiceStreet: d.practiceStreet || 'preflop',
           practiceIntent: d.practiceIntent || 'mixed',
-          handRange: d.handRange || 'borderline',
+          handRange: d.handRange || 'random',
           villainLevel: d.villainLevel || 'pro',
           liveAdvisor: d.liveAdvisor !== false,
           formatHub: d.formatHub || (Tax ? Tax.hubFromGameType(gtFinal) : undefined),
