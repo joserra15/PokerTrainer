@@ -9,6 +9,7 @@ Tras la auditoría de 2026-09-05 (`tools/audit-ranges-vs-consensus.js` + `data/r
 - BTN vs BB 3-bet: ATo en callMix
 - CO vs BB 3-bet: AJo/KQo en callMix
 - Pedagogía KJo/KJs BB vs UTG y J9s CO vs BB alineada al chart
+- CO vs HJ open 2.5x: **76s** entra en `threeBetMix` (farol polar IP con playability; no fold). Consenso: `mustThreeBet`.
 
 ## Polar / aprox. consciente (no hard-fail)
 - A5o (y a veces A4o) en 3betMix BB vs CO/BTN mientras A6o/A7o foldean: polar solver-like

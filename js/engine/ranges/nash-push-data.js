@@ -2,7 +2,7 @@
 window.PT_NASH_PUSH_JSON = {
   "meta": {
     "source": "generate-phase3-layers.js",
-    "updated": "2026-08-21",
+    "updated": "2026-09-05",
     "note": "Nash-approx push/fold por profundidad (frecuencias 0–1)"
   },
   "shoveByDepth": {

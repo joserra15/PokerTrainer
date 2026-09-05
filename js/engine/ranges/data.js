@@ -92,7 +92,7 @@
     },
     CO_vs_HJ: {
       threeBet: 'QQ+, AKs, AKo',
-      threeBetMix: 'JJ, TT, AQs, A5s, A4s, KQs, KJs',
+      threeBetMix: 'JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s',
       call: '99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo',
       callMix: 'KJo, QJo, KQo'
     },

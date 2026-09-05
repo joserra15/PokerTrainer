@@ -49,6 +49,12 @@
     "SB_vs_BTN": {
       "mustContinue": ["ATo", "A9o", "KJo", "QJo", "JTo", "T9o"],
       "mustFold": ["72o", "83o"]
+    },
+    "CO_vs_HJ": {
+      "mustContinue": ["76s", "87s", "A5s", "A4s", "AQo"],
+      "mustThreeBet": ["76s", "A5s", "A4s"],
+      "mustFold": ["72o", "65o", "54o"],
+      "note": "IP polar vs HJ: 76s es farol de 3-bet (playability), no fold; 87s suele flat."
     }
   },
   "rfi": {
