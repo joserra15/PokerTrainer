@@ -1,0 +1,81 @@
+{
+  "meta": {
+    "format": "cash6",
+    "stackBB": 100,
+    "openSize": "2.5x",
+    "note": "Consenso GTO aproximado (estudio) para auditoría hard. No es dump de Pio/GTOW. Polar A5o/A9o vs UTG se deja fuera de mustContinue.",
+    "updated": "2026-09-05"
+  },
+  "vsRfi": {
+    "BB_vs_UTG": {
+      "mustContinue": [
+        "ATo", "AJo", "AQo", "AKo",
+        "KJo", "KQo", "QJo", "JTo",
+        "K8s", "Q8s", "J8s", "T8s",
+        "97s", "86s", "98s", "87s", "76s"
+      ],
+      "mustFold": ["A9o", "A8o", "KTo", "QTo", "Q9o", "72o", "83o"],
+      "note": "BB vs UTG defiende ATo+/JTo y gappers suited típicos; A9o- sigue fold."
+    },
+    "BB_vs_HJ": {
+      "mustContinue": [
+        "ATo", "AJo", "KJo", "QJo", "JTo",
+        "K8s", "Q8s", "J8s", "T8s", "97s", "86s"
+      ],
+      "mustFold": ["A9o", "A8o", "72o"],
+      "note": "Más ancho que vs UTG; incluye 97s/86s."
+    },
+    "BB_vs_CO": {
+      "mustContinue": [
+        "A8o", "ATo", "KTo", "QTo", "JTo", "T9o",
+        "T8s", "97s", "86s", "76s"
+      ],
+      "mustFold": ["A7o", "72o"],
+      "note": "T9o entra vs CO; A5o polar 3betMix no exige A6o/A7o."
+    },
+    "BB_vs_BTN": {
+      "mustContinue": [
+        "A2o", "K9o", "Q9o", "J9o", "T9o", "98o",
+        "ATo", "KJo", "QJo"
+      ],
+      "mustFold": ["72o", "83o", "92o"],
+      "note": "Q9o no puede ser fold puro si K9o/J9o/T9o/98o continúan."
+    },
+    "SB_vs_UTG": {
+      "mustContinue": ["AQo", "AJo", "KQo", "ATs", "KJs", "QJs"],
+      "mustFold": ["ATo", "KJo", "QJo", "72o"],
+      "note": "SB vs UTG más tight que BB; ATo suele fold/mix bajo — aquí mustFold hard."
+    },
+    "SB_vs_BTN": {
+      "mustContinue": ["ATo", "A9o", "KJo", "QJo", "JTo", "T9o"],
+      "mustFold": ["72o", "83o"]
+    }
+  },
+  "rfi": {
+    "UTG": {
+      "mustContinue": ["AJo", "KQo", "ATs", "76s", "22"],
+      "mustFold": ["ATo", "A9o", "QJo", "JTo", "72o"],
+      "note": "ATo UTG open es fold; KJo está en mix (continue parcial)."
+    },
+    "BTN": {
+      "mustContinue": ["ATo", "A2o", "K8o", "Q9o", "22", "54s"],
+      "mustFold": ["72o", "32o"]
+    }
+  },
+  "vs3bet": {
+    "BTN_vs_BB": {
+      "mustContinue": ["AJo", "ATo", "KJo", "QJo", "ATs", "99"],
+      "mustFold": ["A9o", "KTo", "72o"],
+      "note": "ATo IP vs BB 3-bet: call/mix frecuente en solvers."
+    },
+    "CO_vs_BB": {
+      "mustContinue": ["AQo", "AJo", "KQo", "ATs", "99"],
+      "mustFold": ["J9s", "A9o", "72o"],
+      "note": "AJo/KQo IP vs BB 3-bet suelen ser call/mix; J9s queda fold en chart cash."
+    },
+    "UTG_vs_BB": {
+      "mustContinue": ["QQ", "JJ", "TT", "AQs", "AQo"],
+      "mustFold": ["ATo", "KJo", "QJo", "72o"]
+    }
+  }
+}

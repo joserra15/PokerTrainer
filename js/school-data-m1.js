@@ -35,7 +35,7 @@
       aiQuestions: ['¿Qué cambia al defender BB vs BTN respecto a vs UTG?', '¿Cuándo prefiero 3-betear en vez de hacer call desde BB?'],
       spots: [
         vs('c07-01', 'BB_vs_BTN', ['Qs', 'Qh'], 17001, { teachBack: 'QQ vs BTN: 3-bet de valor claro. Quieres más dinero en el bote.' }),
-        vs('c07-02', 'BB_vs_UTG', ['Kh', 'Jd'], 17002, { trapTag: 'dominated', teachBack: 'KJo vs UTG está dominada por AK, KQ, KJ. Fold típico.' }),
+        vs('c07-02', 'BB_vs_UTG', ['Kh', 'Jd'], 17002, { teachBack: 'KJo vs UTG: call del chart (defensa BB). Dominada a veces, pero solvers la defienden; no la marques fold automático.' }),
         vs('c07-03', 'BB_vs_BTN', ['Kh', 'Jd'], 17003, { teachBack: 'KJo vs BTN: defensa razonable (hacer call o 3-bet ligero según el mix).' }),
         vs('c07-04', 'BB_vs_CO', ['8d', '3c'], 17004, { trapTag: 'dominated', teachBack: '83o vs CO: fold. No hagas call de más solo porque estás en BB.' }),
         vs('c07-05', 'BB_vs_BTN', ['9s', '8s'], 17005, { teachBack: '98s vs BTN: call cómodo, buena jugabilidad si ves flop.' }),
