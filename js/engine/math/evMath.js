@@ -83,6 +83,13 @@
       const frac = chosen === 'bet_33' ? 0.33 : (chosen === 'bet_66' ? 0.66 : 1);
       return round2(pot * frac);
     }
+    if (chosen === 'overbet') {
+      return round2((input.potBB || 1) * 1.5);
+    }
+    if (chosen === 'allin') {
+      if (input.heroRemainingBB > 0) return round2(input.heroRemainingBB);
+      return round2(Math.max(input.effStack || input.stackDepth || input.potBB || 1, 1));
+    }
     if (chosen === 'raise') {
       const pot = input.potBB || 1;
       return toCall > 0 ? round2(toCall * 2.5) : round2(Math.max(pot * 0.6, 2));
@@ -126,21 +133,39 @@
    * No reutilizar ctx.betSizeBB del chosenAction: si el héroe fold/check,
    * betSize queda 0 y raise/bet parecerían +EV «gratis» (bug ΔEV).
    */
+  function isAggressionAction(action) {
+    return action === 'raise' || action === 'bet' || action === 'overbet' || action === 'allin'
+      || (typeof action === 'string' && action.indexOf('bet_') === 0);
+  }
+
   function actionSizeFor(action, ctx) {
     if (!action || action === 'fold' || action === 'check' || action === 'call') return 0;
+    // bet_33/66/100 tienen fracción propia: no reutilizar el sizing del chosenAction
+    // (si elegiste overbet, bet_33 no debe evaluarse al tamaño del shove).
+    const sizedKey = typeof action === 'string' && action.indexOf('bet_') === 0;
+    const reuseChosenSize = !sizedKey && ctx.betSizeBB > 0
+      && (action === 'bet' || action === 'raise' || action === 'overbet' || action === 'allin');
     const input = {
       potBB: ctx.potBB != null ? ctx.potBB : ctx.potBeforeBB,
       toCallBB: ctx.toCallBB || 0,
-      betSizeBB: ctx.betSizeBB > 0 ? ctx.betSizeBB : undefined
+      betSizeBB: reuseChosenSize ? ctx.betSizeBB : undefined,
+      heroRemainingBB: ctx.heroRemainingBB,
+      effStack: ctx.effStack,
+      stackDepth: ctx.stackDepth
     };
     let size = committedBB(action, input);
     if (size > 0) return size;
     if (action === 'raise' && (ctx.toCallBB || 0) > 0) {
       return round2(ctx.toCallBB * 2.5);
     }
-    if (action === 'bet' || (action && action.indexOf('bet_') === 0)) {
+    if (action === 'overbet') {
       const pot = Math.max(ctx.potBeforeBB || ctx.potBB || 1, 0.1);
-      const frac = action === 'bet_33' ? 0.33 : (action === 'bet_66' ? 0.66 : 0.66);
+      return round2(ctx.betSizeBB > 0 ? ctx.betSizeBB : pot * 1.5);
+    }
+    if (action === 'allin' && ctx.betSizeBB > 0) return round2(ctx.betSizeBB);
+    if (action === 'bet' || sizedKey) {
+      const pot = Math.max(ctx.potBeforeBB || ctx.potBB || 1, 0.1);
+      const frac = action === 'bet_33' ? 0.33 : (action === 'bet_66' ? 0.66 : (action === 'bet_100' ? 1 : 0.66));
       return round2(pot * frac);
     }
     return 0;
@@ -150,7 +175,7 @@
     if (action === 'fold') return evFold();
     if (action === 'call') return evCall(ctx.equity, ctx.potBeforeBB, ctx.toCallBB, ctx.impliedBonusBB);
     if (action === 'check') return evCheck(ctx.equity, ctx.potBeforeBB, ctx.realizationFactor);
-    if (action === 'raise' || action === 'bet' || (action && action.startsWith('bet_'))) {
+    if (isAggressionAction(action)) {
       const size = actionSizeFor(action, ctx);
       return evBetRaise(ctx.equity, ctx.potBeforeBB, size, ctx.foldEquity, ctx.realizationFactor);
     }
@@ -191,7 +216,7 @@
 
   global.GTOEvMath = {
     round2, potAfterCall, breakEvenEquity, evFold, evCall, evCallLeak, evCheck,
-    evBetRaise, evAggression, deltaEvLoss, committedBB, actionSizeFor, buildActionContext,
-    actionEVMath, bestEvAction, mathParams
+    evBetRaise, evAggression, deltaEvLoss, committedBB, isAggressionAction, actionSizeFor,
+    buildActionContext, actionEVMath, bestEvAction, mathParams
   };
 })(window);

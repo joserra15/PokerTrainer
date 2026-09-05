@@ -1814,7 +1814,15 @@
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
       chosenAction: chosenAction,
       availableActions,
-      betSizeBB: opt && opt.size != null ? opt.size : (chosenAction === 'raise' ? round2((node.toCallBB || 0) * 3) : 0)
+      betSizeBB: (function () {
+        if (opt && opt.size != null) return opt.size;
+        if (hand._betSizes && chosenAction && hand._betSizes[chosenAction] != null) {
+          return hand._betSizes[chosenAction];
+        }
+        if (chosenAction === 'raise') return round2((node.toCallBB || 0) * 3);
+        if (chosenAction === 'overbet') return round2((node.potBB || potBB || 1) * 1.5);
+        return 0;
+      })()
     };
     if (hand.multiway || (MW() && MW().aliveCount(hand) >= 3)) {
       input.multiway = true;
@@ -4691,7 +4699,11 @@
           const dedupeKey = isAllIn ? ('allin:' + fmt(capped)) : id;
           if (seenBetKeys.has(dedupeKey)) return;
           seenBetKeys.add(dedupeKey);
-          options.push({ id: id, label: isAllIn ? `All-in (${fmt(capped)}bb)` : s.label.replace(String(s.size), String(capped)) });
+          options.push({
+            id: id,
+            label: isAllIn ? `All-in (${fmt(capped)}bb)` : s.label.replace(String(s.size), String(capped)),
+            size: capped
+          });
           hand._betSizes[id] = capped;
         }
       });
@@ -4744,10 +4756,13 @@
       return finish(hand, { reason: `Foldeas en ${node.street}.`, heroNet: -round2(hand.heroInvested) });
     }
 
-    if (actionId === 'bet' || (actionId && actionId.indexOf('bet_') === 0)) {
+    // overbet no empieza por «bet_»: sin este caso caía en heroNet:0 («Mano terminada»).
+    if (actionId === 'bet' || actionId === 'overbet'
+      || (actionId && actionId.indexOf('bet_') === 0)) {
       let betSize = hand._betSizes && hand._betSizes[actionId] != null
         ? hand._betSizes[actionId]
-        : hand._betSize;
+        : (hand._betSize != null ? hand._betSize
+          : (actionId === 'overbet' ? round2((node.potBB || hand.potBB || 1) * 1.5) : 0));
       const remBefore = heroRemainingBB(hand);
       betSize = capBetForSeat(hand, hand.hero.pos, betSize);
       if (betSize <= 0) return finish(hand, { reason: 'Sin stack para apostar.', heroNet: -round2(hand.heroInvested) });
@@ -4990,7 +5005,7 @@
   function inferDecisionOptions(d) {
     if (d.availableActions && d.availableActions.length) return d.availableActions;
     const gto = d.gto || {};
-    const order = ['fold', 'check', 'call', 'bet_33', 'bet_66', 'bet_100', 'bet', 'raise'];
+    const order = ['fold', 'check', 'call', 'bet_33', 'bet_66', 'bet_100', 'overbet', 'bet', 'raise', 'allin'];
     return order.filter((a) => gto[a] != null);
   }
 

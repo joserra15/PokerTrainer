@@ -134,6 +134,7 @@
     const acts = availableActions || [];
     if (chosen === 'allin') {
       if (acts.indexOf('allin') >= 0) return 'allin';
+      if (acts.indexOf('overbet') >= 0) return 'overbet';
       if (acts.indexOf('raise') >= 0) return 'raise';
       if (acts.indexOf('bet') >= 0) return 'bet';
       if (acts.indexOf('bet_100') >= 0) return 'bet_100';
@@ -214,6 +215,8 @@
       let mathParams = evResult.mathParams ? Object.assign({}, evResult.mathParams) : null;
       const evGap = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
       const EV_TIE = 0.15;
+      // Si el reconciliador ya suavizó a aceptable/óptima (p.ej. overbet con nueces),
+      // no inventar una fuga «suboptimal_ev» por un hueco EV residual.
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
         && chosenAction !== finalBest) {
         evLoss = EvLoss.round2(evGap);
@@ -223,6 +226,12 @@
           msg: 'Acción con EV inferior a la óptima (ΔEV ' + evLoss + ' bb).'
         });
         if (mathParams) mathParams.deltaEV = evLoss;
+      }
+      if (evErroneous && (finalCls === 'optima' || finalCls === 'aceptable') && evGap < 1) {
+        evLoss = 0;
+        evErroneous = false;
+        evErrorReasons = [];
+        if (mathParams) mathParams.deltaEV = EvLoss.round2(evGap);
       }
 
       // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).

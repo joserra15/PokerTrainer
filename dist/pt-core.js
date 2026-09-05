@@ -6530,6 +6530,13 @@ window.PT_NASH_PUSH_JSON = {
       const frac = chosen === 'bet_33' ? 0.33 : (chosen === 'bet_66' ? 0.66 : 1);
       return round2(pot * frac);
     }
+    if (chosen === 'overbet') {
+      return round2((input.potBB || 1) * 1.5);
+    }
+    if (chosen === 'allin') {
+      if (input.heroRemainingBB > 0) return round2(input.heroRemainingBB);
+      return round2(Math.max(input.effStack || input.stackDepth || input.potBB || 1, 1));
+    }
     if (chosen === 'raise') {
       const pot = input.potBB || 1;
       return toCall > 0 ? round2(toCall * 2.5) : round2(Math.max(pot * 0.6, 2));
@@ -6573,21 +6580,39 @@ window.PT_NASH_PUSH_JSON = {
    * No reutilizar ctx.betSizeBB del chosenAction: si el héroe fold/check,
    * betSize queda 0 y raise/bet parecerían +EV «gratis» (bug ΔEV).
    */
+  function isAggressionAction(action) {
+    return action === 'raise' || action === 'bet' || action === 'overbet' || action === 'allin'
+      || (typeof action === 'string' && action.indexOf('bet_') === 0);
+  }
+
   function actionSizeFor(action, ctx) {
     if (!action || action === 'fold' || action === 'check' || action === 'call') return 0;
+    // bet_33/66/100 tienen fracción propia: no reutilizar el sizing del chosenAction
+    // (si elegiste overbet, bet_33 no debe evaluarse al tamaño del shove).
+    const sizedKey = typeof action === 'string' && action.indexOf('bet_') === 0;
+    const reuseChosenSize = !sizedKey && ctx.betSizeBB > 0
+      && (action === 'bet' || action === 'raise' || action === 'overbet' || action === 'allin');
     const input = {
       potBB: ctx.potBB != null ? ctx.potBB : ctx.potBeforeBB,
       toCallBB: ctx.toCallBB || 0,
-      betSizeBB: ctx.betSizeBB > 0 ? ctx.betSizeBB : undefined
+      betSizeBB: reuseChosenSize ? ctx.betSizeBB : undefined,
+      heroRemainingBB: ctx.heroRemainingBB,
+      effStack: ctx.effStack,
+      stackDepth: ctx.stackDepth
     };
     let size = committedBB(action, input);
     if (size > 0) return size;
     if (action === 'raise' && (ctx.toCallBB || 0) > 0) {
       return round2(ctx.toCallBB * 2.5);
     }
-    if (action === 'bet' || (action && action.indexOf('bet_') === 0)) {
+    if (action === 'overbet') {
       const pot = Math.max(ctx.potBeforeBB || ctx.potBB || 1, 0.1);
-      const frac = action === 'bet_33' ? 0.33 : (action === 'bet_66' ? 0.66 : 0.66);
+      return round2(ctx.betSizeBB > 0 ? ctx.betSizeBB : pot * 1.5);
+    }
+    if (action === 'allin' && ctx.betSizeBB > 0) return round2(ctx.betSizeBB);
+    if (action === 'bet' || sizedKey) {
+      const pot = Math.max(ctx.potBeforeBB || ctx.potBB || 1, 0.1);
+      const frac = action === 'bet_33' ? 0.33 : (action === 'bet_66' ? 0.66 : (action === 'bet_100' ? 1 : 0.66));
       return round2(pot * frac);
     }
     return 0;
@@ -6597,7 +6622,7 @@ window.PT_NASH_PUSH_JSON = {
     if (action === 'fold') return evFold();
     if (action === 'call') return evCall(ctx.equity, ctx.potBeforeBB, ctx.toCallBB, ctx.impliedBonusBB);
     if (action === 'check') return evCheck(ctx.equity, ctx.potBeforeBB, ctx.realizationFactor);
-    if (action === 'raise' || action === 'bet' || (action && action.startsWith('bet_'))) {
+    if (isAggressionAction(action)) {
       const size = actionSizeFor(action, ctx);
       return evBetRaise(ctx.equity, ctx.potBeforeBB, size, ctx.foldEquity, ctx.realizationFactor);
     }
@@ -6638,8 +6663,8 @@ window.PT_NASH_PUSH_JSON = {
 
   global.GTOEvMath = {
     round2, potAfterCall, breakEvenEquity, evFold, evCall, evCallLeak, evCheck,
-    evBetRaise, evAggression, deltaEvLoss, committedBB, actionSizeFor, buildActionContext,
-    actionEVMath, bestEvAction, mathParams
+    evBetRaise, evAggression, deltaEvLoss, committedBB, isAggressionAction, actionSizeFor,
+    buildActionContext, actionEVMath, bestEvAction, mathParams
   };
 })(window);
 
@@ -10552,7 +10577,9 @@ window.PT_NASH_PUSH_JSON = {
     const isNuts = opts.band === 'nuts' || equity >= 0.95 || madeFlushPlus;
     // Top dos / manos fuertes hechas: raise por valor no se degrada a error.
     const strongValueAggro = isNuts || (madeTwoPairPlus && equity >= 0.70);
+    // overbet/allin: value bet con nueces casi siempre; no degradar a «error» por % GTO ~0.
     const valueAggro = chosen === 'raise' || chosen === 'bet'
+      || chosen === 'overbet' || chosen === 'allin'
       || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
       return { cls: freqCls, best: freqBest };
@@ -10889,7 +10916,8 @@ window.PT_NASH_PUSH_JSON = {
     let mult = bf;
     // Faroles y calls marginales cuestan más con presión positiva.
     const action = input.chosenAction || '';
-    const isAggro = action === 'bet' || action === 'raise' || (action && action.indexOf('bet_') === 0);
+    const isAggro = action === 'bet' || action === 'raise' || action === 'overbet'
+      || action === 'allin' || (action && action.indexOf('bet_') === 0);
     const isCall = action === 'call';
     if (pHero > 0.03 && (isAggro || isCall)) mult *= 1 + Math.min(0.8, pHero * 3);
     if (pHero < -0.05 && action === 'fold') mult *= 0.85;
@@ -11625,17 +11653,24 @@ window.PT_NASH_PUSH_JSON = {
       }
     }
 
-    if (action === 'bet' || action === 'raise' || (action && action.startsWith('bet_'))) {
-      if (betSize > pot * 1.5 && spr > 4) errors.push({ type: 'overbet_absurda', msg: 'Overbet desproporcionada para el SPR actual.' });
-      if (betSize > pot * 2.5) errors.push({ type: 'overbet_absurda', msg: 'Sizing excesivo respecto al bote.' });
-      if (tier === 'air' && (freqs.bet || 0) < 0.15 && (freqs.raise || 0) < 0.15) {
+    if (action === 'bet' || action === 'raise' || action === 'overbet' || action === 'allin'
+      || (action && action.startsWith('bet_'))) {
+      // La acción «overbet» es sizing polar a propósito: no marcarla absurda/incoherente.
+      if (action !== 'overbet' && betSize > pot * 1.5 && spr > 4) {
+        errors.push({ type: 'overbet_absurda', msg: 'Overbet desproporcionada para el SPR actual.' });
+      }
+      if (action !== 'overbet' && betSize > pot * 2.5) {
+        errors.push({ type: 'overbet_absurda', msg: 'Sizing excesivo respecto al bote.' });
+      }
+      if (tier === 'air' && (freqs.bet || 0) < 0.15 && (freqs.raise || 0) < 0.15
+        && (freqs.overbet || 0) < 0.15) {
         errors.push({ type: 'bluff_excesivo', msg: 'Farol con frecuencia GTO muy baja en este spot.' });
       }
       if (tier === 'strong' && betSize < pot * 0.2 && (action === 'bet' || action.startsWith('bet_'))) {
         errors.push({ type: 'valor_insuficiente', msg: 'Apuesta pequeña con mano fuerte — pérdida de extracción de valor.' });
       }
       const ideal = input.boardWet ? pot * 0.6 : pot * 0.4;
-      if (betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
+      if (action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
         errors.push({ type: 'sizing_incoherente', msg: 'Sizing no alineado con la textura del board.' });
       }
       if (tier === 'air' || tier === 'weak') {
@@ -11985,6 +12020,7 @@ window.PT_NASH_PUSH_JSON = {
     const acts = availableActions || [];
     if (chosen === 'allin') {
       if (acts.indexOf('allin') >= 0) return 'allin';
+      if (acts.indexOf('overbet') >= 0) return 'overbet';
       if (acts.indexOf('raise') >= 0) return 'raise';
       if (acts.indexOf('bet') >= 0) return 'bet';
       if (acts.indexOf('bet_100') >= 0) return 'bet_100';
@@ -12065,6 +12101,8 @@ window.PT_NASH_PUSH_JSON = {
       let mathParams = evResult.mathParams ? Object.assign({}, evResult.mathParams) : null;
       const evGap = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
       const EV_TIE = 0.15;
+      // Si el reconciliador ya suavizó a aceptable/óptima (p.ej. overbet con nueces),
+      // no inventar una fuga «suboptimal_ev» por un hueco EV residual.
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
         && chosenAction !== finalBest) {
         evLoss = EvLoss.round2(evGap);
@@ -12074,6 +12112,12 @@ window.PT_NASH_PUSH_JSON = {
           msg: 'Acción con EV inferior a la óptima (ΔEV ' + evLoss + ' bb).'
         });
         if (mathParams) mathParams.deltaEV = evLoss;
+      }
+      if (evErroneous && (finalCls === 'optima' || finalCls === 'aceptable') && evGap < 1) {
+        evLoss = 0;
+        evErroneous = false;
+        evErrorReasons = [];
+        if (mathParams) mathParams.deltaEV = EvLoss.round2(evGap);
       }
 
       // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).
@@ -12890,7 +12934,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function isBetAction(a) {
-    return a === 'bet' || a === 'raise' || /^bet_/.test(a) || a === 'allin';
+    return a === 'bet' || a === 'raise' || a === 'overbet' || /^bet_/.test(a) || a === 'allin';
   }
 
   function isPassiveContinue(a) {
@@ -18624,7 +18668,15 @@ window.PT_NASH_PUSH_JSON = {
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
       chosenAction: chosenAction,
       availableActions,
-      betSizeBB: opt && opt.size != null ? opt.size : (chosenAction === 'raise' ? round2((node.toCallBB || 0) * 3) : 0)
+      betSizeBB: (function () {
+        if (opt && opt.size != null) return opt.size;
+        if (hand._betSizes && chosenAction && hand._betSizes[chosenAction] != null) {
+          return hand._betSizes[chosenAction];
+        }
+        if (chosenAction === 'raise') return round2((node.toCallBB || 0) * 3);
+        if (chosenAction === 'overbet') return round2((node.potBB || potBB || 1) * 1.5);
+        return 0;
+      })()
     };
     if (hand.multiway || (MW() && MW().aliveCount(hand) >= 3)) {
       input.multiway = true;
@@ -21501,7 +21553,11 @@ window.PT_NASH_PUSH_JSON = {
           const dedupeKey = isAllIn ? ('allin:' + fmt(capped)) : id;
           if (seenBetKeys.has(dedupeKey)) return;
           seenBetKeys.add(dedupeKey);
-          options.push({ id: id, label: isAllIn ? `All-in (${fmt(capped)}bb)` : s.label.replace(String(s.size), String(capped)) });
+          options.push({
+            id: id,
+            label: isAllIn ? `All-in (${fmt(capped)}bb)` : s.label.replace(String(s.size), String(capped)),
+            size: capped
+          });
           hand._betSizes[id] = capped;
         }
       });
@@ -21554,10 +21610,13 @@ window.PT_NASH_PUSH_JSON = {
       return finish(hand, { reason: `Foldeas en ${node.street}.`, heroNet: -round2(hand.heroInvested) });
     }
 
-    if (actionId === 'bet' || (actionId && actionId.indexOf('bet_') === 0)) {
+    // overbet no empieza por «bet_»: sin este caso caía en heroNet:0 («Mano terminada»).
+    if (actionId === 'bet' || actionId === 'overbet'
+      || (actionId && actionId.indexOf('bet_') === 0)) {
       let betSize = hand._betSizes && hand._betSizes[actionId] != null
         ? hand._betSizes[actionId]
-        : hand._betSize;
+        : (hand._betSize != null ? hand._betSize
+          : (actionId === 'overbet' ? round2((node.potBB || hand.potBB || 1) * 1.5) : 0));
       const remBefore = heroRemainingBB(hand);
       betSize = capBetForSeat(hand, hand.hero.pos, betSize);
       if (betSize <= 0) return finish(hand, { reason: 'Sin stack para apostar.', heroNet: -round2(hand.heroInvested) });
@@ -21800,7 +21859,7 @@ window.PT_NASH_PUSH_JSON = {
   function inferDecisionOptions(d) {
     if (d.availableActions && d.availableActions.length) return d.availableActions;
     const gto = d.gto || {};
-    const order = ['fold', 'check', 'call', 'bet_33', 'bet_66', 'bet_100', 'bet', 'raise'];
+    const order = ['fold', 'check', 'call', 'bet_33', 'bet_66', 'bet_100', 'overbet', 'bet', 'raise', 'allin'];
     return order.filter((a) => gto[a] != null);
   }
 
