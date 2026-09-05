@@ -148,9 +148,18 @@
     var Live = global.PTTournamentLiveHand;
     var hand = Live.heroAct(state._liveHand, actionId, amount);
     state._liveHand = hand;
-    if (hand && hand.stage === 'complete') {
-      return applyResults(state, hand);
+    /* No aplicar resultados aún: la UI muestra el popup de fin de mano
+       (como en Entrenar) y el usuario pulsa Continuar. */
+    return state;
+  }
+
+  /** Aplica la mano completa y reparte la siguiente (o cierra si el torneo acabó). */
+  function continueAfterHand(state) {
+    if (!state) return state;
+    if (state._liveHand && state._liveHand.stage === 'complete' && state._liveHand.result) {
+      applyResults(state, state._liveHand);
     }
+    if (state.status === 'running') beginHand(state);
     return state;
   }
 
@@ -309,6 +318,7 @@
     create: create,
     beginHand: beginHand,
     heroAct: heroAct,
+    continueAfterHand: continueAfterHand,
     applyResults: applyResults,
     finish: finish,
     onBustAsk: onBustAsk,
