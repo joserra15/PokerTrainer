@@ -4,7 +4,8 @@ const {
   waitForAppShell,
   clickFirstPlayAction,
   playActionButtons,
-  playSkipButton
+  playSkipButton,
+  expectAnyVisible
 } = require('./helpers');
 
 test.describe('Live Advisor @smoke', () => {
@@ -32,6 +33,6 @@ test.describe('Live Advisor @smoke', () => {
     const toast = page.locator('#verdict-toast.visible');
     const nextSkip = playSkipButton(page);
     const nextBtn = playActionButtons(page);
-    await expect(handEnd.or(toast).or(nextSkip).or(nextBtn)).toBeVisible({ timeout: 20000 });
+    await expectAnyVisible(handEnd.or(toast).or(nextSkip).or(nextBtn), { timeout: 20000 });
   });
 });

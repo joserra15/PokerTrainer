@@ -7,6 +7,8 @@
  * - Retries solo vía playwright.config (CI=1).
  */
 
+const { expect } = require('@playwright/test');
+
 async function mockAuthenticatedUser(page, opts) {
   const options = opts || {};
   const isAdmin = !!options.isAdmin;
@@ -141,6 +143,15 @@ function playSkipButton(page) {
   return page.locator('#play-active:not(.hidden) .action-play-skip');
 }
 
+/**
+ * Espera a que cualquiera de varios locators sea visible.
+ * Playwright exige un único match en toBeVisible(); .or() sin .first()
+ * falla en strict mode cuando toast + botones (o varios botones) coinciden.
+ */
+async function expectAnyVisible(locator, opts) {
+  await expect(locator.first()).toBeVisible(opts || {});
+}
+
 async function skipActionPlaybackIfNeeded(page) {
   const skip = playSkipButton(page);
   const actionBtn = playActionButtons(page);
@@ -209,6 +220,7 @@ module.exports = {
   bootstrapPublicLanding,
   gotoLanding,
   waitForAppShell,
+  expectAnyVisible,
   goTab,
   openPlaySetupAdvanced,
   playActionButtons,

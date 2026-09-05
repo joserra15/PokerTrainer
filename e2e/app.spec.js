@@ -5,7 +5,8 @@ const {
   waitForAppShell,
   clickFirstPlayAction,
   playActionButtons,
-  playSkipButton
+  playSkipButton,
+  expectAnyVisible
 } = require('./helpers');
 
 test.describe('Modo Jugar', () => {
@@ -28,7 +29,7 @@ test.describe('Modo Jugar', () => {
     const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
     const nextSkip = playSkipButton(page);
     const nextBtn = playActionButtons(page);
-    await expect(toast.or(handEnd).or(nextSkip).or(nextBtn)).toBeVisible({ timeout: 15000 });
+    await expectAnyVisible(toast.or(handEnd).or(nextSkip).or(nextBtn), { timeout: 15000 });
 
     if (await handEnd.isVisible()) {
       await expect(handEnd.locator('.hand-end-popup-stats .lbl', { hasText: /Puntuaci[oó]n de la mano/i })).toBeVisible();

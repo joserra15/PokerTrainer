@@ -1,5 +1,10 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell, openPlaySetupAdvanced } = require('./helpers');
+const {
+  mockAuthenticatedUser,
+  waitForAppShell,
+  openPlaySetupAdvanced,
+  expectAnyVisible
+} = require('./helpers');
 
 test.describe('Modo completo de mesa @smoke', () => {
   test('completo: reproduce acción y permite saltar a la decisión', async ({ page }) => {
@@ -18,7 +23,7 @@ test.describe('Modo completo de mesa @smoke', () => {
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 20000 });
     const skip = page.locator('.action-play-skip');
     const actionBtn = page.locator('#play-active:not(.hidden) #actions button[data-action]');
-    await expect(skip.or(actionBtn)).toBeVisible({ timeout: 20000 });
+    await expectAnyVisible(skip.or(actionBtn), { timeout: 20000 });
 
     if (await skip.isVisible().catch(() => false)) {
       await expect(page.locator('.action-play-status')).toBeVisible();
@@ -32,7 +37,7 @@ test.describe('Modo completo de mesa @smoke', () => {
     const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
     const nextSkip = page.locator('.action-play-skip');
     const nextBtn = page.locator('#play-active:not(.hidden) #actions button[data-action]');
-    await expect(toast.or(handEnd).or(nextSkip).or(nextBtn)).toBeVisible({ timeout: 20000 });
+    await expectAnyVisible(toast.or(handEnd).or(nextSkip).or(nextBtn), { timeout: 20000 });
   });
 
   test('rápido: la decisión aparece sin reproductor', async ({ page }) => {

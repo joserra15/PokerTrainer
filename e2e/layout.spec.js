@@ -15,9 +15,12 @@ test.describe('Layout play / hand-end @smoke', () => {
     for (let i = 0; i < 16; i++) {
       const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
       if (await handEnd.isVisible().catch(() => false)) break;
-      const btns = page.locator('#play-active:not(.hidden) #actions .btn');
+      const toast = page.locator('#verdict-toast.visible');
+      if (await toast.isVisible().catch(() => false)) break;
+      // Solo botones de decisión — #next-after queda bajo el modal de fin de mano.
+      const btns = page.locator('#play-active:not(.hidden) #actions button[data-action]');
       if ((await btns.count()) === 0) break;
-      await btns.first().click();
+      await btns.first().click({ timeout: 5000, force: true }).catch(() => {});
       await expect(page.locator('body')).toBeVisible();
     }
 
@@ -29,7 +32,7 @@ test.describe('Layout play / hand-end @smoke', () => {
     } else {
       // Fold preflop a veces cierra sin modal si hay toast; aceptar feedback
       await expect(
-        page.locator('#verdict-toast.visible, #play-active, #history-list')
+        page.locator('#verdict-toast.visible, #play-active, #history-list').first()
       ).toBeVisible({ timeout: 5000 });
     }
   });

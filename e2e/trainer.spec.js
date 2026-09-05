@@ -4,7 +4,8 @@ const {
   waitForAppShell,
   clickFirstPlayAction,
   playActionButtons,
-  playSkipButton
+  playSkipButton,
+  expectAnyVisible
 } = require('./helpers');
 
 test.describe('Entrenamiento completo @smoke', () => {
@@ -23,7 +24,7 @@ test.describe('Entrenamiento completo @smoke', () => {
     const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
     const nextSkip = playSkipButton(page);
     const nextBtn = playActionButtons(page);
-    await expect(toast.or(handEnd).or(nextSkip).or(nextBtn)).toBeVisible({ timeout: 20000 });
+    await expectAnyVisible(toast.or(handEnd).or(nextSkip).or(nextBtn), { timeout: 20000 });
 
     // Completar mano si sigue abierta (varias calles / playback)
     for (let i = 0; i < 16; i++) {
