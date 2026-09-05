@@ -207,4 +207,75 @@ console.log('4) 9max LJ→HJ: legacy heroCards-only y snapshot completo no cambi
   }
 }
 
+console.log('5) Replay sin board / board corrupto: sin cartas duplicadas (Qc héroe≠turn)');
+{
+  const play = cfg({
+    formatHub: 'mtt',
+    gameType: 'mtt',
+    scenario: 'face3bet',
+    handRange: 'random',
+    villainLevel: 'pro',
+    mttPhase: 'early',
+    heroPos: 'CO'
+  });
+
+  // Histórico corrupto: Qc en héroe y en turn (caso reportado).
+  const corrupt = Engine.newHand({
+    type: 'face3bet',
+    key: 'CO_vs_SB',
+    seed: 42,
+    forceDeal: {
+      heroCards: ['Qc', 'Tc'],
+      villainCards: ['As', 'Ad'],
+      board: ['3d', '2s', '5c', 'Qc', 'Kh'],
+      villainPos: 'SB',
+      holeCards: { CO: ['Qc', 'Tc'], SB: ['As', 'Ad'] }
+    }
+  }, play);
+  assert.strictEqual(Engine.hasDuplicateCards(corrupt), false,
+    'board corrupto saneado: ' + cardsKey(corrupt._predeal.board));
+  assert.strictEqual(cardsKey(corrupt.hero.cards), 'Qc,Tc', 'héroe Qc Tc intacto');
+  assert.strictEqual(cardsKey(corrupt._predeal.board.slice(0, 3)), '3d,2s,5c',
+    'flop preferido se conserva');
+  assert.ok(corrupt._predeal.board.indexOf('Qc') < 0, 'Qc no en board');
+  assert.ok(corrupt._predeal.board.indexOf('Tc') < 0, 'Tc no en board');
+
+  // forceDeal solo heroCards (sin board): el board random no puede chocar.
+  let emptyBoardHits = 0;
+  for (let i = 0; i < 80; i++) {
+    const h = Engine.newHand({
+      type: 'face3bet',
+      key: 'CO_vs_SB',
+      seed: 3000 + i,
+      forceDeal: {
+        heroCards: ['Qc', 'Tc'],
+        villainCards: null,
+        board: [],
+        villainPos: 'SB'
+      }
+    }, play);
+    if (Engine.hasDuplicateCards(h)) emptyBoardHits++;
+    assert.strictEqual(cardsKey(h.hero.cards), 'Qc,Tc', 'hero estable sin board');
+  }
+  assert.strictEqual(emptyBoardHits, 0, 'sin board: 0 duplicados en 80 seeds');
+
+  // holeMap sin board: mismo invariante.
+  let mapHits = 0;
+  for (let i = 0; i < 80; i++) {
+    const h = Engine.newHand({
+      type: 'face3bet',
+      key: 'CO_vs_SB',
+      seed: 4000 + i,
+      forceDeal: {
+        heroCards: ['Qc', 'Tc'],
+        board: [],
+        holeCards: { CO: ['Qc', 'Tc'], SB: ['Ah', 'Kd'], BB: ['2h', '2d'] },
+        villainPos: 'SB'
+      }
+    }, play);
+    if (Engine.hasDuplicateCards(h)) mapHits++;
+  }
+  assert.strictEqual(mapHits, 0, 'holeMap sin board: 0 duplicados');
+}
+
 console.log('\n*** test-history-replay-cards OK ***');

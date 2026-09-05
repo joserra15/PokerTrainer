@@ -7,7 +7,7 @@ const assert = require('assert');
 
 const root = path.join(__dirname, '..');
 const version = fs.readFileSync(path.join(root, 'js/version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'3.1.6'/.test(version), 'versión 3.1.6');
+assert.ok(/PT_BUILD\s*=\s*'3.1.7'/.test(version), 'versión 3.1.7');
 
 const spinSrc = fs.readFileSync(path.join(root, 'js/school-data-spin.js'), 'utf8');
 assert.ok(/Spins 3-max: BTN actúa primero/.test(spinSrc), 'comentario orden 3-max');
