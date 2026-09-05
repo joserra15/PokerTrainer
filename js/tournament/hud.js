@@ -38,7 +38,7 @@
       return {
         rank: i + 1,
         id: p.id,
-        name: p.isHero ? 'Héroe' : (p.name || p.id),
+        name: p.isHero ? (p.name && p.name !== 'Héroe' ? p.name : 'Jugador') : (p.name || p.id),
         isHero: !!p.isHero,
         stack: stack,
         bb: Math.round((stack / bb) * 10) / 10,
@@ -90,7 +90,10 @@
       parts.push((i + 1) + 'º ' + pct + '% · ' + fmtKoins(euros[i]));
     }
     if (euros.length > n) parts.push('…');
-    return parts.join(' · ') || '—';
+    if (!parts.length) return '—';
+    return { html: true, content: '<ul class="trn-payout-list">' + parts.map(function (p, i) {
+      return '<li>' + p + '</li>';
+    }).join('') + '</ul>' };
   }
 
   function infoRows(state) {
@@ -143,9 +146,11 @@
 
     var top = topStacks(state, 10);
     var topLabel = top.length
-      ? top.map(function (t) {
-        return t.rank + '. ' + t.name + ' ' + fmtNum(t.stack) + ' (' + t.bb + ' bb)';
-      }).join(' · ')
+      ? { html: true, content: '<ol class="trn-stack-list">' + top.map(function (t) {
+        return '<li class="' + (t.isHero ? 'is-hero' : '') + '"><span class="trn-stack-rank">' +
+          t.rank + '.</span> <span class="trn-stack-name">' + t.name + '</span> ' +
+          '<span class="trn-stack-amt">' + fmtNum(t.stack) + ' (' + t.bb + ' bb)</span></li>';
+      }).join('') + '</ol>' }
       : '—';
 
     return [

@@ -25,12 +25,60 @@
     resumePrompt: false,
     handDetailOpen: false,
     replayOpen: false,
+    replayStep: 0,
     replayHandIndex: null,
     anim: { frame: null, playing: false, skip: false, seq: 0, timer: null }
   };
 
   /* ---------- Revelado de la acción paso a paso (como en Entrenar) ---------- */
-  function reducedMotion() {
+    function heroDisplayName(state) {
+    try {
+      var h = state && global.PTTournamentState && PTTournamentState.hero
+        ? PTTournamentState.hero(state) : null;
+      if (h && h.name && h.name !== 'Héroe' && h.name !== 'Hero') return h.name;
+    } catch (e0) { /* */ }
+    try {
+      var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+      if (u && u.name) {
+        var n = String(u.name).trim().split(/\s+/)[0];
+        if (n) return n;
+      }
+    } catch (e1) { /* */ }
+    return 'Jugador';
+  }
+
+  function resolveHeroNameOpt() {
+    try {
+      var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+      if (u && u.name) return String(u.name).trim().split(/\s+/)[0] || u.name;
+    } catch (e) { /* */ }
+    return 'Jugador';
+  }
+
+  function toastPopupHtml(kind, title, sub, withConfetti) {
+    return '<div class="trn-center-popup trn-popup-' + kind + '" data-popup="' + kind + '" role="status">' +
+      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' +
+        '<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>' +
+        '</div>' : '') +
+      '<div class="trn-center-popup-card">' +
+      '<strong>' + title + '</strong>' +
+      (sub ? ('<span>' + sub + '</span>') : '') +
+      '</div></div>';
+  }
+
+  function schedulePopupClear(flag) {
+    try {
+      setTimeout(function () {
+        if (!ui.state) return;
+        if (flag === "blind") ui.state.blindUpPending = null;
+        if (flag === "ft") ui.state.finalTablePending = null;
+        if (flag === "itm") ui.state.itmPending = null;
+        paint();
+      }, 2000);
+    } catch (e) { /* */ }
+  }
+
+function reducedMotion() {
     try {
       return !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
     } catch (e) {
@@ -256,6 +304,24 @@
   function startFromConfig(cfg, opts) {
     opts = opts || {};
     if (!opts.keepActive) clearActive();
+    opts.heroName = opts.heroName || resolveHeroNameOpt();
+    var buyIn = 0;
+    try {
+      var cfgObj = typeof cfg === 'string'
+        ? (global.PTTournamentConfig.fromPreset ? PTTournamentConfig.fromPreset(cfg) : null)
+        : cfg;
+      buyIn = Number(cfgObj && cfgObj.buyInEur) || 0;
+    } catch (eCfg) { buyIn = 0; }
+    try {
+      var Wallet = global.PTTournamentWallet;
+      if (Wallet) {
+        if (!Wallet.canAfford(buyIn)) {
+          alert('Saldo insuficiente de Koins (' + Wallet.getBalance() + '). Buy-in: ' + buyIn);
+          return;
+        }
+        Wallet.debit(buyIn, { type: 'buyin' });
+      }
+    } catch (eW0) { /* */ }
     var Runner = global.PTTournamentRunner;
     ui.state = Runner.create(cfg, opts);
     ui.bustPrompt = false;
@@ -398,6 +464,7 @@
       '<h2>TORNEOS</h2>' +
       '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
       '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
+      '<div class="trn-wallet-chip">Koins: <strong>' + esc(String((global.PTTournamentWallet && PTTournamentWallet.getBalance) ? PTTournamentWallet.getBalance() : 100)) + '</strong></div>' +
       '</div>' +
       '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
@@ -686,7 +753,7 @@
         '<div class="seat-body">' +
         '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
         '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
-        '<div class="seat-role">' + esc(s.name || 'Villano') + (guessed ? ' · ?' : '') + '</div>' +
+        '<div class="seat-role">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') + esc(s.name || 'Villano') + (guessed ? ' · ?' : '') + '</div>' +
         '<div class="seat-stack">' + esc(fmtBb(s.stack, bb)) + '</div>' +
         '</div>' + betHtml +
         '</button>';
@@ -697,7 +764,7 @@
   function renderHeroArea(hand, bb) {
     if (!hand) {
       return '<div class="hero-area">' +
-        '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE</div>' +
+        '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) + '</div>' +
         '<div class="hero-cards"></div></div>';
     }
     var hero = null;
@@ -721,7 +788,7 @@
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
       '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
-      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE · <span>' +
+      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) + ' · <span>' +
       esc(hero.pos || '-') + '</span></div>' +
       (cards ? ('<div class="hero-cards">' + cards + '</div>') : '<div class="hero-cards hero-cards-folded"></div>') +
       '</div>';
@@ -826,14 +893,28 @@
     var infoModal = '';
     if (ui.infoOpen) {
       var rows = Hud.infoRows(state).map(function (r) {
+        var val = r.value;
+        var valHtml = (val && typeof val === 'object' && val.html)
+          ? val.content
+          : esc(String(val == null ? '' : val));
         return '<div class="trn-info-row"><span class="trn-info-lbl">' + esc(r.label) +
-          '</span><span class="trn-info-val">' + esc(r.value) + '</span></div>';
+          '</span><span class="trn-info-val">' + valHtml + '</span></div>';
       }).join('');
+      var hist = (state.handLog || state.handLog || []).slice().reverse().slice(0, 30);
+      var histHtml = hist.length
+        ? ('<ul class="trn-info-handlog">' + hist.map(function (h) {
+          return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
+            esc(String(h.handIndex)) + '">#' + esc(String(h.handIndex)) + '</button> · pot ' +
+            esc(String(Math.round((h.pot || 0) * 10) / 10)) +
+            (h.showdown ? ' · SD' : '') + '</li>';
+        }).join('') + '</ul>')
+        : '<p class="muted">Aún no hay manos</p>';
       infoModal = '<div class="trn-modal-backdrop" data-act="close-info">' +
-        '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Info del torneo" ' +
+        '<div class="trn-modal trn-modal-wide" role="dialog" aria-modal="true" aria-label="Info del torneo" ' +
         'data-act="noop">' +
         '<h3>Info del torneo</h3>' +
         '<div class="trn-info-dl">' + rows + '</div>' +
+        '<h4>Histórico de manos</h4>' + histHtml +
         '<button type="button" class="btn btn-primary" data-act="close-info">Cerrar</button>' +
         '</div></div>';
     }
@@ -872,13 +953,26 @@
     }
 
     var blindUpBanner = '';
+    var ftPopup = '';
+    var itmPopup = '';
     if (state.blindUpPending && !(hand && hand.stage === 'complete')) {
       var bu = state.blindUpPending;
-      blindUpBanner = '<div class="trn-blind-up" role="status">' +
-        '<strong>Ciegas nuevas</strong> · Nivel ' + esc(String(bu.level)) +
-        ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
-        (bu.ante ? (' ante ' + esc(String(bu.ante))) : '') +
-        ' <button type="button" class="btn btn-sm" data-act="dismiss-blind-up">OK</button></div>';
+      blindUpBanner = toastPopupHtml(
+        'blind',
+        'Subida de nivel',
+        'Nivel ' + esc(String(bu.level)) + ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
+          (bu.ante ? (' ante ' + esc(String(bu.ante))) : ''),
+        false
+      );
+      schedulePopupClear('blind');
+    }
+    if (state.finalTablePending && !(hand && hand.stage === 'complete')) {
+      ftPopup = toastPopupHtml('ft', 'Mesa final', String(state.finalTablePending.players || '') + ' jugadores', true);
+      schedulePopupClear('ft');
+    }
+    if (state.itmPending && !(hand && hand.stage === 'complete')) {
+      itmPopup = toastPopupHtml('itm', '¡En el dinero!', 'Has entrado en premios', true);
+      schedulePopupClear('itm');
     }
 
     var exitModal = '';
@@ -897,7 +991,7 @@
     /* Misma cáscara visual que el entrenador (.play-stage / .poker-table / .table-felt)
        sin montar en #play-active: el motor de torneo (PTTournamentRunner) sigue
        dueño del estado entre manos. */
-    return '<div class="trn-table-view trn-play-like">' + blindUpBanner +
+    return '<div class="trn-table-view trn-play-like">' + blindUpBanner + ftPopup + itmPopup +
       '<div class="trn-play-stage">' +
       '<div class="trn-table-hud">' + chips +
       '<div class="trn-hud-actions">' +
@@ -954,7 +1048,7 @@
       var dCls = d > 0 ? 'net-pos' : (d < 0 ? 'net-neg' : '');
       return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') +
         ((res.winners || []).indexOf(s.id) >= 0 ? ' is-winner' : '') + '">' +
-        '<div class="trn-hand-end-name">' + esc(s.isHero ? 'Héroe' : (s.name || s.pos)) +
+        '<div class="trn-hand-end-name">' + esc(s.isHero ? heroDisplayName(ui.state) : (s.name || s.pos)) +
         ' · ' + esc(s.pos || '') + '</div>' +
         '<div class="trn-hand-end-cards">' + cardsHtml + '</div>' +
         ((res.handNames && res.handNames[s.id])
@@ -1019,37 +1113,57 @@
     var log = (ui.state.handLog || []).find(function (h) {
       return Number(h.handIndex) === Number(ui.replayHandIndex);
     });
-    if (!log) return '';
-    var bb = log.bb || 20;
-    var board = (log.board || []).map(faceCard).join('');
-    var seats = (log.seats || []).map(function (s) {
-      var cards = (!s.folded && s.cards && s.cards[0]) ? s.cards.map(faceCard).join('') : '';
-      var d = log.result && log.result.deltas ? Number(log.result.deltas[s.id]) || 0 : 0;
-      return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') + '">' +
-        '<div class="trn-hand-end-name">' + esc(s.isHero ? 'Héroe' : s.name) + ' · ' + esc(s.pos || '') +
-        (s.folded ? ' · Fold' : '') + '</div>' +
-        '<div class="trn-hand-end-cards">' + cards + '</div>' +
-        '<div class="trn-hand-end-delta">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div></div>';
-    }).join('');
-    var acts = (log.log || []).map(function (e) {
-      return '<li><span class="muted">' + esc(e.street) + '</span> ' + esc(e.name || e.id) +
-        ' · ' + esc(formatActLabel(e.action, e.amount, bb)) + '</li>';
-    }).join('');
-    var gto = '';
-    if (log.decisions && log.decisions.length) {
-      gto = '<h4>GTO</h4><ol>' + log.decisions.map(function (d) {
-        return '<li>' + esc(d.class || 'unscored') + ' · ' + esc(d.street || '') + ' · ' + esc(d.action || '') + '</li>';
-      }).join('') + '</ol>';
+    if (!log) {
+      return '<div class="trn-modal-backdrop" data-act="close-replay">' +
+        '<div class="trn-modal" data-act="noop"><p>Mano no encontrada</p>' +
+        '<button type="button" class="btn" data-act="close-replay">Cerrar</button></div></div>';
     }
+    var bb = Number(log.bb) || 1;
+    var actions = log.log || [];
+    var step = Math.max(0, Math.min(ui.replayStep || 0, actions.length));
+    var visible = actions.slice(0, step);
+    var boardCount = 0;
+    visible.forEach(function () { /* board from streets */ });
+    var streetsSeen = {};
+    visible.forEach(function (e) { if (e.street) streetsSeen[e.street] = true; });
+    var boardShow = 0;
+    if (streetsSeen.flop) boardShow = 3;
+    if (streetsSeen.turn) boardShow = 4;
+    if (streetsSeen.river || log.showdown) boardShow = 5;
+    if (step >= actions.length) boardShow = (log.board || []).length;
+    var boardHtml = (log.board || []).slice(0, boardShow).map(faceCard).join('') ||
+      '<span class="muted">—</span>';
+    var actHtml = visible.map(function (e, idx) {
+      return '<li class="' + (idx === step - 1 ? 'is-current' : '') + '">' +
+        '<span class="muted">' + esc(e.street || '') + '</span> ' +
+        esc(e.name || e.id) + ' · ' + esc(formatActLabel(e.action, e.amount, bb)) + '</li>';
+    }).join('') || '<li class="muted">Inicio de la mano</li>';
+    var seatsHtml = (log.seats || []).map(function (s) {
+      var showCards = step >= actions.length || s.isHero;
+      var cards = showCards && s.cards && s.cards[0]
+        ? s.cards.map(faceCard).join('')
+        : '<span class="muted">??</span>';
+      return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') + '">' +
+        '<div class="trn-hand-end-name">' + esc(s.isHero ? heroDisplayName(ui.state) : s.name) +
+        ' · ' + esc(s.pos || '') + '</div>' +
+        '<div class="trn-hand-end-cards">' + cards + '</div></div>';
+    }).join('');
+    var done = step >= actions.length;
     return '<div class="trn-modal-backdrop" data-act="close-replay">' +
-      '<div class="trn-modal trn-hand-end-modal" role="dialog" data-act="noop">' +
-      '<h3>Replay mano #' + esc(String(log.handIndex)) + '</h3>' +
-      '<div class="trn-hand-end-board">' + board + '</div>' +
-      '<div class="trn-hand-end-seats">' + seats + '</div>' +
-      '<ol>' + acts + '</ol>' + gto +
-      '<button type="button" class="btn btn-primary" data-act="close-replay">Cerrar</button>' +
-      '</div></div>';
+      '<div class="trn-modal trn-modal-wide trn-replay-modal" role="dialog" aria-modal="true" data-act="noop">' +
+      '<h3>Replay mano #' + esc(String(log.handIndex)) + ' · paso ' + step + '/' + actions.length + '</h3>' +
+      '<div class="trn-hand-end-board"><span class="muted">Board</span><div class="trn-hand-end-cards">' +
+      boardHtml + '</div></div>' +
+      '<div class="trn-hand-end-seats">' + seatsHtml + '</div>' +
+      '<ol class="trn-replay-steps">' + actHtml + '</ol>' +
+      '<div class="trn-setup-actions">' +
+      '<button type="button" class="btn" data-act="replay-prev"' + (step <= 0 ? ' disabled' : '') + '>Anterior</button>' +
+      '<button type="button" class="btn btn-primary" data-act="replay-next">' +
+      (done ? 'Reiniciar' : 'Siguiente') + '</button>' +
+      '<button type="button" class="btn" data-act="close-replay">Cerrar</button>' +
+      '</div></div></div>';
   }
+
 
   function renderResult() {
     var state = ui.state;
@@ -1079,7 +1193,7 @@
       var prize = (place >= 1 && place <= ladder.length) ? (ladder[place - 1] || 0) : 0;
       return '<tr class="' + (pl.isHero ? 'is-hero' : '') + '">' +
         '<td>' + place + 'º</td>' +
-        '<td>' + esc(pl.isHero ? 'Héroe' : pl.name) + '</td>' +
+        '<td>' + esc(pl.isHero ? heroDisplayName(ui.state) : pl.name) + '</td>' +
         '<td>' + (pl.alive ? (Math.round(pl.stack) + ' f') : 'out') + '</td>' +
         '<td>' + fmtKoins(prize) + '</td></tr>';
     }).join('');
@@ -1102,10 +1216,17 @@
       '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
       ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP</p>' +
       '<div class="trn-result-stats">' +
-      '<p><strong>Stats héroe</strong> · Manos ' + (stats.handsPlayed || 0) +
-      ' · VPIP ' + (stats.vpip || 0) + '% · PFR ' + (stats.pfr || 0) +
-      '% · Ganadas ' + (stats.wonHands || 0) +
-      ' · SD ' + (stats.wentToShowdown || 0) + '</p>' +
+      '<div class="trn-result-stats trn-session-like">' +
+      '<div class="trn-stat-grid">' +
+      '<div><div class="trn-stat-val">' + (stats.handsPlayed || 0) + '</div><div class="trn-stat-lbl">Manos</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.vpip || 0) + '%</div><div class="trn-stat-lbl">VPIP</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.pfr || 0) + '%</div><div class="trn-stat-lbl">PFR</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.wtsd != null ? stats.wtsd : '—') + '%</div><div class="trn-stat-lbl">WTSD</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.wsd != null ? stats.wsd : '—') + '%</div><div class="trn-stat-lbl">W$SD</div></div>' +
+      '<div><div class="trn-stat-val">' + (gto.accuracy != null ? gto.accuracy : (stats.gtoAccuracy || 0)) + '%</div><div class="trn-stat-lbl">Acierto GTO</div></div>' +
+      '<div><div class="trn-stat-val">' + (gto.totalEvLoss != null ? gto.totalEvLoss : (stats.evLoss || 0)) + '</div><div class="trn-stat-lbl">EV loss</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.wonHands || 0) + '</div><div class="trn-stat-lbl">Ganadas</div></div>' +
+      '</div></div>' +
       '<p><strong>GTO</strong> · Decisiones ' + (gto.scored || 0) +
       ' · Aciertos ' + (gto.hits || 0) +
       (gto.accuracy != null ? (' (' + gto.accuracy + '%)') : '') +
@@ -1293,10 +1414,23 @@
         } else if (act === 'replay-hand') {
           ui.replayHandIndex = Number(btn.getAttribute('data-hand'));
           ui.replayOpen = true;
+          ui.replayStep = 0;
           paint();
         } else if (act === 'close-replay') {
           ui.replayOpen = false;
           ui.replayHandIndex = null;
+          ui.replayStep = 0;
+          paint();
+        } else if (act === 'replay-next') {
+          var logN = (ui.state && ui.state.handLog || []).find(function (h) {
+            return Number(h.handIndex) === Number(ui.replayHandIndex);
+          });
+          var maxS = logN && logN.log ? logN.log.length : 0;
+          if ((ui.replayStep || 0) >= maxS) ui.replayStep = 0;
+          else ui.replayStep = (ui.replayStep || 0) + 1;
+          paint();
+        } else if (act === 'replay-prev') {
+          ui.replayStep = Math.max(0, (ui.replayStep || 0) - 1);
           paint();
         } else if (act === 'history') {
           setView(VIEW.history);

@@ -79,7 +79,7 @@
       placesPaid: 3,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 45, nit: 20, tag: 15, lag: 10, maniac: 10, pro: 0 },
+      roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
       exploitProPct: 0,
       onBust: 'ask'
     },
@@ -94,8 +94,8 @@
       placesPaid: 4,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
-      exploitProPct: 0.1,
+      roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
+      exploitProPct: 0.15,
       onBust: 'ask'
     },
     hard: {

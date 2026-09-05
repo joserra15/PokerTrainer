@@ -140,51 +140,51 @@
   }
 
   function shouldOpen(seat, hand) {
-    var V = global.GTOVillainPreflop;
-    var b = biasOf(seat.roleId);
-    var hc = handCode(seat.cards);
-    var openFn = V && V.isInOpenRange;
-    if (openFn && hc) {
-      try {
-        if (openFn(hc, seat.pos, { formatHub: 'mtt', stackBB: seat.stack / hand.bb })) return true;
-      } catch (e) { /* */ }
-      return Math.random() < 0.06 * b.open;
+    var D = global.PTTournamentVillainDecide;
+    if (D && D.decide) {
+      var probe = {
+        street: 'preflop',
+        bb: hand.bb,
+        pot: hand.pot,
+        currentBet: hand.currentBet,
+        minRaise: hand.minRaise,
+        openerId: null,
+        openerPos: null,
+        log: hand.log,
+        board: [],
+        seats: hand.seats
+      };
+      var a = D.decide(probe, seat);
+      return !!(a && a.id === 'raise');
     }
-    return strength01(seat.cards, []) * b.open > 0.62;
+    return strength01(seat.cards, []) > 0.62;
   }
 
   function defendDecision(seat, hand) {
-    var V = global.GTOVillainPreflop;
-    var b = biasOf(seat.roleId);
-    var hc = handCode(seat.cards);
-    var defendFn = V && V.defendVsOpen;
-    if (defendFn && hc) {
-      try {
-        var a = defendFn(hc, { id: seat.roleId || 'tag' }, Math.random(), seat.pos, hand.openerPos || 'CO', {
-          formatHub: 'mtt', stackBB: seat.stack / hand.bb
-        });
-        if (a === '3bet' || a === 'raise') return 'raise';
-        if (a === 'call') return 'call';
-        return 'fold';
-      } catch (e2) { /* */ }
+    var D = global.PTTournamentVillainDecide;
+    if (D && D.decide) {
+      var a = D.decide(hand, seat);
+      if (!a) return 'fold';
+      if (a.id === 'raise' || a.id === 'bet') return 'raise';
+      if (a.id === 'call') return 'call';
+      if (a.id === 'check') return 'check';
+      return 'fold';
     }
-    var s = strength01(seat.cards, []) * b.defend;
-    if (s > 0.78) return 'raise';
-    if (s > 0.52) return 'call';
     return 'fold';
   }
 
   function postflopDecision(seat, hand, tc) {
-    var b = biasOf(seat.roleId);
-    var s = strength01(seat.cards, hand.board) * (tc > 0 ? b.call : 1);
-    if (tc > 0) {
-      if (tc >= seat.stack) return s > 0.42 ? 'call' : 'fold';
-      if (s > 0.82 && Math.random() < 0.3 * b.bluff) return 'raise';
-      if (s > 0.48 * b.fold) return 'call';
+    var D = global.PTTournamentVillainDecide;
+    if (D && D.decide) {
+      var a = D.decide(hand, seat);
+      if (!a) return tc > 0 ? 'fold' : 'check';
+      if (a.id === 'raise') return 'raise';
+      if (a.id === 'bet') return 'bet';
+      if (a.id === 'call') return 'call';
+      if (a.id === 'check') return 'check';
       return 'fold';
     }
-    if (s > 0.72 || (s > 0.38 && Math.random() < 0.2 * b.bluff)) return 'bet';
-    return 'check';
+    return tc > 0 ? 'fold' : 'check';
   }
 
   function createHand(tableSeats, blinds, heroId) {
@@ -196,6 +196,7 @@
         name: ts.player.name,
         isHero: !!(ts.player.isHero || ts.player.id === heroId),
         roleId: ts.player.roleId,
+        proStyle: ts.player.proStyle || null,
         pos: ts.pos,
         seatIndex: ts.seatIndex != null ? ts.seatIndex : i,
         cards: dealt.holes[i],
@@ -532,9 +533,43 @@
   }
 
   function heroOptions(hand, seat) {
-    var tc = toCall(seat, hand);
+    var tc = Math.max(0, hand.currentBet - seat.streetInvested);
     var bb = hand.bb || 1;
+    var pot = Math.max(hand.pot || 0, bb);
+    var maxTo = seat.streetInvested + seat.stack;
     var opts = [];
+    function pushAllIn() {
+      if (seat.stack > 0) {
+        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxTo });
+      }
+    }
+    function pushRaise(mult, label) {
+      var minTo = Math.min(maxTo, hand.currentBet + hand.minRaise);
+      var raiseTo = Math.min(maxTo, Math.max(minTo, r2(hand.currentBet * mult)));
+      if (raiseTo <= hand.currentBet + 0.001) return;
+      if (raiseTo >= maxTo - 0.001) return;
+      opts.push({
+        id: 'raise',
+        label: (label ? (label + ' · ') : '') + fmtBb(raiseTo, bb),
+        min: minTo,
+        max: maxTo,
+        suggested: raiseTo,
+        amount: raiseTo
+      });
+    }
+    function pushBet(frac, label) {
+      var amt = Math.min(maxTo, Math.max(bb, r2(pot * frac)));
+      if (amt >= maxTo - 0.001) return;
+      opts.push({
+        id: 'bet',
+        label: (label ? (label + ' · ') : 'Apostar ') + fmtBb(amt, bb),
+        min: Math.min(bb, maxTo),
+        max: maxTo,
+        suggested: amt,
+        amount: amt
+      });
+    }
+
     if (tc > 0) {
       opts.push({ id: 'fold', label: 'Fold' });
       opts.push({
@@ -543,75 +578,87 @@
         amount: Math.min(tc, seat.stack)
       });
       if (seat.stack > tc) {
-        var minTo = Math.min(seat.streetInvested + seat.stack, hand.currentBet + hand.minRaise);
-        var maxTo = seat.streetInvested + seat.stack;
-        var raiseTo = Math.min(Math.max(minTo, r2(hand.currentBet * 2.5)), maxTo);
-        opts.push({
-          id: 'raise',
-          label: 'Subir a ' + fmtBb(raiseTo, bb),
-          min: minTo,
-          max: maxTo,
-          suggested: raiseTo,
-          amount: raiseTo
-        });
-        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxTo });
+        if (hand.street === 'preflop') {
+          var raises = 0;
+          (hand.log || []).forEach(function (e) {
+            if (e.street === 'preflop' && (e.action === 'raise' || e.action === 'bet')) raises += 1;
+          });
+          if (!hand.openerId) {
+            [2, 2.5, 3].forEach(function (x) {
+              var to = Math.min(maxTo, r2(bb * x));
+              if (to > hand.currentBet + 0.001 && to < maxTo - 0.001) {
+                opts.push({
+                  id: 'raise',
+                  label: x + ' bb',
+                  min: Math.min(maxTo, hand.currentBet + hand.minRaise),
+                  max: maxTo,
+                  suggested: to,
+                  amount: to
+                });
+              }
+            });
+          } else {
+            var mults = raises >= 2 ? [2.2, 2.6, 3.0] : [2.5, 3.0, 3.5];
+            mults.forEach(function (m) {
+              pushRaise(m, (raises >= 2 ? '4bet ' : '3bet ') + m + 'x');
+            });
+          }
+        } else {
+          pushRaise(2.5, 'Raise 2.5x');
+          pushRaise(3.2, 'Raise 3.2x');
+          var potRaise = Math.min(maxTo, r2(hand.currentBet + pot));
+          if (potRaise > hand.currentBet + hand.minRaise && potRaise < maxTo - 0.001) {
+            opts.push({
+              id: 'raise',
+              label: 'Raise pot',
+              min: Math.min(maxTo, hand.currentBet + hand.minRaise),
+              max: maxTo,
+              suggested: potRaise,
+              amount: potRaise
+            });
+          }
+        }
+        pushAllIn();
       }
     } else {
       opts.push({ id: 'check', label: 'Check' });
       if (seat.stack > 0) {
-        var maxBet = seat.streetInvested + seat.stack;
-        var sug = Math.min(maxBet, Math.max(hand.bb, r2(hand.pot * 0.55)));
-        opts.push({
-          id: 'bet',
-          label: 'Apostar ' + fmtBb(sug, bb),
-          min: Math.min(hand.bb, maxBet),
-          max: maxBet,
-          suggested: sug,
-          amount: sug
-        });
-        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxBet });
+        if (hand.street === 'preflop') {
+          [2, 2.5, 3].forEach(function (x) {
+            var to = Math.min(maxTo, r2(bb * x));
+            if (to < maxTo - 0.001) {
+              opts.push({
+                id: 'raise',
+                label: x + ' bb',
+                min: Math.min(bb, maxTo),
+                max: maxTo,
+                suggested: to,
+                amount: to
+              });
+            }
+          });
+        } else {
+          [[0.33, '33%'], [0.66, '66%'], [1.0, '100%'], [1.25, '125%']].forEach(function (pair) {
+            pushBet(pair[0], pair[1]);
+          });
+        }
+        pushAllIn();
       }
     }
     return opts;
   }
 
   function villainAction(hand, seat) {
-    var tc = toCall(seat, hand);
-    if (hand.street === 'preflop') {
-      if (!hand.openerId) {
-        if (seat.pos === 'BB' && tc <= 0) return { id: 'check' };
-        if (shouldOpen(seat, hand)) {
-          return {
-            id: 'raise',
-            amount: Math.min(seat.streetInvested + seat.stack, r2(hand.bb * (seat.pos === 'SB' ? 3 : 2.5)))
-          };
-        }
-        return tc > 0 ? { id: 'fold' } : { id: 'check' };
-      }
-      var d = defendDecision(seat, hand);
-      if (d === 'raise') {
-        return {
-          id: 'raise',
-          amount: Math.min(seat.streetInvested + seat.stack,
-            Math.max(hand.currentBet + hand.minRaise, hand.currentBet * 2.6))
-        };
-      }
-      if (d === 'call') return { id: 'call' };
-      return tc > 0 ? { id: 'fold' } : { id: 'check' };
+    var D = global.PTTournamentVillainDecide;
+    if (D && typeof D.decide === 'function') {
+      try {
+        var act = D.decide(hand, seat);
+        if (act && act.id) return act;
+      } catch (e) { /* fallback */ }
     }
-    var pf = postflopDecision(seat, hand, tc);
-    if (pf === 'bet' || pf === 'raise') {
-      var to = hand.currentBet > 0
-        ? Math.max(hand.currentBet + hand.minRaise, hand.currentBet * 2.2)
-        : Math.max(hand.bb, hand.pot * 0.6);
-      return {
-        id: hand.currentBet > 0 ? 'raise' : 'bet',
-        amount: Math.min(seat.streetInvested + seat.stack, r2(to))
-      };
-    }
-    if (pf === 'call') return { id: 'call' };
-    if (pf === 'check') return { id: 'check' };
-    return { id: 'fold' };
+    var tc = Math.max(0, hand.currentBet - seat.streetInvested);
+    if (tc > 0) return { id: 'fold' };
+    return { id: 'check' };
   }
 
   function applyAction(hand, seat, action) {

@@ -11,7 +11,11 @@
         vpipHands: 0,
         pfrHands: 0,
         wonHands: 0,
-        wentToShowdown: 0
+        wentToShowdown: 0,
+        wonShowdown: 0,
+        decisions: 0,
+        goodDecisions: 0,
+        evLoss: 0
       };
     }
     return state.stats;
@@ -73,7 +77,21 @@
     }
     if (result && result.showdown) {
       st.wentToShowdown = (Number(st.wentToShowdown) || 0) + 1;
+      var deltas = (result && result.deltas) || {};
+      var hid = heroId || (seat && seat.id) || 'hero';
+      if ((Number(deltas[hid]) || 0) > 0) {
+        st.wonShowdown = (Number(st.wonShowdown) || 0) + 1;
+      }
     }
+    var decs = (hand && hand.decisions) || [];
+    decs.forEach(function (d) {
+      if (!d || d.unscored) return;
+      st.decisions = (Number(st.decisions) || 0) + 1;
+      if (d.class === 'green' || d.class === 'good' || d.ok) {
+        st.goodDecisions = (Number(st.goodDecisions) || 0) + 1;
+      }
+      st.evLoss = Math.round(((Number(st.evLoss) || 0) + (Number(d.evLoss) || 0)) * 100) / 100;
+    });
     return st;
   }
 
@@ -127,6 +145,12 @@
       pfr: pct(st.pfrHands || 0, st.handsPlayed || 0),
       wonHands: st.wonHands || 0,
       wentToShowdown: st.wentToShowdown || 0,
+      wonShowdown: st.wonShowdown || 0,
+      wtsd: pct(st.wentToShowdown || 0, st.handsPlayed || 0),
+      wsd: pct(st.wonShowdown || 0, st.wentToShowdown || 0),
+      gtoAccuracy: pct(st.goodDecisions || 0, st.decisions || 0),
+      gtoDecisions: st.decisions || 0,
+      evLoss: st.evLoss || 0,
       roleAccuracy: roleAccuracy,
       roleCorrect: roleScore.correct || 0,
       roleTotal: roleScore.total || 0

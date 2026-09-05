@@ -81,11 +81,13 @@ const FILES = [
   'js/tournament/seating.js',
   'js/tournament/state.js',
   'js/tournament/gto-eval.js',
+  'js/tournament/villain-decide.js',
   'js/tournament/live-hand.js',
   'js/tournament/other-tables.js',
   'js/tournament/role-guess.js',
   'js/tournament/stats.js',
   'js/tournament/hud.js',
+  'js/tournament/wallet.js',
   'js/tournament/store.js',
   'js/tournament/runner.js',
   'js/tournament/ui.js',
@@ -558,9 +560,45 @@ FILES.forEach(function (f) { load(g, f); });
   const rows = g.PTTournamentHud.infoRows(state);
   const top = rows.find(function (r) { return /Top 10/i.test(r.label); });
   assert.ok(top, 'info has top 10');
+  if (top.value && top.value.html) assert.ok(/trn-stack-list|ol|li/.test(top.value.content), 'top10 list html');
   const buy = rows.find(function (r) { return /Buy-in/i.test(r.label); });
-  assert.ok(buy && /Koins/.test(buy.value), 'buy-in in Koins');
+  var buyVal = buy && (buy.value && buy.value.html ? buy.value.content : buy.value);
+  assert.ok(buy && /Koins/.test(String(buyVal)), 'buy-in in Koins');
   console.log('OK koins-and-top10');
+}
+
+// --- heroOptions sizing buttons ---
+{
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 3, heroName: 'Alex' });
+  assert.strictEqual(g.PTTournamentState.hero(state).name, 'Alex', 'heroName');
+  const tableId = state.tables[0].id;
+  const Seat = g.PTTournamentSeating;
+  const on = Seat.playersOnTable(state, tableId);
+  const btn = Seat.assignButton(state, tableId);
+  const ordered = Seat.seatOrderWithButton(on, btn);
+  const blinds = g.PTTournamentBlinds.currentLevel(state.config.blindSchedule, 0);
+  const hand = g.PTTournamentLiveHand.start(ordered, blinds, 'hero');
+  g.PTTournamentLiveHand.runToHeroOrEnd(hand);
+  if (hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) {
+    assert.ok(hand.heroOptions.length >= 3, 'several hero options');
+    const labels = hand.heroOptions.map(function (o) { return o.label; }).join(' ');
+    assert.ok(/bb/i.test(labels), 'sizing labels include bb: ' + labels);
+  }
+  console.log('OK heroOptions sizing');
+}
+
+// --- wallet debit/credit ---
+{
+  const W = g.PTTournamentWallet;
+  assert.ok(W, 'wallet module');
+  W.setBalance(100);
+  assert.strictEqual(W.getBalance(), 100);
+  const d = W.debit(5, { type: 'buyin' });
+  assert.ok(d.ok);
+  assert.strictEqual(W.getBalance(), 95);
+  W.credit(12, { type: 'prize' });
+  assert.strictEqual(W.getBalance(), 107);
+  console.log('OK wallet');
 }
 
 console.log('*** test-tournament OK ***');

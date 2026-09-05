@@ -1607,6 +1607,18 @@
       errors: getErrors(),
       clearedAt: getClearedAt()
     };
+    try {
+      if (global.PTTournamentWallet && PTTournamentWallet.snapshot) {
+        snap.tournamentWallet = PTTournamentWallet.snapshot();
+      }
+      if (global.PTTournamentStore) {
+        if (PTTournamentStore.list) snap.tournamentHistory = PTTournamentStore.list();
+        if (PTTournamentStore.loadActive) {
+          var act = PTTournamentStore.loadActive();
+          if (act) snap.tournamentActive = act;
+        }
+      }
+    } catch (eTw) { /* ignore */ }
     const onboarding = getOnboardingForCloud();
     if (onboarding) snap.onboarding = onboarding;
     return snap;
@@ -1830,6 +1842,22 @@
     write(scopedDataKey('errors'), errors);
     writeStats(stats);
     if (!s) applyOnboardingFromCloud(logical.onboarding);
+    try {
+      if (logical.tournamentWallet && global.PTTournamentWallet && PTTournamentWallet.mergeFromCloud) {
+        PTTournamentWallet.mergeFromCloud(logical.tournamentWallet);
+      }
+      if (logical.tournamentHistory && global.PTTournamentStore && PTTournamentStore.save) {
+        (logical.tournamentHistory || []).forEach(function (h) {
+          try { PTTournamentStore.save(h); } catch (eH) { /* */ }
+        });
+      }
+      if (logical.tournamentActive && global.PTTournamentStore && PTTournamentStore.saveActive) {
+        var localAct = PTTournamentStore.loadActive && PTTournamentStore.loadActive();
+        var remoteTs = Date.parse((logical.tournamentActive && logical.tournamentActive._savedAt) || 0) || 0;
+        var localTs = Date.parse((localAct && localAct._savedAt) || 0) || 0;
+        if (!localAct || remoteTs >= localTs) PTTournamentStore.saveActive(logical.tournamentActive);
+      }
+    } catch (eTMerge) { /* ignore */ }
     return { history: history.length, errors: errors.length, sessions: getSessions().length, stats: stats };
   }
 

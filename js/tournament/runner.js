@@ -136,6 +136,20 @@
     if (Other && Other.simulateRound) Other.simulateRound(state, blinds);
 
     Seat.rebalance(state);
+    try {
+      var leftNow = St.playersLeft(state);
+      var placesPaid = Number(state.config && state.config.placesPaid) || 0;
+      var heroNow = St.hero(state);
+      var evs = state.events || [];
+      if (!state.finalTableShown && evs.some(function (e) { return e && e.type === 'final_table'; })) {
+        state.finalTableShown = true;
+        state.finalTablePending = { players: leftNow, at: Date.now() };
+      }
+      if (!state.itmShown && heroNow && heroNow.alive && placesPaid > 0 && leftNow <= placesPaid) {
+        state.itmShown = true;
+        state.itmPending = { place: leftNow, paid: placesPaid, at: Date.now() };
+      }
+    } catch (ePop) { /* ignore */ }
     state._liveHand = null;
     state.handLog = state.handLog || [];
     state.gtoSession = state.gtoSession || { decisions: 0, scored: 0, hits: 0, totalEvLoss: 0 };
@@ -296,6 +310,12 @@
         presetId: state._presetId || state.config.id
       });
     }
+    try {
+      var Wallet = global.PTTournamentWallet;
+      if (Wallet && Wallet.credit && prizeEur > 0) {
+        Wallet.credit(prizeEur, { type: 'prize', tournamentId: state.id, place: place });
+      }
+    } catch (eW) { /* ignore */ }
     return state.result;
   }
 

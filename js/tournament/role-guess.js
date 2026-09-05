@@ -8,12 +8,12 @@
   var XP_CAP = 150;
 
   var ROLE_LABELS = {
-    fish: 'Fish',
-    nit: 'Nit',
-    tag: 'TAG',
-    lag: 'LAG',
-    maniac: 'Maníaco',
-    pro: 'Pro'
+    fish: 'Fish (loose-pasivo)',
+    nit: 'Nit (tight-pasivo)',
+    tag: 'TAG (tight-agresivo)',
+    lag: 'LAG (loose-agresivo)',
+    maniac: 'Maníaco (hiper-agresivo)',
+    pro: 'Pro (GTO+)'
   };
 
   function setGuess(state, playerId, roleId) {
