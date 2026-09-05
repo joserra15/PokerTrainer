@@ -150,6 +150,7 @@
   <noscript>
     <link rel="stylesheet" href="css/styles.css" />
     <link rel="stylesheet" href="css/legendary.css" />
+    <link rel="stylesheet" href="css/tournaments.css" />
   </noscript>
   <script>
   (function () {
@@ -159,7 +160,8 @@
        navegador. Aquí se detecta y se reintenta saltando caché y SW. */
     var SHEETS = [
       { id: 'pt-css', href: 'css/styles.css' },
-      { id: 'pt-css-legendary', href: 'css/legendary.css' }
+      { id: 'pt-css-legendary', href: 'css/legendary.css' },
+      { id: 'pt-css-tournaments', href: 'css/tournaments.css' }
     ];
     var MAX_TRIES = 2;
     var tries = {};
@@ -515,6 +517,7 @@
         <button class="tab" data-tab="play" data-i18n="tab.play">Entrenar</button>
         <button class="tab tab-school" data-tab="school" data-i18n="tab.school">Escuela de Póker</button>
         <button class="tab tab-legendary hidden" data-tab="legendary" data-i18n="tab.legendary">Manos legendarias</button>
+        <button class="tab tab-tournaments hidden" data-tab="tournaments">Torneos</button>
         <button class="tab" data-tab="learn" data-i18n="tab.learn">Guía básica</button>
         <button class="tab" data-tab="analysis" data-i18n="tab.analysis">Análisis</button>
         <button class="tab" data-tab="ranges" data-i18n="tab.ranges">Rangos</button>
@@ -699,6 +702,10 @@
     <!-- ===== MANOS LEGENDARIAS ===== -->
     <section id="tab-legendary" class="tab-panel">
       <div id="legendary-content" class="legendary-content"></div>
+    </section>
+
+    <section id="tab-tournaments" class="tab-panel">
+      <div id="tournaments-content" class="tournaments-content"></div>
     </section>
 
     <!-- ===== GUÍA BÁSICA ===== -->

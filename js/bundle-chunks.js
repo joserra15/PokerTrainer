@@ -143,6 +143,22 @@
       'js/legendary-share.js',
       'js/legendary-hands.js'
     ],
+    tournaments: [
+      'js/tournament/blinds.js',
+      'js/tournament/names.js',
+      'js/tournament/config.js',
+      'js/tournament/seating.js',
+      'js/tournament/state.js',
+      'js/tournament/live-hand.js',
+      'js/tournament/other-tables.js',
+      'js/tournament/role-guess.js',
+      'js/tournament/stats.js',
+      'js/tournament/hud.js',
+      'js/tournament/store.js',
+      'js/tournament/runner.js',
+      'js/tournament/ui.js',
+      'js/tournament/index.js'
+    ],
     contact: ['js/contact.js'],
     manager: ['js/manager-panel.js'],
     admin: ['js/admin-panel.js', 'js/admin-promotions.js']
@@ -155,6 +171,7 @@
     CHUNKS.learn,
     CHUNKS.school,
     CHUNKS.legendary,
+    CHUNKS.tournaments,
     CHUNKS.contact,
     CHUNKS.manager,
     CHUNKS.admin
