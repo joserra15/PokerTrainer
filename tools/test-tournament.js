@@ -80,6 +80,7 @@ const FILES = [
   'js/tournament/names.js',
   'js/tournament/seating.js',
   'js/tournament/state.js',
+  'js/tournament/gto-eval.js',
   'js/tournament/live-hand.js',
   'js/tournament/other-tables.js',
   'js/tournament/role-guess.js',
@@ -382,12 +383,16 @@ FILES.forEach(function (f) { load(g, f); });
     const pre = acts.filter(function (f) { return f.street === 'preflop'; });
     let idx = -1;
     let wrapped = false;
+    let sawRaise = false;
     pre.forEach(function (f) {
       const at = order.indexOf(f.pos);
+      const a = String(f.action || '');
+      if (a === 'raise' || a === 'bet') sawRaise = true;
       if (at <= idx) wrapped = true;
       idx = at;
     });
-    assert.ok(!wrapped || pre.length > order.length - 1, 'orden preflop coherente');
+    /* Un wrap es legal tras reopen (3bet/call) o si ya hubo más de una órbita. */
+    assert.ok(!wrapped || sawRaise || pre.length > order.length - 1, 'orden preflop coherente');
   }
   acts.forEach(function (f) {
     assert.ok(!f.isHero, 'ningún fotograma del héroe antes de que actúe');
@@ -472,6 +477,90 @@ FILES.forEach(function (f) { load(g, f); });
   assert.ok(!loaded._liveHand._frames, 'frames no persistidos');
   g.PTTournamentStore.clearActive();
   console.log('OK frames-not-persisted');
+}
+
+
+// --- asientos: BTN → SB → BB en sentido horario ---
+{
+  const players = [0,1,2,3,4,5].map(function (i) {
+    return { id: 'p' + i, name: 'P' + i, seat: i, stack: 1500, alive: true };
+  });
+  const ordered = g.PTTournamentSeating.seatOrderWithButton(players, 'p0');
+  assert.deepStrictEqual(ordered.map(function (x) { return x.pos; }),
+    ['BTN', 'SB', 'BB', 'UTG', 'HJ', 'CO'], 'clockwise BTN-SB-BB-early');
+  // Tras rotar héroe en SB: siguiente es BB, no BTN
+  const ring = ordered.slice();
+  const hi = ring.findIndex(function (x) { return x.pos === 'SB'; });
+  const rotated = ring.slice(hi).concat(ring.slice(0, hi));
+  assert.strictEqual(rotated[0].pos, 'SB');
+  assert.strictEqual(rotated[1].pos, 'BB');
+  assert.notStrictEqual(rotated[1].pos, 'BTN');
+  console.log('OK seating-clockwise');
+}
+
+// --- showdown: rueda A2345 empate AT vs J5 ---
+{
+  const seats = [
+    { player: { id: 'h', name: 'Hero', isHero: true, roleId: 'tag', stack: 1000 }, pos: 'BTN', seatIndex: 0 },
+    { player: { id: 'v', name: 'Vil', isHero: false, roleId: 'tag', stack: 1000 }, pos: 'BB', seatIndex: 1 }
+  ];
+  // Stub Cards with real-ish evaluate via rank arrays if needed
+  if (!g.Cards.evaluate || !g.Cards.evaluate.length) {
+    /* keep stub; inject wheel-aware evaluate */
+  }
+  // Use a minimal evaluator for wheel
+  const RANK = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'T':10,'J':11,'Q':12,'K':13,'A':14 };
+  g.Cards.evaluate = function (codes) {
+    const vals = codes.map(function (c) { return RANK[String(c)[0]]; });
+    const set = new Set(vals);
+    if (set.has(14)) set.add(1);
+    const d = Array.from(set).sort(function (a,b){return b-a;});
+    let run = 1;
+    for (let i = 0; i < d.length - 1; i++) {
+      if (d[i] - 1 === d[i+1]) { run++; if (run >= 5) return { category: 4, name: 'Escalera', rank: [4, d[i-3]] }; }
+      else run = 1;
+    }
+    return { category: 0, name: 'Carta alta', rank: [0].concat(vals.sort(function(a,b){return b-a;}).slice(0,5)) };
+  };
+  g.Cards.compare = function (a, b) {
+    const ra = a.rank || [], rb = b.rank || [];
+    for (let i = 0; i < Math.max(ra.length, rb.length); i++) {
+      const x = ra[i] || 0, y = rb[i] || 0;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  };
+  const hand = g.PTTournamentLiveHand.start(seats, { sb: 10, bb: 20 }, 'h');
+  hand.seats[0].cards = ['As', 'Ts'];
+  hand.seats[1].cards = ['5c', 'Js'];
+  hand.boardDeck = ['3h', '4s', '2c', '5h', 'Ad'];
+  hand.board = [];
+  hand.street = 'river';
+  hand.pot = 200;
+  hand.seats.forEach(function (s) {
+    s.invested = 100; s.streetInvested = 100; s.stack = 900; s.folded = false; s.allIn = true;
+    hand.acted[s.id] = true;
+  });
+  hand.awaitingHero = false;
+  g.PTTournamentLiveHand.runToHeroOrEnd(hand);
+  assert.strictEqual(hand.stage, 'complete', 'wheel hand completes');
+  assert.ok(hand.result.tied, 'wheel chop tied');
+  assert.strictEqual(hand.result.winners.length, 2, 'both winners');
+  assert.ok(Math.abs(hand.result.deltas.h) < 0.02, 'hero delta ~0 got ' + hand.result.deltas.h);
+  assert.ok(Math.abs(hand.result.deltas.v) < 0.02, 'villain delta ~0');
+  console.log('OK showdown-wheel-chop');
+}
+
+// --- Koins formatter ---
+{
+  assert.ok(String(g.PTTournamentHud.fmtKoins(5)).indexOf('Koins') >= 0, 'fmtKoins');
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 1 });
+  const rows = g.PTTournamentHud.infoRows(state);
+  const top = rows.find(function (r) { return /Top 10/i.test(r.label); });
+  assert.ok(top, 'info has top 10');
+  const buy = rows.find(function (r) { return /Buy-in/i.test(r.label); });
+  assert.ok(buy && /Koins/.test(buy.value), 'buy-in in Koins');
+  console.log('OK koins-and-top10');
 }
 
 console.log('*** test-tournament OK ***');

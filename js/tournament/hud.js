@@ -9,11 +9,42 @@
     return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
   }
 
+  function fmtKoins(n) {
+    n = Math.round((Number(n) || 0) * 100) / 100;
+    var s = String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
+    return s + ' Koins';
+  }
+
   function currentBlinds(state) {
     var Blinds = global.PTTournamentBlinds;
     var sched = state.config && state.config.blindSchedule;
     if (!Blinds || !sched) return { level: 1, sb: 10, bb: 20, ante: 0, hands: 8 };
     return Blinds.currentLevel(sched, state.handIndex || 0);
+  }
+
+  function topStacks(state, limit) {
+    limit = limit || 10;
+    var Seat = global.PTTournamentSeating;
+    var lv = currentBlinds(state);
+    var bb = Math.max(1, Number(lv.bb) || 20);
+    var alive = Seat && Seat.alivePlayers
+      ? Seat.alivePlayers(state)
+      : (state.players || []).filter(function (p) { return p.alive && p.stack > 0; });
+    return alive.slice().sort(function (a, b) {
+      if (b.stack !== a.stack) return b.stack - a.stack;
+      return String(a.id).localeCompare(String(b.id));
+    }).slice(0, limit).map(function (p, i) {
+      var stack = Number(p.stack) || 0;
+      return {
+        rank: i + 1,
+        id: p.id,
+        name: p.isHero ? 'Héroe' : (p.name || p.id),
+        isHero: !!p.isHero,
+        stack: stack,
+        bb: Math.round((stack / bb) * 10) / 10,
+        tableId: p.tableId || null
+      };
+    });
   }
 
   function fieldChip(state) {
@@ -28,7 +59,6 @@
 
   function compactChips(state) {
     var Blinds = global.PTTournamentBlinds;
-    var Seat = global.PTTournamentSeating;
     var St = global.PTTournamentState;
     var cfg = state.config || {};
     var hero = St.hero(state);
@@ -36,9 +66,9 @@
     var bb = Math.max(1, Number(lv.bb) || 20);
     var stackBb = hero ? Math.round(((Number(hero.stack) || 0) / bb) * 10) / 10 : 0;
     var kind = (cfg.kind === 'sng' ? 'SNG' : 'MTT');
-    var chips = [
+    return [
       { text: kind, cls: 'trn-chip trn-chip-kind', title: cfg.name || kind },
-      { text: stackBb + 'bb', cls: 'trn-chip trn-chip-stack', title: 'Stack Hero' },
+      { text: stackBb + ' bb', cls: 'trn-chip trn-chip-stack', title: 'Stack Hero' },
       { text: fieldChip(state), cls: 'trn-chip trn-chip-field', title: 'Posición en el field' },
       {
         text: Blinds && Blinds.labelFor ? Blinds.labelFor(lv) : ('Nv.' + lv.level),
@@ -46,7 +76,6 @@
         title: 'Nivel de ciegas'
       }
     ];
-    return chips;
   }
 
   function payoutLadderSummary(cfg) {
@@ -58,7 +87,7 @@
     var n = Math.min(euros.length, 5);
     for (var i = 0; i < n; i++) {
       var pct = Math.round((fracs[i] || 0) * 1000) / 10;
-      parts.push((i + 1) + 'º ' + pct + '%');
+      parts.push((i + 1) + 'º ' + pct + '% · ' + fmtKoins(euros[i]));
     }
     if (euros.length > n) parts.push('…');
     return parts.join(' · ') || '—';
@@ -81,12 +110,9 @@
     var next = Blinds.nextLevel(cfg.blindSchedule, state.handIndex || 0);
     var placesPaid = Number(cfg.placesPaid) || 0;
     var toItm = Math.max(0, left - placesPaid);
-    var bubbleLabel;
-    if (left > placesPaid) {
-      bubbleLabel = left + ' left · ' + placesPaid + ' paid (faltan ' + toItm + ' para ITM)';
-    } else {
-      bubbleLabel = 'ITM · ' + left + ' left · ' + placesPaid + ' paid';
-    }
+    var bubbleLabel = left > placesPaid
+      ? (left + ' left · ' + placesPaid + ' paid (faltan ' + toItm + ' para ITM)')
+      : ('ITM · ' + left + ' left · ' + placesPaid + ' paid');
 
     var heroStack = hero ? (Number(hero.stack) || 0) : 0;
     var heroBb = Math.round((heroStack / bb) * 10) / 10;
@@ -98,7 +124,7 @@
       ? ('Hero en mesa ' + String(heroTable.id).replace(/^T/, '') + ' · ' + tablesActive + ' mesa' + (tablesActive === 1 ? '' : 's'))
       : (tablesActive + ' mesa' + (tablesActive === 1 ? '' : 's'));
 
-    var pool = Cfg && Cfg.prizePool ? Cfg.prizePool(cfg) : (cfg.buyInEur * cfg.entries);
+    var pool = Cfg && Cfg.prizePool ? Cfg.prizePool(cfg) : ((cfg.buyInEur || 0) * (cfg.entries || 0));
     var progressHands = until == null
       ? ('Nivel ' + lv.level + ' · último nivel')
       : ('Nivel ' + lv.level + ' · ' + into + '/' + lv.hands + ' manos hasta ciegas');
@@ -115,6 +141,13 @@
       ? (rank + 'º de ' + left + ' restantes (' + cfg.entries + ' iniciales)')
       : (left + ' restantes (' + cfg.entries + ' iniciales)');
 
+    var top = topStacks(state, 10);
+    var topLabel = top.length
+      ? top.map(function (t) {
+        return t.rank + '. ' + t.name + ' ' + fmtNum(t.stack) + ' (' + t.bb + ' bb)';
+      }).join(' · ')
+      : '—';
+
     return [
       { label: 'Torneo', value: cfg.name || (cfg.kind === 'sng' ? 'SNG' : 'MTT') },
       { label: 'Avance', value: progressHands },
@@ -123,10 +156,11 @@
       { label: 'Media de fichas', value: fmtNum(avg) + ' (' + avgBb + ' bb)' },
       { label: 'Burbuja / ITM', value: bubbleLabel },
       { label: 'Puestos premiados', value: payoutLadderSummary(cfg) },
-      { label: 'Buy-in / prize pool', value: '€' + cfg.buyInEur + ' · pool €' + pool },
+      { label: 'Buy-in / prize pool', value: fmtKoins(cfg.buyInEur) + ' · pool ' + fmtKoins(pool) },
       { label: 'Mesas', value: tableLabel },
       { label: 'Ciegas actuales', value: blindsNow },
-      { label: 'Próximo nivel', value: nextLabel }
+      { label: 'Próximo nivel', value: nextLabel },
+      { label: 'Top 10 stacks', value: topLabel }
     ];
   }
 
@@ -134,6 +168,8 @@
     fieldChip: fieldChip,
     compactChips: compactChips,
     infoRows: infoRows,
-    currentBlinds: currentBlinds
+    currentBlinds: currentBlinds,
+    topStacks: topStacks,
+    fmtKoins: fmtKoins
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

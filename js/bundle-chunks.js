@@ -149,6 +149,7 @@
       'js/tournament/config.js',
       'js/tournament/seating.js',
       'js/tournament/state.js',
+      'js/tournament/gto-eval.js',
       'js/tournament/live-hand.js',
       'js/tournament/other-tables.js',
       'js/tournament/role-guess.js',

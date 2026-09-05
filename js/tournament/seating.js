@@ -121,29 +121,32 @@
     return nine.slice(9 - n);
   }
 
-  /** Ordena jugadores de una mesa con botón en `buttonPlayerId` y asigna labels de posición. */
+  /**
+   * Orden horario físico desde el botón: BTN → SB → BB → early (UTG…) → CO.
+   * (Antes SB/BB iban al final del anillo y, al rotar al héroe, quedaban
+   * “a la derecha” del BTN en vez de a su izquierda en el sentido de las agujas.)
+   */
   function seatOrderWithButton(players, buttonPlayerId) {
     var sorted = players.slice().sort(function (a, b) { return (a.seat || 0) - (b.seat || 0); });
     if (!sorted.length) return [];
     var btnIdx = sorted.findIndex(function (p) { return p.id === buttonPlayerId; });
     if (btnIdx < 0) btnIdx = 0;
     var rotated = sorted.slice(btnIdx).concat(sorted.slice(0, btnIdx));
-    // En heads-up: BTN = SB
     var n = rotated.length;
     var labels;
     if (n === 2) {
+      /* Heads-up: BTN = SB, el otro es BB. */
       labels = ['BTN', 'BB'];
     } else {
-      // rotated[0] = BTN; SB y BB son los dos últimos
       labels = new Array(n);
       labels[0] = 'BTN';
-      labels[n - 2] = 'SB';
-      labels[n - 1] = 'BB';
+      labels[1] = 'SB';
+      labels[2] = 'BB';
       var early = positionsForCount(n).filter(function (p) {
         return p !== 'BTN' && p !== 'SB' && p !== 'BB';
       });
       var ei = 0;
-      for (var i = 1; i < n - 2; i++) {
+      for (var i = 3; i < n; i++) {
         labels[i] = early[ei++] || ('S' + i);
       }
     }

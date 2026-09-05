@@ -59,6 +59,7 @@
     state.blindLevel = blinds.level || state.blindLevel;
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
+    Live.runToHeroOrEnd(hand);
     state._liveHand = hand;
     return hand;
   }
@@ -93,6 +94,12 @@
         bb: lv.bb,
         ante: lv.ante
       });
+      state.blindUpPending = {
+        level: lv.level,
+        sb: lv.sb,
+        bb: lv.bb,
+        ante: lv.ante
+      };
     }
     return lv;
   }
@@ -131,13 +138,58 @@
     Seat.rebalance(state);
     state._liveHand = null;
     state.handLog = state.handLog || [];
+    state.gtoSession = state.gtoSession || { decisions: 0, scored: 0, hits: 0, totalEvLoss: 0 };
+    var snapDec = (hand.decisions || []).slice();
+    if (snapDec.length) {
+      var GEval = global.PTTournamentGtoEval;
+      var sum = GEval && GEval.summarizeDecisions ? GEval.summarizeDecisions(snapDec) : null;
+      if (sum) {
+        state.gtoSession.decisions += sum.decisions;
+        state.gtoSession.scored += sum.scored;
+        state.gtoSession.hits += sum.hits;
+        state.gtoSession.totalEvLoss = Math.round((state.gtoSession.totalEvLoss + sum.totalEvLoss) * 100) / 100;
+        state.gtoSession.accuracy = state.gtoSession.scored
+          ? Math.round((state.gtoSession.hits / state.gtoSession.scored) * 1000) / 10
+          : 0;
+      }
+    }
     state.handLog.push({
       handIndex: state.handIndex,
       winners: (hand.result.winners || []).slice(),
       pot: hand.result.pot,
-      showdown: !!hand.result.showdown
+      showdown: !!hand.result.showdown,
+      tied: !!hand.result.tied,
+      board: (hand.result.board || hand.board || []).slice(),
+      street: hand.street,
+      sb: hand.sb,
+      bb: hand.bb,
+      ante: hand.ante,
+      seats: (hand.seats || []).map(function (s) {
+        return {
+          id: s.id,
+          name: s.name,
+          isHero: !!s.isHero,
+          pos: s.pos,
+          cards: (s.cards || []).slice(),
+          startStack: s.startStack,
+          stack: s.stack,
+          invested: s.invested,
+          folded: !!s.folded
+        };
+      }),
+      log: (hand.log || []).slice(),
+      decisions: snapDec,
+      result: {
+        deltas: Object.assign({}, hand.result.deltas || {}),
+        winners: (hand.result.winners || []).slice(),
+        showdown: !!hand.result.showdown,
+        tied: !!hand.result.tied,
+        pot: hand.result.pot,
+        handNames: Object.assign({}, hand.result.handNames || {}),
+        heroNet: hand.result.heroNet
+      }
     });
-    if (state.handLog.length > 40) state.handLog = state.handLog.slice(-40);
+    if (state.handLog.length > 80) state.handLog = state.handLog.slice(-80);
 
     var fin = checkFinished(state);
     return fin || state;
@@ -223,6 +275,7 @@
       roleScore: roleScore,
       xpGained: xp,
       stats: sum,
+      gtoSession: state.gtoSession || null,
       reason: opts.reason || 'finished'
     };
     state._liveHand = null;
