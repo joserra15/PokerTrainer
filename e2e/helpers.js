@@ -152,13 +152,31 @@ async function expectAnyVisible(locator, opts) {
   await expect(locator.first()).toBeVisible(opts || {});
 }
 
-async function skipActionPlaybackIfNeeded(page) {
+/**
+ * Salta el playback de mesa si está activo.
+ * @param {import('@playwright/test').Page} page
+ * @param {{ timeout?: number, optional?: boolean }} [opts]
+ *   optional=true → si no hay skip ni botones (mano terminada), no falla.
+ * @returns {Promise<boolean>} true si hay botones de decisión listos
+ */
+async function skipActionPlaybackIfNeeded(page, opts) {
+  opts = opts || {};
+  const timeout = opts.timeout != null ? opts.timeout : 20000;
+  const optional = !!opts.optional;
   const skip = playSkipButton(page);
   const actionBtn = playActionButtons(page);
-  await skip.or(actionBtn).first().waitFor({ state: 'visible', timeout: 20000 });
+  const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
+  try {
+    await skip.or(actionBtn).or(handEnd).first().waitFor({ state: 'visible', timeout: timeout });
+  } catch (err) {
+    if (optional) return false;
+    throw err;
+  }
+  if (await handEnd.isVisible().catch(() => false)) return false;
   // La línea de acción se re-renderiza en móvil; force + reintentos si el nodo se detach.
   for (let i = 0; i < 8; i++) {
-    if (await actionBtn.count()) return;
+    if (await actionBtn.count()) return true;
+    if (await handEnd.isVisible().catch(() => false)) return false;
     if (!(await skip.isVisible().catch(() => false))) break;
     try {
       await skip.click({ force: true, timeout: 2500 });
@@ -169,9 +187,12 @@ async function skipActionPlaybackIfNeeded(page) {
       .waitFor({ state: 'visible', timeout: 500 })
       .then(() => true)
       .catch(() => false);
-    if (ready) return;
+    if (ready) return true;
   }
-  await actionBtn.first().waitFor({ state: 'visible', timeout: 20000 });
+  if (await handEnd.isVisible().catch(() => false)) return false;
+  if (optional && !(await actionBtn.count())) return false;
+  await actionBtn.first().waitFor({ state: 'visible', timeout: timeout });
+  return true;
 }
 
 async function clickFirstPlayAction(page) {

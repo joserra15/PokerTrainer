@@ -33,17 +33,17 @@ test.describe('Entrenamiento completo @smoke', () => {
     // botón se detacha / no es estable.
     for (let i = 0; i < 16; i++) {
       if (await handEnd.isVisible().catch(() => false)) break;
-      const endVisible = await page.locator('#modal:not(.hidden) .hand-end-popup').isVisible().catch(() => false);
-      if (endVisible) break;
       await page.locator('#verdict-toast.visible').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
-      await skipActionPlaybackIfNeeded(page);
+      const ready = await skipActionPlaybackIfNeeded(page, { timeout: 8000, optional: true });
       if (await handEnd.isVisible().catch(() => false)) break;
+      if (!ready) break;
       const btns = playActionButtons(page);
       if (await btns.count() === 0) break;
       try {
         await btns.first().click({ timeout: 5000 });
       } catch (_) {
-        await skipActionPlaybackIfNeeded(page);
+        await skipActionPlaybackIfNeeded(page, { timeout: 5000, optional: true });
+        if (await handEnd.isVisible().catch(() => false)) break;
         if (await playActionButtons(page).count()) {
           await playActionButtons(page).first().click({ force: true, timeout: 5000 }).catch(() => {});
         }
