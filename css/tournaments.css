@@ -1324,9 +1324,13 @@
 
 /* Revelado paso a paso: asiento que acaba de actuar */
 .trn-play-like .seat.acting .seat-body {
-  border-color: rgba(245, 196, 81, .75);
-  box-shadow: 0 0 0 2px rgba(245, 196, 81, .28), 0 8px 20px rgba(0, 0, 0, .45);
+  outline: 2px solid rgba(245, 196, 81, .85);
+  outline-offset: 3px;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(245, 196, 81, .38);
 }
+
+.trn-play-like .seat.acting.folded { opacity: 1; }
 
 .trn-play-like .seat-act.is-acting {
   animation: trn-act-pop .32s ease-out;

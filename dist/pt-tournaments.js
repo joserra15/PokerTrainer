@@ -2375,7 +2375,8 @@
       stage: 'playing',
       awaitingHero: false,
       heroOptions: null,
-      result: null
+      result: null,
+      _anim: true
     };
   }
 
@@ -2870,6 +2871,9 @@
 
   function seatLastAct(hand, seat) {
     if (seat && seat.lastAction) return seat.lastAction;
+    /* En un fotograma solo vale lo ya revelado: el log completo destriparía
+       acciones que aún no han "ocurrido" en pantalla. */
+    if (hand && hand._anim) return null;
     return lastLogAct(hand, seat && seat.id);
   }
 
@@ -2934,7 +2938,8 @@
       var last = seatLastAct(hand, s);
       var actHtml = '';
       if (s.folded || (last && last.action === 'fold')) {
-        actHtml = '<div class="seat-act-wrap"><span class="seat-act fold">Fold</span></div>';
+        actHtml = '<div class="seat-act-wrap"><span class="seat-act fold' +
+          (s._acting ? ' is-acting' : '') + '">Fold</span></div>';
       } else if (last) {
         var actCls = actBadgeClass(last.action);
         var actTxt = formatActLabel(last.action, last.amount, bb);
