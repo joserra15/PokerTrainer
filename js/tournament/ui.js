@@ -388,11 +388,20 @@
   function paint() {
     if (!ui.root) return;
     var html = '';
-    if (ui.view === VIEW.setup) html = renderSetup();
-    else if (ui.view === VIEW.table) html = renderTable();
-    else if (ui.view === VIEW.result) html = renderResult();
-    else if (ui.view === VIEW.history) html = renderHistory();
-    else html = renderHub();
+    try {
+      if (ui.view === VIEW.setup) html = renderSetup();
+      else if (ui.view === VIEW.table) html = renderTable();
+      else if (ui.view === VIEW.result) html = renderResult();
+      else if (ui.view === VIEW.history) html = renderHistory();
+      else html = renderHub();
+    } catch (err) {
+      console.error('[PTTournamentsUI] paint', err);
+      ui.root.innerHTML =
+        '<div class="trn-hub"><p class="muted">Error al pintar Torneos.</p>' +
+        '<button type="button" class="btn" data-act="hub">Volver al hub</button></div>';
+      try { bind(ui.root); } catch (e2) { /* noop */ }
+      return;
+    }
     ui.root.innerHTML = html;
     bind(ui.root);
   }
