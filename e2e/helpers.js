@@ -178,7 +178,30 @@ async function clickFirstPlayAction(page) {
   await skipActionPlaybackIfNeeded(page);
   const actionBtn = playActionButtons(page);
   await actionBtn.first().waitFor({ state: 'visible', timeout: 20000 });
-  await actionBtn.first().click();
+  // Re-renders post-acción (toast / multiway) detachán el nodo; force evita 90s de retry.
+  await actionBtn.first().click({ force: true, timeout: 5000 });
+}
+
+/** Avanza la mano: espera toast, salta playback o fuerza la 1ª decisión. */
+async function advancePlayHand(page) {
+  const handEnd = page.locator('#modal:not(.hidden) .hand-end-popup');
+  if (await handEnd.isVisible().catch(() => false)) return 'hand-end';
+  // El toast visible anima la mesa y desestabiliza #actions.
+  await page.locator('#verdict-toast.visible').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+  if (await handEnd.isVisible().catch(() => false)) return 'hand-end';
+  await skipActionPlaybackIfNeeded(page);
+  if (await handEnd.isVisible().catch(() => false)) return 'hand-end';
+  const btns = playActionButtons(page);
+  if ((await btns.count()) === 0) return 'idle';
+  try {
+    await btns.first().click({ timeout: 5000 });
+  } catch (_) {
+    await skipActionPlaybackIfNeeded(page);
+    if (await playActionButtons(page).count()) {
+      await playActionButtons(page).first().click({ force: true, timeout: 5000 }).catch(() => {});
+    }
+  }
+  return 'action';
 }
 
 async function goTab(page, tab) {
