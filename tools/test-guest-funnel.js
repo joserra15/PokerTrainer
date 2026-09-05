@@ -88,11 +88,11 @@ assert.ok(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
 assert.strictEqual(F.visitorId(), vid, 'vid estable');
 assert.strictEqual(localStore.pt_funnel_vid, vid, 'persiste en localStorage');
 
-const payload = F.rpcPayload('guest_hand', { index: 3, trap: 'g1-ato-bb-vs-utg' });
+const payload = F.rpcPayload('guest_hand', { index: 3, trap: 'g1-a9o-bb-vs-utg' });
 assert.strictEqual(payload.p_visitor_id, vid);
 assert.strictEqual(payload.p_event, 'guest_hand');
 assert.strictEqual(payload.p_hand_index, 3);
-assert.strictEqual(payload.p_trap_id, 'g1-ato-bb-vs-utg');
+assert.strictEqual(payload.p_trap_id, 'g1-a9o-bb-vs-utg');
 
 assert.strictEqual(F.track('not_an_event'), false, 'rechaza evento desconocido');
 assert.strictEqual(F.track('cta_try'), true, 'primer cta_try');

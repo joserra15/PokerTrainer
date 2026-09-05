@@ -105,8 +105,8 @@ assert.ok(/migrateLocalUserKeys/.test(src), 'merge guest→cuenta');
 assert.ok(/returnToLanding/.test(src) && /data-guest-landing/.test(src), 'Volver al inicio');
 
 const trapsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/guest-traps.js'), 'utf8');
-assert.ok(/g1-ato-bb-vs-utg/.test(trapsSrc) && /g4-kjo-sb-vs-utg/.test(trapsSrc), 'trampas preflop clásicas + SB');
-assert.ok(/board: \['Th', '8h'/.test(trapsSrc), 'mano 1 flop 10');
+assert.ok(/g1-a9o-bb-vs-utg/.test(trapsSrc) && /g4-kjo-sb-vs-utg/.test(trapsSrc), 'trampas preflop clásicas + SB');
+assert.ok(/board: \['9h', '8h'/.test(trapsSrc), 'mano 1 flop 9 (par + draw)');
 assert.ok(/guestNeverFold: true/.test(trapsSrc) && /villainCards: \['As', 'Qc'\]/.test(trapsSrc),
   'mano 2/4 villano no foldea; mano 4 AQ');
 assert.ok(/id: 'limp'/.test(fs.readFileSync(path.join(__dirname, '..', 'js/engine.js'), 'utf8')), 'limp guest en RFI');
