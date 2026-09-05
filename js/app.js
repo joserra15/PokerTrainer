@@ -2228,6 +2228,13 @@
         goToTab('home');
         return;
       }
+      const tournamentsHost = $('#tournaments-content');
+      if (tournamentsHost && !tournamentsHost.querySelector('.trn-hub, .trn-setup, .trn-table-view, .trn-result, .trn-history')) {
+        tournamentsHost.innerHTML =
+          '<div class="trn-hub" aria-busy="true">' +
+          '<p class="muted" style="padding:28px 16px;text-align:center">Cargando Torneos…</p>' +
+          '</div>';
+      }
       withLazyChunk('tournaments', function () {
         if (window.PTTournaments && window.PTTournaments.menuVisible &&
             !window.PTTournaments.menuVisible()) {
@@ -2237,8 +2244,26 @@
         if (window.PTTournaments && window.PTTournaments.refreshMenuVisibility) {
           window.PTTournaments.refreshMenuVisibility();
         }
+        const host = tournamentsHost || $('#tournaments-content');
         if (window.PTTournaments && window.PTTournaments.render) {
-          window.PTTournaments.render($('#tournaments-content'));
+          try {
+            window.PTTournaments.render(host);
+          } catch (err) {
+            console.error('[PT] tournaments render', err);
+            if (host) {
+              host.innerHTML =
+                '<div class="trn-hub"><p class="muted">Error al mostrar Torneos.</p>' +
+                '<button type="button" class="btn" data-trn-reload>Reintentar</button></div>';
+              const retry = host.querySelector('[data-trn-reload]');
+              if (retry) retry.addEventListener('click', function () { goToTab('tournaments'); });
+            }
+          }
+        } else if (host) {
+          host.innerHTML =
+            '<div class="trn-hub"><p class="muted">No se pudo cargar el módulo de Torneos.</p>' +
+            '<button type="button" class="btn" data-trn-reload>Reintentar</button></div>';
+          const retry = host.querySelector('[data-trn-reload]');
+          if (retry) retry.addEventListener('click', function () { goToTab('tournaments'); });
         }
       });
     }
