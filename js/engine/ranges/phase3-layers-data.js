@@ -429,17 +429,17 @@ window.PT_PHASE3_LAYERS_JSON = {
         "BB_vs_LJ": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
-          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "BB_vs_UTG1": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-          "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "BB_vs_UTG2": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
-          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "HJ_vs_UTG": {
           "threeBet": "QQ+, AKs, AKo",
@@ -468,7 +468,7 @@ window.PT_PHASE3_LAYERS_JSON = {
         "BB_vs_UTG": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-          "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "HJ_vs_UTG2": {
           "threeBet": "QQ+, AKs, AKo",
@@ -645,17 +645,17 @@ window.PT_PHASE3_LAYERS_JSON = {
         "BB_vs_LJ": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
-          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "BB_vs_UTG1": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-          "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "BB_vs_UTG2": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
-          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "HJ_vs_UTG": {
           "threeBet": "QQ+, AKs, AKo",
@@ -684,7 +684,7 @@ window.PT_PHASE3_LAYERS_JSON = {
         "BB_vs_UTG": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-          "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "HJ_vs_UTG2": {
           "threeBet": "QQ+, AKs, AKo",
@@ -861,19 +861,19 @@ window.PT_PHASE3_LAYERS_JSON = {
         "BB_vs_LJ": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
-          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "BB_vs_UTG1": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-          "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "BB_vs_UTG2": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
-          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "HJ_vs_UTG": {
@@ -903,7 +903,7 @@ window.PT_PHASE3_LAYERS_JSON = {
         "BB_vs_UTG": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-          "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "HJ_vs_UTG2": {
@@ -1085,19 +1085,19 @@ window.PT_PHASE3_LAYERS_JSON = {
         "BB_vs_LJ": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
-          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "BB_vs_UTG1": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-          "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "BB_vs_UTG2": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
-          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "HJ_vs_UTG": {
@@ -1127,7 +1127,7 @@ window.PT_PHASE3_LAYERS_JSON = {
         "BB_vs_UTG": {
           "threeBet": "QQ+, AKs, AKo",
           "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-          "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
+          "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "HJ_vs_UTG2": {

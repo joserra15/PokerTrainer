@@ -103,6 +103,18 @@ const bbUtgCont = continueSet(bbUtg);
 });
 console.log('OK BB vs UTG: ATo/JTo continúan');
 
+// BB vs UTG/HJ/CO/BTN: gappers y Q9o (consenso solvers).
+['K8s', 'Q8s', 'J8s', 'T8s', '97s', '86s'].forEach((h) => {
+  assert.ok(bbUtgCont.has(h), 'BB vs UTG debe continuar ' + h);
+});
+const bbHjCont = continueSet(vsRfi.pairs.BB_vs_HJ);
+['97s', '86s', 'T8s'].forEach((h) => {
+  assert.ok(bbHjCont.has(h), 'BB vs HJ debe continuar ' + h);
+});
+assert.ok(continueSet(vsRfi.pairs.BB_vs_CO).has('T9o'), 'BB vs CO debe continuar T9o');
+assert.ok(continueSet(vsRfi.pairs.BB_vs_BTN).has('Q9o'), 'BB vs BTN debe continuar Q9o');
+console.log('OK BB defensa: gappers UTG/HJ, T9o vs CO, Q9o vs BTN');
+
 // --- vs-3bet ---
 const vs3 = loadJson('vs-3bet-6max-100bb.json');
 assert.ok(vs3.pairs && typeof vs3.pairs === 'object', 'vs-3bet: pairs');
@@ -110,6 +122,14 @@ const vs3Keys = Object.keys(vs3.pairs);
 assert.ok(vs3Keys.length >= 10, 'vs-3bet: al menos 10 pares, hay ' + vs3Keys.length);
 const vs3Must = ['UTG_vs_BTN', 'CO_vs_BTN', 'BTN_vs_BB'];
 vs3Must.forEach((k) => assert.ok(vs3.pairs[k], 'vs-3bet falta ' + k));
+
+{
+  const btnBb = continueSet(vs3.pairs.BTN_vs_BB);
+  assert.ok(btnBb.has('ATo'), 'BTN vs BB debe continuar ATo');
+  const coBb = continueSet(vs3.pairs.CO_vs_BB);
+  ['AJo', 'KQo'].forEach((h) => assert.ok(coBb.has(h), 'CO vs BB debe continuar ' + h));
+  console.log('OK vs-3bet: ATo BTN_vs_BB, AJo/KQo CO_vs_BB');
+}
 
 sandbox.window.PT_VS_3BET_JSON = vs3;
 sandbox.window.PTRangesJsonLoader.init();

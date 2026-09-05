@@ -75,6 +75,7 @@
     "test:flop-turn-freq": "node tools/test-flop-turn-freq-duplicate.js",
     "test:gto-eval-ui": "node tools/test-gto-eval-ui.js",
     "test:ranges": "node tools/validate-ranges-json.js",
+    "test:audit-ranges": "node tools/audit-ranges-vs-consensus.js",
     "test:range-tables": "node tools/test-range-tables.js",
     "sync:ranges": "node tools/sync-ranges-solver-data.js",
     "test:trainer-presets": "node tools/test-trainer-presets.js",

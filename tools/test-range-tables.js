@@ -295,11 +295,13 @@ Object.keys(D.VS_RFI || {}).forEach((key) => {
 
 {
   const cont = unionFields(D.VS_RFI.BB_vs_UTG, VS_CONT);
-  ['ATo', 'AJo', 'JTo', 'KJo', 'QJo'].forEach((h) => {
+  ['ATo', 'AJo', 'JTo', 'KJo', 'QJo', 'K8s', 'T8s', '97s', '86s'].forEach((h) => {
     ok(cont.has(h), 'BB_vs_UTG continúa ' + h);
   });
   const st = ST.vsRfiStrategy('BB_vs_UTG', 'ATo');
   ok(st.call >= 0.99 && st.fold < 0.01, 'BB_vs_UTG ATo ~100% call (fold=' + st.fold + ')');
+  ok(unionFields(D.VS_RFI.BB_vs_BTN, VS_CONT).has('Q9o'), 'BB_vs_BTN continúa Q9o');
+  ok(unionFields(D.VS_RFI.BB_vs_CO, VS_CONT).has('T9o'), 'BB_vs_CO continúa T9o');
 }
 
 // ---------------------------------------------------------------------------
