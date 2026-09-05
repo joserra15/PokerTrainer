@@ -272,14 +272,31 @@
     return !!(cards && cards.length === 2 && cards[0] && cards[1] && cards[0] !== cards[1]);
   }
 
+  function cloneHoleCardsMap(map) {
+    if (!map || typeof map !== 'object') return null;
+    const out = {};
+    let n = 0;
+    Object.keys(map).forEach(function (pos) {
+      if (!isValidPair(map[pos])) return;
+      out[pos] = map[pos].slice(0, 2);
+      n++;
+    });
+    return n ? out : null;
+  }
+
   function cloneForceDeal(fd) {
     if (!fd) return null;
-    return {
+    const out = {
       heroCards: isValidPair(fd.heroCards) ? fd.heroCards.slice() : null,
       villainCards: isValidPair(fd.villainCards) ? fd.villainCards.slice() : null,
       board: (fd.board || []).filter(Boolean).slice(0, 5),
-      villainPos: fd.villainPos || null
+      villainPos: fd.villainPos || null,
+      holeCards: cloneHoleCardsMap(fd.holeCards),
+      facingBet: !!fd.facingBet
     };
+    // Objeto vacío (sin hero ni holeCards) no sirve como forceDeal de replay.
+    if (!out.heroCards && !out.holeCards && !out.board.length) return null;
+    return out;
   }
 
   function cloneForceScript(fs) {
@@ -298,27 +315,122 @@
     };
   }
 
+  /** Snapshot completo del deal real: hero, villanos, board 5 y mapa de hoyos. */
+  function snapshotForceDealFromHand(hand) {
+    if (!hand) return null;
+    const heroCards = hand.hero && isValidPair(hand.hero.cards) ? hand.hero.cards.slice() : null;
+    const vRaw = villainHoleCards(hand);
+    const villainCards = isValidPair(vRaw) ? vRaw.slice() : null;
+    const boardSrc = (hand._predeal && hand._predeal.board && hand._predeal.board.length)
+      ? hand._predeal.board
+      : (hand.board || []);
+    const holeCards = {};
+    if (hand.table && hand.table.holeCards) {
+      Object.keys(hand.table.holeCards).forEach(function (pos) {
+        const c = hand.table.holeCards[pos];
+        if (isValidPair(c)) holeCards[pos] = c.slice(0, 2);
+      });
+    }
+    const base = hand.forceDeal ? cloneForceDeal(hand.forceDeal) : null;
+    const merged = {
+      heroCards: heroCards || (base && base.heroCards) || null,
+      villainCards: villainCards || (base && base.villainCards) || null,
+      board: boardSrc.filter(Boolean).slice(0, 5),
+      villainPos: (hand.villain && hand.villain.pos)
+        || (base && base.villainPos)
+        || null,
+      holeCards: Object.keys(holeCards).length
+        ? holeCards
+        : (base && base.holeCards) || null,
+      facingBet: !!(base && base.facingBet)
+    };
+    if (!merged.heroCards && !(merged.holeCards && Object.keys(merged.holeCards).length)) return null;
+    return merged;
+  }
+
+  /** Guion de replay desde forceScript existente o desde actionLine de la mano. */
+  function snapshotForceScriptFromHand(hand) {
+    if (!hand) return null;
+    if (hand.forceScript && hand.forceScript.actions && hand.forceScript.actions.length) {
+      return cloneForceScript(hand.forceScript);
+    }
+    const line = hand.actionLine || [];
+    const actions = [];
+    line.forEach(function (e) {
+      if (!e || e.kind === 'street') return;
+      const type = e.type || e.action;
+      if (!e.pos || !type) return;
+      actions.push({
+        street: e.street || null,
+        pos: e.pos,
+        action: type,
+        amountBB: e.amount != null ? e.amount : null
+      });
+    });
+    if (!actions.length) return null;
+    return {
+      heroPos: (hand.hero && hand.hero.pos) || null,
+      villainPos: (hand.villain && hand.villain.pos) || null,
+      actions: actions
+    };
+  }
+
+  function attachReplaySnapshot(hand) {
+    if (!hand) return null;
+    hand.replaySnapshot = {
+      scenario: Object.assign({}, hand.scenario || {}),
+      seed: hand.seed,
+      playConfig: hand.playConfig ? Object.assign({}, hand.playConfig) : null,
+      displayHeroPos: hand.displayHeroPos || null,
+      forceDeal: snapshotForceDealFromHand(hand),
+      forceScript: snapshotForceScriptFromHand(hand),
+      multiway: !!hand.multiway,
+      potType: hand.potType || null
+    };
+    return hand.replaySnapshot;
+  }
+
   function markForcedSeat(hand, seat, cards) {
     if (!seat || !isValidPair(cards)) return;
     hand._forcedHole = hand._forcedHole || {};
     hand._forcedHole[seat] = cards.slice();
   }
 
+  /** Bloquea el asiento visible y, en 9max, también el pos de motor del héroe. */
+  function markHeroForced(hand, cards) {
+    if (!hand || !isValidPair(cards)) return;
+    const hSeat = heroTableSeat(hand);
+    if (hSeat) markForcedSeat(hand, hSeat, cards);
+    if (hand.hero && hand.hero.pos && hand.hero.pos !== hSeat) {
+      // Alias LJ→HJ etc.: no remuestrear el asiento de motor ni pisar hero.cards.
+      markForcedSeat(hand, hand.hero.pos, cards);
+    }
+  }
+
   function isForcedSeat(hand, pos) {
     if (!hand || !hand._forcedHole || !pos) return false;
     if (hand._forcedHole[pos]) return true;
     const seat = tableSeatForEnginePos(hand, pos);
-    return !!(seat && hand._forcedHole[seat]);
+    if (seat && hand._forcedHole[seat]) return true;
+    // Replay 9max: si el asiento visible del héroe está forzado, su pos de motor también.
+    const hSeat = heroTableSeat(hand);
+    if (hand.hero && hSeat && hand._forcedHole[hSeat]) {
+      if (pos === hand.hero.pos || pos === hSeat) return true;
+    }
+    if (hand.hero && hand.hero.pos && hand._forcedHole[hand.hero.pos]) {
+      if (pos === hand.hero.pos || (hSeat && pos === hSeat)) return true;
+    }
+    return false;
   }
 
   /**
-   * Inyecta cartas fijas (héroe, villano y comunitarias) manteniendo el resto de
-   * la mano coherente. Usado al "jugar en el entrenador" una mano de análisis:
-   * las cartas se bloquean (no se remuestrean) y el villano sigue la línea real
-   * hasta que el héroe se desvíe.
+   * Inyecta cartas fijas (héroe, villano, board y opcionalmente todos los hoyos)
+   * manteniendo el resto coherente. Usado al "jugar en el entrenador" / replay
+   * desde histórico: las cartas se bloquean (no se remuestrean).
    */
   function applyForcedHand(hand, fd) {
     if (!fd || !hand.table || !hand.table.holeCards) return;
+    const holeMap = cloneHoleCardsMap(fd.holeCards);
     const heroCards = isValidPair(fd.heroCards) ? fd.heroCards.slice() : null;
     const villainCards = isValidPair(fd.villainCards) ? fd.villainCards.slice() : null;
     const board = (fd.board || []).filter(Boolean).slice(0, 5);
@@ -335,32 +447,64 @@
         hand.villain.pos = vSeat;
       }
     }
-    if (vSeat && hand._predeal && !legendary) hand._predeal.villainPos = vSeat;
-    else if (vSeat && hand._predeal && legendary) hand._predeal.villainPos = vSeat;
+    if (vSeat && hand._predeal) hand._predeal.villainPos = vSeat;
+
     const hc = hand.table.holeCards;
-    const forcedDead = [].concat(heroCards || [], villainCards || [], board);
-    const kept = [];
-    const redeal = [];
-    Object.keys(hc).forEach(function (pos) {
-      if (pos === heroSeat && heroCards) return;
-      if (pos === vSeat && villainCards) return;
-      const cur = hc[pos];
-      if (cur && cur.length === 2 && !cur.some(function (c) { return forcedDead.indexOf(c) >= 0; })) {
-        kept.push(cur[0], cur[1]);
-      } else {
-        redeal.push(pos);
-      }
-    });
-    const deck = C.shuffledDeckExcluding(forcedDead.concat(kept));
-    redeal.forEach(function (pos) {
-      if (deck.length >= 2) hc[pos] = [deck.pop(), deck.pop()];
-    });
+
+    // Mapa completo de hoyos (replay histórico): aplicar y bloquear todos.
+    if (holeMap) {
+      Object.keys(holeMap).forEach(function (pos) {
+        const cards = holeMap[pos];
+        if (!isValidPair(cards)) return;
+        hc[pos] = cards.slice();
+        markForcedSeat(hand, pos, cards);
+      });
+    }
+
+    const forcedDead = [];
+    function pushDead(c) {
+      if (c && forcedDead.indexOf(c) < 0) forcedDead.push(c);
+    }
+    (heroCards || []).forEach(pushDead);
+    (villainCards || []).forEach(pushDead);
+    board.forEach(pushDead);
+    if (holeMap) {
+      Object.keys(holeMap).forEach(function (pos) {
+        holeMap[pos].forEach(pushDead);
+      });
+    }
+
+    // Si no hay mapa completo, re-reparte asientos en conflicto como antes.
+    if (!holeMap) {
+      const kept = [];
+      const redeal = [];
+      Object.keys(hc).forEach(function (pos) {
+        if (pos === heroSeat && heroCards) return;
+        if (pos === vSeat && villainCards) return;
+        const cur = hc[pos];
+        if (cur && cur.length === 2 && !cur.some(function (c) { return forcedDead.indexOf(c) >= 0; })) {
+          kept.push(cur[0], cur[1]);
+        } else {
+          redeal.push(pos);
+        }
+      });
+      const deck = C.shuffledDeckExcluding(forcedDead.concat(kept));
+      redeal.forEach(function (pos) {
+        if (deck.length >= 2) hc[pos] = [deck.pop(), deck.pop()];
+      });
+    }
+
     if (heroCards) {
       hc[heroSeat] = heroCards.slice();
       hand.hero.cards = heroCards.slice();
       hand.hero.code = R.handCode(heroCards[0], heroCards[1]);
-      markForcedSeat(hand, heroSeat, heroCards);
+      markHeroForced(hand, heroCards);
+    } else if (heroSeat && hc[heroSeat] && isValidPair(hc[heroSeat])) {
+      hand.hero.cards = hc[heroSeat].slice();
+      hand.hero.code = R.handCode(hand.hero.cards[0], hand.hero.cards[1]);
+      markHeroForced(hand, hand.hero.cards);
     }
+
     if (villainCards && vSeat) {
       hc[vSeat] = villainCards.slice();
       if (hand.villain) {
@@ -369,11 +513,20 @@
       }
       if (hand._predeal) hand._predeal.villainCards = villainCards.slice();
       markForcedSeat(hand, vSeat, villainCards);
+    } else if (vSeat && hc[vSeat] && isValidPair(hc[vSeat])) {
+      if (hand.villain) hand.villain.cards = hc[vSeat].slice();
+      if (hand._predeal) hand._predeal.villainCards = hc[vSeat].slice();
+      markForcedSeat(hand, vSeat, hc[vSeat]);
     }
+
     if (board.length) {
       let full = board.slice();
-      while (full.length < 5 && deck.length) full.push(deck.pop());
-      hand._predeal.board = full;
+      // Solo completar turn/river si el snapshot venía incompleto (manos antiguas).
+      if (full.length < 5) {
+        const deck = C.shuffledDeckExcluding(forcedDead.concat(full));
+        while (full.length < 5 && deck.length) full.push(deck.pop());
+      }
+      hand._predeal.board = full.slice(0, 5);
     }
   }
 
@@ -1346,14 +1499,24 @@
 
   function applyResampledSeatCards(hand, pos, seat, cards) {
     if (!cards || cards.length < 2) return;
+    const hSeat = heroTableSeat(hand);
+    const touchesHero = !!(hand.hero && (
+      seat === hSeat || pos === hSeat || pos === hand.hero.pos
+    ));
+    // Replay: no remuestrear ni pisar al héroe si su asiento (visible o motor) está forzado.
+    if (touchesHero && (
+      isForcedSeat(hand, hSeat) ||
+      (hand.hero.pos && isForcedSeat(hand, hand.hero.pos))
+    )) {
+      return;
+    }
     hand.table.holeCards[seat] = cards;
     if (seat !== pos) hand.table.holeCards[pos] = cards;
     const vSeat = villainTableSeat(hand);
     if (seat === vSeat || pos === vSeat || (hand.villain && pos === hand.villain.pos)) {
       hand.villain.cards = cards;
     }
-    const hSeat = heroTableSeat(hand);
-    if (hand.hero && (seat === hSeat || pos === hand.hero.pos)) {
+    if (touchesHero) {
       hand.hero.cards = cards.slice();
       if (R && R.handCode) hand.hero.code = R.handCode(cards[0], cards[1]);
     }
@@ -4702,16 +4865,7 @@
       syncTableToActivePot(hand);
     }
     hand.stage = 'complete';
-    hand.replaySnapshot = {
-      scenario: Object.assign({}, hand.scenario || {}),
-      seed: hand.seed,
-      playConfig: hand.playConfig ? Object.assign({}, hand.playConfig) : null,
-      displayHeroPos: hand.displayHeroPos || null,
-      forceDeal: cloneForceDeal(hand.forceDeal),
-      forceScript: cloneForceScript(hand.forceScript),
-      multiway: !!hand.multiway,
-      potType: hand.potType || null
-    };
+    attachReplaySnapshot(hand);
     const totalEvLoss = erroneousEvLoss(hand);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');
     const handScoreMeta = (global.GTOScoring && global.GTOScoring.scoreHand)
@@ -5230,6 +5384,7 @@
     rfiStrategy, vsRfiStrategy, classify,
     postflopStrategy, boardTexture, preflopEvLoss, postflopEvLoss, round2,
     buildMatrixInput,
+    attachReplaySnapshot, snapshotForceDealFromHand, snapshotForceScriptFromHand,
     // mazo único
     hasDuplicateCards, allDealtCards, deadCardsExcludingSeat,
     // multiway

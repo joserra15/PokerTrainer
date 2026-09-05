@@ -1006,11 +1006,27 @@
         seed: hand.replaySnapshot.seed,
         playConfig: hand.replaySnapshot.playConfig ? Object.assign({}, hand.replaySnapshot.playConfig) : null,
         displayHeroPos: hand.replaySnapshot.displayHeroPos || null,
+        multiway: !!hand.replaySnapshot.multiway,
+        potType: hand.replaySnapshot.potType || null,
         forceDeal: hand.replaySnapshot.forceDeal ? {
           heroCards: (hand.replaySnapshot.forceDeal.heroCards || []).slice(),
           villainCards: (hand.replaySnapshot.forceDeal.villainCards || []).slice(),
           board: (hand.replaySnapshot.forceDeal.board || []).slice(),
-          villainPos: hand.replaySnapshot.forceDeal.villainPos || null
+          villainPos: hand.replaySnapshot.forceDeal.villainPos || null,
+          facingBet: !!hand.replaySnapshot.forceDeal.facingBet,
+          holeCards: (function () {
+            const src = hand.replaySnapshot.forceDeal.holeCards;
+            if (!src || typeof src !== 'object') return null;
+            const out = {};
+            let n = 0;
+            Object.keys(src).forEach(function (pos) {
+              const c = src[pos];
+              if (!c || c.length !== 2 || !c[0] || !c[1] || c[0] === c[1]) return;
+              out[pos] = c.slice(0, 2);
+              n++;
+            });
+            return n ? out : null;
+          })()
         } : null,
         forceScript: hand.replaySnapshot.forceScript ? {
           heroPos: hand.replaySnapshot.forceScript.heroPos || null,
@@ -1030,7 +1046,11 @@
       heroCards: hand.hero.cards,
       villainPos: hand.villain.pos,
       villainCards: r.villainCards || hand.villain.cards,
-      board: r.board || hand.board,
+      // Preferir board completo del snapshot (5) para replay; si no, el board jugado.
+      board: (hand.replaySnapshot && hand.replaySnapshot.forceDeal && hand.replaySnapshot.forceDeal.board
+        && hand.replaySnapshot.forceDeal.board.length)
+        ? hand.replaySnapshot.forceDeal.board.slice()
+        : (r.board || hand.board),
       heroNet: r.heroNet || 0,
       totalEvLoss: r.totalEvLoss || 0,
       handScore: r.handScore != null ? r.handScore : (hand.handScore != null ? hand.handScore : null),

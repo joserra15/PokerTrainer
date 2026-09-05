@@ -1415,6 +1415,7 @@
         : (decision && decision.class === 'aceptable' ? 7 : 3)
     };
     try {
+      if (Engine() && Engine().attachReplaySnapshot) Engine().attachReplaySnapshot(hand);
       if (Store() && Store().saveHand) Store().saveHand(hand);
     } catch (e) { /* ignore */ }
   }

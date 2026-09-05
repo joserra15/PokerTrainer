@@ -30,6 +30,7 @@
     "test:share-hand": "node tools/test-share-hand.js",
     "test:contact-popup": "node tools/test-contact-pending-popup.js",
     "test:replay": "node tools/test-replay-hand.js",
+    "test:history-replay": "node tools/test-history-replay-cards.js",
     "test:entitlements": "node tools/test-entitlements.js",
     "test:cloud-merge": "node tools/test-cloud-merge.js",
     "test:cloud-sessions": "node tools/test-cloud-sessions.js",

@@ -2792,14 +2792,31 @@
     const disp = (snap && snap.displayHeroPos) || rec.displayHeroPos;
     if (disp && !pendingForce.heroPos) pendingForce.displayHeroPos = disp;
 
-    // Manos de análisis / cartas forzadas: restaurar deal y guion de línea real.
-    const forceDeal = (snap && snap.forceDeal) || rec.forceDeal ||
-      (rec.heroCards && rec.heroCards.length === 2 ? {
-        heroCards: rec.heroCards.slice(0, 2),
-        villainCards: (rec.villainCards && rec.villainCards.length === 2) ? rec.villainCards.slice(0, 2) : null,
-        board: (rec.board || []).slice(0, 5),
-        villainPos: rec.villainPos || null
-      } : null);
+    // Manos de análisis / cartas forzadas / replay histórico: restaurar deal y guion.
+    // Importante: un forceDeal vacío (sin heroCards) NO debe tapar el fallback.
+    function forceDealUsable(fd) {
+      if (!fd) return false;
+      if (fd.heroCards && fd.heroCards.length === 2 && fd.heroCards[0] !== fd.heroCards[1]) return true;
+      if (fd.holeCards && typeof fd.holeCards === 'object') {
+        const keys = Object.keys(fd.holeCards);
+        for (let i = 0; i < keys.length; i++) {
+          const c = fd.holeCards[keys[i]];
+          if (c && c.length === 2 && c[0] && c[1] && c[0] !== c[1]) return true;
+        }
+      }
+      return false;
+    }
+    const snapDeal = snap && snap.forceDeal;
+    const recDeal = rec.forceDeal;
+    const forceDeal = forceDealUsable(snapDeal) ? snapDeal
+      : (forceDealUsable(recDeal) ? recDeal
+        : (rec.heroCards && rec.heroCards.length === 2 ? {
+          heroCards: rec.heroCards.slice(0, 2),
+          villainCards: (rec.villainCards && rec.villainCards.length === 2) ? rec.villainCards.slice(0, 2) : null,
+          board: (rec.board || []).slice(0, 5),
+          villainPos: rec.villainPos || null,
+          holeCards: (snapDeal && snapDeal.holeCards) || (recDeal && recDeal.holeCards) || null
+        } : null));
     if (forceDeal) pendingForce.forceDeal = forceDeal;
     const forceScript = (snap && snap.forceScript) || rec.forceScript || null;
     if (forceScript) pendingForce.forceScript = forceScript;

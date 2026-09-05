@@ -61,6 +61,7 @@ const STEPS = [
   ['Test guest OAuth handoff', ['node', 'tools/test-guest-oauth-handoff.js']],
   ['Test contact pending popup', ['node', 'tools/test-contact-pending-popup.js']],
   ['Test replay hand', ['node', 'tools/test-replay-hand.js']],
+  ['Test history replay cards', ['node', 'tools/test-history-replay-cards.js']],
   // Fase 1 — nuevos
   ['Test entitlements / cuotas', ['node', 'tools/test-entitlements.js']],
   // Fase 2
