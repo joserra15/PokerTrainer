@@ -29,7 +29,7 @@
     ],
     'C-09': [
       f3('c09-09', 'BTN_vs_BB', ['Qs', 'Qd'], 19009, { teachBack: 'QQ vs 3-bet: 4-bet value. Premium — quieres bote grande.' }),
-      f3('c09-10', 'CO_vs_BB', ['Jh', '9h'], 19010, { teachBack: 'J9s CO vs 3-bet: call frecuente en posición. No hero-fold conectores suited.' }),
+      f3('c09-10', 'CO_vs_BB', ['Jh', '9h'], 19010, { trapTag: 'dominated', teachBack: 'J9s CO vs 3-bet BB: fold en chart cash. Jugable en mix exploit, no call automático GTO.' }),
       f3('c09-11', 'UTG_vs_BB', ['Qd', 'Js'], 19011, { trapTag: 'dominated', teachBack: 'QJo UTG vs 3-bet: a menudo fold OOP. Continúa tight desde early.' }),
       f3('c09-12', 'BTN_vs_SB', ['Jh', 'Jc'], 19012, { teachBack: 'JJ BTN vs 3-bet SB: 4-bet o call value. Premium en posición.' })
     ],
@@ -59,7 +59,7 @@
     ],
     'C-13': [
       vs('c13-11', 'BB_vs_BTN', ['As', 'Ts'], 23011, { teachBack: 'ATs vs BTN: 3-bet o call. Examen M1 — aplica defensa late.' }),
-      vs('c13-12', 'BB_vs_UTG', ['Kd', 'Jd'], 23012, { trapTag: 'dominated', teachBack: 'KJs vs UTG: fold en examen. Early = tight.' }),
+      vs('c13-12', 'BB_vs_UTG', ['Kd', 'Jd'], 23012, { teachBack: 'KJs vs UTG: mix 3-bet/call del chart (no fold puro). Early pide disciplina, no tirar broadway suited.' }),
       f3('c13-13', 'BTN_vs_BB', ['Ks', '7d'], 23013, { teachBack: 'K7o vs 3-bet: 4-bet o call value. Examen — no hero-fold premium.' }),
       iso('c13-14', 'BTN', 'SB', ['Qs', 'Js'], 23014, { teachBack: 'QJs vs limp: iso. Examen M1 — aísla manos fuertes.' })
     ],

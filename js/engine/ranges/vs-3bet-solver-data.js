@@ -4,7 +4,7 @@ window.PT_VS_3BET_JSON = {
     "spot": "face3bet",
     "format": "cash6",
     "stackBB": 100,
-    "updated": "2026-08-17"
+    "updated": "2026-09-05"
   },
   "pairs": {
     "UTG_vs_HJ": {
@@ -65,7 +65,7 @@ window.PT_VS_3BET_JSON = {
     "CO_vs_BB": {
       "fourBet": "KK+, AKs, AKo",
       "call": "QQ, JJ, TT, 99, AQs, AJs, KQs, AQo",
-      "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo"
+      "callMix": "JJ, TT, 99, AQs, AJs, ATs, KQs, AQo, AJo, KQo"
     },
     "BTN_vs_SB": {
       "fourBet": "JJ+, AKs, AKo, A5s",
@@ -75,7 +75,7 @@ window.PT_VS_3BET_JSON = {
     "BTN_vs_BB": {
       "fourBet": "JJ+, AKs, AKo, A5s",
       "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo, AJo",
-      "callMix": "88, 77, 66, KQo, KJo, QJo"
+      "callMix": "88, 77, 66, ATo, KQo, KJo, QJo"
     },
     "SB_vs_BB": {
       "fourBet": "TT+, AQs+, AKo, A5s-A2s",

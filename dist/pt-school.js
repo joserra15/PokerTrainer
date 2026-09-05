@@ -809,7 +809,7 @@
       aiQuestions: ['¿Qué cambia al defender BB vs BTN respecto a vs UTG?', '¿Cuándo prefiero 3-betear en vez de hacer call desde BB?'],
       spots: [
         vs('c07-01', 'BB_vs_BTN', ['Qs', 'Qh'], 17001, { teachBack: 'QQ vs BTN: 3-bet de valor claro. Quieres más dinero en el bote.' }),
-        vs('c07-02', 'BB_vs_UTG', ['Kh', 'Jd'], 17002, { trapTag: 'dominated', teachBack: 'KJo vs UTG está dominada por AK, KQ, KJ. Fold típico.' }),
+        vs('c07-02', 'BB_vs_UTG', ['Kh', 'Jd'], 17002, { teachBack: 'KJo vs UTG: call del chart (defensa BB). Dominada a veces, pero solvers la defienden; no la marques fold automático.' }),
         vs('c07-03', 'BB_vs_BTN', ['Kh', 'Jd'], 17003, { teachBack: 'KJo vs BTN: defensa razonable (hacer call o 3-bet ligero según el mix).' }),
         vs('c07-04', 'BB_vs_CO', ['8d', '3c'], 17004, { trapTag: 'dominated', teachBack: '83o vs CO: fold. No hagas call de más solo porque estás en BB.' }),
         vs('c07-05', 'BB_vs_BTN', ['9s', '8s'], 17005, { teachBack: '98s vs BTN: call cómodo, buena jugabilidad si ves flop.' }),
@@ -6256,7 +6256,7 @@
     ],
     'C-09': [
       f3('c09-09', 'BTN_vs_BB', ['Qs', 'Qd'], 19009, { teachBack: 'QQ vs 3-bet: 4-bet value. Premium — quieres bote grande.' }),
-      f3('c09-10', 'CO_vs_BB', ['Jh', '9h'], 19010, { teachBack: 'J9s CO vs 3-bet: call frecuente en posición. No hero-fold conectores suited.' }),
+      f3('c09-10', 'CO_vs_BB', ['Jh', '9h'], 19010, { trapTag: 'dominated', teachBack: 'J9s CO vs 3-bet BB: fold en chart cash. Jugable en mix exploit, no call automático GTO.' }),
       f3('c09-11', 'UTG_vs_BB', ['Qd', 'Js'], 19011, { trapTag: 'dominated', teachBack: 'QJo UTG vs 3-bet: a menudo fold OOP. Continúa tight desde early.' }),
       f3('c09-12', 'BTN_vs_SB', ['Jh', 'Jc'], 19012, { teachBack: 'JJ BTN vs 3-bet SB: 4-bet o call value. Premium en posición.' })
     ],
@@ -6286,7 +6286,7 @@
     ],
     'C-13': [
       vs('c13-11', 'BB_vs_BTN', ['As', 'Ts'], 23011, { teachBack: 'ATs vs BTN: 3-bet o call. Examen M1 — aplica defensa late.' }),
-      vs('c13-12', 'BB_vs_UTG', ['Kd', 'Jd'], 23012, { trapTag: 'dominated', teachBack: 'KJs vs UTG: fold en examen. Early = tight.' }),
+      vs('c13-12', 'BB_vs_UTG', ['Kd', 'Jd'], 23012, { teachBack: 'KJs vs UTG: mix 3-bet/call del chart (no fold puro). Early pide disciplina, no tirar broadway suited.' }),
       f3('c13-13', 'BTN_vs_BB', ['Ks', '7d'], 23013, { teachBack: 'K7o vs 3-bet: 4-bet o call value. Examen — no hero-fold premium.' }),
       iso('c13-14', 'BTN', 'SB', ['Qs', 'Js'], 23014, { teachBack: 'QJs vs limp: iso. Examen M1 — aísla manos fuertes.' })
     ],
@@ -7403,7 +7403,7 @@
     Fl('c29-01', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 77301, 'Quiz: BB caller en K72r. Bandas: poco Kx, mucho aire, alguna pareja baja. C-bet — ventaja de rango.'),
     Fl('c29-02', 'BTN', ['Ah', 'Qd'], ['9s', '8s', '7h'], 77302, 'Quiz: 987 two-tone. Bandas: más pares, más draws, menos aire. No autocbet.', { trapTag: 'fancy_play' }),
     V('c29-03', 'BB_vs_BTN', ['Ad', 'Kd'], 77303, 'Quiz: rango BTN open = wide. AKs es value vs esa banda, no vs “tiene 72”. 3-bet.', cash({ scenario: '3bet' })),
-    V('c29-04', 'BB_vs_UTG', ['Kh', 'Jd'], 77304, 'Quiz: UTG = tight. KJo no entra vs esa banda. Fold.', cash({ scenario: '3bet' }), 'fancy_play'),
+    V('c29-04', 'BB_vs_UTG', ['Ah', '9d'], 77304, 'Quiz: UTG = tight. A9o no entra vs esa banda. Fold.', cash({ scenario: '3bet' }), 'fancy_play'),
     F3('c29-05', 'BTN_vs_BB', ['As', 'Ad'], 77305, 'Quiz: 3-bet polariza (value + farol). AA 4-bet vs la banda de value.', cash({ scenario: 'face3bet' })),
     F3('c29-06', 'BTN_vs_BB', ['Jd', '3h'], 77306, 'Quiz: J3o no está en ninguna banda post-3-bet. Fold.', cash({ scenario: 'face3bet' }), 'dominated'),
     Fl('c29-07', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77307, 'Quiz: A-high seco. Tu value (Ax) vs su aire/pares débiles. C-bet value.'),
@@ -7434,7 +7434,7 @@
     F3('c31-02', 'BTN_vs_BB', ['Tc', '4d'], 77502, 'T4o vs 3-bet: fold.', cash({ scenario: 'face3bet' }), 'dominated'),
     Fl('c31-03', 'SB', ['Ah', 'Kd'], ['8s', '7s', '6h'], 77503, 'SRP OOP wet: check. Pot control deep.', { trapTag: 'fancy_play' }),
     Fl('c31-04', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77504, 'Vs fish: c-bet value top pair. Exploit: value thin up.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
-    V('c31-05', 'BB_vs_UTG', ['Kh', 'Jd'], 77505, 'Range quiz: KJo vs UTG fold.', cash({ scenario: '3bet' }), 'fancy_play'),
+    V('c31-05', 'BB_vs_UTG', ['Ah', '9d'], 77505, 'Range quiz: A9o vs UTG fold.', cash({ scenario: '3bet' }), 'fancy_play'),
     Fl('c31-06', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 77506, 'Node lock: seco IP c-bet frecuente.'),
     F3('c31-07', 'BTN_vs_BB', ['Ad', '5d'], 77507, 'A5s 4-bet polar mixto.', cash({ scenario: 'face3bet' })),
     Fl('c31-08', 'SB', ['Ah', 'Kd'], ['As', '2d', '2c'], 77508, 'OOP A-paired: c-bet razonable.'),
