@@ -249,5 +249,6 @@ module.exports = {
   playActionButtons,
   playSkipButton,
   skipActionPlaybackIfNeeded,
-  clickFirstPlayAction
+  clickFirstPlayAction,
+  advancePlayHand
 };
