@@ -2159,6 +2159,10 @@
     const panel = $('#tab-' + tabId);
     if (panel) panel.classList.add('active');
     if (isMobileLayout()) closeMobileNav();
+    /* Mesa torneo: no dejar body.trn-table-active al salir del tab (evita padding/footer rotos). */
+    if (tabId !== 'tournaments') {
+      document.body.classList.remove('trn-table-active');
+    }
 
     if (tabId === 'home') {
       if (!homeBootDone) setHomeBoot(true);

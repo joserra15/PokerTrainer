@@ -15,6 +15,12 @@
 
   function biasOf(role) { return BIAS[role] || BIAS.tag; }
   function r2(x) { return Math.round((Number(x) || 0) * 100) / 100; }
+  /** Etiquetas de acción siempre en big blinds (mesa + botones). */
+  function fmtBb(chips, bb) {
+    bb = Number(bb) || 1;
+    var v = Math.round((Number(chips) || 0) / bb * 10) / 10;
+    return (v % 1 ? v.toFixed(1) : String(v)) + ' bb';
+  }
   function cardCode(c) {
     if (!c) return '';
     if (typeof c === 'string') return c;
@@ -354,12 +360,13 @@
 
   function heroOptions(hand, seat) {
     var tc = toCall(seat, hand);
+    var bb = hand.bb || 1;
     var opts = [];
     if (tc > 0) {
       opts.push({ id: 'fold', label: 'Fold' });
       opts.push({
         id: 'call',
-        label: tc >= seat.stack ? ('All-in ' + r2(seat.stack)) : ('Call ' + r2(tc)),
+        label: tc >= seat.stack ? ('All-in ' + fmtBb(seat.stack, bb)) : ('Call ' + fmtBb(tc, bb)),
         amount: Math.min(tc, seat.stack)
       });
       if (seat.stack > tc) {
@@ -372,7 +379,7 @@
           max: maxTo,
           suggested: Math.min(Math.max(minTo, r2(hand.currentBet * 2.5)), maxTo)
         });
-        opts.push({ id: 'allin', label: 'All-in ' + r2(seat.stack), amount: maxTo });
+        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxTo });
       }
     } else {
       opts.push({ id: 'check', label: 'Check' });
@@ -386,7 +393,7 @@
           max: maxBet,
           suggested: sug
         });
-        opts.push({ id: 'allin', label: 'All-in ' + r2(seat.stack), amount: maxBet });
+        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxBet });
       }
     }
     return opts;

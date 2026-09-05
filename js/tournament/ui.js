@@ -553,9 +553,16 @@
       var grid = nBtn <= 2 ? 'actions-grid-2' : (nBtn === 3 ? 'actions-grid-3' : 'actions-grid');
       actions = '<div class="actions actions-grid ' + grid + '">' + hand.heroOptions.map(function (o) {
         var amt = o.suggested != null ? o.suggested : (o.amount != null ? o.amount : '');
+        var label = o.label || o.id;
+        /* Red de seguridad: si el label aún trae fichas crudas, forzar bb. */
+        if (o.id === 'call' && o.amount != null && !/\bbb\b/i.test(label)) {
+          label = 'Call ' + fmtBb(o.amount, bb);
+        } else if (o.id === 'allin' && o.amount != null && !/\bbb\b/i.test(label)) {
+          label = 'All-in ' + fmtBb(o.amount, bb);
+        }
         return '<button type="button" class="' + actionBtnClass(o.id) +
           '" data-hero-act="' + esc(o.id) + '" data-amount="' + amt + '">' +
-          esc(o.label) + '</button>';
+          esc(label) + '</button>';
       }).join('') + '</div>';
     } else if (!hand && state.status === 'running') {
       actions = '<div class="actions actions-grid actions-grid-1">' +
@@ -565,13 +572,15 @@
     var infoModal = '';
     if (ui.infoOpen) {
       var rows = Hud.infoRows(state).map(function (r) {
-        return '<div class="trn-info-row"><dt>' + esc(r.label) + '</dt><dd>' + esc(r.value) + '</dd></div>';
+        return '<div class="trn-info-row"><span class="trn-info-lbl">' + esc(r.label) +
+          '</span><span class="trn-info-val">' + esc(r.value) + '</span></div>';
       }).join('');
       infoModal = '<div class="trn-modal-backdrop" data-act="close-info">' +
-        '<div class="trn-modal" role="dialog">' +
+        '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Info del torneo" ' +
+        'data-act="noop">' +
         '<h3>Info del torneo</h3>' +
-        '<dl class="trn-info-dl">' + rows + '</dl>' +
-        '<button type="button" class="btn" data-act="close-info">Cerrar</button>' +
+        '<div class="trn-info-dl">' + rows + '</div>' +
+        '<button type="button" class="btn btn-primary" data-act="close-info">Cerrar</button>' +
         '</div></div>';
     }
 
@@ -586,7 +595,7 @@
           esc(roleLabel(rid)) + '</button>';
       }).join('');
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
-        '<div class="trn-modal" role="dialog">' +
+        '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
         '<h3>Rol de ' + esc(pl && pl.name) + '</h3>' +
         '<p class="muted">Tu hipótesis (se revela al final)</p>' +
         '<div class="trn-role-grid">' + opts + '</div>' +
@@ -598,11 +607,16 @@
     var streetLabel = hand ? String(hand.street || '').toUpperCase() : '';
     var heroAlive = St.hero(state);
 
+    /* Misma cáscara visual que el entrenador (.play-stage / .poker-table / .table-felt)
+       sin montar en #play-active: el motor de torneo (PTTournamentRunner) sigue
+       dueño del estado entre manos. */
     return '<div class="trn-table-view trn-play-like">' +
+      '<div class="trn-play-stage">' +
       '<div class="trn-table-hud">' + chips +
+      '<div class="trn-hud-actions">' +
       '<button type="button" class="btn btn-sm trn-info-btn" data-act="info">Info</button>' +
       '<button type="button" class="btn btn-sm" data-act="hub">Salir</button>' +
-      '</div>' +
+      '</div></div>' +
       '<div class="poker-table trn-poker-table">' +
       '<div class="table-felt ' + tableClass + '" data-theme="emerald" data-format="' +
       (kind === 'sng' ? 'spin' : 'mtt') + '">' +
@@ -629,7 +643,9 @@
       '</div>' +
       renderHeroArea(hand, bb) +
       '</div></div>' +
-      actions + infoModal + roleModal +
+      actions +
+      '</div>' +
+      infoModal + roleModal +
       '</div>';
   }
 
@@ -688,6 +704,14 @@
       '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   }
 
+  function setTableActiveClass(on) {
+    try {
+      if (typeof document !== 'undefined' && document.body) {
+        document.body.classList.toggle('trn-table-active', !!on);
+      }
+    } catch (e) { /* noop */ }
+  }
+
   function paint() {
     if (!ui.root) return;
     var html = '';
@@ -699,12 +723,14 @@
       else html = renderHub();
     } catch (err) {
       console.error('[PTTournamentsUI] paint', err);
+      setTableActiveClass(false);
       ui.root.innerHTML =
         '<div class="trn-hub"><p class="muted">Error al pintar Torneos.</p>' +
         '<button type="button" class="btn" data-act="hub">Volver al hub</button></div>';
       try { bind(ui.root); } catch (e2) { /* noop */ }
       return;
     }
+    setTableActiveClass(ui.view === VIEW.table);
     ui.root.innerHTML = html;
     bind(ui.root);
   }
@@ -739,10 +765,15 @@
     root.querySelectorAll('[data-act]').forEach(function (btn) {
       btn.addEventListener('click', function (ev) {
         var act = btn.getAttribute('data-act');
-        if (act === 'close-info' || act === 'close-role') {
-          if (ev.target === btn || btn.classList.contains('trn-modal')) {
-            /* allow */
-          }
+        if (act === 'noop') {
+          ev.stopPropagation();
+          return;
+        }
+        /* Backdrop: solo cerrar si el click es en el fondo, no en el panel. */
+        if ((act === 'close-info' || act === 'close-role') &&
+            btn.classList.contains('trn-modal-backdrop') &&
+            ev.target !== btn) {
+          return;
         }
         if (act === 'custom') {
           ui.setupDraft = defaultDraft();
