@@ -277,4 +277,67 @@ FILES.forEach(function (f) { load(g, f); });
   console.log('OK index');
 }
 
+
+// --- hand end keeps table until continueAfterHand ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 42, heroName: 'EndPop' });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && hand.awaitingHero && guard++ < 80) {
+    const opt = (hand.heroOptions || []).find(function (o) { return o.id === 'fold' || o.id === 'check'; })
+      || (hand.heroOptions || [])[0];
+    g.PTTournamentRunner.heroAct(state, opt.id, opt.amount != null ? opt.amount : opt.suggested);
+    hand = state._liveHand;
+  }
+  assert.ok(hand && hand.stage === 'complete', 'hand stays complete on table');
+  assert.ok(hand.result && hand.result.deltas, 'result payload present');
+  assert.ok(state._liveHand, 'live hand not cleared before continue');
+  g.PTTournamentRunner.continueAfterHand(state);
+  assert.ok(state.handIndex >= 1, 'continue applies results');
+  console.log('OK hand-end-popup-flow');
+}
+
+// --- bet/raise labels include bb ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 99 });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let found = null;
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && guard++ < 100) {
+    if (hand.awaitingHero && hand.heroOptions) {
+      found = hand.heroOptions.find(function (o) { return o.id === 'bet' || o.id === 'raise'; });
+      if (found) break;
+      const opt = hand.heroOptions.find(function (o) { return o.id === 'check' || o.id === 'call'; })
+        || hand.heroOptions[0];
+      g.PTTournamentRunner.heroAct(state, opt.id, opt.amount != null ? opt.amount : opt.suggested);
+      hand = state._liveHand;
+      continue;
+    }
+    break;
+  }
+  if (found) {
+    assert.ok(/\bbb\b/i.test(found.label), 'bet/raise label in bb: ' + found.label);
+    console.log('OK bet-raise-label (' + found.label + ')');
+  } else {
+    console.log('OK bet-raise-label (skipped — no bet/raise faced)');
+  }
+}
+
+// --- active tournament persistence ---
+{
+  g.PTTournamentStore.clearActive();
+  const state = g.PTTournamentRunner.create('sng6', { seed: 7 });
+  g.PTTournamentRunner.beginHand(state);
+  const saved = g.PTTournamentStore.saveActive(state);
+  assert.ok(saved.ok, 'saveActive ok');
+  assert.ok(g.PTTournamentStore.hasActive(), 'hasActive');
+  const sum = g.PTTournamentStore.activeSummary();
+  assert.ok(sum && sum.name, 'activeSummary');
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.ok(loaded && loaded.id === state.id, 'loadActive id');
+  g.PTTournamentStore.clearActive();
+  assert.ok(!g.PTTournamentStore.hasActive(), 'clearActive');
+  console.log('OK active-persist');
+}
+
 console.log('*** test-tournament OK ***');
