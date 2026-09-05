@@ -5,6 +5,7 @@ const {
   clickFirstPlayAction,
   playActionButtons,
   playSkipButton,
+  skipActionPlaybackIfNeeded,
   expectAnyVisible
 } = require('./helpers');
 
@@ -26,19 +27,27 @@ test.describe('Entrenamiento completo @smoke', () => {
     const nextBtn = playActionButtons(page);
     await expectAnyVisible(toast.or(handEnd).or(nextSkip).or(nextBtn), { timeout: 20000 });
 
-    // Completar mano si sigue abierta (varias calles / playback)
+    // Completar mano si sigue abierta (varias calles / playback).
+    // Tras el feedback el toast se espera y luego anima la mesa: hay que
+    // saltar el playback (o esperar) antes del siguiente click, si no el
+    // botón se detacha / no es estable.
     for (let i = 0; i < 16; i++) {
       if (await handEnd.isVisible().catch(() => false)) break;
       const endVisible = await page.locator('#modal:not(.hidden) .hand-end-popup').isVisible().catch(() => false);
       if (endVisible) break;
-      const skip = playSkipButton(page);
-      if (await skip.isVisible().catch(() => false)) {
-        await skip.click();
-        continue;
-      }
+      await page.locator('#verdict-toast.visible').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+      await skipActionPlaybackIfNeeded(page);
+      if (await handEnd.isVisible().catch(() => false)) break;
       const btns = playActionButtons(page);
       if (await btns.count() === 0) break;
-      await btns.first().click();
+      try {
+        await btns.first().click({ timeout: 5000 });
+      } catch (_) {
+        await skipActionPlaybackIfNeeded(page);
+        if (await playActionButtons(page).count()) {
+          await playActionButtons(page).first().click({ force: true, timeout: 5000 }).catch(() => {});
+        }
+      }
     }
 
     const popup = page.locator('#modal:not(.hidden) .hand-end-popup');
