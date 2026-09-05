@@ -2808,7 +2808,7 @@
     }
     const snapDeal = snap && snap.forceDeal;
     const recDeal = rec.forceDeal;
-    const forceDeal = forceDealUsable(snapDeal) ? snapDeal
+    let forceDeal = forceDealUsable(snapDeal) ? snapDeal
       : (forceDealUsable(recDeal) ? recDeal
         : (rec.heroCards && rec.heroCards.length === 2 ? {
           heroCards: rec.heroCards.slice(0, 2),
@@ -2817,6 +2817,11 @@
           villainPos: rec.villainPos || null,
           holeCards: (snapDeal && snapDeal.holeCards) || (recDeal && recDeal.holeCards) || null
         } : null));
+    // Snapshot usable sin board: rellenar desde el registro para no dejar el
+    // board random del newHand (puede chocar con heroCards, p.ej. Qc×2).
+    if (forceDeal && !(forceDeal.board && forceDeal.board.length) && rec.board && rec.board.length) {
+      forceDeal = Object.assign({}, forceDeal, { board: rec.board.slice(0, 5) });
+    }
     if (forceDeal) pendingForce.forceDeal = forceDeal;
     const forceScript = (snap && snap.forceScript) || rec.forceScript || null;
     if (forceScript) pendingForce.forceScript = forceScript;

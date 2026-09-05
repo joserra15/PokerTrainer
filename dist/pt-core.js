@@ -17234,6 +17234,81 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   /**
+   * Board único respecto a todos los hoyos. Preferencia: cartas del forceDeal
+   * que no choquen; el resto se completa desde el mazo. Evita Qc en héroe y
+   * turn al repetir histórico con board vacío/corrupto o sin forceDeal.board.
+   */
+  function applyUniqueBoard(hand, preferredBoard) {
+    if (!hand || !hand._predeal) return;
+    const used = new Set();
+    const hc = (hand.table && hand.table.holeCards) || {};
+    Object.keys(hc).forEach(function (pos) {
+      const cards = hc[pos];
+      if (!cards) return;
+      cards.forEach(function (c) { if (c) used.add(c); });
+    });
+    const full = [];
+    (preferredBoard || []).forEach(function (c) {
+      if (!c || used.has(c) || full.length >= 5) return;
+      full.push(c);
+      used.add(c);
+    });
+    const deck = C.shuffledDeckExcluding(Array.from(used));
+    while (full.length < 5 && deck.length) full.push(deck.pop());
+    hand._predeal.board = full.slice(0, 5);
+    if (hand.board && hand.board.length) {
+      hand.board = hand._predeal.board.slice(0, hand.board.length);
+    }
+  }
+
+  /** Reparte de nuevo asientos que chocan con héroe/villano/otros (datos corruptos). */
+  function scrubHoleCollisions(hand, heroSeat, vSeat) {
+    if (!hand || !hand.table || !hand.table.holeCards) return;
+    const hc = hand.table.holeCards;
+    const claimed = new Set();
+    function claimPair(cards) {
+      if (!isValidPair(cards)) return false;
+      if (claimed.has(cards[0]) || claimed.has(cards[1])) return false;
+      claimed.add(cards[0]);
+      claimed.add(cards[1]);
+      return true;
+    }
+    function redealPos(pos) {
+      const deck = C.shuffledDeckExcluding(Array.from(claimed));
+      if (deck.length < 2) return;
+      const next = [deck.pop(), deck.pop()];
+      hc[pos] = next;
+      claimed.add(next[0]);
+      claimed.add(next[1]);
+      if (hand._forcedHole && hand._forcedHole[pos]) {
+        hand._forcedHole[pos] = next.slice();
+      }
+    }
+    if (heroSeat && isValidPair(hc[heroSeat])) {
+      if (!claimPair(hc[heroSeat])) redealPos(heroSeat);
+    }
+    if (vSeat && vSeat !== heroSeat && isValidPair(hc[vSeat])) {
+      if (!claimPair(hc[vSeat])) redealPos(vSeat);
+    }
+    Object.keys(hc).forEach(function (pos) {
+      if (pos === heroSeat || pos === vSeat) return;
+      if (!isValidPair(hc[pos]) || claimed.has(hc[pos][0]) || claimed.has(hc[pos][1])) {
+        redealPos(pos);
+      } else {
+        claimPair(hc[pos]);
+      }
+    });
+    if (heroSeat && isValidPair(hc[heroSeat]) && hand.hero) {
+      hand.hero.cards = hc[heroSeat].slice();
+      hand.hero.code = R.handCode(hand.hero.cards[0], hand.hero.cards[1]);
+    }
+    if (vSeat && isValidPair(hc[vSeat])) {
+      if (hand.villain) hand.villain.cards = hc[vSeat].slice();
+      if (hand._predeal) hand._predeal.villainCards = hc[vSeat].slice();
+    }
+  }
+
+  /**
    * Inyecta cartas fijas (héroe, villano, board y opcionalmente todos los hoyos)
    * manteniendo el resto coherente. Usado al "jugar en el entrenador" / replay
    * desde histórico: las cartas se bloquean (no se remuestrean).
@@ -17329,15 +17404,10 @@ window.PT_NASH_PUSH_JSON = {
       markForcedSeat(hand, vSeat, hc[vSeat]);
     }
 
-    if (board.length) {
-      let full = board.slice();
-      // Solo completar turn/river si el snapshot venía incompleto (manos antiguas).
-      if (full.length < 5) {
-        const deck = C.shuffledDeckExcluding(forcedDead.concat(full));
-        while (full.length < 5 && deck.length) full.push(deck.pop());
-      }
-      hand._predeal.board = full.slice(0, 5);
-    }
+    // Hoyos coherentes entre sí, luego board sin solaparse (aunque forceDeal
+    // venga sin board o con turn/river que repiten una carta del héroe).
+    scrubHoleCollisions(hand, heroSeat, vSeat);
+    applyUniqueBoard(hand, board);
   }
 
   // ----- Guion de la mano real (análisis → entrenador) -----
@@ -36522,7 +36592,7 @@ window.PT_NASH_PUSH_JSON = {
     }
     const snapDeal = snap && snap.forceDeal;
     const recDeal = rec.forceDeal;
-    const forceDeal = forceDealUsable(snapDeal) ? snapDeal
+    let forceDeal = forceDealUsable(snapDeal) ? snapDeal
       : (forceDealUsable(recDeal) ? recDeal
         : (rec.heroCards && rec.heroCards.length === 2 ? {
           heroCards: rec.heroCards.slice(0, 2),
@@ -36531,6 +36601,11 @@ window.PT_NASH_PUSH_JSON = {
           villainPos: rec.villainPos || null,
           holeCards: (snapDeal && snapDeal.holeCards) || (recDeal && recDeal.holeCards) || null
         } : null));
+    // Snapshot usable sin board: rellenar desde el registro para no dejar el
+    // board random del newHand (puede chocar con heroCards, p.ej. Qc×2).
+    if (forceDeal && !(forceDeal.board && forceDeal.board.length) && rec.board && rec.board.length) {
+      forceDeal = Object.assign({}, forceDeal, { board: rec.board.slice(0, 5) });
+    }
     if (forceDeal) pendingForce.forceDeal = forceDeal;
     const forceScript = (snap && snap.forceScript) || rec.forceScript || null;
     if (forceScript) pendingForce.forceScript = forceScript;
