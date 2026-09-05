@@ -87,19 +87,19 @@
 
   var TRAPS = [
     trap({
-      id: 'g1-ato-bb-vs-utg',
+      id: 'g1-a9o-bb-vs-utg',
       title: 'As débil vs open UTG',
       bait: 'call',
       riverBait: 'call',
-      baitHint: 'ATo parece “tengo un as”. Contra UTG es fold: estás dominado. En flop hay color draw; si falla, no hero-callees el river.',
+      baitHint: 'A9o parece “tengo un as”. Contra UTG es fold: estás dominado. En flop hay color draw; si falla, no hero-callees el river.',
       type: 'vsRFI',
       key: 'BB_vs_UTG',
       heroPos: 'BB',
       seed: 11001,
       forceDeal: {
-        heroCards: ['Ah', 'Td'],
+        heroCards: ['Ah', '9d'],
         villainCards: ['Qs', 'Qd'],
-        board: ['Th', '8h', '2c', '3d', '7s'],
+        board: ['9h', '8h', '2c', '3d', '7s'],
         villainPos: 'UTG'
       },
       forceScript: script('BB', 'UTG', 'call', barrels),

@@ -92,6 +92,17 @@ for (let i = axOffsuit.length - 1; i >= 0; i--) {
 }
 console.log('OK BB vs BTN: AQo/AJo/KJo continúan');
 
+// BB vs UTG: ATo/JTo call (solvers ~100%); no fold si QJo/KJo continúan.
+const bbUtg = vsRfi.pairs.BB_vs_UTG;
+const bbUtgCont = continueSet(bbUtg);
+['ATo', 'AJo', 'AQo', 'KJo', 'QJo', 'JTo'].forEach((h) => {
+  assert.ok(bbUtgCont.has(h), 'BB vs UTG debe continuar ' + h + ' (no fold)');
+});
+['A9o', 'A8o'].forEach((h) => {
+  assert.ok(!bbUtgCont.has(h), 'BB vs UTG no debe continuar ' + h + ' (sigue siendo fold)');
+});
+console.log('OK BB vs UTG: ATo/JTo continúan');
+
 // --- vs-3bet ---
 const vs3 = loadJson('vs-3bet-6max-100bb.json');
 assert.ok(vs3.pairs && typeof vs3.pairs === 'object', 'vs-3bet: pairs');

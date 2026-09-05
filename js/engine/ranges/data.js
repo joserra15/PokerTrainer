@@ -37,7 +37,8 @@
     BB_vs_UTG: {
       threeBet: 'QQ+, AKs, AKo',
       threeBetMix: 'JJ, AQs, A5s, A4s, KJs',
-      call: '22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, AJo+, KQo, KJo, QJo'
+      // ATo+/JTo: solvers ~100% call; no foldear Ax offsuit mejores que QJo/KJo del mismo chart.
+      call: '22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo'
     },
     BB_vs_HJ: {
       threeBet: 'QQ+, AKs, AKo',

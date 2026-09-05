@@ -177,8 +177,9 @@ Traps.list().forEach(function (spot, i) {
 });
 
 const g1 = Traps.list()[0];
-assert.strictEqual(g1.forceDeal.board[0], 'Th', 'mano 1: flop 10 en vez de 9');
-assert.ok(g1.forceDeal.heroCards.indexOf('Td') >= 0, 'mano 1 héroe ATo');
+assert.strictEqual(g1.forceDeal.board[0], '9h', 'mano 1: flop 9 (par + draw)');
+assert.ok(g1.forceDeal.heroCards.indexOf('9d') >= 0, 'mano 1 héroe A9o');
+assert.strictEqual(g1.id, 'g1-a9o-bb-vs-utg', 'mano 1 id A9o vs UTG');
 
 const g2 = Traps.list()[1];
 assert.strictEqual(g2.forceDeal.villainCards.map(function (c) { return c[0]; }).sort().join(''), 'AK',

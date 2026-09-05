@@ -6244,7 +6244,7 @@
   var EXTRA = {
     'C-07': [
       vs('c07-09', 'BB_vs_BTN', ['Ts', '9s'], 17009, { teachBack: 'T9s vs BTN: call cómodo. Conectores suited se defienden bien vs opens late.' }),
-      vs('c07-10', 'BB_vs_UTG', ['Ah', 'Jd'], 17010, { trapTag: 'dominated', teachBack: 'AJo vs UTG: a menudo fold. Early open tight — no overdefend Ax offsuit.' }),
+      vs('c07-10', 'BB_vs_UTG', ['Ah', '9d'], 17010, { trapTag: 'dominated', teachBack: 'A9o vs UTG: fold. Early open tight — no overdefend Ax offsuit débiles (ATo+ sí se defiende).' }),
       vs('c07-11', 'BB_vs_CO', ['Kd', 'Qs'], 17011, { teachBack: 'KQo vs CO: 3-bet o call sólido. Broadway offsuit fuerte vs late.' }),
       vs('c07-12', 'BB_vs_HJ', ['8c', '7d'], 17012, { trapTag: 'fancy_play', teachBack: '87o vs HJ: fold. No defiendas basura offsuit vs middle.' })
     ],
