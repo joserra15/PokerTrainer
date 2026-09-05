@@ -8287,8 +8287,51 @@ window.PT_NASH_PUSH_JSON = {
     return score.category === 5;
   }
 
+  /** ¿Hay 3+ del mismo palo? (color posible). */
+  function boardFlushPossible(board) {
+    const suits = {};
+    let maxSuit = 0;
+    (board || []).forEach((c) => {
+      suits[c[1]] = (suits[c[1]] || 0) + 1;
+      if (suits[c[1]] > maxSuit) maxSuit = suits[c[1]];
+    });
+    return maxSuit >= 3;
+  }
+
   /**
-   * Mano fuerte en showdown: full house+, o trío/set con carta del héroe en rango emparejado del board.
+   * Top dos parejas: ambas hole cards participan y las parejas son las dos
+   * cartas más altas del board (p. ej. KJ en J♠…K♦).
+   */
+  function isTopTwoPair(heroCards, board) {
+    if (!heroCards || !board || board.length < 5 || !C || !C.evaluate) return false;
+    const heroScore = C.evaluate(heroCards.concat(board));
+    if (heroScore.category !== 2) return false;
+    const holeVals = heroCards.map((c) => C.RANK_VALUE[c[0]]);
+    if (holeVals[0] === holeVals[1]) return false;
+    const highPair = heroScore.rank[1];
+    const lowPair = heroScore.rank[2];
+    if (!holeVals.includes(highPair) || !holeVals.includes(lowPair)) return false;
+    const boardVals = board.map((c) => C.RANK_VALUE[c[0]]);
+    const uniqBoard = Array.from(new Set(boardVals)).sort((a, b) => b - a);
+    if (uniqBoard.length < 2) return false;
+    return highPair === uniqBoard[0] && lowPair === uniqBoard[1];
+  }
+
+  /**
+   * Raise por valor con top dobles en river seco: board sin pareja (no hay full)
+   * y sin color posible. En esa textura top dos gana casi siempre vs peores
+   * (AK, top pair, unders) y no debe tratarse como farol residual.
+   */
+  function isDryTopTwoValue(heroCards, board) {
+    const pairInfo = boardPairRank(board);
+    if (pairInfo.paired || pairInfo.trips) return false;
+    if (boardFlushPossible(board)) return false;
+    return isTopTwoPair(heroCards, board);
+  }
+
+  /**
+   * Mano fuerte en showdown: full house+, trío/set, escalera nut, o top dos
+   * parejas en board no emparejado (value claro vs raise polarizado light).
    */
   function isStrongShowdownHand(heroCards, board) {
     if (!heroCards || !board || board.length < 5) return false;
@@ -8311,6 +8354,9 @@ window.PT_NASH_PUSH_JSON = {
       const BTS = global.GTOBoardTextureShift;
       return BTS ? BTS.isNutStraight(heroCards, board) : false;
     }
+
+    // Top dos en board seco sin full/color: value raise legítimo.
+    if (isDryTopTwoValue(heroCards, board)) return true;
 
     return false;
   }
@@ -8433,11 +8479,24 @@ window.PT_NASH_PUSH_JSON = {
       return zeroFoldIfAbsoluteNuts(normalize(freqs), heroCards, board, 'river');
     }
 
+    const dryTopTwo = isDryTopTwoValue(heroCards, board);
+
     if (nuts) {
       return wrap({
         fold: 0,
         call: clamp(0.82 + eqEdge * 0.15, 0.72, 0.92),
         raise: 0.08
+      });
+    }
+
+    // Top dos en textura seca (sin full/color): raise por valor entra en la
+    // mezcla con peso material — no marcar all-in/raise como error residual.
+    if (dryTopTwo && eqEffective >= potOdds - 0.05) {
+      const raiseW = clamp(0.18 + Math.max(0, eqEdge) * 0.2, 0.16, 0.28);
+      return wrap({
+        fold: 0.02,
+        call: clamp(0.78 - raiseW * 0.35, 0.58, 0.78),
+        raise: raiseW
       });
     }
 
@@ -8490,6 +8549,9 @@ window.PT_NASH_PUSH_JSON = {
   global.GTORiverShoveNode = {
     classifyFacingNode,
     isStrongShowdownHand,
+    isTopTwoPair,
+    isDryTopTwoValue,
+    boardFlushPossible,
     isAbsoluteNuts,
     zeroFoldIfAbsoluteNuts,
     pairedBoardFlushDevaluation,
@@ -10485,7 +10547,10 @@ window.PT_NASH_PUSH_JSON = {
       : (opts.madeHandInfo && ((opts.madeHandInfo.ev && opts.madeHandInfo.ev.category)
         || opts.madeHandInfo.category)) || 0;
     const madeFlushPlus = madeCat >= 5;
+    const madeTwoPairPlus = madeCat >= 2;
     const isNuts = opts.band === 'nuts' || equity >= 0.95 || madeFlushPlus;
+    // Top dos / manos fuertes hechas: raise por valor no se degrada a error.
+    const strongValueAggro = isNuts || (madeTwoPairPlus && equity >= 0.70);
     const valueAggro = chosen === 'raise' || chosen === 'bet'
       || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
@@ -10497,11 +10562,11 @@ window.PT_NASH_PUSH_JSON = {
     // Solo promover chosen a "best"/óptima si es competitiva en la mezcla GTO.
     // Sin maxFreq conocido, no promover residuales (~5–12%) por empate EV.
     // Call ~16% vs fold ~70% con ΔEV≈0 (heurística FE) no debe ser óptima.
-    const chosenTrusted = isNuts || chosen === freqBest || (maxFreq > 0
+    const chosenTrusted = strongValueAggro || chosen === freqBest || (maxFreq > 0
       ? evBestTrustedInMix(chosen, freqBest, maxFreq, freq, false)
       : freq >= 0.40);
     if (delta <= EV_OPTIMA_BB) {
-      if (isNuts && freq < 0.05) {
+      if (strongValueAggro && freq < 0.05) {
         cls = 'optima';
         best = chosen;
       } else if (chosenTrusted) {
@@ -10520,7 +10585,7 @@ window.PT_NASH_PUSH_JSON = {
       }
     } else if (delta <= EV_TIE_BB) {
       if (cls === 'error' || cls === 'imprecisa') {
-        cls = (freq >= 0.05 || isNuts) ? 'aceptable' : cls;
+        cls = (freq >= 0.05 || strongValueAggro) ? 'aceptable' : cls;
       }
       if ((evResult.actionEV || 0) >= (evResult.bestEV || 0) - EV_OPTIMA_BB && chosenTrusted) {
         best = chosen;
@@ -10549,8 +10614,8 @@ window.PT_NASH_PUSH_JSON = {
           // fuga de 1bb o más nunca puede seguir siendo "Óptima": la ficha ya
           // enseña el EV perdido al lado del veredicto.
           if ((freq < 0.40 || evLoss >= 1) && cls === 'optima') cls = 'aceptable';
-        } else if (!(valueAggro && isNuts)) {
-          // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
+        } else if (!(valueAggro && strongValueAggro)) {
+          // Raise/bet con nuts, color o top dos fuertes: no degradar a error por ΔEV heurístico.
           cls = evLoss >= 1 ? 'error' : 'imprecisa';
         } else if (cls === 'optima' && freq < 0.15) {
           cls = 'aceptable';
@@ -10567,7 +10632,7 @@ window.PT_NASH_PUSH_JSON = {
       if (trustEvBest) best = bestAct;
     }
 
-    if (valueAggro && isNuts && (cls === 'error' || cls === 'imprecisa')) {
+    if (valueAggro && strongValueAggro && (cls === 'error' || cls === 'imprecisa')) {
       cls = 'aceptable';
     }
 
@@ -11914,6 +11979,19 @@ window.PT_NASH_PUSH_JSON = {
     return Strat.actionEV(action, strategy, enriched);
   }
 
+  function normalizeChosenAction(chosen, availableActions) {
+    if (!chosen) return chosen;
+    const acts = availableActions || [];
+    if (chosen === 'allin') {
+      if (acts.indexOf('allin') >= 0) return 'allin';
+      if (acts.indexOf('raise') >= 0) return 'raise';
+      if (acts.indexOf('bet') >= 0) return 'bet';
+      if (acts.indexOf('bet_100') >= 0) return 'bet_100';
+      if (acts.indexOf('bet_66') >= 0) return 'bet_66';
+    }
+    return chosen;
+  }
+
   function evaluateSpot(input) {
     const enriched = enrichInput(input);
     enriched.spotKind = resolveSpotKind(enriched);
@@ -11935,6 +12013,7 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     const boardType = spotKey.boardType;
+    const chosenAction = normalizeChosenAction(input.chosenAction, enriched.availableActions);
 
     const result = {
       strategy,
@@ -11954,14 +12033,14 @@ window.PT_NASH_PUSH_JSON = {
       explainDelta: (exploitMeta && exploitMeta.explainDelta) || []
     };
 
-    if (input.chosenAction != null) {
-      const cls = Classifier.classify(strategy, input.chosenAction, enriched.availableActions);
+    if (chosenAction != null) {
+      const cls = Classifier.classify(strategy, chosenAction, enriched.availableActions);
       const evResult = EvLoss.computeEvLoss(
-        enriched.street || 'preflop', cls.cls, input.chosenAction,
+        enriched.street || 'preflop', cls.cls, chosenAction,
         enriched.handCode, strategy, enriched.potBB, enriched
       );
       const reconciled = Classifier.reconcileWithEv(
-        cls.cls, input.chosenAction, cls.best, evResult,
+        cls.cls, chosenAction, cls.best, evResult,
         {
           freq: cls.freq,
           maxFreq: cls.maxFreq,
@@ -11977,7 +12056,7 @@ window.PT_NASH_PUSH_JSON = {
       );
       const finalCls = reconciled.cls;
       const finalBest = reconciled.best;
-      const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction: input.chosenAction }));
+      const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction }));
 
       let evLoss = evResult.evLoss;
       let evErroneous = evResult.evErroneous;
@@ -11986,7 +12065,7 @@ window.PT_NASH_PUSH_JSON = {
       const evGap = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
       const EV_TIE = 0.15;
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
-        && input.chosenAction !== finalBest) {
+        && chosenAction !== finalBest) {
         evLoss = EvLoss.round2(evGap);
         evErroneous = true;
         evErrorReasons.push({
@@ -12001,12 +12080,12 @@ window.PT_NASH_PUSH_JSON = {
       let icmMult = 1;
       const chipEvLoss = evLoss;
       if (Icm && Icm.shouldApply(enriched) && evLoss > 0) {
-        icmMult = Icm.riskMultiplier(Object.assign({}, enriched, { chosenAction: input.chosenAction }));
-        evLoss = Icm.adjustEvLoss(evLoss, Object.assign({}, enriched, { chosenAction: input.chosenAction }));
+        icmMult = Icm.riskMultiplier(Object.assign({}, enriched, { chosenAction }));
+        evLoss = Icm.adjustEvLoss(evLoss, Object.assign({}, enriched, { chosenAction }));
       }
 
       const scoring = Scoring.scoreDecision({
-        strategy, chosenAction: input.chosenAction, classification: finalCls,
+        strategy, chosenAction, classification: finalCls,
         evLoss: evLoss, betSizeBB: input.betSizeBB, potBB: enriched.potBB,
         boardWet: enriched.boardWet, sizingError: stratErrors.some((e) => e.type === 'sizing_incoherente')
       });
@@ -12032,7 +12111,7 @@ window.PT_NASH_PUSH_JSON = {
         class: finalCls,
         best: finalBest,
         frequency: cls.freq,
-        confidence: Scoring.confidence(strategy, input.chosenAction),
+        confidence: Scoring.confidence(strategy, chosenAction),
         confidenceTier: confTier.tier,
         confidenceLabel: confTier.label,
         confidenceTitle: confTier.title,

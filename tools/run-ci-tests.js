@@ -25,6 +25,7 @@ const STEPS = [
   ['Test payload informe IA', ['node', 'tools/test-ai-payload.js']],
   ['Test saludo ForgeCoach caché 8h', ['node', 'tools/test-home-greeting-cache.js']],
   ['Test river trips board doblado', ['node', 'tools/test-river-trips.js']],
+  ['Test river top-two value raise', ['node', 'tools/test-river-top-two-value-raise.js']],
   ['Test villano no foldea las nuts', ['node', 'tools/test-villain-never-fold-nuts.js']],
   ['Test villanos pro líneas/sizing/formato', ['node', 'tools/test-villain-pro-lines.js']],
   ['Test hero exploit adjust', ['node', 'tools/test-hero-exploit-adjust.js']],

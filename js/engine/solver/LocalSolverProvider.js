@@ -129,6 +129,19 @@
     return Strat.actionEV(action, strategy, enriched);
   }
 
+  function normalizeChosenAction(chosen, availableActions) {
+    if (!chosen) return chosen;
+    const acts = availableActions || [];
+    if (chosen === 'allin') {
+      if (acts.indexOf('allin') >= 0) return 'allin';
+      if (acts.indexOf('raise') >= 0) return 'raise';
+      if (acts.indexOf('bet') >= 0) return 'bet';
+      if (acts.indexOf('bet_100') >= 0) return 'bet_100';
+      if (acts.indexOf('bet_66') >= 0) return 'bet_66';
+    }
+    return chosen;
+  }
+
   function evaluateSpot(input) {
     const enriched = enrichInput(input);
     enriched.spotKind = resolveSpotKind(enriched);
@@ -150,6 +163,7 @@
     }
 
     const boardType = spotKey.boardType;
+    const chosenAction = normalizeChosenAction(input.chosenAction, enriched.availableActions);
 
     const result = {
       strategy,
@@ -169,14 +183,14 @@
       explainDelta: (exploitMeta && exploitMeta.explainDelta) || []
     };
 
-    if (input.chosenAction != null) {
-      const cls = Classifier.classify(strategy, input.chosenAction, enriched.availableActions);
+    if (chosenAction != null) {
+      const cls = Classifier.classify(strategy, chosenAction, enriched.availableActions);
       const evResult = EvLoss.computeEvLoss(
-        enriched.street || 'preflop', cls.cls, input.chosenAction,
+        enriched.street || 'preflop', cls.cls, chosenAction,
         enriched.handCode, strategy, enriched.potBB, enriched
       );
       const reconciled = Classifier.reconcileWithEv(
-        cls.cls, input.chosenAction, cls.best, evResult,
+        cls.cls, chosenAction, cls.best, evResult,
         {
           freq: cls.freq,
           maxFreq: cls.maxFreq,
@@ -192,7 +206,7 @@
       );
       const finalCls = reconciled.cls;
       const finalBest = reconciled.best;
-      const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction: input.chosenAction }));
+      const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction }));
 
       let evLoss = evResult.evLoss;
       let evErroneous = evResult.evErroneous;
@@ -201,7 +215,7 @@
       const evGap = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
       const EV_TIE = 0.15;
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
-        && input.chosenAction !== finalBest) {
+        && chosenAction !== finalBest) {
         evLoss = EvLoss.round2(evGap);
         evErroneous = true;
         evErrorReasons.push({
@@ -216,12 +230,12 @@
       let icmMult = 1;
       const chipEvLoss = evLoss;
       if (Icm && Icm.shouldApply(enriched) && evLoss > 0) {
-        icmMult = Icm.riskMultiplier(Object.assign({}, enriched, { chosenAction: input.chosenAction }));
-        evLoss = Icm.adjustEvLoss(evLoss, Object.assign({}, enriched, { chosenAction: input.chosenAction }));
+        icmMult = Icm.riskMultiplier(Object.assign({}, enriched, { chosenAction }));
+        evLoss = Icm.adjustEvLoss(evLoss, Object.assign({}, enriched, { chosenAction }));
       }
 
       const scoring = Scoring.scoreDecision({
-        strategy, chosenAction: input.chosenAction, classification: finalCls,
+        strategy, chosenAction, classification: finalCls,
         evLoss: evLoss, betSizeBB: input.betSizeBB, potBB: enriched.potBB,
         boardWet: enriched.boardWet, sizingError: stratErrors.some((e) => e.type === 'sizing_incoherente')
       });
@@ -247,7 +261,7 @@
         class: finalCls,
         best: finalBest,
         frequency: cls.freq,
-        confidence: Scoring.confidence(strategy, input.chosenAction),
+        confidence: Scoring.confidence(strategy, chosenAction),
         confidenceTier: confTier.tier,
         confidenceLabel: confTier.label,
         confidenceTitle: confTier.title,
