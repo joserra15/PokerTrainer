@@ -135,7 +135,10 @@
       : (opts.madeHandInfo && ((opts.madeHandInfo.ev && opts.madeHandInfo.ev.category)
         || opts.madeHandInfo.category)) || 0;
     const madeFlushPlus = madeCat >= 5;
+    const madeTwoPairPlus = madeCat >= 2;
     const isNuts = opts.band === 'nuts' || equity >= 0.95 || madeFlushPlus;
+    // Top dos / manos fuertes hechas: raise por valor no se degrada a error.
+    const strongValueAggro = isNuts || (madeTwoPairPlus && equity >= 0.70);
     const valueAggro = chosen === 'raise' || chosen === 'bet'
       || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
@@ -147,11 +150,11 @@
     // Solo promover chosen a "best"/óptima si es competitiva en la mezcla GTO.
     // Sin maxFreq conocido, no promover residuales (~5–12%) por empate EV.
     // Call ~16% vs fold ~70% con ΔEV≈0 (heurística FE) no debe ser óptima.
-    const chosenTrusted = isNuts || chosen === freqBest || (maxFreq > 0
+    const chosenTrusted = strongValueAggro || chosen === freqBest || (maxFreq > 0
       ? evBestTrustedInMix(chosen, freqBest, maxFreq, freq, false)
       : freq >= 0.40);
     if (delta <= EV_OPTIMA_BB) {
-      if (isNuts && freq < 0.05) {
+      if (strongValueAggro && freq < 0.05) {
         cls = 'optima';
         best = chosen;
       } else if (chosenTrusted) {
@@ -170,7 +173,7 @@
       }
     } else if (delta <= EV_TIE_BB) {
       if (cls === 'error' || cls === 'imprecisa') {
-        cls = (freq >= 0.05 || isNuts) ? 'aceptable' : cls;
+        cls = (freq >= 0.05 || strongValueAggro) ? 'aceptable' : cls;
       }
       if ((evResult.actionEV || 0) >= (evResult.bestEV || 0) - EV_OPTIMA_BB && chosenTrusted) {
         best = chosen;
@@ -199,8 +202,8 @@
           // fuga de 1bb o más nunca puede seguir siendo "Óptima": la ficha ya
           // enseña el EV perdido al lado del veredicto.
           if ((freq < 0.40 || evLoss >= 1) && cls === 'optima') cls = 'aceptable';
-        } else if (!(valueAggro && isNuts)) {
-          // Raise/bet con nuts o color hecho: no degradar a error por ΔEV heurístico.
+        } else if (!(valueAggro && strongValueAggro)) {
+          // Raise/bet con nuts, color o top dos fuertes: no degradar a error por ΔEV heurístico.
           cls = evLoss >= 1 ? 'error' : 'imprecisa';
         } else if (cls === 'optima' && freq < 0.15) {
           cls = 'aceptable';
@@ -217,7 +220,7 @@
       if (trustEvBest) best = bestAct;
     }
 
-    if (valueAggro && isNuts && (cls === 'error' || cls === 'imprecisa')) {
+    if (valueAggro && strongValueAggro && (cls === 'error' || cls === 'imprecisa')) {
       cls = 'aceptable';
     }
 

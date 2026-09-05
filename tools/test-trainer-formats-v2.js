@@ -438,7 +438,7 @@ assert.ok(indexHtml.includes('session-config-modal'), 'session config modal');
 assert.ok(indexHtml.includes('ranges-icm-enabled'), 'ranges ICM toggle');
 
 const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 'utf8');
-assert.ok(/PT_BUILD\s*=\s*'3.1.5'/.test(version), 'version 3.1.5');
+assert.ok(/PT_BUILD\s*=\s*'3.1.6'/.test(version), 'version 3.1.6');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
 assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');

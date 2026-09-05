@@ -3904,6 +3904,8 @@
     // "Raise" sin apuesta previa = apuesta de apertura (error típico en entrada manual)
     if (type === 'raise') return (toCallBB > 0.0001) ? 'raise' : 'bet';
     if (type === 'call') return (toCallBB > 0.0001) ? 'call' : 'check';
+    // All-in genérico (CoinPoker, etc.): mapea a raise/call/bet según el nodo.
+    if (type === 'allin') return (toCallBB > 0.0001) ? 'raise' : 'bet';
     return type;
   }
 

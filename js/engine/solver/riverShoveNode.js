@@ -75,8 +75,51 @@
     return score.category === 5;
   }
 
+  /** ¿Hay 3+ del mismo palo? (color posible). */
+  function boardFlushPossible(board) {
+    const suits = {};
+    let maxSuit = 0;
+    (board || []).forEach((c) => {
+      suits[c[1]] = (suits[c[1]] || 0) + 1;
+      if (suits[c[1]] > maxSuit) maxSuit = suits[c[1]];
+    });
+    return maxSuit >= 3;
+  }
+
   /**
-   * Mano fuerte en showdown: full house+, o trío/set con carta del héroe en rango emparejado del board.
+   * Top dos parejas: ambas hole cards participan y las parejas son las dos
+   * cartas más altas del board (p. ej. KJ en J♠…K♦).
+   */
+  function isTopTwoPair(heroCards, board) {
+    if (!heroCards || !board || board.length < 5 || !C || !C.evaluate) return false;
+    const heroScore = C.evaluate(heroCards.concat(board));
+    if (heroScore.category !== 2) return false;
+    const holeVals = heroCards.map((c) => C.RANK_VALUE[c[0]]);
+    if (holeVals[0] === holeVals[1]) return false;
+    const highPair = heroScore.rank[1];
+    const lowPair = heroScore.rank[2];
+    if (!holeVals.includes(highPair) || !holeVals.includes(lowPair)) return false;
+    const boardVals = board.map((c) => C.RANK_VALUE[c[0]]);
+    const uniqBoard = Array.from(new Set(boardVals)).sort((a, b) => b - a);
+    if (uniqBoard.length < 2) return false;
+    return highPair === uniqBoard[0] && lowPair === uniqBoard[1];
+  }
+
+  /**
+   * Raise por valor con top dobles en river seco: board sin pareja (no hay full)
+   * y sin color posible. En esa textura top dos gana casi siempre vs peores
+   * (AK, top pair, unders) y no debe tratarse como farol residual.
+   */
+  function isDryTopTwoValue(heroCards, board) {
+    const pairInfo = boardPairRank(board);
+    if (pairInfo.paired || pairInfo.trips) return false;
+    if (boardFlushPossible(board)) return false;
+    return isTopTwoPair(heroCards, board);
+  }
+
+  /**
+   * Mano fuerte en showdown: full house+, trío/set, escalera nut, o top dos
+   * parejas en board no emparejado (value claro vs raise polarizado light).
    */
   function isStrongShowdownHand(heroCards, board) {
     if (!heroCards || !board || board.length < 5) return false;
@@ -99,6 +142,9 @@
       const BTS = global.GTOBoardTextureShift;
       return BTS ? BTS.isNutStraight(heroCards, board) : false;
     }
+
+    // Top dos en board seco sin full/color: value raise legítimo.
+    if (isDryTopTwoValue(heroCards, board)) return true;
 
     return false;
   }
@@ -221,11 +267,24 @@
       return zeroFoldIfAbsoluteNuts(normalize(freqs), heroCards, board, 'river');
     }
 
+    const dryTopTwo = isDryTopTwoValue(heroCards, board);
+
     if (nuts) {
       return wrap({
         fold: 0,
         call: clamp(0.82 + eqEdge * 0.15, 0.72, 0.92),
         raise: 0.08
+      });
+    }
+
+    // Top dos en textura seca (sin full/color): raise por valor entra en la
+    // mezcla con peso material — no marcar all-in/raise como error residual.
+    if (dryTopTwo && eqEffective >= potOdds - 0.05) {
+      const raiseW = clamp(0.18 + Math.max(0, eqEdge) * 0.2, 0.16, 0.28);
+      return wrap({
+        fold: 0.02,
+        call: clamp(0.78 - raiseW * 0.35, 0.58, 0.78),
+        raise: raiseW
       });
     }
 
@@ -278,6 +337,9 @@
   global.GTORiverShoveNode = {
     classifyFacingNode,
     isStrongShowdownHand,
+    isTopTwoPair,
+    isDryTopTwoValue,
+    boardFlushPossible,
     isAbsoluteNuts,
     zeroFoldIfAbsoluteNuts,
     pairedBoardFlushDevaluation,
