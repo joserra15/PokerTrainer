@@ -1352,3 +1352,47 @@
 @media (prefers-reduced-motion: reduce) {
   .trn-play-like .seat-act.is-acting { animation: none; }
 }
+
+
+/* Blind-up banner */
+.trn-blind-up {
+  margin: 8px 12px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(212, 168, 75, 0.2), rgba(30, 40, 36, 0.9));
+  border: 1px solid rgba(212, 168, 75, 0.45);
+  color: #f3e6c2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.92rem;
+}
+
+.trn-player-stack-detail {
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: #e8f0ea;
+}
+
+.hero-area.is-folded .hero-cards-folded { min-height: 0; }
+.trn-hand-end-handname {
+  font-size: 0.75rem;
+  color: #9db5a6;
+  margin-top: 2px;
+}
+.trn-gto-summary { font-size: 0.9rem; color: #cfe0d4; }
+.trn-gto-class { font-weight: 700; text-transform: uppercase; font-size: 0.72rem; }
+.trn-gto-optimal, .trn-gto-strong, .trn-gto-good, .trn-gto-correct { color: #3d9b6a; }
+.trn-gto-weak, .trn-gto-inaccurate, .trn-gto-error, .trn-gto-bad { color: #d45c4a; }
+.trn-gto-unscored { color: #8a9a90; }
+.trn-result-stats { margin: 10px 0 14px; }
+.trn-hand-log-list { list-style: none; padding: 0; margin: 0 0 16px; }
+.trn-hand-log-list li { margin: 6px 0; }
+.trn-hist-table-wrap { overflow-x: auto; margin-bottom: 14px; }
+.trn-hist-table .is-hero td { color: #7dcea0; font-weight: 600; }
+
+/* Hide duplicate format chrome if still present */
+.trn-table-view .table-format-badge { display: none !important; }
+.trn-table-view .table-train-chrome { display: none !important; }

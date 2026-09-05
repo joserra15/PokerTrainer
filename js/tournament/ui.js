@@ -24,6 +24,8 @@
     exitPrompt: false,
     resumePrompt: false,
     handDetailOpen: false,
+    replayOpen: false,
+    replayHandIndex: null,
     anim: { frame: null, playing: false, skip: false, seq: 0, timer: null }
   };
 
@@ -154,14 +156,17 @@
     playFrames(frames, done);
   }
 
-  function fmtEur(n) {
+  function fmtKoins(n) {
+    var Hud = global.PTTournamentHud;
+    if (Hud && Hud.fmtKoins) return Hud.fmtKoins(n);
     var x = Number(n) || 0;
     var s = x.toLocaleString('es-ES', {
       minimumFractionDigits: (Math.round(x * 100) % 100) ? 2 : 0,
       maximumFractionDigits: 2
     });
-    return s + ' €';
+    return s + ' Koins';
   }
+  function fmtEur(n) { return fmtKoins(n); }
 
   function startingBb(cfg) {
     var sch = cfg && cfg.blindSchedule && cfg.blindSchedule[0];
@@ -392,7 +397,7 @@
       '<p class="trn-lobby-eyebrow">Lobby · rivales IA</p>' +
       '<h2>TORNEOS</h2>' +
       '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
-      '<p class="trn-lobby-free">Torneos gratuitos · la entrada en € es ficticia (solo para premios y ROI).</p>' +
+      '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
       '</div>' +
       '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
@@ -452,7 +457,7 @@
       '<label class="trn-field">Asientos/mesa<select data-f="seatsPerTable">' +
       '<option value="6"' + (d.seatsPerTable === 6 ? ' selected' : '') + '>6</option>' +
       '<option value="9"' + (d.seatsPerTable === 9 ? ' selected' : '') + '>9</option></select></label>' +
-      '<label class="trn-field">Buy-in €<input type="number" data-f="buyInEur" min="0.01" step="0.01" value="' + d.buyInEur + '"></label>' +
+      '<label class="trn-field">Buy-in Koins<input type="number" data-f="buyInEur" min="0.01" step="0.01" value="' + d.buyInEur + '"></label>' +
       '<label class="trn-field">Stack inicial<input type="number" data-f="startingStack" min="100" value="' + d.startingStack + '"></label>' +
       '<label class="trn-field">Puestos pagados<input type="number" data-f="placesPaid" min="1" value="' + d.placesPaid + '"></label>' +
       '<label class="trn-field">Ladder<select data-f="payoutLadder">' +
@@ -664,7 +669,7 @@
 
       var cardsHtml = '';
       if (s.folded) {
-        cardsHtml = '<div class="seat-cards seat-fold-mark">✕</div>';
+        cardsHtml = '';
       } else if (showdown && s.cards && s.cards[0]) {
         cardsHtml = '<div class="seat-cards showdown">' + s.cards.map(faceCard).join('') + '</div>';
       } else if (!s.folded) {
@@ -700,20 +705,25 @@
       if (hand.seats[i].isHero) { hero = hand.seats[i]; break; }
     }
     if (!hero) return '';
-    var cards = (hero.cards && hero.cards[0])
-      ? hero.cards.map(faceCard).join('')
-      : (backCard() + backCard());
+    var folded = !!hero.folded;
     var last = seatLastAct(hand, hero);
-    var act = last
-      ? '<div class="action-badge-wrap"><span class="seat-act ' + actBadgeClass(last.action) + '">' +
-        esc(formatActLabel(last.action, last.amount, bb)) + '</span></div>'
-      : '';
-    return '<div class="hero-area">' +
+    var act = (folded || (last && last.action === 'fold'))
+      ? '<div class="action-badge-wrap"><span class="seat-act fold">Fold</span></div>'
+      : (last
+        ? '<div class="action-badge-wrap"><span class="seat-act ' + actBadgeClass(last.action) + '">' +
+          esc(formatActLabel(last.action, last.amount, bb)) + '</span></div>'
+        : '');
+    var cards = folded
+      ? ''
+      : ((hero.cards && hero.cards[0])
+        ? hero.cards.map(faceCard).join('')
+        : (backCard() + backCard()));
+    return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
       '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
       '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE · <span>' +
       esc(hero.pos || '-') + '</span></div>' +
-      '<div class="hero-cards">' + cards + '</div>' +
+      (cards ? ('<div class="hero-cards">' + cards + '</div>') : '<div class="hero-cards hero-cards-folded"></div>') +
       '</div>';
   }
 
@@ -840,8 +850,13 @@
       }).join('');
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
-        '<h3>Rol de ' + esc(pl && pl.name) + '</h3>' +
-        '<p class="muted">Tu hipótesis (se revela al final)</p>' +
+        '<h3>' + esc(pl && pl.name) + '</h3>' +
+        '<p class="trn-player-stack-detail">' +
+        esc(String(Math.round(Number(pl && pl.stack) || 0))) + ' fichas · ' +
+        esc(fmtBb(Number(pl && pl.stack) || 0, bb)) +
+        (pl && pl.alive === false ? ' · Eliminado' : '') +
+        '</p>' +
+        '<p class="muted">Adivina su rol (se revela al final)</p>' +
         '<div class="trn-role-grid">' + opts + '</div>' +
         '<button type="button" class="btn" data-act="clear-guess" data-guess-player="' + esc(pid) + '">Quitar guess</button> ' +
         '<button type="button" class="btn" data-act="close-role">Cerrar</button>' +
@@ -854,6 +869,16 @@
     var handEndModal = '';
     if (hand && hand.stage === 'complete' && hand.result) {
       handEndModal = renderHandEndModal(hand, state, bb);
+    }
+
+    var blindUpBanner = '';
+    if (state.blindUpPending && !(hand && hand.stage === 'complete')) {
+      var bu = state.blindUpPending;
+      blindUpBanner = '<div class="trn-blind-up" role="status">' +
+        '<strong>Ciegas nuevas</strong> · Nivel ' + esc(String(bu.level)) +
+        ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
+        (bu.ante ? (' ante ' + esc(String(bu.ante))) : '') +
+        ' <button type="button" class="btn btn-sm" data-act="dismiss-blind-up">OK</button></div>';
     }
 
     var exitModal = '';
@@ -872,7 +897,7 @@
     /* Misma cáscara visual que el entrenador (.play-stage / .poker-table / .table-felt)
        sin montar en #play-active: el motor de torneo (PTTournamentRunner) sigue
        dueño del estado entre manos. */
-    return '<div class="trn-table-view trn-play-like">' +
+    return '<div class="trn-table-view trn-play-like">' + blindUpBanner +
       '<div class="trn-play-stage">' +
       '<div class="trn-table-hud">' + chips +
       '<div class="trn-hud-actions">' +
@@ -882,17 +907,6 @@
       '<div class="poker-table trn-poker-table">' +
       '<div class="table-felt ' + tableClass + '" data-theme="emerald" data-format="' +
       (kind === 'sng' ? 'spin' : 'mtt') + '">' +
-      '<div class="table-train-chrome">' +
-      '<div class="table-format-badge">' + esc(formatLabel) + '</div>' +
-      '<div class="table-train-hud">' +
-      '<span class="table-train-chip">' + esc(streetLabel || 'LISTO') + '</span>' +
-      (blinds && blinds.sb != null
-        ? ('<span class="table-train-chip">' + blinds.sb + '/' + blinds.bb + '</span>')
-        : '') +
-      (heroAlive
-        ? ('<span class="table-train-chip is-phase">Héroe ' + esc(fmtBb(heroAlive.stack, bb)) + '</span>')
-        : '') +
-      '</div></div>' +
       '<div class="table-watermark" aria-hidden="true">' +
       '<span class="table-watermark-mark"></span>' +
       '<span class="table-watermark-text">PokerForgeAI</span>' +
@@ -919,9 +933,15 @@
     var deltas = res.deltas || {};
     var heroDelta = heroId != null ? (Number(deltas[heroId]) || 0) : 0;
     var won = heroId && (res.winners || []).indexOf(heroId) >= 0;
-    var outcomeCls = heroDelta > 0.02 ? 'hand-end-win' : (heroDelta < -0.02 ? 'hand-end-lose' : 'hand-end-tie');
-    var title = won ? (res.showdown ? 'Ganas en showdown' : 'Ganas la mano')
-      : (heroDelta < -0.02 ? 'Pierdes la mano' : 'Mano terminada');
+    var tied = !!res.tied || ((res.winners || []).length > 1 && won);
+    var outcomeCls = tied ? 'hand-end-tie'
+      : (heroDelta > 0.02 ? 'hand-end-win' : (heroDelta < -0.02 ? 'hand-end-lose' : 'hand-end-tie'));
+    var title;
+    if (tied && res.showdown) title = 'Empate en el showdown';
+    else if (won && heroDelta > 0.02) title = res.showdown ? 'Ganas en showdown' : 'Ganas la mano';
+    else if (heroDelta < -0.02) title = res.showdown ? 'Pierdes en showdown' : 'Pierdes la mano';
+    else if (won) title = res.showdown ? 'Showdown' : 'Mano terminada';
+    else title = 'Mano terminada';
     var boardHtml = (res.board || hand.board || []).map(faceCard).join('');
     var seatsHtml = hand.seats.filter(function (s) {
       return !s.folded || (res.holeCards && res.holeCards[s.id]);
@@ -937,6 +957,9 @@
         '<div class="trn-hand-end-name">' + esc(s.isHero ? 'Héroe' : (s.name || s.pos)) +
         ' · ' + esc(s.pos || '') + '</div>' +
         '<div class="trn-hand-end-cards">' + cardsHtml + '</div>' +
+        ((res.handNames && res.handNames[s.id])
+          ? ('<div class="trn-hand-end-handname">' + esc(res.handNames[s.id]) + '</div>')
+          : '') +
         '<div class="trn-hand-end-delta ' + dCls + '">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div>' +
         '</div>';
     }).join('');
@@ -947,8 +970,28 @@
         return '<li><span class="muted">' + esc(e.street) + '</span> ' +
           esc(e.name || e.id) + ' · ' + esc(formatActLabel(e.action, e.amount, bb)) + '</li>';
       }).join('');
+      var gtoHtml = '';
+      var decs = hand.decisions || [];
+      if (decs.length) {
+        var GEval = global.PTTournamentGtoEval;
+        var sum = GEval && GEval.summarizeDecisions ? GEval.summarizeDecisions(decs) : null;
+        gtoHtml = '<h4>Evaluación GTO (héroe)</h4>';
+        if (sum) {
+          gtoHtml += '<p class="trn-gto-summary">Aciertos ' + sum.hits + '/' + sum.scored +
+            ' (' + sum.accuracy + '%) · EV loss ' + sum.totalEvLoss + ' bb' +
+            (sum.score != null ? (' · Nota ' + sum.score) : '') + '</p>';
+        }
+        gtoHtml += '<ol class="trn-gto-decisions">' + decs.map(function (d) {
+          return '<li><span class="trn-gto-class trn-gto-' + esc(d.class || 'unscored') + '">' +
+            esc(d.class || 'unscored') + '</span> ' + esc(d.street || '') + ' · ' +
+            esc(d.action || '') +
+            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') +
+            (d.unscored ? ' <span class="muted">(sin solver)</span>' : '') +
+            '</li>';
+        }).join('') + '</ol>';
+      }
       detail = '<div class="trn-hand-end-detail"><h4>Acción de la mano</h4><ol>' +
-        (lines || '<li class="muted">Sin acciones</li>') + '</ol></div>';
+        (lines || '<li class="muted">Sin acciones</li>') + '</ol>' + gtoHtml + '</div>';
     }
 
     return '<div class="trn-modal-backdrop trn-hand-end-backdrop" data-act="noop">' +
@@ -970,6 +1013,44 @@
   }
 
   /* ---------- Result ---------- */
+
+  function renderReplayModal() {
+    if (!ui.replayOpen || !ui.state) return '';
+    var log = (ui.state.handLog || []).find(function (h) {
+      return Number(h.handIndex) === Number(ui.replayHandIndex);
+    });
+    if (!log) return '';
+    var bb = log.bb || 20;
+    var board = (log.board || []).map(faceCard).join('');
+    var seats = (log.seats || []).map(function (s) {
+      var cards = (!s.folded && s.cards && s.cards[0]) ? s.cards.map(faceCard).join('') : '';
+      var d = log.result && log.result.deltas ? Number(log.result.deltas[s.id]) || 0 : 0;
+      return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') + '">' +
+        '<div class="trn-hand-end-name">' + esc(s.isHero ? 'Héroe' : s.name) + ' · ' + esc(s.pos || '') +
+        (s.folded ? ' · Fold' : '') + '</div>' +
+        '<div class="trn-hand-end-cards">' + cards + '</div>' +
+        '<div class="trn-hand-end-delta">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div></div>';
+    }).join('');
+    var acts = (log.log || []).map(function (e) {
+      return '<li><span class="muted">' + esc(e.street) + '</span> ' + esc(e.name || e.id) +
+        ' · ' + esc(formatActLabel(e.action, e.amount, bb)) + '</li>';
+    }).join('');
+    var gto = '';
+    if (log.decisions && log.decisions.length) {
+      gto = '<h4>GTO</h4><ol>' + log.decisions.map(function (d) {
+        return '<li>' + esc(d.class || 'unscored') + ' · ' + esc(d.street || '') + ' · ' + esc(d.action || '') + '</li>';
+      }).join('') + '</ol>';
+    }
+    return '<div class="trn-modal-backdrop" data-act="close-replay">' +
+      '<div class="trn-modal trn-hand-end-modal" role="dialog" data-act="noop">' +
+      '<h3>Replay mano #' + esc(String(log.handIndex)) + '</h3>' +
+      '<div class="trn-hand-end-board">' + board + '</div>' +
+      '<div class="trn-hand-end-seats">' + seats + '</div>' +
+      '<ol>' + acts + '</ol>' + gto +
+      '<button type="button" class="btn btn-primary" data-act="close-replay">Cerrar</button>' +
+      '</div></div>';
+  }
+
   function renderResult() {
     var state = ui.state;
     if (!state || !state.result) {
@@ -984,13 +1065,57 @@
         esc(roleLabel(d.guess)) + (d.ok ? ' ✓' : ' ✗') + '</li>';
     }).join('') || '<li class="muted">Sin guesses</li>';
 
+    var stats = r.stats || {};
+    var gto = state.gtoSession || (r.gtoSession) || {};
+    var Cfg = global.PTTournamentConfig;
+    var ladder = (Cfg && Cfg.payoutEuros) ? Cfg.payoutEuros(state.config || {}) : [];
+    var standings = (state.players || []).slice().sort(function (a, b) {
+      if (a.alive && b.alive) return (b.stack || 0) - (a.stack || 0);
+      if (a.alive !== b.alive) return a.alive ? -1 : 1;
+      return (a.bustPlace || 999) - (b.bustPlace || 999);
+    });
+    var standHtml = standings.map(function (pl, i) {
+      var place = pl.alive ? (i + 1) : (pl.bustPlace || '—');
+      var prize = (place >= 1 && place <= ladder.length) ? (ladder[place - 1] || 0) : 0;
+      return '<tr class="' + (pl.isHero ? 'is-hero' : '') + '">' +
+        '<td>' + place + 'º</td>' +
+        '<td>' + esc(pl.isHero ? 'Héroe' : pl.name) + '</td>' +
+        '<td>' + (pl.alive ? (Math.round(pl.stack) + ' f') : 'out') + '</td>' +
+        '<td>' + fmtKoins(prize) + '</td></tr>';
+    }).join('');
+
+    var hands = (state.handLog || []).slice().reverse();
+    var handsHtml = hands.length
+      ? hands.map(function (h) {
+        return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
+          esc(String(h.handIndex)) + '">Mano #' + esc(String(h.handIndex)) +
+          '</button> · pot ' + esc(String(Math.round((h.pot || 0) * 10) / 10)) +
+          (h.tied ? ' · chop' : '') +
+          (h.showdown ? ' · SD' : '') + '</li>';
+      }).join('')
+      : '<li class="muted">Sin manos guardadas</li>';
+
     return '<div class="trn-result panel">' +
       '<h2>Resultado</h2>' +
       '<p class="trn-result-place">' + (r.place != null ? (r.place + 'º') : '—') +
-      ' · Premio €' + (r.prizeEur || 0) + '</p>' +
+      ' · Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
       '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
       ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP</p>' +
-      '<ul class="trn-role-reveal">' + details + '</ul>' +
+      '<div class="trn-result-stats">' +
+      '<p><strong>Stats héroe</strong> · Manos ' + (stats.handsPlayed || 0) +
+      ' · VPIP ' + (stats.vpip || 0) + '% · PFR ' + (stats.pfr || 0) +
+      '% · Ganadas ' + (stats.wonHands || 0) +
+      ' · SD ' + (stats.wentToShowdown || 0) + '</p>' +
+      '<p><strong>GTO</strong> · Decisiones ' + (gto.scored || 0) +
+      ' · Aciertos ' + (gto.hits || 0) +
+      (gto.accuracy != null ? (' (' + gto.accuracy + '%)') : '') +
+      ' · EV loss ' + (gto.totalEvLoss || 0) + ' bb</p></div>' +
+      '<h3>Clasificación</h3>' +
+      '<div class="trn-hist-table-wrap"><table class="trn-hist-table"><thead><tr>' +
+      '<th>#</th><th>Jugador</th><th>Stack</th><th>Premio</th></tr></thead><tbody>' +
+      standHtml + '</tbody></table></div>' +
+      '<h3>Roles</h3><ul class="trn-role-reveal">' + details + '</ul>' +
+      '<h3>Histórico de manos</h3><ul class="trn-hand-log-list">' + handsHtml + '</ul>' +
       '<div class="trn-setup-actions">' +
       '<button type="button" class="btn btn-primary" data-act="hub">Hub</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
@@ -1006,7 +1131,7 @@
           '<td>' + esc(h.name) + '</td>' +
           '<td>' + esc((h.kind || '').toUpperCase()) + '</td>' +
           '<td>' + (h.place != null ? h.place : '—') + '/' + h.entries + '</td>' +
-          '<td>€' + (h.prizeEur || 0) + '</td>' +
+          '<td>' + fmtKoins(h.prizeEur || 0) + '</td>' +
           '<td>' + (h.roi || 0) + '%</td>' +
           '<td>' + (h.roleAccuracy || 0) + '%</td>' +
           '<td><button type="button" class="btn btn-sm" data-act="remove-hist" data-id="' + esc(h.id) + '">×</button></td>' +
@@ -1038,7 +1163,7 @@
     try {
       if (ui.view === VIEW.setup) html = renderSetup();
       else if (ui.view === VIEW.table) html = renderTable();
-      else if (ui.view === VIEW.result) html = renderResult();
+      else if (ui.view === VIEW.result) html = renderResult() + renderReplayModal();
       else if (ui.view === VIEW.history) html = renderHistory();
       else html = renderHub();
     } catch (err) {
@@ -1165,11 +1290,22 @@
         } else if (act === 'toggle-hand-detail') {
           ui.handDetailOpen = !ui.handDetailOpen;
           paint();
+        } else if (act === 'replay-hand') {
+          ui.replayHandIndex = Number(btn.getAttribute('data-hand'));
+          ui.replayOpen = true;
+          paint();
+        } else if (act === 'close-replay') {
+          ui.replayOpen = false;
+          ui.replayHandIndex = null;
+          paint();
         } else if (act === 'history') {
           setView(VIEW.history);
         } else if (act === 'start-custom') {
           var cfg = readSetupForm(root);
           startFromConfig(cfg, {});
+        } else if (act === 'dismiss-blind-up') {
+          if (ui.state) ui.state.blindUpPending = null;
+          paint();
         } else if (act === 'info') {
           ui.infoOpen = true;
           paint();

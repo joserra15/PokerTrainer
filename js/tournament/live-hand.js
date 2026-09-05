@@ -433,7 +433,8 @@
     return null;
   }
 
-  function settle(hand, winnerIds, showdown) {
+  function settle(hand, winnerIds, showdown, meta) {
+    meta = meta || {};
     var set = {};
     (winnerIds || []).forEach(function (id) { set[id] = true; });
     var n = Math.max(1, (winnerIds || []).length);
@@ -447,18 +448,28 @@
     hand.stage = 'complete';
     hand.awaitingHero = false;
     hand.heroOptions = null;
+    var hero = hand.seats.find(function (s) { return s.isHero; });
+    var heroId = hero ? hero.id : null;
+    var tied = !!(showdown && (winnerIds || []).length > 1);
     hand.result = {
       deltas: deltas,
       winners: (winnerIds || []).slice(),
       showdown: !!showdown,
+      tied: tied,
       board: hand.board.slice(),
       pot: hand.pot,
-      holeCards: {}
+      holeCards: {},
+      handNames: meta.handNames || {},
+      heroNet: heroId != null ? (deltas[heroId] || 0) : 0
     };
     alive(hand).forEach(function (s) {
       hand.result.holeCards[s.id] = s.cards.slice();
     });
     return hand;
+  }
+
+  function cardCodesOf(cards) {
+    return (cards || []).map(cardCode).filter(Boolean);
   }
 
   function finishFoldWin(hand) {
@@ -474,21 +485,50 @@
     }
     var C = global.Cards;
     var cont = alive(hand);
-    var best = null;
-    var winners = [];
+    var boardCodes = cardCodesOf(hand.board);
     cont.forEach(function (s) {
+      var hole = cardCodesOf(s.cards);
       var score = null;
-      try { if (C && C.evaluate) score = C.evaluate(s.cards.concat(hand.board)); } catch (e) { /* */ }
+      var name = null;
+      if (C && C.evaluate) {
+        try {
+          score = C.evaluate(hole.concat(boardCodes));
+          if (score && score.name) name = score.name;
+        } catch (e1) {
+          try {
+            score = C.evaluate(s.cards.concat(hand.board));
+            if (score && score.name) name = score.name;
+          } catch (e2) { score = null; }
+        }
+      }
       s._score = score;
-      s._str = strength01(s.cards, hand.board);
+      s._handName = name;
+    });
+    var winners = [];
+    var best = null;
+    cont.forEach(function (s) {
+      if (!s._score) return;
       if (!best) { best = s; winners = [s]; return; }
       var cmp = 0;
-      if (C && C.compare && s._score && best._score) cmp = C.compare(s._score, best._score);
-      else cmp = s._str - best._str;
+      if (C && C.compare) cmp = C.compare(s._score, best._score);
+      else {
+        var ra = (s._score.rank || []).slice();
+        var rb = (best._score.rank || []).slice();
+        var len = Math.max(ra.length, rb.length);
+        for (var i = 0; i < len; i++) {
+          var x = ra[i] || 0, y = rb[i] || 0;
+          if (x !== y) { cmp = x - y; break; }
+        }
+      }
       if (cmp > 0) { best = s; winners = [s]; }
       else if (cmp === 0) winners.push(s);
     });
-    return settle(hand, winners.map(function (w) { return w.id; }), true);
+    if (!winners.length) winners = cont.slice();
+    var handNames = {};
+    cont.forEach(function (s) {
+      if (s._handName) handNames[s.id] = s._handName;
+    });
+    return settle(hand, winners.map(function (w) { return w.id; }), true, { handNames: handNames });
   }
 
   function heroOptions(hand, seat) {
@@ -596,45 +636,84 @@
     return null;
   }
 
-  function run(hand) {
-    var guard = 0;
-    while (hand.stage === 'playing' && guard++ < 250) {
-      if (alive(hand).length <= 1) return finishFoldWin(hand);
+  /**
+   * Un paso del motor: calle nueva, UNA acción de villano, turno de héroe, o fin.
+   * Los villanos deciden aquí (rol + hole + acciones previas), no al repartir.
+   */
+  function advance(hand) {
+    if (!hand || hand.stage !== 'playing') return hand;
+    hand._frames = hand._frames || [];
 
-      if (streetDone(hand)) {
-        var canStill = alive(hand).filter(canAct);
-        if (canStill.length <= 1 && alive(hand).length >= 2) return finishShowdown(hand);
-        if (hand.street === 'river') return finishShowdown(hand);
-        if (advanceStreet(hand) === 'showdown') return finishShowdown(hand);
-        pushFrame(hand, { kind: 'street' });
-        continue;
-      }
+    if (alive(hand).length <= 1) return finishFoldWin(hand);
 
-      var seat = nextToAct(hand);
-      if (!seat) {
-        alive(hand).forEach(function (s) { if (canAct(s)) hand.acted[s.id] = true; });
-        continue;
-      }
-
-      if (seat.isHero) {
-        hand.awaitingHero = true;
-        hand._heroSeatId = seat.id;
-        hand.heroOptions = heroOptions(hand, seat);
-        return hand;
-      }
-      applyAction(hand, seat, villainAction(hand, seat));
-      pushSeatFrame(hand, seat);
+    if (streetDone(hand)) {
+      var canStill = alive(hand).filter(canAct);
+      if (canStill.length <= 1 && alive(hand).length >= 2) return finishShowdown(hand);
+      if (hand.street === 'river') return finishShowdown(hand);
+      if (advanceStreet(hand) === 'showdown') return finishShowdown(hand);
+      pushFrame(hand, { kind: 'street' });
+      return hand;
     }
-    if (hand.stage === 'playing') finishShowdown(hand);
+
+    var seat = nextToAct(hand);
+    if (!seat) {
+      alive(hand).forEach(function (s) { if (canAct(s)) hand.acted[s.id] = true; });
+      return hand;
+    }
+
+    if (seat.isHero) {
+      hand.awaitingHero = true;
+      hand._heroSeatId = seat.id;
+      hand.heroOptions = heroOptions(hand, seat);
+      return hand;
+    }
+
+    applyAction(hand, seat, villainAction(hand, seat));
+    pushSeatFrame(hand, seat);
+    return hand;
+  }
+
+  /** Avanza hasta héroe, fin de mano, o un máximo de pasos (simulación / skip). */
+  function run(hand, opts) {
+    opts = opts || {};
+    var maxSteps = opts.maxSteps != null ? opts.maxSteps : 250;
+    var stopOnFrame = !!opts.stopOnFrame;
+    var guard = 0;
+    while (hand.stage === 'playing' && !hand.awaitingHero && guard++ < maxSteps) {
+      var framesBefore = (hand._frames && hand._frames.length) || 0;
+      advance(hand);
+      if (stopOnFrame && hand._frames && hand._frames.length > framesBefore) break;
+      if (hand.awaitingHero || hand.stage === 'complete') break;
+    }
+    if (hand.stage === 'playing' && !hand.awaitingHero && guard >= maxSteps) {
+      finishShowdown(hand);
+    }
     return hand;
   }
 
   function start(tableSeats, blinds, heroId) {
     var hand = createHand(tableSeats, blinds, heroId);
-    /* Primer fotograma: cartas repartidas y ciegas puestas, sin acciones aún.
-       A partir de aquí la acción empieza en UTG y avanza hasta el héroe. */
+    hand.decisions = [];
+    /* Primer fotograma: cartas y ciegas; la IA aún no ha decidido. */
     pushFrame(hand, { kind: 'deal' });
-    return run(hand);
+    /* Un solo paso de presentación; el resto lo pide la UI con advance/run. */
+    return hand;
+  }
+
+  /** Tras el deal: avanza un paso (villano/calle) dejando frames nuevos. */
+  function step(hand) {
+    if (!hand) return hand;
+    if (hand.stage === 'complete') return hand;
+    if (hand.awaitingHero) return hand;
+    hand._frames = [];
+    return advance(hand);
+  }
+
+  /** Draga pasos hasta héroe o fin (saltar animación / mesas satélite). */
+  function runToHeroOrEnd(hand) {
+    if (!hand) return hand;
+    /* Conserva fotogramas previos (p.ej. deal) y añade acciones hasta el héroe. */
+    return run(hand, { maxSteps: 250, stopOnFrame: false });
   }
 
   function heroAct(hand, actionId, amount) {
@@ -649,11 +728,23 @@
       });
     }
     if (actionId === 'allin') action.amount = seat.streetInvested + seat.stack;
+
+    /* Evaluación GTO de la decisión del héroe (como en Entrenar). */
+    try {
+      var GEval = global.PTTournamentGtoEval;
+      if (GEval && typeof GEval.evaluateHeroAction === 'function') {
+        var decision = GEval.evaluateHeroAction(hand, seat, action);
+        hand.decisions = hand.decisions || [];
+        if (decision) hand.decisions.push(decision);
+      }
+    } catch (eEval) { /* no bloquear la mano */ }
+
     hand.awaitingHero = false;
     hand.heroOptions = null;
     applyAction(hand, seat, action);
     pushSeatFrame(hand, seat);
-    return run(hand);
+    /* Continúa hasta el próximo turno de héroe o el fin (villanos deciden al actuar). */
+    return runToHeroOrEnd(hand);
   }
 
   function simulateTable(tableSeats, blinds) {
@@ -661,13 +752,20 @@
     hand.seats.forEach(function (s) { s.isHero = false; });
     hand.heroId = null;
     hand._noFrames = true;
-    run(hand);
+    hand.decisions = [];
+    pushFrame(hand, { kind: 'deal' });
+    runToHeroOrEnd(hand);
     hand._frames = [];
     return hand;
   }
 
+
   global.PTTournamentLiveHand = {
     start: start,
+    step: step,
+    advance: advance,
+    run: run,
+    runToHeroOrEnd: runToHeroOrEnd,
     heroAct: heroAct,
     simulateTable: simulateTable,
     strength01: strength01,
