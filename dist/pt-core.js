@@ -998,8 +998,8 @@
       callMix: 'AJo, KJo, KQo'
     },
     CO_vs_HJ: {
-      threeBet: 'QQ+, AKs, AKo',
-      threeBetMix: 'JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s',
+      threeBet: 'QQ+, AKs, AKo, 76s',
+      threeBetMix: 'JJ, TT, AQs, A5s, A4s, KQs, KJs',
       call: '99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo',
       callMix: 'KJo, QJo, KQo'
     },
@@ -1527,8 +1527,8 @@ window.PT_VS_RFI_JSON = {
       "callMix": "AJo, KJo, KQo"
     },
     "CO_vs_HJ": {
-      "threeBet": "QQ+, AKs, AKo",
-      "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+      "threeBet": "QQ+, AKs, AKo, 76s",
+      "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
       "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
       "callMix": "KJo, QJo, KQo"
     },
@@ -2322,8 +2322,8 @@ window.PT_PHASE3_LAYERS_JSON = {
           "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "HJ_vs_UTG2": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "QJo, KQo"
         },
@@ -2334,20 +2334,20 @@ window.PT_PHASE3_LAYERS_JSON = {
           "callMix": "QJo"
         },
         "HJ_vs_LJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KJo, QJo, KQo"
         },
         "CO_vs_LJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KJo, QJo, KQo"
         },
         "CO_vs_HJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KJo, QJo, KQo"
         },
@@ -2538,8 +2538,8 @@ window.PT_PHASE3_LAYERS_JSON = {
           "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
         },
         "HJ_vs_UTG2": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "QJo, KQo"
         },
@@ -2550,20 +2550,20 @@ window.PT_PHASE3_LAYERS_JSON = {
           "callMix": "QJo"
         },
         "HJ_vs_LJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KJo, QJo, KQo"
         },
         "CO_vs_LJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KJo, QJo, KQo"
         },
         "CO_vs_HJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KJo, QJo, KQo"
         },
@@ -2758,8 +2758,8 @@ window.PT_PHASE3_LAYERS_JSON = {
           "callMix": ""
         },
         "HJ_vs_UTG2": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KQo"
         },
@@ -2770,20 +2770,20 @@ window.PT_PHASE3_LAYERS_JSON = {
           "callMix": ""
         },
         "HJ_vs_LJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KQo"
         },
         "CO_vs_LJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KQo"
         },
         "CO_vs_HJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KQo"
         },
@@ -2982,8 +2982,8 @@ window.PT_PHASE3_LAYERS_JSON = {
           "callMix": ""
         },
         "HJ_vs_UTG2": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KQo"
         },
@@ -2994,20 +2994,20 @@ window.PT_PHASE3_LAYERS_JSON = {
           "callMix": ""
         },
         "HJ_vs_LJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KQo"
         },
         "CO_vs_LJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KQo"
         },
         "CO_vs_HJ": {
-          "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs, 76s",
+          "threeBet": "QQ+, AKs, AKo, 76s",
+          "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
           "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
           "callMix": "KQo"
         },
@@ -35926,10 +35926,10 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (tabId === 'ranges') {
       withLazyChunk('ranges', function () {
-        var pending = global.__ptPendingRanges || null;
+        var pending = window.__ptPendingRanges || null;
         if (pending && typeof applyRangesExplorerState === 'function') {
           try { applyRangesExplorerState(pending); } catch (ePend) { /* ignore */ }
-          global.__ptPendingRanges = null;
+          window.__ptPendingRanges = null;
         }
         renderRangesExplorer();
       });
@@ -37796,7 +37796,7 @@ window.PT_NASH_PUSH_JSON = {
    * Uso Escuela: openRangesExplorer({ spot:'RFI', heroPos:'BTN' })
    */
   function openRangesExplorer(opts) {
-    if (opts) global.__ptPendingRanges = opts;
+    if (opts) window.__ptPendingRanges = opts;
     if (typeof goToTab === 'function') goToTab('ranges');
   }
   window.openRangesExplorer = openRangesExplorer;
