@@ -115,6 +115,18 @@ assert.ok(continueSet(vsRfi.pairs.BB_vs_CO).has('T9o'), 'BB vs CO debe continuar
 assert.ok(continueSet(vsRfi.pairs.BB_vs_BTN).has('Q9o'), 'BB vs BTN debe continuar Q9o');
 console.log('OK BB defensa: gappers UTG/HJ, T9o vs CO, Q9o vs BTN');
 
+// CO vs HJ: 76s es farol polar de 3-bet (solvers IP), no fold.
+{
+  const coHj = vsRfi.pairs.CO_vs_HJ;
+  const coHj3b = new Set([
+    ...N.expand(coHj.threeBet || ''),
+    ...N.expand(coHj.threeBetMix || '')
+  ]);
+  assert.ok(coHj3b.has('76s'), 'CO vs HJ debe 3-betear 76s (threeBet/threeBetMix)');
+  assert.ok(continueSet(coHj).has('87s'), 'CO vs HJ debe continuar 87s (flat típico)');
+  console.log('OK CO vs HJ: 76s en 3-bet polar');
+}
+
 // --- vs-3bet ---
 const vs3 = loadJson('vs-3bet-6max-100bb.json');
 assert.ok(vs3.pairs && typeof vs3.pairs === 'object', 'vs-3bet: pairs');

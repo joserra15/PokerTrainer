@@ -46,7 +46,7 @@ function expandFields(row, fields) {
   return set;
 }
 
-function checkMust(spotKind, key, cont, rules) {
+function checkMust(spotKind, key, cont, rules, row) {
   if (!rules) return;
   (rules.mustContinue || []).forEach((h) => {
     if (!cont.has(h)) hard.push({ kind: 'mustContinue', spotKind, key, hand: h, msg: key + ' debe continuar ' + h });
@@ -54,6 +54,20 @@ function checkMust(spotKind, key, cont, rules) {
   (rules.mustFold || []).forEach((h) => {
     if (cont.has(h)) hard.push({ kind: 'mustFold', spotKind, key, hand: h, msg: key + ' debe foldear ' + h + ' (está en continue)' });
   });
+  if (rules.mustThreeBet && row) {
+    const tb = expandFields(row, ['threeBet', 'threeBetMix']);
+    rules.mustThreeBet.forEach((h) => {
+      if (!tb.has(h)) {
+        hard.push({
+          kind: 'mustThreeBet',
+          spotKind,
+          key,
+          hand: h,
+          msg: key + ' debe 3-betear ' + h + ' (threeBet/threeBetMix)'
+        });
+      }
+    });
+  }
 }
 
 /** Cross-ladder offsuit: si un kicker peor continúa en la misma clase, el mejor no puede fold puro. */
@@ -83,7 +97,7 @@ Object.keys(consensus.vsRfi || {}).forEach((key) => {
     return;
   }
   const cont = expandFields(row, VS_CONT);
-  checkMust('vsRfi', key, cont, consensus.vsRfi[key]);
+  checkMust('vsRfi', key, cont, consensus.vsRfi[key], row);
   if (key.startsWith('BB_vs_')) {
     // Solo broadway+/T9: A5o polar 3bet no debe forzar A6o/A7o.
     auditOffsuitLadder(key, cont, 'A', ['K', 'Q', 'J', 'T', '9']);
@@ -101,7 +115,7 @@ Object.keys(consensus.rfi || {}).forEach((pos) => {
     hard.push({ kind: 'missingSpot', spotKind: 'rfi', key: pos, msg: 'falta RFI ' + pos });
     return;
   }
-  checkMust('rfi', pos, expandFields(row, RFI_CONT), consensus.rfi[pos]);
+  checkMust('rfi', pos, expandFields(row, RFI_CONT), consensus.rfi[pos], row);
 });
 
 // --- vs3bet ---
@@ -112,7 +126,7 @@ Object.keys(consensus.vs3bet || {}).forEach((key) => {
     hard.push({ kind: 'missingSpot', spotKind: 'vs3bet', key, msg: 'falta vs3bet ' + key });
     return;
   }
-  checkMust('vs3bet', key, expandFields(row, VS3_CONT), consensus.vs3bet[key]);
+  checkMust('vs3bet', key, expandFields(row, VS3_CONT), consensus.vs3bet[key], row);
 });
 
 // --- Pedagogía: teachBacks que contradicen el chart ---

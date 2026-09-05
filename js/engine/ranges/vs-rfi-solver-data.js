@@ -63,7 +63,7 @@ window.PT_VS_RFI_JSON = {
       "callMix": "AJo, KJo, KQo"
     },
     "CO_vs_HJ": {
-      "threeBet": "QQ+, AKs, AKo",
+      "threeBet": "QQ+, AKs, AKo, 76s",
       "threeBetMix": "JJ, TT, AQs, A5s, A4s, KQs, KJs",
       "call": "99-22, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo, AJo",
       "callMix": "KJo, QJo, KQo"
