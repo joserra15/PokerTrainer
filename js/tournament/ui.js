@@ -19,8 +19,44 @@
     setupDraft: null,
     infoOpen: false,
     roleModalPlayerId: null,
-    bustPrompt: false
+    bustPrompt: false,
+    lobbyFilter: 'all'
   };
+
+  function fmtEur(n) {
+    var x = Number(n) || 0;
+    var s = x.toLocaleString('es-ES', {
+      minimumFractionDigits: (Math.round(x * 100) % 100) ? 2 : 0,
+      maximumFractionDigits: 2
+    });
+    return s + ' €';
+  }
+
+  function startingBb(cfg) {
+    var sch = cfg && cfg.blindSchedule && cfg.blindSchedule[0];
+    var bb = sch && sch.bb ? Number(sch.bb) : 20;
+    return Math.max(1, Math.round(Number(cfg.startingStack || 0) / bb));
+  }
+
+  function lobbyBadges(cfg) {
+    var badges = [];
+    badges.push({ t: cfg.kind === 'sng' ? 'SNG' : 'MTT', k: 'kind' });
+    badges.push({ t: cfg.seatsPerTable + '-MAX', k: 'max' });
+    badges.push({ t: "HOLD'EM NL", k: 'game' });
+    if (startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
+    if (cfg.id === 'easy') badges.push({ t: 'FÁCIL', k: 'diff' });
+    if (cfg.id === 'medium') badges.push({ t: 'MEDIO', k: 'diff' });
+    if (cfg.id === 'hard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
+    return badges;
+  }
+
+  function lobbyTone(cfg) {
+    if (cfg.id === 'hard') return 'hard';
+    if (cfg.id === 'medium') return 'mid';
+    if (cfg.id === 'easy') return 'easy';
+    if (cfg.kind === 'sng') return 'sng';
+    return 'mtt';
+  }
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -66,39 +102,103 @@
     startFromConfig(id, {});
   }
 
-  /* ---------- Hub ---------- */
+  /* ---------- Hub (lobby estilo cliente de póker) ---------- */
+  function renderLobbyRow(p) {
+    var pool = global.PTTournamentConfig.prizePool
+      ? global.PTTournamentConfig.prizePool(p)
+      : Math.round(p.buyInEur * p.entries * 100) / 100;
+    var tone = lobbyTone(p);
+    var badges = lobbyBadges(p).map(function (b) {
+      return '<span class="trn-badge trn-badge-' + esc(b.k) + '">' + esc(b.t) + '</span>';
+    }).join('');
+    var bb = startingBb(p);
+    var kindLabel = p.kind === 'sng' ? 'SNG' : 'MTT';
+
+    return '<button type="button" class="trn-lobby-row" data-preset="' + esc(p.id) +
+      '" data-kind="' + esc(p.kind) + '" data-tone="' + esc(tone) + '">' +
+      '<div class="trn-lobby-thumb" aria-hidden="true">' +
+      '<span class="trn-lobby-thumb-kind">' + esc(kindLabel) + '</span>' +
+      '<span class="trn-lobby-thumb-deco">♠</span>' +
+      '<span class="trn-lobby-status">Entra ya</span>' +
+      '</div>' +
+      '<div class="trn-lobby-main">' +
+      '<div class="trn-lobby-title-row">' +
+      '<span class="trn-lobby-title">' + esc(p.name) + '</span>' +
+      '<span class="trn-lobby-badges">' + badges + '</span>' +
+      '</div>' +
+      '<div class="trn-lobby-subline">NLHE · Stack ' + p.startingStack +
+      ' (' + bb + ' bb) · ' + p.placesPaid + ' paid</div>' +
+      '<div class="trn-lobby-stats">' +
+      '<div class="trn-stat"><span class="trn-stat-lbl">Entrada</span>' +
+      '<span class="trn-stat-val">' + esc(fmtEur(p.buyInEur)) + '</span></div>' +
+      '<div class="trn-stat"><span class="trn-stat-lbl">Jugadores</span>' +
+      '<span class="trn-stat-val">' + p.entries + '</span></div>' +
+      '<div class="trn-stat"><span class="trn-stat-lbl">Premio</span>' +
+      '<span class="trn-stat-val trn-stat-prize">' + esc(fmtEur(pool)) + '</span></div>' +
+      '</div></div>' +
+      '<div class="trn-lobby-desk" aria-hidden="true">' +
+      '<span class="trn-desk-start"><strong>Ahora</strong><small>al instante</small></span>' +
+      '<span class="trn-desk-name">' + esc(p.name) + '<small>' + badges + '</small></span>' +
+      '<span class="trn-desk-game">NLHE</span>' +
+      '<span class="trn-desk-players">' + p.entries + '</span>' +
+      '<span class="trn-desk-buyin">' + esc(fmtEur(p.buyInEur)) + '</span>' +
+      '<span class="trn-desk-prize">' + esc(fmtEur(pool)) + '</span>' +
+      '</div></button>';
+  }
+
   function renderHub() {
     var presets = global.PTTournamentConfig.listPresets();
+    var filter = ui.lobbyFilter || 'all';
+    var filtered = presets.filter(function (p) {
+      if (filter === 'mtt') return p.kind === 'mtt';
+      if (filter === 'sng') return p.kind === 'sng';
+      return true;
+    });
     var hist = (global.PTTournamentStore.list() || []).slice(0, 5);
-    var cards = presets.map(function (p) {
-      return '<button type="button" class="trn-preset-card" data-preset="' + esc(p.id) + '">' +
-        '<div class="trn-preset-name">' + esc(p.name) + '</div>' +
-        '<div class="trn-preset-meta">' + esc(p.kind.toUpperCase()) + ' · ' + p.entries +
-        ' jugadores · €' + p.buyInEur + '</div>' +
-        '<div class="trn-preset-meta">Stack ' + p.startingStack + ' · ' + p.placesPaid + ' paid</div>' +
-        '</button>';
-    }).join('');
+    var rows = filtered.map(renderLobbyRow).join('');
+    if (!rows) {
+      rows = '<p class="trn-lobby-empty muted">No hay torneos en este filtro.</p>';
+    }
 
     var histHtml = hist.length
       ? hist.map(function (h) {
         return '<li><strong>' + esc(h.name) + '</strong> · ' +
           (h.place != null ? (h.place + 'º') : '—') +
-          ' · €' + (h.prizeEur || 0) +
+          ' · ' + esc(fmtEur(h.prizeEur || 0)) +
           ' · ROI ' + (h.roi || 0) + '%</li>';
       }).join('')
       : '<li class="muted">Sin torneos guardados</li>';
 
-    return '<div class="trn-hub">' +
-      '<header class="trn-hub-head">' +
-      '<h2>Torneos IA</h2>' +
-      '<p class="trn-hub-sub">Juega un torneo completo contra rivales con roles estables. Identifica arquetipos para ganar XP.</p>' +
-      '</header>' +
-      '<div class="trn-hub-actions">' +
+    function filterBtn(id, label) {
+      return '<button type="button" class="trn-filter' + (filter === id ? ' is-on' : '') +
+        '" data-lobby-filter="' + id + '">' + label + '</button>';
+    }
+
+    return '<div class="trn-hub trn-lobby">' +
+      '<header class="trn-lobby-hero">' +
+      '<div class="trn-lobby-hero-bg" aria-hidden="true"></div>' +
+      '<div class="trn-lobby-hero-copy">' +
+      '<p class="trn-lobby-eyebrow">Lobby · rivales IA</p>' +
+      '<h2>TORNEOS</h2>' +
+      '<p class="trn-lobby-tagline">Lista estilo cliente de póker: elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
+      '</div>' +
+      '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
+      '</div></header>' +
+      '<div class="trn-lobby-toolbar">' +
+      '<div class="trn-lobby-filters" role="tablist" aria-label="Filtro de torneos">' +
+      filterBtn('all', 'Todos') +
+      filterBtn('mtt', 'MTT') +
+      filterBtn('sng', 'SNG') +
       '</div>' +
-      '<div class="trn-preset-grid">' + cards + '</div>' +
-      '<section class="trn-hub-recent">' +
+      '<p class="trn-lobby-count">' + filtered.length +
+      ' torneo' + (filtered.length === 1 ? '' : 's') + '</p></div>' +
+      '<div class="trn-lobby-headrow" aria-hidden="true">' +
+      '<span>Comienzo</span><span>Nombre</span><span>Juego</span>' +
+      '<span>Jug.</span><span>Buy-in</span><span>Premio</span></div>' +
+      '<div class="trn-lobby-list">' + rows + '</div>' +
+      '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-hist-list">' + histHtml + '</ul>' +
       '</section></div>';
   }
@@ -423,6 +523,13 @@
     root.querySelectorAll('[data-preset]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         startPreset(btn.getAttribute('data-preset'));
+      });
+    });
+
+    root.querySelectorAll('[data-lobby-filter]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        ui.lobbyFilter = btn.getAttribute('data-lobby-filter') || 'all';
+        paint();
       });
     });
 
