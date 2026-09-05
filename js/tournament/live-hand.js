@@ -228,7 +228,21 @@
   }
 
   function logAct(hand, seat, action, amount) {
-    hand.log.push({ id: seat.id, name: seat.name, action: action, amount: amount || 0, street: hand.street });
+    var entry = {
+      id: seat.id,
+      name: seat.name,
+      action: action,
+      amount: amount || 0,
+      street: hand.street
+    };
+    hand.log.push(entry);
+    /* Persiste en el asiento para que la mesa muestre la última acción
+       aunque cambie de street (si no, solo se ve Fold y la acción del héroe). */
+    seat.lastAction = {
+      action: action,
+      amount: amount || 0,
+      street: hand.street
+    };
   }
 
   function doFold(hand, seat) { seat.folded = true; logAct(hand, seat, 'fold'); }
@@ -372,12 +386,14 @@
       if (seat.stack > tc) {
         var minTo = Math.min(seat.streetInvested + seat.stack, hand.currentBet + hand.minRaise);
         var maxTo = seat.streetInvested + seat.stack;
+        var raiseTo = Math.min(Math.max(minTo, r2(hand.currentBet * 2.5)), maxTo);
         opts.push({
           id: 'raise',
-          label: 'Subir',
+          label: 'Subir a ' + fmtBb(raiseTo, bb),
           min: minTo,
           max: maxTo,
-          suggested: Math.min(Math.max(minTo, r2(hand.currentBet * 2.5)), maxTo)
+          suggested: raiseTo,
+          amount: raiseTo
         });
         opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxTo });
       }
@@ -388,10 +404,11 @@
         var sug = Math.min(maxBet, Math.max(hand.bb, r2(hand.pot * 0.55)));
         opts.push({
           id: 'bet',
-          label: 'Apostar',
+          label: 'Apostar ' + fmtBb(sug, bb),
           min: Math.min(hand.bb, maxBet),
           max: maxBet,
-          suggested: sug
+          suggested: sug,
+          amount: sug
         });
         opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxBet });
       }

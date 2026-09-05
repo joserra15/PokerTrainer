@@ -20,7 +20,10 @@
     infoOpen: false,
     roleModalPlayerId: null,
     bustPrompt: false,
-    lobbyFilter: 'all'
+    lobbyFilter: 'all',
+    exitPrompt: false,
+    resumePrompt: false,
+    handDetailOpen: false
   };
 
   function fmtEur(n) {
@@ -88,17 +91,57 @@
     paint();
   }
 
+  function persistActive() {
+    try {
+      if (ui.state && ui.state.status !== 'finished' && global.PTTournamentStore.saveActive) {
+        global.PTTournamentStore.saveActive(ui.state);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function clearActive() {
+    try {
+      if (global.PTTournamentStore.clearActive) global.PTTournamentStore.clearActive();
+    } catch (e) { /* ignore */ }
+  }
+
+  function resumeActive() {
+    var st = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
+    if (!st) return false;
+    ui.state = st;
+    ui.bustPrompt = st.status === 'busted_pending';
+    ui.infoOpen = false;
+    ui.roleModalPlayerId = null;
+    ui.exitPrompt = false;
+    ui.resumePrompt = false;
+    ui.handDetailOpen = false;
+    setView(VIEW.table);
+    return true;
+  }
+
   function startFromConfig(cfg, opts) {
+    opts = opts || {};
+    if (!opts.keepActive) clearActive();
     var Runner = global.PTTournamentRunner;
-    ui.state = Runner.create(cfg, opts || {});
+    ui.state = Runner.create(cfg, opts);
     ui.bustPrompt = false;
     ui.infoOpen = false;
     ui.roleModalPlayerId = null;
+    ui.exitPrompt = false;
+    ui.resumePrompt = false;
+    ui.handDetailOpen = false;
     Runner.beginHand(ui.state);
+    persistActive();
     setView(VIEW.table);
   }
 
   function startPreset(id) {
+    var active = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
+    if (active) {
+      ui.resumePrompt = { presetId: id, active: active };
+      paint();
+      return;
+    }
     startFromConfig(id, {});
   }
 
@@ -114,12 +157,16 @@
     var bb = startingBb(p);
     var kindLabel = p.kind === 'sng' ? 'SNG' : 'MTT';
 
-    return '<button type="button" class="trn-lobby-row" data-preset="' + esc(p.id) +
+    var activeSum = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
+    var isActivePreset = !!(activeSum && (activeSum.presetId === p.id || activeSum.id === p.id));
+
+    return '<button type="button" class="trn-lobby-row' + (isActivePreset ? ' is-active' : '') +
+      '" data-preset="' + esc(p.id) +
       '" data-kind="' + esc(p.kind) + '" data-tone="' + esc(tone) + '">' +
       '<div class="trn-lobby-thumb" aria-hidden="true">' +
       '<span class="trn-lobby-thumb-kind">' + esc(kindLabel) + '</span>' +
       '<span class="trn-lobby-thumb-deco">♠</span>' +
-      '<span class="trn-lobby-status">Entra ya</span>' +
+      '<span class="trn-lobby-status">' + (isActivePreset ? 'En curso' : 'Gratis') + '</span>' +
       '</div>' +
       '<div class="trn-lobby-main">' +
       '<div class="trn-lobby-title-row">' +
@@ -129,7 +176,7 @@
       '<div class="trn-lobby-subline">NLHE · Stack ' + p.startingStack +
       ' (' + bb + ' bb) · ' + p.placesPaid + ' paid</div>' +
       '<div class="trn-lobby-stats">' +
-      '<div class="trn-stat"><span class="trn-stat-lbl">Entrada</span>' +
+      '<div class="trn-stat"><span class="trn-stat-lbl">Entrada*</span>' +
       '<span class="trn-stat-val">' + esc(fmtEur(p.buyInEur)) + '</span></div>' +
       '<div class="trn-stat"><span class="trn-stat-lbl">Jugadores</span>' +
       '<span class="trn-stat-val">' + p.entries + '</span></div>' +
@@ -174,18 +221,51 @@
         '" data-lobby-filter="' + id + '">' + label + '</button>';
     }
 
+    var active = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
+    var activeBanner = '';
+    if (active) {
+      activeBanner = '<div class="trn-active-banner" role="status">' +
+        '<div class="trn-active-copy">' +
+        '<strong>Torneo en curso</strong>' +
+        '<span>' + esc(active.name) + ' · mano ' + (active.handIndex || 0) +
+        ' · ' + (active.playersLeft || '?') + '/' + (active.entries || '?') + ' vivos</span>' +
+        '</div>' +
+        '<div class="trn-active-actions">' +
+        '<button type="button" class="btn btn-primary btn-sm" data-act="resume-active">Continuar</button>' +
+        '<button type="button" class="btn btn-sm" data-act="discard-active">Empezar de nuevo</button>' +
+        '</div></div>';
+    }
+
+    var resumeModal = '';
+    if (ui.resumePrompt && ui.resumePrompt.active) {
+      var rp = ui.resumePrompt.active;
+      resumeModal = '<div class="trn-modal-backdrop" data-act="close-resume">' +
+        '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
+        '<h3>Ya tienes un torneo en curso</h3>' +
+        '<p class="muted">' + esc(rp.name) + ' · mano ' + (rp.handIndex || 0) +
+        ' · ' + (rp.playersLeft || '?') + ' jugadores restantes</p>' +
+        '<div class="trn-setup-actions">' +
+        '<button type="button" class="btn btn-primary" data-act="resume-active">Continuar</button>' +
+        '<button type="button" class="btn" data-act="restart-preset" data-preset-id="' +
+        esc(ui.resumePrompt.presetId || '') + '">Empezar de nuevo</button>' +
+        '<button type="button" class="btn" data-act="close-resume">Cancelar</button>' +
+        '</div></div></div>';
+    }
+
     return '<div class="trn-hub trn-lobby">' +
       '<header class="trn-lobby-hero">' +
       '<div class="trn-lobby-hero-bg" aria-hidden="true"></div>' +
       '<div class="trn-lobby-hero-copy">' +
       '<p class="trn-lobby-eyebrow">Lobby · rivales IA</p>' +
       '<h2>TORNEOS</h2>' +
-      '<p class="trn-lobby-tagline">Lista estilo cliente de póker: elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
+      '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
+      '<p class="trn-lobby-free">Torneos gratuitos · la entrada en € es ficticia (solo para premios y ROI).</p>' +
       '</div>' +
       '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
       '</div></header>' +
+      activeBanner +
       '<div class="trn-lobby-toolbar">' +
       '<div class="trn-lobby-filters" role="tablist" aria-label="Filtro de torneos">' +
       filterBtn('all', 'Todos') +
@@ -200,7 +280,7 @@
       '<div class="trn-lobby-list">' + rows + '</div>' +
       '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-hist-list">' + histHtml + '</ul>' +
-      '</section></div>';
+      '</section>' + resumeModal + '</div>';
   }
 
   /* ---------- Setup ---------- */
@@ -371,6 +451,23 @@
     return null;
   }
 
+  function seatLastAct(hand, seat) {
+    if (seat && seat.lastAction) return seat.lastAction;
+    return lastLogAct(hand, seat && seat.id);
+  }
+
+  function formatActLabel(action, amount, bb) {
+    var a = String(action || '').toLowerCase();
+    var amt = amount ? (' ' + fmtBb(amount, bb)) : '';
+    if (a === 'fold') return 'Fold';
+    if (a === 'check') return 'Check';
+    if (a === 'call') return 'Call' + amt;
+    if (a === 'bet') return 'Bet' + amt;
+    if (a === 'raise') return 'Raise' + amt;
+    if (a === 'allin' || a === 'all-in') return 'All-in' + amt;
+    return (action || '') + amt;
+  }
+
   function actBadgeClass(action) {
     var a = String(action || '').toLowerCase();
     if (a === 'fold') return 'fold';
@@ -416,14 +513,14 @@
       else if (c.left > 78) cls.push('seat-edge-right');
       if (guessed) cls.push('has-guess');
 
-      var last = lastLogAct(hand, s.id);
+      var last = seatLastAct(hand, s);
       var actHtml = '';
-      if (last && last.action !== 'fold') {
-        var actCls = actBadgeClass(last.action);
-        var actTxt = last.action + (last.amount ? (' ' + fmtBb(last.amount, bb)) : '');
-        actHtml = '<div class="seat-act-wrap"><span class="seat-act ' + actCls + '">' + esc(actTxt) + '</span></div>';
-      } else if (s.folded) {
+      if (s.folded || (last && last.action === 'fold')) {
         actHtml = '<div class="seat-act-wrap"><span class="seat-act fold">Fold</span></div>';
+      } else if (last) {
+        var actCls = actBadgeClass(last.action);
+        var actTxt = formatActLabel(last.action, last.amount, bb);
+        actHtml = '<div class="seat-act-wrap"><span class="seat-act ' + actCls + '">' + esc(actTxt) + '</span></div>';
       }
 
       var cardsHtml = '';
@@ -467,10 +564,10 @@
     var cards = (hero.cards && hero.cards[0])
       ? hero.cards.map(faceCard).join('')
       : (backCard() + backCard());
-    var last = lastLogAct(hand, hero.id);
-    var act = last && last.action !== 'fold'
+    var last = seatLastAct(hand, hero);
+    var act = last
       ? '<div class="action-badge-wrap"><span class="seat-act ' + actBadgeClass(last.action) + '">' +
-        esc(last.action + (last.amount ? (' ' + fmtBb(last.amount, bb)) : '')) + '</span></div>'
+        esc(formatActLabel(last.action, last.amount, bb)) + '</span></div>'
       : '';
     return '<div class="hero-area">' +
       act +
@@ -546,8 +643,7 @@
         '<button type="button" class="btn" data-act="end-now">Finalizar ya</button>' +
         '</div>';
     } else if (hand && hand.stage === 'complete') {
-      actions = '<div class="actions actions-grid actions-grid-1">' +
-        '<button type="button" class="btn btn-primary" data-act="next-hand">Siguiente mano</button></div>';
+      actions = '';
     } else if (hand && hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) {
       var nBtn = hand.heroOptions.length;
       var grid = nBtn <= 2 ? 'actions-grid-2' : (nBtn === 3 ? 'actions-grid-3' : 'actions-grid');
@@ -559,6 +655,11 @@
           label = 'Call ' + fmtBb(o.amount, bb);
         } else if (o.id === 'allin' && o.amount != null && !/\bbb\b/i.test(label)) {
           label = 'All-in ' + fmtBb(o.amount, bb);
+        } else if ((o.id === 'bet' || o.id === 'raise') && !/\bbb\b/i.test(label)) {
+          var showAmt = o.suggested != null ? o.suggested : o.amount;
+          if (showAmt != null) {
+            label = (o.id === 'bet' ? 'Apostar ' : 'Subir a ') + fmtBb(showAmt, bb);
+          }
         }
         return '<button type="button" class="' + actionBtnClass(o.id) +
           '" data-hero-act="' + esc(o.id) + '" data-amount="' + amt + '">' +
@@ -607,6 +708,24 @@
     var streetLabel = hand ? String(hand.street || '').toUpperCase() : '';
     var heroAlive = St.hero(state);
 
+    var handEndModal = '';
+    if (hand && hand.stage === 'complete' && hand.result) {
+      handEndModal = renderHandEndModal(hand, state, bb);
+    }
+
+    var exitModal = '';
+    if (ui.exitPrompt) {
+      exitModal = '<div class="trn-modal-backdrop" data-act="close-exit">' +
+        '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
+        '<h3>Salir del torneo</h3>' +
+        '<p class="muted">¿Guardar el avance para continuar más tarde, o borrar el torneo en curso?</p>' +
+        '<div class="trn-setup-actions">' +
+        '<button type="button" class="btn btn-primary" data-act="exit-save">Salir y guardar</button>' +
+        '<button type="button" class="btn" data-act="exit-discard">Salir y borrar</button>' +
+        '<button type="button" class="btn" data-act="close-exit">Seguir jugando</button>' +
+        '</div></div></div>';
+    }
+
     /* Misma cáscara visual que el entrenador (.play-stage / .poker-table / .table-felt)
        sin montar en #play-active: el motor de torneo (PTTournamentRunner) sigue
        dueño del estado entre manos. */
@@ -645,8 +764,66 @@
       '</div></div>' +
       actions +
       '</div>' +
-      infoModal + roleModal +
+      infoModal + roleModal + handEndModal + exitModal +
       '</div>';
+  }
+
+  function renderHandEndModal(hand, state, bb) {
+    var res = hand.result || {};
+    var hero = null;
+    hand.seats.forEach(function (s) { if (s.isHero) hero = s; });
+    var heroId = hero ? hero.id : null;
+    var deltas = res.deltas || {};
+    var heroDelta = heroId != null ? (Number(deltas[heroId]) || 0) : 0;
+    var won = heroId && (res.winners || []).indexOf(heroId) >= 0;
+    var outcomeCls = heroDelta > 0.02 ? 'hand-end-win' : (heroDelta < -0.02 ? 'hand-end-lose' : 'hand-end-tie');
+    var title = won ? (res.showdown ? 'Ganas en showdown' : 'Ganas la mano')
+      : (heroDelta < -0.02 ? 'Pierdes la mano' : 'Mano terminada');
+    var boardHtml = (res.board || hand.board || []).map(faceCard).join('');
+    var seatsHtml = hand.seats.filter(function (s) {
+      return !s.folded || (res.holeCards && res.holeCards[s.id]);
+    }).map(function (s) {
+      var cards = (res.holeCards && res.holeCards[s.id]) || (s.isHero ? s.cards : null);
+      var cardsHtml = cards && cards[0]
+        ? cards.map(faceCard).join('')
+        : '<span class="muted">—</span>';
+      var d = Number(deltas[s.id]) || 0;
+      var dCls = d > 0 ? 'net-pos' : (d < 0 ? 'net-neg' : '');
+      return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') +
+        ((res.winners || []).indexOf(s.id) >= 0 ? ' is-winner' : '') + '">' +
+        '<div class="trn-hand-end-name">' + esc(s.isHero ? 'Héroe' : (s.name || s.pos)) +
+        ' · ' + esc(s.pos || '') + '</div>' +
+        '<div class="trn-hand-end-cards">' + cardsHtml + '</div>' +
+        '<div class="trn-hand-end-delta ' + dCls + '">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div>' +
+        '</div>';
+    }).join('');
+
+    var detail = '';
+    if (ui.handDetailOpen) {
+      var lines = (hand.log || []).map(function (e) {
+        return '<li><span class="muted">' + esc(e.street) + '</span> ' +
+          esc(e.name || e.id) + ' · ' + esc(formatActLabel(e.action, e.amount, bb)) + '</li>';
+      }).join('');
+      detail = '<div class="trn-hand-end-detail"><h4>Acción de la mano</h4><ol>' +
+        (lines || '<li class="muted">Sin acciones</li>') + '</ol></div>';
+    }
+
+    return '<div class="trn-modal-backdrop trn-hand-end-backdrop" data-act="noop">' +
+      '<div class="trn-modal trn-hand-end-modal" role="dialog" aria-modal="true" data-act="noop">' +
+      '<div class="trn-hand-end-head ' + outcomeCls + '">' +
+      '<p class="trn-hand-end-kicker">Resultado de la mano</p>' +
+      '<h3>' + esc(title) + '</h3>' +
+      '<p class="trn-hand-end-pot">Bote ' + esc(fmtBb(res.pot || hand.pot || 0, bb)) +
+      (res.showdown ? ' · Showdown' : '') + '</p></div>' +
+      (boardHtml ? ('<div class="trn-hand-end-board"><span class="muted">Board</span><div class="trn-hand-end-cards">' +
+        boardHtml + '</div></div>') : '') +
+      '<div class="trn-hand-end-seats">' + seatsHtml + '</div>' +
+      detail +
+      '<div class="trn-hand-end-actions">' +
+      '<button type="button" class="btn" data-act="toggle-hand-detail">' +
+      (ui.handDetailOpen ? 'Ocultar detalle' : 'Ver detalle') + '</button>' +
+      '<button type="button" class="btn btn-primary" data-act="continue-hand">Continuar »</button>' +
+      '</div></div></div>';
   }
 
   /* ---------- Result ---------- */
@@ -739,12 +916,14 @@
     var state = ui.state;
     if (!state) { paint(); return; }
     if (state.status === 'finished') {
+      clearActive();
       setView(VIEW.result);
       return;
     }
     if (state.status === 'busted_pending') {
       ui.bustPrompt = true;
     }
+    persistActive();
     paint();
   }
 
@@ -779,8 +958,52 @@
           ui.setupDraft = defaultDraft();
           setView(VIEW.setup);
         } else if (act === 'hub') {
+          if (ui.view === VIEW.table && ui.state && ui.state.status !== 'finished') {
+            ui.exitPrompt = true;
+            paint();
+            return;
+          }
           ui.state = null;
+          ui.exitPrompt = false;
           setView(VIEW.hub);
+        } else if (act === 'close-exit') {
+          ui.exitPrompt = false;
+          paint();
+        } else if (act === 'exit-save') {
+          persistActive();
+          ui.state = null;
+          ui.exitPrompt = false;
+          setView(VIEW.hub);
+        } else if (act === 'exit-discard') {
+          clearActive();
+          ui.state = null;
+          ui.exitPrompt = false;
+          setView(VIEW.hub);
+        } else if (act === 'resume-active') {
+          if (!resumeActive()) paint();
+        } else if (act === 'discard-active') {
+          clearActive();
+          ui.resumePrompt = false;
+          paint();
+        } else if (act === 'close-resume') {
+          ui.resumePrompt = false;
+          paint();
+        } else if (act === 'restart-preset') {
+          var pid = btn.getAttribute('data-preset-id');
+          clearActive();
+          ui.resumePrompt = false;
+          if (pid) startFromConfig(pid, {});
+          else paint();
+        } else if (act === 'continue-hand') {
+          if (ui.state) {
+            global.PTTournamentRunner.continueAfterHand(ui.state);
+            ui.handDetailOpen = false;
+            persistActive();
+          }
+          afterAction();
+        } else if (act === 'toggle-hand-detail') {
+          ui.handDetailOpen = !ui.handDetailOpen;
+          paint();
         } else if (act === 'history') {
           setView(VIEW.history);
         } else if (act === 'start-custom') {
@@ -801,14 +1024,17 @@
           paint();
         } else if (act === 'next-hand') {
           if (ui.state && ui.state.status === 'running') {
-            global.PTTournamentRunner.beginHand(ui.state);
+            global.PTTournamentRunner.continueAfterHand(ui.state);
+            persistActive();
           }
           afterAction();
         } else if (act === 'sim-rest') {
           global.PTTournamentRunner.simulateRest(ui.state);
+          clearActive();
           afterAction();
         } else if (act === 'end-now') {
           global.PTTournamentRunner.finish(ui.state, { reason: 'bust' });
+          clearActive();
           afterAction();
         } else if (act === 'clear-hist') {
           global.PTTournamentStore.clear();
@@ -827,6 +1053,16 @@
         var amt = amtRaw === '' || amtRaw == null ? null : Number(amtRaw);
         global.PTTournamentRunner.heroAct(ui.state, id, amt);
         afterAction();
+      });
+    });
+
+    /* Backdrop de salida: click fuera cierra el prompt */
+    root.querySelectorAll('.trn-modal-backdrop[data-act="close-exit"]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        if (ev.target === el) {
+          ui.exitPrompt = false;
+          paint();
+        }
       });
     });
 
