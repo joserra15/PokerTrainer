@@ -1036,26 +1036,41 @@
     hand.acted[seat.id] = true;
   }
 
+  /* El array de asientos viene ordenado desde el botón para pintar la mesa, no
+     como anillo físico, así que el turno se deriva de la posición: preflop abre
+     UTG y cierra la BB; postflop abre la SB y cierra el BTN. */
+  var PREFLOP_LABELS = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  var POSTFLOP_LABELS = ['SB', 'BB', 'UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
+
+  function orderByLabels(hand, labels) {
+    var rank = {};
+    labels.forEach(function (p, i) { rank[p] = i; });
+    return hand.seats.slice().sort(function (a, b) {
+      var ra = rank[a.pos];
+      var rb = rank[b.pos];
+      if (ra == null) ra = 100 + (a.seatIndex || 0);
+      if (rb == null) rb = 100 + (b.seatIndex || 0);
+      return ra - rb;
+    });
+  }
+
+  /** Heads-up: el botón (que es la SB) abre preflop y la BB abre postflop. */
+  function headsUpOrder(hand, bbFirst) {
+    return hand.seats.slice().sort(function (a, b) {
+      var ka = a.pos === 'BB' ? 1 : 0;
+      var kb = b.pos === 'BB' ? 1 : 0;
+      return bbFirst ? (kb - ka) : (ka - kb);
+    });
+  }
+
   function preflopOrder(hand) {
-    var labels = hand.seats.map(function (s) { return s.pos; });
-    var prefs = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
-    var start = -1;
-    for (var p = 0; p < prefs.length && start < 0; p++) start = labels.indexOf(prefs[p]);
-    if (start < 0) start = 0;
-    var out = [];
-    for (var i = 0; i < hand.seats.length; i++) out.push(hand.seats[(start + i) % hand.seats.length]);
-    return out;
+    if (hand.seats.length === 2) return headsUpOrder(hand, false);
+    return orderByLabels(hand, PREFLOP_LABELS);
   }
 
   function postflopOrder(hand) {
-    return hand.seats.slice().sort(function (a, b) {
-      function key(s) {
-        if (s.pos === 'SB') return 0;
-        if (s.pos === 'BB') return 1;
-        return 10 + (s.seatIndex || 0);
-      }
-      return key(a) - key(b);
-    });
+    if (hand.seats.length === 2) return headsUpOrder(hand, true);
+    return orderByLabels(hand, POSTFLOP_LABELS);
   }
 
   function streetDone(hand) {

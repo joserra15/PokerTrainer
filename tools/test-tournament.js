@@ -417,6 +417,49 @@ FILES.forEach(function (f) { load(g, f); });
   }
 }
 
+// --- turno correcto: nadie actúa fuera de orden antes del héroe ---
+{
+  const PREFS = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  let checked = 0;
+  let violations = 0;
+  const detail = [];
+
+  for (let n = 0; n < 60; n++) {
+    const state = g.PTTournamentRunner.create(n % 2 ? 'sng6' : 'easy', { seed: 7000 + n });
+    let hand = g.PTTournamentRunner.beginHand(state);
+    for (let h = 0; h < 4 && hand; h++) {
+      const seatPos = hand.seats.map(function (s) { return s.pos; });
+      const order = PREFS.filter(function (p) { return seatPos.indexOf(p) >= 0; });
+      const hero = hand.seats.find(function (s) { return s.isHero; });
+      const heroIdx = order.indexOf(hero.pos);
+      const pre = hand.log.filter(function (e) { return e.street === 'preflop'; });
+      const heroAt = pre.findIndex(function (e) { return e.id === hero.id; });
+      const before = heroAt < 0 ? pre : pre.slice(0, heroAt);
+      const seen = new Set();
+      for (const e of before) {
+        if (seen.has(e.id)) break; // segunda vuelta: ya no aplica el invariante
+        seen.add(e.id);
+        const seat = hand.seats.find(function (s) { return s.id === e.id; });
+        if (order.indexOf(seat.pos) > heroIdx) {
+          violations++;
+          if (detail.length < 3) detail.push(hero.pos + ' actuaría después de ' + seat.pos);
+        }
+      }
+      checked++;
+      if (hand.awaitingHero) {
+        const opt = (hand.heroOptions || []).find(function (o) { return o.id === 'fold'; })
+          || (hand.heroOptions || [])[0];
+        g.PTTournamentRunner.heroAct(state, opt.id, opt.amount != null ? opt.amount : opt.suggested);
+      }
+      g.PTTournamentRunner.continueAfterHand(state);
+      hand = state.status === 'running' ? state._liveHand : null;
+    }
+  }
+  assert.strictEqual(violations, 0, 'orden preflop UTG→BB respetado: ' + detail.join(' | '));
+  assert.ok(checked > 100, 'manos comprobadas');
+  console.log('OK preflop-turn-order (' + checked + ' manos)');
+}
+
 // --- el guardado no arrastra fotogramas de presentación ---
 {
   g.PTTournamentStore.clearActive();
