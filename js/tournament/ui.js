@@ -19,8 +19,44 @@
     setupDraft: null,
     infoOpen: false,
     roleModalPlayerId: null,
-    bustPrompt: false
+    bustPrompt: false,
+    lobbyFilter: 'all'
   };
+
+  function fmtEur(n) {
+    var x = Number(n) || 0;
+    var s = x.toLocaleString('es-ES', {
+      minimumFractionDigits: (Math.round(x * 100) % 100) ? 2 : 0,
+      maximumFractionDigits: 2
+    });
+    return s + ' €';
+  }
+
+  function startingBb(cfg) {
+    var sch = cfg && cfg.blindSchedule && cfg.blindSchedule[0];
+    var bb = sch && sch.bb ? Number(sch.bb) : 20;
+    return Math.max(1, Math.round(Number(cfg.startingStack || 0) / bb));
+  }
+
+  function lobbyBadges(cfg) {
+    var badges = [];
+    badges.push({ t: cfg.kind === 'sng' ? 'SNG' : 'MTT', k: 'kind' });
+    badges.push({ t: cfg.seatsPerTable + '-MAX', k: 'max' });
+    badges.push({ t: "HOLD'EM NL", k: 'game' });
+    if (startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
+    if (cfg.id === 'easy') badges.push({ t: 'FÁCIL', k: 'diff' });
+    if (cfg.id === 'medium') badges.push({ t: 'MEDIO', k: 'diff' });
+    if (cfg.id === 'hard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
+    return badges;
+  }
+
+  function lobbyTone(cfg) {
+    if (cfg.id === 'hard') return 'hard';
+    if (cfg.id === 'medium') return 'mid';
+    if (cfg.id === 'easy') return 'easy';
+    if (cfg.kind === 'sng') return 'sng';
+    return 'mtt';
+  }
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -66,39 +102,103 @@
     startFromConfig(id, {});
   }
 
-  /* ---------- Hub ---------- */
+  /* ---------- Hub (lobby estilo cliente de póker) ---------- */
+  function renderLobbyRow(p) {
+    var pool = global.PTTournamentConfig.prizePool
+      ? global.PTTournamentConfig.prizePool(p)
+      : Math.round(p.buyInEur * p.entries * 100) / 100;
+    var tone = lobbyTone(p);
+    var badges = lobbyBadges(p).map(function (b) {
+      return '<span class="trn-badge trn-badge-' + esc(b.k) + '">' + esc(b.t) + '</span>';
+    }).join('');
+    var bb = startingBb(p);
+    var kindLabel = p.kind === 'sng' ? 'SNG' : 'MTT';
+
+    return '<button type="button" class="trn-lobby-row" data-preset="' + esc(p.id) +
+      '" data-kind="' + esc(p.kind) + '" data-tone="' + esc(tone) + '">' +
+      '<div class="trn-lobby-thumb" aria-hidden="true">' +
+      '<span class="trn-lobby-thumb-kind">' + esc(kindLabel) + '</span>' +
+      '<span class="trn-lobby-thumb-deco">♠</span>' +
+      '<span class="trn-lobby-status">Entra ya</span>' +
+      '</div>' +
+      '<div class="trn-lobby-main">' +
+      '<div class="trn-lobby-title-row">' +
+      '<span class="trn-lobby-title">' + esc(p.name) + '</span>' +
+      '<span class="trn-lobby-badges">' + badges + '</span>' +
+      '</div>' +
+      '<div class="trn-lobby-subline">NLHE · Stack ' + p.startingStack +
+      ' (' + bb + ' bb) · ' + p.placesPaid + ' paid</div>' +
+      '<div class="trn-lobby-stats">' +
+      '<div class="trn-stat"><span class="trn-stat-lbl">Entrada</span>' +
+      '<span class="trn-stat-val">' + esc(fmtEur(p.buyInEur)) + '</span></div>' +
+      '<div class="trn-stat"><span class="trn-stat-lbl">Jugadores</span>' +
+      '<span class="trn-stat-val">' + p.entries + '</span></div>' +
+      '<div class="trn-stat"><span class="trn-stat-lbl">Premio</span>' +
+      '<span class="trn-stat-val trn-stat-prize">' + esc(fmtEur(pool)) + '</span></div>' +
+      '</div></div>' +
+      '<div class="trn-lobby-desk" aria-hidden="true">' +
+      '<span class="trn-desk-start"><strong>Ahora</strong><small>al instante</small></span>' +
+      '<span class="trn-desk-name">' + esc(p.name) + '<small>' + badges + '</small></span>' +
+      '<span class="trn-desk-game">NLHE</span>' +
+      '<span class="trn-desk-players">' + p.entries + '</span>' +
+      '<span class="trn-desk-buyin">' + esc(fmtEur(p.buyInEur)) + '</span>' +
+      '<span class="trn-desk-prize">' + esc(fmtEur(pool)) + '</span>' +
+      '</div></button>';
+  }
+
   function renderHub() {
     var presets = global.PTTournamentConfig.listPresets();
+    var filter = ui.lobbyFilter || 'all';
+    var filtered = presets.filter(function (p) {
+      if (filter === 'mtt') return p.kind === 'mtt';
+      if (filter === 'sng') return p.kind === 'sng';
+      return true;
+    });
     var hist = (global.PTTournamentStore.list() || []).slice(0, 5);
-    var cards = presets.map(function (p) {
-      return '<button type="button" class="trn-preset-card" data-preset="' + esc(p.id) + '">' +
-        '<div class="trn-preset-name">' + esc(p.name) + '</div>' +
-        '<div class="trn-preset-meta">' + esc(p.kind.toUpperCase()) + ' · ' + p.entries +
-        ' jugadores · €' + p.buyInEur + '</div>' +
-        '<div class="trn-preset-meta">Stack ' + p.startingStack + ' · ' + p.placesPaid + ' paid</div>' +
-        '</button>';
-    }).join('');
+    var rows = filtered.map(renderLobbyRow).join('');
+    if (!rows) {
+      rows = '<p class="trn-lobby-empty muted">No hay torneos en este filtro.</p>';
+    }
 
     var histHtml = hist.length
       ? hist.map(function (h) {
         return '<li><strong>' + esc(h.name) + '</strong> · ' +
           (h.place != null ? (h.place + 'º') : '—') +
-          ' · €' + (h.prizeEur || 0) +
+          ' · ' + esc(fmtEur(h.prizeEur || 0)) +
           ' · ROI ' + (h.roi || 0) + '%</li>';
       }).join('')
       : '<li class="muted">Sin torneos guardados</li>';
 
-    return '<div class="trn-hub">' +
-      '<header class="trn-hub-head">' +
-      '<h2>Torneos IA</h2>' +
-      '<p class="trn-hub-sub">Juega un torneo completo contra rivales con roles estables. Identifica arquetipos para ganar XP.</p>' +
-      '</header>' +
-      '<div class="trn-hub-actions">' +
+    function filterBtn(id, label) {
+      return '<button type="button" class="trn-filter' + (filter === id ? ' is-on' : '') +
+        '" data-lobby-filter="' + id + '">' + label + '</button>';
+    }
+
+    return '<div class="trn-hub trn-lobby">' +
+      '<header class="trn-lobby-hero">' +
+      '<div class="trn-lobby-hero-bg" aria-hidden="true"></div>' +
+      '<div class="trn-lobby-hero-copy">' +
+      '<p class="trn-lobby-eyebrow">Lobby · rivales IA</p>' +
+      '<h2>TORNEOS</h2>' +
+      '<p class="trn-lobby-tagline">Lista estilo cliente de póker: elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
+      '</div>' +
+      '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
+      '</div></header>' +
+      '<div class="trn-lobby-toolbar">' +
+      '<div class="trn-lobby-filters" role="tablist" aria-label="Filtro de torneos">' +
+      filterBtn('all', 'Todos') +
+      filterBtn('mtt', 'MTT') +
+      filterBtn('sng', 'SNG') +
       '</div>' +
-      '<div class="trn-preset-grid">' + cards + '</div>' +
-      '<section class="trn-hub-recent">' +
+      '<p class="trn-lobby-count">' + filtered.length +
+      ' torneo' + (filtered.length === 1 ? '' : 's') + '</p></div>' +
+      '<div class="trn-lobby-headrow" aria-hidden="true">' +
+      '<span>Comienzo</span><span>Nombre</span><span>Juego</span>' +
+      '<span>Jug.</span><span>Buy-in</span><span>Premio</span></div>' +
+      '<div class="trn-lobby-list">' + rows + '</div>' +
+      '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-hist-list">' + histHtml + '</ul>' +
       '</section></div>';
   }
@@ -183,15 +283,211 @@
     return ui.setupDraft;
   }
 
-  /* ---------- Table ---------- */
-  function seatAngles(n) {
-    var out = [];
-    // Hero abajo (270° en CSS: bottom center). Distribuir resto.
-    for (var i = 0; i < n; i++) {
-      var ang = -90 + (360 * i) / n;
-      out.push(ang);
+  /* ---------- Table (layout = entrenador) ---------- */
+  var SEAT_COORDS_6 = [
+    { top: 96, left: 50 },
+    { top: 80, left: 8 },
+    { top: 30, left: 6 },
+    { top: 4, left: 38 },
+    { top: 4, left: 70 },
+    { top: 80, left: 92 }
+  ];
+  var SEAT_COORDS_3 = [
+    { top: 96, left: 50 },
+    { top: 18, left: 14 },
+    { top: 18, left: 86 }
+  ];
+  var SEAT_COORDS_9 = [
+    { top: 96, left: 50 },
+    { top: 84, left: 16 },
+    { top: 58, left: 3 },
+    { top: 28, left: 8 },
+    { top: 8, left: 34 },
+    { top: 8, left: 66 },
+    { top: 28, left: 92 },
+    { top: 58, left: 97 },
+    { top: 84, left: 84 }
+  ];
+  var SEAT_COORDS_MOBILE_6 = [
+    { top: 94, left: 50 },
+    { top: 70, left: 3 },
+    { top: 32, left: 2 },
+    { top: 5, left: 22 },
+    { top: 5, left: 78 },
+    { top: 32, left: 98 }
+  ];
+  var SEAT_COORDS_MOBILE_3 = [
+    { top: 94, left: 50 },
+    { top: 16, left: 10 },
+    { top: 16, left: 90 }
+  ];
+  var SEAT_COORDS_MOBILE_9 = [
+    { top: 93, left: 50 },
+    { top: 80, left: 14 },
+    { top: 57, left: 2 },
+    { top: 30, left: 7 },
+    { top: 10, left: 32 },
+    { top: 10, left: 68 },
+    { top: 30, left: 93 },
+    { top: 57, left: 98 },
+    { top: 80, left: 86 }
+  ];
+
+  function isMobileLayout() {
+    try { return window.matchMedia && window.matchMedia('(max-width: 680px)').matches; }
+    catch (e) { return false; }
+  }
+
+  function seatCoordsFor(n) {
+    var mobile = isMobileLayout();
+    if (n <= 3) return mobile ? SEAT_COORDS_MOBILE_3 : SEAT_COORDS_3;
+    if (n >= 8) return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
+    return mobile ? SEAT_COORDS_MOBILE_6 : SEAT_COORDS_6;
+  }
+
+  function faceCard(c) {
+    var code = typeof c === 'string' ? c : (c && (c.code || (c.r != null && c.s ? String(c.r) + c.s : ''))) || '';
+    if (!code) return backCard();
+    if (global.Cards && global.Cards.cardFaceHTML) return global.Cards.cardFaceHTML(code);
+    return cardHtml(code);
+  }
+
+  function backCard() {
+    if (global.Cards && global.Cards.cardBackHTML) return global.Cards.cardBackHTML();
+    return '<span class="card card-back"></span>';
+  }
+
+  function fmtBb(chips, bb) {
+    bb = Number(bb) || 1;
+    var v = Math.round((Number(chips) || 0) / bb * 10) / 10;
+    return (v % 1 ? v.toFixed(1) : String(v)) + ' bb';
+  }
+
+  function lastLogAct(hand, playerId) {
+    if (!hand || !hand.log || !hand.log.length) return null;
+    for (var i = hand.log.length - 1; i >= 0; i--) {
+      if (hand.log[i].id === playerId && hand.log[i].street === hand.street) return hand.log[i];
     }
-    return out;
+    return null;
+  }
+
+  function actBadgeClass(action) {
+    var a = String(action || '').toLowerCase();
+    if (a === 'fold') return 'fold';
+    if (a === 'check') return 'check';
+    if (a === 'call') return 'act-call';
+    if (a === 'allin' || a === 'all-in') return 'act-allin';
+    if (a === 'bet' || a === 'raise') return 'bet';
+    return '';
+  }
+
+  function betPlacement(c) {
+    if (c.top < 20) return 'bet-below';
+    if (c.top > 70) return 'bet-above';
+    if (c.left < 25) return 'bet-right';
+    if (c.left > 75) return 'bet-left';
+    return 'bet-below';
+  }
+
+  function rotateHeroFirst(seats) {
+    var list = seats.slice();
+    var hi = 0;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].isHero) { hi = i; break; }
+    }
+    return list.slice(hi).concat(list.slice(0, hi));
+  }
+
+  function renderTrainerSeats(hand, state, bb) {
+    if (!hand || !hand.seats || !hand.seats.length) return '';
+    var ring = rotateHeroFirst(hand.seats);
+    var coords = seatCoordsFor(ring.length);
+    var showdown = hand.stage === 'complete';
+    var html = '';
+    ring.forEach(function (s, i) {
+      if (s.isHero) return; // héroe va en .hero-area (CSS .seat.hero { display:none })
+      var c = coords[Math.min(i, coords.length - 1)] || coords[0];
+      var guessed = state.heroGuesses && state.heroGuesses[s.id];
+      var cls = ['seat', 'villain'];
+      if (s.folded) cls.push('folded');
+      if (c.top < 20) cls.push('seat-top');
+      if (c.top > 70) cls.push('seat-bottom');
+      if (c.left < 22) cls.push('seat-edge-left');
+      else if (c.left > 78) cls.push('seat-edge-right');
+      if (guessed) cls.push('has-guess');
+
+      var last = lastLogAct(hand, s.id);
+      var actHtml = '';
+      if (last && last.action !== 'fold') {
+        var actCls = actBadgeClass(last.action);
+        var actTxt = last.action + (last.amount ? (' ' + fmtBb(last.amount, bb)) : '');
+        actHtml = '<div class="seat-act-wrap"><span class="seat-act ' + actCls + '">' + esc(actTxt) + '</span></div>';
+      } else if (s.folded) {
+        actHtml = '<div class="seat-act-wrap"><span class="seat-act fold">Fold</span></div>';
+      }
+
+      var cardsHtml = '';
+      if (s.folded) {
+        cardsHtml = '<div class="seat-cards seat-fold-mark">✕</div>';
+      } else if (showdown && s.cards && s.cards[0]) {
+        cardsHtml = '<div class="seat-cards showdown">' + s.cards.map(faceCard).join('') + '</div>';
+      } else if (!s.folded) {
+        cardsHtml = '<div class="seat-cards">' + backCard() + backCard() + '</div>';
+      }
+
+      var streetBet = Number(s.streetInvested) || 0;
+      var betHtml = streetBet > 0
+        ? '<div class="seat-bet ' + betPlacement(c) + '"><span class="seat-bet-amt">' + esc(fmtBb(streetBet, bb)) + '</span></div>'
+        : '';
+
+      html += '<button type="button" class="' + cls.join(' ') + '" style="top:' + c.top + '%;left:' + c.left +
+        '%" data-player="' + esc(s.id) + '" title="Adivinar rol">' +
+        '<div class="seat-body">' +
+        '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
+        '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
+        '<div class="seat-role">' + esc(s.name || 'Villano') + (guessed ? ' · ?' : '') + '</div>' +
+        '<div class="seat-stack">' + esc(fmtBb(s.stack, bb)) + '</div>' +
+        '</div>' + betHtml +
+        '</button>';
+    });
+    return html;
+  }
+
+  function renderHeroArea(hand, bb) {
+    if (!hand) {
+      return '<div class="hero-area">' +
+        '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE</div>' +
+        '<div class="hero-cards"></div></div>';
+    }
+    var hero = null;
+    for (var i = 0; i < hand.seats.length; i++) {
+      if (hand.seats[i].isHero) { hero = hand.seats[i]; break; }
+    }
+    if (!hero) return '';
+    var cards = (hero.cards && hero.cards[0])
+      ? hero.cards.map(faceCard).join('')
+      : (backCard() + backCard());
+    var last = lastLogAct(hand, hero.id);
+    var act = last && last.action !== 'fold'
+      ? '<div class="action-badge-wrap"><span class="seat-act ' + actBadgeClass(last.action) + '">' +
+        esc(last.action + (last.amount ? (' ' + fmtBb(last.amount, bb)) : '')) + '</span></div>'
+      : '';
+    return '<div class="hero-area">' +
+      act +
+      '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
+      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE · <span>' +
+      esc(hero.pos || '-') + '</span></div>' +
+      '<div class="hero-cards">' + cards + '</div>' +
+      '</div>';
+  }
+
+  function actionBtnClass(id) {
+    if (id === 'fold') return 'btn btn-fold';
+    if (id === 'check') return 'btn btn-check';
+    if (id === 'call') return 'btn btn-call';
+    if (id === 'bet' || id === 'raise') return 'btn btn-raise';
+    if (id === 'allin') return 'btn btn-allin';
+    return 'btn btn-primary';
   }
 
   function renderTable() {
@@ -201,66 +497,46 @@
     var St = global.PTTournamentState;
     var Seat = global.PTTournamentSeating;
     var Hud = global.PTTournamentHud;
-    var hero = St.hero(state);
+    var blinds = Hud.currentBlinds(state);
+    var bb = hand ? hand.bb : (blinds.bb || 20);
+    var kind = (state.config && state.config.kind) || 'mtt';
+    var formatLabel = kind === 'sng' ? 'SNG' : 'MTT';
+
     var chips = Hud.compactChips(state).map(function (c) {
       return '<span class="' + esc(c.cls) + '" title="' + esc(c.title) + '">' + esc(c.text) + '</span>';
     }).join('');
 
-    var tableId = (state.tables.find(function (t) { return t.isHeroTable; }) || {}).id;
-    var onTable = tableId ? Seat.playersOnTable(state, tableId) : [];
-    var ordered = hand
-      ? hand.seats.map(function (s) {
+    var potBb = hand ? fmtBb(hand.pot, bb) : '0 bb';
+    var boardHtml = (hand && hand.board && hand.board.length)
+      ? hand.board.map(faceCard).join('')
+      : '';
+
+    var nSeats = hand && hand.seats ? hand.seats.length
+      : (state.config && state.config.seatsPerTable) || 6;
+    var tableClass = nSeats <= 3 ? 'table-3max' : (nSeats >= 8 ? 'table-9max' : 'table-6max');
+
+    var seatsHtml = hand
+      ? renderTrainerSeats(hand, state, bb)
+      : '';
+
+    // Sin mano activa: asientos desde seating del torneo (stacks persistentes)
+    if (!hand && state.status === 'running') {
+      var tableId = (state.tables.find(function (t) { return t.isHeroTable; }) || {}).id;
+      var onTable = tableId ? Seat.playersOnTable(state, tableId) : [];
+      var fake = onTable.map(function (p, i) {
         return {
-          player: state.players.find(function (p) { return p.id === s.id; }) || s,
-          pos: s.pos,
-          seat: s
+          id: p.id,
+          name: p.name,
+          isHero: !!p.isHero,
+          pos: p.isHero ? 'H' : ('S' + i),
+          stack: p.stack,
+          streetInvested: 0,
+          folded: false,
+          cards: null
         };
-      })
-      : onTable.map(function (p, i) { return { player: p, pos: 'S' + i, seat: null }; });
-
-    var n = ordered.length || 1;
-    var angles = seatAngles(n);
-    var seatsHtml = ordered.map(function (o, i) {
-      var p = o.player;
-      var s = o.seat;
-      var ang = angles[i];
-      var rad = (ang * Math.PI) / 180;
-      var x = 50 + Math.cos(rad) * 42;
-      var y = 50 + Math.sin(rad) * 38;
-      var isHero = !!(p && p.isHero);
-      var stack = s ? s.stack : (p && p.stack);
-      var bb = hand ? hand.bb : (Hud.currentBlinds(state).bb || 20);
-      var stackBb = Math.round((Number(stack) || 0) / bb * 10) / 10;
-      var folded = s && s.folded;
-      var guessed = state.heroGuesses && state.heroGuesses[p.id];
-      var cards = '';
-      if (isHero && s && s.cards) {
-        cards = '<div class="trn-seat-cards">' + s.cards.map(cardHtml).join('') + '</div>';
-      } else if (s && !s.folded && hand && hand.stage === 'complete' && hand.result && hand.result.holeCards && hand.result.holeCards[p.id]) {
-        cards = '<div class="trn-seat-cards">' + hand.result.holeCards[p.id].map(cardHtml).join('') + '</div>';
-      }
-      var lastAct = '';
-      if (hand && hand.log && hand.log.length) {
-        for (var li = hand.log.length - 1; li >= 0; li--) {
-          if (hand.log[li].id === p.id) {
-            lastAct = hand.log[li].action + (hand.log[li].amount ? ' ' + hand.log[li].amount : '');
-            break;
-          }
-        }
-      }
-      return '<button type="button" class="trn-seat' + (isHero ? ' is-hero' : ' is-villain') +
-        (folded ? ' is-folded' : '') + (guessed ? ' has-guess' : '') +
-        '" style="left:' + x + '%;top:' + y + '%" data-player="' + esc(p.id) + '"' +
-        (isHero ? ' disabled' : '') + '>' +
-        '<div class="trn-seat-name">' + esc(p.name || (isHero ? 'Héroe' : 'Villano')) + '</div>' +
-        '<div class="trn-seat-meta">' + esc(o.pos) + ' · ' + stackBb + ' bb</div>' +
-        (lastAct ? '<div class="trn-seat-act">' + esc(lastAct) + '</div>' : '') +
-        cards +
-        '</button>';
-    }).join('');
-
-    var board = (hand && hand.board) ? hand.board.map(cardHtml).join('') : '';
-    var pot = hand ? hand.pot : 0;
+      });
+      seatsHtml = renderTrainerSeats({ seats: fake, stage: 'waiting', street: 'preflop', log: [] }, state, bb);
+    }
 
     var actions = '';
     if (state.status === 'busted_pending' || ui.bustPrompt) {
@@ -270,15 +546,20 @@
         '<button type="button" class="btn" data-act="end-now">Finalizar ya</button>' +
         '</div>';
     } else if (hand && hand.stage === 'complete') {
-      actions = '<button type="button" class="btn btn-primary" data-act="next-hand">Siguiente mano</button>';
-    } else if (hand && hand.awaitingHero && hand.heroOptions) {
-      actions = '<div class="trn-actions">' + hand.heroOptions.map(function (o) {
-        return '<button type="button" class="btn' + (o.id === 'fold' ? '' : ' btn-primary') +
-          '" data-hero-act="' + esc(o.id) + '" data-amount="' + (o.suggested != null ? o.suggested : (o.amount != null ? o.amount : '')) + '">' +
+      actions = '<div class="actions actions-grid actions-grid-1">' +
+        '<button type="button" class="btn btn-primary" data-act="next-hand">Siguiente mano</button></div>';
+    } else if (hand && hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) {
+      var nBtn = hand.heroOptions.length;
+      var grid = nBtn <= 2 ? 'actions-grid-2' : (nBtn === 3 ? 'actions-grid-3' : 'actions-grid');
+      actions = '<div class="actions actions-grid ' + grid + '">' + hand.heroOptions.map(function (o) {
+        var amt = o.suggested != null ? o.suggested : (o.amount != null ? o.amount : '');
+        return '<button type="button" class="' + actionBtnClass(o.id) +
+          '" data-hero-act="' + esc(o.id) + '" data-amount="' + amt + '">' +
           esc(o.label) + '</button>';
       }).join('') + '</div>';
     } else if (!hand && state.status === 'running') {
-      actions = '<button type="button" class="btn btn-primary" data-act="next-hand">Repartir</button>';
+      actions = '<div class="actions actions-grid actions-grid-1">' +
+        '<button type="button" class="btn btn-primary" data-act="next-hand">Repartir</button></div>';
     }
 
     var infoModal = '';
@@ -314,17 +595,39 @@
         '</div></div>';
     }
 
-    return '<div class="trn-table-view">' +
+    var streetLabel = hand ? String(hand.street || '').toUpperCase() : '';
+    var heroAlive = St.hero(state);
+
+    return '<div class="trn-table-view trn-play-like">' +
       '<div class="trn-table-hud">' + chips +
       '<button type="button" class="btn btn-sm trn-info-btn" data-act="info">Info</button>' +
       '<button type="button" class="btn btn-sm" data-act="hub">Salir</button>' +
       '</div>' +
-      '<div class="trn-felt-wrap">' +
-      '<div class="trn-felt" data-format="' + esc((state.config && state.config.kind) || 'mtt') + '">' +
-      '<div class="trn-felt-mark">MODO TORNEO</div>' +
-      '<div class="trn-board">' + board + '</div>' +
-      '<div class="trn-pot">Pot ' + pot + '</div>' +
-      seatsHtml +
+      '<div class="poker-table trn-poker-table">' +
+      '<div class="table-felt ' + tableClass + '" data-theme="emerald" data-format="' +
+      (kind === 'sng' ? 'spin' : 'mtt') + '">' +
+      '<div class="table-train-chrome">' +
+      '<div class="table-format-badge">' + esc(formatLabel) + '</div>' +
+      '<div class="table-train-hud">' +
+      '<span class="table-train-chip">' + esc(streetLabel || 'LISTO') + '</span>' +
+      (blinds && blinds.sb != null
+        ? ('<span class="table-train-chip">' + blinds.sb + '/' + blinds.bb + '</span>')
+        : '') +
+      (heroAlive
+        ? ('<span class="table-train-chip is-phase">Héroe ' + esc(fmtBb(heroAlive.stack, bb)) + '</span>')
+        : '') +
+      '</div></div>' +
+      '<div class="table-watermark" aria-hidden="true">' +
+      '<span class="table-watermark-mark"></span>' +
+      '<span class="table-watermark-text">PokerForgeAI</span>' +
+      '<span class="table-watermark-sub">Modo torneo</span>' +
+      '</div>' +
+      '<div class="seats">' + seatsHtml + '</div>' +
+      '<div class="board-area">' +
+      '<div class="pot">Bote: <strong class="pot-amt">' + esc(potBb) + '</strong></div>' +
+      '<div class="board">' + boardHtml + '</div>' +
+      '</div>' +
+      renderHeroArea(hand, bb) +
       '</div></div>' +
       actions + infoModal + roleModal +
       '</div>';
@@ -426,6 +729,13 @@
       });
     });
 
+    root.querySelectorAll('[data-lobby-filter]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        ui.lobbyFilter = btn.getAttribute('data-lobby-filter') || 'all';
+        paint();
+      });
+    });
+
     root.querySelectorAll('[data-act]').forEach(function (btn) {
       btn.addEventListener('click', function (ev) {
         var act = btn.getAttribute('data-act');
@@ -489,7 +799,7 @@
       });
     });
 
-    root.querySelectorAll('.trn-seat.is-villain').forEach(function (btn) {
+    root.querySelectorAll('.trn-play-like .seat.villain[data-player]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         ui.roleModalPlayerId = btn.getAttribute('data-player');
         paint();

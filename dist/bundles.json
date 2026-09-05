@@ -1,6 +1,6 @@
 {
   "build": "3.1.7",
-  "rev": "3.1.7-cf81b88b02",
+  "rev": "3.1.7-c8e5192444",
   "chunks": {
     "core": "dist/pt-core.js",
     "sessions": "dist/pt-sessions.js",
