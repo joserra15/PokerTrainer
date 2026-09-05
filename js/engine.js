@@ -1701,22 +1701,32 @@
     return strength > potOdds - 0.05 ? (rnd < 0.45 ? 'call' : 'fold') : 'fold';
   }
 
+  /** Cola circular postflop empezando justo detrás del héroe (excluye héroe). */
+  function seatsAfterHeroQueue(hand) {
+    const order = multiwayAliveOrder(hand);
+    const hero = hand.hero && hand.hero.pos;
+    const heroIdx = order.indexOf(hero);
+    if (heroIdx < 0) return order.slice();
+    return order.slice(heroIdx + 1).concat(order.slice(0, heroIdx));
+  }
+
   /**
-   * Tras apuesta del héroe en multiway: cada oponente vivo actúa en orden.
-   * Retorna { type: 'foldWin'|'raise'|'called'|'allFolded' , raiser?, raiseSize? }
+   * Tras apuesta/raise del héroe en multiway: oponentes actúan en orden real
+   * (primero los de detrás del héroe, luego wrap). Si hay raise, los asientos
+   * hasta el héroe responden antes de devolver la acción.
+   * Retorna { type: 'foldWin'|'raise'|'called' , raiser?, raiseSize? }
    */
   function resolveMultiwayFacingHeroBet(hand, betSize) {
-    const order = MW() ? MW().postflopOrderFor(hand) : POSTFLOP_ORDER;
     const hero = hand.hero.pos;
-    const alive = MW() ? MW().aliveSeats(hand).filter(function (p) { return p !== hero; }) : [hand.villain.pos];
+    const queue = seatsAfterHeroQueue(hand);
     let callers = 0;
     let raiser = null;
     let raiseSize = 0;
-    for (let i = 0; i < order.length; i++) {
-      const pos = order[i];
-      if (alive.indexOf(pos) < 0) continue;
-      if (raiser) break;
-      if (hand.table.folded[pos] || !hand.table.inHand.has(pos)) continue;
+    for (let i = 0; i < queue.length; i++) {
+      const pos = queue[i];
+      if (!seatStillIn(hand, pos)) continue;
+      const already = (hand.table.streetBet && hand.table.streetBet[pos]) || 0;
+      if (already + 0.01 >= betSize) continue;
       const act = opponentFacingHeroBet(hand, pos, betSize);
       if (act === 'fold') {
         markFolded(hand, pos);
@@ -1737,9 +1747,12 @@
         hand.potBB = round2(hand.potBB + add);
         setSeatAction(hand, pos, 'raise', raiseSize);
         if (hand.table) hand.table.streetBet[pos] = raiseSize;
+        focusVillainSeat(hand, pos);
         if (pos === hand.villain.pos) {
           hand.villainInvested = round2((hand.villainInvested || 0) + add);
           setVillainAct(hand, 'raise', raiseSize);
+        } else {
+          hand.villainAction = { type: 'raise', amount: raiseSize };
         }
         raiser = pos;
         break;
@@ -1756,11 +1769,54 @@
       }
       callers++;
     }
+    if (raiser) {
+      const faced = resolveFacingUntilHero(hand, raiser, raiseSize);
+      if (MW()) MW().syncOpponents(hand);
+      return { type: 'raise', raiser: faced.aggressor, raiseSize: faced.bet };
+    }
     if (MW()) MW().syncOpponents(hand);
     const left = MW() ? MW().aliveSeats(hand).filter(function (p) { return p !== hero; }) : [];
-    if (raiser) return { type: 'raise', raiser: raiser, raiseSize: raiseSize };
     if (!left.length) return { type: 'foldWin' };
     return { type: 'called', callers: callers };
+  }
+
+  /**
+   * Tras call del héroe ante apuesta (multiway): cierra la ronda con los asientos
+   * que aún no igualaron (detrás del héroe y wrap de quien solo checkeó).
+   */
+  function resolveMultiwayAfterHeroCall(hand, betSize) {
+    let currentBet = betSize;
+    let guard = 0;
+    while (guard++ < 24) {
+      const queue = seatsAfterHeroQueue(hand);
+      let raised = false;
+      let pending = false;
+      for (let i = 0; i < queue.length; i++) {
+        const pos = queue[i];
+        if (!seatStillIn(hand, pos)) continue;
+        const already = (hand.table.streetBet && hand.table.streetBet[pos]) || 0;
+        if (already + 0.01 >= currentBet) continue;
+        pending = true;
+        const face = resolveSeatFacingBet(hand, pos, currentBet);
+        if (face.type === 'raise') {
+          currentBet = face.raiseSize;
+          const faced = resolveFacingUntilHero(hand, pos, currentBet);
+          if (MW()) MW().syncOpponents(hand);
+          return heroFacesBetNode(hand, faced.bet);
+        }
+      }
+      if (!pending || !raised) break;
+    }
+    if (MW()) MW().syncOpponents(hand);
+    const left = MW() ? MW().aliveSeats(hand).filter(function (p) { return p !== hand.hero.pos; }) : [];
+    if (!left.length) {
+      return finish(hand, {
+        reason: 'Todos foldean tras tu call (multiway).',
+        heroNet: round2(hand.potBB - (hand.heroInvested || 0))
+      });
+    }
+    if (noMoreBetting(hand)) return prepareAllInRunout(hand);
+    return nextStreet(hand);
   }
 
   function isMultiwayLive(hand) {
@@ -4097,7 +4153,7 @@
     hand.heroAction = { type, amount: amount != null ? amount : null };
     // amount es el total de la calle (open/raise-to/call-to), no el delta.
     // SET (no +=): setSeatAction/setPreflopSeatBet suelen haber escrito ya el mismo total.
-    if (hand.table && hand.hero.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
+    if (hand.table && hand.hero.pos && amount > 0 && ['bet', 'call', 'raise', 'open', 'allin'].indexOf(type) >= 0) {
       hand.table.streetBet[hand.hero.pos] = round2(amount);
     }
     recordVisibleAction(hand, heroTableSeat(hand) || (hand.hero && hand.hero.pos), type, amount, { isHero: true });
@@ -4108,7 +4164,7 @@
     if (type === 'fold' && hand.villain.pos) markFolded(hand, villainTableSeat(hand) || hand.villain.pos);
     // Misma semántica que setHeroAct / setPreflopSeatBet: total en mesa, no suma.
     // Evita duplicar (p.ej. 3-bet a 9bb → etiqueta 18bb tras setSeatAction + setVillainAct).
-    if (hand.table && hand.villain.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
+    if (hand.table && hand.villain.pos && amount > 0 && ['bet', 'call', 'raise', 'open', 'allin'].indexOf(type) >= 0) {
       hand.table.streetBet[hand.villain.pos] = round2(amount);
     }
     recordVisibleAction(hand, villainTableSeat(hand) || (hand.villain && hand.villain.pos), type, amount);
@@ -4522,8 +4578,23 @@
       const isAllIn = heroRem <= 0.01 || toCall >= heroRem - 0.01;
       hand.heroInvested += toCall; hand.potBB = round2(hand.potBB + toCall);
       if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, toCall);
+      // toCall ≈ call-to cuando streetBet previo es 0 (spot típico ante bet).
       setHeroAct(hand, isAllIn ? 'allin' : 'call', toCall);
-      if (isAllIn || villainRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
+      if (hand.table && hand.hero.pos && toCall > 0) {
+        hand.table.streetBet[hand.hero.pos] = round2(Math.max(
+          hand.table.streetBet[hand.hero.pos] || 0,
+          toCall
+        ));
+      }
+      if (isAllIn) return prepareAllInRunout(hand);
+      if (isMultiwayLive(hand)) {
+        const betTo = round2(Math.max(
+          node.toCallBB || 0,
+          (hand.table.streetBet && hand.table.streetBet[hand.hero.pos]) || 0
+        ));
+        return resolveMultiwayAfterHeroCall(hand, betTo);
+      }
+      if (villainRemainingBB(hand) <= 0.01) return prepareAllInRunout(hand);
       return nextStreet(hand);
     }
 

@@ -631,4 +631,93 @@ console.log('18) Limp pot BB no salta preflop (check/iso)');
   assert.ok(isoDone, 'iso ejercido');
 }
 
+console.log('19) Postflop multiway: tras call del héroe, asientos detrás/wrap responden');
+{
+  const play = cfg({
+    scenario: 'multiway', multiwayPotType: 'srp4way', heroPos: 'BTN',
+    villainLevel: 'fish'
+  });
+  let exercised = 0;
+  let closedBehind = 0;
+  for (let i = 0; i < 200 && closedBehind < 5; i++) {
+    const hand = Engine.newHand({
+      type: 'srp4way',
+      heroPos: 'BTN',
+      openerPos: 'HJ',
+      callerPos: 'CO',
+      callerPositions: ['CO', 'SB'],
+      potType: 'srp4way',
+      seed: 61000 + i
+    }, play);
+    forceOpenCallFlop(hand);
+    if (hand.stage !== 'flop' || !hand.current) continue;
+    if ((hand.current.toCallBB || 0) <= 0) {
+      Engine.act(hand, 'check');
+    }
+    if (!(hand.current && (hand.current.toCallBB || 0) > 0)) continue;
+    if (hand.stage === 'complete') continue;
+
+    const bet = hand.current.toCallBB;
+    const heroPos = hand.hero.pos;
+    const unmatched = alive(hand).filter(function (p) {
+      if (p === heroPos) return false;
+      const sb = (hand.table.streetBet && hand.table.streetBet[p]) || 0;
+      return sb + 0.01 < bet;
+    });
+    if (!unmatched.length) continue; // no hay acción detrás/wrap que cerrar
+
+    const stageBefore = hand.stage;
+    const aliveBefore = alive(hand).slice();
+    Engine.act(hand, 'call');
+    exercised++;
+
+    if (hand.stage === 'complete') {
+      closedBehind++;
+      continue;
+    }
+
+    const streetChanged = hand.stage !== stageBefore;
+    const facingRaise = !!(hand.current && (hand.current.toCallBB || 0) > bet + 0.01);
+
+    if (streetChanged) {
+      // Calle cerrada: nadie de unmatched puede seguir vivo sin haber pagado
+      // (si vive, está en el bote de la nueva calle → pagó o era agresor).
+      unmatched.forEach(function (p) {
+        const still = alive(hand).indexOf(p) >= 0;
+        const wasAlive = aliveBefore.indexOf(p) >= 0;
+        assert.ok(wasAlive, 'unmatched debía estar vivo antes');
+        // folded o sigue — ambos OK tras resolver detrás
+        assert.ok(still || (hand.table.folded && hand.table.folded[p]),
+          p + ' tras call debe fold o seguir vivo en next street');
+      });
+      closedBehind++;
+      continue;
+    }
+
+    if (facingRaise) {
+      // Alguien detrás/wrap raised: los intermedios hasta el héroe ya respondieron
+      closedBehind++;
+      continue;
+    }
+
+    // Misma calle sin raise: todos los unmatched deben haber actuado
+    unmatched.forEach(function (p) {
+      const still = alive(hand).indexOf(p) >= 0;
+      const sb = (hand.table.streetBet && hand.table.streetBet[p]) || 0;
+      const act = hand.seatActions && hand.seatActions[p];
+      assert.ok(act || !still,
+        p + ' debe tener seatAction tras call del héroe (o fold)');
+      if (still) {
+        assert.ok(sb + 0.01 >= bet,
+          p + ' vivo debe haber igualado bet=' + bet + ' sb=' + sb);
+        assert.ok(act && act.type !== 'check',
+          p + ' no puede quedar en check ante bet: ' + (act && act.type));
+      }
+    });
+    closedBehind++;
+  }
+  assert.ok(exercised >= 3, 'ejercido call multiway detrás: ' + exercised);
+  assert.ok(closedBehind >= 3, 'cerradas rondas detrás del héroe: ' + closedBehind);
+}
+
 console.log('\n*** test-multiway-trainer OK ***');

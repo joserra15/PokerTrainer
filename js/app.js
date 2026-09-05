@@ -3265,7 +3265,17 @@
     const stacks = window.PTStacks;
     if (!stacks || !hand || !hand.stacks || !hand.stacks[pos]) return '';
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
-    const rem = stacks.remaining(hand, pos);
+    // Durante la animación (_present) el stack debe seguir el invested del snapshot,
+    // no el estado final live — si no, bajan fichas antes de verse fold/call/raise.
+    const view = handPresent(hand);
+    let rem;
+    if (view && view.invested) {
+      const start = hand.stacks[pos] || 0;
+      const inv = view.invested[pos] || 0;
+      rem = Math.round(Math.max(start - inv, 0) * 100) / 100;
+    } else {
+      rem = stacks.remaining(hand, pos);
+    }
     return `<div class="seat-stack" title="Stack restante">${fmt(rem)} bb</div>`;
   }
 
@@ -3478,7 +3488,8 @@
         if (mode === 'serious' && window.PTLiveAdvisor && PTLiveAdvisor.recordSeriousAlert) {
           PTLiveAdvisor.recordSeriousAlert(d, advisorThresholdForFeedback());
         }
-        showVerdictToast(d, mode === 'serious');
+        // Feedback óptima/error primero; al ocultarse sigue la acción en mesa.
+        await showVerdictToast(d, mode === 'serious');
       }
       $('#feedback').classList.add('hidden');
 
@@ -3913,7 +3924,7 @@
 
   function showVerdictToast(d, stickySerious) {
     const toast = $('#verdict-toast');
-    if (!toast) return;
+    if (!toast) return Promise.resolve();
     const pct = Math.round((d.frequency || 0) * 100);
     toast.className = 'verdict-toast visible ' + d.class;
     toast.innerHTML = `<div class="vt-verdict">${verdictWord(d.class)}</div>
@@ -3921,7 +3932,12 @@
       ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}`;
     clearTimeout(showVerdictToast._t);
     const ms = stickySerious ? 1400 : 550;
-    showVerdictToast._t = setTimeout(() => { toast.classList.remove('visible'); }, ms);
+    return new Promise(function (resolve) {
+      showVerdictToast._t = setTimeout(function () {
+        toast.classList.remove('visible');
+        resolve();
+      }, ms);
+    });
   }
 
   /**
