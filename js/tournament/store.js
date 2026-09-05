@@ -121,6 +121,8 @@
     try {
       if (typeof localStorage === 'undefined') return { ok: false };
       var snap = JSON.parse(JSON.stringify(state));
+      /* Los fotogramas son solo presentación: no se guardan ni se re-animan al volver. */
+      if (snap._liveHand) delete snap._liveHand._frames;
       snap._savedAt = new Date().toISOString();
       localStorage.setItem(activeStorageKey(), JSON.stringify(snap));
       markCloudDirty();

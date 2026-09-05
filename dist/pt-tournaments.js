@@ -716,15 +716,7 @@
     ));
   }
 
-  function dealCards(n) {
-    var C = global.Cards;
-    if (C && C.shuffle && (C.fullDeck || C.freshDeck)) {
-      var base = C.fullDeck ? C.fullDeck() : C.freshDeck();
-      var deck = C.shuffle(base.slice ? base.slice() : base);
-      var holes = [];
-      for (var i = 0; i < n; i++) holes.push([deck[i * 2], deck[i * 2 + 1]]);
-      return { holes: holes, board: deck.slice(n * 2, n * 2 + 5) };
-    }
+  function localDeck() {
     var R = '23456789TJQKA';
     var S = 'cdhs';
     var raw = [];
@@ -735,9 +727,66 @@
       var y = Math.floor(Math.random() * (x + 1));
       var t = raw[x]; raw[x] = raw[y]; raw[y] = t;
     }
-    var holes2 = [];
-    for (var k = 0; k < n; k++) holes2.push([raw[k * 2], raw[k * 2 + 1]]);
-    return { holes: holes2, board: raw.slice(n * 2, n * 2 + 5) };
+    return raw;
+  }
+
+  /**
+   * Baraja de 52 cartas distintas, barajada de nuevo en cada mano.
+   * Se re-siembra el RNG con semilla del entrenador para que dos manos de torneo
+   * no compartan secuencia (el entrenador siembra la suya en cada mano, así que
+   * esto no altera sus repartos reproducibles).
+   */
+  function freshDeck() {
+    var C = global.Cards;
+    if (C && C.rng && typeof C.rng.setSeed === 'function') {
+      try { C.rng.setSeed((Math.floor(Math.random() * 4294967295) >>> 0) || 1); } catch (e) { /* ignore */ }
+    }
+    var deck = null;
+    if (C && typeof C.shuffledDeckExcluding === 'function') {
+      try { deck = C.shuffledDeckExcluding([]); } catch (e2) { deck = null; }
+    }
+    if ((!deck || deck.length !== 52) && C && C.shuffle && (C.fullDeck || C.freshDeck)) {
+      try {
+        var base = C.fullDeck ? C.fullDeck() : C.freshDeck();
+        deck = C.shuffle(base.slice ? base.slice() : base);
+      } catch (e3) { deck = null; }
+    }
+    if (!deck || deck.length !== 52) deck = localDeck();
+    return deck;
+  }
+
+  /** Reparto real: dos rondas de una carta por asiento y luego el board. */
+  function dealCards(n) {
+    var deck = freshDeck();
+    var holes = [];
+    var i;
+    for (i = 0; i < n; i++) holes.push([]);
+    var next = 0;
+    for (var round = 0; round < 2; round++) {
+      for (i = 0; i < n; i++) holes[i].push(deck[next++]);
+    }
+    return { holes: holes, board: deck.slice(next, next + 5) };
+  }
+
+  /** Todas las cartas repartidas (manos + board): sirve para validar el mazo. */
+  function allDealtCards(hand) {
+    var out = [];
+    (hand && hand.seats ? hand.seats : []).forEach(function (s) {
+      (s.cards || []).forEach(function (c) { out.push(cardCode(c)); });
+    });
+    (hand && hand.boardDeck ? hand.boardDeck : []).forEach(function (c) { out.push(cardCode(c)); });
+    return out;
+  }
+
+  /** true si alguna carta está repetida entre manos y board. */
+  function hasDuplicateCards(hand) {
+    var seen = {};
+    var all = allDealtCards(hand);
+    for (var i = 0; i < all.length; i++) {
+      if (!all[i] || seen[all[i]]) return true;
+      seen[all[i]] = true;
+    }
+    return false;
   }
 
   function handCode(cards) {
@@ -913,6 +962,57 @@
     };
   }
 
+  /* ---------- Fotogramas de presentación ----------
+     La mesa se pinta paso a paso (como en Entrenar): cada acción de villano y
+     cada street generan un fotograma con el estado visible en ese instante.
+     El motor sigue resolviendo la mano de una vez; solo cambia el revelado. */
+  function seatSnap(s) {
+    return {
+      id: s.id,
+      stack: s.stack,
+      invested: s.invested,
+      streetInvested: s.streetInvested,
+      folded: !!s.folded,
+      allIn: !!s.allIn,
+      lastAction: s.lastAction
+        ? { action: s.lastAction.action, amount: s.lastAction.amount, street: s.lastAction.street }
+        : null
+    };
+  }
+
+  function pushFrame(hand, meta) {
+    if (!hand || hand._noFrames) return null;
+    meta = meta || {};
+    if (!hand._frames) hand._frames = [];
+    var frame = {
+      kind: meta.kind || 'act',
+      actorId: meta.actorId || null,
+      pos: meta.pos || null,
+      action: meta.action || null,
+      amount: Number(meta.amount) || 0,
+      isHero: !!meta.isHero,
+      street: hand.street,
+      board: (hand.board || []).slice(),
+      pot: hand.pot,
+      currentBet: hand.currentBet,
+      seats: hand.seats.map(seatSnap)
+    };
+    hand._frames.push(frame);
+    return frame;
+  }
+
+  function pushSeatFrame(hand, seat) {
+    var last = seat && seat.lastAction;
+    return pushFrame(hand, {
+      kind: 'act',
+      actorId: seat && seat.id,
+      pos: seat && seat.pos,
+      action: last && last.action,
+      amount: last && last.amount,
+      isHero: !!(seat && seat.isHero)
+    });
+  }
+
   function doFold(hand, seat) { seat.folded = true; logAct(hand, seat, 'fold'); }
   function doCheck(hand, seat) { logAct(hand, seat, 'check'); }
   function doCall(hand, seat) {
@@ -1020,7 +1120,11 @@
   }
 
   function finishShowdown(hand) {
-    while (hand.board.length < 5) hand.board.push(hand.boardDeck[hand.board.length]);
+    /* Runout carta a carta para que se vea, igual que en el entrenador. */
+    while (hand.board.length < 5) {
+      hand.board.push(hand.boardDeck[hand.board.length]);
+      pushFrame(hand, { kind: 'street' });
+    }
     var C = global.Cards;
     var cont = alive(hand);
     var best = null;
@@ -1155,6 +1259,7 @@
         if (canStill.length <= 1 && alive(hand).length >= 2) return finishShowdown(hand);
         if (hand.street === 'river') return finishShowdown(hand);
         if (advanceStreet(hand) === 'showdown') return finishShowdown(hand);
+        pushFrame(hand, { kind: 'street' });
         continue;
       }
 
@@ -1171,17 +1276,23 @@
         return hand;
       }
       applyAction(hand, seat, villainAction(hand, seat));
+      pushSeatFrame(hand, seat);
     }
     if (hand.stage === 'playing') finishShowdown(hand);
     return hand;
   }
 
   function start(tableSeats, blinds, heroId) {
-    return run(createHand(tableSeats, blinds, heroId));
+    var hand = createHand(tableSeats, blinds, heroId);
+    /* Primer fotograma: cartas repartidas y ciegas puestas, sin acciones aún.
+       A partir de aquí la acción empieza en UTG y avanza hasta el héroe. */
+    pushFrame(hand, { kind: 'deal' });
+    return run(hand);
   }
 
   function heroAct(hand, actionId, amount) {
     if (!hand || hand.stage !== 'playing' || !hand.awaitingHero) return hand;
+    hand._frames = [];
     var seat = hand.seats.find(function (s) { return s.id === hand._heroSeatId; });
     if (!seat) return hand;
     var action = { id: actionId, amount: amount };
@@ -1194,6 +1305,7 @@
     hand.awaitingHero = false;
     hand.heroOptions = null;
     applyAction(hand, seat, action);
+    pushSeatFrame(hand, seat);
     return run(hand);
   }
 
@@ -1201,14 +1313,19 @@
     var hand = createHand(tableSeats, blinds, null);
     hand.seats.forEach(function (s) { s.isHero = false; });
     hand.heroId = null;
-    return run(hand);
+    hand._noFrames = true;
+    run(hand);
+    hand._frames = [];
+    return hand;
   }
 
   global.PTTournamentLiveHand = {
     start: start,
     heroAct: heroAct,
     simulateTable: simulateTable,
-    strength01: strength01
+    strength01: strength01,
+    allDealtCards: allDealtCards,
+    hasDuplicateCards: hasDuplicateCards
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -1748,6 +1865,8 @@
     try {
       if (typeof localStorage === 'undefined') return { ok: false };
       var snap = JSON.parse(JSON.stringify(state));
+      /* Los fotogramas son solo presentación: no se guardan ni se re-animan al volver. */
+      if (snap._liveHand) delete snap._liveHand._frames;
       snap._savedAt = new Date().toISOString();
       localStorage.setItem(activeStorageKey(), JSON.stringify(snap));
       markCloudDirty();
@@ -2189,8 +2308,135 @@
     lobbyFilter: 'all',
     exitPrompt: false,
     resumePrompt: false,
-    handDetailOpen: false
+    handDetailOpen: false,
+    anim: { frame: null, playing: false, skip: false, seq: 0, timer: null }
   };
+
+  /* ---------- Revelado de la acción paso a paso (como en Entrenar) ---------- */
+  function reducedMotion() {
+    try {
+      return !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function frameDelay(f) {
+    if (reducedMotion()) return 60;
+    if (!f) return 0;
+    if (f.kind === 'deal') return 420;
+    if (f.kind === 'street') return 560;
+    var a = String(f.action || '').toLowerCase();
+    if (a === 'fold') return 300;
+    if (a === 'check') return 380;
+    if (a === 'call') return 420;
+    return 500;
+  }
+
+  /** Mano "de presentación": el estado visible en el fotograma en curso. */
+  function animHand(hand) {
+    var f = ui.anim && ui.anim.frame;
+    if (!hand || !f) return hand;
+    var byId = {};
+    (f.seats || []).forEach(function (s) { byId[s.id] = s; });
+    var seats = (hand.seats || []).map(function (s) {
+      var fs = byId[s.id];
+      if (!fs) return s;
+      return {
+        id: s.id,
+        name: s.name,
+        isHero: s.isHero,
+        roleId: s.roleId,
+        pos: s.pos,
+        seatIndex: s.seatIndex,
+        cards: s.cards,
+        startStack: s.startStack,
+        stack: fs.stack,
+        invested: fs.invested,
+        streetInvested: fs.streetInvested,
+        folded: fs.folded,
+        allIn: fs.allIn,
+        lastAction: fs.lastAction,
+        _acting: f.actorId === s.id
+      };
+    });
+    return {
+      seats: seats,
+      heroId: hand.heroId,
+      sb: hand.sb,
+      bb: hand.bb,
+      ante: hand.ante,
+      board: (f.board || []).slice(),
+      street: f.street,
+      pot: f.pot,
+      currentBet: f.currentBet,
+      log: hand.log,
+      /* Mientras se anima no hay turno de héroe ni popup de fin de mano. */
+      stage: 'playing',
+      awaitingHero: false,
+      heroOptions: null,
+      result: null
+    };
+  }
+
+  function stopAnim() {
+    if (ui.anim.timer && typeof clearTimeout === 'function') clearTimeout(ui.anim.timer);
+    ui.anim.timer = null;
+    ui.anim.frame = null;
+    ui.anim.playing = false;
+    ui.anim.skip = false;
+    ui.anim.pending = null;
+    ui.anim.seq += 1;
+  }
+
+  /** Saca los fotogramas pendientes del motor y deja el primero listo para pintar. */
+  function takeFrames() {
+    var hand = ui.state && ui.state._liveHand;
+    var frames = (hand && hand._frames) ? hand._frames.slice() : [];
+    if (hand) hand._frames = [];
+    if (!frames.length || typeof setTimeout !== 'function') return null;
+    ui.anim.seq += 1;
+    ui.anim.skip = false;
+    ui.anim.playing = true;
+    ui.anim.frame = frames[0];
+    return frames;
+  }
+
+  function playFrames(frames, onDone) {
+    if (!frames || !frames.length) {
+      stopAnim();
+      if (onDone) onDone();
+      return;
+    }
+    var seq = ui.anim.seq;
+    var i = 0;
+    ui.anim.pending = onDone || paint;
+    function step() {
+      if (seq !== ui.anim.seq) return;
+      if (ui.anim.skip || i >= frames.length) {
+        var done = ui.anim.pending || onDone || paint;
+        stopAnim();
+        done();
+        return;
+      }
+      ui.anim.frame = frames[i];
+      i += 1;
+      paint();
+      ui.anim.timer = setTimeout(step, frameDelay(ui.anim.frame));
+    }
+    step();
+  }
+
+  /** Anima los fotogramas pendientes (si hay) y luego ejecuta `done`. */
+  function animateThen(done) {
+    var frames = takeFrames();
+    if (!frames) {
+      stopAnim();
+      done();
+      return;
+    }
+    playFrames(frames, done);
+  }
 
   function fmtEur(n) {
     var x = Number(n) || 0;
@@ -2281,6 +2527,7 @@
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
+    stopAnim();
     setView(VIEW.table);
     return true;
   }
@@ -2296,9 +2543,13 @@
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
+    stopAnim();
     Runner.beginHand(ui.state);
     persistActive();
-    setView(VIEW.table);
+    var frames = takeFrames();
+    ui.view = VIEW.table;
+    if (frames) playFrames(frames, paint);
+    else paint();
   }
 
   function startPreset(id) {
@@ -2673,6 +2924,7 @@
       var guessed = state.heroGuesses && state.heroGuesses[s.id];
       var cls = ['seat', 'villain'];
       if (s.folded) cls.push('folded');
+      if (s._acting) cls.push('acting');
       if (c.top < 20) cls.push('seat-top');
       if (c.top > 70) cls.push('seat-bottom');
       if (c.left < 22) cls.push('seat-edge-left');
@@ -2686,7 +2938,8 @@
       } else if (last) {
         var actCls = actBadgeClass(last.action);
         var actTxt = formatActLabel(last.action, last.amount, bb);
-        actHtml = '<div class="seat-act-wrap"><span class="seat-act ' + actCls + '">' + esc(actTxt) + '</span></div>';
+        actHtml = '<div class="seat-act-wrap"><span class="seat-act ' + actCls +
+          (s._acting ? ' is-acting' : '') + '">' + esc(actTxt) + '</span></div>';
       }
 
       var cardsHtml = '';
@@ -2756,7 +3009,7 @@
   function renderTable() {
     var state = ui.state;
     if (!state) return '<p>Sin torneo activo.</p>';
-    var hand = state._liveHand;
+    var hand = animHand(state._liveHand);
     var St = global.PTTournamentState;
     var Seat = global.PTTournamentSeating;
     var Hud = global.PTTournamentHud;
@@ -2802,7 +3055,11 @@
     }
 
     var actions = '';
-    if (state.status === 'busted_pending' || ui.bustPrompt) {
+    if (ui.anim && ui.anim.playing) {
+      actions = '<div class="actions actions-grid actions-grid-1 trn-anim-actions">' +
+        '<button type="button" class="btn btn-skip-anim" data-act="skip-anim">Saltar acción</button>' +
+        '</div>';
+    } else if (state.status === 'busted_pending' || ui.bustPrompt) {
       actions = '<div class="trn-bust-prompt">' +
         '<p>Has sido eliminado. ¿Qué quieres hacer?</p>' +
         '<button type="button" class="btn btn-primary" data-act="sim-rest">Simular resto</button>' +
@@ -3078,6 +3335,11 @@
     bind(ui.root);
   }
 
+  /** Anima lo que acaba de resolver el motor y luego cierra el turno. */
+  function afterActionAnimated() {
+    animateThen(afterAction);
+  }
+
   function afterAction() {
     var state = ui.state;
     if (!state) { paint(); return; }
@@ -3166,7 +3428,20 @@
             ui.handDetailOpen = false;
             persistActive();
           }
-          afterAction();
+          afterActionAnimated();
+        } else if (act === 'skip-anim') {
+          ui.anim.skip = true;
+          if (ui.anim.timer && typeof clearTimeout === 'function') clearTimeout(ui.anim.timer);
+          ui.anim.timer = null;
+          if (ui.anim.pending) {
+            var fin = ui.anim.pending;
+            ui.anim.pending = null;
+            stopAnim();
+            fin();
+          } else {
+            stopAnim();
+            paint();
+          }
         } else if (act === 'toggle-hand-detail') {
           ui.handDetailOpen = !ui.handDetailOpen;
           paint();
@@ -3193,7 +3468,7 @@
             global.PTTournamentRunner.continueAfterHand(ui.state);
             persistActive();
           }
-          afterAction();
+          afterActionAnimated();
         } else if (act === 'sim-rest') {
           global.PTTournamentRunner.simulateRest(ui.state);
           clearActive();
@@ -3214,11 +3489,12 @@
 
     root.querySelectorAll('[data-hero-act]').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        if (ui.anim && ui.anim.playing) return;
         var id = btn.getAttribute('data-hero-act');
         var amtRaw = btn.getAttribute('data-amount');
         var amt = amtRaw === '' || amtRaw == null ? null : Number(amtRaw);
         global.PTTournamentRunner.heroAct(ui.state, id, amt);
-        afterAction();
+        afterActionAnimated();
       });
     });
 

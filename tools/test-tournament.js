@@ -340,4 +340,95 @@ FILES.forEach(function (f) { load(g, f); });
   console.log('OK active-persist');
 }
 
+// --- deck integrity: 52 cartas únicas por mano, sin repetidos ---
+{
+  for (let n = 0; n < 40; n++) {
+    const state = g.PTTournamentRunner.create('sng6', { seed: 1000 + n });
+    const hand = g.PTTournamentRunner.beginHand(state);
+    assert.ok(hand, 'hand dealt');
+    hand.seats.forEach(function (s) {
+      assert.strictEqual((s.cards || []).length, 2, 'two hole cards per seat');
+    });
+    assert.strictEqual(hand.boardDeck.length, 5, 'five board cards');
+    const all = g.PTTournamentLiveHand.allDealtCards(hand);
+    assert.strictEqual(all.length, hand.seats.length * 2 + 5, 'dealt count');
+    assert.strictEqual(new Set(all).size, all.length, 'no duplicate cards (hand ' + n + ')');
+    assert.ok(!g.PTTournamentLiveHand.hasDuplicateCards(hand), 'hasDuplicateCards false');
+    all.forEach(function (c) {
+      assert.ok(/^[2-9TJQKA][cdhs]$/.test(c), 'valid card code ' + c);
+    });
+  }
+  console.log('OK deck-unique-52');
+}
+
+// --- fotogramas: la acción empieza en UTG y llega al héroe ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 4242 });
+  const hand = g.PTTournamentRunner.beginHand(state);
+  const frames = hand._frames || [];
+  assert.ok(frames.length >= 1, 'frames captured');
+  assert.strictEqual(frames[0].kind, 'deal', 'first frame is the deal');
+
+  const prefs = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const seatPos = hand.seats.map(function (s) { return s.pos; });
+  const order = prefs.filter(function (p) { return seatPos.indexOf(p) >= 0; });
+  const heroSeat = hand.seats.find(function (s) { return s.isHero; });
+  const acts = frames.filter(function (f) { return f.kind === 'act'; });
+
+  if (acts.length) {
+    const firstActor = order.find(function (p) { return p !== heroSeat.pos; });
+    assert.strictEqual(acts[0].pos, firstActor, 'primer actor visible = primero en orden preflop');
+    // Orden preflop respetado en los fotogramas preflop (sin repetir vuelta).
+    const pre = acts.filter(function (f) { return f.street === 'preflop'; });
+    let idx = -1;
+    let wrapped = false;
+    pre.forEach(function (f) {
+      const at = order.indexOf(f.pos);
+      if (at <= idx) wrapped = true;
+      idx = at;
+    });
+    assert.ok(!wrapped || pre.length > order.length - 1, 'orden preflop coherente');
+  }
+  acts.forEach(function (f) {
+    assert.ok(!f.isHero, 'ningún fotograma del héroe antes de que actúe');
+  });
+  assert.ok(hand.awaitingHero || hand.stage === 'complete', 'para en el héroe o cierra la mano');
+  console.log('OK frames-utg-to-hero (' + frames.length + ' fotogramas)');
+}
+
+// --- fotogramas tras la acción del héroe (acción posterior visible) ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 515 });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && !hand.awaitingHero && guard++ < 20) {
+    hand = state._liveHand;
+  }
+  if (hand && hand.awaitingHero) {
+    const opt = (hand.heroOptions || []).find(function (o) { return o.id === 'call' || o.id === 'check'; })
+      || (hand.heroOptions || [])[0];
+    g.PTTournamentRunner.heroAct(state, opt.id, opt.amount != null ? opt.amount : opt.suggested);
+    const after = (state._liveHand._frames || []);
+    assert.ok(after.length >= 1, 'fotogramas tras heroAct');
+    assert.ok(after[0].isHero, 'primer fotograma posterior = acción del héroe');
+    console.log('OK frames-after-hero (' + after.length + ' fotogramas)');
+  } else {
+    console.log('OK frames-after-hero (skipped — sin turno de héroe)');
+  }
+}
+
+// --- el guardado no arrastra fotogramas de presentación ---
+{
+  g.PTTournamentStore.clearActive();
+  const state = g.PTTournamentRunner.create('sng6', { seed: 61 });
+  g.PTTournamentRunner.beginHand(state);
+  assert.ok((state._liveHand._frames || []).length > 0, 'frames en memoria');
+  g.PTTournamentStore.saveActive(state);
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.ok(loaded && loaded._liveHand, 'mano guardada');
+  assert.ok(!loaded._liveHand._frames, 'frames no persistidos');
+  g.PTTournamentStore.clearActive();
+  console.log('OK frames-not-persisted');
+}
+
 console.log('*** test-tournament OK ***');

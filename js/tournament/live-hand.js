@@ -48,15 +48,7 @@
     ));
   }
 
-  function dealCards(n) {
-    var C = global.Cards;
-    if (C && C.shuffle && (C.fullDeck || C.freshDeck)) {
-      var base = C.fullDeck ? C.fullDeck() : C.freshDeck();
-      var deck = C.shuffle(base.slice ? base.slice() : base);
-      var holes = [];
-      for (var i = 0; i < n; i++) holes.push([deck[i * 2], deck[i * 2 + 1]]);
-      return { holes: holes, board: deck.slice(n * 2, n * 2 + 5) };
-    }
+  function localDeck() {
     var R = '23456789TJQKA';
     var S = 'cdhs';
     var raw = [];
@@ -67,9 +59,66 @@
       var y = Math.floor(Math.random() * (x + 1));
       var t = raw[x]; raw[x] = raw[y]; raw[y] = t;
     }
-    var holes2 = [];
-    for (var k = 0; k < n; k++) holes2.push([raw[k * 2], raw[k * 2 + 1]]);
-    return { holes: holes2, board: raw.slice(n * 2, n * 2 + 5) };
+    return raw;
+  }
+
+  /**
+   * Baraja de 52 cartas distintas, barajada de nuevo en cada mano.
+   * Se re-siembra el RNG con semilla del entrenador para que dos manos de torneo
+   * no compartan secuencia (el entrenador siembra la suya en cada mano, así que
+   * esto no altera sus repartos reproducibles).
+   */
+  function freshDeck() {
+    var C = global.Cards;
+    if (C && C.rng && typeof C.rng.setSeed === 'function') {
+      try { C.rng.setSeed((Math.floor(Math.random() * 4294967295) >>> 0) || 1); } catch (e) { /* ignore */ }
+    }
+    var deck = null;
+    if (C && typeof C.shuffledDeckExcluding === 'function') {
+      try { deck = C.shuffledDeckExcluding([]); } catch (e2) { deck = null; }
+    }
+    if ((!deck || deck.length !== 52) && C && C.shuffle && (C.fullDeck || C.freshDeck)) {
+      try {
+        var base = C.fullDeck ? C.fullDeck() : C.freshDeck();
+        deck = C.shuffle(base.slice ? base.slice() : base);
+      } catch (e3) { deck = null; }
+    }
+    if (!deck || deck.length !== 52) deck = localDeck();
+    return deck;
+  }
+
+  /** Reparto real: dos rondas de una carta por asiento y luego el board. */
+  function dealCards(n) {
+    var deck = freshDeck();
+    var holes = [];
+    var i;
+    for (i = 0; i < n; i++) holes.push([]);
+    var next = 0;
+    for (var round = 0; round < 2; round++) {
+      for (i = 0; i < n; i++) holes[i].push(deck[next++]);
+    }
+    return { holes: holes, board: deck.slice(next, next + 5) };
+  }
+
+  /** Todas las cartas repartidas (manos + board): sirve para validar el mazo. */
+  function allDealtCards(hand) {
+    var out = [];
+    (hand && hand.seats ? hand.seats : []).forEach(function (s) {
+      (s.cards || []).forEach(function (c) { out.push(cardCode(c)); });
+    });
+    (hand && hand.boardDeck ? hand.boardDeck : []).forEach(function (c) { out.push(cardCode(c)); });
+    return out;
+  }
+
+  /** true si alguna carta está repetida entre manos y board. */
+  function hasDuplicateCards(hand) {
+    var seen = {};
+    var all = allDealtCards(hand);
+    for (var i = 0; i < all.length; i++) {
+      if (!all[i] || seen[all[i]]) return true;
+      seen[all[i]] = true;
+    }
+    return false;
   }
 
   function handCode(cards) {
@@ -245,6 +294,57 @@
     };
   }
 
+  /* ---------- Fotogramas de presentación ----------
+     La mesa se pinta paso a paso (como en Entrenar): cada acción de villano y
+     cada street generan un fotograma con el estado visible en ese instante.
+     El motor sigue resolviendo la mano de una vez; solo cambia el revelado. */
+  function seatSnap(s) {
+    return {
+      id: s.id,
+      stack: s.stack,
+      invested: s.invested,
+      streetInvested: s.streetInvested,
+      folded: !!s.folded,
+      allIn: !!s.allIn,
+      lastAction: s.lastAction
+        ? { action: s.lastAction.action, amount: s.lastAction.amount, street: s.lastAction.street }
+        : null
+    };
+  }
+
+  function pushFrame(hand, meta) {
+    if (!hand || hand._noFrames) return null;
+    meta = meta || {};
+    if (!hand._frames) hand._frames = [];
+    var frame = {
+      kind: meta.kind || 'act',
+      actorId: meta.actorId || null,
+      pos: meta.pos || null,
+      action: meta.action || null,
+      amount: Number(meta.amount) || 0,
+      isHero: !!meta.isHero,
+      street: hand.street,
+      board: (hand.board || []).slice(),
+      pot: hand.pot,
+      currentBet: hand.currentBet,
+      seats: hand.seats.map(seatSnap)
+    };
+    hand._frames.push(frame);
+    return frame;
+  }
+
+  function pushSeatFrame(hand, seat) {
+    var last = seat && seat.lastAction;
+    return pushFrame(hand, {
+      kind: 'act',
+      actorId: seat && seat.id,
+      pos: seat && seat.pos,
+      action: last && last.action,
+      amount: last && last.amount,
+      isHero: !!(seat && seat.isHero)
+    });
+  }
+
   function doFold(hand, seat) { seat.folded = true; logAct(hand, seat, 'fold'); }
   function doCheck(hand, seat) { logAct(hand, seat, 'check'); }
   function doCall(hand, seat) {
@@ -352,7 +452,11 @@
   }
 
   function finishShowdown(hand) {
-    while (hand.board.length < 5) hand.board.push(hand.boardDeck[hand.board.length]);
+    /* Runout carta a carta para que se vea, igual que en el entrenador. */
+    while (hand.board.length < 5) {
+      hand.board.push(hand.boardDeck[hand.board.length]);
+      pushFrame(hand, { kind: 'street' });
+    }
     var C = global.Cards;
     var cont = alive(hand);
     var best = null;
@@ -487,6 +591,7 @@
         if (canStill.length <= 1 && alive(hand).length >= 2) return finishShowdown(hand);
         if (hand.street === 'river') return finishShowdown(hand);
         if (advanceStreet(hand) === 'showdown') return finishShowdown(hand);
+        pushFrame(hand, { kind: 'street' });
         continue;
       }
 
@@ -503,17 +608,23 @@
         return hand;
       }
       applyAction(hand, seat, villainAction(hand, seat));
+      pushSeatFrame(hand, seat);
     }
     if (hand.stage === 'playing') finishShowdown(hand);
     return hand;
   }
 
   function start(tableSeats, blinds, heroId) {
-    return run(createHand(tableSeats, blinds, heroId));
+    var hand = createHand(tableSeats, blinds, heroId);
+    /* Primer fotograma: cartas repartidas y ciegas puestas, sin acciones aún.
+       A partir de aquí la acción empieza en UTG y avanza hasta el héroe. */
+    pushFrame(hand, { kind: 'deal' });
+    return run(hand);
   }
 
   function heroAct(hand, actionId, amount) {
     if (!hand || hand.stage !== 'playing' || !hand.awaitingHero) return hand;
+    hand._frames = [];
     var seat = hand.seats.find(function (s) { return s.id === hand._heroSeatId; });
     if (!seat) return hand;
     var action = { id: actionId, amount: amount };
@@ -526,6 +637,7 @@
     hand.awaitingHero = false;
     hand.heroOptions = null;
     applyAction(hand, seat, action);
+    pushSeatFrame(hand, seat);
     return run(hand);
   }
 
@@ -533,13 +645,18 @@
     var hand = createHand(tableSeats, blinds, null);
     hand.seats.forEach(function (s) { s.isHero = false; });
     hand.heroId = null;
-    return run(hand);
+    hand._noFrames = true;
+    run(hand);
+    hand._frames = [];
+    return hand;
   }
 
   global.PTTournamentLiveHand = {
     start: start,
     heroAct: heroAct,
     simulateTable: simulateTable,
-    strength01: strength01
+    strength01: strength01,
+    allDealtCards: allDealtCards,
+    hasDuplicateCards: hasDuplicateCards
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

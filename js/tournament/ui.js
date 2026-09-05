@@ -23,8 +23,135 @@
     lobbyFilter: 'all',
     exitPrompt: false,
     resumePrompt: false,
-    handDetailOpen: false
+    handDetailOpen: false,
+    anim: { frame: null, playing: false, skip: false, seq: 0, timer: null }
   };
+
+  /* ---------- Revelado de la acción paso a paso (como en Entrenar) ---------- */
+  function reducedMotion() {
+    try {
+      return !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function frameDelay(f) {
+    if (reducedMotion()) return 60;
+    if (!f) return 0;
+    if (f.kind === 'deal') return 420;
+    if (f.kind === 'street') return 560;
+    var a = String(f.action || '').toLowerCase();
+    if (a === 'fold') return 300;
+    if (a === 'check') return 380;
+    if (a === 'call') return 420;
+    return 500;
+  }
+
+  /** Mano "de presentación": el estado visible en el fotograma en curso. */
+  function animHand(hand) {
+    var f = ui.anim && ui.anim.frame;
+    if (!hand || !f) return hand;
+    var byId = {};
+    (f.seats || []).forEach(function (s) { byId[s.id] = s; });
+    var seats = (hand.seats || []).map(function (s) {
+      var fs = byId[s.id];
+      if (!fs) return s;
+      return {
+        id: s.id,
+        name: s.name,
+        isHero: s.isHero,
+        roleId: s.roleId,
+        pos: s.pos,
+        seatIndex: s.seatIndex,
+        cards: s.cards,
+        startStack: s.startStack,
+        stack: fs.stack,
+        invested: fs.invested,
+        streetInvested: fs.streetInvested,
+        folded: fs.folded,
+        allIn: fs.allIn,
+        lastAction: fs.lastAction,
+        _acting: f.actorId === s.id
+      };
+    });
+    return {
+      seats: seats,
+      heroId: hand.heroId,
+      sb: hand.sb,
+      bb: hand.bb,
+      ante: hand.ante,
+      board: (f.board || []).slice(),
+      street: f.street,
+      pot: f.pot,
+      currentBet: f.currentBet,
+      log: hand.log,
+      /* Mientras se anima no hay turno de héroe ni popup de fin de mano. */
+      stage: 'playing',
+      awaitingHero: false,
+      heroOptions: null,
+      result: null
+    };
+  }
+
+  function stopAnim() {
+    if (ui.anim.timer && typeof clearTimeout === 'function') clearTimeout(ui.anim.timer);
+    ui.anim.timer = null;
+    ui.anim.frame = null;
+    ui.anim.playing = false;
+    ui.anim.skip = false;
+    ui.anim.pending = null;
+    ui.anim.seq += 1;
+  }
+
+  /** Saca los fotogramas pendientes del motor y deja el primero listo para pintar. */
+  function takeFrames() {
+    var hand = ui.state && ui.state._liveHand;
+    var frames = (hand && hand._frames) ? hand._frames.slice() : [];
+    if (hand) hand._frames = [];
+    if (!frames.length || typeof setTimeout !== 'function') return null;
+    ui.anim.seq += 1;
+    ui.anim.skip = false;
+    ui.anim.playing = true;
+    ui.anim.frame = frames[0];
+    return frames;
+  }
+
+  function playFrames(frames, onDone) {
+    if (!frames || !frames.length) {
+      stopAnim();
+      if (onDone) onDone();
+      return;
+    }
+    var seq = ui.anim.seq;
+    var i = 0;
+    ui.anim.pending = onDone || paint;
+    function step() {
+      if (seq !== ui.anim.seq) return;
+      if (ui.anim.skip || i >= frames.length) {
+        var done = ui.anim.pending || onDone || paint;
+        stopAnim();
+        done();
+        return;
+      }
+      ui.anim.frame = frames[i];
+      i += 1;
+      paint();
+      ui.anim.timer = setTimeout(step, frameDelay(ui.anim.frame));
+    }
+    step();
+  }
+
+  /** Anima los fotogramas pendientes (si hay) y luego ejecuta `done`. */
+  function animateThen(done) {
+    var frames = takeFrames();
+    if (!frames) {
+      stopAnim();
+      done();
+      return;
+    }
+    playFrames(frames, done);
+  }
 
   function fmtEur(n) {
     var x = Number(n) || 0;
@@ -115,6 +242,7 @@
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
+    stopAnim();
     setView(VIEW.table);
     return true;
   }
@@ -130,9 +258,13 @@
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
+    stopAnim();
     Runner.beginHand(ui.state);
     persistActive();
-    setView(VIEW.table);
+    var frames = takeFrames();
+    ui.view = VIEW.table;
+    if (frames) playFrames(frames, paint);
+    else paint();
   }
 
   function startPreset(id) {
@@ -507,6 +639,7 @@
       var guessed = state.heroGuesses && state.heroGuesses[s.id];
       var cls = ['seat', 'villain'];
       if (s.folded) cls.push('folded');
+      if (s._acting) cls.push('acting');
       if (c.top < 20) cls.push('seat-top');
       if (c.top > 70) cls.push('seat-bottom');
       if (c.left < 22) cls.push('seat-edge-left');
@@ -520,7 +653,8 @@
       } else if (last) {
         var actCls = actBadgeClass(last.action);
         var actTxt = formatActLabel(last.action, last.amount, bb);
-        actHtml = '<div class="seat-act-wrap"><span class="seat-act ' + actCls + '">' + esc(actTxt) + '</span></div>';
+        actHtml = '<div class="seat-act-wrap"><span class="seat-act ' + actCls +
+          (s._acting ? ' is-acting' : '') + '">' + esc(actTxt) + '</span></div>';
       }
 
       var cardsHtml = '';
@@ -590,7 +724,7 @@
   function renderTable() {
     var state = ui.state;
     if (!state) return '<p>Sin torneo activo.</p>';
-    var hand = state._liveHand;
+    var hand = animHand(state._liveHand);
     var St = global.PTTournamentState;
     var Seat = global.PTTournamentSeating;
     var Hud = global.PTTournamentHud;
@@ -636,7 +770,11 @@
     }
 
     var actions = '';
-    if (state.status === 'busted_pending' || ui.bustPrompt) {
+    if (ui.anim && ui.anim.playing) {
+      actions = '<div class="actions actions-grid actions-grid-1 trn-anim-actions">' +
+        '<button type="button" class="btn btn-skip-anim" data-act="skip-anim">Saltar acción</button>' +
+        '</div>';
+    } else if (state.status === 'busted_pending' || ui.bustPrompt) {
       actions = '<div class="trn-bust-prompt">' +
         '<p>Has sido eliminado. ¿Qué quieres hacer?</p>' +
         '<button type="button" class="btn btn-primary" data-act="sim-rest">Simular resto</button>' +
@@ -912,6 +1050,11 @@
     bind(ui.root);
   }
 
+  /** Anima lo que acaba de resolver el motor y luego cierra el turno. */
+  function afterActionAnimated() {
+    animateThen(afterAction);
+  }
+
   function afterAction() {
     var state = ui.state;
     if (!state) { paint(); return; }
@@ -1000,7 +1143,20 @@
             ui.handDetailOpen = false;
             persistActive();
           }
-          afterAction();
+          afterActionAnimated();
+        } else if (act === 'skip-anim') {
+          ui.anim.skip = true;
+          if (ui.anim.timer && typeof clearTimeout === 'function') clearTimeout(ui.anim.timer);
+          ui.anim.timer = null;
+          if (ui.anim.pending) {
+            var fin = ui.anim.pending;
+            ui.anim.pending = null;
+            stopAnim();
+            fin();
+          } else {
+            stopAnim();
+            paint();
+          }
         } else if (act === 'toggle-hand-detail') {
           ui.handDetailOpen = !ui.handDetailOpen;
           paint();
@@ -1027,7 +1183,7 @@
             global.PTTournamentRunner.continueAfterHand(ui.state);
             persistActive();
           }
-          afterAction();
+          afterActionAnimated();
         } else if (act === 'sim-rest') {
           global.PTTournamentRunner.simulateRest(ui.state);
           clearActive();
@@ -1048,11 +1204,12 @@
 
     root.querySelectorAll('[data-hero-act]').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        if (ui.anim && ui.anim.playing) return;
         var id = btn.getAttribute('data-hero-act');
         var amtRaw = btn.getAttribute('data-amount');
         var amt = amtRaw === '' || amtRaw == null ? null : Number(amtRaw);
         global.PTTournamentRunner.heroAct(ui.state, id, amt);
-        afterAction();
+        afterActionAnimated();
       });
     });
 

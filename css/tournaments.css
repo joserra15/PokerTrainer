@@ -1321,3 +1321,30 @@
   color: #8fd4ff;
   border-color: rgba(143, 212, 255, .35);
 }
+
+/* Revelado paso a paso: asiento que acaba de actuar */
+.trn-play-like .seat.acting .seat-body {
+  border-color: rgba(245, 196, 81, .75);
+  box-shadow: 0 0 0 2px rgba(245, 196, 81, .28), 0 8px 20px rgba(0, 0, 0, .45);
+}
+
+.trn-play-like .seat-act.is-acting {
+  animation: trn-act-pop .32s ease-out;
+  border-color: rgba(245, 196, 81, .7);
+}
+
+@keyframes trn-act-pop {
+  0% { transform: scale(.82); opacity: .3; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.trn-anim-actions .btn-skip-anim {
+  background: rgba(255, 255, 255, .07);
+  border: 1px solid rgba(255, 255, 255, .18);
+  color: #d8dee6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trn-play-like .seat-act.is-acting { animation: none; }
+}
