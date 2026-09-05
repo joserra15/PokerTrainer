@@ -607,7 +607,15 @@
   border-color: rgba(212, 168, 67, .35);
 }
 
-.trn-info-btn { margin-left: auto; }
+.trn-info-btn { margin-left: 0; }
+
+.trn-hud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
 
 .trn-felt-wrap {
   position: relative;
@@ -794,25 +802,33 @@
 
 .trn-info-dl {
   margin: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .trn-info-row {
   display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 8px;
-  padding: 6px 0;
+  grid-template-columns: minmax(110px, 38%) 1fr;
+  gap: 8px 12px;
+  padding: 8px 0;
   border-bottom: 1px solid rgba(255,255,255,.06);
   font-size: 13px;
+  align-items: start;
 }
 
+.trn-info-lbl,
 .trn-info-row dt {
   color: var(--muted, #9aa4b2);
   font-weight: 600;
 }
 
+.trn-info-val,
 .trn-info-row dd {
   margin: 0;
   font-weight: 600;
+  color: var(--text, #e6edf3);
+  word-break: break-word;
 }
 
 .trn-role-grid {
@@ -901,6 +917,10 @@
   .trn-chip-blinds,
   .trn-chip-stack { display: none; }
   .trn-info-row { grid-template-columns: 1fr; gap: 2px; }
+  .trn-lobby-headrow,
+  .trn-lobby-desk {
+    display: none !important;
+  }
 }
 
 /* —— Mesa torneo = layout entrenador —— */
@@ -909,12 +929,23 @@
   margin: 0 auto;
 }
 
+.trn-play-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
 .trn-play-like .trn-table-hud {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
   margin-bottom: 10px;
+}
+
+.trn-play-like .trn-chip {
+  font-size: 11px;
+  padding: 4px 8px;
 }
 
 .trn-play-like .trn-poker-table {
@@ -981,11 +1012,81 @@
   align-items: center;
 }
 
+/* Móvil: misma idea que #play-active .play-stage — mesa llena el viewport, botones abajo */
+@media (max-width: 680px) and (orientation: portrait) {
+  body.trn-table-active main {
+    padding-bottom: max(4px, var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+  body.trn-table-active .app-foot {
+    display: none;
+  }
+
+  #tab-tournaments .trn-play-stage {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-height: calc(100dvh - 4.75rem - env(safe-area-inset-top, 0px));
+    min-height: calc(100svh - 4.75rem - env(safe-area-inset-top, 0px));
+  }
+
+  #tab-tournaments .trn-play-like .trn-table-hud {
+    flex-shrink: 0;
+    margin: 0 0 6px;
+    padding: 6px 8px;
+    gap: 4px;
+    border-radius: 8px;
+    background: rgba(15, 20, 25, 0.88);
+  }
+
+  #tab-tournaments .trn-play-like .trn-poker-table {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    min-height: 0;
+    padding: 2px 0 4px;
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+  }
+
+  #tab-tournaments .trn-play-like .table-felt {
+    width: calc(100% - 12px);
+    max-width: calc(100vw - 12px);
+    height: calc(70dvh - 108px - 48px - 8px);
+    min-height: 210px;
+    max-height: calc(70dvh - 108px - 48px - 8px);
+    flex: 0 1 auto;
+    align-self: stretch;
+    margin: 0 auto;
+    border-radius: 46% / 40%;
+    padding: 10px 16px 8px;
+    border-width: 5px;
+    gap: 4px;
+  }
+
+  #tab-tournaments .trn-play-like .actions,
+  #tab-tournaments .trn-play-like .trn-bust-prompt {
+    margin-top: 0;
+    flex-shrink: 0;
+    padding-left: 2px;
+    padding-right: 2px;
+    padding-bottom: max(2px, var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+}
+
 @media (max-width: 680px) {
   .trn-play-like .table-felt {
     min-height: 340px;
   }
   .trn-play-like .trn-poker-table {
     padding: 2px;
+  }
+  /* HUD estrecho: priorizar tipo + avance */
+  .trn-play-like .trn-chip-blinds,
+  .trn-play-like .trn-chip-stack,
+  .trn-play-like .trn-chip-field {
+    display: none;
   }
 }

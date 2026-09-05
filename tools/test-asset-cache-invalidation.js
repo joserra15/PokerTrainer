@@ -107,7 +107,8 @@ console.log('5) watchdog de hojas de estilo en index.html');
 assert.ok(/document\.styleSheets/.test(index), 'index comprueba que el CSS se aplicó');
 assert.ok(/ptsw=bypass/.test(index), 'el reintento de CSS salta el service worker');
 assert.ok(/cssRules/.test(index), 'una hoja vacía cuenta como no aplicada');
-assert.ok(/pt-css-legendary/.test(index), 'ambas hojas vigiladas');
+assert.ok(/pt-css-legendary/.test(index), 'hoja legendary vigilada');
+assert.ok(/pt-css-tournaments/.test(index), 'hoja tournaments vigilada');
 assert.ok(/getRegistrations/.test(index), 'último recurso: desregistrar el SW');
 
 // El <link> no puede traer href estático: pedía la hoja dos veces (una sin ?v=)
@@ -116,6 +117,10 @@ assert.ok(/<link rel="stylesheet" id="pt-css" \/>/.test(index),
   '#pt-css sin href estático');
 assert.ok(/<link rel="stylesheet" id="pt-css-legendary" \/>/.test(index),
   '#pt-css-legendary sin href estático');
+assert.ok(/<link rel="stylesheet" id="pt-css-tournaments" \/>/.test(index),
+  '#pt-css-tournaments sin href estático (si falta, Torneos se ve en crudo)');
+assert.ok(/<noscript>[\s\S]*css\/tournaments\.css[\s\S]*<\/noscript>/.test(index),
+  'fallback tournaments.css sin JS en <noscript>');
 assert.ok(/<noscript>[\s\S]*css\/styles\.css[\s\S]*<\/noscript>/.test(index),
   'fallback de estilos sin JS en <noscript>');
 

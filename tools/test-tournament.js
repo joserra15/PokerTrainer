@@ -234,6 +234,41 @@ FILES.forEach(function (f) { load(g, f); });
   console.log('OK stats');
 }
 
+// --- hero action labels in bb ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 77, heroName: 'BbHero' });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && !hand.awaitingHero && guard++ < 60) {
+    /* villains act inside beginHand / heroAct loop */
+    break;
+  }
+  /* Force advance until hero faces a decision with amounts */
+  guard = 0;
+  while (hand && hand.stage === 'playing' && guard++ < 80) {
+    if (hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) {
+      const labeled = hand.heroOptions.filter(function (o) {
+        return o.id === 'call' || o.id === 'allin';
+      });
+      labeled.forEach(function (o) {
+        assert.ok(/\bbb\b/i.test(o.label), 'label in bb: ' + o.label);
+        assert.ok(!/\bCall \d+(\.\d+)?\s*$/.test(o.label), 'no raw chips in call label: ' + o.label);
+      });
+      if (labeled.length) {
+        console.log('OK bb-labels (' + labeled.map(function (o) { return o.label; }).join(', ') + ')');
+        break;
+      }
+      /* No call/allin this street — check/fold and continue */
+      const opt = hand.heroOptions.find(function (o) { return o.id === 'check' || o.id === 'fold'; }) || hand.heroOptions[0];
+      g.PTTournamentRunner.heroAct(state, opt.id, opt.amount);
+      hand = state._liveHand;
+      continue;
+    }
+    break;
+  }
+  assert.ok(guard < 80, 'found hero options with bb labels');
+}
+
 // --- index API ---
 {
   assert.ok(typeof g.PTTournaments.menuVisible === 'function');
