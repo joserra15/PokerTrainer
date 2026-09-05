@@ -33847,6 +33847,30 @@ window.PT_NASH_PUSH_JSON = {
     $$('.home-card-legendary').forEach((el) => el.classList.toggle('hidden', !show));
   }
 
+  function tournamentsMenuVisible() {
+    if (window.PTTournaments && typeof window.PTTournaments.menuVisible === 'function') {
+      return !!window.PTTournaments.menuVisible();
+    }
+    return isLegendaryAdminUser();
+  }
+
+  function refreshTournamentsTabVisibility() {
+    var communityHide = false;
+    try {
+      if (window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
+        communityHide = true;
+      } else if (window.PTCommunity && PTCommunity.config) {
+        var cfg = PTCommunity.config();
+        if (cfg && cfg.menus && cfg.menus.hide && cfg.menus.hide.indexOf('tournaments') >= 0) {
+          communityHide = true;
+        }
+      }
+    } catch (e) { /* noop */ }
+    const show = !communityHide && tournamentsMenuVisible();
+    const tab = document.querySelector('.tab[data-tab="tournaments"]');
+    if (tab) tab.classList.toggle('hidden', !show);
+  }
+
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
   const POS_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
@@ -35538,21 +35562,32 @@ window.PT_NASH_PUSH_JSON = {
     if (window.PTEntitlements && window.PTEntitlements.ensureLoaded) {
       window.PTEntitlements.ensureLoaded().finally(function () {
         refreshLegendaryTabVisibility();
+        refreshTournamentsTabVisibility();
       });
     }
     window.addEventListener('pt-auth-ready', function () {
-      const afterRefresh = function () { refreshLegendaryTabVisibility(); };
+      const afterRefresh = function () {
+        refreshLegendaryTabVisibility();
+        refreshTournamentsTabVisibility();
+      };
       if (window.PTEntitlements && window.PTEntitlements.refresh) {
         window.PTEntitlements.refresh().finally(afterRefresh);
       } else {
         afterRefresh();
       }
     });
-    window.addEventListener('pt-guest-ready', refreshLegendaryTabVisibility);
-    window.addEventListener('pt-entitlements-updated', refreshLegendaryTabVisibility);
+    window.addEventListener('pt-guest-ready', function () {
+      refreshLegendaryTabVisibility();
+      refreshTournamentsTabVisibility();
+    });
+    window.addEventListener('pt-entitlements-updated', function () {
+      refreshLegendaryTabVisibility();
+      refreshTournamentsTabVisibility();
+    });
     window.addEventListener('pt-plan-changed', function () {
       renderPricing();
       refreshLegendaryTabVisibility();
+      refreshTournamentsTabVisibility();
     });
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
@@ -35575,6 +35610,7 @@ window.PT_NASH_PUSH_JSON = {
     }
     refreshSessionUI();
     refreshLegendaryTabVisibility();
+    refreshTournamentsTabVisibility();
   }
 
   function firstNameFromUser(user) {
@@ -35905,7 +35941,7 @@ window.PT_NASH_PUSH_JSON = {
     }
     // Sin JWT vivo no abrir Entrenador / Escuela / cuenta (evita estado a medias).
     var needsLiveAuth = tabId === 'play' || tabId === 'school' || tabId === 'account' ||
-      tabId === 'admin' || tabId === 'manager';
+      tabId === 'admin' || tabId === 'manager' || tabId === 'tournaments';
     if (needsLiveAuth && window.PTAuth && typeof window.PTAuth.ensureLiveSession === 'function' &&
         !(window.PTGuest && PTGuest.isActive && PTGuest.isActive())) {
       window.PTAuth.ensureLiveSession().then(function (ok) {
@@ -35980,6 +36016,55 @@ window.PT_NASH_PUSH_JSON = {
         }
         if (window.PTLegendary && window.PTLegendary.render) {
           window.PTLegendary.render($('#legendary-content'));
+        }
+      });
+    }
+    if (tabId === 'tournaments') {
+      const tDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
+      let canTournaments = tournamentsMenuVisible();
+      if (window.PTTournaments && typeof window.PTTournaments.menuVisible === 'function') {
+        canTournaments = window.PTTournaments.menuVisible();
+      }
+      if (!canTournaments || tDemo) {
+        goToTab('home');
+        return;
+      }
+      const tournamentsHost = $('#tournaments-content');
+      if (tournamentsHost && !tournamentsHost.querySelector('.trn-hub, .trn-setup, .trn-table-view, .trn-result, .trn-history')) {
+        tournamentsHost.innerHTML =
+          '<div class="trn-hub" aria-busy="true">' +
+          '<p class="muted" style="padding:28px 16px;text-align:center">Cargando Torneos…</p>' +
+          '</div>';
+      }
+      withLazyChunk('tournaments', function () {
+        if (window.PTTournaments && window.PTTournaments.menuVisible &&
+            !window.PTTournaments.menuVisible()) {
+          goToTab('home');
+          return;
+        }
+        if (window.PTTournaments && window.PTTournaments.refreshMenuVisibility) {
+          window.PTTournaments.refreshMenuVisibility();
+        }
+        const host = tournamentsHost || $('#tournaments-content');
+        if (window.PTTournaments && window.PTTournaments.render) {
+          try {
+            window.PTTournaments.render(host);
+          } catch (err) {
+            console.error('[PT] tournaments render', err);
+            if (host) {
+              host.innerHTML =
+                '<div class="trn-hub"><p class="muted">Error al mostrar Torneos.</p>' +
+                '<button type="button" class="btn" data-trn-reload>Reintentar</button></div>';
+              const retry = host.querySelector('[data-trn-reload]');
+              if (retry) retry.addEventListener('click', function () { goToTab('tournaments'); });
+            }
+          }
+        } else if (host) {
+          host.innerHTML =
+            '<div class="trn-hub"><p class="muted">No se pudo cargar el módulo de Torneos.</p>' +
+            '<button type="button" class="btn" data-trn-reload>Reintentar</button></div>';
+          const retry = host.querySelector('[data-trn-reload]');
+          if (retry) retry.addEventListener('click', function () { goToTab('tournaments'); });
         }
       });
     }
@@ -36097,6 +36182,7 @@ window.PT_NASH_PUSH_JSON = {
   window.goToTab = goToTab;
   window.goToTabUnlocked = goToTabUnlocked;
   window.refreshLegendaryTabVisibility = refreshLegendaryTabVisibility;
+  window.refreshTournamentsTabVisibility = refreshTournamentsTabVisibility;
   window.isLegendaryAdminUser = isLegendaryAdminUser;
   window.openSession = openSession;
   window.syncAdvisorSettingsToSession = syncAdvisorSettingsToSession;

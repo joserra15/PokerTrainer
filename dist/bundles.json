@@ -1,6 +1,6 @@
 {
   "build": "3.1.7",
-  "rev": "3.1.7-c1f58954aa",
+  "rev": "3.1.7-cf81b88b02",
   "chunks": {
     "core": "dist/pt-core.js",
     "sessions": "dist/pt-sessions.js",
@@ -9,6 +9,7 @@
     "learn": "dist/pt-learn.js",
     "school": "dist/pt-school.js",
     "legendary": "dist/pt-legendary.js",
+    "tournaments": "dist/pt-tournaments.js",
     "contact": "dist/pt-contact.js",
     "manager": "dist/pt-manager.js",
     "admin": "dist/pt-admin.js"

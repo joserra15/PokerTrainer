@@ -20,7 +20,7 @@
     },
     menus: {
       show: ['play', 'school', 'ranges', 'sessions', 'errors', 'stats', 'contact', 'manager'],
-      hide: ['pricing', 'legendary', 'learn', 'analysis', 'history', 'admin']
+      hide: ['pricing', 'legendary', 'tournaments', 'learn', 'analysis', 'history', 'admin']
     },
     school: {
       pack: 'mttlab',

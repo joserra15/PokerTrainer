@@ -128,7 +128,9 @@ const STEPS = [
   ['Test línea de acción previa (entrenador)', ['node', 'tools/test-trainer-action-line.js']],
   ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
   ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],
-  ['Test manos legendarias (playthrough)', ['node', 'tools/test-legendary-playthrough.js']]
+  ['Test manos legendarias (playthrough)', ['node', 'tools/test-legendary-playthrough.js']],
+  ['Test torneos IA (smoke)', ['node', 'tools/test-tournament.js']],
+  ['Test torneos IA (regresión completa)', ['node', 'tools/test-tournament-regression.js']]
 ];
 
 let failed = 0;
