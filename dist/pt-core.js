@@ -6587,15 +6587,12 @@ window.PT_NASH_PUSH_JSON = {
 
   function actionSizeFor(action, ctx) {
     if (!action || action === 'fold' || action === 'check' || action === 'call') return 0;
-    // bet_33/66/100 tienen fracción propia: no reutilizar el sizing del chosenAction
-    // (si elegiste overbet, bet_33 no debe evaluarse al tamaño del shove).
-    const sizedKey = typeof action === 'string' && action.indexOf('bet_') === 0;
-    const reuseChosenSize = !sizedKey && ctx.betSizeBB > 0
-      && (action === 'bet' || action === 'raise' || action === 'overbet' || action === 'allin');
     const input = {
       potBB: ctx.potBB != null ? ctx.potBB : ctx.potBeforeBB,
       toCallBB: ctx.toCallBB || 0,
-      betSizeBB: reuseChosenSize ? ctx.betSizeBB : undefined,
+      // Mantener betSizeBB del contexto (comportamiento previo) para no mover
+      // ΔEV de manos golden; overbet/allin sin size caen al fallback de abajo.
+      betSizeBB: ctx.betSizeBB > 0 ? ctx.betSizeBB : undefined,
       heroRemainingBB: ctx.heroRemainingBB,
       effStack: ctx.effStack,
       stackDepth: ctx.stackDepth
@@ -6607,12 +6604,14 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (action === 'overbet') {
       const pot = Math.max(ctx.potBeforeBB || ctx.potBB || 1, 0.1);
-      return round2(ctx.betSizeBB > 0 ? ctx.betSizeBB : pot * 1.5);
+      return round2(pot * 1.5);
     }
-    if (action === 'allin' && ctx.betSizeBB > 0) return round2(ctx.betSizeBB);
-    if (action === 'bet' || sizedKey) {
+    if (action === 'allin' && (ctx.heroRemainingBB > 0 || ctx.effStack > 0)) {
+      return round2(ctx.heroRemainingBB > 0 ? ctx.heroRemainingBB : ctx.effStack);
+    }
+    if (action === 'bet' || (action && action.indexOf('bet_') === 0)) {
       const pot = Math.max(ctx.potBeforeBB || ctx.potBB || 1, 0.1);
-      const frac = action === 'bet_33' ? 0.33 : (action === 'bet_66' ? 0.66 : (action === 'bet_100' ? 1 : 0.66));
+      const frac = action === 'bet_33' ? 0.33 : (action === 'bet_66' ? 0.66 : 0.66);
       return round2(pot * frac);
     }
     return 0;
@@ -12112,12 +12111,6 @@ window.PT_NASH_PUSH_JSON = {
           msg: 'Acción con EV inferior a la óptima (ΔEV ' + evLoss + ' bb).'
         });
         if (mathParams) mathParams.deltaEV = evLoss;
-      }
-      if (evErroneous && (finalCls === 'optima' || finalCls === 'aceptable') && evGap < 1) {
-        evLoss = 0;
-        evErroneous = false;
-        evErrorReasons = [];
-        if (mathParams) mathParams.deltaEV = EvLoss.round2(evGap);
       }
 
       // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).

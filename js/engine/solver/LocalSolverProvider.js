@@ -227,12 +227,6 @@
         });
         if (mathParams) mathParams.deltaEV = evLoss;
       }
-      if (evErroneous && (finalCls === 'optima' || finalCls === 'aceptable') && evGap < 1) {
-        evLoss = 0;
-        evErroneous = false;
-        evErrorReasons = [];
-        if (mathParams) mathParams.deltaEV = EvLoss.round2(evGap);
-      }
 
       // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).
       const Icm = global.GTOIcmEv;
