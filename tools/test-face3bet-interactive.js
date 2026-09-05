@@ -104,4 +104,52 @@ console.log('4) forceDeal / school conserva salto automático');
   assert.strictEqual(auto[0].type, 'open');
 }
 
+console.log('5) streetBet del 3-bettor = tamaño total (no duplicar setSeatAction + setVillainAct)');
+{
+  // Caso reportado: CO open, SB 3-bet a ~9bb; la etiqueta de fichas no debe mostrar 18bb.
+  const play = cfg({
+    formatHub: 'mtt',
+    gameType: 'mtt9',
+    stackDepth: 'bb100',
+    scenario: 'face3bet'
+  });
+  const hand = Engine.newHand({ type: 'face3bet', key: 'CO_vs_SB', seed: 42 }, play);
+  assert.strictEqual(hand.current.kind, 'RFI');
+  Engine.act(hand, 'raise');
+  assert.strictEqual(hand.current.kind, 'face3bet');
+  assert.strictEqual(hand.villain.pos, 'SB');
+  const tbSize = hand.villainInvested;
+  const toCall = hand.current.toCallBB;
+  const street = hand.table.streetBet && hand.table.streetBet.SB;
+  assert.ok(tbSize > 0, 'villainInvested > 0');
+  assert.strictEqual(street, tbSize, 'streetBet SB debe ser el 3-bet total, no el doble (' + street + ' vs ' + tbSize + ')');
+  assert.ok(
+    Math.abs(street - (hand.heroInvested + toCall)) < 0.02,
+    'streetBet coherente con toCall (hero ' + hand.heroInvested + ' + call ' + toCall + ' = ' + street + ')'
+  );
+  assert.ok(
+    /3-bet a /.test(hand.current.context) && hand.current.context.indexOf(String(tbSize)) >= 0,
+    'contexto menciona el mismo tamaño: ' + hand.current.context
+  );
+  // Escuela / forceDeal: misma invariante
+  const school = Engine.newHand({
+    type: 'face3bet',
+    key: 'CO_vs_SB',
+    seed: 7,
+    forceDeal: {
+      heroCards: ['6d', '6c'],
+      villainCards: ['As', 'Kd'],
+      villainPos: 'SB'
+    }
+  }, cfg({ schoolMode: true, formatHub: 'mtt', gameType: 'mtt9' }));
+  assert.strictEqual(school.current.kind, 'face3bet');
+  const schoolTb = school.villain.pos;
+  const schoolStreet = school.table.streetBet && school.table.streetBet[schoolTb];
+  assert.strictEqual(
+    schoolStreet,
+    school.villainInvested,
+    'school streetBet no duplicado: ' + schoolStreet + ' vs ' + school.villainInvested
+  );
+}
+
 console.log('\n*** test-face3bet-interactive OK ***');

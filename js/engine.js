@@ -4095,8 +4095,10 @@
 
   function setHeroAct(hand, type, amount) {
     hand.heroAction = { type, amount: amount != null ? amount : null };
+    // amount es el total de la calle (open/raise-to/call-to), no el delta.
+    // SET (no +=): setSeatAction/setPreflopSeatBet suelen haber escrito ya el mismo total.
     if (hand.table && hand.hero.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
-      hand.table.streetBet[hand.hero.pos] = round2((hand.table.streetBet[hand.hero.pos] || 0) + amount);
+      hand.table.streetBet[hand.hero.pos] = round2(amount);
     }
     recordVisibleAction(hand, heroTableSeat(hand) || (hand.hero && hand.hero.pos), type, amount, { isHero: true });
     logLineAction(hand, heroTableSeat(hand) || (hand.hero && hand.hero.pos), type, amount, { isHero: true });
@@ -4104,8 +4106,10 @@
   function setVillainAct(hand, type, amount) {
     hand.villainAction = { type, amount: amount != null ? amount : null };
     if (type === 'fold' && hand.villain.pos) markFolded(hand, villainTableSeat(hand) || hand.villain.pos);
+    // Misma semántica que setHeroAct / setPreflopSeatBet: total en mesa, no suma.
+    // Evita duplicar (p.ej. 3-bet a 9bb → etiqueta 18bb tras setSeatAction + setVillainAct).
     if (hand.table && hand.villain.pos && amount > 0 && ['bet', 'call', 'raise', 'open'].indexOf(type) >= 0) {
-      hand.table.streetBet[hand.villain.pos] = round2((hand.table.streetBet[hand.villain.pos] || 0) + amount);
+      hand.table.streetBet[hand.villain.pos] = round2(amount);
     }
     recordVisibleAction(hand, villainTableSeat(hand) || (hand.villain && hand.villain.pos), type, amount);
     logLineAction(hand, villainTableSeat(hand) || (hand.villain && hand.villain.pos), type, amount);
