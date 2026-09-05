@@ -902,3 +902,90 @@
   .trn-chip-stack { display: none; }
   .trn-info-row { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* —— Mesa torneo = layout entrenador —— */
+.trn-play-like {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.trn-play-like .trn-table-hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.trn-play-like .trn-poker-table {
+  padding: 8px 4px 4px;
+}
+
+.trn-play-like .table-felt {
+  min-height: 420px;
+}
+
+.trn-play-like .seat {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  z-index: 4;
+}
+
+.trn-play-like .seat.villain:hover .seat-body,
+.trn-play-like .seat.villain:focus-visible .seat-body {
+  outline: 2px solid color-mix(in srgb, var(--accent, #2f81f7) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.trn-play-like .seat.has-guess .seat-role::after {
+  content: ' ✓';
+  color: var(--gold, #f5c451);
+}
+
+.trn-play-like .seat-fold-mark {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 28px;
+  opacity: .55;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.trn-play-like .actions {
+  margin-top: 12px;
+}
+
+.trn-play-like .btn-fold { background: #444f5c; color: #fff; }
+.trn-play-like .btn-check { background: #3d6a8a; color: #fff; }
+.trn-play-like .btn-call { background: #2c9159; color: #fff; }
+.trn-play-like .btn-raise,
+.trn-play-like .btn-allin { background: linear-gradient(180deg, #e8bf62, #c9922e); color: #2a1c06; }
+
+.trn-play-like .trn-bust-prompt {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border, #2a3441);
+  background: var(--panel, #1c2530);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 680px) {
+  .trn-play-like .table-felt {
+    min-height: 340px;
+  }
+  .trn-play-like .trn-poker-table {
+    padding: 2px;
+  }
+}
