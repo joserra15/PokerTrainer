@@ -223,6 +223,7 @@
       minRaise: Number(blinds.bb) || 20,
       openerId: null,
       openerPos: null,
+      lastAggressorId: null,
       acted: {},
       log: [],
       stage: 'playing',
@@ -365,6 +366,9 @@
       hand.openerPos = seat.pos;
     }
     logAct(hand, seat, prev > 0 ? 'raise' : 'bet', seat.streetInvested);
+    /* Tras un raise la acción sigue al jugador siguiente al agresor (no
+       reinicia en UTG): si no, un limp en CO foldaría antes que la BB. */
+    hand.lastAggressorId = seat.id;
     hand.acted = {};
     hand.acted[seat.id] = true;
   }
@@ -431,6 +435,7 @@
     hand.currentBet = 0;
     hand.minRaise = hand.bb;
     hand.acted = {};
+    hand.lastAggressorId = null;
     return null;
   }
 
@@ -675,8 +680,18 @@
 
   function nextToAct(hand) {
     var order = hand.street === 'preflop' ? preflopOrder(hand) : postflopOrder(hand);
-    for (var i = 0; i < order.length; i++) {
-      var s = order[i];
+    if (!order.length) return null;
+    var start = 0;
+    if (hand.lastAggressorId) {
+      for (var j = 0; j < order.length; j++) {
+        if (order[j].id === hand.lastAggressorId) {
+          start = (j + 1) % order.length;
+          break;
+        }
+      }
+    }
+    for (var k = 0; k < order.length; k++) {
+      var s = order[(start + k) % order.length];
       if (!canAct(s)) continue;
       if (s.streetInvested < hand.currentBet - 0.001 || !hand.acted[s.id]) return s;
     }

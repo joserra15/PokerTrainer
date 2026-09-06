@@ -469,6 +469,49 @@ FILES.forEach(function (f) { load(g, f); });
   console.log('OK preflop-turn-order (' + checked + ' manos)');
 }
 
+// --- tras raise de SB, la BB actúa antes que un limp en CO ---
+{
+  const seats = [
+    { player: { id: 'co', name: 'Carlos', isHero: false, roleId: 'tag', stack: 500 }, pos: 'CO', seatIndex: 0 },
+    { player: { id: 'btn', name: 'Bea', isHero: false, roleId: 'tag', stack: 500 }, pos: 'BTN', seatIndex: 1 },
+    { player: { id: 'sb', name: 'Sam', isHero: false, roleId: 'tag', stack: 500 }, pos: 'SB', seatIndex: 2 },
+    { player: { id: 'hero', name: 'José', isHero: true, roleId: null, stack: 600 }, pos: 'BB', seatIndex: 3 }
+  ];
+  const prevDecide = g.PTTournamentVillainDecide;
+  g.PTTournamentVillainDecide = {
+    decide: function (hand, seat) {
+      if (seat.pos === 'CO' && hand.currentBet <= hand.bb + 0.001) {
+        return { id: 'call', amount: hand.bb - seat.streetInvested };
+      }
+      if (seat.pos === 'BTN') return { id: 'fold' };
+      if (seat.pos === 'SB') return { id: 'raise', amount: hand.bb * 4.2 };
+      return { id: 'fold' };
+    }
+  };
+  try {
+    const hand = g.PTTournamentLiveHand.start(seats, { sb: 10, bb: 20 }, 'hero');
+    g.PTTournamentLiveHand.runToHeroOrEnd(hand);
+    assert.ok(hand.awaitingHero, 'espera acción del héroe (BB)');
+    const co = hand.seats.find(function (s) { return s.pos === 'CO'; });
+    const sb = hand.seats.find(function (s) { return s.pos === 'SB'; });
+    const hero = hand.seats.find(function (s) { return s.isHero; });
+    assert.ok(co && !co.folded, 'CO no foldéa antes de que hable la BB');
+    assert.ok(sb && sb.lastAction && sb.lastAction.action === 'raise', 'SB ha subido');
+    assert.ok(hero && hand._heroSeatId === hero.id, 'turno del héroe');
+    const pre = hand.log.filter(function (e) { return e.street === 'preflop'; });
+    const heroAt = pre.findIndex(function (e) { return e.id === 'hero'; });
+    assert.ok(heroAt < 0, 'héroe aún no ha actuado en el log');
+    const coFoldBefore = pre.some(function (e) {
+      return e.id === 'co' && e.action === 'fold';
+    });
+    assert.ok(!coFoldBefore, 'no hay fold de CO previo al héroe');
+    console.log('OK raise-sb-bb-before-co-limp');
+  } finally {
+    if (prevDecide) g.PTTournamentVillainDecide = prevDecide;
+    else delete g.PTTournamentVillainDecide;
+  }
+}
+
 // --- el guardado no arrastra fotogramas de presentación ---
 {
   g.PTTournamentStore.clearActive();
@@ -721,6 +764,12 @@ console.log('OK dist-tournaments-bundle');
   assert.ok(html.includes('hand-end-view') || html.includes('Ganas'), 'hand-end html');
   assert.ok(/nota|score|10|Óptima|óptima|optima|Aceptable|aceptable/i.test(html) || html.includes('dec-review') || html.includes('verdict'),
     'hand-end shows score/decisions style');
+  assert.ok(hand.shows && hand.shows.Villain, 'shows villain cards for showdown');
+  assert.ok(html.includes('Villain') || html.includes('Qc') || html.includes('hand-end-seat'),
+    'hand-end shows villain seat/cards');
+  const badge = g.PTHandEndView.scoreBadgeHtml({ score: 10, letter: 'A' });
+  assert.ok(/Nota 10\/10/.test(badge), 'badge says Nota X/10');
+  assert.ok(!/·\s*A/.test(badge), 'badge no longer shows confusing · A');
   console.log('OK session-bridge');
 }
 
@@ -789,6 +838,13 @@ console.log('OK dist-tournaments-bundle');
   assert.ok(uiSrc.includes('hand-end-review') || uiSrc.includes('Paso a paso'), 'paso a paso button');
   assert.ok(uiSrc.includes('renderSessionStatsHtml') || uiSrc.includes('sessionStats'), 'result uses session stats');
   assert.ok(uiSrc.includes('open-session') || uiSrc.includes('openSessionHand'), 'open session from result/history');
+  assert.ok(uiSrc.includes('seat-name'), 'villain names on seats');
+  assert.ok(uiSrc.includes('review-hand'), 'info handlog opens paso a paso');
+  assert.ok(uiSrc.includes('trn-info-handlog-wrap') || uiSrc.includes('toggle-handlog'), 'handlog collapsed');
+  assert.ok(uiSrc.includes('trn-hand-end-scroll'), 'hand-end scroll region');
+  const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(cssSrc.includes('trn-hand-end-scroll'), 'css scroll region');
+  assert.ok(cssSrc.includes('seat-name'), 'css seat names');
   const coreChunk = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
   assert.ok(coreChunk.includes('hand-end-view.js'), 'chunk lists hand-end-view');
   assert.ok(coreChunk.includes('session-bridge.js'), 'chunk lists session-bridge');
