@@ -89,6 +89,7 @@ const FILES = [
   'js/tournament/stats.js',
   'js/tournament/hud.js',
   'js/tournament/wallet.js',
+  'js/tournament/leaderboard.js',
   'js/tournament/store.js',
   'js/tournament/session-bridge.js',
   'js/tournament/runner.js',
@@ -873,5 +874,86 @@ console.log('OK dist-tournaments-bundle');
 }
 console.log('OK tournament-review-back');
 
-console.log('*** test-tournament OK ***');
 
+// --- Progress chip + hero in top10 ---
+{
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('mtt18'), { seed: 9 });
+  const chips = g.PTTournamentHud.compactChips(state);
+  const progress = chips.find(function (c) {
+    return String(c.cls || c.className || '').indexOf('progress') >= 0;
+  });
+  assert.ok(progress, 'progress chip present');
+  assert.ok(/Nv\.|º|\//.test(progress.text), 'progress chip text: ' + progress.text);
+  const rows = g.PTTournamentHud.infoRows(state);
+  const top = rows.find(function (r) { return /Top 10/i.test(r.label); });
+  assert.ok(top && top.value && top.value.html, 'top10 html');
+  assert.ok(/is-hero/.test(top.value.content), 'hero highlighted in top10');
+  assert.ok(/\(Hero\)/.test(top.value.content), 'hero tag in top10');
+  const ranks = top.value.content.match(/trn-stack-rank">\d+\./g) || [];
+  assert.ok(ranks.length >= 1, 'explicit ranks in markup');
+  console.log('OK progress-chip-and-hero-top10');
+}
+
+// --- Save/resume keeps handIndex ---
+{
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 11 });
+  state.handIndex = 27;
+  state.sessionHands = [];
+  for (let i = 0; i < 5; i++) {
+    state.sessionHands.push({ handIndex: i + 1, analysis: { handScore: 7, big: 'x'.repeat(5000) } });
+  }
+  const saved = g.PTTournamentStore.saveActive(state);
+  assert.ok(saved.ok, 'saveActive ok');
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.ok(loaded, 'loadActive');
+  assert.strictEqual(loaded.handIndex, 27, 'handIndex preserved after save');
+  const olderFurther = Object.assign({}, loaded, { handIndex: 40, _savedAt: '2020-01-01T00:00:00.000Z' });
+  const newerEarlier = Object.assign({}, loaded, { handIndex: 17, _savedAt: '2030-01-01T00:00:00.000Z' });
+  assert.ok(g.PTTournamentStore.isPreferableActive(olderFurther, newerEarlier), 'prefer more hands over newer ts');
+  console.log('OK save-resume-handIndex');
+}
+
+// --- Role koins + wallet lesson/trainer ---
+{
+  const Wallet = g.PTTournamentWallet;
+  Wallet.setBalance(50, { type: 'test_reset' });
+  assert.strictEqual(Wallet.getBalance(), 50, 'balance set');
+  assert.ok(!Wallet.canAfford(51), 'cannot afford > balance');
+  const lesson = Wallet.earnFromLesson('lesson_test_a');
+  assert.ok(lesson.added === 1 || lesson.ok, 'lesson award');
+  const lesson2 = Wallet.earnFromLesson('lesson_test_a');
+  assert.ok(lesson2.already || lesson2.added === 0, 'lesson not double-awarded');
+  let awarded = 0;
+  for (let i = 0; i < 25; i++) {
+    const r = Wallet.noteTrainerHand();
+    if (r.added) awarded += r.added;
+  }
+  assert.strictEqual(awarded, 1, '1 koin per 25 trainer hands');
+  assert.strictEqual(g.PTTournamentRoleGuess.KOINS_PER_CORRECT, 2, '2 koins per correct role');
+  console.log('OK koins-earn-rules');
+}
+
+// --- Names do not imply roles ---
+{
+  const pool = g.PTTournamentNames.POOL || [];
+  const banned = /\b(maniac|nit|lag|tag|fish|call\s*station|nitty|loose|passive|aggro)\b/i;
+  const bad = pool.filter(function (n) { return banned.test(n); });
+  assert.strictEqual(bad.length, 0, 'no role-implying names: ' + bad.join(','));
+  console.log('OK names-neutral');
+}
+
+// --- Leaderboard medals + hero ---
+{
+  const Lb = g.PTTournamentLeaderboard;
+  assert.ok(Lb && Lb.renderHtml, 'leaderboard module');
+  g.PTTournamentWallet.setBalance(200, { type: 'test_lb' });
+  const html = Lb.renderHtml();
+  assert.ok(/trn-leaderboard/.test(html), 'leaderboard html');
+  assert.ok(/is-hero/.test(html), 'hero row');
+  assert.ok(/🥇|trn-lb-medal-gold/.test(html), 'gold medal');
+  const legend = Lb.legendHtml();
+  assert.ok(/Escuela|Entrenador|rol/i.test(legend), 'legend explains earns');
+  console.log('OK leaderboard-and-legend');
+}
+
+console.log('*** test-tournament OK ***');

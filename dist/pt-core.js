@@ -26013,9 +26013,12 @@ window.PT_NASH_PUSH_JSON = {
       }
       if (logical.tournamentActive && global.PTTournamentStore && PTTournamentStore.saveActive) {
         var localAct = PTTournamentStore.loadActive && PTTournamentStore.loadActive();
-        var remoteTs = Date.parse((logical.tournamentActive && logical.tournamentActive._savedAt) || 0) || 0;
-        var localTs = Date.parse((localAct && localAct._savedAt) || 0) || 0;
-        if (!localAct || remoteTs >= localTs) PTTournamentStore.saveActive(logical.tournamentActive);
+        var remoteAct = logical.tournamentActive;
+        var preferRemote = PTTournamentStore.isPreferableActive
+          ? PTTournamentStore.isPreferableActive(remoteAct, localAct)
+          : (!localAct || (Date.parse(remoteAct._savedAt || 0) || 0) >= (Date.parse((localAct && localAct._savedAt) || 0) || 0));
+        /* Nunca pisar un torneo local con más manos solo porque el remoto tenga timestamp >=. */
+        if (preferRemote) PTTournamentStore.saveActive(remoteAct);
       }
     } catch (eTMerge) { /* ignore */ }
     return { history: history.length, errors: errors.length, sessions: getSessions().length, stats: stats };
@@ -30510,6 +30513,11 @@ window.PT_NASH_PUSH_JSON = {
     }
     /* No refrescar entitlements en cada mano (bloqueaba Escuela en móvil); debounce. */
     scheduleRefresh();
+    try {
+      if (global.PTTournamentWallet && PTTournamentWallet.noteTrainerHand) {
+        PTTournamentWallet.noteTrainerHand();
+      }
+    } catch (eTH) { /* ignore */ }
     return res.data || { ok: true };
   }
 

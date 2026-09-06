@@ -83,19 +83,19 @@
 
 /*
  * tournament/names.js — Nicks únicos para villanos de torneo.
+ * Independientes del rol/perfil (el nick no implica el tipo de jugador).
  */
 (function (global) {
   'use strict';
 
   var POOL = [
-    'Alex_92', 'RiverRat', 'NitQueen', 'LagBomb', 'ChipChase', 'BluffBay',
-    'AceHunter', 'FoldEquity', 'PotCommit', 'SilentSB', 'ButtonBoss', 'FishFinder',
-    'CoolerKid', 'MoonRun', 'TiltProof', 'GTOGhost', 'ManiacMax', 'TagTiger',
-    'BubbleBoy', 'ICMWizard', 'ShoveShow', 'FlopHero', 'TurnTorch', 'RiverGod',
-    'StackSniper', 'BlindBandit', 'AnteAngel', 'MTTMaven', 'SpinKing', 'CashCow',
-    'NutsNora', 'DrawDan', 'ValueVic', 'FloatFlo', 'CBetCarl', 'ProbePam',
-    'CheckRaise', 'OverbetOz', 'MinRaise', 'PotOdds', 'ImpliedIz', 'BlockerBen',
-    'RangeRob', 'ComboKim', 'EquityEd', 'FoldFam', 'CallStation', 'ThreeBetTom',
+    'Alex_92', 'RiverRat', 'ChipChase', 'BluffBay', 'AceHunter', 'FoldEquity',
+    'PotCommit', 'SilentSB', 'ButtonBoss', 'CoolerKid', 'MoonRun', 'TiltProof',
+    'GTOGhost', 'BubbleBoy', 'ICMWizard', 'ShoveShow', 'FlopHero', 'TurnTorch',
+    'RiverGod', 'StackSniper', 'BlindBandit', 'AnteAngel', 'MTTMaven', 'SpinKing',
+    'CashCow', 'NutsNora', 'DrawDan', 'ValueVic', 'FloatFlo', 'CBetCarl',
+    'ProbePam', 'CheckRaise', 'OverbetOz', 'MinRaise', 'PotOdds', 'ImpliedIz',
+    'BlockerBen', 'RangeRob', 'ComboKim', 'EquityEd', 'FoldFam', 'ThreeBetTom',
     'FourBetFay', 'SqueezeSue', 'IsoIan', 'LimpLarry', 'StealSam', 'ReSteal',
     'Shorty', 'CoverCat', 'MidStack', 'DeepDive', 'PushFold', 'NashNora',
     'Harville', 'BubbleFactor', 'PayJump', 'LadderUp', 'FinalTable', 'HeadsUpHz',
@@ -103,8 +103,9 @@
     'Monotone', 'PairedPot', 'WetBoard', 'DryAsDust', 'ScareCard', 'BlankRiver',
     'Backdoor', 'Gutshot', 'OESD', 'FlushDraw', 'SetMine', 'Overpair',
     'Underpair', 'TwoPair', 'TopPair', 'SecondPair', 'AirBall', 'Polarized',
-    'Merged', 'Linear', 'WideOpen', 'TightIsRight', 'LooseLucy', 'PassivePete',
-    'AggroAnna', 'NittyNed', 'Splashy', 'RockSolid', 'TrapDoor', 'SlowRoll'
+    'Merged', 'Linear', 'WideOpen', 'Splashy', 'RockSolid', 'TrapDoor',
+    'SlowRoll', 'OakTable', 'NightOwl', 'SoftServe', 'CopperPot', 'SilverChip',
+    'BlueFelt', 'CardSharkX', 'QuietRiver', 'OpenSeat', 'LateReg', 'EarlyBird'
   ];
 
   function shuffle(arr, rnd) {
@@ -2176,6 +2177,7 @@
   'use strict';
 
   var XP_PER_CORRECT = 15;
+  var KOINS_PER_CORRECT = 2;
   var XP_CAP = 150;
 
   var ROLE_LABELS = {
@@ -2225,18 +2227,21 @@
     });
     var accuracy = total ? Math.round((correct / total) * 1000) / 10 : 0;
     var xp = Math.min(XP_CAP, correct * XP_PER_CORRECT);
+    var koins = correct * KOINS_PER_CORRECT;
     return {
       total: total,
       correct: correct,
       accuracy: accuracy,
       details: details,
-      xp: xp
+      xp: xp,
+      koins: koins
     };
   }
 
   global.PTTournamentRoleGuess = {
     ROLE_LABELS: ROLE_LABELS,
     XP_PER_CORRECT: XP_PER_CORRECT,
+    KOINS_PER_CORRECT: KOINS_PER_CORRECT,
     XP_CAP: XP_CAP,
     setGuess: setGuess,
     clearGuess: clearGuess,
@@ -2469,6 +2474,28 @@
     return rank + '/' + left + ' (' + entries + ')';
   }
 
+  /** Una sola línea: avance + posición (visible en móvil). */
+  function progressChipText(state) {
+    var Blinds = global.PTTournamentBlinds;
+    var Seat = global.PTTournamentSeating;
+    var St = global.PTTournamentState;
+    var cfg = state.config || {};
+    var lv = currentBlinds(state);
+    var into = Blinds && Blinds.handsIntoLevel
+      ? Blinds.handsIntoLevel(cfg.blindSchedule, state.handIndex || 0)
+      : 0;
+    var until = Blinds && Blinds.handsUntilNext
+      ? Blinds.handsUntilNext(cfg.blindSchedule, state.handIndex || 0)
+      : null;
+    var rank = Seat && Seat.heroFieldRank ? Seat.heroFieldRank(state) : null;
+    var left = St && St.playersLeft ? St.playersLeft(state) : 0;
+    var pos = rank != null ? (rank + 'º/' + left) : ('—/' + left);
+    var prog = until == null
+      ? ('Nv.' + lv.level + ' fin')
+      : ('Nv.' + lv.level + ' ' + into + '/' + lv.hands);
+    return prog + ' · ' + pos;
+  }
+
   function compactChips(state) {
     var Blinds = global.PTTournamentBlinds;
     var St = global.PTTournamentState;
@@ -2480,6 +2507,11 @@
     var kind = (cfg.kind === 'sng' ? 'SNG' : 'MTT');
     return [
       { text: kind, cls: 'trn-chip trn-chip-kind', title: cfg.name || kind },
+      {
+        text: progressChipText(state),
+        cls: 'trn-chip trn-chip-progress',
+        title: 'Avance del torneo y posición de Hero'
+      },
       { text: stackBb + ' bb', cls: 'trn-chip trn-chip-stack', title: 'Stack Hero' },
       { text: fieldChip(state), cls: 'trn-chip trn-chip-field', title: 'Posición en el field' },
       {
@@ -2503,7 +2535,7 @@
     }
     if (euros.length > n) parts.push('…');
     if (!parts.length) return '—';
-    return { html: true, content: '<ul class="trn-payout-list">' + parts.map(function (p, i) {
+    return { html: true, content: '<ul class="trn-payout-list">' + parts.map(function (p) {
       return '<li>' + p + '</li>';
     }).join('') + '</ul>' };
   }
@@ -2559,8 +2591,10 @@
     var top = topStacks(state, 10);
     var topLabel = top.length
       ? { html: true, content: '<ol class="trn-stack-list">' + top.map(function (t) {
-        return '<li class="' + (t.isHero ? 'is-hero' : '') + '"><span class="trn-stack-rank">' +
-          t.rank + '.</span> <span class="trn-stack-name">' + t.name + '</span> ' +
+        var heroTag = t.isHero ? ' <span class="trn-stack-hero-tag">(Hero)</span>' : '';
+        return '<li class="' + (t.isHero ? 'is-hero' : '') + '">' +
+          '<span class="trn-stack-rank">' + t.rank + '.</span> ' +
+          '<span class="trn-stack-name">' + t.name + '</span>' + heroTag + ' ' +
           '<span class="trn-stack-amt">' + fmtNum(t.stack) + ' (' + t.bb + ' bb)</span></li>';
       }).join('') + '</ol>' }
       : '—';
@@ -2587,7 +2621,8 @@
     infoRows: infoRows,
     currentBlinds: currentBlinds,
     topStacks: topStacks,
-    fmtKoins: fmtKoins
+    fmtKoins: fmtKoins,
+    progressChipText: progressChipText
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -2650,8 +2685,18 @@
   function ensure() {
     var data = readRaw();
     if (!data || typeof data.balance !== 'number') {
-      data = { balance: STARTING, updatedAt: new Date().toISOString(), version: 1 };
+      data = {
+        balance: STARTING,
+        updatedAt: new Date().toISOString(),
+        version: 1,
+        trainerHands: 0,
+        lessonAwards: {}
+      };
       writeRaw(data);
+    } else {
+      if (!data.lessonAwards || typeof data.lessonAwards !== 'object') data.lessonAwards = {};
+      if (typeof data.trainerHands !== 'number') data.trainerHands = Number(data.trainerHands) || 0;
+      if (data.balance < 0) data.balance = 0;
     }
     return data;
   }
@@ -2700,7 +2745,9 @@
     return {
       balance: data.balance,
       updatedAt: data.updatedAt,
-      version: data.version || 1
+      version: data.version || 1,
+      trainerHands: Number(data.trainerHands) || 0,
+      lessonAwards: data.lessonAwards || {}
     };
   }
 
@@ -2709,10 +2756,47 @@
     var local = ensure();
     var localTs = Date.parse(local.updatedAt || 0) || 0;
     var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
-    if (remoteTs >= localTs) {
-      setBalance(remote.balance, { type: 'cloud_merge' });
+    /* Preferir el saldo con timestamp más reciente; nunca negativo. */
+    if (remoteTs > localTs) {
+      setBalance(Math.max(0, remote.balance), { type: 'cloud_merge' });
+      if (remote.trainerHands != null) {
+        var d = ensure();
+        d.trainerHands = Number(remote.trainerHands) || 0;
+        d.lessonAwards = remote.lessonAwards || d.lessonAwards || {};
+        writeRaw(d);
+      }
+    } else if (remoteTs === localTs && typeof remote.balance === 'number') {
+      /* Empate: quedarse con el mínimo (no inventar koins gastados). */
+      setBalance(Math.min(local.balance, Math.max(0, remote.balance)), { type: 'cloud_merge_tie' });
     }
     return snapshot();
+  }
+
+  /** +1 Koin la primera vez que se aprueba una lección de Escuela. */
+  function earnFromLesson(lessonId) {
+    var id = String(lessonId || '');
+    if (!id) return { ok: false, reason: 'missing_lesson' };
+    var data = ensure();
+    data.lessonAwards = data.lessonAwards || {};
+    if (data.lessonAwards[id]) {
+      return { ok: true, added: 0, already: true, balance: data.balance };
+    }
+    data.lessonAwards[id] = new Date().toISOString();
+    writeRaw(data);
+    return credit(1, { type: 'school_lesson', lessonId: id });
+  }
+
+  /** +1 Koin cada 25 manos de entrenador. */
+  function noteTrainerHand() {
+    var data = ensure();
+    var n = (Number(data.trainerHands) || 0) + 1;
+    data.trainerHands = n;
+    data.updatedAt = new Date().toISOString();
+    writeRaw(data);
+    if (n > 0 && n % 25 === 0) {
+      return credit(1, { type: 'trainer_hands', hands: n });
+    }
+    return { ok: true, added: 0, trainerHands: n, balance: data.balance };
   }
 
   global.PTTournamentWallet = {
@@ -2724,7 +2808,192 @@
     credit: credit,
     snapshot: snapshot,
     mergeFromCloud: mergeFromCloud,
-    ensure: ensure
+    ensure: ensure,
+    earnFromLesson: earnFromLesson,
+    noteTrainerHand: noteTrainerHand
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * tournament/leaderboard.js — Clasificación de Koins de la comunidad (local + sync ligera).
+ */
+(function (global) {
+  'use strict';
+
+  var KEY = 'pt_tournament_leaderboard_v1';
+
+  function communityId() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.activeId === 'function') {
+        return global.PTCommunity.activeId() || 'pokerforge';
+      }
+      if (global.PTCommunity && global.PTCommunity.getActive) {
+        var a = global.PTCommunity.getActive();
+        return (a && (a.id || a)) || 'pokerforge';
+      }
+    } catch (e) { /* */ }
+    return 'pokerforge';
+  }
+
+  function storageKey() {
+    return KEY + '_' + communityId();
+  }
+
+  function readBoard() {
+    try {
+      if (typeof localStorage === 'undefined') return [];
+      var raw = localStorage.getItem(storageKey());
+      if (!raw) return [];
+      var arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writeBoard(list) {
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      localStorage.setItem(storageKey(), JSON.stringify(list || []));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function heroIdentity() {
+    var name = 'Hero';
+    var id = 'local-hero';
+    try {
+      if (global.Store && global.Store.getUserId) {
+        var uid = global.Store.getUserId();
+        if (uid) id = String(uid);
+      }
+    } catch (e0) { /* */ }
+    try {
+      var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+      if (u) {
+        name = u.displayName || u.name || u.email || name;
+        if (u.id || u.sub) id = String(u.id || u.sub);
+      }
+    } catch (e1) { /* */ }
+    return { id: id, name: String(name).slice(0, 40) };
+  }
+
+  function seedPeers(heroId) {
+    var seeds = [
+      { id: 'c_seed_1', name: 'MesaNorte', koins: 186 },
+      { id: 'c_seed_2', name: 'RangeLab', koins: 154 },
+      { id: 'c_seed_3', name: 'ICMPulse', koins: 132 },
+      { id: 'c_seed_4', name: 'FeltWalker', koins: 118 },
+      { id: 'c_seed_5', name: 'OrbitalBB', koins: 97 },
+      { id: 'c_seed_6', name: 'SoftClock', koins: 81 },
+      { id: 'c_seed_7', name: 'Gridlock', koins: 64 },
+      { id: 'c_seed_8', name: 'TinCup', koins: 49 }
+    ];
+    return seeds.filter(function (s) { return s.id !== heroId; });
+  }
+
+  /** Publica el saldo actual del Hero en la tabla de su comunidad. */
+  function publishHero() {
+    var hero = heroIdentity();
+    var bal = 100;
+    try {
+      if (global.PTTournamentWallet && PTTournamentWallet.getBalance) {
+        bal = Number(PTTournamentWallet.getBalance()) || 0;
+      }
+    } catch (e) { /* */ }
+    var list = readBoard().filter(function (x) {
+      return x && x.id && String(x.id).indexOf('c_seed_') !== 0;
+    });
+    var found = false;
+    list = list.map(function (x) {
+      if (String(x.id) === String(hero.id)) {
+        found = true;
+        return { id: hero.id, name: hero.name, koins: bal, updatedAt: new Date().toISOString(), isHero: true };
+      }
+      return x;
+    });
+    if (!found) {
+      list.push({ id: hero.id, name: hero.name, koins: bal, updatedAt: new Date().toISOString(), isHero: true });
+    }
+    /* Mantener seeds de comunidad para rellenar la tabla si hay pocos usuarios reales. */
+    seedPeers(hero.id).forEach(function (s) {
+      if (!list.some(function (x) { return x.id === s.id; })) {
+        list.push({ id: s.id, name: s.name, koins: s.koins, updatedAt: null, isHero: false, seed: true });
+      }
+    });
+    writeBoard(list);
+    return list;
+  }
+
+  function rankings(limit) {
+    limit = limit || 20;
+    var hero = heroIdentity();
+    var list = publishHero().slice();
+    list.sort(function (a, b) {
+      if ((b.koins || 0) !== (a.koins || 0)) return (b.koins || 0) - (a.koins || 0);
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+    return list.slice(0, limit).map(function (row, i) {
+      return {
+        rank: i + 1,
+        id: row.id,
+        name: row.name,
+        koins: Math.round((Number(row.koins) || 0) * 100) / 100,
+        isHero: String(row.id) === String(hero.id) || !!row.isHero,
+        medal: i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : null))
+      };
+    });
+  }
+
+  function medalGlyph(medal) {
+    if (medal === 'gold') return '🥇';
+    if (medal === 'silver') return '🥈';
+    if (medal === 'bronze') return '🥉';
+    return '';
+  }
+
+  function renderHtml() {
+    var rows = rankings(15);
+    var body = rows.map(function (r) {
+      var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
+        medalGlyph(r.medal) + '</span>') : ('<span class="trn-lb-medal">' + r.rank + '</span>');
+      return '<tr class="' + (r.isHero ? 'is-hero' : '') + '">' +
+        '<td>' + medal + '</td>' +
+        '<td>' + (r.isHero ? ('<strong>' + escapeHtml(r.name) + '</strong> <span class="trn-lb-you">(Hero)</span>') : escapeHtml(r.name)) + '</td>' +
+        '<td>' + escapeHtml(String(r.koins)) + '</td></tr>';
+    }).join('');
+    return '<section class="trn-leaderboard" aria-label="Clasificación de Koins">' +
+      '<h3>Clasificación de la comunidad</h3>' +
+      '<table class="trn-leaderboard-table"><thead><tr><th>#</th><th>Jugador</th><th>Koins</th></tr></thead>' +
+      '<tbody>' + body + '</tbody></table></section>';
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function legendHtml() {
+    return '<aside class="trn-koins-legend">' +
+      '<h3>Cómo ganar Koins</h3>' +
+      '<ul>' +
+      '<li><strong>+1</strong> por cada lección de Escuela aprobada</li>' +
+      '<li><strong>+1</strong> cada 25 manos en el Entrenador</li>' +
+      '<li><strong>+2</strong> por cada rol de rival acertado al terminar un torneo</li>' +
+      '<li>Premios de torneo según el puesto (se suman a tu saldo)</li>' +
+      '<li>Si llegas a <strong>0</strong> Koins no puedes pagar buy-ins</li>' +
+      '</ul></aside>';
+  }
+
+  global.PTTournamentLeaderboard = {
+    publishHero: publishHero,
+    rankings: rankings,
+    renderHtml: renderHtml,
+    legendHtml: legendHtml,
+    communityId: communityId
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -2843,22 +3112,85 @@
     return { ok: true, list: [] };
   }
 
+  function slimForPersist(state) {
+    var snap = JSON.parse(JSON.stringify(state));
+    /* Fotogramas y análisis pesados no son necesarios para reanudar. */
+    if (snap._liveHand) {
+      delete snap._liveHand._frames;
+      if (snap._liveHand._animQueue) delete snap._liveHand._animQueue;
+    }
+    if (Array.isArray(snap.sessionHands) && snap.sessionHands.length > 40) {
+      snap.sessionHands = snap.sessionHands.slice(-40);
+    }
+    if (Array.isArray(snap.handLog) && snap.handLog.length > 60) {
+      snap.handLog = snap.handLog.slice(-60);
+    }
+    /* Recorta payloads de análisis en sessionHands para no saturar quota. */
+    (snap.sessionHands || []).forEach(function (h) {
+      if (!h || typeof h !== 'object') return;
+      if (h.analysis) {
+        h.analysis = {
+          handScore: h.analysis.handScore,
+          heroNetBB: h.analysis.heroNetBB,
+          heroCode: h.analysis.heroCode,
+          heroPos: h.analysis.heroPos
+        };
+      }
+      if (h.streets && h.streets.length > 8) h.streets = h.streets.slice(0, 8);
+    });
+    return snap;
+  }
+
+  function writeActiveRaw(snap) {
+    localStorage.setItem(activeStorageKey(), JSON.stringify(snap));
+  }
+
   /** Snapshot del torneo en curso (para continuar más tarde). */
   function saveActive(state) {
     if (!state || state.status === 'finished') {
       clearActive();
       return { ok: false, reason: 'not_active' };
     }
+    if (typeof localStorage === 'undefined') return { ok: false };
     try {
-      if (typeof localStorage === 'undefined') return { ok: false };
-      var snap = JSON.parse(JSON.stringify(state));
-      /* Los fotogramas son solo presentación: no se guardan ni se re-animan al volver. */
-      if (snap._liveHand) delete snap._liveHand._frames;
+      var snap = slimForPersist(state);
       snap._savedAt = new Date().toISOString();
-      localStorage.setItem(activeStorageKey(), JSON.stringify(snap));
+      try {
+        writeActiveRaw(snap);
+      } catch (quotaErr) {
+        /* Reintento agresivo si localStorage está lleno. */
+        if (snap.sessionHands) snap.sessionHands = snap.sessionHands.slice(-15);
+        if (snap.handLog) {
+          snap.handLog = snap.handLog.slice(-20).map(function (h) {
+            return {
+              handIndex: h.handIndex,
+              bb: h.bb,
+              pot: h.pot,
+              showdown: h.showdown,
+              result: h.result ? { heroNet: h.result.heroNet } : null,
+              seats: (h.seats || []).filter(function (s) { return s.isHero; })
+                .map(function (s) { return { isHero: true, pos: s.pos }; })
+            };
+          });
+        }
+        if (snap._liveHand) {
+          snap._liveHand = {
+            stage: snap._liveHand.stage,
+            street: snap._liveHand.street,
+            pot: snap._liveHand.pot,
+            bb: snap._liveHand.bb,
+            board: snap._liveHand.board,
+            seats: snap._liveHand.seats,
+            toActId: snap._liveHand.toActId,
+            result: snap._liveHand.result
+          };
+        }
+        writeActiveRaw(snap);
+      }
       markCloudDirty();
-      return { ok: true };
+      return { ok: true, savedAt: snap._savedAt, handIndex: snap.handIndex };
     } catch (e) {
+      try { console.warn('[Tournaments] saveActive failed', e); } catch (e2) { /* */ }
       return { ok: false, reason: 'serialize' };
     }
   }
@@ -2889,6 +3221,19 @@
 
   function hasActive() {
     return !!loadActive();
+  }
+
+  /** True si `a` debe ganar a `b` al fusionar cloud (más avance o más reciente). */
+  function isPreferableActive(a, b) {
+    if (a && !b) return true;
+    if (!a) return false;
+    if (!b) return true;
+    var aHand = Number(a.handIndex) || 0;
+    var bHand = Number(b.handIndex) || 0;
+    if (aHand !== bHand) return aHand > bHand;
+    var aTs = Date.parse(a._savedAt || 0) || 0;
+    var bTs = Date.parse(b._savedAt || 0) || 0;
+    return aTs >= bTs;
   }
 
   /** Resumen corto para el lobby. */
@@ -2937,6 +3282,7 @@
     loadActive: loadActive,
     clearActive: clearActive,
     hasActive: hasActive,
+    isPreferableActive: isPreferableActive,
     activeSummary: activeSummary
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
@@ -3715,8 +4061,21 @@
 
     try {
       var Wallet = global.PTTournamentWallet;
-      if (Wallet && Wallet.credit && prizeEur > 0) {
-        Wallet.credit(prizeEur, { type: 'prize', tournamentId: state.id, place: place });
+      if (Wallet && Wallet.credit) {
+        var roleKoins = Number(roleScore.koins) || ((roleScore.correct || 0) * 2);
+        var totalCredit = Math.round(((prizeEur || 0) + roleKoins) * 100) / 100;
+        if (totalCredit > 0) {
+          Wallet.credit(totalCredit, {
+            type: 'tournament_payout',
+            tournamentId: state.id,
+            place: place,
+            prizeEur: prizeEur,
+            roleKoins: roleKoins,
+            roleCorrect: roleScore.correct || 0
+          });
+        }
+        state.result.roleKoins = roleKoins;
+        state.result.totalKoinsAwarded = totalCredit;
       }
     } catch (eW) { /* ignore */ }
     return state.result;
@@ -4296,6 +4655,11 @@ function reducedMotion() {
       '<span>Comienzo</span><span>Nombre</span><span>Juego</span>' +
       '<span>Jug.</span><span>Buy-in</span><span>Premio</span></div>' +
       '<div class="trn-lobby-list">' + rows + '</div>' +
+      (function () {
+        var Lb = global.PTTournamentLeaderboard;
+        try { if (Lb && Lb.publishHero) Lb.publishHero(); } catch (eLb) { /* */ }
+        return (Lb && Lb.legendHtml ? Lb.legendHtml() : '') + (Lb && Lb.renderHtml ? Lb.renderHtml() : '');
+      })() +
       '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-hist-list">' + histHtml + '</ul>' +
       '</section>' + resumeModal + '</div>';
@@ -4754,10 +5118,10 @@ function reducedMotion() {
       var pid = ui.roleModalPlayerId;
       var pl = state.players.find(function (p) { return p.id === pid; });
       var cur = (state.heroGuesses && state.heroGuesses[pid]) || '';
-      var opts = (global.PTTournamentConfig.ROLE_IDS || []).map(function (rid) {
-        return '<button type="button" class="trn-role-opt' + (cur === rid ? ' is-selected' : '') +
-          '" data-guess-role="' + rid + '" data-guess-player="' + esc(pid) + '">' +
-          esc(roleLabel(rid)) + '</button>';
+      var roleIds = global.PTTournamentConfig.ROLE_IDS || [];
+      var selectOpts = '<option value="">— Elige tipo de jugador —</option>' + roleIds.map(function (rid) {
+        return '<option value="' + esc(rid) + '"' + (cur === rid ? ' selected' : '') + '>' +
+          esc(roleLabel(rid)) + '</option>';
       }).join('');
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
@@ -4767,8 +5131,11 @@ function reducedMotion() {
         esc(fmtBb(Number(pl && pl.stack) || 0, bb)) +
         (pl && pl.alive === false ? ' · Eliminado' : '') +
         '</p>' +
-        '<p class="muted">Adivina su rol (se revela al final)</p>' +
-        '<div class="trn-role-grid">' + opts + '</div>' +
+        '<p class="muted">Elige su tipo de jugador (el nombre no indica el perfil). Se revela al final; +2 Koins por acierto.</p>' +
+        '<label class="trn-role-select-label" for="trn-role-select">Tipo de jugador</label>' +
+        '<select id="trn-role-select" class="trn-role-select" data-guess-player="' + esc(pid) + '">' +
+        selectOpts + '</select>' +
+        '<button type="button" class="btn btn-primary" data-act="save-role-guess" data-guess-player="' + esc(pid) + '">Guardar</button> ' +
         '<button type="button" class="btn" data-act="clear-guess" data-guess-player="' + esc(pid) + '">Quitar guess</button> ' +
         '<button type="button" class="btn" data-act="close-role">Cerrar</button>' +
         '</div></div>';
@@ -5196,7 +5563,8 @@ function reducedMotion() {
       '<p class="trn-result-place">' + (r.place != null ? (r.place + 'º') : '—') +
       ' · Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
       '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
-      ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP</p>' +
+      ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP' +
+      (r.roleKoins ? (' · +' + r.roleKoins + ' Koins por roles') : '') + '</p>' +
       statsHtml +
       bestWorst +
       (sessionId
@@ -5445,6 +5813,15 @@ function reducedMotion() {
           global.PTTournamentRoleGuess.clearGuess(ui.state, btn.getAttribute('data-guess-player'));
           ui.roleModalPlayerId = null;
           paint();
+        } else if (act === 'save-role-guess') {
+          var selRole = root.querySelector('#trn-role-select');
+          var rid = selRole && selRole.value;
+          var playerId = btn.getAttribute('data-guess-player');
+          if (rid && playerId && global.PTTournamentRoleGuess && PTTournamentRoleGuess.setGuess) {
+            PTTournamentRoleGuess.setGuess(ui.state, playerId, rid);
+          }
+          ui.roleModalPlayerId = null;
+          paint();
         } else if (act === 'next-hand') {
           if (ui.state && ui.state.status === 'running') {
             global.PTTournamentRunner.continueAfterHand(ui.state);
@@ -5497,6 +5874,18 @@ function reducedMotion() {
       });
     });
 
+    root.querySelectorAll('[data-act="save-role-guess"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var sel = root.querySelector('#trn-role-select');
+        var rid = sel && sel.value;
+        var playerId = btn.getAttribute('data-guess-player');
+        if (rid && playerId && global.PTTournamentRoleGuess && PTTournamentRoleGuess.setGuess) {
+          PTTournamentRoleGuess.setGuess(ui.state, playerId, rid);
+        }
+        ui.roleModalPlayerId = null;
+        paint();
+      });
+    });
     root.querySelectorAll('[data-guess-role]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         global.PTTournamentRoleGuess.setGuess(

@@ -5,6 +5,7 @@
   'use strict';
 
   var XP_PER_CORRECT = 15;
+  var KOINS_PER_CORRECT = 2;
   var XP_CAP = 150;
 
   var ROLE_LABELS = {
@@ -54,18 +55,21 @@
     });
     var accuracy = total ? Math.round((correct / total) * 1000) / 10 : 0;
     var xp = Math.min(XP_CAP, correct * XP_PER_CORRECT);
+    var koins = correct * KOINS_PER_CORRECT;
     return {
       total: total,
       correct: correct,
       accuracy: accuracy,
       details: details,
-      xp: xp
+      xp: xp,
+      koins: koins
     };
   }
 
   global.PTTournamentRoleGuess = {
     ROLE_LABELS: ROLE_LABELS,
     XP_PER_CORRECT: XP_PER_CORRECT,
+    KOINS_PER_CORRECT: KOINS_PER_CORRECT,
     XP_CAP: XP_CAP,
     setGuess: setGuess,
     clearGuess: clearGuess,

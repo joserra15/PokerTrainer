@@ -491,6 +491,11 @@ function reducedMotion() {
       '<span>Comienzo</span><span>Nombre</span><span>Juego</span>' +
       '<span>Jug.</span><span>Buy-in</span><span>Premio</span></div>' +
       '<div class="trn-lobby-list">' + rows + '</div>' +
+      (function () {
+        var Lb = global.PTTournamentLeaderboard;
+        try { if (Lb && Lb.publishHero) Lb.publishHero(); } catch (eLb) { /* */ }
+        return (Lb && Lb.legendHtml ? Lb.legendHtml() : '') + (Lb && Lb.renderHtml ? Lb.renderHtml() : '');
+      })() +
       '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-hist-list">' + histHtml + '</ul>' +
       '</section>' + resumeModal + '</div>';
@@ -949,10 +954,10 @@ function reducedMotion() {
       var pid = ui.roleModalPlayerId;
       var pl = state.players.find(function (p) { return p.id === pid; });
       var cur = (state.heroGuesses && state.heroGuesses[pid]) || '';
-      var opts = (global.PTTournamentConfig.ROLE_IDS || []).map(function (rid) {
-        return '<button type="button" class="trn-role-opt' + (cur === rid ? ' is-selected' : '') +
-          '" data-guess-role="' + rid + '" data-guess-player="' + esc(pid) + '">' +
-          esc(roleLabel(rid)) + '</button>';
+      var roleIds = global.PTTournamentConfig.ROLE_IDS || [];
+      var selectOpts = '<option value="">— Elige tipo de jugador —</option>' + roleIds.map(function (rid) {
+        return '<option value="' + esc(rid) + '"' + (cur === rid ? ' selected' : '') + '>' +
+          esc(roleLabel(rid)) + '</option>';
       }).join('');
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
@@ -962,8 +967,11 @@ function reducedMotion() {
         esc(fmtBb(Number(pl && pl.stack) || 0, bb)) +
         (pl && pl.alive === false ? ' · Eliminado' : '') +
         '</p>' +
-        '<p class="muted">Adivina su rol (se revela al final)</p>' +
-        '<div class="trn-role-grid">' + opts + '</div>' +
+        '<p class="muted">Elige su tipo de jugador (el nombre no indica el perfil). Se revela al final; +2 Koins por acierto.</p>' +
+        '<label class="trn-role-select-label" for="trn-role-select">Tipo de jugador</label>' +
+        '<select id="trn-role-select" class="trn-role-select" data-guess-player="' + esc(pid) + '">' +
+        selectOpts + '</select>' +
+        '<button type="button" class="btn btn-primary" data-act="save-role-guess" data-guess-player="' + esc(pid) + '">Guardar</button> ' +
         '<button type="button" class="btn" data-act="clear-guess" data-guess-player="' + esc(pid) + '">Quitar guess</button> ' +
         '<button type="button" class="btn" data-act="close-role">Cerrar</button>' +
         '</div></div>';
@@ -1391,7 +1399,8 @@ function reducedMotion() {
       '<p class="trn-result-place">' + (r.place != null ? (r.place + 'º') : '—') +
       ' · Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
       '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
-      ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP</p>' +
+      ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP' +
+      (r.roleKoins ? (' · +' + r.roleKoins + ' Koins por roles') : '') + '</p>' +
       statsHtml +
       bestWorst +
       (sessionId
@@ -1640,6 +1649,15 @@ function reducedMotion() {
           global.PTTournamentRoleGuess.clearGuess(ui.state, btn.getAttribute('data-guess-player'));
           ui.roleModalPlayerId = null;
           paint();
+        } else if (act === 'save-role-guess') {
+          var selRole = root.querySelector('#trn-role-select');
+          var rid = selRole && selRole.value;
+          var playerId = btn.getAttribute('data-guess-player');
+          if (rid && playerId && global.PTTournamentRoleGuess && PTTournamentRoleGuess.setGuess) {
+            PTTournamentRoleGuess.setGuess(ui.state, playerId, rid);
+          }
+          ui.roleModalPlayerId = null;
+          paint();
         } else if (act === 'next-hand') {
           if (ui.state && ui.state.status === 'running') {
             global.PTTournamentRunner.continueAfterHand(ui.state);
@@ -1692,6 +1710,18 @@ function reducedMotion() {
       });
     });
 
+    root.querySelectorAll('[data-act="save-role-guess"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var sel = root.querySelector('#trn-role-select');
+        var rid = sel && sel.value;
+        var playerId = btn.getAttribute('data-guess-player');
+        if (rid && playerId && global.PTTournamentRoleGuess && PTTournamentRoleGuess.setGuess) {
+          PTTournamentRoleGuess.setGuess(ui.state, playerId, rid);
+        }
+        ui.roleModalPlayerId = null;
+        paint();
+      });
+    });
     root.querySelectorAll('[data-guess-role]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         global.PTTournamentRoleGuess.setGuess(

@@ -158,6 +158,7 @@
       'js/tournament/stats.js',
       'js/tournament/hud.js',
       'js/tournament/wallet.js',
+      'js/tournament/leaderboard.js',
       'js/tournament/store.js',
       'js/tournament/session-bridge.js',
       'js/tournament/runner.js',

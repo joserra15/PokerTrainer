@@ -57,6 +57,28 @@
     return rank + '/' + left + ' (' + entries + ')';
   }
 
+  /** Una sola línea: avance + posición (visible en móvil). */
+  function progressChipText(state) {
+    var Blinds = global.PTTournamentBlinds;
+    var Seat = global.PTTournamentSeating;
+    var St = global.PTTournamentState;
+    var cfg = state.config || {};
+    var lv = currentBlinds(state);
+    var into = Blinds && Blinds.handsIntoLevel
+      ? Blinds.handsIntoLevel(cfg.blindSchedule, state.handIndex || 0)
+      : 0;
+    var until = Blinds && Blinds.handsUntilNext
+      ? Blinds.handsUntilNext(cfg.blindSchedule, state.handIndex || 0)
+      : null;
+    var rank = Seat && Seat.heroFieldRank ? Seat.heroFieldRank(state) : null;
+    var left = St && St.playersLeft ? St.playersLeft(state) : 0;
+    var pos = rank != null ? (rank + 'º/' + left) : ('—/' + left);
+    var prog = until == null
+      ? ('Nv.' + lv.level + ' fin')
+      : ('Nv.' + lv.level + ' ' + into + '/' + lv.hands);
+    return prog + ' · ' + pos;
+  }
+
   function compactChips(state) {
     var Blinds = global.PTTournamentBlinds;
     var St = global.PTTournamentState;
@@ -68,6 +90,11 @@
     var kind = (cfg.kind === 'sng' ? 'SNG' : 'MTT');
     return [
       { text: kind, cls: 'trn-chip trn-chip-kind', title: cfg.name || kind },
+      {
+        text: progressChipText(state),
+        cls: 'trn-chip trn-chip-progress',
+        title: 'Avance del torneo y posición de Hero'
+      },
       { text: stackBb + ' bb', cls: 'trn-chip trn-chip-stack', title: 'Stack Hero' },
       { text: fieldChip(state), cls: 'trn-chip trn-chip-field', title: 'Posición en el field' },
       {
@@ -91,7 +118,7 @@
     }
     if (euros.length > n) parts.push('…');
     if (!parts.length) return '—';
-    return { html: true, content: '<ul class="trn-payout-list">' + parts.map(function (p, i) {
+    return { html: true, content: '<ul class="trn-payout-list">' + parts.map(function (p) {
       return '<li>' + p + '</li>';
     }).join('') + '</ul>' };
   }
@@ -147,8 +174,10 @@
     var top = topStacks(state, 10);
     var topLabel = top.length
       ? { html: true, content: '<ol class="trn-stack-list">' + top.map(function (t) {
-        return '<li class="' + (t.isHero ? 'is-hero' : '') + '"><span class="trn-stack-rank">' +
-          t.rank + '.</span> <span class="trn-stack-name">' + t.name + '</span> ' +
+        var heroTag = t.isHero ? ' <span class="trn-stack-hero-tag">(Hero)</span>' : '';
+        return '<li class="' + (t.isHero ? 'is-hero' : '') + '">' +
+          '<span class="trn-stack-rank">' + t.rank + '.</span> ' +
+          '<span class="trn-stack-name">' + t.name + '</span>' + heroTag + ' ' +
           '<span class="trn-stack-amt">' + fmtNum(t.stack) + ' (' + t.bb + ' bb)</span></li>';
       }).join('') + '</ol>' }
       : '—';
@@ -175,6 +204,7 @@
     infoRows: infoRows,
     currentBlinds: currentBlinds,
     topStacks: topStacks,
-    fmtKoins: fmtKoins
+    fmtKoins: fmtKoins,
+    progressChipText: progressChipText
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

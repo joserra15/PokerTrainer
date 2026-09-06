@@ -113,22 +113,85 @@
     return { ok: true, list: [] };
   }
 
+  function slimForPersist(state) {
+    var snap = JSON.parse(JSON.stringify(state));
+    /* Fotogramas y análisis pesados no son necesarios para reanudar. */
+    if (snap._liveHand) {
+      delete snap._liveHand._frames;
+      if (snap._liveHand._animQueue) delete snap._liveHand._animQueue;
+    }
+    if (Array.isArray(snap.sessionHands) && snap.sessionHands.length > 40) {
+      snap.sessionHands = snap.sessionHands.slice(-40);
+    }
+    if (Array.isArray(snap.handLog) && snap.handLog.length > 60) {
+      snap.handLog = snap.handLog.slice(-60);
+    }
+    /* Recorta payloads de análisis en sessionHands para no saturar quota. */
+    (snap.sessionHands || []).forEach(function (h) {
+      if (!h || typeof h !== 'object') return;
+      if (h.analysis) {
+        h.analysis = {
+          handScore: h.analysis.handScore,
+          heroNetBB: h.analysis.heroNetBB,
+          heroCode: h.analysis.heroCode,
+          heroPos: h.analysis.heroPos
+        };
+      }
+      if (h.streets && h.streets.length > 8) h.streets = h.streets.slice(0, 8);
+    });
+    return snap;
+  }
+
+  function writeActiveRaw(snap) {
+    localStorage.setItem(activeStorageKey(), JSON.stringify(snap));
+  }
+
   /** Snapshot del torneo en curso (para continuar más tarde). */
   function saveActive(state) {
     if (!state || state.status === 'finished') {
       clearActive();
       return { ok: false, reason: 'not_active' };
     }
+    if (typeof localStorage === 'undefined') return { ok: false };
     try {
-      if (typeof localStorage === 'undefined') return { ok: false };
-      var snap = JSON.parse(JSON.stringify(state));
-      /* Los fotogramas son solo presentación: no se guardan ni se re-animan al volver. */
-      if (snap._liveHand) delete snap._liveHand._frames;
+      var snap = slimForPersist(state);
       snap._savedAt = new Date().toISOString();
-      localStorage.setItem(activeStorageKey(), JSON.stringify(snap));
+      try {
+        writeActiveRaw(snap);
+      } catch (quotaErr) {
+        /* Reintento agresivo si localStorage está lleno. */
+        if (snap.sessionHands) snap.sessionHands = snap.sessionHands.slice(-15);
+        if (snap.handLog) {
+          snap.handLog = snap.handLog.slice(-20).map(function (h) {
+            return {
+              handIndex: h.handIndex,
+              bb: h.bb,
+              pot: h.pot,
+              showdown: h.showdown,
+              result: h.result ? { heroNet: h.result.heroNet } : null,
+              seats: (h.seats || []).filter(function (s) { return s.isHero; })
+                .map(function (s) { return { isHero: true, pos: s.pos }; })
+            };
+          });
+        }
+        if (snap._liveHand) {
+          snap._liveHand = {
+            stage: snap._liveHand.stage,
+            street: snap._liveHand.street,
+            pot: snap._liveHand.pot,
+            bb: snap._liveHand.bb,
+            board: snap._liveHand.board,
+            seats: snap._liveHand.seats,
+            toActId: snap._liveHand.toActId,
+            result: snap._liveHand.result
+          };
+        }
+        writeActiveRaw(snap);
+      }
       markCloudDirty();
-      return { ok: true };
+      return { ok: true, savedAt: snap._savedAt, handIndex: snap.handIndex };
     } catch (e) {
+      try { console.warn('[Tournaments] saveActive failed', e); } catch (e2) { /* */ }
       return { ok: false, reason: 'serialize' };
     }
   }
@@ -159,6 +222,19 @@
 
   function hasActive() {
     return !!loadActive();
+  }
+
+  /** True si `a` debe ganar a `b` al fusionar cloud (más avance o más reciente). */
+  function isPreferableActive(a, b) {
+    if (a && !b) return true;
+    if (!a) return false;
+    if (!b) return true;
+    var aHand = Number(a.handIndex) || 0;
+    var bHand = Number(b.handIndex) || 0;
+    if (aHand !== bHand) return aHand > bHand;
+    var aTs = Date.parse(a._savedAt || 0) || 0;
+    var bTs = Date.parse(b._savedAt || 0) || 0;
+    return aTs >= bTs;
   }
 
   /** Resumen corto para el lobby. */
@@ -207,6 +283,7 @@
     loadActive: loadActive,
     clearActive: clearActive,
     hasActive: hasActive,
+    isPreferableActive: isPreferableActive,
     activeSummary: activeSummary
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
