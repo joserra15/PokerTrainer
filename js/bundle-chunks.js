@@ -96,6 +96,7 @@
       'js/push.js',
       'js/account-settings.js',
       'js/auth.js',
+      'js/hand-end-view.js',
       'js/app.js'
     ]),
     sessions: [
@@ -158,6 +159,7 @@
       'js/tournament/hud.js',
       'js/tournament/wallet.js',
       'js/tournament/store.js',
+      'js/tournament/session-bridge.js',
       'js/tournament/runner.js',
       'js/tournament/ui.js',
       'js/tournament/index.js'

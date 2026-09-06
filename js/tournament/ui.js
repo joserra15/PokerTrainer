@@ -1041,77 +1041,89 @@ function reducedMotion() {
     else if (heroDelta < -0.02) title = res.showdown ? 'Pierdes en showdown' : 'Pierdes la mano';
     else if (won) title = res.showdown ? 'Showdown' : 'Mano terminada';
     else title = 'Mano terminada';
-    var boardHtml = (res.board || hand.board || []).map(faceCard).join('');
-    var seatsHtml = hand.seats.filter(function (s) {
-      return !s.folded || (res.holeCards && res.holeCards[s.id]);
-    }).map(function (s) {
-      var cards = (res.holeCards && res.holeCards[s.id]) || (s.isHero ? s.cards : null);
-      var cardsHtml = cards && cards[0]
-        ? cards.map(faceCard).join('')
-        : '<span class="muted">—</span>';
-      var d = Number(deltas[s.id]) || 0;
-      var dCls = d > 0 ? 'net-pos' : (d < 0 ? 'net-neg' : '');
-      return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') +
-        ((res.winners || []).indexOf(s.id) >= 0 ? ' is-winner' : '') + '">' +
-        '<div class="trn-hand-end-name">' + esc(s.isHero ? heroDisplayName(ui.state) : (s.name || s.pos)) +
-        ' · ' + esc(s.pos || '') + '</div>' +
-        '<div class="trn-hand-end-cards">' + cardsHtml + '</div>' +
-        ((res.handNames && res.handNames[s.id])
-          ? ('<div class="trn-hand-end-handname">' + esc(res.handNames[s.id]) + '</div>')
-          : '') +
-        '<div class="trn-hand-end-delta ' + dCls + '">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div>' +
-        '</div>';
-    }).join('');
 
-    var detail = '';
-    if (ui.handDetailOpen) {
-      var lines = (hand.log || []).map(function (e) {
-        return '<li><span class="muted">' + esc(e.street) + '</span> ' +
-          esc(e.name || e.id) + ' · ' + esc(formatActLabel(e.action, e.amount, bb)) + '</li>';
+    var analyzed = null;
+    try {
+      var Bridge = global.PTTournamentSessionBridge;
+      if (Bridge && Bridge.handFromTournament) {
+        analyzed = Bridge.handFromTournament(hand, {
+          tournamentId: state && state.id,
+          handIndex: state && state.handIndex,
+          heroName: heroDisplayName(state)
+        });
+      }
+    } catch (eA) { analyzed = null; }
+
+    var rich = '';
+    try {
+      var HEV = global.PTHandEndView;
+      if (HEV && HEV.renderHandEndHtml && analyzed) {
+        rich = HEV.renderHandEndHtml(analyzed, {
+          title: title,
+          showDecisions: !!ui.handDetailOpen
+        });
+      }
+    } catch (eH) { rich = ''; }
+
+    if (!rich) {
+      /* Fallback compacto si el bridge no está cargado. */
+      var boardHtml = (res.board || hand.board || []).map(faceCard).join('');
+      var seatsHtml = hand.seats.filter(function (s) {
+        return !s.folded || (res.holeCards && res.holeCards[s.id]);
+      }).map(function (s) {
+        var cards = (res.holeCards && res.holeCards[s.id]) || (s.isHero ? s.cards : null);
+        var cardsHtml = cards && cards[0]
+          ? cards.map(faceCard).join('')
+          : '<span class="muted">—</span>';
+        var d = Number(deltas[s.id]) || 0;
+        var dCls = d > 0 ? 'net-pos' : (d < 0 ? 'net-neg' : '');
+        return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') +
+          ((res.winners || []).indexOf(s.id) >= 0 ? ' is-winner' : '') + '">' +
+          '<div class="trn-hand-end-name">' + esc(s.isHero ? heroDisplayName(ui.state) : (s.name || s.pos)) +
+          ' · ' + esc(s.pos || '') + '</div>' +
+          '<div class="trn-hand-end-cards">' + cardsHtml + '</div>' +
+          '<div class="trn-hand-end-delta ' + dCls + '">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div>' +
+          '</div>';
       }).join('');
-      var gtoHtml = '';
-      var decs = hand.decisions || [];
-      if (decs.length) {
+      rich = '<div class="trn-hand-end-head ' + outcomeCls + '">' +
+        '<p class="trn-hand-end-kicker">Resultado de la mano</p>' +
+        '<h3>' + esc(title) + '</h3>' +
+        '<p class="trn-hand-end-pot">Bote ' + esc(fmtBb(res.pot || hand.pot || 0, bb)) +
+        (res.showdown ? ' · Showdown' : '') + '</p></div>' +
+        (boardHtml ? ('<div class="trn-hand-end-board"><span class="muted">Board</span><div class="trn-hand-end-cards">' +
+          boardHtml + '</div></div>') : '') +
+        '<div class="trn-hand-end-seats">' + seatsHtml + '</div>';
+      if (ui.handDetailOpen && hand.decisions && hand.decisions.length) {
         var GEval = global.PTTournamentGtoEval;
-        var sum = GEval && GEval.summarizeDecisions ? GEval.summarizeDecisions(decs) : null;
-        gtoHtml = '<h4>Evaluación GTO (héroe)</h4>';
+        var sum = GEval && GEval.summarizeDecisions ? GEval.summarizeDecisions(hand.decisions) : null;
+        rich += '<div class="trn-hand-end-detail"><h4>Evaluación GTO (héroe)</h4>';
         if (sum) {
-          gtoHtml += '<p class="trn-gto-summary">Aciertos ' + sum.hits + '/' + sum.scored +
+          rich += '<p class="trn-gto-summary">Aciertos ' + sum.hits + '/' + sum.scored +
             ' (' + sum.accuracy + '%) · EV loss ' + sum.totalEvLoss + ' bb' +
             (sum.score != null ? (' · Nota ' + sum.score) : '') + '</p>';
         }
-        gtoHtml += '<ol class="trn-gto-decisions">' + decs.map(function (d) {
+        rich += '<ol class="trn-gto-decisions">' + hand.decisions.map(function (d) {
           return '<li><span class="trn-gto-class trn-gto-' + esc(d.class || 'unscored') + '">' +
             esc(d.class || 'unscored') + '</span> ' + esc(d.street || '') + ' · ' +
-            esc(d.action || '') +
-            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') +
-            (d.unscored ? ' <span class="muted">(sin solver)</span>' : '') +
-            '</li>';
-        }).join('') + '</ol>';
+            esc(d.label || d.action || '') +
+            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') + '</li>';
+        }).join('') + '</ol></div>';
       }
-      detail = '<div class="trn-hand-end-detail"><h4>Acción de la mano</h4><ol>' +
-        (lines || '<li class="muted">Sin acciones</li>') + '</ol>' + gtoHtml + '</div>';
     }
 
     return '<div class="trn-modal-backdrop trn-hand-end-backdrop" data-act="noop">' +
-      '<div class="trn-modal trn-hand-end-modal" role="dialog" aria-modal="true" data-act="noop">' +
-      '<div class="trn-hand-end-head ' + outcomeCls + '">' +
-      '<p class="trn-hand-end-kicker">Resultado de la mano</p>' +
-      '<h3>' + esc(title) + '</h3>' +
-      '<p class="trn-hand-end-pot">Bote ' + esc(fmtBb(res.pot || hand.pot || 0, bb)) +
-      (res.showdown ? ' · Showdown' : '') + '</p></div>' +
-      (boardHtml ? ('<div class="trn-hand-end-board"><span class="muted">Board</span><div class="trn-hand-end-cards">' +
-        boardHtml + '</div></div>') : '') +
-      '<div class="trn-hand-end-seats">' + seatsHtml + '</div>' +
-      detail +
+      '<div class="trn-modal trn-hand-end-modal trn-hand-end-modal-rich" role="dialog" aria-modal="true" data-act="noop">' +
+      rich +
       '<div class="trn-hand-end-actions">' +
       '<button type="button" class="btn" data-act="toggle-hand-detail">' +
-      (ui.handDetailOpen ? 'Ocultar detalle' : 'Ver detalle') + '</button>' +
+      (ui.handDetailOpen ? 'Ocultar detalle GTO' : 'Ver detalle GTO') + '</button>' +
+      '<button type="button" class="btn" data-act="hand-end-review"' +
+      (analyzed && analyzed.id ? (' data-hand-id="' + esc(analyzed.id) + '"') : '') +
+      '>Paso a paso</button>' +
       '<button type="button" class="btn btn-primary" data-act="continue-hand">Continuar »</button>' +
       '</div></div></div>';
   }
 
-  /* ---------- Result ---------- */
 
   function renderReplayModal() {
     if (!ui.replayOpen || !ui.state) return '';
@@ -1170,6 +1182,62 @@ function reducedMotion() {
   }
 
 
+  function openSessionHand(sessionId, handId, mode) {
+    mode = mode || 'review';
+    if (!sessionId) return;
+    try {
+      if (typeof global.goToTab === 'function') {
+        global.goToTab('sessions', {
+          openSessionId: sessionId,
+          handId: handId || null,
+          reviewMode: mode
+        });
+        return;
+      }
+      if (typeof global.openSession === 'function') {
+        Promise.resolve(global.openSession(sessionId, null, {
+          handId: handId || null,
+          mode: mode
+        })).catch(function () { /* */ });
+      }
+    } catch (eOpen) { /* */ }
+  }
+
+  function openLiveHandReview(handId, mode) {
+    mode = mode || 'review';
+    var state = ui.state;
+    if (!state) return;
+    var analyzed = null;
+    var Bridge = global.PTTournamentSessionBridge;
+    var live = state._liveHand;
+    try {
+      if (Bridge && Bridge.handFromTournament && live) {
+        analyzed = Bridge.handFromTournament(live, {
+          tournamentId: state.id,
+          handIndex: state.handIndex,
+          heroName: heroDisplayName(state)
+        });
+      }
+    } catch (e1) { analyzed = null; }
+    if (!analyzed && state.sessionHands && state.sessionHands.length) {
+      analyzed = state.sessionHands.filter(function (h) {
+        return h && (h.id === handId || String(h.handIndex) === String(handId));
+      })[0] || state.sessionHands[state.sessionHands.length - 1];
+    }
+    if (!analyzed) return;
+    try {
+      if (typeof global.openTournamentHandReview === 'function') {
+        global.openTournamentHandReview(analyzed, mode);
+        return;
+      }
+    } catch (e2) { /* */ }
+    /* Fallback: replay modal local */
+    ui.replayHandIndex = Number(analyzed.handIndex != null ? analyzed.handIndex : state.handIndex);
+    ui.replayOpen = true;
+    ui.replayStep = 0;
+    paint();
+  }
+
   function renderResult() {
     var state = ui.state;
     if (!state || !state.result) {
@@ -1184,8 +1252,9 @@ function reducedMotion() {
         esc(roleLabel(d.guess)) + (d.ok ? ' ✓' : ' ✗') + '</li>';
     }).join('') || '<li class="muted">Sin guesses</li>';
 
-    var stats = r.stats || {};
-    var gto = state.gtoSession || (r.gtoSession) || {};
+    var sessionStats = r.sessionStats || state.sessionStats || null;
+    var sessionId = r.sessionId || state.sessionId || null;
+    var gto = state.gtoSession || r.gtoSession || {};
     var Cfg = global.PTTournamentConfig;
     var ladder = (Cfg && Cfg.payoutEuros) ? Cfg.payoutEuros(state.config || {}) : [];
     var standings = (state.players || []).slice().sort(function (a, b) {
@@ -1203,16 +1272,75 @@ function reducedMotion() {
         '<td>' + fmtKoins(prize) + '</td></tr>';
     }).join('');
 
-    var hands = (state.handLog || []).slice().reverse();
-    var handsHtml = hands.length
-      ? hands.map(function (h) {
-        return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
-          esc(String(h.handIndex)) + '">Mano #' + esc(String(h.handIndex)) +
-          '</button> · pot ' + esc(String(Math.round((h.pot || 0) * 10) / 10)) +
-          (h.tied ? ' · chop' : '') +
-          (h.showdown ? ' · SD' : '') + '</li>';
-      }).join('')
-      : '<li class="muted">Sin manos guardadas</li>';
+    var statsHtml = '';
+    try {
+      var HEV = global.PTHandEndView;
+      if (HEV && HEV.renderSessionStatsHtml && sessionStats) {
+        statsHtml = HEV.renderSessionStatsHtml(sessionStats, { title: 'Estadísticas de sesión' });
+      }
+    } catch (eS) { statsHtml = ''; }
+    if (!statsHtml) {
+      var stats = r.stats || {};
+      statsHtml = '<div class="trn-result-stats trn-session-like"><div class="trn-stat-grid">' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.nHands != null ? sessionStats.nHands : (stats.handsPlayed || 0)) + '</div><div class="trn-stat-lbl">Manos</div></div>' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.vpipPct != null ? sessionStats.vpipPct : (stats.vpip || 0)) + '%</div><div class="trn-stat-lbl">VPIP</div></div>' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.pfrPct != null ? sessionStats.pfrPct : (stats.pfr || 0)) + '%</div><div class="trn-stat-lbl">PFR</div></div>' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.accuracy != null ? sessionStats.accuracy : (gto.accuracy || 0)) + '%</div><div class="trn-stat-lbl">Acierto GTO</div></div>' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.evLossBB != null ? sessionStats.evLossBB : (gto.totalEvLoss || 0)) + '</div><div class="trn-stat-lbl">EV loss</div></div>' +
+        '</div></div>';
+    }
+
+    var sessionHands = (state.sessionHands && state.sessionHands.length)
+      ? state.sessionHands.slice()
+      : [];
+    var handsHtml;
+    if (sessionHands.length) {
+      handsHtml = sessionHands.slice().reverse().map(function (h) {
+        var net = Number(h.heroNetBB) || 0;
+        var netCls = net > 0.02 ? 'net-pos' : (net < -0.02 ? 'net-neg' : '');
+        return '<li class="trn-session-hand-row">' +
+          '<span class="trn-hand-meta">#' + esc(String(h.handIndex != null ? h.handIndex : '')) +
+          ' · ' + esc(h.heroCode || '') + ' ' + esc(h.heroPos || '') +
+          ' · <span class="' + netCls + '">' + (net >= 0 ? '+' : '') + esc(String(Math.round(net * 100) / 100)) + ' bb</span>' +
+          (h.handScore != null ? (' · nota ' + esc(String(h.handScore))) : '') +
+          '</span> ' +
+          '<button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
+          esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
+          '>Paso a paso</button> ' +
+          '<button type="button" class="btn btn-sm btn-primary" data-act="session-replay-hand" data-hand-id="' +
+          esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
+          '>Replay</button></li>';
+      }).join('');
+    } else {
+      var hands = (state.handLog || []).slice().reverse();
+      handsHtml = hands.length
+        ? hands.map(function (h) {
+          return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
+            esc(String(h.handIndex)) + '">Mano #' + esc(String(h.handIndex)) +
+            '</button> · pot ' + esc(String(Math.round((h.pot || 0) * 10) / 10)) +
+            (h.tied ? ' · chop' : '') +
+            (h.showdown ? ' · SD' : '') + '</li>';
+        }).join('')
+        : '<li class="muted">Sin manos guardadas</li>';
+    }
+
+    var bestWorst = '';
+    if (sessionStats && (sessionStats.best5 || sessionStats.worst5)) {
+      function miniList(list, title) {
+        if (!list || !list.length) return '';
+        return '<div class="trn-top-hands"><h4>' + esc(title) + '</h4><ul>' + list.map(function (h) {
+          return '<li>' + esc(h.heroCode || '') + ' ' + esc(h.heroPos || '') +
+            ' · ' + (Number(h.heroNetBB) >= 0 ? '+' : '') + esc(String(h.heroNetBB)) + ' bb' +
+            (h.id && sessionId
+              ? (' <button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
+                esc(h.id) + '" data-session-id="' + esc(sessionId) + '">Ver</button>')
+              : '') + '</li>';
+        }).join('') + '</ul></div>';
+      }
+      bestWorst = '<div class="trn-best-worst">' +
+        miniList(sessionStats.best5, 'Mejores manos') +
+        miniList(sessionStats.worst5, 'Peores manos') + '</div>';
+    }
 
     return '<div class="trn-result panel">' +
       '<h2>Resultado</h2>' +
@@ -1220,28 +1348,18 @@ function reducedMotion() {
       ' · Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
       '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
       ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP</p>' +
-      '<div class="trn-result-stats">' +
-      '<div class="trn-result-stats trn-session-like">' +
-      '<div class="trn-stat-grid">' +
-      '<div><div class="trn-stat-val">' + (stats.handsPlayed || 0) + '</div><div class="trn-stat-lbl">Manos</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.vpip || 0) + '%</div><div class="trn-stat-lbl">VPIP</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.pfr || 0) + '%</div><div class="trn-stat-lbl">PFR</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.wtsd != null ? stats.wtsd : '—') + '%</div><div class="trn-stat-lbl">WTSD</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.wsd != null ? stats.wsd : '—') + '%</div><div class="trn-stat-lbl">W$SD</div></div>' +
-      '<div><div class="trn-stat-val">' + (gto.accuracy != null ? gto.accuracy : (stats.gtoAccuracy || 0)) + '%</div><div class="trn-stat-lbl">Acierto GTO</div></div>' +
-      '<div><div class="trn-stat-val">' + (gto.totalEvLoss != null ? gto.totalEvLoss : (stats.evLoss || 0)) + '</div><div class="trn-stat-lbl">EV loss</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.wonHands || 0) + '</div><div class="trn-stat-lbl">Ganadas</div></div>' +
-      '</div></div>' +
-      '<p><strong>GTO</strong> · Decisiones ' + (gto.scored || 0) +
-      ' · Aciertos ' + (gto.hits || 0) +
-      (gto.accuracy != null ? (' (' + gto.accuracy + '%)') : '') +
-      ' · EV loss ' + (gto.totalEvLoss || 0) + ' bb</p></div>' +
+      statsHtml +
+      bestWorst +
+      (sessionId
+        ? ('<p><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
+          esc(sessionId) + '">Abrir en Sesiones</button></p>')
+        : '') +
       '<h3>Clasificación</h3>' +
       '<div class="trn-hist-table-wrap"><table class="trn-hist-table"><thead><tr>' +
       '<th>#</th><th>Jugador</th><th>Stack</th><th>Premio</th></tr></thead><tbody>' +
       standHtml + '</tbody></table></div>' +
       '<h3>Roles</h3><ul class="trn-role-reveal">' + details + '</ul>' +
-      '<h3>Histórico de manos</h3><ul class="trn-hand-log-list">' + handsHtml + '</ul>' +
+      '<h3>Manos analizadas</h3><ul class="trn-hand-log-list">' + handsHtml + '</ul>' +
       '<div class="trn-setup-actions">' +
       '<button type="button" class="btn btn-primary" data-act="hub">Hub</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
@@ -1260,7 +1378,11 @@ function reducedMotion() {
           '<td>' + fmtKoins(h.prizeEur || 0) + '</td>' +
           '<td>' + (h.roi || 0) + '%</td>' +
           '<td>' + (h.roleAccuracy || 0) + '%</td>' +
-          '<td><button type="button" class="btn btn-sm" data-act="remove-hist" data-id="' + esc(h.id) + '">×</button></td>' +
+          '<td>' + (h.sessionId
+            ? ('<button type="button" class="btn btn-sm" data-act="open-session" data-session-id="' +
+              esc(h.sessionId) + '">Sesión</button> ')
+            : '') +
+          '<button type="button" class="btn btn-sm" data-act="remove-hist" data-id="' + esc(h.id) + '">×</button></td>' +
           '</tr>';
       }).join('')
       : '<tr><td colspan="7" class="muted">Vacío</td></tr>';
@@ -1416,6 +1538,14 @@ function reducedMotion() {
         } else if (act === 'toggle-hand-detail') {
           ui.handDetailOpen = !ui.handDetailOpen;
           paint();
+        } else if (act === 'hand-end-review') {
+          openLiveHandReview(btn.getAttribute('data-hand-id'), 'review');
+        } else if (act === 'open-session') {
+          openSessionHand(btn.getAttribute('data-session-id'), null, 'review');
+        } else if (act === 'session-review-hand') {
+          openSessionHand(btn.getAttribute('data-session-id'), btn.getAttribute('data-hand-id'), 'review');
+        } else if (act === 'session-replay-hand') {
+          openSessionHand(btn.getAttribute('data-session-id'), btn.getAttribute('data-hand-id'), 'replay');
         } else if (act === 'replay-hand') {
           ui.replayHandIndex = Number(btn.getAttribute('data-hand'));
           ui.replayOpen = true;

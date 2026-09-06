@@ -2331,7 +2331,10 @@
       withLazyChunk('sessions', function () {
         if (opts.openSessionId) {
           showSessionLoading('Cargando sesión…');
-          void openSession(opts.openSessionId);
+          void openSession(opts.openSessionId, null, {
+            handId: opts.handId || null,
+            mode: opts.reviewMode || opts.mode || 'review'
+          });
           refreshSessionsFromCloud();
           return;
         }
@@ -2973,6 +2976,42 @@
     });
   }
   window.openAnalysisHandReview = openAnalysisHandReview;
+
+  /** Revisión / replay de una mano de Torneos IA (misma UI que Sesiones). */
+  function openTournamentHandReview(hand, mode) {
+    if (!hand) return;
+    currentHand = hand;
+    var stats = null;
+    try {
+      if (window.Importer && Importer.computeStats) stats = Importer.computeStats([hand]);
+    } catch (eStats) { stats = null; }
+    currentSession = {
+      id: hand.tournamentId ? ('trn_live_' + hand.tournamentId) : ('trn_live_' + Date.now()),
+      fileName: 'Mano de torneo IA',
+      hero: hand.hero,
+      hands: [hand],
+      stats: stats,
+      source: 'tournamentAi',
+      tournamentAi: true
+    };
+    analysisReviewReturn = true;
+    setAnalysisReviewBackLabel();
+    goToTab('sessions', { skipDefaultView: true });
+    withLazyChunk('sessions', function () {
+      if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
+      if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
+      try {
+        if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
+      } catch (e) {
+        console.error('[Tournaments] recompute failed', e);
+      }
+      showSessionsView('review');
+      if (mode === 'replay') startInteractiveReplay();
+      else renderTimelineReview();
+    });
+  }
+  window.openTournamentHandReview = openTournamentHandReview;
+
 
   function trainerLeaksForStats(st) {
     const aggLeaks = window.PTStatsAggregate ? PTStatsAggregate.trainerTopLeaks(st, 5) : [];
@@ -8368,6 +8407,9 @@
     sessionHandsShown = SESSION_HANDS_PAGE;
     renderSessionDetail('evLoss');
     showSessionsView('detail');
+    if (opts.handId) {
+      openHandReview(opts.handId, opts.mode || opts.reviewMode || 'review');
+    }
   }
 
   function renderSessionDetail(sortBy) {

@@ -43,6 +43,48 @@
     }).filter(function (id, i, arr) { return arr.indexOf(id) === i; });
   }
 
+  var CLASS_MAP = {
+    optima: 'optima', optimal: 'optima',
+    aceptable: 'aceptable', strong: 'aceptable', correct: 'aceptable', good: 'aceptable',
+    imprecisa: 'imprecisa', weak: 'imprecisa', imprecise: 'imprecisa',
+    error: 'error', blunder: 'error', bad: 'error',
+    unscored: 'unscored'
+  };
+
+  function mapClass(cls) {
+    if (!cls) return 'unscored';
+    var k = String(cls).toLowerCase();
+    return CLASS_MAP[k] || k;
+  }
+
+  function actionLabel(action, amount, bb) {
+    var a = String(action || '');
+    var amt = Number(amount) || 0;
+    var bbN = Math.max(1, Number(bb) || 1);
+    if (a === 'fold') return 'Fold';
+    if (a === 'check') return 'Check';
+    if (a === 'call') return amt > 0 ? ('Call ' + (Math.round(amt / bbN * 10) / 10) + ' bb') : 'Call';
+    if (a === 'bet') return 'Bet ' + (Math.round(amt / bbN * 10) / 10) + ' bb';
+    if (a === 'raise') return 'Raise to ' + (Math.round(amt / bbN * 10) / 10) + ' bb';
+    if (a === 'allin') return 'All-in';
+    return a ? (a.charAt(0).toUpperCase() + a.slice(1)) : 'Acción';
+  }
+
+  function optionBreakdown(strategy) {
+    if (!strategy || typeof strategy !== 'object') return null;
+    var keys = Object.keys(strategy);
+    if (!keys.length) return null;
+    return keys.map(function (id) {
+      var freq = Number(strategy[id]) || 0;
+      return {
+        id: id,
+        label: actionLabel(id, 0, 1),
+        pct: Math.round(freq * 1000) / 10,
+        frequency: freq
+      };
+    }).sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+  }
+
   function vsPosition(hand, hero) {
     if (hand.openerPos && hand.openerId !== hero.id) return hand.openerPos;
     var alive = (hand.seats || []).filter(function (s) { return !s.folded && !s.isHero; });
@@ -99,7 +141,7 @@
     var ev = evalResult.evaluation || evalResult;
     var freqs = evalResult.strategy || evalResult.gto || {};
     return {
-      class: ev.class || ev.grade || 'unscored',
+      class: mapClass(ev.class || ev.grade || 'unscored'),
       evLoss: Number(ev.evLoss != null ? ev.evLoss : ev.evErroneous) || 0,
       frequency: Number(ev.frequency != null ? ev.frequency : freqs[chosen]) || 0,
       best: ev.best || null,
@@ -113,6 +155,8 @@
     var base = {
       street: hand.street,
       action: chosen,
+      chosen: chosen,
+      label: actionLabel(chosen, action && action.amount, hand.bb),
       amount: action && action.amount,
       pos: heroSeat.pos,
       pot: hand.pot,
@@ -120,7 +164,9 @@
       unscored: true,
       class: 'unscored',
       evLoss: 0,
-      frequency: 0
+      frequency: 0,
+      gto: null,
+      optionBreakdown: null
     };
 
     var GTO = global.GTO;
@@ -137,6 +183,8 @@
       base.best = graded.best;
       base.explanation = graded.explanation;
       base.strategy = graded.strategy;
+      base.gto = graded.strategy;
+      base.optionBreakdown = optionBreakdown(graded.strategy);
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
@@ -152,18 +200,21 @@
 
   function summarizeDecisions(decisions) {
     var list = decisions || [];
-    var scored = list.filter(function (d) { return d && !d.unscored; });
+    var scored = list.filter(function (d) { return d && !d.unscored && d.class !== 'unscored'; });
     var totalEv = 0;
     var hits = 0;
     scored.forEach(function (d) {
       totalEv += Number(d.evLoss) || 0;
-      if (d.class === 'optimal' || d.class === 'strong' || d.class === 'correct' || d.class === 'good') hits += 1;
+      var cls = mapClass(d.class);
+      if (cls === 'optima' || cls === 'aceptable') hits += 1;
       else if (d.frequency >= 0.25) hits += 1;
     });
     var scoreMeta = null;
     try {
       if (global.GTOScoring && typeof global.GTOScoring.scoreHand === 'function') {
-        scoreMeta = global.GTOScoring.scoreHand(scored, totalEv);
+        scoreMeta = global.GTOScoring.scoreHand(scored.map(function (d) {
+          return Object.assign({}, d, { class: mapClass(d.class) });
+        }), totalEv);
       }
     } catch (e2) { /* */ }
     return {
@@ -173,13 +224,15 @@
       accuracy: scored.length ? Math.round((hits / scored.length) * 1000) / 10 : 0,
       totalEvLoss: Math.round(totalEv * 100) / 100,
       score: scoreMeta && scoreMeta.score != null ? scoreMeta.score : null,
-      scoreLabel: scoreMeta && (scoreMeta.label || scoreMeta.verdict) || null
+      scoreLabel: scoreMeta && (scoreMeta.label || scoreMeta.verdict) || null,
+      handScoreMeta: scoreMeta
     };
   }
 
   global.PTTournamentGtoEval = {
     evaluateHeroAction: evaluateHeroAction,
     summarizeDecisions: summarizeDecisions,
-    buildInput: buildInput
+    buildInput: buildInput,
+    mapClass: mapClass
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
