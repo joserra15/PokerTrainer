@@ -59,6 +59,19 @@
     state.blindLevel = blinds.level || state.blindLevel;
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
+    try {
+      var kind = (state.config && state.config.kind) || 'mtt';
+      var hub = (kind === 'spin') ? 'spin' : 'mtt';
+      hand.kind = kind;
+      hand.formatHub = hub;
+      hand.state = {
+        formatHub: hub,
+        kind: kind,
+        playersLeft: St.playersLeft(state),
+        placesPaid: state.config && state.config.placesPaid,
+        mttPhase: 'auto'
+      };
+    } catch (eMeta) { /* */ }
     Live.runToHeroOrEnd(hand);
     state._liveHand = hand;
     return hand;
@@ -326,8 +339,24 @@
           sessionStats = session.stats || null;
           state.sessionId = sessionId;
           state.sessionStats = sessionStats;
-          Promise.resolve(StoreApi.saveSession(session)).catch(function (err) {
-            try { console.warn('[Tournaments] saveSession failed', err); } catch (e0) { /* */ }
+          state._savedSession = session;
+          /* Cache inmediata para que «Estadísticas del torneo» no quede colgada. */
+          try {
+            if (typeof StoreApi.cacheSession === 'function') StoreApi.cacheSession(session);
+            else if (StoreApi._sessionMemoryCache) StoreApi._sessionMemoryCache[session.id] = session;
+          } catch (eCache) { /* */ }
+          Promise.resolve(StoreApi.saveSession(session)).then(function (res) {
+            if (res && res.ok === false) {
+              try { console.warn('[Tournaments] saveSession failed', res.error); } catch (e0) { /* */ }
+              try {
+                if (typeof StoreApi.saveSessionLocal === 'function') StoreApi.saveSessionLocal(session);
+              } catch (eLoc) { /* */ }
+            }
+          }).catch(function (err) {
+            try { console.warn('[Tournaments] saveSession failed', err); } catch (e1) { /* */ }
+            try {
+              if (typeof StoreApi.saveSessionLocal === 'function') StoreApi.saveSessionLocal(session);
+            } catch (e2) { /* */ }
           });
         }
       }

@@ -286,7 +286,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 6px 10px;
 }
 
@@ -313,6 +313,11 @@
 .trn-lobby-row[data-tone="sng"] .trn-desk-prize {
   color: #c4a6ff;
 }
+.trn-lobby-row[data-tone="spin"] .trn-lobby-title,
+.trn-lobby-row[data-tone="spin"] .trn-stat-prize,
+.trn-lobby-row[data-tone="spin"] .trn-desk-prize {
+  color: #7dcea0;
+}
 .trn-lobby-row[data-tone="easy"] .trn-stat-prize,
 .trn-lobby-row[data-tone="easy"] .trn-desk-prize {
   color: var(--gold, #f5c451);
@@ -322,7 +327,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .trn-badge {
@@ -957,6 +962,15 @@
 
 .trn-play-like .table-felt {
   min-height: 420px;
+}
+
+/* En móvil styles.css pone .seats { pointer-events: none } (el entrenador
+   no necesita clicks en villanos). En torneo sí: adivinar rol al tocar. */
+.trn-play-like .seats {
+  pointer-events: none;
+}
+.trn-play-like .seats .seat {
+  pointer-events: auto;
 }
 
 .trn-play-like .seat {
@@ -1769,81 +1783,72 @@
   100% { opacity: 0; }
 }
 
-.trn-confetti {
-  position: absolute;
+/* —— Cartel mesa final (sin confeti; auto-oculta a ~3s) —— */
+.trn-ft-banner {
+  position: fixed;
   inset: 0;
-  overflow: hidden;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
-  z-index: 1;
+  background: rgba(4, 10, 18, .55);
+  animation: trn-ft-banner-fade 3s ease forwards;
 }
-.trn-confetti-piece {
-  --drift: 0px;
-  --spin: 720deg;
-  --dur: 2.6s;
-  --delay: 0s;
-  --size-w: 8px;
-  --size-h: 12px;
-  position: absolute;
-  top: -18px;
-  left: calc(4% + (var(--i) * 3.8%));
-  width: var(--size-w);
-  height: var(--size-h);
-  opacity: 0;
-  background: #f5c451;
-  animation: trn-confetti-fall var(--dur) cubic-bezier(.2,.7,.3,1) forwards;
-  animation-delay: var(--delay);
-  will-change: transform, opacity;
+.trn-ft-banner-card {
+  position: relative;
+  min-width: min(320px, 88vw);
+  padding: 28px 26px 24px;
+  border-radius: 18px;
+  text-align: center;
+  color: #fff8e8;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(240, 193, 77, .28), transparent 55%),
+    linear-gradient(165deg, #243244 0%, #121924 55%, #0c121c 100%);
+  border: 2px solid rgba(240, 193, 77, .7);
+  box-shadow:
+    0 0 0 1px rgba(255, 230, 160, .12) inset,
+    0 22px 50px rgba(0, 0, 0, .55),
+    0 0 40px rgba(240, 193, 77, .18);
+  animation: trn-ft-banner-pop .45s cubic-bezier(.2, .9, .3, 1) both;
 }
-.trn-confetti-piece.is-rect { border-radius: 2px; }
-.trn-confetti-piece.is-strip {
-  --size-w: 4px;
-  --size-h: 14px;
-  border-radius: 1px;
+.trn-ft-banner-kicker {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(240, 193, 77, .9);
 }
-.trn-confetti-piece.is-dot {
-  --size-w: 7px;
-  --size-h: 7px;
-  border-radius: 50%;
+.trn-ft-banner-title {
+  display: block;
+  margin: 0;
+  font-size: clamp(1.7rem, 7vw, 2.35rem);
+  font-weight: 800;
+  letter-spacing: .12em;
+  line-height: 1.05;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, .45);
 }
-.trn-confetti-piece:nth-child(3n) { background: #3d9b6a; --spin: 540deg; --drift: 28px; }
-.trn-confetti-piece:nth-child(3n+1) { background: #f0c14d; --spin: -640deg; --drift: -22px; }
-.trn-confetti-piece:nth-child(3n+2) { background: #5b8def; --spin: 800deg; --drift: 16px; }
-.trn-confetti-piece:nth-child(4n) { background: #e86a5c; --drift: -30px; }
-.trn-confetti-piece:nth-child(5n) { background: #d4a017; --size-w: 10px; }
-.trn-confetti-piece:nth-child(odd) { --dur: 2.35s; }
-.trn-confetti-piece:nth-child(even) { --dur: 2.85s; }
-.trn-confetti-piece:nth-child(1) { --delay: 0s; }
-.trn-confetti-piece:nth-child(2) { --delay: .04s; }
-.trn-confetti-piece:nth-child(3) { --delay: .08s; }
-.trn-confetti-piece:nth-child(4) { --delay: .02s; }
-.trn-confetti-piece:nth-child(5) { --delay: .12s; }
-.trn-confetti-piece:nth-child(6) { --delay: .06s; }
-.trn-confetti-piece:nth-child(7) { --delay: .15s; }
-.trn-confetti-piece:nth-child(8) { --delay: .03s; }
-.trn-confetti-piece:nth-child(9) { --delay: .18s; }
-.trn-confetti-piece:nth-child(10) { --delay: .09s; }
-.trn-confetti-piece:nth-child(11) { --delay: .14s; }
-.trn-confetti-piece:nth-child(12) { --delay: .05s; }
-.trn-confetti-piece:nth-child(13) { --delay: .11s; }
-.trn-confetti-piece:nth-child(14) { --delay: .07s; }
-.trn-confetti-piece:nth-child(15) { --delay: .16s; }
-.trn-confetti-piece:nth-child(16) { --delay: .01s; }
-.trn-confetti-piece:nth-child(17) { --delay: .13s; }
-.trn-confetti-piece:nth-child(18) { --delay: .19s; }
-.trn-confetti-piece:nth-child(19) { --delay: .08s; }
-.trn-confetti-piece:nth-child(20) { --delay: .17s; }
-.trn-confetti-piece:nth-child(21) { --delay: .1s; }
-.trn-confetti-piece:nth-child(22) { --delay: .2s; }
-.trn-confetti-piece:nth-child(23) { --delay: .04s; }
-.trn-confetti-piece:nth-child(24) { --delay: .14s; }
-@keyframes trn-confetti-fall {
-  0% { transform: translate3d(0,-8px,0) rotate(0deg) scale(1); opacity: 0; }
-  8% { opacity: 1; }
-  70% { opacity: 1; }
-  100% { transform: translate3d(var(--drift), 108vh, 0) rotate(var(--spin)) scale(.85); opacity: 0; }
+.trn-ft-banner-sub {
+  display: block;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #d7e2ef;
+}
+@keyframes trn-ft-banner-pop {
+  0% { transform: scale(.86) translateY(10px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes trn-ft-banner-fade {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  78% { opacity: 1; }
+  100% { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .trn-confetti-piece { animation: none; opacity: 0; }
+  .trn-ft-banner,
+  .trn-ft-banner-card { animation: none; opacity: 1; }
 }
 
 .trn-allin-badge {
@@ -2222,4 +2227,94 @@
   margin: 0 0 10px;
   font-size: 14px;
   color: #cfe0d4;
+}
+
+
+/* ---- Stats de sesión en resultado de torneo (cajitas) ---- */
+.trn-session-stats {
+  margin: 12px 0 16px;
+}
+.trn-session-stats h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.trn-session-grade {
+  margin: 0 0 10px;
+  color: var(--muted, #8b949e);
+  font-size: 13px;
+}
+.trn-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+}
+.trn-stat-cell {
+  background: var(--panel, rgba(22, 27, 34, .92));
+  border: 1px solid var(--border, rgba(255,255,255,.08));
+  border-radius: 10px;
+  padding: 14px 10px;
+  text-align: center;
+}
+.trn-stat-cell .trn-stat-val {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--gold, #f5c451);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.trn-stat-cell .trn-stat-lbl {
+  margin-top: 4px;
+  color: var(--muted, #8b949e);
+  font-size: 12px;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.trn-lobby-recent-grid, .trn-hist-list.trn-lobby-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.trn-recent-card {
+  background: var(--panel, rgba(22, 27, 34, .92));
+  border: 1px solid var(--border, rgba(255,255,255,.08));
+  border-radius: 10px;
+  padding: 12px 12px 10px;
+}
+.trn-recent-card .trn-recent-name {
+  display: block;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: var(--text, #e6edf3);
+}
+.trn-recent-card .trn-recent-vals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.trn-recent-card .trn-recent-chip {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 52px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.trn-recent-card .trn-recent-chip strong {
+  font-size: 13px;
+  color: var(--gold, #f5c451);
+}
+.trn-recent-card .trn-recent-chip span {
+  font-size: 10px;
+  color: var(--muted, #8b949e);
+  text-transform: uppercase;
+}
+@media (max-width: 520px) {
+  .trn-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trn-stat-cell .trn-stat-val { font-size: 18px; }
 }

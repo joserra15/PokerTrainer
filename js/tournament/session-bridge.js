@@ -63,6 +63,11 @@
     }
     var keys = Object.keys(freqs);
     if (!keys.length) return null;
+    var sum = 0;
+    keys.forEach(function (id) { sum += Number(freqs[id]) || 0; });
+    if (sum > 0 && Math.abs(sum - 1) > 0.02) {
+      keys.forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
+    }
     return keys.map(function (id) {
       var freq = Number(freqs[id]) || 0;
       return {

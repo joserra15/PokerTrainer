@@ -311,6 +311,8 @@
       streetInvested: s.streetInvested,
       folded: !!s.folded,
       allIn: !!s.allIn,
+      physicalSeat: s.physicalSeat != null ? s.physicalSeat : s.seat,
+      seat: s.seat != null ? s.seat : s.physicalSeat,
       lastAction: s.lastAction
         ? { action: s.lastAction.action, amount: s.lastAction.amount, street: s.lastAction.street }
         : null

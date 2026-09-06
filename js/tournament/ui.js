@@ -57,37 +57,38 @@
     return 'Jugador';
   }
 
-  function confettiPiecesHtml() {
-    var shapes = ['rect', 'rect', 'strip', 'strip', 'dot', 'rect', 'strip', 'dot',
-      'rect', 'strip', 'dot', 'rect', 'strip', 'rect', 'dot', 'strip',
-      'rect', 'strip', 'dot', 'rect', 'strip', 'dot', 'rect', 'strip'];
-    return shapes.map(function (sh, idx) {
-      return '<i class="trn-confetti-piece is-' + sh + '" style="--i:' + idx + '"></i>';
-    }).join('');
-  }
-
-  function toastPopupHtml(kind, title, sub, withConfetti) {
+  function toastPopupHtml(kind, title, sub) {
     return '<div class="trn-center-popup trn-popup-' + kind + '" data-popup="' + kind + '" role="status">' +
-      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' + confettiPiecesHtml() + '</div>' : '') +
       '<div class="trn-center-popup-card">' +
       '<strong>' + title + '</strong>' +
       (sub ? ('<span>' + sub + '</span>') : '') +
       '</div></div>';
   }
 
-  function schedulePopupClear(flag) {
+  /** Cartel llamativo de mesa final (sin confeti); se oculta solo. */
+  function finalTableBannerHtml(players) {
+    var n = Number(players) || 0;
+    return '<div class="trn-ft-banner" data-popup="ft" role="status" aria-live="polite">' +
+      '<div class="trn-ft-banner-card">' +
+      '<p class="trn-ft-banner-kicker">Torneo</p>' +
+      '<strong class="trn-ft-banner-title">MESA FINAL</strong>' +
+      (n ? ('<span class="trn-ft-banner-sub">' + n + ' jugadores</span>') : '') +
+      '</div></div>';
+  }
+
+  function schedulePopupClear(flag, ms) {
     try {
-      if (!ui.popupClearScheduled) ui.popupClearScheduled = {};
-      if (ui.popupClearScheduled[flag]) return;
-      ui.popupClearScheduled[flag] = true;
-      setTimeout(function () {
-        ui.popupClearScheduled[flag] = false;
+      if (!ui.popupClearTimers) ui.popupClearTimers = {};
+      if (ui.popupClearTimers[flag]) return;
+      var delay = ms != null ? ms : 2000;
+      ui.popupClearTimers[flag] = setTimeout(function () {
+        ui.popupClearTimers[flag] = null;
         if (!ui.state) return;
         if (flag === 'blind') ui.state.blindUpPending = null;
         if (flag === 'ft') ui.state.finalTablePending = null;
         if (flag === 'itm') ui.state.itmPending = null;
         paint();
-      }, 2000);
+      }, delay);
     } catch (e) { /* */ }
   }
 
@@ -129,6 +130,13 @@ function reducedMotion() {
         roleId: s.roleId,
         pos: s.pos,
         seatIndex: s.seatIndex,
+        /* Conservar asiento físico: sin él el anillo reordena en animación. */
+        physicalSeat: s.physicalSeat != null
+          ? s.physicalSeat
+          : (fs.physicalSeat != null ? fs.physicalSeat : s.seat),
+        seat: s.seat != null
+          ? s.seat
+          : (fs.seat != null ? fs.seat : s.physicalSeat),
         cards: s.cards,
         startStack: s.startStack,
         stack: fs.stack,
@@ -156,7 +164,10 @@ function reducedMotion() {
       awaitingHero: false,
       heroOptions: null,
       result: null,
-      holesRevealed: !!(f.holesRevealed || hand.holesRevealed || f.kind === 'reveal'),
+      /* Solo el fotograma manda: hand.holesRevealed ya es true al acabar el
+         motor (finishShowdown), y si se OR-ea aquí se ven cartas de all-in
+         antes del call de otro villano. */
+      holesRevealed: !!(f.holesRevealed || f.kind === 'reveal'),
       _anim: true
     };
   }
@@ -240,20 +251,22 @@ function reducedMotion() {
 
   function lobbyBadges(cfg) {
     var badges = [];
-    badges.push({ t: cfg.kind === 'sng' ? 'SNG' : 'MTT', k: 'kind' });
+    var kindLabel = cfg.kind === 'sng' ? 'SNG' : (cfg.kind === 'spin' ? 'SPIN' : 'MTT');
+    badges.push({ t: kindLabel, k: 'kind' });
     badges.push({ t: cfg.seatsPerTable + '-MAX', k: 'max' });
     badges.push({ t: "HOLD'EM NL", k: 'game' });
-    if (startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
-    if (cfg.id === 'easy') badges.push({ t: 'FÁCIL', k: 'diff' });
-    if (cfg.id === 'medium') badges.push({ t: 'MEDIO', k: 'diff' });
-    if (cfg.id === 'hard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
+    if (cfg.kind !== 'spin' && startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
+    if (cfg.id === 'easy' || cfg.id === 'spinEasy') badges.push({ t: 'FÁCIL', k: 'diff' });
+    if (cfg.id === 'medium' || cfg.id === 'spinMedium') badges.push({ t: 'MEDIO', k: 'diff' });
+    if (cfg.id === 'hard' || cfg.id === 'spinHard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
     return badges;
   }
 
   function lobbyTone(cfg) {
-    if (cfg.id === 'hard') return 'hard';
-    if (cfg.id === 'medium') return 'mid';
-    if (cfg.id === 'easy') return 'easy';
+    if (cfg.id === 'hard' || cfg.id === 'spinHard') return 'hard';
+    if (cfg.id === 'medium' || cfg.id === 'spinMedium') return 'mid';
+    if (cfg.id === 'easy' || cfg.id === 'spinEasy') return 'easy';
+    if (cfg.kind === 'spin') return 'spin';
     if (cfg.kind === 'sng') return 'sng';
     return 'mtt';
   }
@@ -377,7 +390,7 @@ function reducedMotion() {
       return '<span class="trn-badge trn-badge-' + esc(b.k) + '">' + esc(b.t) + '</span>';
     }).join('');
     var bb = startingBb(p);
-    var kindLabel = p.kind === 'sng' ? 'SNG' : 'MTT';
+    var kindLabel = p.kind === 'sng' ? 'SNG' : (p.kind === 'spin' ? 'SPIN' : 'MTT');
 
     var activeSum = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
     var isActivePreset = !!(activeSum && (activeSum.presetId === p.id || activeSum.id === p.id));
@@ -421,6 +434,7 @@ function reducedMotion() {
     var filtered = presets.filter(function (p) {
       if (filter === 'mtt') return p.kind === 'mtt';
       if (filter === 'sng') return p.kind === 'sng';
+      if (filter === 'spin') return p.kind === 'spin';
       return true;
     });
     var hist = (global.PTTournamentStore.list() || []).slice(0, 5);
@@ -431,10 +445,15 @@ function reducedMotion() {
 
     var histHtml = hist.length
       ? hist.map(function (h) {
-        return '<li><strong>' + esc(h.name) + '</strong> · ' +
-          (h.place != null ? (h.place + 'º') : '—') +
-          ' · ' + esc(fmtEur(h.prizeEur || 0)) +
-          ' · ROI ' + (h.roi || 0) + '%</li>';
+        var diff = (h.name || '').split('·')[0].trim() || (h.kind || '').toUpperCase();
+        return '<li class="trn-recent-card">' +
+          '<span class="trn-recent-name">' + esc(h.name || 'Torneo') + '</span>' +
+          '<div class="trn-recent-vals">' +
+          '<span class="trn-recent-chip"><strong>' + esc(diff) + '</strong><span>Tipo</span></span>' +
+          '<span class="trn-recent-chip"><strong>' + (h.place != null ? (h.place + 'º') : '—') + '</strong><span>Puesto</span></span>' +
+          '<span class="trn-recent-chip"><strong>' + esc(fmtEur(h.prizeEur || 0)) + '</strong><span>Premio</span></span>' +
+          '<span class="trn-recent-chip"><strong>' + esc(String(h.roi != null ? h.roi : 0)) + '%</strong><span>ROI</span></span>' +
+          '</div></li>';
       }).join('')
       : '<li class="muted">Sin torneos guardados</li>';
 
@@ -494,6 +513,7 @@ function reducedMotion() {
       filterBtn('all', 'Todos') +
       filterBtn('mtt', 'MTT') +
       filterBtn('sng', 'SNG') +
+      filterBtn('spin', 'Spins') +
       '</div>' +
       '<p class="trn-lobby-count">' + filtered.length +
       ' torneo' + (filtered.length === 1 ? '' : 's') + '</p></div>' +
@@ -507,7 +527,7 @@ function reducedMotion() {
         return (Lb && Lb.legendHtml ? Lb.legendHtml() : '') + (Lb && Lb.renderHtml ? Lb.renderHtml() : '');
       })() +
       '<section class="trn-lobby-recent">' +
-      '<h3>Recientes</h3><ul class="trn-hist-list">' + histHtml + '</ul>' +
+      '<h3>Recientes</h3><ul class="trn-lobby-recent-grid">' + histHtml + '</ul>' +
       '</section>' + resumeModal + '</div>';
   }
 
@@ -1013,18 +1033,17 @@ function reducedMotion() {
         'blind',
         'Subida de nivel',
         'Nivel ' + esc(String(bu.level)) + ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
-          (bu.ante ? (' ante ' + esc(String(bu.ante))) : ''),
-        false
+          (bu.ante ? (' ante ' + esc(String(bu.ante))) : '')
       );
-      schedulePopupClear('blind');
+      schedulePopupClear('blind', 2000);
     }
     if (state.finalTablePending && !(hand && hand.stage === 'complete')) {
-      ftPopup = toastPopupHtml('ft', 'Mesa final', String(state.finalTablePending.players || '') + ' jugadores', true);
-      schedulePopupClear('ft');
+      ftPopup = finalTableBannerHtml(state.finalTablePending.players);
+      schedulePopupClear('ft', 3000);
     }
     if (state.itmPending && !(hand && hand.stage === 'complete')) {
-      itmPopup = toastPopupHtml('itm', '¡En el dinero!', 'Has entrado en premios', true);
-      schedulePopupClear('itm');
+      itmPopup = toastPopupHtml('itm', '¡En el dinero!', 'Has entrado en premios');
+      schedulePopupClear('itm', 2000);
     }
 
     var exitModal = '';
@@ -1235,10 +1254,20 @@ function reducedMotion() {
   function openSessionHand(sessionId, handId, mode) {
     mode = mode || 'review';
     if (!sessionId) return;
+    var sessionObj = null;
+    try {
+      if (ui.state && ui.state._savedSession && String(ui.state._savedSession.id) === String(sessionId)) {
+        sessionObj = ui.state._savedSession;
+      } else if (ui.state && ui.state.sessionId && String(ui.state.sessionId) === String(sessionId) && ui.state.sessionStats) {
+        /* Fallback mínimo si aún no hay objeto completo en memoria. */
+        sessionObj = null;
+      }
+    } catch (eSess) { sessionObj = null; }
     try {
       if (typeof global.goToTab === 'function') {
         global.goToTab('sessions', {
           openSessionId: sessionId,
+          sessionObj: sessionObj,
           handId: handId || null,
           reviewMode: mode,
           fromTournament: true
@@ -1246,7 +1275,7 @@ function reducedMotion() {
         return;
       }
       if (typeof global.openSession === 'function') {
-        Promise.resolve(global.openSession(sessionId, null, {
+        Promise.resolve(global.openSession(sessionId, sessionObj, {
           handId: handId || null,
           mode: mode,
           fromTournament: true
@@ -1702,8 +1731,12 @@ function reducedMotion() {
     });
 
     root.querySelectorAll('.trn-play-like .seat.villain[data-player]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        ui.roleModalPlayerId = btn.getAttribute('data-player');
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var pid = btn.getAttribute('data-player');
+        if (!pid) return;
+        ui.roleModalPlayerId = pid;
         paint();
       });
     });
@@ -1749,6 +1782,13 @@ function reducedMotion() {
     render: render,
     setView: setView,
     VIEW: VIEW,
-    getState: function () { return ui.state; }
+    getState: function () { return ui.state; },
+    /* Expuesto para tests de estabilidad del anillo visual. */
+    ringByPhysicalSeat: ringByPhysicalSeat,
+    animHand: animHand,
+    setAnimFrame: function (frame) {
+      ui.anim = ui.anim || {};
+      ui.anim.frame = frame || null;
+    }
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

@@ -99,7 +99,9 @@ assert.ok(!PF.shouldOpenShove('72o', 'UTG', 10));
 const pfStrat = PF.pushFoldStrategy({
   handCode: 'AA', position: 'BTN', effStack: 10, toCallBB: 0
 });
-assert.ok((pfStrat.raise || 0) > 0.5, 'AA shove');
+/* Shove va en allin (no raise+allin a la vez — rompía % ~48/2). */
+assert.ok(Math.max(pfStrat.raise || 0, pfStrat.allin || 0) > 0.5, 'AA shove');
+assert.ok(!((pfStrat.raise || 0) > 0.05 && (pfStrat.allin || 0) > 0.05), 'no dual raise+allin');
 
 // vsRFI push: fold/call/shove (villano abre 2.5bb, no all-in)
 const pfVsOpen = PF.pushFoldStrategy({
