@@ -6223,8 +6223,12 @@ function reducedMotion() {
     });
 
     root.querySelectorAll('.trn-play-like .seat.villain[data-player]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        ui.roleModalPlayerId = btn.getAttribute('data-player');
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var pid = btn.getAttribute('data-player');
+        if (!pid) return;
+        ui.roleModalPlayerId = pid;
         paint();
       });
     });

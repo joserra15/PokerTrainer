@@ -848,6 +848,11 @@ console.log('OK dist-tournaments-bundle');
   const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(cssSrc.includes('trn-hand-end-scroll'), 'css scroll region');
   assert.ok(cssSrc.includes('seat-name'), 'css seat names');
+  /* Móvil: styles.css pone .seats { pointer-events:none }; torneo debe reactivar asientos. */
+  assert.ok(/\.trn-play-like\s+\.seats\s+\.seat\s*\{[^}]*pointer-events:\s*auto/s.test(cssSrc),
+    'css re-enables pointer-events on tournament seats');
+  assert.ok(uiSrc.includes('data-player') && uiSrc.includes('roleModalPlayerId'),
+    'clicking villain opens role modal');
   const coreChunk = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
   assert.ok(coreChunk.includes('hand-end-view.js'), 'chunk lists hand-end-view');
   assert.ok(coreChunk.includes('session-bridge.js'), 'chunk lists session-bridge');

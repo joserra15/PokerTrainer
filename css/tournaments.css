@@ -959,6 +959,15 @@
   min-height: 420px;
 }
 
+/* En móvil styles.css pone .seats { pointer-events: none } (el entrenador
+   no necesita clicks en villanos). En torneo sí: adivinar rol al tocar. */
+.trn-play-like .seats {
+  pointer-events: none;
+}
+.trn-play-like .seats .seat {
+  pointer-events: auto;
+}
+
 .trn-play-like .seat {
   appearance: none;
   -webkit-appearance: none;
