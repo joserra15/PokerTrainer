@@ -13,12 +13,20 @@
 
   function handCode(cards) {
     if (!cards || cards.length < 2) return null;
-    var C = global.Cards;
-    if (C && C.handCode) {
-      try { return C.handCode(cards[0], cards[1]); } catch (e) { /* */ }
-    }
-    var a = cardCode(cards[0]);
-    var b = cardCode(cards[1]);
+    var a0 = cards[0];
+    var a1 = cards[1];
+    try {
+      if (global.Ranges && typeof global.Ranges.handCode === 'function') {
+        return global.Ranges.handCode(a0, a1);
+      }
+    } catch (eR) { /* */ }
+    try {
+      if (global.GTORangesNotation && typeof global.GTORangesNotation.handCode === 'function') {
+        return global.GTORangesNotation.handCode(a0, a1);
+      }
+    } catch (eN) { /* */ }
+    var a = cardCode(a0);
+    var b = cardCode(a1);
     if (!a || !b) return null;
     var order = '23456789TJQKA';
     var ra = order.indexOf(a[0]);
@@ -27,6 +35,16 @@
     var lo = ra >= rb ? b : a;
     if (hi[0] === lo[0]) return hi[0] + lo[0];
     return hi[0] + lo[0] + (hi[1] === lo[1] ? 's' : 'o');
+  }
+
+  /** Misma convención que el importador: RFI = none, vs open = caller; postflop = agresor preflop. */
+  function resolveInitiative(hand, heroSeat, firstIn) {
+    if (!hand || !heroSeat) return 'none';
+    if (hand.street === 'preflop') {
+      return firstIn || !hand.openerId ? 'none' : 'caller';
+    }
+    if (hand.openerId && hand.openerId === heroSeat.id) return 'aggressor';
+    return 'caller';
   }
 
   function mapActionId(action, opts) {
@@ -208,8 +226,9 @@
     if (hand.ante != null) anteBB = Number(hand.ante) / bb;
     else if (hand.anteBB != null) anteBB = Number(hand.anteBB);
 
+    var initiative = resolveInitiative(hand, heroSeat, firstIn);
     var input = {
-      spotKind: street === 'preflop' ? (hand.openerId ? 'vsRFI' : 'RFI') : 'postflop',
+      spotKind: street === 'preflop' ? (hand.openerId && !firstIn ? 'vsRFI' : 'RFI') : 'postflop',
       street: street,
       position: heroSeat.pos,
       vsPosition: vsPosition(hand, heroSeat),
@@ -225,6 +244,8 @@
       heroRemainingBB: Math.round((stackLeft / bb) * 100) / 100,
       availableActions: avail,
       chosenAction: chosen,
+      initiative: initiative,
+      inPosition: street === 'preflop' ? false : undefined,
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
       mttPhase: phase,
@@ -314,16 +335,44 @@
       base.strategy = graded.strategy;
       base.gto = graded.strategy;
       base.optionBreakdown = optionBreakdown(graded.strategy, { pushFold: !!input.pushFold });
+      /* Persistir opciones legales = misma mezcla que Entrenar / recompute / matriz. */
+      base.options = (input.availableActions || []).slice();
+      base.availableActions = base.options.slice();
+      base.initiative = input.initiative;
+      base.formatHub = input.formatHub;
+      base.gameType = input.gameType;
+      base.pushFold = !!input.pushFold;
+      base.preflopMode = input.preflopMode;
+      base.spotKind = input.spotKind;
+      base.vsPosition = input.vsPosition;
+      base.potBB = input.potBB;
+      base.potEvalBB = input.potBB;
+      base.toCallBB = input.toCallBB;
+      base.potBeforeBB = input.potBeforeBB;
       if (result && result.evaluation && result.evaluation.phaseNote) {
         base.phaseNote = result.evaluation.phaseNote;
+      }
+      if (result && result.evaluation) {
+        base.evErroneous = result.evaluation.evErroneous;
+        base.actionEV = result.evaluation.actionEV;
+        base.bestEV = result.evaluation.bestEV;
       }
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
         position: input.position,
+        vsPosition: input.vsPosition,
         potBB: input.potBB,
         toCallBB: input.toCallBB,
+        potBeforeBB: input.potBeforeBB,
         stackBB: input.stackBB,
+        stackDepth: input.stackDepth,
+        availableActions: (input.availableActions || []).slice(),
+        chosenAction: input.chosenAction,
+        initiative: input.initiative,
+        inPosition: input.inPosition,
+        formatHub: input.formatHub,
+        gameType: input.gameType,
         mttPhase: input.mttPhase,
         pushFold: input.pushFold,
         preflopMode: input.preflopMode

@@ -80,6 +80,31 @@
       .sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
   }
 
+  function resolveHandCode(cards) {
+    if (!cards || cards.length < 2) return null;
+    try {
+      if (global.Ranges && typeof global.Ranges.handCode === 'function') {
+        return global.Ranges.handCode(cards[0], cards[1]);
+      }
+    } catch (e1) { /* */ }
+    try {
+      if (global.GTORangesNotation && typeof global.GTORangesNotation.handCode === 'function') {
+        return global.GTORangesNotation.handCode(cards[0], cards[1]);
+      }
+    } catch (e2) { /* */ }
+    var a = cardCode(cards[0]);
+    var b = cardCode(cards[1]);
+    if (!a || !b) return null;
+    var order = '23456789TJQKA';
+    var ra = order.indexOf(a[0]);
+    var rb = order.indexOf(b[0]);
+    if (ra < 0 || rb < 0) return null;
+    var hi = ra >= rb ? a : b;
+    var lo = ra >= rb ? b : a;
+    if (hi[0] === lo[0]) return hi[0] + lo[0];
+    return hi[0] + lo[0] + (hi[1] === lo[1] ? 's' : 'o');
+  }
+
   function normalizeDecision(d, bb) {
     if (!d) return null;
     var chosen = d.chosen || d.action || d.label || 'fold';
@@ -88,6 +113,12 @@
     var pushFold = !!(d.pushFold || (d.input && d.input.pushFold) || d.mttPhase === 'push'
       || d.preflopMode === 'push');
     var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy, { pushFold: pushFold });
+    var opts = d.options || d.availableActions
+      || (d.input && (d.input.availableActions || d.input.options)) || null;
+    if ((!opts || !opts.length) && breakdown && breakdown.length) {
+      opts = breakdown.map(function (o) { return o.id; }).filter(Boolean);
+    }
+    var input = d.input || null;
     var out = {
       street: d.street || 'preflop',
       chosen: chosen,
@@ -102,10 +133,26 @@
       explanation: d.explanation || null,
       context: d.context || null,
       unscored: !!d.unscored || cls === 'unscored',
-      potBB: d.input && d.input.potBB != null ? d.input.potBB : (d.potBB != null ? d.potBB : null),
-      toCallBB: d.input && d.input.toCallBB != null ? d.input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
-      spotKind: d.input && d.input.spotKind ? d.input.spotKind : (d.spotKind || null),
-      amount: d.amount != null ? d.amount : null
+      potBB: input && input.potBB != null ? input.potBB : (d.potBB != null ? d.potBB : null),
+      potEvalBB: d.potEvalBB != null ? d.potEvalBB
+        : (input && input.potBB != null ? input.potBB : (d.potBB != null ? d.potBB : null)),
+      toCallBB: input && input.toCallBB != null ? input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
+      potBeforeBB: d.potBeforeBB != null ? d.potBeforeBB
+        : (input && input.potBeforeBB != null ? input.potBeforeBB : null),
+      spotKind: (input && input.spotKind) || d.spotKind || null,
+      vsPosition: d.vsPosition || (input && input.vsPosition) || null,
+      initiative: d.initiative || (input && input.initiative) || null,
+      formatHub: d.formatHub || (input && input.formatHub) || 'mtt',
+      gameType: d.gameType || (input && input.gameType) || null,
+      mttPhase: d.mttPhase || (input && input.mttPhase) || null,
+      pushFold: pushFold,
+      preflopMode: d.preflopMode || (input && input.preflopMode) || null,
+      stackBB: d.stackBB != null ? d.stackBB
+        : (input && input.stackBB != null ? input.stackBB : null),
+      amount: d.amount != null ? d.amount : null,
+      options: Array.isArray(opts) ? opts.slice() : null,
+      availableActions: Array.isArray(opts) ? opts.slice() : null,
+      input: input
     };
     if (out.unscored && !d.class) out.class = 'aceptable';
     return out;
@@ -283,7 +330,7 @@
       hero: heroName,
       heroPos: heroSeat.pos || 'BTN',
       heroCards: heroCards,
-      heroCode: null,
+      heroCode: resolveHandCode(heroCards),
       heroHandName: handNamesByPlayer[heroName] || srcHandNames[heroSeat.id] || null,
       board: boardObj.all.slice(),
       boardAll: boardObj.all.slice(),
@@ -331,11 +378,11 @@
       source: 'tournamentAi'
     };
 
-    try {
-      if (global.Cards && global.Cards.handCode && heroCards.length === 2) {
-        hand.heroCode = global.Cards.handCode(heroCards[0], heroCards[1]);
-      }
-    } catch (e2) { /* */ }
+    if (!hand.heroCode && heroCards.length === 2) {
+      try {
+        hand.heroCode = resolveHandCode(heroCards);
+      } catch (e2) { /* */ }
+    }
 
     try {
       if (global.Importer && typeof global.Importer.buildHandTags === 'function') {
@@ -387,6 +434,7 @@
       hands: hands,
       stats: stats,
       source: 'tournamentAi',
+      tournamentAi: true,
       tournamentId: state.id,
       tournament: {
         id: state.id,

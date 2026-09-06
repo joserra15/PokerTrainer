@@ -773,6 +773,9 @@ console.log('OK dist-tournaments-bundle');
   const badge = g.PTHandEndView.scoreBadgeHtml({ score: 10, letter: 'A' });
   assert.ok(/Nota 10\/10/.test(badge), 'badge says Nota X/10');
   assert.ok(!/·\s*A/.test(badge), 'badge no longer shows confusing · A');
+  assert.ok(hand.heroCode === 'AKo' || hand.heroCode === 'AKs',
+    'heroCode from Ranges/fallback, got ' + hand.heroCode);
+  assert.ok(String(hand.heroCode).indexOf('null') < 0, 'heroCode not null string');
   console.log('OK session-bridge');
 }
 
@@ -1414,6 +1417,102 @@ console.log('OK pushfold-freq-100');
   assert.strictEqual(duringReveal.holesRevealed, true, 'en fotograma reveal sí se muestran holes');
   assert.deepStrictEqual(duringReveal.board, [], 'reveal sigue sin comunitarias');
   console.log('OK allin-holes-only-on-reveal-frame');
+}
+
+// --- session GTO align: no merge torneos, heroCode, options, preflop leadType ---
+{
+  const storageSrc = fs.readFileSync(path.join(ROOT, 'js/storage.js'), 'utf8');
+  assert.ok(/source === ['"]tournamentAi['"]|tournamentAi/.test(storageSrc)
+    && /mergeSessionIfDuplicate[\s\S]{0,400}tournamentAi/.test(storageSrc),
+    'mergeSessionIfDuplicate skips tournamentAi');
+
+  const importSrc = fs.readFileSync(path.join(ROOT, 'js/import.js'), 'utf8');
+  assert.ok(importSrc.includes("['fold', 'raise', 'allin']")
+    || importSrc.includes('["fold", "raise", "allin"]'),
+    'buildEvalInput preflop fallback fold/raise/allin');
+  assert.ok(!/street === ['"]preflop['"][\s\S]{0,200}bet_33/.test(
+    importSrc.slice(importSrc.indexOf('function buildEvalInputFromDecision'),
+      importSrc.indexOf('function buildEvalInputFromDecision') + 2500)
+  ) || importSrc.includes('nunca check/bet_33'),
+    'preflop eval input must not default to check/bet_33');
+
+  const spotSrc = fs.readFileSync(path.join(ROOT, 'js/engine/solver/spotKey.js'), 'utf8');
+  assert.ok(/if \(street === ['"]preflop['"]\) return ['"]none['"]/.test(spotSrc),
+    'spotKey preflop leadType none');
+
+  const dec = g.PTTournamentSessionBridge.normalizeDecision({
+    street: 'preflop',
+    action: 'raise',
+    class: 'optima',
+    evLoss: 0,
+    gto: { raise: 0.8, fold: 0.2 },
+    options: ['fold', 'raise', 'allin'],
+    input: {
+      potBB: 1.5,
+      toCallBB: 0,
+      availableActions: ['fold', 'raise', 'allin'],
+      initiative: 'none',
+      formatHub: 'mtt',
+      pushFold: false,
+      spotKind: 'RFI',
+      stackBB: 40
+    }
+  }, 20);
+  assert.ok(dec.options && dec.options.indexOf('bet_33') < 0, 'no bet_33 in tournament options');
+  assert.ok(dec.options.indexOf('raise') >= 0, 'raise option persisted');
+  assert.strictEqual(dec.initiative, 'none', 'initiative persisted');
+  assert.strictEqual(dec.formatHub, 'mtt', 'formatHub persisted');
+
+  const handRfi = g.PTTournamentSessionBridge.handFromTournament({
+    handIndex: 9,
+    bb: 20,
+    sb: 10,
+    board: [],
+    seats: [
+      { id: 'h', name: 'Hero', isHero: true, pos: 'HJ', cards: ['As', '3s'], stack: 800, startStack: 800, folded: false },
+      { id: 'v', name: 'Villain', isHero: false, pos: 'BB', cards: ['7c', '2d'], stack: 800, startStack: 800, folded: false }
+    ],
+    log: [{ street: 'preflop', id: 'h', name: 'Hero', action: 'raise', amount: 60 }],
+    decisions: [{
+      street: 'preflop',
+      action: 'raise',
+      class: 'optima',
+      evLoss: 0,
+      label: 'Raise',
+      options: ['fold', 'raise', 'allin'],
+      gto: { raise: 0.55, fold: 0.45 },
+      input: { availableActions: ['fold', 'raise', 'allin'], initiative: 'none', potBB: 1.5, toCallBB: 0 }
+    }],
+    result: { deltas: { h: 30, v: -30 }, winners: ['h'], showdown: false, pot: 60, heroNet: 30, holeCards: {}, board: [] }
+  }, { tournamentId: 't_align', handIndex: 9, heroName: 'Hero' });
+  assert.strictEqual(handRfi.heroCode, 'A3s', 'A3s heroCode');
+  assert.ok(handRfi.decisions[0].options && handRfi.decisions[0].options.indexOf('check') < 0,
+    'bridged decision has no check option preflop');
+
+  load(g, 'js/engine/solver/spotKey.js');
+  const key = g.GTOSpotKey.buildSpotKey({
+    street: 'preflop',
+    position: 'HJ',
+    initiative: 'aggressor',
+    toCallBB: 0,
+    potBB: 2.13,
+    stackDepth: 40,
+    spotKind: 'RFI'
+  });
+  assert.strictEqual(key.leadType, 'none', 'preflop leadType none even if initiative aggressor');
+
+  const sess = g.PTTournamentSessionBridge.buildSessionFromTournament({
+    id: 't_a',
+    config: { name: 'Sit & Go 6-max', kind: 'sng', entries: 6, buyInEur: 5 },
+    result: { place: 3, prizeEur: 0, stats: { profit: -5 } },
+    finishedAt: '2026-01-01T00:00:00.000Z',
+    sessionHands: [handRfi],
+    handLog: []
+  }, {});
+  assert.strictEqual(sess.source, 'tournamentAi');
+  assert.strictEqual(sess.tournamentAi, true, 'tournamentAi flag for merge skip');
+  assert.strictEqual(sess.fileName.indexOf('Sit & Go'), 0, 'fileName from preset');
+  console.log('OK tournament-session-gto-align');
 }
 
 console.log('*** test-tournament OK ***');
