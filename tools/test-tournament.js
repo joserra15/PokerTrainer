@@ -874,6 +874,26 @@ console.log('OK dist-tournaments-bundle');
 }
 console.log('OK tournament-review-back');
 
+// --- Resultado: stats CTA, sin replay, manos colapsadas ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(uiSrc.includes('Estadísticas del torneo'), 'CTA Estadísticas del torneo');
+  assert.ok(uiSrc.includes('trn-hands-fold'), 'hands collapsed details');
+  assert.ok(uiSrc.includes('confettiPiecesHtml'), 'improved confetti');
+  assert.ok(uiSrc.includes('fromTournament: true'), 'opens session as fromTournament');
+  const rr = uiSrc.slice(uiSrc.indexOf('function renderResult'), uiSrc.indexOf('function renderHistory'));
+  assert.ok(!/Mejores manos|Peores manos/.test(rr), 'no best/worst on result');
+  assert.ok(!/session-replay-hand|>Replay</.test(rr), 'no Replay on result');
+  const hev = fs.readFileSync(path.join(ROOT, 'js/hand-end-view.js'), 'utf8');
+  assert.ok(hev.includes('gradeLabel') || hev.includes('grade.letter'), 'session grade not raw Object');
+  const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert.ok(appSrc.includes('fromTournament'), 'app handles fromTournament');
+  assert.ok(appSrc.includes('session-hands-fold') || appSrc.includes('sessionHandsFold'), 'session hands fold');
+}
+console.log('OK tournament-result-polish');
+
+
+
 
 // --- Progress chip + hero in top10 ---
 {

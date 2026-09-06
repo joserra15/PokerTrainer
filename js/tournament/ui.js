@@ -57,11 +57,18 @@
     return 'Jugador';
   }
 
+  function confettiPiecesHtml() {
+    var shapes = ['rect', 'rect', 'strip', 'strip', 'dot', 'rect', 'strip', 'dot',
+      'rect', 'strip', 'dot', 'rect', 'strip', 'rect', 'dot', 'strip',
+      'rect', 'strip', 'dot', 'rect', 'strip', 'dot', 'rect', 'strip'];
+    return shapes.map(function (sh, idx) {
+      return '<i class="trn-confetti-piece is-' + sh + '" style="--i:' + idx + '"></i>';
+    }).join('');
+  }
+
   function toastPopupHtml(kind, title, sub, withConfetti) {
     return '<div class="trn-center-popup trn-popup-' + kind + '" data-popup="' + kind + '" role="status">' +
-      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' +
-        '<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>' +
-        '</div>' : '') +
+      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' + confettiPiecesHtml() + '</div>' : '') +
       '<div class="trn-center-popup-card">' +
       '<strong>' + title + '</strong>' +
       (sub ? ('<span>' + sub + '</span>') : '') +
@@ -1222,14 +1229,16 @@ function reducedMotion() {
         global.goToTab('sessions', {
           openSessionId: sessionId,
           handId: handId || null,
-          reviewMode: mode
+          reviewMode: mode,
+          fromTournament: true
         });
         return;
       }
       if (typeof global.openSession === 'function') {
         Promise.resolve(global.openSession(sessionId, null, {
           handId: handId || null,
-          mode: mode
+          mode: mode,
+          fromTournament: true
         })).catch(function () { /* */ });
       }
     } catch (eOpen) { /* */ }
@@ -1362,16 +1371,13 @@ function reducedMotion() {
           '</span> ' +
           '<button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
           esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
-          '>Paso a paso</button> ' +
-          '<button type="button" class="btn btn-sm btn-primary" data-act="session-replay-hand" data-hand-id="' +
-          esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
-          '>Replay</button></li>';
+          '>Paso a paso</button></li>';
       }).join('');
     } else {
       var hands = (state.handLog || []).slice().reverse();
       handsHtml = hands.length
         ? hands.map(function (h) {
-          return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
+          return '<li><button type="button" class="btn btn-sm" data-act="review-hand" data-hand="' +
             esc(String(h.handIndex)) + '">Mano #' + esc(String(h.handIndex)) +
             '</button> · pot ' + esc(String(Math.round((h.pot || 0) * 10) / 10)) +
             (h.tied ? ' · chop' : '') +
@@ -1380,50 +1386,38 @@ function reducedMotion() {
         : '<li class="muted">Sin manos guardadas</li>';
     }
 
-    var bestWorst = '';
-    if (sessionStats && (sessionStats.best5 || sessionStats.worst5)) {
-      function miniList(list, title) {
-        if (!list || !list.length) return '';
-        return '<div class="trn-top-hands"><h4>' + esc(title) + '</h4><ul>' + list.map(function (h) {
-          return '<li>' + esc(h.heroCode || '') + ' ' + esc(h.heroPos || '') +
-            ' · ' + (Number(h.heroNetBB) >= 0 ? '+' : '') + esc(String(h.heroNetBB)) + ' bb' +
-            (h.id && sessionId
-              ? (' <button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
-                esc(h.id) + '" data-session-id="' + esc(sessionId) + '">Ver</button>')
-              : '') + '</li>';
-        }).join('') + '</ul></div>';
-      }
-      bestWorst = '<div class="trn-best-worst">' +
-        miniList(sessionStats.best5, 'Mejores manos') +
-        miniList(sessionStats.worst5, 'Peores manos') + '</div>';
-    }
+    var handsCount = sessionHands.length || (state.handLog || []).length;
+    var handsSection = '<details class="trn-hands-fold">' +
+      '<summary>Manos jugadas (' + handsCount + ')</summary>' +
+      '<ul class="trn-hand-log-list">' + handsHtml + '</ul></details>';
 
+    var placeLabel = r.place != null ? (r.place + 'º') : '—';
     return '<div class="trn-result panel">' +
-      '<h2>Resultado</h2>' +
-      '<p class="trn-result-place">' + (r.place != null ? (r.place + 'º') : '—') +
-      ' · Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
-      '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
+      '<header class="trn-result-hero">' +
+      '<p class="trn-result-kicker">Resultado del torneo</p>' +
+      '<h2 class="trn-result-place">' + placeLabel + '</h2>' +
+      '<p class="trn-result-prize">Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
+      '<p class="trn-result-roles">Roles ' + (rs.correct || 0) + '/' + (rs.total || 0) +
       ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP' +
       (r.roleKoins ? (' · +' + r.roleKoins + ' Koins por roles') : '') + '</p>' +
+      '</header>' +
       statsHtml +
-      bestWorst +
       (sessionId
-        ? ('<p><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
-          esc(sessionId) + '">Abrir en Sesiones</button></p>')
+        ? ('<p class="trn-result-cta"><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
+          esc(sessionId) + '">Estadísticas del torneo</button></p>')
         : '') +
       '<h3>Clasificación</h3>' +
       '<div class="trn-hist-table-wrap"><table class="trn-hist-table"><thead><tr>' +
       '<th>#</th><th>Jugador</th><th>Stack</th><th>Premio</th></tr></thead><tbody>' +
       standHtml + '</tbody></table></div>' +
       '<h3>Roles</h3><ul class="trn-role-reveal">' + details + '</ul>' +
-      '<h3>Manos analizadas</h3><ul class="trn-hand-log-list">' + handsHtml + '</ul>' +
+      handsSection +
       '<div class="trn-setup-actions">' +
       '<button type="button" class="btn btn-primary" data-act="hub">Hub</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
       '</div></div>';
   }
 
-  /* ---------- History ---------- */
   function renderHistory() {
     var list = global.PTTournamentStore.list() || [];
     var rows = list.length
