@@ -129,6 +129,13 @@ function reducedMotion() {
         roleId: s.roleId,
         pos: s.pos,
         seatIndex: s.seatIndex,
+        /* Conservar asiento físico: sin él el anillo reordena en animación. */
+        physicalSeat: s.physicalSeat != null
+          ? s.physicalSeat
+          : (fs.physicalSeat != null ? fs.physicalSeat : s.seat),
+        seat: s.seat != null
+          ? s.seat
+          : (fs.seat != null ? fs.seat : s.physicalSeat),
         cards: s.cards,
         startStack: s.startStack,
         stack: fs.stack,
@@ -1749,6 +1756,13 @@ function reducedMotion() {
     render: render,
     setView: setView,
     VIEW: VIEW,
-    getState: function () { return ui.state; }
+    getState: function () { return ui.state; },
+    /* Expuesto para tests de estabilidad del anillo visual. */
+    ringByPhysicalSeat: ringByPhysicalSeat,
+    animHand: animHand,
+    setAnimFrame: function (frame) {
+      ui.anim = ui.anim || {};
+      ui.anim.frame = frame || null;
+    }
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

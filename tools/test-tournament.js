@@ -1184,4 +1184,84 @@ console.log('OK tournament-phase-eval');
   console.log('OK bust-auto-simulate-rest');
 }
 
+// --- Anillo visual estable durante fotogramas de animación ---
+{
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI && UI.ringByPhysicalSeat && UI.animHand && UI.setAnimFrame, 'PTTournamentsUI anim helpers');
+
+  const liveSeats = [
+    { id: 'hero', name: 'Hero', isHero: true, pos: 'UTG', seatIndex: 3, physicalSeat: 0, stack: 1500, invested: 0, streetInvested: 0, folded: false, allIn: false, cards: ['Qs', 'Tc'] },
+    { id: 'v_hj', name: 'Isolan', isHero: false, pos: 'HJ', seatIndex: 4, physicalSeat: 1, stack: 2130, invested: 0, streetInvested: 0, folded: true, allIn: false },
+    { id: 'v_co', name: 'ShoveShow', isHero: false, pos: 'CO', seatIndex: 5, physicalSeat: 2, stack: 1490, invested: 40, streetInvested: 0, folded: false, allIn: false },
+    { id: 'v_btn', name: 'MidStack', isHero: false, pos: 'BTN', seatIndex: 0, physicalSeat: 3, stack: 860, invested: 0, streetInvested: 0, folded: true, allIn: false },
+    { id: 'v_sb', name: 'Polarized', isHero: false, pos: 'SB', seatIndex: 1, physicalSeat: 4, stack: 1470, invested: 10, streetInvested: 0, folded: true, allIn: false },
+    { id: 'v_bb', name: 'RiverGod', isHero: false, pos: 'BB', seatIndex: 2, physicalSeat: 5, stack: 1480, invested: 20, streetInvested: 0, folded: true, allIn: false }
+  ];
+  const liveHand = {
+    seats: liveSeats,
+    heroId: 'hero',
+    sb: 10,
+    bb: 20,
+    ante: 0,
+    board: ['8c', '4s', 'Ks'],
+    street: 'flop',
+    pot: 110,
+    currentBet: 0,
+    log: [],
+    stage: 'playing',
+    awaitingHero: true,
+    holesRevealed: false
+  };
+
+  const ringLive = UI.ringByPhysicalSeat(liveHand.seats).map(function (s) { return s.id; });
+  assert.deepStrictEqual(ringLive, ['hero', 'v_hj', 'v_co', 'v_btn', 'v_sb', 'v_bb'],
+    'anillo live hero-first por physicalSeat, got ' + ringLive.join(','));
+
+  const frame = {
+    kind: 'act',
+    actorId: 'v_co',
+    street: 'flop',
+    board: ['8c', '4s', 'Ks'],
+    pot: 110,
+    currentBet: 0,
+    holesRevealed: false,
+    seats: liveSeats.map(function (s) {
+      return {
+        id: s.id,
+        stack: s.stack,
+        invested: s.invested,
+        streetInvested: s.streetInvested,
+        folded: s.folded,
+        allIn: s.allIn,
+        physicalSeat: s.physicalSeat,
+        lastAction: s.folded ? { action: 'fold', amount: 0, street: 'preflop' } : null
+      };
+    })
+  };
+
+  /* Repro del bug: merge sin physicalSeat → anillo distinto (ordena por id). */
+  const brokenSeats = liveSeats.map(function (s) {
+    const fs = frame.seats.find(function (x) { return x.id === s.id; });
+    return {
+      id: s.id, name: s.name, isHero: s.isHero, pos: s.pos, seatIndex: s.seatIndex,
+      cards: s.cards, stack: fs.stack, invested: fs.invested, streetInvested: fs.streetInvested,
+      folded: fs.folded, allIn: fs.allIn, lastAction: fs.lastAction
+    };
+  });
+  const ringBroken = UI.ringByPhysicalSeat(brokenSeats).map(function (s) { return s.id; });
+  assert.notDeepStrictEqual(ringBroken, ringLive,
+    'sin physicalSeat el anillo cambia (repro), broken=' + ringBroken.join(','));
+
+  UI.setAnimFrame(frame);
+  const anim = UI.animHand(liveHand);
+  UI.setAnimFrame(null);
+  assert.ok(anim && anim._anim, 'animHand marca _anim');
+  assert.ok(anim.seats.every(function (s) { return s.physicalSeat != null; }),
+    'animHand conserva physicalSeat');
+  const ringAnim = UI.ringByPhysicalSeat(anim.seats).map(function (s) { return s.id; });
+  assert.deepStrictEqual(ringAnim, ringLive,
+    'anillo animación = anillo live, anim=' + ringAnim.join(',') + ' live=' + ringLive.join(','));
+  console.log('OK anim-ring-stable');
+}
+
 console.log('*** test-tournament OK ***');
