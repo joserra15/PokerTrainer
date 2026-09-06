@@ -50,19 +50,29 @@
     return a ? (a.charAt(0).toUpperCase() + a.slice(1)) : 'Acción';
   }
 
-  function optionBreakdownFromStrategy(strategy) {
+  function optionBreakdownFromStrategy(strategy, opts) {
     if (!strategy || typeof strategy !== 'object') return null;
-    var keys = Object.keys(strategy);
+    opts = opts || {};
+    var freqs = Object.assign({}, strategy);
+    if (opts.pushFold || (freqs.allin != null && freqs.raise != null)) {
+      var shove = Math.max(Number(freqs.allin) || 0, Number(freqs.raise) || 0);
+      if (shove > 0) {
+        freqs.allin = shove;
+        delete freqs.raise;
+      }
+    }
+    var keys = Object.keys(freqs);
     if (!keys.length) return null;
     return keys.map(function (id) {
-      var freq = Number(strategy[id]) || 0;
+      var freq = Number(freqs[id]) || 0;
       return {
         id: id,
         label: actionLabel(id, 0, 1),
         pct: Math.round(freq * 1000) / 10,
         frequency: freq
       };
-    }).sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+    }).filter(function (o) { return o.frequency >= 0.005; })
+      .sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
   }
 
   function normalizeDecision(d, bb) {
@@ -70,7 +80,9 @@
     var chosen = d.chosen || d.action || d.label || 'fold';
     var cls = mapClass(d.class);
     var strategy = d.strategy || d.gto || null;
-    var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy);
+    var pushFold = !!(d.pushFold || (d.input && d.input.pushFold) || d.mttPhase === 'push'
+      || d.preflopMode === 'push');
+    var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy, { pushFold: pushFold });
     var out = {
       street: d.street || 'preflop',
       chosen: chosen,

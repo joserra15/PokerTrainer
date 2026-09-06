@@ -1145,7 +1145,10 @@ function reducedMotion() {
           return '<li><span class="trn-gto-class trn-gto-' + esc(d.class || 'unscored') + '">' +
             esc(d.class || 'unscored') + '</span> ' + esc(d.street || '') + ' · ' +
             esc(d.label || d.action || '') +
-            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') + '</li>';
+            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') +
+            (d.mttPhase ? (' · <span class="trn-gto-phase">fase ' + esc(d.mttPhase) +
+              (d.stackBB != null ? (' · ' + esc(String(d.stackBB)) + ' bb') : '') + '</span>') : '') +
+            '</li>';
         }).join('') + '</ol></div>';
       }
     }

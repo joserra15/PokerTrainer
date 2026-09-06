@@ -81,6 +81,8 @@ const FILES = [
   'js/tournament/names.js',
   'js/tournament/seating.js',
   'js/tournament/state.js',
+  'js/engine/format/taxonomy.js',
+  'js/engine/ranges/pushFold.js',
   'js/tournament/gto-eval.js',
   'js/tournament/villain-decide.js',
   'js/tournament/live-hand.js',
@@ -1064,5 +1066,65 @@ console.log('OK tournament-result-polish');
   console.log('OK allin-reveal-before-runout');
 }
 
+// --- Evaluación GTO MTT: fase push/fold con stack corto ---
+{
+  const GEval = g.PTTournamentGtoEval;
+  assert.ok(GEval && GEval.buildInput, 'PTTournamentGtoEval.buildInput');
+  assert.strictEqual(GEval.resolveTournamentPhase(5.1, {}), 'push', '5bb → fase push');
+  assert.strictEqual(GEval.resolveTournamentPhase(18, {}), 'short', '18bb → short');
+  assert.strictEqual(GEval.resolveTournamentPhase(40, {}), 'mid', '40bb → mid');
+  assert.ok(GEval.resolveTournamentPhase(80, {}) === 'early' || GEval.resolveTournamentPhase(80, {}) === 'mid',
+    'deep stack early/mid');
+
+  const hand = {
+    street: 'preflop',
+    bb: 100,
+    sb: 50,
+    pot: 150,
+    currentBet: 100,
+    openerId: null,
+    board: [],
+    heroOptions: [
+      { id: 'fold', label: 'Fold' },
+      { id: 'allin', label: 'All-in', amount: 510 }
+    ],
+    seats: [
+      { id: 'h1', isHero: true, pos: 'UTG', stack: 510, streetInvested: 0, folded: false, cards: ['8s', '8c'] },
+      { id: 'v1', isHero: false, pos: 'BB', stack: 2000, streetInvested: 100, folded: false }
+    ]
+  };
+  const hero = hand.seats[0];
+  assert.ok(GEval.isFirstInOpen(hand, hero), 'UTG first-in open');
+  const input = GEval.buildInput(hand, hero, { id: 'allin', amount: 510 });
+  assert.ok(input.toCallBB === 0, 'RFI toCallBB=0 (ciegas no cuentan), got ' + input.toCallBB);
+  assert.ok(input.stackBB > 4.5 && input.stackBB < 6, 'stackBB ~5.1, got ' + input.stackBB);
+  assert.strictEqual(input.mttPhase, 'push', 'mttPhase push');
+  assert.strictEqual(input.resolvedPhase, 'push', 'resolvedPhase push');
+  assert.ok(input.pushFold, 'pushFold true');
+  assert.strictEqual(input.preflopMode, 'push', 'preflopMode push');
+  assert.strictEqual(input.formatHub, 'mtt', 'formatHub mtt');
+  assert.strictEqual(input.chosenAction, 'allin', 'chosenAction allin not raise');
+  assert.ok(input.availableActions.indexOf('allin') >= 0, 'availableActions includes allin');
+
+  /* Chart push/fold directo: 88 UTG a 5bb debe shovear fuerte. */
+  const PF = g.GTOPushFold;
+  assert.ok(PF && PF.isPushPhase(input), 'isPushPhase true para input short');
+  const strat = PF.pushFoldStrategy(Object.assign({}, input, {
+    handCode: '88', position: 'UTG', effStack: input.stackBB
+  }));
+  const shoveFreq = Math.max(Number(strat.allin) || 0, Number(strat.raise) || 0);
+  assert.ok(shoveFreq >= 0.5, '88 UTG 5bb shove freq>=50%, got ' + shoveFreq);
+
+  if (g.GTO && typeof g.GTO.evaluateSpot === 'function') {
+    const decision = GEval.evaluateHeroAction(hand, hero, { id: 'allin', amount: 510 });
+    assert.ok(decision, 'decision returned');
+    assert.ok(decision.mttPhase === 'push', 'decision carries mttPhase');
+    assert.ok(decision.class !== 'error' && decision.class !== 'blunder',
+      '88 shove @5bb UTG no debe ser error, got ' + decision.class + ' ev=' + decision.evLoss);
+    assert.ok(decision.frequency >= 0.2 || decision.class === 'optima' || decision.class === 'aceptable',
+      'shove 88 short debe tener freq razonable o clase buena, freq=' + decision.frequency + ' class=' + decision.class);
+  }
+}
+console.log('OK tournament-phase-eval');
 
 console.log('*** test-tournament OK ***');
