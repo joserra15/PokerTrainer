@@ -1864,6 +1864,33 @@
   vertical-align: middle;
 }
 
+.trn-equity-pct {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  vertical-align: middle;
+  color: #f4f7fb;
+  background: rgba(20, 28, 40, .78);
+  border: 1px solid rgba(180, 200, 230, .35);
+}
+.trn-equity-pct.is-high {
+  color: #0d1f12;
+  background: linear-gradient(180deg, #9be39b, #3ecf6a);
+  border-color: rgba(40, 120, 60, .45);
+}
+.trn-equity-pct.is-low {
+  color: #fff4f2;
+  background: linear-gradient(180deg, #e8796a, #c44536);
+  border-color: rgba(120, 40, 30, .45);
+}
+.trn-play-like .hero-label .trn-equity-pct {
+  margin-left: 6px;
+}
+
 .trn-stack-list,
 .trn-payout-list,
 .trn-info-handlog {

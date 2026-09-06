@@ -1540,4 +1540,42 @@ console.log('OK pushfold-freq-100');
   console.log('OK tournament-table-chips');
 }
 
+// --- all-in equity % al lado de jugadores (actualiza con el board) ---
+{
+  load(g, 'js/cards.js');
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI.allInEquityBySeat && UI.equityBadgeHtml, 'equity helpers exported');
+  const hand = {
+    holesRevealed: true,
+    board: [],
+    seats: [
+      { id: 'h', isHero: true, allIn: true, folded: false, cards: ['As', 'Ah'], name: 'Hero' },
+      { id: 'v', isHero: false, allIn: true, folded: false, cards: ['2c', '7d'], name: 'Villain' },
+      { id: 'f', isHero: false, allIn: false, folded: true, cards: ['Kc', 'Kd'], name: 'Folded' }
+    ]
+  };
+  const pre = UI.allInEquityBySeat(hand);
+  assert.ok(pre && pre.h != null && pre.v != null, 'equity map for all-in');
+  assert.ok(pre.h > pre.v, 'AA > 72o preflop equity');
+  assert.ok(pre.f == null, 'folded seat has no equity');
+
+  hand.board = ['2h', '7h', '9s'];
+  hand._eqCache = null;
+  const flop = UI.allInEquityBySeat(hand);
+  assert.ok(flop.v > pre.v, '72o equity rises on 27x flop');
+  assert.ok(flop.h < pre.h, 'AA equity falls on 27x flop');
+
+  hand.board = ['2h', '7h', '9s', '2d', '3c'];
+  hand._eqCache = null;
+  const river = UI.allInEquityBySeat(hand);
+  assert.strictEqual(river.v, 100, 'two pair wins on river');
+  assert.strictEqual(river.h, 0, 'AA loses on river');
+
+  const badge = UI.equityBadgeHtml(72);
+  assert.ok(badge.includes('trn-equity-pct') && badge.includes('72%'), 'equity badge html');
+  const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(css.includes('.trn-equity-pct'), 'equity css');
+  console.log('OK tournament-allin-equity');
+}
+
 console.log('*** test-tournament OK ***');

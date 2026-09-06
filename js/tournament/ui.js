@@ -687,7 +687,105 @@ function reducedMotion() {
     return (v % 1 ? v.toFixed(1) : String(v)) + ' bb';
   }
 
-  /** Misma escala de color que Entrenar (app.js chipTier): magnitud en bb. */
+  function cardCodeOf(c) {
+    if (!c) return '';
+    if (typeof c === 'string') return c;
+    return c.code || (c.r != null && c.s ? String(c.r) + c.s : '');
+  }
+
+  function cardCodesOf(cards) {
+    return (cards || []).map(cardCodeOf).filter(Boolean);
+  }
+
+  /**
+   * Equity de una mano concreta vs otras manos conocidas (MC o exacto en river).
+   * Misma idea que GTOMultiway.equityVsFixedHands — local para no acoplar el chunk.
+   */
+  function equityVsFixedHandsLocal(heroCards, board, villainHands, iters) {
+    var C = global.Cards;
+    if (!C || !C.evaluate || !C.compare) return 0.5;
+    var boardArr = board || [];
+    var need = Math.max(0, 5 - boardArr.length);
+    var dead0 = heroCards.concat(boardArr);
+    (villainHands || []).forEach(function (vh) {
+      if (vh && vh[0]) dead0.push(vh[0]);
+      if (vh && vh[1]) dead0.push(vh[1]);
+    });
+    var win = 0;
+    var tie = 0;
+    var n = 0;
+    var mc = (C.rng && C.rng.random) ? C.rng.random.bind(C.rng) : Math.random;
+    var loops = need === 0 ? 1 : (iters || 120);
+    for (var k = 0; k < loops; k++) {
+      var full = boardArr;
+      if (need > 0) {
+        if (!C.shuffledDeckExcluding) break;
+        var deck = C.shuffledDeckExcluding(dead0, mc);
+        full = boardArr.concat(deck.slice(0, need));
+      }
+      var hScore = C.evaluate(heroCards.concat(full));
+      var bestCmp = 1;
+      var ties = 0;
+      for (var i = 0; i < villainHands.length; i++) {
+        var vScore = C.evaluate(villainHands[i].concat(full));
+        var cmp = C.compare(hScore, vScore);
+        if (cmp < 0) { bestCmp = -1; break; }
+        if (cmp === 0) ties++;
+      }
+      if (bestCmp >= 0) {
+        if (ties > 0) tie += 1 / (ties + 1);
+        else win++;
+      }
+      n++;
+    }
+    return n ? (win + tie) / n : 0.5;
+  }
+
+  /**
+   * % de ganar para cada all-in (o contendientes con holes revelados).
+   * Se recalcula al crecer el board (reveal → flop → turn → river).
+   */
+  function allInEquityBySeat(hand) {
+    if (!hand || !hand.holesRevealed) return null;
+    var contenders = (hand.seats || []).filter(function (s) {
+      return s && !s.folded && s.cards && s.cards.length >= 2;
+    });
+    var allin = contenders.filter(function (s) { return s.allIn; });
+    var pool = allin.length >= 2 ? allin
+      : (contenders.length >= 2 ? contenders : []);
+    if (pool.length < 2) return null;
+
+    var board = cardCodesOf(hand.board);
+    var key = board.join(',') + '|' + pool.map(function (s) { return s.id; }).join(',');
+    if (hand._eqCache && hand._eqCache.key === key) return hand._eqCache.map;
+
+    var MW = global.GTOMultiway;
+    var iters = board.length >= 5 ? 1 : (board.length >= 4 ? 100 : (board.length >= 3 ? 140 : 100));
+    var map = {};
+    pool.forEach(function (seat) {
+      var hole = cardCodesOf(seat.cards);
+      var others = pool.filter(function (o) { return o.id !== seat.id; })
+        .map(function (o) { return cardCodesOf(o.cards); });
+      var eq;
+      if (MW && typeof MW.equityVsFixedHands === 'function') {
+        eq = MW.equityVsFixedHands(hole, board, others, iters);
+      } else {
+        eq = equityVsFixedHandsLocal(hole, board, others, iters);
+      }
+      map[seat.id] = Math.round((Number(eq) || 0) * 100);
+    });
+    hand._eqCache = { key: key, map: map };
+    return map;
+  }
+
+  function equityBadgeHtml(pct) {
+    if (pct == null || isNaN(pct)) return '';
+    var cls = 'trn-equity-pct';
+    if (pct >= 60) cls += ' is-high';
+    else if (pct <= 35) cls += ' is-low';
+    return '<span class="' + cls + '" title="Probabilidad de ganar">' + esc(String(pct)) + '%</span>';
+  }
+
   function chipTier(bbAmt) {
     if (bbAmt < 1) return 'w';
     if (bbAmt < 3) return 'r';
@@ -798,6 +896,7 @@ function reducedMotion() {
     var coords = seatCoordsFor(ring.length);
     var showdown = hand.stage === 'complete' || !!hand.holesRevealed ||
       !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
+    var equityMap = allInEquityBySeat(hand);
     var html = '';
     ring.forEach(function (s, i) {
       if (s.isHero) return; // héroe va en .hero-area (CSS .seat.hero { display:none })
@@ -841,13 +940,14 @@ function reducedMotion() {
       }
       var betHtml = renderSeatBetHtml(streetBet, bb, betPlacement(c));
 
+      var eqHtml = (equityMap && equityMap[s.id] != null) ? (' ' + equityBadgeHtml(equityMap[s.id])) : '';
       var villainName = s.name || 'Villano';
       html += '<button type="button" class="' + cls.join(' ') + '" style="top:' + c.top + '%;left:' + c.left +
         '%" data-player="' + esc(s.id) + '" title="' + esc(villainName + ' · ' + (s.pos || '') + ' — adivinar rol') + '">' +
         '<div class="seat-body">' +
         '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
         '<div class="seat-name">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') +
-        esc(villainName) + (guessed ? ' · ?' : '') + '</div>' +
+        esc(villainName) + eqHtml + (guessed ? ' · ?' : '') + '</div>' +
         '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
         '<div class="seat-role">' + esc(villainName) + '</div>' +
         '<div class="seat-stack">' + esc(fmtBb(s.stack, bb)) + '</div>' +
@@ -885,12 +985,14 @@ function reducedMotion() {
     var streetBet = Number(hero.streetInvested) || 0;
     if (streetBet <= 0 && hand.street === 'preflop') streetBet = Number(hero.invested) || 0;
     var streetChips = renderHeroStreetChipsHtml(streetBet, bb);
+    var equityMap = allInEquityBySeat(hand);
+    var eqHtml = (equityMap && equityMap[hero.id] != null) ? (' ' + equityBadgeHtml(equityMap[hero.id])) : '';
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
       '<div class="hero-chips">' + streetChips +
       '<div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
       '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) +
-      ' · <span>' + esc(hero.pos || '-') + '</span>' +
+      ' · <span>' + esc(hero.pos || '-') + '</span>' + eqHtml +
       '<span class="hero-dealer' + dealerHidden + '" title="Dealer">D</span></div>' +
       (cards ? ('<div class="hero-cards">' + cards + '</div>') : '<div class="hero-cards hero-cards-folded"></div>') +
       '</div>';
@@ -1842,6 +1944,8 @@ function reducedMotion() {
     /* Fichas de mesa (misma escala que Entrenar) — tests. */
     chipTier: chipTier,
     chipStackHTML: chipStackHTML,
-    renderSeatBetHtml: renderSeatBetHtml
+    renderSeatBetHtml: renderSeatBetHtml,
+    allInEquityBySeat: allInEquityBySeat,
+    equityBadgeHtml: equityBadgeHtml
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
