@@ -4824,8 +4824,10 @@
     replayOpen: false,
     replayStep: 0,
     replayHandIndex: null,
-    popupClearScheduled: { blind: false, ft: false, itm: false },
-    anim: { frame: null, playing: false, skip: false, seq: 0, timer: null }
+    popupClearScheduled: { blind: false, ft: false, itm: false, start: false, congrats: false },
+    anim: { frame: null, playing: false, skip: false, seq: 0, timer: null },
+    heldFrames: null,
+    heldFramesDone: null
   };
 
   /* ---------- Revelado de la acción paso a paso (como en Entrenar) ---------- */
@@ -4872,20 +4874,98 @@
       '</div></div>';
   }
 
+  /** Carteles que congelan la acción de la mesa hasta ocultarse. */
+  function isBannerBlocking() {
+    var s = ui.state;
+    if (!s) return false;
+    return !!(s.startBannerPending || s.congratsPending || s.blindUpPending
+      || s.finalTablePending || s.itmPending);
+  }
+
+  function bannerDurationMs(flag) {
+    if (flag === 'start' || flag === 'congrats') return 5000;
+    if (flag === 'ft') return 3000;
+    return 2000;
+  }
+
+  function clearBannerFlag(flag) {
+    if (!ui.state) return;
+    if (flag === 'blind') ui.state.blindUpPending = null;
+    if (flag === 'ft') ui.state.finalTablePending = null;
+    if (flag === 'itm') ui.state.itmPending = null;
+    if (flag === 'start') ui.state.startBannerPending = null;
+    if (flag === 'congrats') ui.state.congratsPending = null;
+  }
+
+  function resumeAfterBanner() {
+    if (isBannerBlocking()) {
+      ensureBannerTimers();
+      paint();
+      return;
+    }
+    if (ui.heldFrames && ui.heldFrames.length) {
+      var frames = ui.heldFrames;
+      var done = ui.heldFramesDone;
+      ui.heldFrames = null;
+      ui.heldFramesDone = null;
+      playFrames(frames, done || paint);
+      return;
+    }
+    if (ui.state && ui.state.status === 'finished' && !ui.state.congratsPending) {
+      clearActive();
+      setView(VIEW.result);
+      return;
+    }
+    paint();
+  }
+
+  function ensureBannerTimers() {
+    var s = ui.state;
+    if (!s) return;
+    if (s.startBannerPending) schedulePopupClear('start', bannerDurationMs('start'));
+    if (s.congratsPending) schedulePopupClear('congrats', bannerDurationMs('congrats'));
+    if (s.blindUpPending) schedulePopupClear('blind', bannerDurationMs('blind'));
+    if (s.finalTablePending) schedulePopupClear('ft', bannerDurationMs('ft'));
+    if (s.itmPending) schedulePopupClear('itm', bannerDurationMs('itm'));
+  }
+
   function schedulePopupClear(flag, ms) {
     try {
       if (!ui.popupClearTimers) ui.popupClearTimers = {};
       if (ui.popupClearTimers[flag]) return;
-      var delay = ms != null ? ms : 2000;
+      var delay = ms != null ? ms : bannerDurationMs(flag);
       ui.popupClearTimers[flag] = setTimeout(function () {
         ui.popupClearTimers[flag] = null;
-        if (!ui.state) return;
-        if (flag === 'blind') ui.state.blindUpPending = null;
-        if (flag === 'ft') ui.state.finalTablePending = null;
-        if (flag === 'itm') ui.state.itmPending = null;
-        paint();
+        clearBannerFlag(flag);
+        resumeAfterBanner();
       }, delay);
     } catch (e) { /* */ }
+  }
+
+  function shouldShowCongrats(state) {
+    if (!state || !state.result) return false;
+    if (state.result.reason === 'won') return true;
+    var place = Number(state.result.place);
+    var paid = Number(state.config && state.config.placesPaid) || 0;
+    if (!(place > 0)) return false;
+    if (paid > 0 && place <= paid) return true;
+    return (Number(state.result.prizeEur) || 0) > 0;
+  }
+
+  function congratsCopy(state) {
+    if (state && state.result && state.result.reason === 'won') {
+      return {
+        title: '¡Enhorabuena!',
+        sub: 'Has ganado el torneo'
+      };
+    }
+    var place = state && state.result ? state.result.place : null;
+    return {
+      title: '¡Enhorabuena!',
+      sub: place != null
+        ? ('Has quedado ' + place + 'º · en el dinero')
+        : 'Has entrado en premios'
+    };
   }
 
 function reducedMotion() {
@@ -5024,6 +5104,13 @@ function reducedMotion() {
       done();
       return;
     }
+    if (isBannerBlocking()) {
+      ui.heldFrames = frames;
+      ui.heldFramesDone = done;
+      ensureBannerTimers();
+      paint();
+      return;
+    }
     playFrames(frames, done);
   }
 
@@ -5150,6 +5237,7 @@ function reducedMotion() {
     } catch (eW0) { /* */ }
     var Runner = global.PTTournamentRunner;
     ui.state = Runner.create(cfg, opts);
+    ui.state.startBannerPending = { at: Date.now() };
     ui.bustPrompt = false;
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
@@ -5157,13 +5245,22 @@ function reducedMotion() {
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
+    ui.heldFrames = null;
+    ui.heldFramesDone = null;
     stopAnim();
     Runner.beginHand(ui.state);
     persistActive();
     var frames = takeFrames();
     ui.view = VIEW.table;
-    if (frames) playFrames(frames, paint);
-    else paint();
+    if (frames) {
+      ui.heldFrames = frames;
+      ui.heldFramesDone = paint;
+      ensureBannerTimers();
+      paint();
+    } else {
+      ensureBannerTimers();
+      paint();
+    }
   }
 
   function startPreset(id) {
@@ -5860,7 +5957,9 @@ function reducedMotion() {
     }
 
     var actions = '';
-    if (ui.anim && ui.anim.playing) {
+    if (isBannerBlocking()) {
+      actions = '';
+    } else if (ui.anim && ui.anim.playing) {
       actions = '<div class="actions actions-grid actions-grid-1 trn-anim-actions">' +
         '<button type="button" class="btn btn-skip-anim" data-act="skip-anim">Saltar acción</button>' +
         '</div>';
@@ -5971,10 +6070,26 @@ function reducedMotion() {
       handEndModal = renderHandEndModal(hand, state, bb);
     }
 
+    var startBanner = '';
+    var congratsBanner = '';
     var blindUpBanner = '';
     var ftPopup = '';
     var itmPopup = '';
-    if (state.blindUpPending && !(hand && hand.stage === 'complete')) {
+    if (state.startBannerPending) {
+      startBanner = toastPopupHtml(
+        'start',
+        '¡Comienza el torneo!',
+        'Buena suerte, ' + esc(heroDisplayName(state))
+      );
+    }
+    if (state.congratsPending) {
+      congratsBanner = toastPopupHtml(
+        'congrats',
+        esc(state.congratsPending.title || '¡Enhorabuena!'),
+        esc(state.congratsPending.sub || '')
+      );
+    }
+    if (state.blindUpPending && !(hand && hand.stage === 'complete') && !state.congratsPending) {
       var bu = state.blindUpPending;
       blindUpBanner = toastPopupHtml(
         'blind',
@@ -5982,16 +6097,14 @@ function reducedMotion() {
         'Nivel ' + esc(String(bu.level)) + ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
           (bu.ante ? (' ante ' + esc(String(bu.ante))) : '')
       );
-      schedulePopupClear('blind', 2000);
     }
-    if (state.finalTablePending && !(hand && hand.stage === 'complete')) {
+    if (state.finalTablePending && !(hand && hand.stage === 'complete') && !state.congratsPending) {
       ftPopup = finalTableBannerHtml(state.finalTablePending.players);
-      schedulePopupClear('ft', 3000);
     }
-    if (state.itmPending && !(hand && hand.stage === 'complete')) {
+    if (state.itmPending && !(hand && hand.stage === 'complete') && !state.congratsPending) {
       itmPopup = toastPopupHtml('itm', '¡En el dinero!', 'Has entrado en premios');
-      schedulePopupClear('itm', 2000);
     }
+    ensureBannerTimers();
 
     var exitModal = '';
     if (ui.exitPrompt) {
@@ -6009,7 +6122,8 @@ function reducedMotion() {
     /* Misma cáscara visual que el entrenador (.play-stage / .poker-table / .table-felt)
        sin montar en #play-active: el motor de torneo (PTTournamentRunner) sigue
        dueño del estado entre manos. */
-    return '<div class="trn-table-view trn-play-like">' + blindUpBanner + ftPopup + itmPopup +
+    return '<div class="trn-table-view trn-play-like' + (isBannerBlocking() ? ' trn-banner-freeze' : '') + '">' +
+      startBanner + congratsBanner + blindUpBanner + ftPopup + itmPopup +
       '<div class="trn-play-stage">' +
       '<div class="trn-table-hud">' + chips +
       '<div class="trn-hud-actions">' +
@@ -6475,6 +6589,15 @@ function reducedMotion() {
     var state = ui.state;
     if (!state) { paint(); return; }
     if (state.status === 'finished') {
+      if (!state.congratsShown && shouldShowCongrats(state)) {
+        state.congratsShown = true;
+        state.congratsPending = Object.assign({ at: Date.now() }, congratsCopy(state));
+        ui.heldFrames = null;
+        ui.heldFramesDone = null;
+        ensureBannerTimers();
+        paint();
+        return;
+      }
       clearActive();
       setView(VIEW.result);
       return;
@@ -6659,6 +6782,7 @@ function reducedMotion() {
     root.querySelectorAll('[data-hero-act]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         if (ui.anim && ui.anim.playing) return;
+        if (isBannerBlocking()) return;
         var id = btn.getAttribute('data-hero-act');
         var amtRaw = btn.getAttribute('data-amount');
         var amt = amtRaw === '' || amtRaw == null ? null : Number(amtRaw);

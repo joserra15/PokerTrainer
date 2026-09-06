@@ -1741,7 +1741,7 @@
 .trn-table-view .table-format-badge { display: none !important; }
 .trn-table-view .table-train-chrome { display: none !important; }
 
-/* —— Popups centrados (ciegas / FT / ITM) —— */
+/* —— Popups centrados (ciegas / FT / ITM / inicio / enhorabuena) —— */
 .trn-center-popup {
   position: fixed;
   inset: 0;
@@ -1749,9 +1749,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
-  background: rgba(8, 12, 18, .35);
+  pointer-events: auto;
+  background: rgba(8, 12, 18, .45);
   animation: trn-popup-fade 2s ease forwards;
+}
+.trn-popup-start,
+.trn-popup-congrats {
+  animation: trn-popup-fade-5s 5s ease forwards;
 }
 .trn-center-popup-card {
   position: relative;
@@ -1776,11 +1780,32 @@
   font-size: 13px;
   color: var(--muted, #8b97a7);
 }
+.trn-popup-start .trn-center-popup-card,
+.trn-popup-congrats .trn-center-popup-card {
+  border-color: rgba(120, 200, 140, .45);
+  padding: 22px 26px;
+}
+.trn-popup-start .trn-center-popup-card strong,
+.trn-popup-congrats .trn-center-popup-card strong {
+  font-size: 1.45rem;
+  color: #f5c451;
+}
 @keyframes trn-popup-fade {
   0% { opacity: 0; }
   12% { opacity: 1; }
   75% { opacity: 1; }
   100% { opacity: 0; }
+}
+@keyframes trn-popup-fade-5s {
+  0% { opacity: 0; }
+  8% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.trn-banner-freeze .actions,
+.trn-banner-freeze [data-hero-act] {
+  pointer-events: none;
+  opacity: .35;
 }
 
 /* —— Cartel mesa final (sin confeti; auto-oculta a ~3s) —— */
@@ -1791,7 +1816,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
+  pointer-events: auto;
   background: rgba(4, 10, 18, .55);
   animation: trn-ft-banner-fade 3s ease forwards;
 }

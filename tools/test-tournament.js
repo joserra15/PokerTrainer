@@ -656,7 +656,14 @@ FILES.forEach(function (f) { load(g, f); });
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
   assert.ok(uiSrc.includes('toastPopupHtml'), 'toastPopupHtml in ui');
   assert.ok(uiSrc.includes('trn-center-popup'), 'centered popup class');
-  assert.ok(uiSrc.includes("schedulePopupClear('blind', 2000)"), 'auto-clear blind popup');
+  assert.ok(uiSrc.includes("schedulePopupClear('blind'") || uiSrc.includes("bannerDurationMs('blind')"),
+    'auto-clear blind popup');
+  assert.ok(uiSrc.includes('startBannerPending') && uiSrc.includes('¡Comienza el torneo!'),
+    'start tournament banner');
+  assert.ok(uiSrc.includes('congratsPending') && uiSrc.includes('¡Enhorabuena!'),
+    'congrats banner');
+  assert.ok(uiSrc.includes('isBannerBlocking') && uiSrc.includes('heldFrames'),
+    'banner freezes table action');
   assert.ok(!/trn-blind-up[\s\S]{0,200}dismiss-blind-up/.test(uiSrc),
     'old blind-up OK banner removed from paint path');
 }
@@ -892,7 +899,8 @@ console.log('OK tournament-review-back');
   assert.ok(uiSrc.includes('trn-hands-fold'), 'hands collapsed details');
   assert.ok(uiSrc.includes('finalTableBannerHtml'), 'final table banner helper');
   assert.ok(uiSrc.includes('MESA FINAL'), 'final table banner copy');
-  assert.ok(uiSrc.includes("schedulePopupClear('ft', 3000)"), 'FT banner clears at 3s');
+  assert.ok(uiSrc.includes("schedulePopupClear('ft'") || uiSrc.includes("bannerDurationMs('ft')"),
+    'FT banner clears via timer');
   assert.ok(!uiSrc.includes('confettiPiecesHtml') && !uiSrc.includes('trn-confetti'),
     'confetti removed from tournament UI');
   assert.ok(cssSrc.includes('trn-ft-banner') && cssSrc.includes('trn-ft-banner-fade'),
