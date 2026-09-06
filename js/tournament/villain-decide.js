@@ -40,32 +40,61 @@
     return ok[id] ? id : 'tag';
   }
 
+  /**
+   * Estilos de mesa = sesgo sobre motor Pro+, no pasividad extrema.
+   * Fish/nit del entrenador son muy check/fold; en torneo eso se siente
+   * "todo check / overfold". Subimos suelos de agresión y defensa.
+   */
+  function tournamentPostflopFloor(role, postflop) {
+    var pf = Object.assign({}, postflop || {});
+    var floors = {
+      fish:   { bet: 1.05, bluff: 0.85, raise: 0.95, call: 1.4, fold: 0.7 },
+      nit:    { bet: 0.92, bluff: 0.55, raise: 0.85, call: 0.95, fold: 0.95 },
+      tag:    { bet: 1.2,  bluff: 1.0,  raise: 1.25, call: 1.0, fold: 0.95 },
+      lag:    { bet: 1.55, bluff: 1.55, raise: 1.55, call: 1.1, fold: 0.65 },
+      maniac: { bet: 1.75, bluff: 1.9,  raise: 1.85, call: 1.15, fold: 0.5 },
+      pro:    { bet: 1.2,  bluff: 1.05, raise: 1.3,  call: 1.0, fold: 0.95 }
+    };
+    var f = floors[role] || floors.tag;
+    function floor(key, minV, maxV) {
+      var cur = Number(pf[key]);
+      if (!isFinite(cur)) cur = minV;
+      pf[key] = Math.max(minV, Math.min(maxV != null ? maxV : 2.4, cur));
+    }
+    floor('betFreqMult', f.bet);
+    floor('bluffFreqMult', f.bluff);
+    floor('raiseFreqMult', f.raise);
+    floor('callMult', f.call);
+    floor('foldMult', 0.35, f.fold);
+    if (pf.betSizeMult == null || pf.betSizeMult < 0.85) pf.betSizeMult = 0.95;
+    return pf;
+  }
+
   function profileForSeat(seat) {
     var VP = global.GTOVillainProfiles;
     var role = mapRoleId(seat && seat.roleId);
     if (!VP || typeof VP.applyDifficulty !== 'function') {
-      return { id: role, preflopStrict: 0.92 };
+      return {
+        id: role,
+        preflopStrict: 0.92,
+        postflop: tournamentPostflopFloor(role, {
+          betFreqMult: 1.15, bluffFreqMult: 1, raiseFreqMult: 1.15, callMult: 1.05, foldMult: 0.9
+        })
+      };
     }
     var base = typeof VP.getProfile === 'function' ? VP.getProfile(role) : role;
     var prof = VP.applyDifficulty(base, 'pro', { forced: true, keepArchetype: true });
+    prof = Object.assign({}, prof, {
+      postflop: tournamentPostflopFloor(role, prof.postflop)
+    });
     if (seat && seat.proStyle) {
       prof = Object.assign({}, prof, { proStyle: seat.proStyle });
     }
     return prof;
   }
 
-  function strength01(hole, board) {
-    var C = global.Cards;
-    board = board || [];
+  function holeStrength01(hole) {
     if (!hole || hole.length < 2) return 0.1;
-    if (C && C.evaluate && board.length >= 3) {
-      try {
-        var ev = C.evaluate(hole.concat(board));
-        if (ev && ev.rank != null) {
-          return Math.max(0.05, Math.min(0.98, 1 - (Number(ev.rank) / 7462)));
-        }
-      } catch (e) { /* */ }
-    }
     var ranks = '23456789TJQKA';
     function rv(c) {
       return Math.max(0, ranks.indexOf(cardCode(c).charAt(0)));
@@ -78,6 +107,42 @@
       (Math.max(a, b) / 12) * 0.55 + (Math.min(a, b) / 12) * 0.2 +
       (pair ? 0.25 : 0) + (suited ? 0.08 : 0)
     ));
+  }
+
+  /**
+   * Cards.evaluate devuelve { category: 0..8, rank: [category, ...] } (mayor = mejor),
+   * no un rank 1..7462. Mapear mal → NaN/basura → overfold y solo check.
+   */
+  function strength01(hole, board) {
+    var C = global.Cards;
+    board = board || [];
+    var holeStr = holeStrength01(hole);
+    if (!hole || hole.length < 2) return 0.1;
+    if (C && C.evaluate && board.length >= 3) {
+      try {
+        var codes = hole.concat(board).map(function (c) {
+          return typeof c === 'string' ? c : cardCode(c);
+        });
+        var ev = C.evaluate(codes);
+        var cat = null;
+        if (ev && ev.category != null && isFinite(Number(ev.category))) {
+          cat = Number(ev.category);
+        } else if (ev && Array.isArray(ev.rank) && isFinite(Number(ev.rank[0])) && Number(ev.rank[0]) <= 8) {
+          cat = Number(ev.rank[0]);
+        } else if (ev && typeof ev.rank === 'number' && ev.rank > 20) {
+          return Math.max(0.05, Math.min(0.98, 1 - (ev.rank / 7462)));
+        }
+        if (cat != null && cat >= 0 && cat <= 8) {
+          var made = 0.16 + (cat / 8) * 0.72;
+          /* High card / pareja débil: mezclar fuerza de hole (AK high ≠ 72o). */
+          if (cat <= 0) made = Math.max(made, 0.2 + holeStr * 0.5);
+          else if (cat === 1) made = Math.max(made, 0.42 + holeStr * 0.25);
+          else if (cat === 2) made = Math.max(made, 0.58);
+          return Math.max(0.08, Math.min(0.98, made));
+        }
+      } catch (e) { /* */ }
+    }
+    return holeStr;
   }
 
   function rangeCtx(hand, seat) {
@@ -217,14 +282,20 @@
         try {
           face = VP.postflopFacingBet(strength, potOdds, profile, rnd, opts) || 'fold';
         } catch (e) { face = 'fold'; }
-      } else if (strength > potOdds + 0.12) {
-        face = 'call';
       } else if (strength > 0.78) {
         face = 'raise';
+      } else if (strength > potOdds + 0.08) {
+        face = 'call';
+      } else if (strength > potOdds - 0.02 && rnd < 0.55) {
+        face = 'call';
       }
-      /* No overfold a apuestas mínimas (queja: fold a la apuesta más pequeña). */
-      if (face === 'fold' && potOdds < 0.22 && strength > 0.28) {
-        face = rnd < 0.55 ? 'call' : 'fold';
+      /* Anti-overfold: a tamaños chicos / medio-chicos seguir mucho más. */
+      if (face === 'fold') {
+        if (potOdds < 0.12 && strength > 0.12) face = 'call';
+        else if (potOdds < 0.18 && strength > 0.18) face = rnd < 0.92 ? 'call' : 'fold';
+        else if (potOdds < 0.24 && strength > 0.22) face = rnd < 0.82 ? 'call' : 'fold';
+        else if (potOdds < 0.3 && strength > 0.32) face = rnd < 0.68 ? 'call' : 'fold';
+        else if (potOdds < 0.36 && strength > 0.48) face = rnd < 0.55 ? 'call' : 'fold';
       }
       if (face === 'raise') {
         return {
@@ -246,8 +317,22 @@
       try {
         lead = VP.postflopLead(strength, profile, wasAgg, rnd, opts) || 'check';
       } catch (e2) { lead = 'check'; }
-    } else if (strength > 0.62 || (strength > 0.4 && rnd < 0.35)) {
+    } else if (strength > 0.55 || (strength > 0.35 && rnd < 0.48) || (wasAgg && rnd < 0.55)) {
       lead = 'bet';
+    }
+
+    /* Suelo de c-bet / value-bet: evita mesas de solo check. */
+    if (lead === 'check') {
+      var force = 0;
+      var role = profile && profile.id;
+      if (wasAgg && strength > 0.38) force = 0.62;
+      else if (wasAgg && strength > 0.22) force = 0.48;
+      else if (strength > 0.68) force = 0.58;
+      else if (strength > 0.5) force = 0.36;
+      else if (strength > 0.36) force = 0.22;
+      if (role === 'lag' || role === 'maniac') force = Math.min(0.85, force + 0.18);
+      if (role === 'nit') force *= 0.75;
+      if (rnd < force) lead = 'bet';
     }
 
     if (lead === 'bet') {

@@ -27,6 +27,7 @@
     replayOpen: false,
     replayStep: 0,
     replayHandIndex: null,
+    popupClearScheduled: { blind: false, ft: false, itm: false },
     anim: { frame: null, playing: false, skip: false, seq: 0, timer: null }
   };
 
@@ -68,11 +69,15 @@
 
   function schedulePopupClear(flag) {
     try {
+      if (!ui.popupClearScheduled) ui.popupClearScheduled = {};
+      if (ui.popupClearScheduled[flag]) return;
+      ui.popupClearScheduled[flag] = true;
       setTimeout(function () {
+        ui.popupClearScheduled[flag] = false;
         if (!ui.state) return;
-        if (flag === "blind") ui.state.blindUpPending = null;
-        if (flag === "ft") ui.state.finalTablePending = null;
-        if (flag === "itm") ui.state.itmPending = null;
+        if (flag === 'blind') ui.state.blindUpPending = null;
+        if (flag === 'ft') ui.state.finalTablePending = null;
+        if (flag === 'itm') ui.state.itmPending = null;
         paint();
       }, 2000);
     } catch (e) { /* */ }
