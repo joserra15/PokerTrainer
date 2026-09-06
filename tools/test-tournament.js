@@ -1515,4 +1515,29 @@ console.log('OK pushfold-freq-100');
   console.log('OK tournament-session-gto-align');
 }
 
+// --- fichas de mesa en torneo = misma escala de color que Entrenar ---
+{
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI.chipTier && UI.chipStackHTML && UI.renderSeatBetHtml, 'chip helpers exported');
+  assert.strictEqual(UI.chipTier(0.5), 'w');
+  assert.strictEqual(UI.chipTier(2), 'r');
+  assert.strictEqual(UI.chipTier(5), 'g');
+  assert.strictEqual(UI.chipTier(15), 'b');
+  assert.strictEqual(UI.chipTier(30), 'k');
+  assert.strictEqual(UI.chipTier(80), 'p');
+  const stack = UI.chipStackHTML(5);
+  assert.ok(stack.includes('chip-stack') && stack.includes('chip-g'), 'green stack for 5bb');
+  const seatBet = UI.renderSeatBetHtml(100, 20, 'bet-below'); // 5 bb
+  assert.ok(seatBet.includes('seat-bet') && seatBet.includes('chip-g') && seatBet.includes('5 bb'),
+    'seat bet shows chips + amount');
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(uiSrc.includes('pot-chips') && uiSrc.includes('chipStackHTML'), 'pot uses chip stack');
+  assert.ok(uiSrc.includes('renderSeatBetHtml') && uiSrc.includes('renderHeroStreetChipsHtml'),
+    'seat + hero street chips');
+  const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert.ok(/function chipTier\(bb\)[\s\S]*?if \(bb < 1\) return 'w'/.test(appSrc),
+    'trainer chipTier untouched');
+  console.log('OK tournament-table-chips');
+}
+
 console.log('*** test-tournament OK ***');

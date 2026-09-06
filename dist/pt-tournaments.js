@@ -956,12 +956,20 @@
 
   function handCode(cards) {
     if (!cards || cards.length < 2) return null;
-    var C = global.Cards;
-    if (C && C.handCode) {
-      try { return C.handCode(cards[0], cards[1]); } catch (e) { /* */ }
-    }
-    var a = cardCode(cards[0]);
-    var b = cardCode(cards[1]);
+    var a0 = cards[0];
+    var a1 = cards[1];
+    try {
+      if (global.Ranges && typeof global.Ranges.handCode === 'function') {
+        return global.Ranges.handCode(a0, a1);
+      }
+    } catch (eR) { /* */ }
+    try {
+      if (global.GTORangesNotation && typeof global.GTORangesNotation.handCode === 'function') {
+        return global.GTORangesNotation.handCode(a0, a1);
+      }
+    } catch (eN) { /* */ }
+    var a = cardCode(a0);
+    var b = cardCode(a1);
     if (!a || !b) return null;
     var order = '23456789TJQKA';
     var ra = order.indexOf(a[0]);
@@ -970,6 +978,16 @@
     var lo = ra >= rb ? b : a;
     if (hi[0] === lo[0]) return hi[0] + lo[0];
     return hi[0] + lo[0] + (hi[1] === lo[1] ? 's' : 'o');
+  }
+
+  /** Misma convención que el importador: RFI = none, vs open = caller; postflop = agresor preflop. */
+  function resolveInitiative(hand, heroSeat, firstIn) {
+    if (!hand || !heroSeat) return 'none';
+    if (hand.street === 'preflop') {
+      return firstIn || !hand.openerId ? 'none' : 'caller';
+    }
+    if (hand.openerId && hand.openerId === heroSeat.id) return 'aggressor';
+    return 'caller';
   }
 
   function mapActionId(action, opts) {
@@ -1151,8 +1169,9 @@
     if (hand.ante != null) anteBB = Number(hand.ante) / bb;
     else if (hand.anteBB != null) anteBB = Number(hand.anteBB);
 
+    var initiative = resolveInitiative(hand, heroSeat, firstIn);
     var input = {
-      spotKind: street === 'preflop' ? (hand.openerId ? 'vsRFI' : 'RFI') : 'postflop',
+      spotKind: street === 'preflop' ? (hand.openerId && !firstIn ? 'vsRFI' : 'RFI') : 'postflop',
       street: street,
       position: heroSeat.pos,
       vsPosition: vsPosition(hand, heroSeat),
@@ -1168,6 +1187,8 @@
       heroRemainingBB: Math.round((stackLeft / bb) * 100) / 100,
       availableActions: avail,
       chosenAction: chosen,
+      initiative: initiative,
+      inPosition: street === 'preflop' ? false : undefined,
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
       mttPhase: phase,
@@ -1257,16 +1278,44 @@
       base.strategy = graded.strategy;
       base.gto = graded.strategy;
       base.optionBreakdown = optionBreakdown(graded.strategy, { pushFold: !!input.pushFold });
+      /* Persistir opciones legales = misma mezcla que Entrenar / recompute / matriz. */
+      base.options = (input.availableActions || []).slice();
+      base.availableActions = base.options.slice();
+      base.initiative = input.initiative;
+      base.formatHub = input.formatHub;
+      base.gameType = input.gameType;
+      base.pushFold = !!input.pushFold;
+      base.preflopMode = input.preflopMode;
+      base.spotKind = input.spotKind;
+      base.vsPosition = input.vsPosition;
+      base.potBB = input.potBB;
+      base.potEvalBB = input.potBB;
+      base.toCallBB = input.toCallBB;
+      base.potBeforeBB = input.potBeforeBB;
       if (result && result.evaluation && result.evaluation.phaseNote) {
         base.phaseNote = result.evaluation.phaseNote;
+      }
+      if (result && result.evaluation) {
+        base.evErroneous = result.evaluation.evErroneous;
+        base.actionEV = result.evaluation.actionEV;
+        base.bestEV = result.evaluation.bestEV;
       }
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
         position: input.position,
+        vsPosition: input.vsPosition,
         potBB: input.potBB,
         toCallBB: input.toCallBB,
+        potBeforeBB: input.potBeforeBB,
         stackBB: input.stackBB,
+        stackDepth: input.stackDepth,
+        availableActions: (input.availableActions || []).slice(),
+        chosenAction: input.chosenAction,
+        initiative: input.initiative,
+        inPosition: input.inPosition,
+        formatHub: input.formatHub,
+        gameType: input.gameType,
         mttPhase: input.mttPhase,
         pushFold: input.pushFold,
         preflopMode: input.preflopMode
@@ -3866,6 +3915,31 @@
       .sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
   }
 
+  function resolveHandCode(cards) {
+    if (!cards || cards.length < 2) return null;
+    try {
+      if (global.Ranges && typeof global.Ranges.handCode === 'function') {
+        return global.Ranges.handCode(cards[0], cards[1]);
+      }
+    } catch (e1) { /* */ }
+    try {
+      if (global.GTORangesNotation && typeof global.GTORangesNotation.handCode === 'function') {
+        return global.GTORangesNotation.handCode(cards[0], cards[1]);
+      }
+    } catch (e2) { /* */ }
+    var a = cardCode(cards[0]);
+    var b = cardCode(cards[1]);
+    if (!a || !b) return null;
+    var order = '23456789TJQKA';
+    var ra = order.indexOf(a[0]);
+    var rb = order.indexOf(b[0]);
+    if (ra < 0 || rb < 0) return null;
+    var hi = ra >= rb ? a : b;
+    var lo = ra >= rb ? b : a;
+    if (hi[0] === lo[0]) return hi[0] + lo[0];
+    return hi[0] + lo[0] + (hi[1] === lo[1] ? 's' : 'o');
+  }
+
   function normalizeDecision(d, bb) {
     if (!d) return null;
     var chosen = d.chosen || d.action || d.label || 'fold';
@@ -3874,6 +3948,12 @@
     var pushFold = !!(d.pushFold || (d.input && d.input.pushFold) || d.mttPhase === 'push'
       || d.preflopMode === 'push');
     var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy, { pushFold: pushFold });
+    var opts = d.options || d.availableActions
+      || (d.input && (d.input.availableActions || d.input.options)) || null;
+    if ((!opts || !opts.length) && breakdown && breakdown.length) {
+      opts = breakdown.map(function (o) { return o.id; }).filter(Boolean);
+    }
+    var input = d.input || null;
     var out = {
       street: d.street || 'preflop',
       chosen: chosen,
@@ -3888,10 +3968,26 @@
       explanation: d.explanation || null,
       context: d.context || null,
       unscored: !!d.unscored || cls === 'unscored',
-      potBB: d.input && d.input.potBB != null ? d.input.potBB : (d.potBB != null ? d.potBB : null),
-      toCallBB: d.input && d.input.toCallBB != null ? d.input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
-      spotKind: d.input && d.input.spotKind ? d.input.spotKind : (d.spotKind || null),
-      amount: d.amount != null ? d.amount : null
+      potBB: input && input.potBB != null ? input.potBB : (d.potBB != null ? d.potBB : null),
+      potEvalBB: d.potEvalBB != null ? d.potEvalBB
+        : (input && input.potBB != null ? input.potBB : (d.potBB != null ? d.potBB : null)),
+      toCallBB: input && input.toCallBB != null ? input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
+      potBeforeBB: d.potBeforeBB != null ? d.potBeforeBB
+        : (input && input.potBeforeBB != null ? input.potBeforeBB : null),
+      spotKind: (input && input.spotKind) || d.spotKind || null,
+      vsPosition: d.vsPosition || (input && input.vsPosition) || null,
+      initiative: d.initiative || (input && input.initiative) || null,
+      formatHub: d.formatHub || (input && input.formatHub) || 'mtt',
+      gameType: d.gameType || (input && input.gameType) || null,
+      mttPhase: d.mttPhase || (input && input.mttPhase) || null,
+      pushFold: pushFold,
+      preflopMode: d.preflopMode || (input && input.preflopMode) || null,
+      stackBB: d.stackBB != null ? d.stackBB
+        : (input && input.stackBB != null ? input.stackBB : null),
+      amount: d.amount != null ? d.amount : null,
+      options: Array.isArray(opts) ? opts.slice() : null,
+      availableActions: Array.isArray(opts) ? opts.slice() : null,
+      input: input
     };
     if (out.unscored && !d.class) out.class = 'aceptable';
     return out;
@@ -4069,7 +4165,7 @@
       hero: heroName,
       heroPos: heroSeat.pos || 'BTN',
       heroCards: heroCards,
-      heroCode: null,
+      heroCode: resolveHandCode(heroCards),
       heroHandName: handNamesByPlayer[heroName] || srcHandNames[heroSeat.id] || null,
       board: boardObj.all.slice(),
       boardAll: boardObj.all.slice(),
@@ -4117,11 +4213,11 @@
       source: 'tournamentAi'
     };
 
-    try {
-      if (global.Cards && global.Cards.handCode && heroCards.length === 2) {
-        hand.heroCode = global.Cards.handCode(heroCards[0], heroCards[1]);
-      }
-    } catch (e2) { /* */ }
+    if (!hand.heroCode && heroCards.length === 2) {
+      try {
+        hand.heroCode = resolveHandCode(heroCards);
+      } catch (e2) { /* */ }
+    }
 
     try {
       if (global.Importer && typeof global.Importer.buildHandTags === 'function') {
@@ -4173,6 +4269,7 @@
       hands: hands,
       stats: stats,
       source: 'tournamentAi',
+      tournamentAi: true,
       tournamentId: state.id,
       tournament: {
         id: state.id,
@@ -5386,6 +5483,45 @@ function reducedMotion() {
     return (v % 1 ? v.toFixed(1) : String(v)) + ' bb';
   }
 
+  /** Misma escala de color que Entrenar (app.js chipTier): magnitud en bb. */
+  function chipTier(bbAmt) {
+    if (bbAmt < 1) return 'w';
+    if (bbAmt < 3) return 'r';
+    if (bbAmt < 8) return 'g';
+    if (bbAmt < 20) return 'b';
+    if (bbAmt < 50) return 'k';
+    return 'p';
+  }
+
+  function chipStackHTML(bbAmt) {
+    var n = bbAmt < 1 ? 1 : (bbAmt < 3 ? 2 : (bbAmt < 10 ? 3 : 4));
+    var tier = chipTier(bbAmt);
+    var discs = '';
+    for (var i = 0; i < n; i++) discs += '<span class="chip chip-' + tier + '"></span>';
+    return '<span class="chip-stack" aria-hidden="true">' + discs + '</span>';
+  }
+
+  function chipsToBb(chips, bb) {
+    bb = Number(bb) || 1;
+    return (Number(chips) || 0) / bb;
+  }
+
+  /** Fichas delante del asiento (misma markup que Entrenar). */
+  function renderSeatBetHtml(chips, bb, placement) {
+    var bbAmt = chipsToBb(chips, bb);
+    if (!(bbAmt > 0)) return '';
+    return '<div class="seat-bet ' + (placement || 'bet-below') + '" title="Fichas en juego">' +
+      chipStackHTML(bbAmt) +
+      '<span class="seat-bet-amt">' + esc(fmtBb(chips, bb)) + '</span></div>';
+  }
+
+  function renderHeroStreetChipsHtml(chips, bb) {
+    var bbAmt = chipsToBb(chips, bb);
+    if (!(bbAmt > 0)) return '';
+    return '<div class="seat-chips"><span class="seat-chips-street" title="Apuesta en la calle">' +
+      chipStackHTML(bbAmt) + esc(fmtBb(chips, bb)) + '</span></div>';
+  }
+
   function lastLogAct(hand, playerId) {
     if (!hand || !hand.log || !hand.log.length) return null;
     for (var i = hand.log.length - 1; i >= 0; i--) {
@@ -5495,9 +5631,11 @@ function reducedMotion() {
       }
 
       var streetBet = Number(s.streetInvested) || 0;
-      var betHtml = streetBet > 0
-        ? '<div class="seat-bet ' + betPlacement(c) + '"><span class="seat-bet-amt">' + esc(fmtBb(streetBet, bb)) + '</span></div>'
-        : '';
+      /* Preflop: mostrar ciega si aún no hay apuesta de calle explícita. */
+      if (streetBet <= 0 && hand.street === 'preflop') {
+        streetBet = Number(s.invested) || 0;
+      }
+      var betHtml = renderSeatBetHtml(streetBet, bb, betPlacement(c));
 
       var villainName = s.name || 'Villano';
       html += '<button type="button" class="' + cls.join(' ') + '" style="top:' + c.top + '%;left:' + c.left +
@@ -5540,9 +5678,13 @@ function reducedMotion() {
         ? hero.cards.map(faceCard).join('')
         : (backCard() + backCard()));
     var dealerHidden = hero.pos === 'BTN' ? '' : ' hidden';
+    var streetBet = Number(hero.streetInvested) || 0;
+    if (streetBet <= 0 && hand.street === 'preflop') streetBet = Number(hero.invested) || 0;
+    var streetChips = renderHeroStreetChipsHtml(streetBet, bb);
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
-      '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
+      '<div class="hero-chips">' + streetChips +
+      '<div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
       '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) +
       ' · <span>' + esc(hero.pos || '-') + '</span>' +
       '<span class="hero-dealer' + dealerHidden + '" title="Dealer">D</span></div>' +
@@ -5576,6 +5718,10 @@ function reducedMotion() {
     }).join('');
 
     var potBb = hand ? fmtBb(hand.pot, bb) : '0 bb';
+    var potChipsHtml = '';
+    if (hand && Number(hand.pot) > 0) {
+      potChipsHtml = '<span class="pot-chips">' + chipStackHTML(chipsToBb(hand.pot, bb)) + '</span>';
+    }
     var boardHtml = (hand && hand.board && hand.board.length)
       ? hand.board.map(faceCard).join('')
       : '';
@@ -5778,7 +5924,7 @@ function reducedMotion() {
       '</div>' +
       '<div class="seats">' + seatsHtml + '</div>' +
       '<div class="board-area">' +
-      '<div class="pot">Bote: <strong class="pot-amt">' + esc(potBb) + '</strong></div>' +
+      '<div class="pot">' + potChipsHtml + 'Bote: <strong class="pot-amt">' + esc(potBb) + '</strong></div>' +
       '<div class="board">' + boardHtml + '</div>' +
       '</div>' +
       renderHeroArea(hand, bb) +
@@ -6488,7 +6634,11 @@ function reducedMotion() {
     setAnimFrame: function (frame) {
       ui.anim = ui.anim || {};
       ui.anim.frame = frame || null;
-    }
+    },
+    /* Fichas de mesa (misma escala que Entrenar) — tests. */
+    chipTier: chipTier,
+    chipStackHTML: chipStackHTML,
+    renderSeatBetHtml: renderSeatBetHtml
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 

@@ -687,6 +687,45 @@ function reducedMotion() {
     return (v % 1 ? v.toFixed(1) : String(v)) + ' bb';
   }
 
+  /** Misma escala de color que Entrenar (app.js chipTier): magnitud en bb. */
+  function chipTier(bbAmt) {
+    if (bbAmt < 1) return 'w';
+    if (bbAmt < 3) return 'r';
+    if (bbAmt < 8) return 'g';
+    if (bbAmt < 20) return 'b';
+    if (bbAmt < 50) return 'k';
+    return 'p';
+  }
+
+  function chipStackHTML(bbAmt) {
+    var n = bbAmt < 1 ? 1 : (bbAmt < 3 ? 2 : (bbAmt < 10 ? 3 : 4));
+    var tier = chipTier(bbAmt);
+    var discs = '';
+    for (var i = 0; i < n; i++) discs += '<span class="chip chip-' + tier + '"></span>';
+    return '<span class="chip-stack" aria-hidden="true">' + discs + '</span>';
+  }
+
+  function chipsToBb(chips, bb) {
+    bb = Number(bb) || 1;
+    return (Number(chips) || 0) / bb;
+  }
+
+  /** Fichas delante del asiento (misma markup que Entrenar). */
+  function renderSeatBetHtml(chips, bb, placement) {
+    var bbAmt = chipsToBb(chips, bb);
+    if (!(bbAmt > 0)) return '';
+    return '<div class="seat-bet ' + (placement || 'bet-below') + '" title="Fichas en juego">' +
+      chipStackHTML(bbAmt) +
+      '<span class="seat-bet-amt">' + esc(fmtBb(chips, bb)) + '</span></div>';
+  }
+
+  function renderHeroStreetChipsHtml(chips, bb) {
+    var bbAmt = chipsToBb(chips, bb);
+    if (!(bbAmt > 0)) return '';
+    return '<div class="seat-chips"><span class="seat-chips-street" title="Apuesta en la calle">' +
+      chipStackHTML(bbAmt) + esc(fmtBb(chips, bb)) + '</span></div>';
+  }
+
   function lastLogAct(hand, playerId) {
     if (!hand || !hand.log || !hand.log.length) return null;
     for (var i = hand.log.length - 1; i >= 0; i--) {
@@ -796,9 +835,11 @@ function reducedMotion() {
       }
 
       var streetBet = Number(s.streetInvested) || 0;
-      var betHtml = streetBet > 0
-        ? '<div class="seat-bet ' + betPlacement(c) + '"><span class="seat-bet-amt">' + esc(fmtBb(streetBet, bb)) + '</span></div>'
-        : '';
+      /* Preflop: mostrar ciega si aún no hay apuesta de calle explícita. */
+      if (streetBet <= 0 && hand.street === 'preflop') {
+        streetBet = Number(s.invested) || 0;
+      }
+      var betHtml = renderSeatBetHtml(streetBet, bb, betPlacement(c));
 
       var villainName = s.name || 'Villano';
       html += '<button type="button" class="' + cls.join(' ') + '" style="top:' + c.top + '%;left:' + c.left +
@@ -841,9 +882,13 @@ function reducedMotion() {
         ? hero.cards.map(faceCard).join('')
         : (backCard() + backCard()));
     var dealerHidden = hero.pos === 'BTN' ? '' : ' hidden';
+    var streetBet = Number(hero.streetInvested) || 0;
+    if (streetBet <= 0 && hand.street === 'preflop') streetBet = Number(hero.invested) || 0;
+    var streetChips = renderHeroStreetChipsHtml(streetBet, bb);
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
-      '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
+      '<div class="hero-chips">' + streetChips +
+      '<div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
       '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) +
       ' · <span>' + esc(hero.pos || '-') + '</span>' +
       '<span class="hero-dealer' + dealerHidden + '" title="Dealer">D</span></div>' +
@@ -877,6 +922,10 @@ function reducedMotion() {
     }).join('');
 
     var potBb = hand ? fmtBb(hand.pot, bb) : '0 bb';
+    var potChipsHtml = '';
+    if (hand && Number(hand.pot) > 0) {
+      potChipsHtml = '<span class="pot-chips">' + chipStackHTML(chipsToBb(hand.pot, bb)) + '</span>';
+    }
     var boardHtml = (hand && hand.board && hand.board.length)
       ? hand.board.map(faceCard).join('')
       : '';
@@ -1079,7 +1128,7 @@ function reducedMotion() {
       '</div>' +
       '<div class="seats">' + seatsHtml + '</div>' +
       '<div class="board-area">' +
-      '<div class="pot">Bote: <strong class="pot-amt">' + esc(potBb) + '</strong></div>' +
+      '<div class="pot">' + potChipsHtml + 'Bote: <strong class="pot-amt">' + esc(potBb) + '</strong></div>' +
       '<div class="board">' + boardHtml + '</div>' +
       '</div>' +
       renderHeroArea(hand, bb) +
@@ -1789,6 +1838,10 @@ function reducedMotion() {
     setAnimFrame: function (frame) {
       ui.anim = ui.anim || {};
       ui.anim.frame = frame || null;
-    }
+    },
+    /* Fichas de mesa (misma escala que Entrenar) — tests. */
+    chipTier: chipTier,
+    chipStackHTML: chipStackHTML,
+    renderSeatBetHtml: renderSeatBetHtml
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
