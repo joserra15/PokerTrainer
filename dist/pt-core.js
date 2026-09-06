@@ -9495,6 +9495,7 @@ window.PT_NASH_PUSH_JSON = {
    * @param {boolean} [priorAggressorBet] true si el héroe ya bet/raise en calle previa
    */
   function aggressorLeadType(street, priorAggressorBet) {
+    if (street === 'preflop') return 'none';
     if (street === 'turn') {
       return priorAggressorBet === false ? 'delayed_cbet' : 'barrel2';
     }
@@ -9548,6 +9549,8 @@ window.PT_NASH_PUSH_JSON = {
       spotKind: input.spotKind || 'postflop',
       facing: (input.toCallBB || 0) > 0 ? 'bet' : 'none',
       leadType: (function () {
+        /* Preflop no tiene c-bet / donk / probe (eso es postflop). */
+        if (street === 'preflop') return 'none';
         if ((input.toCallBB || 0) > 0) return 'none';
         if (input.initiative === 'aggressor') {
           return aggressorLeadType(street, input.priorAggressorBet);
@@ -25509,6 +25512,11 @@ window.PT_NASH_PUSH_JSON = {
   async function mergeSessionIfDuplicate(session) {
     if (session && session.source === 'tournamentSummary') {
       return mergeTournamentSummaryIfDuplicate(session);
+    }
+    /* Torneos IA: cada torneo es una sesión propia. No fusionar por fileName
+     * (mismo preset + mismo puesto acumulaba manos de torneos previos). */
+    if (session && (session.source === 'tournamentAi' || session.tournamentAi)) {
+      return session;
     }
     if (!session || !session.hands || !session.hands.length || !session.fileName) return session;
     const list = getSessionIndex();
@@ -42861,7 +42869,7 @@ window.PT_NASH_PUSH_JSON = {
       return `<div class="mini-hand">
         <div class="mini-hand-row">
           <span class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</span>
-          <span>${h.heroCode} ${h.heroPos}</span>
+          <span>${escapeHtml(h.heroCode || '')} ${escapeHtml(h.heroPos || '')}</span>
           <span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span>
           <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span>
           ${handScoreBadgeHtml(scoreMeta)}
@@ -42906,7 +42914,7 @@ window.PT_NASH_PUSH_JSON = {
       return `<div class="record">
         <div class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
         <div class="rec-main">
-          <div class="rec-scenario">${h.heroCode} <span style="color:var(--muted)">(${h.heroPos})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
+          <div class="rec-scenario">${escapeHtml(h.heroCode || '')} <span style="color:var(--muted)">(${escapeHtml(h.heroPos || '')})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
           <div class="rec-sub">Board: ${(h.board || []).map(Cards.cardToHTML).join('') || '—'} · ${h.nDecisions} decisiones · acierto ${h.accuracy}%</div>
           ${tagsHtml}
         </div>

@@ -956,12 +956,20 @@
 
   function handCode(cards) {
     if (!cards || cards.length < 2) return null;
-    var C = global.Cards;
-    if (C && C.handCode) {
-      try { return C.handCode(cards[0], cards[1]); } catch (e) { /* */ }
-    }
-    var a = cardCode(cards[0]);
-    var b = cardCode(cards[1]);
+    var a0 = cards[0];
+    var a1 = cards[1];
+    try {
+      if (global.Ranges && typeof global.Ranges.handCode === 'function') {
+        return global.Ranges.handCode(a0, a1);
+      }
+    } catch (eR) { /* */ }
+    try {
+      if (global.GTORangesNotation && typeof global.GTORangesNotation.handCode === 'function') {
+        return global.GTORangesNotation.handCode(a0, a1);
+      }
+    } catch (eN) { /* */ }
+    var a = cardCode(a0);
+    var b = cardCode(a1);
     if (!a || !b) return null;
     var order = '23456789TJQKA';
     var ra = order.indexOf(a[0]);
@@ -970,6 +978,16 @@
     var lo = ra >= rb ? b : a;
     if (hi[0] === lo[0]) return hi[0] + lo[0];
     return hi[0] + lo[0] + (hi[1] === lo[1] ? 's' : 'o');
+  }
+
+  /** Misma convención que el importador: RFI = none, vs open = caller; postflop = agresor preflop. */
+  function resolveInitiative(hand, heroSeat, firstIn) {
+    if (!hand || !heroSeat) return 'none';
+    if (hand.street === 'preflop') {
+      return firstIn || !hand.openerId ? 'none' : 'caller';
+    }
+    if (hand.openerId && hand.openerId === heroSeat.id) return 'aggressor';
+    return 'caller';
   }
 
   function mapActionId(action, opts) {
@@ -1151,8 +1169,9 @@
     if (hand.ante != null) anteBB = Number(hand.ante) / bb;
     else if (hand.anteBB != null) anteBB = Number(hand.anteBB);
 
+    var initiative = resolveInitiative(hand, heroSeat, firstIn);
     var input = {
-      spotKind: street === 'preflop' ? (hand.openerId ? 'vsRFI' : 'RFI') : 'postflop',
+      spotKind: street === 'preflop' ? (hand.openerId && !firstIn ? 'vsRFI' : 'RFI') : 'postflop',
       street: street,
       position: heroSeat.pos,
       vsPosition: vsPosition(hand, heroSeat),
@@ -1168,6 +1187,8 @@
       heroRemainingBB: Math.round((stackLeft / bb) * 100) / 100,
       availableActions: avail,
       chosenAction: chosen,
+      initiative: initiative,
+      inPosition: street === 'preflop' ? false : undefined,
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
       mttPhase: phase,
@@ -1257,16 +1278,44 @@
       base.strategy = graded.strategy;
       base.gto = graded.strategy;
       base.optionBreakdown = optionBreakdown(graded.strategy, { pushFold: !!input.pushFold });
+      /* Persistir opciones legales = misma mezcla que Entrenar / recompute / matriz. */
+      base.options = (input.availableActions || []).slice();
+      base.availableActions = base.options.slice();
+      base.initiative = input.initiative;
+      base.formatHub = input.formatHub;
+      base.gameType = input.gameType;
+      base.pushFold = !!input.pushFold;
+      base.preflopMode = input.preflopMode;
+      base.spotKind = input.spotKind;
+      base.vsPosition = input.vsPosition;
+      base.potBB = input.potBB;
+      base.potEvalBB = input.potBB;
+      base.toCallBB = input.toCallBB;
+      base.potBeforeBB = input.potBeforeBB;
       if (result && result.evaluation && result.evaluation.phaseNote) {
         base.phaseNote = result.evaluation.phaseNote;
+      }
+      if (result && result.evaluation) {
+        base.evErroneous = result.evaluation.evErroneous;
+        base.actionEV = result.evaluation.actionEV;
+        base.bestEV = result.evaluation.bestEV;
       }
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
         position: input.position,
+        vsPosition: input.vsPosition,
         potBB: input.potBB,
         toCallBB: input.toCallBB,
+        potBeforeBB: input.potBeforeBB,
         stackBB: input.stackBB,
+        stackDepth: input.stackDepth,
+        availableActions: (input.availableActions || []).slice(),
+        chosenAction: input.chosenAction,
+        initiative: input.initiative,
+        inPosition: input.inPosition,
+        formatHub: input.formatHub,
+        gameType: input.gameType,
         mttPhase: input.mttPhase,
         pushFold: input.pushFold,
         preflopMode: input.preflopMode
@@ -3866,6 +3915,31 @@
       .sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
   }
 
+  function resolveHandCode(cards) {
+    if (!cards || cards.length < 2) return null;
+    try {
+      if (global.Ranges && typeof global.Ranges.handCode === 'function') {
+        return global.Ranges.handCode(cards[0], cards[1]);
+      }
+    } catch (e1) { /* */ }
+    try {
+      if (global.GTORangesNotation && typeof global.GTORangesNotation.handCode === 'function') {
+        return global.GTORangesNotation.handCode(cards[0], cards[1]);
+      }
+    } catch (e2) { /* */ }
+    var a = cardCode(cards[0]);
+    var b = cardCode(cards[1]);
+    if (!a || !b) return null;
+    var order = '23456789TJQKA';
+    var ra = order.indexOf(a[0]);
+    var rb = order.indexOf(b[0]);
+    if (ra < 0 || rb < 0) return null;
+    var hi = ra >= rb ? a : b;
+    var lo = ra >= rb ? b : a;
+    if (hi[0] === lo[0]) return hi[0] + lo[0];
+    return hi[0] + lo[0] + (hi[1] === lo[1] ? 's' : 'o');
+  }
+
   function normalizeDecision(d, bb) {
     if (!d) return null;
     var chosen = d.chosen || d.action || d.label || 'fold';
@@ -3874,6 +3948,12 @@
     var pushFold = !!(d.pushFold || (d.input && d.input.pushFold) || d.mttPhase === 'push'
       || d.preflopMode === 'push');
     var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy, { pushFold: pushFold });
+    var opts = d.options || d.availableActions
+      || (d.input && (d.input.availableActions || d.input.options)) || null;
+    if ((!opts || !opts.length) && breakdown && breakdown.length) {
+      opts = breakdown.map(function (o) { return o.id; }).filter(Boolean);
+    }
+    var input = d.input || null;
     var out = {
       street: d.street || 'preflop',
       chosen: chosen,
@@ -3888,10 +3968,26 @@
       explanation: d.explanation || null,
       context: d.context || null,
       unscored: !!d.unscored || cls === 'unscored',
-      potBB: d.input && d.input.potBB != null ? d.input.potBB : (d.potBB != null ? d.potBB : null),
-      toCallBB: d.input && d.input.toCallBB != null ? d.input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
-      spotKind: d.input && d.input.spotKind ? d.input.spotKind : (d.spotKind || null),
-      amount: d.amount != null ? d.amount : null
+      potBB: input && input.potBB != null ? input.potBB : (d.potBB != null ? d.potBB : null),
+      potEvalBB: d.potEvalBB != null ? d.potEvalBB
+        : (input && input.potBB != null ? input.potBB : (d.potBB != null ? d.potBB : null)),
+      toCallBB: input && input.toCallBB != null ? input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
+      potBeforeBB: d.potBeforeBB != null ? d.potBeforeBB
+        : (input && input.potBeforeBB != null ? input.potBeforeBB : null),
+      spotKind: (input && input.spotKind) || d.spotKind || null,
+      vsPosition: d.vsPosition || (input && input.vsPosition) || null,
+      initiative: d.initiative || (input && input.initiative) || null,
+      formatHub: d.formatHub || (input && input.formatHub) || 'mtt',
+      gameType: d.gameType || (input && input.gameType) || null,
+      mttPhase: d.mttPhase || (input && input.mttPhase) || null,
+      pushFold: pushFold,
+      preflopMode: d.preflopMode || (input && input.preflopMode) || null,
+      stackBB: d.stackBB != null ? d.stackBB
+        : (input && input.stackBB != null ? input.stackBB : null),
+      amount: d.amount != null ? d.amount : null,
+      options: Array.isArray(opts) ? opts.slice() : null,
+      availableActions: Array.isArray(opts) ? opts.slice() : null,
+      input: input
     };
     if (out.unscored && !d.class) out.class = 'aceptable';
     return out;
@@ -4069,7 +4165,7 @@
       hero: heroName,
       heroPos: heroSeat.pos || 'BTN',
       heroCards: heroCards,
-      heroCode: null,
+      heroCode: resolveHandCode(heroCards),
       heroHandName: handNamesByPlayer[heroName] || srcHandNames[heroSeat.id] || null,
       board: boardObj.all.slice(),
       boardAll: boardObj.all.slice(),
@@ -4117,11 +4213,11 @@
       source: 'tournamentAi'
     };
 
-    try {
-      if (global.Cards && global.Cards.handCode && heroCards.length === 2) {
-        hand.heroCode = global.Cards.handCode(heroCards[0], heroCards[1]);
-      }
-    } catch (e2) { /* */ }
+    if (!hand.heroCode && heroCards.length === 2) {
+      try {
+        hand.heroCode = resolveHandCode(heroCards);
+      } catch (e2) { /* */ }
+    }
 
     try {
       if (global.Importer && typeof global.Importer.buildHandTags === 'function') {
@@ -4173,6 +4269,7 @@
       hands: hands,
       stats: stats,
       source: 'tournamentAi',
+      tournamentAi: true,
       tournamentId: state.id,
       tournament: {
         id: state.id,
@@ -4727,8 +4824,10 @@
     replayOpen: false,
     replayStep: 0,
     replayHandIndex: null,
-    popupClearScheduled: { blind: false, ft: false, itm: false },
-    anim: { frame: null, playing: false, skip: false, seq: 0, timer: null }
+    popupClearScheduled: { blind: false, ft: false, itm: false, start: false, congrats: false },
+    anim: { frame: null, playing: false, skip: false, seq: 0, timer: null },
+    heldFrames: null,
+    heldFramesDone: null
   };
 
   /* ---------- Revelado de la acción paso a paso (como en Entrenar) ---------- */
@@ -4775,20 +4874,98 @@
       '</div></div>';
   }
 
+  /** Carteles que congelan la acción de la mesa hasta ocultarse. */
+  function isBannerBlocking() {
+    var s = ui.state;
+    if (!s) return false;
+    return !!(s.startBannerPending || s.congratsPending || s.blindUpPending
+      || s.finalTablePending || s.itmPending);
+  }
+
+  function bannerDurationMs(flag) {
+    if (flag === 'start' || flag === 'congrats') return 5000;
+    if (flag === 'ft') return 3000;
+    return 2000;
+  }
+
+  function clearBannerFlag(flag) {
+    if (!ui.state) return;
+    if (flag === 'blind') ui.state.blindUpPending = null;
+    if (flag === 'ft') ui.state.finalTablePending = null;
+    if (flag === 'itm') ui.state.itmPending = null;
+    if (flag === 'start') ui.state.startBannerPending = null;
+    if (flag === 'congrats') ui.state.congratsPending = null;
+  }
+
+  function resumeAfterBanner() {
+    if (isBannerBlocking()) {
+      ensureBannerTimers();
+      paint();
+      return;
+    }
+    if (ui.heldFrames && ui.heldFrames.length) {
+      var frames = ui.heldFrames;
+      var done = ui.heldFramesDone;
+      ui.heldFrames = null;
+      ui.heldFramesDone = null;
+      playFrames(frames, done || paint);
+      return;
+    }
+    if (ui.state && ui.state.status === 'finished' && !ui.state.congratsPending) {
+      clearActive();
+      setView(VIEW.result);
+      return;
+    }
+    paint();
+  }
+
+  function ensureBannerTimers() {
+    var s = ui.state;
+    if (!s) return;
+    if (s.startBannerPending) schedulePopupClear('start', bannerDurationMs('start'));
+    if (s.congratsPending) schedulePopupClear('congrats', bannerDurationMs('congrats'));
+    if (s.blindUpPending) schedulePopupClear('blind', bannerDurationMs('blind'));
+    if (s.finalTablePending) schedulePopupClear('ft', bannerDurationMs('ft'));
+    if (s.itmPending) schedulePopupClear('itm', bannerDurationMs('itm'));
+  }
+
   function schedulePopupClear(flag, ms) {
     try {
       if (!ui.popupClearTimers) ui.popupClearTimers = {};
       if (ui.popupClearTimers[flag]) return;
-      var delay = ms != null ? ms : 2000;
+      var delay = ms != null ? ms : bannerDurationMs(flag);
       ui.popupClearTimers[flag] = setTimeout(function () {
         ui.popupClearTimers[flag] = null;
-        if (!ui.state) return;
-        if (flag === 'blind') ui.state.blindUpPending = null;
-        if (flag === 'ft') ui.state.finalTablePending = null;
-        if (flag === 'itm') ui.state.itmPending = null;
-        paint();
+        clearBannerFlag(flag);
+        resumeAfterBanner();
       }, delay);
     } catch (e) { /* */ }
+  }
+
+  function shouldShowCongrats(state) {
+    if (!state || !state.result) return false;
+    if (state.result.reason === 'won') return true;
+    var place = Number(state.result.place);
+    var paid = Number(state.config && state.config.placesPaid) || 0;
+    if (!(place > 0)) return false;
+    if (paid > 0 && place <= paid) return true;
+    return (Number(state.result.prizeEur) || 0) > 0;
+  }
+
+  function congratsCopy(state) {
+    if (state && state.result && state.result.reason === 'won') {
+      return {
+        title: '¡Enhorabuena!',
+        sub: 'Has ganado el torneo'
+      };
+    }
+    var place = state && state.result ? state.result.place : null;
+    return {
+      title: '¡Enhorabuena!',
+      sub: place != null
+        ? ('Has quedado ' + place + 'º · en el dinero')
+        : 'Has entrado en premios'
+    };
   }
 
 function reducedMotion() {
@@ -4927,6 +5104,13 @@ function reducedMotion() {
       done();
       return;
     }
+    if (isBannerBlocking()) {
+      ui.heldFrames = frames;
+      ui.heldFramesDone = done;
+      ensureBannerTimers();
+      paint();
+      return;
+    }
     playFrames(frames, done);
   }
 
@@ -5053,6 +5237,7 @@ function reducedMotion() {
     } catch (eW0) { /* */ }
     var Runner = global.PTTournamentRunner;
     ui.state = Runner.create(cfg, opts);
+    ui.state.startBannerPending = { at: Date.now() };
     ui.bustPrompt = false;
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
@@ -5060,13 +5245,22 @@ function reducedMotion() {
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
+    ui.heldFrames = null;
+    ui.heldFramesDone = null;
     stopAnim();
     Runner.beginHand(ui.state);
     persistActive();
     var frames = takeFrames();
     ui.view = VIEW.table;
-    if (frames) playFrames(frames, paint);
-    else paint();
+    if (frames) {
+      ui.heldFrames = frames;
+      ui.heldFramesDone = paint;
+      ensureBannerTimers();
+      paint();
+    } else {
+      ensureBannerTimers();
+      paint();
+    }
   }
 
   function startPreset(id) {
@@ -5386,6 +5580,143 @@ function reducedMotion() {
     return (v % 1 ? v.toFixed(1) : String(v)) + ' bb';
   }
 
+  function cardCodeOf(c) {
+    if (!c) return '';
+    if (typeof c === 'string') return c;
+    return c.code || (c.r != null && c.s ? String(c.r) + c.s : '');
+  }
+
+  function cardCodesOf(cards) {
+    return (cards || []).map(cardCodeOf).filter(Boolean);
+  }
+
+  /**
+   * Equity de una mano concreta vs otras manos conocidas (MC o exacto en river).
+   * Misma idea que GTOMultiway.equityVsFixedHands — local para no acoplar el chunk.
+   */
+  function equityVsFixedHandsLocal(heroCards, board, villainHands, iters) {
+    var C = global.Cards;
+    if (!C || !C.evaluate || !C.compare) return 0.5;
+    var boardArr = board || [];
+    var need = Math.max(0, 5 - boardArr.length);
+    var dead0 = heroCards.concat(boardArr);
+    (villainHands || []).forEach(function (vh) {
+      if (vh && vh[0]) dead0.push(vh[0]);
+      if (vh && vh[1]) dead0.push(vh[1]);
+    });
+    var win = 0;
+    var tie = 0;
+    var n = 0;
+    var mc = (C.rng && C.rng.random) ? C.rng.random.bind(C.rng) : Math.random;
+    var loops = need === 0 ? 1 : (iters || 120);
+    for (var k = 0; k < loops; k++) {
+      var full = boardArr;
+      if (need > 0) {
+        if (!C.shuffledDeckExcluding) break;
+        var deck = C.shuffledDeckExcluding(dead0, mc);
+        full = boardArr.concat(deck.slice(0, need));
+      }
+      var hScore = C.evaluate(heroCards.concat(full));
+      var bestCmp = 1;
+      var ties = 0;
+      for (var i = 0; i < villainHands.length; i++) {
+        var vScore = C.evaluate(villainHands[i].concat(full));
+        var cmp = C.compare(hScore, vScore);
+        if (cmp < 0) { bestCmp = -1; break; }
+        if (cmp === 0) ties++;
+      }
+      if (bestCmp >= 0) {
+        if (ties > 0) tie += 1 / (ties + 1);
+        else win++;
+      }
+      n++;
+    }
+    return n ? (win + tie) / n : 0.5;
+  }
+
+  /**
+   * % de ganar para cada all-in (o contendientes con holes revelados).
+   * Se recalcula al crecer el board (reveal → flop → turn → river).
+   */
+  function allInEquityBySeat(hand) {
+    if (!hand || !hand.holesRevealed) return null;
+    var contenders = (hand.seats || []).filter(function (s) {
+      return s && !s.folded && s.cards && s.cards.length >= 2;
+    });
+    var allin = contenders.filter(function (s) { return s.allIn; });
+    var pool = allin.length >= 2 ? allin
+      : (contenders.length >= 2 ? contenders : []);
+    if (pool.length < 2) return null;
+
+    var board = cardCodesOf(hand.board);
+    var key = board.join(',') + '|' + pool.map(function (s) { return s.id; }).join(',');
+    if (hand._eqCache && hand._eqCache.key === key) return hand._eqCache.map;
+
+    var MW = global.GTOMultiway;
+    var iters = board.length >= 5 ? 1 : (board.length >= 4 ? 100 : (board.length >= 3 ? 140 : 100));
+    var map = {};
+    pool.forEach(function (seat) {
+      var hole = cardCodesOf(seat.cards);
+      var others = pool.filter(function (o) { return o.id !== seat.id; })
+        .map(function (o) { return cardCodesOf(o.cards); });
+      var eq;
+      if (MW && typeof MW.equityVsFixedHands === 'function') {
+        eq = MW.equityVsFixedHands(hole, board, others, iters);
+      } else {
+        eq = equityVsFixedHandsLocal(hole, board, others, iters);
+      }
+      map[seat.id] = Math.round((Number(eq) || 0) * 100);
+    });
+    hand._eqCache = { key: key, map: map };
+    return map;
+  }
+
+  function equityBadgeHtml(pct) {
+    if (pct == null || isNaN(pct)) return '';
+    var cls = 'trn-equity-pct';
+    if (pct >= 60) cls += ' is-high';
+    else if (pct <= 35) cls += ' is-low';
+    return '<span class="' + cls + '" title="Probabilidad de ganar">' + esc(String(pct)) + '%</span>';
+  }
+
+  function chipTier(bbAmt) {
+    if (bbAmt < 1) return 'w';
+    if (bbAmt < 3) return 'r';
+    if (bbAmt < 8) return 'g';
+    if (bbAmt < 20) return 'b';
+    if (bbAmt < 50) return 'k';
+    return 'p';
+  }
+
+  function chipStackHTML(bbAmt) {
+    var n = bbAmt < 1 ? 1 : (bbAmt < 3 ? 2 : (bbAmt < 10 ? 3 : 4));
+    var tier = chipTier(bbAmt);
+    var discs = '';
+    for (var i = 0; i < n; i++) discs += '<span class="chip chip-' + tier + '"></span>';
+    return '<span class="chip-stack" aria-hidden="true">' + discs + '</span>';
+  }
+
+  function chipsToBb(chips, bb) {
+    bb = Number(bb) || 1;
+    return (Number(chips) || 0) / bb;
+  }
+
+  /** Fichas delante del asiento (misma markup que Entrenar). */
+  function renderSeatBetHtml(chips, bb, placement) {
+    var bbAmt = chipsToBb(chips, bb);
+    if (!(bbAmt > 0)) return '';
+    return '<div class="seat-bet ' + (placement || 'bet-below') + '" title="Fichas en juego">' +
+      chipStackHTML(bbAmt) +
+      '<span class="seat-bet-amt">' + esc(fmtBb(chips, bb)) + '</span></div>';
+  }
+
+  function renderHeroStreetChipsHtml(chips, bb) {
+    var bbAmt = chipsToBb(chips, bb);
+    if (!(bbAmt > 0)) return '';
+    return '<div class="seat-chips"><span class="seat-chips-street" title="Apuesta en la calle">' +
+      chipStackHTML(bbAmt) + esc(fmtBb(chips, bb)) + '</span></div>';
+  }
+
   function lastLogAct(hand, playerId) {
     if (!hand || !hand.log || !hand.log.length) return null;
     for (var i = hand.log.length - 1; i >= 0; i--) {
@@ -5458,6 +5789,7 @@ function reducedMotion() {
     var coords = seatCoordsFor(ring.length);
     var showdown = hand.stage === 'complete' || !!hand.holesRevealed ||
       !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
+    var equityMap = allInEquityBySeat(hand);
     var html = '';
     ring.forEach(function (s, i) {
       if (s.isHero) return; // héroe va en .hero-area (CSS .seat.hero { display:none })
@@ -5495,17 +5827,20 @@ function reducedMotion() {
       }
 
       var streetBet = Number(s.streetInvested) || 0;
-      var betHtml = streetBet > 0
-        ? '<div class="seat-bet ' + betPlacement(c) + '"><span class="seat-bet-amt">' + esc(fmtBb(streetBet, bb)) + '</span></div>'
-        : '';
+      /* Preflop: mostrar ciega si aún no hay apuesta de calle explícita. */
+      if (streetBet <= 0 && hand.street === 'preflop') {
+        streetBet = Number(s.invested) || 0;
+      }
+      var betHtml = renderSeatBetHtml(streetBet, bb, betPlacement(c));
 
+      var eqHtml = (equityMap && equityMap[s.id] != null) ? (' ' + equityBadgeHtml(equityMap[s.id])) : '';
       var villainName = s.name || 'Villano';
       html += '<button type="button" class="' + cls.join(' ') + '" style="top:' + c.top + '%;left:' + c.left +
         '%" data-player="' + esc(s.id) + '" title="' + esc(villainName + ' · ' + (s.pos || '') + ' — adivinar rol') + '">' +
         '<div class="seat-body">' +
         '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
         '<div class="seat-name">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') +
-        esc(villainName) + (guessed ? ' · ?' : '') + '</div>' +
+        esc(villainName) + eqHtml + (guessed ? ' · ?' : '') + '</div>' +
         '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
         '<div class="seat-role">' + esc(villainName) + '</div>' +
         '<div class="seat-stack">' + esc(fmtBb(s.stack, bb)) + '</div>' +
@@ -5540,11 +5875,17 @@ function reducedMotion() {
         ? hero.cards.map(faceCard).join('')
         : (backCard() + backCard()));
     var dealerHidden = hero.pos === 'BTN' ? '' : ' hidden';
+    var streetBet = Number(hero.streetInvested) || 0;
+    if (streetBet <= 0 && hand.street === 'preflop') streetBet = Number(hero.invested) || 0;
+    var streetChips = renderHeroStreetChipsHtml(streetBet, bb);
+    var equityMap = allInEquityBySeat(hand);
+    var eqHtml = (equityMap && equityMap[hero.id] != null) ? (' ' + equityBadgeHtml(equityMap[hero.id])) : '';
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
-      '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
+      '<div class="hero-chips">' + streetChips +
+      '<div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
       '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) +
-      ' · <span>' + esc(hero.pos || '-') + '</span>' +
+      ' · <span>' + esc(hero.pos || '-') + '</span>' + eqHtml +
       '<span class="hero-dealer' + dealerHidden + '" title="Dealer">D</span></div>' +
       (cards ? ('<div class="hero-cards">' + cards + '</div>') : '<div class="hero-cards hero-cards-folded"></div>') +
       '</div>';
@@ -5576,6 +5917,10 @@ function reducedMotion() {
     }).join('');
 
     var potBb = hand ? fmtBb(hand.pot, bb) : '0 bb';
+    var potChipsHtml = '';
+    if (hand && Number(hand.pot) > 0) {
+      potChipsHtml = '<span class="pot-chips">' + chipStackHTML(chipsToBb(hand.pot, bb)) + '</span>';
+    }
     var boardHtml = (hand && hand.board && hand.board.length)
       ? hand.board.map(faceCard).join('')
       : '';
@@ -5612,7 +5957,9 @@ function reducedMotion() {
     }
 
     var actions = '';
-    if (ui.anim && ui.anim.playing) {
+    if (isBannerBlocking()) {
+      actions = '';
+    } else if (ui.anim && ui.anim.playing) {
       actions = '<div class="actions actions-grid actions-grid-1 trn-anim-actions">' +
         '<button type="button" class="btn btn-skip-anim" data-act="skip-anim">Saltar acción</button>' +
         '</div>';
@@ -5723,10 +6070,26 @@ function reducedMotion() {
       handEndModal = renderHandEndModal(hand, state, bb);
     }
 
+    var startBanner = '';
+    var congratsBanner = '';
     var blindUpBanner = '';
     var ftPopup = '';
     var itmPopup = '';
-    if (state.blindUpPending && !(hand && hand.stage === 'complete')) {
+    if (state.startBannerPending) {
+      startBanner = toastPopupHtml(
+        'start',
+        '¡Comienza el torneo!',
+        'Buena suerte, ' + esc(heroDisplayName(state))
+      );
+    }
+    if (state.congratsPending) {
+      congratsBanner = toastPopupHtml(
+        'congrats',
+        esc(state.congratsPending.title || '¡Enhorabuena!'),
+        esc(state.congratsPending.sub || '')
+      );
+    }
+    if (state.blindUpPending && !(hand && hand.stage === 'complete') && !state.congratsPending) {
       var bu = state.blindUpPending;
       blindUpBanner = toastPopupHtml(
         'blind',
@@ -5734,16 +6097,14 @@ function reducedMotion() {
         'Nivel ' + esc(String(bu.level)) + ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
           (bu.ante ? (' ante ' + esc(String(bu.ante))) : '')
       );
-      schedulePopupClear('blind', 2000);
     }
-    if (state.finalTablePending && !(hand && hand.stage === 'complete')) {
+    if (state.finalTablePending && !(hand && hand.stage === 'complete') && !state.congratsPending) {
       ftPopup = finalTableBannerHtml(state.finalTablePending.players);
-      schedulePopupClear('ft', 3000);
     }
-    if (state.itmPending && !(hand && hand.stage === 'complete')) {
+    if (state.itmPending && !(hand && hand.stage === 'complete') && !state.congratsPending) {
       itmPopup = toastPopupHtml('itm', '¡En el dinero!', 'Has entrado en premios');
-      schedulePopupClear('itm', 2000);
     }
+    ensureBannerTimers();
 
     var exitModal = '';
     if (ui.exitPrompt) {
@@ -5761,7 +6122,8 @@ function reducedMotion() {
     /* Misma cáscara visual que el entrenador (.play-stage / .poker-table / .table-felt)
        sin montar en #play-active: el motor de torneo (PTTournamentRunner) sigue
        dueño del estado entre manos. */
-    return '<div class="trn-table-view trn-play-like">' + blindUpBanner + ftPopup + itmPopup +
+    return '<div class="trn-table-view trn-play-like' + (isBannerBlocking() ? ' trn-banner-freeze' : '') + '">' +
+      startBanner + congratsBanner + blindUpBanner + ftPopup + itmPopup +
       '<div class="trn-play-stage">' +
       '<div class="trn-table-hud">' + chips +
       '<div class="trn-hud-actions">' +
@@ -5778,7 +6140,7 @@ function reducedMotion() {
       '</div>' +
       '<div class="seats">' + seatsHtml + '</div>' +
       '<div class="board-area">' +
-      '<div class="pot">Bote: <strong class="pot-amt">' + esc(potBb) + '</strong></div>' +
+      '<div class="pot">' + potChipsHtml + 'Bote: <strong class="pot-amt">' + esc(potBb) + '</strong></div>' +
       '<div class="board">' + boardHtml + '</div>' +
       '</div>' +
       renderHeroArea(hand, bb) +
@@ -6227,6 +6589,15 @@ function reducedMotion() {
     var state = ui.state;
     if (!state) { paint(); return; }
     if (state.status === 'finished') {
+      if (!state.congratsShown && shouldShowCongrats(state)) {
+        state.congratsShown = true;
+        state.congratsPending = Object.assign({ at: Date.now() }, congratsCopy(state));
+        ui.heldFrames = null;
+        ui.heldFramesDone = null;
+        ensureBannerTimers();
+        paint();
+        return;
+      }
       clearActive();
       setView(VIEW.result);
       return;
@@ -6411,6 +6782,7 @@ function reducedMotion() {
     root.querySelectorAll('[data-hero-act]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         if (ui.anim && ui.anim.playing) return;
+        if (isBannerBlocking()) return;
         var id = btn.getAttribute('data-hero-act');
         var amtRaw = btn.getAttribute('data-amount');
         var amt = amtRaw === '' || amtRaw == null ? null : Number(amtRaw);
@@ -6488,7 +6860,13 @@ function reducedMotion() {
     setAnimFrame: function (frame) {
       ui.anim = ui.anim || {};
       ui.anim.frame = frame || null;
-    }
+    },
+    /* Fichas de mesa (misma escala que Entrenar) — tests. */
+    chipTier: chipTier,
+    chipStackHTML: chipStackHTML,
+    renderSeatBetHtml: renderSeatBetHtml,
+    allInEquityBySeat: allInEquityBySeat,
+    equityBadgeHtml: equityBadgeHtml
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 

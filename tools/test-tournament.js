@@ -656,7 +656,14 @@ FILES.forEach(function (f) { load(g, f); });
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
   assert.ok(uiSrc.includes('toastPopupHtml'), 'toastPopupHtml in ui');
   assert.ok(uiSrc.includes('trn-center-popup'), 'centered popup class');
-  assert.ok(uiSrc.includes("schedulePopupClear('blind', 2000)"), 'auto-clear blind popup');
+  assert.ok(uiSrc.includes("schedulePopupClear('blind'") || uiSrc.includes("bannerDurationMs('blind')"),
+    'auto-clear blind popup');
+  assert.ok(uiSrc.includes('startBannerPending') && uiSrc.includes('¡Comienza el torneo!'),
+    'start tournament banner');
+  assert.ok(uiSrc.includes('congratsPending') && uiSrc.includes('¡Enhorabuena!'),
+    'congrats banner');
+  assert.ok(uiSrc.includes('isBannerBlocking') && uiSrc.includes('heldFrames'),
+    'banner freezes table action');
   assert.ok(!/trn-blind-up[\s\S]{0,200}dismiss-blind-up/.test(uiSrc),
     'old blind-up OK banner removed from paint path');
 }
@@ -773,6 +780,9 @@ console.log('OK dist-tournaments-bundle');
   const badge = g.PTHandEndView.scoreBadgeHtml({ score: 10, letter: 'A' });
   assert.ok(/Nota 10\/10/.test(badge), 'badge says Nota X/10');
   assert.ok(!/·\s*A/.test(badge), 'badge no longer shows confusing · A');
+  assert.ok(hand.heroCode === 'AKo' || hand.heroCode === 'AKs',
+    'heroCode from Ranges/fallback, got ' + hand.heroCode);
+  assert.ok(String(hand.heroCode).indexOf('null') < 0, 'heroCode not null string');
   console.log('OK session-bridge');
 }
 
@@ -889,7 +899,8 @@ console.log('OK tournament-review-back');
   assert.ok(uiSrc.includes('trn-hands-fold'), 'hands collapsed details');
   assert.ok(uiSrc.includes('finalTableBannerHtml'), 'final table banner helper');
   assert.ok(uiSrc.includes('MESA FINAL'), 'final table banner copy');
-  assert.ok(uiSrc.includes("schedulePopupClear('ft', 3000)"), 'FT banner clears at 3s');
+  assert.ok(uiSrc.includes("schedulePopupClear('ft'") || uiSrc.includes("bannerDurationMs('ft')"),
+    'FT banner clears via timer');
   assert.ok(!uiSrc.includes('confettiPiecesHtml') && !uiSrc.includes('trn-confetti'),
     'confetti removed from tournament UI');
   assert.ok(cssSrc.includes('trn-ft-banner') && cssSrc.includes('trn-ft-banner-fade'),
@@ -1414,6 +1425,165 @@ console.log('OK pushfold-freq-100');
   assert.strictEqual(duringReveal.holesRevealed, true, 'en fotograma reveal sí se muestran holes');
   assert.deepStrictEqual(duringReveal.board, [], 'reveal sigue sin comunitarias');
   console.log('OK allin-holes-only-on-reveal-frame');
+}
+
+// --- session GTO align: no merge torneos, heroCode, options, preflop leadType ---
+{
+  const storageSrc = fs.readFileSync(path.join(ROOT, 'js/storage.js'), 'utf8');
+  assert.ok(/source === ['"]tournamentAi['"]|tournamentAi/.test(storageSrc)
+    && /mergeSessionIfDuplicate[\s\S]{0,400}tournamentAi/.test(storageSrc),
+    'mergeSessionIfDuplicate skips tournamentAi');
+
+  const importSrc = fs.readFileSync(path.join(ROOT, 'js/import.js'), 'utf8');
+  assert.ok(importSrc.includes("['fold', 'raise', 'allin']")
+    || importSrc.includes('["fold", "raise", "allin"]'),
+    'buildEvalInput preflop fallback fold/raise/allin');
+  assert.ok(!/street === ['"]preflop['"][\s\S]{0,200}bet_33/.test(
+    importSrc.slice(importSrc.indexOf('function buildEvalInputFromDecision'),
+      importSrc.indexOf('function buildEvalInputFromDecision') + 2500)
+  ) || importSrc.includes('nunca check/bet_33'),
+    'preflop eval input must not default to check/bet_33');
+
+  const spotSrc = fs.readFileSync(path.join(ROOT, 'js/engine/solver/spotKey.js'), 'utf8');
+  assert.ok(/if \(street === ['"]preflop['"]\) return ['"]none['"]/.test(spotSrc),
+    'spotKey preflop leadType none');
+
+  const dec = g.PTTournamentSessionBridge.normalizeDecision({
+    street: 'preflop',
+    action: 'raise',
+    class: 'optima',
+    evLoss: 0,
+    gto: { raise: 0.8, fold: 0.2 },
+    options: ['fold', 'raise', 'allin'],
+    input: {
+      potBB: 1.5,
+      toCallBB: 0,
+      availableActions: ['fold', 'raise', 'allin'],
+      initiative: 'none',
+      formatHub: 'mtt',
+      pushFold: false,
+      spotKind: 'RFI',
+      stackBB: 40
+    }
+  }, 20);
+  assert.ok(dec.options && dec.options.indexOf('bet_33') < 0, 'no bet_33 in tournament options');
+  assert.ok(dec.options.indexOf('raise') >= 0, 'raise option persisted');
+  assert.strictEqual(dec.initiative, 'none', 'initiative persisted');
+  assert.strictEqual(dec.formatHub, 'mtt', 'formatHub persisted');
+
+  const handRfi = g.PTTournamentSessionBridge.handFromTournament({
+    handIndex: 9,
+    bb: 20,
+    sb: 10,
+    board: [],
+    seats: [
+      { id: 'h', name: 'Hero', isHero: true, pos: 'HJ', cards: ['As', '3s'], stack: 800, startStack: 800, folded: false },
+      { id: 'v', name: 'Villain', isHero: false, pos: 'BB', cards: ['7c', '2d'], stack: 800, startStack: 800, folded: false }
+    ],
+    log: [{ street: 'preflop', id: 'h', name: 'Hero', action: 'raise', amount: 60 }],
+    decisions: [{
+      street: 'preflop',
+      action: 'raise',
+      class: 'optima',
+      evLoss: 0,
+      label: 'Raise',
+      options: ['fold', 'raise', 'allin'],
+      gto: { raise: 0.55, fold: 0.45 },
+      input: { availableActions: ['fold', 'raise', 'allin'], initiative: 'none', potBB: 1.5, toCallBB: 0 }
+    }],
+    result: { deltas: { h: 30, v: -30 }, winners: ['h'], showdown: false, pot: 60, heroNet: 30, holeCards: {}, board: [] }
+  }, { tournamentId: 't_align', handIndex: 9, heroName: 'Hero' });
+  assert.strictEqual(handRfi.heroCode, 'A3s', 'A3s heroCode');
+  assert.ok(handRfi.decisions[0].options && handRfi.decisions[0].options.indexOf('check') < 0,
+    'bridged decision has no check option preflop');
+
+  load(g, 'js/engine/solver/spotKey.js');
+  const key = g.GTOSpotKey.buildSpotKey({
+    street: 'preflop',
+    position: 'HJ',
+    initiative: 'aggressor',
+    toCallBB: 0,
+    potBB: 2.13,
+    stackDepth: 40,
+    spotKind: 'RFI'
+  });
+  assert.strictEqual(key.leadType, 'none', 'preflop leadType none even if initiative aggressor');
+
+  const sess = g.PTTournamentSessionBridge.buildSessionFromTournament({
+    id: 't_a',
+    config: { name: 'Sit & Go 6-max', kind: 'sng', entries: 6, buyInEur: 5 },
+    result: { place: 3, prizeEur: 0, stats: { profit: -5 } },
+    finishedAt: '2026-01-01T00:00:00.000Z',
+    sessionHands: [handRfi],
+    handLog: []
+  }, {});
+  assert.strictEqual(sess.source, 'tournamentAi');
+  assert.strictEqual(sess.tournamentAi, true, 'tournamentAi flag for merge skip');
+  assert.strictEqual(sess.fileName.indexOf('Sit & Go'), 0, 'fileName from preset');
+  console.log('OK tournament-session-gto-align');
+}
+
+// --- fichas de mesa en torneo = misma escala de color que Entrenar ---
+{
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI.chipTier && UI.chipStackHTML && UI.renderSeatBetHtml, 'chip helpers exported');
+  assert.strictEqual(UI.chipTier(0.5), 'w');
+  assert.strictEqual(UI.chipTier(2), 'r');
+  assert.strictEqual(UI.chipTier(5), 'g');
+  assert.strictEqual(UI.chipTier(15), 'b');
+  assert.strictEqual(UI.chipTier(30), 'k');
+  assert.strictEqual(UI.chipTier(80), 'p');
+  const stack = UI.chipStackHTML(5);
+  assert.ok(stack.includes('chip-stack') && stack.includes('chip-g'), 'green stack for 5bb');
+  const seatBet = UI.renderSeatBetHtml(100, 20, 'bet-below'); // 5 bb
+  assert.ok(seatBet.includes('seat-bet') && seatBet.includes('chip-g') && seatBet.includes('5 bb'),
+    'seat bet shows chips + amount');
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(uiSrc.includes('pot-chips') && uiSrc.includes('chipStackHTML'), 'pot uses chip stack');
+  assert.ok(uiSrc.includes('renderSeatBetHtml') && uiSrc.includes('renderHeroStreetChipsHtml'),
+    'seat + hero street chips');
+  const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert.ok(/function chipTier\(bb\)[\s\S]*?if \(bb < 1\) return 'w'/.test(appSrc),
+    'trainer chipTier untouched');
+  console.log('OK tournament-table-chips');
+}
+
+// --- all-in equity % al lado de jugadores (actualiza con el board) ---
+{
+  load(g, 'js/cards.js');
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI.allInEquityBySeat && UI.equityBadgeHtml, 'equity helpers exported');
+  const hand = {
+    holesRevealed: true,
+    board: [],
+    seats: [
+      { id: 'h', isHero: true, allIn: true, folded: false, cards: ['As', 'Ah'], name: 'Hero' },
+      { id: 'v', isHero: false, allIn: true, folded: false, cards: ['2c', '7d'], name: 'Villain' },
+      { id: 'f', isHero: false, allIn: false, folded: true, cards: ['Kc', 'Kd'], name: 'Folded' }
+    ]
+  };
+  const pre = UI.allInEquityBySeat(hand);
+  assert.ok(pre && pre.h != null && pre.v != null, 'equity map for all-in');
+  assert.ok(pre.h > pre.v, 'AA > 72o preflop equity');
+  assert.ok(pre.f == null, 'folded seat has no equity');
+
+  hand.board = ['2h', '7h', '9s'];
+  hand._eqCache = null;
+  const flop = UI.allInEquityBySeat(hand);
+  assert.ok(flop.v > pre.v, '72o equity rises on 27x flop');
+  assert.ok(flop.h < pre.h, 'AA equity falls on 27x flop');
+
+  hand.board = ['2h', '7h', '9s', '2d', '3c'];
+  hand._eqCache = null;
+  const river = UI.allInEquityBySeat(hand);
+  assert.strictEqual(river.v, 100, 'two pair wins on river');
+  assert.strictEqual(river.h, 0, 'AA loses on river');
+
+  const badge = UI.equityBadgeHtml(72);
+  assert.ok(badge.includes('trn-equity-pct') && badge.includes('72%'), 'equity badge html');
+  const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(css.includes('.trn-equity-pct'), 'equity css');
+  console.log('OK tournament-allin-equity');
 }
 
 console.log('*** test-tournament OK ***');

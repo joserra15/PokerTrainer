@@ -1335,6 +1335,11 @@
     if (session && session.source === 'tournamentSummary') {
       return mergeTournamentSummaryIfDuplicate(session);
     }
+    /* Torneos IA: cada torneo es una sesión propia. No fusionar por fileName
+     * (mismo preset + mismo puesto acumulaba manos de torneos previos). */
+    if (session && (session.source === 'tournamentAi' || session.tournamentAi)) {
+      return session;
+    }
     if (!session || !session.hands || !session.hands.length || !session.fileName) return session;
     const list = getSessionIndex();
     const candidates = list.filter(function (s) {
