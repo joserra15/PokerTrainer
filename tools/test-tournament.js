@@ -956,4 +956,93 @@ console.log('OK tournament-review-back');
   console.log('OK leaderboard-and-legend');
 }
 
+
+// --- Mesa Hero estable entre manos (no reshuffle) ---
+{
+  const state = g.PTTournamentState.create({
+    kind: 'mtt', entries: 18, seatsPerTable: 6, startingStack: 1500, buyInEur: 5, placesPaid: 3
+  }, { seed: 21 });
+  const Seat = g.PTTournamentSeating;
+  const heroTable = state.tables.find(function (tb) { return tb.isHeroTable; });
+  assert.ok(heroTable, 'hero table');
+  const before = heroTable.seatIds.slice().sort();
+  // Rebalance without eliminations must keep the same hero-table roster
+  Seat.rebalance(state);
+  Seat.rebalance(state);
+  const after = state.tables.find(function (tb) { return tb.isHeroTable; }).seatIds.slice().sort();
+  assert.deepStrictEqual(after, before, 'hero table roster stable across rebalance');
+
+  // Bust someone at hero table → one seat opens → fill from another table (roster changes by exactly that)
+  const heroId = g.PTTournamentState.hero(state).id;
+  const victimId = before.find(function (id) { return id !== heroId; });
+  Seat.bustPlayer(state, victimId);
+  Seat.rebalance(state);
+  const ht2 = state.tables.find(function (tb) { return tb.isHeroTable; });
+  assert.ok(ht2.seatIds.indexOf(victimId) < 0, 'busted player left hero table');
+  assert.ok(ht2.seatIds.indexOf(heroId) >= 0, 'hero stays');
+  assert.ok(ht2.seatIds.length >= 2, 'hero table still playable after refill');
+  // Remaining survivors from before (except victim) still seated with hero
+  before.forEach(function (id) {
+    if (id === victimId) return;
+    assert.ok(ht2.seatIds.indexOf(id) >= 0, 'survivor stays on hero table: ' + id);
+  });
+  console.log('OK stable-hero-table-roster');
+}
+
+// --- All-in: reveal holes → pause frame → then street runout ---
+{
+  const Live = g.PTTournamentLiveHand;
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 44 });
+  const tableId = state.tables.find(function (t) { return t.isHeroTable; }).id;
+  const on = g.PTTournamentSeating.playersOnTable(state, tableId);
+  const btn = g.PTTournamentSeating.assignButton(state, tableId);
+  const ordered = g.PTTournamentSeating.seatOrderWithButton(on, btn);
+  const blinds = g.PTTournamentBlinds.currentLevel(state.config.blindSchedule, 0);
+  // Build a hand and force all-in showdown with empty board
+  const hand = Live.start(ordered, blinds, g.PTTournamentState.hero(state).id);
+  hand._frames = [];
+  hand.board = [];
+  hand.street = 'preflop';
+  hand.seats.forEach(function (s) {
+    s.folded = false;
+    s.allIn = true;
+    s.stack = 0;
+    s.invested = 100;
+    s.streetInvested = 100;
+  });
+  hand.pot = hand.seats.length * 100;
+  // Invoke showdown path via runToHeroOrEnd / internal finish — use public simulate after forcing
+  // Directly call through advance loop: stage playing + streetDone all-in
+  const finished = Live.runToHeroOrEnd(hand);
+  assert.strictEqual(finished.stage, 'complete', 'all-in completes');
+  const kinds = (finished._frames || []).map(function (f) { return f.kind; });
+  // Frames may have been consumed; re-run finish path on a fresh forced hand
+  const hand2 = Live.start(ordered, blinds, g.PTTournamentState.hero(state).id);
+  hand2.board = [];
+  hand2.street = 'flop';
+  hand2.boardDeck = hand2.boardDeck || ['Ah','Kd','7c','2s','9h'];
+  // ensure boardDeck has 5
+  while (hand2.boardDeck.length < 5) hand2.boardDeck.push('2c');
+  hand2.seats.forEach(function (s) {
+    s.folded = false; s.allIn = true; s.stack = 0;
+    s.invested = 50; s.streetInvested = 50;
+  });
+  hand2.pot = 300;
+  hand2._frames = [];
+  hand2.holesRevealed = false;
+  // Use runToHeroOrEnd which should hit finishShowdown when nobody can act
+  Live.runToHeroOrEnd(hand2);
+  const frames = hand2._frames || [];
+  const kinds2 = frames.map(function (f) { return f.kind; });
+  const revealIdx = kinds2.indexOf('reveal');
+  const streetIdx = kinds2.indexOf('street');
+  assert.ok(revealIdx >= 0, 'has reveal frame, kinds=' + kinds2.join(','));
+  assert.ok(streetIdx > revealIdx, 'streets come after reveal');
+  assert.ok(hand2.holesRevealed, 'holesRevealed flag set');
+  assert.ok(frames[revealIdx].holesRevealed, 'reveal frame marks holes');
+  assert.strictEqual(frames[revealIdx].board.length, 0, 'reveal before board runout');
+  console.log('OK allin-reveal-before-runout');
+}
+
+
 console.log('*** test-tournament OK ***');

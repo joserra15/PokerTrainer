@@ -96,6 +96,8 @@ function reducedMotion() {
     if (reducedMotion()) return 60;
     if (!f) return 0;
     if (f.kind === 'deal') return 420;
+    /* Pausa para ver holes de all-in antes del runout de comunitarias. */
+    if (f.kind === 'reveal') return 2000;
     if (f.kind === 'street') return 560;
     var a = String(f.action || '').toLowerCase();
     if (a === 'fold') return 300;
@@ -147,6 +149,7 @@ function reducedMotion() {
       awaitingHero: false,
       heroOptions: null,
       result: null,
+      holesRevealed: !!(f.holesRevealed || hand.holesRevealed || f.kind === 'reveal'),
       _anim: true
     };
   }
@@ -720,7 +723,8 @@ function reducedMotion() {
     if (!hand || !hand.seats || !hand.seats.length) return '';
     var ring = rotateHeroFirst(hand.seats);
     var coords = seatCoordsFor(ring.length);
-    var showdown = hand.stage === 'complete';
+    var showdown = hand.stage === 'complete' || !!hand.holesRevealed ||
+      !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
     var html = '';
     ring.forEach(function (s, i) {
       if (s.isHero) return; // héroe va en .hero-area (CSS .seat.hero { display:none })

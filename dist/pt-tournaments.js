@@ -371,6 +371,10 @@
 
 /*
  * tournament/seating.js — Asignación de mesas, bust-outs y rebalance / FT.
+ *
+ * Los rivales de la mesa del Hero se mantienen entre manos. Solo entran
+ * jugadores nuevos al liberarse un asiento (eliminación) o al fusionar mesas
+ * hacia la mesa final. No se baraja el field en cada mano.
  */
 (function (global) {
   'use strict';
@@ -425,50 +429,252 @@
     });
   }
 
-  /** Tras eliminaciones: compacta mesas y fusiona a FT si cabe en una. */
+  function shuffleInPlace(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function nextTableId(tables) {
+    var n = 1;
+    while (tables.some(function (t) { return t.id === 'T' + n; })) n++;
+    return 'T' + n;
+  }
+
+  function playerById(alive, id) {
+    for (var i = 0; i < alive.length; i++) {
+      if (alive[i].id === id) return alive[i];
+    }
+    return null;
+  }
+
+  /** Asigna asiento compacto 0..n-1 preservando el orden relativo actual. */
+  function reindexSeats(table, alive) {
+    table.seatIds.forEach(function (id, idx) {
+      var p = playerById(alive, id);
+      if (p) {
+        p.tableId = table.id;
+        p.seat = idx;
+      }
+    });
+  }
+
+  function seatPlayer(table, player, alive) {
+    if (!table || !player) return;
+    if (table.seatIds.indexOf(player.id) >= 0) return;
+    player.tableId = table.id;
+    player.seat = table.seatIds.length;
+    table.seatIds.push(player.id);
+    reindexSeats(table, alive);
+  }
+
+  function detachPlayer(tables, player) {
+    if (!player) return;
+    tables.forEach(function (tb) {
+      tb.seatIds = (tb.seatIds || []).filter(function (id) { return id !== player.id; });
+    });
+    player.tableId = null;
+    player.seat = null;
+  }
+
+  /**
+   * Tras eliminaciones: quita busteds, fusiona mesas si hace falta y rellena
+   * huecos. No baraja rivales de la mesa Hero entre manos.
+   */
   function rebalance(state) {
-    var cfg = state.config;
+    var cfg = state.config || {};
     var seats = cfg.seatsPerTable || 6;
     var alive = alivePlayers(state);
-    if (alive.length <= 1) return { merged: false, tables: 1 };
+    var prevCount = state._lastTableCount || ((state.tables && state.tables.length) || 0);
+
+    if (alive.length <= 1) {
+      if (alive.length === 1) {
+        var only = alive[0];
+        var tid = only.tableId || 'T1';
+        only.tableId = tid;
+        only.seat = 0;
+        state.tables = [{ id: tid, seatIds: [only.id], isHeroTable: !!only.isHero }];
+      } else {
+        state.tables = [];
+      }
+      state._lastTableCount = state.tables.length;
+      return { merged: false, tables: state.tables.length };
+    }
 
     var needTables = Math.ceil(alive.length / seats);
-    // Reparte en mesas 0..needTables-1 lo más equilibrado posible
-    var tables = [];
-    for (var t = 0; t < needTables; t++) {
-      tables.push({ id: 'T' + (t + 1), seatIds: [], isHeroTable: false });
-    }
-    // Mantener Hero en mesa 1 si posible
     var hero = alive.find(function (p) { return p.isHero; });
-    var others = alive.filter(function (p) { return !p.isHero; });
-    // Shuffle ligero de others para variedad
-    for (var i = others.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var tmp = others[i];
-      others[i] = others[j];
-      others[j] = tmp;
+    var isInitial = !state.tables || !state.tables.length;
+    var tables = [];
+    var seated = {};
+
+    if (!isInitial) {
+      (state.tables || []).forEach(function (tb) {
+        var ids = (tb.seatIds || []).filter(function (id) {
+          return !!playerById(alive, id);
+        });
+        if (!ids.length) return;
+        var nt = {
+          id: tb.id,
+          seatIds: ids.slice(),
+          isHeroTable: !!tb.isHeroTable
+        };
+        reindexSeats(nt, alive);
+        ids.forEach(function (id) { seated[id] = true; });
+        tables.push(nt);
+      });
     }
-    var ordered = hero ? [hero].concat(others) : others;
-    ordered.forEach(function (p, idx) {
-      var ti = idx % needTables;
-      var seat = tables[ti].seatIds.length;
-      p.tableId = tables[ti].id;
-      p.seat = seat;
-      tables[ti].seatIds.push(p.id);
+
+    var orphans = alive.filter(function (p) { return !seated[p.id]; });
+
+    if (isInitial) {
+      var others = alive.filter(function (p) { return !p.isHero; });
+      shuffleInPlace(others);
+      orphans = hero ? [hero].concat(others) : others;
+      tables = [];
+      for (var t = 0; t < needTables; t++) {
+        tables.push({ id: 'T' + (t + 1), seatIds: [], isHeroTable: false });
+      }
+      orphans.forEach(function (p, idx) {
+        seatPlayer(tables[idx % needTables], p, alive);
+      });
+      orphans = [];
+    }
+
+    /* Asegurar que Hero tiene mesa. */
+    if (hero && !playerById(alive, hero.id).tableId) {
+      var ht0 = tables.find(function (tb) { return tb.isHeroTable; }) || tables[0];
+      if (!ht0) {
+        ht0 = { id: 'T1', seatIds: [], isHeroTable: true };
+        tables.push(ht0);
+      }
+      seatPlayer(ht0, hero, alive);
+      orphans = orphans.filter(function (p) { return p.id !== hero.id; });
+    }
+
+    /* Romper mesas sobrantes (nunca la del Hero) hasta needTables. */
+    function breakSmallestNonHero() {
+      var candidates = tables
+        .filter(function (tb) { return !tb.isHeroTable; })
+        .sort(function (a, b) {
+          if (a.seatIds.length !== b.seatIds.length) return a.seatIds.length - b.seatIds.length;
+          return String(a.id).localeCompare(String(b.id));
+        });
+      var victim = candidates[0];
+      if (!victim) return false;
+      var moved = victim.seatIds.slice();
+      tables = tables.filter(function (tb) { return tb.id !== victim.id; });
+      moved.forEach(function (id) {
+        var p = playerById(alive, id);
+        if (!p) return;
+        p.tableId = null;
+        p.seat = null;
+        orphans.push(p);
+        delete seated[id];
+      });
+      return true;
+    }
+
+    while (tables.length > needTables) {
+      if (!breakSmallestNonHero()) break;
+    }
+
+    while (tables.length < needTables) {
+      tables.push({ id: nextTableId(tables), seatIds: [], isHeroTable: false });
+    }
+
+    /* Marcar mesa Hero. */
+    tables.forEach(function (tb) {
+      tb.isHeroTable = !!(hero && tb.seatIds.indexOf(hero.id) >= 0);
     });
-    if (hero) {
-      var ht = tables.find(function (tb) { return tb.seatIds.indexOf(hero.id) >= 0; });
-      if (ht) ht.isHeroTable = true;
-    } else if (tables[0]) {
-      tables[0].isHeroTable = true;
+
+    orphans = orphans.filter(function (p) {
+      return p && p.alive && p.stack > 0 && !tables.some(function (tb) {
+        return tb.seatIds.indexOf(p.id) >= 0;
+      });
+    });
+    orphans.sort(function (a, b) {
+      if (!!a.isHero !== !!b.isHero) return a.isHero ? -1 : 1;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    function openSeats(tb) {
+      return Math.max(0, seats - (tb.seatIds || []).length);
     }
+
+    function pickTargetTable() {
+      var withRoom = tables.filter(function (tb) { return openSeats(tb) > 0; });
+      if (!withRoom.length) {
+        return tables.slice().sort(function (a, b) {
+          return a.seatIds.length - b.seatIds.length;
+        })[0] || null;
+      }
+      withRoom.sort(function (a, b) {
+        /* Prioriza rellenar la mesa Hero (sustituir eliminados) y luego equilibrar. */
+        if (a.isHeroTable !== b.isHeroTable) return a.isHeroTable ? -1 : 1;
+        if (a.seatIds.length !== b.seatIds.length) return a.seatIds.length - b.seatIds.length;
+        return String(a.id).localeCompare(String(b.id));
+      });
+      return withRoom[0];
+    }
+
+    orphans.forEach(function (p) {
+      var target = pickTargetTable();
+      if (!target) return;
+      seatPlayer(target, p, alive);
+    });
+
+    /* Si alguna mesa sigue con 1 jugador y hay >1 mesa, romperla. */
+    var guard = 0;
+    while (guard++ < 20) {
+      var singleton = tables.find(function (tb) {
+        return !tb.isHeroTable && tb.seatIds.length > 0 && tb.seatIds.length < 2;
+      });
+      if (!singleton || tables.length <= needTables) break;
+      if (!breakSmallestNonHero()) break;
+      orphans = alive.filter(function (p) {
+        return !tables.some(function (tb) { return tb.seatIds.indexOf(p.id) >= 0; });
+      });
+      orphans.forEach(function (p) {
+        var target = pickTargetTable();
+        if (target) seatPlayer(target, p, alive);
+      });
+    }
+
+    tables = tables.filter(function (tb) { return tb.seatIds && tb.seatIds.length; });
+    tables.forEach(function (tb) {
+      tb.isHeroTable = !!(hero && tb.seatIds.indexOf(hero.id) >= 0);
+      reindexSeats(tb, alive);
+    });
+
+    /* Si tras limpiezas sobran mesas, fusionar otra vez. */
+    while (tables.length > needTables) {
+      if (!breakSmallestNonHero()) break;
+      orphans = alive.filter(function (p) {
+        return !tables.some(function (tb) { return tb.seatIds.indexOf(p.id) >= 0; });
+      });
+      orphans.forEach(function (p) {
+        var target = pickTargetTable();
+        if (target) seatPlayer(target, p, alive);
+      });
+      tables = tables.filter(function (tb) { return tb.seatIds.length; });
+      tables.forEach(function (tb) {
+        tb.isHeroTable = !!(hero && tb.seatIds.indexOf(hero.id) >= 0);
+        reindexSeats(tb, alive);
+      });
+    }
+
     state.tables = tables;
-    var merged = needTables === 1 && (state._lastTableCount || 0) > 1;
-    state._lastTableCount = needTables;
+    var merged = needTables === 1 && prevCount > 1;
+    state._lastTableCount = tables.length;
     if (merged) {
+      state.events = state.events || [];
       state.events.push({ type: 'final_table', at: Date.now(), players: alive.length });
     }
-    return { merged: merged, tables: needTables };
+    return { merged: merged, tables: tables.length };
   }
 
   function assignButton(state, tableId) {
@@ -487,15 +693,12 @@
     if (n <= 2) return ['SB', 'BB'];
     if (n <= 3) return ['BTN', 'SB', 'BB'];
     if (n <= 6) return ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'].slice(6 - n);
-    // 7–9
     var nine = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
     return nine.slice(9 - n);
   }
 
   /**
    * Orden horario físico desde el botón: BTN → SB → BB → early (UTG…) → CO.
-   * (Antes SB/BB iban al final del anillo y, al rotar al héroe, quedaban
-   * “a la derecha” del BTN en vez de a su izquierda en el sentido de las agujas.)
    */
   function seatOrderWithButton(players, buttonPlayerId) {
     var sorted = players.slice().sort(function (a, b) { return (a.seat || 0) - (b.seat || 0); });
@@ -506,7 +709,6 @@
     var n = rotated.length;
     var labels;
     if (n === 2) {
-      /* Heads-up: BTN = SB, el otro es BB. */
       labels = ['BTN', 'BB'];
     } else {
       labels = new Array(n);
@@ -1607,6 +1809,7 @@
       board: (hand.board || []).slice(),
       pot: hand.pot,
       currentBet: hand.currentBet,
+      holesRevealed: !!(meta.holesRevealed || hand.holesRevealed),
       seats: hand.seats.map(seatSnap)
     };
     hand._frames.push(frame);
@@ -1762,10 +1965,15 @@
   }
 
   function finishShowdown(hand) {
-    /* Runout carta a carta para que se vea, igual que en el entrenador. */
+    /* All-in / showdown: primero se revelan los hole cards de quienes siguen
+       en el bote, pausa corta, y luego el runout de comunitarias. */
+    if (hand.board.length < 5) {
+      hand.holesRevealed = true;
+      pushFrame(hand, { kind: 'reveal', holesRevealed: true });
+    }
     while (hand.board.length < 5) {
       hand.board.push(hand.boardDeck[hand.board.length]);
-      pushFrame(hand, { kind: 'street' });
+      pushFrame(hand, { kind: 'street', holesRevealed: true });
     }
     var C = global.Cards;
     var cont = alive(hand);
@@ -4260,6 +4468,8 @@ function reducedMotion() {
     if (reducedMotion()) return 60;
     if (!f) return 0;
     if (f.kind === 'deal') return 420;
+    /* Pausa para ver holes de all-in antes del runout de comunitarias. */
+    if (f.kind === 'reveal') return 2000;
     if (f.kind === 'street') return 560;
     var a = String(f.action || '').toLowerCase();
     if (a === 'fold') return 300;
@@ -4311,6 +4521,7 @@ function reducedMotion() {
       awaitingHero: false,
       heroOptions: null,
       result: null,
+      holesRevealed: !!(f.holesRevealed || hand.holesRevealed || f.kind === 'reveal'),
       _anim: true
     };
   }
@@ -4884,7 +5095,8 @@ function reducedMotion() {
     if (!hand || !hand.seats || !hand.seats.length) return '';
     var ring = rotateHeroFirst(hand.seats);
     var coords = seatCoordsFor(ring.length);
-    var showdown = hand.stage === 'complete';
+    var showdown = hand.stage === 'complete' || !!hand.holesRevealed ||
+      !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
     var html = '';
     ring.forEach(function (s, i) {
       if (s.isHero) return; // héroe va en .hero-area (CSS .seat.hero { display:none })
