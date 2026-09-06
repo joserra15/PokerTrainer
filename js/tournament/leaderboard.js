@@ -1,13 +1,19 @@
 /*
- * tournament/leaderboard.js — Clasificación de Koins de la comunidad (local + sync ligera).
+ * tournament/leaderboard.js — Clasificación de Koins de la comunidad (usuarios reales).
+ * No inventa rivales: solo el héroe local + miembros reales sincronizados (RPC).
  */
 (function (global) {
   'use strict';
 
   var KEY = 'pt_tournament_leaderboard_v1';
+  var _fetchInFlight = null;
+  var _lastFetchAt = 0;
 
   function communityId() {
     try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        return global.PTCommunity.id() || 'pokerforge';
+      }
       if (global.PTCommunity && typeof global.PTCommunity.activeId === 'function') {
         return global.PTCommunity.activeId() || 'pokerforge';
       }
@@ -45,6 +51,14 @@
     }
   }
 
+  function isFakeSeed(row) {
+    if (!row || !row.id) return true;
+    var id = String(row.id);
+    if (id.indexOf('c_seed_') === 0 || id.indexOf('seed_') === 0) return true;
+    if (row.seed || row.fake) return true;
+    return false;
+  }
+
   function heroIdentity() {
     var name = 'Hero';
     var id = 'local-hero';
@@ -64,21 +78,37 @@
     return { id: id, name: String(name).slice(0, 40) };
   }
 
-  function seedPeers(heroId) {
-    var seeds = [
-      { id: 'c_seed_1', name: 'MesaNorte', koins: 186 },
-      { id: 'c_seed_2', name: 'RangeLab', koins: 154 },
-      { id: 'c_seed_3', name: 'ICMPulse', koins: 132 },
-      { id: 'c_seed_4', name: 'FeltWalker', koins: 118 },
-      { id: 'c_seed_5', name: 'OrbitalBB', koins: 97 },
-      { id: 'c_seed_6', name: 'SoftClock', koins: 81 },
-      { id: 'c_seed_7', name: 'Gridlock', koins: 64 },
-      { id: 'c_seed_8', name: 'TinCup', koins: 49 }
-    ];
-    return seeds.filter(function (s) { return s.id !== heroId; });
+  function supabaseClient() {
+    try {
+      if (global.PTSupabase && typeof global.PTSupabase.getClient === 'function') {
+        return global.PTSupabase.getClient();
+      }
+    } catch (e) { /* */ }
+    return null;
   }
 
-  /** Publica el saldo actual del Hero en la tabla de su comunidad. */
+  function mergeRows(base, incoming) {
+    var map = {};
+    (base || []).forEach(function (r) {
+      if (!r || isFakeSeed(r)) return;
+      map[String(r.id)] = r;
+    });
+    (incoming || []).forEach(function (r) {
+      if (!r || isFakeSeed(r) || !r.id) return;
+      var id = String(r.id);
+      var prev = map[id];
+      if (!prev) {
+        map[id] = r;
+        return;
+      }
+      var prevTs = Date.parse(prev.updatedAt || 0) || 0;
+      var nextTs = Date.parse(r.updatedAt || 0) || 0;
+      if (nextTs >= prevTs) map[id] = Object.assign({}, prev, r);
+    });
+    return Object.keys(map).map(function (k) { return map[k]; });
+  }
+
+  /** Publica el saldo actual del Hero (local + cloud si hay RPC). */
   function publishHero() {
     var hero = heroIdentity();
     var bal = 100;
@@ -87,34 +117,75 @@
         bal = Number(PTTournamentWallet.getBalance()) || 0;
       }
     } catch (e) { /* */ }
-    var list = readBoard().filter(function (x) {
-      return x && x.id && String(x.id).indexOf('c_seed_') !== 0;
-    });
-    var found = false;
-    list = list.map(function (x) {
-      if (String(x.id) === String(hero.id)) {
-        found = true;
-        return { id: hero.id, name: hero.name, koins: bal, updatedAt: new Date().toISOString(), isHero: true };
+    var row = {
+      id: hero.id,
+      name: hero.name,
+      koins: bal,
+      updatedAt: new Date().toISOString(),
+      isHero: true,
+      communityId: communityId()
+    };
+    var list = mergeRows(readBoard().filter(function (x) { return !isFakeSeed(x); }), [row]);
+    writeBoard(list);
+    /* Sync cloud (fire-and-forget). */
+    try {
+      var c = supabaseClient();
+      if (c && c.rpc) {
+        Promise.resolve(c.rpc('pt_upsert_my_tournament_koins', {
+          p_community_id: communityId(),
+          p_koins: bal,
+          p_display_name: hero.name
+        })).catch(function () { /* */ });
       }
-      return x;
-    });
-    if (!found) {
-      list.push({ id: hero.id, name: hero.name, koins: bal, updatedAt: new Date().toISOString(), isHero: true });
-    }
-    /* Mantener seeds de comunidad para rellenar la tabla si hay pocos usuarios reales. */
-    seedPeers(hero.id).forEach(function (s) {
-      if (!list.some(function (x) { return x.id === s.id; })) {
-        list.push({ id: s.id, name: s.name, koins: s.koins, updatedAt: null, isHero: false, seed: true });
-      }
-    });
+    } catch (eRpc) { /* */ }
+    return list;
+  }
+
+  function applyRemoteMembers(members) {
+    var rows = (members || []).map(function (m) {
+      if (!m) return null;
+      var id = m.user_id || m.id;
+      if (!id) return null;
+      return {
+        id: String(id),
+        name: String(m.display_name || m.name || m.email || 'Jugador').slice(0, 40),
+        koins: Math.round((Number(m.koins != null ? m.koins : m.balance) || 0) * 100) / 100,
+        updatedAt: m.updated_at || m.updatedAt || null,
+        isHero: false
+      };
+    }).filter(Boolean);
+    var list = mergeRows(publishHero(), rows);
     writeBoard(list);
     return list;
+  }
+
+  function refreshFromCloud() {
+    var now = Date.now();
+    if (_fetchInFlight) return _fetchInFlight;
+    if (now - _lastFetchAt < 15000) return Promise.resolve(readBoard());
+    var c = supabaseClient();
+    if (!c || !c.rpc) return Promise.resolve(publishHero());
+    _lastFetchAt = now;
+    _fetchInFlight = Promise.resolve(c.rpc('pt_list_community_tournament_koins', {
+      p_community_id: communityId()
+    })).then(function (res) {
+      _fetchInFlight = null;
+      if (res && !res.error && res.data) {
+        var members = res.data.members || res.data.rows || res.data;
+        if (Array.isArray(members)) applyRemoteMembers(members);
+      }
+      return readBoard();
+    }).catch(function () {
+      _fetchInFlight = null;
+      return readBoard();
+    });
+    return _fetchInFlight;
   }
 
   function rankings(limit) {
     limit = limit || 20;
     var hero = heroIdentity();
-    var list = publishHero().slice();
+    var list = publishHero().slice().filter(function (x) { return !isFakeSeed(x); });
     list.sort(function (a, b) {
       if ((b.koins || 0) !== (a.koins || 0)) return (b.koins || 0) - (a.koins || 0);
       return String(a.name || '').localeCompare(String(b.name || ''));
@@ -139,15 +210,21 @@
   }
 
   function renderHtml() {
+    try { refreshFromCloud(); } catch (e) { /* */ }
     var rows = rankings(15);
-    var body = rows.map(function (r) {
-      var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
-        medalGlyph(r.medal) + '</span>') : ('<span class="trn-lb-medal">' + r.rank + '</span>');
-      return '<tr class="' + (r.isHero ? 'is-hero' : '') + '">' +
-        '<td>' + medal + '</td>' +
-        '<td>' + (r.isHero ? ('<strong>' + escapeHtml(r.name) + '</strong> <span class="trn-lb-you">(Hero)</span>') : escapeHtml(r.name)) + '</td>' +
-        '<td>' + escapeHtml(String(r.koins)) + '</td></tr>';
-    }).join('');
+    var body;
+    if (!rows.length) {
+      body = '<tr><td colspan="3" class="muted">Aún no hay jugadores en esta comunidad.</td></tr>';
+    } else {
+      body = rows.map(function (r) {
+        var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
+          medalGlyph(r.medal) + '</span>') : ('<span class="trn-lb-medal">' + r.rank + '</span>');
+        return '<tr class="' + (r.isHero ? 'is-hero' : '') + '">' +
+          '<td>' + medal + '</td>' +
+          '<td>' + (r.isHero ? ('<strong>' + escapeHtml(r.name) + '</strong> <span class="trn-lb-you">(Hero)</span>') : escapeHtml(r.name)) + '</td>' +
+          '<td>' + escapeHtml(String(r.koins)) + '</td></tr>';
+      }).join('');
+    }
     return '<section class="trn-leaderboard" aria-label="Clasificación de Koins">' +
       '<h3>Clasificación de la comunidad</h3>' +
       '<table class="trn-leaderboard-table"><thead><tr><th>#</th><th>Jugador</th><th>Koins</th></tr></thead>' +
@@ -177,6 +254,7 @@
     rankings: rankings,
     renderHtml: renderHtml,
     legendHtml: legendHtml,
-    communityId: communityId
+    communityId: communityId,
+    refreshFromCloud: refreshFromCloud
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

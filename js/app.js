@@ -2331,7 +2331,7 @@
       withLazyChunk('sessions', function () {
         if (opts.openSessionId) {
           showSessionLoading('Cargando sesión…');
-          void openSession(opts.openSessionId, null, {
+          void openSession(opts.openSessionId, opts.sessionObj || null, {
             handId: opts.handId || null,
             mode: opts.reviewMode || opts.mode || 'review',
             fromTournament: !!opts.fromTournament
@@ -8380,6 +8380,15 @@
     }
     if (!currentSession || !currentSession.hands) {
       $('#import-status').innerHTML = '<span style="color:var(--red)">No se encontró la sesión guardada.</span>';
+      const detailBox = $('#session-detail-content');
+      if (detailBox) {
+        detailBox.innerHTML = '<p class="muted-text">No se pudo cargar la sesión del torneo. Vuelve al lobby e inténtalo de nuevo.</p>' +
+          '<p><button type="button" class="btn" id="btn-back-sessions-list">« Volver a sesiones</button></p>';
+        const back = detailBox.querySelector('#btn-back-sessions-list');
+        if (back) back.addEventListener('click', function () { showSessionsView('home'); renderSessionsList(); });
+      } else {
+        showSessionsView('home');
+      }
       return;
     }
     const buildVer = window.PT_BUILD || '';

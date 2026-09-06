@@ -285,14 +285,15 @@
     }
     const shoveW = openShoveWeights(pos, stack, input);
     const sw = shoveW[code] || 0;
-    if (sw >= 0.85) return { raise: 0.87, fold: 0.05, call: 0, allin: 0.87 };
+    /* Solo allin (no raise+allin a la vez): si no, filterStrategy normaliza a ~48%/3%. */
+    if (sw >= 0.85) return { raise: 0, fold: 0.05, call: 0, allin: 0.95 };
     if (sw >= 0.55) {
-      const allin = 0.55 + (sw - 0.55) * 0.9;
-      const fold = Math.max(0.08, 1 - allin - 0.05);
-      return { raise: allin, fold: fold, call: 0, allin: allin };
+      const allin = Math.min(0.92, 0.55 + (sw - 0.55) * 0.9);
+      const fold = Math.max(0.08, 1 - allin);
+      return { raise: 0, fold: fold, call: 0, allin: allin };
     }
-    if (sw >= 0.35) return { raise: 0.12, fold: 0.78, call: 0, allin: 0.1 };
-    return { raise: 0.04, fold: 0.95, call: 0, allin: 0.01 };
+    if (sw >= 0.35) return { raise: 0, fold: 0.88, call: 0, allin: 0.12 };
+    return { raise: 0, fold: 0.96, call: 0, allin: 0.04 };
   }
 
   function isPushPhase(config) {

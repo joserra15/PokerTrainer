@@ -287,19 +287,69 @@
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.15,
       onBust: 'simulate'
+    },
+    spinEasy: {
+      id: 'spinEasy',
+      name: 'Fácil · Spin 3-Max',
+      kind: 'spin',
+      entries: 3,
+      seatsPerTable: 3,
+      buyInEur: 5,
+      startingStack: 500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
+      exploitProPct: 0,
+      onBust: 'simulate'
+    },
+    spinMedium: {
+      id: 'spinMedium',
+      name: 'Medio · Spin 3-Max',
+      kind: 'spin',
+      entries: 3,
+      seatsPerTable: 3,
+      buyInEur: 11,
+      startingStack: 500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
+      exploitProPct: 0.15,
+      onBust: 'simulate'
+    },
+    spinHard: {
+      id: 'spinHard',
+      name: 'Difícil · Spin 3-Max',
+      kind: 'spin',
+      entries: 3,
+      seatsPerTable: 3,
+      buyInEur: 22,
+      startingStack: 500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
+      exploitProPct: 0.4,
+      onBust: 'simulate'
     }
   };
 
   function normalize(raw) {
     raw = raw || {};
-    var seats = Number(raw.seatsPerTable) === 9 ? 9 : 6;
+    var kind = raw.kind === 'sng' ? 'sng' : (raw.kind === 'spin' ? 'spin' : 'mtt');
+    var seatsRaw = Number(raw.seatsPerTable);
+    var seats = seatsRaw === 9 ? 9 : (seatsRaw === 3 || kind === 'spin' ? 3 : 6);
+    if (kind === 'spin') seats = 3;
     var entries = clamp(raw.entries != null ? raw.entries : seats, seats, MAX_ENTRIES);
-    if (raw.kind === 'sng') entries = seats;
-    var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : Math.max(1, Math.floor(entries / 5)), 1, entries - 1);
+    if (kind === 'sng' || kind === 'spin') entries = seats;
+    var placesPaidDefault = kind === 'spin' ? 1 : Math.max(1, Math.floor(entries / 5));
+    var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : placesPaidDefault, 1, Math.max(1, entries - 1));
+    if (kind === 'spin' && entries <= 2) placesPaid = 1;
     return {
       id: String(raw.id || 'custom'),
       name: String(raw.name || 'Torneo personalizado').slice(0, 80),
-      kind: raw.kind === 'sng' ? 'sng' : 'mtt',
+      kind: kind,
       entries: entries,
       seatsPerTable: seats,
       buyInEur: clamp(raw.buyInEur != null ? raw.buyInEur : 5, 0.01, 10000),
@@ -320,7 +370,7 @@
   }
 
   function listPresets() {
-    return ['easy', 'medium', 'hard', 'sng6', 'sng9'].map(function (id) {
+    return ['easy', 'medium', 'hard', 'sng6', 'sng9', 'spinEasy', 'spinMedium', 'spinHard'].map(function (id) {
       return normalize(clone(PRESETS[id]));
     });
   }
@@ -943,11 +993,22 @@
     }).filter(function (id, i, arr) { return id && arr.indexOf(id) === i; });
   }
 
+  function resolveFormatHub(hand) {
+    var kind = (hand && (hand.formatHub || hand.kind || hand.gameType))
+      || (hand && hand.state && (hand.state.formatHub || hand.state.kind || hand.state.gameType))
+      || (hand && hand.config && hand.config.kind)
+      || 'mtt';
+    kind = String(kind).toLowerCase();
+    if (kind === 'spin' || kind === 'spin3' || kind === 'spins') return 'spin';
+    return 'mtt';
+  }
+
   function resolveTournamentPhase(stackBB, hand) {
     var Tax = global.PTFormatTaxonomy;
+    var hub = resolveFormatHub(hand);
     var cfg = {
-      formatHub: 'mtt',
-      gameType: 'mtt',
+      formatHub: hub,
+      gameType: hub === 'spin' ? 'spin3' : 'mtt',
       stackBB: stackBB,
       mttPhase: (hand && hand.mttPhase) || (hand && hand.state && hand.state.mttPhase) || 'auto'
     };
@@ -960,9 +1021,14 @@
       try { return Tax.resolvePhase(cfg); } catch (e) { /* */ }
     }
     if (Tax && typeof Tax.phaseFromStackBB === 'function') {
-      try { return Tax.phaseFromStackBB(stackBB, 'mtt'); } catch (e2) { /* */ }
+      try { return Tax.phaseFromStackBB(stackBB, hub); } catch (e2) { /* */ }
     }
     var bb = Number(stackBB) || 100;
+    if (hub === 'spin') {
+      if (bb <= 12) return 'push';
+      if (bb <= 20) return 'mid';
+      return 'early';
+    }
     if (bb <= 12) return 'push';
     if (bb <= 25) return 'short';
     if (bb <= 45) return 'mid';
@@ -1019,6 +1085,11 @@
     }
     var keys = Object.keys(freqs);
     if (!keys.length) return null;
+    var sum = 0;
+    keys.forEach(function (id) { sum += Number(freqs[id]) || 0; });
+    if (sum > 0 && Math.abs(sum - 1) > 0.02) {
+      keys.forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
+    }
     return keys.map(function (id) {
       var freq = Number(freqs[id]) || 0;
       return {
@@ -1057,6 +1128,7 @@
     /* RFI: las ciegas no son una apuesta rival — toCall efectivo 0 (como en Entrenar). */
     var toCall = firstIn ? 0 : rawToCall;
 
+    var hub = resolveFormatHub(hand);
     var phase = resolveTournamentPhase(stackBB, hand);
     var pushPhase = phase === 'push' || stackBB <= 12;
     var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
@@ -1096,8 +1168,8 @@
       heroRemainingBB: Math.round((stackLeft / bb) * 100) / 100,
       availableActions: avail,
       chosenAction: chosen,
-      formatHub: 'mtt',
-      gameType: 'mtt',
+      formatHub: hub,
+      gameType: hub === 'spin' ? 'spin3' : 'mtt',
       mttPhase: phase,
       resolvedPhase: phase,
       effectivePhase: phase,
@@ -1110,7 +1182,7 @@
       scoreMode: 'gto',
       multiway: aliveCount >= 3,
       aliveCount: aliveCount,
-      phaseNote: 'Fase MTT «' + phase + '» · ' + stackBB + ' bb'
+      phaseNote: 'Fase ' + (hub === 'spin' ? 'Spin' : 'MTT') + ' «' + phase + '» · ' + stackBB + ' bb'
     };
     if (action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
       input.betSizeBB = Number(action.amount) / bb;
@@ -1241,6 +1313,7 @@
     summarizeDecisions: summarizeDecisions,
     buildInput: buildInput,
     mapClass: mapClass,
+    resolveFormatHub: resolveFormatHub,
     resolveTournamentPhase: resolveTournamentPhase,
     isFirstInOpen: isFirstInOpen
   };
@@ -3161,15 +3234,21 @@
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
- * tournament/leaderboard.js — Clasificación de Koins de la comunidad (local + sync ligera).
+ * tournament/leaderboard.js — Clasificación de Koins de la comunidad (usuarios reales).
+ * No inventa rivales: solo el héroe local + miembros reales sincronizados (RPC).
  */
 (function (global) {
   'use strict';
 
   var KEY = 'pt_tournament_leaderboard_v1';
+  var _fetchInFlight = null;
+  var _lastFetchAt = 0;
 
   function communityId() {
     try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        return global.PTCommunity.id() || 'pokerforge';
+      }
       if (global.PTCommunity && typeof global.PTCommunity.activeId === 'function') {
         return global.PTCommunity.activeId() || 'pokerforge';
       }
@@ -3207,6 +3286,14 @@
     }
   }
 
+  function isFakeSeed(row) {
+    if (!row || !row.id) return true;
+    var id = String(row.id);
+    if (id.indexOf('c_seed_') === 0 || id.indexOf('seed_') === 0) return true;
+    if (row.seed || row.fake) return true;
+    return false;
+  }
+
   function heroIdentity() {
     var name = 'Hero';
     var id = 'local-hero';
@@ -3226,21 +3313,37 @@
     return { id: id, name: String(name).slice(0, 40) };
   }
 
-  function seedPeers(heroId) {
-    var seeds = [
-      { id: 'c_seed_1', name: 'MesaNorte', koins: 186 },
-      { id: 'c_seed_2', name: 'RangeLab', koins: 154 },
-      { id: 'c_seed_3', name: 'ICMPulse', koins: 132 },
-      { id: 'c_seed_4', name: 'FeltWalker', koins: 118 },
-      { id: 'c_seed_5', name: 'OrbitalBB', koins: 97 },
-      { id: 'c_seed_6', name: 'SoftClock', koins: 81 },
-      { id: 'c_seed_7', name: 'Gridlock', koins: 64 },
-      { id: 'c_seed_8', name: 'TinCup', koins: 49 }
-    ];
-    return seeds.filter(function (s) { return s.id !== heroId; });
+  function supabaseClient() {
+    try {
+      if (global.PTSupabase && typeof global.PTSupabase.getClient === 'function') {
+        return global.PTSupabase.getClient();
+      }
+    } catch (e) { /* */ }
+    return null;
   }
 
-  /** Publica el saldo actual del Hero en la tabla de su comunidad. */
+  function mergeRows(base, incoming) {
+    var map = {};
+    (base || []).forEach(function (r) {
+      if (!r || isFakeSeed(r)) return;
+      map[String(r.id)] = r;
+    });
+    (incoming || []).forEach(function (r) {
+      if (!r || isFakeSeed(r) || !r.id) return;
+      var id = String(r.id);
+      var prev = map[id];
+      if (!prev) {
+        map[id] = r;
+        return;
+      }
+      var prevTs = Date.parse(prev.updatedAt || 0) || 0;
+      var nextTs = Date.parse(r.updatedAt || 0) || 0;
+      if (nextTs >= prevTs) map[id] = Object.assign({}, prev, r);
+    });
+    return Object.keys(map).map(function (k) { return map[k]; });
+  }
+
+  /** Publica el saldo actual del Hero (local + cloud si hay RPC). */
   function publishHero() {
     var hero = heroIdentity();
     var bal = 100;
@@ -3249,34 +3352,75 @@
         bal = Number(PTTournamentWallet.getBalance()) || 0;
       }
     } catch (e) { /* */ }
-    var list = readBoard().filter(function (x) {
-      return x && x.id && String(x.id).indexOf('c_seed_') !== 0;
-    });
-    var found = false;
-    list = list.map(function (x) {
-      if (String(x.id) === String(hero.id)) {
-        found = true;
-        return { id: hero.id, name: hero.name, koins: bal, updatedAt: new Date().toISOString(), isHero: true };
+    var row = {
+      id: hero.id,
+      name: hero.name,
+      koins: bal,
+      updatedAt: new Date().toISOString(),
+      isHero: true,
+      communityId: communityId()
+    };
+    var list = mergeRows(readBoard().filter(function (x) { return !isFakeSeed(x); }), [row]);
+    writeBoard(list);
+    /* Sync cloud (fire-and-forget). */
+    try {
+      var c = supabaseClient();
+      if (c && c.rpc) {
+        Promise.resolve(c.rpc('pt_upsert_my_tournament_koins', {
+          p_community_id: communityId(),
+          p_koins: bal,
+          p_display_name: hero.name
+        })).catch(function () { /* */ });
       }
-      return x;
-    });
-    if (!found) {
-      list.push({ id: hero.id, name: hero.name, koins: bal, updatedAt: new Date().toISOString(), isHero: true });
-    }
-    /* Mantener seeds de comunidad para rellenar la tabla si hay pocos usuarios reales. */
-    seedPeers(hero.id).forEach(function (s) {
-      if (!list.some(function (x) { return x.id === s.id; })) {
-        list.push({ id: s.id, name: s.name, koins: s.koins, updatedAt: null, isHero: false, seed: true });
-      }
-    });
+    } catch (eRpc) { /* */ }
+    return list;
+  }
+
+  function applyRemoteMembers(members) {
+    var rows = (members || []).map(function (m) {
+      if (!m) return null;
+      var id = m.user_id || m.id;
+      if (!id) return null;
+      return {
+        id: String(id),
+        name: String(m.display_name || m.name || m.email || 'Jugador').slice(0, 40),
+        koins: Math.round((Number(m.koins != null ? m.koins : m.balance) || 0) * 100) / 100,
+        updatedAt: m.updated_at || m.updatedAt || null,
+        isHero: false
+      };
+    }).filter(Boolean);
+    var list = mergeRows(publishHero(), rows);
     writeBoard(list);
     return list;
+  }
+
+  function refreshFromCloud() {
+    var now = Date.now();
+    if (_fetchInFlight) return _fetchInFlight;
+    if (now - _lastFetchAt < 15000) return Promise.resolve(readBoard());
+    var c = supabaseClient();
+    if (!c || !c.rpc) return Promise.resolve(publishHero());
+    _lastFetchAt = now;
+    _fetchInFlight = Promise.resolve(c.rpc('pt_list_community_tournament_koins', {
+      p_community_id: communityId()
+    })).then(function (res) {
+      _fetchInFlight = null;
+      if (res && !res.error && res.data) {
+        var members = res.data.members || res.data.rows || res.data;
+        if (Array.isArray(members)) applyRemoteMembers(members);
+      }
+      return readBoard();
+    }).catch(function () {
+      _fetchInFlight = null;
+      return readBoard();
+    });
+    return _fetchInFlight;
   }
 
   function rankings(limit) {
     limit = limit || 20;
     var hero = heroIdentity();
-    var list = publishHero().slice();
+    var list = publishHero().slice().filter(function (x) { return !isFakeSeed(x); });
     list.sort(function (a, b) {
       if ((b.koins || 0) !== (a.koins || 0)) return (b.koins || 0) - (a.koins || 0);
       return String(a.name || '').localeCompare(String(b.name || ''));
@@ -3301,15 +3445,21 @@
   }
 
   function renderHtml() {
+    try { refreshFromCloud(); } catch (e) { /* */ }
     var rows = rankings(15);
-    var body = rows.map(function (r) {
-      var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
-        medalGlyph(r.medal) + '</span>') : ('<span class="trn-lb-medal">' + r.rank + '</span>');
-      return '<tr class="' + (r.isHero ? 'is-hero' : '') + '">' +
-        '<td>' + medal + '</td>' +
-        '<td>' + (r.isHero ? ('<strong>' + escapeHtml(r.name) + '</strong> <span class="trn-lb-you">(Hero)</span>') : escapeHtml(r.name)) + '</td>' +
-        '<td>' + escapeHtml(String(r.koins)) + '</td></tr>';
-    }).join('');
+    var body;
+    if (!rows.length) {
+      body = '<tr><td colspan="3" class="muted">Aún no hay jugadores en esta comunidad.</td></tr>';
+    } else {
+      body = rows.map(function (r) {
+        var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
+          medalGlyph(r.medal) + '</span>') : ('<span class="trn-lb-medal">' + r.rank + '</span>');
+        return '<tr class="' + (r.isHero ? 'is-hero' : '') + '">' +
+          '<td>' + medal + '</td>' +
+          '<td>' + (r.isHero ? ('<strong>' + escapeHtml(r.name) + '</strong> <span class="trn-lb-you">(Hero)</span>') : escapeHtml(r.name)) + '</td>' +
+          '<td>' + escapeHtml(String(r.koins)) + '</td></tr>';
+      }).join('');
+    }
     return '<section class="trn-leaderboard" aria-label="Clasificación de Koins">' +
       '<h3>Clasificación de la comunidad</h3>' +
       '<table class="trn-leaderboard-table"><thead><tr><th>#</th><th>Jugador</th><th>Koins</th></tr></thead>' +
@@ -3339,7 +3489,8 @@
     rankings: rankings,
     renderHtml: renderHtml,
     legendHtml: legendHtml,
-    communityId: communityId
+    communityId: communityId,
+    refreshFromCloud: refreshFromCloud
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -3698,6 +3849,11 @@
     }
     var keys = Object.keys(freqs);
     if (!keys.length) return null;
+    var sum = 0;
+    keys.forEach(function (id) { sum += Number(freqs[id]) || 0; });
+    if (sum > 0 && Math.abs(sum - 1) > 0.02) {
+      keys.forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
+    }
     return keys.map(function (id) {
       var freq = Number(freqs[id]) || 0;
       return {
@@ -4111,6 +4267,19 @@
     state.blindLevel = blinds.level || state.blindLevel;
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
+    try {
+      var kind = (state.config && state.config.kind) || 'mtt';
+      var hub = (kind === 'spin') ? 'spin' : 'mtt';
+      hand.kind = kind;
+      hand.formatHub = hub;
+      hand.state = {
+        formatHub: hub,
+        kind: kind,
+        playersLeft: St.playersLeft(state),
+        placesPaid: state.config && state.config.placesPaid,
+        mttPhase: 'auto'
+      };
+    } catch (eMeta) { /* */ }
     Live.runToHeroOrEnd(hand);
     state._liveHand = hand;
     return hand;
@@ -4378,8 +4547,24 @@
           sessionStats = session.stats || null;
           state.sessionId = sessionId;
           state.sessionStats = sessionStats;
-          Promise.resolve(StoreApi.saveSession(session)).catch(function (err) {
-            try { console.warn('[Tournaments] saveSession failed', err); } catch (e0) { /* */ }
+          state._savedSession = session;
+          /* Cache inmediata para que «Estadísticas del torneo» no quede colgada. */
+          try {
+            if (typeof StoreApi.cacheSession === 'function') StoreApi.cacheSession(session);
+            else if (StoreApi._sessionMemoryCache) StoreApi._sessionMemoryCache[session.id] = session;
+          } catch (eCache) { /* */ }
+          Promise.resolve(StoreApi.saveSession(session)).then(function (res) {
+            if (res && res.ok === false) {
+              try { console.warn('[Tournaments] saveSession failed', res.error); } catch (e0) { /* */ }
+              try {
+                if (typeof StoreApi.saveSessionLocal === 'function') StoreApi.saveSessionLocal(session);
+              } catch (eLoc) { /* */ }
+            }
+          }).catch(function (err) {
+            try { console.warn('[Tournaments] saveSession failed', err); } catch (e1) { /* */ }
+            try {
+              if (typeof StoreApi.saveSessionLocal === 'function') StoreApi.saveSessionLocal(session);
+            } catch (e2) { /* */ }
           });
         }
       }
@@ -4765,20 +4950,22 @@ function reducedMotion() {
 
   function lobbyBadges(cfg) {
     var badges = [];
-    badges.push({ t: cfg.kind === 'sng' ? 'SNG' : 'MTT', k: 'kind' });
+    var kindLabel = cfg.kind === 'sng' ? 'SNG' : (cfg.kind === 'spin' ? 'SPIN' : 'MTT');
+    badges.push({ t: kindLabel, k: 'kind' });
     badges.push({ t: cfg.seatsPerTable + '-MAX', k: 'max' });
     badges.push({ t: "HOLD'EM NL", k: 'game' });
-    if (startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
-    if (cfg.id === 'easy') badges.push({ t: 'FÁCIL', k: 'diff' });
-    if (cfg.id === 'medium') badges.push({ t: 'MEDIO', k: 'diff' });
-    if (cfg.id === 'hard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
+    if (cfg.kind !== 'spin' && startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
+    if (cfg.id === 'easy' || cfg.id === 'spinEasy') badges.push({ t: 'FÁCIL', k: 'diff' });
+    if (cfg.id === 'medium' || cfg.id === 'spinMedium') badges.push({ t: 'MEDIO', k: 'diff' });
+    if (cfg.id === 'hard' || cfg.id === 'spinHard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
     return badges;
   }
 
   function lobbyTone(cfg) {
-    if (cfg.id === 'hard') return 'hard';
-    if (cfg.id === 'medium') return 'mid';
-    if (cfg.id === 'easy') return 'easy';
+    if (cfg.id === 'hard' || cfg.id === 'spinHard') return 'hard';
+    if (cfg.id === 'medium' || cfg.id === 'spinMedium') return 'mid';
+    if (cfg.id === 'easy' || cfg.id === 'spinEasy') return 'easy';
+    if (cfg.kind === 'spin') return 'spin';
     if (cfg.kind === 'sng') return 'sng';
     return 'mtt';
   }
@@ -4902,7 +5089,7 @@ function reducedMotion() {
       return '<span class="trn-badge trn-badge-' + esc(b.k) + '">' + esc(b.t) + '</span>';
     }).join('');
     var bb = startingBb(p);
-    var kindLabel = p.kind === 'sng' ? 'SNG' : 'MTT';
+    var kindLabel = p.kind === 'sng' ? 'SNG' : (p.kind === 'spin' ? 'SPIN' : 'MTT');
 
     var activeSum = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
     var isActivePreset = !!(activeSum && (activeSum.presetId === p.id || activeSum.id === p.id));
@@ -4946,6 +5133,7 @@ function reducedMotion() {
     var filtered = presets.filter(function (p) {
       if (filter === 'mtt') return p.kind === 'mtt';
       if (filter === 'sng') return p.kind === 'sng';
+      if (filter === 'spin') return p.kind === 'spin';
       return true;
     });
     var hist = (global.PTTournamentStore.list() || []).slice(0, 5);
@@ -4956,10 +5144,15 @@ function reducedMotion() {
 
     var histHtml = hist.length
       ? hist.map(function (h) {
-        return '<li><strong>' + esc(h.name) + '</strong> · ' +
-          (h.place != null ? (h.place + 'º') : '—') +
-          ' · ' + esc(fmtEur(h.prizeEur || 0)) +
-          ' · ROI ' + (h.roi || 0) + '%</li>';
+        var diff = (h.name || '').split('·')[0].trim() || (h.kind || '').toUpperCase();
+        return '<li class="trn-recent-card">' +
+          '<span class="trn-recent-name">' + esc(h.name || 'Torneo') + '</span>' +
+          '<div class="trn-recent-vals">' +
+          '<span class="trn-recent-chip"><strong>' + esc(diff) + '</strong><span>Tipo</span></span>' +
+          '<span class="trn-recent-chip"><strong>' + (h.place != null ? (h.place + 'º') : '—') + '</strong><span>Puesto</span></span>' +
+          '<span class="trn-recent-chip"><strong>' + esc(fmtEur(h.prizeEur || 0)) + '</strong><span>Premio</span></span>' +
+          '<span class="trn-recent-chip"><strong>' + esc(String(h.roi != null ? h.roi : 0)) + '%</strong><span>ROI</span></span>' +
+          '</div></li>';
       }).join('')
       : '<li class="muted">Sin torneos guardados</li>';
 
@@ -5019,6 +5212,7 @@ function reducedMotion() {
       filterBtn('all', 'Todos') +
       filterBtn('mtt', 'MTT') +
       filterBtn('sng', 'SNG') +
+      filterBtn('spin', 'Spins') +
       '</div>' +
       '<p class="trn-lobby-count">' + filtered.length +
       ' torneo' + (filtered.length === 1 ? '' : 's') + '</p></div>' +
@@ -5032,7 +5226,7 @@ function reducedMotion() {
         return (Lb && Lb.legendHtml ? Lb.legendHtml() : '') + (Lb && Lb.renderHtml ? Lb.renderHtml() : '');
       })() +
       '<section class="trn-lobby-recent">' +
-      '<h3>Recientes</h3><ul class="trn-hist-list">' + histHtml + '</ul>' +
+      '<h3>Recientes</h3><ul class="trn-lobby-recent-grid">' + histHtml + '</ul>' +
       '</section>' + resumeModal + '</div>';
   }
 
@@ -5759,10 +5953,20 @@ function reducedMotion() {
   function openSessionHand(sessionId, handId, mode) {
     mode = mode || 'review';
     if (!sessionId) return;
+    var sessionObj = null;
+    try {
+      if (ui.state && ui.state._savedSession && String(ui.state._savedSession.id) === String(sessionId)) {
+        sessionObj = ui.state._savedSession;
+      } else if (ui.state && ui.state.sessionId && String(ui.state.sessionId) === String(sessionId) && ui.state.sessionStats) {
+        /* Fallback mínimo si aún no hay objeto completo en memoria. */
+        sessionObj = null;
+      }
+    } catch (eSess) { sessionObj = null; }
     try {
       if (typeof global.goToTab === 'function') {
         global.goToTab('sessions', {
           openSessionId: sessionId,
+          sessionObj: sessionObj,
           handId: handId || null,
           reviewMode: mode,
           fromTournament: true
@@ -5770,7 +5974,7 @@ function reducedMotion() {
         return;
       }
       if (typeof global.openSession === 'function') {
-        Promise.resolve(global.openSession(sessionId, null, {
+        Promise.resolve(global.openSession(sessionId, sessionObj, {
           handId: handId || null,
           mode: mode,
           fromTournament: true

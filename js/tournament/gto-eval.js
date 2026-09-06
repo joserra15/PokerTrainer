@@ -50,11 +50,22 @@
     }).filter(function (id, i, arr) { return id && arr.indexOf(id) === i; });
   }
 
+  function resolveFormatHub(hand) {
+    var kind = (hand && (hand.formatHub || hand.kind || hand.gameType))
+      || (hand && hand.state && (hand.state.formatHub || hand.state.kind || hand.state.gameType))
+      || (hand && hand.config && hand.config.kind)
+      || 'mtt';
+    kind = String(kind).toLowerCase();
+    if (kind === 'spin' || kind === 'spin3' || kind === 'spins') return 'spin';
+    return 'mtt';
+  }
+
   function resolveTournamentPhase(stackBB, hand) {
     var Tax = global.PTFormatTaxonomy;
+    var hub = resolveFormatHub(hand);
     var cfg = {
-      formatHub: 'mtt',
-      gameType: 'mtt',
+      formatHub: hub,
+      gameType: hub === 'spin' ? 'spin3' : 'mtt',
       stackBB: stackBB,
       mttPhase: (hand && hand.mttPhase) || (hand && hand.state && hand.state.mttPhase) || 'auto'
     };
@@ -67,9 +78,14 @@
       try { return Tax.resolvePhase(cfg); } catch (e) { /* */ }
     }
     if (Tax && typeof Tax.phaseFromStackBB === 'function') {
-      try { return Tax.phaseFromStackBB(stackBB, 'mtt'); } catch (e2) { /* */ }
+      try { return Tax.phaseFromStackBB(stackBB, hub); } catch (e2) { /* */ }
     }
     var bb = Number(stackBB) || 100;
+    if (hub === 'spin') {
+      if (bb <= 12) return 'push';
+      if (bb <= 20) return 'mid';
+      return 'early';
+    }
     if (bb <= 12) return 'push';
     if (bb <= 25) return 'short';
     if (bb <= 45) return 'mid';
@@ -126,6 +142,11 @@
     }
     var keys = Object.keys(freqs);
     if (!keys.length) return null;
+    var sum = 0;
+    keys.forEach(function (id) { sum += Number(freqs[id]) || 0; });
+    if (sum > 0 && Math.abs(sum - 1) > 0.02) {
+      keys.forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
+    }
     return keys.map(function (id) {
       var freq = Number(freqs[id]) || 0;
       return {
@@ -164,6 +185,7 @@
     /* RFI: las ciegas no son una apuesta rival — toCall efectivo 0 (como en Entrenar). */
     var toCall = firstIn ? 0 : rawToCall;
 
+    var hub = resolveFormatHub(hand);
     var phase = resolveTournamentPhase(stackBB, hand);
     var pushPhase = phase === 'push' || stackBB <= 12;
     var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
@@ -203,8 +225,8 @@
       heroRemainingBB: Math.round((stackLeft / bb) * 100) / 100,
       availableActions: avail,
       chosenAction: chosen,
-      formatHub: 'mtt',
-      gameType: 'mtt',
+      formatHub: hub,
+      gameType: hub === 'spin' ? 'spin3' : 'mtt',
       mttPhase: phase,
       resolvedPhase: phase,
       effectivePhase: phase,
@@ -217,7 +239,7 @@
       scoreMode: 'gto',
       multiway: aliveCount >= 3,
       aliveCount: aliveCount,
-      phaseNote: 'Fase MTT «' + phase + '» · ' + stackBB + ' bb'
+      phaseNote: 'Fase ' + (hub === 'spin' ? 'Spin' : 'MTT') + ' «' + phase + '» · ' + stackBB + ' bb'
     };
     if (action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
       input.betSizeBB = Number(action.amount) / bb;
@@ -348,6 +370,7 @@
     summarizeDecisions: summarizeDecisions,
     buildInput: buildInput,
     mapClass: mapClass,
+    resolveFormatHub: resolveFormatHub,
     resolveTournamentPhase: resolveTournamentPhase,
     isFirstInOpen: isFirstInOpen
   };

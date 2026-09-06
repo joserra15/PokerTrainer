@@ -1466,7 +1466,14 @@
     return { ok: true, session: session, cloudOnly: false };
   }
 
+  function cacheSession(session) {
+    if (!session || !session.id) return false;
+    sessionMemoryCache[session.id] = session;
+    return true;
+  }
+
   async function saveSession(session, onProgress) {
+    if (session && session.id) sessionMemoryCache[session.id] = session;
     migrateLegacySessionsList();
     session = await mergeSessionIfDuplicate(session);
     const nHands = (session.hands && session.hands.length) || 0;
@@ -2256,7 +2263,7 @@
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,
     purgeLocalUserData, scenarioLabel,
-    getSessions, getSession, getSessionAsync, saveSession, removeSession, deleteSessionTxt,
+    getSessions, getSession, getSessionAsync, saveSession, saveSessionLocal, cacheSession, removeSession, deleteSessionTxt,
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
     mergeActiveIntoCloudPayload, sliceCloudForActive, communityDataSuffix, cloudDataKeys,

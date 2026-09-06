@@ -107,7 +107,7 @@ FILES.forEach(function (f) { load(g, f); });
   const cfg = g.PTTournamentConfig.normalize({ entries: 200, seatsPerTable: 9, kind: 'mtt' });
   assert.strictEqual(cfg.entries, 90, 'entries capped at 90');
   assert.ok(g.PTTournamentConfig.ROLE_IDS.indexOf('tag') >= 0, 'ROLE_IDS');
-  assert.ok(g.PTTournamentConfig.listPresets().length >= 5, 'presets');
+  assert.ok(g.PTTournamentConfig.listPresets().length >= 8, 'presets include spins');
   const pool = g.PTTournamentConfig.prizePool(g.PTTournamentConfig.fromPreset('sng6'));
   assert.ok(pool > 0, 'prizePool');
   console.log('OK config');
@@ -988,6 +988,11 @@ console.log('OK tournament-result-polish');
   assert.ok(/🥇|trn-lb-medal-gold/.test(html), 'gold medal');
   const legend = Lb.legendHtml();
   assert.ok(/Escuela|Entrenador|rol/i.test(legend), 'legend explains earns');
+  
+  const ranks = Lb.rankings(20);
+  assert.ok(ranks.every(function (r) { return String(r.id).indexOf('c_seed_') !== 0; }), 'no fake seed ids');
+  assert.ok(!/MesaNorte|RangeLab|ICMPulse|FeltWalker/.test(html), 'no invented peer names');
+
   console.log('OK leaderboard-and-legend');
 }
 
@@ -1138,7 +1143,64 @@ console.log('OK tournament-result-polish');
       'shove 88 short debe tener freq razonable o clase buena, freq=' + decision.frequency + ' class=' + decision.class);
   }
 }
+
 console.log('OK tournament-phase-eval');
+
+// --- Spins 3-Max presets + phase hub ---
+{
+  const Cfg = g.PTTournamentConfig;
+  const spins = Cfg.listPresets().filter(function (p) { return p.kind === 'spin'; });
+  assert.strictEqual(spins.length, 3, '3 spin presets');
+  spins.forEach(function (p) {
+    assert.strictEqual(p.entries, 3, p.id + ' entries 3');
+    assert.strictEqual(p.seatsPerTable, 3, p.id + ' seats 3');
+    assert.ok(p.placesPaid >= 1 && p.placesPaid < p.entries, p.id + ' placesPaid');
+  });
+  const GEval = g.PTTournamentGtoEval;
+  assert.strictEqual(GEval.resolveFormatHub({ kind: 'spin' }), 'spin', 'hub spin');
+  assert.strictEqual(GEval.resolveFormatHub({ formatHub: 'spin' }), 'spin', 'hub from formatHub');
+  assert.strictEqual(GEval.resolveTournamentPhase(18, { kind: 'spin' }), 'mid', 'spin 18bb → mid (trainer-like)');
+  assert.strictEqual(GEval.resolveTournamentPhase(10, { kind: 'spin' }), 'push', 'spin 10bb → push');
+  const spinHand = {
+    street: 'preflop', bb: 20, sb: 10, pot: 30, currentBet: 20, openerId: null, board: [],
+    kind: 'spin', formatHub: 'spin',
+    heroOptions: [{ id: 'fold' }, { id: 'allin', amount: 200 }],
+    seats: [
+      { id: 'h1', isHero: true, pos: 'BTN', stack: 200, streetInvested: 0, folded: false, cards: ['As', 'Kd'] },
+      { id: 'v1', isHero: false, pos: 'BB', stack: 300, streetInvested: 20, folded: false }
+    ]
+  };
+  const spinInput = GEval.buildInput(spinHand, spinHand.seats[0], { id: 'allin', amount: 200 });
+  assert.strictEqual(spinInput.formatHub, 'spin', 'spin buildInput formatHub');
+  assert.ok(spinInput.mttPhase === 'push' || spinInput.resolvedPhase === 'push', 'spin short → push phase');
+}
+console.log('OK spin-presets-and-phase');
+
+// --- Push/fold freqs must sum ~100% after breakdown ---
+{
+  const PF = g.GTOPushFold;
+  const GEval = g.PTTournamentGtoEval;
+  const strat = PF.pushFoldStrategy({
+    handCode: '88', position: 'UTG', effStack: 5, stackDepth: 5, toCallBB: 0,
+    formatHub: 'mtt', availableActions: ['fold', 'raise', 'allin']
+  });
+  const raise = Number(strat.raise) || 0;
+  const allin = Number(strat.allin) || 0;
+  assert.ok(!(raise > 0.05 && allin > 0.05), 'no dual raise+allin mass, raise=' + raise + ' allin=' + allin);
+  const broken = GEval.optionBreakdown
+    ? GEval.optionBreakdown({ raise: 0.87, allin: 0.87, fold: 0.05 }, { pushFold: true })
+    : null;
+  if (broken) {
+    const sumPct = broken.reduce(function (s, o) { return s + (Number(o.pct) || 0); }, 0);
+    assert.ok(sumPct > 95 && sumPct < 105, 'optionBreakdown sum ~100, got ' + sumPct);
+    const allinRow = broken.find(function (o) { return o.id === 'allin'; });
+    const foldRow = broken.find(function (o) { return o.id === 'fold'; });
+    assert.ok(allinRow && allinRow.pct > 80, 'merged shove dominates after renorm');
+    assert.ok(foldRow && foldRow.pct < 20, 'fold remainder after renorm');
+  }
+}
+console.log('OK pushfold-freq-100');
+
 
 // --- Dealer / asientos físicos estables entre manos ---
 {
