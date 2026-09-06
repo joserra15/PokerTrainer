@@ -633,6 +633,8 @@
       heroGuesses: {},
       events: [],
       handLog: [],
+      sessionHands: [],
+      sessionId: null,
       stats: {
         handsPlayed: 0,
         vpipHands: 0,
@@ -714,6 +716,48 @@
     }).filter(function (id, i, arr) { return arr.indexOf(id) === i; });
   }
 
+  var CLASS_MAP = {
+    optima: 'optima', optimal: 'optima',
+    aceptable: 'aceptable', strong: 'aceptable', correct: 'aceptable', good: 'aceptable',
+    imprecisa: 'imprecisa', weak: 'imprecisa', imprecise: 'imprecisa',
+    error: 'error', blunder: 'error', bad: 'error',
+    unscored: 'unscored'
+  };
+
+  function mapClass(cls) {
+    if (!cls) return 'unscored';
+    var k = String(cls).toLowerCase();
+    return CLASS_MAP[k] || k;
+  }
+
+  function actionLabel(action, amount, bb) {
+    var a = String(action || '');
+    var amt = Number(amount) || 0;
+    var bbN = Math.max(1, Number(bb) || 1);
+    if (a === 'fold') return 'Fold';
+    if (a === 'check') return 'Check';
+    if (a === 'call') return amt > 0 ? ('Call ' + (Math.round(amt / bbN * 10) / 10) + ' bb') : 'Call';
+    if (a === 'bet') return 'Bet ' + (Math.round(amt / bbN * 10) / 10) + ' bb';
+    if (a === 'raise') return 'Raise to ' + (Math.round(amt / bbN * 10) / 10) + ' bb';
+    if (a === 'allin') return 'All-in';
+    return a ? (a.charAt(0).toUpperCase() + a.slice(1)) : 'Acción';
+  }
+
+  function optionBreakdown(strategy) {
+    if (!strategy || typeof strategy !== 'object') return null;
+    var keys = Object.keys(strategy);
+    if (!keys.length) return null;
+    return keys.map(function (id) {
+      var freq = Number(strategy[id]) || 0;
+      return {
+        id: id,
+        label: actionLabel(id, 0, 1),
+        pct: Math.round(freq * 1000) / 10,
+        frequency: freq
+      };
+    }).sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+  }
+
   function vsPosition(hand, hero) {
     if (hand.openerPos && hand.openerId !== hero.id) return hand.openerPos;
     var alive = (hand.seats || []).filter(function (s) { return !s.folded && !s.isHero; });
@@ -770,7 +814,7 @@
     var ev = evalResult.evaluation || evalResult;
     var freqs = evalResult.strategy || evalResult.gto || {};
     return {
-      class: ev.class || ev.grade || 'unscored',
+      class: mapClass(ev.class || ev.grade || 'unscored'),
       evLoss: Number(ev.evLoss != null ? ev.evLoss : ev.evErroneous) || 0,
       frequency: Number(ev.frequency != null ? ev.frequency : freqs[chosen]) || 0,
       best: ev.best || null,
@@ -784,6 +828,8 @@
     var base = {
       street: hand.street,
       action: chosen,
+      chosen: chosen,
+      label: actionLabel(chosen, action && action.amount, hand.bb),
       amount: action && action.amount,
       pos: heroSeat.pos,
       pot: hand.pot,
@@ -791,7 +837,9 @@
       unscored: true,
       class: 'unscored',
       evLoss: 0,
-      frequency: 0
+      frequency: 0,
+      gto: null,
+      optionBreakdown: null
     };
 
     var GTO = global.GTO;
@@ -808,6 +856,8 @@
       base.best = graded.best;
       base.explanation = graded.explanation;
       base.strategy = graded.strategy;
+      base.gto = graded.strategy;
+      base.optionBreakdown = optionBreakdown(graded.strategy);
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
@@ -823,18 +873,21 @@
 
   function summarizeDecisions(decisions) {
     var list = decisions || [];
-    var scored = list.filter(function (d) { return d && !d.unscored; });
+    var scored = list.filter(function (d) { return d && !d.unscored && d.class !== 'unscored'; });
     var totalEv = 0;
     var hits = 0;
     scored.forEach(function (d) {
       totalEv += Number(d.evLoss) || 0;
-      if (d.class === 'optimal' || d.class === 'strong' || d.class === 'correct' || d.class === 'good') hits += 1;
+      var cls = mapClass(d.class);
+      if (cls === 'optima' || cls === 'aceptable') hits += 1;
       else if (d.frequency >= 0.25) hits += 1;
     });
     var scoreMeta = null;
     try {
       if (global.GTOScoring && typeof global.GTOScoring.scoreHand === 'function') {
-        scoreMeta = global.GTOScoring.scoreHand(scored, totalEv);
+        scoreMeta = global.GTOScoring.scoreHand(scored.map(function (d) {
+          return Object.assign({}, d, { class: mapClass(d.class) });
+        }), totalEv);
       }
     } catch (e2) { /* */ }
     return {
@@ -844,14 +897,16 @@
       accuracy: scored.length ? Math.round((hits / scored.length) * 1000) / 10 : 0,
       totalEvLoss: Math.round(totalEv * 100) / 100,
       score: scoreMeta && scoreMeta.score != null ? scoreMeta.score : null,
-      scoreLabel: scoreMeta && (scoreMeta.label || scoreMeta.verdict) || null
+      scoreLabel: scoreMeta && (scoreMeta.label || scoreMeta.verdict) || null,
+      handScoreMeta: scoreMeta
     };
   }
 
   global.PTTournamentGtoEval = {
     evaluateHeroAction: evaluateHeroAction,
     summarizeDecisions: summarizeDecisions,
-    buildInput: buildInput
+    buildInput: buildInput,
+    mapClass: mapClass
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -2744,7 +2799,8 @@
       roi: Number(summary.roi) || 0,
       roleAccuracy: Number(summary.roleAccuracy) || 0,
       finishedAt: summary.finishedAt || new Date().toISOString(),
-      presetId: summary.presetId || null
+      presetId: summary.presetId || null,
+      sessionId: summary.sessionId || null
     };
   }
 
@@ -2867,6 +2923,395 @@
     clearActive: clearActive,
     hasActive: hasActive,
     activeSummary: activeSummary
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * tournament/session-bridge.js — Convierte manos de Torneos IA al shape
+ * de sesión analizada (Importer / Entrenador) para stats, review y replay.
+ */
+(function (global) {
+  'use strict';
+
+  var CLASS_MAP = {
+    optima: 'optima',
+    optimal: 'optima',
+    aceptable: 'aceptable',
+    strong: 'aceptable',
+    correct: 'aceptable',
+    good: 'aceptable',
+    imprecisa: 'imprecisa',
+    weak: 'imprecisa',
+    imprecise: 'imprecisa',
+    error: 'error',
+    blunder: 'error',
+    bad: 'error',
+    unscored: 'unscored'
+  };
+
+  function r2(x) {
+    return Math.round((Number(x) || 0) * 100) / 100;
+  }
+
+  function cardCode(c) {
+    if (!c) return '';
+    if (typeof c === 'string') return c;
+    return c.code || (c.r != null && c.s ? String(c.r) + c.s : '');
+  }
+
+  function mapClass(cls) {
+    if (!cls) return 'unscored';
+    var k = String(cls).toLowerCase();
+    return CLASS_MAP[k] || k;
+  }
+
+  function actionLabel(action, amount, bb) {
+    var a = String(action || '');
+    var amt = Number(amount) || 0;
+    var bbN = Math.max(1, Number(bb) || 1);
+    if (a === 'fold') return 'Fold';
+    if (a === 'check') return 'Check';
+    if (a === 'call') return amt > 0 ? ('Call ' + r2(amt / bbN) + ' bb') : 'Call';
+    if (a === 'bet') return 'Bet ' + r2(amt / bbN) + ' bb';
+    if (a === 'raise') return 'Raise to ' + r2(amt / bbN) + ' bb';
+    if (a === 'allin' || a === 'all-in') return 'All-in';
+    return a ? (a.charAt(0).toUpperCase() + a.slice(1)) : 'Acción';
+  }
+
+  function optionBreakdownFromStrategy(strategy) {
+    if (!strategy || typeof strategy !== 'object') return null;
+    var keys = Object.keys(strategy);
+    if (!keys.length) return null;
+    return keys.map(function (id) {
+      var freq = Number(strategy[id]) || 0;
+      return {
+        id: id,
+        label: actionLabel(id, 0, 1),
+        pct: Math.round(freq * 1000) / 10,
+        frequency: freq
+      };
+    }).sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+  }
+
+  function normalizeDecision(d, bb) {
+    if (!d) return null;
+    var chosen = d.chosen || d.action || d.label || 'fold';
+    var cls = mapClass(d.class);
+    var strategy = d.strategy || d.gto || null;
+    var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy);
+    var out = {
+      street: d.street || 'preflop',
+      chosen: chosen,
+      action: chosen,
+      label: d.label || actionLabel(chosen, d.amount, bb),
+      class: cls === 'unscored' ? 'aceptable' : cls,
+      best: d.best || null,
+      gto: strategy,
+      optionBreakdown: breakdown,
+      evLoss: Number(d.evLoss) || 0,
+      frequency: Number(d.frequency) || 0,
+      explanation: d.explanation || null,
+      context: d.context || null,
+      unscored: !!d.unscored || cls === 'unscored',
+      potBB: d.input && d.input.potBB != null ? d.input.potBB : (d.potBB != null ? d.potBB : null),
+      toCallBB: d.input && d.input.toCallBB != null ? d.input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
+      spotKind: d.input && d.input.spotKind ? d.input.spotKind : (d.spotKind || null),
+      amount: d.amount != null ? d.amount : null
+    };
+    if (out.unscored && !d.class) out.class = 'aceptable';
+    return out;
+  }
+
+  function buildStreetsFromLog(log, seats) {
+    var streets = { preflop: [], flop: [], turn: [], river: [] };
+    var nameById = {};
+    (seats || []).forEach(function (s) {
+      nameById[s.id] = s.name || s.id;
+    });
+    (log || []).forEach(function (e) {
+      var st = e.street || 'preflop';
+      if (!streets[st]) streets[st] = [];
+      var type = e.action || e.type || 'check';
+      if (type === 'allin') type = 'raise';
+      var player = e.name || nameById[e.id] || e.id || '?';
+      var row = {
+        player: player,
+        type: type,
+        amount: e.amount != null ? Number(e.amount) : undefined,
+        allin: e.action === 'allin' || !!e.allin
+      };
+      if (type === 'raise' || type === 'bet') row.to = Number(e.amount) || 0;
+      streets[st].push(row);
+    });
+    return streets;
+  }
+
+  function buildBoardObj(board) {
+    var cards = (board || []).map(cardCode).filter(Boolean);
+    return {
+      flop: cards.slice(0, 3),
+      turn: cards.slice(3, 4),
+      river: cards.slice(4, 5),
+      all: cards.slice()
+    };
+  }
+
+  function buildPositions(seats) {
+    var positions = {};
+    (seats || []).forEach(function (s) {
+      var name = s.name || s.id;
+      if (name && s.pos) positions[name] = s.pos;
+    });
+    return positions;
+  }
+
+  function buildShows(seats, holeCards) {
+    var shows = {};
+    (seats || []).forEach(function (s) {
+      var cards = (holeCards && holeCards[s.id]) || s.cards;
+      if (!s.folded && cards && cards.length >= 2) {
+        shows[s.name || s.id] = cards.map(cardCode);
+      }
+    });
+    return shows;
+  }
+
+  function buildSummary(streets, boardObj, positions, shows) {
+    var tl = [];
+    var streetBoard = {
+      preflop: [],
+      flop: boardObj.flop || [],
+      turn: (boardObj.flop || []).concat(boardObj.turn || []),
+      river: boardObj.all || []
+    };
+    ['preflop', 'flop', 'turn', 'river'].forEach(function (st) {
+      var acts = streets[st] || [];
+      var board = streetBoard[st] || [];
+      if (st !== 'preflop' && !acts.length && board.length < 3) return;
+      if (acts.length || (st !== 'preflop' && board.length >= 3)) {
+        tl.push({ kind: 'street', street: st, board: board.slice() });
+      }
+      acts.forEach(function (a) {
+        tl.push({
+          kind: 'action',
+          street: st,
+          player: a.player,
+          pos: positions[a.player] || '',
+          type: a.type,
+          amount: a.amount,
+          to: a.to,
+          allin: a.allin
+        });
+      });
+    });
+    Object.keys(shows || {}).forEach(function (player) {
+      tl.push({
+        kind: 'show',
+        street: 'river',
+        player: player,
+        pos: positions[player] || '',
+        cards: (shows[player] || []).slice()
+      });
+    });
+    return tl;
+  }
+
+  function findHero(seats) {
+    return (seats || []).find(function (s) { return s.isHero; }) || null;
+  }
+
+  /**
+   * @param {object} source live hand (_liveHand) o entrada de handLog
+   * @param {object} [meta] { tournamentId, handIndex, heroName }
+   */
+  function handFromTournament(source, meta) {
+    meta = meta || {};
+    if (!source) return null;
+    var seats = source.seats || [];
+    var heroSeat = findHero(seats);
+    if (!heroSeat) return null;
+
+    var bb = Math.max(1, Number(source.bb) || 1);
+    var sb = Number(source.sb) || bb / 2;
+    var boardCards = (source.board || (source.result && source.result.board) || []).map(cardCode);
+    var boardObj = buildBoardObj(boardCards);
+    var log = source.log || [];
+    var streets = buildStreetsFromLog(log, seats);
+    var positions = buildPositions(seats);
+    var holeCards = (source.result && source.result.holeCards) || {};
+    var shows = buildShows(seats, holeCards);
+    var heroName = meta.heroName || heroSeat.name || 'Hero';
+    var heroCards = (heroSeat.cards || []).map(cardCode);
+    var decisions = (source.decisions || []).map(function (d) {
+      return normalizeDecision(d, bb);
+    }).filter(Boolean);
+
+    var totalEvLoss = 0;
+    decisions.forEach(function (d) { totalEvLoss += Number(d.evLoss) || 0; });
+    totalEvLoss = r2(totalEvLoss);
+
+    var heroNet = source.result && source.result.heroNet != null
+      ? Number(source.result.heroNet)
+      : (source.result && source.result.deltas && heroSeat.id != null
+        ? Number(source.result.deltas[heroSeat.id]) || 0
+        : 0);
+    var heroNetBB = r2(heroNet / bb);
+
+    var nGood = decisions.filter(function (d) {
+      return d.class === 'optima' || d.class === 'aceptable';
+    }).length;
+    var accuracy = decisions.length ? Math.round((nGood / decisions.length) * 100) : 100;
+    var worst = 'optima';
+    var order = ['optima', 'aceptable', 'imprecisa', 'error'];
+    decisions.forEach(function (d) {
+      if (order.indexOf(d.class) > order.indexOf(worst)) worst = d.class;
+    });
+
+    var handScoreMeta = null;
+    try {
+      if (global.GTOScoring && typeof global.GTOScoring.scoreHand === 'function') {
+        handScoreMeta = global.GTOScoring.scoreHand(decisions, totalEvLoss);
+      }
+    } catch (e) { /* */ }
+
+    var handIndex = meta.handIndex != null ? meta.handIndex : (source.handIndex != null ? source.handIndex : null);
+    var id = 'trn_' + (meta.tournamentId || 'x') + '_h' + (handIndex != null ? handIndex : Date.now());
+
+    var hand = {
+      id: id,
+      datetime: new Date().toISOString(),
+      hero: heroName,
+      heroPos: heroSeat.pos || 'BTN',
+      heroCards: heroCards,
+      heroCode: null,
+      board: boardObj.all.slice(),
+      boardAll: boardObj.all.slice(),
+      boardStreets: boardObj,
+      sb: sb,
+      bb: bb,
+      ante: Number(source.ante) || 0,
+      currency: '€',
+      positions: positions,
+      seats: seats.map(function (s) {
+        return {
+          name: s.name || s.id,
+          stack: s.startStack != null ? s.startStack : s.stack,
+          pos: s.pos
+        };
+      }),
+      streets: streets,
+      shows: shows,
+      collected: {},
+      uncalledTo: {},
+      decisions: decisions,
+      totalEvLoss: totalEvLoss,
+      accuracy: accuracy,
+      accuracyByStreet: {},
+      heroNetBB: heroNetBB,
+      worstClass: worst,
+      handScore: handScoreMeta ? handScoreMeta.score : null,
+      handScoreMeta: handScoreMeta,
+      nDecisions: decisions.length,
+      summary: buildSummary(streets, boardObj, positions, shows),
+      tags: [],
+      platform: 'tournamentAi',
+      gameKind: 'mtt',
+      isTournament: true,
+      tableMax: seats.length,
+      playersSeated: seats.length,
+      formatKey: 'mtt',
+      format: 'MTT',
+      tournamentId: meta.tournamentId || null,
+      handIndex: handIndex,
+      source: 'tournamentAi'
+    };
+
+    try {
+      if (global.Cards && global.Cards.handCode && heroCards.length === 2) {
+        hand.heroCode = global.Cards.handCode(heroCards[0], heroCards[1]);
+      }
+    } catch (e2) { /* */ }
+
+    try {
+      if (global.Importer && typeof global.Importer.buildHandTags === 'function') {
+        hand.tags = global.Importer.buildHandTags(hand) || [];
+      }
+    } catch (e3) { /* */ }
+
+    return hand;
+  }
+
+  function buildSessionFromTournament(state, opts) {
+    opts = opts || {};
+    if (!state) return null;
+    var hands = (state.sessionHands && state.sessionHands.length)
+      ? state.sessionHands.slice()
+      : (state.handLog || []).map(function (entry) {
+        return handFromTournament(entry, {
+          tournamentId: state.id,
+          handIndex: entry.handIndex,
+          heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
+        });
+      }).filter(Boolean);
+
+    var hero = null;
+    try {
+      hero = global.PTTournamentState && PTTournamentState.hero(state);
+    } catch (e) { /* */ }
+    var heroName = (hero && hero.name) || (hands[0] && hands[0].hero) || 'Hero';
+    var stats = null;
+    try {
+      if (global.Importer && typeof global.Importer.computeStats === 'function') {
+        stats = global.Importer.computeStats(hands);
+      }
+    } catch (e2) { /* */ }
+
+    var cfg = state.config || {};
+    var result = state.result || {};
+    var fileName = (cfg.name || 'Torneo IA') +
+      (result.place != null ? (' · ' + result.place + 'º') : '');
+
+    return {
+      id: opts.sessionId || ('trn_sess_' + (state.id || Date.now())),
+      createdAt: state.finishedAt || new Date().toISOString(),
+      fileName: fileName,
+      hero: heroName,
+      nTotal: hands.length,
+      nParsed: hands.length,
+      nDiscarded: 0,
+      hands: hands,
+      stats: stats,
+      source: 'tournamentAi',
+      tournamentId: state.id,
+      tournament: {
+        id: state.id,
+        name: cfg.name || 'Torneo IA',
+        kind: cfg.kind || 'mtt',
+        entries: cfg.entries,
+        place: result.place != null ? result.place : null,
+        prizeEur: result.prizeEur || 0,
+        buyInEur: cfg.buyInEur || 0,
+        profit: result.stats && result.stats.profit != null
+          ? result.stats.profit
+          : ((result.prizeEur || 0) - (cfg.buyInEur || 0)),
+        finishedAt: state.finishedAt || null
+      },
+      analysisVersion: global.PT_BUILD || '1',
+      hasTxt: false,
+      rawText: null,
+      context: {
+        gameKind: 'mtt',
+        formatKey: 'mtt',
+        format: cfg.kind === 'sng' ? 'SNG' : 'MTT'
+      }
+    };
+  }
+
+  global.PTTournamentSessionBridge = {
+    handFromTournament: handFromTournament,
+    buildSessionFromTournament: buildSessionFromTournament,
+    normalizeDecision: normalizeDecision,
+    mapClass: mapClass
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -3071,11 +3516,39 @@
         showdown: !!hand.result.showdown,
         tied: !!hand.result.tied,
         pot: hand.result.pot,
+        board: (hand.result.board || hand.board || []).slice(),
+        holeCards: Object.assign({}, hand.result.holeCards || {}),
         handNames: Object.assign({}, hand.result.handNames || {}),
         heroNet: hand.result.heroNet
       }
     });
     if (state.handLog.length > 80) state.handLog = state.handLog.slice(-80);
+
+    /* Sesión analizada (sin tope destructivo): para stats/review como import. */
+    try {
+      var Bridge = global.PTTournamentSessionBridge;
+      if (Bridge && Bridge.handFromTournament) {
+        state.sessionHands = state.sessionHands || [];
+        var entry = state.handLog[state.handLog.length - 1];
+        var analyzed = Bridge.handFromTournament(entry, {
+          tournamentId: state.id,
+          handIndex: entry && entry.handIndex,
+          heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
+        });
+        if (analyzed) {
+          /* Sustituye si ya existe el mismo handIndex (re-apply). */
+          var replaced = false;
+          for (var si = 0; si < state.sessionHands.length; si++) {
+            if (state.sessionHands[si] && state.sessionHands[si].handIndex === analyzed.handIndex) {
+              state.sessionHands[si] = analyzed;
+              replaced = true;
+              break;
+            }
+          }
+          if (!replaced) state.sessionHands.push(analyzed);
+        }
+      }
+    } catch (eBridge) { /* ignore */ }
 
     var fin = checkFinished(state);
     return fin || state;
@@ -3155,6 +3628,30 @@
 
     state.status = 'finished';
     state.finishedAt = new Date().toISOString();
+    state._liveHand = null;
+
+    /* Persistir sesión completa (misma vía que import HH) ANTES del result. */
+    var sessionId = null;
+    var sessionStats = null;
+    try {
+      var Bridge2 = global.PTTournamentSessionBridge;
+      var StoreApi = global.Store;
+      if (Bridge2 && Bridge2.buildSessionFromTournament && StoreApi && StoreApi.saveSession) {
+        var session = Bridge2.buildSessionFromTournament(state, {});
+        if (session && session.hands && session.hands.length) {
+          sessionId = session.id;
+          sessionStats = session.stats || null;
+          state.sessionId = sessionId;
+          state.sessionStats = sessionStats;
+          Promise.resolve(StoreApi.saveSession(session)).catch(function (err) {
+            try { console.warn('[Tournaments] saveSession failed', err); } catch (e0) { /* */ }
+          });
+        }
+      }
+    } catch (eSess) {
+      try { console.warn('[Tournaments] session bridge failed', eSess); } catch (e1) { /* */ }
+    }
+
     state.result = {
       place: place,
       prizeEur: prizeEur,
@@ -3162,9 +3659,10 @@
       xpGained: xp,
       stats: sum,
       gtoSession: state.gtoSession || null,
-      reason: opts.reason || 'finished'
+      reason: opts.reason || 'finished',
+      sessionId: sessionId,
+      sessionStats: sessionStats
     };
-    state._liveHand = null;
 
     if (StoreMod && StoreMod.save) {
       StoreMod.save({
@@ -3179,9 +3677,11 @@
         roi: sum.roi,
         roleAccuracy: roleScore.accuracy,
         finishedAt: state.finishedAt,
-        presetId: state._presetId || state.config.id
+        presetId: state._presetId || state.config.id,
+        sessionId: sessionId
       });
     }
+
     try {
       var Wallet = global.PTTournamentWallet;
       if (Wallet && Wallet.credit && prizeEur > 0) {
@@ -4315,77 +4815,89 @@ function reducedMotion() {
     else if (heroDelta < -0.02) title = res.showdown ? 'Pierdes en showdown' : 'Pierdes la mano';
     else if (won) title = res.showdown ? 'Showdown' : 'Mano terminada';
     else title = 'Mano terminada';
-    var boardHtml = (res.board || hand.board || []).map(faceCard).join('');
-    var seatsHtml = hand.seats.filter(function (s) {
-      return !s.folded || (res.holeCards && res.holeCards[s.id]);
-    }).map(function (s) {
-      var cards = (res.holeCards && res.holeCards[s.id]) || (s.isHero ? s.cards : null);
-      var cardsHtml = cards && cards[0]
-        ? cards.map(faceCard).join('')
-        : '<span class="muted">—</span>';
-      var d = Number(deltas[s.id]) || 0;
-      var dCls = d > 0 ? 'net-pos' : (d < 0 ? 'net-neg' : '');
-      return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') +
-        ((res.winners || []).indexOf(s.id) >= 0 ? ' is-winner' : '') + '">' +
-        '<div class="trn-hand-end-name">' + esc(s.isHero ? heroDisplayName(ui.state) : (s.name || s.pos)) +
-        ' · ' + esc(s.pos || '') + '</div>' +
-        '<div class="trn-hand-end-cards">' + cardsHtml + '</div>' +
-        ((res.handNames && res.handNames[s.id])
-          ? ('<div class="trn-hand-end-handname">' + esc(res.handNames[s.id]) + '</div>')
-          : '') +
-        '<div class="trn-hand-end-delta ' + dCls + '">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div>' +
-        '</div>';
-    }).join('');
 
-    var detail = '';
-    if (ui.handDetailOpen) {
-      var lines = (hand.log || []).map(function (e) {
-        return '<li><span class="muted">' + esc(e.street) + '</span> ' +
-          esc(e.name || e.id) + ' · ' + esc(formatActLabel(e.action, e.amount, bb)) + '</li>';
+    var analyzed = null;
+    try {
+      var Bridge = global.PTTournamentSessionBridge;
+      if (Bridge && Bridge.handFromTournament) {
+        analyzed = Bridge.handFromTournament(hand, {
+          tournamentId: state && state.id,
+          handIndex: state && state.handIndex,
+          heroName: heroDisplayName(state)
+        });
+      }
+    } catch (eA) { analyzed = null; }
+
+    var rich = '';
+    try {
+      var HEV = global.PTHandEndView;
+      if (HEV && HEV.renderHandEndHtml && analyzed) {
+        rich = HEV.renderHandEndHtml(analyzed, {
+          title: title,
+          showDecisions: !!ui.handDetailOpen
+        });
+      }
+    } catch (eH) { rich = ''; }
+
+    if (!rich) {
+      /* Fallback compacto si el bridge no está cargado. */
+      var boardHtml = (res.board || hand.board || []).map(faceCard).join('');
+      var seatsHtml = hand.seats.filter(function (s) {
+        return !s.folded || (res.holeCards && res.holeCards[s.id]);
+      }).map(function (s) {
+        var cards = (res.holeCards && res.holeCards[s.id]) || (s.isHero ? s.cards : null);
+        var cardsHtml = cards && cards[0]
+          ? cards.map(faceCard).join('')
+          : '<span class="muted">—</span>';
+        var d = Number(deltas[s.id]) || 0;
+        var dCls = d > 0 ? 'net-pos' : (d < 0 ? 'net-neg' : '');
+        return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') +
+          ((res.winners || []).indexOf(s.id) >= 0 ? ' is-winner' : '') + '">' +
+          '<div class="trn-hand-end-name">' + esc(s.isHero ? heroDisplayName(ui.state) : (s.name || s.pos)) +
+          ' · ' + esc(s.pos || '') + '</div>' +
+          '<div class="trn-hand-end-cards">' + cardsHtml + '</div>' +
+          '<div class="trn-hand-end-delta ' + dCls + '">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div>' +
+          '</div>';
       }).join('');
-      var gtoHtml = '';
-      var decs = hand.decisions || [];
-      if (decs.length) {
+      rich = '<div class="trn-hand-end-head ' + outcomeCls + '">' +
+        '<p class="trn-hand-end-kicker">Resultado de la mano</p>' +
+        '<h3>' + esc(title) + '</h3>' +
+        '<p class="trn-hand-end-pot">Bote ' + esc(fmtBb(res.pot || hand.pot || 0, bb)) +
+        (res.showdown ? ' · Showdown' : '') + '</p></div>' +
+        (boardHtml ? ('<div class="trn-hand-end-board"><span class="muted">Board</span><div class="trn-hand-end-cards">' +
+          boardHtml + '</div></div>') : '') +
+        '<div class="trn-hand-end-seats">' + seatsHtml + '</div>';
+      if (ui.handDetailOpen && hand.decisions && hand.decisions.length) {
         var GEval = global.PTTournamentGtoEval;
-        var sum = GEval && GEval.summarizeDecisions ? GEval.summarizeDecisions(decs) : null;
-        gtoHtml = '<h4>Evaluación GTO (héroe)</h4>';
+        var sum = GEval && GEval.summarizeDecisions ? GEval.summarizeDecisions(hand.decisions) : null;
+        rich += '<div class="trn-hand-end-detail"><h4>Evaluación GTO (héroe)</h4>';
         if (sum) {
-          gtoHtml += '<p class="trn-gto-summary">Aciertos ' + sum.hits + '/' + sum.scored +
+          rich += '<p class="trn-gto-summary">Aciertos ' + sum.hits + '/' + sum.scored +
             ' (' + sum.accuracy + '%) · EV loss ' + sum.totalEvLoss + ' bb' +
             (sum.score != null ? (' · Nota ' + sum.score) : '') + '</p>';
         }
-        gtoHtml += '<ol class="trn-gto-decisions">' + decs.map(function (d) {
+        rich += '<ol class="trn-gto-decisions">' + hand.decisions.map(function (d) {
           return '<li><span class="trn-gto-class trn-gto-' + esc(d.class || 'unscored') + '">' +
             esc(d.class || 'unscored') + '</span> ' + esc(d.street || '') + ' · ' +
-            esc(d.action || '') +
-            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') +
-            (d.unscored ? ' <span class="muted">(sin solver)</span>' : '') +
-            '</li>';
-        }).join('') + '</ol>';
+            esc(d.label || d.action || '') +
+            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') + '</li>';
+        }).join('') + '</ol></div>';
       }
-      detail = '<div class="trn-hand-end-detail"><h4>Acción de la mano</h4><ol>' +
-        (lines || '<li class="muted">Sin acciones</li>') + '</ol>' + gtoHtml + '</div>';
     }
 
     return '<div class="trn-modal-backdrop trn-hand-end-backdrop" data-act="noop">' +
-      '<div class="trn-modal trn-hand-end-modal" role="dialog" aria-modal="true" data-act="noop">' +
-      '<div class="trn-hand-end-head ' + outcomeCls + '">' +
-      '<p class="trn-hand-end-kicker">Resultado de la mano</p>' +
-      '<h3>' + esc(title) + '</h3>' +
-      '<p class="trn-hand-end-pot">Bote ' + esc(fmtBb(res.pot || hand.pot || 0, bb)) +
-      (res.showdown ? ' · Showdown' : '') + '</p></div>' +
-      (boardHtml ? ('<div class="trn-hand-end-board"><span class="muted">Board</span><div class="trn-hand-end-cards">' +
-        boardHtml + '</div></div>') : '') +
-      '<div class="trn-hand-end-seats">' + seatsHtml + '</div>' +
-      detail +
+      '<div class="trn-modal trn-hand-end-modal trn-hand-end-modal-rich" role="dialog" aria-modal="true" data-act="noop">' +
+      rich +
       '<div class="trn-hand-end-actions">' +
       '<button type="button" class="btn" data-act="toggle-hand-detail">' +
-      (ui.handDetailOpen ? 'Ocultar detalle' : 'Ver detalle') + '</button>' +
+      (ui.handDetailOpen ? 'Ocultar detalle GTO' : 'Ver detalle GTO') + '</button>' +
+      '<button type="button" class="btn" data-act="hand-end-review"' +
+      (analyzed && analyzed.id ? (' data-hand-id="' + esc(analyzed.id) + '"') : '') +
+      '>Paso a paso</button>' +
       '<button type="button" class="btn btn-primary" data-act="continue-hand">Continuar »</button>' +
       '</div></div></div>';
   }
 
-  /* ---------- Result ---------- */
 
   function renderReplayModal() {
     if (!ui.replayOpen || !ui.state) return '';
@@ -4444,6 +4956,62 @@ function reducedMotion() {
   }
 
 
+  function openSessionHand(sessionId, handId, mode) {
+    mode = mode || 'review';
+    if (!sessionId) return;
+    try {
+      if (typeof global.goToTab === 'function') {
+        global.goToTab('sessions', {
+          openSessionId: sessionId,
+          handId: handId || null,
+          reviewMode: mode
+        });
+        return;
+      }
+      if (typeof global.openSession === 'function') {
+        Promise.resolve(global.openSession(sessionId, null, {
+          handId: handId || null,
+          mode: mode
+        })).catch(function () { /* */ });
+      }
+    } catch (eOpen) { /* */ }
+  }
+
+  function openLiveHandReview(handId, mode) {
+    mode = mode || 'review';
+    var state = ui.state;
+    if (!state) return;
+    var analyzed = null;
+    var Bridge = global.PTTournamentSessionBridge;
+    var live = state._liveHand;
+    try {
+      if (Bridge && Bridge.handFromTournament && live) {
+        analyzed = Bridge.handFromTournament(live, {
+          tournamentId: state.id,
+          handIndex: state.handIndex,
+          heroName: heroDisplayName(state)
+        });
+      }
+    } catch (e1) { analyzed = null; }
+    if (!analyzed && state.sessionHands && state.sessionHands.length) {
+      analyzed = state.sessionHands.filter(function (h) {
+        return h && (h.id === handId || String(h.handIndex) === String(handId));
+      })[0] || state.sessionHands[state.sessionHands.length - 1];
+    }
+    if (!analyzed) return;
+    try {
+      if (typeof global.openTournamentHandReview === 'function') {
+        global.openTournamentHandReview(analyzed, mode);
+        return;
+      }
+    } catch (e2) { /* */ }
+    /* Fallback: replay modal local */
+    ui.replayHandIndex = Number(analyzed.handIndex != null ? analyzed.handIndex : state.handIndex);
+    ui.replayOpen = true;
+    ui.replayStep = 0;
+    paint();
+  }
+
   function renderResult() {
     var state = ui.state;
     if (!state || !state.result) {
@@ -4458,8 +5026,9 @@ function reducedMotion() {
         esc(roleLabel(d.guess)) + (d.ok ? ' ✓' : ' ✗') + '</li>';
     }).join('') || '<li class="muted">Sin guesses</li>';
 
-    var stats = r.stats || {};
-    var gto = state.gtoSession || (r.gtoSession) || {};
+    var sessionStats = r.sessionStats || state.sessionStats || null;
+    var sessionId = r.sessionId || state.sessionId || null;
+    var gto = state.gtoSession || r.gtoSession || {};
     var Cfg = global.PTTournamentConfig;
     var ladder = (Cfg && Cfg.payoutEuros) ? Cfg.payoutEuros(state.config || {}) : [];
     var standings = (state.players || []).slice().sort(function (a, b) {
@@ -4477,16 +5046,75 @@ function reducedMotion() {
         '<td>' + fmtKoins(prize) + '</td></tr>';
     }).join('');
 
-    var hands = (state.handLog || []).slice().reverse();
-    var handsHtml = hands.length
-      ? hands.map(function (h) {
-        return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
-          esc(String(h.handIndex)) + '">Mano #' + esc(String(h.handIndex)) +
-          '</button> · pot ' + esc(String(Math.round((h.pot || 0) * 10) / 10)) +
-          (h.tied ? ' · chop' : '') +
-          (h.showdown ? ' · SD' : '') + '</li>';
-      }).join('')
-      : '<li class="muted">Sin manos guardadas</li>';
+    var statsHtml = '';
+    try {
+      var HEV = global.PTHandEndView;
+      if (HEV && HEV.renderSessionStatsHtml && sessionStats) {
+        statsHtml = HEV.renderSessionStatsHtml(sessionStats, { title: 'Estadísticas de sesión' });
+      }
+    } catch (eS) { statsHtml = ''; }
+    if (!statsHtml) {
+      var stats = r.stats || {};
+      statsHtml = '<div class="trn-result-stats trn-session-like"><div class="trn-stat-grid">' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.nHands != null ? sessionStats.nHands : (stats.handsPlayed || 0)) + '</div><div class="trn-stat-lbl">Manos</div></div>' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.vpipPct != null ? sessionStats.vpipPct : (stats.vpip || 0)) + '%</div><div class="trn-stat-lbl">VPIP</div></div>' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.pfrPct != null ? sessionStats.pfrPct : (stats.pfr || 0)) + '%</div><div class="trn-stat-lbl">PFR</div></div>' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.accuracy != null ? sessionStats.accuracy : (gto.accuracy || 0)) + '%</div><div class="trn-stat-lbl">Acierto GTO</div></div>' +
+        '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.evLossBB != null ? sessionStats.evLossBB : (gto.totalEvLoss || 0)) + '</div><div class="trn-stat-lbl">EV loss</div></div>' +
+        '</div></div>';
+    }
+
+    var sessionHands = (state.sessionHands && state.sessionHands.length)
+      ? state.sessionHands.slice()
+      : [];
+    var handsHtml;
+    if (sessionHands.length) {
+      handsHtml = sessionHands.slice().reverse().map(function (h) {
+        var net = Number(h.heroNetBB) || 0;
+        var netCls = net > 0.02 ? 'net-pos' : (net < -0.02 ? 'net-neg' : '');
+        return '<li class="trn-session-hand-row">' +
+          '<span class="trn-hand-meta">#' + esc(String(h.handIndex != null ? h.handIndex : '')) +
+          ' · ' + esc(h.heroCode || '') + ' ' + esc(h.heroPos || '') +
+          ' · <span class="' + netCls + '">' + (net >= 0 ? '+' : '') + esc(String(Math.round(net * 100) / 100)) + ' bb</span>' +
+          (h.handScore != null ? (' · nota ' + esc(String(h.handScore))) : '') +
+          '</span> ' +
+          '<button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
+          esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
+          '>Paso a paso</button> ' +
+          '<button type="button" class="btn btn-sm btn-primary" data-act="session-replay-hand" data-hand-id="' +
+          esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
+          '>Replay</button></li>';
+      }).join('');
+    } else {
+      var hands = (state.handLog || []).slice().reverse();
+      handsHtml = hands.length
+        ? hands.map(function (h) {
+          return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
+            esc(String(h.handIndex)) + '">Mano #' + esc(String(h.handIndex)) +
+            '</button> · pot ' + esc(String(Math.round((h.pot || 0) * 10) / 10)) +
+            (h.tied ? ' · chop' : '') +
+            (h.showdown ? ' · SD' : '') + '</li>';
+        }).join('')
+        : '<li class="muted">Sin manos guardadas</li>';
+    }
+
+    var bestWorst = '';
+    if (sessionStats && (sessionStats.best5 || sessionStats.worst5)) {
+      function miniList(list, title) {
+        if (!list || !list.length) return '';
+        return '<div class="trn-top-hands"><h4>' + esc(title) + '</h4><ul>' + list.map(function (h) {
+          return '<li>' + esc(h.heroCode || '') + ' ' + esc(h.heroPos || '') +
+            ' · ' + (Number(h.heroNetBB) >= 0 ? '+' : '') + esc(String(h.heroNetBB)) + ' bb' +
+            (h.id && sessionId
+              ? (' <button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
+                esc(h.id) + '" data-session-id="' + esc(sessionId) + '">Ver</button>')
+              : '') + '</li>';
+        }).join('') + '</ul></div>';
+      }
+      bestWorst = '<div class="trn-best-worst">' +
+        miniList(sessionStats.best5, 'Mejores manos') +
+        miniList(sessionStats.worst5, 'Peores manos') + '</div>';
+    }
 
     return '<div class="trn-result panel">' +
       '<h2>Resultado</h2>' +
@@ -4494,28 +5122,18 @@ function reducedMotion() {
       ' · Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
       '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
       ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP</p>' +
-      '<div class="trn-result-stats">' +
-      '<div class="trn-result-stats trn-session-like">' +
-      '<div class="trn-stat-grid">' +
-      '<div><div class="trn-stat-val">' + (stats.handsPlayed || 0) + '</div><div class="trn-stat-lbl">Manos</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.vpip || 0) + '%</div><div class="trn-stat-lbl">VPIP</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.pfr || 0) + '%</div><div class="trn-stat-lbl">PFR</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.wtsd != null ? stats.wtsd : '—') + '%</div><div class="trn-stat-lbl">WTSD</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.wsd != null ? stats.wsd : '—') + '%</div><div class="trn-stat-lbl">W$SD</div></div>' +
-      '<div><div class="trn-stat-val">' + (gto.accuracy != null ? gto.accuracy : (stats.gtoAccuracy || 0)) + '%</div><div class="trn-stat-lbl">Acierto GTO</div></div>' +
-      '<div><div class="trn-stat-val">' + (gto.totalEvLoss != null ? gto.totalEvLoss : (stats.evLoss || 0)) + '</div><div class="trn-stat-lbl">EV loss</div></div>' +
-      '<div><div class="trn-stat-val">' + (stats.wonHands || 0) + '</div><div class="trn-stat-lbl">Ganadas</div></div>' +
-      '</div></div>' +
-      '<p><strong>GTO</strong> · Decisiones ' + (gto.scored || 0) +
-      ' · Aciertos ' + (gto.hits || 0) +
-      (gto.accuracy != null ? (' (' + gto.accuracy + '%)') : '') +
-      ' · EV loss ' + (gto.totalEvLoss || 0) + ' bb</p></div>' +
+      statsHtml +
+      bestWorst +
+      (sessionId
+        ? ('<p><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
+          esc(sessionId) + '">Abrir en Sesiones</button></p>')
+        : '') +
       '<h3>Clasificación</h3>' +
       '<div class="trn-hist-table-wrap"><table class="trn-hist-table"><thead><tr>' +
       '<th>#</th><th>Jugador</th><th>Stack</th><th>Premio</th></tr></thead><tbody>' +
       standHtml + '</tbody></table></div>' +
       '<h3>Roles</h3><ul class="trn-role-reveal">' + details + '</ul>' +
-      '<h3>Histórico de manos</h3><ul class="trn-hand-log-list">' + handsHtml + '</ul>' +
+      '<h3>Manos analizadas</h3><ul class="trn-hand-log-list">' + handsHtml + '</ul>' +
       '<div class="trn-setup-actions">' +
       '<button type="button" class="btn btn-primary" data-act="hub">Hub</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
@@ -4534,7 +5152,11 @@ function reducedMotion() {
           '<td>' + fmtKoins(h.prizeEur || 0) + '</td>' +
           '<td>' + (h.roi || 0) + '%</td>' +
           '<td>' + (h.roleAccuracy || 0) + '%</td>' +
-          '<td><button type="button" class="btn btn-sm" data-act="remove-hist" data-id="' + esc(h.id) + '">×</button></td>' +
+          '<td>' + (h.sessionId
+            ? ('<button type="button" class="btn btn-sm" data-act="open-session" data-session-id="' +
+              esc(h.sessionId) + '">Sesión</button> ')
+            : '') +
+          '<button type="button" class="btn btn-sm" data-act="remove-hist" data-id="' + esc(h.id) + '">×</button></td>' +
           '</tr>';
       }).join('')
       : '<tr><td colspan="7" class="muted">Vacío</td></tr>';
@@ -4690,6 +5312,14 @@ function reducedMotion() {
         } else if (act === 'toggle-hand-detail') {
           ui.handDetailOpen = !ui.handDetailOpen;
           paint();
+        } else if (act === 'hand-end-review') {
+          openLiveHandReview(btn.getAttribute('data-hand-id'), 'review');
+        } else if (act === 'open-session') {
+          openSessionHand(btn.getAttribute('data-session-id'), null, 'review');
+        } else if (act === 'session-review-hand') {
+          openSessionHand(btn.getAttribute('data-session-id'), btn.getAttribute('data-hand-id'), 'review');
+        } else if (act === 'session-replay-hand') {
+          openSessionHand(btn.getAttribute('data-session-id'), btn.getAttribute('data-hand-id'), 'replay');
         } else if (act === 'replay-hand') {
           ui.replayHandIndex = Number(btn.getAttribute('data-hand'));
           ui.replayOpen = true;

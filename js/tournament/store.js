@@ -84,7 +84,8 @@
       roi: Number(summary.roi) || 0,
       roleAccuracy: Number(summary.roleAccuracy) || 0,
       finishedAt: summary.finishedAt || new Date().toISOString(),
-      presetId: summary.presetId || null
+      presetId: summary.presetId || null,
+      sessionId: summary.sessionId || null
     };
   }
 

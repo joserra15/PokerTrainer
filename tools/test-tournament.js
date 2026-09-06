@@ -75,6 +75,7 @@ function load(sandbox, rel) {
 }
 
 const FILES = [
+  'js/hand-end-view.js',
   'js/tournament/config.js',
   'js/tournament/blinds.js',
   'js/tournament/names.js',
@@ -89,6 +90,7 @@ const FILES = [
   'js/tournament/hud.js',
   'js/tournament/wallet.js',
   'js/tournament/store.js',
+  'js/tournament/session-bridge.js',
   'js/tournament/runner.js',
   'js/tournament/ui.js',
   'js/tournament/index.js'
@@ -659,7 +661,138 @@ console.log('OK villain-aggression');
     'dist includes blind toast popup');
   assert.ok(!/trn-blind-up[\s\S]{0,220}dismiss-blind-up/.test(dist),
     'dist without old OK blind banner');
+  assert.ok(dist.includes('PTTournamentSessionBridge'), 'dist includes session bridge');
+  assert.ok(dist.includes('tournamentAi'), 'dist includes tournamentAi source');
+  assert.ok(dist.includes('handFromTournament'), 'dist includes handFromTournament');
 }
 console.log('OK dist-tournaments-bundle');
+
+// --- session-bridge: mano → shape de sesión ---
+{
+  assert.ok(g.PTTournamentSessionBridge, 'SessionBridge loaded');
+  assert.ok(g.PTHandEndView, 'HandEndView loaded');
+  const seats = [
+    { id: 'h', name: 'Hero', isHero: true, pos: 'BTN', cards: ['Ah', 'Kd'], stack: 1500, startStack: 1500, folded: false },
+    { id: 'v', name: 'Villain', isHero: false, pos: 'BB', cards: ['Qc', 'Qd'], stack: 1480, startStack: 1500, folded: false }
+  ];
+  const source = {
+    handIndex: 3,
+    bb: 20,
+    sb: 10,
+    ante: 0,
+    board: ['2c', '7h', 'Td', 'Js', '3s'],
+    seats: seats,
+    log: [
+      { street: 'preflop', id: 'h', name: 'Hero', action: 'raise', amount: 60 },
+      { street: 'preflop', id: 'v', name: 'Villain', action: 'call', amount: 40 },
+      { street: 'flop', id: 'v', name: 'Villain', action: 'check' },
+      { street: 'flop', id: 'h', name: 'Hero', action: 'bet', amount: 40 }
+    ],
+    decisions: [
+      { street: 'preflop', action: 'raise', class: 'optima', evLoss: 0, label: 'Raise to 3 bb', gto: { raise: 0.7, fold: 0.3 } },
+      { street: 'flop', action: 'bet', class: 'aceptable', evLoss: 0.12, label: 'Bet 2 bb', strategy: { bet: 0.55, check: 0.45 } }
+    ],
+    result: {
+      deltas: { h: 80, v: -80 },
+      winners: ['h'],
+      showdown: true,
+      tied: false,
+      pot: 160,
+      board: ['2c', '7h', 'Td', 'Js', '3s'],
+      holeCards: { h: ['Ah', 'Kd'], v: ['Qc', 'Qd'] },
+      heroNet: 80
+    }
+  };
+  const hand = g.PTTournamentSessionBridge.handFromTournament(source, {
+    tournamentId: 't_test',
+    handIndex: 3,
+    heroName: 'Hero'
+  });
+  assert.ok(hand, 'bridged hand');
+  assert.ok(hand.decisions && hand.decisions.length === 2, 'decisions');
+  assert.ok(hand.summary && hand.summary.length, 'summary timeline');
+  assert.ok(hand.streets && hand.streets.preflop && hand.streets.preflop.length, 'streets');
+  assert.strictEqual(hand.heroNetBB, 4, 'heroNetBB = 80/20');
+  assert.strictEqual(hand.platform || hand.source, hand.source === 'tournamentAi' ? 'tournamentAi' : hand.platform);
+  assert.ok(hand.source === 'tournamentAi' || hand.platform === 'tournamentAi', 'tournamentAi tag');
+  assert.ok(hand.decisions[0].class === 'optima' || hand.decisions[0].class === 'aceptable', 'spanish class');
+  assert.ok(hand.decisions[0].label, 'decision label');
+  const html = g.PTHandEndView.renderHandEndHtml(hand, { title: 'Ganas la mano', showDecisions: true });
+  assert.ok(html.includes('hand-end-view') || html.includes('Ganas'), 'hand-end html');
+  assert.ok(/nota|score|10|Óptima|óptima|optima|Aceptable|aceptable/i.test(html) || html.includes('dec-review') || html.includes('verdict'),
+    'hand-end shows score/decisions style');
+  console.log('OK session-bridge');
+}
+
+// --- finish → saveSession tournamentAi + stats ---
+{
+  const saved = [];
+  g.Store = {
+    saveSession: function (session) {
+      saved.push(session);
+      return Promise.resolve(session);
+    },
+    getStats: function () { return { school: { xp: 0, lessons: {} } }; },
+    persistStats: function () {}
+  };
+  g.Importer = {
+    computeStats: function (hands) {
+      return {
+        nHands: hands.length,
+        accuracy: 80,
+        vpipPct: 25,
+        pfrPct: 18,
+        netBB: 4,
+        evLossBB: 0.12,
+        grade: 'B',
+        best5: hands.slice(0, 1),
+        worst5: hands.slice(0, 1)
+      };
+    },
+    buildHandTags: function () { return []; }
+  };
+
+  const state = g.PTTournamentRunner.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 3 });
+  // Simulate one analyzed hand already bridged
+  const fakeHand = g.PTTournamentSessionBridge.handFromTournament({
+    handIndex: 1,
+    bb: 20,
+    sb: 10,
+    board: ['Ah', '7c', '2d'],
+    seats: [
+      { id: 'h', name: 'Hero', isHero: true, pos: 'CO', cards: ['Ks', 'Kd'], stack: 1500, startStack: 1500, folded: false },
+      { id: 'v', name: 'Villain', isHero: false, pos: 'BB', cards: ['9h', '9c'], stack: 1480, startStack: 1500, folded: false }
+    ],
+    log: [{ street: 'preflop', id: 'h', name: 'Hero', action: 'raise', amount: 60 }],
+    decisions: [{ street: 'preflop', action: 'raise', class: 'optima', evLoss: 0, label: 'Raise' }],
+    result: { deltas: { h: 40, v: -40 }, winners: ['h'], showdown: false, pot: 80, heroNet: 40, holeCards: {}, board: ['Ah', '7c', '2d'] }
+  }, { tournamentId: state.id, handIndex: 1, heroName: 'Hero' });
+  state.sessionHands = [fakeHand];
+  state.handLog = [{ handIndex: 1, pot: 80, bb: 20, seats: fakeHand.seats, log: [], decisions: fakeHand.decisions, board: fakeHand.board, result: { heroNet: 40, deltas: { h: 40 }, winners: ['h'] } }];
+
+  const result = g.PTTournamentRunner.finish(state, { reason: 'bust' });
+  assert.ok(result.sessionId, 'result.sessionId');
+  assert.ok(result.sessionStats, 'result.sessionStats');
+  assert.ok(saved.length >= 1, 'saveSession called');
+  assert.strictEqual(saved[0].source, 'tournamentAi', 'source tournamentAi');
+  assert.ok(saved[0].stats && saved[0].stats.nHands === 1, 'computeStats stats');
+  assert.ok(saved[0].hands && saved[0].hands.length === 1, 'session hands');
+  const hist = g.PTTournamentStore.list();
+  assert.ok(hist.some(function (h) { return h.sessionId === result.sessionId; }), 'history links sessionId');
+  console.log('OK tournament-session-save');
+}
+
+// --- smoke: hand-end UI source includes trainer-style actions ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(uiSrc.includes('PTHandEndView') || uiSrc.includes('renderHandEndHtml'), 'ui uses HandEndView');
+  assert.ok(uiSrc.includes('hand-end-review') || uiSrc.includes('Paso a paso'), 'paso a paso button');
+  assert.ok(uiSrc.includes('renderSessionStatsHtml') || uiSrc.includes('sessionStats'), 'result uses session stats');
+  assert.ok(uiSrc.includes('open-session') || uiSrc.includes('openSessionHand'), 'open session from result/history');
+  const coreChunk = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
+  assert.ok(coreChunk.includes('hand-end-view.js'), 'chunk lists hand-end-view');
+  assert.ok(coreChunk.includes('session-bridge.js'), 'chunk lists session-bridge');
+  console.log('OK hand-end-session-ui-source');
+}
 
 console.log('*** test-tournament OK ***');

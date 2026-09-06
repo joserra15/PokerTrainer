@@ -92,6 +92,8 @@
       heroGuesses: {},
       events: [],
       handLog: [],
+      sessionHands: [],
+      sessionId: null,
       stats: {
         handsPlayed: 0,
         vpipHands: 0,

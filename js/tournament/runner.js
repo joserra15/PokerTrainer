@@ -199,11 +199,39 @@
         showdown: !!hand.result.showdown,
         tied: !!hand.result.tied,
         pot: hand.result.pot,
+        board: (hand.result.board || hand.board || []).slice(),
+        holeCards: Object.assign({}, hand.result.holeCards || {}),
         handNames: Object.assign({}, hand.result.handNames || {}),
         heroNet: hand.result.heroNet
       }
     });
     if (state.handLog.length > 80) state.handLog = state.handLog.slice(-80);
+
+    /* Sesión analizada (sin tope destructivo): para stats/review como import. */
+    try {
+      var Bridge = global.PTTournamentSessionBridge;
+      if (Bridge && Bridge.handFromTournament) {
+        state.sessionHands = state.sessionHands || [];
+        var entry = state.handLog[state.handLog.length - 1];
+        var analyzed = Bridge.handFromTournament(entry, {
+          tournamentId: state.id,
+          handIndex: entry && entry.handIndex,
+          heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
+        });
+        if (analyzed) {
+          /* Sustituye si ya existe el mismo handIndex (re-apply). */
+          var replaced = false;
+          for (var si = 0; si < state.sessionHands.length; si++) {
+            if (state.sessionHands[si] && state.sessionHands[si].handIndex === analyzed.handIndex) {
+              state.sessionHands[si] = analyzed;
+              replaced = true;
+              break;
+            }
+          }
+          if (!replaced) state.sessionHands.push(analyzed);
+        }
+      }
+    } catch (eBridge) { /* ignore */ }
 
     var fin = checkFinished(state);
     return fin || state;
@@ -283,6 +311,30 @@
 
     state.status = 'finished';
     state.finishedAt = new Date().toISOString();
+    state._liveHand = null;
+
+    /* Persistir sesión completa (misma vía que import HH) ANTES del result. */
+    var sessionId = null;
+    var sessionStats = null;
+    try {
+      var Bridge2 = global.PTTournamentSessionBridge;
+      var StoreApi = global.Store;
+      if (Bridge2 && Bridge2.buildSessionFromTournament && StoreApi && StoreApi.saveSession) {
+        var session = Bridge2.buildSessionFromTournament(state, {});
+        if (session && session.hands && session.hands.length) {
+          sessionId = session.id;
+          sessionStats = session.stats || null;
+          state.sessionId = sessionId;
+          state.sessionStats = sessionStats;
+          Promise.resolve(StoreApi.saveSession(session)).catch(function (err) {
+            try { console.warn('[Tournaments] saveSession failed', err); } catch (e0) { /* */ }
+          });
+        }
+      }
+    } catch (eSess) {
+      try { console.warn('[Tournaments] session bridge failed', eSess); } catch (e1) { /* */ }
+    }
+
     state.result = {
       place: place,
       prizeEur: prizeEur,
@@ -290,9 +342,10 @@
       xpGained: xp,
       stats: sum,
       gtoSession: state.gtoSession || null,
-      reason: opts.reason || 'finished'
+      reason: opts.reason || 'finished',
+      sessionId: sessionId,
+      sessionStats: sessionStats
     };
-    state._liveHand = null;
 
     if (StoreMod && StoreMod.save) {
       StoreMod.save({
@@ -307,9 +360,11 @@
         roi: sum.roi,
         roleAccuracy: roleScore.accuracy,
         finishedAt: state.finishedAt,
-        presetId: state._presetId || state.config.id
+        presetId: state._presetId || state.config.id,
+        sessionId: sessionId
       });
     }
+
     try {
       var Wallet = global.PTTournamentWallet;
       if (Wallet && Wallet.credit && prizeEur > 0) {
