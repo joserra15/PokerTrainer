@@ -4677,7 +4677,10 @@ function reducedMotion() {
       awaitingHero: false,
       heroOptions: null,
       result: null,
-      holesRevealed: !!(f.holesRevealed || hand.holesRevealed || f.kind === 'reveal'),
+      /* Solo el fotograma manda: hand.holesRevealed ya es true al acabar el
+         motor (finishShowdown), y si se OR-ea aquí se ven cartas de all-in
+         antes del call de otro villano. */
+      holesRevealed: !!(f.holesRevealed || f.kind === 'reveal'),
       _anim: true
     };
   }

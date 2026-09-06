@@ -1269,4 +1269,81 @@ console.log('OK tournament-phase-eval');
   console.log('OK anim-ring-stable');
 }
 
+// --- All-in: no revelar holes hasta el fotograma reveal (tras el call) ---
+{
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI && UI.animHand && UI.setAnimFrame, 'animHand helpers');
+
+  const seats = [
+    { id: 'hero', name: 'Hero', isHero: true, pos: 'BB', physicalSeat: 0, seatIndex: 0, stack: 0, invested: 500, streetInvested: 500, folded: false, allIn: true, cards: ['As', 'Kh'] },
+    { id: 'v1', name: 'ShoveShow', isHero: false, pos: 'UTG', physicalSeat: 1, seatIndex: 1, stack: 0, invested: 500, streetInvested: 500, folded: false, allIn: true, cards: ['Qd', 'Qc'] },
+    { id: 'v2', name: 'Caller', isHero: false, pos: 'BTN', physicalSeat: 2, seatIndex: 2, stack: 200, invested: 500, streetInvested: 500, folded: false, allIn: false, cards: ['7c', '7d'] }
+  ];
+  /* Motor ya terminó: holesRevealed=true (como tras finishShowdown). */
+  const liveHand = {
+    seats: seats,
+    heroId: 'hero',
+    sb: 10,
+    bb: 20,
+    ante: 0,
+    board: ['2c', '3d', '9h', 'Js', 'Kc'],
+    street: 'river',
+    pot: 1500,
+    currentBet: 0,
+    log: [],
+    stage: 'complete',
+    holesRevealed: true,
+    awaitingHero: false
+  };
+
+  /* Fotograma del shove de v1: aún falta el call de v2 → no revelar. */
+  const shoveFrame = {
+    kind: 'act',
+    actorId: 'v1',
+    action: 'allin',
+    street: 'preflop',
+    board: [],
+    pot: 520,
+    currentBet: 500,
+    holesRevealed: false,
+    seats: seats.map(function (s) {
+      return {
+        id: s.id, stack: s.id === 'v1' ? 0 : (s.id === 'v2' ? 700 : 0),
+        invested: s.id === 'v1' ? 500 : (s.id === 'hero' ? 20 : 0),
+        streetInvested: s.id === 'v1' ? 500 : (s.id === 'hero' ? 20 : 0),
+        folded: false, allIn: s.id !== 'v2', physicalSeat: s.physicalSeat,
+        lastAction: s.id === 'v1' ? { action: 'allin', amount: 500 } : null
+      };
+    })
+  };
+
+  UI.setAnimFrame(shoveFrame);
+  const duringShove = UI.animHand(liveHand);
+  UI.setAnimFrame(null);
+  assert.strictEqual(duringShove.holesRevealed, false,
+    'durante shove (antes del call) holesRevealed debe ser false, got ' + duringShove.holesRevealed);
+  assert.deepStrictEqual(duringShove.board, [], 'board vacío durante shove preflop');
+
+  const revealFrame = {
+    kind: 'reveal',
+    street: 'preflop',
+    board: [],
+    pot: 1500,
+    currentBet: 500,
+    holesRevealed: true,
+    seats: seats.map(function (s) {
+      return {
+        id: s.id, stack: 0, invested: 500, streetInvested: 500,
+        folded: false, allIn: true, physicalSeat: s.physicalSeat, lastAction: null
+      };
+    })
+  };
+  UI.setAnimFrame(revealFrame);
+  const duringReveal = UI.animHand(liveHand);
+  UI.setAnimFrame(null);
+  assert.strictEqual(duringReveal.holesRevealed, true, 'en fotograma reveal sí se muestran holes');
+  assert.deepStrictEqual(duringReveal.board, [], 'reveal sigue sin comunitarias');
+  console.log('OK allin-holes-only-on-reveal-frame');
+}
+
 console.log('*** test-tournament OK ***');
