@@ -63,8 +63,9 @@
   }
 
   function normalizeOnBust(v) {
-    if (v === 'simulate' || v === 'end' || v === 'ask') return v;
-    return 'ask';
+    /* Compat: valores antiguos se normalizan a simular el resto. */
+    if (v === 'simulate' || v === 'end' || v === 'ask') return 'simulate';
+    return 'simulate';
   }
 
   var PRESETS = {
@@ -81,7 +82,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
       exploitProPct: 0,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     medium: {
       id: 'medium',
@@ -96,7 +97,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
       exploitProPct: 0.15,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     hard: {
       id: 'hard',
@@ -111,7 +112,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
       exploitProPct: 0.4,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     sng6: {
       id: 'sng6',
@@ -126,7 +127,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.1,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     sng9: {
       id: 'sng9',
@@ -141,7 +142,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.15,
-      onBust: 'ask'
+      onBust: 'simulate'
     }
   };
 

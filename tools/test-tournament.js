@@ -1127,4 +1127,61 @@ console.log('OK tournament-result-polish');
 }
 console.log('OK tournament-phase-eval');
 
+// --- Dealer / asientos físicos estables entre manos ---
+{
+  const Seat = g.PTTournamentSeating;
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 17 });
+  const tableId = state.tables.find(function (t) { return t.isHeroTable; }).id;
+  const on = Seat.playersOnTable(state, tableId).slice().sort(function (a, b) {
+    return (a.seat || 0) - (b.seat || 0);
+  });
+  const physicalOrder = on.map(function (p) { return p.id; });
+
+  const btn1 = Seat.assignButton(state, tableId);
+  const ordered1 = Seat.seatOrderWithButton(on, btn1);
+  assert.ok(ordered1.every(function (ts) { return ts.physicalSeat != null; }), 'physicalSeat en seatOrder');
+  const ring1 = ordered1.slice().sort(function (a, b) {
+    return a.physicalSeat - b.physicalSeat;
+  }).map(function (ts) { return ts.player.id; });
+  assert.deepStrictEqual(ring1, physicalOrder, 'anillo físico = seats ordenados');
+
+  const btn2 = Seat.assignButton(state, tableId);
+  assert.notStrictEqual(btn2, btn1, 'botón avanza de mano a mano');
+  const ordered2 = Seat.seatOrderWithButton(on, btn2);
+  const ring2 = ordered2.slice().sort(function (a, b) {
+    return a.physicalSeat - b.physicalSeat;
+  }).map(function (ts) { return ts.player.id; });
+  assert.deepStrictEqual(ring2, physicalOrder, 'rivales no rotan de asiento físico');
+
+  /* Bust del botón: el siguiente vivo en sentido horario recibe el botón. */
+  Seat.bustPlayer(state, btn2);
+  Seat.rebalance(state);
+  const onAfter = Seat.playersOnTable(state, tableId).slice().sort(function (a, b) {
+    return (a.seat || 0) - (b.seat || 0);
+  });
+  const btn3 = Seat.assignButton(state, tableId);
+  assert.ok(onAfter.some(function (p) { return p.id === btn3; }), 'nuevo botón vivo');
+  assert.notStrictEqual(btn3, btn2, 'botón no queda en eliminado');
+  console.log('OK stable-physical-seats-and-button');
+}
+
+// --- Bust hero: siempre simula resto (sin Finalizar ya) ---
+{
+  const R = g.PTTournamentRunner;
+  const cfg = g.PTTournamentConfig.normalize(Object.assign({}, g.PTTournamentConfig.fromPreset('sng6'), {
+    onBust: 'ask',
+    startingStack: 1500
+  }));
+  const state = R.create(cfg, { seed: 5 });
+  const hero = g.PTTournamentState.hero(state);
+  hero.stack = 0;
+  g.PTTournamentSeating.bustPlayer(state, hero.id);
+  R.onBustAsk(state);
+  assert.strictEqual(state.status, 'finished', 'auto-sim → finished');
+  assert.notStrictEqual(state.status, 'busted_pending', 'sin busted_pending');
+  assert.strictEqual(g.PTTournamentState.playersLeft(state), 1, 'field liquidado a 1');
+  assert.ok(state.result && state.result.reason === 'simulated_rest', 'reason simulated_rest');
+  console.log('OK bust-auto-simulate-rest');
+}
+
 console.log('*** test-tournament OK ***');

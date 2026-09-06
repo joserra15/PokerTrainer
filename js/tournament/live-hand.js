@@ -199,6 +199,9 @@
         proStyle: ts.player.proStyle || null,
         pos: ts.pos,
         seatIndex: ts.seatIndex != null ? ts.seatIndex : i,
+        physicalSeat: ts.physicalSeat != null
+          ? ts.physicalSeat
+          : (ts.player && ts.player.seat != null ? ts.player.seat : i),
         cards: dealt.holes[i],
         startStack: stack,
         stack: stack,

@@ -388,16 +388,8 @@
   }
 
   function onBustAsk(state) {
-    var mode = (state.config && state.config.onBust) || 'ask';
-    if (mode === 'simulate') {
-      return simulateRest(state);
-    }
-    if (mode === 'end') {
-      return finish(state, { reason: 'bust' });
-    }
-    state.status = 'busted_pending';
-    state._liveHand = null;
-    return { pending: true, status: 'busted_pending' };
+    /* Siempre simular el resto del field → resumen del torneo. */
+    return simulateRest(state);
   }
 
   function eliminateWeighted(state) {

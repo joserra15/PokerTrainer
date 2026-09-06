@@ -207,8 +207,9 @@
   }
 
   function normalizeOnBust(v) {
-    if (v === 'simulate' || v === 'end' || v === 'ask') return v;
-    return 'ask';
+    /* Compat: valores antiguos se normalizan a simular el resto. */
+    if (v === 'simulate' || v === 'end' || v === 'ask') return 'simulate';
+    return 'simulate';
   }
 
   var PRESETS = {
@@ -225,7 +226,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
       exploitProPct: 0,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     medium: {
       id: 'medium',
@@ -240,7 +241,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
       exploitProPct: 0.15,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     hard: {
       id: 'hard',
@@ -255,7 +256,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
       exploitProPct: 0.4,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     sng6: {
       id: 'sng6',
@@ -270,7 +271,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.1,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     sng9: {
       id: 'sng9',
@@ -285,7 +286,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.15,
-      onBust: 'ask'
+      onBust: 'simulate'
     }
   };
 
@@ -682,10 +683,21 @@
       return (a.seat || 0) - (b.seat || 0);
     });
     if (!seats.length) return null;
-    var key = '_btn_' + tableId;
-    var prev = state[key] != null ? state[key] : -1;
-    var next = (prev + 1) % seats.length;
-    state[key] = next;
+    var idKey = '_btnPlayer_' + tableId;
+    var idxKey = '_btn_' + tableId;
+    var prevId = state[idKey] || null;
+    var prevIdx = -1;
+    if (prevId) {
+      prevIdx = seats.findIndex(function (p) { return p.id === prevId; });
+    }
+    /* Fallback legado: índice guardado (puede desalinear tras bust+reindex). */
+    if (prevIdx < 0 && state[idxKey] != null) {
+      var legacy = Number(state[idxKey]);
+      if (isFinite(legacy) && legacy >= 0) prevIdx = Math.min(legacy, seats.length - 1);
+    }
+    var next = (prevIdx + 1) % seats.length;
+    state[idxKey] = next;
+    state[idKey] = seats[next].id;
     return seats[next].id;
   }
 
@@ -724,7 +736,12 @@
       }
     }
     return rotated.map(function (p, i) {
-      return { player: p, pos: labels[i], seatIndex: i };
+      return {
+        player: p,
+        pos: labels[i],
+        seatIndex: i,
+        physicalSeat: p.seat != null ? p.seat : i
+      };
     });
   }
 
@@ -1795,6 +1812,9 @@
         proStyle: ts.player.proStyle || null,
         pos: ts.pos,
         seatIndex: ts.seatIndex != null ? ts.seatIndex : i,
+        physicalSeat: ts.physicalSeat != null
+          ? ts.physicalSeat
+          : (ts.player && ts.player.seat != null ? ts.player.seat : i),
         cards: dealt.holes[i],
         startStack: stack,
         stack: stack,
@@ -4418,16 +4438,8 @@
   }
 
   function onBustAsk(state) {
-    var mode = (state.config && state.config.onBust) || 'ask';
-    if (mode === 'simulate') {
-      return simulateRest(state);
-    }
-    if (mode === 'end') {
-      return finish(state, { reason: 'bust' });
-    }
-    state.status = 'busted_pending';
-    state._liveHand = null;
-    return { pending: true, status: 'busted_pending' };
+    /* Siempre simular el resto del field → resumen del torneo. */
+    return simulateRest(state);
   }
 
   function eliminateWeighted(state) {
@@ -4806,7 +4818,7 @@ function reducedMotion() {
     var st = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
     if (!st) return false;
     ui.state = st;
-    ui.bustPrompt = st.status === 'busted_pending';
+    ui.bustPrompt = false;
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
@@ -5022,7 +5034,7 @@ function reducedMotion() {
       startingStack: 1500,
       placesPaid: 3,
       payoutLadder: 'standard',
-      onBust: 'ask',
+      onBust: 'simulate',
       exploitProPct: 0.1,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 }
     });
@@ -5054,10 +5066,6 @@ function reducedMotion() {
       ['standard', 'flat', 'topheavy'].map(function (x) {
         return '<option value="' + x + '"' + (d.payoutLadder === x ? ' selected' : '') + '>' + x + '</option>';
       }).join('') + '</select></label>' +
-      '<label class="trn-field">Al bust<select data-f="onBust">' +
-      '<option value="ask"' + (d.onBust === 'ask' ? ' selected' : '') + '>Preguntar</option>' +
-      '<option value="simulate"' + (d.onBust === 'simulate' ? ' selected' : '') + '>Simular resto</option>' +
-      '<option value="end"' + (d.onBust === 'end' ? ' selected' : '') + '>Finalizar</option></select></label>' +
       '<label class="trn-field">% Pros exploit<input type="number" data-f="exploitProPct" min="0" max="1" step="0.05" value="' + d.exploitProPct + '"></label>' +
       '</div>' +
       '<h3>Pesos de roles</h3><div class="trn-weights">' +
@@ -5226,9 +5234,20 @@ function reducedMotion() {
     return list.slice(hi).concat(list.slice(0, hi));
   }
 
+  /** Anillo visual por asiento físico (no por rotación del botón). */
+  function ringByPhysicalSeat(seats) {
+    var list = (seats || []).slice().sort(function (a, b) {
+      var pa = a.physicalSeat != null ? a.physicalSeat : (a.seat != null ? a.seat : 999);
+      var pb = b.physicalSeat != null ? b.physicalSeat : (b.seat != null ? b.seat : 999);
+      if (pa !== pb) return pa - pb;
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+    return rotateHeroFirst(list);
+  }
+
   function renderTrainerSeats(hand, state, bb) {
     if (!hand || !hand.seats || !hand.seats.length) return '';
-    var ring = rotateHeroFirst(hand.seats);
+    var ring = ringByPhysicalSeat(hand.seats);
     var coords = seatCoordsFor(ring.length);
     var showdown = hand.stage === 'complete' || !!hand.holesRevealed ||
       !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
@@ -5238,6 +5257,7 @@ function reducedMotion() {
       var c = coords[Math.min(i, coords.length - 1)] || coords[0];
       var guessed = state.heroGuesses && state.heroGuesses[s.id];
       var cls = ['seat', 'villain'];
+      if (s.pos === 'BTN') cls.push('dealer');
       if (s.folded) cls.push('folded');
       if (s._acting) cls.push('acting');
       if (c.top < 20) cls.push('seat-top');
@@ -5312,11 +5332,13 @@ function reducedMotion() {
       : ((hero.cards && hero.cards[0])
         ? hero.cards.map(faceCard).join('')
         : (backCard() + backCard()));
+    var dealerHidden = hero.pos === 'BTN' ? '' : ' hidden';
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
       '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
-      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) + ' · <span>' +
-      esc(hero.pos || '-') + '</span></div>' +
+      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) +
+      ' · <span>' + esc(hero.pos || '-') + '</span>' +
+      '<span class="hero-dealer' + dealerHidden + '" title="Dealer">D</span></div>' +
       (cards ? ('<div class="hero-cards">' + cards + '</div>') : '<div class="hero-cards hero-cards-folded"></div>') +
       '</div>';
   }
@@ -5359,16 +5381,20 @@ function reducedMotion() {
       ? renderTrainerSeats(hand, state, bb)
       : '';
 
-    // Sin mano activa: asientos desde seating del torneo (stacks persistentes)
+    // Sin mano activa: asientos desde seating del torneo (orden físico estable)
     if (!hand && state.status === 'running') {
       var tableId = (state.tables.find(function (t) { return t.isHeroTable; }) || {}).id;
       var onTable = tableId ? Seat.playersOnTable(state, tableId) : [];
-      var fake = onTable.map(function (p, i) {
+      onTable = onTable.slice().sort(function (a, b) {
+        return (a.seat || 0) - (b.seat || 0);
+      });
+      var fake = onTable.map(function (p) {
         return {
           id: p.id,
           name: p.name,
           isHero: !!p.isHero,
-          pos: p.isHero ? 'H' : ('S' + i),
+          pos: '',
+          physicalSeat: p.seat != null ? p.seat : 0,
           stack: p.stack,
           streetInvested: 0,
           folded: false,
@@ -5382,12 +5408,6 @@ function reducedMotion() {
     if (ui.anim && ui.anim.playing) {
       actions = '<div class="actions actions-grid actions-grid-1 trn-anim-actions">' +
         '<button type="button" class="btn btn-skip-anim" data-act="skip-anim">Saltar acción</button>' +
-        '</div>';
-    } else if (state.status === 'busted_pending' || ui.bustPrompt) {
-      actions = '<div class="trn-bust-prompt">' +
-        '<p>Has sido eliminado. ¿Qué quieres hacer?</p>' +
-        '<button type="button" class="btn btn-primary" data-act="sim-rest">Simular resto</button>' +
-        '<button type="button" class="btn" data-act="end-now">Finalizar ya</button>' +
         '</div>';
     } else if (hand && hand.stage === 'complete') {
       actions = '';
@@ -5995,9 +6015,6 @@ function reducedMotion() {
       setView(VIEW.result);
       return;
     }
-    if (state.status === 'busted_pending') {
-      ui.bustPrompt = true;
-    }
     persistActive();
     paint();
   }
@@ -6165,14 +6182,6 @@ function reducedMotion() {
             persistActive();
           }
           afterActionAnimated();
-        } else if (act === 'sim-rest') {
-          global.PTTournamentRunner.simulateRest(ui.state);
-          clearActive();
-          afterAction();
-        } else if (act === 'end-now') {
-          global.PTTournamentRunner.finish(ui.state, { reason: 'bust' });
-          clearActive();
-          afterAction();
         } else if (act === 'clear-hist') {
           global.PTTournamentStore.clear();
           paint();

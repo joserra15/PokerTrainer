@@ -311,10 +311,21 @@
       return (a.seat || 0) - (b.seat || 0);
     });
     if (!seats.length) return null;
-    var key = '_btn_' + tableId;
-    var prev = state[key] != null ? state[key] : -1;
-    var next = (prev + 1) % seats.length;
-    state[key] = next;
+    var idKey = '_btnPlayer_' + tableId;
+    var idxKey = '_btn_' + tableId;
+    var prevId = state[idKey] || null;
+    var prevIdx = -1;
+    if (prevId) {
+      prevIdx = seats.findIndex(function (p) { return p.id === prevId; });
+    }
+    /* Fallback legado: índice guardado (puede desalinear tras bust+reindex). */
+    if (prevIdx < 0 && state[idxKey] != null) {
+      var legacy = Number(state[idxKey]);
+      if (isFinite(legacy) && legacy >= 0) prevIdx = Math.min(legacy, seats.length - 1);
+    }
+    var next = (prevIdx + 1) % seats.length;
+    state[idxKey] = next;
+    state[idKey] = seats[next].id;
     return seats[next].id;
   }
 
@@ -353,7 +364,12 @@
       }
     }
     return rotated.map(function (p, i) {
-      return { player: p, pos: labels[i], seatIndex: i };
+      return {
+        player: p,
+        pos: labels[i],
+        seatIndex: i,
+        physicalSeat: p.seat != null ? p.seat : i
+      };
     });
   }
 
