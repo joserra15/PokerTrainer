@@ -57,37 +57,38 @@
     return 'Jugador';
   }
 
-  function confettiPiecesHtml() {
-    var shapes = ['rect', 'rect', 'strip', 'strip', 'dot', 'rect', 'strip', 'dot',
-      'rect', 'strip', 'dot', 'rect', 'strip', 'rect', 'dot', 'strip',
-      'rect', 'strip', 'dot', 'rect', 'strip', 'dot', 'rect', 'strip'];
-    return shapes.map(function (sh, idx) {
-      return '<i class="trn-confetti-piece is-' + sh + '" style="--i:' + idx + '"></i>';
-    }).join('');
-  }
-
-  function toastPopupHtml(kind, title, sub, withConfetti) {
+  function toastPopupHtml(kind, title, sub) {
     return '<div class="trn-center-popup trn-popup-' + kind + '" data-popup="' + kind + '" role="status">' +
-      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' + confettiPiecesHtml() + '</div>' : '') +
       '<div class="trn-center-popup-card">' +
       '<strong>' + title + '</strong>' +
       (sub ? ('<span>' + sub + '</span>') : '') +
       '</div></div>';
   }
 
-  function schedulePopupClear(flag) {
+  /** Cartel llamativo de mesa final (sin confeti); se oculta solo. */
+  function finalTableBannerHtml(players) {
+    var n = Number(players) || 0;
+    return '<div class="trn-ft-banner" data-popup="ft" role="status" aria-live="polite">' +
+      '<div class="trn-ft-banner-card">' +
+      '<p class="trn-ft-banner-kicker">Torneo</p>' +
+      '<strong class="trn-ft-banner-title">MESA FINAL</strong>' +
+      (n ? ('<span class="trn-ft-banner-sub">' + n + ' jugadores</span>') : '') +
+      '</div></div>';
+  }
+
+  function schedulePopupClear(flag, ms) {
     try {
-      if (!ui.popupClearScheduled) ui.popupClearScheduled = {};
-      if (ui.popupClearScheduled[flag]) return;
-      ui.popupClearScheduled[flag] = true;
-      setTimeout(function () {
-        ui.popupClearScheduled[flag] = false;
+      if (!ui.popupClearTimers) ui.popupClearTimers = {};
+      if (ui.popupClearTimers[flag]) return;
+      var delay = ms != null ? ms : 2000;
+      ui.popupClearTimers[flag] = setTimeout(function () {
+        ui.popupClearTimers[flag] = null;
         if (!ui.state) return;
         if (flag === 'blind') ui.state.blindUpPending = null;
         if (flag === 'ft') ui.state.finalTablePending = null;
         if (flag === 'itm') ui.state.itmPending = null;
         paint();
-      }, 2000);
+      }, delay);
     } catch (e) { /* */ }
   }
 
@@ -1023,18 +1024,17 @@ function reducedMotion() {
         'blind',
         'Subida de nivel',
         'Nivel ' + esc(String(bu.level)) + ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
-          (bu.ante ? (' ante ' + esc(String(bu.ante))) : ''),
-        false
+          (bu.ante ? (' ante ' + esc(String(bu.ante))) : '')
       );
-      schedulePopupClear('blind');
+      schedulePopupClear('blind', 2000);
     }
     if (state.finalTablePending && !(hand && hand.stage === 'complete')) {
-      ftPopup = toastPopupHtml('ft', 'Mesa final', String(state.finalTablePending.players || '') + ' jugadores', true);
-      schedulePopupClear('ft');
+      ftPopup = finalTableBannerHtml(state.finalTablePending.players);
+      schedulePopupClear('ft', 3000);
     }
     if (state.itmPending && !(hand && hand.stage === 'complete')) {
-      itmPopup = toastPopupHtml('itm', '¡En el dinero!', 'Has entrado en premios', true);
-      schedulePopupClear('itm');
+      itmPopup = toastPopupHtml('itm', '¡En el dinero!', 'Has entrado en premios');
+      schedulePopupClear('itm', 2000);
     }
 
     var exitModal = '';

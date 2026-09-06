@@ -656,7 +656,7 @@ FILES.forEach(function (f) { load(g, f); });
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
   assert.ok(uiSrc.includes('toastPopupHtml'), 'toastPopupHtml in ui');
   assert.ok(uiSrc.includes('trn-center-popup'), 'centered popup class');
-  assert.ok(uiSrc.includes("schedulePopupClear('blind')"), 'auto-clear blind popup');
+  assert.ok(uiSrc.includes("schedulePopupClear('blind', 2000)"), 'auto-clear blind popup');
   assert.ok(!/trn-blind-up[\s\S]{0,200}dismiss-blind-up/.test(uiSrc),
     'old blind-up OK banner removed from paint path');
 }
@@ -884,9 +884,17 @@ console.log('OK tournament-review-back');
 // --- Resultado: stats CTA, sin replay, manos colapsadas ---
 {
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(uiSrc.includes('Estadísticas del torneo'), 'CTA Estadísticas del torneo');
   assert.ok(uiSrc.includes('trn-hands-fold'), 'hands collapsed details');
-  assert.ok(uiSrc.includes('confettiPiecesHtml'), 'improved confetti');
+  assert.ok(uiSrc.includes('finalTableBannerHtml'), 'final table banner helper');
+  assert.ok(uiSrc.includes('MESA FINAL'), 'final table banner copy');
+  assert.ok(uiSrc.includes("schedulePopupClear('ft', 3000)"), 'FT banner clears at 3s');
+  assert.ok(!uiSrc.includes('confettiPiecesHtml') && !uiSrc.includes('trn-confetti'),
+    'confetti removed from tournament UI');
+  assert.ok(cssSrc.includes('trn-ft-banner') && cssSrc.includes('trn-ft-banner-fade'),
+    'css final table banner');
+  assert.ok(!cssSrc.includes('trn-confetti-piece'), 'confetti css removed');
   assert.ok(uiSrc.includes('fromTournament: true'), 'opens session as fromTournament');
   const rr = uiSrc.slice(uiSrc.indexOf('function renderResult'), uiSrc.indexOf('function renderHistory'));
   assert.ok(!/Mejores manos|Peores manos/.test(rr), 'no best/worst on result');
