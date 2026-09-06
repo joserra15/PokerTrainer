@@ -36734,6 +36734,11 @@ window.PT_NASH_PUSH_JSON = {
       if (savedTab === 'cash' || savedTab === 'spin' || savedTab === 'mtt') sessionsListTab = savedTab;
     } catch (e) { /* ignore */ }
     $('#back-to-sessions').addEventListener('click', () => {
+      if (tournamentReviewReturn) {
+        clearTournamentReviewReturn();
+        goToTab('tournaments');
+        return;
+      }
       if (analysisReviewReturn) {
         analysisReviewReturn = false;
         restoreSessionReviewBackLabel();
@@ -36743,6 +36748,11 @@ window.PT_NASH_PUSH_JSON = {
       showSessionsView('home'); renderSessionsList();
     });
     $('#back-to-detail').addEventListener('click', () => {
+      if (tournamentReviewReturn) {
+        clearTournamentReviewReturn();
+        goToTab('tournaments');
+        return;
+      }
       if (analysisReviewReturn) {
         analysisReviewReturn = false;
         restoreSessionReviewBackLabel();
@@ -36974,9 +36984,18 @@ window.PT_NASH_PUSH_JSON = {
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver';
   }
+  function setTournamentReviewBackLabel() {
+    const btn = $('#back-to-detail');
+    if (btn) btn.innerHTML = '&laquo; Volver al torneo';
+  }
   function restoreSessionReviewBackLabel() {
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver a la sesión';
+  }
+  function clearTournamentReviewReturn() {
+    tournamentReviewReturn = false;
+    analysisReviewReturn = false;
+    restoreSessionReviewBackLabel();
   }
 
   // Abre la revisión paso a paso / repaso GTO de una mano de análisis reutilizando
@@ -36985,6 +37004,7 @@ window.PT_NASH_PUSH_JSON = {
     if (!hand) return;
     currentHand = hand;
     currentSession = { id: '__analysis__', analysis: true, hero: hand.hero };
+    tournamentReviewReturn = false;
     analysisReviewReturn = true;
     setAnalysisReviewBackLabel();
     goToTab('sessions', { skipDefaultView: true });
@@ -37003,7 +37023,7 @@ window.PT_NASH_PUSH_JSON = {
   }
   window.openAnalysisHandReview = openAnalysisHandReview;
 
-  /** Revisión / replay de una mano de Torneos IA (misma UI que Sesiones). */
+  /** Revisión paso a paso de una mano de Torneos IA (vuelve al torneo, sin replay GTO). */
   function openTournamentHandReview(hand, mode) {
     if (!hand) return;
     currentHand = hand;
@@ -37020,8 +37040,9 @@ window.PT_NASH_PUSH_JSON = {
       source: 'tournamentAi',
       tournamentAi: true
     };
-    analysisReviewReturn = true;
-    setAnalysisReviewBackLabel();
+    analysisReviewReturn = false;
+    tournamentReviewReturn = true;
+    setTournamentReviewBackLabel();
     goToTab('sessions', { skipDefaultView: true });
     withLazyChunk('sessions', function () {
       if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
@@ -37032,8 +37053,8 @@ window.PT_NASH_PUSH_JSON = {
         console.error('[Tournaments] recompute failed', e);
       }
       showSessionsView('review');
-      if (mode === 'replay') startInteractiveReplay();
-      else renderTimelineReview();
+      /* Solo paso a paso: sin “Volver a jugar esta mano con GTO”. */
+      renderTimelineReview();
     });
   }
   window.openTournamentHandReview = openTournamentHandReview;
@@ -41778,6 +41799,7 @@ window.PT_NASH_PUSH_JSON = {
   let currentHand = null;
   let replayState = null;
   let analysisReviewReturn = false;
+  let tournamentReviewReturn = false;
   const SESSION_HANDS_PAGE = 80;
   const HEAVY_OPEN_HANDS = 2000;
   let sessionHandsShown = SESSION_HANDS_PAGE;
@@ -42780,6 +42802,7 @@ window.PT_NASH_PUSH_JSON = {
     currentHand = findHand(handId);
     if (!currentHand) return;
     analysisReviewReturn = false;
+    tournamentReviewReturn = false;
     restoreSessionReviewBackLabel();
     if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
     if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
@@ -43106,6 +43129,9 @@ window.PT_NASH_PUSH_JSON = {
     html += renderHandDecisionsSummary(h.decisions, 'session');
 
     const isAnalysisHand = !!(currentSession && currentSession.analysis);
+    /* Revisión abierta desde Torneos IA en vivo: sin replay GTO ni vuelta a análisis. */
+    const hideGtoReplay = !!tournamentReviewReturn;
+    if (tournamentReviewReturn) setTournamentReviewBackLabel();
     if (!isAnalysisHand) {
       html += '<div id="ai-report-session"></div>';
     }
@@ -43118,7 +43144,9 @@ window.PT_NASH_PUSH_JSON = {
       ).join('') + '</div>';
     }
 
-    html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
+    if (!hideGtoReplay) {
+      html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
+    }
     if (currentSession && currentSession.analysis && window.PTHandAnalysis && PTHandAnalysis.toTrainerConfig) {
       html += `<button class="btn btn-secondary" id="to-trainer-from-review" style="margin-top:14px;margin-left:8px">Jugar en entrenador (POV actual) &raquo;</button>`;
     }
@@ -43154,7 +43182,8 @@ window.PT_NASH_PUSH_JSON = {
         onThreadUpdate: (thread) => { if (currentHand) currentHand.coachThread = thread; }
       });
     }
-    $('#to-replay').addEventListener('click', () => startInteractiveReplay());
+    const toReplayBtn = $('#to-replay');
+    if (toReplayBtn) toReplayBtn.addEventListener('click', () => startInteractiveReplay());
     const toTrainer = $('#to-trainer-from-review');
     if (toTrainer) {
       toTrainer.addEventListener('click', () => {

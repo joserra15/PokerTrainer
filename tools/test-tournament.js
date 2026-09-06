@@ -795,4 +795,27 @@ console.log('OK dist-tournaments-bundle');
   console.log('OK hand-end-session-ui-source');
 }
 
+
+// --- paso a paso desde torneo: volver al torneo, sin replay GTO / análisis ---
+{
+  const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert.ok(appSrc.includes('tournamentReviewReturn'), 'flag tournamentReviewReturn');
+  assert.ok(appSrc.includes('Volver al torneo'), 'label Volver al torneo');
+  assert.ok(appSrc.includes("goToTab('tournaments')"), 'back goes to tournaments');
+  assert.ok(appSrc.includes('setTournamentReviewBackLabel'), 'setTournamentReviewBackLabel');
+  assert.ok(/hideGtoReplay[\s\S]{0,120}to-replay|!hideGtoReplay[\s\S]{0,80}to-replay/.test(appSrc),
+    'GTO replay button gated by hideGtoReplay');
+  assert.ok(appSrc.includes('openTournamentHandReview'), 'openTournamentHandReview export');
+  // No debe reutilizar el label corto de análisis como retorno de torneo
+  const openTrn = appSrc.slice(appSrc.indexOf('function openTournamentHandReview'),
+    appSrc.indexOf('window.openTournamentHandReview'));
+  assert.ok(openTrn.includes('tournamentReviewReturn = true'), 'sets tournament return');
+  assert.ok(openTrn.includes('setTournamentReviewBackLabel'), 'uses tournament back label');
+  assert.ok(!openTrn.includes('setAnalysisReviewBackLabel'), 'does not use analysis back label');
+  assert.ok(!/startInteractiveReplay|startInteractiveReplay/.test(openTrn),
+    'tournament open does not start GTO replay');
+}
+console.log('OK tournament-review-back');
+
 console.log('*** test-tournament OK ***');
+
