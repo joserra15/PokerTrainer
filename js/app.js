@@ -2333,7 +2333,8 @@
           showSessionLoading('Cargando sesión…');
           void openSession(opts.openSessionId, null, {
             handId: opts.handId || null,
-            mode: opts.reviewMode || opts.mode || 'review'
+            mode: opts.reviewMode || opts.mode || 'review',
+            fromTournament: !!opts.fromTournament
           });
           refreshSessionsFromCloud();
           return;
@@ -2961,10 +2962,20 @@
   function setTournamentReviewBackLabel() {
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver al torneo';
+    const backSessions = $('#back-to-sessions');
+    if (backSessions) {
+      backSessions.innerHTML = '&laquo; Volver al torneo';
+      backSessions.hidden = false;
+    }
   }
   function restoreSessionReviewBackLabel() {
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver a la sesión';
+    const backSessions = $('#back-to-sessions');
+    if (backSessions) {
+      backSessions.innerHTML = '&laquo; Volver a sesiones';
+      backSessions.hidden = false;
+    }
   }
   function clearTournamentReviewReturn() {
     tournamentReviewReturn = false;
@@ -8426,6 +8437,12 @@
     } else if (tagsFixed) {
       await Store.saveSession(currentSession);
     }
+    if (opts.fromTournament) {
+      tournamentReviewReturn = true;
+      setTournamentReviewBackLabel();
+    } else if (!tournamentReviewReturn) {
+      restoreSessionReviewBackLabel();
+    }
     sessionHandsShown = SESSION_HANDS_PAGE;
     renderSessionDetail('evLoss');
     showSessionsView('detail');
@@ -8561,7 +8578,7 @@
         <div class="card-box"><h3>5 peores manos</h3>${topHandsHtml(st.worst5)}</div>
       </div>`;
 
-    const sortHtml = `
+    const handsInner = `
       <div class="panel-head" style="margin-top:18px">
         <h3>Manos de la sesión (${currentSession.hands.length})</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -8583,6 +8600,9 @@
       <div id="session-hands-filters" class="hand-filters"></div>
       <p class="muted-text" style="font-size:12px;margin:6px 0 0">Cola graves: <kbd>G</kbd> filtra · en revisión <kbd>→</kbd>/<kbd>Enter</kbd> siguiente · <kbd>←</kbd> anterior.</p>
       <div id="session-hands" class="record-list"></div>`;
+    const sortHtml = tournamentReviewReturn
+      ? `<details class="session-hands-fold"><summary>Manos de la sesión (${currentSession.hands.length})</summary>${handsInner}</details>`
+      : handsInner;
 
     box.innerHTML = statHtml + sortHtml;
     bindStyleDrillButtons(box);
@@ -8637,6 +8657,7 @@
 
   function topHandsHtml(list) {
     if (!list.length) return '<div class="muted-text">—</div>';
+    const hideReplay = !!tournamentReviewReturn;
     return list.map((h) => {
       const netCls = h.heroNetBB >= 0 ? 'net-pos' : 'net-neg';
       const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
@@ -8650,7 +8671,7 @@
         </div>
         <div class="mini-hand-actions">
           <button class="btn btn-ghost mini-link" data-review="${h.id}">Paso a paso</button>
-          <button class="btn btn-primary mini-link" data-replay="${h.id}">Volver a jugar</button>
+          ${hideReplay ? '' : `<button class="btn btn-primary mini-link" data-replay="${h.id}">Volver a jugar</button>`}
         </div>
       </div>`;
     }).join('');
@@ -8696,7 +8717,7 @@
           <div><span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span> · <span style="color:var(--red)">EV -${fmtBB(h.totalEvLoss)}bb</span></div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" data-review="${h.id}">Paso a paso</button>
-            <button class="btn btn-primary" style="padding:4px 10px;font-size:12px" data-replay="${h.id}">Volver a jugar</button>
+            ${tournamentReviewReturn ? '' : `<button class="btn btn-primary" style="padding:4px 10px;font-size:12px" data-replay="${h.id}">Volver a jugar</button>`}
           </div>
         </div>
       </div>`;

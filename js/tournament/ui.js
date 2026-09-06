@@ -57,11 +57,18 @@
     return 'Jugador';
   }
 
+  function confettiPiecesHtml() {
+    var shapes = ['rect', 'rect', 'strip', 'strip', 'dot', 'rect', 'strip', 'dot',
+      'rect', 'strip', 'dot', 'rect', 'strip', 'rect', 'dot', 'strip',
+      'rect', 'strip', 'dot', 'rect', 'strip', 'dot', 'rect', 'strip'];
+    return shapes.map(function (sh, idx) {
+      return '<i class="trn-confetti-piece is-' + sh + '" style="--i:' + idx + '"></i>';
+    }).join('');
+  }
+
   function toastPopupHtml(kind, title, sub, withConfetti) {
     return '<div class="trn-center-popup trn-popup-' + kind + '" data-popup="' + kind + '" role="status">' +
-      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' +
-        '<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>' +
-        '</div>' : '') +
+      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' + confettiPiecesHtml() + '</div>' : '') +
       '<div class="trn-center-popup-card">' +
       '<strong>' + title + '</strong>' +
       (sub ? ('<span>' + sub + '</span>') : '') +
@@ -96,6 +103,8 @@ function reducedMotion() {
     if (reducedMotion()) return 60;
     if (!f) return 0;
     if (f.kind === 'deal') return 420;
+    /* Pausa para ver holes de all-in antes del runout de comunitarias. */
+    if (f.kind === 'reveal') return 2000;
     if (f.kind === 'street') return 560;
     var a = String(f.action || '').toLowerCase();
     if (a === 'fold') return 300;
@@ -147,6 +156,7 @@ function reducedMotion() {
       awaitingHero: false,
       heroOptions: null,
       result: null,
+      holesRevealed: !!(f.holesRevealed || hand.holesRevealed || f.kind === 'reveal'),
       _anim: true
     };
   }
@@ -296,7 +306,7 @@ function reducedMotion() {
     var st = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
     if (!st) return false;
     ui.state = st;
-    ui.bustPrompt = st.status === 'busted_pending';
+    ui.bustPrompt = false;
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
@@ -491,6 +501,11 @@ function reducedMotion() {
       '<span>Comienzo</span><span>Nombre</span><span>Juego</span>' +
       '<span>Jug.</span><span>Buy-in</span><span>Premio</span></div>' +
       '<div class="trn-lobby-list">' + rows + '</div>' +
+      (function () {
+        var Lb = global.PTTournamentLeaderboard;
+        try { if (Lb && Lb.publishHero) Lb.publishHero(); } catch (eLb) { /* */ }
+        return (Lb && Lb.legendHtml ? Lb.legendHtml() : '') + (Lb && Lb.renderHtml ? Lb.renderHtml() : '');
+      })() +
       '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-hist-list">' + histHtml + '</ul>' +
       '</section>' + resumeModal + '</div>';
@@ -507,7 +522,7 @@ function reducedMotion() {
       startingStack: 1500,
       placesPaid: 3,
       payoutLadder: 'standard',
-      onBust: 'ask',
+      onBust: 'simulate',
       exploitProPct: 0.1,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 }
     });
@@ -539,10 +554,6 @@ function reducedMotion() {
       ['standard', 'flat', 'topheavy'].map(function (x) {
         return '<option value="' + x + '"' + (d.payoutLadder === x ? ' selected' : '') + '>' + x + '</option>';
       }).join('') + '</select></label>' +
-      '<label class="trn-field">Al bust<select data-f="onBust">' +
-      '<option value="ask"' + (d.onBust === 'ask' ? ' selected' : '') + '>Preguntar</option>' +
-      '<option value="simulate"' + (d.onBust === 'simulate' ? ' selected' : '') + '>Simular resto</option>' +
-      '<option value="end"' + (d.onBust === 'end' ? ' selected' : '') + '>Finalizar</option></select></label>' +
       '<label class="trn-field">% Pros exploit<input type="number" data-f="exploitProPct" min="0" max="1" step="0.05" value="' + d.exploitProPct + '"></label>' +
       '</div>' +
       '<h3>Pesos de roles</h3><div class="trn-weights">' +
@@ -711,17 +722,30 @@ function reducedMotion() {
     return list.slice(hi).concat(list.slice(0, hi));
   }
 
+  /** Anillo visual por asiento físico (no por rotación del botón). */
+  function ringByPhysicalSeat(seats) {
+    var list = (seats || []).slice().sort(function (a, b) {
+      var pa = a.physicalSeat != null ? a.physicalSeat : (a.seat != null ? a.seat : 999);
+      var pb = b.physicalSeat != null ? b.physicalSeat : (b.seat != null ? b.seat : 999);
+      if (pa !== pb) return pa - pb;
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+    return rotateHeroFirst(list);
+  }
+
   function renderTrainerSeats(hand, state, bb) {
     if (!hand || !hand.seats || !hand.seats.length) return '';
-    var ring = rotateHeroFirst(hand.seats);
+    var ring = ringByPhysicalSeat(hand.seats);
     var coords = seatCoordsFor(ring.length);
-    var showdown = hand.stage === 'complete';
+    var showdown = hand.stage === 'complete' || !!hand.holesRevealed ||
+      !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
     var html = '';
     ring.forEach(function (s, i) {
       if (s.isHero) return; // héroe va en .hero-area (CSS .seat.hero { display:none })
       var c = coords[Math.min(i, coords.length - 1)] || coords[0];
       var guessed = state.heroGuesses && state.heroGuesses[s.id];
       var cls = ['seat', 'villain'];
+      if (s.pos === 'BTN') cls.push('dealer');
       if (s.folded) cls.push('folded');
       if (s._acting) cls.push('acting');
       if (c.top < 20) cls.push('seat-top');
@@ -796,11 +820,13 @@ function reducedMotion() {
       : ((hero.cards && hero.cards[0])
         ? hero.cards.map(faceCard).join('')
         : (backCard() + backCard()));
+    var dealerHidden = hero.pos === 'BTN' ? '' : ' hidden';
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
       '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
-      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) + ' · <span>' +
-      esc(hero.pos || '-') + '</span></div>' +
+      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) +
+      ' · <span>' + esc(hero.pos || '-') + '</span>' +
+      '<span class="hero-dealer' + dealerHidden + '" title="Dealer">D</span></div>' +
       (cards ? ('<div class="hero-cards">' + cards + '</div>') : '<div class="hero-cards hero-cards-folded"></div>') +
       '</div>';
   }
@@ -843,16 +869,20 @@ function reducedMotion() {
       ? renderTrainerSeats(hand, state, bb)
       : '';
 
-    // Sin mano activa: asientos desde seating del torneo (stacks persistentes)
+    // Sin mano activa: asientos desde seating del torneo (orden físico estable)
     if (!hand && state.status === 'running') {
       var tableId = (state.tables.find(function (t) { return t.isHeroTable; }) || {}).id;
       var onTable = tableId ? Seat.playersOnTable(state, tableId) : [];
-      var fake = onTable.map(function (p, i) {
+      onTable = onTable.slice().sort(function (a, b) {
+        return (a.seat || 0) - (b.seat || 0);
+      });
+      var fake = onTable.map(function (p) {
         return {
           id: p.id,
           name: p.name,
           isHero: !!p.isHero,
-          pos: p.isHero ? 'H' : ('S' + i),
+          pos: '',
+          physicalSeat: p.seat != null ? p.seat : 0,
           stack: p.stack,
           streetInvested: 0,
           folded: false,
@@ -866,12 +896,6 @@ function reducedMotion() {
     if (ui.anim && ui.anim.playing) {
       actions = '<div class="actions actions-grid actions-grid-1 trn-anim-actions">' +
         '<button type="button" class="btn btn-skip-anim" data-act="skip-anim">Saltar acción</button>' +
-        '</div>';
-    } else if (state.status === 'busted_pending' || ui.bustPrompt) {
-      actions = '<div class="trn-bust-prompt">' +
-        '<p>Has sido eliminado. ¿Qué quieres hacer?</p>' +
-        '<button type="button" class="btn btn-primary" data-act="sim-rest">Simular resto</button>' +
-        '<button type="button" class="btn" data-act="end-now">Finalizar ya</button>' +
         '</div>';
     } else if (hand && hand.stage === 'complete') {
       actions = '';
@@ -949,10 +973,10 @@ function reducedMotion() {
       var pid = ui.roleModalPlayerId;
       var pl = state.players.find(function (p) { return p.id === pid; });
       var cur = (state.heroGuesses && state.heroGuesses[pid]) || '';
-      var opts = (global.PTTournamentConfig.ROLE_IDS || []).map(function (rid) {
-        return '<button type="button" class="trn-role-opt' + (cur === rid ? ' is-selected' : '') +
-          '" data-guess-role="' + rid + '" data-guess-player="' + esc(pid) + '">' +
-          esc(roleLabel(rid)) + '</button>';
+      var roleIds = global.PTTournamentConfig.ROLE_IDS || [];
+      var selectOpts = '<option value="">— Elige tipo de jugador —</option>' + roleIds.map(function (rid) {
+        return '<option value="' + esc(rid) + '"' + (cur === rid ? ' selected' : '') + '>' +
+          esc(roleLabel(rid)) + '</option>';
       }).join('');
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
@@ -962,8 +986,11 @@ function reducedMotion() {
         esc(fmtBb(Number(pl && pl.stack) || 0, bb)) +
         (pl && pl.alive === false ? ' · Eliminado' : '') +
         '</p>' +
-        '<p class="muted">Adivina su rol (se revela al final)</p>' +
-        '<div class="trn-role-grid">' + opts + '</div>' +
+        '<p class="muted">Elige su tipo de jugador (el nombre no indica el perfil). Se revela al final; +2 Koins por acierto.</p>' +
+        '<label class="trn-role-select-label" for="trn-role-select">Tipo de jugador</label>' +
+        '<select id="trn-role-select" class="trn-role-select" data-guess-player="' + esc(pid) + '">' +
+        selectOpts + '</select>' +
+        '<button type="button" class="btn btn-primary" data-act="save-role-guess" data-guess-player="' + esc(pid) + '">Guardar</button> ' +
         '<button type="button" class="btn" data-act="clear-guess" data-guess-player="' + esc(pid) + '">Quitar guess</button> ' +
         '<button type="button" class="btn" data-act="close-role">Cerrar</button>' +
         '</div></div>';
@@ -1126,7 +1153,10 @@ function reducedMotion() {
           return '<li><span class="trn-gto-class trn-gto-' + esc(d.class || 'unscored') + '">' +
             esc(d.class || 'unscored') + '</span> ' + esc(d.street || '') + ' · ' +
             esc(d.label || d.action || '') +
-            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') + '</li>';
+            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') +
+            (d.mttPhase ? (' · <span class="trn-gto-phase">fase ' + esc(d.mttPhase) +
+              (d.stackBB != null ? (' · ' + esc(String(d.stackBB)) + ' bb') : '') + '</span>') : '') +
+            '</li>';
         }).join('') + '</ol></div>';
       }
     }
@@ -1210,14 +1240,16 @@ function reducedMotion() {
         global.goToTab('sessions', {
           openSessionId: sessionId,
           handId: handId || null,
-          reviewMode: mode
+          reviewMode: mode,
+          fromTournament: true
         });
         return;
       }
       if (typeof global.openSession === 'function') {
         Promise.resolve(global.openSession(sessionId, null, {
           handId: handId || null,
-          mode: mode
+          mode: mode,
+          fromTournament: true
         })).catch(function () { /* */ });
       }
     } catch (eOpen) { /* */ }
@@ -1350,16 +1382,13 @@ function reducedMotion() {
           '</span> ' +
           '<button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
           esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
-          '>Paso a paso</button> ' +
-          '<button type="button" class="btn btn-sm btn-primary" data-act="session-replay-hand" data-hand-id="' +
-          esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
-          '>Replay</button></li>';
+          '>Paso a paso</button></li>';
       }).join('');
     } else {
       var hands = (state.handLog || []).slice().reverse();
       handsHtml = hands.length
         ? hands.map(function (h) {
-          return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
+          return '<li><button type="button" class="btn btn-sm" data-act="review-hand" data-hand="' +
             esc(String(h.handIndex)) + '">Mano #' + esc(String(h.handIndex)) +
             '</button> · pot ' + esc(String(Math.round((h.pot || 0) * 10) / 10)) +
             (h.tied ? ' · chop' : '') +
@@ -1368,49 +1397,38 @@ function reducedMotion() {
         : '<li class="muted">Sin manos guardadas</li>';
     }
 
-    var bestWorst = '';
-    if (sessionStats && (sessionStats.best5 || sessionStats.worst5)) {
-      function miniList(list, title) {
-        if (!list || !list.length) return '';
-        return '<div class="trn-top-hands"><h4>' + esc(title) + '</h4><ul>' + list.map(function (h) {
-          return '<li>' + esc(h.heroCode || '') + ' ' + esc(h.heroPos || '') +
-            ' · ' + (Number(h.heroNetBB) >= 0 ? '+' : '') + esc(String(h.heroNetBB)) + ' bb' +
-            (h.id && sessionId
-              ? (' <button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
-                esc(h.id) + '" data-session-id="' + esc(sessionId) + '">Ver</button>')
-              : '') + '</li>';
-        }).join('') + '</ul></div>';
-      }
-      bestWorst = '<div class="trn-best-worst">' +
-        miniList(sessionStats.best5, 'Mejores manos') +
-        miniList(sessionStats.worst5, 'Peores manos') + '</div>';
-    }
+    var handsCount = sessionHands.length || (state.handLog || []).length;
+    var handsSection = '<details class="trn-hands-fold">' +
+      '<summary>Manos jugadas (' + handsCount + ')</summary>' +
+      '<ul class="trn-hand-log-list">' + handsHtml + '</ul></details>';
 
+    var placeLabel = r.place != null ? (r.place + 'º') : '—';
     return '<div class="trn-result panel">' +
-      '<h2>Resultado</h2>' +
-      '<p class="trn-result-place">' + (r.place != null ? (r.place + 'º') : '—') +
-      ' · Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
-      '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
-      ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP</p>' +
+      '<header class="trn-result-hero">' +
+      '<p class="trn-result-kicker">Resultado del torneo</p>' +
+      '<h2 class="trn-result-place">' + placeLabel + '</h2>' +
+      '<p class="trn-result-prize">Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
+      '<p class="trn-result-roles">Roles ' + (rs.correct || 0) + '/' + (rs.total || 0) +
+      ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP' +
+      (r.roleKoins ? (' · +' + r.roleKoins + ' Koins por roles') : '') + '</p>' +
+      '</header>' +
       statsHtml +
-      bestWorst +
       (sessionId
-        ? ('<p><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
-          esc(sessionId) + '">Abrir en Sesiones</button></p>')
+        ? ('<p class="trn-result-cta"><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
+          esc(sessionId) + '">Estadísticas del torneo</button></p>')
         : '') +
       '<h3>Clasificación</h3>' +
       '<div class="trn-hist-table-wrap"><table class="trn-hist-table"><thead><tr>' +
       '<th>#</th><th>Jugador</th><th>Stack</th><th>Premio</th></tr></thead><tbody>' +
       standHtml + '</tbody></table></div>' +
       '<h3>Roles</h3><ul class="trn-role-reveal">' + details + '</ul>' +
-      '<h3>Manos analizadas</h3><ul class="trn-hand-log-list">' + handsHtml + '</ul>' +
+      handsSection +
       '<div class="trn-setup-actions">' +
       '<button type="button" class="btn btn-primary" data-act="hub">Hub</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
       '</div></div>';
   }
 
-  /* ---------- History ---------- */
   function renderHistory() {
     var list = global.PTTournamentStore.list() || [];
     var rows = list.length
@@ -1484,9 +1502,6 @@ function reducedMotion() {
       clearActive();
       setView(VIEW.result);
       return;
-    }
-    if (state.status === 'busted_pending') {
-      ui.bustPrompt = true;
     }
     persistActive();
     paint();
@@ -1640,20 +1655,21 @@ function reducedMotion() {
           global.PTTournamentRoleGuess.clearGuess(ui.state, btn.getAttribute('data-guess-player'));
           ui.roleModalPlayerId = null;
           paint();
+        } else if (act === 'save-role-guess') {
+          var selRole = root.querySelector('#trn-role-select');
+          var rid = selRole && selRole.value;
+          var playerId = btn.getAttribute('data-guess-player');
+          if (rid && playerId && global.PTTournamentRoleGuess && PTTournamentRoleGuess.setGuess) {
+            PTTournamentRoleGuess.setGuess(ui.state, playerId, rid);
+          }
+          ui.roleModalPlayerId = null;
+          paint();
         } else if (act === 'next-hand') {
           if (ui.state && ui.state.status === 'running') {
             global.PTTournamentRunner.continueAfterHand(ui.state);
             persistActive();
           }
           afterActionAnimated();
-        } else if (act === 'sim-rest') {
-          global.PTTournamentRunner.simulateRest(ui.state);
-          clearActive();
-          afterAction();
-        } else if (act === 'end-now') {
-          global.PTTournamentRunner.finish(ui.state, { reason: 'bust' });
-          clearActive();
-          afterAction();
         } else if (act === 'clear-hist') {
           global.PTTournamentStore.clear();
           paint();
@@ -1692,6 +1708,18 @@ function reducedMotion() {
       });
     });
 
+    root.querySelectorAll('[data-act="save-role-guess"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var sel = root.querySelector('#trn-role-select');
+        var rid = sel && sel.value;
+        var playerId = btn.getAttribute('data-guess-player');
+        if (rid && playerId && global.PTTournamentRoleGuess && PTTournamentRoleGuess.setGuess) {
+          PTTournamentRoleGuess.setGuess(ui.state, playerId, rid);
+        }
+        ui.roleModalPlayerId = null;
+        paint();
+      });
+    });
     root.querySelectorAll('[data-guess-role]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         global.PTTournamentRoleGuess.setGuess(

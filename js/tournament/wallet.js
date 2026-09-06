@@ -57,8 +57,18 @@
   function ensure() {
     var data = readRaw();
     if (!data || typeof data.balance !== 'number') {
-      data = { balance: STARTING, updatedAt: new Date().toISOString(), version: 1 };
+      data = {
+        balance: STARTING,
+        updatedAt: new Date().toISOString(),
+        version: 1,
+        trainerHands: 0,
+        lessonAwards: {}
+      };
       writeRaw(data);
+    } else {
+      if (!data.lessonAwards || typeof data.lessonAwards !== 'object') data.lessonAwards = {};
+      if (typeof data.trainerHands !== 'number') data.trainerHands = Number(data.trainerHands) || 0;
+      if (data.balance < 0) data.balance = 0;
     }
     return data;
   }
@@ -107,7 +117,9 @@
     return {
       balance: data.balance,
       updatedAt: data.updatedAt,
-      version: data.version || 1
+      version: data.version || 1,
+      trainerHands: Number(data.trainerHands) || 0,
+      lessonAwards: data.lessonAwards || {}
     };
   }
 
@@ -116,10 +128,47 @@
     var local = ensure();
     var localTs = Date.parse(local.updatedAt || 0) || 0;
     var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
-    if (remoteTs >= localTs) {
-      setBalance(remote.balance, { type: 'cloud_merge' });
+    /* Preferir el saldo con timestamp más reciente; nunca negativo. */
+    if (remoteTs > localTs) {
+      setBalance(Math.max(0, remote.balance), { type: 'cloud_merge' });
+      if (remote.trainerHands != null) {
+        var d = ensure();
+        d.trainerHands = Number(remote.trainerHands) || 0;
+        d.lessonAwards = remote.lessonAwards || d.lessonAwards || {};
+        writeRaw(d);
+      }
+    } else if (remoteTs === localTs && typeof remote.balance === 'number') {
+      /* Empate: quedarse con el mínimo (no inventar koins gastados). */
+      setBalance(Math.min(local.balance, Math.max(0, remote.balance)), { type: 'cloud_merge_tie' });
     }
     return snapshot();
+  }
+
+  /** +1 Koin la primera vez que se aprueba una lección de Escuela. */
+  function earnFromLesson(lessonId) {
+    var id = String(lessonId || '');
+    if (!id) return { ok: false, reason: 'missing_lesson' };
+    var data = ensure();
+    data.lessonAwards = data.lessonAwards || {};
+    if (data.lessonAwards[id]) {
+      return { ok: true, added: 0, already: true, balance: data.balance };
+    }
+    data.lessonAwards[id] = new Date().toISOString();
+    writeRaw(data);
+    return credit(1, { type: 'school_lesson', lessonId: id });
+  }
+
+  /** +1 Koin cada 25 manos de entrenador. */
+  function noteTrainerHand() {
+    var data = ensure();
+    var n = (Number(data.trainerHands) || 0) + 1;
+    data.trainerHands = n;
+    data.updatedAt = new Date().toISOString();
+    writeRaw(data);
+    if (n > 0 && n % 25 === 0) {
+      return credit(1, { type: 'trainer_hands', hands: n });
+    }
+    return { ok: true, added: 0, trainerHands: n, balance: data.balance };
   }
 
   global.PTTournamentWallet = {
@@ -131,6 +180,8 @@
     credit: credit,
     snapshot: snapshot,
     mergeFromCloud: mergeFromCloud,
-    ensure: ensure
+    ensure: ensure,
+    earnFromLesson: earnFromLesson,
+    noteTrainerHand: noteTrainerHand
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

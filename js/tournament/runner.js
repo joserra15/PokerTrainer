@@ -367,24 +367,29 @@
 
     try {
       var Wallet = global.PTTournamentWallet;
-      if (Wallet && Wallet.credit && prizeEur > 0) {
-        Wallet.credit(prizeEur, { type: 'prize', tournamentId: state.id, place: place });
+      if (Wallet && Wallet.credit) {
+        var roleKoins = Number(roleScore.koins) || ((roleScore.correct || 0) * 2);
+        var totalCredit = Math.round(((prizeEur || 0) + roleKoins) * 100) / 100;
+        if (totalCredit > 0) {
+          Wallet.credit(totalCredit, {
+            type: 'tournament_payout',
+            tournamentId: state.id,
+            place: place,
+            prizeEur: prizeEur,
+            roleKoins: roleKoins,
+            roleCorrect: roleScore.correct || 0
+          });
+        }
+        state.result.roleKoins = roleKoins;
+        state.result.totalKoinsAwarded = totalCredit;
       }
     } catch (eW) { /* ignore */ }
     return state.result;
   }
 
   function onBustAsk(state) {
-    var mode = (state.config && state.config.onBust) || 'ask';
-    if (mode === 'simulate') {
-      return simulateRest(state);
-    }
-    if (mode === 'end') {
-      return finish(state, { reason: 'bust' });
-    }
-    state.status = 'busted_pending';
-    state._liveHand = null;
-    return { pending: true, status: 'busted_pending' };
+    /* Siempre simular el resto del field → resumen del torneo. */
+    return simulateRest(state);
   }
 
   function eliminateWeighted(state) {

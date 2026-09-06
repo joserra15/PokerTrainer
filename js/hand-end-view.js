@@ -272,12 +272,25 @@
     var wtsd = stats.wtsdPct != null ? (stats.wtsdPct + '%') : null;
     var wsd = stats.wsdPct != null ? (stats.wsdPct + '%') : null;
     var avgScore = stats.avgHandScore != null ? stats.avgHandScore : null;
-    var grade = stats.grade || (stats.styleAssess && stats.styleAssess.grade) || null;
+    var gradeRaw = stats.grade || (stats.styleAssess && stats.styleAssess.grade) || null;
+    var gradeLabel = null;
+    if (gradeRaw != null) {
+      if (typeof gradeRaw === 'object') {
+        var letter = gradeRaw.letter != null ? String(gradeRaw.letter) : '';
+        var score = gradeRaw.score != null ? String(gradeRaw.score) : '';
+        if (letter && score) gradeLabel = letter + ' · ' + score + '/10';
+        else if (letter) gradeLabel = letter;
+        else if (score) gradeLabel = score + '/10';
+        else if (gradeRaw.verdict) gradeLabel = String(gradeRaw.verdict);
+      } else {
+        gradeLabel = String(gradeRaw);
+      }
+    }
     var net = stats.netBB != null ? ((stats.netBB >= 0 ? '+' : '') + fmtBb(stats.netBB) + ' bb') : null;
     var ev = stats.evLossBB != null ? (fmtBb(stats.evLossBB) + ' bb') : null;
     var html = '<div class="trn-session-stats">' +
       (opts.title ? ('<h3>' + esc(opts.title) + '</h3>') : '') +
-      (grade ? ('<p class="trn-session-grade">Nota sesión: <strong>' + esc(String(grade)) + '</strong></p>') : '') +
+      (gradeLabel ? ('<p class="trn-session-grade">Nota sesión: <strong>' + esc(gradeLabel) + '</strong></p>') : '') +
       '<div class="trn-stats-grid">' +
       cell(stats.nHands != null ? stats.nHands : stats.hands, 'Manos') +
       cell(net, 'Net') +

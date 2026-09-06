@@ -83,19 +83,19 @@
 
 /*
  * tournament/names.js — Nicks únicos para villanos de torneo.
+ * Independientes del rol/perfil (el nick no implica el tipo de jugador).
  */
 (function (global) {
   'use strict';
 
   var POOL = [
-    'Alex_92', 'RiverRat', 'NitQueen', 'LagBomb', 'ChipChase', 'BluffBay',
-    'AceHunter', 'FoldEquity', 'PotCommit', 'SilentSB', 'ButtonBoss', 'FishFinder',
-    'CoolerKid', 'MoonRun', 'TiltProof', 'GTOGhost', 'ManiacMax', 'TagTiger',
-    'BubbleBoy', 'ICMWizard', 'ShoveShow', 'FlopHero', 'TurnTorch', 'RiverGod',
-    'StackSniper', 'BlindBandit', 'AnteAngel', 'MTTMaven', 'SpinKing', 'CashCow',
-    'NutsNora', 'DrawDan', 'ValueVic', 'FloatFlo', 'CBetCarl', 'ProbePam',
-    'CheckRaise', 'OverbetOz', 'MinRaise', 'PotOdds', 'ImpliedIz', 'BlockerBen',
-    'RangeRob', 'ComboKim', 'EquityEd', 'FoldFam', 'CallStation', 'ThreeBetTom',
+    'Alex_92', 'RiverRat', 'ChipChase', 'BluffBay', 'AceHunter', 'FoldEquity',
+    'PotCommit', 'SilentSB', 'ButtonBoss', 'CoolerKid', 'MoonRun', 'TiltProof',
+    'GTOGhost', 'BubbleBoy', 'ICMWizard', 'ShoveShow', 'FlopHero', 'TurnTorch',
+    'RiverGod', 'StackSniper', 'BlindBandit', 'AnteAngel', 'MTTMaven', 'SpinKing',
+    'CashCow', 'NutsNora', 'DrawDan', 'ValueVic', 'FloatFlo', 'CBetCarl',
+    'ProbePam', 'CheckRaise', 'OverbetOz', 'MinRaise', 'PotOdds', 'ImpliedIz',
+    'BlockerBen', 'RangeRob', 'ComboKim', 'EquityEd', 'FoldFam', 'ThreeBetTom',
     'FourBetFay', 'SqueezeSue', 'IsoIan', 'LimpLarry', 'StealSam', 'ReSteal',
     'Shorty', 'CoverCat', 'MidStack', 'DeepDive', 'PushFold', 'NashNora',
     'Harville', 'BubbleFactor', 'PayJump', 'LadderUp', 'FinalTable', 'HeadsUpHz',
@@ -103,8 +103,9 @@
     'Monotone', 'PairedPot', 'WetBoard', 'DryAsDust', 'ScareCard', 'BlankRiver',
     'Backdoor', 'Gutshot', 'OESD', 'FlushDraw', 'SetMine', 'Overpair',
     'Underpair', 'TwoPair', 'TopPair', 'SecondPair', 'AirBall', 'Polarized',
-    'Merged', 'Linear', 'WideOpen', 'TightIsRight', 'LooseLucy', 'PassivePete',
-    'AggroAnna', 'NittyNed', 'Splashy', 'RockSolid', 'TrapDoor', 'SlowRoll'
+    'Merged', 'Linear', 'WideOpen', 'Splashy', 'RockSolid', 'TrapDoor',
+    'SlowRoll', 'OakTable', 'NightOwl', 'SoftServe', 'CopperPot', 'SilverChip',
+    'BlueFelt', 'CardSharkX', 'QuietRiver', 'OpenSeat', 'LateReg', 'EarlyBird'
   ];
 
   function shuffle(arr, rnd) {
@@ -206,8 +207,9 @@
   }
 
   function normalizeOnBust(v) {
-    if (v === 'simulate' || v === 'end' || v === 'ask') return v;
-    return 'ask';
+    /* Compat: valores antiguos se normalizan a simular el resto. */
+    if (v === 'simulate' || v === 'end' || v === 'ask') return 'simulate';
+    return 'simulate';
   }
 
   var PRESETS = {
@@ -224,7 +226,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
       exploitProPct: 0,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     medium: {
       id: 'medium',
@@ -239,7 +241,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
       exploitProPct: 0.15,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     hard: {
       id: 'hard',
@@ -254,7 +256,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
       exploitProPct: 0.4,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     sng6: {
       id: 'sng6',
@@ -269,7 +271,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.1,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     sng9: {
       id: 'sng9',
@@ -284,7 +286,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.15,
-      onBust: 'ask'
+      onBust: 'simulate'
     }
   };
 
@@ -370,6 +372,10 @@
 
 /*
  * tournament/seating.js — Asignación de mesas, bust-outs y rebalance / FT.
+ *
+ * Los rivales de la mesa del Hero se mantienen entre manos. Solo entran
+ * jugadores nuevos al liberarse un asiento (eliminación) o al fusionar mesas
+ * hacia la mesa final. No se baraja el field en cada mano.
  */
 (function (global) {
   'use strict';
@@ -424,50 +430,252 @@
     });
   }
 
-  /** Tras eliminaciones: compacta mesas y fusiona a FT si cabe en una. */
+  function shuffleInPlace(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function nextTableId(tables) {
+    var n = 1;
+    while (tables.some(function (t) { return t.id === 'T' + n; })) n++;
+    return 'T' + n;
+  }
+
+  function playerById(alive, id) {
+    for (var i = 0; i < alive.length; i++) {
+      if (alive[i].id === id) return alive[i];
+    }
+    return null;
+  }
+
+  /** Asigna asiento compacto 0..n-1 preservando el orden relativo actual. */
+  function reindexSeats(table, alive) {
+    table.seatIds.forEach(function (id, idx) {
+      var p = playerById(alive, id);
+      if (p) {
+        p.tableId = table.id;
+        p.seat = idx;
+      }
+    });
+  }
+
+  function seatPlayer(table, player, alive) {
+    if (!table || !player) return;
+    if (table.seatIds.indexOf(player.id) >= 0) return;
+    player.tableId = table.id;
+    player.seat = table.seatIds.length;
+    table.seatIds.push(player.id);
+    reindexSeats(table, alive);
+  }
+
+  function detachPlayer(tables, player) {
+    if (!player) return;
+    tables.forEach(function (tb) {
+      tb.seatIds = (tb.seatIds || []).filter(function (id) { return id !== player.id; });
+    });
+    player.tableId = null;
+    player.seat = null;
+  }
+
+  /**
+   * Tras eliminaciones: quita busteds, fusiona mesas si hace falta y rellena
+   * huecos. No baraja rivales de la mesa Hero entre manos.
+   */
   function rebalance(state) {
-    var cfg = state.config;
+    var cfg = state.config || {};
     var seats = cfg.seatsPerTable || 6;
     var alive = alivePlayers(state);
-    if (alive.length <= 1) return { merged: false, tables: 1 };
+    var prevCount = state._lastTableCount || ((state.tables && state.tables.length) || 0);
+
+    if (alive.length <= 1) {
+      if (alive.length === 1) {
+        var only = alive[0];
+        var tid = only.tableId || 'T1';
+        only.tableId = tid;
+        only.seat = 0;
+        state.tables = [{ id: tid, seatIds: [only.id], isHeroTable: !!only.isHero }];
+      } else {
+        state.tables = [];
+      }
+      state._lastTableCount = state.tables.length;
+      return { merged: false, tables: state.tables.length };
+    }
 
     var needTables = Math.ceil(alive.length / seats);
-    // Reparte en mesas 0..needTables-1 lo más equilibrado posible
-    var tables = [];
-    for (var t = 0; t < needTables; t++) {
-      tables.push({ id: 'T' + (t + 1), seatIds: [], isHeroTable: false });
-    }
-    // Mantener Hero en mesa 1 si posible
     var hero = alive.find(function (p) { return p.isHero; });
-    var others = alive.filter(function (p) { return !p.isHero; });
-    // Shuffle ligero de others para variedad
-    for (var i = others.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var tmp = others[i];
-      others[i] = others[j];
-      others[j] = tmp;
+    var isInitial = !state.tables || !state.tables.length;
+    var tables = [];
+    var seated = {};
+
+    if (!isInitial) {
+      (state.tables || []).forEach(function (tb) {
+        var ids = (tb.seatIds || []).filter(function (id) {
+          return !!playerById(alive, id);
+        });
+        if (!ids.length) return;
+        var nt = {
+          id: tb.id,
+          seatIds: ids.slice(),
+          isHeroTable: !!tb.isHeroTable
+        };
+        reindexSeats(nt, alive);
+        ids.forEach(function (id) { seated[id] = true; });
+        tables.push(nt);
+      });
     }
-    var ordered = hero ? [hero].concat(others) : others;
-    ordered.forEach(function (p, idx) {
-      var ti = idx % needTables;
-      var seat = tables[ti].seatIds.length;
-      p.tableId = tables[ti].id;
-      p.seat = seat;
-      tables[ti].seatIds.push(p.id);
+
+    var orphans = alive.filter(function (p) { return !seated[p.id]; });
+
+    if (isInitial) {
+      var others = alive.filter(function (p) { return !p.isHero; });
+      shuffleInPlace(others);
+      orphans = hero ? [hero].concat(others) : others;
+      tables = [];
+      for (var t = 0; t < needTables; t++) {
+        tables.push({ id: 'T' + (t + 1), seatIds: [], isHeroTable: false });
+      }
+      orphans.forEach(function (p, idx) {
+        seatPlayer(tables[idx % needTables], p, alive);
+      });
+      orphans = [];
+    }
+
+    /* Asegurar que Hero tiene mesa. */
+    if (hero && !playerById(alive, hero.id).tableId) {
+      var ht0 = tables.find(function (tb) { return tb.isHeroTable; }) || tables[0];
+      if (!ht0) {
+        ht0 = { id: 'T1', seatIds: [], isHeroTable: true };
+        tables.push(ht0);
+      }
+      seatPlayer(ht0, hero, alive);
+      orphans = orphans.filter(function (p) { return p.id !== hero.id; });
+    }
+
+    /* Romper mesas sobrantes (nunca la del Hero) hasta needTables. */
+    function breakSmallestNonHero() {
+      var candidates = tables
+        .filter(function (tb) { return !tb.isHeroTable; })
+        .sort(function (a, b) {
+          if (a.seatIds.length !== b.seatIds.length) return a.seatIds.length - b.seatIds.length;
+          return String(a.id).localeCompare(String(b.id));
+        });
+      var victim = candidates[0];
+      if (!victim) return false;
+      var moved = victim.seatIds.slice();
+      tables = tables.filter(function (tb) { return tb.id !== victim.id; });
+      moved.forEach(function (id) {
+        var p = playerById(alive, id);
+        if (!p) return;
+        p.tableId = null;
+        p.seat = null;
+        orphans.push(p);
+        delete seated[id];
+      });
+      return true;
+    }
+
+    while (tables.length > needTables) {
+      if (!breakSmallestNonHero()) break;
+    }
+
+    while (tables.length < needTables) {
+      tables.push({ id: nextTableId(tables), seatIds: [], isHeroTable: false });
+    }
+
+    /* Marcar mesa Hero. */
+    tables.forEach(function (tb) {
+      tb.isHeroTable = !!(hero && tb.seatIds.indexOf(hero.id) >= 0);
     });
-    if (hero) {
-      var ht = tables.find(function (tb) { return tb.seatIds.indexOf(hero.id) >= 0; });
-      if (ht) ht.isHeroTable = true;
-    } else if (tables[0]) {
-      tables[0].isHeroTable = true;
+
+    orphans = orphans.filter(function (p) {
+      return p && p.alive && p.stack > 0 && !tables.some(function (tb) {
+        return tb.seatIds.indexOf(p.id) >= 0;
+      });
+    });
+    orphans.sort(function (a, b) {
+      if (!!a.isHero !== !!b.isHero) return a.isHero ? -1 : 1;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    function openSeats(tb) {
+      return Math.max(0, seats - (tb.seatIds || []).length);
     }
+
+    function pickTargetTable() {
+      var withRoom = tables.filter(function (tb) { return openSeats(tb) > 0; });
+      if (!withRoom.length) {
+        return tables.slice().sort(function (a, b) {
+          return a.seatIds.length - b.seatIds.length;
+        })[0] || null;
+      }
+      withRoom.sort(function (a, b) {
+        /* Prioriza rellenar la mesa Hero (sustituir eliminados) y luego equilibrar. */
+        if (a.isHeroTable !== b.isHeroTable) return a.isHeroTable ? -1 : 1;
+        if (a.seatIds.length !== b.seatIds.length) return a.seatIds.length - b.seatIds.length;
+        return String(a.id).localeCompare(String(b.id));
+      });
+      return withRoom[0];
+    }
+
+    orphans.forEach(function (p) {
+      var target = pickTargetTable();
+      if (!target) return;
+      seatPlayer(target, p, alive);
+    });
+
+    /* Si alguna mesa sigue con 1 jugador y hay >1 mesa, romperla. */
+    var guard = 0;
+    while (guard++ < 20) {
+      var singleton = tables.find(function (tb) {
+        return !tb.isHeroTable && tb.seatIds.length > 0 && tb.seatIds.length < 2;
+      });
+      if (!singleton || tables.length <= needTables) break;
+      if (!breakSmallestNonHero()) break;
+      orphans = alive.filter(function (p) {
+        return !tables.some(function (tb) { return tb.seatIds.indexOf(p.id) >= 0; });
+      });
+      orphans.forEach(function (p) {
+        var target = pickTargetTable();
+        if (target) seatPlayer(target, p, alive);
+      });
+    }
+
+    tables = tables.filter(function (tb) { return tb.seatIds && tb.seatIds.length; });
+    tables.forEach(function (tb) {
+      tb.isHeroTable = !!(hero && tb.seatIds.indexOf(hero.id) >= 0);
+      reindexSeats(tb, alive);
+    });
+
+    /* Si tras limpiezas sobran mesas, fusionar otra vez. */
+    while (tables.length > needTables) {
+      if (!breakSmallestNonHero()) break;
+      orphans = alive.filter(function (p) {
+        return !tables.some(function (tb) { return tb.seatIds.indexOf(p.id) >= 0; });
+      });
+      orphans.forEach(function (p) {
+        var target = pickTargetTable();
+        if (target) seatPlayer(target, p, alive);
+      });
+      tables = tables.filter(function (tb) { return tb.seatIds.length; });
+      tables.forEach(function (tb) {
+        tb.isHeroTable = !!(hero && tb.seatIds.indexOf(hero.id) >= 0);
+        reindexSeats(tb, alive);
+      });
+    }
+
     state.tables = tables;
-    var merged = needTables === 1 && (state._lastTableCount || 0) > 1;
-    state._lastTableCount = needTables;
+    var merged = needTables === 1 && prevCount > 1;
+    state._lastTableCount = tables.length;
     if (merged) {
+      state.events = state.events || [];
       state.events.push({ type: 'final_table', at: Date.now(), players: alive.length });
     }
-    return { merged: merged, tables: needTables };
+    return { merged: merged, tables: tables.length };
   }
 
   function assignButton(state, tableId) {
@@ -475,10 +683,21 @@
       return (a.seat || 0) - (b.seat || 0);
     });
     if (!seats.length) return null;
-    var key = '_btn_' + tableId;
-    var prev = state[key] != null ? state[key] : -1;
-    var next = (prev + 1) % seats.length;
-    state[key] = next;
+    var idKey = '_btnPlayer_' + tableId;
+    var idxKey = '_btn_' + tableId;
+    var prevId = state[idKey] || null;
+    var prevIdx = -1;
+    if (prevId) {
+      prevIdx = seats.findIndex(function (p) { return p.id === prevId; });
+    }
+    /* Fallback legado: índice guardado (puede desalinear tras bust+reindex). */
+    if (prevIdx < 0 && state[idxKey] != null) {
+      var legacy = Number(state[idxKey]);
+      if (isFinite(legacy) && legacy >= 0) prevIdx = Math.min(legacy, seats.length - 1);
+    }
+    var next = (prevIdx + 1) % seats.length;
+    state[idxKey] = next;
+    state[idKey] = seats[next].id;
     return seats[next].id;
   }
 
@@ -486,15 +705,12 @@
     if (n <= 2) return ['SB', 'BB'];
     if (n <= 3) return ['BTN', 'SB', 'BB'];
     if (n <= 6) return ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'].slice(6 - n);
-    // 7–9
     var nine = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
     return nine.slice(9 - n);
   }
 
   /**
    * Orden horario físico desde el botón: BTN → SB → BB → early (UTG…) → CO.
-   * (Antes SB/BB iban al final del anillo y, al rotar al héroe, quedaban
-   * “a la derecha” del BTN en vez de a su izquierda en el sentido de las agujas.)
    */
   function seatOrderWithButton(players, buttonPlayerId) {
     var sorted = players.slice().sort(function (a, b) { return (a.seat || 0) - (b.seat || 0); });
@@ -505,7 +721,6 @@
     var n = rotated.length;
     var labels;
     if (n === 2) {
-      /* Heads-up: BTN = SB, el otro es BB. */
       labels = ['BTN', 'BB'];
     } else {
       labels = new Array(n);
@@ -521,7 +736,12 @@
       }
     }
     return rotated.map(function (p, i) {
-      return { player: p, pos: labels[i], seatIndex: i };
+      return {
+        player: p,
+        pos: labels[i],
+        seatIndex: i,
+        physicalSeat: p.seat != null ? p.seat : i
+      };
     });
   }
 
@@ -702,18 +922,60 @@
     return hi[0] + lo[0] + (hi[1] === lo[1] ? 's' : 'o');
   }
 
-  function mapActionId(action) {
+  function mapActionId(action, opts) {
     if (!action) return 'fold';
     var id = action.id || action;
-    if (id === 'allin') return action.amount != null && action.amount > 0 ? 'raise' : 'allin';
+    opts = opts || {};
+    /* En push/fold el shove debe evaluarse como all-in, no como raise cash. */
+    if (id === 'allin') {
+      if (opts.preferAllin) return 'allin';
+      if (opts.pushPhase) return 'allin';
+      return action.amount != null && action.amount > 0 ? 'raise' : 'allin';
+    }
     return id;
   }
 
-  function availableFromOptions(opts) {
+  function availableFromOptions(opts, preferAllin) {
     return (opts || []).map(function (o) {
-      var id = o.id === 'allin' ? 'raise' : o.id;
-      return id;
-    }).filter(function (id, i, arr) { return arr.indexOf(id) === i; });
+      /* Conservar allin: en MTT short el shove no es un raise cash. */
+      if (o.id === 'allin') return 'allin';
+      return o.id;
+    }).filter(function (id, i, arr) { return id && arr.indexOf(id) === i; });
+  }
+
+  function resolveTournamentPhase(stackBB, hand) {
+    var Tax = global.PTFormatTaxonomy;
+    var cfg = {
+      formatHub: 'mtt',
+      gameType: 'mtt',
+      stackBB: stackBB,
+      mttPhase: (hand && hand.mttPhase) || (hand && hand.state && hand.state.mttPhase) || 'auto'
+    };
+    if (hand && hand.state) {
+      if (hand.state.playersLeft != null) cfg.playersLeft = hand.state.playersLeft;
+      if (hand.state.placesPaid != null) cfg.placesPaid = hand.state.placesPaid;
+      if (hand.state.mttStructureSituation) cfg.mttStructureSituation = hand.state.mttStructureSituation;
+    }
+    if (Tax && typeof Tax.resolvePhase === 'function') {
+      try { return Tax.resolvePhase(cfg); } catch (e) { /* */ }
+    }
+    if (Tax && typeof Tax.phaseFromStackBB === 'function') {
+      try { return Tax.phaseFromStackBB(stackBB, 'mtt'); } catch (e2) { /* */ }
+    }
+    var bb = Number(stackBB) || 100;
+    if (bb <= 12) return 'push';
+    if (bb <= 25) return 'short';
+    if (bb <= 45) return 'mid';
+    return 'early';
+  }
+
+  function isFirstInOpen(hand, heroSeat) {
+    if (!hand || hand.street !== 'preflop') return false;
+    if (hand.openerId) return false;
+    /* Solo ciegas en el bote: currentBet == bb y nadie ha abierto. */
+    var bb = Math.max(1, Number(hand.bb) || 1);
+    var cur = Number(hand.currentBet) || 0;
+    return cur <= bb + 0.001;
   }
 
   var CLASS_MAP = {
@@ -739,23 +1001,34 @@
     if (a === 'call') return amt > 0 ? ('Call ' + (Math.round(amt / bbN * 10) / 10) + ' bb') : 'Call';
     if (a === 'bet') return 'Bet ' + (Math.round(amt / bbN * 10) / 10) + ' bb';
     if (a === 'raise') return 'Raise to ' + (Math.round(amt / bbN * 10) / 10) + ' bb';
-    if (a === 'allin') return 'All-in';
+    if (a === 'allin') return amt > 0 ? ('All-in ' + (Math.round(amt / bbN * 10) / 10) + ' bb') : 'All-in';
     return a ? (a.charAt(0).toUpperCase() + a.slice(1)) : 'Acción';
   }
 
-  function optionBreakdown(strategy) {
+  function optionBreakdown(strategy, opts) {
     if (!strategy || typeof strategy !== 'object') return null;
-    var keys = Object.keys(strategy);
+    opts = opts || {};
+    var freqs = Object.assign({}, strategy);
+    /* Push/fold: raise y allin son el mismo shove; no mostrar «Raise to 0 bb». */
+    if (opts.pushFold || (freqs.allin != null && freqs.raise != null)) {
+      var shove = Math.max(Number(freqs.allin) || 0, Number(freqs.raise) || 0);
+      if (shove > 0) {
+        freqs.allin = shove;
+        delete freqs.raise;
+      }
+    }
+    var keys = Object.keys(freqs);
     if (!keys.length) return null;
     return keys.map(function (id) {
-      var freq = Number(strategy[id]) || 0;
+      var freq = Number(freqs[id]) || 0;
       return {
         id: id,
         label: actionLabel(id, 0, 1),
         pct: Math.round(freq * 1000) / 10,
         frequency: freq
       };
-    }).sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+    }).filter(function (o) { return o.frequency >= 0.005; })
+      .sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
   }
 
   function vsPosition(hand, hero) {
@@ -773,14 +1046,39 @@
 
   function buildInput(hand, heroSeat, action) {
     var bb = Math.max(1, Number(hand.bb) || 1);
-    var toCall = Math.max(0, (Number(hand.currentBet) || 0) - (Number(heroSeat.streetInvested) || 0));
+    var streetInv = Number(heroSeat.streetInvested) || 0;
+    var stackLeft = Number(heroSeat.stack) || 0;
+    /* Stack efectivo al inicio de la decisión (fichas detrás + ya invertidas en la calle). */
+    var stackBB = Math.round(((stackLeft + streetInv) / bb) * 100) / 100;
+    if (stackBB <= 0) stackBB = Math.round((stackLeft / bb) * 100) / 100;
+
+    var firstIn = isFirstInOpen(hand, heroSeat);
+    var rawToCall = Math.max(0, (Number(hand.currentBet) || 0) - streetInv);
+    /* RFI: las ciegas no son una apuesta rival — toCall efectivo 0 (como en Entrenar). */
+    var toCall = firstIn ? 0 : rawToCall;
+
+    var phase = resolveTournamentPhase(stackBB, hand);
+    var pushPhase = phase === 'push' || stackBB <= 12;
+    var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
+
     var street = hand.street === 'preflop' ? 'preflop' : hand.street;
-    var avail = availableFromOptions(hand.heroOptions);
-    if (!avail.length) avail = ['fold', 'check', 'call', 'bet', 'raise'];
-    var chosen = mapActionId(action);
+    var preferAllin = pushPhase || (action && action.id === 'allin' && shortPhase);
+    var avail = availableFromOptions(hand.heroOptions, preferAllin);
+    if (!avail.length) {
+      avail = preferAllin ? ['fold', 'allin'] : ['fold', 'check', 'call', 'bet', 'raise'];
+    }
+    if (preferAllin && avail.indexOf('allin') < 0) avail.push('allin');
+
+    var chosen = mapActionId(action, { pushPhase: pushPhase, preferAllin: preferAllin });
+    /* Shove a stack corto: si el motor lo mapeó a raise, forzar allin en push. */
+    if (preferAllin && action && action.id === 'allin') chosen = 'allin';
     if (avail.indexOf(chosen) < 0) avail.push(chosen);
 
     var aliveCount = (hand.seats || []).filter(function (s) { return !s.folded; }).length;
+    var anteBB = 0;
+    if (hand.ante != null) anteBB = Number(hand.ante) / bb;
+    else if (hand.anteBB != null) anteBB = Number(hand.anteBB);
+
     var input = {
       spotKind: street === 'preflop' ? (hand.openerId ? 'vsRFI' : 'RFI') : 'postflop',
       street: street,
@@ -791,17 +1089,28 @@
       board: (hand.board || []).map(cardCode),
       potBB: (Number(hand.pot) || 0) / bb,
       toCallBB: toCall / bb,
-      potBeforeBB: Math.max(((Number(hand.pot) || 0) - toCall) / bb, 0.1),
-      stackDepth: (Number(heroSeat.stack) || 0) / bb,
-      effStack: (Number(heroSeat.stack) || 0) / bb,
-      heroRemainingBB: (Number(heroSeat.stack) || 0) / bb,
+      potBeforeBB: Math.max(((Number(hand.pot) || 0) - (firstIn ? 0 : rawToCall)) / bb, 0.1),
+      stackDepth: stackBB,
+      stackBB: stackBB,
+      effStack: stackBB,
+      heroRemainingBB: Math.round((stackLeft / bb) * 100) / 100,
       availableActions: avail,
       chosenAction: chosen,
       formatHub: 'mtt',
+      gameType: 'mtt',
+      mttPhase: phase,
+      resolvedPhase: phase,
+      effectivePhase: phase,
+      pushFold: !!pushPhase,
+      preflopMode: pushPhase ? 'push' : (shortPhase && street === 'preflop' ? 'short' : 'std'),
+      scenario: pushPhase ? 'push' : undefined,
+      anteBB: anteBB,
+      icmEnabled: true,
       villainType: villainType(hand, heroSeat),
       scoreMode: 'gto',
       multiway: aliveCount >= 3,
-      aliveCount: aliveCount
+      aliveCount: aliveCount,
+      phaseNote: 'Fase MTT «' + phase + '» · ' + stackBB + ' bb'
     };
     if (action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
       input.betSizeBB = Number(action.amount) / bb;
@@ -824,7 +1133,9 @@
   }
 
   function evaluateHeroAction(hand, heroSeat, action) {
-    var chosen = mapActionId(action);
+    var input = null;
+    try { input = buildInput(hand, heroSeat, action); } catch (eBuild) { input = null; }
+    var chosen = (input && input.chosenAction) || mapActionId(action, { preferAllin: true });
     var base = {
       street: hand.street,
       action: chosen,
@@ -839,16 +1150,32 @@
       evLoss: 0,
       frequency: 0,
       gto: null,
-      optionBreakdown: null
+      optionBreakdown: null,
+      mttPhase: input && input.mttPhase || null,
+      stackBB: input && input.stackBB || null,
+      phaseNote: input && input.phaseNote || null
     };
 
     var GTO = global.GTO;
     if (!GTO || typeof GTO.evaluateSpot !== 'function') return base;
+    if (!input) return base;
 
     try {
-      var input = buildInput(hand, heroSeat, action);
       var result = GTO.evaluateSpot(input);
       var graded = gradeFromEval(result, chosen);
+      /* Si el shove se etiquetó como raise y la estrategia solo tiene allin, reintenta. */
+      if ((graded.class === 'error' || graded.frequency < 0.05)
+        && chosen === 'raise' && action && action.id === 'allin'
+        && input.pushFold) {
+        input.chosenAction = 'allin';
+        if (input.availableActions.indexOf('allin') < 0) input.availableActions.push('allin');
+        result = GTO.evaluateSpot(input);
+        graded = gradeFromEval(result, 'allin');
+        chosen = 'allin';
+        base.action = chosen;
+        base.chosen = chosen;
+        base.label = actionLabel(chosen, action && action.amount, hand.bb);
+      }
       base.unscored = graded.class === 'unscored';
       base.class = graded.class;
       base.evLoss = graded.evLoss;
@@ -857,13 +1184,20 @@
       base.explanation = graded.explanation;
       base.strategy = graded.strategy;
       base.gto = graded.strategy;
-      base.optionBreakdown = optionBreakdown(graded.strategy);
+      base.optionBreakdown = optionBreakdown(graded.strategy, { pushFold: !!input.pushFold });
+      if (result && result.evaluation && result.evaluation.phaseNote) {
+        base.phaseNote = result.evaluation.phaseNote;
+      }
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
         position: input.position,
         potBB: input.potBB,
-        toCallBB: input.toCallBB
+        toCallBB: input.toCallBB,
+        stackBB: input.stackBB,
+        mttPhase: input.mttPhase,
+        pushFold: input.pushFold,
+        preflopMode: input.preflopMode
       };
     } catch (e) {
       base.error = String(e && e.message || e);
@@ -906,7 +1240,9 @@
     evaluateHeroAction: evaluateHeroAction,
     summarizeDecisions: summarizeDecisions,
     buildInput: buildInput,
-    mapClass: mapClass
+    mapClass: mapClass,
+    resolveTournamentPhase: resolveTournamentPhase,
+    isFirstInOpen: isFirstInOpen
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -1476,6 +1812,9 @@
         proStyle: ts.player.proStyle || null,
         pos: ts.pos,
         seatIndex: ts.seatIndex != null ? ts.seatIndex : i,
+        physicalSeat: ts.physicalSeat != null
+          ? ts.physicalSeat
+          : (ts.player && ts.player.seat != null ? ts.player.seat : i),
         cards: dealt.holes[i],
         startStack: stack,
         stack: stack,
@@ -1606,6 +1945,7 @@
       board: (hand.board || []).slice(),
       pot: hand.pot,
       currentBet: hand.currentBet,
+      holesRevealed: !!(meta.holesRevealed || hand.holesRevealed),
       seats: hand.seats.map(seatSnap)
     };
     hand._frames.push(frame);
@@ -1761,10 +2101,15 @@
   }
 
   function finishShowdown(hand) {
-    /* Runout carta a carta para que se vea, igual que en el entrenador. */
+    /* All-in / showdown: primero se revelan los hole cards de quienes siguen
+       en el bote, pausa corta, y luego el runout de comunitarias. */
+    if (hand.board.length < 5) {
+      hand.holesRevealed = true;
+      pushFrame(hand, { kind: 'reveal', holesRevealed: true });
+    }
     while (hand.board.length < 5) {
       hand.board.push(hand.boardDeck[hand.board.length]);
-      pushFrame(hand, { kind: 'street' });
+      pushFrame(hand, { kind: 'street', holesRevealed: true });
     }
     var C = global.Cards;
     var cont = alive(hand);
@@ -2176,6 +2521,7 @@
   'use strict';
 
   var XP_PER_CORRECT = 15;
+  var KOINS_PER_CORRECT = 2;
   var XP_CAP = 150;
 
   var ROLE_LABELS = {
@@ -2225,18 +2571,21 @@
     });
     var accuracy = total ? Math.round((correct / total) * 1000) / 10 : 0;
     var xp = Math.min(XP_CAP, correct * XP_PER_CORRECT);
+    var koins = correct * KOINS_PER_CORRECT;
     return {
       total: total,
       correct: correct,
       accuracy: accuracy,
       details: details,
-      xp: xp
+      xp: xp,
+      koins: koins
     };
   }
 
   global.PTTournamentRoleGuess = {
     ROLE_LABELS: ROLE_LABELS,
     XP_PER_CORRECT: XP_PER_CORRECT,
+    KOINS_PER_CORRECT: KOINS_PER_CORRECT,
     XP_CAP: XP_CAP,
     setGuess: setGuess,
     clearGuess: clearGuess,
@@ -2469,6 +2818,28 @@
     return rank + '/' + left + ' (' + entries + ')';
   }
 
+  /** Una sola línea: avance + posición (visible en móvil). */
+  function progressChipText(state) {
+    var Blinds = global.PTTournamentBlinds;
+    var Seat = global.PTTournamentSeating;
+    var St = global.PTTournamentState;
+    var cfg = state.config || {};
+    var lv = currentBlinds(state);
+    var into = Blinds && Blinds.handsIntoLevel
+      ? Blinds.handsIntoLevel(cfg.blindSchedule, state.handIndex || 0)
+      : 0;
+    var until = Blinds && Blinds.handsUntilNext
+      ? Blinds.handsUntilNext(cfg.blindSchedule, state.handIndex || 0)
+      : null;
+    var rank = Seat && Seat.heroFieldRank ? Seat.heroFieldRank(state) : null;
+    var left = St && St.playersLeft ? St.playersLeft(state) : 0;
+    var pos = rank != null ? (rank + 'º/' + left) : ('—/' + left);
+    var prog = until == null
+      ? ('Nv.' + lv.level + ' fin')
+      : ('Nv.' + lv.level + ' ' + into + '/' + lv.hands);
+    return prog + ' · ' + pos;
+  }
+
   function compactChips(state) {
     var Blinds = global.PTTournamentBlinds;
     var St = global.PTTournamentState;
@@ -2480,6 +2851,11 @@
     var kind = (cfg.kind === 'sng' ? 'SNG' : 'MTT');
     return [
       { text: kind, cls: 'trn-chip trn-chip-kind', title: cfg.name || kind },
+      {
+        text: progressChipText(state),
+        cls: 'trn-chip trn-chip-progress',
+        title: 'Avance del torneo y posición de Hero'
+      },
       { text: stackBb + ' bb', cls: 'trn-chip trn-chip-stack', title: 'Stack Hero' },
       { text: fieldChip(state), cls: 'trn-chip trn-chip-field', title: 'Posición en el field' },
       {
@@ -2503,7 +2879,7 @@
     }
     if (euros.length > n) parts.push('…');
     if (!parts.length) return '—';
-    return { html: true, content: '<ul class="trn-payout-list">' + parts.map(function (p, i) {
+    return { html: true, content: '<ul class="trn-payout-list">' + parts.map(function (p) {
       return '<li>' + p + '</li>';
     }).join('') + '</ul>' };
   }
@@ -2559,8 +2935,10 @@
     var top = topStacks(state, 10);
     var topLabel = top.length
       ? { html: true, content: '<ol class="trn-stack-list">' + top.map(function (t) {
-        return '<li class="' + (t.isHero ? 'is-hero' : '') + '"><span class="trn-stack-rank">' +
-          t.rank + '.</span> <span class="trn-stack-name">' + t.name + '</span> ' +
+        var heroTag = t.isHero ? ' <span class="trn-stack-hero-tag">(Hero)</span>' : '';
+        return '<li class="' + (t.isHero ? 'is-hero' : '') + '">' +
+          '<span class="trn-stack-rank">' + t.rank + '.</span> ' +
+          '<span class="trn-stack-name">' + t.name + '</span>' + heroTag + ' ' +
           '<span class="trn-stack-amt">' + fmtNum(t.stack) + ' (' + t.bb + ' bb)</span></li>';
       }).join('') + '</ol>' }
       : '—';
@@ -2587,7 +2965,8 @@
     infoRows: infoRows,
     currentBlinds: currentBlinds,
     topStacks: topStacks,
-    fmtKoins: fmtKoins
+    fmtKoins: fmtKoins,
+    progressChipText: progressChipText
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -2650,8 +3029,18 @@
   function ensure() {
     var data = readRaw();
     if (!data || typeof data.balance !== 'number') {
-      data = { balance: STARTING, updatedAt: new Date().toISOString(), version: 1 };
+      data = {
+        balance: STARTING,
+        updatedAt: new Date().toISOString(),
+        version: 1,
+        trainerHands: 0,
+        lessonAwards: {}
+      };
       writeRaw(data);
+    } else {
+      if (!data.lessonAwards || typeof data.lessonAwards !== 'object') data.lessonAwards = {};
+      if (typeof data.trainerHands !== 'number') data.trainerHands = Number(data.trainerHands) || 0;
+      if (data.balance < 0) data.balance = 0;
     }
     return data;
   }
@@ -2700,7 +3089,9 @@
     return {
       balance: data.balance,
       updatedAt: data.updatedAt,
-      version: data.version || 1
+      version: data.version || 1,
+      trainerHands: Number(data.trainerHands) || 0,
+      lessonAwards: data.lessonAwards || {}
     };
   }
 
@@ -2709,10 +3100,47 @@
     var local = ensure();
     var localTs = Date.parse(local.updatedAt || 0) || 0;
     var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
-    if (remoteTs >= localTs) {
-      setBalance(remote.balance, { type: 'cloud_merge' });
+    /* Preferir el saldo con timestamp más reciente; nunca negativo. */
+    if (remoteTs > localTs) {
+      setBalance(Math.max(0, remote.balance), { type: 'cloud_merge' });
+      if (remote.trainerHands != null) {
+        var d = ensure();
+        d.trainerHands = Number(remote.trainerHands) || 0;
+        d.lessonAwards = remote.lessonAwards || d.lessonAwards || {};
+        writeRaw(d);
+      }
+    } else if (remoteTs === localTs && typeof remote.balance === 'number') {
+      /* Empate: quedarse con el mínimo (no inventar koins gastados). */
+      setBalance(Math.min(local.balance, Math.max(0, remote.balance)), { type: 'cloud_merge_tie' });
     }
     return snapshot();
+  }
+
+  /** +1 Koin la primera vez que se aprueba una lección de Escuela. */
+  function earnFromLesson(lessonId) {
+    var id = String(lessonId || '');
+    if (!id) return { ok: false, reason: 'missing_lesson' };
+    var data = ensure();
+    data.lessonAwards = data.lessonAwards || {};
+    if (data.lessonAwards[id]) {
+      return { ok: true, added: 0, already: true, balance: data.balance };
+    }
+    data.lessonAwards[id] = new Date().toISOString();
+    writeRaw(data);
+    return credit(1, { type: 'school_lesson', lessonId: id });
+  }
+
+  /** +1 Koin cada 25 manos de entrenador. */
+  function noteTrainerHand() {
+    var data = ensure();
+    var n = (Number(data.trainerHands) || 0) + 1;
+    data.trainerHands = n;
+    data.updatedAt = new Date().toISOString();
+    writeRaw(data);
+    if (n > 0 && n % 25 === 0) {
+      return credit(1, { type: 'trainer_hands', hands: n });
+    }
+    return { ok: true, added: 0, trainerHands: n, balance: data.balance };
   }
 
   global.PTTournamentWallet = {
@@ -2724,7 +3152,192 @@
     credit: credit,
     snapshot: snapshot,
     mergeFromCloud: mergeFromCloud,
-    ensure: ensure
+    ensure: ensure,
+    earnFromLesson: earnFromLesson,
+    noteTrainerHand: noteTrainerHand
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * tournament/leaderboard.js — Clasificación de Koins de la comunidad (local + sync ligera).
+ */
+(function (global) {
+  'use strict';
+
+  var KEY = 'pt_tournament_leaderboard_v1';
+
+  function communityId() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.activeId === 'function') {
+        return global.PTCommunity.activeId() || 'pokerforge';
+      }
+      if (global.PTCommunity && global.PTCommunity.getActive) {
+        var a = global.PTCommunity.getActive();
+        return (a && (a.id || a)) || 'pokerforge';
+      }
+    } catch (e) { /* */ }
+    return 'pokerforge';
+  }
+
+  function storageKey() {
+    return KEY + '_' + communityId();
+  }
+
+  function readBoard() {
+    try {
+      if (typeof localStorage === 'undefined') return [];
+      var raw = localStorage.getItem(storageKey());
+      if (!raw) return [];
+      var arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writeBoard(list) {
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      localStorage.setItem(storageKey(), JSON.stringify(list || []));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function heroIdentity() {
+    var name = 'Hero';
+    var id = 'local-hero';
+    try {
+      if (global.Store && global.Store.getUserId) {
+        var uid = global.Store.getUserId();
+        if (uid) id = String(uid);
+      }
+    } catch (e0) { /* */ }
+    try {
+      var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+      if (u) {
+        name = u.displayName || u.name || u.email || name;
+        if (u.id || u.sub) id = String(u.id || u.sub);
+      }
+    } catch (e1) { /* */ }
+    return { id: id, name: String(name).slice(0, 40) };
+  }
+
+  function seedPeers(heroId) {
+    var seeds = [
+      { id: 'c_seed_1', name: 'MesaNorte', koins: 186 },
+      { id: 'c_seed_2', name: 'RangeLab', koins: 154 },
+      { id: 'c_seed_3', name: 'ICMPulse', koins: 132 },
+      { id: 'c_seed_4', name: 'FeltWalker', koins: 118 },
+      { id: 'c_seed_5', name: 'OrbitalBB', koins: 97 },
+      { id: 'c_seed_6', name: 'SoftClock', koins: 81 },
+      { id: 'c_seed_7', name: 'Gridlock', koins: 64 },
+      { id: 'c_seed_8', name: 'TinCup', koins: 49 }
+    ];
+    return seeds.filter(function (s) { return s.id !== heroId; });
+  }
+
+  /** Publica el saldo actual del Hero en la tabla de su comunidad. */
+  function publishHero() {
+    var hero = heroIdentity();
+    var bal = 100;
+    try {
+      if (global.PTTournamentWallet && PTTournamentWallet.getBalance) {
+        bal = Number(PTTournamentWallet.getBalance()) || 0;
+      }
+    } catch (e) { /* */ }
+    var list = readBoard().filter(function (x) {
+      return x && x.id && String(x.id).indexOf('c_seed_') !== 0;
+    });
+    var found = false;
+    list = list.map(function (x) {
+      if (String(x.id) === String(hero.id)) {
+        found = true;
+        return { id: hero.id, name: hero.name, koins: bal, updatedAt: new Date().toISOString(), isHero: true };
+      }
+      return x;
+    });
+    if (!found) {
+      list.push({ id: hero.id, name: hero.name, koins: bal, updatedAt: new Date().toISOString(), isHero: true });
+    }
+    /* Mantener seeds de comunidad para rellenar la tabla si hay pocos usuarios reales. */
+    seedPeers(hero.id).forEach(function (s) {
+      if (!list.some(function (x) { return x.id === s.id; })) {
+        list.push({ id: s.id, name: s.name, koins: s.koins, updatedAt: null, isHero: false, seed: true });
+      }
+    });
+    writeBoard(list);
+    return list;
+  }
+
+  function rankings(limit) {
+    limit = limit || 20;
+    var hero = heroIdentity();
+    var list = publishHero().slice();
+    list.sort(function (a, b) {
+      if ((b.koins || 0) !== (a.koins || 0)) return (b.koins || 0) - (a.koins || 0);
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+    return list.slice(0, limit).map(function (row, i) {
+      return {
+        rank: i + 1,
+        id: row.id,
+        name: row.name,
+        koins: Math.round((Number(row.koins) || 0) * 100) / 100,
+        isHero: String(row.id) === String(hero.id) || !!row.isHero,
+        medal: i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : null))
+      };
+    });
+  }
+
+  function medalGlyph(medal) {
+    if (medal === 'gold') return '🥇';
+    if (medal === 'silver') return '🥈';
+    if (medal === 'bronze') return '🥉';
+    return '';
+  }
+
+  function renderHtml() {
+    var rows = rankings(15);
+    var body = rows.map(function (r) {
+      var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
+        medalGlyph(r.medal) + '</span>') : ('<span class="trn-lb-medal">' + r.rank + '</span>');
+      return '<tr class="' + (r.isHero ? 'is-hero' : '') + '">' +
+        '<td>' + medal + '</td>' +
+        '<td>' + (r.isHero ? ('<strong>' + escapeHtml(r.name) + '</strong> <span class="trn-lb-you">(Hero)</span>') : escapeHtml(r.name)) + '</td>' +
+        '<td>' + escapeHtml(String(r.koins)) + '</td></tr>';
+    }).join('');
+    return '<section class="trn-leaderboard" aria-label="Clasificación de Koins">' +
+      '<h3>Clasificación de la comunidad</h3>' +
+      '<table class="trn-leaderboard-table"><thead><tr><th>#</th><th>Jugador</th><th>Koins</th></tr></thead>' +
+      '<tbody>' + body + '</tbody></table></section>';
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function legendHtml() {
+    return '<aside class="trn-koins-legend">' +
+      '<h3>Cómo ganar Koins</h3>' +
+      '<ul>' +
+      '<li><strong>+1</strong> por cada lección de Escuela aprobada</li>' +
+      '<li><strong>+1</strong> cada 25 manos en el Entrenador</li>' +
+      '<li><strong>+2</strong> por cada rol de rival acertado al terminar un torneo</li>' +
+      '<li>Premios de torneo según el puesto (se suman a tu saldo)</li>' +
+      '<li>Si llegas a <strong>0</strong> Koins no puedes pagar buy-ins</li>' +
+      '</ul></aside>';
+  }
+
+  global.PTTournamentLeaderboard = {
+    publishHero: publishHero,
+    rankings: rankings,
+    renderHtml: renderHtml,
+    legendHtml: legendHtml,
+    communityId: communityId
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -2843,22 +3456,85 @@
     return { ok: true, list: [] };
   }
 
+  function slimForPersist(state) {
+    var snap = JSON.parse(JSON.stringify(state));
+    /* Fotogramas y análisis pesados no son necesarios para reanudar. */
+    if (snap._liveHand) {
+      delete snap._liveHand._frames;
+      if (snap._liveHand._animQueue) delete snap._liveHand._animQueue;
+    }
+    if (Array.isArray(snap.sessionHands) && snap.sessionHands.length > 40) {
+      snap.sessionHands = snap.sessionHands.slice(-40);
+    }
+    if (Array.isArray(snap.handLog) && snap.handLog.length > 60) {
+      snap.handLog = snap.handLog.slice(-60);
+    }
+    /* Recorta payloads de análisis en sessionHands para no saturar quota. */
+    (snap.sessionHands || []).forEach(function (h) {
+      if (!h || typeof h !== 'object') return;
+      if (h.analysis) {
+        h.analysis = {
+          handScore: h.analysis.handScore,
+          heroNetBB: h.analysis.heroNetBB,
+          heroCode: h.analysis.heroCode,
+          heroPos: h.analysis.heroPos
+        };
+      }
+      if (h.streets && h.streets.length > 8) h.streets = h.streets.slice(0, 8);
+    });
+    return snap;
+  }
+
+  function writeActiveRaw(snap) {
+    localStorage.setItem(activeStorageKey(), JSON.stringify(snap));
+  }
+
   /** Snapshot del torneo en curso (para continuar más tarde). */
   function saveActive(state) {
     if (!state || state.status === 'finished') {
       clearActive();
       return { ok: false, reason: 'not_active' };
     }
+    if (typeof localStorage === 'undefined') return { ok: false };
     try {
-      if (typeof localStorage === 'undefined') return { ok: false };
-      var snap = JSON.parse(JSON.stringify(state));
-      /* Los fotogramas son solo presentación: no se guardan ni se re-animan al volver. */
-      if (snap._liveHand) delete snap._liveHand._frames;
+      var snap = slimForPersist(state);
       snap._savedAt = new Date().toISOString();
-      localStorage.setItem(activeStorageKey(), JSON.stringify(snap));
+      try {
+        writeActiveRaw(snap);
+      } catch (quotaErr) {
+        /* Reintento agresivo si localStorage está lleno. */
+        if (snap.sessionHands) snap.sessionHands = snap.sessionHands.slice(-15);
+        if (snap.handLog) {
+          snap.handLog = snap.handLog.slice(-20).map(function (h) {
+            return {
+              handIndex: h.handIndex,
+              bb: h.bb,
+              pot: h.pot,
+              showdown: h.showdown,
+              result: h.result ? { heroNet: h.result.heroNet } : null,
+              seats: (h.seats || []).filter(function (s) { return s.isHero; })
+                .map(function (s) { return { isHero: true, pos: s.pos }; })
+            };
+          });
+        }
+        if (snap._liveHand) {
+          snap._liveHand = {
+            stage: snap._liveHand.stage,
+            street: snap._liveHand.street,
+            pot: snap._liveHand.pot,
+            bb: snap._liveHand.bb,
+            board: snap._liveHand.board,
+            seats: snap._liveHand.seats,
+            toActId: snap._liveHand.toActId,
+            result: snap._liveHand.result
+          };
+        }
+        writeActiveRaw(snap);
+      }
       markCloudDirty();
-      return { ok: true };
+      return { ok: true, savedAt: snap._savedAt, handIndex: snap.handIndex };
     } catch (e) {
+      try { console.warn('[Tournaments] saveActive failed', e); } catch (e2) { /* */ }
       return { ok: false, reason: 'serialize' };
     }
   }
@@ -2889,6 +3565,19 @@
 
   function hasActive() {
     return !!loadActive();
+  }
+
+  /** True si `a` debe ganar a `b` al fusionar cloud (más avance o más reciente). */
+  function isPreferableActive(a, b) {
+    if (a && !b) return true;
+    if (!a) return false;
+    if (!b) return true;
+    var aHand = Number(a.handIndex) || 0;
+    var bHand = Number(b.handIndex) || 0;
+    if (aHand !== bHand) return aHand > bHand;
+    var aTs = Date.parse(a._savedAt || 0) || 0;
+    var bTs = Date.parse(b._savedAt || 0) || 0;
+    return aTs >= bTs;
   }
 
   /** Resumen corto para el lobby. */
@@ -2937,6 +3626,7 @@
     loadActive: loadActive,
     clearActive: clearActive,
     hasActive: hasActive,
+    isPreferableActive: isPreferableActive,
     activeSummary: activeSummary
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
@@ -2993,19 +3683,29 @@
     return a ? (a.charAt(0).toUpperCase() + a.slice(1)) : 'Acción';
   }
 
-  function optionBreakdownFromStrategy(strategy) {
+  function optionBreakdownFromStrategy(strategy, opts) {
     if (!strategy || typeof strategy !== 'object') return null;
-    var keys = Object.keys(strategy);
+    opts = opts || {};
+    var freqs = Object.assign({}, strategy);
+    if (opts.pushFold || (freqs.allin != null && freqs.raise != null)) {
+      var shove = Math.max(Number(freqs.allin) || 0, Number(freqs.raise) || 0);
+      if (shove > 0) {
+        freqs.allin = shove;
+        delete freqs.raise;
+      }
+    }
+    var keys = Object.keys(freqs);
     if (!keys.length) return null;
     return keys.map(function (id) {
-      var freq = Number(strategy[id]) || 0;
+      var freq = Number(freqs[id]) || 0;
       return {
         id: id,
         label: actionLabel(id, 0, 1),
         pct: Math.round(freq * 1000) / 10,
         frequency: freq
       };
-    }).sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+    }).filter(function (o) { return o.frequency >= 0.005; })
+      .sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
   }
 
   function normalizeDecision(d, bb) {
@@ -3013,7 +3713,9 @@
     var chosen = d.chosen || d.action || d.label || 'fold';
     var cls = mapClass(d.class);
     var strategy = d.strategy || d.gto || null;
-    var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy);
+    var pushFold = !!(d.pushFold || (d.input && d.input.pushFold) || d.mttPhase === 'push'
+      || d.preflopMode === 'push');
+    var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy, { pushFold: pushFold });
     var out = {
       street: d.street || 'preflop',
       chosen: chosen,
@@ -3715,24 +4417,29 @@
 
     try {
       var Wallet = global.PTTournamentWallet;
-      if (Wallet && Wallet.credit && prizeEur > 0) {
-        Wallet.credit(prizeEur, { type: 'prize', tournamentId: state.id, place: place });
+      if (Wallet && Wallet.credit) {
+        var roleKoins = Number(roleScore.koins) || ((roleScore.correct || 0) * 2);
+        var totalCredit = Math.round(((prizeEur || 0) + roleKoins) * 100) / 100;
+        if (totalCredit > 0) {
+          Wallet.credit(totalCredit, {
+            type: 'tournament_payout',
+            tournamentId: state.id,
+            place: place,
+            prizeEur: prizeEur,
+            roleKoins: roleKoins,
+            roleCorrect: roleScore.correct || 0
+          });
+        }
+        state.result.roleKoins = roleKoins;
+        state.result.totalKoinsAwarded = totalCredit;
       }
     } catch (eW) { /* ignore */ }
     return state.result;
   }
 
   function onBustAsk(state) {
-    var mode = (state.config && state.config.onBust) || 'ask';
-    if (mode === 'simulate') {
-      return simulateRest(state);
-    }
-    if (mode === 'end') {
-      return finish(state, { reason: 'bust' });
-    }
-    state.status = 'busted_pending';
-    state._liveHand = null;
-    return { pending: true, status: 'busted_pending' };
+    /* Siempre simular el resto del field → resumen del torneo. */
+    return simulateRest(state);
   }
 
   function eliminateWeighted(state) {
@@ -3862,11 +4569,18 @@
     return 'Jugador';
   }
 
+  function confettiPiecesHtml() {
+    var shapes = ['rect', 'rect', 'strip', 'strip', 'dot', 'rect', 'strip', 'dot',
+      'rect', 'strip', 'dot', 'rect', 'strip', 'rect', 'dot', 'strip',
+      'rect', 'strip', 'dot', 'rect', 'strip', 'dot', 'rect', 'strip'];
+    return shapes.map(function (sh, idx) {
+      return '<i class="trn-confetti-piece is-' + sh + '" style="--i:' + idx + '"></i>';
+    }).join('');
+  }
+
   function toastPopupHtml(kind, title, sub, withConfetti) {
     return '<div class="trn-center-popup trn-popup-' + kind + '" data-popup="' + kind + '" role="status">' +
-      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' +
-        '<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>' +
-        '</div>' : '') +
+      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' + confettiPiecesHtml() + '</div>' : '') +
       '<div class="trn-center-popup-card">' +
       '<strong>' + title + '</strong>' +
       (sub ? ('<span>' + sub + '</span>') : '') +
@@ -3901,6 +4615,8 @@ function reducedMotion() {
     if (reducedMotion()) return 60;
     if (!f) return 0;
     if (f.kind === 'deal') return 420;
+    /* Pausa para ver holes de all-in antes del runout de comunitarias. */
+    if (f.kind === 'reveal') return 2000;
     if (f.kind === 'street') return 560;
     var a = String(f.action || '').toLowerCase();
     if (a === 'fold') return 300;
@@ -3952,6 +4668,7 @@ function reducedMotion() {
       awaitingHero: false,
       heroOptions: null,
       result: null,
+      holesRevealed: !!(f.holesRevealed || hand.holesRevealed || f.kind === 'reveal'),
       _anim: true
     };
   }
@@ -4101,7 +4818,7 @@ function reducedMotion() {
     var st = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
     if (!st) return false;
     ui.state = st;
-    ui.bustPrompt = st.status === 'busted_pending';
+    ui.bustPrompt = false;
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
@@ -4296,6 +5013,11 @@ function reducedMotion() {
       '<span>Comienzo</span><span>Nombre</span><span>Juego</span>' +
       '<span>Jug.</span><span>Buy-in</span><span>Premio</span></div>' +
       '<div class="trn-lobby-list">' + rows + '</div>' +
+      (function () {
+        var Lb = global.PTTournamentLeaderboard;
+        try { if (Lb && Lb.publishHero) Lb.publishHero(); } catch (eLb) { /* */ }
+        return (Lb && Lb.legendHtml ? Lb.legendHtml() : '') + (Lb && Lb.renderHtml ? Lb.renderHtml() : '');
+      })() +
       '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-hist-list">' + histHtml + '</ul>' +
       '</section>' + resumeModal + '</div>';
@@ -4312,7 +5034,7 @@ function reducedMotion() {
       startingStack: 1500,
       placesPaid: 3,
       payoutLadder: 'standard',
-      onBust: 'ask',
+      onBust: 'simulate',
       exploitProPct: 0.1,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 }
     });
@@ -4344,10 +5066,6 @@ function reducedMotion() {
       ['standard', 'flat', 'topheavy'].map(function (x) {
         return '<option value="' + x + '"' + (d.payoutLadder === x ? ' selected' : '') + '>' + x + '</option>';
       }).join('') + '</select></label>' +
-      '<label class="trn-field">Al bust<select data-f="onBust">' +
-      '<option value="ask"' + (d.onBust === 'ask' ? ' selected' : '') + '>Preguntar</option>' +
-      '<option value="simulate"' + (d.onBust === 'simulate' ? ' selected' : '') + '>Simular resto</option>' +
-      '<option value="end"' + (d.onBust === 'end' ? ' selected' : '') + '>Finalizar</option></select></label>' +
       '<label class="trn-field">% Pros exploit<input type="number" data-f="exploitProPct" min="0" max="1" step="0.05" value="' + d.exploitProPct + '"></label>' +
       '</div>' +
       '<h3>Pesos de roles</h3><div class="trn-weights">' +
@@ -4516,17 +5234,30 @@ function reducedMotion() {
     return list.slice(hi).concat(list.slice(0, hi));
   }
 
+  /** Anillo visual por asiento físico (no por rotación del botón). */
+  function ringByPhysicalSeat(seats) {
+    var list = (seats || []).slice().sort(function (a, b) {
+      var pa = a.physicalSeat != null ? a.physicalSeat : (a.seat != null ? a.seat : 999);
+      var pb = b.physicalSeat != null ? b.physicalSeat : (b.seat != null ? b.seat : 999);
+      if (pa !== pb) return pa - pb;
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+    return rotateHeroFirst(list);
+  }
+
   function renderTrainerSeats(hand, state, bb) {
     if (!hand || !hand.seats || !hand.seats.length) return '';
-    var ring = rotateHeroFirst(hand.seats);
+    var ring = ringByPhysicalSeat(hand.seats);
     var coords = seatCoordsFor(ring.length);
-    var showdown = hand.stage === 'complete';
+    var showdown = hand.stage === 'complete' || !!hand.holesRevealed ||
+      !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
     var html = '';
     ring.forEach(function (s, i) {
       if (s.isHero) return; // héroe va en .hero-area (CSS .seat.hero { display:none })
       var c = coords[Math.min(i, coords.length - 1)] || coords[0];
       var guessed = state.heroGuesses && state.heroGuesses[s.id];
       var cls = ['seat', 'villain'];
+      if (s.pos === 'BTN') cls.push('dealer');
       if (s.folded) cls.push('folded');
       if (s._acting) cls.push('acting');
       if (c.top < 20) cls.push('seat-top');
@@ -4601,11 +5332,13 @@ function reducedMotion() {
       : ((hero.cards && hero.cards[0])
         ? hero.cards.map(faceCard).join('')
         : (backCard() + backCard()));
+    var dealerHidden = hero.pos === 'BTN' ? '' : ' hidden';
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
       '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
-      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) + ' · <span>' +
-      esc(hero.pos || '-') + '</span></div>' +
+      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) +
+      ' · <span>' + esc(hero.pos || '-') + '</span>' +
+      '<span class="hero-dealer' + dealerHidden + '" title="Dealer">D</span></div>' +
       (cards ? ('<div class="hero-cards">' + cards + '</div>') : '<div class="hero-cards hero-cards-folded"></div>') +
       '</div>';
   }
@@ -4648,16 +5381,20 @@ function reducedMotion() {
       ? renderTrainerSeats(hand, state, bb)
       : '';
 
-    // Sin mano activa: asientos desde seating del torneo (stacks persistentes)
+    // Sin mano activa: asientos desde seating del torneo (orden físico estable)
     if (!hand && state.status === 'running') {
       var tableId = (state.tables.find(function (t) { return t.isHeroTable; }) || {}).id;
       var onTable = tableId ? Seat.playersOnTable(state, tableId) : [];
-      var fake = onTable.map(function (p, i) {
+      onTable = onTable.slice().sort(function (a, b) {
+        return (a.seat || 0) - (b.seat || 0);
+      });
+      var fake = onTable.map(function (p) {
         return {
           id: p.id,
           name: p.name,
           isHero: !!p.isHero,
-          pos: p.isHero ? 'H' : ('S' + i),
+          pos: '',
+          physicalSeat: p.seat != null ? p.seat : 0,
           stack: p.stack,
           streetInvested: 0,
           folded: false,
@@ -4671,12 +5408,6 @@ function reducedMotion() {
     if (ui.anim && ui.anim.playing) {
       actions = '<div class="actions actions-grid actions-grid-1 trn-anim-actions">' +
         '<button type="button" class="btn btn-skip-anim" data-act="skip-anim">Saltar acción</button>' +
-        '</div>';
-    } else if (state.status === 'busted_pending' || ui.bustPrompt) {
-      actions = '<div class="trn-bust-prompt">' +
-        '<p>Has sido eliminado. ¿Qué quieres hacer?</p>' +
-        '<button type="button" class="btn btn-primary" data-act="sim-rest">Simular resto</button>' +
-        '<button type="button" class="btn" data-act="end-now">Finalizar ya</button>' +
         '</div>';
     } else if (hand && hand.stage === 'complete') {
       actions = '';
@@ -4754,10 +5485,10 @@ function reducedMotion() {
       var pid = ui.roleModalPlayerId;
       var pl = state.players.find(function (p) { return p.id === pid; });
       var cur = (state.heroGuesses && state.heroGuesses[pid]) || '';
-      var opts = (global.PTTournamentConfig.ROLE_IDS || []).map(function (rid) {
-        return '<button type="button" class="trn-role-opt' + (cur === rid ? ' is-selected' : '') +
-          '" data-guess-role="' + rid + '" data-guess-player="' + esc(pid) + '">' +
-          esc(roleLabel(rid)) + '</button>';
+      var roleIds = global.PTTournamentConfig.ROLE_IDS || [];
+      var selectOpts = '<option value="">— Elige tipo de jugador —</option>' + roleIds.map(function (rid) {
+        return '<option value="' + esc(rid) + '"' + (cur === rid ? ' selected' : '') + '>' +
+          esc(roleLabel(rid)) + '</option>';
       }).join('');
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
@@ -4767,8 +5498,11 @@ function reducedMotion() {
         esc(fmtBb(Number(pl && pl.stack) || 0, bb)) +
         (pl && pl.alive === false ? ' · Eliminado' : '') +
         '</p>' +
-        '<p class="muted">Adivina su rol (se revela al final)</p>' +
-        '<div class="trn-role-grid">' + opts + '</div>' +
+        '<p class="muted">Elige su tipo de jugador (el nombre no indica el perfil). Se revela al final; +2 Koins por acierto.</p>' +
+        '<label class="trn-role-select-label" for="trn-role-select">Tipo de jugador</label>' +
+        '<select id="trn-role-select" class="trn-role-select" data-guess-player="' + esc(pid) + '">' +
+        selectOpts + '</select>' +
+        '<button type="button" class="btn btn-primary" data-act="save-role-guess" data-guess-player="' + esc(pid) + '">Guardar</button> ' +
         '<button type="button" class="btn" data-act="clear-guess" data-guess-player="' + esc(pid) + '">Quitar guess</button> ' +
         '<button type="button" class="btn" data-act="close-role">Cerrar</button>' +
         '</div></div>';
@@ -4931,7 +5665,10 @@ function reducedMotion() {
           return '<li><span class="trn-gto-class trn-gto-' + esc(d.class || 'unscored') + '">' +
             esc(d.class || 'unscored') + '</span> ' + esc(d.street || '') + ' · ' +
             esc(d.label || d.action || '') +
-            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') + '</li>';
+            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') +
+            (d.mttPhase ? (' · <span class="trn-gto-phase">fase ' + esc(d.mttPhase) +
+              (d.stackBB != null ? (' · ' + esc(String(d.stackBB)) + ' bb') : '') + '</span>') : '') +
+            '</li>';
         }).join('') + '</ol></div>';
       }
     }
@@ -5015,14 +5752,16 @@ function reducedMotion() {
         global.goToTab('sessions', {
           openSessionId: sessionId,
           handId: handId || null,
-          reviewMode: mode
+          reviewMode: mode,
+          fromTournament: true
         });
         return;
       }
       if (typeof global.openSession === 'function') {
         Promise.resolve(global.openSession(sessionId, null, {
           handId: handId || null,
-          mode: mode
+          mode: mode,
+          fromTournament: true
         })).catch(function () { /* */ });
       }
     } catch (eOpen) { /* */ }
@@ -5155,16 +5894,13 @@ function reducedMotion() {
           '</span> ' +
           '<button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
           esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
-          '>Paso a paso</button> ' +
-          '<button type="button" class="btn btn-sm btn-primary" data-act="session-replay-hand" data-hand-id="' +
-          esc(h.id) + '"' + (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
-          '>Replay</button></li>';
+          '>Paso a paso</button></li>';
       }).join('');
     } else {
       var hands = (state.handLog || []).slice().reverse();
       handsHtml = hands.length
         ? hands.map(function (h) {
-          return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
+          return '<li><button type="button" class="btn btn-sm" data-act="review-hand" data-hand="' +
             esc(String(h.handIndex)) + '">Mano #' + esc(String(h.handIndex)) +
             '</button> · pot ' + esc(String(Math.round((h.pot || 0) * 10) / 10)) +
             (h.tied ? ' · chop' : '') +
@@ -5173,49 +5909,38 @@ function reducedMotion() {
         : '<li class="muted">Sin manos guardadas</li>';
     }
 
-    var bestWorst = '';
-    if (sessionStats && (sessionStats.best5 || sessionStats.worst5)) {
-      function miniList(list, title) {
-        if (!list || !list.length) return '';
-        return '<div class="trn-top-hands"><h4>' + esc(title) + '</h4><ul>' + list.map(function (h) {
-          return '<li>' + esc(h.heroCode || '') + ' ' + esc(h.heroPos || '') +
-            ' · ' + (Number(h.heroNetBB) >= 0 ? '+' : '') + esc(String(h.heroNetBB)) + ' bb' +
-            (h.id && sessionId
-              ? (' <button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
-                esc(h.id) + '" data-session-id="' + esc(sessionId) + '">Ver</button>')
-              : '') + '</li>';
-        }).join('') + '</ul></div>';
-      }
-      bestWorst = '<div class="trn-best-worst">' +
-        miniList(sessionStats.best5, 'Mejores manos') +
-        miniList(sessionStats.worst5, 'Peores manos') + '</div>';
-    }
+    var handsCount = sessionHands.length || (state.handLog || []).length;
+    var handsSection = '<details class="trn-hands-fold">' +
+      '<summary>Manos jugadas (' + handsCount + ')</summary>' +
+      '<ul class="trn-hand-log-list">' + handsHtml + '</ul></details>';
 
+    var placeLabel = r.place != null ? (r.place + 'º') : '—';
     return '<div class="trn-result panel">' +
-      '<h2>Resultado</h2>' +
-      '<p class="trn-result-place">' + (r.place != null ? (r.place + 'º') : '—') +
-      ' · Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
-      '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
-      ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP</p>' +
+      '<header class="trn-result-hero">' +
+      '<p class="trn-result-kicker">Resultado del torneo</p>' +
+      '<h2 class="trn-result-place">' + placeLabel + '</h2>' +
+      '<p class="trn-result-prize">Premio ' + fmtKoins(r.prizeEur || 0) + '</p>' +
+      '<p class="trn-result-roles">Roles ' + (rs.correct || 0) + '/' + (rs.total || 0) +
+      ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP' +
+      (r.roleKoins ? (' · +' + r.roleKoins + ' Koins por roles') : '') + '</p>' +
+      '</header>' +
       statsHtml +
-      bestWorst +
       (sessionId
-        ? ('<p><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
-          esc(sessionId) + '">Abrir en Sesiones</button></p>')
+        ? ('<p class="trn-result-cta"><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
+          esc(sessionId) + '">Estadísticas del torneo</button></p>')
         : '') +
       '<h3>Clasificación</h3>' +
       '<div class="trn-hist-table-wrap"><table class="trn-hist-table"><thead><tr>' +
       '<th>#</th><th>Jugador</th><th>Stack</th><th>Premio</th></tr></thead><tbody>' +
       standHtml + '</tbody></table></div>' +
       '<h3>Roles</h3><ul class="trn-role-reveal">' + details + '</ul>' +
-      '<h3>Manos analizadas</h3><ul class="trn-hand-log-list">' + handsHtml + '</ul>' +
+      handsSection +
       '<div class="trn-setup-actions">' +
       '<button type="button" class="btn btn-primary" data-act="hub">Hub</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
       '</div></div>';
   }
 
-  /* ---------- History ---------- */
   function renderHistory() {
     var list = global.PTTournamentStore.list() || [];
     var rows = list.length
@@ -5289,9 +6014,6 @@ function reducedMotion() {
       clearActive();
       setView(VIEW.result);
       return;
-    }
-    if (state.status === 'busted_pending') {
-      ui.bustPrompt = true;
     }
     persistActive();
     paint();
@@ -5445,20 +6167,21 @@ function reducedMotion() {
           global.PTTournamentRoleGuess.clearGuess(ui.state, btn.getAttribute('data-guess-player'));
           ui.roleModalPlayerId = null;
           paint();
+        } else if (act === 'save-role-guess') {
+          var selRole = root.querySelector('#trn-role-select');
+          var rid = selRole && selRole.value;
+          var playerId = btn.getAttribute('data-guess-player');
+          if (rid && playerId && global.PTTournamentRoleGuess && PTTournamentRoleGuess.setGuess) {
+            PTTournamentRoleGuess.setGuess(ui.state, playerId, rid);
+          }
+          ui.roleModalPlayerId = null;
+          paint();
         } else if (act === 'next-hand') {
           if (ui.state && ui.state.status === 'running') {
             global.PTTournamentRunner.continueAfterHand(ui.state);
             persistActive();
           }
           afterActionAnimated();
-        } else if (act === 'sim-rest') {
-          global.PTTournamentRunner.simulateRest(ui.state);
-          clearActive();
-          afterAction();
-        } else if (act === 'end-now') {
-          global.PTTournamentRunner.finish(ui.state, { reason: 'bust' });
-          clearActive();
-          afterAction();
         } else if (act === 'clear-hist') {
           global.PTTournamentStore.clear();
           paint();
@@ -5497,6 +6220,18 @@ function reducedMotion() {
       });
     });
 
+    root.querySelectorAll('[data-act="save-role-guess"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var sel = root.querySelector('#trn-role-select');
+        var rid = sel && sel.value;
+        var playerId = btn.getAttribute('data-guess-player');
+        if (rid && playerId && global.PTTournamentRoleGuess && PTTournamentRoleGuess.setGuess) {
+          PTTournamentRoleGuess.setGuess(ui.state, playerId, rid);
+        }
+        ui.roleModalPlayerId = null;
+        paint();
+      });
+    });
     root.querySelectorAll('[data-guess-role]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         global.PTTournamentRoleGuess.setGuess(
