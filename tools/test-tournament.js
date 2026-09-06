@@ -510,7 +510,8 @@ FILES.forEach(function (f) { load(g, f); });
   if (!g.Cards.evaluate || !g.Cards.evaluate.length) {
     /* keep stub; inject wheel-aware evaluate */
   }
-  // Use a minimal evaluator for wheel
+  // Use a minimal evaluator for wheel (restore after)
+  const prevEvaluate = g.Cards.evaluate;
   const RANK = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'T':10,'J':11,'Q':12,'K':13,'A':14 };
   g.Cards.evaluate = function (codes) {
     const vals = codes.map(function (c) { return RANK[String(c)[0]]; });
@@ -550,6 +551,7 @@ FILES.forEach(function (f) { load(g, f); });
   assert.strictEqual(hand.result.winners.length, 2, 'both winners');
   assert.ok(Math.abs(hand.result.deltas.h) < 0.02, 'hero delta ~0 got ' + hand.result.deltas.h);
   assert.ok(Math.abs(hand.result.deltas.v) < 0.02, 'villain delta ~0');
+  g.Cards.evaluate = prevEvaluate;
   console.log('OK showdown-wheel-chop');
 }
 
@@ -600,5 +602,64 @@ FILES.forEach(function (f) { load(g, f); });
   assert.strictEqual(W.getBalance(), 107);
   console.log('OK wallet');
 }
+
+// --- popup ciegas centrado (sin botón OK) ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(uiSrc.includes('toastPopupHtml'), 'toastPopupHtml in ui');
+  assert.ok(uiSrc.includes('trn-center-popup'), 'centered popup class');
+  assert.ok(uiSrc.includes("schedulePopupClear('blind')"), 'auto-clear blind popup');
+  assert.ok(!/trn-blind-up[\s\S]{0,200}dismiss-blind-up/.test(uiSrc),
+    'old blind-up OK banner removed from paint path');
+}
+console.log('OK blind-popup-source');
+
+// --- villanos: menos check / no overfold a bet chica ---
+{
+  const D = g.PTTournamentVillainDecide;
+  assert.ok(D && typeof D.decide === 'function', 'VillainDecide loaded');
+  const seat = {
+    id: 'v1', roleId: 'tag', pos: 'CO',
+    cards: [{ code: 'Ah' }, { code: 'Kd' }],
+    stack: 1500, streetInvested: 0, invested: 0
+  };
+  let bets = 0;
+  for (let i = 0; i < 80; i++) {
+    const act = D.decide({
+      street: 'flop', bb: 20, pot: 100, currentBet: 0, minRaise: 20,
+      openerId: 'v1', board: [{ code: 'Qc' }, { code: '7h' }, { code: '2d' }],
+      seats: [seat], log: []
+    }, seat);
+    if (act && (act.id === 'bet' || act.id === 'raise')) bets += 1;
+  }
+  assert.ok(bets >= 25, 'c-bet / lead freq razonable got bets=' + bets + '/80');
+
+  let folds = 0;
+  const facing = Object.assign({}, seat, { streetInvested: 0 });
+  for (let i = 0; i < 60; i++) {
+    const act = D.decide({
+      street: 'flop', bb: 20, pot: 100, currentBet: 33, minRaise: 20,
+      openerId: 'hero', board: [{ code: 'Qc' }, { code: '7h' }, { code: '2d' }],
+      seats: [facing], log: []
+    }, facing);
+    if (act && act.id === 'fold') folds += 1;
+  }
+  assert.ok(folds <= 25, 'no overfold a ~33% pot got folds=' + folds + '/60');
+}
+console.log('OK villain-aggression');
+
+// --- dist bundle debe incluir los cambios (prod carga dist/) ---
+{
+  const distPath = path.join(ROOT, 'dist/pt-tournaments.js');
+  assert.ok(fs.existsSync(distPath), 'dist/pt-tournaments.js exists');
+  const dist = fs.readFileSync(distPath, 'utf8');
+  assert.ok(dist.includes('PTTournamentVillainDecide'), 'dist includes VillainDecide');
+  assert.ok(dist.includes('trn-center-popup'), 'dist includes centered popup');
+  assert.ok(dist.includes('toastPopupHtml') || dist.includes('trn-popup-blind'),
+    'dist includes blind toast popup');
+  assert.ok(!/trn-blind-up[\s\S]{0,220}dismiss-blind-up/.test(dist),
+    'dist without old OK blind banner');
+}
+console.log('OK dist-tournaments-bundle');
 
 console.log('*** test-tournament OK ***');

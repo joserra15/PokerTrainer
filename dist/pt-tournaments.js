@@ -222,7 +222,7 @@
       placesPaid: 3,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 45, nit: 20, tag: 15, lag: 10, maniac: 10, pro: 0 },
+      roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
       exploitProPct: 0,
       onBust: 'ask'
     },
@@ -237,8 +237,8 @@
       placesPaid: 4,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
-      exploitProPct: 0.1,
+      roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
+      exploitProPct: 0.15,
       onBust: 'ask'
     },
     hard: {
@@ -856,6 +856,371 @@
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
+ * tournament/villain-decide.js — Villanos de torneo con motor Pro+ del entrenador.
+ * Estilos fish/nit/tag/lag/maniac/pro sobre dificultad pro (keepArchetype).
+ */
+(function (global) {
+  'use strict';
+
+  function r2(x) {
+    return Math.round((Number(x) || 0) * 100) / 100;
+  }
+
+  function cardCode(c) {
+    if (!c) return '';
+    if (typeof c === 'string') return c;
+    return c.code || (c.r != null && c.s ? String(c.r) + c.s : '');
+  }
+
+  function handCode(cards) {
+    if (!cards || cards.length < 2) return null;
+    var C = global.Cards;
+    if (C && C.handCode) {
+      try { return C.handCode(cards[0], cards[1]); } catch (e) { /* */ }
+    }
+    var a = cardCode(cards[0]);
+    var b = cardCode(cards[1]);
+    if (!a || !b) return null;
+    var order = '23456789TJQKA';
+    var ra = order.indexOf(a[0]);
+    var rb = order.indexOf(b[0]);
+    var hi = ra >= rb ? a : b;
+    var lo = ra >= rb ? b : a;
+    if (hi[0] === lo[0]) return hi[0] + lo[0];
+    return hi[0] + lo[0] + (hi[1] === lo[1] ? 's' : 'o');
+  }
+
+  function mapRoleId(roleId) {
+    var id = String(roleId || 'tag').toLowerCase();
+    if (id === 'maniac') return 'maniac';
+    var ok = { fish: 1, nit: 1, tag: 1, lag: 1, maniac: 1, pro: 1 };
+    return ok[id] ? id : 'tag';
+  }
+
+  /**
+   * Estilos de mesa = sesgo sobre motor Pro+, no pasividad extrema.
+   * Fish/nit del entrenador son muy check/fold; en torneo eso se siente
+   * "todo check / overfold". Subimos suelos de agresión y defensa.
+   */
+  function tournamentPostflopFloor(role, postflop) {
+    var pf = Object.assign({}, postflop || {});
+    var floors = {
+      fish:   { bet: 1.05, bluff: 0.85, raise: 0.95, call: 1.4, fold: 0.7 },
+      nit:    { bet: 0.92, bluff: 0.55, raise: 0.85, call: 0.95, fold: 0.95 },
+      tag:    { bet: 1.2,  bluff: 1.0,  raise: 1.25, call: 1.0, fold: 0.95 },
+      lag:    { bet: 1.55, bluff: 1.55, raise: 1.55, call: 1.1, fold: 0.65 },
+      maniac: { bet: 1.75, bluff: 1.9,  raise: 1.85, call: 1.15, fold: 0.5 },
+      pro:    { bet: 1.2,  bluff: 1.05, raise: 1.3,  call: 1.0, fold: 0.95 }
+    };
+    var f = floors[role] || floors.tag;
+    function floor(key, minV, maxV) {
+      var cur = Number(pf[key]);
+      if (!isFinite(cur)) cur = minV;
+      pf[key] = Math.max(minV, Math.min(maxV != null ? maxV : 2.4, cur));
+    }
+    floor('betFreqMult', f.bet);
+    floor('bluffFreqMult', f.bluff);
+    floor('raiseFreqMult', f.raise);
+    floor('callMult', f.call);
+    floor('foldMult', 0.35, f.fold);
+    if (pf.betSizeMult == null || pf.betSizeMult < 0.85) pf.betSizeMult = 0.95;
+    return pf;
+  }
+
+  function profileForSeat(seat) {
+    var VP = global.GTOVillainProfiles;
+    var role = mapRoleId(seat && seat.roleId);
+    if (!VP || typeof VP.applyDifficulty !== 'function') {
+      return {
+        id: role,
+        preflopStrict: 0.92,
+        postflop: tournamentPostflopFloor(role, {
+          betFreqMult: 1.15, bluffFreqMult: 1, raiseFreqMult: 1.15, callMult: 1.05, foldMult: 0.9
+        })
+      };
+    }
+    var base = typeof VP.getProfile === 'function' ? VP.getProfile(role) : role;
+    var prof = VP.applyDifficulty(base, 'pro', { forced: true, keepArchetype: true });
+    prof = Object.assign({}, prof, {
+      postflop: tournamentPostflopFloor(role, prof.postflop)
+    });
+    if (seat && seat.proStyle) {
+      prof = Object.assign({}, prof, { proStyle: seat.proStyle });
+    }
+    return prof;
+  }
+
+  function holeStrength01(hole) {
+    if (!hole || hole.length < 2) return 0.1;
+    var ranks = '23456789TJQKA';
+    function rv(c) {
+      return Math.max(0, ranks.indexOf(cardCode(c).charAt(0)));
+    }
+    var a = rv(hole[0]);
+    var b = rv(hole[1]);
+    var pair = cardCode(hole[0]).charAt(0) === cardCode(hole[1]).charAt(0);
+    var suited = cardCode(hole[0]).charAt(1) === cardCode(hole[1]).charAt(1);
+    return Math.max(0.05, Math.min(0.95,
+      (Math.max(a, b) / 12) * 0.55 + (Math.min(a, b) / 12) * 0.2 +
+      (pair ? 0.25 : 0) + (suited ? 0.08 : 0)
+    ));
+  }
+
+  /**
+   * Cards.evaluate devuelve { category: 0..8, rank: [category, ...] } (mayor = mejor),
+   * no un rank 1..7462. Mapear mal → NaN/basura → overfold y solo check.
+   */
+  function strength01(hole, board) {
+    var C = global.Cards;
+    board = board || [];
+    var holeStr = holeStrength01(hole);
+    if (!hole || hole.length < 2) return 0.1;
+    if (C && C.evaluate && board.length >= 3) {
+      try {
+        var codes = hole.concat(board).map(function (c) {
+          return typeof c === 'string' ? c : cardCode(c);
+        });
+        var ev = C.evaluate(codes);
+        var cat = null;
+        if (ev && ev.category != null && isFinite(Number(ev.category))) {
+          cat = Number(ev.category);
+        } else if (ev && Array.isArray(ev.rank) && isFinite(Number(ev.rank[0])) && Number(ev.rank[0]) <= 8) {
+          cat = Number(ev.rank[0]);
+        } else if (ev && typeof ev.rank === 'number' && ev.rank > 20) {
+          return Math.max(0.05, Math.min(0.98, 1 - (ev.rank / 7462)));
+        }
+        if (cat != null && cat >= 0 && cat <= 8) {
+          var made = 0.16 + (cat / 8) * 0.72;
+          /* High card / pareja débil: mezclar fuerza de hole (AK high ≠ 72o). */
+          if (cat <= 0) made = Math.max(made, 0.2 + holeStr * 0.5);
+          else if (cat === 1) made = Math.max(made, 0.42 + holeStr * 0.25);
+          else if (cat === 2) made = Math.max(made, 0.58);
+          return Math.max(0.08, Math.min(0.98, made));
+        }
+      } catch (e) { /* */ }
+    }
+    return holeStr;
+  }
+
+  function rangeCtx(hand, seat) {
+    var bb = Math.max(1, Number(hand.bb) || 1);
+    return {
+      formatHub: 'mtt',
+      stackBB: (Number(seat.stack) || 0) / bb,
+      street: hand.street || 'preflop'
+    };
+  }
+
+  function raiseCount(hand) {
+    var n = 0;
+    (hand.log || []).forEach(function (e) {
+      if (e.street !== 'preflop') return;
+      if (e.action === 'raise' || e.action === 'bet') n += 1;
+    });
+    return n;
+  }
+
+  function openSizeBb(seat, profile) {
+    var base = 2.5;
+    if (profile && profile.id === 'nit') base = 2.2;
+    else if (profile && (profile.id === 'lag' || profile.id === 'maniac')) base = 3;
+    if (seat.pos === 'SB') base = Math.min(3.5, base + 0.5);
+    return base;
+  }
+
+  function sampleBetFrac(profile, street, strength) {
+    var VS = global.GTOVillainSizing;
+    var rnd = Math.random();
+    if (VS && typeof VS.sampleLeadFromStrategy === 'function') {
+      try {
+        var sample = VS.sampleLeadFromStrategy(
+          { check: 0, bet_33: 0.22, bet_66: 0.42, bet_100: 0.26, bet_125: 0.1 },
+          10,
+          { street: street, strength: strength },
+          rnd
+        );
+        if (sample && sample.action === 'bet' && sample.frac > 0) return sample.frac;
+      } catch (e) { /* */ }
+    }
+    var VP = global.GTOVillainProfiles;
+    if (VP && typeof VP.betSizeBB === 'function') {
+      var amt = VP.betSizeBB(10, profile, rnd, { street: street, strength: strength });
+      if (amt > 0) return amt / 10;
+    }
+    if (strength > 0.75) return 0.85;
+    if (strength < 0.35) return 0.4;
+    return 0.66;
+  }
+
+  function capRaiseTo(hand, seat, toAmt) {
+    var maxTo = seat.streetInvested + seat.stack;
+    var minTo = Math.min(maxTo, Math.max(hand.currentBet + hand.minRaise, hand.bb));
+    var t = Math.max(minTo, Number(toAmt) || minTo);
+    return Math.min(maxTo, r2(t));
+  }
+
+  function decidePreflop(hand, seat) {
+    var VPF = global.GTOVillainPreflop;
+    var profile = profileForSeat(seat);
+    var tc = Math.max(0, hand.currentBet - seat.streetInvested);
+    var code = handCode(seat.cards);
+    var ctx = rangeCtx(hand, seat);
+    var raises = raiseCount(hand);
+
+    if (!hand.openerId) {
+      if (seat.pos === 'BB' && tc <= 0) return { id: 'check' };
+      var open = false;
+      if (VPF && typeof VPF.isInOpenRange === 'function' && code) {
+        try { open = !!VPF.isInOpenRange(code, seat.pos, ctx); } catch (e) { open = false; }
+      } else {
+        open = strength01(seat.cards, []) > 0.58;
+      }
+      if (open) {
+        return {
+          id: 'raise',
+          amount: Math.min(
+            seat.streetInvested + seat.stack,
+            r2(hand.bb * openSizeBb(seat, profile))
+          )
+        };
+      }
+      return tc > 0 ? { id: 'fold' } : { id: 'check' };
+    }
+
+    var action = 'fold';
+    if (VPF && code) {
+      try {
+        if (raises >= 3 && typeof VPF.villainVs4BetAction === 'function') {
+          action = VPF.villainVs4BetAction(code, profile, Math.random()) || 'fold';
+        } else if (raises >= 2 && hand.openerId === seat.id &&
+            typeof VPF.openerVs3BetAction === 'function') {
+          action = VPF.openerVs3BetAction(code, profile, Math.random(), ctx) || 'fold';
+        } else if (typeof VPF.defendVsOpen === 'function') {
+          action = VPF.defendVsOpen(
+            code, profile, Math.random(), seat.pos, hand.openerPos || 'CO', ctx
+          ) || 'fold';
+        }
+      } catch (e2) {
+        action = 'fold';
+      }
+    } else {
+      var s0 = strength01(seat.cards, []);
+      if (s0 > 0.8) action = '3bet';
+      else if (s0 > 0.55) action = 'call';
+    }
+
+    if (action === '3bet' || action === 'raise' || action === '4bet') {
+      var mult = raises >= 2 ? 2.3 : (seat.pos === 'SB' || seat.pos === 'BB' ? 3.6 : 3.2);
+      return { id: 'raise', amount: capRaiseTo(hand, seat, hand.currentBet * mult) };
+    }
+    if (action === 'call' || action === 'limp') {
+      return tc <= 0 ? { id: 'check' } : { id: 'call' };
+    }
+    return tc <= 0 ? { id: 'check' } : { id: 'fold' };
+  }
+
+  function decidePostflop(hand, seat) {
+    var VP = global.GTOVillainProfiles;
+    var profile = profileForSeat(seat);
+    var tc = Math.max(0, hand.currentBet - seat.streetInvested);
+    var strength = strength01(seat.cards, hand.board || []);
+    var pot = Math.max(hand.pot || 1, 1);
+    var potOdds = tc > 0 ? tc / (pot + tc) : 0;
+    var street = hand.street || 'flop';
+    var rnd = Math.random();
+    var opts = {
+      street: street,
+      tier: strength > 0.7 ? 'strong' : (strength < 0.35 ? 'weak' : 'medium')
+    };
+
+    if (tc > 0) {
+      var face = 'fold';
+      if (VP && typeof VP.postflopFacingBet === 'function') {
+        try {
+          face = VP.postflopFacingBet(strength, potOdds, profile, rnd, opts) || 'fold';
+        } catch (e) { face = 'fold'; }
+      } else if (strength > 0.78) {
+        face = 'raise';
+      } else if (strength > potOdds + 0.08) {
+        face = 'call';
+      } else if (strength > potOdds - 0.02 && rnd < 0.55) {
+        face = 'call';
+      }
+      /* Anti-overfold: a tamaños chicos / medio-chicos seguir mucho más. */
+      if (face === 'fold') {
+        if (potOdds < 0.12 && strength > 0.12) face = 'call';
+        else if (potOdds < 0.18 && strength > 0.18) face = rnd < 0.92 ? 'call' : 'fold';
+        else if (potOdds < 0.24 && strength > 0.22) face = rnd < 0.82 ? 'call' : 'fold';
+        else if (potOdds < 0.3 && strength > 0.32) face = rnd < 0.68 ? 'call' : 'fold';
+        else if (potOdds < 0.36 && strength > 0.48) face = rnd < 0.55 ? 'call' : 'fold';
+      }
+      if (face === 'raise') {
+        return {
+          id: 'raise',
+          amount: capRaiseTo(hand, seat, Math.max(
+            hand.currentBet + hand.minRaise,
+            hand.currentBet * 2.4,
+            hand.currentBet + pot * 0.55
+          ))
+        };
+      }
+      if (face === 'call') return { id: 'call' };
+      return { id: 'fold' };
+    }
+
+    var wasAgg = !!(hand.openerId && hand.openerId === seat.id);
+    var lead = 'check';
+    if (VP && typeof VP.postflopLead === 'function') {
+      try {
+        lead = VP.postflopLead(strength, profile, wasAgg, rnd, opts) || 'check';
+      } catch (e2) { lead = 'check'; }
+    } else if (strength > 0.55 || (strength > 0.35 && rnd < 0.48) || (wasAgg && rnd < 0.55)) {
+      lead = 'bet';
+    }
+
+    /* Suelo de c-bet / value-bet: evita mesas de solo check. */
+    if (lead === 'check') {
+      var force = 0;
+      var role = profile && profile.id;
+      if (wasAgg && strength > 0.38) force = 0.62;
+      else if (wasAgg && strength > 0.22) force = 0.48;
+      else if (strength > 0.68) force = 0.58;
+      else if (strength > 0.5) force = 0.36;
+      else if (strength > 0.36) force = 0.22;
+      if (role === 'lag' || role === 'maniac') force = Math.min(0.85, force + 0.18);
+      if (role === 'nit') force *= 0.75;
+      if (rnd < force) lead = 'bet';
+    }
+
+    if (lead === 'bet') {
+      var frac = sampleBetFrac(profile, street, strength);
+      return {
+        id: 'bet',
+        amount: Math.min(
+          seat.streetInvested + seat.stack,
+          Math.max(hand.bb, r2(pot * frac))
+        )
+      };
+    }
+    return { id: 'check' };
+  }
+
+  function decide(hand, seat) {
+    if (!hand || !seat) return { id: 'check' };
+    if (hand.street === 'preflop') return decidePreflop(hand, seat);
+    return decidePostflop(hand, seat);
+  }
+
+  global.PTTournamentVillainDecide = {
+    decide: decide,
+    profileForSeat: profileForSeat,
+    strength01: strength01,
+    handCode: handCode,
+    mapRoleId: mapRoleId
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
  * tournament/live-hand.js — Mano de torneo completa (Hero + IA).
  */
 (function (global) {
@@ -997,51 +1362,51 @@
   }
 
   function shouldOpen(seat, hand) {
-    var V = global.GTOVillainPreflop;
-    var b = biasOf(seat.roleId);
-    var hc = handCode(seat.cards);
-    var openFn = V && V.isInOpenRange;
-    if (openFn && hc) {
-      try {
-        if (openFn(hc, seat.pos, { formatHub: 'mtt', stackBB: seat.stack / hand.bb })) return true;
-      } catch (e) { /* */ }
-      return Math.random() < 0.06 * b.open;
+    var D = global.PTTournamentVillainDecide;
+    if (D && D.decide) {
+      var probe = {
+        street: 'preflop',
+        bb: hand.bb,
+        pot: hand.pot,
+        currentBet: hand.currentBet,
+        minRaise: hand.minRaise,
+        openerId: null,
+        openerPos: null,
+        log: hand.log,
+        board: [],
+        seats: hand.seats
+      };
+      var a = D.decide(probe, seat);
+      return !!(a && a.id === 'raise');
     }
-    return strength01(seat.cards, []) * b.open > 0.62;
+    return strength01(seat.cards, []) > 0.62;
   }
 
   function defendDecision(seat, hand) {
-    var V = global.GTOVillainPreflop;
-    var b = biasOf(seat.roleId);
-    var hc = handCode(seat.cards);
-    var defendFn = V && V.defendVsOpen;
-    if (defendFn && hc) {
-      try {
-        var a = defendFn(hc, { id: seat.roleId || 'tag' }, Math.random(), seat.pos, hand.openerPos || 'CO', {
-          formatHub: 'mtt', stackBB: seat.stack / hand.bb
-        });
-        if (a === '3bet' || a === 'raise') return 'raise';
-        if (a === 'call') return 'call';
-        return 'fold';
-      } catch (e2) { /* */ }
+    var D = global.PTTournamentVillainDecide;
+    if (D && D.decide) {
+      var a = D.decide(hand, seat);
+      if (!a) return 'fold';
+      if (a.id === 'raise' || a.id === 'bet') return 'raise';
+      if (a.id === 'call') return 'call';
+      if (a.id === 'check') return 'check';
+      return 'fold';
     }
-    var s = strength01(seat.cards, []) * b.defend;
-    if (s > 0.78) return 'raise';
-    if (s > 0.52) return 'call';
     return 'fold';
   }
 
   function postflopDecision(seat, hand, tc) {
-    var b = biasOf(seat.roleId);
-    var s = strength01(seat.cards, hand.board) * (tc > 0 ? b.call : 1);
-    if (tc > 0) {
-      if (tc >= seat.stack) return s > 0.42 ? 'call' : 'fold';
-      if (s > 0.82 && Math.random() < 0.3 * b.bluff) return 'raise';
-      if (s > 0.48 * b.fold) return 'call';
+    var D = global.PTTournamentVillainDecide;
+    if (D && D.decide) {
+      var a = D.decide(hand, seat);
+      if (!a) return tc > 0 ? 'fold' : 'check';
+      if (a.id === 'raise') return 'raise';
+      if (a.id === 'bet') return 'bet';
+      if (a.id === 'call') return 'call';
+      if (a.id === 'check') return 'check';
       return 'fold';
     }
-    if (s > 0.72 || (s > 0.38 && Math.random() < 0.2 * b.bluff)) return 'bet';
-    return 'check';
+    return tc > 0 ? 'fold' : 'check';
   }
 
   function createHand(tableSeats, blinds, heroId) {
@@ -1053,6 +1418,7 @@
         name: ts.player.name,
         isHero: !!(ts.player.isHero || ts.player.id === heroId),
         roleId: ts.player.roleId,
+        proStyle: ts.player.proStyle || null,
         pos: ts.pos,
         seatIndex: ts.seatIndex != null ? ts.seatIndex : i,
         cards: dealt.holes[i],
@@ -1389,9 +1755,43 @@
   }
 
   function heroOptions(hand, seat) {
-    var tc = toCall(seat, hand);
+    var tc = Math.max(0, hand.currentBet - seat.streetInvested);
     var bb = hand.bb || 1;
+    var pot = Math.max(hand.pot || 0, bb);
+    var maxTo = seat.streetInvested + seat.stack;
     var opts = [];
+    function pushAllIn() {
+      if (seat.stack > 0) {
+        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxTo });
+      }
+    }
+    function pushRaise(mult, label) {
+      var minTo = Math.min(maxTo, hand.currentBet + hand.minRaise);
+      var raiseTo = Math.min(maxTo, Math.max(minTo, r2(hand.currentBet * mult)));
+      if (raiseTo <= hand.currentBet + 0.001) return;
+      if (raiseTo >= maxTo - 0.001) return;
+      opts.push({
+        id: 'raise',
+        label: (label ? (label + ' · ') : '') + fmtBb(raiseTo, bb),
+        min: minTo,
+        max: maxTo,
+        suggested: raiseTo,
+        amount: raiseTo
+      });
+    }
+    function pushBet(frac, label) {
+      var amt = Math.min(maxTo, Math.max(bb, r2(pot * frac)));
+      if (amt >= maxTo - 0.001) return;
+      opts.push({
+        id: 'bet',
+        label: (label ? (label + ' · ') : 'Apostar ') + fmtBb(amt, bb),
+        min: Math.min(bb, maxTo),
+        max: maxTo,
+        suggested: amt,
+        amount: amt
+      });
+    }
+
     if (tc > 0) {
       opts.push({ id: 'fold', label: 'Fold' });
       opts.push({
@@ -1400,75 +1800,87 @@
         amount: Math.min(tc, seat.stack)
       });
       if (seat.stack > tc) {
-        var minTo = Math.min(seat.streetInvested + seat.stack, hand.currentBet + hand.minRaise);
-        var maxTo = seat.streetInvested + seat.stack;
-        var raiseTo = Math.min(Math.max(minTo, r2(hand.currentBet * 2.5)), maxTo);
-        opts.push({
-          id: 'raise',
-          label: 'Subir a ' + fmtBb(raiseTo, bb),
-          min: minTo,
-          max: maxTo,
-          suggested: raiseTo,
-          amount: raiseTo
-        });
-        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxTo });
+        if (hand.street === 'preflop') {
+          var raises = 0;
+          (hand.log || []).forEach(function (e) {
+            if (e.street === 'preflop' && (e.action === 'raise' || e.action === 'bet')) raises += 1;
+          });
+          if (!hand.openerId) {
+            [2, 2.5, 3].forEach(function (x) {
+              var to = Math.min(maxTo, r2(bb * x));
+              if (to > hand.currentBet + 0.001 && to < maxTo - 0.001) {
+                opts.push({
+                  id: 'raise',
+                  label: x + ' bb',
+                  min: Math.min(maxTo, hand.currentBet + hand.minRaise),
+                  max: maxTo,
+                  suggested: to,
+                  amount: to
+                });
+              }
+            });
+          } else {
+            var mults = raises >= 2 ? [2.2, 2.6, 3.0] : [2.5, 3.0, 3.5];
+            mults.forEach(function (m) {
+              pushRaise(m, (raises >= 2 ? '4bet ' : '3bet ') + m + 'x');
+            });
+          }
+        } else {
+          pushRaise(2.5, 'Raise 2.5x');
+          pushRaise(3.2, 'Raise 3.2x');
+          var potRaise = Math.min(maxTo, r2(hand.currentBet + pot));
+          if (potRaise > hand.currentBet + hand.minRaise && potRaise < maxTo - 0.001) {
+            opts.push({
+              id: 'raise',
+              label: 'Raise pot',
+              min: Math.min(maxTo, hand.currentBet + hand.minRaise),
+              max: maxTo,
+              suggested: potRaise,
+              amount: potRaise
+            });
+          }
+        }
+        pushAllIn();
       }
     } else {
       opts.push({ id: 'check', label: 'Check' });
       if (seat.stack > 0) {
-        var maxBet = seat.streetInvested + seat.stack;
-        var sug = Math.min(maxBet, Math.max(hand.bb, r2(hand.pot * 0.55)));
-        opts.push({
-          id: 'bet',
-          label: 'Apostar ' + fmtBb(sug, bb),
-          min: Math.min(hand.bb, maxBet),
-          max: maxBet,
-          suggested: sug,
-          amount: sug
-        });
-        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxBet });
+        if (hand.street === 'preflop') {
+          [2, 2.5, 3].forEach(function (x) {
+            var to = Math.min(maxTo, r2(bb * x));
+            if (to < maxTo - 0.001) {
+              opts.push({
+                id: 'raise',
+                label: x + ' bb',
+                min: Math.min(bb, maxTo),
+                max: maxTo,
+                suggested: to,
+                amount: to
+              });
+            }
+          });
+        } else {
+          [[0.33, '33%'], [0.66, '66%'], [1.0, '100%'], [1.25, '125%']].forEach(function (pair) {
+            pushBet(pair[0], pair[1]);
+          });
+        }
+        pushAllIn();
       }
     }
     return opts;
   }
 
   function villainAction(hand, seat) {
-    var tc = toCall(seat, hand);
-    if (hand.street === 'preflop') {
-      if (!hand.openerId) {
-        if (seat.pos === 'BB' && tc <= 0) return { id: 'check' };
-        if (shouldOpen(seat, hand)) {
-          return {
-            id: 'raise',
-            amount: Math.min(seat.streetInvested + seat.stack, r2(hand.bb * (seat.pos === 'SB' ? 3 : 2.5)))
-          };
-        }
-        return tc > 0 ? { id: 'fold' } : { id: 'check' };
-      }
-      var d = defendDecision(seat, hand);
-      if (d === 'raise') {
-        return {
-          id: 'raise',
-          amount: Math.min(seat.streetInvested + seat.stack,
-            Math.max(hand.currentBet + hand.minRaise, hand.currentBet * 2.6))
-        };
-      }
-      if (d === 'call') return { id: 'call' };
-      return tc > 0 ? { id: 'fold' } : { id: 'check' };
+    var D = global.PTTournamentVillainDecide;
+    if (D && typeof D.decide === 'function') {
+      try {
+        var act = D.decide(hand, seat);
+        if (act && act.id) return act;
+      } catch (e) { /* fallback */ }
     }
-    var pf = postflopDecision(seat, hand, tc);
-    if (pf === 'bet' || pf === 'raise') {
-      var to = hand.currentBet > 0
-        ? Math.max(hand.currentBet + hand.minRaise, hand.currentBet * 2.2)
-        : Math.max(hand.bb, hand.pot * 0.6);
-      return {
-        id: hand.currentBet > 0 ? 'raise' : 'bet',
-        amount: Math.min(seat.streetInvested + seat.stack, r2(to))
-      };
-    }
-    if (pf === 'call') return { id: 'call' };
-    if (pf === 'check') return { id: 'check' };
-    return { id: 'fold' };
+    var tc = Math.max(0, hand.currentBet - seat.streetInvested);
+    if (tc > 0) return { id: 'fold' };
+    return { id: 'check' };
   }
 
   function applyAction(hand, seat, action) {
@@ -1697,12 +2109,12 @@
   var XP_CAP = 150;
 
   var ROLE_LABELS = {
-    fish: 'Fish',
-    nit: 'Nit',
-    tag: 'TAG',
-    lag: 'LAG',
-    maniac: 'Maníaco',
-    pro: 'Pro'
+    fish: 'Fish (loose-pasivo)',
+    nit: 'Nit (tight-pasivo)',
+    tag: 'TAG (tight-agresivo)',
+    lag: 'LAG (loose-agresivo)',
+    maniac: 'Maníaco (hiper-agresivo)',
+    pro: 'Pro (GTO+)'
   };
 
   function setGuess(state, playerId, roleId) {
@@ -1775,7 +2187,11 @@
         vpipHands: 0,
         pfrHands: 0,
         wonHands: 0,
-        wentToShowdown: 0
+        wentToShowdown: 0,
+        wonShowdown: 0,
+        decisions: 0,
+        goodDecisions: 0,
+        evLoss: 0
       };
     }
     return state.stats;
@@ -1837,7 +2253,21 @@
     }
     if (result && result.showdown) {
       st.wentToShowdown = (Number(st.wentToShowdown) || 0) + 1;
+      var deltas = (result && result.deltas) || {};
+      var hid = heroId || (seat && seat.id) || 'hero';
+      if ((Number(deltas[hid]) || 0) > 0) {
+        st.wonShowdown = (Number(st.wonShowdown) || 0) + 1;
+      }
     }
+    var decs = (hand && hand.decisions) || [];
+    decs.forEach(function (d) {
+      if (!d || d.unscored) return;
+      st.decisions = (Number(st.decisions) || 0) + 1;
+      if (d.class === 'green' || d.class === 'good' || d.ok) {
+        st.goodDecisions = (Number(st.goodDecisions) || 0) + 1;
+      }
+      st.evLoss = Math.round(((Number(st.evLoss) || 0) + (Number(d.evLoss) || 0)) * 100) / 100;
+    });
     return st;
   }
 
@@ -1891,6 +2321,12 @@
       pfr: pct(st.pfrHands || 0, st.handsPlayed || 0),
       wonHands: st.wonHands || 0,
       wentToShowdown: st.wentToShowdown || 0,
+      wonShowdown: st.wonShowdown || 0,
+      wtsd: pct(st.wentToShowdown || 0, st.handsPlayed || 0),
+      wsd: pct(st.wonShowdown || 0, st.wentToShowdown || 0),
+      gtoAccuracy: pct(st.goodDecisions || 0, st.decisions || 0),
+      gtoDecisions: st.decisions || 0,
+      evLoss: st.evLoss || 0,
       roleAccuracy: roleAccuracy,
       roleCorrect: roleScore.correct || 0,
       roleTotal: roleScore.total || 0
@@ -1944,7 +2380,7 @@
       return {
         rank: i + 1,
         id: p.id,
-        name: p.isHero ? 'Héroe' : (p.name || p.id),
+        name: p.isHero ? (p.name && p.name !== 'Héroe' ? p.name : 'Jugador') : (p.name || p.id),
         isHero: !!p.isHero,
         stack: stack,
         bb: Math.round((stack / bb) * 10) / 10,
@@ -1996,7 +2432,10 @@
       parts.push((i + 1) + 'º ' + pct + '% · ' + fmtKoins(euros[i]));
     }
     if (euros.length > n) parts.push('…');
-    return parts.join(' · ') || '—';
+    if (!parts.length) return '—';
+    return { html: true, content: '<ul class="trn-payout-list">' + parts.map(function (p, i) {
+      return '<li>' + p + '</li>';
+    }).join('') + '</ul>' };
   }
 
   function infoRows(state) {
@@ -2049,9 +2488,11 @@
 
     var top = topStacks(state, 10);
     var topLabel = top.length
-      ? top.map(function (t) {
-        return t.rank + '. ' + t.name + ' ' + fmtNum(t.stack) + ' (' + t.bb + ' bb)';
-      }).join(' · ')
+      ? { html: true, content: '<ol class="trn-stack-list">' + top.map(function (t) {
+        return '<li class="' + (t.isHero ? 'is-hero' : '') + '"><span class="trn-stack-rank">' +
+          t.rank + '.</span> <span class="trn-stack-name">' + t.name + '</span> ' +
+          '<span class="trn-stack-amt">' + fmtNum(t.stack) + ' (' + t.bb + ' bb)</span></li>';
+      }).join('') + '</ol>' }
       : '—';
 
     return [
@@ -2077,6 +2518,143 @@
     currentBlinds: currentBlinds,
     topStacks: topStacks,
     fmtKoins: fmtKoins
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * tournament/wallet.js — Saldo de Koins (100 iniciales) + sync cloud.
+ */
+(function (global) {
+  'use strict';
+
+  var STARTING = 100;
+  var KEY = 'pt_tournament_wallet_v1';
+
+  function userSuffix() {
+    var uid = null;
+    try {
+      if (global.Store && typeof global.Store.getUserId === 'function') {
+        uid = global.Store.getUserId();
+      }
+    } catch (e) { /* */ }
+    return uid ? ('_' + uid) : '';
+  }
+
+  function storageKey() {
+    return KEY + userSuffix();
+  }
+
+  function markDirty() {
+    try {
+      if (global.PTCloud && typeof global.PTCloud.markLocalDirty === 'function') {
+        global.PTCloud.markLocalDirty(['tournamentWallet', 'tournamentHistory']);
+      }
+      if (global.PTCloud && typeof global.PTCloud.schedulePush === 'function') {
+        global.PTCloud.schedulePush(['tournamentWallet', 'tournamentHistory']);
+      }
+    } catch (e) { /* */ }
+  }
+
+  function readRaw() {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      var raw = localStorage.getItem(storageKey());
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeRaw(data) {
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      localStorage.setItem(storageKey(), JSON.stringify(data));
+      markDirty();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function ensure() {
+    var data = readRaw();
+    if (!data || typeof data.balance !== 'number') {
+      data = { balance: STARTING, updatedAt: new Date().toISOString(), version: 1 };
+      writeRaw(data);
+    }
+    return data;
+  }
+
+  function getBalance() {
+    return ensure().balance;
+  }
+
+  function setBalance(n, meta) {
+    var bal = Math.round((Number(n) || 0) * 100) / 100;
+    if (bal < 0) bal = 0;
+    var data = ensure();
+    data.balance = bal;
+    data.updatedAt = new Date().toISOString();
+    if (meta) data.last = meta;
+    writeRaw(data);
+    return data.balance;
+  }
+
+  function canAfford(cost) {
+    return getBalance() + 1e-9 >= (Number(cost) || 0);
+  }
+
+  function debit(cost, meta) {
+    cost = Math.round((Number(cost) || 0) * 100) / 100;
+    if (cost < 0) cost = 0;
+    var bal = getBalance();
+    if (bal + 1e-9 < cost) {
+      return { ok: false, reason: 'insufficient', balance: bal };
+    }
+    var next = Math.round((bal - cost) * 100) / 100;
+    setBalance(next, Object.assign({ type: 'debit', amount: cost }, meta || {}));
+    return { ok: true, balance: next, charged: cost };
+  }
+
+  function credit(amount, meta) {
+    amount = Math.round((Number(amount) || 0) * 100) / 100;
+    if (amount <= 0) return { ok: true, balance: getBalance(), added: 0 };
+    var next = Math.round((getBalance() + amount) * 100) / 100;
+    setBalance(next, Object.assign({ type: 'credit', amount: amount }, meta || {}));
+    return { ok: true, balance: next, added: amount };
+  }
+
+  function snapshot() {
+    var data = ensure();
+    return {
+      balance: data.balance,
+      updatedAt: data.updatedAt,
+      version: data.version || 1
+    };
+  }
+
+  function mergeFromCloud(remote) {
+    if (!remote || typeof remote.balance !== 'number') return snapshot();
+    var local = ensure();
+    var localTs = Date.parse(local.updatedAt || 0) || 0;
+    var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
+    if (remoteTs >= localTs) {
+      setBalance(remote.balance, { type: 'cloud_merge' });
+    }
+    return snapshot();
+  }
+
+  global.PTTournamentWallet = {
+    STARTING: STARTING,
+    getBalance: getBalance,
+    setBalance: setBalance,
+    canAfford: canAfford,
+    debit: debit,
+    credit: credit,
+    snapshot: snapshot,
+    mergeFromCloud: mergeFromCloud,
+    ensure: ensure
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -2134,10 +2712,10 @@
   function markCloudDirty() {
     try {
       if (global.PTCloud && typeof global.PTCloud.markLocalDirty === 'function') {
-        global.PTCloud.markLocalDirty(['tournamentActive', 'tournamentHistory']);
+        global.PTCloud.markLocalDirty(['tournamentActive', 'tournamentHistory', 'tournamentWallet']);
       }
       if (global.PTCloud && typeof global.PTCloud.schedulePush === 'function') {
-        global.PTCloud.schedulePush(['tournamentActive', 'tournamentHistory']);
+        global.PTCloud.schedulePush(['tournamentActive', 'tournamentHistory', 'tournamentWallet']);
       }
     } catch (e) { /* ignore */ }
   }
@@ -2430,6 +3008,20 @@
     if (Other && Other.simulateRound) Other.simulateRound(state, blinds);
 
     Seat.rebalance(state);
+    try {
+      var leftNow = St.playersLeft(state);
+      var placesPaid = Number(state.config && state.config.placesPaid) || 0;
+      var heroNow = St.hero(state);
+      var evs = state.events || [];
+      if (!state.finalTableShown && evs.some(function (e) { return e && e.type === 'final_table'; })) {
+        state.finalTableShown = true;
+        state.finalTablePending = { players: leftNow, at: Date.now() };
+      }
+      if (!state.itmShown && heroNow && heroNow.alive && placesPaid > 0 && leftNow <= placesPaid) {
+        state.itmShown = true;
+        state.itmPending = { place: leftNow, paid: placesPaid, at: Date.now() };
+      }
+    } catch (ePop) { /* ignore */ }
     state._liveHand = null;
     state.handLog = state.handLog || [];
     state.gtoSession = state.gtoSession || { decisions: 0, scored: 0, hits: 0, totalEvLoss: 0 };
@@ -2590,6 +3182,12 @@
         presetId: state._presetId || state.config.id
       });
     }
+    try {
+      var Wallet = global.PTTournamentWallet;
+      if (Wallet && Wallet.credit && prizeEur > 0) {
+        Wallet.credit(prizeEur, { type: 'prize', tournamentId: state.id, place: place });
+      }
+    } catch (eW) { /* ignore */ }
     return state.result;
   }
 
@@ -2701,12 +3299,65 @@
     resumePrompt: false,
     handDetailOpen: false,
     replayOpen: false,
+    replayStep: 0,
     replayHandIndex: null,
+    popupClearScheduled: { blind: false, ft: false, itm: false },
     anim: { frame: null, playing: false, skip: false, seq: 0, timer: null }
   };
 
   /* ---------- Revelado de la acción paso a paso (como en Entrenar) ---------- */
-  function reducedMotion() {
+    function heroDisplayName(state) {
+    try {
+      var h = state && global.PTTournamentState && PTTournamentState.hero
+        ? PTTournamentState.hero(state) : null;
+      if (h && h.name && h.name !== 'Héroe' && h.name !== 'Hero') return h.name;
+    } catch (e0) { /* */ }
+    try {
+      var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+      if (u && u.name) {
+        var n = String(u.name).trim().split(/\s+/)[0];
+        if (n) return n;
+      }
+    } catch (e1) { /* */ }
+    return 'Jugador';
+  }
+
+  function resolveHeroNameOpt() {
+    try {
+      var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+      if (u && u.name) return String(u.name).trim().split(/\s+/)[0] || u.name;
+    } catch (e) { /* */ }
+    return 'Jugador';
+  }
+
+  function toastPopupHtml(kind, title, sub, withConfetti) {
+    return '<div class="trn-center-popup trn-popup-' + kind + '" data-popup="' + kind + '" role="status">' +
+      (withConfetti ? '<div class="trn-confetti" aria-hidden="true">' +
+        '<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>' +
+        '</div>' : '') +
+      '<div class="trn-center-popup-card">' +
+      '<strong>' + title + '</strong>' +
+      (sub ? ('<span>' + sub + '</span>') : '') +
+      '</div></div>';
+  }
+
+  function schedulePopupClear(flag) {
+    try {
+      if (!ui.popupClearScheduled) ui.popupClearScheduled = {};
+      if (ui.popupClearScheduled[flag]) return;
+      ui.popupClearScheduled[flag] = true;
+      setTimeout(function () {
+        ui.popupClearScheduled[flag] = false;
+        if (!ui.state) return;
+        if (flag === 'blind') ui.state.blindUpPending = null;
+        if (flag === 'ft') ui.state.finalTablePending = null;
+        if (flag === 'itm') ui.state.itmPending = null;
+        paint();
+      }, 2000);
+    } catch (e) { /* */ }
+  }
+
+function reducedMotion() {
     try {
       return !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
     } catch (e) {
@@ -2932,6 +3583,24 @@
   function startFromConfig(cfg, opts) {
     opts = opts || {};
     if (!opts.keepActive) clearActive();
+    opts.heroName = opts.heroName || resolveHeroNameOpt();
+    var buyIn = 0;
+    try {
+      var cfgObj = typeof cfg === 'string'
+        ? (global.PTTournamentConfig.fromPreset ? PTTournamentConfig.fromPreset(cfg) : null)
+        : cfg;
+      buyIn = Number(cfgObj && cfgObj.buyInEur) || 0;
+    } catch (eCfg) { buyIn = 0; }
+    try {
+      var Wallet = global.PTTournamentWallet;
+      if (Wallet) {
+        if (!Wallet.canAfford(buyIn)) {
+          alert('Saldo insuficiente de Koins (' + Wallet.getBalance() + '). Buy-in: ' + buyIn);
+          return;
+        }
+        Wallet.debit(buyIn, { type: 'buyin' });
+      }
+    } catch (eW0) { /* */ }
     var Runner = global.PTTournamentRunner;
     ui.state = Runner.create(cfg, opts);
     ui.bustPrompt = false;
@@ -3074,6 +3743,7 @@
       '<h2>TORNEOS</h2>' +
       '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
       '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
+      '<div class="trn-wallet-chip">Koins: <strong>' + esc(String((global.PTTournamentWallet && PTTournamentWallet.getBalance) ? PTTournamentWallet.getBalance() : 100)) + '</strong></div>' +
       '</div>' +
       '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
@@ -3362,7 +4032,7 @@
         '<div class="seat-body">' +
         '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
         '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
-        '<div class="seat-role">' + esc(s.name || 'Villano') + (guessed ? ' · ?' : '') + '</div>' +
+        '<div class="seat-role">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') + esc(s.name || 'Villano') + (guessed ? ' · ?' : '') + '</div>' +
         '<div class="seat-stack">' + esc(fmtBb(s.stack, bb)) + '</div>' +
         '</div>' + betHtml +
         '</button>';
@@ -3373,7 +4043,7 @@
   function renderHeroArea(hand, bb) {
     if (!hand) {
       return '<div class="hero-area">' +
-        '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE</div>' +
+        '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) + '</div>' +
         '<div class="hero-cards"></div></div>';
     }
     var hero = null;
@@ -3397,7 +4067,7 @@
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
       '<div class="hero-chips"><div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
-      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>HÉROE · <span>' +
+      '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) + ' · <span>' +
       esc(hero.pos || '-') + '</span></div>' +
       (cards ? ('<div class="hero-cards">' + cards + '</div>') : '<div class="hero-cards hero-cards-folded"></div>') +
       '</div>';
@@ -3502,14 +4172,28 @@
     var infoModal = '';
     if (ui.infoOpen) {
       var rows = Hud.infoRows(state).map(function (r) {
+        var val = r.value;
+        var valHtml = (val && typeof val === 'object' && val.html)
+          ? val.content
+          : esc(String(val == null ? '' : val));
         return '<div class="trn-info-row"><span class="trn-info-lbl">' + esc(r.label) +
-          '</span><span class="trn-info-val">' + esc(r.value) + '</span></div>';
+          '</span><span class="trn-info-val">' + valHtml + '</span></div>';
       }).join('');
+      var hist = (state.handLog || state.handLog || []).slice().reverse().slice(0, 30);
+      var histHtml = hist.length
+        ? ('<ul class="trn-info-handlog">' + hist.map(function (h) {
+          return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
+            esc(String(h.handIndex)) + '">#' + esc(String(h.handIndex)) + '</button> · pot ' +
+            esc(String(Math.round((h.pot || 0) * 10) / 10)) +
+            (h.showdown ? ' · SD' : '') + '</li>';
+        }).join('') + '</ul>')
+        : '<p class="muted">Aún no hay manos</p>';
       infoModal = '<div class="trn-modal-backdrop" data-act="close-info">' +
-        '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Info del torneo" ' +
+        '<div class="trn-modal trn-modal-wide" role="dialog" aria-modal="true" aria-label="Info del torneo" ' +
         'data-act="noop">' +
         '<h3>Info del torneo</h3>' +
         '<div class="trn-info-dl">' + rows + '</div>' +
+        '<h4>Histórico de manos</h4>' + histHtml +
         '<button type="button" class="btn btn-primary" data-act="close-info">Cerrar</button>' +
         '</div></div>';
     }
@@ -3548,13 +4232,26 @@
     }
 
     var blindUpBanner = '';
+    var ftPopup = '';
+    var itmPopup = '';
     if (state.blindUpPending && !(hand && hand.stage === 'complete')) {
       var bu = state.blindUpPending;
-      blindUpBanner = '<div class="trn-blind-up" role="status">' +
-        '<strong>Ciegas nuevas</strong> · Nivel ' + esc(String(bu.level)) +
-        ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
-        (bu.ante ? (' ante ' + esc(String(bu.ante))) : '') +
-        ' <button type="button" class="btn btn-sm" data-act="dismiss-blind-up">OK</button></div>';
+      blindUpBanner = toastPopupHtml(
+        'blind',
+        'Subida de nivel',
+        'Nivel ' + esc(String(bu.level)) + ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
+          (bu.ante ? (' ante ' + esc(String(bu.ante))) : ''),
+        false
+      );
+      schedulePopupClear('blind');
+    }
+    if (state.finalTablePending && !(hand && hand.stage === 'complete')) {
+      ftPopup = toastPopupHtml('ft', 'Mesa final', String(state.finalTablePending.players || '') + ' jugadores', true);
+      schedulePopupClear('ft');
+    }
+    if (state.itmPending && !(hand && hand.stage === 'complete')) {
+      itmPopup = toastPopupHtml('itm', '¡En el dinero!', 'Has entrado en premios', true);
+      schedulePopupClear('itm');
     }
 
     var exitModal = '';
@@ -3573,7 +4270,7 @@
     /* Misma cáscara visual que el entrenador (.play-stage / .poker-table / .table-felt)
        sin montar en #play-active: el motor de torneo (PTTournamentRunner) sigue
        dueño del estado entre manos. */
-    return '<div class="trn-table-view trn-play-like">' + blindUpBanner +
+    return '<div class="trn-table-view trn-play-like">' + blindUpBanner + ftPopup + itmPopup +
       '<div class="trn-play-stage">' +
       '<div class="trn-table-hud">' + chips +
       '<div class="trn-hud-actions">' +
@@ -3630,7 +4327,7 @@
       var dCls = d > 0 ? 'net-pos' : (d < 0 ? 'net-neg' : '');
       return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') +
         ((res.winners || []).indexOf(s.id) >= 0 ? ' is-winner' : '') + '">' +
-        '<div class="trn-hand-end-name">' + esc(s.isHero ? 'Héroe' : (s.name || s.pos)) +
+        '<div class="trn-hand-end-name">' + esc(s.isHero ? heroDisplayName(ui.state) : (s.name || s.pos)) +
         ' · ' + esc(s.pos || '') + '</div>' +
         '<div class="trn-hand-end-cards">' + cardsHtml + '</div>' +
         ((res.handNames && res.handNames[s.id])
@@ -3695,37 +4392,57 @@
     var log = (ui.state.handLog || []).find(function (h) {
       return Number(h.handIndex) === Number(ui.replayHandIndex);
     });
-    if (!log) return '';
-    var bb = log.bb || 20;
-    var board = (log.board || []).map(faceCard).join('');
-    var seats = (log.seats || []).map(function (s) {
-      var cards = (!s.folded && s.cards && s.cards[0]) ? s.cards.map(faceCard).join('') : '';
-      var d = log.result && log.result.deltas ? Number(log.result.deltas[s.id]) || 0 : 0;
-      return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') + '">' +
-        '<div class="trn-hand-end-name">' + esc(s.isHero ? 'Héroe' : s.name) + ' · ' + esc(s.pos || '') +
-        (s.folded ? ' · Fold' : '') + '</div>' +
-        '<div class="trn-hand-end-cards">' + cards + '</div>' +
-        '<div class="trn-hand-end-delta">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div></div>';
-    }).join('');
-    var acts = (log.log || []).map(function (e) {
-      return '<li><span class="muted">' + esc(e.street) + '</span> ' + esc(e.name || e.id) +
-        ' · ' + esc(formatActLabel(e.action, e.amount, bb)) + '</li>';
-    }).join('');
-    var gto = '';
-    if (log.decisions && log.decisions.length) {
-      gto = '<h4>GTO</h4><ol>' + log.decisions.map(function (d) {
-        return '<li>' + esc(d.class || 'unscored') + ' · ' + esc(d.street || '') + ' · ' + esc(d.action || '') + '</li>';
-      }).join('') + '</ol>';
+    if (!log) {
+      return '<div class="trn-modal-backdrop" data-act="close-replay">' +
+        '<div class="trn-modal" data-act="noop"><p>Mano no encontrada</p>' +
+        '<button type="button" class="btn" data-act="close-replay">Cerrar</button></div></div>';
     }
+    var bb = Number(log.bb) || 1;
+    var actions = log.log || [];
+    var step = Math.max(0, Math.min(ui.replayStep || 0, actions.length));
+    var visible = actions.slice(0, step);
+    var boardCount = 0;
+    visible.forEach(function () { /* board from streets */ });
+    var streetsSeen = {};
+    visible.forEach(function (e) { if (e.street) streetsSeen[e.street] = true; });
+    var boardShow = 0;
+    if (streetsSeen.flop) boardShow = 3;
+    if (streetsSeen.turn) boardShow = 4;
+    if (streetsSeen.river || log.showdown) boardShow = 5;
+    if (step >= actions.length) boardShow = (log.board || []).length;
+    var boardHtml = (log.board || []).slice(0, boardShow).map(faceCard).join('') ||
+      '<span class="muted">—</span>';
+    var actHtml = visible.map(function (e, idx) {
+      return '<li class="' + (idx === step - 1 ? 'is-current' : '') + '">' +
+        '<span class="muted">' + esc(e.street || '') + '</span> ' +
+        esc(e.name || e.id) + ' · ' + esc(formatActLabel(e.action, e.amount, bb)) + '</li>';
+    }).join('') || '<li class="muted">Inicio de la mano</li>';
+    var seatsHtml = (log.seats || []).map(function (s) {
+      var showCards = step >= actions.length || s.isHero;
+      var cards = showCards && s.cards && s.cards[0]
+        ? s.cards.map(faceCard).join('')
+        : '<span class="muted">??</span>';
+      return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') + '">' +
+        '<div class="trn-hand-end-name">' + esc(s.isHero ? heroDisplayName(ui.state) : s.name) +
+        ' · ' + esc(s.pos || '') + '</div>' +
+        '<div class="trn-hand-end-cards">' + cards + '</div></div>';
+    }).join('');
+    var done = step >= actions.length;
     return '<div class="trn-modal-backdrop" data-act="close-replay">' +
-      '<div class="trn-modal trn-hand-end-modal" role="dialog" data-act="noop">' +
-      '<h3>Replay mano #' + esc(String(log.handIndex)) + '</h3>' +
-      '<div class="trn-hand-end-board">' + board + '</div>' +
-      '<div class="trn-hand-end-seats">' + seats + '</div>' +
-      '<ol>' + acts + '</ol>' + gto +
-      '<button type="button" class="btn btn-primary" data-act="close-replay">Cerrar</button>' +
-      '</div></div>';
+      '<div class="trn-modal trn-modal-wide trn-replay-modal" role="dialog" aria-modal="true" data-act="noop">' +
+      '<h3>Replay mano #' + esc(String(log.handIndex)) + ' · paso ' + step + '/' + actions.length + '</h3>' +
+      '<div class="trn-hand-end-board"><span class="muted">Board</span><div class="trn-hand-end-cards">' +
+      boardHtml + '</div></div>' +
+      '<div class="trn-hand-end-seats">' + seatsHtml + '</div>' +
+      '<ol class="trn-replay-steps">' + actHtml + '</ol>' +
+      '<div class="trn-setup-actions">' +
+      '<button type="button" class="btn" data-act="replay-prev"' + (step <= 0 ? ' disabled' : '') + '>Anterior</button>' +
+      '<button type="button" class="btn btn-primary" data-act="replay-next">' +
+      (done ? 'Reiniciar' : 'Siguiente') + '</button>' +
+      '<button type="button" class="btn" data-act="close-replay">Cerrar</button>' +
+      '</div></div></div>';
   }
+
 
   function renderResult() {
     var state = ui.state;
@@ -3755,7 +4472,7 @@
       var prize = (place >= 1 && place <= ladder.length) ? (ladder[place - 1] || 0) : 0;
       return '<tr class="' + (pl.isHero ? 'is-hero' : '') + '">' +
         '<td>' + place + 'º</td>' +
-        '<td>' + esc(pl.isHero ? 'Héroe' : pl.name) + '</td>' +
+        '<td>' + esc(pl.isHero ? heroDisplayName(ui.state) : pl.name) + '</td>' +
         '<td>' + (pl.alive ? (Math.round(pl.stack) + ' f') : 'out') + '</td>' +
         '<td>' + fmtKoins(prize) + '</td></tr>';
     }).join('');
@@ -3778,10 +4495,17 @@
       '<p>Roles: ' + (rs.correct || 0) + '/' + (rs.total || 0) +
       ' (' + (rs.accuracy || 0) + '%) · +' + (r.xpGained || 0) + ' XP</p>' +
       '<div class="trn-result-stats">' +
-      '<p><strong>Stats héroe</strong> · Manos ' + (stats.handsPlayed || 0) +
-      ' · VPIP ' + (stats.vpip || 0) + '% · PFR ' + (stats.pfr || 0) +
-      '% · Ganadas ' + (stats.wonHands || 0) +
-      ' · SD ' + (stats.wentToShowdown || 0) + '</p>' +
+      '<div class="trn-result-stats trn-session-like">' +
+      '<div class="trn-stat-grid">' +
+      '<div><div class="trn-stat-val">' + (stats.handsPlayed || 0) + '</div><div class="trn-stat-lbl">Manos</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.vpip || 0) + '%</div><div class="trn-stat-lbl">VPIP</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.pfr || 0) + '%</div><div class="trn-stat-lbl">PFR</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.wtsd != null ? stats.wtsd : '—') + '%</div><div class="trn-stat-lbl">WTSD</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.wsd != null ? stats.wsd : '—') + '%</div><div class="trn-stat-lbl">W$SD</div></div>' +
+      '<div><div class="trn-stat-val">' + (gto.accuracy != null ? gto.accuracy : (stats.gtoAccuracy || 0)) + '%</div><div class="trn-stat-lbl">Acierto GTO</div></div>' +
+      '<div><div class="trn-stat-val">' + (gto.totalEvLoss != null ? gto.totalEvLoss : (stats.evLoss || 0)) + '</div><div class="trn-stat-lbl">EV loss</div></div>' +
+      '<div><div class="trn-stat-val">' + (stats.wonHands || 0) + '</div><div class="trn-stat-lbl">Ganadas</div></div>' +
+      '</div></div>' +
       '<p><strong>GTO</strong> · Decisiones ' + (gto.scored || 0) +
       ' · Aciertos ' + (gto.hits || 0) +
       (gto.accuracy != null ? (' (' + gto.accuracy + '%)') : '') +
@@ -3969,10 +4693,23 @@
         } else if (act === 'replay-hand') {
           ui.replayHandIndex = Number(btn.getAttribute('data-hand'));
           ui.replayOpen = true;
+          ui.replayStep = 0;
           paint();
         } else if (act === 'close-replay') {
           ui.replayOpen = false;
           ui.replayHandIndex = null;
+          ui.replayStep = 0;
+          paint();
+        } else if (act === 'replay-next') {
+          var logN = (ui.state && ui.state.handLog || []).find(function (h) {
+            return Number(h.handIndex) === Number(ui.replayHandIndex);
+          });
+          var maxS = logN && logN.log ? logN.log.length : 0;
+          if ((ui.replayStep || 0) >= maxS) ui.replayStep = 0;
+          else ui.replayStep = (ui.replayStep || 0) + 1;
+          paint();
+        } else if (act === 'replay-prev') {
+          ui.replayStep = Math.max(0, (ui.replayStep || 0) - 1);
           paint();
         } else if (act === 'history') {
           setView(VIEW.history);
