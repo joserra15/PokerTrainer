@@ -33875,7 +33875,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function cardsHtml(arr) {
-    return (arr || []).map(cardHtml).join(' ');
+    return (arr || []).map(cardHtml).join('');
   }
 
   function fmtBb(n) {
@@ -33884,12 +33884,31 @@ window.PT_NASH_PUSH_JSON = {
     return t;
   }
 
+  function cardCode(c) {
+    if (!c) return '';
+    if (typeof c === 'string') return c;
+    return c.code || (c.r != null && c.s ? String(c.r) + c.s : '');
+  }
+
+  /** Badge como en Entrenar: «Nota 10/10» (sin letra confusa tipo «10/10 · A»). */
   function scoreBadgeHtml(meta) {
     if (!meta || meta.score == null) return '';
     var letter = (meta.letter || 'C').charAt(0);
     var score = Math.round(Number(meta.score) * 10) / 10;
-    return '<span class="hand-score-badge grade-' + esc(letter) + '">' +
-      esc(String(score)) + '/10 · ' + esc(letter) + '</span>';
+    var scoreTxt = (Math.round(score * 10) / 10).toFixed(1).replace(/\.0$/, '');
+    return '<span class="badge grade-' + esc(letter) + ' hand-score-badge" title="Nota de la mano (0–10)">' +
+      'Nota ' + esc(scoreTxt) + '/10</span>';
+  }
+
+  function optimalBannerHtml(meta) {
+    if (!meta) return '';
+    if (meta.allOptimal) {
+      return '<div class="hand-score-optimal ok">Todas las decisiones han sido óptimas</div>';
+    }
+    if (meta.verdict) {
+      return '<div class="hand-score-optimal no">' + esc(meta.verdict) + '</div>';
+    }
+    return '<div class="hand-score-optimal no">No todas las decisiones han sido óptimas</div>';
   }
 
   function gtoBarsHtml(gto) {
@@ -33900,9 +33919,9 @@ window.PT_NASH_PUSH_JSON = {
     if (!keys.length) return '';
     return '<div class="gto-bars">' + keys.map(function (k) {
       var pct = Math.round((Number(gto[k]) || 0) * 100);
-      return '<div class="gto-bar-row"><span class="gto-bar-lab">' + esc(k) +
-        '</span><span class="gto-bar-track"><i style="width:' + pct + '%"></i></span>' +
-        '<span class="gto-bar-pct">' + pct + '%</span></div>';
+      return '<div class="gto-bar"><span class="lbl">' + esc(k) +
+        '</span><span class="track"><i class="fill" style="width:' + pct + '%"></i></span>' +
+        '<span class="pct">' + pct + '%</span></div>';
     }).join('') + '</div>';
   }
 
@@ -33935,6 +33954,9 @@ window.PT_NASH_PUSH_JSON = {
       }
       html += '</div>';
       if (d.explanation) html += '<div class="dec-expl">' + esc(d.explanation) + '</div>';
+      if (d.context && typeof d.context === 'string') {
+        html += '<div class="dec-context muted">' + esc(d.context) + '</div>';
+      }
       if (d.optionBreakdown && d.optionBreakdown.length) {
         html += optionGridHtml(d.optionBreakdown, d.action || d.chosen, d.best);
       } else if (d.gto) {
@@ -33943,6 +33965,79 @@ window.PT_NASH_PUSH_JSON = {
       html += '</div>';
     });
     return html + '</div>';
+  }
+
+  /**
+   * Asientos rivales con cartas visibles (showdown) o mensaje si no enseñaron.
+   * Usa analyzed.shows / seats / handNames / positions.
+   */
+  function villainSeatsHtml(analyzed) {
+    if (!analyzed) return '';
+    var shows = analyzed.shows || {};
+    var positions = analyzed.positions || {};
+    var handNames = analyzed.handNames || {};
+    var heroName = analyzed.hero || '';
+    var seats = analyzed.seats || [];
+    var rows = [];
+
+    Object.keys(shows).forEach(function (name) {
+      if (name === heroName) return;
+      var cards = shows[name];
+      if (!cards || !cards.length) return;
+      rows.push({
+        name: name,
+        pos: positions[name] || '',
+        cards: cards,
+        handName: handNames[name] || null,
+        showed: true
+      });
+    });
+
+    if (!rows.length && seats.length) {
+      seats.forEach(function (s) {
+        var name = s.name || s.id;
+        if (!name || name === heroName) return;
+        if (s.folded) return;
+        var cards = (s.cards || []).map(cardCode).filter(Boolean);
+        if (cards.length >= 2) {
+          rows.push({
+            name: name,
+            pos: s.pos || positions[name] || '',
+            cards: cards,
+            handName: handNames[name] || null,
+            showed: true
+          });
+        }
+      });
+    }
+
+    if (!rows.length) {
+      return '<div class="hand-end-vs" aria-hidden="true">vs</div>' +
+        '<div class="hand-end-seat">' +
+        '<div class="hand-end-seat-label">Villanos</div>' +
+        '<div class="hand-end-cards"><span class="muted-text">no llegaron a enseñar</span></div>' +
+        '</div>';
+    }
+
+    if (rows.length === 1) {
+      var one = rows[0];
+      return '<div class="hand-end-vs" aria-hidden="true">vs</div>' +
+        '<div class="hand-end-seat">' +
+        '<div class="hand-end-seat-label">' + esc(one.name) +
+        (one.pos ? (' · ' + esc(one.pos)) : '') + '</div>' +
+        '<div class="hand-end-cards">' + cardsHtml(one.cards) + '</div>' +
+        (one.handName ? ('<div class="hand-end-handname">' + esc(one.handName) + '</div>') : '') +
+        '</div>';
+    }
+
+    return rows.map(function (r) {
+      return '<div class="hand-end-seat">' +
+        '<div class="hand-end-seat-label">' + esc(r.name) +
+        (r.pos ? (' · ' + esc(r.pos)) : '') + '</div>' +
+        '<div class="hand-end-cards">' + cardsHtml(r.cards) + '</div>' +
+        (r.handName ? ('<div class="hand-end-handname">' + esc(r.handName) + '</div>') : '') +
+        '</div>';
+    }).join('');
   }
 
   /**
@@ -33958,30 +34053,42 @@ window.PT_NASH_PUSH_JSON = {
     var scoreMeta = analyzed.handScoreMeta || null;
     var board = analyzed.boardAll || analyzed.board || [];
     if (board && !Array.isArray(board) && board.all) board = board.all;
-    var html = '<div class="hand-end-view">' +
-      '<div class="hand-end-view-head">' +
+    var heroHandName = analyzed.heroHandName ||
+      (analyzed.handNames && analyzed.hero && analyzed.handNames[analyzed.hero]) || null;
+    var multiVillains = Object.keys(analyzed.shows || {}).filter(function (n) {
+      return n !== analyzed.hero;
+    }).length > 1;
+    var villainsBlock = villainSeatsHtml(analyzed);
+
+    var html = '<div class="hand-end-view hand-end-popup">' +
+      '<div class="hand-end-view-head hand-end-popup-head">' +
       '<p class="hand-end-kicker">Resultado de la mano</p>' +
       '<h3>' + esc(title) + '</h3>' +
       scoreBadgeHtml(scoreMeta) +
-      (scoreMeta && scoreMeta.verdict ? ('<p class="muted">' + esc(scoreMeta.verdict) + '</p>') : '') +
+      optimalBannerHtml(scoreMeta) +
       '</div>' +
-      '<div class="hand-end-view-matchup">' +
+      '<div class="hand-end-view-matchup hand-end-matchup' +
+      (multiVillains ? ' hand-end-matchup-multi' : '') + '">' +
       '<div class="hand-end-seat is-hero">' +
       '<div class="hand-end-seat-label">Héroe · ' + esc(analyzed.heroPos || '') + '</div>' +
       '<div class="hand-end-cards">' + cardsHtml(analyzed.heroCards) + '</div>' +
-      '</div></div>' +
+      (heroHandName ? ('<div class="hand-end-handname">' + esc(heroHandName) + '</div>') : '') +
+      '</div>' +
+      villainsBlock +
+      '</div>' +
       (board && board.length
-        ? ('<div class="hand-end-board"><span class="muted">Board</span><div class="hand-end-cards">' +
+        ? ('<div class="hand-end-board"><span class="muted-text muted">Board</span><div class="hand-end-cards">' +
           cardsHtml(board) + '</div></div>')
         : '') +
-      '<div class="hand-end-view-stats">' +
+      '<div class="hand-end-view-stats hand-end-popup-stats stats-content">' +
       '<div class="stat-card"><div class="big ' + netCls + '">' + (net >= 0 ? '+' : '') +
       esc(fmtBb(net)) + '</div><div class="lbl">Resultado (bb)</div></div>' +
       '<div class="stat-card"><div class="big ' + ((analyzed.totalEvLoss > 0) ? 'net-neg' : 'net-pos') +
       '">−' + esc(fmtBb(analyzed.totalEvLoss || 0)) + '</div><div class="lbl">EV perdido</div></div>' +
       (scoreMeta && scoreMeta.score != null
-        ? ('<div class="stat-card"><div class="big">' + esc(String(Math.round(scoreMeta.score * 10) / 10)) +
-          '</div><div class="lbl">Nota /10</div></div>')
+        ? ('<div class="stat-card hand-score-stat"><div class="big">' +
+          esc(String(Math.round(scoreMeta.score * 10) / 10)) +
+          '<span class="hand-score-over">/10</span></div><div class="lbl">Nota de la mano</div></div>')
         : '') +
       '</div>';
     if (opts.showDecisions !== false) html += renderDecisionsHtml(analyzed.decisions || []);
@@ -34031,7 +34138,8 @@ window.PT_NASH_PUSH_JSON = {
     renderDecisionsHtml: renderDecisionsHtml,
     renderSessionStatsHtml: renderSessionStatsHtml,
     verdictWord: verdictWord,
-    scoreBadgeHtml: scoreBadgeHtml
+    scoreBadgeHtml: scoreBadgeHtml,
+    optimalBannerHtml: optimalBannerHtml
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 

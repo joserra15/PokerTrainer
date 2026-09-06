@@ -249,6 +249,17 @@
     var handIndex = meta.handIndex != null ? meta.handIndex : (source.handIndex != null ? source.handIndex : null);
     var id = 'trn_' + (meta.tournamentId || 'x') + '_h' + (handIndex != null ? handIndex : Date.now());
 
+    var handNamesByPlayer = {};
+    var srcHandNames = (source.result && source.result.handNames) || source.handNames || {};
+    seats.forEach(function (s) {
+      var nm = s.name || s.id;
+      var byId = srcHandNames[s.id];
+      if (byId) handNamesByPlayer[nm] = byId;
+    });
+    Object.keys(srcHandNames).forEach(function (k) {
+      if (!handNamesByPlayer[k] && srcHandNames[k]) handNamesByPlayer[k] = srcHandNames[k];
+    });
+
     var hand = {
       id: id,
       datetime: new Date().toISOString(),
@@ -256,6 +267,7 @@
       heroPos: heroSeat.pos || 'BTN',
       heroCards: heroCards,
       heroCode: null,
+      heroHandName: handNamesByPlayer[heroName] || srcHandNames[heroSeat.id] || null,
       board: boardObj.all.slice(),
       boardAll: boardObj.all.slice(),
       boardStreets: boardObj,
@@ -268,11 +280,15 @@
         return {
           name: s.name || s.id,
           stack: s.startStack != null ? s.startStack : s.stack,
-          pos: s.pos
+          pos: s.pos,
+          cards: ((source.result && source.result.holeCards && source.result.holeCards[s.id])
+            || s.cards || []).map(cardCode).filter(Boolean),
+          folded: !!s.folded
         };
       }),
       streets: streets,
       shows: shows,
+      handNames: handNamesByPlayer,
       collected: {},
       uncalledTo: {},
       decisions: decisions,

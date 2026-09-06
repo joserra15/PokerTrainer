@@ -18,6 +18,7 @@
     state: null,
     setupDraft: null,
     infoOpen: false,
+    infoHandlogOpen: false,
     roleModalPlayerId: null,
     bustPrompt: false,
     lobbyFilter: 'all',
@@ -297,6 +298,7 @@ function reducedMotion() {
     ui.state = st;
     ui.bustPrompt = st.status === 'busted_pending';
     ui.infoOpen = false;
+    ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
     ui.exitPrompt = false;
     ui.resumePrompt = false;
@@ -331,6 +333,7 @@ function reducedMotion() {
     ui.state = Runner.create(cfg, opts);
     ui.bustPrompt = false;
     ui.infoOpen = false;
+    ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
     ui.exitPrompt = false;
     ui.resumePrompt = false;
@@ -753,12 +756,15 @@ function reducedMotion() {
         ? '<div class="seat-bet ' + betPlacement(c) + '"><span class="seat-bet-amt">' + esc(fmtBb(streetBet, bb)) + '</span></div>'
         : '';
 
+      var villainName = s.name || 'Villano';
       html += '<button type="button" class="' + cls.join(' ') + '" style="top:' + c.top + '%;left:' + c.left +
-        '%" data-player="' + esc(s.id) + '" title="Adivinar rol">' +
+        '%" data-player="' + esc(s.id) + '" title="' + esc(villainName + ' · ' + (s.pos || '') + ' — adivinar rol') + '">' +
         '<div class="seat-body">' +
         '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
+        '<div class="seat-name">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') +
+        esc(villainName) + (guessed ? ' · ?' : '') + '</div>' +
         '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
-        '<div class="seat-role">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') + esc(s.name || 'Villano') + (guessed ? ' · ?' : '') + '</div>' +
+        '<div class="seat-role">' + esc(villainName) + '</div>' +
         '<div class="seat-stack">' + esc(fmtBb(s.stack, bb)) + '</div>' +
         '</div>' + betHtml +
         '</button>';
@@ -905,21 +911,35 @@ function reducedMotion() {
         return '<div class="trn-info-row"><span class="trn-info-lbl">' + esc(r.label) +
           '</span><span class="trn-info-val">' + valHtml + '</span></div>';
       }).join('');
-      var hist = (state.handLog || state.handLog || []).slice().reverse().slice(0, 30);
+      var hist = (state.handLog || []).slice().reverse().slice(0, 30);
       var histHtml = hist.length
         ? ('<ul class="trn-info-handlog">' + hist.map(function (h) {
-          return '<li><button type="button" class="btn btn-sm" data-act="replay-hand" data-hand="' +
-            esc(String(h.handIndex)) + '">#' + esc(String(h.handIndex)) + '</button> · pot ' +
-            esc(String(Math.round((h.pot || 0) * 10) / 10)) +
-            (h.showdown ? ' · SD' : '') + '</li>';
+          var heroSeat = (h.seats || []).find(function (s) { return s.isHero; });
+          var net = h.result && h.result.heroNet != null
+            ? Math.round((Number(h.result.heroNet) / Math.max(1, Number(h.bb) || 1)) * 10) / 10
+            : null;
+          var netTxt = net == null ? '' : (' · ' + (net >= 0 ? '+' : '') + net + ' bb');
+          return '<li><button type="button" class="btn btn-sm trn-info-hand-btn" data-act="review-hand" data-hand="' +
+            esc(String(h.handIndex)) + '" title="Ver paso a paso">' +
+            '#' + esc(String(h.handIndex)) +
+            (heroSeat && heroSeat.pos ? (' · ' + esc(heroSeat.pos)) : '') +
+            netTxt +
+            (h.showdown ? ' · SD' : '') +
+            '</button></li>';
         }).join('') + '</ul>')
         : '<p class="muted">Aún no hay manos</p>';
       infoModal = '<div class="trn-modal-backdrop" data-act="close-info">' +
-        '<div class="trn-modal trn-modal-wide" role="dialog" aria-modal="true" aria-label="Info del torneo" ' +
+        '<div class="trn-modal trn-modal-wide trn-info-modal" role="dialog" aria-modal="true" aria-label="Info del torneo" ' +
         'data-act="noop">' +
         '<h3>Info del torneo</h3>' +
         '<div class="trn-info-dl">' + rows + '</div>' +
-        '<h4>Histórico de manos</h4>' + histHtml +
+        '<details class="trn-info-handlog-wrap"' + (ui.infoHandlogOpen ? ' open' : '') + '>' +
+        '<summary data-act="toggle-handlog">Histórico de manos' +
+        (hist.length ? (' <span class="muted">(' + hist.length + ')</span>') : '') +
+        '</summary>' +
+        '<p class="trn-info-handlog-hint muted">Pulsa una mano para ver el paso a paso</p>' +
+        histHtml +
+        '</details>' +
         '<button type="button" class="btn btn-primary" data-act="close-info">Cerrar</button>' +
         '</div></div>';
     }
@@ -1113,7 +1133,7 @@ function reducedMotion() {
 
     return '<div class="trn-modal-backdrop trn-hand-end-backdrop" data-act="noop">' +
       '<div class="trn-modal trn-hand-end-modal trn-hand-end-modal-rich" role="dialog" aria-modal="true" data-act="noop">' +
-      rich +
+      '<div class="trn-hand-end-scroll">' + rich + '</div>' +
       '<div class="trn-hand-end-actions">' +
       '<button type="button" class="btn" data-act="toggle-hand-detail">' +
       (ui.handDetailOpen ? 'Ocultar detalle GTO' : 'Ver detalle GTO') + '</button>' +
@@ -1210,21 +1230,45 @@ function reducedMotion() {
     var analyzed = null;
     var Bridge = global.PTTournamentSessionBridge;
     var live = state._liveHand;
-    try {
-      if (Bridge && Bridge.handFromTournament && live) {
-        analyzed = Bridge.handFromTournament(live, {
-          tournamentId: state.id,
-          handIndex: state.handIndex,
-          heroName: heroDisplayName(state)
+    var wantIdx = handId != null && String(handId).match(/^\d+$/) ? Number(handId) : null;
+
+    if (wantIdx != null && state.sessionHands && state.sessionHands.length) {
+      analyzed = state.sessionHands.filter(function (h) {
+        return h && Number(h.handIndex) === wantIdx;
+      })[0] || null;
+    }
+    if (!analyzed && wantIdx != null && state.handLog && Bridge && Bridge.handFromTournament) {
+      try {
+        var logEntry = state.handLog.find(function (h) {
+          return Number(h.handIndex) === wantIdx;
         });
-      }
-    } catch (e1) { analyzed = null; }
+        if (logEntry) {
+          analyzed = Bridge.handFromTournament(logEntry, {
+            tournamentId: state.id,
+            handIndex: logEntry.handIndex,
+            heroName: heroDisplayName(state)
+          });
+        }
+      } catch (eLog) { analyzed = null; }
+    }
+    if (!analyzed) {
+      try {
+        if (Bridge && Bridge.handFromTournament && live && live.stage === 'complete') {
+          analyzed = Bridge.handFromTournament(live, {
+            tournamentId: state.id,
+            handIndex: state.handIndex,
+            heroName: heroDisplayName(state)
+          });
+        }
+      } catch (e1) { analyzed = null; }
+    }
     if (!analyzed && state.sessionHands && state.sessionHands.length) {
       analyzed = state.sessionHands.filter(function (h) {
         return h && (h.id === handId || String(h.handIndex) === String(handId));
       })[0] || state.sessionHands[state.sessionHands.length - 1];
     }
     if (!analyzed) return;
+    ui.infoOpen = false;
     try {
       if (typeof global.openTournamentHandReview === 'function') {
         global.openTournamentHandReview(analyzed, mode);
@@ -1551,6 +1595,12 @@ function reducedMotion() {
           ui.replayOpen = true;
           ui.replayStep = 0;
           paint();
+        } else if (act === 'review-hand') {
+          openLiveHandReview(btn.getAttribute('data-hand'), 'review');
+        } else if (act === 'toggle-handlog') {
+          ev.preventDefault();
+          ui.infoHandlogOpen = !ui.infoHandlogOpen;
+          paint();
         } else if (act === 'close-replay') {
           ui.replayOpen = false;
           ui.replayHandIndex = null;
@@ -1577,9 +1627,11 @@ function reducedMotion() {
           paint();
         } else if (act === 'info') {
           ui.infoOpen = true;
+          ui.infoHandlogOpen = false;
           paint();
         } else if (act === 'close-info') {
           ui.infoOpen = false;
+          ui.infoHandlogOpen = false;
           paint();
         } else if (act === 'close-role') {
           ui.roleModalPlayerId = null;
