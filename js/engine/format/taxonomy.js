@@ -269,6 +269,8 @@
 
   function resolvePhase(config) {
     const hub = normalizeHub(config && config.formatHub || hubFromGameType(config && config.gameType));
+    // Cash: no hay fase MTT (evita Push/fold con CASH/100bb por mttPhase residual).
+    if (hub === 'cash') return 'auto';
     const phase = normalizePhase(config && config.mttPhase);
     if (phase !== 'auto') return phase;
     const stackBB = Number(config && config.stackBB) || 100;

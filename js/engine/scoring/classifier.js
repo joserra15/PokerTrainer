@@ -8,6 +8,18 @@
     if (!availableActions || !availableActions.length) return freqs;
     const out = {};
     availableActions.forEach((a) => { if (freqs[a] != null) out[a] = freqs[a]; });
+    // Push/fold: el shove vive en `allin`. Si allin no es legal pero raise/bet sí,
+    // volcar esa masa — si no, raise=0 + allin descartado → 100% fold (AA incluido).
+    const allinW = freqs && freqs.allin != null ? Number(freqs.allin) || 0 : 0;
+    if (allinW > 0 && availableActions.indexOf('allin') < 0) {
+      if (availableActions.indexOf('raise') >= 0) {
+        out.raise = (out.raise || 0) + allinW;
+      } else if (availableActions.indexOf('bet') >= 0) {
+        out.bet = (out.bet || 0) + allinW;
+      } else if (availableActions.indexOf('overbet') >= 0) {
+        out.overbet = (out.overbet || 0) + allinW;
+      }
+    }
     let sum = 0;
     for (const k in out) sum += out[k];
     if (sum <= 0) {

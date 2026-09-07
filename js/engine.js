@@ -5026,7 +5026,8 @@
     const opts = inferDecisionOptions(d);
     const node = {
       street: d.street,
-      kind: d.kind,
+      // Decisiones de import/análisis usan spotKind; el entrenador usa kind.
+      kind: d.kind || d.spotKind || d.facing,
       potBB: d.potBB,
       toCallBB: d.toCallBB != null ? d.toCallBB : 0,
       options: opts.map((id) => ({ id })),

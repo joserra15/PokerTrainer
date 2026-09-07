@@ -268,8 +268,10 @@
     const f = Math.max(0, Number(fold) || 0);
     const s = Math.max(0, Number(shove) || 0);
     const avail = (input && input.availableActions) || [];
-    const hasAllin = !avail.length || avail.indexOf('allin') >= 0;
-    const hasRaise = avail.indexOf('raise') >= 0;
+    const hasAllin = avail.indexOf('allin') >= 0;
+    const hasRaise = !avail.length || avail.indexOf('raise') >= 0;
+    // Preferir allin solo si es acción legal explícita. Si no hay lista (o solo
+    // raise), volcar a raise — evita allin descartado → 100% fold en RFI.
     if (hasAllin) return { raise: 0, fold: f, call: 0, allin: s };
     if (hasRaise) return { raise: s, fold: f, call: 0, allin: 0 };
     return { raise: 0, fold: f, call: 0, allin: s };
@@ -312,6 +314,12 @@
 
   function isPushPhase(config) {
     const Tax = global.PTFormatTaxonomy;
+    const hub = (config && config.formatHub)
+      || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(config && config.gameType) : null)
+      || (config && config.rangeContext && config.rangeContext.formatHub)
+      || null;
+    // Cash nunca es push/fold aunque mttPhase venga mal etiquetado (p.ej. análisis).
+    if (hub === 'cash') return false;
     if (!Tax) {
       const bb = Number(config && (config.stackBB || config.effStack)) || 100;
       return bb <= 12;
