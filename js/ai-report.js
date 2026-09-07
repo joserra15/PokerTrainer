@@ -44,6 +44,15 @@
       reportKind: 'Informe de sesión',
       consent: 'las estadísticas y manos de esta sesión (cartas, acciones y análisis GTO)'
     },
+    tournament: {
+      reportBtn: 'Informe del torneo',
+      questionLabel: 'Tu pregunta sobre este torneo',
+      questionPh: 'Ej.: ¿Qué decisiones clave me costaron el torneo? ¿Dónde debí apretar más?',
+      loadingReport: 'Analizando el torneo…',
+      loadingQuestion: 'Analizando tu pregunta sobre el torneo…',
+      reportKind: 'Informe de torneo',
+      consent: 'las manos, decisiones GTO y resultado de este torneo'
+    },
     statsGlobal: {
       reportBtn: 'Consejos de entrenamiento',
       questionLabel: 'Tu pregunta sobre tu progreso',
@@ -329,6 +338,22 @@
       return { title: title, lead: lead };
     }
 
+    if (scope === 'tournament' && dataObj) {
+      const st = dataObj.stats || {};
+      const trn = dataObj.tournament || {};
+      const n = (dataObj.hands || []).length;
+      const place = trn.place != null ? trn.place : st.finishPlace;
+      const placeTxt = place != null ? (place + 'º') : '—';
+      const title = greet + '¿Repasamos este torneo?';
+      const lead =
+        '<strong>' + escapeHtml(trn.name || dataObj.fileName || 'Torneo IA') + '</strong> · puesto <strong>' +
+        escapeHtml(String(placeTxt)) + '</strong> · ' + n + ' manos. ' +
+        'Acierto GTO <strong>' + (st.accuracy != null ? st.accuracy : '—') + '%</strong>' +
+        (st.evLossBB != null ? (', EV perdido <strong>-' + formatBB(st.evLossBB) + ' bb</strong>') : '') +
+        '. Puedo identificar las decisiones clave que explican ganar o perder.' + coachAskSuffix();
+      return { title: title, lead: lead };
+    }
+
     if (scope === 'statsGlobal' && dataObj) {
       const st = dataObj.stats || {};
       const total = st.decisions || 0;
@@ -391,9 +416,13 @@
       return { title: title, lead: lead };
     }
 
-    const title = greet + (scope === 'sessionGlobal' ? '¿Analizamos tu sesión?' : '¿Tienes dudas sobre esta mano?');
-    const lead = scope === 'sessionGlobal'
-      ? 'Puedo revisar tus estadísticas, las manos con más EV perdido y darte un plan de estudio.' + coachAskSuffix()
+    const title = greet + (scope === 'sessionGlobal' || scope === 'tournament'
+      ? (scope === 'tournament' ? '¿Analizamos este torneo?' : '¿Analizamos tu sesión?')
+      : '¿Tienes dudas sobre esta mano?');
+    const lead = (scope === 'sessionGlobal' || scope === 'tournament')
+      ? (scope === 'tournament'
+        ? 'Puedo revisar las manos del torneo, las fugas con más EV perdido y las decisiones clave del resultado.' + coachAskSuffix()
+        : 'Puedo revisar tus estadísticas, las manos con más EV perdido y darte un plan de estudio.' + coachAskSuffix())
       : 'Analizo tus cartas, el board, las frecuencias GTO y el EV de cada decisión — solo con el contexto real de lo que jugaste.' + coachAskSuffix();
     return { title: title, lead: lead };
   }
@@ -505,7 +534,7 @@
   }
 
   function apiMode(scope, mode) {
-    if (scope === 'sessionGlobal') {
+    if (scope === 'sessionGlobal' || scope === 'tournament') {
       return mode === 'question' ? 'session_question' : 'session_report';
     }
     if (scope === 'statsGlobal') {
@@ -630,8 +659,9 @@
     if ((scope === 'statsGlobal' || scope === 'learn') && Payload && Payload.statsCacheKey) {
       return (scope === 'learn' ? 'learn_' : '') + Payload.statsCacheKey(mode, question);
     }
-    if (scope === 'sessionGlobal' && Payload && Payload.sessionCacheKey) {
-      return Payload.sessionCacheKey(objId, mode, question);
+    if ((scope === 'sessionGlobal' || scope === 'tournament') && Payload && Payload.sessionCacheKey) {
+      const prefix = scope === 'tournament' ? 'trn_' : '';
+      return prefix + Payload.sessionCacheKey(objId, mode, question);
     }
     const base = Payload ? Payload.cacheKey(objId) : String(objId);
     if (mode === 'question') return base + '_q_' + hashQuestion(question);
@@ -648,7 +678,7 @@
     if (!obj) return null;
     if (scope === 'statsGlobal') return 'stats';
     if (scope === 'learn') return obj.lessonId ? ('learn_' + obj.lessonId) : 'learn';
-    if (scope === 'sessionGlobal') return obj.id || obj.fileName || 'session';
+    if (scope === 'sessionGlobal' || scope === 'tournament') return obj.id || obj.fileName || 'session';
     return obj.id;
   }
 
@@ -872,6 +902,7 @@
     if (options.scope) return options.scope;
     if (options.source === 'statsGlobal') return 'statsGlobal';
     if (options.source === 'sessionGlobal') return 'sessionGlobal';
+    if (options.source === 'tournament') return 'tournament';
     if (options.source === 'session') return 'session';
     if (options.source === 'learn') return 'learn';
     return 'hand';

@@ -169,11 +169,16 @@
     if (sum > 0 && Math.abs(sum - 1) > 0.02) {
       keys.forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
     }
+    var LABEL = {
+      fold: 'FOLD', check: 'CHECK', call: 'CALL', bet: 'BET', raise: 'RAISE',
+      allin: 'ALL-IN', 'all-in': 'ALL-IN',
+      bet_33: 'BET 33%', bet_66: 'BET 66%', bet_100: 'BET POT'
+    };
     return keys.map(function (id) {
       var freq = Number(freqs[id]) || 0;
       return {
         id: id,
-        label: actionLabel(id, 0, 1),
+        label: LABEL[id] || String(id).toUpperCase(),
         pct: Math.round(freq * 1000) / 10,
         frequency: freq
       };

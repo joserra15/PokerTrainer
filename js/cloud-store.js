@@ -419,6 +419,9 @@
       return { ok: false, reason: e.message || 'error' };
     } finally {
       syncing = false;
+      /* Reprogramar pushes que quedaron bloqueados mientras syncing=true
+         (p.ej. «Salir y guardar» durante un sync). */
+      if (pendingKeys.size) schedulePush(Array.from(pendingKeys));
     }
   }
 
@@ -437,6 +440,8 @@
     const keys = Array.from(pendingKeys);
     pendingKeys.clear();
     pushTimer = null;
+    /* Evita que syncNow pise este push a medias; reprograma pendientes al final. */
+    syncing = true;
 
     try {
       const row = await pullRow();
@@ -459,6 +464,9 @@
       setStatus('error', e.message || 'Error al guardar');
       notifyAuthFailure(e);
       keys.forEach(function (k) { pendingKeys.add(k); });
+    } finally {
+      syncing = false;
+      if (pendingKeys.size) schedulePush(Array.from(pendingKeys));
     }
   }
 

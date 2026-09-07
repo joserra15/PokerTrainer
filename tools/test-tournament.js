@@ -1040,6 +1040,19 @@ console.log('OK tournament-result-polish');
   const olderFurther = Object.assign({}, loaded, { handIndex: 40, _savedAt: '2020-01-01T00:00:00.000Z' });
   const newerEarlier = Object.assign({}, loaded, { handIndex: 17, _savedAt: '2030-01-01T00:00:00.000Z' });
   assert.ok(g.PTTournamentStore.isPreferableActive(olderFurther, newerEarlier), 'prefer more hands over newer ts');
+  const sameHandNewerRev = Object.assign({}, loaded, { handIndex: 27, _progressRev: 5, _savedAt: '2020-01-01T00:00:00.000Z' });
+  const sameHandOlderRev = Object.assign({}, loaded, { handIndex: 27, _progressRev: 2, _savedAt: '2030-01-01T00:00:00.000Z' });
+  assert.ok(g.PTTournamentStore.isPreferableActive(sameHandNewerRev, sameHandOlderRev),
+    'prefer higher _progressRev at same handIndex');
+  const withComplete = Object.assign({}, loaded, {
+    handIndex: 27, _progressRev: 1, _liveHand: { stage: 'complete', result: { pot: 1 } },
+    _savedAt: '2020-01-01T00:00:00.000Z'
+  });
+  const withoutLive = Object.assign({}, loaded, {
+    handIndex: 27, _progressRev: 1, _liveHand: null, _savedAt: '2030-01-01T00:00:00.000Z'
+  });
+  assert.ok(g.PTTournamentStore.isPreferableActive(withComplete, withoutLive),
+    'prefer complete live hand over bare same handIndex');
   console.log('OK save-resume-handIndex');
 }
 
@@ -1742,6 +1755,185 @@ console.log('OK pushfold-freq-100');
   const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(css.includes('trn-ante-label') && css.includes('trn-gstat-grid'), 'ante + gstat css');
   console.log('OK tournament-ante-and-general-stats');
+}
+
+// --- mesas largas (9-max): 15 manos por nivel; 6-max: 8 ---
+{
+  const Cfg = g.PTTournamentConfig;
+  assert.strictEqual(Cfg.handsPerLevelForSeats(6), 8, '6-max → 8 manos');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(9), 15, '9-max → 15 manos');
+  const sng6 = Cfg.fromPreset('sng6');
+  assert.strictEqual(sng6.blindSchedule[0].hands, 8, 'sng6 level1 = 8');
+  const sng9 = Cfg.fromPreset('sng9');
+  assert.strictEqual(sng9.blindSchedule[0].hands, 15, 'sng9 level1 = 15');
+  assert.strictEqual(sng9.blindSchedule[4].hands, 15, 'sng9 mid level = 15');
+  const medium = Cfg.fromPreset('medium');
+  assert.strictEqual(medium.seatsPerTable, 9);
+  assert.strictEqual(medium.blindSchedule[0].hands, 15, 'medium MTT 9-max = 15');
+  const easy = Cfg.fromPreset('easy');
+  assert.strictEqual(easy.blindSchedule[0].hands, 8, 'easy 6-max = 8');
+  const customLong = Cfg.normalize({ kind: 'mtt', entries: 27, seatsPerTable: 9 });
+  assert.strictEqual(customLong.blindSchedule[0].hands, 15, 'custom 9-max = 15');
+  /* Schedule custom explícito se respeta. */
+  const customHands = Cfg.normalize({
+    kind: 'mtt', entries: 27, seatsPerTable: 9,
+    blindSchedule: [{ level: 1, sb: 10, bb: 20, ante: 0, hands: 12 }]
+  });
+  assert.strictEqual(customHands.blindSchedule[0].hands, 12, 'explicit custom hands kept');
+  console.log('OK long-table-15-hands');
+}
+
+// --- Top 10 sin scroll ---
+{
+  const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(/\.trn-info-val\s+\.trn-stack-list\s*\{[^}]*max-height:\s*none/s.test(css),
+    'top10 stack list max-height none');
+  assert.ok(/\.trn-info-val\s+\.trn-stack-list\s*\{[^}]*overflow:\s*visible/s.test(css),
+    'top10 stack list overflow visible');
+  console.log('OK top10-no-scroll');
+}
+
+// --- hand-end: ganador + bote + Eliminado + option grid estilo paso a paso ---
+{
+  const source = {
+    handIndex: 7,
+    bb: 40,
+    sb: 20,
+    board: [],
+    seats: [
+      { id: 'h', name: 'Hero', isHero: true, pos: 'BTN', cards: ['2c', '7d'], stack: 960, startStack: 1000, folded: true },
+      { id: 'v', name: 'FloatFlo', isHero: false, pos: 'BB', cards: ['Ah', 'Kd'], stack: 0, startStack: 1040, folded: false },
+      { id: 'w', name: 'Railbird', isHero: false, pos: 'SB', cards: ['9s', '9h'], stack: 2080, startStack: 1000, folded: false }
+    ],
+    log: [
+      { street: 'preflop', id: 'h', name: 'Hero', action: 'fold' },
+      { street: 'preflop', id: 'v', name: 'FloatFlo', action: 'allin', amount: 1040 },
+      { street: 'preflop', id: 'w', name: 'Railbird', action: 'call', amount: 1040 }
+    ],
+    decisions: [{
+      street: 'preflop', action: 'fold', chosen: 'fold', class: 'aceptable', evLoss: 0.1,
+      label: 'Fold', best: 'call',
+      gto: { fold: 0.35, call: 0.55, raise: 0.1 },
+      optionBreakdown: [
+        { id: 'call', label: 'CALL', pct: 55, frequency: 0.55 },
+        { id: 'fold', label: 'FOLD', pct: 35, frequency: 0.35 },
+        { id: 'raise', label: 'RAISE', pct: 10, frequency: 0.1 }
+      ]
+    }],
+    result: {
+      deltas: { h: -40, v: -1040, w: 1080 },
+      winners: ['w'],
+      showdown: true,
+      tied: false,
+      pot: 2120,
+      heroNet: -40,
+      holeCards: { v: ['Ah', 'Kd'], w: ['9s', '9h'] },
+      board: ['2h', '2s', '9c', '3d', '8c'],
+      handNames: { w: 'Full house' }
+    }
+  };
+  const hand = g.PTTournamentSessionBridge.handFromTournament(source, {
+    tournamentId: 't_end', handIndex: 7, heroName: 'Hero'
+  });
+  assert.ok(hand.seatOutcomes && hand.seatOutcomes.length === 3, 'seatOutcomes');
+  const winner = hand.seatOutcomes.find(function (o) { return o.isWinner; });
+  assert.ok(winner && winner.name === 'Railbird', 'winner Railbird');
+  assert.ok(winner.deltaBB > 0, 'winner +bb');
+  const busted = hand.seatOutcomes.find(function (o) { return o.name === 'FloatFlo'; });
+  assert.ok(busted && busted.eliminated, 'FloatFlo eliminated');
+  assert.ok(hand.winners.indexOf('Railbird') >= 0, 'winners names');
+  assert.ok(hand.decisions[0].optionBreakdown[0].label === 'CALL', 'option labels paso a paso');
+
+  const html = g.PTHandEndView.renderHandEndHtml(hand, { showDecisions: true });
+  assert.ok(/Railbird.*gana el bote|gana el bote/i.test(html), 'title names winner when hero loses');
+  assert.ok(/hand-end-delta|trn-hand-end-delta/.test(html), 'delta under cards');
+  assert.ok(/Eliminado/.test(html), 'Eliminado marker');
+  assert.ok(/opt-grid|option-grid/.test(html) && /opt-pill|opt-cell/.test(html), 'option grid like paso a paso');
+  assert.ok(/CALL/.test(html) && /55%/.test(html), 'shows CALL 55%');
+  assert.ok(/is-winner/.test(html), 'winner seat class');
+  console.log('OK hand-end-winner-eliminated-gto');
+}
+
+// --- ForgeCoach en resumen final del torneo ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(uiSrc.includes('ai-coach-tournament'), 'result hosts ForgeCoach');
+  assert.ok(uiSrc.includes('mountTournamentCoach') || uiSrc.includes("scope: 'tournament'"),
+    'mounts tournament coach scope');
+  const aiSrc = fs.readFileSync(path.join(ROOT, 'js/ai-report.js'), 'utf8');
+  assert.ok(/tournament:\s*\{/.test(aiSrc), 'SCOPE_UI.tournament');
+  assert.ok(aiSrc.includes('Informe del torneo'), 'tournament report button copy');
+  const payloadSrc = fs.readFileSync(path.join(ROOT, 'js/ai-hand-payload.js'), 'utf8');
+  assert.ok(payloadSrc.includes("source === 'tournament'") || payloadSrc.includes("'tournament'"),
+    'payload builds tournament sessions');
+  assert.ok(payloadSrc.includes('DECISIONES CLAVE') || payloadSrc.includes('decisiones clave'),
+    'payload asks for key decisions');
+  const edgeSrc = fs.readFileSync(path.join(ROOT, 'supabase/functions/analyze-hand/index.ts'), 'utf8');
+  assert.ok(/DECISIONES CLAVE|Decisiones clave/i.test(edgeSrc), 'edge prompt covers tournament keys');
+  console.log('OK tournament-forgecoach');
+}
+
+// --- Salir y guardar: aplicar mano completa pendiente (no perder progreso) ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 404, heroName: 'SaveHero' });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && hand.awaitingHero && guard++ < 40) {
+    const opt = (hand.heroOptions && hand.heroOptions[0]) || { id: 'fold' };
+    g.PTTournamentRunner.heroAct(state, opt.id === 'check' ? 'check' : (opt.id === 'fold' ? 'fold' : opt.id), opt.amount);
+    hand = state._liveHand;
+  }
+  assert.ok(hand && hand.stage === 'complete' && hand.result, 'mano completa pendiente');
+  const beforeHand = state.handIndex;
+  const heroBefore = g.PTTournamentState.hero(state).stack;
+  /* Simula commitProgressBeforeExit: applyResults sin beginHand. */
+  g.PTTournamentRunner.applyResults(state, hand);
+  state._liveHand = null;
+  assert.strictEqual(state.handIndex, beforeHand + 1, 'handIndex avanza al guardar con mano completa');
+  assert.ok(state.handLog && state.handLog.length >= 1, 'handLog tras apply');
+  state._progressRev = 1;
+  const saved = g.PTTournamentStore.saveActive(state);
+  assert.ok(saved.ok, 'save tras commit');
+  assert.strictEqual(saved.handIndex, beforeHand + 1, 'save reporta handIndex');
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.strictEqual(loaded.handIndex, beforeHand + 1, 'loadActive conserva avance');
+  assert.ok(!loaded._liveHand || loaded._liveHand.stage !== 'complete' || !loaded._liveHand.result,
+    'sin mano completa pendiente (ya aplicada)');
+  const heroAfter = (loaded.players || []).find(function (p) { return p.isHero; });
+  assert.ok(heroAfter, 'hero en snapshot');
+  assert.notStrictEqual(heroAfter.stack, undefined, 'stack hero persistido');
+  /* Cloud viejo no debe pisar. */
+  const stale = Object.assign({}, loaded, {
+    handIndex: beforeHand,
+    _progressRev: 0,
+    _savedAt: '2019-01-01T00:00:00.000Z',
+    players: loaded.players.map(function (p) {
+      return p.isHero ? Object.assign({}, p, { stack: heroBefore }) : p;
+    })
+  });
+  assert.ok(!g.PTTournamentStore.isPreferableActive(stale, loaded), 'stale cloud no gana');
+  g.PTTournamentStore.clearActive();
+  console.log('OK exit-save-commits-complete-hand');
+}
+
+// --- UI source: commit al salir + verify persist ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/commitProgressBeforeExit/.test(uiSrc), 'commitProgressBeforeExit helper');
+  assert.ok(/exit-save[\s\S]{0,120}commitProgressBeforeExit/.test(uiSrc) ||
+    /commitProgressBeforeExit\(\);\s*persistActive/.test(uiSrc),
+    'exit-save commits before persist');
+  assert.ok(/_progressRev/.test(uiSrc), 'progress rev bump on persist');
+  assert.ok(/verified/.test(uiSrc), 'persist verifies reload');
+  const cloudSrc = fs.readFileSync(path.join(ROOT, 'js/cloud-store.js'), 'utf8');
+  assert.ok(/syncNow[\s\S]*finally[\s\S]*pendingKeys\.size[\s\S]*schedulePush/s.test(cloudSrc),
+    'syncNow finally re-schedules pending push');
+  const storageSrc = fs.readFileSync(path.join(ROOT, 'js/storage.js'), 'utf8');
+  assert.ok(/replaceFromCloud[\s\S]*isPreferableActive[\s\S]*preferRemote/s.test(storageSrc),
+    'replaceFromCloud respects isPreferableActive');
+  assert.ok(/No borrar un torneo local|si local tampoco tiene active/i.test(storageSrc),
+    'replaceFromCloud no limpia active local si cloud vacío');
+  console.log('OK exit-save-persist-source');
 }
 
 console.log('*** test-tournament OK ***');

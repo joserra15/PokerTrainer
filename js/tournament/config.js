@@ -7,18 +7,40 @@
   var MAX_ENTRIES = 90;
   var ROLE_IDS = ['fish', 'nit', 'tag', 'lag', 'maniac', 'pro'];
 
-  var DEFAULT_SCHEDULE = [
-    { level: 1, sb: 10, bb: 20, ante: 0, hands: 8 },
-    { level: 2, sb: 15, bb: 30, ante: 0, hands: 8 },
-    { level: 3, sb: 25, bb: 50, ante: 5, hands: 8 },
-    { level: 4, sb: 50, bb: 100, ante: 10, hands: 8 },
-    { level: 5, sb: 75, bb: 150, ante: 15, hands: 8 },
-    { level: 6, sb: 100, bb: 200, ante: 25, hands: 8 },
-    { level: 7, sb: 150, bb: 300, ante: 40, hands: 8 },
-    { level: 8, sb: 200, bb: 400, ante: 50, hands: 8 },
-    { level: 9, sb: 300, bb: 600, ante: 75, hands: 8 },
-    { level: 10, sb: 500, bb: 1000, ante: 100, hands: 10 }
+  /** Niveles base (SB/BB/ante). La duración en manos depende del tamaño de mesa. */
+  var DEFAULT_LEVELS = [
+    { level: 1, sb: 10, bb: 20, ante: 0 },
+    { level: 2, sb: 15, bb: 30, ante: 0 },
+    { level: 3, sb: 25, bb: 50, ante: 5 },
+    { level: 4, sb: 50, bb: 100, ante: 10 },
+    { level: 5, sb: 75, bb: 150, ante: 15 },
+    { level: 6, sb: 100, bb: 200, ante: 25 },
+    { level: 7, sb: 150, bb: 300, ante: 40 },
+    { level: 8, sb: 200, bb: 400, ante: 50 },
+    { level: 9, sb: 300, bb: 600, ante: 75 },
+    { level: 10, sb: 500, bb: 1000, ante: 100 }
   ];
+
+  /** Mesas cortas/medias (≤6): 8 manos/nivel. Mesas largas (9-max): 15. */
+  function handsPerLevelForSeats(seats) {
+    return Number(seats) >= 9 ? 15 : 8;
+  }
+
+  function defaultScheduleForSeats(seats) {
+    var hands = handsPerLevelForSeats(seats);
+    return DEFAULT_LEVELS.map(function (lv, i) {
+      var isLast = i === DEFAULT_LEVELS.length - 1;
+      return {
+        level: lv.level,
+        sb: lv.sb,
+        bb: lv.bb,
+        ante: lv.ante,
+        hands: isLast ? Math.max(hands, 10) : hands
+      };
+    });
+  }
+
+  var DEFAULT_SCHEDULE = defaultScheduleForSeats(6);
 
   function clone(o) {
     return JSON.parse(JSON.stringify(o));
@@ -44,17 +66,34 @@
     return out;
   }
 
-  function normalizeSchedule(sched) {
-    if (!Array.isArray(sched) || !sched.length) return clone(DEFAULT_SCHEDULE);
+  function normalizeSchedule(sched, seats) {
+    if (!Array.isArray(sched) || !sched.length) {
+      return defaultScheduleForSeats(seats != null ? seats : 6);
+    }
+    var fallbackHands = handsPerLevelForSeats(seats != null ? seats : 6);
     return sched.map(function (lv, i) {
       return {
         level: Number(lv.level) || (i + 1),
         sb: Math.max(1, Number(lv.sb) || 10),
         bb: Math.max(2, Number(lv.bb) || 20),
         ante: Math.max(0, Number(lv.ante) || 0),
-        hands: Math.max(1, Number(lv.hands) || 8)
+        hands: Math.max(1, Number(lv.hands) || fallbackHands)
       };
     });
+  }
+
+  /** True si el schedule es el default embebido en presets (sin hands custom). */
+  function isPresetDefaultSchedule(sched) {
+    if (!Array.isArray(sched) || !sched.length) return true;
+    if (sched === DEFAULT_SCHEDULE) return true;
+    if (sched.length !== DEFAULT_LEVELS.length) return false;
+    for (var i = 0; i < sched.length; i++) {
+      var a = sched[i];
+      var b = DEFAULT_LEVELS[i];
+      if (!a || !b) return false;
+      if (Number(a.sb) !== b.sb || Number(a.bb) !== b.bb || Number(a.ante) !== b.ante) return false;
+    }
+    return true;
   }
 
   function normalizeLadder(ladder) {
@@ -202,6 +241,10 @@
     var placesPaidDefault = kind === 'spin' ? 1 : Math.max(1, Math.floor(entries / 5));
     var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : placesPaidDefault, 1, Math.max(1, entries - 1));
     if (kind === 'spin' && entries <= 2) placesPaid = 1;
+    /* Presets comparten DEFAULT_SCHEDULE (8 manos); en 9-max se reescala a 15. */
+    var blindSchedule = (raw.blindSchedule != null && !isPresetDefaultSchedule(raw.blindSchedule))
+      ? normalizeSchedule(raw.blindSchedule, seats)
+      : defaultScheduleForSeats(seats);
     return {
       id: String(raw.id || 'custom'),
       name: String(raw.name || 'Torneo personalizado').slice(0, 80),
@@ -219,7 +262,7 @@
         return 'unknown';
       })(),
       payoutLadder: normalizeLadder(raw.payoutLadder),
-      blindSchedule: normalizeSchedule(raw.blindSchedule),
+      blindSchedule: blindSchedule,
       roleWeights: normalizeWeights(raw.roleWeights),
       exploitProPct: clamp(raw.exploitProPct != null ? raw.exploitProPct : 0, 0, 1),
       onBust: normalizeOnBust(raw.onBust)
@@ -279,6 +322,8 @@
     listPresets: listPresets,
     prizePool: prizePool,
     payoutFractions: payoutFractions,
-    payoutEuros: payoutEuros
+    payoutEuros: payoutEuros,
+    handsPerLevelForSeats: handsPerLevelForSeats,
+    defaultScheduleForSeats: defaultScheduleForSeats
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

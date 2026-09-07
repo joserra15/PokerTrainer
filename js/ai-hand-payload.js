@@ -343,7 +343,7 @@
   function build(source, handObj) {
     if (!handObj) return null;
     if (source === 'statsGlobal' || source === 'learn') return buildStats(handObj);
-    if (source === 'sessionGlobal') return buildSession(handObj);
+    if (source === 'sessionGlobal' || source === 'tournament') return buildSession(handObj);
     return source === 'session' ? fromSession(handObj) : fromTrainer(handObj);
   }
 
@@ -475,6 +475,29 @@
       },
       solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=id|mano pos|net|ev|wc'
     };
+    if (session.tournamentAi || session.tournament || session.source === 'tournamentAi') {
+      const trn = session.tournament || {};
+      payload.src = 'tournament';
+      payload.trn = {
+        name: trn.name || session.fileName || 'Torneo IA',
+        kind: trn.kind || st.gameKind || 'mtt',
+        place: trn.place != null ? trn.place : st.finishPlace,
+        prize: trn.prizeEur != null ? trn.prizeEur : st.prizeEur,
+        buyIn: trn.buyInEur != null ? trn.buyInEur : st.buyInEur,
+        entries: trn.entries != null ? trn.entries : st.players,
+        profit: trn.profit != null ? trn.profit : st.profitEuro,
+        roi: trn.roi != null ? trn.roi : st.roiPct,
+        placesPaid: trn.placesPaid != null ? trn.placesPaid : null
+      };
+      payload.st.coachingNote =
+        'Torneo IA finalizado (puesto ' + (payload.trn.place != null ? payload.trn.place + 'º' : '—') +
+        '). Identifica las DECISIONES CLAVE (manos con más EV perdido o pivotes ICM/stack) que explican ganar o perder el torneo. ' +
+        'No enumeres todas las manos: prioriza 3–6 momentos críticos (burbuja, short stack, spots de value/bluff malos) y un plan concreto.';
+      payload.st.finishPlace = payload.trn.place;
+      payload.solverNote =
+        'Informe de TORNEO: centra el análisis en decisiones clave vs resultado final. ' +
+        'eq/gto/ev son estimaciones; verifica lo crítico. clean=id|mano pos|net|ev|wc';
+    }
     if (leaks.length) payload.leaks = leaks;
     if (leakHands.length > leakCap) {
       payload.leakTrunc = leakHands.length;
