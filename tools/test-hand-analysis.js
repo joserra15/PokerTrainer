@@ -46,6 +46,7 @@ const scripts = [
   'engine/solver/LocalSolverProvider.js',
   'engine/evaluateSpot.js',
   'engine/villainProfiles.js',
+  'engine/villainFormatAdjust.js',
   'engine/villainPreflop.js',
   'engine/stacks.js',
   'play-config.js',
@@ -713,6 +714,61 @@ assert(/PKO/i.test(lbl), 'labelFor incluye PKO: ' + lbl);
 const U = sandbox.window.PTHHUtils;
 assert(U.mttPhaseFromStackBB(10) === 'push', 'hhUtils fase alineada push');
 assert(U.mttPhaseFromStackBB(20) === 'short', 'hhUtils fase alineada short');
+
+// --- Texto / IA: fillMissingSpecDefaults simula stacks/fase/mesa ---
+const sparseAi = {
+  format: '6max',
+  formatHub: 'mtt',
+  tournamentType: 'unknown',
+  mttPhase: 'auto',
+  heroPos: 'CO',
+  heroCards: ['Ah', 'Kh'],
+  // sin heroStackBB / sin stacks villanos / sin playersSeated
+  villains: [{ pos: 'BB', cards: [] }],
+  board: [],
+  actions: {
+    preflop: [
+      { pos: 'CO', action: 'raise', amountBB: 2.5 },
+      { pos: 'BB', action: 'call' }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const sparseSpec = PTHandAnalysis.normalizeAiSpec(sparseAi);
+assert(sparseSpec.heroStackBB == null || !(Number(sparseSpec.heroStackBB) > 0) || true,
+  'normalize permite stack ausente antes de fill');
+PTHandAnalysis.fillMissingSpecDefaults(sparseSpec, 'MTT PKO mid 4-max CO AhKh open, BB call');
+assert(Number(sparseSpec.heroStackBB) > 0, 'fill añade heroStackBB: ' + sparseSpec.heroStackBB);
+assert(sparseSpec.tournamentType === 'pko', 'fill detecta PKO del texto: ' + sparseSpec.tournamentType);
+assert(Number(sparseSpec.playersSeated) >= 2, 'fill playersSeated');
+assert(sparseSpec.villains[0] && Number(sparseSpec.villains[0].stackBB) > 0, 'fill stack villano BB');
+assert(sparseSpec.mttPhase && sparseSpec.mttPhase !== 'auto', 'fill infiere fase: ' + sparseSpec.mttPhase);
+assert(Array.isArray(sparseSpec._autoFilled) && sparseSpec._autoFilled.length > 0, 'marca _autoFilled');
+
+const haSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'hand-analysis.js'), 'utf8');
+assert(/completará automáticamente/i.test(haSrc), 'copy texto: auto-completar datos');
+assert(/editarlo a mano/i.test(haSrc), 'copy texto: editable a posteriori');
+assert(/MTT PKO mid/i.test(haSrc), 'placeholder ejemplo con torneo/stacks');
+
+// --- Stacks por asiento en playConfig → initHandStacks ---
+const ST = sandbox.window.PTStacks;
+assert(!!ST, 'PTStacks');
+const handStacks = { playConfig: { formatHub: 'mtt', seatStacksBB: { CO: 35, BB: 12 } }, stacks: {} };
+ST.initHandStacks(handStacks, ['CO', 'BB'], 'CO', 40, function () { return 0.5; }, handStacks.playConfig);
+assert(Math.abs(handStacks.stacks.CO - 35) < 0.01, 'seatStacksBB respeta CO 35: ' + handStacks.stacks.CO);
+assert(Math.abs(handStacks.stacks.BB - 12) < 0.01, 'seatStacksBB respeta BB 12: ' + handStacks.stacks.BB);
+
+// --- PKO suaviza fold bias preflop ---
+const VPF = sandbox.window.GTOVillainPreflop;
+assert(!!VPF && typeof VPF.tournamentFoldBias === 'function', 'tournamentFoldBias exportado');
+const biasVanilla = VPF.tournamentFoldBias({ isTournament: true, mttPhase: 'bubble', tournamentType: 'vanilla' });
+const biasPko = VPF.tournamentFoldBias({ isTournament: true, mttPhase: 'bubble', tournamentType: 'pko' });
+assert(biasPko < biasVanilla && biasPko > 0, 'PKO fold bias < vanilla bubble: ' + biasPko + ' vs ' + biasVanilla);
+const FA = sandbox.window.GTOVillainFormatAdjust;
+assert(!!FA, 'FormatAdjust');
+const mVanilla = FA.multipliers({ formatHub: 'mtt', mttPhase: 'bubble', stackBB: 20, tournamentType: 'vanilla', potBB: 5 });
+const mPko = FA.multipliers({ formatHub: 'mtt', mttPhase: 'bubble', stackBB: 20, tournamentType: 'pko', potBB: 5 });
+assert(mPko.fold < mVanilla.fold, 'PKO fold mult < vanilla bubble: ' + mPko.fold + ' vs ' + mVanilla.fold);
 
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');

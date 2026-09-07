@@ -43,4 +43,7 @@ assert.ok(/method_not_allowed/.test(src), '405 method');
 assert.ok(/mode,/.test(src) || /mode:/.test(src), 'eco mode en respuesta');
 assert.ok(/createdAt/.test(src), 'createdAt en respuesta');
 
+assert.ok(/SIMULAR PARA COHERENCIA/.test(src), 'parse_hand simula datos faltantes');
+assert.ok(/No dejes stacks a null/.test(src), 'parse_hand exige stacks coherentes');
+
 console.log('*** analyze-hand-contract OK (auth/body/modos/429) ***');

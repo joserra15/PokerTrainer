@@ -215,9 +215,15 @@ REGLAS ESTRICTAS:
 - Incluye en "actions" TODAS las acciones en orden real, incluida la del héroe. Usa las posiciones como identificador de cada jugador.
 - Incluye en "villains" TODOS los jugadores que no son el héroe y que aparecen en "actions" (aunque no se conozcan sus cartas). Si no hay cartas, usa "cards": [].
 - "playersSeated" = héroe + villanos (2 = HU). Si el texto dice heads-up / 3-max / 4 jugadores, respétalo.
-- "heroStackBB" y "stackBB" de villanos en bb si el texto los menciona; si no, usa null o un valor coherente (p.ej. 100 cash, 25-40 MTT).
-- "formatHub": cash / spin / mtt según el texto. "tournamentType" solo en MTT (PKO/mystery/vanilla); si no se dice → "unknown".
-- "mttPhase" si se menciona early/mid/short/push/bubble; si no → "auto".
+- "formatHub": cash / spin / mtt según el texto. "tournamentType" solo en MTT/spin (PKO/mystery/vanilla); si no se dice → "unknown".
+- "mttPhase" si se menciona early/mid/short/push/bubble; si no → infiere por stacks (p.ej. ≤12 push, ≤25 short, ≤45 mid) o "auto".
+- STACKS Y DATOS FALTANTES (SIMULAR PARA COHERENCIA):
+  * Si el texto da stacks en bb, úsalos en "heroStackBB" y "stackBB" de cada villano.
+  * Si FALTA un stack, SIMÚLALO de forma coherente con el formato y la fase (cash ~100bb; spin ~25bb early / ~10–15 mid-push; MTT ~40bb early / ~25–35 mid / ~12–20 short / ~8–12 push). No dejes stacks a null.
+  * Si falta playersSeated, derívalo de las posiciones/acciones (o 3 en spin, 6 en cash/MTT 6-max).
+  * Si falta tournamentType en un MTT con "PKO"/"mystery"/"KO" en el texto, rellénalo; si no hay pista → "unknown".
+  * Si falta ante en MTT, usa un ante típico (p.ej. 0.1 bb); en cash/spin sin ante → 0.
+  * Los stacks simulados deben permitir las apuestas del texto (nadie apuesta más de su stack).
 - "board" puede tener 0, 3, 4 o 5 cartas. Si no se menciona flop/turn/river, deja las que falten fuera del array.
 - Si una carta de villano no se conoce, omite "cards" o deja [] en ese villano. NUNCA omitas al villano del array solo porque no se conozcan sus cartas.
 - Si un dato no está en el texto, haz la inferencia más razonable y coherente (por ejemplo, las ciegas se postean solas). NUNCA inventes cartas que contradigan el texto.

@@ -1528,11 +1528,121 @@
 
   function rangeCtx(hand, seat) {
     var bb = Math.max(1, Number(hand.bb) || 1);
-    return {
-      formatHub: 'mtt',
-      stackBB: (Number(seat.stack) || 0) / bb,
-      street: hand.street || 'preflop'
+    var stackBB = (Number(seat && seat.stack) || 0) / bb;
+    var hub = (hand && hand.formatHub)
+      || (hand && hand.state && hand.state.formatHub)
+      || ((hand && hand.kind === 'spin') ? 'spin' : 'mtt');
+    var Tax = global.PTFormatTaxonomy;
+    var TC = global.PTTournamentContext;
+    var phase = (hand && hand.mttPhase)
+      || (hand && hand.state && hand.state.mttPhase)
+      || 'auto';
+    if ((!phase || phase === 'auto') && Tax && Tax.phaseFromStackBB) {
+      try { phase = Tax.phaseFromStackBB(stackBB, hub); } catch (e) { /* */ }
+    } else if ((!phase || phase === 'auto') && TC && TC.phaseFromStackBB) {
+      phase = TC.phaseFromStackBB(stackBB, hub);
+    }
+    var st = (hand && hand.state) || {};
+    var cfg = (hand && hand.tournamentConfig) || {};
+    var ctx = {
+      formatHub: hub,
+      gameType: hub === 'spin' ? 'spin3' : 'mtt',
+      isTournament: true,
+      stackBB: stackBB,
+      street: (hand && hand.street) || 'preflop',
+      mttPhase: phase,
+      resolvedPhase: phase,
+      effectivePhase: phase,
+      tournamentType: (hand && hand.tournamentType)
+        || st.tournamentType
+        || cfg.tournamentType
+        || 'unknown',
+      playersSeated: (hand && hand.playersSeated)
+        || (hand && hand.seats && hand.seats.length)
+        || st.playersSeated
+        || null,
+      tableMax: (hand && hand.tableMax) || st.tableMax || cfg.seatsPerTable || null,
+      anteBB: (hand && hand.anteBB != null)
+        ? Number(hand.anteBB)
+        : ((hand && hand.ante != null && bb > 0) ? Number(hand.ante) / bb : 0),
+      playersLeft: st.playersLeft != null ? st.playersLeft
+        : (hand && hand.playersLeft != null ? hand.playersLeft : null),
+      placesPaid: st.placesPaid != null ? st.placesPaid
+        : (cfg.placesPaid != null ? cfg.placesPaid
+          : (hand && hand.placesPaid != null ? hand.placesPaid : null)),
+      entries: st.entries != null ? st.entries : (cfg.entries != null ? cfg.entries : null),
+      mttStructureSituation: st.mttStructureSituation
+        || (hand && hand.mttStructureSituation)
+        || null
     };
+    // Si el campo está en burbuja, alinear fase efectiva para FormatAdjust / charts.
+    if ((!phase || phase === 'auto' || phase === 'early' || phase === 'mid')
+      && ctx.mttStructureSituation === 'bubble') {
+      ctx.mttPhase = 'bubble';
+      ctx.resolvedPhase = 'bubble';
+      ctx.effectivePhase = 'bubble';
+    } else {
+      ctx.mttPhase = phase;
+      ctx.resolvedPhase = phase;
+      ctx.effectivePhase = phase;
+    }
+    if (Tax && Tax.usesIcm) {
+      try { ctx.icmEnabled = !!Tax.usesIcm(ctx); } catch (e2) { ctx.icmEnabled = hub !== 'cash'; }
+    } else {
+      ctx.icmEnabled = true;
+    }
+    var RR = global.GTORangesRegistry;
+    if (RR && typeof RR.normalize === 'function') {
+      try {
+        var norm = RR.normalize(ctx);
+        if (!ctx.effectivePhase || ctx.effectivePhase === 'auto') {
+          ctx.effectivePhase = norm.effectivePhase || phase;
+          ctx.resolvedPhase = norm.effectivePhase || phase;
+        }
+        ctx.isTournament = true;
+        if (norm.stackBB != null) ctx.stackBB = stackBB; // keep seat stack
+      } catch (e3) { /* */ }
+    }
+    return ctx;
+  }
+
+  function applyFormatAdjustToFacing(face, strength, potOdds, ctx, profile, rnd) {
+    var FA = global.GTOVillainFormatAdjust;
+    if (!FA || typeof FA.multipliers !== 'function') return face;
+    var m = FA.multipliers(ctx) || {};
+    var r = rnd != null ? rnd : Math.random();
+    // Fold bias by ICM/bubble; PKO softens fold (más call vs stacks cortos).
+    var foldPush = (Number(m.fold) || 1) - 1;
+    if (ctx.tournamentType === 'pko' || ctx.tournamentType === 'mystery') {
+      foldPush *= 0.55;
+      if (ctx.stackBB <= 20 && strength > 0.28) foldPush -= 0.08;
+    }
+    if (face === 'call' && foldPush > 0.05 && r < foldPush * 0.55) return 'fold';
+    if (face === 'fold' && foldPush < -0.02 && strength > potOdds) return 'call';
+    if (face === 'raise' && (m.jamBias > 1.25 || ctx.stackBB <= 14) && strength > 0.55) {
+      return 'raise';
+    }
+    if (face === 'raise' && m.raise < 0.75 && r < 0.35) return 'call';
+    return face;
+  }
+
+  function applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd) {
+    var FA = global.GTOVillainFormatAdjust;
+    if (!FA || typeof FA.multipliers !== 'function') return lead;
+    var m = FA.multipliers(ctx) || {};
+    var r = rnd != null ? rnd : Math.random();
+    var betBoost = ((Number(m.bet) || 1) - 1) + ((Number(m.cbet) || 1) - 1) * (wasAgg ? 1 : 0.4);
+    if (lead === 'check' && betBoost > 0.05 && strength > 0.32 && r < Math.min(0.55, 0.28 + betBoost)) {
+      return 'bet';
+    }
+    if (lead === 'bet' && (Number(m.bluff) || 1) < 0.7 && strength < 0.35 && r < 0.4) {
+      return 'check';
+    }
+    if ((ctx.tournamentType === 'pko' || ctx.tournamentType === 'mystery')
+      && lead === 'check' && ctx.stackBB <= 18 && strength > 0.4 && r < 0.35) {
+      return 'bet';
+    }
+    return lead;
   }
 
   function raiseCount(hand) {
@@ -1638,8 +1748,12 @@
       return { id: 'raise', amount: capRaiseTo(hand, seat, hand.currentBet * mult) };
     }
     if (action === 'call' || action === 'limp') {
+      action = applyFormatAdjustToFacing('call', strength01(seat.cards, []), tc > 0 ? tc / (hand.pot + tc) : 0, ctx, profile, Math.random());
+      if (action === 'fold') return tc <= 0 ? { id: 'check' } : { id: 'fold' };
       return tc <= 0 ? { id: 'check' } : { id: 'call' };
     }
+    action = applyFormatAdjustToFacing('fold', strength01(seat.cards, []), tc > 0 ? tc / (hand.pot + tc) : 0, ctx, profile, Math.random());
+    if (action === 'call') return tc <= 0 ? { id: 'check' } : { id: 'call' };
     return tc <= 0 ? { id: 'check' } : { id: 'fold' };
   }
 
@@ -1652,9 +1766,13 @@
     var potOdds = tc > 0 ? tc / (pot + tc) : 0;
     var street = hand.street || 'flop';
     var rnd = Math.random();
+    var ctx = rangeCtx(hand, seat);
     var opts = {
       street: street,
-      tier: strength > 0.7 ? 'strong' : (strength < 0.35 ? 'weak' : 'medium')
+      tier: strength > 0.7 ? 'strong' : (strength < 0.35 ? 'weak' : 'medium'),
+      formatHub: ctx.formatHub,
+      stackBB: ctx.stackBB,
+      mttPhase: ctx.effectivePhase || ctx.mttPhase
     };
 
     if (tc > 0) {
@@ -1678,6 +1796,7 @@
         else if (potOdds < 0.3 && strength > 0.32) face = rnd < 0.68 ? 'call' : 'fold';
         else if (potOdds < 0.36 && strength > 0.48) face = rnd < 0.55 ? 'call' : 'fold';
       }
+      face = applyFormatAdjustToFacing(face, strength, potOdds, ctx, profile, rnd);
       if (face === 'raise') {
         return {
           id: 'raise',
@@ -1715,9 +1834,21 @@
       if (role === 'nit') force *= 0.75;
       if (rnd < force) lead = 'bet';
     }
+    lead = applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd);
 
     if (lead === 'bet') {
       var frac = sampleBetFrac(profile, street, strength);
+      var FA = global.GTOVillainFormatAdjust;
+      if (FA && FA.multipliers) {
+        var mLead = FA.multipliers(ctx) || {};
+        if (mLead.sizeSimple) frac = Math.min(frac, 0.66);
+        if (mLead.jamBias > 1.3 && ctx.stackBB <= 14 && strength > 0.5) {
+          return {
+            id: 'raise',
+            amount: seat.streetInvested + seat.stack
+          };
+        }
+      }
       return {
         id: 'bet',
         amount: Math.min(
@@ -4787,16 +4918,73 @@
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
     try {
-      var kind = (state.config && state.config.kind) || 'mtt';
+      var cfg = state.config || {};
+      var kind = cfg.kind || 'mtt';
       var hub = (kind === 'spin') ? 'spin' : 'mtt';
+      var left = St.playersLeft(state);
+      var paid = Number(cfg.placesPaid) || 0;
+      var bb = Number(blinds && blinds.bb) || Number(hand.bb) || 1;
+      var ante = Number(blinds && blinds.ante) || Number(hand.ante) || 0;
+      var anteBB = bb > 0 ? ante / bb : 0;
+      var seatedN = (hand.seats && hand.seats.length) || ordered.length;
+      var tourneyType = cfg.tournamentType || 'unknown';
+      var avgStackBB = null;
+      var alive = (state.players || []).filter(function (p) { return p && p.alive && p.stack > 0; });
+      if (alive.length && bb > 0) {
+        var sum = 0;
+        alive.forEach(function (p) { sum += Number(p.stack) || 0; });
+        avgStackBB = Math.round((sum / alive.length / bb) * 10) / 10;
+      }
+      var mttPhase = 'auto';
+      var mttStructureSituation = null;
+      var Tax = global.PTFormatTaxonomy;
+      var TC = global.PTTournamentContext;
+      if (avgStackBB != null) {
+        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
+        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
+      }
+      // Burbuja / cerca de ITM: el campo manda sobre la fase por stack medio.
+      if (hub === 'mtt' && paid > 0 && left > 0) {
+        if (left === paid + 1) {
+          mttPhase = 'bubble';
+          mttStructureSituation = 'bubble';
+        } else if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney({
+          formatHub: hub, playersLeft: left, placesPaid: paid
+        })) {
+          if (mttPhase === 'auto' || mttPhase === 'early' || mttPhase === 'mid') {
+            mttStructureSituation = left <= paid ? 'mincash' : 'bubble';
+          }
+        }
+      }
       hand.kind = kind;
       hand.formatHub = hub;
+      hand.isTournament = true;
+      hand.tournamentType = tourneyType;
+      hand.playersSeated = seatedN;
+      hand.tableMax = Number(cfg.seatsPerTable) || seatedN;
+      hand.mttPhase = mttPhase;
+      hand.anteBB = anteBB;
+      hand.avgStackBB = avgStackBB;
+      hand.playersLeft = left;
+      hand.placesPaid = paid;
+      hand.entries = cfg.entries != null ? cfg.entries : null;
+      hand.buyIn = cfg.buyInEur != null ? cfg.buyInEur : (cfg.buyIn != null ? cfg.buyIn : null);
+      hand.mttStructureSituation = mttStructureSituation;
+      hand.tournamentConfig = cfg;
       hand.state = {
         formatHub: hub,
         kind: kind,
-        playersLeft: St.playersLeft(state),
-        placesPaid: state.config && state.config.placesPaid,
-        mttPhase: 'auto'
+        tournamentType: tourneyType,
+        playersLeft: left,
+        placesPaid: paid,
+        playersSeated: seatedN,
+        tableMax: hand.tableMax,
+        mttPhase: mttPhase,
+        mttStructureSituation: mttStructureSituation,
+        avgStackBB: avgStackBB,
+        anteBB: anteBB,
+        entries: hand.entries,
+        buyIn: hand.buyIn
       };
     } catch (eMeta) { /* */ }
     Live.runToHeroOrEnd(hand);

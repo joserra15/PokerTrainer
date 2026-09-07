@@ -165,12 +165,18 @@
   function tournamentFoldBias(ctx) {
     if (!ctx || !ctx.isTournament) return 0;
     const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
-    if (phase === 'bubble') return 0.18;
-    if (phase === 'push') return 0.14;
-    if (phase === 'short') return 0.08;
-    const Tax = global.PTFormatTaxonomy;
-    if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) return 0.1;
-    return 0;
+    let bias = 0;
+    if (phase === 'bubble') bias = 0.18;
+    else if (phase === 'push') bias = 0.14;
+    else if (phase === 'short') bias = 0.08;
+    else {
+      const Tax = global.PTFormatTaxonomy;
+      if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) bias = 0.1;
+    }
+    // PKO / mystery: menos overfold (bounty incentive); sin EV bounty real.
+    const t = String(ctx.tournamentType || '').toLowerCase();
+    if (bias > 0 && (t === 'pko' || t === 'mystery')) bias *= 0.55;
+    return bias;
   }
 
   /** Defensa BB/SB frente a open del héroe (fold / call / 3bet). */
@@ -406,6 +412,7 @@
     limperVsIsoAction, openerVsSqueezeAction, callerVsSqueezeAction,
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
     isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
-    isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness
+    isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,
+    tournamentFoldBias
   };
 })(window);

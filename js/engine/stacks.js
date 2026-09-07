@@ -200,9 +200,17 @@
     const role = (cfg && cfg.stackRole) || null;
     const fixed = cfg && cfg.legendaryStacks;
     hand.stacks = {};
+    const seatMap = (cfg && cfg.seatStacksBB && typeof cfg.seatStacksBB === 'object')
+      ? cfg.seatStacksBB
+      : null;
     (positions || []).forEach(function (pos) {
       if (fixed && fixed[pos] != null) {
         hand.stacks[pos] = round2(Number(fixed[pos]));
+        return;
+      }
+      // Análisis / replay: respetar stacks por asiento si vienen en playConfig.
+      if (seatMap && seatMap[pos] != null && isFinite(Number(seatMap[pos])) && Number(seatMap[pos]) > 0) {
+        hand.stacks[pos] = round2(Number(seatMap[pos]));
         return;
       }
       if (pos === heroSeat) hand.stacks[pos] = round2(heroBB);

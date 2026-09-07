@@ -250,6 +250,38 @@ FILES.forEach(function (f) { load(g, f); });
   console.log('OK runner (hands=' + state.handIndex + ', status=' + state.status + ')');
 }
 
+// --- runner: meta de torneo en mano viva (villanos / FormatAdjust) ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 99, heroName: 'Meta' });
+  state.config.tournamentType = 'pko';
+  const paid = Number(state.config.placesPaid) || 2;
+  const Seat = g.PTTournamentSeating;
+  const villains = state.players.filter(function (p) { return !p.isHero && p.alive; });
+  // Dejar paid+1 vivos (burbuja): hero + paid villanos.
+  const keep = paid;
+  villains.forEach(function (v, i) {
+    if (i >= keep) Seat.bustPlayer(state, v.id);
+  });
+  Seat.rebalance(state);
+  const left = g.PTTournamentState.playersLeft(state);
+  assert.strictEqual(left, paid + 1, 'vivos en burbuja: ' + left + ' paid=' + paid);
+  const hand = g.PTTournamentRunner.beginHand(state);
+  assert.ok(hand, 'beginHand con meta');
+  assert.strictEqual(hand.formatHub, 'mtt', 'hand.formatHub mtt');
+  assert.strictEqual(hand.tournamentType, 'pko', 'hand.tournamentType pko');
+  assert.ok(hand.playersSeated >= 2, 'hand.playersSeated');
+  assert.ok(hand.state && hand.state.playersLeft != null, 'hand.state.playersLeft');
+  assert.strictEqual(hand.mttPhase, 'bubble', 'fase bubble con left=paid+1: ' + hand.mttPhase);
+  assert.strictEqual(hand.mttStructureSituation, 'bubble', 'mttStructureSituation bubble');
+  const Decide = g.PTTournamentVillainDecide;
+  assert.ok(Decide, 'VillainDecide');
+  const seat = (hand.seats || []).find(function (s) { return !s.isHero; });
+  assert.ok(seat, 'hay villano');
+  const d = Decide.decide(hand, seat);
+  assert.ok(d && d.id, 'decide con ctx torneo: ' + (d && d.id));
+  console.log('OK runner tournament meta (phase=' + hand.mttPhase + ', type=' + hand.tournamentType + ')');
+}
+
 // --- stats summary helpers ---
 {
   const state = g.PTTournamentRunner.create('sng6', { seed: 5 });

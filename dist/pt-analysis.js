@@ -2731,8 +2731,11 @@
     html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver</button>';
     html += '<h2 class="ha-title">Añadir mano (texto / historial)</h2>';
     html += '<p class="muted-text">Pega un historial PokerStars, Winamax, GGPoker, 888poker o CoinPoker (se analiza <strong>sin consumir IA</strong>) o describe la mano en lenguaje natural. La descripción libre usa el ForgeCoach y <strong>consume una consulta</strong>.</p>';
+    html += '<p class="muted-text ha-text-autofill-note">Incluye si puedes el formato (cash / spin / MTT), tipo (vanilla / PKO / mystery), jugadores en mesa, stacks en bb y fase. '
+      + '<strong>Si falta algún dato</strong> necesario para que la mano sea coherente, se <strong>completará automáticamente</strong> '
+      + '(stacks, fase, asientos, tipo…). Podrás <strong>editarlo a mano después</strong> en el editor.</p>';
     html += '<div class="ha-form">';
-    html += '<textarea class="ha-text-input" rows="8" placeholder="Pega un Hand History o describe la mano: 6-max, CO con As Kd, acciones, board…"></textarea>';
+    html += '<textarea class="ha-text-input" rows="10"></textarea>';
     html += '<div class="ha-form-errors" data-ha-errors></div>';
     html += '<div class="ha-form-buttons">';
     html += '<button class="btn btn-primary" data-ha-text-go>Analizar y guardar</button>';
@@ -2740,8 +2743,129 @@
     html += '<div class="ha-text-status" data-ha-text-status></div>';
     html += '</div>';
     root.innerHTML = html;
+    var ta = root.querySelector('.ha-text-input');
+    if (ta) {
+      ta.placeholder = 'Ejemplo MTT PKO mid · 4-max · héroe CO 35bb, BTN 40bb, SB 12bb, BB 28bb, ante 0.1bb:\n'
+        + 'Hero CO AhKh open 2.5bb, BTN fold, SB call, BB call.\n'
+        + 'Flop Qc 8h 2d — SB check, BB check, Hero bet 4bb, SB fold, BB call.\n'
+        + 'Turn 5s — BB check, Hero bet 9bb, BB fold.\n\n'
+        + 'O pega un Hand History completo…';
+    }
     root.querySelector('[data-ha-back]').addEventListener('click', function () { S.view = 'list'; render(); });
     root.querySelector('[data-ha-text-go]').addEventListener('click', onTextAnalyze);
+  }
+
+  /**
+   * Completa stacks / mesa / fase / tipo ausentes para que la mano sea coherente.
+   * Marca campos en `_autoFilled` para que el usuario pueda editarlos después.
+   */
+  function fillMissingSpecDefaults(spec, sourceText) {
+    if (!spec) return spec;
+    var filled = [];
+    var hub = spec.formatHub || 'cash';
+    var text = String(sourceText || '');
+    var TC = global.PTTournamentContext;
+    var Tax = global.PTFormatTaxonomy;
+
+    if (!spec.formatHub) {
+      if (/\bspin|hyperspin|spin\s*&\s*go/i.test(text)) hub = 'spin';
+      else if (/\bmtt|torneo|tournament|sng|sit\s*&\s*go|pko|mystery/i.test(text)) hub = 'mtt';
+      else if (/\bcash|nl\d+|zoom/i.test(text)) hub = 'cash';
+      else if (Number(spec.anteBB) > 0) hub = 'mtt';
+      spec.formatHub = hub;
+      filled.push('formatHub');
+    } else {
+      hub = spec.formatHub;
+    }
+
+    if (hub !== 'cash') {
+      var tType = spec.tournamentType;
+      if (!tType || tType === 'unknown') {
+        var detected = TC && TC.detectTournamentTypeFromText
+          ? TC.detectTournamentTypeFromText(text)
+          : 'unknown';
+        if (detected !== 'unknown') {
+          spec.tournamentType = detected;
+          filled.push('tournamentType');
+        } else if (!tType) {
+          spec.tournamentType = hub === 'spin' ? 'vanilla' : 'unknown';
+          filled.push('tournamentType');
+        }
+      }
+    } else {
+      spec.tournamentType = 'unknown';
+    }
+
+    var defaultSt = defaultStackBB(hub);
+    if (!(Number(spec.heroStackBB) > 0)) {
+      if (/\bpush|jam|all-?in\s*phase|\b10\s*bb|\b12\s*bb/i.test(text) && hub !== 'cash') {
+        defaultSt = hub === 'spin' ? 10 : 12;
+      } else if (/\bearly|deep|100\s*bb/i.test(text) && hub === 'mtt') {
+        defaultSt = 40;
+      } else if (/\bmid|middle/i.test(text) && hub === 'mtt') {
+        defaultSt = 30;
+      }
+      spec.heroStackBB = defaultSt;
+      filled.push('heroStackBB');
+    }
+
+    var villainN = (spec.villains || []).filter(function (v) { return v && v.pos; }).length;
+    if (spec.playersSeated == null || !(Number(spec.playersSeated) >= 2)) {
+      var seatedGuess = Math.max(2, 1 + villainN);
+      if (/\bheads?-?up|\bhu\b|heads\s*up/i.test(text)) seatedGuess = 2;
+      else if (/\b3-?max|tres\s*jugadores|3\s*jugadores/i.test(text)) seatedGuess = 3;
+      else if (/\b4-?max|cuatro\s*jugadores|4\s*jugadores/i.test(text)) seatedGuess = 4;
+      else if (hub === 'spin') seatedGuess = Math.min(3, Math.max(2, seatedGuess));
+      spec.playersSeated = seatedGuess;
+      filled.push('playersSeated');
+    }
+
+    (spec.villains || []).forEach(function (v) {
+      if (!v || !v.pos) return;
+      if (!(Number(v.stackBB) > 0)) {
+        var base = Number(spec.heroStackBB) || defaultSt;
+        var jitter = (String(v.pos).charCodeAt(0) % 7) - 3;
+        v.stackBB = Math.max(2, Math.round((base + jitter) * 10) / 10);
+        filled.push('stack:' + v.pos);
+      }
+    });
+
+    if (!spec.mttPhase || spec.mttPhase === 'auto') {
+      var phase = 'auto';
+      if (/\bbubble|burbuja/i.test(text)) phase = 'bubble';
+      else if (/\bpush|jam\s*or\s*fold/i.test(text)) phase = 'push';
+      else if (/\bshort\s*stack|fase\s*corta/i.test(text)) phase = 'short';
+      else if (/\bearly|profunda|deep/i.test(text)) phase = 'early';
+      else if (/\bmid|middle/i.test(text)) phase = 'mid';
+      else if (TC && TC.phaseFromStackBB) {
+        phase = TC.phaseFromStackBB(spec.heroStackBB, hub);
+      } else if (Tax && Tax.phaseFromStackBB) {
+        phase = Tax.phaseFromStackBB(spec.heroStackBB, hub);
+      }
+      if (phase && phase !== 'auto') {
+        spec.mttPhase = phase;
+        filled.push('mttPhase');
+      } else if (!spec.mttPhase) {
+        spec.mttPhase = 'auto';
+      }
+    }
+
+    if (spec.anteBB == null || !isFinite(Number(spec.anteBB))) {
+      if (hub === 'mtt') {
+        spec.anteBB = 0.1;
+        filled.push('anteBB');
+      } else {
+        spec.anteBB = 0;
+      }
+    }
+
+    if (hub === 'spin' && Number(spec.playersSeated) > 3) {
+      spec.playersSeated = 3;
+      filled.push('playersSeated');
+    }
+
+    spec._autoFilled = filled;
+    return spec;
   }
 
   function normalizeAiSpec(aiHand) {
@@ -2749,7 +2873,9 @@
       || (aiHand.gameKind === 'spin' ? 'spin'
         : ((aiHand.gameKind === 'mtt' || aiHand.gameKind === 'sng' || aiHand.isTournament) ? 'mtt' : 'cash'));
     if (aiHand.anteBB > 0 && hub === 'cash') hub = 'mtt';
-    var heroStackBB = normalizeStackBB(aiHand.heroStackBB, defaultStackBB(hub));
+    var rawHeroStack = aiHand.heroStackBB;
+    var heroStackMissing = !(Number(rawHeroStack) > 0);
+    var heroStackBB = normalizeStackBB(rawHeroStack, defaultStackBB(hub));
     var spec = {
       format: aiHand.format === '9max' ? '9max' : '6max',
       formatHub: hub,
@@ -2759,8 +2885,8 @@
       tableMax: aiHand.tableMax != null ? Number(aiHand.tableMax) : null,
       heroPos: aiHand.heroPos,
       heroCards: parseCardList((aiHand.heroCards || []).join(' ')),
-      heroStackBB: heroStackBB,
-      anteBB: normalizeAnteBB(aiHand.anteBB != null ? aiHand.anteBB : 0),
+      heroStackBB: heroStackMissing ? null : heroStackBB,
+      anteBB: aiHand.anteBB != null ? normalizeAnteBB(aiHand.anteBB) : null,
       bbEuro: aiHand.bbEuro != null ? normalizeBbEuro(aiHand.bbEuro) : 0.05,
       playersLeft: aiHand.playersLeft != null ? aiHand.playersLeft : null,
       placesPaid: aiHand.placesPaid != null ? aiHand.placesPaid : null,
@@ -2775,10 +2901,11 @@
     (aiHand.villains || []).forEach(function (v) {
       if (!v || !v.pos) return;
       var cards = parseCardList((v.cards || []).join(' '));
+      var vStackMissing = !(Number(v.stackBB) > 0);
       spec.villains.push({
         pos: v.pos,
         cards: cards.length === 2 ? cards : [],
-        stackBB: normalizeStackBB(v.stackBB, heroStackBB)
+        stackBB: vStackMissing ? null : normalizeStackBB(v.stackBB, heroStackBB)
       });
     });
     if (spec.playersSeated == null) {
@@ -2847,11 +2974,16 @@
       if (!data) return;
       if (!data.hand) throw new Error('La IA no devolvió una mano válida.');
       var spec = normalizeAiSpec(data.hand);
+      fillMissingSpecDefaults(spec, text);
       var errs = validateSpec(spec);
       if (errs.length) {
         throw new Error('La IA no pudo estructurar bien la mano (' + errs[0] + '). Revisa la descripción o usa la entrada manual.');
       }
       var analyzed = buildAnalyzedHand(spec, 'text');
+      if (spec._autoFilled && spec._autoFilled.length) {
+        analyzed.autoFilledFields = spec._autoFilled.slice();
+        analyzed.autoFillNote = 'Se completaron automáticamente algunos datos (stacks, fase, mesa o tipo) para que la mano sea coherente. Puedes editarlos a mano en Editar.';
+      }
       if (data.analysisMarkdown) {
         analyzed.coachThread = [{
           mode: 'report',
@@ -2891,6 +3023,8 @@
     swapHeroWithVillain: swapHeroWithVillain,
     ensureHandSpec: ensureHandSpec,
     ensureVillainsFromActions: ensureVillainsFromActions,
+    fillMissingSpecDefaults: fillMissingSpecDefaults,
+    normalizeAiSpec: normalizeAiSpec,
     normalizeBbEuro: normalizeBbEuro,
     normalizeAnteBB: normalizeAnteBB,
     sortBySpeakingOrder: sortBySpeakingOrder,

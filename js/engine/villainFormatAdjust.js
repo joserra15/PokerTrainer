@@ -151,6 +151,16 @@
         out.bluff = clamp(out.bluff * 0.88, 0.35, 1.2);
         out.fold = clamp(out.fold * 1.06, 1, 1.35);
       }
+      // PKO / mystery: suavizar overfold ICM (bounty); no hay solver de EV bounty.
+      const tType = String(ctx.tournamentType || '').toLowerCase();
+      if (tType === 'pko' || tType === 'mystery') {
+        out.fold = clamp(out.fold * 0.88, 0.85, 1.25);
+        out.jamBias = clamp(out.jamBias * 1.08, 1, 1.7);
+        if (stackBB <= 20) {
+          out.bet = clamp(out.bet * 1.06, 0.9, 1.4);
+          out.raise = clamp(out.raise * 1.05, 0.85, 1.35);
+        }
+      }
     }
 
     if (spr < 3) {

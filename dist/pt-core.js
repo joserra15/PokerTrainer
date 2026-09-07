@@ -13834,6 +13834,16 @@ window.PT_NASH_PUSH_JSON = {
         out.bluff = clamp(out.bluff * 0.88, 0.35, 1.2);
         out.fold = clamp(out.fold * 1.06, 1, 1.35);
       }
+      // PKO / mystery: suavizar overfold ICM (bounty); no hay solver de EV bounty.
+      const tType = String(ctx.tournamentType || '').toLowerCase();
+      if (tType === 'pko' || tType === 'mystery') {
+        out.fold = clamp(out.fold * 0.88, 0.85, 1.25);
+        out.jamBias = clamp(out.jamBias * 1.08, 1, 1.7);
+        if (stackBB <= 20) {
+          out.bet = clamp(out.bet * 1.06, 0.9, 1.4);
+          out.raise = clamp(out.raise * 1.05, 0.85, 1.35);
+        }
+      }
     }
 
     if (spr < 3) {
@@ -14602,12 +14612,18 @@ window.PT_NASH_PUSH_JSON = {
   function tournamentFoldBias(ctx) {
     if (!ctx || !ctx.isTournament) return 0;
     const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
-    if (phase === 'bubble') return 0.18;
-    if (phase === 'push') return 0.14;
-    if (phase === 'short') return 0.08;
-    const Tax = global.PTFormatTaxonomy;
-    if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) return 0.1;
-    return 0;
+    let bias = 0;
+    if (phase === 'bubble') bias = 0.18;
+    else if (phase === 'push') bias = 0.14;
+    else if (phase === 'short') bias = 0.08;
+    else {
+      const Tax = global.PTFormatTaxonomy;
+      if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) bias = 0.1;
+    }
+    // PKO / mystery: menos overfold (bounty incentive); sin EV bounty real.
+    const t = String(ctx.tournamentType || '').toLowerCase();
+    if (bias > 0 && (t === 'pko' || t === 'mystery')) bias *= 0.55;
+    return bias;
   }
 
   /** Defensa BB/SB frente a open del héroe (fold / call / 3bet). */
@@ -14843,7 +14859,8 @@ window.PT_NASH_PUSH_JSON = {
     limperVsIsoAction, openerVsSqueezeAction, callerVsSqueezeAction,
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
     isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
-    isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness
+    isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,
+    tournamentFoldBias
   };
 })(window);
 
@@ -15458,9 +15475,17 @@ window.PT_NASH_PUSH_JSON = {
     const role = (cfg && cfg.stackRole) || null;
     const fixed = cfg && cfg.legendaryStacks;
     hand.stacks = {};
+    const seatMap = (cfg && cfg.seatStacksBB && typeof cfg.seatStacksBB === 'object')
+      ? cfg.seatStacksBB
+      : null;
     (positions || []).forEach(function (pos) {
       if (fixed && fixed[pos] != null) {
         hand.stacks[pos] = round2(Number(fixed[pos]));
+        return;
+      }
+      // Análisis / replay: respetar stacks por asiento si vienen en playConfig.
+      if (seatMap && seatMap[pos] != null && isFinite(Number(seatMap[pos])) && Number(seatMap[pos]) > 0) {
+        hand.stacks[pos] = round2(Number(seatMap[pos]));
         return;
       }
       if (pos === heroSeat) hand.stacks[pos] = round2(heroBB);
@@ -18463,9 +18488,12 @@ window.PT_NASH_PUSH_JSON = {
     const hub = Tax && Tax.normalizeHub
       ? Tax.normalizeHub(cfg.formatHub || Tax.hubFromGameType(cfg.gameType))
       : (cfg.formatHub || 'cash');
-    const remV = ST() && hand.stacks
-      ? ST().remaining(hand, villainTableSeat(hand) || hand.villain.pos)
-      : effStackForHand(hand);
+    const isTournament = hub === 'spin' || hub === 'mtt';
+    const remV = (extra.remainingBB != null && isFinite(Number(extra.remainingBB)))
+      ? Number(extra.remainingBB)
+      : (ST() && hand.stacks
+        ? ST().remaining(hand, villainTableSeat(hand) || hand.villain.pos)
+        : effStackForHand(hand));
     const pot = Math.max(hand.potBB || 1, 0.1);
     const spr = pot > 0 ? remV / pot : remV;
     const info = extra.info || (hand.villain.cards ? classifyMadeHand(hand.villain.cards, hand.board) : null);
@@ -18483,10 +18511,18 @@ window.PT_NASH_PUSH_JSON = {
     const RSNuts = global.GTORiverShoveNode;
     const isNuts = !!(RSNuts && RSNuts.isAbsoluteNuts && hand.villain.cards
       && RSNuts.isAbsoluteNuts(hand.villain.cards, hand.board));
+    // FormatAdjust / jamBias usan el stack restante del villano (no el de sesión).
+    const stackForAdjust = (remV > 0) ? remV
+      : (cfg.stackBB != null ? cfg.stackBB : effStackForHand(hand));
     return Object.assign({
       formatHub: hub,
       gameType: cfg.gameType,
-      stackBB: cfg.stackBB != null ? cfg.stackBB : effStackForHand(hand),
+      isTournament: isTournament,
+      tournamentType: cfg.tournamentType || 'unknown',
+      playersSeated: cfg.playersSeated != null ? cfg.playersSeated : null,
+      playersLeft: cfg.playersLeft != null ? cfg.playersLeft : null,
+      placesPaid: cfg.placesPaid != null ? cfg.placesPaid : null,
+      stackBB: stackForAdjust,
       effectivePhase: cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase,
       resolvedPhase: cfg.resolvedPhase,
       mttPhase: cfg.mttPhase,
