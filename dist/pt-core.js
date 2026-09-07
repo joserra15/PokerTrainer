@@ -31420,18 +31420,22 @@ window.PT_NASH_PUSH_JSON = {
     return toSnapshot(local);
   }
 
-  /** +1 Koin la primera vez que se aprueba una lección de Escuela. */
+  /** +1 Koin la primera vez que se aprueba una lección de Escuela (por comunidad). */
   function earnFromLesson(lessonId) {
     var id = String(lessonId || '');
     if (!id) return { ok: false, reason: 'missing_lesson' };
     var data = ensure();
     data.lessonAwards = data.lessonAwards || {};
     if (data.lessonAwards[id]) {
-      return { ok: true, added: 0, already: true, balance: data.balance };
+      return { ok: true, added: 0, already: true, balance: data.balance, communityId: communityId() };
     }
+    /* Atómico: marca award + crédito en un solo write (evita award sin saldo). */
     data.lessonAwards[id] = new Date().toISOString();
+    data.balance = Math.round((Number(data.balance) + 1) * 100) / 100;
+    data.updatedAt = new Date().toISOString();
+    data.last = { type: 'school_lesson', lessonId: id, amount: 1 };
     writeRaw(data);
-    return credit(1, { type: 'school_lesson', lessonId: id });
+    return { ok: true, added: 1, balance: data.balance, communityId: communityId() };
   }
 
   /** +1 Koin cada 25 manos de entrenador. */

@@ -111,6 +111,11 @@ assert.ok(/school-coach-note|schoolCoachTip/.test(schoolSrc), 'tip coach resulta
 assert.ok(/school-stars|is-plan/.test(schoolSrc + css), 'maestría / muro plan UI');
 assert.ok(/school-gate-msg|ensureLessonMarkedPassed|showSchoolGateMessage/.test(schoolSrc),
   'feedback gate + re-persist al aprobar');
+assert.ok(/earnFromLesson/.test(schoolSrc), 'aprueba lección → Koins');
+assert.ok(!/!prev\.passed && global\.PTTournamentWallet/.test(schoolSrc),
+  'Koins no dependen de prev.passed (recordLessonAttempt ya escribe passed)');
+assert.ok(/summary\.passed && global\.PTTournamentWallet/.test(schoolSrc),
+  'Koins si summary.passed (idempotente en wallet)');
 assert.ok(/resolveBestPct/.test(schoolSrc), 'resolveBestPct evita undefined%');
 assert.ok(/\.school-gate-msg/.test(css), 'CSS mensaje gate Escuela');
 assert.ok(/routePct/.test(schoolSrc) && /width:' \+ routePct/.test(schoolSrc),
@@ -1171,6 +1176,58 @@ assert.ok(School.isLessonUnlocked('C-00'), 'C-00 desbloqueada');
 assert.ok(!School.isLessonUnlocked('C-01'), 'C-01 bloqueada al inicio');
 assert.ok(School.canPlayLesson('C-00').ok, 'canPlay C-00');
 assert.ok(!School.canPlayLesson('C-01').ok, 'canPlay C-01 locked');
+
+/* Koins al aprobar: recordLessonAttempt escribe passed antes de ensure → wallet idempotente */
+(function assertSchoolLessonKoins() {
+  var localStore = sandbox.localStorage._d || (sandbox.localStorage._d = {});
+  Object.keys(localStore).forEach(function (k) {
+    if (/pt_tournament_wallet/.test(k)) delete localStore[k];
+  });
+  vm.runInContext(
+    fs.readFileSync(path.join(root, 'js/tournament/wallet.js'), 'utf8'),
+    sandbox,
+    { filename: 'wallet.js' }
+  );
+  var ACTIVE = 'pokerforge';
+  sandbox.PTCommunity = {
+    id: function () { return ACTIVE; },
+    schoolPack: function () { return ACTIVE === 'mttlab' ? 'mttlab' : 'pokerforge'; },
+    progressKey: function () {
+      return ACTIVE === 'pokerforge' ? 'school_progress' : ('school_progress_' + ACTIVE);
+    }
+  };
+  var W = sandbox.PTTournamentWallet;
+  assert.ok(W, 'wallet cargado');
+  W.setBalance(100, { type: 'school_koin_test' });
+
+  /* Simula el orden real: stats ya tienen passed=true (como tras recordLessonAttempt). */
+  sandbox.Store._st.school.lessons['C-00'] = {
+    passed: true, bestScore: 1, bestPct: 100, attempts: 1
+  };
+  assert.ok(School.ensureLessonMarkedPassed('C-00', {
+    passed: true, score: 1, pct: 100, gold: true, perfect: true
+  }), 'ensure passed C-00');
+  assert.strictEqual(W.getBalance(), 101, 'primera aprobación C-00 → +1 Koin');
+  assert.ok(School.ensureLessonMarkedPassed('C-00', {
+    passed: true, score: 1, pct: 100, gold: true, perfect: true
+  }), 're-ensure C-00');
+  assert.strictEqual(W.getBalance(), 101, 'no dobla Koins al re-aprobar');
+
+  ACTIVE = 'mttlab';
+  assert.strictEqual(W.getBalance(), 100, 'wallet MTTLab independiente');
+  sandbox.Store._st = {
+    handsPlayed: 0,
+    school: { xp: 0, lessons: {}, updatedAt: 0, version: 2 }
+  };
+  if (School._clearPassedOverlay) School._clearPassedOverlay();
+  assert.ok(School.ensureLessonMarkedPassed('ML-M1-01', {
+    passed: true, score: 0.9, pct: 90, gold: true, perfect: false
+  }), 'ensure ML-M1-01');
+  assert.strictEqual(W.getBalance(), 101, 'MTTLab lección → +1 Koin propio');
+
+  ACTIVE = 'pokerforge';
+  assert.strictEqual(W.getBalance(), 101, 'PF saldo no afectado por award MTTLab');
+})();
 
 School._state.view = 'hub';
 sandbox.Store._st.school.lessons['C-00'] = {
