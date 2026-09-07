@@ -225,6 +225,49 @@
     }
   }
 
+  /**
+   * GoTrue a veces se congela detrás del API Gateway (504) mientras REST/Functions
+   * siguen vivos. Si redirigimos a /auth/v1/authorize el usuario ve solo
+   * {"message":"Gateway Timeout"}. Sondear health antes de salir de la app.
+   */
+  async function probeAuthReady() {
+    var cfg = global.PT_SUPABASE || {};
+    if (!cfg.url || !cfg.anonKey || typeof global.fetch !== 'function') {
+      return { ok: true, skipped: true };
+    }
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = null;
+    try {
+      if (ctrl) {
+        timer = setTimeout(function () {
+          try { ctrl.abort(); } catch (e) { /* noop */ }
+        }, 4500);
+      }
+      var res = await global.fetch(String(cfg.url).replace(/\/$/, '') + '/auth/v1/health', {
+        method: 'GET',
+        headers: {
+          apikey: cfg.anonKey,
+          Authorization: 'Bearer ' + cfg.anonKey
+        },
+        signal: ctrl ? ctrl.signal : undefined
+      });
+      if (timer) clearTimeout(timer);
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        return { ok: false, status: res.status };
+      }
+      return { ok: true, status: res.status };
+    } catch (e) {
+      if (timer) clearTimeout(timer);
+      return { ok: false, status: 0, error: e };
+    }
+  }
+
+  function authUnavailableMessage(probe) {
+    var code = probe && probe.status ? String(probe.status) : 'timeout';
+    return 'El servicio de acceso no responde ahora (' + code +
+      '). Reintenta en unos minutos. Si sigue fallando: Supabase Dashboard → Project Settings → Restart project.';
+  }
+
   async function startSupabaseLogin() {
     if (location.protocol === 'file:') {
       showError('No funciona con file://. Usa GitHub Pages o localhost.');
@@ -241,17 +284,37 @@
       showError('Supabase no está listo. Recarga la página.');
       return;
     }
+    var probe = await probeAuthReady();
+    if (!probe.ok) {
+      showError(authUnavailableMessage(probe));
+      return;
+    }
     var redirectTo = redirectUri();
     var errRes = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: redirectTo,
-        queryParams: { prompt: 'select_account' }
+        queryParams: { prompt: 'select_account' },
+        // Evita navegar a una página 504 JSON si GoTrue cae entre el probe y el redirect.
+        skipBrowserRedirect: true
       }
     });
     if (errRes.error) {
-      showError(errRes.error.message || 'Error al iniciar sesión');
+      var msg = errRes.error.message || 'Error al iniciar sesión';
+      if (/gateway timeout|504|503|502/i.test(msg)) {
+        showError(authUnavailableMessage({ status: 504 }));
+      } else {
+        showError(msg);
+      }
+      return;
     }
+    var oauthUrl = errRes.data && errRes.data.url;
+    if (!oauthUrl) {
+      showError('No se pudo iniciar el login con Google.');
+      return;
+    }
+    markHandoff();
+    location.assign(oauthUrl);
   }
 
   function startGoogleLogin() {

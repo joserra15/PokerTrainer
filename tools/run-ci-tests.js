@@ -74,6 +74,7 @@ const STEPS = [
   ['Test RLS policies (SQL)', ['node', 'tools/test-rls-policies.js']],
   ['Test auth contract', ['node', 'tools/test-auth-contract.js']],
   ['Test auth bootstrap login UI', ['node', 'tools/test-auth-bootstrap-login-ui.js']],
+  ['Test auth gateway timeout UX', ['node', 'tools/test-auth-gateway-timeout.js']],
   ['Test stale auth → landing', ['node', 'tools/test-stale-auth-landing.js']],
   ['Test Stripe Edge contracts', ['node', 'tools/test-stripe-edge-contracts.js']],
   ['Test analyze-hand contract', ['node', 'tools/test-analyze-hand-contract.js']],

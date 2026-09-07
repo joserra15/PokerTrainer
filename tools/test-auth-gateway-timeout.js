@@ -1,5 +1,4 @@
-/* Regresión: Continuar con Google debe responder al instante (panel derecho / desktop).
- * Antes solo se enlazaba tras await getSession(), que en portátil deja el botón muerto. */
+/* Si GoTrue responde 504, Continuar no debe navegar a la página JSON Gateway Timeout. */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -8,20 +7,19 @@ const assert = require('assert');
 
 const root = path.join(__dirname, '..');
 const src = fs.readFileSync(path.join(root, 'js', 'auth-bootstrap.js'), 'utf8');
-const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const docs = fs.readFileSync(path.join(root, 'docs', 'SUPABASE_AUTH.md'), 'utf8');
 
-assert(/Siempre enlazar el CTA de login antes/.test(src), 'boot() enlaza CTA antes de awaits');
-assert(/t\.closest\('#auth-mobile-login'\)/.test(src), 'delegación de click en #auth-mobile-login');
-assert(/withTimeout\(client\.auth\.getSession\(\)/.test(src), 'getSession con timeout');
-assert(
-  /google-signin-btn" class="google-signin-host hidden"/.test(indexHtml),
-  'GSI host oculto por defecto; Continuar es el CTA principal'
-);
+assert(/probeAuthReady/.test(src), 'auth-bootstrap tiene probeAuthReady');
+assert(/skipBrowserRedirect:\s*true/.test(src), 'OAuth con skipBrowserRedirect');
+assert(/Gateway Timeout/.test(docs), 'docs documentan Gateway Timeout');
+assert(/Restart project/.test(docs), 'docs indican Restart project');
 
 const listeners = {};
 const timers = [];
 let oauthCalls = 0;
+let assignedUrl = '';
 let authError = '';
+let healthStatus = 504;
 
 const mobileBtn = {
   id: 'auth-mobile-login',
@@ -32,27 +30,13 @@ const mobileBtn = {
   },
   closest(sel) { return sel === '#auth-mobile-login' ? this : null; }
 };
-const gsiHost = {
-  id: 'google-signin-btn',
-  classList: {
-    _h: true,
-    add(c) { if (c === 'hidden') this._h = true; },
-    remove(c) { if (c === 'hidden') this._h = false; }
-  }
-};
 
-let assignedUrl = '';
 const mockClient = {
   auth: {
-    getSession: function () {
-      // Simula getSession colgado: no resuelve. El boot no debe bloquear el CTA.
-      return new Promise(function () { /* never */ });
-    },
+    getSession: function () { return Promise.resolve({ data: { session: null }, error: null }); },
     onAuthStateChange: function () {},
-    signInWithOAuth: function (opts) {
+    signInWithOAuth: function () {
       oauthCalls += 1;
-      assert.ok(opts && opts.options && opts.options.skipBrowserRedirect,
-        'OAuth usa skipBrowserRedirect para poder abortar ante 504');
       return Promise.resolve({
         data: { url: 'https://example.supabase.co/auth/v1/authorize?provider=google' },
         error: null
@@ -78,15 +62,16 @@ const sandbox = {
   Uint8Array,
   URLSearchParams,
   CustomEvent: function () {},
-  localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
-  sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
-  fetch: function () {
-    return Promise.resolve({ status: 200, ok: true });
+  fetch: function (url) {
+    assert.ok(/\/auth\/v1\/health$/.test(String(url)), 'probe llama /auth/v1/health');
+    return Promise.resolve({ status: healthStatus, ok: healthStatus >= 200 && healthStatus < 300 });
   },
   AbortController: function () {
     this.signal = {};
     this.abort = function () {};
   },
+  localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+  sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
   location: {
     protocol: 'https:',
     origin: 'https://www.pokerforgeai.com',
@@ -97,14 +82,23 @@ const sandbox = {
     assign: function (url) { assignedUrl = String(url || ''); }
   },
   history: { replaceState() {} },
-  navigator: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', maxTouchPoints: 1 },
+  navigator: { userAgent: 'Mozilla/5.0', maxTouchPoints: 1 },
   matchMedia: function () { return { matches: false }; },
   document: {
     readyState: 'loading',
     body: { classList: { remove() {}, add() {}, toggle() {} } },
     getElementById(id) {
       if (id === 'auth-mobile-login') return mobileBtn;
-      if (id === 'google-signin-btn') return gsiHost;
+      if (id === 'google-signin-btn') {
+        return {
+          id: 'google-signin-btn',
+          classList: {
+            _h: true,
+            add(c) { if (c === 'hidden') this._h = true; },
+            remove(c) { if (c === 'hidden') this._h = false; }
+          }
+        };
+      }
       if (id === 'auth-error') {
         return {
           get textContent() { return authError; },
@@ -137,23 +131,8 @@ sandbox.window = sandbox;
 sandbox.global = sandbox;
 
 vm.runInContext(src, vm.createContext(sandbox), { filename: 'auth-bootstrap.js' });
-
-assert.ok(listeners.DOMContentLoaded && listeners.DOMContentLoaded.length, 'espera DOMContentLoaded');
 listeners.DOMContentLoaded.forEach(function (fn) { fn(); });
 
-assert.ok(listeners.click && listeners.click.length >= 1, 'delegación click registrada sin esperar getSession');
-assert.strictEqual(mobileBtn.classList._h, false, 'Continuar visible');
-assert.strictEqual(gsiHost.classList._h, true, 'GSI oculto con Supabase Auth');
-
-const evt = {
-  target: mobileBtn,
-  prevented: false,
-  preventDefault: function () { this.prevented = true; }
-};
-listeners.click.forEach(function (fn) { fn(evt); });
-assert.ok(evt.prevented, 'click en Continuar hace preventDefault');
-
-// Avanzar microtareas / waits cortos del startSupabaseLogin (+ probe Auth)
 function flushTimers(maxMs) {
   let guard = 0;
   while (guard++ < 200) {
@@ -165,6 +144,27 @@ function flushTimers(maxMs) {
     });
   }
 }
+
+function clickContinuar() {
+  const evt = {
+    target: mobileBtn,
+    preventDefault: function () {}
+  };
+  listeners.click.forEach(function (fn) { fn(evt); });
+}
+
+function flushTimers(maxMs) {
+  let guard = 0;
+  while (guard++ < 200) {
+    const due = timers.filter(function (t) { return !t.cleared && t.ms <= maxMs && t.fn; });
+    if (!due.length) break;
+    due.forEach(function (t) {
+      t.cleared = true;
+      try { t.fn(); } catch (e) { /* noop */ }
+    });
+  }
+}
+
 function drain(n) {
   let p = Promise.resolve();
   for (let i = 0; i < n; i++) {
@@ -175,10 +175,25 @@ function drain(n) {
   }
   return p;
 }
+
+clickContinuar();
+
 drain(8).then(function () {
-  assert.strictEqual(oauthCalls, 1, 'Continuar dispara signInWithOAuth aunque getSession cuelgue');
-  assert.ok(/authorize\?provider=google/.test(assignedUrl), 'redirige a authorize tras health OK');
-  console.log('*** auth-bootstrap-login-ui OK ***');
+  assert.strictEqual(oauthCalls, 0, 'con Auth 504 no llama signInWithOAuth');
+  assert.strictEqual(assignedUrl, '', 'con Auth 504 no navega a authorize');
+  assert.ok(/no responde|Restart project|504/i.test(authError),
+    'muestra error actionable: ' + authError);
+
+  // Recuperación: health OK → sí redirige
+  healthStatus = 200;
+  authError = '';
+  assignedUrl = '';
+  clickContinuar();
+  return drain(8);
+}).then(function () {
+  assert.strictEqual(oauthCalls, 1, 'con Auth OK dispara OAuth');
+  assert.ok(/authorize\?provider=google/.test(assignedUrl), 'navega a authorize');
+  console.log('*** auth-gateway-timeout OK ***');
 }).catch(function (err) {
   console.error(err);
   process.exit(1);
