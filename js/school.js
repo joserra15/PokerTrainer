@@ -1828,6 +1828,10 @@
       if (!state.route || state.route !== 'mttlab') state.route = 'mttlab';
     } else {
       routes = routes.filter(function (r) { return r.id !== 'mttlab'; });
+      /* Tras volver de MTTLab, no reutilizar la ruta community-only. */
+      if (state.route === 'mttlab' || !routes.some(function (r) { return r.id === state.route; })) {
+        state.route = 'cash';
+      }
     }
     var routeId = state.route || (pack === 'mttlab' ? 'mttlab' : 'cash');
     var hero = ROUTE_HERO[routeId] || ROUTE_HERO.cash;
@@ -2298,6 +2302,31 @@
     if (root) render(root);
   }
 
+  /**
+   * Al cambiar PokerForge ↔ MTTLab: limpiar UI en memoria (ruta, overlay, sesión)
+   * para no mostrar el pack de la comunidad anterior hasta recargar.
+   */
+  function onCommunitySwitch() {
+    Object.keys(passedOverlay).forEach(function (k) { delete passedOverlay[k]; });
+    if (state.session) state.session.active = false;
+    state.session = null;
+    state.pendingMatrixSpot = null;
+    state.lessonId = null;
+    state.view = VIEW.hub;
+    var pack = global.PTCommunity && global.PTCommunity.schoolPack
+      ? global.PTCommunity.schoolPack()
+      : 'pokerforge';
+    state.route = pack === 'mttlab' ? 'mttlab' : 'cash';
+    updateSchoolBanner();
+    var root = typeof document !== 'undefined' ? document.getElementById('school-content') : null;
+    if (root) {
+      root.innerHTML = '';
+      /* Solo re-pintar si la pestaña escuela está visible; goToTab('school') lo hará. */
+      var panel = typeof document !== 'undefined' ? document.getElementById('tab-school') : null;
+      if (panel && panel.classList.contains('active') && Data()) render(root);
+    }
+  }
+
   function render(container) {
     var root = container || document.getElementById('school-content');
     if (!root) return;
@@ -2332,11 +2361,15 @@
     global.addEventListener('pt-cloud-synced', function () {
       refreshFromCloud();
     });
+    global.addEventListener('pt-community-switch', function () {
+      onCommunitySwitch();
+    });
   }
 
   global.PTSchool = {
     render: render,
     refreshFromCloud: refreshFromCloud,
+    onCommunitySwitch: onCommunitySwitch,
     openLesson: openLesson,
     afterTrainerAction: afterTrainerAction,
     afterHandFinished: afterHandFinished,

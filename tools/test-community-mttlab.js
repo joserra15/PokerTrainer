@@ -130,6 +130,10 @@ assert.ok(/unlockMode\(\) === 'allOpen'/.test(school), 'allOpen unlock');
 assert.ok(/bypassPaywalls/.test(school), 'bypass paywalls comunidad');
 assert.ok(/externalLinks/.test(school), 'externalLinks UI');
 assert.ok(/mttlab/.test(school), 'ruta mttlab en school');
+assert.ok(/onCommunitySwitch|pt-community-switch/.test(school),
+  'escuela resetea pack al cambiar comunidad');
+assert.ok(/state\.route === 'mttlab'/.test(school),
+  'hub corrige ruta mttlab fuera de pack MTTLab');
 
 const contact = read('js/contact.js');
 assert.ok(/p_community_id/.test(contact), 'contacto envía community_id');
@@ -184,6 +188,11 @@ assert.ok(/communityId/.test(aiReport), 'ai-report envía communityId');
 
 const entitlements = read('js/entitlements.js');
 assert.ok(/aiCommunityId|source: 'community'/.test(entitlements), 'entitlements cupo comunidad');
+assert.ok(/awardTrainerKoins|noteTrainerHand/.test(entitlements),
+  'entrenador suma Koins vía noteTrainerHand');
+assert.ok(/tournament\/wallet\.js/.test(chunks), 'wallet en bundles');
+assert.ok(/core:\s*ENGINE\.concat\(\[[\s\S]*tournament\/wallet\.js/.test(chunks),
+  'wallet en core para Koins sin abrir Torneos');
 
 // —— Runtime configs ——
 const sandbox = {

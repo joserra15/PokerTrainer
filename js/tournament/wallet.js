@@ -223,9 +223,11 @@
       balance: Math.max(0, Number(remote.balance) || 0),
       updatedAt: remote.updatedAt || new Date().toISOString(),
       version: remote.version || 1,
-      trainerHands: remote.trainerHands != null
-        ? Number(remote.trainerHands) || 0
-        : (local && Number(local.trainerHands)) || 0,
+      /* Contador monótono: no perder manos locales al fusionar. */
+      trainerHands: Math.max(
+        remote.trainerHands != null ? Number(remote.trainerHands) || 0 : 0,
+        (local && Number(local.trainerHands)) || 0
+      ),
       tournamentsPlayed: Math.max(
         Number(remote.tournamentsPlayed) || 0,
         (local && Number(local.tournamentsPlayed)) || 0
@@ -260,16 +262,22 @@
           Number(local.tournamentsPlayed) || 0,
           Number(remote.tournamentsPlayed) || 0
         ),
+        trainerHands: Math.max(
+          Number(local.trainerHands) || 0,
+          remote.trainerHands != null ? Number(remote.trainerHands) || 0 : 0
+        ),
         lessonAwards: Object.assign({}, local.lessonAwards || {}, remote.lessonAwards || {}),
         last: { type: 'cloud_merge_tie' }
       });
       if (tied.balance !== local.balance ||
-          tied.tournamentsPlayed !== local.tournamentsPlayed) {
+          tied.tournamentsPlayed !== local.tournamentsPlayed ||
+          tied.trainerHands !== local.trainerHands) {
         writeRaw(tied, { silent: true });
       }
       return toSnapshot(tied);
     }
     /* Local más reciente: aún fusionar contadores monótonos. */
+    var dirtyLocal = false;
     if (remote.tournamentsPlayed != null) {
       var nextPlayed = Math.max(
         Number(local.tournamentsPlayed) || 0,
@@ -277,9 +285,20 @@
       );
       if (nextPlayed !== (Number(local.tournamentsPlayed) || 0)) {
         local.tournamentsPlayed = nextPlayed;
-        writeRaw(local, { silent: true });
+        dirtyLocal = true;
       }
     }
+    if (remote.trainerHands != null) {
+      var nextHands = Math.max(
+        Number(local.trainerHands) || 0,
+        Number(remote.trainerHands) || 0
+      );
+      if (nextHands !== (Number(local.trainerHands) || 0)) {
+        local.trainerHands = nextHands;
+        dirtyLocal = true;
+      }
+    }
+    if (dirtyLocal) writeRaw(local, { silent: true });
     return toSnapshot(local);
   }
 
