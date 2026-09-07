@@ -476,7 +476,13 @@
             emailVerified: !!payload.email_verified, locale: payload.locale || '',
             loginAt: Date.now()
           });
-          localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+          try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); }
+          catch (eQuota) {
+            try {
+              if (global.Store && global.Store.freeStorageSpace) global.Store.freeStorageSpace({ aggressive: true });
+              localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+            } catch (e2) { /* sesión en memoria; no tumbar login */ }
+          }
           enterApp(user);
         } catch (e) { console.warn('[PTAuth]', e); }
       },

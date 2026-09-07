@@ -19,6 +19,59 @@
     return hasConfig() && cfg().useAuth !== false;
   }
 
+  /**
+   * Adaptador sobre localStorage: si la cuota está llena (habitual al abrir
+   * Admin con muchas RPC / refresh de token), libera cachés y reintenta.
+   * Sin esto supabase-js lanza QuotaExceededError y tumba el panel.
+   */
+  function createAuthStorage() {
+    const base = global.localStorage;
+    function tryFree(aggressive) {
+      try {
+        if (global.Store && typeof global.Store.freeStorageSpace === 'function') {
+          return !!global.Store.freeStorageSpace(aggressive ? { aggressive: true } : undefined);
+        }
+      } catch (e) { /* noop */ }
+      return false;
+    }
+    return {
+      getItem: function (key) {
+        try {
+          return base && base.getItem ? base.getItem(key) : null;
+        } catch (e) {
+          return null;
+        }
+      },
+      setItem: function (key, value) {
+        if (!base || !base.setItem) return;
+        try {
+          base.setItem(key, value);
+          return;
+        } catch (e1) {
+          tryFree(false);
+          try {
+            base.setItem(key, value);
+            return;
+          } catch (e2) {
+            tryFree(true);
+            try {
+              base.setItem(key, value);
+            } catch (e3) {
+              try {
+                console.warn('[PTSupabase] auth storage QuotaExceeded; sesión no persistida');
+              } catch (e4) { /* noop */ }
+            }
+          }
+        }
+      },
+      removeItem: function (key) {
+        try {
+          if (base && base.removeItem) base.removeItem(key);
+        } catch (e) { /* noop */ }
+      }
+    };
+  }
+
   function getClient() {
     if (!hasConfig()) return null;
     if (!global.supabase || !global.supabase.createClient) return null;
@@ -31,7 +84,7 @@
           // (evita perder INITIAL_SESSION / code antes de suscribirse).
           detectSessionInUrl: false,
           flowType: 'pkce',
-          storage: global.localStorage
+          storage: createAuthStorage()
         }
       });
     }

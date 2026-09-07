@@ -93,6 +93,7 @@ const STEPS = [
   ['Test multiway trainer', ['node', 'tools/test-multiway-trainer.js']],
   ['Test fuzz evaluateSpot', ['node', 'tools/test-fuzz-evaluate.js']],
   ['Test admin panel', ['node', 'tools/test-admin-panel.js']],
+  ['Test storage quota', ['node', 'tools/test-storage-quota.js']],
   ['Test account settings', ['node', 'tools/test-account-settings.js']],
   ['Test multi-comunidad MTT Lab', ['node', 'tools/test-community-mttlab.js']],
   ['Test aislamiento datos por comunidad', ['node', 'tools/test-community-data-isolation.js']],

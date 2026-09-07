@@ -166,17 +166,82 @@
     catch (e) { return false; }
   }
 
-  /** Libera espacio recortando histórico/errores (Safari móvil se llena rápido). */
-  function freeStorageSpace() {
+  /** Lista claves localStorage que empiezan por un prefijo (sin lanzar). */
+  function listKeysWithPrefix(prefix) {
+    const out = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) out.push(k);
+      }
+    } catch (e) { /* ignore */ }
+    return out;
+  }
+
+  function removeKeyQuiet(key) {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Escribe un JSON más pequeño sustituyendo la clave (Safari a veces no
+   * libera el valor anterior si setItem falla por cuota).
+   */
+  function rewriteSmaller(key, val) {
+    try {
+      localStorage.removeItem(key);
+    } catch (e0) { /* ignore */ }
+    return write(key, val);
+  }
+
+  /**
+   * Libera espacio en localStorage (Safari/móvil se llenan rápido).
+   * Orden: cachés desechables → .txt de sesiones → recorte de histórico/errores.
+   * opts.aggressive: recorta más (p. ej. tras QuotaExceeded en auth).
+   */
+  function freeStorageSpace(opts) {
+    opts = opts || {};
+    const aggressive = !!opts.aggressive;
     let freed = false;
     try {
-      const hist = read(scopedDataKey('history'), []);
-      if (Array.isArray(hist) && hist.length > 100) {
-        if (write(scopedDataKey('history'), hist.slice(0, 100))) freed = true;
+      /* 1) Caché ForgeCoach: regenerable, suele ser lo más voluminoso. */
+      listKeysWithPrefix('pt_ai_coach_v1_').forEach(function (k) {
+        if (removeKeyQuiet(k)) freed = true;
+      });
+      /* 2) Saludos home / focus (también regenerables). */
+      listKeysWithPrefix('pt_home_greeting_').forEach(function (k) {
+        if (removeKeyQuiet(k)) freed = true;
+      });
+      listKeysWithPrefix('pt_greeting_focus_').forEach(function (k) {
+        if (removeKeyQuiet(k)) freed = true;
+      });
+      /* 3) HH crudos de sesión (grandes; la nube sigue teniendo el análisis). */
+      listKeysWithPrefix('pt_session_txt').forEach(function (k) {
+        if (removeKeyQuiet(k)) freed = true;
+      });
+      /* 4) Recortar histórico / errores (incluso si ya cabían en ≤100). */
+      const histKey = scopedDataKey('history');
+      const errKey = scopedDataKey('errors');
+      const hist = read(histKey, []);
+      const errs = read(errKey, []);
+      const histCap = aggressive ? 20 : 50;
+      const errCap = aggressive ? 20 : 50;
+      if (Array.isArray(hist) && hist.length > histCap) {
+        if (rewriteSmaller(histKey, hist.slice(0, histCap))) freed = true;
       }
-      const errs = read(scopedDataKey('errors'), []);
-      if (Array.isArray(errs) && errs.length > 100) {
-        if (write(scopedDataKey('errors'), errs.slice(0, 100))) freed = true;
+      if (Array.isArray(errs) && errs.length > errCap) {
+        if (rewriteSmaller(errKey, errs.slice(0, errCap))) freed = true;
+      }
+      /* 5) Backups legacy duplicados de Escuela (la clave scoped basta). */
+      if (userId) {
+        const scopedBak = schoolBackupStorageKey();
+        if (readRaw(scopedBak)) {
+          if (removeKeyQuiet('pt_school_backup_v1')) freed = true;
+        }
       }
     } catch (e) { /* ignore */ }
     return freed;
@@ -186,6 +251,7 @@
   function writeResilient(key, val) {
     if (write(key, val)) return true;
     if (freeStorageSpace() && write(key, val)) return true;
+    if (freeStorageSpace({ aggressive: true }) && write(key, val)) return true;
     return false;
   }
   function writeRaw(key, val) {
@@ -2456,6 +2522,7 @@
     migrateLocalUserKeys,
     migrateTournamentKeysForUser,
     purgeLocalUserData, scenarioLabel,
+    freeStorageSpace, writeResilient,
     getSessions, getSession, getSessionAsync, saveSession, saveSessionLocal, cacheSession, removeSession, deleteSessionTxt,
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
