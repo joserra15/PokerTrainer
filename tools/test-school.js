@@ -72,6 +72,10 @@ assert.ok(/!isSchoolHand/.test(app) && /schoolMode/.test(app),
   'Escuela no pasa por ensureLoaded/recordTrainerHand (sin cupo)');
 assert.ok(!/void Ent\.recordTrainerHand/.test(app),
   'Escuela ya no registra cupo ni en background');
+assert.ok(/onCommunitySwitch|pt-community-switch/.test(schoolSrc),
+  'escuela escucha cambio de comunidad');
+assert.ok(/state\.route === 'mttlab'/.test(schoolSrc),
+  'hub resetea ruta mttlab al volver a PokerForge');
 assert.ok(/SCHOOL_PUBLIC\s*=\s*true/.test(schoolSrc), 'SCHOOL_PUBLIC true (abierta a usuarios)');
 assert.ok(/schoolMenuVisible/.test(schoolSrc), 'schoolMenuVisible');
 assert.ok(/canPlayLesson/.test(schoolSrc), 'canPlayLesson Fase D');
@@ -1669,6 +1673,43 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   assert.strictEqual(AI.lessonFromLeak({ key: 'postflop|BTN|turn' }), 'C-18', 'turn→C-18');
   assert.strictEqual(AI.lessonFromLeak({ key: 'postflop|BTN|river' }), 'C-19', 'river→C-19');
   assert.strictEqual(AI.lessonFromLeak({ key: 'face4bet|BTN|preflop' }), 'C-26', '4bet→C-26');
+})();
+
+/* Cambio de comunidad: no reutilizar pack/ruta MTTLab en PokerForge */
+(function () {
+  sandbox.PTAuth = { getUser: function () { return { email: 'user@x.com', isAdmin: false, plan: 'pro' }; } };
+  sandbox.PTCommunity = {
+    schoolPack: function () { return 'pokerforge'; },
+    unlockMode: function () { return 'linear'; },
+    bypassPaywalls: function () { return false; }
+  };
+  School._state.route = 'mttlab';
+  School._state.view = 'hub';
+  School._state.lessonId = 'ML-01';
+  School.rememberPassed('fake-mttlab-lesson', { passed: true, pct: 80 });
+  assert.ok(School._passedOverlay['fake-mttlab-lesson'], 'overlay previo');
+  assert.ok(typeof School.onCommunitySwitch === 'function', 'onCommunitySwitch export');
+  School.onCommunitySwitch();
+  assert.strictEqual(School._state.route, 'cash', 'switch PF → ruta cash');
+  assert.strictEqual(School._state.lessonId, null, 'limpia lessonId');
+  assert.strictEqual(Object.keys(School._passedOverlay).length, 0, 'limpia overlay');
+
+  sandbox.PTCommunity.schoolPack = function () { return 'mttlab'; };
+  School.onCommunitySwitch();
+  assert.strictEqual(School._state.route, 'mttlab', 'switch MTTLab → ruta mttlab');
+
+  sandbox.PTCommunity.schoolPack = function () { return 'pokerforge'; };
+  School._state.route = 'mttlab';
+  School._state.view = 'hub';
+  var switchRoot = {
+    innerHTML: '',
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; }
+  };
+  School.render(switchRoot);
+  assert.strictEqual(School._state.route, 'cash', 'renderHub corrige ruta mttlab stale');
+  assert.ok(switchRoot.innerHTML.indexOf('Escuela MTT LAB') < 0, 'hub PF no muestra hero MTT LAB');
+  assert.ok(/Escuela de Póker/.test(switchRoot.innerHTML), 'hub PF muestra Escuela de Póker');
 })();
 
 console.log('*** school G–J OK (M0 ' + spotCount + ' spots + Spins/MTT/Rangos/Pro + leaks→lección, abierta a usuarios) ***');

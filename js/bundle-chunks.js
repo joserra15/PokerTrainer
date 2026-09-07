@@ -89,6 +89,8 @@
       'js/help.js',
       'js/user-profile.js',
       'js/demo-mode.js',
+      /* Wallet de Koins en core: el entrenador suma manos sin abrir Torneos. */
+      'js/tournament/wallet.js',
       'js/entitlements.js',
       'js/billing.js',
       'js/founder-request.js',
@@ -158,7 +160,6 @@
       'js/tournament/role-guess.js',
       'js/tournament/stats.js',
       'js/tournament/hud.js',
-      'js/tournament/wallet.js',
       'js/tournament/leaderboard.js',
       'js/tournament/store.js',
       'js/tournament/session-bridge.js',

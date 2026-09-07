@@ -413,10 +413,27 @@
     return { ok: true, used: used, limit: maxImports };
   }
 
+  function awardTrainerKoins() {
+    try {
+      if (global.PTTournamentWallet && PTTournamentWallet.noteTrainerHand) {
+        return PTTournamentWallet.noteTrainerHand();
+      }
+    } catch (eTH) { /* ignore */ }
+    return null;
+  }
+
   async function recordTrainerHand() {
-    if (isGuestUser() || !useAuth() || e2eBypass()) return { ok: true };
+    /* Invitados no ganan Koins. */
+    if (isGuestUser()) return { ok: true };
+    if (!useAuth() || e2eBypass()) {
+      awardTrainerKoins();
+      return { ok: true };
+    }
     var c = client();
-    if (!c) return { ok: true };
+    if (!c) {
+      awardTrainerKoins();
+      return { ok: true };
+    }
     var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
     var res = await c.rpc(rpc);
     if (res.error) return { ok: false, error: res.error.message };
@@ -425,11 +442,7 @@
     }
     /* No refrescar entitlements en cada mano (bloqueaba Escuela en móvil); debounce. */
     scheduleRefresh();
-    try {
-      if (global.PTTournamentWallet && PTTournamentWallet.noteTrainerHand) {
-        PTTournamentWallet.noteTrainerHand();
-      }
-    } catch (eTH) { /* ignore */ }
+    awardTrainerKoins();
     return res.data || { ok: true };
   }
 

@@ -950,6 +950,11 @@ console.log('OK dist-tournaments-bundle');
   const coreChunk = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
   assert.ok(coreChunk.includes('hand-end-view.js'), 'chunk lists hand-end-view');
   assert.ok(coreChunk.includes('session-bridge.js'), 'chunk lists session-bridge');
+  /* Koins del entrenador: wallet en core (no depende de abrir Torneos). */
+  assert.ok(/core:\s*ENGINE\.concat\(\[[\s\S]*tournament\/wallet\.js/.test(coreChunk),
+    'wallet.js está en chunk core');
+  assert.ok(!/tournaments:\s*\[[\s\S]*tournament\/wallet\.js/.test(coreChunk),
+    'wallet.js ya no está solo en chunk tournaments');
   console.log('OK hand-end-session-ui-source');
 }
 

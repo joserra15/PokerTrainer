@@ -107,6 +107,27 @@ assert.ok(Store && W && T, 'modules loaded');
   assert.strictEqual(W.getBalance(), 247, 'local más reciente conserva saldo');
 }
 
+/* --- trainerHands monótono: remoto antiguo/bajo no borra progreso local --- */
+{
+  Object.keys(localStore).forEach((k) => delete localStore[k]);
+  Store.setUserId('user-sync-hands');
+  W.setBalance(100, { type: 'test' });
+  for (let i = 0; i < 24; i++) W.noteTrainerHand();
+  assert.strictEqual(W.snapshot().trainerHands, 24, '24 manos locales');
+  /* Remoto más nuevo en updatedAt pero con trainerHands=0 no debe resetear. */
+  W.mergeFromCloud({
+    balance: 100,
+    updatedAt: new Date(Date.now() + 60000).toISOString(),
+    tournamentsPlayed: 0,
+    trainerHands: 0,
+    lessonAwards: {}
+  });
+  assert.strictEqual(W.snapshot().trainerHands, 24, 'merge conserva max trainerHands');
+  const awarded = W.noteTrainerHand();
+  assert.strictEqual(awarded.added, 1, '25ª mano suma 1 koin');
+  assert.strictEqual(W.getBalance(), 101, 'balance +1 tras 25 manos');
+}
+
 /* --- replaceFromCloud restaura wallet + history + active --- */
 {
   Object.keys(localStore).forEach((k) => delete localStore[k]);
