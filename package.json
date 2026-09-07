@@ -33,6 +33,7 @@
     "test:history-replay": "node tools/test-history-replay-cards.js",
     "test:entitlements": "node tools/test-entitlements.js",
     "test:cloud-merge": "node tools/test-cloud-merge.js",
+    "test:tournament-sync": "node tools/test-tournament-cloud-sync.js",
     "test:cloud-sessions": "node tools/test-cloud-sessions.js",
     "test:rls": "node tools/test-rls-policies.js",
     "test:auth-contract": "node tools/test-auth-contract.js",

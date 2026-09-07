@@ -3097,6 +3097,9 @@
 /*
  * tournament/wallet.js — Saldo de Koins (100 iniciales) + sync cloud.
  * Koins independientes por comunidad (clave local + payload nube namespaced).
+ *
+ * Importante sync: no inventar wallet al leer para push/merge. Un `ensure()`
+ * con updatedAt=now en un PC vacío pisaba el saldo real del móvil.
  */
 (function (global) {
   'use strict';
@@ -3137,7 +3140,8 @@
 
   function cloudDirtyKeys() {
     var s = communitySuffix();
-    return ['tournamentWallet' + s, 'tournamentHistory' + s];
+    /* Solo wallet: no marcar history dirty (un [] local pisaría la nube). */
+    return ['tournamentWallet' + s];
   }
 
   function markDirty() {
@@ -3163,36 +3167,50 @@
     }
   }
 
-  function writeRaw(data) {
+  function writeRaw(data, opts) {
+    opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return false;
       localStorage.setItem(storageKey(), JSON.stringify(data));
-      markDirty();
+      if (!opts.silent) markDirty();
       return true;
     } catch (e) {
       return false;
     }
   }
 
+  function normalizeStored(data) {
+    if (!data || typeof data.balance !== 'number') return null;
+    if (!data.lessonAwards || typeof data.lessonAwards !== 'object') data.lessonAwards = {};
+    if (typeof data.trainerHands !== 'number') data.trainerHands = Number(data.trainerHands) || 0;
+    if (typeof data.tournamentsPlayed !== 'number') {
+      data.tournamentsPlayed = Number(data.tournamentsPlayed) || 0;
+    }
+    if (data.balance < 0) data.balance = 0;
+    return data;
+  }
+
+  /** Lee sin crear saldo inventado (seguro para sync/push). */
+  function peek() {
+    return normalizeStored(readRaw());
+  }
+
+  function defaultWallet() {
+    return {
+      balance: STARTING,
+      updatedAt: new Date().toISOString(),
+      version: 1,
+      trainerHands: 0,
+      tournamentsPlayed: 0,
+      lessonAwards: {}
+    };
+  }
+
   function ensure() {
-    var data = readRaw();
-    if (!data || typeof data.balance !== 'number') {
-      data = {
-        balance: STARTING,
-        updatedAt: new Date().toISOString(),
-        version: 1,
-        trainerHands: 0,
-        tournamentsPlayed: 0,
-        lessonAwards: {}
-      };
+    var data = peek();
+    if (!data) {
+      data = defaultWallet();
       writeRaw(data);
-    } else {
-      if (!data.lessonAwards || typeof data.lessonAwards !== 'object') data.lessonAwards = {};
-      if (typeof data.trainerHands !== 'number') data.trainerHands = Number(data.trainerHands) || 0;
-      if (typeof data.tournamentsPlayed !== 'number') {
-        data.tournamentsPlayed = Number(data.tournamentsPlayed) || 0;
-      }
-      if (data.balance < 0) data.balance = 0;
     }
     return data;
   }
@@ -3252,8 +3270,17 @@
     return { ok: true, balance: next, added: amount };
   }
 
-  function snapshot() {
-    var data = ensure();
+  function communityId() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        return global.PTCommunity.id() || 'pokerforge';
+      }
+    } catch (e) { /* */ }
+    return 'pokerforge';
+  }
+
+  function toSnapshot(data) {
+    if (!data || typeof data.balance !== 'number') return null;
     return {
       balance: data.balance,
       updatedAt: data.updatedAt,
@@ -3261,58 +3288,95 @@
       trainerHands: Number(data.trainerHands) || 0,
       tournamentsPlayed: Number(data.tournamentsPlayed) || 0,
       lessonAwards: data.lessonAwards || {},
-      communityId: (function () {
-        try {
-          if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
-            return global.PTCommunity.id() || 'pokerforge';
-          }
-        } catch (e) { /* */ }
-        return 'pokerforge';
-      })()
+      communityId: communityId()
     };
+  }
+
+  /**
+   * Snapshot para UI/cloud. Por defecto no inventa fila local.
+   * opts.create === true → ensure() (p.ej. al abrir lobby sin sync).
+   */
+  function snapshot(opts) {
+    opts = opts || {};
+    if (opts.create) return toSnapshot(ensure());
+    var data = peek();
+    if (data) return toSnapshot(data);
+    /* Vista sin persistir: no marcar dirty ni pisar nube. */
+    return {
+      balance: STARTING,
+      updatedAt: null,
+      version: 1,
+      trainerHands: 0,
+      tournamentsPlayed: 0,
+      lessonAwards: {},
+      communityId: communityId(),
+      isDefault: true
+    };
+  }
+
+  function applyRemote(remote, local) {
+    var data = {
+      balance: Math.max(0, Number(remote.balance) || 0),
+      updatedAt: remote.updatedAt || new Date().toISOString(),
+      version: remote.version || 1,
+      trainerHands: remote.trainerHands != null
+        ? Number(remote.trainerHands) || 0
+        : (local && Number(local.trainerHands)) || 0,
+      tournamentsPlayed: Math.max(
+        Number(remote.tournamentsPlayed) || 0,
+        (local && Number(local.tournamentsPlayed)) || 0
+      ),
+      lessonAwards: Object.assign(
+        {},
+        (local && local.lessonAwards) || {},
+        remote.lessonAwards || {}
+      ),
+      last: { type: 'cloud_merge' }
+    };
+    writeRaw(data, { silent: true });
+    return toSnapshot(data);
   }
 
   function mergeFromCloud(remote) {
     if (!remote || typeof remote.balance !== 'number') return snapshot();
-    var local = ensure();
+    var local = peek();
+    if (!local) return applyRemote(remote, null);
+
     var localTs = Date.parse(local.updatedAt || 0) || 0;
     var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
-    /* Preferir el saldo con timestamp más reciente; nunca negativo. */
+
     if (remoteTs > localTs) {
-      setBalance(Math.max(0, remote.balance), { type: 'cloud_merge' });
-      var d = ensure();
-      if (remote.trainerHands != null) d.trainerHands = Number(remote.trainerHands) || 0;
-      if (remote.lessonAwards) d.lessonAwards = remote.lessonAwards || d.lessonAwards || {};
-      if (remote.tournamentsPlayed != null) {
-        d.tournamentsPlayed = Math.max(
-          Number(d.tournamentsPlayed) || 0,
-          Number(remote.tournamentsPlayed) || 0
-        );
-      }
-      writeRaw(d);
-    } else if (remoteTs === localTs && typeof remote.balance === 'number') {
+      return applyRemote(remote, local);
+    }
+    if (remoteTs === localTs) {
       /* Empate: quedarse con el mínimo (no inventar koins gastados). */
-      setBalance(Math.min(local.balance, Math.max(0, remote.balance)), { type: 'cloud_merge_tie' });
-      if (remote.tournamentsPlayed != null) {
-        var d2 = ensure();
-        d2.tournamentsPlayed = Math.max(
-          Number(d2.tournamentsPlayed) || 0,
+      var tied = Object.assign({}, local, {
+        balance: Math.min(local.balance, Math.max(0, remote.balance)),
+        tournamentsPlayed: Math.max(
+          Number(local.tournamentsPlayed) || 0,
           Number(remote.tournamentsPlayed) || 0
-        );
-        writeRaw(d2);
+        ),
+        lessonAwards: Object.assign({}, local.lessonAwards || {}, remote.lessonAwards || {}),
+        last: { type: 'cloud_merge_tie' }
+      });
+      if (tied.balance !== local.balance ||
+          tied.tournamentsPlayed !== local.tournamentsPlayed) {
+        writeRaw(tied, { silent: true });
       }
-    } else if (remote.tournamentsPlayed != null) {
-      var d3 = ensure();
+      return toSnapshot(tied);
+    }
+    /* Local más reciente: aún fusionar contadores monótonos. */
+    if (remote.tournamentsPlayed != null) {
       var nextPlayed = Math.max(
-        Number(d3.tournamentsPlayed) || 0,
+        Number(local.tournamentsPlayed) || 0,
         Number(remote.tournamentsPlayed) || 0
       );
-      if (nextPlayed !== (Number(d3.tournamentsPlayed) || 0)) {
-        d3.tournamentsPlayed = nextPlayed;
-        writeRaw(d3);
+      if (nextPlayed !== (Number(local.tournamentsPlayed) || 0)) {
+        local.tournamentsPlayed = nextPlayed;
+        writeRaw(local, { silent: true });
       }
     }
-    return snapshot();
+    return toSnapshot(local);
   }
 
   /** +1 Koin la primera vez que se aprueba una lección de Escuela. */
@@ -3350,6 +3414,7 @@
     debit: debit,
     credit: credit,
     snapshot: snapshot,
+    peek: peek,
     mergeFromCloud: mergeFromCloud,
     ensure: ensure,
     earnFromLesson: earnFromLesson,
@@ -3357,7 +3422,8 @@
     getTournamentsPlayed: getTournamentsPlayed,
     setTournamentsPlayed: setTournamentsPlayed,
     noteTournamentPlayed: noteTournamentPlayed,
-    communitySuffix: communitySuffix
+    communitySuffix: communitySuffix,
+    storageKey: storageKey
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -3706,25 +3772,29 @@
     }
   }
 
-  function writeList(list) {
+  function writeList(list, opts) {
+    opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return false;
       localStorage.setItem(storageKey(), JSON.stringify(list || []));
-      markCloudDirty();
+      if (!opts.silent) markCloudDirty('history');
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  function markCloudDirty() {
+  function markCloudDirty(which) {
     try {
       var s = communitySuffix();
-      var keys = [
-        'tournamentActive' + s,
-        'tournamentHistory' + s,
-        'tournamentWallet' + s
-      ];
+      var keys;
+      if (which === 'active') keys = ['tournamentActive' + s];
+      else if (which === 'history') keys = ['tournamentHistory' + s];
+      else if (which === 'wallet') keys = ['tournamentWallet' + s];
+      else {
+        /* Compat: dirty genérico solo history+active (no wallet). */
+        keys = ['tournamentActive' + s, 'tournamentHistory' + s];
+      }
       if (global.PTCloud && typeof global.PTCloud.markLocalDirty === 'function') {
         global.PTCloud.markLocalDirty(keys);
       }
@@ -3821,15 +3891,16 @@
   }
 
   /** Snapshot del torneo en curso (para continuar más tarde). */
-  function saveActive(state) {
+  function saveActive(state, opts) {
+    opts = opts || {};
     if (!state || state.status === 'finished') {
-      clearActive();
+      clearActive(opts);
       return { ok: false, reason: 'not_active' };
     }
     if (typeof localStorage === 'undefined') return { ok: false };
     try {
-      var snap = slimForPersist(state);
-      snap._savedAt = new Date().toISOString();
+      var snap = opts.fromCloud ? JSON.parse(JSON.stringify(state)) : slimForPersist(state);
+      if (!opts.fromCloud || !snap._savedAt) snap._savedAt = new Date().toISOString();
       try {
         writeActiveRaw(snap);
       } catch (quotaErr) {
@@ -3862,7 +3933,7 @@
         }
         writeActiveRaw(snap);
       }
-      markCloudDirty();
+      if (!opts.silent) markCloudDirty('active');
       return { ok: true, savedAt: snap._savedAt, handIndex: snap.handIndex };
     } catch (e) {
       try { console.warn('[Tournaments] saveActive failed', e); } catch (e2) { /* */ }
@@ -3883,15 +3954,44 @@
     }
   }
 
-  function clearActive() {
+  function clearActive(opts) {
+    opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return { ok: false };
       localStorage.removeItem(activeStorageKey());
-      markCloudDirty();
+      if (!opts.silent) markCloudDirty('active');
       return { ok: true };
     } catch (e) {
       return { ok: false };
     }
+  }
+
+  /** Sustituye histórico desde nube (login replace) sin marcar dirty de push. */
+  function replaceAll(list) {
+    var arr = Array.isArray(list) ? list.slice(0, MAX) : [];
+    writeList(arr, { silent: true });
+    return { ok: true, list: arr };
+  }
+
+  /** Fusiona entradas remotas por id (finishedAt más reciente gana). */
+  function mergeFromCloud(remoteList) {
+    if (!Array.isArray(remoteList) || !remoteList.length) return list();
+    var map = Object.create(null);
+    function add(item) {
+      if (!item || !item.id) return;
+      var prev = map[item.id];
+      if (!prev) { map[item.id] = item; return; }
+      var ta = Date.parse(item.finishedAt || 0) || 0;
+      var tb = Date.parse(prev.finishedAt || 0) || 0;
+      if (ta >= tb) map[item.id] = item;
+    }
+    readList().forEach(add);
+    remoteList.forEach(add);
+    var next = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) {
+      return (Date.parse(b.finishedAt || 0) || 0) - (Date.parse(a.finishedAt || 0) || 0);
+    }).slice(0, MAX);
+    writeList(next, { silent: true });
+    return next;
   }
 
   function hasActive() {
@@ -3953,6 +4053,8 @@
     save: save,
     remove: remove,
     clear: clear,
+    replaceAll: replaceAll,
+    mergeFromCloud: mergeFromCloud,
     saveActive: saveActive,
     loadActive: loadActive,
     clearActive: clearActive,
@@ -4965,8 +5067,45 @@
     heldFramesDone: null
   };
 
-  /* ---------- Revelado de la acción paso a paso (como en Entrenar) ---------- */
-    function heroDisplayName(state) {
+  function displayKoins() {
+    try {
+      var W = global.PTTournamentWallet;
+      if (!W) return 100;
+      if (W.peek) {
+        var p = W.peek();
+        if (p && typeof p.balance === 'number') return p.balance;
+      }
+      if (W.snapshot) {
+        var s = W.snapshot();
+        if (s && typeof s.balance === 'number') return s.balance;
+      }
+      if (W.getBalance) return W.getBalance();
+    } catch (e) { /* */ }
+    return 100;
+  }
+
+  function flushTournamentCloud() {
+    try {
+      if (global.PTCloud && typeof global.PTCloud.flushPush === 'function') {
+        global.PTCloud.flushPush();
+      }
+    } catch (e) { /* */ }
+  }
+
+  function onCloudSynced() {
+    try {
+      if (!ui.root) return;
+      if (ui.view === VIEW.hub || ui.view === VIEW.history) paint();
+    } catch (e) { /* */ }
+  }
+
+  try {
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('pt-cloud-synced', onCloudSynced);
+    }
+  } catch (eBind) { /* */ }
+
+  function heroDisplayName(state) {
     try {
       var h = state && global.PTTournamentState && PTTournamentState.hero
         ? PTTournamentState.hero(state) : null;
@@ -5529,7 +5668,7 @@ function reducedMotion() {
       '<h2>TORNEOS</h2>' +
       '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
       '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
-      '<div class="trn-wallet-chip">Koins: <strong>' + esc(String((global.PTTournamentWallet && PTTournamentWallet.getBalance) ? PTTournamentWallet.getBalance() : 100)) + '</strong></div>' +
+      '<div class="trn-wallet-chip">Koins: <strong>' + esc(String(displayKoins())) + '</strong></div>' +
       '</div>' +
       '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
@@ -6785,6 +6924,7 @@ function reducedMotion() {
           paint();
         } else if (act === 'exit-save') {
           persistActive();
+          flushTournamentCloud();
           ui.state = null;
           ui.exitPrompt = false;
           setView(VIEW.hub);
