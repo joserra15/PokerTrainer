@@ -19,8 +19,8 @@
       kicker: 'Skool Poker Group · 2026'
     },
     menus: {
-      show: ['play', 'school', 'ranges', 'sessions', 'errors', 'stats', 'contact', 'manager'],
-      hide: ['pricing', 'legendary', 'tournaments', 'learn', 'analysis', 'history', 'admin']
+      show: ['play', 'school', 'ranges', 'sessions', 'errors', 'stats', 'contact', 'manager', 'tournaments'],
+      hide: ['pricing', 'legendary', 'learn', 'analysis', 'history', 'admin']
     },
     school: {
       pack: 'mttlab',

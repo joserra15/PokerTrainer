@@ -50,19 +50,59 @@
     return a ? (a.charAt(0).toUpperCase() + a.slice(1)) : 'Acción';
   }
 
-  function optionBreakdownFromStrategy(strategy) {
+  function optionBreakdownFromStrategy(strategy, opts) {
     if (!strategy || typeof strategy !== 'object') return null;
-    var keys = Object.keys(strategy);
+    opts = opts || {};
+    var freqs = Object.assign({}, strategy);
+    if (opts.pushFold || (freqs.allin != null && freqs.raise != null)) {
+      var shove = Math.max(Number(freqs.allin) || 0, Number(freqs.raise) || 0);
+      if (shove > 0) {
+        freqs.allin = shove;
+        delete freqs.raise;
+      }
+    }
+    var keys = Object.keys(freqs);
     if (!keys.length) return null;
+    var sum = 0;
+    keys.forEach(function (id) { sum += Number(freqs[id]) || 0; });
+    if (sum > 0 && Math.abs(sum - 1) > 0.02) {
+      keys.forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
+    }
     return keys.map(function (id) {
-      var freq = Number(strategy[id]) || 0;
+      var freq = Number(freqs[id]) || 0;
       return {
         id: id,
         label: actionLabel(id, 0, 1),
         pct: Math.round(freq * 1000) / 10,
         frequency: freq
       };
-    }).sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+    }).filter(function (o) { return o.frequency >= 0.005; })
+      .sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+  }
+
+  function resolveHandCode(cards) {
+    if (!cards || cards.length < 2) return null;
+    try {
+      if (global.Ranges && typeof global.Ranges.handCode === 'function') {
+        return global.Ranges.handCode(cards[0], cards[1]);
+      }
+    } catch (e1) { /* */ }
+    try {
+      if (global.GTORangesNotation && typeof global.GTORangesNotation.handCode === 'function') {
+        return global.GTORangesNotation.handCode(cards[0], cards[1]);
+      }
+    } catch (e2) { /* */ }
+    var a = cardCode(cards[0]);
+    var b = cardCode(cards[1]);
+    if (!a || !b) return null;
+    var order = '23456789TJQKA';
+    var ra = order.indexOf(a[0]);
+    var rb = order.indexOf(b[0]);
+    if (ra < 0 || rb < 0) return null;
+    var hi = ra >= rb ? a : b;
+    var lo = ra >= rb ? b : a;
+    if (hi[0] === lo[0]) return hi[0] + lo[0];
+    return hi[0] + lo[0] + (hi[1] === lo[1] ? 's' : 'o');
   }
 
   function normalizeDecision(d, bb) {
@@ -70,7 +110,15 @@
     var chosen = d.chosen || d.action || d.label || 'fold';
     var cls = mapClass(d.class);
     var strategy = d.strategy || d.gto || null;
-    var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy);
+    var pushFold = !!(d.pushFold || (d.input && d.input.pushFold) || d.mttPhase === 'push'
+      || d.preflopMode === 'push');
+    var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy, { pushFold: pushFold });
+    var opts = d.options || d.availableActions
+      || (d.input && (d.input.availableActions || d.input.options)) || null;
+    if ((!opts || !opts.length) && breakdown && breakdown.length) {
+      opts = breakdown.map(function (o) { return o.id; }).filter(Boolean);
+    }
+    var input = d.input || null;
     var out = {
       street: d.street || 'preflop',
       chosen: chosen,
@@ -85,10 +133,26 @@
       explanation: d.explanation || null,
       context: d.context || null,
       unscored: !!d.unscored || cls === 'unscored',
-      potBB: d.input && d.input.potBB != null ? d.input.potBB : (d.potBB != null ? d.potBB : null),
-      toCallBB: d.input && d.input.toCallBB != null ? d.input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
-      spotKind: d.input && d.input.spotKind ? d.input.spotKind : (d.spotKind || null),
-      amount: d.amount != null ? d.amount : null
+      potBB: input && input.potBB != null ? input.potBB : (d.potBB != null ? d.potBB : null),
+      potEvalBB: d.potEvalBB != null ? d.potEvalBB
+        : (input && input.potBB != null ? input.potBB : (d.potBB != null ? d.potBB : null)),
+      toCallBB: input && input.toCallBB != null ? input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
+      potBeforeBB: d.potBeforeBB != null ? d.potBeforeBB
+        : (input && input.potBeforeBB != null ? input.potBeforeBB : null),
+      spotKind: (input && input.spotKind) || d.spotKind || null,
+      vsPosition: d.vsPosition || (input && input.vsPosition) || null,
+      initiative: d.initiative || (input && input.initiative) || null,
+      formatHub: d.formatHub || (input && input.formatHub) || 'mtt',
+      gameType: d.gameType || (input && input.gameType) || null,
+      mttPhase: d.mttPhase || (input && input.mttPhase) || null,
+      pushFold: pushFold,
+      preflopMode: d.preflopMode || (input && input.preflopMode) || null,
+      stackBB: d.stackBB != null ? d.stackBB
+        : (input && input.stackBB != null ? input.stackBB : null),
+      amount: d.amount != null ? d.amount : null,
+      options: Array.isArray(opts) ? opts.slice() : null,
+      availableActions: Array.isArray(opts) ? opts.slice() : null,
+      input: input
     };
     if (out.unscored && !d.class) out.class = 'aceptable';
     return out;
@@ -266,7 +330,7 @@
       hero: heroName,
       heroPos: heroSeat.pos || 'BTN',
       heroCards: heroCards,
-      heroCode: null,
+      heroCode: resolveHandCode(heroCards),
       heroHandName: handNamesByPlayer[heroName] || srcHandNames[heroSeat.id] || null,
       board: boardObj.all.slice(),
       boardAll: boardObj.all.slice(),
@@ -314,11 +378,11 @@
       source: 'tournamentAi'
     };
 
-    try {
-      if (global.Cards && global.Cards.handCode && heroCards.length === 2) {
-        hand.heroCode = global.Cards.handCode(heroCards[0], heroCards[1]);
-      }
-    } catch (e2) { /* */ }
+    if (!hand.heroCode && heroCards.length === 2) {
+      try {
+        hand.heroCode = resolveHandCode(heroCards);
+      } catch (e2) { /* */ }
+    }
 
     try {
       if (global.Importer && typeof global.Importer.buildHandTags === 'function') {
@@ -370,6 +434,7 @@
       hands: hands,
       stats: stats,
       source: 'tournamentAi',
+      tournamentAi: true,
       tournamentId: state.id,
       tournament: {
         id: state.id,

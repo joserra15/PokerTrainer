@@ -7864,3 +7864,25 @@ body.community-gated #app-shell { display: none !important; }
 }
 .admin-communities-list { margin-top: 12px; }
 .admin-community-detail { margin-top: 16px; }
+
+.session-hands-fold {
+  margin-top: 16px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  background: rgba(255,255,255,.03);
+  padding: 0 12px 12px;
+}
+.session-hands-fold > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 4px;
+  font-weight: 700;
+}
+.session-hands-fold > summary::-webkit-details-marker { display: none; }
+.session-hands-fold > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--accent, #f0c14d);
+}
+.session-hands-fold[open] > summary::before { transform: rotate(90deg); display: inline-block; }

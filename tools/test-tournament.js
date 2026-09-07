@@ -81,6 +81,8 @@ const FILES = [
   'js/tournament/names.js',
   'js/tournament/seating.js',
   'js/tournament/state.js',
+  'js/engine/format/taxonomy.js',
+  'js/engine/ranges/pushFold.js',
   'js/tournament/gto-eval.js',
   'js/tournament/villain-decide.js',
   'js/tournament/live-hand.js',
@@ -89,6 +91,7 @@ const FILES = [
   'js/tournament/stats.js',
   'js/tournament/hud.js',
   'js/tournament/wallet.js',
+  'js/tournament/leaderboard.js',
   'js/tournament/store.js',
   'js/tournament/session-bridge.js',
   'js/tournament/runner.js',
@@ -104,7 +107,7 @@ FILES.forEach(function (f) { load(g, f); });
   const cfg = g.PTTournamentConfig.normalize({ entries: 200, seatsPerTable: 9, kind: 'mtt' });
   assert.strictEqual(cfg.entries, 90, 'entries capped at 90');
   assert.ok(g.PTTournamentConfig.ROLE_IDS.indexOf('tag') >= 0, 'ROLE_IDS');
-  assert.ok(g.PTTournamentConfig.listPresets().length >= 5, 'presets');
+  assert.ok(g.PTTournamentConfig.listPresets().length >= 8, 'presets include spins');
   const pool = g.PTTournamentConfig.prizePool(g.PTTournamentConfig.fromPreset('sng6'));
   assert.ok(pool > 0, 'prizePool');
   console.log('OK config');
@@ -173,6 +176,22 @@ FILES.forEach(function (f) { load(g, f); });
   assert.strictEqual(sc.correct, 1);
   assert.strictEqual(sc.xp, 15);
   assert.ok(g.PTTournamentRoleGuess.ROLE_LABELS.maniac, 'Spanish labels');
+  assert.ok(g.PTTournamentRoleGuess.ROLE_COLORS, 'ROLE_COLORS map');
+  const ids = g.PTTournamentConfig.ROLE_IDS;
+  ids.forEach(function (id) {
+    assert.ok(g.PTTournamentRoleGuess.ROLE_COLORS[id], 'color for ' + id);
+    assert.ok(/^#[0-9a-fA-F]{6}$/.test(g.PTTournamentRoleGuess.ROLE_COLORS[id]), 'hex color ' + id);
+    assert.ok(g.PTTournamentRoleGuess.shortLabel(id), 'short label ' + id);
+  });
+  const colorVals = ids.map(function (id) { return g.PTTournamentRoleGuess.ROLE_COLORS[id]; });
+  assert.strictEqual(new Set(colorVals).size, colorVals.length, 'unique role colors');
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/roleChipHtml|trn-role-chip/.test(uiSrc), 'seat shows role chip');
+  assert.ok(/roleLegendHtml|trn-role-legend/.test(uiSrc), 'info modal role legend');
+  assert.ok(/data-guess-role/.test(uiSrc) && /trn-role-opt/.test(uiSrc), 'colored role picker');
+  const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(/\.trn-role-chip/.test(cssSrc), 'chip css');
+  assert.ok(/\.trn-role-legend/.test(cssSrc), 'legend css');
   console.log('OK role-guess');
 }
 
@@ -279,6 +298,25 @@ FILES.forEach(function (f) { load(g, f); });
   assert.ok(typeof g.PTTournaments.menuVisible === 'function');
   assert.ok(typeof g.PTTournaments.render === 'function');
   assert.strictEqual(g.PTTournaments.menuVisible(), false, 'no admin → hidden');
+  /* PokerForge: admin */
+  g.PTAuth = { getUser: function () { return { isAdmin: true, id: 'adm1', name: 'Admin' }; } };
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'admin → visible en PokerForge');
+  /* MTTLab: solo managers (admin PF no basta) */
+  g.PTCommunity = {
+    id: function () { return 'mttlab'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return true; }
+  };
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'mttlab sin manager → hidden');
+  g.PTCommunity.isManager = function () { return true; };
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'mttlab manager → visible');
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  g.PTAuth = { getUser: function () { return null; } };
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'reset no admin');
   console.log('OK index');
 }
 
@@ -638,6 +676,7 @@ FILES.forEach(function (f) { load(g, f); });
 {
   const W = g.PTTournamentWallet;
   assert.ok(W, 'wallet module');
+  assert.strictEqual(W.STARTING, 100, 'starting 100 koins');
   W.setBalance(100);
   assert.strictEqual(W.getBalance(), 100);
   const d = W.debit(5, { type: 'buyin' });
@@ -645,6 +684,21 @@ FILES.forEach(function (f) { load(g, f); });
   assert.strictEqual(W.getBalance(), 95);
   W.credit(12, { type: 'prize' });
   assert.strictEqual(W.getBalance(), 107);
+  /* Koins independientes por comunidad */
+  g.PTCommunity = {
+    id: function () { return 'mttlab'; },
+    isManager: function () { return true; },
+    requireMembership: function () { return true; }
+  };
+  assert.strictEqual(W.getBalance(), 100, 'mttlab empieza en 100 (wallet separado)');
+  W.setBalance(40, { type: 'test_mtt' });
+  assert.strictEqual(W.getBalance(), 40);
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  assert.strictEqual(W.getBalance(), 107, 'pokerforge conserva su saldo');
   console.log('OK wallet');
 }
 
@@ -653,7 +707,14 @@ FILES.forEach(function (f) { load(g, f); });
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
   assert.ok(uiSrc.includes('toastPopupHtml'), 'toastPopupHtml in ui');
   assert.ok(uiSrc.includes('trn-center-popup'), 'centered popup class');
-  assert.ok(uiSrc.includes("schedulePopupClear('blind')"), 'auto-clear blind popup');
+  assert.ok(uiSrc.includes("schedulePopupClear('blind'") || uiSrc.includes("bannerDurationMs('blind')"),
+    'auto-clear blind popup');
+  assert.ok(uiSrc.includes('startBannerPending') && uiSrc.includes('¡Comienza el torneo!'),
+    'start tournament banner');
+  assert.ok(uiSrc.includes('congratsPending') && uiSrc.includes('¡Enhorabuena!'),
+    'congrats banner');
+  assert.ok(uiSrc.includes('isBannerBlocking') && uiSrc.includes('heldFrames'),
+    'banner freezes table action');
   assert.ok(!/trn-blind-up[\s\S]{0,200}dismiss-blind-up/.test(uiSrc),
     'old blind-up OK banner removed from paint path');
 }
@@ -770,6 +831,9 @@ console.log('OK dist-tournaments-bundle');
   const badge = g.PTHandEndView.scoreBadgeHtml({ score: 10, letter: 'A' });
   assert.ok(/Nota 10\/10/.test(badge), 'badge says Nota X/10');
   assert.ok(!/·\s*A/.test(badge), 'badge no longer shows confusing · A');
+  assert.ok(hand.heroCode === 'AKo' || hand.heroCode === 'AKs',
+    'heroCode from Ranges/fallback, got ' + hand.heroCode);
+  assert.ok(String(hand.heroCode).indexOf('null') < 0, 'heroCode not null string');
   console.log('OK session-bridge');
 }
 
@@ -845,6 +909,11 @@ console.log('OK dist-tournaments-bundle');
   const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(cssSrc.includes('trn-hand-end-scroll'), 'css scroll region');
   assert.ok(cssSrc.includes('seat-name'), 'css seat names');
+  /* Móvil: styles.css pone .seats { pointer-events:none }; torneo debe reactivar asientos. */
+  assert.ok(/\.trn-play-like\s+\.seats\s+\.seat\s*\{[^}]*pointer-events:\s*auto/s.test(cssSrc),
+    'css re-enables pointer-events on tournament seats');
+  assert.ok(uiSrc.includes('data-player') && uiSrc.includes('roleModalPlayerId'),
+    'clicking villain opens role modal');
   const coreChunk = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
   assert.ok(coreChunk.includes('hand-end-view.js'), 'chunk lists hand-end-view');
   assert.ok(coreChunk.includes('session-bridge.js'), 'chunk lists session-bridge');
@@ -873,5 +942,728 @@ console.log('OK dist-tournaments-bundle');
 }
 console.log('OK tournament-review-back');
 
-console.log('*** test-tournament OK ***');
+// --- Resultado: stats CTA, sin replay, manos colapsadas ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(uiSrc.includes('Estadísticas del torneo'), 'CTA Estadísticas del torneo');
+  assert.ok(uiSrc.includes('trn-hands-fold'), 'hands collapsed details');
+  assert.ok(uiSrc.includes('finalTableBannerHtml'), 'final table banner helper');
+  assert.ok(uiSrc.includes('MESA FINAL'), 'final table banner copy');
+  assert.ok(uiSrc.includes("schedulePopupClear('ft'") || uiSrc.includes("bannerDurationMs('ft')"),
+    'FT banner clears via timer');
+  assert.ok(!uiSrc.includes('confettiPiecesHtml') && !uiSrc.includes('trn-confetti'),
+    'confetti removed from tournament UI');
+  assert.ok(cssSrc.includes('trn-ft-banner') && cssSrc.includes('trn-ft-banner-fade'),
+    'css final table banner');
+  assert.ok(!cssSrc.includes('trn-confetti-piece'), 'confetti css removed');
+  assert.ok(uiSrc.includes('fromTournament: true'), 'opens session as fromTournament');
+  const rr = uiSrc.slice(uiSrc.indexOf('function renderResult'), uiSrc.indexOf('function renderHistory'));
+  assert.ok(!/Mejores manos|Peores manos/.test(rr), 'no best/worst on result');
+  assert.ok(!/session-replay-hand|>Replay</.test(rr), 'no Replay on result');
+  const hev = fs.readFileSync(path.join(ROOT, 'js/hand-end-view.js'), 'utf8');
+  assert.ok(hev.includes('gradeLabel') || hev.includes('grade.letter'), 'session grade not raw Object');
+  const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert.ok(appSrc.includes('fromTournament'), 'app handles fromTournament');
+  assert.ok(appSrc.includes('session-hands-fold') || appSrc.includes('sessionHandsFold'), 'session hands fold');
+}
+console.log('OK tournament-result-polish');
 
+
+
+
+// --- Progress chip + hero in top10 ---
+{
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('mtt18'), { seed: 9 });
+  const chips = g.PTTournamentHud.compactChips(state);
+  const progress = chips.find(function (c) {
+    return String(c.cls || c.className || '').indexOf('progress') >= 0;
+  });
+  assert.ok(progress, 'progress chip present');
+  assert.ok(/Nv\.|º|\//.test(progress.text), 'progress chip text: ' + progress.text);
+  const rows = g.PTTournamentHud.infoRows(state);
+  const top = rows.find(function (r) { return /Top 10/i.test(r.label); });
+  assert.ok(top && top.value && top.value.html, 'top10 html');
+  assert.ok(/is-hero/.test(top.value.content), 'hero highlighted in top10');
+  assert.ok(/\(Hero\)/.test(top.value.content), 'hero tag in top10');
+  const ranks = top.value.content.match(/trn-stack-rank">\d+\./g) || [];
+  assert.ok(ranks.length >= 1, 'explicit ranks in markup');
+  console.log('OK progress-chip-and-hero-top10');
+}
+
+// --- Save/resume keeps handIndex ---
+{
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 11 });
+  state.handIndex = 27;
+  state.sessionHands = [];
+  for (let i = 0; i < 5; i++) {
+    state.sessionHands.push({ handIndex: i + 1, analysis: { handScore: 7, big: 'x'.repeat(5000) } });
+  }
+  const saved = g.PTTournamentStore.saveActive(state);
+  assert.ok(saved.ok, 'saveActive ok');
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.ok(loaded, 'loadActive');
+  assert.strictEqual(loaded.handIndex, 27, 'handIndex preserved after save');
+  const olderFurther = Object.assign({}, loaded, { handIndex: 40, _savedAt: '2020-01-01T00:00:00.000Z' });
+  const newerEarlier = Object.assign({}, loaded, { handIndex: 17, _savedAt: '2030-01-01T00:00:00.000Z' });
+  assert.ok(g.PTTournamentStore.isPreferableActive(olderFurther, newerEarlier), 'prefer more hands over newer ts');
+  console.log('OK save-resume-handIndex');
+}
+
+// --- Role koins + wallet lesson/trainer ---
+{
+  const Wallet = g.PTTournamentWallet;
+  Wallet.setBalance(50, { type: 'test_reset' });
+  assert.strictEqual(Wallet.getBalance(), 50, 'balance set');
+  assert.ok(!Wallet.canAfford(51), 'cannot afford > balance');
+  const lesson = Wallet.earnFromLesson('lesson_test_a');
+  assert.ok(lesson.added === 1 || lesson.ok, 'lesson award');
+  const lesson2 = Wallet.earnFromLesson('lesson_test_a');
+  assert.ok(lesson2.already || lesson2.added === 0, 'lesson not double-awarded');
+  let awarded = 0;
+  for (let i = 0; i < 25; i++) {
+    const r = Wallet.noteTrainerHand();
+    if (r.added) awarded += r.added;
+  }
+  assert.strictEqual(awarded, 1, '1 koin per 25 trainer hands');
+  assert.strictEqual(g.PTTournamentRoleGuess.KOINS_PER_CORRECT, 2, '2 koins per correct role');
+  console.log('OK koins-earn-rules');
+}
+
+// --- Names do not imply roles ---
+{
+  const pool = g.PTTournamentNames.POOL || [];
+  const banned = /\b(maniac|nit|lag|tag|fish|call\s*station|nitty|loose|passive|aggro)\b/i;
+  const bad = pool.filter(function (n) { return banned.test(n); });
+  assert.strictEqual(bad.length, 0, 'no role-implying names: ' + bad.join(','));
+  console.log('OK names-neutral');
+}
+
+// --- Leaderboard medals + hero ---
+{
+  const Lb = g.PTTournamentLeaderboard;
+  assert.ok(Lb && Lb.renderHtml, 'leaderboard module');
+  g.PTTournamentWallet.setBalance(200, { type: 'test_lb' });
+  g.PTTournamentWallet.setTournamentsPlayed(0);
+  /* Sin torneos jugados no aparece en ranking */
+  assert.strictEqual(Lb.rankings(20).length, 0, 'sin torneos → ranking vacío');
+  g.PTTournamentWallet.noteTournamentPlayed();
+  const html = Lb.renderHtml();
+  assert.ok(/trn-leaderboard/.test(html), 'leaderboard html');
+  assert.ok(/is-hero/.test(html), 'hero row tras jugar');
+  assert.ok(/🥇|trn-lb-medal-gold/.test(html), 'gold medal');
+  const legend = Lb.legendHtml();
+  assert.ok(/Escuela|Entrenador|rol/i.test(legend), 'legend explains earns');
+  assert.ok(/Koins suficientes para pagar el buy-in/i.test(legend),
+    'legend: buy-in requires enough koins');
+  assert.ok(!/llegas a[\s\S]*0[\s\S]*buy-ins/i.test(legend),
+    'legend no dice solo «llegar a 0»');
+
+  /* Entrada bloqueada si no hay saldo para el buy-in */
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/chargeBuyInOrExplain/.test(uiSrc), 'chargeBuyInOrExplain gate');
+  assert.ok(/Necesitas Koins suficientes para pagar el buy-in/.test(uiSrc),
+    'alert copy mentions suficientes para buy-in');
+  const chargeIdx = uiSrc.indexOf('chargeBuyInOrExplain(buyIn)');
+  const clearIdx = uiSrc.indexOf('if (!opts.keepActive) clearActive()', chargeIdx);
+  assert.ok(chargeIdx >= 0 && clearIdx > chargeIdx,
+    'comprueba Koins antes de clearActive');
+  g.PTTournamentWallet.setBalance(5, { type: 'test_buyin_gate' });
+  assert.ok(!g.PTTournamentWallet.canAfford(10), '5 koins no alcanzan buy-in 10');
+  assert.ok(g.PTTournamentWallet.canAfford(5), '5 koins alcanzan buy-in 5');
+  const denied = g.PTTournamentWallet.debit(10, { type: 'buyin' });
+  assert.ok(!denied.ok && denied.reason === 'insufficient', 'debit rechaza buy-in 10 con 5');
+  assert.strictEqual(g.PTTournamentWallet.getBalance(), 5, 'saldo intacto tras rechazo');
+  const okDeb = g.PTTournamentWallet.debit(5, { type: 'buyin' });
+  assert.ok(okDeb.ok, 'debit ok con saldo exacto');
+  assert.strictEqual(g.PTTournamentWallet.getBalance(), 0);
+
+  const ranks = Lb.rankings(20);
+  assert.ok(ranks.length >= 1, 'ranking con jugadores que jugaron');
+  assert.ok(ranks.every(function (r) { return String(r.id).indexOf('c_seed_') !== 0; }), 'no fake seed ids');
+  assert.ok(ranks.every(function (r) { return (r.tournamentsPlayed || 0) >= 1; }), 'solo ≥1 torneo');
+  assert.ok(!/MesaNorte|RangeLab|ICMPulse|FeltWalker/.test(html), 'no invented peer names');
+
+  console.log('OK leaderboard-and-legend');
+}
+
+
+// --- Mesa Hero estable entre manos (no reshuffle) ---
+{
+  const state = g.PTTournamentState.create({
+    kind: 'mtt', entries: 18, seatsPerTable: 6, startingStack: 1500, buyInEur: 5, placesPaid: 3
+  }, { seed: 21 });
+  const Seat = g.PTTournamentSeating;
+  const heroTable = state.tables.find(function (tb) { return tb.isHeroTable; });
+  assert.ok(heroTable, 'hero table');
+  const before = heroTable.seatIds.slice().sort();
+  // Rebalance without eliminations must keep the same hero-table roster
+  Seat.rebalance(state);
+  Seat.rebalance(state);
+  const after = state.tables.find(function (tb) { return tb.isHeroTable; }).seatIds.slice().sort();
+  assert.deepStrictEqual(after, before, 'hero table roster stable across rebalance');
+
+  // Bust someone at hero table → one seat opens → fill from another table (roster changes by exactly that)
+  const heroId = g.PTTournamentState.hero(state).id;
+  const victimId = before.find(function (id) { return id !== heroId; });
+  Seat.bustPlayer(state, victimId);
+  Seat.rebalance(state);
+  const ht2 = state.tables.find(function (tb) { return tb.isHeroTable; });
+  assert.ok(ht2.seatIds.indexOf(victimId) < 0, 'busted player left hero table');
+  assert.ok(ht2.seatIds.indexOf(heroId) >= 0, 'hero stays');
+  assert.ok(ht2.seatIds.length >= 2, 'hero table still playable after refill');
+  // Remaining survivors from before (except victim) still seated with hero
+  before.forEach(function (id) {
+    if (id === victimId) return;
+    assert.ok(ht2.seatIds.indexOf(id) >= 0, 'survivor stays on hero table: ' + id);
+  });
+  console.log('OK stable-hero-table-roster');
+}
+
+// --- All-in: reveal holes → pause frame → then street runout ---
+{
+  const Live = g.PTTournamentLiveHand;
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 44 });
+  const tableId = state.tables.find(function (t) { return t.isHeroTable; }).id;
+  const on = g.PTTournamentSeating.playersOnTable(state, tableId);
+  const btn = g.PTTournamentSeating.assignButton(state, tableId);
+  const ordered = g.PTTournamentSeating.seatOrderWithButton(on, btn);
+  const blinds = g.PTTournamentBlinds.currentLevel(state.config.blindSchedule, 0);
+  // Build a hand and force all-in showdown with empty board
+  const hand = Live.start(ordered, blinds, g.PTTournamentState.hero(state).id);
+  hand._frames = [];
+  hand.board = [];
+  hand.street = 'preflop';
+  hand.seats.forEach(function (s) {
+    s.folded = false;
+    s.allIn = true;
+    s.stack = 0;
+    s.invested = 100;
+    s.streetInvested = 100;
+  });
+  hand.pot = hand.seats.length * 100;
+  // Invoke showdown path via runToHeroOrEnd / internal finish — use public simulate after forcing
+  // Directly call through advance loop: stage playing + streetDone all-in
+  const finished = Live.runToHeroOrEnd(hand);
+  assert.strictEqual(finished.stage, 'complete', 'all-in completes');
+  const kinds = (finished._frames || []).map(function (f) { return f.kind; });
+  // Frames may have been consumed; re-run finish path on a fresh forced hand
+  const hand2 = Live.start(ordered, blinds, g.PTTournamentState.hero(state).id);
+  hand2.board = [];
+  hand2.street = 'flop';
+  hand2.boardDeck = hand2.boardDeck || ['Ah','Kd','7c','2s','9h'];
+  // ensure boardDeck has 5
+  while (hand2.boardDeck.length < 5) hand2.boardDeck.push('2c');
+  hand2.seats.forEach(function (s) {
+    s.folded = false; s.allIn = true; s.stack = 0;
+    s.invested = 50; s.streetInvested = 50;
+  });
+  hand2.pot = 300;
+  hand2._frames = [];
+  hand2.holesRevealed = false;
+  // Use runToHeroOrEnd which should hit finishShowdown when nobody can act
+  Live.runToHeroOrEnd(hand2);
+  const frames = hand2._frames || [];
+  const kinds2 = frames.map(function (f) { return f.kind; });
+  const revealIdx = kinds2.indexOf('reveal');
+  const streetIdx = kinds2.indexOf('street');
+  assert.ok(revealIdx >= 0, 'has reveal frame, kinds=' + kinds2.join(','));
+  assert.ok(streetIdx > revealIdx, 'streets come after reveal');
+  assert.ok(hand2.holesRevealed, 'holesRevealed flag set');
+  assert.ok(frames[revealIdx].holesRevealed, 'reveal frame marks holes');
+  assert.strictEqual(frames[revealIdx].board.length, 0, 'reveal before board runout');
+  console.log('OK allin-reveal-before-runout');
+}
+
+// --- Evaluación GTO MTT: fase push/fold con stack corto ---
+{
+  const GEval = g.PTTournamentGtoEval;
+  assert.ok(GEval && GEval.buildInput, 'PTTournamentGtoEval.buildInput');
+  assert.strictEqual(GEval.resolveTournamentPhase(5.1, {}), 'push', '5bb → fase push');
+  assert.strictEqual(GEval.resolveTournamentPhase(18, {}), 'short', '18bb → short');
+  assert.strictEqual(GEval.resolveTournamentPhase(40, {}), 'mid', '40bb → mid');
+  assert.ok(GEval.resolveTournamentPhase(80, {}) === 'early' || GEval.resolveTournamentPhase(80, {}) === 'mid',
+    'deep stack early/mid');
+
+  const hand = {
+    street: 'preflop',
+    bb: 100,
+    sb: 50,
+    pot: 150,
+    currentBet: 100,
+    openerId: null,
+    board: [],
+    heroOptions: [
+      { id: 'fold', label: 'Fold' },
+      { id: 'allin', label: 'All-in', amount: 510 }
+    ],
+    seats: [
+      { id: 'h1', isHero: true, pos: 'UTG', stack: 510, streetInvested: 0, folded: false, cards: ['8s', '8c'] },
+      { id: 'v1', isHero: false, pos: 'BB', stack: 2000, streetInvested: 100, folded: false }
+    ]
+  };
+  const hero = hand.seats[0];
+  assert.ok(GEval.isFirstInOpen(hand, hero), 'UTG first-in open');
+  const input = GEval.buildInput(hand, hero, { id: 'allin', amount: 510 });
+  assert.ok(input.toCallBB === 0, 'RFI toCallBB=0 (ciegas no cuentan), got ' + input.toCallBB);
+  assert.ok(input.stackBB > 4.5 && input.stackBB < 6, 'stackBB ~5.1, got ' + input.stackBB);
+  assert.strictEqual(input.mttPhase, 'push', 'mttPhase push');
+  assert.strictEqual(input.resolvedPhase, 'push', 'resolvedPhase push');
+  assert.ok(input.pushFold, 'pushFold true');
+  assert.strictEqual(input.preflopMode, 'push', 'preflopMode push');
+  assert.strictEqual(input.formatHub, 'mtt', 'formatHub mtt');
+  assert.strictEqual(input.chosenAction, 'allin', 'chosenAction allin not raise');
+  assert.ok(input.availableActions.indexOf('allin') >= 0, 'availableActions includes allin');
+
+  /* Chart push/fold directo: 88 UTG a 5bb debe shovear fuerte. */
+  const PF = g.GTOPushFold;
+  assert.ok(PF && PF.isPushPhase(input), 'isPushPhase true para input short');
+  const strat = PF.pushFoldStrategy(Object.assign({}, input, {
+    handCode: '88', position: 'UTG', effStack: input.stackBB
+  }));
+  const shoveFreq = Math.max(Number(strat.allin) || 0, Number(strat.raise) || 0);
+  assert.ok(shoveFreq >= 0.5, '88 UTG 5bb shove freq>=50%, got ' + shoveFreq);
+
+  if (g.GTO && typeof g.GTO.evaluateSpot === 'function') {
+    const decision = GEval.evaluateHeroAction(hand, hero, { id: 'allin', amount: 510 });
+    assert.ok(decision, 'decision returned');
+    assert.ok(decision.mttPhase === 'push', 'decision carries mttPhase');
+    assert.ok(decision.class !== 'error' && decision.class !== 'blunder',
+      '88 shove @5bb UTG no debe ser error, got ' + decision.class + ' ev=' + decision.evLoss);
+    assert.ok(decision.frequency >= 0.2 || decision.class === 'optima' || decision.class === 'aceptable',
+      'shove 88 short debe tener freq razonable o clase buena, freq=' + decision.frequency + ' class=' + decision.class);
+  }
+}
+
+console.log('OK tournament-phase-eval');
+
+// --- Spins 3-Max presets + phase hub ---
+{
+  const Cfg = g.PTTournamentConfig;
+  const spins = Cfg.listPresets().filter(function (p) { return p.kind === 'spin'; });
+  assert.strictEqual(spins.length, 3, '3 spin presets');
+  spins.forEach(function (p) {
+    assert.strictEqual(p.entries, 3, p.id + ' entries 3');
+    assert.strictEqual(p.seatsPerTable, 3, p.id + ' seats 3');
+    assert.ok(p.placesPaid >= 1 && p.placesPaid < p.entries, p.id + ' placesPaid');
+  });
+  const GEval = g.PTTournamentGtoEval;
+  assert.strictEqual(GEval.resolveFormatHub({ kind: 'spin' }), 'spin', 'hub spin');
+  assert.strictEqual(GEval.resolveFormatHub({ formatHub: 'spin' }), 'spin', 'hub from formatHub');
+  assert.strictEqual(GEval.resolveTournamentPhase(18, { kind: 'spin' }), 'mid', 'spin 18bb → mid (trainer-like)');
+  assert.strictEqual(GEval.resolveTournamentPhase(10, { kind: 'spin' }), 'push', 'spin 10bb → push');
+  const spinHand = {
+    street: 'preflop', bb: 20, sb: 10, pot: 30, currentBet: 20, openerId: null, board: [],
+    kind: 'spin', formatHub: 'spin',
+    heroOptions: [{ id: 'fold' }, { id: 'allin', amount: 200 }],
+    seats: [
+      { id: 'h1', isHero: true, pos: 'BTN', stack: 200, streetInvested: 0, folded: false, cards: ['As', 'Kd'] },
+      { id: 'v1', isHero: false, pos: 'BB', stack: 300, streetInvested: 20, folded: false }
+    ]
+  };
+  const spinInput = GEval.buildInput(spinHand, spinHand.seats[0], { id: 'allin', amount: 200 });
+  assert.strictEqual(spinInput.formatHub, 'spin', 'spin buildInput formatHub');
+  assert.ok(spinInput.mttPhase === 'push' || spinInput.resolvedPhase === 'push', 'spin short → push phase');
+}
+console.log('OK spin-presets-and-phase');
+
+// --- Push/fold freqs must sum ~100% after breakdown ---
+{
+  const PF = g.GTOPushFold;
+  const GEval = g.PTTournamentGtoEval;
+  const strat = PF.pushFoldStrategy({
+    handCode: '88', position: 'UTG', effStack: 5, stackDepth: 5, toCallBB: 0,
+    formatHub: 'mtt', availableActions: ['fold', 'raise', 'allin']
+  });
+  const raise = Number(strat.raise) || 0;
+  const allin = Number(strat.allin) || 0;
+  assert.ok(!(raise > 0.05 && allin > 0.05), 'no dual raise+allin mass, raise=' + raise + ' allin=' + allin);
+  const broken = GEval.optionBreakdown
+    ? GEval.optionBreakdown({ raise: 0.87, allin: 0.87, fold: 0.05 }, { pushFold: true })
+    : null;
+  if (broken) {
+    const sumPct = broken.reduce(function (s, o) { return s + (Number(o.pct) || 0); }, 0);
+    assert.ok(sumPct > 95 && sumPct < 105, 'optionBreakdown sum ~100, got ' + sumPct);
+    const allinRow = broken.find(function (o) { return o.id === 'allin'; });
+    const foldRow = broken.find(function (o) { return o.id === 'fold'; });
+    assert.ok(allinRow && allinRow.pct > 80, 'merged shove dominates after renorm');
+    assert.ok(foldRow && foldRow.pct < 20, 'fold remainder after renorm');
+  }
+}
+console.log('OK pushfold-freq-100');
+
+
+// --- Dealer / asientos físicos estables entre manos ---
+{
+  const Seat = g.PTTournamentSeating;
+  const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 17 });
+  const tableId = state.tables.find(function (t) { return t.isHeroTable; }).id;
+  const on = Seat.playersOnTable(state, tableId).slice().sort(function (a, b) {
+    return (a.seat || 0) - (b.seat || 0);
+  });
+  const physicalOrder = on.map(function (p) { return p.id; });
+
+  const btn1 = Seat.assignButton(state, tableId);
+  const ordered1 = Seat.seatOrderWithButton(on, btn1);
+  assert.ok(ordered1.every(function (ts) { return ts.physicalSeat != null; }), 'physicalSeat en seatOrder');
+  const ring1 = ordered1.slice().sort(function (a, b) {
+    return a.physicalSeat - b.physicalSeat;
+  }).map(function (ts) { return ts.player.id; });
+  assert.deepStrictEqual(ring1, physicalOrder, 'anillo físico = seats ordenados');
+
+  const btn2 = Seat.assignButton(state, tableId);
+  assert.notStrictEqual(btn2, btn1, 'botón avanza de mano a mano');
+  const ordered2 = Seat.seatOrderWithButton(on, btn2);
+  const ring2 = ordered2.slice().sort(function (a, b) {
+    return a.physicalSeat - b.physicalSeat;
+  }).map(function (ts) { return ts.player.id; });
+  assert.deepStrictEqual(ring2, physicalOrder, 'rivales no rotan de asiento físico');
+
+  /* Bust del botón: el siguiente vivo en sentido horario recibe el botón. */
+  Seat.bustPlayer(state, btn2);
+  Seat.rebalance(state);
+  const onAfter = Seat.playersOnTable(state, tableId).slice().sort(function (a, b) {
+    return (a.seat || 0) - (b.seat || 0);
+  });
+  const btn3 = Seat.assignButton(state, tableId);
+  assert.ok(onAfter.some(function (p) { return p.id === btn3; }), 'nuevo botón vivo');
+  assert.notStrictEqual(btn3, btn2, 'botón no queda en eliminado');
+  console.log('OK stable-physical-seats-and-button');
+}
+
+// --- Bust hero: siempre simula resto (sin Finalizar ya) ---
+{
+  const R = g.PTTournamentRunner;
+  const cfg = g.PTTournamentConfig.normalize(Object.assign({}, g.PTTournamentConfig.fromPreset('sng6'), {
+    onBust: 'ask',
+    startingStack: 1500
+  }));
+  const state = R.create(cfg, { seed: 5 });
+  const hero = g.PTTournamentState.hero(state);
+  hero.stack = 0;
+  g.PTTournamentSeating.bustPlayer(state, hero.id);
+  R.onBustAsk(state);
+  assert.strictEqual(state.status, 'finished', 'auto-sim → finished');
+  assert.notStrictEqual(state.status, 'busted_pending', 'sin busted_pending');
+  assert.strictEqual(g.PTTournamentState.playersLeft(state), 1, 'field liquidado a 1');
+  assert.ok(state.result && state.result.reason === 'simulated_rest', 'reason simulated_rest');
+  console.log('OK bust-auto-simulate-rest');
+}
+
+// --- Anillo visual estable durante fotogramas de animación ---
+{
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI && UI.ringByPhysicalSeat && UI.animHand && UI.setAnimFrame, 'PTTournamentsUI anim helpers');
+
+  const liveSeats = [
+    { id: 'hero', name: 'Hero', isHero: true, pos: 'UTG', seatIndex: 3, physicalSeat: 0, stack: 1500, invested: 0, streetInvested: 0, folded: false, allIn: false, cards: ['Qs', 'Tc'] },
+    { id: 'v_hj', name: 'Isolan', isHero: false, pos: 'HJ', seatIndex: 4, physicalSeat: 1, stack: 2130, invested: 0, streetInvested: 0, folded: true, allIn: false },
+    { id: 'v_co', name: 'ShoveShow', isHero: false, pos: 'CO', seatIndex: 5, physicalSeat: 2, stack: 1490, invested: 40, streetInvested: 0, folded: false, allIn: false },
+    { id: 'v_btn', name: 'MidStack', isHero: false, pos: 'BTN', seatIndex: 0, physicalSeat: 3, stack: 860, invested: 0, streetInvested: 0, folded: true, allIn: false },
+    { id: 'v_sb', name: 'Polarized', isHero: false, pos: 'SB', seatIndex: 1, physicalSeat: 4, stack: 1470, invested: 10, streetInvested: 0, folded: true, allIn: false },
+    { id: 'v_bb', name: 'RiverGod', isHero: false, pos: 'BB', seatIndex: 2, physicalSeat: 5, stack: 1480, invested: 20, streetInvested: 0, folded: true, allIn: false }
+  ];
+  const liveHand = {
+    seats: liveSeats,
+    heroId: 'hero',
+    sb: 10,
+    bb: 20,
+    ante: 0,
+    board: ['8c', '4s', 'Ks'],
+    street: 'flop',
+    pot: 110,
+    currentBet: 0,
+    log: [],
+    stage: 'playing',
+    awaitingHero: true,
+    holesRevealed: false
+  };
+
+  const ringLive = UI.ringByPhysicalSeat(liveHand.seats).map(function (s) { return s.id; });
+  assert.deepStrictEqual(ringLive, ['hero', 'v_hj', 'v_co', 'v_btn', 'v_sb', 'v_bb'],
+    'anillo live hero-first por physicalSeat, got ' + ringLive.join(','));
+
+  const frame = {
+    kind: 'act',
+    actorId: 'v_co',
+    street: 'flop',
+    board: ['8c', '4s', 'Ks'],
+    pot: 110,
+    currentBet: 0,
+    holesRevealed: false,
+    seats: liveSeats.map(function (s) {
+      return {
+        id: s.id,
+        stack: s.stack,
+        invested: s.invested,
+        streetInvested: s.streetInvested,
+        folded: s.folded,
+        allIn: s.allIn,
+        physicalSeat: s.physicalSeat,
+        lastAction: s.folded ? { action: 'fold', amount: 0, street: 'preflop' } : null
+      };
+    })
+  };
+
+  /* Repro del bug: merge sin physicalSeat → anillo distinto (ordena por id). */
+  const brokenSeats = liveSeats.map(function (s) {
+    const fs = frame.seats.find(function (x) { return x.id === s.id; });
+    return {
+      id: s.id, name: s.name, isHero: s.isHero, pos: s.pos, seatIndex: s.seatIndex,
+      cards: s.cards, stack: fs.stack, invested: fs.invested, streetInvested: fs.streetInvested,
+      folded: fs.folded, allIn: fs.allIn, lastAction: fs.lastAction
+    };
+  });
+  const ringBroken = UI.ringByPhysicalSeat(brokenSeats).map(function (s) { return s.id; });
+  assert.notDeepStrictEqual(ringBroken, ringLive,
+    'sin physicalSeat el anillo cambia (repro), broken=' + ringBroken.join(','));
+
+  UI.setAnimFrame(frame);
+  const anim = UI.animHand(liveHand);
+  UI.setAnimFrame(null);
+  assert.ok(anim && anim._anim, 'animHand marca _anim');
+  assert.ok(anim.seats.every(function (s) { return s.physicalSeat != null; }),
+    'animHand conserva physicalSeat');
+  const ringAnim = UI.ringByPhysicalSeat(anim.seats).map(function (s) { return s.id; });
+  assert.deepStrictEqual(ringAnim, ringLive,
+    'anillo animación = anillo live, anim=' + ringAnim.join(',') + ' live=' + ringLive.join(','));
+  console.log('OK anim-ring-stable');
+}
+
+// --- All-in: no revelar holes hasta el fotograma reveal (tras el call) ---
+{
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI && UI.animHand && UI.setAnimFrame, 'animHand helpers');
+
+  const seats = [
+    { id: 'hero', name: 'Hero', isHero: true, pos: 'BB', physicalSeat: 0, seatIndex: 0, stack: 0, invested: 500, streetInvested: 500, folded: false, allIn: true, cards: ['As', 'Kh'] },
+    { id: 'v1', name: 'ShoveShow', isHero: false, pos: 'UTG', physicalSeat: 1, seatIndex: 1, stack: 0, invested: 500, streetInvested: 500, folded: false, allIn: true, cards: ['Qd', 'Qc'] },
+    { id: 'v2', name: 'Caller', isHero: false, pos: 'BTN', physicalSeat: 2, seatIndex: 2, stack: 200, invested: 500, streetInvested: 500, folded: false, allIn: false, cards: ['7c', '7d'] }
+  ];
+  /* Motor ya terminó: holesRevealed=true (como tras finishShowdown). */
+  const liveHand = {
+    seats: seats,
+    heroId: 'hero',
+    sb: 10,
+    bb: 20,
+    ante: 0,
+    board: ['2c', '3d', '9h', 'Js', 'Kc'],
+    street: 'river',
+    pot: 1500,
+    currentBet: 0,
+    log: [],
+    stage: 'complete',
+    holesRevealed: true,
+    awaitingHero: false
+  };
+
+  /* Fotograma del shove de v1: aún falta el call de v2 → no revelar. */
+  const shoveFrame = {
+    kind: 'act',
+    actorId: 'v1',
+    action: 'allin',
+    street: 'preflop',
+    board: [],
+    pot: 520,
+    currentBet: 500,
+    holesRevealed: false,
+    seats: seats.map(function (s) {
+      return {
+        id: s.id, stack: s.id === 'v1' ? 0 : (s.id === 'v2' ? 700 : 0),
+        invested: s.id === 'v1' ? 500 : (s.id === 'hero' ? 20 : 0),
+        streetInvested: s.id === 'v1' ? 500 : (s.id === 'hero' ? 20 : 0),
+        folded: false, allIn: s.id !== 'v2', physicalSeat: s.physicalSeat,
+        lastAction: s.id === 'v1' ? { action: 'allin', amount: 500 } : null
+      };
+    })
+  };
+
+  UI.setAnimFrame(shoveFrame);
+  const duringShove = UI.animHand(liveHand);
+  UI.setAnimFrame(null);
+  assert.strictEqual(duringShove.holesRevealed, false,
+    'durante shove (antes del call) holesRevealed debe ser false, got ' + duringShove.holesRevealed);
+  assert.deepStrictEqual(duringShove.board, [], 'board vacío durante shove preflop');
+
+  const revealFrame = {
+    kind: 'reveal',
+    street: 'preflop',
+    board: [],
+    pot: 1500,
+    currentBet: 500,
+    holesRevealed: true,
+    seats: seats.map(function (s) {
+      return {
+        id: s.id, stack: 0, invested: 500, streetInvested: 500,
+        folded: false, allIn: true, physicalSeat: s.physicalSeat, lastAction: null
+      };
+    })
+  };
+  UI.setAnimFrame(revealFrame);
+  const duringReveal = UI.animHand(liveHand);
+  UI.setAnimFrame(null);
+  assert.strictEqual(duringReveal.holesRevealed, true, 'en fotograma reveal sí se muestran holes');
+  assert.deepStrictEqual(duringReveal.board, [], 'reveal sigue sin comunitarias');
+  console.log('OK allin-holes-only-on-reveal-frame');
+}
+
+// --- session GTO align: no merge torneos, heroCode, options, preflop leadType ---
+{
+  const storageSrc = fs.readFileSync(path.join(ROOT, 'js/storage.js'), 'utf8');
+  assert.ok(/source === ['"]tournamentAi['"]|tournamentAi/.test(storageSrc)
+    && /mergeSessionIfDuplicate[\s\S]{0,400}tournamentAi/.test(storageSrc),
+    'mergeSessionIfDuplicate skips tournamentAi');
+
+  const importSrc = fs.readFileSync(path.join(ROOT, 'js/import.js'), 'utf8');
+  assert.ok(importSrc.includes("['fold', 'raise', 'allin']")
+    || importSrc.includes('["fold", "raise", "allin"]'),
+    'buildEvalInput preflop fallback fold/raise/allin');
+  assert.ok(!/street === ['"]preflop['"][\s\S]{0,200}bet_33/.test(
+    importSrc.slice(importSrc.indexOf('function buildEvalInputFromDecision'),
+      importSrc.indexOf('function buildEvalInputFromDecision') + 2500)
+  ) || importSrc.includes('nunca check/bet_33'),
+    'preflop eval input must not default to check/bet_33');
+
+  const spotSrc = fs.readFileSync(path.join(ROOT, 'js/engine/solver/spotKey.js'), 'utf8');
+  assert.ok(/if \(street === ['"]preflop['"]\) return ['"]none['"]/.test(spotSrc),
+    'spotKey preflop leadType none');
+
+  const dec = g.PTTournamentSessionBridge.normalizeDecision({
+    street: 'preflop',
+    action: 'raise',
+    class: 'optima',
+    evLoss: 0,
+    gto: { raise: 0.8, fold: 0.2 },
+    options: ['fold', 'raise', 'allin'],
+    input: {
+      potBB: 1.5,
+      toCallBB: 0,
+      availableActions: ['fold', 'raise', 'allin'],
+      initiative: 'none',
+      formatHub: 'mtt',
+      pushFold: false,
+      spotKind: 'RFI',
+      stackBB: 40
+    }
+  }, 20);
+  assert.ok(dec.options && dec.options.indexOf('bet_33') < 0, 'no bet_33 in tournament options');
+  assert.ok(dec.options.indexOf('raise') >= 0, 'raise option persisted');
+  assert.strictEqual(dec.initiative, 'none', 'initiative persisted');
+  assert.strictEqual(dec.formatHub, 'mtt', 'formatHub persisted');
+
+  const handRfi = g.PTTournamentSessionBridge.handFromTournament({
+    handIndex: 9,
+    bb: 20,
+    sb: 10,
+    board: [],
+    seats: [
+      { id: 'h', name: 'Hero', isHero: true, pos: 'HJ', cards: ['As', '3s'], stack: 800, startStack: 800, folded: false },
+      { id: 'v', name: 'Villain', isHero: false, pos: 'BB', cards: ['7c', '2d'], stack: 800, startStack: 800, folded: false }
+    ],
+    log: [{ street: 'preflop', id: 'h', name: 'Hero', action: 'raise', amount: 60 }],
+    decisions: [{
+      street: 'preflop',
+      action: 'raise',
+      class: 'optima',
+      evLoss: 0,
+      label: 'Raise',
+      options: ['fold', 'raise', 'allin'],
+      gto: { raise: 0.55, fold: 0.45 },
+      input: { availableActions: ['fold', 'raise', 'allin'], initiative: 'none', potBB: 1.5, toCallBB: 0 }
+    }],
+    result: { deltas: { h: 30, v: -30 }, winners: ['h'], showdown: false, pot: 60, heroNet: 30, holeCards: {}, board: [] }
+  }, { tournamentId: 't_align', handIndex: 9, heroName: 'Hero' });
+  assert.strictEqual(handRfi.heroCode, 'A3s', 'A3s heroCode');
+  assert.ok(handRfi.decisions[0].options && handRfi.decisions[0].options.indexOf('check') < 0,
+    'bridged decision has no check option preflop');
+
+  load(g, 'js/engine/solver/spotKey.js');
+  const key = g.GTOSpotKey.buildSpotKey({
+    street: 'preflop',
+    position: 'HJ',
+    initiative: 'aggressor',
+    toCallBB: 0,
+    potBB: 2.13,
+    stackDepth: 40,
+    spotKind: 'RFI'
+  });
+  assert.strictEqual(key.leadType, 'none', 'preflop leadType none even if initiative aggressor');
+
+  const sess = g.PTTournamentSessionBridge.buildSessionFromTournament({
+    id: 't_a',
+    config: { name: 'Sit & Go 6-max', kind: 'sng', entries: 6, buyInEur: 5 },
+    result: { place: 3, prizeEur: 0, stats: { profit: -5 } },
+    finishedAt: '2026-01-01T00:00:00.000Z',
+    sessionHands: [handRfi],
+    handLog: []
+  }, {});
+  assert.strictEqual(sess.source, 'tournamentAi');
+  assert.strictEqual(sess.tournamentAi, true, 'tournamentAi flag for merge skip');
+  assert.strictEqual(sess.fileName.indexOf('Sit & Go'), 0, 'fileName from preset');
+  console.log('OK tournament-session-gto-align');
+}
+
+// --- fichas de mesa en torneo = misma escala de color que Entrenar ---
+{
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI.chipTier && UI.chipStackHTML && UI.renderSeatBetHtml, 'chip helpers exported');
+  assert.strictEqual(UI.chipTier(0.5), 'w');
+  assert.strictEqual(UI.chipTier(2), 'r');
+  assert.strictEqual(UI.chipTier(5), 'g');
+  assert.strictEqual(UI.chipTier(15), 'b');
+  assert.strictEqual(UI.chipTier(30), 'k');
+  assert.strictEqual(UI.chipTier(80), 'p');
+  const stack = UI.chipStackHTML(5);
+  assert.ok(stack.includes('chip-stack') && stack.includes('chip-g'), 'green stack for 5bb');
+  const seatBet = UI.renderSeatBetHtml(100, 20, 'bet-below'); // 5 bb
+  assert.ok(seatBet.includes('seat-bet') && seatBet.includes('chip-g') && seatBet.includes('5 bb'),
+    'seat bet shows chips + amount');
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(uiSrc.includes('pot-chips') && uiSrc.includes('chipStackHTML'), 'pot uses chip stack');
+  assert.ok(uiSrc.includes('renderSeatBetHtml') && uiSrc.includes('renderHeroStreetChipsHtml'),
+    'seat + hero street chips');
+  const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert.ok(/function chipTier\(bb\)[\s\S]*?if \(bb < 1\) return 'w'/.test(appSrc),
+    'trainer chipTier untouched');
+  console.log('OK tournament-table-chips');
+}
+
+// --- all-in equity % al lado de jugadores (actualiza con el board) ---
+{
+  load(g, 'js/cards.js');
+  const UI = g.PTTournamentsUI;
+  assert.ok(UI.allInEquityBySeat && UI.equityBadgeHtml, 'equity helpers exported');
+  const hand = {
+    holesRevealed: true,
+    board: [],
+    seats: [
+      { id: 'h', isHero: true, allIn: true, folded: false, cards: ['As', 'Ah'], name: 'Hero' },
+      { id: 'v', isHero: false, allIn: true, folded: false, cards: ['2c', '7d'], name: 'Villain' },
+      { id: 'f', isHero: false, allIn: false, folded: true, cards: ['Kc', 'Kd'], name: 'Folded' }
+    ]
+  };
+  const pre = UI.allInEquityBySeat(hand);
+  assert.ok(pre && pre.h != null && pre.v != null, 'equity map for all-in');
+  assert.ok(pre.h > pre.v, 'AA > 72o preflop equity');
+  assert.ok(pre.f == null, 'folded seat has no equity');
+
+  hand.board = ['2h', '7h', '9s'];
+  hand._eqCache = null;
+  const flop = UI.allInEquityBySeat(hand);
+  assert.ok(flop.v > pre.v, '72o equity rises on 27x flop');
+  assert.ok(flop.h < pre.h, 'AA equity falls on 27x flop');
+
+  hand.board = ['2h', '7h', '9s', '2d', '3c'];
+  hand._eqCache = null;
+  const river = UI.allInEquityBySeat(hand);
+  assert.strictEqual(river.v, 100, 'two pair wins on river');
+  assert.strictEqual(river.h, 0, 'AA loses on river');
+
+  const badge = UI.equityBadgeHtml(72);
+  assert.ok(badge.includes('trn-equity-pct') && badge.includes('72%'), 'equity badge html');
+  const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(css.includes('.trn-equity-pct'), 'equity css');
+  console.log('OK tournament-allin-equity');
+}
+
+console.log('*** test-tournament OK ***');

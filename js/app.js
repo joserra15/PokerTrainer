@@ -56,15 +56,18 @@
   function refreshTournamentsTabVisibility() {
     var communityHide = false;
     try {
-      if (window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
-        communityHide = true;
-      } else if (window.PTCommunity && PTCommunity.config) {
+      if (window.PTCommunity && PTCommunity.config) {
         var cfg = PTCommunity.config();
-        if (cfg && cfg.menus && cfg.menus.hide && cfg.menus.hide.indexOf('tournaments') >= 0) {
-          communityHide = true;
+        if (cfg && cfg.menus) {
+          if (cfg.menus.hide && cfg.menus.hide.indexOf('tournaments') >= 0) {
+            communityHide = true;
+          } else if (cfg.menus.show && cfg.menus.show.indexOf('tournaments') < 0) {
+            communityHide = true;
+          }
         }
       }
     } catch (e) { /* noop */ }
+    /* Rol: PokerForgeAI → Admin; MTTLab → managers (PTTournaments.menuVisible). */
     const show = !communityHide && tournamentsMenuVisible();
     const tab = document.querySelector('.tab[data-tab="tournaments"]');
     if (tab) tab.classList.toggle('hidden', !show);
@@ -2331,9 +2334,10 @@
       withLazyChunk('sessions', function () {
         if (opts.openSessionId) {
           showSessionLoading('Cargando sesión…');
-          void openSession(opts.openSessionId, null, {
+          void openSession(opts.openSessionId, opts.sessionObj || null, {
             handId: opts.handId || null,
-            mode: opts.reviewMode || opts.mode || 'review'
+            mode: opts.reviewMode || opts.mode || 'review',
+            fromTournament: !!opts.fromTournament
           });
           refreshSessionsFromCloud();
           return;
@@ -2961,10 +2965,20 @@
   function setTournamentReviewBackLabel() {
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver al torneo';
+    const backSessions = $('#back-to-sessions');
+    if (backSessions) {
+      backSessions.innerHTML = '&laquo; Volver al torneo';
+      backSessions.hidden = false;
+    }
   }
   function restoreSessionReviewBackLabel() {
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver a la sesión';
+    const backSessions = $('#back-to-sessions');
+    if (backSessions) {
+      backSessions.innerHTML = '&laquo; Volver a sesiones';
+      backSessions.hidden = false;
+    }
   }
   function clearTournamentReviewReturn() {
     tournamentReviewReturn = false;
@@ -8369,6 +8383,15 @@
     }
     if (!currentSession || !currentSession.hands) {
       $('#import-status').innerHTML = '<span style="color:var(--red)">No se encontró la sesión guardada.</span>';
+      const detailBox = $('#session-detail-content');
+      if (detailBox) {
+        detailBox.innerHTML = '<p class="muted-text">No se pudo cargar la sesión del torneo. Vuelve al lobby e inténtalo de nuevo.</p>' +
+          '<p><button type="button" class="btn" id="btn-back-sessions-list">« Volver a sesiones</button></p>';
+        const back = detailBox.querySelector('#btn-back-sessions-list');
+        if (back) back.addEventListener('click', function () { showSessionsView('home'); renderSessionsList(); });
+      } else {
+        showSessionsView('home');
+      }
       return;
     }
     const buildVer = window.PT_BUILD || '';
@@ -8425,6 +8448,12 @@
       await Store.saveSession(currentSession);
     } else if (tagsFixed) {
       await Store.saveSession(currentSession);
+    }
+    if (opts.fromTournament) {
+      tournamentReviewReturn = true;
+      setTournamentReviewBackLabel();
+    } else if (!tournamentReviewReturn) {
+      restoreSessionReviewBackLabel();
     }
     sessionHandsShown = SESSION_HANDS_PAGE;
     renderSessionDetail('evLoss');
@@ -8561,7 +8590,7 @@
         <div class="card-box"><h3>5 peores manos</h3>${topHandsHtml(st.worst5)}</div>
       </div>`;
 
-    const sortHtml = `
+    const handsInner = `
       <div class="panel-head" style="margin-top:18px">
         <h3>Manos de la sesión (${currentSession.hands.length})</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -8583,6 +8612,9 @@
       <div id="session-hands-filters" class="hand-filters"></div>
       <p class="muted-text" style="font-size:12px;margin:6px 0 0">Cola graves: <kbd>G</kbd> filtra · en revisión <kbd>→</kbd>/<kbd>Enter</kbd> siguiente · <kbd>←</kbd> anterior.</p>
       <div id="session-hands" class="record-list"></div>`;
+    const sortHtml = tournamentReviewReturn
+      ? `<details class="session-hands-fold"><summary>Manos de la sesión (${currentSession.hands.length})</summary>${handsInner}</details>`
+      : handsInner;
 
     box.innerHTML = statHtml + sortHtml;
     bindStyleDrillButtons(box);
@@ -8637,20 +8669,21 @@
 
   function topHandsHtml(list) {
     if (!list.length) return '<div class="muted-text">—</div>';
+    const hideReplay = !!tournamentReviewReturn;
     return list.map((h) => {
       const netCls = h.heroNetBB >= 0 ? 'net-pos' : 'net-neg';
       const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
       return `<div class="mini-hand">
         <div class="mini-hand-row">
           <span class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</span>
-          <span>${h.heroCode} ${h.heroPos}</span>
+          <span>${escapeHtml(h.heroCode || '')} ${escapeHtml(h.heroPos || '')}</span>
           <span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span>
           <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span>
           ${handScoreBadgeHtml(scoreMeta)}
         </div>
         <div class="mini-hand-actions">
           <button class="btn btn-ghost mini-link" data-review="${h.id}">Paso a paso</button>
-          <button class="btn btn-primary mini-link" data-replay="${h.id}">Volver a jugar</button>
+          ${hideReplay ? '' : `<button class="btn btn-primary mini-link" data-replay="${h.id}">Volver a jugar</button>`}
         </div>
       </div>`;
     }).join('');
@@ -8688,7 +8721,7 @@
       return `<div class="record">
         <div class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
         <div class="rec-main">
-          <div class="rec-scenario">${h.heroCode} <span style="color:var(--muted)">(${h.heroPos})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
+          <div class="rec-scenario">${escapeHtml(h.heroCode || '')} <span style="color:var(--muted)">(${escapeHtml(h.heroPos || '')})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
           <div class="rec-sub">Board: ${(h.board || []).map(Cards.cardToHTML).join('') || '—'} · ${h.nDecisions} decisiones · acierto ${h.accuracy}%</div>
           ${tagsHtml}
         </div>
@@ -8696,7 +8729,7 @@
           <div><span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span> · <span style="color:var(--red)">EV -${fmtBB(h.totalEvLoss)}bb</span></div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" data-review="${h.id}">Paso a paso</button>
-            <button class="btn btn-primary" style="padding:4px 10px;font-size:12px" data-replay="${h.id}">Volver a jugar</button>
+            ${tournamentReviewReturn ? '' : `<button class="btn btn-primary" style="padding:4px 10px;font-size:12px" data-replay="${h.id}">Volver a jugar</button>`}
           </div>
         </div>
       </div>`;

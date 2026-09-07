@@ -213,7 +213,7 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
 }
 
 // ---------------------------------------------------------------------------
-// 2) SNG onBust=end: termina al bustear sin simular resto
+// 2) SNG onBust=end (legacy): ahora siempre simula el resto hasta campeón
 // ---------------------------------------------------------------------------
 {
   g.PTTournamentStore.clear();
@@ -223,18 +223,19 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
     blindSchedule: fastSchedule()
   }));
   var state2 = g.PTTournamentRunner.create(cfg2, { seed: 7 });
-  // Forzar bust inmediato tras 3 manos (stacks altos → field intacto)
   playThenForceHeroBust(g, state2, 3);
-  assert.strictEqual(state2.status, 'finished', 'onBust=end debe finished, got ' + state2.status);
+  assert.strictEqual(state2.status, 'finished', 'onBust legacy debe finished, got ' + state2.status);
   assert.ok(state2.result, 'result');
   assert.ok(state2.result.place >= 2, 'bust forzado place>=2: ' + state2.result.place);
-  assert.ok(g.PTTournamentState.playersLeft(state2) >= 2, 'onBust=end no liquida el field');
-  console.log('OK SNG onBust=end → #' + state2.result.place + ' reason=' + state2.result.reason +
+  assert.strictEqual(g.PTTournamentState.playersLeft(state2), 1, 'simula resto → 1 campeón');
+  assert.ok(state2.result.reason === 'simulated_rest' || state2.result.reason === 'bust',
+    'reason simulated/bust, got ' + state2.result.reason);
+  console.log('OK SNG onBust=end→simulate → #' + state2.result.place + ' reason=' + state2.result.reason +
     ' left=' + g.PTTournamentState.playersLeft(state2));
 }
 
 // ---------------------------------------------------------------------------
-// 3) MTT 18 multi-mesa: bust + simulateRest hasta un ganador de field
+// 3) MTT 18 multi-mesa: bust auto-simula resto (sin busted_pending)
 // ---------------------------------------------------------------------------
 {
   g.PTTournamentStore.clear();
@@ -254,16 +255,8 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
   assert.ok(/\/18 \(18\)/.test(chip), 'field chip MTT: ' + chip);
 
   playThenForceHeroBust(g, state3, 5);
-  assert.ok(
-    state3.status === 'busted_pending' || state3.status === 'finished',
-    'esperaba busted_pending o finished, got ' + state3.status
-  );
-
-  if (state3.status === 'busted_pending') {
-    g.PTTournamentRunner.simulateRest(state3);
-  }
-
-  assert.strictEqual(state3.status, 'finished');
+  assert.strictEqual(state3.status, 'finished', 'auto-sim al bust → finished, got ' + state3.status);
+  assert.notStrictEqual(state3.status, 'busted_pending', 'sin prompt busted_pending');
   assert.ok(state3.result.place >= 2 && state3.result.place <= 18, 'place MTT: ' + state3.result.place);
   assert.strictEqual(
     g.PTTournamentState.playersLeft(state3),

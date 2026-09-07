@@ -199,6 +199,9 @@
         proStyle: ts.player.proStyle || null,
         pos: ts.pos,
         seatIndex: ts.seatIndex != null ? ts.seatIndex : i,
+        physicalSeat: ts.physicalSeat != null
+          ? ts.physicalSeat
+          : (ts.player && ts.player.seat != null ? ts.player.seat : i),
         cards: dealt.holes[i],
         startStack: stack,
         stack: stack,
@@ -308,6 +311,8 @@
       streetInvested: s.streetInvested,
       folded: !!s.folded,
       allIn: !!s.allIn,
+      physicalSeat: s.physicalSeat != null ? s.physicalSeat : s.seat,
+      seat: s.seat != null ? s.seat : s.physicalSeat,
       lastAction: s.lastAction
         ? { action: s.lastAction.action, amount: s.lastAction.amount, street: s.lastAction.street }
         : null
@@ -329,6 +334,7 @@
       board: (hand.board || []).slice(),
       pot: hand.pot,
       currentBet: hand.currentBet,
+      holesRevealed: !!(meta.holesRevealed || hand.holesRevealed),
       seats: hand.seats.map(seatSnap)
     };
     hand._frames.push(frame);
@@ -484,10 +490,15 @@
   }
 
   function finishShowdown(hand) {
-    /* Runout carta a carta para que se vea, igual que en el entrenador. */
+    /* All-in / showdown: primero se revelan los hole cards de quienes siguen
+       en el bote, pausa corta, y luego el runout de comunitarias. */
+    if (hand.board.length < 5) {
+      hand.holesRevealed = true;
+      pushFrame(hand, { kind: 'reveal', holesRevealed: true });
+    }
     while (hand.board.length < 5) {
       hand.board.push(hand.boardDeck[hand.board.length]);
-      pushFrame(hand, { kind: 'street' });
+      pushFrame(hand, { kind: 'street', holesRevealed: true });
     }
     var C = global.Cards;
     var cont = alive(hand);

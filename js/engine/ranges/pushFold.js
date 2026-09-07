@@ -260,6 +260,21 @@
     return false;
   }
 
+  /**
+   * Mezcla de shove sin duplicar raise+allin (eso rompía el % mostrado ≈48/2).
+   * Preferimos `allin`; si solo hay `raise` legal, volcamos el peso ahí.
+   */
+  function shoveOpenMix(fold, shove, input) {
+    const f = Math.max(0, Number(fold) || 0);
+    const s = Math.max(0, Number(shove) || 0);
+    const avail = (input && input.availableActions) || [];
+    const hasAllin = !avail.length || avail.indexOf('allin') >= 0;
+    const hasRaise = avail.indexOf('raise') >= 0;
+    if (hasAllin) return { raise: 0, fold: f, call: 0, allin: s };
+    if (hasRaise) return { raise: s, fold: f, call: 0, allin: 0 };
+    return { raise: 0, fold: f, call: 0, allin: s };
+  }
+
   /** Frecuencias preflop: Nash-approx por profundidad (+ ante/ICM lite). */
   function pushFoldStrategy(input) {
     const code = input.handCode;
@@ -285,14 +300,14 @@
     }
     const shoveW = openShoveWeights(pos, stack, input);
     const sw = shoveW[code] || 0;
-    if (sw >= 0.85) return { raise: 0.87, fold: 0.05, call: 0, allin: 0.87 };
+    if (sw >= 0.85) return shoveOpenMix(0.05, 0.95, input);
     if (sw >= 0.55) {
-      const allin = 0.55 + (sw - 0.55) * 0.9;
-      const fold = Math.max(0.08, 1 - allin - 0.05);
-      return { raise: allin, fold: fold, call: 0, allin: allin };
+      const allin = Math.min(0.92, 0.55 + (sw - 0.55) * 0.9);
+      const fold = Math.max(0.08, 1 - allin);
+      return shoveOpenMix(fold, allin, input);
     }
-    if (sw >= 0.35) return { raise: 0.12, fold: 0.78, call: 0, allin: 0.1 };
-    return { raise: 0.04, fold: 0.95, call: 0, allin: 0.01 };
+    if (sw >= 0.35) return shoveOpenMix(0.88, 0.12, input);
+    return shoveOpenMix(0.96, 0.04, input);
   }
 
   function isPushPhase(config) {
