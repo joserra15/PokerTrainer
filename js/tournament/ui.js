@@ -1505,8 +1505,15 @@ function reducedMotion() {
     var outcomeCls = tied ? 'hand-end-tie'
       : (heroDelta > 0.02 ? 'hand-end-win' : (heroDelta < -0.02 ? 'hand-end-lose' : 'hand-end-tie'));
     var title;
+    var winnerSeats = (hand.seats || []).filter(function (s) {
+      return (res.winners || []).indexOf(s.id) >= 0;
+    });
+    var winnerLabel = winnerSeats.map(function (s) {
+      return s.isHero ? heroDisplayName(state) : (s.name || s.pos || s.id);
+    }).join(', ');
     if (tied && res.showdown) title = 'Empate en el showdown';
     else if (won && heroDelta > 0.02) title = res.showdown ? 'Ganas en showdown' : 'Ganas la mano';
+    else if (!won && winnerLabel) title = winnerLabel + ' gana el bote';
     else if (heroDelta < -0.02) title = res.showdown ? 'Pierdes en showdown' : 'Pierdes la mano';
     else if (won) title = res.showdown ? 'Showdown' : 'Mano terminada';
     else title = 'Mano terminada';
@@ -1543,7 +1550,9 @@ function reducedMotion() {
       /* Fallback compacto si el bridge no está cargado. */
       var boardHtml = (res.board || hand.board || []).map(faceCard).join('');
       var seatsHtml = hand.seats.filter(function (s) {
-        return !s.folded || (res.holeCards && res.holeCards[s.id]);
+        return !s.folded || (res.holeCards && res.holeCards[s.id]) ||
+          (res.winners || []).indexOf(s.id) >= 0 ||
+          ((Number(s.stack) || 0) <= 0.02);
       }).map(function (s) {
         var cards = (res.holeCards && res.holeCards[s.id]) || (s.isHero ? s.cards : null);
         var cardsHtml = cards && cards[0]
@@ -1551,12 +1560,18 @@ function reducedMotion() {
           : '<span class="muted">—</span>';
         var d = Number(deltas[s.id]) || 0;
         var dCls = d > 0 ? 'net-pos' : (d < 0 ? 'net-neg' : '');
+        var endStack = s.stack != null ? Number(s.stack)
+          : ((Number(s.startStack) || 0) + d);
+        var eliminated = endStack <= 0.02;
+        var isWin = (res.winners || []).indexOf(s.id) >= 0;
         return '<div class="trn-hand-end-seat' + (s.isHero ? ' is-hero' : '') +
-          ((res.winners || []).indexOf(s.id) >= 0 ? ' is-winner' : '') + '">' +
+          (isWin ? ' is-winner' : '') +
+          (eliminated ? ' is-eliminated' : '') + '">' +
           '<div class="trn-hand-end-name">' + esc(s.isHero ? heroDisplayName(ui.state) : (s.name || s.pos)) +
-          ' · ' + esc(s.pos || '') + '</div>' +
+          ' · ' + esc(s.pos || '') + (isWin ? ' · Gana' : '') + '</div>' +
           '<div class="trn-hand-end-cards">' + cardsHtml + '</div>' +
           '<div class="trn-hand-end-delta ' + dCls + '">' + (d >= 0 ? '+' : '') + esc(fmtBb(d, bb)) + '</div>' +
+          (eliminated ? '<div class="hand-end-eliminated">Eliminado</div>' : '') +
           '</div>';
       }).join('');
       rich = '<div class="trn-hand-end-head ' + outcomeCls + '">' +
@@ -1570,21 +1585,27 @@ function reducedMotion() {
       if (ui.handDetailOpen && hand.decisions && hand.decisions.length) {
         var GEval = global.PTTournamentGtoEval;
         var sum = GEval && GEval.summarizeDecisions ? GEval.summarizeDecisions(hand.decisions) : null;
-        rich += '<div class="trn-hand-end-detail"><h4>Evaluación GTO (héroe)</h4>';
+        rich += '<div class="trn-hand-end-detail hand-end-decisions"><h4>Evaluación GTO (héroe)</h4>';
         if (sum) {
           rich += '<p class="trn-gto-summary">Aciertos ' + sum.hits + '/' + sum.scored +
             ' (' + sum.accuracy + '%) · EV loss ' + sum.totalEvLoss + ' bb' +
             (sum.score != null ? (' · Nota ' + sum.score) : '') + '</p>';
         }
-        rich += '<ol class="trn-gto-decisions">' + hand.decisions.map(function (d) {
-          return '<li><span class="trn-gto-class trn-gto-' + esc(d.class || 'unscored') + '">' +
-            esc(d.class || 'unscored') + '</span> ' + esc(d.street || '') + ' · ' +
-            esc(d.label || d.action || '') +
-            (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') +
-            (d.mttPhase ? (' · <span class="trn-gto-phase">fase ' + esc(d.mttPhase) +
-              (d.stackBB != null ? (' · ' + esc(String(d.stackBB)) + ' bb') : '') + '</span>') : '') +
-            '</li>';
-        }).join('') + '</ol></div>';
+        var HEV2 = global.PTHandEndView;
+        if (HEV2 && HEV2.renderDecisionsHtml) {
+          rich += HEV2.renderDecisionsHtml(hand.decisions);
+        } else {
+          rich += '<ol class="trn-gto-decisions">' + hand.decisions.map(function (d) {
+            return '<li><span class="trn-gto-class trn-gto-' + esc(d.class || 'unscored') + '">' +
+              esc(d.class || 'unscored') + '</span> ' + esc(d.street || '') + ' · ' +
+              esc(d.label || d.action || '') +
+              (d.evLoss ? (' · −' + d.evLoss + ' bb') : '') +
+              (d.mttPhase ? (' · <span class="trn-gto-phase">fase ' + esc(d.mttPhase) +
+                (d.stackBB != null ? (' · ' + esc(String(d.stackBB)) + ' bb') : '') + '</span>') : '') +
+              '</li>';
+          }).join('') + '</ol>';
+        }
+        rich += '</div>';
       }
     }
 
@@ -1860,6 +1881,7 @@ function reducedMotion() {
       (r.roleKoins ? (' · +' + r.roleKoins + ' Koins por roles') : '') + '</p>' +
       '</header>' +
       statsHtml +
+      '<div id="ai-coach-tournament" class="trn-result-coach"></div>' +
       (sessionId
         ? ('<p class="trn-result-cta"><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
           esc(sessionId) + '">Estadísticas del torneo</button></p>')
@@ -1950,6 +1972,47 @@ function reducedMotion() {
     } catch (e) { /* noop */ }
   }
 
+  function mountTournamentCoach() {
+    if (ui.view !== VIEW.result || !ui.root || !ui.state) return;
+    var host = ui.root.querySelector('#ai-coach-tournament');
+    if (!host) return;
+    var session = null;
+    try {
+      if (ui.state._savedSession) session = ui.state._savedSession;
+      else if (global.PTTournamentSessionBridge && PTTournamentSessionBridge.buildSessionFromTournament) {
+        session = PTTournamentSessionBridge.buildSessionFromTournament(ui.state, {
+          sessionId: (ui.state.result && ui.state.result.sessionId) || ui.state.sessionId,
+          tournamentMeta: {
+            place: ui.state.result && ui.state.result.place,
+            prizeEur: ui.state.result && ui.state.result.prizeEur,
+            stats: ui.state.result && ui.state.result.stats
+          }
+        });
+      }
+    } catch (eS) { session = null; }
+    if (!session || !(session.hands && session.hands.length)) {
+      host.innerHTML = '<p class="muted">ForgeCoach estará disponible cuando haya manos analizadas de este torneo.</p>';
+      return;
+    }
+    if (!global.PTAIReport || typeof global.PTAIReport.mount !== 'function') {
+      host.innerHTML = '';
+      return;
+    }
+    try {
+      global.PTAIReport.mount(host, {
+        scope: 'tournament',
+        getHand: function () { return session; },
+        getData: function () { return session; },
+        persist: {
+          kind: 'tournamentSession',
+          getSessionId: function () { return session.id; }
+        }
+      });
+    } catch (eM) {
+      try { console.warn('[PTTournamentsUI] coach mount', eM); } catch (e2) { /* */ }
+    }
+  }
+
   function paint() {
     if (!ui.root) return;
     var html = '';
@@ -1972,6 +2035,7 @@ function reducedMotion() {
     setTableActiveClass(ui.view === VIEW.table);
     ui.root.innerHTML = html;
     bind(ui.root);
+    if (ui.view === VIEW.result) mountTournamentCoach();
   }
 
   /** Anima lo que acaba de resolver el motor y luego cierra el turno. */

@@ -23329,7 +23329,7 @@ window.PT_NASH_PUSH_JSON = {
   function build(source, handObj) {
     if (!handObj) return null;
     if (source === 'statsGlobal' || source === 'learn') return buildStats(handObj);
-    if (source === 'sessionGlobal') return buildSession(handObj);
+    if (source === 'sessionGlobal' || source === 'tournament') return buildSession(handObj);
     return source === 'session' ? fromSession(handObj) : fromTrainer(handObj);
   }
 
@@ -23461,6 +23461,29 @@ window.PT_NASH_PUSH_JSON = {
       },
       solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=id|mano pos|net|ev|wc'
     };
+    if (session.tournamentAi || session.tournament || session.source === 'tournamentAi') {
+      const trn = session.tournament || {};
+      payload.src = 'tournament';
+      payload.trn = {
+        name: trn.name || session.fileName || 'Torneo IA',
+        kind: trn.kind || st.gameKind || 'mtt',
+        place: trn.place != null ? trn.place : st.finishPlace,
+        prize: trn.prizeEur != null ? trn.prizeEur : st.prizeEur,
+        buyIn: trn.buyInEur != null ? trn.buyInEur : st.buyInEur,
+        entries: trn.entries != null ? trn.entries : st.players,
+        profit: trn.profit != null ? trn.profit : st.profitEuro,
+        roi: trn.roi != null ? trn.roi : st.roiPct,
+        placesPaid: trn.placesPaid != null ? trn.placesPaid : null
+      };
+      payload.st.coachingNote =
+        'Torneo IA finalizado (puesto ' + (payload.trn.place != null ? payload.trn.place + 'º' : '—') +
+        '). Identifica las DECISIONES CLAVE (manos con más EV perdido o pivotes ICM/stack) que explican ganar o perder el torneo. ' +
+        'No enumeres todas las manos: prioriza 3–6 momentos críticos (burbuja, short stack, spots de value/bluff malos) y un plan concreto.';
+      payload.st.finishPlace = payload.trn.place;
+      payload.solverNote =
+        'Informe de TORNEO: centra el análisis en decisiones clave vs resultado final. ' +
+        'eq/gto/ev son estimaciones; verifica lo crítico. clean=id|mano pos|net|ev|wc';
+    }
     if (leaks.length) payload.leaks = leaks;
     if (leakHands.length > leakCap) {
       payload.leakTrunc = leakHands.length;
@@ -23536,6 +23559,15 @@ window.PT_NASH_PUSH_JSON = {
       loadingQuestion: 'Analizando tu pregunta sobre la sesión…',
       reportKind: 'Informe de sesión',
       consent: 'las estadísticas y manos de esta sesión (cartas, acciones y análisis GTO)'
+    },
+    tournament: {
+      reportBtn: 'Informe del torneo',
+      questionLabel: 'Tu pregunta sobre este torneo',
+      questionPh: 'Ej.: ¿Qué decisiones clave me costaron el torneo? ¿Dónde debí apretar más?',
+      loadingReport: 'Analizando el torneo…',
+      loadingQuestion: 'Analizando tu pregunta sobre el torneo…',
+      reportKind: 'Informe de torneo',
+      consent: 'las manos, decisiones GTO y resultado de este torneo'
     },
     statsGlobal: {
       reportBtn: 'Consejos de entrenamiento',
@@ -23822,6 +23854,22 @@ window.PT_NASH_PUSH_JSON = {
       return { title: title, lead: lead };
     }
 
+    if (scope === 'tournament' && dataObj) {
+      const st = dataObj.stats || {};
+      const trn = dataObj.tournament || {};
+      const n = (dataObj.hands || []).length;
+      const place = trn.place != null ? trn.place : st.finishPlace;
+      const placeTxt = place != null ? (place + 'º') : '—';
+      const title = greet + '¿Repasamos este torneo?';
+      const lead =
+        '<strong>' + escapeHtml(trn.name || dataObj.fileName || 'Torneo IA') + '</strong> · puesto <strong>' +
+        escapeHtml(String(placeTxt)) + '</strong> · ' + n + ' manos. ' +
+        'Acierto GTO <strong>' + (st.accuracy != null ? st.accuracy : '—') + '%</strong>' +
+        (st.evLossBB != null ? (', EV perdido <strong>-' + formatBB(st.evLossBB) + ' bb</strong>') : '') +
+        '. Puedo identificar las decisiones clave que explican ganar o perder.' + coachAskSuffix();
+      return { title: title, lead: lead };
+    }
+
     if (scope === 'statsGlobal' && dataObj) {
       const st = dataObj.stats || {};
       const total = st.decisions || 0;
@@ -23884,9 +23932,13 @@ window.PT_NASH_PUSH_JSON = {
       return { title: title, lead: lead };
     }
 
-    const title = greet + (scope === 'sessionGlobal' ? '¿Analizamos tu sesión?' : '¿Tienes dudas sobre esta mano?');
-    const lead = scope === 'sessionGlobal'
-      ? 'Puedo revisar tus estadísticas, las manos con más EV perdido y darte un plan de estudio.' + coachAskSuffix()
+    const title = greet + (scope === 'sessionGlobal' || scope === 'tournament'
+      ? (scope === 'tournament' ? '¿Analizamos este torneo?' : '¿Analizamos tu sesión?')
+      : '¿Tienes dudas sobre esta mano?');
+    const lead = (scope === 'sessionGlobal' || scope === 'tournament')
+      ? (scope === 'tournament'
+        ? 'Puedo revisar las manos del torneo, las fugas con más EV perdido y las decisiones clave del resultado.' + coachAskSuffix()
+        : 'Puedo revisar tus estadísticas, las manos con más EV perdido y darte un plan de estudio.' + coachAskSuffix())
       : 'Analizo tus cartas, el board, las frecuencias GTO y el EV de cada decisión — solo con el contexto real de lo que jugaste.' + coachAskSuffix();
     return { title: title, lead: lead };
   }
@@ -23998,7 +24050,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function apiMode(scope, mode) {
-    if (scope === 'sessionGlobal') {
+    if (scope === 'sessionGlobal' || scope === 'tournament') {
       return mode === 'question' ? 'session_question' : 'session_report';
     }
     if (scope === 'statsGlobal') {
@@ -24123,8 +24175,9 @@ window.PT_NASH_PUSH_JSON = {
     if ((scope === 'statsGlobal' || scope === 'learn') && Payload && Payload.statsCacheKey) {
       return (scope === 'learn' ? 'learn_' : '') + Payload.statsCacheKey(mode, question);
     }
-    if (scope === 'sessionGlobal' && Payload && Payload.sessionCacheKey) {
-      return Payload.sessionCacheKey(objId, mode, question);
+    if ((scope === 'sessionGlobal' || scope === 'tournament') && Payload && Payload.sessionCacheKey) {
+      const prefix = scope === 'tournament' ? 'trn_' : '';
+      return prefix + Payload.sessionCacheKey(objId, mode, question);
     }
     const base = Payload ? Payload.cacheKey(objId) : String(objId);
     if (mode === 'question') return base + '_q_' + hashQuestion(question);
@@ -24141,7 +24194,7 @@ window.PT_NASH_PUSH_JSON = {
     if (!obj) return null;
     if (scope === 'statsGlobal') return 'stats';
     if (scope === 'learn') return obj.lessonId ? ('learn_' + obj.lessonId) : 'learn';
-    if (scope === 'sessionGlobal') return obj.id || obj.fileName || 'session';
+    if (scope === 'sessionGlobal' || scope === 'tournament') return obj.id || obj.fileName || 'session';
     return obj.id;
   }
 
@@ -24365,6 +24418,7 @@ window.PT_NASH_PUSH_JSON = {
     if (options.scope) return options.scope;
     if (options.source === 'statsGlobal') return 'statsGlobal';
     if (options.source === 'sessionGlobal') return 'sessionGlobal';
+    if (options.source === 'tournament') return 'tournament';
     if (options.source === 'session') return 'session';
     if (options.source === 'learn') return 'learn';
     return 'hand';
@@ -34846,14 +34900,27 @@ window.PT_NASH_PUSH_JSON = {
 
   function optionGridHtml(breakdown, chosen, best) {
     if (!breakdown || !breakdown.length) return '';
-    return '<div class="option-grid">' + breakdown.map(function (o) {
+    /* Misma marca que paso a paso (opt-grid / opt-pill). */
+    var bestId = best;
+    if (!bestId) {
+      var top = breakdown.slice().sort(function (a, b) {
+        return (Number(b.frequency != null ? b.frequency : b.pct) || 0) -
+          (Number(a.frequency != null ? a.frequency : a.pct) || 0);
+      })[0];
+      bestId = top && (top.id || top.action);
+    }
+    return '<div class="opt-grid option-grid">' + breakdown.map(function (o) {
       var id = o.id || o.action || '';
       var pct = o.pct != null ? o.pct : Math.round((Number(o.frequency) || 0) * 1000) / 10;
-      var cls = 'opt-cell';
-      if (id === chosen) cls += ' is-chosen';
-      if (id === best) cls += ' is-best';
-      return '<div class="' + cls + '"><strong>' + esc(o.label || id) + '</strong>' +
-        '<span>' + esc(String(pct)) + '%</span></div>';
+      var isBest = id === bestId;
+      var isChosen = id === chosen;
+      /* Si óptima y elegida coinciden: solo verde (best). */
+      var cls = 'opt-pill opt-cell' + (isBest ? ' best is-best' : '') +
+        (!isBest && isChosen ? ' chosen is-chosen' : '');
+      var label = o.label || id;
+      return '<div class="' + cls + '">' +
+        '<span class="opt-lbl"><strong>' + esc(label) + '</strong></span>' +
+        '<span class="opt-pct">' + esc(String(pct)) + '%</span></div>';
     }).join('') + '</div>';
   }
 
@@ -34865,6 +34932,14 @@ window.PT_NASH_PUSH_JSON = {
     decisions.forEach(function (d) {
       var cls = d.class || 'unscored';
       var label = d.label || d.chosen || d.action || '';
+      var breakdown = d.optionBreakdown;
+      if ((!breakdown || !breakdown.length) && d.gto) {
+        breakdown = Object.keys(d.gto).map(function (id) {
+          var freq = Number(d.gto[id]) || 0;
+          return { id: id, label: String(id).toUpperCase(), pct: Math.round(freq * 1000) / 10, frequency: freq };
+        }).filter(function (o) { return o.frequency >= 0.005; })
+          .sort(function (a, b) { return b.frequency - a.frequency; });
+      }
       html += '<div class="dec-review">' +
         '<div class="dec-head"><strong>' + esc(cap(d.street)) + '</strong> · ' + esc(label) +
         ' <span class="verdict ' + esc(cls) + '">' + esc(verdictWord(cls)) + '</span>';
@@ -34876,8 +34951,8 @@ window.PT_NASH_PUSH_JSON = {
       if (d.context && typeof d.context === 'string') {
         html += '<div class="dec-context muted">' + esc(d.context) + '</div>';
       }
-      if (d.optionBreakdown && d.optionBreakdown.length) {
-        html += optionGridHtml(d.optionBreakdown, d.action || d.chosen, d.best);
+      if (breakdown && breakdown.length) {
+        html += optionGridHtml(breakdown, d.action || d.chosen, d.best);
       } else if (d.gto) {
         html += gtoBarsHtml(d.gto);
       }
@@ -34886,9 +34961,27 @@ window.PT_NASH_PUSH_JSON = {
     return html + '</div>';
   }
 
+  function seatDeltaHtml(deltaBB) {
+    if (deltaBB == null || !isFinite(Number(deltaBB))) return '';
+    var d = Number(deltaBB) || 0;
+    var dCls = d > 0.02 ? 'net-pos' : (d < -0.02 ? 'net-neg' : '');
+    return '<div class="hand-end-delta trn-hand-end-delta ' + dCls + '">' +
+      (d >= 0 ? '+' : '') + esc(fmtBb(d)) + ' bb</div>';
+  }
+
+  function seatOutcomeMetaHtml(outcome) {
+    if (!outcome) return '';
+    var bits = '';
+    bits += seatDeltaHtml(outcome.deltaBB);
+    if (outcome.eliminated) {
+      bits += '<div class="hand-end-eliminated">Eliminado</div>';
+    }
+    return bits;
+  }
+
   /**
    * Asientos rivales con cartas visibles (showdown) o mensaje si no enseñaron.
-   * Usa analyzed.shows / seats / handNames / positions.
+   * Usa analyzed.shows / seats / handNames / positions / seatOutcomes.
    */
   function villainSeatsHtml(analyzed) {
     if (!analyzed) return '';
@@ -34897,19 +34990,32 @@ window.PT_NASH_PUSH_JSON = {
     var handNames = analyzed.handNames || {};
     var heroName = analyzed.hero || '';
     var seats = analyzed.seats || [];
+    var outcomes = analyzed.seatOutcomes || [];
+    var outcomeByName = {};
+    outcomes.forEach(function (o) {
+      if (o && o.name) outcomeByName[o.name] = o;
+    });
     var rows = [];
+
+    function pushRow(name, pos, cards, handName, showed) {
+      var oc = outcomeByName[name] || null;
+      rows.push({
+        name: name,
+        pos: pos || '',
+        cards: cards || [],
+        handName: handName || null,
+        showed: !!showed,
+        isWinner: !!(oc && oc.isWinner),
+        deltaBB: oc ? oc.deltaBB : null,
+        eliminated: !!(oc && oc.eliminated)
+      });
+    }
 
     Object.keys(shows).forEach(function (name) {
       if (name === heroName) return;
       var cards = shows[name];
       if (!cards || !cards.length) return;
-      rows.push({
-        name: name,
-        pos: positions[name] || '',
-        cards: cards,
-        handName: handNames[name] || null,
-        showed: true
-      });
+      pushRow(name, positions[name] || '', cards, handNames[name] || null, true);
     });
 
     if (!rows.length && seats.length) {
@@ -34919,15 +35025,28 @@ window.PT_NASH_PUSH_JSON = {
         if (s.folded) return;
         var cards = (s.cards || []).map(cardCode).filter(Boolean);
         if (cards.length >= 2) {
-          rows.push({
-            name: name,
-            pos: s.pos || positions[name] || '',
-            cards: cards,
-            handName: handNames[name] || null,
-            showed: true
-          });
+          pushRow(name, s.pos || positions[name] || '', cards, handNames[name] || null, true);
         }
       });
+    }
+
+    /* Sin showdown: aún mostrar ganador(es) y eliminados con delta de bote. */
+    if (!rows.length && outcomes.length) {
+      outcomes.forEach(function (o) {
+        if (!o || o.isHero || o.name === heroName) return;
+        if (!o.isWinner && !o.eliminated && !(o.deltaBB > 0.02)) return;
+        pushRow(o.name, o.pos || positions[o.name] || '', o.cards || [], o.handName || null, !!(o.cards && o.cards.length >= 2));
+      });
+    }
+
+    if (!rows.length) {
+      var winnerOnly = (analyzed.winners || []).filter(function (n) { return n && n !== heroName; });
+      if (winnerOnly.length) {
+        winnerOnly.forEach(function (n) {
+          var oc = outcomeByName[n];
+          pushRow(n, (oc && oc.pos) || positions[n] || '', (oc && oc.cards) || [], null, false);
+        });
+      }
     }
 
     if (!rows.length) {
@@ -34938,25 +35057,27 @@ window.PT_NASH_PUSH_JSON = {
         '</div>';
     }
 
-    if (rows.length === 1) {
-      var one = rows[0];
-      return '<div class="hand-end-vs" aria-hidden="true">vs</div>' +
-        '<div class="hand-end-seat">' +
-        '<div class="hand-end-seat-label">' + esc(one.name) +
-        (one.pos ? (' · ' + esc(one.pos)) : '') + '</div>' +
-        '<div class="hand-end-cards">' + cardsHtml(one.cards) + '</div>' +
-        (one.handName ? ('<div class="hand-end-handname">' + esc(one.handName) + '</div>') : '') +
+    function seatBlock(r) {
+      var cls = 'hand-end-seat' + (r.isWinner ? ' is-winner' : '') +
+        (r.eliminated ? ' is-eliminated' : '');
+      var cardsBlock = (r.cards && r.cards.length)
+        ? cardsHtml(r.cards)
+        : '<span class="muted-text">' + (r.isWinner ? 'gana sin showdown' : '—') + '</span>';
+      return '<div class="' + cls + '">' +
+        '<div class="hand-end-seat-label">' + esc(r.name) +
+        (r.pos ? (' · ' + esc(r.pos)) : '') +
+        (r.isWinner ? ' · Gana' : '') + '</div>' +
+        '<div class="hand-end-cards">' + cardsBlock + '</div>' +
+        (r.handName ? ('<div class="hand-end-handname">' + esc(r.handName) + '</div>') : '') +
+        seatOutcomeMetaHtml(r) +
         '</div>';
     }
 
-    return rows.map(function (r) {
-      return '<div class="hand-end-seat">' +
-        '<div class="hand-end-seat-label">' + esc(r.name) +
-        (r.pos ? (' · ' + esc(r.pos)) : '') + '</div>' +
-        '<div class="hand-end-cards">' + cardsHtml(r.cards) + '</div>' +
-        (r.handName ? ('<div class="hand-end-handname">' + esc(r.handName) + '</div>') : '') +
-        '</div>';
-    }).join('');
+    if (rows.length === 1) {
+      return '<div class="hand-end-vs" aria-hidden="true">vs</div>' + seatBlock(rows[0]);
+    }
+
+    return rows.map(seatBlock).join('');
   }
 
   /**
@@ -34968,15 +35089,31 @@ window.PT_NASH_PUSH_JSON = {
     if (!analyzed) return '';
     var net = Number(analyzed.heroNetBB) || 0;
     var netCls = net > 0.02 ? 'net-pos' : (net < -0.02 ? 'net-neg' : '');
-    var title = opts.title || (net > 0.02 ? 'Ganas la mano' : (net < -0.02 ? 'Pierdes la mano' : 'Mano terminada'));
+    var title = opts.title;
+    if (!title) {
+      var winners = analyzed.winners || [];
+      var heroWon = winners.indexOf(analyzed.hero) >= 0 || net > 0.02;
+      if (!heroWon && winners.length === 1) {
+        title = winners[0] + ' gana el bote';
+      } else if (!heroWon && winners.length > 1) {
+        title = 'Empate · ' + winners.join(', ');
+      } else {
+        title = net > 0.02 ? 'Ganas la mano' : (net < -0.02 ? 'Pierdes la mano' : 'Mano terminada');
+      }
+    }
     var scoreMeta = analyzed.handScoreMeta || null;
     var board = analyzed.boardAll || analyzed.board || [];
     if (board && !Array.isArray(board) && board.all) board = board.all;
     var heroHandName = analyzed.heroHandName ||
       (analyzed.handNames && analyzed.hero && analyzed.handNames[analyzed.hero]) || null;
+    var heroOutcome = (analyzed.seatOutcomes || []).filter(function (o) {
+      return o && (o.isHero || o.name === analyzed.hero);
+    })[0] || { deltaBB: net, eliminated: false, isWinner: net > 0.02 };
     var multiVillains = Object.keys(analyzed.shows || {}).filter(function (n) {
       return n !== analyzed.hero;
-    }).length > 1;
+    }).length > 1 || ((analyzed.seatOutcomes || []).filter(function (o) {
+      return o && !o.isHero && (o.isWinner || o.eliminated || (o.cards && o.cards.length));
+    }).length > 1);
     var villainsBlock = villainSeatsHtml(analyzed);
 
     var html = '<div class="hand-end-view hand-end-popup">' +
@@ -34988,10 +35125,14 @@ window.PT_NASH_PUSH_JSON = {
       '</div>' +
       '<div class="hand-end-view-matchup hand-end-matchup' +
       (multiVillains ? ' hand-end-matchup-multi' : '') + '">' +
-      '<div class="hand-end-seat is-hero">' +
-      '<div class="hand-end-seat-label">Héroe · ' + esc(analyzed.heroPos || '') + '</div>' +
+      '<div class="hand-end-seat is-hero' +
+      (heroOutcome.isWinner ? ' is-winner' : '') +
+      (heroOutcome.eliminated ? ' is-eliminated' : '') + '">' +
+      '<div class="hand-end-seat-label">Héroe · ' + esc(analyzed.heroPos || '') +
+      (heroOutcome.isWinner ? ' · Gana' : '') + '</div>' +
       '<div class="hand-end-cards">' + cardsHtml(analyzed.heroCards) + '</div>' +
       (heroHandName ? ('<div class="hand-end-handname">' + esc(heroHandName) + '</div>') : '') +
+      seatOutcomeMetaHtml(heroOutcome) +
       '</div>' +
       villainsBlock +
       '</div>' +
