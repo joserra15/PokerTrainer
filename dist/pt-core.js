@@ -27032,10 +27032,19 @@ window.PT_NASH_PUSH_JSON = {
         }
       }
       if (global.PTTournamentStore) {
+        var localAct = PTTournamentStore.loadActive && PTTournamentStore.loadActive();
         if (logical.tournamentActive && PTTournamentStore.saveActive) {
-          PTTournamentStore.saveActive(logical.tournamentActive, { silent: true, fromCloud: true });
+          var remoteAct = logical.tournamentActive;
+          var preferRemote = PTTournamentStore.isPreferableActive
+            ? PTTournamentStore.isPreferableActive(remoteAct, localAct)
+            : !localAct;
+          if (preferRemote) {
+            PTTournamentStore.saveActive(remoteAct, { silent: true, fromCloud: true });
+          }
         } else if (!logical.tournamentActive && PTTournamentStore.clearActive) {
-          PTTournamentStore.clearActive({ silent: true });
+          /* No borrar un torneo local en curso solo porque la nube aún no lo tiene
+             (p.ej. push pendiente). Solo limpiar si local tampoco tiene active. */
+          if (!localAct) PTTournamentStore.clearActive({ silent: true });
         }
       }
     } catch (eTRep) { /* ignore */ }

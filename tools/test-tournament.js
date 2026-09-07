@@ -1040,6 +1040,19 @@ console.log('OK tournament-result-polish');
   const olderFurther = Object.assign({}, loaded, { handIndex: 40, _savedAt: '2020-01-01T00:00:00.000Z' });
   const newerEarlier = Object.assign({}, loaded, { handIndex: 17, _savedAt: '2030-01-01T00:00:00.000Z' });
   assert.ok(g.PTTournamentStore.isPreferableActive(olderFurther, newerEarlier), 'prefer more hands over newer ts');
+  const sameHandNewerRev = Object.assign({}, loaded, { handIndex: 27, _progressRev: 5, _savedAt: '2020-01-01T00:00:00.000Z' });
+  const sameHandOlderRev = Object.assign({}, loaded, { handIndex: 27, _progressRev: 2, _savedAt: '2030-01-01T00:00:00.000Z' });
+  assert.ok(g.PTTournamentStore.isPreferableActive(sameHandNewerRev, sameHandOlderRev),
+    'prefer higher _progressRev at same handIndex');
+  const withComplete = Object.assign({}, loaded, {
+    handIndex: 27, _progressRev: 1, _liveHand: { stage: 'complete', result: { pot: 1 } },
+    _savedAt: '2020-01-01T00:00:00.000Z'
+  });
+  const withoutLive = Object.assign({}, loaded, {
+    handIndex: 27, _progressRev: 1, _liveHand: null, _savedAt: '2030-01-01T00:00:00.000Z'
+  });
+  assert.ok(g.PTTournamentStore.isPreferableActive(withComplete, withoutLive),
+    'prefer complete live hand over bare same handIndex');
   console.log('OK save-resume-handIndex');
 }
 
@@ -1858,6 +1871,69 @@ console.log('OK pushfold-freq-100');
   const edgeSrc = fs.readFileSync(path.join(ROOT, 'supabase/functions/analyze-hand/index.ts'), 'utf8');
   assert.ok(/DECISIONES CLAVE|Decisiones clave/i.test(edgeSrc), 'edge prompt covers tournament keys');
   console.log('OK tournament-forgecoach');
+}
+
+// --- Salir y guardar: aplicar mano completa pendiente (no perder progreso) ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 404, heroName: 'SaveHero' });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && hand.awaitingHero && guard++ < 40) {
+    const opt = (hand.heroOptions && hand.heroOptions[0]) || { id: 'fold' };
+    g.PTTournamentRunner.heroAct(state, opt.id === 'check' ? 'check' : (opt.id === 'fold' ? 'fold' : opt.id), opt.amount);
+    hand = state._liveHand;
+  }
+  assert.ok(hand && hand.stage === 'complete' && hand.result, 'mano completa pendiente');
+  const beforeHand = state.handIndex;
+  const heroBefore = g.PTTournamentState.hero(state).stack;
+  /* Simula commitProgressBeforeExit: applyResults sin beginHand. */
+  g.PTTournamentRunner.applyResults(state, hand);
+  state._liveHand = null;
+  assert.strictEqual(state.handIndex, beforeHand + 1, 'handIndex avanza al guardar con mano completa');
+  assert.ok(state.handLog && state.handLog.length >= 1, 'handLog tras apply');
+  state._progressRev = 1;
+  const saved = g.PTTournamentStore.saveActive(state);
+  assert.ok(saved.ok, 'save tras commit');
+  assert.strictEqual(saved.handIndex, beforeHand + 1, 'save reporta handIndex');
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.strictEqual(loaded.handIndex, beforeHand + 1, 'loadActive conserva avance');
+  assert.ok(!loaded._liveHand || loaded._liveHand.stage !== 'complete' || !loaded._liveHand.result,
+    'sin mano completa pendiente (ya aplicada)');
+  const heroAfter = (loaded.players || []).find(function (p) { return p.isHero; });
+  assert.ok(heroAfter, 'hero en snapshot');
+  assert.notStrictEqual(heroAfter.stack, undefined, 'stack hero persistido');
+  /* Cloud viejo no debe pisar. */
+  const stale = Object.assign({}, loaded, {
+    handIndex: beforeHand,
+    _progressRev: 0,
+    _savedAt: '2019-01-01T00:00:00.000Z',
+    players: loaded.players.map(function (p) {
+      return p.isHero ? Object.assign({}, p, { stack: heroBefore }) : p;
+    })
+  });
+  assert.ok(!g.PTTournamentStore.isPreferableActive(stale, loaded), 'stale cloud no gana');
+  g.PTTournamentStore.clearActive();
+  console.log('OK exit-save-commits-complete-hand');
+}
+
+// --- UI source: commit al salir + verify persist ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/commitProgressBeforeExit/.test(uiSrc), 'commitProgressBeforeExit helper');
+  assert.ok(/exit-save[\s\S]{0,120}commitProgressBeforeExit/.test(uiSrc) ||
+    /commitProgressBeforeExit\(\);\s*persistActive/.test(uiSrc),
+    'exit-save commits before persist');
+  assert.ok(/_progressRev/.test(uiSrc), 'progress rev bump on persist');
+  assert.ok(/verified/.test(uiSrc), 'persist verifies reload');
+  const cloudSrc = fs.readFileSync(path.join(ROOT, 'js/cloud-store.js'), 'utf8');
+  assert.ok(/syncNow[\s\S]*finally[\s\S]*pendingKeys\.size[\s\S]*schedulePush/s.test(cloudSrc),
+    'syncNow finally re-schedules pending push');
+  const storageSrc = fs.readFileSync(path.join(ROOT, 'js/storage.js'), 'utf8');
+  assert.ok(/replaceFromCloud[\s\S]*isPreferableActive[\s\S]*preferRemote/s.test(storageSrc),
+    'replaceFromCloud respects isPreferableActive');
+  assert.ok(/No borrar un torneo local|si local tampoco tiene active/i.test(storageSrc),
+    'replaceFromCloud no limpia active local si cloud vacío');
+  console.log('OK exit-save-persist-source');
 }
 
 console.log('*** test-tournament OK ***');

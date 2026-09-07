@@ -470,10 +470,66 @@ function reducedMotion() {
 
   function persistActive() {
     try {
-      if (ui.state && ui.state.status !== 'finished' && global.PTTournamentStore.saveActive) {
-        global.PTTournamentStore.saveActive(ui.state);
+      if (!ui.state) return { ok: false, reason: 'no_state' };
+      if (ui.state.status === 'finished') {
+        clearActive();
+        return { ok: false, reason: 'finished' };
       }
-    } catch (e) { /* ignore */ }
+      if (!global.PTTournamentStore || !global.PTTournamentStore.saveActive) {
+        return { ok: false, reason: 'no_store' };
+      }
+      /* Revisión monotónica: gana ante merges cloud con el mismo handIndex. */
+      ui.state._progressRev = (Number(ui.state._progressRev) || 0) + 1;
+      var wantHand = Number(ui.state.handIndex) || 0;
+      var wantRev = ui.state._progressRev;
+      var wantId = ui.state.id;
+      var res = global.PTTournamentStore.saveActive(ui.state);
+      if (!res || !res.ok) {
+        res = global.PTTournamentStore.saveActive(ui.state);
+      }
+      var loaded = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
+      var ok = !!(loaded && loaded.id === wantId &&
+        (Number(loaded.handIndex) || 0) >= wantHand &&
+        (Number(loaded._progressRev) || 0) >= wantRev);
+      if (!ok) {
+        try {
+          console.warn('[Tournaments] persistActive verify failed, retry', {
+            wantHand: wantHand, wantRev: wantRev,
+            gotHand: loaded && loaded.handIndex, gotRev: loaded && loaded._progressRev
+          });
+        } catch (eW) { /* */ }
+        res = global.PTTournamentStore.saveActive(ui.state);
+        loaded = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
+        ok = !!(loaded && loaded.id === wantId &&
+          (Number(loaded.handIndex) || 0) >= wantHand);
+      }
+      return Object.assign({}, res || { ok: false }, { verified: ok });
+    } catch (e) {
+      try { console.warn('[Tournaments] persistActive', e); } catch (e2) { /* */ }
+      return { ok: false, reason: 'error' };
+    }
+  }
+
+  /**
+   * Antes de salir: si la mano ya terminó (popup de fin) pero el usuario no pulsó
+   * Continuar, aplica fichas/handIndex para no perder esa mano al reanudar.
+   * No reparte la siguiente mano.
+   */
+  function commitProgressBeforeExit() {
+    var state = ui.state;
+    if (!state || state.status === 'finished') return state;
+    var hand = state._liveHand;
+    if (!hand || hand.stage !== 'complete' || !hand.result) return state;
+    try {
+      var Runner = global.PTTournamentRunner;
+      if (Runner && typeof Runner.applyResults === 'function') {
+        Runner.applyResults(state, hand);
+        state._liveHand = null;
+      }
+    } catch (e) {
+      try { console.warn('[Tournaments] commitProgressBeforeExit', e); } catch (e2) { /* */ }
+    }
+    return state;
   }
 
   function clearActive() {
@@ -494,6 +550,12 @@ function reducedMotion() {
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
     stopAnim();
+    /* Si la partida guardada acabó (apply al salir), mostrar resultado. */
+    if (st.status === 'finished') {
+      clearActive();
+      setView(VIEW.result);
+      return true;
+    }
     setView(VIEW.table);
     return true;
   }
@@ -2107,6 +2169,7 @@ function reducedMotion() {
           ui.exitPrompt = false;
           paint();
         } else if (act === 'exit-save') {
+          commitProgressBeforeExit();
           persistActive();
           flushTournamentCloud();
           ui.state = null;

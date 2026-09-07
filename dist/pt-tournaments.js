@@ -4186,7 +4186,9 @@
     if (typeof localStorage === 'undefined') return { ok: false };
     try {
       var snap = opts.fromCloud ? JSON.parse(JSON.stringify(state)) : slimForPersist(state);
+      /* Siempre refrescar _savedAt en guardados locales; en fromCloud conservar el remoto. */
       if (!opts.fromCloud || !snap._savedAt) snap._savedAt = new Date().toISOString();
+      if (snap._progressRev == null) snap._progressRev = Number(state._progressRev) || 0;
       try {
         writeActiveRaw(snap);
       } catch (quotaErr) {
@@ -4199,7 +4201,7 @@
               bb: h.bb,
               pot: h.pot,
               showdown: h.showdown,
-              result: h.result ? { heroNet: h.result.heroNet } : null,
+              result: h.result ? { heroNet: h.result.heroNet, deltas: h.result.deltas, winners: h.result.winners } : null,
               seats: (h.seats || []).filter(function (s) { return s.isHero; })
                 .map(function (s) { return { isHero: true, pos: s.pos }; })
             };
@@ -4211,16 +4213,22 @@
             street: snap._liveHand.street,
             pot: snap._liveHand.pot,
             bb: snap._liveHand.bb,
+            sb: snap._liveHand.sb,
+            ante: snap._liveHand.ante,
             board: snap._liveHand.board,
             seats: snap._liveHand.seats,
             toActId: snap._liveHand.toActId,
-            result: snap._liveHand.result
+            heroId: snap._liveHand.heroId,
+            awaitingHero: snap._liveHand.awaitingHero,
+            result: snap._liveHand.result,
+            decisions: snap._liveHand.decisions,
+            log: snap._liveHand.log
           };
         }
         writeActiveRaw(snap);
       }
       if (!opts.silent) markCloudDirty('active');
-      return { ok: true, savedAt: snap._savedAt, handIndex: snap.handIndex };
+      return { ok: true, savedAt: snap._savedAt, handIndex: snap.handIndex, progressRev: snap._progressRev };
     } catch (e) {
       try { console.warn('[Tournaments] saveActive failed', e); } catch (e2) { /* */ }
       return { ok: false, reason: 'serialize' };
@@ -4292,6 +4300,15 @@
     var aHand = Number(a.handIndex) || 0;
     var bHand = Number(b.handIndex) || 0;
     if (aHand !== bHand) return aHand > bHand;
+    var aRev = Number(a._progressRev) || 0;
+    var bRev = Number(b._progressRev) || 0;
+    if (aRev !== bRev) return aRev > bRev;
+    /* Misma mano: preferir la que tenga mano viva más avanzada. */
+    var aLive = a._liveHand && a._liveHand.stage === 'complete' ? 2
+      : (a._liveHand ? 1 : 0);
+    var bLive = b._liveHand && b._liveHand.stage === 'complete' ? 2
+      : (b._liveHand ? 1 : 0);
+    if (aLive !== bLive) return aLive > bLive;
     var aTs = Date.parse(a._savedAt || 0) || 0;
     var bTs = Date.parse(b._savedAt || 0) || 0;
     return aTs >= bTs;
@@ -6010,10 +6027,66 @@ function reducedMotion() {
 
   function persistActive() {
     try {
-      if (ui.state && ui.state.status !== 'finished' && global.PTTournamentStore.saveActive) {
-        global.PTTournamentStore.saveActive(ui.state);
+      if (!ui.state) return { ok: false, reason: 'no_state' };
+      if (ui.state.status === 'finished') {
+        clearActive();
+        return { ok: false, reason: 'finished' };
       }
-    } catch (e) { /* ignore */ }
+      if (!global.PTTournamentStore || !global.PTTournamentStore.saveActive) {
+        return { ok: false, reason: 'no_store' };
+      }
+      /* Revisión monotónica: gana ante merges cloud con el mismo handIndex. */
+      ui.state._progressRev = (Number(ui.state._progressRev) || 0) + 1;
+      var wantHand = Number(ui.state.handIndex) || 0;
+      var wantRev = ui.state._progressRev;
+      var wantId = ui.state.id;
+      var res = global.PTTournamentStore.saveActive(ui.state);
+      if (!res || !res.ok) {
+        res = global.PTTournamentStore.saveActive(ui.state);
+      }
+      var loaded = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
+      var ok = !!(loaded && loaded.id === wantId &&
+        (Number(loaded.handIndex) || 0) >= wantHand &&
+        (Number(loaded._progressRev) || 0) >= wantRev);
+      if (!ok) {
+        try {
+          console.warn('[Tournaments] persistActive verify failed, retry', {
+            wantHand: wantHand, wantRev: wantRev,
+            gotHand: loaded && loaded.handIndex, gotRev: loaded && loaded._progressRev
+          });
+        } catch (eW) { /* */ }
+        res = global.PTTournamentStore.saveActive(ui.state);
+        loaded = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
+        ok = !!(loaded && loaded.id === wantId &&
+          (Number(loaded.handIndex) || 0) >= wantHand);
+      }
+      return Object.assign({}, res || { ok: false }, { verified: ok });
+    } catch (e) {
+      try { console.warn('[Tournaments] persistActive', e); } catch (e2) { /* */ }
+      return { ok: false, reason: 'error' };
+    }
+  }
+
+  /**
+   * Antes de salir: si la mano ya terminó (popup de fin) pero el usuario no pulsó
+   * Continuar, aplica fichas/handIndex para no perder esa mano al reanudar.
+   * No reparte la siguiente mano.
+   */
+  function commitProgressBeforeExit() {
+    var state = ui.state;
+    if (!state || state.status === 'finished') return state;
+    var hand = state._liveHand;
+    if (!hand || hand.stage !== 'complete' || !hand.result) return state;
+    try {
+      var Runner = global.PTTournamentRunner;
+      if (Runner && typeof Runner.applyResults === 'function') {
+        Runner.applyResults(state, hand);
+        state._liveHand = null;
+      }
+    } catch (e) {
+      try { console.warn('[Tournaments] commitProgressBeforeExit', e); } catch (e2) { /* */ }
+    }
+    return state;
   }
 
   function clearActive() {
@@ -6034,6 +6107,12 @@ function reducedMotion() {
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
     stopAnim();
+    /* Si la partida guardada acabó (apply al salir), mostrar resultado. */
+    if (st.status === 'finished') {
+      clearActive();
+      setView(VIEW.result);
+      return true;
+    }
     setView(VIEW.table);
     return true;
   }
@@ -7647,6 +7726,7 @@ function reducedMotion() {
           ui.exitPrompt = false;
           paint();
         } else if (act === 'exit-save') {
+          commitProgressBeforeExit();
           persistActive();
           flushTournamentCloud();
           ui.state = null;
