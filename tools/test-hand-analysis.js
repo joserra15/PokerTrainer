@@ -10,6 +10,7 @@ vm.createContext(sandbox);
 const scripts = [
   'cards.js',
   'engine/cache.js', 'engine/format/taxonomy.js',
+  'engine/format/tournament-context.js',
   'engine/ranges/notation.js',
   'engine/ranges/data.js',
   'engine/ranges/extended.js',
@@ -615,6 +616,103 @@ assert(!!fromCp, 'importa HH CoinPoker sin IA');
 assert(fromCp && fromCp.hero === 'Hero', 'CoinPoker paste héroe');
 assert(fromCp && fromCp.heroCards && fromCp.heroCards.length >= 2, 'CoinPoker paste cartas');
 assert(fromCp && fromCp.source === 'handhistory', 'CoinPoker fuente handhistory');
+
+// --- Contexto de torneo / mesa corta ---
+const TC = sandbox.window.PTTournamentContext;
+assert(!!TC, 'PTTournamentContext cargado');
+assert(TC.ringForSeated(2).join(',') === 'BTN,BB', 'ring HU');
+assert(TC.ringForSeated(3).join(',') === 'BTN,SB,BB', 'ring 3-max');
+assert(TC.phaseFromStackBB(10, 'mtt') === 'push', 'fase push unificada (≤12)');
+assert(TC.phaseFromStackBB(20, 'mtt') === 'short', 'fase short unificada (≤25)');
+assert(TC.detectTournamentTypeFromText('SCOOP Progressive Knockout') === 'pko', 'detecta PKO');
+
+const huSpec = {
+  format: '6max',
+  formatHub: 'mtt',
+  tournamentType: 'pko',
+  mttPhase: 'short',
+  playersSeated: 2,
+  heroPos: 'BTN',
+  heroCards: ['As', 'Kd'],
+  heroStackBB: 18,
+  anteBB: 0.125,
+  bbEuro: 0.05,
+  villains: [{ pos: 'BB', cards: ['Qs', 'Qd'], stackBB: 22 }],
+  board: [],
+  actions: {
+    preflop: [
+      { pos: 'BTN', action: 'raise', amountBB: 2.5 },
+      { pos: 'BB', action: 'call' }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const huRaw = PTHandAnalysis.specToRawHand(huSpec);
+assert(huRaw.seats && huRaw.seats.length === 2, 'HU raw seats=2 (no 6): ' + (huRaw.seats && huRaw.seats.length));
+assert(huRaw.gameKind === 'mtt', 'HU MTT gameKind');
+assert(huRaw.tournamentType === 'pko', 'HU tournamentType pko');
+assert(Math.abs(huRaw.stackDepthBB - 18) < 0.01, 'HU hero stack 18bb');
+assert(huRaw.effStackBB != null && huRaw.effStackBB <= 18.1, 'HU effStack ≤ hero');
+assert(huRaw.playersSeated === 2, 'HU playersSeated=2');
+
+const huAnalyzed = Importer.analyzeHand(huRaw);
+assert(huAnalyzed && huAnalyzed.mttPhase, 'analyzeHand conserva/infiere mttPhase');
+assert(huAnalyzed.playersSeated === 2, 'analyzeHand playersSeated');
+assert((huAnalyzed.tags || []).some(function (t) { return t === 'HU' || t === 'pko' || String(t).indexOf('bb') >= 0; }),
+  'tags incluyen contexto torneo: ' + JSON.stringify(huAnalyzed.tags));
+
+const threeSpec = {
+  format: '6max',
+  formatHub: 'mtt',
+  tournamentType: 'vanilla',
+  mttPhase: 'mid',
+  playersSeated: 4,
+  heroPos: 'CO',
+  heroCards: ['Ah', 'Kh'],
+  heroStackBB: 35,
+  anteBB: 0.1,
+  bbEuro: 0.05,
+  villains: [
+    { pos: 'BTN', stackBB: 40 },
+    { pos: 'SB', stackBB: 12 },
+    { pos: 'BB', stackBB: 28 }
+  ],
+  board: [],
+  actions: {
+    preflop: [
+      { pos: 'CO', action: 'raise', amountBB: 2.2 },
+      { pos: 'BTN', action: 'fold' },
+      { pos: 'SB', action: 'fold' },
+      { pos: 'BB', action: 'fold' }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const threeRaw = PTHandAnalysis.specToRawHand(threeSpec);
+assert(threeRaw.seats.length === 4, '4-handed seats=4: ' + threeRaw.seats.length);
+assert(threeRaw.effStackBB === 12, 'effStack = min vs short stack SB: ' + threeRaw.effStackBB);
+
+const built = PTHandAnalysis.buildAnalyzedHand(huSpec, 'manual');
+assert(built.spec && built.spec.heroStackBB === 18, 'buildAnalyzedHand persiste heroStackBB');
+assert(built.spec.villains[0].stackBB === 22, 'buildAnalyzedHand persiste villain stack');
+const trainer = PTHandAnalysis.toTrainerConfig(built, 'pro', 'emerald');
+assert(trainer.playConfig && trainer.playConfig.formatHub === 'mtt',
+  'toTrainerConfig formatHub mtt (no cash): ' + (trainer.playConfig && trainer.playConfig.formatHub));
+assert(trainer.playConfig.tournamentType === 'pko', 'toTrainerConfig tournamentType pko');
+assert(trainer.playConfig.mttPhase === 'short' || trainer.playConfig.resolvedPhase === 'short'
+  || trainer.playConfig.mttPhase === 'auto',
+  'toTrainerConfig fase short/auto: ' + trainer.playConfig.mttPhase);
+
+const pc = sandbox.window.PTPlayConfig.normalize({
+  formatHub: 'mtt', gameType: 'mtt', tournamentType: 'pko', mttPhase: 'bubble', stackDepth: 'bb20'
+});
+assert(pc.tournamentType === 'pko', 'play-config normaliza tournamentType');
+const lbl = sandbox.window.PTPlayConfig.labelFor(pc);
+assert(/PKO/i.test(lbl), 'labelFor incluye PKO: ' + lbl);
+
+const U = sandbox.window.PTHHUtils;
+assert(U.mttPhaseFromStackBB(10) === 'push', 'hhUtils fase alineada push');
+assert(U.mttPhaseFromStackBB(20) === 'short', 'hhUtils fase alineada short');
 
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');

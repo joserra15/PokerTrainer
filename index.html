@@ -748,6 +748,17 @@
             <p class="muted-text setup-hint">La fase adapta opens, defensa vs open, <strong>vs 3-bet</strong>, antes e ICM (y el stack permitido). En short/push no se flattean las mismas manos que en cash deep. «Auto (por stack)» elige Early/Mid/Short/Push según tus bb. La estructura MTT (buy-in / puestos) afina el ICM lite en burbuja o ITM. En cada mano verás la fase resuelta en el tapete.</p>
           </div>
 
+          <div class="setup-group" id="setup-group-tournament-type" hidden>
+            <span class="setup-label">Tipo de torneo</span>
+            <div class="setup-chips" id="setup-tournament-type">
+              <button type="button" class="setup-chip active" data-val="vanilla">Vanilla</button>
+              <button type="button" class="setup-chip" data-val="pko">PKO</button>
+              <button type="button" class="setup-chip" data-val="mystery">Mystery</button>
+              <button type="button" class="setup-chip" data-val="unknown">No sé</button>
+            </div>
+            <p class="muted-text setup-hint">Etiqueta de contexto (HUD y coaching). El EV de bounty/PKO no está modelado aún: las decisiones se evalúan en fichas/ICM lite.</p>
+          </div>
+
           <div class="setup-group" id="setup-group-villain-level">
             <span class="setup-label">Nivel de rivales</span>
             <div class="setup-chips" id="setup-villain-level">

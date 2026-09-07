@@ -204,12 +204,23 @@
     return '6max';
   }
 
-  function mttPhaseFromStackBB(stackBB) {
+  function mttPhaseFromStackBB(stackBB, hub) {
     const n = Number(stackBB) || 0;
     if (n <= 0) return null;
-    if (n < 15) return 'push';
-    if (n < 25) return 'short';
-    if (n < 40) return 'mid';
+    const Tax = global.PTFormatTaxonomy;
+    const TC = global.PTTournamentContext;
+    const h = hub || 'mtt';
+    if (Tax && Tax.phaseFromStackBB) return Tax.phaseFromStackBB(n, h);
+    if (TC && TC.phaseFromStackBB) return TC.phaseFromStackBB(n, h);
+    // Fallback alineado con taxonomy (no con umbrales legacy).
+    if (h === 'spin') {
+      if (n <= 12) return 'push';
+      if (n <= 20) return 'mid';
+      return 'early';
+    }
+    if (n <= 12) return 'push';
+    if (n <= 25) return 'short';
+    if (n <= 45) return 'mid';
     return 'early';
   }
 
@@ -301,9 +312,27 @@
     hand.stackDepthBB = heroStackBB(hand) != null ? heroStackBB(hand) : avgStackBB(hand);
     hand.avgStackBB = avgStackBB(hand);
     hand.stakeTier = hand.gameKind === 'cash' ? stakeTierFromBb(hand.bb, hand.currency) : null;
+    const phaseHub = hand.gameKind === 'spin' ? 'spin' : 'mtt';
     hand.mttPhase = (hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.gameKind === 'spin')
-      ? mttPhaseFromStackBB(hand.stackDepthBB)
+      ? mttPhaseFromStackBB(hand.stackDepthBB, phaseHub)
       : null;
+    if (!hand.tournamentType || hand.tournamentType === 'unknown') {
+      const TC = global.PTTournamentContext;
+      const detected = TC && TC.detectTournamentTypeFromText
+        ? TC.detectTournamentTypeFromText(full)
+        : 'unknown';
+      if (detected !== 'unknown') hand.tournamentType = detected;
+      else if (hand.bountyBuyIn != null || hand.bountyCollected != null) hand.tournamentType = 'pko';
+      else if (hand.gameKind === 'mtt' || hand.gameKind === 'sng') hand.tournamentType = hand.tournamentType || 'unknown';
+    }
+    if (hand.seats && hand.bb) {
+      const TC2 = global.PTTournamentContext;
+      if (TC2 && TC2.seatStacksFromHand) {
+        hand.seatStacksBB = TC2.seatStacksFromHand(hand);
+        hand.effStackBB = TC2.effStackFromSeats(hand.seatStacksBB, hand.heroPos
+          || (hand.positions && hand.hero ? hand.positions[hand.hero] : null));
+      }
+    }
     hand.formatKey = formatKeyFromMeta(hand);
     hand.stakesLabel = stakesLabel(hand);
     hand.isZoom = !!(hand.isZoom || /Zoom/i.test(full));

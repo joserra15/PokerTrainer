@@ -226,11 +226,16 @@
       if (Bridge && Bridge.handFromTournament) {
         state.sessionHands = state.sessionHands || [];
         var entry = state.handLog[state.handLog.length - 1];
-        var analyzed = Bridge.handFromTournament(entry, {
-          tournamentId: state.id,
-          handIndex: entry && entry.handIndex,
-          heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
-        });
+        var analyzed = Bridge.handFromTournament(entry, Bridge.metaFromState
+          ? Bridge.metaFromState(state, {
+            handIndex: entry && entry.handIndex,
+            heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
+          })
+          : {
+            tournamentId: state.id,
+            handIndex: entry && entry.handIndex,
+            heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
+          });
         if (analyzed) {
           /* Sustituye si ya existe el mismo handIndex (re-apply). */
           var replaced = false;

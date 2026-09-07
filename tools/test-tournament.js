@@ -82,6 +82,7 @@ const FILES = [
   'js/tournament/seating.js',
   'js/tournament/state.js',
   'js/engine/format/taxonomy.js',
+  'js/engine/format/tournament-context.js',
   'js/engine/ranges/pushFold.js',
   'js/tournament/gto-eval.js',
   'js/tournament/villain-decide.js',

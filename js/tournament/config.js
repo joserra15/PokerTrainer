@@ -211,6 +211,13 @@
       buyInEur: clamp(raw.buyInEur != null ? raw.buyInEur : 5, 0.01, 10000),
       startingStack: clamp(raw.startingStack != null ? raw.startingStack : 1500, 100, 100000),
       placesPaid: placesPaid,
+      tournamentType: (function () {
+        var t = String(raw.tournamentType || 'unknown').toLowerCase();
+        if (t === 'ko' || t === 'pko') return 'pko';
+        if (t === 'mystery') return 'mystery';
+        if (t === 'vanilla') return 'vanilla';
+        return 'unknown';
+      })(),
       payoutLadder: normalizeLadder(raw.payoutLadder),
       blindSchedule: normalizeSchedule(raw.blindSchedule),
       roleWeights: normalizeWeights(raw.roleWeights),

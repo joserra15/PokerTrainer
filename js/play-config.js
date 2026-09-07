@@ -124,6 +124,12 @@
     practiceIntent: 'mixed',
     /** auto | early | mid | short | push | bubble — spins/MTT */
     mttPhase: 'auto',
+    /** vanilla | pko | mystery | unknown — etiqueta; sin EV bounty */
+    tournamentType: 'unknown',
+    /** Capacidad / jugadores sentados (replay desde análisis) */
+    tableMax: null,
+    playersSeated: null,
+    seatStacksBB: null,
     /** ante en bb (0 en cash; auto en MTT) */
     anteBB: null,
     /** 2x | 3x | 5x — payouts spin */
@@ -282,6 +288,12 @@
     c.practiceIntent = 'mixed';
     if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
     else if (!c.mttPhase) c.mttPhase = 'auto';
+    if (Tax && Tax.normalizeTournamentType) {
+      c.tournamentType = Tax.normalizeTournamentType(c.tournamentType);
+    } else {
+      c.tournamentType = c.tournamentType || 'unknown';
+    }
+    if (c.formatHub === 'cash') c.tournamentType = 'unknown';
     if (c.spinPayout !== '3x' && c.spinPayout !== '5x') c.spinPayout = '2x';
 
     // MTT estructura: limpiar fuera de hub mtt (coerción completa tras resolvedPhase).
@@ -1236,6 +1248,10 @@
     const ante = c.anteBB > 0 ? (' · ante ' + c.anteBB + 'bb') : '';
     const open = c.preflopOpenSize ? (' · open ' + c.preflopOpenSize + '×') : '';
     const spinPay = (c.formatHub === 'spin' && c.spinPayout) ? (' · payout ' + c.spinPayout) : '';
+    const typeLbl = (c.formatHub === 'mtt' && c.tournamentType && c.tournamentType !== 'unknown')
+      ? (' · ' + ((Tax && Tax.TOURNAMENT_TYPE_LABELS && Tax.TOURNAMENT_TYPE_LABELS[c.tournamentType])
+        || c.tournamentType))
+      : '';
     let mttStruct = '';
     if (c.formatHub === 'mtt' && c.playersLeft != null && c.placesPaid != null) {
       mttStruct = ' · ' + c.playersLeft + ' left / ' + c.placesPaid + ' paid';
@@ -1243,7 +1259,7 @@
     }
     const am = c.actionMode === 'complete' ? 'Modo completo' : 'Modo rápido';
     const extra = [vt, sm].filter(Boolean).map(function (x) { return ' · ' + x; }).join('');
-    return hub + ' · ' + gt + ' · ' + sd + phase + ante + spinPay + mttStruct + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + extra + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
+    return hub + ' · ' + gt + ' · ' + sd + phase + typeLbl + ante + spinPay + mttStruct + open + ' · ' + sc + ' · ' + hr + ' · ' + pos + ' · ' + vl + extra + ' · ' + st + ' · ' + am + ' · ' + block + ' · ' + rakeLabel(c);
   }
 
   function stackBB(config) {

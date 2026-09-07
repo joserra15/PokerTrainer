@@ -189,29 +189,46 @@
   function round2(x) { return Math.round(x * 100) / 100; }
   /** Precisión interna de importes en € (evita 0.025 → 0.03). */
   function roundEuro(x) { return Math.round(Number(x) * 1e4) / 1e4; }
-  function ringFor(fmt) { return fmt === '9max' ? RING_9.slice() : RING_6.slice(); }
-  function posIndex(fmt, pos) {
-    var ring = ringFor(fmt);
+  function ringFor(fmt, playersSeated) {
+    var TC = global.PTTournamentContext;
+    var n = playersSeated != null ? Number(playersSeated) : null;
+    // Con capacidad 6/9-max y ≥5 jugadores, usar el anillo completo del formato
+    // para no perder posiciones (UTG…) al editar manos multiway.
+    if (n != null && isFinite(n) && n >= 2) {
+      if (n <= 4 && TC && TC.ringForSeated) return TC.ringForSeated(n);
+      return fmt === '9max' ? RING_9.slice() : RING_6.slice();
+    }
+    return fmt === '9max' ? RING_9.slice() : RING_6.slice();
+  }
+  function draftRing(draft) {
+    return ringFor(draft && draft.format, draft && draft.playersSeated);
+  }
+  function posIndex(fmt, pos, playersSeated) {
+    var ring = ringFor(fmt, playersSeated);
     var i = ring.indexOf(pos);
     return i < 0 ? 999 : i;
   }
-  function sortByRing(fmt, positions) {
+  function sortByRing(fmt, positions, playersSeated) {
     return positions.slice().sort(function (a, b) {
-      return posIndex(fmt, a) - posIndex(fmt, b);
+      return posIndex(fmt, a, playersSeated) - posIndex(fmt, b, playersSeated);
     });
   }
 
   /** Orden de habla: preflop UTG→BB; postflop SB→BTN. */
-  function speakingOrderRing(fmt, street) {
-    var ring = ringFor(fmt);
+  function speakingOrderRing(fmt, street, playersSeated) {
+    var ring = ringFor(fmt, playersSeated);
     if (street === 'preflop') return ring.slice();
+    // HU: BTN actúa primero postflop (es el SB efectivo).
+    if (ring.length === 2 && ring[0] === 'BTN') {
+      return ring.slice();
+    }
     var sb = ring.indexOf('SB');
     if (sb < 0) return ring.slice();
     return ring.slice(sb).concat(ring.slice(0, sb));
   }
 
-  function sortBySpeakingOrder(fmt, street, positions) {
-    var order = speakingOrderRing(fmt, street);
+  function sortBySpeakingOrder(fmt, street, positions, playersSeated) {
+    var order = speakingOrderRing(fmt, street, playersSeated);
     return positions.slice().sort(function (a, b) {
       var ia = order.indexOf(a);
       var ib = order.indexOf(b);
@@ -221,13 +238,103 @@
     });
   }
 
-  function speaksBefore(fmt, street, posA, posB) {
-    var order = speakingOrderRing(fmt, street);
+  function speaksBefore(fmt, street, posA, posB, playersSeated) {
+    var order = speakingOrderRing(fmt, street, playersSeated);
     var ia = order.indexOf(posA);
     var ib = order.indexOf(posB);
     if (ia < 0) ia = 999;
     if (ib < 0) ib = 999;
     return ia < ib;
+  }
+
+  function defaultStackBB(hub) {
+    if (hub === 'spin') return 25;
+    if (hub === 'mtt') return 40;
+    return 100;
+  }
+
+  function normalizeStackBB(raw, fallback) {
+    var n = Number(raw);
+    if (!isFinite(n) || n <= 0) return fallback != null ? fallback : 100;
+    if (n > 500) n = 500;
+    return Math.round(n * 10) / 10;
+  }
+
+  function maxPlayersForFormat(fmt, hub) {
+    if (hub === 'spin') return 3;
+    return fmt === '9max' ? 9 : 6;
+  }
+
+  function syncVillainCount(draft) {
+    if (!draft) return;
+    var maxP = maxPlayersForFormat(draft.format, draft.formatHub);
+    var seated = Number(draft.playersSeated);
+    if (!isFinite(seated) || seated < 2) seated = 2;
+    if (seated > maxP) seated = maxP;
+    draft.playersSeated = seated;
+    var need = seated - 1;
+    if (!Array.isArray(draft.villains)) draft.villains = [];
+    while (draft.villains.length < need) {
+      draft.villains.push({
+        pos: '',
+        cards: [],
+        stackBB: draft.heroStackBB != null ? draft.heroStackBB : defaultStackBB(draft.formatHub)
+      });
+    }
+    if (draft.villains.length > need) draft.villains = draft.villains.slice(0, need);
+    var ring = draftRing(draft);
+    // Si héroe/villanos ya tienen posiciones fuera del anillo corto (HU/3/4),
+    // ampliar a la capacidad del formato para no remapear el héroe (p.ej. SB).
+    var used = [];
+    if (draft.heroPos) used.push(draft.heroPos);
+    (draft.villains || []).forEach(function (v) { if (v && v.pos) used.push(v.pos); });
+    if (used.some(function (p) { return ring.indexOf(p) < 0; })) {
+      draft.playersSeated = Math.max(draft.playersSeated, maxP);
+      draft.tableMax = maxP;
+      need = draft.playersSeated - 1;
+      while (draft.villains.length < need) {
+        draft.villains.push({
+          pos: '',
+          cards: [],
+          stackBB: draft.heroStackBB != null ? draft.heroStackBB : defaultStackBB(draft.formatHub)
+        });
+      }
+      ring = draftRing(draft);
+    }
+    if (ring.indexOf(draft.heroPos) < 0) draft.heroPos = ring[0];
+    (draft.villains || []).forEach(function (v) {
+      if (v.pos && ring.indexOf(v.pos) < 0) v.pos = '';
+      if (v.stackBB == null) v.stackBB = draft.heroStackBB != null ? draft.heroStackBB : defaultStackBB(draft.formatHub);
+    });
+  }
+
+  function contextFromDraft(draft) {
+    var TC = global.PTTournamentContext;
+    var seatStacksBB = {};
+    if (draft.heroPos) seatStacksBB[draft.heroPos] = normalizeStackBB(draft.heroStackBB, defaultStackBB(draft.formatHub));
+    (draft.villains || []).forEach(function (v) {
+      if (!v || !v.pos) return;
+      seatStacksBB[v.pos] = normalizeStackBB(v.stackBB, defaultStackBB(draft.formatHub));
+    });
+    var raw = {
+      formatHub: draft.formatHub || 'cash',
+      gameKind: draft.formatHub === 'spin' ? 'spin' : (draft.formatHub === 'mtt' ? 'mtt' : 'cash'),
+      tournamentType: draft.tournamentType || 'unknown',
+      tableMax: maxPlayersForFormat(draft.format, draft.formatHub),
+      playersSeated: draft.playersSeated,
+      mttPhase: draft.mttPhase || 'auto',
+      anteBB: draft.anteBB,
+      heroStackBB: draft.heroStackBB,
+      heroPos: draft.heroPos,
+      seatStacksBB: seatStacksBB,
+      playersLeft: draft.playersLeft,
+      placesPaid: draft.placesPaid,
+      entries: draft.entries,
+      buyIn: draft.buyIn,
+      mttStructureSituation: draft.mttStructureSituation,
+      spinPayout: draft.spinPayout
+    };
+    return TC && TC.normalize ? TC.normalize(raw) : raw;
   }
 
   function streetCommittedInit(street) {
@@ -402,30 +509,74 @@
     var sbVal = roundEuro(bbVal / 2);
     var anteBB = normalizeAnteBB(spec.anteBB);
     var anteVal = roundEuro(anteBB * bbVal);
-    var isTourney = anteBB > 0;
+    var formatHub = spec.formatHub || (anteBB > 0 ? 'mtt' : 'cash');
+    var isTourney = formatHub === 'mtt' || formatHub === 'spin' || anteBB > 0;
+    var gameKind = formatHub === 'spin' ? 'spin'
+      : (formatHub === 'mtt' ? (spec.gameKind === 'sng' ? 'sng' : 'mtt') : 'cash');
     var fmt = spec.format === '9max' ? '9max' : '6max';
-    var ring = ringFor(fmt);
-    var positions = {};
-    ring.forEach(function (p) { positions[p] = p; });
-
     var hero = spec.heroPos;
+    var seatedPos = [];
+    if (hero) seatedPos.push(hero);
+    (spec.villains || []).forEach(function (v) {
+      if (v && v.pos && seatedPos.indexOf(v.pos) < 0) seatedPos.push(v.pos);
+    });
+    // Incluir asientos que aparecen en acciones (p.ej. folds early en mesa completa).
+    STREET_ORDER.forEach(function (st) {
+      ((spec.actions && spec.actions[st]) || []).forEach(function (a) {
+        if (a && a.pos && seatedPos.indexOf(a.pos) < 0) seatedPos.push(a.pos);
+      });
+    });
+    var playersSeated = seatedPos.length >= 2
+      ? seatedPos.length
+      : (spec.playersSeated != null ? Number(spec.playersSeated) : seatedPos.length);
+    if (playersSeated < 2) playersSeated = Math.max(2, seatedPos.length);
+    // Si el usuario fijó playersSeated mayor (mesa con folds implícitos), respetarlo con ring.
+    if (spec.playersSeated != null && Number(spec.playersSeated) > playersSeated) {
+      playersSeated = Number(spec.playersSeated);
+    }
+    var ring = ringFor(fmt, playersSeated);
+    // Solo asientos sentados (héroe + villanos + actores).
+    var activePos = seatedPos.length ? sortByRing(fmt, seatedPos, playersSeated) : ring.slice(0, playersSeated);
+    // Si playersSeated > activePos, completar con asientos del ring aún libres.
+    if (activePos.length < playersSeated) {
+      ring.forEach(function (p) {
+        if (activePos.length >= playersSeated) return;
+        if (activePos.indexOf(p) < 0) activePos.push(p);
+      });
+    }
+    var positions = {};
+    activePos.forEach(function (p) { positions[p] = p; });
+
     var heroCards = (spec.heroCards || []).slice(0, 2);
+    var defaultStack = defaultStackBB(formatHub);
+    var heroStackBB = normalizeStackBB(spec.heroStackBB, defaultStack);
 
     var shows = {};
+    var villainStacks = {};
     (spec.villains || []).forEach(function (v) {
-      if (v && v.pos && v.cards && v.cards.length === 2) shows[v.pos] = v.cards.slice();
+      if (!v || !v.pos) return;
+      if (v.cards && v.cards.length === 2) shows[v.pos] = v.cards.slice();
+      villainStacks[v.pos] = normalizeStackBB(v.stackBB, heroStackBB);
     });
 
-    // Posts: ciegas + ante de toda la mesa (dead money de torneo).
+    // Posts: ciegas + ante solo de asientos sentados.
     var posts = {};
     if (anteVal > 0) {
-      ring.forEach(function (p) { posts[p] = anteVal; });
+      activePos.forEach(function (p) { posts[p] = anteVal; });
     }
-    posts.SB = roundEuro((posts.SB || 0) + sbVal);
-    posts.BB = roundEuro((posts.BB || 0) + bbVal);
+    if (activePos.indexOf('SB') >= 0) {
+      posts.SB = roundEuro((posts.SB || 0) + sbVal);
+    } else if (activePos.indexOf('BTN') >= 0 && activePos.length === 2) {
+      // HU: BTN posta SB
+      posts.BTN = roundEuro((posts.BTN || 0) + sbVal);
+    }
+    if (activePos.indexOf('BB') >= 0) {
+      posts.BB = roundEuro((posts.BB || 0) + bbVal);
+    }
 
-    var seats = ring.map(function (p, i) {
-      return { seat: i + 1, name: p, stack: roundEuro(100 * bbVal) };
+    var seats = activePos.map(function (p, i) {
+      var stackBB = p === hero ? heroStackBB : (villainStacks[p] != null ? villainStacks[p] : heroStackBB);
+      return { seat: i + 1, name: p, stack: roundEuro(stackBB * bbVal) };
     });
 
     var streets = { preflop: [], flop: [], turn: [], river: [] };
@@ -433,7 +584,12 @@
       var committed = {};
       var toMatch = 0;
       // Ciegas sí cuentan para toMatch; el ante es dead money en posts, no apuesta a igualar.
-      if (st === 'preflop') { committed.SB = sbVal; committed.BB = bbVal; toMatch = bbVal; }
+      if (st === 'preflop') {
+        if (activePos.indexOf('SB') >= 0) committed.SB = sbVal;
+        else if (activePos.indexOf('BTN') >= 0 && activePos.length === 2) committed.BTN = sbVal;
+        if (activePos.indexOf('BB') >= 0) committed.BB = bbVal;
+        toMatch = bbVal;
+      }
       var acts = (spec.actions && spec.actions[st]) || [];
       acts.forEach(function (a) {
         if (!a || !a.pos || !a.action) return;
@@ -478,13 +634,40 @@
     });
 
     var board = (spec.board || []).filter(Boolean).slice(0, 5);
-    return {
+    var TC = global.PTTournamentContext;
+    var ctx = TC && TC.normalize ? TC.normalize({
+      formatHub: formatHub,
+      gameKind: gameKind,
+      tournamentType: spec.tournamentType || 'unknown',
+      tableMax: spec.tableMax != null ? spec.tableMax : maxPlayersForFormat(fmt, formatHub),
+      playersSeated: activePos.length,
+      mttPhase: spec.mttPhase || 'auto',
+      anteBB: anteBB,
+      heroStackBB: heroStackBB,
+      heroPos: hero,
+      seatStacksBB: (function () {
+        var m = {};
+        activePos.forEach(function (p) {
+          m[p] = p === hero ? heroStackBB : (villainStacks[p] != null ? villainStacks[p] : heroStackBB);
+        });
+        return m;
+      })(),
+      playersLeft: spec.playersLeft,
+      placesPaid: spec.placesPaid,
+      entries: spec.entries,
+      buyIn: spec.buyIn,
+      mttStructureSituation: spec.mttStructureSituation,
+      spinPayout: spec.spinPayout
+    }) : null;
+
+    var raw = {
       id: spec._id || ('ah_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
       datetime: new Date().toISOString(),
       sb: sbVal, bb: bbVal, currency: 'EUR',
       hero: hero, heroCards: heroCards,
+      heroPos: hero,
       positions: positions,
-      blinds: { sb: 'SB', bb: 'BB' },
+      blinds: { sb: activePos.length === 2 && activePos.indexOf('SB') < 0 ? 'BTN' : 'SB', bb: 'BB' },
       posts: posts,
       seats: seats,
       ante: anteVal,
@@ -495,9 +678,27 @@
       collected: {}, uncalledTo: {}, rake: 0, potTotal: 0,
       isCash: !isTourney,
       isTournament: isTourney,
-      gameKind: isTourney ? 'mtt' : 'cash',
-      platform: 'manual'
+      gameKind: gameKind,
+      platform: 'manual',
+      tableMax: ctx ? ctx.tableMax : maxPlayersForFormat(fmt, formatHub),
+      playersSeated: activePos.length,
+      mttPhase: ctx ? (ctx.mttPhase === 'auto' ? ctx.resolvedPhase : ctx.mttPhase) : (spec.mttPhase || null),
+      tournamentType: ctx ? ctx.tournamentType : (spec.tournamentType || 'unknown'),
+      stackDepthBB: heroStackBB,
+      avgStackBB: ctx ? ctx.avgStackBB : heroStackBB,
+      effStackBB: ctx ? ctx.effStackBB : heroStackBB,
+      seatStacksBB: ctx ? ctx.seatStacksBB : null,
+      formatKey: ctx ? ctx.formatKey : null,
+      playersLeft: spec.playersLeft != null ? spec.playersLeft : null,
+      placesPaid: spec.placesPaid != null ? spec.placesPaid : null,
+      entries: spec.entries != null ? spec.entries : null,
+      buyIn: spec.buyIn != null ? spec.buyIn : null,
+      mttStructureSituation: spec.mttStructureSituation || null,
+      anteBB: anteBB,
+      tournamentContext: ctx
     };
+    if (TC && TC.applyToHand) TC.applyToHand(raw, ctx || {});
+    return raw;
   }
 
   function ensureImporter() {
@@ -521,16 +722,34 @@
     var analyzed = global.Importer.analyzeHand(raw);
     var bbEuro = normalizeBbEuro(spec.bbEuro != null ? spec.bbEuro : raw.bb);
     var anteBB = normalizeAnteBB(spec.anteBB);
+    var formatHub = spec.formatHub || (anteBB > 0 ? 'mtt' : 'cash');
+    var heroStackBB = normalizeStackBB(spec.heroStackBB, defaultStackBB(formatHub));
     analyzed.spec = {
       format: spec.format === '9max' ? '9max' : '6max',
+      formatHub: formatHub,
+      tournamentType: spec.tournamentType || 'unknown',
+      mttPhase: spec.mttPhase || 'auto',
+      playersSeated: raw.playersSeated,
+      tableMax: raw.tableMax,
       heroPos: spec.heroPos,
       heroCards: (spec.heroCards || []).slice(),
+      heroStackBB: heroStackBB,
       villains: (spec.villains || []).map(function (v) {
-        return { pos: v.pos, cards: (v.cards || []).slice() };
+        return {
+          pos: v.pos,
+          cards: (v.cards || []).slice(),
+          stackBB: normalizeStackBB(v.stackBB, heroStackBB)
+        };
       }),
       board: (spec.board || []).slice(),
       bbEuro: bbEuro,
       anteBB: anteBB,
+      playersLeft: spec.playersLeft != null ? spec.playersLeft : null,
+      placesPaid: spec.placesPaid != null ? spec.placesPaid : null,
+      entries: spec.entries != null ? spec.entries : null,
+      buyIn: spec.buyIn != null ? spec.buyIn : null,
+      mttStructureSituation: spec.mttStructureSituation || null,
+      spinPayout: spec.spinPayout || null,
       actions: {
         preflop: ((spec.actions && spec.actions.preflop) || []).slice(),
         flop: ((spec.actions && spec.actions.flop) || []).slice(),
@@ -541,6 +760,21 @@
     };
     analyzed.bbEuro = bbEuro;
     analyzed.anteBB = anteBB;
+    analyzed.formatHub = formatHub;
+    analyzed.tournamentType = raw.tournamentType;
+    analyzed.mttPhase = raw.mttPhase;
+    analyzed.playersSeated = raw.playersSeated;
+    analyzed.tableMax = raw.tableMax;
+    analyzed.stackDepthBB = raw.stackDepthBB;
+    analyzed.effStackBB = raw.effStackBB;
+    analyzed.avgStackBB = raw.avgStackBB;
+    analyzed.seatStacksBB = raw.seatStacksBB;
+    analyzed.tournamentContext = raw.tournamentContext;
+    analyzed.playersLeft = raw.playersLeft;
+    analyzed.placesPaid = raw.placesPaid;
+    analyzed.entries = raw.entries;
+    analyzed.buyIn = raw.buyIn;
+    analyzed.mttStructureSituation = raw.mttStructureSituation;
     analyzed.boardAll = (raw.boardAll || analyzed.board || []).slice();
     analyzed.source = source || spec._source || 'manual';
     analyzed.createdAt = spec._createdAt || new Date().toISOString();
@@ -559,6 +793,16 @@
     }
     if (spec.anteBB != null && (!isFinite(Number(spec.anteBB)) || Number(spec.anteBB) < 0)) {
       errs.push('El ante en bb no puede ser negativo.');
+    }
+    var hub = spec.formatHub || 'cash';
+    if (hub !== 'cash') {
+      if (!(Number(spec.heroStackBB) > 0)) errs.push('Indica el stack del héroe en bb.');
+      var villainCount = (spec.villains || []).filter(function (v) { return v && v.pos; }).length;
+      if (villainCount < 1) errs.push('Añade al menos un villano (o elige HU / 3+ jugadores).');
+      (spec.villains || []).forEach(function (v, i) {
+        if (!v || !v.pos) return;
+        if (!(Number(v.stackBB) > 0)) errs.push('Indica el stack del villano en ' + v.pos + ' (bb).');
+      });
     }
     var seenPos = {};
     seenPos[spec.heroPos] = 'héroe';
@@ -670,17 +914,54 @@
     if (scenario.key) force.key = scenario.key;
     if (scenario.limperPos) force.limperPos = scenario.limperPos;
 
-    var playConfig = {
-      gameType: fmt === '9max' ? 'cash9' : 'cash6',
-      villainLevel: villainLevel || 'pro',
-      tableTheme: tableTheme || 'emerald',
-      handRange: 'all',
-      practiceStreet: 'preflop'
-    };
-    if (global.PTPlayConfig && global.PTPlayConfig.normalize) {
-      playConfig = global.PTPlayConfig.normalize(playConfig);
-      playConfig.villainLevel = villainLevel || 'pro';
-      playConfig.tableTheme = tableTheme || 'emerald';
+    var TC = global.PTTournamentContext;
+    var ctx = hand.tournamentContext
+      || (TC && TC.fromHand ? TC.fromHand(hand) : null)
+      || {
+        formatHub: spec.formatHub || (hand.gameKind === 'spin' ? 'spin'
+          : ((hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.isTournament) ? 'mtt' : 'cash')),
+        gameKind: hand.gameKind,
+        tournamentType: hand.tournamentType || spec.tournamentType,
+        tableMax: hand.tableMax || spec.tableMax,
+        playersSeated: hand.playersSeated || spec.playersSeated,
+        mttPhase: hand.mttPhase || spec.mttPhase || 'auto',
+        anteBB: spec.anteBB != null ? spec.anteBB : hand.anteBB,
+        heroStackBB: spec.heroStackBB != null ? spec.heroStackBB : hand.stackDepthBB,
+        seatStacksBB: hand.seatStacksBB || spec.seatStacksBB,
+        playersLeft: hand.playersLeft != null ? hand.playersLeft : spec.playersLeft,
+        placesPaid: hand.placesPaid != null ? hand.placesPaid : spec.placesPaid,
+        entries: hand.entries != null ? hand.entries : spec.entries,
+        buyIn: hand.buyIn != null ? hand.buyIn : spec.buyIn,
+        mttStructureSituation: hand.mttStructureSituation || spec.mttStructureSituation,
+        spinPayout: hand.spinPayout || spec.spinPayout
+      };
+
+    var playConfig;
+    if (TC && TC.toPlayConfig) {
+      playConfig = TC.toPlayConfig(ctx, {
+        villainLevel: villainLevel || 'pro',
+        tableTheme: tableTheme || 'emerald',
+        handRange: 'all',
+        practiceStreet: 'preflop',
+        allowMultiway: (hand.playersSeated || spec.playersSeated || 2) >= 3
+      });
+    } else {
+      playConfig = {
+        gameType: fmt === '9max' ? 'cash9' : 'cash6',
+        villainLevel: villainLevel || 'pro',
+        tableTheme: tableTheme || 'emerald',
+        handRange: 'all',
+        practiceStreet: 'preflop'
+      };
+      if (global.PTPlayConfig && global.PTPlayConfig.normalize) {
+        playConfig = global.PTPlayConfig.normalize(playConfig);
+      }
+    }
+    playConfig.villainLevel = villainLevel || 'pro';
+    playConfig.tableTheme = tableTheme || 'emerald';
+    // Escenario multiway si ≥3 jugadores sentados y pot multiway potencial
+    if ((hand.playersSeated || spec.playersSeated || 0) >= 3 && playConfig.scenario === 'random') {
+      playConfig.allowMultiway = true;
     }
     return { force: force, playConfig: playConfig };
   }
@@ -741,33 +1022,84 @@
     (spec.villains || []).forEach(function (v) {
       if (!v || !v.pos || v.pos === heroPos) return;
       if (!byPos[v.pos]) {
-        byPos[v.pos] = { pos: v.pos, cards: (v.cards || []).slice(0, 2) };
-      } else if ((!byPos[v.pos].cards || !byPos[v.pos].cards.length) && v.cards && v.cards.length) {
-        byPos[v.pos].cards = v.cards.slice(0, 2);
+        byPos[v.pos] = {
+          pos: v.pos,
+          cards: (v.cards || []).slice(0, 2),
+          stackBB: v.stackBB
+        };
+      } else {
+        if ((!byPos[v.pos].cards || !byPos[v.pos].cards.length) && v.cards && v.cards.length) {
+          byPos[v.pos].cards = v.cards.slice(0, 2);
+        }
+        if (byPos[v.pos].stackBB == null && v.stackBB != null) byPos[v.pos].stackBB = v.stackBB;
       }
     });
     STREET_ORDER.forEach(function (st) {
       ((spec.actions && spec.actions[st]) || []).forEach(function (a) {
         if (!a || !a.pos || a.pos === heroPos || byPos[a.pos]) return;
-        byPos[a.pos] = { pos: a.pos, cards: [] };
+        byPos[a.pos] = { pos: a.pos, cards: [], stackBB: spec.heroStackBB };
       });
     });
-    var ordered = sortByRing(fmt, Object.keys(byPos)).map(function (pos) {
+    var seatedHint = spec.playersSeated != null
+      ? Number(spec.playersSeated)
+      : (1 + Object.keys(byPos).length);
+    var ordered = sortByRing(fmt, Object.keys(byPos), seatedHint).map(function (pos) {
       return byPos[pos];
     });
-    spec.villains = ordered.length ? ordered : [{ pos: '', cards: [] }];
+    spec.villains = ordered.length ? ordered : [{ pos: '', cards: [], stackBB: spec.heroStackBB }];
+    if (spec.playersSeated == null) {
+      spec.playersSeated = Math.max(2, 1 + ordered.length);
+    }
     return spec;
   }
 
   function ensureHandSpec(hand) {
+    function stacksFromHandSeats(h) {
+      var map = {};
+      if (!h || !h.seats || !h.bb) return map;
+      var bb = Number(h.bb) || 0;
+      if (!(bb > 0)) return map;
+      (h.seats || []).forEach(function (s) {
+        if (!s) return;
+        var pos = (h.positions && h.positions[s.name]) || s.name;
+        if (!pos) return;
+        map[pos] = Math.round(((Number(s.stack) || 0) / bb) * 10) / 10;
+      });
+      return map;
+    }
+    var seatStacks = hand.seatStacksBB || stacksFromHandSeats(hand);
+    var hub = hand.formatHub
+      || (hand.gameKind === 'spin' ? 'spin'
+        : ((hand.gameKind === 'mtt' || hand.gameKind === 'sng' || hand.isTournament) ? 'mtt' : 'cash'));
+    var defaultSt = defaultStackBB(hub);
+
     if (hand && hand.spec && hand.spec.heroPos && hand.spec.heroCards) {
       var s = hand.spec;
+      var heroStack = normalizeStackBB(
+        s.heroStackBB != null ? s.heroStackBB
+          : (hand.stackDepthBB != null ? hand.stackDepthBB
+            : (hand.heroPos && seatStacks[hand.heroPos])),
+        defaultSt
+      );
       var out = ensureVillainsFromActions({
         format: s.format === '9max' ? '9max' : '6max',
+        formatHub: s.formatHub || hub,
+        tournamentType: s.tournamentType || hand.tournamentType || 'unknown',
+        mttPhase: s.mttPhase || hand.mttPhase || 'auto',
+        playersSeated: s.playersSeated != null ? s.playersSeated : hand.playersSeated,
+        tableMax: s.tableMax != null ? s.tableMax : hand.tableMax,
         heroPos: s.heroPos,
         heroCards: (s.heroCards || []).slice(0, 2),
+        heroStackBB: heroStack,
         villains: (s.villains || []).map(function (v) {
-          return { pos: v.pos, cards: (v.cards || []).slice(0, 2) };
+          return {
+            pos: v.pos,
+            cards: (v.cards || []).slice(0, 2),
+            stackBB: normalizeStackBB(
+              v.stackBB != null ? v.stackBB : (v.pos && seatStacks[v.pos]),
+              heroStack
+            )
+          };
         }),
         board: (s.board || hand.boardAll || hand.board || []).slice(0, 5),
         bbEuro: normalizeBbEuro(s.bbEuro != null ? s.bbEuro : (hand.bbEuro != null ? hand.bbEuro : hand.bb)),
@@ -776,6 +1108,12 @@
             : (hand.anteBB != null ? hand.anteBB
               : (hand.ante && hand.bb ? hand.ante / hand.bb : 0))
         ),
+        playersLeft: s.playersLeft != null ? s.playersLeft : hand.playersLeft,
+        placesPaid: s.placesPaid != null ? s.placesPaid : hand.placesPaid,
+        entries: s.entries != null ? s.entries : hand.entries,
+        buyIn: s.buyIn != null ? s.buyIn : hand.buyIn,
+        mttStructureSituation: s.mttStructureSituation || hand.mttStructureSituation || null,
+        spinPayout: s.spinPayout || hand.spinPayout || null,
         actions: {
           preflop: ((s.actions && s.actions.preflop) || []).map(cloneAct),
           flop: ((s.actions && s.actions.flop) || []).map(cloneAct),
@@ -801,7 +1139,11 @@
             var pos = (hand.positions && hand.positions[a.player]) || a.player;
             if (!pos || seen[pos]) return;
             seen[pos] = true;
-            out.villains.push({ pos: pos, cards: [] });
+            out.villains.push({
+              pos: pos,
+              cards: [],
+              stackBB: normalizeStackBB(seatStacks[pos], heroStack)
+            });
           });
         });
         if (out.villains.length > 1 || (out.villains[0] && out.villains[0].pos)) {
@@ -809,27 +1151,47 @@
         }
         ensureVillainsFromActions(out);
       }
+      if (out.playersSeated == null) {
+        out.playersSeated = 1 + (out.villains || []).filter(function (v) { return v && v.pos; }).length;
+      }
       return out;
     }
     var villains = listSwappableVillains(hand).map(function (v) {
-      return { pos: v.pos, cards: v.cards.slice(0, 2) };
+      return {
+        pos: v.pos,
+        cards: v.cards.slice(0, 2),
+        stackBB: normalizeStackBB(seatStacks[v.pos], defaultSt)
+      };
     });
     // Incluir villanos sin cartas que hayan actuado
-    var seen = {};
-    villains.forEach(function (v) { seen[v.pos] = true; });
-    if (hand.heroPos) seen[hand.heroPos] = true;
+    var seen2 = {};
+    villains.forEach(function (v) { seen2[v.pos] = true; });
+    if (hand.heroPos) seen2[hand.heroPos] = true;
     STREET_ORDER.forEach(function (st) {
       (((hand.streets || {})[st]) || []).forEach(function (a) {
         var pos = (hand.positions && hand.positions[a.player]) || a.player;
-        if (!pos || seen[pos]) return;
-        seen[pos] = true;
-        villains.push({ pos: pos, cards: [] });
+        if (!pos || seen2[pos]) return;
+        seen2[pos] = true;
+        villains.push({
+          pos: pos,
+          cards: [],
+          stackBB: normalizeStackBB(seatStacks[pos], defaultSt)
+        });
       });
     });
+    var seatedN = hand.playersSeated != null
+      ? hand.playersSeated
+      : (1 + villains.length);
     return ensureVillainsFromActions({
-      format: '6max',
+      format: hand.format === '9max' || hand.formatKey === 'cash9' || hand.formatKey === 'mtt9' ? '9max' : '6max',
+      formatHub: hub,
+      tournamentType: hand.tournamentType || 'unknown',
+      mttPhase: hand.mttPhase || 'auto',
+      playersSeated: seatedN,
+      tableMax: hand.tableMax,
       heroPos: hand.heroPos,
       heroCards: (hand.heroCards || []).slice(0, 2),
+      heroStackBB: normalizeStackBB(hand.stackDepthBB != null ? hand.stackDepthBB : seatStacks[hand.heroPos], defaultSt),
       villains: villains,
       board: (hand.boardAll || hand.board || []).slice(0, 5),
       bbEuro: normalizeBbEuro(hand.bbEuro != null ? hand.bbEuro : hand.bb),
@@ -837,6 +1199,12 @@
         hand.anteBB != null ? hand.anteBB
           : (hand.ante && hand.bb ? hand.ante / hand.bb : 0)
       ),
+      playersLeft: hand.playersLeft,
+      placesPaid: hand.placesPaid,
+      entries: hand.entries,
+      buyIn: hand.buyIn,
+      mttStructureSituation: hand.mttStructureSituation || null,
+      spinPayout: hand.spinPayout || null,
       actions: actionsSpecFromHand(hand)
     });
   }
@@ -943,33 +1311,77 @@
 
   function emptyDraft(fmt) {
     var f = fmt === '9max' ? '9max' : '6max';
-    var ring = ringFor(f);
-    return {
+    var hub = 'cash';
+    var seated = f === '9max' ? 9 : 6;
+    var ring = ringFor(f, seated);
+    var stack = defaultStackBB(hub);
+    var d = {
       format: f,
+      formatHub: hub,
+      tournamentType: 'unknown',
+      mttPhase: 'auto',
+      playersSeated: seated,
+      tableMax: seated,
       heroPos: ring[0],
       heroCards: [],
-      villains: [{ pos: '', cards: [] }],
+      heroStackBB: stack,
+      villains: [],
       boardFlop: [],
       boardTurn: [],
       boardRiver: [],
       bbEuro: 0.05,
       anteBB: 0,
+      playersLeft: null,
+      placesPaid: null,
+      entries: null,
+      buyIn: null,
+      mttStructureSituation: null,
+      spinPayout: null,
       actions: emptyActions()
     };
+    syncVillainCount(d);
+    return d;
   }
 
   function draftFromSpec(spec) {
     var board = (spec.board || []).slice();
-    var d = emptyDraft(spec.format);
+    var hub = spec.formatHub
+      || (spec.anteBB > 0 || spec.gameKind === 'mtt' || spec.gameKind === 'sng' ? 'mtt'
+        : (spec.gameKind === 'spin' ? 'spin' : 'cash'));
+    var f = spec.format === '9max' ? '9max' : '6max';
+    if (hub === 'spin') f = '6max';
+    var d = emptyDraft(f);
+    d.formatHub = hub;
+    d.tournamentType = spec.tournamentType || 'unknown';
+    d.mttPhase = spec.mttPhase || 'auto';
     d.heroPos = spec.heroPos || d.heroPos;
     d.heroCards = (spec.heroCards || []).slice(0, 2);
     d.bbEuro = normalizeBbEuro(spec.bbEuro != null ? spec.bbEuro : 0.05);
     d.anteBB = normalizeAnteBB(spec.anteBB != null ? spec.anteBB : 0);
-    d.villains = (spec.villains && spec.villains.length)
+    d.heroStackBB = normalizeStackBB(spec.heroStackBB, defaultStackBB(hub));
+    d.playersLeft = spec.playersLeft != null ? spec.playersLeft : null;
+    d.placesPaid = spec.placesPaid != null ? spec.placesPaid : null;
+    d.entries = spec.entries != null ? spec.entries : null;
+    d.buyIn = spec.buyIn != null ? spec.buyIn : null;
+    d.mttStructureSituation = spec.mttStructureSituation || null;
+    d.spinPayout = spec.spinPayout || null;
+    var villains = (spec.villains && spec.villains.length)
       ? spec.villains.map(function (v) {
-          return { pos: v.pos || '', cards: (v.cards || []).slice(0, 2) };
+          return {
+            pos: v.pos || '',
+            cards: (v.cards || []).slice(0, 2),
+            stackBB: normalizeStackBB(v.stackBB, d.heroStackBB)
+          };
         })
-      : [{ pos: '', cards: [] }];
+      : [];
+    var seated = spec.playersSeated != null
+      ? Number(spec.playersSeated)
+      : (1 + villains.filter(function (v) { return v.pos; }).length);
+    if (!(seated >= 2)) seated = Math.max(2, 1 + villains.length);
+    d.playersSeated = seated;
+    d.tableMax = spec.tableMax != null ? spec.tableMax : maxPlayersForFormat(f, hub);
+    d.villains = villains;
+    syncVillainCount(d);
     d.boardFlop = board.slice(0, 3);
     d.boardTurn = board.slice(3, 4);
     d.boardRiver = board.slice(4, 5);
@@ -1006,7 +1418,7 @@
     (draft.villains || []).forEach(function (v) {
       if (v && v.pos && list.indexOf(v.pos) < 0) list.push(v.pos);
     });
-    return sortByRing(draft.format, list);
+    return sortByRing(draft.format, list, draft.playersSeated);
   }
 
   function foldStreetOf(draft, pos) {
@@ -1062,16 +1474,34 @@
   }
 
   function draftToSpec(draft) {
+    var hub = draft.formatHub || 'cash';
+    var heroStackBB = normalizeStackBB(draft.heroStackBB, defaultStackBB(hub));
     return {
       format: draft.format,
+      formatHub: hub,
+      tournamentType: draft.tournamentType || 'unknown',
+      mttPhase: draft.mttPhase || 'auto',
+      playersSeated: draft.playersSeated,
+      tableMax: draft.tableMax != null ? draft.tableMax : maxPlayersForFormat(draft.format, hub),
       heroPos: draft.heroPos,
       heroCards: (draft.heroCards || []).slice(0, 2),
+      heroStackBB: heroStackBB,
       bbEuro: normalizeBbEuro(draft.bbEuro),
       anteBB: normalizeAnteBB(draft.anteBB),
+      playersLeft: draft.playersLeft != null && draft.playersLeft !== '' ? Number(draft.playersLeft) : null,
+      placesPaid: draft.placesPaid != null && draft.placesPaid !== '' ? Number(draft.placesPaid) : null,
+      entries: draft.entries != null && draft.entries !== '' ? Number(draft.entries) : null,
+      buyIn: draft.buyIn != null && draft.buyIn !== '' ? Number(draft.buyIn) : null,
+      mttStructureSituation: draft.mttStructureSituation || null,
+      spinPayout: draft.spinPayout || null,
       villains: (draft.villains || [])
         .filter(function (v) { return v && v.pos; })
         .map(function (v) {
-          return { pos: v.pos, cards: (v.cards || []).slice(0, 2) };
+          return {
+            pos: v.pos,
+            cards: (v.cards || []).slice(0, 2),
+            stackBB: normalizeStackBB(v.stackBB, heroStackBB)
+          };
         }),
       board: [].concat(draft.boardFlop || [], draft.boardTurn || [], draft.boardRiver || []),
       actions: {
@@ -1421,8 +1851,10 @@
   }
 
   // ---------- render: formulario manual ----------
-  function posOptions(fmt, selected, taken) {
-    return ringFor(fmt).map(function (p) {
+  function posOptions(draftOrFmt, selected, taken) {
+    var fmt = typeof draftOrFmt === 'string' ? draftOrFmt : draftOrFmt.format;
+    var seated = typeof draftOrFmt === 'string' ? null : draftOrFmt.playersSeated;
+    return ringFor(fmt, seated).map(function (p) {
       if (taken && taken[p] && p !== selected) return '';
       return '<option value="' + p + '"' + (p === selected ? ' selected' : '') + '>' + p + '</option>';
     }).join('');
@@ -1641,8 +2073,12 @@
     var html = '<div class="ha-villain-row" data-vidx="' + idx + '">';
     html += '<select class="ha-vpos" data-ha-vpos="' + idx + '">';
     html += '<option value="">— asiento —</option>';
-    html += posOptions(draft.format, v.pos, taken);
+    html += posOptions(draft, v.pos, taken);
     html += '</select>';
+    html += '<label class="ha-vstack-label muted-text">Stack';
+    html += '<input class="ha-vstack" type="number" min="1" max="500" step="any" inputmode="decimal" data-ha-vstack="' + idx + '" value="' +
+      esc(String(v.stackBB != null ? v.stackBB : (draft.heroStackBB != null ? draft.heroStackBB : 100))) + '" />';
+    html += '<span class="muted-text">bb</span></label>';
     html += cardSlotHTML(v.cards || [], 2, 'villain', idx);
     html += '<button type="button" class="ha-row-del" data-ha-del-vrow="' + idx + '" aria-label="Quitar">&times;</button>';
     html += '</div>';
@@ -1652,11 +2088,22 @@
   function heroPosChipsHTML(draft) {
     var taken = takenSeats(draft, null);
     var html = '';
-    ringFor(draft.format).forEach(function (p) {
+    draftRing(draft).forEach(function (p) {
       if (taken[p] === 'villain' && p !== draft.heroPos) return;
       html += '<button type="button" class="ha-chip' + (p === draft.heroPos ? ' active' : '') +
         '" data-ha-hero-pos="' + p + '">' + p + '</button>';
     });
+    return html;
+  }
+
+  function playersSeatedChipsHTML(draft) {
+    var maxP = maxPlayersForFormat(draft.format, draft.formatHub);
+    var html = '';
+    for (var n = 2; n <= maxP; n++) {
+      var label = n === 2 ? 'HU' : String(n);
+      html += '<button type="button" class="ha-chip' + (n === draft.playersSeated ? ' active' : '') +
+        '" data-ha-seated="' + n + '">' + label + '</button>';
+    }
     return html;
   }
 
@@ -1667,33 +2114,100 @@
       syncActionsFromSeats(S.draft);
     }
     var draft = S.draft;
+    syncVillainCount(draft);
     var editing = !!S.editId;
+    var hub = draft.formatHub || 'cash';
+    var isTourney = hub === 'mtt' || hub === 'spin';
+    var Tax = global.PTFormatTaxonomy;
+    var TC = global.PTTournamentContext;
+    var typeLabels = (Tax && Tax.TOURNAMENT_TYPE_LABELS)
+      || (TC && TC.TOURNAMENT_TYPE_LABELS)
+      || { vanilla: 'Vanilla', pko: 'PKO', mystery: 'Mystery', unknown: 'No sé' };
+    var phaseLabels = (Tax && Tax.PHASE_LABELS) || {
+      auto: 'Auto', early: 'Early', mid: 'Mid', short: 'Short', push: 'Push/fold', bubble: 'Burbuja'
+    };
     var html = '';
     html += '<button class="btn btn-ghost back-btn" data-ha-back>&laquo; Volver</button>';
     html += '<h2 class="ha-title">' + (editing ? 'Editar mano' : 'Añadir mano manualmente') + '</h2>';
-    html += '<p class="muted-text">El análisis manual está incluido gratis. Elige asientos (sin repetir), cartas con el selector visual y las acciones por calle.</p>';
+    html += '<p class="muted-text">El análisis manual está incluido gratis. Configura mesa, stacks y acciones; en torneo se usan fase y stacks reales para evaluar.</p>';
 
     html += '<div class="ha-form">';
 
-    html += '<div class="ha-field"><label>Formato de mesa</label><div class="ha-chips ha-format">';
-    [['6max', '6-max'], ['9max', '9-max']].forEach(function (f) {
-      html += '<button type="button" class="ha-chip' + (f[0] === draft.format ? ' active' : '') + '" data-ha-format="' + f[0] + '">' + f[1] + '</button>';
+    html += '<div class="ha-field"><label>Modo de juego</label><div class="ha-chips ha-hub">';
+    [['cash', 'Cash'], ['spin', 'Spins'], ['mtt', 'Torneos']].forEach(function (h) {
+      html += '<button type="button" class="ha-chip' + (h[0] === hub ? ' active' : '') + '" data-ha-hub="' + h[0] + '">' + h[1] + '</button>';
     });
     html += '</div></div>';
+
+    html += '<div class="ha-field"><label>Capacidad de mesa</label><div class="ha-chips ha-format">';
+    if (hub === 'spin') {
+      html += '<button type="button" class="ha-chip active" data-ha-format="6max">3-max</button>';
+    } else {
+      [['6max', '6-max'], ['9max', '9-max']].forEach(function (f) {
+        html += '<button type="button" class="ha-chip' + (f[0] === draft.format ? ' active' : '') + '" data-ha-format="' + f[0] + '">' + f[1] + '</button>';
+      });
+    }
+    html += '</div></div>';
+
+    html += '<div class="ha-field"><label>Jugadores en mesa</label><div class="ha-chips ha-seated">';
+    html += playersSeatedChipsHTML(draft);
+    html += '</div>';
+    html += '<span class="muted-text ha-bb-hint">HU = 2 jugadores. Define cuántos villanos hay (N−1) y qué posiciones están disponibles.</span>';
+    html += '</div>';
 
     html += '<div class="ha-field ha-bb-field"><label for="ha-bb-euro">Valor de la BB (€)</label>';
     html += '<div class="ha-bb-row">';
     html += '<input id="ha-bb-euro" class="ha-bb-euro" type="number" min="0.01" max="100" step="0.01" data-ha-bb-euro value="' +
       esc(String(draft.bbEuro != null ? draft.bbEuro : 0.05)) + '" />';
-    html += '<span class="muted-text ha-bb-hint">SB = mitad. Ej.: 0.02 → NL2, 0.05 → NL5. Las acciones siguen en bb; el paso a paso muestra euros.</span>';
+    html += '<span class="muted-text ha-bb-hint">SB = mitad. Las acciones siguen en bb.</span>';
     html += '</div></div>';
 
-    html += '<div class="ha-field ha-ante-field"><label for="ha-ante-bb">Ante (bb) · torneos</label>';
-    html += '<div class="ha-bb-row">';
-    html += '<input id="ha-ante-bb" class="ha-ante-bb" type="number" min="0" max="50" step="any" inputmode="decimal" data-ha-ante-bb value="' +
-      esc(String(draft.anteBB != null ? draft.anteBB : 0)) + '" />';
-    html += '<span class="muted-text ha-bb-hint">0 = cash / sin ante. En MTT cada asiento de la mesa aporta ese ante al bote inicial.</span>';
-    html += '</div></div>';
+    if (isTourney) {
+      html += '<div class="ha-field ha-tourney-block"><label>Contexto de torneo</label>';
+      html += '<div class="ha-chips ha-tourney-type">';
+      ['vanilla', 'pko', 'mystery', 'unknown'].forEach(function (t) {
+        html += '<button type="button" class="ha-chip' + (t === (draft.tournamentType || 'unknown') ? ' active' : '') +
+          '" data-ha-ttype="' + t + '">' + esc(typeLabels[t] || t) + '</button>';
+      });
+      html += '</div>';
+      html += '<div class="ha-chips ha-phase" style="margin-top:0.5rem">';
+      ['auto', 'early', 'mid', 'short', 'push', 'bubble'].forEach(function (p) {
+        html += '<button type="button" class="ha-chip' + (p === (draft.mttPhase || 'auto') ? ' active' : '') +
+          '" data-ha-phase="' + p + '">' + esc(phaseLabels[p] || p) + '</button>';
+      });
+      html += '</div>';
+      html += '<div class="ha-bb-row" style="margin-top:0.5rem">';
+      html += '<label class="muted-text" for="ha-ante-bb">Ante (bb)</label>';
+      html += '<input id="ha-ante-bb" class="ha-ante-bb" type="number" min="0" max="50" step="any" inputmode="decimal" data-ha-ante-bb value="' +
+        esc(String(draft.anteBB != null ? draft.anteBB : 0)) + '" />';
+      html += '</div>';
+      html += '<div class="ha-bb-row" style="margin-top:0.5rem">';
+      html += '<label class="muted-text" for="ha-mtt-sit">Situación ICM</label>';
+      html += '<select id="ha-mtt-sit" data-ha-mtt-sit>';
+      [['', '—'], ['auto', 'Según fase'], ['bubble', 'Burbuja'], ['mincash', 'Min-cash'], ['ft9', 'FT 9'], ['custom', 'Personalizado']].forEach(function (o) {
+        html += '<option value="' + o[0] + '"' + ((draft.mttStructureSituation || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+      });
+      html += '</select></div>';
+      if (draft.mttStructureSituation === 'custom' || draft.mttStructureSituation === 'bubble'
+        || draft.mttStructureSituation === 'mincash' || draft.mttStructureSituation === 'ft9') {
+        html += '<div class="ha-bb-row" style="margin-top:0.5rem">';
+        html += '<input type="number" min="2" max="500" step="1" placeholder="Left" data-ha-players-left value="' +
+          esc(draft.playersLeft != null ? String(draft.playersLeft) : '') + '" />';
+        html += '<input type="number" min="1" max="500" step="1" placeholder="Paid" data-ha-places-paid value="' +
+          esc(draft.placesPaid != null ? String(draft.placesPaid) : '') + '" />';
+        html += '<input type="number" min="0" step="0.01" placeholder="Buy-in €" data-ha-buyin value="' +
+          esc(draft.buyIn != null ? String(draft.buyIn) : '') + '" />';
+        html += '</div>';
+      }
+      html += '</div>';
+    } else {
+      html += '<div class="ha-field ha-ante-field"><label for="ha-ante-bb">Ante (bb)</label>';
+      html += '<div class="ha-bb-row">';
+      html += '<input id="ha-ante-bb" class="ha-ante-bb" type="number" min="0" max="50" step="any" inputmode="decimal" data-ha-ante-bb value="' +
+        esc(String(draft.anteBB != null ? draft.anteBB : 0)) + '" />';
+      html += '<span class="muted-text ha-bb-hint">Normalmente 0 en cash.</span>';
+      html += '</div></div>';
+    }
 
     html += '<div class="ha-field"><label>Posición del héroe</label><div class="ha-chips ha-hero-pos">';
     html += heroPosChipsHTML(draft);
@@ -1701,9 +2215,13 @@
 
     html += '<div class="ha-field"><label>Cartas del héroe</label>';
     html += cardSlotHTML(draft.heroCards, 2, 'hero', null);
-    html += '</div>';
+    html += '<div class="ha-bb-row" style="margin-top:0.4rem">';
+    html += '<label class="muted-text" for="ha-hero-stack">Stack héroe (bb)</label>';
+    html += '<input id="ha-hero-stack" type="number" min="1" max="500" step="any" inputmode="decimal" data-ha-hero-stack value="' +
+      esc(String(draft.heroStackBB != null ? draft.heroStackBB : defaultStackBB(hub))) + '" />';
+    html += '</div></div>';
 
-    html += '<div class="ha-field"><label>Villanos (asiento y cartas si se conocen)</label>';
+    html += '<div class="ha-field"><label>Villanos (asiento, stack y cartas si se conocen)</label>';
     html += '<div class="ha-villains">';
     (draft.villains || []).forEach(function (v, i) {
       html += villainRowHTML(draft, v, i);
@@ -1722,7 +2240,7 @@
       var acts = (draft.actions && draft.actions[st]) || [];
       var players = activePlayersForStreet(draft, st);
       html += '<div class="ha-field ha-street-field" data-street-field="' + st + '"><label>Acciones · ' + STREET_LABELS[st] + '</label>';
-      html += '<p class="muted-text ha-street-hint">Cada fila es una acción en orden temporal (p. ej. raise → re-raise → call). Los importes de igualar se calculan solos, pero puedes borrarlos y escribir el número exacto. En subir, el valor es el total (hasta X bb); si pones un número menor o igual que la apuesta actual, se interpreta como tamaño de la resubida.</p>';
+      html += '<p class="muted-text ha-street-hint">Cada fila es una acción en orden temporal. En subir, el valor es el total (hasta X bb).</p>';
       html += '<div class="ha-actions-list" data-street-list="' + st + '">';
       if (!acts.length) {
         html += '<p class="muted-text ha-street-empty">Selecciona héroe y villanos para cargar sus acciones.</p>';
@@ -1785,13 +2303,126 @@
       anteInp.addEventListener('blur', syncAnte);
     }
 
+    var heroStackInp = root.querySelector('[data-ha-hero-stack]');
+    if (heroStackInp) {
+      var syncHeroStack = function () {
+        draft.heroStackBB = normalizeStackBB(heroStackInp.value, defaultStackBB(draft.formatHub));
+        heroStackInp.value = String(draft.heroStackBB);
+      };
+      heroStackInp.addEventListener('change', syncHeroStack);
+      heroStackInp.addEventListener('blur', syncHeroStack);
+    }
+
+    root.querySelectorAll('[data-ha-vstack]').forEach(function (inp) {
+      var syncV = function () {
+        var idx = parseInt(inp.dataset.haVstack, 10);
+        if (!draft.villains[idx]) return;
+        draft.villains[idx].stackBB = normalizeStackBB(inp.value, draft.heroStackBB);
+        inp.value = String(draft.villains[idx].stackBB);
+      };
+      inp.addEventListener('change', syncV);
+      inp.addEventListener('blur', syncV);
+    });
+
+    root.querySelectorAll('[data-ha-hub]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var hub = btn.dataset.haHub;
+        if (hub === draft.formatHub) return;
+        draft.formatHub = hub;
+        if (hub === 'spin') {
+          draft.format = '6max';
+          draft.playersSeated = Math.min(draft.playersSeated || 3, 3);
+          draft.tableMax = 3;
+        } else {
+          draft.tableMax = maxPlayersForFormat(draft.format, hub);
+          if (draft.playersSeated > draft.tableMax) draft.playersSeated = draft.tableMax;
+        }
+        if (hub === 'cash') {
+          draft.tournamentType = 'unknown';
+          draft.mttPhase = 'auto';
+          draft.anteBB = 0;
+        } else if (draft.anteBB === 0) {
+          var Tax = global.PTFormatTaxonomy;
+          draft.anteBB = Tax && Tax.defaultAnteBB
+            ? Tax.defaultAnteBB({ formatHub: hub, mttPhase: draft.mttPhase || 'auto', stackBB: draft.heroStackBB })
+            : (hub === 'mtt' ? 0.125 : 0);
+        }
+        if (!(draft.heroStackBB > 0) || draft.heroStackBB === 100 || draft.heroStackBB === 40 || draft.heroStackBB === 25) {
+          draft.heroStackBB = defaultStackBB(hub);
+        }
+        syncVillainCount(draft);
+        ensureUniqueSeats(draft);
+        syncActionsFromSeats(draft);
+        refreshManualKeepScroll();
+      });
+    });
+
+    root.querySelectorAll('[data-ha-seated]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var n = parseInt(btn.dataset.haSeated, 10);
+        if (n === draft.playersSeated) return;
+        draft.playersSeated = n;
+        syncVillainCount(draft);
+        ensureUniqueSeats(draft);
+        syncActionsFromSeats(draft);
+        refreshManualKeepScroll();
+      });
+    });
+
+    root.querySelectorAll('[data-ha-ttype]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        draft.tournamentType = btn.dataset.haTtype || 'unknown';
+        refreshManualKeepScroll();
+      });
+    });
+
+    root.querySelectorAll('[data-ha-phase]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        draft.mttPhase = btn.dataset.haPhase || 'auto';
+        refreshManualKeepScroll();
+      });
+    });
+
+    var sitSel = root.querySelector('[data-ha-mtt-sit]');
+    if (sitSel) {
+      sitSel.addEventListener('change', function () {
+        draft.mttStructureSituation = sitSel.value || null;
+        var Tax = global.PTFormatTaxonomy;
+        if (draft.mttStructureSituation && Tax && Tax.structureFromSituation) {
+          var fromSit = Tax.structureFromSituation(draft.mttStructureSituation, draft.buyIn);
+          if (fromSit) {
+            if (fromSit.playersLeft != null) draft.playersLeft = fromSit.playersLeft;
+            if (fromSit.placesPaid != null) draft.placesPaid = fromSit.placesPaid;
+            if (fromSit.entries != null) draft.entries = fromSit.entries;
+            if (fromSit.buyIn != null && draft.buyIn == null) draft.buyIn = fromSit.buyIn;
+          }
+        }
+        refreshManualKeepScroll();
+      });
+    }
+    var leftInp = root.querySelector('[data-ha-players-left]');
+    if (leftInp) leftInp.addEventListener('change', function () {
+      draft.playersLeft = leftInp.value === '' ? null : Number(leftInp.value);
+    });
+    var paidInp = root.querySelector('[data-ha-places-paid]');
+    if (paidInp) paidInp.addEventListener('change', function () {
+      draft.placesPaid = paidInp.value === '' ? null : Number(paidInp.value);
+    });
+    var buyInp = root.querySelector('[data-ha-buyin]');
+    if (buyInp) buyInp.addEventListener('change', function () {
+      draft.buyIn = buyInp.value === '' ? null : Number(buyInp.value);
+    });
+
     root.querySelectorAll('[data-ha-format]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var fmt = btn.dataset.haFormat;
         if (fmt === draft.format) return;
         draft.format = fmt;
         S.format = fmt;
-        var ring = ringFor(fmt);
+        draft.tableMax = maxPlayersForFormat(fmt, draft.formatHub);
+        if (draft.playersSeated > draft.tableMax) draft.playersSeated = draft.tableMax;
+        syncVillainCount(draft);
+        var ring = draftRing(draft);
         if (ring.indexOf(draft.heroPos) < 0) draft.heroPos = ring[0];
         (draft.villains || []).forEach(function (v) {
           if (v.pos && ring.indexOf(v.pos) < 0) v.pos = '';
@@ -1821,7 +2452,10 @@
 
     var addV = root.querySelector('[data-ha-add-villain]');
     if (addV) addV.addEventListener('click', function () {
-      draft.villains.push({ pos: '', cards: [] });
+      var maxP = maxPlayersForFormat(draft.format, draft.formatHub);
+      if ((draft.playersSeated || 2) >= maxP) return;
+      draft.playersSeated = (draft.playersSeated || 2) + 1;
+      syncVillainCount(draft);
       refreshManualKeepScroll();
     });
 
@@ -1839,7 +2473,7 @@
         draft.villains[idx].pos = pos;
         // Si el héroe tenía ese asiento, mover héroe al primer libre y remapear sus acciones
         if (pos && draft.heroPos === pos) {
-          var ring = ringFor(draft.format);
+          var ring = draftRing(draft);
           var takenAfter = {};
           draft.villains.forEach(function (v) {
             if (v.pos) takenAfter[v.pos] = true;
@@ -1859,7 +2493,8 @@
       btn.addEventListener('click', function () {
         var idx = parseInt(btn.dataset.haDelVrow, 10);
         draft.villains.splice(idx, 1);
-        if (!draft.villains.length) draft.villains.push({ pos: '', cards: [] });
+        draft.playersSeated = Math.max(2, 1 + draft.villains.length);
+        syncVillainCount(draft);
         syncActionsFromSeats(draft);
         refreshManualKeepScroll();
       });
@@ -1986,11 +2621,26 @@
     if (bbEl) draft.bbEuro = normalizeBbEuro(bbEl.value);
     var anteEl = S.container && S.container.querySelector('[data-ha-ante-bb]');
     if (anteEl) draft.anteBB = normalizeAnteBB(anteEl.value);
+    var heroStackEl = S.container && S.container.querySelector('[data-ha-hero-stack]');
+    if (heroStackEl) draft.heroStackBB = normalizeStackBB(heroStackEl.value, defaultStackBB(draft.formatHub));
     if (S.container) {
+      S.container.querySelectorAll('[data-ha-vstack]').forEach(function (inp) {
+        var idx = parseInt(inp.dataset.haVstack, 10);
+        if (draft.villains[idx]) {
+          draft.villains[idx].stackBB = normalizeStackBB(inp.value, draft.heroStackBB);
+        }
+      });
+      var leftEl = S.container.querySelector('[data-ha-players-left]');
+      if (leftEl) draft.playersLeft = leftEl.value === '' ? null : Number(leftEl.value);
+      var paidEl = S.container.querySelector('[data-ha-places-paid]');
+      if (paidEl) draft.placesPaid = paidEl.value === '' ? null : Number(paidEl.value);
+      var buyEl = S.container.querySelector('[data-ha-buyin]');
+      if (buyEl) draft.buyIn = buyEl.value === '' ? null : Number(buyEl.value);
       // Volcar DOM → draft (incl. calls editados) y completar vacíos con auto/mínimo.
       syncAllStreetInputs(S.container, { fillDefaults: true, forceCalls: true });
       commitDraftActionsFromDom(S.container, draft);
     }
+    syncVillainCount(draft);
     syncActionsFromSeats(draft);
     finalizeDraftAmounts(draft);
     var spec = draftToSpec(draft);
@@ -2095,10 +2745,28 @@
   }
 
   function normalizeAiSpec(aiHand) {
+    var hub = aiHand.formatHub
+      || (aiHand.gameKind === 'spin' ? 'spin'
+        : ((aiHand.gameKind === 'mtt' || aiHand.gameKind === 'sng' || aiHand.isTournament) ? 'mtt' : 'cash'));
+    if (aiHand.anteBB > 0 && hub === 'cash') hub = 'mtt';
+    var heroStackBB = normalizeStackBB(aiHand.heroStackBB, defaultStackBB(hub));
     var spec = {
       format: aiHand.format === '9max' ? '9max' : '6max',
+      formatHub: hub,
+      tournamentType: aiHand.tournamentType || 'unknown',
+      mttPhase: aiHand.mttPhase || 'auto',
+      playersSeated: aiHand.playersSeated != null ? Number(aiHand.playersSeated) : null,
+      tableMax: aiHand.tableMax != null ? Number(aiHand.tableMax) : null,
       heroPos: aiHand.heroPos,
       heroCards: parseCardList((aiHand.heroCards || []).join(' ')),
+      heroStackBB: heroStackBB,
+      anteBB: normalizeAnteBB(aiHand.anteBB != null ? aiHand.anteBB : 0),
+      bbEuro: aiHand.bbEuro != null ? normalizeBbEuro(aiHand.bbEuro) : 0.05,
+      playersLeft: aiHand.playersLeft != null ? aiHand.playersLeft : null,
+      placesPaid: aiHand.placesPaid != null ? aiHand.placesPaid : null,
+      entries: aiHand.entries != null ? aiHand.entries : null,
+      buyIn: aiHand.buyIn != null ? aiHand.buyIn : null,
+      mttStructureSituation: aiHand.mttStructureSituation || null,
       villains: [],
       board: parseCardList((aiHand.board || []).join(' ')),
       actions: { preflop: [], flop: [], turn: [], river: [] },
@@ -2107,8 +2775,15 @@
     (aiHand.villains || []).forEach(function (v) {
       if (!v || !v.pos) return;
       var cards = parseCardList((v.cards || []).join(' '));
-      spec.villains.push({ pos: v.pos, cards: cards.length === 2 ? cards : [] });
+      spec.villains.push({
+        pos: v.pos,
+        cards: cards.length === 2 ? cards : [],
+        stackBB: normalizeStackBB(v.stackBB, heroStackBB)
+      });
     });
+    if (spec.playersSeated == null) {
+      spec.playersSeated = Math.max(2, 1 + spec.villains.length);
+    }
     var acts = aiHand.actions || {};
     STREET_ORDER.forEach(function (st) {
       (acts[st] || []).forEach(function (a) {

@@ -307,10 +307,12 @@
       visibleGt[0].classList.add('active');
     }
     const phaseGroup = $('#setup-group-phase');
+    const typeGroup = $('#setup-group-tournament-type');
     const payoutGroup = $('#setup-group-spin-payout');
     const mttStructGroup = $('#setup-group-mtt-structure');
     const rakeGroup = $('#setup-group-rake');
     if (phaseGroup) phaseGroup.hidden = h === 'cash';
+    if (typeGroup) typeGroup.hidden = h !== 'mtt';
     if (payoutGroup) payoutGroup.hidden = h !== 'spin';
     if (mttStructGroup) mttStructGroup.hidden = h !== 'mtt';
     if (rakeGroup) rakeGroup.hidden = h !== 'cash';
@@ -590,6 +592,7 @@
     const smEl = $('#setup-score-mode .setup-chip.active');
     const stEl = $('#setup-practice-street .setup-chip.active');
     const phaseEl = $('#setup-mtt-phase .setup-chip.active');
+    const typeEl = $('#setup-tournament-type .setup-chip.active');
     const payoutEl = $('#setup-spin-payout .setup-chip.active');
     const thEl = $('#setup-table-theme .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
@@ -649,6 +652,7 @@
       // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
       practiceIntent: 'mixed',
       mttPhase: phaseEl ? phaseEl.dataset.val : 'auto',
+      tournamentType: typeEl ? typeEl.dataset.val : 'unknown',
       spinPayout: payoutEl ? payoutEl.dataset.val : '2x',
       buyIn: mttStruct.buyIn,
       playersLeft: mttStruct.playersLeft,
@@ -1388,6 +1392,7 @@
     syncFormatHubUI(hub);
     activate('#setup-game-type', cfg.gameType);
     activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
+    activate('#setup-tournament-type', cfg.tournamentType || 'unknown');
     activate('#setup-scenario', cfg.scenario);
     activate('#setup-stack-depth', cfg.stackDepth);
     activate('#setup-open-size', String(cfg.preflopOpenSize != null ? cfg.preflopOpenSize : 2.5));
@@ -1558,6 +1563,7 @@
       syncPhaseStackUI(hub);
       syncMttStructureUI({ skipDefaults: true });
     });
+    bindChipGroup('#setup-tournament-type', markPresetCustom);
     bindChipGroup('#setup-open-size', markPresetCustom);
     bindChipGroup('#setup-play-preset', () => {
       const el = $('#setup-play-preset .setup-chip.active');
