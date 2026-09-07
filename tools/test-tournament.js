@@ -1592,14 +1592,23 @@ console.log('OK pushfold-freq-100');
   const sess = g.PTTournamentSessionBridge.buildSessionFromTournament({
     id: 't_a',
     config: { name: 'Sit & Go 6-max', kind: 'sng', entries: 6, buyInEur: 5 },
-    result: { place: 3, prizeEur: 0, stats: { profit: -5 } },
+    result: {},
     finishedAt: '2026-01-01T00:00:00.000Z',
     sessionHands: [handRfi],
     handLog: []
-  }, {});
+  }, {
+    tournamentMeta: {
+      place: 3,
+      prizeEur: 0,
+      stats: { profit: -5, roi: -100, handsPlayed: 1, vpip: 25, pfr: 18 }
+    }
+  });
   assert.strictEqual(sess.source, 'tournamentAi');
   assert.strictEqual(sess.tournamentAi, true, 'tournamentAi flag for merge skip');
   assert.strictEqual(sess.fileName.indexOf('Sit & Go'), 0, 'fileName from preset');
+  assert.strictEqual(sess.tournament.place, 3, 'tournament place persisted');
+  assert.strictEqual(sess.stats.finishPlace, 3, 'stats.finishPlace');
+  assert.strictEqual(sess.tournamentStats.profit, -5, 'tournamentStats saved');
   console.log('OK tournament-session-gto-align');
 }
 
@@ -1664,6 +1673,42 @@ console.log('OK pushfold-freq-100');
   const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(css.includes('.trn-equity-pct'), 'equity css');
   console.log('OK tournament-allin-equity');
+}
+
+// --- ante encima del bote + stats generales ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  const liveSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/live-hand.js'), 'utf8');
+  assert.ok(liveSrc.includes('antePot') && liveSrc.includes('antePaidCount'), 'live-hand tracks ante pot');
+  assert.ok(uiSrc.includes('trn-ante-label') && uiSrc.includes('Ante'), 'ante label above pot');
+  assert.ok(!/streetBet <= 0 && hand\.street === 'preflop'[\s\S]{0,80}invested/.test(uiSrc),
+    'no ante-as-seat-bet fallback');
+  assert.ok(uiSrc.includes('general-stats') && uiSrc.includes('Estadísticas generales'),
+    'hub general stats button');
+  assert.ok(uiSrc.includes('renderGeneralStats') || uiSrc.includes('VIEW.generalStats'),
+    'general stats view');
+
+  const Stats = g.PTTournamentStats;
+  assert.ok(Stats.aggregateFromHistory, 'aggregateFromHistory');
+  const agg = Stats.aggregateFromHistory([
+    { place: 1, prizeEur: 30, buyInEur: 5, profit: 25, roi: 500, kind: 'sng', roleAccuracy: 80 },
+    { place: 4, prizeEur: 0, buyInEur: 5, profit: -5, roi: -100, kind: 'sng', roleAccuracy: 40 },
+    { place: 2, prizeEur: 10, buyInEur: 5, profit: 5, roi: 100, kind: 'mtt', roleAccuracy: 60 }
+  ]);
+  assert.strictEqual(agg.n, 3);
+  assert.strictEqual(agg.wins, 1);
+  assert.strictEqual(agg.itm, 2);
+  assert.strictEqual(agg.totalProfit, 25);
+  assert.ok(agg.byKind.sng === 2 && agg.byKind.mtt === 1, 'byKind');
+
+  const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
+  assert.ok(appSrc.includes('isTournamentAi') && appSrc.includes('Ver estadísticas de manos'),
+    'session detail shows tournament summary + hand stats access');
+  assert.ok(appSrc.includes('btn-trn-session-hand-stats') || appSrc.includes('_showHandStats'),
+    'toggle hand stats from tournament summary');
+  const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(css.includes('trn-ante-label') && css.includes('trn-gstat-grid'), 'ante + gstat css');
+  console.log('OK tournament-ante-and-general-stats');
 }
 
 console.log('*** test-tournament OK ***');

@@ -411,17 +411,46 @@
       hero = global.PTTournamentState && PTTournamentState.hero(state);
     } catch (e) { /* */ }
     var heroName = (hero && hero.name) || (hands[0] && hands[0].hero) || 'Hero';
-    var stats = null;
+    var handStats = null;
     try {
       if (global.Importer && typeof global.Importer.computeStats === 'function') {
-        stats = global.Importer.computeStats(hands);
+        handStats = global.Importer.computeStats(hands);
       }
     } catch (e2) { /* */ }
 
     var cfg = state.config || {};
     var result = state.result || {};
+    var trnMeta = opts.tournamentMeta || {};
+    var place = trnMeta.place != null ? trnMeta.place
+      : (result.place != null ? result.place : null);
+    var prizeEur = trnMeta.prizeEur != null ? trnMeta.prizeEur
+      : (result.prizeEur != null ? result.prizeEur : 0);
+    var tournamentStats = trnMeta.stats || (result.stats || null);
+    var profit = tournamentStats && tournamentStats.profit != null
+      ? tournamentStats.profit
+      : ((Number(prizeEur) || 0) - (Number(cfg.buyInEur) || 0));
+    var roi = tournamentStats && tournamentStats.roi != null
+      ? tournamentStats.roi
+      : ((Number(cfg.buyInEur) > 0)
+        ? Math.round((profit / Number(cfg.buyInEur)) * 1000) / 10
+        : 0);
+
     var fileName = (cfg.name || 'Torneo IA') +
-      (result.place != null ? (' · ' + result.place + 'º') : '');
+      (place != null ? (' · ' + place + 'º') : '');
+
+    /* Stats de sesión = manos GTO + meta de torneo (puesto/ROI) para el histórico. */
+    var stats = Object.assign({}, handStats || {}, {
+      source: 'tournamentAi',
+      finishPlace: place,
+      prizeEur: prizeEur,
+      profitEuro: profit,
+      roiPct: roi,
+      buyInEur: cfg.buyInEur || 0,
+      players: cfg.entries || null,
+      handsPlayed: tournamentStats && tournamentStats.handsPlayed != null
+        ? tournamentStats.handsPlayed
+        : (handStats && handStats.nHands)
+    });
 
     return {
       id: opts.sessionId || ('trn_sess_' + (state.id || Date.now())),
@@ -436,26 +465,27 @@
       source: 'tournamentAi',
       tournamentAi: true,
       tournamentId: state.id,
+      tournamentStats: tournamentStats,
       tournament: {
         id: state.id,
         name: cfg.name || 'Torneo IA',
         kind: cfg.kind || 'mtt',
         entries: cfg.entries,
-        place: result.place != null ? result.place : null,
-        prizeEur: result.prizeEur || 0,
+        place: place,
+        prizeEur: prizeEur,
         buyInEur: cfg.buyInEur || 0,
-        profit: result.stats && result.stats.profit != null
-          ? result.stats.profit
-          : ((result.prizeEur || 0) - (cfg.buyInEur || 0)),
-        finishedAt: state.finishedAt || null
+        profit: profit,
+        roi: roi,
+        finishedAt: state.finishedAt || null,
+        placesPaid: cfg.placesPaid || null
       },
       analysisVersion: global.PT_BUILD || '1',
       hasTxt: false,
       rawText: null,
       context: {
         gameKind: 'mtt',
-        formatKey: 'mtt',
-        format: cfg.kind === 'sng' ? 'SNG' : 'MTT'
+        formatKey: cfg.kind === 'spin' ? 'spin3' : 'mtt',
+        format: cfg.kind === 'sng' ? 'SNG' : (cfg.kind === 'spin' ? 'SPIN' : 'MTT')
       }
     };
   }

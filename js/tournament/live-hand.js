@@ -236,12 +236,17 @@
       result: null
     };
 
+    hand.antePot = 0;
+    hand.antePaidCount = 0;
     if (hand.ante > 0) {
       seats.forEach(function (s) {
         var a = Math.min(s.stack, hand.ante);
+        if (!(a > 0)) return;
         s.stack = r2(s.stack - a);
         s.invested = r2(s.invested + a);
         hand.pot = r2(hand.pot + a);
+        hand.antePot = r2(hand.antePot + a);
+        hand.antePaidCount += 1;
         if (s.stack <= 0) { s.stack = 0; s.allIn = true; }
       });
     }

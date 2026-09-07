@@ -1918,6 +1918,63 @@
   opacity: .35;
 }
 
+/* Estadísticas generales de torneos */
+.trn-general-stats { max-width: 720px; margin: 0 auto; }
+.trn-gstat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.trn-gstat-cell {
+  padding: 12px 10px;
+  border-radius: 12px;
+  background: rgba(20, 28, 40, .55);
+  border: 1px solid rgba(180, 200, 230, .12);
+  text-align: center;
+}
+.trn-gstat-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #e6edf3);
+}
+.trn-gstat-lbl {
+  margin-top: 4px;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted, #8b97a7);
+}
+.trn-gstat-kinds { font-size: 13px; margin: 0 0 16px; }
+.trn-play-like .board-area .trn-ante-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(232, 238, 246, .92);
+  letter-spacing: .02em;
+}
+.trn-play-like .trn-ante-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #1a1408;
+  background: linear-gradient(180deg, #f0d48a, #d4a84a);
+  border: 1px solid rgba(120, 80, 20, .35);
+}
+.trn-play-like .trn-ante-label strong {
+  font-variant-numeric: tabular-nums;
+  color: #f5c451;
+}
+
 /* —— Cartel mesa final (sin confeti; auto-oculta a ~3s) —— */
 .trn-ft-banner {
   position: fixed;
