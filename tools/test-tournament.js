@@ -176,6 +176,22 @@ FILES.forEach(function (f) { load(g, f); });
   assert.strictEqual(sc.correct, 1);
   assert.strictEqual(sc.xp, 15);
   assert.ok(g.PTTournamentRoleGuess.ROLE_LABELS.maniac, 'Spanish labels');
+  assert.ok(g.PTTournamentRoleGuess.ROLE_COLORS, 'ROLE_COLORS map');
+  const ids = g.PTTournamentConfig.ROLE_IDS;
+  ids.forEach(function (id) {
+    assert.ok(g.PTTournamentRoleGuess.ROLE_COLORS[id], 'color for ' + id);
+    assert.ok(/^#[0-9a-fA-F]{6}$/.test(g.PTTournamentRoleGuess.ROLE_COLORS[id]), 'hex color ' + id);
+    assert.ok(g.PTTournamentRoleGuess.shortLabel(id), 'short label ' + id);
+  });
+  const colorVals = ids.map(function (id) { return g.PTTournamentRoleGuess.ROLE_COLORS[id]; });
+  assert.strictEqual(new Set(colorVals).size, colorVals.length, 'unique role colors');
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/roleChipHtml|trn-role-chip/.test(uiSrc), 'seat shows role chip');
+  assert.ok(/roleLegendHtml|trn-role-legend/.test(uiSrc), 'info modal role legend');
+  assert.ok(/data-guess-role/.test(uiSrc) && /trn-role-opt/.test(uiSrc), 'colored role picker');
+  const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(/\.trn-role-chip/.test(cssSrc), 'chip css');
+  assert.ok(/\.trn-role-legend/.test(cssSrc), 'legend css');
   console.log('OK role-guess');
 }
 

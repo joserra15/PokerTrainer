@@ -709,7 +709,146 @@
 }
 
 .trn-seat.has-guess {
-  box-shadow: inset 0 0 0 1px rgba(61, 155, 106, .55);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--trn-role-bg, #3d9b6a) 70%, transparent);
+}
+
+.trn-role-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  line-height: 1.35;
+  color: #fff;
+  background: var(--trn-role-bg, #6b7280);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .25);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.trn-play-like .seat .seat-role-guess {
+  display: flex;
+  justify-content: center;
+  margin-top: 2px;
+  pointer-events: none;
+}
+
+.trn-play-like .seat .seat-role-guess .trn-role-chip {
+  font-size: 8px;
+  padding: 1px 5px;
+  max-width: 68px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+}
+
+.trn-play-like .seat.has-guess .seat-body {
+  outline: 1px solid color-mix(in srgb, var(--trn-role-bg, #3d9b6a) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.trn-play-like .seat[data-role-guess] {
+  --trn-role-bg: #6b7280;
+}
+
+.trn-role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.trn-role-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--trn-role-bg, rgba(255,255,255,.12)) 55%, transparent);
+  background: color-mix(in srgb, var(--trn-role-bg, #444) 18%, rgba(0, 0, 0, .25));
+  color: var(--text, #e8eef4);
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+
+.trn-role-opt-chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--trn-role-bg, #6b7280);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--trn-role-bg, #6b7280) 35%, transparent);
+  margin-bottom: 2px;
+}
+
+.trn-role-opt-text {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.trn-role-opt-sub {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted, #9aa4b2);
+  line-height: 1.25;
+}
+
+.trn-role-opt.is-selected,
+.trn-role-opt:hover {
+  border-color: var(--trn-role-bg, rgba(61, 155, 106, .65));
+  background: color-mix(in srgb, var(--trn-role-bg, #2d784e) 32%, rgba(0, 0, 0, .2));
+}
+
+.trn-role-current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.trn-role-legend {
+  margin: 14px 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  background: rgba(0, 0, 0, .18);
+}
+
+.trn-role-legend h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.trn-role-legend-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+
+.trn-role-legend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.trn-role-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.trn-role-legend-desc {
+  color: var(--muted, #9aa4b2);
+  line-height: 1.3;
 }
 
 .trn-seat.is-folded {
@@ -835,29 +974,6 @@
   font-weight: 600;
   color: var(--text, #e6edf3);
   word-break: break-word;
-}
-
-.trn-role-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 12px 0;
-}
-
-.trn-role-opt {
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border, rgba(255,255,255,.12));
-  background: rgba(255,255,255,.04);
-  color: var(--text, #e8eef4);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.trn-role-opt.is-selected,
-.trn-role-opt:hover {
-  border-color: rgba(61, 155, 106, .65);
-  background: rgba(45, 120, 78, .25);
 }
 
 /* Result */
@@ -990,12 +1106,6 @@
 .trn-play-like .seat.villain:focus-visible .seat-body {
   outline: 2px solid color-mix(in srgb, var(--accent, #2f81f7) 65%, transparent);
   outline-offset: 2px;
-}
-
-.trn-play-like .seat.has-guess .seat-role::after,
-.trn-play-like .seat.has-guess .seat-name::after {
-  content: ' ✓';
-  color: var(--gold, #f5c451);
 }
 
 /* Nombres de villanos siempre visibles en mesa de torneo (móvil oculta .seat-role). */
