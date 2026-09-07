@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { bootstrapPublicLanding, gotoLanding } = require('./helpers');
+const { bootstrapPublicLanding, gotoLanding, stubAuthHealthOk } = require('./helpers');
 
 /**
  * Regresión login desktop/portátil @smoke:
@@ -14,6 +14,7 @@ test.describe('Login landing desktop @smoke', () => {
 
   test('Continuar y Entrar disparan OAuth con getSession colgado', async ({ page }) => {
     await bootstrapPublicLanding(page);
+    await stubAuthHealthOk(page);
     await page.addInitScript(() => {
       window.__ptOAuthCalls = 0;
 
@@ -25,7 +26,10 @@ test.describe('Login landing desktop @smoke', () => {
         };
         client.auth.signInWithOAuth = async function () {
           window.__ptOAuthCalls += 1;
-          return { data: { url: null, provider: 'google' }, error: null };
+          return {
+            data: { url: 'https://example.invalid/auth/v1/authorize?provider=google', provider: 'google' },
+            error: null
+          };
         };
         return client;
       }

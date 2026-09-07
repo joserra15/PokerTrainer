@@ -58,6 +58,31 @@ async function bootstrapPublicLanding(page) {
   });
 }
 
+/**
+ * Auth sano para tests de login: health 200 + no navegar al redirect OAuth.
+ * Evita flaky cuando GoTrue del proyecto real responde 504.
+ */
+async function stubAuthHealthOk(page) {
+  await page.route('**/auth/v1/health**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ version: 'e2e', name: 'GoTrue' })
+    });
+  });
+  await page.addInitScript(() => {
+    try {
+      window.__ptAssignCalls = [];
+      var assign = window.location.assign.bind(window.location);
+      window.location.assign = function (url) {
+        window.__ptAssignCalls.push(String(url || ''));
+        /* no navegar en E2E */
+      };
+      window.__ptLocationAssignOrig = assign;
+    } catch (e) { /* noop */ }
+  });
+}
+
 async function gotoLanding(page) {
   await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForSelector('[data-landing-try]', { timeout: 20000 });
@@ -239,6 +264,7 @@ module.exports = {
   seedStudyData,
   seedStableAssetRev,
   bootstrapPublicLanding,
+  stubAuthHealthOk,
   gotoLanding,
   waitForAppShell,
   expectAnyVisible,

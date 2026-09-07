@@ -231,6 +231,8 @@
    * {"message":"Gateway Timeout"}. Sondear health antes de salir de la app.
    */
   async function probeAuthReady() {
+    // E2E no debe depender del Auth real (p. ej. GoTrue 504 en el proyecto).
+    if (global.PT_E2E_MODE) return { ok: true, skipped: true };
     var cfg = global.PT_SUPABASE || {};
     if (!cfg.url || !cfg.anonKey || typeof global.fetch !== 'function') {
       return { ok: true, skipped: true };
@@ -310,10 +312,13 @@
     }
     var oauthUrl = errRes.data && errRes.data.url;
     if (!oauthUrl) {
+      // Mocks E2E a menudo solo cuentan la llamada OAuth sin URL de redirect.
+      if (global.PT_E2E_MODE) return;
       showError('No se pudo iniciar el login con Google.');
       return;
     }
     markHandoff();
+    if (global.PT_E2E_MODE) return;
     location.assign(oauthUrl);
   }
 

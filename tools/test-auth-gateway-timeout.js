@@ -11,8 +11,12 @@ const docs = fs.readFileSync(path.join(root, 'docs', 'SUPABASE_AUTH.md'), 'utf8'
 
 assert(/probeAuthReady/.test(src), 'auth-bootstrap tiene probeAuthReady');
 assert(/skipBrowserRedirect:\s*true/.test(src), 'OAuth con skipBrowserRedirect');
+assert(/PT_E2E_MODE/.test(src) && /probeAuthReady[\s\S]*PT_E2E_MODE/.test(src),
+  'probe Auth se salta en E2E');
 assert(/Gateway Timeout/.test(docs), 'docs documentan Gateway Timeout');
 assert(/Restart project/.test(docs), 'docs indican Restart project');
+assert(/stubAuthHealthOk/.test(fs.readFileSync(path.join(root, 'e2e', 'helpers.js'), 'utf8')),
+  'e2e helpers stubAuthHealthOk');
 
 const listeners = {};
 const timers = [];
