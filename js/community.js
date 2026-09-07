@@ -219,6 +219,9 @@
     if (typeof global.refreshLegendaryTabVisibility === 'function') {
       try { global.refreshLegendaryTabVisibility(); } catch (e) { /* noop */ }
     }
+    if (typeof global.refreshTournamentsTabVisibility === 'function') {
+      try { global.refreshTournamentsTabVisibility(); } catch (e) { /* noop */ }
+    }
     applyFormats();
   }
 

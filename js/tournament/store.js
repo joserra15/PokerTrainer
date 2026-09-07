@@ -18,12 +18,25 @@
     return uid ? ('_' + uid) : '';
   }
 
+  /** '' en PokerForge; '_mttlab' en comunidades gated — histórico independiente. */
+  function communitySuffix() {
+    try {
+      if (global.Store && typeof global.Store.communityDataSuffix === 'function') {
+        return global.Store.communityDataSuffix() || '';
+      }
+      if (global.PTTournamentWallet && typeof global.PTTournamentWallet.communitySuffix === 'function') {
+        return global.PTTournamentWallet.communitySuffix() || '';
+      }
+    } catch (e) { /* ignore */ }
+    return '';
+  }
+
   function storageKey() {
-    return BASE_KEY + userSuffix();
+    return BASE_KEY + communitySuffix() + userSuffix();
   }
 
   function activeStorageKey() {
-    return ACTIVE_KEY + userSuffix();
+    return ACTIVE_KEY + communitySuffix() + userSuffix();
   }
 
   function readList() {
@@ -51,11 +64,17 @@
 
   function markCloudDirty() {
     try {
+      var s = communitySuffix();
+      var keys = [
+        'tournamentActive' + s,
+        'tournamentHistory' + s,
+        'tournamentWallet' + s
+      ];
       if (global.PTCloud && typeof global.PTCloud.markLocalDirty === 'function') {
-        global.PTCloud.markLocalDirty(['tournamentActive', 'tournamentHistory', 'tournamentWallet']);
+        global.PTCloud.markLocalDirty(keys);
       }
       if (global.PTCloud && typeof global.PTCloud.schedulePush === 'function') {
-        global.PTCloud.schedulePush(['tournamentActive', 'tournamentHistory', 'tournamentWallet']);
+        global.PTCloud.schedulePush(keys);
       }
     } catch (e) { /* ignore */ }
   }

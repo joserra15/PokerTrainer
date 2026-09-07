@@ -64,7 +64,10 @@
         history: Array.isArray(p.history) ? p.history : [],
         errors: Array.isArray(p.errors) ? p.errors : [],
         clearedAt: p.clearedAt || {},
-        onboarding: p.onboarding || null
+        onboarding: p.onboarding || null,
+        tournamentWallet: p.tournamentWallet || null,
+        tournamentHistory: Array.isArray(p.tournamentHistory) ? p.tournamentHistory : null,
+        tournamentActive: p.tournamentActive || null
       };
     }
     return {
@@ -73,7 +76,10 @@
       errors: Array.isArray(p['errors' + s]) ? p['errors' + s] : [],
       clearedAt: p['clearedAt' + s] || {},
       school: p['school' + s] || null,
-      onboarding: null
+      onboarding: null,
+      tournamentWallet: p['tournamentWallet' + s] || null,
+      tournamentHistory: Array.isArray(p['tournamentHistory' + s]) ? p['tournamentHistory' + s] : null,
+      tournamentActive: p['tournamentActive' + s] || null
     };
   }
 
@@ -89,12 +95,20 @@
       out.errors = snap.errors;
       out.clearedAt = snap.clearedAt || {};
       if (snap.onboarding) out.onboarding = snap.onboarding;
+      if (snap.tournamentWallet) out.tournamentWallet = snap.tournamentWallet;
+      if (snap.tournamentHistory) out.tournamentHistory = snap.tournamentHistory;
+      if (snap.tournamentActive) out.tournamentActive = snap.tournamentActive;
+      else delete out.tournamentActive;
     } else {
       out['stats' + s] = snap.stats;
       out['history' + s] = snap.history;
       out['errors' + s] = snap.errors;
       out['school' + s] = getSchoolProgress();
       out['clearedAt' + s] = snap.clearedAt || {};
+      if (snap.tournamentWallet) out['tournamentWallet' + s] = snap.tournamentWallet;
+      if (snap.tournamentHistory) out['tournamentHistory' + s] = snap.tournamentHistory;
+      if (snap.tournamentActive) out['tournamentActive' + s] = snap.tournamentActive;
+      else delete out['tournamentActive' + s];
     }
     return out;
   }
@@ -1822,7 +1836,10 @@
     var s = communityDataSuffix();
     if (s && (cloudSnapshot['stats' + s] != null || cloudSnapshot['history' + s] != null ||
         cloudSnapshot['errors' + s] != null || cloudSnapshot['school' + s] != null ||
-        cloudSnapshot['clearedAt' + s] != null)) {
+        cloudSnapshot['clearedAt' + s] != null ||
+        cloudSnapshot['tournamentWallet' + s] != null ||
+        cloudSnapshot['tournamentHistory' + s] != null ||
+        cloudSnapshot['tournamentActive' + s] != null)) {
       logical = sliceCloudForActive(cloudSnapshot);
     }
     const local = getCloudSnapshot();
@@ -1882,7 +1899,10 @@
     var s = communityDataSuffix();
     if (s && (snapshot['stats' + s] != null || snapshot['history' + s] != null ||
         snapshot['errors' + s] != null || snapshot['school' + s] != null ||
-        snapshot['clearedAt' + s] != null)) {
+        snapshot['clearedAt' + s] != null ||
+        snapshot['tournamentWallet' + s] != null ||
+        snapshot['tournamentHistory' + s] != null ||
+        snapshot['tournamentActive' + s] != null)) {
       logical = sliceCloudForActive(snapshot);
     }
     const cloudCa = logical.clearedAt || {};

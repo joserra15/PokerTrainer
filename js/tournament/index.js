@@ -19,9 +19,40 @@
     return !!(u && u.isAdmin);
   }
 
+  function isManagerAccess() {
+    try {
+      return !!(global.PTCommunity && typeof global.PTCommunity.isManager === 'function' &&
+        global.PTCommunity.isManager());
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function activeCommunityId() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        return String(global.PTCommunity.id() || 'pokerforge');
+      }
+    } catch (e) { /* */ }
+    return 'pokerforge';
+  }
+
+  /**
+   * PokerForgeAI: solo Admin.
+   * MTTLab (y otras comunidades gated): solo managers.
+   */
   function menuVisible() {
-    if (!ENABLED) return false;
-    return hasAdminAccess() && !isDemoActive();
+    if (!ENABLED || isDemoActive()) return false;
+    var cid = activeCommunityId();
+    if (cid === 'mttlab') return isManagerAccess();
+    if (cid !== 'pokerforge') {
+      try {
+        if (global.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
+          return isManagerAccess();
+        }
+      } catch (e) { /* */ }
+    }
+    return hasAdminAccess();
   }
 
   function refreshMenuVisibility() {
