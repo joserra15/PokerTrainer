@@ -87,14 +87,27 @@
 
   function optionGridHtml(breakdown, chosen, best) {
     if (!breakdown || !breakdown.length) return '';
-    return '<div class="option-grid">' + breakdown.map(function (o) {
+    /* Misma marca que paso a paso (opt-grid / opt-pill). */
+    var bestId = best;
+    if (!bestId) {
+      var top = breakdown.slice().sort(function (a, b) {
+        return (Number(b.frequency != null ? b.frequency : b.pct) || 0) -
+          (Number(a.frequency != null ? a.frequency : a.pct) || 0);
+      })[0];
+      bestId = top && (top.id || top.action);
+    }
+    return '<div class="opt-grid option-grid">' + breakdown.map(function (o) {
       var id = o.id || o.action || '';
       var pct = o.pct != null ? o.pct : Math.round((Number(o.frequency) || 0) * 1000) / 10;
-      var cls = 'opt-cell';
-      if (id === chosen) cls += ' is-chosen';
-      if (id === best) cls += ' is-best';
-      return '<div class="' + cls + '"><strong>' + esc(o.label || id) + '</strong>' +
-        '<span>' + esc(String(pct)) + '%</span></div>';
+      var isBest = id === bestId;
+      var isChosen = id === chosen;
+      /* Si óptima y elegida coinciden: solo verde (best). */
+      var cls = 'opt-pill opt-cell' + (isBest ? ' best is-best' : '') +
+        (!isBest && isChosen ? ' chosen is-chosen' : '');
+      var label = o.label || id;
+      return '<div class="' + cls + '">' +
+        '<span class="opt-lbl"><strong>' + esc(label) + '</strong></span>' +
+        '<span class="opt-pct">' + esc(String(pct)) + '%</span></div>';
     }).join('') + '</div>';
   }
 
@@ -106,6 +119,14 @@
     decisions.forEach(function (d) {
       var cls = d.class || 'unscored';
       var label = d.label || d.chosen || d.action || '';
+      var breakdown = d.optionBreakdown;
+      if ((!breakdown || !breakdown.length) && d.gto) {
+        breakdown = Object.keys(d.gto).map(function (id) {
+          var freq = Number(d.gto[id]) || 0;
+          return { id: id, label: String(id).toUpperCase(), pct: Math.round(freq * 1000) / 10, frequency: freq };
+        }).filter(function (o) { return o.frequency >= 0.005; })
+          .sort(function (a, b) { return b.frequency - a.frequency; });
+      }
       html += '<div class="dec-review">' +
         '<div class="dec-head"><strong>' + esc(cap(d.street)) + '</strong> · ' + esc(label) +
         ' <span class="verdict ' + esc(cls) + '">' + esc(verdictWord(cls)) + '</span>';
@@ -117,8 +138,8 @@
       if (d.context && typeof d.context === 'string') {
         html += '<div class="dec-context muted">' + esc(d.context) + '</div>';
       }
-      if (d.optionBreakdown && d.optionBreakdown.length) {
-        html += optionGridHtml(d.optionBreakdown, d.action || d.chosen, d.best);
+      if (breakdown && breakdown.length) {
+        html += optionGridHtml(breakdown, d.action || d.chosen, d.best);
       } else if (d.gto) {
         html += gtoBarsHtml(d.gto);
       }
@@ -127,9 +148,27 @@
     return html + '</div>';
   }
 
+  function seatDeltaHtml(deltaBB) {
+    if (deltaBB == null || !isFinite(Number(deltaBB))) return '';
+    var d = Number(deltaBB) || 0;
+    var dCls = d > 0.02 ? 'net-pos' : (d < -0.02 ? 'net-neg' : '');
+    return '<div class="hand-end-delta trn-hand-end-delta ' + dCls + '">' +
+      (d >= 0 ? '+' : '') + esc(fmtBb(d)) + ' bb</div>';
+  }
+
+  function seatOutcomeMetaHtml(outcome) {
+    if (!outcome) return '';
+    var bits = '';
+    bits += seatDeltaHtml(outcome.deltaBB);
+    if (outcome.eliminated) {
+      bits += '<div class="hand-end-eliminated">Eliminado</div>';
+    }
+    return bits;
+  }
+
   /**
    * Asientos rivales con cartas visibles (showdown) o mensaje si no enseñaron.
-   * Usa analyzed.shows / seats / handNames / positions.
+   * Usa analyzed.shows / seats / handNames / positions / seatOutcomes.
    */
   function villainSeatsHtml(analyzed) {
     if (!analyzed) return '';
@@ -138,19 +177,32 @@
     var handNames = analyzed.handNames || {};
     var heroName = analyzed.hero || '';
     var seats = analyzed.seats || [];
+    var outcomes = analyzed.seatOutcomes || [];
+    var outcomeByName = {};
+    outcomes.forEach(function (o) {
+      if (o && o.name) outcomeByName[o.name] = o;
+    });
     var rows = [];
+
+    function pushRow(name, pos, cards, handName, showed) {
+      var oc = outcomeByName[name] || null;
+      rows.push({
+        name: name,
+        pos: pos || '',
+        cards: cards || [],
+        handName: handName || null,
+        showed: !!showed,
+        isWinner: !!(oc && oc.isWinner),
+        deltaBB: oc ? oc.deltaBB : null,
+        eliminated: !!(oc && oc.eliminated)
+      });
+    }
 
     Object.keys(shows).forEach(function (name) {
       if (name === heroName) return;
       var cards = shows[name];
       if (!cards || !cards.length) return;
-      rows.push({
-        name: name,
-        pos: positions[name] || '',
-        cards: cards,
-        handName: handNames[name] || null,
-        showed: true
-      });
+      pushRow(name, positions[name] || '', cards, handNames[name] || null, true);
     });
 
     if (!rows.length && seats.length) {
@@ -160,15 +212,28 @@
         if (s.folded) return;
         var cards = (s.cards || []).map(cardCode).filter(Boolean);
         if (cards.length >= 2) {
-          rows.push({
-            name: name,
-            pos: s.pos || positions[name] || '',
-            cards: cards,
-            handName: handNames[name] || null,
-            showed: true
-          });
+          pushRow(name, s.pos || positions[name] || '', cards, handNames[name] || null, true);
         }
       });
+    }
+
+    /* Sin showdown: aún mostrar ganador(es) y eliminados con delta de bote. */
+    if (!rows.length && outcomes.length) {
+      outcomes.forEach(function (o) {
+        if (!o || o.isHero || o.name === heroName) return;
+        if (!o.isWinner && !o.eliminated && !(o.deltaBB > 0.02)) return;
+        pushRow(o.name, o.pos || positions[o.name] || '', o.cards || [], o.handName || null, !!(o.cards && o.cards.length >= 2));
+      });
+    }
+
+    if (!rows.length) {
+      var winnerOnly = (analyzed.winners || []).filter(function (n) { return n && n !== heroName; });
+      if (winnerOnly.length) {
+        winnerOnly.forEach(function (n) {
+          var oc = outcomeByName[n];
+          pushRow(n, (oc && oc.pos) || positions[n] || '', (oc && oc.cards) || [], null, false);
+        });
+      }
     }
 
     if (!rows.length) {
@@ -179,25 +244,27 @@
         '</div>';
     }
 
-    if (rows.length === 1) {
-      var one = rows[0];
-      return '<div class="hand-end-vs" aria-hidden="true">vs</div>' +
-        '<div class="hand-end-seat">' +
-        '<div class="hand-end-seat-label">' + esc(one.name) +
-        (one.pos ? (' · ' + esc(one.pos)) : '') + '</div>' +
-        '<div class="hand-end-cards">' + cardsHtml(one.cards) + '</div>' +
-        (one.handName ? ('<div class="hand-end-handname">' + esc(one.handName) + '</div>') : '') +
+    function seatBlock(r) {
+      var cls = 'hand-end-seat' + (r.isWinner ? ' is-winner' : '') +
+        (r.eliminated ? ' is-eliminated' : '');
+      var cardsBlock = (r.cards && r.cards.length)
+        ? cardsHtml(r.cards)
+        : '<span class="muted-text">' + (r.isWinner ? 'gana sin showdown' : '—') + '</span>';
+      return '<div class="' + cls + '">' +
+        '<div class="hand-end-seat-label">' + esc(r.name) +
+        (r.pos ? (' · ' + esc(r.pos)) : '') +
+        (r.isWinner ? ' · Gana' : '') + '</div>' +
+        '<div class="hand-end-cards">' + cardsBlock + '</div>' +
+        (r.handName ? ('<div class="hand-end-handname">' + esc(r.handName) + '</div>') : '') +
+        seatOutcomeMetaHtml(r) +
         '</div>';
     }
 
-    return rows.map(function (r) {
-      return '<div class="hand-end-seat">' +
-        '<div class="hand-end-seat-label">' + esc(r.name) +
-        (r.pos ? (' · ' + esc(r.pos)) : '') + '</div>' +
-        '<div class="hand-end-cards">' + cardsHtml(r.cards) + '</div>' +
-        (r.handName ? ('<div class="hand-end-handname">' + esc(r.handName) + '</div>') : '') +
-        '</div>';
-    }).join('');
+    if (rows.length === 1) {
+      return '<div class="hand-end-vs" aria-hidden="true">vs</div>' + seatBlock(rows[0]);
+    }
+
+    return rows.map(seatBlock).join('');
   }
 
   /**
@@ -209,15 +276,31 @@
     if (!analyzed) return '';
     var net = Number(analyzed.heroNetBB) || 0;
     var netCls = net > 0.02 ? 'net-pos' : (net < -0.02 ? 'net-neg' : '');
-    var title = opts.title || (net > 0.02 ? 'Ganas la mano' : (net < -0.02 ? 'Pierdes la mano' : 'Mano terminada'));
+    var title = opts.title;
+    if (!title) {
+      var winners = analyzed.winners || [];
+      var heroWon = winners.indexOf(analyzed.hero) >= 0 || net > 0.02;
+      if (!heroWon && winners.length === 1) {
+        title = winners[0] + ' gana el bote';
+      } else if (!heroWon && winners.length > 1) {
+        title = 'Empate · ' + winners.join(', ');
+      } else {
+        title = net > 0.02 ? 'Ganas la mano' : (net < -0.02 ? 'Pierdes la mano' : 'Mano terminada');
+      }
+    }
     var scoreMeta = analyzed.handScoreMeta || null;
     var board = analyzed.boardAll || analyzed.board || [];
     if (board && !Array.isArray(board) && board.all) board = board.all;
     var heroHandName = analyzed.heroHandName ||
       (analyzed.handNames && analyzed.hero && analyzed.handNames[analyzed.hero]) || null;
+    var heroOutcome = (analyzed.seatOutcomes || []).filter(function (o) {
+      return o && (o.isHero || o.name === analyzed.hero);
+    })[0] || { deltaBB: net, eliminated: false, isWinner: net > 0.02 };
     var multiVillains = Object.keys(analyzed.shows || {}).filter(function (n) {
       return n !== analyzed.hero;
-    }).length > 1;
+    }).length > 1 || ((analyzed.seatOutcomes || []).filter(function (o) {
+      return o && !o.isHero && (o.isWinner || o.eliminated || (o.cards && o.cards.length));
+    }).length > 1);
     var villainsBlock = villainSeatsHtml(analyzed);
 
     var html = '<div class="hand-end-view hand-end-popup">' +
@@ -229,10 +312,14 @@
       '</div>' +
       '<div class="hand-end-view-matchup hand-end-matchup' +
       (multiVillains ? ' hand-end-matchup-multi' : '') + '">' +
-      '<div class="hand-end-seat is-hero">' +
-      '<div class="hand-end-seat-label">Héroe · ' + esc(analyzed.heroPos || '') + '</div>' +
+      '<div class="hand-end-seat is-hero' +
+      (heroOutcome.isWinner ? ' is-winner' : '') +
+      (heroOutcome.eliminated ? ' is-eliminated' : '') + '">' +
+      '<div class="hand-end-seat-label">Héroe · ' + esc(analyzed.heroPos || '') +
+      (heroOutcome.isWinner ? ' · Gana' : '') + '</div>' +
       '<div class="hand-end-cards">' + cardsHtml(analyzed.heroCards) + '</div>' +
       (heroHandName ? ('<div class="hand-end-handname">' + esc(heroHandName) + '</div>') : '') +
+      seatOutcomeMetaHtml(heroOutcome) +
       '</div>' +
       villainsBlock +
       '</div>' +

@@ -189,6 +189,63 @@ assert.ok(Store && W && T, 'modules loaded');
   assert.strictEqual(merged.tournamentActive, undefined, 'clearActive borra cloud active');
 }
 
+/* --- replaceFromCloud no pisa active local más avanzado --- */
+{
+  Object.keys(localStore).forEach((k) => delete localStore[k]);
+  Store.setUserId('user-sync-active-prefer');
+  T.saveActive({
+    id: 't_local_new',
+    status: 'running',
+    handIndex: 22,
+    _progressRev: 4,
+    _savedAt: '2026-05-10T12:00:00.000Z',
+    config: { name: 'Local new' },
+    players: [{ id: 'h', isHero: true, stack: 900, alive: true }]
+  });
+  Store.replaceFromCloud({
+    stats: { handsPlayed: 0, decisions: 0, optima: 0, aceptable: 0, imprecisa: 0, error: 0,
+      totalEvLoss: 0, totalNet: 0,
+      byStreet: { preflop: { n: 0, good: 0 }, flop: { n: 0, good: 0 }, turn: { n: 0, good: 0 }, river: { n: 0, good: 0 } } },
+    history: [],
+    errors: [],
+    tournamentActive: {
+      id: 't_cloud_old',
+      status: 'running',
+      handIndex: 9,
+      _progressRev: 1,
+      _savedAt: '2026-05-11T12:00:00.000Z',
+      config: { name: 'Cloud old' },
+      players: [{ id: 'h', isHero: true, stack: 1500, alive: true }]
+    }
+  });
+  const kept = T.loadActive();
+  assert.ok(kept, 'active sigue');
+  assert.strictEqual(kept.id, 't_local_new', 'conserva local más avanzado');
+  assert.strictEqual(kept.handIndex, 22, 'handIndex local');
+}
+
+/* --- replaceFromCloud no borra active local si cloud no trae active --- */
+{
+  Object.keys(localStore).forEach((k) => delete localStore[k]);
+  Store.setUserId('user-sync-active-keep');
+  T.saveActive({
+    id: 't_only_local',
+    status: 'running',
+    handIndex: 5,
+    config: { name: 'Only local' },
+    players: []
+  });
+  Store.replaceFromCloud({
+    stats: { handsPlayed: 1, decisions: 0, optima: 0, aceptable: 0, imprecisa: 0, error: 0,
+      totalEvLoss: 0, totalNet: 0,
+      byStreet: { preflop: { n: 0, good: 0 }, flop: { n: 0, good: 0 }, turn: { n: 0, good: 0 }, river: { n: 0, good: 0 } } },
+    history: [],
+    errors: []
+  });
+  assert.ok(T.hasActive(), 'active local no se borra si cloud omite tournamentActive');
+  assert.strictEqual(T.loadActive().id, 't_only_local');
+}
+
 /* --- mergeDirty history une por id --- */
 {
   Object.keys(localStore).forEach((k) => delete localStore[k]);

@@ -89,9 +89,11 @@ Cierra con ## Conclusión o un párrafo final breve que resuma la respuesta a la
 
 const SESSION_REPORT_PROMPT = `${COACH_IDENTITY}
 
-Recibes JSON ultra-compacto de una SESIÓN importada:
-- file: etiqueta del archivo importado (nick de mesa en el .txt), NO el nombre del alumno
+Recibes JSON ultra-compacto de una SESIÓN importada o de un TORNEO IA:
+- file: etiqueta del archivo importado (nick de mesa en el .txt) o nombre del torneo, NO el nombre del alumno
 - student: nombre del alumno (cuenta), si está presente — salúdalo por ahí, nunca por file
+- src: "sessionGlobal" (sesión importada) o "tournament" (resumen final de Torneo IA)
+- trn: meta del torneo si src=tournament (puesto, premio, buy-in, entries, ROI)
 - st: estadísticas globales (n manos, acc, net, evLost, expNet, varianza, nota, acierto por calle, distribución decisiones)
 - leaks: manos con fugas (decisiones malas/EV perdido) con detalle
 - clean: resto de manos en una línea cada una (id|mano pos|net|ev|veredicto)
@@ -102,10 +104,12 @@ Al citar una mano concreta de leaks, contrasta hero, board y dec[] antes de desc
 Si hay "coachSummary" o "player", adapta el plan al historial del alumno.
 
 NO enumeres todas las manos. Analiza patrones, calles débiles, fugas recurrentes y varianza vs errores.
+Si src=tournament o hay trn: identifica las DECISIONES CLAVE que explican el puesto final (ganar o perder el torneo), priorizando ICM/stack/burbuja y las manos con más EV perdido.
+
 Responde markdown completo en español:
 # Resumen sesión {file}
 ## Rendimiento global
-## Fugas principales
+## Decisiones clave (si es torneo) o Fugas principales
 (3-6 bullets con mano, calle y por qué)
 ## Patrones (calle, posición, tipo de spot)
 ## Plan de estudio

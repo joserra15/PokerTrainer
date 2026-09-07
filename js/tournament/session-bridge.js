@@ -68,11 +68,19 @@
     if (sum > 0 && Math.abs(sum - 1) > 0.02) {
       keys.forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
     }
+    var LABEL = {
+      fold: 'FOLD', check: 'CHECK', call: 'CALL', bet: 'BET', raise: 'RAISE',
+      allin: 'ALL-IN', 'all-in': 'ALL-IN',
+      bet_33: 'BET 33%', bet_66: 'BET 66%', bet_100: 'BET POT'
+    };
     return keys.map(function (id) {
       var freq = Number(freqs[id]) || 0;
+      var rawLabel = null;
+      /* Preferir labels ya normalizados (FOLD/CALL…) sobre «Raise to 0 bb». */
+      if (opts.labels && opts.labels[id]) rawLabel = opts.labels[id];
       return {
         id: id,
-        label: actionLabel(id, 0, 1),
+        label: rawLabel || LABEL[id] || String(id).toUpperCase(),
         pct: Math.round(freq * 1000) / 10,
         frequency: freq
       };
@@ -112,7 +120,27 @@
     var strategy = d.strategy || d.gto || null;
     var pushFold = !!(d.pushFold || (d.input && d.input.pushFold) || d.mttPhase === 'push'
       || d.preflopMode === 'push');
-    var breakdown = d.optionBreakdown || optionBreakdownFromStrategy(strategy, { pushFold: pushFold });
+    var breakdown = d.optionBreakdown || null;
+    /* Reconstruir / normalizar labels al estilo paso a paso (FOLD 12%, CALL 40%…). */
+    if (breakdown && breakdown.length) {
+      breakdown = breakdown.map(function (o) {
+        var id = o.id || o.action || '';
+        var LABEL = {
+          fold: 'FOLD', check: 'CHECK', call: 'CALL', bet: 'BET', raise: 'RAISE',
+          allin: 'ALL-IN', 'all-in': 'ALL-IN'
+        };
+        var lbl = o.label || '';
+        var weak = !lbl || /raise to 0/i.test(lbl) || /^(fold|check|call|bet|raise|allin)$/i.test(lbl);
+        return {
+          id: id,
+          label: weak ? (LABEL[id] || String(id).toUpperCase()) : lbl,
+          pct: o.pct != null ? o.pct : Math.round((Number(o.frequency) || 0) * 1000) / 10,
+          frequency: o.frequency != null ? o.frequency : ((Number(o.pct) || 0) / 100)
+        };
+      });
+    } else {
+      breakdown = optionBreakdownFromStrategy(strategy, { pushFold: pushFold });
+    }
     var opts = d.options || d.availableActions
       || (d.input && (d.input.availableActions || d.input.options)) || null;
     if ((!opts || !opts.length) && breakdown && breakdown.length) {
@@ -339,6 +367,38 @@
       if (!handNamesByPlayer[k] && srcHandNames[k]) handNamesByPlayer[k] = srcHandNames[k];
     });
 
+    var res = source.result || {};
+    var deltasRaw = res.deltas || {};
+    var winnerIds = (res.winners || []).slice();
+    var winnerNames = [];
+    var seatOutcomes = seats.map(function (s) {
+      var name = s.isHero ? heroName : (s.name || s.id);
+      var deltaChips = Number(deltasRaw[s.id]) || 0;
+      var endStack = s.stack != null ? Number(s.stack)
+        : (s.startStack != null ? Number(s.startStack) + deltaChips : null);
+      var eliminated = endStack != null ? endStack <= 0.02 : false;
+      if (!eliminated && s.startStack != null && (Number(s.startStack) + deltaChips) <= 0.02) {
+        eliminated = true;
+      }
+      var isWinner = winnerIds.indexOf(s.id) >= 0;
+      if (isWinner) winnerNames.push(name);
+      return {
+        id: s.id,
+        name: name,
+        pos: s.pos || '',
+        isHero: !!s.isHero,
+        folded: !!s.folded,
+        cards: ((res.holeCards && res.holeCards[s.id]) || s.cards || []).map(cardCode).filter(Boolean),
+        deltaChips: deltaChips,
+        deltaBB: r2(deltaChips / bb),
+        isWinner: isWinner,
+        eliminated: eliminated,
+        handName: handNamesByPlayer[name] || srcHandNames[s.id] || null,
+        endStack: endStack
+      };
+    });
+    var potChips = Number(res.pot != null ? res.pot : source.pot) || 0;
+
     var hand = {
       id: id,
       datetime: new Date().toISOString(),
@@ -398,7 +458,14 @@
       entries: meta.entries != null ? meta.entries : null,
       buyIn: meta.buyIn != null ? meta.buyIn : null,
       mttPhase: null,
-      anteBB: bb > 0 ? (Number(source.ante) || 0) / bb : 0
+      anteBB: bb > 0 ? (Number(source.ante) || 0) / bb : 0,
+      /* Resultado multi-asiento para resumen de fin de mano. */
+      potBB: r2(potChips / bb),
+      showdown: !!res.showdown,
+      tied: !!res.tied,
+      winners: winnerNames,
+      winnerIds: winnerIds,
+      seatOutcomes: seatOutcomes
     };
 
     // Resolve formatKey / phase / stacks via shared contract.
