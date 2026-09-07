@@ -58,3 +58,29 @@ node tools/selftest.js
 ## Fallback legacy
 
 Si `useAuth: false`, la app usa el login Google directo anterior (solo para desarrollo).
+
+## Troubleshooting: `{"message":"Gateway Timeout"}` en `/auth/v1/authorize`
+
+Eso **no** es un fallo de Google OAuth ni del frontend. El API Gateway de Supabase no consigue respuesta de **GoTrue (Auth)** (a menudo con Postgres también lento).
+
+Comprobar desde terminal:
+
+```bash
+# Debe responder ~200 en <1s si Auth está sano
+curl -sS -o /dev/null -w "%{http_code} %{time_total}\n" \
+  -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+  "https://wrkupbxttqrpdpoztcky.supabase.co/auth/v1/health"
+
+# Si Storage/DB también caídos: DatabaseTimeout (544)
+curl -sS -H "apikey: $ANON" \
+  "https://wrkupbxttqrpdpoztcky.supabase.co/storage/v1/bucket"
+```
+
+**Qué hacer:**
+
+1. [Supabase Dashboard](https://supabase.com/dashboard/project/wrkupbxttqrpdpoztcky) → **Project Settings** → **General** → **Restart project** (o Restore si está paused).
+2. Espera 1–3 minutos y vuelve a probar el `curl` de `/auth/v1/health`.
+3. Si tras reiniciar sigue en 504: abre ticket a Supabase Support (GoTrue freeze conocido; REST puede seguir vivo).
+4. Revisa [status.supabase.com](https://status.supabase.com) (API Gateway degraded puede empeorar esto).
+
+La app sondea `/auth/v1/health` antes de redirigir a Google; si Auth está caído muestra el error en `#auth-error` en lugar de la página JSON `Gateway Timeout`.

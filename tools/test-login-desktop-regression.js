@@ -127,9 +127,13 @@ assert(
     auth: {
       getSession: function () { return new Promise(function () { /* hang */ }); },
       onAuthStateChange: function () {},
-      signInWithOAuth: function () {
+      signInWithOAuth: function (opts) {
         oauthCalls += 1;
-        return Promise.resolve({ data: {}, error: null });
+        assert.ok(opts && opts.options && opts.options.skipBrowserRedirect);
+        return Promise.resolve({
+          data: { url: 'https://example.supabase.co/auth/v1/authorize?provider=google' },
+          error: null
+        });
       }
     }
   };
@@ -148,6 +152,8 @@ assert(
     Uint8Array,
     URLSearchParams,
     CustomEvent: function () {},
+    fetch: function () { return Promise.resolve({ status: 200, ok: true }); },
+    AbortController: function () { this.signal = {}; this.abort = function () {}; },
     localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
     sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
     location: {
@@ -217,9 +223,18 @@ assert(
     }
   }
 
-  Promise.resolve()
-    .then(function () { flushTimers(50); })
-    .then(function () { flushTimers(50); })
+  function drain(n) {
+    let p = Promise.resolve();
+    for (let i = 0; i < n; i++) {
+      p = p.then(function () {
+        flushTimers(50);
+        return Promise.resolve();
+      });
+    }
+    return p;
+  }
+
+  drain(8)
     .then(function () {
       assert.strictEqual(oauthCalls, 1, 'Continuar → OAuth con getSession colgado');
       console.log('*** login-desktop-regression OK ***');

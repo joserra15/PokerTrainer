@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { stubAuthHealthOk } = require('./helpers');
 
 function patchAuthClient(page) {
   return page.addInitScript(() => {
@@ -22,7 +23,10 @@ function patchAuthClient(page) {
       if (client.auth) {
         client.auth.signInWithOAuth = async function () {
           window.__ptOAuthCalls += 1;
-          return { data: { url: null, provider: 'google' }, error: null };
+          return {
+            data: { url: 'https://example.invalid/auth/v1/authorize?provider=google', provider: 'google' },
+            error: null
+          };
         };
       }
       return client;
@@ -51,6 +55,7 @@ test.describe('Botones Entrar no rompen PKCE @smoke', () => {
   test.use({ viewport: { width: 1280, height: 800 }, hasTouch: false });
 
   test('header Entrar abre panel y no hace rpc Auth del embudo', async ({ page }) => {
+    await stubAuthHealthOk(page);
     await patchAuthClient(page);
     await page.goto('/');
     await page.waitForSelector('.landing-login-btn[data-landing-login]', { timeout: 20000 });
@@ -81,6 +86,7 @@ test.describe('Botón Entrar del menú móvil @mobile', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('nav Entrar abre el mismo panel sin rpc Auth del embudo', async ({ page }) => {
+    await stubAuthHealthOk(page);
     await patchAuthClient(page);
     await page.goto('/');
     await page.waitForSelector('#landing-nav-toggle', { timeout: 20000 });
