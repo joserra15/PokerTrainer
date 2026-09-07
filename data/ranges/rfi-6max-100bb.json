@@ -4,14 +4,51 @@
     "format": "cash6",
     "stackBB": 100,
     "positions": ["UTG", "HJ", "CO", "BTN"],
-    "source": "solver-export-v1",
+    "source": "solver-export-v2-pro-dump",
     "notation": "PokerForgeAI combo codes (AA, AKs, A5s, KQo…)",
-    "updated": "2026-07-05"
+    "rake": "5_percent_2_5bb_cap",
+    "openSizeBb": 2.5,
+    "updated": "2026-09-07",
+    "note": "combo_matrix overrides exact freqs; raise/mix charts cover remaining support toward professional globals."
   },
   "positions": {
     "UTG": {
-      "raise": "22+, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, 76s, AJo+, KQo",
-      "mix": "A5s, A4s, A3s, 65s, KJo"
+      "raise": "22+, A9s+, A5s, KJs+, QTs+, JTs, T9s, 87s, 76s, 65s, AJo+",
+      "mix": "A8s, A4s, A3s, A2s, KTs, K9s, Q9s, J9s, 98s, 54s, KQo, KJo",
+      "action_size_bb": 2.5,
+      "global_rfi_frequency": 0.165,
+      "default_action": "fold",
+      "combo_matrix": {
+        "AA": { "raise": 1.0, "fold": 0.0 },
+        "KK": { "raise": 1.0, "fold": 0.0 },
+        "QQ": { "raise": 1.0, "fold": 0.0 },
+        "JJ": { "raise": 1.0, "fold": 0.0 },
+        "TT": { "raise": 1.0, "fold": 0.0 },
+        "99": { "raise": 1.0, "fold": 0.0 },
+        "88": { "raise": 1.0, "fold": 0.0 },
+        "77": { "raise": 1.0, "fold": 0.0 },
+        "66": { "raise": 1.0, "fold": 0.0 },
+        "55": { "raise": 1.0, "fold": 0.0 },
+        "44": { "raise": 1.0, "fold": 0.0 },
+        "33": { "raise": 1.0, "fold": 0.0 },
+        "22": { "raise": 1.0, "fold": 0.0 },
+        "AKs": { "raise": 1.0, "fold": 0.0 },
+        "AQs": { "raise": 1.0, "fold": 0.0 },
+        "AJs": { "raise": 1.0, "fold": 0.0 },
+        "ATs": { "raise": 1.0, "fold": 0.0 },
+        "A5s": { "raise": 1.0, "fold": 0.0 },
+        "A4s": { "raise": 0.57, "fold": 0.43 },
+        "KQs": { "raise": 1.0, "fold": 0.0 },
+        "KJs": { "raise": 1.0, "fold": 0.0 },
+        "KTs": { "raise": 0.87, "fold": 0.13 },
+        "QJs": { "raise": 1.0, "fold": 0.0 },
+        "JTs": { "raise": 1.0, "fold": 0.0 },
+        "T9s": { "raise": 1.0, "fold": 0.0 },
+        "98s": { "raise": 0.45, "fold": 0.55 },
+        "AKo": { "raise": 1.0, "fold": 0.0 },
+        "AQo": { "raise": 1.0, "fold": 0.0 },
+        "KQo": { "raise": 0.66, "fold": 0.34 }
+      }
     },
     "HJ": {
       "raise": "22+, A9s+, A5s-A2s, KTs+, QTs+, JTs, T9s, 98s, 87s, 76s, 65s, ATo+, KJo+, QJo",
@@ -22,8 +59,28 @@
       "mix": "K8s, Q8s, J8s, 86s, A8o, K9o, QJo"
     },
     "BTN": {
-      "raise": "22+, A2s+, K5s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
-      "mix": "K2s-K4s, Q5s, Q6s, 53s, 42s, K7o, Q8o, J8o, T8o, 98o"
+      "raise": "22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, 43s, A3o+, K8o+, Q9o+, J9o+, T9o",
+      "mix": "K2s-K3s, Q5s, Q6s, 53s, 42s, A2o, K7o, Q8o, J8o, T8o, 98o",
+      "action_size_bb": 2.5,
+      "global_rfi_frequency": 0.430,
+      "combo_matrix": {
+        "AA": { "raise": 1.0, "fold": 0.0 },
+        "22": { "raise": 1.0, "fold": 0.0 },
+        "A2s": { "raise": 1.0, "fold": 0.0 },
+        "K4s": { "raise": 1.0, "fold": 0.0 },
+        "Q7s": { "raise": 1.0, "fold": 0.0 },
+        "J7s": { "raise": 1.0, "fold": 0.0 },
+        "T7s": { "raise": 1.0, "fold": 0.0 },
+        "96s": { "raise": 1.0, "fold": 0.0 },
+        "85s": { "raise": 1.0, "fold": 0.0 },
+        "74s": { "raise": 1.0, "fold": 0.0 },
+        "54s": { "raise": 1.0, "fold": 0.0 },
+        "A2o": { "raise": 0.25, "fold": 0.75 },
+        "K9o": { "raise": 1.0, "fold": 0.0 },
+        "Q9o": { "raise": 1.0, "fold": 0.0 },
+        "J9o": { "raise": 1.0, "fold": 0.0 },
+        "T9o": { "raise": 1.0, "fold": 0.0 }
+      }
     }
   }
 }

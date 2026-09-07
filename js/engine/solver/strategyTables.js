@@ -24,6 +24,33 @@
     return out;
   }
 
+  /**
+   * Lee combo_matrix profesional si existe para el código.
+   * kind: 'rfi' | 'vsRfi' | 'vs3bet'
+   * Devuelve null si no hay fila (fallback a chart).
+   * No pasa por Preflop.enhance (frecuencias ya resueltas).
+   */
+  function strategyFromComboMatrix(data, code, kind) {
+    if (!data || !data.combo_matrix || !code) return null;
+    const row = data.combo_matrix[code];
+    if (!row || typeof row !== 'object') return null;
+    if (kind === 'rfi') {
+      const raise = Number(row.raise) || 0;
+      const fold = row.fold != null ? Number(row.fold) : Math.max(0, 1 - raise);
+      return normalize({ fold: fold, raise: raise });
+    }
+    if (kind === 'vs3bet') {
+      const four = Number(row['4bet']) || Number(row.fourBet) || Number(row.raise) || 0;
+      const call = Number(row.call) || 0;
+      const fold = row.fold != null ? Number(row.fold) : Math.max(0, 1 - four - call);
+      return normalize({ fold: fold, call: call, raise: four });
+    }
+    const three = Number(row['3bet']) || Number(row.threeBet) || Number(row.raise) || 0;
+    const call = Number(row.call) || 0;
+    const fold = row.fold != null ? Number(row.fold) : Math.max(0, 1 - three - call);
+    return normalize({ fold: fold, call: call, raise: three });
+  }
+
   function rfiStrategy(pos, code, ctx) {
     const RR = global.GTORangesRegistry;
     const data = RR && ctx ? RR.getOpenRaiseRow(pos, ctx) : D.OPEN_RAISE[pos];
@@ -31,6 +58,8 @@
       // Tabla ausente: nunca 100% fold para premiums (rompe matriz GTO entera).
       return heuristicOpen(code);
     }
+    const fromMatrix = strategyFromComboMatrix(data, code, 'rfi');
+    if (fromMatrix) return fromMatrix;
     const raiseSet = N.toSet(data.raise);
     const mixSet = N.toSet(data.mix);
     let base;
@@ -58,6 +87,8 @@
       // Sin opener/tabla: heurística (AA no puede ser fold 100% en matriz).
       return heuristicFacingRaise(code, false);
     }
+    const fromMatrix = strategyFromComboMatrix(data, code, 'vsRfi');
+    if (fromMatrix) return fromMatrix;
     const tb = N.toSet(data.threeBet);
     const tbMix = N.toSet(data.threeBetMix);
     const call = N.toSet(data.call);
@@ -151,7 +182,9 @@
     const RR = global.GTORangesRegistry;
     const data = RR && ctx && openerPos && threeBettorPos
       ? RR.getVs3betRow(openerPos, threeBettorPos, ctx)
-      : (RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET);
+      : (RR && ctx ? RR.getVs3bet(ctx)
+        : ((openerPos && threeBettorPos && D.VS_3BET_PAIRS && D.VS_3BET_PAIRS[openerPos + '_vs_' + threeBettorPos])
+          || D.VS_3BET));
     const Tax = global.PTFormatTaxonomy;
     const c = RR && RR.normalize ? RR.normalize(ctx) : (ctx || {});
     const phase = c.effectivePhase || c.resolvedPhase || c.mttPhase || '';
@@ -162,6 +195,8 @@
       || (c.stackBB != null && c.stackBB <= 28)
     );
     if (data) {
+      const fromMatrix = strategyFromComboMatrix(data, code, 'vs3bet');
+      if (fromMatrix) return fromMatrix;
       const jam = N.toSet(data.fourBet);
       const call = N.toSet(data.call);
       const callMix = N.toSet(data.callMix || '');
@@ -632,7 +667,8 @@
   }
 
   global.GTOStrategyTables = {
-    normalize, rfiStrategy, vsRfiStrategy, squeezeStrategy, isoStrategy,
+    normalize, strategyFromComboMatrix,
+    rfiStrategy, vsRfiStrategy, squeezeStrategy, isoStrategy,
     bbVsSbLimpStrategy, sbLimpStrategy,
     vs3betStrategy, vs4betStrategy, vs4betAs3bettorStrategy,
     cold3betStrategy, cold4betStrategy,

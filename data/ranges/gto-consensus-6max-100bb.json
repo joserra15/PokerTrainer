@@ -3,19 +3,22 @@
     "format": "cash6",
     "stackBB": 100,
     "openSize": "2.5x",
-    "note": "Consenso GTO aproximado (estudio) para auditoría hard. No es dump de Pio/GTOW. Polar A5o/A9o vs UTG se deja fuera de mustContinue.",
-    "updated": "2026-09-05"
+    "threeBetSize": "10bb",
+    "fourBetSize": "24bb",
+    "rake": "5_percent_2_5bb_cap",
+    "note": "Consenso alineado a dump profesional MCCFR (2026-09-07). BB vs UTG raked es tight (~10% call). Polar A5o vs BTN se deja fuera de mustContinue.",
+    "updated": "2026-09-07"
   },
   "vsRfi": {
     "BB_vs_UTG": {
       "mustContinue": [
-        "ATo", "AJo", "AQo", "AKo",
-        "KJo", "KQo", "QJo", "JTo",
-        "K8s", "Q8s", "J8s", "T8s",
-        "97s", "86s", "98s", "87s", "76s"
+        "AQo", "AKo",
+        "AQs", "AJs", "ATs", "A9s", "A5s", "A4s",
+        "KTs", "QJs", "JTs", "T9s", "98s", "87s", "76s", "65s", "54s",
+        "TT", "99", "22"
       ],
-      "mustFold": ["A9o", "A8o", "KTo", "QTo", "Q9o", "72o", "83o"],
-      "note": "BB vs UTG defiende ATo+/JTo y gappers suited típicos; A9o- sigue fold."
+      "mustFold": ["ATo", "AJo", "A9o", "A8o", "KJo", "KQo", "QJo", "JTo", "KTo", "QTo", "Q9o", "K8s", "72o", "83o"],
+      "note": "BB vs UTG raked: call ~10%, sin broadway offsuit por debajo de AQo; gappers K8s/Q8s fuera."
     },
     "BB_vs_HJ": {
       "mustContinue": [
@@ -36,10 +39,10 @@
     "BB_vs_BTN": {
       "mustContinue": [
         "A2o", "K9o", "Q9o", "J9o", "T9o", "98o",
-        "ATo", "KJo", "QJo"
+        "ATo", "KJo", "QJo", "99", "TT", "AJs", "ATs"
       ],
       "mustFold": ["72o", "83o", "92o"],
-      "note": "Q9o no puede ser fold puro si K9o/J9o/T9o/98o continúan."
+      "note": "Q9o no puede ser fold puro si K9o/J9o/T9o/98o continúan. 99 call; TT 3bet."
     },
     "SB_vs_UTG": {
       "mustContinue": ["AQo", "AJo", "KQo", "ATs", "KJs", "QJs"],
@@ -47,26 +50,28 @@
       "note": "SB vs UTG más tight que BB; ATo suele fold/mix bajo — aquí mustFold hard."
     },
     "SB_vs_BTN": {
-      "mustContinue": ["ATo", "A9o", "KJo", "QJo", "JTo", "T9o"],
-      "mustFold": ["72o", "83o"]
+      "mustContinue": ["ATo", "A9o", "KJo", "QJo", "JTo", "T9o", "A5s", "A4s"],
+      "mustFold": ["72o", "83o"],
+      "note": "Polar: A5s/A4s 3bet; KQs mix call/3bet."
     }
   },
   "rfi": {
     "UTG": {
-      "mustContinue": ["AJo", "KQo", "ATs", "76s", "22"],
+      "mustContinue": ["AJo", "KQo", "ATs", "A5s", "76s", "22", "98s"],
       "mustFold": ["ATo", "A9o", "QJo", "JTo", "72o"],
-      "note": "ATo UTG open es fold; KJo está en mix (continue parcial)."
+      "note": "A5s raise puro; 98s/KQo/KTs mixes fraccionarios vía combo_matrix."
     },
     "BTN": {
-      "mustContinue": ["ATo", "A2o", "K8o", "Q9o", "22", "54s"],
-      "mustFold": ["72o", "32o"]
+      "mustContinue": ["ATo", "A2o", "K8o", "Q9o", "22", "54s", "K4s"],
+      "mustFold": ["72o", "32o"],
+      "note": "A2o mix bajo (combo_matrix 25%); K4s raise."
     }
   },
   "vs3bet": {
     "BTN_vs_BB": {
-      "mustContinue": ["AJo", "ATo", "KJo", "QJo", "ATs", "99"],
+      "mustContinue": ["AJo", "ATo", "KJo", "QJo", "ATs", "99", "JJ", "QQ", "A4s", "A5s", "AKo"],
       "mustFold": ["A9o", "KTo", "72o"],
-      "note": "ATo IP vs BB 3-bet: call/mix frecuente en solvers."
+      "note": "Más call IP; A4s/A5s 4bet/fold polar; QQ mix 4bet/call; JJ call."
     },
     "CO_vs_BB": {
       "mustContinue": ["AQo", "AJo", "KQo", "ATs", "99"],

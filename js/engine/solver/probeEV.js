@@ -43,6 +43,53 @@
     return clamp(fe, 0.10, 0.62);
   }
 
+  /**
+   * Clusters de c-bet SRP IP alineados a solvers (dry/wet/paired/monotone).
+   * Targets: dry 75%, wet 40%, paired 85%, monotone 30%.
+   */
+  const SRP_IP_CBET_TARGETS = {
+    dry: 0.75,
+    wet: 0.40,
+    paired: 0.85,
+    monotone: 0.30
+  };
+
+  function srpIpCbetCluster(texture) {
+    if (!texture) return null;
+    const cat = texture.category || '';
+    if (cat === 'MONOTONE') return 'monotone';
+    if (texture.paired || cat === 'PAIRED_LOW' || cat === 'PAIRED_HIGH') return 'paired';
+    if (
+      cat === 'MIDDLE_CONNECTED' || cat === 'HIGH_CONNECTED' || cat === 'LOW_CONNECTED'
+      || cat === 'TWO_TONE_DYNAMIC' || cat === 'TWO_TONE_DRY' || cat === 'RAINBOW_DYNAMIC'
+    ) {
+      return 'wet';
+    }
+    if (cat === 'ACE_HIGH' || cat === 'KING_HIGH' || cat === 'RAINBOW_DRY' || cat === 'LOW_BOARD' || cat === 'HIGH_BOARD') {
+      return 'dry';
+    }
+    if (!texture.wet && !texture.paired) return 'dry';
+    if (texture.wet) return 'wet';
+    return null;
+  }
+
+  function applySrpIpCbetAttractor(betTotal, input, band, texture) {
+    if (!isContinuationBetSpot(input)) return betTotal;
+    if ((input.street || 'flop') !== 'flop') return betTotal;
+    if (input.inPosition === false) return betTotal;
+    const cluster = srpIpCbetCluster(texture);
+    const target = cluster ? SRP_IP_CBET_TARGETS[cluster] : null;
+    if (target == null) return betTotal;
+    // Atractor ponderado: más fuerte en air/merge (frecuencia de rango), suave en value.
+    let pull = 0.30;
+    if (band === 'air') pull = 0.70;
+    else if (band === 'bluffcatch') pull = 0.55;
+    else if (band === 'merge') pull = 0.45;
+    else if (band === 'value') pull = 0.22;
+    else if (band === 'nuts') pull = 0.12;
+    return clamp(betTotal * (1 - pull) + target * pull, 0.05, 0.95);
+  }
+
   function evCheck(equity, pot, rf) {
     return equity * pot * rf;
   }
@@ -58,6 +105,10 @@
     const street = input.street || 'flop';
     const texture = Board ? Board.boardTexture(input.board || []) : { wet: false, paired: false };
     const spr = input.spr != null ? Number(input.spr) : null;
+    const inPosition = input.inPosition !== false;
+    const srpCluster = (street === 'flop' && isContinuationBetSpot(input) && inPosition)
+      ? srpIpCbetCluster(texture)
+      : null;
 
     function withOver(split, overW) {
       if (!overW || overW <= 0) return Object.assign({ sOver: 0 }, split);
@@ -66,6 +117,14 @@
       let rem = take - Math.min((split.s100 || 0) * 0.55, take);
       const s66 = Math.max(0, (split.s66 || 0) - rem);
       return { s33: split.s33 || 0, s66: s66, s100: s100, sOver: take };
+    }
+
+    // Anclas solver: dry/paired/monotone → 25–33%; wet connected → 66–75%.
+    if (srpCluster === 'wet') {
+      return { s33: 0.18, s66: 0.58, s100: 0.24, sOver: 0 };
+    }
+    if (srpCluster === 'dry' || srpCluster === 'paired' || srpCluster === 'monotone') {
+      return { s33: 0.72, s66: 0.20, s100: 0.08, sOver: 0 };
     }
 
     let base;
@@ -143,6 +202,7 @@
     const texture = Board ? Board.boardTexture(input.board || []) : {};
     const dry = !texture.wet && !texture.paired;
     const highBoard = texture.category === 'ACE_HIGH' || texture.category === 'HIGH_BOARD';
+    const cluster = srpIpCbetCluster(texture);
 
     if (street === 'flop') {
       if (band === 'nuts' || band === 'value') return inPosition ? 0.78 : 0.62;
@@ -150,9 +210,13 @@
       if (band === 'bluffcatch') return inPosition ? 0.46 : 0.36;
       if (band === 'air') {
         if (inPosition) {
-          if (dry && highBoard) return 0.55;
+          // Floors alineados a targets solver por cluster.
+          if (cluster === 'paired') return 0.62;
+          if (cluster === 'dry' || (dry && highBoard)) return 0.55;
+          if (cluster === 'monotone') return 0.22;
+          if (cluster === 'wet' || texture.wet) return 0.28;
           if (dry) return 0.46;
-          return texture.wet ? 0.30 : 0.38;
+          return 0.38;
         }
         return dry ? 0.34 : 0.24;
       }
@@ -306,8 +370,9 @@
 
     const cbetFloor = cbetMinBetTotal(input, band);
     if (cbetFloor > 0) betTotal = Math.max(betTotal, cbetFloor);
+    betTotal = applySrpIpCbetAttractor(betTotal, input, band, texture);
     if (isContinuationBetSpot(input) && band === 'air' && street === 'flop') {
-      betTotal = Math.min(betTotal, inPosition ? 0.65 : 0.45);
+      betTotal = Math.min(betTotal, inPosition ? 0.78 : 0.45);
     }
     if (isContinuationBetSpot(input) && band === 'air' && street === 'turn') {
       if (!isTrueBarrelLine(input)) {
@@ -366,6 +431,6 @@
     computeProbeStrategy, actionEV, evCheck, evBet, estimateFoldEquity,
     dynamicSizeSplit, realizationFactor, normalize,
     isContinuationBetSpot, cbetMinBetTotal, cbetFoldEquityBoost, hasBarrelBluffEquity,
-    isTrueBarrelLine
+    isTrueBarrelLine, srpIpCbetCluster, applySrpIpCbetAttractor, SRP_IP_CBET_TARGETS
   };
 })(window);

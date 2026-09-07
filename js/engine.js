@@ -39,6 +39,35 @@
     return base;
   }
 
+  /** Cash deep (no Spin/MTT corto): 3bet 10bb / 4bet 24bb vs open 2.5, alineado a solvers. */
+  function isCashDeepSizing(hand) {
+    const cfg = (hand && hand.playConfig) || {};
+    const Tax = global.PTFormatTaxonomy;
+    const hub = Tax && Tax.normalizeHub
+      ? Tax.normalizeHub(cfg.formatHub || Tax.hubFromGameType(cfg.gameType))
+      : (cfg.formatHub || 'cash');
+    if (hub === 'spin' || hub === 'mtt') return false;
+    const stack = cfg.stackBB != null ? Number(cfg.stackBB) : EFF;
+    return !(stack > 0 && stack <= 40);
+  }
+
+  function threeBetSizeBb(hand, openSize, threeBettorPos) {
+    const open = openSize != null ? Number(openSize) : configuredOpenSize(hand);
+    if (isCashDeepSizing(hand) && Math.abs(open - 2.5) < 0.05) {
+      return 10;
+    }
+    const mult = threeBettorPos === 'SB' ? 3.6 : 3.4;
+    return round2(open * mult);
+  }
+
+  function fourBetSizeBb(hand, threeBetSize) {
+    const tb = threeBetSize != null ? Number(threeBetSize) : 10;
+    if (isCashDeepSizing(hand) && Math.abs(tb - 10) < 0.05) {
+      return 24;
+    }
+    return round2(tb * 2.3);
+  }
+
   /** Compat: constantes usadas como fallback cuando no hay mano. */
   const OPEN = OPEN_DEFAULT;
   const SB_OPEN = SB_OPEN_DEFAULT;
@@ -866,7 +895,7 @@
         continue;
       }
       if (act === '3bet') {
-        const fourBetSize = round2(threeBetSize * 2.3);
+        const fourBetSize = fourBetSizeBb(hand, threeBetSize);
         const add = capBetForSeat(hand, bPos, fourBetSize - (hand.table.invested[bPos] || 0));
         if (add > 0) addInvest(hand, bPos, add);
         setPreflopSeatBet(hand, bPos, fourBetSize);
@@ -1236,7 +1265,7 @@
         continue;
       }
       if (act === '3bet') {
-        threeBetSize = round2(openSize * (pos === 'SB' ? 3.6 : 3.4));
+        threeBetSize = threeBetSizeBb(hand, openSize, pos);
         threeBettor = pos;
         setSeatAction(hand, pos, 'raise', threeBetSize);
         const add = seatToCall(hand, pos, threeBetSize);
@@ -1355,7 +1384,7 @@
         continue;
       }
       if (act === '3bet' && !heroAllIn) {
-        threeBetSize = round2(openSize * (pos === 'SB' ? 3.6 : 3.4));
+        threeBetSize = threeBetSizeBb(hand, openSize, pos);
         threeBettor = pos;
         setSeatAction(hand, pos, 'raise', threeBetSize);
         const add = seatToCall(hand, pos, threeBetSize);
@@ -2939,11 +2968,11 @@
         potBB: hand.potBB,
         toCallBB: toCall,
         openSize: openSize,
-        threeBetSize: round2(openSize * 3.5),
+        threeBetSize: threeBetSizeBb(hand, openSize, hand.hero && hand.hero.pos),
         options: [
           { id: 'fold', label: 'Fold' },
           { id: 'call', label: `Call (${toCall}bb)` },
-          { id: 'raise', label: `3-Bet a ${round2(openSize * 3.5)}bb` }
+          { id: 'raise', label: `3-Bet a ${threeBetSizeBb(hand, openSize, hand.hero && hand.hero.pos)}bb` }
         ],
         gto: freqs,
         context: `Bote multiway: ${opener} abre, ${callers.join('+')} pagan. Eres ${heroPos}. Bote ${hand.potBB}bb.${yetNote}`
@@ -3150,7 +3179,7 @@
     hand.potBB = round2(pot);
     hand.toCallBB = round2(openSize - heroBlind);
 
-    const threeBetSize = inPos(hero, opener) ? round2(openSize * 3) : round2(openSize * 4);
+    const threeBetSize = threeBetSizeBb(hand, openSize, hero);
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'vsRFI', potBB: hand.potBB, toCallBB: hand.toCallBB });
     const mode = preflopSizingMode(hand);
     const stackBB = round2(effStackForHand(hand));
@@ -3816,7 +3845,7 @@
       }
       // 3-bet
       hand.heroIsAggressor = true;
-      const threeBetSize = node.threeBetSize || round2((node.openSize || configuredOpenSize(hand)) * 3.5);
+      const threeBetSize = node.threeBetSize || threeBetSizeBb(hand, node.openSize || configuredOpenSize(hand), hero);
       hand.heroInvested = threeBetSize;
       addInvest(hand, hero, round2(threeBetSize - (hand.table.invested[hero] || 0)));
       setHeroAct(hand, 'raise', threeBetSize);
@@ -3876,7 +3905,7 @@
         }
       }
       if (cont === '4bet') {
-        const fbSize = round2(threeBetSize * 2.3);
+        const fbSize = fourBetSizeBb(hand, threeBetSize);
         hand.villainInvested = fbSize;
         hand.potBB = round2(threeBetSize + fbSize + SB);
         hand.villain.rangeStr = VPF ? VPF.rangeStrFor4Bet(rangeCtx(hand)) : R.VS_3BET.fourBet;
@@ -4035,7 +4064,7 @@
     hand.villain.rangeStr = hand._predeal.villainRange || bb3betRange(opener, hand);
     initVillainTracker(hand);
     const openSize = openSizeForPos(hand, opener);
-    const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
+    const threeBetSize = threeBetSizeBb(hand, openSize, tb);
     hand.heroInvested = openSize;
     hand.villainInvested = threeBetSize;
     hand.potBB = round2(openSize + threeBetSize + SB);
@@ -4141,8 +4170,8 @@
     hand.villain.rangeStr = threeBetRangeStr(tb, opener, hand);
     initVillainTracker(hand);
     const openSize = openSizeForPos(hand, opener);
-    const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
-    const cold4Size = round2(threeBetSize * 2.3);
+    const threeBetSize = threeBetSizeBb(hand, openSize, tb);
+    const cold4Size = fourBetSizeBb(hand, threeBetSize);
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
     hand.heroInvested = heroBlind;
     hand.villainInvested = threeBetSize;
@@ -4182,8 +4211,8 @@
       : R.VS_3BET.fourBet;
     initVillainTracker(hand);
     const openSize = openSizeForPos(hand, opener);
-    const threeBetSize = inPos(hero, opener) ? round2(openSize * 3) : round2(openSize * 4);
-    const fourBetSize = round2(threeBetSize * 2.3);
+    const threeBetSize = threeBetSizeBb(hand, openSize, hero);
+    const fourBetSize = fourBetSizeBb(hand, threeBetSize);
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
     hand.heroInvested = threeBetSize;
     hand.villainInvested = fourBetSize;
@@ -4222,7 +4251,7 @@
     if (heroRemainingBB(hand) <= 0.01) return allInShowdown(hand);
     hand.stage = 'preflop';
     const toCall = round2(tbSize - hand.heroInvested);
-    const fourBet = round2(tbSize * 2.3);
+    const fourBet = fourBetSizeBb(hand, tbSize);
     const node = {
       street: 'preflop', kind: 'face3bet', potBB: hand.potBB, toCallBB: toCall,
       options: [
