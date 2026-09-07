@@ -420,6 +420,46 @@ function reducedMotion() {
     return (L && L[id]) || id || '—';
   }
 
+  function roleShort(id) {
+    var RG = global.PTTournamentRoleGuess;
+    if (RG && RG.shortLabel) return RG.shortLabel(id);
+    if (RG && RG.ROLE_SHORT && RG.ROLE_SHORT[id]) return RG.ROLE_SHORT[id];
+    return roleLabel(id);
+  }
+
+  function roleColor(id) {
+    var RG = global.PTTournamentRoleGuess;
+    if (RG && RG.color) return RG.color(id);
+    if (RG && RG.ROLE_COLORS && RG.ROLE_COLORS[id]) return RG.ROLE_COLORS[id];
+    return '#6b7280';
+  }
+
+  /** Etiqueta de color del tipo de rival (guess o revelado). */
+  function roleChipHtml(roleId, opts) {
+    opts = opts || {};
+    if (!roleId) return '';
+    var short = roleShort(roleId);
+    var full = roleLabel(roleId);
+    var bg = roleColor(roleId);
+    var extra = opts.className ? (' ' + opts.className) : '';
+    return '<span class="trn-role-chip' + extra + '" data-role="' + esc(roleId) +
+      '" style="--trn-role-bg:' + esc(bg) + '" title="' + esc(full) + '">' +
+      esc(short) + '</span>';
+  }
+
+  function roleLegendHtml() {
+    var ids = (global.PTTournamentConfig && global.PTTournamentConfig.ROLE_IDS) ||
+      Object.keys((global.PTTournamentRoleGuess && global.PTTournamentRoleGuess.ROLE_LABELS) || {});
+    var items = ids.map(function (rid) {
+      return '<li class="trn-role-legend-item">' + roleChipHtml(rid) +
+        '<span class="trn-role-legend-desc">' + esc(roleLabel(rid)) + '</span></li>';
+    }).join('');
+    return '<section class="trn-role-legend" aria-label="Leyenda de tipos de rival">' +
+      '<h4>Tipos de rival</h4>' +
+      '<p class="muted trn-role-legend-hint">Al asignar un tipo a un rival, verás su etiqueta de color en la mesa.</p>' +
+      '<ul class="trn-role-legend-list">' + items + '</ul></section>';
+  }
+
   function setView(v) {
     ui.view = v;
     paint();
@@ -1108,13 +1148,20 @@ function reducedMotion() {
 
       var eqHtml = (equityMap && equityMap[s.id] != null) ? (' ' + equityBadgeHtml(equityMap[s.id])) : '';
       var villainName = s.name || 'Villano';
-      html += '<button type="button" class="' + cls.join(' ') + '" style="top:' + c.top + '%;left:' + c.left +
-        '%" data-player="' + esc(s.id) + '" title="' + esc(villainName + ' · ' + (s.pos || '') + ' — adivinar rol') + '">' +
+      var guessChip = guessed ? ('<div class="seat-role-guess">' + roleChipHtml(guessed) + '</div>') : '';
+      var seatStyle = 'top:' + c.top + '%;left:' + c.left + '%';
+      if (guessed) seatStyle += ';--trn-role-bg:' + roleColor(guessed);
+      html += '<button type="button" class="' + cls.join(' ') + '" style="' + seatStyle +
+        '" data-player="' + esc(s.id) + '"' +
+        (guessed ? (' data-role-guess="' + esc(guessed) + '"') : '') +
+        ' title="' + esc(villainName + ' · ' + (s.pos || '') +
+          (guessed ? (' · ' + roleLabel(guessed)) : ' — adivinar rol')) + '">' +
         '<div class="seat-body">' +
         '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
         '<div class="seat-name">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') +
-        esc(villainName) + eqHtml + (guessed ? ' · ?' : '') + '</div>' +
+        esc(villainName) + eqHtml + '</div>' +
         '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
+        guessChip +
         '<div class="seat-role">' + esc(villainName) + '</div>' +
         '<div class="seat-stack">' + esc(fmtBb(s.stack, bb)) + '</div>' +
         '</div>' + betHtml +
@@ -1296,6 +1343,7 @@ function reducedMotion() {
         'data-act="noop">' +
         '<h3>Info del torneo</h3>' +
         '<div class="trn-info-dl">' + rows + '</div>' +
+        roleLegendHtml() +
         '<details class="trn-info-handlog-wrap"' + (ui.infoHandlogOpen ? ' open' : '') + '>' +
         '<summary data-act="toggle-handlog">Histórico de manos' +
         (hist.length ? (' <span class="muted">(' + hist.length + ')</span>') : '') +
@@ -1313,9 +1361,14 @@ function reducedMotion() {
       var pl = state.players.find(function (p) { return p.id === pid; });
       var cur = (state.heroGuesses && state.heroGuesses[pid]) || '';
       var roleIds = global.PTTournamentConfig.ROLE_IDS || [];
-      var selectOpts = '<option value="">— Elige tipo de jugador —</option>' + roleIds.map(function (rid) {
-        return '<option value="' + esc(rid) + '"' + (cur === rid ? ' selected' : '') + '>' +
-          esc(roleLabel(rid)) + '</option>';
+      var roleBtns = roleIds.map(function (rid) {
+        return '<button type="button" class="trn-role-opt' + (cur === rid ? ' is-selected' : '') +
+          '" data-guess-role="' + esc(rid) + '" data-guess-player="' + esc(pid) +
+          '" data-role="' + esc(rid) + '" style="--trn-role-bg:' + esc(roleColor(rid)) + '">' +
+          '<span class="trn-role-opt-chip" aria-hidden="true"></span>' +
+          '<span class="trn-role-opt-text">' + esc(roleShort(rid)) + '</span>' +
+          '<span class="trn-role-opt-sub">' + esc(roleLabel(rid)) + '</span>' +
+          '</button>';
       }).join('');
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
@@ -1326,10 +1379,8 @@ function reducedMotion() {
         (pl && pl.alive === false ? ' · Eliminado' : '') +
         '</p>' +
         '<p class="muted">Elige su tipo de jugador (el nombre no indica el perfil). Se revela al final; +2 Koins por acierto.</p>' +
-        '<label class="trn-role-select-label" for="trn-role-select">Tipo de jugador</label>' +
-        '<select id="trn-role-select" class="trn-role-select" data-guess-player="' + esc(pid) + '">' +
-        selectOpts + '</select>' +
-        '<button type="button" class="btn btn-primary" data-act="save-role-guess" data-guess-player="' + esc(pid) + '">Guardar</button> ' +
+        (cur ? ('<p class="trn-role-current">Actual: ' + roleChipHtml(cur) + '</p>') : '') +
+        '<div class="trn-role-grid" role="group" aria-label="Tipo de rival">' + roleBtns + '</div>' +
         '<button type="button" class="btn" data-act="clear-guess" data-guess-player="' + esc(pid) + '">Quitar guess</button> ' +
         '<button type="button" class="btn" data-act="close-role">Cerrar</button>' +
         '</div></div>';
@@ -1687,8 +1738,8 @@ function reducedMotion() {
     var rs = r.roleScore || {};
     var details = (rs.details || []).map(function (d) {
       return '<li class="' + (d.ok ? 'ok' : 'bad') + '">' +
-        esc(d.name) + ' · real <strong>' + esc(roleLabel(d.actual)) + '</strong> · guess ' +
-        esc(roleLabel(d.guess)) + (d.ok ? ' ✓' : ' ✗') + '</li>';
+        esc(d.name) + ' · real ' + roleChipHtml(d.actual) + ' · guess ' +
+        roleChipHtml(d.guess) + (d.ok ? ' ✓' : ' ✗') + '</li>';
     }).join('') || '<li class="muted">Sin guesses</li>';
 
     var sessionStats = r.sessionStats || state.sessionStats || null;
