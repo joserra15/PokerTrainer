@@ -56,15 +56,18 @@
   function refreshTournamentsTabVisibility() {
     var communityHide = false;
     try {
-      if (window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
-        communityHide = true;
-      } else if (window.PTCommunity && PTCommunity.config) {
+      if (window.PTCommunity && PTCommunity.config) {
         var cfg = PTCommunity.config();
-        if (cfg && cfg.menus && cfg.menus.hide && cfg.menus.hide.indexOf('tournaments') >= 0) {
-          communityHide = true;
+        if (cfg && cfg.menus) {
+          if (cfg.menus.hide && cfg.menus.hide.indexOf('tournaments') >= 0) {
+            communityHide = true;
+          } else if (cfg.menus.show && cfg.menus.show.indexOf('tournaments') < 0) {
+            communityHide = true;
+          }
         }
       }
     } catch (e) { /* noop */ }
+    /* Rol: PokerForgeAI → Admin; MTTLab → managers (PTTournaments.menuVisible). */
     const show = !communityHide && tournamentsMenuVisible();
     const tab = document.querySelector('.tab[data-tab="tournaments"]');
     if (tab) tab.classList.toggle('hidden', !show);
