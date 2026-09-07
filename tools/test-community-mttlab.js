@@ -169,6 +169,13 @@ const billing = read('js/billing.js');
 assert.ok(/requireMembership\(\)/.test(billing) && /mountAnnualUpsell/.test(billing), 'upsell oculto en comunidad');
 
 assert.ok(/communityHide/.test(app), 'legendary respeta hide comunidad');
+assert.ok(/refreshTournamentsTabVisibility/.test(app), 'app refresca tab torneos');
+assert.ok(/tournamentsMenuVisible/.test(app), 'app usa gate de torneos');
+assert.ok(/menus\.show[\s\S]{0,200}tournaments/.test(app) ||
+  /show\.indexOf\('tournaments'\)/.test(app),
+  'visibilidad torneos respeta menus.show');
+assert.ok(!/function refreshTournamentsTabVisibility[\s\S]{0,500}requireMembership\(\)/.test(app),
+  'torneos no se ocultan solo por requireMembership');
 assert.ok(/manager-member-cards/.test(read('css/styles.css')), 'CSS manager responsive');
 assert.ok(/body\.community-shell/.test(read('css/styles.css')), 'CSS oculta learn/legendary en comunidad');
 
@@ -208,6 +215,8 @@ assert.ok(C, 'PTCommunity API');
 assert.strictEqual(C.getConfig('pokerforge').requireMembership, false);
 assert.strictEqual(C.getConfig('mttlab').requireMembership, true);
 assert.ok(C.getConfig('mttlab').menus.hide.indexOf('pricing') >= 0, 'mttlab oculta pricing');
+assert.ok(C.getConfig('mttlab').menus.hide.indexOf('tournaments') < 0, 'mttlab no oculta tournaments');
+assert.ok(C.getConfig('mttlab').menus.show.indexOf('tournaments') >= 0, 'mttlab muestra tournaments (managers)');
 assert.ok(C.getConfig('mttlab').menus.show.indexOf('school') >= 0, 'mttlab muestra school');
 assert.ok(C.getConfig('mttlab').school.unlockMode === 'allOpen');
 assert.ok(C.getConfig('mttlab').billing.hidePricing);

@@ -418,6 +418,12 @@
         state.result.roleKoins = roleKoins;
         state.result.totalKoinsAwarded = totalCredit;
       }
+      if (Wallet && Wallet.noteTournamentPlayed) Wallet.noteTournamentPlayed();
+      try {
+        if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.publishHero) {
+          PTTournamentLeaderboard.publishHero({ forceCloud: true });
+        }
+      } catch (eLb) { /* ignore */ }
     } catch (eW) { /* ignore */ }
     return state.result;
   }

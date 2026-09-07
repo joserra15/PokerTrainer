@@ -50,8 +50,14 @@
 
   function cloudDataKeys() {
     var s = communityDataSuffix();
-    if (!s) return ['stats', 'history', 'errors', 'onboarding'];
-    return ['stats' + s, 'history' + s, 'errors' + s, 'school' + s];
+    var base = s
+      ? ['stats' + s, 'history' + s, 'errors' + s, 'school' + s]
+      : ['stats', 'history', 'errors', 'onboarding'];
+    return base.concat([
+      'tournamentWallet' + s,
+      'tournamentHistory' + s,
+      'tournamentActive' + s
+    ]);
   }
 
   /** Extrae el snapshot lógico de la comunidad activa desde el payload nube completo. */
@@ -64,7 +70,10 @@
         history: Array.isArray(p.history) ? p.history : [],
         errors: Array.isArray(p.errors) ? p.errors : [],
         clearedAt: p.clearedAt || {},
-        onboarding: p.onboarding || null
+        onboarding: p.onboarding || null,
+        tournamentWallet: p.tournamentWallet || null,
+        tournamentHistory: Array.isArray(p.tournamentHistory) ? p.tournamentHistory : null,
+        tournamentActive: p.tournamentActive || null
       };
     }
     return {
@@ -73,7 +82,10 @@
       errors: Array.isArray(p['errors' + s]) ? p['errors' + s] : [],
       clearedAt: p['clearedAt' + s] || {},
       school: p['school' + s] || null,
-      onboarding: null
+      onboarding: null,
+      tournamentWallet: p['tournamentWallet' + s] || null,
+      tournamentHistory: Array.isArray(p['tournamentHistory' + s]) ? p['tournamentHistory' + s] : null,
+      tournamentActive: p['tournamentActive' + s] || null
     };
   }
 
@@ -89,14 +101,57 @@
       out.errors = snap.errors;
       out.clearedAt = snap.clearedAt || {};
       if (snap.onboarding) out.onboarding = snap.onboarding;
+      mergeTournamentFieldsIntoCloud(out, snap, '');
     } else {
       out['stats' + s] = snap.stats;
       out['history' + s] = snap.history;
       out['errors' + s] = snap.errors;
       out['school' + s] = getSchoolProgress();
       out['clearedAt' + s] = snap.clearedAt || {};
+      mergeTournamentFieldsIntoCloud(out, snap, s);
     }
     return out;
+  }
+
+  /**
+   * Torneos en push completo: no inventar wallet default ni pisar histórico
+   * remoto con [] local. Active se borra en nube si local no tiene.
+   */
+  function mergeTournamentFieldsIntoCloud(out, snap, s) {
+    s = s || '';
+    var wKey = 'tournamentWallet' + s;
+    var hKey = 'tournamentHistory' + s;
+    var aKey = 'tournamentActive' + s;
+    if (snap.tournamentWallet && !snap.tournamentWallet.isDefault) {
+      out[wKey] = snap.tournamentWallet;
+    }
+    var localHist = Array.isArray(snap.tournamentHistory) ? snap.tournamentHistory : [];
+    var cloudHist = Array.isArray(out[hKey]) ? out[hKey] : [];
+    if (localHist.length) {
+      out[hKey] = mergeTournamentHistoryLists(cloudHist, localHist);
+    } else if (!cloudHist.length && out[hKey] == null) {
+      out[hKey] = [];
+    }
+    /* si local vacío y cloud tiene datos, conservar cloud (no pisar). */
+    if (snap.tournamentActive) out[aKey] = snap.tournamentActive;
+    else delete out[aKey];
+  }
+
+  function mergeTournamentHistoryLists(a, b) {
+    const map = Object.create(null);
+    function add(item) {
+      if (!item || !item.id) return;
+      const prev = map[item.id];
+      if (!prev) { map[item.id] = item; return; }
+      const ta = Date.parse(item.finishedAt || 0) || 0;
+      const tb = Date.parse(prev.finishedAt || 0) || 0;
+      if (ta >= tb) map[item.id] = item;
+    }
+    (a || []).forEach(add);
+    (b || []).forEach(add);
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (x, y) {
+      return (Date.parse(y.finishedAt || 0) || 0) - (Date.parse(x.finishedAt || 0) || 0);
+    }).slice(0, 100);
   }
 
   function read(key, fallback) {
@@ -348,6 +403,7 @@
     userId = uid || null;
     if (userId) {
       migrateLegacyOnce(userId);
+      try { migrateTournamentKeysForUser(userId); } catch (eTwMig) { /* ignore */ }
       try {
         const keyed = 'pt_school_backup_v1_' + userId;
         if (!localStorage.getItem(keyed)) {
@@ -362,6 +418,62 @@
       } catch (eSch) { /* ignore */ }
       try { hydrateSchoolFromBackupIntoStats(); } catch (eHyd) { /* ignore */ }
     }
+  }
+
+  /**
+   * Copia wallet/histórico/active sin usuario (o guest) → clave con uid,
+   * para que un torneo guardado antes del login no quede huérfano.
+   */
+  function migrateTournamentKeysForUser(uid) {
+    if (!uid || typeof localStorage === 'undefined') return { moved: 0 };
+    const prefixes = [
+      'pt_tournament_wallet_v1',
+      'pt_tournaments_v1',
+      'pt_tournament_active_v1'
+    ];
+    const guest = 'pt_guest_local';
+    let moved = 0;
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) keys.push(k);
+    }
+    function isOwnedByUser(k, prefix) {
+      return k === prefix + '_' + uid || k.indexOf(prefix + '_') === 0 &&
+        k.slice(-(uid.length + 1)) === '_' + uid;
+    }
+    function destForSource(k, prefix) {
+      if (isOwnedByUser(k, prefix)) return null;
+      if (k === prefix) return prefix + '_' + uid;
+      if (k === prefix + '_' + guest) return prefix + '_' + uid;
+      if (k.indexOf(prefix) !== 0) return null;
+      const rest = k.slice(prefix.length);
+      if (!rest) return null;
+      if (rest === '_' + guest) return prefix + '_' + uid;
+      const guestSuffix = '_' + guest;
+      if (rest.length > guestSuffix.length &&
+          rest.slice(-guestSuffix.length) === guestSuffix) {
+        return prefix + rest.slice(0, -guestSuffix.length) + '_' + uid;
+      }
+      /* Comunidad sin user: _mttlab (no UUID) */
+      if (/^_[a-z][a-z0-9]*$/i.test(rest)) return prefix + rest + '_' + uid;
+      return null;
+    }
+    prefixes.forEach(function (prefix) {
+      keys.forEach(function (k) {
+        const dest = destForSource(k, prefix);
+        if (!dest || dest === k) return;
+        try {
+          const val = localStorage.getItem(k);
+          if (val == null) return;
+          const existing = localStorage.getItem(dest);
+          if (existing && existing !== '[]' && existing !== 'null' && existing !== '{}') return;
+          localStorage.setItem(dest, val);
+          moved++;
+        } catch (e) { /* ignore */ }
+      });
+    });
+    return { moved: moved };
   }
 
   function getUserId() {
@@ -1620,8 +1732,17 @@
       clearedAt: getClearedAt()
     };
     try {
-      if (global.PTTournamentWallet && PTTournamentWallet.snapshot) {
-        snap.tournamentWallet = PTTournamentWallet.snapshot();
+      if (global.PTTournamentWallet) {
+        var wSnap = null;
+        if (PTTournamentWallet.peek) {
+          var peeked = PTTournamentWallet.peek();
+          wSnap = peeked && PTTournamentWallet.snapshot
+            ? PTTournamentWallet.snapshot()
+            : peeked;
+        } else if (PTTournamentWallet.snapshot) {
+          wSnap = PTTournamentWallet.snapshot();
+        }
+        if (wSnap && !wSnap.isDefault) snap.tournamentWallet = wSnap;
       }
       if (global.PTTournamentStore) {
         if (PTTournamentStore.list) snap.tournamentHistory = PTTournamentStore.list();
@@ -1786,6 +1907,30 @@
         if (s) out['school' + s] = getSchoolProgress();
       } else if (key === 'onboarding' && !s) {
         out.onboarding = mergeOnboardingStates(local.onboarding, cloud.onboarding);
+      } else if (key === 'tournamentWallet') {
+        const localW = local.tournamentWallet;
+        const cloudW = s ? cloud['tournamentWallet' + s] : cloud.tournamentWallet;
+        if (localW && !localW.isDefault) {
+          if (!cloudW || !cloudW.updatedAt ||
+              (Date.parse(localW.updatedAt || 0) || 0) >= (Date.parse(cloudW.updatedAt || 0) || 0)) {
+            out[cloudDataKey || key] = localW;
+          } else {
+            out[cloudDataKey || key] = cloudW;
+          }
+        }
+      } else if (key === 'tournamentHistory') {
+        const localH = Array.isArray(local.tournamentHistory) ? local.tournamentHistory : [];
+        const cloudH = s
+          ? (Array.isArray(cloud['tournamentHistory' + s]) ? cloud['tournamentHistory' + s] : [])
+          : (Array.isArray(cloud.tournamentHistory) ? cloud.tournamentHistory : []);
+        out[cloudDataKey || key] = mergeTournamentHistoryLists(cloudH, localH);
+      } else if (key === 'tournamentActive') {
+        if (local.tournamentActive) {
+          out[cloudDataKey || key] = local.tournamentActive;
+        } else {
+          /* clearActive local → borrar en nube */
+          delete out[cloudDataKey || key];
+        }
       } else if (local[key] != null) {
         out[cloudDataKey || key] = local[key];
       }
@@ -1822,7 +1967,10 @@
     var s = communityDataSuffix();
     if (s && (cloudSnapshot['stats' + s] != null || cloudSnapshot['history' + s] != null ||
         cloudSnapshot['errors' + s] != null || cloudSnapshot['school' + s] != null ||
-        cloudSnapshot['clearedAt' + s] != null)) {
+        cloudSnapshot['clearedAt' + s] != null ||
+        cloudSnapshot['tournamentWallet' + s] != null ||
+        cloudSnapshot['tournamentHistory' + s] != null ||
+        cloudSnapshot['tournamentActive' + s] != null)) {
       logical = sliceCloudForActive(cloudSnapshot);
     }
     const local = getCloudSnapshot();
@@ -1858,19 +2006,25 @@
       if (logical.tournamentWallet && global.PTTournamentWallet && PTTournamentWallet.mergeFromCloud) {
         PTTournamentWallet.mergeFromCloud(logical.tournamentWallet);
       }
-      if (logical.tournamentHistory && global.PTTournamentStore && PTTournamentStore.save) {
-        (logical.tournamentHistory || []).forEach(function (h) {
-          try { PTTournamentStore.save(h); } catch (eH) { /* */ }
-        });
+      if (Array.isArray(logical.tournamentHistory) && logical.tournamentHistory.length &&
+          global.PTTournamentStore) {
+        if (PTTournamentStore.mergeFromCloud) {
+          PTTournamentStore.mergeFromCloud(logical.tournamentHistory);
+        } else if (PTTournamentStore.save) {
+          logical.tournamentHistory.forEach(function (h) {
+            try { PTTournamentStore.save(h); } catch (eH) { /* */ }
+          });
+        }
       }
-      if (logical.tournamentActive && global.PTTournamentStore && PTTournamentStore.saveActive) {
+      if (global.PTTournamentStore && PTTournamentStore.saveActive) {
         var localAct = PTTournamentStore.loadActive && PTTournamentStore.loadActive();
-        var remoteAct = logical.tournamentActive;
-        var preferRemote = PTTournamentStore.isPreferableActive
-          ? PTTournamentStore.isPreferableActive(remoteAct, localAct)
-          : (!localAct || (Date.parse(remoteAct._savedAt || 0) || 0) >= (Date.parse((localAct && localAct._savedAt) || 0) || 0));
-        /* Nunca pisar un torneo local con más manos solo porque el remoto tenga timestamp >=. */
-        if (preferRemote) PTTournamentStore.saveActive(remoteAct);
+        var remoteAct = logical.tournamentActive || null;
+        if (remoteAct) {
+          var preferRemote = PTTournamentStore.isPreferableActive
+            ? PTTournamentStore.isPreferableActive(remoteAct, localAct)
+            : (!localAct || (Date.parse(remoteAct._savedAt || 0) || 0) >= (Date.parse((localAct && localAct._savedAt) || 0) || 0));
+          if (preferRemote) PTTournamentStore.saveActive(remoteAct, { silent: true, fromCloud: true });
+        }
       }
     } catch (eTMerge) { /* ignore */ }
     return { history: history.length, errors: errors.length, sessions: getSessions().length, stats: stats };
@@ -1882,7 +2036,10 @@
     var s = communityDataSuffix();
     if (s && (snapshot['stats' + s] != null || snapshot['history' + s] != null ||
         snapshot['errors' + s] != null || snapshot['school' + s] != null ||
-        snapshot['clearedAt' + s] != null)) {
+        snapshot['clearedAt' + s] != null ||
+        snapshot['tournamentWallet' + s] != null ||
+        snapshot['tournamentHistory' + s] != null ||
+        snapshot['tournamentActive' + s] != null)) {
       logical = sliceCloudForActive(snapshot);
     }
     const cloudCa = logical.clearedAt || {};
@@ -1927,6 +2084,27 @@
       write(scopedDataKey('errors'), filterByClearedAt(logical.errors, effectiveCloudClear('errors', cloudCa)));
     }
     if (!s) applyOnboardingFromCloud(logical.onboarding);
+    try {
+      if (logical.tournamentWallet && global.PTTournamentWallet && PTTournamentWallet.mergeFromCloud) {
+        PTTournamentWallet.mergeFromCloud(logical.tournamentWallet);
+      }
+      if (Array.isArray(logical.tournamentHistory) && global.PTTournamentStore) {
+        if (PTTournamentStore.replaceAll) {
+          PTTournamentStore.replaceAll(logical.tournamentHistory);
+        } else if (PTTournamentStore.save) {
+          logical.tournamentHistory.forEach(function (h) {
+            try { PTTournamentStore.save(h); } catch (eH) { /* */ }
+          });
+        }
+      }
+      if (global.PTTournamentStore) {
+        if (logical.tournamentActive && PTTournamentStore.saveActive) {
+          PTTournamentStore.saveActive(logical.tournamentActive, { silent: true, fromCloud: true });
+        } else if (!logical.tournamentActive && PTTournamentStore.clearActive) {
+          PTTournamentStore.clearActive({ silent: true });
+        }
+      }
+    } catch (eTRep) { /* ignore */ }
   }
 
   function normalizeCoachEntry(entry) {
@@ -2267,6 +2445,7 @@
     getSchoolProgress, saveSchoolProgress,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,
+    migrateTournamentKeysForUser,
     purgeLocalUserData, scenarioLabel,
     getSessions, getSession, getSessionAsync, saveSession, saveSessionLocal, cacheSession, removeSession, deleteSessionTxt,
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,

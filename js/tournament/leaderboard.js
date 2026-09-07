@@ -1,6 +1,7 @@
 /*
  * tournament/leaderboard.js — Clasificación de Koins de la comunidad (usuarios reales).
- * No inventa rivales: solo el héroe local + miembros reales sincronizados (RPC).
+ * Solo jugadores con ≥1 torneo jugado en esa comunidad.
+ * Koins / ranking independientes por community_id.
  */
 (function (global) {
   'use strict';
@@ -59,6 +60,11 @@
     return false;
   }
 
+  function hasPlayed(row) {
+    if (!row) return false;
+    return (Number(row.tournamentsPlayed != null ? row.tournamentsPlayed : row.tournaments_played) || 0) >= 1;
+  }
+
   function heroIdentity() {
     var name = 'Hero';
     var id = 'local-hero';
@@ -103,41 +109,61 @@
       }
       var prevTs = Date.parse(prev.updatedAt || 0) || 0;
       var nextTs = Date.parse(r.updatedAt || 0) || 0;
-      if (nextTs >= prevTs) map[id] = Object.assign({}, prev, r);
+      var merged = nextTs >= prevTs ? Object.assign({}, prev, r) : Object.assign({}, r, prev);
+      merged.tournamentsPlayed = Math.max(
+        Number(prev.tournamentsPlayed) || 0,
+        Number(r.tournamentsPlayed) || 0
+      );
+      map[id] = merged;
     });
     return Object.keys(map).map(function (k) { return map[k]; });
   }
 
-  /** Publica el saldo actual del Hero (local + cloud si hay RPC). */
-  function publishHero() {
+  /**
+   * Publica el saldo del Hero en el board local.
+   * Sync cloud solo si ha jugado ≥1 torneo (o forceCloud).
+   */
+  function publishHero(opts) {
+    opts = opts || {};
     var hero = heroIdentity();
     var bal = 100;
+    var played = 0;
     try {
       if (global.PTTournamentWallet && PTTournamentWallet.getBalance) {
         bal = Number(PTTournamentWallet.getBalance()) || 0;
+      }
+      if (global.PTTournamentWallet && PTTournamentWallet.getTournamentsPlayed) {
+        played = Number(PTTournamentWallet.getTournamentsPlayed()) || 0;
       }
     } catch (e) { /* */ }
     var row = {
       id: hero.id,
       name: hero.name,
       koins: bal,
+      tournamentsPlayed: played,
       updatedAt: new Date().toISOString(),
       isHero: true,
       communityId: communityId()
     };
-    var list = mergeRows(readBoard().filter(function (x) { return !isFakeSeed(x); }), [row]);
+    /* Sustituir fila del héroe (no max con valor viejo del board). */
+    var others = readBoard().filter(function (x) {
+      return !isFakeSeed(x) && String(x.id) !== String(hero.id);
+    });
+    var list = mergeRows(others, [row]);
     writeBoard(list);
-    /* Sync cloud (fire-and-forget). */
-    try {
-      var c = supabaseClient();
-      if (c && c.rpc) {
-        Promise.resolve(c.rpc('pt_upsert_my_tournament_koins', {
-          p_community_id: communityId(),
-          p_koins: bal,
-          p_display_name: hero.name
-        })).catch(function () { /* */ });
-      }
-    } catch (eRpc) { /* */ }
+    if (played >= 1 || opts.forceCloud) {
+      try {
+        var c = supabaseClient();
+        if (c && c.rpc) {
+          Promise.resolve(c.rpc('pt_upsert_my_tournament_koins', {
+            p_community_id: communityId(),
+            p_koins: bal,
+            p_display_name: hero.name,
+            p_tournaments_played: played
+          })).catch(function () { /* */ });
+        }
+      } catch (eRpc) { /* */ }
+    }
     return list;
   }
 
@@ -146,10 +172,12 @@
       if (!m) return null;
       var id = m.user_id || m.id;
       if (!id) return null;
+      var played = Number(m.tournaments_played != null ? m.tournaments_played : m.tournamentsPlayed) || 0;
       return {
         id: String(id),
         name: String(m.display_name || m.name || m.email || 'Jugador').slice(0, 40),
         koins: Math.round((Number(m.koins != null ? m.koins : m.balance) || 0) * 100) / 100,
+        tournamentsPlayed: played,
         updatedAt: m.updated_at || m.updatedAt || null,
         isHero: false
       };
@@ -185,7 +213,9 @@
   function rankings(limit) {
     limit = limit || 20;
     var hero = heroIdentity();
-    var list = publishHero().slice().filter(function (x) { return !isFakeSeed(x); });
+    var list = publishHero().slice().filter(function (x) {
+      return !isFakeSeed(x) && hasPlayed(x);
+    });
     list.sort(function (a, b) {
       if ((b.koins || 0) !== (a.koins || 0)) return (b.koins || 0) - (a.koins || 0);
       return String(a.name || '').localeCompare(String(b.name || ''));
@@ -196,6 +226,7 @@
         id: row.id,
         name: row.name,
         koins: Math.round((Number(row.koins) || 0) * 100) / 100,
+        tournamentsPlayed: Number(row.tournamentsPlayed) || 0,
         isHero: String(row.id) === String(hero.id) || !!row.isHero,
         medal: i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : null))
       };
@@ -214,7 +245,7 @@
     var rows = rankings(15);
     var body;
     if (!rows.length) {
-      body = '<tr><td colspan="3" class="muted">Aún no hay jugadores en esta comunidad.</td></tr>';
+      body = '<tr><td colspan="3" class="muted">Aún no hay jugadores con torneos en esta comunidad.</td></tr>';
     } else {
       body = rows.map(function (r) {
         var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
@@ -245,7 +276,7 @@
       '<li><strong>+1</strong> cada 25 manos en el Entrenador</li>' +
       '<li><strong>+2</strong> por cada rol de rival acertado al terminar un torneo</li>' +
       '<li>Premios de torneo según el puesto (se suman a tu saldo)</li>' +
-      '<li>Si llegas a <strong>0</strong> Koins no puedes pagar buy-ins</li>' +
+      '<li>Necesitas Koins suficientes para pagar el buy-in</li>' +
       '</ul></aside>';
   }
 

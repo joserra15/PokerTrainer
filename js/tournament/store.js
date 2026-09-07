@@ -18,12 +18,25 @@
     return uid ? ('_' + uid) : '';
   }
 
+  /** '' en PokerForge; '_mttlab' en comunidades gated — histórico independiente. */
+  function communitySuffix() {
+    try {
+      if (global.Store && typeof global.Store.communityDataSuffix === 'function') {
+        return global.Store.communityDataSuffix() || '';
+      }
+      if (global.PTTournamentWallet && typeof global.PTTournamentWallet.communitySuffix === 'function') {
+        return global.PTTournamentWallet.communitySuffix() || '';
+      }
+    } catch (e) { /* ignore */ }
+    return '';
+  }
+
   function storageKey() {
-    return BASE_KEY + userSuffix();
+    return BASE_KEY + communitySuffix() + userSuffix();
   }
 
   function activeStorageKey() {
-    return ACTIVE_KEY + userSuffix();
+    return ACTIVE_KEY + communitySuffix() + userSuffix();
   }
 
   function readList() {
@@ -38,24 +51,34 @@
     }
   }
 
-  function writeList(list) {
+  function writeList(list, opts) {
+    opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return false;
       localStorage.setItem(storageKey(), JSON.stringify(list || []));
-      markCloudDirty();
+      if (!opts.silent) markCloudDirty('history');
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  function markCloudDirty() {
+  function markCloudDirty(which) {
     try {
+      var s = communitySuffix();
+      var keys;
+      if (which === 'active') keys = ['tournamentActive' + s];
+      else if (which === 'history') keys = ['tournamentHistory' + s];
+      else if (which === 'wallet') keys = ['tournamentWallet' + s];
+      else {
+        /* Compat: dirty genérico solo history+active (no wallet). */
+        keys = ['tournamentActive' + s, 'tournamentHistory' + s];
+      }
       if (global.PTCloud && typeof global.PTCloud.markLocalDirty === 'function') {
-        global.PTCloud.markLocalDirty(['tournamentActive', 'tournamentHistory', 'tournamentWallet']);
+        global.PTCloud.markLocalDirty(keys);
       }
       if (global.PTCloud && typeof global.PTCloud.schedulePush === 'function') {
-        global.PTCloud.schedulePush(['tournamentActive', 'tournamentHistory', 'tournamentWallet']);
+        global.PTCloud.schedulePush(keys);
       }
     } catch (e) { /* ignore */ }
   }
@@ -147,15 +170,16 @@
   }
 
   /** Snapshot del torneo en curso (para continuar más tarde). */
-  function saveActive(state) {
+  function saveActive(state, opts) {
+    opts = opts || {};
     if (!state || state.status === 'finished') {
-      clearActive();
+      clearActive(opts);
       return { ok: false, reason: 'not_active' };
     }
     if (typeof localStorage === 'undefined') return { ok: false };
     try {
-      var snap = slimForPersist(state);
-      snap._savedAt = new Date().toISOString();
+      var snap = opts.fromCloud ? JSON.parse(JSON.stringify(state)) : slimForPersist(state);
+      if (!opts.fromCloud || !snap._savedAt) snap._savedAt = new Date().toISOString();
       try {
         writeActiveRaw(snap);
       } catch (quotaErr) {
@@ -188,7 +212,7 @@
         }
         writeActiveRaw(snap);
       }
-      markCloudDirty();
+      if (!opts.silent) markCloudDirty('active');
       return { ok: true, savedAt: snap._savedAt, handIndex: snap.handIndex };
     } catch (e) {
       try { console.warn('[Tournaments] saveActive failed', e); } catch (e2) { /* */ }
@@ -209,15 +233,44 @@
     }
   }
 
-  function clearActive() {
+  function clearActive(opts) {
+    opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return { ok: false };
       localStorage.removeItem(activeStorageKey());
-      markCloudDirty();
+      if (!opts.silent) markCloudDirty('active');
       return { ok: true };
     } catch (e) {
       return { ok: false };
     }
+  }
+
+  /** Sustituye histórico desde nube (login replace) sin marcar dirty de push. */
+  function replaceAll(list) {
+    var arr = Array.isArray(list) ? list.slice(0, MAX) : [];
+    writeList(arr, { silent: true });
+    return { ok: true, list: arr };
+  }
+
+  /** Fusiona entradas remotas por id (finishedAt más reciente gana). */
+  function mergeFromCloud(remoteList) {
+    if (!Array.isArray(remoteList) || !remoteList.length) return list();
+    var map = Object.create(null);
+    function add(item) {
+      if (!item || !item.id) return;
+      var prev = map[item.id];
+      if (!prev) { map[item.id] = item; return; }
+      var ta = Date.parse(item.finishedAt || 0) || 0;
+      var tb = Date.parse(prev.finishedAt || 0) || 0;
+      if (ta >= tb) map[item.id] = item;
+    }
+    readList().forEach(add);
+    remoteList.forEach(add);
+    var next = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) {
+      return (Date.parse(b.finishedAt || 0) || 0) - (Date.parse(a.finishedAt || 0) || 0);
+    }).slice(0, MAX);
+    writeList(next, { silent: true });
+    return next;
   }
 
   function hasActive() {
@@ -279,6 +332,8 @@
     save: save,
     remove: remove,
     clear: clear,
+    replaceAll: replaceAll,
+    mergeFromCloud: mergeFromCloud,
     saveActive: saveActive,
     loadActive: loadActive,
     clearActive: clearActive,

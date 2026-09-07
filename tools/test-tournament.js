@@ -176,6 +176,22 @@ FILES.forEach(function (f) { load(g, f); });
   assert.strictEqual(sc.correct, 1);
   assert.strictEqual(sc.xp, 15);
   assert.ok(g.PTTournamentRoleGuess.ROLE_LABELS.maniac, 'Spanish labels');
+  assert.ok(g.PTTournamentRoleGuess.ROLE_COLORS, 'ROLE_COLORS map');
+  const ids = g.PTTournamentConfig.ROLE_IDS;
+  ids.forEach(function (id) {
+    assert.ok(g.PTTournamentRoleGuess.ROLE_COLORS[id], 'color for ' + id);
+    assert.ok(/^#[0-9a-fA-F]{6}$/.test(g.PTTournamentRoleGuess.ROLE_COLORS[id]), 'hex color ' + id);
+    assert.ok(g.PTTournamentRoleGuess.shortLabel(id), 'short label ' + id);
+  });
+  const colorVals = ids.map(function (id) { return g.PTTournamentRoleGuess.ROLE_COLORS[id]; });
+  assert.strictEqual(new Set(colorVals).size, colorVals.length, 'unique role colors');
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/roleChipHtml|trn-role-chip/.test(uiSrc), 'seat shows role chip');
+  assert.ok(/roleLegendHtml|trn-role-legend/.test(uiSrc), 'info modal role legend');
+  assert.ok(/data-guess-role/.test(uiSrc) && /trn-role-opt/.test(uiSrc), 'colored role picker');
+  const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(/\.trn-role-chip/.test(cssSrc), 'chip css');
+  assert.ok(/\.trn-role-legend/.test(cssSrc), 'legend css');
   console.log('OK role-guess');
 }
 
@@ -282,6 +298,25 @@ FILES.forEach(function (f) { load(g, f); });
   assert.ok(typeof g.PTTournaments.menuVisible === 'function');
   assert.ok(typeof g.PTTournaments.render === 'function');
   assert.strictEqual(g.PTTournaments.menuVisible(), false, 'no admin → hidden');
+  /* PokerForge: admin */
+  g.PTAuth = { getUser: function () { return { isAdmin: true, id: 'adm1', name: 'Admin' }; } };
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'admin → visible en PokerForge');
+  /* MTTLab: solo managers (admin PF no basta) */
+  g.PTCommunity = {
+    id: function () { return 'mttlab'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return true; }
+  };
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'mttlab sin manager → hidden');
+  g.PTCommunity.isManager = function () { return true; };
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'mttlab manager → visible');
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  g.PTAuth = { getUser: function () { return null; } };
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'reset no admin');
   console.log('OK index');
 }
 
@@ -641,6 +676,7 @@ FILES.forEach(function (f) { load(g, f); });
 {
   const W = g.PTTournamentWallet;
   assert.ok(W, 'wallet module');
+  assert.strictEqual(W.STARTING, 100, 'starting 100 koins');
   W.setBalance(100);
   assert.strictEqual(W.getBalance(), 100);
   const d = W.debit(5, { type: 'buyin' });
@@ -648,6 +684,21 @@ FILES.forEach(function (f) { load(g, f); });
   assert.strictEqual(W.getBalance(), 95);
   W.credit(12, { type: 'prize' });
   assert.strictEqual(W.getBalance(), 107);
+  /* Koins independientes por comunidad */
+  g.PTCommunity = {
+    id: function () { return 'mttlab'; },
+    isManager: function () { return true; },
+    requireMembership: function () { return true; }
+  };
+  assert.strictEqual(W.getBalance(), 100, 'mttlab empieza en 100 (wallet separado)');
+  W.setBalance(40, { type: 'test_mtt' });
+  assert.strictEqual(W.getBalance(), 40);
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  assert.strictEqual(W.getBalance(), 107, 'pokerforge conserva su saldo');
   console.log('OK wallet');
 }
 
@@ -993,15 +1044,44 @@ console.log('OK tournament-result-polish');
   const Lb = g.PTTournamentLeaderboard;
   assert.ok(Lb && Lb.renderHtml, 'leaderboard module');
   g.PTTournamentWallet.setBalance(200, { type: 'test_lb' });
+  g.PTTournamentWallet.setTournamentsPlayed(0);
+  /* Sin torneos jugados no aparece en ranking */
+  assert.strictEqual(Lb.rankings(20).length, 0, 'sin torneos → ranking vacío');
+  g.PTTournamentWallet.noteTournamentPlayed();
   const html = Lb.renderHtml();
   assert.ok(/trn-leaderboard/.test(html), 'leaderboard html');
-  assert.ok(/is-hero/.test(html), 'hero row');
+  assert.ok(/is-hero/.test(html), 'hero row tras jugar');
   assert.ok(/🥇|trn-lb-medal-gold/.test(html), 'gold medal');
   const legend = Lb.legendHtml();
   assert.ok(/Escuela|Entrenador|rol/i.test(legend), 'legend explains earns');
-  
+  assert.ok(/Koins suficientes para pagar el buy-in/i.test(legend),
+    'legend: buy-in requires enough koins');
+  assert.ok(!/llegas a[\s\S]*0[\s\S]*buy-ins/i.test(legend),
+    'legend no dice solo «llegar a 0»');
+
+  /* Entrada bloqueada si no hay saldo para el buy-in */
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/chargeBuyInOrExplain/.test(uiSrc), 'chargeBuyInOrExplain gate');
+  assert.ok(/Necesitas Koins suficientes para pagar el buy-in/.test(uiSrc),
+    'alert copy mentions suficientes para buy-in');
+  const chargeIdx = uiSrc.indexOf('chargeBuyInOrExplain(buyIn)');
+  const clearIdx = uiSrc.indexOf('if (!opts.keepActive) clearActive()', chargeIdx);
+  assert.ok(chargeIdx >= 0 && clearIdx > chargeIdx,
+    'comprueba Koins antes de clearActive');
+  g.PTTournamentWallet.setBalance(5, { type: 'test_buyin_gate' });
+  assert.ok(!g.PTTournamentWallet.canAfford(10), '5 koins no alcanzan buy-in 10');
+  assert.ok(g.PTTournamentWallet.canAfford(5), '5 koins alcanzan buy-in 5');
+  const denied = g.PTTournamentWallet.debit(10, { type: 'buyin' });
+  assert.ok(!denied.ok && denied.reason === 'insufficient', 'debit rechaza buy-in 10 con 5');
+  assert.strictEqual(g.PTTournamentWallet.getBalance(), 5, 'saldo intacto tras rechazo');
+  const okDeb = g.PTTournamentWallet.debit(5, { type: 'buyin' });
+  assert.ok(okDeb.ok, 'debit ok con saldo exacto');
+  assert.strictEqual(g.PTTournamentWallet.getBalance(), 0);
+
   const ranks = Lb.rankings(20);
+  assert.ok(ranks.length >= 1, 'ranking con jugadores que jugaron');
   assert.ok(ranks.every(function (r) { return String(r.id).indexOf('c_seed_') !== 0; }), 'no fake seed ids');
+  assert.ok(ranks.every(function (r) { return (r.tournamentsPlayed || 0) >= 1; }), 'solo ≥1 torneo');
   assert.ok(!/MesaNorte|RangeLab|ICMPulse|FeltWalker/.test(html), 'no invented peer names');
 
   console.log('OK leaderboard-and-legend');

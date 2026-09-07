@@ -2644,7 +2644,7 @@
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
- * tournament/role-guess.js — Guesses de rol de villanos + scoring / XP.
+ * tournament/role-guess.js — Guesses de rol de villanos + scoring / XP / colores.
  */
 (function (global) {
   'use strict';
@@ -2662,10 +2662,41 @@
     pro: 'Pro (GTO+)'
   };
 
+  var ROLE_SHORT = {
+    fish: 'Fish',
+    nit: 'Nit',
+    tag: 'TAG',
+    lag: 'LAG',
+    maniac: 'Maníaco',
+    pro: 'Pro'
+  };
+
+  /* Colores distintos y legibles sobre mesa oscura (sin púrpura). */
+  var ROLE_COLORS = {
+    fish: '#5a9e6e',
+    nit: '#5b7c99',
+    tag: '#2d8f5f',
+    lag: '#c47a22',
+    maniac: '#c44545',
+    pro: '#3d6f8c'
+  };
+
+  function roleIds() {
+    return (global.PTTournamentConfig && global.PTTournamentConfig.ROLE_IDS) ||
+      Object.keys(ROLE_LABELS);
+  }
+
+  function shortLabel(roleId) {
+    return ROLE_SHORT[roleId] || String(roleId || '');
+  }
+
+  function color(roleId) {
+    return ROLE_COLORS[roleId] || '#6b7280';
+  }
+
   function setGuess(state, playerId, roleId) {
     if (!state || !playerId) return;
-    var ids = (global.PTTournamentConfig && global.PTTournamentConfig.ROLE_IDS) ||
-      Object.keys(ROLE_LABELS);
+    var ids = roleIds();
     if (ids.indexOf(roleId) < 0) return;
     var p = (state.players || []).find(function (x) { return x.id === playerId; });
     if (!p || p.isHero) return;
@@ -2713,9 +2744,13 @@
 
   global.PTTournamentRoleGuess = {
     ROLE_LABELS: ROLE_LABELS,
+    ROLE_SHORT: ROLE_SHORT,
+    ROLE_COLORS: ROLE_COLORS,
     XP_PER_CORRECT: XP_PER_CORRECT,
     KOINS_PER_CORRECT: KOINS_PER_CORRECT,
     XP_CAP: XP_CAP,
+    shortLabel: shortLabel,
+    color: color,
     setGuess: setGuess,
     clearGuess: clearGuess,
     score: score
@@ -3155,6 +3190,10 @@
 
 /*
  * tournament/wallet.js — Saldo de Koins (100 iniciales) + sync cloud.
+ * Koins independientes por comunidad (clave local + payload nube namespaced).
+ *
+ * Importante sync: no inventar wallet al leer para push/merge. Un `ensure()`
+ * con updatedAt=now en un PC vacío pisaba el saldo real del móvil.
  */
 (function (global) {
   'use strict';
@@ -3172,17 +3211,41 @@
     return uid ? ('_' + uid) : '';
   }
 
+  /** '' en PokerForge; '_mttlab' (etc.) en comunidades gated. */
+  function communitySuffix() {
+    try {
+      if (global.Store && typeof global.Store.communityDataSuffix === 'function') {
+        return global.Store.communityDataSuffix() || '';
+      }
+      var id = null;
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        id = global.PTCommunity.id();
+      }
+      if (!id || id === 'pokerforge') return '';
+      return '_' + String(id);
+    } catch (e) {
+      return '';
+    }
+  }
+
   function storageKey() {
-    return KEY + userSuffix();
+    return KEY + communitySuffix() + userSuffix();
+  }
+
+  function cloudDirtyKeys() {
+    var s = communitySuffix();
+    /* Solo wallet: no marcar history dirty (un [] local pisaría la nube). */
+    return ['tournamentWallet' + s];
   }
 
   function markDirty() {
     try {
+      var keys = cloudDirtyKeys();
       if (global.PTCloud && typeof global.PTCloud.markLocalDirty === 'function') {
-        global.PTCloud.markLocalDirty(['tournamentWallet', 'tournamentHistory']);
+        global.PTCloud.markLocalDirty(keys);
       }
       if (global.PTCloud && typeof global.PTCloud.schedulePush === 'function') {
-        global.PTCloud.schedulePush(['tournamentWallet', 'tournamentHistory']);
+        global.PTCloud.schedulePush(keys);
       }
     } catch (e) { /* */ }
   }
@@ -3198,38 +3261,72 @@
     }
   }
 
-  function writeRaw(data) {
+  function writeRaw(data, opts) {
+    opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return false;
       localStorage.setItem(storageKey(), JSON.stringify(data));
-      markDirty();
+      if (!opts.silent) markDirty();
       return true;
     } catch (e) {
       return false;
     }
   }
 
+  function normalizeStored(data) {
+    if (!data || typeof data.balance !== 'number') return null;
+    if (!data.lessonAwards || typeof data.lessonAwards !== 'object') data.lessonAwards = {};
+    if (typeof data.trainerHands !== 'number') data.trainerHands = Number(data.trainerHands) || 0;
+    if (typeof data.tournamentsPlayed !== 'number') {
+      data.tournamentsPlayed = Number(data.tournamentsPlayed) || 0;
+    }
+    if (data.balance < 0) data.balance = 0;
+    return data;
+  }
+
+  /** Lee sin crear saldo inventado (seguro para sync/push). */
+  function peek() {
+    return normalizeStored(readRaw());
+  }
+
+  function defaultWallet() {
+    return {
+      balance: STARTING,
+      updatedAt: new Date().toISOString(),
+      version: 1,
+      trainerHands: 0,
+      tournamentsPlayed: 0,
+      lessonAwards: {}
+    };
+  }
+
   function ensure() {
-    var data = readRaw();
-    if (!data || typeof data.balance !== 'number') {
-      data = {
-        balance: STARTING,
-        updatedAt: new Date().toISOString(),
-        version: 1,
-        trainerHands: 0,
-        lessonAwards: {}
-      };
+    var data = peek();
+    if (!data) {
+      data = defaultWallet();
       writeRaw(data);
-    } else {
-      if (!data.lessonAwards || typeof data.lessonAwards !== 'object') data.lessonAwards = {};
-      if (typeof data.trainerHands !== 'number') data.trainerHands = Number(data.trainerHands) || 0;
-      if (data.balance < 0) data.balance = 0;
     }
     return data;
   }
 
   function getBalance() {
     return ensure().balance;
+  }
+
+  function getTournamentsPlayed() {
+    return Number(ensure().tournamentsPlayed) || 0;
+  }
+
+  function setTournamentsPlayed(n) {
+    var data = ensure();
+    data.tournamentsPlayed = Math.max(0, Math.floor(Number(n) || 0));
+    data.updatedAt = new Date().toISOString();
+    writeRaw(data);
+    return data.tournamentsPlayed;
+  }
+
+  function noteTournamentPlayed() {
+    return setTournamentsPlayed(getTournamentsPlayed() + 1);
   }
 
   function setBalance(n, meta) {
@@ -3267,36 +3364,113 @@
     return { ok: true, balance: next, added: amount };
   }
 
-  function snapshot() {
-    var data = ensure();
+  function communityId() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        return global.PTCommunity.id() || 'pokerforge';
+      }
+    } catch (e) { /* */ }
+    return 'pokerforge';
+  }
+
+  function toSnapshot(data) {
+    if (!data || typeof data.balance !== 'number') return null;
     return {
       balance: data.balance,
       updatedAt: data.updatedAt,
       version: data.version || 1,
       trainerHands: Number(data.trainerHands) || 0,
-      lessonAwards: data.lessonAwards || {}
+      tournamentsPlayed: Number(data.tournamentsPlayed) || 0,
+      lessonAwards: data.lessonAwards || {},
+      communityId: communityId()
     };
+  }
+
+  /**
+   * Snapshot para UI/cloud. Por defecto no inventa fila local.
+   * opts.create === true → ensure() (p.ej. al abrir lobby sin sync).
+   */
+  function snapshot(opts) {
+    opts = opts || {};
+    if (opts.create) return toSnapshot(ensure());
+    var data = peek();
+    if (data) return toSnapshot(data);
+    /* Vista sin persistir: no marcar dirty ni pisar nube. */
+    return {
+      balance: STARTING,
+      updatedAt: null,
+      version: 1,
+      trainerHands: 0,
+      tournamentsPlayed: 0,
+      lessonAwards: {},
+      communityId: communityId(),
+      isDefault: true
+    };
+  }
+
+  function applyRemote(remote, local) {
+    var data = {
+      balance: Math.max(0, Number(remote.balance) || 0),
+      updatedAt: remote.updatedAt || new Date().toISOString(),
+      version: remote.version || 1,
+      trainerHands: remote.trainerHands != null
+        ? Number(remote.trainerHands) || 0
+        : (local && Number(local.trainerHands)) || 0,
+      tournamentsPlayed: Math.max(
+        Number(remote.tournamentsPlayed) || 0,
+        (local && Number(local.tournamentsPlayed)) || 0
+      ),
+      lessonAwards: Object.assign(
+        {},
+        (local && local.lessonAwards) || {},
+        remote.lessonAwards || {}
+      ),
+      last: { type: 'cloud_merge' }
+    };
+    writeRaw(data, { silent: true });
+    return toSnapshot(data);
   }
 
   function mergeFromCloud(remote) {
     if (!remote || typeof remote.balance !== 'number') return snapshot();
-    var local = ensure();
+    var local = peek();
+    if (!local) return applyRemote(remote, null);
+
     var localTs = Date.parse(local.updatedAt || 0) || 0;
     var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
-    /* Preferir el saldo con timestamp más reciente; nunca negativo. */
+
     if (remoteTs > localTs) {
-      setBalance(Math.max(0, remote.balance), { type: 'cloud_merge' });
-      if (remote.trainerHands != null) {
-        var d = ensure();
-        d.trainerHands = Number(remote.trainerHands) || 0;
-        d.lessonAwards = remote.lessonAwards || d.lessonAwards || {};
-        writeRaw(d);
-      }
-    } else if (remoteTs === localTs && typeof remote.balance === 'number') {
-      /* Empate: quedarse con el mínimo (no inventar koins gastados). */
-      setBalance(Math.min(local.balance, Math.max(0, remote.balance)), { type: 'cloud_merge_tie' });
+      return applyRemote(remote, local);
     }
-    return snapshot();
+    if (remoteTs === localTs) {
+      /* Empate: quedarse con el mínimo (no inventar koins gastados). */
+      var tied = Object.assign({}, local, {
+        balance: Math.min(local.balance, Math.max(0, remote.balance)),
+        tournamentsPlayed: Math.max(
+          Number(local.tournamentsPlayed) || 0,
+          Number(remote.tournamentsPlayed) || 0
+        ),
+        lessonAwards: Object.assign({}, local.lessonAwards || {}, remote.lessonAwards || {}),
+        last: { type: 'cloud_merge_tie' }
+      });
+      if (tied.balance !== local.balance ||
+          tied.tournamentsPlayed !== local.tournamentsPlayed) {
+        writeRaw(tied, { silent: true });
+      }
+      return toSnapshot(tied);
+    }
+    /* Local más reciente: aún fusionar contadores monótonos. */
+    if (remote.tournamentsPlayed != null) {
+      var nextPlayed = Math.max(
+        Number(local.tournamentsPlayed) || 0,
+        Number(remote.tournamentsPlayed) || 0
+      );
+      if (nextPlayed !== (Number(local.tournamentsPlayed) || 0)) {
+        local.tournamentsPlayed = nextPlayed;
+        writeRaw(local, { silent: true });
+      }
+    }
+    return toSnapshot(local);
   }
 
   /** +1 Koin la primera vez que se aprueba una lección de Escuela. */
@@ -3334,16 +3508,23 @@
     debit: debit,
     credit: credit,
     snapshot: snapshot,
+    peek: peek,
     mergeFromCloud: mergeFromCloud,
     ensure: ensure,
     earnFromLesson: earnFromLesson,
-    noteTrainerHand: noteTrainerHand
+    noteTrainerHand: noteTrainerHand,
+    getTournamentsPlayed: getTournamentsPlayed,
+    setTournamentsPlayed: setTournamentsPlayed,
+    noteTournamentPlayed: noteTournamentPlayed,
+    communitySuffix: communitySuffix,
+    storageKey: storageKey
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
  * tournament/leaderboard.js — Clasificación de Koins de la comunidad (usuarios reales).
- * No inventa rivales: solo el héroe local + miembros reales sincronizados (RPC).
+ * Solo jugadores con ≥1 torneo jugado en esa comunidad.
+ * Koins / ranking independientes por community_id.
  */
 (function (global) {
   'use strict';
@@ -3402,6 +3583,11 @@
     return false;
   }
 
+  function hasPlayed(row) {
+    if (!row) return false;
+    return (Number(row.tournamentsPlayed != null ? row.tournamentsPlayed : row.tournaments_played) || 0) >= 1;
+  }
+
   function heroIdentity() {
     var name = 'Hero';
     var id = 'local-hero';
@@ -3446,41 +3632,61 @@
       }
       var prevTs = Date.parse(prev.updatedAt || 0) || 0;
       var nextTs = Date.parse(r.updatedAt || 0) || 0;
-      if (nextTs >= prevTs) map[id] = Object.assign({}, prev, r);
+      var merged = nextTs >= prevTs ? Object.assign({}, prev, r) : Object.assign({}, r, prev);
+      merged.tournamentsPlayed = Math.max(
+        Number(prev.tournamentsPlayed) || 0,
+        Number(r.tournamentsPlayed) || 0
+      );
+      map[id] = merged;
     });
     return Object.keys(map).map(function (k) { return map[k]; });
   }
 
-  /** Publica el saldo actual del Hero (local + cloud si hay RPC). */
-  function publishHero() {
+  /**
+   * Publica el saldo del Hero en el board local.
+   * Sync cloud solo si ha jugado ≥1 torneo (o forceCloud).
+   */
+  function publishHero(opts) {
+    opts = opts || {};
     var hero = heroIdentity();
     var bal = 100;
+    var played = 0;
     try {
       if (global.PTTournamentWallet && PTTournamentWallet.getBalance) {
         bal = Number(PTTournamentWallet.getBalance()) || 0;
+      }
+      if (global.PTTournamentWallet && PTTournamentWallet.getTournamentsPlayed) {
+        played = Number(PTTournamentWallet.getTournamentsPlayed()) || 0;
       }
     } catch (e) { /* */ }
     var row = {
       id: hero.id,
       name: hero.name,
       koins: bal,
+      tournamentsPlayed: played,
       updatedAt: new Date().toISOString(),
       isHero: true,
       communityId: communityId()
     };
-    var list = mergeRows(readBoard().filter(function (x) { return !isFakeSeed(x); }), [row]);
+    /* Sustituir fila del héroe (no max con valor viejo del board). */
+    var others = readBoard().filter(function (x) {
+      return !isFakeSeed(x) && String(x.id) !== String(hero.id);
+    });
+    var list = mergeRows(others, [row]);
     writeBoard(list);
-    /* Sync cloud (fire-and-forget). */
-    try {
-      var c = supabaseClient();
-      if (c && c.rpc) {
-        Promise.resolve(c.rpc('pt_upsert_my_tournament_koins', {
-          p_community_id: communityId(),
-          p_koins: bal,
-          p_display_name: hero.name
-        })).catch(function () { /* */ });
-      }
-    } catch (eRpc) { /* */ }
+    if (played >= 1 || opts.forceCloud) {
+      try {
+        var c = supabaseClient();
+        if (c && c.rpc) {
+          Promise.resolve(c.rpc('pt_upsert_my_tournament_koins', {
+            p_community_id: communityId(),
+            p_koins: bal,
+            p_display_name: hero.name,
+            p_tournaments_played: played
+          })).catch(function () { /* */ });
+        }
+      } catch (eRpc) { /* */ }
+    }
     return list;
   }
 
@@ -3489,10 +3695,12 @@
       if (!m) return null;
       var id = m.user_id || m.id;
       if (!id) return null;
+      var played = Number(m.tournaments_played != null ? m.tournaments_played : m.tournamentsPlayed) || 0;
       return {
         id: String(id),
         name: String(m.display_name || m.name || m.email || 'Jugador').slice(0, 40),
         koins: Math.round((Number(m.koins != null ? m.koins : m.balance) || 0) * 100) / 100,
+        tournamentsPlayed: played,
         updatedAt: m.updated_at || m.updatedAt || null,
         isHero: false
       };
@@ -3528,7 +3736,9 @@
   function rankings(limit) {
     limit = limit || 20;
     var hero = heroIdentity();
-    var list = publishHero().slice().filter(function (x) { return !isFakeSeed(x); });
+    var list = publishHero().slice().filter(function (x) {
+      return !isFakeSeed(x) && hasPlayed(x);
+    });
     list.sort(function (a, b) {
       if ((b.koins || 0) !== (a.koins || 0)) return (b.koins || 0) - (a.koins || 0);
       return String(a.name || '').localeCompare(String(b.name || ''));
@@ -3539,6 +3749,7 @@
         id: row.id,
         name: row.name,
         koins: Math.round((Number(row.koins) || 0) * 100) / 100,
+        tournamentsPlayed: Number(row.tournamentsPlayed) || 0,
         isHero: String(row.id) === String(hero.id) || !!row.isHero,
         medal: i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : null))
       };
@@ -3557,7 +3768,7 @@
     var rows = rankings(15);
     var body;
     if (!rows.length) {
-      body = '<tr><td colspan="3" class="muted">Aún no hay jugadores en esta comunidad.</td></tr>';
+      body = '<tr><td colspan="3" class="muted">Aún no hay jugadores con torneos en esta comunidad.</td></tr>';
     } else {
       body = rows.map(function (r) {
         var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
@@ -3588,7 +3799,7 @@
       '<li><strong>+1</strong> cada 25 manos en el Entrenador</li>' +
       '<li><strong>+2</strong> por cada rol de rival acertado al terminar un torneo</li>' +
       '<li>Premios de torneo según el puesto (se suman a tu saldo)</li>' +
-      '<li>Si llegas a <strong>0</strong> Koins no puedes pagar buy-ins</li>' +
+      '<li>Necesitas Koins suficientes para pagar el buy-in</li>' +
       '</ul></aside>';
   }
 
@@ -3622,12 +3833,25 @@
     return uid ? ('_' + uid) : '';
   }
 
+  /** '' en PokerForge; '_mttlab' en comunidades gated — histórico independiente. */
+  function communitySuffix() {
+    try {
+      if (global.Store && typeof global.Store.communityDataSuffix === 'function') {
+        return global.Store.communityDataSuffix() || '';
+      }
+      if (global.PTTournamentWallet && typeof global.PTTournamentWallet.communitySuffix === 'function') {
+        return global.PTTournamentWallet.communitySuffix() || '';
+      }
+    } catch (e) { /* ignore */ }
+    return '';
+  }
+
   function storageKey() {
-    return BASE_KEY + userSuffix();
+    return BASE_KEY + communitySuffix() + userSuffix();
   }
 
   function activeStorageKey() {
-    return ACTIVE_KEY + userSuffix();
+    return ACTIVE_KEY + communitySuffix() + userSuffix();
   }
 
   function readList() {
@@ -3642,24 +3866,34 @@
     }
   }
 
-  function writeList(list) {
+  function writeList(list, opts) {
+    opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return false;
       localStorage.setItem(storageKey(), JSON.stringify(list || []));
-      markCloudDirty();
+      if (!opts.silent) markCloudDirty('history');
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  function markCloudDirty() {
+  function markCloudDirty(which) {
     try {
+      var s = communitySuffix();
+      var keys;
+      if (which === 'active') keys = ['tournamentActive' + s];
+      else if (which === 'history') keys = ['tournamentHistory' + s];
+      else if (which === 'wallet') keys = ['tournamentWallet' + s];
+      else {
+        /* Compat: dirty genérico solo history+active (no wallet). */
+        keys = ['tournamentActive' + s, 'tournamentHistory' + s];
+      }
       if (global.PTCloud && typeof global.PTCloud.markLocalDirty === 'function') {
-        global.PTCloud.markLocalDirty(['tournamentActive', 'tournamentHistory', 'tournamentWallet']);
+        global.PTCloud.markLocalDirty(keys);
       }
       if (global.PTCloud && typeof global.PTCloud.schedulePush === 'function') {
-        global.PTCloud.schedulePush(['tournamentActive', 'tournamentHistory', 'tournamentWallet']);
+        global.PTCloud.schedulePush(keys);
       }
     } catch (e) { /* ignore */ }
   }
@@ -3751,15 +3985,16 @@
   }
 
   /** Snapshot del torneo en curso (para continuar más tarde). */
-  function saveActive(state) {
+  function saveActive(state, opts) {
+    opts = opts || {};
     if (!state || state.status === 'finished') {
-      clearActive();
+      clearActive(opts);
       return { ok: false, reason: 'not_active' };
     }
     if (typeof localStorage === 'undefined') return { ok: false };
     try {
-      var snap = slimForPersist(state);
-      snap._savedAt = new Date().toISOString();
+      var snap = opts.fromCloud ? JSON.parse(JSON.stringify(state)) : slimForPersist(state);
+      if (!opts.fromCloud || !snap._savedAt) snap._savedAt = new Date().toISOString();
       try {
         writeActiveRaw(snap);
       } catch (quotaErr) {
@@ -3792,7 +4027,7 @@
         }
         writeActiveRaw(snap);
       }
-      markCloudDirty();
+      if (!opts.silent) markCloudDirty('active');
       return { ok: true, savedAt: snap._savedAt, handIndex: snap.handIndex };
     } catch (e) {
       try { console.warn('[Tournaments] saveActive failed', e); } catch (e2) { /* */ }
@@ -3813,15 +4048,44 @@
     }
   }
 
-  function clearActive() {
+  function clearActive(opts) {
+    opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return { ok: false };
       localStorage.removeItem(activeStorageKey());
-      markCloudDirty();
+      if (!opts.silent) markCloudDirty('active');
       return { ok: true };
     } catch (e) {
       return { ok: false };
     }
+  }
+
+  /** Sustituye histórico desde nube (login replace) sin marcar dirty de push. */
+  function replaceAll(list) {
+    var arr = Array.isArray(list) ? list.slice(0, MAX) : [];
+    writeList(arr, { silent: true });
+    return { ok: true, list: arr };
+  }
+
+  /** Fusiona entradas remotas por id (finishedAt más reciente gana). */
+  function mergeFromCloud(remoteList) {
+    if (!Array.isArray(remoteList) || !remoteList.length) return list();
+    var map = Object.create(null);
+    function add(item) {
+      if (!item || !item.id) return;
+      var prev = map[item.id];
+      if (!prev) { map[item.id] = item; return; }
+      var ta = Date.parse(item.finishedAt || 0) || 0;
+      var tb = Date.parse(prev.finishedAt || 0) || 0;
+      if (ta >= tb) map[item.id] = item;
+    }
+    readList().forEach(add);
+    remoteList.forEach(add);
+    var next = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) {
+      return (Date.parse(b.finishedAt || 0) || 0) - (Date.parse(a.finishedAt || 0) || 0);
+    }).slice(0, MAX);
+    writeList(next, { silent: true });
+    return next;
   }
 
   function hasActive() {
@@ -3883,6 +4147,8 @@
     save: save,
     remove: remove,
     clear: clear,
+    replaceAll: replaceAll,
+    mergeFromCloud: mergeFromCloud,
     saveActive: saveActive,
     loadActive: loadActive,
     clearActive: clearActive,
@@ -4812,6 +5078,12 @@
         state.result.roleKoins = roleKoins;
         state.result.totalKoinsAwarded = totalCredit;
       }
+      if (Wallet && Wallet.noteTournamentPlayed) Wallet.noteTournamentPlayed();
+      try {
+        if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.publishHero) {
+          PTTournamentLeaderboard.publishHero({ forceCloud: true });
+        }
+      } catch (eLb) { /* ignore */ }
     } catch (eW) { /* ignore */ }
     return state.result;
   }
@@ -4926,8 +5198,45 @@
     heldFramesDone: null
   };
 
-  /* ---------- Revelado de la acción paso a paso (como en Entrenar) ---------- */
-    function heroDisplayName(state) {
+  function displayKoins() {
+    try {
+      var W = global.PTTournamentWallet;
+      if (!W) return 100;
+      if (W.peek) {
+        var p = W.peek();
+        if (p && typeof p.balance === 'number') return p.balance;
+      }
+      if (W.snapshot) {
+        var s = W.snapshot();
+        if (s && typeof s.balance === 'number') return s.balance;
+      }
+      if (W.getBalance) return W.getBalance();
+    } catch (e) { /* */ }
+    return 100;
+  }
+
+  function flushTournamentCloud() {
+    try {
+      if (global.PTCloud && typeof global.PTCloud.flushPush === 'function') {
+        global.PTCloud.flushPush();
+      }
+    } catch (e) { /* */ }
+  }
+
+  function onCloudSynced() {
+    try {
+      if (!ui.root) return;
+      if (ui.view === VIEW.hub || ui.view === VIEW.history) paint();
+    } catch (e) { /* */ }
+  }
+
+  try {
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('pt-cloud-synced', onCloudSynced);
+    }
+  } catch (eBind) { /* */ }
+
+  function heroDisplayName(state) {
     try {
       var h = state && global.PTTournamentState && PTTournamentState.hero
         ? PTTournamentState.hero(state) : null;
@@ -5277,6 +5586,46 @@ function reducedMotion() {
     return (L && L[id]) || id || '—';
   }
 
+  function roleShort(id) {
+    var RG = global.PTTournamentRoleGuess;
+    if (RG && RG.shortLabel) return RG.shortLabel(id);
+    if (RG && RG.ROLE_SHORT && RG.ROLE_SHORT[id]) return RG.ROLE_SHORT[id];
+    return roleLabel(id);
+  }
+
+  function roleColor(id) {
+    var RG = global.PTTournamentRoleGuess;
+    if (RG && RG.color) return RG.color(id);
+    if (RG && RG.ROLE_COLORS && RG.ROLE_COLORS[id]) return RG.ROLE_COLORS[id];
+    return '#6b7280';
+  }
+
+  /** Etiqueta de color del tipo de rival (guess o revelado). */
+  function roleChipHtml(roleId, opts) {
+    opts = opts || {};
+    if (!roleId) return '';
+    var short = roleShort(roleId);
+    var full = roleLabel(roleId);
+    var bg = roleColor(roleId);
+    var extra = opts.className ? (' ' + opts.className) : '';
+    return '<span class="trn-role-chip' + extra + '" data-role="' + esc(roleId) +
+      '" style="--trn-role-bg:' + esc(bg) + '" title="' + esc(full) + '">' +
+      esc(short) + '</span>';
+  }
+
+  function roleLegendHtml() {
+    var ids = (global.PTTournamentConfig && global.PTTournamentConfig.ROLE_IDS) ||
+      Object.keys((global.PTTournamentRoleGuess && global.PTTournamentRoleGuess.ROLE_LABELS) || {});
+    var items = ids.map(function (rid) {
+      return '<li class="trn-role-legend-item">' + roleChipHtml(rid) +
+        '<span class="trn-role-legend-desc">' + esc(roleLabel(rid)) + '</span></li>';
+    }).join('');
+    return '<section class="trn-role-legend" aria-label="Leyenda de tipos de rival">' +
+      '<h4>Tipos de rival</h4>' +
+      '<p class="muted trn-role-legend-hint">Al asignar un tipo a un rival, verás su etiqueta de color en la mesa.</p>' +
+      '<ul class="trn-role-legend-list">' + items + '</ul></section>';
+  }
+
   function setView(v) {
     ui.view = v;
     paint();
@@ -5312,27 +5661,59 @@ function reducedMotion() {
     return true;
   }
 
-  function startFromConfig(cfg, opts) {
-    opts = opts || {};
-    if (!opts.keepActive) clearActive();
-    opts.heroName = opts.heroName || resolveHeroNameOpt();
-    var buyIn = 0;
+  function resolveBuyIn(cfg) {
     try {
       var cfgObj = typeof cfg === 'string'
         ? (global.PTTournamentConfig.fromPreset ? PTTournamentConfig.fromPreset(cfg) : null)
         : cfg;
-      buyIn = Number(cfgObj && cfgObj.buyInEur) || 0;
-    } catch (eCfg) { buyIn = 0; }
-    try {
-      var Wallet = global.PTTournamentWallet;
-      if (Wallet) {
-        if (!Wallet.canAfford(buyIn)) {
-          alert('Saldo insuficiente de Koins (' + Wallet.getBalance() + '). Buy-in: ' + buyIn);
-          return;
-        }
-        Wallet.debit(buyIn, { type: 'buyin' });
-      }
-    } catch (eW0) { /* */ }
+      return Math.round((Number(cfgObj && cfgObj.buyInEur) || 0) * 100) / 100;
+    } catch (eCfg) {
+      return 0;
+    }
+  }
+
+  /** Cobra el buy-in o explica que hacen falta Koins suficientes. No arranca el torneo si falla. */
+  function chargeBuyInOrExplain(buyIn) {
+    var Wallet = global.PTTournamentWallet;
+    if (!Wallet || typeof Wallet.canAfford !== 'function' || typeof Wallet.debit !== 'function') {
+      try {
+        alert('No se pudo comprobar el saldo de Koins. Inténtalo de nuevo.');
+      } catch (eA0) { /* */ }
+      return false;
+    }
+    buyIn = Math.round((Number(buyIn) || 0) * 100) / 100;
+    if (buyIn <= 0) return true;
+    var bal = typeof Wallet.getBalance === 'function' ? Wallet.getBalance() : 0;
+    if (!Wallet.canAfford(buyIn)) {
+      try {
+        alert(
+          'Necesitas Koins suficientes para pagar el buy-in. ' +
+          'Tienes ' + bal + ' · buy-in ' + buyIn + '.'
+        );
+      } catch (eA1) { /* */ }
+      return false;
+    }
+    var deb = Wallet.debit(buyIn, { type: 'buyin' });
+    if (!deb || !deb.ok) {
+      try {
+        alert(
+          'Necesitas Koins suficientes para pagar el buy-in. ' +
+          'Tienes ' + (deb && deb.balance != null ? deb.balance : bal) +
+          ' · buy-in ' + buyIn + '.'
+        );
+      } catch (eA2) { /* */ }
+      return false;
+    }
+    return true;
+  }
+
+  function startFromConfig(cfg, opts) {
+    opts = opts || {};
+    opts.heroName = opts.heroName || resolveHeroNameOpt();
+    /* Comprobar saldo ANTES de borrar un torneo guardado / arrancar. */
+    var buyIn = resolveBuyIn(cfg);
+    if (!chargeBuyInOrExplain(buyIn)) return;
+    if (!opts.keepActive) clearActive();
     var Runner = global.PTTournamentRunner;
     ui.state = Runner.create(cfg, opts);
     ui.state.startBannerPending = { at: Date.now() };
@@ -5492,7 +5873,7 @@ function reducedMotion() {
       '<h2>TORNEOS</h2>' +
       '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
       '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
-      '<div class="trn-wallet-chip">Koins: <strong>' + esc(String((global.PTTournamentWallet && PTTournamentWallet.getBalance) ? PTTournamentWallet.getBalance() : 100)) + '</strong></div>' +
+      '<div class="trn-wallet-chip">Koins: <strong>' + esc(String(displayKoins())) + '</strong></div>' +
       '</div>' +
       '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
@@ -5930,13 +6311,20 @@ function reducedMotion() {
 
       var eqHtml = (equityMap && equityMap[s.id] != null) ? (' ' + equityBadgeHtml(equityMap[s.id])) : '';
       var villainName = s.name || 'Villano';
-      html += '<button type="button" class="' + cls.join(' ') + '" style="top:' + c.top + '%;left:' + c.left +
-        '%" data-player="' + esc(s.id) + '" title="' + esc(villainName + ' · ' + (s.pos || '') + ' — adivinar rol') + '">' +
+      var guessChip = guessed ? ('<div class="seat-role-guess">' + roleChipHtml(guessed) + '</div>') : '';
+      var seatStyle = 'top:' + c.top + '%;left:' + c.left + '%';
+      if (guessed) seatStyle += ';--trn-role-bg:' + roleColor(guessed);
+      html += '<button type="button" class="' + cls.join(' ') + '" style="' + seatStyle +
+        '" data-player="' + esc(s.id) + '"' +
+        (guessed ? (' data-role-guess="' + esc(guessed) + '"') : '') +
+        ' title="' + esc(villainName + ' · ' + (s.pos || '') +
+          (guessed ? (' · ' + roleLabel(guessed)) : ' — adivinar rol')) + '">' +
         '<div class="seat-body">' +
         '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
         '<div class="seat-name">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') +
-        esc(villainName) + eqHtml + (guessed ? ' · ?' : '') + '</div>' +
+        esc(villainName) + eqHtml + '</div>' +
         '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
+        guessChip +
         '<div class="seat-role">' + esc(villainName) + '</div>' +
         '<div class="seat-stack">' + esc(fmtBb(s.stack, bb)) + '</div>' +
         '</div>' + betHtml +
@@ -6130,6 +6518,7 @@ function reducedMotion() {
         'data-act="noop">' +
         '<h3>Info del torneo</h3>' +
         '<div class="trn-info-dl">' + rows + '</div>' +
+        roleLegendHtml() +
         '<details class="trn-info-handlog-wrap"' + (ui.infoHandlogOpen ? ' open' : '') + '>' +
         '<summary data-act="toggle-handlog">Histórico de manos' +
         (hist.length ? (' <span class="muted">(' + hist.length + ')</span>') : '') +
@@ -6147,9 +6536,14 @@ function reducedMotion() {
       var pl = state.players.find(function (p) { return p.id === pid; });
       var cur = (state.heroGuesses && state.heroGuesses[pid]) || '';
       var roleIds = global.PTTournamentConfig.ROLE_IDS || [];
-      var selectOpts = '<option value="">— Elige tipo de jugador —</option>' + roleIds.map(function (rid) {
-        return '<option value="' + esc(rid) + '"' + (cur === rid ? ' selected' : '') + '>' +
-          esc(roleLabel(rid)) + '</option>';
+      var roleBtns = roleIds.map(function (rid) {
+        return '<button type="button" class="trn-role-opt' + (cur === rid ? ' is-selected' : '') +
+          '" data-guess-role="' + esc(rid) + '" data-guess-player="' + esc(pid) +
+          '" data-role="' + esc(rid) + '" style="--trn-role-bg:' + esc(roleColor(rid)) + '">' +
+          '<span class="trn-role-opt-chip" aria-hidden="true"></span>' +
+          '<span class="trn-role-opt-text">' + esc(roleShort(rid)) + '</span>' +
+          '<span class="trn-role-opt-sub">' + esc(roleLabel(rid)) + '</span>' +
+          '</button>';
       }).join('');
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
@@ -6160,10 +6554,8 @@ function reducedMotion() {
         (pl && pl.alive === false ? ' · Eliminado' : '') +
         '</p>' +
         '<p class="muted">Elige su tipo de jugador (el nombre no indica el perfil). Se revela al final; +2 Koins por acierto.</p>' +
-        '<label class="trn-role-select-label" for="trn-role-select">Tipo de jugador</label>' +
-        '<select id="trn-role-select" class="trn-role-select" data-guess-player="' + esc(pid) + '">' +
-        selectOpts + '</select>' +
-        '<button type="button" class="btn btn-primary" data-act="save-role-guess" data-guess-player="' + esc(pid) + '">Guardar</button> ' +
+        (cur ? ('<p class="trn-role-current">Actual: ' + roleChipHtml(cur) + '</p>') : '') +
+        '<div class="trn-role-grid" role="group" aria-label="Tipo de rival">' + roleBtns + '</div>' +
         '<button type="button" class="btn" data-act="clear-guess" data-guess-player="' + esc(pid) + '">Quitar guess</button> ' +
         '<button type="button" class="btn" data-act="close-role">Cerrar</button>' +
         '</div></div>';
@@ -6522,8 +6914,8 @@ function reducedMotion() {
     var rs = r.roleScore || {};
     var details = (rs.details || []).map(function (d) {
       return '<li class="' + (d.ok ? 'ok' : 'bad') + '">' +
-        esc(d.name) + ' · real <strong>' + esc(roleLabel(d.actual)) + '</strong> · guess ' +
-        esc(roleLabel(d.guess)) + (d.ok ? ' ✓' : ' ✗') + '</li>';
+        esc(d.name) + ' · real ' + roleChipHtml(d.actual) + ' · guess ' +
+        roleChipHtml(d.guess) + (d.ok ? ' ✓' : ' ✗') + '</li>';
     }).join('') || '<li class="muted">Sin guesses</li>';
 
     var sessionStats = r.sessionStats || state.sessionStats || null;
@@ -6795,6 +7187,7 @@ function reducedMotion() {
           paint();
         } else if (act === 'exit-save') {
           persistActive();
+          flushTournamentCloud();
           ui.state = null;
           ui.exitPrompt = false;
           setView(VIEW.hub);
@@ -7038,9 +7431,40 @@ function reducedMotion() {
     return !!(u && u.isAdmin);
   }
 
+  function isManagerAccess() {
+    try {
+      return !!(global.PTCommunity && typeof global.PTCommunity.isManager === 'function' &&
+        global.PTCommunity.isManager());
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function activeCommunityId() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        return String(global.PTCommunity.id() || 'pokerforge');
+      }
+    } catch (e) { /* */ }
+    return 'pokerforge';
+  }
+
+  /**
+   * PokerForgeAI: solo Admin.
+   * MTTLab (y otras comunidades gated): solo managers.
+   */
   function menuVisible() {
-    if (!ENABLED) return false;
-    return hasAdminAccess() && !isDemoActive();
+    if (!ENABLED || isDemoActive()) return false;
+    var cid = activeCommunityId();
+    if (cid === 'mttlab') return isManagerAccess();
+    if (cid !== 'pokerforge') {
+      try {
+        if (global.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
+          return isManagerAccess();
+        }
+      } catch (e) { /* */ }
+    }
+    return hasAdminAccess();
   }
 
   function refreshMenuVisibility() {
