@@ -276,7 +276,7 @@
       '<li><strong>+1</strong> cada 25 manos en el Entrenador</li>' +
       '<li><strong>+2</strong> por cada rol de rival acertado al terminar un torneo</li>' +
       '<li>Premios de torneo según el puesto (se suman a tu saldo)</li>' +
-      '<li>Si llegas a <strong>0</strong> Koins no puedes pagar buy-ins</li>' +
+      '<li>Necesitas Koins suficientes para pagar el buy-in</li>' +
       '</ul></aside>';
   }
 
