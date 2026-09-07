@@ -475,10 +475,22 @@
     const RS = global.GTORiverShoveNode;
     const nodeKey = RS ? RS.facingNodeCacheKey(input) : '';
     const PF = global.GTOPushFold;
-    const pushFlag = input.pushFold || input.preflopMode === 'push' || (PF && PF.isPushPhase(input)) ? 'pf1' : 'pf0';
+    const pushProbe = Object.assign({}, input, {
+      stackBB: input.stackDepth || input.effStack,
+      effStack: input.stackDepth || input.effStack,
+      formatHub: input.formatHub || (input.rangeContext && input.rangeContext.formatHub) || null
+    });
+    const inPush = !!(input.pushFold || input.preflopMode === 'push'
+      || (PF && PF.isPushPhase(pushProbe)));
+    const pushFlag = inPush ? 'pf1' : 'pf0';
     const preflopFlag = input.preflopMode || 'std';
+    // availableActions forma la mezcla (allin vs raise); sin esto el caché envenena
+    // RFI fold/raise con un shove allin previo → filterStrategy → 100% fold.
+    const acts = input.availableActions || [];
+    const actsKey = acts.length ? acts.slice().sort().join(',') : '-';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
-      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey + '|' + pushFlag + '|pm' + preflopFlag;
+      + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey
+      + '|' + pushFlag + '|pm' + preflopFlag + '|a' + actsKey;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
@@ -490,11 +502,18 @@
         mttPhase: input.mttPhase
       }) : null);
 
+      const hub = (input.formatHub)
+        || (ctx && ctx.formatHub)
+        || (global.PTFormatTaxonomy && global.PTFormatTaxonomy.hubFromGameType
+          ? global.PTFormatTaxonomy.hubFromGameType(input.gameType) : null);
+      // Cash: nunca charts push/fold (aunque mttPhase/pushFold lleguen mal).
+      const allowPush = hub !== 'cash';
+
       // Steal ~20 bb (spins/MTT): shove valor + open min según rango GTO.
-      if (PF && input.preflopMode === 'steal' && kind === 'RFI') {
+      if (PF && allowPush && input.preflopMode === 'steal' && kind === 'RFI') {
         return PF.stealOpenStrategy(Object.assign({}, input, { rangeContext: ctx }));
       }
-      if (PF && input.preflopMode === 'stealDefense' && kind === 'vsRFI') {
+      if (PF && allowPush && input.preflopMode === 'stealDefense' && kind === 'vsRFI') {
         return PF.stealDefenseStrategy(Object.assign({}, input, {
           rangeContext: ctx,
           vsPosition: input.vsPosition,
@@ -504,10 +523,11 @@
 
       // Push/fold corto: charts Nash-aprox (spins / MTT push).
       // No pisar steal/stealDefense aunque el efectivo vs un short sea ≤12bb.
-      if (PF && input.preflopMode !== 'steal' && input.preflopMode !== 'stealDefense'
+      if (PF && allowPush && input.preflopMode !== 'steal' && input.preflopMode !== 'stealDefense'
         && (input.pushFold || input.preflopMode === 'push' || PF.isPushPhase(Object.assign({}, input, {
           stackBB: input.stackDepth || input.effStack,
-          effStack: input.stackDepth || input.effStack
+          effStack: input.stackDepth || input.effStack,
+          formatHub: hub
         }, ctx || {})))
         && (spotKey.street === 'preflop' || kind === 'RFI' || kind === 'vsRFI')) {
         return PF.pushFoldStrategy(Object.assign({}, input, {

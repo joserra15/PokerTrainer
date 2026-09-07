@@ -482,7 +482,11 @@
         || (toCallBB > 0 ? 'caller' : 'none'))
       : null;
     const base = {
-      spotKind: d.spotKind || (d.input && d.input.spotKind) || (d.street === 'preflop' ? 'vsRFI' : 'postflop'),
+      // RFI (toCall=0) no debe caer en vsRFI: sin opener → getVsRfiRow null → fold 100% (AA incluido).
+      spotKind: d.spotKind || (d.input && d.input.spotKind)
+        || (d.street === 'preflop'
+          ? ((d.toCallBB || 0) > 0 ? 'vsRFI' : 'RFI')
+          : 'postflop'),
       position: heroPos,
       vsPosition: d.vsPosition || (d.input && d.input.vsPosition),
       vsRfiKey: d.vsRfiKey,

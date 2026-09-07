@@ -58,6 +58,10 @@
       else if (Tax && Tax.phaseFromStackBB) effectivePhase = Tax.phaseFromStackBB(stackBB, formatHub);
       else effectivePhase = stackBB <= 12 ? 'push' : (stackBB <= 25 ? 'short' : (stackBB <= 45 ? 'mid' : 'early'));
     }
+    // Cash no tiene fases MTT: no propagar push/short desde mttPhase residual.
+    if (formatHub === 'cash') {
+      effectivePhase = null;
+    }
     return {
       gameType: gameType,
       formatHub: formatHub,
