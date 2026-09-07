@@ -27,7 +27,10 @@
   function rfiStrategy(pos, code, ctx) {
     const RR = global.GTORangesRegistry;
     const data = RR && ctx ? RR.getOpenRaiseRow(pos, ctx) : D.OPEN_RAISE[pos];
-    if (!data) return { fold: 1, raise: 0 };
+    if (!data) {
+      // Tabla ausente: nunca 100% fold para premiums (rompe matriz GTO entera).
+      return heuristicOpen(code);
+    }
     const raiseSet = N.toSet(data.raise);
     const mixSet = N.toSet(data.mix);
     let base;
@@ -51,7 +54,10 @@
       const parts = key.split('_vs_');
       data = RR.getVsRfiRow(parts[0], parts[1], ctx);
     }
-    if (!data) return { fold: 1, call: 0, raise: 0 };
+    if (!data) {
+      // Sin opener/tabla: heurística (AA no puede ser fold 100% en matriz).
+      return heuristicFacingRaise(code, false);
+    }
     const tb = N.toSet(data.threeBet);
     const tbMix = N.toSet(data.threeBetMix);
     const call = N.toSet(data.call);
