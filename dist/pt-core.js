@@ -5185,16 +5185,19 @@ window.PT_NASH_PUSH_JSON = {
 
   /**
    * Mezcla de shove sin duplicar raise+allin (eso rompía el % mostrado ≈48/2).
-   * Preferimos `allin`; si solo hay `raise` legal, volcamos el peso ahí.
+   * - Sin lista de acciones (API nativa push/fold): preferir `allin`.
+   * - Con lista explícita: `allin` si es legal; si no, volcar a `raise`.
+   *   Así RFI cash fold/raise no pierde el peso de shove (→ 100% fold).
    */
   function shoveOpenMix(fold, shove, input) {
     const f = Math.max(0, Number(fold) || 0);
     const s = Math.max(0, Number(shove) || 0);
     const avail = (input && input.availableActions) || [];
+    if (!avail.length) {
+      return { raise: 0, fold: f, call: 0, allin: s };
+    }
     const hasAllin = avail.indexOf('allin') >= 0;
-    const hasRaise = !avail.length || avail.indexOf('raise') >= 0;
-    // Preferir allin solo si es acción legal explícita. Si no hay lista (o solo
-    // raise), volcar a raise — evita allin descartado → 100% fold en RFI.
+    const hasRaise = avail.indexOf('raise') >= 0;
     if (hasAllin) return { raise: 0, fold: f, call: 0, allin: s };
     if (hasRaise) return { raise: s, fold: f, call: 0, allin: 0 };
     return { raise: 0, fold: f, call: 0, allin: s };
