@@ -126,4 +126,35 @@ ACTIVE = 'mttlab';
 const slicedMt = Store.sliceCloudForActive(frag);
 assert.ok(slicedMt.stats && slicedMt.stats.handsPlayed >= 1);
 
+/* --- Koins Escuela independientes por comunidad --- */
+vm.runInContext(read('js/tournament/wallet.js'), sandbox, { filename: 'wallet.js' });
+const Wallet = sandbox.PTTournamentWallet;
+assert.ok(Wallet, 'PTTournamentWallet');
+
+ACTIVE = 'pokerforge';
+Object.keys(localStore).forEach(function (k) {
+  if (/pt_tournament_wallet/.test(k)) delete localStore[k];
+});
+Wallet.setBalance(100, { type: 'iso_pf' });
+const pfAward = Wallet.earnFromLesson('C-00');
+assert.strictEqual(pfAward.added, 1, 'PF: +1 Koin por lección');
+assert.strictEqual(Wallet.getBalance(), 101, 'PF saldo 101');
+assert.ok(Wallet.storageKey().indexOf('_mttlab') < 0, 'clave PF sin _mttlab');
+assert.strictEqual(Wallet.earnFromLesson('C-00').added, 0, 'PF no dobla misma lección');
+
+ACTIVE = 'mttlab';
+assert.ok(/_mttlab/.test(Wallet.storageKey()), 'clave mttlab namespaced');
+assert.strictEqual(Wallet.getBalance(), 100, 'mttlab wallet independiente (100 inicial)');
+const mtAward = Wallet.earnFromLesson('ML-M1-01');
+assert.strictEqual(mtAward.added, 1, 'MTTLab: +1 Koin por lección propia');
+assert.strictEqual(Wallet.getBalance(), 101, 'mttlab saldo 101');
+/* Misma id de lección PF no debe bloquear award MTTLab (wallets distintos). */
+assert.strictEqual(Wallet.earnFromLesson('C-00').added, 1, 'mttlab puede premiar C-00 en su wallet');
+assert.strictEqual(Wallet.getBalance(), 102);
+
+ACTIVE = 'pokerforge';
+assert.strictEqual(Wallet.getBalance(), 101, 'vuelta a PF: saldo intacto');
+assert.strictEqual(Wallet.earnFromLesson('C-00').already, true, 'PF sigue con award C-00');
+assert.strictEqual(Wallet.earnFromLesson('ML-M1-01').added, 1, 'PF wallet no hereda awards mttlab');
+
 console.log('*** community-data-isolation OK ***');

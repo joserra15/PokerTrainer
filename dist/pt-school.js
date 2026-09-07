@@ -18841,7 +18841,10 @@
     }
     writeSchool(school);
     try {
-      if (!prev.passed && global.PTTournamentWallet && PTTournamentWallet.earnFromLesson) {
+      /* Idempotente vía lessonAwards del wallet (por comunidad). No usar
+       * prev.passed de stats: recordLessonAttempt ya escribe passed=true
+       * antes de llamar aquí, y eso bloqueaba el +1 Koin. */
+      if (summary.passed && global.PTTournamentWallet && PTTournamentWallet.earnFromLesson) {
         PTTournamentWallet.earnFromLesson(lessonId);
       }
     } catch (eKoin) { /* ignore */ }

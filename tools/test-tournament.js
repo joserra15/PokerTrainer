@@ -1068,9 +1068,10 @@ console.log('OK tournament-result-polish');
   assert.strictEqual(Wallet.getBalance(), 50, 'balance set');
   assert.ok(!Wallet.canAfford(51), 'cannot afford > balance');
   const lesson = Wallet.earnFromLesson('lesson_test_a');
-  assert.ok(lesson.added === 1 || lesson.ok, 'lesson award');
+  assert.strictEqual(lesson.added, 1, 'lesson award +1');
   const lesson2 = Wallet.earnFromLesson('lesson_test_a');
   assert.ok(lesson2.already || lesson2.added === 0, 'lesson not double-awarded');
+  assert.strictEqual(Wallet.getBalance(), 51, 'balance after lesson koin');
   let awarded = 0;
   for (let i = 0; i < 25; i++) {
     const r = Wallet.noteTrainerHand();
