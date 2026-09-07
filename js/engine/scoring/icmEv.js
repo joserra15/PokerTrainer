@@ -238,7 +238,8 @@
     let mult = bf;
     // Faroles y calls marginales cuestan más con presión positiva.
     const action = input.chosenAction || '';
-    const isAggro = action === 'bet' || action === 'raise' || (action && action.indexOf('bet_') === 0);
+    const isAggro = action === 'bet' || action === 'raise' || action === 'overbet'
+      || action === 'allin' || (action && action.indexOf('bet_') === 0);
     const isCall = action === 'call';
     if (pHero > 0.03 && (isAggro || isCall)) mult *= 1 + Math.min(0.8, pHero * 3);
     if (pHero < -0.05 && action === 'fold') mult *= 0.85;

@@ -41,17 +41,24 @@
       }
     }
 
-    if (action === 'bet' || action === 'raise' || (action && action.startsWith('bet_'))) {
-      if (betSize > pot * 1.5 && spr > 4) errors.push({ type: 'overbet_absurda', msg: 'Overbet desproporcionada para el SPR actual.' });
-      if (betSize > pot * 2.5) errors.push({ type: 'overbet_absurda', msg: 'Sizing excesivo respecto al bote.' });
-      if (tier === 'air' && (freqs.bet || 0) < 0.15 && (freqs.raise || 0) < 0.15) {
+    if (action === 'bet' || action === 'raise' || action === 'overbet' || action === 'allin'
+      || (action && action.startsWith('bet_'))) {
+      // La acción «overbet» es sizing polar a propósito: no marcarla absurda/incoherente.
+      if (action !== 'overbet' && betSize > pot * 1.5 && spr > 4) {
+        errors.push({ type: 'overbet_absurda', msg: 'Overbet desproporcionada para el SPR actual.' });
+      }
+      if (action !== 'overbet' && betSize > pot * 2.5) {
+        errors.push({ type: 'overbet_absurda', msg: 'Sizing excesivo respecto al bote.' });
+      }
+      if (tier === 'air' && (freqs.bet || 0) < 0.15 && (freqs.raise || 0) < 0.15
+        && (freqs.overbet || 0) < 0.15) {
         errors.push({ type: 'bluff_excesivo', msg: 'Farol con frecuencia GTO muy baja en este spot.' });
       }
       if (tier === 'strong' && betSize < pot * 0.2 && (action === 'bet' || action.startsWith('bet_'))) {
         errors.push({ type: 'valor_insuficiente', msg: 'Apuesta pequeña con mano fuerte — pérdida de extracción de valor.' });
       }
       const ideal = input.boardWet ? pot * 0.6 : pot * 0.4;
-      if (betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
+      if (action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
         errors.push({ type: 'sizing_incoherente', msg: 'Sizing no alineado con la textura del board.' });
       }
       if (tier === 'air' || tier === 'weak') {

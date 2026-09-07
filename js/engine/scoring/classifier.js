@@ -139,7 +139,9 @@
     const isNuts = opts.band === 'nuts' || equity >= 0.95 || madeFlushPlus;
     // Top dos / manos fuertes hechas: raise por valor no se degrada a error.
     const strongValueAggro = isNuts || (madeTwoPairPlus && equity >= 0.70);
+    // overbet/allin: value bet con nueces casi siempre; no degradar a «error» por % GTO ~0.
     const valueAggro = chosen === 'raise' || chosen === 'bet'
+      || chosen === 'overbet' || chosen === 'allin'
       || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
       return { cls: freqCls, best: freqBest };
