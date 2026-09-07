@@ -20,6 +20,7 @@ const STEPS = [
   ['Test VPIP/PFR (incl. Poker91 Zoom)', ['node', 'tools/test-vpip-pfr.js']],
   ['Validar rangos JSON solver', ['node', 'tools/validate-ranges-json.js']],
   ['Auditoría charts vs consenso GTO', ['node', 'tools/audit-ranges-vs-consensus.js']],
+  ['Auditoría charts vs dump profesional', ['node', 'tools/audit-ranges-vs-pro-dump.js']],
   ['Regresión tablas de rangos (dominancia/tokens/scoring)', ['node', 'tools/test-range-tables.js']],
   ['Regresión EV Poker76', ['node', 'tools/regression-poker76.js']],
   ['Regresión EV modo Jugar', ['node', 'tools/test-play-ev.js']],

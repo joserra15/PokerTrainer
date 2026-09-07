@@ -92,28 +92,33 @@ for (let i = axOffsuit.length - 1; i >= 0; i--) {
 }
 console.log('OK BB vs BTN: AQo/AJo/KJo continúan');
 
-// BB vs UTG: ATo/JTo call (solvers ~100%); no fold si QJo/KJo continúan.
+// BB vs UTG raked: tight (~10% call). AQo+ / suited connectors; sin broadway offsuit débil ni gappers.
 const bbUtg = vsRfi.pairs.BB_vs_UTG;
 const bbUtgCont = continueSet(bbUtg);
-['ATo', 'AJo', 'AQo', 'KJo', 'QJo', 'JTo'].forEach((h) => {
-  assert.ok(bbUtgCont.has(h), 'BB vs UTG debe continuar ' + h + ' (no fold)');
-});
-['A9o', 'A8o'].forEach((h) => {
-  assert.ok(!bbUtgCont.has(h), 'BB vs UTG no debe continuar ' + h + ' (sigue siendo fold)');
-});
-console.log('OK BB vs UTG: ATo/JTo continúan');
-
-// BB vs UTG/HJ/CO/BTN: gappers y Q9o (consenso solvers).
-['K8s', 'Q8s', 'J8s', 'T8s', '97s', '86s'].forEach((h) => {
+['AQo', 'AKo', 'AQs', 'KTs', 'JTs', '54s', 'TT'].forEach((h) => {
   assert.ok(bbUtgCont.has(h), 'BB vs UTG debe continuar ' + h);
 });
+['ATo', 'AJo', 'KJo', 'QJo', 'JTo', 'A9o', 'A8o', 'K8s', 'Q8s'].forEach((h) => {
+  assert.ok(!bbUtgCont.has(h), 'BB vs UTG no debe continuar ' + h + ' (raked tight)');
+});
+console.log('OK BB vs UTG: defensa raked tight (AQo+, sin ATo/KJo/gappers)');
+
+// BB vs HJ/CO/BTN: gappers y Q9o (más anchos que vs UTG).
 const bbHjCont = continueSet(vsRfi.pairs.BB_vs_HJ);
 ['97s', '86s', 'T8s'].forEach((h) => {
   assert.ok(bbHjCont.has(h), 'BB vs HJ debe continuar ' + h);
 });
 assert.ok(continueSet(vsRfi.pairs.BB_vs_CO).has('T9o'), 'BB vs CO debe continuar T9o');
 assert.ok(continueSet(vsRfi.pairs.BB_vs_BTN).has('Q9o'), 'BB vs BTN debe continuar Q9o');
-console.log('OK BB defensa: gappers UTG/HJ, T9o vs CO, Q9o vs BTN');
+assert.ok(continueSet(vsRfi.pairs.BB_vs_BTN).has('99'), 'BB vs BTN debe continuar 99');
+console.log('OK BB defensa: gappers HJ, T9o vs CO, Q9o/99 vs BTN');
+
+// combo_matrix overrides presentes en spots del dump profesional
+assert.ok(bbUtg.combo_matrix && bbUtg.combo_matrix.JJ && bbUtg.combo_matrix.JJ['3bet'] === 1,
+  'BB vs UTG combo_matrix JJ 3bet');
+assert.ok(rfi.positions.UTG.combo_matrix && rfi.positions.UTG.combo_matrix.A4s.raise === 0.57,
+  'UTG combo_matrix A4s 0.57');
+console.log('OK combo_matrix UTG / BB_vs_UTG');
 
 // --- vs-3bet ---
 const vs3 = loadJson('vs-3bet-6max-100bb.json');

@@ -4,13 +4,41 @@ window.PT_VS_RFI_JSON = {
     "spot": "vsRFI",
     "format": "cash6",
     "stackBB": 100,
-    "updated": "2026-09-05"
+    "rake": "5_percent_2_5bb_cap",
+    "openSizeBb": 2.5,
+    "threeBetSizeBb": 10,
+    "source": "solver-export-v2-pro-dump",
+    "updated": "2026-09-07",
+    "note": "BB vs UTG tightened toward ~10% call / ~3% 3bet (raked). combo_matrix overrides exact mixes."
   },
   "pairs": {
     "BB_vs_UTG": {
-      "threeBet": "QQ+, AKs, AKo",
-      "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-      "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+      "threeBet": "JJ+, AKs, AKo",
+      "threeBetMix": "A5s, A4s",
+      "call": "22-TT, A2s-AQs, KTs+, QJs, JTs, T9s, 98s, 87s, 76s, 65s, 54s, AQo",
+      "global_frequencies": {
+        "3bet_10bb": 0.031,
+        "call": 0.104,
+        "fold": 0.865
+      },
+      "combo_matrix": {
+        "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "KK": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "QQ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "JJ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "TT": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "33": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AKs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AQs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A9s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A5s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "A4s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "KTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "JTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "54s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AKo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AQo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
+      }
     },
     "BB_vs_HJ": {
       "threeBet": "QQ+, AKs, AKo",
@@ -23,9 +51,37 @@ window.PT_VS_RFI_JSON = {
       "call": "22-JJ, A2s-AJs, K6s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, A8o+, KTo+, QTo+, JTo, T9o"
     },
     "BB_vs_BTN": {
-      "threeBet": "99+, AJs+, AKo, A5s",
-      "threeBetMix": "88, 77, ATs, A4s-A2s, KTs+, QTs, JTs, AQo, KQo, A5o, A4o",
-      "call": "22-TT, A2s-ATs, K3s+, Q5s+, J6s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, A2o+, K9o+, Q9o+, J9o+, T9o, 98o"
+      "threeBet": "TT+, AJs+, AKo, AQo, KQs",
+      "threeBetMix": "88, 77, ATs, A5s-A2s, K4s, KTs+, QTs, JTs, T9s, 65s, KQo, A5o, A4o",
+      "call": "22-99, A2s-ATs, K2s+, Q5s+, J6s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, A2o+, K9o+, Q9o+, J9o+, T9o, 98o",
+      "global_frequencies": {
+        "3bet_10bb": 0.062,
+        "call": 0.356,
+        "fold": 0.582
+      },
+      "combo_matrix": {
+        "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "TT": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "99": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "22": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AJs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "ATs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A6s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A5s": { "3bet": 0.5, "call": 0.5, "fold": 0.0 },
+        "A4s": { "3bet": 0.5, "call": 0.5, "fold": 0.0 },
+        "A3s": { "3bet": 0.4, "call": 0.6, "fold": 0.0 },
+        "A2s": { "3bet": 0.3, "call": 0.7, "fold": 0.0 },
+        "KQs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "K4s": { "3bet": 0.3, "call": 0.7, "fold": 0.0 },
+        "K2s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "T9s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "65s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "53s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AQo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "K9o": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "98o": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
+      }
     },
     "BB_vs_SB": {
       "threeBet": "88+, ATs+, KJs+, ATo+, A5s",
@@ -51,10 +107,24 @@ window.PT_VS_RFI_JSON = {
       "callMix": "QJo, JTo"
     },
     "SB_vs_BTN": {
-      "threeBet": "88+, ATs+, KTs+, QJs, AJo+, A5s, A4s",
-      "threeBetMix": "77-44, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o",
+      "threeBet": "88+, ATs+, KTs+, A5s, A4s, QJs, AJo+",
+      "threeBetMix": "77-44, A9s-A2s, KQs, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o",
       "call": "33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, ATo, KTo, QTo+, JTo",
-      "callMix": "A9o, T9o"
+      "callMix": "A9o, T9o",
+      "global_frequencies": {
+        "3bet_10bb": 0.118,
+        "call": 0.080,
+        "fold": 0.802
+      },
+      "combo_matrix": {
+        "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "TT": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AQs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "A5s": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "A4s": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "KQs": { "3bet": 0.6, "call": 0.4, "fold": 0.0 },
+        "AKo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 }
+      }
     },
     "CO_vs_UTG": {
       "threeBet": "QQ+, AKs, AKo",

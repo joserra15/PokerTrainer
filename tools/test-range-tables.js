@@ -142,7 +142,15 @@ function scanCallDominance(where, row, callKeys, contKeys) {
 }
 
 function scanDead(where, row) {
+  const skip = {
+    default_action: 1,
+    note: 1,
+    source: 1,
+    updated: 1,
+    action_size_bb: 1
+  };
   Object.keys(row || {}).forEach((f) => {
+    if (skip[f]) return;
     if (typeof row[f] !== 'string') return;
     const dead = deadTokens(row[f]);
     ok(dead.length === 0, where + '.' + f + ' tokens muertos: ' + dead.join(', '));
@@ -295,13 +303,26 @@ Object.keys(D.VS_RFI || {}).forEach((key) => {
 
 {
   const cont = unionFields(D.VS_RFI.BB_vs_UTG, VS_CONT);
-  ['ATo', 'AJo', 'JTo', 'KJo', 'QJo', 'K8s', 'T8s', '97s', '86s'].forEach((h) => {
+  ['AQo', 'AKo', 'AQs', 'KTs', 'JTs', '54s', 'TT', 'A5s'].forEach((h) => {
     ok(cont.has(h), 'BB_vs_UTG continúa ' + h);
   });
-  const st = ST.vsRfiStrategy('BB_vs_UTG', 'ATo');
-  ok(st.call >= 0.99 && st.fold < 0.01, 'BB_vs_UTG ATo ~100% call (fold=' + st.fold + ')');
+  ['ATo', 'AJo', 'JTo', 'KJo', 'QJo', 'K8s', 'T8s', '97s', '86s'].forEach((h) => {
+    ok(!cont.has(h), 'BB_vs_UTG foldea ' + h + ' (raked tight)');
+  });
+  const stAqo = ST.vsRfiStrategy('BB_vs_UTG', 'AQo');
+  ok(stAqo.call >= 0.99 && stAqo.fold < 0.01, 'BB_vs_UTG AQo ~100% call (fold=' + stAqo.fold + ')');
+  const stJj = ST.vsRfiStrategy('BB_vs_UTG', 'JJ');
+  ok(stJj.raise >= 0.99, 'BB_vs_UTG JJ ~100% 3bet (raise=' + stJj.raise + ')');
+  const stA5 = ST.vsRfiStrategy('BB_vs_UTG', 'A5s');
+  ok(Math.abs(stA5.raise - 0.2) < 0.01 && Math.abs(stA5.call - 0.8) < 0.01,
+    'BB_vs_UTG A5s 20/80 matrix');
   ok(unionFields(D.VS_RFI.BB_vs_BTN, VS_CONT).has('Q9o'), 'BB_vs_BTN continúa Q9o');
   ok(unionFields(D.VS_RFI.BB_vs_CO, VS_CONT).has('T9o'), 'BB_vs_CO continúa T9o');
+  // combo_matrix RFI
+  const utgA4 = ST.rfiStrategy('UTG', 'A4s', CASH6);
+  ok(Math.abs(utgA4.raise - 0.57) < 0.01, 'UTG A4s raise 0.57 (got ' + utgA4.raise + ')');
+  const btnA2o = ST.rfiStrategy('BTN', 'A2o', CASH6);
+  ok(Math.abs(btnA2o.raise - 0.25) < 0.01, 'BTN A2o raise 0.25 (got ' + btnA2o.raise + ')');
 }
 
 // ---------------------------------------------------------------------------

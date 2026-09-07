@@ -7,6 +7,18 @@
   const D = global.GTORangesData;
   if (!D) return;
 
+  function copyComboMatrix(row, target) {
+    if (!row || !target) return;
+    const matrix = row.combo_matrix || row.combo_matrix_sample;
+    if (matrix && typeof matrix === 'object') {
+      target.combo_matrix = matrix;
+    }
+    if (row.default_action != null) target.default_action = row.default_action;
+    if (row.global_rfi_frequency != null) target.global_rfi_frequency = row.global_rfi_frequency;
+    if (row.global_frequencies != null) target.global_frequencies = row.global_frequencies;
+    if (row.action_size_bb != null) target.action_size_bb = row.action_size_bb;
+  }
+
   function mergeOpenJson(json, targetTable) {
     if (!json || !json.positions || !targetTable) return 0;
     let merged = 0;
@@ -21,6 +33,7 @@
       if (row.weights && typeof row.weights === 'object') {
         targetTable[pos]._solverWeights = row.weights;
       }
+      copyComboMatrix(row, targetTable[pos]);
       merged++;
     });
     return merged;
@@ -33,6 +46,7 @@
       const row = json.pairs[key];
       if (!row || typeof row !== 'object') return;
       targetTable[key] = Object.assign({}, targetTable[key] || {}, row);
+      copyComboMatrix(row, targetTable[key]);
       merged++;
     });
     return merged;
