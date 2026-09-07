@@ -326,14 +326,20 @@
     state.finishedAt = new Date().toISOString();
     state._liveHand = null;
 
-    /* Persistir sesión completa (misma vía que import HH) ANTES del result. */
+    /* Persistir sesión con meta de torneo (puesto/ROI) ya calculada. */
     var sessionId = null;
     var sessionStats = null;
     try {
       var Bridge2 = global.PTTournamentSessionBridge;
       var StoreApi = global.Store;
       if (Bridge2 && Bridge2.buildSessionFromTournament && StoreApi && StoreApi.saveSession) {
-        var session = Bridge2.buildSessionFromTournament(state, {});
+        var session = Bridge2.buildSessionFromTournament(state, {
+          tournamentMeta: {
+            place: place,
+            prizeEur: prizeEur,
+            stats: sum
+          }
+        });
         if (session && session.hands && session.hands.length) {
           sessionId = session.id;
           sessionStats = session.stats || null;

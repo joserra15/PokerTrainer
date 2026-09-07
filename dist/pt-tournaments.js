@@ -1971,12 +1971,17 @@
       result: null
     };
 
+    hand.antePot = 0;
+    hand.antePaidCount = 0;
     if (hand.ante > 0) {
       seats.forEach(function (s) {
         var a = Math.min(s.stack, hand.ante);
+        if (!(a > 0)) return;
         s.stack = r2(s.stack - a);
         s.invested = r2(s.invested + a);
         hand.pot = r2(hand.pot + a);
+        hand.antePot = r2(hand.antePot + a);
+        hand.antePaidCount += 1;
         if (s.stack <= 0) { s.stack = 0; s.allIn = true; }
       });
     }
@@ -2876,10 +2881,64 @@
     };
   }
 
+  /** Agrega histórico de torneos IA (PTTournamentStore.list). */
+  function aggregateFromHistory(list) {
+    var rows = Array.isArray(list) ? list : [];
+    var n = rows.length;
+    if (!n) {
+      return {
+        n: 0, wins: 0, itm: 0, itmPct: 0, winPct: 0,
+        avgPlace: null, totalProfit: 0, totalBuyIn: 0, roiPct: 0,
+        avgRoi: 0, avgRoleAccuracy: 0, byKind: {}
+      };
+    }
+    var wins = 0;
+    var itm = 0;
+    var placeSum = 0;
+    var placeN = 0;
+    var totalProfit = 0;
+    var totalBuyIn = 0;
+    var roiSum = 0;
+    var roleSum = 0;
+    var roleN = 0;
+    var byKind = {};
+    rows.forEach(function (h) {
+      if (!h) return;
+      var place = Number(h.place);
+      var buyIn = Number(h.buyInEur) || 0;
+      var prize = Number(h.prizeEur) || 0;
+      var profit = h.profit != null ? Number(h.profit) : (prize - buyIn);
+      var kind = String(h.kind || 'mtt').toLowerCase();
+      byKind[kind] = (byKind[kind] || 0) + 1;
+      totalBuyIn += buyIn;
+      totalProfit += profit;
+      if (place === 1) wins += 1;
+      if (prize > 0) itm += 1;
+      if (place > 0) { placeSum += place; placeN += 1; }
+      if (h.roi != null) roiSum += Number(h.roi) || 0;
+      if (h.roleAccuracy != null) { roleSum += Number(h.roleAccuracy) || 0; roleN += 1; }
+    });
+    return {
+      n: n,
+      wins: wins,
+      itm: itm,
+      itmPct: Math.round((itm / n) * 1000) / 10,
+      winPct: Math.round((wins / n) * 1000) / 10,
+      avgPlace: placeN ? Math.round((placeSum / placeN) * 10) / 10 : null,
+      totalProfit: Math.round(totalProfit * 100) / 100,
+      totalBuyIn: Math.round(totalBuyIn * 100) / 100,
+      roiPct: totalBuyIn > 0 ? Math.round((totalProfit / totalBuyIn) * 1000) / 10 : 0,
+      avgRoi: Math.round((roiSum / n) * 10) / 10,
+      avgRoleAccuracy: roleN ? Math.round((roleSum / roleN) * 10) / 10 : 0,
+      byKind: byKind
+    };
+  }
+
   global.PTTournamentStats = {
     onHandComplete: onHandComplete,
     summary: summary,
-    ensureStats: ensureStats
+    ensureStats: ensureStats,
+    aggregateFromHistory: aggregateFromHistory
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -4246,17 +4305,46 @@
       hero = global.PTTournamentState && PTTournamentState.hero(state);
     } catch (e) { /* */ }
     var heroName = (hero && hero.name) || (hands[0] && hands[0].hero) || 'Hero';
-    var stats = null;
+    var handStats = null;
     try {
       if (global.Importer && typeof global.Importer.computeStats === 'function') {
-        stats = global.Importer.computeStats(hands);
+        handStats = global.Importer.computeStats(hands);
       }
     } catch (e2) { /* */ }
 
     var cfg = state.config || {};
     var result = state.result || {};
+    var trnMeta = opts.tournamentMeta || {};
+    var place = trnMeta.place != null ? trnMeta.place
+      : (result.place != null ? result.place : null);
+    var prizeEur = trnMeta.prizeEur != null ? trnMeta.prizeEur
+      : (result.prizeEur != null ? result.prizeEur : 0);
+    var tournamentStats = trnMeta.stats || (result.stats || null);
+    var profit = tournamentStats && tournamentStats.profit != null
+      ? tournamentStats.profit
+      : ((Number(prizeEur) || 0) - (Number(cfg.buyInEur) || 0));
+    var roi = tournamentStats && tournamentStats.roi != null
+      ? tournamentStats.roi
+      : ((Number(cfg.buyInEur) > 0)
+        ? Math.round((profit / Number(cfg.buyInEur)) * 1000) / 10
+        : 0);
+
     var fileName = (cfg.name || 'Torneo IA') +
-      (result.place != null ? (' · ' + result.place + 'º') : '');
+      (place != null ? (' · ' + place + 'º') : '');
+
+    /* Stats de sesión = manos GTO + meta de torneo (puesto/ROI) para el histórico. */
+    var stats = Object.assign({}, handStats || {}, {
+      source: 'tournamentAi',
+      finishPlace: place,
+      prizeEur: prizeEur,
+      profitEuro: profit,
+      roiPct: roi,
+      buyInEur: cfg.buyInEur || 0,
+      players: cfg.entries || null,
+      handsPlayed: tournamentStats && tournamentStats.handsPlayed != null
+        ? tournamentStats.handsPlayed
+        : (handStats && handStats.nHands)
+    });
 
     return {
       id: opts.sessionId || ('trn_sess_' + (state.id || Date.now())),
@@ -4271,26 +4359,27 @@
       source: 'tournamentAi',
       tournamentAi: true,
       tournamentId: state.id,
+      tournamentStats: tournamentStats,
       tournament: {
         id: state.id,
         name: cfg.name || 'Torneo IA',
         kind: cfg.kind || 'mtt',
         entries: cfg.entries,
-        place: result.place != null ? result.place : null,
-        prizeEur: result.prizeEur || 0,
+        place: place,
+        prizeEur: prizeEur,
         buyInEur: cfg.buyInEur || 0,
-        profit: result.stats && result.stats.profit != null
-          ? result.stats.profit
-          : ((result.prizeEur || 0) - (cfg.buyInEur || 0)),
-        finishedAt: state.finishedAt || null
+        profit: profit,
+        roi: roi,
+        finishedAt: state.finishedAt || null,
+        placesPaid: cfg.placesPaid || null
       },
       analysisVersion: global.PT_BUILD || '1',
       hasTxt: false,
       rawText: null,
       context: {
         gameKind: 'mtt',
-        formatKey: 'mtt',
-        format: cfg.kind === 'sng' ? 'SNG' : 'MTT'
+        formatKey: cfg.kind === 'spin' ? 'spin3' : 'mtt',
+        format: cfg.kind === 'sng' ? 'SNG' : (cfg.kind === 'spin' ? 'SPIN' : 'MTT')
       }
     };
   }
@@ -4631,14 +4720,20 @@
     state.finishedAt = new Date().toISOString();
     state._liveHand = null;
 
-    /* Persistir sesión completa (misma vía que import HH) ANTES del result. */
+    /* Persistir sesión con meta de torneo (puesto/ROI) ya calculada. */
     var sessionId = null;
     var sessionStats = null;
     try {
       var Bridge2 = global.PTTournamentSessionBridge;
       var StoreApi = global.Store;
       if (Bridge2 && Bridge2.buildSessionFromTournament && StoreApi && StoreApi.saveSession) {
-        var session = Bridge2.buildSessionFromTournament(state, {});
+        var session = Bridge2.buildSessionFromTournament(state, {
+          tournamentMeta: {
+            place: place,
+            prizeEur: prizeEur,
+            stats: sum
+          }
+        });
         if (session && session.hands && session.hands.length) {
           sessionId = session.id;
           sessionStats = session.stats || null;
@@ -4805,7 +4900,8 @@
     setup: 'setup',
     table: 'table',
     result: 'result',
-    history: 'history'
+    history: 'history',
+    generalStats: 'generalStats'
   };
 
   var ui = {
@@ -5030,6 +5126,8 @@ function reducedMotion() {
       sb: hand.sb,
       bb: hand.bb,
       ante: hand.ante,
+      antePot: hand.antePot,
+      antePaidCount: hand.antePaidCount,
       board: (f.board || []).slice(),
       street: f.street,
       pot: f.pot,
@@ -5399,6 +5497,7 @@ function reducedMotion() {
       '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
+      '<button type="button" class="btn" data-act="general-stats">Estadísticas generales</button>' +
       '</div></header>' +
       activeBanner +
       '<div class="trn-lobby-toolbar">' +
@@ -5826,12 +5925,8 @@ function reducedMotion() {
         cardsHtml = '<div class="seat-cards">' + backCard() + backCard() + '</div>';
       }
 
-      var streetBet = Number(s.streetInvested) || 0;
-      /* Preflop: mostrar ciega si aún no hay apuesta de calle explícita. */
-      if (streetBet <= 0 && hand.street === 'preflop') {
-        streetBet = Number(s.invested) || 0;
-      }
-      var betHtml = renderSeatBetHtml(streetBet, bb, betPlacement(c));
+      /* Solo streetInvested (ciegas/apuestas). El ante va en etiqueta del bote. */
+      var betHtml = renderSeatBetHtml(Number(s.streetInvested) || 0, bb, betPlacement(c));
 
       var eqHtml = (equityMap && equityMap[s.id] != null) ? (' ' + equityBadgeHtml(equityMap[s.id])) : '';
       var villainName = s.name || 'Villano';
@@ -5875,9 +5970,8 @@ function reducedMotion() {
         ? hero.cards.map(faceCard).join('')
         : (backCard() + backCard()));
     var dealerHidden = hero.pos === 'BTN' ? '' : ' hidden';
-    var streetBet = Number(hero.streetInvested) || 0;
-    if (streetBet <= 0 && hand.street === 'preflop') streetBet = Number(hero.invested) || 0;
-    var streetChips = renderHeroStreetChipsHtml(streetBet, bb);
+    /* Solo streetInvested: el ante no se pinta delante del héroe. */
+    var streetChips = renderHeroStreetChipsHtml(Number(hero.streetInvested) || 0, bb);
     var equityMap = allInEquityBySeat(hand);
     var eqHtml = (equityMap && equityMap[hero.id] != null) ? (' ' + equityBadgeHtml(equityMap[hero.id])) : '';
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
@@ -5920,6 +6014,19 @@ function reducedMotion() {
     var potChipsHtml = '';
     if (hand && Number(hand.pot) > 0) {
       potChipsHtml = '<span class="pot-chips">' + chipStackHTML(chipsToBb(hand.pot, bb)) + '</span>';
+    }
+    var anteLabelHtml = '';
+    if (hand && Number(hand.ante) > 0) {
+      var anteSum = Number(hand.antePot);
+      if (!(anteSum > 0)) {
+        var nAnte = Number(hand.antePaidCount) || (hand.seats ? hand.seats.length : 0);
+        anteSum = Math.round(Number(hand.ante) * nAnte * 100) / 100;
+      }
+      if (anteSum > 0) {
+        anteLabelHtml = '<div class="trn-ante-label" title="Antes en el bote">' +
+          '<span class="trn-ante-tag">Ante</span> ' +
+          '<strong>' + esc(fmtBb(anteSum, bb)) + '</strong></div>';
+      }
     }
     var boardHtml = (hand && hand.board && hand.board.length)
       ? hand.board.map(faceCard).join('')
@@ -6140,6 +6247,7 @@ function reducedMotion() {
       '</div>' +
       '<div class="seats">' + seatsHtml + '</div>' +
       '<div class="board-area">' +
+      anteLabelHtml +
       '<div class="pot">' + potChipsHtml + 'Bote: <strong class="pot-amt">' + esc(potBb) + '</strong></div>' +
       '<div class="board">' + boardHtml + '</div>' +
       '</div>' +
@@ -6519,6 +6627,42 @@ function reducedMotion() {
       '</div></div>';
   }
 
+  function renderGeneralStats() {
+    var list = global.PTTournamentStore.list() || [];
+    var Stats = global.PTTournamentStats;
+    var agg = Stats && Stats.aggregateFromHistory
+      ? Stats.aggregateFromHistory(list)
+      : { n: 0 };
+    function cell(val, lbl) {
+      return '<div class="trn-gstat-cell"><div class="trn-gstat-val">' + esc(String(val)) +
+        '</div><div class="trn-gstat-lbl">' + esc(lbl) + '</div></div>';
+    }
+    var profitCls = (Number(agg.totalProfit) || 0) >= 0 ? 'net-pos' : 'net-neg';
+    var profitStr = ((Number(agg.totalProfit) || 0) >= 0 ? '+' : '') + fmtKoins(agg.totalProfit || 0);
+    var kindBits = Object.keys(agg.byKind || {}).map(function (k) {
+      return esc(k.toUpperCase()) + ' ' + agg.byKind[k];
+    }).join(' · ') || '—';
+    return '<div class="trn-general-stats panel">' +
+      '<h2>Estadísticas generales de torneos</h2>' +
+      '<p class="muted">Resumen de todos los torneos IA guardados en el histórico.</p>' +
+      '<div class="trn-gstat-grid">' +
+      cell(agg.n || 0, 'Torneos') +
+      cell((agg.winPct != null ? agg.winPct : 0) + '%', 'Victorias') +
+      cell((agg.itmPct != null ? agg.itmPct : 0) + '%', 'ITM') +
+      cell(agg.avgPlace != null ? agg.avgPlace : '—', 'Puesto medio') +
+      '<div class="trn-gstat-cell"><div class="trn-gstat-val ' + profitCls + '">' + profitStr +
+      '</div><div class="trn-gstat-lbl">Profit total</div></div>' +
+      cell((agg.roiPct != null ? agg.roiPct : 0) + '%', 'ROI global') +
+      cell((agg.avgRoleAccuracy != null ? agg.avgRoleAccuracy : 0) + '%', 'Roles (media)') +
+      cell(fmtKoins(agg.totalBuyIn || 0), 'Buy-ins') +
+      '</div>' +
+      '<p class="trn-gstat-kinds muted">Por tipo: ' + kindBits + '</p>' +
+      '<div class="trn-setup-actions">' +
+      '<button type="button" class="btn" data-act="hub">Volver</button>' +
+      '<button type="button" class="btn" data-act="history">Histórico</button>' +
+      '</div></div>';
+  }
+
   function renderHistory() {
     var list = global.PTTournamentStore.list() || [];
     var rows = list.length
@@ -6565,6 +6709,7 @@ function reducedMotion() {
       else if (ui.view === VIEW.table) html = renderTable();
       else if (ui.view === VIEW.result) html = renderResult() + renderReplayModal();
       else if (ui.view === VIEW.history) html = renderHistory();
+      else if (ui.view === VIEW.generalStats) html = renderGeneralStats();
       else html = renderHub();
     } catch (err) {
       console.error('[PTTournamentsUI] paint', err);
@@ -6733,6 +6878,8 @@ function reducedMotion() {
           paint();
         } else if (act === 'history') {
           setView(VIEW.history);
+        } else if (act === 'general-stats') {
+          setView(VIEW.generalStats);
         } else if (act === 'start-custom') {
           var cfg = readSetupForm(root);
           startFromConfig(cfg, {});

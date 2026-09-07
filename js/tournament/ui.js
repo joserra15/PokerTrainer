@@ -9,7 +9,8 @@
     setup: 'setup',
     table: 'table',
     result: 'result',
-    history: 'history'
+    history: 'history',
+    generalStats: 'generalStats'
   };
 
   var ui = {
@@ -234,6 +235,8 @@ function reducedMotion() {
       sb: hand.sb,
       bb: hand.bb,
       ante: hand.ante,
+      antePot: hand.antePot,
+      antePaidCount: hand.antePaidCount,
       board: (f.board || []).slice(),
       street: f.street,
       pot: f.pot,
@@ -603,6 +606,7 @@ function reducedMotion() {
       '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
+      '<button type="button" class="btn" data-act="general-stats">Estadísticas generales</button>' +
       '</div></header>' +
       activeBanner +
       '<div class="trn-lobby-toolbar">' +
@@ -1030,12 +1034,8 @@ function reducedMotion() {
         cardsHtml = '<div class="seat-cards">' + backCard() + backCard() + '</div>';
       }
 
-      var streetBet = Number(s.streetInvested) || 0;
-      /* Preflop: mostrar ciega si aún no hay apuesta de calle explícita. */
-      if (streetBet <= 0 && hand.street === 'preflop') {
-        streetBet = Number(s.invested) || 0;
-      }
-      var betHtml = renderSeatBetHtml(streetBet, bb, betPlacement(c));
+      /* Solo streetInvested (ciegas/apuestas). El ante va en etiqueta del bote. */
+      var betHtml = renderSeatBetHtml(Number(s.streetInvested) || 0, bb, betPlacement(c));
 
       var eqHtml = (equityMap && equityMap[s.id] != null) ? (' ' + equityBadgeHtml(equityMap[s.id])) : '';
       var villainName = s.name || 'Villano';
@@ -1079,9 +1079,8 @@ function reducedMotion() {
         ? hero.cards.map(faceCard).join('')
         : (backCard() + backCard()));
     var dealerHidden = hero.pos === 'BTN' ? '' : ' hidden';
-    var streetBet = Number(hero.streetInvested) || 0;
-    if (streetBet <= 0 && hand.street === 'preflop') streetBet = Number(hero.invested) || 0;
-    var streetChips = renderHeroStreetChipsHtml(streetBet, bb);
+    /* Solo streetInvested: el ante no se pinta delante del héroe. */
+    var streetChips = renderHeroStreetChipsHtml(Number(hero.streetInvested) || 0, bb);
     var equityMap = allInEquityBySeat(hand);
     var eqHtml = (equityMap && equityMap[hero.id] != null) ? (' ' + equityBadgeHtml(equityMap[hero.id])) : '';
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
@@ -1124,6 +1123,19 @@ function reducedMotion() {
     var potChipsHtml = '';
     if (hand && Number(hand.pot) > 0) {
       potChipsHtml = '<span class="pot-chips">' + chipStackHTML(chipsToBb(hand.pot, bb)) + '</span>';
+    }
+    var anteLabelHtml = '';
+    if (hand && Number(hand.ante) > 0) {
+      var anteSum = Number(hand.antePot);
+      if (!(anteSum > 0)) {
+        var nAnte = Number(hand.antePaidCount) || (hand.seats ? hand.seats.length : 0);
+        anteSum = Math.round(Number(hand.ante) * nAnte * 100) / 100;
+      }
+      if (anteSum > 0) {
+        anteLabelHtml = '<div class="trn-ante-label" title="Antes en el bote">' +
+          '<span class="trn-ante-tag">Ante</span> ' +
+          '<strong>' + esc(fmtBb(anteSum, bb)) + '</strong></div>';
+      }
     }
     var boardHtml = (hand && hand.board && hand.board.length)
       ? hand.board.map(faceCard).join('')
@@ -1344,6 +1356,7 @@ function reducedMotion() {
       '</div>' +
       '<div class="seats">' + seatsHtml + '</div>' +
       '<div class="board-area">' +
+      anteLabelHtml +
       '<div class="pot">' + potChipsHtml + 'Bote: <strong class="pot-amt">' + esc(potBb) + '</strong></div>' +
       '<div class="board">' + boardHtml + '</div>' +
       '</div>' +
@@ -1723,6 +1736,42 @@ function reducedMotion() {
       '</div></div>';
   }
 
+  function renderGeneralStats() {
+    var list = global.PTTournamentStore.list() || [];
+    var Stats = global.PTTournamentStats;
+    var agg = Stats && Stats.aggregateFromHistory
+      ? Stats.aggregateFromHistory(list)
+      : { n: 0 };
+    function cell(val, lbl) {
+      return '<div class="trn-gstat-cell"><div class="trn-gstat-val">' + esc(String(val)) +
+        '</div><div class="trn-gstat-lbl">' + esc(lbl) + '</div></div>';
+    }
+    var profitCls = (Number(agg.totalProfit) || 0) >= 0 ? 'net-pos' : 'net-neg';
+    var profitStr = ((Number(agg.totalProfit) || 0) >= 0 ? '+' : '') + fmtKoins(agg.totalProfit || 0);
+    var kindBits = Object.keys(agg.byKind || {}).map(function (k) {
+      return esc(k.toUpperCase()) + ' ' + agg.byKind[k];
+    }).join(' · ') || '—';
+    return '<div class="trn-general-stats panel">' +
+      '<h2>Estadísticas generales de torneos</h2>' +
+      '<p class="muted">Resumen de todos los torneos IA guardados en el histórico.</p>' +
+      '<div class="trn-gstat-grid">' +
+      cell(agg.n || 0, 'Torneos') +
+      cell((agg.winPct != null ? agg.winPct : 0) + '%', 'Victorias') +
+      cell((agg.itmPct != null ? agg.itmPct : 0) + '%', 'ITM') +
+      cell(agg.avgPlace != null ? agg.avgPlace : '—', 'Puesto medio') +
+      '<div class="trn-gstat-cell"><div class="trn-gstat-val ' + profitCls + '">' + profitStr +
+      '</div><div class="trn-gstat-lbl">Profit total</div></div>' +
+      cell((agg.roiPct != null ? agg.roiPct : 0) + '%', 'ROI global') +
+      cell((agg.avgRoleAccuracy != null ? agg.avgRoleAccuracy : 0) + '%', 'Roles (media)') +
+      cell(fmtKoins(agg.totalBuyIn || 0), 'Buy-ins') +
+      '</div>' +
+      '<p class="trn-gstat-kinds muted">Por tipo: ' + kindBits + '</p>' +
+      '<div class="trn-setup-actions">' +
+      '<button type="button" class="btn" data-act="hub">Volver</button>' +
+      '<button type="button" class="btn" data-act="history">Histórico</button>' +
+      '</div></div>';
+  }
+
   function renderHistory() {
     var list = global.PTTournamentStore.list() || [];
     var rows = list.length
@@ -1769,6 +1818,7 @@ function reducedMotion() {
       else if (ui.view === VIEW.table) html = renderTable();
       else if (ui.view === VIEW.result) html = renderResult() + renderReplayModal();
       else if (ui.view === VIEW.history) html = renderHistory();
+      else if (ui.view === VIEW.generalStats) html = renderGeneralStats();
       else html = renderHub();
     } catch (err) {
       console.error('[PTTournamentsUI] paint', err);
@@ -1937,6 +1987,8 @@ function reducedMotion() {
           paint();
         } else if (act === 'history') {
           setView(VIEW.history);
+        } else if (act === 'general-stats') {
+          setView(VIEW.generalStats);
         } else if (act === 'start-custom') {
           var cfg = readSetupForm(root);
           startFromConfig(cfg, {});
