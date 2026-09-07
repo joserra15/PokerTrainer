@@ -48,7 +48,10 @@ test.describe('Análisis manual → entrenador', () => {
         effStack: 100
       };
       try {
-        window.Store.saveAnalysisHand(hand);
+        const res = await window.Store.saveAnalysisHand(hand);
+        if (res && res.ok === false) {
+          return { ok: false, error: res.message || res.error || 'save failed' };
+        }
       } catch (e) {
         return { ok: false, error: String(e && e.message || e) };
       }

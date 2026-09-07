@@ -73,6 +73,8 @@ const STEPS = [
   // Fase 2
   ['Test cloud merge', ['node', 'tools/test-cloud-merge.js']],
   ['Test cloud sessions slim', ['node', 'tools/test-cloud-sessions.js']],
+  ['Test cloud analysis slim', ['node', 'tools/test-cloud-analysis.js']],
+  ['Test memory optimize reclaim', ['node', 'tools/test-memory-optimize.js']],
   ['Test RLS policies (SQL)', ['node', 'tools/test-rls-policies.js']],
   ['Test auth contract', ['node', 'tools/test-auth-contract.js']],
   ['Test auth bootstrap login UI', ['node', 'tools/test-auth-bootstrap-login-ui.js']],

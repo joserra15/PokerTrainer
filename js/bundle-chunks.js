@@ -74,6 +74,7 @@
       'js/storage.js',
       'js/stats-aggregate.js',
       'js/cloud-sessions.js',
+      'js/cloud-analysis.js',
       'js/sample-session.js',
       'js/usage-ui.js',
       'js/leaks.js',

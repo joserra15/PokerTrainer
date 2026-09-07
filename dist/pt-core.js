@@ -25354,6 +25354,10 @@ window.PT_NASH_PUSH_JSON = {
   };
   const MAX_HISTORY = 500;
   const COACH_THREAD_MAX = 10;
+  /** Manos de análisis completas que se conservan en localStorage (resto: stubs cloud). */
+  const LOCAL_ANALYSIS_KEEP = 5;
+  /** Umbral (~bytes) para offload silencioso proactivo. */
+  const LOCAL_USAGE_SOFT_LIMIT = 4.5 * 1024 * 1024;
 
   let userId = null;
 
@@ -25535,6 +25539,39 @@ window.PT_NASH_PUSH_JSON = {
     return write(key, val);
   }
 
+  function estimateLocalUsage() {
+    let total = 0;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        const v = localStorage.getItem(k);
+        total += k.length + (v ? v.length : 0);
+      }
+    } catch (e) { /* ignore */ }
+    return total;
+  }
+
+  function setMemoryOptimizingUi(active, detail) {
+    try {
+      if (typeof document === 'undefined' || !document.body) return;
+      if (active) {
+        document.body.classList.add('pt-memory-optimizing');
+        if (detail) document.body.setAttribute('data-pt-memory-detail', String(detail));
+        else document.body.removeAttribute('data-pt-memory-detail');
+      } else {
+        document.body.classList.remove('pt-memory-optimizing');
+        document.body.removeAttribute('data-pt-memory-detail');
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function reportProgress(onProgress, step, info) {
+    if (typeof onProgress === 'function') {
+      try { onProgress(step, info || {}); } catch (e) { /* ignore */ }
+    }
+  }
+
   /**
    * Libera espacio en localStorage (Safari/móvil se llenan rápido).
    * Orden: cachés desechables → .txt de sesiones → recorte de histórico/errores.
@@ -25580,6 +25617,24 @@ window.PT_NASH_PUSH_JSON = {
           if (removeKeyQuiet('pt_school_backup_v1')) freed = true;
         }
       }
+      /* 6) Slim / trim torneo activo e histórico local (si el módulo está cargado). */
+      try {
+        if (global.PTTournamentStore) {
+          if (typeof global.PTTournamentStore.slimActiveAggressive === 'function') {
+            if (global.PTTournamentStore.slimActiveAggressive({ aggressive: aggressive })) freed = true;
+          }
+          if (typeof global.PTTournamentStore.trimLocalHistory === 'function') {
+            const keep = aggressive ? 5 : (global.PTTournamentStore.LOCAL_KEEP || 15);
+            if (global.PTTournamentStore.trimLocalHistory(keep)) freed = true;
+          }
+        }
+      } catch (eTwFree) { /* ignore */ }
+      /* 7) Convertir manos de análisis locales antiguas a stubs (sin subir). */
+      if (aggressive) {
+        try {
+          if (stubOlderAnalysisHandsLocal(aggressive ? 2 : LOCAL_ANALYSIS_KEEP)) freed = true;
+        } catch (eAna) { /* ignore */ }
+      }
     } catch (e) { /* ignore */ }
     return freed;
   }
@@ -25590,6 +25645,95 @@ window.PT_NASH_PUSH_JSON = {
     if (freeStorageSpace() && write(key, val)) return true;
     if (freeStorageSpace({ aggressive: true }) && write(key, val)) return true;
     return false;
+  }
+
+  /**
+   * Pipeline async de reclaim: sube datos antiguos a la nube y libera local.
+   * Muestra overlay «Optimizando memoria…» salvo opts.silent.
+   */
+  async function optimizeLocalMemory(opts) {
+    opts = opts || {};
+    const steps = [];
+    const silent = !!opts.silent;
+    const onProgress = opts.onProgress;
+    const before = estimateLocalUsage();
+    if (!silent) {
+      setMemoryOptimizingUi(true, opts.reason || 'Liberando espacio: moviendo datos antiguos a la base de datos.');
+    }
+    const CA = global.PTCloudAnalysis;
+    try {
+      reportProgress(onProgress, 'caches');
+      if (freeStorageSpace({ aggressive: !!opts.aggressive })) {
+        steps.push('caches');
+      }
+
+      if (CA && CA.isReady && CA.isReady()) {
+        reportProgress(onProgress, 'analysis');
+        const off = await ensureAnalysisHandsCloudOffloaded();
+        if (off && off.ok && off.moved > 0) steps.push('analysis');
+      }
+
+      if (global.PTTournamentStore &&
+          typeof global.PTTournamentStore.ensureHistoryOffloaded === 'function') {
+        reportProgress(onProgress, 'tournaments');
+        const tOff = await global.PTTournamentStore.ensureHistoryOffloaded({
+          keep: opts.tournamentKeep,
+          aggressive: !!opts.aggressive
+        });
+        if (tOff && tOff.ok && tOff.trimmed) steps.push('tournaments');
+      } else if (global.PTTournamentStore &&
+          typeof global.PTTournamentStore.trimLocalHistory === 'function') {
+        const keep = opts.aggressive ? 5 : (global.PTTournamentStore.LOCAL_KEEP || 15);
+        if (global.PTTournamentStore.trimLocalHistory(keep)) steps.push('tournaments');
+      }
+
+      reportProgress(onProgress, 'trim');
+      if (freeStorageSpace({ aggressive: true })) {
+        if (steps.indexOf('caches') < 0) steps.push('trim');
+      }
+
+      const after = estimateLocalUsage();
+      const cloudReady = (global.PTCloud && global.PTCloud.isReady && global.PTCloud.isReady()) ||
+        (CA && CA.isReady && CA.isReady());
+      return {
+        ok: steps.length > 0 || after < before,
+        freedApprox: Math.max(0, before - after),
+        steps: steps,
+        needsLogin: !cloudReady
+      };
+    } finally {
+      if (!silent) setMemoryOptimizingUi(false);
+    }
+  }
+
+  /** Si un write falla por cuota: overlay + optimize + reintento del callback. */
+  async function withStorageReclaim(writeFn, opts) {
+    opts = opts || {};
+    let res = await Promise.resolve(writeFn());
+    if (res && res.ok) return res;
+    const err = res && res.error;
+    if (err !== 'storage_full' && err !== 'Cuota de almacenamiento local agotada.') {
+      return res;
+    }
+    const opt = await optimizeLocalMemory({
+      reason: 'Optimizando memoria… Liberando espacio: moviendo datos antiguos a la base de datos.',
+      aggressive: true,
+      onProgress: opts.onProgress
+    });
+    res = await Promise.resolve(writeFn());
+    if (res && res.ok) return res;
+    if (opt && opt.needsLogin) {
+      return {
+        ok: false,
+        error: 'storage_full',
+        message: 'No hay espacio local. Inicia sesión para mover datos antiguos a la nube.'
+      };
+    }
+    return {
+      ok: false,
+      error: 'storage_full',
+      message: 'No se pudo liberar suficiente espacio en este dispositivo.'
+    };
   }
   function writeRaw(key, val) {
     try { localStorage.setItem(key, val); return true; }
@@ -25804,6 +25948,11 @@ window.PT_NASH_PUSH_JSON = {
 
   function setUserId(uid) {
     userId = uid || null;
+    try {
+      if (global.PTTournamentStore && PTTournamentStore.invalidateHistoryMemory) {
+        PTTournamentStore.invalidateHistoryMemory();
+      }
+    } catch (eInv) { /* ignore */ }
     if (userId) {
       migrateLegacyOnce(userId);
       try { migrateTournamentKeysForUser(userId); } catch (eTwMig) { /* ignore */ }
@@ -27148,7 +27297,11 @@ window.PT_NASH_PUSH_JSON = {
         if (wSnap && !wSnap.isDefault) snap.tournamentWallet = wSnap;
       }
       if (global.PTTournamentStore) {
-        if (PTTournamentStore.list) snap.tournamentHistory = PTTournamentStore.list();
+        if (PTTournamentStore.getHistoryMemory) {
+          snap.tournamentHistory = PTTournamentStore.getHistoryMemory();
+        } else if (PTTournamentStore.list) {
+          snap.tournamentHistory = PTTournamentStore.list();
+        }
         if (PTTournamentStore.loadActive) {
           var act = PTTournamentStore.loadActive();
           if (act) snap.tournamentActive = act;
@@ -27538,45 +27691,303 @@ window.PT_NASH_PUSH_JSON = {
 
   // ---------- MANOS DE ANÁLISIS (menú "Análisis de manos") ----------
   const ANALYSIS_KEY = 'analysis_hands';
+  const analysisMemoryCache = {};
 
-  function getAnalysisHands() {
+  function analysisCloudReady() {
+    const CA = global.PTCloudAnalysis;
+    return !!(CA && CA.isReady && CA.isReady());
+  }
+
+  function slimAnalysisHandLocal(hand) {
+    const CA = global.PTCloudAnalysis;
+    if (CA && CA.slimPayload) return CA.slimPayload(hand);
+    try {
+      return JSON.parse(JSON.stringify(hand || {}));
+    } catch (e) {
+      return hand;
+    }
+  }
+
+  function analysisHandSummary(hand) {
+    const CA = global.PTCloudAnalysis;
+    if (CA && CA.handSummary) return CA.handSummary(hand);
+    return {
+      id: hand.id,
+      createdAt: hand.createdAt || null,
+      savedName: hand.savedName || null,
+      heroPos: hand.heroPos || null,
+      heroCards: hand.heroCards || null,
+      heroCode: hand.heroCode || null,
+      board: hand.board || null,
+      handScore: hand.handScore != null ? hand.handScore : null,
+      source: hand.source || null,
+      cloudOnly: true,
+      hasAiAnalysis: !!hand.aiAnalysis,
+      hasCoachThread: !!(hand.coachThread && hand.coachThread.length)
+    };
+  }
+
+  function isAnalysisStub(h) {
+    return !!(h && h.cloudOnly && !h.decisions && !h.spec && !h.streets);
+  }
+
+  function readAnalysisIndex() {
     const list = read(scopedKey(ANALYSIS_KEY), []);
     return Array.isArray(list) ? list : [];
   }
 
+  function writeAnalysisIndex(list) {
+    return write(scopedKey(ANALYSIS_KEY), list || []);
+  }
+
+  function writeAnalysisIndexResilient(list) {
+    if (writeAnalysisIndex(list)) return true;
+    if (freeStorageSpace() && writeAnalysisIndex(list)) return true;
+    if (freeStorageSpace({ aggressive: true }) && writeAnalysisIndex(list)) return true;
+    return false;
+  }
+
+  /**
+   * Construye índice local: N manos completas + stubs para el resto.
+   * `fullById` opcional: mapa id → payload completo (p. ej. recién guardado).
+   */
+  function buildAnalysisLocalIndex(ordered, keep, fullById) {
+    keep = keep == null ? LOCAL_ANALYSIS_KEEP : keep;
+    fullById = fullById || {};
+    const out = [];
+    (ordered || []).forEach(function (item, idx) {
+      if (!item || !item.id) return;
+      const full = fullById[item.id] ||
+        analysisMemoryCache[item.id] ||
+        (!isAnalysisStub(item) ? item : null);
+      if (idx < keep && full) {
+        const slim = slimAnalysisHandLocal(full);
+        delete slim.cloudOnly;
+        out.push(slim);
+        analysisMemoryCache[item.id] = slim;
+      } else if (full) {
+        out.push(analysisHandSummary(full));
+        analysisMemoryCache[item.id] = full;
+      } else {
+        out.push(Object.assign({}, item, { cloudOnly: true }));
+      }
+    });
+    return out;
+  }
+
+  function stubOlderAnalysisHandsLocal(keep) {
+    const list = readAnalysisIndex();
+    let changed = false;
+    const next = buildAnalysisLocalIndex(list, keep == null ? LOCAL_ANALYSIS_KEEP : keep);
+    for (let i = 0; i < next.length; i++) {
+      const a = list[i];
+      const b = next[i];
+      if (!a || !b || a.cloudOnly !== b.cloudOnly || (!!a.decisions) !== (!!b.decisions)) {
+        changed = true;
+        break;
+      }
+    }
+    if (!changed && next.length === list.length) return false;
+    return rewriteSmaller(scopedKey(ANALYSIS_KEY), next);
+  }
+
+  function getAnalysisHands() {
+    return readAnalysisIndex();
+  }
+
   function getAnalysisHand(id) {
-    return getAnalysisHands().find(function (h) { return h.id === id; }) || null;
+    if (!id) return null;
+    if (analysisMemoryCache[id] && !isAnalysisStub(analysisMemoryCache[id])) {
+      return analysisMemoryCache[id];
+    }
+    const rec = readAnalysisIndex().find(function (h) { return h && h.id === id; }) || null;
+    if (rec && !isAnalysisStub(rec)) {
+      analysisMemoryCache[id] = rec;
+      return rec;
+    }
+    return rec;
   }
 
-  function saveAnalysisHand(hand) {
-    if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
-    const list = getAnalysisHands();
-    if (list.some(function (h) { return h.id === hand.id; })) {
-      return updateAnalysisHand(hand);
+  async function getAnalysisHandAsync(id) {
+    if (!id) return null;
+    const local = getAnalysisHand(id);
+    if (local && !isAnalysisStub(local)) return local;
+    const CA = global.PTCloudAnalysis;
+    if (CA && CA.isReady && CA.isReady()) {
+      const res = await CA.fetchHand(id);
+      if (res.ok && res.hand) {
+        analysisMemoryCache[id] = res.hand;
+        return res.hand;
+      }
     }
-    list.unshift(hand);
-    if (!write(scopedKey(ANALYSIS_KEY), list)) {
-      return { ok: false, error: 'storage_full' };
-    }
-    return { ok: true, hand: hand, count: list.length };
+    return local;
   }
 
-  function updateAnalysisHand(hand) {
+  function upsertAnalysisIndexEntry(hand, opts) {
+    opts = opts || {};
+    const keep = opts.keep != null ? opts.keep : LOCAL_ANALYSIS_KEEP;
+    const slim = slimAnalysisHandLocal(hand);
+    analysisMemoryCache[hand.id] = slim;
+    let list = readAnalysisIndex().filter(function (h) { return h && h.id !== hand.id; });
+    list.unshift(slim);
+    const fullById = {};
+    fullById[hand.id] = slim;
+    list = buildAnalysisLocalIndex(list, keep, fullById);
+    if (!writeAnalysisIndexResilient(list)) {
+      return { ok: false, error: 'storage_full', hand: slim, count: list.length };
+    }
+    return { ok: true, hand: slim, count: list.length };
+  }
+
+  function saveAnalysisHandSync(hand) {
     if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
-    const list = getAnalysisHands();
-    const idx = list.findIndex(function (h) { return h.id === hand.id; });
+    const list = readAnalysisIndex();
+    if (list.some(function (h) { return h && h.id === hand.id; })) {
+      return updateAnalysisHandSync(hand);
+    }
+    return upsertAnalysisIndexEntry(hand);
+  }
+
+  function updateAnalysisHandSync(hand) {
+    if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
+    const list = readAnalysisIndex();
+    const idx = list.findIndex(function (h) { return h && h.id === hand.id; });
     if (idx < 0) return { ok: false, error: 'hand_not_found' };
-    list[idx] = hand;
-    if (!write(scopedKey(ANALYSIS_KEY), list)) {
-      return { ok: false, error: 'storage_full' };
-    }
-    return { ok: true, hand: hand, count: list.length };
+    return upsertAnalysisIndexEntry(hand);
   }
 
-  function removeAnalysisHand(id) {
-    const list = getAnalysisHands().filter(function (h) { return h.id !== id; });
-    write(scopedKey(ANALYSIS_KEY), list);
+  async function saveAnalysisHand(hand) {
+    if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
+    const CA = global.PTCloudAnalysis;
+    if (CA && CA.isReady && CA.isReady()) {
+      const up = await CA.uploadHand(hand);
+      if (!up.ok) {
+        /* Fallback local si la nube falla: no bloquear al usuario. */
+        return withStorageReclaim(function () {
+          return saveAnalysisHandSync(hand);
+        });
+      }
+      const payload = up.hand || slimAnalysisHandLocal(hand);
+      return withStorageReclaim(function () {
+        return upsertAnalysisIndexEntry(payload);
+      });
+    }
+    return withStorageReclaim(function () {
+      return saveAnalysisHandSync(hand);
+    });
+  }
+
+  async function updateAnalysisHand(hand) {
+    if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
+    const CA = global.PTCloudAnalysis;
+    if (CA && CA.isReady && CA.isReady()) {
+      const up = await CA.uploadHand(hand);
+      if (!up.ok) {
+        return withStorageReclaim(function () {
+          return updateAnalysisHandSync(hand);
+        });
+      }
+      const payload = up.hand || slimAnalysisHandLocal(hand);
+      return withStorageReclaim(function () {
+        const list = readAnalysisIndex();
+        if (!list.some(function (h) { return h && h.id === hand.id; })) {
+          return { ok: false, error: 'hand_not_found' };
+        }
+        return upsertAnalysisIndexEntry(payload);
+      });
+    }
+    return withStorageReclaim(function () {
+      return updateAnalysisHandSync(hand);
+    });
+  }
+
+  async function removeAnalysisHand(id) {
+    const sid = String(id || '');
+    if (!sid) return { ok: false, count: getAnalysisHands().length };
+    delete analysisMemoryCache[sid];
+    const list = readAnalysisIndex().filter(function (h) { return h && h.id !== sid; });
+    writeAnalysisIndexResilient(list);
+    const CA = global.PTCloudAnalysis;
+    if (CA && CA.isReady && CA.isReady() && CA.deleteHand) {
+      try { await CA.deleteHand(sid); } catch (e) { /* ignore */ }
+    }
     return { ok: true, count: list.length };
+  }
+
+  async function ensureAnalysisHandsCloudOffloaded() {
+    const CA = global.PTCloudAnalysis;
+    if (!CA || !CA.isReady || !CA.isReady()) return { ok: false, moved: 0 };
+    const list = readAnalysisIndex();
+    let moved = 0;
+    const fullById = {};
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      if (!item || !item.id) continue;
+      if (isAnalysisStub(item)) continue;
+      const full = analysisMemoryCache[item.id] && !isAnalysisStub(analysisMemoryCache[item.id])
+        ? analysisMemoryCache[item.id]
+        : item;
+      const up = await CA.uploadHand(full);
+      if (up.ok) {
+        moved++;
+        fullById[item.id] = up.hand || full;
+        analysisMemoryCache[item.id] = fullById[item.id];
+      }
+    }
+    const next = buildAnalysisLocalIndex(list, LOCAL_ANALYSIS_KEEP, fullById);
+    writeAnalysisIndexResilient(next);
+    return { ok: true, moved: moved };
+  }
+
+  async function refreshAnalysisIndexFromCloud() {
+    const CA = global.PTCloudAnalysis;
+    if (!CA || !CA.isReady || !CA.isReady()) return { ok: false };
+    const res = await CA.listHands();
+    if (!res.ok) return { ok: false, error: res.error };
+    const local = readAnalysisIndex();
+    const localFull = {};
+    local.forEach(function (h) {
+      if (h && h.id && !isAnalysisStub(h)) localFull[h.id] = h;
+    });
+    const byId = Object.create(null);
+    (res.hands || []).forEach(function (s) {
+      if (!s || !s.id) return;
+      byId[s.id] = Object.assign({}, s, { cloudOnly: true });
+    });
+    local.forEach(function (h) {
+      if (!h || !h.id) return;
+      if (!byId[h.id]) byId[h.id] = h;
+    });
+    const merged = Object.keys(byId).map(function (k) { return byId[k]; }).sort(function (a, b) {
+      return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    });
+    const next = buildAnalysisLocalIndex(merged, LOCAL_ANALYSIS_KEEP, localFull);
+    writeAnalysisIndexResilient(next);
+    return { ok: true, count: next.length };
+  }
+
+  async function uploadLegacyLocalAnalysisToCloud() {
+    const CA = global.PTCloudAnalysis;
+    if (!CA || !CA.isReady || !CA.isReady()) return { uploaded: 0 };
+    const list = readAnalysisIndex();
+    let uploaded = 0;
+    for (let i = 0; i < list.length; i++) {
+      const h = list[i];
+      if (!h || !h.id || isAnalysisStub(h)) continue;
+      const res = await CA.uploadHand(h);
+      if (res.ok) uploaded++;
+    }
+    if (uploaded) await ensureAnalysisHandsCloudOffloaded();
+    return { uploaded: uploaded };
+  }
+
+  async function maybeProactiveMemoryOptimize() {
+    try {
+      if (estimateLocalUsage() < LOCAL_USAGE_SOFT_LIMIT) return { ok: true, skipped: true };
+      return await optimizeLocalMemory({ silent: true, aggressive: false });
+    } catch (e) {
+      return { ok: false };
+    }
   }
 
   /** target: { kind: 'history'|'session'|'sessionHand'|'stats'|'learn'|'analysis', handId?, sessionId?, lessonId? } */
@@ -27650,14 +28061,16 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     if (target.kind === 'analysis' && target.handId) {
-      const rec = getAnalysisHand(target.handId);
-      if (!rec) return Promise.resolve({ ok: false, error: 'hand_not_found' });
-      if (!rec.coachThread) rec.coachThread = [];
-      rec.coachThread.unshift(e);
-      rec.coachThread = trimCoachThread(rec.coachThread);
-      const res = updateAnalysisHand(rec);
-      if (!res.ok) return Promise.resolve({ ok: false, error: res.error || 'storage_full' });
-      return Promise.resolve({ ok: true, entry: e, thread: rec.coachThread.slice() });
+      return getAnalysisHandAsync(target.handId).then(function (rec) {
+        if (!rec) return { ok: false, error: 'hand_not_found' };
+        if (!rec.coachThread) rec.coachThread = [];
+        rec.coachThread.unshift(e);
+        rec.coachThread = trimCoachThread(rec.coachThread);
+        return updateAnalysisHand(rec).then(function (res) {
+          if (!res.ok) return { ok: false, error: res.error || 'storage_full', message: res.message };
+          return { ok: true, entry: e, thread: rec.coachThread.slice() };
+        });
+      });
     }
 
     if (target.kind === 'history' && target.handId) {
@@ -27667,11 +28080,13 @@ window.PT_NASH_PUSH_JSON = {
       if (!hist[idx].coachThread) hist[idx].coachThread = [];
       hist[idx].coachThread.unshift(e);
       hist[idx].coachThread = trimCoachThread(hist[idx].coachThread);
-      if (!write(scopedDataKey('history'), hist)) {
-        return Promise.resolve({ ok: false, error: 'storage_full' });
-      }
-      notifySync(['history']);
-      return Promise.resolve({ ok: true, entry: e, thread: hist[idx].coachThread.slice() });
+      return withStorageReclaim(function () {
+        if (!writeResilient(scopedDataKey('history'), hist)) {
+          return { ok: false, error: 'storage_full' };
+        }
+        notifySync(['history']);
+        return { ok: true, entry: e, thread: hist[idx].coachThread.slice() };
+      });
     }
 
     if (target.sessionId) {
@@ -27859,7 +28274,8 @@ window.PT_NASH_PUSH_JSON = {
     migrateLocalUserKeys,
     migrateTournamentKeysForUser,
     purgeLocalUserData, scenarioLabel,
-    freeStorageSpace, writeResilient,
+    freeStorageSpace, writeResilient, optimizeLocalMemory, withStorageReclaim, estimateLocalUsage,
+    setMemoryOptimizingUi,
     getSessions, getSession, getSessionAsync, saveSession, saveSessionLocal, cacheSession, removeSession, deleteSessionTxt,
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
@@ -27867,7 +28283,11 @@ window.PT_NASH_PUSH_JSON = {
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry,
     getFeatureUsage, trackFeatureUsage,
-    getAnalysisHands, getAnalysisHand, saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
+    getAnalysisHands, getAnalysisHand, getAnalysisHandAsync,
+    saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
+    refreshAnalysisIndexFromCloud, uploadLegacyLocalAnalysisToCloud,
+    ensureAnalysisHandsCloudOffloaded, maybeProactiveMemoryOptimize,
+    LOCAL_ANALYSIS_KEEP,
     getFavoriteSpots, getFavoriteSpotsForStreet, isFavoriteSpot, toggleFavoriteSpot,
     removeFavoriteSpot, favoriteSpotKey, normalizeFavoriteStreet,
     getPlayPresets, getPlayPreset, savePlayPreset, removePlayPreset
@@ -28761,6 +29181,185 @@ window.PT_NASH_PUSH_JSON = {
     purgeUserSessions
   };
 })(window);
+
+/*
+ * cloud-analysis.js — Manos de «Análisis de manos» en Supabase (pt_analysis_hands).
+ * Persistencia principal en nube; el dispositivo solo guarda un índice ligero.
+ */
+(function (global) {
+  'use strict';
+
+  const TABLE = 'pt_analysis_hands';
+
+  let userId = null;
+  let legacyGoogleSub = null;
+
+  function cfg() {
+    return global.PT_SUPABASE || {};
+  }
+
+  function getClient() {
+    return global.PTSupabase && global.PTSupabase.getClient
+      ? global.PTSupabase.getClient()
+      : null;
+  }
+
+  function isReady() {
+    if (global.PT_E2E_MODE) return false;
+    return !!(cfg().enabled && cfg().url && cfg().anonKey && getClient() && userId);
+  }
+
+  function setUser(user) {
+    userId = user && user.sub ? user.sub : null;
+    legacyGoogleSub = user && user.googleSub ? user.googleSub : null;
+  }
+
+  function slimDecision(d) {
+    if (!d || typeof d !== 'object') return d;
+    const out = Object.assign({}, d);
+    delete out.optionBreakdown;
+    delete out.explanation;
+    delete out.context;
+    delete out.mathParams;
+    return out;
+  }
+
+  function slimPayload(hand) {
+    let s;
+    try {
+      s = JSON.parse(JSON.stringify(hand || {}));
+    } catch (e) {
+      s = Object.assign({}, hand || {});
+    }
+    (s.decisions || []).forEach(function (d, i) {
+      s.decisions[i] = slimDecision(d);
+    });
+    if (Array.isArray(s.streets)) {
+      s.streets.forEach(function (st) {
+        if (!st || !Array.isArray(st.actions)) return;
+        st.actions.forEach(function (a, i) {
+          st.actions[i] = slimDecision(a);
+        });
+      });
+    }
+    return s;
+  }
+
+  function handSummary(hand) {
+    return {
+      id: hand.id,
+      createdAt: hand.createdAt || null,
+      savedName: hand.savedName || null,
+      heroPos: hand.heroPos || null,
+      heroCards: hand.heroCards || null,
+      heroCode: hand.heroCode || null,
+      board: hand.board || null,
+      handScore: hand.handScore != null ? hand.handScore : null,
+      source: hand.source || null,
+      cloudOnly: true,
+      hasAiAnalysis: !!hand.aiAnalysis,
+      hasCoachThread: !!(hand.coachThread && hand.coachThread.length)
+    };
+  }
+
+  async function uploadHand(hand) {
+    if (!isReady()) return { ok: false, error: 'cloud_not_ready' };
+    if (!hand || !hand.id) return { ok: false, error: 'invalid_hand' };
+    const client = getClient();
+    const now = new Date().toISOString();
+    const payload = slimPayload(hand);
+    const summary = handSummary(hand);
+    const { error } = await client.from(TABLE).upsert({
+      user_id: userId,
+      hand_id: hand.id,
+      summary: summary,
+      payload: payload,
+      deleted_at: null,
+      updated_at: now
+    }, { onConflict: 'user_id,hand_id' });
+    if (error) {
+      console.warn('[PTCloudAnalysis] upload', error);
+      return { ok: false, error: error.message || 'upload_failed' };
+    }
+    return { ok: true, hand: payload, summary: summary };
+  }
+
+  async function listHands() {
+    if (!isReady()) return { ok: false, hands: [], error: 'cloud_not_ready' };
+    const client = getClient();
+    const { data, error } = await client
+      .from(TABLE)
+      .select('hand_id, summary, updated_at')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .order('updated_at', { ascending: false });
+    if (error) {
+      console.warn('[PTCloudAnalysis] list', error);
+      return { ok: false, hands: [], error: error.message || 'list_failed' };
+    }
+    const hands = (data || []).map(function (row) {
+      const s = Object.assign({}, row.summary || {});
+      s.id = row.hand_id;
+      s.cloudOnly = true;
+      return s;
+    });
+    return { ok: true, hands: hands };
+  }
+
+  async function fetchHand(handId) {
+    if (!isReady() || !handId) return { ok: false, error: 'cloud_not_ready' };
+    const client = getClient();
+    const { data, error } = await client
+      .from(TABLE)
+      .select('payload')
+      .eq('user_id', userId)
+      .eq('hand_id', handId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (error) {
+      console.warn('[PTCloudAnalysis] fetch', error);
+      return { ok: false, error: error.message || 'fetch_failed' };
+    }
+    if (!data || !data.payload) return { ok: false, error: 'not_found' };
+    const hand = data.payload;
+    hand.id = handId;
+    return { ok: true, hand: hand };
+  }
+
+  async function deleteHand(handId) {
+    if (!isReady() || !handId) return { ok: false, error: 'cloud_not_ready' };
+    const client = getClient();
+    const { error } = await client
+      .from(TABLE)
+      .delete()
+      .eq('user_id', userId)
+      .eq('hand_id', handId);
+    if (error) {
+      console.warn('[PTCloudAnalysis] delete', error);
+      return { ok: false, error: error.message || 'delete_failed' };
+    }
+    return { ok: true };
+  }
+
+  async function purgeUserHands(uid) {
+    if (!getClient() || !uid) return { ok: false };
+    const { error } = await getClient().from(TABLE).delete().eq('user_id', uid);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+
+  global.PTCloudAnalysis = {
+    setUser,
+    isReady,
+    slimPayload,
+    handSummary,
+    uploadHand,
+    listHands,
+    fetchHand,
+    deleteHand,
+    purgeUserHands
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
  * sample-session.js — Sesión de ejemplo precargada para usuarios nuevos (G-05).
@@ -35232,6 +35831,9 @@ window.PT_NASH_PUSH_JSON = {
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) {
       global.PTCloudSessions.setUser(user);
     }
+    if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) {
+      global.PTCloudAnalysis.setUser(user);
+    }
     var cloudLoginSync = false;
     if (global.PTCloud && global.PTCloud.setUser) {
       global.PTCloud.setUser(user);
@@ -35381,6 +35983,7 @@ window.PT_NASH_PUSH_JSON = {
     currentUser = null;
     global.PT_AUTH_USER = null;
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
+    if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) global.PTCloudAnalysis.setUser(null);
     if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
     appStarted = false;
     var done = function () {
@@ -35457,6 +36060,7 @@ window.PT_NASH_PUSH_JSON = {
     global.PT_AUTH_USER = null;
     appStarted = false;
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
+    if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) global.PTCloudAnalysis.setUser(null);
     if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
     var finish = function () {
       if (global.PT_retryLogin) global.PT_retryLogin();

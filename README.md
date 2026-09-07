@@ -151,18 +151,25 @@ sesión** completa. Todo se guarda en `localStorage`.
 ## Persistencia (localStorage)
 
 - **Histórico**: todas las manos jugadas con su resultado y decisiones. Puedes
-  exportarlas a JSON o repetir el spot.
+  exportarlas a JSON o repetir el spot. En dispositivo se mantienen las más
+  recientes; el resto vive en la nube tras sincronizar.
 - **Errores**: cada decisión imprecisa o errónea se guarda como spot a repasar.
   Desde la pestaña *Errores* puedes "Repetir" un spot concreto, o activar
   *Repetir mis spots fallados* en la pestaña de juego.
 - **Estadísticas**: manos jugadas, % de acierto, resultado total y distribución
   de la calidad de tus decisiones.
+- **Análisis de manos**: cloud-first (`pt_analysis_hands`); el dispositivo guarda
+  un índice ligero y unas pocas manos completas. Si la cuota local se agota, la
+  app muestra *Optimizando memoria…* y mueve datos antiguos a la base de datos.
+- **Torneos**: el histórico completo se sincroniza en `pt_user_state`; en local
+  solo se conservan los más recientes (el activo se hace slim si hace falta).
 
 ## Sincronización en la nube (Supabase)
 
-Al iniciar sesión, la app sincroniza **histórico, errores, estadísticas y sesiones
-importadas** con Supabase. Los ficheros `.txt` de sesiones **no** se suben (solo el
-análisis procesado); el `.txt` sigue en `localStorage` del dispositivo donde lo importaste.
+Al iniciar sesión, la app sincroniza **histórico, errores, estadísticas, sesiones
+importadas, manos de análisis y torneos** con Supabase. Los ficheros `.txt` de
+sesiones **no** se suben (solo el análisis procesado); el `.txt` sigue en
+`localStorage` del dispositivo donde lo importaste.
 
 - **Nube = fuente de verdad** al iniciar sesión (gana el dato más reciente por tipo).
 - **localStorage = caché** local; cada cambio se guarda aquí y se sube a la nube (debounce 2 s).
