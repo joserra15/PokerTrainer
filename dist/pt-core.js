@@ -1974,14 +1974,51 @@ window.PT_RFI_JSON = {
     "format": "cash6",
     "stackBB": 100,
     "positions": ["UTG", "HJ", "CO", "BTN"],
-    "source": "solver-export-v1",
+    "source": "solver-export-v2-pro-dump",
     "notation": "PokerForgeAI combo codes (AA, AKs, A5s, KQo…)",
-    "updated": "2026-07-05"
+    "rake": "5_percent_2_5bb_cap",
+    "openSizeBb": 2.5,
+    "updated": "2026-09-07",
+    "note": "combo_matrix overrides exact freqs; raise/mix charts cover remaining support toward professional globals."
   },
   "positions": {
     "UTG": {
-      "raise": "22+, ATs+, KTs+, QTs+, JTs, T9s, 98s, 87s, 76s, AJo+, KQo",
-      "mix": "A5s, A4s, A3s, 65s, KJo"
+      "raise": "22+, A9s+, A5s, KJs+, QTs+, JTs, T9s, 87s, 76s, 65s, AJo+",
+      "mix": "A8s, A4s, A3s, A2s, KTs, K9s, Q9s, J9s, 98s, 54s, KQo, KJo",
+      "action_size_bb": 2.5,
+      "global_rfi_frequency": 0.165,
+      "default_action": "fold",
+      "combo_matrix": {
+        "AA": { "raise": 1.0, "fold": 0.0 },
+        "KK": { "raise": 1.0, "fold": 0.0 },
+        "QQ": { "raise": 1.0, "fold": 0.0 },
+        "JJ": { "raise": 1.0, "fold": 0.0 },
+        "TT": { "raise": 1.0, "fold": 0.0 },
+        "99": { "raise": 1.0, "fold": 0.0 },
+        "88": { "raise": 1.0, "fold": 0.0 },
+        "77": { "raise": 1.0, "fold": 0.0 },
+        "66": { "raise": 1.0, "fold": 0.0 },
+        "55": { "raise": 1.0, "fold": 0.0 },
+        "44": { "raise": 1.0, "fold": 0.0 },
+        "33": { "raise": 1.0, "fold": 0.0 },
+        "22": { "raise": 1.0, "fold": 0.0 },
+        "AKs": { "raise": 1.0, "fold": 0.0 },
+        "AQs": { "raise": 1.0, "fold": 0.0 },
+        "AJs": { "raise": 1.0, "fold": 0.0 },
+        "ATs": { "raise": 1.0, "fold": 0.0 },
+        "A5s": { "raise": 1.0, "fold": 0.0 },
+        "A4s": { "raise": 0.57, "fold": 0.43 },
+        "KQs": { "raise": 1.0, "fold": 0.0 },
+        "KJs": { "raise": 1.0, "fold": 0.0 },
+        "KTs": { "raise": 0.87, "fold": 0.13 },
+        "QJs": { "raise": 1.0, "fold": 0.0 },
+        "JTs": { "raise": 1.0, "fold": 0.0 },
+        "T9s": { "raise": 1.0, "fold": 0.0 },
+        "98s": { "raise": 0.45, "fold": 0.55 },
+        "AKo": { "raise": 1.0, "fold": 0.0 },
+        "AQo": { "raise": 1.0, "fold": 0.0 },
+        "KQo": { "raise": 0.66, "fold": 0.34 }
+      }
     },
     "HJ": {
       "raise": "22+, A9s+, A5s-A2s, KTs+, QTs+, JTs, T9s, 98s, 87s, 76s, 65s, ATo+, KJo+, QJo",
@@ -1992,8 +2029,28 @@ window.PT_RFI_JSON = {
       "mix": "K8s, Q8s, J8s, 86s, A8o, K9o, QJo"
     },
     "BTN": {
-      "raise": "22+, A2s+, K5s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
-      "mix": "K2s-K4s, Q5s, Q6s, 53s, 42s, K7o, Q8o, J8o, T8o, 98o"
+      "raise": "22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, 43s, A3o+, K8o+, Q9o+, J9o+, T9o",
+      "mix": "K2s-K3s, Q5s, Q6s, 53s, 42s, A2o, K7o, Q8o, J8o, T8o, 98o",
+      "action_size_bb": 2.5,
+      "global_rfi_frequency": 0.430,
+      "combo_matrix": {
+        "AA": { "raise": 1.0, "fold": 0.0 },
+        "22": { "raise": 1.0, "fold": 0.0 },
+        "A2s": { "raise": 1.0, "fold": 0.0 },
+        "K4s": { "raise": 1.0, "fold": 0.0 },
+        "Q7s": { "raise": 1.0, "fold": 0.0 },
+        "J7s": { "raise": 1.0, "fold": 0.0 },
+        "T7s": { "raise": 1.0, "fold": 0.0 },
+        "96s": { "raise": 1.0, "fold": 0.0 },
+        "85s": { "raise": 1.0, "fold": 0.0 },
+        "74s": { "raise": 1.0, "fold": 0.0 },
+        "54s": { "raise": 1.0, "fold": 0.0 },
+        "A2o": { "raise": 0.25, "fold": 0.75 },
+        "K9o": { "raise": 1.0, "fold": 0.0 },
+        "Q9o": { "raise": 1.0, "fold": 0.0 },
+        "J9o": { "raise": 1.0, "fold": 0.0 },
+        "T9o": { "raise": 1.0, "fold": 0.0 }
+      }
     }
   }
 };
@@ -2004,13 +2061,41 @@ window.PT_VS_RFI_JSON = {
     "spot": "vsRFI",
     "format": "cash6",
     "stackBB": 100,
-    "updated": "2026-09-05"
+    "rake": "5_percent_2_5bb_cap",
+    "openSizeBb": 2.5,
+    "threeBetSizeBb": 10,
+    "source": "solver-export-v2-pro-dump",
+    "updated": "2026-09-07",
+    "note": "BB vs UTG tightened toward ~10% call / ~3% 3bet (raked). combo_matrix overrides exact mixes."
   },
   "pairs": {
     "BB_vs_UTG": {
-      "threeBet": "QQ+, AKs, AKo",
-      "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-      "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+      "threeBet": "JJ+, AKs, AKo",
+      "threeBetMix": "A5s, A4s",
+      "call": "22-TT, A2s-AQs, KTs+, QJs, JTs, T9s, 98s, 87s, 76s, 65s, 54s, AQo",
+      "global_frequencies": {
+        "3bet_10bb": 0.031,
+        "call": 0.104,
+        "fold": 0.865
+      },
+      "combo_matrix": {
+        "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "KK": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "QQ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "JJ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "TT": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "33": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AKs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AQs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A9s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A5s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "A4s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "KTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "JTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "54s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AKo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AQo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
+      }
     },
     "BB_vs_HJ": {
       "threeBet": "QQ+, AKs, AKo",
@@ -2023,9 +2108,37 @@ window.PT_VS_RFI_JSON = {
       "call": "22-JJ, A2s-AJs, K6s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, A8o+, KTo+, QTo+, JTo, T9o"
     },
     "BB_vs_BTN": {
-      "threeBet": "99+, AJs+, AKo, A5s",
-      "threeBetMix": "88, 77, ATs, A4s-A2s, KTs+, QTs, JTs, AQo, KQo, A5o, A4o",
-      "call": "22-TT, A2s-ATs, K3s+, Q5s+, J6s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, A2o+, K9o+, Q9o+, J9o+, T9o, 98o"
+      "threeBet": "TT+, AJs+, AKo, AQo, KQs",
+      "threeBetMix": "88, 77, ATs, A5s-A2s, K4s, KTs+, QTs, JTs, T9s, 65s, KQo, A5o, A4o",
+      "call": "22-99, A2s-ATs, K2s+, Q5s+, J6s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, A2o+, K9o+, Q9o+, J9o+, T9o, 98o",
+      "global_frequencies": {
+        "3bet_10bb": 0.062,
+        "call": 0.356,
+        "fold": 0.582
+      },
+      "combo_matrix": {
+        "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "TT": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "99": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "22": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AJs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "ATs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A6s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A5s": { "3bet": 0.5, "call": 0.5, "fold": 0.0 },
+        "A4s": { "3bet": 0.5, "call": 0.5, "fold": 0.0 },
+        "A3s": { "3bet": 0.4, "call": 0.6, "fold": 0.0 },
+        "A2s": { "3bet": 0.3, "call": 0.7, "fold": 0.0 },
+        "KQs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "K4s": { "3bet": 0.3, "call": 0.7, "fold": 0.0 },
+        "K2s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "T9s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "65s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "53s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AQo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "K9o": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "98o": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
+      }
     },
     "BB_vs_SB": {
       "threeBet": "88+, ATs+, KJs+, ATo+, A5s",
@@ -2051,10 +2164,24 @@ window.PT_VS_RFI_JSON = {
       "callMix": "QJo, JTo"
     },
     "SB_vs_BTN": {
-      "threeBet": "88+, ATs+, KTs+, QJs, AJo+, A5s, A4s",
-      "threeBetMix": "77-44, A9s-A2s, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o",
+      "threeBet": "88+, ATs+, KTs+, A5s, A4s, QJs, AJo+",
+      "threeBetMix": "77-44, A9s-A2s, KQs, K9s, QTs, JTs, T9s, 98s, KJo, KQo, A8o-A5o",
       "call": "33, 22, K8s, Q9s, J9s, T8s, 97s, 87s, 76s, ATo, KTo, QTo+, JTo",
-      "callMix": "A9o, T9o"
+      "callMix": "A9o, T9o",
+      "global_frequencies": {
+        "3bet_10bb": 0.118,
+        "call": 0.080,
+        "fold": 0.802
+      },
+      "combo_matrix": {
+        "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "TT": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AQs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "A5s": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "A4s": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "KQs": { "3bet": 0.6, "call": 0.4, "fold": 0.0 },
+        "AKo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 }
+      }
     },
     "CO_vs_UTG": {
       "threeBet": "QQ+, AKs, AKo",
@@ -2101,7 +2228,11 @@ window.PT_VS_3BET_JSON = {
     "spot": "face3bet",
     "format": "cash6",
     "stackBB": 100,
-    "updated": "2026-09-05"
+    "threeBetSizeBb": 10,
+    "fourBetSizeBb": 24,
+    "source": "solver-export-v2-pro-dump",
+    "updated": "2026-09-07",
+    "note": "BTN vs BB aligned to professional dump: more call, polar A4s/A5s 4bet/fold, QQ mix."
   },
   "pairs": {
     "UTG_vs_HJ": {
@@ -2170,9 +2301,27 @@ window.PT_VS_3BET_JSON = {
       "callMix": "88, 77, 66, KQo, KJo, QJo"
     },
     "BTN_vs_BB": {
-      "fourBet": "JJ+, AKs, AKo, A5s",
-      "call": "TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo, AJo",
-      "callMix": "88, 77, 66, ATo, KQo, KJo, QJo"
+      "fourBet": "KK+, AKs, A5s, A4s",
+      "call": "QQ, JJ, TT, 99, AQs, AJs, ATs, KQs, KJs, QJs, AQo, AJo, AKo",
+      "callMix": "88, 77, 66, ATo, KQo, KJo, QJo",
+      "global_frequencies": {
+        "4bet_24bb": 0.05,
+        "call": 0.44,
+        "fold": 0.51
+      },
+      "combo_matrix": {
+        "AA": { "4bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "KK": { "4bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "QQ": { "4bet": 0.5, "call": 0.5, "fold": 0.0 },
+        "JJ": { "4bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "TT": { "4bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AKs": { "4bet": 0.7, "call": 0.3, "fold": 0.0 },
+        "AQs": { "4bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A5s": { "4bet": 0.8, "call": 0.0, "fold": 0.2 },
+        "A4s": { "4bet": 0.8, "call": 0.0, "fold": 0.2 },
+        "KQs": { "4bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AKo": { "4bet": 0.4, "call": 0.6, "fold": 0.0 }
+      }
     },
     "SB_vs_BB": {
       "fourBet": "TT+, AQs+, AKo, A5s-A2s",
@@ -4795,6 +4944,18 @@ window.PT_NASH_PUSH_JSON = {
   const D = global.GTORangesData;
   if (!D) return;
 
+  function copyComboMatrix(row, target) {
+    if (!row || !target) return;
+    const matrix = row.combo_matrix || row.combo_matrix_sample;
+    if (matrix && typeof matrix === 'object') {
+      target.combo_matrix = matrix;
+    }
+    if (row.default_action != null) target.default_action = row.default_action;
+    if (row.global_rfi_frequency != null) target.global_rfi_frequency = row.global_rfi_frequency;
+    if (row.global_frequencies != null) target.global_frequencies = row.global_frequencies;
+    if (row.action_size_bb != null) target.action_size_bb = row.action_size_bb;
+  }
+
   function mergeOpenJson(json, targetTable) {
     if (!json || !json.positions || !targetTable) return 0;
     let merged = 0;
@@ -4809,6 +4970,7 @@ window.PT_NASH_PUSH_JSON = {
       if (row.weights && typeof row.weights === 'object') {
         targetTable[pos]._solverWeights = row.weights;
       }
+      copyComboMatrix(row, targetTable[pos]);
       merged++;
     });
     return merged;
@@ -4821,6 +4983,7 @@ window.PT_NASH_PUSH_JSON = {
       const row = json.pairs[key];
       if (!row || typeof row !== 'object') return;
       targetTable[key] = Object.assign({}, targetTable[key] || {}, row);
+      copyComboMatrix(row, targetTable[key]);
       merged++;
     });
     return merged;
@@ -6022,6 +6185,7 @@ window.PT_NASH_PUSH_JSON = {
 
 /*
  * weights.js — Rangos como mapas de peso { AA: 1, A5s: 0.5 }.
+ * Soporta combo_matrix fraccionaria (raise/3bet/4bet/call) encima de charts.
  */
 (function (global) {
   'use strict';
@@ -6067,13 +6231,42 @@ window.PT_NASH_PUSH_JSON = {
     return w;
   }
 
+  /** Peso de continuación desde una fila de combo_matrix. */
+  function continueWeightFromMatrixRow(row, kind) {
+    if (!row || typeof row !== 'object') return 0;
+    if (kind === 'rfi') {
+      return Number(row.raise) || 0;
+    }
+    if (kind === 'vs3bet') {
+      return (Number(row['4bet']) || Number(row.fourBet) || Number(row.raise) || 0)
+        + (Number(row.call) || 0);
+    }
+    // vsRFI / defensa
+    return (Number(row['3bet']) || Number(row.threeBet) || Number(row.raise) || 0)
+      + (Number(row.call) || 0);
+  }
+
+  /**
+   * Mezcla chart → pesos y sobrescribe con combo_matrix (frecuencia de continuación).
+   */
+  function applyComboMatrix(weights, matrix, kind) {
+    if (!matrix || typeof matrix !== 'object') return weights;
+    Object.keys(matrix).forEach(function (code) {
+      const w = continueWeightFromMatrixRow(matrix[code], kind);
+      if (w > 0) weights[code] = w;
+      else if (Object.prototype.hasOwnProperty.call(weights, code)) delete weights[code];
+    });
+    return weights;
+  }
+
   function openWeights(pos) {
     const key = 'open:' + pos;
     return Cache.memo('range', key, () => {
       const data = D.OPEN_RAISE[pos];
       if (!data) return {};
       if (data._solverWeights) return Object.assign({}, data._solverWeights);
-      return fromSets({ raise: data.raise, mix: data.mix });
+      const w = fromSets({ raise: data.raise, mix: data.mix });
+      return applyComboMatrix(w, data.combo_matrix, 'rfi');
     });
   }
 
@@ -6081,12 +6274,27 @@ window.PT_NASH_PUSH_JSON = {
     return Cache.memo('range', 'vs:' + key, () => {
       const data = D.VS_RFI[key];
       if (!data) return {};
-      return fromSets({
+      const w = fromSets({
         threeBet: data.threeBet,
         threeBetMix: data.threeBetMix,
         call: data.call,
         callMix: data.callMix
       });
+      return applyComboMatrix(w, data.combo_matrix, 'vsRfi');
+    });
+  }
+
+  function vs3betWeights(key) {
+    return Cache.memo('range', 'vs3:' + key, () => {
+      const data = (D.VS_3BET_PAIRS && D.VS_3BET_PAIRS[key]) || null;
+      if (!data) return {};
+      const w = fromSets({
+        fourBet: data.fourBet,
+        fourBetMix: data.fourBetMix,
+        call: data.call,
+        callMix: data.callMix
+      });
+      return applyComboMatrix(w, data.combo_matrix, 'vs3bet');
     });
   }
 
@@ -6105,7 +6313,16 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   global.GTORangesWeights = {
-    combosOf, fromSets, openWeights, vsRfiWeights, weightOf, rangeString, totalCombos
+    combosOf,
+    fromSets,
+    openWeights,
+    vsRfiWeights,
+    vs3betWeights,
+    applyComboMatrix,
+    continueWeightFromMatrixRow,
+    weightOf,
+    rangeString,
+    totalCombos
   };
 })(window);
 
@@ -9226,6 +9443,53 @@ window.PT_NASH_PUSH_JSON = {
     return clamp(fe, 0.10, 0.62);
   }
 
+  /**
+   * Clusters de c-bet SRP IP alineados a solvers (dry/wet/paired/monotone).
+   * Targets: dry 75%, wet 40%, paired 85%, monotone 30%.
+   */
+  const SRP_IP_CBET_TARGETS = {
+    dry: 0.75,
+    wet: 0.40,
+    paired: 0.85,
+    monotone: 0.30
+  };
+
+  function srpIpCbetCluster(texture) {
+    if (!texture) return null;
+    const cat = texture.category || '';
+    if (cat === 'MONOTONE') return 'monotone';
+    if (texture.paired || cat === 'PAIRED_LOW' || cat === 'PAIRED_HIGH') return 'paired';
+    if (
+      cat === 'MIDDLE_CONNECTED' || cat === 'HIGH_CONNECTED' || cat === 'LOW_CONNECTED'
+      || cat === 'TWO_TONE_DYNAMIC' || cat === 'TWO_TONE_DRY' || cat === 'RAINBOW_DYNAMIC'
+    ) {
+      return 'wet';
+    }
+    if (cat === 'ACE_HIGH' || cat === 'KING_HIGH' || cat === 'RAINBOW_DRY' || cat === 'LOW_BOARD' || cat === 'HIGH_BOARD') {
+      return 'dry';
+    }
+    if (!texture.wet && !texture.paired) return 'dry';
+    if (texture.wet) return 'wet';
+    return null;
+  }
+
+  function applySrpIpCbetAttractor(betTotal, input, band, texture) {
+    if (!isContinuationBetSpot(input)) return betTotal;
+    if ((input.street || 'flop') !== 'flop') return betTotal;
+    if (input.inPosition === false) return betTotal;
+    const cluster = srpIpCbetCluster(texture);
+    const target = cluster ? SRP_IP_CBET_TARGETS[cluster] : null;
+    if (target == null) return betTotal;
+    // Atractor ponderado: más fuerte en air/merge (frecuencia de rango), suave en value.
+    let pull = 0.30;
+    if (band === 'air') pull = 0.70;
+    else if (band === 'bluffcatch') pull = 0.55;
+    else if (band === 'merge') pull = 0.45;
+    else if (band === 'value') pull = 0.22;
+    else if (band === 'nuts') pull = 0.12;
+    return clamp(betTotal * (1 - pull) + target * pull, 0.05, 0.95);
+  }
+
   function evCheck(equity, pot, rf) {
     return equity * pot * rf;
   }
@@ -9241,6 +9505,10 @@ window.PT_NASH_PUSH_JSON = {
     const street = input.street || 'flop';
     const texture = Board ? Board.boardTexture(input.board || []) : { wet: false, paired: false };
     const spr = input.spr != null ? Number(input.spr) : null;
+    const inPosition = input.inPosition !== false;
+    const srpCluster = (street === 'flop' && isContinuationBetSpot(input) && inPosition)
+      ? srpIpCbetCluster(texture)
+      : null;
 
     function withOver(split, overW) {
       if (!overW || overW <= 0) return Object.assign({ sOver: 0 }, split);
@@ -9249,6 +9517,14 @@ window.PT_NASH_PUSH_JSON = {
       let rem = take - Math.min((split.s100 || 0) * 0.55, take);
       const s66 = Math.max(0, (split.s66 || 0) - rem);
       return { s33: split.s33 || 0, s66: s66, s100: s100, sOver: take };
+    }
+
+    // Anclas solver: dry/paired/monotone → 25–33%; wet connected → 66–75%.
+    if (srpCluster === 'wet') {
+      return { s33: 0.18, s66: 0.58, s100: 0.24, sOver: 0 };
+    }
+    if (srpCluster === 'dry' || srpCluster === 'paired' || srpCluster === 'monotone') {
+      return { s33: 0.72, s66: 0.20, s100: 0.08, sOver: 0 };
     }
 
     let base;
@@ -9326,6 +9602,7 @@ window.PT_NASH_PUSH_JSON = {
     const texture = Board ? Board.boardTexture(input.board || []) : {};
     const dry = !texture.wet && !texture.paired;
     const highBoard = texture.category === 'ACE_HIGH' || texture.category === 'HIGH_BOARD';
+    const cluster = srpIpCbetCluster(texture);
 
     if (street === 'flop') {
       if (band === 'nuts' || band === 'value') return inPosition ? 0.78 : 0.62;
@@ -9333,9 +9610,13 @@ window.PT_NASH_PUSH_JSON = {
       if (band === 'bluffcatch') return inPosition ? 0.46 : 0.36;
       if (band === 'air') {
         if (inPosition) {
-          if (dry && highBoard) return 0.55;
+          // Floors alineados a targets solver por cluster.
+          if (cluster === 'paired') return 0.62;
+          if (cluster === 'dry' || (dry && highBoard)) return 0.55;
+          if (cluster === 'monotone') return 0.22;
+          if (cluster === 'wet' || texture.wet) return 0.28;
           if (dry) return 0.46;
-          return texture.wet ? 0.30 : 0.38;
+          return 0.38;
         }
         return dry ? 0.34 : 0.24;
       }
@@ -9489,8 +9770,9 @@ window.PT_NASH_PUSH_JSON = {
 
     const cbetFloor = cbetMinBetTotal(input, band);
     if (cbetFloor > 0) betTotal = Math.max(betTotal, cbetFloor);
+    betTotal = applySrpIpCbetAttractor(betTotal, input, band, texture);
     if (isContinuationBetSpot(input) && band === 'air' && street === 'flop') {
-      betTotal = Math.min(betTotal, inPosition ? 0.65 : 0.45);
+      betTotal = Math.min(betTotal, inPosition ? 0.78 : 0.45);
     }
     if (isContinuationBetSpot(input) && band === 'air' && street === 'turn') {
       if (!isTrueBarrelLine(input)) {
@@ -9549,7 +9831,7 @@ window.PT_NASH_PUSH_JSON = {
     computeProbeStrategy, actionEV, evCheck, evBet, estimateFoldEquity,
     dynamicSizeSplit, realizationFactor, normalize,
     isContinuationBetSpot, cbetMinBetTotal, cbetFoldEquityBoost, hasBarrelBluffEquity,
-    isTrueBarrelLine
+    isTrueBarrelLine, srpIpCbetCluster, applySrpIpCbetAttractor, SRP_IP_CBET_TARGETS
   };
 })(window);
 
@@ -10212,6 +10494,33 @@ window.PT_NASH_PUSH_JSON = {
     return out;
   }
 
+  /**
+   * Lee combo_matrix profesional si existe para el código.
+   * kind: 'rfi' | 'vsRfi' | 'vs3bet'
+   * Devuelve null si no hay fila (fallback a chart).
+   * No pasa por Preflop.enhance (frecuencias ya resueltas).
+   */
+  function strategyFromComboMatrix(data, code, kind) {
+    if (!data || !data.combo_matrix || !code) return null;
+    const row = data.combo_matrix[code];
+    if (!row || typeof row !== 'object') return null;
+    if (kind === 'rfi') {
+      const raise = Number(row.raise) || 0;
+      const fold = row.fold != null ? Number(row.fold) : Math.max(0, 1 - raise);
+      return normalize({ fold: fold, raise: raise });
+    }
+    if (kind === 'vs3bet') {
+      const four = Number(row['4bet']) || Number(row.fourBet) || Number(row.raise) || 0;
+      const call = Number(row.call) || 0;
+      const fold = row.fold != null ? Number(row.fold) : Math.max(0, 1 - four - call);
+      return normalize({ fold: fold, call: call, raise: four });
+    }
+    const three = Number(row['3bet']) || Number(row.threeBet) || Number(row.raise) || 0;
+    const call = Number(row.call) || 0;
+    const fold = row.fold != null ? Number(row.fold) : Math.max(0, 1 - three - call);
+    return normalize({ fold: fold, call: call, raise: three });
+  }
+
   function rfiStrategy(pos, code, ctx) {
     const RR = global.GTORangesRegistry;
     const data = RR && ctx ? RR.getOpenRaiseRow(pos, ctx) : D.OPEN_RAISE[pos];
@@ -10219,6 +10528,8 @@ window.PT_NASH_PUSH_JSON = {
       // Tabla ausente: nunca 100% fold para premiums (rompe matriz GTO entera).
       return heuristicOpen(code);
     }
+    const fromMatrix = strategyFromComboMatrix(data, code, 'rfi');
+    if (fromMatrix) return fromMatrix;
     const raiseSet = N.toSet(data.raise);
     const mixSet = N.toSet(data.mix);
     let base;
@@ -10246,6 +10557,8 @@ window.PT_NASH_PUSH_JSON = {
       // Sin opener/tabla: heurística (AA no puede ser fold 100% en matriz).
       return heuristicFacingRaise(code, false);
     }
+    const fromMatrix = strategyFromComboMatrix(data, code, 'vsRfi');
+    if (fromMatrix) return fromMatrix;
     const tb = N.toSet(data.threeBet);
     const tbMix = N.toSet(data.threeBetMix);
     const call = N.toSet(data.call);
@@ -10339,7 +10652,9 @@ window.PT_NASH_PUSH_JSON = {
     const RR = global.GTORangesRegistry;
     const data = RR && ctx && openerPos && threeBettorPos
       ? RR.getVs3betRow(openerPos, threeBettorPos, ctx)
-      : (RR && ctx ? RR.getVs3bet(ctx) : D.VS_3BET);
+      : (RR && ctx ? RR.getVs3bet(ctx)
+        : ((openerPos && threeBettorPos && D.VS_3BET_PAIRS && D.VS_3BET_PAIRS[openerPos + '_vs_' + threeBettorPos])
+          || D.VS_3BET));
     const Tax = global.PTFormatTaxonomy;
     const c = RR && RR.normalize ? RR.normalize(ctx) : (ctx || {});
     const phase = c.effectivePhase || c.resolvedPhase || c.mttPhase || '';
@@ -10350,6 +10665,8 @@ window.PT_NASH_PUSH_JSON = {
       || (c.stackBB != null && c.stackBB <= 28)
     );
     if (data) {
+      const fromMatrix = strategyFromComboMatrix(data, code, 'vs3bet');
+      if (fromMatrix) return fromMatrix;
       const jam = N.toSet(data.fourBet);
       const call = N.toSet(data.call);
       const callMix = N.toSet(data.callMix || '');
@@ -10820,7 +11137,8 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   global.GTOStrategyTables = {
-    normalize, rfiStrategy, vsRfiStrategy, squeezeStrategy, isoStrategy,
+    normalize, strategyFromComboMatrix,
+    rfiStrategy, vsRfiStrategy, squeezeStrategy, isoStrategy,
     bbVsSbLimpStrategy, sbLimpStrategy,
     vs3betStrategy, vs4betStrategy, vs4betAs3bettorStrategy,
     cold3betStrategy, cold4betStrategy,
@@ -17571,6 +17889,35 @@ window.PT_NASH_PUSH_JSON = {
     return base;
   }
 
+  /** Cash deep (no Spin/MTT corto): 3bet 10bb / 4bet 24bb vs open 2.5, alineado a solvers. */
+  function isCashDeepSizing(hand) {
+    const cfg = (hand && hand.playConfig) || {};
+    const Tax = global.PTFormatTaxonomy;
+    const hub = Tax && Tax.normalizeHub
+      ? Tax.normalizeHub(cfg.formatHub || Tax.hubFromGameType(cfg.gameType))
+      : (cfg.formatHub || 'cash');
+    if (hub === 'spin' || hub === 'mtt') return false;
+    const stack = cfg.stackBB != null ? Number(cfg.stackBB) : EFF;
+    return !(stack > 0 && stack <= 40);
+  }
+
+  function threeBetSizeBb(hand, openSize, threeBettorPos) {
+    const open = openSize != null ? Number(openSize) : configuredOpenSize(hand);
+    if (isCashDeepSizing(hand) && Math.abs(open - 2.5) < 0.05) {
+      return 10;
+    }
+    const mult = threeBettorPos === 'SB' ? 3.6 : 3.4;
+    return round2(open * mult);
+  }
+
+  function fourBetSizeBb(hand, threeBetSize) {
+    const tb = threeBetSize != null ? Number(threeBetSize) : 10;
+    if (isCashDeepSizing(hand) && Math.abs(tb - 10) < 0.05) {
+      return 24;
+    }
+    return round2(tb * 2.3);
+  }
+
   /** Compat: constantes usadas como fallback cuando no hay mano. */
   const OPEN = OPEN_DEFAULT;
   const SB_OPEN = SB_OPEN_DEFAULT;
@@ -18398,7 +18745,7 @@ window.PT_NASH_PUSH_JSON = {
         continue;
       }
       if (act === '3bet') {
-        const fourBetSize = round2(threeBetSize * 2.3);
+        const fourBetSize = fourBetSizeBb(hand, threeBetSize);
         const add = capBetForSeat(hand, bPos, fourBetSize - (hand.table.invested[bPos] || 0));
         if (add > 0) addInvest(hand, bPos, add);
         setPreflopSeatBet(hand, bPos, fourBetSize);
@@ -18768,7 +19115,7 @@ window.PT_NASH_PUSH_JSON = {
         continue;
       }
       if (act === '3bet') {
-        threeBetSize = round2(openSize * (pos === 'SB' ? 3.6 : 3.4));
+        threeBetSize = threeBetSizeBb(hand, openSize, pos);
         threeBettor = pos;
         setSeatAction(hand, pos, 'raise', threeBetSize);
         const add = seatToCall(hand, pos, threeBetSize);
@@ -18887,7 +19234,7 @@ window.PT_NASH_PUSH_JSON = {
         continue;
       }
       if (act === '3bet' && !heroAllIn) {
-        threeBetSize = round2(openSize * (pos === 'SB' ? 3.6 : 3.4));
+        threeBetSize = threeBetSizeBb(hand, openSize, pos);
         threeBettor = pos;
         setSeatAction(hand, pos, 'raise', threeBetSize);
         const add = seatToCall(hand, pos, threeBetSize);
@@ -20471,11 +20818,11 @@ window.PT_NASH_PUSH_JSON = {
         potBB: hand.potBB,
         toCallBB: toCall,
         openSize: openSize,
-        threeBetSize: round2(openSize * 3.5),
+        threeBetSize: threeBetSizeBb(hand, openSize, hand.hero && hand.hero.pos),
         options: [
           { id: 'fold', label: 'Fold' },
           { id: 'call', label: `Call (${toCall}bb)` },
-          { id: 'raise', label: `3-Bet a ${round2(openSize * 3.5)}bb` }
+          { id: 'raise', label: `3-Bet a ${threeBetSizeBb(hand, openSize, hand.hero && hand.hero.pos)}bb` }
         ],
         gto: freqs,
         context: `Bote multiway: ${opener} abre, ${callers.join('+')} pagan. Eres ${heroPos}. Bote ${hand.potBB}bb.${yetNote}`
@@ -20682,7 +21029,7 @@ window.PT_NASH_PUSH_JSON = {
     hand.potBB = round2(pot);
     hand.toCallBB = round2(openSize - heroBlind);
 
-    const threeBetSize = inPos(hero, opener) ? round2(openSize * 3) : round2(openSize * 4);
+    const threeBetSize = threeBetSizeBb(hand, openSize, hero);
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'vsRFI', potBB: hand.potBB, toCallBB: hand.toCallBB });
     const mode = preflopSizingMode(hand);
     const stackBB = round2(effStackForHand(hand));
@@ -21348,7 +21695,7 @@ window.PT_NASH_PUSH_JSON = {
       }
       // 3-bet
       hand.heroIsAggressor = true;
-      const threeBetSize = node.threeBetSize || round2((node.openSize || configuredOpenSize(hand)) * 3.5);
+      const threeBetSize = node.threeBetSize || threeBetSizeBb(hand, node.openSize || configuredOpenSize(hand), hero);
       hand.heroInvested = threeBetSize;
       addInvest(hand, hero, round2(threeBetSize - (hand.table.invested[hero] || 0)));
       setHeroAct(hand, 'raise', threeBetSize);
@@ -21408,7 +21755,7 @@ window.PT_NASH_PUSH_JSON = {
         }
       }
       if (cont === '4bet') {
-        const fbSize = round2(threeBetSize * 2.3);
+        const fbSize = fourBetSizeBb(hand, threeBetSize);
         hand.villainInvested = fbSize;
         hand.potBB = round2(threeBetSize + fbSize + SB);
         hand.villain.rangeStr = VPF ? VPF.rangeStrFor4Bet(rangeCtx(hand)) : R.VS_3BET.fourBet;
@@ -21567,7 +21914,7 @@ window.PT_NASH_PUSH_JSON = {
     hand.villain.rangeStr = hand._predeal.villainRange || bb3betRange(opener, hand);
     initVillainTracker(hand);
     const openSize = openSizeForPos(hand, opener);
-    const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
+    const threeBetSize = threeBetSizeBb(hand, openSize, tb);
     hand.heroInvested = openSize;
     hand.villainInvested = threeBetSize;
     hand.potBB = round2(openSize + threeBetSize + SB);
@@ -21673,8 +22020,8 @@ window.PT_NASH_PUSH_JSON = {
     hand.villain.rangeStr = threeBetRangeStr(tb, opener, hand);
     initVillainTracker(hand);
     const openSize = openSizeForPos(hand, opener);
-    const threeBetSize = inPos(tb, opener) ? round2(openSize * 3) : round2(openSize * 4);
-    const cold4Size = round2(threeBetSize * 2.3);
+    const threeBetSize = threeBetSizeBb(hand, openSize, tb);
+    const cold4Size = fourBetSizeBb(hand, threeBetSize);
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
     hand.heroInvested = heroBlind;
     hand.villainInvested = threeBetSize;
@@ -21714,8 +22061,8 @@ window.PT_NASH_PUSH_JSON = {
       : R.VS_3BET.fourBet;
     initVillainTracker(hand);
     const openSize = openSizeForPos(hand, opener);
-    const threeBetSize = inPos(hero, opener) ? round2(openSize * 3) : round2(openSize * 4);
-    const fourBetSize = round2(threeBetSize * 2.3);
+    const threeBetSize = threeBetSizeBb(hand, openSize, hero);
+    const fourBetSize = fourBetSizeBb(hand, threeBetSize);
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
     hand.heroInvested = threeBetSize;
     hand.villainInvested = fourBetSize;
@@ -21754,7 +22101,7 @@ window.PT_NASH_PUSH_JSON = {
     if (heroRemainingBB(hand) <= 0.01) return allInShowdown(hand);
     hand.stage = 'preflop';
     const toCall = round2(tbSize - hand.heroInvested);
-    const fourBet = round2(tbSize * 2.3);
+    const fourBet = fourBetSizeBb(hand, tbSize);
     const node = {
       street: 'preflop', kind: 'face3bet', potBB: hand.potBB, toCallBB: toCall,
       options: [
@@ -25156,17 +25503,82 @@ window.PT_NASH_PUSH_JSON = {
     catch (e) { return false; }
   }
 
-  /** Libera espacio recortando histórico/errores (Safari móvil se llena rápido). */
-  function freeStorageSpace() {
+  /** Lista claves localStorage que empiezan por un prefijo (sin lanzar). */
+  function listKeysWithPrefix(prefix) {
+    const out = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) out.push(k);
+      }
+    } catch (e) { /* ignore */ }
+    return out;
+  }
+
+  function removeKeyQuiet(key) {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Escribe un JSON más pequeño sustituyendo la clave (Safari a veces no
+   * libera el valor anterior si setItem falla por cuota).
+   */
+  function rewriteSmaller(key, val) {
+    try {
+      localStorage.removeItem(key);
+    } catch (e0) { /* ignore */ }
+    return write(key, val);
+  }
+
+  /**
+   * Libera espacio en localStorage (Safari/móvil se llenan rápido).
+   * Orden: cachés desechables → .txt de sesiones → recorte de histórico/errores.
+   * opts.aggressive: recorta más (p. ej. tras QuotaExceeded en auth).
+   */
+  function freeStorageSpace(opts) {
+    opts = opts || {};
+    const aggressive = !!opts.aggressive;
     let freed = false;
     try {
-      const hist = read(scopedDataKey('history'), []);
-      if (Array.isArray(hist) && hist.length > 100) {
-        if (write(scopedDataKey('history'), hist.slice(0, 100))) freed = true;
+      /* 1) Caché ForgeCoach: regenerable, suele ser lo más voluminoso. */
+      listKeysWithPrefix('pt_ai_coach_v1_').forEach(function (k) {
+        if (removeKeyQuiet(k)) freed = true;
+      });
+      /* 2) Saludos home / focus (también regenerables). */
+      listKeysWithPrefix('pt_home_greeting_').forEach(function (k) {
+        if (removeKeyQuiet(k)) freed = true;
+      });
+      listKeysWithPrefix('pt_greeting_focus_').forEach(function (k) {
+        if (removeKeyQuiet(k)) freed = true;
+      });
+      /* 3) HH crudos de sesión (grandes; la nube sigue teniendo el análisis). */
+      listKeysWithPrefix('pt_session_txt').forEach(function (k) {
+        if (removeKeyQuiet(k)) freed = true;
+      });
+      /* 4) Recortar histórico / errores (incluso si ya cabían en ≤100). */
+      const histKey = scopedDataKey('history');
+      const errKey = scopedDataKey('errors');
+      const hist = read(histKey, []);
+      const errs = read(errKey, []);
+      const histCap = aggressive ? 20 : 50;
+      const errCap = aggressive ? 20 : 50;
+      if (Array.isArray(hist) && hist.length > histCap) {
+        if (rewriteSmaller(histKey, hist.slice(0, histCap))) freed = true;
       }
-      const errs = read(scopedDataKey('errors'), []);
-      if (Array.isArray(errs) && errs.length > 100) {
-        if (write(scopedDataKey('errors'), errs.slice(0, 100))) freed = true;
+      if (Array.isArray(errs) && errs.length > errCap) {
+        if (rewriteSmaller(errKey, errs.slice(0, errCap))) freed = true;
+      }
+      /* 5) Backups legacy duplicados de Escuela (la clave scoped basta). */
+      if (userId) {
+        const scopedBak = schoolBackupStorageKey();
+        if (readRaw(scopedBak)) {
+          if (removeKeyQuiet('pt_school_backup_v1')) freed = true;
+        }
       }
     } catch (e) { /* ignore */ }
     return freed;
@@ -25176,6 +25588,7 @@ window.PT_NASH_PUSH_JSON = {
   function writeResilient(key, val) {
     if (write(key, val)) return true;
     if (freeStorageSpace() && write(key, val)) return true;
+    if (freeStorageSpace({ aggressive: true }) && write(key, val)) return true;
     return false;
   }
   function writeRaw(key, val) {
@@ -27446,6 +27859,7 @@ window.PT_NASH_PUSH_JSON = {
     migrateLocalUserKeys,
     migrateTournamentKeysForUser,
     purgeLocalUserData, scenarioLabel,
+    freeStorageSpace, writeResilient,
     getSessions, getSession, getSessionAsync, saveSession, saveSessionLocal, cacheSession, removeSession, deleteSessionTxt,
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
@@ -34924,7 +35338,13 @@ window.PT_NASH_PUSH_JSON = {
             emailVerified: !!payload.email_verified, locale: payload.locale || '',
             loginAt: Date.now()
           });
-          localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+          try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); }
+          catch (eQuota) {
+            try {
+              if (global.Store && global.Store.freeStorageSpace) global.Store.freeStorageSpace({ aggressive: true });
+              localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+            } catch (e2) { /* sesión en memoria; no tumbar login */ }
+          }
           enterApp(user);
         } catch (e) { console.warn('[PTAuth]', e); }
       },

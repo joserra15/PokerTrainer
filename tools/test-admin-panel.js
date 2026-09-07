@@ -15,6 +15,8 @@ assert.ok(/pt_admin_guest_funnel/.test(src) && /renderGuestFunnelSection/.test(s
 assert.ok(/function scheduleAutoStripeSync\(\)/.test(src), 'auto sync desacoplado');
 assert.ok(/AUTO_STRIPE_SYNC_COOLDOWN_MS = 10 \* 60 \* 1000/.test(src), 'cooldown auto sync');
 assert.ok(/refresh\(\)\.then\(function \(\) \{\s*if \(hasAdminAccess\(\)\) scheduleAutoStripeSync\(\);/m.test(src), 'render carga antes de sync');
+assert.ok(/pt_admin_quota_probe/.test(src), 'admin sondea cuota localStorage');
+assert.ok(/Store\.freeStorageSpace/.test(src), 'admin libera cuota si probe falla');
 assert.ok(/admin-push-test/.test(src) && /adminSendPush/.test(src), 'admin envía push de prueba');
 assert.ok(/id="admin-detail-send-form"/.test(src) && /id="admin-detail-send-msg"/.test(src), 'enviar mensaje en detalle de usuario');
 assert.ok(/function canAdminMessageUser/.test(src) && /DEMO_USER_ID/.test(src), 'no mensaje a demo ni a uno mismo');

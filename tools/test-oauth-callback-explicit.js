@@ -16,6 +16,7 @@ assert(/setSession/.test(bootstrap), 'auth-bootstrap soporta #access_token');
 assert(/cleanOAuthUrl/.test(bootstrap), 'limpia URL sin dejar /#');
 assert(/detectSessionInUrl:\s*false/.test(client), 'detectSessionInUrl false (consumo explícito)');
 assert(/flowType:\s*'pkce'/.test(client), 'flowType pkce');
+assert(/createAuthStorage/.test(client), 'auth storage resiliente a QuotaExceeded');
 assert(/hasOAuthCallback/.test(guard), 'build-guard no recarga durante OAuth callback');
 assert(!/accounts\.google\.com\/gsi\/client/.test(indexHtml), 'GSI no se carga siempre en index');
 assert(/accounts\.google\.com/.test(indexHtml) && /style-src[^"]*accounts\.google\.com/.test(indexHtml),

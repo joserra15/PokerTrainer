@@ -1840,6 +1840,20 @@
 
   async function refresh() {
     if (!requireAdminAccess()) return;
+    /* Solo si localStorage ya no admite escrituras pequeñas (cuota llena). */
+    try {
+      if (global.localStorage && global.localStorage.setItem) {
+        var probe = 'pt_admin_quota_probe';
+        global.localStorage.setItem(probe, '1');
+        global.localStorage.removeItem(probe);
+      }
+    } catch (eProbe) {
+      try {
+        if (global.Store && typeof global.Store.freeStorageSpace === 'function') {
+          global.Store.freeStorageSpace({ aggressive: true });
+        }
+      } catch (eFree) { /* noop */ }
+    }
     setAdminLoading(true, 'Actualizando usuarios…');
     var usagePanel = $('#admin-usage-panel');
     var usageOpen = usagePanel && !usagePanel.classList.contains('hidden');
