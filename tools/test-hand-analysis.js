@@ -392,19 +392,20 @@ assert(analyzedNl2.bbEuro === 0.02 && analyzedNl2.spec.bbEuro === 0.02, 'bbEuro 
 // --- 9) swap POV con villano ---
 sandbox.window.Store = {
   getAnalysisHands: function () { return []; },
-  saveAnalysisHand: function (h) { return { ok: true, hand: h }; },
-  updateAnalysisHand: function (h) { return { ok: true, hand: h }; }
+  saveAnalysisHand: function (h) { return Promise.resolve({ ok: true, hand: h }); },
+  updateAnalysisHand: function (h) { return Promise.resolve({ ok: true, hand: h }); }
 };
 const swapList = PTHandAnalysis.listSwappableVillains(analyzed);
 assert(swapList.some((v) => v.pos === 'BB'), 'BB es swappeable');
-const swapped = PTHandAnalysis.swapHeroWithVillain(analyzed, 'BB');
-assert(swapped.ok, 'swap ok: ' + (swapped.error || ''));
-assert(swapped.hand.heroPos === 'BB', 'nuevo héroe BB');
-assert(swapped.hand.heroCards.join('') === 'QsQd', 'cartas héroe = QQ: ' + swapped.hand.heroCards.join(''));
-assert(swapped.hand.spec.villains.some((v) => v.pos === 'CO' && v.cards.join('') === 'AsKd'),
-  'CO queda como villano con AK');
-assert(swapped.hand.decisions && swapped.hand.decisions.length >= 1, 'decisiones recalculadas para BB');
-assert(/como BB/.test(swapped.hand.savedName || ''), 'nombre indica POV: ' + swapped.hand.savedName);
+const swapPovPromise = PTHandAnalysis.swapHeroWithVillain(analyzed, 'BB').then(function (swapped) {
+  assert(swapped.ok, 'swap ok: ' + (swapped.error || ''));
+  assert(swapped.hand.heroPos === 'BB', 'nuevo héroe BB');
+  assert(swapped.hand.heroCards.join('') === 'QsQd', 'cartas héroe = QQ: ' + swapped.hand.heroCards.join(''));
+  assert(swapped.hand.spec.villains.some((v) => v.pos === 'CO' && v.cards.join('') === 'AsKd'),
+    'CO queda como villano con AK');
+  assert(swapped.hand.decisions && swapped.hand.decisions.length >= 1, 'decisiones recalculadas para BB');
+  assert(/como BB/.test(swapped.hand.savedName || ''), 'nombre indica POV: ' + swapped.hand.savedName);
+});
 
 // --- 10) forceDeal + forceScript en entrenador; cartas de villano bloqueadas ---
 assert(cfg.force.forceScript && cfg.force.forceScript.actions.length >= 6, 'forceScript con acciones');
@@ -771,4 +772,12 @@ const mPko = FA.multipliers({ formatHub: 'mtt', mttPhase: 'bubble', stackBB: 20,
 assert(mPko.fold < mVanilla.fold, 'PKO fold mult < vanilla bubble: ' + mPko.fold + ' vs ' + mVanilla.fold);
 
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
-console.log('\n*** TEST HAND-ANALYSIS OK ***');
+
+Promise.resolve(typeof swapPovPromise !== 'undefined' ? swapPovPromise : null)
+  .then(function () {
+    console.log('\n*** TEST HAND-ANALYSIS OK ***');
+  })
+  .catch(function (e) {
+    console.error('\n*** TEST FALLÓ ***', e && e.message ? e.message : e);
+    process.exit(1);
+  });

@@ -291,6 +291,23 @@
     }
   }
 
+  async function refreshAnalysisIndex() {
+    if (!global.Store) return;
+    try {
+      if (global.Store.uploadLegacyLocalAnalysisToCloud) {
+        await global.Store.uploadLegacyLocalAnalysisToCloud();
+      }
+      if (global.Store.refreshAnalysisIndexFromCloud) {
+        await global.Store.refreshAnalysisIndexFromCloud();
+      }
+      if (global.Store.maybeProactiveMemoryOptimize) {
+        await global.Store.maybeProactiveMemoryOptimize();
+      }
+    } catch (e) {
+      console.warn('[PTCloud] refresh analysis index', e);
+    }
+  }
+
   function payloadToPush(cloudPayload) {
     if (global.Store && typeof global.Store.mergeActiveIntoCloudPayload === 'function') {
       return global.Store.mergeActiveIntoCloudPayload(cloudPayload);
@@ -366,6 +383,7 @@
       }
 
       await refreshSessionsIndex();
+      await refreshAnalysisIndex();
 
       lastVisibleSyncAt = Date.now();
       setStatus('online', 'Datos sincronizados');
@@ -408,6 +426,7 @@
         await migrateLegacyCloudRow(row);
       }
       await refreshSessionsIndex();
+      await refreshAnalysisIndex();
       lastVisibleSyncAt = Date.now();
       setStatus('online', 'Sincronizado');
       global.dispatchEvent(new CustomEvent('pt-cloud-synced', { detail: summary }));
@@ -539,6 +558,12 @@
         await global.PTCloudSessions.purgeUserSessions(userId);
         if (legacyGoogleSub && legacyGoogleSub !== userId) {
           await global.PTCloudSessions.purgeUserSessions(legacyGoogleSub);
+        }
+      }
+      if (global.PTCloudAnalysis && global.PTCloudAnalysis.purgeUserHands) {
+        await global.PTCloudAnalysis.purgeUserHands(userId);
+        if (legacyGoogleSub && legacyGoogleSub !== userId) {
+          await global.PTCloudAnalysis.purgeUserHands(legacyGoogleSub);
         }
       }
       const metaK = syncMetaKey();

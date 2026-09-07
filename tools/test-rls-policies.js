@@ -94,4 +94,20 @@ assertOwnPolicies(mig041, 'pt_push_subscriptions', [
 ]);
 assert.ok(/user_id\s*=\s*auth\.uid\(\)::text/.test(mig041), 'push user_id = auth.uid()');
 
-console.log('*** rls-policies OK (pt_user_state + pt_import_sessions + guest funnel + push) ***');
+const mig050 = fs.readFileSync(
+  path.join(root, 'supabase/migrations/050_analysis_hands.sql'),
+  'utf8'
+);
+assert.ok(/create table if not exists public\.pt_analysis_hands/i.test(mig050),
+  '050 crea pt_analysis_hands');
+assert.ok(/enable row level security/i.test(mig050), 'analysis_hands RLS');
+assertOwnPolicies(mig050, 'pt_analysis_hands', [
+  'analysis_hands_select_own',
+  'analysis_hands_insert_own',
+  'analysis_hands_update_own',
+  'analysis_hands_delete_own'
+]);
+assert.ok(/user_id\s*=\s*auth\.uid\(\)::text/.test(mig050), 'analysis_hands user_id = auth.uid()');
+assert.ok(!/user_metadata/.test(mig050), '050 sin user_metadata');
+
+console.log('*** rls-policies OK (pt_user_state + pt_import_sessions + analysis_hands + guest funnel + push) ***');
