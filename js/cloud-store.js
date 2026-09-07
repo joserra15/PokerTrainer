@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  const DATA_KEYS = ['stats', 'history', 'errors', 'onboarding'];
+  const DATA_KEYS = ['stats', 'history', 'errors', 'onboarding', 'tournamentWallet', 'tournamentHistory', 'tournamentActive'];
   const TABLE = 'pt_user_state';
   const PUSH_DELAY_MS = 2000;
 
@@ -20,7 +20,7 @@
   const VISIBLE_SYNC_MIN_MS = 8000;
 
   function logicalDataKeys() {
-    return ['stats', 'history', 'errors', 'onboarding'];
+    return ['stats', 'history', 'errors', 'onboarding', 'tournamentWallet', 'tournamentHistory', 'tournamentActive'];
   }
 
   function activeDataKeys() {
@@ -161,6 +161,15 @@
     }
     if (key === 'onboarding') {
       return hasOnboardingProgress(val);
+    }
+    if (key === 'tournamentWallet') {
+      return !!(val && typeof val.balance === 'number' && !val.isDefault);
+    }
+    if (key === 'tournamentHistory') {
+      return Array.isArray(val) && val.length > 0;
+    }
+    if (key === 'tournamentActive') {
+      return !!(val && val.id);
     }
     return Array.isArray(val) && val.length > 0;
   }

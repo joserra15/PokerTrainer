@@ -34,8 +34,45 @@
     heldFramesDone: null
   };
 
-  /* ---------- Revelado de la acción paso a paso (como en Entrenar) ---------- */
-    function heroDisplayName(state) {
+  function displayKoins() {
+    try {
+      var W = global.PTTournamentWallet;
+      if (!W) return 100;
+      if (W.peek) {
+        var p = W.peek();
+        if (p && typeof p.balance === 'number') return p.balance;
+      }
+      if (W.snapshot) {
+        var s = W.snapshot();
+        if (s && typeof s.balance === 'number') return s.balance;
+      }
+      if (W.getBalance) return W.getBalance();
+    } catch (e) { /* */ }
+    return 100;
+  }
+
+  function flushTournamentCloud() {
+    try {
+      if (global.PTCloud && typeof global.PTCloud.flushPush === 'function') {
+        global.PTCloud.flushPush();
+      }
+    } catch (e) { /* */ }
+  }
+
+  function onCloudSynced() {
+    try {
+      if (!ui.root) return;
+      if (ui.view === VIEW.hub || ui.view === VIEW.history) paint();
+    } catch (e) { /* */ }
+  }
+
+  try {
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('pt-cloud-synced', onCloudSynced);
+    }
+  } catch (eBind) { /* */ }
+
+  function heroDisplayName(state) {
     try {
       var h = state && global.PTTournamentState && PTTournamentState.hero
         ? PTTournamentState.hero(state) : null;
@@ -598,7 +635,7 @@ function reducedMotion() {
       '<h2>TORNEOS</h2>' +
       '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
       '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
-      '<div class="trn-wallet-chip">Koins: <strong>' + esc(String((global.PTTournamentWallet && PTTournamentWallet.getBalance) ? PTTournamentWallet.getBalance() : 100)) + '</strong></div>' +
+      '<div class="trn-wallet-chip">Koins: <strong>' + esc(String(displayKoins())) + '</strong></div>' +
       '</div>' +
       '<div class="trn-lobby-hero-actions">' +
       '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
@@ -1854,6 +1891,7 @@ function reducedMotion() {
           paint();
         } else if (act === 'exit-save') {
           persistActive();
+          flushTournamentCloud();
           ui.state = null;
           ui.exitPrompt = false;
           setView(VIEW.hub);
