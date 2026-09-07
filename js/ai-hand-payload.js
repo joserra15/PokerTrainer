@@ -128,6 +128,8 @@
       mttPhase: phase,
       anteBB: cfg.anteBB != null ? cfg.anteBB : null,
       spinPayout: formatHub === 'spin' ? (cfg.spinPayout || null) : null,
+      tournamentType: formatHub === 'mtt' ? (cfg.tournamentType || null) : null,
+      playersSeated: cfg.playersSeated != null ? cfg.playersSeated : null,
       icm: !!(cfg.useIcm || formatHub === 'spin' || formatHub === 'mtt'),
       villainLevel: cfg.villainLevel || null,
       openSize: cfg.preflopOpenSize || null,
@@ -147,7 +149,11 @@
     } else if (formatHub === 'mtt') {
       payload.coachingNote = 'Mano de torneo MTT del entrenador'
         + (phase ? (' (fase ' + phase + ')') : '')
-        + ': prioriza stack depth / fase / ICM; no trates como cash 6-max 100bb.';
+        + (cfg.tournamentType && cfg.tournamentType !== 'unknown' ? (' · ' + cfg.tournamentType) : '')
+        + ': prioriza stack depth / fase / ICM; no trates como cash 6-max 100bb.'
+        + (cfg.tournamentType === 'pko' || cfg.tournamentType === 'mystery'
+          ? ' EV de bounty no modelado: comenta impacto cualitativo sin inventar € de bounty.'
+          : '');
     }
     return payload;
   }
@@ -159,11 +165,31 @@
       line: villainLineFromSummary(h.summary, h.heroPos) || undefined,
       show: showdownHands.length ? showdownHands[0] : undefined
     };
-    return {
+    const TC = global.PTTournamentContext;
+    const ctx = h.tournamentContext || (TC && TC.fromHand ? TC.fromHand(h) : null);
+    const formatHub = (ctx && ctx.formatHub)
+      || (h.gameKind === 'spin' ? 'spin'
+        : ((h.gameKind === 'mtt' || h.gameKind === 'sng' || h.isTournament) ? 'mtt' : 'cash'));
+    const phase = (ctx && (ctx.resolvedPhase || ctx.mttPhase)) || h.mttPhase || null;
+    const payload = {
       src: 'session',
       spot: 'imported',
       hero: { pos: h.heroPos, code: h.heroCode, cards: h.heroCards },
       board: h.board || [],
+      stack: (ctx && ctx.effStackBB) || h.effStackBB || h.stackDepthBB || null,
+      format: formatHub,
+      formatHub: formatHub,
+      gameType: h.formatKey || null,
+      phase: phase && phase !== 'auto' ? phase : phase,
+      mttPhase: phase,
+      anteBB: (ctx && ctx.anteBB != null) ? ctx.anteBB
+        : (h.anteBB != null ? h.anteBB : (h.ante && h.bb ? h.ante / h.bb : null)),
+      tournamentType: (ctx && ctx.tournamentType) || h.tournamentType || null,
+      playersSeated: (ctx && ctx.playersSeated) || h.playersSeated || null,
+      tableMax: (ctx && ctx.tableMax) || h.tableMax || null,
+      playersLeft: h.playersLeft != null ? h.playersLeft : null,
+      placesPaid: h.placesPaid != null ? h.placesPaid : null,
+      multiway: !!h.multiway,
       dec: decisions,
       vil: villain,
       res: {
@@ -174,6 +200,18 @@
       gto: buildGtoSummary(decisions),
       solverNote: 'eq/gto/ev son estimaciones heurísticas de la app; la IA debe verificar cartas, acciones y cálculos de poker por su cuenta.'
     };
+    if (formatHub === 'mtt' || formatHub === 'spin') {
+      payload.coachingNote = 'Mano de torneo/sesión'
+        + (phase ? (' (fase ' + phase + ')') : '')
+        + (payload.playersSeated ? (' · ' + payload.playersSeated + '-handed') : '')
+        + (payload.tournamentType && payload.tournamentType !== 'unknown'
+          ? (' · ' + payload.tournamentType) : '')
+        + ': prioriza stack depth / fase / ICM; no trates como cash 100bb.'
+        + (payload.tournamentType === 'pko' || payload.tournamentType === 'mystery'
+          ? ' EV de bounty no modelado: comenta el impacto cualitativo sin inventar € de bounty.'
+          : '');
+    }
+    return payload;
   }
 
   function buildStats(data) {

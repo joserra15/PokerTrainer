@@ -9,6 +9,14 @@
   const GAME_TYPES = ['cash6', 'cash9', 'spin3', 'mtt'];
   const PRACTICE_INTENTS = ['mixed', 'bluff_make', 'bluff_catch'];
   const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble'];
+  /** Etiquetas de producto (no cambian EV de bounty en este ciclo). */
+  const TOURNAMENT_TYPES = ['vanilla', 'pko', 'mystery', 'unknown'];
+  const TOURNAMENT_TYPE_LABELS = {
+    vanilla: 'Vanilla',
+    pko: 'PKO',
+    mystery: 'Mystery',
+    unknown: 'No sé'
+  };
   const SPIN_PAYOUT_PRESETS = {
     '2x': [0.65, 0.35, 0],
     '3x': [0.70, 0.30, 0],
@@ -67,6 +75,14 @@
 
   function normalizePhase(phase) {
     return MTT_PHASES.indexOf(phase) >= 0 ? phase : 'auto';
+  }
+
+  function normalizeTournamentType(t) {
+    const s = String(t || '').toLowerCase();
+    if (s === 'ko' || s === 'progressive' || s === 'progressive knockout') return 'pko';
+    if (s === 'mystery bounty' || s === 'mysterybounty') return 'mystery';
+    if (s === 'freezeout' || s === 'standard') return 'vanilla';
+    return TOURNAMENT_TYPES.indexOf(s) >= 0 ? s : 'unknown';
   }
 
   function phaseFromStackBB(stackBB, hub) {
@@ -496,6 +512,8 @@
     GAME_TYPES: GAME_TYPES,
     PRACTICE_INTENTS: PRACTICE_INTENTS,
     MTT_PHASES: MTT_PHASES,
+    TOURNAMENT_TYPES: TOURNAMENT_TYPES,
+    TOURNAMENT_TYPE_LABELS: TOURNAMENT_TYPE_LABELS,
     SPIN_PAYOUT_PRESETS: SPIN_PAYOUT_PRESETS,
     MTT_STRUCTURE_SITUATIONS: MTT_STRUCTURE_SITUATIONS,
     MTT_PAYOUT_PRESETS: MTT_PAYOUT_PRESETS,
@@ -510,6 +528,7 @@
     normalizeHub: normalizeHub,
     normalizeIntent: normalizeIntent,
     normalizePhase: normalizePhase,
+    normalizeTournamentType: normalizeTournamentType,
     phaseFromStackBB: phaseFromStackBB,
     UI_STACK_DEPTHS: UI_STACK_DEPTHS,
     stackDepthsForPhase: stackDepthsForPhase,

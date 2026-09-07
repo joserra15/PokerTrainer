@@ -256,9 +256,24 @@
     return (seats || []).find(function (s) { return s.isHero; }) || null;
   }
 
+  function metaFromState(state, extra) {
+    var cfg = (state && state.config) || {};
+    return Object.assign({
+      tournamentId: state && state.id,
+      kind: cfg.kind || 'mtt',
+      seatsPerTable: cfg.seatsPerTable,
+      tournamentType: cfg.tournamentType || 'unknown',
+      playersLeft: state && (state.playersLeft != null ? state.playersLeft
+        : (state.aliveCount != null ? state.aliveCount : null)),
+      placesPaid: cfg.placesPaid,
+      entries: cfg.entries,
+      buyIn: cfg.buyInEur != null ? cfg.buyInEur : cfg.buyIn
+    }, extra || {});
+  }
+
   /**
    * @param {object} source live hand (_liveHand) o entrada de handLog
-   * @param {object} [meta] { tournamentId, handIndex, heroName }
+   * @param {object} [meta] { tournamentId, handIndex, heroName, kind, … }
    */
   function handFromTournament(source, meta) {
     meta = meta || {};
@@ -367,16 +382,47 @@
       summary: buildSummary(streets, boardObj, positions, shows),
       tags: [],
       platform: 'tournamentAi',
-      gameKind: 'mtt',
+      gameKind: meta.kind === 'spin' ? 'spin'
+        : (meta.kind === 'sng' ? 'sng' : 'mtt'),
       isTournament: true,
-      tableMax: seats.length,
+      tableMax: meta.seatsPerTable || seats.length,
       playersSeated: seats.length,
       formatKey: 'mtt',
       format: 'MTT',
       tournamentId: meta.tournamentId || null,
       handIndex: handIndex,
-      source: 'tournamentAi'
+      source: 'tournamentAi',
+      tournamentType: meta.tournamentType || 'unknown',
+      playersLeft: meta.playersLeft != null ? meta.playersLeft : null,
+      placesPaid: meta.placesPaid != null ? meta.placesPaid : null,
+      entries: meta.entries != null ? meta.entries : null,
+      buyIn: meta.buyIn != null ? meta.buyIn : null,
+      mttPhase: null,
+      anteBB: bb > 0 ? (Number(source.ante) || 0) / bb : 0
     };
+
+    // Resolve formatKey / phase / stacks via shared contract.
+    var TC = global.PTTournamentContext;
+    if (TC) {
+      if (hand.gameKind === 'spin') hand.formatKey = 'spin3';
+      else if ((hand.tableMax || seats.length) >= 8) hand.formatKey = 'mtt9';
+      else if ((hand.tableMax || seats.length) <= 3) hand.formatKey = 'mtt3';
+      else hand.formatKey = 'mtt6';
+      hand.seatStacksBB = TC.seatStacksFromHand(hand);
+      hand.stackDepthBB = hand.heroPos && hand.seatStacksBB[hand.heroPos] != null
+        ? hand.seatStacksBB[hand.heroPos]
+        : (TC.effStackFromSeats(hand.seatStacksBB, hand.heroPos));
+      hand.effStackBB = TC.effStackFromSeats(hand.seatStacksBB, hand.heroPos);
+      hand.avgStackBB = null;
+      var phaseHub = hand.gameKind === 'spin' ? 'spin' : 'mtt';
+      hand.mttPhase = TC.phaseFromStackBB(hand.stackDepthBB, phaseHub);
+      var ctx = TC.fromHand(hand);
+      if (meta.tournamentType) ctx.tournamentType = TC.normalizeTournamentType(meta.tournamentType);
+      TC.applyToHand(hand, ctx);
+      if (TC.contextBadgeLabel) hand.contextBadge = TC.contextBadgeLabel(ctx);
+    } else {
+      hand.formatKey = hand.gameKind === 'spin' ? 'spin3' : 'mtt';
+    }
 
     if (!hand.heroCode && heroCards.length === 2) {
       try {
@@ -399,10 +445,19 @@
     var hands = (state.sessionHands && state.sessionHands.length)
       ? state.sessionHands.slice()
       : (state.handLog || []).map(function (entry) {
+        var cfg0 = state.config || {};
         return handFromTournament(entry, {
           tournamentId: state.id,
           handIndex: entry.handIndex,
-          heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
+          heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name,
+          kind: cfg0.kind || 'mtt',
+          seatsPerTable: cfg0.seatsPerTable,
+          tournamentType: cfg0.tournamentType || 'unknown',
+          playersLeft: state.playersLeft != null ? state.playersLeft
+            : (state.aliveCount != null ? state.aliveCount : null),
+          placesPaid: cfg0.placesPaid,
+          entries: cfg0.entries,
+          buyIn: cfg0.buyInEur != null ? cfg0.buyInEur : cfg0.buyIn
         });
       }).filter(Boolean);
 
@@ -493,6 +548,7 @@
   global.PTTournamentSessionBridge = {
     handFromTournament: handFromTournament,
     buildSessionFromTournament: buildSessionFromTournament,
+    metaFromState: metaFromState,
     normalizeDecision: normalizeDecision,
     mapClass: mapClass
   };

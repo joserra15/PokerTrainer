@@ -1011,9 +1011,12 @@
     const hub = Tax && Tax.normalizeHub
       ? Tax.normalizeHub(cfg.formatHub || Tax.hubFromGameType(cfg.gameType))
       : (cfg.formatHub || 'cash');
-    const remV = ST() && hand.stacks
-      ? ST().remaining(hand, villainTableSeat(hand) || hand.villain.pos)
-      : effStackForHand(hand);
+    const isTournament = hub === 'spin' || hub === 'mtt';
+    const remV = (extra.remainingBB != null && isFinite(Number(extra.remainingBB)))
+      ? Number(extra.remainingBB)
+      : (ST() && hand.stacks
+        ? ST().remaining(hand, villainTableSeat(hand) || hand.villain.pos)
+        : effStackForHand(hand));
     const pot = Math.max(hand.potBB || 1, 0.1);
     const spr = pot > 0 ? remV / pot : remV;
     const info = extra.info || (hand.villain.cards ? classifyMadeHand(hand.villain.cards, hand.board) : null);
@@ -1031,10 +1034,18 @@
     const RSNuts = global.GTORiverShoveNode;
     const isNuts = !!(RSNuts && RSNuts.isAbsoluteNuts && hand.villain.cards
       && RSNuts.isAbsoluteNuts(hand.villain.cards, hand.board));
+    // FormatAdjust / jamBias usan el stack restante del villano (no el de sesión).
+    const stackForAdjust = (remV > 0) ? remV
+      : (cfg.stackBB != null ? cfg.stackBB : effStackForHand(hand));
     return Object.assign({
       formatHub: hub,
       gameType: cfg.gameType,
-      stackBB: cfg.stackBB != null ? cfg.stackBB : effStackForHand(hand),
+      isTournament: isTournament,
+      tournamentType: cfg.tournamentType || 'unknown',
+      playersSeated: cfg.playersSeated != null ? cfg.playersSeated : null,
+      playersLeft: cfg.playersLeft != null ? cfg.playersLeft : null,
+      placesPaid: cfg.placesPaid != null ? cfg.placesPaid : null,
+      stackBB: stackForAdjust,
       effectivePhase: cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase,
       resolvedPhase: cfg.resolvedPhase,
       mttPhase: cfg.mttPhase,

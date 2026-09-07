@@ -71,6 +71,7 @@
     "test:vpip": "node tools/test-vpip-pfr.js",
     "test:unit": "node tools/selftest.js",
     "test:hand-analysis": "node tools/test-hand-analysis.js",
+    "test:hand-eval-tournament": "node tools/test-hand-eval-tournament-context.js",
     "test:bb-vs-sb": "node tools/test-bb-vs-sb-position.js",
     "test:best-mix": "node tools/test-best-mix-coherence.js",
     "test:flop-turn-freq": "node tools/test-flop-turn-freq-duplicate.js",

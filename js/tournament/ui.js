@@ -777,6 +777,11 @@ function reducedMotion() {
       '<label class="trn-field">Asientos/mesa<select data-f="seatsPerTable">' +
       '<option value="6"' + (d.seatsPerTable === 6 ? ' selected' : '') + '>6</option>' +
       '<option value="9"' + (d.seatsPerTable === 9 ? ' selected' : '') + '>9</option></select></label>' +
+      '<label class="trn-field">Formato bounty<select data-f="tournamentType">' +
+      '<option value="vanilla"' + (d.tournamentType === 'vanilla' ? ' selected' : '') + '>Vanilla</option>' +
+      '<option value="pko"' + (d.tournamentType === 'pko' ? ' selected' : '') + '>PKO</option>' +
+      '<option value="mystery"' + (d.tournamentType === 'mystery' ? ' selected' : '') + '>Mystery</option>' +
+      '<option value="unknown"' + (!d.tournamentType || d.tournamentType === 'unknown' ? ' selected' : '') + '>No sé</option></select></label>' +
       '<label class="trn-field">Buy-in Koins<input type="number" data-f="buyInEur" min="0.01" step="0.01" value="' + d.buyInEur + '"></label>' +
       '<label class="trn-field">Stack inicial<input type="number" data-f="startingStack" min="100" value="' + d.startingStack + '"></label>' +
       '<label class="trn-field">Puestos pagados<input type="number" data-f="placesPaid" min="1" value="' + d.placesPaid + '"></label>' +
@@ -1510,11 +1515,16 @@ function reducedMotion() {
     try {
       var Bridge = global.PTTournamentSessionBridge;
       if (Bridge && Bridge.handFromTournament) {
-        analyzed = Bridge.handFromTournament(hand, {
-          tournamentId: state && state.id,
-          handIndex: state && state.handIndex,
-          heroName: heroDisplayName(state)
-        });
+        analyzed = Bridge.handFromTournament(hand, Bridge.metaFromState
+          ? Bridge.metaFromState(state, {
+            handIndex: state && state.handIndex,
+            heroName: heroDisplayName(state)
+          })
+          : {
+            tournamentId: state && state.id,
+            handIndex: state && state.handIndex,
+            heroName: heroDisplayName(state)
+          });
       }
     } catch (eA) { analyzed = null; }
 
@@ -1702,22 +1712,32 @@ function reducedMotion() {
           return Number(h.handIndex) === wantIdx;
         });
         if (logEntry) {
-          analyzed = Bridge.handFromTournament(logEntry, {
-            tournamentId: state.id,
-            handIndex: logEntry.handIndex,
-            heroName: heroDisplayName(state)
-          });
+          analyzed = Bridge.handFromTournament(logEntry, Bridge.metaFromState
+            ? Bridge.metaFromState(state, {
+              handIndex: logEntry.handIndex,
+              heroName: heroDisplayName(state)
+            })
+            : {
+              tournamentId: state.id,
+              handIndex: logEntry.handIndex,
+              heroName: heroDisplayName(state)
+            });
         }
       } catch (eLog) { analyzed = null; }
     }
     if (!analyzed) {
       try {
         if (Bridge && Bridge.handFromTournament && live && live.stage === 'complete') {
-          analyzed = Bridge.handFromTournament(live, {
-            tournamentId: state.id,
-            handIndex: state.handIndex,
-            heroName: heroDisplayName(state)
-          });
+          analyzed = Bridge.handFromTournament(live, Bridge.metaFromState
+            ? Bridge.metaFromState(state, {
+              handIndex: state.handIndex,
+              heroName: heroDisplayName(state)
+            })
+            : {
+              tournamentId: state.id,
+              handIndex: state.handIndex,
+              heroName: heroDisplayName(state)
+            });
         }
       } catch (e1) { analyzed = null; }
     }

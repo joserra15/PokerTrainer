@@ -181,16 +181,25 @@ Puedes recomendar practicar spots concretos en el entrenador de la app o seguir 
 NO asumas que domina GTO ni soluce spots avanzados.
 Responde markdown en español. Título breve. Respuesta COMPLETA. Cierra con un tip práctico o una pregunta para seguir aprendiendo.`;
 
-const PARSE_HAND_PROMPT = `Eres un parser experto de manos de poker NL Hold'em 6-max/9-max cash. Recibes la DESCRIPCIÓN EN TEXTO LIBRE de una mano (en español) escrita por un usuario: posiciones, cartas del héroe, cartas de villanos si se conocen, cartas comunitarias y las acciones por calle.
+const PARSE_HAND_PROMPT = `Eres un parser experto de manos de poker NL Hold'em (cash, spins y torneos). Recibes la DESCRIPCIÓN EN TEXTO LIBRE de una mano (en español) escrita por un usuario: modo de juego, número de jugadores, stacks, fase de torneo, posiciones, cartas del héroe, cartas de villanos si se conocen, cartas comunitarias y las acciones por calle.
 
 Tu tarea es DEVOLVER SOLO UN OBJETO JSON VÁLIDO (sin markdown, sin explicación fuera del JSON) con esta forma EXACTA:
 
 {
   "format": "6max" | "9max",
+  "formatHub": "cash" | "spin" | "mtt",
+  "tournamentType": "vanilla" | "pko" | "mystery" | "unknown",
+  "mttPhase": "auto" | "early" | "mid" | "short" | "push" | "bubble",
+  "playersSeated": 2,
+  "anteBB": 0,
   "heroPos": "UTG"|"UTG1"|"UTG2"|"LJ"|"HJ"|"CO"|"BTN"|"SB"|"BB",
   "heroCards": ["Ah","Kd"],
-  "villains": [ { "pos": "BTN", "cards": ["Qs","Qd"] } ],
+  "heroStackBB": 40,
+  "villains": [ { "pos": "BTN", "cards": ["Qs","Qd"], "stackBB": 25 } ],
   "board": ["9c","Tc","8c","6s","2h"],
+  "playersLeft": null,
+  "placesPaid": null,
+  "buyIn": null,
   "actions": {
     "preflop": [ { "pos": "CO", "action": "raise"|"call"|"fold"|"check"|"bet", "amountBB": 3 } ],
     "flop": [],
@@ -205,6 +214,16 @@ REGLAS ESTRICTAS:
 - "amountBB" es el TOTAL en ciegas grandes (bb) al que se sube o apuesta. Para raise = tamaño total (p.ej. open a 3 → 3; 3-bet a 9 → 9). Para bet = tamaño de la apuesta en bb. Para call/check/fold usa 0 o null.
 - Incluye en "actions" TODAS las acciones en orden real, incluida la del héroe. Usa las posiciones como identificador de cada jugador.
 - Incluye en "villains" TODOS los jugadores que no son el héroe y que aparecen en "actions" (aunque no se conozcan sus cartas). Si no hay cartas, usa "cards": [].
+- "playersSeated" = héroe + villanos (2 = HU). Si el texto dice heads-up / 3-max / 4 jugadores, respétalo.
+- "formatHub": cash / spin / mtt según el texto. "tournamentType" solo en MTT/spin (PKO/mystery/vanilla); si no se dice → "unknown".
+- "mttPhase" si se menciona early/mid/short/push/bubble; si no → infiere por stacks (p.ej. ≤12 push, ≤25 short, ≤45 mid) o "auto".
+- STACKS Y DATOS FALTANTES (SIMULAR PARA COHERENCIA):
+  * Si el texto da stacks en bb, úsalos en "heroStackBB" y "stackBB" de cada villano.
+  * Si FALTA un stack, SIMÚLALO de forma coherente con el formato y la fase (cash ~100bb; spin ~25bb early / ~10–15 mid-push; MTT ~40bb early / ~25–35 mid / ~12–20 short / ~8–12 push). No dejes stacks a null.
+  * Si falta playersSeated, derívalo de las posiciones/acciones (o 3 en spin, 6 en cash/MTT 6-max).
+  * Si falta tournamentType en un MTT con "PKO"/"mystery"/"KO" en el texto, rellénalo; si no hay pista → "unknown".
+  * Si falta ante en MTT, usa un ante típico (p.ej. 0.1 bb); en cash/spin sin ante → 0.
+  * Los stacks simulados deben permitir las apuestas del texto (nadie apuesta más de su stack).
 - "board" puede tener 0, 3, 4 o 5 cartas. Si no se menciona flop/turn/river, deja las que falten fuera del array.
 - Si una carta de villano no se conoce, omite "cards" o deja [] en ese villano. NUNCA omitas al villano del array solo porque no se conozcan sus cartas.
 - Si un dato no está en el texto, haz la inferencia más razonable y coherente (por ejemplo, las ciegas se postean solas). NUNCA inventes cartas que contradigan el texto.

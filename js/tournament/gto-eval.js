@@ -80,6 +80,7 @@
 
   function resolveTournamentPhase(stackBB, hand) {
     var Tax = global.PTFormatTaxonomy;
+    var TC = global.PTTournamentContext;
     var hub = resolveFormatHub(hand);
     var cfg = {
       formatHub: hub,
@@ -97,6 +98,9 @@
     }
     if (Tax && typeof Tax.phaseFromStackBB === 'function') {
       try { return Tax.phaseFromStackBB(stackBB, hub); } catch (e2) { /* */ }
+    }
+    if (TC && typeof TC.phaseFromStackBB === 'function') {
+      try { return TC.phaseFromStackBB(stackBB, hub); } catch (e3) { /* */ }
     }
     var bb = Number(stackBB) || 100;
     if (hub === 'spin') {

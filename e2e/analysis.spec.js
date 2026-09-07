@@ -2,6 +2,27 @@ const { test, expect } = require('@playwright/test');
 const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
 
 test.describe('Análisis manual → entrenador', () => {
+  test('formulario muestra jugadores en mesa y stacks', async ({ page }) => {
+    await mockAuthenticatedUser(page);
+    await waitForAppShell(page);
+    await page.click('button.tab[data-tab="analysis"]');
+    await page.waitForSelector('#analysis-content', { timeout: 15000 });
+    await page.evaluate(() => {
+      if (window.PTHandAnalysis && window.PTHandAnalysis.render) {
+        window.PTHandAnalysis.render(document.getElementById('analysis-content'));
+      }
+    });
+    await page.locator('[data-ha-new="manual"]').click({ timeout: 15000 });
+    await page.waitForSelector('[data-ha-hub], [data-ha-seated]', { timeout: 15000 });
+    await expect(page.locator('[data-ha-hub="cash"]')).toBeVisible();
+    await page.locator('[data-ha-hub="mtt"]').click();
+    await expect(page.locator('[data-ha-seated="2"]')).toBeVisible();
+    await page.locator('[data-ha-seated="2"]').click();
+    await expect(page.locator('[data-ha-hero-stack]')).toBeVisible();
+    await expect(page.locator('[data-ha-vstack]').first()).toBeVisible();
+    await expect(page.locator('[data-ha-ttype="pko"]')).toBeVisible();
+  });
+
   test('mano guardada se puede jugar en entrenador', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);

@@ -6,6 +6,7 @@
     'js/cards.js',
     'js/engine/cache.js',
     'js/engine/format/taxonomy.js',
+    'js/engine/format/tournament-context.js',
     'js/engine/ranges/notation.js',
     'js/engine/ranges/data.js',
     'js/engine/ranges/extended.js',

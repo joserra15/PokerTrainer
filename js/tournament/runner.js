@@ -60,16 +60,73 @@
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
     try {
-      var kind = (state.config && state.config.kind) || 'mtt';
+      var cfg = state.config || {};
+      var kind = cfg.kind || 'mtt';
       var hub = (kind === 'spin') ? 'spin' : 'mtt';
+      var left = St.playersLeft(state);
+      var paid = Number(cfg.placesPaid) || 0;
+      var bb = Number(blinds && blinds.bb) || Number(hand.bb) || 1;
+      var ante = Number(blinds && blinds.ante) || Number(hand.ante) || 0;
+      var anteBB = bb > 0 ? ante / bb : 0;
+      var seatedN = (hand.seats && hand.seats.length) || ordered.length;
+      var tourneyType = cfg.tournamentType || 'unknown';
+      var avgStackBB = null;
+      var alive = (state.players || []).filter(function (p) { return p && p.alive && p.stack > 0; });
+      if (alive.length && bb > 0) {
+        var sum = 0;
+        alive.forEach(function (p) { sum += Number(p.stack) || 0; });
+        avgStackBB = Math.round((sum / alive.length / bb) * 10) / 10;
+      }
+      var mttPhase = 'auto';
+      var mttStructureSituation = null;
+      var Tax = global.PTFormatTaxonomy;
+      var TC = global.PTTournamentContext;
+      if (avgStackBB != null) {
+        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
+        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
+      }
+      // Burbuja / cerca de ITM: el campo manda sobre la fase por stack medio.
+      if (hub === 'mtt' && paid > 0 && left > 0) {
+        if (left === paid + 1) {
+          mttPhase = 'bubble';
+          mttStructureSituation = 'bubble';
+        } else if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney({
+          formatHub: hub, playersLeft: left, placesPaid: paid
+        })) {
+          if (mttPhase === 'auto' || mttPhase === 'early' || mttPhase === 'mid') {
+            mttStructureSituation = left <= paid ? 'mincash' : 'bubble';
+          }
+        }
+      }
       hand.kind = kind;
       hand.formatHub = hub;
+      hand.isTournament = true;
+      hand.tournamentType = tourneyType;
+      hand.playersSeated = seatedN;
+      hand.tableMax = Number(cfg.seatsPerTable) || seatedN;
+      hand.mttPhase = mttPhase;
+      hand.anteBB = anteBB;
+      hand.avgStackBB = avgStackBB;
+      hand.playersLeft = left;
+      hand.placesPaid = paid;
+      hand.entries = cfg.entries != null ? cfg.entries : null;
+      hand.buyIn = cfg.buyInEur != null ? cfg.buyInEur : (cfg.buyIn != null ? cfg.buyIn : null);
+      hand.mttStructureSituation = mttStructureSituation;
+      hand.tournamentConfig = cfg;
       hand.state = {
         formatHub: hub,
         kind: kind,
-        playersLeft: St.playersLeft(state),
-        placesPaid: state.config && state.config.placesPaid,
-        mttPhase: 'auto'
+        tournamentType: tourneyType,
+        playersLeft: left,
+        placesPaid: paid,
+        playersSeated: seatedN,
+        tableMax: hand.tableMax,
+        mttPhase: mttPhase,
+        mttStructureSituation: mttStructureSituation,
+        avgStackBB: avgStackBB,
+        anteBB: anteBB,
+        entries: hand.entries,
+        buyIn: hand.buyIn
       };
     } catch (eMeta) { /* */ }
     Live.runToHeroOrEnd(hand);
@@ -226,11 +283,16 @@
       if (Bridge && Bridge.handFromTournament) {
         state.sessionHands = state.sessionHands || [];
         var entry = state.handLog[state.handLog.length - 1];
-        var analyzed = Bridge.handFromTournament(entry, {
-          tournamentId: state.id,
-          handIndex: entry && entry.handIndex,
-          heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
-        });
+        var analyzed = Bridge.handFromTournament(entry, Bridge.metaFromState
+          ? Bridge.metaFromState(state, {
+            handIndex: entry && entry.handIndex,
+            heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
+          })
+          : {
+            tournamentId: state.id,
+            handIndex: entry && entry.handIndex,
+            heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
+          });
         if (analyzed) {
           /* Sustituye si ya existe el mismo handIndex (re-apply). */
           var replaced = false;

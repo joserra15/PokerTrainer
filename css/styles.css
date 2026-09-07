@@ -7395,6 +7395,9 @@ html.pwa-standalone body {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
 }
 .ha-bb-euro, .ha-ante-bb { width: 110px; max-width: 100%; }
+.ha-vstack { width: 72px; max-width: 100%; }
+.ha-vstack-label { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; }
+.ha-tourney-block .ha-chips { flex-wrap: wrap; }
 .ha-bb-hint { flex: 1; min-width: 180px; font-size: 12px; line-height: 1.35; }
 .ha-swap-panel { margin: 12px 0 16px; }
 .ha-swap-panel h3 { margin: 0 0 6px; font-size: 15px; }

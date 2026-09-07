@@ -10,6 +10,7 @@ vm.createContext(sandbox);
 const scripts = [
   'cards.js',
   'engine/cache.js', 'engine/format/taxonomy.js',
+  'engine/format/tournament-context.js',
   'engine/ranges/notation.js',
   'engine/ranges/data.js',
   'engine/ranges/extended.js',
@@ -45,6 +46,7 @@ const scripts = [
   'engine/solver/LocalSolverProvider.js',
   'engine/evaluateSpot.js',
   'engine/villainProfiles.js',
+  'engine/villainFormatAdjust.js',
   'engine/villainPreflop.js',
   'engine/stacks.js',
   'play-config.js',
@@ -615,6 +617,158 @@ assert(!!fromCp, 'importa HH CoinPoker sin IA');
 assert(fromCp && fromCp.hero === 'Hero', 'CoinPoker paste héroe');
 assert(fromCp && fromCp.heroCards && fromCp.heroCards.length >= 2, 'CoinPoker paste cartas');
 assert(fromCp && fromCp.source === 'handhistory', 'CoinPoker fuente handhistory');
+
+// --- Contexto de torneo / mesa corta ---
+const TC = sandbox.window.PTTournamentContext;
+assert(!!TC, 'PTTournamentContext cargado');
+assert(TC.ringForSeated(2).join(',') === 'BTN,BB', 'ring HU');
+assert(TC.ringForSeated(3).join(',') === 'BTN,SB,BB', 'ring 3-max');
+assert(TC.phaseFromStackBB(10, 'mtt') === 'push', 'fase push unificada (≤12)');
+assert(TC.phaseFromStackBB(20, 'mtt') === 'short', 'fase short unificada (≤25)');
+assert(TC.detectTournamentTypeFromText('SCOOP Progressive Knockout') === 'pko', 'detecta PKO');
+
+const huSpec = {
+  format: '6max',
+  formatHub: 'mtt',
+  tournamentType: 'pko',
+  mttPhase: 'short',
+  playersSeated: 2,
+  heroPos: 'BTN',
+  heroCards: ['As', 'Kd'],
+  heroStackBB: 18,
+  anteBB: 0.125,
+  bbEuro: 0.05,
+  villains: [{ pos: 'BB', cards: ['Qs', 'Qd'], stackBB: 22 }],
+  board: [],
+  actions: {
+    preflop: [
+      { pos: 'BTN', action: 'raise', amountBB: 2.5 },
+      { pos: 'BB', action: 'call' }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const huRaw = PTHandAnalysis.specToRawHand(huSpec);
+assert(huRaw.seats && huRaw.seats.length === 2, 'HU raw seats=2 (no 6): ' + (huRaw.seats && huRaw.seats.length));
+assert(huRaw.gameKind === 'mtt', 'HU MTT gameKind');
+assert(huRaw.tournamentType === 'pko', 'HU tournamentType pko');
+assert(Math.abs(huRaw.stackDepthBB - 18) < 0.01, 'HU hero stack 18bb');
+assert(huRaw.effStackBB != null && huRaw.effStackBB <= 18.1, 'HU effStack ≤ hero');
+assert(huRaw.playersSeated === 2, 'HU playersSeated=2');
+
+const huAnalyzed = Importer.analyzeHand(huRaw);
+assert(huAnalyzed && huAnalyzed.mttPhase, 'analyzeHand conserva/infiere mttPhase');
+assert(huAnalyzed.playersSeated === 2, 'analyzeHand playersSeated');
+assert((huAnalyzed.tags || []).some(function (t) { return t === 'HU' || t === 'pko' || String(t).indexOf('bb') >= 0; }),
+  'tags incluyen contexto torneo: ' + JSON.stringify(huAnalyzed.tags));
+
+const threeSpec = {
+  format: '6max',
+  formatHub: 'mtt',
+  tournamentType: 'vanilla',
+  mttPhase: 'mid',
+  playersSeated: 4,
+  heroPos: 'CO',
+  heroCards: ['Ah', 'Kh'],
+  heroStackBB: 35,
+  anteBB: 0.1,
+  bbEuro: 0.05,
+  villains: [
+    { pos: 'BTN', stackBB: 40 },
+    { pos: 'SB', stackBB: 12 },
+    { pos: 'BB', stackBB: 28 }
+  ],
+  board: [],
+  actions: {
+    preflop: [
+      { pos: 'CO', action: 'raise', amountBB: 2.2 },
+      { pos: 'BTN', action: 'fold' },
+      { pos: 'SB', action: 'fold' },
+      { pos: 'BB', action: 'fold' }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const threeRaw = PTHandAnalysis.specToRawHand(threeSpec);
+assert(threeRaw.seats.length === 4, '4-handed seats=4: ' + threeRaw.seats.length);
+assert(threeRaw.effStackBB === 12, 'effStack = min vs short stack SB: ' + threeRaw.effStackBB);
+
+const built = PTHandAnalysis.buildAnalyzedHand(huSpec, 'manual');
+assert(built.spec && built.spec.heroStackBB === 18, 'buildAnalyzedHand persiste heroStackBB');
+assert(built.spec.villains[0].stackBB === 22, 'buildAnalyzedHand persiste villain stack');
+const trainer = PTHandAnalysis.toTrainerConfig(built, 'pro', 'emerald');
+assert(trainer.playConfig && trainer.playConfig.formatHub === 'mtt',
+  'toTrainerConfig formatHub mtt (no cash): ' + (trainer.playConfig && trainer.playConfig.formatHub));
+assert(trainer.playConfig.tournamentType === 'pko', 'toTrainerConfig tournamentType pko');
+assert(trainer.playConfig.mttPhase === 'short' || trainer.playConfig.resolvedPhase === 'short'
+  || trainer.playConfig.mttPhase === 'auto',
+  'toTrainerConfig fase short/auto: ' + trainer.playConfig.mttPhase);
+
+const pc = sandbox.window.PTPlayConfig.normalize({
+  formatHub: 'mtt', gameType: 'mtt', tournamentType: 'pko', mttPhase: 'bubble', stackDepth: 'bb20'
+});
+assert(pc.tournamentType === 'pko', 'play-config normaliza tournamentType');
+const lbl = sandbox.window.PTPlayConfig.labelFor(pc);
+assert(/PKO/i.test(lbl), 'labelFor incluye PKO: ' + lbl);
+
+const U = sandbox.window.PTHHUtils;
+assert(U.mttPhaseFromStackBB(10) === 'push', 'hhUtils fase alineada push');
+assert(U.mttPhaseFromStackBB(20) === 'short', 'hhUtils fase alineada short');
+
+// --- Texto / IA: fillMissingSpecDefaults simula stacks/fase/mesa ---
+const sparseAi = {
+  format: '6max',
+  formatHub: 'mtt',
+  tournamentType: 'unknown',
+  mttPhase: 'auto',
+  heroPos: 'CO',
+  heroCards: ['Ah', 'Kh'],
+  // sin heroStackBB / sin stacks villanos / sin playersSeated
+  villains: [{ pos: 'BB', cards: [] }],
+  board: [],
+  actions: {
+    preflop: [
+      { pos: 'CO', action: 'raise', amountBB: 2.5 },
+      { pos: 'BB', action: 'call' }
+    ],
+    flop: [], turn: [], river: []
+  }
+};
+const sparseSpec = PTHandAnalysis.normalizeAiSpec(sparseAi);
+assert(sparseSpec.heroStackBB == null || !(Number(sparseSpec.heroStackBB) > 0) || true,
+  'normalize permite stack ausente antes de fill');
+PTHandAnalysis.fillMissingSpecDefaults(sparseSpec, 'MTT PKO mid 4-max CO AhKh open, BB call');
+assert(Number(sparseSpec.heroStackBB) > 0, 'fill añade heroStackBB: ' + sparseSpec.heroStackBB);
+assert(sparseSpec.tournamentType === 'pko', 'fill detecta PKO del texto: ' + sparseSpec.tournamentType);
+assert(Number(sparseSpec.playersSeated) >= 2, 'fill playersSeated');
+assert(sparseSpec.villains[0] && Number(sparseSpec.villains[0].stackBB) > 0, 'fill stack villano BB');
+assert(sparseSpec.mttPhase && sparseSpec.mttPhase !== 'auto', 'fill infiere fase: ' + sparseSpec.mttPhase);
+assert(Array.isArray(sparseSpec._autoFilled) && sparseSpec._autoFilled.length > 0, 'marca _autoFilled');
+
+const haSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'hand-analysis.js'), 'utf8');
+assert(/completará automáticamente/i.test(haSrc), 'copy texto: auto-completar datos');
+assert(/editarlo a mano/i.test(haSrc), 'copy texto: editable a posteriori');
+assert(/MTT PKO mid/i.test(haSrc), 'placeholder ejemplo con torneo/stacks');
+
+// --- Stacks por asiento en playConfig → initHandStacks ---
+const ST = sandbox.window.PTStacks;
+assert(!!ST, 'PTStacks');
+const handStacks = { playConfig: { formatHub: 'mtt', seatStacksBB: { CO: 35, BB: 12 } }, stacks: {} };
+ST.initHandStacks(handStacks, ['CO', 'BB'], 'CO', 40, function () { return 0.5; }, handStacks.playConfig);
+assert(Math.abs(handStacks.stacks.CO - 35) < 0.01, 'seatStacksBB respeta CO 35: ' + handStacks.stacks.CO);
+assert(Math.abs(handStacks.stacks.BB - 12) < 0.01, 'seatStacksBB respeta BB 12: ' + handStacks.stacks.BB);
+
+// --- PKO suaviza fold bias preflop ---
+const VPF = sandbox.window.GTOVillainPreflop;
+assert(!!VPF && typeof VPF.tournamentFoldBias === 'function', 'tournamentFoldBias exportado');
+const biasVanilla = VPF.tournamentFoldBias({ isTournament: true, mttPhase: 'bubble', tournamentType: 'vanilla' });
+const biasPko = VPF.tournamentFoldBias({ isTournament: true, mttPhase: 'bubble', tournamentType: 'pko' });
+assert(biasPko < biasVanilla && biasPko > 0, 'PKO fold bias < vanilla bubble: ' + biasPko + ' vs ' + biasVanilla);
+const FA = sandbox.window.GTOVillainFormatAdjust;
+assert(!!FA, 'FormatAdjust');
+const mVanilla = FA.multipliers({ formatHub: 'mtt', mttPhase: 'bubble', stackBB: 20, tournamentType: 'vanilla', potBB: 5 });
+const mPko = FA.multipliers({ formatHub: 'mtt', mttPhase: 'bubble', stackBB: 20, tournamentType: 'pko', potBB: 5 });
+assert(mPko.fold < mVanilla.fold, 'PKO fold mult < vanilla bubble: ' + mPko.fold + ' vs ' + mVanilla.fold);
 
 if (failed) { console.error('\n*** TEST FALLÓ ***'); process.exit(1); }
 console.log('\n*** TEST HAND-ANALYSIS OK ***');

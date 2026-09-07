@@ -652,7 +652,8 @@
       gameType = 'cash9';
     }
     let stackDepth = 'standard';
-    const stackBB = hand && hand.stackDepthBB != null ? hand.stackDepthBB : null;
+    const stackBB = hand && (hand.effStackBB != null ? hand.effStackBB
+      : (hand.stackDepthBB != null ? hand.stackDepthBB : null));
     if (stackBB != null) {
       stackDepth = stackLabelFromBB(stackBB);
     } else if (hand && hand.seats && hand.bb) {
@@ -663,7 +664,29 @@
         stackDepth = stackLabelFromBB(avg);
       }
     }
-    return normalize({ gameType: gameType, stackDepth: stackDepth });
+    const ctx = {
+      gameType: gameType,
+      stackDepth: stackDepth,
+      mttPhase: hand && hand.mttPhase ? hand.mttPhase : null,
+      playersLeft: hand && hand.playersLeft != null ? hand.playersLeft : null,
+      placesPaid: hand && hand.placesPaid != null ? hand.placesPaid : null,
+      entries: hand && hand.entries != null ? hand.entries : null,
+      buyIn: hand && hand.buyIn != null ? hand.buyIn : null,
+      mttStructureSituation: hand && hand.mttStructureSituation ? hand.mttStructureSituation : null,
+      tournamentType: hand && hand.tournamentType ? hand.tournamentType : null,
+      tableMax: tableMax,
+      playersSeated: hand && hand.playersSeated != null ? hand.playersSeated : nSeats
+    };
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.usesIcm) {
+      ctx.icmEnabled = Tax.usesIcm({
+        formatHub: Tax.hubFromGameType(gameType),
+        mttPhase: ctx.mttPhase,
+        playersLeft: ctx.playersLeft,
+        placesPaid: ctx.placesPaid
+      });
+    }
+    return normalize(ctx);
   }
 
   function attachToInput(input, ctx) {
@@ -679,6 +702,9 @@
     if (c.entries != null) input.entries = c.entries;
     if (c.buyIn != null) input.buyIn = c.buyIn;
     if (c.mttStructureSituation) input.mttStructureSituation = c.mttStructureSituation;
+    if (ctx && ctx.tournamentType) input.tournamentType = ctx.tournamentType;
+    if (ctx && ctx.playersSeated != null) input.playersSeated = ctx.playersSeated;
+    if (ctx && ctx.tableMax != null) input.tableMax = ctx.tableMax;
     input.rangeContext = c;
     return input;
   }

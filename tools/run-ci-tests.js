@@ -32,6 +32,8 @@ const STEPS = [
   ['Test hero exploit adjust', ['node', 'tools/test-hero-exploit-adjust.js']],
   ['Test villain type trainer', ['node', 'tools/test-villain-type-trainer.js']],
   ['Test análisis de manos', ['node', 'tools/test-hand-analysis.js']],
+  ['Test evaluación manos contexto torneo', ['node', 'tools/test-hand-eval-tournament-context.js']],
+  ['Test contexto torneo análisis/bridge', ['node', 'tools/test-tournament-context.js']],
   ['Test GTO eval UI', ['node', 'tools/test-gto-eval-ui.js']],
   ['Test range cell popup', ['node', 'tools/test-range-cell-popup.js']],
   ['Test BB vs SB', ['node', 'tools/test-bb-vs-sb-position.js']],
