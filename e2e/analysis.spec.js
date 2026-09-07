@@ -27,7 +27,7 @@ test.describe('Análisis manual → entrenador', () => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    const seeded = await page.evaluate(() => {
+    const seeded = await page.evaluate(async () => {
       if (!window.Store || !window.Store.saveAnalysisHand) {
         return { ok: false, error: 'Store.saveAnalysisHand missing' };
       }
