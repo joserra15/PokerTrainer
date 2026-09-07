@@ -425,6 +425,11 @@
     }
     /* No refrescar entitlements en cada mano (bloqueaba Escuela en móvil); debounce. */
     scheduleRefresh();
+    try {
+      if (global.PTTournamentWallet && PTTournamentWallet.noteTrainerHand) {
+        PTTournamentWallet.noteTrainerHand();
+      }
+    } catch (eTH) { /* ignore */ }
     return res.data || { ok: true };
   }
 

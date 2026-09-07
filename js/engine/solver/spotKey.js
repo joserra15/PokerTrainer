@@ -29,6 +29,7 @@
    * @param {boolean} [priorAggressorBet] true si el héroe ya bet/raise en calle previa
    */
   function aggressorLeadType(street, priorAggressorBet) {
+    if (street === 'preflop') return 'none';
     if (street === 'turn') {
       return priorAggressorBet === false ? 'delayed_cbet' : 'barrel2';
     }
@@ -82,6 +83,8 @@
       spotKind: input.spotKind || 'postflop',
       facing: (input.toCallBB || 0) > 0 ? 'bet' : 'none',
       leadType: (function () {
+        /* Preflop no tiene c-bet / donk / probe (eso es postflop). */
+        if (street === 'preflop') return 'none';
         if ((input.toCallBB || 0) > 0) return 'none';
         if (input.initiative === 'aggressor') {
           return aggressorLeadType(street, input.priorAggressorBet);

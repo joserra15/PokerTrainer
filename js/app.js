@@ -56,15 +56,18 @@
   function refreshTournamentsTabVisibility() {
     var communityHide = false;
     try {
-      if (window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
-        communityHide = true;
-      } else if (window.PTCommunity && PTCommunity.config) {
+      if (window.PTCommunity && PTCommunity.config) {
         var cfg = PTCommunity.config();
-        if (cfg && cfg.menus && cfg.menus.hide && cfg.menus.hide.indexOf('tournaments') >= 0) {
-          communityHide = true;
+        if (cfg && cfg.menus) {
+          if (cfg.menus.hide && cfg.menus.hide.indexOf('tournaments') >= 0) {
+            communityHide = true;
+          } else if (cfg.menus.show && cfg.menus.show.indexOf('tournaments') < 0) {
+            communityHide = true;
+          }
         }
       }
     } catch (e) { /* noop */ }
+    /* Rol: PokerForgeAI → Admin; MTTLab → managers (PTTournaments.menuVisible). */
     const show = !communityHide && tournamentsMenuVisible();
     const tab = document.querySelector('.tab[data-tab="tournaments"]');
     if (tab) tab.classList.toggle('hidden', !show);
@@ -2331,7 +2334,11 @@
       withLazyChunk('sessions', function () {
         if (opts.openSessionId) {
           showSessionLoading('Cargando sesión…');
-          void openSession(opts.openSessionId);
+          void openSession(opts.openSessionId, opts.sessionObj || null, {
+            handId: opts.handId || null,
+            mode: opts.reviewMode || opts.mode || 'review',
+            fromTournament: !!opts.fromTournament
+          });
           refreshSessionsFromCloud();
           return;
         }
@@ -2705,6 +2712,11 @@
       if (savedTab === 'cash' || savedTab === 'spin' || savedTab === 'mtt') sessionsListTab = savedTab;
     } catch (e) { /* ignore */ }
     $('#back-to-sessions').addEventListener('click', () => {
+      if (tournamentReviewReturn) {
+        clearTournamentReviewReturn();
+        goToTab('tournaments');
+        return;
+      }
       if (analysisReviewReturn) {
         analysisReviewReturn = false;
         restoreSessionReviewBackLabel();
@@ -2714,6 +2726,11 @@
       showSessionsView('home'); renderSessionsList();
     });
     $('#back-to-detail').addEventListener('click', () => {
+      if (tournamentReviewReturn) {
+        clearTournamentReviewReturn();
+        goToTab('tournaments');
+        return;
+      }
       if (analysisReviewReturn) {
         analysisReviewReturn = false;
         restoreSessionReviewBackLabel();
@@ -2945,9 +2962,28 @@
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver';
   }
+  function setTournamentReviewBackLabel() {
+    const btn = $('#back-to-detail');
+    if (btn) btn.innerHTML = '&laquo; Volver al torneo';
+    const backSessions = $('#back-to-sessions');
+    if (backSessions) {
+      backSessions.innerHTML = '&laquo; Volver al torneo';
+      backSessions.hidden = false;
+    }
+  }
   function restoreSessionReviewBackLabel() {
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver a la sesión';
+    const backSessions = $('#back-to-sessions');
+    if (backSessions) {
+      backSessions.innerHTML = '&laquo; Volver a sesiones';
+      backSessions.hidden = false;
+    }
+  }
+  function clearTournamentReviewReturn() {
+    tournamentReviewReturn = false;
+    analysisReviewReturn = false;
+    restoreSessionReviewBackLabel();
   }
 
   // Abre la revisión paso a paso / repaso GTO de una mano de análisis reutilizando
@@ -2956,6 +2992,7 @@
     if (!hand) return;
     currentHand = hand;
     currentSession = { id: '__analysis__', analysis: true, hero: hand.hero };
+    tournamentReviewReturn = false;
     analysisReviewReturn = true;
     setAnalysisReviewBackLabel();
     goToTab('sessions', { skipDefaultView: true });
@@ -2973,6 +3010,43 @@
     });
   }
   window.openAnalysisHandReview = openAnalysisHandReview;
+
+  /** Revisión paso a paso de una mano de Torneos IA (vuelve al torneo, sin replay GTO). */
+  function openTournamentHandReview(hand, mode) {
+    if (!hand) return;
+    currentHand = hand;
+    var stats = null;
+    try {
+      if (window.Importer && Importer.computeStats) stats = Importer.computeStats([hand]);
+    } catch (eStats) { stats = null; }
+    currentSession = {
+      id: hand.tournamentId ? ('trn_live_' + hand.tournamentId) : ('trn_live_' + Date.now()),
+      fileName: 'Mano de torneo IA',
+      hero: hand.hero,
+      hands: [hand],
+      stats: stats,
+      source: 'tournamentAi',
+      tournamentAi: true
+    };
+    analysisReviewReturn = false;
+    tournamentReviewReturn = true;
+    setTournamentReviewBackLabel();
+    goToTab('sessions', { skipDefaultView: true });
+    withLazyChunk('sessions', function () {
+      if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
+      if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
+      try {
+        if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
+      } catch (e) {
+        console.error('[Tournaments] recompute failed', e);
+      }
+      showSessionsView('review');
+      /* Solo paso a paso: sin “Volver a jugar esta mano con GTO”. */
+      renderTimelineReview();
+    });
+  }
+  window.openTournamentHandReview = openTournamentHandReview;
+
 
   function trainerLeaksForStats(st) {
     const aggLeaks = window.PTStatsAggregate ? PTStatsAggregate.trainerTopLeaks(st, 5) : [];
@@ -7713,6 +7787,7 @@
   let currentHand = null;
   let replayState = null;
   let analysisReviewReturn = false;
+  let tournamentReviewReturn = false;
   const SESSION_HANDS_PAGE = 80;
   const HEAVY_OPEN_HANDS = 2000;
   let sessionHandsShown = SESSION_HANDS_PAGE;
@@ -8089,6 +8164,7 @@
     box.innerHTML = filtered.map((s) => {
       const st = s.stats || {};
       const isSummary = s.source === 'tournamentSummary' || st.source === 'tournamentSummary';
+      const isTournamentAi = s.source === 'tournamentAi' || !!s.tournamentAi;
       const sampleBadge = isSample(s) ? '<span class="session-sample-badge">Ejemplo</span>' : '';
       if (isSummary) {
         const profit = st.profitEuro != null ? st.profitEuro : 0;
@@ -8102,6 +8178,27 @@
             <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · Puesto ${place} · ${fmtDate(s.createdAt)}</div>
             <div class="rec-sub"><span class="${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)}€</span>${roi}${bounty}${st.stakesLabel ? ' · ' + escapeHtml(st.stakesLabel) : ''}</div>
             <div class="rec-sub muted-text" style="font-size:12px">Tournament History · sin manos GTO (importa Hand History para revisar decisiones)</div>
+          </div>
+          <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-open="${s.id}">Ver resumen</button>
+            <button class="btn btn-danger" style="padding:4px 10px;font-size:12px" data-delses="${s.id}">Borrar sesión</button>
+          </div>
+        </div>`;
+      }
+      if (isTournamentAi) {
+        const t = s.tournament || {};
+        const place = st.finishPlace != null ? st.finishPlace : t.place;
+        const profit = st.profitEuro != null ? st.profitEuro
+          : (t.profit != null ? t.profit : 0);
+        const roi = st.roiPct != null ? st.roiPct : t.roi;
+        const pCls = profit >= 0 ? 'net-pos' : 'net-neg';
+        const nHands = st.nHands != null ? st.nHands : (s.hands || []).length;
+        return `<div class="record session-card">
+          <div class="rec-main">
+            <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge">Torneo IA</span> ${sessionContextBadgesHtml(s)}</div>
+            <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · Puesto ${place != null ? place + 'º' : '—'} · ${nHands} manos · ${fmtDate(s.createdAt)}</div>
+            <div class="rec-sub"><span class="${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)} Koins</span>${roi != null ? ' · ROI ' + roi + '%' : ''}${st.accuracy != null ? ' · Acierto ' + st.accuracy + '%' : ''}</div>
+            <div class="rec-sub muted-text" style="font-size:12px">Resumen del torneo · estadísticas GTO de manos disponibles</div>
           </div>
           <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
             <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-open="${s.id}">Ver resumen</button>
@@ -8308,11 +8405,22 @@
     }
     if (!currentSession || !currentSession.hands) {
       $('#import-status').innerHTML = '<span style="color:var(--red)">No se encontró la sesión guardada.</span>';
+      const detailBox = $('#session-detail-content');
+      if (detailBox) {
+        detailBox.innerHTML = '<p class="muted-text">No se pudo cargar la sesión del torneo. Vuelve al lobby e inténtalo de nuevo.</p>' +
+          '<p><button type="button" class="btn" id="btn-back-sessions-list">« Volver a sesiones</button></p>';
+        const back = detailBox.querySelector('#btn-back-sessions-list');
+        if (back) back.addEventListener('click', function () { showSessionsView('home'); renderSessionsList(); });
+      } else {
+        showSessionsView('home');
+      }
       return;
     }
+    currentSession._showHandStats = !!opts.showHandStats;
     const buildVer = window.PT_BUILD || '';
     const isTournamentSummary = currentSession.source === 'tournamentSummary'
       || (currentSession.stats && currentSession.stats.source === 'tournamentSummary');
+    const isTournamentAi = currentSession.source === 'tournamentAi' || !!currentSession.tournamentAi;
     const nHands = (currentSession.hands || []).length;
     const skipHeavy = !!(opts.skipHeavyPrep || currentSession.freshImport || nHands > HEAVY_OPEN_HANDS);
     currentSession.freshImport = false;
@@ -8354,7 +8462,24 @@
       });
     }
     if ((netFixed || needsHudStats) && Importer.computeStats) {
+      const prevStats = currentSession.stats || {};
       currentSession.stats = Importer.computeStats(currentSession.hands);
+      if (isTournamentAi) {
+        const t = currentSession.tournament || {};
+        const ts = currentSession.tournamentStats || {};
+        currentSession.stats = Object.assign({}, currentSession.stats, {
+          source: 'tournamentAi',
+          finishPlace: prevStats.finishPlace != null ? prevStats.finishPlace
+            : (t.place != null ? t.place : null),
+          prizeEur: prevStats.prizeEur != null ? prevStats.prizeEur : (t.prizeEur || 0),
+          profitEuro: prevStats.profitEuro != null ? prevStats.profitEuro
+            : (t.profit != null ? t.profit : (ts.profit != null ? ts.profit : null)),
+          roiPct: prevStats.roiPct != null ? prevStats.roiPct
+            : (t.roi != null ? t.roi : (ts.roi != null ? ts.roi : null)),
+          buyInEur: prevStats.buyInEur != null ? prevStats.buyInEur : (t.buyInEur || 0),
+          players: prevStats.players != null ? prevStats.players : (t.entries || null)
+        });
+      }
       if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
         currentSession.context = PTHHUtils.buildSessionContext(
           currentSession.hands,
@@ -8365,9 +8490,18 @@
     } else if (tagsFixed) {
       await Store.saveSession(currentSession);
     }
+    if (opts.fromTournament) {
+      tournamentReviewReturn = true;
+      setTournamentReviewBackLabel();
+    } else if (!tournamentReviewReturn) {
+      restoreSessionReviewBackLabel();
+    }
     sessionHandsShown = SESSION_HANDS_PAGE;
     renderSessionDetail('evLoss');
     showSessionsView('detail');
+    if (opts.handId) {
+      openHandReview(opts.handId, opts.mode || opts.reviewMode || 'review');
+    }
   }
 
   function renderSessionDetail(sortBy) {
@@ -8380,6 +8514,7 @@
     const st = s.stats;
     const box = $('#session-detail-content');
     const isSummary = s.source === 'tournamentSummary' || st.source === 'tournamentSummary';
+    const isTournamentAi = s.source === 'tournamentAi' || !!s.tournamentAi;
     if (isSummary) {
       const profit = st.profitEuro != null ? st.profitEuro : 0;
       const pCls = profit >= 0 ? 'net-pos' : 'net-neg';
@@ -8412,6 +8547,54 @@
         </div>`;
       return;
     }
+    if (isTournamentAi && !s._showHandStats) {
+      const t = s.tournament || {};
+      const ts = s.tournamentStats || {};
+      const place = st.finishPlace != null ? st.finishPlace : t.place;
+      const prize = st.prizeEur != null ? st.prizeEur : (t.prizeEur || 0);
+      const profit = st.profitEuro != null ? st.profitEuro : (t.profit != null ? t.profit : 0);
+      const roi = st.roiPct != null ? st.roiPct : t.roi;
+      const buyIn = st.buyInEur != null ? st.buyInEur : (t.buyInEur || 0);
+      const pCls = profit >= 0 ? 'net-pos' : 'net-neg';
+      const nHands = st.nHands != null ? st.nHands : (s.hands || []).length;
+      box.innerHTML = `
+        <h2>${escapeHtml(s.fileName)} <span class="badge">Torneo IA</span> ${sessionContextBadgesHtml(s)}</h2>
+        <p class="muted-text">Resumen del torneo · ${escapeHtml(s.hero)} · ${fmtDate(s.createdAt)}</p>
+        <div class="stats-content">
+          <div class="stat-card"><div class="big">${place != null ? place + 'º' : '—'}</div><div class="lbl">Puesto</div></div>
+          <div class="stat-card"><div class="big">${Number(prize).toFixed(2)}</div><div class="lbl">Premio (Koins)</div></div>
+          <div class="stat-card"><div class="big ${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)}</div><div class="lbl">Profit</div></div>
+          <div class="stat-card"><div class="big">${roi != null ? roi + '%' : '—'}</div><div class="lbl">ROI</div></div>
+          <div class="stat-card"><div class="big">${Number(buyIn).toFixed(2)}</div><div class="lbl">Buy-in</div></div>
+          <div class="stat-card"><div class="big">${nHands}</div><div class="lbl">Manos</div></div>
+          <div class="stat-card"><div class="big">${st.accuracy != null ? st.accuracy + '%' : '—'}</div><div class="lbl">Acierto GTO</div></div>
+          <div class="stat-card"><div class="big">${st.vpipPct != null ? st.vpipPct + '%' : (ts.vpip != null ? ts.vpip + '%' : '—')}</div><div class="lbl">VPIP</div></div>
+          <div class="stat-card"><div class="big">${st.pfrPct != null ? st.pfrPct + '%' : (ts.pfr != null ? ts.pfr + '%' : '—')}</div><div class="lbl">PFR</div></div>
+          <div class="stat-card"><div class="big">${ts.roleAccuracy != null ? ts.roleAccuracy + '%' : '—'}</div><div class="lbl">Roles</div></div>
+        </div>
+        <div class="card-box" style="margin-top:14px">
+          <h3>Estadísticas del torneo</h3>
+          <p class="muted-text" style="margin:0 0 10px;font-size:13px">
+            Tipo: <strong>${escapeHtml((t.kind || 'mtt').toUpperCase())}</strong>
+            ${t.entries != null ? ' · ' + t.entries + ' jugadores' : ''}
+            ${t.name ? ' · ' + escapeHtml(t.name) : ''}
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary" id="btn-trn-session-hand-stats">Ver estadísticas de manos</button>
+          </div>
+        </div>`;
+      const btnHands = $('#btn-trn-session-hand-stats');
+      if (btnHands) {
+        btnHands.onclick = function () {
+          currentSession._showHandStats = true;
+          renderSessionDetail(sortBy || 'evLoss');
+        };
+      }
+      return;
+    }
+    if (isTournamentAi && s._showHandStats) {
+      /* Cabecera extra: volver al resumen del torneo. */
+    }
     const netCls = st.netBB >= 0 ? 'net-pos' : 'net-neg';
     const accSt = st.accByStreet;
 
@@ -8430,10 +8613,17 @@
     const graveN = (s.hands || []).filter(handHasGraveError).length;
     const gradeLetter = st.grade && st.grade.letter ? String(st.grade.letter)[0] : 'C';
     const gradeScore = st.grade && st.grade.score != null ? st.grade.score : '—';
+    const trnBackBar = isTournamentAi
+      ? `<div class="card-box" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-trn-session-summary">« Resumen del torneo</button>
+          <span class="muted-text" style="font-size:12px">Estadísticas GTO de las manos jugadas</span>
+        </div>`
+      : '';
     const statHtml = `
+      ${trnBackBar}
       ${reanalyzeBanner}
       <h2>${escapeHtml(s.fileName)} <span class="badge grade-${gradeLetter}">Nota ${st.grade ? st.grade.letter : '—'} · ${gradeScore}/10</span> ${sessionContextBadgesHtml(s)}</h2>
-      <p class="muted-text">${escapeHtml(st.grade.verdict)}</p>
+      <p class="muted-text">${escapeHtml(st.grade && st.grade.verdict ? st.grade.verdict : 'Sesión de torneo IA')}</p>
       <p class="muted-text" style="font-size:12px">${escapeHtml(importDiscardSummaryHtml(s))} · Formato coaching: <strong>${escapeHtml(formatDisplayLabel(fmtKey))}</strong>${st.shortHandedShare > 20 ? ' · Mesa corta ~' + st.shortHandedShare + '%' : ''}</p>
       <div class="session-export-bar">
         <span class="muted-text" data-i18n="export.session">Exportar informe</span>
@@ -8497,7 +8687,7 @@
         <div class="card-box"><h3>5 peores manos</h3>${topHandsHtml(st.worst5)}</div>
       </div>`;
 
-    const sortHtml = `
+    const handsInner = `
       <div class="panel-head" style="margin-top:18px">
         <h3>Manos de la sesión (${currentSession.hands.length})</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -8519,12 +8709,22 @@
       <div id="session-hands-filters" class="hand-filters"></div>
       <p class="muted-text" style="font-size:12px;margin:6px 0 0">Cola graves: <kbd>G</kbd> filtra · en revisión <kbd>→</kbd>/<kbd>Enter</kbd> siguiente · <kbd>←</kbd> anterior.</p>
       <div id="session-hands" class="record-list"></div>`;
+    const sortHtml = tournamentReviewReturn
+      ? `<details class="session-hands-fold"><summary>Manos de la sesión (${currentSession.hands.length})</summary>${handsInner}</details>`
+      : handsInner;
 
     box.innerHTML = statHtml + sortHtml;
     bindStyleDrillButtons(box);
     bindMetricExplainClicks(box);
     const reBtn = box.querySelector('#btn-reanalyze-session');
     if (reBtn) reBtn.addEventListener('click', () => { void reanalyzeCurrentSession(); });
+    const trnSumBtn = box.querySelector('#btn-trn-session-summary');
+    if (trnSumBtn) {
+      trnSumBtn.addEventListener('click', () => {
+        if (currentSession) currentSession._showHandStats = false;
+        renderSessionDetail(sortBy || 'evLoss');
+      });
+    }
     const graveBtn = box.querySelector('#btn-grave-queue');
     if (graveBtn) {
       graveBtn.addEventListener('click', () => {
@@ -8573,20 +8773,21 @@
 
   function topHandsHtml(list) {
     if (!list.length) return '<div class="muted-text">—</div>';
+    const hideReplay = !!tournamentReviewReturn;
     return list.map((h) => {
       const netCls = h.heroNetBB >= 0 ? 'net-pos' : 'net-neg';
       const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
       return `<div class="mini-hand">
         <div class="mini-hand-row">
           <span class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</span>
-          <span>${h.heroCode} ${h.heroPos}</span>
+          <span>${escapeHtml(h.heroCode || '')} ${escapeHtml(h.heroPos || '')}</span>
           <span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span>
           <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span>
           ${handScoreBadgeHtml(scoreMeta)}
         </div>
         <div class="mini-hand-actions">
           <button class="btn btn-ghost mini-link" data-review="${h.id}">Paso a paso</button>
-          <button class="btn btn-primary mini-link" data-replay="${h.id}">Volver a jugar</button>
+          ${hideReplay ? '' : `<button class="btn btn-primary mini-link" data-replay="${h.id}">Volver a jugar</button>`}
         </div>
       </div>`;
     }).join('');
@@ -8624,7 +8825,7 @@
       return `<div class="record">
         <div class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
         <div class="rec-main">
-          <div class="rec-scenario">${h.heroCode} <span style="color:var(--muted)">(${h.heroPos})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
+          <div class="rec-scenario">${escapeHtml(h.heroCode || '')} <span style="color:var(--muted)">(${escapeHtml(h.heroPos || '')})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
           <div class="rec-sub">Board: ${(h.board || []).map(Cards.cardToHTML).join('') || '—'} · ${h.nDecisions} decisiones · acierto ${h.accuracy}%</div>
           ${tagsHtml}
         </div>
@@ -8632,7 +8833,7 @@
           <div><span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span> · <span style="color:var(--red)">EV -${fmtBB(h.totalEvLoss)}bb</span></div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" data-review="${h.id}">Paso a paso</button>
-            <button class="btn btn-primary" style="padding:4px 10px;font-size:12px" data-replay="${h.id}">Volver a jugar</button>
+            ${tournamentReviewReturn ? '' : `<button class="btn btn-primary" style="padding:4px 10px;font-size:12px" data-replay="${h.id}">Volver a jugar</button>`}
           </div>
         </div>
       </div>`;
@@ -8712,6 +8913,7 @@
     currentHand = findHand(handId);
     if (!currentHand) return;
     analysisReviewReturn = false;
+    tournamentReviewReturn = false;
     restoreSessionReviewBackLabel();
     if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
     if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
@@ -9038,6 +9240,9 @@
     html += renderHandDecisionsSummary(h.decisions, 'session');
 
     const isAnalysisHand = !!(currentSession && currentSession.analysis);
+    /* Revisión abierta desde Torneos IA en vivo: sin replay GTO ni vuelta a análisis. */
+    const hideGtoReplay = !!tournamentReviewReturn;
+    if (tournamentReviewReturn) setTournamentReviewBackLabel();
     if (!isAnalysisHand) {
       html += '<div id="ai-report-session"></div>';
     }
@@ -9050,7 +9255,9 @@
       ).join('') + '</div>';
     }
 
-    html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
+    if (!hideGtoReplay) {
+      html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
+    }
     if (currentSession && currentSession.analysis && window.PTHandAnalysis && PTHandAnalysis.toTrainerConfig) {
       html += `<button class="btn btn-secondary" id="to-trainer-from-review" style="margin-top:14px;margin-left:8px">Jugar en entrenador (POV actual) &raquo;</button>`;
     }
@@ -9086,7 +9293,8 @@
         onThreadUpdate: (thread) => { if (currentHand) currentHand.coachThread = thread; }
       });
     }
-    $('#to-replay').addEventListener('click', () => startInteractiveReplay());
+    const toReplayBtn = $('#to-replay');
+    if (toReplayBtn) toReplayBtn.addEventListener('click', () => startInteractiveReplay());
     const toTrainer = $('#to-trainer-from-review');
     if (toTrainer) {
       toTrainer.addEventListener('click', () => {

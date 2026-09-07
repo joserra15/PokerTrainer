@@ -229,6 +229,17 @@
     best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
     cls = clampClassToMix(cls, freq);
 
+    // Invariante UI/pedagógica: si fold es la mejor y se eligió call (p.ej. sin
+    // pot odds), la clase no puede ser «óptima» aunque call esté a ≤8pp del mix.
+    // Sin esto, class=optima + best=fold aparece cuando call≈fold-8pp.
+    if (chosen === 'call' && best === 'fold' && cls === 'optima') {
+      cls = 'aceptable';
+    }
+    if (callSinOdds && chosen === 'call' && cls === 'optima') {
+      cls = 'aceptable';
+      best = 'fold';
+    }
+
     return { cls, best };
   }
 

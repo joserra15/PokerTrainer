@@ -11,7 +11,11 @@
         vpipHands: 0,
         pfrHands: 0,
         wonHands: 0,
-        wentToShowdown: 0
+        wentToShowdown: 0,
+        wonShowdown: 0,
+        decisions: 0,
+        goodDecisions: 0,
+        evLoss: 0
       };
     }
     return state.stats;
@@ -73,7 +77,21 @@
     }
     if (result && result.showdown) {
       st.wentToShowdown = (Number(st.wentToShowdown) || 0) + 1;
+      var deltas = (result && result.deltas) || {};
+      var hid = heroId || (seat && seat.id) || 'hero';
+      if ((Number(deltas[hid]) || 0) > 0) {
+        st.wonShowdown = (Number(st.wonShowdown) || 0) + 1;
+      }
     }
+    var decs = (hand && hand.decisions) || [];
+    decs.forEach(function (d) {
+      if (!d || d.unscored) return;
+      st.decisions = (Number(st.decisions) || 0) + 1;
+      if (d.class === 'green' || d.class === 'good' || d.ok) {
+        st.goodDecisions = (Number(st.goodDecisions) || 0) + 1;
+      }
+      st.evLoss = Math.round(((Number(st.evLoss) || 0) + (Number(d.evLoss) || 0)) * 100) / 100;
+    });
     return st;
   }
 
@@ -127,15 +145,75 @@
       pfr: pct(st.pfrHands || 0, st.handsPlayed || 0),
       wonHands: st.wonHands || 0,
       wentToShowdown: st.wentToShowdown || 0,
+      wonShowdown: st.wonShowdown || 0,
+      wtsd: pct(st.wentToShowdown || 0, st.handsPlayed || 0),
+      wsd: pct(st.wonShowdown || 0, st.wentToShowdown || 0),
+      gtoAccuracy: pct(st.goodDecisions || 0, st.decisions || 0),
+      gtoDecisions: st.decisions || 0,
+      evLoss: st.evLoss || 0,
       roleAccuracy: roleAccuracy,
       roleCorrect: roleScore.correct || 0,
       roleTotal: roleScore.total || 0
     };
   }
 
+  /** Agrega histórico de torneos IA (PTTournamentStore.list). */
+  function aggregateFromHistory(list) {
+    var rows = Array.isArray(list) ? list : [];
+    var n = rows.length;
+    if (!n) {
+      return {
+        n: 0, wins: 0, itm: 0, itmPct: 0, winPct: 0,
+        avgPlace: null, totalProfit: 0, totalBuyIn: 0, roiPct: 0,
+        avgRoi: 0, avgRoleAccuracy: 0, byKind: {}
+      };
+    }
+    var wins = 0;
+    var itm = 0;
+    var placeSum = 0;
+    var placeN = 0;
+    var totalProfit = 0;
+    var totalBuyIn = 0;
+    var roiSum = 0;
+    var roleSum = 0;
+    var roleN = 0;
+    var byKind = {};
+    rows.forEach(function (h) {
+      if (!h) return;
+      var place = Number(h.place);
+      var buyIn = Number(h.buyInEur) || 0;
+      var prize = Number(h.prizeEur) || 0;
+      var profit = h.profit != null ? Number(h.profit) : (prize - buyIn);
+      var kind = String(h.kind || 'mtt').toLowerCase();
+      byKind[kind] = (byKind[kind] || 0) + 1;
+      totalBuyIn += buyIn;
+      totalProfit += profit;
+      if (place === 1) wins += 1;
+      if (prize > 0) itm += 1;
+      if (place > 0) { placeSum += place; placeN += 1; }
+      if (h.roi != null) roiSum += Number(h.roi) || 0;
+      if (h.roleAccuracy != null) { roleSum += Number(h.roleAccuracy) || 0; roleN += 1; }
+    });
+    return {
+      n: n,
+      wins: wins,
+      itm: itm,
+      itmPct: Math.round((itm / n) * 1000) / 10,
+      winPct: Math.round((wins / n) * 1000) / 10,
+      avgPlace: placeN ? Math.round((placeSum / placeN) * 10) / 10 : null,
+      totalProfit: Math.round(totalProfit * 100) / 100,
+      totalBuyIn: Math.round(totalBuyIn * 100) / 100,
+      roiPct: totalBuyIn > 0 ? Math.round((totalProfit / totalBuyIn) * 1000) / 10 : 0,
+      avgRoi: Math.round((roiSum / n) * 10) / 10,
+      avgRoleAccuracy: roleN ? Math.round((roleSum / roleN) * 10) / 10 : 0,
+      byKind: byKind
+    };
+  }
+
   global.PTTournamentStats = {
     onHandComplete: onHandComplete,
     summary: summary,
-    ensureStats: ensureStats
+    ensureStats: ensureStats,
+    aggregateFromHistory: aggregateFromHistory
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

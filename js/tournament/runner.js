@@ -59,6 +59,20 @@
     state.blindLevel = blinds.level || state.blindLevel;
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
+    try {
+      var kind = (state.config && state.config.kind) || 'mtt';
+      var hub = (kind === 'spin') ? 'spin' : 'mtt';
+      hand.kind = kind;
+      hand.formatHub = hub;
+      hand.state = {
+        formatHub: hub,
+        kind: kind,
+        playersLeft: St.playersLeft(state),
+        placesPaid: state.config && state.config.placesPaid,
+        mttPhase: 'auto'
+      };
+    } catch (eMeta) { /* */ }
+    Live.runToHeroOrEnd(hand);
     state._liveHand = hand;
     return hand;
   }
@@ -93,6 +107,12 @@
         bb: lv.bb,
         ante: lv.ante
       });
+      state.blindUpPending = {
+        level: lv.level,
+        sb: lv.sb,
+        bb: lv.bb,
+        ante: lv.ante
+      };
     }
     return lv;
   }
@@ -129,15 +149,102 @@
     if (Other && Other.simulateRound) Other.simulateRound(state, blinds);
 
     Seat.rebalance(state);
+    try {
+      var leftNow = St.playersLeft(state);
+      var placesPaid = Number(state.config && state.config.placesPaid) || 0;
+      var heroNow = St.hero(state);
+      var evs = state.events || [];
+      if (!state.finalTableShown && evs.some(function (e) { return e && e.type === 'final_table'; })) {
+        state.finalTableShown = true;
+        state.finalTablePending = { players: leftNow, at: Date.now() };
+      }
+      if (!state.itmShown && heroNow && heroNow.alive && placesPaid > 0 && leftNow <= placesPaid) {
+        state.itmShown = true;
+        state.itmPending = { place: leftNow, paid: placesPaid, at: Date.now() };
+      }
+    } catch (ePop) { /* ignore */ }
     state._liveHand = null;
     state.handLog = state.handLog || [];
+    state.gtoSession = state.gtoSession || { decisions: 0, scored: 0, hits: 0, totalEvLoss: 0 };
+    var snapDec = (hand.decisions || []).slice();
+    if (snapDec.length) {
+      var GEval = global.PTTournamentGtoEval;
+      var sum = GEval && GEval.summarizeDecisions ? GEval.summarizeDecisions(snapDec) : null;
+      if (sum) {
+        state.gtoSession.decisions += sum.decisions;
+        state.gtoSession.scored += sum.scored;
+        state.gtoSession.hits += sum.hits;
+        state.gtoSession.totalEvLoss = Math.round((state.gtoSession.totalEvLoss + sum.totalEvLoss) * 100) / 100;
+        state.gtoSession.accuracy = state.gtoSession.scored
+          ? Math.round((state.gtoSession.hits / state.gtoSession.scored) * 1000) / 10
+          : 0;
+      }
+    }
     state.handLog.push({
       handIndex: state.handIndex,
       winners: (hand.result.winners || []).slice(),
       pot: hand.result.pot,
-      showdown: !!hand.result.showdown
+      showdown: !!hand.result.showdown,
+      tied: !!hand.result.tied,
+      board: (hand.result.board || hand.board || []).slice(),
+      street: hand.street,
+      sb: hand.sb,
+      bb: hand.bb,
+      ante: hand.ante,
+      seats: (hand.seats || []).map(function (s) {
+        return {
+          id: s.id,
+          name: s.name,
+          isHero: !!s.isHero,
+          pos: s.pos,
+          cards: (s.cards || []).slice(),
+          startStack: s.startStack,
+          stack: s.stack,
+          invested: s.invested,
+          folded: !!s.folded
+        };
+      }),
+      log: (hand.log || []).slice(),
+      decisions: snapDec,
+      result: {
+        deltas: Object.assign({}, hand.result.deltas || {}),
+        winners: (hand.result.winners || []).slice(),
+        showdown: !!hand.result.showdown,
+        tied: !!hand.result.tied,
+        pot: hand.result.pot,
+        board: (hand.result.board || hand.board || []).slice(),
+        holeCards: Object.assign({}, hand.result.holeCards || {}),
+        handNames: Object.assign({}, hand.result.handNames || {}),
+        heroNet: hand.result.heroNet
+      }
     });
-    if (state.handLog.length > 40) state.handLog = state.handLog.slice(-40);
+    if (state.handLog.length > 80) state.handLog = state.handLog.slice(-80);
+
+    /* Sesión analizada (sin tope destructivo): para stats/review como import. */
+    try {
+      var Bridge = global.PTTournamentSessionBridge;
+      if (Bridge && Bridge.handFromTournament) {
+        state.sessionHands = state.sessionHands || [];
+        var entry = state.handLog[state.handLog.length - 1];
+        var analyzed = Bridge.handFromTournament(entry, {
+          tournamentId: state.id,
+          handIndex: entry && entry.handIndex,
+          heroName: (global.PTTournamentState && PTTournamentState.hero(state) || {}).name
+        });
+        if (analyzed) {
+          /* Sustituye si ya existe el mismo handIndex (re-apply). */
+          var replaced = false;
+          for (var si = 0; si < state.sessionHands.length; si++) {
+            if (state.sessionHands[si] && state.sessionHands[si].handIndex === analyzed.handIndex) {
+              state.sessionHands[si] = analyzed;
+              replaced = true;
+              break;
+            }
+          }
+          if (!replaced) state.sessionHands.push(analyzed);
+        }
+      }
+    } catch (eBridge) { /* ignore */ }
 
     var fin = checkFinished(state);
     return fin || state;
@@ -217,15 +324,63 @@
 
     state.status = 'finished';
     state.finishedAt = new Date().toISOString();
+    state._liveHand = null;
+
+    /* Persistir sesión con meta de torneo (puesto/ROI) ya calculada. */
+    var sessionId = null;
+    var sessionStats = null;
+    try {
+      var Bridge2 = global.PTTournamentSessionBridge;
+      var StoreApi = global.Store;
+      if (Bridge2 && Bridge2.buildSessionFromTournament && StoreApi && StoreApi.saveSession) {
+        var session = Bridge2.buildSessionFromTournament(state, {
+          tournamentMeta: {
+            place: place,
+            prizeEur: prizeEur,
+            stats: sum
+          }
+        });
+        if (session && session.hands && session.hands.length) {
+          sessionId = session.id;
+          sessionStats = session.stats || null;
+          state.sessionId = sessionId;
+          state.sessionStats = sessionStats;
+          state._savedSession = session;
+          /* Cache inmediata para que «Estadísticas del torneo» no quede colgada. */
+          try {
+            if (typeof StoreApi.cacheSession === 'function') StoreApi.cacheSession(session);
+            else if (StoreApi._sessionMemoryCache) StoreApi._sessionMemoryCache[session.id] = session;
+          } catch (eCache) { /* */ }
+          Promise.resolve(StoreApi.saveSession(session)).then(function (res) {
+            if (res && res.ok === false) {
+              try { console.warn('[Tournaments] saveSession failed', res.error); } catch (e0) { /* */ }
+              try {
+                if (typeof StoreApi.saveSessionLocal === 'function') StoreApi.saveSessionLocal(session);
+              } catch (eLoc) { /* */ }
+            }
+          }).catch(function (err) {
+            try { console.warn('[Tournaments] saveSession failed', err); } catch (e1) { /* */ }
+            try {
+              if (typeof StoreApi.saveSessionLocal === 'function') StoreApi.saveSessionLocal(session);
+            } catch (e2) { /* */ }
+          });
+        }
+      }
+    } catch (eSess) {
+      try { console.warn('[Tournaments] session bridge failed', eSess); } catch (e1) { /* */ }
+    }
+
     state.result = {
       place: place,
       prizeEur: prizeEur,
       roleScore: roleScore,
       xpGained: xp,
       stats: sum,
-      reason: opts.reason || 'finished'
+      gtoSession: state.gtoSession || null,
+      reason: opts.reason || 'finished',
+      sessionId: sessionId,
+      sessionStats: sessionStats
     };
-    state._liveHand = null;
 
     if (StoreMod && StoreMod.save) {
       StoreMod.save({
@@ -240,23 +395,42 @@
         roi: sum.roi,
         roleAccuracy: roleScore.accuracy,
         finishedAt: state.finishedAt,
-        presetId: state._presetId || state.config.id
+        presetId: state._presetId || state.config.id,
+        sessionId: sessionId
       });
     }
+
+    try {
+      var Wallet = global.PTTournamentWallet;
+      if (Wallet && Wallet.credit) {
+        var roleKoins = Number(roleScore.koins) || ((roleScore.correct || 0) * 2);
+        var totalCredit = Math.round(((prizeEur || 0) + roleKoins) * 100) / 100;
+        if (totalCredit > 0) {
+          Wallet.credit(totalCredit, {
+            type: 'tournament_payout',
+            tournamentId: state.id,
+            place: place,
+            prizeEur: prizeEur,
+            roleKoins: roleKoins,
+            roleCorrect: roleScore.correct || 0
+          });
+        }
+        state.result.roleKoins = roleKoins;
+        state.result.totalKoinsAwarded = totalCredit;
+      }
+      if (Wallet && Wallet.noteTournamentPlayed) Wallet.noteTournamentPlayed();
+      try {
+        if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.publishHero) {
+          PTTournamentLeaderboard.publishHero({ forceCloud: true });
+        }
+      } catch (eLb) { /* ignore */ }
+    } catch (eW) { /* ignore */ }
     return state.result;
   }
 
   function onBustAsk(state) {
-    var mode = (state.config && state.config.onBust) || 'ask';
-    if (mode === 'simulate') {
-      return simulateRest(state);
-    }
-    if (mode === 'end') {
-      return finish(state, { reason: 'bust' });
-    }
-    state.status = 'busted_pending';
-    state._liveHand = null;
-    return { pending: true, status: 'busted_pending' };
+    /* Siempre simular el resto del field → resumen del torneo. */
+    return simulateRest(state);
   }
 
   function eliminateWeighted(state) {

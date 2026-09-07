@@ -4647,6 +4647,21 @@ window.PT_NASH_PUSH_JSON = {
     return false;
   }
 
+  /**
+   * Mezcla de shove sin duplicar raise+allin (eso rompía el % mostrado ≈48/2).
+   * Preferimos `allin`; si solo hay `raise` legal, volcamos el peso ahí.
+   */
+  function shoveOpenMix(fold, shove, input) {
+    const f = Math.max(0, Number(fold) || 0);
+    const s = Math.max(0, Number(shove) || 0);
+    const avail = (input && input.availableActions) || [];
+    const hasAllin = !avail.length || avail.indexOf('allin') >= 0;
+    const hasRaise = avail.indexOf('raise') >= 0;
+    if (hasAllin) return { raise: 0, fold: f, call: 0, allin: s };
+    if (hasRaise) return { raise: s, fold: f, call: 0, allin: 0 };
+    return { raise: 0, fold: f, call: 0, allin: s };
+  }
+
   /** Frecuencias preflop: Nash-approx por profundidad (+ ante/ICM lite). */
   function pushFoldStrategy(input) {
     const code = input.handCode;
@@ -4672,14 +4687,14 @@ window.PT_NASH_PUSH_JSON = {
     }
     const shoveW = openShoveWeights(pos, stack, input);
     const sw = shoveW[code] || 0;
-    if (sw >= 0.85) return { raise: 0.87, fold: 0.05, call: 0, allin: 0.87 };
+    if (sw >= 0.85) return shoveOpenMix(0.05, 0.95, input);
     if (sw >= 0.55) {
-      const allin = 0.55 + (sw - 0.55) * 0.9;
-      const fold = Math.max(0.08, 1 - allin - 0.05);
-      return { raise: allin, fold: fold, call: 0, allin: allin };
+      const allin = Math.min(0.92, 0.55 + (sw - 0.55) * 0.9);
+      const fold = Math.max(0.08, 1 - allin);
+      return shoveOpenMix(fold, allin, input);
     }
-    if (sw >= 0.35) return { raise: 0.12, fold: 0.78, call: 0, allin: 0.1 };
-    return { raise: 0.04, fold: 0.95, call: 0, allin: 0.01 };
+    if (sw >= 0.35) return shoveOpenMix(0.88, 0.12, input);
+    return shoveOpenMix(0.96, 0.04, input);
   }
 
   function isPushPhase(config) {
@@ -9504,6 +9519,7 @@ window.PT_NASH_PUSH_JSON = {
    * @param {boolean} [priorAggressorBet] true si el héroe ya bet/raise en calle previa
    */
   function aggressorLeadType(street, priorAggressorBet) {
+    if (street === 'preflop') return 'none';
     if (street === 'turn') {
       return priorAggressorBet === false ? 'delayed_cbet' : 'barrel2';
     }
@@ -9557,6 +9573,8 @@ window.PT_NASH_PUSH_JSON = {
       spotKind: input.spotKind || 'postflop',
       facing: (input.toCallBB || 0) > 0 ? 'bet' : 'none',
       leadType: (function () {
+        /* Preflop no tiene c-bet / donk / probe (eso es postflop). */
+        if (street === 'preflop') return 'none';
         if ((input.toCallBB || 0) > 0) return 'none';
         if (input.initiative === 'aggressor') {
           return aggressorLeadType(street, input.priorAggressorBet);
@@ -10665,6 +10683,17 @@ window.PT_NASH_PUSH_JSON = {
 
     best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
     cls = clampClassToMix(cls, freq);
+
+    // Invariante UI/pedagógica: si fold es la mejor y se eligió call (p.ej. sin
+    // pot odds), la clase no puede ser «óptima» aunque call esté a ≤8pp del mix.
+    // Sin esto, class=optima + best=fold aparece cuando call≈fold-8pp.
+    if (chosen === 'call' && best === 'fold' && cls === 'optima') {
+      cls = 'aceptable';
+    }
+    if (callSinOdds && chosen === 'call' && cls === 'optima') {
+      cls = 'aceptable';
+      best = 'fold';
+    }
 
     return { cls, best };
   }
@@ -24251,8 +24280,14 @@ window.PT_NASH_PUSH_JSON = {
 
   function cloudDataKeys() {
     var s = communityDataSuffix();
-    if (!s) return ['stats', 'history', 'errors', 'onboarding'];
-    return ['stats' + s, 'history' + s, 'errors' + s, 'school' + s];
+    var base = s
+      ? ['stats' + s, 'history' + s, 'errors' + s, 'school' + s]
+      : ['stats', 'history', 'errors', 'onboarding'];
+    return base.concat([
+      'tournamentWallet' + s,
+      'tournamentHistory' + s,
+      'tournamentActive' + s
+    ]);
   }
 
   /** Extrae el snapshot lógico de la comunidad activa desde el payload nube completo. */
@@ -24265,7 +24300,10 @@ window.PT_NASH_PUSH_JSON = {
         history: Array.isArray(p.history) ? p.history : [],
         errors: Array.isArray(p.errors) ? p.errors : [],
         clearedAt: p.clearedAt || {},
-        onboarding: p.onboarding || null
+        onboarding: p.onboarding || null,
+        tournamentWallet: p.tournamentWallet || null,
+        tournamentHistory: Array.isArray(p.tournamentHistory) ? p.tournamentHistory : null,
+        tournamentActive: p.tournamentActive || null
       };
     }
     return {
@@ -24274,7 +24312,10 @@ window.PT_NASH_PUSH_JSON = {
       errors: Array.isArray(p['errors' + s]) ? p['errors' + s] : [],
       clearedAt: p['clearedAt' + s] || {},
       school: p['school' + s] || null,
-      onboarding: null
+      onboarding: null,
+      tournamentWallet: p['tournamentWallet' + s] || null,
+      tournamentHistory: Array.isArray(p['tournamentHistory' + s]) ? p['tournamentHistory' + s] : null,
+      tournamentActive: p['tournamentActive' + s] || null
     };
   }
 
@@ -24290,14 +24331,57 @@ window.PT_NASH_PUSH_JSON = {
       out.errors = snap.errors;
       out.clearedAt = snap.clearedAt || {};
       if (snap.onboarding) out.onboarding = snap.onboarding;
+      mergeTournamentFieldsIntoCloud(out, snap, '');
     } else {
       out['stats' + s] = snap.stats;
       out['history' + s] = snap.history;
       out['errors' + s] = snap.errors;
       out['school' + s] = getSchoolProgress();
       out['clearedAt' + s] = snap.clearedAt || {};
+      mergeTournamentFieldsIntoCloud(out, snap, s);
     }
     return out;
+  }
+
+  /**
+   * Torneos en push completo: no inventar wallet default ni pisar histórico
+   * remoto con [] local. Active se borra en nube si local no tiene.
+   */
+  function mergeTournamentFieldsIntoCloud(out, snap, s) {
+    s = s || '';
+    var wKey = 'tournamentWallet' + s;
+    var hKey = 'tournamentHistory' + s;
+    var aKey = 'tournamentActive' + s;
+    if (snap.tournamentWallet && !snap.tournamentWallet.isDefault) {
+      out[wKey] = snap.tournamentWallet;
+    }
+    var localHist = Array.isArray(snap.tournamentHistory) ? snap.tournamentHistory : [];
+    var cloudHist = Array.isArray(out[hKey]) ? out[hKey] : [];
+    if (localHist.length) {
+      out[hKey] = mergeTournamentHistoryLists(cloudHist, localHist);
+    } else if (!cloudHist.length && out[hKey] == null) {
+      out[hKey] = [];
+    }
+    /* si local vacío y cloud tiene datos, conservar cloud (no pisar). */
+    if (snap.tournamentActive) out[aKey] = snap.tournamentActive;
+    else delete out[aKey];
+  }
+
+  function mergeTournamentHistoryLists(a, b) {
+    const map = Object.create(null);
+    function add(item) {
+      if (!item || !item.id) return;
+      const prev = map[item.id];
+      if (!prev) { map[item.id] = item; return; }
+      const ta = Date.parse(item.finishedAt || 0) || 0;
+      const tb = Date.parse(prev.finishedAt || 0) || 0;
+      if (ta >= tb) map[item.id] = item;
+    }
+    (a || []).forEach(add);
+    (b || []).forEach(add);
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (x, y) {
+      return (Date.parse(y.finishedAt || 0) || 0) - (Date.parse(x.finishedAt || 0) || 0);
+    }).slice(0, 100);
   }
 
   function read(key, fallback) {
@@ -24549,6 +24633,7 @@ window.PT_NASH_PUSH_JSON = {
     userId = uid || null;
     if (userId) {
       migrateLegacyOnce(userId);
+      try { migrateTournamentKeysForUser(userId); } catch (eTwMig) { /* ignore */ }
       try {
         const keyed = 'pt_school_backup_v1_' + userId;
         if (!localStorage.getItem(keyed)) {
@@ -24563,6 +24648,62 @@ window.PT_NASH_PUSH_JSON = {
       } catch (eSch) { /* ignore */ }
       try { hydrateSchoolFromBackupIntoStats(); } catch (eHyd) { /* ignore */ }
     }
+  }
+
+  /**
+   * Copia wallet/histórico/active sin usuario (o guest) → clave con uid,
+   * para que un torneo guardado antes del login no quede huérfano.
+   */
+  function migrateTournamentKeysForUser(uid) {
+    if (!uid || typeof localStorage === 'undefined') return { moved: 0 };
+    const prefixes = [
+      'pt_tournament_wallet_v1',
+      'pt_tournaments_v1',
+      'pt_tournament_active_v1'
+    ];
+    const guest = 'pt_guest_local';
+    let moved = 0;
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) keys.push(k);
+    }
+    function isOwnedByUser(k, prefix) {
+      return k === prefix + '_' + uid || k.indexOf(prefix + '_') === 0 &&
+        k.slice(-(uid.length + 1)) === '_' + uid;
+    }
+    function destForSource(k, prefix) {
+      if (isOwnedByUser(k, prefix)) return null;
+      if (k === prefix) return prefix + '_' + uid;
+      if (k === prefix + '_' + guest) return prefix + '_' + uid;
+      if (k.indexOf(prefix) !== 0) return null;
+      const rest = k.slice(prefix.length);
+      if (!rest) return null;
+      if (rest === '_' + guest) return prefix + '_' + uid;
+      const guestSuffix = '_' + guest;
+      if (rest.length > guestSuffix.length &&
+          rest.slice(-guestSuffix.length) === guestSuffix) {
+        return prefix + rest.slice(0, -guestSuffix.length) + '_' + uid;
+      }
+      /* Comunidad sin user: _mttlab (no UUID) */
+      if (/^_[a-z][a-z0-9]*$/i.test(rest)) return prefix + rest + '_' + uid;
+      return null;
+    }
+    prefixes.forEach(function (prefix) {
+      keys.forEach(function (k) {
+        const dest = destForSource(k, prefix);
+        if (!dest || dest === k) return;
+        try {
+          const val = localStorage.getItem(k);
+          if (val == null) return;
+          const existing = localStorage.getItem(dest);
+          if (existing && existing !== '[]' && existing !== 'null' && existing !== '{}') return;
+          localStorage.setItem(dest, val);
+          moved++;
+        } catch (e) { /* ignore */ }
+      });
+    });
+    return { moved: moved };
   }
 
   function getUserId() {
@@ -25536,6 +25677,11 @@ window.PT_NASH_PUSH_JSON = {
     if (session && session.source === 'tournamentSummary') {
       return mergeTournamentSummaryIfDuplicate(session);
     }
+    /* Torneos IA: cada torneo es una sesión propia. No fusionar por fileName
+     * (mismo preset + mismo puesto acumulaba manos de torneos previos). */
+    if (session && (session.source === 'tournamentAi' || session.tournamentAi)) {
+      return session;
+    }
     if (!session || !session.hands || !session.hands.length || !session.fileName) return session;
     const list = getSessionIndex();
     const candidates = list.filter(function (s) {
@@ -25667,7 +25813,14 @@ window.PT_NASH_PUSH_JSON = {
     return { ok: true, session: session, cloudOnly: false };
   }
 
+  function cacheSession(session) {
+    if (!session || !session.id) return false;
+    sessionMemoryCache[session.id] = session;
+    return true;
+  }
+
   async function saveSession(session, onProgress) {
+    if (session && session.id) sessionMemoryCache[session.id] = session;
     migrateLegacySessionsList();
     session = await mergeSessionIfDuplicate(session);
     const nHands = (session.hands && session.hands.length) || 0;
@@ -25808,6 +25961,27 @@ window.PT_NASH_PUSH_JSON = {
       errors: getErrors(),
       clearedAt: getClearedAt()
     };
+    try {
+      if (global.PTTournamentWallet) {
+        var wSnap = null;
+        if (PTTournamentWallet.peek) {
+          var peeked = PTTournamentWallet.peek();
+          wSnap = peeked && PTTournamentWallet.snapshot
+            ? PTTournamentWallet.snapshot()
+            : peeked;
+        } else if (PTTournamentWallet.snapshot) {
+          wSnap = PTTournamentWallet.snapshot();
+        }
+        if (wSnap && !wSnap.isDefault) snap.tournamentWallet = wSnap;
+      }
+      if (global.PTTournamentStore) {
+        if (PTTournamentStore.list) snap.tournamentHistory = PTTournamentStore.list();
+        if (PTTournamentStore.loadActive) {
+          var act = PTTournamentStore.loadActive();
+          if (act) snap.tournamentActive = act;
+        }
+      }
+    } catch (eTw) { /* ignore */ }
     const onboarding = getOnboardingForCloud();
     if (onboarding) snap.onboarding = onboarding;
     return snap;
@@ -25963,6 +26137,30 @@ window.PT_NASH_PUSH_JSON = {
         if (s) out['school' + s] = getSchoolProgress();
       } else if (key === 'onboarding' && !s) {
         out.onboarding = mergeOnboardingStates(local.onboarding, cloud.onboarding);
+      } else if (key === 'tournamentWallet') {
+        const localW = local.tournamentWallet;
+        const cloudW = s ? cloud['tournamentWallet' + s] : cloud.tournamentWallet;
+        if (localW && !localW.isDefault) {
+          if (!cloudW || !cloudW.updatedAt ||
+              (Date.parse(localW.updatedAt || 0) || 0) >= (Date.parse(cloudW.updatedAt || 0) || 0)) {
+            out[cloudDataKey || key] = localW;
+          } else {
+            out[cloudDataKey || key] = cloudW;
+          }
+        }
+      } else if (key === 'tournamentHistory') {
+        const localH = Array.isArray(local.tournamentHistory) ? local.tournamentHistory : [];
+        const cloudH = s
+          ? (Array.isArray(cloud['tournamentHistory' + s]) ? cloud['tournamentHistory' + s] : [])
+          : (Array.isArray(cloud.tournamentHistory) ? cloud.tournamentHistory : []);
+        out[cloudDataKey || key] = mergeTournamentHistoryLists(cloudH, localH);
+      } else if (key === 'tournamentActive') {
+        if (local.tournamentActive) {
+          out[cloudDataKey || key] = local.tournamentActive;
+        } else {
+          /* clearActive local → borrar en nube */
+          delete out[cloudDataKey || key];
+        }
       } else if (local[key] != null) {
         out[cloudDataKey || key] = local[key];
       }
@@ -25999,7 +26197,10 @@ window.PT_NASH_PUSH_JSON = {
     var s = communityDataSuffix();
     if (s && (cloudSnapshot['stats' + s] != null || cloudSnapshot['history' + s] != null ||
         cloudSnapshot['errors' + s] != null || cloudSnapshot['school' + s] != null ||
-        cloudSnapshot['clearedAt' + s] != null)) {
+        cloudSnapshot['clearedAt' + s] != null ||
+        cloudSnapshot['tournamentWallet' + s] != null ||
+        cloudSnapshot['tournamentHistory' + s] != null ||
+        cloudSnapshot['tournamentActive' + s] != null)) {
       logical = sliceCloudForActive(cloudSnapshot);
     }
     const local = getCloudSnapshot();
@@ -26031,6 +26232,31 @@ window.PT_NASH_PUSH_JSON = {
     write(scopedDataKey('errors'), errors);
     writeStats(stats);
     if (!s) applyOnboardingFromCloud(logical.onboarding);
+    try {
+      if (logical.tournamentWallet && global.PTTournamentWallet && PTTournamentWallet.mergeFromCloud) {
+        PTTournamentWallet.mergeFromCloud(logical.tournamentWallet);
+      }
+      if (Array.isArray(logical.tournamentHistory) && logical.tournamentHistory.length &&
+          global.PTTournamentStore) {
+        if (PTTournamentStore.mergeFromCloud) {
+          PTTournamentStore.mergeFromCloud(logical.tournamentHistory);
+        } else if (PTTournamentStore.save) {
+          logical.tournamentHistory.forEach(function (h) {
+            try { PTTournamentStore.save(h); } catch (eH) { /* */ }
+          });
+        }
+      }
+      if (global.PTTournamentStore && PTTournamentStore.saveActive) {
+        var localAct = PTTournamentStore.loadActive && PTTournamentStore.loadActive();
+        var remoteAct = logical.tournamentActive || null;
+        if (remoteAct) {
+          var preferRemote = PTTournamentStore.isPreferableActive
+            ? PTTournamentStore.isPreferableActive(remoteAct, localAct)
+            : (!localAct || (Date.parse(remoteAct._savedAt || 0) || 0) >= (Date.parse((localAct && localAct._savedAt) || 0) || 0));
+          if (preferRemote) PTTournamentStore.saveActive(remoteAct, { silent: true, fromCloud: true });
+        }
+      }
+    } catch (eTMerge) { /* ignore */ }
     return { history: history.length, errors: errors.length, sessions: getSessions().length, stats: stats };
   }
 
@@ -26040,7 +26266,10 @@ window.PT_NASH_PUSH_JSON = {
     var s = communityDataSuffix();
     if (s && (snapshot['stats' + s] != null || snapshot['history' + s] != null ||
         snapshot['errors' + s] != null || snapshot['school' + s] != null ||
-        snapshot['clearedAt' + s] != null)) {
+        snapshot['clearedAt' + s] != null ||
+        snapshot['tournamentWallet' + s] != null ||
+        snapshot['tournamentHistory' + s] != null ||
+        snapshot['tournamentActive' + s] != null)) {
       logical = sliceCloudForActive(snapshot);
     }
     const cloudCa = logical.clearedAt || {};
@@ -26085,6 +26314,27 @@ window.PT_NASH_PUSH_JSON = {
       write(scopedDataKey('errors'), filterByClearedAt(logical.errors, effectiveCloudClear('errors', cloudCa)));
     }
     if (!s) applyOnboardingFromCloud(logical.onboarding);
+    try {
+      if (logical.tournamentWallet && global.PTTournamentWallet && PTTournamentWallet.mergeFromCloud) {
+        PTTournamentWallet.mergeFromCloud(logical.tournamentWallet);
+      }
+      if (Array.isArray(logical.tournamentHistory) && global.PTTournamentStore) {
+        if (PTTournamentStore.replaceAll) {
+          PTTournamentStore.replaceAll(logical.tournamentHistory);
+        } else if (PTTournamentStore.save) {
+          logical.tournamentHistory.forEach(function (h) {
+            try { PTTournamentStore.save(h); } catch (eH) { /* */ }
+          });
+        }
+      }
+      if (global.PTTournamentStore) {
+        if (logical.tournamentActive && PTTournamentStore.saveActive) {
+          PTTournamentStore.saveActive(logical.tournamentActive, { silent: true, fromCloud: true });
+        } else if (!logical.tournamentActive && PTTournamentStore.clearActive) {
+          PTTournamentStore.clearActive({ silent: true });
+        }
+      }
+    } catch (eTRep) { /* ignore */ }
   }
 
   function normalizeCoachEntry(entry) {
@@ -26425,8 +26675,9 @@ window.PT_NASH_PUSH_JSON = {
     getSchoolProgress, saveSchoolProgress,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,
+    migrateTournamentKeysForUser,
     purgeLocalUserData, scenarioLabel,
-    getSessions, getSession, getSessionAsync, saveSession, removeSession, deleteSessionTxt,
+    getSessions, getSession, getSessionAsync, saveSession, saveSessionLocal, cacheSession, removeSession, deleteSessionTxt,
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
     mergeActiveIntoCloudPayload, sliceCloudForActive, communityDataSuffix, cloudDataKeys,
@@ -30523,6 +30774,11 @@ window.PT_NASH_PUSH_JSON = {
     }
     /* No refrescar entitlements en cada mano (bloqueaba Escuela en móvil); debounce. */
     scheduleRefresh();
+    try {
+      if (global.PTTournamentWallet && PTTournamentWallet.noteTrainerHand) {
+        PTTournamentWallet.noteTrainerHand();
+      }
+    } catch (eTH) { /* ignore */ }
     return res.data || { ok: true };
   }
 
@@ -33852,6 +34108,324 @@ window.PT_NASH_PUSH_JSON = {
 })(window);
 
 /*
+ * hand-end-view.js — HTML compartido de fin de mano (entrenador / torneos).
+ * Renderiza resumen de resultado + bloque de decisiones GTO.
+ */
+(function (global) {
+  'use strict';
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function cap(s) {
+    s = String(s || '');
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+  }
+
+  function verdictWord(cls) {
+    return {
+      optima: 'Óptima',
+      aceptable: 'Aceptable',
+      imprecisa: 'Imprecisa',
+      error: 'Error',
+      unscored: 'Sin nota'
+    }[cls] || cls || '';
+  }
+
+  function cardHtml(code) {
+    if (!code) return '';
+    if (global.Cards && Cards.cardToHTML) {
+      try { return Cards.cardToHTML(code); } catch (e) { /* */ }
+    }
+    return '<span class="card-code">' + esc(code) + '</span>';
+  }
+
+  function cardsHtml(arr) {
+    return (arr || []).map(cardHtml).join('');
+  }
+
+  function fmtBb(n) {
+    var v = Number(n) || 0;
+    var t = (Math.round(v * 100) / 100).toFixed(2).replace(/\.?0+$/, '');
+    return t;
+  }
+
+  function cardCode(c) {
+    if (!c) return '';
+    if (typeof c === 'string') return c;
+    return c.code || (c.r != null && c.s ? String(c.r) + c.s : '');
+  }
+
+  /** Badge como en Entrenar: «Nota 10/10» (sin letra confusa tipo «10/10 · A»). */
+  function scoreBadgeHtml(meta) {
+    if (!meta || meta.score == null) return '';
+    var letter = (meta.letter || 'C').charAt(0);
+    var score = Math.round(Number(meta.score) * 10) / 10;
+    var scoreTxt = (Math.round(score * 10) / 10).toFixed(1).replace(/\.0$/, '');
+    return '<span class="badge grade-' + esc(letter) + ' hand-score-badge" title="Nota de la mano (0–10)">' +
+      'Nota ' + esc(scoreTxt) + '/10</span>';
+  }
+
+  function optimalBannerHtml(meta) {
+    if (!meta) return '';
+    if (meta.allOptimal) {
+      return '<div class="hand-score-optimal ok">Todas las decisiones han sido óptimas</div>';
+    }
+    if (meta.verdict) {
+      return '<div class="hand-score-optimal no">' + esc(meta.verdict) + '</div>';
+    }
+    return '<div class="hand-score-optimal no">No todas las decisiones han sido óptimas</div>';
+  }
+
+  function gtoBarsHtml(gto) {
+    if (!gto || typeof gto !== 'object') return '';
+    var keys = Object.keys(gto).sort(function (a, b) {
+      return (Number(gto[b]) || 0) - (Number(gto[a]) || 0);
+    });
+    if (!keys.length) return '';
+    return '<div class="gto-bars">' + keys.map(function (k) {
+      var pct = Math.round((Number(gto[k]) || 0) * 100);
+      return '<div class="gto-bar"><span class="lbl">' + esc(k) +
+        '</span><span class="track"><i class="fill" style="width:' + pct + '%"></i></span>' +
+        '<span class="pct">' + pct + '%</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function optionGridHtml(breakdown, chosen, best) {
+    if (!breakdown || !breakdown.length) return '';
+    return '<div class="option-grid">' + breakdown.map(function (o) {
+      var id = o.id || o.action || '';
+      var pct = o.pct != null ? o.pct : Math.round((Number(o.frequency) || 0) * 1000) / 10;
+      var cls = 'opt-cell';
+      if (id === chosen) cls += ' is-chosen';
+      if (id === best) cls += ' is-best';
+      return '<div class="' + cls + '"><strong>' + esc(o.label || id) + '</strong>' +
+        '<span>' + esc(String(pct)) + '%</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function renderDecisionsHtml(decisions) {
+    if (!decisions || !decisions.length) {
+      return '<div class="card-box hand-end-decisions"><p class="muted">Sin decisiones del héroe en esta mano.</p></div>';
+    }
+    var html = '<div class="card-box hand-end-decisions"><h3>Evaluación GTO de la mano</h3>';
+    decisions.forEach(function (d) {
+      var cls = d.class || 'unscored';
+      var label = d.label || d.chosen || d.action || '';
+      html += '<div class="dec-review">' +
+        '<div class="dec-head"><strong>' + esc(cap(d.street)) + '</strong> · ' + esc(label) +
+        ' <span class="verdict ' + esc(cls) + '">' + esc(verdictWord(cls)) + '</span>';
+      if (d.evLoss > 0) {
+        html += ' <span class="net-neg">−' + esc(fmtBb(d.evLoss)) + ' bb</span>';
+      }
+      html += '</div>';
+      if (d.explanation) html += '<div class="dec-expl">' + esc(d.explanation) + '</div>';
+      if (d.context && typeof d.context === 'string') {
+        html += '<div class="dec-context muted">' + esc(d.context) + '</div>';
+      }
+      if (d.optionBreakdown && d.optionBreakdown.length) {
+        html += optionGridHtml(d.optionBreakdown, d.action || d.chosen, d.best);
+      } else if (d.gto) {
+        html += gtoBarsHtml(d.gto);
+      }
+      html += '</div>';
+    });
+    return html + '</div>';
+  }
+
+  /**
+   * Asientos rivales con cartas visibles (showdown) o mensaje si no enseñaron.
+   * Usa analyzed.shows / seats / handNames / positions.
+   */
+  function villainSeatsHtml(analyzed) {
+    if (!analyzed) return '';
+    var shows = analyzed.shows || {};
+    var positions = analyzed.positions || {};
+    var handNames = analyzed.handNames || {};
+    var heroName = analyzed.hero || '';
+    var seats = analyzed.seats || [];
+    var rows = [];
+
+    Object.keys(shows).forEach(function (name) {
+      if (name === heroName) return;
+      var cards = shows[name];
+      if (!cards || !cards.length) return;
+      rows.push({
+        name: name,
+        pos: positions[name] || '',
+        cards: cards,
+        handName: handNames[name] || null,
+        showed: true
+      });
+    });
+
+    if (!rows.length && seats.length) {
+      seats.forEach(function (s) {
+        var name = s.name || s.id;
+        if (!name || name === heroName) return;
+        if (s.folded) return;
+        var cards = (s.cards || []).map(cardCode).filter(Boolean);
+        if (cards.length >= 2) {
+          rows.push({
+            name: name,
+            pos: s.pos || positions[name] || '',
+            cards: cards,
+            handName: handNames[name] || null,
+            showed: true
+          });
+        }
+      });
+    }
+
+    if (!rows.length) {
+      return '<div class="hand-end-vs" aria-hidden="true">vs</div>' +
+        '<div class="hand-end-seat">' +
+        '<div class="hand-end-seat-label">Villanos</div>' +
+        '<div class="hand-end-cards"><span class="muted-text">no llegaron a enseñar</span></div>' +
+        '</div>';
+    }
+
+    if (rows.length === 1) {
+      var one = rows[0];
+      return '<div class="hand-end-vs" aria-hidden="true">vs</div>' +
+        '<div class="hand-end-seat">' +
+        '<div class="hand-end-seat-label">' + esc(one.name) +
+        (one.pos ? (' · ' + esc(one.pos)) : '') + '</div>' +
+        '<div class="hand-end-cards">' + cardsHtml(one.cards) + '</div>' +
+        (one.handName ? ('<div class="hand-end-handname">' + esc(one.handName) + '</div>') : '') +
+        '</div>';
+    }
+
+    return rows.map(function (r) {
+      return '<div class="hand-end-seat">' +
+        '<div class="hand-end-seat-label">' + esc(r.name) +
+        (r.pos ? (' · ' + esc(r.pos)) : '') + '</div>' +
+        '<div class="hand-end-cards">' + cardsHtml(r.cards) + '</div>' +
+        (r.handName ? ('<div class="hand-end-handname">' + esc(r.handName) + '</div>') : '') +
+        '</div>';
+    }).join('');
+  }
+
+  /**
+   * @param {object} analyzed mano bridged / sesión
+   * @param {object} [opts] { showDecisions, title }
+   */
+  function renderHandEndHtml(analyzed, opts) {
+    opts = opts || {};
+    if (!analyzed) return '';
+    var net = Number(analyzed.heroNetBB) || 0;
+    var netCls = net > 0.02 ? 'net-pos' : (net < -0.02 ? 'net-neg' : '');
+    var title = opts.title || (net > 0.02 ? 'Ganas la mano' : (net < -0.02 ? 'Pierdes la mano' : 'Mano terminada'));
+    var scoreMeta = analyzed.handScoreMeta || null;
+    var board = analyzed.boardAll || analyzed.board || [];
+    if (board && !Array.isArray(board) && board.all) board = board.all;
+    var heroHandName = analyzed.heroHandName ||
+      (analyzed.handNames && analyzed.hero && analyzed.handNames[analyzed.hero]) || null;
+    var multiVillains = Object.keys(analyzed.shows || {}).filter(function (n) {
+      return n !== analyzed.hero;
+    }).length > 1;
+    var villainsBlock = villainSeatsHtml(analyzed);
+
+    var html = '<div class="hand-end-view hand-end-popup">' +
+      '<div class="hand-end-view-head hand-end-popup-head">' +
+      '<p class="hand-end-kicker">Resultado de la mano</p>' +
+      '<h3>' + esc(title) + '</h3>' +
+      scoreBadgeHtml(scoreMeta) +
+      optimalBannerHtml(scoreMeta) +
+      '</div>' +
+      '<div class="hand-end-view-matchup hand-end-matchup' +
+      (multiVillains ? ' hand-end-matchup-multi' : '') + '">' +
+      '<div class="hand-end-seat is-hero">' +
+      '<div class="hand-end-seat-label">Héroe · ' + esc(analyzed.heroPos || '') + '</div>' +
+      '<div class="hand-end-cards">' + cardsHtml(analyzed.heroCards) + '</div>' +
+      (heroHandName ? ('<div class="hand-end-handname">' + esc(heroHandName) + '</div>') : '') +
+      '</div>' +
+      villainsBlock +
+      '</div>' +
+      (board && board.length
+        ? ('<div class="hand-end-board"><span class="muted-text muted">Board</span><div class="hand-end-cards">' +
+          cardsHtml(board) + '</div></div>')
+        : '') +
+      '<div class="hand-end-view-stats hand-end-popup-stats stats-content">' +
+      '<div class="stat-card"><div class="big ' + netCls + '">' + (net >= 0 ? '+' : '') +
+      esc(fmtBb(net)) + '</div><div class="lbl">Resultado (bb)</div></div>' +
+      '<div class="stat-card"><div class="big ' + ((analyzed.totalEvLoss > 0) ? 'net-neg' : 'net-pos') +
+      '">−' + esc(fmtBb(analyzed.totalEvLoss || 0)) + '</div><div class="lbl">EV perdido</div></div>' +
+      (scoreMeta && scoreMeta.score != null
+        ? ('<div class="stat-card hand-score-stat"><div class="big">' +
+          esc(String(Math.round(scoreMeta.score * 10) / 10)) +
+          '<span class="hand-score-over">/10</span></div><div class="lbl">Nota de la mano</div></div>')
+        : '') +
+      '</div>';
+    if (opts.showDecisions !== false) html += renderDecisionsHtml(analyzed.decisions || []);
+    html += '</div>';
+    return html;
+  }
+
+  /**
+   * Bloque de stats tipo sesión (Importer.computeStats).
+   */
+  function renderSessionStatsHtml(stats, opts) {
+    opts = opts || {};
+    if (!stats) return '<p class="muted">Sin estadísticas de sesión.</p>';
+    function cell(val, lab) {
+      return '<div class="trn-stat-cell"><div class="trn-stat-val">' + esc(val == null ? '—' : String(val)) +
+        '</div><div class="trn-stat-lbl">' + esc(lab) + '</div></div>';
+    }
+    var acc = stats.accuracy != null ? (stats.accuracy + '%') : null;
+    var vpip = stats.vpipPct != null ? (stats.vpipPct + '%') : null;
+    var pfr = stats.pfrPct != null ? (stats.pfrPct + '%') : null;
+    var wtsd = stats.wtsdPct != null ? (stats.wtsdPct + '%') : null;
+    var wsd = stats.wsdPct != null ? (stats.wsdPct + '%') : null;
+    var avgScore = stats.avgHandScore != null ? stats.avgHandScore : null;
+    var gradeRaw = stats.grade || (stats.styleAssess && stats.styleAssess.grade) || null;
+    var gradeLabel = null;
+    if (gradeRaw != null) {
+      if (typeof gradeRaw === 'object') {
+        var letter = gradeRaw.letter != null ? String(gradeRaw.letter) : '';
+        var score = gradeRaw.score != null ? String(gradeRaw.score) : '';
+        if (letter && score) gradeLabel = letter + ' · ' + score + '/10';
+        else if (letter) gradeLabel = letter;
+        else if (score) gradeLabel = score + '/10';
+        else if (gradeRaw.verdict) gradeLabel = String(gradeRaw.verdict);
+      } else {
+        gradeLabel = String(gradeRaw);
+      }
+    }
+    var net = stats.netBB != null ? ((stats.netBB >= 0 ? '+' : '') + fmtBb(stats.netBB) + ' bb') : null;
+    var ev = stats.evLossBB != null ? (fmtBb(stats.evLossBB) + ' bb') : null;
+    var html = '<div class="trn-session-stats">' +
+      (opts.title ? ('<h3>' + esc(opts.title) + '</h3>') : '') +
+      (gradeLabel ? ('<p class="trn-session-grade">Nota sesión: <strong>' + esc(gradeLabel) + '</strong></p>') : '') +
+      '<div class="trn-stats-grid">' +
+      cell(stats.nHands != null ? stats.nHands : stats.hands, 'Manos') +
+      cell(net, 'Net') +
+      cell(acc, 'Acierto GTO') +
+      cell(avgScore, 'Nota media') +
+      cell(vpip, 'VPIP') +
+      cell(pfr, 'PFR') +
+      cell(wtsd, 'WTSD') +
+      cell(wsd, 'W$SD') +
+      cell(ev, 'EV loss') +
+      cell(stats.bbPer100 != null ? stats.bbPer100 : null, 'bb/100') +
+      '</div></div>';
+    return html;
+  }
+
+  global.PTHandEndView = {
+    renderHandEndHtml: renderHandEndHtml,
+    renderDecisionsHtml: renderDecisionsHtml,
+    renderSessionStatsHtml: renderSessionStatsHtml,
+    verdictWord: verdictWord,
+    scoreBadgeHtml: scoreBadgeHtml,
+    optimalBannerHtml: optimalBannerHtml
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
  * app.js
  * Controlador de la interfaz: orquesta Engine + Store y pinta la mesa.
  */
@@ -33909,15 +34483,18 @@ window.PT_NASH_PUSH_JSON = {
   function refreshTournamentsTabVisibility() {
     var communityHide = false;
     try {
-      if (window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
-        communityHide = true;
-      } else if (window.PTCommunity && PTCommunity.config) {
+      if (window.PTCommunity && PTCommunity.config) {
         var cfg = PTCommunity.config();
-        if (cfg && cfg.menus && cfg.menus.hide && cfg.menus.hide.indexOf('tournaments') >= 0) {
-          communityHide = true;
+        if (cfg && cfg.menus) {
+          if (cfg.menus.hide && cfg.menus.hide.indexOf('tournaments') >= 0) {
+            communityHide = true;
+          } else if (cfg.menus.show && cfg.menus.show.indexOf('tournaments') < 0) {
+            communityHide = true;
+          }
         }
       }
     } catch (e) { /* noop */ }
+    /* Rol: PokerForgeAI → Admin; MTTLab → managers (PTTournaments.menuVisible). */
     const show = !communityHide && tournamentsMenuVisible();
     const tab = document.querySelector('.tab[data-tab="tournaments"]');
     if (tab) tab.classList.toggle('hidden', !show);
@@ -36184,7 +36761,11 @@ window.PT_NASH_PUSH_JSON = {
       withLazyChunk('sessions', function () {
         if (opts.openSessionId) {
           showSessionLoading('Cargando sesión…');
-          void openSession(opts.openSessionId);
+          void openSession(opts.openSessionId, opts.sessionObj || null, {
+            handId: opts.handId || null,
+            mode: opts.reviewMode || opts.mode || 'review',
+            fromTournament: !!opts.fromTournament
+          });
           refreshSessionsFromCloud();
           return;
         }
@@ -36558,6 +37139,11 @@ window.PT_NASH_PUSH_JSON = {
       if (savedTab === 'cash' || savedTab === 'spin' || savedTab === 'mtt') sessionsListTab = savedTab;
     } catch (e) { /* ignore */ }
     $('#back-to-sessions').addEventListener('click', () => {
+      if (tournamentReviewReturn) {
+        clearTournamentReviewReturn();
+        goToTab('tournaments');
+        return;
+      }
       if (analysisReviewReturn) {
         analysisReviewReturn = false;
         restoreSessionReviewBackLabel();
@@ -36567,6 +37153,11 @@ window.PT_NASH_PUSH_JSON = {
       showSessionsView('home'); renderSessionsList();
     });
     $('#back-to-detail').addEventListener('click', () => {
+      if (tournamentReviewReturn) {
+        clearTournamentReviewReturn();
+        goToTab('tournaments');
+        return;
+      }
       if (analysisReviewReturn) {
         analysisReviewReturn = false;
         restoreSessionReviewBackLabel();
@@ -36798,9 +37389,28 @@ window.PT_NASH_PUSH_JSON = {
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver';
   }
+  function setTournamentReviewBackLabel() {
+    const btn = $('#back-to-detail');
+    if (btn) btn.innerHTML = '&laquo; Volver al torneo';
+    const backSessions = $('#back-to-sessions');
+    if (backSessions) {
+      backSessions.innerHTML = '&laquo; Volver al torneo';
+      backSessions.hidden = false;
+    }
+  }
   function restoreSessionReviewBackLabel() {
     const btn = $('#back-to-detail');
     if (btn) btn.innerHTML = '&laquo; Volver a la sesión';
+    const backSessions = $('#back-to-sessions');
+    if (backSessions) {
+      backSessions.innerHTML = '&laquo; Volver a sesiones';
+      backSessions.hidden = false;
+    }
+  }
+  function clearTournamentReviewReturn() {
+    tournamentReviewReturn = false;
+    analysisReviewReturn = false;
+    restoreSessionReviewBackLabel();
   }
 
   // Abre la revisión paso a paso / repaso GTO de una mano de análisis reutilizando
@@ -36809,6 +37419,7 @@ window.PT_NASH_PUSH_JSON = {
     if (!hand) return;
     currentHand = hand;
     currentSession = { id: '__analysis__', analysis: true, hero: hand.hero };
+    tournamentReviewReturn = false;
     analysisReviewReturn = true;
     setAnalysisReviewBackLabel();
     goToTab('sessions', { skipDefaultView: true });
@@ -36826,6 +37437,43 @@ window.PT_NASH_PUSH_JSON = {
     });
   }
   window.openAnalysisHandReview = openAnalysisHandReview;
+
+  /** Revisión paso a paso de una mano de Torneos IA (vuelve al torneo, sin replay GTO). */
+  function openTournamentHandReview(hand, mode) {
+    if (!hand) return;
+    currentHand = hand;
+    var stats = null;
+    try {
+      if (window.Importer && Importer.computeStats) stats = Importer.computeStats([hand]);
+    } catch (eStats) { stats = null; }
+    currentSession = {
+      id: hand.tournamentId ? ('trn_live_' + hand.tournamentId) : ('trn_live_' + Date.now()),
+      fileName: 'Mano de torneo IA',
+      hero: hand.hero,
+      hands: [hand],
+      stats: stats,
+      source: 'tournamentAi',
+      tournamentAi: true
+    };
+    analysisReviewReturn = false;
+    tournamentReviewReturn = true;
+    setTournamentReviewBackLabel();
+    goToTab('sessions', { skipDefaultView: true });
+    withLazyChunk('sessions', function () {
+      if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
+      if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
+      try {
+        if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
+      } catch (e) {
+        console.error('[Tournaments] recompute failed', e);
+      }
+      showSessionsView('review');
+      /* Solo paso a paso: sin “Volver a jugar esta mano con GTO”. */
+      renderTimelineReview();
+    });
+  }
+  window.openTournamentHandReview = openTournamentHandReview;
+
 
   function trainerLeaksForStats(st) {
     const aggLeaks = window.PTStatsAggregate ? PTStatsAggregate.trainerTopLeaks(st, 5) : [];
@@ -41566,6 +42214,7 @@ window.PT_NASH_PUSH_JSON = {
   let currentHand = null;
   let replayState = null;
   let analysisReviewReturn = false;
+  let tournamentReviewReturn = false;
   const SESSION_HANDS_PAGE = 80;
   const HEAVY_OPEN_HANDS = 2000;
   let sessionHandsShown = SESSION_HANDS_PAGE;
@@ -41942,6 +42591,7 @@ window.PT_NASH_PUSH_JSON = {
     box.innerHTML = filtered.map((s) => {
       const st = s.stats || {};
       const isSummary = s.source === 'tournamentSummary' || st.source === 'tournamentSummary';
+      const isTournamentAi = s.source === 'tournamentAi' || !!s.tournamentAi;
       const sampleBadge = isSample(s) ? '<span class="session-sample-badge">Ejemplo</span>' : '';
       if (isSummary) {
         const profit = st.profitEuro != null ? st.profitEuro : 0;
@@ -41955,6 +42605,27 @@ window.PT_NASH_PUSH_JSON = {
             <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · Puesto ${place} · ${fmtDate(s.createdAt)}</div>
             <div class="rec-sub"><span class="${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)}€</span>${roi}${bounty}${st.stakesLabel ? ' · ' + escapeHtml(st.stakesLabel) : ''}</div>
             <div class="rec-sub muted-text" style="font-size:12px">Tournament History · sin manos GTO (importa Hand History para revisar decisiones)</div>
+          </div>
+          <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-open="${s.id}">Ver resumen</button>
+            <button class="btn btn-danger" style="padding:4px 10px;font-size:12px" data-delses="${s.id}">Borrar sesión</button>
+          </div>
+        </div>`;
+      }
+      if (isTournamentAi) {
+        const t = s.tournament || {};
+        const place = st.finishPlace != null ? st.finishPlace : t.place;
+        const profit = st.profitEuro != null ? st.profitEuro
+          : (t.profit != null ? t.profit : 0);
+        const roi = st.roiPct != null ? st.roiPct : t.roi;
+        const pCls = profit >= 0 ? 'net-pos' : 'net-neg';
+        const nHands = st.nHands != null ? st.nHands : (s.hands || []).length;
+        return `<div class="record session-card">
+          <div class="rec-main">
+            <div class="rec-scenario">${escapeHtml(s.fileName)}${sampleBadge} <span class="badge">Torneo IA</span> ${sessionContextBadgesHtml(s)}</div>
+            <div class="rec-sub">Héroe: <strong>${escapeHtml(s.hero)}</strong> · Puesto ${place != null ? place + 'º' : '—'} · ${nHands} manos · ${fmtDate(s.createdAt)}</div>
+            <div class="rec-sub"><span class="${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)} Koins</span>${roi != null ? ' · ROI ' + roi + '%' : ''}${st.accuracy != null ? ' · Acierto ' + st.accuracy + '%' : ''}</div>
+            <div class="rec-sub muted-text" style="font-size:12px">Resumen del torneo · estadísticas GTO de manos disponibles</div>
           </div>
           <div class="rec-right" style="display:flex;flex-direction:column;gap:6px">
             <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-open="${s.id}">Ver resumen</button>
@@ -42161,11 +42832,22 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (!currentSession || !currentSession.hands) {
       $('#import-status').innerHTML = '<span style="color:var(--red)">No se encontró la sesión guardada.</span>';
+      const detailBox = $('#session-detail-content');
+      if (detailBox) {
+        detailBox.innerHTML = '<p class="muted-text">No se pudo cargar la sesión del torneo. Vuelve al lobby e inténtalo de nuevo.</p>' +
+          '<p><button type="button" class="btn" id="btn-back-sessions-list">« Volver a sesiones</button></p>';
+        const back = detailBox.querySelector('#btn-back-sessions-list');
+        if (back) back.addEventListener('click', function () { showSessionsView('home'); renderSessionsList(); });
+      } else {
+        showSessionsView('home');
+      }
       return;
     }
+    currentSession._showHandStats = !!opts.showHandStats;
     const buildVer = window.PT_BUILD || '';
     const isTournamentSummary = currentSession.source === 'tournamentSummary'
       || (currentSession.stats && currentSession.stats.source === 'tournamentSummary');
+    const isTournamentAi = currentSession.source === 'tournamentAi' || !!currentSession.tournamentAi;
     const nHands = (currentSession.hands || []).length;
     const skipHeavy = !!(opts.skipHeavyPrep || currentSession.freshImport || nHands > HEAVY_OPEN_HANDS);
     currentSession.freshImport = false;
@@ -42207,7 +42889,24 @@ window.PT_NASH_PUSH_JSON = {
       });
     }
     if ((netFixed || needsHudStats) && Importer.computeStats) {
+      const prevStats = currentSession.stats || {};
       currentSession.stats = Importer.computeStats(currentSession.hands);
+      if (isTournamentAi) {
+        const t = currentSession.tournament || {};
+        const ts = currentSession.tournamentStats || {};
+        currentSession.stats = Object.assign({}, currentSession.stats, {
+          source: 'tournamentAi',
+          finishPlace: prevStats.finishPlace != null ? prevStats.finishPlace
+            : (t.place != null ? t.place : null),
+          prizeEur: prevStats.prizeEur != null ? prevStats.prizeEur : (t.prizeEur || 0),
+          profitEuro: prevStats.profitEuro != null ? prevStats.profitEuro
+            : (t.profit != null ? t.profit : (ts.profit != null ? ts.profit : null)),
+          roiPct: prevStats.roiPct != null ? prevStats.roiPct
+            : (t.roi != null ? t.roi : (ts.roi != null ? ts.roi : null)),
+          buyInEur: prevStats.buyInEur != null ? prevStats.buyInEur : (t.buyInEur || 0),
+          players: prevStats.players != null ? prevStats.players : (t.entries || null)
+        });
+      }
       if (window.PTHHUtils && PTHHUtils.buildSessionContext) {
         currentSession.context = PTHHUtils.buildSessionContext(
           currentSession.hands,
@@ -42218,9 +42917,18 @@ window.PT_NASH_PUSH_JSON = {
     } else if (tagsFixed) {
       await Store.saveSession(currentSession);
     }
+    if (opts.fromTournament) {
+      tournamentReviewReturn = true;
+      setTournamentReviewBackLabel();
+    } else if (!tournamentReviewReturn) {
+      restoreSessionReviewBackLabel();
+    }
     sessionHandsShown = SESSION_HANDS_PAGE;
     renderSessionDetail('evLoss');
     showSessionsView('detail');
+    if (opts.handId) {
+      openHandReview(opts.handId, opts.mode || opts.reviewMode || 'review');
+    }
   }
 
   function renderSessionDetail(sortBy) {
@@ -42233,6 +42941,7 @@ window.PT_NASH_PUSH_JSON = {
     const st = s.stats;
     const box = $('#session-detail-content');
     const isSummary = s.source === 'tournamentSummary' || st.source === 'tournamentSummary';
+    const isTournamentAi = s.source === 'tournamentAi' || !!s.tournamentAi;
     if (isSummary) {
       const profit = st.profitEuro != null ? st.profitEuro : 0;
       const pCls = profit >= 0 ? 'net-pos' : 'net-neg';
@@ -42265,6 +42974,54 @@ window.PT_NASH_PUSH_JSON = {
         </div>`;
       return;
     }
+    if (isTournamentAi && !s._showHandStats) {
+      const t = s.tournament || {};
+      const ts = s.tournamentStats || {};
+      const place = st.finishPlace != null ? st.finishPlace : t.place;
+      const prize = st.prizeEur != null ? st.prizeEur : (t.prizeEur || 0);
+      const profit = st.profitEuro != null ? st.profitEuro : (t.profit != null ? t.profit : 0);
+      const roi = st.roiPct != null ? st.roiPct : t.roi;
+      const buyIn = st.buyInEur != null ? st.buyInEur : (t.buyInEur || 0);
+      const pCls = profit >= 0 ? 'net-pos' : 'net-neg';
+      const nHands = st.nHands != null ? st.nHands : (s.hands || []).length;
+      box.innerHTML = `
+        <h2>${escapeHtml(s.fileName)} <span class="badge">Torneo IA</span> ${sessionContextBadgesHtml(s)}</h2>
+        <p class="muted-text">Resumen del torneo · ${escapeHtml(s.hero)} · ${fmtDate(s.createdAt)}</p>
+        <div class="stats-content">
+          <div class="stat-card"><div class="big">${place != null ? place + 'º' : '—'}</div><div class="lbl">Puesto</div></div>
+          <div class="stat-card"><div class="big">${Number(prize).toFixed(2)}</div><div class="lbl">Premio (Koins)</div></div>
+          <div class="stat-card"><div class="big ${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)}</div><div class="lbl">Profit</div></div>
+          <div class="stat-card"><div class="big">${roi != null ? roi + '%' : '—'}</div><div class="lbl">ROI</div></div>
+          <div class="stat-card"><div class="big">${Number(buyIn).toFixed(2)}</div><div class="lbl">Buy-in</div></div>
+          <div class="stat-card"><div class="big">${nHands}</div><div class="lbl">Manos</div></div>
+          <div class="stat-card"><div class="big">${st.accuracy != null ? st.accuracy + '%' : '—'}</div><div class="lbl">Acierto GTO</div></div>
+          <div class="stat-card"><div class="big">${st.vpipPct != null ? st.vpipPct + '%' : (ts.vpip != null ? ts.vpip + '%' : '—')}</div><div class="lbl">VPIP</div></div>
+          <div class="stat-card"><div class="big">${st.pfrPct != null ? st.pfrPct + '%' : (ts.pfr != null ? ts.pfr + '%' : '—')}</div><div class="lbl">PFR</div></div>
+          <div class="stat-card"><div class="big">${ts.roleAccuracy != null ? ts.roleAccuracy + '%' : '—'}</div><div class="lbl">Roles</div></div>
+        </div>
+        <div class="card-box" style="margin-top:14px">
+          <h3>Estadísticas del torneo</h3>
+          <p class="muted-text" style="margin:0 0 10px;font-size:13px">
+            Tipo: <strong>${escapeHtml((t.kind || 'mtt').toUpperCase())}</strong>
+            ${t.entries != null ? ' · ' + t.entries + ' jugadores' : ''}
+            ${t.name ? ' · ' + escapeHtml(t.name) : ''}
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary" id="btn-trn-session-hand-stats">Ver estadísticas de manos</button>
+          </div>
+        </div>`;
+      const btnHands = $('#btn-trn-session-hand-stats');
+      if (btnHands) {
+        btnHands.onclick = function () {
+          currentSession._showHandStats = true;
+          renderSessionDetail(sortBy || 'evLoss');
+        };
+      }
+      return;
+    }
+    if (isTournamentAi && s._showHandStats) {
+      /* Cabecera extra: volver al resumen del torneo. */
+    }
     const netCls = st.netBB >= 0 ? 'net-pos' : 'net-neg';
     const accSt = st.accByStreet;
 
@@ -42283,10 +43040,17 @@ window.PT_NASH_PUSH_JSON = {
     const graveN = (s.hands || []).filter(handHasGraveError).length;
     const gradeLetter = st.grade && st.grade.letter ? String(st.grade.letter)[0] : 'C';
     const gradeScore = st.grade && st.grade.score != null ? st.grade.score : '—';
+    const trnBackBar = isTournamentAi
+      ? `<div class="card-box" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-trn-session-summary">« Resumen del torneo</button>
+          <span class="muted-text" style="font-size:12px">Estadísticas GTO de las manos jugadas</span>
+        </div>`
+      : '';
     const statHtml = `
+      ${trnBackBar}
       ${reanalyzeBanner}
       <h2>${escapeHtml(s.fileName)} <span class="badge grade-${gradeLetter}">Nota ${st.grade ? st.grade.letter : '—'} · ${gradeScore}/10</span> ${sessionContextBadgesHtml(s)}</h2>
-      <p class="muted-text">${escapeHtml(st.grade.verdict)}</p>
+      <p class="muted-text">${escapeHtml(st.grade && st.grade.verdict ? st.grade.verdict : 'Sesión de torneo IA')}</p>
       <p class="muted-text" style="font-size:12px">${escapeHtml(importDiscardSummaryHtml(s))} · Formato coaching: <strong>${escapeHtml(formatDisplayLabel(fmtKey))}</strong>${st.shortHandedShare > 20 ? ' · Mesa corta ~' + st.shortHandedShare + '%' : ''}</p>
       <div class="session-export-bar">
         <span class="muted-text" data-i18n="export.session">Exportar informe</span>
@@ -42350,7 +43114,7 @@ window.PT_NASH_PUSH_JSON = {
         <div class="card-box"><h3>5 peores manos</h3>${topHandsHtml(st.worst5)}</div>
       </div>`;
 
-    const sortHtml = `
+    const handsInner = `
       <div class="panel-head" style="margin-top:18px">
         <h3>Manos de la sesión (${currentSession.hands.length})</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -42372,12 +43136,22 @@ window.PT_NASH_PUSH_JSON = {
       <div id="session-hands-filters" class="hand-filters"></div>
       <p class="muted-text" style="font-size:12px;margin:6px 0 0">Cola graves: <kbd>G</kbd> filtra · en revisión <kbd>→</kbd>/<kbd>Enter</kbd> siguiente · <kbd>←</kbd> anterior.</p>
       <div id="session-hands" class="record-list"></div>`;
+    const sortHtml = tournamentReviewReturn
+      ? `<details class="session-hands-fold"><summary>Manos de la sesión (${currentSession.hands.length})</summary>${handsInner}</details>`
+      : handsInner;
 
     box.innerHTML = statHtml + sortHtml;
     bindStyleDrillButtons(box);
     bindMetricExplainClicks(box);
     const reBtn = box.querySelector('#btn-reanalyze-session');
     if (reBtn) reBtn.addEventListener('click', () => { void reanalyzeCurrentSession(); });
+    const trnSumBtn = box.querySelector('#btn-trn-session-summary');
+    if (trnSumBtn) {
+      trnSumBtn.addEventListener('click', () => {
+        if (currentSession) currentSession._showHandStats = false;
+        renderSessionDetail(sortBy || 'evLoss');
+      });
+    }
     const graveBtn = box.querySelector('#btn-grave-queue');
     if (graveBtn) {
       graveBtn.addEventListener('click', () => {
@@ -42426,20 +43200,21 @@ window.PT_NASH_PUSH_JSON = {
 
   function topHandsHtml(list) {
     if (!list.length) return '<div class="muted-text">—</div>';
+    const hideReplay = !!tournamentReviewReturn;
     return list.map((h) => {
       const netCls = h.heroNetBB >= 0 ? 'net-pos' : 'net-neg';
       const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
       return `<div class="mini-hand">
         <div class="mini-hand-row">
           <span class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</span>
-          <span>${h.heroCode} ${h.heroPos}</span>
+          <span>${escapeHtml(h.heroCode || '')} ${escapeHtml(h.heroPos || '')}</span>
           <span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span>
           <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span>
           ${handScoreBadgeHtml(scoreMeta)}
         </div>
         <div class="mini-hand-actions">
           <button class="btn btn-ghost mini-link" data-review="${h.id}">Paso a paso</button>
-          <button class="btn btn-primary mini-link" data-replay="${h.id}">Volver a jugar</button>
+          ${hideReplay ? '' : `<button class="btn btn-primary mini-link" data-replay="${h.id}">Volver a jugar</button>`}
         </div>
       </div>`;
     }).join('');
@@ -42477,7 +43252,7 @@ window.PT_NASH_PUSH_JSON = {
       return `<div class="record">
         <div class="rec-cards">${(h.heroCards || []).map(Cards.cardToHTML).join('')}</div>
         <div class="rec-main">
-          <div class="rec-scenario">${h.heroCode} <span style="color:var(--muted)">(${h.heroPos})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
+          <div class="rec-scenario">${escapeHtml(h.heroCode || '')} <span style="color:var(--muted)">(${escapeHtml(h.heroPos || '')})</span> <span class="badge ${h.worstClass}">${verdictWord(h.worstClass)}</span> ${handScoreBadgeHtml(scoreMeta)}</div>
           <div class="rec-sub">Board: ${(h.board || []).map(Cards.cardToHTML).join('') || '—'} · ${h.nDecisions} decisiones · acierto ${h.accuracy}%</div>
           ${tagsHtml}
         </div>
@@ -42485,7 +43260,7 @@ window.PT_NASH_PUSH_JSON = {
           <div><span class="${netCls}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)}bb</span> · <span style="color:var(--red)">EV -${fmtBB(h.totalEvLoss)}bb</span></div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" data-review="${h.id}">Paso a paso</button>
-            <button class="btn btn-primary" style="padding:4px 10px;font-size:12px" data-replay="${h.id}">Volver a jugar</button>
+            ${tournamentReviewReturn ? '' : `<button class="btn btn-primary" style="padding:4px 10px;font-size:12px" data-replay="${h.id}">Volver a jugar</button>`}
           </div>
         </div>
       </div>`;
@@ -42565,6 +43340,7 @@ window.PT_NASH_PUSH_JSON = {
     currentHand = findHand(handId);
     if (!currentHand) return;
     analysisReviewReturn = false;
+    tournamentReviewReturn = false;
     restoreSessionReviewBackLabel();
     if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
     if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
@@ -42891,6 +43667,9 @@ window.PT_NASH_PUSH_JSON = {
     html += renderHandDecisionsSummary(h.decisions, 'session');
 
     const isAnalysisHand = !!(currentSession && currentSession.analysis);
+    /* Revisión abierta desde Torneos IA en vivo: sin replay GTO ni vuelta a análisis. */
+    const hideGtoReplay = !!tournamentReviewReturn;
+    if (tournamentReviewReturn) setTournamentReviewBackLabel();
     if (!isAnalysisHand) {
       html += '<div id="ai-report-session"></div>';
     }
@@ -42903,7 +43682,9 @@ window.PT_NASH_PUSH_JSON = {
       ).join('') + '</div>';
     }
 
-    html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
+    if (!hideGtoReplay) {
+      html += `<button class="btn btn-primary" id="to-replay" style="margin-top:14px">Volver a jugar esta mano con GTO &raquo;</button>`;
+    }
     if (currentSession && currentSession.analysis && window.PTHandAnalysis && PTHandAnalysis.toTrainerConfig) {
       html += `<button class="btn btn-secondary" id="to-trainer-from-review" style="margin-top:14px;margin-left:8px">Jugar en entrenador (POV actual) &raquo;</button>`;
     }
@@ -42939,7 +43720,8 @@ window.PT_NASH_PUSH_JSON = {
         onThreadUpdate: (thread) => { if (currentHand) currentHand.coachThread = thread; }
       });
     }
-    $('#to-replay').addEventListener('click', () => startInteractiveReplay());
+    const toReplayBtn = $('#to-replay');
+    if (toReplayBtn) toReplayBtn.addEventListener('click', () => startInteractiveReplay());
     const toTrainer = $('#to-trainer-from-review');
     if (toTrainer) {
       toTrainer.addEventListener('click', () => {

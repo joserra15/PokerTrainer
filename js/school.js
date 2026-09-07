@@ -532,6 +532,11 @@
       /* xp already applied in recordLessonAttempt; don't double-count here */
     }
     writeSchool(school);
+    try {
+      if (!prev.passed && global.PTTournamentWallet && PTTournamentWallet.earnFromLesson) {
+        PTTournamentWallet.earnFromLesson(lessonId);
+      }
+    } catch (eKoin) { /* ignore */ }
     return isLessonPassed(lessonId);
   }
 

@@ -3118,12 +3118,28 @@
     const chosenAction = chosen === 'bet'
       ? probeBetIdFromSize(d.betSizeBB, potEvalBB)
       : (chosen === 'bet_33' || chosen === 'bet_66' || chosen === 'bet_100' ? chosen : chosen);
+    const storedOpts = d.options || d.availableActions
+      || (d.input && (d.input.availableActions || d.input.options)) || null;
+    let availableActions;
+    if (Array.isArray(storedOpts) && storedOpts.length) {
+      availableActions = storedOpts.slice();
+    } else if (street === 'preflop') {
+      /* Preflop: nunca check/bet_33… (eso rompía matriz y % uniformes en torneos). */
+      availableActions = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['fold', 'raise', 'allin'];
+    } else {
+      availableActions = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'];
+    }
+    const preflopInit = street === 'preflop'
+      ? (d.initiative || (d.input && d.input.initiative)
+        || (toCallBB > 0 ? 'caller' : 'none'))
+      : null;
     const base = {
-      spotKind: d.spotKind || (d.street === 'preflop' ? 'vsRFI' : 'postflop'),
+      spotKind: d.spotKind || (d.input && d.input.spotKind) || (d.street === 'preflop' ? 'vsRFI' : 'postflop'),
       position: heroPos,
-      vsPosition: d.vsPosition,
+      vsPosition: d.vsPosition || (d.input && d.input.vsPosition),
       vsRfiKey: d.vsRfiKey,
-      stackDepth: (handRangeContext(hand) || {}).stackBB || 100,
+      stackDepth: (d.input && d.input.stackBB) || (d.stackBB != null ? d.stackBB : null)
+        || (handRangeContext(hand) || {}).stackBB || 100,
       street: d.street,
       board,
       priorBoard: d.priorBoard,
@@ -3135,9 +3151,19 @@
       potBeforeBB,
       bbSizeEuro: hand.bb || 0,
       chosenAction,
-      initiative: d.initiative || postflopCtx.initiative,
-      inPosition: d.inPosition != null ? d.inPosition : postflopCtx.inPosition,
-      availableActions: d.options || (toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'])
+      initiative: preflopInit != null ? preflopInit : (d.initiative || postflopCtx.initiative),
+      inPosition: d.inPosition != null ? d.inPosition
+        : (d.input && d.input.inPosition != null ? d.input.inPosition
+          : (street === 'preflop' ? false : postflopCtx.inPosition)),
+      availableActions: availableActions,
+      formatHub: d.formatHub || (d.input && d.input.formatHub)
+        || (hand.formatHub) || (hand.isTournament || hand.source === 'tournamentAi' ? 'mtt' : null),
+      gameType: d.gameType || (d.input && d.input.gameType)
+        || (hand.gameKind === 'spin' || hand.formatKey === 'spin3' ? 'spin3'
+          : (hand.isTournament || hand.source === 'tournamentAi' ? 'mtt' : null)),
+      mttPhase: d.mttPhase || (d.input && d.input.mttPhase) || hand.mttPhase || null,
+      pushFold: !!(d.pushFold || (d.input && d.input.pushFold)),
+      preflopMode: d.preflopMode || (d.input && d.input.preflopMode) || null
     };
     if (d.street === 'preflop') return attachRangeContext(base, hand);
 
@@ -3192,6 +3218,15 @@
     d.villainRange = inputSnap.villainRange;
     d.villainLastAction = inputSnap.villainLastAction;
     d.villainBetRatio = inputSnap.villainBetRatio;
+    /* Fijar opciones usadas en el recompute (matriz / % coherentes en torneos viejos). */
+    if (inputSnap.availableActions && inputSnap.availableActions.length) {
+      d.options = inputSnap.availableActions.slice();
+      d.availableActions = inputSnap.availableActions.slice();
+    }
+    if (inputSnap.initiative) d.initiative = inputSnap.initiative;
+    if (inputSnap.formatHub) d.formatHub = inputSnap.formatHub;
+    if (inputSnap.pushFold != null) d.pushFold = !!inputSnap.pushFold;
+    if (inputSnap.spotKind) d.spotKind = inputSnap.spotKind;
     if (evalResult.heroEquity != null) {
       d.heroEquityExact = evalResult.heroEquity;
       d.heroEquity = Math.round(evalResult.heroEquity * 100);

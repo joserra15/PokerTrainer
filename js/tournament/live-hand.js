@@ -140,51 +140,51 @@
   }
 
   function shouldOpen(seat, hand) {
-    var V = global.GTOVillainPreflop;
-    var b = biasOf(seat.roleId);
-    var hc = handCode(seat.cards);
-    var openFn = V && V.isInOpenRange;
-    if (openFn && hc) {
-      try {
-        if (openFn(hc, seat.pos, { formatHub: 'mtt', stackBB: seat.stack / hand.bb })) return true;
-      } catch (e) { /* */ }
-      return Math.random() < 0.06 * b.open;
+    var D = global.PTTournamentVillainDecide;
+    if (D && D.decide) {
+      var probe = {
+        street: 'preflop',
+        bb: hand.bb,
+        pot: hand.pot,
+        currentBet: hand.currentBet,
+        minRaise: hand.minRaise,
+        openerId: null,
+        openerPos: null,
+        log: hand.log,
+        board: [],
+        seats: hand.seats
+      };
+      var a = D.decide(probe, seat);
+      return !!(a && a.id === 'raise');
     }
-    return strength01(seat.cards, []) * b.open > 0.62;
+    return strength01(seat.cards, []) > 0.62;
   }
 
   function defendDecision(seat, hand) {
-    var V = global.GTOVillainPreflop;
-    var b = biasOf(seat.roleId);
-    var hc = handCode(seat.cards);
-    var defendFn = V && V.defendVsOpen;
-    if (defendFn && hc) {
-      try {
-        var a = defendFn(hc, { id: seat.roleId || 'tag' }, Math.random(), seat.pos, hand.openerPos || 'CO', {
-          formatHub: 'mtt', stackBB: seat.stack / hand.bb
-        });
-        if (a === '3bet' || a === 'raise') return 'raise';
-        if (a === 'call') return 'call';
-        return 'fold';
-      } catch (e2) { /* */ }
+    var D = global.PTTournamentVillainDecide;
+    if (D && D.decide) {
+      var a = D.decide(hand, seat);
+      if (!a) return 'fold';
+      if (a.id === 'raise' || a.id === 'bet') return 'raise';
+      if (a.id === 'call') return 'call';
+      if (a.id === 'check') return 'check';
+      return 'fold';
     }
-    var s = strength01(seat.cards, []) * b.defend;
-    if (s > 0.78) return 'raise';
-    if (s > 0.52) return 'call';
     return 'fold';
   }
 
   function postflopDecision(seat, hand, tc) {
-    var b = biasOf(seat.roleId);
-    var s = strength01(seat.cards, hand.board) * (tc > 0 ? b.call : 1);
-    if (tc > 0) {
-      if (tc >= seat.stack) return s > 0.42 ? 'call' : 'fold';
-      if (s > 0.82 && Math.random() < 0.3 * b.bluff) return 'raise';
-      if (s > 0.48 * b.fold) return 'call';
+    var D = global.PTTournamentVillainDecide;
+    if (D && D.decide) {
+      var a = D.decide(hand, seat);
+      if (!a) return tc > 0 ? 'fold' : 'check';
+      if (a.id === 'raise') return 'raise';
+      if (a.id === 'bet') return 'bet';
+      if (a.id === 'call') return 'call';
+      if (a.id === 'check') return 'check';
       return 'fold';
     }
-    if (s > 0.72 || (s > 0.38 && Math.random() < 0.2 * b.bluff)) return 'bet';
-    return 'check';
+    return tc > 0 ? 'fold' : 'check';
   }
 
   function createHand(tableSeats, blinds, heroId) {
@@ -196,8 +196,12 @@
         name: ts.player.name,
         isHero: !!(ts.player.isHero || ts.player.id === heroId),
         roleId: ts.player.roleId,
+        proStyle: ts.player.proStyle || null,
         pos: ts.pos,
         seatIndex: ts.seatIndex != null ? ts.seatIndex : i,
+        physicalSeat: ts.physicalSeat != null
+          ? ts.physicalSeat
+          : (ts.player && ts.player.seat != null ? ts.player.seat : i),
         cards: dealt.holes[i],
         startStack: stack,
         stack: stack,
@@ -222,6 +226,7 @@
       minRaise: Number(blinds.bb) || 20,
       openerId: null,
       openerPos: null,
+      lastAggressorId: null,
       acted: {},
       log: [],
       stage: 'playing',
@@ -231,12 +236,17 @@
       result: null
     };
 
+    hand.antePot = 0;
+    hand.antePaidCount = 0;
     if (hand.ante > 0) {
       seats.forEach(function (s) {
         var a = Math.min(s.stack, hand.ante);
+        if (!(a > 0)) return;
         s.stack = r2(s.stack - a);
         s.invested = r2(s.invested + a);
         hand.pot = r2(hand.pot + a);
+        hand.antePot = r2(hand.antePot + a);
+        hand.antePaidCount += 1;
         if (s.stack <= 0) { s.stack = 0; s.allIn = true; }
       });
     }
@@ -306,6 +316,8 @@
       streetInvested: s.streetInvested,
       folded: !!s.folded,
       allIn: !!s.allIn,
+      physicalSeat: s.physicalSeat != null ? s.physicalSeat : s.seat,
+      seat: s.seat != null ? s.seat : s.physicalSeat,
       lastAction: s.lastAction
         ? { action: s.lastAction.action, amount: s.lastAction.amount, street: s.lastAction.street }
         : null
@@ -327,6 +339,7 @@
       board: (hand.board || []).slice(),
       pot: hand.pot,
       currentBet: hand.currentBet,
+      holesRevealed: !!(meta.holesRevealed || hand.holesRevealed),
       seats: hand.seats.map(seatSnap)
     };
     hand._frames.push(frame);
@@ -364,6 +377,9 @@
       hand.openerPos = seat.pos;
     }
     logAct(hand, seat, prev > 0 ? 'raise' : 'bet', seat.streetInvested);
+    /* Tras un raise la acción sigue al jugador siguiente al agresor (no
+       reinicia en UTG): si no, un limp en CO foldaría antes que la BB. */
+    hand.lastAggressorId = seat.id;
     hand.acted = {};
     hand.acted[seat.id] = true;
   }
@@ -430,10 +446,12 @@
     hand.currentBet = 0;
     hand.minRaise = hand.bb;
     hand.acted = {};
+    hand.lastAggressorId = null;
     return null;
   }
 
-  function settle(hand, winnerIds, showdown) {
+  function settle(hand, winnerIds, showdown, meta) {
+    meta = meta || {};
     var set = {};
     (winnerIds || []).forEach(function (id) { set[id] = true; });
     var n = Math.max(1, (winnerIds || []).length);
@@ -447,18 +465,28 @@
     hand.stage = 'complete';
     hand.awaitingHero = false;
     hand.heroOptions = null;
+    var hero = hand.seats.find(function (s) { return s.isHero; });
+    var heroId = hero ? hero.id : null;
+    var tied = !!(showdown && (winnerIds || []).length > 1);
     hand.result = {
       deltas: deltas,
       winners: (winnerIds || []).slice(),
       showdown: !!showdown,
+      tied: tied,
       board: hand.board.slice(),
       pot: hand.pot,
-      holeCards: {}
+      holeCards: {},
+      handNames: meta.handNames || {},
+      heroNet: heroId != null ? (deltas[heroId] || 0) : 0
     };
     alive(hand).forEach(function (s) {
       hand.result.holeCards[s.id] = s.cards.slice();
     });
     return hand;
+  }
+
+  function cardCodesOf(cards) {
+    return (cards || []).map(cardCode).filter(Boolean);
   }
 
   function finishFoldWin(hand) {
@@ -467,34 +495,102 @@
   }
 
   function finishShowdown(hand) {
-    /* Runout carta a carta para que se vea, igual que en el entrenador. */
+    /* All-in / showdown: primero se revelan los hole cards de quienes siguen
+       en el bote, pausa corta, y luego el runout de comunitarias. */
+    if (hand.board.length < 5) {
+      hand.holesRevealed = true;
+      pushFrame(hand, { kind: 'reveal', holesRevealed: true });
+    }
     while (hand.board.length < 5) {
       hand.board.push(hand.boardDeck[hand.board.length]);
-      pushFrame(hand, { kind: 'street' });
+      pushFrame(hand, { kind: 'street', holesRevealed: true });
     }
     var C = global.Cards;
     var cont = alive(hand);
-    var best = null;
-    var winners = [];
+    var boardCodes = cardCodesOf(hand.board);
     cont.forEach(function (s) {
+      var hole = cardCodesOf(s.cards);
       var score = null;
-      try { if (C && C.evaluate) score = C.evaluate(s.cards.concat(hand.board)); } catch (e) { /* */ }
+      var name = null;
+      if (C && C.evaluate) {
+        try {
+          score = C.evaluate(hole.concat(boardCodes));
+          if (score && score.name) name = score.name;
+        } catch (e1) {
+          try {
+            score = C.evaluate(s.cards.concat(hand.board));
+            if (score && score.name) name = score.name;
+          } catch (e2) { score = null; }
+        }
+      }
       s._score = score;
-      s._str = strength01(s.cards, hand.board);
+      s._handName = name;
+    });
+    var winners = [];
+    var best = null;
+    cont.forEach(function (s) {
+      if (!s._score) return;
       if (!best) { best = s; winners = [s]; return; }
       var cmp = 0;
-      if (C && C.compare && s._score && best._score) cmp = C.compare(s._score, best._score);
-      else cmp = s._str - best._str;
+      if (C && C.compare) cmp = C.compare(s._score, best._score);
+      else {
+        var ra = (s._score.rank || []).slice();
+        var rb = (best._score.rank || []).slice();
+        var len = Math.max(ra.length, rb.length);
+        for (var i = 0; i < len; i++) {
+          var x = ra[i] || 0, y = rb[i] || 0;
+          if (x !== y) { cmp = x - y; break; }
+        }
+      }
       if (cmp > 0) { best = s; winners = [s]; }
       else if (cmp === 0) winners.push(s);
     });
-    return settle(hand, winners.map(function (w) { return w.id; }), true);
+    if (!winners.length) winners = cont.slice();
+    var handNames = {};
+    cont.forEach(function (s) {
+      if (s._handName) handNames[s.id] = s._handName;
+    });
+    return settle(hand, winners.map(function (w) { return w.id; }), true, { handNames: handNames });
   }
 
   function heroOptions(hand, seat) {
-    var tc = toCall(seat, hand);
+    var tc = Math.max(0, hand.currentBet - seat.streetInvested);
     var bb = hand.bb || 1;
+    var pot = Math.max(hand.pot || 0, bb);
+    var maxTo = seat.streetInvested + seat.stack;
     var opts = [];
+    function pushAllIn() {
+      if (seat.stack > 0) {
+        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxTo });
+      }
+    }
+    function pushRaise(mult, label) {
+      var minTo = Math.min(maxTo, hand.currentBet + hand.minRaise);
+      var raiseTo = Math.min(maxTo, Math.max(minTo, r2(hand.currentBet * mult)));
+      if (raiseTo <= hand.currentBet + 0.001) return;
+      if (raiseTo >= maxTo - 0.001) return;
+      opts.push({
+        id: 'raise',
+        label: (label ? (label + ' · ') : '') + fmtBb(raiseTo, bb),
+        min: minTo,
+        max: maxTo,
+        suggested: raiseTo,
+        amount: raiseTo
+      });
+    }
+    function pushBet(frac, label) {
+      var amt = Math.min(maxTo, Math.max(bb, r2(pot * frac)));
+      if (amt >= maxTo - 0.001) return;
+      opts.push({
+        id: 'bet',
+        label: (label ? (label + ' · ') : 'Apostar ') + fmtBb(amt, bb),
+        min: Math.min(bb, maxTo),
+        max: maxTo,
+        suggested: amt,
+        amount: amt
+      });
+    }
+
     if (tc > 0) {
       opts.push({ id: 'fold', label: 'Fold' });
       opts.push({
@@ -503,75 +599,87 @@
         amount: Math.min(tc, seat.stack)
       });
       if (seat.stack > tc) {
-        var minTo = Math.min(seat.streetInvested + seat.stack, hand.currentBet + hand.minRaise);
-        var maxTo = seat.streetInvested + seat.stack;
-        var raiseTo = Math.min(Math.max(minTo, r2(hand.currentBet * 2.5)), maxTo);
-        opts.push({
-          id: 'raise',
-          label: 'Subir a ' + fmtBb(raiseTo, bb),
-          min: minTo,
-          max: maxTo,
-          suggested: raiseTo,
-          amount: raiseTo
-        });
-        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxTo });
+        if (hand.street === 'preflop') {
+          var raises = 0;
+          (hand.log || []).forEach(function (e) {
+            if (e.street === 'preflop' && (e.action === 'raise' || e.action === 'bet')) raises += 1;
+          });
+          if (!hand.openerId) {
+            [2, 2.5, 3].forEach(function (x) {
+              var to = Math.min(maxTo, r2(bb * x));
+              if (to > hand.currentBet + 0.001 && to < maxTo - 0.001) {
+                opts.push({
+                  id: 'raise',
+                  label: x + ' bb',
+                  min: Math.min(maxTo, hand.currentBet + hand.minRaise),
+                  max: maxTo,
+                  suggested: to,
+                  amount: to
+                });
+              }
+            });
+          } else {
+            var mults = raises >= 2 ? [2.2, 2.6, 3.0] : [2.5, 3.0, 3.5];
+            mults.forEach(function (m) {
+              pushRaise(m, (raises >= 2 ? '4bet ' : '3bet ') + m + 'x');
+            });
+          }
+        } else {
+          pushRaise(2.5, 'Raise 2.5x');
+          pushRaise(3.2, 'Raise 3.2x');
+          var potRaise = Math.min(maxTo, r2(hand.currentBet + pot));
+          if (potRaise > hand.currentBet + hand.minRaise && potRaise < maxTo - 0.001) {
+            opts.push({
+              id: 'raise',
+              label: 'Raise pot',
+              min: Math.min(maxTo, hand.currentBet + hand.minRaise),
+              max: maxTo,
+              suggested: potRaise,
+              amount: potRaise
+            });
+          }
+        }
+        pushAllIn();
       }
     } else {
       opts.push({ id: 'check', label: 'Check' });
       if (seat.stack > 0) {
-        var maxBet = seat.streetInvested + seat.stack;
-        var sug = Math.min(maxBet, Math.max(hand.bb, r2(hand.pot * 0.55)));
-        opts.push({
-          id: 'bet',
-          label: 'Apostar ' + fmtBb(sug, bb),
-          min: Math.min(hand.bb, maxBet),
-          max: maxBet,
-          suggested: sug,
-          amount: sug
-        });
-        opts.push({ id: 'allin', label: 'All-in ' + fmtBb(seat.stack, bb), amount: maxBet });
+        if (hand.street === 'preflop') {
+          [2, 2.5, 3].forEach(function (x) {
+            var to = Math.min(maxTo, r2(bb * x));
+            if (to < maxTo - 0.001) {
+              opts.push({
+                id: 'raise',
+                label: x + ' bb',
+                min: Math.min(bb, maxTo),
+                max: maxTo,
+                suggested: to,
+                amount: to
+              });
+            }
+          });
+        } else {
+          [[0.33, '33%'], [0.66, '66%'], [1.0, '100%'], [1.25, '125%']].forEach(function (pair) {
+            pushBet(pair[0], pair[1]);
+          });
+        }
+        pushAllIn();
       }
     }
     return opts;
   }
 
   function villainAction(hand, seat) {
-    var tc = toCall(seat, hand);
-    if (hand.street === 'preflop') {
-      if (!hand.openerId) {
-        if (seat.pos === 'BB' && tc <= 0) return { id: 'check' };
-        if (shouldOpen(seat, hand)) {
-          return {
-            id: 'raise',
-            amount: Math.min(seat.streetInvested + seat.stack, r2(hand.bb * (seat.pos === 'SB' ? 3 : 2.5)))
-          };
-        }
-        return tc > 0 ? { id: 'fold' } : { id: 'check' };
-      }
-      var d = defendDecision(seat, hand);
-      if (d === 'raise') {
-        return {
-          id: 'raise',
-          amount: Math.min(seat.streetInvested + seat.stack,
-            Math.max(hand.currentBet + hand.minRaise, hand.currentBet * 2.6))
-        };
-      }
-      if (d === 'call') return { id: 'call' };
-      return tc > 0 ? { id: 'fold' } : { id: 'check' };
+    var D = global.PTTournamentVillainDecide;
+    if (D && typeof D.decide === 'function') {
+      try {
+        var act = D.decide(hand, seat);
+        if (act && act.id) return act;
+      } catch (e) { /* fallback */ }
     }
-    var pf = postflopDecision(seat, hand, tc);
-    if (pf === 'bet' || pf === 'raise') {
-      var to = hand.currentBet > 0
-        ? Math.max(hand.currentBet + hand.minRaise, hand.currentBet * 2.2)
-        : Math.max(hand.bb, hand.pot * 0.6);
-      return {
-        id: hand.currentBet > 0 ? 'raise' : 'bet',
-        amount: Math.min(seat.streetInvested + seat.stack, r2(to))
-      };
-    }
-    if (pf === 'call') return { id: 'call' };
-    if (pf === 'check') return { id: 'check' };
-    return { id: 'fold' };
+    var tc = Math.max(0, hand.currentBet - seat.streetInvested);
+    if (tc > 0) return { id: 'fold' };
+    return { id: 'check' };
   }
 
   function applyAction(hand, seat, action) {
@@ -588,53 +696,102 @@
 
   function nextToAct(hand) {
     var order = hand.street === 'preflop' ? preflopOrder(hand) : postflopOrder(hand);
-    for (var i = 0; i < order.length; i++) {
-      var s = order[i];
+    if (!order.length) return null;
+    var start = 0;
+    if (hand.lastAggressorId) {
+      for (var j = 0; j < order.length; j++) {
+        if (order[j].id === hand.lastAggressorId) {
+          start = (j + 1) % order.length;
+          break;
+        }
+      }
+    }
+    for (var k = 0; k < order.length; k++) {
+      var s = order[(start + k) % order.length];
       if (!canAct(s)) continue;
       if (s.streetInvested < hand.currentBet - 0.001 || !hand.acted[s.id]) return s;
     }
     return null;
   }
 
-  function run(hand) {
-    var guard = 0;
-    while (hand.stage === 'playing' && guard++ < 250) {
-      if (alive(hand).length <= 1) return finishFoldWin(hand);
+  /**
+   * Un paso del motor: calle nueva, UNA acción de villano, turno de héroe, o fin.
+   * Los villanos deciden aquí (rol + hole + acciones previas), no al repartir.
+   */
+  function advance(hand) {
+    if (!hand || hand.stage !== 'playing') return hand;
+    hand._frames = hand._frames || [];
 
-      if (streetDone(hand)) {
-        var canStill = alive(hand).filter(canAct);
-        if (canStill.length <= 1 && alive(hand).length >= 2) return finishShowdown(hand);
-        if (hand.street === 'river') return finishShowdown(hand);
-        if (advanceStreet(hand) === 'showdown') return finishShowdown(hand);
-        pushFrame(hand, { kind: 'street' });
-        continue;
-      }
+    if (alive(hand).length <= 1) return finishFoldWin(hand);
 
-      var seat = nextToAct(hand);
-      if (!seat) {
-        alive(hand).forEach(function (s) { if (canAct(s)) hand.acted[s.id] = true; });
-        continue;
-      }
-
-      if (seat.isHero) {
-        hand.awaitingHero = true;
-        hand._heroSeatId = seat.id;
-        hand.heroOptions = heroOptions(hand, seat);
-        return hand;
-      }
-      applyAction(hand, seat, villainAction(hand, seat));
-      pushSeatFrame(hand, seat);
+    if (streetDone(hand)) {
+      var canStill = alive(hand).filter(canAct);
+      if (canStill.length <= 1 && alive(hand).length >= 2) return finishShowdown(hand);
+      if (hand.street === 'river') return finishShowdown(hand);
+      if (advanceStreet(hand) === 'showdown') return finishShowdown(hand);
+      pushFrame(hand, { kind: 'street' });
+      return hand;
     }
-    if (hand.stage === 'playing') finishShowdown(hand);
+
+    var seat = nextToAct(hand);
+    if (!seat) {
+      alive(hand).forEach(function (s) { if (canAct(s)) hand.acted[s.id] = true; });
+      return hand;
+    }
+
+    if (seat.isHero) {
+      hand.awaitingHero = true;
+      hand._heroSeatId = seat.id;
+      hand.heroOptions = heroOptions(hand, seat);
+      return hand;
+    }
+
+    applyAction(hand, seat, villainAction(hand, seat));
+    pushSeatFrame(hand, seat);
+    return hand;
+  }
+
+  /** Avanza hasta héroe, fin de mano, o un máximo de pasos (simulación / skip). */
+  function run(hand, opts) {
+    opts = opts || {};
+    var maxSteps = opts.maxSteps != null ? opts.maxSteps : 250;
+    var stopOnFrame = !!opts.stopOnFrame;
+    var guard = 0;
+    while (hand.stage === 'playing' && !hand.awaitingHero && guard++ < maxSteps) {
+      var framesBefore = (hand._frames && hand._frames.length) || 0;
+      advance(hand);
+      if (stopOnFrame && hand._frames && hand._frames.length > framesBefore) break;
+      if (hand.awaitingHero || hand.stage === 'complete') break;
+    }
+    if (hand.stage === 'playing' && !hand.awaitingHero && guard >= maxSteps) {
+      finishShowdown(hand);
+    }
     return hand;
   }
 
   function start(tableSeats, blinds, heroId) {
     var hand = createHand(tableSeats, blinds, heroId);
-    /* Primer fotograma: cartas repartidas y ciegas puestas, sin acciones aún.
-       A partir de aquí la acción empieza en UTG y avanza hasta el héroe. */
+    hand.decisions = [];
+    /* Primer fotograma: cartas y ciegas; la IA aún no ha decidido. */
     pushFrame(hand, { kind: 'deal' });
-    return run(hand);
+    /* Un solo paso de presentación; el resto lo pide la UI con advance/run. */
+    return hand;
+  }
+
+  /** Tras el deal: avanza un paso (villano/calle) dejando frames nuevos. */
+  function step(hand) {
+    if (!hand) return hand;
+    if (hand.stage === 'complete') return hand;
+    if (hand.awaitingHero) return hand;
+    hand._frames = [];
+    return advance(hand);
+  }
+
+  /** Draga pasos hasta héroe o fin (saltar animación / mesas satélite). */
+  function runToHeroOrEnd(hand) {
+    if (!hand) return hand;
+    /* Conserva fotogramas previos (p.ej. deal) y añade acciones hasta el héroe. */
+    return run(hand, { maxSteps: 250, stopOnFrame: false });
   }
 
   function heroAct(hand, actionId, amount) {
@@ -649,11 +806,23 @@
       });
     }
     if (actionId === 'allin') action.amount = seat.streetInvested + seat.stack;
+
+    /* Evaluación GTO de la decisión del héroe (como en Entrenar). */
+    try {
+      var GEval = global.PTTournamentGtoEval;
+      if (GEval && typeof GEval.evaluateHeroAction === 'function') {
+        var decision = GEval.evaluateHeroAction(hand, seat, action);
+        hand.decisions = hand.decisions || [];
+        if (decision) hand.decisions.push(decision);
+      }
+    } catch (eEval) { /* no bloquear la mano */ }
+
     hand.awaitingHero = false;
     hand.heroOptions = null;
     applyAction(hand, seat, action);
     pushSeatFrame(hand, seat);
-    return run(hand);
+    /* Continúa hasta el próximo turno de héroe o el fin (villanos deciden al actuar). */
+    return runToHeroOrEnd(hand);
   }
 
   function simulateTable(tableSeats, blinds) {
@@ -661,13 +830,20 @@
     hand.seats.forEach(function (s) { s.isHero = false; });
     hand.heroId = null;
     hand._noFrames = true;
-    run(hand);
+    hand.decisions = [];
+    pushFrame(hand, { kind: 'deal' });
+    runToHeroOrEnd(hand);
     hand._frames = [];
     return hand;
   }
 
+
   global.PTTournamentLiveHand = {
     start: start,
+    step: step,
+    advance: advance,
+    run: run,
+    runToHeroOrEnd: runToHeroOrEnd,
     heroAct: heroAct,
     simulateTable: simulateTable,
     strength01: strength01,

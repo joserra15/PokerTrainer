@@ -63,8 +63,9 @@
   }
 
   function normalizeOnBust(v) {
-    if (v === 'simulate' || v === 'end' || v === 'ask') return v;
-    return 'ask';
+    /* Compat: valores antiguos se normalizan a simular el resto. */
+    if (v === 'simulate' || v === 'end' || v === 'ask') return 'simulate';
+    return 'simulate';
   }
 
   var PRESETS = {
@@ -79,9 +80,9 @@
       placesPaid: 3,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 45, nit: 20, tag: 15, lag: 10, maniac: 10, pro: 0 },
+      roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
       exploitProPct: 0,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     medium: {
       id: 'medium',
@@ -94,9 +95,9 @@
       placesPaid: 4,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
-      exploitProPct: 0.1,
-      onBust: 'ask'
+      roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
+      exploitProPct: 0.15,
+      onBust: 'simulate'
     },
     hard: {
       id: 'hard',
@@ -111,7 +112,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
       exploitProPct: 0.4,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     sng6: {
       id: 'sng6',
@@ -126,7 +127,7 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.1,
-      onBust: 'ask'
+      onBust: 'simulate'
     },
     sng9: {
       id: 'sng9',
@@ -141,20 +142,70 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.15,
-      onBust: 'ask'
+      onBust: 'simulate'
+    },
+    spinEasy: {
+      id: 'spinEasy',
+      name: 'Fácil · Spin 3-Max',
+      kind: 'spin',
+      entries: 3,
+      seatsPerTable: 3,
+      buyInEur: 5,
+      startingStack: 500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
+      exploitProPct: 0,
+      onBust: 'simulate'
+    },
+    spinMedium: {
+      id: 'spinMedium',
+      name: 'Medio · Spin 3-Max',
+      kind: 'spin',
+      entries: 3,
+      seatsPerTable: 3,
+      buyInEur: 11,
+      startingStack: 500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
+      exploitProPct: 0.15,
+      onBust: 'simulate'
+    },
+    spinHard: {
+      id: 'spinHard',
+      name: 'Difícil · Spin 3-Max',
+      kind: 'spin',
+      entries: 3,
+      seatsPerTable: 3,
+      buyInEur: 22,
+      startingStack: 500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
+      exploitProPct: 0.4,
+      onBust: 'simulate'
     }
   };
 
   function normalize(raw) {
     raw = raw || {};
-    var seats = Number(raw.seatsPerTable) === 9 ? 9 : 6;
+    var kind = raw.kind === 'sng' ? 'sng' : (raw.kind === 'spin' ? 'spin' : 'mtt');
+    var seatsRaw = Number(raw.seatsPerTable);
+    var seats = seatsRaw === 9 ? 9 : (seatsRaw === 3 || kind === 'spin' ? 3 : 6);
+    if (kind === 'spin') seats = 3;
     var entries = clamp(raw.entries != null ? raw.entries : seats, seats, MAX_ENTRIES);
-    if (raw.kind === 'sng') entries = seats;
-    var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : Math.max(1, Math.floor(entries / 5)), 1, entries - 1);
+    if (kind === 'sng' || kind === 'spin') entries = seats;
+    var placesPaidDefault = kind === 'spin' ? 1 : Math.max(1, Math.floor(entries / 5));
+    var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : placesPaidDefault, 1, Math.max(1, entries - 1));
+    if (kind === 'spin' && entries <= 2) placesPaid = 1;
     return {
       id: String(raw.id || 'custom'),
       name: String(raw.name || 'Torneo personalizado').slice(0, 80),
-      kind: raw.kind === 'sng' ? 'sng' : 'mtt',
+      kind: kind,
       entries: entries,
       seatsPerTable: seats,
       buyInEur: clamp(raw.buyInEur != null ? raw.buyInEur : 5, 0.01, 10000),
@@ -175,7 +226,7 @@
   }
 
   function listPresets() {
-    return ['easy', 'medium', 'hard', 'sng6', 'sng9'].map(function (id) {
+    return ['easy', 'medium', 'hard', 'sng6', 'sng9', 'spinEasy', 'spinMedium', 'spinHard'].map(function (id) {
       return normalize(clone(PRESETS[id]));
     });
   }
