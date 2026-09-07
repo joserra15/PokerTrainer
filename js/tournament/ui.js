@@ -455,27 +455,59 @@ function reducedMotion() {
     return true;
   }
 
-  function startFromConfig(cfg, opts) {
-    opts = opts || {};
-    if (!opts.keepActive) clearActive();
-    opts.heroName = opts.heroName || resolveHeroNameOpt();
-    var buyIn = 0;
+  function resolveBuyIn(cfg) {
     try {
       var cfgObj = typeof cfg === 'string'
         ? (global.PTTournamentConfig.fromPreset ? PTTournamentConfig.fromPreset(cfg) : null)
         : cfg;
-      buyIn = Number(cfgObj && cfgObj.buyInEur) || 0;
-    } catch (eCfg) { buyIn = 0; }
-    try {
-      var Wallet = global.PTTournamentWallet;
-      if (Wallet) {
-        if (!Wallet.canAfford(buyIn)) {
-          alert('Saldo insuficiente de Koins (' + Wallet.getBalance() + '). Buy-in: ' + buyIn);
-          return;
-        }
-        Wallet.debit(buyIn, { type: 'buyin' });
-      }
-    } catch (eW0) { /* */ }
+      return Math.round((Number(cfgObj && cfgObj.buyInEur) || 0) * 100) / 100;
+    } catch (eCfg) {
+      return 0;
+    }
+  }
+
+  /** Cobra el buy-in o explica que hacen falta Koins suficientes. No arranca el torneo si falla. */
+  function chargeBuyInOrExplain(buyIn) {
+    var Wallet = global.PTTournamentWallet;
+    if (!Wallet || typeof Wallet.canAfford !== 'function' || typeof Wallet.debit !== 'function') {
+      try {
+        alert('No se pudo comprobar el saldo de Koins. Inténtalo de nuevo.');
+      } catch (eA0) { /* */ }
+      return false;
+    }
+    buyIn = Math.round((Number(buyIn) || 0) * 100) / 100;
+    if (buyIn <= 0) return true;
+    var bal = typeof Wallet.getBalance === 'function' ? Wallet.getBalance() : 0;
+    if (!Wallet.canAfford(buyIn)) {
+      try {
+        alert(
+          'Necesitas Koins suficientes para pagar el buy-in. ' +
+          'Tienes ' + bal + ' · buy-in ' + buyIn + '.'
+        );
+      } catch (eA1) { /* */ }
+      return false;
+    }
+    var deb = Wallet.debit(buyIn, { type: 'buyin' });
+    if (!deb || !deb.ok) {
+      try {
+        alert(
+          'Necesitas Koins suficientes para pagar el buy-in. ' +
+          'Tienes ' + (deb && deb.balance != null ? deb.balance : bal) +
+          ' · buy-in ' + buyIn + '.'
+        );
+      } catch (eA2) { /* */ }
+      return false;
+    }
+    return true;
+  }
+
+  function startFromConfig(cfg, opts) {
+    opts = opts || {};
+    opts.heroName = opts.heroName || resolveHeroNameOpt();
+    /* Comprobar saldo ANTES de borrar un torneo guardado / arrancar. */
+    var buyIn = resolveBuyIn(cfg);
+    if (!chargeBuyInOrExplain(buyIn)) return;
+    if (!opts.keepActive) clearActive();
     var Runner = global.PTTournamentRunner;
     ui.state = Runner.create(cfg, opts);
     ui.state.startBannerPending = { at: Date.now() };

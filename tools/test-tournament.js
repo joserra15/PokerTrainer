@@ -1038,6 +1038,29 @@ console.log('OK tournament-result-polish');
   assert.ok(/🥇|trn-lb-medal-gold/.test(html), 'gold medal');
   const legend = Lb.legendHtml();
   assert.ok(/Escuela|Entrenador|rol/i.test(legend), 'legend explains earns');
+  assert.ok(/Koins suficientes para pagar el buy-in/i.test(legend),
+    'legend: buy-in requires enough koins');
+  assert.ok(!/llegas a[\s\S]*0[\s\S]*buy-ins/i.test(legend),
+    'legend no dice solo «llegar a 0»');
+
+  /* Entrada bloqueada si no hay saldo para el buy-in */
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/chargeBuyInOrExplain/.test(uiSrc), 'chargeBuyInOrExplain gate');
+  assert.ok(/Necesitas Koins suficientes para pagar el buy-in/.test(uiSrc),
+    'alert copy mentions suficientes para buy-in');
+  const chargeIdx = uiSrc.indexOf('chargeBuyInOrExplain(buyIn)');
+  const clearIdx = uiSrc.indexOf('if (!opts.keepActive) clearActive()', chargeIdx);
+  assert.ok(chargeIdx >= 0 && clearIdx > chargeIdx,
+    'comprueba Koins antes de clearActive');
+  g.PTTournamentWallet.setBalance(5, { type: 'test_buyin_gate' });
+  assert.ok(!g.PTTournamentWallet.canAfford(10), '5 koins no alcanzan buy-in 10');
+  assert.ok(g.PTTournamentWallet.canAfford(5), '5 koins alcanzan buy-in 5');
+  const denied = g.PTTournamentWallet.debit(10, { type: 'buyin' });
+  assert.ok(!denied.ok && denied.reason === 'insufficient', 'debit rechaza buy-in 10 con 5');
+  assert.strictEqual(g.PTTournamentWallet.getBalance(), 5, 'saldo intacto tras rechazo');
+  const okDeb = g.PTTournamentWallet.debit(5, { type: 'buyin' });
+  assert.ok(okDeb.ok, 'debit ok con saldo exacto');
+  assert.strictEqual(g.PTTournamentWallet.getBalance(), 0);
 
   const ranks = Lb.rankings(20);
   assert.ok(ranks.length >= 1, 'ranking con jugadores que jugaron');
