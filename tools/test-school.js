@@ -1214,7 +1214,7 @@ assert.ok(!School.canPlayLesson('C-01').ok, 'canPlay C-01 locked');
   assert.strictEqual(W.getBalance(), 101, 'no dobla Koins al re-aprobar');
 
   ACTIVE = 'mttlab';
-  assert.strictEqual(W.getBalance(), 0, 'wallet MTTLab independiente (partida en 0)');
+  assert.strictEqual(W.getBalance(), 0, 'wallet MTTLab independiente');
   sandbox.Store._st = {
     handsPlayed: 0,
     school: { xp: 0, lessons: {}, updatedAt: 0, version: 2 }

@@ -4696,6 +4696,40 @@ body.cookie-banner-open { padding-bottom: 0; }
   font-family: ui-monospace, monospace;
 }
 .account-settings-admin { color: var(--gold); }
+.account-settings-alias {
+  margin: 10px 0 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border, #2a3441);
+}
+.account-settings-alias .setup-label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.account-settings-alias-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+.account-settings-alias-row input[type="text"],
+.setup-text-input {
+  flex: 1 1 160px;
+  min-width: 140px;
+  max-width: 280px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #2a3441);
+  background: var(--panel, #1c2530);
+  color: var(--text, #e6edf3);
+  font: inherit;
+  font-size: 14px;
+}
+#settings-alias-status {
+  margin: 6px 0 0;
+  min-height: 1.2em;
+}
 .account-settings-actions {
   display: flex;
   flex-wrap: wrap;
