@@ -234,20 +234,24 @@ async function goTab(page, tab) {
       await settings.click({ force: true }).catch(() => {});
     }
   }
-  /* Con Torneos visible la nav puede clippear tabs; no confiar en click DOM. */
-  await page.evaluate((t) => {
-    if (typeof window.goToTab === 'function') {
-      window.goToTab(t);
+  /* Con Torneos visible la nav puede clippear tabs; no confiar en click DOM.
+   * No usar :not(.hidden): los paneles usan display:none vía .tab-panel, sin clase hidden. */
+  const panel = page.locator('#tab-' + tab + '.active');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.evaluate((t) => {
+      if (typeof window.goToTab === 'function') window.goToTab(t);
+      else {
+        var btn = document.querySelector('button.tab[data-tab="' + t + '"]');
+        if (btn) btn.click();
+      }
+    }, tab);
+    try {
+      await panel.waitFor({ state: 'visible', timeout: 5000 });
       return;
+    } catch (e) {
+      if (attempt === 2) throw e;
     }
-    var btn = document.querySelector('button.tab[data-tab="' + t + '"]');
-    if (btn) btn.click();
-  }, tab);
-  /* Solo .active / :not(.hidden): #tab-X existe siempre pero display:none. */
-  await page.waitForSelector('#tab-' + tab + '.active, #tab-' + tab + ':not(.hidden)', {
-    state: 'visible',
-    timeout: 15000
-  });
+  }
 }
 
 async function openPlaySetupAdvanced(page) {
