@@ -662,6 +662,100 @@ FILES.forEach(function (f) { load(g, f); });
   }
 }
 
+// --- all-in corto del SB (< raise actual) no reabre acción a LJ/CO ---
+{
+  const seats = [
+    { player: { id: 'utg', name: 'U', isHero: false, roleId: 'tag', stack: 1000 }, pos: 'UTG', seatIndex: 0 },
+    { player: { id: 'hero', name: 'José', isHero: true, roleId: null, stack: 500 }, pos: 'LJ', seatIndex: 1 },
+    { player: { id: 'hj', name: 'H', isHero: false, roleId: 'tag', stack: 1000 }, pos: 'HJ', seatIndex: 2 },
+    { player: { id: 'co', name: 'FloatFlo', isHero: false, roleId: 'tag', stack: 1400 }, pos: 'CO', seatIndex: 3 },
+    { player: { id: 'btn', name: 'B', isHero: false, roleId: 'tag', stack: 1000 }, pos: 'BTN', seatIndex: 4 },
+    { player: { id: 'sb', name: 'Shorty', isHero: false, roleId: 'tag', stack: 24 }, pos: 'SB', seatIndex: 5 },
+    { player: { id: 'bb', name: 'Tilt', isHero: false, roleId: 'tag', stack: 1000 }, pos: 'BB', seatIndex: 6 }
+  ];
+  const prevDecide = g.PTTournamentVillainDecide;
+  g.PTTournamentVillainDecide = {
+    decide: function (hand, seat) {
+      if (seat.pos === 'CO') return { id: 'call', amount: hand.currentBet - seat.streetInvested };
+      if (seat.pos === 'SB') {
+        return { id: 'allin', amount: seat.streetInvested + seat.stack };
+      }
+      return { id: 'fold' };
+    }
+  };
+  try {
+    const hand = g.PTTournamentLiveHand.start(seats, { sb: 10, bb: 20 }, 'hero');
+    g.PTTournamentLiveHand.runToHeroOrEnd(hand);
+    assert.ok(hand.awaitingHero, 'héroe (LJ) debe abrir');
+    g.PTTournamentLiveHand.heroAct(hand, 'raise', 50);
+
+    const sb = hand.seats.find(function (s) { return s.pos === 'SB'; });
+    const co = hand.seats.find(function (s) { return s.pos === 'CO'; });
+    const bb = hand.seats.find(function (s) { return s.pos === 'BB'; });
+    const pre = hand.log.filter(function (e) { return e.street === 'preflop'; });
+    const sbLog = pre.find(function (e) { return e.id === 'sb'; });
+    const coLog = pre.find(function (e) { return e.id === 'co'; });
+    assert.ok(sb && sb.allIn, 'SB all-in');
+    assert.ok(sbLog && sbLog.action === 'call', 'SB all-in corto se registra como call');
+    assert.ok(sbLog.amount < 50 - 0.001, 'SB aporta menos que el raise');
+    assert.ok(co && !co.folded && coLog && coLog.action === 'call', 'CO igualó el raise');
+    assert.ok(bb && bb.folded, 'BB fold');
+    assert.notStrictEqual(hand.street, 'preflop', 'tras fold de BB avanza de calle (no reabre preflop)');
+    assert.ok(hand.street === 'flop' || hand.stage === 'complete',
+      'flop o fin, street=' + hand.street + ' stage=' + hand.stage);
+    console.log('OK short-allin-sb-no-reopen');
+  } finally {
+    if (prevDecide) g.PTTournamentVillainDecide = prevDecide;
+    else delete g.PTTournamentVillainDecide;
+  }
+}
+
+// --- all-in incompleto (> currentBet pero < min-raise) no reabre raise ---
+{
+  const seats = [
+    { player: { id: 'hero', name: 'José', isHero: true, roleId: null, stack: 1000 }, pos: 'CO', seatIndex: 0 },
+    { player: { id: 'btn', name: 'B', isHero: false, roleId: 'tag', stack: 1000 }, pos: 'BTN', seatIndex: 1 },
+    { player: { id: 'sb', name: 'Sam', isHero: false, roleId: 'tag', stack: 1000 }, pos: 'SB', seatIndex: 2 },
+    { player: { id: 'bb', name: 'ShortRaise', isHero: false, roleId: 'tag', stack: 55 }, pos: 'BB', seatIndex: 3 }
+  ];
+  const prevDecide = g.PTTournamentVillainDecide;
+  g.PTTournamentVillainDecide = {
+    decide: function (hand, seat) {
+      if (seat.pos === 'BTN' || seat.pos === 'SB') return { id: 'fold' };
+      if (seat.pos === 'BB') {
+        /* Facing open to 40: BB all-in to 55 → raise size 15 < minRaise 20. */
+        return { id: 'allin', amount: seat.streetInvested + seat.stack };
+      }
+      return { id: 'fold' };
+    }
+  };
+  try {
+    const hand = g.PTTournamentLiveHand.start(seats, { sb: 10, bb: 20 }, 'hero');
+    g.PTTournamentLiveHand.runToHeroOrEnd(hand);
+    assert.ok(hand.awaitingHero, 'héroe CO abre');
+    g.PTTournamentLiveHand.heroAct(hand, 'raise', 40);
+    g.PTTournamentLiveHand.runToHeroOrEnd(hand);
+
+    const bb = hand.seats.find(function (s) { return s.pos === 'BB'; });
+    assert.ok(bb && bb.allIn, 'BB all-in');
+    assert.ok(bb.streetInvested > 40 + 0.001, 'BB all-in supera el raise (raise incompleto)');
+    assert.ok((bb.streetInvested - 40) < 20 - 0.001, 'incremento < minRaise');
+    assert.strictEqual(hand.currentBet, bb.streetInvested, 'currentBet sube al all-in incompleto');
+    assert.strictEqual(hand.minRaise, 20, 'minRaise no se reduce por el incompleto');
+    assert.strictEqual(hand.lastRaiseWasFull, false, 'marca raise incompleto');
+    assert.ok(hand.awaitingHero, 'héroe debe call/fold el resto (sin reabrir raise)');
+    assert.strictEqual(hand.street, 'preflop', 'sigue preflop hasta que el héroe responda');
+    const ids = (hand.heroOptions || []).map(function (o) { return o.id; });
+    assert.ok(ids.indexOf('call') >= 0 || ids.indexOf('fold') >= 0, 'opciones call/fold');
+    assert.ok(ids.indexOf('raise') < 0, 'no ofrece raise tras incompleto a quien ya actuó');
+    assert.ok(ids.indexOf('allin') >= 0, 'sigue pudiendo ir all-in');
+    console.log('OK incomplete-allin-no-reopen-raise');
+  } finally {
+    if (prevDecide) g.PTTournamentVillainDecide = prevDecide;
+    else delete g.PTTournamentVillainDecide;
+  }
+}
+
 // --- el guardado no arrastra fotogramas de presentación ---
 {
   g.PTTournamentStore.clearActive();
