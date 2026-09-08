@@ -34,6 +34,7 @@
     "test:entitlements": "node tools/test-entitlements.js",
     "test:cloud-merge": "node tools/test-cloud-merge.js",
     "test:tournament-sync": "node tools/test-tournament-cloud-sync.js",
+    "test:tournament-usage": "node tools/test-tournament-usage-stats.js",
     "test:cloud-sessions": "node tools/test-cloud-sessions.js",
     "test:cloud-analysis": "node tools/test-cloud-analysis.js",
     "test:memory-optimize": "node tools/test-memory-optimize.js",
