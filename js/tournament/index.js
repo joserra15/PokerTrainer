@@ -1,12 +1,19 @@
 /*
  * tournament/index.js — API pública PTTournaments (lazy chunk).
- * Acceso: menú para usuarios autenticados / miembros de comunidad;
- * presets por plan (Gratis/Study/Coach); Personalizado solo admin/manager.
+ * Menú abierto a usuarios autenticados (TOURNAMENTS_PUBLIC=true).
+ * Presets por plan (Gratis/Study/Coach); Personalizado solo admin/manager.
+ * En comunidad (membership): sin límite de plan para miembros.
  */
 (function (global) {
   'use strict';
 
   var ENABLED = true;
+  /**
+   * Visibilidad del menú Torneos.
+   * TOURNAMENTS_PUBLIC=true → cualquier usuario autenticado (no demo).
+   * menus.show/hide de comunidad sigue aplicando en app.js.
+   */
+  var TOURNAMENTS_PUBLIC = true;
 
   function isDemoActive() {
     return !!(global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive());
@@ -77,14 +84,21 @@
     return false;
   }
 
-  /**
-   * PokerForgeAI: usuarios autenticados (no demo).
-   * Comunidades gated: cualquier miembro con acceso.
-   */
+  /** ¿Puede ver el tab Torneos? Usuarios autenticados (GA). */
   function menuVisible() {
     if (!ENABLED || isDemoActive()) return false;
-    if (communityRequiresMembership()) return communityHasAccess();
-    return !!authUser();
+    if (TOURNAMENTS_PUBLIC) return !!authUser();
+    /* Legacy: PokerForge admin; MTTLab / gated → managers. */
+    var cid = activeCommunityId();
+    if (cid === 'mttlab') return isManagerAccess();
+    if (cid !== 'pokerforge') {
+      try {
+        if (global.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership()) {
+          return isManagerAccess();
+        }
+      } catch (e) { /* */ }
+    }
+    return hasAdminAccess();
   }
 
   /** Personalizado: solo admin global o manager de comunidad. */
@@ -180,6 +194,7 @@
 
   global.PTTournaments = {
     ENABLED: ENABLED,
+    TOURNAMENTS_PUBLIC: TOURNAMENTS_PUBLIC,
     menuVisible: menuVisible,
     refreshMenuVisibility: refreshMenuVisibility,
     render: render,

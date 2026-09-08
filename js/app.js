@@ -50,15 +50,9 @@
     if (window.PTTournaments && typeof window.PTTournaments.menuVisible === 'function') {
       return !!window.PTTournaments.menuVisible();
     }
-    /* Fallback sin chunk lazy: misma política que tournament/index.js */
+    /* GA: autenticado, no demo (el chunk confirma con menuVisible). */
     if (window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive()) return false;
-    try {
-      if (window.PTCommunity && typeof window.PTCommunity.requireMembership === 'function' &&
-          window.PTCommunity.requireMembership()) {
-        return !!(window.PTCommunity.hasAccess && window.PTCommunity.hasAccess());
-      }
-    } catch (e) { /* noop */ }
-    var u = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser()) || window.PT_AUTH_USER;
+    const u = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser()) || window.PT_AUTH_USER;
     return !!u;
   }
 
@@ -76,7 +70,7 @@
         }
       }
     } catch (e) { /* noop */ }
-    /* Rol: PokerForgeAI → autenticados; comunidad gated → miembros (PTTournaments.menuVisible). */
+    /* GA: usuarios autenticados (PTTournaments.menuVisible); comunidad puede ocultar. */
     const show = !communityHide && tournamentsMenuVisible();
     const tab = document.querySelector('.tab[data-tab="tournaments"]');
     if (tab) tab.classList.toggle('hidden', !show);
@@ -2282,7 +2276,10 @@
     }
     if (tabId === 'tournaments') {
       const tDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
-      let canTournaments = tournamentsMenuVisible();
+      const tUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
+        || window.PT_AUTH_USER || null;
+      /* GA: cualquier usuario autenticado (no demo). El chunk confirma con menuVisible. */
+      let canTournaments = !!(tUser && !tDemo);
       if (window.PTTournaments && typeof window.PTTournaments.menuVisible === 'function') {
         canTournaments = window.PTTournaments.menuVisible();
       }

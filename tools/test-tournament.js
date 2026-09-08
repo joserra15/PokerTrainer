@@ -92,9 +92,11 @@ const FILES = [
   'js/tournament/stats.js',
   'js/tournament/hud.js',
   'js/tournament/wallet.js',
+  'js/tournament/koins-recompute.js',
   'js/tournament/leaderboard.js',
   'js/tournament/store.js',
   'js/tournament/session-bridge.js',
+  'js/tournament/leaks-bridge.js',
   'js/tournament/runner.js',
   'js/tournament/ui.js',
   'js/tournament/index.js'
@@ -358,9 +360,10 @@ FILES.forEach(function (f) { load(g, f); });
   assert.ok(typeof g.PTTournaments.render === 'function');
   assert.ok(typeof g.PTTournaments.canPlayPreset === 'function');
   assert.ok(typeof g.PTTournaments.canUseCustom === 'function');
-  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'sin auth → hidden');
-  /* PokerForge: usuario autenticado */
-  g.PTAuth = { getUser: function () { return { id: 'u1', name: 'Jugador', plan: 'free' }; } };
+  assert.ok(g.PTTournaments.TOURNAMENTS_PUBLIC === true, 'TOURNAMENTS_PUBLIC');
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'sin usuario → hidden');
+  /* GA: cualquier usuario autenticado */
+  g.PTAuth = { getUser: function () { return { id: 'u1', name: 'User', plan: 'free' }; } };
   g.PTEntitlements = { get: function () { return { plan: 'free' }; } };
   g.PTCommunity = {
     id: function () { return 'pokerforge'; },
@@ -370,6 +373,9 @@ FILES.forEach(function (f) { load(g, f); });
     bypassPaywalls: function () { return false; }
   };
   assert.strictEqual(g.PTTournaments.menuVisible(), true, 'auth → visible en PokerForge');
+  g.PTDemo = { isActive: function () { return true; } };
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'demo → hidden');
+  g.PTDemo = { isActive: function () { return false; } };
   assert.strictEqual(g.PTTournaments.canUseCustom(), false, 'free sin admin → no custom');
   assert.strictEqual(g.PTTournaments.canPlayPreset('spinEasy').ok, true, 'free → spinEasy ok');
   assert.strictEqual(g.PTTournaments.canPlayPreset('easy').ok, false, 'free → MTT fácil bloqueado');
@@ -386,7 +392,7 @@ FILES.forEach(function (f) { load(g, f); });
   g.PTAuth = { getUser: function () { return { isAdmin: true, id: 'adm1', name: 'Admin', plan: 'free' }; } };
   g.PTAdmin = { hasAccess: function () { return true; } };
   assert.strictEqual(g.PTTournaments.canUseCustom(), true, 'admin → custom');
-  /* MTTLab: miembros ven menú; bypass de plan; custom solo manager */
+  /* MTTLab: auth ve menú; bypass de plan si miembro; custom solo manager */
   g.PTAdmin = { hasAccess: function () { return false; } };
   g.PTAuth = { getUser: function () { return { id: 'm1', name: 'Member', plan: 'free' }; } };
   g.PTEntitlements = { get: function () { return { plan: 'free' }; } };
@@ -397,14 +403,17 @@ FILES.forEach(function (f) { load(g, f); });
     hasAccess: function () { return true; },
     bypassPaywalls: function () { return true; }
   };
-  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'mttlab miembro → visible');
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'mttlab member auth → visible');
   assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, true, 'mttlab miembro → hard ok (bypass)');
   assert.strictEqual(g.PTTournaments.canUseCustom(), false, 'mttlab miembro → no custom');
   g.PTCommunity.isManager = function () { return true; };
   assert.strictEqual(g.PTTournaments.canUseCustom(), true, 'mttlab manager → custom');
+  /* Sin membership: menú sigue visible (TOURNAMENTS_PUBLIC), pero sin bypass de plan */
+  g.PTCommunity.isManager = function () { return false; };
   g.PTCommunity.hasAccess = function () { return false; };
   g.PTCommunity.bypassPaywalls = function () { return false; };
-  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'mttlab sin acceso → hidden');
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'mttlab auth sin membership → menú visible');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, false, 'mttlab sin membership → plan gate');
   g.PTCommunity = {
     id: function () { return 'pokerforge'; },
     isManager: function () { return false; },
@@ -415,7 +424,7 @@ FILES.forEach(function (f) { load(g, f); });
   g.PTAuth = { getUser: function () { return null; } };
   g.PTAdmin = { hasAccess: function () { return false; } };
   g.PTEntitlements = { get: function () { return { plan: 'free' }; } };
-  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'reset sin auth');
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'reset sin usuario');
   assert.strictEqual(g.PTTournamentConfig.requiredPlanForPreset('spinEasy'), 'free');
   assert.strictEqual(g.PTTournamentConfig.requiredPlanForPreset('easy'), 'pro');
   assert.strictEqual(g.PTTournamentConfig.requiredPlanForPreset('hard'), 'premium');
@@ -779,7 +788,7 @@ FILES.forEach(function (f) { load(g, f); });
 {
   const W = g.PTTournamentWallet;
   assert.ok(W, 'wallet module');
-  assert.strictEqual(W.STARTING, 100, 'starting 100 koins');
+  assert.strictEqual(W.STARTING, 0, 'starting 0 koins');
   W.setBalance(100);
   assert.strictEqual(W.getBalance(), 100);
   const d = W.debit(5, { type: 'buyin' });
@@ -793,7 +802,7 @@ FILES.forEach(function (f) { load(g, f); });
     isManager: function () { return true; },
     requireMembership: function () { return true; }
   };
-  assert.strictEqual(W.getBalance(), 100, 'mttlab empieza en 100 (wallet separado)');
+  assert.strictEqual(W.getBalance(), 0, 'mttlab parte de 0 (wallet separado)');
   W.setBalance(40, { type: 'test_mtt' });
   assert.strictEqual(W.getBalance(), 40);
   g.PTCommunity = {
@@ -1052,6 +1061,10 @@ console.log('OK dist-tournaments-bundle');
   const coreChunk = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
   assert.ok(coreChunk.includes('hand-end-view.js'), 'chunk lists hand-end-view');
   assert.ok(coreChunk.includes('session-bridge.js'), 'chunk lists session-bridge');
+  assert.ok(coreChunk.includes('leaks-bridge.js'), 'chunk lists leaks-bridge');
+  assert.ok(uiSrc.includes('train-tournament-leaks'), 'CTA entrenar leaks torneo');
+  assert.ok(uiSrc.includes('renderImprovementReport') || uiSrc.includes('trn-improve'), 'informe mejora en resultado');
+  assert.ok(cssSrc.includes('trn-improve'), 'css informe mejora');
   /* Koins del entrenador: wallet en core (no depende de abrir Torneos). */
   assert.ok(/core:\s*ENGINE\.concat\(\[[\s\S]*tournament\/wallet\.js/.test(coreChunk),
     'wallet.js está en chunk core');
@@ -2258,6 +2271,81 @@ console.log('OK pushfold-freq-100');
   assert.ok(/function resumeActive[\s\S]*playFrames\(frames,\s*paint\)/.test(uiSrc),
     'resumeActive anima frames (no solo heldFrames/skip)');
   console.log('OK resume-ui-ensure-source');
+}
+
+// --- Quota móvil: no dejar mano 0 si el snapshot creció ---
+{
+  const QUOTA = 300000;
+  const fillerStore = Object.create(null);
+  const ls = {
+    getItem(k) {
+      return Object.prototype.hasOwnProperty.call(fillerStore, k) ? fillerStore[k] : null;
+    },
+    setItem(k, v) {
+      const s = String(v);
+      const others = Object.keys(fillerStore)
+        .filter(function (x) { return x !== k; })
+        .reduce(function (a, x) { return a + (fillerStore[x] ? fillerStore[x].length : 0); }, 0);
+      if (others + s.length > QUOTA) {
+        const e = new Error('QuotaExceededError');
+        e.name = 'QuotaExceededError';
+        throw e;
+      }
+      fillerStore[k] = s;
+    },
+    removeItem(k) { delete fillerStore[k]; }
+  };
+  /* Sustituye localStorage del sandbox solo para este bloque. */
+  const prevLS = g.localStorage;
+  g.localStorage = ls;
+  try {
+    ls.setItem('pt_filler', 'x'.repeat(200000));
+    const state = g.PTTournamentRunner.create('hard', { seed: 77, heroName: 'QuotaHero' });
+    g.PTTournamentRunner.beginHand(state);
+    const r0 = g.PTTournamentStore.saveActive(state);
+    assert.ok(r0.ok, 'hand0 cabe');
+    assert.strictEqual(g.PTTournamentStore.loadActive().handIndex, 0, 'inicial mano 0');
+    for (let h = 0; h < 80; h++) {
+      let guard = 0;
+      while (state.status === 'running' && state._liveHand &&
+             state._liveHand.stage === 'playing' && guard++ < 120) {
+        if (state._liveHand.awaitingHero) {
+          const opt = (state._liveHand.heroOptions && state._liveHand.heroOptions[0]) || { id: 'fold' };
+          g.PTTournamentRunner.heroAct(state, opt.id || 'fold', opt.amount);
+        } else break;
+      }
+      if (state._liveHand && state._liveHand.stage === 'complete') {
+        g.PTTournamentRunner.continueAfterHand(state);
+      } else break;
+      if (state.status !== 'running') break;
+    }
+    assert.ok(state.handIndex >= 40, 'jugó bastantes manos got ' + state.handIndex);
+    const rN = g.PTTournamentStore.saveActive(state);
+    assert.ok(rN.ok, 'save avanzado debe caber con slim progresivo');
+    const loaded = g.PTTournamentStore.loadActive();
+    assert.ok(loaded, 'hay active');
+    assert.strictEqual(loaded.handIndex, state.handIndex,
+      'no debe quedarse en mano 0 tras QuotaExceeded parcial');
+  } finally {
+    g.localStorage = prevLS;
+    g.PTTournamentStore.clearActive();
+  }
+  console.log('OK exit-save-survives-mobile-quota');
+}
+
+// --- exit-save UI: no abandona mesa si persist falla ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/verified === false|!saved\.ok/.test(uiSrc), 'exit-save comprueba persist');
+  assert.ok(/No se pudo guardar el torneo/.test(uiSrc), 'alerta si no guarda');
+  assert.ok(/pagehide/.test(uiSrc) && /visibilitychange/.test(uiSrc),
+    'autosave en ciclo de vida móvil');
+  assert.ok(/blindUpPending[\s\S]{0,120}persistActive|milestone[\s\S]{0,80}blindUpPending/.test(uiSrc),
+    'autosave checkpoint al subir de nivel');
+  const storeSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/store.js'), 'utf8');
+  assert.ok(/applyPersistQuotaLevel/.test(storeSrc), 'slim por niveles de quota');
+  assert.ok(/tryFreeStorage|freeStorageSpace/.test(storeSrc), 'libera espacio ante quota');
+  console.log('OK exit-save-fail-keeps-table-source');
 }
 
 console.log('*** test-tournament OK ***');

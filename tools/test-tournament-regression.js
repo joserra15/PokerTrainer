@@ -292,12 +292,14 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
 }
 
 // ---------------------------------------------------------------------------
-// 6) Gate menú (auth / comunidad)
+// 6) Gate público (auth) + plan helpers
 // ---------------------------------------------------------------------------
 {
-  assert.strictEqual(g.PTTournaments.menuVisible(), false);
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'sin usuario → hidden');
   assert.strictEqual(g.PTTournaments.canPlayPreset('spinEasy').ok, false);
-  console.log('OK gate menu');
+  g.PTAuth = { getUser: function () { return { id: 'u1', name: 'User' }; } };
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'auth → visible');
+  console.log('OK gate público');
 }
 
 // ---------------------------------------------------------------------------

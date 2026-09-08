@@ -126,7 +126,7 @@
   function publishHero(opts) {
     opts = opts || {};
     var hero = heroIdentity();
-    var bal = 100;
+    var bal = 0;
     var played = 0;
     try {
       if (global.PTTournamentWallet && PTTournamentWallet.getBalance) {
@@ -272,6 +272,7 @@
     return '<aside class="trn-koins-legend">' +
       '<h3>Cómo ganar Koins</h3>' +
       '<ul>' +
+      '<li>Partes de <strong>0</strong> Koins; se ganan con actividad</li>' +
       '<li><strong>+1</strong> por cada lección de Escuela aprobada</li>' +
       '<li><strong>+1</strong> cada 25 manos en el Entrenador</li>' +
       '<li><strong>+2</strong> por cada rol de rival acertado al terminar un torneo</li>' +

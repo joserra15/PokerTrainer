@@ -144,13 +144,13 @@ assert.strictEqual(Wallet.earnFromLesson('C-00').added, 0, 'PF no dobla misma le
 
 ACTIVE = 'mttlab';
 assert.ok(/_mttlab/.test(Wallet.storageKey()), 'clave mttlab namespaced');
-assert.strictEqual(Wallet.getBalance(), 100, 'mttlab wallet independiente (100 inicial)');
+assert.strictEqual(Wallet.getBalance(), 0, 'mttlab wallet independiente (partida en 0)');
 const mtAward = Wallet.earnFromLesson('ML-M1-01');
 assert.strictEqual(mtAward.added, 1, 'MTTLab: +1 Koin por lección propia');
-assert.strictEqual(Wallet.getBalance(), 101, 'mttlab saldo 101');
+assert.strictEqual(Wallet.getBalance(), 1, 'mttlab saldo 1');
 /* Misma id de lección PF no debe bloquear award MTTLab (wallets distintos). */
 assert.strictEqual(Wallet.earnFromLesson('C-00').added, 1, 'mttlab puede premiar C-00 en su wallet');
-assert.strictEqual(Wallet.getBalance(), 102);
+assert.strictEqual(Wallet.getBalance(), 2);
 
 ACTIVE = 'pokerforge';
 assert.strictEqual(Wallet.getBalance(), 101, 'vuelta a PF: saldo intacto');
