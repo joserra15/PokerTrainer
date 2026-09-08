@@ -140,6 +140,7 @@ const STEPS = [
   ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],
   ['Test manos legendarias (playthrough)', ['node', 'tools/test-legendary-playthrough.js']],
   ['Test torneos IA (smoke)', ['node', 'tools/test-tournament.js']],
+  ['Test koins recompute from history', ['node', 'tools/test-koins-recompute.js']],
   ['Test torneos leaks bridge + informe', ['node', 'tools/test-tournament-leaks-bridge.js']],
   ['Test torneos cloud sync (koins/history/active)', ['node', 'tools/test-tournament-cloud-sync.js']],
   ['Test torneos IA (regresión completa)', ['node', 'tools/test-tournament-regression.js']]

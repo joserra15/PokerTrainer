@@ -2581,6 +2581,12 @@
 
     host.innerHTML =
       renderGuestFunnelSection() +
+      '<div class="admin-detail-section admin-koins-recompute">' +
+      '<h4>Recuento de Koins</h4>' +
+      '<p class="muted-text">Recalcula saldos desde el histórico (partida en 0; excluye admin; manager MTTLab = 100). Requiere migración <code>052</code>.</p>' +
+      '<button type="button" class="btn btn-primary btn-sm" data-admin-recompute-koins>Recalcular Koins en BBDD</button>' +
+      '<p class="muted-text" data-admin-recompute-koins-status></p>' +
+      '</div>' +
       '<div class="admin-detail-grid admin-usage-summary">' +
       '<div><span class="muted-text">IA hoy</span><strong>' + escapeHtml(formatActivityNumber(data.ai_requests_today)) + '</strong></div>' +
       '<div><span class="muted-text">IA 30 días</span><strong>' + escapeHtml(formatActivityNumber(data.ai_requests_30d)) + '</strong></div>' +
@@ -2617,7 +2623,49 @@
         if (uid) openUserDetail(uid);
       });
     });
+    var recomputeBtn = host.querySelector('[data-admin-recompute-koins]');
+    if (recomputeBtn) {
+      recomputeBtn.addEventListener('click', function () {
+        recomputeTournamentKoins();
+      });
+    }
     bindFunnelPeriod();
+  }
+
+  async function recomputeTournamentKoins() {
+    if (!requireAdminAccess()) return;
+    var host = $('#admin-usage-content');
+    var status = host && host.querySelector('[data-admin-recompute-koins-status]');
+    var btn = host && host.querySelector('[data-admin-recompute-koins]');
+    var c = client();
+    if (!c) return;
+    if (!window.confirm(
+      '¿Recalcular Koins de todos los usuarios desde el histórico?\n' +
+      'Partida en 0, sin endowment. Se excluye al administrador. ' +
+      'Manager MTTLab → 100 en esa comunidad.'
+    )) return;
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'Recalculando…';
+    var res = await c.rpc('pt_admin_recompute_tournament_koins');
+    if (btn) btn.disabled = false;
+    if (!requireAdminAccess()) return;
+    if (res.error) {
+      var msg = res.error.message || 'Error al recalcular';
+      if (isMissingRpc(res.error)) {
+        msg = 'Falta aplicar la migración 052_recompute_tournament_koins_from_history.sql en Supabase.';
+      }
+      if (status) status.textContent = msg;
+      else try { alert(msg); } catch (eA) { /* */ }
+      return;
+    }
+    var d = res.data || {};
+    var okMsg = 'Listo: ' +
+      (d.updated_users != null ? d.updated_users + ' usuarios, ' : '') +
+      (d.updated_wallets != null ? d.updated_wallets + ' wallets, ' : '') +
+      (d.skipped_admins != null ? d.skipped_admins + ' admin omitidos, ' : '') +
+      (d.manager_grants != null ? d.manager_grants + ' managers MTTLab=100' : '');
+    if (status) status.textContent = okMsg;
+    else try { alert(okMsg); } catch (eB) { /* */ }
   }
 
   function isMissingRpc(err) {

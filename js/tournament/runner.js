@@ -538,6 +538,8 @@
         profit: sum.profit,
         roi: sum.roi,
         roleAccuracy: roleScore.accuracy,
+        roleCorrect: roleScore.correct || 0,
+        roleKoins: Number(roleScore.koins) || ((roleScore.correct || 0) * 2),
         finishedAt: state.finishedAt,
         presetId: state._presetId || state.config.id,
         sessionId: sessionId,

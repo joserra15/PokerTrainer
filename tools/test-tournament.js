@@ -92,6 +92,7 @@ const FILES = [
   'js/tournament/stats.js',
   'js/tournament/hud.js',
   'js/tournament/wallet.js',
+  'js/tournament/koins-recompute.js',
   'js/tournament/leaderboard.js',
   'js/tournament/store.js',
   'js/tournament/session-bridge.js',
@@ -738,7 +739,7 @@ FILES.forEach(function (f) { load(g, f); });
 {
   const W = g.PTTournamentWallet;
   assert.ok(W, 'wallet module');
-  assert.strictEqual(W.STARTING, 100, 'starting 100 koins');
+  assert.strictEqual(W.STARTING, 0, 'starting 0 koins');
   W.setBalance(100);
   assert.strictEqual(W.getBalance(), 100);
   const d = W.debit(5, { type: 'buyin' });
@@ -752,7 +753,7 @@ FILES.forEach(function (f) { load(g, f); });
     isManager: function () { return true; },
     requireMembership: function () { return true; }
   };
-  assert.strictEqual(W.getBalance(), 100, 'mttlab empieza en 100 (wallet separado)');
+  assert.strictEqual(W.getBalance(), 0, 'mttlab parte de 0 (wallet separado)');
   W.setBalance(40, { type: 'test_mtt' });
   assert.strictEqual(W.getBalance(), 40);
   g.PTCommunity = {

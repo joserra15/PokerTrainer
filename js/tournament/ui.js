@@ -38,7 +38,7 @@
   function displayKoins() {
     try {
       var W = global.PTTournamentWallet;
-      if (!W) return 100;
+      if (!W) return 0;
       if (W.peek) {
         var p = W.peek();
         if (p && typeof p.balance === 'number') return p.balance;
@@ -49,7 +49,7 @@
       }
       if (W.getBalance) return W.getBalance();
     } catch (e) { /* */ }
-    return 100;
+    return 0;
   }
 
   function flushTournamentCloud() {

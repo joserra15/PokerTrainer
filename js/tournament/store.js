@@ -221,6 +221,8 @@
       profit: Number(summary.profit) || 0,
       roi: Number(summary.roi) || 0,
       roleAccuracy: Number(summary.roleAccuracy) || 0,
+      roleCorrect: summary.roleCorrect != null ? Number(summary.roleCorrect) || 0 : null,
+      roleKoins: summary.roleKoins != null ? Number(summary.roleKoins) || 0 : null,
       finishedAt: summary.finishedAt || new Date().toISOString(),
       presetId: summary.presetId || null,
       sessionId: summary.sessionId || null,

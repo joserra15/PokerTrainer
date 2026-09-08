@@ -3902,7 +3902,7 @@
   function publishHero(opts) {
     opts = opts || {};
     var hero = heroIdentity();
-    var bal = 100;
+    var bal = 0;
     var played = 0;
     try {
       if (global.PTTournamentWallet && PTTournamentWallet.getBalance) {
@@ -4048,6 +4048,7 @@
     return '<aside class="trn-koins-legend">' +
       '<h3>Cómo ganar Koins</h3>' +
       '<ul>' +
+      '<li>Partes de <strong>0</strong> Koins; se ganan con actividad</li>' +
       '<li><strong>+1</strong> por cada lección de Escuela aprobada</li>' +
       '<li><strong>+1</strong> cada 25 manos en el Entrenador</li>' +
       '<li><strong>+2</strong> por cada rol de rival acertado al terminar un torneo</li>' +
@@ -4289,6 +4290,8 @@
       profit: Number(summary.profit) || 0,
       roi: Number(summary.roi) || 0,
       roleAccuracy: Number(summary.roleAccuracy) || 0,
+      roleCorrect: summary.roleCorrect != null ? Number(summary.roleCorrect) || 0 : null,
+      roleKoins: summary.roleKoins != null ? Number(summary.roleKoins) || 0 : null,
       finishedAt: summary.finishedAt || new Date().toISOString(),
       presetId: summary.presetId || null,
       sessionId: summary.sessionId || null,
@@ -6250,6 +6253,8 @@
         profit: sum.profit,
         roi: sum.roi,
         roleAccuracy: roleScore.accuracy,
+        roleCorrect: roleScore.correct || 0,
+        roleKoins: Number(roleScore.koins) || ((roleScore.correct || 0) * 2),
         finishedAt: state.finishedAt,
         presetId: state._presetId || state.config.id,
         sessionId: sessionId,
@@ -6403,7 +6408,7 @@
   function displayKoins() {
     try {
       var W = global.PTTournamentWallet;
-      if (!W) return 100;
+      if (!W) return 0;
       if (W.peek) {
         var p = W.peek();
         if (p && typeof p.balance === 'number') return p.balance;
@@ -6414,7 +6419,7 @@
       }
       if (W.getBalance) return W.getBalance();
     } catch (e) { /* */ }
-    return 100;
+    return 0;
   }
 
   function flushTournamentCloud() {

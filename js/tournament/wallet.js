@@ -1,6 +1,7 @@
 /*
- * tournament/wallet.js — Saldo de Koins (100 iniciales) + sync cloud.
+ * tournament/wallet.js — Saldo de Koins (partida en 0) + sync cloud.
  * Koins independientes por comunidad (clave local + payload nube namespaced).
+ * Se ganan con Escuela / Entrenador / premios de torneo (ver koins-recompute).
  *
  * Importante sync: no inventar wallet al leer para push/merge. Un `ensure()`
  * con updatedAt=now en un PC vacío pisaba el saldo real del móvil.
@@ -8,7 +9,7 @@
 (function (global) {
   'use strict';
 
-  var STARTING = 100;
+  var STARTING = 0;
   var KEY = 'pt_tournament_wallet_v1';
 
   function userSuffix() {
