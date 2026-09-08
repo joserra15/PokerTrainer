@@ -96,11 +96,12 @@ Recibes JSON ultra-compacto de una SESIÓN importada o de un TORNEO IA:
 - trn: meta del torneo si src=tournament (puesto, premio, buy-in, entries, ROI)
 - st: estadísticas globales (n manos, acc, net, evLost, expNet, varianza, nota, acierto por calle, distribución decisiones)
 - leaks: manos con fugas (decisiones malas/EV perdido) con detalle
-- clean: resto de manos en una línea cada una (id|mano pos|net|ev|veredicto)
+- clean: resto de manos en una línea cada una (#N|mano pos|net|ev|veredicto)
 - leakTrunc / leakNote: si hay más fugas de las enviadas
 
 Los números eq/gto/ev son estimaciones de la app y pueden fallar; verifica solo lo relevante.
 Al citar una mano concreta de leaks, contrasta hero, board y dec[] antes de describir la jugada. No inventes manos hechas ni acciones.
+Cita manos con el campo id tal cual (#51, #21…); NUNCA escribas "ID: trn_…" ni ids internos largos.
 Si hay "coachSummary" o "player", adapta el plan al historial del alumno.
 
 NO enumeres todas las manos. Analiza patrones, calles débiles, fugas recurrentes y varianza vs errores.
@@ -110,7 +111,7 @@ Responde markdown completo en español:
 # Resumen sesión {file}
 ## Rendimiento global
 ## Decisiones clave (si es torneo) o Fugas principales
-(3-6 bullets con mano, calle y por qué)
+(3-6 bullets con mano como #51, calle y por qué)
 ## Patrones (calle, posición, tipo de spot)
 ## Plan de estudio
 (3 acciones concretas microlímites en la app: entrenador, sesiones, estadísticas)`;
@@ -122,6 +123,7 @@ file es el archivo importado (nick de mesa); student es el nombre del alumno si 
 
 Responde centrándote en la pregunta usando stats y las manos relevantes del JSON. Sé directo.
 Si citas una mano, verifica cartas, board y acciones del héroe desde el JSON antes de evaluar. No inventes manos hechas ni líneas de acción.
+Cita manos con el id del JSON (#51…); nunca ids internos trn_….
 eq/gto/ev del JSON pueden ser incorrectos; recalcula si la pregunta lo requiere.
 
 Responde markdown en español. Título breve relacionado con la pregunta.

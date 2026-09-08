@@ -170,6 +170,56 @@ if (!sessGlobal.clean || sessGlobal.clean.length !== 2) {
   console.error('FAIL sessionGlobal clean hands');
   process.exit(1);
 }
+if (sessGlobal.leaks[0].id !== '2') {
+  console.error('FAIL sessionGlobal keeps room hand id', sessGlobal.leaks[0].id);
+  process.exit(1);
+}
+if (!String(sessGlobal.clean[0]).startsWith('1|') && !String(sessGlobal.clean[0]).startsWith('3|')) {
+  console.error('FAIL sessionGlobal clean room ids', sessGlobal.clean);
+  process.exit(1);
+}
+
+const trnSession = P.build('tournament', {
+  id: 'trn-ses',
+  fileName: 'Spin 3-Max',
+  source: 'tournamentAi',
+  tournament: { name: 'Spin 3-Max', kind: 'spin', place: 2, prizeEur: 0, buyInEur: 1, entries: 3 },
+  stats: {
+    nHands: 2, accuracy: 78, netBB: 1.2, evLossBB: 3.1, expectedNet: 4.3,
+    varianceAdj: -3.1, pctDecision: 50, pctVariance: 50,
+    grade: { letter: 'B', score: 7.5 },
+    accByStreet: { preflop: 80, flop: 70, turn: 70, river: 60 },
+    dist: { optima: 50, aceptable: 20, imprecisa: 20, error: 10 },
+    gameKind: 'spin'
+  },
+  hands: [
+    {
+      id: 'trn_trn_mtrvr3ea_5ejf_h21', handIndex: 21, heroCode: 'JTo', heroPos: 'BB',
+      heroNetBB: -2, totalEvLoss: 1.5, accuracy: 40, worstClass: 'error', board: [],
+      decisions: [{ street: 'preflop', chosen: 'call', best: 'fold', class: 'error', evLossBB: 1.5 }]
+    },
+    {
+      id: 'trn_trn_mtrvr3ea_5ejf_h51', handIndex: 51, heroCode: 'KK', heroPos: 'SB',
+      heroNetBB: 4, totalEvLoss: 0, accuracy: 100, worstClass: 'optima', board: [], decisions: []
+    }
+  ]
+});
+if (!trnSession || trnSession.src !== 'tournament') {
+  console.error('FAIL tournament session payload');
+  process.exit(1);
+}
+if (!trnSession.leaks || !trnSession.leaks[0] || trnSession.leaks[0].id !== '#21') {
+  console.error('FAIL tournament leak cite id', trnSession.leaks && trnSession.leaks[0]);
+  process.exit(1);
+}
+if (!trnSession.clean || !trnSession.clean.some(function (c) { return String(c).startsWith('#51|'); })) {
+  console.error('FAIL tournament clean cite #51', trnSession.clean);
+  process.exit(1);
+}
+if (/trn_trn_/.test(JSON.stringify(trnSession))) {
+  console.error('FAIL tournament payload still has long trn_ ids');
+  process.exit(1);
+}
 
 // RG-E01: entrypoint stats/home (buildStats / statsGlobal)
 const statsPayload = P.build('statsGlobal', {

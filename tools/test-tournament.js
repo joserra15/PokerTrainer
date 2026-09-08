@@ -1990,8 +1990,16 @@ console.log('OK pushfold-freq-100');
     'payload builds tournament sessions');
   assert.ok(payloadSrc.includes('DECISIONES CLAVE') || payloadSrc.includes('decisiones clave'),
     'payload asks for key decisions');
+  assert.ok(payloadSrc.includes('handCiteId') && payloadSrc.includes("'#' + h.handIndex"),
+    'payload cites hands as #N');
   const edgeSrc = fs.readFileSync(path.join(ROOT, 'supabase/functions/analyze-hand/index.ts'), 'utf8');
   assert.ok(/DECISIONES CLAVE|Decisiones clave/i.test(edgeSrc), 'edge prompt covers tournament keys');
+  assert.ok(/nunca.*trn_|NUNCA.*trn_/i.test(edgeSrc), 'edge prompt forbids long trn_ ids');
+  const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(/\.trn-stat-cell\s+\.trn-stat-val\s*\{[^}]*font-size:\s*2[0-9]px\s*!important/s.test(cssSrc),
+    'result stats gold values are large');
+  assert.ok(!/\.trn-lobby-stats\s+\.trn-stat-val,\s*\.trn-lobby-row\s+\.trn-stat-val,\s*\.trn-stat-val\s*\{[^}]*11px\s*!important/s.test(cssSrc),
+    'global 11px !important no longer crushes result stats');
   console.log('OK tournament-forgecoach');
 }
 

@@ -2451,9 +2451,9 @@
   font-size: 11px;
   opacity: .85;
 }
+/* Solo lobby: no pisar .trn-stat-cell del resumen final (valores oro). */
 .trn-lobby-stats .trn-stat-val,
-.trn-lobby-row .trn-stat-val,
-.trn-stat-val {
+.trn-lobby-row .trn-stat-val {
   font-size: 11px !important;
   font-weight: 700;
   white-space: nowrap;
@@ -2583,7 +2583,7 @@
   text-align: center;
 }
 .trn-stat-cell .trn-stat-val {
-  font-size: 22px;
+  font-size: 24px !important;
   font-weight: 800;
   color: var(--gold, #f5c451);
   line-height: 1.15;
@@ -2642,5 +2642,5 @@
 }
 @media (max-width: 520px) {
   .trn-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .trn-stat-cell .trn-stat-val { font-size: 18px; }
+  .trn-stat-cell .trn-stat-val { font-size: 20px !important; }
 }

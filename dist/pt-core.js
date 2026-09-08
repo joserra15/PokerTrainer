@@ -23742,13 +23742,23 @@ window.PT_NASH_PUSH_JSON = {
     return (cards || []).join('');
   }
 
+  /** Cita legible: torneo → #51; sesión importada → id de sala. */
+  function handCiteId(h) {
+    if (!h) return '?';
+    if (h.handIndex != null && h.handIndex !== '') return '#' + h.handIndex;
+    const raw = String(h.id != null ? h.id : '');
+    const m = raw.match(/_h(\d+)$/);
+    if (m) return '#' + m[1];
+    return raw || '?';
+  }
+
   function slimHandLeak(h) {
     const bad = (h.decisions || []).filter(function (d) {
       return d.class === 'error' || d.class === 'imprecisa' ||
         (d.evLossBB != null ? d.evLossBB : (d.evLoss || 0)) > 0;
     });
     const o = {
-      id: h.id,
+      id: handCiteId(h),
       h: h.heroCode + ' ' + h.heroPos,
       net: h.heroNetBB,
       ev: h.totalEvLoss,
@@ -23763,7 +23773,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function slimHandTiny(h) {
-    return String(h.id) + '|' + h.heroCode + ' ' + h.heroPos + '|' +
+    return handCiteId(h) + '|' + h.heroCode + ' ' + h.heroPos + '|' +
       h.heroNetBB + '|' + h.totalEvLoss + '|' + wcShort(h.worstClass);
   }
 
@@ -23787,8 +23797,9 @@ window.PT_NASH_PUSH_JSON = {
     });
     leakHands.sort(function (a, b) { return b.totalEvLoss - a.totalEvLoss; });
     const leakCap = 45;
-    const leaks = leakHands.slice(0, leakCap).map(slimHandLeak);
-    const leakIds = new Set(leaks.map(function (l) { return l.id; }));
+    const leakSlice = leakHands.slice(0, leakCap);
+    const leaks = leakSlice.map(slimHandLeak);
+    const leakIds = new Set(leakSlice.map(function (h) { return h.id; }));
     const clean = hands.filter(function (h) { return !leakIds.has(h.id); }).map(slimHandTiny);
 
     const payload = {
@@ -23860,7 +23871,7 @@ window.PT_NASH_PUSH_JSON = {
               ? 'Cash 9-max / full ring: rangos más tight que 6-max.'
               : 'Cash NLHE: bandas 6-max estándar salvo short-handed.'))
       },
-      solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=id|mano pos|net|ev|wc'
+      solverNote: 'eq/gto/ev son estimaciones de la app; verifica cartas, acciones y lo crítico. clean=#N|mano pos|net|ev|wc (citar manos como #N, sin ID interno)'
     };
     if (session.tournamentAi || session.tournament || session.source === 'tournamentAi') {
       const trn = session.tournament || {};
@@ -23883,7 +23894,7 @@ window.PT_NASH_PUSH_JSON = {
       payload.st.finishPlace = payload.trn.place;
       payload.solverNote =
         'Informe de TORNEO: centra el análisis en decisiones clave vs resultado final. ' +
-        'eq/gto/ev son estimaciones; verifica lo crítico. clean=id|mano pos|net|ev|wc';
+        'eq/gto/ev son estimaciones; verifica lo crítico. Cita manos como #N (p.ej. #51), nunca el id interno trn_…_hN. clean=#N|mano pos|net|ev|wc';
     }
     if (leaks.length) payload.leaks = leaks;
     if (leakHands.length > leakCap) {
