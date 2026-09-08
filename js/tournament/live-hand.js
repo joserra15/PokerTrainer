@@ -394,7 +394,11 @@
       hand.openerId = seat.id;
       hand.openerPos = seat.pos;
     }
-    logAct(hand, seat, prev > 0 ? 'raise' : 'bet', seat.streetInvested);
+    /* All-in incompleto: en mesa/log como allin (no «raise»), coherente con TDA. */
+    var logAction = seat.allIn && !fullRaise
+      ? 'allin'
+      : (prev > 0 ? 'raise' : 'bet');
+    logAct(hand, seat, logAction, seat.streetInvested);
 
     /* Raise incompleto (all-in < min-raise): sube currentBet para quien aún
        debe igualar, pero NO reabre a quien ya había actuado (TDA). Tampoco

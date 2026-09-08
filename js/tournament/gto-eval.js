@@ -60,6 +60,30 @@
     return id;
   }
 
+  /**
+   * All-in que no llega al min-raise legal (o ni siquiera iguala): en la práctica
+   * es un call con las fichas que quedan. Evaluarlo como raise/shove marca Error
+   * cuando el chart es CALL 100% pese a que el incremento es irrelevante.
+   */
+  function isIncompleteAllIn(hand, heroSeat, action) {
+    if (!hand || !heroSeat || !action) return false;
+    var id = action.id || action;
+    if (id !== 'allin' && id !== 'raise') return false;
+    var prev = Number(hand.currentBet) || 0;
+    var streetInv = Number(heroSeat.streetInvested) || 0;
+    var stackLeft = Number(heroSeat.stack) || 0;
+    var maxAfford = streetInv + stackLeft;
+    var amount = action.amount != null ? Number(action.amount) : maxAfford;
+    if (!isFinite(amount) || amount <= 0) amount = maxAfford;
+    var target = Math.min(maxAfford, Math.max(amount, streetInv));
+    /* Call corto (all-in por debajo de la apuesta) o raise incompleto (< min-raise). */
+    if (target <= prev + 0.001) return target > streetInv + 0.001 || stackLeft > 0;
+    var raiseSize = target - prev;
+    var minRaise = Number(hand.minRaise);
+    if (!(minRaise > 0)) minRaise = Number(hand.bb) || 0;
+    return raiseSize < minRaise - 0.001;
+  }
+
   function availableFromOptions(opts, preferAllin) {
     return (opts || []).map(function (o) {
       /* Conservar allin: en MTT short el shove no es un raise cash. */
@@ -218,7 +242,8 @@
     var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
 
     var street = hand.street === 'preflop' ? 'preflop' : hand.street;
-    var preferAllin = pushPhase || (action && action.id === 'allin' && shortPhase);
+    var incompleteAllIn = toCall > 0 && isIncompleteAllIn(hand, heroSeat, action);
+    var preferAllin = !incompleteAllIn && (pushPhase || (action && action.id === 'allin' && shortPhase));
     var avail = availableFromOptions(hand.heroOptions, preferAllin);
     if (!avail.length) {
       avail = preferAllin ? ['fold', 'allin'] : ['fold', 'check', 'call', 'bet', 'raise'];
@@ -226,8 +251,13 @@
     if (preferAllin && avail.indexOf('allin') < 0) avail.push('allin');
 
     var chosen = mapActionId(action, { pushPhase: pushPhase, preferAllin: preferAllin });
-    /* Shove a stack corto: si el motor lo mapeó a raise, forzar allin en push. */
-    if (preferAllin && action && action.id === 'allin') chosen = 'allin';
+    /* All-in incompleto frente a apuesta: evaluar como call (mismo pago esencial). */
+    if (incompleteAllIn) {
+      chosen = 'call';
+      if (avail.indexOf('call') < 0) avail.push('call');
+    } else if (preferAllin && action && action.id === 'allin') {
+      chosen = 'allin';
+    }
     if (avail.indexOf(chosen) < 0) avail.push(chosen);
 
     var aliveCount = (hand.seats || []).filter(function (s) { return !s.folded; }).length;
@@ -271,7 +301,7 @@
       aliveCount: aliveCount,
       phaseNote: 'Fase ' + (hub === 'spin' ? 'Spin' : 'MTT') + ' «' + phase + '» · ' + stackBB + ' bb'
     };
-    if (action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
+    if (!incompleteAllIn && action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
       input.betSizeBB = Number(action.amount) / bb;
     }
     return input;
@@ -295,11 +325,15 @@
     var input = null;
     try { input = buildInput(hand, heroSeat, action); } catch (eBuild) { input = null; }
     var chosen = (input && input.chosenAction) || mapActionId(action, { preferAllin: true });
+    var labelAmount = action && action.amount;
+    if (chosen === 'call' && input && input.toCallBB != null) {
+      labelAmount = input.toCallBB * (Number(hand.bb) || 1);
+    }
     var base = {
       street: hand.street,
       action: chosen,
       chosen: chosen,
-      label: actionLabel(chosen, action && action.amount, hand.bb),
+      label: actionLabel(chosen, labelAmount, hand.bb),
       amount: action && action.amount,
       pos: heroSeat.pos,
       pot: hand.pot,
@@ -322,7 +356,8 @@
     try {
       var result = GTO.evaluateSpot(input);
       var graded = gradeFromEval(result, chosen);
-      /* Si el shove se etiquetó como raise y la estrategia solo tiene allin, reintenta. */
+      /* Si el shove se etiquetó como raise y la estrategia solo tiene allin, reintenta.
+         No aplica a all-in incompleto ya remapeado a call. */
       if ((graded.class === 'error' || graded.frequency < 0.05)
         && chosen === 'raise' && action && action.id === 'allin'
         && input.pushFold) {
@@ -430,6 +465,7 @@
     mapClass: mapClass,
     resolveFormatHub: resolveFormatHub,
     resolveTournamentPhase: resolveTournamentPhase,
-    isFirstInOpen: isFirstInOpen
+    isFirstInOpen: isFirstInOpen,
+    isIncompleteAllIn: isIncompleteAllIn
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

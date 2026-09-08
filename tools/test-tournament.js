@@ -749,11 +749,75 @@ FILES.forEach(function (f) { load(g, f); });
     assert.ok(ids.indexOf('call') >= 0 || ids.indexOf('fold') >= 0, 'opciones call/fold');
     assert.ok(ids.indexOf('raise') < 0, 'no ofrece raise tras incompleto a quien ya actuó');
     assert.ok(ids.indexOf('allin') >= 0, 'sigue pudiendo ir all-in');
+    assert.ok(bb.lastAction && bb.lastAction.action === 'allin',
+      'raise incompleto all-in se registra como allin, got ' + (bb.lastAction && bb.lastAction.action));
     console.log('OK incomplete-allin-no-reopen-raise');
   } finally {
     if (prevDecide) g.PTTournamentVillainDecide = prevDecide;
     else delete g.PTTournamentVillainDecide;
   }
+}
+
+// --- all-in incompleto vs call: GTO lo evalúa como call, no como shove/raise ---
+{
+  const GEval = g.PTTournamentGtoEval;
+  assert.ok(GEval.isIncompleteAllIn, 'isIncompleteAllIn export');
+  /* Spot del reporte: call 1200, rival sube a 2760 (raise 1560), héroe all-in a 2820 (+60). */
+  const hand = {
+    street: 'preflop',
+    bb: 150,
+    sb: 75,
+    pot: 5880,
+    currentBet: 2760,
+    minRaise: 1560,
+    lastRaiseWasFull: true,
+    openerId: 'utg1',
+    openerPos: 'UTG1',
+    board: [],
+    kind: 'mtt',
+    heroOptions: [
+      { id: 'fold', label: 'Fold' },
+      { id: 'call', label: 'Call', amount: 1560 },
+      { id: 'allin', label: 'All-in', amount: 2820.2 }
+    ],
+    seats: [
+      {
+        id: 'hero', isHero: true, pos: 'HJ', stack: 1620.2, streetInvested: 1200,
+        folded: false, cards: ['9s', '9c']
+      },
+      { id: 'btn', isHero: false, pos: 'BTN', stack: 500, streetInvested: 2760, folded: false },
+      { id: 'utg1', isHero: false, pos: 'UTG1', stack: 2000, streetInvested: 0, folded: true }
+    ],
+    log: [
+      { id: 'utg1', action: 'raise', amount: 375, street: 'preflop' },
+      { id: 'utg2', action: 'raise', amount: 1200, street: 'preflop' },
+      { id: 'hero', action: 'call', amount: 1200, street: 'preflop' },
+      { id: 'btn', action: 'raise', amount: 2760, street: 'preflop' }
+    ]
+  };
+  const hero = hand.seats[0];
+  const act = { id: 'allin', amount: 2820.2 };
+  assert.ok(GEval.isIncompleteAllIn(hand, hero, act), 'all-in +60 < minRaise 1560 es incompleto');
+  const input = GEval.buildInput(hand, hero, act);
+  assert.strictEqual(input.chosenAction, 'call',
+    'all-in incompleto se evalúa como call, got ' + input.chosenAction);
+  assert.ok(input.availableActions.indexOf('call') >= 0, 'call en availableActions');
+  assert.ok(input.betSizeBB == null, 'no trata el incompleto como sizing de raise');
+
+  /* Shove completo (sí llega al min-raise) sigue siendo raise/allin, no call. */
+  const fullAct = { id: 'allin', amount: 2760 + 1560 };
+  hero.stack = 2760 + 1560 - 1200;
+  assert.ok(!GEval.isIncompleteAllIn(hand, hero, fullAct), 'all-in a min-raise completo no es incompleto');
+  const fullIn = GEval.buildInput(hand, hero, fullAct);
+  assert.notStrictEqual(fullIn.chosenAction, 'call', 'shove completo no se remapea a call');
+
+  if (g.GTO && typeof g.GTO.evaluateSpot === 'function') {
+    hero.stack = 1620.2;
+    const decision = GEval.evaluateHeroAction(hand, hero, act);
+    assert.strictEqual(decision.chosen || decision.action, 'call', 'decision.chosen = call');
+    assert.ok(/call/i.test(decision.label || ''), 'label de call, got ' + decision.label);
+  }
+  console.log('OK incomplete-allin-graded-as-call');
 }
 
 // --- el guardado no arrastra fotogramas de presentación ---
