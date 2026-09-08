@@ -105,6 +105,36 @@
     }
   } catch (eBind) { /* */ }
 
+  /**
+   * En móvil Safari/Chrome el proceso muere al cambiar de app; sin pagehide
+   * el progreso solo vivía en memoria y «Salir y guardar» a veces no llegaba.
+   */
+  function onLifecyclePersist(opts) {
+    opts = opts || {};
+    try {
+      if (!ui.state || ui.state.status === 'finished') return;
+      if (ui.view !== VIEW.table) return;
+      /* pagehide/unload: aplicar mano completa pendiente. visibility: solo snapshot
+         (el usuario puede volver al popup de fin de mano). */
+      if (opts.commit) commitProgressBeforeExit();
+      persistActive({ quotaLevel: 1 });
+    } catch (eLife) { /* */ }
+  }
+
+  try {
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('pagehide', function () { onLifecyclePersist({ commit: true }); });
+      global.addEventListener('beforeunload', function () { onLifecyclePersist({ commit: true }); });
+      global.addEventListener('visibilitychange', function () {
+        try {
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+            onLifecyclePersist({ commit: false });
+          }
+        } catch (eVis) { /* */ }
+      });
+    }
+  } catch (eLifeBind) { /* */ }
+
   function heroDisplayName(state) {
     try {
       var h = state && global.PTTournamentState && PTTournamentState.hero
@@ -500,7 +530,8 @@ function reducedMotion() {
     paint();
   }
 
-  function persistActive() {
+  function persistActive(opts) {
+    opts = opts || {};
     try {
       if (!ui.state) return { ok: false, reason: 'no_state' };
       if (ui.state.status === 'finished') {
@@ -515,9 +546,9 @@ function reducedMotion() {
       var wantHand = Number(ui.state.handIndex) || 0;
       var wantRev = ui.state._progressRev;
       var wantId = ui.state.id;
-      var res = global.PTTournamentStore.saveActive(ui.state);
+      var res = global.PTTournamentStore.saveActive(ui.state, opts);
       if (!res || !res.ok) {
-        res = global.PTTournamentStore.saveActive(ui.state);
+        res = global.PTTournamentStore.saveActive(ui.state, Object.assign({}, opts, { quotaLevel: 2 }));
       }
       var loaded = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
       var ok = !!(loaded && loaded.id === wantId &&
@@ -530,7 +561,7 @@ function reducedMotion() {
             gotHand: loaded && loaded.handIndex, gotRev: loaded && loaded._progressRev
           });
         } catch (eW) { /* */ }
-        res = global.PTTournamentStore.saveActive(ui.state);
+        res = global.PTTournamentStore.saveActive(ui.state, Object.assign({}, opts, { quotaLevel: 3 }));
         loaded = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
         ok = !!(loaded && loaded.id === wantId &&
           (Number(loaded.handIndex) || 0) >= wantHand);
@@ -2469,7 +2500,11 @@ function reducedMotion() {
       setView(VIEW.result);
       return;
     }
-    persistActive();
+    /* Checkpoint al subir de nivel (y FT/ITM): forzar slim+flush para no
+       depender solo del «Salir y guardar» en móvil. */
+    var milestone = !!(state.blindUpPending || state.finalTablePending || state.itmPending);
+    persistActive(milestone ? { quotaLevel: 1 } : {});
+    if (milestone) flushTournamentCloud();
     paint();
   }
 
@@ -2517,7 +2552,20 @@ function reducedMotion() {
           paint();
         } else if (act === 'exit-save') {
           commitProgressBeforeExit();
-          persistActive();
+          var saved = persistActive({ quotaLevel: 1 });
+          if (!saved || !saved.ok || saved.verified === false) {
+            /* No abandonar la mesa si el snapshot no quedó: en móvil QuotaExceeded
+               dejaba el torneo viejo (mano 0) y se perdía el progreso en memoria. */
+            try {
+              alert(
+                'No se pudo guardar el torneo (almacenamiento lleno o error). ' +
+                'Sigue en la mesa: libera espacio o inténtalo de nuevo.'
+              );
+            } catch (eAlert) { /* */ }
+            ui.exitPrompt = false;
+            paint();
+            return;
+          }
           flushTournamentCloud();
           clearPopupTimers();
           ui.state = null;
