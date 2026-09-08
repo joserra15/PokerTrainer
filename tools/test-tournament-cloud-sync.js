@@ -14,6 +14,14 @@ assert.ok(/tournamentWallet/.test(cloudSrc) && /logicalDataKeys/.test(cloudSrc),
 assert.ok(/key === 'tournamentWallet'/.test(cloudSrc), 'hasLocalData wallet');
 assert.ok(/key === 'tournamentHistory'/.test(cloudSrc), 'hasLocalData history');
 assert.ok(/key === 'tournamentActive'/.test(cloudSrc), 'hasLocalData active');
+assert.ok(/waitForInFlight|inFlightOp/.test(cloudSrc), 'sync espera en lugar de busy inmediato');
+assert.ok(/adoptBestCloudTournamentActive/.test(cloudSrc), 'sync adopta mejor torneo cross-comunidad');
+
+const appSrc = read('js/app.js');
+assert.ok(/Todavía se están guardando datos/.test(appSrc), 'mensaje amigable si busy');
+assert.ok(!/No se pudo sincronizar: ['"]?\s*\+?\s*\(?res\.reason/.test(appSrc) ||
+  /Todavía se están guardando/.test(appSrc),
+  'no muestra reason crudo busy al usuario');
 
 const storageSrc = read('js/storage.js');
 assert.ok(/migrateTournamentKeysForUser/.test(storageSrc), 'migra claves torneo al login');
@@ -384,6 +392,79 @@ assert.ok(Store && W && T, 'modules loaded');
   const keysMatch = walletSrc.match(/function cloudDirtyKeys\([\s\S]*?\n  \}/);
   assert.ok(keysMatch && keysMatch[0].indexOf('tournamentHistory') < 0,
     'cloudDirtyKeys wallet sin history');
+}
+
+/* --- adoptBest: nube MTT Lab (mano 28) gana aunque la UI esté en PokerForge --- */
+{
+  Object.keys(localStore).forEach((k) => delete localStore[k]);
+  Store.setUserId('user-cross-comm');
+  sandbox.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    myCommunities: function () {
+      return [{ id: 'pokerforge' }, { id: 'mttlab' }];
+    },
+    setActive: function (id) {
+      sandbox.PTCommunity._id = id;
+      this.id = function () { return sandbox.PTCommunity._id || 'pokerforge'; };
+    },
+    applyMenus: function () {},
+    applyBranding: function () {}
+  };
+  /* Local PF atrasado */
+  T.saveActive({
+    id: 't_pf_old',
+    status: 'running',
+    handIndex: 13,
+    _progressRev: 1,
+    _savedAt: '2026-05-12T08:00:00.000Z',
+    config: { name: 'PF old' },
+    players: []
+  });
+  const cloudCross = {
+    tournamentActive_mttlab: {
+      id: 't_mtt_ahead',
+      status: 'running',
+      handIndex: 28,
+      _progressRev: 9,
+      _savedAt: '2026-05-12T12:00:00.000Z',
+      config: { name: 'MTT ahead' },
+      players: [{ id: 'h', isHero: true, stack: 700, alive: true }]
+    }
+  };
+  assert.ok(typeof Store.adoptBestCloudTournamentActive === 'function', 'adoptBest API');
+  const adopted = Store.adoptBestCloudTournamentActive(cloudCross);
+  assert.ok(adopted, 'adopta best');
+  assert.strictEqual(adopted.handIndex, 28, 'mano 28');
+  assert.strictEqual(adopted.communityId, 'mttlab', 'cambia a mttlab');
+  assert.strictEqual(T.loadActive().handIndex, 28, 'local activo es 28');
+}
+
+/* --- mergeAllLocal sube activo mttlab aunque comunidad actual sea PF --- */
+{
+  Object.keys(localStore).forEach((k) => delete localStore[k]);
+  Store.setUserId('user-push-all-comm');
+  sandbox.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    myCommunities: function () {
+      return [{ id: 'pokerforge' }, { id: 'mttlab' }];
+    }
+  };
+  localStore['pt_tournament_active_v1_mttlab_user-push-all-comm'] = JSON.stringify({
+    id: 't_only_mtt',
+    status: 'running',
+    handIndex: 22,
+    _progressRev: 3,
+    _savedAt: '2026-05-12T13:00:00.000Z',
+    config: { name: 'Only MTT' },
+    players: []
+  });
+  const pushedAll = Store.mergeActiveIntoCloudPayload({
+    stats: { handsPlayed: 0 },
+    history: [],
+    errors: []
+  });
+  assert.ok(pushedAll.tournamentActive_mttlab, 'push incluye tournamentActive_mttlab');
+  assert.strictEqual(pushedAll.tournamentActive_mttlab.handIndex, 22, 'mano 22 sube desde PF shell');
 }
 
 console.log('*** test-tournament-cloud-sync OK ***');

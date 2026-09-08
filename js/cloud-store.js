@@ -16,8 +16,29 @@
   let pushTimer = null;
   let pendingKeys = new Set();
   let syncing = false;
+  /** Promesa del sync/push en curso para que syncNow pueda esperar en lugar de devolver busy. */
+  let inFlightOp = null;
   let lastVisibleSyncAt = 0;
   const VISIBLE_SYNC_MIN_MS = 8000;
+
+  function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  /** Espera a que termine flush/sync en curso (máx. ~45s). */
+  async function waitForInFlight(maxMs) {
+    var limit = maxMs != null ? maxMs : 45000;
+    var start = Date.now();
+    while (syncing || inFlightOp) {
+      if (Date.now() - start > limit) return false;
+      if (inFlightOp) {
+        try { await inFlightOp; } catch (eWait) { /* ignore */ }
+      } else {
+        await sleep(80);
+      }
+    }
+    return true;
+  }
 
   function logicalDataKeys() {
     return ['stats', 'history', 'errors', 'onboarding', 'tournamentWallet', 'tournamentHistory', 'tournamentActive'];
@@ -346,17 +367,21 @@
 
     syncing = true;
     setStatus('syncing', 'Sincronizando con la nube…');
-
-    try {
+    var op = (async function () {
       const local = global.Store.getCloudSnapshot();
       const keys = logicalDataKeys();
       const localHas = keys.some(function (k) { return hasLocalData(k, local); });
       const row = await pullRow();
       const cloudPayload = row && row.payload ? row.payload : null;
       const cloudLogical = viewForActive(cloudPayload);
-      const cloudHas = cloudLogical && keys.some(function (k) {
+      var cloudHas = cloudLogical && keys.some(function (k) {
         return hasLocalData(k, cloudLogical);
       });
+      /* Torneo activo puede vivir solo en tournamentActive_mttlab aunque
+         la comunidad actual sea PokerForge: no ignorar ese payload. */
+      if (!cloudHas && cloudPayload && global.Store.listCloudTournamentActives) {
+        cloudHas = global.Store.listCloudTournamentActives(cloudPayload).length > 0;
+      }
 
       if (cloudPayload && cloudPayload.sessions) {
         await migrateLegacyCloudSessions(cloudPayload);
@@ -375,6 +400,10 @@
         keys.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
       }
 
+      if (cloudPayload && global.Store.adoptBestCloudTournamentActive) {
+        try { global.Store.adoptBestCloudTournamentActive(cloudPayload); } catch (eAdLogin) { /* */ }
+      }
+
       if (localHas || cloudHas) {
         await pushPayload(payloadToPush(cloudPayload));
       }
@@ -390,12 +419,17 @@
       setStatus('online', 'Datos sincronizados');
       global.dispatchEvent(new CustomEvent('pt-cloud-synced'));
       return true;
+    })();
+    inFlightOp = op;
+    try {
+      return await op;
     } catch (e) {
       console.warn('[PTCloud] syncOnLogin', e);
       setStatus('error', e.message || 'Error al sincronizar');
       notifyAuthFailure(e);
       return false;
     } finally {
+      if (inFlightOp === op) inFlightOp = null;
       syncing = false;
       if (pendingKeys.size) schedulePush(Array.from(pendingKeys));
     }
@@ -409,11 +443,17 @@
     if (!global.Store || !global.Store.mergeFromCloud) {
       return { ok: false, reason: 'store_unavailable' };
     }
-    if (syncing) return { ok: false, reason: 'busy' };
+    /* Si hay push/sync en curso, esperar y reintentar (evita alert «busy»). */
+    if (syncing || inFlightOp) {
+      var ready = await waitForInFlight(45000);
+      if (!ready || syncing) {
+        return { ok: false, reason: 'busy' };
+      }
+    }
 
     syncing = true;
     setStatus('syncing', 'Sincronizando…');
-    try {
+    var op = (async function () {
       const row = await pullRow();
       const cloudPayload = row && row.payload ? row.payload : {};
       if (cloudPayload.sessions) {
@@ -422,6 +462,22 @@
       resolveResetConflicts(cloudPayload);
       /* Payload completo: Store hace slice por comunidad (sin fallback PF). */
       const summary = global.Store.mergeFromCloud(cloudPayload || {}) || {};
+      if (global.Store.adoptBestCloudTournamentActive) {
+        try {
+          var adopted = global.Store.adoptBestCloudTournamentActive(cloudPayload || {});
+          if (adopted) {
+            summary.tournamentActive = adopted;
+            if (adopted.communitySwitched && global.PTCommunity &&
+                typeof global.PTCommunity.refreshMembership === 'function') {
+              try { await global.PTCommunity.refreshMembership(); } catch (eMem) { /* */ }
+              try {
+                if (global.PTCommunity.applyMenus) global.PTCommunity.applyMenus();
+                if (global.PTCommunity.applyBranding) global.PTCommunity.applyBranding();
+              } catch (eBr) { /* */ }
+            }
+          }
+        } catch (eAd) { /* */ }
+      }
       await pushPayload(payloadToPush(cloudPayload));
       if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
         await migrateLegacyCloudRow(row);
@@ -432,12 +488,17 @@
       setStatus('online', 'Sincronizado');
       global.dispatchEvent(new CustomEvent('pt-cloud-synced', { detail: summary }));
       return { ok: true, summary: summary };
+    })();
+    inFlightOp = op;
+    try {
+      return await op;
     } catch (e) {
       console.warn('[PTCloud] syncNow', e);
       setStatus('error', e.message || 'Error al sincronizar');
       notifyAuthFailure(e);
       return { ok: false, reason: e.message || 'error' };
     } finally {
+      if (inFlightOp === op) inFlightOp = null;
       syncing = false;
       /* Reprogramar pushes que quedaron bloqueados mientras syncing=true
          (p.ej. «Salir y guardar» durante un sync). */
@@ -462,8 +523,7 @@
     pushTimer = null;
     /* Evita que syncNow pise este push a medias; reprograma pendientes al final. */
     syncing = true;
-
-    try {
+    var op = (async function () {
       const row = await pullRow();
       const cloudPayload = row && row.payload ? row.payload : {};
       const payload = global.Store.mergeDirtyKeysIntoCloud
@@ -476,15 +536,23 @@
           });
           return merged;
         })();
+      if (global.Store.mergeAllLocalTournamentActivesIntoCloud) {
+        try { global.Store.mergeAllLocalTournamentActivesIntoCloud(payload); } catch (eM) { /* */ }
+      }
       await pushPayload(payload);
       if (global.Store.clearRejectRemote) global.Store.clearRejectRemote(keys);
       if (status !== 'syncing') setStatus('online', 'Guardado en la nube');
+    })();
+    inFlightOp = op;
+    try {
+      await op;
     } catch (e) {
       console.warn('[PTCloud] push', e);
       setStatus('error', e.message || 'Error al guardar');
       notifyAuthFailure(e);
       keys.forEach(function (k) { pendingKeys.add(k); });
     } finally {
+      if (inFlightOp === op) inFlightOp = null;
       syncing = false;
       if (pendingKeys.size) schedulePush(Array.from(pendingKeys));
     }
