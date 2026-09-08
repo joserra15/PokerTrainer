@@ -40,13 +40,14 @@ window.PT_BILLING = {
   founder: {
     code: 'FOUNDER',
     launchDate: null,
-    launchLabel: 'próximamente',
+    launchLabel: 'próximas semanas',
     discount: '40%',
-    seatsNote: 'Plazas limitadas por petición',
-    priorityNote: 'Solicita plaza FOUNDER Study o FOUNDER Coach: plazas limitadas por petición; revisamos cada solicitud en soporte.',
-    kicker: 'FOUNDER próximamente',
-    title: 'FOUNDER Study y FOUNDER Coach · 40% de descuento · plazas limitadas por petición',
-    note: 'Compras cerradas hasta el lanzamiento. Solicita tu plaza en Study o Coach; el administrador confirmará según disponibilidad.',
+    seatsNote: 'Plazas limitadas',
+    priorityNote: 'Solicita tu plaza FOUNDER Study o FOUNDER Coach en Planes: plazas limitadas; revisamos cada solicitud en soporte.',
+    kicker: 'FOUNDER · plazas limitadas',
+    title: 'FOUNDER Study y FOUNDER Coach · 40% de descuento para siempre · plazas limitadas',
+    note: 'Lanzamiento en próximas semanas. Compras cerradas hasta entonces. Solicita tu plaza en el menú Planes; el administrador confirmará según disponibilidad.',
+    ctaPlanes: 'Solicita tu plaza en Planes',
     priceLock: 'Si entras como FOUNDER conservas ese precio para siempre mientras mantengas la suscripción activa.'
   },
   promo: {
@@ -85,22 +86,40 @@ window.PT_BILLING = {
     var f = founderCfg();
     if (!f || !purchasesPaused()) return '';
     return '<div class="promo-banner founder-banner" role="note">' +
-      '<p class="promo-banner-kicker">' + esc(f.kicker || 'FOUNDER') + '</p>' +
-      '<p class="promo-banner-title"><strong>' + esc(f.title || ('Plan FOUNDER · ' + (f.discount || '40%') + ' dto.')) + '</strong></p>' +
-      '<p class="promo-banner-note muted-text"><strong>' + esc(f.launchLabel || 'próximamente') +
-      '</strong> · <strong>' + esc(f.seatsNote || 'Plazas limitadas por petición') + '</strong>. ' +
+      '<p class="promo-banner-kicker">' + esc(f.kicker || 'FOUNDER · plazas limitadas') + '</p>' +
+      '<p class="promo-banner-title"><strong>' + esc(f.title || ('Plan FOUNDER · ' + (f.discount || '40%') + ' dto. para siempre')) + '</strong></p>' +
+      '<p class="promo-banner-note muted-text"><strong>Lanzamiento en ' + esc(f.launchLabel || 'próximas semanas') +
+      '</strong> · <strong>' + esc(f.seatsNote || 'Plazas limitadas') + '</strong>. ' +
       esc(f.priorityNote || '') +
       '</p>' +
       '<p class="promo-banner-note muted-text">' + esc(f.note || '') + '</p>' +
       '</div>';
   }
-  function founderPillHtml() {
+  function founderStripHtml(opts) {
     var f = founderCfg();
     if (!f || !purchasesPaused()) return '';
-    return '<p class="landing-promo-pill founder-pill" role="note">' +
-      '<strong>FOUNDER</strong> ' + esc(f.launchLabel || 'próximamente') +
-      ' · ' + esc(f.discount || '40%') + ' dto. · <strong>' + esc(f.seatsNote || 'plazas limitadas por petición') + '</strong>' +
-      ' · <a href="#landing-pricing">Ver planes</a></p>';
+    opts = opts || {};
+    var href = opts.href || '#landing-pricing';
+    var cta = opts.cta || f.ctaPlanes || 'Solicita tu plaza en Planes';
+    var ctaAttr = opts.ctaAttr || '';
+    var ctaTag = opts.button
+      ? ('<button type="button" class="btn btn-primary founder-promo-cta"' + ctaAttr + '>' + esc(cta) + '</button>')
+      : ('<a class="btn btn-primary founder-promo-cta" href="' + esc(href) + '"' + ctaAttr + '>' + esc(cta) + '</a>');
+    return '<aside class="founder-promo-strip" role="note" aria-label="FOUNDER">' +
+      '<div class="founder-promo-strip-main">' +
+      '<p class="founder-promo-kicker"><strong>FOUNDER</strong> · ' + esc(f.seatsNote || 'Plazas limitadas') +
+      ' <span class="founder-promo-badge">−' + esc(String(f.discount || '40%').replace(/^−|^-/, '')) + '</span></p>' +
+      '<p class="founder-promo-lead">Lanzamiento en <strong>' + esc(f.launchLabel || 'próximas semanas') +
+      '</strong> · <strong>' + esc(f.discount || '40%') + ' de descuento para siempre</strong></p>' +
+      '</div>' + ctaTag +
+      '</aside>';
+  }
+  function founderPillHtml() {
+    return founderStripHtml({ href: '#landing-pricing' });
+  }
+  function founderNavBadgeHtml() {
+    if (!purchasesPaused()) return '';
+    return '<span class="founder-nav-badge" aria-hidden="true">−40%</span>';
   }
   global.PTBillingPromo = {
     active: function () { return !!promoCfg() || purchasesPaused(); },
@@ -108,6 +127,15 @@ window.PT_BILLING = {
     purchasesPaused: purchasesPaused,
     founder: founderCfg,
     founderBannerHtml: founderBannerHtml,
+    founderStripHtml: founderStripHtml,
+    founderNavBadgeHtml: founderNavBadgeHtml,
+    homePromoHtml: function () {
+      return founderStripHtml({
+        button: true,
+        cta: 'Ir a Planes',
+        ctaAttr: ' data-go-tab="pricing"'
+      });
+    },
     pillHtml: function () {
       if (purchasesPaused()) return founderPillHtml();
       var p = promoCfg();

@@ -209,9 +209,24 @@
     var Promo = global.PTBillingPromo;
     if (!Promo) return;
     var pillHost = document.getElementById('landing-promo-pill');
-    if (pillHost) pillHost.innerHTML = '';
+    if (pillHost) {
+      pillHost.innerHTML = Promo.pillHtml ? Promo.pillHtml() : '';
+      pillHost.classList.toggle('hidden', !pillHost.innerHTML);
+    }
     var bannerHost = document.getElementById('landing-promo-banner');
     if (bannerHost) bannerHost.innerHTML = Promo.bannerHtml ? Promo.bannerHtml() : '';
+    markFounderNavBadges();
+  }
+
+  function markFounderNavBadges() {
+    var Promo = global.PTBillingPromo;
+    var badge = Promo && Promo.founderNavBadgeHtml ? Promo.founderNavBadgeHtml() : '';
+    document.querySelectorAll('.landing-nav a[href="#landing-pricing"], .landing-nav-pricing').forEach(function (el) {
+      el.querySelectorAll('.founder-nav-badge').forEach(function (b) { b.remove(); });
+      if (badge && !el.classList.contains('hidden')) {
+        el.insertAdjacentHTML('beforeend', ' ' + badge);
+      }
+    });
   }
 
   function t(key, vars) {
@@ -285,7 +300,7 @@
             t('plan.study.f5')
           ],
         ctaLabel: paused
-          ? t('plan.cta.paused', { date: founder.launchLabel || 'próximamente' })
+          ? t('plan.cta.invite')
           : t('plan.cta'),
         ctaLogin: !paused,
         disabled: paused,
@@ -311,7 +326,7 @@
             t('plan.coach.f5')
           ],
         ctaLabel: paused
-          ? t('plan.cta.paused', { date: founder.launchLabel || 'próximamente' })
+          ? t('plan.cta.invite')
           : t('plan.cta'),
         ctaLogin: !paused,
         disabled: paused,
@@ -328,7 +343,7 @@
         note = '<p class="muted-text landing-price-note">' +
           escapeHtml(t('plan.founder.note', {
             discount: founder.discount || '40%',
-            seats: founder.seatsNote || 'plazas limitadas por petición'
+            seats: founder.seatsNote || 'plazas limitadas'
           })) + '</p>';
         if (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml) {
           founderBtn = global.PTFounderRequest.requestButtonHtml(c.founderPlan, 'btn-block landing-founder-cta');
@@ -518,7 +533,9 @@
     if (brand) brand.textContent = cfg.siteName || brand.textContent;
     if (C.applyBranding) C.applyBranding();
     if (cfg.landing && cfg.landing.showPricing === false) {
-      document.querySelectorAll('a[href="#landing-pricing"], #landing-pricing, .landing-pricing-wrap').forEach(function (el) {
+      document.querySelectorAll(
+        'a[href="#landing-pricing"], #landing-pricing, .landing-pricing-wrap, #landing-promo-pill, .landing-founder-promo-host'
+      ).forEach(function (el) {
         el.classList.add('hidden');
         el.setAttribute('aria-hidden', 'true');
       });
@@ -537,6 +554,7 @@
     if (global.PTI18n && global.PTI18n.apply) global.PTI18n.apply(document.getElementById('auth-gate') || document);
     renderLimitsBox();
     renderPricing();
+    markFounderNavBadges();
   }
 
   function init() {

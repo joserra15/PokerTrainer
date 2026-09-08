@@ -29,9 +29,9 @@ assert.ok(/normalizePlan/.test(founderSrc), 'normalizePlan');
 assert.ok(/data-founder-request/.test(founderSrc), 'data attr');
 assert.ok(/p_plan/.test(founderSrc), 'RPC client p_plan');
 
-assert.ok(/próximamente/.test(billingCfg), 'billing-config próximamente');
-assert.ok(/Plazas limitadas por petición/.test(billingCfg), 'plazas por petición');
-assert.ok(/próximamente/.test(html), 'HTML próximamente');
+assert.ok(/próximas semanas/.test(billingCfg), 'billing-config próximas semanas');
+assert.ok(/Plazas limitadas/.test(billingCfg), 'plazas limitadas');
+assert.ok(/próximas semanas/.test(html), 'HTML próximas semanas');
 assert.ok(!/15 de noviembre/.test(html), 'HTML sin 15 de noviembre');
 
 assert.ok(/data-founder-request="study"/.test(landingSrc) || /founderPlan.*study/.test(landingSrc), 'landing Study');

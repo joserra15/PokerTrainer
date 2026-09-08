@@ -462,6 +462,73 @@ body.guest-mode .play-setup-extras { display: none !important; }
   font-size: 13px;
 }
 .landing-promo-pill a { color: var(--accent); text-decoration: underline; }
+.landing-founder-promo-host {
+  margin: 8px 0 28px;
+}
+.landing-founder-promo-host.hidden,
+.home-founder-promo-host.hidden { display: none; }
+.home-founder-promo-host { margin: 0 0 16px; }
+.founder-promo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 18px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(20, 16, 10, .92), rgba(28, 22, 12, .88)),
+    linear-gradient(135deg, rgba(230,161,90,.22), rgba(47,129,247,.08));
+  border: 1px solid rgba(230, 161, 90, .42);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .28);
+}
+.founder-promo-strip-main { min-width: 0; flex: 1 1 220px; }
+.founder-promo-kicker {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #f0d58d;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.founder-promo-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  color: #1a1208;
+  background: linear-gradient(180deg, #ffd76a, #e6a15a);
+}
+.founder-promo-lead {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text, #e8eef6);
+}
+.founder-promo-cta {
+  flex: 0 0 auto;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.founder-nav-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  vertical-align: middle;
+  color: #1a1208;
+  background: linear-gradient(180deg, #ffd76a, #e6a15a);
+}
+.tab .founder-nav-badge { margin-left: 4px; }
 .promo-banner {
   margin: 0 0 18px; padding: 14px 16px; border-radius: 12px;
   background: linear-gradient(135deg, rgba(47,129,247,.14), rgba(230,161,90,.12));
@@ -1185,6 +1252,16 @@ body.guest-mode .play-setup-extras { display: none !important; }
     font-size: 12px;
     line-height: 1.4;
   }
+  .founder-promo-strip {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 14px;
+  }
+  .founder-promo-cta {
+    width: 100%;
+    justify-content: center;
+  }
+  .founder-promo-lead { font-size: 14px; }
   .landing-features-grid,
   .landing-pricing-grid,
   .landing-install-grid {
@@ -7851,7 +7928,8 @@ body.community-shell .tab[data-tab="legendary"],
 body.community-shell .tab[data-tab="pricing"],
 body.community-shell .home-card[data-go-tab="learn"],
 body.community-shell .home-card-legendary,
-body.community-shell #home-annual-upsell {
+body.community-shell #home-annual-upsell,
+body.community-shell #home-founder-promo {
   display: none !important;
 }
 /* MTT Lab: solo Torneos en entrenador; sin Spin en rangos (refuerzo CSS) */
