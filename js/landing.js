@@ -514,9 +514,15 @@
     if (!C || !C.config) return;
     var cfg = C.config();
     if (!cfg || cfg.id === 'pokerforge') return;
-    var brand = document.querySelector('.landing-brand span');
-    if (brand) brand.textContent = cfg.siteName || brand.textContent;
     if (C.applyBranding) C.applyBranding();
+    else {
+      var brand = document.querySelector('.landing-brand span');
+      if (brand && C.formatDisplayNameHtml) {
+        brand.innerHTML = C.formatDisplayNameHtml(cfg.siteName || brand.textContent, cfg.id);
+      } else if (brand) {
+        brand.textContent = cfg.siteName || brand.textContent;
+      }
+    }
     if (cfg.landing && cfg.landing.showPricing === false) {
       document.querySelectorAll('a[href="#landing-pricing"], #landing-pricing, .landing-pricing-wrap').forEach(function (el) {
         el.classList.add('hidden');
