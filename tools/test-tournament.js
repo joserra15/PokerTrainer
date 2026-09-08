@@ -95,6 +95,7 @@ const FILES = [
   'js/tournament/leaderboard.js',
   'js/tournament/store.js',
   'js/tournament/session-bridge.js',
+  'js/tournament/leaks-bridge.js',
   'js/tournament/runner.js',
   'js/tournament/ui.js',
   'js/tournament/index.js'
@@ -1008,6 +1009,10 @@ console.log('OK dist-tournaments-bundle');
   const coreChunk = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
   assert.ok(coreChunk.includes('hand-end-view.js'), 'chunk lists hand-end-view');
   assert.ok(coreChunk.includes('session-bridge.js'), 'chunk lists session-bridge');
+  assert.ok(coreChunk.includes('leaks-bridge.js'), 'chunk lists leaks-bridge');
+  assert.ok(uiSrc.includes('train-tournament-leaks'), 'CTA entrenar leaks torneo');
+  assert.ok(uiSrc.includes('renderImprovementReport') || uiSrc.includes('trn-improve'), 'informe mejora en resultado');
+  assert.ok(cssSrc.includes('trn-improve'), 'css informe mejora');
   /* Koins del entrenador: wallet en core (no depende de abrir Torneos). */
   assert.ok(/core:\s*ENGINE\.concat\(\[[\s\S]*tournament\/wallet\.js/.test(coreChunk),
     'wallet.js está en chunk core');
