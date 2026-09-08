@@ -36,6 +36,88 @@
     }
   }
 
+  function formatNum(n, digits) {
+    var v = Number(n);
+    if (!isFinite(v)) return '—';
+    if (digits == null) return String(Math.round(v));
+    return String(Math.round(v * Math.pow(10, digits)) / Math.pow(10, digits));
+  }
+
+  var TOURNAMENT_KIND_LABELS = { mtt: 'MTT', sng: 'SNG', spin: 'Spin' };
+
+  /**
+   * Bloque compartido Admin/Manager: uso de Torneos IA.
+   * data = { wallet, summary, has_active, active_updated_at } (+ opcional leaderboard).
+   */
+  function renderTournamentUsageSection(data, opts) {
+    opts = opts || {};
+    var t = data && typeof data === 'object' ? data : null;
+    var wallet = (t && t.wallet) || {};
+    var sum = (t && t.summary) || {};
+    var lb = opts.leaderboard || (t && t.leaderboard) || null;
+    var played = Number(wallet.tournamentsPlayed);
+    if (!isFinite(played) || played < 0) played = 0;
+    var histN = Number(sum.n) || 0;
+    if (played < histN) played = histN;
+    var balance = Number(wallet.balance);
+    if (!isFinite(balance)) balance = 0;
+    var empty = played <= 0 && histN <= 0 && !t.has_active &&
+      !(lb && (Number(lb.tournaments_played) > 0 || Number(lb.koins) > 0));
+    if (empty) {
+      return '<p class="muted-text">Sin torneos IA sincronizados aún.</p>';
+    }
+
+    var byKind = sum.by_kind || sum.byKind || {};
+    var kindParts = ['mtt', 'sng', 'spin'].map(function (k) {
+      var c = Number(byKind[k]) || 0;
+      if (!c) return null;
+      return (TOURNAMENT_KIND_LABELS[k] || k) + ' ' + c;
+    }).filter(Boolean);
+    var kindLabel = kindParts.length ? kindParts.join(' · ') : '—';
+
+    var profit = Number(sum.total_profit != null ? sum.total_profit : sum.totalProfit) || 0;
+    var roi = Number(sum.roi_pct != null ? sum.roi_pct : sum.roiPct);
+    if (!isFinite(roi)) roi = 0;
+    var avgPlace = sum.avg_place != null ? sum.avg_place : sum.avgPlace;
+    var itm = Number(sum.itm) || 0;
+    var itmPct = Number(sum.itm_pct != null ? sum.itm_pct : sum.itmPct) || 0;
+    var winPct = Number(sum.win_pct != null ? sum.win_pct : sum.winPct) || 0;
+    var wins = Number(sum.wins) || 0;
+    var roleAcc = Number(sum.avg_role_accuracy != null ? sum.avg_role_accuracy : sum.avgRoleAccuracy) || 0;
+    var lastAt = sum.last_finished_at || sum.lastFinishedAt || null;
+    var activeNote = t.has_active
+      ? ('Sí' + (t.active_updated_at ? (' · ' + formatDate(t.active_updated_at)) : ''))
+      : 'No';
+
+    var lbHtml = '';
+    if (lb && (lb.koins != null || lb.tournaments_played != null)) {
+      lbHtml =
+        '<div><span class="muted-text">Clasificación comunidad</span><strong>' +
+        escapeHtml(formatNum(lb.koins, 2)) + ' Koins · ' +
+        escapeHtml(formatNum(lb.tournaments_played)) + ' jugados</strong></div>';
+    }
+
+    return '<div class="admin-detail-grid">' +
+      '<div><span class="muted-text">Torneos jugados</span><strong>' + escapeHtml(formatNum(played)) + '</strong></div>' +
+      '<div><span class="muted-text">Saldo Koins</span><strong>' + escapeHtml(formatNum(balance, 2)) + '</strong></div>' +
+      '<div><span class="muted-text">Victorias</span><strong>' + escapeHtml(formatNum(wins)) +
+      ' (' + escapeHtml(formatNum(winPct, 1)) + '%)</strong></div>' +
+      '<div><span class="muted-text">ITM</span><strong>' + escapeHtml(formatNum(itm)) +
+      ' (' + escapeHtml(formatNum(itmPct, 1)) + '%)</strong></div>' +
+      '<div><span class="muted-text">Puesto medio</span><strong>' +
+      escapeHtml(avgPlace != null ? formatNum(avgPlace, 1) : '—') + '</strong></div>' +
+      '<div><span class="muted-text">ROI agregado</span><strong class="' +
+      (profit >= 0 ? 'net-pos' : 'net-neg') + '">' +
+      (roi >= 0 ? '+' : '') + escapeHtml(formatNum(roi, 1)) + '%</strong></div>' +
+      '<div><span class="muted-text">Acierto roles</span><strong>' +
+      escapeHtml(formatNum(roleAcc, 1)) + '%</strong></div>' +
+      '<div><span class="muted-text">Por formato</span><strong>' + escapeHtml(kindLabel) + '</strong></div>' +
+      '<div><span class="muted-text">Último torneo</span><strong>' + escapeHtml(formatDate(lastAt)) + '</strong></div>' +
+      '<div><span class="muted-text">Torneo en curso</span><strong>' + escapeHtml(activeNote) + '</strong></div>' +
+      lbHtml +
+      '</div>';
+  }
+
   function normalizeMembers(raw) {
     if (!raw) return [];
     if (typeof raw === 'string') {
@@ -299,6 +381,8 @@
     var school = sanitizeCommunitySchool((data && data.school) || {}, cid);
     var ai = (data && data.ai) || {};
     var training = (data && data.training) || {};
+    var tournaments = (data && data.tournaments) || null;
+    var leaderboard = (data && data.leaderboard) || null;
     var cfg = global.PTCommunity && global.PTCommunity.config ? global.PTCommunity.config() : {};
     var communityName = (cfg && cfg.siteName) || cid || 'comunidad';
     var lessonIds = Object.keys(school.lessons || {});
@@ -324,6 +408,8 @@
       '/' + escapeHtml(String(ai.limit || 40)) + '</strong></p>' +
       '<p>Entrenamiento (comunidad): <strong>' + escapeHtml(String(training.handsPlayed != null ? training.handsPlayed : 0)) +
       '</strong> manos · acierto <strong>' + escapeHtml(acc) + '</strong></p>' +
+      '<div class="admin-detail-section"><h4>Torneos</h4>' +
+      renderTournamentUsageSection(tournaments, { leaderboard: leaderboard }) + '</div>' +
       '<p>XP escuela (esta comunidad): <strong>' + escapeHtml(school.xp != null ? school.xp : 0) + '</strong></p>' +
       '<p>Lecciones con progreso: <strong>' + lessonIds.length + '</strong> · Aprobadas: <strong>' +
       passed + '</strong></p>' +
@@ -463,6 +549,7 @@
     loadSettings: loadSettings,
     showMemberUsage: showMemberUsage,
     renderMemberDetailHtml: renderCommunityMemberDetailHtml,
+    renderTournamentUsageSection: renderTournamentUsageSection,
     sanitizeCommunitySchool: sanitizeCommunitySchool,
     formatMemberError: formatMemberError
   };

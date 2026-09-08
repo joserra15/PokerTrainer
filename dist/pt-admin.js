@@ -104,7 +104,8 @@
     contact: 'Contacto',
     account: 'Cuenta',
     admin: 'Admin',
-    leaks: 'Leaks'
+    leaks: 'Leaks',
+    tournaments: 'Torneos'
   };
 
   function aggregateUsersFromThreads(threads) {
@@ -1260,6 +1261,25 @@
       '<p class="muted-text">Actualizado: ' + escapeHtml(formatActivityTs(data.updatedAt)) + '</p>';
   }
 
+  function renderTournamentUsageSection(tournaments) {
+    if (global.PTManagerPanel && typeof PTManagerPanel.renderTournamentUsageSection === 'function') {
+      return PTManagerPanel.renderTournamentUsageSection(tournaments);
+    }
+    var t = tournaments && typeof tournaments === 'object' ? tournaments : null;
+    var wallet = (t && t.wallet) || {};
+    var sum = (t && t.summary) || {};
+    var played = Number(wallet.tournamentsPlayed) || Number(sum.n) || 0;
+    if (!played && !t.has_active) {
+      return '<p class="muted-text">Sin torneos IA sincronizados aún.</p>';
+    }
+    return '<div class="admin-detail-grid">' +
+      '<div><span class="muted-text">Torneos jugados</span><strong>' +
+      escapeHtml(formatActivityNumber(played)) + '</strong></div>' +
+      '<div><span class="muted-text">Saldo Koins</span><strong>' +
+      escapeHtml(formatActivityNumber(wallet.balance, 2)) + '</strong></div>' +
+      '</div>';
+  }
+
   function renderUserDetail(data) {
     var host = $('#admin-user-detail');
     if (!host || !data) return;
@@ -1272,6 +1292,7 @@
     var activity = data.activity || null;
     var school = (activity && activity.school) || data.school || null;
     var featureUsage = (activity && activity.feature_usage) || data.feature_usage || null;
+    var tournaments = data.tournaments || null;
     var cached = adminUsersCache.filter(function (x) { return x && x.user_id === p.user_id; })[0];
     var pushOn = userHasPush(cached);
     var pushDevices = cached ? (Number(cached.push_devices) || 0) : 0;
@@ -1405,6 +1426,7 @@
       '<h4>Enviar mensaje</h4>' + sendFormHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Actividad de juego</h4>' + renderActivitySection(activity) + '</div>' +
       '<div class="admin-detail-section"><h4>Escuela de Póker</h4>' + renderSchoolSection(school) + '</div>' +
+      '<div class="admin-detail-section"><h4>Torneos</h4>' + renderTournamentUsageSection(tournaments) + '</div>' +
       '<div class="admin-detail-section"><h4>Uso de funciones</h4>' + renderFeatureUsageSection(featureUsage) + '</div>' +
       '<div class="admin-detail-section"><h4>Promoción de registro</h4>' + promoHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Cupo IA este mes</h4>' + quotaHtml + '</div>' +

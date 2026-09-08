@@ -3873,10 +3873,12 @@
 
   function normalizeSummary(summary) {
     summary = summary || {};
+    var kindRaw = String(summary.kind || 'mtt').toLowerCase();
+    var kind = kindRaw === 'sng' ? 'sng' : (kindRaw === 'spin' ? 'spin' : 'mtt');
     return {
       id: String(summary.id || ''),
       name: String(summary.name || 'Torneo').slice(0, 80),
-      kind: summary.kind === 'sng' ? 'sng' : 'mtt',
+      kind: kind,
       entries: Number(summary.entries) || 0,
       place: summary.place != null ? Number(summary.place) : null,
       prizeEur: Number(summary.prizeEur) || 0,
