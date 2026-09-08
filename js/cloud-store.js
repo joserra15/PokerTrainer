@@ -368,9 +368,10 @@
       if (cloudPayload) resolveResetConflicts(cloudPayload);
 
       if (cloudHas && localHas && global.Store.mergeFromCloud) {
-        global.Store.mergeFromCloud(cloudLogical);
+        /* Payload completo: Store.mergeFromCloud hace slice por comunidad (sin fallback PF). */
+        global.Store.mergeFromCloud(cloudPayload || {});
       } else if (cloudHas) {
-        global.Store.replaceFromCloud(cloudLogical);
+        global.Store.replaceFromCloud(cloudPayload || {});
         keys.forEach(function (k) { setSyncMeta(k, tsFromRow(row)); });
       }
 
@@ -419,8 +420,8 @@
         await migrateLegacyCloudSessions(cloudPayload);
       }
       resolveResetConflicts(cloudPayload);
-      const cloudLogical = viewForActive(cloudPayload);
-      const summary = global.Store.mergeFromCloud(cloudLogical) || {};
+      /* Payload completo: Store hace slice por comunidad (sin fallback PF). */
+      const summary = global.Store.mergeFromCloud(cloudPayload || {}) || {};
       await pushPayload(payloadToPush(cloudPayload));
       if (row && row._fromLegacy && legacyGoogleSub && legacyGoogleSub !== userId) {
         await migrateLegacyCloudRow(row);
