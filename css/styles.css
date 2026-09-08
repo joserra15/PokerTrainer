@@ -7706,6 +7706,39 @@ body[data-community="mttlab"] .app-logo {
   border-radius: 50%;
   object-fit: cover;
 }
+.powered-by {
+  font-size: 0.68em;
+  font-weight: 500;
+  opacity: 0.72;
+  letter-spacing: 0.01em;
+}
+.header-row h1 .powered-by,
+.brand-title .powered-by,
+.community-access-card h2 .powered-by {
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+  color: var(--muted);
+}
+.landing-brand .powered-by {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+.community-switcher-item .powered-by,
+.community-settings-name .powered-by {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+}
+.community-settings-name {
+  font-weight: 700;
+}
+.community-settings-name .powered-by {
+  font-weight: 500;
+}
 .community-access-gate {
   max-width: 420px;
   margin: 24px auto;

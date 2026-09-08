@@ -161,6 +161,17 @@
     } catch (e) { /* noop */ }
   }
 
+  function isPokerForgeCommunity(id) {
+    return normalizeId(id || ACTIVE) === 'pokerforge';
+  }
+
+  /** HTML del nombre: comunidades white-label llevan (powered by PokerForgeAI) más pequeño. */
+  function formatDisplayNameHtml(name, communityId) {
+    var label = escapeHtml(name || 'Comunidad');
+    if (isPokerForgeCommunity(communityId)) return label;
+    return label + ' <small class="powered-by">(powered by PokerForgeAI)</small>';
+  }
+
   function applyBranding() {
     var cfg = config();
     if (!cfg) return;
@@ -175,10 +186,25 @@
     });
     var brandTitle = document.querySelector('#brand-home h1, .brand-title');
     if (brandTitle) {
-      if (!brandTitle.getAttribute('data-pf-title')) {
-        brandTitle.setAttribute('data-pf-title', brandTitle.textContent || '');
+      if (!brandTitle.getAttribute('data-pf-title-html')) {
+        brandTitle.setAttribute('data-pf-title-html', brandTitle.innerHTML || '');
       }
-      brandTitle.textContent = cfg.siteName || brandTitle.getAttribute('data-pf-title');
+      if (isPokerForgeCommunity(ACTIVE)) {
+        brandTitle.innerHTML = brandTitle.getAttribute('data-pf-title-html');
+      } else {
+        brandTitle.innerHTML = formatDisplayNameHtml(cfg.siteName || 'Comunidad', ACTIVE);
+      }
+    }
+    var landingBrand = document.querySelector('.landing-brand span');
+    if (landingBrand) {
+      if (!landingBrand.getAttribute('data-pf-title-html')) {
+        landingBrand.setAttribute('data-pf-title-html', landingBrand.innerHTML || '');
+      }
+      if (isPokerForgeCommunity(ACTIVE)) {
+        landingBrand.innerHTML = landingBrand.getAttribute('data-pf-title-html');
+      } else {
+        landingBrand.innerHTML = formatDisplayNameHtml(cfg.siteName || 'Comunidad', ACTIVE);
+      }
     }
     try {
       document.title = (cfg.siteName || 'PokerForgeAI') + (ACTIVE === 'pokerforge'
@@ -364,7 +390,7 @@
     host.innerHTML =
       '<div class="community-access-card">' +
       '<img src="' + (cfg.logoAuth || cfg.logo || '') + '" alt="" class="app-logo app-logo-auth" width="72" height="72" />' +
-      '<h2>' + escapeHtml(cfg.siteName || 'Comunidad') + '</h2>' +
+      '<h2>' + formatDisplayNameHtml(cfg.siteName || 'Comunidad', ACTIVE) + '</h2>' +
       '<p class="muted-text">' + escapeHtml(message || 'Esta área es exclusiva para miembros de la comunidad.') + '</p>' +
       '<form id="community-join-form" class="community-join-form">' +
       '<label for="community-join-code">Código de acceso</label>' +
@@ -645,6 +671,8 @@
           escapeHtml(c.id) + '">' +
           '<img src="' + escapeHtml(cfg.logo || 'icons/logo-header.png') + '" alt="" width="36" height="36" />' +
           '<span><strong>' + escapeHtml(c.name || cfg.siteName || c.id) + '</strong>' +
+          (isPokerForgeCommunity(c.id) ? '' :
+            '<small class="powered-by">(powered by PokerForgeAI)</small>') +
           (c.role === 'manager' ? '<small>Manager</small>' : '') +
           (c.id === ACTIVE ? '<small>Actual</small>' : '') +
           '</span></button></li>';
@@ -814,6 +842,8 @@
     applyMenus: applyMenus,
     applyFormats: applyFormats,
     applyBranding: applyBranding,
+    formatDisplayNameHtml: formatDisplayNameHtml,
+    isPokerForgeCommunity: isPokerForgeCommunity,
     schoolPack: schoolPack,
     unlockMode: unlockMode,
     bypassPaywalls: bypassPaywalls,

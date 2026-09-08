@@ -116,6 +116,17 @@ assert.ok(/Sin fallback a PokerForge|\/\* Sin fallback a PokerForge \*\//.test(s
 assert.ok(/return json_build_object\('ok', false, 'error', 'not_a_member'/.test(sql46), 'detalle not_a_member amigable');
 assert.ok(/lower\(p\.email\) = lower\(uid\)/.test(sql46), 'detalle fallback email');
 
+assert.ok(/formatDisplayNameHtml/.test(commSrc), 'helper nombre con powered by');
+assert.ok(/powered by PokerForgeAI/.test(commSrc), 'copy powered by PokerForgeAI');
+assert.ok(/powered-by/.test(commSrc), 'clase powered-by en branding');
+assert.ok(/isPokerForgeCommunity/.test(commSrc), 'detecta comunidad PokerForge');
+assert.ok(/data-pf-title-html/.test(commSrc), 'preserva HTML original del brand');
+
+const styles = read('css/styles.css');
+assert.ok(/\.powered-by/.test(styles), 'CSS powered-by');
+assert.ok(/formatDisplayNameHtml|applyBranding/.test(read('js/landing.js')),
+  'landing branding powered by');
+
 assert.ok(/resolveActiveFromMemberships/.test(commSrc), 'resolve post-login');
 assert.ok(/ids\.length === 1/.test(commSrc), 'un solo acceso → ese shell');
 assert.ok(/readStored\(\)/.test(commSrc), 'usa comunidad almacenada');
@@ -150,6 +161,7 @@ assert.ok(/pt_contact_unread_count',\s*contactThreadsRpcArgs/.test(contact), 'un
 const account = read('js/account-settings.js');
 assert.ok(/communitySettingsSection/.test(account), 'settings comunidades');
 assert.ok(/setDefaultApp/.test(account), 'settings default app');
+assert.ok(/formatDisplayNameHtml/.test(account), 'settings usa formatDisplayNameHtml');
 
 const admin = read('js/admin-panel.js');
 assert.ok(/admin-filter-community|adminUsersFilters\.community/.test(admin), 'admin filtro comunidad');

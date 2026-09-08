@@ -51,10 +51,13 @@
     var items = list.map(function (c) {
       var cfg = global.PTCommunity.getConfig ? global.PTCommunity.getConfig(c.id) : {};
       var name = c.name || (cfg && cfg.siteName) || c.id;
+      var nameHtml = (global.PTCommunity && global.PTCommunity.formatDisplayNameHtml)
+        ? global.PTCommunity.formatDisplayNameHtml(name, c.id)
+        : escapeHtml(name);
       return '<li class="community-settings-item">' +
         '<label><input type="radio" name="settings-default-app" value="' + escapeHtml(c.id) + '"' +
         (c.id === def ? ' checked' : '') + ' /> Entrada por defecto</label> ' +
-        '<strong>' + escapeHtml(name) + '</strong>' +
+        '<strong class="community-settings-name">' + nameHtml + '</strong>' +
         (c.role === 'manager' ? ' <span class="muted-text">Manager</span>' : '') +
         (c.id === active ? ' <span class="muted-text">(actual)</span>' : '') +
         ' <button type="button" class="btn btn-ghost btn-sm" data-switch-community="' +
