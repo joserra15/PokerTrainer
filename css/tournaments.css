@@ -2182,6 +2182,30 @@
   background: linear-gradient(180deg, #e8796a, #c44536);
   border-color: rgba(120, 40, 30, .45);
 }
+/* % junto a cartas reveladas: no truncar en .seat-name (max-width ~72px). */
+.trn-play-like .seat-hole {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.trn-seat-equity {
+  display: flex;
+  justify-content: center;
+  margin-top: 2px;
+  pointer-events: none;
+  z-index: 3;
+}
+.trn-seat-equity .trn-equity-pct,
+.hero-area .trn-seat-equity .trn-equity-pct {
+  margin-left: 0;
+  font-size: 12px;
+  padding: 2px 8px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .35);
+}
+.hero-area .trn-seat-equity {
+  margin-top: 4px;
+}
 .trn-play-like .hero-label .trn-equity-pct {
   margin-left: 6px;
 }
