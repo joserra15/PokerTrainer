@@ -8,37 +8,14 @@ window.PT_VS_RFI_JSON = {
     "openSizeBb": 2.5,
     "threeBetSizeBb": 10,
     "source": "solver-export-v2-pro-dump",
-    "updated": "2026-09-07",
-    "note": "BB vs UTG tightened toward ~10% call / ~3% 3bet (raked). combo_matrix overrides exact mixes."
+    "updated": "2026-09-08",
+    "note": "BB vs UTG: chart de estudio con 3bet value+polar (JJ mix, AQs/A5s/A4s/KJs) y defensa ATo+/KJo+/QJo/JTo. combo_matrix en otros spots."
   },
   "pairs": {
     "BB_vs_UTG": {
-      "threeBet": "JJ+, AKs, AKo",
-      "threeBetMix": "A5s, A4s",
-      "call": "22-TT, A2s-AQs, KTs+, QJs, JTs, T9s, 98s, 87s, 76s, 65s, 54s, AQo",
-      "global_frequencies": {
-        "3bet_10bb": 0.031,
-        "call": 0.104,
-        "fold": 0.865
-      },
-      "combo_matrix": {
-        "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "KK": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "QQ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "JJ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "TT": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "33": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "AKs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "AQs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "A9s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "A5s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
-        "A4s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
-        "KTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "JTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "54s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "AKo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "AQo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
-      }
+      "threeBet": "QQ+, AKs, AKo",
+      "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
+      "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
     },
     "BB_vs_HJ": {
       "threeBet": "QQ+, AKs, AKo",
