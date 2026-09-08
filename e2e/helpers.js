@@ -243,7 +243,9 @@ async function goTab(page, tab) {
     var btn = document.querySelector('button.tab[data-tab="' + t + '"]');
     if (btn) btn.click();
   }, tab);
-  await page.waitForSelector('#tab-' + tab + ':not(.hidden), #tab-' + tab + '.active, #tab-' + tab, {
+  /* Solo .active / :not(.hidden): #tab-X existe siempre pero display:none. */
+  await page.waitForSelector('#tab-' + tab + '.active, #tab-' + tab + ':not(.hidden)', {
+    state: 'visible',
     timeout: 15000
   });
 }
