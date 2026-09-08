@@ -2024,6 +2024,15 @@ function reducedMotion() {
       '<summary>Manos jugadas (' + handsCount + ')</summary>' +
       '<ul class="trn-hand-log-list">' + handsHtml + '</ul></details>';
 
+    var report = r.improvementReport || null;
+    if (!report) {
+      try {
+        var LB = global.PTTournamentLeaksBridge;
+        if (LB && LB.buildReport) report = LB.buildReport(state);
+      } catch (eRep) { report = null; }
+    }
+    var improveHtml = renderImprovementReport(report, sessionId);
+
     var placeLabel = r.place != null ? (r.place + 'º') : '—';
     return '<div class="trn-result panel">' +
       '<header class="trn-result-hero">' +
@@ -2035,6 +2044,7 @@ function reducedMotion() {
       (r.roleKoins ? (' · +' + r.roleKoins + ' Koins por roles') : '') + '</p>' +
       '</header>' +
       statsHtml +
+      improveHtml +
       '<div id="ai-coach-tournament" class="trn-result-coach"></div>' +
       (sessionId
         ? ('<p class="trn-result-cta"><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
@@ -2050,6 +2060,90 @@ function reducedMotion() {
       '<button type="button" class="btn btn-primary" data-act="hub">Hub</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
       '</div></div>';
+  }
+
+  function renderImprovementReport(report, sessionId) {
+    if (!report || (!report.errorCount && !(report.worstHands && report.worstHands.length))) {
+      return '<section class="trn-improve panel-inset">' +
+        '<h3>Mejora tu juego</h3>' +
+        '<p class="muted">Sin errores graves detectados en este torneo. Sigue así.</p>' +
+        '</section>';
+    }
+    var worst = (report.worstHands || []).map(function (h, i) {
+      return '<li class="trn-improve-hand">' +
+        '<span class="trn-improve-rank">#' + (i + 1) + '</span>' +
+        '<span class="trn-improve-hand-main">' +
+        '<strong>Mano #' + esc(String(h.handIndex != null ? h.handIndex : '—')) + '</strong>' +
+        ' · ' + esc(h.heroCode || '') + ' ' + esc(h.heroPos || '') +
+        (h.worstLabel ? (' · ' + esc(h.worstLabel)) : '') +
+        (h.worstStreet ? (' · ' + esc(h.worstStreet)) : '') +
+        ' · <span class="net-neg">−' + esc(String(h.totalEvLoss)) + ' bb</span>' +
+        (h.phaseBucket ? (' · <span class="trn-phase-chip">' + esc(
+          (global.PTTournamentLeaksBridge && PTTournamentLeaksBridge.PHASE_BUCKET_LABELS[h.phaseBucket])
+            || h.phaseBucket
+        ) + '</span>') : '') +
+        '</span>' +
+        (h.handId
+          ? (' <button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
+            esc(h.handId) + '"' +
+            (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
+            '>Revisar</button>')
+          : '') +
+        '</li>';
+    }).join('') || '<li class="muted">Sin manos destacadas</li>';
+
+    var phase = report.phase && report.phase.dominant;
+    var phaseHtml = '';
+    if (phase) {
+      phaseHtml = '<div class="trn-improve-phase">' +
+        '<div class="trn-improve-phase-label">Leak dominante por fase</div>' +
+        '<div class="trn-improve-phase-val">' +
+        '<span class="trn-phase-chip">' + esc(phase.label) + '</span> · ' +
+        esc(String(phase.count)) + ' error' + (phase.count === 1 ? '' : 'es') +
+        ' · −' + esc(String(phase.evLoss)) + ' bb' +
+        (phase.topLeak
+          ? (' · <strong>' + esc(phase.topLeak.label) + '</strong>')
+          : '') +
+        '</div></div>';
+    } else if (report.phase && report.phase.byPhase && report.phase.byPhase.length) {
+      phaseHtml = '<ul class="trn-improve-phase-list">' +
+        report.phase.byPhase.map(function (p) {
+          return '<li><span class="trn-phase-chip">' + esc(p.label) + '</span> · ' +
+            p.count + ' · −' + p.evLoss + ' bb' +
+            (p.topLeak ? (' · ' + esc(p.topLeak.label)) : '') + '</li>';
+        }).join('') + '</ul>';
+    }
+
+    var drills = (report.drills || []).map(function (d, i) {
+      return '<li class="trn-improve-drill">' +
+        '<span>' + esc(d.label) +
+        (d.mttPhase ? (' · fase ' + esc(d.mttPhase)) : '') +
+        ' · ' + esc(String(d.hands || 25)) + ' manos</span>' +
+        '<button type="button" class="btn btn-sm btn-primary" data-act="train-drill" data-drill-idx="' +
+        i + '">Entrenar</button></li>';
+    }).join('');
+
+    var drillsBlock = drills
+      ? ('<div class="trn-improve-drills"><div class="trn-improve-phase-label">Drills recomendados</div>' +
+        '<ul class="trn-improve-drill-list">' + drills + '</ul></div>')
+      : '';
+
+    return '<section class="trn-improve panel-inset" data-trn-report="1">' +
+      '<h3>Mejora tu juego</h3>' +
+      '<p class="muted">' + esc(String(report.errorCount || 0)) + ' decisión' +
+      ((report.errorCount === 1) ? '' : 'es') + ' imprecisa/error · ' +
+      esc(String(report.leakCount || 0)) + ' leak' +
+      ((report.leakCount === 1) ? '' : 's') + ' detectado' +
+      ((report.leakCount === 1) ? '' : 's') + '</p>' +
+      '<div class="trn-improve-block">' +
+      '<div class="trn-improve-phase-label">Top peores manos (EV loss)</div>' +
+      '<ul class="trn-improve-hands">' + worst + '</ul></div>' +
+      phaseHtml +
+      drillsBlock +
+      '<p class="trn-result-cta trn-improve-cta">' +
+      '<button type="button" class="btn btn-primary" data-act="train-tournament-leaks">' +
+      'Entrenar mis leaks de este torneo</button></p>' +
+      '</section>';
   }
 
   function loadSessionsForGeneralStats(historyList) {
@@ -2476,6 +2570,26 @@ function reducedMotion() {
           openLiveHandReview(btn.getAttribute('data-hand-id'), 'review');
         } else if (act === 'open-session') {
           openSessionHand(btn.getAttribute('data-session-id'), null, 'review');
+        } else if (act === 'train-tournament-leaks') {
+          var repTrain = (ui.state && ui.state.result && ui.state.result.improvementReport) || null;
+          if (!repTrain && ui.state && global.PTTournamentLeaksBridge) {
+            try { repTrain = PTTournamentLeaksBridge.buildReport(ui.state); } catch (eT) { repTrain = null; }
+          }
+          if (global.PTTournamentLeaksBridge && PTTournamentLeaksBridge.trainTournamentLeaks) {
+            PTTournamentLeaksBridge.trainTournamentLeaks(repTrain || {});
+          }
+        } else if (act === 'train-drill') {
+          var dIdx = Number(btn.getAttribute('data-drill-idx'));
+          var repD = (ui.state && ui.state.result && ui.state.result.improvementReport) || null;
+          if (!repD && ui.state && global.PTTournamentLeaksBridge) {
+            try { repD = PTTournamentLeaksBridge.buildReport(ui.state); } catch (eD) { repD = null; }
+          }
+          var drill = repD && repD.drills && repD.drills[dIdx];
+          if (drill && global.PTTournamentLeaksBridge && PTTournamentLeaksBridge.trainLeak) {
+            PTTournamentLeaksBridge.trainLeak(drill);
+          } else if (global.PTTournamentLeaksBridge && PTTournamentLeaksBridge.trainTournamentLeaks) {
+            PTTournamentLeaksBridge.trainTournamentLeaks(repD || {});
+          }
         } else if (act === 'session-review-hand') {
           openSessionHand(btn.getAttribute('data-session-id'), btn.getAttribute('data-hand-id'), 'review');
         } else if (act === 'session-replay-hand') {

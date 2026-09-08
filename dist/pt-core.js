@@ -27129,6 +27129,66 @@ window.PT_NASH_PUSH_JSON = {
     notifySync(['errors']);
   }
 
+  /**
+   * Añade registros de error (p.ej. Torneos IA → leaks) sin pasar por saveHand.
+   * Idempotente por `id`. No infla handsPlayed/stats de entrenador.
+   * @param {object[]} list
+   * @param {{ source?: string }} [opts]
+   * @returns {{ ok: boolean, added: number, total: number }}
+   */
+  function appendErrors(list, opts) {
+    opts = opts || {};
+    if (!Array.isArray(list) || !list.length) {
+      return { ok: true, added: 0, total: getErrors().length };
+    }
+    const errs = getErrors().filter(function (e) { return !isSchoolError(e); });
+    const seen = {};
+    errs.forEach(function (e) { if (e && e.id) seen[e.id] = true; });
+    let added = 0;
+    const st = getStats();
+    const agg = (global.PTStatsAggregate && st)
+      ? global.PTStatsAggregate.ensureAggregates(st)
+      : null;
+    list.forEach(function (rec) {
+      if (!rec || !rec.id || seen[rec.id]) return;
+      if (isSchoolError(rec)) return;
+      const row = Object.assign({}, rec);
+      if (opts.source && !row.source) row.source = opts.source;
+      if (!row.createdAt) row.createdAt = new Date().toISOString();
+      errs.unshift(row);
+      seen[row.id] = true;
+      added += 1;
+      if (agg && (row.class === 'imprecisa' || row.class === 'error')) {
+        try {
+          const key = row.spotKey
+            || ((row.scenarioRaw && row.scenarioRaw.type) || row.spot || 'spot')
+              + '|' + (row.displayHeroPos || row.heroPos || '?')
+              + '|' + (row.street || 'preflop');
+          const label = row.scenario
+            || (global.PTLeaks && global.PTLeaks.labelForKey
+              ? global.PTLeaks.labelForKey(key)
+              : key);
+          if (!agg.trainerLeaks) agg.trainerLeaks = {};
+          if (!agg.trainerLeaks[key]) {
+            agg.trainerLeaks[key] = { key: key, label: label, count: 0, evLoss: 0 };
+          }
+          agg.trainerLeaks[key].count += 1;
+          agg.trainerLeaks[key].evLoss = Math.round(
+            ((agg.trainerLeaks[key].evLoss || 0) + (Number(row.evLoss) || 0)) * 100
+          ) / 100;
+          if (label) agg.trainerLeaks[key].label = label;
+        } catch (eAgg) { /* ignore */ }
+      }
+    });
+    if (added) {
+      if (errs.length > MAX_HISTORY) errs.length = MAX_HISTORY;
+      write(scopedDataKey('errors'), errs);
+      if (agg) writeStats(st);
+      notifySync(['errors', 'stats']);
+    }
+    return { ok: true, added: added, total: errs.length };
+  }
+
   function exportData() {
     return JSON.stringify({ history: getHistory(), errors: getErrors(), stats: getStats() }, null, 2);
   }
@@ -28603,7 +28663,7 @@ window.PT_NASH_PUSH_JSON = {
 
   global.Store = {
     setUserId, getUserId,
-    getHistory, getErrors, getStats, saveHand, persistStats: writeStats,
+    getHistory, getErrors, getStats, saveHand, appendErrors, persistStats: writeStats,
     getSchoolProgress, saveSchoolProgress,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,

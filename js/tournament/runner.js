@@ -371,6 +371,11 @@
             }
           }
           if (!replaced) state.sessionHands.push(analyzed);
+          /* Pipeline Torneos → leaks globales (imprecisa/error). */
+          try {
+            var LeaksBr = global.PTTournamentLeaksBridge;
+            if (LeaksBr && LeaksBr.recordHandErrors) LeaksBr.recordHandErrors(analyzed, state);
+          } catch (eLeak) { /* ignore */ }
         }
       }
     } catch (eBridge) { /* ignore */ }
@@ -458,6 +463,14 @@
     /* Persistir sesión con meta de torneo (puesto/ROI) ya calculada. */
     var sessionId = null;
     var sessionStats = null;
+    var improvementReport = null;
+    try {
+      var LeaksFin = global.PTTournamentLeaksBridge;
+      if (LeaksFin) {
+        if (LeaksFin.recordTournamentErrors) LeaksFin.recordTournamentErrors(state);
+        if (LeaksFin.buildReport) improvementReport = LeaksFin.buildReport(state);
+      }
+    } catch (eLeakFin) { /* ignore */ }
     try {
       var Bridge2 = global.PTTournamentSessionBridge;
       var StoreApi = global.Store;
@@ -472,6 +485,7 @@
         if (session && session.hands && session.hands.length) {
           sessionId = session.id;
           sessionStats = session.stats || null;
+          if (improvementReport) session.improvementReport = improvementReport;
           state.sessionId = sessionId;
           state.sessionStats = sessionStats;
           state._savedSession = session;
@@ -508,7 +522,8 @@
       gtoSession: state.gtoSession || null,
       reason: opts.reason || 'finished',
       sessionId: sessionId,
-      sessionStats: sessionStats
+      sessionStats: sessionStats,
+      improvementReport: improvementReport
     };
 
     if (StoreMod && StoreMod.save) {
@@ -525,7 +540,11 @@
         roleAccuracy: roleScore.accuracy,
         finishedAt: state.finishedAt,
         presetId: state._presetId || state.config.id,
-        sessionId: sessionId
+        sessionId: sessionId,
+        errorCount: improvementReport ? improvementReport.errorCount : null,
+        topLeakLabel: improvementReport && improvementReport.topLeaks && improvementReport.topLeaks[0]
+          ? improvementReport.topLeaks[0].label
+          : null
       });
     }
 
