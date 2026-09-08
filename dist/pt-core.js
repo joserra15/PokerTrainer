@@ -35903,7 +35903,7 @@ window.PT_NASH_PUSH_JSON = {
         var errEl = $('auth-error');
         if (errEl) errEl.textContent = 'Debes confirmar que tienes más de 18 años para usar PokerForgeAI.';
         signOut();
-        return;
+        return false;
       }
     }
     if (global.PTGuest && global.PTGuest.clearOAuthHandoff) global.PTGuest.clearOAuthHandoff();
@@ -35924,7 +35924,7 @@ window.PT_NASH_PUSH_JSON = {
         var communityOk = await global.PTCommunity.gateAfterLogin();
         if (!communityOk) {
           setAppVisible(false);
-          return;
+          return false;
         }
         if (global.PTCommunity.applyBranding) global.PTCommunity.applyBranding();
         if (global.PTCommunity.applyMenus) global.PTCommunity.applyMenus();
