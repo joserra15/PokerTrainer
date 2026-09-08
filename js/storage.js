@@ -93,6 +93,16 @@
     };
   }
 
+  /**
+   * Vista lógica para merge/replace. En comunidades gated NUNCA usa claves
+   * PokerForge (sin sufijo): sin fallback a tournamentHistory/stats de PF.
+   */
+  function toLogicalCloud(cloudSnapshot) {
+    var s = communityDataSuffix();
+    if (!s) return cloudSnapshot || {};
+    return sliceCloudForActive(cloudSnapshot || {});
+  }
+
   /** Escribe el snapshot de la comunidad activa en claves namespaced sin tocar otras. */
   function mergeActiveIntoCloudPayload(cloudPayload) {
     var out = Object.assign({}, cloudPayload || {});
@@ -2182,16 +2192,9 @@
   /** Fusiona datos locales con snapshot de la nube (union por id). Acepta payload completo o lógico. */
   function mergeFromCloud(cloudSnapshot) {
     if (!cloudSnapshot) return null;
-    var logical = cloudSnapshot;
     var s = communityDataSuffix();
-    if (s && (cloudSnapshot['stats' + s] != null || cloudSnapshot['history' + s] != null ||
-        cloudSnapshot['errors' + s] != null || cloudSnapshot['school' + s] != null ||
-        cloudSnapshot['clearedAt' + s] != null ||
-        cloudSnapshot['tournamentWallet' + s] != null ||
-        cloudSnapshot['tournamentHistory' + s] != null ||
-        cloudSnapshot['tournamentActive' + s] != null)) {
-      logical = sliceCloudForActive(cloudSnapshot);
-    }
+    /* Comunidad gated: siempre vista namespaced (sin fallback a datos PokerForge). */
+    var logical = toLogicalCloud(cloudSnapshot);
     const local = getCloudSnapshot();
     const cloudCa = logical.clearedAt || {};
     const localCa = getClearedAt();
@@ -2251,16 +2254,8 @@
 
   function replaceFromCloud(snapshot) {
     if (!snapshot) return;
-    var logical = snapshot;
     var s = communityDataSuffix();
-    if (s && (snapshot['stats' + s] != null || snapshot['history' + s] != null ||
-        snapshot['errors' + s] != null || snapshot['school' + s] != null ||
-        snapshot['clearedAt' + s] != null ||
-        snapshot['tournamentWallet' + s] != null ||
-        snapshot['tournamentHistory' + s] != null ||
-        snapshot['tournamentActive' + s] != null)) {
-      logical = sliceCloudForActive(snapshot);
-    }
+    var logical = toLogicalCloud(snapshot);
     const cloudCa = logical.clearedAt || {};
     const localCa = getClearedAt();
     writeClearedAt(mergeClearedAtMeta(localCa, cloudCa));

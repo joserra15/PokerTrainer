@@ -735,6 +735,38 @@ FILES.forEach(function (f) { load(g, f); });
   console.log('OK wallet');
 }
 
+// --- Recientes / histórico de torneos aislados por comunidad ---
+{
+  const S = g.PTTournamentStore;
+  assert.ok(S && S.save && S.list, 'tournament store');
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  S.clear();
+  S.save({ id: 'iso_pf', name: 'PF Reciente', place: 1, finishedAt: '2026-09-01T00:00:00.000Z' });
+  assert.strictEqual(S.list().length, 1, 'PF recientes');
+  assert.strictEqual(S.list()[0].communityId, 'pokerforge', 'stamp communityId');
+  g.PTCommunity = {
+    id: function () { return 'mttlab'; },
+    isManager: function () { return true; },
+    requireMembership: function () { return true; }
+  };
+  assert.ok(/_mttlab/.test(S.storageKey()), 'mttlab storage key');
+  assert.strictEqual(S.list().length, 0, 'mttlab no ve PF recientes');
+  S.save({ id: 'iso_mt', name: 'MT Reciente', place: 2, finishedAt: '2026-09-02T00:00:00.000Z' });
+  assert.strictEqual(S.list().map(function (x) { return x.id; }).join(','), 'iso_mt');
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  assert.strictEqual(S.list().map(function (x) { return x.id; }).join(','), 'iso_pf', 'PF intacto');
+  S.clear();
+  console.log('OK tournament-history-community-isolation');
+}
+
 // --- popup ciegas centrado (sin botón OK) ---
 {
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
