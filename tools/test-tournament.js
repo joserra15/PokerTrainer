@@ -2216,4 +2216,77 @@ console.log('OK pushfold-freq-100');
   console.log('OK resume-ui-ensure-source');
 }
 
+// --- Quota móvil: no dejar mano 0 si el snapshot creció ---
+{
+  const QUOTA = 300000;
+  const fillerStore = Object.create(null);
+  const ls = {
+    getItem(k) {
+      return Object.prototype.hasOwnProperty.call(fillerStore, k) ? fillerStore[k] : null;
+    },
+    setItem(k, v) {
+      const s = String(v);
+      const others = Object.keys(fillerStore)
+        .filter(function (x) { return x !== k; })
+        .reduce(function (a, x) { return a + (fillerStore[x] ? fillerStore[x].length : 0); }, 0);
+      if (others + s.length > QUOTA) {
+        const e = new Error('QuotaExceededError');
+        e.name = 'QuotaExceededError';
+        throw e;
+      }
+      fillerStore[k] = s;
+    },
+    removeItem(k) { delete fillerStore[k]; }
+  };
+  /* Sustituye localStorage del sandbox solo para este bloque. */
+  const prevLS = g.localStorage;
+  g.localStorage = ls;
+  try {
+    ls.setItem('pt_filler', 'x'.repeat(200000));
+    const state = g.PTTournamentRunner.create('hard', { seed: 77, heroName: 'QuotaHero' });
+    g.PTTournamentRunner.beginHand(state);
+    const r0 = g.PTTournamentStore.saveActive(state);
+    assert.ok(r0.ok, 'hand0 cabe');
+    assert.strictEqual(g.PTTournamentStore.loadActive().handIndex, 0, 'inicial mano 0');
+    for (let h = 0; h < 80; h++) {
+      let guard = 0;
+      while (state.status === 'running' && state._liveHand &&
+             state._liveHand.stage === 'playing' && guard++ < 120) {
+        if (state._liveHand.awaitingHero) {
+          const opt = (state._liveHand.heroOptions && state._liveHand.heroOptions[0]) || { id: 'fold' };
+          g.PTTournamentRunner.heroAct(state, opt.id || 'fold', opt.amount);
+        } else break;
+      }
+      if (state._liveHand && state._liveHand.stage === 'complete') {
+        g.PTTournamentRunner.continueAfterHand(state);
+      } else break;
+      if (state.status !== 'running') break;
+    }
+    assert.ok(state.handIndex >= 40, 'jugó bastantes manos got ' + state.handIndex);
+    const rN = g.PTTournamentStore.saveActive(state);
+    assert.ok(rN.ok, 'save avanzado debe caber con slim progresivo');
+    const loaded = g.PTTournamentStore.loadActive();
+    assert.ok(loaded, 'hay active');
+    assert.strictEqual(loaded.handIndex, state.handIndex,
+      'no debe quedarse en mano 0 tras QuotaExceeded parcial');
+  } finally {
+    g.localStorage = prevLS;
+    g.PTTournamentStore.clearActive();
+  }
+  console.log('OK exit-save-survives-mobile-quota');
+}
+
+// --- exit-save UI: no abandona mesa si persist falla ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/verified === false|!saved\.ok/.test(uiSrc), 'exit-save comprueba persist');
+  assert.ok(/No se pudo guardar el torneo/.test(uiSrc), 'alerta si no guarda');
+  assert.ok(/pagehide/.test(uiSrc) && /visibilitychange/.test(uiSrc),
+    'autosave en ciclo de vida móvil');
+  const storeSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/store.js'), 'utf8');
+  assert.ok(/applyPersistQuotaLevel/.test(storeSrc), 'slim por niveles de quota');
+  assert.ok(/tryFreeStorage|freeStorageSpace/.test(storeSrc), 'libera espacio ante quota');
+  console.log('OK exit-save-fail-keeps-table-source');
+}
+
 console.log('*** test-tournament OK ***');

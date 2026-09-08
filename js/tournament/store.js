@@ -153,28 +153,20 @@
     var st = loadActive();
     if (!st) return false;
     var aggressive = !!opts.aggressive;
-    var handsKeep = aggressive ? 10 : 15;
-    var logKeep = aggressive ? 15 : 20;
     var snap = slimForPersist(st);
-    if (snap.sessionHands) snap.sessionHands = snap.sessionHands.slice(-handsKeep);
-    if (snap.handLog) {
-      snap.handLog = snap.handLog.slice(-logKeep).map(function (h) {
-        return {
-          handIndex: h.handIndex,
-          bb: h.bb,
-          pot: h.pot,
-          showdown: h.showdown,
-          result: h.result ? { heroNet: h.result.heroNet } : null,
-          seats: (h.seats || []).filter(function (s) { return s.isHero; })
-            .map(function (s) { return { isHero: true, pos: s.pos }; })
-        };
-      });
-    }
+    applyPersistQuotaLevel(snap, aggressive ? 3 : 2);
     try {
       writeActiveRaw(snap);
       return true;
     } catch (e) {
-      return false;
+      tryFreeStorage(true);
+      try {
+        applyPersistQuotaLevel(snap, 3);
+        writeActiveRaw(snap);
+        return true;
+      } catch (e2) {
+        return false;
+      }
     }
   }
 
@@ -274,6 +266,55 @@
     return { ok: true, list: [] };
   }
 
+  function slimSessionHand(h) {
+    if (!h || typeof h !== 'object') return h;
+    if (h.analysis) {
+      h.analysis = {
+        handScore: h.analysis.handScore,
+        heroNetBB: h.analysis.heroNetBB,
+        heroCode: h.analysis.heroCode,
+        heroPos: h.analysis.heroPos
+      };
+    }
+    if (h.streets && h.streets.length > 8) h.streets = h.streets.slice(0, 8);
+    return h;
+  }
+
+  function slimHandLogEntry(h) {
+    if (!h) return h;
+    return {
+      handIndex: h.handIndex,
+      bb: h.bb,
+      pot: h.pot,
+      showdown: h.showdown,
+      result: h.result
+        ? { heroNet: h.result.heroNet, deltas: h.result.deltas, winners: h.result.winners }
+        : null,
+      seats: (h.seats || []).filter(function (s) { return s.isHero; })
+        .map(function (s) { return { isHero: true, pos: s.pos }; })
+    };
+  }
+
+  function slimLiveHandStub(live) {
+    if (!live) return live;
+    return {
+      stage: live.stage,
+      street: live.street,
+      pot: live.pot,
+      bb: live.bb,
+      sb: live.sb,
+      ante: live.ante,
+      board: live.board,
+      seats: live.seats,
+      toActId: live.toActId,
+      heroId: live.heroId,
+      awaitingHero: live.awaitingHero,
+      result: live.result,
+      decisions: live.decisions,
+      log: live.log
+    };
+  }
+
   function slimForPersist(state) {
     var snap = JSON.parse(JSON.stringify(state));
     /* Fotogramas y análisis pesados no son necesarios para reanudar. */
@@ -281,26 +322,72 @@
       delete snap._liveHand._frames;
       if (snap._liveHand._animQueue) delete snap._liveHand._animQueue;
     }
-    if (Array.isArray(snap.sessionHands) && snap.sessionHands.length > 40) {
-      snap.sessionHands = snap.sessionHands.slice(-40);
+    /* sessionHands hincha mucho el JSON (móvil/Safari ~5MB); priorizar reanudar.
+       Al terminar, buildSessionFromTournament regenera desde handLog si hace falta. */
+    if (Array.isArray(snap.sessionHands) && snap.sessionHands.length > 12) {
+      snap.sessionHands = snap.sessionHands.slice(-12);
     }
-    if (Array.isArray(snap.handLog) && snap.handLog.length > 60) {
-      snap.handLog = snap.handLog.slice(-60);
+    if (Array.isArray(snap.handLog) && snap.handLog.length > 40) {
+      snap.handLog = snap.handLog.slice(-40);
     }
-    /* Recorta payloads de análisis en sessionHands para no saturar quota. */
-    (snap.sessionHands || []).forEach(function (h) {
-      if (!h || typeof h !== 'object') return;
-      if (h.analysis) {
-        h.analysis = {
-          handScore: h.analysis.handScore,
-          heroNetBB: h.analysis.heroNetBB,
-          heroCode: h.analysis.heroCode,
-          heroPos: h.analysis.heroPos
-        };
-      }
-      if (h.streets && h.streets.length > 8) h.streets = h.streets.slice(0, 8);
-    });
+    (snap.sessionHands || []).forEach(slimSessionHand);
+    if (Array.isArray(snap.events) && snap.events.length > 40) {
+      snap.events = snap.events.slice(-40);
+    }
     return snap;
+  }
+
+  /**
+   * Niveles de recorte ante QuotaExceeded.
+   * 0 = ya slimForPersist; 1..3 cada vez más agresivo (progreso > historial).
+   */
+  function applyPersistQuotaLevel(snap, level) {
+    if (!snap || level < 1) return snap;
+    if (level >= 1) {
+      if (snap.sessionHands) {
+        snap.sessionHands = snap.sessionHands.slice(-8).map(function (h) {
+          return slimSessionHand(JSON.parse(JSON.stringify(h)));
+        });
+      }
+      if (snap.handLog) {
+        snap.handLog = snap.handLog.slice(-20).map(slimHandLogEntry);
+      }
+      if (snap._liveHand) snap._liveHand = slimLiveHandStub(snap._liveHand);
+      if (snap.events) snap.events = snap.events.slice(-20);
+    }
+    if (level >= 2) {
+      /* sessionHands no hacen falta para Continuar; handLog corto basta para stats. */
+      snap.sessionHands = [];
+      if (snap.handLog) snap.handLog = snap.handLog.slice(-10).map(slimHandLogEntry);
+      if (snap.events) snap.events = snap.events.slice(-10);
+    }
+    if (level >= 3) {
+      snap.sessionHands = [];
+      snap.handLog = [];
+      if (snap._liveHand && snap._liveHand.stage === 'complete') {
+        /* Mano ya resuelta: commitProgressBeforeExit debió aplicarla; no bloquear save. */
+        snap._liveHand = null;
+      } else if (snap._liveHand) {
+        snap._liveHand = slimLiveHandStub(snap._liveHand);
+        try {
+          delete snap._liveHand.log;
+          delete snap._liveHand.decisions;
+        } catch (eDel) { /* */ }
+      }
+      snap.events = [];
+    }
+    return snap;
+  }
+
+  function tryFreeStorage(aggressive) {
+    try {
+      if (global.Store && typeof global.Store.freeStorageSpace === 'function') {
+        global.Store.freeStorageSpace({ aggressive: !!aggressive });
+      }
+    } catch (eFree) { /* ignore */ }
+    try {
+      trimLocalHistory(aggressive ? 3 : 5);
+    } catch (eTrim) { /* ignore */ }
   }
 
   function writeActiveRaw(snap) {
@@ -320,49 +407,34 @@
       /* Siempre refrescar _savedAt en guardados locales; en fromCloud conservar el remoto. */
       if (!opts.fromCloud || !snap._savedAt) snap._savedAt = new Date().toISOString();
       if (snap._progressRev == null) snap._progressRev = Number(state._progressRev) || 0;
-      try {
-        writeActiveRaw(snap);
-      } catch (quotaErr) {
-        /* Reintento agresivo si localStorage está lleno. */
-        if (snap.sessionHands) snap.sessionHands = snap.sessionHands.slice(-15);
-        if (snap.handLog) {
-          snap.handLog = snap.handLog.slice(-20).map(function (h) {
-            return {
-              handIndex: h.handIndex,
-              bb: h.bb,
-              pot: h.pot,
-              showdown: h.showdown,
-              result: h.result ? { heroNet: h.result.heroNet, deltas: h.result.deltas, winners: h.result.winners } : null,
-              seats: (h.seats || []).filter(function (s) { return s.isHero; })
-                .map(function (s) { return { isHero: true, pos: s.pos }; })
-            };
-          });
+      var level = Number(opts.quotaLevel) || 0;
+      var lastErr = null;
+      for (var attempt = 0; attempt < 4; attempt++) {
+        try {
+          if (attempt > 0 || level > 0) {
+            applyPersistQuotaLevel(snap, Math.max(level, attempt));
+          }
+          writeActiveRaw(snap);
+          lastErr = null;
+          break;
+        } catch (quotaErr) {
+          lastErr = quotaErr;
+          /* Liberar cachés ajenas y reintentar más agresivo — no dejar mano 0 vieja. */
+          tryFreeStorage(attempt >= 1);
         }
-        if (snap._liveHand) {
-          snap._liveHand = {
-            stage: snap._liveHand.stage,
-            street: snap._liveHand.street,
-            pot: snap._liveHand.pot,
-            bb: snap._liveHand.bb,
-            sb: snap._liveHand.sb,
-            ante: snap._liveHand.ante,
-            board: snap._liveHand.board,
-            seats: snap._liveHand.seats,
-            toActId: snap._liveHand.toActId,
-            heroId: snap._liveHand.heroId,
-            awaitingHero: snap._liveHand.awaitingHero,
-            result: snap._liveHand.result,
-            decisions: snap._liveHand.decisions,
-            log: snap._liveHand.log
-          };
-        }
-        writeActiveRaw(snap);
       }
+      if (lastErr) throw lastErr;
       if (!opts.silent) markCloudDirty('active');
-      return { ok: true, savedAt: snap._savedAt, handIndex: snap.handIndex, progressRev: snap._progressRev };
+      return {
+        ok: true,
+        savedAt: snap._savedAt,
+        handIndex: snap.handIndex,
+        progressRev: snap._progressRev,
+        bytes: 0
+      };
     } catch (e) {
       try { console.warn('[Tournaments] saveActive failed', e); } catch (e2) { /* */ }
-      return { ok: false, reason: 'serialize' };
+      return { ok: false, reason: 'serialize', error: String((e && e.name) || e || 'error') };
     }
   }
 
