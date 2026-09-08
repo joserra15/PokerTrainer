@@ -28,7 +28,7 @@
 
   function founderLaunchLabel() {
     var f = founderInfo();
-    return (f && f.launchLabel) || 'próximamente';
+    return (f && f.launchLabel) || 'próximas semanas';
   }
 
   function purchasesPausedShortMsg() {
@@ -49,13 +49,13 @@
       '<li>Puedes usar el plan <strong>Gratis</strong> con sus límites.</li>' +
       '<li>Study/Coach y bonos IA <strong>no se pueden comprar</strong> ahora.</li>' +
       '<li>Si tienes un <strong>código promocional</strong> de acceso, regístrate con él o escríbenos en Contacto.</li>' +
-      '<li><strong>Plazas FOUNDER limitadas por petición</strong> (Study o Coach).</li>' +
+      '<li><strong>Plazas FOUNDER limitadas</strong> (Study o Coach).</li>' +
       '</ul>' +
-      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
-      ' · ' + escapeHtml(f.discount || '40%') + ' dto. · <strong>' +
-      escapeHtml(f.seatsNote || 'Plazas limitadas por petición') + '</strong>.</p>' +
+      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> en ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
+      ' · ' + escapeHtml(f.discount || '40%') + ' dto. para siempre · <strong>' +
+      escapeHtml(f.seatsNote || 'Plazas limitadas') + '</strong>.</p>' +
       '<p class="muted-text">' + escapeHtml(f.priorityNote ||
-        'Solicita plaza FOUNDER Study o Coach; revisamos cada petición en soporte.') + '</p>' +
+        'Solicita tu plaza FOUNDER Study o Coach en Planes; revisamos cada solicitud en soporte.') + '</p>' +
       '<p class="paywall-founder-cta-wrap">' + studyBtn + ' ' + coachBtn + '</p>' +
       '</div>';
   }

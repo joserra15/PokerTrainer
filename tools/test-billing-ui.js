@@ -99,7 +99,7 @@ assert.ok(B.purchasesPaused && B.purchasesPaused(), 'purchasesPaused activo');
 B.showPaywall('trainer_limit');
 assert.ok(!docEls['paywall-modal'].classList.contains('hidden'), 'modal visible');
 assert.ok(bodyClass.has('paywall-open'), 'body paywall-open');
-assert.ok(/plan|manos|Gratis|FOUNDER|próximamente|petición/i.test(docEls['paywall-body'].innerHTML + docEls['paywall-title'].textContent),
+assert.ok(/plan|manos|Gratis|FOUNDER|próximas semanas|plazas limitadas/i.test(docEls['paywall-body'].innerHTML + docEls['paywall-title'].textContent),
   'mensaje paywall');
 
 B.showPaywall('ai_limit');

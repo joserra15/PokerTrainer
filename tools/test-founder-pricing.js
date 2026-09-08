@@ -107,6 +107,34 @@ assert.ok(/is_founder_study/.test(appSrc) && /is_founder_coach/.test(appSrc),
 });
 assert.ok(/para siempre/i.test(html), 'index.html promete el precio para siempre');
 
+// --- Publicidad Founder: hosts landing + Inicio + helpers --------------------
+assert.ok(/id="landing-promo-pill"/.test(html), 'host landing-promo-pill tras hero');
+assert.ok(/id="home-founder-promo"/.test(html), 'host home-founder-promo en Inicio');
+assert.ok(/próximas semanas/i.test(billingCfgSrc), 'config: lanzamiento próximas semanas');
+assert.ok(/ctaPlanes/.test(billingCfgSrc), 'config: ctaPlanes');
+assert.ok(/founderStripHtml|homePromoHtml|founderNavBadgeHtml/.test(billingCfgSrc),
+  'PTBillingPromo strip/home/nav helpers');
+assert.ok(/pillHost\.innerHTML\s*=\s*Promo\.pillHtml/.test(landingSrc),
+  'landing rellena pill/strip Founder');
+assert.ok(/landing-promo-pill/.test(landingSrc) && /showPricing === false/.test(landingSrc),
+  'landing oculta strip si comunidad sin pricing');
+assert.ok(/mountHomeFounderPromo/.test(appSrc), 'app monta promo Founder en Inicio');
+assert.ok(/markFounderPricingTabBadge|founderNavBadgeHtml/.test(appSrc),
+  'app marca badge en tab Planes');
+assert.ok(/\.founder-promo-strip/.test(css) && /\.founder-nav-badge/.test(css),
+  'CSS strip y badge Founder');
+
+const promoSb = loadPricing(billingCfgSrc);
+assert.ok(promoSb.PTBillingPromo.homePromoHtml().indexOf('Ir a Planes') >= 0,
+  'homePromoHtml CTA Ir a Planes');
+assert.ok(promoSb.PTBillingPromo.pillHtml().indexOf('founder-promo-strip') >= 0,
+  'pillHtml es la banda Founder');
+assert.ok(promoSb.PTBillingPromo.founderNavBadgeHtml().indexOf('−40%') >= 0,
+  'nav badge −40%');
+promoSb.PT_BILLING.purchasesPaused = false;
+assert.strictEqual(promoSb.PTBillingPromo.homePromoHtml(), '', 'sin pausa no hay promo home');
+assert.strictEqual(promoSb.PTBillingPromo.founderNavBadgeHtml(), '', 'sin pausa no hay badge');
+
 // --- i18n y estilos ----------------------------------------------------------
 ['price.usual', 'price.monthly', 'price.annual', 'price.founder.lead', 'price.forever']
   .forEach(function (key) {

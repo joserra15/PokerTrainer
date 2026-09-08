@@ -5,7 +5,11 @@
 Con `PT_BILLING.purchasesPaused: true` (activo en cliente):
 
 - Los planes se muestran en landing y en la pestaña Planes, pero **los botones de compra/trial/bonos quedan deshabilitados**.
-- El paywall explica la beta y anuncia **FOUNDER próximamente** (40 % dto., **plazas limitadas por petición**).
+- El paywall explica la beta y anuncia **FOUNDER** (40 % dto. para siempre, **plazas limitadas**, lanzamiento en **próximas semanas**).
+- **Publicidad de descubrimiento** (mientras compras pausadas):
+  - Landing sin login: banda `#landing-promo-pill` tras el hero + banner en `#landing-pricing` + badge `−40%` en nav Planes.
+  - App logueada: `#home-founder-promo` en Inicio (CTA «Ir a Planes») + badge en la tab Planes.
+  - Se oculta en comunidades gated (`hidePricing` / `community-shell`) y si el usuario ya es founder.
 - `startCheckout` / `startBonusCheckout` rechazan cobros aunque alguien force la API del cliente.
 - Para reabrir cobros: `purchasesPaused: false` y cupón Stripe FOUNDER.
 - Botones **Solicitar plaza FOUNDER Study / Coach** (landing + Planes + paywall + cuenta): `pt_request_founder_seat(p_plan)` (migraciones `037`/`038`) crea hilo `Solicitud de Founder Study|Coach`. Admin marca `is_founder_study` / `is_founder_coach`.
