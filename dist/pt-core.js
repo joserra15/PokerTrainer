@@ -14293,11 +14293,14 @@ window.PT_NASH_PUSH_JSON = {
 })(typeof window !== 'undefined' ? window : global);
 
 /*
- * villainProExploit.js — Capa explotativa estática del villano pro.
- * Asunciones de población (pool entrenador / regs vs regs); no HUD del hero.
+ * villainProExploit.js — Capa explotativa del villano pro.
+ * Asunciones de población + adaptaciones ligeras si hay perfil del Hero
+ * (entrenador y torneos IA).
  */
 (function (global) {
   'use strict';
+
+  var MIN_SAMPLE = 12;
 
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 
@@ -14313,9 +14316,86 @@ window.PT_NASH_PUSH_JSON = {
     return 'early';
   }
 
+  function pctOf(hits, hands) {
+    hits = Number(hits);
+    hands = Number(hands);
+    if (!isFinite(hits) || !isFinite(hands) || hands <= 0) return null;
+    return (hits / hands) * 100;
+  }
+
+  /**
+   * Deriva un tag de perfil del Hero a partir de stats de sesión.
+   * Acepta { handsPlayed|hands|nHands, vpipHands|vpipPct|vpip, pfrHands|pfrPct|pfr,
+   *          foldToCbetFlopPct }.
+   * @returns {string|null} callingStation | overfolder | nit | laggy | null
+   */
+  function profileFromStats(stats) {
+    stats = stats || {};
+    var hands = Number(stats.handsPlayed != null ? stats.handsPlayed
+      : (stats.hands != null ? stats.hands
+        : (stats.nHands != null ? stats.nHands : 0))) || 0;
+    if (hands < MIN_SAMPLE) return null;
+
+    var vpip = stats.vpipPct != null ? Number(stats.vpipPct)
+      : (stats.vpip != null ? Number(stats.vpip) : null);
+    if (vpip == null && stats.vpipHands != null) vpip = pctOf(stats.vpipHands, hands);
+
+    var pfr = stats.pfrPct != null ? Number(stats.pfrPct)
+      : (stats.pfr != null ? Number(stats.pfr) : null);
+    if (pfr == null && stats.pfrHands != null) pfr = pctOf(stats.pfrHands, hands);
+
+    if (vpip == null || !isFinite(vpip)) return null;
+    if (pfr == null || !isFinite(pfr)) pfr = vpip * 0.55;
+
+    var gap = vpip - pfr;
+    var foldCbet = stats.foldToCbetFlopPct != null ? Number(stats.foldToCbetFlopPct) : null;
+
+    if (foldCbet != null && isFinite(foldCbet) && foldCbet >= 62) return 'overfolder';
+    if (vpip >= 38 && gap >= 14) return 'callingStation';
+    if (vpip <= 18 && pfr <= 14) return 'nit';
+    if (vpip >= 32 && pfr >= 26 && gap <= 10) return 'laggy';
+    if (gap >= 16 && vpip >= 28) return 'callingStation';
+    if (vpip <= 22 && pfr <= 16) return 'nit';
+    return null;
+  }
+
+  /** Ajustes explotativos según tag del Hero (solo con exploit_pool). */
+  function applyHeroProfile(out, tag) {
+    if (!tag || !out) return out;
+    if (tag === 'overfolder') {
+      out.barrel = (out.barrel || 1) * 1.22;
+      out.bluff = (out.bluff || 1) * 1.18;
+      out.overbet = (out.overbet || 1) * 1.12;
+      out.xr = (out.xr || 1) * 1.08;
+      out.thinValue = (out.thinValue || 1) * 0.96;
+    } else if (tag === 'callingStation') {
+      out.thinValue = (out.thinValue || 1) * 1.28;
+      out.bluff = (out.bluff || 1) * 0.72;
+      out.barrel = (out.barrel || 1) * 0.92;
+      out.overbet = (out.overbet || 1) * 1.15;
+      out.xr = (out.xr || 1) * 0.9;
+    } else if (tag === 'nit') {
+      out.barrel = (out.barrel || 1) * 1.16;
+      out.bluff = (out.bluff || 1) * 1.14;
+      out.thinValue = (out.thinValue || 1) * 0.94;
+      out.xr = (out.xr || 1) * 1.1;
+      out.donk = (out.donk || 1) * 0.9;
+    } else if (tag === 'laggy') {
+      out.thinValue = (out.thinValue || 1) * 1.12;
+      out.xr = (out.xr || 1) * 1.14;
+      out.bluff = (out.bluff || 1) * 0.9;
+      out.barrel = (out.barrel || 1) * 1.05;
+    }
+    // Un poco más de agresividad cuando hay debilidad concreta detectada.
+    out.barrel = (out.barrel || 1) * 1.06;
+    out.xr = (out.xr || 1) * 1.04;
+    return out;
+  }
+
   /**
    * Multipliers explotativos ligeros.
    * Default style: exploit_pool (presión vs folds a c-bet, overbets vs call-stations).
+   * Con ctx.heroProfile (o stats derivables) adapta vs debilidades del Hero.
    */
   function multipliers(ctx) {
     ctx = ctx || {};
@@ -14362,6 +14442,12 @@ window.PT_NASH_PUSH_JSON = {
         out.barrel = 1.06;
       }
     }
+
+    var tag = ctx.heroProfile || null;
+    if (!tag && (ctx.heroSessionStats || ctx.heroStats)) {
+      tag = profileFromStats(ctx.heroSessionStats || ctx.heroStats);
+    }
+    applyHeroProfile(out, tag);
     return out;
   }
 
@@ -14420,6 +14506,8 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   global.GTOVillainProExploit = {
+    MIN_SAMPLE: MIN_SAMPLE,
+    profileFromStats: profileFromStats,
     multipliers: multipliers,
     applyToLeadFreqs: applyToLeadFreqs,
     applyToFacingFreqs: applyToFacingFreqs
@@ -18914,6 +19002,15 @@ window.PT_NASH_PUSH_JSON = {
     // FormatAdjust / jamBias usan el stack restante del villano (no el de sesión).
     const stackForAdjust = (remV > 0) ? remV
       : (cfg.stackBB != null ? cfg.stackBB : effStackForHand(hand));
+    const heroStats = (cfg && cfg.heroSessionStats)
+      || hand.heroSessionStats
+      || hand.sessionStats
+      || null;
+    const Ex = global.GTOVillainProExploit;
+    let heroProfile = (cfg && cfg.heroProfile) || hand.heroProfile || null;
+    if (!heroProfile && Ex && Ex.profileFromStats && heroStats) {
+      heroProfile = Ex.profileFromStats(heroStats);
+    }
     return Object.assign({
       formatHub: hub,
       gameType: cfg.gameType,
@@ -18943,6 +19040,8 @@ window.PT_NASH_PUSH_JSON = {
       priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
       lineIntent: hand._villainLineIntent || null,
       proStyle: (profileFor(hand, hand.villain.pos) || {}).proStyle || 'exploit_pool',
+      heroProfile: heroProfile,
+      heroSessionStats: heroStats,
       hub: hub
     }, extra);
   }
@@ -37128,7 +37227,7 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
-  let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, handScoreSum: 0, byStreet: emptyByStreet() };
+  let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, handScoreSum: 0, vpipHands: 0, pfrHands: 0, byStreet: emptyByStreet() };
   let homeBootDone = false;
   let homeBootRendered = false;
   let homeBootCloudSettled = false;
@@ -39779,6 +39878,8 @@ window.PT_NASH_PUSH_JSON = {
     session = {
       hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0,
       handScoreSum: 0,
+      vpipHands: 0,
+      pfrHands: 0,
       byStreet: emptyByStreet(),
       startedAt: Date.now()
     };
@@ -39791,6 +39892,37 @@ window.PT_NASH_PUSH_JSON = {
       hand = null;
       goToTab('play', { setup: true });
     }
+  }
+
+  /** Stats ligeras de la sesión de juego para exploit pro vs Hero. */
+  function playSessionHeroStats() {
+    const hands = Number(session && session.hands) || 0;
+    return {
+      handsPlayed: hands,
+      hands: hands,
+      vpipHands: Number(session && session.vpipHands) || 0,
+      pfrHands: Number(session && session.pfrHands) || 0,
+      vpipPct: hands ? Math.round(((Number(session.vpipHands) || 0) / hands) * 1000) / 10 : null,
+      pfrPct: hands ? Math.round(((Number(session.pfrHands) || 0) / hands) * 1000) / 10 : null
+    };
+  }
+
+  /** Adjunta heroSessionStats al playConfig cuando hay rivales pro / exploit. */
+  function withHeroSessionStats(cfg) {
+    if (!cfg) return cfg;
+    const level = String(cfg.villainLevel || '').toLowerCase();
+    if (level !== 'pro' && level !== 'intermediate' && cfg.scoreMode !== 'exploit') {
+      return cfg;
+    }
+    const stats = playSessionHeroStats();
+    let profile = null;
+    if (window.GTOVillainProExploit && GTOVillainProExploit.profileFromStats) {
+      profile = GTOVillainProExploit.profileFromStats(stats);
+    }
+    return Object.assign({}, cfg, {
+      heroSessionStats: stats,
+      heroProfile: profile
+    });
   }
 
   function playConfigPrefetchKey(cfg) {
@@ -39850,6 +39982,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function generateTrainerHand(force, cfg) {
+    cfg = withHeroSessionStats(cfg);
     const streetTarget = cfg && cfg.practiceStreet;
     const intent = cfg && cfg.practiceIntent;
     const needsStreetFastForward = streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet;
@@ -39886,7 +40019,7 @@ window.PT_NASH_PUSH_JSON = {
     const gen = ++prefetchGen;
     prefetchedHand = null;
     prefetchedCfgKey = null;
-    const cfgSnapshot = playSessionConfig;
+    const cfgSnapshot = withHeroSessionStats(playSessionConfig);
     const key = playConfigPrefetchKey(cfgSnapshot);
     const run = function () {
       if (gen !== prefetchGen) return;
@@ -42679,6 +42812,31 @@ window.PT_NASH_PUSH_JSON = {
     if (r.handScore != null) {
       session.handScoreSum = roundSession((session.handScoreSum || 0) + Number(r.handScore));
     }
+    try {
+      const hero = hand.hero || (hand.seats && hand.seats.find(function (s) { return s.isHero; }));
+      const log = hand.log || [];
+      let vpip = false;
+      let pfr = false;
+      if (hero) {
+        const heroId = hero.id || hero.pos;
+        for (let i = 0; i < log.length; i++) {
+          const a = log[i];
+          if (!a || a.street !== 'preflop') continue;
+          if (a.id !== heroId && a.pos !== hero.pos && a.seat !== hero.pos) continue;
+          if (a.action === 'fold' || a.action === 'check') continue;
+          vpip = true;
+          if (a.action === 'raise' || a.action === 'bet' || a.action === 'allin') pfr = true;
+        }
+        if (!vpip && hero.invested != null && hand.bb) {
+          let blindShare = 0;
+          if (hero.pos === 'SB') blindShare = Number(hand.sb) || hand.bb / 2;
+          else if (hero.pos === 'BB') blindShare = Number(hand.bb) || 0;
+          if ((Number(hero.invested) || 0) > blindShare + 0.001) vpip = true;
+        }
+      }
+      if (vpip) session.vpipHands = (Number(session.vpipHands) || 0) + 1;
+      if (pfr) session.pfrHands = (Number(session.pfrHands) || 0) + 1;
+    } catch (eVpip) { /* ignore */ }
     Store.saveHand(hand);
     lastFinishedReplayRec = buildReplayRecFromHand(hand);
     if (window.PTGuest && typeof window.PTGuest.afterHandFinished === 'function' &&

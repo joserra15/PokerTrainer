@@ -150,7 +150,7 @@
     };
   }
 
-  let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, handScoreSum: 0, byStreet: emptyByStreet() };
+  let session = { hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0, handScoreSum: 0, vpipHands: 0, pfrHands: 0, byStreet: emptyByStreet() };
   let homeBootDone = false;
   let homeBootRendered = false;
   let homeBootCloudSettled = false;
@@ -2801,6 +2801,8 @@
     session = {
       hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0,
       handScoreSum: 0,
+      vpipHands: 0,
+      pfrHands: 0,
       byStreet: emptyByStreet(),
       startedAt: Date.now()
     };
@@ -2813,6 +2815,37 @@
       hand = null;
       goToTab('play', { setup: true });
     }
+  }
+
+  /** Stats ligeras de la sesión de juego para exploit pro vs Hero. */
+  function playSessionHeroStats() {
+    const hands = Number(session && session.hands) || 0;
+    return {
+      handsPlayed: hands,
+      hands: hands,
+      vpipHands: Number(session && session.vpipHands) || 0,
+      pfrHands: Number(session && session.pfrHands) || 0,
+      vpipPct: hands ? Math.round(((Number(session.vpipHands) || 0) / hands) * 1000) / 10 : null,
+      pfrPct: hands ? Math.round(((Number(session.pfrHands) || 0) / hands) * 1000) / 10 : null
+    };
+  }
+
+  /** Adjunta heroSessionStats al playConfig cuando hay rivales pro / exploit. */
+  function withHeroSessionStats(cfg) {
+    if (!cfg) return cfg;
+    const level = String(cfg.villainLevel || '').toLowerCase();
+    if (level !== 'pro' && level !== 'intermediate' && cfg.scoreMode !== 'exploit') {
+      return cfg;
+    }
+    const stats = playSessionHeroStats();
+    let profile = null;
+    if (window.GTOVillainProExploit && GTOVillainProExploit.profileFromStats) {
+      profile = GTOVillainProExploit.profileFromStats(stats);
+    }
+    return Object.assign({}, cfg, {
+      heroSessionStats: stats,
+      heroProfile: profile
+    });
   }
 
   function playConfigPrefetchKey(cfg) {
@@ -2872,6 +2905,7 @@
   }
 
   function generateTrainerHand(force, cfg) {
+    cfg = withHeroSessionStats(cfg);
     const streetTarget = cfg && cfg.practiceStreet;
     const intent = cfg && cfg.practiceIntent;
     const needsStreetFastForward = streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet;
@@ -2908,7 +2942,7 @@
     const gen = ++prefetchGen;
     prefetchedHand = null;
     prefetchedCfgKey = null;
-    const cfgSnapshot = playSessionConfig;
+    const cfgSnapshot = withHeroSessionStats(playSessionConfig);
     const key = playConfigPrefetchKey(cfgSnapshot);
     const run = function () {
       if (gen !== prefetchGen) return;
@@ -5701,6 +5735,31 @@
     if (r.handScore != null) {
       session.handScoreSum = roundSession((session.handScoreSum || 0) + Number(r.handScore));
     }
+    try {
+      const hero = hand.hero || (hand.seats && hand.seats.find(function (s) { return s.isHero; }));
+      const log = hand.log || [];
+      let vpip = false;
+      let pfr = false;
+      if (hero) {
+        const heroId = hero.id || hero.pos;
+        for (let i = 0; i < log.length; i++) {
+          const a = log[i];
+          if (!a || a.street !== 'preflop') continue;
+          if (a.id !== heroId && a.pos !== hero.pos && a.seat !== hero.pos) continue;
+          if (a.action === 'fold' || a.action === 'check') continue;
+          vpip = true;
+          if (a.action === 'raise' || a.action === 'bet' || a.action === 'allin') pfr = true;
+        }
+        if (!vpip && hero.invested != null && hand.bb) {
+          let blindShare = 0;
+          if (hero.pos === 'SB') blindShare = Number(hand.sb) || hand.bb / 2;
+          else if (hero.pos === 'BB') blindShare = Number(hand.bb) || 0;
+          if ((Number(hero.invested) || 0) > blindShare + 0.001) vpip = true;
+        }
+      }
+      if (vpip) session.vpipHands = (Number(session.vpipHands) || 0) + 1;
+      if (pfr) session.pfrHands = (Number(session.pfrHands) || 0) + 1;
+    } catch (eVpip) { /* ignore */ }
     Store.saveHand(hand);
     lastFinishedReplayRec = buildReplayRecFromHand(hand);
     if (window.PTGuest && typeof window.PTGuest.afterHandFinished === 'function' &&

@@ -103,14 +103,40 @@ const FILES = [
 const g = createSandbox();
 FILES.forEach(function (f) { load(g, f); });
 
-// --- config normalize caps entries ≤ 90 ---
+// --- config normalize caps entries ≤ MAX_ENTRIES ---
 {
-  const cfg = g.PTTournamentConfig.normalize({ entries: 200, seatsPerTable: 9, kind: 'mtt' });
-  assert.strictEqual(cfg.entries, 90, 'entries capped at 90');
+  const cfg = g.PTTournamentConfig.normalize({ entries: 250, seatsPerTable: 9, kind: 'mtt' });
+  assert.strictEqual(cfg.entries, 180, 'entries capped at 180');
   assert.ok(g.PTTournamentConfig.ROLE_IDS.indexOf('tag') >= 0, 'ROLE_IDS');
-  assert.ok(g.PTTournamentConfig.listPresets().length >= 8, 'presets include spins');
+  assert.ok(g.PTTournamentConfig.listPresets().length >= 11, 'presets include pro + spins');
+  assert.strictEqual(g.PTTournamentConfig.MAX_ENTRIES, 180, 'MAX_ENTRIES 180');
   const pool = g.PTTournamentConfig.prizePool(g.PTTournamentConfig.fromPreset('sng6'));
   assert.ok(pool > 0, 'prizePool');
+
+  const mttPro = g.PTTournamentConfig.fromPreset('mttPro');
+  assert.strictEqual(mttPro.kind, 'mtt', 'mttPro kind');
+  assert.strictEqual(mttPro.entries, 108, 'mttPro entries');
+  assert.ok(mttPro.buyInEur >= 55, 'mttPro buy-in');
+  assert.strictEqual(mttPro.roleWeights.fish, 0, 'mttPro no fish');
+  assert.strictEqual(mttPro.roleWeights.nit, 0, 'mttPro no nit');
+  assert.strictEqual(mttPro.roleWeights.maniac, 0, 'mttPro no maniac');
+  assert.ok(mttPro.roleWeights.pro >= 80, 'mttPro ≥80% pro');
+  assert.ok(mttPro.exploitProPct >= 0.8, 'mttPro exploit high');
+
+  const sngPro = g.PTTournamentConfig.fromPreset('sngPro');
+  assert.strictEqual(sngPro.kind, 'sng', 'sngPro kind');
+  assert.strictEqual(sngPro.entries, 6, 'sngPro entries');
+  assert.strictEqual(sngPro.roleWeights.pro, 100, 'sngPro 100% pro');
+  assert.strictEqual(sngPro.exploitProPct, 1, 'sngPro full exploit');
+
+  const spinPro = g.PTTournamentConfig.fromPreset('spinPro');
+  assert.strictEqual(spinPro.kind, 'spin', 'spinPro kind');
+  assert.strictEqual(spinPro.entries, 3, 'spinPro entries');
+  assert.strictEqual(spinPro.roleWeights.pro, 100, 'spinPro 100% pro');
+  assert.ok(spinPro.buyInEur > g.PTTournamentConfig.fromPreset('spinHard').buyInEur, 'spinPro > spinHard');
+
+  const big = g.PTTournamentConfig.normalize({ entries: 108, kind: 'mtt', seatsPerTable: 9 });
+  assert.strictEqual(big.entries, 108, 'normalize keeps 108');
   console.log('OK config');
 }
 
@@ -1325,12 +1351,16 @@ console.log('OK tournament-phase-eval');
 {
   const Cfg = g.PTTournamentConfig;
   const spins = Cfg.listPresets().filter(function (p) { return p.kind === 'spin'; });
-  assert.strictEqual(spins.length, 3, '3 spin presets');
+  assert.strictEqual(spins.length, 4, '4 spin presets');
+  assert.ok(spins.some(function (p) { return p.id === 'spinPro'; }), 'includes spinPro');
   spins.forEach(function (p) {
     assert.strictEqual(p.entries, 3, p.id + ' entries 3');
     assert.strictEqual(p.seatsPerTable, 3, p.id + ' seats 3');
     assert.ok(p.placesPaid >= 1 && p.placesPaid < p.entries, p.id + ' placesPaid');
   });
+  const spinProCfg = Cfg.fromPreset('spinPro');
+  assert.strictEqual(spinProCfg.roleWeights.pro, 100, 'spinPro all pro');
+  assert.strictEqual(spinProCfg.roleWeights.fish, 0, 'spinPro no fish');
   const GEval = g.PTTournamentGtoEval;
   assert.strictEqual(GEval.resolveFormatHub({ kind: 'spin' }), 'spin', 'hub spin');
   assert.strictEqual(GEval.resolveFormatHub({ formatHub: 'spin' }), 'spin', 'hub from formatHub');
