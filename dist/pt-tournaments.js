@@ -5769,10 +5769,42 @@
     } catch (e) { /* */ }
   }
 
-  function onCloudSynced() {
+  function onCloudSynced(ev) {
     try {
       if (!ui.root) return;
-      if (ui.view === VIEW.hub || ui.view === VIEW.history) paint();
+      /* Si el sync trae un torneo más avanzado y estamos en lobby, refrescar. */
+      if (ui.view === VIEW.hub || ui.view === VIEW.history || ui.view === VIEW.generalStats) {
+        /* Evitar quedarnos con un resumePrompt o state de mesa obsoleto en hub. */
+        if (ui.view === VIEW.hub) {
+          ui.resumePrompt = false;
+          if (ui.state && ui.state.status !== 'finished') {
+            var latest = global.PTTournamentStore && PTTournamentStore.loadActive
+              ? PTTournamentStore.loadActive()
+              : null;
+            if (latest && (!ui.state.id || latest.id !== ui.state.id ||
+                (Number(latest.handIndex) || 0) > (Number(ui.state.handIndex) || 0) ||
+                (Number(latest._progressRev) || 0) > (Number(ui.state._progressRev) || 0))) {
+              ui.state = latest;
+            }
+          }
+        }
+        paint();
+        return;
+      }
+      /* En mesa: si el cloud trae el mismo torneo más avanzado y aún no hay acción
+         a medias del héroe, adoptar (p.ej. reabrir tras sync). */
+      if (ui.view === VIEW.table && ui.state && !ui.anim.playing) {
+        var remote = global.PTTournamentStore && PTTournamentStore.loadActive
+          ? PTTournamentStore.loadActive()
+          : null;
+        if (remote && remote.id === ui.state.id &&
+            global.PTTournamentStore.isPreferableActive &&
+            PTTournamentStore.isPreferableActive(remote, ui.state) &&
+            !(ui.state._liveHand && ui.state._liveHand.awaitingHero)) {
+          ui.state = remote;
+          paint();
+        }
+      }
     } catch (e) { /* */ }
   }
 
@@ -8293,6 +8325,18 @@ function reducedMotion() {
     render: render,
     setView: setView,
     VIEW: VIEW,
+    refresh: function () {
+      try {
+        if (ui.view === VIEW.hub || ui.view === VIEW.history || ui.view === VIEW.generalStats) {
+          ui.resumePrompt = false;
+          var latest = global.PTTournamentStore && PTTournamentStore.loadActive
+            ? PTTournamentStore.loadActive()
+            : null;
+          if (latest) ui.state = latest;
+        }
+        if (ui.root) paint();
+      } catch (eR) { /* */ }
+    },
     getState: function () { return ui.state; },
     /* Expuesto para tests de estabilidad del anillo visual. */
     ringByPhysicalSeat: ringByPhysicalSeat,

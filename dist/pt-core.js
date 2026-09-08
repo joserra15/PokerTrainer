@@ -25470,6 +25470,8 @@ window.PT_NASH_PUSH_JSON = {
       out['clearedAt' + s] = snap.clearedAt || {};
       mergeTournamentFieldsIntoCloud(out, snap, s);
     }
+    /* Subir también activos locales de otras comunidades (p.ej. MTT Lab). */
+    mergeAllLocalTournamentActivesIntoCloud(out);
     return out;
   }
 
@@ -25517,6 +25519,197 @@ window.PT_NASH_PUSH_JSON = {
     } else {
       delete out[aKey];
     }
+  }
+
+  /** Comunidades conocidas para claves tournamentActive_* (local + nube). */
+  function knownTournamentCommunityIds() {
+    var ids = ['pokerforge'];
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.myCommunities === 'function') {
+        (global.PTCommunity.myCommunities() || []).forEach(function (c) {
+          if (c && c.id && ids.indexOf(c.id) < 0) ids.push(String(c.id));
+        });
+      }
+    } catch (e) { /* */ }
+    if (ids.indexOf('mttlab') < 0) ids.push('mttlab');
+    return ids;
+  }
+
+  function tournamentActiveStorageKeyFor(communityId) {
+    var s = (!communityId || communityId === 'pokerforge') ? '' : ('_' + communityId);
+    var uid = userId ? ('_' + userId) : '';
+    return 'pt_tournament_active_v1' + s + uid;
+  }
+
+  function loadLocalTournamentActiveFor(communityId) {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      var raw = localStorage.getItem(tournamentActiveStorageKeyFor(communityId));
+      if (!raw) return null;
+      var st = JSON.parse(raw);
+      if (!st || !st.id || st.status === 'finished') return null;
+      return st;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeLocalTournamentActiveFor(communityId, active, opts) {
+    opts = opts || {};
+    if (!active || !active.id) return false;
+    try {
+      var snap = JSON.parse(JSON.stringify(active));
+      if (!snap._savedAt) snap._savedAt = new Date().toISOString();
+      localStorage.setItem(tournamentActiveStorageKeyFor(communityId), JSON.stringify(snap));
+      /* Si es la comunidad activa, usar saveActive para coherencia de memoria/UI. */
+      var cur = null;
+      try {
+        cur = global.PTCommunity && PTCommunity.id ? PTCommunity.id() : null;
+      } catch (eC) { /* */ }
+      if ((!communityId || communityId === 'pokerforge' ? 'pokerforge' : communityId) === (cur || 'pokerforge') &&
+          global.PTTournamentStore && PTTournamentStore.saveActive) {
+        PTTournamentStore.saveActive(snap, {
+          silent: opts.silent !== false,
+          fromCloud: !!opts.fromCloud
+        });
+      }
+      return true;
+    } catch (eW) {
+      return false;
+    }
+  }
+
+  /** Lista tournamentActive / tournamentActive_* del payload nube. */
+  function listCloudTournamentActives(payload) {
+    var out = [];
+    var p = payload || {};
+    if (p.tournamentActive && p.tournamentActive.id) {
+      out.push({ communityId: 'pokerforge', suffix: '', active: p.tournamentActive });
+    }
+    Object.keys(p).forEach(function (k) {
+      var m = /^tournamentActive_(.+)$/.exec(k);
+      if (!m || !p[k] || !p[k].id) return;
+      out.push({ communityId: String(m[1]), suffix: '_' + m[1], active: p[k] });
+    });
+    return out;
+  }
+
+  function isPreferableTournamentActive(a, b) {
+    if (global.PTTournamentStore && typeof PTTournamentStore.isPreferableActive === 'function') {
+      return PTTournamentStore.isPreferableActive(a, b);
+    }
+    if (a && !b) return true;
+    if (!a) return false;
+    return (Number(a.handIndex) || 0) >= (Number(b.handIndex) || 0);
+  }
+
+  /**
+   * En push: sube torneos activos locales de TODAS las comunidades (no solo la
+   * activa). Así un sync en PokerForge no deja de subir el MTT Lab del PC.
+   */
+  function mergeAllLocalTournamentActivesIntoCloud(cloudPayload) {
+    var out = cloudPayload || {};
+    knownTournamentCommunityIds().forEach(function (cid) {
+      var localAct = loadLocalTournamentActiveFor(cid);
+      var s = (!cid || cid === 'pokerforge') ? '' : ('_' + cid);
+      var aKey = 'tournamentActive' + s;
+      if (!localAct) return;
+      var cloudAct = out[aKey] || null;
+      if (!cloudAct || isPreferableTournamentActive(localAct, cloudAct)) {
+        out[aKey] = localAct;
+      } else if (cloudAct && isPreferableTournamentActive(cloudAct, localAct)) {
+        writeLocalTournamentActiveFor(cid, cloudAct, { silent: true, fromCloud: true });
+      }
+    });
+    return out;
+  }
+
+  /**
+   * Tras pull: adopta el torneo activo más avanzado de cualquier comunidad
+   * en la nube. Si está en otra comunidad accesible, cambia a ella.
+   */
+  function adoptBestCloudTournamentActive(cloudPayload) {
+    var cloudList = listCloudTournamentActives(cloudPayload);
+    if (!cloudList.length) return null;
+
+    var best = null;
+    cloudList.forEach(function (c) {
+      if (!best || isPreferableTournamentActive(c.active, best.active)) best = c;
+    });
+    if (!best) return null;
+
+    /* Comparar también con locales de todas las comunidades. */
+    knownTournamentCommunityIds().forEach(function (cid) {
+      var localAct = loadLocalTournamentActiveFor(cid);
+      if (localAct && isPreferableTournamentActive(localAct, best.active)) {
+        best = { communityId: cid, suffix: cid === 'pokerforge' ? '' : ('_' + cid), active: localAct, fromLocal: true };
+      }
+    });
+
+    var curId = 'pokerforge';
+    try {
+      if (global.PTCommunity && PTCommunity.id) curId = String(PTCommunity.id() || 'pokerforge');
+    } catch (eId) { /* */ }
+
+    var accessible = true;
+    try {
+      if (best.communityId !== 'pokerforge' && global.PTCommunity && PTCommunity.myCommunities) {
+        accessible = (PTCommunity.myCommunities() || []).some(function (c) {
+          return c && String(c.id) === String(best.communityId);
+        });
+      }
+    } catch (eAcc) { /* */ }
+    if (!accessible) return null;
+
+    var curLocal = loadLocalTournamentActiveFor(curId);
+    var needWrite = !curLocal || isPreferableTournamentActive(best.active, curLocal) ||
+      String(best.communityId) !== String(curId);
+
+    if (!needWrite && !best.fromLocal) return null;
+
+    var switched = false;
+    if (String(best.communityId) !== String(curId)) {
+      try {
+        if (global.PTCommunity && typeof PTCommunity.setActive === 'function') {
+          PTCommunity.setActive(best.communityId, { skipMenus: true, skipBrand: true });
+          switched = true;
+        }
+      } catch (eSw) { /* */ }
+    }
+
+    writeLocalTournamentActiveFor(best.communityId, best.active, {
+      silent: true,
+      fromCloud: !best.fromLocal
+    });
+
+    if (switched) {
+      try {
+        if (global.PTCommunity) {
+          if (typeof PTCommunity.applyBranding === 'function') PTCommunity.applyBranding();
+          if (typeof PTCommunity.applyMenus === 'function') PTCommunity.applyMenus();
+        }
+      } catch (eUi) { /* */ }
+    }
+
+    try {
+      if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+        global.dispatchEvent(new CustomEvent('pt-cloud-synced', {
+          detail: {
+            tournamentActive: 'adopted_best',
+            communityId: best.communityId,
+            handIndex: Number(best.active.handIndex) || 0,
+            communitySwitched: switched
+          }
+        }));
+      }
+    } catch (eEv) { /* */ }
+
+    return {
+      communityId: best.communityId,
+      handIndex: Number(best.active.handIndex) || 0,
+      id: best.active.id,
+      communitySwitched: switched
+    };
   }
 
   function mergeTournamentHistoryLists(a, b) {
@@ -28326,7 +28519,9 @@ window.PT_NASH_PUSH_JSON = {
     getSessions, getSession, getSessionAsync, saveSession, saveSessionLocal, cacheSession, removeSession, deleteSessionTxt,
     refreshSessionsIndexFromCloud, uploadLegacyLocalSessionsToCloud, migrateLegacyPayloadSessions,
     getCloudSnapshot, replaceFromCloud, mergeFromCloud, mergeDirtyKeysIntoCloud,
-    mergeActiveIntoCloudPayload, sliceCloudForActive, communityDataSuffix, cloudDataKeys,
+    mergeActiveIntoCloudPayload, mergeAllLocalTournamentActivesIntoCloud,
+    adoptBestCloudTournamentActive, listCloudTournamentActives,
+    sliceCloudForActive, communityDataSuffix, cloudDataKeys,
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry,
     getFeatureUsage, trackFeatureUsage,
@@ -44434,15 +44629,34 @@ window.PT_NASH_PUSH_JSON = {
           PTAuth.handleAuthFailure(res.reason || 'auth_required');
           return;
         }
-        alert(res.reason === 'not_ready'
-          ? 'Inicia sesión con Google para sincronizar.'
-          : ('No se pudo sincronizar: ' + (res.reason || 'error')));
+        var reason = String(res.reason || 'error');
+        var msg;
+        if (reason === 'not_ready') {
+          msg = 'Inicia sesión con Google para sincronizar.';
+        } else if (reason === 'busy') {
+          msg = 'Todavía se están guardando datos. Espera un momento y vuelve a pulsar Sincronizar.';
+        } else if (reason === 'store_unavailable') {
+          msg = 'No se pudo sincronizar ahora mismo. Recarga la página e inténtalo de nuevo.';
+        } else if (/failed to fetch|network|timeout|offline/i.test(reason)) {
+          msg = 'Sin conexión o red inestable. Comprueba internet e inténtalo de nuevo.';
+        } else {
+          msg = 'No se pudo sincronizar. Inténtalo de nuevo en unos segundos.';
+        }
+        alert(msg);
         return;
       }
       renderHistory();
       renderErrors();
       renderStats();
       renderSessionsList();
+      /* Torneos: refrescar hub si está montado (mano activa tras sync). */
+      try {
+        if (window.PTTournamentsUI && typeof window.PTTournamentsUI.refresh === 'function') {
+          window.PTTournamentsUI.refresh();
+        } else {
+          document.dispatchEvent(new CustomEvent('pt-store-community-changed'));
+        }
+      } catch (eTr) { /* */ }
     } finally {
       targets.forEach((b) => { b.disabled = false; });
       if (btn && prevLabel) btn.textContent = prevLabel;

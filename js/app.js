@@ -7650,15 +7650,34 @@
           PTAuth.handleAuthFailure(res.reason || 'auth_required');
           return;
         }
-        alert(res.reason === 'not_ready'
-          ? 'Inicia sesión con Google para sincronizar.'
-          : ('No se pudo sincronizar: ' + (res.reason || 'error')));
+        var reason = String(res.reason || 'error');
+        var msg;
+        if (reason === 'not_ready') {
+          msg = 'Inicia sesión con Google para sincronizar.';
+        } else if (reason === 'busy') {
+          msg = 'Todavía se están guardando datos. Espera un momento y vuelve a pulsar Sincronizar.';
+        } else if (reason === 'store_unavailable') {
+          msg = 'No se pudo sincronizar ahora mismo. Recarga la página e inténtalo de nuevo.';
+        } else if (/failed to fetch|network|timeout|offline/i.test(reason)) {
+          msg = 'Sin conexión o red inestable. Comprueba internet e inténtalo de nuevo.';
+        } else {
+          msg = 'No se pudo sincronizar. Inténtalo de nuevo en unos segundos.';
+        }
+        alert(msg);
         return;
       }
       renderHistory();
       renderErrors();
       renderStats();
       renderSessionsList();
+      /* Torneos: refrescar hub si está montado (mano activa tras sync). */
+      try {
+        if (window.PTTournamentsUI && typeof window.PTTournamentsUI.refresh === 'function') {
+          window.PTTournamentsUI.refresh();
+        } else {
+          document.dispatchEvent(new CustomEvent('pt-store-community-changed'));
+        }
+      } catch (eTr) { /* */ }
     } finally {
       targets.forEach((b) => { b.disabled = false; });
       if (btn && prevLabel) btn.textContent = prevLabel;
