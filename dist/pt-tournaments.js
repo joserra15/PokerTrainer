@@ -8318,7 +8318,11 @@ function reducedMotion() {
       setView(VIEW.result);
       return;
     }
-    persistActive();
+    /* Checkpoint al subir de nivel (y FT/ITM): forzar slim+flush para no
+       depender solo del «Salir y guardar» en móvil. */
+    var milestone = !!(state.blindUpPending || state.finalTablePending || state.itmPending);
+    persistActive(milestone ? { quotaLevel: 1 } : {});
+    if (milestone) flushTournamentCloud();
     paint();
   }
 

@@ -2283,6 +2283,8 @@ console.log('OK pushfold-freq-100');
   assert.ok(/No se pudo guardar el torneo/.test(uiSrc), 'alerta si no guarda');
   assert.ok(/pagehide/.test(uiSrc) && /visibilitychange/.test(uiSrc),
     'autosave en ciclo de vida móvil');
+  assert.ok(/blindUpPending[\s\S]{0,120}persistActive|milestone[\s\S]{0,80}blindUpPending/.test(uiSrc),
+    'autosave checkpoint al subir de nivel');
   const storeSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/store.js'), 'utf8');
   assert.ok(/applyPersistQuotaLevel/.test(storeSrc), 'slim por niveles de quota');
   assert.ok(/tryFreeStorage|freeStorageSpace/.test(storeSrc), 'libera espacio ante quota');
